@@ -29,6 +29,8 @@ export async function tossGet<T>(
   path: string,
   params: Record<string, string | number | undefined>,
   group: RateLimitGroup,
+  /** 계좌 관련 엔드포인트는 x-tossinvest-account 헤더를 요구한다. */
+  extraHeaders: Record<string, string> = {},
 ): Promise<T> {
   const baseUrl = process.env.TOSS_BASE_URL ?? 'https://openapi.tossinvest.com';
   const url = new URL(path, baseUrl);
@@ -47,6 +49,7 @@ export async function tossGet<T>(
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: 'application/json',
+          ...extraHeaders,
         },
       });
 

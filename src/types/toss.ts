@@ -41,6 +41,51 @@ export interface Orderbook {
   fetchedAt: number;
 }
 
+export interface TossAccount {
+  accountNo: string;
+  accountSeq: number;
+  /** 예: 'BROKERAGE' */
+  accountType: string;
+}
+
+export interface Holding {
+  symbol: string;
+  name: string;
+  currency: string;
+  quantity: number;
+  /** 평균 매입 단가 */
+  averagePrice: number;
+  currentPrice: number;
+  purchaseAmount: number;
+  evaluationAmount: number;
+  profitLoss: number;
+  /** 퍼센트 단위 (응답의 소수를 100배 한 값) */
+  profitLossRate: number;
+  dailyProfitLoss: number;
+  dailyProfitLossRate: number;
+}
+
+export interface PortfolioSummary {
+  purchaseAmountUsd: number;
+  evaluationAmountUsd: number;
+  profitLossUsd: number;
+  profitLossRate: number;
+  dailyProfitLossUsd: number;
+  dailyProfitLossRate: number;
+}
+
+export interface Portfolio {
+  holdings: Holding[];
+  summary: PortfolioSummary;
+}
+
+export interface ExchangeRate {
+  baseCurrency: string;
+  quoteCurrency: string;
+  rate: number;
+  fetchedAt: number;
+}
+
 export interface TossTokenResponse {
   access_token: string;
   token_type: string;

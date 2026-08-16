@@ -10,9 +10,9 @@ interface Tab {
 export const TABS: Tab[] = [
   { id: 'manual', label: '수동분석' },
   { id: 'ai', label: 'AI분석', pendingStep: 7 },
-  { id: 'company', label: '기업정보', pendingStep: 6 },
+  { id: 'company', label: '기업정보' },
   { id: 'history', label: '히스토리', pendingStep: 7 },
-  { id: 'holdings', label: '보유주식', pendingStep: 6 },
+  { id: 'holdings', label: '보유주식' },
 ];
 
 interface Props {

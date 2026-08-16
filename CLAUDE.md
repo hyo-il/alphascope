@@ -290,9 +290,30 @@ Step 5 에서 pandas-ta 엔진이 들어오면 차트 오버레이와 정밀 계
 `python/.venv` 는 파일이 수만 개라 Vite watcher 와 tsx watch 에서 제외했다 (`vite.config.ts`,
 `dev:api` 스크립트). 제외하지 않으면 서버가 계속 재시작된다.
 
-### Step 6: 기업 데이터 수집
-yfinance 로 PER/PBR/EPS/시가총액/섹터, 재무제표, 배당 조회 → 기업 정보 패널, 동종업계 비교.
-토스 `/api/v1/holdings`, `/api/v1/exchange-rate` 로 보유 주식 및 환율.
+### Step 6: 기업 데이터 수집 — ✅ 완료
+
+**yfinance 갈래**
+- `python/fundamentals.py` — 프로필·밸류에이션·수익성·안정성·배당·재무제표(4개년) 정규화.
+  indicators.py 의 Flask 앱에 `/fundamentals`, `/peers` 라우트로 붙는다 (프로세스는 하나).
+- `server/companyService.ts` — SQLite `company_data` 에 24시간 캐시.
+  yfinance 호출이 종목당 1~3초라 캐시가 체감 차이를 만든다.
+- 동종업계는 yfinance 에 목록 API 가 없어 `SECTOR_PEERS` 맵으로 섹터별 대표 종목을 둔다.
+  업종 평균은 이상치에 덜 흔들리도록 **중앙값**을 쓴다.
+- ⚠️ **단위 주의**: 비율은 소수(0.2762 = 27.62%)인데 **배당수익률만 이미 퍼센트**(0.35 = 0.35%)다.
+
+**토스 갈래** (`src/services/toss/account.ts`)
+- ⚠️ `x-tossinvest-account` 헤더에는 계좌번호(accountNo)가 아니라 **accountSeq** 를 넣는다.
+  accountNo 를 넣으면 400 account-not-found 다.
+- `/api/v1/accounts` → 계좌 목록. accountSeq 는 프로세스 내 캐시 (ACCOUNT 한도 1/s)
+- `/api/v1/holdings` → `result.items[]` + 계좌 전체 요약. 수익률은 소수라 100 배 한다.
+- `/api/v1/exchange-rate` → `baseCurrency` + `quoteCurrency` 둘 다 필수
+
+**UI**: `company/CompanyInfo.tsx`(+ FinancialStatements, SectorComparison),
+`portfolio/Holdings.tsx`(+ PortfolioSummary). 보유 종목을 클릭하면 차트가 그 종목으로 바뀐다.
+
+**거래량은 별도 pane 으로 옮겼다.** 가격축에 겹쳐 두면 아래 여백만큼 축이 늘어나,
+가격 범위가 넓은 종목에서 축 라벨이 음수까지 내려간다. pane 0 = 가격, 1 = 거래량,
+2 이후 = 지표 패널이다.
 
 ### Step 7: 방식 A — 앱 내 멀티 AI 분석
 1. Claude API 래퍼 (이미지 첨부, 429 재시도, 타임아웃)

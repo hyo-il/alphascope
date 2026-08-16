@@ -1,5 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import ManualAnalysis from './components/analysis/ManualAnalysis';
+import CompanyInfo from './components/company/CompanyInfo';
+import Holdings from './components/portfolio/Holdings';
 import CandleChart, { type CandleChartHandle } from './components/chart/CandleChart';
 import ChartControls from './components/chart/ChartControls';
 import DrawingTools, { type DrawingToolType } from './components/chart/DrawingTools';
@@ -144,6 +146,10 @@ export default function App() {
               currentPrice={displayPrice}
               getChartElement={getChartElement}
             />
+          ) : activeTab === 'company' ? (
+            <CompanyInfo symbol={symbol} />
+          ) : activeTab === 'holdings' ? (
+            <Holdings onSelectSymbol={setSymbol} />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-text-muted">
               {TABS.find((t) => t.id === activeTab)?.label} 탭은 Step{' '}

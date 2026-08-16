@@ -78,6 +78,10 @@ interface HoverInfo {
   volume: number;
 }
 
+/** pane 0 = 가격, pane 1 = 거래량, pane 2 이후 = 지표 패널 */
+const VOLUME_PANE = 1;
+const FIRST_INDICATOR_PANE = 2;
+
 const toChartTime = (ms: number) => (ms / 1000) as UTCTimestamp;
 
 const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
@@ -158,20 +162,20 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       wickUpColor: COLORS.bullish,
       wickDownColor: COLORS.bearish,
     });
-    // 캔들은 위쪽 80%, 거래량은 아래 20% 를 쓴다.
-    candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.26 } });
+    candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.08 } });
 
-    const volumeSeries = chart.addSeries(HistogramSeries, {
-      priceFormat: { type: 'volume' },
-      priceScaleId: 'volume',
-      // 거래량은 가격축에 마지막 값 라인을 그리지 않는다 (가격 라인과 헷갈린다).
-      lastValueVisible: false,
-      priceLineVisible: false,
-    });
-    chart.priceScale('volume').applyOptions({
-      scaleMargins: { top: 0.8, bottom: 0 },
-      visible: false,
-    });
+    // 거래량은 가격 차트에 겹치지 않고 별도 pane 에 둔다.
+    // 같은 축에 두면 아래 여백만큼 가격축이 늘어나, 가격 범위가 넓은 종목에서
+    // 축 라벨이 음수까지 내려간다 (주가는 음수가 될 수 없다).
+    const volumeSeries = chart.addSeries(
+      HistogramSeries,
+      {
+        priceFormat: { type: 'volume' },
+        lastValueVisible: false,
+        priceLineVisible: false,
+      },
+      VOLUME_PANE,
+    );
 
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
@@ -416,8 +420,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       addLine(indicators.vwap, INDICATOR_COLORS.vwap, { title: 'VWAP' });
     }
 
-    // 하단 별도 패널 — 켜진 순서대로 pane 1, 2, 3 을 쓴다.
-    let pane = 1;
+    // 하단 별도 패널 — 거래량 pane 다음부터 순서대로 쓴다.
+    let pane = FIRST_INDICATOR_PANE;
     if (toggles.panels.rsi) {
       addLine(indicators.rsi14, INDICATOR_COLORS.rsi, { paneIndex: pane, title: 'RSI(14)' });
       pane += 1;
@@ -452,16 +456,19 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       pane += 1;
     }
 
-    // 패널이 사라진 뒤 남은 빈 pane 정리
+    // 지표 패널이 꺼진 뒤 남은 빈 pane 정리 (가격·거래량 pane 은 건드리지 않는다)
     const panes = chart.panes();
-    for (let i = panes.length - 1; i >= pane; i--) {
+    for (let i = panes.length - 1; i >= Math.max(pane, FIRST_INDICATOR_PANE); i--) {
       if (panes[i].getSeries().length === 0) chart.removePane(i);
     }
 
-    // 가격 차트가 지표 패널에 눌리지 않도록 높이 비율을 준다 (가격 3 : 지표 1).
+    // 높이 비율 — 가격 6 : 거래량 1.5 : 지표 2
     const remaining = chart.panes();
-    remaining[0]?.setStretchFactor(3);
-    for (let i = 1; i < remaining.length; i++) remaining[i].setStretchFactor(1);
+    remaining[0]?.setStretchFactor(6);
+    remaining[VOLUME_PANE]?.setStretchFactor(1.5);
+    for (let i = FIRST_INDICATOR_PANE; i < remaining.length; i++) {
+      remaining[i].setStretchFactor(2);
+    }
   }, [indicators, toggles]);
 
   // 캔들 데이터 반영

@@ -3,6 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import type { Timeframe } from '../src/types/toss';
 import { fetchOrderbook, fetchPrice } from '../src/services/toss/market';
+import { fetchExchangeRate, fetchPortfolio } from '../src/services/toss/account';
+import { getFundamentals, getPeers } from './companyService';
 import { getCandles } from './candleService';
 import { getDb, loadCandles } from './db';
 import { isMockMode, mockOrderbook, mockPrice } from './mockData';
@@ -115,6 +117,58 @@ app.get('/api/orderbook', async (req, res) => {
   try {
     const orderbook = isMockMode() ? mockOrderbook(symbol) : await fetchOrderbook(symbol);
     res.json({ orderbook, mock: isMockMode() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/company', async (req, res) => {
+  const symbol = String(req.query.symbol ?? '').toUpperCase();
+  const refresh = req.query.refresh === 'true';
+  if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
+
+  try {
+    res.json({ fundamentals: await getFundamentals(symbol, refresh) });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/peers', async (req, res) => {
+  const symbol = String(req.query.symbol ?? '').toUpperCase();
+  if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
+
+  try {
+    res.json({ peers: await getPeers(symbol, req.query.sector as string | undefined) });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/holdings', async (_req, res) => {
+  if (isMockMode()) {
+    return res.json({ portfolio: { holdings: [], summary: null }, mock: true });
+  }
+  try {
+    res.json({ portfolio: await fetchPortfolio(), mock: false });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/exchange-rate', async (req, res) => {
+  const base = String(req.query.base ?? 'USD').toUpperCase();
+  const quote = String(req.query.quote ?? 'KRW').toUpperCase();
+
+  if (isMockMode()) {
+    return res.json({
+      rate: { baseCurrency: base, quoteCurrency: quote, rate: 1380, fetchedAt: Date.now() },
+      mock: true,
+    });
+  }
+
+  try {
+    res.json({ rate: await fetchExchangeRate(base, quote), mock: false });
   } catch (e) {
     fail(res, e);
   }

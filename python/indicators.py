@@ -15,6 +15,8 @@ import pandas as pd
 import pandas_ta as ta
 from flask import Flask, jsonify, request
 
+from fundamentals import get_fundamentals, get_peers
+
 app = Flask(__name__)
 
 
@@ -101,6 +103,31 @@ def vwap(frame: pd.DataFrame) -> pd.Series:
 @app.get("/health")
 def health():
     return jsonify({"ok": True, "pandas_ta": ta.version})
+
+
+@app.get("/fundamentals")
+def fundamentals():
+    """yfinance 기업 정보 — Step 6"""
+    symbol = (request.args.get("symbol") or "").upper()
+    if not symbol:
+        return jsonify({"error": "symbol 파라미터가 필요합니다."}), 400
+    try:
+        return jsonify(get_fundamentals(symbol))
+    except Exception as error:  # noqa: BLE001
+        return jsonify({"error": f"{type(error).__name__}: {error}"}), 500
+
+
+@app.get("/peers")
+def peers():
+    """동종업계 비교 — symbols=AAPL,MSFT,GOOGL"""
+    raw = request.args.get("symbols") or ""
+    symbols = [s.strip().upper() for s in raw.split(",") if s.strip()][:12]
+    if not symbols:
+        return jsonify({"error": "symbols 파라미터가 필요합니다."}), 400
+    try:
+        return jsonify({"peers": get_peers(symbols)})
+    except Exception as error:  # noqa: BLE001
+        return jsonify({"error": f"{type(error).__name__}: {error}"}), 500
 
 
 @app.post("/indicators")
