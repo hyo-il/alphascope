@@ -27,6 +27,15 @@ export interface Price {
   fetchedAt: number;
 }
 
+/** 관심 목록·최근 조회용 경량 시세 */
+export interface Quote {
+  symbol: string;
+  price: number | null;
+  /** 전일 대비 변동률 (%) */
+  changeRate: number | null;
+  error: string | null;
+}
+
 export interface OrderbookLevel {
   price: number;
   quantity: number;

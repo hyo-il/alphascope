@@ -7,6 +7,7 @@ import { fetchExchangeRate, fetchPortfolio } from '../src/services/toss/account'
 import { getFundamentals, getPeers } from './companyService';
 import { getCandles } from './candleService';
 import { summarizeSymbols } from './summaryService';
+import { fetchQuotes } from './quoteService';
 import { deleteAnalysis, getDb, loadAnalyses, loadCandles, saveAnalysis } from './db';
 import { isMockMode, mockOrderbook, mockPrice } from './mockData';
 import { computeIndicators, IndicatorEngineError, indicatorEngineHealthy } from './indicatorService';
@@ -170,6 +171,22 @@ app.get('/api/exchange-rate', async (req, res) => {
 
   try {
     res.json({ rate: await fetchExchangeRate(base, quote), mock: false });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/quotes', async (req, res) => {
+  const symbols = String(req.query.symbols ?? '')
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean)
+    .slice(0, 30);
+
+  if (!symbols.length) return res.json({ quotes: [] });
+
+  try {
+    res.json({ quotes: await fetchQuotes(symbols) });
   } catch (e) {
     fail(res, e);
   }

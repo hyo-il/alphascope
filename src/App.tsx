@@ -4,18 +4,19 @@ import AnalysisHistory from './components/analysis/AnalysisHistory';
 import CompanyInfo from './components/company/CompanyInfo';
 import Holdings from './components/portfolio/Holdings';
 import CandleChart, { type CandleChartHandle } from './components/chart/CandleChart';
-import ChartControls from './components/chart/ChartControls';
-import DrawingTools, { type DrawingToolType } from './components/chart/DrawingTools';
-import IndicatorToggleBar from './components/chart/IndicatorToggles';
+import ChartToolbar from './components/chart/ChartToolbar';
+import { type DrawingToolType } from './components/chart/DrawingTools';
 import OrderbookPanel from './components/chart/OrderbookPanel';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import SymbolSearch from './components/common/SymbolSearch';
-import TabMenu, { type TabId } from './components/common/TabMenu';
+import SideNav, { type ViewId } from './components/layout/SideNav';
+import WatchPanel from './components/layout/WatchPanel';
+import Settings from './components/layout/Settings';
 import { useCandleData } from './hooks/useCandleData';
 import { useOrderbook } from './hooks/useOrderbook';
 import { useIndicators } from './hooks/useIndicators';
 import { useRealtimePrice } from './hooks/useRealtimePrice';
-
+import { useRecentSymbols, useWatchlist } from './hooks/useWatchlist';
 import { DEFAULT_TOGGLES, type IndicatorToggles } from './types/chart';
 import { useAppStore } from './store/appStore';
 import { changeColor, formatPercent, formatUsd } from './utils/formatters';
@@ -27,78 +28,52 @@ export default function App() {
   const orderbook = useOrderbook(symbol);
 
   const chartRef = useRef<CandleChartHandle>(null);
+  const [view, setView] = useState<ViewId>('chart');
   const [activeTool, setActiveTool] = useState<DrawingToolType>(null);
   const [drawingCount, setDrawingCount] = useState(0);
-  const [activeTab, setActiveTab] = useState<TabId>('analysis');
   const [panelCollapsed, setPanelCollapsed] = useState(false);
-  // 히스토리 탭에서 '방금 쓴 프롬프트'를 함께 저장하기 위해 App 이 들고 있는다.
-  const [lastPrompt, setLastPrompt] = useState({ mode: 'multi', text: '' });
   const [toggles, setToggles] = useState<IndicatorToggles>(DEFAULT_TOGGLES);
+  // 히스토리 화면에서 '방금 쓴 프롬프트'를 함께 저장하기 위해 App 이 들고 있는다.
+  const [lastPrompt, setLastPrompt] = useState({ mode: 'multi', text: '' });
 
-  // 켜진 지표가 하나도 없으면 엔진을 부르지 않는다.
-  const anyIndicatorOn =
-    Object.values(toggles.overlays).some(Boolean) || Object.values(toggles.panels).some(Boolean);
+  const { watchlist, add, remove, toggle } = useWatchlist();
+  const { recent } = useRecentSymbols(symbol);
+
+  // 거래량은 캔들만으로 그리므로 지표 엔진 호출 대상에서 제외한다.
+  const needsEngine =
+    Object.values(toggles.overlays).some(Boolean) ||
+    (Object.entries(toggles.panels) as [string, boolean][]).some(
+      ([key, on]) => on && key !== 'volume',
+    );
+
   const {
     indicators,
     loading: indicatorsLoading,
     engineDown,
     error: indicatorError,
-  } = useIndicators(symbol, timeframe, anyIndicatorOn);
+  } = useIndicators(symbol, timeframe, needsEngine);
 
-  // 폴링 현재가가 아직 없으면 마지막 캔들 종가로 대체한다.
   const displayPrice = livePrice?.close ?? candles.at(-1)?.close ?? null;
-
   const getChartElement = useCallback(() => chartRef.current?.getElement() ?? null, []);
+  const isWatched = watchlist.includes(symbol);
 
-  return (
-    <div className="flex h-full flex-col bg-bg-primary">
-      <header className="flex items-center justify-between border-b border-border px-5 py-3">
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-lg font-semibold text-accent">AlphaScope</h1>
-          <span className="text-sm text-text-muted">해외주식 차트 분석</span>
-        </div>
-        <SymbolSearch symbol={symbol} onSubmit={setSymbol} />
-      </header>
-
-      {isMock && (
-        <div className="border-b border-warning/30 bg-warning/10 px-5 py-2 text-sm text-warning">
-          ⚠️ 모의 데이터 표시 중 — 실제 시세가 아닙니다. <code>.env</code> 에 토스증권 API 키를
-          입력하면 실시간 데이터로 전환됩니다.
-        </div>
-      )}
-
-      <div className="flex items-center justify-between border-b border-border px-5 py-3">
-        <div className="flex items-baseline gap-3">
-          <span className="text-xl font-semibold">{symbol}</span>
-          <span className="text-2xl font-bold tabular-nums">{formatUsd(displayPrice)}</span>
-          {livePrice && (
-            <span className={`text-sm tabular-nums ${changeColor(livePrice.change)}`}>
-              {livePrice.change > 0 ? '+' : ''}
-              {livePrice.change.toFixed(2)} ({formatPercent(livePrice.changeRate)})
-            </span>
-          )}
-        </div>
-        <ChartControls timeframe={timeframe} onChange={setTimeframe} />
-      </div>
-
-      <div className="flex items-center justify-between border-b border-border px-5 py-2">
-        {/* 차트 캡처는 아래 'AI 분석' 탭에서 프롬프트와 함께 처리한다. */}
-        <DrawingTools
-          activeTool={activeTool}
-          onSelect={setActiveTool}
-          onClearAll={() => chartRef.current?.clearDrawings()}
-          onDeleteSelected={() => chartRef.current?.deleteSelectedDrawing()}
-          hasDrawings={drawingCount > 0}
-        />
-        <IndicatorToggleBar
-          toggles={toggles}
-          onChange={setToggles}
-          loading={indicatorsLoading}
-        />
-      </div>
+  const chartView = (
+    <>
+      <ChartToolbar
+        timeframe={timeframe}
+        onTimeframeChange={setTimeframe}
+        toggles={toggles}
+        onTogglesChange={setToggles}
+        indicatorsLoading={indicatorsLoading}
+        activeTool={activeTool}
+        onToolSelect={setActiveTool}
+        onClearDrawings={() => chartRef.current?.clearDrawings()}
+        onDeleteSelected={() => chartRef.current?.deleteSelectedDrawing()}
+        hasDrawings={drawingCount > 0}
+      />
 
       {indicatorError && (
-        <div className="border-b border-warning/30 bg-warning/10 px-5 py-2 text-xs text-warning">
+        <div className="border-b border-warning/30 bg-warning/10 px-3 py-1.5 text-[11px] text-warning">
           {engineDown ? '⚠️ 지표 엔진이 꺼져 있습니다. ' : '⚠️ 지표 계산 실패: '}
           {indicatorError}
         </div>
@@ -132,45 +107,98 @@ export default function App() {
         <OrderbookPanel orderbook={orderbook} currentPrice={displayPrice} />
       </div>
 
-      <TabMenu
-        active={activeTab}
-        onChange={setActiveTab}
+      <footer className="shrink-0 border-t border-border px-3 py-1.5 text-[11px] text-text-muted">
+        {activeTool
+          ? '클릭/드래그해 그리기 · Esc: 해제 · 우클릭 또는 ✕: 삭제'
+          : '휠: 커서 기준 확대/축소 · 드래그: 좌우 이동 · 드로잉 우클릭: 삭제'}
+      </footer>
+    </>
+  );
+
+  const mainContent = () => {
+    switch (view) {
+      case 'analysis':
+        return (
+          <ManualAnalysis
+            symbol={symbol}
+            timeframe={timeframe}
+            candles={candles}
+            currentPrice={displayPrice}
+            getChartElement={getChartElement}
+            onPromptChange={setLastPrompt}
+          />
+        );
+      case 'company':
+        return <CompanyInfo symbol={symbol} />;
+      case 'portfolio':
+        return <Holdings onSelectSymbol={setSymbol} />;
+      case 'history':
+        return (
+          <AnalysisHistory
+            symbol={symbol}
+            timeframe={timeframe}
+            currentPrice={displayPrice}
+            mode={lastPrompt.mode}
+            prompt={lastPrompt.text}
+          />
+        );
+      case 'settings':
+        return <Settings isMock={isMock} engineDown={engineDown} />;
+      case 'chart':
+      default:
+        return chartView;
+    }
+  };
+
+  return (
+    <div className="flex h-full bg-bg-primary">
+      <SideNav view={view} onChange={setView} />
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* 종목 헤더 — 어느 화면에서든 현재 종목이 보이게 유지한다 */}
+        <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-3">
+          <SymbolSearch symbol={symbol} onSubmit={setSymbol} />
+
+          <button
+            type="button"
+            onClick={() => toggle(symbol)}
+            title={isWatched ? '관심 목록에서 빼기' : '관심 목록에 담기'}
+            className={`text-lg leading-none transition-colors ${
+              isWatched ? 'text-warning' : 'text-text-muted hover:text-warning'
+            }`}
+          >
+            {isWatched ? '★' : '☆'}
+          </button>
+
+          <span className="text-base font-semibold">{symbol}</span>
+          <span className="text-lg font-bold tabular-nums">{formatUsd(displayPrice)}</span>
+          {livePrice && (
+            <span className={`text-xs tabular-nums ${changeColor(livePrice.change)}`}>
+              {livePrice.change > 0 ? '+' : ''}
+              {livePrice.change.toFixed(2)} ({formatPercent(livePrice.changeRate)})
+            </span>
+          )}
+
+          {isMock && (
+            <span className="ml-auto rounded bg-warning/15 px-2 py-1 text-[11px] text-warning">
+              ⚠️ 모의 데이터 — .env 에 토스 API 키를 넣으면 실시간으로 전환됩니다
+            </span>
+          )}
+        </header>
+
+        <div className="flex min-h-0 flex-1 flex-col">{mainContent()}</div>
+      </div>
+
+      <WatchPanel
+        currentSymbol={symbol}
+        watchlist={watchlist}
+        recent={recent}
+        onSelect={setSymbol}
+        onAdd={add}
+        onRemove={remove}
         collapsed={panelCollapsed}
         onToggleCollapse={() => setPanelCollapsed((v) => !v)}
       />
-
-      {!panelCollapsed && (
-        <section className="h-72 shrink-0 overflow-hidden bg-bg-secondary">
-          {activeTab === 'analysis' ? (
-            <ManualAnalysis
-              symbol={symbol}
-              timeframe={timeframe}
-              candles={candles}
-              currentPrice={displayPrice}
-              getChartElement={getChartElement}
-              onPromptChange={setLastPrompt}
-            />
-          ) : activeTab === 'history' ? (
-            <AnalysisHistory
-              symbol={symbol}
-              timeframe={timeframe}
-              currentPrice={displayPrice}
-              mode={lastPrompt.mode}
-              prompt={lastPrompt.text}
-            />
-          ) : activeTab === 'company' ? (
-            <CompanyInfo symbol={symbol} />
-          ) : (
-            <Holdings onSelectSymbol={setSymbol} />
-          )}
-        </section>
-      )}
-
-      <footer className="border-t border-border px-5 py-2 text-xs text-text-muted">
-        {activeTool
-          ? '차트를 클릭/드래그해 그리기 · Esc: 드로잉 해제 · Delete: 선택 항목 삭제'
-          : '드래그: 확대/축소 · Shift + 드래그: 좌우 이동 · 휠: 확대/축소'}
-      </footer>
     </div>
   );
 }

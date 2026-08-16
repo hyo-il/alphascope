@@ -20,8 +20,9 @@ export function usePolling<T>(
     let cancelled = false;
     setData(null);
 
-    const tick = async () => {
-      if (inflight.current || document.hidden) return;
+    // 최초 1회는 탭이 숨겨져 있어도 받아 온다.
+    const tick = async (force = false) => {
+      if (inflight.current || (document.hidden && !force)) return;
       inflight.current = true;
       try {
         const res = await fetch(url);
@@ -35,7 +36,7 @@ export function usePolling<T>(
       }
     };
 
-    void tick();
+    void tick(true);
     const timer = setInterval(() => void tick(), intervalMs);
     const onVisible = () => {
       if (!document.hidden) void tick();
@@ -44,6 +45,9 @@ export function usePolling<T>(
 
     return () => {
       cancelled = true;
+      // StrictMode 재마운트 시 이 플래그가 true 로 남으면 다음 effect 의 첫 요청이
+      // 통째로 스킵되고, 이미 날아간 응답은 cancelled 로 버려져 데이터가 비어 버린다.
+      inflight.current = false;
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };

@@ -65,6 +65,7 @@ def compute(frame: pd.DataFrame) -> dict:
     return {
         "timestamps": [int(value) for value in frame["timestamp"]],
         # 추세 — 차트에 겹쳐 그린다
+        "sma5": series_to_list(ta.sma(close, length=5)),
         "sma20": series_to_list(ta.sma(close, length=20)),
         "sma60": series_to_list(ta.sma(close, length=60)),
         "sma120": series_to_list(ta.sma(close, length=120)),
