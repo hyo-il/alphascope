@@ -19,5 +19,14 @@
     "baseUrl": ".",
     "paths": { "@/*": ["src/*"] }
   },
-  "include": ["vite.config.ts", "server", "scripts", "src/services", "src/types", "src/utils"]
+  // 서버 프로세스가 실제로 쓰는 것만 포함한다.
+  // src/services/analysis 등 브라우저 전용 코드는 tsconfig.app.json 이 담당한다.
+  "include": [
+    "vite.config.ts",
+    "server",
+    "scripts",
+    "src/services/toss",
+    "src/types",
+    "src/utils"
+  ]
 }

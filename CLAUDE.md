@@ -227,13 +227,22 @@ DB_PATH=./db/alphascope.db
 
 디자인: 다크 테마, 상승 `#26A69A`, 하락 `#EF5350`
 
-### Step 3: 차트 고급 기능
-1. `lightweight-charts-drawing` 연동
-2. 수평선 + 금액 표시, 트렌드라인
-3. Measure(자) 도구 — 드래그 구간 반투명 블록에 ±% 표시 (상승 초록 / 하락 빨강)
-4. 호가창 (차트 우측)
-5. 차트 캡처 (html2canvas → PNG base64)
-6. UX: 드로잉 모드 토글, ESC 취소
+### Step 3: 차트 고급 기능 — ✅ 완료
+
+1. `lightweight-charts-drawing@0.1.1` 연동 (`components/chart/DrawingTools.tsx`)
+   — 툴바에는 67종 중 6개만 노출: 커서 / 수평선 / 추세선 / 자 / 피보나치 / 박스
+2. **드로잉 생성은 직접 구현했다.** `DrawingManager` 는 선택·앵커 편집·이벤트만 담당하고
+   도구로 새 드로잉을 만드는 로직이 없다 (`handleClick` 은 activeTool 이 있으면 무동작).
+   그래서 `CandleChart` 가 마우스 이벤트로 앵커를 모아 `getToolRegistry().createDrawing()` →
+   `manager.addDrawing()` 을 호출한다. 1점 도구는 클릭, 2점 도구는 드래그로 만든다.
+3. Measure(자) = 플러그인의 `date-price-range`. 반투명 블록에 ±$ / ±% / 봉 수 / 일 수를
+   표시하고, 방향에 따라 색을 넘긴다 (상승 `#26A69A` / 하락 `#EF5350`).
+4. 호가창 `OrderbookPanel.tsx` — 차트 우측, 잔량 막대, 현재가 경계 표시
+5. 차트 캡처 `services/analysis/chartCapture.ts` — html2canvas → PNG data URL / 클립보드 / 다운로드
+6. UX: 하나 그리면 커서 모드로 자동 복귀, Esc = 드로잉 해제, Delete = 선택 항목 삭제
+
+폴링 훅은 `hooks/usePolling.ts` 로 통합했다 (현재가·호가 공용). 탭이 백그라운드면 쉬고,
+다시 보이는 순간 즉시 갱신한다 — 숨겨진 채로 열린 탭이 영영 비어 있던 문제를 고친 것이다.
 
 ### Step 4: 방식 B — 수동 분석
 차트 캡처 + 지표 요약 텍스트를 클립보드로 복사 → claude.ai 에 붙여넣기.

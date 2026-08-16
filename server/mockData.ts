@@ -37,6 +37,13 @@ function makeRandom(seed: number): () => number {
   };
 }
 
+/**
+ * 심볼·주기별 시리즈의 고정 길이.
+ * 요청 개수에 따라 길이를 바꾸면 랜덤워크가 다른 경로를 그려 끝값(=현재가)이 달라진다.
+ * 항상 이 길이로 생성한 뒤 뒤에서 count 개만 잘라 쓴다.
+ */
+const SERIES_LENGTH: Record<BaseTimeframe, number> = { '1d': 400, '1m': 600 };
+
 /** 랜덤워크로 OHLCV 캔들을 생성한다. */
 export function mockCandles(
   symbol: string,
@@ -46,12 +53,13 @@ export function mockCandles(
   const random = makeRandom(seedFrom(symbol));
   const stepMs = timeframe === '1d' ? 86_400_000 : 60_000;
   const volatility = timeframe === '1d' ? 0.018 : 0.0025;
+  const length = Math.max(SERIES_LENGTH[timeframe], count);
 
   let price = 80 + (seedFrom(symbol) % 200);
   const now = Math.floor(Date.now() / stepMs) * stepMs;
   const candles: Candle[] = [];
 
-  for (let i = count - 1; i >= 0; i--) {
+  for (let i = length - 1; i >= 0; i--) {
     const drift = (random() - 0.48) * volatility;
     const open = price;
     const close = Math.max(1, open * (1 + drift));
@@ -73,7 +81,7 @@ export function mockCandles(
   // 그러지 않으면 두 시리즈가 서로 다른 가격대를 떠돌아, 타임프레임을 바꿀 때마다
   // 헤더의 현재가와 차트가 어긋난다.
   if (timeframe === '1m' && candles.length) {
-    const target = mockCandles(symbol, '1d', 2).at(-1)!.close;
+    const target = mockCandles(symbol, '1d', 1).at(-1)!.close;
     const factor = target / candles.at(-1)!.close;
     for (const candle of candles) {
       candle.open = round(candle.open * factor);
@@ -83,7 +91,7 @@ export function mockCandles(
     }
   }
 
-  return candles;
+  return candles.slice(-count);
 }
 
 export function mockPrice(symbol: string): Price {
