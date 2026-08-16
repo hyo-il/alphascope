@@ -6,6 +6,7 @@ import { fetchOrderbook, fetchPrice } from '../src/services/toss/market';
 import { fetchExchangeRate, fetchPortfolio } from '../src/services/toss/account';
 import { getFundamentals, getPeers } from './companyService';
 import { getCandles } from './candleService';
+import { summarizeSymbols } from './summaryService';
 import { deleteAnalysis, getDb, loadAnalyses, loadCandles, saveAnalysis } from './db';
 import { isMockMode, mockOrderbook, mockPrice } from './mockData';
 import { computeIndicators, IndicatorEngineError, indicatorEngineHealthy } from './indicatorService';
@@ -174,6 +175,22 @@ app.get('/api/exchange-rate', async (req, res) => {
   }
 });
 
+app.get('/api/summary', async (req, res) => {
+  const symbols = String(req.query.symbols ?? '')
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean)
+    .slice(0, 12);
+
+  if (!symbols.length) return res.status(400).json({ error: 'symbols 파라미터가 필요합니다.' });
+
+  try {
+    res.json({ summaries: await summarizeSymbols(symbols) });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
 app.get('/api/analysis', (req, res) => {
   const symbol = req.query.symbol ? String(req.query.symbol).toUpperCase() : undefined;
   try {
@@ -184,7 +201,8 @@ app.get('/api/analysis', (req, res) => {
 });
 
 app.post('/api/analysis', (req, res) => {
-  const { symbol, timeframe, priceAtAnalysis, synthesis, verdict, confidence } = req.body ?? {};
+  const { symbol, timeframe, priceAtAnalysis, synthesis, verdict, confidence, mode, prompt } =
+    req.body ?? {};
 
   if (!symbol || !synthesis) {
     return res.status(400).json({ error: 'symbol 과 분석 내용이 필요합니다.' });
@@ -199,6 +217,8 @@ app.post('/api/analysis', (req, res) => {
       synthesis: String(synthesis),
       verdict: String(verdict ?? 'neutral'),
       confidence: String(confidence ?? 'medium'),
+      mode: mode ? String(mode) : null,
+      prompt: prompt ? String(prompt) : null,
     });
     res.json({ id });
   } catch (e) {

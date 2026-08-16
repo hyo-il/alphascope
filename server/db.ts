@@ -18,7 +18,22 @@ export function getDb(): Database.Database {
   db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
   db.exec(fs.readFileSync(path.join(projectRoot, 'db/schema.sql'), 'utf8'));
+  migrate(db);
   return db;
+}
+
+/**
+ * CREATE TABLE IF NOT EXISTS 는 이미 있는 테이블을 바꾸지 않는다.
+ * 나중에 추가된 컬럼은 여기서 채워 넣는다 (이미 있으면 조용히 넘어간다).
+ */
+function migrate(database: Database.Database): void {
+  const columns = database
+    .prepare(`PRAGMA table_info(analysis_history)`)
+    .all() as { name: string }[];
+  const names = new Set(columns.map((c) => c.name));
+
+  if (!names.has('mode')) database.exec(`ALTER TABLE analysis_history ADD COLUMN mode TEXT`);
+  if (!names.has('prompt')) database.exec(`ALTER TABLE analysis_history ADD COLUMN prompt TEXT`);
 }
 
 const upsertCandle = () =>
@@ -69,6 +84,10 @@ export interface AnalysisRecord {
   synthesis: string;
   verdict: string;
   confidence: string;
+  /** 어떤 모드로 분석했는지 */
+  mode?: string | null;
+  /** 분석에 사용한 프롬프트 원문 */
+  prompt?: string | null;
   price_after_1d?: number | null;
   price_after_3d?: number | null;
   price_after_7d?: number | null;
@@ -84,10 +103,10 @@ export function saveAnalysis(record: AnalysisRecord): number {
   const result = getDb()
     .prepare(
       `INSERT INTO analysis_history
-         (symbol, timeframe, analyzed_at, price_at_analysis, synthesis, verdict, confidence, actual_result)
-       VALUES (@symbol, @timeframe, @analyzed_at, @price_at_analysis, @synthesis, @verdict, @confidence, 'pending')`,
+         (symbol, timeframe, analyzed_at, price_at_analysis, synthesis, verdict, confidence, mode, prompt, actual_result)
+       VALUES (@symbol, @timeframe, @analyzed_at, @price_at_analysis, @synthesis, @verdict, @confidence, @mode, @prompt, 'pending')`,
     )
-    .run(record);
+    .run({ mode: null, prompt: null, ...record });
   return Number(result.lastInsertRowid);
 }
 

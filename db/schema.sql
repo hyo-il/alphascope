@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS analysis_history (
   timeframe TEXT NOT NULL,
   analyzed_at TEXT NOT NULL,  -- ISO 8601
   price_at_analysis REAL NOT NULL,
+  mode TEXT,                   -- 'quick' | 'multi' | 'portfolio' | 'compare'
+  prompt TEXT,                 -- 분석에 사용한 프롬프트 원문
 
   -- 에이전트별 의견
   technician_opinion TEXT,     -- JSON

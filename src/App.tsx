@@ -31,6 +31,8 @@ export default function App() {
   const [drawingCount, setDrawingCount] = useState(0);
   const [activeTab, setActiveTab] = useState<TabId>('analysis');
   const [panelCollapsed, setPanelCollapsed] = useState(false);
+  // 히스토리 탭에서 '방금 쓴 프롬프트'를 함께 저장하기 위해 App 이 들고 있는다.
+  const [lastPrompt, setLastPrompt] = useState({ mode: 'multi', text: '' });
   const [toggles, setToggles] = useState<IndicatorToggles>(DEFAULT_TOGGLES);
 
   // 켜진 지표가 하나도 없으면 엔진을 부르지 않는다.
@@ -146,12 +148,15 @@ export default function App() {
               candles={candles}
               currentPrice={displayPrice}
               getChartElement={getChartElement}
+              onPromptChange={setLastPrompt}
             />
           ) : activeTab === 'history' ? (
             <AnalysisHistory
               symbol={symbol}
               timeframe={timeframe}
               currentPrice={displayPrice}
+              mode={lastPrompt.mode}
+              prompt={lastPrompt.text}
             />
           ) : activeTab === 'company' ? (
             <CompanyInfo symbol={symbol} />

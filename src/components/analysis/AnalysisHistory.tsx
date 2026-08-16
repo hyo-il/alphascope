@@ -6,7 +6,17 @@ interface Props {
   symbol: string;
   timeframe: Timeframe;
   currentPrice: number | null;
+  /** 방금 사용한 분석 모드와 프롬프트 — 기록에 함께 저장한다 */
+  mode: string;
+  prompt: string;
 }
+
+const MODE_LABEL: Record<string, string> = {
+  quick: '⚡ 빠른 분석',
+  multi: '🧠 멀티 에이전트',
+  portfolio: '💼 보유 주식',
+  compare: '🔄 종목 비교',
+};
 
 interface AnalysisRecord {
   id: number;
@@ -17,6 +27,8 @@ interface AnalysisRecord {
   synthesis: string;
   verdict: string;
   confidence: string;
+  mode: string | null;
+  prompt: string | null;
 }
 
 const VERDICTS = [
@@ -64,12 +76,20 @@ function guessConfidence(text: string): string {
  * 앱이 AI 를 직접 호출하지 않으므로, Claude 대화에서 받은 답변을 여기에 붙여넣어 기록한다.
  * 나중에 "그때 판단이 맞았는지" 되돌아보는 것이 이 탭의 목적이다.
  */
-export default function AnalysisHistory({ symbol, timeframe, currentPrice }: Props) {
+export default function AnalysisHistory({
+  symbol,
+  timeframe,
+  currentPrice,
+  mode,
+  prompt,
+}: Props) {
   const [records, setRecords] = useState<AnalysisRecord[]>([]);
   const [draft, setDraft] = useState('');
   const [verdict, setVerdict] = useState('neutral');
   const [confidence, setConfidence] = useState('medium');
   const [expanded, setExpanded] = useState<number | null>(null);
+  /** 상세에서 답변을 볼지, 당시 프롬프트를 볼지 */
+  const [detailView, setDetailView] = useState<'answer' | 'prompt'>('answer');
   const [onlyThisSymbol, setOnlyThisSymbol] = useState(true);
 
   const load = useCallback(async () => {
@@ -104,6 +124,8 @@ export default function AnalysisHistory({ symbol, timeframe, currentPrice }: Pro
         synthesis: draft,
         verdict,
         confidence,
+        mode,
+        prompt,
       }),
     });
     setDraft('');
@@ -212,6 +234,9 @@ export default function AnalysisHistory({ symbol, timeframe, currentPrice }: Pro
                       </span>
                     )}
                   </span>
+                  <span className="text-text-muted">
+                    {MODE_LABEL[record.mode ?? ''] ?? ''}
+                  </span>
                   <span className="ml-auto text-text-muted">
                     {new Date(record.analyzed_at).toLocaleString('ko-KR')}
                   </span>
@@ -219,8 +244,27 @@ export default function AnalysisHistory({ symbol, timeframe, currentPrice }: Pro
 
                 {isOpen && (
                   <div className="border-t border-border px-3 py-2">
+                    <div className="mb-1.5 flex gap-1">
+                      {(['answer', 'prompt'] as const).map((view) => (
+                        <button
+                          key={view}
+                          type="button"
+                          onClick={() => setDetailView(view)}
+                          disabled={view === 'prompt' && !record.prompt}
+                          className={`rounded px-2 py-0.5 text-[11px] transition-colors ${
+                            detailView === view
+                              ? 'bg-accent/20 text-accent'
+                              : 'text-text-muted hover:text-text-primary'
+                          } disabled:opacity-40`}
+                        >
+                          {view === 'answer' ? '분석 답변' : '당시 프롬프트'}
+                        </button>
+                      ))}
+                    </div>
                     <pre className="max-h-64 overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-text-secondary">
-                      {record.synthesis}
+                      {detailView === 'prompt'
+                        ? (record.prompt ?? '저장된 프롬프트가 없습니다.')
+                        : record.synthesis}
                     </pre>
                     <button
                       type="button"

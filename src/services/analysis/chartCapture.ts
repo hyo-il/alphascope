@@ -43,6 +43,23 @@ export async function copyChartToClipboard(element: HTMLElement): Promise<boolea
   }
 }
 
+export type ImageCopyResult = 'copied' | 'unsupported' | 'failed';
+
+/** 차트 이미지만 클립보드에 복사한다 (2단계 복사 흐름의 1단계) */
+export async function copyChartImage(element: HTMLElement): Promise<ImageCopyResult> {
+  if (!navigator.clipboard?.write || !window.ClipboardItem) return 'unsupported';
+
+  try {
+    const dataUrl = await captureChartDataUrl(element);
+    const blob = await (await fetch(dataUrl)).blob();
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    return 'copied';
+  } catch {
+    // 문서 포커스 없음, 권한 거부 등
+    return 'failed';
+  }
+}
+
 export type CopyResult =
   /** 이미지 + 텍스트 모두 복사됨 */
   | 'image+text'
