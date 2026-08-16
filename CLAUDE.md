@@ -244,8 +244,25 @@ DB_PATH=./db/alphascope.db
 폴링 훅은 `hooks/usePolling.ts` 로 통합했다 (현재가·호가 공용). 탭이 백그라운드면 쉬고,
 다시 보이는 순간 즉시 갱신한다 — 숨겨진 채로 열린 탭이 영영 비어 있던 문제를 고친 것이다.
 
-### Step 4: 방식 B — 수동 분석
-차트 캡처 + 지표 요약 텍스트를 클립보드로 복사 → claude.ai 에 붙여넣기.
+### Step 4: 방식 B — 수동 분석 — ✅ 완료
+
+`components/analysis/ManualAnalysis.tsx` + 하단 탭 `components/common/TabMenu.tsx`.
+
+1. "① 차트 캡처 + 데이터 복사" — 하나의 `ClipboardItem` 에 `image/png` 와 `text/plain` 을
+   함께 담아, 붙여넣는 앱이 지원하는 형식을 골라 가게 한다.
+   이미지 복사가 막히면(권한·포커스·미지원) 텍스트만 넣고 **원인을 구분해** 안내한다.
+2. "② Claude 대화 열기" — claude.ai/new 새 탭
+3. 보조 버튼: 텍스트만 복사 / 이미지 저장(PNG 다운로드)
+4. 복사될 내용 미리보기 + 사용 방법 안내
+5. 탭: 수동분석(활성) / AI분석 · 히스토리(Step 7) / 기업정보 · 보유주식(Step 6), 패널 접기 지원
+
+**지표 계산** `utils/indicators.ts` — RSI(14, Wilder), MACD(12,26,9), SMA, 거래량 비율.
+표준 예제 데이터로 검증했다 (RSI 70.46 / 37.79 ↔ 기준값 70.46 / 37.77).
+Step 5 에서 pandas-ta 엔진이 들어오면 차트 오버레이와 정밀 계산은 그쪽이 맡고,
+이 모듈은 화면 요약용으로 남는다.
+
+요약 텍스트 생성은 `services/analysis/summaryText.ts` 가 담당하며 Step 7 에서 재사용한다.
+
 이 단계 완료 시점부터 앱을 실제로 사용 가능.
 
 ### Step 5: 기술적 지표 엔진

@@ -1,14 +1,16 @@
 import { useCallback, useRef, useState } from 'react';
+import ManualAnalysis from './components/analysis/ManualAnalysis';
 import CandleChart, { type CandleChartHandle } from './components/chart/CandleChart';
 import ChartControls from './components/chart/ChartControls';
 import DrawingTools, { type DrawingToolType } from './components/chart/DrawingTools';
 import OrderbookPanel from './components/chart/OrderbookPanel';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import SymbolSearch from './components/common/SymbolSearch';
+import TabMenu, { TABS, type TabId } from './components/common/TabMenu';
 import { useCandleData } from './hooks/useCandleData';
 import { useOrderbook } from './hooks/useOrderbook';
 import { useRealtimePrice } from './hooks/useRealtimePrice';
-import { downloadChartImage } from './services/analysis/chartCapture';
+
 import { useAppStore } from './store/appStore';
 import { changeColor, formatPercent, formatUsd } from './utils/formatters';
 
@@ -21,21 +23,13 @@ export default function App() {
   const chartRef = useRef<CandleChartHandle>(null);
   const [activeTool, setActiveTool] = useState<DrawingToolType>(null);
   const [drawingCount, setDrawingCount] = useState(0);
-  const [capturing, setCapturing] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('manual');
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
 
   // 폴링 현재가가 아직 없으면 마지막 캔들 종가로 대체한다.
   const displayPrice = livePrice?.close ?? candles.at(-1)?.close ?? null;
 
-  const handleCapture = useCallback(async () => {
-    const element = chartRef.current?.getElement();
-    if (!element) return;
-    setCapturing(true);
-    try {
-      await downloadChartImage(element, `${symbol}_${timeframe}_${Date.now()}.png`);
-    } finally {
-      setCapturing(false);
-    }
-  }, [symbol, timeframe]);
+  const getChartElement = useCallback(() => chartRef.current?.getElement() ?? null, []);
 
   return (
     <div className="flex h-full flex-col bg-bg-primary">
@@ -68,7 +62,8 @@ export default function App() {
         <ChartControls timeframe={timeframe} onChange={setTimeframe} />
       </div>
 
-      <div className="flex items-center justify-between border-b border-border px-5 py-2">
+      <div className="border-b border-border px-5 py-2">
+        {/* 차트 캡처는 아래 '수동분석' 탭에서 요약 텍스트와 함께 처리한다. */}
         <DrawingTools
           activeTool={activeTool}
           onSelect={setActiveTool}
@@ -76,14 +71,6 @@ export default function App() {
           onDeleteSelected={() => chartRef.current?.deleteSelectedDrawing()}
           hasDrawings={drawingCount > 0}
         />
-        <button
-          type="button"
-          onClick={() => void handleCapture()}
-          disabled={capturing || loading}
-          className="rounded-md border border-border px-3 py-1.5 text-sm text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40"
-        >
-          {capturing ? '캡처 중…' : '차트 캡처'}
-        </button>
       </div>
 
       <div className="flex min-h-0 flex-1">
@@ -111,6 +98,32 @@ export default function App() {
 
         <OrderbookPanel orderbook={orderbook} currentPrice={displayPrice} />
       </div>
+
+      <TabMenu
+        active={activeTab}
+        onChange={setActiveTab}
+        collapsed={panelCollapsed}
+        onToggleCollapse={() => setPanelCollapsed((v) => !v)}
+      />
+
+      {!panelCollapsed && (
+        <section className="h-72 shrink-0 overflow-hidden bg-bg-secondary">
+          {activeTab === 'manual' ? (
+            <ManualAnalysis
+              symbol={symbol}
+              timeframe={timeframe}
+              candles={candles}
+              currentPrice={displayPrice}
+              getChartElement={getChartElement}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-text-muted">
+              {TABS.find((t) => t.id === activeTab)?.label} 탭은 Step{' '}
+              {TABS.find((t) => t.id === activeTab)?.pendingStep} 에서 구현됩니다.
+            </div>
+          )}
+        </section>
+      )}
 
       <footer className="border-t border-border px-5 py-2 text-xs text-text-muted">
         {activeTool
