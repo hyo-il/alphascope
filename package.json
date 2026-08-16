@@ -7,9 +7,11 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "concurrently -n web,api -c cyan,magenta \"npm:dev:web\" \"npm:dev:api\"",
+    "dev": "concurrently -n web,api,py -c cyan,magenta,yellow \"npm:dev:web\" \"npm:dev:api\" \"npm:dev:py\"",
     "dev:web": "vite",
-    "dev:api": "tsx watch server/index.ts",
+    "dev:api": "tsx watch --ignore \"python/**\" --ignore \"db/**\" server/index.ts",
+    "dev:py": "python/.venv/bin/python python/indicators.py",
+    "py:setup": "/opt/homebrew/opt/python@3.12/bin/python3.12 -m venv python/.venv && python/.venv/bin/pip install -r python/requirements.txt",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "db:init": "tsx scripts/initDb.ts",

@@ -12,6 +12,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    watch: {
+      // 파이썬 가상환경은 파일이 수만 개다. 감시하면 불필요한 리로드가 계속 발생한다.
+      ignored: ['**/python/.venv/**', '**/db/**'],
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:4000',

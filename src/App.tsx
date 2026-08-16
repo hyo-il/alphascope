@@ -3,14 +3,17 @@ import ManualAnalysis from './components/analysis/ManualAnalysis';
 import CandleChart, { type CandleChartHandle } from './components/chart/CandleChart';
 import ChartControls from './components/chart/ChartControls';
 import DrawingTools, { type DrawingToolType } from './components/chart/DrawingTools';
+import IndicatorToggleBar from './components/chart/IndicatorToggles';
 import OrderbookPanel from './components/chart/OrderbookPanel';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import SymbolSearch from './components/common/SymbolSearch';
 import TabMenu, { TABS, type TabId } from './components/common/TabMenu';
 import { useCandleData } from './hooks/useCandleData';
 import { useOrderbook } from './hooks/useOrderbook';
+import { useIndicators } from './hooks/useIndicators';
 import { useRealtimePrice } from './hooks/useRealtimePrice';
 
+import { DEFAULT_TOGGLES, type IndicatorToggles } from './types/chart';
 import { useAppStore } from './store/appStore';
 import { changeColor, formatPercent, formatUsd } from './utils/formatters';
 
@@ -25,6 +28,17 @@ export default function App() {
   const [drawingCount, setDrawingCount] = useState(0);
   const [activeTab, setActiveTab] = useState<TabId>('manual');
   const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [toggles, setToggles] = useState<IndicatorToggles>(DEFAULT_TOGGLES);
+
+  // 켜진 지표가 하나도 없으면 엔진을 부르지 않는다.
+  const anyIndicatorOn =
+    Object.values(toggles.overlays).some(Boolean) || Object.values(toggles.panels).some(Boolean);
+  const {
+    indicators,
+    loading: indicatorsLoading,
+    engineDown,
+    error: indicatorError,
+  } = useIndicators(symbol, timeframe, anyIndicatorOn);
 
   // 폴링 현재가가 아직 없으면 마지막 캔들 종가로 대체한다.
   const displayPrice = livePrice?.close ?? candles.at(-1)?.close ?? null;
@@ -62,7 +76,7 @@ export default function App() {
         <ChartControls timeframe={timeframe} onChange={setTimeframe} />
       </div>
 
-      <div className="border-b border-border px-5 py-2">
+      <div className="flex items-center justify-between border-b border-border px-5 py-2">
         {/* 차트 캡처는 아래 '수동분석' 탭에서 요약 텍스트와 함께 처리한다. */}
         <DrawingTools
           activeTool={activeTool}
@@ -71,7 +85,19 @@ export default function App() {
           onDeleteSelected={() => chartRef.current?.deleteSelectedDrawing()}
           hasDrawings={drawingCount > 0}
         />
+        <IndicatorToggleBar
+          toggles={toggles}
+          onChange={setToggles}
+          loading={indicatorsLoading}
+        />
       </div>
+
+      {indicatorError && (
+        <div className="border-b border-warning/30 bg-warning/10 px-5 py-2 text-xs text-warning">
+          {engineDown ? '⚠️ 지표 엔진이 꺼져 있습니다. ' : '⚠️ 지표 계산 실패: '}
+          {indicatorError}
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1">
         <main className="min-w-0 flex-1">
@@ -92,6 +118,8 @@ export default function App() {
               activeTool={activeTool}
               onDrawingCountChange={setDrawingCount}
               onToolConsumed={() => setActiveTool(null)}
+              indicators={indicators}
+              toggles={toggles}
             />
           )}
         </main>

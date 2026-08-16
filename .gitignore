@@ -8,3 +8,6 @@ db/*.db-wal
 .DS_Store
 *.log
 *.tsbuildinfo
+python/.venv/
+__pycache__/
+*.pyc

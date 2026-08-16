@@ -265,10 +265,30 @@ Step 5 에서 pandas-ta 엔진이 들어오면 차트 오버레이와 정밀 계
 
 이 단계 완료 시점부터 앱을 실제로 사용 가능.
 
-### Step 5: 기술적 지표 엔진
-Python(pandas-ta)으로 SMA(20/60/120), EMA(12/26), RSI(14), MACD(12/26/9),
-볼린저밴드(20,2), ATR(14), Stochastic(14,3,3), OBV, VWAP 계산 → 차트 오버레이 + 하단 패널.
-※ Python 3.11+ 설치 선행 필요.
+### Step 5: 기술적 지표 엔진 — ✅ 완료
+
+**Python 3.12 를 쓴다.** pandas-ta 0.4.x 가 3.12 이상을 요구해 명세의 3.11+ 보다 높다.
+가상환경은 `python/.venv` 이며 `npm run py:setup` 으로 만든다.
+
+- `python/indicators.py` — Flask 서비스(포트 5001). 캔들 배열을 POST 받아 지표 시리즈 반환
+  - SMA(20/60/120), EMA(12/26), 볼린저밴드(20,2), VWAP → 가격 차트 오버레이
+  - RSI(14), MACD(12,26,9), Stochastic(14,3,3) → 하단 별도 패널
+  - ATR(14), OBV
+  - pandas-ta 컬럼은 이름 접두사로 고른다 (`MACDh_` 등). 위치 인덱스는 버전에 따라 흔들린다.
+  - VWAP 는 직접 계산한다. pandas-ta 쪽은 DatetimeIndex 를 요구하고 일 단위로 리셋한다.
+- `server/indicatorService.ts` — Node → Python 브릿지 (HTTP). 매 요청 프로세스 기동은
+  pandas import 만으로 1초 이상 걸려서 상시 서비스로 띄운다. 엔진이 꺼져 있으면 503 +
+  `engineDown: true` 로 구분해 알린다.
+- `GET /api/indicators?symbol&timeframe&limit` — 차트와 **같은 캔들**로 계산해 화면과 어긋나지 않게 한다
+- `components/chart/IndicatorToggles.tsx` — 오버레이 4종 / 패널 3종 토글.
+  전부 꺼져 있으면 엔진을 호출하지 않는다.
+- 패널은 Lightweight Charts v5 의 pane 기능을 쓰고, 가격:지표 = 3:1 로 높이를 배분한다.
+
+**교차 검증**: Python RSI 58.417 / MACD 히스토그램 -0.132 가 Step 4 의 TypeScript 구현
+(58.4 / -0.132)과 일치한다. 두 구현은 용도가 다르다 — TS 는 요약 텍스트용, Python 은 차트용.
+
+`python/.venv` 는 파일이 수만 개라 Vite watcher 와 tsx watch 에서 제외했다 (`vite.config.ts`,
+`dev:api` 스크립트). 제외하지 않으면 서버가 계속 재시작된다.
 
 ### Step 6: 기업 데이터 수집
 yfinance 로 PER/PBR/EPS/시가총액/섹터, 재무제표, 배당 조회 → 기업 정보 패널, 동종업계 비교.
