@@ -1,4 +1,4 @@
-export type TabId = 'manual' | 'ai' | 'company' | 'history' | 'holdings';
+export type TabId = 'analysis' | 'company' | 'history' | 'holdings';
 
 interface Tab {
   id: TabId;
@@ -8,10 +8,9 @@ interface Tab {
 }
 
 export const TABS: Tab[] = [
-  { id: 'manual', label: '수동분석' },
-  { id: 'ai', label: 'AI분석', pendingStep: 7 },
+  { id: 'analysis', label: 'AI 분석' },
   { id: 'company', label: '기업정보' },
-  { id: 'history', label: '히스토리', pendingStep: 7 },
+  { id: 'history', label: '히스토리' },
   { id: 'holdings', label: '보유주식' },
 ];
 

@@ -28,17 +28,17 @@
 
 ### 백엔드
 - **Node.js** (Express) — API 서버
-- **Python 3.11+** — 기술적 지표 계산 엔진 (pandas-ta)
+- **Python 3.12+** — 기술적 지표 계산 엔진 (pandas-ta 0.4.x 요구사항)
 - **SQLite** (better-sqlite3) — 로컬 데이터 저장
 
 ### 외부 API
 - **토스증권 Open API** (`https://openapi.tossinvest.com`) — 시세, 호가, 캔들, 주문, 계좌
 - **yfinance** (Python) — PER, PBR, EPS, 재무제표, 배당, 섹터
-- **Claude API** (`https://api.anthropic.com/v1/messages`) — 멀티 AI 분석
+- ~~Claude API~~ — **사용하지 않는다.** 분석 프롬프트를 클립보드로 복사해
+  Claude 구독 대화에 붙여넣는 방식이라 API 키도 비용도 필요 없다 (Step 7 참고)
 
 ### 인증
 - 토스증권: OAuth 2.0 Client Credentials Grant
-- Claude API: API Key (환경 변수)
 
 ---
 
@@ -49,22 +49,24 @@
   export PATH=/opt/homebrew/opt/node@22/bin:$PATH
   ```
   `.nvmrc` 에 `22` 를 기록해 두었다.
-- Python 은 아직 3.9 만 설치돼 있다. Step 5 (지표 엔진) 진입 전에 3.11+ 를 설치해야 한다.
+- **Python 3.12** 를 쓴다 (`/opt/homebrew/opt/python@3.12`). 가상환경은 `python/.venv`,
+  최초 1회 `npm run py:setup` 으로 만든다. 시스템 Python 3.9 는 건드리지 않았다.
 
 ### 실행 명령
 ```bash
-npm run dev       # 웹(5173) + API(4000) 동시 실행
-npm run dev:api   # API 서버만
+npm run dev       # 웹(5173) + API(4000) + 지표 엔진(5001) 동시 실행
+npm run dev:api   # API 서버만 / npm run dev:py 지표 엔진만
+npm run py:setup  # Python 가상환경 최초 구성
 npm run db:init   # SQLite 스키마 생성 확인
-npm run smoke     # Step 1 검증: 토큰 발급 → AAPL 캔들/현재가/호가 조회
+npm run smoke     # 토스 API 검증: 토큰 발급 → AAPL 캔들/현재가/호가
+npm run probe     # 토스 API 원본 응답 확인 (스키마 확인용)
 ```
 
 ---
 
 ## 아키텍처 원칙
 
-- **API 키는 서버에만 존재한다.** 토스 `CLIENT_SECRET` 과 `ANTHROPIC_API_KEY` 는 Express 서버
-  프로세스에서만 읽는다. 브라우저는 `/api/*` 프록시만 호출한다 (`vite.config.ts` 의 proxy).
+- **API 키는 서버에만 존재한다.** 토스 `CLIENT_SECRET` 은 Express 서버 프로세스에서만 읽는다. 브라우저는 `/api/*` 프록시만 호출한다 (`vite.config.ts` 의 proxy).
 - `src/services/toss/*` 는 **서버 전용 모듈**이다. 프론트 컴포넌트에서 직접 import 하지 않는다.
 - 모든 외부 호출은 `httpClient.tossGet()` 을 거친다 — 인증, Rate Limit, 재시도가 여기 모여 있다.
 
@@ -80,13 +82,17 @@ alphascope/
 ├── .env.example
 │
 ├── server/                      # Express API 서버 (Node 전용)
-│   ├── index.ts                 # 라우트: /api/candles, /api/prices, /api/orderbook
+│   ├── index.ts                 # 모든 /api 라우트
 │   ├── candleService.ts         # 캐시 우선 캔들 조회 + 집계
-│   └── db.ts                    # SQLite 연결 및 캔들 저장/조회
+│   ├── indicatorService.ts      # Python 지표 엔진 브릿지
+│   ├── companyService.ts        # yfinance 브릿지 + 24시간 캐시
+│   ├── mockData.ts              # API 키 없을 때의 모의 데이터
+│   └── db.ts                    # SQLite (캔들·분석 기록·기업 캐시)
 │
 ├── scripts/
 │   ├── initDb.ts                # 스키마 생성 확인
-│   └── smokeTest.ts             # Step 1 검증 스크립트
+│   ├── smokeTest.ts             # 토스 API 검증 스크립트
+│   └── probeApi.ts              # 토스 API 원본 응답 확인
 │
 ├── src/
 │   ├── main.tsx                 # React 엔트리
@@ -97,15 +103,12 @@ alphascope/
 │   │   │   ├── CandleChart.tsx          # TradingView Lightweight Charts 래퍼
 │   │   │   ├── ChartControls.tsx        # 타임프레임 전환, 지표 토글
 │   │   │   ├── DrawingTools.tsx         # 수평선, 트렌드라인, 자(Measure) 도구
-│   │   │   ├── MeasureTool.tsx          # ±% 블록 표시 커스텀 오버레이
+│   │   │   ├── IndicatorToggles.tsx     # 지표 ON/OFF
 │   │   │   └── OrderbookPanel.tsx       # 호가창
 │   │   │
 │   │   ├── analysis/
-│   │   │   ├── ManualAnalysis.tsx       # 방식 B: 차트 캡처 + 데이터 복사
-│   │   │   ├── AIAnalysis.tsx           # 방식 A: 앱 내 멀티 AI 자동 분석
-│   │   │   ├── AgentCard.tsx            # 개별 에이전트 의견 카드
-│   │   │   ├── SynthesisReport.tsx      # 종합 판단 결과 표시
-│   │   │   └── AnalysisHistory.tsx      # 분석 히스토리
+│   │   │   ├── ManualAnalysis.tsx       # AI 분석 준비 (프롬프트 조립·복사)
+│   │   │   └── AnalysisHistory.tsx      # 분석 히스토리 (답변 붙여넣기 기록)
 │   │   │
 │   │   ├── company/
 │   │   │   ├── CompanyInfo.tsx          # PER/PBR/EPS 등 기업 정보
@@ -126,36 +129,38 @@ alphascope/
 │   │   │   ├── auth.ts                 # OAuth 토큰 발급/자동 갱신
 │   │   │   ├── httpClient.ts           # 인증 + Rate Limit + 재시도 래퍼
 │   │   │   ├── market.ts               # 시세, 호가, 캔들
-│   │   │   ├── account.ts              # 계좌, 보유주식, 환율 (예정)
+│   │   │   ├── account.ts              # 계좌, 보유주식, 환율
 │   │   │   ├── order.ts                # 주문 (향후)
 │   │   │   └── rateLimiter.ts          # 토큰 버킷 Rate Limiter
 │   │   │
 │   │   ├── analysis/
-│   │   │   ├── claudeApi.ts           # Claude API 호출 래퍼
-│   │   │   ├── multiAgent.ts          # 멀티 에이전트 오케스트레이터
 │   │   │   ├── prompts.ts             # 에이전트별 시스템 프롬프트
+│   │   │   ├── multiAgentPrompt.ts    # 붙여넣기용 프롬프트 조립
+│   │   │   ├── summaryText.ts         # 간단 요약 텍스트
 │   │   │   └── chartCapture.ts        # 차트 이미지 캡처 (html2canvas)
 │   │   │
 │   │   └── data/
 │   │       └── fundamentals.ts        # yfinance 데이터 조회 (Python 브릿지)
 │   │
 │   ├── hooks/
-│   │   ├── useCandleData.ts           # 캔들 데이터 조회 + 캐싱
-│   │   ├── useRealtimePrice.ts        # 1초 폴링 현재가 갱신
-│   │   ├── useIndicators.ts           # 기술적 지표 계산 결과
-│   │   └── useHoldings.ts             # 보유주식 조회
+│   │   ├── usePolling.ts              # 공용 폴링 (탭 가시성 대응)
+│   │   ├── useCandleData.ts           # 캔들 데이터 조회
+│   │   ├── useRealtimePrice.ts        # 1초 폴링 현재가
+│   │   ├── useOrderbook.ts            # 1초 폴링 호가
+│   │   ├── useIndicators.ts           # 기술적 지표 (Python 엔진)
+│   │   └── useCompany.ts              # 기업정보·동종업계·보유·환율
 │   │
 │   ├── store/
 │   │   └── appStore.ts                # Zustand 상태 관리
 │   │
 │   ├── types/
 │   │   ├── toss.ts                    # 토스 API 응답 타입
-│   │   ├── chart.ts                   # 차트 관련 타입
-│   │   ├── analysis.ts                # AI 분석 관련 타입
+│   │   ├── chart.ts                   # 지표·차트 타입
 │   │   └── company.ts                 # 기업 정보 타입
 │   │
 │   └── utils/
 │       ├── candleAggregator.ts        # 1분봉 → 5분봉/15분봉 집계
+│       ├── indicators.ts              # 경량 지표 (요약 텍스트용)
 │       ├── formatters.ts              # 숫자, 통화, 날짜 포맷
 │       └── constants.ts               # API URL, Rate Limit 상수
 │
@@ -178,9 +183,6 @@ TOSS_CLIENT_ID=your_client_id
 TOSS_CLIENT_SECRET=your_client_secret
 TOSS_BASE_URL=https://openapi.tossinvest.com
 
-# Claude API
-ANTHROPIC_API_KEY=your_api_key
-
 # 앱 설정
 API_PORT=4000
 POLLING_INTERVAL_MS=1000
@@ -191,7 +193,7 @@ DB_PATH=./db/alphascope.db
 
 ## 개발 단계
 
-### Step 1: 프로젝트 초기화 + 토스 API 연동 — ✅ 구현 완료 / ⏳ 실 API 검증 대기
+### Step 1: 프로젝트 초기화 + 토스 API 연동 — ✅ 완료 (실 API 검증 완료)
 
 구현된 것:
 1. React + Vite + TypeScript + Tailwind CSS v4
@@ -203,10 +205,14 @@ DB_PATH=./db/alphascope.db
 7. SQLite 스키마 + 캔들 캐싱 (`server/db.ts`, `server/candleService.ts`)
 8. Express API 서버 (`server/index.ts`)
 
-남은 것:
-- **토스 API 응답 필드명 확정**: `market.ts` 의 정규화 헬퍼는 후보 키를 여러 개 훑는다.
-  실제 응답을 `npm run smoke` 로 확인한 뒤 실제 키 하나로 좁힐 것.
-- `/api/v1/candles` 의 주기 파라미터 이름(`interval` / `period` / `count`)도 실제 스펙에 맞춰 정리.
+실제 응답으로 확인한 스키마 (2026-08 기준):
+- `/candles`: `interval` 은 **1m / 1d 만** 허용, `count` 는 **최대 200** (초과 시 400).
+  더 필요하면 응답의 `nextBefore` 를 `before` 파라미터로 넘겨 페이지를 이어 받는다.
+  응답은 `result.candles[]`, 숫자는 문자열, timestamp 는 ISO8601(+09:00), **최신순**.
+- `/prices`: 파라미터는 `symbols`(복수), 응답은 `result[]` 의 `lastPrice`.
+  **전일 대비 변동 정보가 없어** 캐시된 일봉으로 서버에서 계산한다.
+- `/orderbook`: 파라미터는 `symbol`(단수), 응답은 `result.asks/bids`.
+  ⏳ 레벨 하나의 필드명은 미확인 — 미국장 개장 시간에 `npm run probe` 로 확정할 것.
 
 ### Step 2: 차트 UI 기본 — ✅ 완료
 
@@ -315,12 +321,25 @@ Step 5 에서 pandas-ta 엔진이 들어오면 차트 오버레이와 정밀 계
 가격 범위가 넓은 종목에서 축 라벨이 음수까지 내려간다. pane 0 = 가격, 1 = 거래량,
 2 이후 = 지표 패널이다.
 
-### Step 7: 방식 A — 앱 내 멀티 AI 분석
-1. Claude API 래퍼 (이미지 첨부, 429 재시도, 타임아웃)
-2. 에이전트별 시스템 프롬프트 (아래 섹션)
-3. 오케스트레이터: 1라운드 독립 분석(4 병렬) → 2라운드 교차 검증(토글) → 3라운드 종합 의장
-4. 진행 상태 UI + 에이전트 카드 + 종합 리포트
-5. 히스토리 SQLite 저장/조회, 예상 토큰·호출 수 표시
+### Step 7: 멀티 AI 분석 — ✅ 완료 (방식 B 강화로 대체)
+
+**방식 A(앱 내 Claude API 자동 호출)는 구현하지 않기로 했다.** API 키와 호출 비용 없이,
+Claude 구독 대화에서 같은 결과를 얻을 수 있기 때문이다. 앱의 역할은 **"Claude 에게 보낼 최적의
+입력을 자동으로 정리하는 것"** 까지이고, 추론은 구독 대화에서 한다. 비용 $0.
+
+- `services/analysis/prompts.ts` — 4개 에이전트 + 종합 의장 + 교차 검증 프롬프트
+- `services/analysis/multiAgentPrompt.ts` — 하나의 붙여넣기용 프롬프트로 조립한다.
+  포함되는 것: 차트 이미지(클립보드) + 최근 10봉 OHLCV + 지표(Step 4·5) +
+  재무·밸류에이션·동종업계 중앙값 비교(Step 6) + **보유 현황**(보유 중이면
+  "보유 유지 / 추가 매수 / 손절" 관점을 추가로 요구한다)
+- `components/analysis/ManualAnalysis.tsx` — 모드 전환(멀티 전문가 / 간단 요약),
+  교차 검증 토글, 포함된 데이터 체크리스트, 미리보기(글자 수 표시)
+- `components/analysis/AnalysisHistory.tsx` — Claude 답변을 붙여넣어 기록.
+  붙여넣는 순간 결론·신뢰도를 추정해 채워 주고, 저장 시점 가격 대비 현재 등락률을 보여 준다.
+  `GET/POST/DELETE /api/analysis` + `analysis_history` 테이블.
+  (에이전트별 컬럼은 개별 응답을 받지 않으므로 비워 두고 `synthesis` 에 원문을 담는다.)
+
+탭 구성: **AI 분석 / 기업정보 / 히스토리 / 보유주식** (방식 A 전용 탭은 제거).
 
 ---
 
@@ -608,7 +627,8 @@ const RATE_LIMITS = {
 ## 주의사항
 
 1. **투자 면책 조항**: 모든 AI 분석 결과에 "이 분석은 투자 조언이 아닙니다" 문구 필수 표시
-2. **API 키 보안**: `.env` 는 절대 커밋하지 않음 (`.gitignore` 포함됨). 키는 서버에서만 읽는다
+   (프롬프트 말미에도 이 문구가 포함된다)
+2. **API 키 보안**: `.env` 는 절대 커밋하지 않음 (`.gitignore` 포함됨). 토스 키는 서버에서만 읽는다
 3. **에러 핸들링**: 모든 API 호출에 try-catch + 지수 백오프 재시도 (`httpClient.ts`)
 4. **Rate Limit**: 429 응답 시 `Retry-After` 헤더 확인 후 대기
 5. **토큰 갱신**: OAuth 토큰 만료 10분 전 자동 갱신

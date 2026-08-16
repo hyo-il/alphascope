@@ -6,7 +6,7 @@ import { fetchOrderbook, fetchPrice } from '../src/services/toss/market';
 import { fetchExchangeRate, fetchPortfolio } from '../src/services/toss/account';
 import { getFundamentals, getPeers } from './companyService';
 import { getCandles } from './candleService';
-import { getDb, loadCandles } from './db';
+import { deleteAnalysis, getDb, loadAnalyses, loadCandles, saveAnalysis } from './db';
 import { isMockMode, mockOrderbook, mockPrice } from './mockData';
 import { computeIndicators, IndicatorEngineError, indicatorEngineHealthy } from './indicatorService';
 
@@ -169,6 +169,47 @@ app.get('/api/exchange-rate', async (req, res) => {
 
   try {
     res.json({ rate: await fetchExchangeRate(base, quote), mock: false });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/analysis', (req, res) => {
+  const symbol = req.query.symbol ? String(req.query.symbol).toUpperCase() : undefined;
+  try {
+    res.json({ analyses: loadAnalyses(symbol) });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.post('/api/analysis', (req, res) => {
+  const { symbol, timeframe, priceAtAnalysis, synthesis, verdict, confidence } = req.body ?? {};
+
+  if (!symbol || !synthesis) {
+    return res.status(400).json({ error: 'symbol 과 분석 내용이 필요합니다.' });
+  }
+
+  try {
+    const id = saveAnalysis({
+      symbol: String(symbol).toUpperCase(),
+      timeframe: String(timeframe ?? '1d'),
+      analyzed_at: new Date().toISOString(),
+      price_at_analysis: Number(priceAtAnalysis) || 0,
+      synthesis: String(synthesis),
+      verdict: String(verdict ?? 'neutral'),
+      confidence: String(confidence ?? 'medium'),
+    });
+    res.json({ id });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.delete('/api/analysis/:id', (req, res) => {
+  try {
+    deleteAnalysis(Number(req.params.id));
+    res.json({ ok: true });
   } catch (e) {
     fail(res, e);
   }

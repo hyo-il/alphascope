@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import ManualAnalysis from './components/analysis/ManualAnalysis';
+import AnalysisHistory from './components/analysis/AnalysisHistory';
 import CompanyInfo from './components/company/CompanyInfo';
 import Holdings from './components/portfolio/Holdings';
 import CandleChart, { type CandleChartHandle } from './components/chart/CandleChart';
@@ -28,7 +29,7 @@ export default function App() {
   const chartRef = useRef<CandleChartHandle>(null);
   const [activeTool, setActiveTool] = useState<DrawingToolType>(null);
   const [drawingCount, setDrawingCount] = useState(0);
-  const [activeTab, setActiveTab] = useState<TabId>('manual');
+  const [activeTab, setActiveTab] = useState<TabId>('analysis');
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [toggles, setToggles] = useState<IndicatorToggles>(DEFAULT_TOGGLES);
 
@@ -138,13 +139,19 @@ export default function App() {
 
       {!panelCollapsed && (
         <section className="h-72 shrink-0 overflow-hidden bg-bg-secondary">
-          {activeTab === 'manual' ? (
+          {activeTab === 'analysis' ? (
             <ManualAnalysis
               symbol={symbol}
               timeframe={timeframe}
               candles={candles}
               currentPrice={displayPrice}
               getChartElement={getChartElement}
+            />
+          ) : activeTab === 'history' ? (
+            <AnalysisHistory
+              symbol={symbol}
+              timeframe={timeframe}
+              currentPrice={displayPrice}
             />
           ) : activeTab === 'company' ? (
             <CompanyInfo symbol={symbol} />
