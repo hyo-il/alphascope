@@ -54,6 +54,11 @@ export default function App() {
   } = useIndicators(symbol, timeframe, needsEngine);
 
   const displayPrice = livePrice?.close ?? candles.at(-1)?.close ?? null;
+  // 호가의 등락률 기준 — 서버가 계산해 준 변동액에서 역산한다.
+  const previousClose =
+    livePrice && Number.isFinite(livePrice.change) && livePrice.change !== 0
+      ? livePrice.close - livePrice.change
+      : (candles.at(-2)?.close ?? null);
   const getChartElement = useCallback(() => chartRef.current?.getElement() ?? null, []);
   const isWatched = watchlist.includes(symbol);
 
@@ -104,7 +109,11 @@ export default function App() {
           )}
         </main>
 
-        <OrderbookPanel orderbook={orderbook} currentPrice={displayPrice} />
+        <OrderbookPanel
+          orderbook={orderbook}
+          currentPrice={displayPrice}
+          previousClose={previousClose}
+        />
       </div>
 
       <footer className="shrink-0 border-t border-border px-3 py-1.5 text-[11px] text-text-muted">
