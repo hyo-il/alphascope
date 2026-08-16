@@ -5,6 +5,7 @@ import type { Timeframe } from '../src/types/toss';
 import { fetchOrderbook, fetchPrice } from '../src/services/toss/market';
 import { getCandles } from './candleService';
 import { getDb } from './db';
+import { isMockMode, mockOrderbook, mockPrice } from './mockData';
 
 /**
  * AlphaScope API 서버.
@@ -23,7 +24,7 @@ function fail(res: express.Response, e: unknown) {
 }
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, time: new Date().toISOString() });
+  res.json({ ok: true, mock: isMockMode(), time: new Date().toISOString() });
 });
 
 app.get('/api/candles', async (req, res) => {
@@ -38,7 +39,7 @@ app.get('/api/candles', async (req, res) => {
 
   try {
     const candles = await getCandles(symbol, timeframe, limit);
-    res.json({ symbol, timeframe, candles });
+    res.json({ symbol, timeframe, candles, mock: isMockMode() });
   } catch (e) {
     fail(res, e);
   }
@@ -48,7 +49,8 @@ app.get('/api/prices', async (req, res) => {
   const symbol = String(req.query.symbol ?? '').toUpperCase();
   if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
   try {
-    res.json({ price: await fetchPrice(symbol) });
+    const price = isMockMode() ? mockPrice(symbol) : await fetchPrice(symbol);
+    res.json({ price, mock: isMockMode() });
   } catch (e) {
     fail(res, e);
   }
@@ -58,7 +60,8 @@ app.get('/api/orderbook', async (req, res) => {
   const symbol = String(req.query.symbol ?? '').toUpperCase();
   if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
   try {
-    res.json({ orderbook: await fetchOrderbook(symbol) });
+    const orderbook = isMockMode() ? mockOrderbook(symbol) : await fetchOrderbook(symbol);
+    res.json({ orderbook, mock: isMockMode() });
   } catch (e) {
     fail(res, e);
   }

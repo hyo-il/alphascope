@@ -2,6 +2,7 @@ import type { Candle, Timeframe } from '../src/types/toss';
 import { fetchCandles } from '../src/services/toss/market';
 import { aggregateCandles, resolveTimeframe } from '../src/utils/candleAggregator';
 import { latestCandleTimestamp, loadCandles, saveCandles } from './db';
+import { isMockMode, mockCandles } from './mockData';
 
 /** 원본 주기별 캐시 신선도 — 이 시간 안에 받아온 데이터면 API를 다시 부르지 않는다. */
 const FRESHNESS_MS: Record<'1m' | '1d', number> = {
@@ -22,6 +23,12 @@ export async function getCandles(
 
   // 집계 타임프레임은 배수만큼 원본 캔들이 더 필요하다.
   const baseLimit = minutes > 1 ? limit * minutes : limit;
+
+  // API 키가 없으면 모의 데이터로 UI 를 검증할 수 있게 한다 (캐시에 저장하지 않는다).
+  if (isMockMode()) {
+    const rows = mockCandles(symbol, base, baseLimit);
+    return minutes > 1 ? aggregateCandles(rows, minutes).slice(-limit) : rows;
+  }
 
   const latest = latestCandleTimestamp(symbol, base);
   const isFresh = latest !== null && Date.now() - latest < FRESHNESS_MS[base];

@@ -208,13 +208,22 @@ DB_PATH=./db/alphascope.db
   실제 응답을 `npm run smoke` 로 확인한 뒤 실제 키 하나로 좁힐 것.
 - `/api/v1/candles` 의 주기 파라미터 이름(`interval` / `period` / `count`)도 실제 스펙에 맞춰 정리.
 
-### Step 2: 차트 UI 기본
-1. TradingView Lightweight Charts v5 래퍼 (`CandleChart.tsx`)
-2. 캔들스틱 시리즈 (OHLCV) + 거래량 히스토그램(하단)
-3. 드래그 확대/축소, Shift+드래그 팬, 크로스헤어
-4. 타임프레임 전환 (1m/5m/15m/30m/1D) — 분봉 집계는 `candleAggregator.ts`
-5. 종목 검색 (`SymbolSearch.tsx`)
-6. 현재가 1초 REST 폴링 (`useRealtimePrice.ts`) + 마지막 캔들 실시간 업데이트
+### Step 2: 차트 UI 기본 — ✅ 완료
+
+1. Lightweight Charts v5 래퍼 (`components/chart/CandleChart.tsx`)
+2. 캔들스틱 + 거래량 히스토그램(하단 20%, 별도 `volume` 가격축)
+3. 드래그 = 확대/축소, **Shift + 드래그 = 좌우 이동**, 휠 = 확대/축소
+   — 라이브러리 기본 드래그(팬)를 끄고 `setVisibleLogicalRange` 로 직접 구현했다.
+4. 크로스헤어 + 좌상단 OHLCV 레전드 (마우스를 떼면 마지막 캔들 값 표시)
+5. 타임프레임 전환 `ChartControls.tsx` — 5/15/30분은 1분봉 집계
+6. 종목 검색 `SymbolSearch.tsx`, 상태는 Zustand `store/appStore.ts`
+7. 현재가 1초 폴링 `hooks/useRealtimePrice.ts` + 마지막 캔들 실시간 갱신
+   — 탭이 백그라운드면 폴링 중단, 요청 겹침 방지
+   — 폴링가가 마지막 캔들 대비 20% 이상 벗어나면 무시 (이상값이 고가/저가를 영구 왜곡)
+
+**모의 데이터 모드** (`server/mockData.ts`): `.env` 의 토스 키가 비었거나 `your_` 로 시작하면
+서버가 랜덤워크 캔들/호가를 반환하고 응답에 `mock: true` 를 붙인다. 화면 상단에 경고 배너가
+뜨며, 유효한 키를 넣으면 자동으로 실 API 로 전환된다. 캐시에는 저장하지 않는다.
 
 디자인: 다크 테마, 상승 `#26A69A`, 하락 `#EF5350`
 
