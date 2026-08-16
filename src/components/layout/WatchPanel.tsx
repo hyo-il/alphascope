@@ -8,12 +8,46 @@ interface Props {
   recent: string[];
   onSelect: (symbol: string) => void;
   onAdd: (symbol: string) => void;
+  /** 관심 목록에서 제거 */
   onRemove: (symbol: string) => void;
+  /** 최근 조회에서 제거 */
+  onRemoveRecent: (symbol: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
 }
 
 type PanelTab = 'watch' | 'recent';
+
+/** 별 아이콘 — 관심 목록을 뜻한다 */
+function StarIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden>
+      <path d="M10 1.6l2.47 5.3 5.53.68-4.09 3.9 1.06 5.72L10 14.5l-4.97 2.7 1.06-5.72L2 7.58l5.53-.68L10 1.6z" />
+    </svg>
+  );
+}
+
+/** 시계 아이콘 — 최근 조회를 뜻한다 */
+function ClockIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" className={className} aria-hidden>
+      <circle cx="10" cy="10" r="7.5" />
+      <path d="M10 5.5V10l3 2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** 휴지통 아이콘 — 목록에서 제거 */
+function TrashIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className={className} aria-hidden>
+      <path d="M3.5 5.5h13" strokeLinecap="round" />
+      <path d="M8 5.5V4a1 1 0 011-1h2a1 1 0 011 1v1.5" strokeLinecap="round" />
+      <path d="M5.5 5.5l.7 10a1.5 1.5 0 001.5 1.4h4.6a1.5 1.5 0 001.5-1.4l.7-10" strokeLinejoin="round" />
+      <path d="M8.5 8.5v5M11.5 8.5v5" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 /** 오른쪽 사이드 패널 — 관심 목록과 최근 조회. 클릭하면 즉시 그 종목 차트로 전환된다. */
 export default function WatchPanel({
@@ -23,26 +57,44 @@ export default function WatchPanel({
   onSelect,
   onAdd,
   onRemove,
+  onRemoveRecent,
   collapsed,
   onToggleCollapse,
 }: Props) {
   const [tab, setTab] = useState<PanelTab>('watch');
   const [input, setInput] = useState('');
-  const [menuFor, setMenuFor] = useState<string | null>(null);
 
   const symbols = tab === 'watch' ? watchlist : recent;
   // 보이는 목록만 폴링한다 (Rate Limit 고려).
-  const quotes = useQuotes(symbols);
+  const quotes = useQuotes(collapsed ? [] : symbols);
 
+  // 접힌 상태 — 아이콘과 개수로 무엇이 들어 있는지 알 수 있게 한다.
   if (collapsed) {
     return (
       <button
         type="button"
         onClick={onToggleCollapse}
-        title="관심 목록 펼치기"
-        className="flex w-7 shrink-0 items-center justify-center border-l border-border bg-bg-secondary text-xs text-text-muted transition-colors hover:text-text-primary"
+        title="관심 목록 · 최근 조회 펼치기"
+        className="group flex w-11 shrink-0 flex-col items-center gap-3 border-l border-border bg-bg-secondary py-3 transition-colors hover:bg-bg-tertiary/50"
       >
-        ◀
+        <span className="text-text-muted transition-colors group-hover:text-text-primary">‹</span>
+
+        <span className="flex flex-col items-center gap-1 text-warning">
+          <StarIcon className="h-4 w-4" />
+          <span className="text-[10px] tabular-nums text-text-secondary">{watchlist.length}</span>
+        </span>
+
+        <span className="flex flex-col items-center gap-1 text-text-muted">
+          <ClockIcon className="h-4 w-4" />
+          <span className="text-[10px] tabular-nums text-text-secondary">{recent.length}</span>
+        </span>
+
+        <span
+          className="mt-1 text-[10px] leading-tight text-text-muted"
+          style={{ writingMode: 'vertical-rl' }}
+        >
+          관심 · 최근
+        </span>
       </button>
     );
   }
@@ -55,25 +107,29 @@ export default function WatchPanel({
     setInput('');
   };
 
+  const removeFrom = (symbol: string) =>
+    tab === 'watch' ? onRemove(symbol) : onRemoveRecent(symbol);
+
   return (
     <aside className="flex w-[250px] shrink-0 flex-col border-l border-border bg-bg-secondary">
       <div className="flex items-center border-b border-border">
         {(
           [
-            ['watch', '관심 목록'],
-            ['recent', '최근 조회'],
+            ['watch', '관심 목록', <StarIcon key="s" className="h-3 w-3" />],
+            ['recent', '최근 조회', <ClockIcon key="c" className="h-3 w-3" />],
           ] as const
-        ).map(([id, label]) => (
+        ).map(([id, label, icon]) => (
           <button
             key={id}
             type="button"
             onClick={() => setTab(id)}
-            className={`flex-1 border-b-2 py-2 text-xs transition-colors ${
+            className={`flex flex-1 items-center justify-center gap-1.5 border-b-2 py-2 text-xs transition-colors ${
               tab === id
                 ? 'border-accent text-text-primary'
                 : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >
+            {icon}
             {label}
           </button>
         ))}
@@ -83,7 +139,7 @@ export default function WatchPanel({
           title="접기"
           className="px-2 text-xs text-text-muted transition-colors hover:text-text-primary"
         >
-          ▶
+          ›
         </button>
       </div>
 
@@ -98,29 +154,34 @@ export default function WatchPanel({
           const quote = quotes[symbol];
           const rate = quote?.changeRate ?? null;
           const color =
-            rate == null ? 'text-text-muted' : rate > 0 ? 'text-bullish' : rate < 0 ? 'text-bearish' : 'text-text-secondary';
+            rate == null
+              ? 'text-text-muted'
+              : rate > 0
+                ? 'text-bullish'
+                : rate < 0
+                  ? 'text-bearish'
+                  : 'text-text-secondary';
 
           return (
-            <div key={symbol} className="relative">
+            <div
+              key={symbol}
+              className={`group flex items-center transition-colors hover:bg-bg-tertiary/60 ${
+                symbol === currentSymbol ? 'bg-accent/10' : ''
+              }`}
+            >
               <button
                 type="button"
                 onClick={() => onSelect(symbol)}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setMenuFor(menuFor === symbol ? null : symbol);
-                }}
-                className={`flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-bg-tertiary/60 ${
-                  symbol === currentSymbol ? 'bg-accent/10' : ''
-                }`}
+                className="flex min-w-0 flex-1 items-center justify-between py-2 pl-3 pr-1 text-left"
               >
                 <span
-                  className={`text-xs font-medium ${
+                  className={`truncate text-xs font-medium ${
                     symbol === currentSymbol ? 'text-accent' : 'text-text-primary'
                   }`}
                 >
                   {symbol}
                 </span>
-                <span className="text-right">
+                <span className="shrink-0 text-right">
                   <span className="block text-xs tabular-nums text-text-secondary">
                     {quote?.price != null ? formatUsd(quote.price) : '—'}
                   </span>
@@ -130,33 +191,22 @@ export default function WatchPanel({
                 </span>
               </button>
 
-              {menuFor === symbol && (
-                <div className="absolute right-2 top-1 z-10 rounded border border-border bg-bg-tertiary shadow-lg">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onRemove(symbol);
-                      setMenuFor(null);
-                    }}
-                    className="block px-3 py-1.5 text-[11px] text-text-secondary transition-colors hover:text-bearish"
-                  >
-                    목록에서 삭제
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMenuFor(null)}
-                    className="block px-3 py-1.5 text-[11px] text-text-muted transition-colors hover:text-text-primary"
-                  >
-                    취소
-                  </button>
-                </div>
-              )}
+              {/* 즉시 삭제 — 평소엔 은은하게, 가리키면 빨갛게 */}
+              <button
+                type="button"
+                onClick={() => removeFrom(symbol)}
+                title={tab === 'watch' ? '관심 목록에서 삭제' : '최근 조회에서 삭제'}
+                aria-label={`${symbol} 삭제`}
+                className="mr-2 shrink-0 rounded p-1 text-text-muted opacity-0 transition-all hover:bg-bearish/15 hover:text-bearish focus:opacity-100 group-hover:opacity-100"
+              >
+                <TrashIcon className="h-3.5 w-3.5" />
+              </button>
             </div>
           );
         })}
       </div>
 
-      {tab === 'watch' && (
+      {tab === 'watch' ? (
         <form onSubmit={handleAdd} className="flex gap-1 border-t border-border p-2">
           <input
             value={input}
@@ -172,10 +222,21 @@ export default function WatchPanel({
             추가
           </button>
         </form>
+      ) : (
+        recent.length > 0 && (
+          <button
+            type="button"
+            onClick={() => recent.forEach(onRemoveRecent)}
+            className="flex items-center justify-center gap-1.5 border-t border-border py-2 text-xs text-text-muted transition-colors hover:text-bearish"
+          >
+            <TrashIcon className="h-3.5 w-3.5" />
+            기록 모두 지우기
+          </button>
+        )
       )}
 
       <p className="border-t border-border px-3 py-1.5 text-[10px] text-text-muted">
-        우클릭으로 삭제 · 1초 갱신
+        클릭: 종목 전환 · 1초 갱신
       </p>
     </aside>
   );

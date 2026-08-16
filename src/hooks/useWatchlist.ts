@@ -92,10 +92,18 @@ export function useRecentSymbols(currentSymbol: string) {
     });
   }, [currentSymbol]);
 
+  const remove = useCallback((symbol: string) => {
+    setRecent((prev) => {
+      const updated = prev.filter((s) => s !== symbol);
+      write(RECENT_KEY, updated);
+      return updated;
+    });
+  }, []);
+
   const clear = useCallback(() => {
     setRecent([]);
     write(RECENT_KEY, []);
   }, []);
 
-  return { recent, clear };
+  return { recent, remove, clear };
 }

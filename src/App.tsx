@@ -37,7 +37,7 @@ export default function App() {
   const [lastPrompt, setLastPrompt] = useState({ mode: 'multi', text: '' });
 
   const { watchlist, add, remove, toggle } = useWatchlist();
-  const { recent } = useRecentSymbols(symbol);
+  const { recent, remove: removeRecent } = useRecentSymbols(symbol);
 
   // 거래량은 캔들만으로 그리므로 지표 엔진 호출 대상에서 제외한다.
   const needsEngine =
@@ -196,6 +196,7 @@ export default function App() {
         onSelect={setSymbol}
         onAdd={add}
         onRemove={remove}
+        onRemoveRecent={removeRecent}
         collapsed={panelCollapsed}
         onToggleCollapse={() => setPanelCollapsed((v) => !v)}
       />
