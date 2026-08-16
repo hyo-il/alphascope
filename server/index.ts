@@ -4,7 +4,7 @@ import cors from 'cors';
 import type { Timeframe } from '../src/types/toss';
 import { fetchOrderbook, fetchPrice } from '../src/services/toss/market';
 import { getCandles } from './candleService';
-import { getDb } from './db';
+import { getDb, loadCandles } from './db';
 import { isMockMode, mockOrderbook, mockPrice } from './mockData';
 import { computeIndicators, IndicatorEngineError, indicatorEngineHealthy } from './indicatorService';
 
@@ -22,6 +22,30 @@ function fail(res: express.Response, e: unknown) {
   const message = e instanceof Error ? e.message : String(e);
   console.error('[api]', message);
   res.status(500).json({ error: message });
+}
+
+/**
+ * 현재가에 전일 대비 변동을 채워 준다.
+ *
+ * 토스 /prices 응답에는 변동 정보가 없어서 직접 계산한다. 기준가는 SQLite 에 캐시된
+ * 일봉에서 가져오므로, 1초 폴링마다 캔들 API 를 부르지 않는다.
+ */
+async function withDailyChange(symbol: string) {
+  const price = await fetchPrice(symbol);
+  // 오름차순이므로 [전일, 당일] 순이다. 캔들이 하나뿐이면 기준가가 없어 변동을 계산할 수 없다.
+  const daily = loadCandles(symbol, '1d', 2);
+  if (daily.length < 2 || !Number.isFinite(price.close)) return price;
+
+  const previousClose = daily[0].close;
+  if (!previousClose) return price;
+
+  const change = price.close - previousClose;
+  return {
+    ...price,
+    change,
+    changeRate: (change / previousClose) * 100,
+    volume: daily.at(-1)?.volume ?? 0,
+  };
 }
 
 app.get('/api/health', async (_req, res) => {
@@ -78,7 +102,7 @@ app.get('/api/prices', async (req, res) => {
   const symbol = String(req.query.symbol ?? '').toUpperCase();
   if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
   try {
-    const price = isMockMode() ? mockPrice(symbol) : await fetchPrice(symbol);
+    const price = isMockMode() ? mockPrice(symbol) : await withDailyChange(symbol);
     res.json({ price, mock: isMockMode() });
   } catch (e) {
     fail(res, e);

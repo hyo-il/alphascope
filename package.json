@@ -15,7 +15,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "db:init": "tsx scripts/initDb.ts",
-    "smoke": "tsx scripts/smokeTest.ts"
+    "smoke": "tsx scripts/smokeTest.ts",
+    "probe": "tsx scripts/probeApi.ts"
   },
   "dependencies": {
     "axios": "^1.7.9",

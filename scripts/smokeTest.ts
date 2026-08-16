@@ -30,7 +30,8 @@ async function main() {
     console.error('\n토큰 발급이 실패해 이후 단계를 건너뜁니다. .env 의 토스 API 키를 확인하세요.\n');
     process.exit(1);
   }
-  console.log(`   token: ${token.slice(0, 12)}…`);
+  // 토큰 값은 로그에 남기지 않는다 (길이만 확인).
+  console.log(`   토큰 발급됨 (${token.length}자)`);
 
   const daily = await step('일봉 캔들 조회 (GET /api/v1/candles)', () =>
     fetchCandles(SYMBOL, '1d', 30),
