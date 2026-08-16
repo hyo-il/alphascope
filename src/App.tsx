@@ -10,7 +10,7 @@ import IndicatorToggleBar from './components/chart/IndicatorToggles';
 import OrderbookPanel from './components/chart/OrderbookPanel';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import SymbolSearch from './components/common/SymbolSearch';
-import TabMenu, { TABS, type TabId } from './components/common/TabMenu';
+import TabMenu, { type TabId } from './components/common/TabMenu';
 import { useCandleData } from './hooks/useCandleData';
 import { useOrderbook } from './hooks/useOrderbook';
 import { useIndicators } from './hooks/useIndicators';
@@ -82,7 +82,7 @@ export default function App() {
       </div>
 
       <div className="flex items-center justify-between border-b border-border px-5 py-2">
-        {/* 차트 캡처는 아래 '수동분석' 탭에서 요약 텍스트와 함께 처리한다. */}
+        {/* 차트 캡처는 아래 'AI 분석' 탭에서 프롬프트와 함께 처리한다. */}
         <DrawingTools
           activeTool={activeTool}
           onSelect={setActiveTool}
@@ -160,13 +160,8 @@ export default function App() {
             />
           ) : activeTab === 'company' ? (
             <CompanyInfo symbol={symbol} />
-          ) : activeTab === 'holdings' ? (
-            <Holdings onSelectSymbol={setSymbol} />
           ) : (
-            <div className="flex h-full items-center justify-center text-sm text-text-muted">
-              {TABS.find((t) => t.id === activeTab)?.label} 탭은 Step{' '}
-              {TABS.find((t) => t.id === activeTab)?.pendingStep} 에서 구현됩니다.
-            </div>
+            <Holdings onSelectSymbol={setSymbol} />
           )}
         </section>
       )}

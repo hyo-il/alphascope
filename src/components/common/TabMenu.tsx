@@ -3,8 +3,6 @@ export type TabId = 'analysis' | 'company' | 'history' | 'holdings';
 interface Tab {
   id: TabId;
   label: string;
-  /** 아직 구현되지 않은 탭 (해당 Step 에서 열린다) */
-  pendingStep?: number;
 }
 
 export const TABS: Tab[] = [
@@ -31,7 +29,6 @@ export default function TabMenu({ active, onChange, collapsed, onToggleCollapse 
             key={tab.id}
             type="button"
             onClick={() => onChange(tab.id)}
-            title={tab.pendingStep ? `Step ${tab.pendingStep}에서 구현 예정` : undefined}
             className={`border-b-2 px-4 py-2 text-sm transition-colors ${
               active === tab.id
                 ? 'border-accent text-text-primary'
@@ -39,7 +36,6 @@ export default function TabMenu({ active, onChange, collapsed, onToggleCollapse 
             }`}
           >
             {tab.label}
-            {tab.pendingStep && <span className="ml-1 text-[10px] text-text-muted">준비중</span>}
           </button>
         ))}
       </div>
