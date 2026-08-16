@@ -29,9 +29,21 @@ cp .env.example .env      # 토스 API 키 입력
 
 ## 실행
 
+**가장 쉬운 방법** — Finder에서 `start.command` 를 더블클릭하면 세 서버가 뜨고 브라우저가 열립니다.
+
+터미널에서 직접 실행할 때는 **Node 22 경로 지정이 필수**입니다.
+전역 `node`(v21)는 실행 자체가 깨져 있어서, 이 줄이 없으면 `npm` 명령도 동작하지 않습니다.
+
 ```bash
+export PATH=/opt/homebrew/opt/node@22/bin:$PATH
 npm run dev               # 웹 5173 + API 4000 + 지표 엔진 5001
+```
+
+브라우저에서 **http://localhost:5173** 으로 접속합니다. 종료는 터미널에서 `Control+C`.
+
+```bash
 npm run build             # 타입 검사 + 프로덕션 빌드
+npm run dev:api           # API 서버만 / dev:web, dev:py 도 개별 실행 가능
 ```
 
 ### 점검 도구
