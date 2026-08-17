@@ -5,7 +5,7 @@ import type { Timeframe } from '../src/types/toss';
 import { fetchOrderbook, fetchPrice } from '../src/services/toss/market';
 import { fetchExchangeRate, fetchPortfolio } from '../src/services/toss/account';
 import { getFundamentals, getPeers } from './companyService';
-import { getCandles } from './candleService';
+import { getCandles, getCandlesBefore } from './candleService';
 import { summarizeSymbols } from './summaryService';
 import { fetchQuotes } from './quoteService';
 import { catalogSize, findStock, refreshCatalog, searchStocks } from './stockCatalog';
@@ -73,7 +73,12 @@ app.get('/api/candles', async (req, res) => {
   }
 
   try {
-    const candles = await getCandles(symbol, timeframe, limit);
+    // before 가 오면 그 시각 이전의 과거 구간만 돌려준다 (차트 무한 스크롤).
+    const before = Number(req.query.before);
+    const candles = Number.isFinite(before) && before > 0
+      ? await getCandlesBefore(symbol, timeframe, before, limit)
+      : await getCandles(symbol, timeframe, limit);
+
     res.json({ symbol, timeframe, candles, mock: isMockMode() });
   } catch (e) {
     fail(res, e);

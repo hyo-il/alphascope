@@ -16,7 +16,8 @@
     "preview": "vite preview",
     "db:init": "tsx scripts/initDb.ts",
     "smoke": "tsx scripts/smokeTest.ts",
-    "probe": "tsx scripts/probeApi.ts"
+    "probe": "tsx scripts/probeApi.ts",
+    "probe:history": "tsx scripts/probeHistory.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",

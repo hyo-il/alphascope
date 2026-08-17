@@ -64,6 +64,8 @@ interface Props {
   livePrice: Price | null;
   activeTool?: DrawingToolType;
   onDrawingCountChange?: (count: number) => void;
+  /** 차트를 과거로 스크롤했을 때 이어 받기 */
+  onReachPast?: () => void;
   indicators?: IndicatorSeries | null;
   toggles?: IndicatorToggles;
 }
@@ -111,6 +113,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     livePrice,
     activeTool = null,
     onDrawingCountChange,
+    onReachPast,
     indicators = null,
     toggles,
   },
@@ -127,6 +130,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
   /** 크로스헤어 콜백에서 최신 캔들을 읽기 위한 참조 (effect 는 한 번만 돌기 때문) */
   const candlesRef = useRef<Candle[]>(candles);
   candlesRef.current = candles;
+  /** 직전에 그린 캔들 수 — 과거가 앞에 덧붙었는지 판단한다 */
+  const renderedCountRef = useRef(0);
 
   const [hover, setHover] = useState<HoverInfo | null>(null);
   const [measure, setMeasure] = useState<MeasurePreview | null>(null);
@@ -137,6 +142,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
 
   const countCallbackRef = useRef(onDrawingCountChange);
   countCallbackRef.current = onDrawingCountChange;
+  const onReachPastRef = useRef(onReachPast);
+  onReachPastRef.current = onReachPast;
 
   useImperativeHandle(ref, () => ({
     clearDrawings: () => {
@@ -247,6 +254,13 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
         volume: matched?.volume ?? 0,
         ma,
       });
+    });
+
+    // ── 과거 데이터 이어 받기 ──
+    // 남은 봉이 얼마 없을 때 미리 요청해 두면 스크롤이 끊기지 않는다.
+    chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (!range) return;
+      if (range.from < 20) onReachPastRef.current?.();
     });
 
     // ── 마우스 위치 기준 휠 줌 (수정 1·2) ──
@@ -599,6 +613,12 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     const candleSeries = candleSeriesRef.current;
     if (!candleSeries || !candles.length) return;
 
+    const chart = chartRef.current;
+    // 앞쪽에 과거가 덧붙은 경우, 보던 위치를 그대로 유지해야 화면이 튀지 않는다.
+    const previousCount = renderedCountRef.current;
+    const isPrepend = previousCount > 0 && candles.length > previousCount;
+    const range = isPrepend ? chart?.timeScale().getVisibleLogicalRange() : null;
+
     candleSeries.setData(
       candles.map(
         (c): CandlestickData => ({
@@ -610,7 +630,18 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
         }),
       ),
     );
-    chartRef.current?.timeScale().fitContent();
+
+    if (range) {
+      const added = candles.length - previousCount;
+      chart?.timeScale().setVisibleLogicalRange({
+        from: range.from + added,
+        to: range.to + added,
+      });
+    } else {
+      chart?.timeScale().fitContent();
+    }
+
+    renderedCountRef.current = candles.length;
   }, [candles]);
 
   // ── 현재가로 마지막 캔들 갱신 ──

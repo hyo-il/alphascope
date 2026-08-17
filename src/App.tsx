@@ -9,7 +9,7 @@ import { type DrawingToolType } from './components/chart/DrawingTools';
 import OrderbookPanel from './components/chart/OrderbookPanel';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import SymbolSearch from './components/common/SymbolSearch';
-import MarketTicker from './components/layout/MarketTicker';
+import MarketOverview from './components/market/MarketOverview';
 import SideNav, { type ViewId } from './components/layout/SideNav';
 import WatchPanel from './components/layout/WatchPanel';
 import Settings from './components/layout/Settings';
@@ -25,7 +25,10 @@ import { changeColor, currencyOf, formatPercent, formatPrice } from './utils/for
 
 export default function App() {
   const { symbol, timeframe, isMock, setSymbol, setTimeframe } = useAppStore();
-  const { candles, loading, error } = useCandleData(symbol, timeframe);
+  const { candles, loading, error, loadingMore, reachedEnd, loadMore } = useCandleData(
+    symbol,
+    timeframe,
+  );
   const livePrice = useRealtimePrice(symbol);
   const orderbook = useOrderbook(symbol);
 
@@ -106,6 +109,7 @@ export default function App() {
               livePrice={livePrice}
               activeTool={activeTool}
               onDrawingCountChange={setDrawingCount}
+              onReachPast={loadMore}
               indicators={indicators}
               toggles={toggles}
             />
@@ -124,6 +128,10 @@ export default function App() {
         {activeTool
           ? '클릭/드래그해 그리기 · 같은 도구로 계속 그릴 수 있습니다 · Esc: 해제 · 우클릭 또는 ✕: 삭제'
           : '휠: 커서 기준 확대/축소 · 드래그: 좌우 이동 · 드로잉 우클릭: 삭제'}
+        {loadingMore && <span className="ml-2 text-accent">과거 데이터 불러오는 중…</span>}
+        {reachedEnd && candles.length > 0 && (
+          <span className="ml-2">· 가장 오래된 데이터까지 표시 중</span>
+        )}
       </footer>
     </>
   );
@@ -165,7 +173,7 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col bg-bg-primary">
-      <MarketTicker />
+      <MarketOverview />
 
       <div className="flex min-h-0 flex-1">
       <SideNav view={view} onChange={setView} />

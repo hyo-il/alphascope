@@ -1,5 +1,5 @@
 import type { Candle, Timeframe } from '../src/types/toss';
-import { fetchCandles } from '../src/services/toss/market';
+import { fetchCandles, fetchCandlesBefore } from '../src/services/toss/market';
 import { aggregateCandles, resolveTimeframe } from '../src/utils/candleAggregator';
 import { latestCandleTimestamp, loadCandles, saveCandles } from './db';
 import { isMockMode, mockCandles } from './mockData';
@@ -42,4 +42,30 @@ export async function getCandles(
   const rows = loadCandles(symbol, base, baseLimit);
   if (minutes > 1) return aggregateCandles(rows, minutes).slice(-limit);
   return rows.slice(-limit);
+}
+
+/**
+ * 지정 시각 이전의 과거 캔들 (차트를 왼쪽으로 스크롤할 때 이어 받는다).
+ *
+ * 토스는 일봉을 1990년까지(약 9,200봉) 보유하지만 1분봉은 3일치뿐이다.
+ * 더 없으면 빈 배열이 오고, 호출부는 그걸로 "끝"을 판단한다.
+ */
+export async function getCandlesBefore(
+  symbol: string,
+  timeframe: Timeframe,
+  beforeMs: number,
+  limit: number,
+): Promise<Candle[]> {
+  const { base, minutes } = resolveTimeframe(timeframe);
+  const baseLimit = minutes > 1 ? limit * minutes : limit;
+
+  if (isMockMode()) {
+    // 모의 모드에서는 과거를 무한히 만들지 않는다.
+    return [];
+  }
+
+  const fresh = await fetchCandlesBefore(symbol, base, beforeMs, baseLimit);
+  if (fresh.length) saveCandles(symbol, base, fresh);
+
+  return minutes > 1 ? aggregateCandles(fresh, minutes) : fresh;
 }

@@ -3,8 +3,12 @@ export interface MarketIndex {
   symbol: string;
   label: string;
   price: number | null;
+  /** 전일 대비 변동폭 */
+  change?: number | null;
   /** 전일 대비 등락률 (%) */
   changeRate: number | null;
+  /** 미니 차트용 최근 종가 (약 30 거래일) */
+  sparkline?: number[];
 }
 
 /** 분석 모드 — 프롬프트 형태와 필요한 데이터가 달라진다. */

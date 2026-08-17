@@ -7,6 +7,7 @@ indicators.py 의 Flask 앱에 라우트로 등록된다 (프로세스는 하나
 from __future__ import annotations
 
 import math
+import time
 from typing import Any
 
 import yfinance as yf
@@ -142,33 +143,69 @@ def get_peers(symbols: list[str]) -> list[dict]:
     return peers
 
 
-# 시황 바에 표시할 지수 — 토스 API 는 국내 지수만 주고 등락률이 없어서 yfinance 로 통일한다.
+# 시황 카드에 표시할 지수 — 토스 market-indicators 는 국내 지수·채권만 제공하고
+# 등락률도 없어서, 지수는 yfinance 로 통일한다 (환율만 토스 실시간).
 MARKET_INDICES = [
-    ("^KS11", "코스피"),
-    ("^KQ11", "코스닥"),
     ("^IXIC", "나스닥"),
     ("^GSPC", "S&P 500"),
+    ("^DJI", "다우존스"),
+    ("^VIX", "VIX 공포지수"),
+    ("^KS11", "코스피"),
+    ("^KQ11", "코스닥"),
 ]
 
+# yfinance 를 30초마다 6종목씩 치면 차단될 수 있다. 서버에서 캐시하고 주기를 늘린다.
+_overview_cache: dict = {"at": 0.0, "rows": []}
+_OVERVIEW_TTL_SEC = 60
 
-def get_market_overview() -> list[dict]:
-    """주요 지수의 현재가와 전일 대비 등락률."""
+
+def get_market_overview(force: bool = False) -> list[dict]:
+    """주요 지수의 현재가·등락률·스파크라인(최근 30 거래일 종가)."""
+    now = time.time()
+    if not force and _overview_cache["rows"] and now - _overview_cache["at"] < _OVERVIEW_TTL_SEC:
+        return _overview_cache["rows"]
+
     rows = []
     for symbol, label in MARKET_INDICES:
+        price = previous = None
+        sparkline: list[float] = []
+
         try:
-            # FastInfo 의 키는 카멜케이스다 (last_price 가 아니라 lastPrice)
-            info = yf.Ticker(symbol).fast_info
+            ticker = yf.Ticker(symbol)
+            # FastInfo 의 키는 카멜케이스다 (last_price 가 아니라 lastPrice).
+            info = ticker.fast_info
             price = clean(info.get("lastPrice"))
             previous = clean(info.get("previousClose"))
-        except Exception:  # noqa: BLE001 - 하나가 실패해도 나머지는 보여 준다
-            price = previous = None
 
+            history = ticker.history(period="2mo", interval="1d")
+            if history is not None and not history.empty:
+                closes = [clean(v) for v in history["Close"].tail(30)]
+                sparkline = [v for v in closes if v is not None]
+                # fast_info 가 비어 있으면 종가로 대신한다.
+                if price is None and sparkline:
+                    price = sparkline[-1]
+                if previous is None and len(sparkline) >= 2:
+                    previous = sparkline[-2]
+        except Exception:  # noqa: BLE001 - 하나가 실패해도 나머지는 보여 준다
+            pass
+
+        change = round(price - previous, 4) if price is not None and previous is not None else None
         change_rate = (
             round((price - previous) / previous * 100, 2)
             if price is not None and previous
             else None
         )
+
         rows.append(
-            {"symbol": symbol, "label": label, "price": price, "changeRate": change_rate}
+            {
+                "symbol": symbol,
+                "label": label,
+                "price": price,
+                "change": change,
+                "changeRate": change_rate,
+                "sparkline": sparkline,
+            }
         )
+
+    _overview_cache.update({"at": now, "rows": rows})
     return rows

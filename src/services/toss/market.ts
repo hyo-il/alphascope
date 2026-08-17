@@ -68,6 +68,33 @@ async function fetchCandlePage(
 }
 
 /**
+ * 지정한 시각 **이전**의 과거 캔들만 가져온다 (차트를 과거로 스크롤할 때).
+ * 더 이상 데이터가 없으면 빈 배열을 돌려준다.
+ */
+export async function fetchCandlesBefore(
+  symbol: string,
+  timeframe: BaseTimeframe,
+  beforeMs: number,
+  limit = 200,
+): Promise<Candle[]> {
+  const collected: Candle[] = [];
+  let before = new Date(beforeMs).toISOString();
+
+  while (collected.length < limit) {
+    const remaining = Math.min(MAX_COUNT_PER_REQUEST, limit - collected.length);
+    const page = await fetchCandlePage(symbol, timeframe, remaining, before);
+
+    if (!page.candles.length) break;
+    collected.push(...page.candles);
+
+    if (!page.nextBefore) break;
+    before = page.nextBefore;
+  }
+
+  return collected.sort((a, b) => a.timestamp - b.timestamp);
+}
+
+/**
  * 캔들 조회.
  *
  * - 토스가 지원하는 주기는 1m 과 1d 뿐이다 (그 외는 400).
