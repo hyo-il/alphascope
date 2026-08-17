@@ -68,32 +68,43 @@ export default function WatchPanel({
   // 보이는 목록만 폴링한다 (Rate Limit 고려).
   const quotes = useQuotes(collapsed ? [] : symbols);
 
-  // 접힌 상태 — 아이콘과 개수로 무엇이 들어 있는지 알 수 있게 한다.
+  // 접힌 상태 — 눈에 띄는 세로 탭. 세로 텍스트로 정체가 바로 드러난다.
   if (collapsed) {
     return (
       <button
         type="button"
         onClick={onToggleCollapse}
-        title="관심 목록 · 최근 조회 펼치기"
-        className="group flex w-11 shrink-0 flex-col items-center gap-3 border-l border-border bg-bg-secondary py-3 transition-colors hover:bg-bg-tertiary/50"
+        title="관심 목록 열기"
+        className="group flex w-9 shrink-0 flex-col items-center gap-2 border-l border-border bg-bg-secondary py-3 transition-colors hover:bg-bg-tertiary"
       >
-        <span className="text-text-muted transition-colors group-hover:text-text-primary">‹</span>
+        <span className="flex h-6 w-6 items-center justify-center rounded text-base text-text-secondary transition-colors group-hover:bg-bg-tertiary group-hover:text-text-primary">
+          ‹
+        </span>
 
-        <span className="flex flex-col items-center gap-1 text-warning">
-          <StarIcon className="h-4 w-4" />
+        <span className="flex flex-col items-center gap-0.5 text-warning">
+          <StarIcon className="h-5 w-5" />
           <span className="text-[10px] tabular-nums text-text-secondary">{watchlist.length}</span>
         </span>
 
-        <span className="flex flex-col items-center gap-1 text-text-muted">
-          <ClockIcon className="h-4 w-4" />
+        <span
+          className="text-[11px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
+          style={{ writingMode: 'vertical-rl' }}
+        >
+          관심
+        </span>
+
+        <span className="my-0.5 h-px w-4 bg-border" />
+
+        <span className="flex flex-col items-center gap-0.5 text-text-muted">
+          <ClockIcon className="h-5 w-5" />
           <span className="text-[10px] tabular-nums text-text-secondary">{recent.length}</span>
         </span>
 
         <span
-          className="mt-1 text-[10px] leading-tight text-text-muted"
+          className="text-[11px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
           style={{ writingMode: 'vertical-rl' }}
         >
-          관심 · 최근
+          최근
         </span>
       </button>
     );

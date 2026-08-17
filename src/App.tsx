@@ -9,6 +9,7 @@ import { type DrawingToolType } from './components/chart/DrawingTools';
 import OrderbookPanel from './components/chart/OrderbookPanel';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import SymbolSearch from './components/common/SymbolSearch';
+import MarketTicker from './components/layout/MarketTicker';
 import SideNav, { type ViewId } from './components/layout/SideNav';
 import WatchPanel from './components/layout/WatchPanel';
 import Settings from './components/layout/Settings';
@@ -17,9 +18,10 @@ import { useOrderbook } from './hooks/useOrderbook';
 import { useIndicators } from './hooks/useIndicators';
 import { useRealtimePrice } from './hooks/useRealtimePrice';
 import { useRecentSymbols, useWatchlist } from './hooks/useWatchlist';
+import { useStockInfo } from './hooks/useStockInfo';
 import { DEFAULT_TOGGLES, type IndicatorToggles } from './types/chart';
 import { useAppStore } from './store/appStore';
-import { changeColor, formatPercent, formatUsd } from './utils/formatters';
+import { changeColor, currencyOf, formatPercent, formatPrice } from './utils/formatters';
 
 export default function App() {
   const { symbol, timeframe, isMock, setSymbol, setTimeframe } = useAppStore();
@@ -38,6 +40,8 @@ export default function App() {
 
   const { watchlist, add, remove, toggle } = useWatchlist();
   const { recent, remove: removeRecent } = useRecentSymbols(symbol);
+  const stockInfo = useStockInfo(symbol);
+  const currency = currencyOf(stockInfo?.market);
 
   // 거래량은 캔들만으로 그리므로 지표 엔진 호출 대상에서 제외한다.
   const needsEngine =
@@ -102,7 +106,6 @@ export default function App() {
               livePrice={livePrice}
               activeTool={activeTool}
               onDrawingCountChange={setDrawingCount}
-              onToolConsumed={() => setActiveTool(null)}
               indicators={indicators}
               toggles={toggles}
             />
@@ -113,12 +116,13 @@ export default function App() {
           orderbook={orderbook}
           currentPrice={displayPrice}
           previousClose={previousClose}
+          currency={currency}
         />
       </div>
 
       <footer className="shrink-0 border-t border-border px-3 py-1.5 text-[11px] text-text-muted">
         {activeTool
-          ? '클릭/드래그해 그리기 · Esc: 해제 · 우클릭 또는 ✕: 삭제'
+          ? '클릭/드래그해 그리기 · 같은 도구로 계속 그릴 수 있습니다 · Esc: 해제 · 우클릭 또는 ✕: 삭제'
           : '휠: 커서 기준 확대/축소 · 드래그: 좌우 이동 · 드로잉 우클릭: 삭제'}
       </footer>
     </>
@@ -160,7 +164,10 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-full bg-bg-primary">
+    <div className="flex h-full flex-col bg-bg-primary">
+      <MarketTicker />
+
+      <div className="flex min-h-0 flex-1">
       <SideNav view={view} onChange={setView} />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -180,11 +187,19 @@ export default function App() {
           </button>
 
           <span className="text-base font-semibold">{symbol}</span>
-          <span className="text-lg font-bold tabular-nums">{formatUsd(displayPrice)}</span>
+          {stockInfo?.name && (
+            <span className="text-sm text-text-secondary">{stockInfo.name}</span>
+          )}
+          <span className="text-lg font-bold tabular-nums">
+            {formatPrice(displayPrice, currency)}
+          </span>
           {livePrice && (
             <span className={`text-xs tabular-nums ${changeColor(livePrice.change)}`}>
               {livePrice.change > 0 ? '+' : ''}
-              {livePrice.change.toFixed(2)} ({formatPercent(livePrice.changeRate)})
+              {currency === 'KRW'
+                ? Math.round(livePrice.change).toLocaleString('ko-KR')
+                : livePrice.change.toFixed(2)}{' '}
+              ({formatPercent(livePrice.changeRate)})
             </span>
           )}
 
@@ -209,6 +224,7 @@ export default function App() {
         collapsed={panelCollapsed}
         onToggleCollapse={() => setPanelCollapsed((v) => !v)}
       />
+      </div>
     </div>
   );
 }

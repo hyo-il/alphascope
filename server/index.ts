@@ -8,6 +8,7 @@ import { getFundamentals, getPeers } from './companyService';
 import { getCandles } from './candleService';
 import { summarizeSymbols } from './summaryService';
 import { fetchQuotes } from './quoteService';
+import { catalogSize, findStock, refreshCatalog, searchStocks } from './stockCatalog';
 import { deleteAnalysis, getDb, loadAnalyses, loadCandles, saveAnalysis } from './db';
 import { isMockMode, mockOrderbook, mockPrice } from './mockData';
 import { computeIndicators, IndicatorEngineError, indicatorEngineHealthy } from './indicatorService';
@@ -176,6 +177,51 @@ app.get('/api/exchange-rate', async (req, res) => {
   }
 });
 
+app.get('/api/stocks/info', (req, res) => {
+  const symbol = String(req.query.symbol ?? '').toUpperCase();
+  if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
+  try {
+    res.json({ stock: findStock(symbol) });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/stocks/search', (req, res) => {
+  const query = String(req.query.q ?? '');
+  try {
+    res.json({ results: searchStocks(query), catalogSize: catalogSize() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.post('/api/stocks/refresh', async (_req, res) => {
+  try {
+    res.json({ count: await refreshCatalog(true) });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/market-overview', async (_req, res) => {
+  const url = `${process.env.INDICATORS_URL ?? `http://127.0.0.1:${process.env.INDICATORS_PORT ?? 5001}`}/market-overview`;
+
+  // 지수와 환율은 서로 다른 소스라, 하나가 실패해도 나머지는 내려 준다.
+  const [indices, rate] = await Promise.all([
+    fetch(url, { signal: AbortSignal.timeout(15_000) })
+      .then((r) => r.json() as Promise<{ indices?: unknown[] }>)
+      .then((body) => body.indices ?? [])
+      .catch(() => []),
+    (isMockMode()
+      ? Promise.resolve({ baseCurrency: 'USD', quoteCurrency: 'KRW', rate: 1380, fetchedAt: Date.now() })
+      : fetchExchangeRate()
+    ).catch(() => null),
+  ]);
+
+  res.json({ indices, rate });
+});
+
 app.get('/api/quotes', async (req, res) => {
   const symbols = String(req.query.symbols ?? '')
     .split(',')
@@ -254,6 +300,14 @@ app.delete('/api/analysis/:id', (req, res) => {
 
 const port = Number(process.env.API_PORT ?? 4000);
 getDb(); // 시작 시 스키마 생성
+
 app.listen(port, () => {
   console.log(`[alphascope] API 서버 http://localhost:${port}`);
+
+  // 종목 카탈로그는 하루 한 번이면 충분하다. 기동을 막지 않도록 뒤에서 채운다.
+  if (!isMockMode()) {
+    void refreshCatalog()
+      .then((count) => console.log(`[alphascope] 종목 카탈로그 ${count.toLocaleString()}건 준비됨`))
+      .catch((e) => console.error('[alphascope] 종목 카탈로그 준비 실패:', e));
+  }
 });

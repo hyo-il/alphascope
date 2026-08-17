@@ -27,6 +27,14 @@ export interface Price {
   fetchedAt: number;
 }
 
+/** 종목 검색 결과 (전종목 카탈로그) */
+export interface StockSearchResult {
+  symbol: string;
+  name: string;
+  englishName: string | null;
+  market: string;
+}
+
 /** 관심 목록·최근 조회용 경량 시세 */
 export interface Quote {
   symbol: string;

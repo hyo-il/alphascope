@@ -1,3 +1,12 @@
+/** 시황 바에 표시하는 주요 지수 */
+export interface MarketIndex {
+  symbol: string;
+  label: string;
+  price: number | null;
+  /** 전일 대비 등락률 (%) */
+  changeRate: number | null;
+}
+
 /** 분석 모드 — 프롬프트 형태와 필요한 데이터가 달라진다. */
 export type AnalysisMode = 'quick' | 'multi' | 'portfolio' | 'compare';
 

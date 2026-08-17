@@ -25,13 +25,17 @@ import {
 } from '../../types/chart';
 import type { DrawingToolType } from './DrawingTools';
 
+/** index.css 의 @theme 토큰과 같은 값을 유지한다 (차트는 JS 로 색을 받는다). */
 const COLORS = {
-  background: '#0D0D1A',
-  grid: '#1E1E35',
-  text: '#9898B0',
-  border: '#2A2A45',
+  background: '#141414',
+  grid: '#222222',
+  text: '#999999',
+  border: '#333333',
   bullish: '#26A69A',
   bearish: '#EF5350',
+  accent: '#3182F6',
+  label: '#E0E0E0',
+  tooltipBg: '#1E1E1EE6',
 };
 
 const INDICATOR_COLORS = {
@@ -39,7 +43,7 @@ const INDICATOR_COLORS = {
   ema26: '#EC7063',
   bb: '#7F8C9A',
   vwap: '#F7DC6F',
-  rsi: '#818CF8',
+  rsi: '#5B8DEF',
   macd: '#5DADE2',
   macdSignal: '#F5B041',
   stochK: '#58D68D',
@@ -60,7 +64,6 @@ interface Props {
   livePrice: Price | null;
   activeTool?: DrawingToolType;
   onDrawingCountChange?: (count: number) => void;
-  onToolConsumed?: () => void;
   indicators?: IndicatorSeries | null;
   toggles?: IndicatorToggles;
 }
@@ -108,7 +111,6 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     livePrice,
     activeTool = null,
     onDrawingCountChange,
-    onToolConsumed,
     indicators = null,
     toggles,
   },
@@ -122,6 +124,9 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
   const indicatorSeriesRef = useRef<ISeriesApi<'Line' | 'Histogram'>[]>([]);
   /** 범례에서 값을 읽기 위해 MA 시리즈를 따로 보관한다 */
   const maSeriesRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
+  /** 크로스헤어 콜백에서 최신 캔들을 읽기 위한 참조 (effect 는 한 번만 돌기 때문) */
+  const candlesRef = useRef<Candle[]>(candles);
+  candlesRef.current = candles;
 
   const [hover, setHover] = useState<HoverInfo | null>(null);
   const [measure, setMeasure] = useState<MeasurePreview | null>(null);
@@ -132,8 +137,6 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
 
   const countCallbackRef = useRef(onDrawingCountChange);
   countCallbackRef.current = onDrawingCountChange;
-  const onToolConsumedRef = useRef(onToolConsumed);
-  onToolConsumedRef.current = onToolConsumed;
 
   useImperativeHandle(ref, () => ({
     clearDrawings: () => {
@@ -168,8 +171,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       timeScale: { borderColor: COLORS.border, timeVisible: true, secondsVisible: false },
       crosshair: {
         mode: 0,
-        vertLine: { color: COLORS.border, labelBackgroundColor: '#252540' },
-        horzLine: { color: COLORS.border, labelBackgroundColor: '#252540' },
+        vertLine: { color: COLORS.border, labelBackgroundColor: '#2A2A2A' },
+        horzLine: { color: COLORS.border, labelBackgroundColor: '#2A2A2A' },
       },
       // 휠 줌은 마우스 위치 기준으로 직접 구현한다 (수정 2).
       handleScroll: { pressedMouseMove: false, mouseWheel: false, horzTouchDrag: true },
@@ -231,13 +234,17 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
         ma[key] = point?.value ?? null;
       }
 
+      // 거래량은 캔들 배열에서 같은 시각을 찾아 채운다.
+      const timeMs = (param.time as number) * 1000;
+      const matched = candlesRef.current.find((c) => c.timestamp === timeMs);
+
       setHover({
-        time: (param.time as number) * 1000,
+        time: timeMs,
         open: candleData.open,
         high: candleData.high,
         low: candleData.low,
         close: candleData.close,
-        volume: 0,
+        volume: matched?.volume ?? 0,
         ma,
       });
     });
@@ -286,7 +293,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
 
       const isMeasure = type === 'date-price-range';
       const isUp = anchors.length > 1 && anchors[1].price >= anchors[0].price;
-      const color = isMeasure ? (isUp ? COLORS.bullish : COLORS.bearish) : '#6366F1';
+      const color = isMeasure ? (isUp ? COLORS.bullish : COLORS.bearish) : COLORS.accent;
 
       const drawing = registry.createDrawing(
         type,
@@ -298,7 +305,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
           fillColor: color,
           fillOpacity: 0.15,
           showLabels: true,
-          labelColor: '#E8E8F0',
+          labelColor: COLORS.label,
         },
         isMeasure
           ? ({ filled: true, showPercentage: true, showPrices: true } as DrawingOptions)
@@ -326,7 +333,6 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
 
         if (required <= 1) {
           createDrawing(tool, [anchor]);
-          onToolConsumedRef.current?.();
         } else {
           const rect = container.getBoundingClientRect();
           drawStart = anchor;
@@ -399,7 +405,6 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       if (!end || (end.time === start.time && end.price === start.price)) return;
 
       createDrawing(tool, [start, end]);
-      onToolConsumedRef.current?.();
     };
 
     const stopDrag = () => {
@@ -475,7 +480,16 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       if (!line?.length || !indicators) return;
       const series = chart.addSeries(
         LineSeries,
-        { color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: options.title },
+        {
+          color,
+          lineWidth: 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          // 스크롤할 때 선 위에 점이 찍히면 시선을 뺏고 값 판독을 방해한다.
+          crosshairMarkerVisible: false,
+          pointMarkersVisible: false,
+          title: options.title,
+        },
         options.paneIndex ?? 0,
       );
       series.setData(
@@ -624,7 +638,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       {/* 좌상단 레전드 — OHLCV + 이동평균 (수정 6-A) */}
       {legend && (
         <div className="pointer-events-none absolute left-3 top-2 z-10 flex flex-col gap-0.5">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md bg-bg-secondary/80 px-2.5 py-1 text-[11px] backdrop-blur-sm">
+          {/* 캔들 OHLC — 종가는 시가 대비 등락 색으로 표시한다 */}
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 rounded-md bg-bg-secondary/85 px-2.5 py-1 text-[11px] backdrop-blur-sm">
             <span className="text-text-muted">
               {new Date(legend.time).toLocaleString('ko-KR', {
                 year: '2-digit',
@@ -634,27 +649,43 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
                 minute: '2-digit',
               })}
             </span>
-            <span>
-              시 <span className="text-text-primary">{legend.open}</span>
+            <span className="text-text-muted">
+              시 <span className="tabular-nums text-text-primary">{legend.open.toFixed(2)}</span>
             </span>
-            <span>
-              고 <span className="text-bullish">{legend.high}</span>
+            <span className="text-text-muted">
+              고 <span className="tabular-nums text-bullish">{legend.high.toFixed(2)}</span>
             </span>
-            <span>
-              저 <span className="text-bearish">{legend.low}</span>
+            <span className="text-text-muted">
+              저 <span className="tabular-nums text-bearish">{legend.low.toFixed(2)}</span>
             </span>
-            <span>
-              종 <span className="text-text-primary">{legend.close}</span>
+            <span className="text-text-muted">
+              종{' '}
+              <span
+                className={`font-medium tabular-nums ${
+                  legend.close >= legend.open ? 'text-bullish' : 'text-bearish'
+                }`}
+              >
+                {legend.close.toFixed(2)}
+              </span>
+            </span>
+            <span className="text-text-muted">
+              거래량{' '}
+              <span className="tabular-nums text-text-secondary">
+                {legend.volume > 0
+                  ? Intl.NumberFormat('ko-KR', { notation: 'compact' }).format(legend.volume)
+                  : '—'}
+              </span>
             </span>
           </div>
 
           {toggles && MA_LINES.some((ma) => toggles.overlays[ma.key]) && (
-            <div className="flex flex-wrap gap-x-3 rounded-md bg-bg-secondary/80 px-2.5 py-1 text-[11px] backdrop-blur-sm">
+            <div className="flex flex-wrap gap-x-3 rounded-md bg-bg-secondary/85 px-2.5 py-1 text-[11px] backdrop-blur-sm">
               {MA_LINES.filter((ma) => toggles.overlays[ma.key]).map((ma) => {
                 const value = legend.ma?.[ma.label];
                 return (
                   <span key={ma.key} style={{ color: ma.color }}>
-                    {ma.label} {value != null ? value.toFixed(2) : '—'}
+                    {ma.label}{' '}
+                    <span className="tabular-nums">{value != null ? value.toFixed(2) : '—'}</span>
                   </span>
                 );
               })}
@@ -679,7 +710,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
           <div
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded px-2 py-1 text-center text-[11px] font-medium tabular-nums"
             style={{
-              backgroundColor: '#1A1A2ECC',
+              backgroundColor: COLORS.tooltipBg,
               color: measureInfo.isUp ? COLORS.bullish : COLORS.bearish,
             }}
           >

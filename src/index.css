@@ -1,19 +1,24 @@
 @import 'tailwindcss';
 
+/**
+ * 색 팔레트 — 토스증권 WTS 다크 테마 계열.
+ * 배경은 무채색(검정~회색)으로 두고, 색은 등락(초록/빨강)과 액센트에만 쓴다.
+ * 배경에서 색을 빼야 캔들과 수치가 저절로 강조된다.
+ */
 @theme {
-  --color-bg-primary: #0d0d1a;
-  --color-bg-secondary: #1a1a2e;
-  --color-bg-tertiary: #252540;
-  --color-text-primary: #e8e8f0;
-  --color-text-secondary: #9898b0;
-  --color-text-muted: #5a5a70;
-  --color-accent: #6366f1;
-  --color-accent-hover: #818cf8;
+  --color-bg-primary: #141414;
+  --color-bg-secondary: #1e1e1e;
+  --color-bg-tertiary: #2a2a2a;
+  --color-text-primary: #e0e0e0;
+  --color-text-secondary: #999999;
+  --color-text-muted: #666666;
+  --color-accent: #3182f6; /* 토스 블루 */
+  --color-accent-hover: #4b93f8;
   --color-bullish: #26a69a;
   --color-bearish: #ef5350;
   --color-warning: #ffa726;
-  --color-border: #2a2a45;
-  --color-chart-grid: #1e1e35;
+  --color-border: #333333;
+  --color-chart-grid: #222222;
 }
 
 html,

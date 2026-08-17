@@ -117,13 +117,15 @@ export default function ManualAnalysis({
   const includeImage = mode === 'quick' || mode === 'multi';
 
   return (
-    <div className="flex h-full gap-4 overflow-hidden p-4">
-      <div className="flex w-80 shrink-0 flex-col gap-2 overflow-y-auto pr-1">
-        <ModeSelector
-          mode={mode}
-          onChange={setMode}
-          portfolioAvailable={Boolean(portfolio?.holdings.length)}
-        />
+    <div className="flex h-full justify-center gap-6 overflow-hidden p-6">
+      <div className="flex w-80 shrink-0 flex-col gap-6 overflow-y-auto pr-1">
+        <section className="space-y-3">
+          <h3 className="text-xs font-medium text-text-secondary">분석 모드</h3>
+          <ModeSelector
+            mode={mode}
+            onChange={setMode}
+            portfolioAvailable={Boolean(portfolio?.holdings.length)}
+          />
 
         {mode === 'multi' && (
           <label className="flex items-center gap-2 px-1 text-xs text-text-secondary">
@@ -144,6 +146,7 @@ export default function ManualAnalysis({
             onChange={setCompareSymbols}
           />
         )}
+        </section>
 
         <CopySteps
           symbol={symbol}
@@ -153,9 +156,9 @@ export default function ManualAnalysis({
           includeImage={includeImage}
         />
 
-        <div className="rounded-md border border-border/60 px-3 py-2 text-[11px] leading-relaxed text-text-muted">
-          <p className="font-medium text-text-secondary">포함된 데이터</p>
-          <ul className="mt-1 space-y-0.5">
+        <section className="space-y-3">
+          <h3 className="text-xs font-medium text-text-secondary">포함된 데이터</h3>
+          <ul className="space-y-1 rounded-md border border-border/60 px-3 py-2.5 text-[11px] leading-relaxed text-text-muted">
             {includeImage && <li>· 차트 이미지 (Step 1로 복사)</li>}
             {mode === 'quick' && <li>· RSI · MACD · MA · 볼린저 · ATR · 스토캐스틱</li>}
             {mode === 'multi' && (
@@ -174,17 +177,18 @@ export default function ManualAnalysis({
             )}
             {mode === 'compare' && <li>· 종목 {summaryTargets.length}개 지표 + 밸류에이션</li>}
           </ul>
-          <p className="mt-2">
+          <p className="text-[11px] leading-relaxed text-text-muted">
             API 키 없이 Claude 구독 대화에서 사용합니다. AI 의견은 투자 조언이 아닙니다.
           </p>
-        </div>
+        </section>
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="mb-1.5 flex items-center justify-between text-xs">
-          <span className="text-text-muted">
-            생성된 프롬프트 {loading && <span className="ml-1">· 데이터 불러오는 중…</span>}
-          </span>
+      <div className="flex min-w-0 max-w-[760px] flex-1 flex-col gap-3">
+        <div className="flex items-center justify-between text-xs">
+          <h3 className="text-xs font-medium text-text-secondary">
+            생성된 프롬프트
+            {loading && <span className="ml-1.5 font-normal text-text-muted">· 불러오는 중…</span>}
+          </h3>
           <span className="flex items-center gap-2 text-text-muted">
             {prompt.length.toLocaleString('ko-KR')}자
             {edited !== null && (
@@ -206,7 +210,7 @@ export default function ManualAnalysis({
           value={prompt}
           onChange={(e) => setEdited(e.target.value)}
           spellCheck={false}
-          className="min-h-0 flex-1 resize-none rounded-md border border-border bg-bg-primary p-3 font-mono text-xs leading-relaxed text-text-secondary focus:border-accent focus:outline-none"
+          className="min-h-0 flex-1 resize-none rounded-md border border-border bg-bg-primary p-4 font-mono text-xs leading-relaxed text-text-secondary focus:border-accent focus:outline-none"
         />
       </div>
     </div>

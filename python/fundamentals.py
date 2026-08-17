@@ -140,3 +140,35 @@ def get_peers(symbols: list[str]) -> list[dict]:
             }
         )
     return peers
+
+
+# 시황 바에 표시할 지수 — 토스 API 는 국내 지수만 주고 등락률이 없어서 yfinance 로 통일한다.
+MARKET_INDICES = [
+    ("^KS11", "코스피"),
+    ("^KQ11", "코스닥"),
+    ("^IXIC", "나스닥"),
+    ("^GSPC", "S&P 500"),
+]
+
+
+def get_market_overview() -> list[dict]:
+    """주요 지수의 현재가와 전일 대비 등락률."""
+    rows = []
+    for symbol, label in MARKET_INDICES:
+        try:
+            # FastInfo 의 키는 카멜케이스다 (last_price 가 아니라 lastPrice)
+            info = yf.Ticker(symbol).fast_info
+            price = clean(info.get("lastPrice"))
+            previous = clean(info.get("previousClose"))
+        except Exception:  # noqa: BLE001 - 하나가 실패해도 나머지는 보여 준다
+            price = previous = None
+
+        change_rate = (
+            round((price - previous) / previous * 100, 2)
+            if price is not None and previous
+            else None
+        )
+        rows.append(
+            {"symbol": symbol, "label": label, "price": price, "changeRate": change_rate}
+        )
+    return rows

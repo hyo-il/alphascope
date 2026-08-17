@@ -92,7 +92,7 @@ export default function IndicatorDropdown({ toggles, onChange, loading }: Props)
           <p className="px-3 py-1 text-[10px] text-text-muted">차트 오버레이</p>
 
           {/* MA 는 상위 라벨 + 기간별 하위 항목으로 묶는다 */}
-          <div className="px-3 py-0.5 text-xs text-text-secondary">MA (이동평균선)</div>
+          <div className="px-3 py-0.5 text-xs text-text-secondary">이동평균선</div>
           {MA_LINES.map((line) =>
             row(
               toggles.overlays[line.key],

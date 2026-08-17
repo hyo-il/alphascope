@@ -53,10 +53,10 @@ export const MA_LINES: {
   series: keyof Pick<IndicatorSeries, 'sma5' | 'sma20' | 'sma60' | 'sma120'>;
   color: string;
 }[] = [
-  { key: 'ma5', label: 'MA5', series: 'sma5', color: '#F5B041' },
-  { key: 'ma20', label: 'MA20', series: 'sma20', color: '#5DADE2' },
-  { key: 'ma60', label: 'MA60', series: 'sma60', color: '#AF7AC5' },
-  { key: 'ma120', label: 'MA120', series: 'sma120', color: '#58D68D' },
+  { key: 'ma5', label: '5일선', series: 'sma5', color: '#F5B041' },
+  { key: 'ma20', label: '20일선', series: 'sma20', color: '#5DADE2' },
+  { key: 'ma60', label: '60일선', series: 'sma60', color: '#AF7AC5' },
+  { key: 'ma120', label: '120일선', series: 'sma120', color: '#58D68D' },
 ];
 
 /** 지표 드롭다운에 노출하는 항목 정의 */
@@ -65,7 +65,7 @@ export const OVERLAY_ITEMS: { key: OverlayIndicator; label: string; indent?: boo
   { key: 'ma20', label: '20일', indent: true },
   { key: 'ma60', label: '60일', indent: true },
   { key: 'ma120', label: '120일', indent: true },
-  { key: 'ema', label: 'EMA (12·26)' },
+  { key: 'ema', label: 'EMA 12·26' },
   { key: 'bb', label: '볼린저밴드' },
   { key: 'vwap', label: 'VWAP' },
 ];

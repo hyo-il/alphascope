@@ -10,7 +10,7 @@ import html2canvas from 'html2canvas';
 /** PNG data URL (`data:image/png;base64,...`) 반환 */
 export async function captureChartDataUrl(element: HTMLElement): Promise<string> {
   const canvas = await html2canvas(element, {
-    backgroundColor: '#0D0D1A',
+    backgroundColor: '#141414',
     scale: window.devicePixelRatio || 1,
     logging: false,
     useCORS: true,

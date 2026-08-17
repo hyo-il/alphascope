@@ -15,7 +15,7 @@ import pandas as pd
 import pandas_ta as ta
 from flask import Flask, jsonify, request
 
-from fundamentals import get_fundamentals, get_peers
+from fundamentals import get_fundamentals, get_market_overview, get_peers
 
 app = Flask(__name__)
 
@@ -104,6 +104,15 @@ def vwap(frame: pd.DataFrame) -> pd.Series:
 @app.get("/health")
 def health():
     return jsonify({"ok": True, "pandas_ta": ta.version})
+
+
+@app.get("/market-overview")
+def market_overview():
+    """시황 바용 주요 지수"""
+    try:
+        return jsonify({"indices": get_market_overview()})
+    except Exception as error:  # noqa: BLE001
+        return jsonify({"error": f"{type(error).__name__}: {error}"}), 500
 
 
 @app.get("/fundamentals")

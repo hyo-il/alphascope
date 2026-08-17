@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { Orderbook, OrderbookLevel } from '../../types/toss';
-import { formatCompact } from '../../utils/formatters';
+import { formatCompact, formatPrice } from '../../utils/formatters';
 
 interface Props {
   orderbook: Orderbook | null;
@@ -8,6 +8,8 @@ interface Props {
   currentPrice: number | null;
   /** 전일 종가 — 각 호가의 등락률 기준 */
   previousClose: number | null;
+  /** 원화 종목은 소수점을 쓰지 않는다 */
+  currency: 'KRW' | 'USD';
 }
 
 /** 호가 한 줄 — 매도는 왼쪽, 매수는 오른쪽으로 잔량 막대가 자란다 (토스 WTS 방식). */
@@ -17,12 +19,14 @@ function Row({
   side,
   previousClose,
   isBest,
+  currency,
 }: {
   level: OrderbookLevel;
   max: number;
   side: 'ask' | 'bid';
   previousClose: number | null;
   isBest: boolean;
+  currency: 'KRW' | 'USD';
 }) {
   const isAsk = side === 'ask';
   const ratio = Math.min(100, (level.quantity / max) * 100);
@@ -64,7 +68,9 @@ function Row({
       }`}
     >
       <span className={`block text-xs font-medium tabular-nums ${priceColor}`}>
-        {level.price.toFixed(2)}
+        {currency === 'KRW'
+          ? Math.round(level.price).toLocaleString('ko-KR')
+          : level.price.toFixed(2)}
       </span>
       {rate != null && (
         <span className={`block text-[10px] tabular-nums ${priceColor} opacity-70`}>
@@ -94,7 +100,12 @@ function Row({
   );
 }
 
-export default function OrderbookPanel({ orderbook, currentPrice, previousClose }: Props) {
+export default function OrderbookPanel({
+  orderbook,
+  currentPrice,
+  previousClose,
+  currency,
+}: Props) {
   const { asks, bids, maxQuantity, askTotal, bidTotal, spread } = useMemo(() => {
     // 매도는 현재가에서 먼 것이 위로 가도록 내림차순으로 뒤집는다.
     const askList = [...(orderbook?.asks ?? [])].sort((a, b) => b.price - a.price);
@@ -135,7 +146,9 @@ export default function OrderbookPanel({ orderbook, currentPrice, previousClose 
         <div className="flex flex-1 flex-col items-center justify-center gap-1 px-4 text-center">
           <p className="text-xs text-text-secondary">호가가 비어 있습니다</p>
           <p className="text-[11px] leading-relaxed text-text-muted">
-            미국장 정규 시간(한국시간 22:30~05:00)에 호가가 들어옵니다.
+            {currency === 'KRW'
+              ? '국내장 정규 시간(09:00~15:30)에 호가가 들어옵니다.'
+              : '미국장 정규 시간(한국시간 22:30~05:00)에 호가가 들어옵니다.'}
           </p>
         </div>
       ) : (
@@ -155,13 +168,14 @@ export default function OrderbookPanel({ orderbook, currentPrice, previousClose 
                 side="ask"
                 previousClose={previousClose}
                 isBest={index === asks.length - 1}
+                currency={currency}
               />
             ))}
 
             {/* 현재가 — 매도벽과 매수벽 사이 */}
             <div className="my-1 border-y border-border bg-bg-tertiary/70 px-3 py-1.5 text-center">
               <span className="block text-sm font-bold tabular-nums">
-                {currentPrice != null ? currentPrice.toFixed(2) : '—'}
+                {currentPrice != null ? formatPrice(currentPrice, currency).replace(/^[$₩]/, '') : '—'}
               </span>
               {changeRate != null && (
                 <span
@@ -183,6 +197,7 @@ export default function OrderbookPanel({ orderbook, currentPrice, previousClose 
                 side="bid"
                 previousClose={previousClose}
                 isBest={index === 0}
+                currency={currency}
               />
             ))}
           </div>
@@ -205,7 +220,7 @@ export default function OrderbookPanel({ orderbook, currentPrice, previousClose 
 
             {spread != null && (
               <p className="mt-1.5 text-center text-[10px] text-text-muted">
-                스프레드 {spread.toFixed(2)}
+                스프레드 {currency === 'KRW' ? Math.round(spread).toLocaleString('ko-KR') : spread.toFixed(2)}
               </p>
             )}
           </div>

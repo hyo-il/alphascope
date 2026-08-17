@@ -45,3 +45,14 @@ CREATE TABLE IF NOT EXISTS company_data (
   data TEXT NOT NULL,           -- JSON (yfinance 결과)
   updated_at TEXT NOT NULL      -- ISO 8601
 );
+
+-- 전종목 카탈로그 (한글 종목명 검색용)
+CREATE TABLE IF NOT EXISTS stock_catalog (
+  symbol TEXT PRIMARY KEY,
+  name TEXT NOT NULL,          -- 한글명 (예: 삼성전자)
+  english_name TEXT,           -- 영문명
+  market TEXT NOT NULL,        -- KOSPI | KOSDAQ | NASDAQ | NYSE | AMEX
+  updated_at TEXT NOT NULL     -- ISO 8601
+);
+
+CREATE INDEX IF NOT EXISTS idx_stock_catalog_name ON stock_catalog(name);
