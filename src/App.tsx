@@ -5,7 +5,7 @@ import CompanyInfo from './components/company/CompanyInfo';
 import Holdings from './components/portfolio/Holdings';
 import CandleChart, { type CandleChartHandle } from './components/chart/CandleChart';
 import ChartToolbar from './components/chart/ChartToolbar';
-import { type DrawingToolType } from './components/chart/DrawingTools';
+import { guideFor, type DrawingToolType } from './components/chart/DrawingTools';
 import OrderbookPanel from './components/chart/OrderbookPanel';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import SymbolSearch from './components/common/SymbolSearch';
@@ -109,6 +109,7 @@ export default function App() {
               livePrice={livePrice}
               activeTool={activeTool}
               onDrawingCountChange={setDrawingCount}
+              onToolConsumed={() => setActiveTool(null)}
               onReachPast={loadMore}
               indicators={indicators}
               toggles={toggles}
@@ -125,9 +126,14 @@ export default function App() {
       </div>
 
       <footer className="shrink-0 border-t border-border px-3 py-1.5 text-[11px] text-text-muted">
-        {activeTool
-          ? '클릭/드래그해 그리기 · 같은 도구로 계속 그릴 수 있습니다 · Esc: 해제 · 우클릭 또는 ✕: 삭제'
-          : '휠: 커서 기준 확대/축소 · 드래그: 좌우 이동 · 드로잉 우클릭: 삭제'}
+        {activeTool ? (
+          <>
+            <span className="text-accent">{guideFor(activeTool)}</span>
+            <span className="ml-2">· 하나 그리면 커서로 돌아옵니다 · Esc: 해제</span>
+          </>
+        ) : (
+          '휠: 커서 기준 확대/축소 · 드래그: 좌우 이동 · 드로잉 클릭 또는 우클릭: 삭제'
+        )}
         {loadingMore && <span className="ml-2 text-accent">과거 데이터 불러오는 중…</span>}
         {reachedEnd && candles.length > 0 && (
           <span className="ml-2">· 가장 오래된 데이터까지 표시 중</span>
@@ -167,7 +173,7 @@ export default function App() {
         return <Settings isMock={isMock} engineDown={engineDown} />;
       case 'chart':
       default:
-        return chartView;
+        return null; // 차트는 항상 마운트해 두고 아래에서 따로 배치한다.
     }
   };
 
@@ -218,7 +224,27 @@ export default function App() {
           )}
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col">{mainContent()}</div>
+        {/*
+          차트는 어느 화면에서도 언마운트하지 않는다.
+          AI 분석 화면의 '차트 이미지 복사'가 캡처할 대상이 필요하고,
+          화면을 오갈 때마다 차트를 다시 만드는 비용도 사라진다.
+          숨길 때는 display:none 대신 화면 밖으로 보낸다 — html2canvas 는
+          display:none 요소를 캡처하지 못한다.
+        */}
+        <div
+          className={
+            view === 'chart'
+              ? 'flex min-h-0 flex-1 flex-col'
+              : 'pointer-events-none fixed left-[-200vw] top-0 flex h-[640px] w-[960px] flex-col'
+          }
+          aria-hidden={view !== 'chart'}
+        >
+          {chartView}
+        </div>
+
+        {view !== 'chart' && (
+          <div className="flex min-h-0 flex-1 flex-col">{mainContent()}</div>
+        )}
       </div>
 
       <WatchPanel

@@ -7,9 +7,11 @@ interface Props {
   portfolioAvailable: boolean;
 }
 
+/** 분석 모드 카드 — 아이콘을 위, 이름을 아래에 두어 이름이 접히지 않게 한다. */
 export default function ModeSelector({ mode, onChange, portfolioAvailable }: Props) {
   return (
-    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+    // 좌측 패널 폭(320px)에 4개를 한 줄로 넣으면 카드가 잘린다. 2×2 로 배치한다.
+    <div className="grid grid-cols-2 gap-3">
       {ANALYSIS_MODES.map((item) => {
         const disabled = item.id === 'portfolio' && !portfolioAvailable;
         const active = mode === item.id;
@@ -21,19 +23,23 @@ export default function ModeSelector({ mode, onChange, portfolioAvailable }: Pro
             disabled={disabled}
             onClick={() => onChange(item.id)}
             title={disabled ? '보유 중인 종목이 없습니다' : item.description}
-            className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+            className={`flex flex-col items-center gap-1.5 rounded-lg border px-3 py-4 text-center transition-colors ${
               active
                 ? 'border-accent bg-accent/10'
                 : 'border-border bg-bg-tertiary/40 hover:border-text-muted'
             } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
           >
-            <div className="text-sm">
-              <span className="mr-1">{item.icon}</span>
-              <span className={active ? 'font-medium text-accent' : 'text-text-primary'}>
-                {item.label}
-              </span>
-            </div>
-            <div className="mt-0.5 text-[11px] text-text-muted">{item.description}</div>
+            <span className="text-2xl leading-none">{item.icon}</span>
+            <span
+              className={`text-sm font-semibold whitespace-nowrap ${
+                active ? 'text-accent' : 'text-text-primary'
+              }`}
+            >
+              {item.label}
+            </span>
+            <span className="text-[11px] leading-snug text-text-secondary">
+              {item.description}
+            </span>
           </button>
         );
       })}

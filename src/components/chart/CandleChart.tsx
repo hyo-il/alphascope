@@ -23,7 +23,7 @@ import {
   type IndicatorSeries,
   type IndicatorToggles,
 } from '../../types/chart';
-import type { DrawingToolType } from './DrawingTools';
+import { cursorFor, type DrawingToolType } from './DrawingTools';
 
 /** index.css 의 @theme 토큰과 같은 값을 유지한다 (차트는 JS 로 색을 받는다). */
 const COLORS = {
@@ -64,6 +64,11 @@ interface Props {
   livePrice: Price | null;
   activeTool?: DrawingToolType;
   onDrawingCountChange?: (count: number) => void;
+  /**
+   * 하나 그리고 나면 호출 — 툴바를 커서 모드로 되돌린다.
+   * 도구를 계속 쥐고 있으면 그린 선을 지우려고 클릭했을 때 새 선이 그려진다.
+   */
+  onToolConsumed?: () => void;
   /** 차트를 과거로 스크롤했을 때 이어 받기 */
   onReachPast?: () => void;
   indicators?: IndicatorSeries | null;
@@ -113,6 +118,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     livePrice,
     activeTool = null,
     onDrawingCountChange,
+    onToolConsumed,
     onReachPast,
     indicators = null,
     toggles,
@@ -144,6 +150,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
   countCallbackRef.current = onDrawingCountChange;
   const onReachPastRef = useRef(onReachPast);
   onReachPastRef.current = onReachPast;
+  const onToolConsumedRef = useRef(onToolConsumed);
+  onToolConsumedRef.current = onToolConsumed;
 
   useImperativeHandle(ref, () => ({
     clearDrawings: () => {
@@ -347,6 +355,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
 
         if (required <= 1) {
           createDrawing(tool, [anchor]);
+          onToolConsumedRef.current?.();
         } else {
           const rect = container.getBoundingClientRect();
           drawStart = anchor;
@@ -419,6 +428,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       if (!end || (end.time === start.time && end.price === start.price)) return;
 
       createDrawing(tool, [start, end]);
+      onToolConsumedRef.current?.();
     };
 
     const stopDrag = () => {
@@ -813,10 +823,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
         </div>
       )}
 
-      <div
-        ref={containerRef}
-        className={`h-full w-full ${activeTool ? 'cursor-crosshair' : 'cursor-default'}`}
-      />
+      <div ref={containerRef} className="h-full w-full" style={{ cursor: cursorFor(activeTool) }} />
     </div>
   );
 });

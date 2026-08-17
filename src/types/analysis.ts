@@ -14,16 +14,17 @@ export interface MarketIndex {
 /** 분석 모드 — 프롬프트 형태와 필요한 데이터가 달라진다. */
 export type AnalysisMode = 'quick' | 'multi' | 'portfolio' | 'compare';
 
+/** 라벨은 5글자 이내로 둔다 — 길면 카드 안에서 개행돼 읽기 나빠진다. */
 export const ANALYSIS_MODES: {
   id: AnalysisMode;
   icon: string;
   label: string;
   description: string;
 }[] = [
-  { id: 'quick', icon: '⚡', label: '빠른 분석', description: '간단 요약' },
-  { id: 'multi', icon: '🧠', label: '멀티 에이전트', description: '5명 전문가' },
-  { id: 'portfolio', icon: '💼', label: '보유 주식 분석', description: '포트폴리오' },
-  { id: 'compare', icon: '🔄', label: '종목 비교', description: '2~3종목' },
+  { id: 'quick', icon: '⚡', label: '간단 분석', description: '핵심 지표만 빠르게' },
+  { id: 'multi', icon: '🧠', label: '전문가 분석', description: '5명 AI 전문가 다각도' },
+  { id: 'portfolio', icon: '💼', label: '포트폴리오', description: '보유종목 전체 진단' },
+  { id: 'compare', icon: '🔄', label: '비교 분석', description: '2~3 종목 나란히' },
 ];
 
 /** 여러 종목을 한 번에 분석할 때 쓰는 종목별 요약 (서버 `/api/summary`) */
