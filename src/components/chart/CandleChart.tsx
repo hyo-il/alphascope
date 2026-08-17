@@ -240,6 +240,13 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     drawingsRef.current = drawings;
 
     const reportCount = () => countCallbackRef.current?.(drawings.getAllDrawings().length);
+
+    /**
+     * 마지막으로 누른 지점. 삭제 버튼을 여기에 띄운다 —
+     * 자 도구처럼 넓은 도형은 첫 앵커가 멀리 있어서, 누른 자리에 버튼이 뜨는 편이 훨씬 가깝다.
+     */
+    let lastPointer: { x: number; y: number } | null = null;
+
     const unsubscribers = [
       ...(['drawing:added', 'drawing:removed', 'drawing:cleared'] as const).map((event) =>
         drawings.on(event, reportCount),
@@ -247,7 +254,12 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       // 선택되면 첫 앵커 근처에 ✕ 버튼을 띄운다 (수정 3-B).
       drawings.on('drawing:selected', () => {
         const selected = drawings.getSelectedDrawing();
-        setSelectedAnchor(selected ? anchorToScreen(selected) : null);
+        if (!selected) return setSelectedAnchor(null);
+        setSelectedAnchor(
+          lastPointer
+            ? { x: lastPointer.x, y: lastPointer.y, id: selected.id }
+            : anchorToScreen(selected),
+        );
       }),
       drawings.on('drawing:deselected', () => setSelectedAnchor(null)),
     ];
@@ -400,6 +412,9 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     const onMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return; // 우클릭은 컨텍스트 메뉴가 처리
       setMenu(null);
+
+      const rect0 = container.getBoundingClientRect();
+      lastPointer = { x: e.clientX - rect0.left, y: e.clientY - rect0.top };
 
       const tool = drawings.getActiveTool();
       if (tool) {
@@ -911,11 +926,11 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
             drawingsRef.current?.removeDrawing(selectedAnchor.id);
             setSelectedAnchor(null);
           }}
-          title="이 드로잉 삭제"
-          className="absolute z-20 flex h-5 w-5 items-center justify-center rounded-full bg-bearish text-[11px] font-bold text-white shadow-lg transition-transform hover:scale-110"
-          style={{ left: selectedAnchor.x - 10, top: selectedAnchor.y - 24 }}
+          title="이 드로잉 삭제 (Delete)"
+          className="absolute z-20 flex items-center gap-1 rounded-full bg-bearish px-2.5 py-1 text-[11px] font-bold text-white shadow-lg transition-transform hover:scale-105"
+          style={{ left: selectedAnchor.x - 24, top: selectedAnchor.y - 30 }}
         >
-          ✕
+          ✕ 삭제
         </button>
       )}
 
