@@ -141,6 +141,16 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
 
   const [hover, setHover] = useState<HoverInfo | null>(null);
   const [measure, setMeasure] = useState<MeasurePreview | null>(null);
+  /**
+   * 2점 도구에서 시작점만 찍은 상태. 표시가 없으면 클릭이 먹혔는지 알 수 없어
+   * 시작점 마커와 커서까지의 고무줄 선을 그린다.
+   */
+  const [pending, setPending] = useState<{
+    x: number;
+    y: number;
+    curX: number;
+    curY: number;
+  } | null>(null);
   const [menu, setMenu] = useState<DrawingMenu | null>(null);
   const [selectedAnchor, setSelectedAnchor] = useState<{ x: number; y: number; id: string } | null>(
     null,
@@ -150,6 +160,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
   countCallbackRef.current = onDrawingCountChange;
   const onReachPastRef = useRef(onReachPast);
   onReachPastRef.current = onReachPast;
+  const cancelPendingRef = useRef<(() => void) | null>(null);
   const onToolConsumedRef = useRef(onToolConsumed);
   onToolConsumedRef.current = onToolConsumed;
 
@@ -378,8 +389,11 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
         } else if (!drawStart) {
           // 이미 시작점을 찍어 둔 상태면 덮어쓰지 않는다 — 클릭·클릭으로 긋는 경우다.
           const rect = container.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
           drawStart = anchor;
-          drawStartScreen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+          drawStartScreen = { x, y };
+          setPending({ x, y, curX: x, curY: y });
         }
         return;
       }
@@ -387,6 +401,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       // 도구를 놓았으면 대기 중이던 시작점도 버린다.
       drawStart = null;
       drawStartScreen = null;
+      setPending(null);
 
       if (drawings.getSelectedDrawing()) return;
       dragging = true;
@@ -394,6 +409,17 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     };
 
     const onMouseMove = (e: MouseEvent) => {
+      // 시작점을 찍어 둔 동안에는 커서까지 고무줄 선을 따라오게 한다.
+      if (drawStartScreen) {
+        const rect = container.getBoundingClientRect();
+        setPending({
+          x: drawStartScreen.x,
+          y: drawStartScreen.y,
+          curX: e.clientX - rect.left,
+          curY: e.clientY - rect.top,
+        });
+      }
+
       // 자 도구 드래그 중이면 실시간 박스를 갱신한다 (수정 4).
       if (drawStart && drawStartScreen && drawings.getActiveTool() === 'date-price-range') {
         const rect = container.getBoundingClientRect();
@@ -446,6 +472,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
         drawStart = null;
         drawStartScreen = null;
         setMeasure(null);
+        setPending(null);
         return;
       }
 
@@ -456,12 +483,21 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       drawStart = null;
       drawStartScreen = null;
       setMeasure(null);
+      setPending(null);
 
       if (createDrawing(tool, [start, end])) onToolConsumedRef.current?.();
     };
 
     const stopDrag = () => {
       dragging = false;
+    };
+
+    // 도구를 바꾸거나 놓을 때 찍어 둔 시작점을 버린다 (effect 밖에서 호출한다).
+    cancelPendingRef.current = () => {
+      drawStart = null;
+      drawStartScreen = null;
+      setPending(null);
+      setMeasure(null);
     };
 
     // ── 우클릭 삭제 메뉴 (수정 3-A) ──
@@ -511,6 +547,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     if (!drawings) return;
     drawings.setActiveTool(activeTool);
     if (!activeTool) drawings.deselectAll();
+    cancelPendingRef.current?.();
     setMenu(null);
   }, [activeTool]);
 
@@ -762,6 +799,33 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
             </div>
           )}
         </div>
+      )}
+
+      {/* 2점 도구: 찍어 둔 시작점 + 커서까지의 고무줄 선 */}
+      {pending && (
+        <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full">
+          {!measure && (
+            <line
+              x1={pending.x}
+              y1={pending.y}
+              x2={pending.curX}
+              y2={pending.curY}
+              stroke={COLORS.accent}
+              strokeWidth={1.5}
+              strokeDasharray="5 4"
+              opacity={0.9}
+            />
+          )}
+          <circle cx={pending.x} cy={pending.y} r={7} fill={COLORS.accent} opacity={0.25} />
+          <circle
+            cx={pending.x}
+            cy={pending.y}
+            r={3.5}
+            fill={COLORS.accent}
+            stroke="#FFFFFF"
+            strokeWidth={1.5}
+          />
+        </svg>
       )}
 
       {/* 자 도구 실시간 박스 (수정 4) */}

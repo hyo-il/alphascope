@@ -15,28 +15,28 @@ export const DRAWING_TOOLS = [
     label: '추세선',
     hint: '두 점을 잇는 추세선',
     cursor: 'crosshair',
-    guide: '추세선 — 시작점을 클릭 후 드래그하세요',
+    guide: '추세선 — 시작점과 끝점을 클릭하세요 (드래그도 가능)',
   },
   {
     type: 'date-price-range',
     label: '자',
     hint: '드래그 구간의 ±% 와 봉 수 측정',
     cursor: 'cell',
-    guide: '자 — 시작점을 클릭 후 드래그하세요',
+    guide: '자 — 구간을 드래그하거나 양 끝을 클릭하세요',
   },
   {
     type: 'fib-retracement',
     label: '피보나치',
     hint: '되돌림 레벨',
     cursor: 'crosshair',
-    guide: '피보나치 — 고점에서 저점으로 드래그하세요',
+    guide: '피보나치 — 고점과 저점을 차례로 클릭하세요',
   },
   {
     type: 'rectangle',
     label: '박스',
     hint: '박스권 표시',
     cursor: 'crosshair',
-    guide: '박스 — 모서리를 클릭 후 드래그하세요',
+    guide: '박스 — 두 모서리를 차례로 클릭하세요',
   },
 ] as const;
 
