@@ -138,9 +138,10 @@ interface OrderbookResponse {
 /**
  * 호가 조회. 파라미터는 `symbol` (단수형)이다.
  *
- * 장 마감 중에는 asks/bids 가 빈 배열로 온다. 호가 **레벨 하나의 필드명은
- * 아직 실제 값으로 확인하지 못했다** (미국장 개장 시간에 확인 필요).
- * 그때까지는 흔한 후보 키를 훑는다.
+ * 실제 응답으로 확인한 레벨 구조 (2026-08 기준):
+ *   { "price": "305.36", "volume": "6" }   ← 수량 키는 quantity 가 아니라 **volume**
+ *
+ * 장 마감 중에는 asks/bids 가 빈 배열로 온다.
  */
 export async function fetchOrderbook(symbol: string): Promise<Orderbook> {
   const payload = await tossGet<OrderbookResponse>(
@@ -152,8 +153,8 @@ export async function fetchOrderbook(symbol: string): Promise<Orderbook> {
   const levels = (rows: Raw[] | undefined) =>
     (rows ?? [])
       .map((row) => ({
-        price: firstNumber(row, ['price', 'orderPrice', 'askPrice', 'bidPrice']),
-        quantity: firstNumber(row, ['quantity', 'volume', 'size', 'remainQuantity']),
+        price: num(row, 'price'),
+        quantity: num(row, 'volume'),
       }))
       .filter((level) => Number.isFinite(level.price));
 
@@ -165,10 +166,3 @@ export async function fetchOrderbook(symbol: string): Promise<Orderbook> {
   };
 }
 
-function firstNumber(source: Raw, keys: string[]): number {
-  for (const key of keys) {
-    const value = num(source, key);
-    if (Number.isFinite(value)) return value;
-  }
-  return NaN;
-}
