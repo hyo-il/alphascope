@@ -55,6 +55,18 @@ const INDICATOR_COLORS = {
 /** 휠 한 번에 얼마나 확대/축소할지 — 기본 대비 3배 (수정 1) */
 const ZOOM_SPEED_MULTIPLIER = 3;
 const ZOOM_STEP = 0.1;
+/**
+ * 드로잉 라벨용 폰트.
+ *
+ * 드로잉 플러그인의 텍스트 렌더러는 좌표에만 devicePixelRatio 를 곱하고 폰트 크기에는
+ * 곱하지 않는다. 그래서 Retina(dpr 2)에서 글자가 의도한 절반 크기로 나온다.
+ * 여기서 미리 dpr 을 곱해 화면상 크기를 맞춘다. (줌 배율과는 무관하다 — 라벨은 항상 같은 크기다.)
+ */
+function labelFont(sizePx: number, bold = false): string {
+  const dpr = window.devicePixelRatio || 1;
+  return `${bold ? 'bold ' : ''}${Math.round(sizePx * dpr)}px sans-serif`;
+}
+
 /** 드래그 팬 감도 — 1 이면 커서를 그대로 따라간다. 너무 빨라 절반으로 낮췄다. */
 const PAN_SPEED = 0.5;
 /** 화면에 보이는 봉 개수 한계 */
@@ -362,9 +374,9 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
           fillColor: color,
           fillOpacity: 0.15,
           showLabels: true,
-          // 추세선 라벨은 등락률이라 색으로도 방향을 읽게 한다. 기본 폰트가 작아 키웠다.
+          // 추세선 라벨은 등락률이라 색으로도 방향을 읽게 한다.
           labelColor: isTrend ? color : COLORS.label,
-          labelFont: isTrend ? 'bold 13px sans-serif' : '12px sans-serif',
+          labelFont: labelFont(isTrend ? 13 : 12, isTrend),
         },
         isMeasure
           ? ({ filled: true, showPercentage: true, showPrices: true } as DrawingOptions)
