@@ -55,6 +55,8 @@ const INDICATOR_COLORS = {
 /** 휠 한 번에 얼마나 확대/축소할지 — 기본 대비 3배 (수정 1) */
 const ZOOM_SPEED_MULTIPLIER = 3;
 const ZOOM_STEP = 0.1;
+/** 드래그 팬 감도 — 1 이면 커서를 그대로 따라간다. 너무 빨라 절반으로 낮췄다. */
+const PAN_SPEED = 0.5;
 /** 화면에 보이는 봉 개수 한계 */
 const MIN_VISIBLE_BARS = 10;
 const MAX_VISIBLE_BARS = 5000;
@@ -150,6 +152,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     y: number;
     curX: number;
     curY: number;
+    /** 시작점 대비 등락률 — 긋는 동안 바로 보이게 한다 */
+    percent: number | null;
   } | null>(null);
   const [menu, setMenu] = useState<DrawingMenu | null>(null);
   const [selectedAnchor, setSelectedAnchor] = useState<{ x: number; y: number; id: string } | null>(
@@ -343,8 +347,10 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       if (!registry.get(type)) return false;
 
       const isMeasure = type === 'date-price-range';
+      const isTrend = type === 'trend-line';
       const isUp = anchors.length > 1 && anchors[1].price >= anchors[0].price;
-      const color = isMeasure ? (isUp ? COLORS.bullish : COLORS.bearish) : COLORS.accent;
+      // 자·추세선은 방향이 정보다 — 상승/하락 색을 준다. 나머지는 액센트 색.
+      const color = isMeasure || isTrend ? (isUp ? COLORS.bullish : COLORS.bearish) : COLORS.accent;
 
       const drawing = registry.createDrawing(
         type,
@@ -356,11 +362,16 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
           fillColor: color,
           fillOpacity: 0.15,
           showLabels: true,
-          labelColor: COLORS.label,
+          // 추세선 라벨은 등락률이라 색으로도 방향을 읽게 한다. 기본 폰트가 작아 키웠다.
+          labelColor: isTrend ? color : COLORS.label,
+          labelFont: isTrend ? 'bold 13px sans-serif' : '12px sans-serif',
         },
         isMeasure
           ? ({ filled: true, showPercentage: true, showPrices: true } as DrawingOptions)
-          : {},
+          : isTrend
+            ? // 라이브러리 기본값은 전부 꺼져 있어 선만 남는다. 등락률·등락폭을 켠다.
+              ({ showPercentChange: true, showPriceChange: true } as DrawingOptions)
+            : {},
       );
 
       if (!drawing) return false;
@@ -393,7 +404,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
           const y = e.clientY - rect.top;
           drawStart = anchor;
           drawStartScreen = { x, y };
-          setPending({ x, y, curX: x, curY: y });
+          setPending({ x, y, curX: x, curY: y, percent: null });
         }
         return;
       }
@@ -410,13 +421,19 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
 
     const onMouseMove = (e: MouseEvent) => {
       // 시작점을 찍어 둔 동안에는 커서까지 고무줄 선을 따라오게 한다.
-      if (drawStartScreen) {
+      if (drawStartScreen && drawStart) {
         const rect = container.getBoundingClientRect();
+        const curY = e.clientY - rect.top;
+        const price = candleSeries.coordinateToPrice(curY);
         setPending({
           x: drawStartScreen.x,
           y: drawStartScreen.y,
           curX: e.clientX - rect.left,
-          curY: e.clientY - rect.top,
+          curY,
+          percent:
+            price !== null && drawStart.price
+              ? ((price - drawStart.price) / drawStart.price) * 100
+              : null,
         });
       }
 
@@ -461,7 +478,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       if (!range) return;
 
       // 드래그는 항상 좌우 이동(팬)이다 — 줌은 휠이 담당한다.
-      const bars = dx / timeScale.options().barSpacing;
+      const bars = (dx / timeScale.options().barSpacing) * PAN_SPEED;
       timeScale.setVisibleLogicalRange({ from: range.from - bars, to: range.to - bars });
     };
 
@@ -825,6 +842,18 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
             stroke="#FFFFFF"
             strokeWidth={1.5}
           />
+          {!measure && pending.percent !== null && (
+            <text
+              x={pending.curX + 10}
+              y={pending.curY - 8}
+              fill={pending.percent >= 0 ? COLORS.bullish : COLORS.bearish}
+              fontSize={12}
+              fontWeight={600}
+            >
+              {pending.percent >= 0 ? '+' : ''}
+              {pending.percent.toFixed(2)}%
+            </text>
+          )}
         </svg>
       )}
 
