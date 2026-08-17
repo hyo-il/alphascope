@@ -301,17 +301,35 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     container.addEventListener('wheel', onWheel, { passive: false });
 
     // ── 드로잉 생성 ──
+    /**
+     * 클릭 좌표를 앵커로. 마지막 봉 오른쪽 빈 공간에서는 `coordinateToTime` 이 null 을 주는데,
+     * 여기서 포기하면 그 영역 클릭이 전부 무시된다 — 확대해서 볼수록 빈 공간이 넓어지므로
+     * "도구가 아예 동작하지 않는" 것처럼 보인다. 시간축 밖이면 가장 가까운 봉의 시간을 쓴다.
+     * (수평선은 시간이 의미 없고, 추세선도 끝점이 마지막 봉에 붙는 편이 자연스럽다.)
+     */
     const toAnchor = (e: MouseEvent): Anchor | null => {
       const rect = container.getBoundingClientRect();
-      const time = chart.timeScale().coordinateToTime(e.clientX - rect.left);
+      const x = e.clientX - rect.left;
       const price = candleSeries.coordinateToPrice(e.clientY - rect.top);
-      if (time === null || price === null) return null;
-      return { time, price };
+      if (price === null) return null;
+
+      const time = chart.timeScale().coordinateToTime(x);
+      if (time !== null) return { time, price };
+
+      const data = candleSeries.data();
+      if (!data.length) return null;
+      const logical = chart.timeScale().coordinateToLogical(x);
+      const index =
+        logical === null
+          ? data.length - 1
+          : Math.min(data.length - 1, Math.max(0, Math.round(logical)));
+      return { time: data[index].time, price };
     };
 
-    const createDrawing = (type: string, anchors: Anchor[]) => {
+    /** 실제로 그려졌는지 돌려준다 — 실패했는데 도구까지 풀리면 사용자는 원인을 알 수 없다. */
+    const createDrawing = (type: string, anchors: Anchor[]): boolean => {
       const registry = getToolRegistry();
-      if (!registry.get(type)) return;
+      if (!registry.get(type)) return false;
 
       const isMeasure = type === 'date-price-range';
       const isUp = anchors.length > 1 && anchors[1].price >= anchors[0].price;
@@ -334,7 +352,9 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
           : {},
       );
 
-      if (drawing) drawings.addDrawing(drawing);
+      if (!drawing) return false;
+      drawings.addDrawing(drawing);
+      return true;
     };
 
     // ── 마우스: 팬 / 드로잉 / 자 프리뷰 ──
@@ -354,15 +374,19 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
         const required = getToolRegistry().get(tool)?.requiredAnchors ?? 2;
 
         if (required <= 1) {
-          createDrawing(tool, [anchor]);
-          onToolConsumedRef.current?.();
-        } else {
+          if (createDrawing(tool, [anchor])) onToolConsumedRef.current?.();
+        } else if (!drawStart) {
+          // 이미 시작점을 찍어 둔 상태면 덮어쓰지 않는다 — 클릭·클릭으로 긋는 경우다.
           const rect = container.getBoundingClientRect();
           drawStart = anchor;
           drawStartScreen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
         }
         return;
       }
+
+      // 도구를 놓았으면 대기 중이던 시작점도 버린다.
+      drawStart = null;
+      drawStartScreen = null;
 
       if (drawings.getSelectedDrawing()) return;
       dragging = true;
@@ -418,17 +442,22 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     const onDrawEnd = (e: MouseEvent) => {
       const tool = drawings.getActiveTool();
       const start = drawStart;
+      if (!tool || !start) {
+        drawStart = null;
+        drawStartScreen = null;
+        setMeasure(null);
+        return;
+      }
+
+      const end = toAnchor(e);
+      // 같은 자리에서 뗐다 = 아직 시작점만 찍은 것. 시작점을 남겨 두 번째 클릭을 기다린다.
+      if (!end || (end.time === start.time && end.price === start.price)) return;
+
       drawStart = null;
       drawStartScreen = null;
       setMeasure(null);
 
-      if (!tool || !start) return;
-
-      const end = toAnchor(e);
-      if (!end || (end.time === start.time && end.price === start.price)) return;
-
-      createDrawing(tool, [start, end]);
-      onToolConsumedRef.current?.();
+      if (createDrawing(tool, [start, end])) onToolConsumedRef.current?.();
     };
 
     const stopDrag = () => {
