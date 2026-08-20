@@ -160,6 +160,34 @@ _overview_cache: dict = {"at": 0.0, "rows": []}
 _OVERVIEW_TTL_SEC = 60
 
 
+# 환율 스파크라인 — 토스 /exchange-rate 는 현재가만 주고 과거 시계열이 없어서
+# yfinance "KRW=X"(USD/KRW) 의 최근 30 거래일 종가를 쓴다.
+# 지수보다 훨씬 느리게 움직이고 카드 한 장에만 쓰이므로 30분 캐시로 충분하다.
+_FX_SYMBOL = "KRW=X"
+_fx_cache: dict = {"at": 0.0, "closes": []}
+_FX_TTL_SEC = 1800
+
+
+def get_fx_sparkline(force: bool = False) -> list[float]:
+    """USD/KRW 최근 30 거래일 종가."""
+    now = time.time()
+    if not force and _fx_cache["closes"] and now - _fx_cache["at"] < _FX_TTL_SEC:
+        return _fx_cache["closes"]
+
+    closes: list[float] = []
+    try:
+        history = yf.Ticker(_FX_SYMBOL).history(period="2mo", interval="1d")
+        if history is not None and not history.empty:
+            closes = [v for v in (clean(x) for x in history["Close"].tail(30)) if v is not None]
+    except Exception:  # noqa: BLE001 - 환율 카드의 미니 차트만 비게 된다
+        return _fx_cache["closes"]
+
+    # 조회에 성공했을 때만 캐시를 갱신한다 (빈 결과로 이전 값을 지우지 않는다).
+    if closes:
+        _fx_cache.update({"at": now, "closes": closes})
+    return closes
+
+
 def get_market_overview(force: bool = False) -> list[dict]:
     """주요 지수의 현재가·등락률·스파크라인(최근 30 거래일 종가)."""
     now = time.time()

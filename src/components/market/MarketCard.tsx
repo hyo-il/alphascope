@@ -21,6 +21,14 @@ export default function MarketCard({
 }: Props) {
   const up = changePercent != null && changePercent > 0;
   const down = changePercent != null && changePercent < 0;
+  /**
+   * 환율 카드는 토스 실시간 시세를 쓰고 등락률이 없다.
+   * 그때는 스파크라인의 처음↔마지막으로 선 색을 정한다 — 내림세인데 초록으로 두면 오해를 부른다.
+   */
+  const trendUp =
+    changePercent != null
+      ? !down
+      : sparklineData.length < 2 || sparklineData[sparklineData.length - 1] >= sparklineData[0];
   const color = up ? 'text-bullish' : down ? 'text-bearish' : 'text-text-muted';
 
   const format = (n: number) =>
@@ -46,7 +54,7 @@ export default function MarketCard({
         </p>
       </div>
 
-      <SparklineChart data={sparklineData} isUp={!down} width={96} height={44} />
+      <SparklineChart data={sparklineData} isUp={trendUp} width={96} height={44} />
     </article>
   );
 }

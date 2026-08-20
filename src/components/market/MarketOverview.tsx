@@ -108,7 +108,7 @@ export default function MarketOverview() {
             value={rate.rate}
             change={null}
             changePercent={null}
-            sparklineData={[]}
+            sparklineData={rate.sparkline ?? []}
             unit="₩"
           />
         )}

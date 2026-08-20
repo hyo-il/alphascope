@@ -101,6 +101,8 @@ export interface ExchangeRate {
   quoteCurrency: string;
   rate: number;
   fetchedAt: number;
+  /** 시황 카드 미니 차트용 최근 30 거래일 종가 (서버가 yfinance 로 채운다) */
+  sparkline?: number[];
 }
 
 export interface TossTokenResponse {

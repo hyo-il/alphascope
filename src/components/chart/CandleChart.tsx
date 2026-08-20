@@ -4,53 +4,35 @@ import {
   getToolRegistry,
   type Anchor,
   type DrawingOptions,
+  type DrawingStyle,
   type IDrawing,
 } from 'lightweight-charts-drawing';
 import {
   CandlestickSeries,
-  HistogramSeries,
-  LineSeries,
   createChart,
   type CandlestickData,
   type IChartApi,
   type ISeriesApi,
-  type UTCTimestamp,
 } from 'lightweight-charts';
 import type { Candle, Price } from '../../types/toss';
-import {
-  MA_LINES,
-  type IndicatorLine,
-  type IndicatorSeries,
-  type IndicatorToggles,
-} from '../../types/chart';
+import { MA_LINES, type IndicatorSeries, type IndicatorToggles } from '../../types/chart';
 import { cursorFor, type DrawingToolType } from './DrawingTools';
+import {
+  BASE_CHART_OPTIONS,
+  CANDLE_SERIES_OPTIONS,
+  COLORS,
+  renderIndicators,
+  toChartTime,
+} from './chartTheme';
 
-/** index.css 의 @theme 토큰과 같은 값을 유지한다 (차트는 JS 로 색을 받는다). */
-const COLORS = {
-  background: '#141414',
-  grid: '#222222',
-  text: '#999999',
-  border: '#333333',
-  bullish: '#26A69A',
-  bearish: '#EF5350',
-  accent: '#3182F6',
-  label: '#E0E0E0',
-  tooltipBg: '#1E1E1EE6',
-};
-
-const INDICATOR_COLORS = {
-  ema12: '#58D68D',
-  ema26: '#EC7063',
-  bb: '#7F8C9A',
-  vwap: '#F7DC6F',
-  rsi: '#5B8DEF',
-  macd: '#5DADE2',
-  macdSignal: '#F5B041',
-  stochK: '#58D68D',
-  stochD: '#EC7063',
-  atr: '#F5B041',
-  obv: '#5DADE2',
-};
+/**
+ * 좌상단 레전드는 배경 없이 캔들 위에 바로 얹는다 (수정 1).
+ * 불투명 배경이 있으면 확대·이동할 때 그 아래 봉을 볼 수 없다.
+ * 대신 이중 텍스트 그림자로 밝은 캔들 위에서도 글자가 읽히게 한다.
+ */
+const LEGEND_TEXT_SHADOW = {
+  textShadow: '0 0 4px rgba(0,0,0,0.8), 0 0 8px rgba(0,0,0,0.6)',
+} as const;
 
 /** 휠 한 번에 얼마나 확대/축소할지 — 기본 대비 3배 (수정 1) */
 const ZOOM_SPEED_MULTIPLIER = 3;
@@ -93,6 +75,18 @@ export interface CandleChartHandle {
   clearDrawings: () => void;
   deleteSelectedDrawing: () => void;
   getElement: () => HTMLElement | null;
+  /** 캡처 팝업이 같은 구간에서 시작하도록 현재 보이는 범위를 넘겨 준다 */
+  getVisibleRange: () => { from: number; to: number } | null;
+  /** 캡처 팝업 차트에 같은 드로잉을 복제하기 위한 스냅샷 */
+  getDrawings: () => DrawingSnapshot[];
+}
+
+/** 캡처 팝업 차트로 옮겨 그릴 드로잉 한 개 (수정 3) */
+export interface DrawingSnapshot {
+  type: string;
+  anchors: Anchor[];
+  style: Partial<DrawingStyle>;
+  options: Partial<DrawingOptions>;
 }
 
 interface HoverInfo {
@@ -123,8 +117,6 @@ interface DrawingMenu {
   y: number;
   drawingId: string;
 }
-
-const toChartTime = (ms: number) => (ms / 1000) as UTCTimestamp;
 
 const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
   {
@@ -192,6 +184,17 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       setSelectedAnchor(null);
     },
     getElement: () => wrapperRef.current,
+    getVisibleRange: () => {
+      const range = chartRef.current?.timeScale().getVisibleLogicalRange();
+      return range ? { from: range.from, to: range.to } : null;
+    },
+    getDrawings: () =>
+      (drawingsRef.current?.getAllDrawings() ?? []).map((d) => ({
+        type: d.type,
+        anchors: d.anchors,
+        style: d.style,
+        options: d.options,
+      })),
   }));
 
   // ── 차트 생성 (한 번만) ──────────────────────────────────────────────
@@ -200,36 +203,14 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     if (!container) return;
 
     const chart = createChart(container, {
-      layout: {
-        background: { color: COLORS.background },
-        textColor: COLORS.text,
-        attributionLogo: false,
-      },
-      grid: {
-        vertLines: { color: COLORS.grid },
-        horzLines: { color: COLORS.grid },
-      },
-      rightPriceScale: { borderColor: COLORS.border },
-      timeScale: { borderColor: COLORS.border, timeVisible: true, secondsVisible: false },
-      crosshair: {
-        mode: 0,
-        vertLine: { color: COLORS.border, labelBackgroundColor: '#2A2A2A' },
-        horzLine: { color: COLORS.border, labelBackgroundColor: '#2A2A2A' },
-      },
+      ...BASE_CHART_OPTIONS,
       // 휠 줌은 마우스 위치 기준으로 직접 구현한다 (수정 2).
       handleScroll: { pressedMouseMove: false, mouseWheel: false, horzTouchDrag: true },
       handleScale: { axisPressedMouseMove: true, mouseWheel: false, pinch: true },
       autoSize: true,
     });
 
-    const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: COLORS.bullish,
-      downColor: COLORS.bearish,
-      borderUpColor: COLORS.bullish,
-      borderDownColor: COLORS.bearish,
-      wickUpColor: COLORS.bullish,
-      wickDownColor: COLORS.bearish,
-    });
+    const candleSeries = chart.addSeries(CandlestickSeries, CANDLE_SERIES_OPTIONS);
     candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.08 } });
 
     chartRef.current = chart;
@@ -595,137 +576,15 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     setMenu(null);
   }, [activeTool]);
 
-  // ── 지표 · 거래량 렌더링 ──
+  // ── 지표 · 거래량 렌더링 (렌더 로직은 chartTheme 에 모아 캡처 팝업과 공유한다) ──
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
 
     for (const series of indicatorSeriesRef.current) chart.removeSeries(series);
-    indicatorSeriesRef.current = [];
-    maSeriesRef.current.clear();
-
-    if (!toggles) return;
-
-    const addLine = (
-      line: IndicatorLine | undefined,
-      color: string,
-      options: { paneIndex?: number; title?: string; maKey?: string } = {},
-    ) => {
-      if (!line?.length || !indicators) return;
-      const series = chart.addSeries(
-        LineSeries,
-        {
-          color,
-          lineWidth: 1,
-          priceLineVisible: false,
-          lastValueVisible: false,
-          // 스크롤할 때 선 위에 점이 찍히면 시선을 뺏고 값 판독을 방해한다.
-          crosshairMarkerVisible: false,
-          pointMarkersVisible: false,
-          title: options.title,
-        },
-        options.paneIndex ?? 0,
-      );
-      series.setData(
-        indicators.timestamps
-          .map((ts, i) => ({ time: toChartTime(ts), value: line[i] }))
-          .filter((p): p is { time: UTCTimestamp; value: number } => p.value != null),
-      );
-      indicatorSeriesRef.current.push(series);
-      if (options.maKey) maSeriesRef.current.set(options.maKey, series);
-    };
-
-    // 가격 차트 오버레이
-    for (const ma of MA_LINES) {
-      if (toggles.overlays[ma.key]) {
-        addLine(indicators?.[ma.series], ma.color, { title: ma.label, maKey: ma.label });
-      }
-    }
-    if (toggles.overlays.ema) {
-      addLine(indicators?.ema12, INDICATOR_COLORS.ema12, { title: 'EMA12' });
-      addLine(indicators?.ema26, INDICATOR_COLORS.ema26, { title: 'EMA26' });
-    }
-    if (toggles.overlays.bb) {
-      addLine(indicators?.bbUpper, INDICATOR_COLORS.bb, { title: 'BB' });
-      addLine(indicators?.bbMiddle, INDICATOR_COLORS.bb);
-      addLine(indicators?.bbLower, INDICATOR_COLORS.bb);
-    }
-    if (toggles.overlays.vwap) {
-      addLine(indicators?.vwap, INDICATOR_COLORS.vwap, { title: 'VWAP' });
-    }
-
-    // 별도 패널 — 켜진 순서대로 pane 1, 2, 3…
-    let pane = 1;
-
-    if (toggles.panels.volume && candles.length) {
-      const volume = chart.addSeries(
-        HistogramSeries,
-        { priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: false },
-        pane,
-      );
-      volume.setData(
-        candles.map((c) => ({
-          time: toChartTime(c.timestamp),
-          value: c.volume,
-          color: c.close >= c.open ? `${COLORS.bullish}66` : `${COLORS.bearish}66`,
-        })),
-      );
-      indicatorSeriesRef.current.push(volume);
-      pane += 1;
-    }
-
-    if (toggles.panels.rsi) {
-      addLine(indicators?.rsi14, INDICATOR_COLORS.rsi, { paneIndex: pane, title: 'RSI(14)' });
-      pane += 1;
-    }
-
-    if (toggles.panels.macd && indicators) {
-      addLine(indicators.macd, INDICATOR_COLORS.macd, { paneIndex: pane, title: 'MACD' });
-      addLine(indicators.macdSignal, INDICATOR_COLORS.macdSignal, { paneIndex: pane });
-
-      const histogram = chart.addSeries(
-        HistogramSeries,
-        { priceLineVisible: false, lastValueVisible: false },
-        pane,
-      );
-      histogram.setData(
-        indicators.timestamps
-          .map((ts, i) => ({ time: toChartTime(ts), value: indicators.macdHistogram[i] }))
-          .filter((p): p is { time: UTCTimestamp; value: number } => p.value != null)
-          .map((p) => ({
-            ...p,
-            color: p.value >= 0 ? `${COLORS.bullish}99` : `${COLORS.bearish}99`,
-          })),
-      );
-      indicatorSeriesRef.current.push(histogram);
-      pane += 1;
-    }
-
-    if (toggles.panels.stoch) {
-      addLine(indicators?.stochK, INDICATOR_COLORS.stochK, { paneIndex: pane, title: 'Stoch %K' });
-      addLine(indicators?.stochD, INDICATOR_COLORS.stochD, { paneIndex: pane });
-      pane += 1;
-    }
-
-    if (toggles.panels.atr) {
-      addLine(indicators?.atr14, INDICATOR_COLORS.atr, { paneIndex: pane, title: 'ATR(14)' });
-      pane += 1;
-    }
-
-    if (toggles.panels.obv) {
-      addLine(indicators?.obv, INDICATOR_COLORS.obv, { paneIndex: pane, title: 'OBV' });
-      pane += 1;
-    }
-
-    // 빈 pane 정리 후 높이 비율 배분
-    const panes = chart.panes();
-    for (let i = panes.length - 1; i >= pane; i--) {
-      if (panes[i].getSeries().length === 0) chart.removePane(i);
-    }
-
-    const remaining = chart.panes();
-    remaining[0]?.setStretchFactor(6);
-    for (let i = 1; i < remaining.length; i++) remaining[i].setStretchFactor(1.6);
+    const rendered = renderIndicators(chart, candles, indicators, toggles);
+    indicatorSeriesRef.current = rendered.series;
+    maSeriesRef.current = rendered.maSeries;
   }, [indicators, toggles, candles]);
 
   // ── 캔들 데이터 ──
@@ -788,9 +647,12 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     <div ref={wrapperRef} className="relative h-full w-full bg-bg-primary">
       {/* 좌상단 레전드 — OHLCV + 이동평균 (수정 6-A) */}
       {legend && (
-        <div className="pointer-events-none absolute left-3 top-2 z-10 flex flex-col gap-0.5">
+        <div
+          className="pointer-events-none absolute left-3 top-2 z-10 flex flex-col gap-0.5"
+          style={LEGEND_TEXT_SHADOW}
+        >
           {/* 캔들 OHLC — 종가는 시가 대비 등락 색으로 표시한다 */}
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 rounded-md bg-bg-secondary/85 px-2.5 py-1 text-[11px] backdrop-blur-sm">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 bg-transparent px-0.5 py-0.5 text-[11px]">
             <span className="text-text-muted">
               {new Date(legend.time).toLocaleString('ko-KR', {
                 year: '2-digit',
@@ -830,7 +692,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
           </div>
 
           {toggles && MA_LINES.some((ma) => toggles.overlays[ma.key]) && (
-            <div className="flex flex-wrap gap-x-3 rounded-md bg-bg-secondary/85 px-2.5 py-1 text-[11px] backdrop-blur-sm">
+            <div className="flex flex-wrap gap-x-3 bg-transparent px-0.5 py-0.5 text-[11px]">
               {MA_LINES.filter((ma) => toggles.overlays[ma.key]).map((ma) => {
                 const value = legend.ma?.[ma.label];
                 return (

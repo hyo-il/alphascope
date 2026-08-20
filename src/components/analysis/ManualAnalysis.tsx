@@ -12,13 +12,24 @@ import { useSymbolSummaries } from '../../hooks/useSymbolSummaries';
 import CompareSymbols from './CompareSymbols';
 import CopySteps from './CopySteps';
 import ModeSelector from './ModeSelector';
+import ChartCaptureModal from './ChartCaptureModal';
+import type { DrawingSnapshot } from '../chart/CandleChart';
+import type { IndicatorSeries, IndicatorToggles } from '../../types/chart';
+import { useCaptureStore } from '../../store/captureStore';
 
 interface Props {
   symbol: string;
   timeframe: Timeframe;
   candles: Candle[];
   currentPrice: number | null;
-  getChartElement: () => HTMLElement | null;
+  indicators: IndicatorSeries | null;
+  /** 캡처 팝업의 '포함 항목' 기본값 — 메인 차트에서 켜져 있는 것과 같게 시작한다 */
+  toggles: IndicatorToggles;
+  /** 캡처 팝업 차트를 메인 차트와 같은 구간·같은 드로잉으로 열기 위한 스냅샷 */
+  getChartSnapshot: () => {
+    range: { from: number; to: number } | null;
+    drawings: DrawingSnapshot[];
+  };
   /** 히스토리 탭이 '방금 쓴 프롬프트'를 함께 저장할 수 있도록 알려 준다 */
   onPromptChange?: (value: { mode: string; text: string }) => void;
 }
@@ -34,7 +45,9 @@ export default function ManualAnalysis({
   timeframe,
   candles,
   currentPrice,
-  getChartElement,
+  indicators,
+  toggles,
+  getChartSnapshot,
   onPromptChange,
 }: Props) {
   const [mode, setMode] = useState<AnalysisMode>('multi');
@@ -42,6 +55,13 @@ export default function ManualAnalysis({
   const [compareSymbols, setCompareSymbols] = useState<string[]>([]);
   /** 사용자가 직접 고친 프롬프트. null 이면 자동 생성본을 그대로 쓴다. */
   const [edited, setEdited] = useState<string | null>(null);
+  /** 캡처 팝업을 열 때 메인 차트에서 떠 온 스냅샷 (열려 있는 동안 고정) */
+  const [captureContext, setCaptureContext] = useState<ReturnType<typeof getChartSnapshot> | null>(
+    null,
+  );
+  const capture = useCaptureStore((s) => s.capture);
+
+  const openCapture = () => setCaptureContext(getChartSnapshot());
 
   // 모드별로 필요한 데이터만 부른다.
   const { data: fundamentals, loading: fundamentalsLoading } = useFundamentals(
@@ -148,12 +168,49 @@ export default function ManualAnalysis({
         )}
         </section>
 
+        {includeImage && (
+          <section className="space-y-2">
+            <h3 className="text-xs font-medium text-text-secondary">차트 이미지</h3>
+            {capture ? (
+              <div className="space-y-2 rounded-md border border-border/60 p-2">
+                <img
+                  src={capture.url}
+                  alt="캡처한 차트"
+                  className="w-full rounded border border-border object-contain"
+                />
+                <p className="text-[11px] leading-relaxed text-text-muted">
+                  {capture.symbol} · {capture.timeframe} ·{' '}
+                  {new Date(capture.capturedAt).toLocaleTimeString('ko-KR')}
+                  {capture.symbol !== symbol && (
+                    <span className="ml-1 text-warning">⚠️ 다른 종목의 캡처입니다</span>
+                  )}
+                </p>
+                <button
+                  type="button"
+                  onClick={openCapture}
+                  className="w-full rounded-md border border-border px-2 py-1.5 text-[11px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                >
+                  ↩ 다시 캡처
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={openCapture}
+                className="w-full rounded-md border border-dashed border-border px-2 py-3 text-xs text-text-secondary transition-colors hover:border-accent hover:text-text-primary"
+              >
+                📷 차트 캡처하기
+              </button>
+            )}
+          </section>
+        )}
+
         <CopySteps
           symbol={symbol}
           timeframe={timeframe}
           prompt={prompt}
-          getChartElement={getChartElement}
           includeImage={includeImage}
+          onOpenCapture={openCapture}
         />
 
         <section className="space-y-3">
@@ -213,6 +270,19 @@ export default function ManualAnalysis({
           className="min-h-0 flex-1 resize-none rounded-md border border-border bg-bg-primary p-4 font-mono text-xs leading-relaxed text-text-secondary focus:border-accent focus:outline-none"
         />
       </div>
+
+      {captureContext && (
+        <ChartCaptureModal
+          symbol={symbol}
+          timeframe={timeframe}
+          candles={candles}
+          indicators={indicators}
+          toggles={toggles}
+          drawings={captureContext.drawings}
+          initialRange={captureContext.range}
+          onClose={() => setCaptureContext(null)}
+        />
+      )}
     </div>
   );
 }

@@ -15,7 +15,7 @@ import pandas as pd
 import pandas_ta as ta
 from flask import Flask, jsonify, request
 
-from fundamentals import get_fundamentals, get_market_overview, get_peers
+from fundamentals import get_fundamentals, get_fx_sparkline, get_market_overview, get_peers
 
 app = Flask(__name__)
 
@@ -110,7 +110,7 @@ def health():
 def market_overview():
     """시황 바용 주요 지수"""
     try:
-        return jsonify({"indices": get_market_overview()})
+        return jsonify({"indices": get_market_overview(), "fxSparkline": get_fx_sparkline()})
     except Exception as error:  # noqa: BLE001
         return jsonify({"error": f"{type(error).__name__}: {error}"}), 500
 

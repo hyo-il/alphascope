@@ -213,18 +213,23 @@ app.get('/api/market-overview', async (_req, res) => {
   const url = `${process.env.INDICATORS_URL ?? `http://127.0.0.1:${process.env.INDICATORS_PORT ?? 5001}`}/market-overview`;
 
   // 지수와 환율은 서로 다른 소스라, 하나가 실패해도 나머지는 내려 준다.
-  const [indices, rate] = await Promise.all([
+  // 환율 스파크라인은 지수와 같은 yfinance 응답에 함께 실려 온다 (수정 2).
+  const [overview, rate] = await Promise.all([
     fetch(url, { signal: AbortSignal.timeout(15_000) })
-      .then((r) => r.json() as Promise<{ indices?: unknown[] }>)
-      .then((body) => body.indices ?? [])
-      .catch(() => []),
+      .then((r) => r.json() as Promise<{ indices?: unknown[]; fxSparkline?: number[] }>)
+      .catch(() => ({}) as { indices?: unknown[]; fxSparkline?: number[] }),
     (isMockMode()
       ? Promise.resolve({ baseCurrency: 'USD', quoteCurrency: 'KRW', rate: 1380, fetchedAt: Date.now() })
       : fetchExchangeRate()
     ).catch(() => null),
   ]);
 
-  res.json({ indices, rate });
+  const sparkline = Array.isArray(overview.fxSparkline) ? overview.fxSparkline : [];
+
+  res.json({
+    indices: overview.indices ?? [],
+    rate: rate ? { ...rate, sparkline } : null,
+  });
 });
 
 app.get('/api/quotes', async (req, res) => {

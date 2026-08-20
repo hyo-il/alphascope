@@ -66,7 +66,14 @@ export default function App() {
     livePrice && Number.isFinite(livePrice.change) && livePrice.change !== 0
       ? livePrice.close - livePrice.change
       : (candles.at(-2)?.close ?? null);
-  const getChartElement = useCallback(() => chartRef.current?.getElement() ?? null, []);
+  /** 캡처 팝업이 메인 차트와 같은 구간·같은 드로잉으로 열리도록 현재 상태를 떠 준다 (수정 3). */
+  const getChartSnapshot = useCallback(
+    () => ({
+      range: chartRef.current?.getVisibleRange() ?? null,
+      drawings: chartRef.current?.getDrawings() ?? [],
+    }),
+    [],
+  );
   const isWatched = watchlist.includes(symbol);
 
   const chartView = (
@@ -151,7 +158,9 @@ export default function App() {
             timeframe={timeframe}
             candles={candles}
             currentPrice={displayPrice}
-            getChartElement={getChartElement}
+            indicators={indicators}
+            toggles={toggles}
+            getChartSnapshot={getChartSnapshot}
             onPromptChange={setLastPrompt}
           />
         );

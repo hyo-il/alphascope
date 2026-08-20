@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  copyChartImage,
-  downloadChartImage,
+  copyBlobToClipboard,
+  downloadBlob,
   type ImageCopyResult,
 } from '../../services/analysis/chartCapture';
+import { useCaptureStore } from '../../store/captureStore';
 
 interface Props {
   symbol: string;
   timeframe: string;
   prompt: string;
-  getChartElement: () => HTMLElement | null;
   /** 차트 이미지가 의미 없는 모드(포트폴리오·비교)에서는 이미지 단계를 숨긴다 */
   includeImage: boolean;
+  /** 캡처해 둔 이미지가 없을 때 캡처 팝업을 연다 */
+  onOpenCapture: () => void;
 }
 
 type StepState = { kind: 'idle' } | { kind: 'done'; at: string } | { kind: 'failed'; reason: string };
@@ -61,9 +63,10 @@ export default function CopySteps({
   symbol,
   timeframe,
   prompt,
-  getChartElement,
   includeImage,
+  onOpenCapture,
 }: Props) {
+  const capture = useCaptureStore((s) => s.capture);
   const [imageStep, setImageStep] = useState<StepState>({ kind: 'idle' });
   const [textStep, setTextStep] = useState<StepState>({ kind: 'idle' });
   const [busy, setBusy] = useState(false);
@@ -81,12 +84,15 @@ export default function CopySteps({
     timers.current.push(id);
   };
 
+  /**
+   * 미리 캡처해 둔 Blob 을 그대로 복사한다.
+   * 클릭 시점에 html2canvas 를 돌리지 않으므로 사용자 제스처가 살아 있고, 복사가 거부되지 않는다.
+   */
   const handleImage = async () => {
-    const element = getChartElement();
-    if (!element) return;
+    if (!capture) return;
     setBusy(true);
     try {
-      const result = await copyChartImage(element);
+      const result = await copyBlobToClipboard(capture.blob);
       if (result === 'copied') {
         setImageStep({ kind: 'done', at: now() });
         autoReset(setImageStep);
@@ -108,16 +114,11 @@ export default function CopySteps({
     }
   };
 
-  const handleDownload = async () => {
-    const element = getChartElement();
-    if (!element) return;
-    setBusy(true);
-    try {
-      await downloadChartImage(element, `${symbol}_${timeframe}_${Date.now()}.png`);
-      setImageStep({ kind: 'done', at: `${now()} · 파일 저장` });
-    } finally {
-      setBusy(false);
-    }
+  /** 복사가 막혔을 때의 폴백 — 파일로 내려받아 Claude 대화창에 끌어다 놓는다. */
+  const handleDownload = () => {
+    if (!capture) return;
+    downloadBlob(capture.blob, `${symbol}_${timeframe}_${Date.now()}.png`);
+    setImageStep({ kind: 'done', at: `${now()} · 파일 저장` });
   };
 
   const hideTip = () => {
@@ -150,28 +151,44 @@ export default function CopySteps({
           <>
             {stepCard(
               1,
-              '아래 버튼을 누르면 현재 차트가 이미지로 클립보드에 복사됩니다.',
-              <div className="space-y-1.5">
-                <button
-                  type="button"
-                  onClick={() => void handleImage()}
-                  disabled={busy}
-                  className="w-full rounded-md border border-border bg-bg-secondary px-2 py-1.5 text-xs text-text-primary transition-colors hover:bg-bg-tertiary disabled:opacity-40"
-                >
-                  📸 차트 이미지 복사
-                </button>
-                <StatusLabel state={imageStep} />
-                {imageStep.kind === 'failed' && (
+              capture
+                ? '캡처해 둔 차트 이미지를 클립보드에 복사합니다.'
+                : '먼저 차트를 캡처하세요. 범위와 포함 항목을 고를 수 있습니다.',
+              capture ? (
+                <div className="space-y-1.5">
                   <button
                     type="button"
-                    onClick={() => void handleDownload()}
+                    onClick={() => void handleImage()}
                     disabled={busy}
-                    className="w-full rounded-md border border-border px-2 py-1.5 text-[11px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                    className="w-full rounded-md border border-border bg-bg-secondary px-2 py-1.5 text-xs text-text-primary transition-colors hover:bg-bg-tertiary disabled:opacity-40"
                   >
-                    💾 PNG로 저장해서 첨부하기
+                    📸 차트 이미지 복사
                   </button>
-                )}
-              </div>,
+                  <StatusLabel state={imageStep} />
+                  {imageStep.kind === 'failed' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleDownload}
+                        className="w-full rounded-md border border-border px-2 py-1.5 text-[11px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                      >
+                        💾 PNG로 저장해서 첨부하기
+                      </button>
+                      <p className="text-[11px] leading-relaxed text-text-muted">
+                        저장한 파일을 Claude 대화창에 드래그해 넣으세요.
+                      </p>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onOpenCapture}
+                  className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover"
+                >
+                  📷 차트 캡처하기
+                </button>
+              ),
             )}
             {arrow}
             {stepCard(
