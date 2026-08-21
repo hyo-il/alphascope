@@ -26,6 +26,9 @@ interface Props {
   onClose: () => void;
 }
 
+/** 다음 페인트까지 기다린다 — 캡처가 그리기보다 앞서지 않게 한다. */
+const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
 interface Shot {
   blob: Blob;
   url: string;
@@ -54,6 +57,11 @@ export default function ChartCaptureModal({
   const [includeDrawings, setIncludeDrawings] = useState(drawings.length > 0);
   const [shot, setShot] = useState<Shot | null>(null);
   const [busy, setBusy] = useState(false);
+  /**
+   * 차트가 한 번 그려지기 전에는 캡처를 막는다.
+   * 칠해지지 않은 캔버스를 담으면 빈 PNG 가 나오는데, 프리뷰를 보기 전까지 알 수 없다.
+   */
+  const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** 다시 캡처했을 때 조정해 둔 범위를 잃지 않도록 들고 있는다 */
   const [range, setRange] = useState(initialRange);
@@ -89,6 +97,10 @@ export default function ChartCaptureModal({
     setRange(chartRef.current?.getVisibleRange() ?? range);
 
     try {
+      // 방금 바꾼 체크박스·범위가 캔버스에 반영될 때까지 두 프레임 기다린다.
+      await nextFrame();
+      await nextFrame();
+
       const { blob, width, height } = await captureElementToBlob(element);
       setShot({ blob, url: URL.createObjectURL(blob), width, height });
     } catch (e) {
@@ -173,6 +185,7 @@ export default function ChartCaptureModal({
           <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-border">
             <CaptureChart
               ref={chartRef}
+              onReady={() => setReady(true)}
               candles={candles}
               indicators={indicators}
               toggles={toggles}
@@ -189,10 +202,10 @@ export default function ChartCaptureModal({
             <button
               type="button"
               onClick={() => void handleCapture()}
-              disabled={busy || !candles.length}
+              disabled={busy || !ready || !candles.length}
               className="rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
             >
-              {busy ? '캡처 중…' : '📸 캡처'}
+              {busy ? '캡처 중…' : ready ? '📸 캡처' : '차트 준비 중…'}
             </button>
           </div>
         </div>

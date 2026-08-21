@@ -35,7 +35,7 @@ export default function CapturePreview({
 
       <div className="flex items-center justify-between gap-3">
         <p className="text-[11px] text-text-muted">
-          {symbol} · {timeframe} · {width}×{height}px
+          {symbol} · {timeframe} · 이미지 크기 {width} × {height} · PNG
         </p>
 
         <div className="flex gap-2">

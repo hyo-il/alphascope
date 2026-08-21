@@ -26,6 +26,11 @@ interface Props {
   drawings: DrawingSnapshot[];
   /** 처음 보여 줄 범위 — 메인 차트가 보고 있던 구간 */
   initialRange: { from: number; to: number } | null;
+  /**
+   * 차트가 실제로 한 번 그려진 뒤 호출된다.
+   * 이 전에 캡처하면 아직 칠해지지 않은 캔버스를 담아 빈 이미지가 나온다.
+   */
+  onReady?: () => void;
 }
 
 export interface CaptureChartHandle {
@@ -72,7 +77,7 @@ function clampRange(
 }
 
 const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart(
-  { candles, indicators, toggles, drawings, initialRange },
+  { candles, indicators, toggles, drawings, initialRange, onReady },
   ref,
 ) {
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -82,6 +87,9 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
   const indicatorSeriesRef = useRef<ISeriesApi<'Line' | 'Histogram'>[]>([]);
   /** 최초 1회만 메인 차트의 범위를 따라간다 — 이후에는 사용자가 맞춘 범위를 존중한다. */
   const rangeAppliedRef = useRef(false);
+  /** effect 를 다시 돌리지 않도록 콜백은 ref 로 받는다 */
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
 
   useImperativeHandle(ref, () => ({
     getElement: () => wrapperRef.current,
@@ -157,14 +165,21 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
     if (!chart || !candles.length || rangeAppliedRef.current) return;
     rangeAppliedRef.current = true;
 
-    const frame = requestAnimationFrame(() => {
+    let second = 0;
+    const first = requestAnimationFrame(() => {
       const scale = chartRef.current?.timeScale();
       if (!scale) return;
       const range = clampRange(initialRange, candles.length);
       if (range) scale.setVisibleLogicalRange(range);
       else scale.fitContent();
+
+      // 범위를 바꾸면 다시 그린다 — 그 그리기가 끝난 다음 프레임에야 캡처해도 안전하다.
+      second = requestAnimationFrame(() => onReadyRef.current?.());
     });
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
   }, [candles, initialRange]);
 
   // ── 드로잉 복제 ──
