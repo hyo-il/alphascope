@@ -1,3 +1,5 @@
+import type { Timeframe } from './toss';
+
 /** 지표 시리즈 — 값이 없는 구간(워밍업 등)은 null */
 export type IndicatorLine = (number | null)[];
 
@@ -57,6 +59,18 @@ export const MA_LINES: {
   { key: 'ma20', label: '20일선', series: 'sma20', color: '#5DADE2' },
   { key: 'ma60', label: '60일선', series: 'sma60', color: '#AF7AC5' },
   { key: 'ma120', label: '120일선', series: 'sma120', color: '#58D68D' },
+];
+
+/**
+ * 타임프레임 버튼 정의 — 메인 차트 툴바와 캡처 팝업이 같은 목록을 쓴다.
+ * 두 곳에 두면 한쪽에만 타임프레임이 추가되는 일이 생긴다.
+ */
+export const TIMEFRAME_ITEMS: { value: Timeframe; label: string }[] = [
+  { value: '1m', label: '1분' },
+  { value: '5m', label: '5분' },
+  { value: '15m', label: '15분' },
+  { value: '30m', label: '30분' },
+  { value: '1d', label: '일봉' },
 ];
 
 /** 지표 드롭다운에 노출하는 항목 정의 */

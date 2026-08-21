@@ -14,7 +14,7 @@ import CopySteps from './CopySteps';
 import ModeSelector from './ModeSelector';
 import ChartCaptureModal from './ChartCaptureModal';
 import type { DrawingSnapshot } from '../chart/CandleChart';
-import type { IndicatorSeries, IndicatorToggles } from '../../types/chart';
+import { TIMEFRAME_ITEMS, type IndicatorSeries, type IndicatorToggles } from '../../types/chart';
 import { useCaptureStore } from '../../store/captureStore';
 
 interface Props {
@@ -63,6 +63,16 @@ export default function ManualAnalysis({
 
   const openCapture = () => setCaptureContext(getChartSnapshot());
 
+  /*
+   * 캡처 이미지가 있으면 프롬프트도 그 이미지와 같은 봉을 가리켜야 한다.
+   * 팝업에서 타임프레임을 바꿔 캡처할 수 있어서, 메인 차트가 일봉이어도
+   * 이미지가 5분봉이면 프롬프트의 타임프레임·OHLCV 도 5분봉이 된다.
+   * (다른 종목의 캡처가 남아 있으면 쓰지 않는다.)
+   */
+  const captureMatches = Boolean(capture && capture.symbol === symbol);
+  const promptTimeframe = captureMatches ? capture!.timeframe : timeframe;
+  const promptCandles = captureMatches && capture!.candles.length ? capture!.candles : candles;
+
   // 모드별로 필요한 데이터만 부른다.
   const { data: fundamentals, loading: fundamentalsLoading } = useFundamentals(
     symbol,
@@ -96,8 +106,8 @@ export default function ManualAnalysis({
       default:
         return buildMultiAgentPrompt({
           symbol,
-          timeframe,
-          candles,
+          timeframe: promptTimeframe,
+          candles: promptCandles,
           currentPrice,
           fundamentals,
           peers,
@@ -109,6 +119,8 @@ export default function ManualAnalysis({
     mode,
     symbol,
     timeframe,
+    promptTimeframe,
+    promptCandles,
     candles,
     currentPrice,
     fundamentals,
@@ -179,10 +191,16 @@ export default function ManualAnalysis({
                   className="w-full rounded border border-border object-contain"
                 />
                 <p className="text-[11px] leading-relaxed text-text-muted">
-                  {capture.symbol} · {capture.timeframe} ·{' '}
+                  {capture.symbol} ·{' '}
+                  {TIMEFRAME_ITEMS.find((i) => i.value === capture.timeframe)?.label ??
+                    capture.timeframe}{' '}
+                  ·{' '}
                   {new Date(capture.capturedAt).toLocaleTimeString('ko-KR')}
                   {capture.symbol !== symbol && (
                     <span className="ml-1 text-warning">⚠️ 다른 종목의 캡처입니다</span>
+                  )}
+                  {capture.symbol === symbol && capture.timeframe !== timeframe && (
+                    <span className="ml-1 text-accent">· 프롬프트도 이 봉으로 작성됩니다</span>
                   )}
                 </p>
                 <button
@@ -207,7 +225,7 @@ export default function ManualAnalysis({
 
         <CopySteps
           symbol={symbol}
-          timeframe={timeframe}
+          timeframe={promptTimeframe}
           prompt={prompt}
           includeImage={includeImage}
           onOpenCapture={openCapture}

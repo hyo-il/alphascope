@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { Candle, Timeframe } from '../types/toss';
 
 /**
  * 캡처해 둔 차트 이미지.
@@ -14,7 +15,16 @@ export interface ChartCapture {
   width: number;
   height: number;
   symbol: string;
-  timeframe: string;
+  /** 팝업에서 고른 타임프레임 — 메인 차트와 다를 수 있다 */
+  timeframe: Timeframe;
+  /**
+   * 이 이미지를 그린 캔들.
+   *
+   * 프롬프트의 OHLCV·지표가 이미지와 같은 봉을 가리켜야 한다. 일봉 차트를 보다가
+   * 팝업에서 5분봉으로 캡처했는데 프롬프트에 일봉 수치가 실리면, Claude 는
+   * 서로 다른 두 시간대를 하나로 읽는다.
+   */
+  candles: Candle[];
   capturedAt: number;
 }
 

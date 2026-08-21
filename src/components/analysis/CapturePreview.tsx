@@ -1,3 +1,5 @@
+import { TIMEFRAME_ITEMS } from '../../types/chart';
+
 interface Props {
   url: string;
   width: number;
@@ -35,7 +37,8 @@ export default function CapturePreview({
 
       <div className="flex items-center justify-between gap-3">
         <p className="text-[11px] text-text-muted">
-          {symbol} · {timeframe} · 이미지 크기 {width} × {height} · PNG
+          {symbol} · {TIMEFRAME_ITEMS.find((i) => i.value === timeframe)?.label ?? timeframe} ·
+          이미지 크기 {width} × {height} · PNG
         </p>
 
         <div className="flex gap-2">

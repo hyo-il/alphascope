@@ -1,15 +1,7 @@
-import type { IndicatorToggles } from '../../types/chart';
+import { TIMEFRAME_ITEMS, type IndicatorToggles } from '../../types/chart';
 import type { Timeframe } from '../../types/toss';
 import DrawingTools, { type DrawingToolType } from './DrawingTools';
 import IndicatorDropdown from './IndicatorDropdown';
-
-const TIMEFRAMES: { value: Timeframe; label: string }[] = [
-  { value: '1m', label: '1분' },
-  { value: '5m', label: '5분' },
-  { value: '15m', label: '15분' },
-  { value: '30m', label: '30분' },
-  { value: '1d', label: '일봉' },
-];
 
 interface Props {
   timeframe: Timeframe;
@@ -42,7 +34,7 @@ export default function ChartToolbar({
 }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-x-1 gap-y-1 border-b border-border px-3 py-1.5">
-      {TIMEFRAMES.map((tf) => (
+      {TIMEFRAME_ITEMS.map((tf) => (
         <button
           key={tf.value}
           type="button"

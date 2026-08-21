@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import CaptureChart, { type CaptureChartHandle } from '../chart/CaptureChart';
 import CapturePreview from './CapturePreview';
 import type { DrawingSnapshot } from '../chart/CandleChart';
@@ -7,16 +7,21 @@ import { useCaptureStore } from '../../store/captureStore';
 import {
   OVERLAY_ITEMS,
   PANEL_ITEMS,
+  TIMEFRAME_ITEMS,
   type IndicatorSeries,
   type IndicatorToggles,
   type OverlayIndicator,
   type PanelIndicator,
 } from '../../types/chart';
-import type { Candle } from '../../types/toss';
+import type { Candle, Timeframe } from '../../types/toss';
+import { useCandleData } from '../../hooks/useCandleData';
+import { useIndicators } from '../../hooks/useIndicators';
 
 interface Props {
   symbol: string;
-  timeframe: string;
+  /** 메인 차트의 타임프레임 — 팝업의 시작값이자, 캔들을 그대로 물려받을 기준 */
+  timeframe: Timeframe;
+  /** 메인 차트가 이미 들고 있는 캔들 (같은 타임프레임일 때 재사용) */
   candles: Candle[];
   indicators: IndicatorSeries | null;
   /** 기본값 — 메인 차트에서 지금 켜져 있는 항목과 같게 시작한다 */
@@ -25,6 +30,9 @@ interface Props {
   initialRange: { from: number; to: number } | null;
   onClose: () => void;
 }
+
+/** 매 렌더 새 배열이 만들어지지 않도록 고정해 둔다 */
+const EMPTY_DRAWINGS: DrawingSnapshot[] = [];
 
 /** 다음 페인트까지 기다린다 — 캡처가 그리기보다 앞서지 않게 한다. */
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
@@ -54,14 +62,11 @@ export default function ChartCaptureModal({
 }: Props) {
   const chartRef = useRef<CaptureChartHandle>(null);
   const [toggles, setToggles] = useState<IndicatorToggles>(initialToggles);
+  /** 팝업 안에서만 바꾸는 타임프레임 — 메인 차트는 건드리지 않는다 */
+  const [tf, setTf] = useState<Timeframe>(timeframe);
   const [includeDrawings, setIncludeDrawings] = useState(drawings.length > 0);
   const [shot, setShot] = useState<Shot | null>(null);
   const [busy, setBusy] = useState(false);
-  /**
-   * 차트가 한 번 그려지기 전에는 캡처를 막는다.
-   * 칠해지지 않은 캔버스를 담으면 빈 PNG 가 나오는데, 프리뷰를 보기 전까지 알 수 없다.
-   */
-  const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** 다시 캡처했을 때 조정해 둔 범위를 잃지 않도록 들고 있는다 */
   const [range, setRange] = useState(initialRange);
@@ -80,6 +85,42 @@ export default function ChartCaptureModal({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  /*
+   * 메인 차트와 같은 타임프레임이면 이미 받아 둔 캔들·지표를 그대로 쓴다.
+   * 다를 때만 서버에서 새로 받는다 (5·15·30분봉 집계는 /api/candles 가 맡는다).
+   */
+  const isMainTf = tf === timeframe;
+  // 거래량은 캔들만으로 그리므로 지표 엔진 호출 대상에서 제외한다 (App 과 같은 규칙).
+  const needsEngine =
+    Object.values(toggles.overlays).some(Boolean) ||
+    (Object.entries(toggles.panels) as [string, boolean][]).some(
+      ([key, on]) => on && key !== 'volume',
+    );
+
+  const altCandles = useCandleData(symbol, tf, !isMainTf);
+  const altIndicators = useIndicators(symbol, tf, !isMainTf && needsEngine);
+
+  const activeCandles = isMainTf ? candles : altCandles.candles;
+  const activeIndicators = isMainTf ? indicators : altIndicators.indicators;
+  const dataLoading = !isMainTf && (altCandles.loading || altIndicators.loading);
+  const dataError = isMainTf ? null : altCandles.error;
+
+  /*
+   * 다른 타임프레임에서는 드로잉을 옮기지 않는다 — 앵커가 그은 시각에 묶여 있어
+   * 엉뚱한 자리에 그려진다. 배열을 매 렌더 새로 만들면 드로잉 effect 가 계속 돈다.
+   */
+  const activeDrawings = useMemo(
+    () => (includeDrawings && isMainTf ? drawings : EMPTY_DRAWINGS),
+    [includeDrawings, isMainTf, drawings],
+  );
+
+  const changeTimeframe = (next: Timeframe) => {
+    if (next === tf) return;
+    setTf(next);
+    // 봉이 바뀌면 이전 범위는 의미가 없다 — 새 데이터에 맞춰 다시 잡는다.
+    setRange(null);
+  };
 
   const flip = (group: 'overlays' | 'panels', key: string) =>
     setToggles((prev) => ({
@@ -119,7 +160,8 @@ export default function ChartCaptureModal({
       width: shot.width,
       height: shot.height,
       symbol,
-      timeframe,
+      timeframe: tf,
+      candles: activeCandles,
       capturedAt: Date.now(),
     });
     onClose();
@@ -164,6 +206,25 @@ export default function ChartCaptureModal({
           차트를 새로 만들면 맞춰 둔 범위와 조작감이 초기화되기 때문이다.
         */}
         <div className={shot ? 'hidden' : 'flex min-h-0 flex-1 flex-col gap-3'}>
+          <div className="flex items-center gap-1">
+            {TIMEFRAME_ITEMS.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => changeTimeframe(item.value)}
+                className={`rounded px-2 py-1 text-xs transition-colors ${
+                  tf === item.value
+                    ? 'bg-accent/15 font-medium text-accent'
+                    : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+            {dataLoading && <span className="ml-2 text-[11px] text-accent">불러오는 중…</span>}
+            {dataError && <span className="ml-2 text-[11px] text-bearish">❌ {dataError}</span>}
+          </div>
+
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md bg-bg-tertiary/50 px-3 py-2">
             {OVERLAY_ITEMS.map((item) =>
               checkbox(toggles.overlays[item.key], item.label, () => flip('overlays', item.key)),
@@ -175,21 +236,37 @@ export default function ChartCaptureModal({
             {drawings.length > 0 && (
               <>
                 <span className="text-border">|</span>
-                {checkbox(includeDrawings, `드로잉 ${drawings.length}개`, () =>
-                  setIncludeDrawings((v) => !v),
+                {isMainTf ? (
+                  checkbox(includeDrawings, `드로잉 ${drawings.length}개`, () =>
+                    setIncludeDrawings((v) => !v),
+                  )
+                ) : (
+                  /*
+                   * 드로잉 앵커는 그은 시각에 묶여 있다. 다른 타임프레임으로 옮기면
+                   * 추세선이 화면 밖 시각을 가리켜 엉뚱한 자리에 그려진다.
+                   * (특히 1분봉은 3일치뿐이라 일봉에 그은 선이 아예 범위 밖이다.)
+                   */
+                  <span className="text-[11px] text-text-muted">
+                    드로잉은 {TIMEFRAME_ITEMS.find((i) => i.value === timeframe)?.label}에서만
+                    포함됩니다
+                  </span>
                 )}
               </>
             )}
           </div>
 
           <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-border">
+            {/*
+              타임프레임이 바뀌면 차트를 새로 만든다. 봉 수가 달라져 이전 논리 범위를
+              그대로 쓸 수 없고, 남은 시리즈를 일일이 정리하는 것보다 확실하다.
+            */}
             <CaptureChart
+              key={tf}
               ref={chartRef}
-              onReady={() => setReady(true)}
-              candles={candles}
-              indicators={indicators}
+              candles={activeCandles}
+              indicators={activeIndicators}
               toggles={toggles}
-              drawings={includeDrawings ? drawings : []}
+              drawings={activeDrawings}
               initialRange={range}
             />
           </div>
@@ -202,10 +279,10 @@ export default function ChartCaptureModal({
             <button
               type="button"
               onClick={() => void handleCapture()}
-              disabled={busy || !ready || !candles.length}
+              disabled={busy || dataLoading || !activeCandles.length}
               className="rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
             >
-              {busy ? '캡처 중…' : ready ? '📸 캡처' : '차트 준비 중…'}
+              {busy ? '캡처 중…' : dataLoading ? '불러오는 중…' : '📸 캡처'}
             </button>
           </div>
         </div>
@@ -216,7 +293,7 @@ export default function ChartCaptureModal({
             width={shot.width}
             height={shot.height}
             symbol={symbol}
-            timeframe={timeframe}
+            timeframe={tf}
             onRetake={() => setShot(null)}
             onConfirm={handleConfirm}
           />

@@ -72,9 +72,11 @@ function marketBlock(
     : '—';
 
   // 최근 흐름을 캔들 몇 개로 보여 준다 (이미지가 없을 때도 판단할 수 있도록).
+  // 분봉은 날짜만 적으면 같은 날짜가 10줄 반복돼 순서를 알 수 없다 — 시각까지 적는다.
   const recent = candles.slice(-10).map((c) => {
-    const date = new Date(c.timestamp).toISOString().slice(0, 10);
-    return `${date} O${fmt(c.open)} H${fmt(c.high)} L${fmt(c.low)} C${fmt(c.close)} V${c.volume}`;
+    const iso = new Date(c.timestamp).toISOString();
+    const stamp = timeframe === '1d' ? iso.slice(0, 10) : iso.slice(0, 16).replace('T', ' ');
+    return `${stamp} O${fmt(c.open)} H${fmt(c.high)} L${fmt(c.low)} C${fmt(c.close)} V${c.volume}`;
   });
 
   return `## 시세 · 기술적 지표

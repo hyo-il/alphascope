@@ -24,7 +24,12 @@ const LIMITS: Record<Timeframe, number> = {
 /** 과거로 스크롤할 때 한 번에 더 받는 양 */
 const PAGE_SIZE = 200;
 
-export function useCandleData(symbol: string, timeframe: Timeframe) {
+/**
+ * `enabled` 가 false 면 호출하지 않는다.
+ * 캡처 팝업은 메인 차트와 같은 타임프레임일 때 메인 쪽 캔들을 그대로 쓰므로
+ * 같은 데이터를 두 번 받을 이유가 없다 (열 때마다 로딩이 번쩍이지도 않는다).
+ */
+export function useCandleData(symbol: string, timeframe: Timeframe, enabled = true) {
   const [state, setState] = useState<CandleState>({
     candles: [],
     loading: true,
@@ -37,6 +42,17 @@ export function useCandleData(symbol: string, timeframe: Timeframe) {
   const loadingMoreRef = useRef(false);
 
   useEffect(() => {
+    if (!enabled) {
+      setState({
+        candles: [],
+        loading: false,
+        error: null,
+        loadingMore: false,
+        reachedEnd: false,
+      });
+      return;
+    }
+
     const controller = new AbortController();
     loadingMoreRef.current = false;
     setState((prev) => ({ ...prev, loading: true, error: null, reachedEnd: false }));
@@ -68,7 +84,7 @@ export function useCandleData(symbol: string, timeframe: Timeframe) {
       });
 
     return () => controller.abort();
-  }, [symbol, timeframe, setMock]);
+  }, [symbol, timeframe, enabled, setMock]);
 
   /**
    * 차트를 과거로 스크롤했을 때 이어 받는다.
