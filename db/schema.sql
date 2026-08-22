@@ -56,3 +56,109 @@ CREATE TABLE IF NOT EXISTS stock_catalog (
 );
 
 CREATE INDEX IF NOT EXISTS idx_stock_catalog_name ON stock_catalog(name);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 모의투자 (페이퍼 트레이딩)
+--
+-- 시세·차트·지표는 토스 실 API 를 쓰지만, 주문·체결·잔고·손익은 전부 여기에만 있다.
+-- 토스 주문 API 는 절대 호출하지 않는다 — 돈이 나가지 않는다.
+--
+-- 통화 규칙: 가격·수량·손익은 **종목의 통화**(미국 USD / 국내 KRW)로 저장하고,
+-- 계좌 현금(current_cash)만 **계좌 통화**로 둔다. 환산에 쓴 환율은 주문·체결에 함께 남겨
+-- 나중에 현금 증감을 그대로 재현할 수 있게 한다.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- 모의투자 계좌
+CREATE TABLE IF NOT EXISTS paper_accounts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,                    -- 계좌 이름 (예: "전략 A", "스윙 테스트")
+  initial_balance REAL NOT NULL,         -- 초기 자금 (계좌 통화)
+  current_cash REAL NOT NULL,            -- 현재 현금 잔고 (계좌 통화)
+  currency TEXT NOT NULL DEFAULT 'KRW',  -- 기준 통화
+  commission_rate REAL NOT NULL DEFAULT 0.001,  -- 수수료율 (0.1%)
+  slippage_rate REAL NOT NULL DEFAULT 0.0005,   -- 슬리피지율 (0.05%)
+  created_at TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1   -- 활성/비활성
+);
+
+-- 모의투자 주문
+CREATE TABLE IF NOT EXISTS paper_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL,
+  symbol TEXT NOT NULL,
+  name TEXT,                             -- 종목명
+  side TEXT NOT NULL,                    -- 'BUY' | 'SELL'
+  order_type TEXT NOT NULL,              -- 'MARKET' | 'LIMIT'
+  requested_price REAL,                  -- 주문 가격 (지정가)
+  executed_price REAL,                   -- 체결 가격
+  quantity REAL NOT NULL,                -- 주문 수량
+  amount REAL,                           -- 체결 금액 (종목 통화, 수수료 제외)
+  commission REAL DEFAULT 0,             -- 수수료 (종목 통화)
+  slippage REAL DEFAULT 0,               -- 슬리피지 총액 (종목 통화)
+  currency TEXT NOT NULL DEFAULT 'USD',  -- 종목 통화
+  fx_rate REAL NOT NULL DEFAULT 1,       -- 체결 시점 종목 통화 → 계좌 통화 환율
+  status TEXT NOT NULL DEFAULT 'PENDING', -- 'PENDING' | 'FILLED' | 'CANCELLED'
+  reason TEXT,                           -- 주문 사유 (예: "RSI 30 이하 매수")
+  ordered_at TEXT NOT NULL,
+  filled_at TEXT,
+  FOREIGN KEY (account_id) REFERENCES paper_accounts(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_paper_orders_account ON paper_orders(account_id, ordered_at);
+CREATE INDEX IF NOT EXISTS idx_paper_orders_pending ON paper_orders(status);
+
+-- 모의투자 포지션 (보유 종목)
+CREATE TABLE IF NOT EXISTS paper_positions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL,
+  symbol TEXT NOT NULL,
+  name TEXT,
+  quantity REAL NOT NULL,                -- 보유 수량
+  avg_price REAL NOT NULL,               -- 평균 매입가 (종목 통화, 수수료 포함)
+  total_cost REAL NOT NULL,              -- 총 매입 금액 (종목 통화)
+  currency TEXT NOT NULL DEFAULT 'USD',  -- 종목 통화
+  opened_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (account_id) REFERENCES paper_accounts(id),
+  UNIQUE(account_id, symbol)
+);
+
+-- 모의투자 거래 내역 (체결된 주문의 상세 기록)
+CREATE TABLE IF NOT EXISTS paper_trades (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL,
+  order_id INTEGER NOT NULL,
+  symbol TEXT NOT NULL,
+  name TEXT,
+  side TEXT NOT NULL,
+  price REAL NOT NULL,                   -- 체결가 (종목 통화)
+  quantity REAL NOT NULL,
+  commission REAL NOT NULL,
+  slippage REAL NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'USD',
+  fx_rate REAL NOT NULL DEFAULT 1,
+  cash_delta REAL NOT NULL DEFAULT 0,    -- 계좌 현금 증감 (계좌 통화)
+  pnl REAL,                              -- 매도 시 실현 손익 (종목 통화)
+  pnl_percent REAL,                      -- 매도 시 수익률
+  reason TEXT,
+  traded_at TEXT NOT NULL,
+  FOREIGN KEY (account_id) REFERENCES paper_accounts(id),
+  FOREIGN KEY (order_id) REFERENCES paper_orders(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_paper_trades_account ON paper_trades(account_id, traded_at);
+
+-- 모의투자 일별 스냅샷 (성과 추적용)
+CREATE TABLE IF NOT EXISTS paper_snapshots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL,
+  date TEXT NOT NULL,                    -- YYYY-MM-DD
+  total_value REAL NOT NULL,             -- 총 평가금액 (현금 + 주식, 계좌 통화)
+  cash REAL NOT NULL,
+  stock_value REAL NOT NULL,             -- 주식 평가액 (계좌 통화)
+  daily_pnl REAL,                        -- 일일 손익
+  daily_return REAL,                     -- 일일 수익률 (%)
+  cumulative_return REAL,                -- 누적 수익률 (%)
+  FOREIGN KEY (account_id) REFERENCES paper_accounts(id),
+  UNIQUE(account_id, date)
+);

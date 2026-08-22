@@ -12,6 +12,22 @@ import { catalogSize, findStock, refreshCatalog, searchStocks } from './stockCat
 import { deleteAnalysis, getDb, loadAnalyses, loadCandles, saveAnalysis } from './db';
 import { isMockMode, mockOrderbook, mockPrice } from './mockData';
 import { computeIndicators, IndicatorEngineError, indicatorEngineHealthy } from './indicatorService';
+import {
+  cancelOrder,
+  createAccount,
+  createOrder,
+  deleteAccount,
+  getAccountDetail,
+  listAccounts,
+  listOrders,
+  listTrades,
+  PaperTradingError,
+  resetAccount,
+  settlePendingOrders,
+  valuePositions,
+  getAccount as getPaperAccount,
+} from './paperTradingService';
+import { computePerformance, listSnapshots } from './paperPerformanceService';
 
 /**
  * AlphaScope API 서버.
@@ -261,6 +277,156 @@ app.get('/api/summary', async (req, res) => {
     res.json({ summaries: await summarizeSymbols(symbols) });
   } catch (e) {
     fail(res, e);
+  }
+});
+
+// ── 모의투자 (페이퍼 트레이딩) ────────────────────────────────────────────────
+//
+// ⚠️ 이 아래 라우트는 토스 **주문** API 를 호출하지 않는다. 시세만 실제 값을 읽고
+// 주문·체결·잔고는 SQLite 안에서만 움직인다.
+
+/** 사용자 입력 오류(잔고 부족 등)는 400 으로 구분해 돌려준다 — 서버 장애가 아니다. */
+function failPaper(res: express.Response, e: unknown) {
+  if (e instanceof PaperTradingError) {
+    return res.status(400).json({ error: e.message });
+  }
+  return fail(res, e);
+}
+
+function accountIdOf(req: express.Request): number {
+  const id = Number(req.query.accountId ?? req.params.id);
+  if (!Number.isInteger(id) || id <= 0) throw new PaperTradingError('accountId 가 필요합니다.');
+  return id;
+}
+
+app.get('/api/paper/accounts', (_req, res) => {
+  try {
+    res.json({ accounts: listAccounts() });
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+app.post('/api/paper/accounts', (req, res) => {
+  const { name, initialBalance, currency, commissionRate, slippageRate } = req.body ?? {};
+  try {
+    res.json({
+      account: createAccount({
+        name: String(name ?? ''),
+        initialBalance: Number(initialBalance),
+        currency: currency === 'USD' ? 'USD' : 'KRW',
+        commissionRate: commissionRate != null ? Number(commissionRate) : undefined,
+        slippageRate: slippageRate != null ? Number(slippageRate) : undefined,
+      }),
+    });
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+app.get('/api/paper/accounts/:id', async (req, res) => {
+  try {
+    res.json(await getAccountDetail(accountIdOf(req)));
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+app.delete('/api/paper/accounts/:id', (req, res) => {
+  try {
+    deleteAccount(accountIdOf(req));
+    res.json({ ok: true });
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+app.patch('/api/paper/accounts/:id/reset', (req, res) => {
+  try {
+    const initialBalance = req.body?.initialBalance;
+    res.json({
+      account: resetAccount(
+        accountIdOf(req),
+        initialBalance != null ? Number(initialBalance) : undefined,
+      ),
+    });
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+app.post('/api/paper/orders', async (req, res) => {
+  const { accountId, symbol, side, orderType, quantity, requestedPrice, reason } = req.body ?? {};
+  try {
+    const result = await createOrder({
+      accountId: Number(accountId),
+      symbol: String(symbol ?? ''),
+      side: side === 'SELL' ? 'SELL' : 'BUY',
+      orderType: orderType === 'LIMIT' ? 'LIMIT' : 'MARKET',
+      quantity: Number(quantity),
+      requestedPrice: requestedPrice != null ? Number(requestedPrice) : null,
+      reason: reason != null ? String(reason) : null,
+    });
+    res.json(result);
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+app.get('/api/paper/orders', (req, res) => {
+  try {
+    res.json({ orders: listOrders(accountIdOf(req)) });
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+app.post('/api/paper/orders/:id/cancel', (req, res) => {
+  try {
+    res.json({ order: cancelOrder(Number(req.params.id)) });
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+/**
+ * 보유 종목 + 실시간 평가손익.
+ * 대기 중인 지정가 주문도 여기서 함께 확인한다 — 프론트가 1초 폴링으로 부르는 경로라
+ * 별도 스케줄러 없이 체결이 진행된다.
+ */
+app.get('/api/paper/positions', async (req, res) => {
+  try {
+    const accountId = accountIdOf(req);
+    const filled = await settlePendingOrders(accountId);
+    const account = getPaperAccount(accountId);
+    const { positions, stockValue, fxRate } = await valuePositions(accountId, account.currency);
+    res.json({ positions, stockValue, fxRate, filled });
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+app.get('/api/paper/trades', (req, res) => {
+  try {
+    res.json({ trades: listTrades(accountIdOf(req)) });
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+app.get('/api/paper/performance', async (req, res) => {
+  try {
+    res.json(await computePerformance(accountIdOf(req)));
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+app.get('/api/paper/snapshots', (req, res) => {
+  try {
+    res.json({ snapshots: listSnapshots(accountIdOf(req)) });
+  } catch (e) {
+    failPaper(res, e);
   }
 });
 

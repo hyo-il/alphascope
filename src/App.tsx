@@ -3,6 +3,8 @@ import ManualAnalysis from './components/analysis/ManualAnalysis';
 import AnalysisHistory from './components/analysis/AnalysisHistory';
 import CompanyInfo from './components/company/CompanyInfo';
 import Holdings from './components/portfolio/Holdings';
+import PaperTradingDashboard from './components/paper-trading/PaperTradingDashboard';
+import QuickOrder from './components/paper-trading/QuickOrder';
 import CandleChart, { type CandleChartHandle } from './components/chart/CandleChart';
 import ChartToolbar from './components/chart/ChartToolbar';
 import { guideFor, type DrawingToolType } from './components/chart/DrawingTools';
@@ -124,12 +126,16 @@ export default function App() {
           )}
         </main>
 
-        <OrderbookPanel
-          orderbook={orderbook}
-          currentPrice={displayPrice}
-          previousClose={previousClose}
-          currency={currency}
-        />
+        <div className="flex shrink-0 flex-col">
+          <OrderbookPanel
+            orderbook={orderbook}
+            currentPrice={displayPrice}
+            previousClose={previousClose}
+            currency={currency}
+          />
+          {/* 차트를 보다가 바로 모의 주문을 낼 수 있게 호가창 아래에 둔다 */}
+          <QuickOrder symbol={symbol} price={displayPrice} currency={currency} />
+        </div>
       </div>
 
       <footer className="shrink-0 border-t border-border px-3 py-1.5 text-[11px] text-text-muted">
@@ -168,6 +174,8 @@ export default function App() {
         return <CompanyInfo symbol={symbol} />;
       case 'portfolio':
         return <Holdings onSelectSymbol={setSymbol} />;
+      case 'paper':
+        return <PaperTradingDashboard symbol={symbol} onSelectSymbol={setSymbol} />;
       case 'history':
         return (
           <AnalysisHistory
