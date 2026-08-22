@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { PaperAccount } from '../../types/paper';
 import { formatPrice } from '../../utils/formatters';
+import { modal, toast } from '../../store/uiStore';
 
 interface Props {
   accounts: PaperAccount[];
@@ -44,23 +45,34 @@ export default function AccountManager({
     }
   };
 
-  const confirmReset = async () => {
+  // 되돌릴 수 없는 동작이라 반드시 확인을 받는다.
+  const confirmReset = () => {
     if (!selected) return;
-    // 되돌릴 수 없는 동작이라 반드시 확인을 받는다.
-    if (
-      !window.confirm(
-        `"${selected.name}" 계좌를 초기화합니다.\n보유 종목·주문·거래 내역이 모두 삭제되고 잔고가 ${formatPrice(selected.initialBalance, selected.currency)} 로 돌아갑니다.\n\n진행할까요?`,
-      )
-    )
-      return;
-    await onReset(selected.id);
+    modal.confirm({
+      title: '계좌 초기화',
+      message: `"${selected.name}" 계좌를 초기화합니다.\n보유 종목·주문·거래 내역이 모두 삭제됩니다.`,
+      rows: [{ label: '잔고', value: formatPrice(selected.initialBalance, selected.currency) }],
+      confirmText: '초기화',
+      danger: true,
+      onConfirm: async () => {
+        await onReset(selected.id);
+        toast.success('계좌를 초기화했습니다.', selected.name);
+      },
+    });
   };
 
-  const confirmDelete = async () => {
+  const confirmDelete = () => {
     if (!selected) return;
-    if (!window.confirm(`"${selected.name}" 계좌를 삭제합니다. 되돌릴 수 없습니다.\n\n진행할까요?`))
-      return;
-    await onDelete(selected.id);
+    modal.confirm({
+      title: '계좌 삭제',
+      message: `"${selected.name}" 계좌를 삭제합니다.\n되돌릴 수 없습니다.`,
+      confirmText: '삭제',
+      danger: true,
+      onConfirm: async () => {
+        await onDelete(selected.id);
+        toast.success('계좌를 삭제했습니다.', selected.name);
+      },
+    });
   };
 
   return (
@@ -105,14 +117,14 @@ export default function AccountManager({
           <>
             <button
               type="button"
-              onClick={() => void confirmReset()}
+              onClick={confirmReset}
               className="rounded-md border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-warning"
             >
               🔄 초기화
             </button>
             <button
               type="button"
-              onClick={() => void confirmDelete()}
+              onClick={confirmDelete}
               className="rounded-md border border-border px-2.5 py-1 text-xs text-text-muted transition-colors hover:bg-bg-tertiary hover:text-bearish"
             >
               삭제

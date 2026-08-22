@@ -4,12 +4,15 @@ import AnalysisHistory from './components/analysis/AnalysisHistory';
 import CompanyInfo from './components/company/CompanyInfo';
 import Holdings from './components/portfolio/Holdings';
 import PaperTradingDashboard from './components/paper-trading/PaperTradingDashboard';
-import QuickOrder from './components/paper-trading/QuickOrder';
+import QuickOrderPanel from './components/chart/QuickOrderPanel';
+import StockExplorer from './components/common/StockExplorer';
 import CandleChart, { type CandleChartHandle } from './components/chart/CandleChart';
 import ChartToolbar from './components/chart/ChartToolbar';
 import { guideFor, type DrawingToolType } from './components/chart/DrawingTools';
 import OrderbookPanel from './components/chart/OrderbookPanel';
 import LoadingSpinner from './components/common/LoadingSpinner';
+import ModalHost from './components/common/Modal';
+import ToastHost from './components/common/Toast';
 import SymbolSearch from './components/common/SymbolSearch';
 import MarketOverview from './components/market/MarketOverview';
 import SideNav, { type ViewId } from './components/layout/SideNav';
@@ -26,10 +29,17 @@ import { useAppStore } from './store/appStore';
 import { changeColor, currencyOf, formatPercent, formatPrice } from './utils/formatters';
 
 export default function App() {
-  const { symbol, timeframe, isMock, setSymbol, setTimeframe } = useAppStore();
+  const { symbol, timeframe, isMock, setSymbol, setTimeframe, clearSymbol } = useAppStore();
+  /*
+   * 종목을 아직 고르지 않았으면(symbol === null) 홈은 탐색 화면을 보여 준다.
+   * 심볼에 기대는 훅들은 전부 enabled 가드로 아무것도 부르지 않게 둔다 —
+   * 빈 심볼로 API 를 때리면 서버 로그가 오류로 뒤덮인다.
+   */
+  const hasSymbol = Boolean(symbol);
   const { candles, loading, error, loadingMore, reachedEnd, loadMore } = useCandleData(
-    symbol,
+    symbol ?? '',
     timeframe,
+    hasSymbol,
   );
   const livePrice = useRealtimePrice(symbol);
   const orderbook = useOrderbook(symbol);
@@ -44,7 +54,7 @@ export default function App() {
   const [lastPrompt, setLastPrompt] = useState({ mode: 'multi', text: '' });
 
   const { watchlist, add, remove, toggle } = useWatchlist();
-  const { recent, remove: removeRecent } = useRecentSymbols(symbol);
+  const { recent, remove: removeRecent } = useRecentSymbols(symbol ?? '');
   const stockInfo = useStockInfo(symbol);
   const currency = currencyOf(stockInfo?.market);
 
@@ -60,7 +70,7 @@ export default function App() {
     loading: indicatorsLoading,
     engineDown,
     error: indicatorError,
-  } = useIndicators(symbol, timeframe, needsEngine);
+  } = useIndicators(symbol ?? '', timeframe, hasSymbol && needsEngine);
 
   const displayPrice = livePrice?.close ?? candles.at(-1)?.close ?? null;
   // 호가의 등락률 기준 — 서버가 계산해 준 변동액에서 역산한다.
@@ -76,7 +86,7 @@ export default function App() {
     }),
     [],
   );
-  const isWatched = watchlist.includes(symbol);
+  const isWatched = symbol ? watchlist.includes(symbol) : false;
 
   const chartView = (
     <>
@@ -133,8 +143,15 @@ export default function App() {
             previousClose={previousClose}
             currency={currency}
           />
-          {/* 차트를 보다가 바로 모의 주문을 낼 수 있게 호가창 아래에 둔다 */}
-          <QuickOrder symbol={symbol} price={displayPrice} currency={currency} />
+          {/* 토스 WTS 처럼 호가창 바로 아래에 둔다 — 시세를 보다 그대로 주문으로 이어진다 */}
+          {symbol && (
+            <QuickOrderPanel
+              symbol={symbol}
+              price={displayPrice}
+              currency={currency}
+              onGoToPaperTrading={() => setView('paper')}
+            />
+          )}
         </div>
       </div>
 
@@ -155,12 +172,32 @@ export default function App() {
     </>
   );
 
+  /** 종목이 있어야 의미가 있는 화면들 — 미선택 상태에서 빈 화면을 보여 주지 않는다 */
+  const needSymbol = (
+    <div className="flex h-full items-center justify-center">
+      <div className="space-y-3 text-center">
+        <p className="text-xs text-text-muted">종목을 먼저 선택하세요.</p>
+        <button
+          type="button"
+          onClick={() => setView('chart')}
+          className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover"
+        >
+          🏠 홈에서 종목 고르기
+        </button>
+      </div>
+    </div>
+  );
+
   const mainContent = () => {
+    if (!symbol && view !== 'paper' && view !== 'settings' && view !== 'portfolio') {
+      return needSymbol;
+    }
+
     switch (view) {
       case 'analysis':
         return (
           <ManualAnalysis
-            symbol={symbol}
+            symbol={symbol!}
             timeframe={timeframe}
             candles={candles}
             currentPrice={displayPrice}
@@ -171,15 +208,15 @@ export default function App() {
           />
         );
       case 'company':
-        return <CompanyInfo symbol={symbol} />;
+        return <CompanyInfo symbol={symbol!} />;
       case 'portfolio':
         return <Holdings onSelectSymbol={setSymbol} />;
       case 'paper':
-        return <PaperTradingDashboard symbol={symbol} onSelectSymbol={setSymbol} />;
+        return <PaperTradingDashboard symbol={symbol ?? 'AAPL'} onSelectSymbol={setSymbol} />;
       case 'history':
         return (
           <AnalysisHistory
-            symbol={symbol}
+            symbol={symbol!}
             timeframe={timeframe}
             currentPrice={displayPrice}
             mode={lastPrompt.mode}
@@ -196,6 +233,10 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col bg-bg-primary">
+      {/* 공통 팝업은 앱 루트에 한 번만 둔다 — 어디서든 스토어로 호출한다 */}
+      <ModalHost />
+      <ToastHost />
+
       <MarketOverview />
 
       <div className="flex min-h-0 flex-1">
@@ -204,34 +245,53 @@ export default function App() {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* 종목 헤더 — 어느 화면에서든 현재 종목이 보이게 유지한다 */}
         <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-3">
-          <SymbolSearch symbol={symbol} onSubmit={setSymbol} />
+          <SymbolSearch symbol={symbol ?? ''} onSubmit={setSymbol} />
 
-          <button
-            type="button"
-            onClick={() => toggle(symbol)}
-            title={isWatched ? '관심 목록에서 빼기' : '관심 목록에 담기'}
-            className={`text-lg leading-none transition-colors ${
-              isWatched ? 'text-warning' : 'text-text-muted hover:text-warning'
-            }`}
-          >
-            {isWatched ? '★' : '☆'}
-          </button>
+          {symbol ? (
+            <>
+              {/* 종목 해제 — 홈의 탐색 화면으로 돌아간다 */}
+              <button
+                type="button"
+                onClick={() => {
+                  clearSymbol();
+                  setView('chart');
+                }}
+                title="종목 선택 해제"
+                className="text-sm leading-none text-text-muted transition-colors hover:text-text-primary"
+              >
+                ✕
+              </button>
 
-          <span className="text-base font-semibold">{symbol}</span>
-          {stockInfo?.name && (
-            <span className="text-sm text-text-secondary">{stockInfo.name}</span>
-          )}
-          <span className="text-lg font-bold tabular-nums">
-            {formatPrice(displayPrice, currency)}
-          </span>
-          {livePrice && (
-            <span className={`text-xs tabular-nums ${changeColor(livePrice.change)}`}>
-              {livePrice.change > 0 ? '+' : ''}
-              {currency === 'KRW'
-                ? Math.round(livePrice.change).toLocaleString('ko-KR')
-                : livePrice.change.toFixed(2)}{' '}
-              ({formatPercent(livePrice.changeRate)})
-            </span>
+              <button
+                type="button"
+                onClick={() => toggle(symbol)}
+                title={isWatched ? '관심 목록에서 빼기' : '관심 목록에 담기'}
+                className={`text-lg leading-none transition-colors ${
+                  isWatched ? 'text-warning' : 'text-text-muted hover:text-warning'
+                }`}
+              >
+                {isWatched ? '★' : '☆'}
+              </button>
+
+              <span className="text-base font-semibold">{symbol}</span>
+              {stockInfo?.name && (
+                <span className="text-sm text-text-secondary">{stockInfo.name}</span>
+              )}
+              <span className="text-lg font-bold tabular-nums">
+                {formatPrice(displayPrice, currency)}
+              </span>
+              {livePrice && (
+                <span className={`text-xs tabular-nums ${changeColor(livePrice.change)}`}>
+                  {livePrice.change > 0 ? '+' : ''}
+                  {currency === 'KRW'
+                    ? Math.round(livePrice.change).toLocaleString('ko-KR')
+                    : livePrice.change.toFixed(2)}{' '}
+                  ({formatPercent(livePrice.changeRate)})
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-xs text-text-muted">종목을 검색해 선택하세요</span>
           )}
 
           {isMock && (
@@ -248,16 +308,28 @@ export default function App() {
           숨길 때는 display:none 대신 화면 밖으로 보낸다 — html2canvas 는
           display:none 요소를 캡처하지 못한다.
         */}
-        <div
-          className={
-            view === 'chart'
-              ? 'flex min-h-0 flex-1 flex-col'
-              : 'pointer-events-none fixed left-[-200vw] top-0 flex h-[640px] w-[960px] flex-col'
-          }
-          aria-hidden={view !== 'chart'}
-        >
-          {chartView}
-        </div>
+        {/*
+          종목을 고르기 전에는 차트 자체를 만들지 않는다. 캡처 대상이 필요해서 유지하는
+          것이므로, 볼 종목이 없으면 유지할 이유도 없다.
+        */}
+        {symbol && (
+          <div
+            className={
+              view === 'chart'
+                ? 'flex min-h-0 flex-1 flex-col'
+                : 'pointer-events-none fixed left-[-200vw] top-0 flex h-[640px] w-[960px] flex-col'
+            }
+            aria-hidden={view !== 'chart'}
+          >
+            {chartView}
+          </div>
+        )}
+
+        {view === 'chart' && !symbol && (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <StockExplorer onSelect={setSymbol} watchlist={watchlist} recent={recent} />
+          </div>
+        )}
 
         {view !== 'chart' && (
           <div className="flex min-h-0 flex-1 flex-col">{mainContent()}</div>
@@ -265,7 +337,7 @@ export default function App() {
       </div>
 
       <WatchPanel
-        currentSymbol={symbol}
+        currentSymbol={symbol ?? ''}
         watchlist={watchlist}
         recent={recent}
         onSelect={setSymbol}

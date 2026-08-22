@@ -12,6 +12,8 @@ export function usePolling<T>(
   url: string,
   pick: (payload: Record<string, unknown>) => T | undefined,
   intervalMs: number,
+  /** false 면 아무것도 부르지 않는다 (종목 미선택 등) */
+  enabled = true,
 ): T | null {
   const [data, setData] = useState<T | null>(null);
   const inflight = useRef(false);
@@ -19,6 +21,7 @@ export function usePolling<T>(
   useEffect(() => {
     let cancelled = false;
     setData(null);
+    if (!enabled) return;
 
     // 최초 1회는 탭이 숨겨져 있어도 받아 온다.
     const tick = async (force = false) => {
@@ -53,7 +56,7 @@ export function usePolling<T>(
     };
     // pick 은 매 렌더 새 함수라 의존성에서 뺀다 (호출 시점의 최신 정의를 쓴다).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, intervalMs]);
+  }, [url, intervalMs, enabled]);
 
   return data;
 }

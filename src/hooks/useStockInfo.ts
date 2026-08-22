@@ -5,7 +5,7 @@ import type { StockSearchResult } from '../types/toss';
  * 현재 종목의 이름·시장 정보 (전종목 카탈로그).
  * 통화 판단(원화/달러)과 헤더의 종목명 표시에 쓴다.
  */
-export function useStockInfo(symbol: string): StockSearchResult | null {
+export function useStockInfo(symbol: string | null): StockSearchResult | null {
   const [stock, setStock] = useState<StockSearchResult | null>(null);
 
   useEffect(() => {

@@ -5,6 +5,7 @@ import { useRealtimePrice } from '../../hooks/useRealtimePrice';
 import { useStockInfo } from '../../hooks/useStockInfo';
 import { currencyOf, formatPrice } from '../../utils/formatters';
 import SymbolSearch from '../common/SymbolSearch';
+import { modal, toast } from '../../store/uiStore';
 
 interface Props {
   account: PaperAccount;
@@ -60,56 +61,82 @@ export default function OrderPanel({
   const canSubmit =
     Boolean(estimate) && quantity > 0 && (orderType === 'MARKET' || limitPrice !== '');
 
-  const run = async () => {
+  const run = () => {
     if (!estimate) return;
 
     const label = side === 'BUY' ? '매수' : '매도';
-    const priceText =
-      orderType === 'MARKET'
-        ? `예상 체결가 ${formatPrice(estimate.executed, currency)}`
-        : `지정가 ${formatPrice(Number(limitPrice), currency)}`;
+    const rows = [
+      {
+        label: orderType === 'MARKET' ? '예상 체결가' : '지정가',
+        value: formatPrice(
+          orderType === 'MARKET' ? estimate.executed : Number(limitPrice),
+          currency,
+        ),
+      },
+      { label: '주문 금액', value: formatPrice(estimate.amount, currency) },
+      { label: '수수료', value: formatPrice(estimate.commission, currency) },
+      {
+        label: side === 'BUY' ? '필요 금액' : '수령 금액',
+        value: formatPrice(
+          side === 'BUY' ? estimate.total : estimate.amount - estimate.commission,
+          currency,
+        ),
+      },
+      ...(estimate.realized != null
+        ? [
+            {
+              label: '예상 실현손익',
+              value: formatPrice(estimate.realized, currency),
+              tone: estimate.realized >= 0 ? ('bullish' as const) : ('bearish' as const),
+            },
+          ]
+        : []),
+    ];
 
     // 되돌릴 수 없는 동작이라 반드시 확인을 받는다 (모의 자금이라도 마찬가지다).
-    if (
-      !window.confirm(
-        `${symbol} ${quantity}주를 ${label}합니다.\n\n${priceText}\n` +
-          `주문 금액 ${formatPrice(estimate.amount, currency)}\n` +
-          `수수료 ${formatPrice(estimate.commission, currency)}\n\n진행할까요?`,
-      )
-    )
-      return;
+    modal.confirm({
+      title: `${symbol} ${quantity}주 ${label}`,
+      message: '모의투자 주문입니다. 증권사로 주문이 전송되지 않습니다.',
+      rows,
+      confirmText: `${label} 주문`,
+      onConfirm: async () => {
+        setBusy(true);
+        setMessage(null);
+        try {
+          const result = await submitOrder({
+            accountId: account.id,
+            symbol,
+            side,
+            orderType,
+            quantity,
+            requestedPrice: orderType === 'LIMIT' ? Number(limitPrice) : null,
+            reason: reason.trim() || null,
+          });
 
-    setBusy(true);
-    setMessage(null);
-    try {
-      const result = await submitOrder({
-        accountId: account.id,
-        symbol,
-        side,
-        orderType,
-        quantity,
-        requestedPrice: orderType === 'LIMIT' ? Number(limitPrice) : null,
-        reason: reason.trim() || null,
-      });
-
-      if (result.pending) {
-        setMessage({ kind: 'ok', text: `지정가 주문 접수 — 조건에 닿으면 체결됩니다.` });
-      } else {
-        const t = result.trade!;
-        const pnl =
-          t.pnl != null ? ` · 실현손익 ${formatPrice(t.pnl, currency)} (${t.pnlPercent?.toFixed(2)}%)` : '';
-        setMessage({
-          kind: 'ok',
-          text: `${label} 체결 ${t.quantity}주 @ ${formatPrice(t.price, currency)}${pnl}`,
-        });
-      }
-      setReason('');
-      onOrdered();
-    } catch (e) {
-      setMessage({ kind: 'error', text: e instanceof Error ? e.message : String(e) });
-    } finally {
-      setBusy(false);
-    }
+          if (result.pending) {
+            toast.info('지정가 주문을 접수했습니다.', '조건에 닿으면 자동으로 체결됩니다.');
+          } else {
+            const t = result.trade!;
+            const pnl =
+              t.pnl != null
+                ? ` · 실현손익 ${formatPrice(t.pnl, currency)} (${t.pnlPercent?.toFixed(2)}%)`
+                : '';
+            toast.success(
+              `${label} 체결`,
+              `${t.symbol} ${t.quantity}주 @ ${formatPrice(t.price, currency)}${pnl}`,
+            );
+          }
+          setReason('');
+          onOrdered();
+        } catch (e) {
+          const text = e instanceof Error ? e.message : String(e);
+          setMessage({ kind: 'error', text });
+          toast.error('주문에 실패했습니다.', text);
+        } finally {
+          setBusy(false);
+        }
+      },
+    });
   };
 
   const row = (label: string, value: string, tone = 'text-text-secondary') => (
@@ -244,7 +271,7 @@ export default function OrderPanel({
 
       <button
         type="button"
-        onClick={() => void run()}
+        onClick={run}
         disabled={busy || !canSubmit}
         className={`rounded-md py-2 text-sm font-medium text-white transition-colors disabled:opacity-40 ${
           side === 'BUY' ? 'bg-bearish hover:brightness-110' : 'bg-bullish hover:brightness-110'

@@ -14,12 +14,12 @@ interface NavItem {
 }
 
 const ITEMS: NavItem[] = [
-  { id: 'chart', icon: '📊', label: '차트' },
+  { id: 'chart', icon: '🏠', label: '홈' },
   { id: 'analysis', icon: '🧠', label: 'AI 분석' },
   { id: 'company', icon: '🏢', label: '기업정보' },
   { id: 'portfolio', icon: '💼', label: '포트폴리오' },
-  { id: 'paper', icon: '💰', label: '모의투자' },
   { id: 'history', icon: '📋', label: '히스토리' },
+  { id: 'paper', icon: '💰', label: '모의투자' },
 ];
 
 const SETTINGS: NavItem = { id: 'settings', icon: '⚙️', label: '설정' };
