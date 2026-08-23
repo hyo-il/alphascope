@@ -29,12 +29,25 @@ export function listSnapshots(accountId: number): PaperSnapshot[] {
   ).map(toSnapshot);
 }
 
-/** 오늘자 스냅샷을 기록/갱신하고 전체 목록을 돌려준다. */
+/** 장이 열리지 않는 날 — 스냅샷을 남기지 않는다. */
+function isWeekend(dateStr: string): boolean {
+  const day = new Date(`${dateStr}T00:00:00Z`).getUTCDay();
+  return day === 0 || day === 6;
+}
+
+/**
+ * 오늘자 스냅샷을 기록/갱신하고 전체 목록을 돌려준다.
+ *
+ * 주말에는 남기지 않는다. 거래가 없는 날에 점을 찍으면 "일일 수익률" 이 생기는데,
+ * 그건 시장이 움직인 결과가 아니라 마지막 체결가가 그대로 이어진 것뿐이다.
+ */
 export function recordSnapshot(
   accountId: number,
   values: { totalValue: number; cash: number; stockValue: number; initialBalance: number },
 ): PaperSnapshot[] {
   const date = new Date().toISOString().slice(0, 10);
+  if (isWeekend(date)) return listSnapshots(accountId);
+
   const db = getDb();
 
   const previous = db

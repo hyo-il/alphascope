@@ -14,7 +14,8 @@ interface Props {
 
 const ACCOUNT_KEY = 'alphascope.paperAccountId';
 const REFRESH_MS = 2000;
-const QUANTITY_PRESETS = [1, 10, 100];
+const SHARE_PRESETS = [1, 10, 100];
+const PERCENT_PRESETS = [10, 30, 50, 100];
 
 /**
  * 차트 옆 빠른주문 (토스 WTS 의 빠른주문 위치).
@@ -35,7 +36,7 @@ export default function QuickOrderPanel({ symbol, price, currency, onGoToPaperTr
   const [fxRate, setFxRate] = useState(1);
   const [quantity, setQuantity] = useState(10);
   const [unit, setUnit] = useState<'shares' | 'percent'>('shares');
-  const [percent, setPercent] = useState(10);
+  const [percent, setPercent] = useState(30);
   const [busy, setBusy] = useState(false);
   const [version, setVersion] = useState(0);
 
@@ -115,26 +116,52 @@ export default function QuickOrderPanel({ symbol, price, currency, onGoToPaperTr
   }, [account, cash, currency, fxRate]);
 
   const commissionRate = account?.commissionRate ?? 0.001;
+  const held = position?.quantity ?? 0;
   const maxBuyable =
     price && price > 0 ? Math.floor(cashInSymbolCurrency / (price * (1 + commissionRate))) : 0;
 
-  // % 단위는 "구매 가능 수량의 몇 %" 로 읽는다 — 잔고 대비 비중을 그대로 정할 수 있다.
-  const effectiveQuantity =
-    unit === 'percent' ? Math.max(0, Math.floor((maxBuyable * percent) / 100)) : quantity;
+  /*
+   * % 는 매수·매도에서 기준이 다르다.
+   *   매수 — 현금 잔고의 N% 로 살 수 있는 수량
+   *   매도 — 보유 수량의 N%
+   * 하나의 값으로 뭉뚱그리면 "50% 매도" 가 잔고 기준으로 계산돼 엉뚱한 수량이 된다.
+   * 매수 환산에는 수수료를 포함한다 — 그러지 않으면 100% 가 잔고를 넘겨 거부된다.
+   */
+  const quantityFor = (side: OrderSide): number => {
+    if (unit === 'shares') return quantity;
+    if (side === 'BUY') {
+      if (!price || price <= 0) return 0;
+      const budget = (cashInSymbolCurrency * percent) / 100;
+      return Math.max(0, Math.floor(budget / (price * (1 + commissionRate))));
+    }
+    return Math.max(0, Math.floor((held * percent) / 100));
+  };
 
-  const buyEstimate = price ? effectiveQuantity * price * (1 + commissionRate) : 0;
-  const sellEstimate = price ? effectiveQuantity * price * (1 - commissionRate) : 0;
+  const buyQuantity = quantityFor('BUY');
+  const sellQuantity = quantityFor('SELL');
+
+  const buyEstimate = price ? buyQuantity * price * (1 + commissionRate) : 0;
+  const sellEstimate = price ? sellQuantity * price * (1 - commissionRate) : 0;
+
+  /** 입력한 %가 몇 주가 되는지 — 방향이 다르면 둘 다 보여 준다. */
+  const percentHint = (() => {
+    if (unit !== 'percent') return null;
+    if (percent >= 100 && held > 0) return `매수 ${buyQuantity}주 · 매도 전량 (${held}주)`;
+    if (buyQuantity === sellQuantity) return `= 약 ${buyQuantity}주`;
+    return `매수 약 ${buyQuantity}주 · 매도 약 ${sellQuantity}주`;
+  })();
 
   const refresh = () => setVersion((n) => n + 1);
 
   const order = (side: OrderSide, orderType: OrderType) => {
-    if (!account || !price || effectiveQuantity <= 0) return;
+    const orderQuantity = quantityFor(side);
+    if (!account || !price || orderQuantity <= 0) return;
 
     const label = side === 'BUY' ? '구매' : '판매';
     const typeLabel = orderType === 'MARKET' ? '시장가' : '현재가 지정가';
 
     modal.confirm({
-      title: `${symbol} ${effectiveQuantity}주 ${typeLabel} ${label}`,
+      title: `${symbol} ${orderQuantity}주 ${typeLabel} ${label}`,
       message: '모의투자 주문입니다. 증권사로 주문이 전송되지 않습니다.',
       rows: [
         { label: '계좌', value: account.name },
@@ -156,7 +183,7 @@ export default function QuickOrderPanel({ symbol, price, currency, onGoToPaperTr
             symbol,
             side,
             orderType,
-            quantity: effectiveQuantity,
+            quantity: orderQuantity,
             requestedPrice: orderType === 'LIMIT' ? price : null,
             reason: `차트 빠른주문 (${typeLabel})`,
           });
@@ -258,6 +285,7 @@ export default function QuickOrderPanel({ symbol, price, currency, onGoToPaperTr
             <input
               type="number"
               min={0}
+              max={unit === 'percent' ? 100 : undefined}
               value={unit === 'shares' ? quantity : percent}
               onChange={(e) =>
                 unit === 'shares'
@@ -280,43 +308,63 @@ export default function QuickOrderPanel({ symbol, price, currency, onGoToPaperTr
             ))}
           </div>
 
+          {/* 프리셋은 단위에 따라 통째로 바뀐다 */}
           <div className="flex gap-1">
-            {QUANTITY_PRESETS.map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => {
-                  setUnit('shares');
-                  setQuantity(n);
-                }}
-                className="flex-1 rounded border border-border py-0.5 text-[10px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
-              >
-                {n}주
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => {
-                setUnit('shares');
-                setQuantity(maxBuyable);
-              }}
-              className="flex-1 rounded border border-border py-0.5 text-[10px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-accent"
-            >
-              최대
-            </button>
+            {unit === 'shares' ? (
+              <>
+                {SHARE_PRESETS.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setQuantity(n)}
+                    className="flex-1 rounded border border-border py-0.5 text-[10px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                  >
+                    {n}주
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setQuantity(maxBuyable)}
+                  className="flex-1 rounded border border-border py-0.5 text-[10px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-accent"
+                >
+                  최대
+                </button>
+              </>
+            ) : (
+              PERCENT_PRESETS.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPercent(n)}
+                  className={`flex-1 rounded border py-0.5 text-[10px] transition-colors ${
+                    percent === n
+                      ? 'border-accent text-accent'
+                      : 'border-border text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+                  }`}
+                >
+                  {n}%
+                </button>
+              ))
+            )}
           </div>
 
-          {unit === 'percent' && (
-            <p className="text-right text-[10px] text-text-muted">= {effectiveQuantity}주</p>
+          {percentHint && (
+            <p className="text-right text-[10px] text-text-muted">{percentHint}</p>
           )}
         </div>
 
         {/* 가능 수량 · 예상 금액 */}
         <div className="space-y-0.5">
-          {info('판매가능', `${position?.quantity ?? 0}주`)}
+          {info('판매가능', `${held}주`)}
           {info('구매가능', `${maxBuyable}주`)}
-          {info('판매예상', formatPrice(sellEstimate, currency))}
-          {info('구매예상', formatPrice(buyEstimate, currency))}
+          {info(
+            unit === 'percent' ? `판매예상 (${percent}%)` : '판매예상',
+            formatPrice(sellEstimate, currency),
+          )}
+          {info(
+            unit === 'percent' ? `구매예상 (${percent}%)` : '구매예상',
+            formatPrice(buyEstimate, currency),
+          )}
         </div>
 
         {/* 주문 버튼 — 매도 파랑 / 매수 빨강 (국내 관례) */}
@@ -324,7 +372,7 @@ export default function QuickOrderPanel({ symbol, price, currency, onGoToPaperTr
           <button
             type="button"
             onClick={() => order('SELL', 'LIMIT')}
-            disabled={busy || !price || effectiveQuantity <= 0}
+            disabled={busy || !price || sellQuantity <= 0}
             className="rounded bg-accent/80 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-accent disabled:opacity-40"
           >
             현재가 판매
@@ -332,7 +380,7 @@ export default function QuickOrderPanel({ symbol, price, currency, onGoToPaperTr
           <button
             type="button"
             onClick={() => order('BUY', 'LIMIT')}
-            disabled={busy || !price || effectiveQuantity <= 0}
+            disabled={busy || !price || buyQuantity <= 0}
             className="rounded bg-bearish/80 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-bearish disabled:opacity-40"
           >
             현재가 구매
@@ -340,7 +388,7 @@ export default function QuickOrderPanel({ symbol, price, currency, onGoToPaperTr
           <button
             type="button"
             onClick={() => order('SELL', 'MARKET')}
-            disabled={busy || !price || effectiveQuantity <= 0}
+            disabled={busy || !price || sellQuantity <= 0}
             className="rounded border border-accent/60 py-1.5 text-[11px] text-accent transition-colors hover:bg-accent/10 disabled:opacity-40"
           >
             시장가 판매
@@ -348,7 +396,7 @@ export default function QuickOrderPanel({ symbol, price, currency, onGoToPaperTr
           <button
             type="button"
             onClick={() => order('BUY', 'MARKET')}
-            disabled={busy || !price || effectiveQuantity <= 0}
+            disabled={busy || !price || buyQuantity <= 0}
             className="rounded border border-bearish/60 py-1.5 text-[11px] text-bearish transition-colors hover:bg-bearish/10 disabled:opacity-40"
           >
             시장가 구매

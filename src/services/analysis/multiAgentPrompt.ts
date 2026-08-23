@@ -148,6 +148,13 @@ function holdingBlock(holding: Holding | null): string {
 - ※ 이미 보유 중이므로 신규 진입뿐 아니라 **보유 유지 / 추가 매수 / 손절** 관점도 함께 판단해 주세요.`;
 }
 
+import {
+  DEFAULT_HORIZON,
+  horizonBlock,
+  horizonOf,
+  type InvestmentHorizon,
+} from './horizons';
+
 export interface PromptOptions {
   symbol: string;
   timeframe: Timeframe;
@@ -158,14 +165,18 @@ export interface PromptOptions {
   holding: Holding | null;
   /** 2라운드 교차 검증 포함 여부 */
   crossReview: boolean;
+  /** 투자 기간 — 각 전문가와 의장의 판단 시간축을 정한다 */
+  horizon?: InvestmentHorizon;
 }
 
 /** 5개 에이전트 역할이 모두 담긴 최종 프롬프트 */
 export function buildMultiAgentPrompt(options: PromptOptions): string {
   const { symbol, crossReview } = options;
+  const horizon = horizonOf(options.horizon ?? DEFAULT_HORIZON);
 
+  // 각 전문가에게도 기간을 붙인다 — 역할별 판단이 서로 다른 시간축을 보면 종합이 안 된다.
   const agentSections = AGENTS.map(
-    (agent, index) => `### ${index + 1}. ${agent.name} (${agent.headline})
+    (agent, index) => `### ${index + 1}. ${agent.name} (${agent.headline}) — 투자 기간: ${horizon.label}(${horizon.period})
 ${agent.body}`,
   ).join('\n\n');
 
@@ -173,7 +184,8 @@ ${agent.body}`,
 
 첨부한 차트 이미지와 아래 데이터를 근거로, **5명의 전문가 역할을 순서대로 모두 수행**해 주세요.
 각 역할은 독립적으로 판단하고, 앞선 역할의 결론에 끌려가지 마세요.
-투자 스타일은 **스윙 트레이딩(수일~수주 보유)** 기준입니다.
+
+${horizonBlock(options.horizon ?? DEFAULT_HORIZON)}
 
 ${marketBlock(options.symbol, options.timeframe, options.candles, options.currentPrice)}
 
@@ -193,6 +205,8 @@ ${crossReview ? `\n---\n\n${CROSS_REVIEW_PROMPT}\n` : ''}
 ## ${crossReview ? '3' : '2'}라운드: 종합 판단
 
 ${MODERATOR_PROMPT}
+
+**액션 플랜의 시간축**: ${horizon.actionPlan}
 
 ---
 

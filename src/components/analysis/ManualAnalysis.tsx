@@ -16,6 +16,12 @@ import ChartCaptureModal from './ChartCaptureModal';
 import type { DrawingSnapshot } from '../chart/CandleChart';
 import { TIMEFRAME_ITEMS, type IndicatorSeries, type IndicatorToggles } from '../../types/chart';
 import { useCaptureStore } from '../../store/captureStore';
+import {
+  DEFAULT_HORIZON,
+  HORIZONS,
+  horizonLabel,
+  type InvestmentHorizon,
+} from '../../services/analysis/horizons';
 
 interface Props {
   symbol: string;
@@ -52,6 +58,8 @@ export default function ManualAnalysis({
 }: Props) {
   const [mode, setMode] = useState<AnalysisMode>('multi');
   const [crossReview, setCrossReview] = useState(false);
+  /** 투자 기간 — 프롬프트의 판단 시간축을 정한다 */
+  const [horizon, setHorizon] = useState<InvestmentHorizon>(DEFAULT_HORIZON);
   const [compareSymbols, setCompareSymbols] = useState<string[]>([]);
   /** 사용자가 직접 고친 프롬프트. null 이면 자동 생성본을 그대로 쓴다. */
   const [edited, setEdited] = useState<string | null>(null);
@@ -97,11 +105,16 @@ export default function ManualAnalysis({
   const generated = useMemo(() => {
     switch (mode) {
       case 'quick':
-        return buildQuickPrompt(summaries.find((s) => s.symbol === symbol) ?? null, timeframe, symbol);
+        return buildQuickPrompt(
+          summaries.find((s) => s.symbol === symbol) ?? null,
+          timeframe,
+          symbol,
+          horizon,
+        );
       case 'portfolio':
-        return buildPortfolioPrompt(portfolio, summaries, exchangeRate);
+        return buildPortfolioPrompt(portfolio, summaries, exchangeRate, horizon);
       case 'compare':
-        return buildComparePrompt(summaries);
+        return buildComparePrompt(summaries, horizon);
       case 'multi':
       default:
         return buildMultiAgentPrompt({
@@ -113,6 +126,7 @@ export default function ManualAnalysis({
           peers,
           holding,
           crossReview,
+          horizon,
         });
     }
   }, [
@@ -130,19 +144,20 @@ export default function ManualAnalysis({
     summaries,
     portfolio,
     exchangeRate,
+    horizon,
   ]);
 
   // 모드나 종목이 바뀌면 편집 내용을 버린다 (다른 종목의 편집본이 남으면 혼란스럽다).
   useEffect(() => {
     setEdited(null);
-  }, [mode, symbol]);
+  }, [mode, symbol, horizon]);
 
   const prompt = edited ?? generated;
 
   // 편집본까지 반영해 상위로 올린다 (히스토리 저장용).
   useEffect(() => {
-    onPromptChange?.({ mode, text: prompt });
-  }, [mode, prompt, onPromptChange]);
+    onPromptChange?.({ mode: `${mode}·${horizonLabel(horizon)}`, text: prompt });
+  }, [mode, horizon, prompt, onPromptChange]);
   const loading = summariesLoading || (mode === 'multi' && fundamentalsLoading);
 
   // 포트폴리오·비교는 여러 종목이라 현재 차트 이미지가 프롬프트와 맞지 않는다.
@@ -170,6 +185,28 @@ export default function ManualAnalysis({
             교차 검증 라운드 추가 (답변이 길어집니다)
           </label>
         )}
+
+        <div className="space-y-1.5 px-1">
+          <h4 className="text-[11px] text-text-secondary">투자 기간</h4>
+          <div className="grid grid-cols-4 gap-1">
+            {HORIZONS.map((h) => (
+              <button
+                key={h.id}
+                type="button"
+                onClick={() => setHorizon(h.id)}
+                title={h.directive}
+                className={`rounded-md border px-1 py-1.5 text-center transition-colors ${
+                  horizon === h.id
+                    ? 'border-accent bg-accent/10 text-accent'
+                    : 'border-border text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+                }`}
+              >
+                <span className="block text-[11px] font-medium">{h.label}</span>
+                <span className="block text-[10px] text-text-muted">{h.period}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
         {mode === 'compare' && (
           <CompareSymbols

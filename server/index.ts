@@ -28,6 +28,7 @@ import {
   getAccount as getPaperAccount,
 } from './paperTradingService';
 import { computePerformance, listSnapshots } from './paperPerformanceService';
+import { backfillSnapshots, startSnapshotScheduler } from './paperSnapshotScheduler';
 
 /**
  * AlphaScope API 서버.
@@ -486,4 +487,7 @@ app.listen(port, () => {
       .then((count) => console.log(`[alphascope] 종목 카탈로그 ${count.toLocaleString()}건 준비됨`))
       .catch((e) => console.error('[alphascope] 종목 카탈로그 준비 실패:', e));
   }
+
+  // 앱이 꺼져 있던 구간의 모의투자 스냅샷을 채우고, 이후 하루 한 번 기록한다.
+  void backfillSnapshots().then(() => startSnapshotScheduler());
 });

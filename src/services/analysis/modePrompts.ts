@@ -1,3 +1,9 @@
+import {
+  DEFAULT_HORIZON,
+  horizonBlock,
+  horizonOf,
+  type InvestmentHorizon,
+} from './horizons';
 import type { SymbolSummary } from '../../types/analysis';
 import type { ExchangeRate, Portfolio, Timeframe } from '../../types/toss';
 import { DISCLAIMER } from './prompts';
@@ -52,6 +58,7 @@ export function buildQuickPrompt(
   summary: SymbolSummary | null,
   timeframe: Timeframe,
   symbol: string,
+  horizonId: InvestmentHorizon = DEFAULT_HORIZON,
 ): string {
   if (!summary) return `${symbol} 데이터를 불러오는 중입니다.`;
 
@@ -61,7 +68,11 @@ export function buildQuickPrompt(
       ? NONE
       : `${n(i.macd, 3)} / 시그널: ${n(i.macdSignal, 3)} / 히스토그램: ${n(i.macdHistogram, 3)}`;
 
-  return `아래 차트 이미지와 데이터를 보고 단기 기술적 분석 의견을 주세요.
+  const horizon = horizonOf(horizonId);
+
+  return `아래 차트 이미지와 데이터를 보고 기술적 분석 의견을 주세요.
+
+${horizonBlock(horizonId)}
 
 종목: ${summary.symbol}${summary.name ? ` (${summary.name})` : ''}
 타임프레임: ${TIMEFRAME_LABEL[timeframe]}
@@ -78,9 +89,10 @@ ATR(14): ${n(i.atr14, 2, '$')}
 
 분석 요청:
 1. 현재 기술적 상태 요약
-2. 단기(1~5일) 방향 의견 + 근거
+2. ${horizon.label}(${horizon.period}) 방향 의견 + 근거
 3. 주요 지지선과 저항선
 4. 신뢰도 (높음/중간/낮음)
+5. ${horizon.actionPlan}
 
 ${DISCLAIMER}`;
 }
@@ -90,6 +102,7 @@ export function buildPortfolioPrompt(
   portfolio: Portfolio | null,
   summaries: SymbolSummary[],
   exchangeRate: ExchangeRate | null,
+  horizonId: InvestmentHorizon = DEFAULT_HORIZON,
 ): string {
   if (!portfolio || portfolio.holdings.length === 0) {
     return '현재 보유 종목이 없어 이 모드를 사용할 수 없습니다.';
@@ -117,6 +130,8 @@ RSI: ${n(i.rsi14, 1)} | MACD: ${macdStatus} | 20MA ${above(found?.price ?? holdi
   });
 
   return `아래는 현재 보유 중인 주식 포트폴리오입니다.
+
+${horizonBlock(horizonId)}
 각 종목의 차트 지표와 재무 데이터를 종합하여 분석해주세요.
 
 ## 포트폴리오 요약
@@ -140,7 +155,10 @@ ${DISCLAIMER}`;
 }
 
 /** 모드 4 — 종목 비교 */
-export function buildComparePrompt(summaries: SymbolSummary[]): string {
+export function buildComparePrompt(
+  summaries: SymbolSummary[],
+  horizonId: InvestmentHorizon = DEFAULT_HORIZON,
+): string {
   const valid = summaries.filter((s) => s.price != null || s.fundamentals.per != null);
   if (valid.length < 2) {
     return '비교하려면 종목이 2개 이상 필요합니다. 오른쪽에서 비교할 종목을 추가하세요.';
@@ -165,6 +183,8 @@ RSI: ${n(i.rsi14, 1)} | 20MA ${above(s.price, i.sma20)} | 60MA ${above(s.price, 
   });
 
   return `아래 ${valid.length}개 종목을 비교 분석해주세요.
+
+${horizonBlock(horizonId)}
 
 ${blocks.join('\n\n')}
 

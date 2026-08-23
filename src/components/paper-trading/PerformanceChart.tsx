@@ -13,14 +13,32 @@ interface Props {
   snapshots: PaperSnapshot[];
 }
 
-type Range = '1w' | '1m' | '3m' | 'all';
+type Range = '1w' | '1m' | '3m' | '6m' | 'all';
 
 const RANGES: { id: Range; label: string; days: number | null }[] = [
   { id: '1w', label: '1주', days: 7 },
   { id: '1m', label: '1개월', days: 30 },
   { id: '3m', label: '3개월', days: 90 },
+  { id: '6m', label: '6개월', days: 180 },
   { id: 'all', label: '전체', days: null },
 ];
+
+/** 구간 수익률 — 시작점 대비. 누적 수익률의 차이가 아니라 평가금액 비율로 낸다. */
+function rangeStats(points: { totalValue: number; cumulativeReturn: number | null }[]) {
+  if (points.length < 2) return { ret: null as number | null, mdd: null as number | null };
+
+  const first = points[0].totalValue;
+  const last = points[points.length - 1].totalValue;
+  const ret = first ? (last / first - 1) * 100 : null;
+
+  let peak = first;
+  let worst = 0;
+  for (const p of points) {
+    if (p.totalValue > peak) peak = p.totalValue;
+    if (peak > 0) worst = Math.min(worst, (p.totalValue - peak) / peak);
+  }
+  return { ret, mdd: worst * 100 };
+}
 
 /**
  * 누적 수익률 곡선.
@@ -33,6 +51,10 @@ export default function PerformanceChart({ snapshots }: Props) {
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const [range, setRange] = useState<Range>('all');
+  const [stats, setStats] = useState<{ ret: number | null; mdd: number | null }>({
+    ret: null,
+    mdd: null,
+  });
 
   useEffect(() => {
     const container = containerRef.current;
@@ -89,12 +111,27 @@ export default function PerformanceChart({ snapshots }: Props) {
 
     series.setData(points);
     chartRef.current?.timeScale().fitContent();
+
+    const inRange = snapshots.filter((s) => new Date(s.date).getTime() >= cutoff);
+    setStats(rangeStats(inRange));
   }, [snapshots, range]);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
-      <div className="flex items-center gap-1">
-        <h4 className="mr-auto text-xs font-medium text-text-secondary">누적 수익률</h4>
+      <div className="flex flex-wrap items-center gap-1">
+        <h4 className="text-xs font-medium text-text-secondary">누적 수익률</h4>
+        {stats.ret != null && (
+          <span className="mr-auto flex items-center gap-2 text-[11px] tabular-nums">
+            <span className={stats.ret >= 0 ? 'text-bullish' : 'text-bearish'}>
+              구간 {stats.ret > 0 ? '+' : ''}
+              {stats.ret.toFixed(2)}%
+            </span>
+            {stats.mdd != null && (
+              <span className="text-text-muted">MDD {stats.mdd.toFixed(2)}%</span>
+            )}
+          </span>
+        )}
+        {stats.ret == null && <span className="mr-auto" />}
         {RANGES.map((r) => (
           <button
             key={r.id}
