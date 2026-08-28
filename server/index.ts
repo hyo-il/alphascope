@@ -9,8 +9,33 @@ import { getCandles, getCandlesBefore } from './candleService';
 import { summarizeSymbols } from './summaryService';
 import { fetchQuotes } from './quoteService';
 import { catalogSize, findStock, refreshCatalog, searchStocks } from './stockCatalog';
-import { deleteAnalysis, getDb, loadAnalyses, loadCandles, saveAnalysis } from './db';
+import {
+  deleteAllAnalyses as deleteAllClaudeAnalyses,
+  deleteAnalysis,
+  getDb,
+  loadAnalyses,
+  loadCandles,
+  saveAnalysis,
+} from './db';
 import { isMockMode, mockOrderbook, mockPrice } from './mockData';
+import { runAnalysis } from './gemini/analyze';
+import { applySignal } from './gemini/autoTrade';
+import { DEFAULT_MODEL, GeminiError, isGeminiEnabled } from './gemini/client';
+import { accuracyReport } from './gemini/accuracy';
+import {
+  deleteAllAnalyses as deleteAllGeminiAnalyses,
+  deleteAnalysis as deleteGeminiAnalysis,
+  getAnalysis as getGeminiAnalysis,
+  listAnalyses as listGeminiAnalyses,
+} from './gemini/store';
+import {
+  tradeOptionsOf,
+  getSettings as getGeminiSettings,
+  getStatus as getGeminiStatus,
+  runOnce as runGeminiOnce,
+  saveSettings as saveGeminiSettings,
+  startScheduler as startGeminiScheduler,
+} from './gemini/scheduler';
 import { computeIndicators, IndicatorEngineError, indicatorEngineHealthy } from './indicatorService';
 import {
   cancelOrder,
@@ -475,6 +500,141 @@ app.delete('/api/analysis/:id', (req, res) => {
   }
 });
 
+// ── Gemini 자동 분석 ─────────────────────────────────────
+// 키가 없으면 전부 503 으로 답하고, 프론트는 그걸 보고 기능을 숨긴다.
+// 기존 기능(토스·Claude 수동 분석)에는 아무 영향이 없어야 한다.
+
+function requireGemini(res: express.Response): boolean {
+  if (isGeminiEnabled()) return true;
+  res.status(503).json({ error: 'GEMINI_API_KEY 가 설정되지 않았습니다.', geminiDisabled: true });
+  return false;
+}
+
+app.get('/api/gemini/status', (_req, res) => {
+  try {
+    res.json({
+      enabled: isGeminiEnabled(),
+      model: DEFAULT_MODEL,
+      settings: isGeminiEnabled() ? getGeminiSettings() : null,
+      status: isGeminiEnabled() ? getGeminiStatus() : null,
+    });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.put('/api/gemini/settings', (req, res) => {
+  if (!requireGemini(res)) return;
+  try {
+    res.json(saveGeminiSettings(req.body ?? {}));
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+/** 한 종목 즉시 분석 (사용자가 버튼으로 실행) */
+app.post('/api/gemini/analyze', async (req, res) => {
+  if (!requireGemini(res)) return;
+  const symbol = String(req.body?.symbol ?? '').trim();
+  if (!symbol) return res.status(400).json({ error: 'symbol 이 필요합니다.' });
+
+  try {
+    const settingsForRun = getGeminiSettings();
+    const analysis = await runAnalysis({
+      symbol,
+      trigger: 'manual',
+      chartImage: req.body?.chartImage ?? null,
+      horizon: req.body?.horizon ?? settingsForRun.horizon,
+    });
+
+    // 수동 실행에서도 자동매매가 켜져 있으면 같은 규칙으로 주문한다.
+    const settings = settingsForRun;
+    if (req.body?.autoTrade !== false && settings.autoTrade && settings.paperAccountId) {
+      const result = await applySignal(analysis, tradeOptionsOf(settings));
+      analysis.paperOrderId = result.orderId;
+      analysis.tradeNote = result.note;
+    }
+    res.json(analysis);
+  } catch (e) {
+    if (e instanceof GeminiError) {
+      return res.status(e.rateLimited ? 429 : 502).json({ error: e.message });
+    }
+    fail(res, e);
+  }
+});
+
+/** 설정된 종목 전체를 지금 한 바퀴 */
+app.post('/api/gemini/run', async (_req, res) => {
+  if (!requireGemini(res)) return;
+  try {
+    res.json(await runGeminiOnce('manual'));
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/gemini/analyses', (req, res) => {
+  try {
+    const symbol = req.query.symbol ? String(req.query.symbol) : undefined;
+    const limit = Math.min(500, Number(req.query.limit ?? 100) || 100);
+    res.json(listGeminiAnalyses(symbol, limit));
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/gemini/analyses/:id', (req, res) => {
+  try {
+    const analysis = getGeminiAnalysis(Number(req.params.id));
+    if (!analysis) return res.status(404).json({ error: '분석을 찾을 수 없습니다.' });
+    res.json(analysis);
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.delete('/api/gemini/analyses/:id', (req, res) => {
+  try {
+    deleteGeminiAnalysis(Number(req.params.id));
+    res.json({ ok: true });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+/**
+ * 분석 기록 일괄 삭제.
+ *
+ * source=all|claude|gemini, symbol 을 주면 그 종목만.
+ * 두 테이블을 한 요청에서 지운다 — 프론트가 두 번 호출하면 한쪽만 지워진 채로
+ * 실패할 수 있고, 그때 화면과 DB 가 어긋난다.
+ */
+app.delete('/api/analyses', (req, res) => {
+  const source = String(req.query.source ?? 'all');
+  const symbol = req.query.symbol ? String(req.query.symbol) : undefined;
+
+  if (!['all', 'claude', 'gemini'].includes(source)) {
+    return res.status(400).json({ error: 'source 는 all·claude·gemini 중 하나여야 합니다.' });
+  }
+
+  try {
+    const claude = source === 'gemini' ? 0 : deleteAllClaudeAnalyses(symbol);
+    const gemini = source === 'claude' ? 0 : deleteAllGeminiAnalyses(symbol);
+    res.json({ claude, gemini, deleted: claude + gemini });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+/** Claude · Gemini 통합 정확도 */
+app.get('/api/ai/accuracy', (_req, res) => {
+  try {
+    res.json(accuracyReport());
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
 const port = Number(process.env.API_PORT ?? 4000);
 getDb(); // 시작 시 스키마 생성
 
@@ -490,4 +650,8 @@ app.listen(port, () => {
 
   // 앱이 꺼져 있던 구간의 모의투자 스냅샷을 채우고, 이후 하루 한 번 기록한다.
   void backfillSnapshots().then(() => startSnapshotScheduler());
+
+  // Gemini 자동 분석 — 키가 없으면 아무 일도 하지 않는다.
+  startGeminiScheduler();
+  if (isGeminiEnabled()) console.log(`[alphascope] Gemini 자동 분석 준비됨 (${DEFAULT_MODEL})`);
 });

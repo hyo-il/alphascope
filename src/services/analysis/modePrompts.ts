@@ -77,7 +77,7 @@ ${horizonBlock(horizonId)}
 종목: ${summary.symbol}${summary.name ? ` (${summary.name})` : ''}
 타임프레임: ${TIMEFRAME_LABEL[timeframe]}
 현재가: ${n(summary.price, 2, '$')} (전일 대비 ${n(summary.changeRate, 2, '', '%')})
-거래량: 20봉 평균 대비 ${n(i.volumeRatio, 0, '', '%')}
+거래량: 20봉 평균 대비 ${n(i.volumeRatio, 0, '', '%')}${i.volumeFromCompletedBar ? ' (직전 완성 봉 기준 — 마지막 봉은 진행 중)' : ''}
 
 [기술적 지표]
 RSI(14): ${n(i.rsi14, 1)}

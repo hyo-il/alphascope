@@ -1,6 +1,7 @@
 import type { Fundamentals, PeerSummary } from '../../types/company';
 import type { Candle, Holding, Timeframe } from '../../types/toss';
 import { summarize } from '../../utils/indicators';
+import { completedVolumeRatio } from '../../utils/marketBar';
 import {
   AGENTS,
   CROSS_REVIEW_PROMPT,
@@ -63,6 +64,9 @@ function marketBlock(
   const s = summarize(candles);
   if (!s) return `## 시세 데이터\n캔들 데이터가 없습니다.`;
 
+  // 진행 중인 봉의 거래량을 그대로 쓰면 '거래량 급감' 으로 오독된다.
+  const volume = completedVolumeRatio(candles, timeframe);
+
   const price = currentPrice ?? s.price;
   const macd = s.macd
     ? `${s.macd.isBullish ? '시그널선 위(강세)' : '시그널선 아래(약세)'}, 히스토그램 ${fmt(
@@ -73,10 +77,12 @@ function marketBlock(
 
   // 최근 흐름을 캔들 몇 개로 보여 준다 (이미지가 없을 때도 판단할 수 있도록).
   // 분봉은 날짜만 적으면 같은 날짜가 10줄 반복돼 순서를 알 수 없다 — 시각까지 적는다.
-  const recent = candles.slice(-10).map((c) => {
+  const slice = candles.slice(-10);
+  const recent = slice.map((c, index) => {
     const iso = new Date(c.timestamp).toISOString();
     const stamp = timeframe === '1d' ? iso.slice(0, 10) : iso.slice(0, 16).replace('T', ' ');
-    return `${stamp} O${fmt(c.open)} H${fmt(c.high)} L${fmt(c.low)} C${fmt(c.close)} V${c.volume}`;
+    const mark = volume.forming && index === slice.length - 1 ? '  ← 진행 중(미확정)' : '';
+    return `${stamp} O${fmt(c.open)} H${fmt(c.high)} L${fmt(c.low)} C${fmt(c.close)} V${c.volume}${mark}`;
   });
 
   return `## 시세 · 기술적 지표
@@ -88,7 +94,9 @@ function marketBlock(
 - MACD(12,26,9): ${macd}
 - 20MA: $${fmt(s.ma20)} (현재가 ${s.ma20 != null && price >= s.ma20 ? '위' : '아래'})
 - 60MA: $${fmt(s.ma60)}
-- 거래량: 최근 20봉 평균 대비 ${fmt(s.volumeRatio, 0)}%
+- 거래량: 최근 20봉 평균 대비 ${fmt(volume.ratio ?? s.volumeRatio, 0)}%${
+    volume.forming ? ' (직전 완성 봉 기준 — 마지막 봉은 아직 진행 중)' : ''
+  }
 - 최근 20봉 고가: $${fmt(s.recentHigh)} / 저가: $${fmt(s.recentLow)}
 
 ### 최근 10봉 OHLCV

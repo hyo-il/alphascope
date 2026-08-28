@@ -175,7 +175,7 @@ export default function ManualAnalysis({
           />
 
         {mode === 'multi' && (
-          <label className="flex items-center gap-2 px-1 text-xs text-text-secondary">
+          <label className="inline-flex w-fit items-center gap-2 px-1 text-xs text-text-secondary">
             <input
               type="checkbox"
               checked={crossReview}

@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import ManualAnalysis from './components/analysis/ManualAnalysis';
 import AnalysisHistory from './components/analysis/AnalysisHistory';
+import AIAnalysisView from './components/analysis/AIAnalysisView';
 import CompanyInfo from './components/company/CompanyInfo';
 import Holdings from './components/portfolio/Holdings';
 import PaperTradingDashboard from './components/paper-trading/PaperTradingDashboard';
@@ -196,15 +197,32 @@ export default function App() {
     switch (view) {
       case 'analysis':
         return (
-          <ManualAnalysis
-            symbol={symbol!}
-            timeframe={timeframe}
-            candles={candles}
+          <AIAnalysisView
+            symbol={symbol}
             currentPrice={displayPrice}
-            indicators={indicators}
-            toggles={toggles}
-            getChartSnapshot={getChartSnapshot}
-            onPromptChange={setLastPrompt}
+            manual={
+              // Claude 수동 분석: 프롬프트를 만드는 화면과, 받은 답변을 저장하는 화면을
+              // 한자리에 둔다 (복사 → 붙여넣기 → 답변 저장이 한 흐름이다).
+              <div className="space-y-4">
+                <ManualAnalysis
+                  symbol={symbol!}
+                  timeframe={timeframe}
+                  candles={candles}
+                  currentPrice={displayPrice}
+                  indicators={indicators}
+                  toggles={toggles}
+                  getChartSnapshot={getChartSnapshot}
+                  onPromptChange={setLastPrompt}
+                />
+                <AnalysisHistory
+                  symbol={symbol!}
+                  timeframe={timeframe}
+                  currentPrice={displayPrice}
+                  mode={lastPrompt.mode}
+                  prompt={lastPrompt.text}
+                />
+              </div>
+            }
           />
         );
       case 'company':
@@ -213,16 +231,6 @@ export default function App() {
         return <Holdings onSelectSymbol={setSymbol} />;
       case 'paper':
         return <PaperTradingDashboard symbol={symbol ?? 'AAPL'} onSelectSymbol={setSymbol} />;
-      case 'history':
-        return (
-          <AnalysisHistory
-            symbol={symbol!}
-            timeframe={timeframe}
-            currentPrice={displayPrice}
-            mode={lastPrompt.mode}
-            prompt={lastPrompt.text}
-          />
-        );
       case 'settings':
         return <Settings isMock={isMock} engineDown={engineDown} />;
       case 'chart':

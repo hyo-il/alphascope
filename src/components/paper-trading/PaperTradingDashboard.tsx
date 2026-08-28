@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Skeleton, SkeletonCards, SkeletonTable } from '../common/SkeletonLoader';
 import {
   usePaperAccountDetail,
   usePaperAccounts,
@@ -63,10 +64,25 @@ export default function PaperTradingDashboard({ symbol, onSelectSymbol }: Props)
   );
 
   if (loading) {
+    // 계좌 목록이 오기 전에도 **실제와 같은 배치**를 그려 둔다.
+    // 빈 화면을 잠깐 보여 주면 계좌가 없는 것으로 오해하게 된다.
     return (
       <div className="flex h-full flex-col">
         {banner}
-        <p className="p-8 text-center text-xs text-text-muted">불러오는 중…</p>
+        <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+          <Skeleton className="h-4 w-10" />
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="h-3 w-32" />
+        </div>
+        <div className="flex min-h-0 flex-1 gap-3 p-3">
+          <div className="w-[280px] shrink-0">
+            <Skeleton className="h-[420px] w-full rounded-lg" />
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            <SkeletonCards count={4} className="grid-cols-2 md:grid-cols-4" />
+            <SkeletonTable rows={6} columns={5} />
+          </div>
+        </div>
       </div>
     );
   }
@@ -116,6 +132,7 @@ export default function PaperTradingDashboard({ symbol, onSelectSymbol }: Props)
       <div className="flex min-h-0 flex-1 gap-3 overflow-hidden p-3">
         {/* 왼쪽 — 주문 */}
         <div className="w-[280px] shrink-0 overflow-y-auto">
+          {!detail && <Skeleton className="h-[420px] w-full rounded-lg" />}
           {detail && (
             <OrderPanel
               account={detail.account}
@@ -129,6 +146,7 @@ export default function PaperTradingDashboard({ symbol, onSelectSymbol }: Props)
 
         {/* 오른쪽 — 요약 + 탭 */}
         <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden">
+          {!detail && <SkeletonCards count={4} className="shrink-0 grid-cols-2 md:grid-cols-4" />}
           {detail && (
             <div className="grid shrink-0 grid-cols-2 gap-2 md:grid-cols-4">
               {[
@@ -175,6 +193,11 @@ export default function PaperTradingDashboard({ symbol, onSelectSymbol }: Props)
             </div>
 
             <div className="min-h-0 flex-1 overflow-auto">
+              {tab === 'positions' && !detail && (
+                <div className="p-3">
+                  <SkeletonTable rows={4} columns={5} />
+                </div>
+              )}
               {tab === 'positions' && detail && (
                 <PositionList
                   positions={detail.positions}
@@ -195,7 +218,10 @@ export default function PaperTradingDashboard({ symbol, onSelectSymbol }: Props)
                       </div>
                     </>
                   ) : (
-                    <p className="py-8 text-center text-xs text-text-muted">성과를 계산하는 중…</p>
+                    <>
+                      <SkeletonCards count={4} className="grid-cols-2 md:grid-cols-4" />
+                      <Skeleton className="min-h-[220px] flex-1 rounded-lg" />
+                    </>
                   )}
                 </div>
               )}

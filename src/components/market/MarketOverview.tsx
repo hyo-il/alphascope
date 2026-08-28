@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { MarketIndex } from '../../types/analysis';
 import type { ExchangeRate } from '../../types/toss';
 import MarketCard from './MarketCard';
+import { Skeleton } from '../common/SkeletonLoader';
 
 /** 현재가는 30초, 스파크라인은 서버가 캐시하므로 같은 주기로 함께 받는다. */
 const POLL_INTERVAL_MS = 30_000;
@@ -91,6 +92,19 @@ export default function MarketOverview() {
       </div>
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+        {/* 첫 응답 전에는 카드 자리를 스켈레톤으로 잡아 둔다 —
+            비워 두면 시황이 도착하는 순간 아래 화면 전체가 밀려 내려간다. */}
+        {indices.length === 0 &&
+          Array.from({ length: 7 }).map((_, index) => (
+            <div
+              key={index}
+              className="rounded-lg border border-border bg-bg-secondary px-3 py-2"
+            >
+              <Skeleton className="mb-1.5 h-2.5 w-14" />
+              <Skeleton className="mb-1 h-5 w-24" />
+              <Skeleton className="h-2.5 w-16" />
+            </div>
+          ))}
         {indices.map((index) => (
           <MarketCard
             key={index.symbol}

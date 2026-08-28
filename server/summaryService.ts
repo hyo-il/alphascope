@@ -1,8 +1,10 @@
 import type { SymbolSummary } from '../src/types/analysis';
 import { getCandles } from './candleService';
+import { loadCandles } from './db';
 import { getFundamentals } from './companyService';
 import { computeIndicators } from './indicatorService';
 import { isMockMode, mockPrice } from './mockData';
+import { completedVolumeRatio } from '../src/utils/marketBar';
 import { fetchPrice } from '../src/services/toss/market';
 
 /**
@@ -34,8 +36,18 @@ async function summarizeOne(symbol: string): Promise<SymbolSummary> {
   };
 
   try {
-    const candles = await getCandles(symbol, '1d', 300);
-    const price = isMockMode() ? mockPrice(symbol) : await fetchPrice(symbol);
+    // 실시간 조회가 막혀도(API 장애·IP 차단) 캐시가 있으면 요약은 만들어 준다 —
+    // 여기서 던지면 지표·재무까지 통째로 비어 버린다.
+    const candles = await getCandles(symbol, '1d', 300).catch((error) => {
+      const cached = loadCandles(symbol, '1d', 300);
+      if (!cached.length) throw error;
+      summary.error = `실시간 캔들 조회 실패, 캐시 사용: ${(error as Error).message}`;
+      return cached;
+    });
+    // 현재가도 마찬가지다 — 실패하면 마지막 캔들 종가로 대신한다.
+    const price = isMockMode()
+      ? mockPrice(symbol)
+      : await fetchPrice(symbol).catch(() => ({ close: NaN }) as Awaited<ReturnType<typeof fetchPrice>>);
     summary.price = Number.isFinite(price.close) ? price.close : (candles.at(-1)?.close ?? null);
 
     // 전일 종가 대비 변동률
@@ -45,10 +57,9 @@ async function summarizeOne(symbol: string): Promise<SymbolSummary> {
     }
 
     const indicators = await computeIndicators(candles);
-    const recent = candles.slice(-20);
-    const averageVolume = recent.length
-      ? recent.reduce((sum, c) => sum + c.volume, 0) / recent.length
-      : 0;
+    // 장중에는 마지막 봉이 미완성이라 거래량이 평균의 몇 % 수준으로 찍힌다.
+    // 그대로 내보내면 프롬프트에서 '거래량 급감' 으로 읽힌다.
+    const volume = completedVolumeRatio(candles, '1d');
 
     summary.indicators = {
       rsi14: last(indicators.rsi14),
@@ -63,9 +74,10 @@ async function summarizeOne(symbol: string): Promise<SymbolSummary> {
       atr14: last(indicators.atr14),
       stochK: last(indicators.stochK),
       stochD: last(indicators.stochD),
-      volumeRatio: averageVolume ? ((candles.at(-1)?.volume ?? 0) / averageVolume) * 100 : null,
-      high52w: recent.length ? Math.max(...candles.slice(-252).map((c) => c.high)) : null,
-      low52w: recent.length ? Math.min(...candles.slice(-252).map((c) => c.low)) : null,
+      volumeRatio: volume.ratio,
+      volumeFromCompletedBar: volume.forming,
+      high52w: candles.length ? Math.max(...candles.slice(-252).map((c) => c.high)) : null,
+      low52w: candles.length ? Math.min(...candles.slice(-252).map((c) => c.low)) : null,
     };
   } catch (e) {
     summary.error = e instanceof Error ? e.message : String(e);

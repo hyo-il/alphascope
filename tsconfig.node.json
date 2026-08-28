@@ -20,11 +20,13 @@
     "paths": { "@/*": ["src/*"] }
   },
   // 서버 프로세스가 실제로 쓰는 것만 포함한다.
-  // src/services/analysis 등 브라우저 전용 코드는 tsconfig.app.json 이 담당한다.
+  // src/services/analysis 는 프롬프트 문구 정의(horizons.ts)를 서버의 Gemini 모듈과
+  // 공유하므로 포함한다 — 브라우저 API 를 쓰지 않는 순수 모듈이다.
   "include": [
     "vite.config.ts",
     "server",
     "scripts",
+    "src/services/analysis/horizons.ts",
     "src/services/toss",
     "src/types",
     "src/utils"

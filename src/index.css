@@ -35,6 +35,41 @@ body {
     sans-serif;
 }
 
+/**
+ * 스켈레톤 로더의 shimmer.
+ *
+ * 회색 박스만 두면 "멈춘 화면" 처럼 보인다. 좌→우로 밝은 띠가 지나가야
+ * 뭔가 진행 중이라는 게 읽힌다. 배경 그라데이션을 움직이는 방식이라
+ * 레이아웃을 건드리지 않고(리플로우 없음) GPU 로만 처리된다.
+ */
+@keyframes alphascope-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton {
+  background-color: var(--color-bg-tertiary);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(255 255 255 / 6%) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: alphascope-shimmer 1.4s ease-in-out infinite;
+}
+
+/* 움직임에 민감한 사용자에게는 띠를 멈춘다 (회색 박스는 그대로 보인다). */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
 @layer base {
   /**
    * 클릭 가능한 요소의 커서.

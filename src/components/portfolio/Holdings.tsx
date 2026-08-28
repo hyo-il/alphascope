@@ -1,4 +1,4 @@
-import LoadingSpinner from '../common/LoadingSpinner';
+import { SkeletonCards, SkeletonTable } from '../common/SkeletonLoader';
 import PortfolioSummaryBar from './PortfolioSummary';
 import { useExchangeRate, usePortfolio } from '../../hooks/useCompany';
 import { changeColor, formatPercent, formatUsd } from '../../utils/formatters';
@@ -12,7 +12,14 @@ export default function Holdings({ onSelectSymbol }: Props) {
   const { data: portfolio, loading, error } = usePortfolio(true);
   const { data: rate } = useExchangeRate(true);
 
-  if (loading) return <LoadingSpinner label="보유 주식 불러오는 중…" />;
+  if (loading) {
+    return (
+      <div className="space-y-3 p-4">
+        <SkeletonCards count={3} className="grid-cols-3" />
+        <SkeletonTable rows={5} columns={6} />
+      </div>
+    );
+  }
 
   if (error) {
     return (

@@ -4,7 +4,6 @@ export type ViewId =
   | 'company'
   | 'portfolio'
   | 'paper'
-  | 'history'
   | 'settings';
 
 interface NavItem {
@@ -18,7 +17,6 @@ const ITEMS: NavItem[] = [
   { id: 'analysis', icon: '🧠', label: 'AI 분석' },
   { id: 'company', icon: '🏢', label: '기업정보' },
   { id: 'portfolio', icon: '💼', label: '포트폴리오' },
-  { id: 'history', icon: '📋', label: '히스토리' },
   { id: 'paper', icon: '💰', label: '모의투자' },
 ];
 

@@ -124,6 +124,14 @@ export function loadAnalyses(symbol?: string, limit = 50): AnalysisRecord[] {
         .all(limit) as AnalysisRecord[]);
 }
 
+/** Claude 분석 기록 일괄 삭제 — 지운 건수를 돌려준다 */
+export function deleteAllAnalyses(symbol?: string): number {
+  const result = symbol
+    ? getDb().prepare(`DELETE FROM analysis_history WHERE symbol = ?`).run(symbol.toUpperCase())
+    : getDb().prepare(`DELETE FROM analysis_history`).run();
+  return result.changes;
+}
+
 export function deleteAnalysis(id: number): void {
   getDb().prepare('DELETE FROM analysis_history WHERE id = ?').run(id);
 }

@@ -47,6 +47,8 @@ export interface SymbolSummary {
     stochK?: number | null;
     stochD?: number | null;
     volumeRatio?: number | null;
+    /** 마지막 봉이 아직 진행 중이라 거래량을 직전 완성 봉 기준으로 계산했는지 */
+    volumeFromCompletedBar?: boolean;
     high52w?: number | null;
     low52w?: number | null;
   };

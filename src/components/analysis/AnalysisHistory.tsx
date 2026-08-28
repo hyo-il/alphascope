@@ -189,7 +189,7 @@ export default function AnalysisHistory({
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="mb-1.5 flex items-center justify-between">
           <p className="text-xs text-text-muted">저장된 분석 {records.length}건</p>
-          <label className="flex items-center gap-1.5 text-xs text-text-secondary">
+          <label className="inline-flex w-fit items-center gap-1.5 text-xs text-text-secondary">
             <input
               type="checkbox"
               checked={onlyThisSymbol}

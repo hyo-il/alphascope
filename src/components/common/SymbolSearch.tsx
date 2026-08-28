@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { InlineSpinner } from './LoadingOverlay';
 import type { StockSearchResult } from '../../types/toss';
 
 interface Props {
@@ -25,6 +26,8 @@ export default function SymbolSearch({ symbol, onSubmit }: Props) {
   const [results, setResults] = useState<StockSearchResult[]>([]);
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
+  /** 검색 요청이 도는 중 — "결과 없음" 과 "아직 안 옴" 을 구분하기 위해 필요하다 */
+  const [searching, setSearching] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setValue(symbol), [symbol]);
@@ -34,8 +37,10 @@ export default function SymbolSearch({ symbol, onSubmit }: Props) {
     const query = value.trim();
     if (!query || query === symbol) {
       setResults([]);
+      setSearching(false);
       return;
     }
+    setSearching(true);
 
     const controller = new AbortController();
     const timer = setTimeout(() => {
@@ -44,9 +49,12 @@ export default function SymbolSearch({ symbol, onSubmit }: Props) {
         .then((data) => {
           setResults(Array.isArray(data.results) ? data.results : []);
           setHighlight(0);
+          setSearching(false);
         })
-        .catch(() => {
-          /* 검색 실패는 조용히 넘긴다 — 직접 입력으로도 조회할 수 있다. */
+        .catch((error) => {
+          /* 검색 실패는 조용히 넘긴다 — 직접 입력으로도 조회할 수 있다.
+             단, 취소(abort)는 다음 요청이 이어받으므로 스피너를 끄지 않는다. */
+          if ((error as Error).name !== 'AbortError') setSearching(false);
         });
     }, 180);
 
@@ -119,8 +127,11 @@ export default function SymbolSearch({ symbol, onSubmit }: Props) {
           onKeyDown={onKeyDown}
           placeholder="종목명 또는 심볼"
           spellCheck={false}
-          className="w-48 rounded-md border border-border bg-bg-tertiary px-2.5 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+          className="w-48 rounded-md border border-border bg-bg-tertiary py-1.5 pl-2.5 pr-7 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
         />
+        {searching && (
+          <InlineSpinner className="pointer-events-none -ml-8 mr-[18px]" />
+        )}
         <button
           type="submit"
           className="rounded-md bg-accent px-2.5 py-1.5 text-sm text-white transition-colors hover:bg-accent-hover"
@@ -154,7 +165,15 @@ export default function SymbolSearch({ symbol, onSubmit }: Props) {
         </ul>
       )}
 
-      {open && value.trim() && value.trim() !== symbol && results.length === 0 && (
+      {/* 아직 응답 전인데 "결과 없음" 을 띄우면 오해를 부른다 — searching 을 함께 본다. */}
+      {open && searching && results.length === 0 && (
+        <p className="absolute left-0 top-full z-40 mt-1 flex w-80 items-center gap-2 rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs text-text-muted shadow-xl">
+          <InlineSpinner />
+          검색 중…
+        </p>
+      )}
+
+      {open && !searching && value.trim() && value.trim() !== symbol && results.length === 0 && (
         <p className="absolute left-0 top-full z-40 mt-1 w-80 rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs text-text-muted shadow-xl">
           검색 결과가 없습니다. 심볼을 직접 입력하면 그대로 조회합니다.
         </p>

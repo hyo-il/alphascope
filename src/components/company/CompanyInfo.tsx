@@ -1,4 +1,4 @@
-import LoadingSpinner from '../common/LoadingSpinner';
+import { Skeleton, SkeletonCards, SkeletonText } from '../common/SkeletonLoader';
 import FinancialStatements from './FinancialStatements';
 import SectorComparison from './SectorComparison';
 import { useFundamentals, usePeers } from '../../hooks/useCompany';
@@ -45,7 +45,19 @@ export default function CompanyInfo({ symbol }: Props) {
   // 기업 정보를 먼저 받은 뒤에 동종업계를 부른다 (섹터를 알아야 비교 대상이 정해진다).
   const peers = usePeers(symbol, Boolean(data));
 
-  if (loading) return <LoadingSpinner label={`${symbol} 기업 정보 불러오는 중…`} />;
+  if (loading) {
+    // yfinance 는 종목당 1~3초 걸린다. 그동안 빈 화면 대신 실제 배치를 그려 둔다.
+    return (
+      <div className="space-y-4 p-4">
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-48" />
+          <SkeletonText lines={2} className="max-w-2xl" />
+        </div>
+        <SkeletonCards count={6} className="grid-cols-2 md:grid-cols-3" />
+        <Skeleton className="h-40 w-full rounded-lg" />
+      </div>
+    );
+  }
 
   if (error) {
     return (
