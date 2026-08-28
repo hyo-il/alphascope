@@ -148,7 +148,7 @@ export default function AnalysisHistory({
           value={draft}
           onChange={(e) => handleDraftChange(e.target.value)}
           placeholder="여기에 분석 결과를 붙여넣으세요 (⌘V)"
-          className="min-h-0 flex-1 resize-none rounded-md border border-border bg-bg-primary p-2 text-xs leading-relaxed text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+          className="min-h-0 flex-1 resize-none rounded-md border border-border bg-bg-tertiary p-2 text-xs leading-relaxed text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
         />
 
         <div className="flex gap-2">

@@ -139,7 +139,7 @@ export default function AccountManager({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="계좌 이름 (예: 스윙 테스트)"
-            className="w-56 rounded border border-border bg-bg-primary px-2 py-1 text-xs text-text-primary focus:border-accent focus:outline-none"
+            className="w-56 rounded border border-border bg-bg-tertiary px-2 py-1 text-xs text-text-primary focus:border-accent focus:outline-none"
           />
           <span className="text-xs text-text-muted">초기 자금</span>
           {PRESETS.map((value) => (
@@ -160,7 +160,7 @@ export default function AccountManager({
             type="number"
             value={balance}
             onChange={(e) => setBalance(Number(e.target.value))}
-            className="w-36 rounded border border-border bg-bg-primary px-2 py-1 text-right text-xs tabular-nums text-text-primary focus:border-accent focus:outline-none"
+            className="w-36 rounded border border-border bg-bg-tertiary px-2 py-1 text-right text-xs tabular-nums text-text-primary focus:border-accent focus:outline-none"
           />
           <button
             type="button"

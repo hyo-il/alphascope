@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type {
-  AutoAnalysisSettings,
-  AutoAnalysisStatus,
-  GeminiAnalysis,
-} from '../types/gemini';
+import type { AutoAnalysisSettings, AutoAnalysisStatus } from '../types/gemini';
 
 interface GeminiState {
   /** 키가 있어 기능을 쓸 수 있는지 */
@@ -51,28 +47,4 @@ export function useGeminiStatus(pollMs = 15_000) {
   );
 
   return { state, error, refresh, save };
-}
-
-/** 저장된 Gemini 분석 목록 */
-export function useGeminiAnalyses(symbol?: string, limit = 100) {
-  const [items, setItems] = useState<GeminiAnalysis[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const query = new URLSearchParams({ limit: String(limit) });
-      if (symbol) query.set('symbol', symbol);
-      const response = await fetch(`/api/gemini/analyses?${query}`);
-      setItems(response.ok ? await response.json() : []);
-    } finally {
-      setLoading(false);
-    }
-  }, [symbol, limit]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  return { items, loading, refresh };
 }

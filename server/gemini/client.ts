@@ -74,6 +74,17 @@ function release(): void {
 
 // ── 호출 ────────────────────────────────────────────────────
 
+/** generateContent 응답에서 실제로 읽는 부분만 */
+interface GeminiResponse {
+  candidates?: {
+    content?: { parts?: { text?: string }[] };
+    finishReason?: string;
+  }[];
+  promptFeedback?: { blockReason?: string };
+  usageMetadata?: { totalTokenCount?: number };
+  error?: { message?: string };
+}
+
 export interface GeminiPart {
   text?: string;
   inlineData?: { mimeType: string; data: string };
@@ -158,14 +169,14 @@ export async function callGemini<T>(options: GeminiCallOptions): Promise<GeminiC
       continue;
     }
 
-    const json = (await response.json().catch(() => null)) as any;
+    const json = (await response.json().catch(() => null)) as GeminiResponse | null;
     if (!response.ok) {
       throw new GeminiError(json?.error?.message ?? `Gemini 오류 (${response.status})`, response.status);
     }
 
     const candidate = json?.candidates?.[0];
     const text: string = (candidate?.content?.parts ?? [])
-      .map((part: any) => part?.text ?? '')
+      .map((part) => part?.text ?? '')
       .join('')
       .trim();
 

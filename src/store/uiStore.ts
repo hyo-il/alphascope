@@ -83,7 +83,3 @@ export const toast = {
   info: (message: string, detail?: string) =>
     useUiStore.getState().pushToast({ type: 'info', message, detail }),
 };
-
-/** 훅 형태를 선호하는 호출부용 — 내용은 위와 같다 */
-export const useModal = () => modal;
-export const useToast = () => toast;

@@ -106,10 +106,49 @@ interface ExchangeRateResponse {
   result?: Raw | Raw[];
 }
 
-/** 환율 조회 (기본: USD → KRW) */
+/**
+ * 환율 캐시.
+ *
+ * ⚠️ 이게 없으면 초당 여러 번 토스를 때린다. `valuePositions()` 가 평가할 때마다
+ * 환율을 부르는데, 모의투자 화면(1초 폴링)과 빠른주문 패널(2초)이 동시에 돌면
+ * 초당 3회에 근접한다 — MARKET_INFO 한도가 정확히 3/s 라서 다른 호출까지 밀린다.
+ *
+ * 환율은 초 단위로 의미 있게 움직이지 않으므로 60초면 충분하다.
+ * 진행 중인 요청도 공유해서, 캐시가 빈 상태에서 동시에 들어온 호출이
+ * 각자 API 를 때리지 않게 한다.
+ */
+const RATE_TTL_MS = 60_000;
+const rateCache = new Map<string, { value: ExchangeRate; at: number }>();
+const ratePending = new Map<string, Promise<ExchangeRate>>();
+
+/** 환율 조회 (기본: USD → KRW) — 60초 캐시 */
 export async function fetchExchangeRate(
   baseCurrency = 'USD',
   quoteCurrency = 'KRW',
+): Promise<ExchangeRate> {
+  const key = `${baseCurrency}/${quoteCurrency}`;
+
+  const cached = rateCache.get(key);
+  if (cached && Date.now() - cached.at < RATE_TTL_MS) return cached.value;
+
+  const inflight = ratePending.get(key);
+  if (inflight) return inflight;
+
+  const request = fetchExchangeRateUncached(baseCurrency, quoteCurrency)
+    .then((value) => {
+      // 값을 못 읽은 응답(NaN)은 캐시하지 않는다 — 60초 동안 계속 틀린 값을 준다.
+      if (Number.isFinite(value.rate)) rateCache.set(key, { value, at: Date.now() });
+      return value;
+    })
+    .finally(() => ratePending.delete(key));
+
+  ratePending.set(key, request);
+  return request;
+}
+
+async function fetchExchangeRateUncached(
+  baseCurrency: string,
+  quoteCurrency: string,
 ): Promise<ExchangeRate> {
   const payload = await tossGet<ExchangeRateResponse>(
     '/api/v1/exchange-rate',

@@ -11,6 +11,7 @@
  */
 
 import { getDb, loadCandles } from '../db';
+import type { AgentOpinion } from '../../src/types/gemini';
 
 /** 채점 기준: 스윙 트레이딩이므로 5 거래일 뒤를 본다 */
 const HORIZON_DAYS = 5;
@@ -18,6 +19,32 @@ const HORIZON_DAYS = 5;
 const FLAT_BAND_PERCENT = 2;
 
 export type Outcome = 'correct' | 'incorrect' | 'pending';
+
+/** SQLite 행 — 두 테이블에서 채점에 필요한 열만 뽑는다 */
+interface GeminiRow {
+  id: number;
+  symbol: string;
+  created_at: string;
+  signal: string;
+  confidence: number;
+  price_at_analysis: number | null;
+}
+
+interface ClaudeRow {
+  id: number;
+  symbol: string;
+  analyzed_at: string;
+  verdict: string | null;
+  confidence: string | null;
+  price_at_analysis: number | null;
+}
+
+interface AgentsRow {
+  symbol: string;
+  created_at: string;
+  price_at_analysis: number | null;
+  agents: string;
+}
 
 export interface ScoredAnalysis {
   id: number;
@@ -76,7 +103,7 @@ export function scoredAnalyses(limit = 500): ScoredAnalysis[] {
         `SELECT id, symbol, created_at, signal, confidence, price_at_analysis
            FROM gemini_analysis ORDER BY created_at DESC LIMIT ?`,
       )
-      .all(limit) as any[]
+      .all(limit) as GeminiRow[]
   ).map((row) =>
     scoreOne({
       id: row.id,
@@ -95,7 +122,7 @@ export function scoredAnalyses(limit = 500): ScoredAnalysis[] {
         `SELECT id, symbol, analyzed_at, verdict, confidence, price_at_analysis
            FROM analysis_history ORDER BY analyzed_at DESC LIMIT ?`,
       )
-      .all(limit) as any[]
+      .all(limit) as ClaudeRow[]
   )
     .filter((row) => row.verdict)
     .map((row) =>
@@ -159,7 +186,7 @@ function agentAccuracy(): AgentAccuracy[] {
   const db = getDb();
   const rows = db
     .prepare(`SELECT symbol, created_at, price_at_analysis, agents FROM gemini_analysis`)
-    .all() as any[];
+    .all() as AgentsRow[];
 
   const table = new Map<string, AgentAccuracy>();
 
@@ -169,9 +196,9 @@ function agentAccuracy(): AgentAccuracy[] {
     if (!after) continue;
     const changePercent = ((after - row.price_at_analysis) / row.price_at_analysis) * 100;
 
-    let agents: any[] = [];
+    let agents: Partial<AgentOpinion>[] = [];
     try {
-      agents = JSON.parse(row.agents);
+      agents = JSON.parse(row.agents) as Partial<AgentOpinion>[];
     } catch {
       continue;
     }
@@ -185,7 +212,7 @@ function agentAccuracy(): AgentAccuracy[] {
         accuracy: null,
       };
       entry.scored++;
-      if (score(agent.vote, changePercent) === 'correct') entry.correct++;
+      if (agent.vote && score(agent.vote, changePercent) === 'correct') entry.correct++;
       table.set(agent.role, entry);
     }
   }

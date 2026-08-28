@@ -9,7 +9,10 @@ interface Loadable<T> {
 }
 
 /** 단순 GET 로더 — 탭을 열 때만 호출한다 (enabled=false 면 요청하지 않음). */
-function useFetch<T>(url: string | null, pick: (payload: any) => T | undefined): Loadable<T> {
+function useFetch<T>(
+  url: string | null,
+  pick: (payload: Record<string, unknown>) => T | undefined,
+): Loadable<T> {
   const [state, setState] = useState<Loadable<T>>({ data: null, loading: false, error: null });
 
   useEffect(() => {
@@ -24,7 +27,7 @@ function useFetch<T>(url: string | null, pick: (payload: any) => T | undefined):
     fetch(url, { signal: controller.signal })
       .then((res) => res.json())
       .then((payload) => {
-        if (payload.error) throw new Error(payload.error);
+        if (payload.error) throw new Error(String(payload.error));
         setState({ data: pick(payload) ?? null, loading: false, error: null });
       })
       .catch((e: unknown) => {
@@ -46,18 +49,18 @@ function useFetch<T>(url: string | null, pick: (payload: any) => T | undefined):
 export function useFundamentals(symbol: string, enabled: boolean) {
   return useFetch<Fundamentals>(
     enabled ? `/api/company?symbol=${symbol}` : null,
-    (p) => p.fundamentals,
+    (p) => p.fundamentals as Fundamentals | undefined,
   );
 }
 
 export function usePeers(symbol: string, enabled: boolean) {
-  return useFetch<PeerSummary[]>(enabled ? `/api/peers?symbol=${symbol}` : null, (p) => p.peers);
+  return useFetch<PeerSummary[]>(enabled ? `/api/peers?symbol=${symbol}` : null, (p) => p.peers as PeerSummary[] | undefined);
 }
 
 export function usePortfolio(enabled: boolean) {
-  return useFetch<Portfolio>(enabled ? '/api/holdings' : null, (p) => p.portfolio);
+  return useFetch<Portfolio>(enabled ? '/api/holdings' : null, (p) => p.portfolio as Portfolio | undefined);
 }
 
 export function useExchangeRate(enabled: boolean) {
-  return useFetch<ExchangeRate>(enabled ? '/api/exchange-rate' : null, (p) => p.rate);
+  return useFetch<ExchangeRate>(enabled ? '/api/exchange-rate' : null, (p) => p.rate as ExchangeRate | undefined);
 }

@@ -72,6 +72,85 @@ body {
 
 @layer base {
   /**
+   * 폼 요소 기본값.
+   *
+   * 컴포넌트마다 Tailwind 클래스로 배경을 주고 있었지만, **`<option>` 은 그럴 수 없다** —
+   * 드롭다운을 펼치면 OS/브라우저가 그리므로 부모 select 의 클래스가 닿지 않는다.
+   * 그래서 다크 화면에서 드롭다운만 흰색으로 튀어나왔다.
+   *
+   * 여기서 기본값을 주면 새 폼 요소를 만들 때마다 배경·테두리를 빠뜨릴 일도 없어진다.
+   * 개별 컴포넌트가 Tailwind 유틸리티로 덮어쓸 수 있도록 @layer base 안에 둔다.
+   */
+  select,
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea {
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+  }
+
+  select:focus,
+  input:focus,
+  textarea:focus {
+    outline: none;
+    border-color: var(--color-accent);
+  }
+
+  /* 드롭다운 목록 — 이것 때문에 전역 스타일이 필요하다 */
+  select option {
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+  }
+
+  ::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  /* 체크박스·라디오·슬라이더는 accent-color 하나로 브라우저 기본 파랑을 걷어낸다 */
+  input[type='checkbox'],
+  input[type='radio'],
+  input[type='range'] {
+    accent-color: var(--color-accent);
+  }
+
+  /* 비활성 상태는 눈으로도 구분되게 (커서만으로는 부족하다) */
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    opacity: 0.5;
+  }
+
+  /**
+   * 스크롤바.
+   *
+   * 기본 스크롤바는 밝은 회색이라 다크 화면에서 그 부분만 떠 보인다.
+   * Firefox 는 `scrollbar-color`, 크로미움·사파리는 `::-webkit-scrollbar` 를 쓴다.
+   */
+  * {
+    scrollbar-color: #444444 var(--color-bg-secondary);
+    scrollbar-width: thin;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-bg-secondary);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #444444;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #555555;
+  }
+
+  /**
    * 클릭 가능한 요소의 커서.
    *
    * Tailwind v4 의 preflight 는 버튼에 `cursor: pointer` 를 넣지 않는다 (v3 와 달라진 점).

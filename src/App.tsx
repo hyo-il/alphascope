@@ -42,11 +42,17 @@ export default function App() {
     timeframe,
     hasSymbol,
   );
-  const livePrice = useRealtimePrice(symbol);
-  const orderbook = useOrderbook(symbol);
-
   const chartRef = useRef<CandleChartHandle>(null);
   const [view, setView] = useState<ViewId>('chart');
+  /*
+   * 차트는 캡처 대상이라 다른 화면에서도 언마운트하지 않고 화면 밖으로 보낸다.
+   * 하지만 보이지 않는 호가·주문 패널까지 계속 폴링할 이유는 없다.
+   * 현재가는 헤더에 늘 표시되므로 화면과 무관하게 계속 받는다.
+   */
+  const chartVisible = view === 'chart';
+
+  const livePrice = useRealtimePrice(symbol);
+  const orderbook = useOrderbook(symbol, chartVisible);
   const [activeTool, setActiveTool] = useState<DrawingToolType>(null);
   const [drawingCount, setDrawingCount] = useState(0);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
@@ -150,6 +156,7 @@ export default function App() {
               symbol={symbol}
               price={displayPrice}
               currency={currency}
+              active={chartVisible}
               onGoToPaperTrading={() => setView('paper')}
             />
           )}

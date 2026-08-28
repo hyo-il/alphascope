@@ -51,7 +51,7 @@ export default function CompareSymbols({ baseSymbol, symbols, onChange }: Props)
           placeholder="심볼 (예: MSFT)"
           spellCheck={false}
           disabled={symbols.length >= MAX_EXTRA}
-          className="min-w-0 flex-1 rounded border border-border bg-bg-primary px-2 py-1 text-xs uppercase text-text-primary placeholder:normal-case placeholder:text-text-muted focus:border-accent focus:outline-none disabled:opacity-40"
+          className="min-w-0 flex-1 rounded border border-border bg-bg-tertiary px-2 py-1 text-xs uppercase text-text-primary placeholder:normal-case placeholder:text-text-muted focus:border-accent focus:outline-none disabled:opacity-40"
         />
         <button
           type="submit"

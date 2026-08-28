@@ -322,7 +322,7 @@ export default function ManualAnalysis({
           value={prompt}
           onChange={(e) => setEdited(e.target.value)}
           spellCheck={false}
-          className="min-h-0 flex-1 resize-none rounded-md border border-border bg-bg-primary p-4 font-mono text-xs leading-relaxed text-text-secondary focus:border-accent focus:outline-none"
+          className="min-h-0 flex-1 resize-none rounded-md border border-border bg-bg-tertiary p-4 font-mono text-xs leading-relaxed text-text-secondary focus:border-accent focus:outline-none"
         />
       </div>
 

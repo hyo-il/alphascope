@@ -223,7 +223,7 @@ export default function OrderPanel({
             value={limitPrice}
             onChange={(e) => setLimitPrice(e.target.value === '' ? '' : Number(e.target.value))}
             placeholder={price != null ? String(price) : ''}
-            className="min-w-0 flex-1 rounded border border-border bg-bg-primary px-2 py-1 text-right tabular-nums text-text-primary focus:border-accent focus:outline-none"
+            className="min-w-0 flex-1 rounded border border-border bg-bg-tertiary px-2 py-1 text-right tabular-nums text-text-primary focus:border-accent focus:outline-none"
           />
         </label>
       )}
@@ -235,7 +235,7 @@ export default function OrderPanel({
           min={1}
           value={quantity}
           onChange={(e) => setQuantity(Math.max(0, Number(e.target.value)))}
-          className="min-w-0 flex-1 rounded border border-border bg-bg-primary px-2 py-1 text-right tabular-nums text-text-primary focus:border-accent focus:outline-none"
+          className="min-w-0 flex-1 rounded border border-border bg-bg-tertiary px-2 py-1 text-right tabular-nums text-text-primary focus:border-accent focus:outline-none"
         />
       </label>
 
@@ -266,7 +266,7 @@ export default function OrderPanel({
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         placeholder="주문 사유 (예: RSI 30 이하)"
-        className="rounded border border-border bg-bg-primary px-2 py-1 text-[11px] text-text-primary focus:border-accent focus:outline-none"
+        className="rounded border border-border bg-bg-tertiary px-2 py-1 text-[11px] text-text-primary focus:border-accent focus:outline-none"
       />
 
       <button

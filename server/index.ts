@@ -350,9 +350,19 @@ app.post('/api/paper/accounts', (req, res) => {
   }
 });
 
+/**
+ * 계좌 상세.
+ *
+ * `settle=1` 이면 대기 중인 지정가 주문을 먼저 체결시킨다.
+ * 예전에는 프론트가 `/positions` → `/accounts/:id` 순으로 두 번 불렀는데,
+ * 두 라우트가 각각 valuePositions() 를 돌려 **토스 시세·환율을 초당 4회** 때렸다.
+ * 한 번에 처리하면 절반으로 줄고, 체결과 평가가 같은 시점 값을 쓰게 된다.
+ */
 app.get('/api/paper/accounts/:id', async (req, res) => {
   try {
-    res.json(await getAccountDetail(accountIdOf(req)));
+    const accountId = accountIdOf(req);
+    const filled = req.query.settle ? await settlePendingOrders(accountId) : [];
+    res.json({ ...(await getAccountDetail(accountId)), filled });
   } catch (e) {
     failPaper(res, e);
   }

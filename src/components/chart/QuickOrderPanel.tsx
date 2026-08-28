@@ -8,6 +8,12 @@ interface Props {
   symbol: string;
   price: number | null;
   currency: 'KRW' | 'USD';
+  /**
+   * 차트 화면이 실제로 보이는 중인지.
+   * 차트는 캡처 대상이라 다른 화면에서도 언마운트하지 않으므로, 이 가드가 없으면
+   * 보이지도 않는 패널이 2초마다 계좌·주문을 계속 조회한다.
+   */
+  active?: boolean;
   /** 계좌를 만들러 보내기 */
   onGoToPaperTrading: () => void;
 }
@@ -23,7 +29,13 @@ const PERCENT_PRESETS = [10, 30, 50, 100];
  * ⚠️ 모의투자 전용이다. 계좌 선택은 localStorage 로 모의투자 대시보드와 공유해
  * 두 화면이 서로 다른 계좌를 보고 있는 일이 없게 한다.
  */
-export default function QuickOrderPanel({ symbol, price, currency, onGoToPaperTrading }: Props) {
+export default function QuickOrderPanel({
+  symbol,
+  price,
+  currency,
+  active = true,
+  onGoToPaperTrading,
+}: Props) {
   const [accounts, setAccounts] = useState<PaperAccount[]>([]);
   const [accountId, setAccountId] = useState<number | null>(() => {
     const saved = Number(localStorage.getItem(ACCOUNT_KEY));
@@ -48,6 +60,7 @@ export default function QuickOrderPanel({ symbol, price, currency, onGoToPaperTr
    * 이 패널은 여전히 "계좌를 먼저 만드세요" 를 붙들고 있는다.
    */
   useEffect(() => {
+    if (!active) return;
     let cancelled = false;
 
     const load = async (force = false) => {
@@ -94,7 +107,7 @@ export default function QuickOrderPanel({ symbol, price, currency, onGoToPaperTr
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [accountId, version]);
+  }, [accountId, version, active]);
 
   const selectAccount = (id: number) => {
     setAccountId(id);

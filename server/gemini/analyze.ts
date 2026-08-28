@@ -16,7 +16,7 @@ import type {
   TradeSignal,
 } from '../../src/types/gemini';
 import { AGENTS } from './agents';
-import { callGemini, DEFAULT_MODEL, GeminiError } from './client';
+import { callGemini, DEFAULT_MODEL, GeminiError, type GeminiPart } from './client';
 import { buildContext } from './context';
 import { DEFAULT_HORIZON, horizonBlock, type InvestmentHorizon } from '../../src/services/analysis/horizons';
 import { buildModeratorPrompt, MODERATOR_SCHEMA, MODERATOR_SYSTEM } from './moderator';
@@ -32,8 +32,16 @@ export interface RunOptions {
   model?: string;
 }
 
+/** 구조화 출력이 보장하는 공통 필드 + 역할별 나머지 */
+interface RawOpinion {
+  vote?: string;
+  confidence?: number;
+  summary?: string;
+  [key: string]: unknown;
+}
+
 /** 에이전트 응답에서 공통 필드를 떼고 나머지를 detail 로 남긴다 */
-function splitOpinion(role: AgentOpinion['role'], label: string, data: any): AgentOpinion {
+function splitOpinion(role: AgentOpinion['role'], label: string, data: RawOpinion): AgentOpinion {
   const { vote, confidence, summary, ...detail } = data ?? {};
   return {
     role,
@@ -87,12 +95,12 @@ export async function runAnalysis(options: RunOptions): Promise<GeminiAnalysis> 
   const opinions = await Promise.all(
     AGENTS.map(async (agent): Promise<AgentOpinion> => {
       try {
-        const parts = [{ text: horizonText }, { text: context.text }];
+        const parts: GeminiPart[] = [{ text: horizonText }, { text: context.text }];
         if (agent.wantsImage && image) {
-          parts.push({ inlineData: image } as any);
+          parts.push({ inlineData: image });
           parts.push({ text: '위 이미지는 이 종목의 차트 캡처입니다. 패턴 판단에 함께 참고하세요.' });
         }
-        const result = await callGemini<any>({
+        const result = await callGemini<RawOpinion>({
           system: agent.system,
           parts,
           schema: agent.schema,

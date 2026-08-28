@@ -224,7 +224,7 @@ export default function WatchPanel({
             onChange={(e) => setInput(e.target.value)}
             placeholder="+ 종목 추가"
             spellCheck={false}
-            className="min-w-0 flex-1 rounded border border-border bg-bg-primary px-2 py-1 text-xs uppercase text-text-primary placeholder:normal-case placeholder:text-text-muted focus:border-accent focus:outline-none"
+            className="min-w-0 flex-1 rounded border border-border bg-bg-tertiary px-2 py-1 text-xs uppercase text-text-primary placeholder:normal-case placeholder:text-text-muted focus:border-accent focus:outline-none"
           />
           <button
             type="submit"

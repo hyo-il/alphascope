@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from '../store/uiStore';
 import type {
   CreateOrderInput,
   CreateOrderResult,
@@ -120,9 +121,12 @@ export function usePaperAccountDetail(accountId: number | null) {
       if (inFlight || (document.hidden && !force)) return;
       inFlight = true;
       try {
-        // positions 를 먼저 불러 대기 주문을 체결시킨 뒤 계좌 상세를 읽는다.
-        await request(`/api/paper/positions?accountId=${accountId}`);
-        const data = await request<PaperAccountDetail>(`/api/paper/accounts/${accountId}`);
+        // settle=1 이 대기 주문 체결과 계좌 평가를 한 번에 처리한다.
+        // 예전처럼 /positions 를 따로 부르면 두 라우트가 각각 시세·환율을 조회해
+        // 토스 호출이 초당 4회가 된다.
+        const data = await request<PaperAccountDetail>(
+          `/api/paper/accounts/${accountId}?settle=1`,
+        );
         if (!cancelled) {
           setDetail(data);
           setError(null);
@@ -162,7 +166,8 @@ export function usePaperTrades(accountId: number | null, tick = 0) {
     let cancelled = false;
     void request<{ trades: PaperTrade[] }>(`/api/paper/trades?accountId=${accountId}`)
       .then((d) => !cancelled && setTrades(d.trades))
-      .catch(() => undefined);
+      // 조용히 빈 배열로 두면 "거래 내역이 없다" 로 오해한다.
+      .catch((e) => !cancelled && toast.error('거래 내역을 불러오지 못했습니다', String(e.message ?? e)));
     return () => {
       cancelled = true;
     };
@@ -182,7 +187,7 @@ export function usePaperOrders(accountId: number | null, tick = 0) {
     let cancelled = false;
     void request<{ orders: PaperOrder[] }>(`/api/paper/orders?accountId=${accountId}`)
       .then((d) => !cancelled && setOrders(d.orders))
-      .catch(() => undefined);
+      .catch((e) => !cancelled && toast.error('주문 내역을 불러오지 못했습니다', String(e.message ?? e)));
     return () => {
       cancelled = true;
     };
@@ -207,7 +212,7 @@ export function usePaperPerformance(accountId: number | null, tick = 0) {
       `/api/paper/performance?accountId=${accountId}`,
     )
       .then((d) => !cancelled && setData(d))
-      .catch(() => undefined);
+      .catch((e) => !cancelled && toast.error('성과를 계산하지 못했습니다', String(e.message ?? e)));
     return () => {
       cancelled = true;
     };
