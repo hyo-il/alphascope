@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { StockSearchResult } from '../../types/toss';
 import { InlineSpinner } from './LoadingOverlay';
+import SymbolPickerList from './SymbolPickerList';
 
 /**
  * 종목 여러 개를 태그(칩)로 고르는 입력.
@@ -27,15 +28,20 @@ const MARKET_LABEL: Record<string, string> = {
 export default function SymbolTagInput({
   symbols,
   onChange,
-  /** '관심 목록 전체 사용' 로 담을 종목들 */
+  /** 빠른 추가 — 관심 목록 */
   watchlist = [],
+  /** 빠른 추가 — 최근 조회 */
+  recent = [],
   placeholder = '종목명 또는 심볼로 검색…',
 }: {
   symbols: string[];
   onChange: (symbols: string[]) => void;
   watchlist?: string[];
+  recent?: string[];
   placeholder?: string;
 }) {
+  /** 열려 있는 빠른 추가 목록 */
+  const [picker, setPicker] = useState<'watchlist' | 'recent' | null>(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<StockSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -112,11 +118,14 @@ export default function SymbolTagInput({
       setOpen(false);
       return;
     }
-    // 입력이 비었을 때 백스페이스는 마지막 태그를 지운다 (태그 입력의 관례).
-    if (event.key === 'Backspace' && !query && symbols.length) {
-      remove(symbols[symbols.length - 1]);
-      return;
-    }
+    /*
+     * ⚠️ 여기서 백스페이스로 마지막 태그를 지우면 안 된다 (흔한 태그 입력 관례지만).
+     *
+     * 검색어를 지우려고 백스페이스를 누르다 보면 입력이 빈 뒤에도 몇 번 더 눌리는데,
+     * 그 순간부터 담아 둔 종목이 하나씩 조용히 사라진다. 실제로 "검색창을 지웠더니
+     * 분석 대상이 전부 없어졌다" 는 신고가 이 동작 때문이었다.
+     * 종목 제거는 칩의 ✕ 로만 — 명시적인 조작으로 한정한다.
+     */
     if (!open || results.length === 0) return;
     if (event.key === 'ArrowDown') {
       event.preventDefault();
@@ -126,8 +135,6 @@ export default function SymbolTagInput({
       setHighlight((index) => (index - 1 + results.length) % results.length);
     }
   };
-
-  const unaddedWatchlist = watchlist.filter((item) => !symbols.includes(item));
 
   return (
     <div ref={rootRef} className="relative">
@@ -176,17 +183,63 @@ export default function SymbolTagInput({
         </div>
 
         {inputError && <span className="text-xs text-warning">{inputError}</span>}
+      </div>
 
-        {unaddedWatchlist.length > 0 && (
+      {/* 빠른 추가 — 이미 골라 둔 종목 뭉치를 한 번에 옮긴다 */}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setPicker(picker === 'watchlist' ? null : 'watchlist')}
+          className={`rounded border px-2.5 py-1 text-xs transition-colors ${
+            picker === 'watchlist'
+              ? 'border-accent text-accent'
+              : 'border-border text-text-secondary hover:bg-bg-tertiary'
+          }`}
+        >
+          📋 관심 목록에서 추가 ({watchlist.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setPicker(picker === 'recent' ? null : 'recent')}
+          className={`rounded border px-2.5 py-1 text-xs transition-colors ${
+            picker === 'recent'
+              ? 'border-accent text-accent'
+              : 'border-border text-text-secondary hover:bg-bg-tertiary'
+          }`}
+        >
+          🕐 최근 조회에서 추가 ({recent.length})
+        </button>
+
+        {symbols.length > 0 && (
           <button
             type="button"
-            onClick={() => onChange([...symbols, ...unaddedWatchlist])}
-            className="rounded border border-border px-2.5 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary"
+            onClick={() => onChange([])}
+            className="ml-auto rounded border border-bearish/40 px-2.5 py-1 text-xs text-bearish transition-colors hover:bg-bearish/10"
           >
-            ★ 관심 목록 전체 사용 ({unaddedWatchlist.length})
+            🗑 전체 삭제
           </button>
         )}
       </div>
+
+      {picker && (
+        <div className="mt-2">
+          <SymbolPickerList
+            title={picker === 'watchlist' ? '관심 목록' : '최근 조회'}
+            candidates={picker === 'watchlist' ? watchlist : recent}
+            already={symbols}
+            emptyMessage={
+              picker === 'watchlist'
+                ? '관심 목록이 비어 있습니다. 종목 화면의 ☆ 로 담아 보세요.'
+                : '최근 조회한 종목이 없습니다.'
+            }
+            onAdd={(picked) => {
+              onChange([...symbols, ...picked]);
+              setPicker(null);
+            }}
+            onCancel={() => setPicker(null)}
+          />
+        </div>
+      )}
 
       {/* 자동완성 */}
       {open && results.length > 0 && (

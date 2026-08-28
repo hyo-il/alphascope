@@ -24,9 +24,11 @@ import { useOrderbook } from './hooks/useOrderbook';
 import { useIndicators } from './hooks/useIndicators';
 import { useRealtimePrice } from './hooks/useRealtimePrice';
 import { useRecentSymbols, useWatchlist } from './hooks/useWatchlist';
+import { useAnalysisTargets } from './hooks/useGemini';
 import { useStockInfo } from './hooks/useStockInfo';
 import { DEFAULT_TOGGLES, type IndicatorToggles } from './types/chart';
 import { useAppStore } from './store/appStore';
+import { toast } from './store/uiStore';
 import { changeColor, currencyOf, formatPercent, formatPrice } from './utils/formatters';
 
 export default function App() {
@@ -63,6 +65,8 @@ export default function App() {
   const { watchlist, add, remove, toggle } = useWatchlist();
   const { recent, remove: removeRecent } = useRecentSymbols(symbol ?? '');
   const stockInfo = useStockInfo(symbol);
+  /** 헤더의 [+분석] — 지금 보는 종목을 자동 분석 대상에 담는다 */
+  const analysisTargets = useAnalysisTargets();
   const currency = currencyOf(stockInfo?.market);
 
   // 거래량은 캔들만으로 그리므로 지표 엔진 호출 대상에서 제외한다.
@@ -292,6 +296,36 @@ export default function App() {
               {stockInfo?.name && (
                 <span className="text-sm text-text-secondary">{stockInfo.name}</span>
               )}
+
+              {/*
+                차트를 보다가 "이 종목도 자동 분석에 넣자" 가 되는 흐름을 한 번에 잇는다.
+                Gemini 키가 없으면 자동 분석 자체가 없으므로 버튼도 띄우지 않는다.
+              */}
+              {analysisTargets.enabled &&
+                (analysisTargets.symbols.includes(symbol) ? (
+                  <span
+                    title="자동 분석 대상입니다"
+                    className="rounded border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[11px] text-accent"
+                  >
+                    분석중 🔵
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await analysisTargets.add(symbol);
+                        toast.success(`${symbol} 을(를) 분석 대상에 추가했습니다`);
+                      } catch (e) {
+                        toast.error('추가하지 못했습니다', (e as Error).message);
+                      }
+                    }}
+                    title="자동 분석 대상에 추가"
+                    className="rounded border border-border px-1.5 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+                  >
+                    + 분석
+                  </button>
+                ))}
               <span className="text-lg font-bold tabular-nums">
                 {formatPrice(displayPrice, currency)}
               </span>

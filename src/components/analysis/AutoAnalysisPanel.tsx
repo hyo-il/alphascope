@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { AutoAnalysisSettings } from '../../types/gemini';
 import { HORIZONS, type InvestmentHorizon } from '../../services/analysis/horizons';
 import { useGeminiStatus } from '../../hooks/useGemini';
-import { useWatchlist } from '../../hooks/useWatchlist';
+import { useRecentSymbols, useWatchlist } from '../../hooks/useWatchlist';
 import { toast } from '../../store/uiStore';
 import SymbolTagInput from '../common/SymbolTagInput';
 import { Skeleton } from '../common/SkeletonLoader';
@@ -24,6 +24,8 @@ export default function AutoAnalysisPanel({
 }) {
   const { state, save, refresh } = useGeminiStatus();
   const { watchlist } = useWatchlist();
+  // 빈 문자열을 넘겨 "지금 보는 종목" 을 최근 목록에 새로 넣지 않는다 — 읽기만 한다.
+  const { recent } = useRecentSymbols('');
   const [draft, setDraft] = useState<AutoAnalysisSettings | null>(null);
   /** 진행 상황 — "AAPL 분석 중… (2/5)" */
   const [progress, setProgress] = useState<{ current: number; total: number; symbol: string } | null>(
@@ -207,6 +209,7 @@ export default function AutoAnalysisPanel({
           symbols={settings.symbols}
           onChange={(symbols) => void persist({ symbols })}
           watchlist={watchlist}
+          recent={recent}
         />
       </div>
 
