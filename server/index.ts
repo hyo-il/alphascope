@@ -8,7 +8,7 @@ import { getFundamentals, getPeers } from './companyService';
 import { getCandles, getCandlesBefore } from './candleService';
 import { summarizeSymbols } from './summaryService';
 import { fetchQuotes } from './quoteService';
-import { catalogSize, findStock, refreshCatalog, searchStocks } from './stockCatalog';
+import { catalogSize, findNames, findStock, refreshCatalog, searchStocks } from './stockCatalog';
 import {
   deleteAllAnalyses as deleteAllClaudeAnalyses,
   deleteAnalysis,
@@ -238,6 +238,21 @@ app.get('/api/stocks/search', (req, res) => {
   const query = String(req.query.q ?? '');
   try {
     res.json({ results: searchStocks(query), catalogSize: catalogSize() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+/** 심볼 → 종목명 (목록 화면이 이름을 함께 보여 주기 위해 쓴다) */
+app.get('/api/stocks/names', (req, res) => {
+  const symbols = String(req.query.symbols ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 200);
+
+  try {
+    res.json({ names: findNames(symbols) });
   } catch (e) {
     fail(res, e);
   }

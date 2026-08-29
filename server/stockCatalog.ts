@@ -127,6 +127,26 @@ export function searchStocks(query: string, limit = 12): StockSearchResult[] {
 }
 
 /** 심볼 하나의 정보 (헤더에 종목명을 띄울 때 쓴다) */
+/**
+ * 여러 심볼의 이름을 한 번에 — 목록 화면이 종목마다 따로 묻지 않도록.
+ *
+ * 전종목(약 14,700건)을 통째로 내려 주지 않는 이유: 화면에 보이는 종목은 많아야
+ * 수십 개라, 전체를 받으면 앱 시작마다 수백 KB 를 낭비한다.
+ */
+export function findNames(symbols: string[]): Record<string, string> {
+  const wanted = [...new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean))];
+  if (!wanted.length) return {};
+
+  const placeholders = wanted.map(() => '?').join(',');
+  const rows = getDb()
+    .prepare(`SELECT symbol, name FROM stock_catalog WHERE symbol IN (${placeholders})`)
+    .all(...wanted) as { symbol: string; name: string }[];
+
+  const names: Record<string, string> = {};
+  for (const row of rows) if (row.name) names[row.symbol] = row.name;
+  return names;
+}
+
 export function findStock(symbol: string): StockSearchResult | null {
   const row = getDb()
     .prepare(

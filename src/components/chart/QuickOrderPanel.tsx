@@ -3,6 +3,8 @@ import type { OrderSide, OrderType, PaperAccount, PaperOrder, PaperPositionValue
 import { cancelPaperOrder, submitOrder } from '../../hooks/usePaperTrading';
 import { modal, toast } from '../../store/uiStore';
 import { formatPrice } from '../../utils/formatters';
+import SymbolLabel from '../common/SymbolLabel';
+import { useStockNames } from '../../hooks/useStockNames';
 
 interface Props {
   symbol: string;
@@ -53,6 +55,7 @@ export default function QuickOrderPanel({
   const [version, setVersion] = useState(0);
 
   const account = accounts.find((a) => a.id === accountId) ?? null;
+  useStockNames([symbol, ...positions.map((p) => p.symbol)]);
 
   /*
    * 계좌 목록과 잔고·보유·미체결을 같은 주기로 읽는다.
@@ -245,6 +248,12 @@ export default function QuickOrderPanel({
       <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">
         모의
       </span>
+      {/* 어떤 종목을 주문하는지 패널 안에서 바로 보이게 한다 */}
+      <SymbolLabel
+        symbol={symbol}
+        className="ml-auto min-w-0 text-[11px] text-text-primary"
+        nameClassName="text-text-muted"
+      />
     </div>
   );
 

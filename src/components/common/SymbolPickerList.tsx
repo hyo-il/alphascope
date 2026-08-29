@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useStockNames } from '../../hooks/useStockNames';
 
 /**
  * 여러 종목을 체크해서 한 번에 담는 목록.
@@ -27,6 +28,7 @@ export default function SymbolPickerList({
 }) {
   const selectable = candidates.filter((symbol) => !already.includes(symbol));
   const [checked, setChecked] = useState<string[]>([]);
+  const names = useStockNames(candidates);
 
   // 목록이 바뀌면(관심 목록 → 최근 조회 전환 등) 선택을 비운다.
   useEffect(() => {
@@ -69,7 +71,10 @@ export default function SymbolPickerList({
                     onChange={() => toggle(symbol)}
                   />
                   <span className="font-medium tabular-nums">{symbol}</span>
-                  {isAlready && <span className="ml-auto text-[10px]">이미 추가됨</span>}
+                  {names(symbol) && (
+                    <span className="truncate text-text-secondary">{names(symbol)}</span>
+                  )}
+                  {isAlready && <span className="ml-auto shrink-0 text-[10px]">이미 추가됨</span>}
                 </label>
               </li>
             );

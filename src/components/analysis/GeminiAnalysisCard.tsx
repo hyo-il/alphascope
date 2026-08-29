@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { AgentOpinion, GeminiAnalysis } from '../../types/gemini';
 import { formatUsd } from '../../utils/formatters';
 import AISourceBadge from './AISourceBadge';
+import SymbolLabel from '../common/SymbolLabel';
 import { confidencePercent, SIGNAL_CLASS, SIGNAL_LABEL, VOTE_CLASS } from './signalStyle';
 
 /** 에이전트 상세는 역할마다 모양이 달라서, 키를 그대로 풀어 보여 준다. */
@@ -26,11 +27,14 @@ function AgentDetail({ agent }: { agent: AgentOpinion }) {
 export default function GeminiAnalysisCard({
   analysis,
   currentPrice,
+  isNew = false,
   onDelete,
 }: {
   analysis: GeminiAnalysis;
   /** 저장 시점 대비 지금 얼마나 움직였는지 */
   currentPrice?: number | null;
+  /** 방금 나온 결과 — 목록에서 눈에 띄게 한다 */
+  isNew?: boolean;
   onDelete?: (id: number) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -43,10 +47,19 @@ export default function GeminiAnalysisCard({
       : null;
 
   return (
-    <div className="rounded-lg border border-border bg-bg-secondary p-3">
+    <div
+      className={`rounded-lg border bg-bg-secondary p-3 transition-colors ${
+        isNew ? 'border-accent' : 'border-border'
+      }`}
+    >
       <div className="flex flex-wrap items-center gap-2">
+        {isNew && (
+          <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-medium text-white">
+            NEW
+          </span>
+        )}
         <AISourceBadge source="gemini" suffix={analysis.trigger === 'auto' ? '자동' : '수동실행'} />
-        <span className="font-medium text-text-primary">{analysis.symbol}</span>
+        <SymbolLabel symbol={analysis.symbol} className="text-text-primary" />
         <span className={SIGNAL_CLASS[analysis.signal] ?? ''}>
           {SIGNAL_LABEL[analysis.signal] ?? analysis.signal}
         </span>

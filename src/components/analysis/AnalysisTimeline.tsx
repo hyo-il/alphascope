@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GeminiAnalysis } from '../../types/gemini';
 import { formatUsd } from '../../utils/formatters';
 import { modal, toast } from '../../store/uiStore';
 import AISourceBadge from './AISourceBadge';
+import SymbolLabel from '../common/SymbolLabel';
+import { useStockNames } from '../../hooks/useStockNames';
 import GeminiAnalysisCard from './GeminiAnalysisCard';
 import { SkeletonList } from '../common/SkeletonLoader';
 
@@ -40,24 +42,55 @@ type Item =
   | { kind: 'gemini'; at: string; data: GeminiAnalysis }
   | { kind: 'claude'; at: string; data: ClaudeRecord };
 
+/** NEW 뱃지를 띄워 두는 시간 */
+const HIGHLIGHT_MS = 3000;
+
 export default function AnalysisTimeline({
   symbol,
   currentPrice,
   refreshKey,
+  lastRun,
 }: {
   /** 지정하면 그 종목만 */
   symbol: string | null;
   currentPrice: number | null;
   /** 값이 바뀌면 다시 불러온다 (자동 분석 실행 직후 등) */
   refreshKey?: number;
+  /** 방금 돌린 분석 — 필터를 실행 범위에 맞추고 새 결과에 NEW 를 붙인다 */
+  lastRun?: { scope: 'all' | 'single'; since: number } | null;
 }) {
   const [gemini, setGemini] = useState<GeminiAnalysis[]>([]);
   const [claude, setClaude] = useState<ClaudeRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [onlyThisSymbol, setOnlyThisSymbol] = useState(true);
   const [expanded, setExpanded] = useState<number | null>(null);
+  /** NEW 뱃지를 보여 줄 기준 시각 — 3초 뒤에 스스로 꺼진다 */
+  const [highlightSince, setHighlightSince] = useState<number | null>(null);
+
+  /*
+   * 여러 종목을 돌렸으면 '현재 종목만' 을 자동으로 푼다.
+   * 그러지 않으면 방금 분석한 다른 종목이 하나도 보이지 않아
+   * "결과가 나오지 않는다" 로 읽힌다.
+   */
+  useEffect(() => {
+    if (!lastRun) return;
+    if (lastRun.scope === 'all') setOnlyThisSymbol(false);
+    setHighlightSince(lastRun.since);
+    const timer = setTimeout(() => setHighlightSince(null), HIGHLIGHT_MS);
+    return () => clearTimeout(timer);
+  }, [lastRun]);
+
+  /*
+   * 요청 순번.
+   *
+   * 필터가 바뀌면 새 요청이 나가는데, 먼저 보낸 요청이 늦게 도착하면 최신 결과를
+   * 덮어쓴다. 실제로 "여러 종목을 분석했는데 현재 종목 것만 보인다" 가 이것이었다 —
+   * 필터를 푸는 순간 두 요청이 겹쳤다.
+   */
+  const requestId = useRef(0);
 
   const load = useCallback(async () => {
+    const ticket = ++requestId.current;
     setLoading(true);
     const query = onlyThisSymbol && symbol ? `?symbol=${encodeURIComponent(symbol)}` : '';
     try {
@@ -65,16 +98,21 @@ export default function AnalysisTimeline({
         fetch(`/api/gemini/analyses${query || '?limit=100'}`).then((r) => (r.ok ? r.json() : [])),
         fetch(`/api/analysis${query}`).then((r) => (r.ok ? r.json() : [])),
       ]);
+      // 내가 마지막 요청이 아니면 결과를 버린다.
+      if (ticket !== requestId.current) return;
       setGemini(Array.isArray(g) ? g : []);
       setClaude(Array.isArray(c) ? c : []);
     } finally {
-      setLoading(false);
+      if (ticket === requestId.current) setLoading(false);
     }
   }, [symbol, onlyThisSymbol]);
 
   useEffect(() => {
     void load();
   }, [load, refreshKey]);
+
+  // 목록에 뜬 모든 종목의 이름을 한 번에 받아 둔다.
+  useStockNames([...gemini.map((item) => item.symbol), ...claude.map((item) => item.symbol)]);
 
   const items = useMemo<Item[]>(() => {
     const merged: Item[] = [
@@ -162,6 +200,11 @@ export default function AnalysisTimeline({
         <span className="text-xs text-text-muted">
           총 {items.length}건 (Gemini {gemini.length} · Claude {claude.length})
         </span>
+        {highlightSince && (
+          <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[11px] text-accent">
+            방금 분석한 결과를 표시하고 있습니다
+          </span>
+        )}
         <button
           onClick={() => void load()}
           className="ml-auto text-xs text-accent hover:underline"
@@ -227,6 +270,7 @@ export default function AnalysisTimeline({
             key={`g-${item.data.id}`}
             analysis={item.data}
             currentPrice={item.data.symbol === symbol ? currentPrice : null}
+            isNew={highlightSince != null && Date.parse(item.at) >= highlightSince}
             onDelete={(id) => void removeGemini(id)}
           />
         ) : (
@@ -267,7 +311,7 @@ function ClaudeCard({
     <div className="rounded-lg border border-border bg-bg-secondary p-3">
       <div className="flex flex-wrap items-center gap-2">
         <AISourceBadge source="claude" suffix="수동" />
-        <span className="font-medium text-text-primary">{record.symbol}</span>
+        <SymbolLabel symbol={record.symbol} className="text-text-primary" />
         <span className={verdict.className}>{verdict.label}</span>
         <span className="text-xs text-text-muted">
           신뢰도 {CONFIDENCE_LABEL[record.confidence] ?? record.confidence}

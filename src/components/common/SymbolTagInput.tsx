@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { StockSearchResult } from '../../types/toss';
 import { InlineSpinner } from './LoadingOverlay';
 import SymbolPickerList from './SymbolPickerList';
+import { useStockNames } from '../../hooks/useStockNames';
 
 /**
  * 종목 여러 개를 태그(칩)로 고르는 입력.
@@ -42,6 +43,7 @@ export default function SymbolTagInput({
 }) {
   /** 열려 있는 빠른 추가 목록 */
   const [picker, setPicker] = useState<'watchlist' | 'recent' | null>(null);
+  const names = useStockNames([...symbols, ...watchlist, ...recent]);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<StockSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -148,7 +150,8 @@ export default function SymbolTagInput({
             key={item}
             className="inline-flex items-center gap-1 rounded bg-bg-tertiary py-1 pl-2 pr-1 text-xs text-text-primary"
           >
-            {item}
+            <span className="font-medium">{item}</span>
+            {names(item) && <span className="text-text-secondary">{names(item)}</span>}
             <button
               type="button"
               onClick={() => remove(item)}

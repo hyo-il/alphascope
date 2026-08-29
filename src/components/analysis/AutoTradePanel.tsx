@@ -4,6 +4,7 @@ import { useGeminiStatus } from '../../hooks/useGemini';
 import { toast } from '../../store/uiStore';
 import { Skeleton } from '../common/SkeletonLoader';
 import GeminiDisabledNotice from './GeminiDisabledNotice';
+import type { AnalysisRunResult } from './AIAnalysisView';
 
 interface PaperAccount {
   id: number;
@@ -20,7 +21,11 @@ interface PaperAccount {
  *
  * ⚠️ 모의투자 계좌에만 주문한다. 실제 증권사 주문은 어디에서도 나가지 않는다.
  */
-export default function AutoTradePanel() {
+export default function AutoTradePanel({
+  onAnalyzed,
+}: {
+  onAnalyzed?: (result: AnalysisRunResult) => void;
+}) {
   const { state, save } = useGeminiStatus();
   const [draft, setDraft] = useState<AutoAnalysisSettings | null>(null);
   const [accounts, setAccounts] = useState<PaperAccount[] | null>(null);
@@ -66,15 +71,21 @@ export default function AutoTradePanel() {
   };
 
   const runNow = async () => {
+    const since = Date.now();
     setRunning(true);
     try {
       const response = await fetch('/api/gemini/run', { method: 'POST' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? '실행 실패');
-      if (data.skipped) toast.warning('실행하지 않았습니다', data.skipped);
-      else if (data.errors?.length)
-        toast.warning(`${data.analyzed}건 완료`, data.errors.join(' / '));
+
+      if (data.skipped) {
+        toast.warning('실행하지 않았습니다', data.skipped);
+        return;
+      }
+      if (data.errors?.length) toast.warning(`${data.analyzed}건 완료`, data.errors.join(' / '));
       else toast.success(`${data.analyzed}개 종목 분석 완료`);
+
+      if (data.analyzed > 0) onAnalyzed?.({ scope: 'all', since });
     } catch (e) {
       toast.error('실행 실패', (e as Error).message);
     } finally {

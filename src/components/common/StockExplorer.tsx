@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { PaperPositionValued } from '../../types/paper';
 import { useQuotes } from '../../hooks/useQuotes';
 import SymbolSearch from './SymbolSearch';
+import { useStockNames } from '../../hooks/useStockNames';
 
 interface Props {
   onSelect: (symbol: string) => void;
@@ -92,6 +93,7 @@ export default function StockExplorer({ onSelect, watchlist, recent }: Props) {
 /** 종목 카드 묶음 — 현재가·등락률을 한 번에 받아 채운다. */
 function SymbolGrid({ symbols, onSelect }: { symbols: string[]; onSelect: (s: string) => void }) {
   const quotes = useQuotes(symbols);
+  const names = useStockNames(symbols);
 
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -108,7 +110,12 @@ function SymbolGrid({ symbols, onSelect }: { symbols: string[]; onSelect: (s: st
             onClick={() => onSelect(symbol)}
             className="flex flex-col items-start rounded-lg border border-border bg-bg-secondary px-3 py-2.5 text-left transition-colors hover:border-accent hover:bg-bg-tertiary"
           >
-            <span className="text-sm font-semibold text-text-primary">{symbol}</span>
+            <span className="flex min-w-0 items-baseline gap-1.5">
+              <span className="text-sm font-semibold text-text-primary">{symbol}</span>
+              {names(symbol) && (
+                <span className="truncate text-[11px] text-text-secondary">{names(symbol)}</span>
+              )}
+            </span>
             <span className="text-sm tabular-nums text-text-secondary">
               {quote?.price != null
                 ? quote.price.toLocaleString('ko-KR', { maximumFractionDigits: 2 })

@@ -7,6 +7,7 @@ import { toast } from '../../store/uiStore';
 import SymbolTagInput from '../common/SymbolTagInput';
 import { Skeleton } from '../common/SkeletonLoader';
 import GeminiDisabledNotice from './GeminiDisabledNotice';
+import type { AnalysisRunResult } from './AIAnalysisView';
 
 /**
  * 자동 분석 설정 — **무엇을 언제 어떤 관점으로 분석할지**.
@@ -20,7 +21,7 @@ export default function AutoAnalysisPanel({
   onAnalyzed,
 }: {
   symbol: string | null;
-  onAnalyzed?: () => void;
+  onAnalyzed?: (result: AnalysisRunResult) => void;
 }) {
   const { state, save, refresh } = useGeminiStatus();
   const { watchlist } = useWatchlist();
@@ -78,11 +79,13 @@ export default function AutoAnalysisPanel({
 
   const analyzeCurrent = async () => {
     if (!symbol) return;
+    const since = Date.now();
     setSingle(true);
     try {
       const data = await analyzeOne(symbol);
       toast.success(`${symbol} 분석 완료 — ${data.signal}`, data.summary);
-      onAnalyzed?.();
+      // 결과 탭으로 데려간다 — 이 자리에 남으면 아무 일도 없어 보인다.
+      onAnalyzed?.({ scope: 'single', since });
       void refresh();
     } catch (e) {
       toast.error(`${symbol} 분석 실패`, (e as Error).message);
@@ -95,22 +98,33 @@ export default function AutoAnalysisPanel({
     const targets = settings.symbols;
     if (!targets.length) return;
 
+    const since = Date.now();
     const failures: string[] = [];
     for (const [index, target] of targets.entries()) {
       setProgress({ current: index + 1, total: targets.length, symbol: target });
       try {
         await analyzeOne(target);
       } catch (e) {
+        // 한 종목이 실패해도 나머지는 계속 돌린다 — 성공한 결과는 그대로 남는다.
         failures.push(`${target}: ${(e as Error).message}`);
       }
-      onAnalyzed?.();
     }
     setProgress(null);
     void refresh();
 
     const done = targets.length - failures.length;
-    if (failures.length) toast.warning(`${done}개 종목 분석 완료`, failures.join(' / '));
-    else toast.success(`${done}개 종목 분석 완료`);
+    const headline =
+      targets.length > 1 ? `${targets[0]} 외 ${targets.length - 1}개 종목 분석 완료` : `${targets[0]} 분석 완료`;
+
+    if (failures.length === targets.length) {
+      toast.error('분석에 모두 실패했습니다', failures.join(' / '));
+      return;
+    }
+    if (failures.length) toast.warning(`${done}개 완료 · ${failures.length}개 실패`, failures.join(' / '));
+    else toast.success(headline);
+
+    // 여러 종목을 돌렸으므로 결과 탭의 '현재 종목만' 필터를 풀어야 방금 것이 보인다.
+    onAnalyzed?.({ scope: 'all', since });
   };
 
   // 1종목 = 5호출. 정규장 6.5시간 기준으로 하루 호출 수를 어림한다.

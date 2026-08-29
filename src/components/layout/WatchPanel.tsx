@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuotes } from '../../hooks/useQuotes';
+import { useStockNames } from '../../hooks/useStockNames';
 import { formatPercent, formatUsd } from '../../utils/formatters';
 
 interface Props {
@@ -67,6 +68,8 @@ export default function WatchPanel({
   const symbols = tab === 'watch' ? watchlist : recent;
   // 보이는 목록만 폴링한다 (Rate Limit 고려).
   const quotes = useQuotes(collapsed ? [] : symbols);
+  // 티커만 있으면 어떤 종목인지 바로 떠오르지 않는다 — 이름을 함께 적는다.
+  const names = useStockNames(collapsed ? [] : symbols);
 
   // 접힌 상태 — 눈에 띄는 세로 탭. 세로 텍스트로 정체가 바로 드러난다.
   if (collapsed) {
@@ -185,12 +188,17 @@ export default function WatchPanel({
                 onClick={() => onSelect(symbol)}
                 className="flex min-w-0 flex-1 items-center justify-between py-2 pl-3 pr-1 text-left"
               >
-                <span
-                  className={`truncate text-xs font-medium ${
-                    symbol === currentSymbol ? 'text-accent' : 'text-text-primary'
-                  }`}
-                >
-                  {symbol}
+                <span className="flex min-w-0 flex-col">
+                  <span
+                    className={`truncate text-xs font-medium ${
+                      symbol === currentSymbol ? 'text-accent' : 'text-text-primary'
+                    }`}
+                  >
+                    {symbol}
+                  </span>
+                  {names(symbol) && (
+                    <span className="truncate text-[11px] text-text-muted">{names(symbol)}</span>
+                  )}
                 </span>
                 <span className="shrink-0 text-right">
                   <span className="block text-xs tabular-nums text-text-secondary">
