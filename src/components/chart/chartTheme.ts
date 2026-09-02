@@ -130,7 +130,10 @@ export function renderIndicators(
   // 가격 차트 오버레이
   for (const ma of MA_LINES) {
     if (toggles.overlays[ma.key]) {
-      addLine(indicators?.[ma.series], ma.color, { title: ma.label, maKey: ma.label });
+      // title 은 주지 않는다 — 가격축 옆에 불투명 뱃지로 그려져 캔들을 가리는데,
+      // 같은 내용을 좌상단 MA 범례가 이미 (크로스헤어 값까지) 보여 준다.
+      // maKey 는 그 범례가 시리즈를 찾는 열쇠라 그대로 둔다.
+      addLine(indicators?.[ma.series], ma.color, { maKey: ma.label });
     }
   }
   if (toggles.overlays.ema) {
