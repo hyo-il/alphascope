@@ -9,7 +9,7 @@
  */
 
 import type { GeminiAnalysis } from '../../src/types/gemini';
-import { createOrder, getAccountDetail, listPositions } from '../paperTradingService';
+import { createOrder, getAccountDetail, listPositions, accountToSymbolRate} from '../paperTradingService';
 import { signalDirection } from './analyze';
 import { attachOrder } from './store';
 
@@ -112,8 +112,14 @@ export async function applySignal(
     // 줄어드는 왜곡이 생기지 않는다.
     const detail = await getAccountDetail(options.accountId);
     const budgetInAccount = (detail.totalValue * options.positionSizePercent) / 100;
-    // 계좌 통화 → 종목 통화(USD 기준가). 계좌가 USD 면 fxRate = 1.
-    const budget = detail.fxRate > 0 ? budgetInAccount / detail.fxRate : budgetInAccount;
+    // 계좌 통화 → 종목 통화. 환율을 못 가져오면 매수를 건너뛴다 —
+    // 여기서 1 로 넘어가면 원화 계좌의 예산이 그대로 달러 예산이 돼 버린다.
+    let budget: number;
+    try {
+      budget = budgetInAccount / (await accountToSymbolRate(analysis.symbol, detail.account.currency));
+    } catch (error) {
+      return record(`환율을 가져오지 못해 매수를 건너뜁니다 (${(error as Error).message})`);
+    }
     const quantity = Math.floor(budget / price);
 
     if (quantity < 1) {

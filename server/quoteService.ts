@@ -2,6 +2,8 @@ import type { Quote } from '../src/types/toss';
 import { getCandles } from './candleService';
 import { loadCandles } from './db';
 import { isMockMode, mockPrice } from './mockData';
+import { findStock } from './stockCatalog';
+import { currencyOf } from '../src/utils/formatters';
 import { tossGet } from '../src/services/toss/httpClient';
 
 /**
@@ -12,6 +14,11 @@ import { tossGet } from '../src/services/toss/httpClient';
  */
 
 type Raw = Record<string, unknown>;
+
+/** 표기 통화 — 목록 화면이 국내 종목을 $ 로 적지 않게 시장으로 판별한다. */
+function currencyFor(symbol: string): 'KRW' | 'USD' {
+  return currencyOf(findStock(symbol)?.market);
+}
 
 function num(value: unknown): number {
   if (typeof value === 'number') return value;
@@ -43,6 +50,7 @@ export async function fetchQuotes(symbols: string[]): Promise<Quote[]> {
         symbol,
         price: price.close,
         changeRate: price.changeRate,
+        currency: currencyFor(symbol),
         error: null,
       };
     });
@@ -58,8 +66,23 @@ export async function fetchQuotes(symbols: string[]): Promise<Quote[]> {
     );
     rows = payload.result ?? [];
   } catch (e) {
+    // 실시간 조회가 막혀도(API 장애·IP 차단) 캐시된 일봉이 있으면 그 종가를 보여 준다.
+    // 다만 지연된 값이므로 stale 로 표시해, 화면이 실시간인 척하지 않게 한다.
     const message = e instanceof Error ? e.message : String(e);
-    return symbols.map((symbol) => ({ symbol, price: null, changeRate: null, error: message }));
+    return symbols.map((symbol) => {
+      const daily = loadCandles(symbol, '1d', 2);
+      const last = daily.at(-1);
+      if (!last) return { symbol, price: null, changeRate: null, error: message };
+      const previous = daily.length >= 2 ? daily[0].close : null;
+      return {
+        symbol,
+        price: last.close,
+        changeRate: previous ? ((last.close - previous) / previous) * 100 : null,
+        currency: currencyFor(symbol),
+        stale: true,
+        error: message,
+      };
+    });
   }
 
   return Promise.all(
@@ -76,6 +99,7 @@ export async function fetchQuotes(symbols: string[]): Promise<Quote[]> {
         symbol,
         price,
         changeRate: previous ? ((price - previous) / previous) * 100 : null,
+        currency: currencyFor(symbol),
         error: null,
       };
     }),

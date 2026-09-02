@@ -1,7 +1,7 @@
 import type { Candle, Timeframe } from '../src/types/toss';
 import { fetchCandles, fetchCandlesBefore } from '../src/services/toss/market';
 import { aggregateCandles, resolveTimeframe } from '../src/utils/candleAggregator';
-import { latestCandleTimestamp, loadCandles, saveCandles } from './db';
+import { latestCandleTimestamp, loadCandles, loadCandlesBefore, saveCandles } from './db';
 import { isMockMode, mockCandles } from './mockData';
 
 /** 원본 주기별 캐시 신선도 — 이 시간 안에 받아온 데이터면 API를 다시 부르지 않는다. */
@@ -35,8 +35,16 @@ export async function getCandles(
   const cached = loadCandles(symbol, base, baseLimit);
 
   if (!isFresh || cached.length < baseLimit) {
-    const fresh = await fetchCandles(symbol, base, baseLimit);
-    if (fresh.length) saveCandles(symbol, base, fresh);
+    // 실시간 조회가 막혀도(API 장애·IP 차단) 캐시가 있으면 그걸로 그린다 —
+    // 여기서 그냥 던지면 이미 받아 둔 수천 봉을 두고도 차트가 통째로 빈다.
+    // 캐시가 아예 없을 때만 원래 에러를 올려 보낸다. (summaryService 와 같은 방침)
+    try {
+      const fresh = await fetchCandles(symbol, base, baseLimit);
+      if (fresh.length) saveCandles(symbol, base, fresh);
+    } catch (error) {
+      if (!cached.length) throw error;
+      console.warn(`[candles] ${symbol} ${base} 실시간 조회 실패, 캐시 사용:`, error);
+    }
   }
 
   const rows = loadCandles(symbol, base, baseLimit);
@@ -64,8 +72,17 @@ export async function getCandlesBefore(
     return [];
   }
 
-  const fresh = await fetchCandlesBefore(symbol, base, beforeMs, baseLimit);
-  if (fresh.length) saveCandles(symbol, base, fresh);
+  // 과거 구간도 마찬가지다. 조회가 막히면 캐시에 남아 있는 그 구간을 돌려준다 —
+  // 무한 스크롤이 에러로 끊기는 것보다 있는 만큼 보여 주는 편이 낫다.
+  let fresh: Candle[];
+  try {
+    fresh = await fetchCandlesBefore(symbol, base, beforeMs, baseLimit);
+    if (fresh.length) saveCandles(symbol, base, fresh);
+  } catch (error) {
+    fresh = loadCandlesBefore(symbol, base, beforeMs, baseLimit);
+    if (!fresh.length) throw error;
+    console.warn(`[candles] ${symbol} ${base} 과거 구간 조회 실패, 캐시 사용:`, error);
+  }
 
   return minutes > 1 ? aggregateCandles(fresh, minutes) : fresh;
 }

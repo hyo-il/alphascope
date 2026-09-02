@@ -74,6 +74,28 @@ export function loadCandles(
   return rows.reverse();
 }
 
+/**
+ * 캐시에서 특정 시각 이전의 과거 캔들을 읽는다 (무한 스크롤 폴백).
+ * 실시간 조회가 막혔을 때 candleService 가 쓴다.
+ */
+export function loadCandlesBefore(
+  symbol: string,
+  timeframe: BaseTimeframe,
+  beforeMs: number,
+  limit: number,
+): Candle[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT timestamp, open, high, low, close, volume
+         FROM candles
+        WHERE symbol = ? AND timeframe = ? AND timestamp < ?
+        ORDER BY timestamp DESC
+        LIMIT ?`,
+    )
+    .all(symbol, timeframe, beforeMs, limit) as Candle[];
+  return rows.reverse();
+}
+
 export interface AnalysisRecord {
   id?: number;
   symbol: string;

@@ -55,7 +55,11 @@ export default function AutoTradePanel({
 
   const settings = draft ?? state.settings!;
   const account = accounts.find((item) => item.id === settings.paperAccountId) ?? null;
-  const ready = Boolean(settings.paperAccountId) && settings.symbols.length > 0;
+  // 자동매매는 자동 '분석' 이 한 바퀴 돌 때만 신호가 나온다. 그래서 자동 분석
+  // 마스터 스위치(enabled)가 꺼져 있으면 autoTrade 를 켜 둬도 주문은 영영 나가지 않는다.
+  // 이걸 빼면 스케줄러가 멈춰 있는데도 화면은 "실행 중" 이라고 말한다.
+  const ready =
+    settings.enabled && Boolean(settings.paperAccountId) && settings.symbols.length > 0;
   const active = settings.autoTrade && ready;
 
   const patch = (change: Partial<AutoAnalysisSettings>) => setDraft({ ...settings, ...change });
@@ -120,7 +124,11 @@ export default function AutoTradePanel({
                 active ? 'bg-bullish' : settings.autoTrade ? 'bg-warning' : 'bg-text-muted'
               }`}
             />
-            {settings.autoTrade ? '자동매매 실행 중' : '자동매매 꺼짐'}
+            {!settings.autoTrade
+              ? '자동매매 꺼짐'
+              : active
+                ? '자동매매 실행 중'
+                : '자동매매 대기 중'}
           </button>
 
           <span className="rounded bg-warning/15 px-2 py-1 text-[11px] text-warning">
@@ -140,6 +148,7 @@ export default function AutoTradePanel({
         {settings.autoTrade && !ready && (
           <p className="mt-2 rounded bg-warning/10 p-2 text-xs text-warning">
             ⚠️ 켜져 있지만 주문이 나가지 않습니다 —{' '}
+            {!settings.enabled && "'자동 분석' 탭에서 자동 분석을 먼저 켜세요. "}
             {!settings.paperAccountId && '모의투자 계좌를 고르세요. '}
             {!settings.symbols.length && "'자동 분석' 탭에서 대상 종목을 추가하세요."}
           </p>

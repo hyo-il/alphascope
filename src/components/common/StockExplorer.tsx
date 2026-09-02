@@ -3,6 +3,7 @@ import type { PaperPositionValued } from '../../types/paper';
 import { useQuotes } from '../../hooks/useQuotes';
 import SymbolSearch from './SymbolSearch';
 import { useStockNames } from '../../hooks/useStockNames';
+import { formatPercent, formatPrice } from '../../utils/formatters';
 
 interface Props {
   onSelect: (symbol: string) => void;
@@ -116,14 +117,17 @@ function SymbolGrid({ symbols, onSelect }: { symbols: string[]; onSelect: (s: st
                 <span className="truncate text-[11px] text-text-secondary">{names(symbol)}</span>
               )}
             </span>
-            <span className="text-sm tabular-nums text-text-secondary">
+            {/* 포맷은 formatters 한 곳을 쓴다 — 여기서 따로 만들면 관심 목록은
+                "$319.70", 탐색 화면은 "319.7" 처럼 같은 값이 다르게 보인다. */}
+            <span
+              className="text-sm tabular-nums text-text-secondary"
+              title={quote?.stale ? '실시간 조회 실패 — 마지막 캐시 종가입니다.' : undefined}
+            >
               {quote?.price != null
-                ? quote.price.toLocaleString('ko-KR', { maximumFractionDigits: 2 })
+                ? `${quote.stale ? '· ' : ''}${formatPrice(quote.price, quote.currency)}`
                 : '—'}
             </span>
-            <span className={`text-[11px] tabular-nums ${tone}`}>
-              {rate == null ? '—' : `${rate > 0 ? '+' : ''}${rate.toFixed(2)}%`}
-            </span>
+            <span className={`text-[11px] tabular-nums ${tone}`}>{formatPercent(rate)}</span>
           </button>
         );
       })}

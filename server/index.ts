@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import type { Timeframe } from '../src/types/toss';
 import { fetchOrderbook, fetchPrice } from '../src/services/toss/market';
+import { getAccessToken } from '../src/services/toss/auth';
 import { fetchExchangeRate, fetchPortfolio } from '../src/services/toss/account';
 import { getFundamentals, getPeers } from './companyService';
 import { getCandles, getCandlesBefore } from './candleService';
@@ -95,11 +96,38 @@ async function withDailyChange(symbol: string) {
   };
 }
 
+/**
+ * 토스 API 에 실제로 닿는지 — 토큰 발급을 시도해 본다.
+ * 키가 있다고 연결된 것은 아니다 (사무실 IP 차단 등). 진단 화면이 이걸 구분하지 못하면
+ * 전부 막힌 상태에서도 "실시간 연결됨" 이라고 말한다.
+ * 토큰은 auth.ts 가 캐시하므로 성공 시엔 네트워크를 타지 않는다. 실패는 30초 캐시한다.
+ */
+let tossProbe: { at: number; error: string | null } | null = null;
+async function tossReachable(): Promise<{ ok: boolean; error: string | null }> {
+  if (isMockMode()) return { ok: false, error: null };
+  if (tossProbe && Date.now() - tossProbe.at < 30_000) {
+    return { ok: tossProbe.error === null, error: tossProbe.error };
+  }
+  try {
+    await getAccessToken();
+    tossProbe = { at: Date.now(), error: null };
+  } catch (e) {
+    tossProbe = { at: Date.now(), error: e instanceof Error ? e.message : String(e) };
+  }
+  return { ok: tossProbe.error === null, error: tossProbe.error };
+}
+
 app.get('/api/health', async (_req, res) => {
+  const [toss, indicatorEngine] = await Promise.all([
+    tossReachable(),
+    indicatorEngineHealthy(),
+  ]);
   res.json({
     ok: true,
     mock: isMockMode(),
-    indicatorEngine: await indicatorEngineHealthy(),
+    toss: toss.ok,
+    tossError: toss.error,
+    indicatorEngine,
     time: new Date().toISOString(),
   });
 });

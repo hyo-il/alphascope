@@ -8,6 +8,9 @@ interface Props {
 interface Health {
   ok: boolean;
   mock: boolean;
+  /** 토스 API 에 실제로 닿는지 — 키가 있어도 IP 차단이면 false */
+  toss?: boolean;
+  tossError?: string | null;
   indicatorEngine: boolean;
   time: string;
 }
@@ -44,10 +47,15 @@ export default function Settings({ isMock, engineDown }: Props) {
 
       <section className="mb-6 max-w-2xl">
         <h3 className="mb-1 text-xs font-medium text-text-secondary">데이터 연결</h3>
+        {/* 키가 있다고 연결된 것은 아니다 — 실제 토큰 발급 결과로 판정한다. */}
         {row(
           '토스증권 API',
-          !isMock,
-          isMock ? '모의 데이터 (.env 에 키를 넣으세요)' : '실시간 연결됨',
+          !isMock && (health?.toss ?? false),
+          isMock
+            ? '모의 데이터 (.env 에 키를 넣으세요)'
+            : health?.toss
+              ? '실시간 연결됨'
+              : `연결 실패 — 캐시된 데이터로 동작 중${health?.tossError ? ` (${health.tossError})` : ''}`,
         )}
         {row(
           '지표 엔진 (Python)',

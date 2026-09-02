@@ -60,6 +60,20 @@ async function fxRateFor(from: Currency, to: Currency): Promise<number> {
   return from === 'USD' ? rate.rate : 1 / rate.rate;
 }
 
+/**
+ * 계좌 통화 → 그 종목 통화 환산율. 자동매매가 예산을 종목 통화로 환산할 때 쓴다.
+ * 환율을 못 가져오면 던진다 — 여기서 1 로 넘어가면 원화 계좌의 매수 예산이
+ * 1,000배 넘게 부풀어 엉뚱한 수량이 주문된다.
+ */
+export async function accountToSymbolRate(
+  symbol: string,
+  accountCurrency: Currency,
+): Promise<number> {
+  const currency = currencyOfSymbol(symbol);
+  if (currency === accountCurrency) return 1;
+  return 1 / (await fxRateFor(currency, accountCurrency));
+}
+
 /** 현재가 한 종목 — 체결 기준가 */
 async function currentPrice(symbol: string): Promise<number> {
   const [quote] = await fetchQuotes([symbol]);
@@ -229,11 +243,16 @@ export function listPositions(accountId: number): PaperPosition[] {
 export async function valuePositions(
   accountId: number,
   accountCurrency: Currency,
-): Promise<{ positions: PaperPositionValued[]; stockValue: number; fxRate: number }> {
+): Promise<{ positions: PaperPositionValued[]; stockValue: number; fxRate: number | null }> {
   const positions = listPositions(accountId);
-  const fxRate = await fxRateFor('USD', accountCurrency);
 
-  if (!positions.length) return { positions: [], stockValue: 0, fxRate };
+  // 포지션이 없으면 환율은 쓸 데가 없다. 먼저 불러 버리면 조회 실패 하나가
+  // 잔고·거래내역·성과까지 통째로 막는다.
+  if (!positions.length) return { positions: [], stockValue: 0, fxRate: null };
+
+  // 평가는 읽기 전용이라 환율이 없으면 그 종목만 못 매기고 지나간다.
+  // (주문은 다르다 — createOrder 는 여전히 환율 없이는 거부한다.)
+  const fxRate = await fxRateFor('USD', accountCurrency).catch(() => null);
 
   const quotes = await fetchQuotes(positions.map((p) => p.symbol));
   const priceOf = new Map(quotes.map((q) => [q.symbol, q.price]));
@@ -241,7 +260,8 @@ export async function valuePositions(
   let stockValue = 0;
   const valued = positions.map((position): PaperPositionValued => {
     const price = priceOf.get(position.symbol) ?? null;
-    if (price == null || !Number.isFinite(price)) {
+    const needsFx = position.currency !== accountCurrency;
+    if (price == null || !Number.isFinite(price) || (needsFx && fxRate == null)) {
       return {
         ...position,
         currentPrice: null,
@@ -254,7 +274,7 @@ export async function valuePositions(
 
     const marketValue = price * position.quantity;
     const unrealizedPnl = marketValue - position.totalCost;
-    const toAccountRate = position.currency === accountCurrency ? 1 : fxRate;
+    const toAccountRate = needsFx ? fxRate! : 1;
     const marketValueInAccount = marketValue * toAccountRate;
     stockValue += marketValueInAccount;
 

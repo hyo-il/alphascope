@@ -41,6 +41,10 @@ export interface Quote {
   price: number | null;
   /** 전일 대비 변동률 (%) */
   changeRate: number | null;
+  /** 실시간 조회가 막혀 캐시된 종가를 대신 쓴 경우 true */
+  stale?: boolean;
+  /** 표기 통화 — 국내 종목을 $ 로 적지 않기 위해 서버가 시장으로 판별해 준다 */
+  currency?: 'KRW' | 'USD';
   error: string | null;
 }
 

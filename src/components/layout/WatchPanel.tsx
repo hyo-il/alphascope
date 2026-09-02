@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuotes } from '../../hooks/useQuotes';
 import { useStockNames } from '../../hooks/useStockNames';
-import { formatPercent, formatUsd } from '../../utils/formatters';
+import { formatPercent, formatPrice } from '../../utils/formatters';
 
 interface Props {
   currentSymbol: string;
@@ -200,9 +200,15 @@ export default function WatchPanel({
                     <span className="truncate text-[11px] text-text-muted">{names(symbol)}</span>
                   )}
                 </span>
-                <span className="shrink-0 text-right">
+                <span
+                  className="shrink-0 text-right"
+                  title={quote?.stale ? '실시간 조회 실패 — 마지막 캐시 종가입니다.' : undefined}
+                >
                   <span className="block text-xs tabular-nums text-text-secondary">
-                    {quote?.price != null ? formatUsd(quote.price) : '—'}
+                    {/* 지연 시세는 앞에 · 를 붙여 실시간인 척하지 않게 한다. */}
+                    {quote?.price != null
+                      ? `${quote.stale ? '· ' : ''}${formatPrice(quote.price, quote.currency)}`
+                      : '—'}
                   </span>
                   <span className={`block text-[11px] tabular-nums ${color}`}>
                     {rate == null ? '—' : formatPercent(rate)}

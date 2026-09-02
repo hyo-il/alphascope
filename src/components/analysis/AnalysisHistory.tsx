@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ANALYSIS_MODES } from '../../types/analysis';
 import type { Timeframe } from '../../types/toss';
 import { formatUsd } from '../../utils/formatters';
 
@@ -11,12 +12,11 @@ interface Props {
   prompt: string;
 }
 
-const MODE_LABEL: Record<string, string> = {
-  quick: '⚡ 빠른 분석',
-  multi: '🧠 멀티 에이전트',
-  portfolio: '💼 보유 주식',
-  compare: '🔄 종목 비교',
-};
+// 라벨은 ANALYSIS_MODES 한 곳에서 가져온다 — 여기에 따로 적어 두면
+// 모드 이름을 바꿀 때마다 기록 화면만 옛 이름으로 남는다.
+const MODE_LABEL: Record<string, string> = Object.fromEntries(
+  ANALYSIS_MODES.map((m) => [m.id, `${m.icon} ${m.label}`]),
+);
 
 interface AnalysisRecord {
   id: number;

@@ -106,8 +106,8 @@ export interface PaperAccountDetail {
   totalValue: number;
   totalPnl: number;
   totalReturn: number;
-  /** USD → 계좌 통화 환율 (계좌가 USD 면 1) */
-  fxRate: number;
+  /** USD → 계좌 통화 환율 (계좌가 USD 면 1). 조회에 실패했거나 필요 없으면 null */
+  fxRate: number | null;
   pendingOrders: number;
 }
 
