@@ -617,7 +617,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
         to: range.to + added,
       });
     } else {
-      chart?.timeScale().fitContent();
+      // fitContent 는 전체를 욱여넣어 봉이 얇아진다. 최신 봉을 오른쪽 끝에 붙인다.
+      chart?.timeScale().scrollToRealTime();
     }
 
     renderedCountRef.current = candles.length;

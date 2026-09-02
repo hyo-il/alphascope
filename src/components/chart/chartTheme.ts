@@ -60,7 +60,17 @@ export const BASE_CHART_OPTIONS = {
     horzLines: { color: COLORS.grid },
   },
   rightPriceScale: { borderColor: COLORS.border },
-  timeScale: { borderColor: COLORS.border, timeVisible: true, secondsVisible: false },
+  timeScale: {
+    borderColor: COLORS.border,
+    timeVisible: true,
+    secondsVisible: false,
+    // 기본값(6)은 축소 상태에서 캔들이 실선처럼 얇아진다. 거래량 히스토그램도 같이 두꺼워진다.
+    barSpacing: 9,
+    minBarSpacing: 4,
+    // 기본 여백은 오른쪽이 크게 비어 데이터가 왼쪽으로 몰려 보인다.
+    rightOffset: 5,
+    shiftVisibleRangeOnNewBar: true,
+  },
   crosshair: {
     mode: 0 as const,
     vertLine: { color: COLORS.border, labelBackgroundColor: '#2A2A2A' },
