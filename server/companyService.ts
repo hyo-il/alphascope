@@ -72,6 +72,17 @@ function writeCache(symbol: string, data: Fundamentals): void {
     .run(symbol, JSON.stringify(data), new Date().toISOString());
 }
 
+/**
+ * 네트워크를 타지 않고 캐시만 본다.
+ *
+ * 스윙 추천이 실적 발표일 경고에 쓴다 — 관심 종목 12개에 yfinance 를 새로 부르면
+ * 종목당 1~3초라 분석이 30초를 넘긴다. 기업정보를 한 번이라도 본 종목에는 경고가 뜨고,
+ * 아닌 종목은 조용히 넘어간다.
+ */
+export function cachedFundamentals(symbol: string): Fundamentals | null {
+  return readCache(symbol);
+}
+
 export async function getFundamentals(symbol: string, refresh = false): Promise<Fundamentals> {
   if (!refresh) {
     const cached = readCache(symbol);

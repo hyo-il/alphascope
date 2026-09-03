@@ -47,6 +47,17 @@ def statement_rows(frame, wanted: list[str], limit: int = 4) -> list[dict]:
     return rows
 
 
+def earnings_date(info: dict) -> str | None:
+    """다음 실적 발표일 (YYYY-MM-DD). yfinance 는 epoch 초로 준다."""
+    stamp = info.get("earningsTimestampStart") or info.get("earningsTimestamp")
+    if not stamp:
+        return None
+    try:
+        return time.strftime("%Y-%m-%d", time.gmtime(float(stamp)))
+    except (TypeError, ValueError, OSError):
+        return None
+
+
 def get_fundamentals(symbol: str) -> dict:
     """한 종목의 기업 정보를 모아 반환한다."""
     ticker = yf.Ticker(symbol)
@@ -71,6 +82,8 @@ def get_fundamentals(symbol: str) -> dict:
             "marketCap": pick(info, "marketCap"),
             "currency": pick(info, "currency"),
             "summary": pick(info, "longBusinessSummary"),
+            # 스윙 추천이 "실적 발표 임박" 경고에 쓴다. 없는 종목도 많아 항상 선택 값이다.
+            "earningsDate": earnings_date(info),
         },
         "valuation": {
             "per": pick(info, "trailingPE"),

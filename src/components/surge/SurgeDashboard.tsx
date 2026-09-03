@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useSurgeDetection, useSurgeHistory, useSurgeQuickBuy } from '../../hooks/useSurge';
+import { useSurgeDetection, useSurgeHistory } from '../../hooks/useSurge';
+import { usePaperQuickBuy } from '../../hooks/usePaperQuickBuy';
 import PeriodicSurgeList from './PeriodicSurgeList';
 import SurgeSearch from './SurgeSearch';
 import SurgeSettings from './SurgeSettings';
@@ -34,7 +35,7 @@ export default function SurgeDashboard({
 }) {
   const [tab, setTab] = useState<Tab>('list');
   const detection = useSurgeDetection(watchlist);
-  const paperBuy = useSurgeQuickBuy();
+  const paperBuy = usePaperQuickBuy();
 
   return (
     <div className="flex h-full flex-col">

@@ -44,6 +44,14 @@ import {
   refreshOutcomes,
   startDetection,
 } from './surgeScanner';
+import { evaluateSwing } from './swingAnalyzer';
+import {
+  insertRecommendation,
+  latestRun,
+  recordedRecently,
+  listRecommendations,
+  refreshSwingOutcomes,
+} from './swingStore';
 import {
   getSettings as getSurgeSettings,
   latestDetections,
@@ -692,6 +700,81 @@ app.delete('/api/analyses', (req, res) => {
 });
 
 /** Claude · Gemini 통합 정확도 */
+
+
+// -- 스윙 투자 추천 (Step 10) -------------------------------------------------
+//
+// 관심 종목을 5가지 조건으로 채점하고 매수가·목표가·손절가·비중을 함께 낸다.
+// 관심 목록은 브라우저(localStorage)에만 있으므로 화면이 종목을 실어 보낸다.
+// 종목 수가 십여 개고 캔들·지표 모두 로컬 캐시를 타므로 동기 응답으로 충분하다
+// (급등 탐지와 달리 yfinance 를 종목마다 새로 부르지 않는다).
+
+app.post('/api/swing/analyze', async (req, res) => {
+  const symbols = [
+    ...new Set(
+      (Array.isArray(req.body?.symbols) ? (req.body.symbols as unknown[]) : [])
+        .map((s) => String(s).trim().toUpperCase())
+        .filter((s) => s && /^[A-Z0-9.\-]+$/.test(s)),
+    ),
+  ].slice(0, 50);
+
+  if (!symbols.length) {
+    return res.status(400).json({ error: '분석할 종목이 없습니다. 관심 목록에 종목을 담아 주세요.' });
+  }
+
+  const analyzedAt = new Date().toISOString();
+  const recommendations = [];
+  const failures: { symbol: string; error: string }[] = [];
+
+  for (const symbol of symbols) {
+    try {
+      const recommendation = await evaluateSwing(symbol);
+      // 추천만 저장한다 — 부적합 종목까지 쌓으면 성과 표본이 추천의 정확도를 말하지 못한다.
+      if (
+        (recommendation.grade === 'STRONG' || recommendation.grade === 'BUY') &&
+        !recordedRecently(symbol)
+      ) {
+        insertRecommendation(analyzedAt, recommendation);
+      }
+      recommendations.push(recommendation);
+    } catch (e) {
+      // 한 종목이 실패해도 나머지는 살린다 (상장 직후·지표 엔진 일시 오류 등).
+      failures.push({ symbol, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  res.json({ analyzedAt, recommendations, failures });
+});
+
+app.post('/api/swing/evaluate', async (req, res) => {
+  const symbol = String(req.body?.symbol ?? req.query.symbol ?? '').toUpperCase();
+  if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
+  try {
+    res.json({ recommendation: await evaluateSwing(symbol) });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+/** 저장된 마지막 추천 (화면을 다시 열었을 때 빈 화면을 보여 주지 않기 위한 것) */
+app.get('/api/swing/recommendations', (_req, res) => {
+  try {
+    const { analyzedAt, rows } = latestRun();
+    res.json({ analyzedAt, records: rows });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+/** 추천 이력 + 성과. 읽는 김에 채점도 갱신한다. */
+app.get('/api/swing/history', async (_req, res) => {
+  try {
+    await refreshSwingOutcomes().catch(() => 0);
+    res.json({ records: listRecommendations() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
 
 // -- 급등 탐지 (Step 9) ------------------------------------------------------
 //

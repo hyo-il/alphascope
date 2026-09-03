@@ -6,6 +6,7 @@ import CompanyInfo from './components/company/CompanyInfo';
 import Holdings from './components/portfolio/Holdings';
 import PaperTradingDashboard from './components/paper-trading/PaperTradingDashboard';
 import SurgeDashboard from './components/surge/SurgeDashboard';
+import SwingDashboard from './components/swing/SwingDashboard';
 import QuickOrderPanel from './components/chart/QuickOrderPanel';
 import StockExplorer from './components/common/StockExplorer';
 import CandleChart, { type CandleChartHandle } from './components/chart/CandleChart';
@@ -208,7 +209,8 @@ export default function App() {
       view !== 'paper' &&
       view !== 'settings' &&
       view !== 'portfolio' &&
-      view !== 'surge'
+      view !== 'surge' &&
+      view !== 'swing'
     ) {
       return needSymbol;
     }
@@ -253,6 +255,20 @@ export default function App() {
               setView('chart');
             }}
             onWatch={add}
+            onAnalyze={(next) => {
+              setSymbol(next);
+              setView('analysis');
+            }}
+          />
+        );
+      case 'swing':
+        return (
+          <SwingDashboard
+            watchlist={watchlist}
+            onSelectSymbol={(next) => {
+              setSymbol(next);
+              setView('chart');
+            }}
             onAnalyze={(next) => {
               setSymbol(next);
               setView('analysis');

@@ -14,6 +14,8 @@ export interface CompanyProfile {
   marketCap: number | null;
   currency: string | null;
   summary: string | null;
+  /** 다음 실적 발표일 (YYYY-MM-DD). 종목에 따라 없다. */
+  earningsDate?: string | null;
 }
 
 export interface Valuation {
