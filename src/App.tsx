@@ -11,6 +11,7 @@ import QuickOrderPanel from './components/chart/QuickOrderPanel';
 import StockExplorer from './components/common/StockExplorer';
 import CandleChart, { type CandleChartHandle } from './components/chart/CandleChart';
 import ChartToolbar from './components/chart/ChartToolbar';
+import ChartBottomTabs from './components/chart/ChartBottomTabs';
 import { guideFor, type DrawingToolType } from './components/chart/DrawingTools';
 import OrderbookPanel from './components/chart/OrderbookPanel';
 import LoadingSpinner from './components/common/LoadingSpinner';
@@ -149,7 +150,11 @@ export default function App() {
           )}
         </main>
 
-        <div className="flex shrink-0 flex-col">
+        {/*
+          하단 탭이 생기면서 이 열이 세로로 짧아졌다. min-h-0 + overflow-y-auto 가 없으면
+          호가·빠른주문이 아래 탭 위로 흘러넘쳐 겹친다.
+        */}
+        <div className="flex min-h-0 shrink-0 flex-col overflow-y-auto">
           <OrderbookPanel
             orderbook={orderbook}
             currentPrice={displayPrice}
@@ -168,6 +173,28 @@ export default function App() {
           )}
         </div>
       </div>
+
+      {/*
+        차트 하단 탭 — 차트를 보면서 기업정보·AI 분석을 함께 본다.
+        사이드 메뉴의 전체 화면은 그대로 두고(옵션 B), 여기는 요약 자리다.
+        `active` 로 차트 화면일 때만 내용을 렌더한다 — 차트는 캡처 때문에
+        화면 밖에서도 마운트를 유지하므로, 그때 탭까지 살아 있으면 보이지 않는
+        기업정보·분석 결과를 계속 불러온다.
+      */}
+      {symbol && (
+        <ChartBottomTabs
+          symbol={symbol}
+          timeframe={timeframe}
+          candles={candles}
+          currentPrice={displayPrice}
+          indicators={indicators}
+          toggles={toggles}
+          getChartSnapshot={getChartSnapshot}
+          onPromptChange={setLastPrompt}
+          active={chartVisible}
+          onOpenFullView={setView}
+        />
+      )}
 
       <footer className="shrink-0 border-t border-border px-3 py-1.5 text-[11px] text-text-muted">
         {activeTool ? (
