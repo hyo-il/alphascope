@@ -15,7 +15,13 @@ import pandas as pd
 import pandas_ta as ta
 from flask import Flask, jsonify, request
 
-from fundamentals import get_fundamentals, get_fx_sparkline, get_market_overview, get_peers
+from fundamentals import (
+    get_fundamentals,
+    get_fx_sparkline,
+    get_history,
+    get_market_overview,
+    get_peers,
+)
 
 app = Flask(__name__)
 
@@ -136,6 +142,19 @@ def peers():
         return jsonify({"error": "symbols 파라미터가 필요합니다."}), 400
     try:
         return jsonify({"peers": get_peers(symbols)})
+    except Exception as error:  # noqa: BLE001
+        return jsonify({"error": f"{type(error).__name__}: {error}"}), 500
+
+
+@app.get("/history")
+def history():
+    """급등 탐지용 과거 일봉 — period=3mo|6mo|1y"""
+    symbol = (request.args.get("symbol") or "").upper()
+    period = request.args.get("period") or "6mo"
+    if not symbol:
+        return jsonify({"error": "symbol 파라미터가 필요합니다."}), 400
+    try:
+        return jsonify({"symbol": symbol, "candles": get_history(symbol, period)})
     except Exception as error:  # noqa: BLE001
         return jsonify({"error": f"{type(error).__name__}: {error}"}), 500
 

@@ -1,5 +1,6 @@
 export type ViewId =
   | 'chart'
+  | 'surge'
   | 'analysis'
   | 'company'
   | 'portfolio'
@@ -14,6 +15,7 @@ interface NavItem {
 
 const ITEMS: NavItem[] = [
   { id: 'chart', icon: '🏠', label: '홈' },
+  { id: 'surge', icon: '🔥', label: '급등 탐지' },
   { id: 'analysis', icon: '🧠', label: 'AI 분석' },
   { id: 'company', icon: '🏢', label: '기업정보' },
   { id: 'portfolio', icon: '💼', label: '포트폴리오' },

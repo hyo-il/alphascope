@@ -238,3 +238,47 @@ def get_market_overview(force: bool = False) -> list[dict]:
 
     _overview_cache.update({"at": now, "rows": rows})
     return rows
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 급등 탐지용 과거 일봉 (Step 9)
+#
+# 토스 /candles 는 200봉씩 페이지네이션이라 50~100 종목 × 6개월을 받으려면 왕복이
+# 수백 번이다. yfinance 는 한 번에 6개월을 주므로 탐지의 주 데이터원으로 쓴다.
+# ⚠️ 국내 종목(6자리 숫자)은 yfinance 에서 접미사가 필요하다 (.KS 코스피 / .KQ 코스닥).
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _yf_candidates(symbol: str) -> list[str]:
+    if symbol.isdigit() and len(symbol) == 6:
+        return [f"{symbol}.KS", f"{symbol}.KQ"]
+    return [symbol]
+
+
+def get_history(symbol: str, period: str = "6mo") -> list[dict]:
+    """일봉 배열 (오래된 것부터). 앱 내부 캔들 형식과 같게 맞춘다."""
+    for candidate in _yf_candidates(symbol):
+        try:
+            frame = yf.Ticker(candidate).history(period=period, interval="1d", auto_adjust=False)
+        except Exception:  # noqa: BLE001 - 다음 후보를 시도한다
+            continue
+        if frame is None or frame.empty:
+            continue
+
+        candles = []
+        for index, row in frame.iterrows():
+            close = clean(row.get("Close"))
+            if close is None:
+                continue  # 거래정지일 등 — 지표 계산이 깨지지 않도록 건너뛴다
+            candles.append(
+                {
+                    "timestamp": int(index.timestamp() * 1000),
+                    "open": clean(row.get("Open")),
+                    "high": clean(row.get("High")),
+                    "low": clean(row.get("Low")),
+                    "close": close,
+                    "volume": clean(row.get("Volume")) or 0,
+                }
+            )
+        if candles:
+            return candles
+    return []

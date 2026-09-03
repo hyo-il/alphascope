@@ -5,6 +5,7 @@ import AIAnalysisView from './components/analysis/AIAnalysisView';
 import CompanyInfo from './components/company/CompanyInfo';
 import Holdings from './components/portfolio/Holdings';
 import PaperTradingDashboard from './components/paper-trading/PaperTradingDashboard';
+import SurgeDashboard from './components/surge/SurgeDashboard';
 import QuickOrderPanel from './components/chart/QuickOrderPanel';
 import StockExplorer from './components/common/StockExplorer';
 import CandleChart, { type CandleChartHandle } from './components/chart/CandleChart';
@@ -201,7 +202,14 @@ export default function App() {
   );
 
   const mainContent = () => {
-    if (!symbol && view !== 'paper' && view !== 'settings' && view !== 'portfolio') {
+    // 급등 탐지는 종목을 고르기 전에도 의미가 있다 — 오히려 여기서 종목을 고른다.
+    if (
+      !symbol &&
+      view !== 'paper' &&
+      view !== 'settings' &&
+      view !== 'portfolio' &&
+      view !== 'surge'
+    ) {
       return needSymbol;
     }
 
@@ -234,6 +242,21 @@ export default function App() {
                 />
               </div>
             }
+          />
+        );
+      case 'surge':
+        return (
+          <SurgeDashboard
+            watchlist={watchlist}
+            onSelectSymbol={(next) => {
+              setSymbol(next);
+              setView('chart');
+            }}
+            onWatch={add}
+            onAnalyze={(next) => {
+              setSymbol(next);
+              setView('analysis');
+            }}
           />
         );
       case 'company':

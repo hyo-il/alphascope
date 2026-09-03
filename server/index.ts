@@ -39,6 +39,18 @@ import {
 } from './gemini/scheduler';
 import { computeIndicators, IndicatorEngineError, indicatorEngineHealthy } from './indicatorService';
 import {
+  evaluateOne,
+  getProgress as getSurgeProgress,
+  refreshOutcomes,
+  startDetection,
+} from './surgeScanner';
+import {
+  getSettings as getSurgeSettings,
+  latestDetections,
+  listDetections,
+  saveSettings as saveSurgeSettings,
+} from './surgeStore';
+import {
   cancelOrder,
   createAccount,
   createOrder,
@@ -680,6 +692,81 @@ app.delete('/api/analyses', (req, res) => {
 });
 
 /** Claude · Gemini 통합 정확도 */
+
+// -- 급등 탐지 (Step 9) ------------------------------------------------------
+//
+// 실제 매매는 하지 않는다. 주기적 급등 종목을 찾고, 종목별 급등 가능성을 점수로 낸다.
+
+/**
+ * 한 바퀴 실행 - 시작만 하고 바로 돌려준다.
+ * 50종목 x yfinance 조회는 1분을 넘길 수 있어, 응답을 붙잡고 있으면 브라우저가 먼저 끊는다.
+ * 화면은 /api/surge/progress 를 폴링한다.
+ */
+app.post('/api/surge/detect', (req, res) => {
+  // 관심 목록은 브라우저(localStorage)에만 있으므로 화면이 함께 보낸다.
+  const watchlist = Array.isArray(req.body?.watchlist)
+    ? (req.body.watchlist as unknown[]).map((s) => String(s))
+    : [];
+  try {
+    res.json({ progress: startDetection(watchlist) });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/surge/progress', (_req, res) => {
+  try {
+    res.json({ progress: getSurgeProgress() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/surge/results', (_req, res) => {
+  try {
+    const { detectedAt, rows } = latestDetections();
+    res.json({ detectedAt, results: rows, progress: getSurgeProgress() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.post('/api/surge/evaluate', async (req, res) => {
+  const symbol = String(req.body?.symbol ?? req.query.symbol ?? '').toUpperCase();
+  if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
+  try {
+    res.json({ evaluation: await evaluateOne(symbol) });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+/** 이전 탐지 이력 + 성과. 읽는 김에 채점도 갱신한다 (별도 스케줄러를 두지 않는다). */
+app.get('/api/surge/history', async (_req, res) => {
+  try {
+    await refreshOutcomes().catch(() => 0);
+    res.json({ detections: listDetections() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/surge/settings', (_req, res) => {
+  try {
+    res.json({ settings: getSurgeSettings() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.put('/api/surge/settings', (req, res) => {
+  try {
+    res.json({ settings: saveSurgeSettings(req.body ?? {}) });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
 app.get('/api/ai/accuracy', (_req, res) => {
   try {
     res.json(accuracyReport());

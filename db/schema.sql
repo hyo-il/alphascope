@@ -162,3 +162,61 @@ CREATE TABLE IF NOT EXISTS paper_snapshots (
   FOREIGN KEY (account_id) REFERENCES paper_accounts(id),
   UNIQUE(account_id, date)
 );
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 급등 탐지 (Step 9)
+--
+-- 탐지는 "한 바퀴" 단위로 남긴다 — 같은 detected_at 을 가진 행들이 한 번의 실행이다.
+-- 실제 매매는 하지 않는다. 탐지와 평가만 기록한다.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS surge_detections (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  detected_at TEXT NOT NULL,             -- ISO 8601 (한 실행 = 같은 값)
+  symbol TEXT NOT NULL,
+  name TEXT,
+
+  -- 주기성 분석 결과
+  surge_count INTEGER NOT NULL,
+  avg_interval REAL,
+  std_deviation REAL,
+  regularity REAL,                       -- 0~100
+  last_surge_date TEXT,
+  next_estimated_date TEXT,
+  days_until_next INTEGER,
+
+  -- 급등 가능성 평가
+  surge_score INTEGER NOT NULL,          -- 0~100
+  grade TEXT NOT NULL,                   -- 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE'
+  reason TEXT,
+  signals_snapshot TEXT,                 -- JSON
+
+  -- 이력
+  surge_history TEXT,                    -- JSON: [{date, changePercent}]
+  price_at_detection REAL,
+
+  -- 성과 추적 (탐지 후 채워 넣는다)
+  price_after_7d REAL,
+  price_after_14d REAL,
+  price_after_30d REAL,
+  actual_surged INTEGER,                 -- 1 / 0 / null(아직 판정 전)
+  actual_surge_date TEXT,
+  actual_surge_percent REAL
+);
+
+CREATE INDEX IF NOT EXISTS idx_surge_detected ON surge_detections(detected_at DESC);
+CREATE INDEX IF NOT EXISTS idx_surge_symbol ON surge_detections(symbol, detected_at DESC);
+
+-- 급등 탐지 설정 · yfinance 일봉 캐시 (24시간)
+CREATE TABLE IF NOT EXISTS surge_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS surge_history_cache (
+  symbol TEXT NOT NULL,
+  period TEXT NOT NULL,                  -- '3mo' | '6mo' | '1y'
+  data TEXT NOT NULL,                    -- JSON: Candle[]
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (symbol, period)
+);
