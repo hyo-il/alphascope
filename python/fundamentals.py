@@ -285,15 +285,26 @@ def get_market_overview(force: bool = False) -> list[dict]:
 # ⚠️ 국내 종목(6자리 숫자)은 yfinance 에서 접미사가 필요하다 (.KS 코스피 / .KQ 코스닥).
 # ─────────────────────────────────────────────────────────────────────────────
 
-def get_history(symbol: str, period: str = "6mo") -> list[dict]:
-    """일봉 배열 (오래된 것부터). 앱 내부 캔들 형식과 같게 맞춘다."""
+def get_history(symbol: str, period: str = "6mo") -> tuple[list[dict], float | None]:
+    """일봉 배열(오래된 것부터)과 시가총액.
+
+    시가총액을 함께 주는 이유: 급등 탐지가 대형주/중소형주에 다른 기준을 적용하는데,
+    그것 하나 때문에 종목마다 `/fundamentals` 를 또 부르면 조회가 두 배가 된다.
+    `fast_info` 는 `.info` 보다 훨씬 가볍다.
+    """
     for candidate in _yf_candidates(symbol):
         try:
-            frame = yf.Ticker(candidate).history(period=period, interval="1d", auto_adjust=False)
+            ticker = yf.Ticker(candidate)
+            frame = ticker.history(period=period, interval="1d", auto_adjust=False)
         except Exception:  # noqa: BLE001 - 다음 후보를 시도한다
             continue
         if frame is None or frame.empty:
             continue
+
+        try:
+            market_cap = clean(ticker.fast_info.get("marketCap"))
+        except Exception:  # noqa: BLE001 - 시총이 없으면 기본 기준을 쓴다
+            market_cap = None
 
         candles = []
         for index, row in frame.iterrows():
@@ -311,5 +322,5 @@ def get_history(symbol: str, period: str = "6mo") -> list[dict]:
                 }
             )
         if candles:
-            return candles
-    return []
+            return candles, market_cap
+    return [], None

@@ -272,3 +272,14 @@ CREATE TABLE IF NOT EXISTS swing_recommendations (
 
 CREATE INDEX IF NOT EXISTS idx_swing_analyzed ON swing_recommendations(analyzed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_swing_symbol ON swing_recommendations(symbol, analyzed_at DESC);
+
+-- 급등 탐지의 종목 풀 — 토스 랭킹 캐시
+--
+-- 랭킹은 Rate Limit 소모가 크고(RANKING 5/s) 하루에도 여러 번 바뀌는데,
+-- 주기성 분석은 몇 달을 보는 성질이라 하루 두세 번이면 충분하다.
+CREATE TABLE IF NOT EXISTS surge_ranking_cache (
+  type TEXT PRIMARY KEY,           -- MARKET_TRADING_VOLUME | TOP_GAINERS | ...
+  ranked_at TEXT,                  -- 토스가 알려 준 랭킹 기준 시각
+  data TEXT NOT NULL,              -- JSON: RankingEntry[]
+  updated_at TEXT NOT NULL
+);

@@ -5,6 +5,7 @@ import { modal, toast } from '../../store/uiStore';
 import { formatPrice } from '../../utils/formatters';
 import SymbolLabel from '../common/SymbolLabel';
 import { useStockNames } from '../../hooks/useStockNames';
+import { stockNameOf } from '../../utils/stockNames';
 
 interface Props {
   symbol: string;
@@ -183,7 +184,7 @@ export default function QuickOrderPanel({
     const typeLabel = orderType === 'MARKET' ? '시장가' : '현재가 지정가';
 
     modal.confirm({
-      title: `${symbol} ${orderQuantity}주 ${typeLabel} ${label}`,
+      title: `${symbol}${stockNameOf(symbol) ? ` ${stockNameOf(symbol)}` : ''} ${orderQuantity}주 ${typeLabel} ${label}`,
       message: '모의투자 주문입니다. 증권사로 주문이 전송되지 않습니다.',
       rows: [
         { label: '계좌', value: account.name },

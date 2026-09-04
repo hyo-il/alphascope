@@ -6,19 +6,23 @@
  */
 
 import type { SurgeEvaluation, SurgeProgress, SurgeSettings } from '../src/types/surge';
-import { evaluateSurgePotential, findSurgeEvents, getHistory } from './surgeDetector';
+import { fetchRanking, type RankingEntry, type RankingType } from '../src/services/toss/market';
+import { evaluateSurgePotential, findSurgeEvents, getHistory, thresholdFor } from './surgeDetector';
 import {
   getSettings,
   insertDetection,
   pendingOutcomes,
+  readRankingCache,
   updateOutcome,
+  writeRankingCache,
 } from './surgeStore';
 
 /**
  * 사전 정의 종목 — S&P 500 시가총액 상위군.
  *
- * 토스 랭킹 API 로 후보를 넓히는 방법도 있지만, 랭킹은 Rate Limit 소모가 크고
- * 하루에도 여러 번 바뀐다. 주기성은 몇 달을 봐야 하는 성질이라 고정 종목군이 낫다.
+ * ⚠️ 기본에서 **뺐다**. 대기업은 하루 3~5% 급등이 드물어 주기적 급등이 거의 잡히지 않는다
+ * (실제로 51종목을 돌려 3건뿐이었다). 진짜 급등은 중소형주에서 나온다.
+ * 지금 기본 종목 풀은 토스 랭킹(아래)이고, 이 목록은 설정에서 켤 때만 쓴다.
  */
 export const PRESET_UNIVERSE = [
   'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'AVGO', 'TSLA', 'BRK-B', 'LLY',
@@ -27,6 +31,16 @@ export const PRESET_UNIVERSE = [
   'ADBE', 'TMO', 'LIN', 'CSCO', 'ACN', 'MCD', 'ABT', 'PM', 'INTU', 'GE',
   'TXN', 'QCOM', 'DIS', 'CAT', 'VZ', 'INTC', 'AMAT', 'BKNG', 'NOW', 'UBER',
 ];
+
+/**
+ * 종목 풀로 쓸 랭킹 — 거래량 상위와 등락률 상위.
+ *
+ * "최근에 실제로 움직인 종목" 이라 급등 패턴이 발견될 확률이 높다.
+ * 거래대금(AMOUNT)은 대형주로 쏠려 대기업 목록과 겹치므로 넣지 않았다.
+ */
+const RANKING_TYPES: RankingType[] = ['MARKET_TRADING_VOLUME', 'TOP_GAINERS'];
+/** 랭킹 한 종류에서 위쪽 몇 개를 쓸지 */
+const RANKING_TAKE = 50;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** yfinance 를 쉬지 않고 두드리면 차단된다. 캐시에서 나온 종목은 기다리지 않는다. */
@@ -47,19 +61,55 @@ export function getProgress(): SurgeProgress {
   return progress;
 }
 
-/** 분석 대상 종목 — 설정에 따라 사전 정의 목록과 관심 목록을 합친다. */
-export function resolveUniverse(settings: SurgeSettings, watchlist: string[]): string[] {
+/** 랭킹 조회 — 8시간 캐시. 실패하면 빈 배열로 두고 나머지 풀로 진행한다. */
+async function rankingSymbols(): Promise<{ symbols: string[]; error: string | null }> {
   const symbols: string[] = [];
+  let error: string | null = null;
+
+  for (const type of RANKING_TYPES) {
+    let entries: RankingEntry[] | null = readRankingCache(type);
+    if (!entries) {
+      try {
+        const fetched = await fetchRanking(type, 'US', '1d');
+        entries = fetched.entries;
+        if (entries.length) writeRankingCache(type, fetched.rankedAt, entries);
+      } catch (e) {
+        error = e instanceof Error ? e.message : String(e);
+        continue;
+      }
+    }
+    symbols.push(...entries.slice(0, RANKING_TAKE).map((entry) => entry.symbol));
+  }
+
+  return { symbols, error };
+}
+
+/** 분석 대상 종목 — 랭킹 · 관심 목록 · (선택) 대형주 목록을 합친다. */
+export async function resolveUniverse(
+  settings: SurgeSettings,
+  watchlist: string[],
+): Promise<{ symbols: string[]; rankingError: string | null }> {
+  const symbols: string[] = [];
+  let rankingError: string | null = null;
+
+  if (settings.useRanking) {
+    const ranking = await rankingSymbols();
+    symbols.push(...ranking.symbols);
+    rankingError = ranking.error;
+  }
   if (settings.usePreset) symbols.push(...PRESET_UNIVERSE);
   if (settings.useWatchlist) symbols.push(...watchlist);
 
-  return [
-    ...new Set(
-      symbols
-        .map((s) => s.trim().toUpperCase())
-        .filter((s) => s && /^[A-Z0-9.\-]+$/.test(s)),
-    ),
-  ];
+  return {
+    symbols: [
+      ...new Set(
+        symbols
+          .map((s) => s.trim().toUpperCase())
+          .filter((s) => s && /^[A-Z0-9.\-]+$/.test(s)),
+      ),
+    ],
+    rankingError,
+  };
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -72,25 +122,43 @@ export function startDetection(watchlist: string[]): SurgeProgress {
   if (progress.running) return progress;
 
   const settings = getSettings();
-  const universe = resolveUniverse(settings, watchlist);
 
+  /*
+   * 종목 풀을 정하는 데도 네트워크가 필요해졌다(랭킹 조회). 요청은 붙잡지 않고
+   * "준비 중" 상태로 먼저 돌려준 뒤, 풀이 정해지면 total 을 채운다.
+   */
   progress = {
     running: true,
-    total: universe.length,
+    total: 0,
     done: 0,
-    current: null,
+    current: '종목 풀 조회 중…',
     startedAt: new Date().toISOString(),
     finishedAt: null,
     found: 0,
-    error: universe.length ? null : '분석 대상이 없습니다. 설정에서 대상을 선택하세요.',
+    error: null,
   };
 
-  if (!universe.length) {
-    progress = { ...progress, running: false, finishedAt: new Date().toISOString() };
-    return progress;
-  }
+  void (async () => {
+    const { symbols, rankingError } = await resolveUniverse(settings, watchlist).catch(() => ({
+      symbols: [] as string[],
+      rankingError: '종목 풀을 만들지 못했습니다.',
+    }));
 
-  void run(universe, settings);
+    if (!symbols.length) {
+      progress = {
+        ...progress,
+        running: false,
+        current: null,
+        finishedAt: new Date().toISOString(),
+        error: rankingError ?? '분석 대상이 없습니다. 설정에서 대상을 선택하세요.',
+      };
+      return;
+    }
+
+    progress = { ...progress, total: symbols.length, current: null, error: rankingError };
+    await run(symbols, settings);
+  })();
+
   return progress;
 }
 
@@ -160,16 +228,21 @@ export async function refreshOutcomes(): Promise<number> {
     if (ageDays < 7) continue; // 아직 볼 것이 없다
 
     let candles;
+    let marketCap: number | null = null;
     try {
       // 캐시가 살아 있으면 그대로 쓴다 — 채점 때문에 yfinance 를 다시 두드리지 않는다.
-      candles = (await getHistory(row.symbol, settings.analysisPeriod)).candles;
+      const history = await getHistory(row.symbol, settings.analysisPeriod);
+      candles = history.candles;
+      marketCap = history.marketCap;
     } catch {
       continue;
     }
     if (!candles.length) continue;
 
     const after = candles.filter((c) => c.timestamp > detectedMs);
-    const events = findSurgeEvents(candles, settings.priceThreshold, settings.volumeThreshold);
+    // 채점도 탐지와 같은 기준으로 해야 한다 — 소형주를 2% 로 재면 전부 '급등' 이 된다.
+    const { threshold } = thresholdFor(settings.thresholdMode, settings.priceThreshold, marketCap);
+    const events = findSurgeEvents(candles, threshold, settings.volumeThreshold);
     const hit = events.find(
       (e) =>
         Date.parse(e.date) > detectedMs && Date.parse(e.date) <= detectedMs + 30 * DAY_MS,

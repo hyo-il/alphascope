@@ -27,7 +27,9 @@ export default function SwingRecommendationCard({
   const { conditions } = recommendation;
 
   return (
-    <article className={`rounded-lg border bg-bg-secondary p-3 ${grade.className}`}>
+    <article
+      className={`min-w-[320px] rounded-lg border bg-bg-secondary p-4 break-keep ${grade.className}`}
+    >
       <header className="flex flex-wrap items-baseline gap-2">
         <span>{grade.icon}</span>
         <SymbolLabel symbol={recommendation.symbol} name={recommendation.name} className="text-sm" />
@@ -41,7 +43,7 @@ export default function SwingRecommendationCard({
         </span>
       </header>
 
-      <div className="mt-2.5 grid gap-3 lg:grid-cols-2">
+      <div className="mt-3 grid gap-4 lg:grid-cols-2">
         <section>
           <h4 className="mb-1 text-[11px] font-semibold text-text-secondary">5가지 조건</h4>
           <ConditionGauge
@@ -54,13 +56,16 @@ export default function SwingRecommendationCard({
             }}
           />
 
-          <h4 className="mb-1 mt-3 text-[11px] font-semibold text-text-secondary">💡 매수 이유</h4>
-          <p className="text-[11px] leading-relaxed text-text-primary">
-            {recommendation.entry.reason}
-          </p>
-          <p className="mt-1 text-[11px] leading-relaxed text-text-muted">
-            {recommendation.entry.detailedReason}
-          </p>
+          <h4 className="mb-1 mt-4 text-[11px] font-semibold text-text-secondary">💡 매수 이유</h4>
+          {/* 두세 줄까지 자리를 미리 잡아 둔다 — 카드마다 높이가 들쭉날쭉하면 훑기 어렵다 */}
+          <div className="min-h-[3.5rem] space-y-1">
+            <p className="text-[11px] leading-relaxed text-text-primary">
+              {recommendation.entry.reason}
+            </p>
+            <p className="text-[11px] leading-relaxed text-text-muted">
+              {recommendation.entry.detailedReason}
+            </p>
+          </div>
         </section>
 
         <section>
@@ -69,7 +74,8 @@ export default function SwingRecommendationCard({
           </h4>
           <TradePlan plan={recommendation} currency={currency} />
 
-          <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-text-secondary">
+          {/* 값이 잘리면 매매 계획이 아니게 된다 — 줄임표 대신 줄바꿈으로 다 보여 준다 */}
+          <dl className="mt-3 space-y-1.5 rounded-md border border-border/60 p-2.5 text-[11px] text-text-secondary">
             <Row label="리스크/리워드" value={`1 : ${conditions.riskReward.ratio}`} />
             <Row label="권장 비중" value={`총자산의 ${recommendation.position.recommendedPercent}%`} />
             <Row
@@ -78,20 +84,24 @@ export default function SwingRecommendationCard({
             />
             <Row label="손절 근거" value={recommendation.stopLoss.reason} />
           </dl>
-          <p className="mt-1 text-[11px] text-text-muted">{recommendation.position.reason}</p>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-text-muted">
+            {recommendation.position.reason}
+          </p>
         </section>
       </div>
 
-      {recommendation.warnings.map((warning) => (
-        <p key={warning} className="mt-1.5 text-[11px] text-warning">
-          ⚠️ {warning}
+      <div className="mt-3 space-y-1.5">
+        {recommendation.warnings.map((warning) => (
+          <p key={warning} className="text-[11px] leading-relaxed text-warning">
+            ⚠️ {warning}
+          </p>
+        ))}
+        <p className="text-[11px] leading-relaxed text-text-secondary">
+          🚫 무효 조건: {recommendation.invalidation}
         </p>
-      ))}
-      <p className="mt-1.5 text-[11px] text-text-secondary">
-        🚫 무효 조건: {recommendation.invalidation}
-      </p>
+      </div>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      <div className="mt-3 flex flex-wrap gap-2">
         <button type="button" onClick={() => onSelectSymbol(recommendation.symbol)} className={BUTTON}>
           차트 보기
         </button>
@@ -120,11 +130,9 @@ export default function SwingRecommendationCard({
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex gap-1.5">
+    <div className="flex flex-wrap justify-between gap-x-3">
       <dt className="shrink-0">{label}</dt>
-      <dd className="min-w-0 truncate text-text-primary" title={value}>
-        {value}
-      </dd>
+      <dd className="min-w-0 text-right text-text-primary">{value}</dd>
     </div>
   );
 }

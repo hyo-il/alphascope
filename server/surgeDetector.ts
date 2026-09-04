@@ -12,6 +12,7 @@ import type { Candle } from '../src/types/toss';
 import type { IndicatorSeries } from '../src/types/chart';
 import type {
   AnalysisPeriod,
+  ThresholdMode,
   PeriodicityResult,
   SignalDetail,
   SurgeEvaluation,
@@ -20,6 +21,7 @@ import type {
   SurgeSettings,
   SurgeSignals,
 } from '../src/types/surge';
+import { MARKET_CAP_TIERS } from '../src/types/surge';
 import { computeIndicators } from './indicatorService';
 import { findNames } from './stockCatalog';
 import { readHistoryCache, writeHistoryCache } from './surgeStore';
@@ -29,6 +31,14 @@ const PYTHON_URL =
 
 /** 거래량 평균을 잡는 구간 (일) */
 const VOLUME_WINDOW = 20;
+/**
+ * 주기로 인정할 최소 평균 간격 (일).
+ *
+ * ⚠️ 랭킹으로 종목 풀을 넓히자 "평균 1일 간격, 규칙성 100%" 같은 종목이 잡혔다(CONL).
+ * 이틀 연속 급등한 것을 주기라고 부를 수는 없다 — 다음 급등일을 내일로 찍어 봐야
+ * 예측이라 할 수 없고, 스윙(수일~수주) 관점에서도 쓸모가 없다.
+ */
+const MIN_AVG_INTERVAL_DAYS = 3;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // ── 1. 급등일 추출 ───────────────────────────────────────────────────────────
@@ -140,7 +150,10 @@ export function analyzePeriodicity(
   const nextMs = Date.parse(lastSurgeDate) + Math.round(avgInterval) * DAY_MS;
   const today = Date.parse(new Date().toISOString().slice(0, 10));
 
-  const isPeriodic = events.length >= minSurgeCount && regularity >= regularityThreshold;
+  const isPeriodic =
+    events.length >= minSurgeCount &&
+    regularity >= regularityThreshold &&
+    avgInterval >= MIN_AVG_INTERVAL_DAYS;
 
   /*
    * 신뢰도는 규칙성만으로 정하지 않는다. 급등이 두 번뿐이면 간격이 하나뿐이라
@@ -364,13 +377,16 @@ function reasonOf(
 
 // ── 4. 데이터 수집 ───────────────────────────────────────────────────────────
 
-/** yfinance 일봉 — 24시간 캐시. 캐시에서 나오면 호출 간격도 필요 없다. */
+/**
+ * yfinance 일봉 + 시가총액 — 24시간 캐시. 캐시에서 나오면 호출 간격도 필요 없다.
+ * 시가총액은 급등 기준을 시총 구간별로 나눌 때 쓴다 (대형주 2% / 중형 3% / 소형 5%).
+ */
 export async function getHistory(
   symbol: string,
   period: AnalysisPeriod,
-): Promise<{ candles: Candle[]; cached: boolean }> {
+): Promise<{ candles: Candle[]; marketCap: number | null; cached: boolean }> {
   const cached = readHistoryCache(symbol, period);
-  if (cached) return { candles: cached, cached: true };
+  if (cached) return { candles: cached.candles, marketCap: cached.marketCap, cached: true };
 
   const url = new URL('/history', PYTHON_URL);
   url.searchParams.set('symbol', symbol);
@@ -383,23 +399,54 @@ export async function getHistory(
     );
   });
 
-  const payload = (await response.json()) as { candles?: Candle[]; error?: string };
+  const payload = (await response.json()) as {
+    candles?: Candle[];
+    marketCap?: number | null;
+    error?: string;
+  };
   if (!response.ok || payload.error) throw new Error(payload.error ?? `조회 실패 (${response.status})`);
 
   const candles = payload.candles ?? [];
-  if (candles.length) writeHistoryCache(symbol, period, candles);
-  return { candles, cached: false };
+  const marketCap = payload.marketCap ?? null;
+  if (candles.length) writeHistoryCache(symbol, period, candles, marketCap);
+  return { candles, marketCap, cached: false };
+}
+
+/**
+ * 이 종목에 적용할 급등 기준(%).
+ *
+ * 하나의 기준으로 전 종목을 재면 한쪽이 반드시 어긋난다 — 대형주는 하루 3% 도 드물어
+ * 급등이 아예 안 잡히고, 소형주는 5% 가 예사라 잡음이 쏟아진다.
+ */
+export function thresholdFor(
+  mode: ThresholdMode,
+  manual: number,
+  marketCap: number | null,
+): { threshold: number; reason: string } {
+  if (mode === 'manual') return { threshold: manual, reason: `수동 설정 ${manual}%` };
+  if (marketCap == null) {
+    return { threshold: manual, reason: `시가총액을 알 수 없어 기본 ${manual}% 적용` };
+  }
+  const tier = MARKET_CAP_TIERS.find((t) => marketCap >= t.minCap) ?? MARKET_CAP_TIERS.at(-1)!;
+  return {
+    threshold: tier.threshold,
+    reason: `${tier.label} 기준 ${tier.threshold}% (시총 ${(marketCap / 1e9).toFixed(1)}B)`,
+  };
 }
 
 // ── 5. 종목 하나 평가 ────────────────────────────────────────────────────────
 
 export const DEFAULT_SETTINGS: SurgeSettings = {
   priceThreshold: 3,
+  // 시총 구간별 자동이 기본이다 — 대기업만 보던 시절에는 급등이 거의 안 잡혔다.
+  thresholdMode: 'auto',
   volumeThreshold: 200,
   minSurgeCount: 3,
   analysisPeriod: '6mo',
   regularityThreshold: 50,
-  usePreset: true,
+  // 랭킹(실제로 움직인 종목)이 기본이고, S&P 대형주는 기본에서 뺀다.
+  useRanking: true,
+  usePreset: false,
   useWatchlist: true,
 };
 
@@ -410,7 +457,13 @@ export async function evaluateSurgePotential(
   const upper = symbol.toUpperCase();
   const name = findNames([upper])[upper] ?? null;
 
-  const { candles } = await getHistory(upper, settings.analysisPeriod);
+  const { candles, marketCap } = await getHistory(upper, settings.analysisPeriod);
+  const { threshold, reason: thresholdReason } = thresholdFor(
+    settings.thresholdMode,
+    settings.priceThreshold,
+    marketCap,
+  );
+
   if (candles.length < VOLUME_WINDOW + 2) {
     return {
       symbol: upper,
@@ -432,11 +485,14 @@ export async function evaluateSurgePotential(
       reason: '분석할 과거 데이터가 부족합니다.',
       surgeHistory: [],
       candleCount: candles.length,
+      appliedThreshold: threshold,
+      thresholdReason,
+      marketCap,
       error: '과거 일봉이 부족합니다 (상장 직후이거나 심볼이 다를 수 있습니다).',
     };
   }
 
-  const events = findSurgeEvents(candles, settings.priceThreshold, settings.volumeThreshold);
+  const events = findSurgeEvents(candles, threshold, settings.volumeThreshold);
   const periodicity = analyzePeriodicity(events, settings.minSurgeCount, settings.regularityThreshold);
 
   // 지표 엔진이 꺼져 있어도 과거 패턴만은 보여 준다 — 여기서 던지면 화면이 통째로 빈다.
@@ -458,6 +514,9 @@ export async function evaluateSurgePotential(
     reason: reasonOf(periodicity, signals, grade),
     surgeHistory: events.map((e) => ({ date: e.date, changePercent: e.changePercent })),
     candleCount: candles.length,
+    appliedThreshold: threshold,
+    thresholdReason,
+    marketCap,
     error: indicators ? null : '지표 엔진이 꺼져 있어 현재 신호는 계산하지 못했습니다.',
   };
 }

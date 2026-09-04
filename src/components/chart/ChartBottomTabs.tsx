@@ -21,6 +21,8 @@ import ChartAiPanel from './tabs/ChartAiPanel';
 const STORAGE_KEY = 'alphascope.chartTabsHeight';
 /** 접었을 때 남는 높이 = 탭 헤더만 */
 const HEADER_HEIGHT = 38;
+/** 펼친 상태의 최소 높이 — 이보다 작으면 기업정보 카드 한 줄도 못 보여 준다 */
+const MIN_EXPANDED = 200;
 
 type TabId = 'indicators' | 'company' | 'ai';
 
@@ -34,14 +36,20 @@ function maxHeight(): number {
   return Math.round(window.innerHeight * 0.6);
 }
 
+/** 기본 높이 = 화면의 35% (최소 300px). 기업정보 지표 카드 두 줄이 들어가는 높이다. */
+function defaultHeight(): number {
+  return Math.min(maxHeight(), Math.max(300, Math.round(window.innerHeight * 0.35)));
+}
+
 function readHeight(): number {
-  const fallback = Math.round(window.innerHeight * 0.3);
   try {
     const saved = Number(localStorage.getItem(STORAGE_KEY));
-    if (!Number.isFinite(saved) || saved <= 0) return fallback;
-    return Math.min(maxHeight(), Math.max(HEADER_HEIGHT, saved));
+    if (!Number.isFinite(saved) || saved <= 0) return defaultHeight();
+    // 접힌 상태(헤더만)는 그대로 두고, 펼친 상태는 최소 높이를 보장한다.
+    if (saved <= HEADER_HEIGHT + 8) return HEADER_HEIGHT;
+    return Math.min(maxHeight(), Math.max(MIN_EXPANDED, saved));
   } catch {
-    return fallback;
+    return defaultHeight();
   }
 }
 
@@ -64,6 +72,8 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
   const { active } = props;
   const [tab, setTab] = useState<TabId>('indicators');
   const [height, setHeight] = useState(readHeight);
+  /** 드래그 중인지 — 경계선을 강조해 어디를 잡고 있는지 보이게 한다 */
+  const [dragging, setDragging] = useState(false);
   const dragState = useRef<{ startY: number; startHeight: number } | null>(null);
 
   const collapsed = height <= HEADER_HEIGHT + 8;
@@ -87,13 +97,21 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
     event.preventDefault();
     (event.target as HTMLElement).setPointerCapture(event.pointerId);
     dragState.current = { startY: event.clientY, startHeight: height };
+    setDragging(true);
   };
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!dragState.current) return;
     const delta = dragState.current.startY - event.clientY;
+    const next = dragState.current.startHeight + delta;
+    /*
+     * 아래로 끝까지 내리면 헤더만 남기고 접는다. 그 사이 구간(38~200px)은
+     * 기업정보 카드 한 줄도 안 들어가 쓸모가 없어 건너뛴다.
+     */
     setHeight(
-      Math.min(maxHeight(), Math.max(HEADER_HEIGHT, dragState.current.startHeight + delta)),
+      next < MIN_EXPANDED - 40
+        ? HEADER_HEIGHT
+        : Math.min(maxHeight(), Math.max(MIN_EXPANDED, next)),
     );
   };
 
@@ -101,6 +119,7 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
     if (!dragState.current) return;
     (event.target as HTMLElement).releasePointerCapture(event.pointerId);
     dragState.current = null;
+    setDragging(false);
     persist(height);
   };
 
@@ -111,8 +130,7 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  const toggleCollapse = () =>
-    persist(collapsed ? Math.round(window.innerHeight * 0.3) : HEADER_HEIGHT);
+  const toggleCollapse = () => persist(collapsed ? defaultHeight() : HEADER_HEIGHT);
 
   return (
     <div className="flex shrink-0 flex-col border-t border-border" style={{ height }}>
@@ -121,8 +139,12 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        title="드래그해 높이 조절"
-        className="h-1.5 shrink-0 cursor-row-resize bg-transparent transition-colors hover:bg-accent/40"
+        /* 더블클릭하면 기본 높이로 돌아온다 — 잘못 끌었을 때 되돌리는 가장 빠른 길 */
+        onDoubleClick={() => persist(defaultHeight())}
+        title="드래그: 높이 조절 · 더블클릭: 기본 높이"
+        className={`h-1 shrink-0 cursor-row-resize transition-colors ${
+          dragging ? 'bg-accent' : 'bg-transparent hover:bg-accent/40'
+        }`}
       />
 
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-1">
@@ -132,7 +154,7 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
             type="button"
             onClick={() => {
               setTab(item.id);
-              if (collapsed) persist(Math.round(window.innerHeight * 0.3));
+              if (collapsed) persist(defaultHeight());
             }}
             className={`border-b-2 px-3 py-1.5 text-xs transition-colors ${
               tab === item.id && !collapsed

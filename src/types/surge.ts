@@ -73,14 +73,27 @@ export interface SurgeEvaluation {
   surgeHistory: { date: string; changePercent: number }[];
   /** 분석에 쓴 일봉 수 — 표본이 적으면 화면에서 알린다 */
   candleCount: number;
+  /** 이 종목에 실제로 적용한 급등 기준(%) 과 그 근거 */
+  appliedThreshold: number;
+  thresholdReason: string;
+  marketCap: number | null;
   error?: string | null;
 }
 
 export type AnalysisPeriod = '3mo' | '6mo' | '1y';
 
+/**
+ * 급등 기준을 시가총액에 맞춰 자동으로 바꿀지.
+ *
+ * 대형주는 하루 3% 도 드물고 소형주는 5% 가 예사라, 하나의 기준으로 재면
+ * 대형주는 급등이 아예 안 잡히고 소형주는 잡음이 쏟아진다.
+ */
+export type ThresholdMode = 'auto' | 'manual';
+
 export interface SurgeSettings {
-  /** 급등 판정: 하루 변동률(%) */
+  /** 급등 판정: 하루 변동률(%) — thresholdMode 가 manual 일 때만 쓴다 */
   priceThreshold: number;
+  thresholdMode: ThresholdMode;
   /** 급등 판정: 20일 평균 대비 거래량(%) */
   volumeThreshold: number;
   /** 주기적으로 보려면 최소 몇 번 급등해야 하는지 */
@@ -90,7 +103,16 @@ export interface SurgeSettings {
   regularityThreshold: number;
   usePreset: boolean;
   useWatchlist: boolean;
+  /** 토스 랭킹(거래량·등락률 상위)에서 종목 풀을 모을지 */
+  useRanking: boolean;
 }
+
+/** 시가총액 구간별 급등 기준 (%) — 화면 설명과 서버 판정이 같은 표를 본다 */
+export const MARKET_CAP_TIERS = [
+  { label: '대형주', minCap: 100_000_000_000, threshold: 2 },
+  { label: '중형주', minCap: 10_000_000_000, threshold: 3 },
+  { label: '소형주', minCap: 0, threshold: 5 },
+] as const;
 
 /** 저장된 탐지 결과 한 줄 */
 export interface SurgeDetection {

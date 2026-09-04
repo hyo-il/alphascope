@@ -6,6 +6,7 @@
  */
 
 import type { Candle } from '../src/types/toss';
+import type { RankingEntry } from '../src/services/toss/market';
 import type {
   AnalysisPeriod,
   SurgeDetection,
@@ -46,6 +47,9 @@ export function saveSettings(patch: Partial<SurgeSettings>): SurgeSettings {
   next.minSurgeCount = Math.round(clamp(next.minSurgeCount, 2, 20));
   next.regularityThreshold = clamp(next.regularityThreshold, 0, 100);
   if (!['3mo', '6mo', '1y'].includes(next.analysisPeriod)) next.analysisPeriod = '6mo';
+  if (next.thresholdMode !== 'manual') next.thresholdMode = 'auto';
+  // 대상이 하나도 없으면 실행해도 빈손이다 — 랭킹을 기본으로 되돌린다.
+  if (!next.useRanking && !next.usePreset && !next.useWatchlist) next.useRanking = true;
 
   getDb()
     .prepare(
@@ -63,7 +67,13 @@ function clamp(value: number, min: number, max: number): number {
 
 // ── yfinance 일봉 캐시 ───────────────────────────────────────────────────────
 
-export function readHistoryCache(symbol: string, period: AnalysisPeriod): Candle[] | null {
+/** 일봉과 시가총액을 함께 캐시한다 (시총은 급등 기준을 구간별로 나눌 때 쓴다) */
+interface HistoryCache {
+  candles: Candle[];
+  marketCap: number | null;
+}
+
+export function readHistoryCache(symbol: string, period: AnalysisPeriod): HistoryCache | null {
   const row = getDb()
     .prepare(`SELECT data, updated_at FROM surge_history_cache WHERE symbol = ? AND period = ?`)
     .get(symbol, period) as { data: string; updated_at: string } | undefined;
@@ -71,17 +81,66 @@ export function readHistoryCache(symbol: string, period: AnalysisPeriod): Candle
   if (!row) return null;
   if (Date.now() - Date.parse(row.updated_at) > HISTORY_TTL_MS) return null;
 
-  const candles = safeParse<Candle[]>(row.data, []);
-  return candles.length ? candles : null;
+  /*
+   * 예전 캐시는 배열(Candle[])만 저장해 시가총액이 없다. 그대로 쓰면 급등 기준이
+   * 시총 구간을 못 타고 24시간 동안 기본값으로 잘못 판정된다 — 한 번은 다시 받는다.
+   */
+  const parsed = safeParse<Candle[] | HistoryCache>(row.data, []);
+  if (Array.isArray(parsed)) return null;
+  return parsed.candles?.length ? parsed : null;
 }
 
-export function writeHistoryCache(symbol: string, period: AnalysisPeriod, candles: Candle[]): void {
+export function writeHistoryCache(
+  symbol: string,
+  period: AnalysisPeriod,
+  candles: Candle[],
+  marketCap: number | null,
+): void {
   getDb()
     .prepare(
       `INSERT INTO surge_history_cache (symbol, period, data, updated_at) VALUES (?, ?, ?, ?)
        ON CONFLICT(symbol, period) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
     )
-    .run(symbol, period, JSON.stringify(candles), new Date().toISOString());
+    .run(symbol, period, JSON.stringify({ candles, marketCap }), new Date().toISOString());
+}
+
+// ── 랭킹 캐시 ────────────────────────────────────────────────────────────────
+
+/** 랭킹은 하루 두세 번이면 충분하다 — 주기성은 몇 달을 두고 보는 성질이다. */
+const RANKING_TTL_MS = 8 * 60 * 60 * 1000;
+
+export function readRankingCache(type: string): RankingEntry[] | null {
+  const row = getDb()
+    .prepare(`SELECT data, updated_at FROM surge_ranking_cache WHERE type = ?`)
+    .get(type) as { data: string; updated_at: string } | undefined;
+
+  if (!row) return null;
+  if (Date.now() - Date.parse(row.updated_at) > RANKING_TTL_MS) return null;
+
+  const entries = safeParse<RankingEntry[]>(row.data, []);
+  return entries.length ? entries : null;
+}
+
+export function writeRankingCache(
+  type: string,
+  rankedAt: string | null,
+  entries: RankingEntry[],
+): void {
+  getDb()
+    .prepare(
+      `INSERT INTO surge_ranking_cache (type, ranked_at, data, updated_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT(type) DO UPDATE SET ranked_at = excluded.ranked_at, data = excluded.data,
+                                       updated_at = excluded.updated_at`,
+    )
+    .run(type, rankedAt, JSON.stringify(entries), new Date().toISOString());
+}
+
+/** 랭킹 캐시가 마지막으로 갱신된 시각 (화면 안내용) */
+export function rankingUpdatedAt(): string | null {
+  const row = getDb()
+    .prepare(`SELECT MAX(updated_at) AS at FROM surge_ranking_cache`)
+    .get() as { at: string | null };
+  return row?.at ?? null;
 }
 
 // ── 탐지 결과 ────────────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import { TIMEFRAME_ITEMS } from '../../types/chart';
+import { stockNameOf } from '../../utils/stockNames';
 
 interface Props {
   url: string;
@@ -37,7 +38,7 @@ export default function CapturePreview({
 
       <div className="flex items-center justify-between gap-3">
         <p className="text-[11px] text-text-muted">
-          {symbol} · {TIMEFRAME_ITEMS.find((i) => i.value === timeframe)?.label ?? timeframe} ·
+          {symbol}{stockNameOf(symbol) ? ` ${stockNameOf(symbol)}` : ''} · {TIMEFRAME_ITEMS.find((i) => i.value === timeframe)?.label ?? timeframe} ·
           이미지 크기 {width} × {height} · PNG
         </p>
 

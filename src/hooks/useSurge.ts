@@ -95,12 +95,17 @@ export function useSurgeDetection(watchlist: string[]) {
 
 export function useSurgeSettings() {
   const [settings, setSettings] = useState<SurgeSettings | null>(null);
+  /** 랭킹 캐시 갱신 시각 — "언제 기준 종목 풀인가" 를 화면이 알려 준다 */
+  const [rankingUpdatedAt, setRankingUpdatedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const data = await json<{ settings: SurgeSettings }>('/api/surge/settings');
+      const data = await json<{ settings: SurgeSettings; rankingUpdatedAt?: string | null }>(
+        '/api/surge/settings',
+      );
       setSettings(data.settings);
+      setRankingUpdatedAt(data.rankingUpdatedAt ?? null);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -120,7 +125,7 @@ export function useSurgeSettings() {
     return data.settings;
   }, []);
 
-  return { settings, error, save, reload: load };
+  return { settings, rankingUpdatedAt, error, save, reload: load };
 }
 
 export function useSurgeEvaluation() {

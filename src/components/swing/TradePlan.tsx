@@ -30,6 +30,10 @@ export default function TradePlan({
   const money = (value: number) =>
     currency === 'KRW' ? `₩${Math.round(value).toLocaleString('ko-KR')}` : `$${value.toFixed(2)}`;
 
+  /*
+   * 1·2차 목표가 가까우면 라벨이 서로 겹쳐 읽을 수 없다 (실제로 0.1% 차이인 종목에서
+   * "2차 목표" 위에 "1차 목표" 가 포개졌다). 위에서부터 훑으며 최소 간격을 강제한다.
+   */
   const rows: { price: number; label: string; percent: number | null; tone: string; icon: string }[] = [
     { price: target2.price, label: '2차 목표', percent: target2.percent, tone: 'text-bullish', icon: '🎯' },
     { price: target1.price, label: '1차 목표', percent: target1.percent, tone: 'text-bullish', icon: '🎯' },
@@ -37,10 +41,19 @@ export default function TradePlan({
     { price: stop, label: '손절가', percent: plan.stopLoss.maxLossPercent, tone: 'text-bearish', icon: '🛑' },
   ];
 
+  const PLAN_HEIGHT = 132;
+  const MIN_GAP = 18;
+  let previous = -Infinity;
+  const rowTops = rows.map((row) => {
+    const top = Math.max((y(row.price) / 100) * PLAN_HEIGHT, previous + MIN_GAP);
+    previous = top;
+    return top;
+  });
+
   return (
     <div className="flex gap-3">
       {/* 리스크(빨강) · 리워드(초록) 구간 막대 */}
-      <div className="relative w-2 shrink-0 rounded bg-bg-tertiary" style={{ height: 132 }}>
+      <div className="relative w-2 shrink-0 rounded bg-bg-tertiary" style={{ height: PLAN_HEIGHT }}>
         <span
           className="absolute left-0 w-full rounded bg-bullish/40"
           style={{ top: `${y(target2.price)}%`, height: `${y(entry) - y(target2.price)}%` }}
@@ -55,12 +68,12 @@ export default function TradePlan({
         />
       </div>
 
-      <div className="relative min-w-0 flex-1" style={{ height: 132 }}>
-        {rows.map((row) => (
+      <div className="relative min-w-0 flex-1" style={{ height: PLAN_HEIGHT }}>
+        {rows.map((row, index) => (
           <div
             key={row.label}
             className="absolute flex w-full -translate-y-1/2 items-baseline gap-2 text-[11px]"
-            style={{ top: `${y(row.price)}%` }}
+            style={{ top: rowTops[index] }}
           >
             <span className="w-14 shrink-0 tabular-nums text-text-primary">{money(row.price)}</span>
             <span className={`w-16 shrink-0 ${row.tone}`}>{row.label}</span>

@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { modal, toast } from '../store/uiStore';
+import { stockNameOf } from '../utils/stockNames';
 
 /**
  * [모의 매수] — 모의투자 계좌에 시장가 매수를 넣는다.
@@ -60,7 +61,7 @@ export function usePaperQuickBuy(defaultPercent = 5) {
           title: '모의 매수',
           message: `${account.name} 계좌에 시장가 매수 주문을 넣습니다. 실제 주문이 아닙니다.`,
           rows: [
-            { label: '종목', value: symbol },
+            { label: '종목', value: `${symbol}${stockNameOf(symbol) ? ` ${stockNameOf(symbol)}` : ''}` },
             { label: '수량', value: `${quantity}주 (현금의 ${percent}%)` },
             { label: '예상 단가', value: price.toLocaleString() },
           ],

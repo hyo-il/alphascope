@@ -130,12 +130,15 @@ export default function SwingDashboard({
               const items = recommendations.filter((r) => section.grades.includes(r.grade));
               if (!result) return null;
               return (
-                <section key={section.title} className="space-y-2">
+                <section key={section.title} className="space-y-4">
                   <h3 className="text-xs font-semibold text-text-secondary">
                     {section.title} · {items.length}개
                   </h3>
                   {items.length ? (
-                    items.map(card)
+                    /* 스윙 카드는 안에 게이지 + 매매계획 2열이 들어가 더 넓은 최소폭이 필요하다 */
+                    <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(520px,1fr))]">
+                      {items.map(card)}
+                    </div>
                   ) : (
                     <p className="text-[11px] text-text-muted">해당하는 종목이 없습니다.</p>
                   )}

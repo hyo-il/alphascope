@@ -154,7 +154,8 @@ def history():
     if not symbol:
         return jsonify({"error": "symbol 파라미터가 필요합니다."}), 400
     try:
-        return jsonify({"symbol": symbol, "candles": get_history(symbol, period)})
+        candles, market_cap = get_history(symbol, period)
+        return jsonify({"symbol": symbol, "candles": candles, "marketCap": market_cap})
     except Exception as error:  # noqa: BLE001
         return jsonify({"error": f"{type(error).__name__}: {error}"}), 500
 

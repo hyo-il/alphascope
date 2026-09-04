@@ -193,3 +193,71 @@ export async function fetchOrderbook(symbol: string): Promise<Orderbook> {
   };
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 랭킹 (급등 탐지의 종목 풀)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * 실제 응답으로 확인한 파라미터 (2026-09-04):
+ *   type          MARKET_TRADING_AMOUNT | MARKET_TRADING_VOLUME | TOP_GAINERS |
+ *                 TOP_LOSERS | TOSS_SECURITIES_TRADING_AMOUNT | TOSS_SECURITIES_TRADING_VOLUME
+ *   marketCountry US | KR
+ *   duration      realtime | 1d | 1w | 1mo | 3mo | 6mo | 1y
+ * 셋 다 필수다 (하나라도 빠지면 400 + allowedValues 를 알려 준다).
+ * 응답은 `result.rankings[]` 100개.
+ */
+export type RankingType =
+  | 'MARKET_TRADING_AMOUNT'
+  | 'MARKET_TRADING_VOLUME'
+  | 'TOP_GAINERS'
+  | 'TOP_LOSERS';
+
+export interface RankingEntry {
+  rank: number;
+  symbol: string;
+  currency: string;
+  lastPrice: number;
+  /** 전일 대비 등락률 — 응답은 소수(0.2661 = 26.61%)다 */
+  changeRate: number;
+  tradingVolume: number;
+  tradingAmount: number;
+}
+
+interface RankingResponse {
+  result?: {
+    rankedAt?: string;
+    rankings?: {
+      rank: number;
+      symbol: string;
+      currency: string;
+      price?: { lastPrice?: string; basePrice?: string; changeRate?: string };
+      tradingVolume?: string;
+      tradingAmount?: string;
+    }[];
+  };
+}
+
+export async function fetchRanking(
+  type: RankingType,
+  marketCountry: 'US' | 'KR' = 'US',
+  duration = '1d',
+): Promise<{ rankedAt: string | null; entries: RankingEntry[] }> {
+  const payload = await tossGet<RankingResponse>(
+    '/api/v1/rankings',
+    { type, marketCountry, duration },
+    'RANKING',
+  );
+
+  const entries = (payload.result?.rankings ?? []).map((row) => ({
+    rank: row.rank,
+    symbol: row.symbol,
+    currency: row.currency,
+    lastPrice: Number(row.price?.lastPrice ?? NaN),
+    changeRate: Number(row.price?.changeRate ?? NaN) * 100,
+    tradingVolume: Number(row.tradingVolume ?? 0),
+    tradingAmount: Number(row.tradingAmount ?? 0),
+  }));
+
+  return { rankedAt: payload.result?.rankedAt ?? null, entries };
+}

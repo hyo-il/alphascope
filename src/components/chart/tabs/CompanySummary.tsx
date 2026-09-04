@@ -41,10 +41,10 @@ function median(values: (number | null)[]): number | null {
 
 function Metric({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="rounded-md bg-bg-tertiary/60 px-2.5 py-1.5">
-      <dt className="text-[10px] text-text-muted">{label}</dt>
-      <dd className="mt-0.5 text-sm font-medium tabular-nums">{value}</dd>
-      {note && <p className="text-[10px] text-text-muted">{note}</p>}
+    <div className="rounded-md bg-bg-tertiary/60 p-3">
+      <dt className="text-[11px] text-text-muted">{label}</dt>
+      <dd className="mt-1 text-sm font-medium tabular-nums break-keep">{value}</dd>
+      {note && <p className="mt-0.5 text-[10px] text-text-muted">{note}</p>}
     </div>
   );
 }
@@ -135,7 +135,7 @@ export default function CompanySummary({
               </span>
             </p>
 
-            <dl className="grid grid-cols-2 gap-1.5 md:grid-cols-4">
+            <dl className="grid grid-cols-2 gap-2 lg:grid-cols-4">
               <Metric
                 label="PER"
                 value={fixed(valuation.per)}
@@ -146,7 +146,7 @@ export default function CompanySummary({
               <Metric label="시가총액" value={formatCompactMoney(profile.marketCap, profile.currency)} />
             </dl>
 
-            <dl className="grid grid-cols-2 gap-1.5 md:grid-cols-4">
+            <dl className="grid grid-cols-2 gap-2 lg:grid-cols-4">
               <Metric
                 label="52주 고 / 저"
                 value={

@@ -44,6 +44,9 @@ export default function PeriodicSurgeList({
     (r) => r.daysUntilNext == null || r.daysUntilNext > IMMINENT_DAYS,
   );
 
+  /* 카드는 최소 320px 를 유지하며 화면이 넓으면 여러 열로 늘어선다 */
+  const gridClass = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]';
+
   const card = (detection: SurgeDetection) => (
     <SurgeCard
       key={detection.id}
@@ -124,23 +127,23 @@ export default function PeriodicSurgeList({
         </p>
       ) : (
         <>
-          <section className="space-y-2">
+          <section className="space-y-4">
             <h3 className="text-xs font-semibold text-text-secondary">
               급등 임박 ({IMMINENT_DAYS}일 이내) · {imminent.length}개
             </h3>
             {imminent.length ? (
-              imminent.map(card)
+              <div className={gridClass}>{imminent.map(card)}</div>
             ) : (
               <p className="text-[11px] text-text-muted">임박한 종목이 없습니다.</p>
             )}
           </section>
 
-          <section className="space-y-2">
+          <section className="space-y-4">
             <h3 className="text-xs font-semibold text-text-secondary">
               급등 패턴 발견 ({IMMINENT_DAYS}일 이후) · {later.length}개
             </h3>
             {later.length ? (
-              later.map(card)
+              <div className={gridClass}>{later.map(card)}</div>
             ) : (
               <p className="text-[11px] text-text-muted">해당하는 종목이 없습니다.</p>
             )}

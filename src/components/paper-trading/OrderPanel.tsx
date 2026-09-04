@@ -7,6 +7,7 @@ import { currencyOf, formatPrice } from '../../utils/formatters';
 import SymbolSearch from '../common/SymbolSearch';
 import { modal, toast } from '../../store/uiStore';
 import SymbolLabel from '../common/SymbolLabel';
+import { stockNameOf } from '../../utils/stockNames';
 
 interface Props {
   account: PaperAccount;
@@ -96,7 +97,7 @@ export default function OrderPanel({
 
     // 되돌릴 수 없는 동작이라 반드시 확인을 받는다 (모의 자금이라도 마찬가지다).
     modal.confirm({
-      title: `${symbol} ${quantity}주 ${label}`,
+      title: `${symbol}${stockNameOf(symbol) ? ` ${stockNameOf(symbol)}` : ''} ${quantity}주 ${label}`,
       message: '모의투자 주문입니다. 증권사로 주문이 전송되지 않습니다.',
       rows,
       confirmText: `${label} 주문`,

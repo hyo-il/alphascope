@@ -33,60 +33,68 @@ export default function SurgeCard({
   const hits = Object.entries(detection.signals ?? {}).filter(([, on]) => on);
 
   return (
-    <article className={`rounded-lg border bg-bg-secondary p-3 ${grade.className}`}>
-      <header className="flex flex-wrap items-baseline gap-2">
-        <span className="text-base">{grade.icon}</span>
-        <SymbolLabel symbol={detection.symbol} name={detection.name} className="text-sm" />
-        <span className="ml-auto text-sm font-semibold tabular-nums">
-          급등 점수 {detection.surgeScore}/100
+    /*
+     * 한 줄에 정보를 몰아넣지 않는다. 좁아지면 값이 겹쳐 읽을 수 없어지고,
+     * 줄임표로 자르면 정작 필요한 숫자가 사라진다 — 줄바꿈을 허용한다.
+     * 최소 높이를 두어 내용이 적은 카드도 찌그러지지 않게 한다.
+     */
+    <article
+      className={`flex min-h-[260px] min-w-[320px] flex-col gap-3 rounded-lg border bg-bg-secondary p-4 break-keep ${grade.className}`}
+    >
+      <header className="flex items-start justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 text-base">{grade.icon}</span>
+          <SymbolLabel symbol={detection.symbol} name={detection.name} className="text-sm" />
+        </span>
+        {/* 점수는 카드 우상단 고정 — 카드를 훑을 때 가장 먼저 보는 값이다 */}
+        <span className="shrink-0 text-right">
+          <span className="block text-sm font-semibold tabular-nums">
+            {detection.surgeScore}/100
+          </span>
+          <span className="block text-[10px] text-text-muted">급등 점수</span>
         </span>
       </header>
 
-      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-text-secondary">
-        <div className="flex gap-1">
-          <dt>📊 급등 패턴</dt>
-          <dd className="text-text-primary">
-            평균 {detection.avgInterval ?? '—'}일마다 · {detection.surgeCount}회
-          </dd>
-        </div>
-        <div className="flex gap-1">
-          <dt>📅 마지막 급등</dt>
-          <dd className="text-text-primary">{detection.lastSurgeDate ?? '—'}</dd>
-        </div>
-        <div className="flex gap-1">
-          <dt>⏰ 다음 예상</dt>
-          <dd className="text-text-primary">
-            {detection.nextEstimatedDate ?? '—'} ({daysLabel(detection.daysUntilNext)})
-          </dd>
-        </div>
-        <div className="flex gap-1">
-          <dt>📈 규칙성</dt>
-          <dd className="text-text-primary">{detection.regularity ?? '—'}%</dd>
-        </div>
+      {/* 각 정보를 한 줄씩 — 좁아지면 값이 아래로 내려간다 */}
+      <dl className="space-y-1.5 text-[11px] text-text-secondary">
+        <Row
+          label="📊 급등 패턴"
+          value={`평균 ${detection.avgInterval ?? '—'}일마다 · 최근 ${detection.surgeCount}회`}
+        />
+        <Row label="📅 마지막 급등" value={detection.lastSurgeDate ?? '—'} />
+        <Row
+          label="⏰ 다음 예상"
+          value={`${detection.nextEstimatedDate ?? '—'} (${daysLabel(detection.daysUntilNext)})`}
+        />
+        <Row label="📈 규칙성" value={`${detection.regularity ?? '—'}%`} />
       </dl>
 
-      <p className="mt-2 text-[11px] text-text-secondary">
-        현재 신호:{' '}
-        {hits.length ? (
-          hits.map(([key]) => (
-            <span key={key} className="mr-1 text-bullish">
-              {SIGNAL_LABEL[key] ?? key} 🟢
-            </span>
-          ))
-        ) : (
-          <span className="text-text-muted">없음</span>
-        )}
-      </p>
-
-      <div className="mt-2">
-        <SurgeMiniChart history={detection.surgeHistory} />
+      {/* 신호 뱃지는 별도 영역으로 — 위 숫자들과 섞이면 둘 다 안 읽힌다 */}
+      <div className="space-y-1">
+        <p className="text-[11px] text-text-secondary">현재 신호</p>
+        <div className="flex flex-wrap gap-1.5">
+          {hits.length ? (
+            hits.map(([key]) => (
+              <span
+                key={key}
+                className="rounded bg-bullish/15 px-1.5 py-0.5 text-[11px] text-bullish"
+              >
+                {SIGNAL_LABEL[key] ?? key} 🟢
+              </span>
+            ))
+          ) : (
+            <span className="text-[11px] text-text-muted">없음</span>
+          )}
+        </div>
       </div>
 
+      <SurgeMiniChart history={detection.surgeHistory} />
+
       {detection.reason && (
-        <p className="mt-2 text-[11px] leading-relaxed text-text-muted">{detection.reason}</p>
+        <p className="text-[11px] leading-relaxed text-text-muted">{detection.reason}</p>
       )}
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      <div className="mt-auto flex flex-wrap gap-2 pt-1">
         <button type="button" onClick={() => onSelectSymbol(detection.symbol)} className={BUTTON}>
           차트 보기
         </button>
@@ -113,5 +121,15 @@ export default function SurgeCard({
   );
 }
 
+/** 라벨과 값을 한 줄에 — 좁아지면 값이 아래로 줄바꿈된다 */
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-wrap gap-x-2">
+      <dt className="shrink-0">{label}</dt>
+      <dd className="min-w-0 text-text-primary">{value}</dd>
+    </div>
+  );
+}
+
 const BUTTON =
-  'rounded border border-border px-2 py-1 text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50 disabled:hover:border-border disabled:hover:text-text-secondary';
+  'rounded border border-border px-2.5 py-1 text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50 disabled:hover:border-border disabled:hover:text-text-secondary';

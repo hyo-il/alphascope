@@ -8,6 +8,7 @@ import {
   DISCLAIMER,
   MODERATOR_PROMPT,
 } from './prompts';
+import { stockNameOf } from '../../utils/stockNames';
 
 /**
  * 멀티 에이전트 분석 프롬프트를 만든다 (방식 B — 붙여넣기용).
@@ -57,6 +58,8 @@ function median(values: (number | null)[]): number | null {
 /** 차트·지표 블록 — 기술 분석가와 퀀트가 쓴다 */
 function marketBlock(
   symbol: string,
+  /** 기업명 — 모델이 티커만 보고 다른 회사로 착각하지 않게 함께 적는다 */
+  name: string | null,
   timeframe: Timeframe,
   candles: Candle[],
   currentPrice: number | null,
@@ -86,7 +89,7 @@ function marketBlock(
   });
 
   return `## 시세 · 기술적 지표
-- 종목: ${symbol}
+- 종목: ${symbol}${name ? ` (${name})` : ''}
 - 타임프레임: ${TIMEFRAME_LABEL[timeframe]}
 - 기준 시각: ${new Date().toLocaleString('ko-KR')}
 - 현재가: $${fmt(price)}
@@ -183,19 +186,25 @@ export function buildMultiAgentPrompt(options: PromptOptions): string {
   const horizon = horizonOf(options.horizon ?? DEFAULT_HORIZON);
 
   // 각 전문가에게도 기간을 붙인다 — 역할별 판단이 서로 다른 시간축을 보면 종합이 안 된다.
+  /*
+   * 기업명은 재무 데이터에서 먼저 찾고, 없으면 전종목 카탈로그 캐시에서 가져온다.
+   * 티커만 적으면 모델이 다른 회사로 읽는 일이 생긴다 (특히 국내 6자리 코드).
+   */
+  const companyName = options.fundamentals?.profile.name ?? stockNameOf(symbol) ?? null;
+
   const agentSections = AGENTS.map(
     (agent, index) => `### ${index + 1}. ${agent.name} (${agent.headline}) — 투자 기간: ${horizon.label}(${horizon.period})
 ${agent.body}`,
   ).join('\n\n');
 
-  return `# ${symbol} 멀티 전문가 분석 요청
+  return `# ${symbol}${companyName ? ` (${companyName})` : ''} 멀티 전문가 분석 요청
 
 첨부한 차트 이미지와 아래 데이터를 근거로, **5명의 전문가 역할을 순서대로 모두 수행**해 주세요.
 각 역할은 독립적으로 판단하고, 앞선 역할의 결론에 끌려가지 마세요.
 
 ${horizonBlock(options.horizon ?? DEFAULT_HORIZON)}
 
-${marketBlock(options.symbol, options.timeframe, options.candles, options.currentPrice)}
+${marketBlock(options.symbol, companyName, options.timeframe, options.candles, options.currentPrice)}
 
 ${fundamentalBlock(options.fundamentals, options.peers)}
 

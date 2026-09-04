@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { AnalysisPeriod, SurgeSettings as Settings } from '../../types/surge';
+import { MARKET_CAP_TIERS } from '../../types/surge';
 import { toast } from '../../store/uiStore';
 import { useSurgeSettings } from '../../hooks/useSurge';
 
@@ -16,7 +17,7 @@ const PERIODS: { id: AnalysisPeriod; label: string }[] = [
  * 거래량 0% 같은 값이 그대로 들어가 모든 종목이 급등으로 잡힌다.
  */
 export default function SurgeSettings({ watchlistCount }: { watchlistCount: number }) {
-  const { settings, error, save } = useSurgeSettings();
+  const { settings, rankingUpdatedAt, error, save } = useSurgeSettings();
   const [draft, setDraft] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -52,17 +53,44 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
     <div className="max-w-lg space-y-4 text-xs">
       <section className="space-y-2">
         <h3 className="font-semibold text-text-secondary">급등 판정 기준</h3>
+
+        <label className="inline-flex w-fit items-center gap-2">
+          <input
+            type="radio"
+            checked={draft.thresholdMode === 'auto'}
+            onChange={() => patch({ thresholdMode: 'auto' })}
+          />
+          <span>
+            시가총액별 자동 (
+            {MARKET_CAP_TIERS.map((t) => `${t.label} ${t.threshold}%`).join(' / ')}) — 권장
+          </span>
+        </label>
+        <br />
+        <label className="inline-flex w-fit items-center gap-2">
+          <input
+            type="radio"
+            checked={draft.thresholdMode === 'manual'}
+            onChange={() => patch({ thresholdMode: 'manual' })}
+          />
+          <span>수동 설정</span>
+        </label>
+
         <Field label="가격 변동 (% 이상)">
           <input
             type="number"
             step={0.5}
             min={0.5}
             max={50}
+            disabled={draft.thresholdMode === 'auto'}
             value={draft.priceThreshold}
             onChange={(e) => patch({ priceThreshold: Number(e.target.value) })}
             className="w-24 rounded px-2 py-1"
           />
         </Field>
+        <p className="text-[11px] text-text-muted">
+          대형주는 하루 3%도 드물고 소형주는 5%가 예사입니다. 하나의 기준으로 재면 대형주는 급등이
+          아예 안 잡히고 소형주는 잡음이 쏟아집니다. 시가총액은 yfinance 에서 가져옵니다.
+        </p>
         <Field label="거래량 (% 이상, 20일 평균 대비)">
           <input
             type="number"
@@ -122,10 +150,10 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
         <label className="inline-flex w-fit items-center gap-2">
           <input
             type="checkbox"
-            checked={draft.usePreset}
-            onChange={(e) => patch({ usePreset: e.target.checked })}
+            checked={draft.useRanking}
+            onChange={(e) => patch({ useRanking: e.target.checked })}
           />
-          <span>미국 주요 종목 (S&P 500 상위 50)</span>
+          <span>토스 랭킹 상위 (거래량 50 + 등락률 50)</span>
         </label>
         <br />
         <label className="inline-flex w-fit items-center gap-2">
@@ -136,9 +164,24 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
           />
           <span>내 관심 목록 ({watchlistCount}개)</span>
         </label>
-        <p className="text-[11px] text-text-muted">
-          토스 랭킹 상위는 대상에 넣지 않았습니다 — 랭킹은 Rate Limit 소모가 크고 하루에도 여러 번
-          바뀌는데, 주기성은 몇 달을 두고 봐야 하는 성질이라 고정 종목군이 더 맞습니다.
+        <br />
+        <label className="inline-flex w-fit items-center gap-2">
+          <input
+            type="checkbox"
+            checked={draft.usePreset}
+            onChange={(e) => patch({ usePreset: e.target.checked })}
+          />
+          <span>S&P 500 대형주 50</span>
+        </label>
+        <p className="text-[11px] leading-relaxed text-text-muted">
+          대기업은 하루 3~5% 급등이 드물어 주기적 급등이 거의 잡히지 않습니다 (51종목을 돌려 3건).
+          진짜 급등은 중소형주에서 나오므로, <span className="text-text-secondary">최근 실제로
+          움직인 종목</span>인 랭킹을 기본으로 둡니다.
+          {rankingUpdatedAt && (
+            <>
+              {' '}랭킹 갱신: {new Date(rankingUpdatedAt).toLocaleString('ko-KR')} (8시간 캐시)
+            </>
+          )}
         </p>
       </section>
 

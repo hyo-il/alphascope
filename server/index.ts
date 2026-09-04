@@ -56,6 +56,7 @@ import {
   getSettings as getSurgeSettings,
   latestDetections,
   listDetections,
+  rankingUpdatedAt,
   saveSettings as saveSurgeSettings,
 } from './surgeStore';
 import {
@@ -836,7 +837,8 @@ app.get('/api/surge/history', async (_req, res) => {
 
 app.get('/api/surge/settings', (_req, res) => {
   try {
-    res.json({ settings: getSurgeSettings() });
+    // 랭킹 캐시 시각을 함께 준다 — "언제 기준 종목 풀인가" 를 화면이 알려 줘야 한다.
+    res.json({ settings: getSurgeSettings(), rankingUpdatedAt: rankingUpdatedAt() });
   } catch (e) {
     fail(res, e);
   }
