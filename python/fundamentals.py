@@ -13,6 +13,29 @@ from typing import Any
 import yfinance as yf
 
 
+# ⚠️ yfinance 는 국내 종목에 시장 접미사를 요구한다 — "005930" 은 404,
+# "005930.KS"(코스피) / "005930.KQ"(코스닥) 라야 찾는다. 어느 시장인지는 심볼만으로
+# 알 수 없으므로 순서대로 시도한다. 미국 종목은 그대로 쓴다.
+def _yf_candidates(symbol: str) -> list[str]:
+    if symbol.isdigit() and len(symbol) == 6:
+        return [f"{symbol}.KS", f"{symbol}.KQ"]
+    return [symbol]
+
+
+def resolve_ticker(symbol: str):
+    """조회에 성공하는 티커를 찾아 (티커, info) 로 돌려준다. 없으면 (None, {})."""
+    for candidate in _yf_candidates(symbol):
+        try:
+            ticker = yf.Ticker(candidate)
+            info = ticker.info or {}
+        except Exception:  # noqa: BLE001 - 다음 후보를 시도한다
+            continue
+        # 이름조차 없으면 찾지 못한 심볼이다 (404 대신 빈 dict 를 주는 경우가 있다).
+        if info.get("longName") or info.get("shortName"):
+            return ticker, info
+    return None, {}
+
+
 def clean(value: Any) -> Any:
     """JSON 으로 보낼 수 없는 값(NaN, numpy 타입 등)을 정리한다."""
     if value is None:
@@ -60,8 +83,10 @@ def earnings_date(info: dict) -> str | None:
 
 def get_fundamentals(symbol: str) -> dict:
     """한 종목의 기업 정보를 모아 반환한다."""
-    ticker = yf.Ticker(symbol)
-    info = ticker.info or {}
+    ticker, info = resolve_ticker(symbol)
+    if ticker is None:
+        # 상장 직후·비상장·심볼 오류 — 빈 값으로 채워 화면이 "—" 로 뜨게 둔다.
+        raise ValueError(f"yfinance 에서 {symbol} 을(를) 찾지 못했습니다.")
 
     dividends = ticker.dividends
     recent_dividends = []
@@ -134,18 +159,17 @@ def get_peers(symbols: list[str]) -> list[dict]:
     """동종업계 비교용 — 여러 종목의 핵심 지표만 간단히 가져온다."""
     peers = []
     for symbol in symbols:
-        try:
-            info = yf.Ticker(symbol).info or {}
-        except Exception:  # noqa: BLE001 - 한 종목 실패가 전체를 막지 않게 한다
-            continue
-        if not info.get("longName") and not info.get("shortName"):
-            continue
+        # 국내 종목은 .KS/.KQ 접미사가 필요하다 (resolve_ticker 가 처리).
+        _, info = resolve_ticker(symbol)
+        if not info:
+            continue  # 한 종목 실패가 전체를 막지 않게 한다
 
         peers.append(
             {
                 "symbol": symbol,
                 "name": pick(info, "longName", "shortName"),
                 "sector": pick(info, "sector"),
+                "currency": pick(info, "currency"),
                 "marketCap": pick(info, "marketCap"),
                 "per": pick(info, "trailingPE"),
                 "pbr": pick(info, "priceToBook"),
@@ -260,12 +284,6 @@ def get_market_overview(force: bool = False) -> list[dict]:
 # 수백 번이다. yfinance 는 한 번에 6개월을 주므로 탐지의 주 데이터원으로 쓴다.
 # ⚠️ 국내 종목(6자리 숫자)은 yfinance 에서 접미사가 필요하다 (.KS 코스피 / .KQ 코스닥).
 # ─────────────────────────────────────────────────────────────────────────────
-
-def _yf_candidates(symbol: str) -> list[str]:
-    if symbol.isdigit() and len(symbol) == 6:
-        return [f"{symbol}.KS", f"{symbol}.KQ"]
-    return [symbol]
-
 
 def get_history(symbol: str, period: str = "6mo") -> list[dict]:
     """일봉 배열 (오래된 것부터). 앱 내부 캔들 형식과 같게 맞춘다."""

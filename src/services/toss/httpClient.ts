@@ -1,5 +1,5 @@
 import { RETRY, type RateLimitGroup } from '../../utils/constants';
-import { getAccessToken, invalidateToken } from './auth';
+import { getAccessToken, invalidateToken, TossAuthError } from './auth';
 import { acquire, sleep, syncFromHeaders } from './rateLimiter';
 
 export class TossApiError extends Error {
@@ -24,6 +24,7 @@ function backoffDelay(attempt: number): number {
  * - 429: Retry-After 헤더를 우선 존중
  * - 401: 토큰 무효화 후 1회 재발급 재시도
  * - 5xx / 네트워크 오류: 지수 백오프 재시도
+ * - 토큰 발급 4xx(IP 미등록·잘못된 키): 즉시 실패 — 다시 보내도 같은 답이다
  */
 export async function tossGet<T>(
   path: string,
@@ -89,6 +90,13 @@ export async function tossGet<T>(
       );
     } catch (e) {
       if (e instanceof TossApiError && e.status < 500 && e.status !== 429 && e.status !== 401) {
+        throw e;
+      }
+      /*
+       * 토큰 발급이 4xx 로 막힌 경우(403 IP 미등록, 400 잘못된 키)는 재시도가 무의미하다.
+       * 5xx 만 토스 쪽 일시 장애일 수 있어 백오프 재시도로 넘긴다.
+       */
+      if (e instanceof TossAuthError && e.status < 500) {
         throw e;
       }
       lastError = e;

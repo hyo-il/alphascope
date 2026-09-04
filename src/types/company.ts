@@ -77,6 +77,8 @@ export interface PeerSummary {
   symbol: string;
   name: string | null;
   sector: string | null;
+  /** 시가총액의 통화 (국내 종목은 KRW) */
+  currency?: string | null;
   marketCap: number | null;
   per: number | null;
   pbr: number | null;

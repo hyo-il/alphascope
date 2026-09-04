@@ -2,7 +2,7 @@ import { Skeleton, SkeletonCards, SkeletonText } from '../common/SkeletonLoader'
 import FinancialStatements from './FinancialStatements';
 import SectorComparison from './SectorComparison';
 import { useFundamentals, usePeers } from '../../hooks/useCompany';
-import { formatCompact } from '../../utils/formatters';
+import { formatCompact, formatCompactMoney } from '../../utils/formatters';
 
 interface Props {
   symbol: string;
@@ -80,7 +80,7 @@ export default function CompanyInfo({ symbol }: Props) {
           {profile.sector ?? '—'} · {profile.industry ?? '—'}
         </span>
         <span className="text-xs text-text-muted">
-          시가총액 ${formatCompact(profile.marketCap)}
+          시가총액 {formatCompactMoney(profile.marketCap, profile.currency)}
           {profile.employees ? ` · 임직원 ${formatCompact(profile.employees)}명` : ''}
         </span>
       </header>
@@ -98,7 +98,7 @@ export default function CompanyInfo({ symbol }: Props) {
         </Section>
 
         <Section title="수익성 · 성장성">
-          <Metric label="매출" value={`$${formatCompact(profitability.revenue)}`} />
+          <Metric label="매출" value={formatCompactMoney(profitability.revenue, profile.currency)} />
           <Metric label="매출 성장률" value={ratio(profitability.revenueGrowth)} />
           <Metric label="이익 성장률" value={ratio(profitability.earningsGrowth)} />
           <Metric label="영업이익률" value={ratio(profitability.operatingMargin)} />
@@ -112,16 +112,17 @@ export default function CompanyInfo({ symbol }: Props) {
           <Metric label="부채비율" value={fixed(stability.debtToEquity)} />
           <Metric label="유동비율" value={fixed(stability.currentRatio)} />
           <Metric label="당좌비율" value={fixed(stability.quickRatio)} />
-          <Metric label="잉여현금흐름" value={`$${formatCompact(stability.freeCashflow)}`} />
+          <Metric label="잉여현금흐름" value={formatCompactMoney(stability.freeCashflow, profile.currency)} />
           <Metric label="배당수익률" value={percent(dividend.yield)} />
           <Metric label="주당 배당금" value={fixed(dividend.rate)} />
           <Metric label="배당성향" value={ratio(dividend.payoutRatio)} />
-          <Metric label="보유 현금" value={`$${formatCompact(stability.totalCash)}`} />
+          <Metric label="보유 현금" value={formatCompactMoney(stability.totalCash, profile.currency)} />
         </Section>
 
         <FinancialStatements
           incomeStatement={data.incomeStatement}
           balanceSheet={data.balanceSheet}
+          currency={profile.currency}
         />
 
         <SectorComparison

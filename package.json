@@ -18,7 +18,8 @@
     "smoke": "tsx scripts/smokeTest.ts",
     "probe": "tsx scripts/probeApi.ts",
     "probe:history": "tsx scripts/probeHistory.ts",
-    "surge:test": "tsx scripts/surgeSelfTest.ts"
+    "surge:test": "tsx scripts/surgeSelfTest.ts",
+    "auth:failfast": "tsx scripts/authFailFast.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",

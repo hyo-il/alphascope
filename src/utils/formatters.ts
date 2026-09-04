@@ -38,6 +38,18 @@ export function formatCompact(value: number | null | undefined): string {
   return Intl.NumberFormat('ko-KR', { notation: 'compact' }).format(value);
 }
 
+/**
+ * 통화 기호 + 압축 표기 (시가총액·매출 등).
+ * 국내 종목의 시총을 `$1663조` 로 적지 않기 위해 통화를 함께 받는다.
+ */
+export function formatCompactMoney(
+  value: number | null | undefined,
+  currency?: string | null,
+): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return `${currency === 'KRW' ? '₩' : '$'}${formatCompact(value)}`;
+}
+
 /** 상승/하락에 따른 Tailwind 텍스트 색 클래스 */
 export function changeColor(value: number): string {
   if (value > 0) return 'text-bullish';

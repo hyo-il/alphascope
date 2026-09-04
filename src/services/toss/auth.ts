@@ -11,6 +11,25 @@ import { acquire, syncFromHeaders } from './rateLimiter';
  * 이 모듈은 서버 프로세스에서만 import 한다. CLIENT_SECRET 은 브라우저로 나가면 안 된다.
  */
 
+/**
+ * 토큰 발급 실패.
+ *
+ * 상태 코드를 함께 들고 다니는 이유: `httpClient` 가 재시도할지 말지를 여기서 판단한다.
+ * 403(IP 미등록)·400(잘못된 키)은 몇 번을 다시 보내도 같은 답이 온다 —
+ * 예전에는 이 실패가 평범한 Error 라 재시도 그물에 걸려, 막힌 상태에서 요청 하나가
+ * 4번 재시도 + 백오프로 5초를 썼고 AUTH 레이트리밋 슬롯도 4칸씩 태웠다.
+ */
+export class TossAuthError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly body: string,
+  ) {
+    super(message);
+    this.name = 'TossAuthError';
+  }
+}
+
 interface CachedToken {
   accessToken: string;
   /** epoch ms */
@@ -52,7 +71,11 @@ async function requestToken(): Promise<CachedToken> {
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`토큰 발급 실패 (${res.status}): ${body.slice(0, 300)}`);
+    throw new TossAuthError(
+      `토큰 발급 실패 (${res.status}): ${body.slice(0, 300)}`,
+      res.status,
+      body,
+    );
   }
 
   const data = (await res.json()) as TossTokenResponse;

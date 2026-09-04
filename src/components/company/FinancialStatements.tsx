@@ -4,6 +4,8 @@ import { formatCompact } from '../../utils/formatters';
 interface Props {
   incomeStatement: StatementRow[];
   balanceSheet: StatementRow[];
+  /** 재무제표 금액의 통화. 국내 종목은 KRW 다 — 원화 재무를 USD 라고 적으면 안 된다. */
+  currency?: string | null;
 }
 
 const INCOME_LABELS: Record<string, string> = {
@@ -20,7 +22,17 @@ const BALANCE_LABELS: Record<string, string> = {
   'Cash And Cash Equivalents': '현금성자산',
 };
 
-function Table({ title, rows, labels }: { title: string; rows: StatementRow[]; labels: Record<string, string> }) {
+function Table({
+  title,
+  rows,
+  labels,
+  currency,
+}: {
+  title: string;
+  rows: StatementRow[];
+  labels: Record<string, string>;
+  currency: string;
+}) {
   if (!rows.length) {
     return (
       <div>
@@ -32,7 +44,7 @@ function Table({ title, rows, labels }: { title: string; rows: StatementRow[]; l
 
   return (
     <div className="min-w-0 flex-1 overflow-x-auto">
-      <h4 className="mb-1 text-[11px] text-text-muted">{title} (단위: USD)</h4>
+      <h4 className="mb-1 text-[11px] text-text-muted">{title} (단위: {currency})</h4>
       <table className="w-full min-w-[280px] text-xs tabular-nums">
         <thead>
           <tr className="text-text-muted">
@@ -64,13 +76,18 @@ function Table({ title, rows, labels }: { title: string; rows: StatementRow[]; l
   );
 }
 
-export default function FinancialStatements({ incomeStatement, balanceSheet }: Props) {
+export default function FinancialStatements({
+  incomeStatement,
+  balanceSheet,
+  currency,
+}: Props) {
+  const unit = currency ?? 'USD';
   return (
     <section>
       <h3 className="mb-1.5 text-xs font-medium text-text-secondary">재무제표 (연간)</h3>
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Table title="손익계산서" rows={incomeStatement} labels={INCOME_LABELS} />
-        <Table title="재무상태표" rows={balanceSheet} labels={BALANCE_LABELS} />
+        <Table title="손익계산서" rows={incomeStatement} labels={INCOME_LABELS} currency={unit} />
+        <Table title="재무상태표" rows={balanceSheet} labels={BALANCE_LABELS} currency={unit} />
       </div>
     </section>
   );

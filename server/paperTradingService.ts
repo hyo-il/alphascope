@@ -246,13 +246,19 @@ export async function valuePositions(
 ): Promise<{ positions: PaperPositionValued[]; stockValue: number; fxRate: number | null }> {
   const positions = listPositions(accountId);
 
-  // 포지션이 없으면 환율은 쓸 데가 없다. 먼저 불러 버리면 조회 실패 하나가
-  // 잔고·거래내역·성과까지 통째로 막는다.
-  if (!positions.length) return { positions: [], stockValue: 0, fxRate: null };
-
-  // 평가는 읽기 전용이라 환율이 없으면 그 종목만 못 매기고 지나간다.
-  // (주문은 다르다 — createOrder 는 여전히 환율 없이는 거부한다.)
+  /*
+   * 환율은 포지션이 없어도 부른다.
+   *
+   * 예전에는 "쓸 데가 없다" 며 여기서 바로 돌아갔는데, 빠른주문 패널이 이 값으로
+   * 원화 잔고를 달러로 환산해 매수 가능 수량을 낸다. 그래서 **첫 매수 전에는**
+   * 환율이 null 이라 "구매가능 0주" 가 됐다 (보유에서 역산하던 시절과 같은 증상).
+   * 실패는 여전히 삼킨다 — 평가는 읽기 전용이라 환율이 없으면 그 종목만 못 매기고
+   * 지나가면 되고, 주문은 다르다(createOrder 는 환율 없이는 거부한다).
+   * 조회는 60초 캐시라 포지션이 없을 때 매번 나가지도 않는다.
+   */
   const fxRate = await fxRateFor('USD', accountCurrency).catch(() => null);
+
+  if (!positions.length) return { positions: [], stockValue: 0, fxRate };
 
   const quotes = await fetchQuotes(positions.map((p) => p.symbol));
   const priceOf = new Map(quotes.map((q) => [q.symbol, q.price]));

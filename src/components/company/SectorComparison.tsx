@@ -1,5 +1,5 @@
 import type { PeerSummary } from '../../types/company';
-import { formatCompact } from '../../utils/formatters';
+import { formatCompactMoney } from '../../utils/formatters';
 
 interface Props {
   symbol: string;
@@ -58,7 +58,7 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
                       </span>
                       <span className="ml-1.5 text-text-muted">{peer.name ?? ''}</span>
                     </td>
-                    <td className="py-1 px-2 text-right">{formatCompact(peer.marketCap)}</td>
+                    <td className="py-1 px-2 text-right">{formatCompactMoney(peer.marketCap, peer.currency)}</td>
                     <td className="py-1 px-2 text-right">{fixed(peer.per)}</td>
                     <td className="py-1 px-2 text-right">{fixed(peer.pbr)}</td>
                     <td className="py-1 px-2 text-right">

@@ -4,7 +4,7 @@ import { useFundamentals, usePeers } from '../../../hooks/useCompany';
 import { Skeleton, SkeletonCards } from '../../common/SkeletonLoader';
 import FinancialStatements from '../../company/FinancialStatements';
 import SectorComparison from '../../company/SectorComparison';
-import { formatCompact } from '../../../utils/formatters';
+import { formatCompactMoney } from '../../../utils/formatters';
 
 /**
  * 차트 하단의 기업정보 요약.
@@ -143,7 +143,7 @@ export default function CompanySummary({
               />
               <Metric label="PBR" value={fixed(valuation.pbr)} />
               <Metric label="EPS" value={fixed(valuation.eps)} />
-              <Metric label="시가총액" value={`$${formatCompact(profile.marketCap)}`} />
+              <Metric label="시가총액" value={formatCompactMoney(profile.marketCap, profile.currency)} />
             </dl>
 
             <dl className="grid grid-cols-2 gap-1.5 md:grid-cols-4">
@@ -174,6 +174,7 @@ export default function CompanySummary({
           <FinancialStatements
             incomeStatement={data.incomeStatement}
             balanceSheet={data.balanceSheet}
+            currency={profile.currency}
           />
         )}
 
