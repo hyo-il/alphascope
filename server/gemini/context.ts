@@ -56,7 +56,7 @@ export async function buildContext(symbol: string): Promise<AnalysisContext> {
   const price = summary?.price ?? candles.at(-1)?.close ?? null;
 
   const lines: string[] = [];
-  lines.push(`# 분석 대상: ${symbol}${summary?.name ? ` (${summary.name})` : ''}`);
+  lines.push(`# 분석 대상: ${summary?.name ? `${summary.name} (${symbol})` : symbol}`);
   lines.push(`분석 시각: ${new Date().toISOString()}`);
   const forming = candles.length > 0 && !stale && isFormingBar(candles, '1d');
   if (candles.length) {

@@ -1,10 +1,11 @@
 import type { SwingRecommendation } from '../../types/swing';
 
 /**
- * 매수 · 목표 · 손절을 하나의 가격 축 위에 그린다.
+ * 매수 · 목표 · 손절을 **표로** 적고, 왼쪽에 리스크/리워드 막대를 함께 둔다.
  *
- * 표로만 적으면 "리워드가 리스크보다 넓다" 가 눈에 들어오지 않는다.
- * 비율이 나쁜 추천은 빨간 구간이 초록 구간만큼 넓어져 한눈에 보인다.
+ * 예전에는 가격 축 위에 라벨을 절대 위치로 얹었는데, 1·2차 목표가 0.1% 차이면
+ * 라벨이 그대로 포개졌다. 표는 값이 아무리 가까워도 겹치지 않는다 —
+ * 대신 "리워드가 리스크보다 넓다" 는 감각은 왼쪽 막대가 맡는다.
  */
 export default function TradePlan({
   plan,
@@ -21,19 +22,9 @@ export default function TradePlan({
     return <p className="text-[11px] text-text-muted">매매 계획을 계산하지 못했습니다.</p>;
   }
 
-  const top = Math.max(target2.price, target1.price, plan.currentPrice);
-  const bottom = Math.min(stop, plan.currentPrice);
-  const span = Math.max(1e-9, top - bottom);
-  /** 값 → 위에서부터의 위치(%) */
-  const y = (price: number) => ((top - price) / span) * 100;
-
   const money = (value: number) =>
     currency === 'KRW' ? `₩${Math.round(value).toLocaleString('ko-KR')}` : `$${value.toFixed(2)}`;
 
-  /*
-   * 1·2차 목표가 가까우면 라벨이 서로 겹쳐 읽을 수 없다 (실제로 0.1% 차이인 종목에서
-   * "2차 목표" 위에 "1차 목표" 가 포개졌다). 위에서부터 훑으며 최소 간격을 강제한다.
-   */
   const rows: { price: number; label: string; percent: number | null; tone: string; icon: string }[] = [
     { price: target2.price, label: '2차 목표', percent: target2.percent, tone: 'text-bullish', icon: '🎯' },
     { price: target1.price, label: '1차 목표', percent: target1.percent, tone: 'text-bullish', icon: '🎯' },
@@ -41,51 +32,38 @@ export default function TradePlan({
     { price: stop, label: '손절가', percent: plan.stopLoss.maxLossPercent, tone: 'text-bearish', icon: '🛑' },
   ];
 
-  const PLAN_HEIGHT = 132;
-  const MIN_GAP = 18;
-  let previous = -Infinity;
-  const rowTops = rows.map((row) => {
-    const top = Math.max((y(row.price) / 100) * PLAN_HEIGHT, previous + MIN_GAP);
-    previous = top;
-    return top;
-  });
+  // 막대 비율 — 매수가를 기준으로 위(리워드)와 아래(리스크)의 크기를 비교한다.
+  const reward = Math.max(0, target2.price - entry);
+  const risk = Math.max(0, entry - stop);
+  const total = reward + risk || 1;
 
   return (
     <div className="flex gap-3">
-      {/* 리스크(빨강) · 리워드(초록) 구간 막대 */}
-      <div className="relative w-2 shrink-0 rounded bg-bg-tertiary" style={{ height: PLAN_HEIGHT }}>
-        <span
-          className="absolute left-0 w-full rounded bg-bullish/40"
-          style={{ top: `${y(target2.price)}%`, height: `${y(entry) - y(target2.price)}%` }}
-        />
-        <span
-          className="absolute left-0 w-full rounded bg-bearish/40"
-          style={{ top: `${y(entry)}%`, height: `${y(stop) - y(entry)}%` }}
-        />
-        <span
-          className="absolute left-[-2px] h-0.5 w-[calc(100%+4px)] bg-text-primary"
-          style={{ top: `${y(entry)}%` }}
-        />
+      <div className="flex w-1.5 shrink-0 flex-col overflow-hidden rounded">
+        <span className="bg-bullish/50" style={{ flexGrow: reward / total }} />
+        <span className="h-px shrink-0 bg-text-primary" />
+        <span className="bg-bearish/50" style={{ flexGrow: risk / total }} />
       </div>
 
-      <div className="relative min-w-0 flex-1" style={{ height: PLAN_HEIGHT }}>
-        {rows.map((row, index) => (
-          <div
-            key={row.label}
-            className="absolute flex w-full -translate-y-1/2 items-baseline gap-2 text-[11px]"
-            style={{ top: rowTops[index] }}
-          >
-            <span className="w-14 shrink-0 tabular-nums text-text-primary">{money(row.price)}</span>
-            <span className={`w-16 shrink-0 ${row.tone}`}>{row.label}</span>
-            <span className={`tabular-nums ${row.tone}`}>
-              {row.percent != null
-                ? `${row.percent > 0 ? '+' : ''}${row.percent.toFixed(1)}%`
-                : '기준'}
-            </span>
-            <span>{row.icon}</span>
-          </div>
-        ))}
-      </div>
+      {/* 열 너비를 고정해 값이 길어져도 라벨과 겹치지 않게 한다 */}
+      <table className="min-w-0 flex-1 text-[11px] tabular-nums">
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.label}>
+              <td className="w-[92px] py-0.5 pr-2 text-right font-medium text-text-primary">
+                {money(row.price)}
+              </td>
+              <td className={`w-[68px] py-0.5 pr-2 ${row.tone}`}>{row.label}</td>
+              <td className={`w-[64px] py-0.5 pr-1 text-right ${row.tone}`}>
+                {row.percent != null
+                  ? `${row.percent > 0 ? '+' : ''}${row.percent.toFixed(1)}%`
+                  : '기준'}
+              </td>
+              <td className="py-0.5">{row.icon}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

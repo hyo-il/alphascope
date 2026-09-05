@@ -130,6 +130,7 @@ export default function CompanySummary({
           <div className="space-y-2">
             <p className="text-xs">
               <span className="font-medium">{profile.name ?? symbol}</span>
+              <span className="ml-1.5 text-[11px] text-accent">{symbol}</span>
               <span className="ml-2 text-text-secondary">
                 {profile.sector ?? '—'} · {profile.industry ?? '—'}
               </span>

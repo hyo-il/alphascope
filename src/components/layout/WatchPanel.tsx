@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import SymbolSearch from '../common/SymbolSearch';
 import { useQuotes } from '../../hooks/useQuotes';
 import { useStockNames } from '../../hooks/useStockNames';
 import { formatPercent, formatPrice } from '../../utils/formatters';
@@ -63,7 +64,6 @@ export default function WatchPanel({
   onToggleCollapse,
 }: Props) {
   const [tab, setTab] = useState<PanelTab>('watch');
-  const [input, setInput] = useState('');
 
   const symbols = tab === 'watch' ? watchlist : recent;
   // 보이는 목록만 폴링한다 (Rate Limit 고려).
@@ -112,14 +112,6 @@ export default function WatchPanel({
       </button>
     );
   }
-
-  const handleAdd = (e: React.FormEvent) => {
-    e.preventDefault();
-    const next = input.trim().toUpperCase();
-    if (!next) return;
-    onAdd(next);
-    setInput('');
-  };
 
   const removeFrom = (symbol: string) =>
     tab === 'watch' ? onRemove(symbol) : onRemoveRecent(symbol);
@@ -188,16 +180,17 @@ export default function WatchPanel({
                 onClick={() => onSelect(symbol)}
                 className="flex min-w-0 flex-1 items-center justify-between py-2 pl-3 pr-1 text-left"
               >
+                {/* 종목명이 먼저, 티커는 아래 작게 — 사람은 이름으로 종목을 기억한다 */}
                 <span className="flex min-w-0 flex-col">
                   <span
                     className={`truncate text-xs font-medium ${
                       symbol === currentSymbol ? 'text-accent' : 'text-text-primary'
                     }`}
                   >
-                    {symbol}
+                    {names(symbol) || symbol}
                   </span>
                   {names(symbol) && (
-                    <span className="truncate text-[11px] text-text-muted">{names(symbol)}</span>
+                    <span className="truncate text-[11px] text-text-muted">{symbol}</span>
                   )}
                 </span>
                 <span
@@ -232,21 +225,21 @@ export default function WatchPanel({
       </div>
 
       {tab === 'watch' ? (
-        <form onSubmit={handleAdd} className="flex gap-1 border-t border-border p-2">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="+ 종목 추가"
-            spellCheck={false}
-            className="min-w-0 flex-1 rounded border border-border bg-bg-tertiary px-2 py-1 text-xs uppercase text-text-primary placeholder:normal-case placeholder:text-text-muted focus:border-accent focus:outline-none"
+        /*
+         * 차트 헤더와 **같은 검색 컴포넌트**를 쓴다. 예전에는 여기만 평범한 입력창이라
+         * "구글" 을 치면 그대로 대문자로 바꿔 GOOGL 이 아니라 "구글" 을 담으려 했다.
+         */
+        <div className="border-t border-border p-2">
+          <SymbolSearch
+            symbol=""
+            onSubmit={onAdd}
+            placeholder="+ 종목 추가 (구글, 애플…)"
+            submitLabel="추가"
+            compact
+            clearOnSubmit
+            isAdded={(candidate: string) => watchlist.includes(candidate)}
           />
-          <button
-            type="submit"
-            className="rounded border border-border px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
-          >
-            추가
-          </button>
-        </form>
+        </div>
       ) : (
         recent.length > 0 && (
           <button

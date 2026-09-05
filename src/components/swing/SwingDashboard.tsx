@@ -4,7 +4,7 @@ import { usePaperQuickBuy } from '../../hooks/usePaperQuickBuy';
 import SwingRecommendationCard from './SwingRecommendationCard';
 import SwingSearch from './SwingSearch';
 import SwingHistory from './SwingHistory';
-import SymbolLabel from '../common/SymbolLabel';
+import StockName from '../common/StockName';
 import type { SwingGrade, SwingRecommendation } from '../../types/swing';
 
 type Tab = 'list' | 'search' | 'history';
@@ -135,8 +135,8 @@ export default function SwingDashboard({
                     {section.title} · {items.length}개
                   </h3>
                   {items.length ? (
-                    /* 스윙 카드는 안에 게이지 + 매매계획 2열이 들어가 더 넓은 최소폭이 필요하다 */
-                    <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(520px,1fr))]">
+                    /* 카드 안은 세로 배치라 420px 면 충분하다 — 넓은 화면에서는 여러 열로 늘어선다 */
+                    <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(420px,1fr))]">
                       {items.map(card)}
                     </div>
                   ) : (
@@ -154,7 +154,7 @@ export default function SwingDashboard({
                 <ul className="mt-2 space-y-1 text-[11px]">
                   {rejected.map((r) => (
                     <li key={r.symbol} className="flex gap-2">
-                      <SymbolLabel symbol={r.symbol} name={r.name} />
+                      <StockName symbol={r.symbol} name={r.name} />
                       <span className="tabular-nums text-text-muted">({r.score}점)</span>
                       <span className="min-w-0 text-text-secondary">{r.rejection}</span>
                     </li>

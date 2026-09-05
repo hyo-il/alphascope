@@ -53,10 +53,12 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
                     className={`border-t border-border/60 ${isTarget ? 'bg-accent/10' : ''}`}
                   >
                     <td className="py-1 pr-2">
-                      <span className={isTarget ? 'font-medium text-accent' : ''}>
-                        {peer.symbol}
+                      <span className={isTarget ? 'font-medium text-accent' : 'text-text-primary'}>
+                        {peer.name ?? peer.symbol}
                       </span>
-                      <span className="ml-1.5 text-text-muted">{peer.name ?? ''}</span>
+                      {peer.name && (
+                        <span className="ml-1.5 text-[11px] text-text-muted">{peer.symbol}</span>
+                      )}
                     </td>
                     <td className="py-1 px-2 text-right">{formatCompactMoney(peer.marketCap, peer.currency)}</td>
                     <td className="py-1 px-2 text-right">{fixed(peer.per)}</td>

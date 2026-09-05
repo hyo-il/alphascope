@@ -3,7 +3,7 @@ import type { OrderSide, OrderType, PaperAccount, PaperOrder, PaperPositionValue
 import { cancelPaperOrder, submitOrder } from '../../hooks/usePaperTrading';
 import { modal, toast } from '../../store/uiStore';
 import { formatPrice } from '../../utils/formatters';
-import SymbolLabel from '../common/SymbolLabel';
+import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
 import { stockNameOf } from '../../utils/stockNames';
 
@@ -256,10 +256,10 @@ export default function QuickOrderPanel({
         모의
       </span>
       {/* 어떤 종목을 주문하는지 패널 안에서 바로 보이게 한다 */}
-      <SymbolLabel
+      <StockName
         symbol={symbol}
         className="ml-auto min-w-0 text-[11px] text-text-primary"
-        nameClassName="text-text-muted"
+        tickerClassName="text-text-muted"
       />
     </div>
   );

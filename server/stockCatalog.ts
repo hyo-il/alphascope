@@ -1,6 +1,7 @@
 import type { StockSearchResult } from '../src/types/toss';
 import { tossGet } from '../src/services/toss/httpClient';
 import { getDb } from './db';
+import { symbolsByAlias } from './stockAliases';
 
 /**
  * 전종목 카탈로그 — 한글 종목명 검색을 위한 로컬 캐시.
@@ -106,7 +107,26 @@ export function searchStocks(query: string, limit = 12): StockSearchResult[] {
   const upper = q.toUpperCase();
   const like = `%${q}%`;
 
-  return getDb()
+  /*
+   * 별칭 먼저 — 카탈로그의 한글명은 정식 명칭이라 사람들이 부르는 이름과 다르다.
+   * "구글" 로는 "알파벳 A"(GOOGL)를 찾을 수 없고, 영문명 컬럼은 비어 있어
+   * "apple" 같은 영문 검색도 안 된다. (server/stockAliases.ts 참고)
+   */
+  const aliasSymbols = symbolsByAlias(q);
+  const aliasRows = aliasSymbols.length
+    ? (getDb()
+        .prepare(
+          `SELECT symbol, name, english_name AS englishName, market
+             FROM stock_catalog
+            WHERE symbol IN (${aliasSymbols.map(() => '?').join(',')})`,
+        )
+        .all(...aliasSymbols) as StockSearchResult[])
+    : [];
+
+  // SQL 은 IN 목록의 순서를 지키지 않는다 — 별칭에 적은 순서(대표 티커 우선)로 되돌린다.
+  aliasRows.sort((a, b) => aliasSymbols.indexOf(a.symbol) - aliasSymbols.indexOf(b.symbol));
+
+  const rows = getDb()
     .prepare(
       `SELECT symbol, name, english_name AS englishName, market
          FROM stock_catalog
@@ -124,6 +144,10 @@ export function searchStocks(query: string, limit = 12): StockSearchResult[] {
         LIMIT ?`,
     )
     .all(upper, `${upper}%`, like, like, upper, `${upper}%`, `${q}%`, limit) as StockSearchResult[];
+
+  // 별칭으로 찾은 종목을 앞에 두고, 중복은 뺀다.
+  const seen = new Set(aliasRows.map((row) => row.symbol));
+  return [...aliasRows, ...rows.filter((row) => !seen.has(row.symbol))].slice(0, limit);
 }
 
 /** 심볼 하나의 정보 (헤더에 종목명을 띄울 때 쓴다) */

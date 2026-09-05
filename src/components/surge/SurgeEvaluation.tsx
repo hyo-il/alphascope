@@ -1,5 +1,5 @@
 import type { SurgeEvaluation as Evaluation } from '../../types/surge';
-import SymbolLabel from '../common/SymbolLabel';
+import StockName from '../common/StockName';
 import SurgeMiniChart from './SurgeMiniChart';
 import { daysLabel, GRADE_STYLE } from './gradeStyle';
 
@@ -23,7 +23,7 @@ export default function SurgeEvaluation({
   return (
     <article className={`rounded-lg border bg-bg-secondary p-4 ${grade.className}`}>
       <header className="flex flex-wrap items-baseline gap-2">
-        <SymbolLabel symbol={evaluation.symbol} name={evaluation.name} className="text-base" />
+        <StockName symbol={evaluation.symbol} name={evaluation.name} className="text-base" />
         <span className="ml-auto text-sm font-semibold">
           급등 가능성 {evaluation.surgeScore}/100 ({evaluation.grade} {grade.icon})
         </span>

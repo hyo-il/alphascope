@@ -61,8 +61,12 @@ export default function Holdings({ onSelectSymbol }: Props) {
                   title={`${holding.symbol} 차트 보기`}
                 >
                   <td className="py-1.5 pr-2">
-                    <span className="font-medium text-accent">{holding.symbol}</span>
-                    <span className="ml-1.5 text-text-muted">{holding.name}</span>
+                    <span className="font-medium text-text-primary">
+                      {holding.name || holding.symbol}
+                    </span>
+                    {holding.name && (
+                      <span className="ml-1.5 text-[11px] text-accent">{holding.symbol}</span>
+                    )}
                   </td>
                   <td className="py-1.5 px-2 text-right">{holding.quantity}</td>
                   <td className="py-1.5 px-2 text-right">{formatUsd(holding.averagePrice)}</td>

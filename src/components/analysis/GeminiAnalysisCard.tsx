@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { AgentOpinion, GeminiAnalysis } from '../../types/gemini';
 import { formatUsd } from '../../utils/formatters';
 import AISourceBadge from './AISourceBadge';
-import SymbolLabel from '../common/SymbolLabel';
+import StockName from '../common/StockName';
 import { confidencePercent, SIGNAL_CLASS, SIGNAL_LABEL, VOTE_CLASS } from './signalStyle';
 
 /** 에이전트 상세는 역할마다 모양이 달라서, 키를 그대로 풀어 보여 준다. */
@@ -59,7 +59,7 @@ export default function GeminiAnalysisCard({
           </span>
         )}
         <AISourceBadge source="gemini" suffix={analysis.trigger === 'auto' ? '자동' : '수동실행'} />
-        <SymbolLabel symbol={analysis.symbol} className="text-text-primary" />
+        <StockName symbol={analysis.symbol} className="text-text-primary" />
         <span className={SIGNAL_CLASS[analysis.signal] ?? ''}>
           {SIGNAL_LABEL[analysis.signal] ?? analysis.signal}
         </span>

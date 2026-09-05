@@ -49,11 +49,11 @@ export default function PositionList({ positions, onSelectSymbol, onSell }: Prop
                 <button
                   type="button"
                   onClick={() => onSelectSymbol(p.symbol)}
-                  className="font-medium text-accent hover:underline"
+                  className="font-medium text-text-primary hover:underline"
                 >
-                  {p.symbol}
+                  {p.name || p.symbol}
                 </button>
-                {p.name && <span className="ml-1.5 text-text-muted">{p.name}</span>}
+                {p.name && <span className="ml-1.5 text-[11px] text-accent">{p.symbol}</span>}
               </td>
               <td className="px-3 py-2 text-right tabular-nums">{p.quantity}</td>
               <td className="px-3 py-2 text-right tabular-nums text-text-secondary">

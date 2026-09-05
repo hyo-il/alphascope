@@ -4,7 +4,7 @@ import { usePaperQuickBuy } from '../../hooks/usePaperQuickBuy';
 import PeriodicSurgeList from './PeriodicSurgeList';
 import SurgeSearch from './SurgeSearch';
 import SurgeSettings from './SurgeSettings';
-import SymbolLabel from '../common/SymbolLabel';
+import StockName from '../common/StockName';
 import { formatPercent } from '../../utils/formatters';
 
 type Tab = 'list' | 'search' | 'history' | 'settings';
@@ -134,7 +134,7 @@ function SurgeHistoryTable() {
               <tr key={row.id} className="border-b border-border/50">
                 <td className="py-1.5 pr-2 text-text-secondary">{row.detectedAt.slice(0, 10)}</td>
                 <td className="pr-2">
-                  <SymbolLabel symbol={row.symbol} name={row.name} />
+                  <StockName symbol={row.symbol} name={row.name} />
                 </td>
                 <td className="pr-2 tabular-nums">{row.surgeScore}</td>
                 <td className="pr-2 text-text-secondary">{row.nextEstimatedDate ?? '—'}</td>

@@ -1,5 +1,5 @@
 import type { SurgeDetection } from '../../types/surge';
-import SymbolLabel from '../common/SymbolLabel';
+import StockName from '../common/StockName';
 import SurgeMiniChart from './SurgeMiniChart';
 import { daysLabel, GRADE_STYLE } from './gradeStyle';
 
@@ -44,7 +44,7 @@ export default function SurgeCard({
       <header className="flex items-start justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2">
           <span className="shrink-0 text-base">{grade.icon}</span>
-          <SymbolLabel symbol={detection.symbol} name={detection.name} className="text-sm" />
+          <StockName symbol={detection.symbol} name={detection.name} className="text-sm" />
         </span>
         {/* 점수는 카드 우상단 고정 — 카드를 훑을 때 가장 먼저 보는 값이다 */}
         <span className="shrink-0 text-right">

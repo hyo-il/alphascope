@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { PaperOrder, PaperTrade } from '../../types/paper';
 import { cancelPaperOrder } from '../../hooks/usePaperTrading';
 import { formatPrice } from '../../utils/formatters';
-import SymbolLabel from '../common/SymbolLabel';
+import StockName from '../common/StockName';
 
 interface Props {
   trades: PaperTrade[];
@@ -51,7 +51,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
                 <span className={o.side === 'BUY' ? 'text-bearish' : 'text-bullish'}>
                   {o.side === 'BUY' ? '매수' : '매도'}
                 </span>
-                <SymbolLabel symbol={o.symbol} name={o.name} className="text-text-primary" />
+                <StockName symbol={o.symbol} name={o.name} className="text-text-primary" />
                 <span className="tabular-nums">{o.quantity}주</span>
                 <span className="tabular-nums">@ {formatPrice(o.requestedPrice, o.currency)}</span>
                 {o.reason && <span className="text-text-muted">· {o.reason}</span>}
@@ -115,7 +115,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
                     })}
                   </td>
                   <td className="px-3 py-2 text-text-primary">
-                    <SymbolLabel symbol={t.symbol} name={t.name} />
+                    <StockName symbol={t.symbol} name={t.name} />
                   </td>
                   <td className="px-3 py-2">
                     <span

@@ -112,9 +112,11 @@ function SymbolGrid({ symbols, onSelect }: { symbols: string[]; onSelect: (s: st
             className="flex flex-col items-start rounded-lg border border-border bg-bg-secondary px-3 py-2.5 text-left transition-colors hover:border-accent hover:bg-bg-tertiary"
           >
             <span className="flex min-w-0 items-baseline gap-1.5">
-              <span className="text-sm font-semibold text-text-primary">{symbol}</span>
+              <span className="truncate text-sm font-semibold text-text-primary">
+                {names(symbol) || symbol}
+              </span>
               {names(symbol) && (
-                <span className="truncate text-[11px] text-text-secondary">{names(symbol)}</span>
+                <span className="shrink-0 text-[11px] text-text-secondary">{symbol}</span>
               )}
             </span>
             {/* 포맷은 formatters 한 곳을 쓴다 — 여기서 따로 만들면 관심 목록은

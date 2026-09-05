@@ -5,6 +5,14 @@ import type { StockSearchResult } from '../../types/toss';
 interface Props {
   symbol: string;
   onSubmit: (symbol: string) => void;
+  /** 관심 목록처럼 좁은 자리에서 쓸 때 (입력창을 늘리고 버튼 글자를 바꾼다) */
+  placeholder?: string;
+  submitLabel?: string;
+  compact?: boolean;
+  /** 고르고 나면 입력을 비운다 — 담기용으로 쓸 때 */
+  clearOnSubmit?: boolean;
+  /** 이미 담긴 종목인지 — 드롭다운에 '추가됨' 을 붙인다 */
+  isAdded?: (symbol: string) => boolean;
 }
 
 const MARKET_LABEL: Record<string, string> = {
@@ -21,7 +29,15 @@ const MARKET_LABEL: Record<string, string> = {
  * 토스 API 의 `symbol` 은 영문·숫자만 허용해서 "삼성전자" 를 그대로 보내면 실패한다.
  * 그래서 서버의 전종목 카탈로그에서 찾아 심볼(005930)로 바꿔 넘긴다.
  */
-export default function SymbolSearch({ symbol, onSubmit }: Props) {
+export default function SymbolSearch({
+  symbol,
+  onSubmit,
+  placeholder = '종목명 또는 심볼',
+  submitLabel = '조회',
+  compact = false,
+  clearOnSubmit = false,
+  isAdded,
+}: Props) {
   const [value, setValue] = useState(symbol);
   const [results, setResults] = useState<StockSearchResult[]>([]);
   const [open, setOpen] = useState(false);
@@ -76,7 +92,7 @@ export default function SymbolSearch({ symbol, onSubmit }: Props) {
 
   const choose = (result: StockSearchResult) => {
     onSubmit(result.symbol);
-    setValue(result.symbol);
+    setValue(clearOnSubmit ? '' : result.symbol);
     setOpen(false);
   };
 
@@ -98,6 +114,7 @@ export default function SymbolSearch({ symbol, onSubmit }: Props) {
     }
 
     onSubmit(query.toUpperCase());
+    if (clearOnSubmit) setValue('');
     setOpen(false);
   };
 
@@ -125,23 +142,37 @@ export default function SymbolSearch({ symbol, onSubmit }: Props) {
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder="종목명 또는 심볼"
+          placeholder={placeholder}
           spellCheck={false}
-          className="w-48 rounded-md border border-border bg-bg-tertiary py-1.5 pl-2.5 pr-7 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+          className={`rounded-md border border-border bg-bg-tertiary text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none ${
+            compact ? 'min-w-0 flex-1 py-1 pl-2 pr-6 text-xs' : 'w-48 py-1.5 pl-2.5 pr-7 text-sm'
+          }`}
         />
         {searching && (
           <InlineSpinner className="pointer-events-none -ml-8 mr-[18px]" />
         )}
         <button
           type="submit"
-          className="rounded-md bg-accent px-2.5 py-1.5 text-sm text-white transition-colors hover:bg-accent-hover"
+          className={
+            compact
+              ? 'shrink-0 rounded border border-border px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary'
+              : 'rounded-md bg-accent px-2.5 py-1.5 text-sm text-white transition-colors hover:bg-accent-hover'
+          }
         >
-          조회
+          {submitLabel}
         </button>
       </form>
 
       {open && results.length > 0 && (
-        <ul className="absolute left-0 top-full z-40 mt-1 max-h-72 w-80 overflow-y-auto rounded-md border border-border bg-bg-secondary py-1 shadow-xl">
+        <ul
+          className={`absolute z-40 max-h-72 w-80 overflow-y-auto rounded-md border border-border bg-bg-secondary py-1 shadow-xl ${
+            /*
+             * 좁은 패널(관심 목록)의 입력창은 패널 맨 아래에 있다 — 아래로 열면 화면 밖으로
+             * 잘리고, 오른쪽으로도 넘친다. 위·오른쪽 기준으로 붙인다.
+             */
+            compact ? 'bottom-full right-0 mb-1' : 'left-0 top-full mt-1'
+          }`}
+        >
           {results.map((result, index) => (
             <li key={`${result.market}-${result.symbol}`}>
               <button
@@ -152,12 +183,14 @@ export default function SymbolSearch({ symbol, onSubmit }: Props) {
                   index === highlight ? 'bg-bg-tertiary' : ''
                 }`}
               >
-                <span className="w-16 shrink-0 font-medium tabular-nums text-accent">
-                  {result.symbol}
+                <span className="min-w-0 flex-1 truncate font-medium text-text-primary">
+                  {result.name}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-text-primary">{result.name}</span>
+                <span className="w-16 shrink-0 tabular-nums text-accent">{result.symbol}</span>
                 <span className="shrink-0 text-[10px] text-text-muted">
-                  {MARKET_LABEL[result.market] ?? result.market}
+                  {isAdded?.(result.symbol)
+                    ? '추가됨'
+                    : (MARKET_LABEL[result.market] ?? result.market)}
                 </span>
               </button>
             </li>
@@ -167,7 +200,11 @@ export default function SymbolSearch({ symbol, onSubmit }: Props) {
 
       {/* 아직 응답 전인데 "결과 없음" 을 띄우면 오해를 부른다 — searching 을 함께 본다. */}
       {open && searching && results.length === 0 && (
-        <p className="absolute left-0 top-full z-40 mt-1 flex w-80 items-center gap-2 rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs text-text-muted shadow-xl">
+        <p
+          className={`absolute z-40 flex w-80 items-center gap-2 rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs text-text-muted shadow-xl ${
+            compact ? 'bottom-full right-0 mb-1' : 'left-0 top-full mt-1'
+          }`}
+        >
           <InlineSpinner />
           검색 중…
         </p>

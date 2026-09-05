@@ -358,10 +358,9 @@ export default function App() {
                 {isWatched ? '★' : '☆'}
               </button>
 
-              <span className="text-base font-semibold">{symbol}</span>
-              {stockInfo?.name && (
-                <span className="text-sm text-text-secondary">{stockInfo.name}</span>
-              )}
+              {/* 종목명이 먼저다 — 헤더에서 가장 먼저 읽히는 값이어야 한다 */}
+              <span className="text-base font-semibold">{stockInfo?.name || symbol}</span>
+              {stockInfo?.name && <span className="text-xs text-text-secondary">{symbol}</span>}
 
               {/*
                 차트를 보다가 "이 종목도 자동 분석에 넣자" 가 되는 흐름을 한 번에 잇는다.

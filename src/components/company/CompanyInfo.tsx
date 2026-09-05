@@ -76,6 +76,7 @@ export default function CompanyInfo({ symbol }: Props) {
     <div className="h-full overflow-y-auto p-4">
       <header className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h2 className="text-base font-semibold">{profile.name ?? symbol}</h2>
+        <span className="text-xs text-accent">{symbol}</span>
         <span className="text-xs text-text-secondary">
           {profile.sector ?? '—'} · {profile.industry ?? '—'}
         </span>

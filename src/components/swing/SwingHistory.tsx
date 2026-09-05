@@ -1,5 +1,5 @@
 import { useSwingHistory } from '../../hooks/useSwing';
-import SymbolLabel from '../common/SymbolLabel';
+import StockName from '../common/StockName';
 import { formatPercent } from '../../utils/formatters';
 
 const RESULT_LABEL: Record<string, { text: string; className: string }> = {
@@ -80,7 +80,7 @@ export default function SwingHistory() {
                 <tr key={row.id} className="border-b border-border/50">
                   <td className="py-1.5 pr-2 text-text-secondary">{row.analyzedAt.slice(0, 10)}</td>
                   <td className="pr-2">
-                    <SymbolLabel symbol={row.symbol} name={row.name} />
+                    <StockName symbol={row.symbol} name={row.name} />
                   </td>
                   <td className="pr-2 tabular-nums">{row.score}</td>
                   <td className="pr-2 tabular-nums">{row.entryPrice?.toFixed(2) ?? '—'}</td>

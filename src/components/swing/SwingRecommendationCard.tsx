@@ -1,5 +1,5 @@
 import type { SwingRecommendation } from '../../types/swing';
-import SymbolLabel from '../common/SymbolLabel';
+import StockName from '../common/StockName';
 import ConditionGauge from './ConditionGauge';
 import TradePlan from './TradePlan';
 import { GRADE_STYLE } from './gradeStyle';
@@ -28,11 +28,11 @@ export default function SwingRecommendationCard({
 
   return (
     <article
-      className={`min-w-[320px] rounded-lg border bg-bg-secondary p-4 break-keep ${grade.className}`}
+      className={`min-w-[400px] rounded-lg border bg-bg-secondary p-4 break-keep ${grade.className}`}
     >
       <header className="flex flex-wrap items-baseline gap-2">
         <span>{grade.icon}</span>
-        <SymbolLabel symbol={recommendation.symbol} name={recommendation.name} className="text-sm" />
+        <StockName symbol={recommendation.symbol} name={recommendation.name} className="text-sm" />
         <span className="text-[11px] text-text-secondary">
           {currency === 'KRW'
             ? `₩${Math.round(recommendation.currentPrice).toLocaleString('ko-KR')}`
@@ -43,9 +43,13 @@ export default function SwingRecommendationCard({
         </span>
       </header>
 
-      <div className="mt-3 grid gap-4 lg:grid-cols-2">
+      {/*
+        세로로 쌓는다. 조건 게이지와 매매 계획을 가로로 나란히 두면 카드가 좁아질 때
+        양쪽이 서로를 밀어 값이 겹쳤다 (실제로 "2차 목표" 와 가격이 포개졌다).
+      */}
+      <div className="mt-3 space-y-4">
         <section>
-          <h4 className="mb-1 text-[11px] font-semibold text-text-secondary">5가지 조건</h4>
+          <h4 className="mb-1.5 text-[11px] font-semibold text-text-secondary">5가지 조건</h4>
           <ConditionGauge
             conditions={{
               trend: conditions.trend,
@@ -56,20 +60,10 @@ export default function SwingRecommendationCard({
             }}
           />
 
-          <h4 className="mb-1 mt-4 text-[11px] font-semibold text-text-secondary">💡 매수 이유</h4>
-          {/* 두세 줄까지 자리를 미리 잡아 둔다 — 카드마다 높이가 들쭉날쭉하면 훑기 어렵다 */}
-          <div className="min-h-[3.5rem] space-y-1">
-            <p className="text-[11px] leading-relaxed text-text-primary">
-              {recommendation.entry.reason}
-            </p>
-            <p className="text-[11px] leading-relaxed text-text-muted">
-              {recommendation.entry.detailedReason}
-            </p>
-          </div>
         </section>
 
         <section>
-          <h4 className="mb-1 text-[11px] font-semibold text-text-secondary">
+          <h4 className="mb-1.5 text-[11px] font-semibold text-text-secondary">
             📋 매매 계획 · {ENTRY_LABEL[recommendation.entry.type]}
           </h4>
           <TradePlan plan={recommendation} currency={currency} />
@@ -87,6 +81,19 @@ export default function SwingRecommendationCard({
           <p className="mt-1.5 text-[11px] leading-relaxed text-text-muted">
             {recommendation.position.reason}
           </p>
+        </section>
+
+        <section>
+          <h4 className="mb-1.5 text-[11px] font-semibold text-text-secondary">💡 매수 이유</h4>
+          {/* 두세 줄까지 자리를 미리 잡아 둔다 — 카드마다 높이가 들쭉날쭉하면 훑기 어렵다 */}
+          <div className="min-h-[3rem] space-y-1">
+            <p className="text-[11px] leading-relaxed text-text-primary">
+              {recommendation.entry.reason}
+            </p>
+            <p className="text-[11px] leading-relaxed text-text-muted">
+              {recommendation.entry.detailedReason}
+            </p>
+          </div>
         </section>
       </div>
 

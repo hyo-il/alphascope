@@ -6,7 +6,7 @@ import { useStockInfo } from '../../hooks/useStockInfo';
 import { currencyOf, formatPrice } from '../../utils/formatters';
 import SymbolSearch from '../common/SymbolSearch';
 import { modal, toast } from '../../store/uiStore';
-import SymbolLabel from '../common/SymbolLabel';
+import StockName from '../common/StockName';
 import { stockNameOf } from '../../utils/stockNames';
 
 interface Props {
@@ -155,11 +155,11 @@ export default function OrderPanel({
       <SymbolSearch symbol={symbol} onSubmit={onSymbolChange} />
 
       <div className="flex items-baseline justify-between">
-        <SymbolLabel
+        <StockName
           symbol={symbol}
           name={stockInfo?.name}
           className="text-[11px] text-text-secondary"
-          nameClassName="text-text-muted"
+          tickerClassName="text-text-muted"
         />
         <span className="text-lg font-bold tabular-nums text-text-primary">
           {formatPrice(price, currency)}

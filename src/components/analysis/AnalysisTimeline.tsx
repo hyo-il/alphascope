@@ -3,7 +3,7 @@ import type { GeminiAnalysis } from '../../types/gemini';
 import { formatUsd } from '../../utils/formatters';
 import { modal, toast } from '../../store/uiStore';
 import AISourceBadge from './AISourceBadge';
-import SymbolLabel from '../common/SymbolLabel';
+import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
 import GeminiAnalysisCard from './GeminiAnalysisCard';
 import { SkeletonList } from '../common/SkeletonLoader';
@@ -311,7 +311,7 @@ function ClaudeCard({
     <div className="rounded-lg border border-border bg-bg-secondary p-3">
       <div className="flex flex-wrap items-center gap-2">
         <AISourceBadge source="claude" suffix="수동" />
-        <SymbolLabel symbol={record.symbol} className="text-text-primary" />
+        <StockName symbol={record.symbol} className="text-text-primary" />
         <span className={verdict.className}>{verdict.label}</span>
         <span className="text-xs text-text-muted">
           신뢰도 {CONFIDENCE_LABEL[record.confidence] ?? record.confidence}

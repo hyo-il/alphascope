@@ -70,9 +70,11 @@ export default function SymbolPickerList({
                     disabled={isAlready}
                     onChange={() => toggle(symbol)}
                   />
-                  <span className="font-medium tabular-nums">{symbol}</span>
+                  <span className="min-w-0 truncate font-medium">{names(symbol) || symbol}</span>
                   {names(symbol) && (
-                    <span className="truncate text-text-secondary">{names(symbol)}</span>
+                    <span className="shrink-0 text-[11px] tabular-nums text-text-secondary">
+                      {symbol}
+                    </span>
                   )}
                   {isAlready && <span className="ml-auto shrink-0 text-[10px]">이미 추가됨</span>}
                 </label>

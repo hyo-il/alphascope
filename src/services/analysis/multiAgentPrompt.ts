@@ -89,7 +89,7 @@ function marketBlock(
   });
 
   return `## 시세 · 기술적 지표
-- 종목: ${symbol}${name ? ` (${name})` : ''}
+- 종목: ${name ? `${name} (${symbol})` : symbol}
 - 타임프레임: ${TIMEFRAME_LABEL[timeframe]}
 - 기준 시각: ${new Date().toLocaleString('ko-KR')}
 - 현재가: $${fmt(price)}
@@ -197,7 +197,7 @@ export function buildMultiAgentPrompt(options: PromptOptions): string {
 ${agent.body}`,
   ).join('\n\n');
 
-  return `# ${symbol}${companyName ? ` (${companyName})` : ''} 멀티 전문가 분석 요청
+  return `# ${companyName ? `${companyName} (${symbol})` : symbol} 멀티 전문가 분석 요청
 
 첨부한 차트 이미지와 아래 데이터를 근거로, **5명의 전문가 역할을 순서대로 모두 수행**해 주세요.
 각 역할은 독립적으로 판단하고, 앞선 역할의 결론에 끌려가지 마세요.

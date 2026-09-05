@@ -74,7 +74,7 @@ export function buildQuickPrompt(
 
 ${horizonBlock(horizonId)}
 
-종목: ${summary.symbol}${summary.name ? ` (${summary.name})` : ''}
+종목: ${summary.name ? `${summary.name} (${summary.symbol})` : summary.symbol}
 타임프레임: ${TIMEFRAME_LABEL[timeframe]}
 현재가: ${n(summary.price, 2, '$')} (전일 대비 ${n(summary.changeRate, 2, '', '%')})
 거래량: 20봉 평균 대비 ${n(i.volumeRatio, 0, '', '%')}${i.volumeFromCompletedBar ? ' (직전 완성 봉 기준 — 마지막 봉은 진행 중)' : ''}
@@ -123,7 +123,7 @@ export function buildPortfolioPrompt(
         ? NONE
         : `${(i.macd ?? 0) > (i.macdSignal ?? 0) ? '시그널선 위(강세)' : '시그널선 아래(약세)'}`;
 
-    return `### ${index + 1}. ${holding.symbol} (${holding.name}) — ${holding.quantity}주
+    return `### ${index + 1}. ${holding.name || holding.symbol} (${holding.symbol}) — ${holding.quantity}주
 매입단가: ${n(holding.averagePrice, 2, '$')} | 현재가: ${n(holding.currentPrice, 2, '$')} | 손익: ${n(holding.profitLoss, 2, '$')} (${n(holding.profitLossRate, 2, '', '%')})
 RSI: ${n(i.rsi14, 1)} | MACD: ${macdStatus} | 20MA ${above(found?.price ?? holding.currentPrice, i.sma20)} | 거래량: 평균 대비 ${n(i.volumeRatio, 0, '', '%')}
 섹터: ${found?.fundamentals.sector ?? NONE} | PER: ${n(found?.fundamentals.per)} | PBR: ${n(found?.fundamentals.pbr)}`;
@@ -172,7 +172,7 @@ export function buildComparePrompt(
         ? `${(((s.price - i.high52w) / i.high52w) * 100).toFixed(2)}%`
         : NONE;
 
-    return `## 종목 ${label}: ${s.symbol}${s.name ? ` (${s.name})` : ''}
+    return `## 종목 ${label}: ${s.name ? `${s.name} (${s.symbol})` : s.symbol}
 현재가: ${n(s.price, 2, '$')} (전일 대비 ${n(s.changeRate, 2, '', '%')})
 섹터: ${s.fundamentals.sector ?? NONE} | 시가총액: ${usd(s.fundamentals.marketCap)}
 PER: ${n(s.fundamentals.per)} | PBR: ${n(s.fundamentals.pbr)} | EPS: ${n(s.fundamentals.eps)}

@@ -150,8 +150,8 @@ export default function SymbolTagInput({
             key={item}
             className="inline-flex items-center gap-1 rounded bg-bg-tertiary py-1 pl-2 pr-1 text-xs text-text-primary"
           >
-            <span className="font-medium">{item}</span>
-            {names(item) && <span className="text-text-secondary">{names(item)}</span>}
+            <span className="font-medium">{names(item) || item}</span>
+            {names(item) && <span className="text-[11px] text-text-secondary">{item}</span>}
             <button
               type="button"
               onClick={() => remove(item)}
@@ -260,10 +260,10 @@ export default function SymbolTagInput({
                     index === highlight && !already ? 'bg-bg-tertiary' : ''
                   }`}
                 >
-                  <span className="w-16 shrink-0 font-medium tabular-nums text-accent">
-                    {result.symbol}
+                  <span className="min-w-0 flex-1 truncate font-medium text-text-primary">
+                    {result.name}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-text-primary">{result.name}</span>
+                  <span className="w-16 shrink-0 tabular-nums text-accent">{result.symbol}</span>
                   <span className="shrink-0 text-[10px] text-text-muted">
                     {already ? '추가됨' : (MARKET_LABEL[result.market] ?? result.market)}
                   </span>
