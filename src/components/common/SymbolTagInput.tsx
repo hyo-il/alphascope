@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { StockSearchResult } from '../../types/toss';
+import { hasHangul, searchStocksApi } from '../../utils/stockSearch';
 import { InlineSpinner } from './LoadingOverlay';
 import SymbolPickerList from './SymbolPickerList';
 import { useStockNames } from '../../hooks/useStockNames';
@@ -91,6 +92,29 @@ export default function SymbolTagInput({
 
   const [inputError, setInputError] = useState<string | null>(null);
 
+  /**
+   * 한글로 친 뒤 곧바로 Enter 를 눌렀을 때.
+   *
+   * 자동완성은 디바운스가 있어 그 순간 results 가 비어 있을 수 있다. 예전에는 입력값을
+   * 그대로 심볼로 보고 "\"구글\" 은 심볼이 아닙니다" 를 띄웠다 — 사용자 잘못이 아닌데.
+   * 확정 시점에는 검색을 기다렸다가 첫 결과를 담는다.
+   */
+  const confirmQuery = async (text: string) => {
+    if (!hasHangul(text)) {
+      add(text);
+      return;
+    }
+    const found = results[0]
+      ? results
+      : await searchStocksApi(text).catch(() => [] as StockSearchResult[]);
+    if (found[0]) {
+      setResults(found);
+      add(found[0].symbol);
+      return;
+    }
+    setInputError(`"${text.trim()}" 에 대한 검색 결과가 없습니다. 영문 티커로 검색해 보세요.`);
+  };
+
   const add = (symbol: string) => {
     const next = symbol.trim().toUpperCase();
     if (!next) return;
@@ -113,7 +137,7 @@ export default function SymbolTagInput({
       event.preventDefault();
       // 드롭다운에서 고른 게 있으면 그것을, 없으면 입력값 그대로 (심볼 직접 입력).
       if (open && results[highlight]) add(results[highlight].symbol);
-      else if (query.trim()) add(query);
+      else if (query.trim()) void confirmQuery(query);
       return;
     }
     if (event.key === 'Escape') {

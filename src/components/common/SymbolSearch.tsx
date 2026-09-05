@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { InlineSpinner } from './LoadingOverlay';
 import type { StockSearchResult } from '../../types/toss';
+import { hasHangul, searchStocksApi } from '../../utils/stockSearch';
 
 interface Props {
   symbol: string;
@@ -96,7 +97,7 @@ export default function SymbolSearch({
     setOpen(false);
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const query = value.trim();
     if (!query) return;
@@ -107,9 +108,28 @@ export default function SymbolSearch({
       return;
     }
 
-    // 한글이 섞여 있으면 심볼일 수 없다 — 검색 결과의 첫 항목을 쓴다.
-    if (/[가-힣]/.test(query)) {
-      if (results[0]) choose(results[0]);
+    /*
+     * 한글이 섞여 있으면 심볼일 수 없다 — 검색으로 심볼을 찾아야 한다.
+     * ⚠️ 자동완성은 180ms 디바운스라, 치자마자 Enter(또는 [추가])를 누르면 results 가
+     * 아직 비어 있다. 예전에는 여기서 조용히 return 해서 "한글 검색이 안 된다" 로 보였다.
+     * 확정 시점에는 직접 한 번 더 물어 **결과를 기다린다**.
+     */
+    if (hasHangul(query)) {
+      if (results[0]) {
+        choose(results[0]);
+        return;
+      }
+
+      setSearching(true);
+      const found = await searchStocksApi(query).catch(() => [] as StockSearchResult[]);
+      setSearching(false);
+      setResults(found);
+
+      if (found[0]) {
+        choose(found[0]);
+        return;
+      }
+      setOpen(true); // 결과 없음 안내를 띄운다 — 아무 반응이 없는 것보다 낫다
       return;
     }
 
