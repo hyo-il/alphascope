@@ -1,17 +1,18 @@
 import { useState } from 'react';
 import SymbolSearch from '../common/SymbolSearch';
+import WatchFolderView, { type DragPayload, type DropMark } from './WatchFolderView';
+import type { useWatchlist } from '../../hooks/useWatchlist';
+import { DEFAULT_FOLDER_ID } from '../../types/watchlist';
 import { useQuotes } from '../../hooks/useQuotes';
 import { useStockNames } from '../../hooks/useStockNames';
 import { formatPercent, formatPrice } from '../../utils/formatters';
 
 interface Props {
   currentSymbol: string;
-  watchlist: string[];
+  /** `useWatchlist()` 결과 그대로 — 폴더 조작이 많아 통째로 받는다 */
+  watch: ReturnType<typeof useWatchlist>;
   recent: string[];
   onSelect: (symbol: string) => void;
-  onAdd: (symbol: string) => void;
-  /** 관심 목록에서 제거 */
-  onRemove: (symbol: string) => void;
   /** 최근 조회에서 제거 */
   onRemoveRecent: (symbol: string) => void;
   collapsed: boolean;
@@ -54,19 +55,27 @@ function TrashIcon({ className = '' }: { className?: string }) {
 /** 오른쪽 사이드 패널 — 관심 목록과 최근 조회. 클릭하면 즉시 그 종목 차트로 전환된다. */
 export default function WatchPanel({
   currentSymbol,
-  watchlist,
+  watch,
   recent,
   onSelect,
-  onAdd,
-  onRemove,
   onRemoveRecent,
   collapsed,
   onToggleCollapse,
 }: Props) {
   const [tab, setTab] = useState<PanelTab>('watch');
+  /** 새 종목을 어느 폴더에 담을지 */
+  const [addFolder, setAddFolder] = useState(watch.lastFolderId);
+  const [newFolder, setNewFolder] = useState<string | null>(null);
+  const [dragging, setDragging] = useState<DragPayload | null>(null);
+  const [dropMark, setDropMark] = useState<DropMark | null>(null);
 
-  const symbols = tab === 'watch' ? watchlist : recent;
-  // 보이는 목록만 폴링한다 (Rate Limit 고려).
+  const { folders, watchlist, visibleSymbols } = watch;
+
+  /*
+   * 폴링 대상은 **펼쳐진 폴더의 종목뿐**이다. 접어 둔 폴더까지 1초마다 받아 오면
+   * 보지도 않는 값에 Rate Limit 을 쓴다.
+   */
+  const symbols = tab === 'watch' ? visibleSymbols : recent;
   const quotes = useQuotes(collapsed ? [] : symbols);
   // 티커만 있으면 어떤 종목인지 바로 떠오르지 않는다 — 이름을 함께 적는다.
   const names = useStockNames(collapsed ? [] : symbols);
@@ -113,9 +122,6 @@ export default function WatchPanel({
     );
   }
 
-  const removeFrom = (symbol: string) =>
-    tab === 'watch' ? onRemove(symbol) : onRemoveRecent(symbol);
-
   return (
     <aside className="flex w-[250px] shrink-0 flex-col border-l border-border bg-bg-secondary">
       <div className="flex items-center border-b border-border">
@@ -150,89 +156,170 @@ export default function WatchPanel({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {symbols.length === 0 && (
+        {tab === 'watch' ? (
+          folders.map((folder) => (
+            <WatchFolderView
+              key={folder.id}
+              folder={folder}
+              folders={folders}
+              currentSymbol={currentSymbol}
+              quotes={quotes}
+              nameOf={names}
+              dropMark={dropMark}
+              dragging={dragging}
+              onSelect={onSelect}
+              onRemove={watch.remove}
+              onToggleFolder={watch.toggleFolder}
+              onRenameFolder={watch.renameFolder}
+              onDeleteFolder={watch.deleteFolder}
+              onMoveFolder={watch.moveFolder}
+              onMoveSymbol={watch.moveSymbol}
+              onDragStart={setDragging}
+              onDragEnd={() => {
+                setDragging(null);
+                setDropMark(null);
+              }}
+              onDropMark={setDropMark}
+              onDropFolder={(targetId) => {
+                if (dragging?.kind === 'folder') watch.reorderFolder(dragging.folderId, targetId);
+                setDragging(null);
+                setDropMark(null);
+              }}
+            />
+          ))
+        ) : recent.length === 0 ? (
           <p className="px-3 py-6 text-center text-xs text-text-muted">
-            {tab === 'watch' ? '관심 종목을 추가해 보세요.' : '최근 조회한 종목이 없습니다.'}
+            최근 조회한 종목이 없습니다.
           </p>
-        )}
+        ) : (
+          recent.map((symbol) => {
+            const quote = quotes[symbol];
+            const rate = quote?.changeRate ?? null;
+            const color =
+              rate == null
+                ? 'text-text-muted'
+                : rate > 0
+                  ? 'text-bullish'
+                  : rate < 0
+                    ? 'text-bearish'
+                    : 'text-text-secondary';
 
-        {symbols.map((symbol) => {
-          const quote = quotes[symbol];
-          const rate = quote?.changeRate ?? null;
-          const color =
-            rate == null
-              ? 'text-text-muted'
-              : rate > 0
-                ? 'text-bullish'
-                : rate < 0
-                  ? 'text-bearish'
-                  : 'text-text-secondary';
-
-          return (
-            <div
-              key={symbol}
-              className={`group flex items-center transition-colors hover:bg-bg-tertiary/60 ${
-                symbol === currentSymbol ? 'bg-accent/10' : ''
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => onSelect(symbol)}
-                className="flex min-w-0 flex-1 items-center justify-between py-2 pl-3 pr-1 text-left"
+            return (
+              <div
+                key={symbol}
+                className={`group flex items-center transition-colors hover:bg-bg-tertiary/60 ${
+                  symbol === currentSymbol ? 'bg-accent/10' : ''
+                }`}
               >
-                {/* 종목명이 먼저, 티커는 아래 작게 — 사람은 이름으로 종목을 기억한다 */}
-                <span className="flex min-w-0 flex-col">
-                  <span
-                    className={`truncate text-xs font-medium ${
-                      symbol === currentSymbol ? 'text-accent' : 'text-text-primary'
-                    }`}
-                  >
-                    {names(symbol) || symbol}
-                  </span>
-                  {names(symbol) && (
-                    <span className="truncate text-[11px] text-text-muted">{symbol}</span>
-                  )}
-                </span>
-                <span
-                  className="shrink-0 text-right"
-                  title={quote?.stale ? '실시간 조회 실패 — 마지막 캐시 종가입니다.' : undefined}
+                <button
+                  type="button"
+                  onClick={() => onSelect(symbol)}
+                  className="flex min-w-0 flex-1 items-center justify-between py-2 pl-3 pr-1 text-left"
                 >
-                  <span className="block text-xs tabular-nums text-text-secondary">
-                    {/* 지연 시세는 앞에 · 를 붙여 실시간인 척하지 않게 한다. */}
-                    {quote?.price != null
-                      ? `${quote.stale ? '· ' : ''}${formatPrice(quote.price, quote.currency)}`
-                      : '—'}
+                  <span className="flex min-w-0 flex-col">
+                    <span
+                      className={`truncate text-xs font-medium ${
+                        symbol === currentSymbol ? 'text-accent' : 'text-text-primary'
+                      }`}
+                    >
+                      {names(symbol) || symbol}
+                    </span>
+                    {names(symbol) && (
+                      <span className="truncate text-[11px] text-text-muted">{symbol}</span>
+                    )}
                   </span>
-                  <span className={`block text-[11px] tabular-nums ${color}`}>
-                    {rate == null ? '—' : formatPercent(rate)}
+                  <span
+                    className="shrink-0 text-right"
+                    title={quote?.stale ? '실시간 조회 실패 — 마지막 캐시 종가입니다.' : undefined}
+                  >
+                    <span className="block text-xs tabular-nums text-text-secondary">
+                      {quote?.price != null
+                        ? `${quote.stale ? '· ' : ''}${formatPrice(quote.price, quote.currency)}`
+                        : '—'}
+                    </span>
+                    <span className={`block text-[11px] tabular-nums ${color}`}>
+                      {rate == null ? '—' : formatPercent(rate)}
+                    </span>
                   </span>
-                </span>
-              </button>
+                </button>
 
-              {/* 즉시 삭제 — 평소엔 은은하게, 가리키면 빨갛게 */}
-              <button
-                type="button"
-                onClick={() => removeFrom(symbol)}
-                title={tab === 'watch' ? '관심 목록에서 삭제' : '최근 조회에서 삭제'}
-                aria-label={`${symbol} 삭제`}
-                className="mr-2 shrink-0 rounded p-1 text-text-muted opacity-0 transition-all hover:bg-bearish/15 hover:text-bearish focus:opacity-100 group-hover:opacity-100"
-              >
-                <TrashIcon className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          );
-        })}
+                <button
+                  type="button"
+                  onClick={() => onRemoveRecent(symbol)}
+                  title="최근 조회에서 삭제"
+                  aria-label={`${symbol} 삭제`}
+                  className="mr-2 shrink-0 rounded p-1 text-text-muted opacity-0 transition-all hover:bg-bearish/15 hover:text-bearish focus:opacity-100 group-hover:opacity-100"
+                >
+                  <TrashIcon className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {tab === 'watch' ? (
-        /*
-         * 차트 헤더와 **같은 검색 컴포넌트**를 쓴다. 예전에는 여기만 평범한 입력창이라
-         * "구글" 을 치면 그대로 대문자로 바꿔 GOOGL 이 아니라 "구글" 을 담으려 했다.
-         */
-        <div className="border-t border-border p-2">
+        <div className="space-y-1.5 border-t border-border p-2">
+          {/* 어느 폴더에 담을지 — 마지막으로 쓴 폴더를 기억한다 */}
+          <div className="flex items-center gap-1">
+            <select
+              value={folders.some((f) => f.id === addFolder) ? addFolder : DEFAULT_FOLDER_ID}
+              onChange={(e) => setAddFolder(e.target.value)}
+              title="추가할 폴더"
+              className="min-w-0 flex-1 rounded px-1.5 py-1 text-[11px]"
+            >
+              {folders.map((folder) => (
+                <option key={folder.id} value={folder.id}>
+                  {folder.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setNewFolder('')}
+              title="폴더 추가"
+              className="shrink-0 rounded border border-border px-1.5 py-1 text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+            >
+              + 폴더
+            </button>
+          </div>
+
+          {newFolder !== null && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                watch.createFolder(newFolder);
+                setNewFolder(null);
+              }}
+              className="flex gap-1"
+            >
+              <input
+                autoFocus
+                value={newFolder}
+                onChange={(e) => setNewFolder(e.target.value)}
+                onKeyDown={(e) => e.key === 'Escape' && setNewFolder(null)}
+                placeholder="폴더 이름 (예: 반도체)"
+                className="min-w-0 flex-1 rounded px-1.5 py-1 text-[11px]"
+              />
+              <button
+                type="submit"
+                className="shrink-0 rounded bg-accent px-2 py-1 text-[11px] text-white transition-colors hover:bg-accent-hover"
+              >
+                만들기
+              </button>
+            </form>
+          )}
+
+          {/*
+           * 차트 헤더와 **같은 검색 컴포넌트**를 쓴다. 예전에는 여기만 평범한 입력창이라
+           * "구글" 을 치면 그대로 대문자로 바꿔 GOOGL 이 아니라 "구글" 을 담으려 했다.
+           */}
           <SymbolSearch
             symbol=""
-            onSubmit={onAdd}
+            onSubmit={(symbol) => {
+              watch.add(symbol, addFolder);
+              watch.rememberFolder(addFolder);
+            }}
             placeholder="+ 종목 추가 (구글, 애플…)"
             submitLabel="추가"
             compact
@@ -254,7 +341,7 @@ export default function WatchPanel({
       )}
 
       <p className="border-t border-border px-3 py-1.5 text-[10px] text-text-muted">
-        클릭: 종목 전환 · 1초 갱신
+        클릭: 종목 전환 · ⠿ 드래그: 순서·폴더 변경 · 우클릭: 폴더 이동
       </p>
     </aside>
   );

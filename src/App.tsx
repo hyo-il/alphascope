@@ -65,7 +65,8 @@ export default function App() {
   // 히스토리 화면에서 '방금 쓴 프롬프트'를 함께 저장하기 위해 App 이 들고 있는다.
   const [lastPrompt, setLastPrompt] = useState({ mode: 'multi', text: '' });
 
-  const { watchlist, add, remove, toggle } = useWatchlist();
+  const watch = useWatchlist();
+  const { watchlist, add, toggle } = watch;
   const { recent, remove: removeRecent } = useRecentSymbols(symbol ?? '');
   const stockInfo = useStockInfo(symbol);
   /** 헤더의 [+분석] — 지금 보는 종목을 자동 분석 대상에 담는다 */
@@ -452,11 +453,9 @@ export default function App() {
 
       <WatchPanel
         currentSymbol={symbol ?? ''}
-        watchlist={watchlist}
+        watch={watch}
         recent={recent}
         onSelect={setSymbol}
-        onAdd={add}
-        onRemove={remove}
         onRemoveRecent={removeRecent}
         collapsed={panelCollapsed}
         onToggleCollapse={() => setPanelCollapsed((v) => !v)}
