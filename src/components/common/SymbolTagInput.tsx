@@ -282,9 +282,16 @@ export default function SymbolTagInput({
       )}
 
       {open && !searching && query.trim() && results.length === 0 && (
-        <p className="absolute left-0 top-full z-40 mt-1 w-80 rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs text-text-muted shadow-xl">
-          검색 결과가 없습니다. 영문 심볼(AAPL)은 Enter 로 바로 추가할 수 있습니다.
-        </p>
+        <div className="absolute left-0 top-full z-40 mt-1 w-80 max-w-[calc(100vw-2rem)] space-y-1 rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs shadow-xl">
+          <p className="break-keep text-text-secondary">
+            '{query.trim()}'에 대한 검색 결과가 없습니다.
+          </p>
+          <p className="break-keep text-text-muted">
+            {/[가-힣]/.test(query)
+              ? '미국 주식은 영문 티커(예: GOOGL)로 검색해 보세요.'
+              : '영문 심볼(AAPL)은 Enter 로 바로 추가할 수 있습니다.'}
+          </p>
+        </div>
       )}
     </div>
   );
