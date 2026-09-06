@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import SymbolSearch from '../common/SymbolSearch';
-import WatchFolderView, { type DragPayload, type DropMark } from './WatchFolderView';
+import WatchFolderView from './WatchFolderView';
+import WatchlistManager from './WatchlistManager';
 import type { useWatchlist } from '../../hooks/useWatchlist';
 import { DEFAULT_FOLDER_ID } from '../../types/watchlist';
 import { useQuotes } from '../../hooks/useQuotes';
@@ -63,11 +64,8 @@ export default function WatchPanel({
   onToggleCollapse,
 }: Props) {
   const [tab, setTab] = useState<PanelTab>('watch');
-  /** 새 종목을 어느 폴더에 담을지 */
-  const [addFolder, setAddFolder] = useState(watch.lastFolderId);
-  const [newFolder, setNewFolder] = useState<string | null>(null);
-  const [dragging, setDragging] = useState<DragPayload | null>(null);
-  const [dropMark, setDropMark] = useState<DropMark | null>(null);
+  /** 관리 팝업 — 폴더·종목 조작은 전부 저기서 한다 */
+  const [managing, setManaging] = useState(false);
 
   const { folders, watchlist, visibleSymbols } = watch;
 
@@ -145,6 +143,16 @@ export default function WatchPanel({
             {label}
           </button>
         ))}
+        {tab === 'watch' && (
+          <button
+            type="button"
+            onClick={() => setManaging(true)}
+            title="관심 목록 관리 (폴더·순서)"
+            className="px-1.5 text-sm text-text-muted transition-colors hover:text-text-primary"
+          >
+            ⚙️
+          </button>
+        )}
         <button
           type="button"
           onClick={onToggleCollapse}
@@ -161,30 +169,11 @@ export default function WatchPanel({
             <WatchFolderView
               key={folder.id}
               folder={folder}
-              folders={folders}
               currentSymbol={currentSymbol}
               quotes={quotes}
               nameOf={names}
-              dropMark={dropMark}
-              dragging={dragging}
               onSelect={onSelect}
-              onRemove={watch.remove}
-              onToggleFolder={watch.toggleFolder}
-              onRenameFolder={watch.renameFolder}
-              onDeleteFolder={watch.deleteFolder}
-              onMoveFolder={watch.moveFolder}
-              onMoveSymbol={watch.moveSymbol}
-              onDragStart={setDragging}
-              onDragEnd={() => {
-                setDragging(null);
-                setDropMark(null);
-              }}
-              onDropMark={setDropMark}
-              onDropFolder={(targetId) => {
-                if (dragging?.kind === 'folder') watch.reorderFolder(dragging.folderId, targetId);
-                setDragging(null);
-                setDropMark(null);
-              }}
+              onToggle={watch.toggleFolder}
             />
           ))
         ) : recent.length === 0 ? (
@@ -259,68 +248,15 @@ export default function WatchPanel({
       </div>
 
       {tab === 'watch' ? (
-        <div className="space-y-1.5 border-t border-border p-2">
-          {/* 어느 폴더에 담을지 — 마지막으로 쓴 폴더를 기억한다 */}
-          <div className="flex items-center gap-1">
-            <select
-              value={folders.some((f) => f.id === addFolder) ? addFolder : DEFAULT_FOLDER_ID}
-              onChange={(e) => setAddFolder(e.target.value)}
-              title="추가할 폴더"
-              className="min-w-0 flex-1 rounded px-1.5 py-1 text-[11px]"
-            >
-              {folders.map((folder) => (
-                <option key={folder.id} value={folder.id}>
-                  {folder.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => setNewFolder('')}
-              title="폴더 추가"
-              className="shrink-0 rounded border border-border px-1.5 py-1 text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
-            >
-              + 폴더
-            </button>
-          </div>
-
-          {newFolder !== null && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                watch.createFolder(newFolder);
-                setNewFolder(null);
-              }}
-              className="flex gap-1"
-            >
-              <input
-                autoFocus
-                value={newFolder}
-                onChange={(e) => setNewFolder(e.target.value)}
-                onKeyDown={(e) => e.key === 'Escape' && setNewFolder(null)}
-                placeholder="폴더 이름 (예: 반도체)"
-                className="min-w-0 flex-1 rounded px-1.5 py-1 text-[11px]"
-              />
-              <button
-                type="submit"
-                className="shrink-0 rounded bg-accent px-2 py-1 text-[11px] text-white transition-colors hover:bg-accent-hover"
-              >
-                만들기
-              </button>
-            </form>
-          )}
-
+        <div className="border-t border-border p-2">
           {/*
-           * 차트 헤더와 **같은 검색 컴포넌트**를 쓴다. 예전에는 여기만 평범한 입력창이라
-           * "구글" 을 치면 그대로 대문자로 바꿔 GOOGL 이 아니라 "구글" 을 담으려 했다.
-           */}
+            패널의 빠른 추가는 **'미분류' 로만** 넣는다. 폴더를 고르는 일까지 여기서 하면
+            좁은 폭에 드롭다운이 하나 더 붙는다 — 분류는 관리 팝업(⚙️)에서 한다.
+          */}
           <SymbolSearch
             symbol=""
-            onSubmit={(symbol) => {
-              watch.add(symbol, addFolder);
-              watch.rememberFolder(addFolder);
-            }}
-            placeholder="+ 종목 추가 (구글, 애플…)"
+            onSubmit={(symbol) => watch.add(symbol, DEFAULT_FOLDER_ID)}
+            placeholder="+ 빠른 추가 (구글, 애플…)"
             submitLabel="추가"
             compact
             clearOnSubmit
@@ -341,8 +277,10 @@ export default function WatchPanel({
       )}
 
       <p className="border-t border-border px-3 py-1.5 text-[10px] text-text-muted">
-        클릭: 종목 전환 · ⠿ 드래그: 순서·폴더 변경 · 우클릭: 폴더 이동
+        클릭: 종목 전환 · ⚙️ 에서 폴더·순서 관리
       </p>
+
+      {managing && <WatchlistManager watch={watch} onClose={() => setManaging(false)} />}
     </aside>
   );
 }
