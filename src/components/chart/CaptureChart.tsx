@@ -12,6 +12,9 @@ import type { IndicatorSeries, IndicatorToggles } from '../../types/chart';
 import type { DrawingSnapshot } from './CandleChart';
 import {
   BASE_CHART_OPTIONS,
+  PRICE_SCALE_MARGINS,
+  dateTimeOptions,
+  isIntraday,
   CANDLE_SERIES_OPTIONS,
   renderIndicators,
   toChartTime,
@@ -98,7 +101,7 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
 
     const chart = createChart(container, { ...BASE_CHART_OPTIONS, autoSize: true });
     const candleSeries = chart.addSeries(CandlestickSeries, CANDLE_SERIES_OPTIONS);
-    candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.08 } });
+    candleSeries.priceScale().applyOptions({ scaleMargins: PRICE_SCALE_MARGINS });
 
     const manager = new DrawingManager();
     manager.attach(chart, candleSeries, container);
@@ -123,6 +126,9 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
     const series = candleSeriesRef.current;
     const chart = chartRef.current;
     if (!series || !chart || !candles.length) return;
+
+    // 캡처 그림도 메인 차트와 같은 날짜 형식이어야 한다 (붙여넣었을 때 어긋나 보인다).
+    chart.applyOptions(dateTimeOptions(isIntraday(candles)));
 
     series.setData(
       candles.map(

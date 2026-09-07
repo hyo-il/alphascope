@@ -48,6 +48,70 @@ export const INDICATOR_COLORS = {
 
 export const toChartTime = (ms: number) => (ms / 1000) as UTCTimestamp;
 
+/**
+ * 가격축 위아래 여백.
+ *
+ * 캔들이 pane 의 위아래 끝에 붙으면 답답하고, 고점·저점 근처의 꼬리가 축 라벨과 겹친다.
+ * 메인 차트·캡처 팝업·지표 pane 이 같은 값을 써야 두 그림이 같아 보인다.
+ */
+export const PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.12 };
+
+/**
+ * 거래량은 아래 여백을 두지 않는다 — 히스토그램의 기준선(0)이 pane 바닥이라,
+ * 여백을 주면 막대가 바닥에서 떠 있는 것처럼 보인다. 위쪽만 띄운다.
+ */
+export const VOLUME_SCALE_MARGINS = { top: 0.12, bottom: 0 };
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** yyyy-MM-dd */
+export function formatChartDate(date: Date): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+/** yyyy-MM-dd HH:mm (분봉) / yyyy-MM-dd (일봉) */
+export function formatChartDateTime(ms: number, intraday: boolean): string {
+  const date = new Date(ms);
+  if (!intraday) return formatChartDate(date);
+  return `${formatChartDate(date)} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+
+/**
+ * 캔들 간격으로 분봉 여부를 판정한다.
+ *
+ * 두 차트 모두 타임프레임을 props 로 받지 않는다 — 캔들만 있으면 알 수 있는 것을
+ * 위에서부터 내려보내면 전달 경로만 늘어난다. 마지막 두 봉의 간격이 하루 미만이면 분봉이다.
+ */
+export function isIntraday(candles: Candle[]): boolean {
+  if (candles.length < 2) return false;
+  const gap = candles[candles.length - 1].timestamp - candles[candles.length - 2].timestamp;
+  return gap > 0 && gap < 24 * 60 * 60 * 1000;
+}
+
+/**
+ * 크로스헤어 라벨·시간축 눈금의 날짜 형식 (yyyy-MM-dd 통일).
+ *
+ * 라이브러리 기본값은 로케일에 따라 "27 Aug '26" 처럼 나와 연·월·일 순서가 한눈에 안 들어온다.
+ * 차트를 만든 뒤 `chart.applyOptions(dateTimeOptions(intraday))` 로 덮어쓴다.
+ */
+export function dateTimeOptions(intraday: boolean) {
+  return {
+    localization: {
+      dateFormat: 'yyyy-MM-dd',
+      timeFormatter: (time: number) => formatChartDateTime(time * 1000, intraday),
+    },
+    timeScale: {
+      // tickMarkType 3(Time)·4(TimeWithSeconds) 는 하루 안쪽 눈금이다 — 시각을 적는다.
+      tickMarkFormatter: (time: number, tickMarkType: number) => {
+        const date = new Date(time * 1000);
+        if (intraday && tickMarkType >= 3) return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+        if (tickMarkType === 0) return String(date.getFullYear());
+        return `${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+      },
+    },
+  };
+}
+
 /** 메인 차트와 캡처 팝업이 공유하는 차트 생성 옵션 */
 export const BASE_CHART_OPTIONS = {
   layout: {
@@ -69,6 +133,12 @@ export const BASE_CHART_OPTIONS = {
     minBarSpacing: 4,
     // 기본 여백은 오른쪽이 크게 비어 데이터가 왼쪽으로 몰려 보인다.
     rightOffset: 5,
+    /*
+     * ⚠️ 확대 상한. 없으면 봉 하나가 화면을 가득 채울 때까지 벌어지는데, 그 구간에서
+     * 캔들 몸통·꼬리가 서로 어긋나 깨져 보인다 (보이는 봉 수 하한과 별개로 필요하다 —
+     * 축 드래그·핀치 줌은 휠 핸들러를 거치지 않는다).
+     */
+    maxBarSpacing: 50,
     shiftVisibleRangeOnNewBar: true,
   },
   crosshair: {
@@ -133,6 +203,9 @@ export function renderIndicators(
         .map((ts, i) => ({ time: toChartTime(ts), value: line[i] }))
         .filter((p): p is { time: UTCTimestamp; value: number } => p.value != null),
     );
+    // 지표 pane 도 가격 차트와 같은 여백을 준다 — 선이 pane 경계에 붙으면 읽기 어렵다.
+    if (options.paneIndex) series.priceScale().applyOptions({ scaleMargins: PRICE_SCALE_MARGINS });
+
     result.series.push(series);
     if (options.maKey) result.maSeries.set(options.maKey, series);
   };
@@ -168,6 +241,7 @@ export function renderIndicators(
       { priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: false },
       pane,
     );
+    volume.priceScale().applyOptions({ scaleMargins: VOLUME_SCALE_MARGINS });
     volume.setData(
       candles.map((c) => ({
         time: toChartTime(c.timestamp),

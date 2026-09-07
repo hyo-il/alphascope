@@ -19,6 +19,10 @@ import { MA_LINES, type IndicatorSeries, type IndicatorToggles } from '../../typ
 import { cursorFor, type DrawingToolType } from './DrawingTools';
 import {
   BASE_CHART_OPTIONS,
+  PRICE_SCALE_MARGINS,
+  dateTimeOptions,
+  formatChartDateTime,
+  isIntraday,
   CANDLE_SERIES_OPTIONS,
   COLORS,
   renderIndicators,
@@ -211,7 +215,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     });
 
     const candleSeries = chart.addSeries(CandlestickSeries, CANDLE_SERIES_OPTIONS);
-    candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.08 } });
+    candleSeries.priceScale().applyOptions({ scaleMargins: PRICE_SCALE_MARGINS });
 
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
@@ -593,6 +597,9 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     if (!candleSeries || !candles.length) return;
 
     const chart = chartRef.current;
+    // 날짜 형식은 봉 간격에 따라 다르다 (분봉은 시각까지). 캔들이 바뀔 때 함께 맞춘다.
+    chart?.applyOptions(dateTimeOptions(isIntraday(candles)));
+
     // 앞쪽에 과거가 덧붙은 경우, 보던 위치를 그대로 유지해야 화면이 튀지 않는다.
     const previousCount = renderedCountRef.current;
     const isPrepend = previousCount > 0 && candles.length > previousCount;
@@ -655,13 +662,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
           {/* 캔들 OHLC — 종가는 시가 대비 등락 색으로 표시한다 */}
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 bg-transparent px-0.5 py-0.5 text-[11px]">
             <span className="text-text-muted">
-              {new Date(legend.time).toLocaleString('ko-KR', {
-                year: '2-digit',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              {formatChartDateTime(legend.time, isIntraday(candles))}
             </span>
             <span className="text-text-muted">
               시 <span className="tabular-nums text-text-primary">{legend.open.toFixed(2)}</span>
