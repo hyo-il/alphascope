@@ -1,19 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { useWatchlist } from '../../hooks/useWatchlist';
 import { DEFAULT_FOLDER_ID } from '../../types/watchlist';
 import SymbolSearch from '../common/SymbolSearch';
 import { modal } from '../../store/uiStore';
-import { stockNameOf } from '../../utils/stockNames';
+import { useQuotes } from '../../hooks/useQuotes';
+import { useStockNames } from '../../hooks/useStockNames';
+import { formatPercent } from '../../utils/formatters';
 
 /**
- * 관심 목록 관리 팝업.
+ * 관심 종목 편집 팝업 — 토스증권 스타일 2단 레이아웃.
  *
- * 좁은 사이드 패널에 조작 버튼을 늘어놓으면 정작 시세가 안 보인다 — 관리는 여기서 하고
- * 패널은 결과만 보여 준다.
+ * 좌: 그룹 목록 / 우: 선택한 그룹의 종목. 예전에는 모든 폴더를 세로로 펼쳐 놓고
+ * 행마다 [이름변경][삭제][▲][▼]와 폴더 드롭다운까지 붙어 있어서, 종목이 조금만 늘어도
+ * 무엇이 어느 폴더인지 읽히지 않았다. 조작은 **선택 후 툴바**로 모은다 —
+ * 행에는 이름과 티커만 남는다.
  *
  * **저장/취소를 두지 않았다.** 모든 변경은 즉시 localStorage 에 반영된다.
- * 폴더 하나 지우자고 [저장] 을 눌러야 하면, 누르지 않고 닫았을 때 무엇이 남는지
- * 매번 헷갈린다 (원본 지시도 이 방식을 택했다).
  */
 
 function GripIcon({ className = '' }: { className?: string }) {
@@ -29,9 +31,14 @@ function GripIcon({ className = '' }: { className?: string }) {
   );
 }
 
-type Drag =
-  | { kind: 'symbol'; symbol: string; from: string }
-  | { kind: 'folder'; id: string };
+/** 정렬 방식. '수익률순' 은 시세가 필요해 그때만 폴링한다. */
+type SortMode = 'manual' | 'name' | 'change';
+const SORT_LABEL: Record<SortMode, string> = {
+  manual: '직접 설정한 순',
+  name: '이름순',
+  change: '수익률순',
+};
+const SORT_ORDER: SortMode[] = ['manual', 'name', 'change'];
 
 export default function WatchlistManager({
   watch,
@@ -41,32 +48,114 @@ export default function WatchlistManager({
   onClose: () => void;
 }) {
   const { folders } = watch;
+
+  const [selectedFolderId, setSelectedFolderId] = useState(watch.lastFolderId);
+  const folder = folders.find((f) => f.id === selectedFolderId) ?? folders[0];
+
+  const [checked, setChecked] = useState<string[]>([]);
+  const [sort, setSort] = useState<SortMode>('manual');
   const [adding, setAdding] = useState(false);
-  const [addFolder, setAddFolder] = useState(watch.lastFolderId);
+  const [moveOpen, setMoveOpen] = useState(false);
   const [newFolder, setNewFolder] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
-  const [drag, setDrag] = useState<Drag | null>(null);
-  const [dropMark, setDropMark] = useState<{ folderId: string; index: number } | null>(null);
+  const [dragFolder, setDragFolder] = useState<string | null>(null);
+  const [dragSymbol, setDragSymbol] = useState<string | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const moveRef = useRef<HTMLDivElement>(null);
 
-  // ESC 로 닫는다 — 팝업의 기본 기대다.
+  // 폴더가 바뀌면 선택·열려 있던 조작을 정리한다 — 다른 그룹 종목이 선택된 채로 남으면
+  // [삭제]가 화면에 없는 종목을 지운다.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    setChecked([]);
+    setMoveOpen(false);
+    setAdding(false);
+  }, [selectedFolderId]);
+
+  // ESC 로 닫는다 — 팝업의 기본 기대다. 검색·이름 입력이 열려 있으면 그것부터 닫는다.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (adding) setAdding(false);
+      else if (moveOpen) setMoveOpen(false);
+      else if (newFolder !== null) setNewFolder(null);
+      else if (renaming) setRenaming(null);
+      else onClose();
+    };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, adding, moveOpen, newFolder, renaming]);
+
+  // [군 이동] 드롭다운은 바깥을 누르면 닫는다.
+  useEffect(() => {
+    if (!moveOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!moveRef.current?.contains(e.target as Node)) setMoveOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [moveOpen]);
+
+  const symbols = folder?.symbols ?? [];
+  const names = useStockNames(symbols);
+  // 수익률순일 때만 시세를 받는다 — 편집 화면이 열려 있는 내내 1초 폴링을 돌릴 이유가 없다.
+  const quotes = useQuotes(sort === 'change' ? symbols : []);
+
+  const sorted = useMemo(() => {
+    if (sort === 'name') {
+      return [...symbols].sort((a, b) =>
+        (names(a) || a).localeCompare(names(b) || b, 'ko'),
+      );
+    }
+    if (sort === 'change') {
+      return [...symbols].sort(
+        (a, b) => (quotes[b]?.changeRate ?? -Infinity) - (quotes[a]?.changeRate ?? -Infinity),
+      );
+    }
+    return symbols;
+    // names 는 캐시가 갱신될 때마다 새 값을 돌려주는 조회 함수다 (참조는 그대로).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbols, sort, quotes, names]);
+
+  const allChecked = symbols.length > 0 && checked.length === symbols.length;
+  const toggleAll = () => setChecked(allChecked ? [] : [...symbols]);
+  const toggleOne = (symbol: string) =>
+    setChecked((prev) =>
+      prev.includes(symbol) ? prev.filter((s) => s !== symbol) : [...prev, symbol],
+    );
+
+  const confirmDeleteSymbols = () =>
+    modal.confirm({
+      title: '관심 종목 삭제',
+      message: `${checked.length}개 종목을 관심 목록에서 삭제합니다.`,
+      confirmText: '삭제',
+      danger: true,
+      onConfirm: () => {
+        checked.forEach((symbol) => watch.remove(symbol));
+        setChecked([]);
+      },
+    });
 
   const confirmDeleteFolder = (id: string, name: string, count: number) =>
     modal.confirm({
-      title: `'${name}' 폴더 삭제`,
+      title: `'${name}' 그룹 삭제`,
       message:
         count > 0
           ? `안에 있는 ${count}개 종목은 '미분류' 로 옮깁니다. 종목이 지워지지는 않습니다.`
-          : '빈 폴더를 삭제합니다.',
+          : '빈 그룹을 삭제합니다.',
       confirmText: '삭제',
       danger: true,
-      onConfirm: () => watch.deleteFolder(id),
+      onConfirm: () => {
+        watch.deleteFolder(id);
+        if (selectedFolderId === id) setSelectedFolderId(DEFAULT_FOLDER_ID);
+      },
     });
+
+  const moveChecked = (targetId: string) => {
+    checked.forEach((symbol) => watch.moveSymbol(symbol, targetId));
+    setChecked([]);
+    setMoveOpen(false);
+  };
 
   return (
     <div
@@ -75,316 +164,379 @@ export default function WatchlistManager({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[min(700px,70vh)] w-[600px] max-w-full flex-col rounded-lg border border-border bg-bg-secondary shadow-2xl"
+        className="flex h-[min(600px,75vh)] w-[min(700px,80vw)] flex-col overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-2xl"
       >
-        <header className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
-          <h2 className="text-sm font-semibold">관심 목록 관리</h2>
+        <header className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3.5">
+          <h2 className="text-base font-semibold">관심 종목 편집</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="닫기"
-            className="rounded px-2 py-1 text-sm text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            className="flex h-8 w-8 items-center justify-center rounded text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary"
           >
             ✕
           </button>
         </header>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2">
-          <button
-            type="button"
-            onClick={() => setNewFolder('')}
-            className="rounded border border-border px-2 py-1 text-xs text-text-secondary transition-colors hover:border-accent hover:text-accent"
-          >
-            + 폴더 추가
-          </button>
-          <button
-            type="button"
-            onClick={() => setAdding((v) => !v)}
-            className="rounded border border-border px-2 py-1 text-xs text-text-secondary transition-colors hover:border-accent hover:text-accent"
-          >
-            + 종목 추가
-          </button>
-          <span className="ml-auto text-[11px] text-text-muted">변경은 바로 저장됩니다</span>
-        </div>
-
-        {newFolder !== null && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              watch.createFolder(newFolder);
-              setNewFolder(null);
-            }}
-            className="flex shrink-0 gap-2 border-b border-border px-4 py-2"
-          >
-            <input
-              autoFocus
-              value={newFolder}
-              onChange={(e) => setNewFolder(e.target.value)}
-              onKeyDown={(e) => e.key === 'Escape' && setNewFolder(null)}
-              placeholder="폴더 이름 (예: 반도체)"
-              className="min-w-0 flex-1 rounded px-2 py-1 text-xs"
-            />
-            <button
-              type="submit"
-              className="rounded bg-accent px-2.5 py-1 text-xs text-white transition-colors hover:bg-accent-hover"
-            >
-              만들기
-            </button>
-          </form>
-        )}
-
-        {adding && (
-          <div className="shrink-0 space-y-2 border-b border-border px-4 py-2">
-            <div className="flex items-center gap-2">
-              <span className="shrink-0 text-xs text-text-secondary">폴더</span>
-              <select
-                value={folders.some((f) => f.id === addFolder) ? addFolder : DEFAULT_FOLDER_ID}
-                onChange={(e) => setAddFolder(e.target.value)}
-                className="rounded px-2 py-1 text-xs"
-              >
-                {folders.map((folder) => (
-                  <option key={folder.id} value={folder.id}>
-                    {folder.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <SymbolSearch
-              symbol=""
-              onSubmit={(symbol) => {
-                watch.add(symbol, addFolder);
-                watch.rememberFolder(addFolder);
-              }}
-              placeholder="종목 검색 (구글, 애플, AAPL…)"
-              submitLabel="추가"
-              clearOnSubmit
-              isAdded={(candidate) => watch.watchlist.includes(candidate)}
-            />
-          </div>
-        )}
-
-        {/* 폴더 · 종목 목록 */}
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-          {folders.map((folder) => {
-            const isDefault = folder.id === DEFAULT_FOLDER_ID;
-            const movable = folders.filter((f) => f.id !== DEFAULT_FOLDER_ID);
-            const movableIndex = movable.findIndex((f) => f.id === folder.id);
-
-            return (
-              <section
-                key={folder.id}
-                onDragOver={(e) => {
-                  if (drag?.kind === 'folder' && !isDefault) e.preventDefault();
-                }}
-                onDrop={(e) => {
-                  if (drag?.kind !== 'folder') return;
-                  e.preventDefault();
-                  watch.reorderFolder(drag.id, folder.id);
-                  setDrag(null);
-                }}
-                className="rounded-md border border-border/60"
-              >
-                <header className="flex items-center gap-2 rounded-t-md bg-bg-tertiary/50 px-2 py-1.5">
-                  {!isDefault ? (
-                    <span
-                      draggable
-                      onDragStart={() => setDrag({ kind: 'folder', id: folder.id })}
-                      onDragEnd={() => setDrag(null)}
-                      title="드래그해 폴더 순서 변경"
-                      className="cursor-grab text-text-muted active:cursor-grabbing"
-                    >
-                      <GripIcon className="h-3.5 w-2.5" />
-                    </span>
-                  ) : (
-                    <span className="w-2.5" />
-                  )}
-                  <span className="shrink-0">📁</span>
-
-                  {renaming === folder.id ? (
-                    <input
-                      autoFocus
-                      value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
-                      onBlur={() => {
-                        watch.renameFolder(folder.id, draft);
-                        setRenaming(null);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          watch.renameFolder(folder.id, draft);
-                          setRenaming(null);
-                        }
-                        if (e.key === 'Escape') setRenaming(null);
-                      }}
-                      className="min-w-0 flex-1 rounded px-1.5 py-0.5 text-xs"
-                    />
-                  ) : (
-                    <span className="min-w-0 flex-1 truncate text-xs font-medium">
-                      {folder.name}
-                      {isDefault && <span className="ml-1.5 text-[10px] text-text-muted">(기본)</span>}
-                      <span className="ml-1.5 text-[10px] tabular-nums text-text-muted">
-                        {folder.symbols.length}
-                      </span>
-                    </span>
-                  )}
-
-                  {!isDefault && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDraft(folder.name);
-                          setRenaming(folder.id);
-                        }}
-                        className={ACTION}
-                      >
-                        이름변경
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          confirmDeleteFolder(folder.id, folder.name, folder.symbols.length)
-                        }
-                        className={`${ACTION} hover:border-bearish hover:text-bearish`}
-                      >
-                        삭제
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => watch.moveFolder(folder.id, -1)}
-                        disabled={movableIndex === 0}
-                        title="위로"
-                        className={ACTION}
-                      >
-                        ▲
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => watch.moveFolder(folder.id, 1)}
-                        disabled={movableIndex === movable.length - 1}
-                        title="아래로"
-                        className={ACTION}
-                      >
-                        ▼
-                      </button>
-                    </>
-                  )}
-                </header>
-
-                <div
-                  onDragOver={(e) => {
-                    if (drag?.kind !== 'symbol') return;
-                    e.preventDefault();
-                    if (!folder.symbols.length) setDropMark({ folderId: folder.id, index: 0 });
-                  }}
-                  onDrop={(e) => {
-                    if (drag?.kind !== 'symbol') return;
-                    e.preventDefault();
-                    watch.moveSymbol(
-                      drag.symbol,
-                      folder.id,
-                      dropMark?.folderId === folder.id ? dropMark.index : folder.symbols.length,
-                    );
-                    setDrag(null);
-                    setDropMark(null);
-                  }}
-                  className="min-h-[2rem] p-1"
+        <div className="flex min-h-0 flex-1">
+          {/* ── 좌: 그룹 목록 ───────────────────────────── */}
+          <nav className="flex w-[30%] min-w-[160px] shrink-0 flex-col border-r border-border">
+            <div className="shrink-0 p-3">
+              {newFolder === null ? (
+                <button
+                  type="button"
+                  onClick={() => setNewFolder('')}
+                  className="w-full rounded-md border border-border py-1.5 text-xs text-text-secondary transition-colors hover:border-accent hover:text-accent"
                 >
-                  {folder.symbols.length === 0 && (
-                    <p className="px-2 py-1 text-[11px] text-text-muted">
-                      비어 있습니다. 종목을 끌어다 놓으세요.
-                    </p>
-                  )}
+                  + 그룹 추가
+                </button>
+              ) : (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    watch.createFolder(newFolder);
+                    setNewFolder(null);
+                  }}
+                >
+                  <input
+                    autoFocus
+                    value={newFolder}
+                    onChange={(e) => setNewFolder(e.target.value)}
+                    onBlur={() => {
+                      watch.createFolder(newFolder);
+                      setNewFolder(null);
+                    }}
+                    placeholder="그룹 이름"
+                    className="w-full rounded-md px-2 py-1.5 text-xs"
+                  />
+                </form>
+              )}
+            </div>
 
-                  {folder.symbols.map((symbol, index) => (
+            <ul className="min-h-0 flex-1 overflow-y-auto">
+              {folders.map((f) => {
+                const isDefault = f.id === DEFAULT_FOLDER_ID;
+                const active = f.id === folder?.id;
+
+                return (
+                  <li
+                    key={f.id}
+                    onDragOver={(e) => {
+                      if (dragFolder && !isDefault) e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      if (!dragFolder) return;
+                      e.preventDefault();
+                      watch.reorderFolder(dragFolder, f.id);
+                      setDragFolder(null);
+                    }}
+                    className={`border-b border-border/70 ${
+                      dragFolder === f.id ? 'opacity-40' : ''
+                    }`}
+                  >
+                    {renaming === f.id ? (
+                      <input
+                        autoFocus
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onBlur={() => {
+                          watch.renameFolder(f.id, draft);
+                          setRenaming(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            watch.renameFolder(f.id, draft);
+                            setRenaming(null);
+                          }
+                        }}
+                        className="m-2 w-[calc(100%-1rem)] rounded px-2 py-1 text-xs"
+                      />
+                    ) : (
+                      <div
+                        className={`group flex h-12 items-center gap-1.5 border-l-2 pr-2 transition-colors ${
+                          active
+                            ? 'border-accent bg-bg-tertiary'
+                            : 'border-transparent hover:bg-bg-tertiary/50'
+                        }`}
+                      >
+                        {/* 손잡이만 draggable — 행 전체를 잡게 하면 그룹을 눌러 여는 동작이 먹힌다 */}
+                        {!isDefault ? (
+                          <span
+                            draggable
+                            onDragStart={() => setDragFolder(f.id)}
+                            onDragEnd={() => setDragFolder(null)}
+                            title="드래그해 그룹 순서 변경"
+                            className="cursor-grab pl-1.5 text-text-muted active:cursor-grabbing"
+                          >
+                            <GripIcon className="h-3.5 w-2.5" />
+                          </span>
+                        ) : (
+                          <span className="w-2.5 pl-1.5" />
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFolderId(f.id)}
+                          onDoubleClick={() => {
+                            if (isDefault) return;
+                            setDraft(f.name);
+                            setRenaming(f.id);
+                          }}
+                          className="flex min-w-0 flex-1 items-center gap-2 py-3 text-left"
+                        >
+                          <span
+                            className={`min-w-0 flex-1 truncate text-sm ${
+                              active ? 'text-text-primary' : 'text-text-secondary'
+                            }`}
+                          >
+                            {f.name}
+                          </span>
+                          <span className="shrink-0 text-sm tabular-nums text-text-muted">
+                            {f.symbols.length}
+                          </span>
+                        </button>
+
+                        {!isDefault && (
+                          <button
+                            type="button"
+                            onClick={() => confirmDeleteFolder(f.id, f.name, f.symbols.length)}
+                            title="그룹 삭제 (종목은 미분류로)"
+                            aria-label={`${f.name} 그룹 삭제`}
+                            className="shrink-0 rounded px-1 text-xs text-text-muted opacity-0 transition-all hover:text-bearish focus:opacity-100 group-hover:opacity-100"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+
+            <p className="shrink-0 border-t border-border px-3 py-2 text-[10px] leading-snug text-text-muted">
+              더블클릭: 이름 변경 · ⠿ 드래그: 순서
+            </p>
+          </nav>
+
+          {/* ── 우: 선택한 그룹의 종목 ───────────────────── */}
+          <section className="flex min-w-0 flex-1 flex-col">
+            <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border px-4 py-2.5">
+              <label className="inline-flex w-fit items-center gap-1.5 text-xs text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={allChecked}
+                  onChange={toggleAll}
+                  disabled={symbols.length === 0}
+                />
+                전체
+              </label>
+
+              <div ref={moveRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setMoveOpen((v) => !v)}
+                  disabled={checked.length === 0}
+                  className={ACTION}
+                >
+                  군 이동
+                </button>
+                {moveOpen && (
+                  <ul className="absolute left-0 top-full z-40 mt-1 max-h-56 w-40 overflow-y-auto rounded-md border border-border bg-bg-secondary py-1 shadow-xl">
+                    {folders
+                      .filter((f) => f.id !== folder?.id)
+                      .map((f) => (
+                        <li key={f.id}>
+                          <button
+                            type="button"
+                            onClick={() => moveChecked(f.id)}
+                            className="w-full px-3 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                          >
+                            {f.name}
+                          </button>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={confirmDeleteSymbols}
+                disabled={checked.length === 0}
+                className={`${ACTION} hover:border-bearish hover:text-bearish`}
+              >
+                🗑 삭제
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAdding((v) => !v)}
+                className={`${ACTION} ml-auto`}
+              >
+                + 종목 추가
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSort((prev) => SORT_ORDER[(SORT_ORDER.indexOf(prev) + 1) % SORT_ORDER.length])
+                }
+                title="정렬 방식 전환"
+                className={ACTION}
+              >
+                ↕ {SORT_LABEL[sort]}
+              </button>
+            </div>
+
+            {adding && (
+              <div className="shrink-0 border-b border-border px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <span className="shrink-0 text-xs text-text-muted">🔍</span>
+                  <div className="min-w-0 flex-1">
+                    <SymbolSearch
+                      symbol=""
+                      onSubmit={(symbol) => {
+                        watch.add(symbol, folder?.id);
+                        watch.rememberFolder(folder?.id ?? DEFAULT_FOLDER_ID);
+                      }}
+                      placeholder={`'${folder?.name ?? ''}' 에 추가 (구글, 애플, AAPL…)`}
+                      submitLabel="추가"
+                      compact
+                      clearOnSubmit
+                      isAdded={(candidate) => watch.watchlist.includes(candidate)}
+                    />
+                  </div>
+                  <button type="button" onClick={() => setAdding(false)} className={ACTION}>
+                    취소
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div
+              className="min-h-0 flex-1 overflow-y-auto"
+              onDragOver={(e) => {
+                if (dragSymbol && sort === 'manual' && symbols.length === 0) e.preventDefault();
+              }}
+            >
+              {symbols.length === 0 ? (
+                <p className="px-4 py-8 text-center text-xs text-text-muted">
+                  이 그룹에 담긴 종목이 없습니다. [+ 종목 추가] 로 시작해 보세요.
+                </p>
+              ) : (
+                sorted.map((symbol, index) => {
+                  const isChecked = checked.includes(symbol);
+                  const rate = quotes[symbol]?.changeRate ?? null;
+
+                  return (
                     <div key={symbol} className="relative">
-                      {dropMark?.folderId === folder.id && dropMark.index === index && (
-                        <span className="absolute inset-x-1 -top-px h-0.5 bg-accent" />
+                      {dropIndex === index && (
+                        <span className="absolute inset-x-2 -top-px z-10 h-0.5 bg-accent" />
                       )}
 
                       <div
                         onDragOver={(e) => {
-                          if (drag?.kind !== 'symbol') return;
+                          if (!dragSymbol || sort !== 'manual') return;
                           e.preventDefault();
                           const box = e.currentTarget.getBoundingClientRect();
-                          const after = e.clientY - box.top > box.height / 2;
-                          setDropMark({ folderId: folder.id, index: after ? index + 1 : index });
+                          setDropIndex(e.clientY - box.top > box.height / 2 ? index + 1 : index);
                         }}
-                        className={`flex items-center gap-2 rounded px-1 py-1 hover:bg-bg-tertiary/50 ${
-                          drag?.kind === 'symbol' && drag.symbol === symbol
-                            ? 'opacity-40 ring-1 ring-accent'
+                        onDrop={(e) => {
+                          if (!dragSymbol) return;
+                          e.preventDefault();
+                          watch.moveSymbol(dragSymbol, folder!.id, dropIndex ?? index);
+                          setDragSymbol(null);
+                          setDropIndex(null);
+                        }}
+                        className={`flex h-14 items-center gap-3 border-b border-border/70 px-4 transition-colors hover:bg-bg-tertiary ${
+                          isChecked ? 'bg-bg-tertiary/60' : ''
+                        } ${
+                          dragSymbol === symbol
+                            ? 'opacity-40 shadow-lg ring-1 ring-accent'
                             : ''
                         }`}
                       >
+                        {/* 손잡이만 draggable — 행 전체는 체크 토글에 쓴다 */}
                         <span
-                          draggable
-                          onDragStart={() => setDrag({ kind: 'symbol', symbol, from: folder.id })}
+                          draggable={sort === 'manual'}
+                          onDragStart={() => setDragSymbol(symbol)}
                           onDragEnd={() => {
-                            setDrag(null);
-                            setDropMark(null);
+                            setDragSymbol(null);
+                            setDropIndex(null);
                           }}
-                          title="드래그해 순서·폴더 변경"
-                          className="cursor-grab text-text-muted active:cursor-grabbing"
+                          title={
+                            sort === 'manual'
+                              ? '드래그해 순서 변경'
+                              : '직접 설정한 순일 때만 순서를 바꿀 수 있습니다'
+                          }
+                          className={`shrink-0 text-text-muted ${
+                            sort === 'manual'
+                              ? 'cursor-grab active:cursor-grabbing'
+                              : 'cursor-not-allowed opacity-30'
+                          }`}
                         >
-                          <GripIcon className="h-3.5 w-2.5" />
+                          <GripIcon className="h-4 w-2.5" />
                         </span>
 
-                        <span className="min-w-0 flex-1 truncate text-xs">
-                          <span className="font-medium">{stockNameOf(symbol) || symbol}</span>
-                          {stockNameOf(symbol) && (
-                            <span className="ml-1.5 text-[11px] text-text-secondary">{symbol}</span>
-                          )}
-                        </span>
-
-                        <select
-                          value={folder.id}
-                          onChange={(e) => watch.moveSymbol(symbol, e.target.value)}
-                          title="폴더 이동"
-                          className="shrink-0 rounded px-1.5 py-0.5 text-[11px]"
-                        >
-                          {folders.map((target) => (
-                            <option key={target.id} value={target.id}>
-                              {target.name}
-                            </option>
-                          ))}
-                        </select>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleOne(symbol)}
+                          aria-label={`${symbol} 선택`}
+                          className="shrink-0"
+                        />
 
                         <button
                           type="button"
-                          onClick={() => watch.remove(symbol)}
-                          title="관심 목록에서 삭제"
-                          className={`${ACTION} shrink-0 hover:border-bearish hover:text-bearish`}
+                          onClick={() => toggleOne(symbol)}
+                          className="flex min-w-0 flex-1 items-center gap-3 text-left"
                         >
-                          ✕
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">
+                            {names(symbol) || symbol}
+                          </span>
+                          {names(symbol) && (
+                            <span className="shrink-0 text-[13px] tabular-nums text-text-secondary">
+                              {symbol}
+                            </span>
+                          )}
                         </button>
+
+                        {sort === 'change' && (
+                          <span
+                            className={`w-16 shrink-0 text-right text-[13px] tabular-nums ${
+                              rate == null
+                                ? 'text-text-muted'
+                                : rate > 0
+                                  ? 'text-bullish'
+                                  : rate < 0
+                                    ? 'text-bearish'
+                                    : 'text-text-secondary'
+                            }`}
+                          >
+                            {rate == null ? '—' : formatPercent(rate)}
+                          </span>
+                        )}
                       </div>
 
-                      {index === folder.symbols.length - 1 &&
-                        dropMark?.folderId === folder.id &&
-                        dropMark.index === folder.symbols.length && (
-                          <span className="absolute inset-x-1 -bottom-px h-0.5 bg-accent" />
-                        )}
+                      {index === sorted.length - 1 && dropIndex === sorted.length && (
+                        <span className="absolute inset-x-2 -bottom-px z-10 h-0.5 bg-accent" />
+                      )}
                     </div>
-                  ))}
-                </div>
-              </section>
-            );
-          })}
+                  );
+                })
+              )}
+            </div>
 
-          {folders.every((f) => f.symbols.length === 0) && (
-            <p className="py-6 text-center text-xs text-text-muted">
-              담긴 종목이 없습니다. [+ 종목 추가] 로 시작해 보세요.
+            <p className="shrink-0 border-t border-border px-4 py-2 text-[10px] text-text-muted">
+              변경은 바로 저장됩니다 · '미분류' 는 삭제할 수 없고 항상 맨 아래입니다.
             </p>
-          )}
+          </section>
         </div>
-
-        <footer className="shrink-0 border-t border-border px-4 py-2 text-[11px] text-text-muted">
-          ⠿ 드래그로 순서·폴더 변경 · '미분류' 는 삭제할 수 없고 항상 맨 아래입니다.
-        </footer>
       </div>
     </div>
   );
 }
 
 const ACTION =
-  'shrink-0 rounded border border-border px-1.5 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-40 disabled:hover:border-border disabled:hover:text-text-secondary';
+  'shrink-0 rounded border border-border px-2 py-1 text-xs text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-40 disabled:hover:border-border disabled:hover:text-text-secondary';
