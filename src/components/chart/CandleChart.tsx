@@ -15,13 +15,13 @@ import {
   type ISeriesApi,
 } from 'lightweight-charts';
 import type { Candle, Price } from '../../types/toss';
-import { MA_LINES, type IndicatorSeries, type IndicatorToggles } from '../../types/chart';
+import type { IndicatorSeries, IndicatorToggles } from '../../types/chart';
+import ChartInfoBar, { lastAsHover, type HoverInfo } from './ChartInfoBar';
 import { cursorFor, type DrawingToolType } from './DrawingTools';
 import {
   BASE_CHART_OPTIONS,
   PRICE_SCALE_MARGINS,
   dateTimeOptions,
-  formatChartDateTime,
   isIntraday,
   CANDLE_SERIES_OPTIONS,
   COLORS,
@@ -34,10 +34,6 @@ import {
  * 불투명 배경이 있으면 확대·이동할 때 그 아래 봉을 볼 수 없다.
  * 대신 이중 텍스트 그림자로 밝은 캔들 위에서도 글자가 읽히게 한다.
  */
-const LEGEND_TEXT_SHADOW = {
-  textShadow: '0 0 4px rgba(0,0,0,0.8), 0 0 8px rgba(0,0,0,0.6)',
-} as const;
-
 /** 휠 한 번에 얼마나 확대/축소할지 — 기본 대비 3배 (수정 1) */
 const ZOOM_SPEED_MULTIPLIER = 3;
 const ZOOM_STEP = 0.1;
@@ -91,17 +87,6 @@ export interface DrawingSnapshot {
   anchors: Anchor[];
   style: Partial<DrawingStyle>;
   options: Partial<DrawingOptions>;
-}
-
-interface HoverInfo {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-  /** 크로스헤어 위치의 이동평균 값 (범례용) */
-  ma: Record<string, number | null>;
 }
 
 /** 자(Measure) 도구 드래그 중 표시하는 실시간 정보 */
@@ -652,218 +637,152 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
   const measureInfo = measure ? describeMeasure(measure) : null;
 
   return (
-    <div ref={wrapperRef} className="relative h-full w-full bg-bg-primary">
-      {/* 좌상단 레전드 — OHLCV + 이동평균 (수정 6-A) */}
-      {legend && (
-        <div
-          className="pointer-events-none absolute left-3 top-2 z-10 flex flex-col gap-0.5"
-          style={LEGEND_TEXT_SHADOW}
-        >
-          {/* 캔들 OHLC — 종가는 시가 대비 등락 색으로 표시한다 */}
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 bg-transparent px-0.5 py-0.5 text-[11px]">
-            <span className="text-text-muted">
-              {formatChartDateTime(legend.time, isIntraday(candles))}
-            </span>
-            <span className="text-text-muted">
-              시 <span className="tabular-nums text-text-primary">{legend.open.toFixed(2)}</span>
-            </span>
-            <span className="text-text-muted">
-              고 <span className="tabular-nums text-bullish">{legend.high.toFixed(2)}</span>
-            </span>
-            <span className="text-text-muted">
-              저 <span className="tabular-nums text-bearish">{legend.low.toFixed(2)}</span>
-            </span>
-            <span className="text-text-muted">
-              종{' '}
-              <span
-                className={`font-medium tabular-nums ${
-                  legend.close >= legend.open ? 'text-bullish' : 'text-bearish'
-                }`}
-              >
-                {legend.close.toFixed(2)}
-              </span>
-            </span>
-            <span className="text-text-muted">
-              거래량{' '}
-              <span className="tabular-nums text-text-secondary">
-                {legend.volume > 0
-                  ? Intl.NumberFormat('ko-KR', { notation: 'compact' }).format(legend.volume)
-                  : '—'}
-              </span>
-            </span>
-          </div>
+    /*
+     * ⚠️ 오버레이(고무줄 선·자 박스·✕ 버튼·컨텍스트 메뉴)의 좌표는 **차트 컨테이너**
+     * 기준이다(container.getBoundingClientRect()). 그래서 position:relative 는 바깥
+     * 래퍼가 아니라 차트를 감싼 안쪽 div 가 가진다 — 래퍼에 두면 정보 바 높이만큼
+     * 전부 위로 밀린다. 래퍼는 캡처 대상이라 정보 바까지 포함해야 한다.
+     */
+    <div ref={wrapperRef} className="flex h-full w-full flex-col bg-bg-primary">
+      <ChartInfoBar legend={legend} candles={candles} toggles={toggles} />
 
-          {toggles && MA_LINES.some((ma) => toggles.overlays[ma.key]) && (
-            <div className="flex flex-wrap gap-x-3 bg-transparent px-0.5 py-0.5 text-[11px]">
-              {MA_LINES.filter((ma) => toggles.overlays[ma.key]).map((ma) => {
-                const value = legend.ma?.[ma.label];
-                return (
-                  <span key={ma.key} style={{ color: ma.color }}>
-                    {ma.label}{' '}
-                    <span className="tabular-nums">{value != null ? value.toFixed(2) : '—'}</span>
-                  </span>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 2점 도구: 찍어 둔 시작점 + 커서까지의 고무줄 선 */}
-      {pending && (
-        <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full">
-          {!measure && (
-            <line
-              x1={pending.x}
-              y1={pending.y}
-              x2={pending.curX}
-              y2={pending.curY}
-              stroke={COLORS.accent}
+      <div className="relative min-h-0 flex-1">
+        {/* 2점 도구: 찍어 둔 시작점 + 커서까지의 고무줄 선 */}
+        {pending && (
+          <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full">
+            {!measure && (
+              <line
+                x1={pending.x}
+                y1={pending.y}
+                x2={pending.curX}
+                y2={pending.curY}
+                stroke={COLORS.accent}
+                strokeWidth={1.5}
+                strokeDasharray="5 4"
+                opacity={0.9}
+              />
+            )}
+            <circle cx={pending.x} cy={pending.y} r={7} fill={COLORS.accent} opacity={0.25} />
+            <circle
+              cx={pending.x}
+              cy={pending.y}
+              r={3.5}
+              fill={COLORS.accent}
+              stroke="#FFFFFF"
               strokeWidth={1.5}
-              strokeDasharray="5 4"
-              opacity={0.9}
             />
-          )}
-          <circle cx={pending.x} cy={pending.y} r={7} fill={COLORS.accent} opacity={0.25} />
-          <circle
-            cx={pending.x}
-            cy={pending.y}
-            r={3.5}
-            fill={COLORS.accent}
-            stroke="#FFFFFF"
-            strokeWidth={1.5}
-          />
-          {!measure && pending.percent !== null && (
-            <text
-              x={pending.curX + 10}
-              y={pending.curY - 8}
-              fill={pending.percent >= 0 ? COLORS.bullish : COLORS.bearish}
-              fontSize={12}
-              fontWeight={600}
-            >
-              {pending.percent >= 0 ? '+' : ''}
-              {pending.percent.toFixed(2)}%
-            </text>
-          )}
-        </svg>
-      )}
+            {!measure && pending.percent !== null && (
+              <text
+                x={pending.curX + 10}
+                y={pending.curY - 8}
+                fill={pending.percent >= 0 ? COLORS.bullish : COLORS.bearish}
+                fontSize={12}
+                fontWeight={600}
+              >
+                {pending.percent >= 0 ? '+' : ''}
+                {pending.percent.toFixed(2)}%
+              </text>
+            )}
+          </svg>
+        )}
 
-      {/* 자 도구 실시간 박스 (수정 4) */}
-      {measure && measureInfo && (
-        <div
-          className="pointer-events-none absolute z-20 border-2"
-          style={{
-            left: Math.min(measure.startX, measure.currentX),
-            top: Math.min(measure.startY, measure.currentY),
-            width: Math.abs(measure.currentX - measure.startX),
-            height: Math.abs(measure.currentY - measure.startY),
-            borderColor: measureInfo.isUp ? COLORS.bullish : COLORS.bearish,
-            backgroundColor: `${measureInfo.isUp ? COLORS.bullish : COLORS.bearish}22`,
-          }}
-        >
+        {/* 자 도구 실시간 박스 (수정 4) */}
+        {measure && measureInfo && (
           <div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded px-2 py-1 text-center text-[11px] font-medium tabular-nums"
+            className="pointer-events-none absolute z-20 border-2"
             style={{
-              backgroundColor: COLORS.tooltipBg,
-              color: measureInfo.isUp ? COLORS.bullish : COLORS.bearish,
+              left: Math.min(measure.startX, measure.currentX),
+              top: Math.min(measure.startY, measure.currentY),
+              width: Math.abs(measure.currentX - measure.startX),
+              height: Math.abs(measure.currentY - measure.startY),
+              borderColor: measureInfo.isUp ? COLORS.bullish : COLORS.bearish,
+              backgroundColor: `${measureInfo.isUp ? COLORS.bullish : COLORS.bearish}22`,
             }}
           >
-            <div>
-              {measureInfo.sign}${measureInfo.diff}
-            </div>
-            <div>
-              {measureInfo.sign}
-              {measureInfo.percent}%
-            </div>
-            <div className="text-text-muted">
-              {measure.bars}봉 · {measure.days}일
+            <div
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded px-2 py-1 text-center text-[11px] font-medium tabular-nums"
+              style={{
+                backgroundColor: COLORS.tooltipBg,
+                color: measureInfo.isUp ? COLORS.bullish : COLORS.bearish,
+              }}
+            >
+              <div>
+                {measureInfo.sign}${measureInfo.diff}
+              </div>
+              <div>
+                {measureInfo.sign}
+                {measureInfo.percent}%
+              </div>
+              <div className="text-text-muted">
+                {measure.bars}봉 · {measure.days}일
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* 드로잉 선택 시 ✕ 버튼 (수정 3-B) */}
-      {selectedAnchor && (
-        <button
-          type="button"
-          onClick={() => {
-            drawingsRef.current?.removeDrawing(selectedAnchor.id);
-            setSelectedAnchor(null);
-          }}
-          title="이 드로잉 삭제 (Delete)"
-          className="absolute z-20 flex items-center gap-1 rounded-full bg-bearish px-2.5 py-1 text-[11px] font-bold text-white shadow-lg transition-transform hover:scale-105"
-          style={{ left: selectedAnchor.x - 24, top: selectedAnchor.y - 30 }}
-        >
-          ✕ 삭제
-        </button>
-      )}
+        {/* 드로잉 선택 시 ✕ 버튼 (수정 3-B) */}
+        {selectedAnchor && (
+          <button
+            type="button"
+            onClick={() => {
+              drawingsRef.current?.removeDrawing(selectedAnchor.id);
+              setSelectedAnchor(null);
+            }}
+            title="이 드로잉 삭제 (Delete)"
+            className="absolute z-20 flex items-center gap-1 rounded-full bg-bearish px-2.5 py-1 text-[11px] font-bold text-white shadow-lg transition-transform hover:scale-105"
+            style={{ left: selectedAnchor.x - 24, top: selectedAnchor.y - 30 }}
+          >
+            ✕ 삭제
+          </button>
+        )}
 
-      {/* 우클릭 컨텍스트 메뉴 (수정 3-A) */}
-      {menu && (
+        {/* 우클릭 컨텍스트 메뉴 (수정 3-A) */}
+        {menu && (
+          <div
+            className="absolute z-30 min-w-[110px] overflow-hidden rounded-md border border-border bg-bg-secondary shadow-xl"
+            style={{ left: menu.x, top: menu.y }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                drawingsRef.current?.removeDrawing(menu.drawingId);
+                setMenu(null);
+                setSelectedAnchor(null);
+              }}
+              className="block w-full px-3 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-bearish"
+            >
+              삭제
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                drawingsRef.current?.clearAll();
+                setMenu(null);
+                setSelectedAnchor(null);
+              }}
+              className="block w-full px-3 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            >
+              모두 지우기
+            </button>
+            <button
+              type="button"
+              onClick={() => setMenu(null)}
+              className="block w-full border-t border-border px-3 py-1.5 text-left text-xs text-text-muted transition-colors hover:bg-bg-tertiary"
+            >
+              취소
+            </button>
+          </div>
+        )}
+
         <div
-          className="absolute z-30 min-w-[110px] overflow-hidden rounded-md border border-border bg-bg-secondary shadow-xl"
-          style={{ left: menu.x, top: menu.y }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              drawingsRef.current?.removeDrawing(menu.drawingId);
-              setMenu(null);
-              setSelectedAnchor(null);
-            }}
-            className="block w-full px-3 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-bearish"
-          >
-            삭제
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              drawingsRef.current?.clearAll();
-              setMenu(null);
-              setSelectedAnchor(null);
-            }}
-            className="block w-full px-3 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
-          >
-            모두 지우기
-          </button>
-          <button
-            type="button"
-            onClick={() => setMenu(null)}
-            className="block w-full border-t border-border px-3 py-1.5 text-left text-xs text-text-muted transition-colors hover:bg-bg-tertiary"
-          >
-            취소
-          </button>
-        </div>
-      )}
-
-      <div ref={containerRef} className="h-full w-full" style={{ cursor: cursorFor(activeTool) }} />
+          ref={containerRef}
+          className="h-full w-full"
+          style={{ cursor: cursorFor(activeTool) }}
+        />
+      </div>
     </div>
   );
 });
-
-function lastAsHover(candles: Candle[], indicators: IndicatorSeries | null): HoverInfo | null {
-  const last = candles.at(-1);
-  if (!last) return null;
-
-  // 각 이동평균의 마지막 유효 값 (워밍업 구간의 null 은 건너뛴다)
-  const ma: Record<string, number | null> = {};
-  if (indicators) {
-    for (const line of MA_LINES) {
-      const series = indicators[line.series];
-      ma[line.label] = series?.filter((v): v is number => v != null).at(-1) ?? null;
-    }
-  }
-
-  return {
-    time: last.timestamp,
-    open: last.open,
-    high: last.high,
-    low: last.low,
-    close: last.close,
-    volume: last.volume,
-    ma,
-  };
-}
 
 function describeMeasure(measure: MeasurePreview) {
   const diff = measure.currentPrice - measure.startPrice;

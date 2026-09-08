@@ -1,0 +1,25 @@
+# 클라우드/웹 세션이 저장소를 복제할 때 제외할 것.
+#
+# ⚠️ 로컬 세션의 토큰 사용량과는 무관하다 — 로컬에서는 읽은 파일만 컨텍스트에 들어간다.
+# 여기 적는 것은 "클라우드 샌드박스로 올리지 않을 것" 이다.
+# (Claude Code 에 `.claudeignore` 라는 기능은 없다. 로컬에서 특정 경로를 막고 싶으면
+#  .claude/settings.json 의 permissions.deny 에 Read(...) 규칙을 넣는다.)
+
+# 설치물 — 클라우드에서 다시 설치한다
+node_modules/
+python/.venv/
+__pycache__/
+*.pyc
+
+# 빌드 산출물
+dist/
+*.tsbuildinfo
+
+# 로컬 데이터·비밀
+.env
+.env.local
+db/*.db
+db/*.db-shm
+db/*.db-wal
+*.log
+.DS_Store

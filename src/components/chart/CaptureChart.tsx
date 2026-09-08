@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { DrawingManager, getToolRegistry } from 'lightweight-charts-drawing';
 import {
   CandlestickSeries,
@@ -6,10 +6,12 @@ import {
   type CandlestickData,
   type IChartApi,
   type ISeriesApi,
+  type MouseEventParams,
 } from 'lightweight-charts';
 import type { Candle } from '../../types/toss';
-import type { IndicatorSeries, IndicatorToggles } from '../../types/chart';
+import { MA_LINES, type IndicatorSeries, type IndicatorToggles } from '../../types/chart';
 import type { DrawingSnapshot } from './CandleChart';
+import ChartInfoBar, { lastAsHover, type HoverInfo } from './ChartInfoBar';
 import {
   BASE_CHART_OPTIONS,
   PRICE_SCALE_MARGINS,
@@ -79,6 +81,10 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
   ref,
 ) {
   const wrapperRef = useRef<HTMLDivElement>(null);
+  /** 차트가 붙는 안쪽 div — 정보 바를 위에 두려면 캡처 대상(wrapper)과 나뉘어야 한다 */
+  const chartHostRef = useRef<HTMLDivElement>(null);
+  /** 팝업 차트에서도 크로스헤어를 따라 값이 바뀐다 (없으면 마지막 봉) */
+  const [hover, setHover] = useState<HoverInfo | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const drawingManagerRef = useRef<DrawingManager | null>(null);
@@ -96,7 +102,7 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
 
   // ── 차트 생성 (한 번만) ──
   useEffect(() => {
-    const container = wrapperRef.current;
+    const container = chartHostRef.current;
     if (!container) return;
 
     const chart = createChart(container, { ...BASE_CHART_OPTIONS, autoSize: true });
@@ -173,6 +179,48 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
     return () => cancelAnimationFrame(frame);
   }, [candles, initialRange]);
 
+  /*
+   * ── 크로스헤어 → 정보 바 ──
+   * 캡처 전에 팝업 안에서 봉을 짚어 볼 수 있어야 "이 봉을 보내는 게 맞나" 를 확인한다.
+   * 메인 차트는 MA 시리즈 핸들에서 값을 읽지만, 여기서는 시리즈를 따로 들고 있지 않아
+   * 지표 배열에서 같은 timestamp 를 찾는다 (봉 수가 적어 비용이 없다).
+   */
+  useEffect(() => {
+    const chart = chartRef.current;
+    const series = candleSeriesRef.current;
+    if (!chart || !series) return;
+
+    const onMove = (param: MouseEventParams) => {
+      const data = param.seriesData.get(series) as CandlestickData | undefined;
+      if (!param.time || !data) {
+        setHover(null);
+        return;
+      }
+
+      const ms = (param.time as number) * 1000;
+      const candle = candles.find((c) => c.timestamp === ms);
+      const at = indicators ? indicators.timestamps.indexOf(ms) : -1;
+
+      const ma: Record<string, number | null> = {};
+      if (indicators && at >= 0) {
+        for (const line of MA_LINES) ma[line.label] = indicators[line.series]?.[at] ?? null;
+      }
+
+      setHover({
+        time: ms,
+        open: data.open,
+        high: data.high,
+        low: data.low,
+        close: data.close,
+        volume: candle?.volume ?? 0,
+        ma,
+      });
+    };
+
+    chart.subscribeCrosshairMove(onMove);
+    return () => chart.unsubscribeCrosshairMove(onMove);
+  }, [candles, indicators]);
+
   // ── 드로잉 복제 ──
   useEffect(() => {
     const manager = drawingManagerRef.current;
@@ -192,7 +240,17 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
     }
   }, [drawings]);
 
-  return <div ref={wrapperRef} className="h-full w-full bg-bg-primary" />;
+  return (
+    <div ref={wrapperRef} className="flex h-full w-full flex-col bg-bg-primary">
+      {/* 캡처 그림에도 같은 줄이 찍혀야 붙여넣은 쪽에서 언제·어느 봉인지 알 수 있다 */}
+      <ChartInfoBar
+        legend={hover ?? lastAsHover(candles, indicators)}
+        candles={candles}
+        toggles={toggles}
+      />
+      <div ref={chartHostRef} className="min-h-0 flex-1" />
+    </div>
+  );
 });
 
 export default CaptureChart;
