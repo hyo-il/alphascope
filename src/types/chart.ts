@@ -41,8 +41,8 @@ export type OverlayIndicator =
   | 'ema'
   | 'bb'
   | 'vwap'
-  /** 화면에 보이는 구간의 최고·최저 수평선. 엔진 지표가 아니라 차트가 직접 그린다. */
-  | 'rangeLines';
+  /** 화면에 보이는 구간의 고점·저점 마커. 엔진 지표가 아니라 차트가 직접 그린다. */
+  | 'extremes';
 
 /** 하단 별도 패널로 표시하는 지표 */
 export type PanelIndicator = 'volume' | 'rsi' | 'macd' | 'stoch' | 'atr' | 'obv';
@@ -61,7 +61,7 @@ export const DEFAULT_TOGGLES: IndicatorToggles = {
     ema: false,
     bb: false,
     vwap: false,
-    rangeLines: false,
+    extremes: true,
   },
   panels: { volume: true, rsi: false, macd: false, stoch: false, atr: false, obv: false },
 };
@@ -100,7 +100,7 @@ export const OVERLAY_ITEMS: { key: OverlayIndicator; label: string; indent?: boo
   { key: 'ema', label: 'EMA 12·26' },
   { key: 'bb', label: '볼린저밴드' },
   { key: 'vwap', label: 'VWAP' },
-  { key: 'rangeLines', label: '구간 고·저선' },
+  { key: 'extremes', label: '고·저점 표시' },
 ];
 
 export const PANEL_ITEMS: { key: PanelIndicator; label: string }[] = [

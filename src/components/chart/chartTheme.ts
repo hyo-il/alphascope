@@ -5,12 +5,16 @@
  * 렌더 코드를 두면 반드시 갈라진다. 한 곳에 모아 둔다.
  */
 import {
+  createSeriesMarkers,
   HistogramSeries,
   LineSeries,
   type IChartApi,
   type ISeriesApi,
+  type SeriesMarker,
   type UTCTimestamp,
 } from 'lightweight-charts';
+import { formatPrice } from '../../utils/formatters';
+import type { VisibleExtent } from './ChartInfoBar';
 import type { Candle } from '../../types/toss';
 import {
   MA_LINES,
@@ -159,65 +163,102 @@ export const CANDLE_SERIES_OPTIONS = {
 };
 
 /**
- * 화면에 보이는 구간의 최고·최저를 캔들 시리즈 위에 점선으로 긋는다.
+ * 화면에 보이는 구간의 고점·저점을 **그 봉 위에 마커로** 표시한다 (토스 스타일).
  *
- * 별도 시리즈가 아니라 `createPriceLine` 을 쓴다 — 시리즈를 하나 더 만들면 pane 계산과
- * 크로스헤어 값 목록에 끼어든다. 반환값은 지우는 함수다 (구간이 바뀔 때마다 다시 긋는다).
+ * 값을 정보 바에 글자로만 적으면 "어느 봉이 고점인지" 는 눈으로 다시 찾아야 한다.
+ * 화살표를 그 자리에 찍으면 위치와 값이 한 번에 읽힌다 — 고점은 ↓(여기서 떨어졌다),
+ * 저점은 ↑(여기서 올라왔다).
+ *
+ * v5 에서 `series.setMarkers()` 는 사라졌다. `createSeriesMarkers` 가 돌려주는 핸들로
+ * 갱신·정리한다. 반환값은 지우는 함수다.
  */
-export function drawRangeLines(
+export function drawExtremeMarkers(
   series: ISeriesApi<'Candlestick'>,
-  extent: { high: number; low: number } | null,
+  candles: Candle[],
+  extent: VisibleExtent | null,
+  current: number | null,
+  currency: 'KRW' | 'USD',
+  intraday: boolean,
 ): () => void {
-  if (!extent) return () => {};
+  if (!extent || !candles.length) return () => {};
 
-  const lines = [
-    series.createPriceLine({
-      price: extent.high,
+  const highBar = candles[extent.highIndex];
+  const lowBar = candles[extent.lowIndex];
+  // 한 봉만 보이면 고점과 저점이 같은 봉이라 화살표 둘이 겹친다 — 그때는 그리지 않는다.
+  if (!highBar || !lowBar || extent.highIndex === extent.lowIndex) return () => {};
+
+  /*
+   * ⚠️ 마커 글자는 **봉을 중심으로** 그려지고 pane 안으로 밀어 넣어 주지 않는다.
+   * 고·저가 보이는 구간의 끝쪽 봉이면 (스크롤하면 흔히 그렇다) 글자 절반이 잘려
+   * "…85%)" 처럼 남는다. 라이브러리에 정렬 옵션이 없다.
+   *
+   * 그래서 **가장자리에서는 글자를 아예 붙이지 않고 화살표만 남긴다** — 잘린 글자는
+   * 읽히지 않으면서 캔들만 가린다. 값은 정보 바의 '구간↑/↓' 이 항상 들고 있으므로
+   * 잃는 정보가 없다 (그래서 그 줄을 정보 바에 남겨 두었다).
+   */
+  const span = Math.max(1, extent.end - extent.start);
+  const atEdge = (index: number) =>
+    (index - extent.start) / span < 0.12 || (extent.end - index) / span < 0.12;
+
+  const label = (price: number, at: number) => {
+    const gap = current != null && price > 0 ? ((current - price) / price) * 100 : null;
+    const rate = gap == null ? '' : `${gap > 0 ? '+' : ''}${gap.toFixed(2)}%, `;
+    const date = new Date(at);
+    const when = intraday
+      ? `${pad2(date.getMonth() + 1)}.${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+      : `${pad2(date.getMonth() + 1)}.${pad2(date.getDate())}`;
+    return `${formatPrice(price, currency)} (${rate}${when})`;
+  };
+
+  const markers: SeriesMarker<UTCTimestamp>[] = [
+    {
+      time: toChartTime(highBar.timestamp),
+      position: 'aboveBar',
       color: COLORS.bearish,
-      lineWidth: 1,
-      lineStyle: 2,
-      axisLabelVisible: true,
-      title: '구간 최고',
-    }),
-    series.createPriceLine({
-      price: extent.low,
+      shape: 'arrowDown',
+      text: atEdge(extent.highIndex) ? undefined : label(extent.high, highBar.timestamp),
+    },
+    {
+      time: toChartTime(lowBar.timestamp),
+      position: 'belowBar',
       color: COLORS.bullish,
-      lineWidth: 1,
-      lineStyle: 2,
-      axisLabelVisible: true,
-      title: '구간 최저',
-    }),
+      shape: 'arrowUp',
+      text: atEdge(extent.lowIndex) ? undefined : label(extent.low, lowBar.timestamp),
+    },
   ];
 
+  const handle = createSeriesMarkers(series, markers);
   return () => {
-    for (const line of lines) {
-      // 차트가 이미 사라진 뒤에 정리가 돌면 던진다 — 그때는 지울 것도 없다.
-      try {
-        series.removePriceLine(line);
-      } catch {
-        /* 시리즈가 이미 제거됨 */
-      }
+    // 차트가 이미 사라진 뒤에 정리가 돌면 던진다 — 그때는 지울 것도 없다.
+    try {
+      handle.detach();
+    } catch {
+      /* 시리즈가 이미 제거됨 */
     }
   };
 }
 
 /** 논리 인덱스 구간(줌·스크롤 상태)에서 실제 고·저를 낸다 */
-export function extentOf(
-  candles: Candle[],
-  from: number,
-  to: number,
-): { high: number; low: number } | null {
+export function extentOf(candles: Candle[], from: number, to: number): VisibleExtent | null {
   const start = Math.max(0, Math.floor(from));
   const end = Math.min(candles.length - 1, Math.ceil(to));
   if (start > end || !candles.length) return null;
 
-  let high = -Infinity;
-  let low = Infinity;
+  let highIndex = start;
+  let lowIndex = start;
   for (let i = start; i <= end; i++) {
-    if (candles[i].high > high) high = candles[i].high;
-    if (candles[i].low < low) low = candles[i].low;
+    if (candles[i].high > candles[highIndex].high) highIndex = i;
+    if (candles[i].low < candles[lowIndex].low) lowIndex = i;
   }
-  return Number.isFinite(high) && Number.isFinite(low) ? { high, low } : null;
+
+  return {
+    high: candles[highIndex].high,
+    low: candles[lowIndex].low,
+    highIndex,
+    lowIndex,
+    start,
+    end,
+  };
 }
 
 export interface RenderedIndicators {

@@ -15,7 +15,7 @@ import ChartInfoBar, { lastAsHover, type HoverInfo, type VisibleExtent } from '.
 import type { RangeStats } from '../../hooks/useRangeStats';
 import {
   BASE_CHART_OPTIONS,
-  drawRangeLines,
+  drawExtremeMarkers,
   extentOf,
   PRICE_SCALE_MARGINS,
   dateTimeOptions,
@@ -36,6 +36,7 @@ interface Props {
   initialRange: { from: number; to: number } | null;
   /** 52주 고저 — 캡처 그림의 정보 바에 함께 찍는다 */
   week52?: RangeStats | null;
+  currency?: 'KRW' | 'USD';
 }
 
 export interface CaptureChartHandle {
@@ -82,7 +83,7 @@ function clampRange(
 }
 
 const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart(
-  { candles, indicators, toggles, drawings, initialRange, week52 },
+  { candles, indicators, toggles, drawings, initialRange, week52, currency = 'USD' },
   ref,
 ) {
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -245,9 +246,16 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
 
   useEffect(() => {
     const series = candleSeriesRef.current;
-    if (!series || !toggles.overlays.rangeLines) return;
-    return drawRangeLines(series, visibleExtent);
-  }, [visibleExtent, toggles.overlays.rangeLines]);
+    if (!series || !toggles.overlays.extremes) return;
+    return drawExtremeMarkers(
+      series,
+      candles,
+      visibleExtent,
+      candles.at(-1)?.close ?? null,
+      currency,
+      isIntraday(candles),
+    );
+  }, [visibleExtent, toggles.overlays.extremes, candles, currency]);
 
   // ── 드로잉 복제 ──
   useEffect(() => {
@@ -277,6 +285,7 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
         toggles={toggles}
         week52={week52}
         visible={visibleExtent}
+        currency={currency}
         price={candles.at(-1)?.close ?? null}
       />
       <div ref={chartHostRef} className="min-h-0 flex-1" />

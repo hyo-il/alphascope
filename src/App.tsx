@@ -151,6 +151,7 @@ export default function App() {
               indicators={indicators}
               toggles={toggles}
               week52={week52}
+              currency={currency}
             />
           )}
         </main>

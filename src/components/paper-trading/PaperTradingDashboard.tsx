@@ -35,7 +35,17 @@ const TABS: { id: Tab; label: string }[] = [
  * 주문·체결·잔고·손익은 전부 앱 내부 SQLite 에서만 움직인다.
  */
 export default function PaperTradingDashboard({ symbol, onSelectSymbol }: Props) {
-  const { accounts, selectedId, select, loading, create, remove, reset } = usePaperAccounts();
+  const {
+    accounts,
+    selectedId,
+    select,
+    loading,
+    error: accountsError,
+    reload: reloadAccounts,
+    create,
+    remove,
+    reset,
+  } = usePaperAccounts();
   const { detail, error, refresh } = usePaperAccountDetail(selectedId);
   const [tab, setTab] = useState<Tab>('positions');
   /** 주문·취소 후 목록을 다시 읽기 위한 카운터 */
@@ -82,6 +92,38 @@ export default function PaperTradingDashboard({ symbol, onSelectSymbol }: Props)
             <SkeletonCards count={4} className="grid-cols-2 md:grid-cols-4" />
             <SkeletonTable rows={6} columns={5} />
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  /*
+   * ⚠️ **"불러오지 못했다" 와 "계좌가 없다" 를 절대 같은 화면으로 그리지 않는다.**
+   * 앱 재실행 직후에는 API(4000)가 vite(5173)보다 늦게 떠서 첫 조회가 실패하는데,
+   * 그때 '계좌 없음' 화면을 보여 주면 저장된 계좌가 지워진 것처럼 보인다.
+   * (실제로 그 화면을 보고 계좌를 새로 만든 흔적이 DB 에 남아 있었다.)
+   */
+  if (accountsError && !accounts.length) {
+    return (
+      <div className="flex h-full flex-col">
+        {banner}
+        <div className="flex flex-1 flex-col items-center justify-center gap-3">
+          <p className="text-center text-xs leading-relaxed text-text-secondary">
+            계좌 목록을 불러오지 못했습니다.
+            <br />
+            <span className="text-text-muted">{accountsError}</span>
+            <br />
+            <span className="text-text-muted">
+              저장된 계좌·보유 종목·거래 내역은 그대로 있습니다 (지워지지 않습니다).
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={() => void reloadAccounts()}
+            className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:border-accent hover:text-accent"
+          >
+            다시 시도
+          </button>
         </div>
       </div>
     );

@@ -15,15 +15,49 @@ import type {
 const POLL_MS = 1000;
 const ACCOUNT_KEY = 'alphascope.paperAccountId';
 
+/**
+ * ⚠️ API 서버가 아직 뜨지 않았을 때를 구분한다.
+ *
+ * 앱을 재실행하면 브라우저는 vite(5173)가 응답하는 즉시 열리지만 API(4000)는 몇 초 더
+ * 걸린다. 그동안 vite 프록시는 **본문이 빈 500** 을 돌려주는데, 예전에는 `res.json()` 이
+ * SyntaxError 를 던지고 그것이 "계좌 목록 없음" 과 같은 길로 흘러 들어가
+ * **"아직 모의투자 계좌가 없습니다"** 화면이 떴다 — 데이터는 SQLite 에 멀쩡히 있는데
+ * 초기화된 것처럼 보였다. (그 화면을 보고 계좌를 새로 만든 흔적이 DB 에 7개 남아 있었다.)
+ */
+export class ApiUnreachableError extends Error {
+  constructor() {
+    super('API 서버에 연결하지 못했습니다. 잠시 후 다시 시도합니다…');
+    this.name = 'ApiUnreachableError';
+  }
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: init?.body ? { 'content-type': 'application/json' } : undefined,
-  });
-  const body = await res.json();
-  if (!res.ok || body?.error) throw new Error(body?.error ?? '요청에 실패했습니다.');
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...init,
+      headers: init?.body ? { 'content-type': 'application/json' } : undefined,
+    });
+  } catch {
+    throw new ApiUnreachableError();
+  }
+
+  const text = await res.text();
+  let body: { error?: string } | null = null;
+  try {
+    body = text ? (JSON.parse(text) as { error?: string }) : null;
+  } catch {
+    // JSON 이 아니면 서버가 답한 것이 아니다 (프록시의 502·500 본문).
+    throw new ApiUnreachableError();
+  }
+
+  if (!body) throw new ApiUnreachableError();
+  if (!res.ok || body.error) throw new Error(body.error ?? '요청에 실패했습니다.');
   return body as T;
 }
+
+/** API 가 뜰 때까지 다시 시도하는 간격 */
+const RETRY_MS = 1500;
 
 /** 계좌 목록 + 선택 상태 (선택은 localStorage 에 남긴다) */
 export function usePaperAccounts() {
@@ -35,6 +69,11 @@ export function usePaperAccounts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * ⚠️ **조회에 실패했을 때 `accounts` 를 건드리지 않는다.**
+   * 빈 배열로 두면 화면이 "계좌가 없습니다" 로 넘어가 데이터가 지워진 것처럼 보인다.
+   * 실패는 `error` 로만 알리고, 목록은 마지막으로 성공한 값을 지킨다.
+   */
   const reload = useCallback(async () => {
     try {
       const { accounts: list } = await request<{ accounts: PaperAccount[] }>('/api/paper/accounts');
@@ -44,15 +83,35 @@ export function usePaperAccounts() {
       setSelectedId((current) =>
         current && list.some((a) => a.id === current) ? current : (list[0]?.id ?? null),
       );
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      return false;
     } finally {
       setLoading(false);
     }
   }, []);
 
+  /*
+   * 첫 조회는 성공할 때까지 다시 시도한다 — 앱을 재실행한 직후에는 API 가 아직 뜨지 않아
+   * 거의 항상 한 번은 실패한다. 여기서 멈추면 사용자는 빈 계좌 화면을 보게 된다.
+   */
   useEffect(() => {
-    void reload();
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const attempt = () => {
+      void reload().then((ok) => {
+        if (ok || cancelled) return;
+        timer = setTimeout(attempt, RETRY_MS);
+      });
+    };
+
+    attempt();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [reload]);
 
   const select = useCallback((id: number | null) => {
@@ -90,7 +149,18 @@ export function usePaperAccounts() {
     [reload],
   );
 
-  return { accounts, selectedId, select, loading, error, reload, create, remove, reset };
+  return {
+    accounts,
+    selectedId,
+    select,
+    loading,
+    /** 계좌 목록 조회 실패 — 화면은 이걸 '계좌 없음' 과 다르게 그려야 한다 */
+    error,
+    reload,
+    create,
+    remove,
+    reset,
+  };
 }
 
 /**
@@ -112,13 +182,21 @@ export function usePaperAccountDetail(accountId: number | null) {
 
     let cancelled = false;
     let inFlight = false;
+    /*
+     * ⚠️ **첫 조회가 성공할 때까지는 숨김 가드를 걸지 않는다.**
+     * 앱 재실행 직후에는 API(4000)가 vite(5173)보다 늦게 떠서 첫 조회가 거의 항상 실패하는데,
+     * 그다음부터 `document.hidden` 으로 걸러 버리면 배경 탭에서는 영영 다시 시도하지 않아
+     * 계좌가 비어 있는 것처럼 보인다 (에러 문구만 남고 스켈레톤이 계속 돈다).
+     * 한 번 받아 온 뒤에는 원래대로 보이는 탭에서만 폴링한다.
+     */
+    let loaded = false;
 
     /*
      * 최초 1회는 탭이 숨겨져 있어도 받아 온다 (usePolling 과 같은 규칙).
      * 이 가드를 첫 호출에도 걸면, 숨겨진 채로 열린 탭은 화면이 영영 비어 있는다.
      */
     const load = async (force = false) => {
-      if (inFlight || (document.hidden && !force)) return;
+      if (inFlight || (document.hidden && !force && loaded)) return;
       inFlight = true;
       try {
         // settle=1 이 대기 주문 체결과 계좌 평가를 한 번에 처리한다.
@@ -128,6 +206,7 @@ export function usePaperAccountDetail(accountId: number | null) {
           `/api/paper/accounts/${accountId}?settle=1`,
         );
         if (!cancelled) {
+          loaded = true;
           setDetail(data);
           setError(null);
         }

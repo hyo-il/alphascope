@@ -4,6 +4,8 @@ import CapturePreview from './CapturePreview';
 import type { DrawingSnapshot } from '../chart/CandleChart';
 import { captureElementToBlob, type CaptureQuality } from '../../services/analysis/chartCapture';
 import { useRangeStats } from '../../hooks/useRangeStats';
+import { useStockInfo } from '../../hooks/useStockInfo';
+import { currencyOf } from '../../utils/formatters';
 import { useCaptureStore } from '../../store/captureStore';
 import {
   OVERLAY_ITEMS,
@@ -76,6 +78,7 @@ export default function ChartCaptureModal({
   const setCapture = useCaptureStore((s) => s.setCapture);
   // 메인 차트와 같은 값을 쓴다 (훅이 모듈 캐시를 공유해 요청이 늘지 않는다).
   const week52 = useRangeStats(symbol);
+  const currency = currencyOf(useStockInfo(symbol)?.market);
 
   // 프리뷰용 objectURL 은 모달이 닫히거나 다시 캡처할 때 놓아 준다.
   useEffect(() => {
@@ -274,6 +277,7 @@ export default function ChartCaptureModal({
               drawings={activeDrawings}
               initialRange={range}
               week52={week52}
+              currency={currency}
             />
           </div>
 

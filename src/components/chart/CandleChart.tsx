@@ -21,7 +21,7 @@ import type { RangeStats } from '../../hooks/useRangeStats';
 import { cursorFor, type DrawingToolType } from './DrawingTools';
 import {
   BASE_CHART_OPTIONS,
-  drawRangeLines,
+  drawExtremeMarkers,
   extentOf,
   PRICE_SCALE_MARGINS,
   dateTimeOptions,
@@ -74,6 +74,8 @@ interface Props {
   toggles?: IndicatorToggles;
   /** 52주 고저 — 정보 바의 "고점 대비" 에 쓴다 */
   week52?: RangeStats | null;
+  /** 마커의 가격 표기용 (국내 종목은 원화) */
+  currency?: 'KRW' | 'USD';
 }
 
 export interface CandleChartHandle {
@@ -123,6 +125,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     indicators = null,
     toggles,
     week52,
+    currency = 'USD',
   },
   ref,
 ) {
@@ -627,15 +630,21 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
   }, [candles]);
 
   /*
-   * ── 구간 최고·최저 점선 ──
-   * 값이 바뀔 때마다 지우고 다시 긋는다. createPriceLine 은 갱신 API 가 없고,
-   * 선은 두 개뿐이라 다시 만드는 비용이 없다.
+   * ── 고점·저점 마커 ──
+   * 보이는 구간이 바뀔 때마다 지우고 다시 찍는다. 마커는 둘뿐이라 비용이 없다.
    */
   useEffect(() => {
     const series = candleSeriesRef.current;
-    if (!series || !toggles?.overlays.rangeLines) return;
-    return drawRangeLines(series, visibleExtent);
-  }, [visibleExtent, toggles?.overlays.rangeLines]);
+    if (!series || !toggles?.overlays.extremes) return;
+    return drawExtremeMarkers(
+      series,
+      candles,
+      visibleExtent,
+      livePrice?.close ?? candles.at(-1)?.close ?? null,
+      currency,
+      isIntraday(candles),
+    );
+  }, [visibleExtent, toggles?.overlays.extremes, candles, livePrice?.close, currency]);
 
   // ── 현재가로 마지막 캔들 갱신 ──
   useEffect(() => {
@@ -671,6 +680,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
         toggles={toggles}
         week52={week52}
         visible={visibleExtent}
+        currency={currency}
         price={livePrice?.close ?? null}
       />
 

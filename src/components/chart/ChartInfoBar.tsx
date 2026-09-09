@@ -1,6 +1,7 @@
 import { MA_LINES, type IndicatorSeries, type IndicatorToggles } from '../../types/chart';
 import type { Candle } from '../../types/toss';
 import type { RangeStats } from '../../hooks/useRangeStats';
+import { formatPrice } from '../../utils/formatters';
 import { formatChartDateTime, isIntraday } from './chartTheme';
 
 /**
@@ -57,6 +58,12 @@ export function lastAsHover(
 export interface VisibleExtent {
   high: number;
   low: number;
+  /** 고·저를 찍은 봉의 인덱스 — 마커를 그 자리에 찍고, 가장자리인지 판단한다 */
+  highIndex: number;
+  lowIndex: number;
+  /** 지금 보이는 구간의 인덱스 범위 */
+  start: number;
+  end: number;
 }
 
 /**
@@ -71,11 +78,13 @@ function Extreme({
   price,
   current,
   kind,
+  currency,
 }: {
   label: string;
   price: number;
   current: number | null;
   kind: 'high' | 'low';
+  currency: 'KRW' | 'USD';
 }) {
   const gap = current != null && price > 0 ? ((current - price) / price) * 100 : null;
   // 부동소수 비교라 0.05% 안쪽이면 같은 값으로 본다 (장중 갱신 중인 값이다).
@@ -84,7 +93,7 @@ function Extreme({
   return (
     <span className="text-text-secondary">
       {label}{' '}
-      <span className="tabular-nums text-text-primary">{price.toFixed(2)}</span>{' '}
+      <span className="tabular-nums text-text-primary">{formatPrice(price, currency)}</span>{' '}
       <span className={`tabular-nums ${kind === 'high' ? 'text-bearish' : 'text-bullish'}`}>
         {gap == null
           ? '—'
@@ -113,16 +122,19 @@ export default function ChartInfoBar({
   week52,
   visible,
   price,
+  currency = 'USD',
 }: {
   legend: HoverInfo | null;
   candles: Candle[];
   toggles?: IndicatorToggles;
   /** 52주 고저 — 없으면 그 자리만 빈다 */
   week52?: RangeStats | null;
-  /** 지금 화면에 보이는 구간의 고저 */
+  /** 지금 화면에 보이는 구간의 고저 (차트 마커와 같은 값) */
   visible?: VisibleExtent | null;
   /** 비교 기준이 되는 현재가 (실시간 값이 없으면 마지막 종가) */
   price?: number | null;
+  /** 국내 종목은 원화로 적는다 — ₩274,500 처럼 소수점 없이 */
+  currency?: 'KRW' | 'USD';
 }) {
   const activeMa = MA_LINES.filter((ma) => toggles?.overlays[ma.key]);
   /*
@@ -143,12 +155,12 @@ export default function ChartInfoBar({
             <span className="tabular-nums text-text-secondary">
               {formatChartDateTime(legend.time, isIntraday(candles))}
             </span>
-            <Field label="시" value={legend.open.toFixed(2)} />
-            <Field label="고" value={legend.high.toFixed(2)} />
-            <Field label="저" value={legend.low.toFixed(2)} />
+            <Field label="시" value={formatPrice(legend.open, currency)} />
+            <Field label="고" value={formatPrice(legend.high, currency)} />
+            <Field label="저" value={formatPrice(legend.low, currency)} />
             <Field
               label="종"
-              value={legend.close.toFixed(2)}
+              value={formatPrice(legend.close, currency)}
               // 종가만 등락 색을 준다 — 넷 다 칠하면 어느 것이 등락인지 알 수 없다.
               className={`font-medium ${legend.close >= legend.open ? 'text-bullish' : 'text-bearish'}`}
             />
@@ -165,19 +177,23 @@ export default function ChartInfoBar({
         )}
       </div>
 
+      {/*
+        구간 고저는 차트에 마커로도 찍히지만 여기에도 남긴다 — 마커 글자는 고·저가
+        화면 가장자리에 있으면 잘려서 붙이지 못한다. 이 줄은 언제나 읽을 수 있다.
+      */}
       {(week52 || visible) && (
         <div className="flex min-h-[18px] flex-wrap items-center gap-x-3 gap-y-0.5">
           {week52 && (
             <>
-              <Extreme label="52주↑" price={week52.high} current={current} kind="high" />
-              <Extreme label="52주↓" price={week52.low} current={current} kind="low" />
+              <Extreme label="52주↑" price={week52.high} current={current} kind="high" currency={currency} />
+              <Extreme label="52주↓" price={week52.low} current={current} kind="low" currency={currency} />
             </>
           )}
           {week52 && visible && <span className="text-border">│</span>}
           {visible && (
             <>
-              <Extreme label="구간↑" price={visible.high} current={current} kind="high" />
-              <Extreme label="구간↓" price={visible.low} current={current} kind="low" />
+              <Extreme label="구간↑" price={visible.high} current={current} kind="high" currency={currency} />
+              <Extreme label="구간↓" price={visible.low} current={current} kind="low" currency={currency} />
             </>
           )}
         </div>
@@ -192,7 +208,9 @@ export default function ChartInfoBar({
                 {/* 선 색과 같은 점 — 이름만으로는 차트의 어느 선인지 바로 이어지지 않는다 */}
                 <span aria-hidden>●</span>
                 {ma.label}
-                <span className="tabular-nums">{value != null ? value.toFixed(2) : '—'}</span>
+                <span className="tabular-nums">
+                  {value != null ? formatPrice(value, currency) : '—'}
+                </span>
               </span>
             );
           })}
