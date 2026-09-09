@@ -158,6 +158,68 @@ export const CANDLE_SERIES_OPTIONS = {
   wickDownColor: COLORS.bearish,
 };
 
+/**
+ * 화면에 보이는 구간의 최고·최저를 캔들 시리즈 위에 점선으로 긋는다.
+ *
+ * 별도 시리즈가 아니라 `createPriceLine` 을 쓴다 — 시리즈를 하나 더 만들면 pane 계산과
+ * 크로스헤어 값 목록에 끼어든다. 반환값은 지우는 함수다 (구간이 바뀔 때마다 다시 긋는다).
+ */
+export function drawRangeLines(
+  series: ISeriesApi<'Candlestick'>,
+  extent: { high: number; low: number } | null,
+): () => void {
+  if (!extent) return () => {};
+
+  const lines = [
+    series.createPriceLine({
+      price: extent.high,
+      color: COLORS.bearish,
+      lineWidth: 1,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: '구간 최고',
+    }),
+    series.createPriceLine({
+      price: extent.low,
+      color: COLORS.bullish,
+      lineWidth: 1,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: '구간 최저',
+    }),
+  ];
+
+  return () => {
+    for (const line of lines) {
+      // 차트가 이미 사라진 뒤에 정리가 돌면 던진다 — 그때는 지울 것도 없다.
+      try {
+        series.removePriceLine(line);
+      } catch {
+        /* 시리즈가 이미 제거됨 */
+      }
+    }
+  };
+}
+
+/** 논리 인덱스 구간(줌·스크롤 상태)에서 실제 고·저를 낸다 */
+export function extentOf(
+  candles: Candle[],
+  from: number,
+  to: number,
+): { high: number; low: number } | null {
+  const start = Math.max(0, Math.floor(from));
+  const end = Math.min(candles.length - 1, Math.ceil(to));
+  if (start > end || !candles.length) return null;
+
+  let high = -Infinity;
+  let low = Infinity;
+  for (let i = start; i <= end; i++) {
+    if (candles[i].high > high) high = candles[i].high;
+    if (candles[i].low < low) low = candles[i].low;
+  }
+  return Number.isFinite(high) && Number.isFinite(low) ? { high, low } : null;
+}
+
 export interface RenderedIndicators {
   /** 정리할 때 제거할 시리즈 목록 */
   series: ISeriesApi<'Line' | 'Histogram'>[];

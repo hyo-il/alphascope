@@ -8,6 +8,7 @@ import { fetchExchangeRate, fetchPortfolio } from '../src/services/toss/account'
 import { getFundamentals, getPeers } from './companyService';
 import { getCandles, getCandlesBefore } from './candleService';
 import { summarizeSymbols } from './summaryService';
+import { getRangeStats } from './rangeStatsService';
 import { fetchQuotes } from './quoteService';
 import { catalogSize, findNames, findStock, refreshCatalog, searchStocks } from './stockCatalog';
 import {
@@ -349,6 +350,18 @@ app.get('/api/quotes', async (req, res) => {
 
   try {
     res.json({ quotes: await fetchQuotes(symbols) });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+/** 52주 고저 — 차트 정보 바가 "고점 대비 얼마나 빠졌나" 를 보여 주는 데 쓴다 */
+app.get('/api/stats/52w', async (req, res) => {
+  const symbol = String(req.query.symbol ?? '').trim().toUpperCase();
+  if (!symbol) return res.status(400).json({ error: 'symbol 이 필요합니다.' });
+
+  try {
+    res.json({ stats: await getRangeStats(symbol) });
   } catch (e) {
     fail(res, e);
   }

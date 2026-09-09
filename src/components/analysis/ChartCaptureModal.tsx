@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import CaptureChart, { type CaptureChartHandle } from '../chart/CaptureChart';
 import CapturePreview from './CapturePreview';
 import type { DrawingSnapshot } from '../chart/CandleChart';
-import { captureElementToBlob } from '../../services/analysis/chartCapture';
+import { captureElementToBlob, type CaptureQuality } from '../../services/analysis/chartCapture';
+import { useRangeStats } from '../../hooks/useRangeStats';
 import { useCaptureStore } from '../../store/captureStore';
 import {
   OVERLAY_ITEMS,
@@ -67,10 +68,14 @@ export default function ChartCaptureModal({
   const [includeDrawings, setIncludeDrawings] = useState(drawings.length > 0);
   const [shot, setShot] = useState<Shot | null>(null);
   const [busy, setBusy] = useState(false);
+  /** 캡처 해상도 — 붙여넣을 때의 이미지 토큰이 픽셀 수에 비례한다 */
+  const [quality, setQuality] = useState<CaptureQuality>('low');
   const [error, setError] = useState<string | null>(null);
   /** 다시 캡처했을 때 조정해 둔 범위를 잃지 않도록 들고 있는다 */
   const [range, setRange] = useState(initialRange);
   const setCapture = useCaptureStore((s) => s.setCapture);
+  // 메인 차트와 같은 값을 쓴다 (훅이 모듈 캐시를 공유해 요청이 늘지 않는다).
+  const week52 = useRangeStats(symbol);
 
   // 프리뷰용 objectURL 은 모달이 닫히거나 다시 캡처할 때 놓아 준다.
   useEffect(() => {
@@ -142,7 +147,7 @@ export default function ChartCaptureModal({
       await nextFrame();
       await nextFrame();
 
-      const { blob, width, height } = await captureElementToBlob(element);
+      const { blob, width, height } = await captureElementToBlob(element, quality);
       setShot({ blob, url: URL.createObjectURL(blob), width, height });
     } catch (e) {
       setError(e instanceof Error ? e.message : '캡처에 실패했습니다.');
@@ -268,14 +273,44 @@ export default function ChartCaptureModal({
               toggles={toggles}
               drawings={activeDrawings}
               initialRange={range}
+              week52={week52}
             />
           </div>
 
           <div className="flex shrink-0 items-center justify-between gap-3">
-            <p className="text-[11px] text-text-muted">
-              휠: 확대/축소 · 드래그: 좌우 이동 · Esc: 닫기
-              {error && <span className="ml-2 text-bearish">❌ {error}</span>}
-            </p>
+            <div className="flex min-w-0 items-center gap-3">
+              <p className="text-[11px] text-text-muted">
+                휠: 확대/축소 · 드래그: 좌우 이동 · Esc: 닫기
+                {error && <span className="ml-2 text-bearish">❌ {error}</span>}
+              </p>
+
+              {/*
+                해상도는 캡처 버튼 옆에 둔다 — 고를 일이 캡처 직전뿐이라
+                위쪽 체크박스 줄에 섞으면 매번 찾아야 한다.
+              */}
+              <div className="flex shrink-0 items-center gap-1 text-[11px]">
+                {(
+                  [
+                    ['low', '저화질', '토큰 절약 · 1배'],
+                    ['high', '고화질', '지표선까지 또렷 · 2배'],
+                  ] as const
+                ).map(([value, label, hint]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setQuality(value)}
+                    title={hint}
+                    className={`rounded border px-2 py-0.5 transition-colors ${
+                      quality === value
+                        ? 'border-accent text-accent'
+                        : 'border-border text-text-muted hover:text-text-secondary'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <button
               type="button"
               onClick={() => void handleCapture()}

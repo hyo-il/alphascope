@@ -25,6 +25,7 @@ import Settings from './components/layout/Settings';
 import { useCandleData } from './hooks/useCandleData';
 import { useOrderbook } from './hooks/useOrderbook';
 import { useIndicators } from './hooks/useIndicators';
+import { useRangeStats } from './hooks/useRangeStats';
 import { useRealtimePrice } from './hooks/useRealtimePrice';
 import { useRecentSymbols, useWatchlist } from './hooks/useWatchlist';
 import { useAnalysisTargets } from './hooks/useGemini';
@@ -57,6 +58,8 @@ export default function App() {
   const chartVisible = view === 'chart';
 
   const livePrice = useRealtimePrice(symbol);
+  /** 52주 고저 — 차트 정보 바의 "고점 대비" 에 쓴다 */
+  const week52 = useRangeStats(symbol);
   const orderbook = useOrderbook(symbol, chartVisible);
   const [activeTool, setActiveTool] = useState<DrawingToolType>(null);
   const [drawingCount, setDrawingCount] = useState(0);
@@ -147,6 +150,7 @@ export default function App() {
               onReachPast={loadMore}
               indicators={indicators}
               toggles={toggles}
+              week52={week52}
             />
           )}
         </main>

@@ -16,10 +16,13 @@ import {
 } from 'lightweight-charts';
 import type { Candle, Price } from '../../types/toss';
 import type { IndicatorSeries, IndicatorToggles } from '../../types/chart';
-import ChartInfoBar, { lastAsHover, type HoverInfo } from './ChartInfoBar';
+import ChartInfoBar, { lastAsHover, type HoverInfo, type VisibleExtent } from './ChartInfoBar';
+import type { RangeStats } from '../../hooks/useRangeStats';
 import { cursorFor, type DrawingToolType } from './DrawingTools';
 import {
   BASE_CHART_OPTIONS,
+  drawRangeLines,
+  extentOf,
   PRICE_SCALE_MARGINS,
   dateTimeOptions,
   isIntraday,
@@ -69,6 +72,8 @@ interface Props {
   onReachPast?: () => void;
   indicators?: IndicatorSeries | null;
   toggles?: IndicatorToggles;
+  /** 52주 고저 — 정보 바의 "고점 대비" 에 쓴다 */
+  week52?: RangeStats | null;
 }
 
 export interface CandleChartHandle {
@@ -117,6 +122,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     onReachPast,
     indicators = null,
     toggles,
+    week52,
   },
   ref,
 ) {
@@ -135,6 +141,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
   const renderedCountRef = useRef(0);
 
   const [hover, setHover] = useState<HoverInfo | null>(null);
+  /** 지금 화면에 보이는 구간의 고·저 — 줌·스크롤할 때마다 다시 잰다 */
+  const [visibleExtent, setVisibleExtent] = useState<VisibleExtent | null>(null);
   const [measure, setMeasure] = useState<MeasurePreview | null>(null);
   /**
    * 2점 도구에서 시작점만 찍은 상태. 표시가 없으면 클릭이 먹혔는지 알 수 없어
@@ -278,6 +286,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
       if (!range) return;
       if (range.from < 20) onReachPastRef.current?.();
+      // 구간 고·저는 여기서만 갱신한다 — 줌·스크롤·데이터 추가가 모두 이 이벤트를 거친다.
+      setVisibleExtent(extentOf(candlesRef.current, range.from, range.to));
     });
 
     // ── 마우스 위치 기준 휠 줌 (수정 1·2) ──
@@ -616,6 +626,17 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     renderedCountRef.current = candles.length;
   }, [candles]);
 
+  /*
+   * ── 구간 최고·최저 점선 ──
+   * 값이 바뀔 때마다 지우고 다시 긋는다. createPriceLine 은 갱신 API 가 없고,
+   * 선은 두 개뿐이라 다시 만드는 비용이 없다.
+   */
+  useEffect(() => {
+    const series = candleSeriesRef.current;
+    if (!series || !toggles?.overlays.rangeLines) return;
+    return drawRangeLines(series, visibleExtent);
+  }, [visibleExtent, toggles?.overlays.rangeLines]);
+
   // ── 현재가로 마지막 캔들 갱신 ──
   useEffect(() => {
     const candleSeries = candleSeriesRef.current;
@@ -644,7 +665,14 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
      * 전부 위로 밀린다. 래퍼는 캡처 대상이라 정보 바까지 포함해야 한다.
      */
     <div ref={wrapperRef} className="flex h-full w-full flex-col bg-bg-primary">
-      <ChartInfoBar legend={legend} candles={candles} toggles={toggles} />
+      <ChartInfoBar
+        legend={legend}
+        candles={candles}
+        toggles={toggles}
+        week52={week52}
+        visible={visibleExtent}
+        price={livePrice?.close ?? null}
+      />
 
       <div className="relative min-h-0 flex-1">
         {/* 2점 도구: 찍어 둔 시작점 + 커서까지의 고무줄 선 */}

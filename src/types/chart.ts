@@ -33,7 +33,16 @@ export interface IndicatorSeries {
 }
 
 /** 가격 차트에 겹쳐 그리는 오버레이 지표 */
-export type OverlayIndicator = 'ma5' | 'ma20' | 'ma60' | 'ma120' | 'ema' | 'bb' | 'vwap';
+export type OverlayIndicator =
+  | 'ma5'
+  | 'ma20'
+  | 'ma60'
+  | 'ma120'
+  | 'ema'
+  | 'bb'
+  | 'vwap'
+  /** 화면에 보이는 구간의 최고·최저 수평선. 엔진 지표가 아니라 차트가 직접 그린다. */
+  | 'rangeLines';
 
 /** 하단 별도 패널로 표시하는 지표 */
 export type PanelIndicator = 'volume' | 'rsi' | 'macd' | 'stoch' | 'atr' | 'obv';
@@ -44,7 +53,16 @@ export interface IndicatorToggles {
 }
 
 export const DEFAULT_TOGGLES: IndicatorToggles = {
-  overlays: { ma5: true, ma20: true, ma60: true, ma120: false, ema: false, bb: false, vwap: false },
+  overlays: {
+    ma5: true,
+    ma20: true,
+    ma60: true,
+    ma120: false,
+    ema: false,
+    bb: false,
+    vwap: false,
+    rangeLines: false,
+  },
   panels: { volume: true, rsi: false, macd: false, stoch: false, atr: false, obv: false },
 };
 
@@ -82,6 +100,7 @@ export const OVERLAY_ITEMS: { key: OverlayIndicator; label: string; indent?: boo
   { key: 'ema', label: 'EMA 12·26' },
   { key: 'bb', label: '볼린저밴드' },
   { key: 'vwap', label: 'VWAP' },
+  { key: 'rangeLines', label: '구간 고·저선' },
 ];
 
 export const PANEL_ITEMS: { key: PanelIndicator; label: string }[] = [

@@ -11,13 +11,29 @@ import html2canvas from 'html2canvas';
 
 export type ImageCopyResult = 'copied' | 'unsupported' | 'failed';
 
+/**
+ * 캡처 해상도.
+ *
+ * 붙여넣는 쪽(Claude 대화)에서 이미지 토큰은 **넓이×높이에 비례**한다 — 배율을 절반으로
+ * 낮추면 픽셀이 1/4 이 된다. 캔들의 위치·색을 읽는 데는 1배로도 충분해서 기본값을
+ * 1배로 두고, 얇은 지표선까지 확대해 봐야 할 때만 고화질을 쓴다.
+ * (Retina 의 devicePixelRatio 를 그대로 따르면 2배가 기본이 된다.)
+ */
+export type CaptureQuality = 'low' | 'high';
+
+const SCALE: Record<CaptureQuality, number> = {
+  low: 1,
+  high: Math.min(2, window.devicePixelRatio || 1) || 1,
+};
+
 /** 차트 DOM 을 PNG Blob 으로 캡처한다. */
 export async function captureElementToBlob(
   element: HTMLElement,
+  quality: CaptureQuality = 'low',
 ): Promise<{ blob: Blob; width: number; height: number }> {
   const canvas = await html2canvas(element, {
     backgroundColor: '#141414',
-    scale: window.devicePixelRatio || 1,
+    scale: SCALE[quality],
     logging: false,
     useCORS: true,
   });

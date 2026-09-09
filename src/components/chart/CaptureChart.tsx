@@ -11,9 +11,12 @@ import {
 import type { Candle } from '../../types/toss';
 import { MA_LINES, type IndicatorSeries, type IndicatorToggles } from '../../types/chart';
 import type { DrawingSnapshot } from './CandleChart';
-import ChartInfoBar, { lastAsHover, type HoverInfo } from './ChartInfoBar';
+import ChartInfoBar, { lastAsHover, type HoverInfo, type VisibleExtent } from './ChartInfoBar';
+import type { RangeStats } from '../../hooks/useRangeStats';
 import {
   BASE_CHART_OPTIONS,
+  drawRangeLines,
+  extentOf,
   PRICE_SCALE_MARGINS,
   dateTimeOptions,
   isIntraday,
@@ -31,6 +34,8 @@ interface Props {
   drawings: DrawingSnapshot[];
   /** 처음 보여 줄 범위 — 메인 차트가 보고 있던 구간 */
   initialRange: { from: number; to: number } | null;
+  /** 52주 고저 — 캡처 그림의 정보 바에 함께 찍는다 */
+  week52?: RangeStats | null;
 }
 
 export interface CaptureChartHandle {
@@ -77,7 +82,7 @@ function clampRange(
 }
 
 const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart(
-  { candles, indicators, toggles, drawings, initialRange },
+  { candles, indicators, toggles, drawings, initialRange, week52 },
   ref,
 ) {
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -85,6 +90,7 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
   const chartHostRef = useRef<HTMLDivElement>(null);
   /** 팝업 차트에서도 크로스헤어를 따라 값이 바뀐다 (없으면 마지막 봉) */
   const [hover, setHover] = useState<HoverInfo | null>(null);
+  const [visibleExtent, setVisibleExtent] = useState<VisibleExtent | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const drawingManagerRef = useRef<DrawingManager | null>(null);
@@ -221,6 +227,28 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
     return () => chart.unsubscribeCrosshairMove(onMove);
   }, [candles, indicators]);
 
+  // ── 보이는 구간의 고·저 (정보 바 · 구간 점선) ──
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+
+    const scale = chart.timeScale();
+    const onRange = (range: { from: number; to: number } | null) => {
+      if (range) setVisibleExtent(extentOf(candles, range.from, range.to));
+    };
+
+    scale.subscribeVisibleLogicalRangeChange(onRange);
+    // 구독만으로는 첫 값이 오지 않는다 — 지금 상태로 한 번 잰다.
+    onRange(scale.getVisibleLogicalRange());
+    return () => scale.unsubscribeVisibleLogicalRangeChange(onRange);
+  }, [candles]);
+
+  useEffect(() => {
+    const series = candleSeriesRef.current;
+    if (!series || !toggles.overlays.rangeLines) return;
+    return drawRangeLines(series, visibleExtent);
+  }, [visibleExtent, toggles.overlays.rangeLines]);
+
   // ── 드로잉 복제 ──
   useEffect(() => {
     const manager = drawingManagerRef.current;
@@ -247,6 +275,9 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
         legend={hover ?? lastAsHover(candles, indicators)}
         candles={candles}
         toggles={toggles}
+        week52={week52}
+        visible={visibleExtent}
+        price={candles.at(-1)?.close ?? null}
       />
       <div ref={chartHostRef} className="min-h-0 flex-1" />
     </div>

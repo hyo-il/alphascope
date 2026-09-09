@@ -1,5 +1,6 @@
 import { MA_LINES, type IndicatorSeries, type IndicatorToggles } from '../../types/chart';
 import type { Candle } from '../../types/toss';
+import type { RangeStats } from '../../hooks/useRangeStats';
 import { formatChartDateTime, isIntraday } from './chartTheme';
 
 /**
@@ -52,6 +53,51 @@ export function lastAsHover(
   };
 }
 
+/** 화면에 보이는 구간의 최고·최저 (줌·스크롤할 때마다 다시 잰다) */
+export interface VisibleExtent {
+  high: number;
+  low: number;
+}
+
+/**
+ * 기준가 대비 현재가의 위치.
+ *
+ * 고점 대비는 음수(얼마나 빠졌나), 저점 대비는 양수(얼마나 올랐나)가 정상이다.
+ * 부호를 그대로 색으로 옮기면 둘 다 같은 뜻처럼 보이므로, **역할로 색을 고정한다** —
+ * 고점 줄은 빨강, 저점 줄은 초록. 신고가/신저가만 예외로 표시를 바꾼다.
+ */
+function Extreme({
+  label,
+  price,
+  current,
+  kind,
+}: {
+  label: string;
+  price: number;
+  current: number | null;
+  kind: 'high' | 'low';
+}) {
+  const gap = current != null && price > 0 ? ((current - price) / price) * 100 : null;
+  // 부동소수 비교라 0.05% 안쪽이면 같은 값으로 본다 (장중 갱신 중인 값이다).
+  const atExtreme = gap != null && Math.abs(gap) < 0.05;
+
+  return (
+    <span className="text-text-secondary">
+      {label}{' '}
+      <span className="tabular-nums text-text-primary">{price.toFixed(2)}</span>{' '}
+      <span className={`tabular-nums ${kind === 'high' ? 'text-bearish' : 'text-bullish'}`}>
+        {gap == null
+          ? '—'
+          : atExtreme
+            ? kind === 'high'
+              ? '신고가'
+              : '신저가'
+            : `${gap > 0 ? '+' : ''}${gap.toFixed(1)}%`}
+      </span>
+    </span>
+  );
+}
+
 function Field({ label, value, className = '' }: { label: string; value: string; className?: string }) {
   return (
     <span className="text-text-secondary">
@@ -64,12 +110,26 @@ export default function ChartInfoBar({
   legend,
   candles,
   toggles,
+  week52,
+  visible,
+  price,
 }: {
   legend: HoverInfo | null;
   candles: Candle[];
   toggles?: IndicatorToggles;
+  /** 52주 고저 — 없으면 그 자리만 빈다 */
+  week52?: RangeStats | null;
+  /** 지금 화면에 보이는 구간의 고저 */
+  visible?: VisibleExtent | null;
+  /** 비교 기준이 되는 현재가 (실시간 값이 없으면 마지막 종가) */
+  price?: number | null;
 }) {
   const activeMa = MA_LINES.filter((ma) => toggles?.overlays[ma.key]);
+  /*
+   * 비교 기준은 **현재가**다 (크로스헤어가 짚은 봉이 아니다). 크로스헤어를 따라 바뀌면
+   * "지금 고점에서 얼마나 빠져 있나" 라는 질문에 답하지 못한다.
+   */
+  const current = price ?? candles.at(-1)?.close ?? null;
 
   /*
    * 값이 없어도 자리는 잡아 둔다 (min-h). 크로스헤어가 차트 밖으로 나갈 때마다 줄이
@@ -104,6 +164,24 @@ export default function ChartInfoBar({
           </>
         )}
       </div>
+
+      {(week52 || visible) && (
+        <div className="flex min-h-[18px] flex-wrap items-center gap-x-3 gap-y-0.5">
+          {week52 && (
+            <>
+              <Extreme label="52주↑" price={week52.high} current={current} kind="high" />
+              <Extreme label="52주↓" price={week52.low} current={current} kind="low" />
+            </>
+          )}
+          {week52 && visible && <span className="text-border">│</span>}
+          {visible && (
+            <>
+              <Extreme label="구간↑" price={visible.high} current={current} kind="high" />
+              <Extreme label="구간↓" price={visible.low} current={current} kind="low" />
+            </>
+          )}
+        </div>
+      )}
 
       {activeMa.length > 0 && (
         <div className="flex min-h-[18px] flex-wrap items-center gap-x-3 gap-y-0.5">
