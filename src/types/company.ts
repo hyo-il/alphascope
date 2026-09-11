@@ -41,12 +41,20 @@ export interface Profitability {
 }
 
 export interface Stability {
+  /** 이미 퍼센트 단위다 (145.0 = 145%) */
   debtToEquity: number | null;
   currentRatio: number | null;
   quickRatio: number | null;
   totalCash: number | null;
   totalDebt: number | null;
   freeCashflow: number | null;
+  /** 시장 대비 변동성. 좋고 나쁨이 아니라 성향이라 비교 표에서 색을 칠하지 않는다. */
+  beta?: number | null;
+  /**
+   * 이자보상배율 = 영업이익 / 이자비용.
+   * yfinance `info` 에는 없어서 손익계산서에서 계산한다 — 이자비용이 없는 무차입 기업은 null 이다.
+   */
+  interestCoverage?: number | null;
 }
 
 export interface DividendInfo {

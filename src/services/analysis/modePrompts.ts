@@ -165,7 +165,7 @@ export function buildComparePrompt(
   }
 
   const blocks = valid.map((s, index) => {
-    const label = String.fromCharCode(65 + index); // A, B, C
+    const label = String.fromCharCode(65 + index); // A ~ D (최대 4종목)
     const i = s.indicators;
     const fromHigh =
       s.price != null && i.high52w != null && i.high52w

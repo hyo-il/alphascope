@@ -3,6 +3,7 @@ import ManualAnalysis from './components/analysis/ManualAnalysis';
 import AnalysisHistory from './components/analysis/AnalysisHistory';
 import AIAnalysisView from './components/analysis/AIAnalysisView';
 import CompanyInfo from './components/company/CompanyInfo';
+import CompareView from './components/compare/CompareView';
 import Holdings from './components/portfolio/Holdings';
 import PaperTradingDashboard from './components/paper-trading/PaperTradingDashboard';
 import SurgeDashboard from './components/surge/SurgeDashboard';
@@ -243,7 +244,9 @@ export default function App() {
       view !== 'settings' &&
       view !== 'portfolio' &&
       view !== 'surge' &&
-      view !== 'swing'
+      view !== 'swing' &&
+      // 비교 화면은 종목을 고르기 전에도 쓴다 — 오히려 여기서 두 종목을 담는다.
+      view !== 'compare'
     ) {
       return needSymbol;
     }
@@ -310,6 +313,12 @@ export default function App() {
         );
       case 'company':
         return <CompanyInfo symbol={symbol!} />;
+      /*
+       * 비교 화면은 차트를 직접 들고 언마운트한다 (메인 차트와 규칙이 다르다 —
+       * 캡처 대상이 아니라 화면 밖에 살려 둘 이유가 없다).
+       */
+      case 'compare':
+        return <CompareView initialSymbol={symbol} />;
       case 'portfolio':
         return <Holdings onSelectSymbol={setSymbol} />;
       case 'paper':

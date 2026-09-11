@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import SymbolSearch from '../common/SymbolSearch';
 
 interface Props {
   /** 현재 차트 종목 — 항상 비교에 포함된다 */
@@ -7,18 +7,15 @@ interface Props {
   onChange: (symbols: string[]) => void;
 }
 
-const MAX_EXTRA = 2;
+/** 기준 종목 + 3개 = 4종목. 비교 화면(`compare/CompareView`)과 같은 상한이다. */
+const MAX_EXTRA = 3;
 
 export default function CompareSymbols({ baseSymbol, symbols, onChange }: Props) {
-  const [input, setInput] = useState('');
-
-  const add = (e: React.FormEvent) => {
-    e.preventDefault();
-    const next = input.trim().toUpperCase();
-    if (!next || next === baseSymbol || symbols.includes(next)) return;
+  const add = (next: string) => {
+    const symbol = next.trim().toUpperCase();
+    if (!symbol || symbol === baseSymbol || symbols.includes(symbol)) return;
     if (symbols.length >= MAX_EXTRA) return;
-    onChange([...symbols, next]);
-    setInput('');
+    onChange([...symbols, symbol]);
   };
 
   return (
@@ -44,23 +41,19 @@ export default function CompareSymbols({ baseSymbol, symbols, onChange }: Props)
         ))}
       </div>
 
-      <form onSubmit={add} className="flex gap-1">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="심볼 (예: MSFT)"
-          spellCheck={false}
-          disabled={symbols.length >= MAX_EXTRA}
-          className="min-w-0 flex-1 rounded border border-border bg-bg-tertiary px-2 py-1 text-xs uppercase text-text-primary placeholder:normal-case placeholder:text-text-muted focus:border-accent focus:outline-none disabled:opacity-40"
-        />
-        <button
-          type="submit"
-          disabled={symbols.length >= MAX_EXTRA}
-          className="rounded border border-border px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40"
-        >
-          추가
-        </button>
-      </form>
+      {/*
+        관심 목록과 같은 검색 컴포넌트를 쓴다 — 여기만 평범한 입력창이면
+        "구글" 을 그대로 대문자로 바꿔 담으려 해서 한글 검색이 안 된다.
+      */}
+      <SymbolSearch
+        symbol=""
+        onSubmit={add}
+        placeholder={symbols.length >= MAX_EXTRA ? `최대 ${MAX_EXTRA}개` : '종목명 또는 심볼'}
+        submitLabel="추가"
+        compact
+        clearOnSubmit
+        isAdded={(s) => s === baseSymbol || symbols.includes(s)}
+      />
     </div>
   );
 }

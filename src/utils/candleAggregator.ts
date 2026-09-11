@@ -35,3 +35,36 @@ export function resolveTimeframe(timeframe: Timeframe): {
   if (timeframe === '1d') return { base: '1d', minutes: 0 };
   return { base: '1m', minutes: AGGREGATION_MINUTES[timeframe] ?? 1 };
 }
+
+/**
+ * 일봉을 주봉으로 집계한다 (월요일 시작).
+ *
+ * 토스 `/candles` 는 1m·1d 만 준다. 분봉 집계는 epoch 를 고정 길이로 나누면 되지만
+ * 주는 길이가 고정이라도 경계가 요일이라, 버킷 시작을 직접 구한다.
+ */
+export function aggregateWeekly(candles: Candle[]): Candle[] {
+  const out: Candle[] = [];
+
+  for (const candle of candles) {
+    const date = new Date(candle.timestamp);
+    // getUTCDay: 0=일요일. 월요일을 주의 시작으로 본다.
+    const offset = (date.getUTCDay() + 6) % 7;
+    const weekStart = Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate() - offset,
+    );
+    const current = out.at(-1);
+
+    if (current && current.timestamp === weekStart) {
+      current.high = Math.max(current.high, candle.high);
+      current.low = Math.min(current.low, candle.low);
+      current.close = candle.close;
+      current.volume += candle.volume;
+    } else {
+      out.push({ ...candle, timestamp: weekStart });
+    }
+  }
+
+  return out;
+}

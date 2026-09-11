@@ -24,7 +24,7 @@ export const ANALYSIS_MODES: {
   { id: 'quick', icon: '⚡', label: '간단 분석', description: '핵심 지표만 빠르게' },
   { id: 'multi', icon: '🧠', label: '전문가 분석', description: '5명 AI 전문가 다각도' },
   { id: 'portfolio', icon: '💼', label: '포트폴리오', description: '보유종목 전체 진단' },
-  { id: 'compare', icon: '🔄', label: '비교 분석', description: '2~3 종목 나란히' },
+  { id: 'compare', icon: '🔄', label: '비교 분석', description: '2~4 종목 나란히' },
 ];
 
 /** 여러 종목을 한 번에 분석할 때 쓰는 종목별 요약 (서버 `/api/summary`) */

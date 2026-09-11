@@ -4,6 +4,7 @@ export type ViewId =
   | 'swing'
   | 'analysis'
   | 'company'
+  | 'compare'
   | 'portfolio'
   | 'paper'
   | 'settings';
@@ -20,6 +21,7 @@ const ITEMS: NavItem[] = [
   { id: 'swing', icon: '📈', label: '스윙 추천' },
   { id: 'analysis', icon: '🧠', label: 'AI 분석' },
   { id: 'company', icon: '🏢', label: '기업정보' },
+  { id: 'compare', icon: '⚖️', label: '기업 비교' },
   { id: 'portfolio', icon: '💼', label: '포트폴리오' },
   { id: 'paper', icon: '💰', label: '모의투자' },
 ];

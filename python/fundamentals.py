@@ -81,6 +81,35 @@ def earnings_date(info: dict) -> str | None:
         return None
 
 
+def interest_coverage(financials) -> float | None:
+    """
+    이자보상배율 = 영업이익 / 이자비용.
+
+    yfinance `info` 에는 없어서 손익계산서에서 직접 낸다. 이자비용이 0 이거나
+    항목 자체가 없는(무차입) 기업은 나눌 수 없으므로 None 을 돌려준다 —
+    그런 기업을 '무한대' 로 적으면 비교 표에서 최고값을 독차지한다.
+    """
+    if financials is None or financials.empty:
+        return None
+
+    period = financials.columns[0]
+    ebit = next((row for row in ("EBIT", "Operating Income") if row in financials.index), None)
+    expense = next(
+        (row for row in ("Interest Expense", "Interest Expense Non Operating") if row in financials.index),
+        None,
+    )
+    if ebit is None or expense is None:
+        return None
+
+    try:
+        operating = float(financials.loc[ebit, period])
+        interest = abs(float(financials.loc[expense, period]))
+    except (TypeError, ValueError):
+        return None
+
+    return clean(operating / interest) if interest else None
+
+
 def get_fundamentals(symbol: str) -> dict:
     """한 종목의 기업 정보를 모아 반환한다."""
     ticker, info = resolve_ticker(symbol)
@@ -137,6 +166,8 @@ def get_fundamentals(symbol: str) -> dict:
             "totalCash": pick(info, "totalCash"),
             "totalDebt": pick(info, "totalDebt"),
             "freeCashflow": pick(info, "freeCashflow"),
+            "beta": pick(info, "beta"),
+            "interestCoverage": interest_coverage(ticker.financials),
         },
         "dividend": {
             "yield": pick(info, "dividendYield"),
