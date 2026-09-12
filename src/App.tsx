@@ -38,8 +38,8 @@ import { changeColor, currencyOf, formatPercent, formatPrice } from './utils/for
 
 export default function App() {
   const { symbol, timeframe, isMock, setSymbol, setTimeframe, clearSymbol } = useAppStore();
-  /** 비교 화면이 고른 종목 — 관심 목록 패널이 여기에 담고 뺀다 */
-  const compareSymbols = useAppStore((s) => s.compareSymbols);
+  /** 비교 화면의 4칸 — 관심 목록 패널이 여기에 담고 뺀다 (빈 칸은 null) */
+  const compareSlots = useAppStore((s) => s.compareSlots);
   const toggleCompareSymbol = useAppStore((s) => s.toggleCompareSymbol);
   /*
    * 종목을 아직 고르지 않았으면(symbol === null) 홈은 탐색 화면을 보여 준다.
@@ -479,7 +479,7 @@ export default function App() {
         watch={watch}
         recent={recent}
         compareMode={compareMode}
-        compareSymbols={compareSymbols}
+        compareSymbols={compareSlots.filter((s): s is string => Boolean(s))}
         /*
           비교 화면에서는 클릭이 차트 전환이 아니라 '비교에 담기/빼기' 다.
           팝업으로 한 번 더 묻지 않는다 — 원클릭으로 담기는 것이 이 화면의 기본 동작이다.

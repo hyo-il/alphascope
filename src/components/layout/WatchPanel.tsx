@@ -298,9 +298,9 @@ export default function WatchPanel({
       <p className="border-t border-border px-3 py-1.5 text-[10px] leading-relaxed text-text-muted">
         {compareMode ? (
           <>
-            클릭: 비교에 담기 · ✓ 다시 클릭: 빼기
+            클릭: 빈 칸에 차례로 담기 · ✓ 다시 클릭: 빼기
             <br />
-            드래그: 비교 영역에 놓기
+            드래그: 원하는 칸에 놓기 (찬 칸은 교체)
           </>
         ) : (
           '클릭: 종목 전환 · ⚙️ 에서 폴더·순서 관리'

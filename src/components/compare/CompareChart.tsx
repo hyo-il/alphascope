@@ -61,6 +61,8 @@ interface Props {
   onRemove: () => void;
   /** 표기 통화 — 국내 종목을 $ 로 적지 않는다 */
   currency: 'KRW' | 'USD';
+  /** 몇 번 칸인지 (①②③④) — 드래그로 자리를 고르는 화면이라 번호가 보여야 한다 */
+  slotLabel?: string;
 }
 
 export default function CompareChart({
@@ -73,6 +75,7 @@ export default function CompareChart({
   onTimeframeChange,
   onRemove,
   currency,
+  slotLabel,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -166,6 +169,7 @@ export default function CompareChart({
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col rounded-md border border-border bg-bg-secondary">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1.5">
+        {slotLabel && <span className="shrink-0 text-xs text-text-muted">{slotLabel}</span>}
         {/* 이름이 먼저, 티커가 괄호로 뒤에 — 티커만 단독으로 적지 않는다 */}
         <span className="truncate text-sm font-semibold">
           {name ? `${name} (${symbol})` : symbol}
