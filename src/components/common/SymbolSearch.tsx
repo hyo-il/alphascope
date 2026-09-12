@@ -16,6 +16,13 @@ interface Props {
   isAdded?: (symbol: string) => boolean;
   /** 팝업처럼 검색만 하러 연 자리에서 — 열자마자 바로 칠 수 있게 한다 */
   autoFocus?: boolean;
+  /**
+   * 드롭다운을 위로 열지.
+   *
+   * 기본은 `compact`(관심 목록 입력창이 패널 **맨 아래**에 있어 아래로 열면 잘린다)를 따른다.
+   * 비교 화면의 빈 칸처럼 좁지만 화면 위쪽에 있는 자리는 반대로 위가 잘리므로 끈다.
+   */
+  dropUp?: boolean;
 }
 
 const MARKET_LABEL: Record<string, string> = {
@@ -44,6 +51,7 @@ export default function SymbolSearch({
   clearOnSubmit = false,
   isAdded,
   autoFocus = false,
+  dropUp,
 }: Props) {
   const [value, setValue] = useState(symbol);
   const [results, setResults] = useState<StockSearchResult[]>([]);
@@ -51,7 +59,16 @@ export default function SymbolSearch({
   const [highlight, setHighlight] = useState(0);
   /** 검색 요청이 도는 중 — "결과 없음" 과 "아직 안 옴" 을 구분하기 위해 필요하다 */
   const [searching, setSearching] = useState(false);
+  /**
+   * 한글 IME 가 글자를 조합하는 중.
+   *
+   * 조합 중에는 값이 `ㅇ` → `애` → `애프` → `애플` 로 흔들린다. 서버는 자모로 맞춰 주지만
+   * (`server/hangul.ts`), 그래도 중간 글자에서 "검색 결과가 없습니다" 가 번쩍이면
+   * 사용자는 검색이 안 되는 줄 안다. 조합이 끝날 때까지 그 안내만 접어 둔다.
+   */
+  const [composing, setComposing] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const up = dropUp ?? compact;
 
   useEffect(() => setValue(symbol), [symbol]);
 
@@ -168,6 +185,8 @@ export default function SymbolSearch({
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
+          onCompositionStart={() => setComposing(true)}
+          onCompositionEnd={() => setComposing(false)}
           autoFocus={autoFocus}
           placeholder={placeholder}
           spellCheck={false}
@@ -197,7 +216,7 @@ export default function SymbolSearch({
              * 좁은 패널(관심 목록)의 입력창은 패널 맨 아래에 있다 — 아래로 열면 화면 밖으로
              * 잘리고, 오른쪽으로도 넘친다. 위·오른쪽 기준으로 붙인다.
              */
-            compact ? 'bottom-full right-0 mb-1' : 'left-0 top-full mt-1'
+            up ? 'bottom-full right-0 mb-1' : 'left-0 top-full mt-1'
           }`}
         >
           {results.map((result, index) => (
@@ -247,7 +266,7 @@ export default function SymbolSearch({
       {open && searching && results.length === 0 && (
         <p
           className={`absolute z-40 flex w-80 items-center gap-2 rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs text-text-muted shadow-xl ${
-            compact ? 'bottom-full right-0 mb-1' : 'left-0 top-full mt-1'
+            up ? 'bottom-full right-0 mb-1' : 'left-0 top-full mt-1'
           }`}
         >
           <InlineSpinner />
@@ -255,7 +274,7 @@ export default function SymbolSearch({
         </p>
       )}
 
-      {open && !searching && value.trim() && value.trim() !== symbol && results.length === 0 && (
+      {open && !searching && !composing && value.trim() && value.trim() !== symbol && results.length === 0 && (
         /*
          * ⚠️ 이 안내도 드롭다운과 같은 방향으로 열어야 한다. 관심 목록의 입력창은
          * 패널 맨 아래·오른쪽 끝에 있어서, 아래로 열면 화면 밖으로 잘려 읽을 수 없다.
@@ -263,7 +282,7 @@ export default function SymbolSearch({
          */
         <div
           className={`absolute z-40 w-80 max-w-[calc(100vw-2rem)] space-y-1 rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs shadow-xl ${
-            compact ? 'bottom-full right-0 mb-1' : 'left-0 top-full mt-1'
+            up ? 'bottom-full right-0 mb-1' : 'left-0 top-full mt-1'
           }`}
         >
           <p className="break-keep text-text-secondary">

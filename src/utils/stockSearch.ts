@@ -19,7 +19,13 @@ export async function searchStocksApi(query: string): Promise<StockSearchResult[
   return Array.isArray(payload.results) ? payload.results : [];
 }
 
-/** 한글이 섞여 있으면 심볼일 수 없다 — 검색으로 심볼을 찾아야 한다. */
+/**
+ * 한글이 섞여 있으면 심볼일 수 없다 — 검색으로 심볼을 찾아야 한다.
+ *
+ * ⚠️ **자모(ㄱ-ㅎ, ㅏ-ㅣ)도 한글로 본다.** 조합 중인 글자("애플" 을 치는 도중의 `애프ㄹ`)와
+ * 초성 검색("ㅇㅂㄷㅇ")이 여기에 걸린다. 완성형만 보면 그대로 대문자 심볼로 취급해
+ * 토스에 보내고, `symbol` 은 영문·숫자만 허용하므로 실패한다.
+ */
 export function hasHangul(text: string): boolean {
-  return /[가-힣]/.test(text);
+  return /[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(text);
 }

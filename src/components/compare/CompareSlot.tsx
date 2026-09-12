@@ -123,6 +123,8 @@ export default function CompareSlot({
             compact
             clearOnSubmit
             autoFocus
+            /* 칸은 좁지만 화면 위쪽에 있다 — 위로 열면 1위가 화면 밖으로 잘린다 */
+            dropUp={false}
             isAdded={isAdded}
           />
           <button
