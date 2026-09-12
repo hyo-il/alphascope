@@ -3,6 +3,14 @@ import { useEffect, useState } from 'react';
 interface Props {
   isMock: boolean;
   engineDown: boolean;
+  /**
+   * 어느 설정 화면인지.
+   * - `account` 계좌 연결(토스 API·모의투자)
+   * - `app` 앱 기능(지표 엔진·저장 데이터·조작)
+   *
+   * 한 화면에 다 두면 "어디서 키를 넣더라" 를 스크롤로 찾게 된다.
+   */
+  section: 'account' | 'app';
 }
 
 interface Health {
@@ -16,7 +24,7 @@ interface Health {
 }
 
 /** 설정 · 상태 확인 화면 — 무엇이 연결돼 있고 무엇이 저장돼 있는지 한눈에 보여 준다. */
-export default function Settings({ isMock, engineDown }: Props) {
+export default function Settings({ isMock, engineDown, section }: Props) {
   const [health, setHealth] = useState<Health | null>(null);
   const [cleared, setCleared] = useState<string | null>(null);
 
@@ -41,33 +49,64 @@ export default function Settings({ isMock, engineDown }: Props) {
     setCleared(`${label}을(를) 비웠습니다. 새로고침하면 반영됩니다.`);
   };
 
+  const updatedAt = health && (
+    <p className="pt-2 text-[11px] text-text-muted">
+      마지막 확인: {new Date(health.time).toLocaleString('ko-KR')}
+    </p>
+  );
+
+  if (section === 'account') {
+    return (
+      <div className="h-full overflow-y-auto p-6">
+        <h2 className="mb-4 text-base font-semibold">계좌 설정</h2>
+
+        <section className="mb-6 max-w-2xl">
+          <h3 className="mb-1 text-xs font-medium text-text-secondary">증권사 연결</h3>
+          {/* 키가 있다고 연결된 것은 아니다 — 실제 토큰 발급 결과로 판정한다. */}
+          {row(
+            '토스증권 API',
+            !isMock && (health?.toss ?? false),
+            isMock
+              ? '모의 데이터 (.env 에 키를 넣으세요)'
+              : health?.toss
+                ? '실시간 연결됨'
+                : `연결 실패 — 캐시된 데이터로 동작 중${health?.tossError ? ` (${health.tossError})` : ''}`,
+          )}
+          {updatedAt}
+          <p className="mt-2 text-[11px] leading-relaxed text-text-muted">
+            토스 `CLIENT_ID` · `CLIENT_SECRET` 은 서버의 `.env` 에서만 읽습니다. 브라우저에는
+            키가 내려가지 않으므로 이 화면에서 입력받지 않습니다.
+          </p>
+        </section>
+
+        <section className="max-w-2xl">
+          <h3 className="mb-1.5 text-xs font-medium text-text-secondary">모의투자 계좌</h3>
+          <p className="text-[11px] leading-relaxed text-text-muted">
+            계좌 만들기·초기 자금·초기화는 <b>계좌 &gt; 포트폴리오</b> 에서 계좌를 「모의투자
+            계좌」로 바꾸면 그 화면 안에 있습니다. 설정에 또 두면 같은 조작이 두 곳이 됩니다.
+          </p>
+        </section>
+
+        <p className="mt-6 text-[11px] text-text-muted">
+          ⚠️ 이 앱이 제공하는 모든 분석은 참고용이며 투자 조언이 아닙니다.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full overflow-y-auto p-6">
-      <h2 className="mb-4 text-base font-semibold">설정 · 연결 상태</h2>
+      <h2 className="mb-4 text-base font-semibold">앱 기능 설정</h2>
 
       <section className="mb-6 max-w-2xl">
-        <h3 className="mb-1 text-xs font-medium text-text-secondary">데이터 연결</h3>
-        {/* 키가 있다고 연결된 것은 아니다 — 실제 토큰 발급 결과로 판정한다. */}
-        {row(
-          '토스증권 API',
-          !isMock && (health?.toss ?? false),
-          isMock
-            ? '모의 데이터 (.env 에 키를 넣으세요)'
-            : health?.toss
-              ? '실시간 연결됨'
-              : `연결 실패 — 캐시된 데이터로 동작 중${health?.tossError ? ` (${health.tossError})` : ''}`,
-        )}
+        <h3 className="mb-1 text-xs font-medium text-text-secondary">서비스 상태</h3>
         {row(
           '지표 엔진 (Python)',
           !engineDown && (health?.indicatorEngine ?? false),
           health?.indicatorEngine ? '실행 중 (5001)' : '중지됨 — npm run dev:py',
         )}
         {row('API 서버', health?.ok ?? false, health?.ok ? '실행 중 (4000)' : '응답 없음')}
-        {health && (
-          <p className="pt-2 text-[11px] text-text-muted">
-            마지막 확인: {new Date(health.time).toLocaleString('ko-KR')}
-          </p>
-        )}
+        {updatedAt}
       </section>
 
       <section className="mb-6 max-w-2xl">

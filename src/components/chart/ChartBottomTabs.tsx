@@ -65,7 +65,8 @@ export interface ChartBottomTabsProps {
   /** 차트 화면이 실제로 보이는 중인지 */
   active: boolean;
   /** 사이드 메뉴의 전체 화면으로 이동 */
-  onOpenFullView: (view: 'company' | 'analysis') => void;
+  /** AI 분석 전체 화면으로 — 기업정보는 이 탭이 전부라 이동할 곳이 없다 */
+  onOpenFullView: (view: 'analysis') => void;
 }
 
 export default function ChartBottomTabs(props: ChartBottomTabsProps) {
@@ -187,11 +188,7 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
             />
           )}
           {tab === 'company' && (
-            <CompanySummary
-              symbol={props.symbol}
-              candles={props.candles}
-              onOpenFullView={() => props.onOpenFullView('company')}
-            />
+            <CompanySummary symbol={props.symbol} candles={props.candles} />
           )}
           {tab === 'ai' && (
             <ChartAiPanel

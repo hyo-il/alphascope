@@ -2,10 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import ManualAnalysis from './components/analysis/ManualAnalysis';
 import AnalysisHistory from './components/analysis/AnalysisHistory';
 import AIAnalysisView from './components/analysis/AIAnalysisView';
-import CompanyInfo from './components/company/CompanyInfo';
 import CompareView from './components/compare/CompareView';
-import Holdings from './components/portfolio/Holdings';
-import PaperTradingDashboard from './components/paper-trading/PaperTradingDashboard';
+import PortfolioView from './components/portfolio/PortfolioView';
 import SurgeDashboard from './components/surge/SurgeDashboard';
 import SwingDashboard from './components/swing/SwingDashboard';
 import QuickOrderPanel from './components/chart/QuickOrderPanel';
@@ -20,7 +18,7 @@ import ModalHost from './components/common/Modal';
 import ToastHost from './components/common/Toast';
 import SymbolSearch from './components/common/SymbolSearch';
 import MarketOverview from './components/market/MarketOverview';
-import SideNav, { type ViewId } from './components/layout/SideNav';
+import SideNav from './components/layout/SideNav';
 import WatchPanel from './components/layout/WatchPanel';
 import Settings from './components/layout/Settings';
 import { useCandleData } from './hooks/useCandleData';
@@ -33,6 +31,7 @@ import { useAnalysisTargets } from './hooks/useGemini';
 import { useStockInfo } from './hooks/useStockInfo';
 import { DEFAULT_TOGGLES, type IndicatorToggles } from './types/chart';
 import { useAppStore } from './store/appStore';
+import { pageMeta } from './types/nav';
 import { toast } from './store/uiStore';
 import { changeColor, currencyOf, formatPercent, formatPrice } from './utils/formatters';
 
@@ -53,7 +52,13 @@ export default function App() {
     hasSymbol,
   );
   const chartRef = useRef<CandleChartHandle>(null);
-  const [view, setView] = useState<ViewId>('chart');
+  /** 화면 위치는 스토어에 있다 — 사이드 메뉴가 대메뉴/소메뉴 두 값을 함께 쓴다 */
+  const nav = useAppStore((s) => s.nav);
+  const setPage = useAppStore((s) => s.setPage);
+  const setGroup = useAppStore((s) => s.setGroup);
+  const view = nav.page;
+  /** 포트폴리오를 모의투자 계좌로 열지 (빠른주문의 '모의투자로 가기') */
+  const [portfolioAccount, setPortfolioAccount] = useState<'real' | 'paper'>('real');
   /*
    * 차트는 캡처 대상이라 다른 화면에서도 언마운트하지 않고 화면 밖으로 보낸다.
    * 하지만 보이지 않는 호가·주문 패널까지 계속 폴링할 이유는 없다.
@@ -184,7 +189,10 @@ export default function App() {
               price={displayPrice}
               currency={currency}
               active={chartVisible}
-              onGoToPaperTrading={() => setView('paper')}
+              onGoToPaperTrading={() => {
+                setPortfolioAccount('paper');
+                setPage('portfolio');
+              }}
             />
           )}
         </div>
@@ -208,7 +216,7 @@ export default function App() {
           getChartSnapshot={getChartSnapshot}
           onPromptChange={setLastPrompt}
           active={chartVisible}
-          onOpenFullView={setView}
+          onOpenFullView={setPage}
         />
       )}
 
@@ -236,7 +244,7 @@ export default function App() {
         <p className="text-xs text-text-muted">종목을 먼저 선택하세요.</p>
         <button
           type="button"
-          onClick={() => setView('chart')}
+          onClick={() => setPage('chart')}
           className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover"
         >
           🏠 홈에서 종목 고르기
@@ -246,19 +254,12 @@ export default function App() {
   );
 
   const mainContent = () => {
-    // 급등 탐지는 종목을 고르기 전에도 의미가 있다 — 오히려 여기서 종목을 고른다.
-    if (
-      !symbol &&
-      view !== 'paper' &&
-      view !== 'settings' &&
-      view !== 'portfolio' &&
-      view !== 'surge' &&
-      view !== 'swing' &&
-      // 비교 화면은 종목을 고르기 전에도 쓴다 — 오히려 여기서 두 종목을 담는다.
-      view !== 'compare'
-    ) {
-      return needSymbol;
-    }
+    /*
+     * 종목을 골라야 의미가 있는 화면인지는 메뉴 정의(`types/nav.ts`)가 안다 —
+     * 여기에 화면 이름을 하나씩 나열하면 새 화면이 생길 때마다 빠뜨린다.
+     * (급등 탐지·비교는 오히려 여기서 종목을 고른다.)
+     */
+    if (!symbol && pageMeta(view)?.needsSymbol) return needSymbol;
 
     switch (view) {
       case 'analysis':
@@ -297,12 +298,12 @@ export default function App() {
             watchlist={watchlist}
             onSelectSymbol={(next) => {
               setSymbol(next);
-              setView('chart');
+              setPage('chart');
             }}
             onWatch={add}
             onAnalyze={(next) => {
               setSymbol(next);
-              setView('analysis');
+              setPage('analysis');
             }}
           />
         );
@@ -312,16 +313,14 @@ export default function App() {
             watchlist={watchlist}
             onSelectSymbol={(next) => {
               setSymbol(next);
-              setView('chart');
+              setPage('chart');
             }}
             onAnalyze={(next) => {
               setSymbol(next);
-              setView('analysis');
+              setPage('analysis');
             }}
           />
         );
-      case 'company':
-        return <CompanyInfo symbol={symbol!} />;
       /*
        * 비교 화면은 차트를 직접 들고 언마운트한다 (메인 차트와 규칙이 다르다 —
        * 캡처 대상이 아니라 화면 밖에 살려 둘 이유가 없다).
@@ -329,11 +328,17 @@ export default function App() {
       case 'compare':
         return <CompareView initialSymbol={symbol} />;
       case 'portfolio':
-        return <Holdings onSelectSymbol={setSymbol} />;
-      case 'paper':
-        return <PaperTradingDashboard symbol={symbol ?? 'AAPL'} onSelectSymbol={setSymbol} />;
-      case 'settings':
-        return <Settings isMock={isMock} engineDown={engineDown} />;
+        return (
+          <PortfolioView
+            symbol={symbol ?? 'AAPL'}
+            onSelectSymbol={setSymbol}
+            initialAccount={portfolioAccount}
+          />
+        );
+      case 'settings-account':
+        return <Settings isMock={isMock} engineDown={engineDown} section="account" />;
+      case 'settings-app':
+        return <Settings isMock={isMock} engineDown={engineDown} section="app" />;
       case 'chart':
       default:
         return null; // 차트는 항상 마운트해 두고 아래에서 따로 배치한다.
@@ -349,7 +354,12 @@ export default function App() {
       <MarketOverview />
 
       <div className="flex min-h-0 flex-1">
-      <SideNav view={view} onChange={setView} />
+      <SideNav
+        page={nav.page}
+        group={nav.group}
+        onSelectPage={setPage}
+        onSelectGroup={setGroup}
+      />
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* 종목 헤더 — 어느 화면에서든 현재 종목이 보이게 유지한다 */}
@@ -363,7 +373,7 @@ export default function App() {
                 type="button"
                 onClick={() => {
                   clearSymbol();
-                  setView('chart');
+                  setPage('chart');
                 }}
                 title="종목 선택 해제"
                 className="text-sm leading-none text-text-muted transition-colors hover:text-text-primary"

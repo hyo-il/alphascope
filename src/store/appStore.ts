@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Timeframe } from '../types/toss';
 import { MAX_COMPARE_SYMBOLS } from '../types/compare';
+import { groupOf, NAV_GROUPS, type NavGroupId, type NavPageId } from '../types/nav';
 
 /** 관심 목록 클릭 한 번의 결과 — 호출부가 안내 문구를 고른다 */
 export type CompareToggleResult = 'added' | 'removed' | 'full';
@@ -9,6 +10,12 @@ export type CompareToggleResult = 'added' | 'removed' | 'full';
 export const COMPARE_SLOT_COUNT = MAX_COMPARE_SYMBOLS;
 
 const emptySlots = (): (string | null)[] => Array(COMPARE_SLOT_COUNT).fill(null);
+
+/** 지금 보고 있는 화면 (대메뉴 → 소메뉴) */
+export interface NavState {
+  group: NavGroupId;
+  page: NavPageId;
+}
 
 interface AppState {
   /** 선택된 종목. null 이면 아직 고르지 않은 상태(종목 탐색 화면) */
@@ -27,6 +34,15 @@ interface AppState {
    * 비교 화면을 나가면 비운다 (`CompareView` 언마운트).
    */
   compareSlots: (string | null)[];
+  /**
+   * 화면 위치. 대메뉴를 함께 들고 있는 이유는 **소메뉴 없이 대메뉴만 펼친 상태**가
+   * 있기 때문이다 — 다른 대메뉴를 눌러 목록만 열어 보는 동안에도 보던 화면은 그대로다.
+   */
+  nav: NavState;
+  /** 소메뉴 이동 — 속한 대메뉴도 함께 펼친다 */
+  setPage: (page: NavPageId) => void;
+  /** 대메뉴 클릭 — 목록을 펼치고 첫 소메뉴로 간다 */
+  setGroup: (group: NavGroupId) => void;
   setSymbol: (symbol: string | null) => void;
   /** 종목 선택을 해제하고 탐색 화면으로 돌아간다 */
   clearSymbol: () => void;
@@ -49,6 +65,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   timeframe: '1d',
   isMock: false,
   compareSlots: emptySlots(),
+  nav: { group: 'chart', page: 'chart' },
+  setPage: (page) => set({ nav: { group: groupOf(page), page } }),
+  setGroup: (group) => {
+    const first = NAV_GROUPS.find((g) => g.id === group)?.pages[0];
+    if (first) set({ nav: { group, page: first.id } });
+  },
   setSymbol: (symbol) => set({ symbol: symbol ? normalize(symbol) : null }),
   clearSymbol: () => set({ symbol: null }),
   setTimeframe: (timeframe) => set({ timeframe }),

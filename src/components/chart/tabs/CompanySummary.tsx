@@ -9,7 +9,7 @@ import { formatCompactMoney } from '../../../utils/formatters';
 /**
  * 차트 하단의 기업정보 요약.
  *
- * 사이드 메뉴의 `CompanyInfo` 는 지표 24개를 한 화면에 펼친다 — 좁은 하단 탭에서는
+ * 예전 사이드 메뉴의 기업정보 화면은 지표 24개를 한 화면에 펼쳤다 — 좁은 하단 탭에서는
  * 스크롤만 길어진다. 여기서는 **매매 판단에 바로 쓰는 값**만 남기고, 재무제표·동종업계는
  * 같은 컴포넌트를 서브탭으로 재사용한다. 서버 캐시(24시간)를 그대로 타므로
  * 전체 화면을 오가도 다시 부르지 않는다.
@@ -52,11 +52,9 @@ function Metric({ label, value, note }: { label: string; value: string; note?: s
 export default function CompanySummary({
   symbol,
   candles,
-  onOpenFullView,
 }: {
   symbol: string;
   candles: Candle[];
-  onOpenFullView: () => void;
 }) {
   const [tab, setTab] = useState<SubTab>('basic');
   const { data, loading, error } = useFundamentals(symbol, true);
@@ -82,13 +80,6 @@ export default function CompanySummary({
           {item.label}
         </button>
       ))}
-      <button
-        type="button"
-        onClick={onOpenFullView}
-        className="ml-auto px-2 py-1 text-[11px] text-text-muted transition-colors hover:text-accent"
-      >
-        전체 화면으로 ↗
-      </button>
     </div>
   );
 
