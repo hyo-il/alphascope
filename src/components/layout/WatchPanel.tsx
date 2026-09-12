@@ -6,6 +6,7 @@ import type { useWatchlist } from '../../hooks/useWatchlist';
 import { DEFAULT_FOLDER_ID } from '../../types/watchlist';
 import { useQuotes } from '../../hooks/useQuotes';
 import { useStockNames } from '../../hooks/useStockNames';
+import { COMPARE_DRAG_TYPE } from '../../types/compare';
 import { formatPercent, formatPrice } from '../../utils/formatters';
 
 interface Props {
@@ -18,6 +19,13 @@ interface Props {
   onRemoveRecent: (symbol: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  /**
+   * 기업 비교 화면에서는 클릭의 뜻이 달라진다 — 차트 전환이 아니라 비교에 담기/빼기다.
+   * 비교는 검색이 아니라 **관심 목록에서 고르는 것이 기본 방법**이라 패널이 그 자리를 맡는다.
+   */
+  compareMode?: boolean;
+  /** 지금 비교 중인 종목 — ✓ 와 배경색으로 표시한다 */
+  compareSymbols?: string[];
 }
 
 type PanelTab = 'watch' | 'recent';
@@ -62,6 +70,8 @@ export default function WatchPanel({
   onRemoveRecent,
   collapsed,
   onToggleCollapse,
+  compareMode = false,
+  compareSymbols = [],
 }: Props) {
   const [tab, setTab] = useState<PanelTab>('watch');
   /** 관리 팝업 — 폴더·종목 조작은 전부 저기서 한다 */
@@ -174,6 +184,8 @@ export default function WatchPanel({
               nameOf={names}
               onSelect={onSelect}
               onToggle={watch.toggleFolder}
+              compareMode={compareMode}
+              selectedSymbols={compareSymbols}
             />
           ))
         ) : recent.length === 0 ? (
@@ -193,29 +205,36 @@ export default function WatchPanel({
                     ? 'text-bearish'
                     : 'text-text-secondary';
 
+            const picked = compareMode && compareSymbols.includes(symbol);
+            const highlighted = compareMode ? picked : symbol === currentSymbol;
+
             return (
               <div
                 key={symbol}
                 className={`group flex items-center transition-colors hover:bg-bg-tertiary/60 ${
-                  symbol === currentSymbol ? 'bg-accent/10' : ''
+                  highlighted ? 'bg-accent/10' : ''
                 }`}
               >
                 <button
                   type="button"
                   onClick={() => onSelect(symbol)}
+                  draggable={compareMode}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData(COMPARE_DRAG_TYPE, symbol);
+                    e.dataTransfer.setData('text/plain', symbol);
+                    e.dataTransfer.effectAllowed = 'copy';
+                  }}
                   className="flex min-w-0 flex-1 items-center justify-between py-2 pl-3 pr-1 text-left"
                 >
                   <span className="flex min-w-0 flex-col">
                     <span
                       className={`truncate text-xs font-medium ${
-                        symbol === currentSymbol ? 'text-accent' : 'text-text-primary'
+                        highlighted ? 'text-accent' : 'text-text-primary'
                       }`}
                     >
-                      {names(symbol) || symbol}
+                      {picked && <span className="mr-1 text-accent">✓</span>}
+                      {names(symbol) ? `${names(symbol)} (${symbol})` : symbol}
                     </span>
-                    {names(symbol) && (
-                      <span className="truncate text-[11px] text-text-muted">{symbol}</span>
-                    )}
                   </span>
                   <span
                     className="shrink-0 text-right"
@@ -276,8 +295,16 @@ export default function WatchPanel({
         )
       )}
 
-      <p className="border-t border-border px-3 py-1.5 text-[10px] text-text-muted">
-        클릭: 종목 전환 · ⚙️ 에서 폴더·순서 관리
+      <p className="border-t border-border px-3 py-1.5 text-[10px] leading-relaxed text-text-muted">
+        {compareMode ? (
+          <>
+            클릭: 비교에 담기 · ✓ 다시 클릭: 빼기
+            <br />
+            드래그: 비교 영역에 놓기
+          </>
+        ) : (
+          '클릭: 종목 전환 · ⚙️ 에서 폴더·순서 관리'
+        )}
       </p>
 
       {managing && <WatchlistManager watch={watch} onClose={() => setManaging(false)} />}

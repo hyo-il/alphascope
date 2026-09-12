@@ -14,6 +14,8 @@ interface Props {
   clearOnSubmit?: boolean;
   /** 이미 담긴 종목인지 — 드롭다운에 '추가됨' 을 붙인다 */
   isAdded?: (symbol: string) => boolean;
+  /** 팝업처럼 검색만 하러 연 자리에서 — 열자마자 바로 칠 수 있게 한다 */
+  autoFocus?: boolean;
 }
 
 const MARKET_LABEL: Record<string, string> = {
@@ -23,6 +25,9 @@ const MARKET_LABEL: Record<string, string> = {
   NYSE: 'NYSE',
   AMEX: 'AMEX',
 };
+
+/** 미국 시장은 한 덩어리로 묶어 배지에 'US' 로 적는다 (서버 정렬도 미국을 앞에 둔다) */
+const US_MARKETS = new Set(['NASDAQ', 'NYSE', 'AMEX']);
 
 /**
  * 종목 검색 — 한글 종목명 자동완성.
@@ -38,6 +43,7 @@ export default function SymbolSearch({
   compact = false,
   clearOnSubmit = false,
   isAdded,
+  autoFocus = false,
 }: Props) {
   const [value, setValue] = useState(symbol);
   const [results, setResults] = useState<StockSearchResult[]>([]);
@@ -162,6 +168,7 @@ export default function SymbolSearch({
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
+          autoFocus={autoFocus}
           placeholder={placeholder}
           spellCheck={false}
           className={`rounded-md border border-border bg-bg-tertiary text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none ${
@@ -203,15 +210,33 @@ export default function SymbolSearch({
                   index === highlight ? 'bg-bg-tertiary' : ''
                 }`}
               >
-                <span className="min-w-0 flex-1 truncate font-medium text-text-primary">
-                  {result.name}
+                {/*
+                  `NVDA — 엔비디아 [US]` 형식. 티커를 앞에 두는 이유는 영문 티커로 찾는
+                  경우가 많아 방금 친 글자가 맨 앞에서 바로 확인되기 때문이고,
+                  **이름 없이 티커만 적지는 않는다** — 어떤 종목인지 떠오르지 않는다.
+                */}
+                <span className="w-16 shrink-0 font-medium tabular-nums text-accent">
+                  {result.symbol}
                 </span>
-                <span className="w-16 shrink-0 tabular-nums text-accent">{result.symbol}</span>
-                <span className="shrink-0 text-[10px] text-text-muted">
-                  {isAdded?.(result.symbol)
-                    ? '추가됨'
-                    : (MARKET_LABEL[result.market] ?? result.market)}
+                <span className="min-w-0 flex-1 truncate text-text-primary">
+                  <span className="text-text-muted">— </span>
+                  {result.englishName || result.name}
+                  {result.englishName && result.name && result.englishName !== result.name && (
+                    <span className="ml-1 text-text-muted">{result.name}</span>
+                  )}
                 </span>
+                <span
+                  className={`shrink-0 rounded px-1 py-0.5 text-[10px] ${
+                    US_MARKETS.has(result.market)
+                      ? 'bg-accent/15 text-accent'
+                      : 'bg-bg-tertiary text-text-muted'
+                  }`}
+                >
+                  {US_MARKETS.has(result.market) ? 'US' : (MARKET_LABEL[result.market] ?? result.market)}
+                </span>
+                {isAdded?.(result.symbol) && (
+                  <span className="shrink-0 text-[10px] text-text-muted">추가됨</span>
+                )}
               </button>
             </li>
           ))}

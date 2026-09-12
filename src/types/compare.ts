@@ -22,6 +22,14 @@ export const COMPARE_TIMEFRAMES: { value: CompareTimeframe; label: string }[] = 
   { value: '1w', label: '주봉' },
 ];
 
+/**
+ * 관심 목록 → 비교 영역 드래그에 쓰는 데이터 형식.
+ *
+ * `text/plain` 도 함께 넣지만, 드롭을 받을 때는 이 전용 타입이 있는지로 판단한다 —
+ * 바깥에서 끌어온 아무 텍스트나 종목으로 받아들이지 않기 위해서다.
+ */
+export const COMPARE_DRAG_TYPE = 'application/x-alphascope-symbol';
+
 /** 종목 하나의 캔들 적재 상태 */
 export interface CompareChartData {
   symbol: string;

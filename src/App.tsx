@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ManualAnalysis from './components/analysis/ManualAnalysis';
 import AnalysisHistory from './components/analysis/AnalysisHistory';
 import AIAnalysisView from './components/analysis/AIAnalysisView';
@@ -38,6 +38,9 @@ import { changeColor, currencyOf, formatPercent, formatPrice } from './utils/for
 
 export default function App() {
   const { symbol, timeframe, isMock, setSymbol, setTimeframe, clearSymbol } = useAppStore();
+  /** 비교 화면이 고른 종목 — 관심 목록 패널이 여기에 담고 뺀다 */
+  const compareSymbols = useAppStore((s) => s.compareSymbols);
+  const toggleCompareSymbol = useAppStore((s) => s.toggleCompareSymbol);
   /*
    * 종목을 아직 고르지 않았으면(symbol === null) 홈은 탐색 화면을 보여 준다.
    * 심볼에 기대는 훅들은 전부 enabled 가드로 아무것도 부르지 않게 둔다 —
@@ -57,6 +60,8 @@ export default function App() {
    * 현재가는 헤더에 늘 표시되므로 화면과 무관하게 계속 받는다.
    */
   const chartVisible = view === 'chart';
+  /** 비교 화면에서는 관심 목록이 종목을 고르는 자리다 — 접혀 있으면 아무것도 고를 수 없다 */
+  const compareMode = view === 'compare';
 
   const livePrice = useRealtimePrice(symbol);
   /** 52주 고저 — 차트 정보 바의 "고점 대비" 에 쓴다 */
@@ -68,6 +73,10 @@ export default function App() {
   const [toggles, setToggles] = useState<IndicatorToggles>(DEFAULT_TOGGLES);
   // 히스토리 화면에서 '방금 쓴 프롬프트'를 함께 저장하기 위해 App 이 들고 있는다.
   const [lastPrompt, setLastPrompt] = useState({ mode: 'multi', text: '' });
+
+  useEffect(() => {
+    if (compareMode) setPanelCollapsed(false);
+  }, [compareMode]);
 
   const watch = useWatchlist();
   const { watchlist, add, toggle } = watch;
@@ -469,7 +478,22 @@ export default function App() {
         currentSymbol={symbol ?? ''}
         watch={watch}
         recent={recent}
-        onSelect={setSymbol}
+        compareMode={compareMode}
+        compareSymbols={compareSymbols}
+        /*
+          비교 화면에서는 클릭이 차트 전환이 아니라 '비교에 담기/빼기' 다.
+          팝업으로 한 번 더 묻지 않는다 — 원클릭으로 담기는 것이 이 화면의 기본 동작이다.
+        */
+        onSelect={
+          compareMode
+            ? (next) => {
+                const result = toggleCompareSymbol(next);
+                if (result === 'full') {
+                  toast.warning('최대 4개까지 비교 가능합니다', '하나를 빼고 담으세요');
+                }
+              }
+            : setSymbol
+        }
         onRemoveRecent={removeRecent}
         collapsed={panelCollapsed}
         onToggleCollapse={() => setPanelCollapsed((v) => !v)}

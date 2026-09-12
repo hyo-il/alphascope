@@ -1,7 +1,7 @@
 import type { StockSearchResult } from '../src/types/toss';
 import { tossGet } from '../src/services/toss/httpClient';
 import { getDb } from './db';
-import { symbolsByAlias } from './stockAliases';
+import { englishNameOf, symbolsByAlias } from './stockAliases';
 
 /**
  * 전종목 카탈로그 — 한글 종목명 검색을 위한 로컬 캐시.
@@ -139,6 +139,13 @@ export function searchStocks(query: string, limit = 12): StockSearchResult[] {
                WHEN symbol LIKE ? THEN 1
                WHEN name LIKE ? THEN 2
                ELSE 3 END,
+          /*
+           * ⚠️ 같은 순위 안에서는 **미국 종목을 앞에 둔다.** 이 앱은 미국 주식용인데,
+           * "엔비디아" 를 치면 NVDA 다음이 전부 국내 엔비디아 관련 ETF 라
+           * "한국 ETF 만 나온다" 로 보였다 (실제 신고). 국내 종목을 빼지는 않는다 —
+           * 삼성전자도 조회하는 앱이다.
+           */
+          CASE WHEN market IN ('NASDAQ','NYSE','AMEX') THEN 0 ELSE 1 END,
           LENGTH(name),
           symbol
         LIMIT ?`,
@@ -147,7 +154,10 @@ export function searchStocks(query: string, limit = 12): StockSearchResult[] {
 
   // 별칭으로 찾은 종목을 앞에 두고, 중복은 뺀다.
   const seen = new Set(aliasRows.map((row) => row.symbol));
-  return [...aliasRows, ...rows.filter((row) => !seen.has(row.symbol))].slice(0, limit);
+  return [...aliasRows, ...rows.filter((row) => !seen.has(row.symbol))]
+    .slice(0, limit)
+    // 카탈로그의 영문명은 비어 있다 — 별칭에 적어 둔 영문명으로 채운다.
+    .map((row) => ({ ...row, englishName: row.englishName || englishNameOf(row.symbol) }));
 }
 
 /** 심볼 하나의 정보 (헤더에 종목명을 띄울 때 쓴다) */

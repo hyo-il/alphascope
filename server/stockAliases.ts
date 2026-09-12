@@ -122,3 +122,18 @@ export function symbolsByAlias(query: string): string[] {
   }
   return [...found];
 }
+
+/**
+ * 별칭 중 영문 이름 하나.
+ *
+ * 토스 카탈로그의 `english_name` 은 **비어 있다**. 검색 결과에 `NVDA — 엔비디아` 처럼
+ * 한글 정식명만 뜨는데, 영문 티커로 찾은 사람에게는 영문명이 함께 보이는 편이 낫다.
+ * 별칭 목록에 이미 영문명을 적어 두었으므로(라틴 문자만인 항목) 그걸 쓴다.
+ */
+export function englishNameOf(symbol: string): string | null {
+  const aliases = STOCK_ALIASES[symbol.toUpperCase()];
+  if (!aliases) return null;
+  // 약어(MS·BOA)보다 제대로 된 이름을 고른다 — 뒤쪽에 적어 두었고 보통 더 길다.
+  const latin = aliases.filter((alias) => /^[A-Za-z][A-Za-z0-9 .&'-]*$/.test(alias));
+  return latin.sort((a, b) => b.length - a.length)[0] ?? null;
+}

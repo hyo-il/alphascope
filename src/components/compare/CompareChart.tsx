@@ -166,9 +166,10 @@ export default function CompareChart({
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col rounded-md border border-border bg-bg-secondary">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1.5">
-        {/* 이름이 먼저, 티커가 뒤다 */}
-        <span className="truncate text-sm font-semibold">{name || symbol}</span>
-        {name && <span className="shrink-0 text-[11px] text-text-secondary">{symbol}</span>}
+        {/* 이름이 먼저, 티커가 괄호로 뒤에 — 티커만 단독으로 적지 않는다 */}
+        <span className="truncate text-sm font-semibold">
+          {name ? `${name} (${symbol})` : symbol}
+        </span>
 
         {last && (
           <span className="shrink-0 text-xs tabular-nums">{formatPrice(last.close, currency)}</span>
