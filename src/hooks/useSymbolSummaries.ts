@@ -22,23 +22,35 @@ export function useSymbolSummaries(symbols: string[], nonce = 0) {
     }
 
     const controller = new AbortController();
+    /*
+     * ⚠️ `.finally` 는 abort 된 요청에서도 돈다. 종목을 하나 더 담으면 옛 요청이 끊기면서
+     * 새 요청의 `setLoading(true)` 를 곧바로 덮어써, 아직 오지 않은 표가 완성된 것처럼
+     * 보였다. 취소 여부를 플래그로 들고 상태를 건드리지 않는다.
+     */
+    let cancelled = false;
     setLoading(true);
     setError(null);
 
     fetch(`/api/summary?symbols=${key}`, { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
+        if (cancelled) return;
         if (data.error) throw new Error(data.error);
         setSummaries(data.summaries ?? []);
       })
       .catch((e: unknown) => {
-        if (e instanceof DOMException && e.name === 'AbortError') return;
+        if (cancelled) return;
         setError(e instanceof Error ? e.message : String(e));
         setSummaries([]);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-    return () => controller.abort();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, nonce]);
 
