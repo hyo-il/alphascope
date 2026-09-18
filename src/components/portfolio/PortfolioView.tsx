@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Holdings from './Holdings';
 import PaperTradingDashboard from '../paper-trading/PaperTradingDashboard';
 
@@ -22,10 +22,27 @@ interface Props {
   onSelectSymbol: (symbol: string) => void;
   /** 모의투자 계좌로 열지 — 빠른주문 패널의 '모의투자로 가기' 가 여기로 온다 */
   initialAccount?: AccountKind;
+  /**
+   * 열고 나면 호출한다 — `initialAccount` 는 **일회성 의도**다.
+   * 소비한 뒤 되돌리지 않으면, 빠른주문으로 한 번 들어온 사용자는 이후 사이드 메뉴로
+   * 들어갈 때마다 모의투자 계좌가 먼저 열린다 (기본은 실제 계좌다).
+   */
+  onMounted?: () => void;
 }
 
-export default function PortfolioView({ symbol, onSelectSymbol, initialAccount = 'real' }: Props) {
+export default function PortfolioView({
+  symbol,
+  onSelectSymbol,
+  initialAccount = 'real',
+  onMounted,
+}: Props) {
   const [account, setAccount] = useState<AccountKind>(initialAccount);
+
+  useEffect(() => {
+    onMounted?.();
+    // 마운트 시 한 번만 — 이후 계좌 전환은 이 화면 안의 선택이다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
