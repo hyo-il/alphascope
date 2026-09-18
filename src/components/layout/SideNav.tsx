@@ -128,7 +128,13 @@ export default function SideNav({ page, group, onSelectPage, onSelectGroup }: Pr
           AS
         </button>
 
-        <div className="flex-1 overflow-y-auto">{MAIN_GROUPS.map(collapsedGroup)}</div>
+        {/*
+          ⚠️ 여기에 `overflow-y-auto` 를 두면 안 된다. 한 축이 visible 이 아니면 다른 축도
+          잘리므로(CSS 규격), `left-full` 로 띄우는 플라이아웃이 z-index 와 무관하게 잘린다.
+          대메뉴는 넷뿐이라 스크롤이 필요 없다 — 메뉴가 더 늘어 스크롤이 필요해지면
+          플라이아웃을 `position: fixed` 로 바꿔야 한다.
+        */}
+        <div className="flex-1">{MAIN_GROUPS.map(collapsedGroup)}</div>
 
         {/* 설정은 스크롤과 무관하게 늘 맨 아래에 보인다 */}
         {SETTINGS_GROUP && (
