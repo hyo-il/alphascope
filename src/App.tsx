@@ -36,7 +36,17 @@ import { toast } from './store/uiStore';
 import { changeColor, currencyOf, formatPercent, formatPrice } from './utils/formatters';
 
 export default function App() {
-  const { symbol, timeframe, isMock, setSymbol, setTimeframe, clearSymbol } = useAppStore();
+  /*
+   * ⚠️ `useAppStore()` 를 인자 없이 부르면 **스토어의 모든 변화**를 구독한다.
+   * App 은 차트를 들고 있는 최상위라, 비교 화면에서 슬롯을 하나 바꿀 때마다
+   * 화면 전체가 다시 렌더됐다. 쓰는 값만 골라 구독한다.
+   */
+  const symbol = useAppStore((s) => s.symbol);
+  const timeframe = useAppStore((s) => s.timeframe);
+  const isMock = useAppStore((s) => s.isMock);
+  const setSymbol = useAppStore((s) => s.setSymbol);
+  const setTimeframe = useAppStore((s) => s.setTimeframe);
+  const clearSymbol = useAppStore((s) => s.clearSymbol);
   /** 비교 화면의 4칸 — 관심 목록 패널이 여기에 담고 뺀다 (빈 칸은 null) */
   const compareSlots = useAppStore((s) => s.compareSlots);
   const toggleCompareSymbol = useAppStore((s) => s.toggleCompareSymbol);
