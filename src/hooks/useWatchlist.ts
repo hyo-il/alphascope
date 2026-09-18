@@ -93,11 +93,58 @@ function newFolderId(): string {
   return `folder_${Date.now().toString(36)}_${folderSeq}`;
 }
 
+/*
+ * ⚠️ 이 훅은 여러 화면에서 각각 호출된다 (App 헤더 · 자동 분석 패널 …).
+ * useState 만 쓰면 인스턴스마다 **독립된 복사본**이 생겨, 헤더의 ☆ 로 담은 종목이
+ * 다른 화면에는 반영되지 않는다. localStorage 는 같은 탭 안에서 storage 이벤트를
+ * 쏘지 않아 동기화 경로가 없다 — 그래서 모듈 수준에서 구독자를 들고 직접 깨운다.
+ */
+type FolderListener = (folders: WatchFolder[]) => void;
+const folderListeners = new Set<FolderListener>();
+function broadcastFolders(next: WatchFolder[]): void {
+  for (const listener of folderListeners) listener(next);
+}
+
+/**
+ * 저장 + 전 인스턴스 갱신을 한자리에 모은다 (한쪽만 하면 화면이 갈린다).
+ *
+ * ⚠️ 이 함수는 setState 업데이터 **안에서** 불린다. 거기서 곧바로 broadcast 하면
+ * 다른 컴포넌트의 setState 를 렌더 도중 호출하게 되어 React 가 경고를 낸다.
+ * 저장은 즉시 하고, 다른 인스턴스 깨우기만 마이크로태스크로 미룬다.
+ */
+function persistFolders(folders: WatchFolder[]): WatchFolder[] {
+  write(FOLDERS_KEY, folders);
+  // 옛 키도 함께 갱신한다 — 형식을 되돌릴 일이 생겨도 목록이 남아 있게.
+  write(FLAT_KEY, folders.flatMap((f) => f.symbols));
+  queueMicrotask(() => broadcastFolders(folders));
+  return folders;
+}
+
+/** 최근 조회도 같은 이유로 인스턴스가 갈린다 (패널 · 자동 분석 패널) */
+type RecentListener = (recent: string[]) => void;
+const recentListeners = new Set<RecentListener>();
+function persistRecent(recent: string[]): string[] {
+  write(RECENT_KEY, recent);
+  // 폴더와 같은 이유로 미룬다 (업데이터 안에서 불린다).
+  queueMicrotask(() => {
+    for (const listener of recentListeners) listener(recent);
+  });
+  return recent;
+}
+
 export function useWatchlist() {
   const [folders, setFolders] = useState<WatchFolder[]>(readFolders);
   const [lastFolderId, setLastFolderId] = useState<string>(
     () => localStorage.getItem(LAST_FOLDER_KEY) ?? DEFAULT_FOLDER_ID,
   );
+
+  // 다른 인스턴스가 목록을 바꾸면 이쪽도 따라 바뀐다.
+  useEffect(() => {
+    folderListeners.add(setFolders);
+    return () => {
+      folderListeners.delete(setFolders);
+    };
+  }, []);
 
   /** 폴더 순서 그대로 펼친 전체 종목 — 별 토글·급등·스윙이 쓰는 평면 목록 */
   const watchlist = useMemo(() => folders.flatMap((f) => f.symbols), [folders]);
@@ -119,11 +166,7 @@ export function useWatchlist() {
         ? next
         : [...next, prev.find((f) => f.id === DEFAULT_FOLDER_ID) ?? emptyDefault()];
 
-      const normalized = normalize(merged);
-      write(FOLDERS_KEY, normalized);
-      // 옛 키도 함께 갱신한다 — 형식을 되돌릴 일이 생겨도 목록이 남아 있게.
-      write(FLAT_KEY, normalized.flatMap((f) => f.symbols));
-      return normalized;
+      return persistFolders(normalize(merged));
     });
   }, []);
 
@@ -143,12 +186,9 @@ export function useWatchlist() {
       setFolders((prev) => {
         if (prev.some((f) => f.symbols.includes(next))) return prev;
         const target = prev.some((f) => f.id === folderId) ? folderId! : lastFolderId;
-        const updated = normalize(
-          prev.map((f) => (f.id === target ? { ...f, symbols: [...f.symbols, next] } : f)),
+        return persistFolders(
+          normalize(prev.map((f) => (f.id === target ? { ...f, symbols: [...f.symbols, next] } : f))),
         );
-        write(FOLDERS_KEY, updated);
-        write(FLAT_KEY, updated.flatMap((f) => f.symbols));
-        return updated;
       });
     },
     [lastFolderId],
@@ -156,12 +196,9 @@ export function useWatchlist() {
 
   const remove = useCallback((symbol: string) => {
     setFolders((prev) => {
-      const updated = normalize(
-        prev.map((f) => ({ ...f, symbols: f.symbols.filter((s) => s !== symbol) })),
+      return persistFolders(
+        normalize(prev.map((f) => ({ ...f, symbols: f.symbols.filter((s) => s !== symbol) }))),
       );
-      write(FOLDERS_KEY, updated);
-      write(FLAT_KEY, updated.flatMap((f) => f.symbols));
-      return updated;
     });
   }, []);
 
@@ -301,28 +338,28 @@ export function useRecentSymbols(currentSymbol: string) {
   const [recent, setRecent] = useState<string[]>(() => readStrings(RECENT_KEY));
 
   useEffect(() => {
+    recentListeners.add(setRecent);
+    return () => {
+      recentListeners.delete(setRecent);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!currentSymbol) return;
     setRecent((prev) => {
-      const updated = [currentSymbol, ...prev.filter((s) => s !== currentSymbol)].slice(
-        0,
-        RECENT_LIMIT,
+      if (prev[0] === currentSymbol) return prev;
+      return persistRecent(
+        [currentSymbol, ...prev.filter((s) => s !== currentSymbol)].slice(0, RECENT_LIMIT),
       );
-      write(RECENT_KEY, updated);
-      return updated;
     });
   }, [currentSymbol]);
 
   const remove = useCallback((symbol: string) => {
-    setRecent((prev) => {
-      const updated = prev.filter((s) => s !== symbol);
-      write(RECENT_KEY, updated);
-      return updated;
-    });
+    setRecent((prev) => persistRecent(prev.filter((s) => s !== symbol)));
   }, []);
 
   const clear = useCallback(() => {
-    setRecent([]);
-    write(RECENT_KEY, []);
+    persistRecent([]);
   }, []);
 
   return { recent, remove, clear };
