@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { PaperPositionValued } from '../../types/paper';
+import type { Quote } from '../../types/toss';
 import { useQuotes } from '../../hooks/useQuotes';
 import SymbolSearch from './SymbolSearch';
 import { useStockNames } from '../../hooks/useStockNames';
@@ -49,6 +50,22 @@ export default function StockExplorer({ onSelect, watchlist, recent }: Props) {
     };
   }, []);
 
+  const held = holdings.map((h) => h.symbol);
+  /*
+   * ⚠️ 시세·이름은 **여기서 한 번만** 받는다.
+   * 섹션마다 폴러를 두면 인기·관심·보유·최근이 각자 1초 간격으로 돌아, 섹션에 겹쳐 있는
+   * 종목(AAPL 은 보통 셋에 동시에 있다)을 초당 여러 번 받는다 —
+   * CLAUDE.md 의 「같은 데이터를 두 번 받지 않는다」 원칙에 어긋난다.
+   */
+  const allSymbols = useMemo(
+    () => [...new Set([...POPULAR, ...watchlist, ...held, ...recent])],
+    // held 는 매 렌더 새 배열이라 내용으로 의존성을 만든다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [watchlist.join(','), held.join(','), recent.join(',')],
+  );
+  const quotes = useQuotes(allSymbols);
+  const names = useStockNames(allSymbols);
+
   const section = (title: string, symbols: string[], empty?: string) => {
     if (!symbols.length) {
       return empty ? (
@@ -61,7 +78,7 @@ export default function StockExplorer({ onSelect, watchlist, recent }: Props) {
     return (
       <section key={title} className="space-y-2">
         <h3 className="text-xs font-medium text-text-secondary">{title}</h3>
-        <SymbolGrid symbols={symbols} onSelect={onSelect} />
+        <SymbolGrid symbols={symbols} quotes={quotes} nameOf={names} onSelect={onSelect} />
       </section>
     );
   };
@@ -81,21 +98,28 @@ export default function StockExplorer({ onSelect, watchlist, recent }: Props) {
 
         {section('인기 종목', POPULAR)}
         {section('관심 종목', watchlist, '관심 목록이 비어 있습니다. 종목 화면의 ☆ 로 담아 보세요.')}
-        {section(
-          '보유 종목 (모의투자)',
-          holdings.map((h) => h.symbol),
-        )}
+        {section('보유 종목 (모의투자)', held)}
         {section('최근 조회', recent)}
       </div>
     </div>
   );
 }
 
-/** 종목 카드 묶음 — 현재가·등락률을 한 번에 받아 채운다. */
-function SymbolGrid({ symbols, onSelect }: { symbols: string[]; onSelect: (s: string) => void }) {
-  const quotes = useQuotes(symbols);
-  const names = useStockNames(symbols);
-
+/**
+ * 종목 카드 묶음 — **순수 표시 컴포넌트다.**
+ * 시세·이름 조회는 부모가 전 섹션을 합쳐 한 번만 한다 (여기서 받으면 섹션 수만큼 폴러가 는다).
+ */
+function SymbolGrid({
+  symbols,
+  quotes,
+  nameOf,
+  onSelect,
+}: {
+  symbols: string[];
+  quotes: Record<string, Quote | undefined>;
+  nameOf: (symbol: string) => string | null | undefined;
+  onSelect: (s: string) => void;
+}) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
       {symbols.map((symbol) => {
@@ -113,9 +137,9 @@ function SymbolGrid({ symbols, onSelect }: { symbols: string[]; onSelect: (s: st
           >
             <span className="flex min-w-0 items-baseline gap-1.5">
               <span className="truncate text-sm font-semibold text-text-primary">
-                {names(symbol) || symbol}
+                {nameOf(symbol) || symbol}
               </span>
-              {names(symbol) && (
+              {nameOf(symbol) && (
                 <span className="shrink-0 text-[11px] text-text-secondary">{symbol}</span>
               )}
             </span>
