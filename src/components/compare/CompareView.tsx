@@ -126,7 +126,12 @@ export default function CompareView({ initialSymbol }: Props) {
               onTimeframeChange={(next) =>
                 symbol && setTimeframes((prev) => ({ ...prev, [symbol]: next }))
               }
-              onRemove={() => removeSlot(index)}
+              onRemove={() => {
+                // 뺀 종목의 타임프레임 설정도 함께 버린다 — 남겨 두면 다시 담았을 때
+                // 예전에 고른 값이 되살아나, 나가면 선택을 비우는 이 화면의 규칙과 어긋난다.
+                if (symbol) setTimeframes(({ [symbol]: _removed, ...rest }) => rest);
+                removeSlot(index);
+              }}
               onPlace={(next) => setSlot(index, next)}
               isAdded={(candidate) => slots.includes(candidate)}
             />

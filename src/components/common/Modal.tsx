@@ -51,6 +51,9 @@ export default function ModalHost() {
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="alphascope-modal-title"
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-6"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) cancel();
@@ -58,7 +61,12 @@ export default function ModalHost() {
     >
       <div className="w-full max-w-sm rounded-lg border border-border bg-bg-secondary shadow-xl">
         <div className="border-b border-border px-4 py-3">
-          <h2 className="text-sm font-medium text-text-primary">{request.title}</h2>
+          <h2
+            id="alphascope-modal-title"
+            className="text-sm font-medium text-text-primary"
+          >
+            {request.title}
+          </h2>
         </div>
 
         <div className="space-y-3 px-4 py-4">

@@ -67,6 +67,7 @@ export default function AIAnalysisView({
         {TABS.map((item) => (
           <button
             key={item.id}
+            type="button"
             onClick={() => setTab(item.id)}
             className={`border-b-2 px-3 py-2 text-sm transition-colors ${
               tab === item.id

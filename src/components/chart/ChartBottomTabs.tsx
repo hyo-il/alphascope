@@ -126,7 +126,16 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
 
   // 창을 줄이면 저장된 높이가 화면보다 커질 수 있다.
   useEffect(() => {
-    const onResize = () => setHeight((current) => Math.min(maxHeight(), current));
+    /*
+     * 접힌 상태는 그대로 둔다. 펼친 상태는 MIN_EXPANDED 하한을 지켜야 한다 —
+     * 없으면 작은 창에서 드래그가 일부러 건너뛴 38~200px 구간에 갇힌다.
+     */
+    const onResize = () =>
+      setHeight((current) =>
+        current <= HEADER_HEIGHT + 8
+          ? current
+          : Math.min(maxHeight(), Math.max(MIN_EXPANDED, current)),
+      );
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
