@@ -181,7 +181,8 @@ export default function AutoTradePanel({
           </select>
           {accounts.length === 0 && (
             <span className="mt-1 block text-[11px] text-warning">
-              모의투자 계좌가 없습니다. '모의투자' 메뉴에서 먼저 만드세요.
+              모의투자 계좌가 없습니다. <b>계좌 &gt; 포트폴리오</b> 에서 계좌를 「모의투자
+              계좌」로 바꾸면 거기서 만들 수 있습니다.
             </span>
           )}
         </label>
