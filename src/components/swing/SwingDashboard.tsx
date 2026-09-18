@@ -4,6 +4,7 @@ import { usePaperQuickBuy } from '../../hooks/usePaperQuickBuy';
 import SwingRecommendationCard from './SwingRecommendationCard';
 import SwingSearch from './SwingSearch';
 import SwingHistory from './SwingHistory';
+import SavedRecommendations from './SavedRecommendations';
 import StockName from '../common/StockName';
 import type { SwingGrade, SwingRecommendation } from '../../types/swing';
 
@@ -120,7 +121,19 @@ export default function SwingDashboard({
               </p>
             ) : null}
 
-            {!result && !loading && watchlist.length > 0 && (
+            {/*
+              이번 세션에서 아직 돌리지 않았어도 저장된 마지막 추천을 보여 준다 —
+              화면을 오갈 때마다 빈 화면에서 다시 시작하지 않게.
+            */}
+            {!result && !loading && (
+              <SavedRecommendations
+                records={saved.records}
+                analyzedAt={saved.analyzedAt}
+                onSelectSymbol={onSelectSymbol}
+              />
+            )}
+
+            {!result && !loading && !saved.records.length && watchlist.length > 0 && (
               <p className="rounded-lg border border-border bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
                 [🔄 다시 분석] 을 누르면 관심 종목을 5가지 조건으로 채점합니다.
               </p>
