@@ -11,7 +11,14 @@
   --color-bg-tertiary: #2a2a2a;
   --color-text-primary: #e0e0e0;
   --color-text-secondary: #999999;
-  --color-text-muted: #666666;
+  /*
+   * ⚠️ #666666 은 본문 배경(#141414) 위에서 대비 3.21:1 로 WCAG AA(4.5:1) 미달이었다.
+   * 이 토큰은 10~11px 안내 문구에 주로 쓰여 "큰 글자 예외" 에도 해당하지 않는다.
+   * #808080 은 4.66:1 (bg-secondary 4.22:1)이고 secondary(#999999)와도 단계가 남는다.
+   * bg-tertiary(#2a2a2a) 위에서는 3.63:1 이라 여전히 작은 글자에는 빠듯하다 —
+   * 그 자리에는 text-secondary 를 쓰는 편이 낫다.
+   */
+  --color-text-muted: #808080;
   --color-accent: #3182f6; /* 토스 블루 */
   --color-accent-hover: #4b93f8;
   --color-bullish: #26a69a;
