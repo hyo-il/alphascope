@@ -12,10 +12,18 @@ import { DEFAULT_FOLDER_ID, DEFAULT_FOLDER_NAME, type WatchFolder } from '../typ
  * (되돌릴 일이 생겨도 목록이 남아 있게).
  */
 
-const FOLDERS_KEY = 'alphascope.watchlistFolders';
-const WATCHLIST_KEY = 'alphascope.watchlist';
-const LAST_FOLDER_KEY = 'alphascope.watchlistLastFolder';
-const RECENT_KEY = 'alphascope.recent';
+/*
+ * ⚠️ 저장 키는 여기 한 곳이다. 설정 화면의 '비우기' 가 키 문자열을 따로 적어 두는 바람에
+ * **폴더 키를 빼먹고 옛 키만 지워** 아무것도 지워지지 않았다 (읽기는 폴더 키가 먼저다).
+ */
+export const FOLDERS_KEY = 'alphascope.watchlistFolders';
+/** 폴더가 없던 시절의 평면 목록 — 하위 호환용 미러다 */
+export const FLAT_KEY = 'alphascope.watchlist';
+export const LAST_FOLDER_KEY = 'alphascope.watchlistLastFolder';
+export const RECENT_KEY = 'alphascope.recent';
+
+/** 관심 목록을 이루는 키 전부 — 하나라도 빠지면 '비우기' 가 되살아난다 */
+export const WATCHLIST_KEYS = [FOLDERS_KEY, FLAT_KEY, LAST_FOLDER_KEY] as const;
 const RECENT_LIMIT = 20;
 
 function readStrings(key: string): string[] {
@@ -76,7 +84,7 @@ function readFolders(): WatchFolder[] {
     // 손상된 값이면 아래 마이그레이션으로 내려간다.
   }
   // 폴더가 없던 시절의 목록을 '미분류' 로 옮긴다.
-  return normalize([emptyDefault(readStrings(WATCHLIST_KEY))]);
+  return normalize([emptyDefault(readStrings(FLAT_KEY))]);
 }
 
 let folderSeq = 0;
@@ -114,7 +122,7 @@ export function useWatchlist() {
       const normalized = normalize(merged);
       write(FOLDERS_KEY, normalized);
       // 옛 키도 함께 갱신한다 — 형식을 되돌릴 일이 생겨도 목록이 남아 있게.
-      write(WATCHLIST_KEY, normalized.flatMap((f) => f.symbols));
+      write(FLAT_KEY, normalized.flatMap((f) => f.symbols));
       return normalized;
     });
   }, []);
@@ -139,7 +147,7 @@ export function useWatchlist() {
           prev.map((f) => (f.id === target ? { ...f, symbols: [...f.symbols, next] } : f)),
         );
         write(FOLDERS_KEY, updated);
-        write(WATCHLIST_KEY, updated.flatMap((f) => f.symbols));
+        write(FLAT_KEY, updated.flatMap((f) => f.symbols));
         return updated;
       });
     },
@@ -152,7 +160,7 @@ export function useWatchlist() {
         prev.map((f) => ({ ...f, symbols: f.symbols.filter((s) => s !== symbol) })),
       );
       write(FOLDERS_KEY, updated);
-      write(WATCHLIST_KEY, updated.flatMap((f) => f.symbols));
+      write(FLAT_KEY, updated.flatMap((f) => f.symbols));
       return updated;
     });
   }, []);

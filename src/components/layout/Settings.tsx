@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+// 키 문자열을 여기에 다시 적지 않는다 — 옛 키만 지워 '비우기' 가 동작하지 않던 원인이다.
+import { RECENT_KEY, WATCHLIST_KEYS } from '../../hooks/useWatchlist';
 
 interface Props {
   isMock: boolean;
@@ -44,8 +46,8 @@ export default function Settings({ isMock, engineDown, section }: Props) {
     </div>
   );
 
-  const clearStorage = (key: string, label: string) => {
-    localStorage.removeItem(key);
+  const clearStorage = (keys: readonly string[], label: string) => {
+    for (const key of keys) localStorage.removeItem(key);
     setCleared(`${label}을(를) 비웠습니다. 새로고침하면 반영됩니다.`);
   };
 
@@ -114,14 +116,14 @@ export default function Settings({ isMock, engineDown, section }: Props) {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => clearStorage('alphascope.watchlist', '관심 목록')}
+            onClick={() => clearStorage(WATCHLIST_KEYS, '관심 목록')}
             className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
           >
             관심 목록 비우기
           </button>
           <button
             type="button"
-            onClick={() => clearStorage('alphascope.recent', '최근 조회')}
+            onClick={() => clearStorage([RECENT_KEY], '최근 조회')}
             className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
           >
             최근 조회 비우기
@@ -141,7 +143,8 @@ export default function Settings({ isMock, engineDown, section }: Props) {
           <li>· 드래그: 차트 좌우 이동</li>
           <li>· Esc: 드로잉 도구 해제 · Delete: 선택한 드로잉 삭제</li>
           <li>· 드로잉 우클릭: 삭제 메뉴 · 드로잉 클릭: ✕ 버튼</li>
-          <li>· 관심 목록 우클릭: 종목 삭제</li>
+          <li>· 관심 목록 ⚙️: 폴더 · 순서 · 삭제 관리</li>
+          <li>· 차트 하단 탭 경계 드래그: 높이 조절 · 더블클릭: 기본 높이</li>
         </ul>
       </section>
 
