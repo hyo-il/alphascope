@@ -17,6 +17,8 @@ interface Props {
   onSelect: (symbol: string) => void;
   /** 최근 조회에서 제거 */
   onRemoveRecent: (symbol: string) => void;
+  /** 최근 조회 전체 비우기 — forEach 로 N번 지우면 setState 가 그만큼 연쇄된다 */
+  onClearRecent: () => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
   /**
@@ -68,6 +70,7 @@ export default function WatchPanel({
   recent,
   onSelect,
   onRemoveRecent,
+  onClearRecent,
   collapsed,
   onToggleCollapse,
   compareMode = false,
@@ -286,7 +289,7 @@ export default function WatchPanel({
         recent.length > 0 && (
           <button
             type="button"
-            onClick={() => recent.forEach(onRemoveRecent)}
+            onClick={onClearRecent}
             className="flex items-center justify-center gap-1.5 border-t border-border py-2 text-xs text-text-muted transition-colors hover:text-bearish"
           >
             <TrashIcon className="h-3.5 w-3.5" />
