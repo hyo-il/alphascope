@@ -59,6 +59,11 @@ export default function QuickOrderPanel({
   const account = accounts.find((a) => a.id === accountId) ?? null;
   useStockNames([symbol, ...positions.map((p) => p.symbol)]);
 
+  const selectAccount = (id: number) => {
+    setAccountId(id);
+    localStorage.setItem(ACCOUNT_KEY, String(id));
+  };
+
   /*
    * 계좌 목록과 잔고·보유·미체결을 같은 주기로 읽는다.
    * 계좌 목록을 마운트 시 한 번만 읽으면, 모의투자 화면에서 계좌를 만들고 돌아왔을 때
@@ -76,19 +81,20 @@ export default function QuickOrderPanel({
         const fetched: PaperAccount[] = list.accounts ?? [];
         setAccounts(fetched);
 
-        const active =
-          fetched.find((a) => a.id === accountId) ?? fetched[0] ?? null;
-        if (!active) {
+        // 이름을 `active` 로 두면 "차트가 보이는가" 를 뜻하는 prop 을 가린다.
+        const selected = fetched.find((a) => a.id === accountId) ?? fetched[0] ?? null;
+        if (!selected) {
           setPositions([]);
           setOrders([]);
           setCash(0);
           return;
         }
-        if (active.id !== accountId) setAccountId(active.id);
+        // 자동으로 고른 계좌도 저장한다 — 모의투자 대시보드와 같은 계좌를 봐야 한다.
+        if (selected.id !== accountId) selectAccount(selected.id);
 
         const [detail, orderList] = await Promise.all([
-          fetch(`/api/paper/accounts/${active.id}`).then((r) => r.json()),
-          fetch(`/api/paper/orders?accountId=${active.id}`).then((r) => r.json()),
+          fetch(`/api/paper/accounts/${selected.id}`).then((r) => r.json()),
+          fetch(`/api/paper/orders?accountId=${selected.id}`).then((r) => r.json()),
         ]);
         if (cancelled) return;
         setPositions(detail.positions ?? []);
@@ -114,13 +120,13 @@ export default function QuickOrderPanel({
     };
   }, [accountId, version, active]);
 
-  const selectAccount = (id: number) => {
-    setAccountId(id);
-    localStorage.setItem(ACCOUNT_KEY, String(id));
-  };
-
   const position = positions.find((p) => p.symbol === symbol) ?? null;
-  const pending = orders.filter((o) => o.status === 'PENDING');
+  /*
+   * ⚠️ 이 패널은 **한 종목 전용**이다 (헤더·수량·예상금액이 전부 그 종목 기준).
+   * 계좌 전체의 미체결을 세면 건수가 엉뚱하고, [전체 취소] 가 다른 종목의
+   * 지정가 주문까지 지운다. 계좌 전체 취소가 필요하면 모의투자 대시보드에서 한다.
+   */
+  const pending = orders.filter((o) => o.status === 'PENDING' && o.symbol === symbol);
   /*
    * 종목 통화로 환산한 현금.
    * 보유 종목에서 환율을 역산하면 첫 매수 전에는 값이 없어 "구매가능 0주" 가 된다 —
@@ -237,13 +243,13 @@ export default function QuickOrderPanel({
   const cancelAll = () => {
     if (!pending.length) return;
     modal.confirm({
-      title: '미체결 주문 전체 취소',
-      message: `대기 중인 지정가 주문 ${pending.length}건을 모두 취소합니다.`,
-      confirmText: '전체 취소',
+      title: `${symbol} 미체결 주문 취소`,
+      message: `${symbol} 의 대기 중인 지정가 주문 ${pending.length}건을 취소합니다. 다른 종목의 주문은 그대로 남습니다.`,
+      confirmText: `${symbol} 주문 취소`,
       danger: true,
       onConfirm: async () => {
         await Promise.allSettled(pending.map((o) => cancelPaperOrder(o.id)));
-        toast.success(`주문 ${pending.length}건을 취소했습니다.`);
+        toast.success(`${symbol} 주문 ${pending.length}건을 취소했습니다.`);
         refresh();
       },
     });
@@ -439,7 +445,7 @@ export default function QuickOrderPanel({
           disabled={!pending.length}
           className="w-full rounded border border-border py-1 text-[11px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40"
         >
-          전체 취소 {pending.length > 0 && `(${pending.length})`}
+          {symbol} 주문 취소 {pending.length > 0 && `(${pending.length})`}
         </button>
 
         {/* 내 정보 */}
@@ -462,7 +468,7 @@ export default function QuickOrderPanel({
           ) : (
             <p className="text-[11px] text-text-muted">보유하지 않은 종목입니다</p>
           )}
-          {info('미체결 주문', `${pending.length}건`)}
+          {info(`미체결 (${symbol})`, `${pending.length}건`)}
         </div>
       </div>
     </div>
