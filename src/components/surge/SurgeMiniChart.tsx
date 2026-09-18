@@ -1,3 +1,5 @@
+import { COLORS } from '../chart/chartTheme';
+
 /**
  * 급등 이력 미니 차트 — 순수 SVG.
  *
@@ -46,7 +48,7 @@ export default function SurgeMiniChart({
               y={height - barHeight}
               width={2}
               height={barHeight}
-              fill="#26A69A"
+              fill={COLORS.bullish}
               rx={0.5}
             >
               <title>{`${event.date} +${event.changePercent.toFixed(1)}%`}</title>

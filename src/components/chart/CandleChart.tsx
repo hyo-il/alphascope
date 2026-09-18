@@ -706,7 +706,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
               cy={pending.y}
               r={3.5}
               fill={COLORS.accent}
-              stroke="#FFFFFF"
+              stroke={COLORS.handleRing}
               strokeWidth={1.5}
             />
             {!measure && pending.percent !== null && (

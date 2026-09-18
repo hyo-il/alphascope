@@ -34,6 +34,8 @@ export const COLORS = {
   accent: '#3182F6',
   label: '#E0E0E0',
   tooltipBg: '#1E1E1EE6',
+  /** 앵커 점의 테두리 — 어떤 캔들 위에서도 보이도록 순백을 쓴다 */
+  handleRing: '#FFFFFF',
 };
 
 export const INDICATOR_COLORS = {

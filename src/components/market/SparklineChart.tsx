@@ -1,3 +1,5 @@
+import { COLORS } from '../chart/chartTheme';
+
 interface Props {
   data: number[];
   /** 상승/하락에 따라 선과 채움 색이 바뀐다 */
@@ -31,7 +33,8 @@ export default function SparklineChart({ data, isUp, width = 120, height = 40 }:
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   });
 
-  const color = isUp ? '#26A69A' : '#EF5350';
+  // 색은 chartTheme 한 곳에서 받는다 — 여기에 값을 적으면 토큰을 바꿔도 이곳만 남는다.
+  const color = isUp ? COLORS.bullish : COLORS.bearish;
   const gradientId = `spark-${isUp ? 'up' : 'down'}`;
 
   return (
