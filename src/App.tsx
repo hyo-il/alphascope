@@ -85,7 +85,7 @@ export default function App() {
 
   const watch = useWatchlist();
   const { watchlist, add, toggle } = watch;
-  const { recent, remove: removeRecent } = useRecentSymbols(symbol ?? '');
+  const { recent, remove: removeRecent, clear: clearRecent } = useRecentSymbols(symbol ?? '');
   const stockInfo = useStockInfo(symbol);
   /** 헤더의 [+분석] — 지금 보는 종목을 자동 분석 대상에 담는다 */
   const analysisTargets = useAnalysisTargets();
@@ -333,6 +333,8 @@ export default function App() {
             symbol={symbol ?? 'AAPL'}
             onSelectSymbol={setSymbol}
             initialAccount={portfolioAccount}
+            /* 'paper' 는 빠른주문에서 넘어온 일회성 의도다 — 다음 진입은 실제 계좌로 연다 */
+            onMounted={() => setPortfolioAccount('real')}
           />
         );
       case 'settings-account':
@@ -364,7 +366,10 @@ export default function App() {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* 종목 헤더 — 어느 화면에서든 현재 종목이 보이게 유지한다 */}
         <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-3">
-          <SymbolSearch symbol={symbol ?? ''} onSubmit={setSymbol} />
+          {/* 검색 입력은 주어진 폭을 채운다 — 헤더에서는 이 래퍼가 폭을 잡는다 */}
+          <div className="w-52 shrink-0">
+            <SymbolSearch symbol={symbol ?? ''} onSubmit={setSymbol} />
+          </div>
 
           {symbol ? (
             <>
@@ -505,6 +510,7 @@ export default function App() {
             : setSymbol
         }
         onRemoveRecent={removeRecent}
+        onClearRecent={clearRecent}
         collapsed={panelCollapsed}
         onToggleCollapse={() => setPanelCollapsed((v) => !v)}
       />

@@ -162,6 +162,14 @@ export default function SymbolSearch({
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    /*
+     * Esc 는 결과 유무와 무관하게 받는다 — "결과가 없습니다" 안내가 떠 있을 때도
+     * 닫을 수 있어야 한다. 예전에는 아래 가드에 먼저 걸려 마우스로 바깥을 눌러야 했다.
+     */
+    if (e.key === 'Escape') {
+      setOpen(false);
+      return;
+    }
     if (!open || results.length === 0) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -169,13 +177,12 @@ export default function SymbolSearch({
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setHighlight((h) => (h - 1 + results.length) % results.length);
-    } else if (e.key === 'Escape') {
-      setOpen(false);
     }
   };
 
   return (
-    <div ref={rootRef} className="relative">
+    /* 폭은 바깥 래퍼가 정한다 — 여기서는 주어진 폭을 그대로 채운다 */
+    <div ref={rootRef} className="relative w-full">
       <form onSubmit={submit} className="flex items-center gap-1.5">
         <input
           value={value}
@@ -191,11 +198,21 @@ export default function SymbolSearch({
           placeholder={placeholder}
           spellCheck={false}
           className={`rounded-md border border-border bg-bg-tertiary text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none ${
-            compact ? 'min-w-0 flex-1 py-1 pl-2 pr-6 text-xs' : 'w-48 py-1.5 pl-2.5 pr-7 text-sm'
+            /*
+             * 폭은 **바깥 래퍼가 정한다.** 여기서 w-48 로 고정하면 탐색 홈처럼 가운데
+             * 정렬된 자리(max-w-md)에서 입력만 왼쪽에 쏠려 축이 어긋나 보인다.
+             * 헤더는 감싸는 div 가 w-48 shrink-0 으로 폭을 잡아 준다.
+             */
+            compact ? 'min-w-0 flex-1 py-1 pl-2 pr-6 text-xs' : 'min-w-0 flex-1 py-1.5 pl-2.5 pr-7 text-sm'
           }`}
         />
+        {/* 음수 마진으로 맞추면 compact(pr-6)와 기본(pr-7)에서 자리가 달라진다 */}
         {searching && (
-          <InlineSpinner className="pointer-events-none -ml-8 mr-[18px]" />
+          <InlineSpinner
+            className={`pointer-events-none absolute top-1/2 -translate-y-1/2 ${
+              compact ? 'right-[4.25rem]' : 'right-[4.75rem]'
+            }`}
+          />
         )}
         <button
           type="submit"
@@ -211,7 +228,7 @@ export default function SymbolSearch({
 
       {open && results.length > 0 && (
         <ul
-          className={`absolute z-40 max-h-72 w-80 overflow-y-auto rounded-md border border-border bg-bg-secondary py-1 shadow-xl ${
+          className={`absolute z-40 max-h-72 w-80 min-w-full overflow-y-auto rounded-md border border-border bg-bg-secondary py-1 shadow-xl ${
             /*
              * 좁은 패널(관심 목록)의 입력창은 패널 맨 아래에 있다 — 아래로 열면 화면 밖으로
              * 잘리고, 오른쪽으로도 넘친다. 위·오른쪽 기준으로 붙인다.
