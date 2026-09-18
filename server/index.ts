@@ -83,10 +83,54 @@ import { backfillSnapshots, startSnapshotScheduler } from './paperSnapshotSchedu
  * 토스 API 키는 이 프로세스에만 존재하고, 브라우저는 /api/* 만 호출한다.
  */
 const app = express();
-app.use(cors());
+
+/*
+ * ⚠️ CORS 를 `*` 로 열지 않는다.
+ *
+ * 이 API 는 **인증이 없다** — 모의투자 주문·보유 조회·Gemini 설정이 전부 무방비로 열린다.
+ * 브라우저는 평소 Vite 프록시(같은 오리진)를 지나므로 CORS 헤더 자체가 필요 없고,
+ * 열어 두면 사용자가 방문한 **아무 웹사이트나** localhost:4000 으로 주문을 낼 수 있다.
+ * 기본은 오리진 없는 요청(프록시·curl)과 로컬 개발 서버만 허용하고,
+ * 추가 오리진이 필요하면 `.env` 의 `ALLOWED_ORIGINS` 에 쉼표로 적는다.
+ */
+const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+const extraOrigins = (process.env.ALLOWED_ORIGINS ?? '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // origin 이 없는 요청 = 같은 오리진(Vite 프록시) 또는 브라우저가 아닌 클라이언트
+      if (!origin || LOCAL_ORIGIN.test(origin) || extraOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`허용되지 않은 오리진입니다: ${origin}`));
+    },
+  }),
+);
 app.use(express.json({ limit: '10mb' })); // 차트 캡처 이미지 대비
 
 const VALID_TIMEFRAMES: Timeframe[] = ['1m', '5m', '15m', '30m', '1d'];
+
+/**
+ * 토스 `symbol` 의 허용 문자 — 영문·숫자·점·하이픈만이다.
+ *
+ * ⚠️ 규칙을 라우트마다 따로 적지 않는다. 예전에는 `/api/swing/analyze` 에만 있어서,
+ * 나머지 라우트는 "삼성전자" 같은 값을 그대로 외부 API 로 넘기고 **500** 을 돌려줬다 —
+ * 잘못된 입력은 400 으로, 우리 쪽 장애는 500 으로 구분돼야 화면이 안내를 고를 수 있다.
+ */
+const SYMBOL_PATTERN = /^[A-Z0-9.\-]+$/;
+
+/** 검증된 심볼 또는 null. 호출부는 null 이면 400 을 돌려준다. */
+function parseSymbol(raw: unknown): string | null {
+  const symbol = String(raw ?? '').trim().toUpperCase();
+  return symbol && symbol.length <= 20 && SYMBOL_PATTERN.test(symbol) ? symbol : null;
+}
+
+const BAD_SYMBOL = { error: '올바른 심볼이 아닙니다 (영문·숫자·. - 만 가능).' };
 
 function fail(res: express.Response, e: unknown) {
   const message = e instanceof Error ? e.message : String(e);
@@ -155,11 +199,11 @@ app.get('/api/health', async (_req, res) => {
 });
 
 app.get('/api/candles', async (req, res) => {
-  const symbol = String(req.query.symbol ?? '').toUpperCase();
+  const symbol = parseSymbol(req.query.symbol);
   const timeframe = String(req.query.timeframe ?? '1d') as Timeframe;
   const limit = Math.min(2000, Math.max(1, Number(req.query.limit ?? 300)));
 
-  if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
+  if (!symbol) return res.status(400).json(BAD_SYMBOL);
   if (!VALID_TIMEFRAMES.includes(timeframe)) {
     return res.status(400).json({ error: `지원하지 않는 timeframe: ${timeframe}` });
   }
@@ -178,11 +222,11 @@ app.get('/api/candles', async (req, res) => {
 });
 
 app.get('/api/indicators', async (req, res) => {
-  const symbol = String(req.query.symbol ?? '').toUpperCase();
+  const symbol = parseSymbol(req.query.symbol);
   const timeframe = String(req.query.timeframe ?? '1d') as Timeframe;
   const limit = Math.min(2000, Math.max(1, Number(req.query.limit ?? 300)));
 
-  if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
+  if (!symbol) return res.status(400).json(BAD_SYMBOL);
   if (!VALID_TIMEFRAMES.includes(timeframe)) {
     return res.status(400).json({ error: `지원하지 않는 timeframe: ${timeframe}` });
   }
@@ -201,8 +245,8 @@ app.get('/api/indicators', async (req, res) => {
 });
 
 app.get('/api/prices', async (req, res) => {
-  const symbol = String(req.query.symbol ?? '').toUpperCase();
-  if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
+  const symbol = parseSymbol(req.query.symbol);
+  if (!symbol) return res.status(400).json(BAD_SYMBOL);
   try {
     const price = isMockMode() ? mockPrice(symbol) : await withDailyChange(symbol);
     res.json({ price, mock: isMockMode() });
@@ -212,8 +256,8 @@ app.get('/api/prices', async (req, res) => {
 });
 
 app.get('/api/orderbook', async (req, res) => {
-  const symbol = String(req.query.symbol ?? '').toUpperCase();
-  if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
+  const symbol = parseSymbol(req.query.symbol);
+  if (!symbol) return res.status(400).json(BAD_SYMBOL);
   try {
     const orderbook = isMockMode() ? mockOrderbook(symbol) : await fetchOrderbook(symbol);
     res.json({ orderbook, mock: isMockMode() });
@@ -223,9 +267,9 @@ app.get('/api/orderbook', async (req, res) => {
 });
 
 app.get('/api/company', async (req, res) => {
-  const symbol = String(req.query.symbol ?? '').toUpperCase();
+  const symbol = parseSymbol(req.query.symbol);
   const refresh = req.query.refresh === 'true';
-  if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
+  if (!symbol) return res.status(400).json(BAD_SYMBOL);
 
   try {
     res.json({ fundamentals: await getFundamentals(symbol, refresh) });
@@ -235,8 +279,8 @@ app.get('/api/company', async (req, res) => {
 });
 
 app.get('/api/peers', async (req, res) => {
-  const symbol = String(req.query.symbol ?? '').toUpperCase();
-  if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
+  const symbol = parseSymbol(req.query.symbol);
+  if (!symbol) return res.status(400).json(BAD_SYMBOL);
 
   try {
     res.json({ peers: await getPeers(symbol, req.query.sector as string | undefined) });
@@ -275,8 +319,8 @@ app.get('/api/exchange-rate', async (req, res) => {
 });
 
 app.get('/api/stocks/info', (req, res) => {
-  const symbol = String(req.query.symbol ?? '').toUpperCase();
-  if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
+  const symbol = parseSymbol(req.query.symbol);
+  if (!symbol) return res.status(400).json(BAD_SYMBOL);
   try {
     res.json({ stock: findStock(symbol) });
   } catch (e) {
@@ -342,8 +386,8 @@ app.get('/api/market-overview', async (_req, res) => {
 app.get('/api/quotes', async (req, res) => {
   const symbols = String(req.query.symbols ?? '')
     .split(',')
-    .map((s) => s.trim().toUpperCase())
-    .filter(Boolean)
+    .map((s) => parseSymbol(s))
+    .filter((s): s is string => s !== null)
     .slice(0, 30);
 
   if (!symbols.length) return res.json({ quotes: [] });
@@ -357,8 +401,8 @@ app.get('/api/quotes', async (req, res) => {
 
 /** 52주 고저 — 차트 정보 바가 "고점 대비 얼마나 빠졌나" 를 보여 주는 데 쓴다 */
 app.get('/api/stats/52w', async (req, res) => {
-  const symbol = String(req.query.symbol ?? '').trim().toUpperCase();
-  if (!symbol) return res.status(400).json({ error: 'symbol 이 필요합니다.' });
+  const symbol = parseSymbol(req.query.symbol);
+  if (!symbol) return res.status(400).json(BAD_SYMBOL);
 
   try {
     res.json({ stats: await getRangeStats(symbol) });
@@ -370,8 +414,8 @@ app.get('/api/stats/52w', async (req, res) => {
 app.get('/api/summary', async (req, res) => {
   const symbols = String(req.query.symbols ?? '')
     .split(',')
-    .map((s) => s.trim().toUpperCase())
-    .filter(Boolean)
+    .map((s) => parseSymbol(s))
+    .filter((s): s is string => s !== null)
     .slice(0, 12);
 
   if (!symbols.length) return res.status(400).json({ error: 'symbols 파라미터가 필요합니다.' });
@@ -727,8 +771,8 @@ app.post('/api/swing/analyze', async (req, res) => {
   const symbols = [
     ...new Set(
       (Array.isArray(req.body?.symbols) ? (req.body.symbols as unknown[]) : [])
-        .map((s) => String(s).trim().toUpperCase())
-        .filter((s) => s && /^[A-Z0-9.\-]+$/.test(s)),
+        .map((s) => parseSymbol(s))
+        .filter((s): s is string => s !== null),
     ),
   ].slice(0, 50);
 
@@ -761,8 +805,8 @@ app.post('/api/swing/analyze', async (req, res) => {
 });
 
 app.post('/api/swing/evaluate', async (req, res) => {
-  const symbol = String(req.body?.symbol ?? req.query.symbol ?? '').toUpperCase();
-  if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
+  const symbol = parseSymbol(req.body?.symbol ?? req.query.symbol);
+  if (!symbol) return res.status(400).json(BAD_SYMBOL);
   try {
     res.json({ recommendation: await evaluateSwing(symbol) });
   } catch (e) {
@@ -829,8 +873,8 @@ app.get('/api/surge/results', (_req, res) => {
 });
 
 app.post('/api/surge/evaluate', async (req, res) => {
-  const symbol = String(req.body?.symbol ?? req.query.symbol ?? '').toUpperCase();
-  if (!symbol) return res.status(400).json({ error: 'symbol 파라미터가 필요합니다.' });
+  const symbol = parseSymbol(req.body?.symbol ?? req.query.symbol);
+  if (!symbol) return res.status(400).json(BAD_SYMBOL);
   try {
     res.json({ evaluation: await evaluateOne(symbol) });
   } catch (e) {
@@ -876,8 +920,15 @@ app.get('/api/ai/accuracy', (_req, res) => {
 const port = Number(process.env.API_PORT ?? 4000);
 getDb(); // 시작 시 스키마 생성
 
-app.listen(port, () => {
-  console.log(`[alphascope] API 서버 http://localhost:${port}`);
+/*
+ * ⚠️ 루프백에만 바인딩한다. 기본값(0.0.0.0)은 같은 공유기 아래의 다른 기기에서도
+ * 이 API 에 닿는다 — 인증이 없으므로 카페 와이파이에서 모의투자 계좌가 그대로 열린다.
+ * 다른 기기에서 열어야 하면 `.env` 의 `API_HOST` 로 명시한다.
+ */
+const host = process.env.API_HOST ?? '127.0.0.1';
+
+app.listen(port, host, () => {
+  console.log(`[alphascope] API 서버 http://${host}:${port}`);
 
   // 종목 카탈로그는 하루 한 번이면 충분하다. 기동을 막지 않도록 뒤에서 채운다.
   if (!isMockMode()) {
