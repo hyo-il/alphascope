@@ -60,7 +60,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: '💼',
     label: '계좌',
     // 모의투자는 별도 메뉴가 아니라 포트폴리오의 **계좌 선택**으로 들어갔다.
-    pages: [{ id: 'portfolio', label: '포트폴리오' }],
+    pages: [{ id: 'portfolio', label: '계좌 관리' }],
   },
   {
     id: 'settings',

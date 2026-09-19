@@ -13,12 +13,11 @@ import PaperTradingDashboard from '../paper-trading/PaperTradingDashboard';
 type AccountKind = 'real' | 'paper';
 
 const ACCOUNTS: { id: AccountKind; label: string }[] = [
-  { id: 'real', label: '실제 계좌 (토스증권)' },
   { id: 'paper', label: '모의투자 계좌' },
+  { id: 'real', label: '실제 계좌 (토스증권)' },
 ];
 
 interface Props {
-  symbol: string;
   onSelectSymbol: (symbol: string) => void;
   /** 모의투자 계좌로 열지 — 빠른주문 패널의 '모의투자로 가기' 가 여기로 온다 */
   initialAccount?: AccountKind;
@@ -31,9 +30,8 @@ interface Props {
 }
 
 export default function PortfolioView({
-  symbol,
   onSelectSymbol,
-  initialAccount = 'real',
+  initialAccount = 'paper',
   onMounted,
 }: Props) {
   const [account, setAccount] = useState<AccountKind>(initialAccount);
@@ -47,7 +45,7 @@ export default function PortfolioView({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2">
-        <h2 className="text-sm font-semibold">💼 포트폴리오</h2>
+        <h2 className="text-sm font-semibold">💼 계좌 관리</h2>
 
         <label className="ml-2 flex w-fit items-center gap-1.5 text-[11px] text-text-secondary">
           계좌
@@ -75,7 +73,7 @@ export default function PortfolioView({
         {account === 'real' ? (
           <Holdings onSelectSymbol={onSelectSymbol} />
         ) : (
-          <PaperTradingDashboard symbol={symbol} onSelectSymbol={onSelectSymbol} />
+          <PaperTradingDashboard onSelectSymbol={onSelectSymbol} />
         )}
       </div>
     </div>

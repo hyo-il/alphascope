@@ -8,7 +8,6 @@ import {
   usePaperTrades,
 } from '../../hooks/usePaperTrading';
 import AccountManager from './AccountManager';
-import OrderPanel from './OrderPanel';
 import PerformanceChart from './PerformanceChart';
 import PerformanceStats from './PerformanceStats';
 import PositionList from './PositionList';
@@ -16,7 +15,6 @@ import TradeHistory from './TradeHistory';
 import { formatPrice } from '../../utils/formatters';
 
 interface Props {
-  symbol: string;
   onSelectSymbol: (symbol: string) => void;
 }
 
@@ -34,7 +32,7 @@ const TABS: { id: Tab; label: string }[] = [
  * ⚠️ 실제 주문은 어디에서도 나가지 않는다. 시세만 토스 실 API 를 읽고,
  * 주문·체결·잔고·손익은 전부 앱 내부 SQLite 에서만 움직인다.
  */
-export default function PaperTradingDashboard({ symbol, onSelectSymbol }: Props) {
+export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   const {
     accounts,
     selectedId,
@@ -50,7 +48,6 @@ export default function PaperTradingDashboard({ symbol, onSelectSymbol }: Props)
   const [tab, setTab] = useState<Tab>('positions');
   /** 주문·취소 후 목록을 다시 읽기 위한 카운터 */
   const [version, setVersion] = useState(0);
-  const [orderSymbol, setOrderSymbol] = useState(symbol);
 
   const trades = usePaperTrades(selectedId, version);
   const orders = usePaperOrders(selectedId, version);
@@ -84,14 +81,9 @@ export default function PaperTradingDashboard({ symbol, onSelectSymbol }: Props)
           <Skeleton className="h-7 w-40" />
           <Skeleton className="h-3 w-32" />
         </div>
-        <div className="flex min-h-0 flex-1 gap-3 p-3">
-          <div className="w-[280px] shrink-0">
-            <Skeleton className="h-[420px] w-full rounded-lg" />
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-3">
-            <SkeletonCards count={4} className="grid-cols-2 md:grid-cols-4" />
-            <SkeletonTable rows={6} columns={5} />
-          </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+          <SkeletonCards count={4} className="grid-cols-2 md:grid-cols-4" />
+          <SkeletonTable rows={6} columns={5} />
         </div>
       </div>
     );
@@ -171,22 +163,7 @@ export default function PaperTradingDashboard({ symbol, onSelectSymbol }: Props)
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 gap-3 overflow-hidden p-3">
-        {/* 왼쪽 — 주문 */}
-        <div className="w-[280px] shrink-0 overflow-y-auto">
-          {!detail && <Skeleton className="h-[420px] w-full rounded-lg" />}
-          {detail && (
-            <OrderPanel
-              account={detail.account}
-              symbol={orderSymbol}
-              onSymbolChange={setOrderSymbol}
-              positions={detail.positions}
-              onOrdered={bump}
-            />
-          )}
-        </div>
-
-        {/* 오른쪽 — 요약 + 탭 */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3">
         <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden">
           {!detail && <SkeletonCards count={4} className="shrink-0 grid-cols-2 md:grid-cols-4" />}
           {detail && (
@@ -244,7 +221,6 @@ export default function PaperTradingDashboard({ symbol, onSelectSymbol }: Props)
                 <PositionList
                   positions={detail.positions}
                   onSelectSymbol={onSelectSymbol}
-                  onSell={setOrderSymbol}
                 />
               )}
               {tab === 'trades' && (

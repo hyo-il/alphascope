@@ -8,6 +8,8 @@ import { useQuotes } from '../../hooks/useQuotes';
 import { useStockNames } from '../../hooks/useStockNames';
 import { COMPARE_DRAG_TYPE } from '../../types/compare';
 import { formatPercent, formatPrice } from '../../utils/formatters';
+import { usePaperAccounts, usePaperAccountDetail } from '../../hooks/usePaperTrading';
+import AccountMiniView from './AccountMiniView';
 
 interface Props {
   currentSymbol: string;
@@ -17,6 +19,8 @@ interface Props {
   onSelect: (symbol: string) => void;
   /** 최근 조회에서 제거 */
   onRemoveRecent: (symbol: string) => void;
+  /** 계좌 탭에서 '계좌 관리로 이동' — 계좌가 하나도 없을 때의 진입점 */
+  onGoToAccounts: () => void;
   /** 최근 조회 전체 비우기 — forEach 로 N번 지우면 setState 가 그만큼 연쇄된다 */
   onClearRecent: () => void;
   collapsed: boolean;
@@ -30,7 +34,7 @@ interface Props {
   compareSymbols?: string[];
 }
 
-type PanelTab = 'watch' | 'recent';
+type PanelTab = 'watch' | 'recent' | 'account';
 
 /** 별 아이콘 — 관심 목록을 뜻한다 */
 function StarIcon({ className = '' }: { className?: string }) {
@@ -63,6 +67,18 @@ function TrashIcon({ className = '' }: { className?: string }) {
   );
 }
 
+
+/** 지갑 아이콘 — 계좌를 뜻한다 */
+function WalletIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className={className} aria-hidden>
+      <rect x="2" y="5" width="16" height="12" rx="2" />
+      <path d="M2 5V4.5A1.5 1.5 0 013.5 3h10A1.5 1.5 0 0115 4.5V5" />
+      <circle cx="14.5" cy="11" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 /** 오른쪽 사이드 패널 — 관심 목록과 최근 조회. 클릭하면 즉시 그 종목 차트로 전환된다. */
 export default function WatchPanel({
   currentSymbol,
@@ -71,6 +87,7 @@ export default function WatchPanel({
   onSelect,
   onRemoveRecent,
   onClearRecent,
+  onGoToAccounts,
   collapsed,
   onToggleCollapse,
   compareMode = false,
@@ -79,6 +96,18 @@ export default function WatchPanel({
   const [tab, setTab] = useState<PanelTab>('watch');
   /** 관리 팝업 — 폴더·종목 조작은 전부 저기서 한다 */
   const [managing, setManaging] = useState(false);
+
+  /*
+   * 계좌 탭용 — 모의투자 계좌 요약.
+   * ⚠️ 상세 조회는 **1초 폴링**이다. 접혀 있거나 다른 탭을 보고 있으면 부르지 않는다 —
+   * 보이지 않는 패널에 Rate Limit 을 쓰지 않는다는 규칙(호가·빠른주문과 같다).
+   * 계좌 목록은 폴링이 아니라 1회 조회라 그대로 둔다 (탭을 열자마자 채워져 있어야 한다).
+   */
+  const paperAccounts = usePaperAccounts();
+  const accountTabActive = !collapsed && tab === 'account';
+  const paperDetail = usePaperAccountDetail(
+    accountTabActive ? paperAccounts.selectedId : null,
+  );
 
   const { folders, watchlist, visibleSymbols } = watch;
 
@@ -129,6 +158,19 @@ export default function WatchPanel({
         >
           최근
         </span>
+
+        <span className="my-0.5 h-px w-4 bg-border" />
+
+        <span className="flex flex-col items-center gap-0.5 text-text-muted">
+          <WalletIcon className="h-5 w-5" />
+        </span>
+
+        <span
+          className="text-[11px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
+          style={{ writingMode: 'vertical-rl' }}
+        >
+          계좌
+        </span>
       </button>
     );
   }
@@ -138,14 +180,21 @@ export default function WatchPanel({
       <div className="flex items-center border-b border-border">
         {(
           [
-            ['watch', '관심 목록', <StarIcon key="s" className="h-3 w-3" />],
-            ['recent', '최근 조회', <ClockIcon key="c" className="h-3 w-3" />],
+            /*
+             * ⚠️ 탭이 셋이 되면서 라벨을 줄였다. 250px 패널에서 ⚙️·접기 버튼을 빼면
+             * 탭 하나에 70px 남짓인데, "관심 목록"(text-xs 5자)은 아이콘까지 78px 라
+             * 줄바꿈이 났다. 아이콘이 이미 뜻을 나르므로 두 글자로 충분하다.
+             */
+            ['watch', '관심', <StarIcon key="s" className="h-3 w-3" />],
+            ['recent', '최근', <ClockIcon key="c" className="h-3 w-3" />],
+            ['account', '계좌', <WalletIcon key="w" className="h-3 w-3" />],
           ] as const
         ).map(([id, label, icon]) => (
           <button
             key={id}
             type="button"
             onClick={() => setTab(id)}
+            title={id === 'watch' ? '관심 목록' : id === 'recent' ? '최근 조회' : '모의투자 계좌'}
             className={`flex flex-1 items-center justify-center gap-1.5 border-b-2 py-2 text-xs transition-colors ${
               tab === id
                 ? 'border-accent text-text-primary'
@@ -177,7 +226,19 @@ export default function WatchPanel({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {tab === 'watch' ? (
+        {tab === 'account' ? (
+          <AccountMiniView
+            accounts={paperAccounts.accounts}
+            selectedId={paperAccounts.selectedId}
+            onSelectAccount={paperAccounts.select}
+            detail={paperDetail.detail}
+            loading={paperAccounts.loading}
+            error={paperAccounts.error ?? paperDetail.error}
+            currentSymbol={currentSymbol}
+            onSelectSymbol={onSelect}
+            onGoToAccounts={onGoToAccounts}
+          />
+        ) : tab === 'watch' ? (
           folders.map((folder) => (
             <WatchFolderView
               key={folder.id}
@@ -269,7 +330,11 @@ export default function WatchPanel({
         )}
       </div>
 
-      {tab === 'watch' ? (
+      {tab === 'account' ? (
+        <p className="border-t border-border px-3 py-2 text-[10px] text-text-muted">
+          모의투자 계좌의 현재 상태입니다. 거래는 차트의 빠른주문에서 진행하세요.
+        </p>
+      ) : tab === 'watch' ? (
         <div className="border-t border-border p-2">
           {/*
             패널의 빠른 추가는 **'미분류' 로만** 넣는다. 폴더를 고르는 일까지 여기서 하면

@@ -68,7 +68,7 @@ export default function App() {
   const setGroup = useAppStore((s) => s.setGroup);
   const view = nav.page;
   /** 포트폴리오를 모의투자 계좌로 열지 (빠른주문의 '모의투자로 가기') */
-  const [portfolioAccount, setPortfolioAccount] = useState<'real' | 'paper'>('real');
+  const [portfolioAccount, setPortfolioAccount] = useState<'real' | 'paper'>('paper');
   /*
    * 차트는 캡처 대상이라 다른 화면에서도 언마운트하지 않고 화면 밖으로 보낸다.
    * 하지만 보이지 않는 호가·주문 패널까지 계속 폴링할 이유는 없다.
@@ -340,11 +340,10 @@ export default function App() {
       case 'portfolio':
         return (
           <PortfolioView
-            symbol={symbol ?? 'AAPL'}
             onSelectSymbol={setSymbol}
             initialAccount={portfolioAccount}
             /* 'paper' 는 빠른주문에서 넘어온 일회성 의도다 — 다음 진입은 실제 계좌로 연다 */
-            onMounted={() => setPortfolioAccount('real')}
+            onMounted={() => setPortfolioAccount('paper')}
           />
         );
       case 'settings-account':
@@ -521,6 +520,8 @@ export default function App() {
         }
         onRemoveRecent={removeRecent}
         onClearRecent={clearRecent}
+        /* 계좌 탭에서 계좌가 없을 때 — 계좌 관리 화면으로 보낸다 */
+        onGoToAccounts={() => setPage('portfolio')}
         collapsed={panelCollapsed}
         onToggleCollapse={() => setPanelCollapsed((v) => !v)}
       />

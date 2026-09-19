@@ -4,18 +4,23 @@ import { formatPrice } from '../../utils/formatters';
 interface Props {
   positions: PaperPositionValued[];
   onSelectSymbol: (symbol: string) => void;
-  onSell: (symbol: string) => void;
 }
 
 const tone = (value: number | null | undefined) =>
   value == null ? 'text-text-muted' : value > 0 ? 'text-bullish' : value < 0 ? 'text-bearish' : 'text-text-secondary';
 
-/** 보유 종목 — 현재가는 1초 폴링으로 갱신된다. */
-export default function PositionList({ positions, onSelectSymbol, onSell }: Props) {
+/**
+ * 보유 종목 — 현재가는 1초 폴링으로 갱신된다.
+ *
+ * ⚠️ **조회 전용이다.** 매도 버튼을 두지 않는다 — 계좌 화면에서 주문 패널을 걷어내
+ * 매매를 차트 옆 빠른주문으로 모았기 때문이다. 동작하지 않는 버튼을 남겨 두면
+ * 눌러 보고 나서야 알게 된다. 종목을 누르면 그 종목 차트로 간다.
+ */
+export default function PositionList({ positions, onSelectSymbol }: Props) {
   if (!positions.length) {
     return (
       <p className="px-4 py-8 text-center text-xs text-text-muted">
-        보유 중인 종목이 없습니다. 왼쪽에서 매수 주문을 넣어 보세요.
+        보유 중인 종목이 없습니다.
       </p>
     );
   }
@@ -39,7 +44,6 @@ export default function PositionList({ positions, onSelectSymbol, onSell }: Prop
             <th className="px-3 py-2 text-right font-normal">평가금액</th>
             <th className="px-3 py-2 text-right font-normal">평가손익</th>
             <th className="px-3 py-2 text-right font-normal">수익률</th>
-            <th className="px-3 py-2 text-right font-normal"> </th>
           </tr>
         </thead>
         <tbody>
@@ -74,15 +78,6 @@ export default function PositionList({ positions, onSelectSymbol, onSell }: Prop
                   ? `${p.unrealizedPnlPercent > 0 ? '+' : ''}${p.unrealizedPnlPercent.toFixed(2)}%`
                   : '—'}
               </td>
-              <td className="px-3 py-2 text-right">
-                <button
-                  type="button"
-                  onClick={() => onSell(p.symbol)}
-                  className="rounded border border-border px-2 py-0.5 text-[11px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-bullish"
-                >
-                  매도
-                </button>
-              </td>
             </tr>
           ))}
         </tbody>
@@ -103,7 +98,6 @@ export default function PositionList({ positions, onSelectSymbol, onSell }: Prop
               <td className={`px-3 py-2 text-right tabular-nums ${tone(totalPnl)}`}>
                 {totalCost ? `${totalPnl > 0 ? '+' : ''}${((totalPnl / totalCost) * 100).toFixed(2)}%` : '—'}
               </td>
-              <td />
             </tr>
           </tfoot>
         )}
