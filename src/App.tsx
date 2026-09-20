@@ -21,6 +21,7 @@ import MarketOverview from './components/market/MarketOverview';
 import SideNav from './components/layout/SideNav';
 import WatchPanel from './components/layout/WatchPanel';
 import Settings from './components/layout/Settings';
+import Changelog from './components/settings/Changelog';
 import { useCandleData } from './hooks/useCandleData';
 import { useOrderbook } from './hooks/useOrderbook';
 import { useIndicators } from './hooks/useIndicators';
@@ -350,6 +351,8 @@ export default function App() {
         return <Settings isMock={isMock} engineDown={engineDown} section="account" />;
       case 'settings-app':
         return <Settings isMock={isMock} engineDown={engineDown} section="app" />;
+      case 'settings-changelog':
+        return <Changelog />;
       case 'chart':
       default:
         return null; // 차트는 항상 마운트해 두고 아래에서 따로 배치한다.

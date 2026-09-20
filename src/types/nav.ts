@@ -18,7 +18,8 @@ export type NavPageId =
   | 'swing'
   | 'portfolio'
   | 'settings-account'
-  | 'settings-app';
+  | 'settings-app'
+  | 'settings-changelog';
 
 export interface NavPage {
   id: NavPageId;
@@ -69,6 +70,8 @@ export const NAV_GROUPS: NavGroup[] = [
     pages: [
       { id: 'settings-account', label: '계좌 설정' },
       { id: 'settings-app', label: '앱 기능 설정' },
+      // 손대는 설정이 아니라 읽는 화면이라 맨 뒤에 둔다.
+      { id: 'settings-changelog', label: '업데이트 내역' },
     ],
   },
 ];

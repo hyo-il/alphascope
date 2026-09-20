@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 // 키 문자열을 여기에 다시 적지 않는다 — 옛 키만 지워 '비우기' 가 동작하지 않던 원인이다.
 import { RECENT_KEY, WATCHLIST_KEYS } from '../../hooks/useWatchlist';
+import { CHANGELOG } from '../../data/changelog';
 
 interface Props {
   isMock: boolean;
@@ -92,6 +93,7 @@ export default function Settings({ isMock, engineDown, section }: Props) {
         <p className="mt-6 text-[11px] text-text-muted">
           ⚠️ 이 앱이 제공하는 모든 분석은 참고용이며 투자 조언이 아닙니다.
         </p>
+        <AppVersion />
       </div>
     );
   }
@@ -151,6 +153,16 @@ export default function Settings({ isMock, engineDown, section }: Props) {
       <p className="mt-6 text-[11px] text-text-muted">
         ⚠️ 이 앱이 제공하는 모든 분석은 참고용이며 투자 조언이 아닙니다.
       </p>
+      <AppVersion />
     </div>
+  );
+}
+
+/** 지금 돌고 있는 버전 — 업데이트 내역의 맨 앞 항목이 곧 현재 버전이다 */
+function AppVersion() {
+  return (
+    <p className="mt-2 text-[10px] text-text-muted">
+      AlphaScope {CHANGELOG[0]?.version ?? ''}
+    </p>
   );
 }
