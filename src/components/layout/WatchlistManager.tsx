@@ -181,38 +181,6 @@ export default function WatchlistManager({
         <div className="flex min-h-0 flex-1">
           {/* ── 좌: 그룹 목록 ───────────────────────────── */}
           <nav className="flex w-[30%] min-w-[160px] shrink-0 flex-col border-r border-border">
-            <div className="shrink-0 p-3">
-              {newFolder === null ? (
-                <button
-                  type="button"
-                  onClick={() => setNewFolder('')}
-                  className="w-full rounded-md border border-border py-1.5 text-xs text-text-secondary transition-colors hover:border-accent hover:text-accent"
-                >
-                  + 그룹 추가
-                </button>
-              ) : (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    watch.createFolder(newFolder);
-                    setNewFolder(null);
-                  }}
-                >
-                  <input
-                    autoFocus
-                    value={newFolder}
-                    onChange={(e) => setNewFolder(e.target.value)}
-                    onBlur={() => {
-                      watch.createFolder(newFolder);
-                      setNewFolder(null);
-                    }}
-                    placeholder="그룹 이름"
-                    className="w-full rounded-md px-2 py-1.5 text-xs"
-                  />
-                </form>
-              )}
-            </div>
-
             <ul className="min-h-0 flex-1 overflow-y-auto">
               {folders.map((f) => {
                 const isDefault = f.id === DEFAULT_FOLDER_ID;
@@ -313,6 +281,43 @@ export default function WatchlistManager({
                 );
               })}
             </ul>
+
+            {/*
+              ⚠️ '+ 그룹 추가' 는 목록 **아래**다. 맨 위에 두면 입력창처럼 보여 검색창으로
+              읽히고, 바로 아래 그룹 행들과 구분되지 않았다. 목록(`flex-1`)이 남은 높이를
+              가져가므로 그룹이 적어도 이 버튼은 컬럼 바닥에 붙는다.
+            */}
+            <div className="mt-auto shrink-0 border-t border-border p-3">
+              {newFolder === null ? (
+                <button
+                  type="button"
+                  onClick={() => setNewFolder('')}
+                  className="w-full rounded-md border border-border py-1.5 text-xs text-text-secondary transition-colors hover:border-accent hover:text-accent"
+                >
+                  + 그룹 추가
+                </button>
+              ) : (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    watch.createFolder(newFolder);
+                    setNewFolder(null);
+                  }}
+                >
+                  <input
+                    autoFocus
+                    value={newFolder}
+                    onChange={(e) => setNewFolder(e.target.value)}
+                    onBlur={() => {
+                      watch.createFolder(newFolder);
+                      setNewFolder(null);
+                    }}
+                    placeholder="그룹 이름"
+                    className="w-full rounded-md px-2 py-1.5 text-xs"
+                  />
+                </form>
+              )}
+            </div>
 
             <p className="shrink-0 border-t border-border px-3 py-2 text-[10px] leading-snug text-text-muted">
               더블클릭: 이름 변경 · ⠿ 드래그: 순서
