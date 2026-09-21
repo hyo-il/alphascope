@@ -21,7 +21,6 @@ import {
 } from './db';
 import { isMockMode, mockOrderbook, mockPrice } from './mockData';
 import { runAnalysis } from './gemini/analyze';
-import { applySignal } from './gemini/autoTrade';
 import { DEFAULT_MODEL, GeminiError, isGeminiEnabled } from './gemini/client';
 import { accuracyReport } from './gemini/accuracy';
 import {
@@ -31,13 +30,24 @@ import {
   listAnalyses as listGeminiAnalyses,
 } from './gemini/store';
 import {
-  tradeOptionsOf,
   getSettings as getGeminiSettings,
   getStatus as getGeminiStatus,
   runOnce as runGeminiOnce,
   saveSettings as saveGeminiSettings,
-  startScheduler as startGeminiScheduler,
 } from './gemini/scheduler';
+// 계좌별 자동매매 (1단계) — 주문을 내는 유일한 경로다
+import {
+  getStrategy,
+  listStrategies,
+  saveStrategy,
+  deleteStrategy,
+  migrateGlobalStrategy,
+} from './autoTrading/store';
+import {
+  getStrategyStatus,
+  runAccount,
+  startAutoTradingScheduler,
+} from './autoTrading/scheduler';
 import { computeIndicators, IndicatorEngineError, indicatorEngineHealthy } from './indicatorService';
 import {
   evaluateOne,
@@ -491,8 +501,69 @@ app.get('/api/paper/accounts/:id', async (req, res) => {
 
 app.delete('/api/paper/accounts/:id', (req, res) => {
   try {
-    deleteAccount(accountIdOf(req));
+    const id = accountIdOf(req);
+    deleteAccount(id);
+    // 계좌가 사라지면 그 계좌의 자동매매 설정·트레일링 고점도 함께 버린다.
+    deleteStrategy(id);
     res.json({ ok: true });
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+// ── 계좌별 자동매매 (1단계) ─────────────────────────────────
+//
+// ⚠️ 모의 계좌 전용이다. 실제 주문은 어떤 경로로도 나가지 않는다.
+// 전역 `/api/gemini/settings` 는 2단계까지 호환용으로 남아 있지만 **주문을 내지 않는다.**
+
+/** 전 계좌의 자동매매 설정 (저장된 적 없는 계좌는 기본값) */
+app.get('/api/auto-trading/strategies', (_req, res) => {
+  try {
+    res.json({ strategies: listStrategies() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+/** 계좌 하나의 설정 + 실행 상태 */
+app.get('/api/auto-trading/strategies/:id', (req, res) => {
+  try {
+    const id = accountIdOf(req);
+    res.json({ strategy: getStrategy(id), status: getStrategyStatus(id) });
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+/** 설정 저장 — 값 검증은 store.normalizeStrategy 가 한다 */
+app.put('/api/auto-trading/strategies/:id', (req, res) => {
+  try {
+    const id = accountIdOf(req);
+    getPaperAccount(id); // 없는 계좌면 여기서 400
+    res.json({ strategy: saveStrategy(id, req.body ?? {}) });
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+/** 실행 상태만 (화면이 주기적으로 물어보는 자리) */
+app.get('/api/auto-trading/status/:id', (req, res) => {
+  try {
+    res.json({ status: getStrategyStatus(accountIdOf(req)) });
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+/**
+ * 지금 한 바퀴 돌린다 (사용자 버튼).
+ * 수동 실행은 정규장·주기 판정을 건너뛴다 — 켜져 있지 않아도 돈다.
+ */
+app.post('/api/auto-trading/run/:id', async (req, res) => {
+  try {
+    const id = accountIdOf(req);
+    getPaperAccount(id);
+    res.json({ result: await runAccount(id, true) });
   } catch (e) {
     failPaper(res, e);
   }
@@ -678,13 +749,10 @@ app.post('/api/gemini/analyze', async (req, res) => {
       horizon: req.body?.horizon ?? settingsForRun.horizon,
     });
 
-    // 수동 실행에서도 자동매매가 켜져 있으면 같은 규칙으로 주문한다.
-    const settings = settingsForRun;
-    if (req.body?.autoTrade !== false && settings.autoTrade && settings.paperAccountId) {
-      const result = await applySignal(analysis, tradeOptionsOf(settings));
-      analysis.paperOrderId = result.orderId;
-      analysis.tradeNote = result.note;
-    }
+    /*
+     * ⚠️ 분석만 한다 — 여기서 주문을 내지 않는다 (1단계).
+     * 자동매매는 계좌별 스케줄러가 맡는다. 두 경로가 모두 주문을 내면 같은 신호로 두 번 산다.
+     */
     res.json(analysis);
   } catch (e) {
     if (e instanceof GeminiError) {
@@ -941,6 +1009,16 @@ app.listen(port, host, () => {
   void backfillSnapshots().then(() => startSnapshotScheduler());
 
   // Gemini 자동 분석 — 키가 없으면 아무 일도 하지 않는다.
-  startGeminiScheduler();
+  /*
+   * ⚠️ 전역 자동 분석 타이머는 더 이상 기동하지 않는다 (1단계).
+   * 주문을 내는 경로는 계좌별 스케줄러 하나뿐이어야 중복 주문이 없다.
+   * 전역 설정 API 는 2단계에서 화면을 바꿀 때까지 호환용으로 살려 둔다.
+   */
+  const migration = migrateGlobalStrategy();
+  if (migration.migrated) {
+    console.log(`[alphascope] 전역 자동매매 설정을 계좌 #${migration.accountId} 로 이관했습니다`);
+  }
+  startAutoTradingScheduler();
+  console.log('[alphascope] 계좌별 자동매매 스케줄러 준비됨 (모의 계좌 전용)');
   if (isGeminiEnabled()) console.log(`[alphascope] Gemini 자동 분석 준비됨 (${DEFAULT_MODEL})`);
 });

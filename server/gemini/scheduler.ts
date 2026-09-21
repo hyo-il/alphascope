@@ -7,10 +7,10 @@
 
 import type { AutoAnalysisSettings, AutoAnalysisStatus } from '../../src/types/gemini';
 import { DEFAULT_HORIZON } from '../../src/services/analysis/horizons';
-import { applySignal } from './autoTrade';
 import { runAnalysis } from './analyze';
 import { GeminiError, isGeminiEnabled } from './client';
 import { countToday, readSetting, writeSetting } from './store';
+import { isUsMarketOpen } from '../marketHours';
 
 const SETTINGS_KEY = 'autoAnalysis';
 
@@ -85,27 +85,6 @@ export function saveSettings(patch: Partial<AutoAnalysisSettings>): AutoAnalysis
   return next;
 }
 
-/**
- * 미국 정규장(09:30~16:00 ET) 여부.
- *
- * 공휴일까지 보지는 않는다 — 휴장일에 한 번 더 도는 비용은 분석 5회로 작고,
- * 캘린더를 잘못 판단해 장중에 쉬는 쪽이 더 나쁘다.
- */
-function isUsMarketOpen(now = new Date()): boolean {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    weekday: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(now);
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
-  const weekday = get('weekday');
-  if (weekday === 'Sat' || weekday === 'Sun') return false;
-  const minutes = Number(get('hour')) * 60 + Number(get('minute'));
-  return minutes >= 9 * 60 + 30 && minutes < 16 * 60;
-}
-
 /** 설정에서 자동매매 쪽 값만 뽑는다 — 라우트와 스케줄러가 같은 규칙을 쓰도록 */
 export function tradeOptionsOf(settings: AutoAnalysisSettings) {
   return {
@@ -140,11 +119,13 @@ export async function runOnce(trigger: 'auto' | 'manual' = 'auto'): Promise<{
   try {
     for (const symbol of settings.symbols) {
       try {
-        const analysis = await runAnalysis({ symbol, trigger, horizon: settings.horizon });
+        await runAnalysis({ symbol, trigger, horizon: settings.horizon });
         analyzed++;
-        if (settings.autoTrade && settings.paperAccountId) {
-          await applySignal(analysis, tradeOptionsOf(settings));
-        }
+        /*
+         * ⚠️ 여기서 주문을 내지 않는다. 주문 경로는 `autoTrading/scheduler.ts` **하나뿐**이다
+         * (1단계). 둘 다 돌면 같은 신호로 두 번 산다. 전역 설정은 2단계까지 읽기/쓰기만
+         * 살려 두고, 실행은 계좌별 스케줄러가 맡는다.
+         */
       } catch (error) {
         errors.push(`${symbol}: ${(error as Error).message}`);
         // 한도 초과는 남은 종목도 전부 실패한다 — 바퀴를 즉시 끝낸다.

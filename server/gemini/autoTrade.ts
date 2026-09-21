@@ -9,7 +9,8 @@
  */
 
 import type { GeminiAnalysis } from '../../src/types/gemini';
-import { createOrder, getAccountDetail, listPositions, accountToSymbolRate} from '../paperTradingService';
+import { createOrder, listPositions } from '../paperTradingService';
+import { planBuy } from '../autoTrading/sizing';
 import { signalDirection } from './analyze';
 import { attachOrder } from './store';
 
@@ -107,31 +108,11 @@ export async function applySignal(
       );
     }
 
-    // 매수: 총자산 기준 비중으로 수량을 정한다.
-    // 현금이 아니라 총자산을 기준으로 삼아야 매수를 거듭할수록 한 종목 비중이
-    // 줄어드는 왜곡이 생기지 않는다.
-    const detail = await getAccountDetail(options.accountId);
-    const budgetInAccount = (detail.totalValue * options.positionSizePercent) / 100;
-    // 계좌 통화 → 종목 통화. 환율을 못 가져오면 매수를 건너뛴다 —
-    // 여기서 1 로 넘어가면 원화 계좌의 예산이 그대로 달러 예산이 돼 버린다.
-    let budget: number;
-    try {
-      budget = budgetInAccount / (await accountToSymbolRate(analysis.symbol, detail.account.currency));
-    } catch (error) {
-      return record(`환율을 가져오지 못해 매수를 건너뜁니다 (${(error as Error).message})`);
-    }
-    const quantity = Math.floor(budget / price);
-
-    if (quantity < 1) {
-      return record(
-        `배정 예산 ${budget.toFixed(2)} 으로는 1주도 살 수 없습니다 (현재가 ${price.toFixed(2)})`,
-      );
-    }
-    if (detail.account.currentCash < budgetInAccount) {
-      return record(
-        `현금 부족 — 필요 ${budgetInAccount.toFixed(0)}, 보유 ${detail.account.currentCash.toFixed(0)}`,
-      );
-    }
+    // 매수 수량 산정은 계좌별 자동매매와 **같은 함수**를 쓴다 (autoTrading/sizing.ts).
+    // 잔고 계산이 두 벌로 갈라지면 어느 쪽이 맞는지 알 수 없게 된다.
+    const plan = await planBuy(options.accountId, analysis.symbol, price, options.positionSizePercent);
+    if (!plan.ok) return record(plan.reason);
+    const quantity = plan.quantity;
 
     const result = await createOrder({
       accountId: options.accountId,
