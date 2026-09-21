@@ -248,18 +248,21 @@ export default function App() {
     </>
   );
 
-  /** 종목이 있어야 의미가 있는 화면들 — 미선택 상태에서 빈 화면을 보여 주지 않는다 */
+  /**
+   * 종목이 있어야 의미가 있는 화면들 — 미선택 상태에서 빈 화면을 보여 주지 않는다.
+   *
+   * ⚠️ **차트로 보내지 않는다.** 예전에는 '🏠 홈에서 종목 고르기' 버튼으로 차트에 들렀다
+   * 오게 했는데, 바로 위에 같은 검색창이 떠 있는데도 다른 화면으로 가라고 하는 셈이었다.
+   * 분석은 차트를 거치지 않고 바로 시작할 수 있다 — 종목만 정해지면 된다.
+   */
   const needSymbol = (
-    <div className="flex h-full items-center justify-center">
-      <div className="space-y-3 text-center">
-        <p className="text-xs text-text-muted">종목을 먼저 선택하세요.</p>
-        <button
-          type="button"
-          onClick={() => setPage('chart')}
-          className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover"
-        >
-          🏠 홈에서 종목 고르기
-        </button>
+    <div className="flex h-full items-center justify-center px-6">
+      <div className="max-w-sm space-y-2 text-center">
+        <p className="text-sm font-medium text-text-secondary">분석할 종목을 먼저 고르세요.</p>
+        <p className="text-xs leading-relaxed text-text-muted">
+          ⬆️ 화면 <span className="text-text-secondary">왼쪽 위 검색창</span>에 종목명이나 티커를
+          입력하면 바로 분석할 수 있습니다. 한글로도 찾습니다 — 예: 애플, 엔비디아, AAPL
+        </p>
       </div>
     </div>
   );
@@ -376,7 +379,13 @@ export default function App() {
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* 종목 헤더 — 어느 화면에서든 현재 종목이 보이게 유지한다 */}
+        {/*
+          종목 헤더 — 차트·분석·급등·스윙·비교에서는 늘 떠 있다.
+          ⚠️ 종목과 무관한 화면(계좌·설정)에서는 감춘다 — 계좌는 자체 헤더가 있어 겹치고,
+          설정은 종목을 쓰지 않는다. **어느 화면인지는 `types/nav.ts` 가 안다** —
+          여기에 화면 이름을 나열하면 새 화면이 생길 때마다 빠뜨린다 (needsSymbol 과 같은 이유).
+        */}
+        {!pageMeta(view)?.hidesSymbolHeader && (
         <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-3">
           {/* 검색 입력은 주어진 폭을 채운다 — 헤더에서는 이 래퍼가 폭을 잡는다 */}
           <div className="w-52 shrink-0">
@@ -465,6 +474,7 @@ export default function App() {
             </span>
           )}
         </header>
+        )}
 
         {/*
           차트는 어느 화면에서도 언마운트하지 않는다.

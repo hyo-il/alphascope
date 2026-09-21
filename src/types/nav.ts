@@ -26,6 +26,14 @@ export interface NavPage {
   label: string;
   /** 종목을 골라야 의미가 있는 화면 — 미선택 상태에서 빈 화면을 보여 주지 않는다 */
   needsSymbol?: boolean;
+  /**
+   * 상단 종목 헤더(검색 + 종목명·시세·★)를 감출 화면.
+   *
+   * 종목과 **아무 상관이 없는** 화면에만 준다 — 계좌는 자체 헤더(계좌 유형 탭)가 있어
+   * 종목 헤더가 겹치고, 설정은 종목을 쓰지 않는다. 급등·스윙·비교는 오히려 거기서 종목을
+   * 고르므로 해당하지 않는다.
+   */
+  hidesSymbolHeader?: boolean;
 }
 
 export interface NavGroup {
@@ -61,17 +69,17 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: '💼',
     label: '계좌',
     // 모의투자는 별도 메뉴가 아니라 포트폴리오의 **계좌 선택**으로 들어갔다.
-    pages: [{ id: 'portfolio', label: '계좌 관리' }],
+    pages: [{ id: 'portfolio', label: '계좌 관리', hidesSymbolHeader: true }],
   },
   {
     id: 'settings',
     icon: '⚙️',
     label: '설정',
     pages: [
-      { id: 'settings-account', label: '계좌 설정' },
-      { id: 'settings-app', label: '앱 기능 설정' },
+      { id: 'settings-account', label: '계좌 설정', hidesSymbolHeader: true },
+      { id: 'settings-app', label: '앱 기능 설정', hidesSymbolHeader: true },
       // 손대는 설정이 아니라 읽는 화면이라 맨 뒤에 둔다.
-      { id: 'settings-changelog', label: '업데이트 내역' },
+      { id: 'settings-changelog', label: '업데이트 내역', hidesSymbolHeader: true },
     ],
   },
 ];

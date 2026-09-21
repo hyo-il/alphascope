@@ -23,6 +23,17 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.1.3',
+    date: '2026-09-21',
+    title: '화면에 맞지 않는 상단 검색 정리 + 분석 바로 시작',
+    description:
+      '계좌·설정처럼 종목과 상관없는 화면에서는 상단 종목 검색이 사라집니다. AI 분석은 차트를 거치지 않고 위 검색창에서 바로 시작할 수 있습니다.',
+    changes: [
+      '계좌 관리·설정 화면에서 상단 종목 검색 헤더를 감춥니다 — 계좌는 자체 헤더가 있어 겹쳤습니다',
+      'AI 분석에서 종목이 없을 때 안내를 바꿨습니다 — 차트로 보내지 않고 위 검색창을 가리킵니다',
+    ],
+  },
+  {
     version: 'v2.1.2',
     date: '2026-09-21',
     title: '관심 종목 편집 팝업 정리',
