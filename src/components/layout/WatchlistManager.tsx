@@ -404,6 +404,13 @@ export default function WatchlistManager({
                       submitLabel="추가"
                       compact
                       clearOnSubmit
+                      /*
+                       * ⚠️ 이 입력창은 팝업 **위쪽**에 있다 — 아래로 펼쳐야 한다.
+                       * `compact` 의 기본값은 '위로' 인데(관심 목록 패널의 맨 아래 입력창 기준),
+                       * 여기서 위로 열면 팝업 헤더에 가리고 팝업의 `overflow-hidden` 에 잘려
+                       * 첫 결과를 누를 수 없다. 비교 화면의 빈 칸 검색도 같은 이유로 false 다.
+                       */
+                      dropUp={false}
                       isAdded={(candidate) => watch.watchlist.includes(candidate)}
                     />
                   </div>

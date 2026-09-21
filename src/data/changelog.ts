@@ -23,6 +23,16 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.1.2',
+    date: '2026-09-21',
+    title: '관심 종목 편집 팝업에서 검색 결과를 고를 수 없던 문제',
+    description:
+      '관심 종목 편집 팝업에서 종목을 검색하면 결과가 입력창 위로 펼쳐져 팝업 상단에 가려지고 잘렸습니다. 이제 아래로 펼쳐져 바로 고를 수 있습니다.',
+    changes: [
+      '관심 종목 편집 팝업 — 검색 자동완성이 입력창 아래로 펼쳐집니다',
+    ],
+  },
+  {
     version: 'v2.1.0',
     date: '2026-09-20',
     title: '업데이트 내역 게시판 + 계좌 관리 정리',
