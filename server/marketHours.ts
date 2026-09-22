@@ -4,8 +4,8 @@
  * 공휴일까지 보지는 않는다 — 휴장일에 한 번 더 도는 비용은 작고,
  * 캘린더를 잘못 판단해 **장중에 쉬는 쪽이 더 나쁘다.**
  *
- * ⚠️ 이 판정은 자동 분석(`gemini/scheduler.ts`)과 계좌별 자동매매
- * (`autoTrading/scheduler.ts`)가 함께 쓴다. 두 곳에 각자 두면 한쪽만 고쳐진다.
+ * 계좌별 자동매매 스케줄러(`autoTrading/scheduler.ts`)가 쓴다. 판정을 쓰는 곳이
+ * 늘어나도 여기 하나만 고치면 되도록 파일로 떼어 두었다.
  */
 export function isUsMarketOpen(now = new Date()): boolean {
   const parts = new Intl.DateTimeFormat('en-US', {

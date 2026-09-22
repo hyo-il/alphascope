@@ -17,12 +17,9 @@ import {
   type RuleConfig,
   type StrategyMode,
 } from '../../src/types/autoTrading';
-import type { AutoAnalysisSettings } from '../../src/types/gemini';
 
 const STRATEGIES_KEY = 'autoTrading.strategies';
-const MIGRATED_KEY = 'autoTrading.migratedFromGlobal';
 const PEAKS_KEY = 'autoTrading.trailingPeaks';
-const LEGACY_GLOBAL_KEY = 'autoAnalysis';
 
 type StrategyMap = Record<string, AccountStrategy>;
 
@@ -170,48 +167,4 @@ export function clearPeak(accountId: number, symbol: string): void {
   delete forAccount[symbol];
   peaks[String(accountId)] = forAccount;
   writeSetting(PEAKS_KEY, peaks);
-}
-
-// ── 전역 설정 → 계좌별 1회 마이그레이션 ──────────────────────
-
-/**
- * 기존 전역 `autoAnalysis` 에 자동매매가 켜져 있었다면, 그 값을 해당 계좌로 한 번 옮긴다.
- *
- * ⚠️ **원본은 지우지 않는다.** 2단계에서 화면을 바꿀 때까지 기존 설정 API 가 살아 있어야
- * 지금 화면이 깨지지 않는다 (지우는 것은 3단계 몫이다).
- */
-export function migrateGlobalStrategy(): { migrated: boolean; accountId?: number; reason: string } {
-  if (readSetting<boolean>(MIGRATED_KEY, false)) {
-    return { migrated: false, reason: '이미 마이그레이션했습니다' };
-  }
-
-  const global = readSetting<Partial<AutoAnalysisSettings> | null>(LEGACY_GLOBAL_KEY, null);
-  // 자동매매가 꺼져 있었으면 옮길 전략이 없다 — 분석만 쓰던 설정이다.
-  if (!global?.autoTrade || !global.paperAccountId) {
-    writeSetting(MIGRATED_KEY, true);
-    return { migrated: false, reason: '옮길 전역 자동매매 설정이 없습니다' };
-  }
-
-  const accountId = Number(global.paperAccountId);
-  if (!listAccounts().some((a) => a.id === accountId)) {
-    writeSetting(MIGRATED_KEY, true);
-    return { migrated: false, reason: `계좌 #${accountId} 가 없습니다` };
-  }
-
-  saveStrategy(accountId, {
-    enabled: Boolean(global.enabled),
-    mode: 'ai',
-    symbols: cleanSymbols(global.symbols),
-    positionSizePercent: global.positionSizePercent ?? 10,
-    maxPositions: global.maxPositions ?? 5,
-    intervalMinutes: global.intervalMinutes ?? 60,
-    marketHoursOnly: global.marketHoursOnly ?? true,
-    buySignal: global.buySignal ?? 'BUY',
-    buyMinConfidence: global.buyMinConfidence ?? global.minConfidence ?? 0.7,
-    sellSignal: global.sellSignal ?? 'SELL',
-    sellMinConfidence: global.sellMinConfidence ?? global.minConfidence ?? 0.7,
-    horizon: global.horizon ?? 'swing',
-  });
-  writeSetting(MIGRATED_KEY, true);
-  return { migrated: true, accountId, reason: `계좌 #${accountId} 로 옮겼습니다` };
 }

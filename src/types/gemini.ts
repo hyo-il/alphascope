@@ -1,6 +1,5 @@
 /** Gemini 자동 분석 타입 — 서버와 프론트가 함께 쓴다. */
 
-import type { InvestmentHorizon } from '../services/analysis/horizons';
 
 export type TradeSignal = 'STRONG_BUY' | 'BUY' | 'HOLD' | 'SELL' | 'STRONG_SELL';
 export type AgentVote = 'BUY' | 'HOLD' | 'SELL';
@@ -62,46 +61,3 @@ export interface GeminiAnalysis {
   trigger: 'auto' | 'manual';
 }
 
-/** 자동 분석 설정 */
-export interface AutoAnalysisSettings {
-  enabled: boolean;
-  /** 분석할 종목 */
-  symbols: string[];
-  /** 분석 주기(분) */
-  intervalMinutes: number;
-  /** 미국 정규장에만 돌릴지 */
-  marketHoursOnly: boolean;
-  /** 판단의 시간축 — 수동 분석과 같은 정의를 쓴다 (services/analysis/horizons.ts) */
-  horizon: InvestmentHorizon;
-
-  // ── 자동 매매 ────────────────────────────────
-  /** 자동 모의 주문 */
-  autoTrade: boolean;
-  /** 주문을 걸 모의투자 계좌 */
-  paperAccountId: number | null;
-  /** 매수할 최소 신호 — 'BUY' 면 BUY·STRONG_BUY 둘 다, 'STRONG_BUY' 면 강력 매수만 */
-  buySignal: 'BUY' | 'STRONG_BUY';
-  /** 매수 최소 신뢰도 */
-  buyMinConfidence: number;
-  /** 매도할 최소 신호 */
-  sellSignal: 'SELL' | 'STRONG_SELL';
-  /** 매도 최소 신뢰도 */
-  sellMinConfidence: number;
-  /** 한 종목당 잔고의 몇 %를 넣을지 */
-  positionSizePercent: number;
-  /** 동시에 보유할 최대 종목 수 */
-  maxPositions: number;
-
-  /** @deprecated buyMinConfidence·sellMinConfidence 로 나뉘었다. 기존 설정 이관용으로만 읽는다. */
-  minConfidence?: number;
-}
-
-export interface AutoAnalysisStatus {
-  enabled: boolean;
-  running: boolean;
-  lastRunAt: string | null;
-  nextRunAt: string | null;
-  lastError: string | null;
-  /** 오늘 쓴 API 호출 수 (자정 KST 리셋) */
-  callsToday: number;
-}

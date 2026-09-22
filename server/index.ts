@@ -29,19 +29,13 @@ import {
   getAnalysis as getGeminiAnalysis,
   listAnalyses as listGeminiAnalyses,
 } from './gemini/store';
-import {
-  getSettings as getGeminiSettings,
-  getStatus as getGeminiStatus,
-  runOnce as runGeminiOnce,
-  saveSettings as saveGeminiSettings,
-} from './gemini/scheduler';
-// 계좌별 자동매매 (1단계) — 주문을 내는 유일한 경로다
+import { DEFAULT_HORIZON } from '../src/services/analysis/horizons';
+// 계좌별 자동매매 — 주문을 내는 유일한 경로다 (Step 12)
 import {
   getStrategy,
   listStrategies,
   saveStrategy,
   deleteStrategy,
-  migrateGlobalStrategy,
 } from './autoTrading/store';
 import {
   getStrategyStatus,
@@ -514,7 +508,7 @@ app.delete('/api/paper/accounts/:id', (req, res) => {
 // ── 계좌별 자동매매 (1단계) ─────────────────────────────────
 //
 // ⚠️ 모의 계좌 전용이다. 실제 주문은 어떤 경로로도 나가지 않는다.
-// 전역 `/api/gemini/settings` 는 2단계까지 호환용으로 남아 있지만 **주문을 내지 않는다.**
+// 자동매매 설정은 여기 한 곳뿐이다 — 전역 설정·스케줄러는 v2.4.0 에서 제거했다.
 
 /** 전 계좌의 자동매매 설정 (저장된 적 없는 계좌는 기본값) */
 app.get('/api/auto-trading/strategies', (_req, res) => {
@@ -712,23 +706,16 @@ function requireGemini(res: express.Response): boolean {
   return false;
 }
 
+/**
+ * Gemini 를 쓸 수 있는지 — **키 가용성만** 돌려준다.
+ *
+ * 예전에는 전역 자동 분석의 설정·실행 상태까지 함께 실려 있었다. 자동매매가 계좌별로
+ * 일원화되면서(Step 12) 그 설정 자체가 없어졌다. 지금 이 값을 쓰는 곳은
+ * "AI형을 고를 수 있는가"(계좌 자동매매 설정)와 "이 버튼을 켤 수 있는가"(차트 AI 탭)다.
+ */
 app.get('/api/gemini/status', (_req, res) => {
   try {
-    res.json({
-      enabled: isGeminiEnabled(),
-      model: DEFAULT_MODEL,
-      settings: isGeminiEnabled() ? getGeminiSettings() : null,
-      status: isGeminiEnabled() ? getGeminiStatus() : null,
-    });
-  } catch (e) {
-    fail(res, e);
-  }
-});
-
-app.put('/api/gemini/settings', (req, res) => {
-  if (!requireGemini(res)) return;
-  try {
-    res.json(saveGeminiSettings(req.body ?? {}));
+    res.json({ enabled: isGeminiEnabled(), model: DEFAULT_MODEL });
   } catch (e) {
     fail(res, e);
   }
@@ -741,33 +728,22 @@ app.post('/api/gemini/analyze', async (req, res) => {
   if (!symbol) return res.status(400).json({ error: 'symbol 이 필요합니다.' });
 
   try {
-    const settingsForRun = getGeminiSettings();
+    /*
+     * ⚠️ 분석만 한다 — 주문은 계좌별 스케줄러가 맡는다 (Step 12).
+     * 기간을 주지 않으면 기본값을 쓴다. 예전에는 전역 자동 분석 설정에서 읽었는데
+     * 그 설정이 없어졌다.
+     */
     const analysis = await runAnalysis({
       symbol,
       trigger: 'manual',
       chartImage: req.body?.chartImage ?? null,
-      horizon: req.body?.horizon ?? settingsForRun.horizon,
+      horizon: req.body?.horizon ?? DEFAULT_HORIZON,
     });
-
-    /*
-     * ⚠️ 분석만 한다 — 여기서 주문을 내지 않는다 (1단계).
-     * 자동매매는 계좌별 스케줄러가 맡는다. 두 경로가 모두 주문을 내면 같은 신호로 두 번 산다.
-     */
     res.json(analysis);
   } catch (e) {
     if (e instanceof GeminiError) {
       return res.status(e.rateLimited ? 429 : 502).json({ error: e.message });
     }
-    fail(res, e);
-  }
-});
-
-/** 설정된 종목 전체를 지금 한 바퀴 */
-app.post('/api/gemini/run', async (_req, res) => {
-  if (!requireGemini(res)) return;
-  try {
-    res.json(await runGeminiOnce('manual'));
-  } catch (e) {
     fail(res, e);
   }
 });
@@ -1009,15 +985,7 @@ app.listen(port, host, () => {
   void backfillSnapshots().then(() => startSnapshotScheduler());
 
   // Gemini 자동 분석 — 키가 없으면 아무 일도 하지 않는다.
-  /*
-   * ⚠️ 전역 자동 분석 타이머는 더 이상 기동하지 않는다 (1단계).
-   * 주문을 내는 경로는 계좌별 스케줄러 하나뿐이어야 중복 주문이 없다.
-   * 전역 설정 API 는 2단계에서 화면을 바꿀 때까지 호환용으로 살려 둔다.
-   */
-  const migration = migrateGlobalStrategy();
-  if (migration.migrated) {
-    console.log(`[alphascope] 전역 자동매매 설정을 계좌 #${migration.accountId} 로 이관했습니다`);
-  }
+  // 자동매매는 계좌별 스케줄러 하나가 맡는다 (Step 12 — 전역 경로는 v2.4.0 에서 제거).
   startAutoTradingScheduler();
   console.log('[alphascope] 계좌별 자동매매 스케줄러 준비됨 (모의 계좌 전용)');
   if (isGeminiEnabled()) console.log(`[alphascope] Gemini 자동 분석 준비됨 (${DEFAULT_MODEL})`);
