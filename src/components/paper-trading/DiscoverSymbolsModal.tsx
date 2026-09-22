@@ -27,7 +27,73 @@ interface Row {
   grade: string | null;
   /** 화면에 그대로 적는 근거 — 계산하지 않고 서버가 준 값을 옮긴다 */
   reasons: string[];
+  /** 기준을 통과했는지. 떨어진 것도 목록에 남긴다 — 왜 0건인지 보여 주기 위해서다 */
+  passed?: boolean;
+  /** 떨어진 이유 (점수 미달 / 등급 제외) */
+  fail?: 'score' | 'grade';
 }
+
+/** 필터 결과 집계 — "0종목" 의 이유를 숫자로 말하기 위한 것 */
+interface FilterStats {
+  total: number;
+  passed: number;
+  failScore: number;
+  failGrade: number;
+  /** 등급별 건수 (많은 순으로 적는다) */
+  gradeDist: [string, number][];
+}
+
+/**
+ * 기준으로 거르고 **떨어진 이유까지 표시**한다.
+ *
+ * ⚠️ 점수·등급은 서버가 준 값 그대로다. 여기서 다시 계산하지 않는다.
+ * 점수를 먼저 보고, 점수를 넘긴 것만 등급을 본다 — 그래야 "점수 미달 0 · 등급 제외 7" 처럼
+ * 사유가 한쪽으로 모여 읽힌다 (둘 다 걸린 것을 양쪽에 세면 합이 전체보다 커진다).
+ */
+function applyCriteria(rows: Row[], minScore: number, grades: string[]): {
+  rows: Row[];
+  stats: FilterStats;
+} {
+  const dist = new Map<string, number>();
+  let failScore = 0;
+  let failGrade = 0;
+
+  const marked = rows.map((row) => {
+    if (row.grade) dist.set(row.grade, (dist.get(row.grade) ?? 0) + 1);
+    if ((row.score ?? 0) < minScore) {
+      failScore += 1;
+      return { ...row, passed: false, fail: 'score' as const };
+    }
+    if (row.grade && !grades.includes(row.grade)) {
+      failGrade += 1;
+      return { ...row, passed: false, fail: 'grade' as const };
+    }
+    return { ...row, passed: true };
+  });
+
+  return {
+    rows: marked,
+    stats: {
+      total: rows.length,
+      passed: marked.filter((r) => r.passed).length,
+      failScore,
+      failGrade,
+      gradeDist: [...dist.entries()].sort((a, b) => b[1] - a[1]),
+    },
+  };
+}
+
+/** 점수 체계 설명 — 실제 배점표(Step 9·10)를 그대로 옮긴 것이다 */
+const LEGEND: Record<'surge' | 'swing', string[]> = {
+  surge: [
+    'HIGH ≥ 80 · MEDIUM ≥ 60 · LOW ≥ 40',
+    '100점 = 주기성 30 + 예상일 근접 20 + RSI 과매도 15 + 거래량 증가 10 + 볼린저 하단 10 + MACD 양전환 10 + 변동성 축소 5',
+  ],
+  swing: [
+    'STRONG ≥ 80 · BUY ≥ 65 · WATCH ≥ 50 · HOLD ≥ 35 · AVOID < 35',
+    '100점 = 추세 30 + 타이밍 25 + 모멘텀 20 + 거래량 15 + 손익비 10',
+  ],
+};
 
 const SOURCES: { id: Source; label: string; desc: string }[] = [
   { id: 'surge', label: '🔥 급등 탐지', desc: '주기적으로 급등하는 종목 — 점수·규칙성·다음 예상일' },
@@ -66,6 +132,7 @@ function swingRowFromRecommendation(r: SwingRecommendation): Row {
     `손익비 ${num(r.conditions.riskReward.ratio, 2)} · 권장 비중 ${num(r.position.recommendedPercent, 1)}%`,
     r.entry.reason,
   ];
+  if (r.rejection) reasons.push(`제외 사유: ${r.rejection}`);
   if (r.warnings.length) reasons.push(`⚠️ ${r.warnings[0]}`);
   return { symbol: r.symbol, score: r.score, grade: r.grade, reasons };
 }
@@ -89,6 +156,10 @@ export default function DiscoverSymbolsModal({
   const [fresh, setFresh] = useState(false);
 
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [stats, setStats] = useState<FilterStats | null>(null);
+  /** 기준에서 떨어진 종목도 흐리게 보여 줄지 — 왜 0건인지 눈으로 확인하는 용도다 */
+  const [showRejected, setShowRejected] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<SurgeProgress | null>(null);
@@ -115,6 +186,7 @@ export default function DiscoverSymbolsModal({
   const pickSource = (next: Source) => {
     setSource(next);
     setRows(null);
+    setStats(null);
     setSelected([]);
     setNote(null);
     setFresh(false);
@@ -146,16 +218,26 @@ export default function DiscoverSymbolsModal({
   const detect = async () => {
     setBusy(true);
     setRows(null);
+    setStats(null);
     setSelected([]);
     setNote(null);
     try {
       if (source === 'watchlist') {
-        setRows(watchlist.map((symbol) => ({ symbol, score: null, grade: null, reasons: [] })));
+        const all = watchlist.map((symbol) => ({
+          symbol,
+          score: null,
+          grade: null,
+          reasons: [],
+          passed: true,
+        }));
+        setRows(all);
+        setStats({ total: all.length, passed: all.length, failScore: 0, failGrade: 0, gradeDist: [] });
         setSelected(watchlist.filter((s) => !alreadyAdded.includes(s)));
         return;
       }
 
-      let found: Row[] = [];
+      /** 기준을 적용하기 전의 전체 후보 — 떨어진 것도 들고 있어야 사유를 셀 수 있다 */
+      let candidates: Row[] = [];
 
       if (source === 'surge') {
         if (fresh) {
@@ -172,51 +254,46 @@ export default function DiscoverSymbolsModal({
         if (!all.length) {
           setNote('저장된 급등 탐지 결과가 없습니다. [다시 탐지] 를 켜고 실행해 보세요.');
         } else if (data.detectedAt) {
-          setNote(`탐지 시각 ${new Date(data.detectedAt).toLocaleString('ko-KR')} · 전체 ${all.length}건`);
+          setNote(`탐지 시각 ${new Date(data.detectedAt).toLocaleString('ko-KR')}`);
         }
-        found = all
-          .filter((r) => r.surgeScore >= minScore && grades.includes(r.grade))
-          .sort((a, b) => b.surgeScore - a.surgeScore)
-          .slice(0, limit)
-          .map(surgeRow);
+        candidates = all.sort((a, b) => b.surgeScore - a.surgeScore).map(surgeRow);
+      } else if (fresh) {
+        if (!watchlist.length) {
+          toast.info('관심 목록이 비어 있어 다시 분석할 수 없습니다');
+          return;
+        }
+        const data = await fetch('/api/swing/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbols: watchlist }),
+        }).then((r) => r.json());
+        const all: SwingRecommendation[] = data.recommendations ?? [];
+        setNote(`관심 목록 ${watchlist.length}종목을 다시 채점했습니다`);
+        candidates = all.sort((a, b) => b.score - a.score).map(swingRowFromRecommendation);
       } else {
-        if (fresh) {
-          if (!watchlist.length) {
-            toast.info('관심 목록이 비어 있어 다시 분석할 수 없습니다');
-            return;
-          }
-          const data = await fetch('/api/swing/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ symbols: watchlist }),
-          }).then((r) => r.json());
-          const all: SwingRecommendation[] = data.recommendations ?? [];
-          setNote(`관심 목록 ${watchlist.length}종목을 다시 채점했습니다 · 전체 ${all.length}건`);
-          found = all
-            .filter((r) => r.score >= minScore && grades.includes(r.grade))
-            .sort((a, b) => b.score - a.score)
-            .slice(0, limit)
-            .map(swingRowFromRecommendation);
-        } else {
-          const data = await fetch('/api/swing/recommendations').then((r) => r.json());
-          const all: SwingRecord[] = data.records ?? [];
-          if (!all.length) {
-            setNote('저장된 스윙 추천이 없습니다. [다시 분석] 을 켜고 실행해 보세요.');
-          } else if (data.analyzedAt) {
-            setNote(`분석 시각 ${new Date(data.analyzedAt).toLocaleString('ko-KR')} · 전체 ${all.length}건`);
-          }
-          found = all
-            .filter((r) => r.score >= minScore && grades.includes(r.grade))
-            .sort((a, b) => b.score - a.score)
-            .slice(0, limit)
-            .map(swingRowFromRecord);
+        const data = await fetch('/api/swing/recommendations').then((r) => r.json());
+        const all: SwingRecord[] = data.records ?? [];
+        if (!all.length) {
+          setNote('저장된 스윙 추천이 없습니다. [다시 분석] 을 켜고 실행해 보세요.');
+        } else if (data.analyzedAt) {
+          setNote(`분석 시각 ${new Date(data.analyzedAt).toLocaleString('ko-KR')}`);
         }
+        candidates = all.sort((a, b) => b.score - a.score).map(swingRowFromRecord);
       }
 
       if (!alive.current) return;
-      setRows(found);
-      // 기본은 전체 선택이다 — 기준을 통과한 것만 보이므로, 빼는 쪽이 더 적다.
-      setSelected(found.map((r) => r.symbol).filter((s) => !alreadyAdded.includes(s)));
+
+      const { rows: marked, stats: counted } = applyCriteria(candidates, minScore, grades);
+      /*
+        통과분만 최대 개수로 자른다 — 떨어진 것은 개수 제한과 상관없이 "왜 0건인가" 를
+        설명하는 자료라 그대로 둔다 (목록에는 토글을 켰을 때만 나온다).
+      */
+      const passed = marked.filter((r) => r.passed).slice(0, limit);
+      const rejected = marked.filter((r) => !r.passed);
+      setRows([...passed, ...rejected]);
+      setStats(counted);
+      // 기본은 전체 선택이다 — 기준을 통과한 것만 담기 대상이라, 빼는 쪽이 더 적다.
+      setSelected(passed.map((r) => r.symbol).filter((s) => !alreadyAdded.includes(s)));
     } catch (e) {
       toast.error('탐지하지 못했습니다', (e as Error).message);
     } finally {
@@ -234,7 +311,10 @@ export default function DiscoverSymbolsModal({
   };
 
   const gradeOptions = source === 'surge' ? SURGE_GRADES : SWING_GRADES;
-  const selectable = (rows ?? []).filter((r) => !alreadyAdded.includes(r.symbol));
+  const passedRows = (rows ?? []).filter((r) => r.passed);
+  const rejectedRows = (rows ?? []).filter((r) => !r.passed);
+  const visibleRows = showRejected ? [...passedRows, ...rejectedRows] : passedRows;
+  const selectable = passedRows.filter((r) => !alreadyAdded.includes(r.symbol));
 
   return (
     <div
@@ -285,7 +365,23 @@ export default function DiscoverSymbolsModal({
 
           {source !== 'watchlist' && (
             <section className="space-y-2 rounded-md border border-border bg-bg-tertiary/30 p-3">
-              <h3 className="text-xs font-semibold text-text-primary">② 기준</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-semibold text-text-primary">② 기준</h3>
+                {/* 점수·등급이 무엇인지 모르면 기준을 정할 수 없다 — 배점표를 여기서 편다 */}
+                <button
+                  type="button"
+                  onClick={() => setLegendOpen((v) => !v)}
+                  className="text-[11px] text-text-muted transition-colors hover:text-text-primary"
+                >
+                  {legendOpen ? '▾ 점수·등급 설명 접기' : '▸ 점수·등급은 무엇인가요?'}
+                </button>
+              </div>
+              {legendOpen &&
+                LEGEND[source].map((line) => (
+                  <p key={line} className="text-[11px] leading-relaxed text-text-muted">
+                    {line}
+                  </p>
+                ))}
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-text-secondary">최소 점수</span>
                 <input
@@ -360,8 +456,21 @@ export default function DiscoverSymbolsModal({
             <section className="space-y-2">
               <div className="flex items-center gap-2">
                 <h3 className="text-xs font-semibold text-text-primary">
-                  ③ 담을 종목 <span className="font-normal text-text-muted">({selected.length}/{rows.length})</span>
+                  ③ 담을 종목{' '}
+                  <span className="font-normal text-text-muted">
+                    ({selected.length}/{passedRows.length})
+                  </span>
                 </h3>
+                {rejectedRows.length > 0 && (
+                  <label className="inline-flex w-fit items-center gap-1.5 text-[11px] text-text-muted">
+                    <input
+                      type="checkbox"
+                      checked={showRejected}
+                      onChange={(e) => setShowRejected(e.target.checked)}
+                    />
+                    기준 미달도 보기 ({rejectedRows.length})
+                  </label>
+                )}
                 <button
                   type="button"
                   onClick={() =>
@@ -377,20 +486,41 @@ export default function DiscoverSymbolsModal({
                 </button>
               </div>
 
-              {rows.length === 0 ? (
+              {/*
+                ⚠️ "0종목" 만 띄우지 않는다. 실제 신고는 **점수를 10 까지 낮췄는데도 0건**이었고,
+                원인은 점수가 아니라 등급 필터였다(7건이 전부 WATCH·HOLD). 무엇에 걸렸는지
+                숫자로 말해 주지 않으면 사용자는 엉뚱한 손잡이를 계속 돌린다.
+              */}
+              {stats && stats.total > 0 && source !== 'watchlist' && (
+                <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-2 text-[11px] leading-relaxed text-text-muted">
+                  전체 {stats.total}건 · 통과 {stats.passed} — 점수 미달 {stats.failScore} · 등급 제외{' '}
+                  {stats.failGrade}
+                  {stats.failGrade > 0 && ` (지금 ${grades.join('·') || '선택 없음'} 만 봄)`}
+                  {stats.gradeDist.length > 0 && (
+                    <>
+                      <br />
+                      실제 등급: {stats.gradeDist.map(([g, n]) => `${g} ${n}`).join(', ')}
+                    </>
+                  )}
+                </p>
+              )}
+
+              {visibleRows.length === 0 ? (
                 <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-4 text-center text-[11px] text-text-muted">
                   기준을 통과한 종목이 없습니다. 점수를 낮추거나 등급을 넓혀 보세요.
                 </p>
               ) : (
                 <ul className="space-y-1.5">
-                  {rows.map((row) => {
+                  {visibleRows.map((row) => {
                     const added = alreadyAdded.includes(row.symbol);
+                    const rejected = !row.passed;
+                    const disabled = added || rejected;
                     const checked = selected.includes(row.symbol);
                     return (
                       <li key={row.symbol}>
                         <label
                           className={`flex w-full items-start gap-2 rounded-md border px-3 py-2 transition-colors ${
-                            added
+                            disabled
                               ? 'border-border/60 opacity-50'
                               : checked
                                 ? 'border-accent bg-accent/5'
@@ -400,7 +530,7 @@ export default function DiscoverSymbolsModal({
                           <input
                             type="checkbox"
                             className="mt-0.5"
-                            disabled={added}
+                            disabled={disabled}
                             checked={checked}
                             onChange={(e) =>
                               setSelected((prev) =>
@@ -425,6 +555,11 @@ export default function DiscoverSymbolsModal({
                               )}
                               {added && (
                                 <span className="text-[10px] text-text-muted">이미 담긴 종목</span>
+                              )}
+                              {rejected && (
+                                <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[10px] text-text-muted">
+                                  {row.fail === 'score' ? `점수 미달 (< ${minScore})` : '등급 제외'}
+                                </span>
                               )}
                             </span>
                             {/* 근거 — 왜 이 종목이 올라왔는지 여기서 끝나야 한다 */}

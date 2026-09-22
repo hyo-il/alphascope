@@ -384,8 +384,13 @@ export default function App() {
         */}
         {!pageMeta(view)?.hidesSymbolHeader && (
         <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-3">
-          {/* 검색 입력은 주어진 폭을 채운다 — 헤더에서는 이 래퍼가 폭을 잡는다 */}
-          <div className="w-64 shrink-0">
+          {/*
+            검색 입력은 주어진 폭을 채운다 — 헤더에서는 이 래퍼가 폭을 잡는다.
+            ⚠️ 키울 때는 **가로로** 키운다. 헤더 높이는 h-12(48px) 고정이라 세로에는 자리가 없고,
+            정작 읽기 어려운 것은 긴 종목명이다. 안쪽 입력이 `min-w-0 flex-1` 이라
+            래퍼 폭만 바꾸면 입력·버튼이 함께 늘어난다.
+          */}
+          <div className="w-72 shrink-0 lg:w-96">
             <SymbolSearch symbol={symbol ?? ''} onSubmit={setSymbol} />
           </div>
 

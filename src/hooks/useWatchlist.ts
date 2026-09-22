@@ -49,7 +49,12 @@ function emptyDefault(symbols: string[] = []): WatchFolder {
   return { id: DEFAULT_FOLDER_ID, name: DEFAULT_FOLDER_NAME, collapsed: false, symbols };
 }
 
-/** '미분류' 는 반드시 하나 있어야 하고 항상 맨 아래다. */
+/**
+ * '미분류' 는 반드시 하나 있어야 하고 **항상 맨 위**다 (2026-09-22 변경).
+ *
+ * 예전에는 맨 아래였다 — 그런데 어느 폴더에도 넣지 않은 종목이 가장 많고 가장 자주 보는데,
+ * 그룹이 늘수록 스크롤 아래로 밀려났다. 위치 강제는 **여기 한 곳**이다.
+ */
 function normalize(folders: WatchFolder[]): WatchFolder[] {
   const seen = new Set<string>();
   const cleaned = folders
@@ -70,7 +75,7 @@ function normalize(folders: WatchFolder[]): WatchFolder[] {
 
   const others = cleaned.filter((f) => f.id !== DEFAULT_FOLDER_ID);
   const fallback = cleaned.find((f) => f.id === DEFAULT_FOLDER_ID) ?? emptyDefault();
-  return [...others, { ...fallback, name: DEFAULT_FOLDER_NAME }];
+  return [{ ...fallback, name: DEFAULT_FOLDER_NAME }, ...others];
 }
 
 function readFolders(): WatchFolder[] {
@@ -218,7 +223,7 @@ export function useWatchlist() {
     (name: string) => {
       const trimmed = name.trim();
       if (!trimmed) return;
-      // 새 폴더는 '미분류' 위에 쌓는다 (normalize 가 미분류를 맨 아래로 보낸다).
+      // 새 폴더는 뒤에 쌓는다 (normalize 가 '미분류' 를 맨 위로 끌어올린다).
       save([...folders, { id: newFolderId(), name: trimmed, collapsed: false, symbols: [] }]);
     },
     [folders, save],
@@ -257,7 +262,7 @@ export function useWatchlist() {
     [folders, save],
   );
 
-  /** 폴더 순서 이동. '미분류' 는 맨 아래 고정이라 움직이지 않는다. */
+  /** 폴더 순서 이동. '미분류' 는 맨 위 고정이라 움직이지 않는다. */
   const moveFolder = useCallback(
     (id: string, direction: -1 | 1) => {
       if (id === DEFAULT_FOLDER_ID) return;
@@ -268,7 +273,7 @@ export function useWatchlist() {
       const reordered = [...movable];
       [reordered[index], reordered[next]] = [reordered[next], reordered[index]];
       // '미분류' 를 함께 넘긴다 — 빼면 그 안의 종목이 사라진다 (normalize 가 새로 만든다).
-      save([...reordered, ...folders.filter((f) => f.id === DEFAULT_FOLDER_ID)]);
+      save([...folders.filter((f) => f.id === DEFAULT_FOLDER_ID), ...reordered]);
     },
     [folders, save],
   );
@@ -284,7 +289,7 @@ export function useWatchlist() {
       const reordered = [...movable];
       const [moved] = reordered.splice(from, 1);
       reordered.splice(to, 0, moved);
-      save([...reordered, ...folders.filter((f) => f.id === DEFAULT_FOLDER_ID)]);
+      save([...folders.filter((f) => f.id === DEFAULT_FOLDER_ID), ...reordered]);
     },
     [folders, save],
   );

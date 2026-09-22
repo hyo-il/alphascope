@@ -51,6 +51,8 @@ export default function WatchlistManager({
 
   const [selectedFolderId, setSelectedFolderId] = useState(watch.lastFolderId);
   const folder = folders.find((f) => f.id === selectedFolderId) ?? folders[0];
+  /** 순서를 움직일 수 있는 폴더 — '미분류' 는 맨 위 고정이라 빠진다 (`moveFolder` 와 같은 기준) */
+  const movable = folders.filter((f) => f.id !== DEFAULT_FOLDER_ID);
 
   const [checked, setChecked] = useState<string[]>([]);
   const [sort, setSort] = useState<SortMode>('manual');
@@ -185,6 +187,13 @@ export default function WatchlistManager({
               {folders.map((f) => {
                 const isDefault = f.id === DEFAULT_FOLDER_ID;
                 const active = f.id === folder?.id;
+                /*
+                  ⚠️ 순서 이동의 **주 수단은 ▲▼** 다 (2026-09-22). 드래그 손잡이만 두었더니
+                  10×14px 를 정확히 집어야 해서 "순서가 안 바뀐다" 는 신고가 났다 — 그룹 이름을
+                  잡으면 아무 일도 일어나지 않는다. `moveFolder` 는 이미 있는 검증된 함수다.
+                  인덱스는 '미분류'(맨 위 고정)를 뺀 **움직일 수 있는 폴더 기준**이다.
+                */
+                const movableIndex = isDefault ? -1 : movable.findIndex((m) => m.id === f.id);
 
                 return (
                   <li
@@ -233,10 +242,10 @@ export default function WatchlistManager({
                             draggable
                             onDragStart={() => setDragFolder(f.id)}
                             onDragEnd={() => setDragFolder(null)}
-                            title="드래그해 그룹 순서 변경"
+                            title="드래그 또는 ▲▼ 로 순서 변경"
                             className="cursor-grab pl-1.5 text-text-muted active:cursor-grabbing"
                           >
-                            <GripIcon className="h-3.5 w-2.5" />
+                            <GripIcon className="h-4 w-3" />
                           </span>
                         ) : (
                           <span className="w-2.5 pl-1.5" />
@@ -263,6 +272,31 @@ export default function WatchlistManager({
                             {f.symbols.length}
                           </span>
                         </button>
+
+                        {!isDefault && (
+                          <span className="flex shrink-0 flex-col">
+                            {([
+                              { dir: -1 as const, label: '▲', disabled: movableIndex <= 0 },
+                              {
+                                dir: 1 as const,
+                                label: '▼',
+                                disabled: movableIndex < 0 || movableIndex >= movable.length - 1,
+                              },
+                            ]).map((b) => (
+                              <button
+                                key={b.label}
+                                type="button"
+                                disabled={b.disabled}
+                                onClick={() => watch.moveFolder(f.id, b.dir)}
+                                title={b.dir === -1 ? '위로 이동' : '아래로 이동'}
+                                aria-label={`${f.name} 그룹 ${b.dir === -1 ? '위로' : '아래로'} 이동`}
+                                className="rounded px-1 text-[9px] leading-tight text-text-muted/70 transition-colors hover:text-accent disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:text-text-muted/70"
+                              >
+                                {b.label}
+                              </button>
+                            ))}
+                          </span>
+                        )}
 
                         {!isDefault && (
                           <button
@@ -320,7 +354,7 @@ export default function WatchlistManager({
             </div>
 
             <p className="shrink-0 border-t border-border px-3 py-2 text-[10px] leading-snug text-text-muted">
-              더블클릭: 이름 변경 · ⠿ 드래그: 순서
+              더블클릭: 이름 변경 · ▲▼ 또는 ⠿ 드래그: 순서
             </p>
           </nav>
 
@@ -541,7 +575,7 @@ export default function WatchlistManager({
             </div>
 
             <p className="shrink-0 border-t border-border px-4 py-2 text-[10px] text-text-muted">
-              변경은 바로 저장됩니다 · '미분류' 는 삭제할 수 없고 항상 맨 아래입니다.
+              변경은 바로 저장됩니다 · '미분류' 는 삭제할 수 없고 항상 맨 위입니다.
             </p>
           </section>
         </div>
