@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AccountStrategy, StrategyMode } from '../../types/autoTrading';
-import type { SurgeDetection } from '../../types/surge';
-import type { SwingRecord } from '../../types/swing';
 import SymbolSearch from '../common/SymbolSearch';
+import DiscoverSymbolsModal from './DiscoverSymbolsModal';
 import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
 import { useWatchlist } from '../../hooks/useWatchlist';
@@ -41,6 +40,7 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
   const [draft, setDraft] = useState<AccountStrategy>(strategy);
   const [detailOpen, setDetailOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [discoverOpen, setDiscoverOpen] = useState(false);
   const { watchlist } = useWatchlist();
   useStockNames(draft.symbols);
 
@@ -56,35 +56,6 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
     toast[added ? 'success' : 'info'](
       added ? `${source}에서 ${added}종목 담았습니다` : `${source}에서 새로 담을 종목이 없습니다`,
     );
-  };
-
-  /** 발굴 — 앱에 이미 있는 데이터를 그대로 가져온다 (새로 분석하지 않는다) */
-  const pullFrom = async (source: 'surge' | 'swing' | 'watchlist') => {
-    try {
-      if (source === 'watchlist') {
-        if (!watchlist.length) return toast.info('관심 목록이 비어 있습니다');
-        return addSymbols(watchlist, '관심 목록');
-      }
-      if (source === 'surge') {
-        const data = await fetch('/api/surge/results').then((r) => r.json());
-        const rows: SurgeDetection[] = data.results ?? [];
-        // 점수가 높은 쪽부터 — 등급이 낮은 것까지 담으면 대상이 금세 수십 개가 된다.
-        const picked = rows
-          .filter((r) => r.grade === 'HIGH' || r.grade === 'MEDIUM')
-          .sort((a, b) => b.surgeScore - a.surgeScore)
-          .slice(0, 10)
-          .map((r) => r.symbol);
-        if (!picked.length) return toast.info('급등 탐지 결과가 없습니다', '급등 탐지에서 먼저 분석해 보세요');
-        return addSymbols(picked, '급등 탐지');
-      }
-      const data = await fetch('/api/swing/recommendations').then((r) => r.json());
-      const rows: SwingRecord[] = data.records ?? [];
-      const picked = rows.map((r) => r.symbol);
-      if (!picked.length) return toast.info('저장된 스윙 추천이 없습니다', '스윙 추천에서 먼저 분석해 보세요');
-      addSymbols(picked, '스윙 추천');
-    } catch (e) {
-      toast.error('종목을 가져오지 못했습니다', (e as Error).message);
-    }
   };
 
   const applyPreset = (preset: (typeof PRESETS)[number]) =>
@@ -227,22 +198,22 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
               isAdded={(candidate) => draft.symbols.includes(candidate)}
             />
 
-            <div className="flex flex-wrap gap-1.5">
-              <span className="text-[11px] text-text-muted">발굴해서 담기:</span>
-              {([
-                { id: 'surge' as const, label: '🔥 급등 탐지' },
-                { id: 'swing' as const, label: '📈 스윙 추천' },
-                { id: 'watchlist' as const, label: '★ 관심 목록' },
-              ]).map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => void pullFrom(s.id)}
-                  className="rounded border border-border px-2 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
-                >
-                  {s.label}
-                </button>
-              ))}
+            {/*
+              ⚠️ 발굴은 **팝업**을 연다. 예전에는 버튼 하나가 곧바로 10종목을 담아서,
+              무엇이 왜 담겼는지 모른 채 목록을 하나씩 지워야 했다.
+              기준 → 탐지 → 근거 → 선택은 전부 `DiscoverSymbolsModal` 안에 있다.
+            */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setDiscoverOpen(true)}
+                className="rounded-md border border-border px-3 py-1 text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+              >
+                🔎 종목 발굴 (급등·스윙·관심 목록)
+              </button>
+              <span className="text-[11px] text-text-muted">
+                기준을 정해 찾고, 근거를 본 뒤 고른 것만 담습니다
+              </span>
             </div>
 
             {draft.symbols.length === 0 ? (
@@ -493,6 +464,15 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
           </button>
         </div>
       </div>
+
+      {discoverOpen && (
+        <DiscoverSymbolsModal
+          watchlist={watchlist}
+          alreadyAdded={draft.symbols}
+          onAdd={addSymbols}
+          onClose={() => setDiscoverOpen(false)}
+        />
+      )}
     </div>
   );
 }
