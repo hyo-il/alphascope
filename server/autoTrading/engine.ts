@@ -114,7 +114,7 @@ export async function runStrategyCycle(strategy: AccountStrategy): Promise<AutoT
   };
 
   if (strategy.mode === 'ai' && !isGeminiEnabled()) {
-    result.skipped = 'GEMINI_API_KEY 가 없어 AI형을 실행할 수 없습니다 (규칙형으로 바꾸면 키 없이 돕니다)';
+    result.skipped = 'Gemini 키가 설정되지 않았습니다 — 규칙형으로 바꾸면 키 없이 동작합니다';
     return result;
   }
   if (!strategy.symbols.length) {

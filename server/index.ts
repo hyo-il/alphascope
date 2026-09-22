@@ -708,7 +708,7 @@ app.delete('/api/analysis/:id', (req, res) => {
 
 function requireGemini(res: express.Response): boolean {
   if (isGeminiEnabled()) return true;
-  res.status(503).json({ error: 'GEMINI_API_KEY 가 설정되지 않았습니다.', geminiDisabled: true });
+  res.status(503).json({ error: 'Gemini 키가 설정되지 않았습니다.', geminiDisabled: true });
   return false;
 }
 

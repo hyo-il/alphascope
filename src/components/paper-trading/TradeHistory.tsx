@@ -20,6 +20,17 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'loss', label: '손실' },
 ];
 
+/**
+ * 자동매매가 낸 주문인지 — 사유 문자열로 가른다.
+ *
+ * 주문에 출처 컬럼을 새로 두지 않았다. 사유는 이미 사람이 읽으라고 쓰는 문장이고,
+ * 자동매매 쪽 문구는 엔진이 정해진 형태로 만든다 (`autoTrading/engine.ts`).
+ * 손으로 낸 주문의 사유는 "차트 빠른주문 …" 이라 겹치지 않는다.
+ */
+const AUTO_MARKERS = ['AI 매수', 'AI 매도', '골든크로스', '데드크로스', 'RSI', '하드 손절', '트레일링 스톱', 'Gemini'];
+const isAuto = (reason: string | null): boolean =>
+  Boolean(reason) && AUTO_MARKERS.some((m) => reason!.includes(m));
+
 /** 체결 내역 + 대기 중인 지정가 주문 */
 export default function TradeHistory({ trades, orders, onChanged }: Props) {
   const [filter, setFilter] = useState<Filter>('all');
@@ -142,7 +153,22 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
                       ? '—'
                       : `${t.pnl > 0 ? '+' : ''}${formatPrice(t.pnl, t.currency)} (${t.pnlPercent?.toFixed(2)}%)`}
                   </td>
-                  <td className="px-3 py-2 text-text-muted">{t.reason ?? '—'}</td>
+                  {/*
+                    사유는 길다 ("하드 손절 -10.13% — 기준 -7% 도달로 전량 청산").
+                    폭을 묶고 말줄임한 뒤 전문은 title 로 — 안 묶으면 이 열 하나가 표를 늘린다.
+                  */}
+                  <td className="px-3 py-2 text-text-muted">
+                    <span className="flex items-center gap-1.5">
+                      {isAuto(t.reason) && (
+                        <span className="shrink-0 rounded bg-accent/15 px-1 py-0.5 text-[10px] text-accent">
+                          자동
+                        </span>
+                      )}
+                      <span className="block max-w-[22rem] truncate" title={t.reason ?? undefined}>
+                        {t.reason ?? '—'}
+                      </span>
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>

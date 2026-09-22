@@ -8,6 +8,7 @@ import {
   usePaperTrades,
 } from '../../hooks/usePaperTrading';
 import AccountManager from './AccountManager';
+import AutoTradeBar from './AutoTradeBar';
 import PerformanceChart from './PerformanceChart';
 import PerformanceStats from './PerformanceStats';
 import PositionList from './PositionList';
@@ -156,6 +157,9 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
         onReset={reset}
         onDelete={remove}
       />
+
+      {/* 계좌마다 독립된 자동매매 — 설정·상태는 서버가 단일 출처다 (Step 12) */}
+      <AutoTradeBar accountId={selectedId} />
 
       {error && (
         <div className="border-b border-bearish/30 bg-bearish/10 px-4 py-1.5 text-[11px] text-bearish">

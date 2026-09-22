@@ -107,7 +107,7 @@ export async function runOnce(trigger: 'auto' | 'manual' = 'auto'): Promise<{
   const settings = getSettings();
   const errors: string[] = [];
 
-  if (!isGeminiEnabled()) return { analyzed: 0, skipped: 'GEMINI_API_KEY 없음', errors };
+  if (!isGeminiEnabled()) return { analyzed: 0, skipped: 'Gemini 키가 설정되지 않았습니다', errors };
   if (!settings.symbols.length) return { analyzed: 0, skipped: '분석할 종목이 없습니다', errors };
   if (running) return { analyzed: 0, skipped: '이미 실행 중입니다', errors };
   if (trigger === 'auto' && settings.marketHoursOnly && !isUsMarketOpen()) {

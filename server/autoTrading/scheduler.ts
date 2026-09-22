@@ -50,7 +50,7 @@ function stateOf(accountId: number): RunState {
 function blockedReason(strategy: AccountStrategy): string | null {
   if (!strategy.enabled) return null;
   if (strategy.mode === 'ai' && !isGeminiEnabled()) {
-    return 'GEMINI_API_KEY 가 없어 AI형을 실행할 수 없습니다 — 규칙형으로 바꾸면 키 없이 돕니다';
+    return 'Gemini 키가 설정되지 않았습니다 — 규칙형으로 바꾸면 키 없이 동작합니다';
   }
   if (!strategy.symbols.length) return '자동매매 대상 종목이 없습니다';
   if (strategy.marketHoursOnly && !isUsMarketOpen()) return '정규장 시간이 아닙니다';
