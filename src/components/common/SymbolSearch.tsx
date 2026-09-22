@@ -203,14 +203,14 @@ export default function SymbolSearch({
              * 정렬된 자리(max-w-md)에서 입력만 왼쪽에 쏠려 축이 어긋나 보인다.
              * 헤더는 감싸는 div 가 w-48 shrink-0 으로 폭을 잡아 준다.
              */
-            compact ? 'min-w-0 flex-1 py-1 pl-2 pr-6 text-xs' : 'min-w-0 flex-1 py-1.5 pl-2.5 pr-7 text-sm'
+            compact ? 'min-w-0 flex-1 py-1 pl-2 pr-6 text-xs' : 'min-w-0 flex-1 py-2 pl-3 pr-8 text-sm'
           }`}
         />
         {/* 음수 마진으로 맞추면 compact(pr-6)와 기본(pr-7)에서 자리가 달라진다 */}
         {searching && (
           <InlineSpinner
             className={`pointer-events-none absolute top-1/2 -translate-y-1/2 ${
-              compact ? 'right-[4.25rem]' : 'right-[4.75rem]'
+              compact ? 'right-[4.25rem]' : 'right-[5.25rem]'
             }`}
           />
         )}
@@ -219,7 +219,7 @@ export default function SymbolSearch({
           className={
             compact
               ? 'shrink-0 rounded border border-border px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary'
-              : 'rounded-md bg-accent px-2.5 py-1.5 text-sm text-white transition-colors hover:bg-accent-hover'
+              : 'shrink-0 rounded-md bg-accent px-3.5 py-2 text-sm text-white transition-colors hover:bg-accent-hover'
           }
         >
           {submitLabel}

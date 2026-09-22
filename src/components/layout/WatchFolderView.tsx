@@ -2,17 +2,22 @@ import type { WatchFolder } from '../../types/watchlist';
 import type { Quote } from '../../types/toss';
 import { COMPARE_DRAG_TYPE } from '../../types/compare';
 import { formatPercent, formatPrice } from '../../utils/formatters';
+import TrashIcon from '../common/TrashIcon';
 
 /**
- * 관심 목록 패널의 폴더 하나 — **읽기 전용**이다.
+ * 관심 목록 패널의 폴더 하나 — **거의** 읽기 전용이다.
  *
  * 패널에서는 보는 것만 한다: 종목 클릭(차트 전환)과 접기/펼치기.
- * 폴더 만들기·이름 변경·삭제·순서 변경·종목 이동은 전부 관리 팝업(⚙️)에 있다.
- * 좁은 사이드 패널에 조작 버튼을 늘어놓으면 정작 시세가 안 보인다.
+ * 폴더 만들기·이름 변경·순서 변경·종목 이동은 전부 관리 팝업(⚙️)에 있다.
+ * 예외는 **종목 개별 삭제**다 — 지우려고 팝업까지 들어가는 것이 번거롭다는 신고가 있었다.
+ *
+ * ⚠️ 그래서 행은 버튼 하나가 아니라 **행 버튼 + 삭제 버튼**이다. 삭제를 행 안에 넣으면
+ * 클릭이 겹쳐 종목을 지우려다 차트가 바뀐다. 최근 조회 목록과 같은 구조다.
  *
  * 기업 비교 화면에서는 **클릭의 뜻이 달라진다** (`compareMode`) — 차트 전환이 아니라
  * 비교에 담기/빼기다. 비교는 관심 목록에서 고르는 것이 기본 방법이라, 담긴 종목은
  * ✓ 와 배경색으로 표시하고 행을 드래그해 비교 영역에 떨어뜨릴 수도 있다.
+ * 이때는 **삭제를 감춘다** — 담으려다 지우는 사고를 막는다.
  */
 export default function WatchFolderView({
   folder,
@@ -21,6 +26,7 @@ export default function WatchFolderView({
   nameOf,
   onSelect,
   onToggle,
+  onRemoveSymbol,
   compareMode = false,
   selectedSymbols = [],
 }: {
@@ -30,9 +36,12 @@ export default function WatchFolderView({
   nameOf: (symbol: string) => string | null | undefined;
   onSelect: (symbol: string) => void;
   onToggle: (id: string) => void;
+  onRemoveSymbol?: (symbol: string) => void;
   compareMode?: boolean;
   selectedSymbols?: string[];
 }) {
+  const canRemove = !compareMode && Boolean(onRemoveSymbol);
+
   return (
     <section className="border-b border-border/40">
       <button
@@ -66,58 +75,78 @@ export default function WatchFolderView({
             const highlighted = compareMode ? picked : symbol === currentSymbol;
 
             return (
-              <button
+              <div
                 key={symbol}
-                type="button"
-                onClick={() => onSelect(symbol)}
-                /*
-                 * 비교 화면에서만 끌 수 있게 한다. 평소에도 draggable 로 두면
-                 * 종목을 눌러 차트를 바꾸려던 동작이 드래그로 먹힌다.
-                 */
-                draggable={compareMode}
-                onDragStart={(e) => {
-                  e.dataTransfer.setData(COMPARE_DRAG_TYPE, symbol);
-                  e.dataTransfer.setData('text/plain', symbol);
-                  e.dataTransfer.effectAllowed = 'copy';
-                }}
-                title={
-                  compareMode
-                    ? picked
-                      ? `${nameOf(symbol) || symbol} 비교에서 빼기`
-                      : `${nameOf(symbol) || symbol} 비교에 담기`
-                    : undefined
-                }
-                className={`flex w-full items-center justify-between py-2 pl-3 pr-2 text-left transition-colors hover:bg-bg-tertiary/60 ${
+                className={`flex items-center transition-colors hover:bg-bg-tertiary/60 ${
                   highlighted ? 'bg-accent/10' : ''
                 }`}
               >
-                <span className="flex min-w-0 flex-col">
-                  <span
-                    className={`truncate text-xs font-medium ${
-                      highlighted ? 'text-accent' : 'text-text-primary'
-                    }`}
-                  >
-                    {/* 담긴 종목은 ✓ 로 한눈에 구분한다 */}
-                    {picked && <span className="mr-1 text-accent">✓</span>}
-                    {nameOf(symbol) ? `${nameOf(symbol)} (${symbol})` : symbol}
-                  </span>
-                </span>
-
-                <span
-                  className="shrink-0 text-right"
-                  title={quote?.stale ? '실시간 조회 실패 — 마지막 캐시 종가입니다.' : undefined}
+                <button
+                  type="button"
+                  onClick={() => onSelect(symbol)}
+                  /*
+                   * 비교 화면에서만 끌 수 있게 한다. 평소에도 draggable 로 두면
+                   * 종목을 눌러 차트를 바꾸려던 동작이 드래그로 먹힌다.
+                   */
+                  draggable={compareMode}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData(COMPARE_DRAG_TYPE, symbol);
+                    e.dataTransfer.setData('text/plain', symbol);
+                    e.dataTransfer.effectAllowed = 'copy';
+                  }}
+                  title={
+                    compareMode
+                      ? picked
+                        ? `${nameOf(symbol) || symbol} 비교에서 빼기`
+                        : `${nameOf(symbol) || symbol} 비교에 담기`
+                      : undefined
+                  }
+                  className="flex min-w-0 flex-1 items-center justify-between py-2 pl-3 pr-2 text-left"
                 >
-                  <span className="block text-xs tabular-nums text-text-secondary">
-                    {/* 지연 시세는 앞에 · 를 붙여 실시간인 척하지 않게 한다. */}
-                    {quote?.price != null
-                      ? `${quote.stale ? '· ' : ''}${formatPrice(quote.price, quote.currency)}`
-                      : '—'}
+                  <span className="flex min-w-0 flex-col">
+                    <span
+                      className={`truncate text-xs font-medium ${
+                        highlighted ? 'text-accent' : 'text-text-primary'
+                      }`}
+                    >
+                      {/* 담긴 종목은 ✓ 로 한눈에 구분한다 */}
+                      {picked && <span className="mr-1 text-accent">✓</span>}
+                      {nameOf(symbol) ? `${nameOf(symbol)} (${symbol})` : symbol}
+                    </span>
                   </span>
-                  <span className={`block text-[11px] tabular-nums ${color}`}>
-                    {rate == null ? '—' : formatPercent(rate)}
+
+                  <span
+                    className="shrink-0 text-right"
+                    title={quote?.stale ? '실시간 조회 실패 — 마지막 캐시 종가입니다.' : undefined}
+                  >
+                    <span className="block text-xs tabular-nums text-text-secondary">
+                      {/* 지연 시세는 앞에 · 를 붙여 실시간인 척하지 않게 한다. */}
+                      {quote?.price != null
+                        ? `${quote.stale ? '· ' : ''}${formatPrice(quote.price, quote.currency)}`
+                        : '—'}
+                    </span>
+                    <span className={`block text-[11px] tabular-nums ${color}`}>
+                      {rate == null ? '—' : formatPercent(rate)}
+                    </span>
                   </span>
-                </span>
-              </button>
+                </button>
+
+                {canRemove && (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveSymbol?.(symbol)}
+                    title={`${nameOf(symbol) || symbol} 관심 목록에서 제거`}
+                    aria-label={`${nameOf(symbol) || symbol} 관심 목록에서 제거`}
+                    /*
+                      ⚠️ 항상 보인다. hover 에서만 나타나게 두면 **버튼이 있는 줄도 모른다** —
+                      평소엔 옅게 두고 올리면 빨강으로 또렷해진다.
+                    */
+                    className="mr-2 shrink-0 rounded p-1 text-text-muted/70 transition-colors hover:bg-bearish/15 hover:text-bearish"
+                  >
+                    <TrashIcon className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             );
           })
         ))}

@@ -61,7 +61,15 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           {on ? '켜짐' : '꺼짐'}
         </span>
 
-        <span className="rounded border border-border px-1.5 py-0.5 text-[10px] text-text-secondary">
+        {/* 뱃지만 보고는 둘의 차이를 알 수 없다 — 올리면 한 줄로 설명한다 (설정 패널과 같은 문장) */}
+        <span
+          title={
+            strategy.mode === 'ai'
+              ? 'AI형 — 전문가 AI 다섯이 매번 새로 읽고 정합니다. 흐름까지 보지만 답이 조금씩 달라지고 Gemini 키가 필요합니다.'
+              : '규칙형 — 정해 둔 숫자 조건(이동평균 교차·RSI)이 맞을 때만 삽니다. 이유가 분명하고 키가 필요 없습니다.'
+          }
+          className="cursor-help rounded border border-border px-1.5 py-0.5 text-[10px] text-text-secondary"
+        >
           {strategy.mode === 'ai' ? 'AI형' : '규칙형'}
         </span>
 
@@ -99,9 +107,13 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
             type="button"
             onClick={() => void toggle()}
             disabled={toggling}
+            /*
+              ⚠️ 끄기는 **빨강**이다. 돌고 있는 자동매매를 멈추는 동작이라, 켜기와 같은 무게로
+              보이면 안 된다 — 눌러 놓고 "왜 안 도나" 를 찾게 된다.
+            */
             className={`rounded px-3 py-1 text-[11px] font-medium transition-colors disabled:opacity-50 ${
               on
-                ? 'border border-border text-text-secondary hover:border-bearish hover:text-bearish'
+                ? 'bg-bearish text-white hover:bg-bearish/90'
                 : 'bg-accent text-white hover:bg-accent-hover'
             }`}
           >

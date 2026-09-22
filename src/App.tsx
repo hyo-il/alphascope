@@ -385,7 +385,7 @@ export default function App() {
         {!pageMeta(view)?.hidesSymbolHeader && (
         <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-3">
           {/* 검색 입력은 주어진 폭을 채운다 — 헤더에서는 이 래퍼가 폭을 잡는다 */}
-          <div className="w-52 shrink-0">
+          <div className="w-64 shrink-0">
             <SymbolSearch symbol={symbol ?? ''} onSubmit={setSymbol} />
           </div>
 

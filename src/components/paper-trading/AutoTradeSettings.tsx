@@ -147,14 +147,34 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4">
+        {/*
+          ⚠️ `scrollbar-gutter: stable` 이 필요하다. 트레일링 스톱을 켜면 입력 한 줄이 늘어
+          스크롤바가 생기는데, 그 순간 안쪽 폭이 줄면서 **패널 전체가 옆으로 튄다** —
+          체크박스를 껐다 켰다 하면 화면이 흔들린다. 자리를 미리 비워 두면 움직이지 않는다.
+        */}
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4 [scrollbar-gutter:stable]">
           {/* ① 모드 */}
           <section className="space-y-2">
             <h3 className="text-xs font-semibold text-text-primary">① 판단 방식</h3>
             <div className="grid grid-cols-2 gap-2">
               {([
-                { id: 'ai' as const, title: 'AI형', desc: 'Gemini 5인 분석의 매수·매도 신호로 판단합니다' },
-                { id: 'rule' as const, title: '규칙형', desc: '이동평균 교차와 RSI 로 판단합니다 (AI 키 불필요)' },
+                {
+                  id: 'ai' as const,
+                  title: 'AI형',
+                  desc: 'Gemini 5인 분석의 매수·매도 신호로 판단합니다',
+                  /*
+                    ⚠️ "AI형 / 규칙형" 만으로는 무엇을 고르는지 알 수 없다 — 둘 다 자동이라
+                    이름만 보면 차이가 없다. 무엇이 판단하는지, 무엇이 필요한지, 어떤 성격인지를
+                    한 줄로 적는다.
+                  */
+                  easy: '전문가 AI 다섯이 매번 새로 읽고 정합니다. 뉴스·실적 같은 흐름까지 보지만, 같은 상황에서도 답이 조금씩 달라지고 Gemini 키가 필요합니다.',
+                },
+                {
+                  id: 'rule' as const,
+                  title: '규칙형',
+                  desc: '이동평균 교차와 RSI 로 판단합니다 (AI 키 불필요)',
+                  easy: '정해 둔 숫자 조건이 맞을 때만 삽니다. 왜 샀는지가 늘 분명하고 결과가 같게 재현되지만, 조건에 없는 일은 보지 못합니다. 키가 필요 없습니다.',
+                },
               ]).map((item) => {
                 const disabled = item.id === 'ai' && !geminiEnabled;
                 const active = draft.mode === item.id;
@@ -164,6 +184,7 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
                     type="button"
                     disabled={disabled}
                     onClick={() => mode(item.id)}
+                    title={item.easy}
                     className={`rounded-lg border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                       active ? 'border-accent bg-accent/10' : 'border-border hover:border-accent/50'
                     }`}
@@ -172,6 +193,12 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
                       {item.title}
                     </p>
                     <p className="mt-0.5 text-[11px] leading-relaxed text-text-muted">{item.desc}</p>
+                    {/* 고른 쪽만 펼쳐 설명한다 — 둘 다 펼치면 카드가 길어져 정작 제목이 안 읽힌다 */}
+                    {active && (
+                      <p className="mt-1.5 border-t border-border/60 pt-1.5 text-[11px] leading-relaxed text-text-secondary">
+                        {item.easy}
+                      </p>
+                    )}
                   </button>
                 );
               })}

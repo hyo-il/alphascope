@@ -2,6 +2,7 @@ import { useState } from 'react';
 import SymbolSearch from '../common/SymbolSearch';
 import WatchFolderView from './WatchFolderView';
 import WatchlistManager from './WatchlistManager';
+import TrashIcon from '../common/TrashIcon';
 import type { useWatchlist } from '../../hooks/useWatchlist';
 import { DEFAULT_FOLDER_ID } from '../../types/watchlist';
 import { useQuotes } from '../../hooks/useQuotes';
@@ -54,19 +55,6 @@ function ClockIcon({ className = '' }: { className?: string }) {
     </svg>
   );
 }
-
-/** 휴지통 아이콘 — 목록에서 제거 */
-function TrashIcon({ className = '' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className={className} aria-hidden>
-      <path d="M3.5 5.5h13" strokeLinecap="round" />
-      <path d="M8 5.5V4a1 1 0 011-1h2a1 1 0 011 1v1.5" strokeLinecap="round" />
-      <path d="M5.5 5.5l.7 10a1.5 1.5 0 001.5 1.4h4.6a1.5 1.5 0 001.5-1.4l.7-10" strokeLinejoin="round" />
-      <path d="M8.5 8.5v5M11.5 8.5v5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 
 /** 지갑 아이콘 — 계좌를 뜻한다 */
 function WalletIcon({ className = '' }: { className?: string }) {
@@ -248,6 +236,7 @@ export default function WatchPanel({
               nameOf={names}
               onSelect={onSelect}
               onToggle={watch.toggleFolder}
+              onRemoveSymbol={watch.remove}
               compareMode={compareMode}
               selectedSymbols={compareSymbols}
             />
@@ -320,7 +309,12 @@ export default function WatchPanel({
                   onClick={() => onRemoveRecent(symbol)}
                   title="최근 조회에서 삭제"
                   aria-label={`${symbol} 삭제`}
-                  className="mr-2 shrink-0 rounded p-1 text-text-muted opacity-0 transition-all hover:bg-bearish/15 hover:text-bearish focus:opacity-100 group-hover:opacity-100"
+                  /*
+                    ⚠️ 항상 보인다. hover 에서만 나타나게 두었더니 **버튼이 있는 줄도 몰랐다** —
+                    "최근 조회에서 종목을 못 지운다" 는 신고가 그것이었다. 평소엔 옅게 두고
+                    올리면 빨강으로 또렷해진다.
+                  */
+                  className="mr-2 shrink-0 rounded p-1 text-text-muted/70 transition-colors hover:bg-bearish/15 hover:text-bearish"
                 >
                   <TrashIcon className="h-3.5 w-3.5" />
                 </button>
