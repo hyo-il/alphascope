@@ -4,6 +4,8 @@ import type { SwingGrade, SwingRecommendation, SwingRecord } from '../../types/s
 import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
 import { toast } from '../../store/uiStore';
+import CriteriaPanel from '../common/CriteriaPanel';
+import { SURGE_CRITERIA, SWING_CRITERIA } from '../../data/criteria';
 
 /**
  * 자동매매 대상 종목 **발굴** 팝업 — 기준 설정 → 탐지 → 근거 → 선택 추가.
@@ -83,18 +85,6 @@ function applyCriteria(rows: Row[], minScore: number, grades: string[]): {
   };
 }
 
-/** 점수 체계 설명 — 실제 배점표(Step 9·10)를 그대로 옮긴 것이다 */
-const LEGEND: Record<'surge' | 'swing', string[]> = {
-  surge: [
-    'HIGH ≥ 80 · MEDIUM ≥ 60 · LOW ≥ 40',
-    '100점 = 주기성 30 + 예상일 근접 20 + RSI 과매도 15 + 거래량 증가 10 + 볼린저 하단 10 + MACD 양전환 10 + 변동성 축소 5',
-  ],
-  swing: [
-    'STRONG ≥ 80 · BUY ≥ 65 · WATCH ≥ 50 · HOLD ≥ 35 · AVOID < 35',
-    '100점 = 추세 30 + 타이밍 25 + 모멘텀 20 + 거래량 15 + 손익비 10',
-  ],
-};
-
 const SOURCES: { id: Source; label: string; desc: string }[] = [
   { id: 'surge', label: '🔥 급등 탐지', desc: '주기적으로 급등하는 종목 — 점수·규칙성·다음 예상일' },
   { id: 'swing', label: '📈 스윙 추천', desc: '5조건 채점 결과 — 진입가·손절·손익비' },
@@ -159,7 +149,6 @@ export default function DiscoverSymbolsModal({
   const [stats, setStats] = useState<FilterStats | null>(null);
   /** 기준에서 떨어진 종목도 흐리게 보여 줄지 — 왜 0건인지 눈으로 확인하는 용도다 */
   const [showRejected, setShowRejected] = useState(false);
-  const [legendOpen, setLegendOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<SurgeProgress | null>(null);
@@ -367,21 +356,12 @@ export default function DiscoverSymbolsModal({
             <section className="space-y-2 rounded-md border border-border bg-bg-tertiary/30 p-3">
               <div className="flex items-center gap-2">
                 <h3 className="text-xs font-semibold text-text-primary">② 기준</h3>
-                {/* 점수·등급이 무엇인지 모르면 기준을 정할 수 없다 — 배점표를 여기서 편다 */}
-                <button
-                  type="button"
-                  onClick={() => setLegendOpen((v) => !v)}
-                  className="text-[11px] text-text-muted transition-colors hover:text-text-primary"
-                >
-                  {legendOpen ? '▾ 점수·등급 설명 접기' : '▸ 점수·등급은 무엇인가요?'}
-                </button>
               </div>
-              {legendOpen &&
-                LEGEND[source].map((line) => (
-                  <p key={line} className="text-[11px] leading-relaxed text-text-muted">
-                    {line}
-                  </p>
-                ))}
+              {/*
+                점수·등급이 무엇인지 모르면 기준을 정할 수 없다. 설명은 급등·스윙 화면과
+                **같은 컴포넌트·같은 데이터**를 쓴다 — 두 벌로 적으면 반드시 갈라진다.
+              */}
+              <CriteriaPanel spec={source === 'surge' ? SURGE_CRITERIA : SWING_CRITERIA} />
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-text-secondary">최소 점수</span>
                 <input

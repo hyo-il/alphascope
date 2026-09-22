@@ -4,6 +4,8 @@ import { usePaperQuickBuy } from '../../hooks/usePaperQuickBuy';
 import SwingRecommendationCard from './SwingRecommendationCard';
 import SwingSearch from './SwingSearch';
 import SwingHistory from './SwingHistory';
+import CriteriaPanel from '../common/CriteriaPanel';
+import { SWING_CRITERIA } from '../../data/criteria';
 import SavedRecommendations from './SavedRecommendations';
 import StockName from '../common/StockName';
 import type { SwingGrade, SwingRecommendation } from '../../types/swing';
@@ -100,6 +102,9 @@ export default function SwingDashboard({
                 {loading ? '분석 중…' : '🔄 다시 분석'}
               </button>
             </header>
+
+            {/* 점수·등급만 보이고 기준이 없으면 결과를 받아들이거나 무시하거나 둘뿐이다 */}
+            <CriteriaPanel spec={SWING_CRITERIA} />
 
             {!watchlist.length && (
               <p className="rounded-lg border border-border bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">

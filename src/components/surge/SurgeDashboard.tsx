@@ -5,6 +5,8 @@ import PeriodicSurgeList from './PeriodicSurgeList';
 import SurgeSearch from './SurgeSearch';
 import SurgeSettings from './SurgeSettings';
 import StockName from '../common/StockName';
+import CriteriaPanel from '../common/CriteriaPanel';
+import { SURGE_CRITERIA } from '../../data/criteria';
 import { formatPercent } from '../../utils/formatters';
 
 type Tab = 'list' | 'search' | 'history' | 'settings';
@@ -58,19 +60,23 @@ export default function SurgeDashboard({
 
       <div className="min-h-0 flex-1 overflow-auto p-3">
         {tab === 'list' && (
-          <PeriodicSurgeList
-            results={detection.results}
-            detectedAt={detection.detectedAt}
-            progress={detection.progress}
-            loading={detection.loading}
-            error={detection.error}
-            watchlist={watchlist}
-            onDetect={detection.detect}
-            onSelectSymbol={onSelectSymbol}
-            onWatch={onWatch}
-            onPaperBuy={paperBuy}
-            onAnalyze={onAnalyze}
-          />
+          <div className="space-y-3">
+            {/* 무슨 기준으로 급등이라 부르는지 — 결과 위에 둔다 */}
+            <CriteriaPanel spec={SURGE_CRITERIA} />
+            <PeriodicSurgeList
+              results={detection.results}
+              detectedAt={detection.detectedAt}
+              progress={detection.progress}
+              loading={detection.loading}
+              error={detection.error}
+              watchlist={watchlist}
+              onDetect={detection.detect}
+              onSelectSymbol={onSelectSymbol}
+              onWatch={onWatch}
+              onPaperBuy={paperBuy}
+              onAnalyze={onAnalyze}
+            />
+          </div>
         )}
         {tab === 'search' && (
           <SurgeSearch
