@@ -25,6 +25,28 @@ interface Props {
 const POPULAR = ['AAPL', 'NVDA', 'TSLA', 'MSFT', 'AMZN', 'META', 'GOOGL', 'AMD', 'NFLX'];
 
 /**
+ * 한 번에 보여 줄 카드 수 — **3열 기준 2줄**이다.
+ *
+ * 관심 종목은 상한이 없어 담은 만큼 전부 홈에 나왔고(최근도 20개면 7줄이다),
+ * 화면을 한참 내려야 아래 섹션이 보였다. 나머지는 `더 보기` 로 펼친다.
+ * ⚠️ 인기 종목(9개 고정)은 제한하지 않는다 — 원래 두 줄 조금 넘는 고정 목록이다.
+ */
+const PREVIEW_COUNT = 6;
+
+const EXPANDED_KEY = 'alphascope.explorerExpanded';
+
+/** 펼친 섹션 이름 집합 — localStorage 접근은 막힐 수 있어 전부 try/catch 로 감싼다 */
+function readExpanded(): string[] {
+  try {
+    const raw = localStorage.getItem(EXPANDED_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * 종목 탐색 홈.
  *
  * 앱을 열면 임의의 종목이 아니라 이 화면에서 시작한다 — 무엇을 보고 있는지가
@@ -39,6 +61,22 @@ export default function StockExplorer({
   onClearRecent,
 }: Props) {
   const [holdings, setHoldings] = useState<PaperPositionValued[]>([]);
+  const [expanded, setExpanded] = useState<string[]>(readExpanded);
+
+  const toggleSection = (title: string) =>
+    setExpanded((prev) => {
+      const next = prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title];
+      try {
+        localStorage.setItem(EXPANDED_KEY, JSON.stringify(next));
+      } catch {
+        /* 저장이 막혀도 이번 화면에서는 펼쳐진다 */
+      }
+      return next;
+    });
+
+  /** 그 섹션이 실제로 그리는 종목 — 접혀 있으면 앞 6개까지다 */
+  const shownOf = (title: string, symbols: string[], limited: boolean) =>
+    limited && !expanded.includes(title) ? symbols.slice(0, PREVIEW_COUNT) : symbols;
   /*
    * 어느 계좌의 보유인지는 **공유 상태**가 정한다 — 여기서 목록을 따로 받아 고르면
    * 다른 화면에서 계좌를 바꿨을 때 이 화면만 옛 계좌를 본다.
@@ -75,11 +113,24 @@ export default function StockExplorer({
    * 종목(AAPL 은 보통 셋에 동시에 있다)을 초당 여러 번 받는다 —
    * CLAUDE.md 의 「같은 데이터를 두 번 받지 않는다」 원칙에 어긋난다.
    */
+  /*
+   * ⚠️ **접혀서 보이지 않는 카드의 시세는 받지 않는다.**
+   * 관심 목록이 30개여도 화면에 6장만 보이면 6장치만 받는다 —
+   * 「접힌 폴더는 폴링하지 않는다」(관심 목록 패널)와 같은 원칙이다.
+   */
   const allSymbols = useMemo(
-    () => [...new Set([...POPULAR, ...watchlist, ...held, ...recent])],
+    () =>
+      [
+        ...new Set([
+          ...POPULAR,
+          ...shownOf('관심 종목', watchlist, true),
+          ...shownOf('보유 종목 (모의투자)', held, true),
+          ...shownOf('최근 조회', recent, true),
+        ]),
+      ],
     // held 는 매 렌더 새 배열이라 내용으로 의존성을 만든다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [watchlist.join(','), held.join(','), recent.join(',')],
+    [watchlist.join(','), held.join(','), recent.join(','), expanded.join(',')],
   );
   const quotes = useQuotes(allSymbols);
   const names = useStockNames(allSymbols);
@@ -94,8 +145,14 @@ export default function StockExplorer({
       removeLabel?: string;
       /** 최근 조회처럼 통째로 비울 수 있는 섹션만 */
       onClear?: () => void;
+      /** 2줄까지만 보여 주고 나머지는 `더 보기` 로 — 인기 종목(고정 9개)에는 주지 않는다 */
+      limited?: boolean;
     } = {},
   ) => {
+    const limited = options.limited ?? false;
+    const shown = shownOf(title, symbols, limited);
+    const hidden = symbols.length - shown.length;
+    const isOpen = expanded.includes(title);
     if (!symbols.length) {
       return options.empty ? (
         <section key={title} className="space-y-2">
@@ -119,13 +176,22 @@ export default function StockExplorer({
           )}
         </div>
         <SymbolGrid
-          symbols={symbols}
+          symbols={shown}
           quotes={quotes}
           nameOf={names}
           onSelect={onSelect}
           onRemove={options.onRemove}
           removeLabel={options.removeLabel}
         />
+        {limited && (hidden > 0 || isOpen) && (
+          <button
+            type="button"
+            onClick={() => toggleSection(title)}
+            className="w-full rounded-md border border-border py-1.5 text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+          >
+            {isOpen ? '접기' : `더 보기 (+${hidden})`}
+          </button>
+        )}
       </section>
     );
   };
@@ -148,14 +214,16 @@ export default function StockExplorer({
           empty: '관심 목록이 비어 있습니다. 종목 화면의 ☆ 로 담아 보세요.',
           onRemove: onRemoveWatch,
           removeLabel: '관심 목록에서 삭제 (모든 그룹)',
+          limited: true,
         })}
         {/* 보유는 실제 모의투자 포지션이다 — 여기 삭제를 두면 매도로 오해한다 */}
-        {section('보유 종목 (모의투자)', held)}
+        {section('보유 종목 (모의투자)', held, { limited: true })}
         {section('최근 조회', recent, {
           onRemove: onRemoveRecent,
           removeLabel: '최근 조회에서 삭제',
           // 다시 보면 저절로 쌓이는 기록이라 확인창 없이 지운다 (패널의 삭제와 같은 규칙).
           onClear: onClearRecent,
+          limited: true,
         })}
       </div>
     </div>
