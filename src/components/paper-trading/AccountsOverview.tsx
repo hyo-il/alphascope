@@ -17,13 +17,20 @@ import { autoTradeView } from '../../utils/autoTradeStatus';
  */
 /**
  * 상태별 테두리. **색만으로 구분하지 않는다** — 배지의 기호(●◐⚠○)와 글자가 함께 간다.
- * 가동 중만 바깥 광(ring)을 둬 3열 카드에서도 멀리서 눈에 걸린다.
- * 대기는 정상 상태라 옅은 선만 두고 경고색을 쓰지 않는다.
+ *
+ * ⚠️ **두께는 `ring`(box-shadow)으로 낸다. `border` 폭은 네 상태 모두 1px 고정이다.**
+ * border 폭을 상태마다 다르게 두면 자리를 차지해서, 5초 폴링으로 상태가 바뀌는 순간
+ * 카드 안쪽 내용이 1~2px 밀린다(대기 → 꺼짐에서 글자가 움찔거린다). ring 은 자리를 차지하지 않는다.
+ *
+ * 세기는 **대기 < 가동 중 ≤ 멈춤** 이다. 멈춤은 사람이 고쳐야 하는 유일한 상태라
+ * 가동 중보다 약해 보이면 안 된다.
+ * ⚠️ 대기를 옅게만 두지 말 것 — 이 앱은 한국 시간 **낮**에 주로 쓰는데 그때 미국 장은 닫혀 있어
+ * **켜 둔 계좌가 대부분 대기**다. 예전 값(1px · 30%)은 사실상 보이지 않았다.
  */
 const BORDER: Record<string, string> = {
-  running: 'border-2 border-bullish ring-2 ring-bullish/15',
-  waiting: 'border border-bullish/30',
-  blocked: 'border-2 border-warning',
+  running: 'border border-bullish ring-[3px] ring-bullish shadow-lg shadow-bullish/30',
+  waiting: 'border border-bullish/50 ring-2 ring-bullish/35',
+  blocked: 'border border-warning ring-[3px] ring-warning shadow-lg shadow-warning/30',
   off: 'border border-border',
 };
 
@@ -125,7 +132,7 @@ export default function AccountsOverview({
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto p-3">
+    <div className="min-h-0 flex-1 overflow-y-auto p-4">
       {error && (
         <p className="mb-2 rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[11px] text-warning">
           최신 값을 받지 못했습니다 ({error}) — 아래는 마지막으로 받은 값입니다.

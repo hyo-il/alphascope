@@ -12,6 +12,11 @@ import type { AccountStrategy, AccountStrategyStatus } from '../types/autoTradin
  */
 
 const POLL_MS = 5000;
+/**
+ * 오른쪽 계좌 탭은 더 느리게 본다 — 거기서 쓰는 것은 계좌명 옆 기호 하나뿐이고,
+ * `AutoTradeBar` 의 상태 폴링과 같은 주기다. 스케줄러 틱이 1분이라 더 촘촘할 이유도 없다.
+ */
+export const SIDE_POLL_MS = 15_000;
 
 export interface AccountOverviewItem {
   account: PaperAccount;
@@ -30,7 +35,12 @@ export interface StrategyOverviewItem {
 }
 
 /** 화면이 켜져 있을 때만 폴링한다 (탭이 숨으면 쉰다) */
-function usePolledJson<T>(url: string, active: boolean, pick: (body: unknown) => T) {
+function usePolledJson<T>(
+  url: string,
+  active: boolean,
+  pick: (body: unknown) => T,
+  pollMs: number = POLL_MS,
+) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const pickRef = useRef(pick);
@@ -56,7 +66,7 @@ function usePolledJson<T>(url: string, active: boolean, pick: (body: unknown) =>
       // 숨은 탭에서는 쉰다 — 보이지도 않는 값에 시세·환율 조회를 쓰지 않는다.
       if (document.hidden) return;
       void refresh();
-    }, POLL_MS);
+    }, pollMs);
     /*
       ⚠️ 다시 보이는 순간 **즉시** 한 번 받는다. 이것이 없으면 숨어 있던 동안 멈춘 값이
       다음 주기(최대 5초)까지 그대로 보인다 — 켜 둔 자동매매가 꺼진 것처럼 읽힌다.
@@ -70,7 +80,7 @@ function usePolledJson<T>(url: string, active: boolean, pick: (body: unknown) =>
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [active, refresh]);
+  }, [active, refresh, pollMs]);
 
   return { data, error, refresh };
 }
@@ -84,11 +94,17 @@ export function usePaperAccountsOverview(active: boolean) {
   return { items: data, error, refresh };
 }
 
-export function useAutoTradingOverview(active: boolean) {
+/**
+ * 전 계좌의 자동매매 설정 + 상태 — **묶음 라우트 한 번**이다.
+ * ⚠️ 계좌마다 `/status/:id` 를 부르면 계좌 수만큼 요청이 늘어난다(N+1).
+ * 모아보기와 오른쪽 계좌 탭이 같은 라우트를 쓰되 주기만 다르다.
+ */
+export function useAutoTradingOverview(active: boolean, pollMs: number = POLL_MS) {
   const { data, error, refresh } = usePolledJson<StrategyOverviewItem[]>(
     '/api/auto-trading/overview',
     active,
     (body) => ((body as { items?: StrategyOverviewItem[] }).items ?? []),
+    pollMs,
   );
   return { items: data, error, refresh };
 }

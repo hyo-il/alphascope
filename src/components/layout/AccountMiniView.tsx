@@ -3,7 +3,8 @@ import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
 import { formatPrice } from '../../utils/formatters';
 import { AUTO_TRADE_TONE, autoTradeView } from '../../utils/autoTradeStatus';
-import type { AccountStrategy, AccountStrategyStatus } from '../../types/autoTrading';
+import type { StrategyOverviewItem } from '../../hooks/usePaperOverview';
+import { toast } from '../../store/uiStore';
 
 /**
  * 관심 목록 패널의 **계좌 탭** — 모의투자 계좌 요약.
@@ -24,8 +25,7 @@ export default function AccountMiniView({
   currentSymbol,
   onSelectSymbol,
   onGoToAccounts,
-  strategy,
-  status,
+  strategies,
 }: {
   accounts: PaperAccount[];
   selectedId: number | null;
@@ -38,13 +38,33 @@ export default function AccountMiniView({
   onSelectSymbol: (symbol: string) => void;
   /** 계좌 관리 화면으로 이동 */
   onGoToAccounts: () => void;
-  /** 자동매매 — 계좌명 옆 점 하나에만 쓴다 (250px 이라 배지 전체는 안 들어간다) */
-  strategy: AccountStrategy | null;
-  status: AccountStrategyStatus | null;
+  /**
+   * **전 계좌**의 자동매매 (`/api/auto-trading/overview` 한 번 — 계좌마다 부르지 않는다).
+   * ⚠️ `null` = **아직 모른다**. 이때는 기호를 그리지 않는다 — 모르는 것을 `○`(꺼짐)로
+   * 그리면 켜져 있는 계좌를 꺼진 것으로 읽는다.
+   */
+  strategies: StrategyOverviewItem[] | null;
 }) {
   const positions = detail?.positions ?? [];
-  // 카드와 **같은 분류**를 쓴다 — 여기만 따로 판단하면 두 화면이 다른 말을 한다.
-  const auto = autoTradeView(strategy, status);
+
+  /** 카드와 **같은 분류**를 쓴다 — 여기만 따로 판단하면 두 화면이 다른 말을 한다. */
+  const viewOf = (accountId: number) => {
+    if (!strategies) return null;
+    const found = strategies.find((s) => s.strategy.accountId === accountId);
+    return autoTradeView(found?.strategy, found?.status);
+  };
+  const auto = selectedId ? viewOf(selectedId) : null;
+
+  /*
+   * ⚠️ 여기서 고른 계좌는 **앱 전체의 현재 계좌**다 (v2.9.0 부터 공유 상태).
+   * 빠른주문·계좌 관리가 같은 계좌를 보게 되므로, 드롭다운이 실수로 바뀐 것을
+   * 모르고 지나치지 않도록 바뀐 사실을 눈에 보이게 알린다.
+   */
+  const changeAccount = (id: number) => {
+    onSelectAccount(id);
+    const name = accounts.find((a) => a.id === id)?.name;
+    if (name) toast.success('현재 계좌', name);
+  };
   // 티커만 있으면 어떤 종목인지 떠오르지 않는다 — 이름을 함께 적는다.
   useStockNames(positions.map((p) => p.symbol));
 
@@ -83,20 +103,34 @@ export default function AccountMiniView({
         어느 쪽이든 **계좌명은 항상 보인다** — 어느 계좌를 보고 있는지 모르면 잔고도 의미가 없다.
       */}
       {accounts.length > 1 ? (
-        <div className="flex items-center gap-1.5 border-b border-border px-3 py-2">
-          <AutoDot auto={auto} />
-          <select
-            value={selectedId ?? ''}
-            onChange={(e) => onSelectAccount(Number(e.target.value))}
-            aria-label="모의투자 계좌 선택"
-            className="min-w-0 flex-1 rounded border border-border bg-bg-tertiary px-2 py-1 text-xs text-text-primary focus:border-accent focus:outline-none"
-          >
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
+        <div className="border-b border-border px-3 py-2">
+          <div className="flex items-center gap-1.5">
+            <AutoDot auto={auto} />
+            {/*
+              ⚠️ `<option>` 은 브라우저가 그려서 색·아이콘이 먹지 않는다 (CLAUDE.md 「폼 요소」).
+              그래서 상태를 **글자 기호**로 앞에 붙인다 — 드롭다운을 펼치면 어느 계좌가
+              돌고 있는지 한눈에 보인다. 모르는 계좌(조회 전)는 기호 없이 이름만 나온다.
+            */}
+            <select
+              value={selectedId ?? ''}
+              onChange={(e) => changeAccount(Number(e.target.value))}
+              aria-label="모의투자 계좌 선택"
+              title={auto ? (auto.reason ? `${auto.label} — ${auto.reason}` : auto.label) : undefined}
+              className="min-w-0 flex-1 rounded border border-border bg-bg-tertiary px-2 py-1 text-xs text-text-primary focus:border-accent focus:outline-none"
+            >
+              {accounts.map((a) => {
+                const v = viewOf(a.id);
+                return (
+                  <option key={a.id} value={a.id}>
+                    {v ? `${v.symbol} ${a.name}` : a.name}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+          <p className="mt-1 text-[10px] leading-snug text-text-muted">
+            여기서 고른 계좌가 빠른주문·계좌 관리의 현재 계좌가 됩니다
+          </p>
         </div>
       ) : (
         <p className="flex items-center gap-1.5 border-b border-border px-3 py-2 text-xs font-medium text-text-primary">
@@ -215,7 +249,9 @@ function Cell({
  * 계좌명 옆 자동매매 점. 250px 폭이라 배지 전체는 들어가지 않는다 —
  * 기호 하나 + 툴팁이다. **색만으로 구분하지 않는 규칙**은 여기서도 기호가 지킨다.
  */
-function AutoDot({ auto }: { auto: ReturnType<typeof autoTradeView> }) {
+function AutoDot({ auto }: { auto: ReturnType<typeof autoTradeView> | null }) {
+  // 모를 때는 아무것도 그리지 않는다 — `○`(꺼짐)로 때우면 켜진 계좌를 꺼진 것으로 읽는다.
+  if (!auto) return null;
   return (
     <span
       title={auto.reason ? `${auto.label} — ${auto.reason}` : auto.label}

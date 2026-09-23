@@ -10,7 +10,7 @@ import { useStockNames } from '../../hooks/useStockNames';
 import { COMPARE_DRAG_TYPE } from '../../types/compare';
 import { formatPercent, formatPrice } from '../../utils/formatters';
 import { usePaperAccounts, usePaperAccountDetail } from '../../hooks/usePaperTrading';
-import { useAutoTradeStatusOnly } from '../../hooks/useAutoTrading';
+import { SIDE_POLL_MS, useAutoTradingOverview } from '../../hooks/usePaperOverview';
 import AccountMiniView from './AccountMiniView';
 
 interface Props {
@@ -98,10 +98,12 @@ export default function WatchPanel({
     accountTabActive ? paperAccounts.selectedId : null,
   );
   /*
-   * 계좌명 옆 자동매매 점 — 15초다 (상세는 1초).
-   * ⚠️ 새 폴링을 만들지 않는다. 탭이 보일 때만 돌고, 같은 `accountTabActive` 가드를 쓴다.
+   * 계좌명 옆 자동매매 기호 — **전 계좌**를 묶음 라우트 한 번으로 받는다 (상세는 1초).
+   * ⚠️ 계좌마다 `/status/:id` 를 부르면 계좌 수만큼 요청이 늘어난다(N+1).
+   * ⚠️ 새 폴링을 만들지 않는다 — 모아보기와 같은 훅이고 주기만 15초다.
+   * 탭이 보일 때만 돌고(`accountTabActive`), 숨은 브라우저 탭에서는 쉰다.
    */
-  const paperAuto = useAutoTradeStatusOnly(paperAccounts.selectedId, accountTabActive);
+  const paperAuto = useAutoTradingOverview(accountTabActive, SIDE_POLL_MS);
 
   const { folders, watchlist, visibleSymbols } = watch;
 
@@ -231,8 +233,7 @@ export default function WatchPanel({
             currentSymbol={currentSymbol}
             onSelectSymbol={onSelect}
             onGoToAccounts={onGoToAccounts}
-            strategy={paperAuto.strategy}
-            status={paperAuto.status}
+            strategies={paperAuto.items}
           />
         ) : tab === 'watch' ? (
           folders.map((folder) => (
