@@ -8,6 +8,9 @@ import {
   usePaperTrades,
 } from '../../hooks/usePaperTrading';
 import AccountManager from './AccountManager';
+import AccountsOverview from './AccountsOverview';
+import { usePaperAccountsOverview, useAutoTradingOverview } from '../../hooks/usePaperOverview';
+import { useGeminiStatus } from '../../hooks/useGemini';
 import AutoTradeBar from './AutoTradeBar';
 import PerformanceChart from './PerformanceChart';
 import PerformanceStats from './PerformanceStats';
@@ -20,6 +23,12 @@ interface Props {
 }
 
 type Tab = 'positions' | 'trades' | 'performance';
+/**
+ * 계좌 관리는 **모아보기 → 상세** 두 화면이다 (2026-09-22).
+ * 들어오면 전 계좌를 카드로 먼저 보여 준다 — 계좌가 여럿이면 "어느 계좌가 어떤가" 가 먼저 궁금하고,
+ * 하나뿐이어도 카드 한 장이라 화면 구조가 달라지지 않는다.
+ */
+type View = 'overview' | 'detail';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'positions', label: '보유종목' },
@@ -47,12 +56,34 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   } = usePaperAccounts();
   const { detail, error, refresh } = usePaperAccountDetail(selectedId);
   const [tab, setTab] = useState<Tab>('positions');
+  const [view, setView] = useState<View>('overview');
+  // 모아보기가 보일 때만 폴링한다 — 상세로 들어가면 그쪽이 1초로 본다.
+  const overview = usePaperAccountsOverview(view === 'overview');
+  const autoOverview = useAutoTradingOverview(view === 'overview');
+  const { state: gemini } = useGeminiStatus(60_000);
   /** 주문·취소 후 목록을 다시 읽기 위한 카운터 */
   const [version, setVersion] = useState(0);
 
   const trades = usePaperTrades(selectedId, version);
   const orders = usePaperOrders(selectedId, version);
   const perf = usePaperPerformance(selectedId, version);
+
+  const openAccount = (id: number) => {
+    select(id);
+    setView('detail');
+  };
+
+  /** 카드에서 바로 켜고 끈다 — 저장은 계좌별 설정 API 하나뿐이다 (Step 12) */
+  const toggleAuto = async (accountId: number, enabled: boolean) => {
+    const res = await fetch(`/api/auto-trading/strategies/${accountId}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    const body = (await res.json()) as { error?: string };
+    if (!res.ok || body.error) throw new Error(body.error ?? '저장에 실패했습니다.');
+    await autoOverview.refresh();
+  };
 
   const bump = () => {
     setVersion((n) => n + 1);
@@ -145,9 +176,42 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
     );
   }
 
+  // 계좌가 있으면 **모아보기가 먼저**다 (계좌가 하나여도 카드 한 장).
+  if (view === 'overview') {
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        {banner}
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2">
+          <h2 className="text-sm font-medium text-text-primary">계좌 모아보기</h2>
+          <span className="text-[11px] text-text-muted">
+            카드를 누르면 그 계좌의 잔고·거래·자동매매 설정으로 들어갑니다
+          </span>
+        </div>
+        <AccountsOverview
+          accounts={overview.items}
+          strategies={autoOverview.items}
+          geminiEnabled={gemini?.enabled ?? false}
+          error={overview.error ?? autoOverview.error}
+          onOpen={openAccount}
+          onToggleAuto={toggleAuto}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       {banner}
+
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
+        <button
+          type="button"
+          onClick={() => setView('overview')}
+          className="rounded px-2 py-0.5 text-[11px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+        >
+          ← 계좌 모아보기
+        </button>
+      </div>
 
       <AccountManager
         accounts={accounts}

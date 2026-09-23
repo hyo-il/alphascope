@@ -483,6 +483,50 @@ app.post('/api/paper/accounts', (req, res) => {
  * 두 라우트가 각각 valuePositions() 를 돌려 **토스 시세·환율을 초당 4회** 때렸다.
  * 한 번에 처리하면 절반으로 줄고, 체결과 평가가 같은 시점 값을 쓰게 된다.
  */
+/**
+ * 계좌 **모아보기** — 전 계좌의 평가금액·손익을 한 번에.
+ *
+ * ⚠️ 카드마다 `/accounts/:id` 를 따로 부르면 계좌 수 × 폴링 주기만큼 시세·환율 조회가 늘어난다
+ * (N+1). 여기서 한 번에 모아 주고, 환율은 `toss/account.ts` 의 60초 캐시를 공유한다.
+ * 대기 주문 체결(settle)은 하지 않는다 — 그건 상세 화면이 할 일이다.
+ */
+app.get('/api/paper/accounts/overview', async (_req, res) => {
+  try {
+    const items = await Promise.all(
+      listAccounts().map(async (account) => {
+        try {
+          const detail = await getAccountDetail(account.id);
+          return {
+            account: detail.account,
+            totalValue: detail.totalValue,
+            stockValue: detail.stockValue,
+            totalPnl: detail.totalPnl,
+            totalReturn: detail.totalReturn,
+            pendingOrders: detail.pendingOrders,
+            positions: detail.positions.length,
+            error: null as string | null,
+          };
+        } catch (e) {
+          // 한 계좌가 실패해도 나머지는 보여 준다 — 전부 비면 "계좌가 없다" 로 읽힌다.
+          return {
+            account,
+            totalValue: null,
+            stockValue: null,
+            totalPnl: null,
+            totalReturn: null,
+            pendingOrders: 0,
+            positions: 0,
+            error: e instanceof Error ? e.message : String(e),
+          };
+        }
+      }),
+    );
+    res.json({ items });
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
 app.get('/api/paper/accounts/:id', async (req, res) => {
   try {
     const accountId = accountIdOf(req);
@@ -514,6 +558,23 @@ app.delete('/api/paper/accounts/:id', (req, res) => {
 app.get('/api/auto-trading/strategies', (_req, res) => {
   try {
     res.json({ strategies: listStrategies() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+/**
+ * 전 계좌의 자동매매 설정 + 실행 상태 — 계좌 모아보기 카드용.
+ * 계좌마다 `/status/:id` 를 부르면 카드 수만큼 요청이 늘어난다.
+ */
+app.get('/api/auto-trading/overview', (_req, res) => {
+  try {
+    res.json({
+      items: listStrategies().map((strategy) => ({
+        strategy,
+        status: getStrategyStatus(strategy.accountId),
+      })),
+    });
   } catch (e) {
     fail(res, e);
   }
