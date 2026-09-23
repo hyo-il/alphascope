@@ -5,7 +5,9 @@ import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
 import { toast } from '../../store/uiStore';
 import CriteriaPanel from '../common/CriteriaPanel';
-import { SURGE_CRITERIA, SWING_CRITERIA } from '../../data/criteria';
+import { STANDARD_SWING_CRITERIA, SURGE_CRITERIA, swingCriteria } from '../../data/criteria';
+import { useStrategyProfile } from '../../hooks/useStrategyProfile';
+import { PROFILE_LABEL, type ProfileId } from '../../types/strategyProfile';
 
 /**
  * 자동매매 대상 종목 **발굴** 팝업 — 기준 설정 → 탐지 → 근거 → 선택 추가.
@@ -139,6 +141,16 @@ export default function DiscoverSymbolsModal({
   onAdd: (symbols: string[], source: string) => void;
   onClose: () => void;
 }) {
+  const profile = useStrategyProfile();
+  const activeId: ProfileId = profile.state?.active ?? 'standard';
+  const activeParams = profile.state
+    ? activeId === 'standard'
+      ? profile.state.standard
+      : profile.state.custom[activeId]
+    : null;
+  /** 스윙 추천의 문턱은 곧 BUY 컷이다 — 프로파일을 바꾸면 기본값도 따라간다 */
+  const swingBuyCut = activeParams?.grades.buy ?? 65;
+
   const [source, setSource] = useState<Source>('surge');
   const [minScore, setMinScore] = useState(60);
   const [grades, setGrades] = useState<string[]>(['HIGH', 'MEDIUM']);
@@ -146,6 +158,8 @@ export default function DiscoverSymbolsModal({
   const [fresh, setFresh] = useState(false);
 
   const [rows, setRows] = useState<Row[] | null>(null);
+  /** 불러온 스윙 추천이 어떤 기준으로 나왔는지 — 지금 기준과 다르면 알린다 */
+  const [rowsProfile, setRowsProfile] = useState<ProfileId | null>(null);
   const [stats, setStats] = useState<FilterStats | null>(null);
   /** 기준에서 떨어진 종목도 흐리게 보여 줄지 — 왜 0건인지 눈으로 확인하는 용도다 */
   const [showRejected, setShowRejected] = useState(false);
@@ -176,6 +190,7 @@ export default function DiscoverSymbolsModal({
     setSource(next);
     setRows(null);
     setStats(null);
+    setRowsProfile(null);
     setSelected([]);
     setNote(null);
     setFresh(false);
@@ -183,7 +198,7 @@ export default function DiscoverSymbolsModal({
       setMinScore(60);
       setGrades(['HIGH', 'MEDIUM']);
     } else if (next === 'swing') {
-      setMinScore(65);
+      setMinScore(swingBuyCut);
       setGrades(['STRONG', 'BUY']);
     }
   };
@@ -208,6 +223,7 @@ export default function DiscoverSymbolsModal({
     setBusy(true);
     setRows(null);
     setStats(null);
+    setRowsProfile(null);
     setSelected([]);
     setNote(null);
     try {
@@ -257,11 +273,13 @@ export default function DiscoverSymbolsModal({
           body: JSON.stringify({ symbols: watchlist }),
         }).then((r) => r.json());
         const all: SwingRecommendation[] = data.recommendations ?? [];
+        setRowsProfile(all[0]?.profile ?? activeId);
         setNote(`관심 목록 ${watchlist.length}종목을 다시 채점했습니다`);
         candidates = all.sort((a, b) => b.score - a.score).map(swingRowFromRecommendation);
       } else {
         const data = await fetch('/api/swing/recommendations').then((r) => r.json());
         const all: SwingRecord[] = data.records ?? [];
+        setRowsProfile(all[0]?.profile ?? null);
         if (!all.length) {
           setNote('저장된 스윙 추천이 없습니다. [다시 분석] 을 켜고 실행해 보세요.');
         } else if (data.analyzedAt) {
@@ -354,14 +372,29 @@ export default function DiscoverSymbolsModal({
 
           {source !== 'watchlist' && (
             <section className="space-y-2 rounded-md border border-border bg-bg-tertiary/30 p-3">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-xs font-semibold text-text-primary">② 기준</h3>
+                {/* 스윙은 판정 기준이 프로파일에 따라 달라진다 — 무엇으로 걸렀는지 적어 둔다 */}
+                {source === 'swing' && (
+                  <span className="rounded border border-border px-1.5 py-0.5 text-[10px] text-text-secondary">
+                    기준: {PROFILE_LABEL[activeId]}
+                    {activeId !== 'standard' ? '(사용자 설정)' : ''}
+                  </span>
+                )}
               </div>
               {/*
                 점수·등급이 무엇인지 모르면 기준을 정할 수 없다. 설명은 급등·스윙 화면과
                 **같은 컴포넌트·같은 데이터**를 쓴다 — 두 벌로 적으면 반드시 갈라진다.
               */}
-              <CriteriaPanel spec={source === 'surge' ? SURGE_CRITERIA : SWING_CRITERIA} />
+              <CriteriaPanel
+                spec={
+                  source === 'surge'
+                    ? SURGE_CRITERIA
+                    : activeParams
+                      ? swingCriteria(activeParams, activeId)
+                      : STANDARD_SWING_CRITERIA
+                }
+              />
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-text-secondary">최소 점수</span>
                 <input
@@ -430,6 +463,15 @@ export default function DiscoverSymbolsModal({
             )}
             {note && <span className="text-[11px] text-text-muted">{note}</span>}
           </div>
+
+          {/* ⚠️ 여기서 다시 채점하지 않는다 — 불러온 추천이 다른 기준이면 그 사실만 알린다 */}
+          {source === 'swing' && rowsProfile && rowsProfile !== activeId && (
+            <p className="rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[11px] text-warning">
+              이 추천은 '{PROFILE_LABEL[rowsProfile]}' 기준으로 나왔습니다 · 지금 기준은 '
+              {PROFILE_LABEL[activeId]}' 입니다 — [다시 분석] 을 켜고 탐지하면 지금 기준으로
+              채점합니다.
+            </p>
+          )}
 
           {/* ③ 결과 · 선택 */}
           {rows && (

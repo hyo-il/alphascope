@@ -34,6 +34,18 @@ function migrate(database: Database.Database): void {
 
   if (!names.has('mode')) database.exec(`ALTER TABLE analysis_history ADD COLUMN mode TEXT`);
   if (!names.has('prompt')) database.exec(`ALTER TABLE analysis_history ADD COLUMN prompt TEXT`);
+
+  /*
+   * 스윙 추천에 **어떤 판정 기준으로 냈는지**를 남긴다 (v2.7.0).
+   * 기존 행은 NULL 이고, 읽을 때 'standard' 로 본다 — 프로파일이 없던 시절의 기록은
+   * 전부 표준 기준으로 나왔기 때문이다.
+   */
+  const swingColumns = database
+    .prepare(`PRAGMA table_info(swing_recommendations)`)
+    .all() as { name: string }[];
+  if (!swingColumns.some((c) => c.name === 'profile')) {
+    database.exec(`ALTER TABLE swing_recommendations ADD COLUMN profile TEXT`);
+  }
 }
 
 const upsertCandle = () =>

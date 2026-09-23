@@ -1,3 +1,5 @@
+import { PROFILE_LABEL, STANDARD_SWING, type ProfileId, type SwingParams } from '../types/strategyProfile';
+
 /**
  * 급등·스윙의 **판정 기준을 화면에 그대로 적기 위한 설명표**.
  *
@@ -24,23 +26,46 @@ export interface CriteriaSpec {
   gates: string[];
 }
 
-export const SWING_CRITERIA: CriteriaSpec = {
-  title: '스윙 추천 판정 기준',
-  scoring: [
-    { label: '추세', value: '30점', detail: '현재가 > 60일선 · 정배열 · 60일선 기울기' },
-    { label: '타이밍', value: '25점', detail: 'RSI 35~45 · 20일선 ±1.5% · 볼린저 중단~하단' },
-    { label: '모멘텀', value: '20점', detail: 'MACD 양전환 · 스토캐스틱 골든크로스 · RSI 반전' },
-    { label: '거래량', value: '15점', detail: '최근 3일 ≥ 20일 평균 120% · 건강한 조정 · OBV 상승' },
-    { label: '손익비', value: '10점', detail: '≥2.0 → 10 / ≥1.5 → 7 / ≥1.0 → 3 / <1.0 → 0' },
-  ],
-  grades: 'STRONG ≥ 80 · BUY ≥ 65 · WATCH ≥ 50 · HOLD ≥ 35 · AVOID < 35 (65점 이상만 추천)',
-  gates: [
-    '손익비 < 1.0 이면 점수와 무관하게 WATCH 로 내린다 — 잃을 금액이 더 큰 거래는 반복할수록 잃는다',
-    '손절가는 ATR×2 · 20일 지지선 −1% · 60일선 −0.5% 중 가장 가까운 값',
-    '비중은 1% 리스크 룰 (변동성에 따라 0.5~1.5%, 상한 25%)',
-    '모든 계산의 기준은 현재가가 아니라 진입가(NOW · 눌림 · 돌파)다',
-  ],
-};
+/**
+ * 스윙 기준 설명 — **활성 프로파일 값으로 만든다** (v2.7.0).
+ *
+ * ⚠️ 상수가 아니라 함수인 이유: 값이 프로파일마다 다르므로 문구에 숫자를 박아 두면
+ * 화면이 실제 판정과 다른 말을 한다 (엔진도 같은 이유로 라벨·사유를 params 로 만든다).
+ */
+export function swingCriteria(params: SwingParams, profileId: ProfileId): CriteriaSpec {
+  const { grades, rrDemoteBelow, rsiBand, risk } = params;
+  const suffix =
+    profileId === 'standard'
+      ? '(표준)'
+      : `(${PROFILE_LABEL[profileId]} · 사용자 설정)`;
+
+  return {
+    title: `스윙 추천 판정 기준 ${suffix}`,
+    scoring: [
+      { label: '추세', value: '30점', detail: '현재가 > 60일선 · 정배열 · 60일선 기울기' },
+      {
+        label: '타이밍',
+        value: '25점',
+        detail: `RSI ${rsiBand.low}~${rsiBand.high} · 20일선 ±1.5% · 볼린저 중단~하단`,
+      },
+      { label: '모멘텀', value: '20점', detail: 'MACD 양전환 · 스토캐스틱 골든크로스 · RSI 반전' },
+      { label: '거래량', value: '15점', detail: '최근 3일 ≥ 20일 평균 120% · 건강한 조정 · OBV 상승' },
+      { label: '손익비', value: '10점', detail: '≥2.0 → 10 / ≥1.5 → 7 / ≥1.0 → 3 / <1.0 → 0' },
+    ],
+    grades:
+      `STRONG ≥ ${grades.strong} · BUY ≥ ${grades.buy} · WATCH ≥ ${grades.watch} · ` +
+      `HOLD ≥ ${grades.hold} · AVOID < ${grades.hold} (BUY 이상만 추천)`,
+    gates: [
+      `손익비 < ${rrDemoteBelow} 이면 점수와 무관하게 WATCH 로 내린다 — 잃을 금액이 더 큰 거래는 반복할수록 잃는다`,
+      '손절가는 ATR×2 · 20일 지지선 −1% · 60일선 −0.5% 중 가장 가까운 값',
+      `비중은 리스크 룰 (저변동 ${risk.lowVol}% · 중변동 ${risk.midVol}% · 고변동 ${risk.highVol}%, 상한 25%)`,
+      '모든 계산의 기준은 현재가가 아니라 진입가(NOW · 눌림 · 돌파)다',
+    ],
+  };
+}
+
+/** 표준 기준 — 프로파일을 아직 못 받았을 때 그린다 */
+export const STANDARD_SWING_CRITERIA = swingCriteria(STANDARD_SWING, 'standard');
 
 export const SURGE_CRITERIA: CriteriaSpec = {
   title: '급등 탐지 판정 기준',

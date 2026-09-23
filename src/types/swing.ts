@@ -1,5 +1,7 @@
 /** 스윙 투자 추천 (Step 10) — 서버와 화면이 함께 쓰는 타입 */
 
+import type { ProfileId } from './strategyProfile';
+
 export type SwingGrade = 'STRONG' | 'BUY' | 'WATCH' | 'HOLD' | 'AVOID';
 export type EntryType = 'NOW' | 'PULLBACK' | 'BREAKOUT';
 
@@ -23,6 +25,8 @@ export interface SwingConditions {
 
 export interface SwingRecommendation {
   symbol: string;
+  /** 이 추천을 낸 판정 기준 (v2.7.0) — 기준이 다른 추천은 성과도 따로 봐야 한다 */
+  profile: ProfileId;
   name: string | null;
   currentPrice: number;
 
@@ -76,6 +80,8 @@ export interface SwingRecord {
   id: number;
   analyzedAt: string;
   symbol: string;
+  /** 판정 기준 — 프로파일이 없던 시절의 기록은 'standard' 로 읽는다 */
+  profile: ProfileId;
   name: string | null;
   priceAtAnalysis: number;
   score: number;

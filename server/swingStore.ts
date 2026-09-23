@@ -7,6 +7,7 @@
 
 import type { Candle } from '../src/types/toss';
 import type { SwingGrade, SwingRecommendation, SwingRecord } from '../src/types/swing';
+import type { ProfileId } from '../src/types/strategyProfile';
 import { getCandles } from './candleService';
 import { getDb, loadCandles } from './db';
 
@@ -25,6 +26,8 @@ interface Row {
   id: number;
   analyzed_at: string;
   symbol: string;
+  /** NULL = 프로파일이 없던 시절의 기록 (전부 표준 기준이었다) */
+  profile: string | null;
   name: string | null;
   price_at_analysis: number;
   score: number;
@@ -52,6 +55,8 @@ function toRecord(row: Row): SwingRecord {
     id: row.id,
     analyzedAt: row.analyzed_at,
     symbol: row.symbol,
+    // 옛 기록(NULL)은 표준으로 판정된 것이다 — 그때는 기준이 하나뿐이었다.
+    profile: (row.profile as ProfileId | null) ?? 'standard',
     name: row.name,
     priceAtAnalysis: row.price_at_analysis,
     score: row.score,
@@ -79,12 +84,12 @@ export function insertRecommendation(analyzedAt: string, r: SwingRecommendation)
   const result = getDb()
     .prepare(
       `INSERT INTO swing_recommendations
-         (analyzed_at, symbol, name, price_at_analysis, score, grade,
+         (analyzed_at, symbol, profile, name, price_at_analysis, score, grade,
           trend_score, timing_score, momentum_score, volume_score, risk_reward_score,
           entry_price, entry_type, entry_reason, target1_price, target2_price, stop_loss_price,
           risk_reward_ratio, recommended_percent, holding_period_min, holding_period_max,
           warnings, invalidation, conditions_detail, indicators_snapshot)
-       VALUES (@analyzedAt, @symbol, @name, @price, @score, @grade,
+       VALUES (@analyzedAt, @symbol, @profile, @name, @price, @score, @grade,
           @trend, @timing, @momentum, @volume, @riskReward,
           @entryPrice, @entryType, @entryReason, @target1, @target2, @stop,
           @ratio, @percent, @holdMin, @holdMax,
@@ -93,6 +98,7 @@ export function insertRecommendation(analyzedAt: string, r: SwingRecommendation)
     .run({
       analyzedAt,
       symbol: r.symbol,
+      profile: r.profile,
       name: r.name,
       price: r.currentPrice,
       score: r.score,
@@ -126,13 +132,21 @@ export function insertRecommendation(analyzedAt: string, r: SwingRecommendation)
  * 화면에서 [다시 분석] 을 몇 번 누르면 같은 추천이 그만큼 쌓여, 성과 표본이
  * "자주 누른 종목" 쪽으로 기운다. 12시간 안의 같은 종목은 이미 기록된 것으로 본다.
  */
-export function recordedRecently(symbol: string, hours = 12): boolean {
+/**
+ * 같은 종목을 12시간 안에 또 기록하지 않는다 — [다시 분석] 연타로 한 종목이 표본을 지배한다.
+ *
+ * ⚠️ **기준(프로파일)까지 함께 본다** (v2.7.0). 종목만으로 막으면 기준을 바꿔 다시 분석해도
+ * 12시간 동안 기록이 남지 않아, 정작 비교하려던 "공격 기준의 성적" 을 모을 수 없다.
+ * (옛 기록의 NULL 은 'standard' 로 친다 — 읽을 때와 같은 규칙이다.)
+ */
+export function recordedRecently(symbol: string, profile: ProfileId, hours = 12): boolean {
   const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
   const row = getDb()
     .prepare(
-      `SELECT 1 AS hit FROM swing_recommendations WHERE symbol = ? AND analyzed_at >= ? LIMIT 1`,
+      `SELECT 1 AS hit FROM swing_recommendations
+        WHERE symbol = ? AND analyzed_at >= ? AND COALESCE(profile, 'standard') = ? LIMIT 1`,
     )
-    .get(symbol, since) as { hit: number } | undefined;
+    .get(symbol, since, profile) as { hit: number } | undefined;
   return Boolean(row);
 }
 

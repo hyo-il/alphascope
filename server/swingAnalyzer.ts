@@ -19,6 +19,8 @@ import type {
 } from '../src/types/swing';
 import { getCandles } from './candleService';
 import { cachedFundamentals } from './companyService';
+import { getActiveSwingParams } from './strategyProfile';
+import type { ProfileId, SwingParams } from '../src/types/strategyProfile';
 import { loadCandles } from './db';
 import { computeIndicators } from './indicatorService';
 import { findNames } from './stockCatalog';
@@ -81,14 +83,18 @@ function trendCondition(price: number, ind: IndicatorSeries): ConditionScore {
   );
 }
 
-function timingCondition(price: number, ind: IndicatorSeries): ConditionScore {
+function timingCondition(price: number, ind: IndicatorSeries, params: SwingParams): ConditionScore {
   const rsi = at(ind.rsi14);
   const sma20 = at(ind.sma20);
   const bbLower = at(ind.bbLower);
   const bbMiddle = at(ind.bbMiddle);
 
   const checks = [
-    { label: 'RSI 35~45 (눌림 구간)', passed: rsi != null && rsi >= 35 && rsi <= 45 },
+    {
+      // ⚠️ 라벨의 숫자도 params 에서 만든다 — 문구만 표준값으로 남으면 화면이 거짓말을 한다.
+      label: `RSI ${params.rsiBand.low}~${params.rsiBand.high} (눌림 구간)`,
+      passed: rsi != null && rsi >= params.rsiBand.low && rsi <= params.rsiBand.high,
+    },
     {
       label: '20일선 ±1.5% 이내',
       passed: sma20 != null && Math.abs(price - sma20) / sma20 <= 0.015,
@@ -321,9 +327,10 @@ function riskRewardCondition(ratio: number): SwingConditions['riskReward'] {
  * `총자산 × 리스크% × 현재가/(현재가−손절가)` 가 된다. 변동성이 큰 종목은
  * 손절 폭이 넓어 자동으로 비중이 줄어든다.
  */
-function positionOf(price: number, stop: number, atr: number | null) {
+function positionOf(price: number, stop: number, atr: number | null, params: SwingParams) {
   const volatility = atr ? atr / price : 0.02;
-  const riskPercent = volatility > 0.04 ? 0.5 : volatility < 0.02 ? 1.5 : 1;
+  const riskPercent =
+    volatility > 0.04 ? params.risk.highVol : volatility < 0.02 ? params.risk.lowVol : params.risk.midVol;
   const lossPerShare = price - stop;
   const raw = lossPerShare > 0 ? riskPercent * (price / lossPerShare) : 0;
   // 한 종목이 포트폴리오를 지배하지 않도록 상한을 둔다.
@@ -333,27 +340,32 @@ function positionOf(price: number, stop: number, atr: number | null) {
     recommendedPercent,
     reason:
       volatility > 0.04
-        ? `변동성이 높아(ATR ${round(volatility * 100, 1)}%) 리스크 0.5% 룰로 소규모 진입`
+        ? `변동성이 높아(ATR ${round(volatility * 100, 1)}%) 리스크 ${params.risk.highVol}% 룰로 소규모 진입`
         : volatility < 0.02
-          ? `변동성이 낮아(ATR ${round(volatility * 100, 1)}%) 리스크 1.5% 룰 적용`
-          : `리스크 1% 룰 — 손절 시 총자산의 약 1% 손실`,
+          ? `변동성이 낮아(ATR ${round(volatility * 100, 1)}%) 리스크 ${params.risk.lowVol}% 룰 적용`
+          : `리스크 ${params.risk.midVol}% 룰 — 손절 시 총자산의 약 ${params.risk.midVol}% 손실`,
   };
 }
 
-function gradeOf(score: number): SwingGrade {
-  if (score >= 80) return 'STRONG';
-  if (score >= 65) return 'BUY';
-  if (score >= 50) return 'WATCH';
-  if (score >= 35) return 'HOLD';
+function gradeOf(score: number, params: SwingParams): SwingGrade {
+  if (score >= params.grades.strong) return 'STRONG';
+  if (score >= params.grades.buy) return 'BUY';
+  if (score >= params.grades.watch) return 'WATCH';
+  if (score >= params.grades.hold) return 'HOLD';
   return 'AVOID';
 }
 
 /** 추천하지 않는 종목의 한 줄 이유 — 가장 크게 모자란 조건을 집는다 */
-function rejectionOf(conditions: SwingConditions, ind: IndicatorSeries, price: number): string {
+function rejectionOf(
+  conditions: SwingConditions,
+  ind: IndicatorSeries,
+  price: number,
+  params: SwingParams,
+): string {
   const rsi = at(ind.rsi14);
   const sma60 = at(ind.sma60);
 
-  if (conditions.riskReward.ratio < 1) {
+  if (conditions.riskReward.ratio < params.rrDemoteBelow) {
     return `리스크/리워드 1:${conditions.riskReward.ratio} — 잃을 금액이 더 큽니다`;
   }
   if (sma60 != null && price < sma60) return '60일선 아래 — 추세 미확인';
@@ -375,7 +387,18 @@ async function candlesOf(symbol: string): Promise<Candle[]> {
   });
 }
 
-export async function evaluateSwing(symbol: string): Promise<SwingRecommendation> {
+/**
+ * 종목 하나 평가.
+ *
+ * ⚠️ `profile` 을 인자로 받는다 — **호출부가 요청 시작 때 한 번 읽어 전 종목에 같은 것을 넘긴다.**
+ * 종목마다 읽으면 분석 도중 사용자가 기준을 바꿨을 때 한 결과 안에 두 기준이 섞인다.
+ * 기본값은 활성 프로파일이고, 표준이면 v2.6.0 이전과 판정이 완전히 같다.
+ */
+export async function evaluateSwing(
+  symbol: string,
+  profile: { id: ProfileId; params: SwingParams } = getActiveSwingParams(),
+): Promise<SwingRecommendation> {
+  const params = profile.params;
   const upper = symbol.toUpperCase();
   const candles = await candlesOf(upper);
   if (candles.length < 60) {
@@ -387,7 +410,7 @@ export async function evaluateSwing(symbol: string): Promise<SwingRecommendation
   const atr = at(ind.atr14);
 
   const trend = trendCondition(price, ind);
-  const timing = timingCondition(price, ind);
+  const timing = timingCondition(price, ind, params);
   const momentum = momentumCondition(ind);
   const volume = volumeCondition(candles, ind);
 
@@ -399,11 +422,12 @@ export async function evaluateSwing(symbol: string): Promise<SwingRecommendation
     trend.score + timing.score + momentum.score + volume.score + riskReward.score;
 
   /*
-   * 리스크/리워드가 1 미만이면 점수와 무관하게 매수 추천에서 뺀다.
-   * 조건이 아무리 좋아도 잃을 금액이 벌 금액보다 크면 반복할수록 잃는 거래다.
+   * 리스크/리워드가 기준(표준 1.0) 미만이면 점수와 무관하게 매수 추천에서 뺀다.
+   * 조건이 아무리 좋아도 잃을 금액이 벌 금액보다 크면 반복할수록 잃는 거래다 —
+   * 그래서 프로파일에서도 이 값을 1.0 아래로는 내리지 못한다 (`PARAM_LIMITS`).
    */
-  let grade = gradeOf(score);
-  const unprofitable = riskReward.ratio < 1;
+  let grade = gradeOf(score, params);
+  const unprofitable = riskReward.ratio < params.rrDemoteBelow;
   if (unprofitable && (grade === 'STRONG' || grade === 'BUY')) grade = 'WATCH';
 
   const sma20 = at(ind.sma20);
@@ -414,7 +438,9 @@ export async function evaluateSwing(symbol: string): Promise<SwingRecommendation
   if (atr && atr / price > 0.04) {
     warnings.push(`변동성이 높습니다 (ATR ${round((atr / price) * 100, 1)}%) — 비중을 줄이세요`);
   }
-  if (unprofitable) warnings.push('리스크/리워드가 1 미만이라 매수 추천에서 제외했습니다');
+  if (unprofitable) {
+    warnings.push(`리스크/리워드가 ${params.rrDemoteBelow} 미만이라 매수 추천에서 제외했습니다`);
+  }
   if (riskReward.ratio >= 1 && riskReward.ratio < 1.5) {
     warnings.push('리스크/리워드가 1:1.5 미만입니다 — 목표가까지 여유가 크지 않습니다');
   }
@@ -461,6 +487,8 @@ export async function evaluateSwing(symbol: string): Promise<SwingRecommendation
 
   const recommendation: SwingRecommendation = {
     symbol: upper,
+    // 어떤 기준으로 낸 추천인지 남긴다 — 기준이 다른 추천을 한 승률로 합치면 비교가 무의미하다.
+    profile: profile.id,
     name: findNames([upper])[upper] ?? null,
     currentPrice: round(price),
     score,
@@ -478,7 +506,7 @@ export async function evaluateSwing(symbol: string): Promise<SwingRecommendation
     },
     stopLoss: plan?.stopLoss ?? { price: 0, reason: '계산 불가', maxLossPercent: 0 },
     position: plan
-      ? positionOf(plan.entry.price, plan.stopLoss.price, atr)
+      ? positionOf(plan.entry.price, plan.stopLoss.price, atr, params)
       : { recommendedPercent: 0, reason: '매매 계획이 없어 비중을 제시하지 않습니다' },
     holdingPeriod: {
       min: holdMin,
@@ -510,7 +538,7 @@ export async function evaluateSwing(symbol: string): Promise<SwingRecommendation
      * 추천 구간이 아닌 종목에도 계획은 함께 낸다 (관찰용). 다만 매수 이유 자리에
      * "진입 가능합니다" 만 남으면 카드가 스스로와 모순된다 — 왜 아닌지를 앞에 세운다.
      */
-    recommendation.rejection = rejectionOf(conditions, ind, price);
+    recommendation.rejection = rejectionOf(conditions, ind, price, params);
     recommendation.entry.reason = `지금은 매수 추천 구간이 아닙니다 — ${recommendation.rejection}` +
       (plan ? ` (조건이 갖춰질 경우의 계획: ${plan.entry.reason})` : '');
   }

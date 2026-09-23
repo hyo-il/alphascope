@@ -5,7 +5,15 @@ import SwingRecommendationCard from './SwingRecommendationCard';
 import SwingSearch from './SwingSearch';
 import SwingHistory from './SwingHistory';
 import CriteriaPanel from '../common/CriteriaPanel';
-import { SWING_CRITERIA } from '../../data/criteria';
+import StrategyProfileModal from './StrategyProfileModal';
+import { STANDARD_SWING_CRITERIA, swingCriteria } from '../../data/criteria';
+import { useStrategyProfile } from '../../hooks/useStrategyProfile';
+import {
+  PROFILE_LABEL,
+  sameSwingParams,
+  type ProfileId,
+} from '../../types/strategyProfile';
+import { toast } from '../../store/uiStore';
 import SavedRecommendations from './SavedRecommendations';
 import StockName from '../common/StockName';
 import type { SwingGrade, SwingRecommendation } from '../../types/swing';
@@ -18,10 +26,14 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'history', label: '추천 이력' },
 ];
 
+/*
+  ⚠️ 제목에 점수를 박지 않는다 — 컷오프는 프로파일마다 다르다 (v2.7.0).
+  실제 값은 위의 「판정 기준」 패널이 활성 프로파일 기준으로 보여 준다.
+*/
 const SECTIONS: { grades: SwingGrade[]; title: string }[] = [
-  { grades: ['STRONG'], title: '⭐ 강력 추천 (80점 이상)' },
-  { grades: ['BUY'], title: '🟢 추천 (65~79점)' },
-  { grades: ['WATCH'], title: '🟡 관심 (50~64점) — 아직 매수 시점은 아닙니다' },
+  { grades: ['STRONG'], title: '⭐ 강력 추천' },
+  { grades: ['BUY'], title: '🟢 추천' },
+  { grades: ['WATCH'], title: '🟡 관심 — 아직 매수 시점은 아닙니다' },
 ];
 
 /**
@@ -42,6 +54,33 @@ export default function SwingDashboard({
   const [tab, setTab] = useState<Tab>('list');
   const { result, saved, loading, error, analyze } = useSwingAnalysis(watchlist);
   const paperBuy = usePaperQuickBuy();
+  const profile = useStrategyProfile();
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  const activeId: ProfileId = profile.state?.active ?? 'standard';
+  const activeParams = profile.state
+    ? activeId === 'standard'
+      ? profile.state.standard
+      : profile.state.custom[activeId]
+    : null;
+  // 기준을 못 받았으면 표준을 그린다 — 빈 자리보다 낫고, 서버 기본값도 표준이다.
+  const criteria = activeParams ? swingCriteria(activeParams, activeId) : STANDARD_SWING_CRITERIA;
+
+  /** 지금 화면에 보이는 결과가 어떤 기준으로 나왔는지 (없으면 null) */
+  const resultProfile: ProfileId | null =
+    result?.recommendations[0]?.profile ?? saved.records[0]?.profile ?? null;
+  const stale = resultProfile != null && resultProfile !== activeId;
+  const untouched =
+    activeId !== 'standard' && activeParams != null && sameSwingParams(activeParams, profile.state!.standard);
+
+  const switchProfile = async (id: ProfileId) => {
+    try {
+      await profile.save({ active: id });
+      toast.success(`${PROFILE_LABEL[id]} 기준으로 바꿨습니다`, '다시 분석해야 새 기준이 적용됩니다');
+    } catch (e) {
+      toast.error('기준을 바꾸지 못했습니다', (e as Error).message);
+    }
+  };
 
   const recommendations = result?.recommendations ?? [];
   const rejected = recommendations.filter((r) => r.grade === 'HOLD' || r.grade === 'AVOID');
@@ -103,8 +142,67 @@ export default function SwingDashboard({
               </button>
             </header>
 
+            {/* 판정 기준 — 성향(프로파일)에 따라 값이 달라진다 */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] text-text-muted">판정 기준</span>
+              {(['standard', 'aggressive', 'defensive'] as ProfileId[]).map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => void switchProfile(id)}
+                  disabled={!profile.state}
+                  className={`rounded-md border px-2.5 py-1 text-[11px] transition-colors disabled:opacity-50 ${
+                    activeId === id
+                      ? 'border-accent bg-accent/10 font-medium text-accent'
+                      : 'border-border text-text-secondary hover:border-accent/50'
+                  }`}
+                >
+                  {PROFILE_LABEL[id]}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setProfileOpen(true)}
+                disabled={!profile.state}
+                className="rounded-md border border-border px-2.5 py-1 text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+              >
+                ⚙ 기준 편집
+              </button>
+              {profile.error && (
+                <span className="text-[11px] text-warning">
+                  기준을 불러오지 못해 표준을 표시합니다 ({profile.error})
+                </span>
+              )}
+            </div>
+
+            {untouched && (
+              <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-1.5 text-[11px] text-text-muted">
+                {PROFILE_LABEL[activeId]} 기준은 아직 표준과 같은 값입니다 — [⚙ 기준 편집] 에서
+                조정하세요. (공격·수비 값은 사용자 설정이며 근거가 검증되지 않았습니다.)
+              </p>
+            )}
+
+            {/*
+              결과와 지금 기준이 다르면 알린다. 자동으로 다시 돌리지는 않는다 —
+              관심 종목 전체 분석이라 무겁고, 언제 돌릴지는 사용자가 정한다.
+            */}
+            {stale && (
+              <p className="flex flex-wrap items-center gap-2 rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[11px] text-warning">
+                이 결과는 '{PROFILE_LABEL[resultProfile]}' 기준입니다 · 지금은 '
+                {PROFILE_LABEL[activeId]}' 기준
+                <button
+                  type="button"
+                  onClick={analyze}
+                  disabled={loading || !watchlist.length}
+                  className="rounded border border-warning/60 px-2 py-0.5 text-[11px] transition-colors hover:bg-warning/20 disabled:opacity-50"
+                >
+                  다시 분석
+                </button>
+              </p>
+            )}
+
             {/* 점수·등급만 보이고 기준이 없으면 결과를 받아들이거나 무시하거나 둘뿐이다 */}
-            <CriteriaPanel spec={SWING_CRITERIA} />
+            <CriteriaPanel spec={criteria} />
 
             {!watchlist.length && (
               <p className="rounded-lg border border-border bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
@@ -191,6 +289,14 @@ export default function SwingDashboard({
         {tab === 'search' && <SwingSearch onSelectSymbol={onSelectSymbol} onAnalyze={onAnalyze} />}
         {tab === 'history' && <SwingHistory />}
       </div>
+
+      {profileOpen && profile.state && (
+        <StrategyProfileModal
+          state={profile.state}
+          onSave={(custom) => profile.save({ custom })}
+          onClose={() => setProfileOpen(false)}
+        />
+      )}
     </div>
   );
 }

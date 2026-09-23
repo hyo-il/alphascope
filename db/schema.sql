@@ -232,6 +232,7 @@ CREATE TABLE IF NOT EXISTS swing_recommendations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   analyzed_at TEXT NOT NULL,
   symbol TEXT NOT NULL,
+  profile TEXT,                      -- 'standard' | 'aggressive' | 'defensive' (NULL = 표준 시절 기록)
   name TEXT,
   price_at_analysis REAL NOT NULL,
 
@@ -282,4 +283,12 @@ CREATE TABLE IF NOT EXISTS surge_ranking_cache (
   ranked_at TEXT,                  -- 토스가 알려 준 랭킹 기준 시각
   data TEXT NOT NULL,              -- JSON: RankingEntry[]
   updated_at TEXT NOT NULL
+);
+
+-- 앱 전역 설정 (키-값). 급등 전용인 surge_settings 와 섞지 않는다 —
+-- 이름이 기능에 묶여 있으면 다음 세션이 못 찾는다.
+-- 지금 쓰는 키: strategyProfile = { active, custom }  (스윙 판정 기준 프로파일)
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
 );

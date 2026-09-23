@@ -51,6 +51,12 @@ import {
 } from './surgeScanner';
 import { evaluateSwing } from './swingAnalyzer';
 import {
+  ProfileValidationError,
+  getActiveSwingParams,
+  getProfileState,
+  saveProfileState,
+} from './strategyProfile';
+import {
   insertRecommendation,
   latestRun,
   recordedRecently,
@@ -872,6 +878,32 @@ app.delete('/api/analyses', (req, res) => {
 // 종목 수가 십여 개고 캔들·지표 모두 로컬 캐시를 타므로 동기 응답으로 충분하다
 // (급등 탐지와 달리 yfinance 를 종목마다 새로 부르지 않는다).
 
+// ── 판정 기준 프로파일 (Step 10 보강, v2.7.0) ───────────────
+//
+// 스윙 판정값 네 종류를 표준 / 공격 / 수비 중에서 골라 쓴다.
+// ⚠️ 표준은 코드 상수(`STANDARD_SWING`)이고 저장하지 않는다 — 저장된 값이 표준을 덮으면
+// "표준인데 예전과 다른 결과" 가 된다.
+
+app.get('/api/strategy-profile', (_req, res) => {
+  try {
+    res.json(getProfileState());
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+/** 활성 프로파일 전환 · 공격/수비 값 저장. 검증 실패는 400 + 어느 값이 왜 틀렸는지. */
+app.put('/api/strategy-profile', (req, res) => {
+  try {
+    res.json(saveProfileState(req.body ?? {}));
+  } catch (e) {
+    if (e instanceof ProfileValidationError) {
+      return res.status(400).json({ error: e.message, fields: e.fields });
+    }
+    fail(res, e);
+  }
+});
+
 app.post('/api/swing/analyze', async (req, res) => {
   const symbols = [
     ...new Set(
@@ -886,16 +918,21 @@ app.post('/api/swing/analyze', async (req, res) => {
   }
 
   const analyzedAt = new Date().toISOString();
+  /*
+   * ⚠️ 프로파일은 **요청 시작 때 한 번만** 읽는다. 종목마다 읽으면 분석 도중 사용자가
+   * 기준을 바꿨을 때 한 결과 안에 두 기준이 섞여, 무엇으로 낸 추천인지 말할 수 없게 된다.
+   */
+  const profile = getActiveSwingParams();
   const recommendations = [];
   const failures: { symbol: string; error: string }[] = [];
 
   for (const symbol of symbols) {
     try {
-      const recommendation = await evaluateSwing(symbol);
+      const recommendation = await evaluateSwing(symbol, profile);
       // 추천만 저장한다 — 부적합 종목까지 쌓으면 성과 표본이 추천의 정확도를 말하지 못한다.
       if (
         (recommendation.grade === 'STRONG' || recommendation.grade === 'BUY') &&
-        !recordedRecently(symbol)
+        !recordedRecently(symbol, profile.id)
       ) {
         insertRecommendation(analyzedAt, recommendation);
       }
@@ -906,14 +943,14 @@ app.post('/api/swing/analyze', async (req, res) => {
     }
   }
 
-  res.json({ analyzedAt, recommendations, failures });
+  res.json({ analyzedAt, profile: profile.id, recommendations, failures });
 });
 
 app.post('/api/swing/evaluate', async (req, res) => {
   const symbol = parseSymbol(req.body?.symbol ?? req.query.symbol);
   if (!symbol) return res.status(400).json(BAD_SYMBOL);
   try {
-    res.json({ recommendation: await evaluateSwing(symbol) });
+    res.json({ recommendation: await evaluateSwing(symbol, getActiveSwingParams()) });
   } catch (e) {
     fail(res, e);
   }
