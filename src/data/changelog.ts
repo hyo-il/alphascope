@@ -23,6 +23,18 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.7.1',
+    date: '2026-09-23',
+    title: '종목 탐색 화면에서도 바로 지웁니다',
+    description:
+      '종목을 고르기 전 화면의 관심 종목·최근 조회 카드에 삭제 버튼이 생겼습니다.',
+    changes: [
+      '종목 탐색 화면에서 관심 종목·최근 조회를 카드에서 바로 지울 수 있습니다',
+      '최근 조회는 [전체 지우기] 로 한 번에 비웁니다',
+      '인기 종목과 보유 종목(모의투자) 카드에는 삭제가 없습니다 — 보유는 실제 포지션입니다',
+    ],
+  },
+  {
     version: 'v2.7.0',
     date: '2026-09-23',
     title: '스윙 추천 기준을 성향에 맞게 고릅니다',

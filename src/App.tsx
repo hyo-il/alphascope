@@ -475,7 +475,15 @@ export default function App() {
 
         {view === 'chart' && !symbol && (
           <div className="flex min-h-0 flex-1 flex-col">
-            <StockExplorer onSelect={setSymbol} watchlist={watchlist} recent={recent} />
+            <StockExplorer
+              onSelect={setSymbol}
+              watchlist={watchlist}
+              recent={recent}
+              /* 패널과 **같은 함수**를 넘긴다 — 삭제 로직을 화면마다 만들면 갈라진다 */
+              onRemoveWatch={watch.remove}
+              onRemoveRecent={removeRecent}
+              onClearRecent={clearRecent}
+            />
           </div>
         )}
 
