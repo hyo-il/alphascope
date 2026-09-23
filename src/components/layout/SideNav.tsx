@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { NAV_GROUPS, type NavGroup, type NavGroupId, type NavPageId } from '../../types/nav';
+import LogoMark from './LogoMark';
 
 /**
  * 왼쪽 내비게이션 — **대메뉴 → 소메뉴 2단**이다.
@@ -11,6 +12,9 @@ import { NAV_GROUPS, type NavGroup, type NavGroupId, type NavPageId } from '../.
  * 접으면 대메뉴 아이콘만 남고, 아이콘에 올리면 소메뉴가 옆으로 펼쳐진다(플라이아웃) —
  * 접힌 상태에서도 두 번 클릭으로 어디든 갈 수 있어야 한다.
  *
+ * **로고는 홈 버튼이다** — 다른 웹사이트의 관례대로, 누르면 차트 화면 + 종목 미선택
+ * (= 종목 탐색 홈)으로 돌아간다. 접힌 상태의 도형도 같은 역할을 한다.
+ *
  * ⚠️ **설정은 맨 아래에 고정한다.** 차트·분석·계좌는 "지금 무엇을 보는가" 이고 설정은
  * "가끔 손대는 것" 이라 성격이 다르다. 위 목록에 섞어 두면 메뉴가 길어질수록 설정이
  * 스크롤 아래로 밀려 사라진다. `mt-auto` + 구분선으로 떼어 둔다.
@@ -20,12 +24,14 @@ interface Props {
   group: NavGroupId;
   onSelectPage: (page: NavPageId) => void;
   onSelectGroup: (group: NavGroupId) => void;
+  /** 로고 클릭 — 홈(차트 + 종목 미선택)으로 */
+  onGoHome: () => void;
 }
 
 const MAIN_GROUPS = NAV_GROUPS.filter((g) => g.id !== 'settings');
 const SETTINGS_GROUP = NAV_GROUPS.find((g) => g.id === 'settings');
 
-export default function SideNav({ page, group, onSelectPage, onSelectGroup }: Props) {
+export default function SideNav({ page, group, onSelectPage, onSelectGroup, onGoHome }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   /** 접힌 상태에서 아이콘에 올린 대메뉴 — 소메뉴를 옆에 띄운다 */
   const [hovered, setHovered] = useState<NavGroupId | null>(null);
@@ -119,14 +125,30 @@ export default function SideNav({ page, group, onSelectPage, onSelectGroup }: Pr
   if (collapsed) {
     return (
       <nav className="flex w-[52px] shrink-0 flex-col border-r border-border bg-bg-secondary">
-        <button
-          type="button"
-          onClick={() => setCollapsed(false)}
-          title="메뉴 펼치기"
-          className="flex h-12 shrink-0 items-center justify-center border-b border-border text-sm font-bold text-accent"
-        >
-          AS
-        </button>
+        {/*
+          접힌 상태에서도 **도형 자체가 홈 버튼**이다. 메뉴를 펼치는 `›` 는 옆에 따로 둔다 —
+          로고에 펼치기를 겹쳐 두면 홈으로 갈 방법이 없어진다.
+        */}
+        <div className="flex h-12 shrink-0 items-center border-b border-border pl-1.5 pr-0.5">
+          <button
+            type="button"
+            onClick={onGoHome}
+            title="홈으로"
+            aria-label="홈으로"
+            className="flex flex-1 items-center justify-center text-accent transition-opacity hover:opacity-80"
+          >
+            <LogoMark size={22} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setCollapsed(false)}
+            title="메뉴 펼치기"
+            aria-label="메뉴 펼치기"
+            className="px-0.5 text-xs text-text-muted transition-colors hover:text-text-primary"
+          >
+            ›
+          </button>
+        </div>
 
         {/*
           ⚠️ 여기에 `overflow-y-auto` 를 두면 안 된다. 한 축이 visible 이 아니면 다른 축도
@@ -147,7 +169,16 @@ export default function SideNav({ page, group, onSelectPage, onSelectGroup }: Pr
   return (
     <nav className="flex w-[156px] shrink-0 flex-col border-r border-border bg-bg-secondary">
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3">
-        <span className="text-sm font-bold text-accent">AlphaScope</span>
+        <button
+          type="button"
+          onClick={onGoHome}
+          title="홈으로"
+          aria-label="홈으로"
+          className="flex min-w-0 items-center gap-1.5 text-sm font-bold text-accent transition-opacity hover:opacity-80"
+        >
+          <LogoMark size={18} />
+          <span className="truncate">AlphaScope</span>
+        </button>
         <button
           type="button"
           onClick={() => setCollapsed(true)}
