@@ -17,7 +17,12 @@ import { runExitChecks, runStrategyCycle, refreshPeaks } from './engine';
 import { listActiveStrategies, getStrategy } from './store';
 import { isGeminiEnabled } from '../gemini/client';
 import { countToday } from '../gemini/store';
-import type { AccountStrategy, AccountStrategyStatus, AutoTradeRunResult } from '../../src/types/autoTrading';
+import type {
+  AccountStrategy,
+  AccountStrategyStatus,
+  AutoTradeRunResult,
+  BlockedKind,
+} from '../../src/types/autoTrading';
 
 /** 틱 간격 — 청산 검사 주기이기도 하다 */
 const TICK_MS = 60_000;
@@ -44,20 +49,44 @@ function stateOf(accountId: number): RunState {
   return found;
 }
 
-/** 이 계좌가 지금 돌 수 없는 이유 (없으면 null) */
-function blockedReason(strategy: AccountStrategy): string | null {
-  if (!strategy.enabled) return null;
+/**
+ * 이 계좌가 지금 돌 수 없는 이유 (없으면 null).
+ *
+ * ⚠️ **성격이 다른 두 가지를 한 문자열에 섞지 않는다** — `blockedKind` 로 함께 돌려준다.
+ * - `market_closed` = **정상 대기**. 켜져 있고, 장이 열리면 저절로 돈다. 사람이 할 일이 없다.
+ * - `config` = **설정 문제**. 키가 없거나 대상 종목이 0개라 사람이 고쳐야 돈다.
+ * 둘 다 "멈춤" 으로 보이면 정상 대기를 고장으로 읽고(미국 정규장은 한국 시간으로 밤이다),
+ * 반대로 진짜 고장 난 계좌를 방치하게 된다.
+ */
+function blocked(strategy: AccountStrategy): {
+  reason: string | null;
+  kind: BlockedKind;
+} {
+  if (!strategy.enabled) return { reason: null, kind: null };
   if (strategy.mode === 'ai' && !isGeminiEnabled()) {
-    return 'Gemini 키가 설정되지 않았습니다 — 규칙형으로 바꾸면 키 없이 동작합니다';
+    return {
+      reason: 'Gemini 키가 설정되지 않았습니다 — 규칙형으로 바꾸면 키 없이 동작합니다',
+      kind: 'config',
+    };
   }
-  if (!strategy.symbols.length) return '자동매매 대상 종목이 없습니다';
-  if (strategy.marketHoursOnly && !isUsMarketOpen()) return '정규장 시간이 아닙니다';
-  return null;
+  if (!strategy.symbols.length) {
+    return { reason: '자동매매 대상 종목이 없습니다', kind: 'config' };
+  }
+  if (strategy.marketHoursOnly && !isUsMarketOpen()) {
+    return { reason: '정규장 시간이 아닙니다', kind: 'market_closed' };
+  }
+  return { reason: null, kind: null };
+}
+
+/** 내부에서 "돌 수 있는가" 만 볼 때 쓴다 (기존 호출부 유지) */
+function blockedReason(strategy: AccountStrategy): string | null {
+  return blocked(strategy).reason;
 }
 
 export function getStrategyStatus(accountId: number): AccountStrategyStatus {
   const strategy = getStrategy(accountId);
   const s = stateOf(accountId);
+  const b = blocked(strategy);
   return {
     accountId,
     enabled: strategy.enabled,
@@ -68,7 +97,8 @@ export function getStrategyStatus(accountId: number): AccountStrategyStatus {
     lastError: s.lastError,
     // 호출 수는 전역 집계다 — 계좌별로 나눠 세지 않는다 (한도가 전역이라 그게 의미 있는 수다)
     callsToday: strategy.mode === 'ai' ? countToday() : 0,
-    blockedReason: blockedReason(strategy),
+    blockedReason: b.reason,
+    blockedKind: b.kind,
   };
 }
 

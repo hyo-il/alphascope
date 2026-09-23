@@ -2,6 +2,8 @@ import type { PaperAccount, PaperAccountDetail } from '../../types/paper';
 import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
 import { formatPrice } from '../../utils/formatters';
+import { AUTO_TRADE_TONE, autoTradeView } from '../../utils/autoTradeStatus';
+import type { AccountStrategy, AccountStrategyStatus } from '../../types/autoTrading';
 
 /**
  * 관심 목록 패널의 **계좌 탭** — 모의투자 계좌 요약.
@@ -22,6 +24,8 @@ export default function AccountMiniView({
   currentSymbol,
   onSelectSymbol,
   onGoToAccounts,
+  strategy,
+  status,
 }: {
   accounts: PaperAccount[];
   selectedId: number | null;
@@ -34,8 +38,13 @@ export default function AccountMiniView({
   onSelectSymbol: (symbol: string) => void;
   /** 계좌 관리 화면으로 이동 */
   onGoToAccounts: () => void;
+  /** 자동매매 — 계좌명 옆 점 하나에만 쓴다 (250px 이라 배지 전체는 안 들어간다) */
+  strategy: AccountStrategy | null;
+  status: AccountStrategyStatus | null;
 }) {
   const positions = detail?.positions ?? [];
+  // 카드와 **같은 분류**를 쓴다 — 여기만 따로 판단하면 두 화면이 다른 말을 한다.
+  const auto = autoTradeView(strategy, status);
   // 티커만 있으면 어떤 종목인지 떠오르지 않는다 — 이름을 함께 적는다.
   useStockNames(positions.map((p) => p.symbol));
 
@@ -74,12 +83,13 @@ export default function AccountMiniView({
         어느 쪽이든 **계좌명은 항상 보인다** — 어느 계좌를 보고 있는지 모르면 잔고도 의미가 없다.
       */}
       {accounts.length > 1 ? (
-        <div className="border-b border-border px-3 py-2">
+        <div className="flex items-center gap-1.5 border-b border-border px-3 py-2">
+          <AutoDot auto={auto} />
           <select
             value={selectedId ?? ''}
             onChange={(e) => onSelectAccount(Number(e.target.value))}
             aria-label="모의투자 계좌 선택"
-            className="w-full rounded border border-border bg-bg-tertiary px-2 py-1 text-xs text-text-primary focus:border-accent focus:outline-none"
+            className="min-w-0 flex-1 rounded border border-border bg-bg-tertiary px-2 py-1 text-xs text-text-primary focus:border-accent focus:outline-none"
           >
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
@@ -89,8 +99,9 @@ export default function AccountMiniView({
           </select>
         </div>
       ) : (
-        <p className="truncate border-b border-border px-3 py-2 text-xs font-medium text-text-primary">
-          {accounts[0]?.name}
+        <p className="flex items-center gap-1.5 border-b border-border px-3 py-2 text-xs font-medium text-text-primary">
+          <AutoDot auto={auto} />
+          <span className="min-w-0 truncate">{accounts[0]?.name}</span>
         </p>
       )}
 
@@ -197,5 +208,23 @@ function Cell({
       <p className={`text-xs font-semibold tabular-nums ${valueTone}`}>{value}</p>
       {sub && <p className={`text-[10px] tabular-nums ${valueTone}`}>{sub}</p>}
     </div>
+  );
+}
+
+/**
+ * 계좌명 옆 자동매매 점. 250px 폭이라 배지 전체는 들어가지 않는다 —
+ * 기호 하나 + 툴팁이다. **색만으로 구분하지 않는 규칙**은 여기서도 기호가 지킨다.
+ */
+function AutoDot({ auto }: { auto: ReturnType<typeof autoTradeView> }) {
+  return (
+    <span
+      title={auto.reason ? `${auto.label} — ${auto.reason}` : auto.label}
+      aria-label={auto.label}
+      className={`shrink-0 text-[10px] leading-none ${AUTO_TRADE_TONE[auto.state]} ${
+        auto.state === 'running' && !auto.busy ? 'motion-safe:animate-pulse' : ''
+      }`}
+    >
+      {auto.busy ? '\u25cc' : auto.symbol}
+    </span>
   );
 }

@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { modal, toast } from '../store/uiStore';
 import { stockNameOf } from '../utils/stockNames';
+import { usePaperAccounts } from './usePaperTrading';
 
 /**
  * [모의 매수] — 모의투자 계좌에 시장가 매수를 넣는다.
@@ -8,6 +9,9 @@ import { stockNameOf } from '../utils/stockNames';
  * ⚠️ 실제 주문이 아니다. 계좌·환율·수량 계산은 QuickOrderPanel 과 같은 규칙을 쓴다
  * (계좌 현금의 일정 비율). 돈이 움직이는 동작이라 항상 확인창을 띄운다.
  * 급등 탐지와 스윙 추천이 같은 버튼을 쓰므로 훅 하나로 모아 둔다.
+ *
+ * ⚠️ **계좌는 지금 고른 계좌다** — 예전에는 목록을 직접 받아 `accounts[0]` 로 샀다.
+ * 계좌가 여럿이면 사용자가 보고 있는 계좌가 아니라 **첫 계좌**에 주문이 들어갔다.
  */
 
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
@@ -20,6 +24,8 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export function usePaperQuickBuy(defaultPercent = 5) {
+  const { accounts, selectedId } = usePaperAccounts();
+
   return useCallback(
     async (symbol: string, price: number | null, percent = defaultPercent) => {
       if (!price || price <= 0) {
@@ -27,10 +33,7 @@ export function usePaperQuickBuy(defaultPercent = 5) {
         return;
       }
       try {
-        const { accounts } = await json<{
-          accounts: { id: number; name: string; currency: string; commissionRate: number }[];
-        }>('/api/paper/accounts');
-        const account = accounts[0];
+        const account = accounts.find((a) => a.id === selectedId) ?? accounts[0];
         if (!account) {
           toast.warning('모의투자 계좌가 없습니다', '모의투자 메뉴에서 계좌를 먼저 만드세요.');
           return;
@@ -90,6 +93,6 @@ export function usePaperQuickBuy(defaultPercent = 5) {
         toast.error('계좌를 읽지 못했습니다', (e as Error).message);
       }
     },
-    [defaultPercent],
+    [defaultPercent, accounts, selectedId],
   );
 }

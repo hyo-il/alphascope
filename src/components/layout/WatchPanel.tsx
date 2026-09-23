@@ -10,6 +10,7 @@ import { useStockNames } from '../../hooks/useStockNames';
 import { COMPARE_DRAG_TYPE } from '../../types/compare';
 import { formatPercent, formatPrice } from '../../utils/formatters';
 import { usePaperAccounts, usePaperAccountDetail } from '../../hooks/usePaperTrading';
+import { useAutoTradeStatusOnly } from '../../hooks/useAutoTrading';
 import AccountMiniView from './AccountMiniView';
 
 interface Props {
@@ -96,6 +97,11 @@ export default function WatchPanel({
   const paperDetail = usePaperAccountDetail(
     accountTabActive ? paperAccounts.selectedId : null,
   );
+  /*
+   * 계좌명 옆 자동매매 점 — 15초다 (상세는 1초).
+   * ⚠️ 새 폴링을 만들지 않는다. 탭이 보일 때만 돌고, 같은 `accountTabActive` 가드를 쓴다.
+   */
+  const paperAuto = useAutoTradeStatusOnly(paperAccounts.selectedId, accountTabActive);
 
   const { folders, watchlist, visibleSymbols } = watch;
 
@@ -225,6 +231,8 @@ export default function WatchPanel({
             currentSymbol={currentSymbol}
             onSelectSymbol={onSelect}
             onGoToAccounts={onGoToAccounts}
+            strategy={paperAuto.strategy}
+            status={paperAuto.status}
           />
         ) : tab === 'watch' ? (
           folders.map((folder) => (

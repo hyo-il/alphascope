@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { OrderSide, OrderType, PaperAccount, PaperOrder, PaperPositionValued } from '../../types/paper';
-import { cancelPaperOrder, submitOrder } from '../../hooks/usePaperTrading';
+import type { OrderSide, OrderType, PaperOrder, PaperPositionValued } from '../../types/paper';
+import { cancelPaperOrder, submitOrder, usePaperAccounts } from '../../hooks/usePaperTrading';
 import { modal, toast } from '../../store/uiStore';
 import { formatPrice } from '../../utils/formatters';
 import StockName from '../common/StockName';
@@ -21,7 +21,6 @@ interface Props {
   onGoToPaperTrading: () => void;
 }
 
-const ACCOUNT_KEY = 'alphascope.paperAccountId';
 const REFRESH_MS = 2000;
 const SHARE_PRESETS = [1, 10, 100];
 const PERCENT_PRESETS = [10, 30, 50, 100];
@@ -29,8 +28,8 @@ const PERCENT_PRESETS = [10, 30, 50, 100];
 /**
  * 차트 옆 빠른주문 (토스 WTS 의 빠른주문 위치).
  *
- * ⚠️ 모의투자 전용이다. 계좌 선택은 localStorage 로 모의투자 대시보드와 공유해
- * 두 화면이 서로 다른 계좌를 보고 있는 일이 없게 한다.
+ * ⚠️ 모의투자 전용이다. 계좌 목록·선택은 `usePaperAccounts()` 의 **앱 공유 상태**를 쓴다 —
+ * 여기서 따로 조회하면 다른 화면에서 만들거나 지운 계좌가 이 패널에 반영되지 않는다.
  */
 export default function QuickOrderPanel({
   symbol,
@@ -39,11 +38,7 @@ export default function QuickOrderPanel({
   active = true,
   onGoToPaperTrading,
 }: Props) {
-  const [accounts, setAccounts] = useState<PaperAccount[]>([]);
-  const [accountId, setAccountId] = useState<number | null>(() => {
-    const saved = Number(localStorage.getItem(ACCOUNT_KEY));
-    return saved > 0 ? saved : null;
-  });
+  const { accounts, selectedId: accountId, select: selectAccount } = usePaperAccounts();
   const [positions, setPositions] = useState<PaperPositionValued[]>([]);
   const [orders, setOrders] = useState<PaperOrder[]>([]);
   const [cash, setCash] = useState(0);
@@ -59,42 +54,27 @@ export default function QuickOrderPanel({
   const account = accounts.find((a) => a.id === accountId) ?? null;
   useStockNames([symbol, ...positions.map((p) => p.symbol)]);
 
-  const selectAccount = (id: number) => {
-    setAccountId(id);
-    localStorage.setItem(ACCOUNT_KEY, String(id));
-  };
-
   /*
-   * 계좌 목록과 잔고·보유·미체결을 같은 주기로 읽는다.
-   * 계좌 목록을 마운트 시 한 번만 읽으면, 모의투자 화면에서 계좌를 만들고 돌아왔을 때
-   * 이 패널은 여전히 "계좌를 먼저 만드세요" 를 붙들고 있는다.
+   * 잔고·보유·미체결만 이 주기로 읽는다.
+   * **계좌 목록은 더 이상 여기서 받지 않는다** — 공유 상태가 들고 있고, 다른 화면의
+   * 생성·삭제가 그쪽에서 방송돼 이 패널에도 바로 반영된다.
    */
   useEffect(() => {
     if (!active) return;
+    if (!accountId) {
+      setPositions([]);
+      setOrders([]);
+      setCash(0);
+      return;
+    }
     let cancelled = false;
 
     const load = async (force = false) => {
       if (document.hidden && !force) return;
       try {
-        const list = await fetch('/api/paper/accounts').then((r) => r.json());
-        if (cancelled) return;
-        const fetched: PaperAccount[] = list.accounts ?? [];
-        setAccounts(fetched);
-
-        // 이름을 `active` 로 두면 "차트가 보이는가" 를 뜻하는 prop 을 가린다.
-        const selected = fetched.find((a) => a.id === accountId) ?? fetched[0] ?? null;
-        if (!selected) {
-          setPositions([]);
-          setOrders([]);
-          setCash(0);
-          return;
-        }
-        // 자동으로 고른 계좌도 저장한다 — 모의투자 대시보드와 같은 계좌를 봐야 한다.
-        if (selected.id !== accountId) selectAccount(selected.id);
-
         const [detail, orderList] = await Promise.all([
-          fetch(`/api/paper/accounts/${selected.id}`).then((r) => r.json()),
-          fetch(`/api/paper/orders?accountId=${selected.id}`).then((r) => r.json()),
+          fetch(`/api/paper/accounts/${accountId}`).then((r) => r.json()),
+          fetch(`/api/paper/orders?accountId=${accountId}`).then((r) => r.json()),
         ]);
         if (cancelled) return;
         setPositions(detail.positions ?? []);

@@ -33,6 +33,19 @@ export class PaperTradingError extends Error {
   }
 }
 
+/**
+ * 가리킨 계좌가 없다 — **400 이 아니라 404** 로 돌려준다.
+ *
+ * 화면은 "선택해 둔 계좌가 지워졌다" 를 이 상태 코드로 알아채고 목록을 다시 읽어
+ * 첫 계좌로 넘어간다. 문구로 가려내면 문구를 다듬을 때마다 그 복구가 조용히 깨진다.
+ */
+export class PaperNotFoundError extends PaperTradingError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PaperNotFoundError';
+  }
+}
+
 const nowIso = () => new Date().toISOString();
 
 /** 종목이 어느 통화로 거래되는지 — 카탈로그의 시장으로 판별한다. */
@@ -163,7 +176,7 @@ export function listAccounts(): PaperAccount[] {
 
 export function getAccount(id: number): PaperAccount {
   const row = getDb().prepare(`SELECT * FROM paper_accounts WHERE id = ?`).get(id) as Row | undefined;
-  if (!row) throw new PaperTradingError(`계좌 ${id} 을(를) 찾을 수 없습니다.`);
+  if (!row) throw new PaperNotFoundError(`계좌 ${id} 을(를) 찾을 수 없습니다.`);
   return toAccount(row);
 }
 

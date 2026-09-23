@@ -74,6 +74,14 @@ export interface AccountStrategy {
 }
 
 /** 계좌별 실행 상태 — 화면(2단계)이 "지금 돌고 있나" 를 보여 주는 데 쓴다 */
+/**
+ * 자동매매가 멈춘 **종류**. 화면은 문구가 아니라 이 값으로 분기한다 —
+ * 문구를 다듬을 때마다 화면 분기가 깨지면 안 된다.
+ * - `market_closed` = 정상 대기 (장이 열리면 저절로 돈다)
+ * - `config` = 사람이 고쳐야 하는 설정 문제
+ */
+export type BlockedKind = 'market_closed' | 'config' | null;
+
 export interface AccountStrategyStatus {
   accountId: number;
   enabled: boolean;
@@ -91,6 +99,8 @@ export interface AccountStrategyStatus {
    * 예: "Gemini 키가 설정되지 않았습니다 — 규칙형으로 바꾸면 키 없이 동작합니다"
    */
   blockedReason: string | null;
+  /** 멈춤의 종류 — 화면 분기는 문구가 아니라 **이 값**으로 한다 */
+  blockedKind: BlockedKind;
 }
 
 /** 자동매매가 한 바퀴 돈 결과 (수동 실행 응답) */

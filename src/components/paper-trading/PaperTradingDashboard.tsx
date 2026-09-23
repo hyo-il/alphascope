@@ -19,6 +19,7 @@ import PositionList from './PositionList';
 import TradeHistory from './TradeHistory';
 import { toast } from '../../store/uiStore';
 import { formatPrice } from '../../utils/formatters';
+import { autoTradeView } from '../../utils/autoTradeStatus';
 
 interface Props {
   onSelectSymbol: (symbol: string) => void;
@@ -95,6 +96,15 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   };
 
   const currency = detail?.account.currency ?? 'KRW';
+
+  /** 모아보기 헤더의 자동매매 요약 — 카드와 **같은 분류**를 센다 */
+  const autoCounts = (autoOverview.items ?? []).reduce(
+    (acc, s) => {
+      acc[autoTradeView(s.strategy, s.status).state] += 1;
+      return acc;
+    },
+    { running: 0, waiting: 0, blocked: 0, off: 0 },
+  );
 
   const banner = (
     <div className="flex shrink-0 items-center gap-2 border-b border-warning/40 bg-warning/10 px-4 py-2 text-xs text-warning">
@@ -187,6 +197,20 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
         {banner}
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2">
           <h2 className="text-sm font-medium text-text-primary">계좌 모아보기</h2>
+          {/*
+            카드를 다 훑지 않아도 전체 자동매매 상태를 알 수 있게 한 줄로 센다.
+            분류는 `utils/autoTradeStatus` 한 곳이라 카드와 숫자가 갈라지지 않는다.
+          */}
+          <span className="flex items-center gap-1 text-[11px] text-text-muted">
+            자동매매
+            <span className="text-bullish">가동 {autoCounts.running}</span>
+            <span className="text-border">·</span>
+            <span className="text-text-secondary">대기 {autoCounts.waiting}</span>
+            <span className="text-border">·</span>
+            <span className="text-warning">멈춤 {autoCounts.blocked}</span>
+            <span className="text-border">·</span>
+            <span className="text-text-muted">꺼짐 {autoCounts.off}</span>
+          </span>
           <span className="text-[11px] text-text-muted">
             카드를 누르면 그 계좌의 잔고·거래·자동매매 설정으로 들어갑니다
           </span>
@@ -227,6 +251,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
           geminiEnabled={gemini?.enabled ?? false}
           error={overview.error ?? autoOverview.error}
           hasAccounts={accounts.length > 0}
+          selectedId={selectedId}
           onOpen={openAccount}
           onToggleAuto={toggleAuto}
         />

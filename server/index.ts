@@ -82,6 +82,7 @@ import {
   listOrders,
   listTrades,
   PaperTradingError,
+  PaperNotFoundError,
   resetAccount,
   settlePendingOrders,
   valuePositions,
@@ -458,6 +459,10 @@ app.get('/api/summary', async (req, res) => {
 
 /** 사용자 입력 오류(잔고 부족 등)는 400 으로 구분해 돌려준다 — 서버 장애가 아니다. */
 function failPaper(res: express.Response, e: unknown) {
+  // 계좌가 없는 것은 입력 오류가 아니라 **없는 자원**이다 — 화면이 이 코드로 복구한다.
+  if (e instanceof PaperNotFoundError) {
+    return res.status(404).json({ error: e.message });
+  }
   if (e instanceof PaperTradingError) {
     return res.status(400).json({ error: e.message });
   }

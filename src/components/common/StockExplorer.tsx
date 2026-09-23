@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { usePaperAccounts } from '../../hooks/usePaperTrading';
 import type { PaperPositionValued } from '../../types/paper';
 import type { Quote } from '../../types/toss';
 import { useQuotes } from '../../hooks/useQuotes';
@@ -23,8 +24,6 @@ interface Props {
 /** 처음 열었을 때 고를 만한 미국 대표 종목 */
 const POPULAR = ['AAPL', 'NVDA', 'TSLA', 'MSFT', 'AMZN', 'META', 'GOOGL', 'AMD', 'NFLX'];
 
-const ACCOUNT_KEY = 'alphascope.paperAccountId';
-
 /**
  * 종목 탐색 홈.
  *
@@ -40,18 +39,22 @@ export default function StockExplorer({
   onClearRecent,
 }: Props) {
   const [holdings, setHoldings] = useState<PaperPositionValued[]>([]);
+  /*
+   * 어느 계좌의 보유인지는 **공유 상태**가 정한다 — 여기서 목록을 따로 받아 고르면
+   * 다른 화면에서 계좌를 바꿨을 때 이 화면만 옛 계좌를 본다.
+   */
+  const { selectedId: accountId } = usePaperAccounts();
 
   // 모의투자 보유 종목 — 계좌가 없으면 그냥 비워 둔다.
   useEffect(() => {
+    if (!accountId) {
+      setHoldings([]);
+      return;
+    }
     let cancelled = false;
     const load = async () => {
       try {
-        const list = await fetch('/api/paper/accounts').then((r) => r.json());
-        const accounts: { id: number }[] = list.accounts ?? [];
-        if (!accounts.length) return;
-        const savedId = Number(localStorage.getItem(ACCOUNT_KEY));
-        const account = accounts.find((a) => a.id === savedId) ?? accounts[0];
-        const data = await fetch(`/api/paper/positions?accountId=${account.id}`).then((r) =>
+        const data = await fetch(`/api/paper/positions?accountId=${accountId}`).then((r) =>
           r.json(),
         );
         if (!cancelled) setHoldings(data.positions ?? []);
@@ -63,7 +66,7 @@ export default function StockExplorer({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [accountId]);
 
   const held = holdings.map((h) => h.symbol);
   /*

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { AccountOverviewItem, StrategyOverviewItem } from '../../hooks/usePaperOverview';
 import { formatPrice } from '../../utils/formatters';
 import { toast } from '../../store/uiStore';
+import { autoTradeView } from '../../utils/autoTradeStatus';
 
 /**
  * 계좌 **모아보기** — 계좌 관리에 들어가면 먼저 보이는 화면.
@@ -14,12 +15,33 @@ import { toast } from '../../store/uiStore';
  * ⚠️ 카드의 [켜기] 는 `AutoTradeBar` 와 **같은 가드**를 쓴다. 종목이 없거나 키 없는 AI형이면
  * 켜 봐야 서버가 매 틱 `blockedReason` 만 돌려준다 — 그래서 켜지 말고 상세로 보낸다.
  */
+/**
+ * 상태별 테두리. **색만으로 구분하지 않는다** — 배지의 기호(●◐⚠○)와 글자가 함께 간다.
+ * 가동 중만 바깥 광(ring)을 둬 3열 카드에서도 멀리서 눈에 걸린다.
+ * 대기는 정상 상태라 옅은 선만 두고 경고색을 쓰지 않는다.
+ */
+const BORDER: Record<string, string> = {
+  running: 'border-2 border-bullish ring-2 ring-bullish/15',
+  waiting: 'border border-bullish/30',
+  blocked: 'border-2 border-warning',
+  off: 'border border-border',
+};
+
+const BADGE: Record<string, string> = {
+  running: 'bg-bullish/15 text-bullish',
+  // 대기 배지는 중립색이다 — 청록을 여기까지 쓰면 가동 중과 구분이 흐려진다.
+  waiting: 'bg-bg-tertiary text-text-secondary',
+  blocked: 'bg-warning/15 text-warning',
+  off: 'bg-bg-tertiary text-text-muted',
+};
+
 export default function AccountsOverview({
   accounts,
   strategies,
   geminiEnabled,
   error,
   hasAccounts,
+  selectedId,
   onOpen,
   onToggleAuto,
 }: {
@@ -33,6 +55,8 @@ export default function AccountsOverview({
    * (옛 서버에는 `/accounts/overview` 가 없어 `/:id` 에 걸리고 'accountId 가 필요합니다' 가 난다).
    */
   hasAccounts: boolean;
+  /** 지금 다른 화면들이 보고 있는 계좌 — **테두리가 아니라 태그**로 표시한다 */
+  selectedId: number | null;
   onOpen: (accountId: number) => void;
   /** 켜기/끄기 — 실패는 이 컴포넌트가 토스트로 알린다 */
   onToggleAuto: (accountId: number, enabled: boolean) => Promise<void>;
@@ -114,7 +138,7 @@ export default function AccountsOverview({
           const strategy = found?.strategy;
           const status = found?.status;
           const on = Boolean(strategy?.enabled);
-          const blocked = on && Boolean(status?.blockedReason);
+          const view = autoTradeView(strategy, status);
           const currency = item.account.currency;
           const pnl = item.totalPnl;
 
@@ -127,13 +151,23 @@ export default function AccountsOverview({
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') onOpen(item.account.id);
               }}
-              className="rounded-lg border border-border bg-bg-secondary p-3 text-left transition-colors hover:border-accent/60"
+              /*
+                ⚠️ **테두리는 자동매매 상태 전용**이다. 예전에는 hover 가 테두리를 파랗게
+                덮어써서, 카드를 보려고 마우스를 올리는 순간 상태 표시가 사라졌다.
+                hover 는 배경으로만 알린다.
+              */
+              className={`rounded-lg bg-bg-secondary p-3 text-left transition-colors hover:bg-bg-tertiary/40 ${BORDER[view.state]}`}
             >
               <header className="flex items-center gap-2">
                 <h3 className="min-w-0 truncate text-sm font-medium text-text-primary">
                   {item.account.name}
                 </h3>
                 <span className="shrink-0 text-[10px] text-text-muted">{currency}</span>
+                {item.account.id === selectedId && (
+                  <span className="ml-auto shrink-0 rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                    현재 계좌
+                  </span>
+                )}
               </header>
 
               {item.error ? (
@@ -160,20 +194,52 @@ export default function AccountsOverview({
                 </>
               )}
 
-              {/* 자동매매는 세 가지 상태다 — 가동 중 / 멈춤(이유 있음) / 꺼짐 */}
+              {/* 자동매매는 네 가지 상태다 — 가동 중 / 대기 / 멈춤 / 꺼짐 (utils/autoTradeStatus) */}
               <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border pt-2">
                 <span
-                  title={status?.blockedReason ?? undefined}
-                  className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                    blocked
-                      ? 'bg-warning/15 text-warning'
-                      : on
-                        ? 'bg-bullish/15 text-bullish'
-                        : 'bg-bg-tertiary text-text-muted'
-                  }`}
+                  title={view.reason ?? undefined}
+                  className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${BADGE[view.state]}`}
                 >
-                  {blocked ? `멈춤: ${status?.blockedReason}` : on ? '가동 중' : '꺼짐'}
+                  {/*
+                    깜빡이는 것은 **가동 중의 점 하나뿐**이다. 동작 줄이기를 켠 사용자에게는
+                    motion-safe 가 이걸 멈춘다.
+                  */}
+                  <span
+                    aria-hidden
+                    className={view.state === 'running' && !view.busy ? 'motion-safe:animate-pulse' : ''}
+                  >
+                    {view.busy ? '◌' : view.symbol}
+                  </span>
+                  <span>
+                    {view.state === 'blocked' ? `멈춤: ${view.reason}` : view.label}
+                  </span>
                 </span>
+
+                {view.hint && <span className="text-[10px] text-text-muted">{view.hint}</span>}
+
+                {view.state === 'running' && status?.nextRunAt && !view.busy && (
+                  <span className="text-[10px] text-text-muted">
+                    다음 실행{' '}
+                    {new Date(status.nextRunAt).toLocaleTimeString('ko-KR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                )}
+
+                {/* 사람이 고쳐야 하는 상태에서만 길을 열어 준다 */}
+                {view.state === 'blocked' && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpen(item.account.id);
+                    }}
+                    className="rounded border border-warning/50 px-1.5 py-0.5 text-[10px] font-medium text-warning transition-colors hover:bg-warning/15"
+                  >
+                    설정 열기
+                  </button>
+                )}
 
                 {strategy && (
                   <span className="text-[10px] text-text-muted">
