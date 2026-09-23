@@ -9,6 +9,7 @@ import {
 } from '../../hooks/usePaperTrading';
 import AccountManager from './AccountManager';
 import AccountsOverview from './AccountsOverview';
+import CreateAccountForm from './CreateAccountForm';
 import { usePaperAccountsOverview, useAutoTradingOverview } from '../../hooks/usePaperOverview';
 import { useGeminiStatus } from '../../hooks/useGemini';
 import AutoTradeBar from './AutoTradeBar';
@@ -16,6 +17,7 @@ import PerformanceChart from './PerformanceChart';
 import PerformanceStats from './PerformanceStats';
 import PositionList from './PositionList';
 import TradeHistory from './TradeHistory';
+import { toast } from '../../store/uiStore';
 import { formatPrice } from '../../utils/formatters';
 
 interface Props {
@@ -57,6 +59,8 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   const { detail, error, refresh } = usePaperAccountDetail(selectedId);
   const [tab, setTab] = useState<Tab>('positions');
   const [view, setView] = useState<View>('overview');
+  /** 모아보기 헤더의 생성 폼 펼침 여부 */
+  const [creatingInOverview, setCreatingInOverview] = useState(false);
   // 모아보기가 보일 때만 폴링한다 — 상세로 들어가면 그쪽이 1초로 본다.
   const overview = usePaperAccountsOverview(view === 'overview');
   const autoOverview = useAutoTradingOverview(view === 'overview');
@@ -181,17 +185,48 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
     return (
       <div className="flex h-full min-h-0 flex-col">
         {banner}
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2">
           <h2 className="text-sm font-medium text-text-primary">계좌 모아보기</h2>
           <span className="text-[11px] text-text-muted">
             카드를 누르면 그 계좌의 잔고·거래·자동매매 설정으로 들어갑니다
           </span>
+          {/*
+            계좌를 만드는 자리는 **전 계좌를 보는 화면**에도 있어야 한다 — 전략별로 계좌를
+            나눠 비교하는 앱이라, 새 계좌를 만들고 싶어지는 순간이 바로 이 화면이다.
+            ⚠️ 모아보기 조회가 실패해도 이 버튼은 그대로 보인다 (헤더는 대시보드에 있다).
+          */}
+          <button
+            type="button"
+            onClick={() => setCreatingInOverview((v) => !v)}
+            className="ml-auto rounded-md border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          >
+            + 새 계좌
+          </button>
+          {creatingInOverview && (
+            <CreateAccountForm
+              onCreate={create}
+              onDone={(account) => {
+                setCreatingInOverview(false);
+                /*
+                  ⚠️ 5초 폴링을 기다리지 않는다 — "만들었는데 안 보인다" 가 된다.
+                  `create` 가 이미 계좌 목록을 다시 읽고 선택까지 하지만,
+                  모아보기 카드는 별도 묶음 라우트라 여기서 따로 받아야 한다.
+                */
+                void overview.refresh();
+                void autoOverview.refresh();
+                toast.success('계좌를 만들었습니다', account?.name);
+                // 상세로 넘기지 않는다 — 새 카드가 목록에 보이는 것이 곧 확인이다.
+              }}
+              onCancel={() => setCreatingInOverview(false)}
+            />
+          )}
         </div>
         <AccountsOverview
           accounts={overview.items}
           strategies={autoOverview.items}
           geminiEnabled={gemini?.enabled ?? false}
           error={overview.error ?? autoOverview.error}
+          hasAccounts={accounts.length > 0}
           onOpen={openAccount}
           onToggleAuto={toggleAuto}
         />

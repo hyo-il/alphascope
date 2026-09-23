@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { PaperAccount } from '../../types/paper';
 import { formatPrice } from '../../utils/formatters';
 import { modal, toast } from '../../store/uiStore';
+import CreateAccountForm from './CreateAccountForm';
 
 interface Props {
   accounts: PaperAccount[];
@@ -11,8 +12,6 @@ interface Props {
   onReset: (id: number) => Promise<unknown>;
   onDelete: (id: number) => Promise<unknown>;
 }
-
-const PRESETS = [1_000_000, 10_000_000, 100_000_000];
 
 /** 계좌 선택 · 생성 · 초기화 — 대시보드 상단 줄 */
 export default function AccountManager({
@@ -24,26 +23,8 @@ export default function AccountManager({
   onDelete,
 }: Props) {
   const [creating, setCreating] = useState(false);
-  const [name, setName] = useState('');
-  const [balance, setBalance] = useState(10_000_000);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const selected = accounts.find((a) => a.id === selectedId) ?? null;
-
-  const submit = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await onCreate({ name: name.trim() || '새 전략', initialBalance: balance });
-      setCreating(false);
-      setName('');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
 
   // 되돌릴 수 없는 동작이라 반드시 확인을 받는다.
   const confirmReset = () => {
@@ -134,44 +115,11 @@ export default function AccountManager({
       </div>
 
       {creating && (
-        <div className="flex w-full flex-wrap items-center gap-2 rounded-md bg-bg-tertiary/50 px-3 py-2">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="계좌 이름 (예: 스윙 테스트)"
-            className="w-56 rounded border border-border bg-bg-tertiary px-2 py-1 text-xs text-text-primary focus:border-accent focus:outline-none"
-          />
-          <span className="text-xs text-text-muted">초기 자금</span>
-          {PRESETS.map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setBalance(value)}
-              className={`rounded px-2 py-1 text-xs transition-colors ${
-                balance === value
-                  ? 'bg-accent/15 font-medium text-accent'
-                  : 'text-text-secondary hover:bg-bg-tertiary'
-              }`}
-            >
-              {(value / 10_000).toLocaleString('ko-KR')}만
-            </button>
-          ))}
-          <input
-            type="number"
-            value={balance}
-            onChange={(e) => setBalance(Number(e.target.value))}
-            className="w-36 rounded border border-border bg-bg-tertiary px-2 py-1 text-right text-xs tabular-nums text-text-primary focus:border-accent focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={() => void submit()}
-            disabled={busy}
-            className="rounded-md bg-accent px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
-          >
-            만들기
-          </button>
-          {error && <span className="text-xs text-bearish">❌ {error}</span>}
-        </div>
+        <CreateAccountForm
+          onCreate={onCreate}
+          onDone={() => setCreating(false)}
+          onCancel={() => setCreating(false)}
+        />
       )}
     </div>
   );

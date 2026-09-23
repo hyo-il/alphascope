@@ -20,6 +20,8 @@ import {
   saveAnalysis,
 } from './db';
 import { isMockMode, mockOrderbook, mockPrice } from './mockData';
+// 버전의 단일 출처. package.json 은 0.1.0 그대로라 쓸 수 없다.
+import { CHANGELOG } from '../src/data/changelog';
 import { runAnalysis } from './gemini/analyze';
 import { DEFAULT_MODEL, GeminiError, isGeminiEnabled } from './gemini/client';
 import { accuracyReport } from './gemini/accuracy';
@@ -192,6 +194,18 @@ async function tossReachable(): Promise<{ ok: boolean; error: string | null }> {
   }
   return { ok: tossProbe.error === null, error: tossProbe.error };
 }
+
+/*
+  서버가 **옛 코드로 떠 있는지**를 화면이 알 수 있게 한다.
+  화면에서 수정이 안 보이거나 없던 라우트가 404·400 을 내면 십중팔구 서버 재시작 누락이다
+  (실제로 옛 서버에 `/api/paper/accounts/overview` 가 없어 "계좌가 없어졌다" 로 신고됐다).
+  화면은 자기 `CHANGELOG[0].version` 과 비교해 다르면 배너를 띄운다.
+*/
+const SERVER_STARTED_AT = new Date().toISOString();
+
+app.get('/api/version', (_req, res) => {
+  res.json({ version: CHANGELOG[0]?.version ?? 'unknown', startedAt: SERVER_STARTED_AT });
+});
 
 app.get('/api/health', async (_req, res) => {
   const [toss, indicatorEngine] = await Promise.all([

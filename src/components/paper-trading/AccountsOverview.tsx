@@ -19,6 +19,7 @@ export default function AccountsOverview({
   strategies,
   geminiEnabled,
   error,
+  hasAccounts,
   onOpen,
   onToggleAuto,
 }: {
@@ -26,6 +27,12 @@ export default function AccountsOverview({
   strategies: StrategyOverviewItem[] | null;
   geminiEnabled: boolean;
   error: string | null;
+  /**
+   * 계좌 목록(`/api/paper/accounts`) 조회는 성공했는가.
+   * 그쪽은 되는데 모아보기 묶음 라우트만 실패했다면 **서버가 옛 버전**일 가능성이 가장 높다
+   * (옛 서버에는 `/accounts/overview` 가 없어 `/:id` 에 걸리고 'accountId 가 필요합니다' 가 난다).
+   */
+  hasAccounts: boolean;
   onOpen: (accountId: number) => void;
   /** 켜기/끄기 — 실패는 이 컴포넌트가 토스트로 알린다 */
   onToggleAuto: (accountId: number, enabled: boolean) => Promise<void>;
@@ -76,6 +83,14 @@ export default function AccountsOverview({
               <span className="text-text-muted">{error}</span>
               <br />
               저장된 계좌·보유 종목·거래 내역은 그대로 있습니다.
+              {hasAccounts && (
+                <>
+                  <br />
+                  <span className="text-warning">
+                    서버가 옛 버전일 수 있습니다 — 서버를 다시 시작해 보세요.
+                  </span>
+                </>
+              )}
             </>
           ) : (
             '계좌를 불러오는 중…'
