@@ -40,6 +40,14 @@ const SORT_LABEL: Record<SortMode, string> = {
 };
 const SORT_ORDER: SortMode[] = ['manual', 'name', 'change'];
 
+/**
+ * 왼쪽 목록 맨 위의 **`전체 종목` 은 폴더가 아니라 '보기'** 다 (2026-09-23).
+ *
+ * 예전에는 여기 '미분류' 폴더가 있었는데, 사용자에게 그것은 폴더가 아니라
+ * "폴더에 없음" 이라는 상태다. 이름변경·삭제·순서변경이 없고 모양도 그룹 행과 구분한다.
+ */
+const ALL_VIEW = '__all__';
+
 export default function WatchlistManager({
   watch,
   onClose,
@@ -49,10 +57,16 @@ export default function WatchlistManager({
 }) {
   const { folders } = watch;
 
-  const [selectedFolderId, setSelectedFolderId] = useState(watch.lastFolderId);
-  const folder = folders.find((f) => f.id === selectedFolderId) ?? folders[0];
-  /** 순서를 움직일 수 있는 폴더 — '미분류' 는 맨 위 고정이라 빠진다 (`moveFolder` 와 같은 기준) */
+  const [selectedFolderId, setSelectedFolderId] = useState<string>(ALL_VIEW);
+  const isAllView = selectedFolderId === ALL_VIEW;
+  const folder = isAllView ? null : (folders.find((f) => f.id === selectedFolderId) ?? null);
+  /** 화면에 그룹으로 보이는 폴더 — 기본 폴더(폴더 없음)는 그룹이 아니다 */
   const movable = folders.filter((f) => f.id !== DEFAULT_FOLDER_ID);
+  /** 종목 → 소속 그룹 이름 (없으면 null) — `전체 종목` 보기에서 뒤에 작게 적는다 */
+  const folderNameOf = (symbol: string) => {
+    const found = folders.find((f) => f.id !== DEFAULT_FOLDER_ID && f.symbols.includes(symbol));
+    return found?.name ?? null;
+  };
 
   const [checked, setChecked] = useState<string[]>([]);
   const [sort, setSort] = useState<SortMode>('manual');
@@ -98,7 +112,8 @@ export default function WatchlistManager({
     return () => document.removeEventListener('mousedown', onDown);
   }, [moveOpen]);
 
-  const symbols = folder?.symbols ?? [];
+  // `전체 종목` 보기에서는 모든 폴더의 종목을 이어 붙인다 (기본 폴더가 맨 앞이다).
+  const symbols = isAllView ? folders.flatMap((f) => f.symbols) : (folder?.symbols ?? []);
   const names = useStockNames(symbols);
   // 수익률순일 때만 시세를 받는다 — 편집 화면이 열려 있는 내내 1초 폴링을 돌릴 이유가 없다.
   const quotes = useQuotes(sort === 'change' ? symbols : []);
@@ -143,13 +158,13 @@ export default function WatchlistManager({
       title: `'${name}' 그룹 삭제`,
       message:
         count > 0
-          ? `안에 있는 ${count}개 종목은 '미분류' 로 옮깁니다. 종목이 지워지지는 않습니다.`
+          ? `안에 있는 ${count}개 종목은 폴더 밖으로 나옵니다. 종목이 지워지지는 않습니다.`
           : '빈 그룹을 삭제합니다.',
       confirmText: '삭제',
       danger: true,
       onConfirm: () => {
         watch.deleteFolder(id);
-        if (selectedFolderId === id) setSelectedFolderId(DEFAULT_FOLDER_ID);
+        if (selectedFolderId === id) setSelectedFolderId(ALL_VIEW);
       },
     });
 
@@ -184,14 +199,55 @@ export default function WatchlistManager({
           {/* ── 좌: 그룹 목록 ───────────────────────────── */}
           <nav className="flex w-[30%] min-w-[160px] shrink-0 flex-col border-r border-border">
             <ul className="min-h-0 flex-1 overflow-y-auto">
-              {folders.map((f) => {
-                const isDefault = f.id === DEFAULT_FOLDER_ID;
+              {/*
+                ⚠️ **폴더가 아니라 '보기'** 다 — 이름변경·삭제·순서변경이 없다.
+                그래서 아이콘(손잡이·▲▼·✕) 없이 굵은 글씨 + 아래 구분선으로 그룹 행과 구분한다.
+                종목을 여기에 떨어뜨리면 **폴더에서 빼기**가 된다.
+              */}
+              <li className="border-b-2 border-border">
+                <div
+                  onDragOver={(e) => {
+                    if (dragSymbol) e.preventDefault();
+                  }}
+                  onDrop={(e) => {
+                    if (!dragSymbol) return;
+                    e.preventDefault();
+                    const moving = checked.includes(dragSymbol) ? checked : [dragSymbol];
+                    moving.forEach((symbol) => watch.moveSymbol(symbol, DEFAULT_FOLDER_ID));
+                    setChecked([]);
+                    setDragSymbol(null);
+                  }}
+                  className={`border-l-2 transition-colors ${
+                    isAllView ? 'border-accent bg-bg-tertiary' : 'border-transparent hover:bg-bg-tertiary/50'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFolderId(ALL_VIEW)}
+                    className="flex h-12 w-full items-center gap-2 px-3 text-left"
+                  >
+                    <span
+                      className={`min-w-0 flex-1 truncate text-sm font-semibold ${
+                        isAllView ? 'text-text-primary' : 'text-text-secondary'
+                      }`}
+                    >
+                      전체 종목
+                    </span>
+                    <span className="shrink-0 text-sm tabular-nums text-text-muted">
+                      {watch.watchlist.length}
+                    </span>
+                  </button>
+                </div>
+              </li>
+
+              {movable.map((f) => {
+                const isDefault = false;
                 const active = f.id === folder?.id;
                 /*
                   ⚠️ 순서 이동의 **주 수단은 ▲▼** 다 (2026-09-22). 드래그 손잡이만 두었더니
                   10×14px 를 정확히 집어야 해서 "순서가 안 바뀐다" 는 신고가 났다 — 그룹 이름을
                   잡으면 아무 일도 일어나지 않는다. `moveFolder` 는 이미 있는 검증된 함수다.
-                  인덱스는 '미분류'(맨 위 고정)를 뺀 **움직일 수 있는 폴더 기준**이다.
+                  인덱스는 그룹으로 보이는 폴더 기준이다(기본 폴더는 목록에 없다).
                 */
                 const movableIndex = isDefault ? -1 : movable.findIndex((m) => m.id === f.id);
 
@@ -302,7 +358,7 @@ export default function WatchlistManager({
                           <button
                             type="button"
                             onClick={() => confirmDeleteFolder(f.id, f.name, f.symbols.length)}
-                            title="그룹 삭제 (종목은 미분류로)"
+                            title="그룹 삭제 (종목은 폴더 밖으로)"
                             aria-label={`${f.name} 그룹 삭제`}
                             className="shrink-0 rounded px-1 text-xs text-text-muted opacity-0 transition-all hover:text-bearish focus:opacity-100 group-hover:opacity-100"
                           >
@@ -382,7 +438,20 @@ export default function WatchlistManager({
                 </button>
                 {moveOpen && (
                   <ul className="absolute left-0 top-full z-40 mt-1 max-h-56 w-40 overflow-y-auto rounded-md border border-border bg-bg-secondary py-1 shadow-xl">
-                    {folders
+                    {/*
+                      기본 폴더는 이름('미분류')이 아니라 **'폴더에서 빼기'** 라는 동작으로 적는다 —
+                      사용자에게 그것은 옮겨 갈 폴더가 아니라 폴더를 벗어나는 일이다.
+                    */}
+                    <li>
+                      <button
+                        type="button"
+                        onClick={() => moveChecked(DEFAULT_FOLDER_ID)}
+                        className="w-full px-3 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                      >
+                        폴더에서 빼기
+                      </button>
+                    </li>
+                    {movable
                       .filter((f) => f.id !== folder?.id)
                       .map((f) => (
                         <li key={f.id}>
@@ -436,10 +505,13 @@ export default function WatchlistManager({
                     <SymbolSearch
                       symbol=""
                       onSubmit={(symbol) => {
-                        watch.add(symbol, folder?.id);
+                        // `전체 종목` 보기에서 추가하면 폴더 없이 담는다.
+                        watch.add(symbol, folder?.id ?? DEFAULT_FOLDER_ID);
                         watch.rememberFolder(folder?.id ?? DEFAULT_FOLDER_ID);
                       }}
-                      placeholder={`'${folder?.name ?? ''}' 에 추가 (구글, 애플, AAPL…)`}
+                      placeholder={
+                        folder ? `'${folder.name}' 에 추가 (구글, 애플, AAPL…)` : '폴더 없이 추가 (구글, 애플, AAPL…)'
+                      }
                       submitLabel="추가"
                       compact
                       clearOnSubmit
@@ -468,7 +540,9 @@ export default function WatchlistManager({
             >
               {symbols.length === 0 ? (
                 <p className="px-4 py-8 text-center text-xs text-text-muted">
-                  이 그룹에 담긴 종목이 없습니다. [+ 종목 추가] 로 시작해 보세요.
+                  {isAllView
+                    ? '관심 종목이 없습니다. [+ 종목 추가] 로 시작해 보세요.'
+                    : '이 그룹에 담긴 종목이 없습니다. [+ 종목 추가] 로 시작해 보세요.'}
                 </p>
               ) : (
                 sorted.map((symbol, index) => {
@@ -483,15 +557,16 @@ export default function WatchlistManager({
 
                       <div
                         onDragOver={(e) => {
-                          if (!dragSymbol || sort !== 'manual') return;
+                          // `전체 종목` 은 여러 폴더가 섞여 있어 순서 인덱스가 뜻을 잃는다.
+                          if (!dragSymbol || sort !== 'manual' || isAllView) return;
                           e.preventDefault();
                           const box = e.currentTarget.getBoundingClientRect();
                           setDropIndex(e.clientY - box.top > box.height / 2 ? index + 1 : index);
                         }}
                         onDrop={(e) => {
-                          if (!dragSymbol) return;
+                          if (!dragSymbol || !folder) return;
                           e.preventDefault();
-                          watch.moveSymbol(dragSymbol, folder!.id, dropIndex ?? index);
+                          watch.moveSymbol(dragSymbol, folder.id, dropIndex ?? index);
                           setDragSymbol(null);
                           setDropIndex(null);
                         }}
@@ -505,19 +580,21 @@ export default function WatchlistManager({
                       >
                         {/* 손잡이만 draggable — 행 전체는 체크 토글에 쓴다 */}
                         <span
-                          draggable={sort === 'manual'}
+                          draggable={sort === 'manual' && !isAllView}
                           onDragStart={() => setDragSymbol(symbol)}
                           onDragEnd={() => {
                             setDragSymbol(null);
                             setDropIndex(null);
                           }}
                           title={
-                            sort === 'manual'
-                              ? '드래그해 순서 변경'
-                              : '직접 설정한 순일 때만 순서를 바꿀 수 있습니다'
+                            isAllView
+                              ? '그룹을 골라야 순서를 바꿀 수 있습니다'
+                              : sort === 'manual'
+                                ? '드래그해 순서 변경'
+                                : '직접 설정한 순일 때만 순서를 바꿀 수 있습니다'
                           }
                           className={`shrink-0 text-text-muted ${
-                            sort === 'manual'
+                            sort === 'manual' && !isAllView
                               ? 'cursor-grab active:cursor-grabbing'
                               : 'cursor-not-allowed opacity-30'
                           }`}
@@ -544,6 +621,12 @@ export default function WatchlistManager({
                           {names(symbol) && (
                             <span className="shrink-0 text-[13px] tabular-nums text-text-secondary">
                               {symbol}
+                            </span>
+                          )}
+                          {/* 전체 보기에서는 어느 그룹에 있는지 알아야 옮길지 말지 정할 수 있다 */}
+                          {isAllView && (
+                            <span className="shrink-0 text-[11px] text-text-muted">
+                              {folderNameOf(symbol) ?? '—'}
                             </span>
                           )}
                         </button>
@@ -575,7 +658,7 @@ export default function WatchlistManager({
             </div>
 
             <p className="shrink-0 border-t border-border px-4 py-2 text-[10px] text-text-muted">
-              변경은 바로 저장됩니다 · '미분류' 는 삭제할 수 없고 항상 맨 위입니다.
+              변경은 바로 저장됩니다 · 폴더에 넣지 않은 종목은 목록 맨 위에 그대로 보입니다.
             </p>
           </section>
         </div>

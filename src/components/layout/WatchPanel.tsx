@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import SymbolSearch from '../common/SymbolSearch';
 import WatchFolderView from './WatchFolderView';
+import { UNGROUPED_ID } from '../../types/watchlist';
 import WatchlistManager from './WatchlistManager';
 import TrashIcon from '../common/TrashIcon';
 import type { useWatchlist } from '../../hooks/useWatchlist';
@@ -236,10 +237,17 @@ export default function WatchPanel({
             strategies={paperAuto.items}
           />
         ) : tab === 'watch' ? (
+          /*
+            ⚠️ **폴더 없는 종목은 머리줄 없이 맨 위**다 (2026-09-23).
+            사용자에게 그것은 폴더가 아니라 "폴더에 없음" 이라는 상태다 —
+            '미분류' 라는 이름의 폴더로 보이면 폴더를 하나 만든 것처럼 읽힌다.
+            저장 형식은 그대로다(기본 폴더에 담긴다) — `types/watchlist.ts` 참고.
+          */
           folders.map((folder) => (
             <WatchFolderView
               key={folder.id}
               folder={folder}
+              bare={folder.id === UNGROUPED_ID}
               currentSymbol={currentSymbol}
               quotes={quotes}
               nameOf={names}
@@ -340,7 +348,7 @@ export default function WatchPanel({
       ) : tab === 'watch' ? (
         <div className="border-t border-border p-2">
           {/*
-            패널의 빠른 추가는 **'미분류' 로만** 넣는다. 폴더를 고르는 일까지 여기서 하면
+            패널의 빠른 추가는 **폴더 없이** 넣는다. 폴더를 고르는 일까지 여기서 하면
             좁은 폭에 드롭다운이 하나 더 붙는다 — 분류는 관리 팝업(⚙️)에서 한다.
           */}
           <SymbolSearch

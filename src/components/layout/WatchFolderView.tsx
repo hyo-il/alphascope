@@ -29,6 +29,7 @@ export default function WatchFolderView({
   onRemoveSymbol,
   compareMode = false,
   selectedSymbols = [],
+  bare = false,
 }: {
   folder: WatchFolder;
   currentSymbol: string;
@@ -39,26 +40,37 @@ export default function WatchFolderView({
   onRemoveSymbol?: (symbol: string) => void;
   compareMode?: boolean;
   selectedSymbols?: string[];
+  /**
+   * 머리줄 없이 종목만 그린다 — **폴더 없는 종목**이 이 모드다 (2026-09-23).
+   * 사용자에게 그것은 폴더가 아니라 "폴더에 없음" 이라는 상태라, '미분류' 라는
+   * 이름의 폴더 머리줄을 두지 않는다. 접기도 없다(항상 펼침).
+   */
+  bare?: boolean;
 }) {
+  // 머리줄이 없으면 접을 수단도 없으므로 항상 펼친 것으로 다룬다.
+  const collapsed = bare ? false : folder.collapsed;
   const canRemove = !compareMode && Boolean(onRemoveSymbol);
 
   return (
     <section className="border-b border-border/40">
-      <button
-        type="button"
-        onClick={() => onToggle(folder.id)}
-        className="flex w-full items-center gap-1 bg-bg-tertiary/40 px-2 py-1.5 text-left text-[11px] font-medium text-text-secondary transition-colors hover:text-text-primary"
-      >
-        <span className="w-3 shrink-0">{folder.collapsed ? '▶' : '▼'}</span>
-        <span className="min-w-0 truncate">{folder.name}</span>
-        <span className="shrink-0 text-[10px] tabular-nums text-text-muted">
-          ({folder.symbols.length})
-        </span>
-      </button>
+      {!bare && (
+        <button
+          type="button"
+          onClick={() => onToggle(folder.id)}
+          className="flex w-full items-center gap-1 bg-bg-tertiary/40 px-2 py-1.5 text-left text-[11px] font-medium text-text-secondary transition-colors hover:text-text-primary"
+        >
+          <span className="w-3 shrink-0">{folder.collapsed ? '▶' : '▼'}</span>
+          <span className="min-w-0 truncate">{folder.name}</span>
+          <span className="shrink-0 text-[10px] tabular-nums text-text-muted">
+            ({folder.symbols.length})
+          </span>
+        </button>
+      )}
 
-      {!folder.collapsed &&
+      {!collapsed &&
         (folder.symbols.length === 0 ? (
-          <p className="px-3 py-2 text-[11px] text-text-muted">비어 있습니다.</p>
+          // 폴더 없는 종목이 0개면 아무것도 그리지 않는다 — 빈 머리줄이 남으면 거슬린다.
+          bare ? null : <p className="px-3 py-2 text-[11px] text-text-muted">비어 있습니다.</p>
         ) : (
           folder.symbols.map((symbol) => {
             const quote = quotes[symbol];

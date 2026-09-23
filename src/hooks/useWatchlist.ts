@@ -50,10 +50,14 @@ function emptyDefault(symbols: string[] = []): WatchFolder {
 }
 
 /**
- * '미분류' 는 반드시 하나 있어야 하고 **항상 맨 위**다 (2026-09-22 변경).
+ * 기본 폴더(= 폴더 없는 종목)는 반드시 하나 있어야 하고 **항상 맨 위**다.
  *
- * 예전에는 맨 아래였다 — 그런데 어느 폴더에도 넣지 않은 종목이 가장 많고 가장 자주 보는데,
- * 그룹이 늘수록 스크롤 아래로 밀려났다. 위치 강제는 **여기 한 곳**이다.
+ * 어느 폴더에도 넣지 않은 종목이 가장 많고 가장 자주 보는데, 그룹이 늘수록 스크롤 아래로
+ * 밀려났다. 위치 강제는 **여기 한 곳**이다.
+ *
+ * ⚠️ **항상 펼친 상태로 고정한다** (2026-09-23). 화면에서 폴더 머리줄을 없앴기 때문에
+ * 접을 수단이 없다 — `collapsed: true` 로 저장된 옛 값을 그대로 두면 그 종목들이
+ * 화면에도 안 나오고 시세 폴링에서도 빠진다(`visibleSymbols` 가 `!collapsed` 로 고른다).
  */
 function normalize(folders: WatchFolder[]): WatchFolder[] {
   const seen = new Set<string>();
@@ -75,7 +79,7 @@ function normalize(folders: WatchFolder[]): WatchFolder[] {
 
   const others = cleaned.filter((f) => f.id !== DEFAULT_FOLDER_ID);
   const fallback = cleaned.find((f) => f.id === DEFAULT_FOLDER_ID) ?? emptyDefault();
-  return [{ ...fallback, name: DEFAULT_FOLDER_NAME }, ...others];
+  return [{ ...fallback, name: DEFAULT_FOLDER_NAME, collapsed: false }, ...others];
 }
 
 function readFolders(): WatchFolder[] {
