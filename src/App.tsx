@@ -32,6 +32,7 @@ import { useRecentSymbols, useWatchlist } from './hooks/useWatchlist';
 import { useStockInfo } from './hooks/useStockInfo';
 import { DEFAULT_TOGGLES, type IndicatorToggles } from './types/chart';
 import { useAppStore } from './store/appStore';
+import { useDocumentTitle } from './hooks/useDocumentTitle';
 import { pageMeta } from './types/nav';
 import { toast } from './store/uiStore';
 import { changeColor, currencyOf, formatPercent, formatPrice } from './utils/formatters';
@@ -48,6 +49,9 @@ export default function App() {
   const setSymbol = useAppStore((s) => s.setSymbol);
   const setTimeframe = useAppStore((s) => s.setTimeframe);
   const clearSymbol = useAppStore((s) => s.clearSymbol);
+
+  // 탭 제목에 종목을 적어 여러 탭을 구분한다 (가격은 넣지 않는다 — 매초 바뀐다)
+  useDocumentTitle(symbol);
   /** 비교 화면의 4칸 — 관심 목록 패널이 여기에 담고 뺀다 (빈 칸은 null) */
   const compareSlots = useAppStore((s) => s.compareSlots);
   const toggleCompareSymbol = useAppStore((s) => s.toggleCompareSymbol);
@@ -377,6 +381,15 @@ export default function App() {
         group={nav.group}
         onSelectPage={setPage}
         onSelectGroup={setGroup}
+        /*
+          홈 = 차트 화면 + 종목 미선택 (= 종목 탐색 홈). 앱을 처음 열었을 때와 같은 상태다.
+          ⚠️ 차트는 언마운트하지 않는 원칙이라 `symbol` 만 비운다 — 시작 시와 같은 상태이므로
+          차트 쪽에서 빈 요청이 나가지 않는다.
+        */
+        onGoHome={() => {
+          setPage('chart');
+          clearSymbol();
+        }}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
