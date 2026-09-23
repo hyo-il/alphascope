@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFlipReorder } from '../../hooks/useFlipReorder';
 import type { useWatchlist } from '../../hooks/useWatchlist';
 import { DEFAULT_FOLDER_ID } from '../../types/watchlist';
 import SymbolSearch from '../common/SymbolSearch';
@@ -78,6 +79,14 @@ export default function WatchlistManager({
   const [dragFolder, setDragFolder] = useState<string | null>(null);
   const [dragSymbol, setDragSymbol] = useState<string | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
+  /** 종목을 끌고 있을 때 올라가 있는 그룹(또는 `전체 종목`) — 놓기 전에 결과를 미리 보여 준다 */
+  const [dropFolderId, setDropFolderId] = useState<string | null>(null);
+
+  /*
+    순서가 바뀔 때 행이 제자리로 미끄러져 오게 한다 — 순간이동하면 무엇이 어디로 갔는지
+    눈으로 좇을 수 없다. 목록 구성이 바뀔 때마다 다시 잰다.
+  */
+  const flipFolder = useFlipReorder(movable.map((f) => f.id).join(','));
   const moveRef = useRef<HTMLDivElement>(null);
 
   // 폴더가 바뀌면 선택·열려 있던 조작을 정리한다 — 다른 그룹 종목이 선택된 채로 남으면
@@ -133,6 +142,8 @@ export default function WatchlistManager({
     // names 는 캐시가 갱신될 때마다 새 값을 돌려주는 조회 함수다 (참조는 그대로).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbols, sort, quotes, names]);
+
+  const flipSymbol = useFlipReorder(sorted.join(','));
 
   const allChecked = symbols.length > 0 && checked.length === symbols.length;
   const toggleAll = () => setChecked(allChecked ? [] : [...symbols]);
@@ -216,10 +227,13 @@ export default function WatchlistManager({
                     moving.forEach((symbol) => watch.moveSymbol(symbol, DEFAULT_FOLDER_ID));
                     setChecked([]);
                     setDragSymbol(null);
+                    setDropFolderId(null);
                   }}
+                  onDragEnter={() => dragSymbol && setDropFolderId(ALL_VIEW)}
+                  onDragLeave={() => setDropFolderId((prev) => (prev === ALL_VIEW ? null : prev))}
                   className={`border-l-2 transition-colors ${
                     isAllView ? 'border-accent bg-bg-tertiary' : 'border-transparent hover:bg-bg-tertiary/50'
-                  }`}
+                  } ${dropFolderId === ALL_VIEW ? 'bg-accent/15 ring-1 ring-accent' : ''}`}
                 >
                   <button
                     type="button"
@@ -243,29 +257,40 @@ export default function WatchlistManager({
               {movable.map((f) => {
                 const isDefault = false;
                 const active = f.id === folder?.id;
-                /*
-                  ⚠️ 순서 이동의 **주 수단은 ▲▼** 다 (2026-09-22). 드래그 손잡이만 두었더니
-                  10×14px 를 정확히 집어야 해서 "순서가 안 바뀐다" 는 신고가 났다 — 그룹 이름을
-                  잡으면 아무 일도 일어나지 않는다. `moveFolder` 는 이미 있는 검증된 함수다.
-                  인덱스는 그룹으로 보이는 폴더 기준이다(기본 폴더는 목록에 없다).
-                */
-                const movableIndex = isDefault ? -1 : movable.findIndex((m) => m.id === f.id);
 
                 return (
                   <li
                     key={f.id}
+                    ref={flipFolder(f.id)}
                     onDragOver={(e) => {
-                      if (dragFolder && !isDefault) e.preventDefault();
+                      // 그룹 순서 바꾸기 / 종목을 이 그룹으로 옮기기 — 둘 다 받는다.
+                      if (dragFolder || dragSymbol) e.preventDefault();
+                      if (dragSymbol) setDropFolderId(f.id);
+                    }}
+                    onDragLeave={() => {
+                      if (dragSymbol) setDropFolderId((prev) => (prev === f.id ? null : prev));
                     }}
                     onDrop={(e) => {
-                      if (!dragFolder) return;
                       e.preventDefault();
-                      watch.reorderFolder(dragFolder, f.id);
-                      setDragFolder(null);
+                      if (dragFolder) {
+                        watch.reorderFolder(dragFolder, f.id);
+                        setDragFolder(null);
+                        return;
+                      }
+                      if (!dragSymbol) return;
+                      // 체크된 종목이 여럿이면 함께 옮긴다 (끌던 종목이 그 안에 있을 때만).
+                      const moving = checked.includes(dragSymbol) ? checked : [dragSymbol];
+                      moving.forEach((symbol) => watch.moveSymbol(symbol, f.id));
+                      setChecked([]);
+                      setDragSymbol(null);
+                      setDropFolderId(null);
                     }}
-                    className={`border-b border-border/70 ${
-                      dragFolder === f.id ? 'opacity-40' : ''
-                    }`}
+                    className={`border-b border-border/70 transition-colors ${
+                      dragFolder === f.id
+                        ? // 끌고 있는 원래 자리는 점선 빈 칸으로 남긴다.
+                          'rounded border border-dashed border-accent/60 opacity-40'
+                        : ''
+                    } ${dropFolderId === f.id ? 'bg-accent/15 ring-1 ring-accent' : ''}`}
                   >
                     {renaming === f.id ? (
                       <input
@@ -286,26 +311,35 @@ export default function WatchlistManager({
                       />
                     ) : (
                       <div
-                        className={`group flex h-12 items-center gap-1.5 border-l-2 pr-2 transition-colors ${
+                        /*
+                          ⚠️ **행 전체를 잡아 끈다** (2026-09-23 요청). 예전에는 손잡이(⠿)만
+                          draggable 이라 10×14px 를 정확히 집어야 했고 "순서가 안 바뀐다" 는
+                          신고가 났다. 짧은 클릭과 드래그는 브라우저가 이동 거리로 갈라 주므로
+                          그룹을 눌러 여는 동작은 그대로 살아 있다.
+                          손잡이는 "끌 수 있다" 는 **표시**로만 남긴다.
+                        */
+                        draggable
+                        onDragStart={() => setDragFolder(f.id)}
+                        onDragEnd={() => {
+                          setDragFolder(null);
+                          setDropFolderId(null);
+                        }}
+                        /* 드래그만 있으면 키보드로 순서를 못 바꾼다 — Alt + ↑/↓ 를 함께 둔다 */
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+                          e.preventDefault();
+                          watch.moveFolder(f.id, e.key === 'ArrowUp' ? -1 : 1);
+                        }}
+                        className={`group flex h-12 cursor-grab items-center gap-1.5 border-l-2 pr-2 transition-colors active:cursor-grabbing ${
                           active
                             ? 'border-accent bg-bg-tertiary'
                             : 'border-transparent hover:bg-bg-tertiary/50'
                         }`}
                       >
-                        {/* 손잡이만 draggable — 행 전체를 잡게 하면 그룹을 눌러 여는 동작이 먹힌다 */}
-                        {!isDefault ? (
-                          <span
-                            draggable
-                            onDragStart={() => setDragFolder(f.id)}
-                            onDragEnd={() => setDragFolder(null)}
-                            title="드래그 또는 ▲▼ 로 순서 변경"
-                            className="cursor-grab pl-1.5 text-text-muted active:cursor-grabbing"
-                          >
-                            <GripIcon className="h-4 w-3" />
-                          </span>
-                        ) : (
-                          <span className="w-2.5 pl-1.5" />
-                        )}
+                        <span className="pl-1.5 text-text-muted" aria-hidden>
+                          <GripIcon className="h-4 w-3" />
+                        </span>
 
                         <button
                           type="button"
@@ -328,31 +362,6 @@ export default function WatchlistManager({
                             {f.symbols.length}
                           </span>
                         </button>
-
-                        {!isDefault && (
-                          <span className="flex shrink-0 flex-col">
-                            {([
-                              { dir: -1 as const, label: '▲', disabled: movableIndex <= 0 },
-                              {
-                                dir: 1 as const,
-                                label: '▼',
-                                disabled: movableIndex < 0 || movableIndex >= movable.length - 1,
-                              },
-                            ]).map((b) => (
-                              <button
-                                key={b.label}
-                                type="button"
-                                disabled={b.disabled}
-                                onClick={() => watch.moveFolder(f.id, b.dir)}
-                                title={b.dir === -1 ? '위로 이동' : '아래로 이동'}
-                                aria-label={`${f.name} 그룹 ${b.dir === -1 ? '위로' : '아래로'} 이동`}
-                                className="rounded px-1 text-[9px] leading-tight text-text-muted/70 transition-colors hover:text-accent disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:text-text-muted/70"
-                              >
-                                {b.label}
-                              </button>
-                            ))}
-                          </span>
-                        )}
 
                         {!isDefault && (
                           <button
@@ -410,7 +419,7 @@ export default function WatchlistManager({
             </div>
 
             <p className="shrink-0 border-t border-border px-3 py-2 text-[10px] leading-snug text-text-muted">
-              더블클릭: 이름 변경 · ▲▼ 또는 ⠿ 드래그: 순서
+              더블클릭: 이름 변경 · 끌어서 순서 변경 · Alt + ↑↓ 로도 이동
             </p>
           </nav>
 
@@ -550,12 +559,38 @@ export default function WatchlistManager({
                   const rate = quotes[symbol]?.changeRate ?? null;
 
                   return (
-                    <div key={symbol} className="relative">
+                    <div key={symbol} ref={flipSymbol(symbol)} className="relative">
                       {dropIndex === index && (
                         <span className="absolute inset-x-2 -top-px z-10 h-0.5 bg-accent" />
                       )}
 
                       <div
+                        /*
+                          ⚠️ **행 전체를 잡아 끈다** (2026-09-23 요청) — 손잡이만 draggable 이던
+                          때는 좁은 아이콘을 정확히 집어야 했다. 짧은 클릭은 브라우저가 드래그와
+                          갈라 주므로 체크 토글은 그대로 동작한다.
+                          정렬이 이름순·수익률순이면 끌 수 없다 — 정렬된 화면의 위치를 저장
+                          순서로 옮기면 엉뚱한 자리에 꽂힌다(기존 규칙).
+                          ⚠️ `전체 종목` 보기에서도 **끌 수는 있다** — 순서 바꾸기만 막고
+                          (여러 폴더가 섞여 인덱스가 뜻을 잃는다) 그룹으로 옮기기는 살린다.
+                          종목을 추려 그룹에 넣는 일이 바로 이 보기에서 하는 일이다.
+                        */
+                        draggable={sort === 'manual'}
+                        onDragStart={() => setDragSymbol(symbol)}
+                        onDragEnd={() => {
+                          setDragSymbol(null);
+                          setDropIndex(null);
+                          setDropFolderId(null);
+                        }}
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+                          if (sort !== 'manual' || isAllView || !folder) return;
+                          e.preventDefault();
+                          const to = index + (e.key === 'ArrowUp' ? -1 : 1);
+                          if (to < 0 || to >= symbols.length) return;
+                          watch.moveSymbol(symbol, folder.id, to);
+                        }}
                         onDragOver={(e) => {
                           // `전체 종목` 은 여러 폴더가 섞여 있어 순서 인덱스가 뜻을 잃는다.
                           if (!dragSymbol || sort !== 'manual' || isAllView) return;
@@ -571,32 +606,26 @@ export default function WatchlistManager({
                           setDropIndex(null);
                         }}
                         className={`flex h-14 items-center gap-3 border-b border-border/70 px-4 transition-colors hover:bg-bg-tertiary ${
-                          isChecked ? 'bg-bg-tertiary/60' : ''
-                        } ${
+                          sort === 'manual' ? 'cursor-grab active:cursor-grabbing' : ''
+                        } ${isChecked ? 'bg-bg-tertiary/60' : ''} ${
                           dragSymbol === symbol
-                            ? 'opacity-40 shadow-lg ring-1 ring-accent'
+                            ? // 끌고 있는 원래 자리는 **점선 빈 칸**으로 남긴다 — 어디서 빠져나왔는지 보인다.
+                              'rounded border border-dashed border-accent/60 bg-transparent opacity-40'
                             : ''
                         }`}
                       >
-                        {/* 손잡이만 draggable — 행 전체는 체크 토글에 쓴다 */}
+                        {/* 손잡이는 "끌 수 있다" 는 **표시**다 — 실제 드래그는 행 전체가 받는다 */}
                         <span
-                          draggable={sort === 'manual' && !isAllView}
-                          onDragStart={() => setDragSymbol(symbol)}
-                          onDragEnd={() => {
-                            setDragSymbol(null);
-                            setDropIndex(null);
-                          }}
+                          aria-hidden
                           title={
-                            isAllView
-                              ? '그룹을 골라야 순서를 바꿀 수 있습니다'
-                              : sort === 'manual'
-                                ? '드래그해 순서 변경'
-                                : '직접 설정한 순일 때만 순서를 바꿀 수 있습니다'
+                            sort !== 'manual'
+                              ? '직접 설정한 순일 때만 순서를 바꿀 수 있습니다'
+                              : isAllView
+                                ? '끌어서 그룹으로 옮기기 (순서는 그룹을 골라야 바꿉니다)'
+                                : '끌어서 순서 변경 · 그룹 위에 놓으면 이동'
                           }
                           className={`shrink-0 text-text-muted ${
-                            sort === 'manual' && !isAllView
-                              ? 'cursor-grab active:cursor-grabbing'
-                              : 'cursor-not-allowed opacity-30'
+                            sort === 'manual' ? '' : 'cursor-not-allowed opacity-30'
                           }`}
                         >
                           <GripIcon className="h-4 w-2.5" />
@@ -658,7 +687,8 @@ export default function WatchlistManager({
             </div>
 
             <p className="shrink-0 border-t border-border px-4 py-2 text-[10px] text-text-muted">
-              변경은 바로 저장됩니다 · 폴더에 넣지 않은 종목은 목록 맨 위에 그대로 보입니다.
+              변경은 바로 저장됩니다 · 끌어서 순서·그룹을 바꿉니다 (Alt + ↑↓ 로도 이동) ·
+              폴더에 넣지 않은 종목은 목록 맨 위에 그대로 보입니다.
             </p>
           </section>
         </div>
