@@ -23,6 +23,16 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.12.1',
+    date: '2026-09-24',
+    title: '비밀번호를 8자 이상으로 정할 수 있습니다',
+    description: '로그인 비밀번호의 최소 길이를 12자에서 8자로 낮췄습니다.',
+    changes: [
+      '로그인 비밀번호를 8자 이상으로 정할 수 있습니다 (기존 12자)',
+      '여러 번 틀리면 잠시 로그인을 막는 규칙은 그대로입니다 — 짧은 비밀번호를 지켜 주는 장치입니다',
+    ],
+  },
+  {
     version: 'v2.12.0',
     date: '2026-09-24',
     title: '로그인이 생겼습니다',

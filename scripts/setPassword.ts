@@ -14,8 +14,14 @@ import readline from 'node:readline';
 import { setPassword } from '../server/auth';
 import { getDb } from '../server/db';
 
-/** 앱 규칙이다 — 어떤 표준을 따른 값이 아니라, 혼자 쓰는 도구에 맞춰 정한 최소선이다. */
-const MIN_LENGTH = 12;
+/**
+ * 앱 규칙이다 — 어떤 표준을 따른 값이 아니라, 혼자 쓰는 도구에 맞춰 정한 최소선이다.
+ *
+ * 12자였다가 **8자로 낮췄다** — 혼자 쓰는 앱이라 사용자가 간단한 비밀번호를 원했다
+ * (2026-09-24). 온라인 추측은 로그인 잠금(IP 15분 5회 · 전체 15분 30회)이 막아 준다.
+ * ⚠️ 그래서 **잠금 규칙은 절대 느슨하게 하지 않는다** — 길이를 줄인 만큼 그쪽이 방어선이다.
+ */
+const MIN_LENGTH = 8;
 
 /**
  * 입력을 화면에 찍지 않고 받는다 (터미널 에코 끔).
@@ -74,7 +80,9 @@ async function main() {
   getDb();
 
   console.log('AlphaScope 주인 계정 비밀번호를 정합니다.');
-  console.log(`(최소 ${MIN_LENGTH}자 · 입력은 화면에 보이지 않습니다)\n`);
+  console.log(`(최소 ${MIN_LENGTH}자 · 입력은 화면에 보이지 않습니다)`);
+  // 길이가 짧아진 만큼 "추측하기 쉬운 값" 을 피하는 것이 실제 방어가 된다.
+  console.log('이름·생일처럼 추측하기 쉬운 조합은 피하세요.\n');
 
   const prompt = createHiddenPrompt();
   const first = await prompt.ask('새 비밀번호: ');
