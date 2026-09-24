@@ -20,6 +20,12 @@ import {
   saveAnalysis,
 } from './db';
 import { isMockMode, mockOrderbook, mockPrice } from './mockData';
+import {
+  RevisionConflictError,
+  UserDataError,
+  getWatchlist,
+  saveWatchlist,
+} from './userData';
 // 버전의 단일 출처. package.json 은 0.1.0 그대로라 쓸 수 없다.
 import { CHANGELOG } from '../src/data/changelog';
 import { runAnalysis } from './gemini/analyze';
@@ -221,6 +227,34 @@ app.get('/api/health', async (_req, res) => {
     indicatorEngine,
     time: new Date().toISOString(),
   });
+});
+
+/*
+ * ── 사용자 데이터 (기기 간 공유) ─────────────────────────────────────────────
+ * 관심 목록·최근 조회는 브라우저가 아니라 **서버**에 둔다 — 어느 기기로 접속해도 같아야 한다.
+ * 기기별 화면 설정(패널 높이·접힘·마지막 폴더)은 그대로 localStorage 다.
+ */
+app.get('/api/user-data/watchlist', (_req, res) => {
+  try {
+    res.json(getWatchlist());
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.put('/api/user-data/watchlist', (req, res) => {
+  try {
+    res.json(saveWatchlist(req.body ?? {}));
+  } catch (e) {
+    // 다른 기기가 먼저 바꿨다 — 현재 값을 함께 돌려줘 화면이 합칠 수 있게 한다.
+    if (e instanceof RevisionConflictError) {
+      return res.status(409).json({ error: e.message, current: e.current });
+    }
+    if (e instanceof UserDataError) {
+      return res.status(400).json({ error: e.message });
+    }
+    return fail(res, e);
+  }
 });
 
 app.get('/api/candles', async (req, res) => {

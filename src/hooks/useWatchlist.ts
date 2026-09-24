@@ -1,11 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_FOLDER_ID, DEFAULT_FOLDER_NAME, type WatchFolder } from '../types/watchlist';
+import {
+  fetchRemote,
+  mergeFolders,
+  mergeRecent,
+  queueSave,
+  registerApply,
+  registerRead,
+  retryPending,
+} from '../services/watchlistSync';
+import { toast } from '../store/uiStore';
+
+/** 동기화 알림은 조용히 지나가면 안 된다 — 목록이 바뀐 것은 사용자가 알아야 한다 */
+const syncToast = (message: string) => toast.success('관심 목록', message);
 
 /**
- * 관심 목록(폴더) · 최근 조회 — localStorage.
+ * 관심 목록(폴더) · 최근 조회 — **서버 저장 + localStorage 캐시**.
  *
- * 서버 없이 브라우저에만 저장한다. 저장값이 깨져 있어도 앱이 죽지 않도록
- * 파싱 실패 시 빈 목록으로 되돌린다.
+ * ⚠️ 목록은 **서버(`user_data` 테이블)가 원본**이다. 다른 PC 로 접속했을 때 관심 목록이
+ * 비어 있으면 스윙 분석 대상(=관심 목록)부터 달라진다. localStorage 는 **캐시**로만 쓴다 —
+ * 앱을 열자마자 빠르게 그리고, 서버가 안 될 때도 화면이 돌아가게 한다.
+ * (기기별 화면 설정인 `LAST_FOLDER_KEY` 는 그대로 브라우저에만 남는다.)
+ *
+ * 저장값이 깨져 있어도 앱이 죽지 않도록 파싱 실패 시 빈 목록으로 되돌린다.
  *
  * ⚠️ 예전 형식(문자열 배열)을 자동으로 옮겨 온다. 폴더를 도입했다고 기존 관심 종목이
  * 사라지면 안 된다 — 처음 읽을 때 '미분류' 폴더에 담고, 옛 키도 그대로 갱신해 둔다
@@ -121,10 +138,13 @@ function broadcastFolders(next: WatchFolder[]): void {
  * 다른 컴포넌트의 setState 를 렌더 도중 호출하게 되어 React 가 경고를 낸다.
  * 저장은 즉시 하고, 다른 인스턴스 깨우기만 마이크로태스크로 미룬다.
  */
-function persistFolders(folders: WatchFolder[]): WatchFolder[] {
+function persistFolders(folders: WatchFolder[], push = true): WatchFolder[] {
   write(FOLDERS_KEY, folders);
   // 옛 키도 함께 갱신한다 — 형식을 되돌릴 일이 생겨도 목록이 남아 있게.
   write(FLAT_KEY, folders.flatMap((f) => f.symbols));
+  // ⚠️ 서버가 원본이다. `push=false` 는 **서버에서 받은 값을 반영할 때**뿐이다 —
+  // 받은 값을 곧바로 되돌려 보내면 revision 만 쓸데없이 올라간다.
+  if (push) queueSave({ folders });
   queueMicrotask(() => broadcastFolders(folders));
   return folders;
 }
@@ -132,13 +152,152 @@ function persistFolders(folders: WatchFolder[]): WatchFolder[] {
 /** 최근 조회도 같은 이유로 인스턴스가 갈린다 (패널 · 자동 분석 패널) */
 type RecentListener = (recent: string[]) => void;
 const recentListeners = new Set<RecentListener>();
-function persistRecent(recent: string[]): string[] {
+function persistRecent(recent: string[], push = true): string[] {
   write(RECENT_KEY, recent);
+  if (push) queueSave({ recent });
   // 폴더와 같은 이유로 미룬다 (업데이터 안에서 불린다).
   queueMicrotask(() => {
     for (const listener of recentListeners) listener(recent);
   });
   return recent;
+}
+
+
+// ── 서버 동기화 (모듈 단위로 한 번만) ─────────────────────────────────────────
+
+/** 이 브라우저의 목록을 서버와 맞춰 봤는지 — 첫 확인 팝업은 브라우저마다 한 번이다 */
+export const SYNCED_KEY = 'alphascope.watchlistSynced';
+
+/** 서버에서 받은 값을 화면·캐시에 반영한다 (되돌려 보내지 않는다) */
+function applyRemoteValue(payload: { folders?: WatchFolder[]; recent?: string[] }) {
+  if (payload.folders) {
+    const next = normalize(payload.folders);
+    write(FOLDERS_KEY, next);
+    write(FLAT_KEY, next.flatMap((f) => f.symbols));
+    broadcastFolders(next);
+  }
+  if (payload.recent) {
+    write(RECENT_KEY, payload.recent);
+    for (const listener of recentListeners) listener(payload.recent);
+  }
+}
+
+registerApply(applyRemoteValue);
+registerRead(() => ({ folders: readFolders(), recent: readStrings(RECENT_KEY) }));
+
+/**
+ * 첫 실행에서 서버와 이 브라우저의 목록이 **둘 다 있고 다를 때** 사용자에게 묻는다.
+ * 자동으로 한쪽을 버리면 종목이 조용히 사라진다 — 버리는 선택은 사람이 한다.
+ */
+export interface SyncChoice {
+  local: { folders: WatchFolder[]; recent: string[] };
+  server: { folders: WatchFolder[]; recent: string[] };
+  resolve: (choice: 'server' | 'local' | 'merge') => void;
+}
+
+type ChoiceListener = (choice: SyncChoice | null) => void;
+const choiceListeners = new Set<ChoiceListener>();
+let pendingChoice: SyncChoice | null = null;
+
+export function subscribeSyncChoice(listener: ChoiceListener): () => void {
+  choiceListeners.add(listener);
+  listener(pendingChoice);
+  return () => {
+    choiceListeners.delete(listener);
+  };
+}
+
+function askChoice(choice: SyncChoice | null) {
+  pendingChoice = choice;
+  for (const listener of choiceListeners) listener(choice);
+}
+
+const sameList = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+let booted = false;
+function ensureSynced() {
+  if (booted) return;
+  booted = true;
+
+  void (async () => {
+    const remote = await fetchRemote();
+    if (!remote) return; // 서버가 안 됨 — localStorage 값으로 계속 돈다.
+
+    const localFolders = readFolders();
+    const localRecent = readStrings(RECENT_KEY);
+    const hasLocal = localFolders.some((f) => f.symbols.length > 0) || localRecent.length > 0;
+    const hasServer = Boolean(remote.folders?.some((f) => f.symbols.length > 0) || remote.recent?.length);
+
+    let done = false;
+    try {
+      done = localStorage.getItem(SYNCED_KEY) === '1';
+    } catch {
+      /* 접근이 막혔으면 매번 묻는 대신 서버 값을 따른다 (아래에서 처리) */
+    }
+
+    const markDone = () => {
+      try {
+        localStorage.setItem(SYNCED_KEY, '1');
+      } catch {
+        /* 저장이 막혀도 이번 세션에서는 다시 묻지 않는다 */
+      }
+    };
+
+    // 1) 서버가 비어 있고 이 브라우저에 목록이 있다 → 그대로 올린다 (물을 것이 없다).
+    if (!hasServer && hasLocal) {
+      queueSave({ folders: localFolders, recent: localRecent });
+      markDone();
+      syncToast('이 브라우저의 관심 목록을 서버에 저장했습니다');
+      return;
+    }
+
+    // 2) 서버 값이 있고 이 브라우저와 같거나, 이 브라우저가 비어 있다 → 서버 값을 쓴다.
+    const identical =
+      sameList(remote.folders, localFolders) && sameList(remote.recent ?? [], localRecent);
+    if (!hasLocal || identical || done) {
+      applyRemoteValue({ folders: remote.folders ?? [], recent: remote.recent ?? [] });
+      markDone();
+      return;
+    }
+
+    // 3) 둘 다 있고 다르다 → 묻는다.
+    askChoice({
+      local: { folders: localFolders, recent: localRecent },
+      server: { folders: remote.folders ?? [], recent: remote.recent ?? [] },
+      resolve: (choice) => {
+        askChoice(null);
+        markDone();
+        if (choice === 'server') {
+          applyRemoteValue({ folders: remote.folders ?? [], recent: remote.recent ?? [] });
+          return;
+        }
+        if (choice === 'local') {
+          applyRemoteValue({ folders: localFolders, recent: localRecent });
+          queueSave({ folders: localFolders, recent: localRecent });
+          return;
+        }
+        const folders = mergeFolders(localFolders, remote.folders ?? []);
+        const recent = mergeRecent(localRecent, remote.recent ?? []);
+        applyRemoteValue({ folders, recent });
+        queueSave({ folders, recent });
+      },
+    });
+  })();
+
+  /*
+   * 탭이 다시 보이면 서버 값을 한 번 더 받는다 — 다른 기기에서 바꾼 것을 가져온다.
+   * ⚠️ 폴링하지 않는다. 목록은 사람이 가끔 고치는 값이라 그럴 이유가 없다.
+   */
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    retryPending();
+    void fetchRemote().then((remote) => {
+      if (!remote) return;
+      applyRemoteValue({ folders: remote.folders ?? [], recent: remote.recent ?? [] });
+    });
+  });
+
+  window.addEventListener('online', retryPending);
 }
 
 export function useWatchlist() {
@@ -150,6 +309,7 @@ export function useWatchlist() {
   // 다른 인스턴스가 목록을 바꾸면 이쪽도 따라 바뀐다.
   useEffect(() => {
     folderListeners.add(setFolders);
+    ensureSynced();
     return () => {
       folderListeners.delete(setFolders);
     };
@@ -348,6 +508,7 @@ export function useRecentSymbols(currentSymbol: string) {
 
   useEffect(() => {
     recentListeners.add(setRecent);
+    ensureSynced();
     return () => {
       recentListeners.delete(setRecent);
     };

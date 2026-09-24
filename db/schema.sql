@@ -292,3 +292,19 @@ CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+-- 사용자 데이터 (기기 간 공유) — 관심 목록·최근 조회.
+--
+-- ⚠️ app_settings 와 **나눠 둔다.** 나중에 로그인이 들어오면 이 테이블에만 user_id 를
+-- 더하면 된다. 앱 설정(전략 프로파일)은 사용자와 무관할 수 있어 성격이 다르다.
+-- ⚠️ 지금은 user_id 컬럼을 만들지 않는다 — 쓰지 않는 컬럼은 "누가 채우나" 를 헷갈리게 한다.
+--
+-- revision 은 동시 수정을 막는 값이다. 클라이언트가 읽은 revision 을 함께 보내고,
+-- 그 사이 다른 기기가 바꿨으면 409 로 돌려보낸다(덮어쓰기 방지).
+-- 지금 쓰는 키: watchlist.folders = WatchFolder[] / watchlist.recent = string[]
+CREATE TABLE IF NOT EXISTS user_data (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  revision INTEGER NOT NULL,
+  updated_at TEXT NOT NULL
+);

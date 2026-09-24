@@ -19,6 +19,8 @@ import ToastHost from './components/common/Toast';
 import SymbolSearch from './components/common/SymbolSearch';
 import MarketOverview from './components/market/MarketOverview';
 import VersionMismatchBanner from './components/common/VersionMismatchBanner';
+import WatchlistSyncModal from './components/common/WatchlistSyncModal';
+import SyncIndicator from './components/common/SyncIndicator';
 import SideNav from './components/layout/SideNav';
 import WatchPanel from './components/layout/WatchPanel';
 import Settings from './components/layout/Settings';
@@ -369,6 +371,9 @@ export default function App() {
       {/* 공통 팝업은 앱 루트에 한 번만 둔다 — 어디서든 스토어로 호출한다 */}
       <ModalHost />
       <ToastHost />
+      {/* 관심 목록 서버 동기화 — 첫 확인 팝업과 저장 대기 표시 */}
+      <WatchlistSyncModal />
+      <SyncIndicator />
 
       {/* 서버가 옛 코드로 떠 있으면 무엇보다 먼저 알린다 — 그 아래 화면들이 전부 거짓말을 한다 */}
       <VersionMismatchBanner />
