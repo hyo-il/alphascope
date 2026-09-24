@@ -20,7 +20,8 @@
     "probe:history": "tsx scripts/probeHistory.ts",
     "surge:test": "tsx scripts/surgeSelfTest.ts",
     "auth:failfast": "tsx scripts/authFailFast.ts",
-    "autotrade:test": "tsx scripts/autoTradingSelfTest.ts"
+    "autotrade:test": "tsx scripts/autoTradingSelfTest.ts",
+    "auth:set-password": "tsx scripts/setPassword.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",

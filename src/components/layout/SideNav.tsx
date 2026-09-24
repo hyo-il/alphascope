@@ -26,12 +26,21 @@ interface Props {
   onSelectGroup: (group: NavGroupId) => void;
   /** 로고 클릭 — 홈(차트 + 종목 미선택)으로 */
   onGoHome: () => void;
+  /** 로그아웃 — 이 브라우저의 세션만 끊는다 (모든 기기는 설정 화면에서) */
+  onLogout: () => void;
 }
 
 const MAIN_GROUPS = NAV_GROUPS.filter((g) => g.id !== 'settings');
 const SETTINGS_GROUP = NAV_GROUPS.find((g) => g.id === 'settings');
 
-export default function SideNav({ page, group, onSelectPage, onSelectGroup, onGoHome }: Props) {
+export default function SideNav({
+  page,
+  group,
+  onSelectPage,
+  onSelectGroup,
+  onGoHome,
+  onLogout,
+}: Props) {
   const [collapsed, setCollapsed] = useState(false);
   /** 접힌 상태에서 아이콘에 올린 대메뉴 — 소메뉴를 옆에 띄운다 */
   const [hovered, setHovered] = useState<NavGroupId | null>(null);
@@ -160,7 +169,18 @@ export default function SideNav({ page, group, onSelectPage, onSelectGroup, onGo
 
         {/* 설정은 스크롤과 무관하게 늘 맨 아래에 보인다 */}
         {SETTINGS_GROUP && (
-          <div className="mt-auto border-t border-border">{collapsedGroup(SETTINGS_GROUP)}</div>
+          <div className="mt-auto border-t border-border">
+            {collapsedGroup(SETTINGS_GROUP)}
+            <button
+              type="button"
+              onClick={onLogout}
+              title="로그아웃"
+              aria-label="로그아웃"
+              className="flex h-10 w-full items-center justify-center text-text-muted transition-colors hover:bg-bg-tertiary hover:text-bearish"
+            >
+              ⎋
+            </button>
+          </div>
         )}
       </nav>
     );
@@ -192,7 +212,17 @@ export default function SideNav({ page, group, onSelectPage, onSelectGroup, onGo
       <div className="flex-1 overflow-y-auto py-1">{MAIN_GROUPS.map(expandedGroup)}</div>
 
       {SETTINGS_GROUP && (
-        <div className="mt-auto border-t border-border py-1">{expandedGroup(SETTINGS_GROUP)}</div>
+        <div className="mt-auto border-t border-border py-1">
+          {expandedGroup(SETTINGS_GROUP)}
+          <button
+            type="button"
+            onClick={onLogout}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-text-muted transition-colors hover:bg-bg-tertiary hover:text-bearish"
+          >
+            <span className="text-base leading-none">⎋</span>
+            <span>로그아웃</span>
+          </button>
+        </div>
       )}
     </nav>
   );

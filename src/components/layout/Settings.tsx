@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 // 키 문자열을 여기에 다시 적지 않는다 — 옛 키만 지워 '비우기' 가 동작하지 않던 원인이다.
 import { RECENT_KEY, WATCHLIST_KEYS } from '../../hooks/useWatchlist';
 import { CHANGELOG } from '../../data/changelog';
+import { modal } from '../../store/uiStore';
+import { AUTH_REQUIRED_EVENT } from '../../hooks/useAuth';
 
 interface Props {
   isMock: boolean;
@@ -133,9 +135,15 @@ export default function Settings({ isMock, engineDown, section }: Props) {
         </div>
         {cleared && <p className="mt-2 text-[11px] text-text-muted">{cleared}</p>}
         <p className="mt-2 text-[11px] text-text-muted">
-          관심 목록과 최근 조회는 이 브라우저에만 저장됩니다. 캔들·기업정보 캐시와 분석 기록은
-          SQLite(`db/alphascope.db`)에 있습니다.
+          관심 목록과 최근 조회는 **서버에 저장**되고 이 브라우저에는 캐시만 남습니다 —
+          위 버튼은 이 브라우저의 캐시를 비웁니다(서버 목록은 그대로). 캔들·기업정보 캐시와
+          분석 기록은 SQLite(`db/alphascope.db`)에 있습니다.
         </p>
+      </section>
+
+      <section className="mb-6 max-w-2xl">
+        <h3 className="mb-1.5 text-xs font-medium text-text-secondary">로그인</h3>
+        <AuthSection />
       </section>
 
       <section className="max-w-2xl">
@@ -164,5 +172,70 @@ function AppVersion() {
     <p className="mt-2 text-[10px] text-text-muted">
       AlphaScope {CHANGELOG[0]?.version ?? ''}
     </p>
+  );
+}
+
+/**
+ * 로그인 상태 — 지금 몇 대에서 로그인돼 있는지 보여 주고, 한 번에 끊을 수 있게 한다.
+ *
+ * 비밀번호를 바꾸는 명령(`npm run auth:set-password`)도 세션을 전부 끊지만,
+ * 서버에 들어가지 않고 끊고 싶을 때가 있다 (PC 방에서 쓴 것 같을 때 등).
+ */
+function AuthSection() {
+  const [sessions, setSessions] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) return;
+      const body = (await res.json()) as { sessions?: number };
+      setSessions(body.sessions ?? null);
+    } catch {
+      /* 못 읽으면 개수를 감춘다 — 틀린 수를 보여 주지 않는다 */
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const logoutAll = () =>
+    modal.confirm({
+      title: '모든 기기에서 로그아웃',
+      message:
+        '지금 로그인된 모든 기기의 세션을 끊습니다.\n이 창도 로그인 화면으로 돌아갑니다.',
+      confirmText: '로그아웃',
+      danger: true,
+      onConfirm: async () => {
+        setBusy(true);
+        try {
+          await fetch('/api/auth/logout-all', { method: 'POST' });
+          // 다음 요청이 401 을 받으면 fetch 래퍼가 로그인 화면으로 돌린다.
+          window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
+        } finally {
+          setBusy(false);
+        }
+      },
+    });
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="text-xs text-text-muted">
+        현재 로그인된 기기 {sessions === null ? '—' : `${sessions}개`}
+      </span>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={logoutAll}
+        className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:border-bearish hover:text-bearish disabled:opacity-40"
+      >
+        모든 기기에서 로그아웃
+      </button>
+      <p className="w-full text-[11px] text-text-muted">
+        비밀번호는 서버에서 <code className="rounded bg-bg-tertiary px-1">npm run auth:set-password</code>{' '}
+        로만 바꿉니다. 바꾸면 모든 기기의 로그인이 끊깁니다.
+      </p>
+    </div>
   );
 }

@@ -38,8 +38,13 @@ import { useDocumentTitle } from './hooks/useDocumentTitle';
 import { pageMeta } from './types/nav';
 import { toast } from './store/uiStore';
 import { changeColor, currencyOf, formatPercent, formatPrice } from './utils/formatters';
+import LoginScreen from './components/auth/LoginScreen';
+import { useAuth } from './hooks/useAuth';
 
-export default function App() {
+/**
+ * 앱 본체. **로그인한 뒤에만 마운트된다** (아래 `App` 참고).
+ */
+function AppBody({ onLogout }: { onLogout: () => void }) {
   /*
    * ⚠️ `useAppStore()` 를 인자 없이 부르면 **스토어의 모든 변화**를 구독한다.
    * App 은 차트를 들고 있는 최상위라, 비교 화면에서 슬롯을 하나 바꿀 때마다
@@ -395,6 +400,7 @@ export default function App() {
           setPage('chart');
           clearSymbol();
         }}
+        onLogout={onLogout}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -544,4 +550,42 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+/**
+ * 로그인 문지기.
+ *
+ * ⚠️ **로그인 전에는 앱 본체를 마운트하지 않는다.** 마운트해 두면 시세·계좌·관심 목록
+ * 폴링이 돌면서 401 만 쏟아진다.
+ * ⚠️ 그래서 **"차트는 언마운트하지 않는다" 원칙의 유일한 예외**가 여기다 —
+ * 그 원칙은 *로그인한 상태 안에서* 화면을 옮길 때의 이야기다.
+ * 보던 종목·메뉴는 `appStore` 에 남아 있으므로 다시 로그인하면 그대로 돌아온다.
+ */
+export default function App() {
+  const { state, notConfigured, onLoggedIn, logout } = useAuth();
+
+  if (state === 'checking') {
+    // 잠깐이지만 빈 화면보다 낫다 — 로그인 화면이 번쩍이는 것도 막는다.
+    return (
+      <div className="flex h-full items-center justify-center bg-bg-primary">
+        <p className="text-xs text-text-muted">확인 중…</p>
+      </div>
+    );
+  }
+
+  if (state === 'out') {
+    return (
+      <div className="h-full bg-bg-primary">
+        {notConfigured && (
+          <div className="border-b border-warning/40 bg-warning/10 px-4 py-2 text-center text-xs text-warning">
+            서버에 비밀번호가 아직 설정되지 않았습니다 — 서버에서{' '}
+            <code className="rounded bg-warning/15 px-1">npm run auth:set-password</code> 를 먼저 실행하세요.
+          </div>
+        )}
+        <LoginScreen onSuccess={onLoggedIn} />
+      </div>
+    );
+  }
+
+  return <AppBody onLogout={logout} />;
 }

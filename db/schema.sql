@@ -308,3 +308,16 @@ CREATE TABLE IF NOT EXISTS user_data (
   revision INTEGER NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+-- 로그인 세션 (주인 계정 1개 — 회원가입은 없다).
+--
+-- ⚠️ **토큰 원본은 저장하지 않는다.** DB 가 새어도 그 값으로 로그인할 수 없도록
+-- SHA-256 해시만 둔다. 원본은 쿠키에만 있다.
+-- 비밀번호 자체는 app_settings 의 `auth.owner` 키에 있다 (scrypt salt+hash).
+CREATE TABLE IF NOT EXISTS auth_sessions (
+  token_hash TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  user_agent TEXT
+);

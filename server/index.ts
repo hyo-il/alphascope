@@ -26,6 +26,26 @@ import {
   getWatchlist,
   saveWatchlist,
 } from './userData';
+import {
+  clearSessionCookie,
+  countSessions,
+  createSession,
+  deleteAllSessions,
+  deleteSession,
+  isPasswordSet,
+  purgeExpiredSessions,
+  readSessionCookie,
+  setSessionCookie,
+  touchSession,
+  verifyPassword,
+} from './auth';
+import {
+  authGuard,
+  isOwnOrigin,
+  loginBlockedMinutes,
+  recordLoginFailure,
+  recordLoginSuccess,
+} from './authGuard';
 // 버전의 단일 출처. package.json 은 0.1.0 그대로라 쓸 수 없다.
 import { CHANGELOG } from '../src/data/changelog';
 import { runAnalysis } from './gemini/analyze';
@@ -106,31 +126,96 @@ const app = express();
 /*
  * ⚠️ CORS 를 `*` 로 열지 않는다.
  *
- * 이 API 는 **인증이 없다** — 모의투자 주문·보유 조회·Gemini 설정이 전부 무방비로 열린다.
+ * 로그인이 생겼지만(v2.12.0) 방어를 한 겹만 두지 않는다 — 쿠키가 실린 요청이
+ * 아무 사이트에서나 날아오지 않게 오리진도 그대로 좁혀 둔다.
  * 브라우저는 평소 Vite 프록시(같은 오리진)를 지나므로 CORS 헤더 자체가 필요 없고,
  * 열어 두면 사용자가 방문한 **아무 웹사이트나** localhost:4000 으로 주문을 낼 수 있다.
  * 기본은 오리진 없는 요청(프록시·curl)과 로컬 개발 서버만 허용하고,
  * 추가 오리진이 필요하면 `.env` 의 `ALLOWED_ORIGINS` 에 쉼표로 적는다.
  */
-const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
-const extraOrigins = (process.env.ALLOWED_ORIGINS ?? '')
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
-
+/*
+ * ⚠️ 오리진 판단은 **`authGuard.isOwnOrigin` 한 곳**이다 — CORS 와 CSRF 가 갈라지면 안 된다.
+ * `cors` 의 **요청별 옵션 델리게이트**를 쓴다(`cors((req, cb) => ...)`). origin 콜백만으로는
+ * 요청 객체를 받지 못해 프록시 헤더(`X-Forwarded-Host`)를 볼 수 없다.
+ *
+ * ⚠️ 허용되지 않은 오리진에 **오류를 던지지 않는다.** 던지면 Express 기본 핸들러가
+ * **500 + 스택 트레이스**를 돌려주고 거기에 서버의 절대 경로가 실린다(검증 중 확인).
+ * CORS 헤더만 빼면 브라우저가 응답을 읽지 못하고, 상태를 바꾸는 요청은
+ * `authGuard` 의 CSRF 검사가 **403** 으로 끊는다.
+ */
 app.use(
-  cors({
-    origin(origin, callback) {
-      // origin 이 없는 요청 = 같은 오리진(Vite 프록시) 또는 브라우저가 아닌 클라이언트
-      if (!origin || LOCAL_ORIGIN.test(origin) || extraOrigins.includes(origin)) {
-        callback(null, true);
-        return;
-      }
-      callback(new Error(`허용되지 않은 오리진입니다: ${origin}`));
-    },
+  cors((req, callback) => {
+    const origin = req.headers.origin;
+    // origin 이 없는 요청 = 같은 오리진(Vite 프록시) 또는 브라우저가 아닌 클라이언트
+    const allowed = !origin || isOwnOrigin(req as express.Request, origin);
+    callback(null, { origin: allowed, credentials: true });
   }),
 );
+
 app.use(express.json({ limit: '10mb' })); // 차트 캡처 이미지 대비
+
+/*
+ * ⚠️ `trust proxy` 는 **루프백만** 믿는다. 오라클은 nginx 가 127.0.0.1 에서 보내므로
+ * 그 한 단계만 신뢰하면 `req.ip`(무차별 대입 집계)와 `req.secure`(쿠키 Secure)가 맞는다.
+ * `true` 로 열면 아무나 `X-Forwarded-For` 를 위조해 IP 별 잠금을 빠져나간다.
+ */
+app.set('trust proxy', 'loopback');
+
+/*
+ * ── 로그인 문지기 ───────────────────────────────────────────────────────────
+ * **모든 /api 라우트보다 먼저** 선다. 아래에 라우트를 새로 추가해도 자동으로 보호된다.
+ */
+app.use(authGuard);
+
+/** 로그인 — 실패는 무엇이 틀렸는지 구분해 알리지 않는다 */
+app.post('/api/auth/login', async (req, res) => {
+  const ip = req.ip ?? 'unknown';
+  const blocked = loginBlockedMinutes(ip);
+  if (blocked > 0) {
+    return res.status(429).json({ error: `잠시 후 다시 시도하세요 — ${blocked}분` });
+  }
+
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  if (!password || !(await verifyPassword(password))) {
+    recordLoginFailure(ip);
+    return res.status(401).json({ error: '비밀번호가 맞지 않습니다.' });
+  }
+
+  recordLoginSuccess(ip);
+  const token = createSession(req.headers['user-agent']);
+  setSessionCookie(req, res, token);
+  res.json({ ok: true });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  const token = readSessionCookie(req);
+  if (token) deleteSession(token);
+  clearSessionCookie(req, res);
+  res.json({ ok: true });
+});
+
+app.post('/api/auth/logout-all', (req, res) => {
+  const removed = deleteAllSessions();
+  clearSessionCookie(req, res);
+  res.json({ ok: true, removed });
+});
+
+/** 앱이 시작할 때 가장 먼저 부른다 — 401 이면 로그인 화면만 그린다 */
+app.get('/api/auth/me', (req, res) => {
+  if (!isPasswordSet()) {
+    return res.status(503).json({
+      error: '서버에서 `npm run auth:set-password` 로 비밀번호를 먼저 정하세요.',
+      authNotConfigured: true,
+    });
+  }
+  const token = readSessionCookie(req);
+  if (!token) return res.status(401).json({ error: '로그인이 필요합니다.', authRequired: true });
+  // 이 경로는 문지기가 열어 두므로 세션 확인을 여기서 한다.
+  if (!touchSession(token)) {
+    return res.status(401).json({ error: '로그인이 필요합니다.', authRequired: true });
+  }
+  res.json({ loggedIn: true, sessions: countSessions() });
+});
 
 const VALID_TIMEFRAMES: Timeframe[] = ['1m', '5m', '15m', '30m', '1d'];
 
@@ -1122,8 +1207,35 @@ getDb(); // 시작 시 스키마 생성
  */
 const host = process.env.API_HOST ?? '127.0.0.1';
 
+/*
+ * ⚠️ 마지막 그물 — **스택 트레이스를 응답에 싣지 않는다.**
+ * Express 기본 핸들러는 개발 모드에서 스택을 그대로 내보내고, 거기에 서버의 절대 경로가
+ * 드러난다. 로그에는 남기되 바깥으로는 짧은 문구만 보낸다.
+ */
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('[api]', err instanceof Error ? err.message : String(err));
+  if (res.headersSent) return;
+  res.status(500).json({ error: '요청을 처리하지 못했습니다.' });
+});
+
 app.listen(port, host, () => {
   console.log(`[alphascope] API 서버 http://${host}:${port}`);
+
+  /*
+    로그인 상태를 기동 때 한 번 알린다 — 비밀번호를 정하지 않으면 앱 전체가 잠긴다.
+    만료된 세션은 지금과 하루 1회 청소한다.
+  */
+  if (isPasswordSet()) {
+    const purged = purgeExpiredSessions();
+    console.log(
+      `[alphascope] 로그인 사용 중 (세션 ${countSessions()}개${purged ? `, 만료 ${purged}개 정리` : ''})`,
+    );
+  } else {
+    console.warn(
+      '[alphascope] ⚠️ 비밀번호가 설정되지 않아 API 가 모두 잠겨 있습니다 — `npm run auth:set-password`',
+    );
+  }
+  setInterval(() => void purgeExpiredSessions(), 86_400_000);
 
   // 종목 카탈로그는 하루 한 번이면 충분하다. 기동을 막지 않도록 뒤에서 채운다.
   if (!isMockMode()) {
