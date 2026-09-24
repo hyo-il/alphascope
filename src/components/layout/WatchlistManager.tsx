@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFlipReorder } from '../../hooks/useFlipReorder';
+import SyncStatusLine from './SyncStatusLine';
 import type { useWatchlist } from '../../hooks/useWatchlist';
 import { DEFAULT_FOLDER_ID } from '../../types/watchlist';
 import SymbolSearch from '../common/SymbolSearch';
@@ -690,6 +691,9 @@ export default function WatchlistManager({
               변경은 바로 저장됩니다 · 끌어서 순서·그룹을 바꿉니다 (Alt + ↑↓ 로도 이동) ·
               폴더에 넣지 않은 종목은 목록 맨 위에 그대로 보입니다.
             </p>
+
+            {/* 서버 동기화 상태 — 콘솔 없이 상태를 보고 다시 맞출 수 있게 한다 */}
+            <SyncStatusLine />
           </section>
         </div>
       </div>

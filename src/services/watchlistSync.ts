@@ -27,10 +27,18 @@ export interface WatchlistPayload {
   recent: string[] | null;
   revision: number;
   updatedAt: string | null;
+  /** 서버가 형식 때문에 건너뛴 항목의 원래 값 (저장 응답에만 있다) */
+  skipped?: string[];
 }
 
-/** 화면 구석에 보여 줄 상태 — 조용히 두면 기기 간에 어긋난 걸 모른다 */
-export type SyncState = 'idle' | 'saving' | 'offline';
+/**
+ * 화면에 보여 줄 저장 상태 — 조용히 두면 기기 간에 어긋난 걸 모른다.
+ *
+ * ⚠️ `failed` 를 조용히 `idle` 로 돌리지 않는다. 예전에는 400 을 받고도 아무 표시 없이
+ * 끝내서, **서버는 비어 있는데 화면은 "저장했습니다"** 였다 — 다른 기기에서 목록이
+ * 비어 보이는 원인이었다 (2026-09-24 신고).
+ */
+export type SyncState = 'idle' | 'saving' | 'offline' | 'failed';
 
 type StateListener = (state: SyncState) => void;
 const stateListeners = new Set<StateListener>();
@@ -54,6 +62,21 @@ export function getSyncState(): SyncState {
   return syncState;
 }
 
+/** 마지막 저장 실패 문구 — **서버가 준 말을 그대로** 보여 준다 (짐작한 말로 바꾸지 않는다) */
+let lastError: string | null = null;
+export const getLastError = () => lastError;
+
+/** 마지막으로 저장에 성공한 시각 (없으면 null) */
+let lastSavedAt: number | null = null;
+export const getLastSavedAt = () => lastSavedAt;
+
+export interface SaveResult {
+  ok: boolean;
+  error?: string;
+  /** 서버가 형식 때문에 건너뛴 항목 */
+  skipped?: string[];
+}
+
 export function subscribeSyncState(listener: StateListener): () => void {
   stateListeners.add(listener);
   return () => stateListeners.delete(listener);
@@ -70,6 +93,15 @@ export const getRevision = () => revision;
 let applyRemote: ((payload: { folders?: WatchFolder[]; recent?: string[] }) => void) | null = null;
 export function registerApply(fn: typeof applyRemote) {
   applyRemote = fn;
+}
+
+/**
+ * 서버가 건너뛴 항목을 화면에 알리는 통로.
+ * 로컬에서도 지워야 한다 — 서버와 로컬이 계속 다르면 매번 충돌 팝업이 뜬다.
+ */
+let onSkipped: ((skipped: string[]) => void) | null = null;
+export function registerSkipped(fn: typeof onSkipped) {
+  onSkipped = fn;
 }
 
 /** 지금 화면이 들고 있는 값을 가져오는 통로 (충돌 합치기에 쓴다) */
@@ -161,12 +193,18 @@ export function queueSave(patch: { folders?: WatchFolder[]; recent?: string[] })
   timer = setTimeout(() => void flush(), delay);
 }
 
-export async function flush(): Promise<void> {
-  if (inFlight) return;
+/**
+ * 대기 중인 변경을 지금 보낸다.
+ *
+ * ⚠️ **결과를 돌려준다.** 예전에는 `void` 였고 호출부가 디바운스 **예약**만 해 두고
+ * 곧바로 "저장했습니다" 를 띄웠다 — 실제로는 실패해도 그랬다.
+ */
+export async function flush(): Promise<SaveResult> {
+  if (inFlight) return { ok: false, error: '저장 중입니다.' };
   const payload = queued;
   if (payload.folders === undefined && payload.recent === undefined) {
     setState('idle');
-    return;
+    return { ok: true };
   }
 
   inFlight = true;
@@ -195,30 +233,62 @@ export async function flush(): Promise<void> {
       inFlight = false;
       // 합친 결과를 새 revision 으로 다시 보낸다 (한 번만 — 계속 부딪히면 다음 변경에 맡긴다).
       queued = { folders, recent };
-      await flush();
-      return;
+      return await flush();
     }
 
     if (!res.ok) {
-      // 400(검증 실패) 등은 다시 보내도 같다 — 대기 상태로 남기지 않는다.
-      setState('idle');
-      return;
+      /*
+        ⚠️ 400 을 조용히 넘기지 않는다. 다시 보내도 같은 답이지만, **실패했다는 사실**은
+        화면에 남아야 한다 — 그러지 않으면 서버가 빈 채로 "저장됨" 이 된다.
+        보내려던 값은 [다시 시도] 를 위해 들고 있는다.
+      */
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      lastError = body.error ?? `저장 실패 (${res.status})`;
+      queued = { ...payload, ...queued };
+      setState('failed');
+      return { ok: false, error: lastError };
     }
 
     const body = (await res.json()) as WatchlistPayload;
     revision = body.revision;
+    lastError = null;
+    lastSavedAt = Date.now();
+
+    // 서버가 버린 항목이 있으면 화면에 알리고 로컬에서도 지운다 (안 그러면 매번 충돌한다).
+    if (body.skipped?.length) onSkipped?.(body.skipped);
+
     setState(queued.folders || queued.recent ? 'saving' : 'idle');
-  } catch {
+    return { ok: true, skipped: body.skipped };
+  } catch (e) {
     // 서버가 안 되면 localStorage 에만 남는다. 다음에 연결되면 올린다.
     queued = { ...payload, ...queued };
+    lastError = e instanceof Error ? e.message : String(e);
     setState('offline');
+    return { ok: false, error: lastError };
   } finally {
     inFlight = false;
-    if (queued.folders || queued.recent) {
+    if (syncState !== 'failed' && (queued.folders || queued.recent)) {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => void flush(), FOLDERS_DEBOUNCE_MS);
     }
   }
+}
+
+/**
+ * 디바운스 없이 **지금 보내고 결과를 기다린다.**
+ * 첫 업로드·충돌 팝업의 선택처럼 "성공했는지 알고 나서 다음을 정해야 하는" 자리에서 쓴다.
+ */
+export async function saveNow(patch: { folders?: WatchFolder[]; recent?: string[] }): Promise<SaveResult> {
+  if (timer) clearTimeout(timer);
+  queued = { ...queued, ...patch };
+  setState('saving');
+  return flush();
+}
+
+/** [다시 시도] — 실패한 저장을 사람이 다시 눌러 보낼 때 */
+export async function retrySave(): Promise<SaveResult> {
+  lastError = null;
+  return flush();
 }
 
 /** 밀린 저장이 있으면 올린다 — 탭이 다시 보일 때·온라인이 됐을 때 부른다 */

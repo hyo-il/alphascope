@@ -47,6 +47,15 @@ export interface WatchlistPayload {
   recent: string[] | null;
   revision: number;
   updatedAt: string | null;
+  /**
+   * 형식이 틀려 **건너뛴** 항목의 원래 값 (최대 20개).
+   *
+   * ⚠️ 예전에는 이런 값 하나에 요청 전체를 400 으로 돌려보냈다. 오래 쓴 localStorage 에는
+   * 과거 버그로 들어간 값(한글 이름 등)이 남아 있을 수 있어서, 그 하나 때문에 **목록 전체가
+   * 저장되지 않았다** — 그러고도 화면은 "저장했습니다" 를 띄워 서버가 빈 채로 남았다
+   * (2026-09-24 신고). 이제는 나머지를 저장하고 무엇을 버렸는지 알린다.
+   */
+  skipped?: string[];
 }
 
 interface Row {
@@ -81,11 +90,16 @@ export function getWatchlist(): WatchlistPayload {
   return { folders: folders.value, recent: recent.value, revision, updatedAt };
 }
 
-function cleanSymbol(raw: unknown): string {
+/** 최대 이만큼만 알려 준다 — 목록이 통째로 망가진 경우 토스트가 화면을 덮지 않게 */
+const MAX_SKIPPED_REPORTED = 20;
+
+/**
+ * 심볼을 다듬는다. 형식이 틀리면 `null` — **던지지 않는다.**
+ * 하나 때문에 목록 전체를 버리면 사용자가 잃는 것이 훨씬 크다.
+ */
+function cleanSymbol(raw: unknown): string | null {
   const symbol = String(raw ?? '').trim().toUpperCase();
-  if (!symbol || symbol.length > 20 || !SYMBOL_PATTERN.test(symbol)) {
-    throw new UserDataError(`올바른 심볼이 아닙니다: ${String(raw).slice(0, 20)}`);
-  }
+  if (!symbol || symbol.length > 20 || !SYMBOL_PATTERN.test(symbol)) return null;
   return symbol;
 }
 
@@ -95,7 +109,7 @@ function cleanSymbol(raw: unknown): string {
  * ⚠️ **기본 폴더(폴더 없는 종목)는 반드시 하나 남긴다.** 화면의 `normalize()` 와 같은 규칙이다 —
  * 여기서 빠뜨리면 그 안의 종목이 통째로 사라진다 (CLAUDE.md 사고 이력).
  */
-function cleanFolders(raw: unknown): WatchFolder[] {
+function cleanFolders(raw: unknown, skipped: string[]): WatchFolder[] {
   if (!Array.isArray(raw)) throw new UserDataError('folders 는 배열이어야 합니다.');
   if (raw.length > MAX_FOLDERS) {
     throw new UserDataError(`폴더가 너무 많습니다 (최대 ${MAX_FOLDERS}개).`);
@@ -113,10 +127,16 @@ function cleanFolders(raw: unknown): WatchFolder[] {
       name: name.slice(0, MAX_NAME_LEN),
       collapsed: Boolean(item.collapsed),
       // 같은 종목이 두 폴더에 들어가면 어느 쪽이 진짜인지 알 수 없다 — 먼저 나온 쪽만 남긴다.
-      symbols: (Array.isArray(item.symbols) ? item.symbols : []).map(cleanSymbol).filter((s) => {
-        if (seen.has(s)) return false;
-        seen.add(s);
-        return true;
+      symbols: (Array.isArray(item.symbols) ? item.symbols : []).flatMap((value) => {
+        const symbol = cleanSymbol(value);
+        if (!symbol) {
+          // 건너뛴 값은 **원래 모습 그대로** 알린다 — 사용자가 무엇을 다시 담을지 알아야 한다.
+          if (skipped.length < MAX_SKIPPED_REPORTED) skipped.push(String(value).slice(0, 20));
+          return [];
+        }
+        if (seen.has(symbol)) return [];
+        seen.add(symbol);
+        return [symbol];
       }),
     };
   });
@@ -138,15 +158,19 @@ function cleanFolders(raw: unknown): WatchFolder[] {
   ];
 }
 
-function cleanRecent(raw: unknown): string[] {
+function cleanRecent(raw: unknown, skipped: string[]): string[] {
   if (!Array.isArray(raw)) throw new UserDataError('recent 는 배열이어야 합니다.');
   const seen = new Set<string>();
   return raw
-    .map(cleanSymbol)
-    .filter((s) => {
-      if (seen.has(s)) return false;
-      seen.add(s);
-      return true;
+    .flatMap((value) => {
+      const symbol = cleanSymbol(value);
+      if (!symbol) {
+        if (skipped.length < MAX_SKIPPED_REPORTED) skipped.push(String(value).slice(0, 20));
+        return [];
+      }
+      if (seen.has(symbol)) return [];
+      seen.add(symbol);
+      return [symbol];
     })
     .slice(0, MAX_RECENT);
 }
@@ -169,8 +193,9 @@ export function saveWatchlist(input: {
   }
 
   // 검증은 트랜잭션 **밖**에서 먼저 한다 — 일부만 저장되는 일이 없게.
-  const folders = input.folders === undefined ? undefined : cleanFolders(input.folders);
-  const recent = input.recent === undefined ? undefined : cleanRecent(input.recent);
+  const skipped: string[] = [];
+  const folders = input.folders === undefined ? undefined : cleanFolders(input.folders, skipped);
+  const recent = input.recent === undefined ? undefined : cleanRecent(input.recent, skipped);
 
   const current = getWatchlist();
   if (current.revision !== base) throw new RevisionConflictError(current);
@@ -192,5 +217,5 @@ export function saveWatchlist(input: {
     put.run(RECENT_KEY, JSON.stringify(recent ?? current.recent ?? []), next, now);
   })();
 
-  return getWatchlist();
+  return { ...getWatchlist(), ...(skipped.length ? { skipped } : {}) };
 }

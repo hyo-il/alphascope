@@ -7,12 +7,34 @@ import {
   queueSave,
   registerApply,
   registerRead,
+  registerSkipped,
   retryPending,
+  saveNow,
 } from '../services/watchlistSync';
 import { toast } from '../store/uiStore';
 
 /** 동기화 알림은 조용히 지나가면 안 된다 — 목록이 바뀐 것은 사용자가 알아야 한다 */
 const syncToast = (message: string) => toast.success('관심 목록', message);
+const syncFail = (message: string) =>
+  toast.error('관심 목록을 서버에 저장하지 못했습니다', message);
+
+/** 종목 수를 세어 토스트에 적는다 — "저장했습니다" 만으로는 무엇이 올라갔는지 모른다 */
+const countSymbols = (folders: WatchFolder[]) =>
+  folders.reduce((n, f) => n + f.symbols.length, 0);
+
+/**
+ * 지우기 전에 한 번 남겨 두는 백업 (덮어쓰지 않는다 — 이미 있으면 그대로).
+ * 서버가 버린 항목을 로컬에서도 지우기 때문에, 되돌릴 근거를 남긴다.
+ */
+export const BACKUP_KEY = 'alphascope.watchlistBackup';
+function backupOnce(folders: WatchFolder[], recent: string[]) {
+  try {
+    if (localStorage.getItem(BACKUP_KEY)) return;
+    localStorage.setItem(BACKUP_KEY, JSON.stringify({ folders, recent, at: new Date().toISOString() }));
+  } catch {
+    /* 백업을 못 남겨도 저장 자체는 계속한다 */
+  }
+}
 
 /**
  * 관심 목록(폴더) · 최근 조회 — **서버 저장 + localStorage 캐시**.
@@ -183,6 +205,30 @@ function applyRemoteValue(payload: { folders?: WatchFolder[]; recent?: string[] 
 }
 
 registerApply(applyRemoteValue);
+
+/**
+ * 서버가 형식 때문에 버린 항목을 **로컬에서도 지운다.**
+ *
+ * 서버와 로컬이 계속 다르면 접속할 때마다 충돌 팝업이 뜨고, 매 저장이 같은 값을 다시 보낸다.
+ * ⚠️ 지우기 전에 **한 번만** 백업을 남긴다 — 무엇이 있었는지 되짚을 근거는 남겨야 한다.
+ */
+registerSkipped((skipped) => {
+  const folders = readFolders();
+  const recent = readStrings(RECENT_KEY);
+  backupOnce(folders, recent);
+
+  const bad = new Set(skipped.map((s) => s.trim().toUpperCase()));
+  const isBad = (symbol: string) => bad.has(symbol.trim().toUpperCase());
+  applyRemoteValue({
+    folders: folders.map((f) => ({ ...f, symbols: f.symbols.filter((x) => !isBad(x)) })),
+    recent: recent.filter((x) => !isBad(x)),
+  });
+
+  toast.warning(
+    `저장하지 못한 항목 ${skipped.length}개`,
+    `${skipped.slice(0, 5).join(', ')} — 검색으로 다시 추가해 주세요`,
+  );
+});
 registerRead(() => ({ folders: readFolders(), recent: readStrings(RECENT_KEY) }));
 
 /**
@@ -214,7 +260,57 @@ function askChoice(choice: SyncChoice | null) {
 
 const sameList = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
+/**
+ * 이 브라우저의 목록을 서버에 올린다.
+ *
+ * ⚠️ **성공한 뒤에만** 완료 표시와 "저장했습니다" 토스트를 낸다. v2.11.0 은 디바운스
+ * **예약**만 해 두고 곧바로 성공을 알렸다 — 서버가 400 으로 거절해도 화면은 저장됐다고
+ * 말했고, 완료 표시까지 남아 다시 시도하지 않았다. 그 결과 **다른 기기에서는 목록이
+ * 비어 보였다** (2026-09-24 신고).
+ */
+async function uploadLocal(
+  folders: WatchFolder[],
+  recent: string[],
+  markDone: () => void,
+): Promise<void> {
+  const result = await saveNow({ folders, recent });
+  if (!result.ok) {
+    syncFail(result.error ?? '알 수 없는 오류');
+    return; // 완료로 표시하지 않는다 — 다음 접속 때 다시 시도한다.
+  }
+  markDone();
+  /*
+    ⚠️ 개수는 **실제로 저장된 것**을 센다. 보내려던 목록으로 세면 서버가 건너뛴 항목까지
+    포함돼 "5개 저장" 이라 해 놓고 3개만 올라간다 — 이번 버그와 같은 종류의 거짓말이다.
+    `onSkipped` 가 이미 로컬을 정리한 뒤이므로 지금 읽으면 저장된 것과 같다.
+  */
+  syncToast(`이 브라우저의 관심 목록을 서버에 저장했습니다 (종목 ${countSymbols(readFolders())}개)`);
+}
+
 let booted = false;
+
+/**
+ * **서버와 다시 맞추기** — 완료 표시를 지우고 처음처럼 한 번 더 맞춘다.
+ * 서버와 로컬이 다르면 선택 팝업이 다시 뜬다. 콘솔을 열지 않고도 풀 수 있게 하는 손잡이다.
+ */
+export function resyncWatchlist(): void {
+  try {
+    localStorage.removeItem(SYNCED_KEY);
+  } catch {
+    /* 못 지워도 아래에서 다시 맞춘다 */
+  }
+  /*
+    ⚠️ `booted` 만 되돌린다. `listenersBound` 는 그대로 둬야 한다 —
+    다시 맞출 때마다 visibilitychange 리스너가 하나씩 더 붙으면 탭을 볼 때마다
+    같은 요청이 여러 번 나간다.
+  */
+  booted = false;
+  ensureSynced();
+}
+
+/** visibilitychange·online 리스너는 앱 전체에서 한 번만 붙인다 */
+let listenersBound = false;
+
 function ensureSynced() {
   if (booted) return;
   booted = true;
@@ -245,9 +341,7 @@ function ensureSynced() {
 
     // 1) 서버가 비어 있고 이 브라우저에 목록이 있다 → 그대로 올린다 (물을 것이 없다).
     if (!hasServer && hasLocal) {
-      queueSave({ folders: localFolders, recent: localRecent });
-      markDone();
-      syncToast('이 브라우저의 관심 목록을 서버에 저장했습니다');
+      await uploadLocal(localFolders, localRecent, markDone);
       return;
     }
 
@@ -255,6 +349,15 @@ function ensureSynced() {
     const identical =
       sameList(remote.folders, localFolders) && sameList(remote.recent ?? [], localRecent);
     if (!hasLocal || identical || done) {
+      /*
+        ⚠️ **빈 서버 값으로 로컬을 덮지 않는다.** `done` 이 남아 있는데 서버가 비어 있는 경우가
+        바로 이번 버그의 모습이다 — 저장에 실패했는데 완료 표시만 남아, 그대로 적용하면
+        이 브라우저의 목록까지 사라진다. 그때는 덮는 대신 **다시 올린다.**
+      */
+      if (!hasServer && hasLocal) {
+        await uploadLocal(localFolders, localRecent, markDone);
+        return;
+      }
       applyRemoteValue({ folders: remote.folders ?? [], recent: remote.recent ?? [] });
       markDone();
       return;
@@ -266,20 +369,22 @@ function ensureSynced() {
       server: { folders: remote.folders ?? [], recent: remote.recent ?? [] },
       resolve: (choice) => {
         askChoice(null);
-        markDone();
+        // 서버 값을 쓰는 것은 올릴 게 없으니 바로 끝난다.
         if (choice === 'server') {
           applyRemoteValue({ folders: remote.folders ?? [], recent: remote.recent ?? [] });
+          markDone();
           return;
         }
-        if (choice === 'local') {
-          applyRemoteValue({ folders: localFolders, recent: localRecent });
-          queueSave({ folders: localFolders, recent: localRecent });
-          return;
-        }
-        const folders = mergeFolders(localFolders, remote.folders ?? []);
-        const recent = mergeRecent(localRecent, remote.recent ?? []);
+        /*
+          ⚠️ 나머지 둘은 **서버에 올려야 끝난다.** 저장 결과를 기다려 성공한 뒤에만
+          완료 표시를 남긴다 — 예약만 해 두고 완료로 치면 실패했을 때 다시 시도하지 않는다.
+        */
+        const folders =
+          choice === 'local' ? localFolders : mergeFolders(localFolders, remote.folders ?? []);
+        const recent =
+          choice === 'local' ? localRecent : mergeRecent(localRecent, remote.recent ?? []);
         applyRemoteValue({ folders, recent });
-        queueSave({ folders, recent });
+        void uploadLocal(folders, recent, markDone);
       },
     });
   })();
@@ -288,11 +393,26 @@ function ensureSynced() {
    * 탭이 다시 보이면 서버 값을 한 번 더 받는다 — 다른 기기에서 바꾼 것을 가져온다.
    * ⚠️ 폴링하지 않는다. 목록은 사람이 가끔 고치는 값이라 그럴 이유가 없다.
    */
+  if (listenersBound) return;
+  listenersBound = true;
+
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
     retryPending();
     void fetchRemote().then((remote) => {
       if (!remote) return;
+      /*
+        ⚠️ **빈 서버 값으로 로컬을 덮지 않는다.** 아직 올리지 못한 목록이 있는 상태라면
+        덮는 순간 이 브라우저에서도 사라진다 — 대신 올린다.
+      */
+      const serverEmpty = !remote.folders?.some((f) => f.symbols.length > 0) && !remote.recent?.length;
+      const localFolders = readFolders();
+      const localRecent = readStrings(RECENT_KEY);
+      const hasLocal = localFolders.some((f) => f.symbols.length > 0) || localRecent.length > 0;
+      if (serverEmpty && hasLocal) {
+        void uploadLocal(localFolders, localRecent, () => {});
+        return;
+      }
       applyRemoteValue({ folders: remote.folders ?? [], recent: remote.recent ?? [] });
     });
   });
