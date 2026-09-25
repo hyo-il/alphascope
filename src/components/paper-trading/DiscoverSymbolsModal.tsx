@@ -88,7 +88,11 @@ function applyCriteria(rows: Row[], minScore: number, grades: string[]): {
 }
 
 const SOURCES: { id: Source; label: string; desc: string }[] = [
-  { id: 'surge', label: '🔥 급등 탐지', desc: '주기적으로 급등하는 종목 — 점수·규칙성·다음 예상일' },
+  {
+    id: 'surge',
+    label: '🔥 급등 탐지 (테스트)',
+    desc: '주기적으로 급등하는 종목 — 검증 전 기능이라 기본값이 아니다',
+  },
   { id: 'swing', label: '📈 스윙 추천', desc: '5조건 채점 결과 — 진입가·손절·손익비' },
   { id: 'watchlist', label: '★ 관심 목록', desc: '담아 둔 종목 전부 (기준 없음)' },
 ];
@@ -151,7 +155,11 @@ export default function DiscoverSymbolsModal({
   /** 스윙 추천의 문턱은 곧 BUY 컷이다 — 프로파일을 바꾸면 기본값도 따라간다 */
   const swingBuyCut = activeParams?.grades.buy ?? 65;
 
-  const [source, setSource] = useState<Source>('surge');
+  /*
+    ⚠️ 기본은 **스윙**이다 (2026-09-25). 급등 탐지는 검증 전 테스트 기능이라
+    자동매매 대상을 고르는 기본 자리에 둘 수 없다 — 판정·필터 로직은 그대로다.
+  */
+  const [source, setSource] = useState<Source>('swing');
   const [minScore, setMinScore] = useState(60);
   const [grades, setGrades] = useState<string[]>(['HIGH', 'MEDIUM']);
   const [limit, setLimit] = useState(10);

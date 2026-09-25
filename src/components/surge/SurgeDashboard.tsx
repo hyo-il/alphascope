@@ -41,6 +41,17 @@ export default function SurgeDashboard({
 
   return (
     <div className="flex h-full flex-col">
+      {/*
+        ⚠️ **검증 전 기능이라는 것을 화면이 먼저 말한다** (2026-09-25).
+        실제로 써 보니 탐지된 종목이 이미 급등한 뒤였는데, 구조상 당연하다 — 종목 풀이
+        상승률·거래량 상위 랭킹이고 판정은 일봉의 과거 급등 간격 평균이다.
+        지우지 않고 격하해 두는 이유는, 검증 뒤 되돌리기 쉽게 하기 위해서다.
+      */}
+      <p className="shrink-0 border-b border-warning/40 bg-warning/10 px-3 py-2 text-[11px] leading-relaxed text-warning">
+        <b>테스트 기능</b> — 이미 많이 오른 종목(상승률·거래량 상위)에서 출발하고, 하루 단위
+        데이터로 판단합니다. 매매 근거로 쓰기 전에 성과 검증이 필요합니다.
+      </p>
+
       <div className="flex shrink-0 gap-1 border-b border-border px-1">
         {TABS.map((item) => (
           <button

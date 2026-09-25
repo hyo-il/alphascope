@@ -116,6 +116,8 @@ export default function SurgeCard({
         <button type="button" onClick={() => onAnalyze(detection.symbol)} className={BUTTON}>
           AI 분석
         </button>
+        {/* 버튼 옆에 한 번 더 적는다 — 카드만 보고 매수를 누르는 자리라서 */}
+        <span className="ml-auto self-center text-[10px] text-warning">테스트 기능</span>
       </div>
     </article>
   );

@@ -81,6 +81,11 @@ export default function SideNav({
               }`}
             >
               {sub.label}
+              {sub.badge && (
+                <span className="ml-1 rounded bg-warning/15 px-1 py-px text-[9px] align-middle text-warning">
+                  {sub.badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -125,6 +130,11 @@ export default function SideNav({
               }`}
             >
               {sub.label}
+              {sub.badge && (
+                <span className="ml-1 rounded bg-warning/15 px-1 py-px text-[9px] align-middle text-warning">
+                  {sub.badge}
+                </span>
+              )}
             </button>
           ))}
       </div>
