@@ -397,10 +397,18 @@ async function candlesOf(symbol: string): Promise<Candle[]> {
 export async function evaluateSwing(
   symbol: string,
   profile: { id: ProfileId; params: SwingParams } = getActiveSwingParams(),
+  /**
+   * 캔들을 밖에서 넣는다 — **과거 날짜 재현(진단)용**이다.
+   *
+   * ⚠️ 넣지 않으면 지금까지와 **완전히 같게** 동작한다(평소 경로는 아래 `candlesOf`).
+   * ⚠️ 진단은 과거 날짜 D 를 판정할 때 **D 까지의 봉만** 넣어야 한다 — 그 뒤 봉이 섞이면
+   * 미래를 보고 판단한 결과가 되어 숫자가 전부 거짓이 된다.
+   */
+  injectedCandles?: Candle[],
 ): Promise<SwingRecommendation> {
   const params = profile.params;
   const upper = symbol.toUpperCase();
-  const candles = await candlesOf(upper);
+  const candles = injectedCandles ?? (await candlesOf(upper));
   if (candles.length < 60) {
     throw new Error('일봉이 60개 미만이라 60일선을 계산할 수 없습니다.');
   }
