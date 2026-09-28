@@ -22,6 +22,7 @@ import type {
   SurgeSignals,
 } from '../src/types/surge';
 import { MARKET_CAP_TIERS } from '../src/types/surge';
+import { marketDate } from '../src/utils/marketDate';
 import { computeIndicators } from './indicatorService';
 import { findNames } from './stockCatalog';
 import { readHistoryCache, writeHistoryCache } from './surgeStore';
@@ -43,6 +44,11 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 // ── 1. 급등일 추출 ───────────────────────────────────────────────────────────
 
+/**
+ * 날짜 산수(예상일 = 마지막 급등일 + N일)용 — `Date.parse('YYYY-MM-DD')` 로 만든 UTC 자정을
+ * 다시 문자열로 돌린다. ⚠️ **봉 timestamp 에는 쓰지 않는다** — 그쪽은 `marketDate()` 다
+ * (한국 봉은 KST 자정이라 UTC 로 자르면 하루 앞당겨진다).
+ */
 function toDate(timestamp: number): string {
   return new Date(timestamp).toISOString().slice(0, 10);
 }
@@ -57,6 +63,8 @@ export function findSurgeEvents(
   candles: Candle[],
   priceThreshold: number,
   volumeThreshold: number,
+  /** 급등일을 **그 시장의 날짜**로 적기 위해 받는다 (국내 = KST) */
+  symbol: string,
 ): SurgeEvent[] {
   const events: SurgeEvent[] = [];
 
@@ -78,7 +86,7 @@ export function findSurgeEvents(
     if (volumeRatio < volumeThreshold) continue;
 
     events.push({
-      date: toDate(candle.timestamp),
+      date: marketDate(candle.timestamp, symbol),
       open: candle.open,
       close: candle.close,
       changePercent: round(changePercent, 2),
@@ -492,7 +500,7 @@ export async function evaluateSurgePotential(
     };
   }
 
-  const events = findSurgeEvents(candles, threshold, settings.volumeThreshold);
+  const events = findSurgeEvents(candles, threshold, settings.volumeThreshold, upper);
   const periodicity = analyzePeriodicity(events, settings.minSurgeCount, settings.regularityThreshold);
 
   // 지표 엔진이 꺼져 있어도 과거 패턴만은 보여 준다 — 여기서 던지면 화면이 통째로 빈다.

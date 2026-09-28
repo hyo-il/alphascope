@@ -242,7 +242,7 @@ export async function refreshOutcomes(): Promise<number> {
     const after = candles.filter((c) => c.timestamp > detectedMs);
     // 채점도 탐지와 같은 기준으로 해야 한다 — 소형주를 2% 로 재면 전부 '급등' 이 된다.
     const { threshold } = thresholdFor(settings.thresholdMode, settings.priceThreshold, marketCap);
-    const events = findSurgeEvents(candles, threshold, settings.volumeThreshold);
+    const events = findSurgeEvents(candles, threshold, settings.volumeThreshold, row.symbol);
     const hit = events.find(
       (e) =>
         Date.parse(e.date) > detectedMs && Date.parse(e.date) <= detectedMs + 30 * DAY_MS,

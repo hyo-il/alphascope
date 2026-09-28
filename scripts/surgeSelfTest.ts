@@ -31,9 +31,9 @@ function synth(days: number, intervals: number[]): Candle[] {
   return candles;
 }
 
-const regular = findSurgeEvents(synth(180, [14]), 3, 200);
+const regular = findSurgeEvents(synth(180, [14]), 3, 200, 'TEST');
 const regularity = analyzePeriodicity(regular, 3, 50);
-const irregular = findSurgeEvents(synth(180, [8, 40, 13, 35]), 3, 200);
+const irregular = findSurgeEvents(synth(180, [8, 40, 13, 35]), 3, 200, 'TEST');
 const irregularity = analyzePeriodicity(irregular, 3, 50);
 
 console.log('규칙형:', {

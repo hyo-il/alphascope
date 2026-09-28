@@ -34,6 +34,7 @@ import {
 import { getSettings, listDetections } from '../server/surgeStore';
 import { refreshOutcomes } from '../server/surgeScanner';
 import { scoredAnalyses } from '../server/gemini/accuracy';
+import { marketDate, marketMonth } from '../src/utils/marketDate';
 
 const DAY_MS = 86_400_000;
 
@@ -55,7 +56,8 @@ const FREQ_DAYS = QUICK ? 125 : 250;
 
 const pct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
 const round2 = (v: number) => Math.round(v * 100) / 100;
-const dateOf = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+/** 봉 날짜는 **그 시장의 날짜**다 — 국내 봉을 UTC 로 자르면 하루 앞당겨져 일요일이 찍힌다 */
+const dateOf = (ms: number, symbol: string) => marketDate(ms, symbol);
 
 /** 표본이 적으면 숫자를 믿을 수 없다 — 리포트가 그 사실을 먼저 말하게 한다 */
 const MIN_SAMPLE = 30;
@@ -219,7 +221,7 @@ async function swingReplay(symbols: string[]): Promise<ReplayResult[]> {
       } catch {
         continue;
       }
-      lastBarChecked = dateOf(upto.at(-1)!.timestamp);
+      lastBarChecked = dateOf(upto.at(-1)!.timestamp, symbol);
       grades[r.grade] = (grades[r.grade] ?? 0) + 1;
       if (r.rejection?.includes('손익비')) rrDemoted += 1;
 
@@ -392,14 +394,14 @@ async function surgeWalkForward(symbols: string[]): Promise<SurgeVerdict> {
     const { threshold } = thresholdFor(settings.thresholdMode, settings.priceThreshold, marketCap);
 
     // 전체 기간의 급등 빈도 → 기준선(아무 7일 창에 1번 이상 있을 확률)
-    const allEvents = findSurgeEvents(candles, threshold, settings.volumeThreshold);
+    const allEvents = findSurgeEvents(candles, threshold, settings.volumeThreshold, symbol);
     const spanDays = (candles.at(-1)!.timestamp - candles[0].timestamp) / DAY_MS;
     const perDay = spanDays > 0 ? allEvents.length / spanDays : 0;
     baselines.push(Math.min(1, perDay * 7) * 100);
 
     // 추격 매수: 급등 다음 날 시가에 샀다면
     for (const e of allEvents) {
-      const idx = candles.findIndex((c) => dateOf(c.timestamp) === e.date);
+      const idx = candles.findIndex((c) => dateOf(c.timestamp, symbol) === e.date);
       const entryBar = candles[idx + 1];
       if (!entryBar) continue;
       chaseN += 1;
@@ -419,12 +421,11 @@ async function surgeWalkForward(symbols: string[]): Promise<SurgeVerdict> {
 
     // 매월 1일 기준으로 워크포워드
     for (let i = 120; i < candles.length; i += 1) {
-      const d = new Date(candles[i].timestamp);
-      const prev = new Date(candles[i - 1].timestamp);
-      if (d.getUTCMonth() === prev.getUTCMonth()) continue; // 달이 바뀌는 첫 봉만
+      // 달이 바뀌는 첫 봉만 — 월도 시장 시간대로 본다(국내 1일 봉은 UTC 로 전달 말일이다)
+      if (marketMonth(candles[i].timestamp, symbol) === marketMonth(candles[i - 1].timestamp, symbol)) continue;
 
       const upto = candles.slice(0, i + 1); // ← 미래 차단
-      const events = findSurgeEvents(upto, threshold, settings.volumeThreshold);
+      const events = findSurgeEvents(upto, threshold, settings.volumeThreshold, symbol);
       const per = analyzePeriodicity(events, settings.minSurgeCount, settings.regularityThreshold);
       if (!per.isPeriodic || !per.nextEstimatedDate) continue;
 
@@ -440,7 +441,7 @@ async function surgeWalkForward(symbols: string[]): Promise<SurgeVerdict> {
 
       cases.push({
         symbol,
-        asOf: dateOf(asOfMs),
+        asOf: dateOf(asOfMs, symbol),
         surgeCount: per.surgeCount,
         regularity: round2(per.regularity),
         avgInterval: round2(per.avgInterval),

@@ -11,6 +11,7 @@ import { getCandles } from '../candleService';
 import { loadCandles } from '../db';
 import { summarizeSymbols } from '../summaryService';
 import { completedVolumeRatio, isFormingBar } from '../../src/utils/marketBar';
+import { marketDate } from '../../src/utils/marketDate';
 
 export interface AnalysisContext {
   symbol: string;
@@ -27,10 +28,10 @@ function num(value: number | null | undefined, digits = 2, suffix = ''): string 
 }
 
 /** 최근 N봉을 표로 — 모델이 캔들 패턴을 직접 읽을 수 있게 한다 */
-function candleTable(candles: Candle[], count: number, forming: boolean): string {
+function candleTable(candles: Candle[], count: number, forming: boolean, symbol: string): string {
   const recent = candles.slice(-count);
   const rows = recent.map((c, index) => {
-    const date = new Date(c.timestamp).toISOString().slice(0, 10);
+    const date = marketDate(c.timestamp, symbol);
     const mark = forming && index === recent.length - 1 ? ' | ← 진행 중(미확정)' : '';
     return `${date} | ${c.open.toFixed(2)} | ${c.high.toFixed(2)} | ${c.low.toFixed(2)} | ${c.close.toFixed(2)} | ${Math.round(c.volume).toLocaleString()}${mark}`;
   });
@@ -60,7 +61,7 @@ export async function buildContext(symbol: string): Promise<AnalysisContext> {
   lines.push(`분석 시각: ${new Date().toISOString()}`);
   const forming = candles.length > 0 && !stale && isFormingBar(candles, '1d');
   if (candles.length) {
-    const lastDate = new Date(candles.at(-1)!.timestamp).toISOString().slice(0, 10);
+    const lastDate = marketDate(candles.at(-1)!.timestamp, symbol);
     const note = stale
       ? ' (실시간 조회 실패 — 캐시된 과거 데이터입니다)'
       : forming
@@ -117,7 +118,7 @@ export async function buildContext(symbol: string): Promise<AnalysisContext> {
 
   if (candles.length) {
     lines.push('## 최근 30 거래일 OHLCV');
-    lines.push(candleTable(candles, 30, forming));
+    lines.push(candleTable(candles, 30, forming, symbol));
   } else {
     lines.push('## 최근 캔들: 데이터 없음');
   }
