@@ -6,6 +6,9 @@ import { useLoading } from '../../hooks/useLoading';
 import { stockNameOf } from '../../utils/stockNames';
 
 interface Stats {
+  /** 묶기 전 원본 분석 수 */
+  rawTotal: number;
+  /** 같은 종목·같은 날을 1건으로 묶은 뒤 — 아래 숫자는 전부 이 기준 */
   total: number;
   scored: number;
   pending: number;
@@ -64,6 +67,11 @@ function Explainer({ horizonDays, flatBand }: { horizonDays: number; flatBand: n
           분석은 '대기' 로 남습니다.
         </li>
         <li>
+          같은 종목을 <b className="text-text-primary">같은 날 여러 번</b> 분석했으면 그날
+          마지막 분석 1건만 셉니다 — 자동매매가 한 시간마다 분석한 기록을 모두 세면 한 종목·한
+          날이 적중률을 좌우합니다.
+        </li>
+        <li>
           충분히 쌓이면 어느 AI 가 더 정확한지, 어떤 신호가 더 믿을 만한지 판단할 수 있습니다.
         </li>
       </ul>
@@ -102,6 +110,7 @@ export default function AIAccuracyDashboard() {
 function AccuracyReport({ report }: { report: Report }) {
   const scored = report.claude.scored + report.gemini.scored;
   const total = report.claude.total + report.gemini.total;
+  const rawTotal = (report.claude.rawTotal ?? 0) + (report.gemini.rawTotal ?? 0);
   const pending = report.claude.pending + report.gemini.pending;
 
   // 표본이 모자라면 통계 대신 "얼마나 남았는지" 를 보여 준다.
@@ -131,7 +140,8 @@ function AccuracyReport({ report }: { report: Report }) {
           </div>
 
           <p className="mt-2 text-[11px] text-text-muted">
-            전체 분석 {total}건 · 채점 대기 {pending}건
+            채점 대상 {total}건{rawTotal > total && ` (원본 ${rawTotal}건을 종목·날짜별 1건으로 묶음)`} · 채점
+            대기 {pending}건
             {pending > 0 && ` (${report.horizonDays} 거래일이 지나면 자동으로 채점됩니다)`}
           </p>
         </div>
@@ -158,6 +168,7 @@ function AccuracyReport({ report }: { report: Report }) {
                 <AISourceBadge source={source} />
                 <span className="ml-auto text-xs text-text-muted">
                   {stats.total}건 (채점 {stats.scored} · 대기 {stats.pending})
+                  {stats.rawTotal > stats.total && ` · 원본 ${stats.rawTotal}건`}
                 </span>
               </div>
               <p className={`text-2xl font-semibold ${accuracyClass(stats.accuracy)}`}>

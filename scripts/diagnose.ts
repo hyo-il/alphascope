@@ -33,7 +33,7 @@ import {
 } from '../server/surgeDetector';
 import { getSettings, listDetections } from '../server/surgeStore';
 import { refreshOutcomes } from '../server/surgeScanner';
-import { scoredAnalyses } from '../server/gemini/accuracy';
+import { dailyScoredAnalyses, scoredAnalyses } from '../server/gemini/accuracy';
 import { marketDate, marketMonth } from '../src/utils/marketDate';
 
 const DAY_MS = 86_400_000;
@@ -537,9 +537,13 @@ async function surgeOutcomes() {
 
 // ── 3-5. Gemini 정확도 ──────────────────────────────────────────────────────
 
-/** 기존 채점(`gemini/accuracy.ts`)을 그대로 부른다 — 새로 호출하지 않는다 */
+/**
+ * 기존 채점(`gemini/accuracy.ts`)을 그대로 부른다 — 새로 호출하지 않는다.
+ * ⚠️ 같은 종목·같은 날은 1건으로 묶는다(`dailyScoredAnalyses`) — 「분석 성적표」와 같은 규칙.
+ */
 async function geminiAccuracy(symbols: string[]) {
-  const scored = scoredAnalyses(500);
+  const raw = scoredAnalyses(500).length;
+  const scored = dailyScoredAnalyses(500);
   const judged = scored.filter((s) => s.outcome !== 'pending');
 
   const bySignal = (sig: string) => {
@@ -576,6 +580,7 @@ async function geminiAccuracy(symbols: string[]) {
   }
 
   return {
+    raw,
     total: scored.length,
     judged: judged.length,
     correct: judged.filter((s) => s.outcome === 'correct').length,
@@ -751,7 +756,7 @@ async function main() {
   // Q4
   md.push('### 4. Gemini 분석은 정확한가?');
   if (gemini.judged < MIN_SAMPLE) {
-    md.push(`- **표본 부족 — 결론 내릴 수 없음** (채점 가능 ${gemini.judged}건, 전체 ${gemini.total}건).`);
+    md.push(`- **표본 부족 — 결론 내릴 수 없음** (채점 가능 ${gemini.judged}건, 전체 ${gemini.total}건 · 원본 ${gemini.raw}건을 종목·날짜별 1건으로 묶음).`);
   }
   md.push(`- 적중률 **${gemini.rate}%** (${gemini.correct}/${gemini.judged})${weak(gemini.judged)}.`);
   md.push(`- 기준선(같은 종목을 아무 날 샀을 때 5일 뒤 상승 비율) **${gemini.baselineUp5}%** — AI 가 이보다 높아야 의미가 있습니다.`);

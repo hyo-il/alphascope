@@ -12,6 +12,7 @@
 
 import { getDb, loadCandles } from '../db';
 import type { AgentOpinion } from '../../src/types/gemini';
+import { marketDate } from '../../src/utils/marketDate';
 
 /** 채점 기준: 스윙 트레이딩이므로 5 거래일 뒤를 본다 */
 const HORIZON_DAYS = 5;
@@ -68,6 +69,36 @@ function priceAfter(symbol: string, analyzedAt: string): number | null {
   if (index < 0) return null;
   const target = candles[index + HORIZON_DAYS];
   return target ? target.close : null; // 아직 5봉이 안 쌓였으면 pending
+}
+
+/**
+ * ⚠️ **같은 출처·같은 종목·같은 날(시장 날짜)의 반복 분석은 통계에서 1건으로 묶는다** —
+ * 그날 **마지막** 분석만 남긴다 (v2.14.0).
+ *
+ * 계좌별 AI형 자동매매는 주기마다 같은 종목을 다시 분석한다(오라클: 3일에 166건, 11종목).
+ * 그대로 세면 한 종목·한 날의 결과가 적중률을 지배한다 — 같은 5일 뒤 종가로 여러 번 채점되기
+ * 때문이다. 원본 행은 지우지 않는다. 통계를 낼 때만 묶는다.
+ * 진단 리포트(`server/diagnose`)와 「분석 성적표」가 **이 함수 하나**를 쓴다.
+ *
+ * 날짜는 시장 시간대다 — 미국 정규장(13:30~20:00 UTC)은 KST 로 자르면 이틀에 걸친다.
+ */
+export function onePerDay<T extends { source?: string; symbol: string; analyzedAt: string }>(
+  items: T[],
+): T[] {
+  const latest = new Map<string, T>();
+  for (const item of items) {
+    const at = Date.parse(item.analyzedAt);
+    const day = Number.isFinite(at) ? marketDate(at, item.symbol) : item.analyzedAt.slice(0, 10);
+    const key = `${item.source ?? ''}|${item.symbol}|${day}`;
+    const kept = latest.get(key);
+    if (!kept || item.analyzedAt > kept.analyzedAt) latest.set(key, item);
+  }
+  return [...latest.values()].sort((a, b) => b.analyzedAt.localeCompare(a.analyzedAt));
+}
+
+/** 통계용 채점 목록 — `scoredAnalyses` 를 하루 1건으로 묶은 것 */
+export function dailyScoredAnalyses(limit = 500): ScoredAnalysis[] {
+  return onePerDay(scoredAnalyses(limit));
 }
 
 function direction(signal: string): 'up' | 'down' | 'flat' {
@@ -143,6 +174,9 @@ export function scoredAnalyses(limit = 500): ScoredAnalysis[] {
 }
 
 export interface AccuracyStats {
+  /** 묶기 전 원본 분석 수 */
+  rawTotal: number;
+  /** 하루 1건으로 묶은 뒤의 수 — 아래 숫자는 전부 이것 기준이다 */
   total: number;
   scored: number;
   pending: number;
@@ -150,7 +184,8 @@ export interface AccuracyStats {
   bySignal: Record<string, { scored: number; correct: number; accuracy: number | null }>;
 }
 
-function summarize(items: ScoredAnalysis[]): AccuracyStats {
+function summarize(raw: ScoredAnalysis[]): AccuracyStats {
+  const items = onePerDay(raw);
   const scored = items.filter((item) => item.outcome !== 'pending');
   const correct = scored.filter((item) => item.outcome === 'correct').length;
   const bySignal: AccuracyStats['bySignal'] = {};
@@ -165,6 +200,7 @@ function summarize(items: ScoredAnalysis[]): AccuracyStats {
   }
 
   return {
+    rawTotal: raw.length,
     total: items.length,
     scored: scored.length,
     pending: items.length - scored.length,
@@ -184,9 +220,13 @@ export interface AgentAccuracy {
 
 function agentAccuracy(): AgentAccuracy[] {
   const db = getDb();
-  const rows = db
-    .prepare(`SELECT symbol, created_at, price_at_analysis, agents FROM gemini_analysis`)
-    .all() as AgentsRow[];
+  const rows = onePerDay(
+    (
+      db
+        .prepare(`SELECT symbol, created_at, price_at_analysis, agents FROM gemini_analysis`)
+        .all() as AgentsRow[]
+    ).map((row) => ({ ...row, analyzedAt: row.created_at })),
+  );
 
   const table = new Map<string, AgentAccuracy>();
 
@@ -280,7 +320,8 @@ export function accuracyReport() {
     claude: summarize(items.filter((item) => item.source === 'claude')),
     gemini: summarize(items.filter((item) => item.source === 'gemini')),
     agents: agentAccuracy(),
-    paired: pairedComparison(items),
+    paired: pairedComparison(onePerDay(items)),
+    // 목록은 원본 그대로 보여 준다 — 묶는 것은 통계뿐이다
     items: items.slice(0, 200),
   };
 }
