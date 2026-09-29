@@ -26,7 +26,7 @@ import { rsi, sma } from '../src/utils/indicators';
 import { isFormingBar } from '../src/utils/marketBar';
 import { isKrSymbol } from '../src/utils/market';
 import { marketDate } from '../src/utils/marketDate';
-import { UNIVERSE_PATH, type Universe } from './universeUpdate';
+import { UNIVERSE_PATH, type Universe } from '../server/universe';
 
 // ── 고정값 (결과를 본 뒤 바꾸지 않는다) ─────────────────────────────────────
 

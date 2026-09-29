@@ -124,6 +124,7 @@ import {
 } from './paperTradingService';
 import { computePerformance, listSnapshots } from './paperPerformanceService';
 import { backfillSnapshots, startSnapshotScheduler } from './paperSnapshotScheduler';
+import { startUniverseSnapshotScheduler } from './universe';
 
 /**
  * AlphaScope API 서버.
@@ -1315,6 +1316,9 @@ app.listen(port, host, () => {
       .then((count) => console.log(`[alphascope] 종목 카탈로그 ${count.toLocaleString()}건 준비됨`))
       .catch((e) => console.error('[alphascope] 종목 카탈로그 준비 실패:', e));
   }
+
+  // 시총 유니버스 월별 스냅샷 — 하루 한 번 확인해 이번 달 것이 없으면 받는다 (v2.15.0, 생존 편향 보정용)
+  if (!isMockMode()) startUniverseSnapshotScheduler();
 
   // 앱이 꺼져 있던 구간의 모의투자 스냅샷을 채우고, 이후 하루 한 번 기록한다.
   void backfillSnapshots().then(() => startSnapshotScheduler());

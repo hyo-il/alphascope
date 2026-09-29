@@ -332,3 +332,14 @@ CREATE TABLE IF NOT EXISTS diagnose_reports (
   summary_json TEXT NOT NULL,
   detail_json TEXT NOT NULL
 );
+
+-- 시가총액 유니버스 월별 스냅샷 (v2.15.0) — 한 달에 한 행(KST 기준 YYYY-MM).
+-- 1년 뒤 "그 시점의 시총 상위" 로 과거를 시험해 생존 편향을 줄이려고 쌓는다.
+-- 최신본은 server/data/universe.json 이고, 이 표는 누적 기록이다 (server/universe.ts).
+CREATE TABLE IF NOT EXISTS universe_snapshots (
+  month TEXT PRIMARY KEY,
+  as_of TEXT NOT NULL,
+  source TEXT NOT NULL,
+  us_json TEXT NOT NULL,
+  kr_json TEXT NOT NULL
+);
