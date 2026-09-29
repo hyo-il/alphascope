@@ -8,6 +8,7 @@ import CriteriaPanel from '../common/CriteriaPanel';
 import { STANDARD_SWING_CRITERIA, SURGE_CRITERIA, swingCriteria } from '../../data/criteria';
 import { useStrategyProfile } from '../../hooks/useStrategyProfile';
 import { PROFILE_LABEL, type ProfileId } from '../../types/strategyProfile';
+import type { DiagnoseListItem, DiagnoseSummary } from '../../types/diagnose';
 
 /**
  * 자동매매 대상 종목 **발굴** 팝업 — 기준 설정 → 탐지 → 근거 → 선택 추가.
@@ -193,6 +194,22 @@ export default function DiscoverSymbolsModal({
 
   useStockNames(rows?.map((r) => r.symbol) ?? []);
 
+  /*
+    급등 소스를 고르면 가장 최근 진단 리포트의 "급등 다음 날 매수" 결과를 한 줄로 알린다 (v2.14.0).
+    ⚠️ **정보 표시만** 한다 — 급등 소스를 막거나 지우지 않는다. 유지·격하·제거는 사용자가 정한다.
+    undefined = 아직 안 읽음, null = 리포트 없음(또는 읽기 실패 — 둘 다 '진단 전' 으로 알린다).
+  */
+  const [surgeDiagnosis, setSurgeDiagnosis] = useState<DiagnoseSummary['surge'] | null | undefined>(undefined);
+  useEffect(() => {
+    if (source !== 'surge' || surgeDiagnosis !== undefined) return;
+    fetch('/api/diagnose/reports')
+      .then((r) => (r.ok ? r.json() : { reports: [] }))
+      .then((data: { reports: DiagnoseListItem[] }) => {
+        if (alive.current) setSurgeDiagnosis(data.reports[0]?.summary.surge ?? null);
+      })
+      .catch(() => alive.current && setSurgeDiagnosis(null));
+  }, [source, surgeDiagnosis]);
+
   /** 소스를 바꾸면 기준도 그 소스의 것으로 맞춘다 — 급등 60점과 스윙 65점은 다른 척도다 */
   const pickSource = (next: Source) => {
     setSource(next);
@@ -376,6 +393,14 @@ export default function DiscoverSymbolsModal({
                 );
               })}
             </div>
+            {source === 'surge' && surgeDiagnosis !== undefined && (
+              <p className="rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[11px] text-warning">
+                ⚠️{' '}
+                {surgeDiagnosis && surgeDiagnosis.chase.n > 0
+                  ? `최근 진단: 급등 다음 날 매수 시 +5% 먼저 ${surgeDiagnosis.chase.up5}% · −5% 먼저 ${surgeDiagnosis.chase.down5}% (${surgeDiagnosis.chase.n}건)`
+                  : '진단 전 — 성과 미검증'}
+              </p>
+            )}
           </section>
 
           {source !== 'watchlist' && (
