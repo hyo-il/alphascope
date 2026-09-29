@@ -1,30 +1,32 @@
 import { useEffect, useRef, useState } from 'react';
-import type { SurgeDetection, SurgeGrade, SurgeProgress } from '../../types/surge';
 import type { SwingGrade, SwingRecommendation, SwingRecord } from '../../types/swing';
 import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
 import { toast } from '../../store/uiStore';
 import CriteriaPanel from '../common/CriteriaPanel';
-import { STANDARD_SWING_CRITERIA, SURGE_CRITERIA, swingCriteria } from '../../data/criteria';
+import { STANDARD_SWING_CRITERIA, swingCriteria } from '../../data/criteria';
 import { useStrategyProfile } from '../../hooks/useStrategyProfile';
 import { PROFILE_LABEL, type ProfileId } from '../../types/strategyProfile';
-import type { DiagnoseListItem, DiagnoseSummary } from '../../types/diagnose';
 
 /**
  * 자동매매 대상 종목 **발굴** 팝업 — 기준 설정 → 탐지 → 근거 → 선택 추가.
  *
- * ⚠️ **새 알고리즘을 만들지 않았다.** 급등 탐지(Step 9)와 스윙 추천(Step 10)의 기존
- * 엔드포인트를 그대로 부르고, 이 화면은 **기준으로 거르고 근거를 보여 주는 일만** 한다.
- * 여기에 판정 로직을 또 두면 같은 종목이 발굴 화면과 급등/스윙 화면에서 다르게 보인다.
+ * ⚠️ **새 알고리즘을 만들지 않았다.** 스윙 추천(Step 10)의 기존 엔드포인트를 그대로 부르고,
+ * 이 화면은 **기준으로 거르고 근거를 보여 주는 일만** 한다. 여기에 판정 로직을 또 두면
+ * 같은 종목이 발굴 화면과 스윙 화면에서 다르게 보인다.
+ *
+ * ⚠️ **급등 탐지는 소스에서 뺐다** (v2.15.0, 사용자 결정 2026-09-29). 오라클 진단에서 급등 다음 날
+ * 매수 121건이 5일 뒤 −5.02%, +5% 먼저 31.4% vs −5% 먼저 62% 였다 — 자동매매 후보로 둘 근거가 없다.
+ * 급등 화면·[모의 매수]는 사람이 직접 쓰는 테스트 기능으로 남는다. 계좌에 이미 담긴 종목은 건드리지 않는다.
  *
  * 예전에는 버튼 하나가 곧바로 "10종목 담았습니다" 였다 — 무엇이 왜 담겼는지 알 수 없어
  * 사용자가 목록을 하나씩 지우며 확인해야 했다. 그래서 세 단계로 나눴다:
- *   ① 기준: 최소 점수·등급·개수 (급등/스윙만)
- *   ② 탐지: 저장된 결과를 읽거나, 다시 돌린다 (급등 재탐지는 1분을 넘을 수 있다)
+ *   ① 기준: 최소 점수·등급·개수 (스윙만)
+ *   ② 탐지: 저장된 결과를 읽거나, 다시 채점한다
  *   ③ 선택: 근거를 보고 고른 것만 담는다 (기본값은 전체 선택)
  */
 
-type Source = 'surge' | 'swing' | 'watchlist';
+type Source = 'swing' | 'watchlist';
 
 interface Row {
   symbol: string;
@@ -89,30 +91,14 @@ function applyCriteria(rows: Row[], minScore: number, grades: string[]): {
 }
 
 const SOURCES: { id: Source; label: string; desc: string }[] = [
-  {
-    id: 'surge',
-    label: '🔥 급등 탐지 (테스트)',
-    desc: '주기적으로 급등하는 종목 — 검증 전 기능이라 기본값이 아니다',
-  },
   { id: 'swing', label: '📈 스윙 추천', desc: '5조건 채점 결과 — 진입가·손절·손익비' },
   { id: 'watchlist', label: '★ 관심 목록', desc: '담아 둔 종목 전부 (기준 없음)' },
 ];
 
-const SURGE_GRADES: SurgeGrade[] = ['HIGH', 'MEDIUM', 'LOW'];
 const SWING_GRADES: SwingGrade[] = ['STRONG', 'BUY', 'WATCH'];
 
 const num = (v: number | null | undefined, digits = 0) =>
   v == null || !Number.isFinite(v) ? '—' : v.toFixed(digits);
-
-function surgeRow(r: SurgeDetection): Row {
-  const reasons = [`규칙성 ${num(r.regularity)}% · 급등 ${r.surgeCount}회`];
-  if (r.nextEstimatedDate) {
-    const d = r.daysUntilNext;
-    reasons.push(`다음 예상 ${r.nextEstimatedDate}${d == null ? '' : d >= 0 ? ` (D-${d})` : ` (${-d}일 지남)`}`);
-  }
-  if (r.reason) reasons.push(r.reason);
-  return { symbol: r.symbol, score: r.surgeScore, grade: r.grade, reasons };
-}
 
 function swingRowFromRecord(r: SwingRecord): Row {
   const reasons = [
@@ -156,13 +142,9 @@ export default function DiscoverSymbolsModal({
   /** 스윙 추천의 문턱은 곧 BUY 컷이다 — 프로파일을 바꾸면 기본값도 따라간다 */
   const swingBuyCut = activeParams?.grades.buy ?? 65;
 
-  /*
-    ⚠️ 기본은 **스윙**이다 (2026-09-25). 급등 탐지는 검증 전 테스트 기능이라
-    자동매매 대상을 고르는 기본 자리에 둘 수 없다 — 판정·필터 로직은 그대로다.
-  */
   const [source, setSource] = useState<Source>('swing');
-  const [minScore, setMinScore] = useState(60);
-  const [grades, setGrades] = useState<string[]>(['HIGH', 'MEDIUM']);
+  const [minScore, setMinScore] = useState(swingBuyCut);
+  const [grades, setGrades] = useState<string[]>(['STRONG', 'BUY']);
   const [limit, setLimit] = useState(10);
   const [fresh, setFresh] = useState(false);
 
@@ -174,7 +156,6 @@ export default function DiscoverSymbolsModal({
   const [showRejected, setShowRejected] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState<SurgeProgress | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
   // 팝업이 닫힌 뒤에도 폴링이 돌면 상태를 없는 화면에 쓴다.
@@ -194,23 +175,7 @@ export default function DiscoverSymbolsModal({
 
   useStockNames(rows?.map((r) => r.symbol) ?? []);
 
-  /*
-    급등 소스를 고르면 가장 최근 진단 리포트의 "급등 다음 날 매수" 결과를 한 줄로 알린다 (v2.14.0).
-    ⚠️ **정보 표시만** 한다 — 급등 소스를 막거나 지우지 않는다. 유지·격하·제거는 사용자가 정한다.
-    undefined = 아직 안 읽음, null = 리포트 없음(또는 읽기 실패 — 둘 다 '진단 전' 으로 알린다).
-  */
-  const [surgeDiagnosis, setSurgeDiagnosis] = useState<DiagnoseSummary['surge'] | null | undefined>(undefined);
-  useEffect(() => {
-    if (source !== 'surge' || surgeDiagnosis !== undefined) return;
-    fetch('/api/diagnose/reports')
-      .then((r) => (r.ok ? r.json() : { reports: [] }))
-      .then((data: { reports: DiagnoseListItem[] }) => {
-        if (alive.current) setSurgeDiagnosis(data.reports[0]?.summary.surge ?? null);
-      })
-      .catch(() => alive.current && setSurgeDiagnosis(null));
-  }, [source, surgeDiagnosis]);
-
-  /** 소스를 바꾸면 기준도 그 소스의 것으로 맞춘다 — 급등 60점과 스윙 65점은 다른 척도다 */
+  /** 소스를 바꾸면 기준을 초기화한다 — 스윙의 문턱은 지금 프로파일의 BUY 컷이다 */
   const pickSource = (next: Source) => {
     setSource(next);
     setRows(null);
@@ -219,10 +184,7 @@ export default function DiscoverSymbolsModal({
     setSelected([]);
     setNote(null);
     setFresh(false);
-    if (next === 'surge') {
-      setMinScore(60);
-      setGrades(['HIGH', 'MEDIUM']);
-    } else if (next === 'swing') {
+    if (next === 'swing') {
       setMinScore(swingBuyCut);
       setGrades(['STRONG', 'BUY']);
     }
@@ -230,19 +192,6 @@ export default function DiscoverSymbolsModal({
 
   const toggleGrade = (g: string) =>
     setGrades((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]));
-
-  /** 급등 재탐지는 종목 풀이 90개를 넘어 1분 이상 걸린다 — 진행률을 보여 주며 기다린다 */
-  const waitForDetection = async () => {
-    for (;;) {
-      await new Promise((r) => setTimeout(r, 1500));
-      if (!alive.current) return;
-      const { progress: p } = (await fetch('/api/surge/progress').then((r) => r.json())) as {
-        progress: SurgeProgress;
-      };
-      setProgress(p);
-      if (!p.running) return;
-    }
-  };
 
   const detect = async () => {
     setBusy(true);
@@ -269,25 +218,7 @@ export default function DiscoverSymbolsModal({
       /** 기준을 적용하기 전의 전체 후보 — 떨어진 것도 들고 있어야 사유를 셀 수 있다 */
       let candidates: Row[] = [];
 
-      if (source === 'surge') {
-        if (fresh) {
-          await fetch('/api/surge/detect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ watchlist }),
-          });
-          await waitForDetection();
-          if (!alive.current) return;
-        }
-        const data = await fetch('/api/surge/results').then((r) => r.json());
-        const all: SurgeDetection[] = data.results ?? [];
-        if (!all.length) {
-          setNote('저장된 급등 탐지 결과가 없습니다. [다시 탐지] 를 켜고 실행해 보세요.');
-        } else if (data.detectedAt) {
-          setNote(`탐지 시각 ${new Date(data.detectedAt).toLocaleString('ko-KR')}`);
-        }
-        candidates = all.sort((a, b) => b.surgeScore - a.surgeScore).map(surgeRow);
-      } else if (fresh) {
+      if (fresh) {
         if (!watchlist.length) {
           toast.info('관심 목록이 비어 있어 다시 분석할 수 없습니다');
           return;
@@ -329,10 +260,7 @@ export default function DiscoverSymbolsModal({
     } catch (e) {
       toast.error('탐지하지 못했습니다', (e as Error).message);
     } finally {
-      if (alive.current) {
-        setBusy(false);
-        setProgress(null);
-      }
+      if (alive.current) setBusy(false);
     }
   };
 
@@ -342,7 +270,7 @@ export default function DiscoverSymbolsModal({
     onClose();
   };
 
-  const gradeOptions = source === 'surge' ? SURGE_GRADES : SWING_GRADES;
+  const gradeOptions = SWING_GRADES;
   const passedRows = (rows ?? []).filter((r) => r.passed);
   const rejectedRows = (rows ?? []).filter((r) => !r.passed);
   const visibleRows = showRejected ? [...passedRows, ...rejectedRows] : passedRows;
@@ -373,7 +301,7 @@ export default function DiscoverSymbolsModal({
           {/* ① 기준 */}
           <section className="space-y-2">
             <h3 className="text-xs font-semibold text-text-primary">① 어디서 찾을까요</h3>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {SOURCES.map((s) => {
                 const active = source === s.id;
                 return (
@@ -393,14 +321,6 @@ export default function DiscoverSymbolsModal({
                 );
               })}
             </div>
-            {source === 'surge' && surgeDiagnosis !== undefined && (
-              <p className="rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[11px] text-warning">
-                ⚠️{' '}
-                {surgeDiagnosis && surgeDiagnosis.chase.n > 0
-                  ? `최근 진단: 급등 다음 날 매수 시 +5% 먼저 ${surgeDiagnosis.chase.up5}% · −5% 먼저 ${surgeDiagnosis.chase.down5}% (${surgeDiagnosis.chase.n}건)`
-                  : '진단 전 — 성과 미검증'}
-              </p>
-            )}
           </section>
 
           {source !== 'watchlist' && (
@@ -416,16 +336,12 @@ export default function DiscoverSymbolsModal({
                 )}
               </div>
               {/*
-                점수·등급이 무엇인지 모르면 기준을 정할 수 없다. 설명은 급등·스윙 화면과
+                점수·등급이 무엇인지 모르면 기준을 정할 수 없다. 설명은 스윙 화면과
                 **같은 컴포넌트·같은 데이터**를 쓴다 — 두 벌로 적으면 반드시 갈라진다.
               */}
               <CriteriaPanel
                 spec={
-                  source === 'surge'
-                    ? SURGE_CRITERIA
-                    : activeParams
-                      ? swingCriteria(activeParams, activeId)
-                      : STANDARD_SWING_CRITERIA
+                  activeParams ? swingCriteria(activeParams, activeId) : STANDARD_SWING_CRITERIA
                 }
               />
               <div className="flex flex-wrap items-center gap-2">
@@ -467,12 +383,10 @@ export default function DiscoverSymbolsModal({
 
               <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">
                 <input type="checkbox" checked={fresh} onChange={(e) => setFresh(e.target.checked)} />
-                {source === 'surge'
-                  ? '다시 탐지 (종목 풀 90여 개 · 1분 이상 걸립니다)'
-                  : '다시 분석 (관심 목록 종목을 새로 채점합니다)'}
+                다시 분석 (관심 목록 종목을 새로 채점합니다)
               </label>
               <p className="text-[11px] leading-relaxed text-text-muted">
-                끄면 {source === 'surge' ? '급등 탐지' : '스윙 추천'} 화면에서 마지막으로 나온
+                끄면 스윙 추천 화면에서 마지막으로 나온
                 결과를 그대로 읽습니다 — 판정 기준은 그 화면과 같습니다.
               </p>
             </section>
@@ -488,12 +402,6 @@ export default function DiscoverSymbolsModal({
             >
               {busy ? '탐지 중…' : '탐지'}
             </button>
-            {progress?.running && (
-              <span className="text-[11px] text-text-muted">
-                {progress.done}/{progress.total || '?'}
-                {progress.current ? ` · ${progress.current}` : ''}
-              </span>
-            )}
             {note && <span className="text-[11px] text-text-muted">{note}</span>}
           </div>
 
