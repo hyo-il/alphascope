@@ -79,6 +79,12 @@ import {
 } from './surgeScanner';
 import { evaluateSwing } from './swingAnalyzer';
 import {
+  HORIZON_CHOICES,
+  STOP_RATIO_CHOICES,
+  TARGET_CHOICES,
+  targetHitTable,
+} from './analysis/targetHit';
+import {
   ProfileValidationError,
   getActiveSwingParams,
   getProfileState,
@@ -1109,6 +1115,31 @@ app.get('/api/swing/history', async (_req, res) => {
   try {
     await refreshSwingOutcomes().catch(() => 0);
     res.json({ records: listRecommendations() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+/**
+ * 목표 수익률별 과거 도달 빈도 — 「스윙 추천 > 목표 수익률」 탭 (보기 전용).
+ * ⚠️ 스윙 등급·추천·자동매매에 쓰지 않는다. 아무 신호 없이 매일 샀을 때의 기준선이다.
+ * 계산은 `server/analysis/targetHit.ts` — 진단 리포트와 같은 함수다.
+ */
+app.get('/api/swing/target-hit', async (req, res) => {
+  const target = Number(req.query.target ?? 5);
+  const stopRatio = Number(req.query.stopRatio ?? 1);
+  const days = Number(req.query.days ?? 10);
+  if (
+    !TARGET_CHOICES.includes(target) ||
+    !STOP_RATIO_CHOICES.includes(stopRatio) ||
+    !HORIZON_CHOICES.includes(days)
+  ) {
+    return res.status(400).json({
+      error: `target 은 ${TARGET_CHOICES.join('·')}, stopRatio 는 ${STOP_RATIO_CHOICES.join('·')}, days 는 ${HORIZON_CHOICES.join('·')} 중 하나입니다.`,
+    });
+  }
+  try {
+    res.json(await targetHitTable(target, stopRatio, days));
   } catch (e) {
     fail(res, e);
   }

@@ -33,6 +33,13 @@ import {
 } from '../server/surgeDetector';
 import { getSettings, listDetections } from '../server/surgeStore';
 import { refreshOutcomes } from '../server/surgeScanner';
+import {
+  ROUND_TRIP_COST,
+  atrPercent,
+  dailyCandles,
+  firstTouchFrequency,
+  type FreqRow,
+} from '../server/analysis/targetHit';
 import { dailyScoredAnalyses, scoredAnalyses } from '../server/gemini/accuracy';
 import { marketDate, marketMonth } from '../src/utils/marketDate';
 
@@ -240,97 +247,7 @@ async function swingReplay(symbols: string[]): Promise<ReplayResult[]> {
 }
 
 // ── 3-2. 목표 수익률별 "먼저 닿을 확률" ─────────────────────────────────────
-
-/** 모의계좌 기본값 — 왕복으로 뺀다 */
-const COMMISSION = 0.001;
-const SLIPPAGE = 0.0005;
-const ROUND_TRIP_COST = (COMMISSION + SLIPPAGE) * 2 * 100; // %
-
-interface FreqRow {
-  target: number;
-  stop: number;
-  horizon: number;
-  samples: number;
-  hitTarget: number;
-  hitStop: number;
-  neither: number;
-  expectancy: number;
-}
-
-/**
- * 매일 종가에 샀다고 가정하고, N 거래일 안에 목표(+X%)와 손절(−Y%) 중 **어느 쪽에 먼저**
- * 닿았는지 센다.
- *
- * ⚠️ 같은 날 둘 다 닿으면 **손절로 센다**(보수적). 일봉만으로는 장중 순서를 알 수 없어서,
- * 유리한 쪽으로 가정하면 실제보다 좋아 보인다.
- * ⚠️ 이것은 **예측이 아니라 과거 빈도**다. 아무 조건 없이 매일 샀을 때의 숫자이므로,
- * 신호는 이 기준선보다 나아야 의미가 있다.
- */
-function firstTouchFrequency(candles: Candle[], targets: number[], horizons: number[]): FreqRow[] {
-  const rows: FreqRow[] = [];
-  const usable = candles.slice(-FREQ_DAYS);
-
-  for (const X of targets) {
-    for (const [label, Y] of [['2:1', X / 2], ['1:1', X]] as const) {
-      for (const N of horizons) {
-        let samples = 0;
-        let hitTarget = 0;
-        let hitStop = 0;
-
-        for (let i = 0; i < usable.length - N; i += 1) {
-          const buy = usable[i].close;
-          const tp = buy * (1 + X / 100);
-          const sl = buy * (1 - Y / 100);
-          samples += 1;
-
-          let done = false;
-          for (let k = 1; k <= N && !done; k += 1) {
-            const bar = usable[i + k];
-            const touchedStop = bar.low <= sl;
-            const touchedTarget = bar.high >= tp;
-            // 같은 날 둘 다면 손절 (보수적)
-            if (touchedStop) { hitStop += 1; done = true; }
-            else if (touchedTarget) { hitTarget += 1; done = true; }
-          }
-        }
-
-        const neither = samples - hitTarget - hitStop;
-        const tRate = samples ? (hitTarget / samples) * 100 : 0;
-        const sRate = samples ? (hitStop / samples) * 100 : 0;
-        rows.push({
-          target: X,
-          stop: Number(`${Y}`),
-          horizon: N,
-          samples,
-          hitTarget: round2(tRate),
-          hitStop: round2(sRate),
-          neither: round2(samples ? (neither / samples) * 100 : 0),
-          // 기대값 = 도달률×X − 손절률×Y − 왕복 비용
-          expectancy: round2((tRate / 100) * X - (sRate / 100) * Y - ROUND_TRIP_COST),
-        });
-        void label;
-      }
-    }
-  }
-  return rows;
-}
-
-/** 하루 평균 변동폭 — "3% 는 이 종목의 며칠치인가" 를 보여 준다 */
-function atrPercent(candles: Candle[], period = 14): number | null {
-  const c = candles.slice(-(period + 1));
-  if (c.length < period + 1) return null;
-  let sum = 0;
-  for (let i = 1; i < c.length; i += 1) {
-    const tr = Math.max(
-      c[i].high - c[i].low,
-      Math.abs(c[i].high - c[i - 1].close),
-      Math.abs(c[i].low - c[i - 1].close),
-    );
-    sum += tr;
-  }
-  const atr = sum / period;
-  return round2((atr / c.at(-1)!.close) * 100);
-}
+// 계산은 `server/analysis/targetHit.ts` 한 곳이다 — 스윙 화면의 「목표 수익률」 탭과 같은 함수.
 
 // ── 3-3. 급등: 주기성 예측이 실제로 맞는가 ──────────────────────────────────
 
@@ -660,10 +577,10 @@ async function main() {
   console.log('[진단] 3/5 목표 수익률별 빈도');
   const freq: Record<string, { rows: FreqRow[]; atr: number | null }> = {};
   for (const symbol of [...list, 'SPY']) {
-    const candles = await candlesOf(symbol, FREQ_DAYS + 30);
+    const candles = await dailyCandles(symbol);
     if (candles.length < 60) continue;
     freq[symbol] = {
-      rows: firstTouchFrequency(candles, [3, 5, 10, 15], [3, 5, 10, 20]),
+      rows: firstTouchFrequency(candles, [3, 5, 10, 15], [3, 5, 10, 20], FREQ_DAYS),
       atr: atrPercent(candles),
     };
   }

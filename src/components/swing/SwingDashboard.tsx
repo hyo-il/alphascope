@@ -4,6 +4,7 @@ import { usePaperQuickBuy } from '../../hooks/usePaperQuickBuy';
 import SwingRecommendationCard from './SwingRecommendationCard';
 import SwingSearch from './SwingSearch';
 import SwingHistory from './SwingHistory';
+import TargetHitTab from './TargetHitTab';
 import CriteriaPanel from '../common/CriteriaPanel';
 import StrategyProfileModal from './StrategyProfileModal';
 import { STANDARD_SWING_CRITERIA, swingCriteria } from '../../data/criteria';
@@ -18,12 +19,14 @@ import SavedRecommendations from './SavedRecommendations';
 import StockName from '../common/StockName';
 import type { SwingGrade, SwingRecommendation } from '../../types/swing';
 
-type Tab = 'list' | 'search' | 'history';
+type Tab = 'list' | 'search' | 'history' | 'target';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'list', label: '추천 종목' },
   { id: 'search', label: '종목 검색' },
   { id: 'history', label: '추천 이력' },
+  // 보기 전용 기준선 — 여기서 고른 값은 등급·추천에 쓰이지 않는다 (v2.14.0)
+  { id: 'target', label: '목표 수익률' },
 ];
 
 /*
@@ -288,6 +291,7 @@ export default function SwingDashboard({
 
         {tab === 'search' && <SwingSearch onSelectSymbol={onSelectSymbol} onAnalyze={onAnalyze} />}
         {tab === 'history' && <SwingHistory />}
+        {tab === 'target' && <TargetHitTab />}
       </div>
 
       {profileOpen && profile.state && (
