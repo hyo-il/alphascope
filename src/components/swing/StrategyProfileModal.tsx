@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CUSTOM_PROFILES,
   PARAM_LIMITS,
@@ -11,9 +11,23 @@ import {
 } from '../../types/strategyProfile';
 import { ProfileSaveError, type ProfileFieldError } from '../../hooks/useStrategyProfile';
 import { toast } from '../../store/uiStore';
+import {
+  DIP_OPTIONS,
+  FREQUENCY_OPTIONS,
+  RISK_OPTIONS,
+  applyEasy,
+  detectEasy,
+  type EasyChoice,
+} from '../../utils/easyProfile';
 
 /**
  * 판정 기준 편집 팝업 — **공격·수비만** 고친다.
+ *
+ * **2층 구조** (v2.17.0): 초보자가 숫자표로는 고르지 못해서(사용자 신고),
+ *   - 1층 「쉬운 설정」 — 질문 3개(자주 받기 · 얼마나 떨어졌을 때 · 한 번에 잃어도 되는 돈) × 버튼 3개.
+ *     답은 `utils/easyProfile.ts` 가 숫자로 옮긴다. 고를 때마다 **과거 120일 결과 미리보기**를 표준과 나란히 보여 준다.
+ *   - 2층 「고급 설정」(접힘) — 예전 숫자표 그대로 + 행마다 쉬운 설명 한 줄. 여기서 직접 고치면 1층은 "직접 설정" 이 된다.
+ * 저장 구조·서버 검증은 그대로다 — 1층이 만든 값도 검증을 통과해야 저장된다.
  *
  * ⚠️ 표준 열은 읽기 전용이다. 표준은 코드 상수라 화면에서 바꿀 수 없고, 옆에 두는 이유는
  * "얼마나 바꿨는지" 를 눈으로 비교하기 위해서다.
@@ -37,6 +51,8 @@ type FieldPath =
 interface FieldSpec {
   path: FieldPath;
   label: string;
+  /** 초보자용 한 줄 설명 (v2.17.0) */
+  easy: string;
   hint: string;
   step: number;
   get: (p: SwingParams) => number;
@@ -48,6 +64,7 @@ const g = PARAM_LIMITS;
 const FIELDS: FieldSpec[] = [
   {
     path: 'grades.strong',
+    easy: "이 점수 이상이면 '강력 추천' 이 됩니다",
     label: 'STRONG 컷',
     hint: `${g.grade.min}~${g.grade.max} 정수 · BUY 보다 커야 합니다`,
     step: 1,
@@ -56,6 +73,7 @@ const FIELDS: FieldSpec[] = [
   },
   {
     path: 'grades.buy',
+    easy: "이 점수 이상이면 '추천' 이 됩니다",
     label: 'BUY 컷 (추천 기준)',
     hint: '이 점수 이상만 추천합니다',
     step: 1,
@@ -64,6 +82,7 @@ const FIELDS: FieldSpec[] = [
   },
   {
     path: 'grades.watch',
+    easy: "이 점수 이상이면 '관심'(아직 살 때는 아님) 입니다",
     label: 'WATCH 컷',
     hint: `${g.grade.min}~${g.grade.max} 정수`,
     step: 1,
@@ -72,6 +91,7 @@ const FIELDS: FieldSpec[] = [
   },
   {
     path: 'grades.hold',
+    easy: "이 점수 아래는 '피하기' 입니다",
     label: 'HOLD 컷',
     hint: '이 아래는 AVOID 입니다',
     step: 1,
@@ -80,6 +100,7 @@ const FIELDS: FieldSpec[] = [
   },
   {
     path: 'rrDemoteBelow',
+    easy: "벌 수 있는 돈 ÷ 잃을 수 있는 돈이 이보다 작으면 추천에서 내립니다",
     label: '손익비 강등 기준',
     // 1.0 하한은 성향이 아니라 원칙이다 (Step 10).
     hint: `이 값 미만이면 STRONG·BUY → WATCH · ${g.rrDemoteBelow.min} 아래로는 내릴 수 없습니다`,
@@ -89,6 +110,7 @@ const FIELDS: FieldSpec[] = [
   },
   {
     path: 'rsiBand.low',
+    easy: "RSI 눌림 구간: 최근 얼마나 내려왔는지를 0~100 으로 잰 값. 낮을수록 많이 떨어진 것",
     label: 'RSI 눌림 구간 (아래)',
     hint: `${g.rsi.min}~${g.rsi.max}`,
     step: 1,
@@ -97,6 +119,7 @@ const FIELDS: FieldSpec[] = [
   },
   {
     path: 'rsiBand.high',
+    easy: "이 구간 안에 있을 때 '적당히 쉬어 가는 중' 으로 보고 점수를 줍니다",
     label: 'RSI 눌림 구간 (위)',
     hint: '아래값보다 커야 합니다',
     step: 1,
@@ -105,6 +128,7 @@ const FIELDS: FieldSpec[] = [
   },
   {
     path: 'risk.lowVol',
+    easy: "리스크 %: 손절에 걸렸을 때 전체 자산에서 잃는 비율 (덜 움직이는 종목)",
     label: '리스크 % (저변동 ATR<2%)',
     hint: `${g.risk.min}~${g.risk.max}% · 앱의 안전 범위입니다`,
     step: 0.1,
@@ -113,6 +137,7 @@ const FIELDS: FieldSpec[] = [
   },
   {
     path: 'risk.midVol',
+    easy: "리스크 %: 손절에 걸렸을 때 전체 자산에서 잃는 비율 (보통 종목)",
     label: '리스크 % (중변동 2~4%)',
     hint: '저변동 이하 · 고변동 이상',
     step: 0.1,
@@ -121,6 +146,7 @@ const FIELDS: FieldSpec[] = [
   },
   {
     path: 'risk.highVol',
+    easy: "리스크 %: 손절에 걸렸을 때 전체 자산에서 잃는 비율 (많이 움직이는 종목)",
     label: '리스크 % (고변동 ATR>4%)',
     hint: '변동성이 클수록 작게 잡습니다',
     step: 0.1,
@@ -144,6 +170,40 @@ export default function StrategyProfileModal({
   }));
   const [errors, setErrors] = useState<ProfileFieldError[]>([]);
   const [saving, setSaving] = useState(false);
+  /** 1층에서 지금 고치는 프로파일 */
+  const [editing, setEditing] = useState<CustomProfileId>('aggressive');
+  const [preview, setPreview] = useState<PreviewState>({ status: 'idle' });
+  const previewSeq = useRef(0);
+
+  const easy = detectEasy(draft[editing]);
+
+  const choose = (patch: Partial<EasyChoice>) => {
+    const base: EasyChoice = easy ?? { frequency: 'normal', dip: 'normal', risk: 1 };
+    setDraft((prev) => ({ ...prev, [editing]: applyEasy({ ...base, ...patch }, prev[editing]) }));
+    setErrors((prev) => prev.filter((e) => !e.field.startsWith(`${editing}.`)));
+  };
+
+  // 고칠 때마다 과거 결과 미리보기 — 연타를 모아 한 번만 보낸다(서버는 설정별 하루 캐시)
+  const editingParams = JSON.stringify(draft[editing]);
+  useEffect(() => {
+    const mine = ++previewSeq.current;
+    setPreview((p) => ({ status: 'loading', last: p.status === 'done' ? p.result : p.status === 'loading' ? p.last : undefined }));
+    const timer = setTimeout(() => {
+      fetch('/api/swing/profile-preview', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ params: JSON.parse(editingParams) }),
+      })
+        .then(async (r) => {
+          const payload = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(payload.error ?? `요청 실패 (${r.status})`);
+          return payload as PreviewResult;
+        })
+        .then((result) => mine === previewSeq.current && setPreview({ status: 'done', result }))
+        .catch((e: Error) => mine === previewSeq.current && setPreview({ status: 'error', message: e.message }));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [editingParams]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -214,7 +274,58 @@ export default function StrategyProfileModal({
         </p>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 [scrollbar-gutter:stable]">
-          <table className="w-full border-collapse text-left">
+          {/* ── 1층: 쉬운 설정 ── */}
+          <section className="space-y-3">
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-semibold text-text-primary">쉬운 설정</h3>
+              <div className="flex gap-1">
+                {CUSTOM_PROFILES.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setEditing(id)}
+                    className={`rounded border px-2.5 py-0.5 text-[11px] transition-colors ${
+                      editing === id ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-border text-text-secondary'
+                    }`}
+                  >
+                    {PROFILE_LABEL[id]}
+                  </button>
+                ))}
+              </div>
+              {!easy && (
+                <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[10px] text-text-secondary">
+                  직접 설정 — 아래 고급 설정에서 고친 값입니다
+                </span>
+              )}
+              <span className="ml-auto text-[10px] text-text-muted">표준은 바꿀 수 없습니다</span>
+            </div>
+
+            <EasyQuestion
+              title="추천을 얼마나 자주 받고 싶나요?"
+              options={FREQUENCY_OPTIONS.map((o) => ({ id: o.id, label: o.label, hint: o.hint }))}
+              value={easy?.frequency}
+              onPick={(v) => choose({ frequency: v })}
+            />
+            <EasyQuestion
+              title="얼마나 떨어졌을 때 사고 싶나요?"
+              options={DIP_OPTIONS.map((o) => ({ id: o.id, label: o.label, hint: o.hint }))}
+              value={easy?.dip}
+              onPick={(v) => choose({ dip: v })}
+            />
+            <EasyQuestion
+              title="한 번 거래에서 잃어도 되는 돈은 전체의 몇 %?"
+              options={RISK_OPTIONS.map((o) => ({ id: o.id, label: o.label, hint: o.hint }))}
+              value={easy?.risk}
+              onPick={(v) => choose({ risk: v })}
+            />
+
+            <PreviewBox state={preview} />
+          </section>
+
+          {/* ── 2층: 고급 설정 (예전 숫자표) ── */}
+          <details className="mt-4 rounded-lg border border-border px-3 py-2">
+            <summary className="text-xs font-medium text-text-secondary">고급 설정 — 숫자를 직접 고칩니다</summary>
+          <table className="mt-2 w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-border text-[11px] text-text-muted">
                 <th className="py-2 pr-2 font-normal">항목</th>
@@ -231,6 +342,7 @@ export default function StrategyProfileModal({
                 <tr key={spec.path} className="border-b border-border/50 align-top">
                   <td className="py-2 pr-2">
                     <p className="text-xs text-text-primary">{spec.label}</p>
+                    <p className="text-[10px] leading-relaxed text-text-secondary">{spec.easy}</p>
                     <p className="text-[10px] leading-relaxed text-text-muted">{spec.hint}</p>
                   </td>
                   <td className="py-2 pr-2 text-xs tabular-nums text-text-muted">
@@ -278,6 +390,7 @@ export default function StrategyProfileModal({
               </button>
             ))}
           </div>
+          </details>
         </div>
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">
@@ -301,6 +414,97 @@ export default function StrategyProfileModal({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── 1층 부품 ─────────────────────────────────────────────────────────────────
+
+interface PreviewStats {
+  count: number;
+  avg10d: number | null;
+  sample: number;
+}
+interface PreviewResult extends PreviewStats {
+  baseline: PreviewStats;
+  symbols: number;
+  days: number;
+}
+type PreviewState =
+  | { status: 'idle' }
+  | { status: 'loading'; last?: PreviewResult }
+  | { status: 'done'; result: PreviewResult }
+  | { status: 'error'; message: string };
+
+function EasyQuestion<T extends string | number>({
+  title,
+  options,
+  value,
+  onPick,
+}: {
+  title: string;
+  options: { id: T; label: string; hint: string }[];
+  value: T | undefined;
+  onPick: (value: T) => void;
+}) {
+  const picked = options.find((o) => o.id === value);
+  return (
+    <div>
+      <p className="mb-1 text-[11px] text-text-primary">{title}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((o) => (
+          <button
+            key={String(o.id)}
+            type="button"
+            onClick={() => onPick(o.id)}
+            className={`rounded-md border px-3 py-1 text-xs transition-colors ${
+              value === o.id ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-border text-text-secondary hover:border-accent/50'
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      {picked && <p className="mt-1 text-[10px] text-text-muted">{picked.hint}</p>}
+    </div>
+  );
+}
+
+const pct = (v: number | null) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%`);
+
+/**
+ * 결과 미리보기 — 진단의 120일 재현을 그 설정으로 다시 돌린 값.
+ * ⚠️ 고정 문구 "과거 결과이며 앞으로를 보장하지 않습니다" 는 지우지 않는다. 표본 10 미만이면 "표본 적음 — 참고만".
+ */
+function PreviewBox({ state }: { state: PreviewState }) {
+  const result = state.status === 'done' ? state.result : state.status === 'loading' ? state.last : undefined;
+  return (
+    <div className="rounded-lg border border-border bg-bg-tertiary/30 px-3 py-2 text-[11px]">
+      <p className="mb-1 flex items-center gap-2 font-medium text-text-primary">
+        이 설정이었다면
+        {state.status === 'loading' && (
+          <span className="inline-flex items-center gap-1 font-normal text-text-muted">
+            <span className="h-3 w-3 animate-spin rounded-full border-2 border-border border-t-accent" aria-hidden />
+            과거 120일로 계산 중… (처음은 수십 초)
+          </span>
+        )}
+      </p>
+      {state.status === 'error' && <p className="text-bearish">{state.message}</p>}
+      {result && (
+        <div className={state.status === 'loading' ? 'opacity-50' : ''}>
+          <p className="text-text-secondary">
+            지난 {result.days}일 동안 관심 종목 {result.symbols}개에서 추천(BUY 이상)이{' '}
+            <b className="text-text-primary">{result.count}번</b>, 그 뒤 10일 평균 수익{' '}
+            <b className={(result.avg10d ?? 0) >= 0 ? 'text-bullish' : 'text-bearish'}>{pct(result.avg10d)}</b>
+            {result.sample < 10 && <span className="ml-1 rounded bg-bg-tertiary px-1 text-[10px] text-text-secondary">표본 적음 — 참고만</span>}
+          </p>
+          <p className="text-text-muted">
+            표준 설정은 {result.baseline.count}번 · {pct(result.baseline.avg10d)}
+            {result.baseline.sample < 10 && ' (표본 적음)'}
+          </p>
+        </div>
+      )}
+      <p className="mt-1 text-[10px] text-text-muted">과거 결과이며 앞으로를 보장하지 않습니다.</p>
     </div>
   );
 }

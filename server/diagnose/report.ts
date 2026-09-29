@@ -27,6 +27,7 @@ import { getDb, loadCandles } from '../db';
 import { getCandles } from '../candleService';
 import { evaluateSwing } from '../swingAnalyzer';
 import { getActiveSwingParams } from '../strategyProfile';
+import type { ProfileId, SwingParams } from '../../src/types/strategyProfile';
 import {
   analyzePeriodicity,
   findSurgeEvents,
@@ -202,7 +203,7 @@ async function swingToday(symbols: string[]): Promise<SwingToday[]> {
   return out;
 }
 
-interface ReplayResult {
+export interface ReplayResult {
   symbol: string;
   days: number;
   grades: Record<string, number>;
@@ -217,7 +218,18 @@ interface ReplayResult {
  * ⚠️ `slice(0, i + 1)` 이 미래 차단의 전부다. 여기를 잘못 건드리면 숫자가 전부 거짓이 된다.
  */
 async function swingReplay(symbols: string[]): Promise<ReplayResult[]> {
-  const profile = getActiveSwingParams();
+  return replaySwing(symbols, getActiveSwingParams(), REPLAY_DAYS);
+}
+
+/**
+ * 과거 재현 본체 — 판정 기준(profile)과 기간을 **밖에서 넣는다** (v2.17.0).
+ * 진단과 스윙 「기준 편집」 미리보기(`server/swingPreview.ts`)가 같은 함수를 쓴다 — 두 벌이면 숫자가 달라진다.
+ */
+export async function replaySwing(
+  symbols: string[],
+  profile: { id: ProfileId; params: SwingParams },
+  days: number,
+): Promise<ReplayResult[]> {
   const out: ReplayResult[] = [];
 
   for (const symbol of symbols) {
@@ -230,7 +242,7 @@ async function swingReplay(symbols: string[]): Promise<ReplayResult[]> {
     let rrDemoted = 0;
     let lastBarChecked: string | null = null;
 
-    const start = Math.max(60, candles.length - REPLAY_DAYS);
+    const start = Math.max(60, candles.length - days);
     for (let i = start; i < candles.length; i += 1) {
       const upto = candles.slice(0, i + 1); // ← 미래 차단
       let r;

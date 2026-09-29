@@ -43,7 +43,7 @@ const isProfileId = (v: unknown): v is ProfileId =>
   v === 'standard' || v === 'aggressive' || v === 'defensive';
 
 /** 저장값이 깨졌거나 일부만 있어도 표준으로 메운다 — 화면이 빈 값으로 판정하게 두지 않는다 */
-function coerceParams(raw: unknown): SwingParams {
+export function coerceParams(raw: unknown): SwingParams {
   const base = cloneSwingParams(STANDARD_SWING);
   if (!raw || typeof raw !== 'object') return base;
   const r = raw as Partial<SwingParams>;

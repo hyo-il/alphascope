@@ -90,6 +90,8 @@ import {
 } from './analysis/targetHit';
 import {
   ProfileValidationError,
+  coerceParams,
+  validateSwingParams,
   getActiveSwingParams,
   getProfileState,
   saveProfileState,
@@ -130,6 +132,7 @@ import { startUniverseSnapshotScheduler } from './universe';
 import { startEarningsScheduler } from './earningsCalendar';
 import { startMarketCalendarScheduler } from './marketCalendar';
 import { calendarEvents } from './calendarService';
+import { previewProfile } from './swingPreview';
 
 /**
  * AlphaScope API 서버.
@@ -1038,6 +1041,25 @@ app.delete('/api/analyses', (req, res) => {
 // 스윙 판정값 네 종류를 표준 / 공격 / 수비 중에서 골라 쓴다.
 // ⚠️ 표준은 코드 상수(`STANDARD_SWING`)이고 저장하지 않는다 — 저장된 값이 표준을 덮으면
 // "표준인데 예전과 다른 결과" 가 된다.
+
+/**
+ * 기준 편집 미리보기 (v2.17.0) — 이 판정값이었다면 지난 120일 관심 종목에서 추천이 몇 번, 그 뒤 10일 평균 수익은.
+ * 저장과 같은 검증을 먼저 한다(검증을 통과하지 못하는 값은 미리보기도 하지 않는다). 처음 계산은 수십 초 걸릴 수 있다.
+ */
+app.post('/api/swing/profile-preview', async (req, res) => {
+  const params = coerceParams(req.body?.params);
+  const errors = validateSwingParams(params);
+  if (errors.length) return res.status(400).json({ error: errors[0].message, fields: errors });
+  // ⚠️ 재현은 날마다의 오류를 건너뛰므로, 엔진이 꺼져 있으면 "추천 0번" 이 결과처럼 보인다 — 먼저 확인한다
+  if (!(await indicatorEngineHealthy())) {
+    return res.status(503).json({ error: '지표 엔진이 꺼져 있어 미리보기를 계산하지 못했습니다.', engineDown: true });
+  }
+  try {
+    res.json(await previewProfile(params));
+  } catch (e) {
+    fail(res, e);
+  }
+});
 
 app.get('/api/strategy-profile', (_req, res) => {
   try {
