@@ -47,6 +47,8 @@ export interface DiagnoseSummary {
     conclusion: string;
   };
   ai: {
+    /** Claude 수동 분석 — 별도 줄 (v2.16.0 이전 리포트에는 없다. 그때는 Gemini 숫자에 섞여 있었다) */
+    claude?: { total: number; judged: number; rate: number };
     /** 묶기 전 원본 분석 수 */
     raw: number;
     /** 같은 종목·같은 날을 1건으로 묶은 뒤 */
@@ -134,6 +136,8 @@ export interface DiagnoseDetail {
   gemini: {
     /** 채점 규칙 문구 — v2.15.0 이전 리포트에는 없다 */
     rule?: string;
+    /** Claude 수동 분석 — 별도 줄 (v2.16.0 이전 리포트에는 없고, 그때는 위 숫자에 섞여 있었다) */
+    claude?: { raw: number; total: number; judged: number; correct: number; rate: number };
     /** 프롬프트 버전별 (Gemini) — v2.15.0 이전 리포트에는 없다 */
     byVersion?: { version: string; total: number; judged: number; rate: number | null }[];
     raw: number;

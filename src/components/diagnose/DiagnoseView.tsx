@@ -87,12 +87,15 @@ function Cards({ s }: { s: DiagnoseSummary }) {
         conclusion={s.surge.conclusion}
       />
       <Card
-        title="4. Gemini 분석은 정확한가?"
+        title="4. Gemini 분석은 정확한가? (Gemini 만)"
         weak={s.ai.weak}
         numbers={[
           { label: '적중률', value: `${s.ai.rate}% (채점 ${s.ai.judged}건)` },
           { label: '기준선 (5일 뒤 상승 비율)', value: `${s.ai.baseline}%` },
           { label: '분석 기록', value: `${s.ai.total}건 (원본 ${s.ai.raw}건)` },
+          s.ai.claude
+            ? { label: 'Claude 수동(별도·선택 편향)', value: `${s.ai.claude.rate}% (채점 ${s.ai.claude.judged}건)` }
+            : { label: '출처', value: 'Claude 수동 분석이 섞인 옛 리포트' },
         ]}
         conclusion={s.ai.conclusion}
       />
@@ -254,6 +257,15 @@ function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
         <p className="text-[11px] text-text-muted">
           채점 규칙: {d.gemini.rule ?? '5봉 뒤 종가(v2.15.0 이전 규칙 — 장중 분석은 실제로 6거래일 뒤)'}
         </p>
+        {d.gemini.claude ? (
+          <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] text-warning">
+            위 숫자는 Gemini 만입니다. Claude 수동 분석(별도): {d.gemini.claude.total}건 · 채점{' '}
+            {d.gemini.claude.judged}건 · 적중 {d.gemini.claude.rate}% — 사용자가 고른 종목만이라 선택 편향이 있어
+            직접 비교하지 않습니다.
+          </p>
+        ) : (
+          <p className="text-[11px] text-text-muted">이 리포트(v2.16.0 이전)는 Claude 수동 분석이 위 숫자에 섞여 있습니다.</p>
+        )}
         {d.gemini.byVersion && d.gemini.byVersion.length > 0 && (
           <Table
             headers={['프롬프트 버전(Gemini)', '건수', '채점', '적중률']}

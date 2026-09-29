@@ -468,11 +468,28 @@ async function surgeOutcomes() {
 /**
  * 기존 채점(`gemini/accuracy.ts`)을 그대로 부른다 — 새로 호출하지 않는다.
  * ⚠️ 같은 종목·같은 날은 1건으로 묶는다(`dailyScoredAnalyses`) — 「분석 성적표」와 같은 규칙.
+ * ⚠️ **Gemini 만 센다** (v2.16.0). 채점 함수는 Claude 수동 분석(`analysis_history`)도 함께 돌려주는데,
+ * v2.15.0 까지 여기서 둘을 합쳐 "Gemini 정확도" 로 적었다. Claude 는 사용자가 고른 종목만 분석하므로
+ * 선택 편향이 있어 섞으면 안 된다(Step 8) — 별도 줄(`claude`)로만 둔다.
  */
 async function geminiAccuracy(symbols: string[]) {
-  const raw = scoredAnalyses(500).length;
-  const scored = dailyScoredAnalyses(500);
+  const allRaw = scoredAnalyses(500);
+  const allDaily = dailyScoredAnalyses(500);
+  const raw = allRaw.filter((s) => s.source === 'gemini').length;
+  const scored = allDaily.filter((s) => s.source === 'gemini');
   const judged = scored.filter((s) => s.outcome !== 'pending');
+
+  // Claude 수동 분석 — 참고용 별도 줄 (선택 편향 경고와 함께 보여 준다)
+  const claudeDaily = allDaily.filter((s) => s.source === 'claude');
+  const claudeJudged = claudeDaily.filter((s) => s.outcome !== 'pending');
+  const claudeCorrect = claudeJudged.filter((s) => s.outcome === 'correct').length;
+  const claude = {
+    raw: allRaw.filter((s) => s.source === 'claude').length,
+    total: claudeDaily.length,
+    judged: claudeJudged.length,
+    correct: claudeCorrect,
+    rate: claudeJudged.length ? round2((claudeCorrect / claudeJudged.length) * 100) : 0,
+  };
 
   const bySignal = (sig: string) => {
     const subset = judged.filter((s) => s.signal === sig);
@@ -526,6 +543,7 @@ async function geminiAccuracy(symbols: string[]) {
     bySignal: ['BUY', 'SELL', 'HOLD'].map(bySignal),
     byConfidence: [byConfidence(0, 0.6), byConfidence(0.6, 0.7), byConfidence(0.7, 0.8), byConfidence(0.8, 1.01)],
     baselineUp5: totalDays ? round2((upDays / totalDays) * 100) : 0,
+    claude,
   };
 }
 
@@ -820,7 +838,8 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
 
   md.push('## 상세 6 — Gemini 정확도');
   md.push('');
-  md.push(`- 전체 ${gemini.total}건 · 채점 가능 ${gemini.judged}건 · 적중 ${gemini.rate}%`);
+  md.push(`- 전체 ${gemini.total}건 · 채점 가능 ${gemini.judged}건 · 적중 ${gemini.rate}% (Gemini 만)`);
+  md.push(`- 참고 — Claude 수동 분석(별도): ${gemini.claude.total}건 · 채점 ${gemini.claude.judged}건 · 적중 ${gemini.claude.rate}% ⚠️ 사용자가 고른 종목만이라 선택 편향 — Gemini 와 직접 비교하지 않는다`);
   md.push(`- 채점 규칙: ${gemini.rule}`);
   md.push('');
   md.push(table(['프롬프트 버전(Gemini)', '건수', '채점', '적중률'],
@@ -958,6 +977,7 @@ function buildSummary(x: {
               : '기준선보다 낮습니다.',
     },
     ai: {
+      claude: { total: g.claude.total, judged: g.claude.judged, rate: g.claude.rate },
       raw: g.raw,
       total: g.total,
       judged: g.judged,
