@@ -209,7 +209,7 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
                 onClick={() => setDiscoverOpen(true)}
                 className="rounded-md border border-border px-3 py-1 text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
               >
-                🔎 종목 발굴 (급등·스윙·관심 목록)
+                🔎 종목 발굴 (스윙·관심 목록)
               </button>
               <span className="text-[11px] text-text-muted">
                 기준을 정해 찾고, 근거를 본 뒤 고른 것만 담습니다
