@@ -127,6 +127,7 @@ import {
 import { computePerformance, listSnapshots } from './paperPerformanceService';
 import { backfillSnapshots, startSnapshotScheduler } from './paperSnapshotScheduler';
 import { startUniverseSnapshotScheduler } from './universe';
+import { startEarningsScheduler } from './earningsCalendar';
 
 /**
  * AlphaScope API 서버.
@@ -1324,6 +1325,9 @@ app.listen(port, host, () => {
 
   // 시총 유니버스 월별 스냅샷 — 하루 한 번 확인해 이번 달 것이 없으면 받는다 (v2.15.0, 생존 편향 보정용)
   if (!isMockMode()) startUniverseSnapshotScheduler();
+
+  // 실적 발표일 — 하루 1회 (v2.16.0). 스윙 실적 경고와 자동매매 실적 회피가 함께 쓴다
+  if (!isMockMode()) startEarningsScheduler();
 
   // 앱이 꺼져 있던 구간의 모의투자 스냅샷을 채우고, 이후 하루 한 번 기록한다.
   void backfillSnapshots().then(() => startSnapshotScheduler());

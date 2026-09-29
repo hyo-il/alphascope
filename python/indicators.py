@@ -16,6 +16,7 @@ import pandas_ta as ta
 from flask import Flask, jsonify, request
 
 from fundamentals import (
+    get_earnings,
     get_fundamentals,
     get_fx_sparkline,
     get_history,
@@ -129,6 +130,19 @@ def fundamentals():
         return jsonify({"error": "symbol 파라미터가 필요합니다."}), 400
     try:
         return jsonify(get_fundamentals(symbol))
+    except Exception as error:  # noqa: BLE001
+        return jsonify({"error": f"{type(error).__name__}: {error}"}), 500
+
+
+@app.get("/earnings")
+def earnings():
+    """실적 발표일만 — symbols=AAPL,MSFT (최대 20). 하루 1회 서버가 순차로 부른다 (v2.16.0)"""
+    raw = request.args.get("symbols") or ""
+    symbols = [s.strip().upper() for s in raw.split(",") if s.strip()][:20]
+    if not symbols:
+        return jsonify({"error": "symbols 파라미터가 필요합니다."}), 400
+    try:
+        return jsonify({"earnings": get_earnings(symbols)})
     except Exception as error:  # noqa: BLE001
         return jsonify({"error": f"{type(error).__name__}: {error}"}), 500
 

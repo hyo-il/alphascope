@@ -343,3 +343,14 @@ CREATE TABLE IF NOT EXISTS universe_snapshots (
   us_json TEXT NOT NULL,
   kr_json TEXT NOT NULL
 );
+
+-- 실적 발표일 (v2.16.0) — 실적일 소스는 server/earningsCalendar.ts 한 곳이다.
+-- 스윙 "실적 14일 이내" 경고와 자동매매 "실적 전 신규 매수 회피" 가 함께 쓴다.
+-- earnings_date 가 NULL 이면 받았지만 실적일이 없던 종목(→ "실적일 미확인").
+-- is_estimate = 1 은 회사 확정 전의 추정일. 하루 1회 갱신(마지막 날짜는 app_settings 'earnings.lastRefresh').
+CREATE TABLE IF NOT EXISTS earnings_calendar (
+  symbol TEXT PRIMARY KEY,
+  earnings_date TEXT,
+  fetched_at TEXT NOT NULL,
+  is_estimate INTEGER
+);

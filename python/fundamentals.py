@@ -87,6 +87,27 @@ def earnings_date(info: dict) -> str | None:
         return None
 
 
+def get_earnings(symbols: list[str]) -> list[dict]:
+    """
+    실적 발표일만 — `/earnings` 라우트 (v2.16.0). 재무제표·동종업계를 받지 않아 `/fundamentals` 보다 훨씬 가볍다.
+
+    `isEstimate`: yfinance 의 `isEarningsDateEstimate` — 회사가 확정 발표하기 전의 **추정일**이면 True.
+    실적일이 없으면(국내 종목은 대개 없다) date=None 으로 돌려준다 — 서버가 "실적일 미확인" 으로 다룬다.
+    ⚠️ 날짜가 지난 것일 수 있다(다음 일정이 아직 안 잡힌 경우 yfinance 가 직전 발표일을 준다).
+    """
+    out = []
+    for symbol in symbols:
+        _ticker, info = resolve_ticker(symbol)
+        estimate = info.get("isEarningsDateEstimate")
+        out.append({
+            "symbol": symbol,
+            "date": earnings_date(info),
+            "isEstimate": bool(estimate) if estimate is not None else None,
+            "found": bool(info),
+        })
+    return out
+
+
 def interest_coverage(financials) -> float | None:
     """
     이자보상배율 = 영업이익 / 이자비용.

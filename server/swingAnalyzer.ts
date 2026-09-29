@@ -19,6 +19,7 @@ import type {
 } from '../src/types/swing';
 import { getCandles } from './candleService';
 import { cachedFundamentals } from './companyService';
+import { getEarningsDate } from './earningsCalendar';
 import { getActiveSwingParams } from './strategyProfile';
 import type { ProfileId, SwingParams } from '../src/types/strategyProfile';
 import { loadCandles } from './db';
@@ -461,8 +462,11 @@ export async function evaluateSwing(
     warnings.push('1·2차 목표가 거의 같습니다 — 위쪽 여유 공간이 좁습니다');
   }
 
-  // 실적 발표는 캐시된 기업정보에서만 본다 (네트워크를 새로 타지 않는다).
-  const earnings = cachedFundamentals(upper)?.profile.earningsDate ?? null;
+  /*
+    실적 발표일은 **실적 달력(`earningsCalendar.ts`) 한 곳**을 먼저 본다 (v2.16.0) — 자동매매의 실적 회피와 같은 날짜다.
+    달력에 없으면 예전처럼 캐시된 기업정보로 폴백한다. 둘 다 네트워크를 새로 타지 않는다.
+  */
+  const earnings = getEarningsDate(upper)?.date ?? cachedFundamentals(upper)?.profile.earningsDate ?? null;
   if (earnings) {
     const days = Math.round((Date.parse(earnings) - Date.now()) / 86_400_000);
     if (days >= 0 && days <= 14) {
