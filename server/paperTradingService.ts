@@ -12,6 +12,7 @@ import type {
 import { getDb } from './db';
 import { fetchQuotes } from './quoteService';
 import { findStock } from './stockCatalog';
+import { currencyOfSymbol as currencyByRule } from '../src/utils/market';
 import { fetchExchangeRate } from '../src/services/toss/account';
 import { isMockMode } from './mockData';
 
@@ -48,10 +49,9 @@ export class PaperNotFoundError extends PaperTradingError {
 
 const nowIso = () => new Date().toISOString();
 
-/** 종목이 어느 통화로 거래되는지 — 카탈로그의 시장으로 판별한다. */
+/** 종목이 어느 통화로 거래되는지 — 카탈로그의 시장으로, 카탈로그에 없으면 심볼 규칙으로 (`utils/market.ts`). */
 function currencyOfSymbol(symbol: string): Currency {
-  const market = findStock(symbol)?.market;
-  return market === 'KOSPI' || market === 'KOSDAQ' || market === 'KR_ETC' ? 'KRW' : 'USD';
+  return currencyByRule(symbol, findStock(symbol)?.market);
 }
 
 function nameOfSymbol(symbol: string): string | null {

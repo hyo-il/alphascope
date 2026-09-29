@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { modal, toast } from '../store/uiStore';
 import { stockNameOf } from '../utils/stockNames';
+import { currencyOfSymbol } from '../utils/market';
 import { usePaperAccounts } from './usePaperTrading';
 
 /**
@@ -42,7 +43,7 @@ export function usePaperQuickBuy(defaultPercent = 5) {
         const detail = await json<{ account: { currentCash: number }; fxRate?: number }>(
           `/api/paper/accounts/${account.id}`,
         );
-        const currency = /^\d{6}$/.test(symbol) ? 'KRW' : 'USD';
+        const currency = currencyOfSymbol(symbol);
         const fxRate = typeof detail.fxRate === 'number' && detail.fxRate > 0 ? detail.fxRate : null;
         const cash =
           account.currency === currency

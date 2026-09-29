@@ -1,6 +1,8 @@
-/** 국내 시장 종목은 원화, 그 외는 달러로 본다. */
+import { isKrMarket } from './market';
+
+/** 국내 시장 종목은 원화, 그 외는 달러로 본다 (시장만 알 때). 심볼로 가를 때는 `market.ts` 의 `currencyOfSymbol` */
 export function currencyOf(market?: string | null): 'KRW' | 'USD' {
-  return market === 'KOSPI' || market === 'KOSDAQ' || market === 'KR_ETC' ? 'KRW' : 'USD';
+  return isKrMarket(market) ? 'KRW' : 'USD';
 }
 
 /**

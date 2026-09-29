@@ -3,7 +3,7 @@ import { getCandles } from './candleService';
 import { loadCandles } from './db';
 import { isMockMode, mockPrice } from './mockData';
 import { findStock } from './stockCatalog';
-import { currencyOf } from '../src/utils/formatters';
+import { currencyOfSymbol } from '../src/utils/market';
 import { tossGet } from '../src/services/toss/httpClient';
 
 /**
@@ -15,9 +15,9 @@ import { tossGet } from '../src/services/toss/httpClient';
 
 type Raw = Record<string, unknown>;
 
-/** 표기 통화 — 목록 화면이 국내 종목을 $ 로 적지 않게 시장으로 판별한다. */
+/** 표기 통화 — 목록 화면이 국내 종목을 $ 로 적지 않게 시장으로 판별한다(모르면 심볼 규칙). */
 function currencyFor(symbol: string): 'KRW' | 'USD' {
-  return currencyOf(findStock(symbol)?.market);
+  return currencyOfSymbol(symbol, findStock(symbol)?.market);
 }
 
 function num(value: unknown): number {

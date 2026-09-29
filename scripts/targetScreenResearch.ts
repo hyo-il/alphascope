@@ -24,7 +24,8 @@ import { ROUND_TRIP_COST, atr, touchOutcome, type TouchOutcome } from '../server
 import { outputDir } from '../server/diagnose/report';
 import { rsi, sma } from '../src/utils/indicators';
 import { isFormingBar } from '../src/utils/marketBar';
-import { isKrSymbol, marketDate } from '../src/utils/marketDate';
+import { isKrSymbol } from '../src/utils/market';
+import { marketDate } from '../src/utils/marketDate';
 import { UNIVERSE_PATH, type Universe } from './universeUpdate';
 
 // ── 고정값 (결과를 본 뒤 바꾸지 않는다) ─────────────────────────────────────

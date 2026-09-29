@@ -7,6 +7,7 @@ indicators.py 의 Flask 앱에 라우트로 등록된다 (프로세스는 하나
 from __future__ import annotations
 
 import math
+import re
 import time
 from typing import Any
 
@@ -16,8 +17,13 @@ import yfinance as yf
 # ⚠️ yfinance 는 국내 종목에 시장 접미사를 요구한다 — "005930" 은 404,
 # "005930.KS"(코스피) / "005930.KQ"(코스닥) 라야 찾는다. 어느 시장인지는 심볼만으로
 # 알 수 없으므로 순서대로 시도한다. 미국 종목은 그대로 쓴다.
+# 국내 판별 규칙은 src/utils/market.ts 의 isKrSymbol 과 같다 — "숫자로 시작하는 6자리"
+# (0126Z0 처럼 영문이 섞인 신규 코드 포함). 두 곳을 함께 고친다.
+_KR_SYMBOL = re.compile(r"^\d[0-9A-Z]{5}$")
+
+
 def _yf_candidates(symbol: str) -> list[str]:
-    if symbol.isdigit() and len(symbol) == 6:
+    if _KR_SYMBOL.match(symbol):
         return [f"{symbol}.KS", f"{symbol}.KQ"]
     return [symbol]
 

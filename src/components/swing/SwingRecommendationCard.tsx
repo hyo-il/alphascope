@@ -3,6 +3,7 @@ import StockName from '../common/StockName';
 import ConditionGauge from './ConditionGauge';
 import TradePlan from './TradePlan';
 import { GRADE_STYLE } from './gradeStyle';
+import { currencyOfSymbol } from '../../utils/market';
 
 const ENTRY_LABEL: Record<string, string> = {
   NOW: '즉시 매수',
@@ -23,7 +24,7 @@ export default function SwingRecommendationCard({
   onAnalyze: (symbol: string) => void;
 }) {
   const grade = GRADE_STYLE[recommendation.grade];
-  const currency: 'KRW' | 'USD' = /^\d{6}$/.test(recommendation.symbol) ? 'KRW' : 'USD';
+  const currency = currencyOfSymbol(recommendation.symbol);
   const { conditions } = recommendation;
 
   return (

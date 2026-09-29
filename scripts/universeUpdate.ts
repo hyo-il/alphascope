@@ -23,7 +23,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { findStock } from '../server/stockCatalog';
-import { isKrSymbol } from '../src/utils/marketDate';
+import { isKrSymbol } from '../src/utils/market';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const UNIVERSE_PATH = path.join(root, 'server/data/universe.json');
