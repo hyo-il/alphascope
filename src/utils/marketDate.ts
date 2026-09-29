@@ -11,9 +11,18 @@
 
 export type MarketTimeZone = 'Asia/Seoul' | 'America/New_York';
 
-/** 토스의 국내 종목 심볼은 6자리 숫자다 (005930). 그 밖은 미국으로 본다. */
+/**
+ * 토스의 국내 종목 심볼은 **숫자로 시작하는 6자리**다 — 005930 처럼 숫자만인 것과,
+ * 새로 상장한 종목의 `0126Z0`(삼성에피스홀딩스)처럼 영문이 섞인 것이 있다(카탈로그에 408개, 2026-09-29).
+ * 미국 심볼은 숫자로 시작하지 않는다(카탈로그 0건). 그 밖은 미국으로 본다.
+ * ⚠️ `/^\d{6}$/` 로 판별하지 말 것 — 영문이 섞인 국내 코드를 미국으로 본다.
+ */
+export function isKrSymbol(symbol: string): boolean {
+  return /^\d[0-9A-Z]{5}$/.test(symbol);
+}
+
 export function marketTimeZone(symbol: string): MarketTimeZone {
-  return /^\d{6}$/.test(symbol) ? 'Asia/Seoul' : 'America/New_York';
+  return isKrSymbol(symbol) ? 'Asia/Seoul' : 'America/New_York';
 }
 
 const formatters = new Map<MarketTimeZone, Intl.DateTimeFormat>();
