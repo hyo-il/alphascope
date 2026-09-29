@@ -62,6 +62,18 @@ export interface AccountStrategy {
   /** 보유 중 고점 대비 이만큼 하락하면 청산(%, 양수) */
   trailingStopPercent: number;
 
+  // ── 신규 매수 안전장치 (v2.16.0) — 둘 다 새로 사는 것만 막는다. 손절·청산은 그대로 ──
+  /**
+   * 실적 발표 N 거래일 전부터 발표일까지 새로 사지 않는다. 0 = 끔. 기본 3 (앱의 출발값 — 검증 전).
+   * 실적일은 `server/earningsCalendar.ts` 한 곳에서 읽는다.
+   */
+  earningsBlackoutDays: number;
+  /**
+   * 하루 동안 계좌 평가액이 N% 넘게 줄면 그 거래일은 새로 사지 않는다(킬 스위치). 0 = 끔(기본).
+   * 기본을 끔으로 둔 이유: 사용자 모르게 기존 계좌 동작을 바꾸지 않는다. 권장값은 없다(근거 없음).
+   */
+  dailyLossLimitPercent: number;
+
   // ── AI형 ───────────────────────────────────────
   buySignal: 'BUY' | 'STRONG_BUY';
   buyMinConfidence: number;
@@ -80,7 +92,7 @@ export interface AccountStrategy {
  * - `market_closed` = 정상 대기 (장이 열리면 저절로 돈다)
  * - `config` = 사람이 고쳐야 하는 설정 문제
  */
-export type BlockedKind = 'market_closed' | 'config' | 'server_off' | null;
+export type BlockedKind = 'market_closed' | 'config' | 'server_off' | 'daily_loss' | null;
 
 export interface AccountStrategyStatus {
   accountId: number;
@@ -106,6 +118,12 @@ export interface AccountStrategyStatus {
    * false 면 설정이 켜져 있어도 돌지 않는다 — 화면이 계좌 설정과 무관하게 알린다.
    */
   serverEnabled: boolean;
+  /**
+   * 마지막 한 바퀴의 판단 — 매수·매도뿐 아니라 **건너뛴 이유**도 담는다 (v2.16.0).
+   * 예전에는 스케줄러가 돌린 바퀴의 "건너뜀" 사유가 어디에도 남지 않았다(거래내역은 체결만 보인다).
+   */
+  lastNotes: { symbol: string; action: 'BUY' | 'SELL' | 'HOLD'; reason: string }[];
+  lastNotesAt: string | null;
 }
 
 /** 자동매매가 한 바퀴 돈 결과 (수동 실행 응답) */
@@ -151,6 +169,9 @@ export function defaultStrategy(accountId: number): AccountStrategy {
     hardStopLossPercent: 7,
     trailingStopEnabled: false,
     trailingStopPercent: 8,
+
+    earningsBlackoutDays: 3,
+    dailyLossLimitPercent: 0,
 
     buySignal: 'BUY',
     buyMinConfidence: 0.7,

@@ -9,7 +9,7 @@
  * ⚠️ 임시 계좌는 끝나고 지운다. 사용자의 계좌는 건드리지 않는다.
  * ⚠️ 여기서도 주문은 모의 계좌(SQLite)에만 들어간다.
  */
-import { getDb } from '../server/db';
+import { getDb, loadCandles } from '../server/db';
 import {
   createAccount,
   createOrder,
@@ -17,7 +17,10 @@ import {
   listPositions,
   listTrades,
 } from '../server/paperTradingService';
-import { runExitChecks } from '../server/autoTrading/engine';
+import { runExitChecks, tryBuy } from '../server/autoTrading/engine';
+import { dailyLossBlock, evaluateDailyLoss, strategyDay } from '../server/autoTrading/guards';
+import { getStrategyStatus } from '../server/autoTrading/scheduler';
+import { marketDate } from '../src/utils/marketDate';
 import { deleteStrategy, normalizeStrategy, saveStrategy, updatePeak } from '../server/autoTrading/store';
 import type { AccountStrategy } from '../src/types/autoTrading';
 
@@ -42,6 +45,43 @@ function inflateAvgPrice(accountId: number, symbol: string, factor: number): num
     `UPDATE paper_positions SET avg_price = ?, total_cost = ? WHERE account_id = ? AND symbol = ?`,
   ).run(next, next * row.quantity, accountId, symbol);
   return next;
+}
+
+// ── 실적일 조작 (임시 — 끝나면 원래 행으로 되돌린다) ──
+type EarningsRow = { symbol: string; earnings_date: string | null; fetched_at: string; is_estimate: number | null };
+
+function saveEarningsRow(symbol: string): EarningsRow | undefined {
+  return getDb().prepare(`SELECT * FROM earnings_calendar WHERE symbol = ?`).get(symbol) as EarningsRow | undefined;
+}
+function setEarnings(symbol: string, date: string, estimate: boolean): void {
+  getDb()
+    .prepare(
+      `INSERT INTO earnings_calendar (symbol, earnings_date, fetched_at, is_estimate) VALUES (?, ?, ?, ?)
+         ON CONFLICT(symbol) DO UPDATE SET earnings_date = excluded.earnings_date, fetched_at = excluded.fetched_at, is_estimate = excluded.is_estimate`,
+    )
+    .run(symbol, date, new Date().toISOString(), estimate ? 1 : 0);
+}
+function clearEarnings(symbol: string): void {
+  getDb().prepare(`DELETE FROM earnings_calendar WHERE symbol = ?`).run(symbol);
+}
+function restoreEarningsRow(symbol: string, row: EarningsRow | undefined): void {
+  clearEarnings(symbol);
+  if (row) {
+    getDb()
+      .prepare(`INSERT INTO earnings_calendar (symbol, earnings_date, fetched_at, is_estimate) VALUES (?, ?, ?, ?)`)
+      .run(row.symbol, row.earnings_date, row.fetched_at, row.is_estimate);
+  }
+}
+/** 주말을 건너뛰며 N 거래일 뒤 날짜 */
+function addTradingDays(day: string, n: number): string {
+  const d = new Date(`${day}T12:00:00Z`);
+  let left = n;
+  while (left > 0) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const w = d.getUTCDay();
+    if (w !== 0 && w !== 6) left -= 1;
+  }
+  return d.toISOString().slice(0, 10);
 }
 
 async function main(): Promise<void> {
@@ -129,6 +169,74 @@ async function main(): Promise<void> {
     const sells = trades.filter((t) => t.side === 'SELL');
     check('매도 거래가 기록됐다', sells.length >= 2, `${sells.length}건`);
     check('모든 매도에 사유가 있다', sells.every((t) => Boolean(t.reason)), sells.map((t) => t.reason).join(' | ').slice(0, 120));
+
+    // ── 5. 실적 발표 직전 신규 매수 회피 (v2.16.0) ──
+    console.log('\n5) 실적 발표 직전 매수 회피 (3거래일)');
+    // 예산 계산용 가격 — 캐시된 일봉 종가 (점검에 실시간 시세가 필요 없다)
+    const price = loadCandles(SYMBOL, '1d', 1).at(-1)?.close ?? 300;
+    const guarded: AccountStrategy = { ...base, earningsBlackoutDays: 3, dailyLossLimitPercent: 0 };
+    saveStrategy(account.id, guarded);
+    // 가짜 실적일 = 오늘로부터 2거래일 뒤 (끝나면 원래 행으로 되돌린다)
+    const saved = saveEarningsRow(SYMBOL);
+    try {
+      setEarnings(SYMBOL, addTradingDays(marketDate(Date.now(), SYMBOL), 2), true);
+      const skip = await tryBuy(guarded, SYMBOL, price, '점검용 자동 매수', 0);
+      check('실적 2거래일 전에는 새로 사지 않는다', skip.action === 'HOLD' && !skip.orderId, skip.reason);
+      check('사유에 실적일·거래일이 적힌다', skip.reason.includes('실적 발표') && skip.reason.includes('2거래일 전'), skip.reason);
+
+      const off0 = await tryBuy({ ...guarded, earningsBlackoutDays: 0 }, SYMBOL, price, '점검용 자동 매수', 0);
+      check('설정 0 이면 막지 않는다', off0.action === 'BUY', off0.reason);
+
+      clearEarnings(SYMBOL);
+      const unknown = await tryBuy(guarded, SYMBOL, price, '점검용 자동 매수', 0);
+      check('실적일을 모르면 사되 사유에 남긴다', unknown.action === 'BUY' && unknown.reason.includes('실적일 미확인'), unknown.reason);
+
+      // 실적 회피 중에도 손절은 돈다
+      setEarnings(SYMBOL, addTradingDays(marketDate(Date.now(), SYMBOL), 1), false);
+      inflateAvgPrice(account.id, SYMBOL, 1 / 0.85);
+      const stopDuring = await runExitChecks(guarded);
+      check('실적 회피 중에도 하드 손절은 돈다', stopDuring.some((n) => n.action === 'SELL'), stopDuring.map((n) => n.reason).join(' | '));
+    } finally {
+      restoreEarningsRow(SYMBOL, saved);
+    }
+
+    // ── 6. 하루 손실 한도 (킬 스위치) ───────────────
+    console.log('\n6) 하루 손실 한도 (-2%)');
+    const kill: AccountStrategy = {
+      ...base,
+      enabled: true,
+      marketHoursOnly: false,
+      earningsBlackoutDays: 0,
+      dailyLossLimitPercent: 2,
+    };
+    saveStrategy(account.id, kill);
+    const now = Date.now();
+    const value = (v: number) => async () => v;
+    await evaluateDailyLoss(kill, now, value(100_000)); // 그 거래일의 첫 평가액 = 기준
+    const small = await evaluateDailyLoss(kill, now + 60_000, value(99_000));
+    check('-1% 는 한도에 닿지 않는다', small?.hit === false, `${small?.drawdownPercent.toFixed(2)}%`);
+    const big = await evaluateDailyLoss(kill, now + 120_000, value(97_000));
+    check('-3% 면 한도에 닿는다', big?.hit === true, `${big?.drawdownPercent.toFixed(2)}%`);
+    const blockedBuy = await tryBuy(kill, SYMBOL, price, '점검용 자동 매수', 0);
+    check('닿으면 신규 매수를 막는다', blockedBuy.action === 'HOLD' && blockedBuy.reason.includes('하루 손실 한도'), blockedBuy.reason);
+    const status = getStrategyStatus(account.id);
+    check('상태가 daily_loss(⚠ 멈춤)', status.blockedKind === 'daily_loss', status.blockedReason ?? '');
+
+    await createOrder({ accountId: account.id, symbol: SYMBOL, side: 'BUY', orderType: 'MARKET', quantity: 5, reason: '점검용 매수' });
+    inflateAvgPrice(account.id, SYMBOL, 1 / 0.85);
+    const stopUnderKill = await runExitChecks(kill);
+    check('킬 스위치 중에도 손절·청산은 돈다', stopUnderKill.some((n) => n.action === 'SELL'), stopUnderKill.map((n) => n.reason).join(' | '));
+
+    const recovered = await evaluateDailyLoss(kill, now + 180_000, value(99_900));
+    check('같은 거래일에는 회복해도 풀리지 않는다', recovered?.hit === true, `${recovered?.drawdownPercent.toFixed(2)}%`);
+
+    // 다음 거래일로 — 날짜가 바뀌면 새 기준으로 저절로 풀린다
+    let next = now;
+    const today = strategyDay(kill, now);
+    while (strategyDay(kill, next) === today) next += 6 * 60 * 60_000;
+    const nextDay = await evaluateDailyLoss(kill, next, value(97_000));
+    check('다음 거래일에는 풀린다', nextDay?.hit === false && dailyLossBlock(kill, next) === null, `${strategyDay(kill, next)} 기준 ${nextDay?.base}`);
+    await evaluateDailyLoss({ ...kill, dailyLossLimitPercent: 0 }, next); // 기록 정리
   } finally {
     deleteStrategy(account.id);
     deleteAccount(account.id);

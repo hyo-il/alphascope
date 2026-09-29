@@ -128,6 +128,34 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
         </span>
       </div>
 
+      {/*
+        마지막 한 바퀴의 판단 — 매수·매도와 **건너뛴 이유**(실적 발표 직전·하루 손실 한도·한도 초과 등).
+        거래내역은 체결만 보여서, 예전에는 "왜 안 샀나" 를 확인할 곳이 없었다 (v2.16.0).
+      */}
+      {status && status.lastNotes.length > 0 && (
+        <details className="border-b border-border px-4 py-1.5 text-[11px]">
+          <summary className="text-text-muted">
+            최근 판단 {status.lastNotes.length}건
+            {status.lastNotesAt && ` · ${new Date(status.lastNotesAt).toLocaleString('ko-KR')}`}
+          </summary>
+          <ul className="mt-1 space-y-0.5">
+            {status.lastNotes.map((n, i) => (
+              <li key={i} className="flex gap-2">
+                <span
+                  className={`w-9 shrink-0 font-medium ${
+                    n.action === 'BUY' ? 'text-bullish' : n.action === 'SELL' ? 'text-bearish' : 'text-text-muted'
+                  }`}
+                >
+                  {n.action === 'BUY' ? '매수' : n.action === 'SELL' ? '매도' : '건너뜀'}
+                </span>
+                <span className="w-16 shrink-0 text-text-secondary">{n.symbol}</span>
+                <span className="min-w-0 text-text-secondary">{n.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       {open && (
         <AutoTradeSettings
           strategy={strategy}

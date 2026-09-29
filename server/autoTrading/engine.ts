@@ -16,6 +16,7 @@ import { isGeminiEnabled } from '../gemini/client';
 import { evaluateRule } from './ruleEngine';
 import { planBuy } from './sizing';
 import { clearPeak, getPeak, updatePeak } from './store';
+import { dailyLossBlock, earningsGuard } from './guards';
 import type { AccountStrategy, AutoTradeRunResult } from '../../src/types/autoTrading';
 
 type Note = AutoTradeRunResult['notes'][number];
@@ -235,14 +236,27 @@ export async function runStrategyCycle(strategy: AccountStrategy): Promise<AutoT
   return result;
 }
 
-/** 매수 시도 — 보유 종목 수 한도와 예산을 함께 본다 */
-async function tryBuy(
+/**
+ * 매수 시도 — 신규 매수 안전장치(v2.16.0) → 보유 종목 수 한도 → 예산 순으로 본다.
+ * ⚠️ 안전장치는 **여기서만** 막는다. 보유 재평가 매도·청산 경로는 이 함수를 지나지 않는다.
+ * export 는 점검 스크립트(`npm run autotrade:test`)용이다 — 규칙형 매수 신호는 억지로 만들 수 없어서.
+ */
+export async function tryBuy(
   strategy: AccountStrategy,
   symbol: string,
   price: number | null,
   reason: string,
   openCount: number,
 ): Promise<Note> {
+  // 하루 손실 한도(킬 스위치) — 그 거래일 끝까지 새로 사지 않는다
+  const lossBlock = dailyLossBlock(strategy);
+  if (lossBlock) return { symbol, action: 'HOLD', reason: lossBlock, orderId: null };
+
+  // 실적 발표 직전 — 실적일을 모르면 막지 않되 사유에 남긴다
+  const earnings = earningsGuard(strategy, symbol);
+  if (earnings.blocked) return { symbol, action: 'HOLD', reason: earnings.blocked, orderId: null };
+  if (earnings.note) reason = `${reason} · ${earnings.note}`;
+
   /*
    * 한도는 "몇 종목에 분산할지" 이지 "추가 매수 금지" 가 아니다 —
    * 이미 들고 있는 종목은 이 함수로 오지 않는다(호출부가 held 를 걸러낸다).

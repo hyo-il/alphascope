@@ -441,6 +441,44 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
               팔 때를 정합니다.
             </p>
           </section>
+
+          {/*
+            ⑤ 신규 매수 안전장치 (v2.16.0) — 둘 다 **새로 사는 것만** 막는다. 손절·청산은 그대로 돈다.
+            값은 앱의 출발값이지 검증된 권장값이 아니다 — 권장값을 적지 않는다.
+          */}
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold text-text-primary">⑤ 신규 매수 안전장치</h3>
+            <Row label="실적 발표 전 (거래일)">
+              <input
+                type="number" min={0} max={10} step={1}
+                value={draft.earningsBlackoutDays}
+                onChange={(e) => patch({ earningsBlackoutDays: Number(e.target.value) })}
+                className={FIELD}
+              />
+              <span className="text-[11px] text-text-muted">
+                {draft.earningsBlackoutDays > 0
+                  ? `실적 발표 ${draft.earningsBlackoutDays} 거래일 전부터 발표일까지 새로 사지 않습니다`
+                  : '끔 — 실적 발표와 상관없이 삽니다'}
+              </span>
+            </Row>
+            <Row label="하루 손실 한도 (%)">
+              <input
+                type="number" min={0} max={20} step={0.5}
+                value={draft.dailyLossLimitPercent}
+                onChange={(e) => patch({ dailyLossLimitPercent: Number(e.target.value) })}
+                className={FIELD}
+              />
+              <span className="text-[11px] text-text-muted">
+                {draft.dailyLossLimitPercent > 0
+                  ? `하루 동안 계좌 평가액이 ${draft.dailyLossLimitPercent}% 넘게 줄면 그날은 새로 사지 않습니다 (보유 종목 손절·청산은 계속)`
+                  : '끔 (0) — 하루 손실과 상관없이 삽니다'}
+              </span>
+            </Row>
+            <p className="text-[11px] leading-relaxed text-text-muted">
+              실적일은 매일 한 번 받아 둔 달력(yfinance)을 봅니다. 실적일을 모르는 종목은 막지 않고 거래 사유에
+              「실적일 미확인」 을 남깁니다. 하루는 미국 종목이면 미국 거래일 기준이고, 다음 거래일이 되면 자동으로 풀립니다.
+            </p>
+          </section>
         </div>
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">

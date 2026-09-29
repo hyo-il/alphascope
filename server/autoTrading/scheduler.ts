@@ -14,7 +14,8 @@
 
 import { isUsMarketOpen } from '../marketHours';
 import { runExitChecks, runStrategyCycle, refreshPeaks } from './engine';
-import { listActiveStrategies, getStrategy } from './store';
+import { dailyLossBlock, evaluateDailyLoss } from './guards';
+import { listActiveStrategies, getStrategy, readNotes, recordNotes } from './store';
 import { geminiDisabledReason } from '../gemini/client';
 import { countToday } from '../gemini/store';
 import type {
@@ -45,6 +46,11 @@ interface RunState {
   nextRunAt: string | null;
   lastError: string | null;
   running: boolean;
+}
+
+/** 마지막 바퀴의 판단(건너뜀 사유 포함)을 저장한다 — 화면의 「최근 판단」 이 읽는다 */
+function rememberNotes(accountId: number, notes: AutoTradeRunResult['notes']): void {
+  recordNotes(accountId, notes);
 }
 
 /** 계좌별 실행 상태 (프로세스 메모리 — 재시작하면 다음 틱에 다시 잡힌다) */
@@ -85,15 +91,17 @@ function blocked(strategy: AccountStrategy): {
   if (!strategy.symbols.length) {
     return { reason: '자동매매 대상 종목이 없습니다', kind: 'config' };
   }
+  /*
+    하루 손실 한도(킬 스위치, v2.16.0) — ⚠ 멈춤으로 보이지만 **신규 매수만** 막힌 상태다.
+    틱은 이 kind 로는 바퀴를 건너뛰지 않는다(보유 재평가 매도는 돌아야 한다). 매수는 tryBuy 가 막는다.
+    장 마감(대기)보다 먼저 본다 — 닿은 사실이 "대기" 뒤에 가려지면 안 된다.
+  */
+  const loss = dailyLossBlock(strategy);
+  if (loss) return { reason: loss, kind: 'daily_loss' };
   if (strategy.marketHoursOnly && !isUsMarketOpen()) {
     return { reason: '정규장 시간이 아닙니다', kind: 'market_closed' };
   }
   return { reason: null, kind: null };
-}
-
-/** 내부에서 "돌 수 있는가" 만 볼 때 쓴다 (기존 호출부 유지) */
-function blockedReason(strategy: AccountStrategy): string | null {
-  return blocked(strategy).reason;
 }
 
 export function getStrategyStatus(accountId: number): AccountStrategyStatus {
@@ -113,6 +121,8 @@ export function getStrategyStatus(accountId: number): AccountStrategyStatus {
     blockedReason: b.reason,
     blockedKind: b.kind,
     serverEnabled: isAutoTradingEnabled(),
+    lastNotes: readNotes(accountId).notes,
+    lastNotesAt: readNotes(accountId).at,
   };
 }
 
@@ -152,6 +162,8 @@ export async function runAccount(accountId: number, force = false): Promise<Auto
      */
     result.notes.push(...(await runExitChecks(strategy)));
     result.ordered += result.notes.filter((n) => n.orderId).length;
+    // 청산 다음에 하루 손실 한도를 잰다 (신규 매수 차단 여부)
+    await evaluateDailyLoss(strategy).catch(() => null);
 
     // 정규장 밖에서는 청산만 하고 신규 판단은 쉰다 (수동 실행은 예외)
     if (!force && strategy.marketHoursOnly && !isUsMarketOpen()) {
@@ -170,6 +182,7 @@ export async function runAccount(accountId: number, force = false): Promise<Auto
     s.lastRunAt = new Date().toISOString();
     s.nextRunAt = new Date(Date.now() + strategy.intervalMinutes * 60_000).toISOString();
     s.lastError = result.errors.length ? result.errors.join(' / ') : null;
+    rememberNotes(accountId, result.notes);
   } catch (error) {
     s.lastError = (error as Error).message;
     result.errors.push(s.lastError);
@@ -190,7 +203,14 @@ async function tick(): Promise<void> {
         // 청산은 언제나 (분석 주기와 무관)
         await refreshPeaks(strategy);
         const exits = await runExitChecks(strategy);
-        if (exits.length) s.lastError = null;
+        if (exits.length) {
+          s.lastError = null;
+          rememberNotes(strategy.accountId, exits);
+        }
+        // ② 청산 다음 — 하루 손실 한도를 1분마다 잰다 (닿으면 그 거래일 끝까지 신규 매수 차단)
+        await evaluateDailyLoss(strategy).catch((e) => {
+          s.lastError = `하루 손실 한도 계산 실패: ${(e as Error).message}`;
+        });
 
         // 매수·재평가는 주기가 됐을 때만
         if (!dueForCycle(strategy)) continue;
@@ -198,12 +218,15 @@ async function tick(): Promise<void> {
           s.nextRunAt = new Date(Date.now() + strategy.intervalMinutes * 60_000).toISOString();
           continue;
         }
-        if (blockedReason(strategy)) continue;
+        // 킬 스위치(daily_loss)로는 바퀴를 건너뛰지 않는다 — 보유 재평가 매도는 돌고, 매수만 tryBuy 가 막는다
+        const b = blocked(strategy);
+        if (b.reason && b.kind !== 'daily_loss') continue;
 
         const cycle = await runStrategyCycle(strategy);
         s.lastRunAt = new Date().toISOString();
         s.nextRunAt = new Date(Date.now() + strategy.intervalMinutes * 60_000).toISOString();
         s.lastError = cycle.errors.length ? cycle.errors.join(' / ') : null;
+        rememberNotes(strategy.accountId, cycle.notes);
       } catch (error) {
         s.lastError = (error as Error).message;
       }

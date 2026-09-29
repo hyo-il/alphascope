@@ -58,6 +58,19 @@ export function autoTradeView(
     };
   }
 
+  // 하루 손실 한도(킬 스위치, v2.16.0) — 신규 매수만 멈춘 상태. 손절·청산은 계속 돈다
+  if (status?.blockedKind === 'daily_loss') {
+    return {
+      state: 'blocked',
+      symbol: '⚠',
+      label: '멈춤',
+      hint: '손절·청산은 계속',
+      reason: status.blockedReason,
+      busy: false,
+      fixable: true,
+    };
+  }
+
   // 이 서버에서 자동매매 자체가 꺼져 있다 (AUTO_TRADING_ENABLED=false, v2.16.0) — 설정이 켜져 있어도 돌지 않는다
   if (status?.blockedKind === 'server_off') {
     return {

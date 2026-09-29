@@ -20,6 +20,27 @@ import {
 
 const STRATEGIES_KEY = 'autoTrading.strategies';
 const PEAKS_KEY = 'autoTrading.trailingPeaks';
+/** 계좌별 마지막 바퀴의 판단 (건너뜀 사유 포함, v2.16.0) — 재시작해도 화면에서 볼 수 있게 저장한다 */
+const NOTES_KEY = 'autoTrading.lastNotes';
+
+export type DecisionNote = { symbol: string; action: 'BUY' | 'SELL' | 'HOLD'; reason: string };
+type NotesMap = Record<string, { at: string; notes: DecisionNote[] }>;
+
+/** 마지막 바퀴의 판단을 기억한다 — 청산·매수·건너뜀 모두 (최대 30개). 빈 목록은 이전 기록을 지우지 않는다 */
+export function recordNotes(accountId: number, notes: DecisionNote[]): void {
+  if (!notes.length) return;
+  const map = readSetting<NotesMap>(NOTES_KEY, {});
+  map[String(accountId)] = {
+    at: new Date().toISOString(),
+    notes: notes.slice(0, 30).map((n) => ({ symbol: n.symbol, action: n.action, reason: n.reason })),
+  };
+  writeSetting(NOTES_KEY, map);
+}
+
+export function readNotes(accountId: number): { at: string | null; notes: DecisionNote[] } {
+  const found = readSetting<NotesMap>(NOTES_KEY, {})[String(accountId)];
+  return { at: found?.at ?? null, notes: found?.notes ?? [] };
+}
 
 type StrategyMap = Record<string, AccountStrategy>;
 
@@ -83,6 +104,11 @@ export function normalizeStrategy(accountId: number, raw: Partial<AccountStrateg
   next.buyMinConfidence = clamp(next.buyMinConfidence, 0, 1);
   next.sellMinConfidence = clamp(next.sellMinConfidence, 0, 1);
 
+  // 신규 매수 안전장치 (v2.16.0) — 저장된 옛 설정에는 없으므로 기본값(3·0)으로 채워진다
+  next.earningsBlackoutDays = clamp(Math.round(next.earningsBlackoutDays), 0, 10);
+  // 0~20%, 0.5 단위
+  next.dailyLossLimitPercent = Math.round(clamp(next.dailyLossLimitPercent, 0, 20) * 2) / 2;
+
   next.rule = cleanRule(next.rule);
   return next;
 }
@@ -132,6 +158,10 @@ export function deleteStrategy(accountId: number): void {
   const peaks = readPeaks();
   delete peaks[String(accountId)];
   writeSetting(PEAKS_KEY, peaks);
+
+  const notes = readSetting<NotesMap>(NOTES_KEY, {});
+  delete notes[String(accountId)];
+  writeSetting(NOTES_KEY, notes);
 }
 
 // ── 트레일링 스톱의 고점 기록 ────────────────────────────────
