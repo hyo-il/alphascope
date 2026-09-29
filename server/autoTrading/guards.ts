@@ -10,6 +10,7 @@ import { getAccount, valuePositions } from '../paperTradingService';
 import { getEarningsDate } from '../earningsCalendar';
 import { readSetting, writeSetting } from '../gemini/store';
 import { isKrSymbol } from '../../src/utils/market';
+import { isMarketClosed, type CalendarMarket } from '../marketCalendar';
 import { marketDate } from '../../src/utils/marketDate';
 import type { AccountStrategy } from '../../src/types/autoTrading';
 
@@ -23,9 +24,10 @@ const isWeekend = (day: string) => {
 
 /**
  * from(오늘) 다음 날부터 to(발표일)까지의 거래일 수 — 발표일이 오늘이면 0, 지났으면 음수.
- * ⚠️ 주말만 뺀다(휴장일은 모른다 — 앞으로의 휴장 달력이 없다). 연휴 직전에는 하루쯤 일찍 막힐 수 있다(보수적인 쪽).
+ * 시장을 주면 토스 휴장 달력(`marketCalendar.ts`)의 휴장일도 뺀다 (v2.17.0 — 그전에는 주말만 뺐다).
+ * 달력으로 확인한 범위 밖은 주말만 뺀다.
  */
-export function tradingDaysUntil(from: string, to: string): number {
+export function tradingDaysUntil(from: string, to: string, market?: CalendarMarket): number {
   if (to === from) return 0;
   if (to < from) return -1;
   let count = 0;
@@ -33,7 +35,8 @@ export function tradingDaysUntil(from: string, to: string): number {
   for (;;) {
     cursor.setUTCDate(cursor.getUTCDate() + 1);
     const day = cursor.toISOString().slice(0, 10);
-    if (!isWeekend(day)) count += 1;
+    const closed = market ? isMarketClosed(market, day) : isWeekend(day);
+    if (!closed) count += 1;
     if (day >= to) return count;
   }
 }
@@ -55,7 +58,7 @@ export function earningsGuard(
   const e = getEarningsDate(symbol);
   if (!e) return { blocked: null, note: '실적일 미확인' };
   const today = marketDate(now, symbol);
-  const until = tradingDaysUntil(today, e.date);
+  const until = tradingDaysUntil(today, e.date, isKrSymbol(symbol) ? 'KR' : 'US');
   if (until < 0 || until > days) return { blocked: null, note: null };
   const label = `${Number(e.date.slice(5, 7))}/${Number(e.date.slice(8, 10))}${e.isEstimate ? '(예정)' : ''}`;
   const when = until === 0 ? '당일' : `${until}거래일 전`;

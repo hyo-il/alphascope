@@ -128,6 +128,8 @@ import { computePerformance, listSnapshots } from './paperPerformanceService';
 import { backfillSnapshots, startSnapshotScheduler } from './paperSnapshotScheduler';
 import { startUniverseSnapshotScheduler } from './universe';
 import { startEarningsScheduler } from './earningsCalendar';
+import { startMarketCalendarScheduler } from './marketCalendar';
+import { calendarEvents } from './calendarService';
 
 /**
  * AlphaScope API 서버.
@@ -1237,6 +1239,29 @@ app.get('/api/ai/accuracy', (_req, res) => {
   }
 });
 
+// -- 주요 일정 달력 (v2.17.0) --------------------------------------------------
+// 실적(earnings_calendar) · FOMC(src/data/fomc.ts) · 옵션 만기(셋째 금요일) · 휴장일(market_holidays).
+
+const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+app.get('/api/calendar', (req, res) => {
+  const from = String(req.query.from ?? '');
+  const to = String(req.query.to ?? '');
+  const scope = req.query.scope === 'universe' ? 'universe' : 'watchlist';
+  if (!DAY_PATTERN.test(from) || !DAY_PATTERN.test(to) || from > to) {
+    return res.status(400).json({ error: 'from·to 는 YYYY-MM-DD 이고 from ≤ to 여야 합니다.' });
+  }
+  // 한 번에 1년까지 — 달력 한 화면(한 달)보다 넉넉하다
+  if (Date.parse(to) - Date.parse(from) > 366 * 86_400_000) {
+    return res.status(400).json({ error: '한 번에 1년까지 조회할 수 있습니다.' });
+  }
+  try {
+    res.json(calendarEvents(from, to, scope));
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
 // -- 진단 리포트 (v2.14.0) ---------------------------------------------------
 //
 // `npm run diagnose` 와 같은 함수(`server/diagnose/report.ts`)를 백그라운드로 돌린다.
@@ -1328,6 +1353,9 @@ app.listen(port, host, () => {
 
   // 실적 발표일 — 하루 1회 (v2.16.0). 스윙 실적 경고와 자동매매 실적 회피가 함께 쓴다
   if (!isMockMode()) startEarningsScheduler();
+
+  // 휴장일 — 하루 1회 (v2.17.0). 실적 회피 거래일 계산·옵션 만기·일정 달력이 쓴다
+  startMarketCalendarScheduler();
 
   // 앱이 꺼져 있던 구간의 모의투자 스냅샷을 채우고, 이후 하루 한 번 기록한다.
   void backfillSnapshots().then(() => startSnapshotScheduler());

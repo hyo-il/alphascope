@@ -7,6 +7,7 @@ import PortfolioView from './components/portfolio/PortfolioView';
 import SurgeDashboard from './components/surge/SurgeDashboard';
 import SwingDashboard from './components/swing/SwingDashboard';
 import DiagnoseView from './components/diagnose/DiagnoseView';
+import CalendarView from './components/calendar/CalendarView';
 import QuickOrderPanel from './components/chart/QuickOrderPanel';
 import StockExplorer from './components/common/StockExplorer';
 import CandleChart, { type CandleChartHandle } from './components/chart/CandleChart';
@@ -347,6 +348,15 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         );
       case 'diagnose':
         return <DiagnoseView />;
+      case 'calendar':
+        return (
+          <CalendarView
+            onSelectSymbol={(next) => {
+              setSymbol(next);
+              setPage('chart');
+            }}
+          />
+        );
       /*
        * 비교 화면은 차트를 직접 들고 언마운트한다 (메인 차트와 규칙이 다르다 —
        * 캡처 대상이 아니라 화면 밖에 살려 둘 이유가 없다).

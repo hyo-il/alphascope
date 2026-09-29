@@ -354,3 +354,11 @@ CREATE TABLE IF NOT EXISTS earnings_calendar (
   fetched_at TEXT NOT NULL,
   is_estimate INTEGER
 );
+
+-- 휴장일 (v2.17.0) — 토스 market-calendar 로 확인한 **평일 휴장일**만 둔다(주말은 따로 판정).
+-- 확인한 범위는 app_settings 'marketCalendar.coverage' — 범위 밖은 주말만 휴장으로 본다 (server/marketCalendar.ts).
+CREATE TABLE IF NOT EXISTS market_holidays (
+  market TEXT NOT NULL,
+  date TEXT NOT NULL,
+  PRIMARY KEY (market, date)
+);
