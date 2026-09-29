@@ -15,6 +15,8 @@ interface GeminiAvailability {
   /** 키가 있어 기능을 쓸 수 있는지 */
   enabled: boolean;
   model: string;
+  /** 꺼진 이유 (켜져 있으면 null) — 키 없음 / GEMINI_ENABLED=false */
+  reason?: string | null;
 }
 
 export function useGeminiStatus(pollMs = 60_000) {

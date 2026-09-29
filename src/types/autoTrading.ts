@@ -80,7 +80,7 @@ export interface AccountStrategy {
  * - `market_closed` = 정상 대기 (장이 열리면 저절로 돈다)
  * - `config` = 사람이 고쳐야 하는 설정 문제
  */
-export type BlockedKind = 'market_closed' | 'config' | null;
+export type BlockedKind = 'market_closed' | 'config' | 'server_off' | null;
 
 export interface AccountStrategyStatus {
   accountId: number;
@@ -101,6 +101,11 @@ export interface AccountStrategyStatus {
   blockedReason: string | null;
   /** 멈춤의 종류 — 화면 분기는 문구가 아니라 **이 값**으로 한다 */
   blockedKind: BlockedKind;
+  /**
+   * 이 서버에서 자동매매 스케줄러가 도는가 (`AUTO_TRADING_ENABLED`, v2.16.0).
+   * false 면 설정이 켜져 있어도 돌지 않는다 — 화면이 계좌 설정과 무관하게 알린다.
+   */
+  serverEnabled: boolean;
 }
 
 /** 자동매매가 한 바퀴 돈 결과 (수동 실행 응답) */

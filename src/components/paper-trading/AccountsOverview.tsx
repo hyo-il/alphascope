@@ -201,6 +201,16 @@ export default function AccountsOverview({
                 </>
               )}
 
+              {/*
+                서버 스위치(AUTO_TRADING_ENABLED=false)로 꺼진 서버에서는 계좌 설정과 무관하게 알린다 —
+                "켜기" 를 눌러도 돌지 않는다는 것을 모르면 고장으로 읽는다 (v2.16.0).
+              */}
+              {status && status.serverEnabled === false && !on && (
+                <p className="mt-2 rounded bg-warning/10 px-2 py-1 text-[10px] text-warning">
+                  이 서버에서는 자동매매가 꺼져 있습니다(AUTO_TRADING_ENABLED=false)
+                </p>
+              )}
+
               {/* 자동매매는 네 가지 상태다 — 가동 중 / 대기 / 멈춤 / 꺼짐 (utils/autoTradeStatus) */}
               <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border pt-2">
                 <span
@@ -234,8 +244,8 @@ export default function AccountsOverview({
                   </span>
                 )}
 
-                {/* 사람이 고쳐야 하는 상태에서만 길을 열어 준다 */}
-                {view.state === 'blocked' && (
+                {/* 사람이 고쳐야 하는 상태에서만 길을 열어 준다 (서버 스위치로 꺼진 것은 설정으로 못 푼다) */}
+                {view.state === 'blocked' && view.fixable !== false && (
                   <button
                     type="button"
                     onClick={(e) => {

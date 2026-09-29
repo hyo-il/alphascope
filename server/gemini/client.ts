@@ -33,17 +33,29 @@ export class GeminiError extends Error {
 }
 
 /**
- * 키가 있는지. 없으면 Gemini 기능 전체가 비활성화된다 —
- * 기존 기능(토스·Claude 수동 분석)에는 아무 영향이 없어야 한다.
+ * Gemini 를 부를 수 없는 이유 (부를 수 있으면 null).
+ *
+ * - `GEMINI_ENABLED=false` — 키가 있어도 부르지 않는다 (v2.16.0). **복사본 DB 로 띄운 테스트 서버**가
+ *   실제 키로 AI 를 부르지 않게 하는 스위치다. 비용·한도가 실제 서버와 공유된다.
+ * - 키가 없거나 예시값이면 Gemini 기능 전체가 꺼진다 — 기존 기능(토스·Claude 수동 분석)에는 영향이 없어야 한다.
  */
-export function isGeminiEnabled(): boolean {
+export function geminiDisabledReason(): string | null {
+  if (process.env.GEMINI_ENABLED?.trim().toLowerCase() === 'false') {
+    return '이 서버에서는 Gemini 가 꺼져 있습니다(GEMINI_ENABLED=false)';
+  }
   const key = process.env.GEMINI_API_KEY?.trim();
-  return Boolean(key) && !key!.startsWith('your_');
+  if (!key || key.startsWith('your_')) return 'Gemini 키가 설정되지 않았습니다';
+  return null;
+}
+
+export function isGeminiEnabled(): boolean {
+  return geminiDisabledReason() === null;
 }
 
 function apiKey(): string {
-  if (!isGeminiEnabled()) {
-    throw new GeminiError('GEMINI_API_KEY 가 설정되지 않았습니다. .env 를 확인하세요.');
+  const reason = geminiDisabledReason();
+  if (reason) {
+    throw new GeminiError(`${reason}. .env 를 확인하세요.`);
   }
   return process.env.GEMINI_API_KEY!.trim();
 }

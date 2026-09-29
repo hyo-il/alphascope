@@ -49,7 +49,7 @@ import {
 // 버전의 단일 출처. package.json 은 0.1.0 그대로라 쓸 수 없다.
 import { CHANGELOG } from '../src/data/changelog';
 import { runAnalysis } from './gemini/analyze';
-import { DEFAULT_MODEL, GeminiError, isGeminiEnabled } from './gemini/client';
+import { DEFAULT_MODEL, GeminiError, geminiDisabledReason, isGeminiEnabled } from './gemini/client';
 import { accuracyReport } from './gemini/accuracy';
 import { DiagnoseBusyError, getDiagnoseProgress, startDiagnose } from './diagnose/runner';
 import { getReport as getDiagnoseReport, listReports as listDiagnoseReports } from './diagnose/store';
@@ -68,7 +68,9 @@ import {
   deleteStrategy,
 } from './autoTrading/store';
 import {
+  SERVER_OFF_REASON,
   getStrategyStatus,
+  isAutoTradingEnabled,
   runAccount,
   startAutoTradingScheduler,
 } from './autoTrading/scheduler';
@@ -771,6 +773,8 @@ app.post('/api/auto-trading/run/:id', async (req, res) => {
   try {
     const id = accountIdOf(req);
     getPaperAccount(id);
+    // 테스트 서버는 수동 실행으로도 주문을 내지 않는다 (AUTO_TRADING_ENABLED=false)
+    if (!isAutoTradingEnabled()) return res.status(409).json({ error: SERVER_OFF_REASON, serverOff: true });
     res.json({ result: await runAccount(id, true) });
   } catch (e) {
     failPaper(res, e);
@@ -916,7 +920,7 @@ app.delete('/api/analysis/:id', (req, res) => {
 
 function requireGemini(res: express.Response): boolean {
   if (isGeminiEnabled()) return true;
-  res.status(503).json({ error: 'Gemini 키가 설정되지 않았습니다.', geminiDisabled: true });
+  res.status(503).json({ error: `${geminiDisabledReason()}.`, geminiDisabled: true });
   return false;
 }
 
@@ -929,7 +933,8 @@ function requireGemini(res: express.Response): boolean {
  */
 app.get('/api/gemini/status', (_req, res) => {
   try {
-    res.json({ enabled: isGeminiEnabled(), model: DEFAULT_MODEL });
+    // 꺼져 있으면 이유도 함께 준다 — 키 없음과 서버 스위치(GEMINI_ENABLED=false)는 대처가 다르다
+    res.json({ enabled: isGeminiEnabled(), model: DEFAULT_MODEL, reason: geminiDisabledReason() });
   } catch (e) {
     fail(res, e);
   }
@@ -1325,7 +1330,12 @@ app.listen(port, host, () => {
 
   // Gemini 자동 분석 — 키가 없으면 아무 일도 하지 않는다.
   // 자동매매는 계좌별 스케줄러 하나가 맡는다 (Step 12 — 전역 경로는 v2.4.0 에서 제거).
-  startAutoTradingScheduler();
-  console.log('[alphascope] 계좌별 자동매매 스케줄러 준비됨 (모의 계좌 전용)');
+  if (isAutoTradingEnabled()) {
+    startAutoTradingScheduler();
+    console.log('[alphascope] 계좌별 자동매매 스케줄러 준비됨 (모의 계좌 전용)');
+  } else {
+    console.log('[alphascope] ⚠️ 자동매매 스케줄러를 시작하지 않습니다 (AUTO_TRADING_ENABLED=false)');
+  }
   if (isGeminiEnabled()) console.log(`[alphascope] Gemini 자동 분석 준비됨 (${DEFAULT_MODEL})`);
+  else console.log(`[alphascope] Gemini 꺼짐 — ${geminiDisabledReason()}`);
 });

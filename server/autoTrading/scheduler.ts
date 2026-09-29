@@ -15,7 +15,7 @@
 import { isUsMarketOpen } from '../marketHours';
 import { runExitChecks, runStrategyCycle, refreshPeaks } from './engine';
 import { listActiveStrategies, getStrategy } from './store';
-import { isGeminiEnabled } from '../gemini/client';
+import { geminiDisabledReason } from '../gemini/client';
 import { countToday } from '../gemini/store';
 import type {
   AccountStrategy,
@@ -23,6 +23,16 @@ import type {
   AutoTradeRunResult,
   BlockedKind,
 } from '../../src/types/autoTrading';
+
+/**
+ * 이 서버에서 자동매매를 돌리는가 — `AUTO_TRADING_ENABLED=false` 면 스케줄러를 시작하지 않고
+ * 수동 실행도 막는다 (v2.16.0). **복사본 DB 로 띄운 테스트 서버**가 모의 주문·Gemini 호출을 하지 않게 하는 스위치다.
+ */
+export function isAutoTradingEnabled(): boolean {
+  return process.env.AUTO_TRADING_ENABLED?.trim().toLowerCase() !== 'false';
+}
+
+export const SERVER_OFF_REASON = '이 서버에서는 자동매매가 꺼져 있습니다(AUTO_TRADING_ENABLED=false)';
 
 /** 틱 간격 — 청산 검사 주기이기도 하다 */
 const TICK_MS = 60_000;
@@ -63,9 +73,12 @@ function blocked(strategy: AccountStrategy): {
   kind: BlockedKind;
 } {
   if (!strategy.enabled) return { reason: null, kind: null };
-  if (strategy.mode === 'ai' && !isGeminiEnabled()) {
+  // 서버 스위치가 가장 먼저다 — 설정이 켜져 있어도 이 서버에서는 돌지 않는다
+  if (!isAutoTradingEnabled()) return { reason: SERVER_OFF_REASON, kind: 'server_off' };
+  const geminiOff = geminiDisabledReason();
+  if (strategy.mode === 'ai' && geminiOff) {
     return {
-      reason: 'Gemini 키가 설정되지 않았습니다 — 규칙형으로 바꾸면 키 없이 동작합니다',
+      reason: `${geminiOff} — 규칙형으로 바꾸면 키 없이 동작합니다`,
       kind: 'config',
     };
   }
@@ -99,6 +112,7 @@ export function getStrategyStatus(accountId: number): AccountStrategyStatus {
     callsToday: strategy.mode === 'ai' ? countToday() : 0,
     blockedReason: b.reason,
     blockedKind: b.kind,
+    serverEnabled: isAutoTradingEnabled(),
   };
 }
 
@@ -201,6 +215,7 @@ async function tick(): Promise<void> {
 
 export function startAutoTradingScheduler(): void {
   if (timer) return;
+  if (!isAutoTradingEnabled()) return; // 호출부(index.ts)가 로그를 남긴다
   timer = setInterval(() => void tick(), TICK_MS);
 }
 

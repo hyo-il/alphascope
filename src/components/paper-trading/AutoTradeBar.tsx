@@ -79,6 +79,12 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           켜져 있는데 못 도는 이유가 있으면 그것을 먼저 보여 준다.
           "켜짐" 만 떠 있고 아무 일도 일어나지 않으면 사용자는 고장으로 읽는다.
         */}
+        {/* 서버 스위치로 꺼진 서버 — 설정이 꺼져 있어도 알린다 (켜 봐야 돌지 않는다) */}
+        {!on && status?.serverEnabled === false && (
+          <span className="rounded bg-warning/15 px-2 py-0.5 text-[10px] text-warning">
+            ⚠️ 이 서버에서는 자동매매가 꺼져 있습니다(AUTO_TRADING_ENABLED=false)
+          </span>
+        )}
         {on && status?.blockedReason && (
           <span className="rounded bg-warning/15 px-2 py-0.5 text-[10px] text-warning">
             ⚠️ {status.blockedReason}

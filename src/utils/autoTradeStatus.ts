@@ -25,6 +25,8 @@ export interface AutoTradeView {
   reason: string | null;
   /** 지금 이 계좌를 처리 중 */
   busy: boolean;
+  /** 계좌 설정을 고치면 풀리는 멈춤인가 — [설정 열기] 를 보여 줄지 (서버 스위치로 꺼진 것은 설정으로 못 푼다) */
+  fixable?: boolean;
 }
 
 export function autoTradeView(
@@ -52,6 +54,20 @@ export function autoTradeView(
       hint: null,
       reason: status.blockedReason,
       busy: false,
+      fixable: true,
+    };
+  }
+
+  // 이 서버에서 자동매매 자체가 꺼져 있다 (AUTO_TRADING_ENABLED=false, v2.16.0) — 설정이 켜져 있어도 돌지 않는다
+  if (status?.blockedKind === 'server_off') {
+    return {
+      state: 'blocked',
+      symbol: '⚠',
+      label: '멈춤',
+      hint: null,
+      reason: status.blockedReason,
+      busy: false,
+      fixable: false,
     };
   }
 

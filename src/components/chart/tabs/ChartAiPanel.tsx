@@ -124,6 +124,8 @@ function SingleSymbolGemini({
   onAnalyzed: () => void;
 }) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
+  /** 꺼진 이유 — 키 없음과 서버 스위치(GEMINI_ENABLED=false)는 대처가 다르다 */
+  const [offReason, setOffReason] = useState<string | null>(null);
   const [model, setModel] = useState<string>('');
   const [latest, setLatest] = useState<GeminiAnalysis | null>(null);
   const [running, setRunning] = useState(false);
@@ -145,9 +147,10 @@ function SingleSymbolGemini({
     let cancelled = false;
     void fetch('/api/gemini/status')
       .then((r) => r.json())
-      .then((data: { enabled?: boolean; model?: string }) => {
+      .then((data: { enabled?: boolean; model?: string; reason?: string | null }) => {
         if (cancelled) return;
         setEnabled(Boolean(data.enabled));
+        setOffReason(data.reason ?? null);
         setModel(data.model ?? '');
       })
       .catch(() => {
@@ -180,6 +183,10 @@ function SingleSymbolGemini({
   };
 
   if (enabled === null) return <p className="p-3 text-[11px] text-text-muted">확인 중…</p>;
+
+  if (!enabled && offReason?.includes('GEMINI_ENABLED')) {
+    return <p className="p-3 text-[11px] text-text-muted">{offReason}. 수동 분석(Claude)은 그대로 씁니다.</p>;
+  }
 
   if (!enabled) {
     return (
