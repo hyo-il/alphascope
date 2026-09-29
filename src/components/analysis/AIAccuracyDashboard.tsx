@@ -18,6 +18,10 @@ interface Stats {
 
 interface Report {
   horizonDays: number;
+  /** 채점 규칙 문구 (서버 SCORING_RULE) */
+  scoringRule?: string;
+  /** Gemini 프롬프트 버전별 통계 */
+  geminiByVersion?: Record<string, Stats>;
   flatBandPercent: number;
   claude: Stats;
   gemini: Stats;
@@ -48,7 +52,7 @@ function accuracyClass(value: number | null): string {
 const MIN_SCORED_FOR_STATS = 20;
 
 /** 무엇을 재는 화면인지 — 숫자만 있고 정의가 없으면 그 숫자를 믿을 수 없다. */
-function Explainer({ horizonDays, flatBand }: { horizonDays: number; flatBand: number }) {
+function Explainer({ horizonDays, flatBand, rule }: { horizonDays: number; flatBand: number; rule?: string }) {
   return (
     <div className="rounded-lg border border-border bg-bg-secondary p-4 text-sm">
       <p className="mb-2 font-medium text-text-primary">📊 AI 분석이 실제로 맞았는지 추적합니다</p>
@@ -66,6 +70,11 @@ function Explainer({ horizonDays, flatBand }: { horizonDays: number; flatBand: n
           입니다 (스윙 트레이딩 보유 기간에 맞췄습니다). 아직 {horizonDays} 거래일이 지나지 않은
           분석은 '대기' 로 남습니다.
         </li>
+        {rule && (
+          <li>
+            채점 규칙: <b className="text-text-primary">{rule}</b>
+          </li>
+        )}
         <li>
           같은 종목을 <b className="text-text-primary">같은 날 여러 번</b> 분석했으면 그날
           마지막 분석 1건만 셉니다 — 자동매매가 한 시간마다 분석한 기록을 모두 세면 한 종목·한
@@ -106,6 +115,27 @@ export default function AIAccuracyDashboard() {
   );
 }
 
+/**
+ * Gemini 프롬프트 버전별 한 줄씩 — 프롬프트를 바꾼 뒤 "좋아졌나" 를 여기서 비교한다 (v2.15.0).
+ * 같은 종목·같은 날 1건 묶기는 버전별로 따로 한다.
+ */
+function VersionLine({ report }: { report: Report }) {
+  const versions = Object.entries(report.geminiByVersion ?? {});
+  if (!versions.length) return null;
+  return (
+    <div className="rounded-lg border border-border bg-bg-secondary px-4 py-2 text-xs text-text-secondary">
+      <span className="text-text-muted">Gemini 프롬프트 버전별 · </span>
+      {versions.map(([version, stats], i) => (
+        <span key={version}>
+          {i > 0 && ' · '}
+          <b className="text-text-primary">{version}</b> 채점 {stats.scored}건 · 대기 {stats.pending}건 · 적중{' '}
+          <span className={accuracyClass(stats.accuracy)}>{percent(stats.accuracy)}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /** 실제 내용 — 로딩·오류 처리는 위의 AsyncBoundary 가 맡는다 */
 function AccuracyReport({ report }: { report: Report }) {
   const scored = report.claude.scored + report.gemini.scored;
@@ -118,7 +148,8 @@ function AccuracyReport({ report }: { report: Report }) {
     const progress = Math.min(100, (scored / MIN_SCORED_FOR_STATS) * 100);
     return (
       <div className="space-y-4">
-        <Explainer horizonDays={report.horizonDays} flatBand={report.flatBandPercent} />
+        <Explainer horizonDays={report.horizonDays} flatBand={report.flatBandPercent} rule={report.scoringRule} />
+        <VersionLine report={report} />
 
         <div className="rounded-lg border border-warning/30 bg-warning/10 p-4">
           <p className="mb-1 text-sm font-medium text-warning">⚠️ 아직 판단할 만큼 쌓이지 않았습니다</p>
@@ -156,7 +187,8 @@ function AccuracyReport({ report }: { report: Report }) {
 
   return (
     <div className="space-y-4">
-      <Explainer horizonDays={report.horizonDays} flatBand={report.flatBandPercent} />
+      <Explainer horizonDays={report.horizonDays} flatBand={report.flatBandPercent} rule={report.scoringRule} />
+        <VersionLine report={report} />
 
       {/* 전체 */}
       <div className="grid gap-3 sm:grid-cols-2">

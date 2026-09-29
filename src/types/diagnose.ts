@@ -132,6 +132,10 @@ export interface DiagnoseDetail {
     staleCount: number;
   };
   gemini: {
+    /** 채점 규칙 문구 — v2.15.0 이전 리포트에는 없다 */
+    rule?: string;
+    /** 프롬프트 버전별 (Gemini) — v2.15.0 이전 리포트에는 없다 */
+    byVersion?: { version: string; total: number; judged: number; rate: number | null }[];
     raw: number;
     total: number;
     judged: number;

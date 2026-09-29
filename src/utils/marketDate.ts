@@ -44,3 +44,24 @@ export function marketDate(timestamp: number, symbol: string): string {
 export function marketMonth(timestamp: number, symbol: string): number {
   return Number(marketDate(timestamp, symbol).slice(5, 7)) - 1;
 }
+
+// ── 장 마감 판정 (AI 채점 기준일 — v2.15.0) ──────────────────────────────────
+
+/** 정규장 마감 시각(현지, 자정부터 분) — 미국 16:00 ET · 국내 15:30 KST */
+export function marketCloseMinutes(symbol: string): number {
+  return marketTimeZone(symbol) === 'Asia/Seoul' ? 15 * 60 + 30 : 16 * 60;
+}
+
+const clockFormatters = new Map<MarketTimeZone, Intl.DateTimeFormat>();
+
+/** 그 시장 현지 시각(자정부터 분) */
+export function marketMinutes(timestamp: number, symbol: string): number {
+  const timeZone = marketTimeZone(symbol);
+  let formatter = clockFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    clockFormatters.set(timeZone, formatter);
+  }
+  const [h, m] = formatter.format(new Date(timestamp)).split(':').map(Number);
+  return h * 60 + m;
+}

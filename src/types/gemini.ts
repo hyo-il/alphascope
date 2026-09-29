@@ -59,5 +59,7 @@ export interface GeminiAnalysis {
   elapsedMs: number;
   /** 'auto' = 스케줄러, 'manual' = 사용자가 버튼으로 실행 */
   trigger: 'auto' | 'manual';
+  /** 분석에 쓴 프롬프트 버전 (server/gemini/agents.ts 의 PROMPT_VERSION). 옛 기록은 'v1' */
+  promptVersion: string;
 }
 

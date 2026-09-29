@@ -40,9 +40,25 @@ function db() {
         value TEXT NOT NULL
       );
     `);
+    /*
+      v2.15.0 — 프롬프트 버전. CREATE TABLE IF NOT EXISTS 는 있는 테이블을 바꾸지 않으므로
+      칼럼이 없을 때만 더한다. 기존 행은 NULL 로 두고 읽을 때 'v1' 로 본다(원본을 고치지 않는다).
+    */
+    const columns = database.prepare(`PRAGMA table_info(gemini_analysis)`).all() as { name: string }[];
+    if (!columns.some((c) => c.name === 'prompt_version')) {
+      database.exec(`ALTER TABLE gemini_analysis ADD COLUMN prompt_version TEXT`);
+    }
     ready = true;
   }
   return database;
+}
+
+/** 칼럼이 생기기 전의 기록(NULL)은 v1 이다 */
+export const LEGACY_PROMPT_VERSION = 'v1';
+
+/** 스키마(칼럼 추가 포함)를 보장한다 — 이 테이블을 직접 읽는 곳(accuracy.ts)이 먼저 부른다 */
+export function ensureGeminiSchema(): void {
+  db();
 }
 
 type Row = {
@@ -61,6 +77,7 @@ type Row = {
   tokens: number;
   elapsed_ms: number;
   trigger: string;
+  prompt_version: string | null;
 };
 
 function toRecord(row: Row): GeminiAnalysis {
@@ -80,6 +97,7 @@ function toRecord(row: Row): GeminiAnalysis {
     tokens: row.tokens,
     elapsedMs: row.elapsed_ms,
     trigger: (row.trigger === 'manual' ? 'manual' : 'auto') as 'auto' | 'manual',
+    promptVersion: row.prompt_version ?? LEGACY_PROMPT_VERSION,
   };
 }
 
@@ -96,9 +114,9 @@ export function insertAnalysis(record: Omit<GeminiAnalysis, 'id'>): number {
     .prepare(
       `INSERT INTO gemini_analysis
          (symbol, created_at, model, signal, confidence, summary, price_at_analysis,
-          agents, verdict, paper_order_id, trade_note, tokens, elapsed_ms, trigger)
+          agents, verdict, paper_order_id, trade_note, tokens, elapsed_ms, trigger, prompt_version)
        VALUES (@symbol, @createdAt, @model, @signal, @confidence, @summary, @priceAtAnalysis,
-          @agents, @verdict, @paperOrderId, @tradeNote, @tokens, @elapsedMs, @trigger)`,
+          @agents, @verdict, @paperOrderId, @tradeNote, @tokens, @elapsedMs, @trigger, @promptVersion)`,
     )
     .run({
       ...record,

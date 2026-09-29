@@ -12,10 +12,14 @@
 
 import { getDb, loadCandles } from '../db';
 import type { AgentOpinion } from '../../src/types/gemini';
-import { marketDate } from '../../src/utils/marketDate';
+import type { Candle } from '../../src/types/toss';
+import { marketCloseMinutes, marketDate, marketMinutes } from '../../src/utils/marketDate';
+import { LEGACY_PROMPT_VERSION, ensureGeminiSchema } from './store';
 
 /** 채점 기준: 스윙 트레이딩이므로 5 거래일 뒤를 본다 */
 const HORIZON_DAYS = 5;
+/** 화면·진단에 그대로 적는 채점 규칙 */
+export const SCORING_RULE = '5거래일(v2.15.0) — 기준 거래일 D(마감 전 분석이면 그날, 마감 후·휴장일이면 다음 거래일)의 5거래일 뒤 종가';
 /** HOLD 를 맞다고 볼 변동 범위 */
 const FLAT_BAND_PERCENT = 2;
 
@@ -29,6 +33,7 @@ interface GeminiRow {
   signal: string;
   confidence: number;
   price_at_analysis: number | null;
+  prompt_version: string | null;
 }
 
 interface ClaudeRow {
@@ -45,6 +50,7 @@ interface AgentsRow {
   created_at: string;
   price_at_analysis: number | null;
   agents: string;
+  prompt_version: string | null;
 }
 
 export interface ScoredAnalysis {
@@ -55,20 +61,59 @@ export interface ScoredAnalysis {
   signal: string;
   confidence: number | null;
   priceAtAnalysis: number | null;
+  /** 프롬프트 버전 — Gemini 만 (Claude 는 사람이 붙여 넣은 답이라 null) */
+  promptVersion: string | null;
   priceAfter: number | null;
   changePercent: number | null;
   outcome: Outcome;
 }
 
-/** 분석 시점으로부터 HORIZON_DAYS 거래일 뒤 종가 */
-function priceAfter(symbol: string, analyzedAt: string): number | null {
+/**
+ * ⚠️ **채점 기준 거래일 D** — 이 함수 한 곳에서 정한다 (v2.15.0).
+ *
+ * - 분석 시각이 그 시장의 **거래일 정규장 마감 전**(장전·장중)이면 D = 그날
+ * - **마감 후**이거나 **휴장일**(그 날짜의 봉이 없음)이면 D = 다음 거래일
+ *
+ * 예전에는 "분석 시각 이후 첫 봉" 이었다. 일봉 timestamp 가 그날 0시라 장중 분석은 **다음 날 봉이 1번**이
+ * 되어 실제로 6거래일 뒤로 채점됐다. 시장 날짜·마감 시각은 `marketDate.ts`(미국 16:00 ET · 국내 15:30 KST).
+ * D 의 봉이 아직 캐시에 없으면 -1 (대기).
+ */
+export function scoringBaseIndex(candles: Candle[], analyzedAtMs: number, symbol: string, dates?: string[]): number {
+  const day = marketDate(analyzedAtMs, symbol);
+  const beforeClose = marketMinutes(analyzedAtMs, symbol) < marketCloseMinutes(symbol);
+  const ds = dates ?? candles.map((c) => marketDate(c.timestamp, symbol));
+  if (beforeClose) {
+    const same = ds.indexOf(day);
+    if (same >= 0) return same;
+  }
+  return ds.findIndex((d) => d > day);
+}
+
+/*
+  종목별 캔들·날짜 문자열 캐시 — 분석 수백 건이 같은 종목을 보므로 매번 2,000봉을 읽고
+  날짜를 다시 만들지 않는다. 캐시의 마지막 봉이 바뀌면 다시 읽는다.
+*/
+const candleMemo = new Map<string, { last: number; length: number; candles: Candle[]; dates: string[] }>();
+
+function dailyWithDates(symbol: string) {
   const candles = loadCandles(symbol, '1d', 2000);
+  const last = candles.at(-1)?.timestamp ?? 0;
+  const hit = candleMemo.get(symbol);
+  if (hit && hit.last === last && hit.length === candles.length) return hit;
+  const entry = { last, length: candles.length, candles, dates: candles.map((c) => marketDate(c.timestamp, symbol)) };
+  candleMemo.set(symbol, entry);
+  return entry;
+}
+
+/** 기준 거래일 D 로부터 HORIZON_DAYS 거래일 뒤 종가 — 아직 없으면 null(대기) */
+function priceAfter(symbol: string, analyzedAt: string): number | null {
   const at = Date.parse(analyzedAt);
   if (!Number.isFinite(at)) return null;
-  const index = candles.findIndex((candle) => candle.timestamp >= at);
-  if (index < 0) return null;
-  const target = candles[index + HORIZON_DAYS];
-  return target ? target.close : null; // 아직 5봉이 안 쌓였으면 pending
+  const { candles, dates } = dailyWithDates(symbol);
+  const base = scoringBaseIndex(candles, at, symbol, dates);
+  if (base < 0) return null;
+  const target = candles[base + HORIZON_DAYS];
+  return target ? target.close : null;
 }
 
 /**
@@ -82,14 +127,15 @@ function priceAfter(symbol: string, analyzedAt: string): number | null {
  *
  * 날짜는 시장 시간대다 — 미국 정규장(13:30~20:00 UTC)은 KST 로 자르면 이틀에 걸친다.
  */
-export function onePerDay<T extends { source?: string; symbol: string; analyzedAt: string }>(
+export function onePerDay<T extends { source?: string; promptVersion?: string | null; symbol: string; analyzedAt: string }>(
   items: T[],
 ): T[] {
   const latest = new Map<string, T>();
   for (const item of items) {
     const at = Date.parse(item.analyzedAt);
     const day = Number.isFinite(at) ? marketDate(at, item.symbol) : item.analyzedAt.slice(0, 10);
-    const key = `${item.source ?? ''}|${item.symbol}|${day}`;
+    // 버전별로 묶는다 — v1 과 v2 가 같은 날 분석했으면 둘 다 남아야 비교할 수 있다
+    const key = `${item.source ?? ''}|${item.promptVersion ?? ''}|${item.symbol}|${day}`;
     const kept = latest.get(key);
     if (!kept || item.analyzedAt > kept.analyzedAt) latest.set(key, item);
   }
@@ -126,12 +172,13 @@ function scoreOne(base: Omit<ScoredAnalysis, 'priceAfter' | 'changePercent' | 'o
 
 /** Claude(수동)와 Gemini(자동) 분석을 하나의 채점된 목록으로 */
 export function scoredAnalyses(limit = 500): ScoredAnalysis[] {
+  ensureGeminiSchema(); // prompt_version 칼럼이 없는 옛 DB 에서도 SELECT 가 깨지지 않게
   const db = getDb();
 
   const gemini = (
     db
       .prepare(
-        `SELECT id, symbol, created_at, signal, confidence, price_at_analysis
+        `SELECT id, symbol, created_at, signal, confidence, price_at_analysis, prompt_version
            FROM gemini_analysis ORDER BY created_at DESC LIMIT ?`,
       )
       .all(limit) as GeminiRow[]
@@ -144,6 +191,7 @@ export function scoredAnalyses(limit = 500): ScoredAnalysis[] {
       signal: row.signal,
       confidence: row.confidence,
       priceAtAnalysis: row.price_at_analysis,
+      promptVersion: row.prompt_version ?? LEGACY_PROMPT_VERSION,
     }),
   );
 
@@ -167,6 +215,7 @@ export function scoredAnalyses(limit = 500): ScoredAnalysis[] {
         confidence:
           row.confidence === 'high' ? 0.8 : row.confidence === 'medium' ? 0.6 : row.confidence === 'low' ? 0.4 : null,
         priceAtAnalysis: row.price_at_analysis,
+        promptVersion: null,
       }),
     );
 
@@ -219,13 +268,14 @@ export interface AgentAccuracy {
 }
 
 function agentAccuracy(): AgentAccuracy[] {
+  ensureGeminiSchema();
   const db = getDb();
   const rows = onePerDay(
     (
       db
-        .prepare(`SELECT symbol, created_at, price_at_analysis, agents FROM gemini_analysis`)
+        .prepare(`SELECT symbol, created_at, price_at_analysis, agents, prompt_version FROM gemini_analysis`)
         .all() as AgentsRow[]
-    ).map((row) => ({ ...row, analyzedAt: row.created_at })),
+    ).map((row) => ({ ...row, analyzedAt: row.created_at, promptVersion: row.prompt_version ?? LEGACY_PROMPT_VERSION })),
   );
 
   const table = new Map<string, AgentAccuracy>();
@@ -312,11 +362,23 @@ function pairedComparison(items: ScoredAnalysis[]): {
   };
 }
 
+/** Gemini 프롬프트 버전별 통계 — 버전을 바꾸면 "좋아졌나" 를 이 줄로 비교한다 */
+export function byPromptVersion(items: ScoredAnalysis[]): Record<string, AccuracyStats> {
+  const out: Record<string, AccuracyStats> = {};
+  const versions = [...new Set(items.filter((i) => i.source === 'gemini').map((i) => i.promptVersion ?? LEGACY_PROMPT_VERSION))].sort();
+  for (const v of versions) {
+    out[v] = summarize(items.filter((i) => i.source === 'gemini' && (i.promptVersion ?? LEGACY_PROMPT_VERSION) === v));
+  }
+  return out;
+}
+
 export function accuracyReport() {
   const items = scoredAnalyses();
   return {
     horizonDays: HORIZON_DAYS,
+    scoringRule: SCORING_RULE,
     flatBandPercent: FLAT_BAND_PERCENT,
+    geminiByVersion: byPromptVersion(items),
     claude: summarize(items.filter((item) => item.source === 'claude')),
     gemini: summarize(items.filter((item) => item.source === 'gemini')),
     agents: agentAccuracy(),

@@ -251,6 +251,15 @@ function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
           원본 {d.gemini.raw ?? d.gemini.total}건 → 같은 종목·같은 날 1건으로 묶어 {d.gemini.total}건 · 채점 가능{' '}
           {d.gemini.judged}건 · 적중 {d.gemini.rate}% · 기준선(무조건 매수 5일 뒤 상승) {d.gemini.baselineUp5}%
         </p>
+        <p className="text-[11px] text-text-muted">
+          채점 규칙: {d.gemini.rule ?? '5봉 뒤 종가(v2.15.0 이전 규칙 — 장중 분석은 실제로 6거래일 뒤)'}
+        </p>
+        {d.gemini.byVersion && d.gemini.byVersion.length > 0 && (
+          <Table
+            headers={['프롬프트 버전(Gemini)', '건수', '채점', '적중률']}
+            rows={d.gemini.byVersion.map((v) => [v.version, v.total, v.judged, v.rate == null ? '—' : `${v.rate}%`])}
+          />
+        )}
         <Table
           headers={['신호', '건수', '적중', '적중률']}
           rows={d.gemini.bySignal.map((b) => [b.signal, b.n, b.correct, `${b.rate}%`])}

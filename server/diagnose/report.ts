@@ -42,7 +42,7 @@ import {
   firstTouchFrequency,
   type FreqRow,
 } from '../analysis/targetHit';
-import { dailyScoredAnalyses, scoredAnalyses } from '../gemini/accuracy';
+import { SCORING_RULE, byPromptVersion, dailyScoredAnalyses, scoredAnalyses } from '../gemini/accuracy';
 import { marketDate, marketMonth } from '../../src/utils/marketDate';
 import type { DiagnoseSummary } from '../../src/types/diagnose';
 import { saveReport } from './store';
@@ -507,8 +507,18 @@ async function geminiAccuracy(symbols: string[]) {
     }
   }
 
+  // 프롬프트 버전별 (Gemini 만) — 같은 종목·같은 날 묶기도 버전별로 한다
+  const versions = byPromptVersion(scoredAnalyses(500));
+
   return {
     raw,
+    rule: SCORING_RULE,
+    byVersion: Object.entries(versions).map(([version, v]) => ({
+      version,
+      total: v.total,
+      judged: v.scored,
+      rate: v.accuracy === null ? null : round2(v.accuracy),
+    })),
     total: scored.length,
     judged: judged.length,
     correct: judged.filter((s) => s.outcome === 'correct').length,
@@ -811,6 +821,10 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
   md.push('## 상세 6 — Gemini 정확도');
   md.push('');
   md.push(`- 전체 ${gemini.total}건 · 채점 가능 ${gemini.judged}건 · 적중 ${gemini.rate}%`);
+  md.push(`- 채점 규칙: ${gemini.rule}`);
+  md.push('');
+  md.push(table(['프롬프트 버전(Gemini)', '건수', '채점', '적중률'],
+    gemini.byVersion.map((v) => [v.version, v.total, v.judged, v.rate === null ? '—' : `${v.rate}%`])));
   md.push('');
   md.push(table(['신호', '건수', '적중', '적중률'],
     gemini.bySignal.map((b) => [b.signal, b.n, b.correct, `${b.rate}%`])));

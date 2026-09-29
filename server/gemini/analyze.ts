@@ -15,7 +15,7 @@ import type {
   ModeratorVerdict,
   TradeSignal,
 } from '../../src/types/gemini';
-import { AGENTS } from './agents';
+import { AGENTS, PROMPT_VERSION } from './agents';
 import { callGemini, DEFAULT_MODEL, GeminiError, type GeminiPart } from './client';
 import { buildContext } from './context';
 import { DEFAULT_HORIZON, horizonBlock, type InvestmentHorizon } from '../../src/services/analysis/horizons';
@@ -160,6 +160,7 @@ export async function runAnalysis(options: RunOptions): Promise<GeminiAnalysis> 
     tokens,
     elapsedMs: Date.now() - startedAt,
     trigger: options.trigger,
+    promptVersion: PROMPT_VERSION,
   };
 
   const id = insertAnalysis(record);

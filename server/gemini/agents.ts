@@ -11,6 +11,13 @@
 
 import type { AgentRole } from '../../src/types/gemini';
 
+/**
+ * 프롬프트 버전 — 분석마다 `gemini_analysis.prompt_version` 에 기록한다 (v2.15.0).
+ * ⚠️ **이 파일(에이전트·의장 프롬프트·스키마)을 고치면 올린다.** 버전별로 적중률을 나눠 봐야
+ * "프롬프트를 바꿔서 좋아졌나" 를 말할 수 있다. 칼럼이 생기기 전의 기록(NULL)은 'v1' 로 읽는다.
+ */
+export const PROMPT_VERSION = 'v1';
+
 const VOTE_ENUM = { type: 'STRING', enum: ['BUY', 'HOLD', 'SELL'] };
 
 /** 모든 에이전트가 공통으로 내는 필드 */
