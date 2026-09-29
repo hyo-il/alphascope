@@ -321,3 +321,14 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
   expires_at TEXT NOT NULL,
   user_agent TEXT
 );
+
+-- 진단 리포트 (v2.14.0) — `npm run diagnose` 와 웹의 「진단 리포트」가 같은 함수로 만들고 여기에 쌓는다.
+-- summary_json = 요약 카드 네 장, detail_json = 상세 표. 파일 출력(docs/analysis · reports)은 그대로다.
+-- 최근 20개만 남긴다 (server/diagnose/store.ts).
+CREATE TABLE IF NOT EXISTS diagnose_reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at TEXT NOT NULL,
+  server TEXT NOT NULL,
+  summary_json TEXT NOT NULL,
+  detail_json TEXT NOT NULL
+);

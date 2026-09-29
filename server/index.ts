@@ -51,6 +51,8 @@ import { CHANGELOG } from '../src/data/changelog';
 import { runAnalysis } from './gemini/analyze';
 import { DEFAULT_MODEL, GeminiError, isGeminiEnabled } from './gemini/client';
 import { accuracyReport } from './gemini/accuracy';
+import { DiagnoseBusyError, getDiagnoseProgress, startDiagnose } from './diagnose/runner';
+import { getReport as getDiagnoseReport, listReports as listDiagnoseReports } from './diagnose/store';
 import {
   deleteAllAnalyses as deleteAllGeminiAnalyses,
   deleteAnalysis as deleteGeminiAnalysis,
@@ -1223,6 +1225,45 @@ app.put('/api/surge/settings', (req, res) => {
 app.get('/api/ai/accuracy', (_req, res) => {
   try {
     res.json(accuracyReport());
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+// -- 진단 리포트 (v2.14.0) ---------------------------------------------------
+//
+// `npm run diagnose` 와 같은 함수(`server/diagnose/report.ts`)를 백그라운드로 돌린다.
+// 오라클에서 52초 걸려 시작만 하고 돌려준다 — 화면은 /progress 를 폴링한다.
+
+app.post('/api/diagnose/run', (req, res) => {
+  try {
+    res.json({ progress: startDiagnose({ quick: req.body?.quick === true }) });
+  } catch (e) {
+    if (e instanceof DiagnoseBusyError) return res.status(409).json({ error: e.message });
+    fail(res, e);
+  }
+});
+
+app.get('/api/diagnose/progress', (_req, res) => {
+  res.json({ progress: getDiagnoseProgress() });
+});
+
+/** 과거 리포트 목록 (요약만) — 최근 20개 */
+app.get('/api/diagnose/reports', (_req, res) => {
+  try {
+    res.json({ reports: listDiagnoseReports() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/diagnose/reports/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'id 가 올바르지 않습니다.' });
+  try {
+    const report = getDiagnoseReport(id);
+    if (!report) return res.status(404).json({ error: '리포트를 찾을 수 없습니다.' });
+    res.json(report);
   } catch (e) {
     fail(res, e);
   }
