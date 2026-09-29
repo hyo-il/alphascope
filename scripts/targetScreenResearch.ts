@@ -12,6 +12,12 @@
  * 실행마다 한 날짜에서 위반 0개를 다시 세어 로그로 남긴다.
  * ⚠️ 화면·판정·자동매매·사용자 데이터를 건드리지 않는다. LLM 을 부르지 않는다.
  * `--shuffle`: 결과(목표/손절/미도달)를 무작위로 뒤섞어 돌린다 — 누설이 없으면 통과가 거의 0 이어야 한다.
+ *
+ * `--mode=atr` = **실험 2** (v2.15.0, 이 연구 줄기의 마지막 시험). 실험 1 의 상위 종목이 사실상 "많이 움직이는
+ * 종목" 이라 목표·손절에 둘 다 자주 닿았다. 목표 = k × ATR14(t일)%(k ∈ 1.5·2·3), 손절 = 목표×(1 · 0.5) 로
+ * 변동성 차이를 없애고, 순위·평가를 **R 단위**(손절폭 = 1R)로 한다 — 기대값(R) = % 기대값 ÷ 손절폭(%).
+ * 데이터·이름표·섞기(20)·상위 10·12개월·누설 규칙·통과 기준은 실험 1 과 **완전히 같다**(사전 등록).
+ * ⚠️ 실험 1(기본 모드)의 출력은 바이트 단위로 그대로여야 한다 — % 모드에서는 나누지 않는다(×1 도 하지 않는다).
  */
 
 import 'dotenv/config';
@@ -52,6 +58,12 @@ const DIST_EDGES = [-2, -1, 0, 1, 2];
 const RET5_EDGES = [-2, 0, 2];
 
 const SHUFFLE = process.argv.includes('--shuffle');
+/** 실험 2 — 목표·손절을 ATR 배수로, 평가를 R 단위로 */
+const ATR_MODE = process.argv.includes('--mode=atr');
+/** 실험 2 의 목표 = k × ATR14% (사전 등록) */
+const ATR_TARGETS = [1.5, 2, 3];
+/** 이 연구 줄기의 실험 번호와 누적 조합 수 — 다중 시험 기록 */
+const EXPERIMENT = ATR_MODE ? { no: 2, cumulative: 72 } : { no: 1, cumulative: 36 };
 const SEED = 20260929;
 
 // ── 유틸 ─────────────────────────────────────────────────────────────────────
@@ -189,6 +201,9 @@ interface DayResult {
   date: string;
   top: number;
   base: number;
+  /** 실험 2 에서만 — % 환산 */
+  topPct?: number;
+  basePct?: number;
   topHit: number;
   baseHit: number;
   picks: number;
@@ -197,6 +212,8 @@ interface DayResult {
 
 interface ComboResult {
   market: 'US' | 'KR';
+  /** 실험 2 에서만 — target·stop 이 ATR 배수이고 기대값이 R 단위다 */
+  unit?: 'ATR';
   target: number;
   stop: number;
   horizon: number;
@@ -214,6 +231,9 @@ interface ComboResult {
   segments: { from: string; to: string; top: number; base: number; days: number }[];
   segmentWins: number;
   avgPicks: number;
+  /** 실험 2 에서만 — % 환산 기대값 (같은 거래의 % 손익 평균) */
+  topEvPct?: number;
+  baseEvPct?: number;
   criteria: [boolean, boolean, boolean, boolean];
   passed: boolean;
 }
@@ -233,9 +253,29 @@ function runCombo(
   const Y = X * ratio;
   const random = rng(SEED + X * 1000 + N * 10 + ratio * 7 + (market === 'KR' ? 1 : 0));
 
+  /*
+    종목·날짜별 목표/손절 폭(%). 실험 1 은 고정값, 실험 2 는 그날 ATR% 의 배수(X 가 곧 k).
+    ⚠️ ATR% 는 특징과 같은 값(t 일까지의 봉으로 낸 ATR14) — 미래가 섞이지 않는다.
+  */
+  const levelsAt = (si: number, i: number): { x: number; y: number } | null => {
+    if (!ATR_MODE) return { x: X, y: Y };
+    const a = series[si].atrPct[i];
+    return a == null ? null : { x: X * a, y: X * a * ratio };
+  };
+  /** 한 거래의 값 — 실험 1 은 %p, 실험 2 는 R(= %p ÷ 손절폭) */
+  const tradeValue = (o: TouchOutcome, si: number, i: number) => {
+    if (!ATR_MODE) return valueOf(o, X, Y);
+    const lv = levelsAt(si, i)!;
+    return valueOf(o, lv.x, lv.y) / lv.y;
+  };
+
   // 1) 전 표본의 결과 — 진단과 같은 first-touch 함수
-  const outcomes: (TouchOutcome | null)[][] = series.map((s) =>
-    s.candles.map((_, i) => touchOutcome(s.candles, i, X, Y, N)),
+  const outcomes: (TouchOutcome | null)[][] = series.map((s, si) =>
+    s.candles.map((_, i) => {
+      if (!ATR_MODE) return touchOutcome(s.candles, i, X, Y, N);
+      const lv = levelsAt(si, i);
+      return lv ? touchOutcome(s.candles, i, lv.x, lv.y, N) : null;
+    }),
   );
   if (SHUFFLE) {
     // 누설 점검: 결과를 무작위로 섞으면 특징과 결과의 관계가 끊긴다 → 통과가 거의 없어야 한다
@@ -303,21 +343,23 @@ function runCombo(
         maxResolve = Math.max(maxResolve, sm.resolveOrd);
       }
       leakProbe.log.push(
-        `[누설 점검] ${market} +${X}%/−${Y}%/${N}일 · t=${d}(순번 ${ord}) · 추정에 쓰인 과거 표본 ${pointer.toLocaleString()}개 · ` +
+        `[누설 점검] ${market} ${ATR_MODE ? `${X}×ATR/−${Y}×ATR` : `+${X}%/−${Y}%`}/${N}일 · t=${d}(순번 ${ord}) · 추정에 쓰인 과거 표본 ${pointer.toLocaleString()}개 · ` +
           `결과 확정일 ≥ t: ${violations}개 · s+N ≥ t: ${violationsByS}개 · 가장 늦은 확정일 ${calendar[maxResolve]} ` +
           `· 다음 대기 표본의 확정일 ${pointer < samples.length ? calendar[samples[pointer].resolveOrd] : '없음'}`,
       );
     }
 
-    const scored: { ev: number; v: number | null; hit: boolean; symbol: string }[] = [];
+    const scored: { ev: number; v: number | null; vPct: number | null; hit: boolean; symbol: string }[] = [];
     const pool: number[] = [];
+    const poolPct: number[] = [];
     let poolHit = 0;
     series.forEach((s, si) => {
       const i = indexAt[si].get(ord);
       if (i === undefined) return;
       const o = outcomes[si][i];
       if (o) {
-        pool.push(valueOf(o, X, Y));
+        pool.push(tradeValue(o, si, i));
+        if (ATR_MODE) poolPct.push(valueOf(o, levelsAt(si, i)!.x, levelsAt(si, i)!.y));
         if (o === 'target') poolHit += 1;
       }
       const label = s.label[i];
@@ -327,9 +369,14 @@ function runCombo(
       const k = own.get(`${si}|${label}`) ?? { n: 0, t: 0, st: 0 };
       const pT = (k.t + PRIOR * (m.t / m.n)) / (k.n + PRIOR);
       const pS = (k.st + PRIOR * (m.st / m.n)) / (k.n + PRIOR);
+      // 실험 2: 기대값(R) = p목표 × (목표/손절) − p손절 − 비용/손절폭 = (% 기대값) ÷ 손절폭
+      const lv = levelsAt(si, i);
+      if (!lv) return;
+      const evPct = pT * lv.x - pS * lv.y - ROUND_TRIP_COST;
       scored.push({
-        ev: pT * X - pS * Y - ROUND_TRIP_COST,
-        v: o ? valueOf(o, X, Y) : null,
+        ev: ATR_MODE ? evPct / lv.y : pT * X - pS * Y - ROUND_TRIP_COST,
+        v: o ? tradeValue(o, si, i) : null,
+        vPct: o && ATR_MODE ? valueOf(o, lv.x, lv.y) : null,
         hit: o === 'target',
         symbol: s.symbol,
       });
@@ -343,6 +390,7 @@ function runCombo(
       date: d,
       top: mean(picks.map((p) => p.v!)),
       base: mean(pool),
+      ...(ATR_MODE ? { topPct: mean(picks.map((p) => p.vPct!)), basePct: mean(poolPct) } : {}),
       topHit: (picks.filter((p) => p.hit).length / picks.length) * 100,
       baseHit: (poolHit / pool.length) * 100,
       picks: picks.length,
@@ -419,6 +467,7 @@ function runCombo(
 
   return {
     market,
+    ...(ATR_MODE ? { unit: 'ATR' as const } : {}),
     target: X,
     stop: Y,
     horizon: N,
@@ -436,13 +485,26 @@ function runCombo(
     segments,
     segmentWins,
     avgPicks: round(mean(days.map((x) => x.picks)), 1),
+    ...(ATR_MODE
+      ? {
+          topEvPct: round(mean(days.map((x) => x.topPct!)), 3),
+          baseEvPct: round(mean(days.map((x) => x.basePct!)), 3),
+        }
+      : {}),
     criteria,
     passed: criteria.every(Boolean),
   };
 }
 
 /** 참고표 — 특징 구간별 목표 먼저 비율 (전 기간·표본 안이라 **검증이 아니다**) */
-function featureReference(series: Series[], X: number, Y: number, N: number) {
+function featureReference(
+  series: Series[],
+  X: number,
+  Y: number,
+  N: number,
+  /** 실험 2 — 종목·날짜별 목표/손절 폭(ATR 배수). 없으면 X·Y 고정 */
+  levels?: (s: Series, i: number) => { x: number; y: number } | null,
+) {
   const names = ['추세', 'RSI', 'SMA20 거리', '5일 수익', '변동성'];
   const labels = [
     ['그 외', '상승 정배열'],
@@ -457,7 +519,13 @@ function featureReference(series: Series[], X: number, Y: number, N: number) {
   for (const s of series) {
     s.label.forEach((label, i) => {
       if (!label) return;
-      const o = touchOutcome(s.candles, i, X, Y, N);
+      let o: TouchOutcome | null;
+      if (levels) {
+        const lv = levels(s, i);
+        o = lv ? touchOutcome(s.candles, i, lv.x, lv.y, N) : null;
+      } else {
+        o = touchOutcome(s.candles, i, X, Y, N);
+      }
       if (!o) return;
       all += 1;
       if (o === 'target') allT += 1;
@@ -485,13 +553,18 @@ function featureReference(series: Series[], X: number, Y: number, N: number) {
 /** 이웃 = 같은 시장·같은 손절 비율에서 목표 또는 기간만 한 칸 다른 조합 */
 function neighbors(a: ComboResult, b: ComboResult) {
   if (a.market !== b.market || a.ratio !== b.ratio) return false;
-  const ti = Math.abs(TARGETS.indexOf(a.target) - TARGETS.indexOf(b.target));
+  const targets = ATR_MODE ? ATR_TARGETS : TARGETS;
+  const ti = Math.abs(targets.indexOf(a.target) - targets.indexOf(b.target));
   const hi = Math.abs(HORIZONS.indexOf(a.horizon) - HORIZONS.indexOf(b.horizon));
   return (ti === 1 && hi === 0) || (ti === 0 && hi === 1);
 }
 
-const sign = (v: number, unit = '%p') => `${v > 0 ? '+' : ''}${v.toFixed(2)}${unit}`;
-const comboName = (r: ComboResult) => `${r.market} +${r.target}%/−${r.stop}% ${r.horizon}일(${r.ratio})`;
+/** 기대값 단위 — 실험 1 은 %p, 실험 2 는 R(손절폭 = 1R) */
+const sign = (v: number, unit = ATR_MODE ? 'R' : '%p') => `${v > 0 ? '+' : ''}${v.toFixed(2)}${unit}`;
+const comboName = (r: ComboResult) =>
+  ATR_MODE
+    ? `${r.market} 목표 ${r.target}×ATR/손절 ${r.stop}×ATR ${r.horizon}일(${r.ratio})`
+    : `${r.market} +${r.target}%/−${r.stop}% ${r.horizon}일(${r.ratio})`;
 
 async function main() {
   const started = Date.now();
@@ -518,15 +591,21 @@ async function main() {
     coverage[market] = { symbols: series.length, from: calendar[0], to: calendar.at(-1)!, bars: calendar.length };
     console.log(`[research] ${market} ${series.length}종목 · ${calendar[0]} ~ ${calendar.at(-1)} (${calendar.length}거래일)`);
 
-    for (const X of TARGETS) {
+    for (const X of ATR_MODE ? ATR_TARGETS : TARGETS) {
       for (const N of HORIZONS) {
         for (const ratio of STOP_RATIOS) {
-          const probe = X === 5 && N === 10 && ratio === 1 ? { log: leakLog } : null;
+          const probeHere = ATR_MODE ? X === 2 && N === 10 && ratio === 1 : X === 5 && N === 10 && ratio === 1;
+          const probe = probeHere ? { log: leakLog } : null;
           results.push(runCombo(market, series, calendar, X, ratio, N, probe));
         }
       }
     }
-    reference[market] = featureReference(series, 5, 5, 10);
+    reference[market] = ATR_MODE
+      ? featureReference(series, 2, 2, 10, (s, i) => {
+          const a = s.atrPct[i];
+          return a == null ? null : { x: 2 * a, y: 2 * a };
+        })
+      : featureReference(series, 5, 5, 10);
   }
   for (const line of leakLog) console.log(line);
 
@@ -542,15 +621,53 @@ async function main() {
       : isolated
         ? `통과 ${passed.length}개가 서로 이웃하지 않음 — 우연일 가능성 높음 (화면으로 만들 근거로 약함)`
         : `화면으로 만들 가치 있음 (조합 ${passed.map(comboName).join(', ')}) — 단, 36개 중 ${passed.length}개 통과이므로 우연 가능성을 함께 적는다`;
+  /*
+    실험 2 의 결론 규칙(사전 등록): "화면으로 만들 가치" 가 아니면 연구 줄기 종료를 권고한다.
+    새 변형을 제안하지 않는다 — 실험을 계속 바꾸면 결국 우연한 합격이 나온다.
+  */
+  const worthScreen = passed.length > 0 && !isolated;
+
+  /*
+    ⚠️ 검증 유효성 — 실험 2 는 같은 날짜의 **결과 섞기 리포트**를 읽어, 섞었는데도 통과가 나오면
+    "검증 무효" 를 결론에 붙인다(v2.15.0). 섞으면 특징과 결과의 관계가 끊기므로 통과는 ≈0 이어야 한다.
+    실제로 실험 2 는 섞어도 8/36 이 통과했다 — R 단위 비용(0.30%p ÷ 손절폭)이 고변동 종목일수록 작아서,
+    정보 없이 고변동 종목만 골라도 기준선보다 나아 보이는 **구조적 인공물**이 있다(누설은 0개).
+    통과 기준은 바꾸지 않았다 — 이 줄은 해석을 막는 경고일 뿐이다. 실험 1 출력에는 영향이 없다.
+  */
+  let shuffleFailed: number | null = null;
+  if (ATR_MODE && !SHUFFLE) {
+    try {
+      const { dir: d0 } = outputDir();
+      const stamp0 = new Date().toISOString().slice(0, 10);
+      const shuffled = JSON.parse(fs.readFileSync(path.join(d0, `target_screen_atr_${stamp0}_shuffle.json`), 'utf8')) as { passed: number };
+      if (shuffled.passed > 0) shuffleFailed = shuffled.passed;
+    } catch {
+      /* 섞기 리포트가 없으면 판단하지 않는다 — 요약에 "섞기 검사 전" 을 적는다 */
+      shuffleFailed = -1;
+    }
+  }
+  const baseConclusion = ATR_MODE && !worthScreen ? `${conclusion} — 이 연구 줄기 종료 권고` : conclusion;
+  const finalConclusion =
+    shuffleFailed && shuffleFailed > 0
+      ? `${baseConclusion} ⚠️ 단, 결과 섞기 검사에서 ${shuffleFailed}/36 이 통과해 검증 무효 — 이 결과를 신호로 쓰지 말 것`
+      : shuffleFailed === -1
+        ? `${baseConclusion} (⚠️ 결과 섞기 검사 전 — \`--mode=atr --shuffle\` 을 먼저 돌릴 것)`
+        : baseConclusion;
 
   const elapsed = Math.round((Date.now() - started) / 1000);
   const { dir, server } = outputDir();
   const stamp = new Date().toISOString().slice(0, 10);
   fs.mkdirSync(dir, { recursive: true });
-  const base = path.join(dir, `target_screen_${stamp}${SHUFFLE ? '_shuffle' : ''}`);
+  const base = path.join(dir, `target_screen_${ATR_MODE ? 'atr_' : ''}${stamp}${SHUFFLE ? '_shuffle' : ''}`);
 
   const md: string[] = [];
-  md.push(`# 목표 수익 후보 선별 — 검증 리포트 (${server} · ${stamp}${SHUFFLE ? ' · ⚠️ 결과 섞기(누설 점검)' : ''})`);
+  if (ATR_MODE) {
+    md.push(`# 목표 수익 후보 선별 — 실험 2 (ATR 배수 · R 단위) 검증 리포트 (${server} · ${stamp}${SHUFFLE ? ' · ⚠️ 결과 섞기(누설 점검)' : ''})`);
+    md.push('');
+    md.push(`> 이 연구 줄기의 **실험 ${EXPERIMENT.no}번째 · 누적 ${EXPERIMENT.cumulative}조합** 시험. 기대값 단위는 R(손절폭 = 1R).`);
+  } else {
+    md.push(`# 목표 수익 후보 선별 — 검증 리포트 (${server} · ${stamp}${SHUFFLE ? ' · ⚠️ 결과 섞기(누설 점검)' : ''})`);
+  }
   md.push('');
   md.push('## 요약');
   md.push('');
@@ -558,8 +675,14 @@ async function main() {
   for (const r of passed) {
     md.push(`  - ${comboName(r)} — 상위 10 기대값 ${sign(r.topEv)} · 기준선 대비 ${sign(r.diff)} (95% 구간 ${sign(r.ciLow)} ~ ${sign(r.ciHigh)})`);
   }
-  md.push(`- **결론: ${conclusion}**`);
-  if (passed.length) md.push(`- 여러 번 시험한 효과: 36개를 시험하면 우연히 몇 개는 통과할 수 있다(통과 ${passed.length}/36).`);
+  md.push(`- **결론: ${finalConclusion}**`);
+  if (passed.length) {
+    md.push(
+      ATR_MODE
+        ? `- 여러 번 시험한 효과: 이 줄기에서 누적 ${EXPERIMENT.cumulative}개를 시험했다 — 우연히 몇 개는 통과할 수 있다(이번 통과 ${passed.length}/36).`
+        : `- 여러 번 시험한 효과: 36개를 시험하면 우연히 몇 개는 통과할 수 있다(통과 ${passed.length}/36).`,
+    );
+  }
   md.push('- 한계: 생존 편향(오늘의 시총 상위로 과거를 시험), 기간 3년, 비용 왕복 0.30%p 가정, 미도달은 0 으로 셈(종가 청산 아님).');
   md.push('');
   md.push('---');
@@ -570,6 +693,9 @@ async function main() {
   for (const [m, c] of Object.entries(coverage)) md.push(`  - ${m}: ${c.symbols}종목 · ${c.from} ~ ${c.to} (${c.bars}거래일)`);
   md.push(`- 이름표: 추세(종가>SMA60 & SMA20>SMA60) · RSI14 6구간 · SMA20 거리(ATR 배수) 6구간 · 5일 수익(ATR 배수) 4구간 · 변동성(그날 시장 ATR% 3분위)`);
   md.push(`- 추정: p = (k종목 + ${PRIOR}·p시장) / (n종목 + ${PRIOR}), 시장 표본 ${MIN_MARKET_SAMPLES} 미만이면 제외. 과거 표본은 결과 확정일 < t 만.`);
+  if (ATR_MODE) {
+    md.push(`- 실험 2: 목표 = k × ATR14(t일)%, k ∈ {${ATR_TARGETS.join(', ')}} · 손절 = 목표×1(1:1)·×0.5(2:1). 기대값(R) = p목표×(목표/손절) − p손절 − 0.30%p÷손절폭(%). 상위 10·기준선·무작위 모두 R 로 비교.`);
+  }
   md.push(`- 시험: 최근 ${TEST_MONTHS}개월 매 거래일 기대값 상위 ${TOP} · 기준선(그날 전 종목) · 무작위 ${TOP}종목 ${RANDOM_REPS}회`);
   md.push('- 무작위 10종목은 그날 기준선과 같은 풀에서 뽑으므로 평균이 기준선과 거의 같다 — ④는 사실상 "상위 10 > 기준선" 과 겹친다.');
   md.push(`- 통과: ① 상위 10 기대값 > 0 ② 차이의 95% 구간 하한 > 0 (주 단위 블록 부트스트랩 ${BOOT_REPS}회) ③ 4개월×3구간 중 2구간 이상 우위 ④ 무작위보다 높음`);
@@ -581,9 +707,20 @@ async function main() {
   md.push('');
   md.push('## 전체 36개 조합');
   md.push('');
-  md.push('| 시장 | 목표 | 손절 | 기간 | 일수 | 상위10 도달 | 기준 도달 | 무작위 도달 | 상위10 기대값 | 기준선 | 무작위 | 차이 | 95% 구간 | 3구간 우위 | ①②③④ | 통과 |');
-  md.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  if (ATR_MODE) {
+    md.push('| 시장 | 목표 | 손절 | 기간 | 일수 | 상위10 도달 | 기준 도달 | 무작위 도달 | 상위10 기대값 | 기준선 | 무작위 | 차이 | 95% 구간 | % 환산(상위10/기준) | 3구간 우위 | ①②③④ | 통과 |');
+    md.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  } else {
+    md.push('| 시장 | 목표 | 손절 | 기간 | 일수 | 상위10 도달 | 기준 도달 | 무작위 도달 | 상위10 기대값 | 기준선 | 무작위 | 차이 | 95% 구간 | 3구간 우위 | ①②③④ | 통과 |');
+    md.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  }
   for (const r of results) {
+    if (ATR_MODE) {
+      md.push(
+        `| ${r.market} | ${r.target}×ATR | ${r.stop}×ATR | ${r.horizon}일 | ${r.days} | ${r.topHit}% | ${r.baseHit}% | ${r.randomHit}% | ${sign(r.topEv)} | ${sign(r.baseEv)} | ${sign(r.randomEv)} | ${sign(r.diff)} | ${sign(r.ciLow)} ~ ${sign(r.ciHigh)} | ${sign(r.topEvPct!, '%p')} / ${sign(r.baseEvPct!, '%p')} | ${r.segmentWins}/3 | ${r.criteria.map((c) => (c ? '✅' : '❌')).join('')} | ${r.passed ? '✅' : '—'} |`,
+      );
+      continue;
+    }
     md.push(
       `| ${r.market} | +${r.target}% | −${r.stop}% | ${r.horizon}일 | ${r.days} | ${r.topHit}% | ${r.baseHit}% | ${r.randomHit}% | ${sign(r.topEv)} | ${sign(r.baseEv)} | ${sign(r.randomEv)} | ${sign(r.diff)} | ${sign(r.ciLow)} ~ ${sign(r.ciHigh)} | ${r.segmentWins}/3 | ${r.criteria.map((c) => (c ? '✅' : '❌')).join('')} | ${r.passed ? '✅' : '—'} |`,
     );
@@ -595,7 +732,11 @@ async function main() {
     md.push(`- ${comboName(r)}: ${r.segments.map((s) => `${s.from}~${s.to} ${sign(s.top)}/${sign(s.base)}`).join(' · ')}`);
   }
   md.push('');
-  md.push('## 참고 — 특징 구간별 목표 먼저 비율 (+5%/−5%/10일, 전 기간·표본 안)');
+  md.push(
+    ATR_MODE
+      ? '## 참고 — 특징 구간별 목표 먼저 비율 (2×ATR/−2×ATR/10일, 전 기간·표본 안)'
+      : '## 참고 — 특징 구간별 목표 먼저 비율 (+5%/−5%/10일, 전 기간·표본 안)',
+  );
   md.push('');
   md.push('⚠️ 검증이 아니다. 어느 이름표가 과거에 잘 맞았는지 보는 참고용이다.');
   md.push('');
@@ -618,7 +759,7 @@ async function main() {
   fs.writeFileSync(`${base}.md`, md.join('\n'), 'utf8');
   fs.writeFileSync(
     `${base}.json`,
-    JSON.stringify({ server, stamp, shuffle: SHUFFLE, elapsed, coverage, universe: { asOf: universe.asOf, source: universe.source }, leakLog, passed: passed.length, conclusion, results, reference }, null, 2),
+    JSON.stringify({ server, stamp, ...(ATR_MODE ? { experiment: EXPERIMENT, mode: 'atr' } : {}), shuffle: SHUFFLE, elapsed, coverage, universe: { asOf: universe.asOf, source: universe.source }, leakLog, passed: passed.length, conclusion: finalConclusion, results, reference }, null, 2),
     'utf8',
   );
 
