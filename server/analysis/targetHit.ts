@@ -34,13 +34,30 @@ export interface FreqRow {
   expectancy: number;
 }
 
+export type TouchOutcome = 'target' | 'stop' | 'neither';
+
 /**
- * 매일 종가에 샀다고 가정하고, N 거래일 안에 목표(+X%)와 손절(−Y%) 중 **어느 쪽에 먼저**
- * 닿았는지 센다.
+ * i 번째 봉 종가에 샀을 때, 다음 N 봉 안에 목표(+X%)와 손절(−Y%) 중 **어느 쪽에 먼저** 닿았나.
+ * 뒤에 N 봉이 없으면 null (아직 결과가 확정되지 않았다).
  *
  * ⚠️ 같은 날 둘 다 닿으면 **손절로 센다**(보수적). 일봉만으로는 장중 순서를 알 수 없어서,
  * 유리한 쪽으로 가정하면 실제보다 좋아 보인다.
+ * ⚠️ 이 결과는 **i+1 ~ i+N 봉**을 본다 — 과거 표본으로 쓸 때는 i+N 봉이 판단 시점보다 앞서야 한다.
  */
+export function touchOutcome(candles: Candle[], i: number, X: number, Y: number, N: number): TouchOutcome | null {
+  if (i + N >= candles.length) return null;
+  const buy = candles[i].close;
+  const tp = buy * (1 + X / 100);
+  const sl = buy * (1 - Y / 100);
+  for (let k = 1; k <= N; k += 1) {
+    const bar = candles[i + k];
+    if (bar.low <= sl) return 'stop'; // 같은 날 둘 다면 손절 (보수적)
+    if (bar.high >= tp) return 'target';
+  }
+  return 'neither';
+}
+
+/** 매일 종가에 샀다고 가정한 빈도 — 최근 `days` 봉에서 `touchOutcome` 을 센다 */
 export function firstTouch(candles: Candle[], X: number, Y: number, N: number, days = FREQ_DAYS): FreqRow {
   const usable = candles.slice(-days);
   let samples = 0;
@@ -48,17 +65,10 @@ export function firstTouch(candles: Candle[], X: number, Y: number, N: number, d
   let hitStop = 0;
 
   for (let i = 0; i < usable.length - N; i += 1) {
-    const buy = usable[i].close;
-    const tp = buy * (1 + X / 100);
-    const sl = buy * (1 - Y / 100);
     samples += 1;
-
-    for (let k = 1; k <= N; k += 1) {
-      const bar = usable[i + k];
-      // 같은 날 둘 다면 손절 (보수적)
-      if (bar.low <= sl) { hitStop += 1; break; }
-      if (bar.high >= tp) { hitTarget += 1; break; }
-    }
+    const outcome = touchOutcome(usable, i, X, Y, N);
+    if (outcome === 'stop') hitStop += 1;
+    else if (outcome === 'target') hitTarget += 1;
   }
 
   const neither = samples - hitTarget - hitStop;
@@ -93,8 +103,8 @@ export function firstTouchFrequency(
   return rows;
 }
 
-/** 하루 평균 변동폭(ATR 14, 종가 대비 %) — "목표 3% 는 이 종목의 며칠치인가" */
-export function atrPercent(candles: Candle[], period = 14): number | null {
+/** ATR(14) 가격 단위 — 마지막 period 개 True Range 의 단순 평균. 봉이 모자라면 null */
+export function atr(candles: Candle[], period = 14): number | null {
   const c = candles.slice(-(period + 1));
   if (c.length < period + 1) return null;
   let sum = 0;
@@ -105,7 +115,13 @@ export function atrPercent(candles: Candle[], period = 14): number | null {
       Math.abs(c[i].low - c[i - 1].close),
     );
   }
-  return round2((sum / period / c.at(-1)!.close) * 100);
+  return sum / period;
+}
+
+/** 하루 평균 변동폭(ATR 14, 종가 대비 %) — "목표 3% 는 이 종목의 며칠치인가" */
+export function atrPercent(candles: Candle[], period = 14): number | null {
+  const value = atr(candles, period);
+  return value === null ? null : round2((value / candles.at(-1)!.close) * 100);
 }
 
 /** 캔들 확보 — 실시간이 막히면 SQLite 캐시로 내려간다 (엔진과 같은 방침) */

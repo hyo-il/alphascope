@@ -542,7 +542,7 @@ function autoTrades() {
  * 출력 위치 — 맥은 관리 루트(`docs/analysis/`), 오라클은 `~/alphascope/reports/`.
  * 오라클에는 관리 루트가 없다.
  */
-function outputDir(): { dir: string; server: string } {
+export function outputDir(): { dir: string; server: string } {
   const server = os.hostname().toLowerCase().includes('mac') || process.platform === 'darwin' ? 'mac' : 'oracle';
   // cwd 가 아니라 이 파일 위치로 잡는다 — 서버 프로세스(pm2)는 다른 곳에서 뜰 수 있다
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

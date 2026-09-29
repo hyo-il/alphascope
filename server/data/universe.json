@@ -1,0 +1,1180 @@
+{
+  "asOf": "2026-09-29T01:51:34.840Z",
+  "source": "yfinance 1.6.0 스크리너(시가총액 내림차순) — 미국 NMS·NYQ·NGM·NCM·ASE / 국내 KSC·KOE, 토스 카탈로그 확인",
+  "us": [
+    {
+      "symbol": "NVDA",
+      "name": "엔비디아",
+      "marketCap": 5526282305536
+    },
+    {
+      "symbol": "AAPL",
+      "name": "애플",
+      "marketCap": 4938670276608
+    },
+    {
+      "symbol": "GOOGL",
+      "name": "알파벳 A",
+      "marketCap": 4191810224128
+    },
+    {
+      "symbol": "MSFT",
+      "name": "마이크로소프트",
+      "marketCap": 3781236359168
+    },
+    {
+      "symbol": "AMZN",
+      "name": "아마존",
+      "marketCap": 2655051055104
+    },
+    {
+      "symbol": "TSM",
+      "name": "TSMC(ADR)",
+      "marketCap": 2348850348032
+    },
+    {
+      "symbol": "SPCX",
+      "name": "스페이스X",
+      "marketCap": 1916449062912
+    },
+    {
+      "symbol": "META",
+      "name": "메타",
+      "marketCap": 1823046369280
+    },
+    {
+      "symbol": "AVGO",
+      "name": "브로드컴",
+      "marketCap": 1668717871104
+    },
+    {
+      "symbol": "TSLA",
+      "name": "테슬라",
+      "marketCap": 1411765764096
+    },
+    {
+      "symbol": "SKHY",
+      "name": "SK하이닉스(ADR)",
+      "marketCap": 1293588496384
+    },
+    {
+      "symbol": "MU",
+      "name": "마이크론 테크놀로지",
+      "marketCap": 1190357762048
+    },
+    {
+      "symbol": "BRK.B",
+      "name": "버크셔 해서웨이 B",
+      "marketCap": 1076969668608
+    },
+    {
+      "symbol": "LLY",
+      "name": "일라이 릴리",
+      "marketCap": 1056062046208
+    },
+    {
+      "symbol": "AMD",
+      "name": "AMD",
+      "marketCap": 992332546048
+    },
+    {
+      "symbol": "JPM",
+      "name": "제이피모건 체이스",
+      "marketCap": 894718902272
+    },
+    {
+      "symbol": "WMT",
+      "name": "월마트",
+      "marketCap": 862636277760
+    },
+    {
+      "symbol": "V",
+      "name": "비자",
+      "marketCap": 690378637312
+    },
+    {
+      "symbol": "ASML",
+      "name": "ASML 홀딩(ADR)",
+      "marketCap": 680398618624
+    },
+    {
+      "symbol": "XOM",
+      "name": "엑슨 모빌",
+      "marketCap": 668267970560
+    },
+    {
+      "symbol": "JNJ",
+      "name": "존슨 앤 존슨",
+      "marketCap": 655371927552
+    },
+    {
+      "symbol": "INTC",
+      "name": "인텔",
+      "marketCap": 613346770944
+    },
+    {
+      "symbol": "MA",
+      "name": "마스터카드",
+      "marketCap": 497801396224
+    },
+    {
+      "symbol": "ABBV",
+      "name": "애브비",
+      "marketCap": 470547988480
+    },
+    {
+      "symbol": "PLTR",
+      "name": "팔란티어",
+      "marketCap": 450525396992
+    },
+    {
+      "symbol": "CSCO",
+      "name": "시스코 시스템즈",
+      "marketCap": 420831723520
+    },
+    {
+      "symbol": "COST",
+      "name": "코스트코",
+      "marketCap": 409099042816
+    },
+    {
+      "symbol": "CVX",
+      "name": "셰브론",
+      "marketCap": 404816068608
+    },
+    {
+      "symbol": "ORCL",
+      "name": "오라클",
+      "marketCap": 401977049088
+    },
+    {
+      "symbol": "LRCX",
+      "name": "램 리서치",
+      "marketCap": 393535422464
+    },
+    {
+      "symbol": "BAC",
+      "name": "뱅크오브아메리카",
+      "marketCap": 387887759360
+    },
+    {
+      "symbol": "AMAT",
+      "name": "어플라이드 머티리얼즈",
+      "marketCap": 386291499008
+    },
+    {
+      "symbol": "CAT",
+      "name": "캐터필러",
+      "marketCap": 376910413824
+    },
+    {
+      "symbol": "KO",
+      "name": "코카콜라",
+      "marketCap": 375096213504
+    },
+    {
+      "symbol": "MRK",
+      "name": "머크",
+      "marketCap": 366843756544
+    },
+    {
+      "symbol": "PG",
+      "name": "P&G",
+      "marketCap": 346410254336
+    },
+    {
+      "symbol": "HSBC",
+      "name": "HSBC(ADR)",
+      "marketCap": 346168918016
+    },
+    {
+      "symbol": "DELL",
+      "name": "델 테크놀로지스",
+      "marketCap": 345519718400
+    },
+    {
+      "symbol": "QH",
+      "name": "취훠",
+      "marketCap": 341550825472
+    },
+    {
+      "symbol": "UNH",
+      "name": "유나이티드헬스 그룹",
+      "marketCap": 339138248704
+    },
+    {
+      "symbol": "GE",
+      "name": "제너럴 일렉트릭 (에어로스페이스)",
+      "marketCap": 330193862656
+    },
+    {
+      "symbol": "PANW",
+      "name": "팰로 앨토 네트웍스",
+      "marketCap": 320729612288
+    },
+    {
+      "symbol": "MS",
+      "name": "모건스탠리",
+      "marketCap": 304124461056
+    },
+    {
+      "symbol": "ARM",
+      "name": "ARM 홀딩스(ADR)",
+      "marketCap": 302596030464
+    },
+    {
+      "symbol": "PM",
+      "name": "필립 모리스 인터내셔널",
+      "marketCap": 301996933120
+    },
+    {
+      "symbol": "HD",
+      "name": "홈 디포",
+      "marketCap": 289220263936
+    },
+    {
+      "symbol": "NFLX",
+      "name": "넷플릭스",
+      "marketCap": 288269565952
+    },
+    {
+      "symbol": "NVS",
+      "name": "노바티스(ADR)",
+      "marketCap": 279177003008
+    },
+    {
+      "symbol": "RY",
+      "name": "로열 뱅크 오브 캐나다",
+      "marketCap": 278201171968
+    },
+    {
+      "symbol": "SHEL",
+      "name": "쉘(ADR)",
+      "marketCap": 275120521216
+    },
+    {
+      "symbol": "BABA",
+      "name": "알리바바(ADR)",
+      "marketCap": 270417412096
+    },
+    {
+      "symbol": "GS",
+      "name": "골드만삭스",
+      "marketCap": 266794532864
+    },
+    {
+      "symbol": "CRWD",
+      "name": "크라우드스트라이크 홀딩스",
+      "marketCap": 265455108096
+    },
+    {
+      "symbol": "MUFG",
+      "name": "미쓰비시 UFJ 파이낸셜(ADR)",
+      "marketCap": 263047233536
+    },
+    {
+      "symbol": "ANET",
+      "name": "아리스타 네트웍스",
+      "marketCap": 258450161664
+    },
+    {
+      "symbol": "AZN",
+      "name": "아스트라제네카",
+      "marketCap": 257679687680
+    },
+    {
+      "symbol": "TXN",
+      "name": "텍사스 인스트루먼츠",
+      "marketCap": 254165958656
+    },
+    {
+      "symbol": "GEV",
+      "name": "GE 버노바",
+      "marketCap": 252955656192
+    },
+    {
+      "symbol": "RTX",
+      "name": "RTX",
+      "marketCap": 252920283136
+    },
+    {
+      "symbol": "TMO",
+      "name": "써모 피셔 사이언티픽",
+      "marketCap": 250910507008
+    },
+    {
+      "symbol": "SNDK",
+      "name": "샌디스크",
+      "marketCap": 250799652864
+    },
+    {
+      "symbol": "KLAC",
+      "name": "KLA",
+      "marketCap": 246868066304
+    },
+    {
+      "symbol": "WFC",
+      "name": "웰스파고",
+      "marketCap": 244369375232
+    },
+    {
+      "symbol": "SAP",
+      "name": "SAP(ADR)",
+      "marketCap": 241586503680
+    },
+    {
+      "symbol": "MRVL",
+      "name": "마벨 테크놀로지",
+      "marketCap": 226383691776
+    },
+    {
+      "symbol": "AMGN",
+      "name": "암젠",
+      "marketCap": 226054455296
+    },
+    {
+      "symbol": "TM",
+      "name": "토요타 모터(ADR)",
+      "marketCap": 222981734400
+    },
+    {
+      "symbol": "C",
+      "name": "씨티그룹",
+      "marketCap": 220264218624
+    },
+    {
+      "symbol": "LIN",
+      "name": "린데",
+      "marketCap": 217601081344
+    },
+    {
+      "symbol": "BHP",
+      "name": "BHP 그룹 (ADR)",
+      "marketCap": 214958112768
+    },
+    {
+      "symbol": "STX",
+      "name": "씨게이트",
+      "marketCap": 209544937472
+    },
+    {
+      "symbol": "APH",
+      "name": "암페놀",
+      "marketCap": 208670113792
+    },
+    {
+      "symbol": "IBM",
+      "name": "IBM",
+      "marketCap": 207900803072
+    },
+    {
+      "symbol": "AXP",
+      "name": "아메리칸 익스프레스",
+      "marketCap": 206867644416
+    },
+    {
+      "symbol": "SAN",
+      "name": "방코 산탄데르(ADR)",
+      "marketCap": 206138884096
+    },
+    {
+      "symbol": "QCOM",
+      "name": "퀄컴",
+      "marketCap": 200239972352
+    },
+    {
+      "symbol": "TTE",
+      "name": "토탈에너지스",
+      "marketCap": 199495090176
+    },
+    {
+      "symbol": "TD",
+      "name": "토론토 도미니언 뱅크",
+      "marketCap": 195883991040
+    },
+    {
+      "symbol": "VZ",
+      "name": "버라이즌",
+      "marketCap": 193944911872
+    },
+    {
+      "symbol": "ADI",
+      "name": "아날로그 디바이스",
+      "marketCap": 191611715584
+    },
+    {
+      "symbol": "GILD",
+      "name": "길리어드 사이언스",
+      "marketCap": 188733587456
+    },
+    {
+      "symbol": "CRM",
+      "name": "세일즈포스",
+      "marketCap": 187043217408
+    },
+    {
+      "symbol": "DE",
+      "name": "디어",
+      "marketCap": 185930989568
+    },
+    {
+      "symbol": "SHOP",
+      "name": "쇼피파이",
+      "marketCap": 185289588736
+    },
+    {
+      "symbol": "DIS",
+      "name": "디즈니",
+      "marketCap": 182320857088
+    },
+    {
+      "symbol": "TMUS",
+      "name": "T 모바일",
+      "marketCap": 178546180096
+    },
+    {
+      "symbol": "ABT",
+      "name": "애보트 래버러토리스",
+      "marketCap": 175888302080
+    },
+    {
+      "symbol": "PEP",
+      "name": "펩시코",
+      "marketCap": 175530999808
+    },
+    {
+      "symbol": "SCCO",
+      "name": "서던 코퍼",
+      "marketCap": 171089362944
+    },
+    {
+      "symbol": "NVO",
+      "name": "노보노디스크(ADR)",
+      "marketCap": 170927095808
+    },
+    {
+      "symbol": "T",
+      "name": "AT&T",
+      "marketCap": 170624401408
+    },
+    {
+      "symbol": "SCHW",
+      "name": "찰스 슈왑",
+      "marketCap": 169993699328
+    },
+    {
+      "symbol": "WELL",
+      "name": "웰타워",
+      "marketCap": 167864467456
+    },
+    {
+      "symbol": "ETN",
+      "name": "이튼",
+      "marketCap": 167516504064
+    },
+    {
+      "symbol": "SMFG",
+      "name": "스미토모 미쓰이 파이낸셜 그룹(ADR)",
+      "marketCap": 334736850944
+    },
+    {
+      "symbol": "BLK",
+      "name": "블랙록",
+      "marketCap": 174052622336
+    },
+    {
+      "symbol": "MCD",
+      "name": "맥도날드",
+      "marketCap": 165305073664
+    },
+    {
+      "symbol": "PFE",
+      "name": "화이자",
+      "marketCap": 163694624768
+    },
+    {
+      "symbol": "WDC",
+      "name": "웨스턴 디지털",
+      "marketCap": 163407970304
+    },
+    {
+      "symbol": "UNP",
+      "name": "유니온 퍼시픽",
+      "marketCap": 162836103168
+    }
+  ],
+  "kr": [
+    {
+      "symbol": "005930",
+      "name": "삼성전자",
+      "marketCap": 1794313453305856
+    },
+    {
+      "symbol": "000660",
+      "name": "SK하이닉스",
+      "marketCap": 1258572788793344
+    },
+    {
+      "symbol": "402340",
+      "name": "SK스퀘어",
+      "marketCap": 147191666573312
+    },
+    {
+      "symbol": "009150",
+      "name": "삼성전기",
+      "marketCap": 114756266491904
+    },
+    {
+      "symbol": "005380",
+      "name": "현대차",
+      "marketCap": 91380093288448
+    },
+    {
+      "symbol": "373220",
+      "name": "LG에너지솔루션",
+      "marketCap": 82250997694464
+    },
+    {
+      "symbol": "207940",
+      "name": "삼성바이오로직스",
+      "marketCap": 63511187161088
+    },
+    {
+      "symbol": "105560",
+      "name": "KB금융",
+      "marketCap": 60355141173248
+    },
+    {
+      "symbol": "028260",
+      "name": "삼성물산",
+      "marketCap": 56372313980928
+    },
+    {
+      "symbol": "032830",
+      "name": "삼성생명",
+      "marketCap": 51717538316288
+    },
+    {
+      "symbol": "055550",
+      "name": "신한지주",
+      "marketCap": 51606733193216
+    },
+    {
+      "symbol": "012450",
+      "name": "한화에어로스페이스",
+      "marketCap": 51757480673280
+    },
+    {
+      "symbol": "034020",
+      "name": "두산에너빌리티",
+      "marketCap": 50747144142848
+    },
+    {
+      "symbol": "329180",
+      "name": "HD현대중공업",
+      "marketCap": 44806294208512
+    },
+    {
+      "symbol": "000270",
+      "name": "기아",
+      "marketCap": 44656578527232
+    },
+    {
+      "symbol": "068270",
+      "name": "셀트리온",
+      "marketCap": 40567983570944
+    },
+    {
+      "symbol": "006400",
+      "name": "삼성SDI",
+      "marketCap": 40448525598720
+    },
+    {
+      "symbol": "066570",
+      "name": "LG전자",
+      "marketCap": 38213875924992
+    },
+    {
+      "symbol": "086790",
+      "name": "하나금융지주",
+      "marketCap": 35792370008064
+    },
+    {
+      "symbol": "012330",
+      "name": "현대모비스",
+      "marketCap": 32511096782848
+    },
+    {
+      "symbol": "034730",
+      "name": "SK",
+      "marketCap": 31470670315520
+    },
+    {
+      "symbol": "010120",
+      "name": "LS ELECTRIC",
+      "marketCap": 30203424276480
+    },
+    {
+      "symbol": "035420",
+      "name": "NAVER",
+      "marketCap": 29181884760064
+    },
+    {
+      "symbol": "000810",
+      "name": "삼성화재",
+      "marketCap": 28886863708160
+    },
+    {
+      "symbol": "298040",
+      "name": "효성중공업",
+      "marketCap": 26314979409920
+    },
+    {
+      "symbol": "316140",
+      "name": "우리금융지주",
+      "marketCap": 26318490042368
+    },
+    {
+      "symbol": "096770",
+      "name": "SK이노베이션",
+      "marketCap": 24628038729728
+    },
+    {
+      "symbol": "267260",
+      "name": "HD현대일렉트릭",
+      "marketCap": 24295076003840
+    },
+    {
+      "symbol": "042660",
+      "name": "한화오션",
+      "marketCap": 24003133571072
+    },
+    {
+      "symbol": "042700",
+      "name": "한미반도체",
+      "marketCap": 23428690083840
+    },
+    {
+      "symbol": "000150",
+      "name": "두산",
+      "marketCap": 23272722792448
+    },
+    {
+      "symbol": "005490",
+      "name": "POSCO홀딩스",
+      "marketCap": 23139958390784
+    },
+    {
+      "symbol": "009540",
+      "name": "HD한국조선해양",
+      "marketCap": 22752431964160
+    },
+    {
+      "symbol": "010130",
+      "name": "고려아연",
+      "marketCap": 21718791880704
+    },
+    {
+      "symbol": "138040",
+      "name": "메리츠금융지주",
+      "marketCap": 21189747539968
+    },
+    {
+      "symbol": "011200",
+      "name": "HMM",
+      "marketCap": 19949483458560
+    },
+    {
+      "symbol": "051910",
+      "name": "LG화학",
+      "marketCap": 19647051071488
+    },
+    {
+      "symbol": "015760",
+      "name": "한국전력",
+      "marketCap": 19291021770752
+    },
+    {
+      "symbol": "010950",
+      "name": "S-Oil",
+      "marketCap": 18487598645248
+    },
+    {
+      "symbol": "033780",
+      "name": "KT&G",
+      "marketCap": 18312163491840
+    },
+    {
+      "symbol": "017670",
+      "name": "SK텔레콤",
+      "marketCap": 18195236782080
+    },
+    {
+      "symbol": "006800",
+      "name": "미래에셋증권",
+      "marketCap": 18093789151232
+    },
+    {
+      "symbol": "003550",
+      "name": "LG",
+      "marketCap": 17147395833856
+    },
+    {
+      "symbol": "196170",
+      "name": "알테오젠",
+      "marketCap": 17077759901696
+    },
+    {
+      "symbol": "018260",
+      "name": "삼성에스디에스",
+      "marketCap": 16823664771072
+    },
+    {
+      "symbol": "010140",
+      "name": "삼성중공업",
+      "marketCap": 16459478597632
+    },
+    {
+      "symbol": "024110",
+      "name": "기업은행",
+      "marketCap": 16387101687808
+    },
+    {
+      "symbol": "003670",
+      "name": "포스코퓨처엠",
+      "marketCap": 15503319891968
+    },
+    {
+      "symbol": "079550",
+      "name": "LIG디펜스앤에어로스페이스",
+      "marketCap": 14920305344512
+    },
+    {
+      "symbol": "035720",
+      "name": "카카오",
+      "marketCap": 14873080627200
+    },
+    {
+      "symbol": "086280",
+      "name": "현대글로비스",
+      "marketCap": 14677500231680
+    },
+    {
+      "symbol": "267250",
+      "name": "HD현대",
+      "marketCap": 14345691987968
+    },
+    {
+      "symbol": "011070",
+      "name": "LG이노텍",
+      "marketCap": 13654421405696
+    },
+    {
+      "symbol": "278470",
+      "name": "에이피알",
+      "marketCap": 13552612016128
+    },
+    {
+      "symbol": "000720",
+      "name": "현대건설",
+      "marketCap": 13196987465728
+    },
+    {
+      "symbol": "272210",
+      "name": "한화시스템",
+      "marketCap": 13108227604480
+    },
+    {
+      "symbol": "030200",
+      "name": "KT",
+      "marketCap": 12501919989760
+    },
+    {
+      "symbol": "047810",
+      "name": "한국항공우주",
+      "marketCap": 12311105372160
+    },
+    {
+      "symbol": "064350",
+      "name": "현대로템",
+      "marketCap": 12223937249280
+    },
+    {
+      "symbol": "005830",
+      "name": "DB손해보험",
+      "marketCap": 11673867911168
+    },
+    {
+      "symbol": "003490",
+      "name": "대한항공",
+      "marketCap": 11506893717504
+    },
+    {
+      "symbol": "086520",
+      "name": "에코프로",
+      "marketCap": 10620533473280
+    },
+    {
+      "symbol": "443060",
+      "name": "HD현대마린솔루션",
+      "marketCap": 10378453975040
+    },
+    {
+      "symbol": "247540",
+      "name": "에코프로비엠",
+      "marketCap": 10430529404928
+    },
+    {
+      "symbol": "071050",
+      "name": "한국금융지주",
+      "marketCap": 10330387251200
+    },
+    {
+      "symbol": "078930",
+      "name": "GS",
+      "marketCap": 10224918331392
+    },
+    {
+      "symbol": "005940",
+      "name": "NH투자증권",
+      "marketCap": 10188446760960
+    },
+    {
+      "symbol": "307950",
+      "name": "현대오토에버",
+      "marketCap": 10050889318400
+    },
+    {
+      "symbol": "090430",
+      "name": "아모레퍼시픽",
+      "marketCap": 9815171530752
+    },
+    {
+      "symbol": "036930",
+      "name": "주성엔지니어링",
+      "marketCap": 9755652259840
+    },
+    {
+      "symbol": "323410",
+      "name": "카카오뱅크",
+      "marketCap": 9577229713408
+    },
+    {
+      "symbol": "028050",
+      "name": "삼성E&A",
+      "marketCap": 9408000032768
+    },
+    {
+      "symbol": "000880",
+      "name": "한화",
+      "marketCap": 9279296765952
+    },
+    {
+      "symbol": "003230",
+      "name": "삼양식품",
+      "marketCap": 9273138479104
+    },
+    {
+      "symbol": "047050",
+      "name": "포스코인터내셔널",
+      "marketCap": 9280701857792
+    },
+    {
+      "symbol": "180640",
+      "name": "한진칼",
+      "marketCap": 9026259648512
+    },
+    {
+      "symbol": "259960",
+      "name": "크래프톤",
+      "marketCap": 8643887497216
+    },
+    {
+      "symbol": "006260",
+      "name": "LS",
+      "marketCap": 8641821802496
+    },
+    {
+      "symbol": "007660",
+      "name": "이수페타시스",
+      "marketCap": 8416366428160
+    },
+    {
+      "symbol": "0126Z0",
+      "name": "삼성에피스홀딩스",
+      "marketCap": 8124314943488
+    },
+    {
+      "symbol": "277810",
+      "name": "레인보우로보틱스",
+      "marketCap": 8089740771328
+    },
+    {
+      "symbol": "016360",
+      "name": "삼성증권",
+      "marketCap": 7804820127744
+    },
+    {
+      "symbol": "009830",
+      "name": "한화솔루션",
+      "marketCap": 7244989071360
+    },
+    {
+      "symbol": "021240",
+      "name": "코웨이",
+      "marketCap": 7160161894400
+    },
+    {
+      "symbol": "161390",
+      "name": "한국타이어앤테크놀로지",
+      "marketCap": 7185137401856
+    },
+    {
+      "symbol": "047040",
+      "name": "대우건설",
+      "marketCap": 7120649453568
+    },
+    {
+      "symbol": "352820",
+      "name": "하이브",
+      "marketCap": 6756848631808
+    },
+    {
+      "symbol": "064400",
+      "name": "LG씨엔에스",
+      "marketCap": 6646376431616
+    },
+    {
+      "symbol": "039490",
+      "name": "키움증권",
+      "marketCap": 6583307206656
+    },
+    {
+      "symbol": "353200",
+      "name": "대덕전자",
+      "marketCap": 6506021912576
+    },
+    {
+      "symbol": "128940",
+      "name": "한미약품",
+      "marketCap": 6420690370560
+    },
+    {
+      "symbol": "032640",
+      "name": "LG유플러스",
+      "marketCap": 6217866412032
+    },
+    {
+      "symbol": "062040",
+      "name": "산일전기",
+      "marketCap": 6141574119424
+    },
+    {
+      "symbol": "240810",
+      "name": "원익IPS",
+      "marketCap": 6077095608320
+    },
+    {
+      "symbol": "039030",
+      "name": "이오테크닉스",
+      "marketCap": 6042739015680
+    },
+    {
+      "symbol": "267270",
+      "name": "HD건설기계",
+      "marketCap": 5859240312832
+    },
+    {
+      "symbol": "028300",
+      "name": "HLB",
+      "marketCap": 5819960131584
+    },
+    {
+      "symbol": "326030",
+      "name": "SK바이오팜",
+      "marketCap": 5795180183552
+    },
+    {
+      "symbol": "001440",
+      "name": "대한전선",
+      "marketCap": 5753224036352
+    },
+    {
+      "symbol": "000990",
+      "name": "DB하이텍",
+      "marketCap": 5726685102080
+    }
+  ],
+  "excluded": [
+    {
+      "symbol": "GOOG",
+      "name": "Alphabet Inc.",
+      "reason": "중복 클래스(GOOGL 유지)"
+    },
+    {
+      "symbol": "BRK-A",
+      "name": "Berkshire Hathaway Inc.",
+      "reason": "중복 클래스(BRK.B 유지)"
+    },
+    {
+      "symbol": "JPM-PC",
+      "name": "JPMorgan Chase & Co.",
+      "reason": "토스 카탈로그에 없음"
+    },
+    {
+      "symbol": "JPM-PD",
+      "name": "JPMorgan Chase & Co.",
+      "reason": "토스 카탈로그에 없음"
+    },
+    {
+      "symbol": "BML-PH",
+      "name": "Bank of America Corporation",
+      "reason": "토스 카탈로그에 없음"
+    },
+    {
+      "symbol": "BML-PG",
+      "name": "Bank of America Corporation",
+      "reason": "토스 카탈로그에 없음"
+    },
+    {
+      "symbol": "BML-PL",
+      "name": "Bank of America Corporation",
+      "reason": "토스 카탈로그에 없음"
+    },
+    {
+      "symbol": "BML-PJ",
+      "name": "Bank of America Corporation",
+      "reason": "토스 카탈로그에 없음"
+    },
+    {
+      "symbol": "BAC-PB",
+      "name": "Bank of America Corporation",
+      "reason": "토스 카탈로그에 없음"
+    },
+    {
+      "symbol": "BAC-PE",
+      "name": "Bank of America Corporation",
+      "reason": "토스 카탈로그에 없음"
+    },
+    {
+      "symbol": "BAC-PK",
+      "name": "Bank of America Corporation",
+      "reason": "토스 카탈로그에 없음"
+    },
+    {
+      "symbol": "WFC-PL",
+      "name": "Wells Fargo & Company",
+      "reason": "토스 카탈로그에 없음"
+    },
+    {
+      "symbol": "WFC-PY",
+      "name": "Wells Fargo & Company",
+      "reason": "토스 카탈로그에 없음"
+    },
+    {
+      "symbol": "005935.KS",
+      "name": "Samsung Electronics Co., Ltd.",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "005387.KS",
+      "name": "Hyundai Motor Company",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "005385.KS",
+      "name": "Hyundai Motor Company",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "005389.KS",
+      "name": "Hyundai Motor Company",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "009155.KS",
+      "name": "Samsung Electro-Mechanics Co., Ltd.",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "02826K.KS",
+      "name": "Samsung C&T Corporation",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "03473K.KS",
+      "name": "SK Inc.",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "000815.KS",
+      "name": "Samsung Fire & Marine Insurance Co., Ltd.",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "006405.KS",
+      "name": "Samsung SDI Co., Ltd.",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "066575.KS",
+      "name": "LG Electronics Inc.",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "096775.KS",
+      "name": "SK Innovation Co., Ltd.",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "003555.KS",
+      "name": "LG Corp.",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "010955.KS",
+      "name": "S-Oil Corporation",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "051915.KS",
+      "name": "LG Chem, Ltd.",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "071055.KS",
+      "name": "Korea Investment Holdings Co., Ltd.",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "003495.KS",
+      "name": "Korean Airlines Co.,Ltd.",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "005945.KS",
+      "name": "NH Investment & Securities Co., Ltd.",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "000155.KS",
+      "name": "Doosan Corporation",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "006805.KS",
+      "name": "Mirae Asset Securities Co., Ltd.",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "00680K.KS",
+      "name": "Mirae Asset Securities Co., Ltd.",
+      "reason": "우선주(코드)"
+    },
+    {
+      "symbol": "000725.KS",
+      "name": "Hyundai Engineering & Construction Co.,Ltd.",
+      "reason": "우선주(코드)"
+    }
+  ]
+}
