@@ -24,7 +24,8 @@
     "auth:set-password": "tsx scripts/setPassword.ts",
     "diagnose": "tsx scripts/diagnose.ts",
     "universe:update": "tsx scripts/universeUpdate.ts",
-    "research:target": "tsx scripts/targetScreenResearch.ts"
+    "research:target": "tsx scripts/targetScreenResearch.ts",
+    "research:sector": "tsx scripts/sectorPersistenceResearch.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",

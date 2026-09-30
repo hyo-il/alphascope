@@ -54,7 +54,8 @@ const SECTOR_KO: Record<string, string> = {
   'Basic Materials': '소재',
 };
 
-const sectorKo = (sector: string | null | undefined) => (sector ? SECTOR_KO[sector] ?? sector : '기타');
+/** 섹터 연구(`npm run research:sector`)도 쓴다 — 지도와 같은 분류여야 한다 */
+export const sectorKo = (sector: string | null | undefined) => (sector ? SECTOR_KO[sector] ?? sector : '기타');
 
 interface ProfileRow {
   symbol: string;
@@ -62,7 +63,7 @@ interface ProfileRow {
   market_cap: number | null;
 }
 
-function profiles(symbols: string[]): Map<string, ProfileRow> {
+export function profiles(symbols: string[]): Map<string, ProfileRow> {
   if (!symbols.length) return new Map();
   const rows = getDb()
     .prepare(`SELECT symbol, sector, market_cap FROM stock_profiles WHERE symbol IN (${symbols.map(() => '?').join(',')})`)
@@ -185,7 +186,7 @@ async function periodCloses(symbol: string, bars: number, now: number): Promise<
  * ⚠️ 시총은 지도와 같은 **현재 시총**이다 — 기간 초 시총이 아니다. 짧은 기간이라 차이는 작지만, 크게 오른 종목의
  * 비중이 약간 부풀려진다. 그래서 동일 가중 수익률과 상승 종목 비율을 함께 보여 준다(초대형주 하나가 섹터를 좌우하는지 보이게).
  */
-function sectorStats(cells: HeatmapCell[]): Pick<HeatmapResponse, 'sectors' | 'marketReturn' | 'counted' | 'excluded'> {
+export function sectorStats(cells: HeatmapCell[]): Pick<HeatmapResponse, 'sectors' | 'marketReturn' | 'counted' | 'excluded'> {
   const valid = cells.filter((c) => c.changeRate != null);
   const totalCap = valid.reduce((a, c) => a + c.marketCap, 0);
   const marketReturn = totalCap > 0 ? valid.reduce((a, c) => a + c.marketCap * c.changeRate!, 0) / totalCap : null;
