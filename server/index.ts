@@ -1290,12 +1290,17 @@ app.post('/api/news/analyze', async (req, res) => {
 });
 
 // -- 종목 지도 (v2.18.0) --------------------------------------------------------
-// 유니버스(시장별 시총 상위 100) + 관심 종목. 크기 = 시총, 색 = 전 거래일 종가 대비 등락. 시장별 60초 캐시.
+// 유니버스(시장별 시총 상위 100) + 관심 종목. 크기 = 시총, 색 = 기간 수익률(1d 는 전 거래일 종가 대비). 1d 60초 · 그 밖 10분 캐시.
+// 응답의 sectors[] 는 설명용 섹터 강세 순위 — 판정·자동매매에 쓰지 않는다.
 
 app.get('/api/heatmap', async (req, res) => {
   const market = req.query.market === 'kr' ? 'kr' : 'us';
+  const period = (['1d', '1w', '1m', '3m'] as const).find((p) => p === req.query.period) ?? '1d';
+  if (req.query.period !== undefined && period !== req.query.period) {
+    return res.status(400).json({ error: 'period 는 1d · 1w · 1m · 3m 중 하나입니다.' });
+  }
   try {
-    res.json(await heatmap(market));
+    res.json(await heatmap(market, period));
   } catch (e) {
     fail(res, e);
   }
