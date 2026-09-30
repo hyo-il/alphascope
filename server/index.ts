@@ -129,12 +129,13 @@ import {
 import { computePerformance, listSnapshots } from './paperPerformanceService';
 import { backfillSnapshots, startSnapshotScheduler } from './paperSnapshotScheduler';
 import { startUniverseSnapshotScheduler } from './universe';
-import { startEarningsScheduler } from './earningsCalendar';
+import { getEarningsDate, startEarningsScheduler } from './earningsCalendar';
 import { startMarketCalendarScheduler } from './marketCalendar';
 import { calendarEvents } from './calendarService';
 import { previewProfile } from './swingPreview';
 import { heatmap } from './heatmap';
 import { liveRanking } from './liveRanking';
+import { marketDate } from '../src/utils/marketDate';
 import { analyzeNews, getNews } from './news';
 
 /**
@@ -1289,6 +1290,20 @@ app.post('/api/news/analyze', async (req, res) => {
   } catch (e) {
     fail(res, e);
   }
+});
+
+// -- 다음 실적 발표일 (v2.21.0) ------------------------------------------------
+// 실시간 순위 미리보기의 한 줄. ⚠️ earnings_calendar(하루 1회 갱신)만 읽는다 — 마우스를 올릴 때마다 yfinance 를 부르지 않는다.
+// 달력에 없거나 이미 지난 날짜면 date: null (화면이 "실적일 정보 없음").
+
+app.get('/api/earnings/next', (req, res) => {
+  const symbol = parseSymbol(req.query.symbol);
+  if (!symbol) return res.status(400).json(BAD_SYMBOL);
+  const e = getEarningsDate(symbol);
+  const today = marketDate(Date.now(), symbol);
+  const days = e ? Math.round((Date.parse(`${e.date}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) / 86_400_000) : null;
+  if (!e || days === null || days < 0) return res.json({ symbol, date: null, isEstimate: null, daysUntil: null });
+  res.json({ symbol, date: e.date, isEstimate: e.isEstimate, daysUntil: days });
 });
 
 // -- 실시간 순위 (v2.20.0) ------------------------------------------------------

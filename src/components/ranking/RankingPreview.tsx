@@ -27,6 +27,33 @@ export const PREVIEW_TIMEFRAMES: { id: PreviewTimeframe; label: string; limit: n
 /** 모듈 전역 — 화면을 나갔다 와도 방금 본 종목은 즉시 */
 const memo = new Map<string, Candle[]>();
 
+/**
+ * 다음 실적 발표일 (v2.21.0) — `GET /api/earnings/next`(earnings_calendar 만 읽는다, yfinance 를 부르지 않는다).
+ * (종목) 단위 메모리 캐시 — 같은 종목을 다시 올리면 요청하지 않는다. 날짜는 하루 1회 갱신이라 화면에 있는 동안은 충분하다.
+ */
+interface NextEarnings {
+  date: string | null;
+  isEstimate: boolean | null;
+  daysUntil: number | null;
+}
+const earningsMemo = new Map<string, NextEarnings>();
+/** 스윙 "실적 14일 이내" 경고와 같은 기준 */
+const EARNINGS_WARN_DAYS = 14;
+
+function EarningsLine({ info }: { info: NextEarnings | null | undefined }) {
+  if (info === undefined) return <p className="text-[11px] text-text-muted">실적일 확인 중…</p>;
+  if (!info || !info.date || info.daysUntil == null) return <p className="text-[11px] text-text-muted/70">실적일 정보 없음</p>;
+  const [, m, d] = info.date.split('-').map(Number);
+  const when = info.daysUntil === 0 ? '오늘' : `D−${info.daysUntil}`;
+  const soon = info.daysUntil <= EARNINGS_WARN_DAYS;
+  return (
+    <p className={`text-[11px] ${soon ? 'font-medium text-warning' : 'text-text-secondary'}`}>
+      실적 발표 {m}/{d} (예정·{info.isEstimate ? '추정' : when})
+      {info.isEstimate && <span className="ml-1 text-text-muted">{when}</span>}
+    </p>
+  );
+}
+
 export default function RankingPreview({
   row,
   timeframe,
@@ -43,6 +70,33 @@ export default function RankingPreview({
   const [error, setError] = useState<string | null>(null);
   const controller = useRef<AbortController | null>(null);
   const symbol = row?.symbol ?? null;
+  const [earnings, setEarnings] = useState<NextEarnings | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!symbol) return;
+    const hit = earningsMemo.get(symbol);
+    if (hit) {
+      setEarnings(hit);
+      return;
+    }
+    setEarnings(undefined);
+    // 차트 요청과 달리 **취소하지 않는다** — DB 한 줄이라 가볍고, 끝까지 받아 두면 빠르게 훑고 지나간 종목도 캐시에 남는다.
+    // 대신 그 사이 다른 종목으로 옮겼으면 화면에는 쓰지 않는다.
+    let current = true;
+    fetch(`/api/earnings/next?symbol=${encodeURIComponent(symbol)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: NextEarnings | null) => {
+        const info = data ?? { date: null, isEstimate: null, daysUntil: null };
+        earningsMemo.set(symbol, info);
+        if (current) setEarnings(info);
+      })
+      .catch(() => {
+        if (current) setEarnings(null);
+      });
+    return () => {
+      current = false;
+    };
+  }, [symbol]);
 
   useEffect(() => {
     controller.current?.abort(); // 훑고 지나간 행의 요청은 버린다
@@ -88,6 +142,7 @@ export default function RankingPreview({
               <span className="text-text-primary">{row.price != null ? formatPrice(row.price, row.currency) : '—'}</span>{' '}
               {row.changeRate != null && <span className={changeColor(row.changeRate)}>{formatPercent(row.changeRate)}</span>}
             </p>
+            <EarningsLine info={earnings} />
           </div>
         ) : (
           <p className="flex-1 text-[12px] text-text-muted">목록의 종목에 마우스를 올리면 여기 차트가 보입니다.</p>
