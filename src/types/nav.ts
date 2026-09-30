@@ -14,6 +14,7 @@ export type NavPageId =
   | 'chart'
   | 'compare'
   | 'calendar'
+  | 'heatmap'
   | 'analysis'
   | 'surge'
   | 'swing'
@@ -64,6 +65,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: 'compare', label: '기업 비교' },
       // 실적·FOMC·옵션 만기·휴장 (v2.17.0). 종목은 달력 안에서 눌러 고른다 — 상단 헤더를 숨긴다
       { id: 'calendar', label: '일정', hidesSymbolHeader: true },
+      // 시총 상위 100 + 관심 종목의 등락 지도 (v2.18.0). 종목은 지도에서 눌러 고른다 — 상단 헤더를 숨긴다
+      { id: 'heatmap', label: '종목 지도', hidesSymbolHeader: true },
     ],
   },
   {

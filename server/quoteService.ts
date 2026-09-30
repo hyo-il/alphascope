@@ -1,6 +1,6 @@
 import type { Quote } from '../src/types/toss';
-import { getCandles } from './candleService';
 import { loadCandles } from './db';
+import { previousClose } from './previousClose';
 import { isMockMode, mockPrice } from './mockData';
 import { findStock } from './stockCatalog';
 import { currencyOfSymbol } from '../src/utils/market';
@@ -24,20 +24,6 @@ function num(value: unknown): number {
   if (typeof value === 'number') return value;
   if (typeof value === 'string' && value.trim() !== '') return Number(value);
   return NaN;
-}
-
-/** 전일 종가 — 캐시된 일봉을 쓰고, 없으면 한 번 받아 채운다. */
-async function previousClose(symbol: string): Promise<number | null> {
-  let daily = loadCandles(symbol, '1d', 2);
-  if (daily.length < 2) {
-    try {
-      await getCandles(symbol, '1d', 5);
-      daily = loadCandles(symbol, '1d', 2);
-    } catch {
-      return null;
-    }
-  }
-  return daily.length >= 2 ? daily[0].close : null;
 }
 
 export async function fetchQuotes(symbols: string[]): Promise<Quote[]> {

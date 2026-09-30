@@ -362,3 +362,12 @@ CREATE TABLE IF NOT EXISTS market_holidays (
   date TEXT NOT NULL,
   PRIMARY KEY (market, date)
 );
+
+-- 종목 프로필 (v2.18.0) — 종목 지도의 섹터·시가총액. 실적일 하루 1회 갱신(earningsCalendar.ts)이 같은 yfinance info 에서
+-- 함께 채운다(호출을 늘리지 않는다). 국내 종목도 yfinance 섹터가 오면 쓰고, 없으면 지도에서 "기타".
+CREATE TABLE IF NOT EXISTS stock_profiles (
+  symbol TEXT PRIMARY KEY,
+  sector TEXT,
+  market_cap REAL,
+  fetched_at TEXT NOT NULL
+);

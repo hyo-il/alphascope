@@ -104,6 +104,9 @@ def get_earnings(symbols: list[str]) -> list[dict]:
             "date": earnings_date(info),
             "isEstimate": bool(estimate) if estimate is not None else None,
             "found": bool(info),
+            # 같은 info 에서 섹터·시총도 함께 준다 (v2.18.0 종목 지도) — 따로 받으면 하루에 같은 호출을 두 번 한다
+            "sector": info.get("sector"),
+            "marketCap": clean(info.get("marketCap")),
         })
     return out
 

@@ -8,6 +8,7 @@ import SurgeDashboard from './components/surge/SurgeDashboard';
 import SwingDashboard from './components/swing/SwingDashboard';
 import DiagnoseView from './components/diagnose/DiagnoseView';
 import CalendarView from './components/calendar/CalendarView';
+import HeatmapView from './components/heatmap/HeatmapView';
 import QuickOrderPanel from './components/chart/QuickOrderPanel';
 import StockExplorer from './components/common/StockExplorer';
 import CandleChart, { type CandleChartHandle } from './components/chart/CandleChart';
@@ -348,6 +349,15 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         );
       case 'diagnose':
         return <DiagnoseView />;
+      case 'heatmap':
+        return (
+          <HeatmapView
+            onSelectSymbol={(next) => {
+              setSymbol(next);
+              setPage('chart');
+            }}
+          />
+        );
       case 'calendar':
         return (
           <CalendarView

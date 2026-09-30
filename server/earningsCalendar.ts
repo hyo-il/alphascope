@@ -78,7 +78,23 @@ export function earningsTargets(): string[] {
   return [...set].map((s) => s.toUpperCase());
 }
 
-function saveRows(rows: { symbol: string; date: string | null; isEstimate: boolean | null }[], at: string): void {
+type EarningsRowIn = {
+  symbol: string;
+  date: string | null;
+  isEstimate: boolean | null;
+  /** v2.18.0 — 같은 yfinance info 에서 온 섹터·시총 (종목 지도가 쓴다) */
+  sector?: string | null;
+  marketCap?: number | null;
+};
+
+function saveRows(rows: EarningsRowIn[], at: string): void {
+  // 섹터·시총은 stock_profiles 에 — 실적과 성격이 달라 표를 나눈다. 값이 없으면 기존 값을 지우지 않는다
+  const profile = getDb().prepare(
+    `INSERT INTO stock_profiles (symbol, sector, market_cap, fetched_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT(symbol) DO UPDATE SET sector = COALESCE(excluded.sector, sector),
+         market_cap = COALESCE(excluded.market_cap, market_cap), fetched_at = excluded.fetched_at`,
+  );
+  for (const r of rows) profile.run(r.symbol.toUpperCase(), r.sector ?? null, r.marketCap ?? null, at);
   const put = getDb().prepare(
     `INSERT INTO earnings_calendar (symbol, earnings_date, fetched_at, is_estimate) VALUES (?, ?, ?, ?)
        ON CONFLICT(symbol) DO UPDATE SET earnings_date = excluded.earnings_date,
@@ -96,7 +112,7 @@ export async function refreshEarnings(symbols: string[] = earningsTargets()): Pr
       signal: AbortSignal.timeout(120_000),
     });
     const payload = (await response.json().catch(() => ({}))) as {
-      earnings?: { symbol: string; date: string | null; isEstimate: boolean | null }[];
+      earnings?: EarningsRowIn[];
       error?: string;
     };
     if (!response.ok || !payload.earnings) throw new Error(payload.error ?? `지표 엔진 응답 ${response.status}`);

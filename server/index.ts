@@ -133,6 +133,7 @@ import { startEarningsScheduler } from './earningsCalendar';
 import { startMarketCalendarScheduler } from './marketCalendar';
 import { calendarEvents } from './calendarService';
 import { previewProfile } from './swingPreview';
+import { heatmap } from './heatmap';
 
 /**
  * AlphaScope API 서버.
@@ -1256,6 +1257,18 @@ app.put('/api/surge/settings', (req, res) => {
 app.get('/api/ai/accuracy', (_req, res) => {
   try {
     res.json(accuracyReport());
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+// -- 종목 지도 (v2.18.0) --------------------------------------------------------
+// 유니버스(시장별 시총 상위 100) + 관심 종목. 크기 = 시총, 색 = 전 거래일 종가 대비 등락. 시장별 60초 캐시.
+
+app.get('/api/heatmap', async (req, res) => {
+  const market = req.query.market === 'kr' ? 'kr' : 'us';
+  try {
+    res.json(await heatmap(market));
   } catch (e) {
     fail(res, e);
   }
