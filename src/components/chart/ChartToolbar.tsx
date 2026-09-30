@@ -39,13 +39,14 @@ export default function ChartToolbar({
           key={tf.value}
           type="button"
           onClick={() => onTimeframeChange(tf.value)}
+          title={tf.label}
           className={`rounded px-2 py-1 text-xs transition-colors ${
             timeframe === tf.value
               ? 'bg-accent/15 font-medium text-accent'
               : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
           }`}
         >
-          {tf.label}
+          {tf.short}
         </button>
       ))}
 

@@ -1,7 +1,8 @@
+import type { Timeframe } from '../../types/toss';
 import { useEffect, useState } from 'react';
 import CompareChart from './CompareChart';
 import SymbolSearch from '../common/SymbolSearch';
-import { COMPARE_DRAG_TYPE, type CompareChartData, type CompareTimeframe } from '../../types/compare';
+import { COMPARE_DRAG_TYPE, type CompareChartData } from '../../types/compare';
 import type { Fundamentals } from '../../types/company';
 
 /** 슬롯 번호 — 빈 칸에도 "몇 번 칸" 인지 보여야 드래그로 자리를 고를 수 있다 */
@@ -19,8 +20,8 @@ interface Props {
   name?: string | null;
   chart?: CompareChartData;
   fundamentals?: Fundamentals | null;
-  timeframe: CompareTimeframe;
-  onTimeframeChange: (timeframe: CompareTimeframe) => void;
+  timeframe: Timeframe;
+  onTimeframeChange: (timeframe: Timeframe) => void;
   onRemove: () => void;
   /** 이 칸에 종목을 놓는다 (드롭·검색). 차 있으면 교체된다 */
   onPlace: (symbol: string) => void;

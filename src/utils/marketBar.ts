@@ -1,4 +1,5 @@
 import type { Candle, Timeframe } from '../types/toss';
+import { calendarKey } from './candleAggregator';
 
 /**
  * 마지막 봉이 아직 만들어지는 중인지.
@@ -16,9 +17,16 @@ const MARKET_CLOSE_OFFSET_MS = 16 * 60 * 60 * 1000;
 
 const MINUTES: Record<string, number> = { '1m': 1, '5m': 5, '15m': 15, '30m': 30 };
 
-export function isFormingBar(candles: Candle[], timeframe: Timeframe = '1d'): boolean {
+export function isFormingBar(candles: Candle[], timeframe: Timeframe = '1d', symbol = ''): boolean {
   const last = candles.at(-1);
   if (!last) return false;
+
+  // 주봉·월봉(v2.20.0): **이번 주·이번 달 봉은 미완성**이다 — 그 시장 달력으로 지금과 같은 주·달인지 본다.
+  // symbol 을 모르면 미국 시간대로 본다(국내 6자리 코드는 KST).
+  if (timeframe === '1w' || timeframe === '1M') {
+    const unit = timeframe === '1w' ? 'week' : 'month';
+    return calendarKey(last.timestamp, symbol, unit) === calendarKey(Date.now(), symbol, unit);
+  }
 
   const minutes = MINUTES[timeframe];
   if (minutes) return Date.now() < last.timestamp + minutes * 60_000;
@@ -33,8 +41,9 @@ export function completedVolumeRatio(
   candles: Candle[],
   timeframe: Timeframe = '1d',
   period = 20,
+  symbol = '',
 ): { ratio: number | null; forming: boolean; formingVolume: number | null } {
-  const forming = isFormingBar(candles, timeframe);
+  const forming = isFormingBar(candles, timeframe, symbol);
   const completed = forming ? candles.slice(0, -1) : candles;
 
   if (completed.length < 2) {

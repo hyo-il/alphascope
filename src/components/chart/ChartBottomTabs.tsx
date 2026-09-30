@@ -193,6 +193,7 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
         <div className="min-h-0 flex-1 overflow-auto">
           {tab === 'indicators' && (
             <IndicatorSummaryPanel
+              symbol={props.symbol}
               candles={props.candles}
               timeframe={props.timeframe}
               indicators={props.indicators}

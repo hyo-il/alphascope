@@ -1,10 +1,11 @@
+import type { Timeframe } from '../../types/toss';
 import { useEffect, useState } from 'react';
 import CompareSlot from './CompareSlot';
 import CompareTable from './CompareTable';
 import CompareAIPrompt from './CompareAIPrompt';
 import { useCompareData } from '../../hooks/useCompareData';
 import { useStockNames } from '../../hooks/useStockNames';
-import { COMPARE_TIMEFRAMES, type CompareTimeframe } from '../../types/compare';
+import { COMPARE_TIMEFRAMES } from '../../types/compare';
 import { useAppStore } from '../../store/appStore';
 
 /**
@@ -32,7 +33,7 @@ export default function CompareView({ initialSymbol }: Props) {
   const removeSlot = useAppStore((s) => s.removeCompareSlot);
   const clearSymbols = useAppStore((s) => s.clearCompareSymbols);
 
-  const [timeframes, setTimeframes] = useState<Record<string, CompareTimeframe>>({});
+  const [timeframes, setTimeframes] = useState<Record<string, Timeframe>>({});
   const [chartsVisible, setChartsVisible] = useState(true);
 
   /** 데이터 조회는 실제로 담긴 종목만 (빈 칸은 부르지 않는다) */
@@ -52,7 +53,7 @@ export default function CompareView({ initialSymbol }: Props) {
   }, []);
 
   /** 전체 일괄 변경 — 개별 설정을 모두 덮어쓴다 (이후 개별 변경은 그 차트만 바뀐다) */
-  const setAllTimeframes = (timeframe: CompareTimeframe) =>
+  const setAllTimeframes = (timeframe: Timeframe) =>
     setTimeframes(Object.fromEntries(symbols.map((s) => [s, timeframe])));
 
   /** 비교 자체가 2종목부터 성립한다 — 한 종목의 표는 '비교' 가 아니다 */
@@ -72,7 +73,7 @@ export default function CompareView({ initialSymbol }: Props) {
             <select
               defaultValue=""
               onChange={(e) => {
-                if (e.target.value) setAllTimeframes(e.target.value as CompareTimeframe);
+                if (e.target.value) setAllTimeframes(e.target.value as Timeframe);
               }}
               className="rounded border border-border px-1 py-0.5 text-[11px]"
             >

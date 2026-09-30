@@ -83,12 +83,15 @@ export const MA_LINES: {
  * 타임프레임 버튼 정의 — 메인 차트 툴바와 캡처 팝업이 같은 목록을 쓴다.
  * 두 곳에 두면 한쪽에만 타임프레임이 추가되는 일이 생긴다.
  */
-export const TIMEFRAME_ITEMS: { value: Timeframe; label: string }[] = [
-  { value: '1m', label: '1분' },
-  { value: '5m', label: '5분' },
-  { value: '15m', label: '15분' },
-  { value: '30m', label: '30분' },
-  { value: '1d', label: '일봉' },
+/** 타임프레임 항목 — `short` 는 차트 툴바 버튼용(`일 · 주 · 월`), `label` 은 캡처 문구 등 풀어 쓰는 자리용 */
+export const TIMEFRAME_ITEMS: { value: Timeframe; label: string; short: string }[] = [
+  { value: '1m', label: '1분', short: '1분' },
+  { value: '5m', label: '5분', short: '5분' },
+  { value: '15m', label: '15분', short: '15분' },
+  { value: '30m', label: '30분', short: '30분' },
+  { value: '1d', label: '일봉', short: '일' },
+  { value: '1w', label: '주봉', short: '주' },
+  { value: '1M', label: '월봉', short: '월' },
 ];
 
 /** 지표 드롭다운에 노출하는 항목 정의 */

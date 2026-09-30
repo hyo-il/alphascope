@@ -33,3 +33,20 @@ export const AGGREGATION_MINUTES: Record<string, number> = {
   '15m': 15,
   '30m': 30,
 };
+
+/**
+ * 메인 차트가 처음 받는 봉 수 — **캔들과 지표가 같은 값**을 써야 지표가 화면과 어긋나지 않는다(한 곳에 둔다).
+ * 주봉 104 ≈ 2년(일봉 약 520), 월봉 60 ≈ 5년(일봉 약 1,260) — v2.20.0.
+ */
+export const CHART_CANDLE_LIMITS = {
+  '1m': 500,
+  '5m': 400,
+  '15m': 300,
+  '30m': 300,
+  '1d': 300,
+  '1w': 104,
+  '1M': 60,
+} as const satisfies Record<string, number>;
+
+/** 과거로 스크롤할 때 한 번에 더 받는 봉 수 — 주·월은 원본 일봉이 5·22배라 줄인다 */
+export const CHART_PAGE_SIZE = { '1m': 200, '5m': 200, '15m': 200, '30m': 200, '1d': 200, '1w': 104, '1M': 60 } as const;

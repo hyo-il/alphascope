@@ -1,4 +1,10 @@
-import type { Candle, Timeframe } from '../../../types/toss';
+import { TIMEFRAME_LABEL, type Candle, type Timeframe } from '../../../types/toss';
+
+const UNIT: Partial<Record<Timeframe, { line: string; range: string }>> = {
+  '1d': { line: '일선', range: '일일' },
+  '1w': { line: '주선', range: '주간' },
+  '1M': { line: '개월선', range: '월간' },
+};
 import type { IndicatorSeries } from '../../../types/chart';
 import { summarize } from '../../../utils/indicators';
 import { completedVolumeRatio } from '../../../utils/marketBar';
@@ -47,7 +53,9 @@ export default function IndicatorSummaryPanel({
   timeframe,
   indicators,
   currentPrice,
+  symbol = '',
 }: {
+  symbol?: string;
   candles: Candle[];
   timeframe: Timeframe;
   indicators: IndicatorSeries | null;
@@ -58,7 +66,9 @@ export default function IndicatorSummaryPanel({
 
   const price = currentPrice ?? summary.price;
   // 장중에는 마지막 봉이 미완성이라 거래량이 평균의 몇 % 로 찍힌다 — 완성 봉 기준으로 본다.
-  const volume = completedVolumeRatio(candles, timeframe);
+  const volume = completedVolumeRatio(candles, timeframe, 20, symbol);
+  // 봉 단위를 문구에 드러낸다 — 주봉에서 "20일선" 이라 쓰면 20주 평균을 20일로 읽는다 (v2.20.0)
+  const unit = UNIT[timeframe] ?? { line: '봉선', range: '한 봉' };
 
   const bbLower = last(indicators?.bbLower);
   const bbMiddle = last(indicators?.bbMiddle);
@@ -91,8 +101,8 @@ export default function IndicatorSummaryPanel({
     summary.ma20 == null || summary.ma60 == null
       ? ''
       : summary.ma20 > summary.ma60
-        ? `정배열 · 현재가는 20일선 ${price >= summary.ma20 ? '위' : '아래'}`
-        : `역배열 · 현재가는 20일선 ${price >= summary.ma20 ? '위' : '아래'}`;
+        ? `정배열 · 현재가는 20${unit.line} ${price >= summary.ma20 ? '위' : '아래'}`
+        : `역배열 · 현재가는 20${unit.line} ${price >= summary.ma20 ? '위' : '아래'}`;
 
   const bbNote =
     bbLower == null || bbMiddle == null || bbUpper == null
@@ -105,6 +115,12 @@ export default function IndicatorSummaryPanel({
 
   return (
     <div className="p-3 text-[11px]">
+      {(timeframe === '1w' || timeframe === '1M') && (
+        <p className="mb-1.5 text-text-muted">
+          {TIMEFRAME_LABEL[timeframe]} 기준 — 이동평균·RSI·MACD·거래량 비교가 모두 {TIMEFRAME_LABEL[timeframe]}으로 계산됩니다.
+          {volume.forming && ` 마지막 봉(이번 ${timeframe === '1w' ? '주' : '달'})은 아직 진행 중입니다.`}
+        </p>
+      )}
       <div className="grid gap-x-8 gap-y-0 md:grid-cols-2">
         <Row
           label="RSI(14)"
@@ -117,7 +133,7 @@ export default function IndicatorSummaryPanel({
           note={macdNote}
         />
         <Row
-          label="20 / 60일선"
+          label={`20 / 60${unit.line}`}
           value={
             summary.ma20 == null || summary.ma60 == null
               ? '—'
@@ -136,7 +152,7 @@ export default function IndicatorSummaryPanel({
           note={
             atr == null
               ? '차트에서 ATR 패널을 켜면 표시됩니다'
-              : `일일 예상 변동폭 ±${((atr / price) * 100).toFixed(1)}%`
+              : `${unit.range} 예상 변동폭 ±${((atr / price) * 100).toFixed(1)}%`
           }
         />
         <Row

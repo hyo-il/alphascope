@@ -1,6 +1,21 @@
 /** 앱 내부에서 쓰는 정규화된 타입 (토스 원본 응답 → 이 형태로 변환) */
 
-export type Timeframe = '1m' | '5m' | '15m' | '30m' | '1d';
+/**
+ * 차트 타임프레임. `1w`·`1M`(v2.20.0)은 토스가 주지 않아 **일봉을 시장 달력의 주·월로 묶는다**(`aggregateCalendar`).
+ * ⚠️ 여기를 넓히면 `Record<Timeframe, …>`(LIMITS·라벨)이 전부 따라온다 — 타입 검사가 빠진 곳을 알려 준다.
+ */
+export type Timeframe = '1m' | '5m' | '15m' | '30m' | '1d' | '1w' | '1M';
+
+/** 봉 단위 이름 — 분석 프롬프트·요약 문구가 함께 쓴다("주봉 기준") */
+export const TIMEFRAME_LABEL: Record<Timeframe, string> = {
+  '1m': '1분봉',
+  '5m': '5분봉',
+  '15m': '15분봉',
+  '30m': '30분봉',
+  '1d': '일봉',
+  '1w': '주봉',
+  '1M': '월봉',
+};
 
 /** 토스 API가 실제로 지원하는 원본 캔들 주기. 그 외는 1m을 집계해서 만든다. */
 export type BaseTimeframe = '1m' | '1d';

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Candle, Timeframe } from '../types/toss';
 import { useAppStore } from '../store/appStore';
+import { CHART_CANDLE_LIMITS, CHART_PAGE_SIZE } from '../utils/constants';
 
 interface CandleState {
   candles: Candle[];
@@ -13,16 +14,7 @@ interface CandleState {
 }
 
 /** 타임프레임별 최초 요청 캔들 수 — 부족하면 스크롤로 과거를 이어 받는다. */
-const LIMITS: Record<Timeframe, number> = {
-  '1m': 500,
-  '5m': 400,
-  '15m': 300,
-  '30m': 300,
-  '1d': 300,
-};
-
-/** 과거로 스크롤할 때 한 번에 더 받는 양 */
-const PAGE_SIZE = 200;
+const LIMITS: Record<Timeframe, number> = CHART_CANDLE_LIMITS;
 
 /**
  * `enabled` 가 false 면 호출하지 않는다.
@@ -101,7 +93,7 @@ export function useCandleData(symbol: string, timeframe: Timeframe, enabled = tr
 
     try {
       const res = await fetch(
-        `/api/candles?symbol=${symbol}&timeframe=${timeframe}&limit=${PAGE_SIZE}&before=${oldest}`,
+        `/api/candles?symbol=${symbol}&timeframe=${timeframe}&limit=${CHART_PAGE_SIZE[timeframe]}&before=${oldest}`,
       );
       const data = await res.json();
       const older: Candle[] = Array.isArray(data.candles) ? data.candles : [];

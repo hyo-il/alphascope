@@ -1,37 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Candle } from '../types/toss';
-import type { CompareChartData, CompareTimeframe } from '../types/compare';
+import type { Candle, Timeframe } from '../types/toss';
+import type { CompareChartData } from '../types/compare';
 import type { Fundamentals } from '../types/company';
-import { aggregateWeekly } from '../utils/candleAggregator';
 import { useSymbolSummaries } from './useSymbolSummaries';
 
-/** 비교 차트는 메인 차트만큼 길게 보지 않는다 — 화면이 작아 봉이 뭉개진다 */
-const LIMITS: Record<CompareTimeframe, number> = {
+/**
+ * 비교 차트는 메인 차트만큼 길게 보지 않는다 — 화면이 작아 봉이 뭉개진다.
+ * 주봉 60 ≈ 예전 "일봉 300개를 받아 주 단위로 묶기" 와 같은 기간이다(v2.20.0 부터 서버가 묶는다).
+ */
+const LIMITS: Record<Timeframe, number> = {
   '1m': 300,
   '5m': 300,
   '15m': 250,
   '30m': 250,
   '1d': 250,
-  '1w': 300, // 일봉을 받아 주 단위로 묶으므로 원본을 넉넉히 받는다
+  '1w': 60,
+  '1M': 60,
 };
 
-const keyOf = (symbol: string, timeframe: CompareTimeframe) => `${symbol}|${timeframe}`;
+const keyOf = (symbol: string, timeframe: Timeframe) => `${symbol}|${timeframe}`;
 
-async function fetchCandles(
-  symbol: string,
-  timeframe: CompareTimeframe,
-  signal: AbortSignal,
-): Promise<Candle[]> {
-  // 주봉은 토스가 주지 않는다. 일봉을 받아 월요일 기준으로 묶는다.
-  const base = timeframe === '1w' ? '1d' : timeframe;
-  const res = await fetch(
-    `/api/candles?symbol=${symbol}&timeframe=${base}&limit=${LIMITS[timeframe]}`,
-    { signal },
-  );
+async function fetchCandles(symbol: string, timeframe: Timeframe, signal: AbortSignal): Promise<Candle[]> {
+  const res = await fetch(`/api/candles?symbol=${symbol}&timeframe=${timeframe}&limit=${LIMITS[timeframe]}`, { signal });
   const data = await res.json();
   if (data.error) throw new Error(String(data.error));
-  const candles: Candle[] = Array.isArray(data.candles) ? data.candles : [];
-  return timeframe === '1w' ? aggregateWeekly(candles) : candles;
+  return Array.isArray(data.candles) ? data.candles : [];
 }
 
 async function fetchFundamentals(symbol: string, signal: AbortSignal): Promise<Fundamentals> {
@@ -52,7 +45,7 @@ async function fetchFundamentals(symbol: string, signal: AbortSignal): Promise<F
  * 이미 받은 (종목, 타임프레임) 조합은 캐시에 남겨 둔다 — 타임프레임을 오가거나
  * 차트를 숨겼다 켜도 다시 받지 않는다. [새로고침] 이 캐시를 통째로 버린다.
  */
-export function useCompareData(symbols: string[], timeframes: Record<string, CompareTimeframe>) {
+export function useCompareData(symbols: string[], timeframes: Record<string, Timeframe>) {
   const [charts, setCharts] = useState<Record<string, CompareChartData>>({});
   const [fundamentals, setFundamentals] = useState<Record<string, Fundamentals | null>>({});
   const [nonce, setNonce] = useState(0);
@@ -75,7 +68,7 @@ export function useCompareData(symbols: string[], timeframes: Record<string, Com
     let cancelled = false;
     const wanted = symbols.map((symbol) => ({
       symbol,
-      timeframe: timeframes[symbol] ?? ('1d' as CompareTimeframe),
+      timeframe: timeframes[symbol] ?? ('1d' as Timeframe),
     }));
 
     // 화면에서 뺀 종목은 상태에서도 지운다 (다음 추가 때 옛 값이 스쳐 보이지 않게).

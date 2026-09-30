@@ -1,3 +1,4 @@
+import type { Timeframe } from '../../types/toss';
 import { useEffect, useRef } from 'react';
 import {
   CandlestickSeries,
@@ -17,7 +18,7 @@ import {
   toChartTime,
 } from '../chart/chartTheme';
 import { InlineSpinner } from '../common/LoadingOverlay';
-import { COMPARE_TIMEFRAMES, type CompareTimeframe } from '../../types/compare';
+import { COMPARE_TIMEFRAMES } from '../../types/compare';
 import { MA_LINES } from '../../types/chart';
 import type { Candle } from '../../types/toss';
 import { changeColor, formatPercent, formatPrice } from '../../utils/formatters';
@@ -56,8 +57,8 @@ interface Props {
   candles: Candle[];
   loading: boolean;
   error: string | null;
-  timeframe: CompareTimeframe;
-  onTimeframeChange: (timeframe: CompareTimeframe) => void;
+  timeframe: Timeframe;
+  onTimeframeChange: (timeframe: Timeframe) => void;
   onRemove: () => void;
   /** 표기 통화 — 국내 종목을 $ 로 적지 않는다 */
   currency: 'KRW' | 'USD';
@@ -186,7 +187,7 @@ export default function CompareChart({
 
         <select
           value={timeframe}
-          onChange={(e) => onTimeframeChange(e.target.value as CompareTimeframe)}
+          onChange={(e) => onTimeframeChange(e.target.value as Timeframe)}
           className="ml-auto shrink-0 rounded border border-border px-1 py-0.5 text-[11px]"
         >
           {COMPARE_TIMEFRAMES.map((t) => (

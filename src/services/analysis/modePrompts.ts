@@ -5,7 +5,7 @@ import {
   type InvestmentHorizon,
 } from './horizons';
 import type { SymbolSummary } from '../../types/analysis';
-import type { ExchangeRate, Portfolio, Timeframe } from '../../types/toss';
+import { TIMEFRAME_LABEL, type ExchangeRate, type Portfolio, type Timeframe } from '../../types/toss';
 import { DISCLAIMER } from './prompts';
 
 /**
@@ -45,13 +45,6 @@ function above(price: number | null, line: number | null | undefined): string {
   return price >= line ? '위' : '아래';
 }
 
-const TIMEFRAME_LABEL: Record<Timeframe, string> = {
-  '1m': '1분봉',
-  '5m': '5분봉',
-  '15m': '15분봉',
-  '30m': '30분봉',
-  '1d': '일봉',
-};
 
 /** 모드 1 — 빠른 분석 */
 export function buildQuickPrompt(

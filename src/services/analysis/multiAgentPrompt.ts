@@ -1,7 +1,8 @@
 import type { Fundamentals, PeerSummary } from '../../types/company';
-import type { Candle, Holding, Timeframe } from '../../types/toss';
+import { TIMEFRAME_LABEL, type Candle, type Holding, type Timeframe } from '../../types/toss';
 import { summarize } from '../../utils/indicators';
 import { completedVolumeRatio } from '../../utils/marketBar';
+import { marketDate } from '../../utils/marketDate';
 import {
   AGENTS,
   CROSS_REVIEW_PROMPT,
@@ -17,13 +18,6 @@ import { stockNameOf } from '../../utils/stockNames';
  * 실제 추론은 구독 대화에서 이뤄지므로 API 비용이 들지 않는다.
  */
 
-const TIMEFRAME_LABEL: Record<Timeframe, string> = {
-  '1m': '1분봉',
-  '5m': '5분봉',
-  '15m': '15분봉',
-  '30m': '30분봉',
-  '1d': '일봉',
-};
 
 function fmt(value: number | null | undefined, digits = 2): string {
   return value == null || !Number.isFinite(value) ? '—' : value.toFixed(digits);
@@ -68,7 +62,8 @@ function marketBlock(
   if (!s) return `## 시세 데이터\n캔들 데이터가 없습니다.`;
 
   // 진행 중인 봉의 거래량을 그대로 쓰면 '거래량 급감' 으로 오독된다.
-  const volume = completedVolumeRatio(candles, timeframe);
+  const volume = completedVolumeRatio(candles, timeframe, 20, symbol);
+  const calendarBars = timeframe === '1d' || timeframe === '1w' || timeframe === '1M';
 
   const price = currentPrice ?? s.price;
   const macd = s.macd
@@ -83,14 +78,19 @@ function marketBlock(
   const slice = candles.slice(-10);
   const recent = slice.map((c, index) => {
     const iso = new Date(c.timestamp).toISOString();
-    const stamp = timeframe === '1d' ? iso.slice(0, 10) : iso.slice(0, 16).replace('T', ' ');
+    // 일·주·월 봉은 그 시장의 날짜로 적는다(국내 봉을 UTC 로 자르면 하루 앞당겨진다). 주·월 봉의 날짜는 그 주·달의 첫 거래일
+    const stamp = calendarBars ? marketDate(c.timestamp, symbol) : iso.slice(0, 16).replace('T', ' ');
     const mark = volume.forming && index === slice.length - 1 ? '  ← 진행 중(미확정)' : '';
     return `${stamp} O${fmt(c.open)} H${fmt(c.high)} L${fmt(c.low)} C${fmt(c.close)} V${c.volume}${mark}`;
   });
 
   return `## 시세 · 기술적 지표
 - 종목: ${name ? `${name} (${symbol})` : symbol}
-- 타임프레임: ${TIMEFRAME_LABEL[timeframe]}
+- 타임프레임: ${TIMEFRAME_LABEL[timeframe]}${
+    timeframe === '1w' || timeframe === '1M'
+      ? ` — 아래 이동평균·RSI·MACD·거래량 비교는 모두 **${TIMEFRAME_LABEL[timeframe]} 기준**이다(20MA = 20${timeframe === '1w' ? '주' : '개월'} 평균)`
+      : ''
+  }
 - 기준 시각: ${new Date().toLocaleString('ko-KR')}
 - 현재가: $${fmt(price)}
 - RSI(14): ${fmt(s.rsi, 1)}

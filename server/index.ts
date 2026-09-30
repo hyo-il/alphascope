@@ -236,7 +236,8 @@ app.get('/api/auth/me', (req, res) => {
   res.json({ loggedIn: true, sessions: countSessions() });
 });
 
-const VALID_TIMEFRAMES: Timeframe[] = ['1m', '5m', '15m', '30m', '1d'];
+/** 1w·1M(v2.20.0)은 일봉을 시장 달력으로 묶는다 — 지표도 그 묶인 봉으로 계산한다(주봉 RSI = 주봉 14개) */
+const VALID_TIMEFRAMES: Timeframe[] = ['1m', '5m', '15m', '30m', '1d', '1w', '1M'];
 
 /**
  * 토스 `symbol` 의 허용 문자 — 영문·숫자·점·하이픈만이다.

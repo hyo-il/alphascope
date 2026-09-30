@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { IndicatorSeries } from '../types/chart';
 import type { Timeframe } from '../types/toss';
+import { CHART_CANDLE_LIMITS } from '../utils/constants';
 
 interface IndicatorState {
   indicators: IndicatorSeries | null;
@@ -10,13 +11,8 @@ interface IndicatorState {
   error: string | null;
 }
 
-const LIMITS: Record<Timeframe, number> = {
-  '1m': 500,
-  '5m': 400,
-  '15m': 300,
-  '30m': 300,
-  '1d': 300,
-};
+/** 캔들과 같은 봉 수 — `useCandleData` 와 한 곳(`CHART_CANDLE_LIMITS`)을 쓴다 */
+const LIMITS: Record<Timeframe, number> = CHART_CANDLE_LIMITS;
 
 /**
  * Python 지표 엔진에서 계산된 시리즈를 가져온다.
