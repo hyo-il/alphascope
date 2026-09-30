@@ -32,6 +32,15 @@ export interface CalendarResponse {
     fomcSource: string;
     /** 휴장일을 확인한 범위 — null 이면 아직 못 받았다(휴장 필터를 숨긴다) */
     holidays: { US: { from: string; to: string } | null; KR: { from: string; to: string } | null };
+    /** NYSE 공식 휴장 표(2026~2027) — 토스 달력을 보완한다 (v2.18.0) */
+    nyse: {
+      coverage: { from: string; to: string };
+      source: string;
+      /** 2027-10 이후 — "휴장 상수 갱신 필요" */
+      stale: boolean;
+      /** 둘 다 확인한 기간에 토스와 NYSE 가 다른 날 */
+      mismatches: string[];
+    };
     /** 실적을 본 종목 수 */
     scopeSize: number;
   };

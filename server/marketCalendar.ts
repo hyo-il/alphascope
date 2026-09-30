@@ -10,12 +10,17 @@
  * - 저장: `market_holidays(market, date)` + 확인한 범위(`app_settings` 'marketCalendar.coverage').
  * - 쓰는 곳: 실적 회피의 거래일 계산(`autoTrading/guards.ts`), 옵션 만기 "휴장이면 그 전 거래일", 일정 달력의 휴장 표시.
  * ⚠️ 범위 밖 날짜는 **주말만** 휴장으로 본다(모른다). `isMarketClosed` 는 범위 안에서만 확실하다.
+ * - 미국은 **NYSE 공식 표(`src/data/nyseHolidays.ts`, 2026~2027)와 합친다** (v2.18.0) — 어느 한쪽이라도 휴장이면 휴장.
+ *   둘 다 확인한 기간에 서로 다르면 `usHolidayMismatches()` 가 그 날짜를 돌려주고, 갱신 때 로그에 남긴다.
  */
 
 import { getDb } from './db';
 import { tossGet } from '../src/services/toss/httpClient';
 import { isMockMode } from './mockData';
 import { marketDate } from '../src/utils/marketDate';
+import { NYSE_COVERAGE, NYSE_HOLIDAYS } from '../src/data/nyseHolidays';
+
+const NYSE_SET = new Set(NYSE_HOLIDAYS.map((h) => h.date));
 
 export type CalendarMarket = 'US' | 'KR';
 
@@ -93,8 +98,7 @@ export function coverageOf(market: CalendarMarket): { from: string; to: string }
   return readSetting<Coverage>(COVERAGE_KEY)?.[market] ?? null;
 }
 
-/** 확인한 범위 안의 휴장일 목록 */
-export function listHolidays(market: CalendarMarket, from: string, to: string): string[] {
+function tossHolidays(market: CalendarMarket, from: string, to: string): string[] {
   return (
     getDb()
       .prepare(`SELECT date FROM market_holidays WHERE market = ? AND date BETWEEN ? AND ? ORDER BY date`)
@@ -102,10 +106,36 @@ export function listHolidays(market: CalendarMarket, from: string, to: string): 
   ).map((r) => r.date);
 }
 
-/** 그날 장이 닫혀 있나 — 주말이거나, 확인한 범위 안의 휴장일 */
+/** 확인한 범위 안의 휴장일 목록 — 미국은 토스 ∪ NYSE */
+export function listHolidays(market: CalendarMarket, from: string, to: string): string[] {
+  const days = new Set(tossHolidays(market, from, to));
+  if (market === 'US') for (const h of NYSE_HOLIDAYS) if (h.date >= from && h.date <= to) days.add(h.date);
+  return [...days].sort();
+}
+
+/** 그날 장이 닫혀 있나 — 주말이거나, 토스가 확인한 휴장일이거나, (미국) NYSE 공식 휴장일 */
 export function isMarketClosed(market: CalendarMarket, day: string): boolean {
   if (isWeekend(day)) return true;
+  if (market === 'US' && NYSE_SET.has(day)) return true;
   return Boolean(getDb().prepare(`SELECT 1 FROM market_holidays WHERE market = ? AND date = ?`).get(market, day));
+}
+
+/**
+ * 토스·NYSE 가 서로 다르게 말하는 날 — **둘 다 확인한 기간**(토스 범위 ∩ NYSE 표 범위)의 평일만 본다.
+ * 한쪽만 아는 기간을 비교하면 "토스가 아직 안 받은 날" 이 전부 불일치로 나온다.
+ */
+export function usHolidayMismatches(): { date: string; nyse: boolean; toss: boolean }[] {
+  const toss = coverageOf('US');
+  if (!toss) return [];
+  const from = toss.from > NYSE_COVERAGE.from ? toss.from : NYSE_COVERAGE.from;
+  const to = toss.to < NYSE_COVERAGE.to ? toss.to : NYSE_COVERAGE.to;
+  if (from > to) return [];
+  const tossSet = new Set(tossHolidays('US', from, to).filter((d) => !isWeekend(d)));
+  const nyseIn = NYSE_HOLIDAYS.map((h) => h.date).filter((d) => d >= from && d <= to);
+  const out = new Map<string, { date: string; nyse: boolean; toss: boolean }>();
+  for (const d of nyseIn) if (!tossSet.has(d)) out.set(d, { date: d, nyse: true, toss: false });
+  for (const d of tossSet) if (!NYSE_SET.has(d)) out.set(d, { date: d, nyse: false, toss: true });
+  return [...out.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /** 오늘(KST) 이미 받았으면 건너뛴다 — 재시작해도 하루 한 번 */
@@ -119,6 +149,12 @@ export async function ensureDailyHolidays(now = Date.now()): Promise<'skipped' |
   const us = await refreshHolidays('US', from, to);
   const kr = await refreshHolidays('KR', from, to);
   writeSetting(LAST_REFRESH_KEY, today);
+  const mismatches = usHolidayMismatches();
+  if (mismatches.length) {
+    console.warn(
+      `[calendar] 토스·NYSE 휴장일 불일치: ${mismatches.map((m) => `${m.date}(${m.nyse ? 'NYSE만 휴장' : '토스만 휴장'})`).join(', ')}`,
+    );
+  }
   return { US: us, KR: kr };
 }
 

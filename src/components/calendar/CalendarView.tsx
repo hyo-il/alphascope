@@ -160,6 +160,11 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
             FOMC 일정 갱신 필요 — 달력의 FOMC 는 2027년까지만 들어 있습니다 (src/data/fomc.ts)
           </p>
         )}
+        {data?.meta.nyse.stale && (
+          <p className="rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[11px] text-warning">
+            휴장 상수 갱신 필요 — NYSE 휴장 표는 2027년까지만 들어 있습니다 (src/data/nyseHolidays.ts)
+          </p>
+        )}
         {error && <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-1.5 text-[11px] text-bearish">{error}</p>}
 
         <div className="grid gap-3 [grid-template-columns:minmax(0,1fr)_300px]">
@@ -244,10 +249,15 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
           실적일은 yfinance 기준이며 회사가 확정하기 전의 추정일일 수 있습니다(「예정」). FOMC 는 연준 공식 일정표.
           옵션 만기는 매월 셋째 금요일(휴장이면 그 전 거래일), 3·6·9·12월은 분기 동시 만기입니다.
           {holidaysAvailable
-            ? ' 휴장일은 토스 시장 달력 기준입니다 — 먼 날짜의 일부 미국 휴일은 아직 빠져 있을 수 있습니다.'
+            ? ` 휴장일은 토스 시장 달력 기준이고, 미국은 NYSE 공식 일정(${data?.meta.nyse.coverage.to.slice(0, 4) ?? '2027'}년까지)으로 보완합니다 — 둘 중 하나라도 휴장이면 휴장으로 표시합니다.`
             : ' 휴장일은 아직 받지 못해 표시하지 않습니다.'}
           {data && ` · 실적 대상 ${data.meta.scopeSize}종목`}
         </p>
+        {!!data?.meta.nyse.mismatches.length && (
+          <p className="text-[11px] text-warning">
+            ⚠ 토스·NYSE 휴장일 불일치: {data.meta.nyse.mismatches.join(', ')} — 둘 중 하나라도 휴장이면 휴장으로 계산합니다.
+          </p>
+        )}
       </div>
     </div>
   );

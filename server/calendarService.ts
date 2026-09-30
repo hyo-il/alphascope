@@ -15,7 +15,8 @@ import { getDb } from './db';
 import { findStock } from './stockCatalog';
 import { watchlistSymbols } from './analysis/targetHit';
 import { readUniverse } from './universe';
-import { coverageOf, isMarketClosed, listHolidays } from './marketCalendar';
+import { coverageOf, isMarketClosed, listHolidays, usHolidayMismatches } from './marketCalendar';
+import { NYSE_COVERAGE, NYSE_SOURCE, NYSE_STALE_AFTER } from '../src/data/nyseHolidays';
 import { FOMC_MEETINGS, FOMC_SOURCE, FOMC_STALE_AFTER } from '../src/data/fomc';
 import { marketDate } from '../src/utils/marketDate';
 import type { CalendarEvent, CalendarResponse, CalendarScope } from '../src/types/calendar';
@@ -130,6 +131,12 @@ export function calendarEvents(from: string, to: string, scope: CalendarScope, n
       fomcStale: today > FOMC_STALE_AFTER,
       fomcSource: FOMC_SOURCE,
       holidays: { US: coverageOf('US'), KR: coverageOf('KR') },
+      nyse: {
+        coverage: NYSE_COVERAGE,
+        source: NYSE_SOURCE,
+        stale: today > NYSE_STALE_AFTER,
+        mismatches: usHolidayMismatches().map((m) => m.date),
+      },
       scopeSize: symbols.size,
     },
   };
