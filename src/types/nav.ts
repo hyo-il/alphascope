@@ -15,6 +15,7 @@ export type NavPageId =
   | 'compare'
   | 'calendar'
   | 'heatmap'
+  | 'ranking'
   | 'analysis'
   | 'surge'
   | 'swing'
@@ -62,6 +63,8 @@ export const NAV_GROUPS: NavGroup[] = [
     pages: [
       // 기업정보는 별도 메뉴가 아니라 차트 하단 탭에 있다 (같은 종목을 보며 읽는 자리다).
       { id: 'chart', label: '차트' },
+      // 토스 실시간 순위 + 마우스를 올리면 차트 미리보기 (v2.20.0). 위치는 이 줄만 옮기면 된다 — 화면은 page id 로만 찾는다
+      { id: 'ranking', label: '실시간 순위', hidesSymbolHeader: true },
       { id: 'compare', label: '기업 비교' },
       // 실적·FOMC·옵션 만기·휴장 (v2.17.0). 종목은 달력 안에서 눌러 고른다 — 상단 헤더를 숨긴다
       { id: 'calendar', label: '일정', hidesSymbolHeader: true },

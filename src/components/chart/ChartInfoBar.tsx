@@ -1,4 +1,4 @@
-import { MA_LINES, type IndicatorSeries, type IndicatorToggles } from '../../types/chart';
+import { MA_LINES, barUnitOf, maLabel, type IndicatorSeries, type IndicatorToggles } from '../../types/chart';
 import type { Candle } from '../../types/toss';
 import type { RangeStats } from '../../hooks/useRangeStats';
 import { formatPrice } from '../../utils/formatters';
@@ -207,7 +207,7 @@ export default function ChartInfoBar({
               <span key={ma.key} className="flex items-center gap-1" style={{ color: ma.color }}>
                 {/* 선 색과 같은 점 — 이름만으로는 차트의 어느 선인지 바로 이어지지 않는다 */}
                 <span aria-hidden>●</span>
-                {ma.label}
+                {maLabel(ma, barUnitOf(candles))}
                 <span className="tabular-nums">
                   {value != null ? formatPrice(value, currency) : '—'}
                 </span>

@@ -114,3 +114,24 @@ export const PANEL_ITEMS: { key: PanelIndicator; label: string }[] = [
   { key: 'atr', label: 'ATR' },
   { key: 'obv', label: 'OBV' },
 ];
+
+/**
+ * 봉 간격으로 본 단위 (v2.20.0) — 차트 컴포넌트는 타임프레임을 모르므로 봉 사이 간격(중앙값)으로 가른다.
+ * 25일 이상 = 월봉, 5일 이상 = 주봉, 그 밖 = 일봉·분봉(이동평균 이름은 예전 그대로 둔다).
+ */
+export type BarUnit = 'day' | 'week' | 'month';
+
+export function barUnitOf(candles: { timestamp: number }[]): BarUnit {
+  if (candles.length < 3) return 'day';
+  const tail = candles.slice(-30);
+  const gaps = tail.slice(1).map((c, i) => c.timestamp - tail[i].timestamp).sort((a, b) => a - b);
+  const days = gaps[Math.floor(gaps.length / 2)] / 86_400_000;
+  return days >= 25 ? 'month' : days >= 5 ? 'week' : 'day';
+}
+
+/** 이동평균 이름 — 주봉에서 "20일선" 이라 쓰면 20주 평균을 20일로 읽는다 (5주선 · 20개월선) */
+export function maLabel(line: { label: string; key: string }, unit: BarUnit): string {
+  if (unit === 'day') return line.label;
+  const period = line.key.replace('ma', '');
+  return `${period}${unit === 'week' ? '주' : '개월'}선`;
+}

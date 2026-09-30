@@ -134,6 +134,7 @@ import { startMarketCalendarScheduler } from './marketCalendar';
 import { calendarEvents } from './calendarService';
 import { previewProfile } from './swingPreview';
 import { heatmap } from './heatmap';
+import { liveRanking } from './liveRanking';
 import { analyzeNews, getNews } from './news';
 
 /**
@@ -1285,6 +1286,20 @@ app.post('/api/news/analyze', async (req, res) => {
     // 뉴스가 없는 것은 고장이 아니다(국내 종목은 대개 비어 있다) — 500 이 아니라 400 으로 돌려준다
     if (!(await getNews(symbol)).items.length) return res.status(400).json({ error: '판정할 뉴스가 없습니다.' });
     res.json(await analyzeNews(symbol));
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+// -- 실시간 순위 (v2.20.0) ------------------------------------------------------
+// 토스 /rankings duration=realtime, 30초 캐시(키 live|…) — 급등 탐지의 8시간 랭킹 캐시와 따로다. 보기 전용.
+
+app.get('/api/rankings/live', async (req, res) => {
+  const market = req.query.market === 'kr' ? 'kr' : 'us';
+  const kind = (['amount', 'volume', 'gainers', 'losers'] as const).find((k) => k === req.query.kind);
+  if (!kind) return res.status(400).json({ error: 'kind 는 amount · volume · gainers · losers 중 하나입니다.' });
+  try {
+    res.json(await liveRanking(market, kind));
   } catch (e) {
     fail(res, e);
   }

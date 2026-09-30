@@ -9,6 +9,7 @@ import SwingDashboard from './components/swing/SwingDashboard';
 import DiagnoseView from './components/diagnose/DiagnoseView';
 import CalendarView from './components/calendar/CalendarView';
 import HeatmapView from './components/heatmap/HeatmapView';
+import RankingView from './components/ranking/RankingView';
 import QuickOrderPanel from './components/chart/QuickOrderPanel';
 import StockExplorer from './components/common/StockExplorer';
 import CandleChart, { type CandleChartHandle } from './components/chart/CandleChart';
@@ -349,6 +350,17 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         );
       case 'diagnose':
         return <DiagnoseView />;
+      case 'ranking':
+        return (
+          <RankingView
+            onOpen={(next, tf) => {
+              // 미리보기에서 고른 봉 그대로 메인 차트를 연다 (일·주·월)
+              setTimeframe(tf);
+              setSymbol(next);
+              setPage('chart');
+            }}
+          />
+        );
       case 'heatmap':
         return (
           <HeatmapView
