@@ -424,6 +424,8 @@ interface PreviewStats {
   count: number;
   avg10d: number | null;
   sample: number;
+  /** 10일 안에 계획 손절가에 먼저 닿은 비율(%) — 같은 날 목표·손절 동시는 손절 */
+  stopFirstRate: number | null;
 }
 interface PreviewResult extends PreviewStats {
   baseline: PreviewStats;
@@ -471,6 +473,7 @@ function EasyQuestion<T extends string | number>({
 }
 
 const pct = (v: number | null) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%`);
+const rate = (v: number | null | undefined) => (v == null ? '—' : `${v}%`);
 
 /**
  * 결과 미리보기 — 진단의 120일 재현을 그 설정으로 다시 돌린 값.
@@ -493,18 +496,23 @@ function PreviewBox({ state }: { state: PreviewState }) {
       {result && (
         <div className={state.status === 'loading' ? 'opacity-50' : ''}>
           <p className="text-text-secondary">
-            지난 {result.days}일 동안 관심 종목 {result.symbols}개에서 추천(BUY 이상)이{' '}
-            <b className="text-text-primary">{result.count}번</b>, 그 뒤 10일 평균 수익{' '}
+            지난 {result.days}일 동안 관심 종목 {result.symbols}개에서 추천 <b className="text-text-primary">{result.count}번</b>
+            {' · '}10일 평균{' '}
             <b className={(result.avg10d ?? 0) >= 0 ? 'text-bullish' : 'text-bearish'}>{pct(result.avg10d)}</b>
+            {' · '}계획 손절 먼저 도달 <b className="text-text-primary">{rate(result.stopFirstRate)}</b>
             {result.sample < 10 && <span className="ml-1 rounded bg-bg-tertiary px-1 text-[10px] text-text-secondary">표본 적음 — 참고만</span>}
           </p>
           <p className="text-text-muted">
-            표준 설정은 {result.baseline.count}번 · {pct(result.baseline.avg10d)}
+            표준 설정은 추천 {result.baseline.count}번 · 10일 평균 {pct(result.baseline.avg10d)} · 계획 손절 먼저 도달{' '}
+            {rate(result.baseline.stopFirstRate)}
             {result.baseline.sample < 10 && ' (표본 적음)'}
           </p>
         </div>
       )}
       <p className="mt-1 text-[10px] text-text-muted">과거 결과이며 앞으로를 보장하지 않습니다.</p>
+      <p className="text-[10px] text-text-muted">
+        같은 기간 한 번의 결과입니다. 여러 설정을 바꿔 보며 가장 좋은 숫자를 고르면 우연에 속기 쉽습니다.
+      </p>
     </div>
   );
 }

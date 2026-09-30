@@ -22,6 +22,8 @@ export interface PreviewStats {
   avg10d: number | null;
   /** 평균에 들어간 표본 수 */
   sample: number;
+  /** 10일 안에 계획 손절가에 먼저 닿은 비율(%) — 같은 날 목표·손절 동시는 손절 (v2.18.0). 표본 없으면 null */
+  stopFirstRate: number | null;
 }
 
 export interface PreviewResult extends PreviewStats {
@@ -36,6 +38,11 @@ function stats(replay: ReplayResult[]): PreviewStats {
     count: replay.reduce((n, r) => n + r.buyDates.length, 0),
     avg10d: d10.length ? Math.round((d10.reduce((a, b) => a + b, 0) / d10.length) * 100) / 100 : null,
     sample: d10.length,
+    stopFirstRate: (() => {
+      const hit = replay.reduce((n, r) => n + r.stopFirst.hit, 0);
+      const n = replay.reduce((m, r) => m + r.stopFirst.n, 0);
+      return n ? Math.round((hit / n) * 1000) / 10 : null;
+    })(),
   };
 }
 

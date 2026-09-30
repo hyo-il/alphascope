@@ -210,6 +210,12 @@ export interface ReplayResult {
   buyDates: string[];
   rrDemoted: number;
   forward: { d5: number[]; d10: number[]; d20: number[] };
+  /**
+   * BUY 날 뒤 10거래일 안에 **카드의 손절가에 먼저 닿은** 날 수 / 10일 뒤가 있는 BUY 날 수 (v2.18.0).
+   * 저가 ≤ 손절가가 1차 목표(고가 ≥ 목표가)보다 먼저면 손절 — 같은 날 둘 다 닿으면 **손절로 센다**(보수적으로).
+   * 10일 안에 어느 쪽에도 안 닿으면 손절이 아니다.
+   */
+  stopFirst: { hit: number; n: number };
   lastBarChecked: string | null;
 }
 
@@ -239,6 +245,7 @@ export async function replaySwing(
     const grades: Record<string, number> = {};
     const buyDates: string[] = [];
     const forward = { d5: [] as number[], d10: [] as number[], d20: [] as number[] };
+    const stopFirst = { hit: 0, n: 0 };
     let rrDemoted = 0;
     let lastBarChecked: string | null = null;
 
@@ -262,9 +269,20 @@ export async function replaySwing(
           const later = candles[i + n];
           if (later) forward[key].push(((later.close - base) / base) * 100);
         }
+        if (candles[i + 10]) {
+          stopFirst.n += 1;
+          for (let k = 1; k <= 10; k += 1) {
+            const bar = candles[i + k];
+            if (bar.low <= r.stopLoss.price) {
+              stopFirst.hit += 1; // 같은 날 목표에도 닿았어도 손절로 센다
+              break;
+            }
+            if (bar.high >= r.targets.target1.price) break;
+          }
+        }
       }
     }
-    out.push({ symbol, days: candles.length - start, grades, buyDates, rrDemoted, forward, lastBarChecked });
+    out.push({ symbol, days: candles.length - start, grades, buyDates, rrDemoted, forward, stopFirst, lastBarChecked });
   }
   return out;
 }
@@ -793,8 +811,12 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
     const mean = (xs: number[]) => round2(xs.reduce((a, b) => a + b, 0) / xs.length);
     md.push('BUY 날 이후 수익률:');
     md.push('');
-    md.push(table(['종목', '건수', '5일', '10일', '20일'],
-      fwd.map((r) => [r.symbol, r.forward.d5.length, pct(mean(r.forward.d5)), pct(mean(r.forward.d10)), pct(mean(r.forward.d20))])));
+    const stopPct = (x: { hit: number; n: number }) => (x.n ? `${Math.round((x.hit / x.n) * 100)}% (${x.hit}/${x.n})` : '—');
+    md.push(table(['종목', '건수', '5일', '10일', '20일', '10일 안 손절 먼저'],
+      fwd.map((r) => [r.symbol, r.forward.d5.length, pct(mean(r.forward.d5)), pct(mean(r.forward.d10)), pct(mean(r.forward.d20)), stopPct(r.stopFirst)])));
+    md.push('');
+    const allStop = replay.reduce((a, r) => ({ hit: a.hit + r.stopFirst.hit, n: a.n + r.stopFirst.n }), { hit: 0, n: 0 });
+    md.push(`계획 손절 먼저 도달(10일 안, 같은 날 목표·손절 동시 = 손절): **${stopPct(allStop)}** — 기준 편집 미리보기와 같은 계산이다.`);
     md.push('');
   } else {
     md.push('BUY 신호가 없어 이후 수익률을 낼 수 없습니다.');
