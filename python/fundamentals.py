@@ -111,6 +111,80 @@ def get_earnings(symbols: list[str]) -> list[dict]:
     return out
 
 
+def _iso(epoch) -> str | None:
+    try:
+        return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(float(epoch)))
+    except (TypeError, ValueError, OSError):
+        return None
+
+
+def get_news(symbol: str, count: int = 10) -> dict:
+    """
+    종목 뉴스 — `/news` 라우트 (v2.18.0). 제목·발행처·링크·시각만 준다(본문은 받지 않는다).
+
+    yfinance 1.6.0 확인 결과(2026-09-30):
+    - `Ticker.get_news()` 가 쓰는 Yahoo `xhr/ncp` 는 HTTP 500 을 준다 → 빈 목록. 살아나면 먼저 쓴다.
+    - `yf.Search(query).news` 는 동작한다 — 필드 `title` · `publisher` · `link` · `providerPublishTime`(epoch 초) · `relatedTickers`.
+    - ⚠️ Search 는 관련 없는 시장 뉴스도 섞어 준다(삼성전자를 회사명으로 찾으면 카니발 크루즈 기사). 그래서
+      **`relatedTickers` 에 이 종목이 있는 기사만** 남긴다. 국내 종목은 대개 0건 — 엉뚱한 기사보다 "뉴스 없음" 이 낫다.
+    """
+    candidates = _yf_candidates(symbol)
+    ticker, info = resolve_ticker(symbol)
+    yf_symbol = ticker.ticker if ticker is not None else candidates[0]
+    wanted = {yf_symbol.upper(), symbol.upper()}
+    items: list[dict] = []
+    source = "none"
+
+    # 1) Ticker.get_news (새 형식: content.title / provider.displayName / canonicalUrl.url / pubDate)
+    try:
+        raw = (ticker or yf.Ticker(yf_symbol)).get_news(count=count) or []
+        for x in raw:
+            c = x.get("content") or x
+            url = (c.get("canonicalUrl") or {}).get("url") or (c.get("clickThroughUrl") or {}).get("url") or c.get("link")
+            if c.get("title") and url:
+                items.append({
+                    "title": c.get("title"),
+                    "publisher": (c.get("provider") or {}).get("displayName") or c.get("publisher"),
+                    "link": url,
+                    "publishedAt": c.get("pubDate") or _iso(c.get("providerPublishTime")),
+                })
+        if items:
+            source = "ticker"
+    except Exception:  # noqa: BLE001 - 다음 경로를 시도한다
+        items = []
+
+    # 2) Search — 이 종목이 relatedTickers 에 있는 기사만
+    if not items:
+        queries = [yf_symbol]
+        name = info.get("shortName") or info.get("longName")
+        if name:
+            queries.append(name)
+        seen = set()
+        for q in queries:
+            try:
+                news = yf.Search(q, news_count=count, max_results=1).news or []
+            except Exception:  # noqa: BLE001
+                continue
+            for x in news:
+                related = {t.upper() for t in (x.get("relatedTickers") or [])}
+                if not (related & wanted) or x.get("uuid") in seen:
+                    continue
+                seen.add(x.get("uuid"))
+                items.append({
+                    "title": x.get("title"),
+                    "publisher": x.get("publisher"),
+                    "link": x.get("link"),
+                    "publishedAt": _iso(x.get("providerPublishTime")),
+                })
+            if items:
+                source = "search"
+                break
+
+    items = [i for i in items if i.get("title") and i.get("link")]
+    items.sort(key=lambda i: i.get("publishedAt") or "", reverse=True)
+    return {"symbol": symbol, "yfSymbol": yf_symbol, "source": source, "items": items[:count]}
+
+
 def interest_coverage(financials) -> float | None:
     """
     이자보상배율 = 영업이익 / 이자비용.

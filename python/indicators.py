@@ -18,6 +18,7 @@ from flask import Flask, jsonify, request
 from fundamentals import (
     get_earnings,
     get_fundamentals,
+    get_news,
     get_fx_sparkline,
     get_history,
     get_market_overview,
@@ -143,6 +144,18 @@ def earnings():
         return jsonify({"error": "symbols 파라미터가 필요합니다."}), 400
     try:
         return jsonify({"earnings": get_earnings(symbols)})
+    except Exception as error:  # noqa: BLE001
+        return jsonify({"error": f"{type(error).__name__}: {error}"}), 500
+
+
+@app.get("/news")
+def news():
+    """종목 뉴스(제목·발행처·링크·시각) — v2.18.0. 서버가 30분 캐시한다"""
+    symbol = (request.args.get("symbol") or "").upper()
+    if not symbol:
+        return jsonify({"error": "symbol 파라미터가 필요합니다."}), 400
+    try:
+        return jsonify(get_news(symbol))
     except Exception as error:  # noqa: BLE001
         return jsonify({"error": f"{type(error).__name__}: {error}"}), 500
 

@@ -371,3 +371,15 @@ CREATE TABLE IF NOT EXISTS stock_profiles (
   market_cap REAL,
   fetched_at TEXT NOT NULL
 );
+
+-- 뉴스 AI 판정 (v2.18.0) — 버튼을 눌렀을 때만 만든다. 나중에 적중(판정 뒤 주가)을 재려고 입력·출력을 그대로 둔다.
+-- input_json = 기사 목록(제목·발행처·시각·링크), output_json = { raw(모델 원문), judgment(인용 검증 후) }.
+-- ⚠️ 자동매매에 쓰지 않는다(검증 전).
+CREATE TABLE IF NOT EXISTS news_sentiment (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  symbol TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  input_json TEXT NOT NULL,
+  output_json TEXT NOT NULL,
+  prompt_version TEXT NOT NULL
+);

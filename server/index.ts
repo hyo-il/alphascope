@@ -134,6 +134,7 @@ import { startMarketCalendarScheduler } from './marketCalendar';
 import { calendarEvents } from './calendarService';
 import { previewProfile } from './swingPreview';
 import { heatmap } from './heatmap';
+import { analyzeNews, getNews } from './news';
 
 /**
  * AlphaScope API 서버.
@@ -1257,6 +1258,32 @@ app.put('/api/surge/settings', (req, res) => {
 app.get('/api/ai/accuracy', (_req, res) => {
   try {
     res.json(accuracyReport());
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+// -- 종목 뉴스 + AI 긍정/부정 (v2.18.0) ---------------------------------------------
+// 목록은 30분 캐시. AI 판정은 버튼(POST)으로만 — 자동 호출하지 않는다. 입력은 제목·발행처·시각·링크만.
+
+app.get('/api/news', async (req, res) => {
+  const symbol = parseSymbol(req.query.symbol);
+  if (!symbol) return res.status(400).json(BAD_SYMBOL);
+  try {
+    res.json(await getNews(symbol));
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.post('/api/news/analyze', async (req, res) => {
+  const symbol = parseSymbol(req.body?.symbol);
+  if (!symbol) return res.status(400).json(BAD_SYMBOL);
+  if (!requireGemini(res)) return;
+  try {
+    // 뉴스가 없는 것은 고장이 아니다(국내 종목은 대개 비어 있다) — 500 이 아니라 400 으로 돌려준다
+    if (!(await getNews(symbol)).items.length) return res.status(400).json({ error: '판정할 뉴스가 없습니다.' });
+    res.json(await analyzeNews(symbol));
   } catch (e) {
     fail(res, e);
   }
