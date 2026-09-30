@@ -117,6 +117,7 @@ const EMPTY_PERIODICITY: PeriodicityResult = {
   lastSurgeDate: null,
   nextEstimatedDate: null,
   daysUntilNext: null,
+  overdueDays: null,
   confidence: 0,
 };
 
@@ -169,6 +170,7 @@ export function analyzePeriodicity(
    * 표본이 6회(간격 5개)에 이르면 규칙성을 그대로 쓴다.
    */
   const sampleWeight = Math.min(1, (events.length - 1) / 5);
+  const daysUntilNext = Math.round((nextMs - today) / DAY_MS);
   const confidence = Math.round(regularity * (0.4 + 0.6 * sampleWeight));
 
   return {
@@ -183,7 +185,9 @@ export function analyzePeriodicity(
     ),
     lastSurgeDate,
     nextEstimatedDate: toDate(nextMs),
-    daysUntilNext: Math.round((nextMs - today) / DAY_MS),
+    daysUntilNext,
+    // 지났어도 날짜를 밀지 않는다 — 경과 일수만 알린다 (v2.19.0). 점수(nearCycleDate)는 daysUntilNext 를 그대로 쓴다
+    overdueDays: daysUntilNext < 0 ? -daysUntilNext : null,
     confidence,
   };
 }

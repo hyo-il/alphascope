@@ -1,7 +1,9 @@
+import type { ReactNode } from 'react';
 import type { SurgeEvaluation as Evaluation } from '../../types/surge';
 import StockName from '../common/StockName';
 import SurgeMiniChart from './SurgeMiniChart';
-import { daysLabel, GRADE_STYLE } from './gradeStyle';
+import { GRADE_STYLE } from './gradeStyle';
+import NextSurgeDate from './NextSurgeDate';
 
 /** 검색한 종목의 급등 가능성 평가 상세 */
 export default function SurgeEvaluation({
@@ -49,9 +51,11 @@ export default function SurgeEvaluation({
           <Row
             label="다음 급등 예상"
             value={
-              p.nextEstimatedDate
-                ? `${p.nextEstimatedDate} (${daysLabel(p.daysUntilNext)})`
-                : '패턴 없음'
+              p.nextEstimatedDate ? (
+                <NextSurgeDate date={p.nextEstimatedDate} daysUntil={p.daysUntilNext} overdueDays={p.overdueDays} />
+              ) : (
+                '패턴 없음'
+              )
             }
           />
           <Row label="예측 신뢰도" value={`${p.confidence}%`} />
@@ -113,7 +117,7 @@ export default function SurgeEvaluation({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex gap-2">
       <dt className="w-32 shrink-0">{label}</dt>

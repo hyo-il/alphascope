@@ -1,7 +1,9 @@
+import type { ReactNode } from 'react';
 import type { SurgeDetection } from '../../types/surge';
 import StockName from '../common/StockName';
 import SurgeMiniChart from './SurgeMiniChart';
-import { daysLabel, GRADE_STYLE } from './gradeStyle';
+import { GRADE_STYLE } from './gradeStyle';
+import NextSurgeDate from './NextSurgeDate';
 
 const SIGNAL_LABEL: Record<string, string> = {
   rsiOversold: 'RSI 과매도',
@@ -64,7 +66,13 @@ export default function SurgeCard({
         <Row label="📅 마지막 급등" value={detection.lastSurgeDate ?? '—'} />
         <Row
           label="⏰ 다음 예상"
-          value={`${detection.nextEstimatedDate ?? '—'} (${daysLabel(detection.daysUntilNext)})`}
+          value={
+            <NextSurgeDate
+              date={detection.nextEstimatedDate}
+              daysUntil={detection.daysUntilNext}
+              overdueDays={detection.overdueDays}
+            />
+          }
         />
         <Row label="📈 규칙성" value={`${detection.regularity ?? '—'}%`} />
       </dl>
@@ -124,7 +132,7 @@ export default function SurgeCard({
 }
 
 /** 라벨과 값을 한 줄에 — 좁아지면 값이 아래로 줄바꿈된다 */
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex flex-wrap gap-x-2">
       <dt className="shrink-0">{label}</dt>

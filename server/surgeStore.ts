@@ -184,6 +184,7 @@ function toRecord(row: Row): SurgeDetection {
     lastSurgeDate: row.last_surge_date,
     nextEstimatedDate: row.next_estimated_date,
     daysUntilNext: row.days_until_next,
+    overdueDays: row.days_until_next != null && row.days_until_next < 0 ? -row.days_until_next : null,
     surgeScore: row.surge_score,
     grade: row.grade as SurgeDetection['grade'],
     reason: row.reason,

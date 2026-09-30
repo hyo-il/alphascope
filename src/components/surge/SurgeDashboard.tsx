@@ -6,6 +6,7 @@ import SurgeSearch from './SurgeSearch';
 import SurgeSettings from './SurgeSettings';
 import StockName from '../common/StockName';
 import CriteriaPanel from '../common/CriteriaPanel';
+import NextSurgeDate from './NextSurgeDate';
 import { SURGE_CRITERIA } from '../../data/criteria';
 import { formatPercent } from '../../utils/formatters';
 
@@ -157,7 +158,14 @@ function SurgeHistoryTable() {
                   <StockName symbol={row.symbol} name={row.name} />
                 </td>
                 <td className="pr-2 tabular-nums">{row.surgeScore}</td>
-                <td className="pr-2 text-text-secondary">{row.nextEstimatedDate ?? '—'}</td>
+                <td className="pr-2 text-text-secondary">
+                  <NextSurgeDate
+                    date={row.nextEstimatedDate}
+                    daysUntil={row.daysUntilNext}
+                    overdueDays={row.overdueDays}
+                    atDetection
+                  />
+                </td>
                 <td className="pr-2 tabular-nums">
                   {changeOf(row.priceAtDetection, row.priceAfter7d)}
                 </td>

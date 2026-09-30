@@ -1,6 +1,7 @@
 import type { SurgeDetection, SurgeProgress } from '../../types/surge';
 import { SkeletonList } from '../common/SkeletonLoader';
 import SurgeCard from './SurgeCard';
+import { RECENT_OVERDUE_DAYS } from './NextSurgeDate';
 
 /** 급등 임박으로 보는 기준 — 예상일까지 남은 일수 */
 const IMMINENT_DAYS = 3;
@@ -37,12 +38,17 @@ export default function PeriodicSurgeList({
   onAnalyze: (symbol: string) => void;
 }) {
   const running = progress?.running ?? false;
+  /*
+   * 세 무리 (v2.19.0). 예전에는 `daysUntilNext <= 3` 이 임박이라 **40일 지난 종목도 '임박'** 에 들어갔다.
+   * - 임박: 예상일 ±3일 (점수의 근접 규칙과 같은 폭)
+   * - 이후: 예상일이 3일 넘게 남음 / 예상일 없음
+   * - 지남: 예상일이 3일 넘게 지남 — 주기가 깨졌을 수 있어 **맨 뒤**로 보낸다
+   */
   const imminent = results.filter(
-    (r) => r.daysUntilNext != null && r.daysUntilNext <= IMMINENT_DAYS,
+    (r) => r.daysUntilNext != null && r.daysUntilNext <= IMMINENT_DAYS && (r.overdueDays ?? 0) <= RECENT_OVERDUE_DAYS,
   );
-  const later = results.filter(
-    (r) => r.daysUntilNext == null || r.daysUntilNext > IMMINENT_DAYS,
-  );
+  const later = results.filter((r) => r.daysUntilNext == null || r.daysUntilNext > IMMINENT_DAYS);
+  const overdue = results.filter((r) => (r.overdueDays ?? 0) > RECENT_OVERDUE_DAYS);
 
   /* 카드는 최소 320px 를 유지하며 화면이 넓으면 여러 열로 늘어선다 */
   const gridClass = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]';
@@ -148,6 +154,15 @@ export default function PeriodicSurgeList({
               <p className="text-[11px] text-text-muted">해당하는 종목이 없습니다.</p>
             )}
           </section>
+
+          {overdue.length > 0 && (
+            <section className="space-y-4">
+              <h3 className="text-xs font-semibold text-text-muted">
+                예상일이 지난 종목 ({RECENT_OVERDUE_DAYS}일 넘게 경과 — 주기가 깨졌을 수 있음) · {overdue.length}개
+              </h3>
+              <div className={`${gridClass} opacity-80`}>{overdue.map(card)}</div>
+            </section>
+          )}
         </>
       )}
 
