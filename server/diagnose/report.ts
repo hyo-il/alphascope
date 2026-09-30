@@ -302,6 +302,11 @@ interface PeriodicCase {
   hit: boolean;
   /** 예상일이 기준일보다 과거인가 — "이미 지난 날짜" 사례 */
   stale: boolean;
+  /**
+   * 기준일 기준 경과 일수 (지났을 때만, v2.20.0) — 화면·리포트가 "예상일 지남(N일 경과)" 으로 적는다.
+   * ⚠️ `analyzePeriodicity().overdueDays` 는 **오늘** 기준이라 워크포워드에는 쓰지 않는다 — 여기서는 기준일로 잰다.
+   */
+  overdueDays: number | null;
 }
 
 interface SurgeVerdict {
@@ -406,6 +411,9 @@ async function surgeWalkForward(symbols: string[]): Promise<SurgeVerdict> {
         predicted: per.nextEstimatedDate,
         hit,
         stale,
+        overdueDays: stale
+          ? Math.round((Date.parse(dateOf(asOfMs, symbol)) - Date.parse(per.nextEstimatedDate)) / DAY_MS)
+          : null,
       });
     }
   }
@@ -485,7 +493,12 @@ async function surgeOutcomes() {
       date: d.detectedAt.slice(0, 10),
       symbol: d.symbol,
       score: d.surgeScore,
-      expected: d.nextEstimatedDate ?? '—',
+      // 탐지 당시 이미 지난 예상일은 경과로 적는다 (v2.19.0 overdueDays — 화면과 같은 말)
+      expected: d.nextEstimatedDate
+        ? d.overdueDays != null
+          ? `${d.nextEstimatedDate} (탐지 시점에 예상일 지남, ${d.overdueDays}일 경과)`
+          : d.nextEstimatedDate
+        : '—',
       r7: ret(d.priceAfter7d, d.priceAtDetection),
       r30: ret(d.priceAfter30d, d.priceAtDetection),
       surged: d.actualSurged,
@@ -848,10 +861,11 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
     surge.byRegularity.map((b) => [b.band, b.n, `${b.hit}%`, `${b.base}%`])));
   md.push('');
   if (surge.cases.length) {
-    md.push(table(['기준일', '종목', '급등횟수', '규칙성', '평균간격', '예상일', '적중', '지난날짜'],
+    md.push(table(['기준일', '종목', '급등횟수', '규칙성', '평균간격', '예상일', '적중'],
       surge.cases.slice(0, 30).map((c) => [
         c.asOf, c.symbol, c.surgeCount, `${c.regularity}%`, `${c.avgInterval}일`,
-        c.predicted, c.hit ? '✅' : '❌', c.stale ? '⚠️' : '',
+        c.overdueDays != null ? `${c.predicted} — 예상일 지남(${c.overdueDays}일 경과)` : c.predicted,
+        c.hit ? '✅' : '❌',
       ])));
     md.push('');
   }

@@ -243,7 +243,11 @@ function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
             headers={['기준일', '종목', '급등횟수', '규칙성', '평균간격', '예상일', '적중']}
             rows={d.surge.cases.slice(0, 30).map((c) => [
               c.asOf, c.symbol, c.surgeCount, `${c.regularity}%`, `${c.avgInterval}일`,
-              `${c.predicted}${c.stale ? ' ⚠️' : ''}`, c.hit ? '✅' : '❌',
+              // v2.20.0 부터 경과 일수를 적는다. 그 전에 저장된 리포트는 overdueDays 가 없어 ⚠️ 로 남긴다
+              c.overdueDays != null
+                ? `${c.predicted} — 예상일 지남(${c.overdueDays}일 경과)`
+                : `${c.predicted}${c.stale ? ' ⚠️' : ''}`,
+              c.hit ? '✅' : '❌',
             ])}
           />
         )}

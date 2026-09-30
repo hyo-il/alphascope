@@ -22,15 +22,23 @@ import yfinance as yf
 _KR_SYMBOL = re.compile(r"^\d[0-9A-Z]{5}$")
 
 
-def _yf_candidates(symbol: str) -> list[str]:
+def to_yf_symbols(symbol: str) -> list[str]:
+    """
+    토스 심볼 → yfinance 호출용 심볼 후보 (v2.20.0 — **모든 yfinance 종목 호출이 이 함수를 지난다**).
+
+    - 국내: `.KS`(코스피) → `.KQ`(코스닥) 순서로 시도한다.
+    - 미국: 클래스 주식의 점을 하이픈으로 — 토스 `BRK.B` 는 yfinance 에서 `BRK-B` 다
+      (점 그대로면 찾지 못해 섹터가 비고 종목 지도에서 「기타」 로 빠졌다).
+      반대 방향(yfinance → 토스)은 `server/universe.ts` 가 한다.
+    """
     if _KR_SYMBOL.match(symbol):
         return [f"{symbol}.KS", f"{symbol}.KQ"]
-    return [symbol]
+    return [symbol.replace(".", "-")]
 
 
 def resolve_ticker(symbol: str):
     """조회에 성공하는 티커를 찾아 (티커, info) 로 돌려준다. 없으면 (None, {})."""
-    for candidate in _yf_candidates(symbol):
+    for candidate in to_yf_symbols(symbol):
         try:
             ticker = yf.Ticker(candidate)
             info = ticker.info or {}
@@ -128,7 +136,7 @@ def get_news(symbol: str, count: int = 10) -> dict:
     - ⚠️ Search 는 관련 없는 시장 뉴스도 섞어 준다(삼성전자를 회사명으로 찾으면 카니발 크루즈 기사). 그래서
       **`relatedTickers` 에 이 종목이 있는 기사만** 남긴다. 국내 종목은 대개 0건 — 엉뚱한 기사보다 "뉴스 없음" 이 낫다.
     """
-    candidates = _yf_candidates(symbol)
+    candidates = to_yf_symbols(symbol)
     ticker, info = resolve_ticker(symbol)
     yf_symbol = ticker.ticker if ticker is not None else candidates[0]
     wanted = {yf_symbol.upper(), symbol.upper()}
@@ -427,7 +435,7 @@ def get_history(symbol: str, period: str = "6mo") -> tuple[list[dict], float | N
     그것 하나 때문에 종목마다 `/fundamentals` 를 또 부르면 조회가 두 배가 된다.
     `fast_info` 는 `.info` 보다 훨씬 가볍다.
     """
-    for candidate in _yf_candidates(symbol):
+    for candidate in to_yf_symbols(symbol):
         try:
             ticker = yf.Ticker(candidate)
             frame = ticker.history(period=period, interval="1d", auto_adjust=False)

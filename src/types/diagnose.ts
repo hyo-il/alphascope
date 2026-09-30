@@ -125,6 +125,8 @@ export interface DiagnoseDetail {
       predicted: string;
       hit: boolean;
       stale: boolean;
+      /** 기준일 기준 경과 일수(지났을 때만, v2.20.0) — 그 전에 저장된 리포트에는 없다 */
+      overdueDays?: number | null;
     }[];
     hitRate: number;
     baseline: number;
