@@ -99,6 +99,19 @@ function Cards({ s }: { s: DiagnoseSummary }) {
         ]}
         conclusion={s.ai.conclusion}
       />
+      {s.news && (
+        <Card
+          title="5. 뉴스 AI 판정(긍정·부정)은 맞았나?"
+          weak={s.news.weak}
+          numbers={[
+            { label: '5거래일 뒤 적중', value: `${s.news.d5.rate}% (채점 ${s.news.d5.judged}건)` },
+            { label: '기준선 (무조건 상승)', value: `${s.news.d5.baseline}%` },
+            { label: '1거래일 뒤 적중 · 기준선', value: `${s.news.d1.rate}% · ${s.news.d1.baseline}% (${s.news.d1.judged}건)` },
+            { label: '판정 기록', value: `${s.news.total}건 (원본 ${s.news.raw} · 판단 불가 ${s.news.undetermined})` },
+          ]}
+          conclusion={s.news.conclusion}
+        />
+      )}
     </div>
   );
 }

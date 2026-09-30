@@ -95,7 +95,7 @@ export function scoringBaseIndex(candles: Candle[], analyzedAtMs: number, symbol
 */
 const candleMemo = new Map<string, { last: number; length: number; candles: Candle[]; dates: string[] }>();
 
-function dailyWithDates(symbol: string) {
+export function dailyWithDates(symbol: string) {
   const candles = loadCandles(symbol, '1d', 2000);
   const last = candles.at(-1)?.timestamp ?? 0;
   const hit = candleMemo.get(symbol);

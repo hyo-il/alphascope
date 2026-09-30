@@ -1,6 +1,6 @@
 /**
  * 진단 리포트 — 서버(`server/diagnose`)와 화면(`components/diagnose`)이 함께 쓰는 형태.
- * 요약(`summary`)은 카드 네 장, 상세(`detail`)는 접이식 표로 그린다.
+ * 요약(`summary`)은 카드 다섯 장(5번째 뉴스 AI 판정은 v2.21.0 부터), 상세(`detail`)는 접이식 표로 그린다.
  * 화면은 **JSON 에서** 표를 그린다 — 마크다운을 HTML 로 바꾸지 않는다.
  */
 
@@ -57,6 +57,18 @@ export interface DiagnoseSummary {
     rate: number;
     baseline: number;
     trades: { n: number; winRate: number; avgPnl: number };
+    weak: boolean;
+    conclusion: string;
+  };
+  /** 뉴스 AI 판정 사후 검증 (v2.21.0) — 그 전 리포트에는 없다 */
+  news?: {
+    raw: number;
+    total: number;
+    undetermined: number;
+    d1: { judged: number; correct: number; rate: number; baseline: number };
+    d5: { judged: number; correct: number; rate: number; baseline: number };
+    /** 결론까지 더 필요한 5일 채점 건수 */
+    need: number;
     weak: boolean;
     conclusion: string;
   };

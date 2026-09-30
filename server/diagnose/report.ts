@@ -18,6 +18,7 @@
  * ⚠️ HTTP API 를 거치지 않고 DB·함수를 직접 부른다 — 그래서 **로그인과 무관하게** 서버 안에서 돈다.
  */
 
+import { NEWS_MIN_SAMPLE, newsAccuracy, type NewsAccuracy } from '../newsAccuracy';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -688,6 +689,8 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
   step(5, 'Gemini 정확도');
   const gemini = await geminiAccuracy(list);
   const trades = autoTrades();
+  // 뉴스 AI 판정 (v2.21.0) — 저장된 판정만 채점한다. Gemini 를 새로 부르지 않는다
+  const news = newsAccuracy();
 
   const afterRows = {
     swing: (getDb().prepare(`SELECT COUNT(*) n FROM swing_recommendations`).get() as { n: number }).n,
@@ -773,6 +776,17 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
   md.push(`- 적중률 **${gemini.rate}%** (${gemini.correct}/${gemini.judged})${weak(gemini.judged)}.`);
   md.push(`- 기준선(같은 종목을 아무 날 샀을 때 5일 뒤 상승 비율) **${gemini.baselineUp5}%** — AI 가 이보다 높아야 의미가 있습니다.`);
   if (trades.n) md.push(`- 자동매매 청산 거래 ${trades.n}건: 승률 ${trades.winRate}%, 평균 ${pct(trades.avgPnl)}.`);
+  md.push('');
+
+  // Q5 (v2.21.0)
+  md.push('### 5. 뉴스 AI 판정(긍정·부정)은 맞았나?');
+  if (news.weak) {
+    md.push(`- **표본 부족 — 결론 불가.** 5일 채점 ${news.d5.judged}건 — **${news.need}건 더** 쌓여야 판단할 수 있습니다(기준 ${NEWS_MIN_SAMPLE}건). 판정은 [AI 요약·판정] 버튼을 누를 때만 생깁니다.`);
+  }
+  md.push(`- 판정 ${news.total}건(원본 ${news.raw}건을 종목·날짜별 1건으로) · 판단 불가 ${news.undetermined}건 · 긍정 ${news.byOverall['긍정']} / 부정 ${news.byOverall['부정']} / 중립 ${news.byOverall['중립']}.`);
+  md.push(`- 1거래일 뒤 적중 **${news.d1.rate}%** (${news.d1.correct}/${news.d1.judged}) · 기준선(무조건 상승) ${news.d1.baseline}%.`);
+  md.push(`- 5거래일 뒤 적중 **${news.d5.rate}%** (${news.d5.correct}/${news.d5.judged}) · 기준선(무조건 상승) ${news.d5.baseline}% — AI 가 이보다 높아야 의미가 있습니다.`);
+  md.push('- 기준 가격은 판정 시점에 확정돼 있던 마지막 종가, 채점일은 v2.15.0 기준일 D 규칙. 중립은 1일 ±1% · 5일 ±2% 이내면 적중.');
   md.push('');
   md.push('---');
   md.push('');
@@ -914,7 +928,7 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
   const summary = buildSummary({
     server, stamp, elapsed, list, source, profileId: profile.id,
     replay, today, replayDays, buyTotal, freq, spyRow: pick(spy, 3, 10, '2:1') ?? null, sample,
-    surge, gemini, trades,
+    surge, gemini, trades, news,
   });
   const detail = { server, stamp, symbols: list, profile: profile.id, today, replay, freq, surge, outcomes, gemini, trades, beforeRows, afterRows, elapsed };
   const id = saveReport(server, summary, detail);
@@ -955,6 +969,7 @@ function buildSummary(x: {
   surge: SurgeVerdict;
   gemini: Awaited<ReturnType<typeof geminiAccuracy>>;
   trades: ReturnType<typeof autoTrades>;
+  news: NewsAccuracy;
 }): DiagnoseSummary {
   // BUY 날 뒤 수익률 — 종목별 평균을 낸 뒤, 20일 뒤가 플러스인 종목 수
   const fwd = x.replay.filter((r) => r.forward.d20.length);
@@ -1038,6 +1053,20 @@ function buildSummary(x: {
         : g.rate > g.baselineUp5
           ? `기준선(${g.baselineUp5}%)보다 높습니다.`
           : `기준선(${g.baselineUp5}%)보다 낫지 않습니다.`,
+    },
+    news: {
+      raw: x.news.raw,
+      total: x.news.total,
+      undetermined: x.news.undetermined,
+      d1: x.news.d1,
+      d5: x.news.d5,
+      need: x.news.need,
+      weak: x.news.weak,
+      conclusion: x.news.weak
+        ? `표본 부족 — 결론 불가. ${x.news.need}건 더 쌓여야 판단할 수 있습니다(5일 채점 ${x.news.d5.judged}/${NEWS_MIN_SAMPLE}).`
+        : x.news.d5.rate > x.news.d5.baseline
+          ? `5일 적중 ${x.news.d5.rate}% — 기준선(무조건 상승 ${x.news.d5.baseline}%)보다 높습니다.`
+          : `5일 적중 ${x.news.d5.rate}% — 기준선(무조건 상승 ${x.news.d5.baseline}%)보다 낫지 않습니다.`,
     },
   };
 }
