@@ -66,6 +66,17 @@ import {
 } from './gemini/store';
 import { DEFAULT_HORIZON } from '../src/services/analysis/horizons';
 import { getInvestorFlow } from './investorTrading';
+import {
+  deleteTargetAnalysis,
+  getTargetProgress,
+  listTargetAnalyses,
+  startTargetAnalysis,
+  TargetBusyError,
+  targetDisabledReason,
+  TargetInputError,
+  targetStats,
+  validateTargetRequest,
+} from './gemini/targetAnalysis';
 import { isKrSymbol } from '../src/utils/market';
 import {
   getScheduledStatus,
@@ -967,6 +978,52 @@ app.get('/api/gemini/status', (_req, res) => {
       reason: geminiDisabledReason(),
       analysesToday: analysesTodayCount(),
     });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+// -- 목표 도달 가능성 분석 (v2.24.0) — 분석만, 주문 없음 ---------------------------------
+// POST 는 검사 뒤 시작만 하고 진행률을 돌려준다(종목 순차, 429 면 남은 종목 중단). 채점은 GET 이 읽을 때 돈다.
+
+app.post('/api/target-analysis', (req, res) => {
+  const off = targetDisabledReason();
+  if (off) return res.status(503).json({ error: off, geminiDisabled: true });
+  try {
+    const request = validateTargetRequest(req.body);
+    void startTargetAnalysis(request).catch((e) => console.warn('[target] 실행 실패:', (e as Error).message));
+    res.json({ progress: getTargetProgress() });
+  } catch (e) {
+    if (e instanceof TargetInputError) return res.status(400).json({ error: e.message });
+    if (e instanceof TargetBusyError) return res.status(409).json({ error: e.message });
+    fail(res, e);
+  }
+});
+
+app.get('/api/target-analysis/progress', (_req, res) => {
+  res.json({ progress: getTargetProgress() });
+});
+
+app.get('/api/target-analysis', async (req, res) => {
+  const symbol = req.query.symbol ? parseSymbol(req.query.symbol) : undefined;
+  if (req.query.symbol && !symbol) return res.status(400).json(BAD_SYMBOL);
+  const limit = Math.min(500, Math.max(1, Number(req.query.limit ?? 100) || 100));
+  try {
+    const records = await listTargetAnalyses(symbol ?? undefined, limit);
+    // 성적은 종목 필터와 무관하게 전체 기록으로 낸다(표본을 줄이지 않는다)
+    const all = symbol ? await listTargetAnalyses(undefined, 500) : records;
+    res.json({ records, stats: targetStats(all), progress: getTargetProgress() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.delete('/api/target-analysis/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'id 가 올바르지 않습니다.' });
+  try {
+    if (!deleteTargetAnalysis(id)) return res.status(404).json({ error: '기록을 찾을 수 없습니다.' });
+    res.json({ ok: true });
   } catch (e) {
     fail(res, e);
   }
