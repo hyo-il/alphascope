@@ -82,7 +82,7 @@ export default function PortfolioView({
         </div>
 
         {account === 'paper' && (
-          <span className="my-auto ml-2 rounded bg-warning/15 px-2 py-0.5 text-[11px] text-warning">
+          <span className="my-auto ml-2 rounded bg-warning/15 px-2 py-0.5 text-[12px] text-warning">
             모의 — 실제 주문은 나가지 않습니다
           </span>
         )}

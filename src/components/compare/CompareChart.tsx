@@ -59,7 +59,7 @@ export default function CompareChart({
           <span className="shrink-0 text-xs tabular-nums">{formatPrice(last.close, currency)}</span>
         )}
         {changeRate != null && (
-          <span className={`shrink-0 text-[11px] tabular-nums ${changeColor(changeRate)}`}>
+          <span className={`shrink-0 text-[12px] tabular-nums ${changeColor(changeRate)}`}>
             {formatPercent(changeRate)}
           </span>
         )}
@@ -67,7 +67,7 @@ export default function CompareChart({
         <select
           value={timeframe}
           onChange={(e) => onTimeframeChange(e.target.value as Timeframe)}
-          className="ml-auto shrink-0 rounded border border-border px-1 py-0.5 text-[11px]"
+          className="ml-auto shrink-0 rounded border border-border px-1 py-0.5 text-[12px]"
         >
           {COMPARE_TIMEFRAMES.map((t) => (
             <option key={t.value} value={t.value}>
@@ -87,7 +87,7 @@ export default function CompareChart({
       </div>
 
       {/* MA 범례 — 색만 봐도 어느 선인지 알 수 있게 (메인 차트와 같은 색) */}
-      <div className="flex shrink-0 gap-2 px-2 pt-1 text-[10px]">
+      <div className="flex shrink-0 gap-2 px-2 pt-1 text-[12px]">
         {LITE_CHART_MAS.map((ma) => (
           <span key={ma.key} style={{ color: ma.color }}>
             {maLabel(ma, barUnitOf(candles))}
@@ -104,12 +104,12 @@ export default function CompareChart({
           </div>
         )}
         {error && !loading && (
-          <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-[11px] text-bearish">
+          <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-[12px] text-bearish">
             {error}
           </div>
         )}
         {!loading && !error && !candles.length && (
-          <div className="absolute inset-0 flex items-center justify-center text-[11px] text-text-muted">
+          <div className="absolute inset-0 flex items-center justify-center text-[12px] text-text-muted">
             캔들 데이터가 없습니다
           </div>
         )}

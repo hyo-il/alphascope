@@ -79,7 +79,7 @@ export default function ModalHost() {
           {Boolean(request.rows?.length) && (
             <dl className="space-y-1 rounded-md bg-bg-tertiary/50 px-3 py-2.5">
               {request.rows!.map((row) => (
-                <div key={row.label} className="flex justify-between text-[11px]">
+                <div key={row.label} className="flex justify-between text-[12px]">
                   <dt className="text-text-muted">{row.label}</dt>
                   <dd className={`tabular-nums ${TONE[row.tone ?? 'default']}`}>{row.value}</dd>
                 </div>

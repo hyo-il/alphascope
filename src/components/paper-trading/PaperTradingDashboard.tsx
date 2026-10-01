@@ -201,7 +201,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
             카드를 다 훑지 않아도 전체 자동매매 상태를 알 수 있게 한 줄로 센다.
             분류는 `utils/autoTradeStatus` 한 곳이라 카드와 숫자가 갈라지지 않는다.
           */}
-          <span className="flex items-center gap-1 text-[11px] text-text-muted">
+          <span className="flex items-center gap-1 text-[12px] text-text-muted">
             자동매매
             <span className="text-bullish">가동 {autoCounts.running}</span>
             <span className="text-border">·</span>
@@ -211,7 +211,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
             <span className="text-border">·</span>
             <span className="text-text-muted">꺼짐 {autoCounts.off}</span>
           </span>
-          <span className="text-[11px] text-text-muted">
+          <span className="text-[12px] text-text-muted">
             카드를 누르면 그 계좌의 잔고·거래·자동매매 설정으로 들어갑니다
           </span>
           {/*
@@ -267,7 +267,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
         <button
           type="button"
           onClick={() => setView('overview')}
-          className="rounded px-2 py-0.5 text-[11px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          className="rounded px-2 py-0.5 text-[12px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
         >
           ← 계좌 모아보기
         </button>
@@ -286,7 +286,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
       <AutoTradeBar accountId={selectedId} />
 
       {error && (
-        <div className="border-b border-bearish/30 bg-bearish/10 px-4 py-1.5 text-[11px] text-bearish">
+        <div className="border-b border-bearish/30 bg-bearish/10 px-4 py-1.5 text-[12px] text-bearish">
           ❌ {error}
         </div>
       )}
@@ -313,9 +313,9 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
                 },
               ].map((c) => (
                 <div key={c.label} className="rounded-lg border border-border bg-bg-secondary px-3 py-2">
-                  <p className="text-[11px] text-text-muted">{c.label}</p>
+                  <p className="text-[12px] text-text-muted">{c.label}</p>
                   <p className={`text-base font-semibold tabular-nums ${c.tone}`}>{c.value}</p>
-                  {c.hint && <p className="text-[10px] text-text-muted">{c.hint}</p>}
+                  {c.hint && <p className="text-[12px] text-text-muted">{c.hint}</p>}
                 </div>
               ))}
             </div>

@@ -97,7 +97,7 @@ export default function CompareSlot({
           currency={fundamentals?.profile.currency === 'KRW' ? 'KRW' : 'USD'}
         />
         {dragOver && (
-          <p className="pointer-events-none -mt-6 text-center text-[11px] text-warning">
+          <p className="pointer-events-none -mt-6 text-center text-[12px] text-warning">
             놓으면 이 칸이 교체됩니다
           </p>
         )}
@@ -131,14 +131,14 @@ export default function CompareSlot({
           <button
             type="button"
             onClick={() => setSearching(false)}
-            className="text-[11px] text-text-muted transition-colors hover:text-text-primary"
+            className="text-[12px] text-text-muted transition-colors hover:text-text-primary"
           >
             닫기
           </button>
         </div>
       ) : (
         <>
-          <p className="text-[11px] leading-relaxed text-text-muted">
+          <p className="text-[12px] leading-relaxed text-text-muted">
             {dragOver ? (
               <span className="text-bullish">여기에 놓으세요</span>
             ) : (
@@ -153,7 +153,7 @@ export default function CompareSlot({
             <button
               type="button"
               onClick={() => setSearching(true)}
-              className="rounded border border-border px-2 py-1 text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+              className="rounded border border-border px-2 py-1 text-[12px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
             >
               종목 검색
             </button>

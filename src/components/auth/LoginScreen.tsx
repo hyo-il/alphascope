@@ -76,7 +76,7 @@ export default function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
           {busy ? '확인 중…' : '로그인'}
         </button>
 
-        <p className="mt-5 text-center text-[11px] leading-relaxed text-text-muted">
+        <p className="mt-5 text-center text-[12px] leading-relaxed text-text-muted">
           비밀번호를 잊었으면 서버에서{' '}
           <code className="rounded bg-bg-tertiary px-1">npm run auth:set-password</code>
         </p>

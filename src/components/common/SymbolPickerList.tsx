@@ -46,7 +46,7 @@ export default function SymbolPickerList({
     <div className="rounded-lg border border-border bg-bg-primary p-3">
       <div className="mb-2 flex items-center gap-2">
         <p className="text-xs font-medium text-text-primary">{title}</p>
-        <span className="text-[11px] text-text-muted">
+        <span className="text-[12px] text-text-muted">
           {candidates.length}종목 · 담을 수 있는 것 {selectable.length}개
         </span>
       </div>
@@ -72,11 +72,11 @@ export default function SymbolPickerList({
                   />
                   <span className="min-w-0 truncate font-medium">{names(symbol) || symbol}</span>
                   {names(symbol) && (
-                    <span className="shrink-0 text-[11px] tabular-nums text-text-secondary">
+                    <span className="shrink-0 text-[12px] tabular-nums text-text-secondary">
                       {symbol}
                     </span>
                   )}
-                  {isAlready && <span className="ml-auto shrink-0 text-[10px]">이미 추가됨</span>}
+                  {isAlready && <span className="ml-auto shrink-0 text-[12px]">이미 추가됨</span>}
                 </label>
               </li>
             );

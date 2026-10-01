@@ -16,9 +16,9 @@ const tone = (value: number | null | undefined) =>
 export default function PerformanceStats({ performance: p, currency }: Props) {
   const card = (label: string, value: string, valueTone = 'text-text-primary', hint?: string) => (
     <div key={label} className="rounded-lg border border-border bg-bg-secondary px-3 py-2">
-      <p className="text-[11px] text-text-muted">{label}</p>
+      <p className="text-[12px] text-text-muted">{label}</p>
       <p className={`text-base font-semibold tabular-nums ${valueTone}`}>{value}</p>
-      {hint && <p className="text-[10px] text-text-muted">{hint}</p>}
+      {hint && <p className="text-[12px] text-text-muted">{hint}</p>}
     </div>
   );
 

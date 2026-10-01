@@ -419,7 +419,7 @@ export default function WatchlistManager({
               )}
             </div>
 
-            <p className="shrink-0 border-t border-border px-3 py-2 text-[10px] leading-snug text-text-muted">
+            <p className="shrink-0 border-t border-border px-3 py-2 text-[12px] leading-snug text-text-muted">
               더블클릭: 이름 변경 · 끌어서 순서 변경 · Alt + ↑↓ 로도 이동
             </p>
           </nav>
@@ -649,13 +649,13 @@ export default function WatchlistManager({
                             {names(symbol) || symbol}
                           </span>
                           {names(symbol) && (
-                            <span className="shrink-0 text-[13px] tabular-nums text-text-secondary">
+                            <span className="shrink-0 text-[14px] tabular-nums text-text-secondary">
                               {symbol}
                             </span>
                           )}
                           {/* 전체 보기에서는 어느 그룹에 있는지 알아야 옮길지 말지 정할 수 있다 */}
                           {isAllView && (
-                            <span className="shrink-0 text-[11px] text-text-muted">
+                            <span className="shrink-0 text-[12px] text-text-muted">
                               {folderNameOf(symbol) ?? '—'}
                             </span>
                           )}
@@ -663,7 +663,7 @@ export default function WatchlistManager({
 
                         {sort === 'change' && (
                           <span
-                            className={`w-16 shrink-0 text-right text-[13px] tabular-nums ${
+                            className={`w-16 shrink-0 text-right text-[14px] tabular-nums ${
                               rate == null
                                 ? 'text-text-muted'
                                 : rate > 0
@@ -687,7 +687,7 @@ export default function WatchlistManager({
               )}
             </div>
 
-            <p className="shrink-0 border-t border-border px-4 py-2 text-[10px] text-text-muted">
+            <p className="shrink-0 border-t border-border px-4 py-2 text-[12px] text-text-muted">
               변경은 바로 저장됩니다 · 끌어서 순서·그룹을 바꿉니다 (Alt + ↑↓ 로도 이동) ·
               폴더에 넣지 않은 종목은 목록 맨 위에 그대로 보입니다.
             </p>

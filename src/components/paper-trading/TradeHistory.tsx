@@ -53,12 +53,12 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
     <div className="space-y-3 p-3">
       {pending.length > 0 && (
         <section className="rounded-md border border-warning/30 bg-warning/5 p-2.5">
-          <h4 className="mb-1.5 text-[11px] font-medium text-warning">
+          <h4 className="mb-1.5 text-[12px] font-medium text-warning">
             대기 중인 지정가 주문 {pending.length}건
           </h4>
           <ul className="space-y-1">
             {pending.map((o) => (
-              <li key={o.id} className="flex items-center gap-2 text-[11px] text-text-secondary">
+              <li key={o.id} className="flex items-center gap-2 text-[12px] text-text-secondary">
                 <span className={o.side === 'BUY' ? 'text-bearish' : 'text-bullish'}>
                   {o.side === 'BUY' ? '매수' : '매도'}
                 </span>
@@ -85,7 +85,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
             key={f.id}
             type="button"
             onClick={() => setFilter(f.id)}
-            className={`rounded px-2 py-1 text-[11px] transition-colors ${
+            className={`rounded px-2 py-1 text-[12px] transition-colors ${
               filter === f.id
                 ? 'bg-accent/15 font-medium text-accent'
                 : 'text-text-secondary hover:bg-bg-tertiary'
@@ -94,7 +94,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
             {f.label}
           </button>
         ))}
-        <span className="ml-2 text-[11px] text-text-muted">{filtered.length}건</span>
+        <span className="ml-2 text-[12px] text-text-muted">{filtered.length}건</span>
       </div>
 
       {!filtered.length ? (
@@ -130,7 +130,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
                   </td>
                   <td className="px-3 py-2">
                     <span
-                      className={`rounded px-1.5 py-0.5 text-[10px] ${
+                      className={`rounded px-1.5 py-0.5 text-[12px] ${
                         t.side === 'BUY' ? 'bg-bearish/15 text-bearish' : 'bg-bullish/15 text-bullish'
                       }`}
                     >
@@ -160,7 +160,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
                   <td className="px-3 py-2 text-text-muted">
                     <span className="flex items-center gap-1.5">
                       {isAuto(t.reason) && (
-                        <span className="shrink-0 rounded bg-accent/15 px-1 py-0.5 text-[10px] text-accent">
+                        <span className="shrink-0 rounded bg-accent/15 px-1 py-0.5 text-[12px] text-accent">
                           자동
                         </span>
                       )}

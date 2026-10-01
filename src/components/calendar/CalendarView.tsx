@@ -116,7 +116,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
                 setMonth({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) });
                 setSelected(today);
               }}
-              className="ml-1 rounded border border-border px-2 py-0.5 text-[11px] text-text-secondary hover:text-text-primary"
+              className="ml-1 rounded border border-border px-2 py-0.5 text-[12px] text-text-secondary hover:text-text-primary"
             >
               오늘
             </button>
@@ -128,7 +128,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
                 key={t.id}
                 type="button"
                 onClick={() => setFilters((f) => ({ ...f, [t.id]: !f[t.id] }))}
-                className={`flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] transition-colors ${
+                className={`flex items-center gap-1 rounded border px-2 py-0.5 text-[12px] transition-colors ${
                   filters[t.id] ? 'border-accent/60 bg-accent/10 text-text-primary' : 'border-border text-text-muted'
                 }`}
               >
@@ -136,7 +136,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
                 {t.label}
               </button>
             ))}
-            <label className="ml-2 inline-flex w-fit items-center gap-1.5 text-[11px] text-text-secondary">
+            <label className="ml-2 inline-flex w-fit items-center gap-1.5 text-[12px] text-text-secondary">
               <input
                 type="checkbox"
                 checked={scope === 'watchlist'}
@@ -148,7 +148,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
         </header>
 
         {/* 이번 주 요약 한 줄 */}
-        <p className="rounded border border-border bg-bg-secondary px-3 py-1.5 text-[11px] text-text-secondary">
+        <p className="rounded border border-border bg-bg-secondary px-3 py-1.5 text-[12px] text-text-secondary">
           <span className="text-text-muted">이번 주({shortDate(weekStart)}~{shortDate(weekEnd)}) · </span>
           {thisWeek.length
             ? thisWeek.map((e) => `${eventText(e)} ${shortDate(e.date)}`).join(' · ')
@@ -156,21 +156,21 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
         </p>
 
         {data?.meta.fomcStale && (
-          <p className="rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[11px] text-warning">
+          <p className="rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[12px] text-warning">
             FOMC 일정 갱신 필요 — 달력의 FOMC 는 2027년까지만 들어 있습니다 (src/data/fomc.ts)
           </p>
         )}
         {data?.meta.nyse.stale && (
-          <p className="rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[11px] text-warning">
+          <p className="rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[12px] text-warning">
             휴장 상수 갱신 필요 — NYSE 휴장 표는 2027년까지만 들어 있습니다 (src/data/nyseHolidays.ts)
           </p>
         )}
-        {error && <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-1.5 text-[11px] text-bearish">{error}</p>}
+        {error && <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-1.5 text-[12px] text-bearish">{error}</p>}
 
         <div className="grid gap-3 [grid-template-columns:minmax(0,1fr)_300px]">
           {/* 월 달력 */}
           <div className="rounded-lg border border-border bg-bg-secondary p-2">
-            <div className="grid grid-cols-7 text-center text-[10px] text-text-muted">
+            <div className="grid grid-cols-7 text-center text-[12px] text-text-muted">
               {WEEKDAYS.map((w, i) => (
                 <div key={w} className={`py-1 ${i === 0 ? 'text-bearish/80' : ''}`}>
                   {w}
@@ -194,7 +194,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
                     } ${inMonth ? '' : 'opacity-40'}`}
                   >
                     <span
-                      className={`text-[11px] tabular-nums ${
+                      className={`text-[12px] tabular-nums ${
                         isToday ? 'rounded bg-accent px-1 font-semibold text-white' : 'text-text-secondary'
                       }`}
                     >
@@ -204,7 +204,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
                       {types.map((t) => (
                         <span key={t} className={`h-1.5 w-1.5 rounded-full ${DOT[t]}`} aria-hidden />
                       ))}
-                      {events.length > 1 && <span className="text-[9px] text-text-muted">{events.length}</span>}
+                      {events.length > 1 && <span className="text-[12px] text-text-muted">{events.length}</span>}
                     </span>
                   </button>
                 );
@@ -216,14 +216,14 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
           <div className="rounded-lg border border-border bg-bg-secondary p-3">
             <p className="mb-2 text-xs font-semibold text-text-primary">
               {Number(selected.slice(5, 7))}월 {Number(selected.slice(8, 10))}일
-              {selected === today && <span className="ml-1 text-[10px] font-normal text-accent">오늘</span>}
+              {selected === today && <span className="ml-1 text-[12px] font-normal text-accent">오늘</span>}
             </p>
             {dayEvents.length === 0 ? (
-              <p className="text-[11px] text-text-muted">이날 일정이 없습니다.</p>
+              <p className="text-[12px] text-text-muted">이날 일정이 없습니다.</p>
             ) : (
               <ul className="space-y-1.5">
                 {dayEvents.map((e, i) => (
-                  <li key={`${e.type}-${e.symbol ?? i}`} className={`flex items-start gap-2 text-[11px] ${e.past ? 'opacity-50' : ''}`}>
+                  <li key={`${e.type}-${e.symbol ?? i}`} className={`flex items-start gap-2 text-[12px] ${e.past ? 'opacity-50' : ''}`}>
                     <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${DOT[e.type]}`} aria-hidden />
                     {e.type === 'earnings' && e.symbol ? (
                       <button
@@ -245,7 +245,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
           </div>
         </div>
 
-        <p className="text-[11px] leading-relaxed text-text-muted">
+        <p className="text-[12px] leading-relaxed text-text-muted">
           실적일은 yfinance 기준이며 회사가 확정하기 전의 추정일일 수 있습니다(「예정」). FOMC 는 연준 공식 일정표.
           옵션 만기는 매월 셋째 금요일(휴장이면 그 전 거래일), 3·6·9·12월은 분기 동시 만기입니다.
           {holidaysAvailable
@@ -254,7 +254,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
           {data && ` · 실적 대상 ${data.meta.scopeSize}종목`}
         </p>
         {!!data?.meta.nyse.mismatches.length && (
-          <p className="text-[11px] text-warning">
+          <p className="text-[12px] text-warning">
             ⚠ 토스·NYSE 휴장일 불일치: {data.meta.nyse.mismatches.join(', ')} — 둘 중 하나라도 휴장이면 휴장으로 계산합니다.
           </p>
         )}

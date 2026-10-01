@@ -298,7 +298,7 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
         ⚠️ StockName 컴포넌트를 쓰지 않는다 — 그 안의 inline-flex + items-baseline 을 html2canvas 가
         잘못 그려 글자가 아래로 밀리고 정보 바에 잘렸다. 규칙(이름 먼저·티커 뒤·이름 없으면 티커만)은 같다.
       */}
-      <div className="flex h-8 shrink-0 items-center gap-2 bg-bg-primary px-3 text-[15px] leading-8">
+      <div className="flex h-8 shrink-0 items-center gap-2 bg-bg-primary px-3 text-[16px] leading-8">
         <span className="font-semibold text-text-primary">{titleName || symbol}</span>
         {titleName && <span className="text-sm text-text-secondary">{symbol}</span>}
         <span className="text-sm text-text-secondary">· {TIMEFRAME_LABEL[timeframe]}</span>

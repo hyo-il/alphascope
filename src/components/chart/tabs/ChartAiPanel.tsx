@@ -59,7 +59,7 @@ export default function ChartAiPanel({
             key={item.id}
             type="button"
             onClick={() => setTab(item.id)}
-            className={`px-2.5 py-1 text-[11px] transition-colors ${
+            className={`px-2.5 py-1 text-[12px] transition-colors ${
               tab === item.id ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
             }`}
           >
@@ -69,7 +69,7 @@ export default function ChartAiPanel({
         <button
           type="button"
           onClick={onOpenFullView}
-          className="ml-auto px-2 py-1 text-[11px] text-text-muted transition-colors hover:text-accent"
+          className="ml-auto px-2 py-1 text-[12px] text-text-muted transition-colors hover:text-accent"
         >
           전체 화면으로 ↗
         </button>
@@ -186,15 +186,15 @@ function SingleSymbolGemini({
     }
   };
 
-  if (enabled === null) return <p className="p-3 text-[11px] text-text-muted">확인 중…</p>;
+  if (enabled === null) return <p className="p-3 text-[12px] text-text-muted">확인 중…</p>;
 
   if (!enabled && offReason?.includes('GEMINI_ENABLED')) {
-    return <p className="p-3 text-[11px] text-text-muted">{offReason}. 수동 분석(Claude)은 그대로 씁니다.</p>;
+    return <p className="p-3 text-[12px] text-text-muted">{offReason}. 수동 분석(Claude)은 그대로 씁니다.</p>;
   }
 
   if (!enabled) {
     return (
-      <p className="p-3 text-[11px] text-text-muted">
+      <p className="p-3 text-[12px] text-text-muted">
         Gemini 키가 없어 Gemini 분석을 쓸 수 없습니다. <code>.env</code> 에{' '}
         <code>GEMINI_API_KEY</code> 를 넣으면 이 버튼이 활성화됩니다. 수동 분석(Claude)은 키 없이
         그대로 씁니다.
@@ -203,7 +203,7 @@ function SingleSymbolGemini({
   }
 
   return (
-    <div className="space-y-2 p-3 text-[11px]">
+    <div className="space-y-2 p-3 text-[12px]">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-text-secondary">
           이 종목 Gemini 분석{model && <span className="ml-1 text-text-muted">({model})</span>}

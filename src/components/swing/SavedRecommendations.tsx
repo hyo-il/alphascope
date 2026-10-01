@@ -47,7 +47,7 @@ export default function SavedRecommendations({
           </span>
         )}
       </h3>
-      <p className="text-[11px] text-text-muted">
+      <p className="text-[12px] text-text-muted">
         저장 당시의 계획입니다. 지금 가격 기준의 채점·경고를 보려면 [🔄 다시 분석] 을 누르세요.
       </p>
 
@@ -64,13 +64,13 @@ export default function SavedRecommendations({
             >
               <div className="flex items-baseline gap-2">
                 <StockName symbol={record.symbol} name={record.name} className="min-w-0 text-sm" />
-                <span className={`ml-auto shrink-0 text-[11px] ${grade.className}`}>
+                <span className={`ml-auto shrink-0 text-[12px] ${grade.className}`}>
                   {grade.label}
                 </span>
                 <span className="shrink-0 text-xs font-semibold tabular-nums">{record.score}점</span>
               </div>
 
-              <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[12px]">
                 <Row label="분석 시점가" value={formatPrice(record.priceAtAnalysis)} />
                 <Row
                   label="진입"

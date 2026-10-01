@@ -132,11 +132,11 @@ export default function WatchPanel({
 
         <span className="flex flex-col items-center gap-0.5 text-warning">
           <StarIcon className="h-5 w-5" />
-          <span className="text-[10px] tabular-nums text-text-secondary">{watchlist.length}</span>
+          <span className="text-[12px] tabular-nums text-text-secondary">{watchlist.length}</span>
         </span>
 
         <span
-          className="text-[11px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
+          className="text-[12px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
           style={{ writingMode: 'vertical-rl' }}
         >
           관심
@@ -146,11 +146,11 @@ export default function WatchPanel({
 
         <span className="flex flex-col items-center gap-0.5 text-text-muted">
           <ClockIcon className="h-5 w-5" />
-          <span className="text-[10px] tabular-nums text-text-secondary">{recent.length}</span>
+          <span className="text-[12px] tabular-nums text-text-secondary">{recent.length}</span>
         </span>
 
         <span
-          className="text-[11px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
+          className="text-[12px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
           style={{ writingMode: 'vertical-rl' }}
         >
           최근
@@ -163,7 +163,7 @@ export default function WatchPanel({
         </span>
 
         <span
-          className="text-[11px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
+          className="text-[12px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
           style={{ writingMode: 'vertical-rl' }}
         >
           계좌
@@ -315,7 +315,7 @@ export default function WatchPanel({
                         ? `${quote.stale ? '· ' : ''}${formatPrice(quote.price, quote.currency)}`
                         : '—'}
                     </span>
-                    <span className={`block text-[11px] tabular-nums ${color}`}>
+                    <span className={`block text-[12px] tabular-nums ${color}`}>
                       {rate == null ? '—' : formatPercent(rate)}
                     </span>
                   </span>
@@ -342,7 +342,7 @@ export default function WatchPanel({
       </div>
 
       {tab === 'account' ? (
-        <p className="border-t border-border px-3 py-2 text-[10px] text-text-muted">
+        <p className="border-t border-border px-3 py-2 text-[12px] text-text-muted">
           모의투자 계좌의 현재 상태입니다. 거래는 차트의 빠른주문에서 진행하세요.
         </p>
       ) : tab === 'watch' ? (
@@ -374,7 +374,7 @@ export default function WatchPanel({
         )
       )}
 
-      <p className="border-t border-border px-3 py-1.5 text-[10px] leading-relaxed text-text-muted">
+      <p className="border-t border-border px-3 py-1.5 text-[12px] leading-relaxed text-text-muted">
         {compareMode ? (
           <>
             클릭: 빈 칸에 차례로 담기 · ✓ 다시 클릭: 빼기

@@ -37,11 +37,11 @@ export default function MarketCard({
   return (
     <article className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-border bg-bg-secondary px-3 py-2">
       <div className="min-w-0">
-        <p className="truncate text-[11px] text-text-secondary">{name}</p>
+        <p className="truncate text-[12px] text-text-secondary">{name}</p>
         <p className="text-base font-semibold tabular-nums text-text-primary">
           {value != null ? `${unit}${format(value)}` : '—'}
         </p>
-        <p className={`text-[11px] tabular-nums ${color}`}>
+        <p className={`text-[12px] tabular-nums ${color}`}>
           {changePercent == null ? (
             '—'
           ) : (

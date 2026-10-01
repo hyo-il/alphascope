@@ -176,7 +176,7 @@ export default function ChartCaptureModal({
   };
 
   const checkbox = (checked: boolean, label: string, onChange: () => void) => (
-    <label key={label} className="flex items-center gap-1.5 text-[11px] text-text-secondary">
+    <label key={label} className="flex items-center gap-1.5 text-[12px] text-text-secondary">
       <input type="checkbox" checked={checked} onChange={onChange} className="accent-accent" />
       {label}
     </label>
@@ -193,7 +193,7 @@ export default function ChartCaptureModal({
         <div className="flex shrink-0 items-center justify-between">
           <h2 className="text-sm font-medium text-text-primary">
             {shot ? '캡처 확인' : '차트 캡처'}
-            <span className="ml-2 text-[11px] font-normal text-text-muted">
+            <span className="ml-2 text-[12px] font-normal text-text-muted">
               {shot
                 ? '이 이미지를 Claude 에 보냅니다'
                 : '범위를 맞추고 포함할 항목을 고른 뒤 캡처하세요'}
@@ -229,8 +229,8 @@ export default function ChartCaptureModal({
                 {item.label}
               </button>
             ))}
-            {dataLoading && <span className="ml-2 text-[11px] text-accent">불러오는 중…</span>}
-            {dataError && <span className="ml-2 text-[11px] text-bearish">❌ {dataError}</span>}
+            {dataLoading && <span className="ml-2 text-[12px] text-accent">불러오는 중…</span>}
+            {dataError && <span className="ml-2 text-[12px] text-bearish">❌ {dataError}</span>}
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md bg-bg-tertiary/50 px-3 py-2">
@@ -254,7 +254,7 @@ export default function ChartCaptureModal({
                    * 추세선이 화면 밖 시각을 가리켜 엉뚱한 자리에 그려진다.
                    * (특히 1분봉은 3일치뿐이라 일봉에 그은 선이 아예 범위 밖이다.)
                    */
-                  <span className="text-[11px] text-text-muted">
+                  <span className="text-[12px] text-text-muted">
                     드로잉은 {TIMEFRAME_ITEMS.find((i) => i.value === timeframe)?.label}에서만
                     포함됩니다
                   </span>
@@ -285,7 +285,7 @@ export default function ChartCaptureModal({
 
           <div className="flex shrink-0 items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
-              <p className="text-[11px] text-text-muted">
+              <p className="text-[12px] text-text-muted">
                 휠: 확대/축소 · 드래그: 좌우 이동 · Esc: 닫기
                 {error && <span className="ml-2 text-bearish">❌ {error}</span>}
               </p>
@@ -294,7 +294,7 @@ export default function ChartCaptureModal({
                 해상도는 캡처 버튼 옆에 둔다 — 고를 일이 캡처 직전뿐이라
                 위쪽 체크박스 줄에 섞으면 매번 찾아야 한다.
               */}
-              <div className="flex shrink-0 items-center gap-1 text-[11px]">
+              <div className="flex shrink-0 items-center gap-1 text-[12px]">
                 {(
                   [
                     ['low', '저화질', '토큰 절약 · 1배'],

@@ -42,7 +42,7 @@ function now(): string {
 /** 단계 번호 배지 */
 function StepBadge({ n }: { n: number }) {
   return (
-    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white">
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[12px] font-bold text-white">
       {n}
     </span>
   );
@@ -51,13 +51,13 @@ function StepBadge({ n }: { n: number }) {
 function StatusLabel({ state }: { state: StepState }) {
   if (state.kind === 'done') {
     return (
-      <span className="text-[11px] text-bullish">
+      <span className="text-[12px] text-bullish">
         ✅ {state.label ?? '복사 완료'} <span className="text-text-muted">({state.at})</span>
       </span>
     );
   }
   if (state.kind === 'failed') {
-    return <span className="text-[11px] text-bearish">❌ {state.reason}</span>;
+    return <span className="text-[12px] text-bearish">❌ {state.reason}</span>;
   }
   return null;
 }
@@ -140,7 +140,7 @@ export default function CopySteps({
     <li className="rounded-md bg-bg-tertiary/50 p-3">
       <div className="mb-2 flex items-start gap-2">
         <StepBadge n={n} />
-        <p className="text-[11px] leading-relaxed text-text-secondary">{description}</p>
+        <p className="text-[12px] leading-relaxed text-text-secondary">{description}</p>
       </div>
       {children}
     </li>
@@ -176,7 +176,7 @@ export default function CopySteps({
                     💾 PNG로 저장해서 첨부하기
                   </button>
                   <StatusLabel state={imageStep} />
-                  <p className="text-[11px] leading-relaxed text-text-muted">{INSECURE_NOTE}</p>
+                  <p className="text-[12px] leading-relaxed text-text-muted">{INSECURE_NOTE}</p>
                 </div>
               ) : capture ? (
                 <div className="space-y-1.5">
@@ -194,11 +194,11 @@ export default function CopySteps({
                       <button
                         type="button"
                         onClick={handleDownload}
-                        className="w-full rounded-md border border-border px-2 py-1.5 text-[11px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                        className="w-full rounded-md border border-border px-2 py-1.5 text-[12px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
                       >
                         💾 PNG로 저장해서 첨부하기
                       </button>
-                      <p className="text-[11px] leading-relaxed text-text-muted">
+                      <p className="text-[12px] leading-relaxed text-text-muted">
                         저장한 파일을 Claude 대화창에 드래그해 넣으세요.
                       </p>
                     </>
@@ -250,7 +250,7 @@ export default function CopySteps({
               <button
                 type="button"
                 onClick={() => window.open('https://claude.ai/new', '_blank', 'noopener')}
-                className="w-full rounded-md border border-border px-2 py-1.5 text-[11px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                className="w-full rounded-md border border-border px-2 py-1.5 text-[12px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
               >
                 🔗 Claude 열기
               </button>
@@ -260,7 +260,7 @@ export default function CopySteps({
       </ol>
 
       {!tipHidden && includeImage && (
-        <div className="rounded-md border border-border/60 px-3 py-2 text-[11px] leading-relaxed text-text-muted">
+        <div className="rounded-md border border-border/60 px-3 py-2 text-[12px] leading-relaxed text-text-muted">
           💡 이미지와 프롬프트를 <b className="text-text-secondary">같은 대화</b>에 함께 보내면
           차트 패턴과 수치를 모두 분석합니다.
           <button

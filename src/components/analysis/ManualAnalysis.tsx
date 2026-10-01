@@ -188,7 +188,7 @@ export default function ManualAnalysis({
         )}
 
         <div className="space-y-1.5 px-1">
-          <h4 className="text-[11px] text-text-secondary">투자 기간</h4>
+          <h4 className="text-[12px] text-text-secondary">투자 기간</h4>
           <div className="grid grid-cols-4 gap-1">
             {HORIZONS.map((h) => (
               <button
@@ -202,8 +202,8 @@ export default function ManualAnalysis({
                     : 'border-border text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
                 }`}
               >
-                <span className="block text-[11px] font-medium">{h.label}</span>
-                <span className="block text-[10px] text-text-muted">{h.period}</span>
+                <span className="block text-[12px] font-medium">{h.label}</span>
+                <span className="block text-[12px] text-text-muted">{h.period}</span>
               </button>
             ))}
           </div>
@@ -221,7 +221,7 @@ export default function ManualAnalysis({
                   alt="캡처한 차트"
                   className="w-full rounded border border-border object-contain"
                 />
-                <p className="text-[11px] leading-relaxed text-text-muted">
+                <p className="text-[12px] leading-relaxed text-text-muted">
                   {capture.symbol} ·{' '}
                   {TIMEFRAME_ITEMS.find((i) => i.value === capture.timeframe)?.label ??
                     capture.timeframe}{' '}
@@ -237,7 +237,7 @@ export default function ManualAnalysis({
                 <button
                   type="button"
                   onClick={openCapture}
-                  className="w-full rounded-md border border-border px-2 py-1.5 text-[11px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                  className="w-full rounded-md border border-border px-2 py-1.5 text-[12px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
                 >
                   ↩ 다시 캡처
                 </button>
@@ -264,7 +264,7 @@ export default function ManualAnalysis({
 
         <section className="space-y-3">
           <h3 className="text-xs font-medium text-text-secondary">포함된 데이터</h3>
-          <ul className="space-y-1 rounded-md border border-border/60 px-3 py-2.5 text-[11px] leading-relaxed text-text-muted">
+          <ul className="space-y-1 rounded-md border border-border/60 px-3 py-2.5 text-[12px] leading-relaxed text-text-muted">
             {includeImage && <li>· 차트 이미지 (Step 1로 복사)</li>}
             {mode === 'quick' && <li>· RSI · MACD · MA · 볼린저 · ATR · 스토캐스틱</li>}
             {flowBlock && <li>· 투자자 동향 (최근 확정 거래일 순매수, 국내 종목)</li>}
@@ -283,7 +283,7 @@ export default function ManualAnalysis({
               </>
             )}
           </ul>
-          <p className="text-[11px] leading-relaxed text-text-muted">
+          <p className="text-[12px] leading-relaxed text-text-muted">
             API 키 없이 Claude 구독 대화에서 사용합니다. AI 의견은 투자 조언이 아닙니다.
           </p>
         </section>

@@ -105,7 +105,7 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
       <div className="flex h-[min(640px,85vh)] w-[min(680px,90vw)] flex-col overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-2xl">
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold">🤖 자동매매 설정</h2>
-          <span className="rounded bg-warning/15 px-2 py-0.5 text-[10px] text-warning">
+          <span className="rounded bg-warning/15 px-2 py-0.5 text-[12px] text-warning">
             모의 — 실제 주문은 나가지 않습니다
           </span>
           <button
@@ -163,10 +163,10 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
                     <p className={`text-xs font-medium ${active ? 'text-accent' : 'text-text-primary'}`}>
                       {item.title}
                     </p>
-                    <p className="mt-0.5 text-[11px] leading-relaxed text-text-muted">{item.desc}</p>
+                    <p className="mt-0.5 text-[12px] leading-relaxed text-text-muted">{item.desc}</p>
                     {/* 고른 쪽만 펼쳐 설명한다 — 둘 다 펼치면 카드가 길어져 정작 제목이 안 읽힌다 */}
                     {active && (
-                      <p className="mt-1.5 border-t border-border/60 pt-1.5 text-[11px] leading-relaxed text-text-secondary">
+                      <p className="mt-1.5 border-t border-border/60 pt-1.5 text-[12px] leading-relaxed text-text-secondary">
                         {item.easy}
                       </p>
                     )}
@@ -175,7 +175,7 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
               })}
             </div>
             {!geminiEnabled && (
-              <p className="text-[11px] text-warning">
+              <p className="text-[12px] text-warning">
                 ⚠️ Gemini 키가 설정되지 않았습니다 — 규칙형은 키 없이 동작합니다.
               </p>
             )}
@@ -207,17 +207,17 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
               <button
                 type="button"
                 onClick={() => setDiscoverOpen(true)}
-                className="rounded-md border border-border px-3 py-1 text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+                className="rounded-md border border-border px-3 py-1 text-[12px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
               >
                 🔎 종목 발굴 (스윙·관심 목록)
               </button>
-              <span className="text-[11px] text-text-muted">
+              <span className="text-[12px] text-text-muted">
                 기준을 정해 찾고, 근거를 본 뒤 고른 것만 담습니다
               </span>
             </div>
 
             {draft.symbols.length === 0 ? (
-              <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-3 text-center text-[11px] text-text-muted">
+              <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-3 text-center text-[12px] text-text-muted">
                 담긴 종목이 없습니다. 종목이 없으면 자동매매를 켤 수 없습니다.
               </p>
             ) : (
@@ -225,7 +225,7 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
                 {draft.symbols.map((symbol) => (
                   <span
                     key={symbol}
-                    className="flex items-center gap-1 rounded-full border border-border bg-bg-tertiary/60 py-0.5 pl-2 pr-1 text-[11px]"
+                    className="flex items-center gap-1 rounded-full border border-border bg-bg-tertiary/60 py-0.5 pl-2 pr-1 text-[12px]"
                   >
                     <StockName symbol={symbol} size="sm" className="text-text-primary" />
                     <button
@@ -261,7 +261,7 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
                   {preset.label}
                 </button>
               ))}
-              <span className="self-center text-[11px] text-text-muted">
+              <span className="self-center text-[12px] text-text-muted">
                 {PRESETS.find((p) => p.id === activePreset)?.hint ?? '직접 설정한 값'}
               </span>
             </div>
@@ -269,7 +269,7 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
             <button
               type="button"
               onClick={() => setDetailOpen((v) => !v)}
-              className="text-[11px] text-text-muted transition-colors hover:text-text-primary"
+              className="text-[12px] text-text-muted transition-colors hover:text-text-primary"
             >
               {detailOpen ? '▾ 상세 접기' : '▸ 상세 설정'}
             </button>
@@ -387,7 +387,7 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
                         className={FIELD}
                       />
                     </Row>
-                    <p className="text-[11px] leading-relaxed text-text-muted">
+                    <p className="text-[12px] leading-relaxed text-text-muted">
                       지표 엔진이 주는 이동평균은 5·20·60·120 입니다. 다른 값을 넣으면 가장 가까운
                       기간으로 맞추고, 실제로 쓴 기간을 거래 사유에 적습니다.
                     </p>
@@ -407,11 +407,11 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
                 onChange={(e) => patch({ hardStopLossPercent: Number(e.target.value) })}
                 className={FIELD}
               />
-              <span className="text-[11px] text-text-muted">
+              <span className="text-[12px] text-text-muted">
                 평균 매수가 대비 -{draft.hardStopLossPercent}% 에서 전량 청산
               </span>
             </Row>
-            <p className="text-[11px] leading-relaxed text-text-muted">
+            <p className="text-[12px] leading-relaxed text-text-muted">
               분석 주기와 무관하게 <span className="text-text-secondary">1분마다</span> 검사하는
               안전망입니다 — 급락은 다음 분석을 기다려 주지 않습니다.
             </p>
@@ -435,7 +435,7 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
               </Row>
             )}
 
-            <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-2 text-[11px] leading-relaxed text-text-muted">
+            <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-2 text-[12px] leading-relaxed text-text-muted">
               💡 <span className="text-text-secondary">익절은 고정하지 않습니다.</span> 추세가 살아
               있으면 계속 들고 가도록 {draft.mode === 'ai' ? 'AI 가 매 주기 보유 종목을 다시 평가해' : '데드크로스·RSI 과열 규칙으로'}{' '}
               팔 때를 정합니다.
@@ -455,7 +455,7 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
                 onChange={(e) => patch({ earningsBlackoutDays: Number(e.target.value) })}
                 className={FIELD}
               />
-              <span className="text-[11px] text-text-muted">
+              <span className="text-[12px] text-text-muted">
                 {draft.earningsBlackoutDays > 0
                   ? `실적 발표 ${draft.earningsBlackoutDays} 거래일 전부터 발표일까지 새로 사지 않습니다`
                   : '끔 — 실적 발표와 상관없이 삽니다'}
@@ -468,13 +468,13 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
                 onChange={(e) => patch({ dailyLossLimitPercent: Number(e.target.value) })}
                 className={FIELD}
               />
-              <span className="text-[11px] text-text-muted">
+              <span className="text-[12px] text-text-muted">
                 {draft.dailyLossLimitPercent > 0
                   ? `하루 동안 계좌 평가액이 ${draft.dailyLossLimitPercent}% 넘게 줄면 그날은 새로 사지 않습니다 (보유 종목 손절·청산은 계속)`
                   : '끔 (0) — 하루 손실과 상관없이 삽니다'}
               </span>
             </Row>
-            <p className="text-[11px] leading-relaxed text-text-muted">
+            <p className="text-[12px] leading-relaxed text-text-muted">
               실적일은 매일 한 번 받아 둔 달력(yfinance)을 봅니다. 실적일을 모르는 종목은 막지 않고 거래 사유에
               「실적일 미확인」 을 남깁니다. 하루는 미국 종목이면 미국 거래일 기준이고, 다음 거래일이 되면 자동으로 풀립니다.
             </p>
@@ -482,7 +482,7 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
         </div>
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">
-          <span className="text-[11px] text-text-muted">
+          <span className="text-[12px] text-text-muted">
             값의 허용 범위는 저장할 때 서버가 다시 한 번 조입니다.
           </span>
           <button

@@ -38,7 +38,7 @@ export default function ModeSelector({ mode, onChange, portfolioAvailable }: Pro
             >
               {item.label}
             </span>
-            <span className="text-[11px] leading-snug break-keep text-text-secondary">
+            <span className="text-[12px] leading-snug break-keep text-text-secondary">
               {item.description}
             </span>
           </button>

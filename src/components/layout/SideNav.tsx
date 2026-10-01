@@ -64,7 +64,7 @@ export default function SideNav({
         }`}
       >
         <span className="text-lg leading-none">{item.icon}</span>
-        <span className="text-[10px] leading-tight">{item.label}</span>
+        <span className="text-[12px] leading-tight">{item.label}</span>
       </button>
 
       {hovered === item.id && (
@@ -82,7 +82,7 @@ export default function SideNav({
             >
               {sub.label}
               {sub.badge && (
-                <span className="ml-1 rounded bg-warning/15 px-1 py-px text-[9px] align-middle text-warning">
+                <span className="ml-1 rounded bg-warning/15 px-1 py-px text-[12px] align-middle text-warning">
                   {sub.badge}
                 </span>
               )}
@@ -114,7 +114,7 @@ export default function SideNav({
         >
           <span className="text-base leading-none">{item.icon}</span>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          <span className="text-[10px] text-text-muted">{open ? '▾' : '▸'}</span>
+          <span className="text-[12px] text-text-muted">{open ? '▾' : '▸'}</span>
         </button>
 
         {open &&
@@ -131,7 +131,7 @@ export default function SideNav({
             >
               {sub.label}
               {sub.badge && (
-                <span className="ml-1 rounded bg-warning/15 px-1 py-px text-[9px] align-middle text-warning">
+                <span className="ml-1 rounded bg-warning/15 px-1 py-px text-[12px] align-middle text-warning">
                   {sub.badge}
                 </span>
               )}

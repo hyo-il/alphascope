@@ -52,7 +52,7 @@ function Row({
         style={{ width: `${ratio}%` }}
       />
       <span
-        className={`relative block text-[11px] tabular-nums text-text-secondary ${
+        className={`relative block text-[12px] tabular-nums text-text-secondary ${
           isAsk ? 'text-right' : 'text-left'
         }`}
       >
@@ -73,7 +73,7 @@ function Row({
           : level.price.toFixed(2)}
       </span>
       {rate != null && (
-        <span className={`block text-[10px] tabular-nums ${priceColor} opacity-70`}>
+        <span className={`block text-[12px] tabular-nums ${priceColor} opacity-70`}>
           {rate > 0 ? '+' : ''}
           {rate.toFixed(2)}%
         </span>
@@ -136,7 +136,7 @@ export default function OrderbookPanel({
       <header className="flex items-center justify-between border-b border-border px-3 py-2">
         <h2 className="text-xs font-medium">호가</h2>
         {orderbook && (
-          <span className="text-[10px] text-text-muted">
+          <span className="text-[12px] text-text-muted">
             {new Date(orderbook.fetchedAt).toLocaleTimeString('ko-KR')}
           </span>
         )}
@@ -145,7 +145,7 @@ export default function OrderbookPanel({
       {isEmpty ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-1 px-4 text-center">
           <p className="text-xs text-text-secondary">호가가 비어 있습니다</p>
-          <p className="text-[11px] leading-relaxed text-text-muted">
+          <p className="text-[12px] leading-relaxed text-text-muted">
             {currency === 'KRW'
               ? '국내장 정규 시간(09:00~15:30)에 호가가 들어옵니다.'
               : '미국장 정규 시간(한국시간 22:30~05:00)에 호가가 들어옵니다.'}
@@ -153,7 +153,7 @@ export default function OrderbookPanel({
         </div>
       ) : (
         <>
-          <div className="flex justify-between px-3 py-1 text-[10px] text-text-muted">
+          <div className="flex justify-between px-3 py-1 text-[12px] text-text-muted">
             <span>매도 잔량</span>
             <span>호가</span>
             <span>매수 잔량</span>
@@ -179,7 +179,7 @@ export default function OrderbookPanel({
               </span>
               {changeRate != null && (
                 <span
-                  className={`block text-[10px] tabular-nums ${
+                  className={`block text-[12px] tabular-nums ${
                     changeRate > 0 ? 'text-bearish' : changeRate < 0 ? 'text-bullish' : 'text-text-muted'
                   }`}
                 >
@@ -203,9 +203,9 @@ export default function OrderbookPanel({
           </div>
 
           <div className="border-t border-border px-3 py-1.5">
-            <div className="flex items-center justify-between text-[11px] tabular-nums">
+            <div className="flex items-center justify-between text-[12px] tabular-nums">
               <span className="text-bearish">{formatCompact(askTotal)}</span>
-              <span className="text-[10px] text-text-muted">총잔량</span>
+              <span className="text-[12px] text-text-muted">총잔량</span>
               <span className="text-bullish">{formatCompact(bidTotal)}</span>
             </div>
 
@@ -219,7 +219,7 @@ export default function OrderbookPanel({
             </div>
 
             {spread != null && (
-              <p className="mt-1.5 text-center text-[10px] text-text-muted">
+              <p className="mt-1.5 text-center text-[12px] text-text-muted">
                 스프레드 {currency === 'KRW' ? Math.round(spread).toLocaleString('ko-KR') : spread.toFixed(2)}
               </p>
             )}

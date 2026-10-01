@@ -27,7 +27,7 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
 
   if (error) {
     return (
-      <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-2 text-[11px] text-bearish">
+      <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-2 text-[12px] text-bearish">
         {error}
       </p>
     );
@@ -87,7 +87,7 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
             className="w-24 rounded px-2 py-1"
           />
         </Field>
-        <p className="text-[11px] text-text-muted">
+        <p className="text-[12px] text-text-muted">
           대형주는 하루 3%도 드물고 소형주는 5%가 예사입니다. 하나의 기준으로 재면 대형주는 급등이
           아예 안 잡히고 소형주는 잡음이 쏟아집니다. 시가총액은 yfinance 에서 가져옵니다.
         </p>
@@ -140,7 +140,7 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
             className="w-24 rounded px-2 py-1"
           />
         </Field>
-        <p className="text-[11px] text-text-muted">
+        <p className="text-[12px] text-text-muted">
           규칙성 = 100 × (1 − 표준편차/평균). 50% 는 "표준편차가 평균의 절반 이하" 와 같은 선입니다.
         </p>
       </section>
@@ -173,7 +173,7 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
           />
           <span>S&P 500 대형주 50</span>
         </label>
-        <p className="text-[11px] leading-relaxed text-text-muted">
+        <p className="text-[12px] leading-relaxed text-text-muted">
           대기업은 하루 3~5% 급등이 드물어 주기적 급등이 거의 잡히지 않습니다 (51종목을 돌려 3건).
           진짜 급등은 중소형주에서 나오므로, <span className="text-text-secondary">최근 실제로
           움직인 종목</span>인 랭킹을 기본으로 둡니다.
@@ -187,7 +187,7 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
 
       <section className="space-y-1">
         <h3 className="font-semibold text-text-secondary">데이터 소스</h3>
-        <p className="text-[11px] text-text-muted">
+        <p className="text-[12px] text-text-muted">
           과거 일봉은 <span className="text-text-secondary">yfinance</span> 를 씁니다 (24시간 캐시).
           토스 <code>/candles</code> 는 200봉씩 페이지네이션이라 수십 종목 × 6개월을 받으려면
           왕복이 수백 번이 됩니다. 현재가·호가 등 실시간 데이터는 그대로 토스 API 입니다.

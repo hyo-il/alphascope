@@ -64,7 +64,7 @@ export default function SwingHistory() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-[11px] text-text-muted">판정 기준</span>
+        <span className="text-[12px] text-text-muted">판정 기준</span>
         {FILTERS.map((f) => {
           const count = f.id === 'all' ? all.length : countOf(f.id);
           return (
@@ -72,7 +72,7 @@ export default function SwingHistory() {
               key={f.id}
               type="button"
               onClick={() => setFilter(f.id)}
-              className={`rounded-md border px-2 py-0.5 text-[11px] transition-colors ${
+              className={`rounded-md border px-2 py-0.5 text-[12px] transition-colors ${
                 filter === f.id
                   ? 'border-accent bg-accent/10 font-medium text-accent'
                   : 'border-border text-text-secondary hover:border-accent/50'
@@ -88,13 +88,13 @@ export default function SwingHistory() {
         <p className="text-xs text-text-muted">이 기준으로 기록된 추천이 없습니다.</p>
       ) : (
       <>
-      <p className="text-[11px] text-text-secondary">
+      <p className="text-[12px] text-text-secondary">
         기록된 추천 {records.length}건 · 체결 {triggered.length}건 · 결판 {closed.length}건 중 목표
         도달 {wins}건
         {closed.length ? ` (${Math.round((wins / closed.length) * 100)}%)` : ''} · 평균 수익률{' '}
         {avgReturn == null ? '—' : formatPercent(avgReturn)}
         {closed.length > 0 && closed.length < SMALL_SAMPLE && (
-          <span className="ml-1 rounded bg-warning/15 px-1.5 py-0.5 text-[10px] text-warning">
+          <span className="ml-1 rounded bg-warning/15 px-1.5 py-0.5 text-[12px] text-warning">
             표본 적음 ({closed.length}건)
           </span>
         )}
@@ -105,7 +105,7 @@ export default function SwingHistory() {
       </p>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[820px] text-left text-[11px]">
+        <table className="w-full min-w-[820px] text-left text-[12px]">
           <thead className="text-text-muted">
             <tr className="border-b border-border">
               <th className="py-1.5 pr-2">추천일</th>
@@ -136,7 +136,7 @@ export default function SwingHistory() {
                     <StockName symbol={row.symbol} name={row.name} />
                   </td>
                   <td className="pr-2">
-                    <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[10px] text-text-secondary">
+                    <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[12px] text-text-secondary">
                       {PROFILE_LABEL[row.profile]}
                     </span>
                   </td>
