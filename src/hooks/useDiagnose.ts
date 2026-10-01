@@ -109,6 +109,19 @@ export function useDiagnose() {
     return () => clearInterval(timer);
   }, [progress?.running, progress?.error, progress?.reportId, reload]);
 
+  /**
+   * 리포트 삭제 — 지운 뒤에는 남은 것 중 가장 최근 것을 보여 준다(없으면 빈 상태).
+   * 실패는 throw 한다 — 화면이 토스트로 알린다.
+   */
+  const remove = useCallback(
+    async (id: number) => {
+      await json<{ ok: true }>(`/api/diagnose/reports/${id}`, { method: 'DELETE' });
+      setSelectedId(null);
+      await reload();
+    },
+    [reload],
+  );
+
   const run = useCallback(async () => {
     setRunError(null);
     try {
@@ -134,5 +147,6 @@ export function useDiagnose() {
     progress,
     runError,
     run,
+    remove,
   };
 }

@@ -52,7 +52,11 @@ import { runAnalysis } from './gemini/analyze';
 import { DEFAULT_MODEL, GeminiError, geminiDisabledReason, isGeminiEnabled } from './gemini/client';
 import { accuracyReport } from './gemini/accuracy';
 import { DiagnoseBusyError, getDiagnoseProgress, startDiagnose } from './diagnose/runner';
-import { getReport as getDiagnoseReport, listReports as listDiagnoseReports } from './diagnose/store';
+import {
+  deleteReport as deleteDiagnoseReport,
+  getReport as getDiagnoseReport,
+  listReports as listDiagnoseReports,
+} from './diagnose/store';
 import {
   deleteAllAnalyses as deleteAllGeminiAnalyses,
   deleteAnalysis as deleteGeminiAnalysis,
@@ -1394,6 +1398,18 @@ app.get('/api/diagnose/reports/:id', (req, res) => {
     const report = getDiagnoseReport(id);
     if (!report) return res.status(404).json({ error: '리포트를 찾을 수 없습니다.' });
     res.json(report);
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+/** 리포트 한 건 삭제 — DB 행만. 서버의 파일 출력은 남는다 (v2.22.0) */
+app.delete('/api/diagnose/reports/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'id 가 올바르지 않습니다.' });
+  try {
+    if (!deleteDiagnoseReport(id)) return res.status(404).json({ error: '리포트를 찾을 수 없습니다.' });
+    res.json({ ok: true });
   } catch (e) {
     fail(res, e);
   }

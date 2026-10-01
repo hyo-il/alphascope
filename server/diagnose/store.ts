@@ -57,3 +57,12 @@ export function getReport(id: number): (DiagnoseListItem & { detail: unknown }) 
     detail: JSON.parse(row.detail_json ?? 'null'),
   };
 }
+
+/**
+ * 리포트 한 건 삭제 (v2.22.0) — `diagnose_reports` 의 그 행만 지운다.
+ * 파일 출력(맥 `docs/analysis/` · 오라클 `reports/`)은 건드리지 않는다 — 웹 목록에서만 사라진다.
+ * 저장된 리포트는 이 화면만 읽는다— AI·자동매매·채점은 읽지 않는다 — 지워도 다른 기능에 영향이 없다.
+ */
+export function deleteReport(id: number): boolean {
+  return getDb().prepare(`DELETE FROM diagnose_reports WHERE id = ?`).run(id).changes > 0;
+}
