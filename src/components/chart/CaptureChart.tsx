@@ -8,7 +8,9 @@ import {
   type ISeriesApi,
   type MouseEventParams,
 } from 'lightweight-charts';
-import type { Candle } from '../../types/toss';
+import { TIMEFRAME_LABEL, type Candle, type Timeframe } from '../../types/toss';
+import StockName from '../common/StockName';
+import { useStockNames } from '../../hooks/useStockNames';
 import { MA_LINES, type IndicatorSeries, type IndicatorToggles } from '../../types/chart';
 import type { DrawingSnapshot } from './CandleChart';
 import ChartInfoBar, { lastAsHover, type HoverInfo, type VisibleExtent } from './ChartInfoBar';
@@ -37,6 +39,9 @@ interface Props {
   /** 52주 고저 — 캡처 그림의 정보 바에 함께 찍는다 */
   week52?: RangeStats | null;
   currency?: 'KRW' | 'USD';
+  /** 캡처 그림 맨 위 제목 줄 — 붙여넣은 쪽에서 어느 종목·어느 봉인지 알 수 있게 */
+  symbol: string;
+  timeframe: Timeframe;
 }
 
 export interface CaptureChartHandle {
@@ -83,10 +88,11 @@ function clampRange(
 }
 
 const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart(
-  { candles, indicators, toggles, drawings, initialRange, week52, currency = 'USD' },
+  { candles, indicators, toggles, drawings, initialRange, week52, currency = 'USD', symbol, timeframe },
   ref,
 ) {
   const wrapperRef = useRef<HTMLDivElement>(null);
+  useStockNames([symbol]);
   /** 차트가 붙는 안쪽 div — 정보 바를 위에 두려면 캡처 대상(wrapper)과 나뉘어야 한다 */
   const chartHostRef = useRef<HTMLDivElement>(null);
   /** 팝업 차트에서도 크로스헤어를 따라 값이 바뀐다 (없으면 마지막 봉) */
@@ -278,6 +284,14 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
 
   return (
     <div ref={wrapperRef} className="flex h-full w-full flex-col bg-bg-primary">
+      {/*
+        제목 줄 — 미리보기 화면에만 있던 종목명을 그림 안에도 찍는다(v2.22.0).
+        배경은 캡처 배경(#141414 = bg-primary)과 같고, 글자는 붙여넣은 뒤에도 읽히도록 15px.
+      */}
+      <div className="flex shrink-0 items-baseline gap-2 bg-bg-primary px-3 pt-2 text-[15px] text-text-primary">
+        <StockName symbol={symbol} size="xl" />
+        <span className="text-sm text-text-secondary">· {TIMEFRAME_LABEL[timeframe]}</span>
+      </div>
       {/* 캡처 그림에도 같은 줄이 찍혀야 붙여넣은 쪽에서 언제·어느 봉인지 알 수 있다 */}
       <ChartInfoBar
         legend={hover ?? lastAsHover(candles, indicators)}

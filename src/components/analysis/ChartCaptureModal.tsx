@@ -278,6 +278,8 @@ export default function ChartCaptureModal({
               initialRange={range}
               week52={week52}
               currency={currency}
+              symbol={symbol}
+              timeframe={tf}
             />
           </div>
 
