@@ -18,6 +18,14 @@ import type { AgentRole } from '../../src/types/gemini';
  */
 export const PROMPT_VERSION = 'v1';
 
+/**
+ * 투자자 동향 블록이 들어간 분석의 버전 (v2.23.0).
+ * ⚠️ **국내 종목에서 동향 블록을 실제로 넣었을 때만** 이 값으로 저장한다 — 입력이 다른 분석은 다른 실험이라
+ * v1 적중률에 섞이면 안 된다(`byPromptVersion` 이 버전별로 나눠 센다).
+ * 미국 종목·동향을 못 받은 국내 종목은 그대로 `PROMPT_VERSION`(v1). 블록 문구(`src/utils/investorFlow.ts`)를 바꾸면 이 값도 올린다.
+ */
+export const FLOW_PROMPT_VERSION = 'v1-flow';
+
 const VOTE_ENUM = { type: 'STRING', enum: ['BUY', 'HOLD', 'SELL'] };
 
 /** 모든 에이전트가 공통으로 내는 필드 */

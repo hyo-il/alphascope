@@ -65,6 +65,8 @@ import {
   listAnalyses as listGeminiAnalyses,
 } from './gemini/store';
 import { DEFAULT_HORIZON } from '../src/services/analysis/horizons';
+import { getInvestorFlow } from './investorTrading';
+import { isKrSymbol } from '../src/utils/market';
 import {
   getScheduledStatus,
   runScheduledNow,
@@ -965,6 +967,21 @@ app.get('/api/gemini/status', (_req, res) => {
       reason: geminiDisabledReason(),
       analysesToday: analysesTodayCount(),
     });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+// -- 투자자 동향 (국내 종목만, v2.23.0) -----------------------------------------------
+// 국내가 아니면 토스를 부르지 않고 { supported: false }. 캐시는 server/investorTrading.ts.
+app.get('/api/investor-trading', async (req, res) => {
+  const symbol = parseSymbol(req.query.symbol);
+  if (!symbol) return res.status(400).json(BAD_SYMBOL);
+  if (!isKrSymbol(symbol)) {
+    return res.json({ supported: false, reason: '투자자 동향은 국내 종목만 제공됩니다(토스 API 제공 범위)' });
+  }
+  try {
+    res.json({ supported: true, flow: await getInvestorFlow(symbol) });
   } catch (e) {
     fail(res, e);
   }

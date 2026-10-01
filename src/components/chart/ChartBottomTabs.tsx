@@ -6,6 +6,7 @@ import CompanySummary from './tabs/CompanySummary';
 import IndicatorSummaryPanel from './tabs/IndicatorSummaryPanel';
 import ChartAiPanel from './tabs/ChartAiPanel';
 import NewsPanel from './tabs/NewsPanel';
+import InvestorFlowPanel from './tabs/InvestorFlowPanel';
 
 /**
  * 차트 하단 탭 — 차트를 보면서 기업정보·AI 분석을 함께 본다.
@@ -26,11 +27,13 @@ const HEADER_HEIGHT = 38;
 /** 펼친 상태의 최소 높이 — 이보다 작으면 기업정보 카드 한 줄도 못 보여 준다 */
 const MIN_EXPANDED = 200;
 
-type TabId = 'indicators' | 'company' | 'news' | 'ai';
+type TabId = 'indicators' | 'company' | 'flow' | 'news' | 'ai';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'indicators', label: '차트 지표' },
   { id: 'company', label: '기업정보' },
+  // v2.23.0 — 국내 종목만 내용이 있다(미국은 안내만, 요청 0건)
+  { id: 'flow', label: '투자자 동향' },
   { id: 'news', label: '뉴스' },
   { id: 'ai', label: 'AI 분석' },
 ];
@@ -203,6 +206,7 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
           {tab === 'company' && (
             <CompanySummary symbol={props.symbol} candles={props.candles} />
           )}
+          {tab === 'flow' && <InvestorFlowPanel symbol={props.symbol} />}
           {tab === 'news' && <NewsPanel symbol={props.symbol} />}
           {tab === 'ai' && (
             <ChartAiPanel

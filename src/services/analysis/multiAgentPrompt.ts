@@ -178,6 +178,11 @@ export interface PromptOptions {
   crossReview: boolean;
   /** 투자 기간 — 각 전문가와 의장의 판단 시간축을 정한다 */
   horizon?: InvestmentHorizon;
+  /**
+   * 투자자 동향 블록 (v2.23.0, 국내 종목만 — `utils/investorFlow.ts` 의 investorFlowBlock).
+   * 없으면 프롬프트가 **이전과 한 글자도 다르지 않다**(미국 종목).
+   */
+  investorFlow?: string | null;
 }
 
 /** 5개 에이전트 역할이 모두 담긴 최종 프롬프트 */
@@ -206,7 +211,9 @@ ${horizonBlock(options.horizon ?? DEFAULT_HORIZON)}
 
 ${marketBlock(options.symbol, companyName, options.timeframe, options.candles, options.currentPrice)}
 
-${fundamentalBlock(options.fundamentals, options.peers)}
+${options.investorFlow ? `${options.investorFlow}
+
+` : ''}${fundamentalBlock(options.fundamentals, options.peers)}
 
 ${holdingBlock(options.holding)}
 

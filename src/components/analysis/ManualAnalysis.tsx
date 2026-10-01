@@ -5,6 +5,8 @@ import { buildMultiAgentPrompt } from '../../services/analysis/multiAgentPrompt'
 import { buildPortfolioPrompt, buildQuickPrompt } from '../../services/analysis/modePrompts';
 import { useExchangeRate, useFundamentals, usePeers, usePortfolio } from '../../hooks/useCompany';
 import { useSymbolSummaries } from '../../hooks/useSymbolSummaries';
+import { useInvestorFlow } from '../../hooks/useInvestorFlow';
+import { investorFlowBlock } from '../../utils/investorFlow';
 import CopySteps from './CopySteps';
 import ModeSelector from './ModeSelector';
 import ChartCaptureModal from './ChartCaptureModal';
@@ -96,6 +98,10 @@ export default function ManualAnalysis({
 
   const { summaries, loading: summariesLoading } = useSymbolSummaries(summaryTargets);
 
+  // 투자자 동향 — 국내 종목의 간단·전문가 분석에만 넣는다(v2.23.0). 미국 종목은 요청도 하지 않는다.
+  const { flow, loading: flowLoading } = useInvestorFlow(symbol, mode === 'quick' || mode === 'multi');
+  const flowBlock = investorFlowBlock(flow);
+
   const generated = useMemo(() => {
     switch (mode) {
       case 'quick':
@@ -104,6 +110,7 @@ export default function ManualAnalysis({
           timeframe,
           symbol,
           horizon,
+          flowBlock,
         );
       case 'portfolio':
         return buildPortfolioPrompt(portfolio, summaries, exchangeRate, horizon);
@@ -119,6 +126,7 @@ export default function ManualAnalysis({
           holding,
           crossReview,
           horizon,
+          investorFlow: flowBlock,
         });
     }
   }, [
@@ -137,6 +145,7 @@ export default function ManualAnalysis({
     portfolio,
     exchangeRate,
     horizon,
+    flowBlock,
   ]);
 
   // 모드나 종목이 바뀌면 편집 내용을 버린다 (다른 종목의 편집본이 남으면 혼란스럽다).
@@ -150,7 +159,7 @@ export default function ManualAnalysis({
   useEffect(() => {
     onPromptChange?.({ mode: `${mode}·${horizonLabel(horizon)}`, text: prompt });
   }, [mode, horizon, prompt, onPromptChange]);
-  const loading = summariesLoading || (mode === 'multi' && fundamentalsLoading);
+  const loading = summariesLoading || flowLoading || (mode === 'multi' && fundamentalsLoading);
 
   // 포트폴리오는 여러 종목이라 현재 차트 이미지가 프롬프트와 맞지 않는다.
   const includeImage = mode === 'quick' || mode === 'multi';
@@ -258,6 +267,7 @@ export default function ManualAnalysis({
           <ul className="space-y-1 rounded-md border border-border/60 px-3 py-2.5 text-[11px] leading-relaxed text-text-muted">
             {includeImage && <li>· 차트 이미지 (Step 1로 복사)</li>}
             {mode === 'quick' && <li>· RSI · MACD · MA · 볼린저 · ATR · 스토캐스틱</li>}
+            {flowBlock && <li>· 투자자 동향 (최근 확정 거래일 순매수, 국내 종목)</li>}
             {mode === 'multi' && (
               <>
                 <li>· 지표 요약 + 최근 10봉 OHLCV</li>

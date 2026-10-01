@@ -1,5 +1,6 @@
 import type { BaseTimeframe, Candle, Orderbook, Price } from '../../types/toss';
 import { tossGet } from './httpClient';
+import type { FlowRecord, FlowSide } from '../../utils/investorFlow';
 
 /**
  * 시세 / 호가 / 캔들 조회.
@@ -260,4 +261,58 @@ export async function fetchRanking(
   }));
 
   return { rankedAt: payload.result?.rankedAt ?? null, entries };
+}
+
+// ── 투자자별 매매동향 (국내만, v2.23.0) ─────────────────────────────────────
+
+interface InvestorSideRaw {
+  buyVolume?: string;
+  sellVolume?: string;
+  netBuyVolume?: string;
+}
+
+interface InvestorTradingResponse {
+  result?: {
+    nextUntil?: string | null;
+    records?: {
+      date: string;
+      updatedAt?: string;
+      individual?: InvestorSideRaw | null;
+      foreigner?: InvestorSideRaw | null;
+      institution?: InvestorSideRaw | null;
+      otherCorporation?: InvestorSideRaw | null;
+    }[];
+  };
+}
+
+function side(raw: InvestorSideRaw | null | undefined): FlowSide | null {
+  if (!raw) return null;
+  const buy = Number(raw.buyVolume);
+  const sell = Number(raw.sellVolume);
+  const net = Number(raw.netBuyVolume);
+  if (![buy, sell, net].every(Number.isFinite)) return null;
+  return { buy, sell, net };
+}
+
+/**
+ * `GET /api/v1/stocks/{symbol}/investor-trading` — **국내(KR) 종목만**(다른 시장은 400 unsupported-market).
+ * 숫자는 문자열로 온다(주, 정수). 최신순. 당일 기록은 잠정치라 개인·기타법인이 null 이다.
+ * 레이트 리밋 그룹은 명세대로 `STOCK_TRADING_TREND`.
+ */
+export async function fetchInvestorTrading(symbol: string, count: number): Promise<FlowRecord[]> {
+  const payload = await tossGet<InvestorTradingResponse>(
+    `/api/v1/stocks/${encodeURIComponent(symbol)}/investor-trading`,
+    { count: Math.min(100, Math.max(1, Math.round(count))) },
+    'STOCK_TRADING_TREND',
+  );
+  return (payload.result?.records ?? []).map((r) => ({
+    date: r.date,
+    updatedAt: r.updatedAt ?? null,
+    // 명세: 개인은 확정치가 반영될 때 채워진다 — 개인이 없으면 잠정치다
+    provisional: r.individual == null,
+    foreigner: side(r.foreigner),
+    institution: side(r.institution),
+    individual: side(r.individual),
+    otherCorporation: side(r.otherCorporation),
+  }));
 }

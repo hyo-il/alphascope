@@ -52,6 +52,8 @@ export function buildQuickPrompt(
   timeframe: Timeframe,
   symbol: string,
   horizonId: InvestmentHorizon = DEFAULT_HORIZON,
+  /** 투자자 동향 블록 (v2.23.0, 국내 종목만). 없으면 이전과 같은 문자열이다 */
+  investorFlow?: string | null,
 ): string {
   if (!summary) return `${symbol} 데이터를 불러오는 중입니다.`;
 
@@ -80,7 +82,9 @@ MACD: ${macdText}
 ATR(14): ${n(i.atr14, 2, '$')}
 스토캐스틱: %K ${n(i.stochK, 1)} / %D ${n(i.stochD, 1)}
 
-분석 요청:
+${investorFlow ? `${investorFlow}
+
+` : ''}분석 요청:
 1. 현재 기술적 상태 요약
 2. ${horizon.label}(${horizon.period}) 방향 의견 + 근거
 3. 주요 지지선과 저항선

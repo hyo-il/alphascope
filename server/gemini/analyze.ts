@@ -16,7 +16,7 @@ import type {
   ModeratorVerdict,
   TradeSignal,
 } from '../../src/types/gemini';
-import { AGENTS, PROMPT_VERSION } from './agents';
+import { AGENTS, FLOW_PROMPT_VERSION, PROMPT_VERSION } from './agents';
 import { callGemini, DEFAULT_MODEL, GeminiError, type GeminiPart } from './client';
 import { buildContext } from './context';
 import { DEFAULT_HORIZON, horizonBlock, type InvestmentHorizon } from '../../src/services/analysis/horizons';
@@ -168,7 +168,8 @@ export async function runAnalysis(options: RunOptions): Promise<GeminiAnalysis> 
     elapsedMs: Date.now() - startedAt,
     trigger: options.trigger,
     accountId: options.accountId ?? null,
-    promptVersion: PROMPT_VERSION,
+    // 국내 종목에 투자자 동향 블록이 실제로 들어갔을 때만 v1-flow (agents.ts 의 규칙)
+    promptVersion: context.flowIncluded ? FLOW_PROMPT_VERSION : PROMPT_VERSION,
   };
 
   const id = insertAnalysis(record);
