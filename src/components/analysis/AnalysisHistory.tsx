@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ANALYSIS_MODES } from '../../types/analysis';
+import { analysisModeLabel } from '../../types/analysis';
 import type { Timeframe } from '../../types/toss';
 import { formatUsd } from '../../utils/formatters';
 
@@ -12,11 +12,8 @@ interface Props {
   prompt: string;
 }
 
-// 라벨은 ANALYSIS_MODES 한 곳에서 가져온다 — 여기에 따로 적어 두면
-// 모드 이름을 바꿀 때마다 기록 화면만 옛 이름으로 남는다.
-const MODE_LABEL: Record<string, string> = Object.fromEntries(
-  ANALYSIS_MODES.map((m) => [m.id, `${m.icon} ${m.label}`]),
-);
+// 라벨은 types/analysis 의 analysisModeLabel 한 곳에서 만든다 — 여기에 따로 적어 두면
+// 모드 이름을 바꿀 때마다 기록 화면만 옛 이름으로 남는다. 지금은 고를 수 없는 옛 모드(비교 분석)도 읽는다.
 
 interface AnalysisRecord {
   id: number;
@@ -235,7 +232,7 @@ export default function AnalysisHistory({
                     )}
                   </span>
                   <span className="text-text-muted">
-                    {MODE_LABEL[record.mode ?? ''] ?? ''}
+                    {analysisModeLabel(record.mode)}
                   </span>
                   <span className="ml-auto text-text-muted">
                     {new Date(record.analyzed_at).toLocaleString('ko-KR')}

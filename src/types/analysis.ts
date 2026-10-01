@@ -12,7 +12,12 @@ export interface MarketIndex {
 }
 
 /** 분석 모드 — 프롬프트 형태와 필요한 데이터가 달라진다. */
-export type AnalysisMode = 'quick' | 'multi' | 'portfolio' | 'compare';
+/**
+ * 새로 고를 수 있는 분석 모드.
+ * ⚠️ `compare`(비교 분석)는 v2.22.0 에 뺐다 — 「차트 > 기업 비교」 의 AI 비교 평가와 같은 일이라 그쪽으로 모았다.
+ * 옛 기록에는 남아 있으므로 **읽기 전용** 라벨(`LEGACY_MODES`)로만 둔다.
+ */
+export type AnalysisMode = 'quick' | 'multi' | 'portfolio';
 
 /** 라벨은 5글자 이내로 둔다 — 길면 카드 안에서 개행돼 읽기 나빠진다. */
 export const ANALYSIS_MODES: {
@@ -24,8 +29,24 @@ export const ANALYSIS_MODES: {
   { id: 'quick', icon: '⚡', label: '간단 분석', description: '핵심 지표만 빠르게' },
   { id: 'multi', icon: '🧠', label: '전문가 분석', description: '5명 AI 전문가 다각도' },
   { id: 'portfolio', icon: '💼', label: '포트폴리오', description: '보유종목 전체 진단' },
-  { id: 'compare', icon: '🔄', label: '비교 분석', description: '2~4 종목 나란히' },
 ];
+
+/** 지금은 고를 수 없지만 옛 기록에 남아 있는 모드 — 기록 화면이 라벨을 그리는 데만 쓴다 */
+const LEGACY_MODES: { id: string; icon: string; label: string }[] = [
+  { id: 'compare', icon: '🔄', label: '비교 분석' },
+];
+
+/**
+ * 저장된 모드 문자열 → 화면 라벨. 기록에는 `multi·스윙` 처럼 투자 기간이 붙어 저장된다.
+ * 모르는 값이면 빈 문자열(기록 자체는 그대로 보인다).
+ */
+export function analysisModeLabel(stored: string | null | undefined): string {
+  if (!stored) return '';
+  const [id, horizon] = stored.split('·');
+  const found = [...ANALYSIS_MODES, ...LEGACY_MODES].find((m) => m.id === id);
+  if (!found) return '';
+  return `${found.icon} ${found.label}${horizon ? ` · ${horizon}` : ''}`;
+}
 
 /** 여러 종목을 한 번에 분석할 때 쓰는 종목별 요약 (서버 `/api/summary`) */
 export interface SymbolSummary {

@@ -10,8 +10,9 @@ interface Props {
 /** 분석 모드 카드 — 아이콘을 위, 이름을 아래에 두어 이름이 접히지 않게 한다. */
 export default function ModeSelector({ mode, onChange, portfolioAvailable }: Props) {
   return (
-    // 좌측 패널 폭(320px)에 4개를 한 줄로 넣으면 카드가 잘린다. 2×2 로 배치한다.
-    <div className="grid grid-cols-2 gap-3">
+    // 모드가 셋이다(v2.22.0 비교 분석 삭제) — 2×2 에 두면 한 칸이 비어 한 줄 3칸으로 둔다.
+    // 좌측 패널 폭(320px)에 맞추려고 카드 안쪽 여백과 간격을 줄였다.
+    <div className="grid grid-cols-3 gap-2">
       {ANALYSIS_MODES.map((item) => {
         const disabled = item.id === 'portfolio' && !portfolioAvailable;
         const active = mode === item.id;
@@ -23,7 +24,7 @@ export default function ModeSelector({ mode, onChange, portfolioAvailable }: Pro
             disabled={disabled}
             onClick={() => onChange(item.id)}
             title={disabled ? '보유 중인 종목이 없습니다' : item.description}
-            className={`flex flex-col items-center gap-1.5 rounded-lg border px-3 py-4 text-center transition-colors ${
+            className={`flex flex-col items-center gap-1.5 rounded-lg border px-1.5 py-4 text-center transition-colors ${
               active
                 ? 'border-accent bg-accent/10'
                 : 'border-border bg-bg-tertiary/40 hover:border-text-muted'
@@ -37,7 +38,7 @@ export default function ModeSelector({ mode, onChange, portfolioAvailable }: Pro
             >
               {item.label}
             </span>
-            <span className="text-[11px] leading-snug text-text-secondary">
+            <span className="text-[11px] leading-snug break-keep text-text-secondary">
               {item.description}
             </span>
           </button>

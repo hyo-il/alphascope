@@ -2,14 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Candle, Timeframe } from '../../types/toss';
 import type { AnalysisMode } from '../../types/analysis';
 import { buildMultiAgentPrompt } from '../../services/analysis/multiAgentPrompt';
-import {
-  buildComparePrompt,
-  buildPortfolioPrompt,
-  buildQuickPrompt,
-} from '../../services/analysis/modePrompts';
+import { buildPortfolioPrompt, buildQuickPrompt } from '../../services/analysis/modePrompts';
 import { useExchangeRate, useFundamentals, usePeers, usePortfolio } from '../../hooks/useCompany';
 import { useSymbolSummaries } from '../../hooks/useSymbolSummaries';
-import CompareSymbols from './CompareSymbols';
 import CopySteps from './CopySteps';
 import ModeSelector from './ModeSelector';
 import ChartCaptureModal from './ChartCaptureModal';
@@ -60,7 +55,6 @@ export default function ManualAnalysis({
   const [crossReview, setCrossReview] = useState(false);
   /** 투자 기간 — 프롬프트의 판단 시간축을 정한다 */
   const [horizon, setHorizon] = useState<InvestmentHorizon>(DEFAULT_HORIZON);
-  const [compareSymbols, setCompareSymbols] = useState<string[]>([]);
   /** 사용자가 직접 고친 프롬프트. null 이면 자동 생성본을 그대로 쓴다. */
   const [edited, setEdited] = useState<string | null>(null);
   /** 캡처 팝업을 열 때 메인 차트에서 떠 온 스냅샷 (열려 있는 동안 고정) */
@@ -92,13 +86,13 @@ export default function ManualAnalysis({
 
   const holding = portfolio?.holdings.find((h) => h.symbol === symbol) ?? null;
 
-  // 빠른 분석·포트폴리오·비교는 종목 요약(지표 + 재무)이 필요하다.
+  // 빠른 분석·포트폴리오는 종목 요약(지표 + 재무)이 필요하다.
+  // (비교 분석 모드는 v2.22.0 에 「차트 > 기업 비교」 로 모았다)
   const summaryTargets = useMemo(() => {
     if (mode === 'quick') return [symbol];
     if (mode === 'portfolio') return portfolio?.holdings.map((h) => h.symbol) ?? [];
-    if (mode === 'compare') return [symbol, ...compareSymbols];
     return [];
-  }, [mode, symbol, portfolio, compareSymbols]);
+  }, [mode, symbol, portfolio]);
 
   const { summaries, loading: summariesLoading } = useSymbolSummaries(summaryTargets);
 
@@ -113,8 +107,6 @@ export default function ManualAnalysis({
         );
       case 'portfolio':
         return buildPortfolioPrompt(portfolio, summaries, exchangeRate, horizon);
-      case 'compare':
-        return buildComparePrompt(summaries, horizon);
       case 'multi':
       default:
         return buildMultiAgentPrompt({
@@ -160,7 +152,7 @@ export default function ManualAnalysis({
   }, [mode, horizon, prompt, onPromptChange]);
   const loading = summariesLoading || (mode === 'multi' && fundamentalsLoading);
 
-  // 포트폴리오·비교는 여러 종목이라 현재 차트 이미지가 프롬프트와 맞지 않는다.
+  // 포트폴리오는 여러 종목이라 현재 차트 이미지가 프롬프트와 맞지 않는다.
   const includeImage = mode === 'quick' || mode === 'multi';
 
   return (
@@ -208,13 +200,6 @@ export default function ManualAnalysis({
           </div>
         </div>
 
-        {mode === 'compare' && (
-          <CompareSymbols
-            baseSymbol={symbol}
-            symbols={compareSymbols}
-            onChange={setCompareSymbols}
-          />
-        )}
         </section>
 
         {includeImage && (
@@ -287,7 +272,6 @@ export default function ManualAnalysis({
                 <li>· 포트폴리오 손익 · 환율 {exchangeRate ? '✓' : '(없음)'}</li>
               </>
             )}
-            {mode === 'compare' && <li>· 종목 {summaryTargets.length}개 지표 + 밸류에이션</li>}
           </ul>
           <p className="text-[11px] leading-relaxed text-text-muted">
             API 키 없이 Claude 구독 대화에서 사용합니다. AI 의견은 투자 조언이 아닙니다.
