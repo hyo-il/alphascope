@@ -53,7 +53,7 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
         <Cell title="계좌 자동 분석">
           {error && !items && <p className="text-[12px] text-bearish">상태를 불러오지 못했습니다: {error}</p>}
           {items && items.length === 0 && (
-            <p className="text-[12px] text-text-muted">자동매매를 설정한 계좌가 없습니다 (계좌 관리 &gt; 자동매매).</p>
+            <p className="text-[12px] text-text-muted">자동매매를 설정한 계좌가 없습니다 (「계좌」 메뉴 &gt; 자동매매).</p>
           )}
           {!items && !error && <p className="text-[12px] text-text-muted">불러오는 중…</p>}
           <ul className="space-y-2">

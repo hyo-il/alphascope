@@ -70,10 +70,12 @@ export default function SideNav({
         }`}
       >
         <span className="text-lg leading-none">{item.icon}</span>
-        <span className="text-[12px] leading-tight">{item.label}</span>
+        {/* 접힌 폭(52px)에는 짧은 이름 — 「차트·비교」「증시 일정」「투자 분석」 은 들어가지 않는다 (v2.26.0) */}
+        <span className="text-[12px] leading-tight">{item.shortLabel}</span>
       </button>
 
-      {hovered === item.id && (
+      {/* 소메뉴가 하나뿐이면 플라이아웃을 띄우지 않는다 — 대메뉴를 누르면 바로 그 화면이다 */}
+      {hovered === item.id && item.pages.length > 1 && (
         <div className="absolute left-full top-0 z-50 ml-px w-40 rounded-r-md border border-border bg-bg-secondary py-1 shadow-xl">
           {item.pages.map((sub) => (
             <button
@@ -106,6 +108,8 @@ export default function SideNav({
      * 지금 어디에 있는지가 화면에서 사라진다.
      */
     const open = group === item.id;
+    /** 소메뉴가 하나뿐인 대메뉴(증시 일정·계좌) — 소메뉴 줄·화살표 없이 대메뉴가 곧 그 화면이다 (v2.26.0) */
+    const single = item.pages.length === 1;
 
     return (
       <div key={item.id}>
@@ -120,10 +124,11 @@ export default function SideNav({
         >
           <span className={ICON_SLOT}>{item.icon}</span>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          <span className="text-[12px] text-text-muted">{open ? '▾' : '▸'}</span>
+          {!single && <span className="text-[12px] text-text-muted">{open ? '▾' : '▸'}</span>}
         </button>
 
         {open &&
+          !single &&
           item.pages.map((sub) => (
             <button
               key={sub.id}

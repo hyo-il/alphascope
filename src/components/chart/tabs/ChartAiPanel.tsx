@@ -236,7 +236,7 @@ function SingleSymbolGemini({
         4명의 에이전트 + 종합 의장이 2라운드로 토론합니다 (1종목 5회 호출). 이 버튼은 지금 이 종목만 한 번 분석합니다.
       </p>
       <p className="text-text-muted">
-        계좌 자동 분석과 지정 종목 분석은 「AI 분석 &gt; AI 분석 기록」에서 봅니다.
+        계좌 자동 분석과 지정 종목 분석은 「투자 분석 &gt; AI 분석 &gt; AI 분석 기록」에서 봅니다.
       </p>
     </div>
   );

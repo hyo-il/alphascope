@@ -87,8 +87,8 @@ export default function Settings({ isMock, engineDown, section }: Props) {
         <section className="max-w-2xl">
           <h3 className="mb-1.5 text-xs font-medium text-text-secondary">모의투자 계좌</h3>
           <p className="text-[12px] leading-relaxed text-text-muted">
-            계좌 만들기·초기 자금·초기화는 <b>계좌 &gt; 포트폴리오</b> 에서 계좌를 「모의투자
-            계좌」로 바꾸면 그 화면 안에 있습니다. 설정에 또 두면 같은 조작이 두 곳이 됩니다.
+            계좌 만들기·초기 자금·초기화는 <b>계좌</b> 메뉴(계좌 관리)의 「모의투자」 탭 안에 있습니다.
+            설정에 또 두면 같은 조작이 두 곳이 됩니다.
           </p>
         </section>
 
