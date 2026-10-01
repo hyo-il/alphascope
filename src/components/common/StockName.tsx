@@ -15,8 +15,6 @@ const TICKER_SIZE = {
   sm: 'text-[10px]',
   md: 'text-[11px]',
   lg: 'text-xs',
-  /** 캡처 그림 제목 줄 — 붙여넣은 이미지에서도 읽혀야 한다 */
-  xl: 'text-sm',
 } as const;
 
 export default function StockName({

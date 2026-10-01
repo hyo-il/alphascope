@@ -9,7 +9,6 @@ import {
   type MouseEventParams,
 } from 'lightweight-charts';
 import { TIMEFRAME_LABEL, type Candle, type Timeframe } from '../../types/toss';
-import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
 import { MA_LINES, type IndicatorSeries, type IndicatorToggles } from '../../types/chart';
 import type { DrawingSnapshot } from './CandleChart';
@@ -92,7 +91,7 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
   ref,
 ) {
   const wrapperRef = useRef<HTMLDivElement>(null);
-  useStockNames([symbol]);
+  const titleName = useStockNames([symbol])(symbol);
   /** 차트가 붙는 안쪽 div — 정보 바를 위에 두려면 캡처 대상(wrapper)과 나뉘어야 한다 */
   const chartHostRef = useRef<HTMLDivElement>(null);
   /** 팝업 차트에서도 크로스헤어를 따라 값이 바뀐다 (없으면 마지막 봉) */
@@ -287,9 +286,12 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
       {/*
         제목 줄 — 미리보기 화면에만 있던 종목명을 그림 안에도 찍는다(v2.22.0).
         배경은 캡처 배경(#141414 = bg-primary)과 같고, 글자는 붙여넣은 뒤에도 읽히도록 15px.
+        ⚠️ StockName 컴포넌트를 쓰지 않는다 — 그 안의 inline-flex + items-baseline 을 html2canvas 가
+        잘못 그려 글자가 아래로 밀리고 정보 바에 잘렸다. 규칙(이름 먼저·티커 뒤·이름 없으면 티커만)은 같다.
       */}
-      <div className="flex shrink-0 items-baseline gap-2 bg-bg-primary px-3 pt-2 text-[15px] text-text-primary">
-        <StockName symbol={symbol} size="xl" />
+      <div className="flex h-8 shrink-0 items-center gap-2 bg-bg-primary px-3 text-[15px] leading-8">
+        <span className="font-semibold text-text-primary">{titleName || symbol}</span>
+        {titleName && <span className="text-sm text-text-secondary">{symbol}</span>}
         <span className="text-sm text-text-secondary">· {TIMEFRAME_LABEL[timeframe]}</span>
       </div>
       {/* 캡처 그림에도 같은 줄이 찍혀야 붙여넣은 쪽에서 언제·어느 봉인지 알 수 있다 */}
