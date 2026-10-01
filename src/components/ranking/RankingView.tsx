@@ -160,7 +160,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
           tabIndex={0}
           onKeyDown={onKeyDown}
           onMouseLeave={leave}
-          className="min-h-0 min-w-0 basis-[55%] overflow-y-auto rounded-lg border border-border bg-bg-secondary outline-none focus-visible:ring-1 focus-visible:ring-accent"
+          className="min-h-0 min-w-0 basis-[60%] overflow-y-auto rounded-lg border border-border bg-bg-secondary outline-none focus-visible:ring-1 focus-visible:ring-accent"
           aria-label="순위 목록 — ↑↓ 로 옮기고 Enter 로 차트 열기"
         >
           <table className="w-full text-[13px]">
@@ -169,9 +169,10 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
                 <th className="w-9 py-1.5 pl-2 text-right font-normal">순위</th>
                 <th className="w-7" />
                 <th className="px-2 text-left font-normal">종목</th>
-                <th className="px-2 text-right font-normal">현재가</th>
-                <th className="px-2 text-right font-normal">등락률</th>
-                <th className="pr-3 text-right font-normal">{valueLabel}</th>
+                {/* 숫자 열은 폭을 정해 둔다 — 자동 배분이면 남는 폭이 숫자 열로 가고 종목명이 0 에 가깝게 줄었다 (v2.25.0) */}
+                <th className="w-[104px] px-2 text-right font-normal">현재가</th>
+                <th className="w-[84px] px-2 text-right font-normal">등락률</th>
+                <th className="w-[92px] pr-3 text-right font-normal">{valueLabel}</th>
               </tr>
             </thead>
             <tbody>
@@ -218,7 +219,10 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
                       </button>
                     </td>
                     <td className="max-w-0 overflow-hidden whitespace-nowrap px-2">
-                      <StockName symbol={row.symbol} name={row.name ?? undefined} size="sm" className="truncate text-text-primary" />
+                      {/* v2.25.0 — 글씨가 커져 이름이 말줄임 없이 잘렸다. flex 상자로 폭을 묶어야 이름 쪽 truncate(…)가 먹는다 */}
+                      <div className="flex min-w-0">
+                        <StockName symbol={row.symbol} name={row.name ?? undefined} size="sm" className="text-text-primary" />
+                      </div>
                     </td>
                     <td className="px-2 text-right tabular-nums text-text-primary">
                       {row.price != null ? formatPrice(row.price, row.currency) : '—'}
@@ -246,7 +250,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
         </div>
 
         {/* 미리보기 ≈ 45% */}
-        <div className="flex min-h-0 min-w-0 basis-[45%]">
+        <div className="flex min-h-0 min-w-0 basis-[40%]">
           <div className="flex min-h-0 w-full flex-col">
             <RankingPreview row={preview} timeframe={previewTf} onTimeframeChange={setPreviewTf} onOpen={open} />
           </div>

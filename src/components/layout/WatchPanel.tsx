@@ -298,7 +298,8 @@ export default function WatchPanel({
                 >
                   <span className="flex min-w-0 flex-col">
                     <span
-                      className={`truncate text-xs font-medium ${
+                      // v2.25.0 — 글씨가 커져 「SK하이닉스 (0006…」 처럼 종목 코드가 잘렸다. 자르지 않고 단어 단위로 두 줄까지 감싼다
+                      className={`line-clamp-2 break-keep text-xs font-medium ${
                         highlighted ? 'text-accent' : 'text-text-primary'
                       }`}
                     >
