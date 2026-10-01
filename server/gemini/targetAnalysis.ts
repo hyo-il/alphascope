@@ -19,6 +19,7 @@ import { isKrSymbol } from '../../src/utils/market';
 import { dailyCandles, firstTouch, touchOutcome, type TouchOutcome } from '../analysis/targetHit';
 import { getEarningsDate } from '../earningsCalendar';
 import { tradingDaysUntil } from '../autoTrading/guards';
+import { isMarketClosed } from '../marketCalendar';
 import { AGENTS } from './agents';
 import { buildContext } from './context';
 import { callGemini, DEFAULT_MODEL, geminiDisabledReason, GeminiError } from './client';
@@ -106,6 +107,19 @@ export interface TargetAnalysisRecord {
   outcome: TouchOutcome | null;
   /** 채점에 쓴 마지막 봉(만기일) */
   outcomeDate: string | null;
+  /** 만기 예정일(기준일 뒤 days 번째 거래일 — 휴장 달력으로 센 추정) — 「채점 대기 — ○까지」 */
+  dueDate: string;
+}
+
+/** 기준일 뒤 n 번째 거래일 — 주말·휴장일을 건너뛴다(확인 범위 밖은 주말만) */
+export function addTradingDays(baseDate: string, n: number, market: 'US' | 'KR'): string {
+  const d = new Date(`${baseDate}T12:00:00Z`);
+  let left = n;
+  while (left > 0) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    if (!isMarketClosed(market, d.toISOString().slice(0, 10))) left -= 1;
+  }
+  return d.toISOString().slice(0, 10);
 }
 
 type Row = {
@@ -158,6 +172,7 @@ function toRecord(row: Row): TargetAnalysisRecord {
     tokens: row.tokens,
     outcome: (row.outcome as TouchOutcome | null) ?? null,
     outcomeDate: row.outcome_date,
+    dueDate: row.outcome_date ?? addTradingDays(row.base_date, row.days, isKrSymbol(row.symbol) ? 'KR' : 'US'),
   };
 }
 
