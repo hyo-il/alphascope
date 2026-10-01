@@ -12,6 +12,7 @@
 import type {
   AgentOpinion,
   GeminiAnalysis,
+  GeminiTrigger,
   ModeratorVerdict,
   TradeSignal,
 } from '../../src/types/gemini';
@@ -24,7 +25,10 @@ import { insertAnalysis } from './store';
 
 export interface RunOptions {
   symbol: string;
-  trigger: 'auto' | 'manual';
+  /** 'auto' = 계좌 자동매매 · 'scheduled' = 지정 종목 · 'manual' = 바로 분석 */
+  trigger: GeminiTrigger;
+  /** 계좌 자동매매일 때 그 계좌 id — 「AI 분석 기록」 이 계좌별로 거른다 */
+  accountId?: number | null;
   /** 판단의 시간축. 수동 분석과 같은 정의를 쓴다. */
   horizon?: InvestmentHorizon;
   /** 차트 이미지 (data URL 또는 순수 base64). 기술 분석가에게만 붙는다. */
@@ -160,6 +164,7 @@ export async function runAnalysis(options: RunOptions): Promise<GeminiAnalysis> 
     tokens,
     elapsedMs: Date.now() - startedAt,
     trigger: options.trigger,
+    accountId: options.accountId ?? null,
     promptVersion: PROMPT_VERSION,
   };
 

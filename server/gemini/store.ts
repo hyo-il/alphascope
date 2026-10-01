@@ -7,7 +7,7 @@
  */
 
 import { getDb } from '../db';
-import type { AgentOpinion, GeminiAnalysis, ModeratorVerdict } from '../../src/types/gemini';
+import type { AgentOpinion, GeminiAnalysis, GeminiTrigger, ModeratorVerdict } from '../../src/types/gemini';
 
 let ready = false;
 
@@ -48,6 +48,10 @@ function db() {
     if (!columns.some((c) => c.name === 'prompt_version')) {
       database.exec(`ALTER TABLE gemini_analysis ADD COLUMN prompt_version TEXT`);
     }
+    // v2.23.0 — 계좌 자동매매가 낸 분석의 계좌. 같은 방식(칼럼이 없을 때만). 옛 행은 NULL.
+    if (!columns.some((c) => c.name === 'account_id')) {
+      database.exec(`ALTER TABLE gemini_analysis ADD COLUMN account_id INTEGER`);
+    }
     ready = true;
   }
   return database;
@@ -78,7 +82,13 @@ type Row = {
   elapsed_ms: number;
   trigger: string;
   prompt_version: string | null;
+  account_id: number | null;
 };
+
+/** 옛 행은 'auto'·'manual' 둘뿐이다 — 모르는 값은 예전처럼 auto 로 읽는다 */
+function triggerOf(value: string): GeminiTrigger {
+  return value === 'manual' || value === 'scheduled' ? value : 'auto';
+}
 
 function toRecord(row: Row): GeminiAnalysis {
   return {
@@ -96,7 +106,8 @@ function toRecord(row: Row): GeminiAnalysis {
     tradeNote: row.trade_note,
     tokens: row.tokens,
     elapsedMs: row.elapsed_ms,
-    trigger: (row.trigger === 'manual' ? 'manual' : 'auto') as 'auto' | 'manual',
+    trigger: triggerOf(row.trigger),
+    accountId: row.account_id ?? null,
     promptVersion: row.prompt_version ?? LEGACY_PROMPT_VERSION,
   };
 }
@@ -114,9 +125,9 @@ export function insertAnalysis(record: Omit<GeminiAnalysis, 'id'>): number {
     .prepare(
       `INSERT INTO gemini_analysis
          (symbol, created_at, model, signal, confidence, summary, price_at_analysis,
-          agents, verdict, paper_order_id, trade_note, tokens, elapsed_ms, trigger, prompt_version)
+          agents, verdict, paper_order_id, trade_note, tokens, elapsed_ms, trigger, prompt_version, account_id)
        VALUES (@symbol, @createdAt, @model, @signal, @confidence, @summary, @priceAtAnalysis,
-          @agents, @verdict, @paperOrderId, @tradeNote, @tokens, @elapsedMs, @trigger, @promptVersion)`,
+          @agents, @verdict, @paperOrderId, @tradeNote, @tokens, @elapsedMs, @trigger, @promptVersion, @accountId)`,
     )
     .run({
       ...record,
@@ -162,14 +173,19 @@ export function deleteAllAnalyses(symbol?: string): number {
   return result.changes;
 }
 
-/** 오늘(로컬 기준) 호출 수 — 1종목당 5회로 환산해 예산을 가늠한다 */
-export function countToday(): number {
+/** 오늘(서버 로컬 기준) 저장된 분석 건수 — 출처(계좌·지정·바로)를 가리지 않는다 */
+export function analysesToday(): number {
   const midnight = new Date();
   midnight.setHours(0, 0, 0, 0);
   const row = db()
     .prepare(`SELECT COUNT(*) AS n FROM gemini_analysis WHERE created_at >= ?`)
     .get(midnight.toISOString()) as { n: number };
-  return row.n * 5;
+  return row.n;
+}
+
+/** 오늘(로컬 기준) 호출 수 — 1종목당 5회로 환산해 예산을 가늠한다 */
+export function countToday(): number {
+  return analysesToday() * 5;
 }
 
 // ── 설정 ────────────────────────────────────────────────

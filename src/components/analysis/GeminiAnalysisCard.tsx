@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { AgentOpinion, GeminiAnalysis } from '../../types/gemini';
 import { formatUsd } from '../../utils/formatters';
-import AISourceBadge from './AISourceBadge';
+import AISourceBadge, { GEMINI_TRIGGER_LABEL } from './AISourceBadge';
 import StockName from '../common/StockName';
 import { confidencePercent, SIGNAL_CLASS, SIGNAL_LABEL, VOTE_CLASS } from './signalStyle';
 
@@ -29,6 +29,7 @@ export default function GeminiAnalysisCard({
   currentPrice,
   isNew = false,
   onDelete,
+  accountName,
 }: {
   analysis: GeminiAnalysis;
   /** 저장 시점 대비 지금 얼마나 움직였는지 */
@@ -36,6 +37,8 @@ export default function GeminiAnalysisCard({
   /** 방금 나온 결과 — 목록에서 눈에 띄게 한다 */
   isNew?: boolean;
   onDelete?: (id: number) => void;
+  /** 계좌 자동 분석이면 그 계좌 이름 — 배지에 함께 적는다 */
+  accountName?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const verdict = analysis.verdict ?? ({} as GeminiAnalysis['verdict']);
@@ -58,7 +61,14 @@ export default function GeminiAnalysisCard({
             NEW
           </span>
         )}
-        <AISourceBadge source="gemini" suffix={analysis.trigger === 'auto' ? '자동' : '수동실행'} />
+        <AISourceBadge
+          source="gemini"
+          suffix={
+            analysis.trigger === 'auto' && accountName
+              ? `${GEMINI_TRIGGER_LABEL.auto} · ${accountName}`
+              : GEMINI_TRIGGER_LABEL[analysis.trigger]
+          }
+        />
         <StockName symbol={analysis.symbol} className="text-text-primary" />
         <span className={SIGNAL_CLASS[analysis.signal] ?? ''}>
           {SIGNAL_LABEL[analysis.signal] ?? analysis.signal}

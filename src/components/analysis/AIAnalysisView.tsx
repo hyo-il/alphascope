@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import AnalysisTimeline from './AnalysisTimeline';
 import AIAccuracyDashboard from './AIAccuracyDashboard';
+import AIStatusBoard from './AIStatusBoard';
 
 /**
  * AI 분석 하나의 메뉴 아래에 수동(Claude)과 자동(Gemini)을 모은다.
@@ -21,7 +22,8 @@ export type AITab = 'manual' | 'results' | 'accuracy';
  */
 const TABS: { id: AITab; label: string }[] = [
   { id: 'manual', label: '수동 분석' },
-  { id: 'results', label: '분석 결과' },
+  // v2.23.0 「분석 결과」 → 「AI 분석 기록」. 맨 위에 무엇이 언제 분석되는지 상태 판을 둔다
+  { id: 'results', label: 'AI 분석 기록' },
   { id: 'accuracy', label: '분석 성적표' },
 ];
 
@@ -58,7 +60,12 @@ export default function AIAnalysisView({
 
       <div className="min-h-0 flex-1 overflow-auto p-3">
         {tab === 'manual' && manual}
-        {tab === 'results' && <AnalysisTimeline symbol={symbol} currentPrice={currentPrice} />}
+        {tab === 'results' && (
+          <div className="space-y-3">
+            <AIStatusBoard />
+            <AnalysisTimeline symbol={symbol} currentPrice={currentPrice} />
+          </div>
+        )}
         {tab === 'accuracy' && <AIAccuracyDashboard />}
       </div>
     </div>

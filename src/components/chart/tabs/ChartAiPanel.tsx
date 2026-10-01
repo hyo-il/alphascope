@@ -17,10 +17,14 @@ import { toast } from '../../../store/uiStore';
 
 type SubTab = 'manual' | 'auto' | 'results';
 
+/*
+  v2.23.0 — 'auto' 탭은 **이 종목을 지금 바로 분석하는 버튼**이다(trigger: manual). 「자동 분석」 이라는 이름 때문에
+  따로 자동으로 도는 것으로 오해했다. id 는 그대로 두고 이름만 실제 동작대로 바꿨다.
+*/
 const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: 'manual', label: '수동 분석' },
-  { id: 'auto', label: '자동 분석' },
-  { id: 'results', label: '분석 결과' },
+  { id: 'auto', label: 'Gemini 바로 분석' },
+  { id: 'results', label: 'AI 분석 기록' },
 ];
 
 export default function ChartAiPanel({
@@ -191,7 +195,7 @@ function SingleSymbolGemini({
   if (!enabled) {
     return (
       <p className="p-3 text-[11px] text-text-muted">
-        Gemini 키가 없어 자동 분석을 쓸 수 없습니다. <code>.env</code> 에{' '}
+        Gemini 키가 없어 Gemini 분석을 쓸 수 없습니다. <code>.env</code> 에{' '}
         <code>GEMINI_API_KEY</code> 를 넣으면 이 버튼이 활성화됩니다. 수동 분석(Claude)은 키 없이
         그대로 씁니다.
       </p>
@@ -229,8 +233,10 @@ function SingleSymbolGemini({
       )}
 
       <p className="text-text-muted">
-        4명의 에이전트 + 종합 의장이 2라운드로 토론합니다 (1종목 5회 호출). 대상 종목·주기·자동매매
-        설정은 [전체 화면으로] 의 자동 분석 탭에 있습니다.
+        4명의 에이전트 + 종합 의장이 2라운드로 토론합니다 (1종목 5회 호출). 이 버튼은 지금 이 종목만 한 번 분석합니다.
+      </p>
+      <p className="text-text-muted">
+        계좌 자동 분석과 지정 종목 분석은 「AI 분석 &gt; AI 분석 기록」에서 봅니다.
       </p>
     </div>
   );

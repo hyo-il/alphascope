@@ -6,6 +6,8 @@ import AISourceBadge from './AISourceBadge';
 import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
 import GeminiAnalysisCard from './GeminiAnalysisCard';
+import { GEMINI_TRIGGER_LABEL } from './AISourceBadge';
+import { usePaperAccounts } from '../../hooks/usePaperTrading';
 import { SkeletonList } from '../common/SkeletonLoader';
 
 /** Claude 기록 (analysis_history) — 저장·편집은 '수동 분석' 탭이 담당하고 여기서는 읽기만 한다 */
@@ -38,6 +40,21 @@ function directionOf(signal: string): 'up' | 'down' | 'flat' {
   return 'flat';
 }
 
+/**
+ * 출처 필터 (v2.23.0) — 전체 / 계좌 자동(계좌별) / 지정 종목 / 바로 분석 / Claude 수동.
+ * 배지와 같은 이름을 쓴다(`GEMINI_TRIGGER_LABEL`).
+ */
+type SourceFilter = 'all' | 'auto' | `auto:${number}` | 'scheduled' | 'manual' | 'claude';
+
+function matchesSource(item: Item, filter: SourceFilter): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'claude') return item.kind === 'claude';
+  if (item.kind !== 'gemini') return false;
+  const { trigger, accountId } = item.data;
+  if (filter.startsWith('auto:')) return trigger === 'auto' && accountId === Number(filter.slice(5));
+  return trigger === filter;
+}
+
 type Item =
   | { kind: 'gemini'; at: string; data: GeminiAnalysis }
   | { kind: 'claude'; at: string; data: ClaudeRecord };
@@ -66,6 +83,12 @@ export default function AnalysisTimeline({
   const [expanded, setExpanded] = useState<number | null>(null);
   /** NEW 뱃지를 보여 줄 기준 시각 — 3초 뒤에 스스로 꺼진다 */
   const [highlightSince, setHighlightSince] = useState<number | null>(null);
+  const [source, setSource] = useState<SourceFilter>('all');
+  const { accounts } = usePaperAccounts();
+  const accountName = useCallback(
+    (id: number | null) => (id == null ? null : (accounts.find((a) => a.id === id)?.name ?? `계좌 ${id}`)),
+    [accounts],
+  );
 
   /*
    * 여러 종목을 돌렸으면 '현재 종목만' 을 자동으로 푼다.
@@ -96,12 +119,17 @@ export default function AnalysisTimeline({
     try {
       const [g, c] = await Promise.all([
         fetch(`/api/gemini/analyses${query || '?limit=100'}`).then((r) => (r.ok ? r.json() : [])),
-        fetch(`/api/analysis${query}`).then((r) => (r.ok ? r.json() : [])),
+        fetch(`/api/analysis${query}`).then((r) => (r.ok ? r.json() : {})),
       ]);
       // 내가 마지막 요청이 아니면 결과를 버린다.
       if (ticket !== requestId.current) return;
       setGemini(Array.isArray(g) ? g : []);
-      setClaude(Array.isArray(c) ? c : []);
+      /*
+        ⚠️ `/api/analysis` 는 `{ analyses: [...] }` 로 준다(`/api/gemini/analyses` 는 배열 그대로).
+        예전에는 배열만 받아서 Claude 기록이 **늘 0건**이었다 (v2.23.0 수정). 둘 다 받아 둔다.
+      */
+      const claudeRows = Array.isArray(c) ? c : (c as { analyses?: unknown }).analyses;
+      setClaude(Array.isArray(claudeRows) ? (claudeRows as ClaudeRecord[]) : []);
     } finally {
       if (ticket === requestId.current) setLoading(false);
     }
@@ -121,6 +149,28 @@ export default function AnalysisTimeline({
     ];
     return merged.sort((a, b) => b.at.localeCompare(a.at));
   }, [gemini, claude]);
+
+  const shown = useMemo(() => items.filter((item) => matchesSource(item, source)), [items, source]);
+
+  /** 필터 목록 — 계좌 자동은 기록에 나온 계좌별로 하나씩 (계좌가 없는 옛 기록은 「계좌 자동」 전체에만) */
+  const sourceOptions = useMemo(() => {
+    const count = (filter: SourceFilter) => items.filter((item) => matchesSource(item, filter)).length;
+    const accountIds = [
+      ...new Set(gemini.filter((g) => g.trigger === 'auto' && g.accountId != null).map((g) => g.accountId!)),
+    ];
+    const options: { value: SourceFilter; label: string }[] = [
+      { value: 'all', label: `전체 (${items.length})` },
+      { value: 'auto', label: `${GEMINI_TRIGGER_LABEL.auto} — 모든 계좌 (${count('auto')})` },
+      ...accountIds.map((id) => ({
+        value: `auto:${id}` as SourceFilter,
+        label: `　${GEMINI_TRIGGER_LABEL.auto} — ${accountName(id)} (${count(`auto:${id}`)})`,
+      })),
+      { value: 'scheduled', label: `${GEMINI_TRIGGER_LABEL.scheduled} (${count('scheduled')})` },
+      { value: 'manual', label: `${GEMINI_TRIGGER_LABEL.manual} (${count('manual')})` },
+      { value: 'claude', label: `Claude 수동 (${count('claude')})` },
+    ];
+    return options;
+  }, [items, gemini, accountName]);
 
   /** 같은 종목·같은 날 두 AI 가 모두 분석한 경우의 일치 여부 */
   const agreement = useMemo(() => {
@@ -197,8 +247,20 @@ export default function AnalysisTimeline({
           />
           현재 종목만 {symbol ? `(${symbol})` : ''}
         </label>
+        <select
+          value={source}
+          onChange={(e) => setSource(e.target.value as SourceFilter)}
+          aria-label="분석 출처"
+          className="rounded border border-border bg-bg-tertiary px-2 py-1 text-xs"
+        >
+          {sourceOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
         <span className="text-xs text-text-muted">
-          총 {items.length}건 (Gemini {gemini.length} · Claude {claude.length})
+          {source === 'all' ? '총' : '표시'} {shown.length}건 (Gemini {gemini.length} · Claude {claude.length})
         </span>
         {highlightSince && (
           <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[11px] text-accent">
@@ -213,7 +275,8 @@ export default function AnalysisTimeline({
         </button>
       </div>
 
-      {items.length > 0 && (
+      {/* 일괄 삭제는 「전체」 에서만 — 출처로 걸러 둔 채 지우면 화면에 없는 기록까지 지워진다 */}
+      {items.length > 0 && source === 'all' && (
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => removeMany('all')}
@@ -257,14 +320,15 @@ export default function AnalysisTimeline({
         </div>
       )}
 
-      {items.length === 0 && (
+      {shown.length === 0 && (
         <p className="rounded-lg border border-border bg-bg-secondary p-6 text-center text-sm text-text-muted">
-          아직 분석 기록이 없습니다. '자동 분석' 탭에서 실행하거나, '수동 분석' 탭에서 Claude
-          답변을 저장하세요.
+          {items.length === 0
+            ? "아직 분석 기록이 없습니다. 차트 하단 AI 탭의 'Gemini 바로 분석' 으로 실행하거나, '수동 분석' 탭에서 Claude 답변을 저장하세요."
+            : '이 출처의 기록이 없습니다.'}
         </p>
       )}
 
-      {items.map((item) =>
+      {shown.map((item) =>
         item.kind === 'gemini' ? (
           <GeminiAnalysisCard
             key={`g-${item.data.id}`}
@@ -272,6 +336,7 @@ export default function AnalysisTimeline({
             currentPrice={item.data.symbol === symbol ? currentPrice : null}
             isNew={highlightSince != null && Date.parse(item.at) >= highlightSince}
             onDelete={(id) => void removeGemini(id)}
+            accountName={item.data.trigger === 'auto' ? accountName(item.data.accountId) : null}
           />
         ) : (
           <ClaudeCard

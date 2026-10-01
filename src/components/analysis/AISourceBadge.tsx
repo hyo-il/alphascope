@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { GeminiTrigger } from '../../types/gemini';
 
 export type AISource = 'claude' | 'gemini';
 
@@ -19,6 +20,16 @@ const STYLE: Record<AISource, { label: string; icon: string; className: string }
     icon: '🔵',
     className: 'border-blue-500/40 bg-blue-500/10 text-blue-300',
   },
+};
+
+/**
+ * Gemini 분석의 출처 이름 (v2.23.0) — 배지와 「AI 분석 기록」 필터가 **같은 이름**을 쓴다.
+ * '자동 분석' 이라는 말은 쓰지 않는다 — 차트 탭의 버튼(바로 분석)을 자동으로 도는 것으로 오해하게 했다.
+ */
+export const GEMINI_TRIGGER_LABEL: Record<GeminiTrigger, string> = {
+  auto: '계좌 자동',
+  scheduled: '지정 종목',
+  manual: '바로 분석',
 };
 
 export default function AISourceBadge({

@@ -58,6 +58,7 @@ import {
   listReports as listDiagnoseReports,
 } from './diagnose/store';
 import {
+  analysesToday as analysesTodayCount,
   deleteAllAnalyses as deleteAllGeminiAnalyses,
   deleteAnalysis as deleteGeminiAnalysis,
   getAnalysis as getGeminiAnalysis,
@@ -950,7 +951,13 @@ function requireGemini(res: express.Response): boolean {
 app.get('/api/gemini/status', (_req, res) => {
   try {
     // 꺼져 있으면 이유도 함께 준다 — 키 없음과 서버 스위치(GEMINI_ENABLED=false)는 대처가 다르다
-    res.json({ enabled: isGeminiEnabled(), model: DEFAULT_MODEL, reason: geminiDisabledReason() });
+    // analysesToday — 「AI 분석 기록」 상태 판의 "오늘 Gemini 사용" (무료 등급 사용량을 가늠한다, v2.23.0)
+    res.json({
+      enabled: isGeminiEnabled(),
+      model: DEFAULT_MODEL,
+      reason: geminiDisabledReason(),
+      analysesToday: analysesTodayCount(),
+    });
   } catch (e) {
     fail(res, e);
   }

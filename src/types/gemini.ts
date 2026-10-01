@@ -38,6 +38,8 @@ export interface ModeratorVerdict {
   summary: string;
 }
 
+export type GeminiTrigger = 'auto' | 'scheduled' | 'manual';
+
 /** 저장되는 분석 한 건 */
 export interface GeminiAnalysis {
   id: number;
@@ -57,8 +59,16 @@ export interface GeminiAnalysis {
   tradeNote: string | null;
   tokens: number;
   elapsedMs: number;
-  /** 'auto' = 스케줄러, 'manual' = 사용자가 버튼으로 실행 */
-  trigger: 'auto' | 'manual';
+  /**
+   * 분석 출처 (v2.23.0 에 셋으로 나눴다)
+   * - 'auto' = 계좌 자동매매(AI형) — `accountId` 가 함께 저장된다(그 전 기록은 null)
+   * - 'scheduled' = 내가 지정한 종목(하루 1번)
+   * - 'manual' = 사용자가 버튼으로 바로 실행
+   * 채점은 셋 다 똑같이 한다 (accuracy.ts 는 출처를 보지 않는다).
+   */
+  trigger: GeminiTrigger;
+  /** 계좌 자동매매가 낸 분석이면 그 계좌 id. 그 밖·옛 기록은 null */
+  accountId: number | null;
   /** 분석에 쓴 프롬프트 버전 (server/gemini/agents.ts 의 PROMPT_VERSION). 옛 기록은 'v1' */
   promptVersion: string;
 }

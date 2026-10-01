@@ -160,7 +160,12 @@ export async function runStrategyCycle(strategy: AccountStrategy): Promise<AutoT
       }
 
       // ── AI형 ──────────────────────────────────
-      const analysis = await runAnalysis({ symbol, trigger: 'auto', horizon: strategy.horizon });
+      const analysis = await runAnalysis({
+        symbol,
+        trigger: 'auto',
+        accountId: strategy.accountId,
+        horizon: strategy.horizon,
+      });
       const direction = signalDirection(analysis.signal);
       const confidence = `신뢰도 ${(analysis.confidence * 100).toFixed(0)}%`;
       const summary = analysis.summary ? ` — ${analysis.summary}` : '';
