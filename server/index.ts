@@ -65,6 +65,13 @@ import {
   listAnalyses as listGeminiAnalyses,
 } from './gemini/store';
 import { DEFAULT_HORIZON } from '../src/services/analysis/horizons';
+import {
+  getScheduledStatus,
+  runScheduledNow,
+  saveScheduledSymbols,
+  ScheduledError,
+  scheduledTick,
+} from './gemini/scheduled';
 // 계좌별 자동매매 — 주문을 내는 유일한 경로다 (Step 12)
 import {
   getStrategy,
@@ -963,6 +970,38 @@ app.get('/api/gemini/status', (_req, res) => {
   }
 });
 
+// -- 내가 지정한 종목 — 하루 1번 Gemini 분석 (v2.23.0) --------------------------------
+// ⚠️ 분석만 한다. 주문 경로는 계좌 스케줄러 하나뿐이다.
+
+app.get('/api/gemini/scheduled', (_req, res) => {
+  try {
+    res.json(getScheduledStatus());
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.put('/api/gemini/scheduled', (req, res) => {
+  try {
+    saveScheduledSymbols(req.body?.symbols);
+    res.json(getScheduledStatus());
+  } catch (e) {
+    if (e instanceof ScheduledError) return res.status(400).json({ error: e.message });
+    fail(res, e);
+  }
+});
+
+/** 「지금 한 번 실행」 — 시작만 하고 돌려준다. 정기 실행을 대신하지 않는다 */
+app.post('/api/gemini/scheduled/run', (_req, res) => {
+  try {
+    runScheduledNow();
+    res.json(getScheduledStatus());
+  } catch (e) {
+    if (e instanceof ScheduledError) return res.status(409).json({ error: e.message });
+    fail(res, e);
+  }
+});
+
 /** 한 종목 즉시 분석 (사용자가 버튼으로 실행) */
 app.post('/api/gemini/analyze', async (req, res) => {
   if (!requireGemini(res)) return;
@@ -1499,7 +1538,12 @@ app.listen(port, host, () => {
   startMarketCalendarScheduler();
 
   // 앱이 꺼져 있던 구간의 모의투자 스냅샷을 채우고, 이후 하루 한 번 기록한다.
-  void backfillSnapshots().then(() => startSnapshotScheduler());
+  // 지정 종목 Gemini 분석(하루 1번, 미국 마감+30분 뒤)도 같은 10분 확인에 얹는다 — 새 타이머 없음 (v2.23.0)
+  void backfillSnapshots().then(() =>
+    startSnapshotScheduler(() => {
+      void scheduledTick().catch((e) => console.warn('[gemini] 지정 종목 분석 확인 실패:', (e as Error).message));
+    }),
+  );
 
   // Gemini 자동 분석 — 키가 없으면 아무 일도 하지 않는다.
   // 자동매매는 계좌별 스케줄러 하나가 맡는다 (Step 12 — 전역 경로는 v2.4.0 에서 제거).

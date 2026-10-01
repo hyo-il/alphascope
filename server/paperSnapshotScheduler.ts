@@ -209,8 +209,15 @@ let lastRecordedDate: string | null = null;
  * 정확한 시각에 깨우는 대신 10분마다 확인한다 — 노트북이 잠들어 그 순간을
  * 놓쳐도 다음 확인에서 기록된다.
  */
-export function startSnapshotScheduler(): void {
+export function startSnapshotScheduler(
+  /**
+   * 같은 10분 확인에 얹을 일 (v2.23.0 — 지정 종목 Gemini 분석). 타이머를 새로 늘리지 않으려고 여기 얹는다.
+   * 이 스케줄러는 AUTO_TRADING_ENABLED 와 무관하게 늘 돈다 — 얹는 쪽이 자기 스위치를 스스로 본다.
+   */
+  extra?: () => void,
+): void {
   const check = () => {
+    extra?.();
     const now = new Date(Date.now() + KST_OFFSET_MS);
     const today = dateKey(now);
     if (lastRecordedDate === today) return;

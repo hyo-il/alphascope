@@ -94,6 +94,8 @@ export async function runAnalysis(options: RunOptions): Promise<GeminiAnalysis> 
   const horizonText = horizonBlock(horizon);
 
   let tokens = 0;
+  /** 에이전트가 한도 초과(429)로 실패했는지 — 넷 다 실패하면 이 표시를 위로 올린다(지정 종목 실행이 그날 멈추는 근거) */
+  let rateLimitedSeen = false;
 
   // ── 1라운드: 독립 분석 ────────────────────────────────
   const opinions = await Promise.all(
@@ -114,6 +116,7 @@ export async function runAnalysis(options: RunOptions): Promise<GeminiAnalysis> 
         tokens += result.tokens;
         return splitOpinion(agent.role, agent.label, result.data);
       } catch (error) {
+        if (error instanceof GeminiError && error.rateLimited) rateLimitedSeen = true;
         // 한 명이 실패해도 나머지로 종합한다. 의장에게 실패 사실을 알려
         // 신뢰도를 낮추게 한다.
         return {
@@ -130,7 +133,7 @@ export async function runAnalysis(options: RunOptions): Promise<GeminiAnalysis> 
   );
 
   if (opinions.every((opinion) => opinion.error)) {
-    throw new GeminiError(`4개 에이전트가 모두 실패했습니다: ${opinions[0].error}`);
+    throw new GeminiError(`4개 에이전트가 모두 실패했습니다: ${opinions[0].error}`, undefined, rateLimitedSeen);
   }
 
   // ── 2라운드: 종합 ────────────────────────────────────

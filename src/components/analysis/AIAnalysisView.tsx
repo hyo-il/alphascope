@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import AnalysisTimeline from './AnalysisTimeline';
 import AIAccuracyDashboard from './AIAccuracyDashboard';
 import AIStatusBoard from './AIStatusBoard';
+import ScheduledSymbols from './ScheduledSymbols';
 
 /**
  * AI 분석 하나의 메뉴 아래에 수동(Claude)과 자동(Gemini)을 모은다.
@@ -62,7 +63,7 @@ export default function AIAnalysisView({
         {tab === 'manual' && manual}
         {tab === 'results' && (
           <div className="space-y-3">
-            <AIStatusBoard />
+            <AIStatusBoard scheduled={<ScheduledSymbols />} />
             <AnalysisTimeline symbol={symbol} currentPrice={currentPrice} />
           </div>
         )}
