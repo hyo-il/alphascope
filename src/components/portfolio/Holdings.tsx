@@ -36,20 +36,21 @@ export default function Holdings({ onSelectSymbol }: Props) {
     <div className="flex h-full flex-col overflow-hidden">
       <PortfolioSummaryBar summary={portfolio.summary} exchangeRate={rate} />
 
-      <div className="min-h-0 flex-1 overflow-auto px-4 pb-4">
+      <div className="min-h-0 flex-1 overflow-auto pb-4">
+        {/* 좌우 여백을 스크롤 영역이 아니라 첫·마지막 열에 둔다 — 그래야 sticky 헤더 배경이 본문 양 끝까지 닿는다 */}
         {portfolio.holdings.length === 0 ? (
-          <p className="py-6 text-center text-sm text-text-muted">보유 중인 해외주식이 없습니다.</p>
+          <p className="px-4 py-6 text-center text-sm text-text-muted">보유 중인 해외주식이 없습니다.</p>
         ) : (
-          <table className="w-full min-w-[560px] text-xs tabular-nums">
+          <table className="w-full min-w-[592px] text-xs tabular-nums">
             <thead className="sticky top-0 bg-bg-secondary text-text-muted">
               <tr>
-                <th className="py-1.5 pr-2 text-left font-normal">종목</th>
+                <th className="py-1.5 pl-4 pr-2 text-left font-normal">종목</th>
                 <th className="py-1.5 px-2 text-right font-normal">수량</th>
                 <th className="py-1.5 px-2 text-right font-normal">평균단가</th>
                 <th className="py-1.5 px-2 text-right font-normal">현재가</th>
                 <th className="py-1.5 px-2 text-right font-normal">평가금액</th>
                 <th className="py-1.5 px-2 text-right font-normal">평가손익</th>
-                <th className="py-1.5 pl-2 text-right font-normal">당일손익</th>
+                <th className="py-1.5 pl-2 pr-4 text-right font-normal">당일손익</th>
               </tr>
             </thead>
             <tbody>
@@ -60,7 +61,7 @@ export default function Holdings({ onSelectSymbol }: Props) {
                   className="cursor-pointer border-t border-border/60 hover:bg-bg-tertiary/60"
                   title={`${holding.symbol} 차트 보기`}
                 >
-                  <td className="py-1.5 pr-2">
+                  <td className="py-1.5 pl-4 pr-2">
                     <span className="font-medium text-text-primary">
                       {holding.name || holding.symbol}
                     </span>
@@ -76,7 +77,7 @@ export default function Holdings({ onSelectSymbol }: Props) {
                     {formatUsd(holding.profitLoss)}
                     <span className="ml-1">({formatPercent(holding.profitLossRate)})</span>
                   </td>
-                  <td className={`py-1.5 pl-2 text-right ${changeColor(holding.dailyProfitLoss)}`}>
+                  <td className={`py-1.5 pl-2 pr-4 text-right ${changeColor(holding.dailyProfitLoss)}`}>
                     {formatUsd(holding.dailyProfitLoss)}
                     <span className="ml-1">({formatPercent(holding.dailyProfitLossRate)})</span>
                   </td>
