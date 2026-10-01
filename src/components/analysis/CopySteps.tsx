@@ -17,7 +17,10 @@ interface Props {
   onOpenCapture: () => void;
 }
 
-type StepState = { kind: 'idle' } | { kind: 'done'; at: string } | { kind: 'failed'; reason: string };
+type StepState =
+  | { kind: 'idle' }
+  | { kind: 'done'; at: string; label?: string }
+  | { kind: 'failed'; reason: string };
 
 const TIP_KEY = 'alphascope.copyTipHidden';
 const STATUS_RESET_MS = 3000;
@@ -49,7 +52,7 @@ function StatusLabel({ state }: { state: StepState }) {
   if (state.kind === 'done') {
     return (
       <span className="text-[11px] text-bullish">
-        ✅ 복사 완료 <span className="text-text-muted">({state.at})</span>
+        ✅ {state.label ?? '복사 완료'} <span className="text-text-muted">({state.at})</span>
       </span>
     );
   }
@@ -125,7 +128,7 @@ export default function CopySteps({
   const handleDownload = () => {
     if (!capture) return;
     downloadBlob(capture.blob, `${symbol}_${timeframe}_${Date.now()}.png`);
-    setImageStep({ kind: 'done', at: `${now()} · 파일 저장` });
+    setImageStep({ kind: 'done', at: now(), label: '저장 완료' });
   };
 
   const hideTip = () => {
