@@ -230,14 +230,12 @@ export function drawExtremeMarkers(
   ];
 
   const handle = createSeriesMarkers(series, markers);
-  return () => {
-    // 차트가 이미 사라진 뒤에 정리가 돌면 던진다 — 그때는 지울 것도 없다.
-    try {
-      handle.detach();
-    } catch {
-      /* 시리즈가 이미 제거됨 */
-    }
-  };
+  /*
+   * ⚠️ 차트를 `remove()` 한 **뒤에는 부르지 않는다**(호출부가 chartRef 로 막는다, v2.24.0).
+   * detach 는 시리즈 primitive 를 떼며 차트에 다시 그리기를 예약하는데, 이미 제거된 차트라면
+   * 다음 프레임에서 "Object is disposed" 가 난다(예전 try/catch 는 동기 예외만 덮어 이것을 막지 못했다).
+   */
+  return () => handle.detach();
 }
 
 /** 논리 인덱스 구간(줌·스크롤 상태)에서 실제 고·저를 낸다 */

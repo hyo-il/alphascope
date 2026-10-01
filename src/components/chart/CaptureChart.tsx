@@ -230,7 +230,10 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
     };
 
     chart.subscribeCrosshairMove(onMove);
-    return () => chart.unsubscribeCrosshairMove(onMove);
+    // 제거된 차트에는 손대지 않는다 — 언마운트 때는 생성 effect 정리(remove)가 먼저 돈다
+    return () => {
+      if (chartRef.current) chart.unsubscribeCrosshairMove(onMove);
+    };
   }, [candles, indicators]);
 
   // ── 보이는 구간의 고·저 (정보 바 · 구간 점선) ──
@@ -246,13 +249,15 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
     scale.subscribeVisibleLogicalRangeChange(onRange);
     // 구독만으로는 첫 값이 오지 않는다 — 지금 상태로 한 번 잰다.
     onRange(scale.getVisibleLogicalRange());
-    return () => scale.unsubscribeVisibleLogicalRangeChange(onRange);
+    return () => {
+      if (chartRef.current) scale.unsubscribeVisibleLogicalRangeChange(onRange);
+    };
   }, [candles]);
 
   useEffect(() => {
     const series = candleSeriesRef.current;
     if (!series || !toggles.overlays.extremes) return;
-    return drawExtremeMarkers(
+    const dispose = drawExtremeMarkers(
       series,
       candles,
       visibleExtent,
@@ -260,6 +265,10 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
       currency,
       isIntraday(candles),
     );
+    // 차트가 이미 제거됐으면(언마운트 — 생성 effect 정리가 먼저 돈다) 떼지 않는다. CandleChart 와 같은 이유 (v2.24.0)
+    return () => {
+      if (chartRef.current) dispose();
+    };
   }, [visibleExtent, toggles.overlays.extremes, candles, currency]);
 
   // ── 드로잉 복제 ──

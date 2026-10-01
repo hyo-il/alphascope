@@ -636,7 +636,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
   useEffect(() => {
     const series = candleSeriesRef.current;
     if (!series || !toggles?.overlays.extremes) return;
-    return drawExtremeMarkers(
+    const dispose = drawExtremeMarkers(
       series,
       candles,
       visibleExtent,
@@ -644,6 +644,13 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       currency,
       isIntraday(candles),
     );
+    /*
+     * ⚠️ 언마운트 때는 차트 생성 effect 의 정리(`chart.remove()`)가 **먼저** 돈다(effect 선언 순서).
+     * 그 뒤에 마커를 떼면 제거된 차트에 다시 그리기가 예약돼 "Object is disposed" 가 났다(v2.24.0) — 차트가 없으면 떼지 않는다.
+     */
+    return () => {
+      if (chartRef.current) dispose();
+    };
   }, [visibleExtent, toggles?.overlays.extremes, candles, livePrice?.close, currency]);
 
   // ── 현재가로 마지막 캔들 갱신 ──
