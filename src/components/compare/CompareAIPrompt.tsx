@@ -7,6 +7,7 @@ import {
 } from '../../services/analysis/horizons';
 import type { SymbolSummary } from '../../types/analysis';
 import { toast } from '../../store/uiStore';
+import { copyText } from '../../utils/clipboard';
 
 /**
  * AI 비교 평가 — 붙여넣기용 프롬프트를 만든다.
@@ -40,11 +41,10 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
   const ready = summaries.filter((s) => s.price != null).length >= 2;
 
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(prompt);
+    if ((await copyText(prompt)) === 'copied') {
       toast.success('프롬프트를 복사했습니다', 'Claude 대화에 붙여넣으세요');
-    } catch (e) {
-      toast.error('복사하지 못했습니다', (e as Error).message);
+    } else {
+      toast.error('복사하지 못했습니다', '프롬프트 칸에서 직접 선택해 복사하세요');
     }
   };
 

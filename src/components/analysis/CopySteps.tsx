@@ -5,6 +5,7 @@ import {
   type ImageCopyResult,
 } from '../../services/analysis/chartCapture';
 import { useCaptureStore } from '../../store/captureStore';
+import { copyText } from '../../utils/clipboard';
 
 interface Props {
   symbol: string;
@@ -105,11 +106,10 @@ export default function CopySteps({
   };
 
   const handleText = async () => {
-    try {
-      await navigator.clipboard.writeText(prompt);
+    if ((await copyText(prompt)) === 'copied') {
       setTextStep({ kind: 'done', at: now() });
       autoReset(setTextStep);
-    } catch {
+    } else {
       setTextStep({ kind: 'failed', reason: '복사 실패 — 미리보기에서 직접 선택해 복사하세요' });
     }
   };
