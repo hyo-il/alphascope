@@ -5,6 +5,7 @@
  * - **미국 정규장 마감 30분 뒤 이후 첫 틱**에 그 미국 거래일 기준으로 1번. 휴장일(주말 포함)은 건너뛴다.
  *   국내 종목도 같은 시각에 돈다(그때는 국내장도 닫혀 마지막 종가 기준이다).
  * - 마지막 실행 기준일을 DB 에 남겨 **재시작해도 같은 날 두 번 돌지 않는다.**
+ * - 그날 저녁 서버가 내내 꺼져 있어 놓쳤으면, 다음 확인 때 **직전 거래일 1회분만 보충**한다(다음 미국 장 시작 전까지만, v2.24.0).
  * - 종목은 순차로, Gemini 호출은 `client.ts` 의 동시성 큐를 그대로 지난다. 한 종목 실패는 기록하고 계속,
  *   **한도 초과(429)면 그날 남은 종목은 중단**한다.
  * - ⚠️ **주문을 내지 않는다.** 분석만 한다 — 주문 경로는 계좌 스케줄러(`autoTrading/`) 하나뿐이다.
@@ -34,7 +35,8 @@ export interface ScheduledRunResult {
   baseDate: string;
   startedAt: string;
   finishedAt: string | null;
-  trigger: 'schedule' | 'manual';
+  /** schedule = 그날 정기 실행 · catchup = 놓친 날 보충(v2.24.0) · manual = 지금 한 번 실행 */
+  trigger: 'schedule' | 'catchup' | 'manual';
   done: { symbol: string; signal: string; confidence: number }[];
   failed: { symbol: string; error: string }[];
   /** 한도 초과로 멈춰 분석하지 못한 종목 */
@@ -118,6 +120,35 @@ export function dueBaseDate(now: number, lastBaseDate: string | null, closed = i
   return day;
 }
 
+/** 정규장 시작 — 미국 09:30 ET (보충 실행은 이 시각 전까지만) */
+const US_OPEN_MINUTES = 9 * 60 + 30;
+
+/** day 바로 앞의 미국 거래일 (주말·휴장 건너뜀) */
+function previousTradingDay(day: string, closed: typeof isMarketClosed): string {
+  const d = new Date(`${day}T12:00:00Z`);
+  for (let i = 0; i < 15; i++) {
+    d.setUTCDate(d.getUTCDate() - 1);
+    const key = d.toISOString().slice(0, 10);
+    if (!closed('US', key)) return key;
+  }
+  return day;
+}
+
+/**
+ * 놓친 날 보충(v2.24.0) — 마지막 기준일이 **직전 미국 거래일보다 이전**이면 그 직전 거래일 **1회분만**.
+ * - 여러 날이 밀려 있어도 직전 거래일 하나만(그보다 앞의 날은 버린다).
+ * - **다음 미국 장이 열리기 전까지만** — 오늘이 거래일이고 09:30 ET 가 지났으면 보충하지 않는다
+ *   (그날 분석은 마감 뒤 정기 실행이 맡는다). 오늘이 휴장일이면 다음 개장 전이므로 보충할 수 있다.
+ * - 한 번도 돈 적이 없으면(lastBaseDate null) 보충하지 않는다 — 종목을 막 지정했을 때 바로 돌지 않게.
+ */
+export function catchUpBaseDate(now: number, lastBaseDate: string | null, closed = isMarketClosed): string | null {
+  if (!lastBaseDate) return null;
+  const day = marketDate(now, REF);
+  if (!closed('US', day) && marketMinutes(now, REF) >= US_OPEN_MINUTES) return null;
+  const prev = previousTradingDay(day, closed);
+  return lastBaseDate < prev ? prev : null;
+}
+
 export interface ScheduledDeps {
   analyze: (symbol: string) => Promise<Pick<GeminiAnalysis, 'signal' | 'confidence'>>;
   now: () => number;
@@ -175,17 +206,19 @@ export async function scheduledTick(deps: ScheduledDeps = defaultDeps, closed = 
   const symbols = getScheduledSymbols();
   if (!symbols.length) return null;
   const state = readState();
-  const baseDate = dueBaseDate(deps.now(), state.lastBaseDate, closed);
+  const today = dueBaseDate(deps.now(), state.lastBaseDate, closed);
+  const catchUp = today ? null : catchUpBaseDate(deps.now(), state.lastBaseDate, closed);
+  const baseDate = today ?? catchUp;
   if (!baseDate) return null;
 
   running = true;
   // 시작할 때 먼저 기준일을 남긴다 — 도중에 서버가 내려가도 같은 날 처음부터 다시 돌며 호출을 두 번 쓰지 않는다
   writeState({ ...state, lastBaseDate: baseDate });
   try {
-    const result = await runList(symbols, baseDate, 'schedule', deps);
+    const result = await runList(symbols, baseDate, catchUp ? 'catchup' : 'schedule', deps);
     writeState({ lastBaseDate: baseDate, last: result });
     console.log(
-      `[gemini] 지정 종목 ${baseDate}: 완료 ${result.done.length} · 실패 ${result.failed.length}` +
+      `[gemini] 지정 종목 ${baseDate}${catchUp ? '(놓친 날 보충)' : ''}: 완료 ${result.done.length} · 실패 ${result.failed.length}` +
         (result.rateLimited ? ` · 한도 초과로 ${result.skipped.length}종목 중단` : ''),
     );
     return result;

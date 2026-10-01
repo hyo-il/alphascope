@@ -13,6 +13,8 @@ import { SIGNAL_LABEL } from './signalStyle';
  * 1종목 = Gemini 5호출(에이전트 4 + 의장 1) 이라 "하루 최대 약 N×5호출" 을 숫자로 보여 준다.
  */
 
+const RUN_LABEL: Record<string, string> = { schedule: '정기 실행', catchup: '보충 실행(놓친 날)', manual: '즉시 실행' };
+
 const time = (iso: string | null | undefined) =>
   iso
     ? new Date(iso).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -24,7 +26,7 @@ function Summary({ status }: { status: ScheduledStatus }) {
     <div className="space-y-1">
       {last ? (
         <p className="text-text-secondary">
-          마지막 {last.trigger === 'manual' ? '즉시 실행' : '정기 실행'} {time(last.finishedAt ?? last.startedAt)} (기준일{' '}
+          마지막 {RUN_LABEL[last.trigger] ?? '정기 실행'} {time(last.finishedAt ?? last.startedAt)} (기준일{' '}
           {last.baseDate}) — 완료 {last.done.length}
           {last.failed.length > 0 && <span className="text-bearish"> · 실패 {last.failed.length}</span>}
           {last.rateLimited && (

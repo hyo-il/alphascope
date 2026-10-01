@@ -11,7 +11,8 @@ export interface ScheduledRun {
   baseDate: string;
   startedAt: string;
   finishedAt: string | null;
-  trigger: 'schedule' | 'manual';
+  /** catchup = 놓친 날 보충 실행(v2.24.0) */
+  trigger: 'schedule' | 'catchup' | 'manual';
   done: { symbol: string; signal: string; confidence: number }[];
   failed: { symbol: string; error: string }[];
   skipped: string[];
