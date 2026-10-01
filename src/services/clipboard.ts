@@ -10,6 +10,8 @@
  * 판단은 `window.isSecureContext` 하나다 — 호스트·프로토콜 문자열로 가르지 않아야
  * HTTPS 를 붙였을 때 코드 수정 없이 ①로 돌아간다.
  *
+ * 브라우저 전용이라 `src/utils` 가 아니라 여기 둔다 — utils 는 서버(tsconfig.node)도 컴파일한다.
+ *
  * ⚠️ 클릭 핸들러 안에서 다른 await 없이 바로 부른다. 사용자 제스처가 만료되면 둘 다 거부된다.
  */
 export type TextCopyResult = 'copied' | 'failed';

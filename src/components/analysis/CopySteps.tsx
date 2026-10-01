@@ -5,7 +5,7 @@ import {
   type ImageCopyResult,
 } from '../../services/analysis/chartCapture';
 import { useCaptureStore } from '../../store/captureStore';
-import { copyText } from '../../utils/clipboard';
+import { copyText } from '../../services/clipboard';
 
 interface Props {
   symbol: string;

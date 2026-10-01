@@ -7,7 +7,7 @@ import {
 } from '../../services/analysis/horizons';
 import type { SymbolSummary } from '../../types/analysis';
 import { toast } from '../../store/uiStore';
-import { copyText } from '../../utils/clipboard';
+import { copyText } from '../../services/clipboard';
 
 /**
  * AI 비교 평가 — 붙여넣기용 프롬프트를 만든다.
