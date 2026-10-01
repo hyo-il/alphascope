@@ -13,7 +13,7 @@
   --color-text-secondary: #999999;
   /*
    * ⚠️ #666666 은 본문 배경(#141414) 위에서 대비 3.21:1 로 WCAG AA(4.5:1) 미달이었다.
-   * 이 토큰은 10~11px 안내 문구에 주로 쓰여 "큰 글자 예외" 에도 해당하지 않는다.
+   * 이 토큰은 12px 안내 문구에 주로 쓰여 "큰 글자 예외" 에도 해당하지 않는다.
    * #808080 은 4.66:1 (bg-secondary 4.22:1)이고 secondary(#999999)와도 단계가 남는다.
    * bg-tertiary(#2a2a2a) 위에서는 3.63:1 이라 여전히 작은 글자에는 빠듯하다 —
    * 그 자리에는 text-secondary 를 쓰는 편이 낫다.
@@ -26,6 +26,24 @@
   --color-warning: #ffa726;
   --color-border: #333333;
   --color-chart-grid: #222222;
+
+  /*
+   * 글씨 크기 — 2026-10-01 사용자 결정: 기본보다 1px 큰 글씨 (v2.25.0).
+   * 컴포넌트에서 text-xs 를 다른 값으로 바꾸지 말고 여기서 고친다(단일 출처).
+   * 줄 높이도 함께 적는다 — 크기만 바꾸면 Tailwind 기본 비율이 남아 의도와 다른 높이가 된다.
+   */
+  --text-xs: 0.8125rem; /* 13px */
+  --text-xs--line-height: calc(18 / 13);
+  --text-sm: 0.9375rem; /* 15px */
+  --text-sm--line-height: calc(20 / 15);
+  --text-base: 1.0625rem; /* 17px */
+  --text-base--line-height: calc(24 / 17);
+  --text-lg: 1.1875rem; /* 19px */
+  --text-lg--line-height: calc(26 / 19);
+  --text-xl: 1.3125rem; /* 21px */
+  --text-xl--line-height: calc(28 / 21);
+  --text-2xl: 1.5625rem; /* 25px */
+  --text-2xl--line-height: calc(32 / 25);
 }
 
 html,
