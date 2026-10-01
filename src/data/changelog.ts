@@ -23,6 +23,18 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.21.1',
+    date: '2026-10-01',
+    title: 'HTTP 접속에서도 프롬프트 복사',
+    description:
+      '서버(HTTP)로 접속했을 때 복사 버튼이 실패하던 문제를 고쳤습니다. 차트 이미지는 저장해서 첨부하도록 처음부터 안내합니다.',
+    changes: [
+      'HTTP 접속에서도 프롬프트 복사가 되도록 수정 (수동 분석 · 기업 비교 AI 비교 평가)',
+      'HTTP 접속에서는 차트 이미지를 저장해서 첨부하도록 안내 — 1단계 버튼이 「PNG로 저장해서 첨부하기」 로 바뀝니다',
+      '"이 브라우저는 이미지 복사를 지원하지 않습니다" 가 HTTP 접속 때문인 경우에는 더 이상 뜨지 않습니다',
+    ],
+  },
+  {
     version: 'v2.21.0',
     date: '2026-09-30',
     title: '미리보기 실적일 · 뉴스 AI 판정 성적 · 섹터 지속성 검증',
