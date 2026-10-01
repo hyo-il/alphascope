@@ -3,6 +3,12 @@ import { NAV_GROUPS, type NavGroup, type NavGroupId, type NavPageId } from '../.
 import LogoMark from './LogoMark';
 
 /**
+ * 펼친 메뉴의 아이콘 칸 — **폭 고정**(v2.25.0). 이모지(📊·⚙️)와 기호(⎋)는 글자 폭이 달라
+ * 칸 폭을 두지 않으면 라벨 시작점이 어긋났다(로그아웃이 2px 왼쪽). 대메뉴와 로그아웃이 같은 칸을 쓴다.
+ */
+const ICON_SLOT = 'inline-flex w-5 shrink-0 justify-center text-base leading-none';
+
+/**
  * 왼쪽 내비게이션 — **대메뉴 → 소메뉴 2단**이다.
  *
  * 평면 메뉴는 항목이 아홉 개까지 늘면서 아이콘만 보고 위치를 외워야 했다. 묶고 나니
@@ -112,7 +118,7 @@ export default function SideNav({
               : 'border-transparent text-text-secondary hover:bg-bg-tertiary/60 hover:text-text-primary'
           }`}
         >
-          <span className="text-base leading-none">{item.icon}</span>
+          <span className={ICON_SLOT}>{item.icon}</span>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
           <span className="text-[12px] text-text-muted">{open ? '▾' : '▸'}</span>
         </button>
@@ -181,14 +187,16 @@ export default function SideNav({
         {SETTINGS_GROUP && (
           <div className="mt-auto border-t border-border">
             {collapsedGroup(SETTINGS_GROUP)}
+            {/* 다른 대메뉴와 같은 틀 — 아이콘 + 아래 라벨 (v2.25.0) */}
             <button
               type="button"
               onClick={onLogout}
               title="로그아웃"
               aria-label="로그아웃"
-              className="flex h-10 w-full items-center justify-center text-text-muted transition-colors hover:bg-bg-tertiary hover:text-bearish"
+              className="flex w-full flex-col items-center gap-0.5 border-l-2 border-transparent py-2.5 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-bearish"
             >
-              ⎋
+              <span className="text-lg leading-none">⎋</span>
+              <span className="text-[12px] leading-tight">로그아웃</span>
             </button>
           </div>
         )}
@@ -224,13 +232,14 @@ export default function SideNav({
       {SETTINGS_GROUP && (
         <div className="mt-auto border-t border-border py-1">
           {expandedGroup(SETTINGS_GROUP)}
+          {/* 대메뉴 줄과 같은 틀(투명 border-l-2 · px-2.5 · py-2 · 고정 아이콘 칸) — 라벨 시작점이 한 줄에 선다 (v2.25.0) */}
           <button
             type="button"
             onClick={onLogout}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-text-muted transition-colors hover:bg-bg-tertiary hover:text-bearish"
+            className="flex w-full items-center gap-2 border-l-2 border-transparent px-2.5 py-2 text-left text-xs text-text-muted transition-colors hover:bg-bg-tertiary hover:text-bearish"
           >
-            <span className="text-base leading-none">⎋</span>
-            <span>로그아웃</span>
+            <span className={ICON_SLOT}>⎋</span>
+            <span className="min-w-0 flex-1 truncate">로그아웃</span>
           </button>
         </div>
       )}
