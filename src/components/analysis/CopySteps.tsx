@@ -22,7 +22,12 @@ type StepState = { kind: 'idle' } | { kind: 'done'; at: string } | { kind: 'fail
 const TIP_KEY = 'alphascope.copyTipHidden';
 const STATUS_RESET_MS = 3000;
 
+/** HTTP 접속(보안 컨텍스트 아님)에서는 이미지 복사가 불가능하다 — 처음부터 저장으로 안내한다 */
+const INSECURE_NOTE =
+  'HTTP 접속에서는 이미지 복사가 안 됩니다. 저장한 파일을 Claude 대화창에 끌어다 넣어 주세요.';
+
 const IMAGE_FAIL_REASON: Record<Exclude<ImageCopyResult, 'copied'>, string> = {
+  insecure: INSECURE_NOTE,
   unsupported: '이 브라우저는 이미지 복사를 지원하지 않습니다',
   failed: '복사가 거부됐습니다 (창이 활성 상태인지 확인하세요)',
 };
@@ -68,6 +73,8 @@ export default function CopySteps({
   onOpenCapture,
 }: Props) {
   const capture = useCaptureStore((s) => s.capture);
+  // HTTPS 를 붙이면 코드 수정 없이 원래 복사 방식으로 돌아온다 (호스트·IP 로 판단하지 않는다)
+  const secure = window.isSecureContext;
   const [imageStep, setImageStep] = useState<StepState>({ kind: 'idle' });
   const [textStep, setTextStep] = useState<StepState>({ kind: 'idle' });
   const [busy, setBusy] = useState(false);
@@ -152,9 +159,23 @@ export default function CopySteps({
             {stepCard(
               1,
               capture
-                ? '캡처해 둔 차트 이미지를 클립보드에 복사합니다.'
+                ? secure
+                  ? '캡처해 둔 차트 이미지를 클립보드에 복사합니다.'
+                  : '캡처해 둔 차트 이미지를 PNG 파일로 저장합니다.'
                 : '먼저 차트를 캡처하세요. 범위와 포함 항목을 고를 수 있습니다.',
-              capture ? (
+              capture && !secure ? (
+                <div className="space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={handleDownload}
+                    className="w-full rounded-md border border-border bg-bg-secondary px-2 py-1.5 text-xs text-text-primary transition-colors hover:bg-bg-tertiary"
+                  >
+                    💾 PNG로 저장해서 첨부하기
+                  </button>
+                  <StatusLabel state={imageStep} />
+                  <p className="text-[11px] leading-relaxed text-text-muted">{INSECURE_NOTE}</p>
+                </div>
+              ) : capture ? (
                 <div className="space-y-1.5">
                   <button
                     type="button"
@@ -193,7 +214,9 @@ export default function CopySteps({
             {arrow}
             {stepCard(
               2,
-              'Claude 대화창을 열고 입력창에 붙여넣기(⌘V)로 차트 이미지를 넣으세요.',
+              secure
+                ? 'Claude 대화창을 열고 입력창에 붙여넣기(⌘V)로 차트 이미지를 넣으세요.'
+                : 'Claude 대화창을 열고 저장한 PNG 파일을 끌어다 넣으세요.',
               <button
                 type="button"
                 onClick={() => window.open('https://claude.ai/new', '_blank', 'noopener')}

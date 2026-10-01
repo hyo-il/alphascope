@@ -9,7 +9,11 @@ import html2canvas from 'html2canvas';
  * 이제 캡처 팝업에서 미리 Blob 을 만들어 두고, 복사 버튼은 그 Blob 만 쓴다.
  */
 
-export type ImageCopyResult = 'copied' | 'unsupported' | 'failed';
+/**
+ * `insecure` = HTTP 접속(보안 컨텍스트 아님)이라 Clipboard API 자체가 없다.
+ * 브라우저 탓이 아니므로 `unsupported` 와 나눈다 — 판단은 `isSecureContext` 하나다.
+ */
+export type ImageCopyResult = 'copied' | 'insecure' | 'unsupported' | 'failed';
 
 /**
  * 캡처 해상도.
@@ -50,6 +54,7 @@ export async function captureElementToBlob(
  * 여기서 기다리는 것은 클립보드 쓰기 하나뿐이라 사용자 제스처 안에서 끝난다.
  */
 export async function copyBlobToClipboard(blob: Blob): Promise<ImageCopyResult> {
+  if (!window.isSecureContext) return 'insecure';
   if (!navigator.clipboard?.write || !window.ClipboardItem) return 'unsupported';
   try {
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
