@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useSurgeDetection, useSurgeHistory } from '../../hooks/useSurge';
 import { usePaperQuickBuy } from '../../hooks/usePaperQuickBuy';
 import PeriodicSurgeList from './PeriodicSurgeList';
@@ -9,6 +9,9 @@ import CriteriaPanel from '../common/CriteriaPanel';
 import NextSurgeDate from './NextSurgeDate';
 import { SURGE_CRITERIA } from '../../data/criteria';
 import { formatPercent } from '../../utils/formatters';
+import { modal, toast } from '../../store/uiStore';
+import TrashIcon from '../common/TrashIcon';
+import type { SurgeDetection } from '../../types/surge';
 
 type Tab = 'list' | 'search' | 'history' | 'settings';
 
@@ -101,7 +104,9 @@ export default function SurgeDashboard({
             onAnalyze={onAnalyze}
           />
         )}
-        {tab === 'history' && <SurgeHistoryTable />}
+        {tab === 'history' && (
+          <SurgeHistoryTable running={detection.progress?.running ?? false} onDeleted={detection.reload} />
+        )}
         {tab === 'settings' && <SurgeSettings watchlistCount={watchlist.length} />}
       </div>
     </div>
@@ -114,12 +119,50 @@ export default function SurgeDashboard({
  * 채점은 서버가 이 목록을 읽을 때 함께 갱신한다 (별도 스케줄러를 두지 않았다).
  * 7일이 지나야 볼 것이 생기므로 그전에는 '대기' 로만 보인다.
  */
-function SurgeHistoryTable() {
-  const { detections, loading } = useSurgeHistory(true);
+/** 삭제 확인창 공통 문구 — 무엇이 사라지고 무엇이 남는지 */
+const DELETE_NOTE =
+  '지우면 진단 리포트의 급등 예측 성적이 처음부터 다시 쌓입니다. 「주기적 급등 종목」 탭의 최근 결과도 함께 사라질 수 있습니다. AI 분석은 이 기록을 읽지 않으므로 영향이 없습니다.';
 
-  if (loading) return <p className="text-xs text-text-muted">이력을 불러오는 중…</p>;
+const roundLabel = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+};
+
+function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted: () => void }) {
+  const { detections, loading, remove } = useSurgeHistory(true);
+
+  const confirmDelete = (detectedAt?: string, count?: number) => {
+    modal.confirm({
+      title: detectedAt ? '탐지 회차 삭제' : '탐지 이력 전체 삭제',
+      message: detectedAt
+        ? `${roundLabel(detectedAt)} 회차(${count}종목)를 지울까요? ${DELETE_NOTE}`
+        : `탐지 이력 ${detections.length}건을 모두 지울까요? ${DELETE_NOTE} 설정과 캐시는 남습니다.`,
+      confirmText: '삭제',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          const deleted = await remove(detectedAt);
+          toast.success(`${deleted}건 삭제 완료`);
+          // 「주기적 급등 종목」 탭도 같은 표의 최신 회차를 읽는다 — 함께 다시 읽는다
+          onDeleted();
+        } catch (e) {
+          toast.error('삭제 실패', (e as Error).message);
+        }
+      },
+    });
+  };
+
+  if (loading && !detections.length) return <p className="text-xs text-text-muted">이력을 불러오는 중…</p>;
   if (!detections.length) {
     return <p className="text-xs text-text-muted">아직 탐지 이력이 없습니다.</p>;
+  }
+
+  // 회차(detected_at)별로 묶는다 — 서버가 최신 회차부터 준다
+  const rounds: { at: string; rows: SurgeDetection[] }[] = [];
+  for (const row of detections) {
+    const last = rounds.at(-1);
+    if (last && last.at === row.detectedAt) last.rows.push(row);
+    else rounds.push({ at: row.detectedAt, rows: [row] });
   }
 
   const judged = detections.filter((d) => d.actualSurged != null);
@@ -130,11 +173,22 @@ function SurgeHistoryTable() {
 
   return (
     <div className="space-y-3">
-      <p className="text-[11px] text-text-secondary">
-        채점 완료 {judged.length}건 중 실제 급등 {hits}건
-        {judged.length ? ` (${Math.round((hits / judged.length) * 100)}%)` : ''} · 탐지 후 30일
-        안에 같은 기준의 급등이 나왔는지로 판정합니다.
-      </p>
+      <div className="flex items-start gap-3">
+        <p className="text-[11px] text-text-secondary">
+          채점 완료 {judged.length}건 중 실제 급등 {hits}건
+          {judged.length ? ` (${Math.round((hits / judged.length) * 100)}%)` : ''} · 탐지 후 30일
+          안에 같은 기준의 급등이 나왔는지로 판정합니다.
+        </p>
+        <button
+          type="button"
+          onClick={() => confirmDelete()}
+          disabled={running}
+          title={running ? '탐지가 끝난 뒤에 지울 수 있습니다' : undefined}
+          className="ml-auto shrink-0 rounded border border-border px-2 py-1 text-[11px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-bearish disabled:opacity-40"
+        >
+          이력 전체 지우기
+        </button>
+      </div>
 
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-[11px]">
@@ -151,42 +205,65 @@ function SurgeHistoryTable() {
             </tr>
           </thead>
           <tbody>
-            {detections.map((row) => (
-              <tr key={row.id} className="border-b border-border/50">
-                <td className="py-1.5 pr-2 text-text-secondary">{row.detectedAt.slice(0, 10)}</td>
-                <td className="pr-2">
-                  <StockName symbol={row.symbol} name={row.name} />
-                </td>
-                <td className="pr-2 tabular-nums">{row.surgeScore}</td>
-                <td className="pr-2 text-text-secondary">
-                  <NextSurgeDate
-                    date={row.nextEstimatedDate}
-                    daysUntil={row.daysUntilNext}
-                    overdueDays={row.overdueDays}
-                    atDetection
-                  />
-                </td>
-                <td className="pr-2 tabular-nums">
-                  {changeOf(row.priceAtDetection, row.priceAfter7d)}
-                </td>
-                <td className="pr-2 tabular-nums">
-                  {changeOf(row.priceAtDetection, row.priceAfter14d)}
-                </td>
-                <td className="pr-2 tabular-nums">
-                  {changeOf(row.priceAtDetection, row.priceAfter30d)}
-                </td>
-                <td>
-                  {row.actualSurged == null ? (
-                    <span className="text-text-muted">대기</span>
-                  ) : row.actualSurged ? (
-                    <span className="text-bullish">
-                      ✅ {row.actualSurgeDate} (+{row.actualSurgePercent?.toFixed(1)}%)
-                    </span>
-                  ) : (
-                    <span className="text-text-secondary">❌ 없음</span>
-                  )}
-                </td>
-              </tr>
+            {rounds.map((round) => (
+              <Fragment key={round.at}>
+                <tr className="border-b border-border/50 bg-bg-tertiary/40">
+                  <td colSpan={8} className="py-1 pr-1">
+                    <div className="flex items-center gap-2 text-text-secondary">
+                      <span>
+                        탐지 회차 {roundLabel(round.at)} · {round.rows.length}종목
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => confirmDelete(round.at, round.rows.length)}
+                        disabled={running}
+                        aria-label={`${roundLabel(round.at)} 회차 지우기`}
+                        title="이 회차 지우기"
+                        className="ml-auto rounded p-1 transition-colors hover:bg-bg-tertiary hover:text-bearish disabled:opacity-40"
+                      >
+                        <TrashIcon className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {round.rows.map((row) => (
+                  <tr key={row.id} className="border-b border-border/50">
+                    <td className="py-1.5 pr-2 text-text-secondary">{row.detectedAt.slice(0, 10)}</td>
+                    <td className="pr-2">
+                      <StockName symbol={row.symbol} name={row.name} />
+                    </td>
+                    <td className="pr-2 tabular-nums">{row.surgeScore}</td>
+                    <td className="pr-2 text-text-secondary">
+                      <NextSurgeDate
+                        date={row.nextEstimatedDate}
+                        daysUntil={row.daysUntilNext}
+                        overdueDays={row.overdueDays}
+                        atDetection
+                      />
+                    </td>
+                    <td className="pr-2 tabular-nums">
+                      {changeOf(row.priceAtDetection, row.priceAfter7d)}
+                    </td>
+                    <td className="pr-2 tabular-nums">
+                      {changeOf(row.priceAtDetection, row.priceAfter14d)}
+                    </td>
+                    <td className="pr-2 tabular-nums">
+                      {changeOf(row.priceAtDetection, row.priceAfter30d)}
+                    </td>
+                    <td>
+                      {row.actualSurged == null ? (
+                        <span className="text-text-muted">대기</span>
+                      ) : row.actualSurged ? (
+                        <span className="text-bullish">
+                          ✅ {row.actualSurgeDate} (+{row.actualSurgePercent?.toFixed(1)}%)
+                        </span>
+                      ) : (
+                        <span className="text-text-secondary">❌ 없음</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </Fragment>
             ))}
           </tbody>
         </table>

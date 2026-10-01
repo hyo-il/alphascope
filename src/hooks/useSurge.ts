@@ -162,6 +162,7 @@ export function useSurgeEvaluation() {
 export function useSurgeHistory(enabled: boolean) {
   const [detections, setDetections] = useState<SurgeDetection[]>([]);
   const [loading, setLoading] = useState(false);
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     if (!enabled) return;
@@ -178,7 +179,18 @@ export function useSurgeHistory(enabled: boolean) {
     return () => {
       cancelled = true;
     };
-  }, [enabled]);
+  }, [enabled, version]);
 
-  return { detections, loading };
+  /**
+   * 이력 삭제 (v2.22.0) — `detectedAt` 이면 그 회차, 없으면 전체. 지운 건수를 돌려준다.
+   * 실패는 throw 한다 — 화면이 토스트로 알린다.
+   */
+  const remove = useCallback(async (detectedAt?: string) => {
+    const query = detectedAt ? `?${new URLSearchParams({ detectedAt })}` : '';
+    const data = await json<{ deleted: number }>(`/api/surge/history${query}`, { method: 'DELETE' });
+    setVersion((v) => v + 1);
+    return data.deleted;
+  }, []);
+
+  return { detections, loading, remove };
 }

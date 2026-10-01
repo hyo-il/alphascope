@@ -110,6 +110,7 @@ import {
 import {
   getSettings as getSurgeSettings,
   latestDetections,
+  deleteDetections,
   listDetections,
   rankingUpdatedAt,
   saveSettings as saveSurgeSettings,
@@ -1240,6 +1241,25 @@ app.get('/api/surge/history', async (_req, res) => {
   try {
     await refreshOutcomes().catch(() => 0);
     res.json({ detections: listDetections() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+/**
+ * 탐지 이력 삭제 (v2.22.0) — `?detectedAt=` 이면 그 회차, 없으면 전체. `surge_detections` 만 지운다.
+ * 탐지가 도는 중에는 막는다 — 지금 쓰고 있는 회차가 반쯤 지워진 채 남는다.
+ */
+app.delete('/api/surge/history', (req, res) => {
+  try {
+    if (getSurgeProgress().running) {
+      return res.status(409).json({ error: '탐지가 실행 중입니다. 끝난 뒤에 지워 주세요.' });
+    }
+    const raw = req.query.detectedAt;
+    if (raw !== undefined && (typeof raw !== 'string' || !raw.trim())) {
+      return res.status(400).json({ error: 'detectedAt 이 올바르지 않습니다.' });
+    }
+    res.json({ deleted: deleteDetections(typeof raw === 'string' ? raw : undefined) });
   } catch (e) {
     fail(res, e);
   }

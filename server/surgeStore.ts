@@ -298,3 +298,19 @@ export function updateOutcome(
       actualSurged: outcome.actualSurged == null ? null : outcome.actualSurged ? 1 : 0,
     });
 }
+
+/**
+ * 탐지 이력 삭제 (v2.22.0) — **`surge_detections` 만** 지운다.
+ * 설정(`surge_settings`)·일봉 캐시(`surge_history_cache`)·랭킹 캐시(`surge_ranking_cache`)는 그대로다.
+ *
+ * 이 표는 급등 화면(탐지 결과·이력)·성과 채점·진단 리포트의 급등 성적만 읽는다 —
+ * Gemini·수동 분석 프롬프트·자동매매는 읽지 않으므로 지워도 AI 분석에는 영향이 없다.
+ * `detectedAt` 이 있으면 그 회차만, 없으면 전체.
+ */
+export function deleteDetections(detectedAt?: string): number {
+  const db = getDb();
+  const result = detectedAt
+    ? db.prepare(`DELETE FROM surge_detections WHERE detected_at = ?`).run(detectedAt)
+    : db.prepare(`DELETE FROM surge_detections`).run();
+  return result.changes;
+}
