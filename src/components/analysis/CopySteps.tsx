@@ -19,6 +19,10 @@ interface Props {
   promptLabel?: string;
   /** false 면 데이터가 아직 다 오지 않아 프롬프트 복사를 막는다 — 반쯤 채운 프롬프트가 복사되지 않게 */
   promptReady?: boolean;
+  /** 캡처가 준비됐을 때 ① 버튼 글자 (AI 분석 화면은 「지금 보고 있는 차트 캡처」, v2.28.0) */
+  captureLabel?: string;
+  /** 화면 밖에서 미리 캡처하는 중 — ① 버튼을 잠시 막는다 (v2.28.0) */
+  capturePending?: boolean;
 }
 
 type StepState =
@@ -67,10 +71,11 @@ function StatusLabel({ state }: { state: StepState }) {
 }
 
 /**
- * Claude 로 보내는 3단계 안내.
+ * Claude 로 보내는 3단계 안내 — **① 차트 캡처 → ② 프롬프트 복사 → ③ Claude 열기** (v2.28.0, 예전에는 ① 이미지 · ② Claude · ③ 프롬프트).
  *
  * 이미지와 텍스트를 나눠 복사하는 이유: 브라우저 클립보드는 마지막에 쓴 항목만 남는 경우가 있어,
- * 순서대로 두 번 붙여넣는 편이 확실하다.
+ * 순서대로 두 번 붙여넣는 편이 확실하다. ⚠️ 그래서 ① 을 복사했으면 ② 를 누르기 **전에** 붙여넣어야 한다 —
+ * 단계 설명과 맨 위 한 줄이 "Claude 대화창을 열어 둔 채 차례로 복사·붙여넣기" 를 말한다(③ 은 대화창 열기 버튼).
  */
 export default function CopySteps({
   symbol,
@@ -80,6 +85,8 @@ export default function CopySteps({
   onOpenCapture,
   promptLabel = '프롬프트 복사',
   promptReady = true,
+  captureLabel = '차트 이미지 복사',
+  capturePending = false,
 }: Props) {
   const capture = useCaptureStore((s) => s.capture);
   // HTTPS 를 붙이면 코드 수정 없이 원래 복사 방식으로 돌아온다 (호스트·IP 로 판단하지 않는다)
@@ -162,6 +169,12 @@ export default function CopySteps({
     <section className="space-y-3">
       <h3 className="text-xs font-medium text-text-secondary">📤 Claude에 보내기</h3>
 
+      {includeImage && (
+        <p className="text-[12px] leading-relaxed text-text-muted">
+          Claude 대화창을 열어 둔 채 ① → ② 를 차례로 <b className="text-text-secondary">복사하고 바로 붙여넣으세요</b>
+          (클립보드에는 마지막에 복사한 것 하나만 남습니다).
+        </p>
+      )}
       <ol className="space-y-1">
         {includeImage && (
           <>
@@ -169,9 +182,11 @@ export default function CopySteps({
               1,
               capture
                 ? secure
-                  ? '캡처해 둔 차트 이미지를 클립보드에 복사합니다.'
-                  : '캡처해 둔 차트 이미지를 PNG 파일로 저장합니다.'
-                : '먼저 차트를 캡처하세요. 범위와 포함 항목을 고를 수 있습니다.',
+                  ? '차트 이미지를 복사해 Claude 입력창에 붙여넣으세요(⌘V).'
+                  : '차트 이미지를 PNG 파일로 저장해 Claude 대화창에 끌어다 넣으세요.'
+                : capturePending
+                  ? '지금 보고 있는 차트를 캡처하고 있습니다…'
+                  : '먼저 차트를 캡처하세요.',
               capture && !secure ? (
                 <div className="space-y-1.5">
                   <button
@@ -190,9 +205,9 @@ export default function CopySteps({
                     type="button"
                     onClick={() => void handleImage()}
                     disabled={busy}
-                    className="w-full rounded-md border border-border bg-bg-secondary px-2 py-1.5 text-xs text-text-primary transition-colors hover:bg-bg-tertiary disabled:opacity-40"
+                    className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
                   >
-                    📸 차트 이미지 복사
+                    📸 {captureLabel}
                   </button>
                   <StatusLabel state={imageStep} />
                   {imageStep.kind === 'failed' && (
@@ -214,35 +229,22 @@ export default function CopySteps({
                 <button
                   type="button"
                   onClick={onOpenCapture}
-                  className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover"
+                  disabled={capturePending}
+                  className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
                 >
-                  📷 차트 캡처하기
+                  {capturePending ? '캡처 준비 중…' : '📷 차트 캡처하기'}
                 </button>
               ),
-            )}
-            {arrow}
-            {stepCard(
-              2,
-              secure
-                ? 'Claude 대화창을 열고 입력창에 붙여넣기(⌘V)로 차트 이미지를 넣으세요.'
-                : 'Claude 대화창을 열고 저장한 PNG 파일을 끌어다 넣으세요.',
-              <button
-                type="button"
-                onClick={() => window.open('https://claude.ai/new', '_blank', 'noopener')}
-                className="w-full rounded-md border border-border bg-bg-secondary px-2 py-1.5 text-xs text-text-primary transition-colors hover:bg-bg-tertiary"
-              >
-                🔗 Claude 열기
-              </button>,
             )}
             {arrow}
           </>
         )}
 
         {stepCard(
-          includeImage ? 3 : 1,
+          includeImage ? 2 : 1,
           includeImage
-            ? '아래 버튼으로 분석 프롬프트를 복사한 뒤, 같은 대화에 이어서 붙여넣고 전송하세요.'
-            : '아래 버튼으로 분석 프롬프트를 복사한 뒤, Claude 대화에 붙여넣고 전송하세요.',
+            ? '분석 프롬프트를 복사해 같은 입력창에 이어서 붙여넣고 전송하세요.'
+            : '분석 프롬프트를 복사해 Claude 대화에 붙여넣고 전송하세요.',
           <div className="space-y-1.5">
             <button
               type="button"
@@ -253,16 +255,19 @@ export default function CopySteps({
               {promptReady ? `📋 ${promptLabel}` : '데이터 불러오는 중…'}
             </button>
             <StatusLabel state={textStep} />
-            {!includeImage && (
-              <button
-                type="button"
-                onClick={() => window.open('https://claude.ai/new', '_blank', 'noopener')}
-                className="w-full rounded-md border border-border px-2 py-1.5 text-[12px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
-              >
-                🔗 Claude 열기
-              </button>
-            )}
           </div>,
+        )}
+        {arrow}
+        {stepCard(
+          includeImage ? 3 : 2,
+          'Claude 대화창이 열려 있지 않으면 여기서 엽니다(새 탭).',
+          <button
+            type="button"
+            onClick={() => window.open('https://claude.ai/new', '_blank', 'noopener')}
+            className="w-full rounded-md border border-border bg-bg-secondary px-2 py-1.5 text-xs text-text-primary transition-colors hover:bg-bg-tertiary"
+          >
+            🔗 Claude 대화 열기
+          </button>,
         )}
       </ol>
 

@@ -32,6 +32,12 @@ interface Props {
   drawings: DrawingSnapshot[];
   initialRange: { from: number; to: number } | null;
   onClose: () => void;
+  /**
+   * 「지금 보고 있는 차트 캡처」 (v2.28.0) — 창을 띄우지 않고 화면 밖에서 **메인 차트 그대로**(보던 구간·켜진 지표·드로잉) 한 번 찍어
+   * `captureStore` 에 넣고 닫는다. 범위·지표를 고르는 창과 **같은 차트·같은 캡처 함수**를 쓴다(두 벌로 두지 않는다).
+   * 수동 분석 화면이 열릴 때 미리 찍어 두므로, 복사 버튼은 Blob 만 쓴다(클릭 때 html2canvas 를 돌리면 NotAllowedError).
+   */
+  auto?: boolean;
 }
 
 /** 매 렌더 새 배열이 만들어지지 않도록 고정해 둔다 */
@@ -62,6 +68,7 @@ export default function ChartCaptureModal({
   drawings,
   initialRange,
   onClose,
+  auto = false,
 }: Props) {
   const chartRef = useRef<CaptureChartHandle>(null);
   const [toggles, setToggles] = useState<IndicatorToggles>(initialToggles);
@@ -87,12 +94,13 @@ export default function ChartCaptureModal({
   }, [shot]);
 
   useEffect(() => {
+    if (auto) return; // 화면 밖 자동 캡처에는 닫을 창이 없다
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, auto]);
 
   /*
    * 메인 차트와 같은 타임프레임이면 이미 받아 둔 캔들·지표를 그대로 쓴다.
@@ -174,6 +182,73 @@ export default function ChartCaptureModal({
     });
     onClose();
   };
+
+  /*
+   * 자동 캡처 — 데이터가 다 오면 한 번만 찍는다. 확인 화면(CapturePreview) 없이 곧바로 저장한다.
+   * 범위는 메인 차트 스냅샷, 지표는 메인 차트 토글, 드로잉은 있으면 포함(같은 봉이라 위치가 맞다), 화질은 기본(저화질).
+   */
+  const autoDone = useRef(false);
+  const indicatorsReady = !needsEngine || Boolean(activeIndicators);
+  useEffect(() => {
+    if (!auto || autoDone.current || dataLoading || !activeCandles.length || !indicatorsReady) return;
+    autoDone.current = true;
+    let cancelled = false;
+    void (async () => {
+      try {
+        // 차트·지표·드로잉이 캔버스에 그려질 때까지 기다린다(창의 [캡처] 와 같은 두 프레임 + 드로잉 여유)
+        await nextFrame();
+        await nextFrame();
+        await new Promise((r) => setTimeout(r, 150));
+        const element = chartRef.current?.getElement();
+        if (cancelled || !element) return;
+        const { blob, width, height } = await captureElementToBlob(element, 'low');
+        if (cancelled) return;
+        setCapture({
+          blob,
+          url: URL.createObjectURL(blob),
+          width,
+          height,
+          symbol,
+          timeframe: tf,
+          candles: activeCandles,
+          capturedAt: Date.now(),
+        });
+      } catch (e) {
+        console.warn('[capture] 자동 캡처 실패:', e instanceof Error ? e.message : e);
+      } finally {
+        if (!cancelled) onClose();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // 한 번만 — 데이터가 준비되는 순간
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto, dataLoading, activeCandles.length, indicatorsReady]);
+
+  if (auto) {
+    // 화면 밖에 그린다 — html2canvas 는 display:none 을 찍지 못한다(메인 차트를 숨기는 방식과 같다).
+    // 크기는 상세 캡처 창의 차트 칸과 비슷하게 둔다(같은 비율의 이미지가 나오게).
+    return (
+      <div
+        aria-hidden
+        className="pointer-events-none fixed top-0 -left-[10000px] h-[calc(78vh-150px)] w-[calc(min(88vw,1200px)-34px)] overflow-hidden"
+      >
+        <CaptureChart
+          ref={chartRef}
+          candles={activeCandles}
+          indicators={activeIndicators}
+          toggles={toggles}
+          drawings={activeDrawings}
+          initialRange={range}
+          week52={week52}
+          currency={currency}
+          symbol={symbol}
+          timeframe={tf}
+        />
+      </div>
+    );
+  }
 
   const checkbox = (checked: boolean, label: string, onChange: () => void) => (
     <label key={label} className="flex items-center gap-1.5 text-[12px] text-text-secondary">

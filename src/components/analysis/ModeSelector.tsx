@@ -7,40 +7,30 @@ interface Props {
   portfolioAvailable: boolean;
 }
 
-/** 분석 모드 카드 — 아이콘을 위, 이름을 아래에 두어 이름이 접히지 않게 한다. */
+/**
+ * 분석 방식 — 작은 세그먼트 한 줄 (v2.28.0, 예전에는 아이콘·설명이 든 카드 3장).
+ * 복사될 내용을 정하는 첫 선택이라 남기되 버튼보다 앞에 나서지 않게 줄였다. 설명은 툴팁으로.
+ */
 export default function ModeSelector({ mode, onChange, portfolioAvailable }: Props) {
   return (
-    // 모드가 셋이다(v2.22.0 비교 분석 삭제) — 2×2 에 두면 한 칸이 비어 한 줄 3칸으로 둔다.
-    // 좌측 패널 폭(320px)에 맞추려고 카드 안쪽 여백과 간격을 줄였다.
-    <div className="grid grid-cols-3 gap-2">
+    <div role="radiogroup" aria-label="분석 방식" className="inline-flex rounded-md border border-border p-0.5">
       {ANALYSIS_MODES.map((item) => {
         const disabled = item.id === 'portfolio' && !portfolioAvailable;
         const active = mode === item.id;
-
         return (
           <button
             key={item.id}
             type="button"
+            role="radio"
+            aria-checked={active}
             disabled={disabled}
             onClick={() => onChange(item.id)}
             title={disabled ? '보유 중인 종목이 없습니다' : item.description}
-            className={`flex flex-col items-center gap-1.5 rounded-lg border px-1.5 py-4 text-center transition-colors ${
-              active
-                ? 'border-accent bg-accent/10'
-                : 'border-border bg-bg-tertiary/40 hover:border-text-muted'
+            className={`whitespace-nowrap rounded px-2.5 py-1 text-xs transition-colors ${
+              active ? 'bg-accent/15 font-medium text-accent' : 'text-text-secondary hover:text-text-primary'
             } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
           >
-            <span className="text-2xl leading-none">{item.icon}</span>
-            <span
-              className={`text-sm font-semibold whitespace-nowrap ${
-                active ? 'text-accent' : 'text-text-primary'
-              }`}
-            >
-              {item.label}
-            </span>
-            <span className="text-[12px] leading-snug break-keep text-text-secondary">
-              {item.description}
-            </span>
+            {item.icon} {item.label}
           </button>
         );
       })}

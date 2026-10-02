@@ -11,7 +11,7 @@ import CopySteps from './CopySteps';
 import ModeSelector from './ModeSelector';
 import ChartCaptureModal from './ChartCaptureModal';
 import type { DrawingSnapshot } from '../chart/CandleChart';
-import { TIMEFRAME_ITEMS, type IndicatorSeries, type IndicatorToggles } from '../../types/chart';
+import type { IndicatorSeries, IndicatorToggles } from '../../types/chart';
 import { useCaptureStore } from '../../store/captureStore';
 import {
   DEFAULT_HORIZON,
@@ -73,8 +73,27 @@ export default function ManualAnalysis({
     null,
   );
   const capture = useCaptureStore((s) => s.capture);
+  const clearCapture = useCaptureStore((s) => s.clearCapture);
+  /** 「프롬프트 수정」 펼침 (v2.28.0) — 기억하지 않는다(기본 접힘) */
+  const [editorOpen, setEditorOpen] = useState(false);
+  /**
+   * 「지금 보고 있는 차트 캡처」 를 위해 화면 밖에서 찍는 중인 스냅샷 (v2.28.0, 전체 모드만).
+   * 화면을 열 때·종목/봉이 바뀔 때 메인 차트 그대로 미리 찍어 둔다 — ① 버튼은 그 Blob 만 복사한다.
+   */
+  const [autoContext, setAutoContext] = useState<ReturnType<typeof getChartSnapshot> | null>(null);
 
   const openCapture = () => setCaptureContext(getChartSnapshot());
+  const startAutoCapture = () => {
+    clearCapture(); // 다른 종목·예전 구간의 캡처가 ① 로 복사되지 않게
+    setAutoContext(getChartSnapshot());
+  };
+
+  useEffect(() => {
+    if (compact) return;
+    startAutoCapture();
+    // 종목·봉이 바뀔 때만 — 함수는 매 렌더 새로 만들어진다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compact, symbol, timeframe]);
 
   /*
    * 캡처 이미지가 있으면 프롬프트도 그 이미지와 같은 봉을 가리켜야 한다.
@@ -217,163 +236,162 @@ export default function ManualAnalysis({
     );
   }
 
+  const autoCaptureModal = autoContext && (
+    <ChartCaptureModal
+      auto
+      symbol={symbol}
+      timeframe={timeframe}
+      candles={candles}
+      indicators={indicators}
+      toggles={toggles}
+      drawings={autoContext.drawings}
+      initialRange={autoContext.range}
+      onClose={() => setAutoContext(null)}
+    />
+  );
+
+  /*
+   * 전체 모드 (v2.28.0 간소화) — 분석 방식 한 줄 + ① 캡처 ② 프롬프트 복사 ③ Claude 열기 + [상세 캡처…] [프롬프트 수정 ▾].
+   * 프롬프트 글은 「프롬프트 수정」 을 펼칠 때만 보인다(투자 기간·교차 검증·편집창·글자 수·초기화도 그 안).
+   * 프롬프트를 만드는 함수·내용은 바꾸지 않았다 — 위 `generated` 그대로.
+   */
   return (
-    <div className="flex h-full justify-center gap-6 overflow-hidden p-6">
-      <div className="flex w-80 shrink-0 flex-col gap-6 overflow-y-auto pr-1">
-        <section className="space-y-3">
-          <h3 className="text-xs font-medium text-text-secondary">분석 모드</h3>
-          <ModeSelector
-            mode={mode}
-            onChange={setMode}
-            portfolioAvailable={Boolean(portfolio?.holdings.length)}
-          />
-
-        {mode === 'multi' && (
-          <label className="inline-flex w-fit items-center gap-2 px-1 text-xs text-text-secondary">
-            <input
-              type="checkbox"
-              checked={crossReview}
-              onChange={(e) => setCrossReview(e.target.checked)}
-              className="accent-accent"
-            />
-            교차 검증 라운드 추가 (답변이 길어집니다)
-          </label>
-        )}
-
-        <div className="space-y-1.5 px-1">
-          <h4 className="text-[12px] text-text-secondary">투자 기간</h4>
-          <div className="grid grid-cols-4 gap-1">
-            {HORIZONS.map((h) => (
-              <button
-                key={h.id}
-                type="button"
-                onClick={() => setHorizon(h.id)}
-                title={h.directive}
-                className={`rounded-md border px-1 py-1.5 text-center transition-colors ${
-                  horizon === h.id
-                    ? 'border-accent bg-accent/10 text-accent'
-                    : 'border-border text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
-                }`}
-              >
-                <span className="block text-[12px] font-medium">{h.label}</span>
-                <span className="block text-[12px] text-text-muted">{h.period}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
+    <div className="h-full overflow-y-auto p-6">
+      <div className="mx-auto flex max-w-xl flex-col gap-4">
+        <section className="flex flex-wrap items-center gap-2">
+          <h3 className="text-xs font-medium text-text-secondary">분석 방식</h3>
+          <ModeSelector mode={mode} onChange={setMode} portfolioAvailable={Boolean(portfolio?.holdings.length)} />
         </section>
-
-        {includeImage && (
-          <section className="space-y-2">
-            <h3 className="text-xs font-medium text-text-secondary">차트 이미지</h3>
-            {capture ? (
-              <div className="space-y-2 rounded-md border border-border/60 p-2">
-                <img
-                  src={capture.url}
-                  alt="캡처한 차트"
-                  className="w-full rounded border border-border object-contain"
-                />
-                <p className="text-[12px] leading-relaxed text-text-muted">
-                  {capture.symbol} ·{' '}
-                  {TIMEFRAME_ITEMS.find((i) => i.value === capture.timeframe)?.label ??
-                    capture.timeframe}{' '}
-                  ·{' '}
-                  {new Date(capture.capturedAt).toLocaleTimeString('ko-KR')}
-                  {capture.symbol !== symbol && (
-                    <span className="ml-1 text-warning">⚠️ 다른 종목의 캡처입니다</span>
-                  )}
-                  {capture.symbol === symbol && capture.timeframe !== timeframe && (
-                    <span className="ml-1 text-accent">· 프롬프트도 이 봉으로 작성됩니다</span>
-                  )}
-                </p>
-                <button
-                  type="button"
-                  onClick={openCapture}
-                  className="w-full rounded-md border border-border px-2 py-1.5 text-[12px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
-                >
-                  ↩ 다시 캡처
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={openCapture}
-                className="w-full rounded-md border border-dashed border-border px-2 py-3 text-xs text-text-secondary transition-colors hover:border-accent hover:text-text-primary"
-              >
-                📷 차트 캡처하기
-              </button>
-            )}
-          </section>
-        )}
 
         <CopySteps
           symbol={symbol}
           timeframe={promptTimeframe}
           prompt={prompt}
           includeImage={includeImage}
-          onOpenCapture={openCapture}
+          onOpenCapture={startAutoCapture}
+          captureLabel="지금 보고 있는 차트 캡처"
+          capturePending={Boolean(autoContext)}
+          promptLabel={edited !== null ? '수정한 프롬프트 복사' : '기본 프롬프트 복사'}
+          promptReady={!loading}
         />
 
-        <section className="space-y-3">
-          <h3 className="text-xs font-medium text-text-secondary">포함된 데이터</h3>
-          <ul className="space-y-1 rounded-md border border-border/60 px-3 py-2.5 text-[12px] leading-relaxed text-text-muted">
-            {includeImage && <li>· 차트 이미지 (Step 1로 복사)</li>}
-            {mode === 'quick' && <li>· RSI · MACD · MA · 볼린저 · ATR · 스토캐스틱</li>}
-            {flowBlock && <li>· 투자자 동향 (최근 확정 거래일 순매수, 국내 종목)</li>}
-            {mode === 'multi' && (
-              <>
-                <li>· 지표 요약 + 최근 10봉 OHLCV</li>
-                <li>· 재무·밸류에이션 {fundamentals ? '✓' : '(없음)'}</li>
-                <li>· 동종업계 비교 {peers?.length ? '✓' : '(없음)'}</li>
-                <li>· 보유 현황 {holding ? '✓ 보유 중' : '미보유'}</li>
-              </>
-            )}
-            {mode === 'portfolio' && (
-              <>
-                <li>· 보유 {portfolio?.holdings.length ?? 0}종목 + 종목별 지표</li>
-                <li>· 포트폴리오 손익 · 환율 {exchangeRate ? '✓' : '(없음)'}</li>
-              </>
-            )}
-          </ul>
-          <p className="text-[12px] leading-relaxed text-text-muted">
-            API 키 없이 Claude 구독 대화에서 사용합니다. AI 의견은 투자 조언이 아닙니다.
-          </p>
-        </section>
-      </div>
-
-      <div className="flex min-w-0 max-w-[760px] flex-1 flex-col gap-3">
-        <div className="flex items-center justify-between text-xs">
-          <h3 className="text-xs font-medium text-text-secondary">
-            생성된 프롬프트
-            {loading && <span className="ml-1.5 font-normal text-text-muted">· 불러오는 중…</span>}
-          </h3>
-          <span className="flex items-center gap-2 text-text-muted">
-            {prompt.length.toLocaleString('ko-KR')}자
-            {edited !== null && (
-              <>
-                <span className="text-warning">편집됨</span>
-                <button
-                  type="button"
-                  onClick={() => setEdited(null)}
-                  className="rounded border border-border px-2 py-0.5 transition-colors hover:bg-bg-tertiary hover:text-text-primary"
-                >
-                  초기화
-                </button>
-              </>
-            )}
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {includeImage && (
+            <button
+              type="button"
+              onClick={openCapture}
+              title="범위·지표·봉 단위를 골라 캡처합니다"
+              className="rounded-md border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            >
+              📷 상세 캡처…
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setEditorOpen((v) => !v)}
+            aria-expanded={editorOpen}
+            className="rounded-md border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          >
+            ✏️ 프롬프트 수정 {editorOpen ? '▴' : '▾'}
+          </button>
+          {edited !== null && <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[12px] text-warning">수정됨</span>}
+          {capture && capture.symbol === symbol && (
+            <span className="ml-auto text-[12px] text-text-muted">
+              캡처 {new Date(capture.capturedAt).toLocaleTimeString('ko-KR')}
+              {capture.timeframe !== timeframe && <span className="text-accent"> · 프롬프트도 캡처한 봉으로</span>}
+            </span>
+          )}
         </div>
 
-        <textarea
-          value={prompt}
-          onChange={(e) => setEdited(e.target.value)}
-          spellCheck={false}
-          className="min-h-0 flex-1 resize-none rounded-md border border-border bg-bg-tertiary p-4 font-mono text-xs leading-relaxed text-text-secondary focus:border-accent focus:outline-none"
-        />
+        {editorOpen && (
+          <section className="space-y-3 rounded-md border border-border p-3">
+            <div className="space-y-1.5">
+              <h4 className="text-[12px] text-text-secondary">투자 기간</h4>
+              <div className="grid grid-cols-4 gap-1">
+                {HORIZONS.map((h) => (
+                  <button
+                    key={h.id}
+                    type="button"
+                    onClick={() => setHorizon(h.id)}
+                    title={h.directive}
+                    className={`rounded-md border px-1 py-1.5 text-center transition-colors ${
+                      horizon === h.id
+                        ? 'border-accent bg-accent/10 text-accent'
+                        : 'border-border text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+                    }`}
+                  >
+                    <span className="block text-[12px] font-medium">{h.label}</span>
+                    <span className="block text-[12px] text-text-muted">{h.period}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {mode === 'multi' && (
+              <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={crossReview}
+                  onChange={(e) => setCrossReview(e.target.checked)}
+                  className="accent-accent"
+                />
+                교차 검증 라운드 추가 (답변이 길어집니다)
+              </label>
+            )}
+
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-text-secondary">
+                프롬프트
+                {loading && <span className="ml-1.5 text-text-muted">· 불러오는 중…</span>}
+              </span>
+              <span className="flex items-center gap-2 text-text-muted">
+                {prompt.length.toLocaleString('ko-KR')}자
+                {edited !== null && (
+                  <button
+                    type="button"
+                    onClick={() => setEdited(null)}
+                    className="rounded border border-border px-2 py-0.5 transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                  >
+                    초기화
+                  </button>
+                )}
+              </span>
+            </div>
+            <textarea
+              value={prompt}
+              onChange={(e) => setEdited(e.target.value)}
+              spellCheck={false}
+              className="h-[45vh] w-full resize-y rounded-md border border-border bg-bg-tertiary p-3 font-mono text-xs leading-relaxed text-text-secondary focus:border-accent focus:outline-none"
+            />
+            <ul className="space-y-0.5 text-[12px] leading-relaxed text-text-muted">
+              {includeImage && <li>· 차트 이미지 (① 로 복사)</li>}
+              {mode === 'quick' && <li>· RSI · MACD · MA · 볼린저 · ATR · 스토캐스틱</li>}
+              {flowBlock && <li>· 투자자 동향 (최근 확정 거래일 순매수, 국내 종목)</li>}
+              {mode === 'multi' && (
+                <>
+                  <li>· 지표 요약 + 최근 10봉 OHLCV</li>
+                  <li>· 재무·밸류에이션 {fundamentals ? '✓' : '(없음)'}</li>
+                  <li>· 동종업계 비교 {peers?.length ? '✓' : '(없음)'}</li>
+                  <li>· 보유 현황 {holding ? '✓ 보유 중' : '미보유'}</li>
+                </>
+              )}
+              {mode === 'portfolio' && (
+                <>
+                  <li>· 보유 {portfolio?.holdings.length ?? 0}종목 + 종목별 지표</li>
+                  <li>· 포트폴리오 손익 · 환율 {exchangeRate ? '✓' : '(없음)'}</li>
+                </>
+              )}
+            </ul>
+          </section>
+        )}
+
+        <p className="text-[12px] leading-relaxed text-text-muted">
+          API 키 없이 Claude 구독 대화에서 사용합니다. AI 의견은 투자 조언이 아닙니다.
+        </p>
       </div>
 
       {captureModal}
+      {autoCaptureModal}
     </div>
   );
 }
