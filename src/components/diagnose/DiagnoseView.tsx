@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useDiagnose } from '../../hooks/useDiagnose';
 import { useStockNames } from '../../hooks/useStockNames';
 import { modal, toast } from '../../store/uiStore';
@@ -54,23 +54,96 @@ function verdictOf(weak: boolean | undefined, good: boolean | null): Verdict {
 }
 const gt = (a: unknown, b: unknown) => (isNum(a) && isNum(b) ? a > b : null);
 
-const VERDICT_STYLE: Record<Verdict, { label: string; badge: string; border: string }> = {
-  good: { label: '기준선보다 좋음', badge: 'bg-bullish/15 text-bullish', border: 'border-bullish/40' },
-  bad: { label: '기준선 이하', badge: 'bg-bearish/15 text-bearish', border: 'border-bearish/40' },
-  hold: { label: '판단 보류', badge: 'bg-bg-tertiary text-text-secondary', border: 'border-border' },
+/** 배지 — 색만으로 구분하지 않는다(기호 + 글자, v2.28.0 기호 추가). 위 「이 화면은 무엇인가요?」 의 설명도 이 값을 쓴다 */
+const VERDICT_STYLE: Record<Verdict, { mark: string; label: string; badge: string; border: string }> = {
+  good: { mark: '🟢', label: '기준선보다 좋음', badge: 'bg-bullish/15 text-bullish', border: 'border-bullish/40' },
+  bad: { mark: '🔴', label: '기준선 이하', badge: 'bg-bearish/15 text-bearish', border: 'border-bearish/40' },
+  hold: { mark: '⚪', label: '판단 보류', badge: 'bg-bg-tertiary text-text-secondary', border: 'border-border' },
 };
+
+// ── 쉬운 설명 (v2.28.0) ─────────────────────────────────────────────────────
+// 숫자·판정·카드 구조는 바꾸지 않는다 — 읽는 법만 더한다. 접힘 상태는 이 기기의 화면 설정이라 localStorage.
+const HELP_KEY = 'alphascope.diagnoseHelpCollapsed';
+
+function HelpBox() {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(HELP_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggle = () =>
+    setCollapsed((v) => {
+      try {
+        localStorage.setItem(HELP_KEY, v ? '0' : '1');
+      } catch {
+        /* 저장이 막힌 브라우저 — 이번 화면에서만 */
+      }
+      return !v;
+    });
+  const badge = (v: Verdict) => (
+    <span className={`rounded px-1.5 py-0.5 ${VERDICT_STYLE[v].badge}`}>
+      {VERDICT_STYLE[v].mark} {VERDICT_STYLE[v].label}
+    </span>
+  );
+  return (
+    <section className="rounded-lg border border-border bg-bg-secondary">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={!collapsed}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-text-primary"
+      >
+        ❓ 이 화면은 무엇인가요?
+        <span className="ml-auto font-normal text-text-muted">{collapsed ? '펼치기 ▾' : '접기 ▴'}</span>
+      </button>
+      {!collapsed && (
+        <div className="space-y-2.5 border-t border-border px-3 py-2.5 text-[13px] leading-relaxed text-text-secondary">
+          <p>
+            이 앱은 여러 가지 "신호"를 냅니다. 스윙 추천, 급등 탐지, Gemini 의 매수·매도 판단, 뉴스의 긍정·부정 판정 같은 것들입니다.
+            <br />
+            진단 리포트는 이 신호들이 <b className="text-text-primary">과거에 실제로 맞았는지 채점하는 성적표</b>입니다. 지금 무엇을 사라고 알려
+            주는 화면이 아닙니다.
+          </p>
+          <p>
+            <b className="text-text-primary">어떻게 채점하나요?</b> 신호가 나온 뒤 실제 주가가 어떻게 움직였는지 봅니다. 그리고{' '}
+            <b className="text-text-primary">기준선</b>과 비교합니다 — "아무 생각 없이 샀을 때" 나 "우연히 맞힐 확률", "본전(0)" 같은 비교
+            대상이고, 카드마다 다르므로 각 카드 제목 아래에 적어 두었습니다. 기준선보다 나아야 그 신호가 쓸모 있다고 봅니다.
+          </p>
+          <div>
+            <b className="text-text-primary">배지 읽는 법</b>
+            <ul className="mt-1 space-y-1">
+              <li>{badge('good')} — 기준선보다 결과가 좋았습니다. (수익이 났다는 뜻과 같지는 않습니다.)</li>
+              <li>{badge('bad')} — 기준선보다 나을 게 없었습니다. 이 신호만 믿고 사면 안 됩니다.</li>
+              <li>{badge('hold')} — 채점한 기록이 아직 적어 결론을 낼 수 없습니다. 기록이 쌓일 때까지 기다립니다.</li>
+            </ul>
+          </div>
+          <p>
+            <b className="text-text-primary">언제 보나요?</b> 한 달에 한 번쯤 [▶ 진단 실행]을 눌러 보세요. 같은 신호가 몇 달 계속{' '}
+            {VERDICT_STYLE.bad.mark} 이면 그 기능은 참고만 하세요.
+          </p>
+          <p className="text-warning">⚠️ 과거 성적이 좋아도 앞으로 맞는다는 보장은 없습니다.</p>
+        </div>
+      )}
+    </section>
+  );
+}
 
 /** 종목 칸 — 이름 먼저, 티커 뒤(이름을 모르면 티커만) */
 const Sym = ({ symbol }: { symbol: string }) => <StockName symbol={symbol} size="sm" className="max-w-[180px]" />;
 
 function Card({
   title,
+  hint,
   weak,
   verdict,
   numbers,
   conclusion,
 }: {
   title: string;
+  /** 무엇을 묻나 · 어떻게 읽나 — 한 줄 (v2.28.0) */
+  hint: string;
   weak: boolean;
   verdict: Verdict;
   numbers: { label: string; value: ReactNode }[];
@@ -80,10 +153,13 @@ function Card({
   return (
     <div className={`flex flex-col rounded-lg border bg-bg-secondary p-3 ${style.border}`}>
       <div className="mb-2 flex items-start gap-2">
-        <p className="text-xs font-semibold text-text-primary">{title}</p>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-text-primary">{title}</p>
+          <p className="mt-0.5 text-[12px] leading-snug text-text-secondary">{hint}</p>
+        </div>
         {/* 예전 "표본 부족" 배지와 합쳤다 — 표본이 모자라면 판정 없이 회색 */}
         <span className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-[12px] ${style.badge}`}>
-          {style.label}
+          {style.mark} {style.label}
           {verdict === 'hold' && weak ? ' · 표본 부족' : ''}
         </span>
       </div>
@@ -108,6 +184,7 @@ function Cards({ s }: { s: DiagnoseSummary }) {
     <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(250px,1fr))]">
       <Card
         title="1. 관심 종목이 스윙에서 부적합한 것은 정상인가?"
+        hint={'스윙 추천이 BUY 를 낸 날 샀다면 20거래일 뒤 평균 몇 % 였는지 봅니다. 플러스면 좋은 신호입니다(기준선 = 0).'}
         weak={s.swing.weak}
         verdict={verdictOf(s.swing.weak, gt(s.swing.forward?.d20, 0))}
         numbers={[
@@ -119,6 +196,7 @@ function Cards({ s }: { s: DiagnoseSummary }) {
       />
       <Card
         title="2. 목표를 3% 로 작게 잡으면 달라지나?"
+        hint={'아무 날이나 종가에 사서 10거래일 안에 +3% / −1.5% 중 먼저 닿는 쪽으로 정리했다면 한 번에 평균 몇 %p 였는지 봅니다(수수료 포함, 둘 다 안 닿으면 0). 0 보다 크면 좋음, SPY 는 시장 비교용입니다.'}
         weak={s.target.weak}
         verdict={verdictOf(s.target.weak, gt(s.target.avgExp, 0))}
         numbers={[
@@ -130,6 +208,7 @@ function Cards({ s }: { s: DiagnoseSummary }) {
       />
       <Card
         title="3. 급등 탐지의 주기 예측이 맞나?"
+        hint={'급등 탐지가 "다음 급등일" 을 맞힌 비율을, 우연히 맞을 비율(기준선)과 비교합니다.'}
         weak={s.surge.weak}
         verdict={verdictOf(s.surge.weak, gt(s.surge.hitRate, s.surge.baseline))}
         numbers={[
@@ -141,6 +220,7 @@ function Cards({ s }: { s: DiagnoseSummary }) {
       />
       <Card
         title="4. Gemini 분석은 정확한가? (Gemini 만)"
+        hint={'Gemini 의 매수·매도 판단이 5거래일 뒤 맞은 비율을, 그냥 "오른다" 고 찍었을 때(5일 뒤 상승 비율)와 비교합니다.'}
         weak={s.ai.weak}
         verdict={verdictOf(s.ai.weak, gt(s.ai.rate, s.ai.baseline))}
         numbers={[
@@ -156,6 +236,7 @@ function Cards({ s }: { s: DiagnoseSummary }) {
       {s.news && (
         <Card
           title="5. 뉴스 AI 판정(긍정·부정)은 맞았나?"
+          hint={'뉴스 긍정·부정 판정이 5거래일 뒤 주가 방향과 맞은 비율을, 그냥 "오른다" 고 찍었을 때와 비교합니다.'}
           weak={s.news.weak}
           verdict={verdictOf(s.news.weak, gt(s.news.d5?.rate, s.news.d5?.baseline))}
           numbers={[
@@ -474,6 +555,8 @@ export default function DiagnoseView() {
             </div>
           </div>
         )}
+
+        <HelpBox />
 
         {(runError || listError) && (
           <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-2 text-[12px] text-bearish">
