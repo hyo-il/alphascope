@@ -172,7 +172,7 @@ export default function RankingPreview({
       </div>
       <div className="relative min-h-0 flex-1">
         {/* 차트는 종목이 없어도 마운트해 둔다 — 인스턴스 하나를 계속 쓴다 */}
-        <LiteCandleChart candles={row ? candles : []} barSpacing={4} />
+        <LiteCandleChart candles={row ? candles : []} barSpacing={4} currency={row?.currency} />
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-bg-secondary/60 text-xs text-text-secondary">
             <InlineSpinner /> <span className="ml-1.5">불러오는 중…</span>

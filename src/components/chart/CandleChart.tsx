@@ -27,6 +27,7 @@ import {
   dateTimeOptions,
   isIntraday,
   CANDLE_SERIES_OPTIONS,
+  priceFormatOf,
   COLORS,
   renderIndicators,
   toChartTime,
@@ -577,6 +578,11 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       setSelectedAnchor(null);
     };
   }, []);
+
+  // 가격 자릿수는 통화로 — 원화는 소수점 없이 (v2.33.0, `priceFormatOf` 한 곳)
+  useEffect(() => {
+    candleSeriesRef.current?.applyOptions({ priceFormat: priceFormatOf(currency) });
+  }, [currency]);
 
   // ── 도구 선택 반영 ──
   useEffect(() => {

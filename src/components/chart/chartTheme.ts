@@ -158,6 +158,16 @@ export const BASE_CHART_OPTIONS = {
 };
 
 /** 캔들 시리즈 옵션 (상승/하락 색) */
+/**
+ * 가격 축·가격 라벨의 자릿수 — **통화로 정한다** (v2.33.0). 원화는 소수점 없이(앱 규칙 — `formatPrice` 와 같다).
+ * 예전에는 시리즈 기본값(소수 2자리)이라 국내 종목 가격 축이 "200000.00" 으로 보였다. 값은 그대로, 표시만 바뀐다.
+ */
+export function priceFormatOf(currency: 'KRW' | 'USD' | string | null | undefined) {
+  return currency === 'KRW'
+    ? { type: 'price' as const, precision: 0, minMove: 1 }
+    : { type: 'price' as const, precision: 2, minMove: 0.01 };
+}
+
 export const CANDLE_SERIES_OPTIONS = {
   upColor: COLORS.bullish,
   downColor: COLORS.bearish,

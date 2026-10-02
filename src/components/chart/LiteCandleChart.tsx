@@ -11,6 +11,7 @@ import {
 import {
   BASE_CHART_OPTIONS,
   CANDLE_SERIES_OPTIONS,
+  priceFormatOf,
   COLORS,
   PRICE_SCALE_MARGINS,
   VOLUME_SCALE_MARGINS,
@@ -52,7 +53,16 @@ const PERIODS: Record<string, number> = { ma5: 5, ma20: 20, ma60: 60 };
 /** 범례 — 색만 봐도 어느 선인지 알 수 있게 (메인 차트와 같은 색) */
 export const LITE_CHART_MAS = COMPARE_MAS;
 
-export default function LiteCandleChart({ candles, barSpacing = 5 }: { candles: Candle[]; barSpacing?: number }) {
+export default function LiteCandleChart({
+  candles,
+  barSpacing = 5,
+  currency,
+}: {
+  candles: Candle[];
+  barSpacing?: number;
+  /** 가격 자릿수 — 원화는 소수점 없이 (v2.33.0) */
+  currency?: 'KRW' | 'USD' | string | null;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -110,6 +120,11 @@ export default function LiteCandleChart({ candles, barSpacing = 5 }: { candles: 
   }, []);
 
   // 데이터 갱신
+  // 가격 자릿수는 통화로 — 원화는 소수점 없이 (v2.33.0)
+  useEffect(() => {
+    candleSeriesRef.current?.applyOptions({ priceFormat: priceFormatOf(currency) });
+  }, [currency]);
+
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart || !candleSeriesRef.current || !volumeSeriesRef.current) return;

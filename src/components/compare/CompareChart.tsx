@@ -96,7 +96,7 @@ export default function CompareChart({
       </div>
 
       <div className="relative min-h-0 flex-1">
-        <LiteCandleChart candles={candles} />
+        <LiteCandleChart candles={candles} currency={currency} />
 
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-bg-secondary/70 text-xs text-text-secondary">
