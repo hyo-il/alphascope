@@ -28,6 +28,21 @@
   --color-chart-grid: #222222;
 
   /*
+   * 종목 지도 전용 등락 색 (v2.27.0) — 반투명(bg-bullish/25…)을 어두운 배경에 겹치면 약한 구간이 회색과 구분되지 않았다.
+   * **불투명 단계색**을 앱 토큰에서 섞어 만든다(새 색상 값을 정하지 않는다): 회색(heat-flat) → bullish/bearish 30·55·78·100%.
+   * heat-flat 은 칸 바탕(bg-secondary)보다 밝아 "흐름 없음" 칸이 빈자리와 구분된다. 상승 초록·하락 빨강 — 호가창의 국내 관례는 쓰지 않는다.
+   */
+  --color-heat-flat: color-mix(in oklab, var(--color-text-muted) 35%, var(--color-bg-secondary));
+  --color-heat-up-1: color-mix(in oklab, var(--color-bullish) 30%, var(--color-heat-flat));
+  --color-heat-up-2: color-mix(in oklab, var(--color-bullish) 55%, var(--color-heat-flat));
+  --color-heat-up-3: color-mix(in oklab, var(--color-bullish) 78%, var(--color-heat-flat));
+  --color-heat-up-4: var(--color-bullish);
+  --color-heat-down-1: color-mix(in oklab, var(--color-bearish) 30%, var(--color-heat-flat));
+  --color-heat-down-2: color-mix(in oklab, var(--color-bearish) 55%, var(--color-heat-flat));
+  --color-heat-down-3: color-mix(in oklab, var(--color-bearish) 78%, var(--color-heat-flat));
+  --color-heat-down-4: var(--color-bearish);
+
+  /*
    * 글씨 크기 — 2026-10-01 사용자 결정: 기본보다 1px 큰 글씨 (v2.25.0).
    * 컴포넌트에서 text-xs 를 다른 값으로 바꾸지 말고 여기서 고친다(단일 출처).
    * 줄 높이도 함께 적는다 — 크기만 바꾸면 Tailwind 기본 비율이 남아 의도와 다른 높이가 된다.

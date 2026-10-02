@@ -16,7 +16,8 @@ import SectorRanking from './SectorRanking';
  * - 데이터는 `GET /api/heatmap?market=&period=` 한 곳. 1일은 서버 60초 캐시 + 화면이 보일 때만 60초마다 다시 받는다(숨은 탭 정지).
  *   1주 이상(v2.19.0)은 종가 기준이라 주기 새로고침을 하지 않는다(탭이 다시 보일 때만).
  * - 배치는 직접 구현한 squarified treemap(`utils/treemap.ts`) — 섹터를 먼저 나누고, 섹터 안에서 종목을 나눈다.
- * - 색은 `index.css` 토큰(bullish/bearish) + 진하기 구간 — 기간이 길수록 구간을 넓힌다(`BINS`). 0% 근처는 회색.
+ * - 색은 `index.css` 의 heat-* 불투명 단계색(v2.27.0 — bullish/bearish 를 회색에 섞은 4단계 + 회색) + 진하기 구간 —
+ *   기간이 길수록 구간을 넓힌다(`BINS`). 0% 근처는 회색.
  * - 오른쪽 「섹터 강세 순위」(v2.19.0)는 **설명용**이다 — 지난 기간의 결과이고 판정·자동매매에 쓰지 않는다.
  * - ⚠️ 다른 사이트의 데이터·디자인을 가져오지 않았다 — 앱 다크 테마로 새로 그렸다.
  */
@@ -31,16 +32,23 @@ const BINS: Record<HeatmapPeriod, [number, number, number, number]> = {
   '1m': [2, 5, 10, 15],
   '3m': [2, 5, 10, 15],
 };
+/** 불투명 단계색 — `index.css` 의 heat-* 토큰(앱 bullish/bearish 에서 섞은 값, v2.27.0) */
 const SHADES = {
-  up: ['bg-bullish/25', 'bg-bullish/45', 'bg-bullish/65', 'bg-bullish/85'],
-  down: ['bg-bearish/25', 'bg-bearish/45', 'bg-bearish/65', 'bg-bearish/85'],
+  up: ['bg-heat-up-1', 'bg-heat-up-2', 'bg-heat-up-3', 'bg-heat-up-4'],
+  down: ['bg-heat-down-1', 'bg-heat-down-2', 'bg-heat-down-3', 'bg-heat-down-4'],
 };
 
+/**
+ * 칸 글자 그림자 — text-primary(#e0e0e0) 대 단계색 대비가 2·3·4단계에서 4.5:1 에 못 미친다
+ * (상승 3.97·2.97·2.27 / 하락 4.34·3.35·2.64 — 회색·1단계는 8.14·5.52·5.80). 글자 둘레를 어둡게 둘러 바탕과 떼어 놓는다.
+ */
+const TILE_TEXT_SHADOW = '0 0 2px rgb(0 0 0 / 0.9), 0 1px 1px rgb(0 0 0 / 0.7)';
+
 function colorOf(change: number | null, period: HeatmapPeriod): string {
-  if (change == null) return 'bg-bg-tertiary';
+  if (change == null) return 'bg-heat-flat';
   const [b0, b1, b2, b3] = BINS[period];
   const a = Math.abs(change);
-  if (a < b0) return 'bg-bg-tertiary';
+  if (a < b0) return 'bg-heat-flat';
   const shades = change > 0 ? SHADES.up : SHADES.down;
   if (a < b1) return shades[0];
   if (a < b2) return shades[1];
@@ -199,7 +207,8 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           {legend.map((v) => (
             <span
               key={v}
-              className={`flex h-4 w-8 items-center justify-center ${colorOf(v === 0 ? 0 : v > 0 ? v + 0.01 : v - 0.01, period)}`}
+              style={{ textShadow: TILE_TEXT_SHADOW }}
+              className={`flex h-4 w-8 items-center justify-center text-text-primary ${colorOf(v === 0 ? 0 : v > 0 ? v + 0.01 : v - 0.01, period)}`}
             >
               {v > 0 ? `+${v}` : v}
             </span>
@@ -273,7 +282,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
                 className={`absolute flex flex-col items-center justify-center overflow-hidden border border-bg-primary/70 text-center transition-[filter,opacity] hover:brightness-125 ${colorOf(cell.changeRate, period)} ${
                   cell.watch ? 'ring-1 ring-inset ring-accent/70' : ''
                 } ${dimmed ? 'opacity-25' : ''}`}
-                style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
+                style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h, textShadow: TILE_TEXT_SHADOW }}
                 aria-label={`${cell.name ?? cell.symbol} ${pct(cell.changeRate)}`}
               >
                 {medium && (
