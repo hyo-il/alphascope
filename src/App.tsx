@@ -81,6 +81,12 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
     hasSymbol,
   );
   const chartRef = useRef<CandleChartHandle>(null);
+  /*
+   * 지금 차트에 들어 있는 캔들이 어느 종목·봉의 것인지 (v2.30.0). 로딩 중에는 이전 키를 유지한다 —
+   * useCandleData 는 새 데이터가 올 때까지 이전 캔들을 그대로 들고 있으므로, 키도 그때 함께 바뀌어야 차트가 초기화 시점을 안다.
+   */
+  const loadedKeyRef = useRef<string | undefined>(undefined);
+  if (!loading && !error && candles.length) loadedKeyRef.current = `${symbol}|${timeframe}`;
   /** 화면 위치는 스토어에 있다 — 사이드 메뉴가 대메뉴/소메뉴 두 값을 함께 쓴다 */
   const nav = useAppStore((s) => s.nav);
   const setPage = useAppStore((s) => s.setPage);
@@ -170,31 +176,38 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
       )}
 
       <div className="flex min-h-0 flex-1">
-        <main className="min-w-0 flex-1">
+        {/*
+          ⚠️ 차트는 종목·봉을 바꿀 때도 언마운트하지 않는다 (v2.30.0). 예전에는 로딩·오류 때 스피너·오류 카드가 차트 자리를
+          대신해 매번 차트를 새로 만들었다(깜빡임, v2.24.0 "Object is disposed" 의 재현 조건). 이제 로딩·오류는 차트 **위에 덮는 층**이다.
+          덮개는 이전 종목 캔들이 새 종목으로 보이지 않게 충분히 어둡고, 덮여 있는 동안 차트 조작(드로잉)을 받지 않는다.
+        */}
+        <main className="relative min-w-0 flex-1">
+          <CandleChart
+            ref={chartRef}
+            candles={candles}
+            datasetKey={loadedKeyRef.current}
+            livePrice={livePrice}
+            activeTool={activeTool}
+            onDrawingCountChange={setDrawingCount}
+            onToolConsumed={() => setActiveTool(null)}
+            onReachPast={loadMore}
+            indicators={indicators}
+            toggles={toggles}
+            week52={week52}
+            currency={currency}
+          />
           {error ? (
-            <div className="flex h-full items-center justify-center px-8">
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-bg-primary px-8">
               <div className="max-w-lg rounded-lg border border-bearish/40 bg-bg-secondary p-5">
                 <p className="font-medium text-bearish">데이터를 불러오지 못했습니다</p>
                 <p className="mt-2 text-sm text-text-secondary">{error}</p>
               </div>
             </div>
           ) : loading ? (
-            <LoadingSpinner label={`${symbol} 캔들 불러오는 중…`} />
-          ) : (
-            <CandleChart
-              ref={chartRef}
-              candles={candles}
-              livePrice={livePrice}
-              activeTool={activeTool}
-              onDrawingCountChange={setDrawingCount}
-              onToolConsumed={() => setActiveTool(null)}
-              onReachPast={loadMore}
-              indicators={indicators}
-              toggles={toggles}
-              week52={week52}
-              currency={currency}
-            />
-          )}
+            <div className="absolute inset-0 z-30 bg-bg-primary/85" aria-busy="true">
+              <LoadingSpinner label={`${symbol} 캔들 불러오는 중…`} />
+            </div>
+          ) : null}
         </main>
 
         {/*

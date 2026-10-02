@@ -118,12 +118,20 @@ interface LabelFit {
   rate: boolean;
 }
 
-/** 두 줄로 나눌 자리 — 띄어쓰기가 있으면 그 자리만, 없으면 글자 사이(한글 종목명은 대개 붙여 쓴다) */
+const HANGUL = /[가-힣ㄱ-ㅎㅏ-ㅣ]/;
+
+/**
+ * 두 줄로 나눌 자리 — 띄어쓰기 자리 + **한글 글자 사이**만 (v2.30.0).
+ * 영문·숫자·`&`·`.` 가 이어진 덩어리(POSCO·SK·LG·HD·KB) 안에서는 끊지 않는다 — v2.29.0 은 글자 사이 아무 데서나 끊어
+ * "POSC / O홀딩스" 처럼 다른 이름으로 읽혔다. 덩어리가 칸보다 길면 그 칸은 이름을 그리지 않는다(말줄임·넘침 금지).
+ * (화면은 나눈 두 줄을 따로 그린다 — `<wbr>`·`keep-all` 대신 자리를 직접 정해 폭 계산과 실제 줄이 어긋나지 않게)
+ */
 function splitCandidates(label: string): [string, string][] {
   const out: [string, string][] = [];
-  const spaces = [...label.matchAll(/ /g)].map((m) => m.index!);
-  if (spaces.length) for (const i of spaces) out.push([label.slice(0, i), label.slice(i + 1)]);
-  else for (let i = 1; i < label.length; i++) out.push([label.slice(0, i), label.slice(i)]);
+  for (let i = 1; i < label.length; i++) {
+    if (label[i] === ' ') out.push([label.slice(0, i), label.slice(i + 1)]);
+    else if (label[i - 1] !== ' ' && HANGUL.test(label[i - 1]) && HANGUL.test(label[i])) out.push([label.slice(0, i), label.slice(i)]);
+  }
   return out;
 }
 
@@ -337,8 +345,13 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   const bins = BINS[period];
   const legend = [...[...bins].reverse().map((b) => -b), 0, ...bins];
 
+  /** 지도 읽는 법 — 넓으면 지도 아래 줄 오른쪽에 글자로, 좁으면 ⓘ 툴팁 (v2.30.0). 고정 문구는 섹터 순위 아래에 늘 글자로 있다 */
+  const guide = `색은 ${period === '1d' ? '전 거래일 종가 대비 등락' : `최근 종가 ÷ ${periodInfo.bars}거래일 전 종가`}입니다.${
+    watchView ? (watchSize === 'sqrt' ? ' 크기 = 시가총액의 제곱근(크기 차이 줄인 보기).' : ' 크기 = 시가총액.') : ' 파란 테두리는 관심 종목.'
+  }${period === '1d' ? ' 1분마다 새로고침(화면을 보고 있을 때만).' : ''}`;
+
   return (
-    <div className="flex h-full flex-col p-3">
+    <div className="@container flex h-full flex-col p-3">
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
         <h2 className="text-sm font-semibold text-text-primary">🗺 종목 지도</h2>
         {/* 탭 (v2.27.0) — 시장·기간은 두 탭이 함께 쓴다 */}
@@ -537,6 +550,10 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
               <p className="p-3 text-[12px] text-text-muted">불러오는 중…</p>
             )}
           </div>
+          {/* ⚠️ 고정 문구 — 지우지 않는다(CLAUDE.md). v2.30.0 에 지도 아래 줄에서 이 자리로 옮겼다(지도 아래를 한 줄로) */}
+          <p className="shrink-0 border-t border-border px-2.5 py-1 text-[12px] font-medium text-text-secondary">
+            지난 기간의 결과입니다. 앞으로도 강할 것이라는 뜻이 아닙니다.
+          </p>
           {data && data.excluded > 0 && (
             <p className="shrink-0 border-t border-border px-2.5 py-1 text-[12px] text-text-muted">
               {periodInfo.label} 전 종가가 없어 제외한 종목 {data.excluded}개 (상장 직후·거래 정지 등)
@@ -544,6 +561,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           )}
         </aside>
       </div>
+      {/* 지도 아래 한 줄 (v2.30.0 — 예전에는 범례 줄 + 안내 문구 줄 두 줄): 범례 · 대상·기준 시각 · (제곱근 안내) · 읽는 법 */}
       <div className="mt-1 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
   {/* 색 범례 — 기간마다 구간이 다르다. v2.29.0 에 머리줄에서 지도 아래로(1280 폭에서 머리줄이 두 줄이 됐다) */}
       <span className="flex items-center gap-0.5 text-[12px] text-text-muted" aria-label={`색 구간 ±${bins.join('·')}%`}>
@@ -560,7 +578,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
       </span>
         {/* 대상·기준 시각 — v2.29.0 에 머리줄에서 이 줄로(1280 폭에서 머리줄이 두 줄이 됐다) */}
         {data && (
-          <span className="ml-auto text-[12px] text-text-muted">
+          <span className="text-[12px] text-text-muted">
             {watchView ? `${marketLabel} 관심 종목` : `시총 상위 ${data.top ?? top}`} · {tiles.length < data.cells.length ? `${tiles.length}/${data.cells.length}` : data.cells.length}
             종목 ·{' '}
             {period === '1d'
@@ -572,6 +590,16 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         {watchView && watchSize === 'sqrt' && (
           <span className="text-[12px] text-warning">칸 크기는 시가총액의 제곱근에 비례합니다(크기 차이를 줄인 보기)</span>
         )}
+        {/* 넓은 화면(지도 영역 1200px 이상)은 글자, 좁으면 ⓘ — 문구를 줄이지 않는다 */}
+        <span className="ml-auto hidden text-[12px] text-text-muted @min-[1200px]:inline">{guide}</span>
+        <span
+          tabIndex={0}
+          title={guide}
+          aria-label={`지도 읽는 법: ${guide}`}
+          className="ml-auto cursor-help rounded px-1 text-[13px] text-text-muted hover:text-text-primary @min-[1200px]:hidden"
+        >
+          ⓘ
+        </span>
       </div>
       {watchView && data && data.missingCap.length > 0 && (
         <p className="mt-1 shrink-0 text-[12px] text-text-muted">
@@ -579,11 +607,6 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           뒤에서 채웁니다)
         </p>
       )}
-      <p className="mt-1 shrink-0 text-[12px] text-text-muted">
-        <b className="font-medium text-text-secondary">지난 기간의 결과입니다. 앞으로도 강할 것이라는 뜻이 아닙니다.</b> 색은{' '}
-        {period === '1d' ? '전 거래일 종가 대비 등락' : `최근 종가 ÷ ${periodInfo.bars}거래일 전 종가`}입니다.{watchView ? (watchSize === 'sqrt' ? ' 크기 = 시가총액의 제곱근(크기 차이 줄인 보기).' : ' 크기 = 시가총액.') : ' 파란 테두리는 관심 종목.'}
-        {period === '1d' && ' 1분마다 새로고침(화면을 보고 있을 때만).'}
-      </p>
     </div>
   );
 }
