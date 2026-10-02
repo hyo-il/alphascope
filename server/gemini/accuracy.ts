@@ -11,10 +11,10 @@
  */
 
 import { getDb, loadCandles } from '../db';
-import type { AgentOpinion } from '../../src/types/gemini';
+import type { AgentOpinion, GeminiTrigger } from '../../src/types/gemini';
 import type { Candle } from '../../src/types/toss';
 import { marketCloseMinutes, marketDate, marketMinutes } from '../../src/utils/marketDate';
-import { LEGACY_PROMPT_VERSION, ensureGeminiSchema } from './store';
+import { LEGACY_PROMPT_VERSION, ensureGeminiSchema, triggerOf } from './store';
 
 /** 채점 기준: 스윙 트레이딩이므로 5 거래일 뒤를 본다 */
 const HORIZON_DAYS = 5;
@@ -34,6 +34,7 @@ interface GeminiRow {
   confidence: number;
   price_at_analysis: number | null;
   prompt_version: string | null;
+  trigger: string | null;
 }
 
 interface ClaudeRow {
@@ -63,6 +64,11 @@ export interface ScoredAnalysis {
   priceAtAnalysis: number | null;
   /** 프롬프트 버전 — Gemini 만 (Claude 는 사람이 붙여 넣은 답이라 null) */
   promptVersion: string | null;
+  /**
+   * 출처(v2.30.0) — Gemini 만: auto(계좌 자동)·scheduled(지정 종목)·manual(바로 분석), 옛 값 해석은 `store.triggerOf` 그대로.
+   * ⚠️ **채점은 이 값을 보지 않는다** — 출처별 표(`byTrigger`)를 나눌 때만 쓴다.
+   */
+  trigger?: GeminiTrigger;
   priceAfter: number | null;
   changePercent: number | null;
   outcome: Outcome;
@@ -178,7 +184,7 @@ export function scoredAnalyses(limit = 500): ScoredAnalysis[] {
   const gemini = (
     db
       .prepare(
-        `SELECT id, symbol, created_at, signal, confidence, price_at_analysis, prompt_version
+        `SELECT id, symbol, created_at, signal, confidence, price_at_analysis, prompt_version, trigger
            FROM gemini_analysis ORDER BY created_at DESC LIMIT ?`,
       )
       .all(limit) as GeminiRow[]
@@ -192,6 +198,7 @@ export function scoredAnalyses(limit = 500): ScoredAnalysis[] {
       confidence: row.confidence,
       priceAtAnalysis: row.price_at_analysis,
       promptVersion: row.prompt_version ?? LEGACY_PROMPT_VERSION,
+      trigger: triggerOf(row.trigger ?? ''),
     }),
   );
 
@@ -368,6 +375,19 @@ export function byPromptVersion(items: ScoredAnalysis[]): Record<string, Accurac
   const versions = [...new Set(items.filter((i) => i.source === 'gemini').map((i) => i.promptVersion ?? LEGACY_PROMPT_VERSION))].sort();
   for (const v of versions) {
     out[v] = summarize(items.filter((i) => i.source === 'gemini' && (i.promptVersion ?? LEGACY_PROMPT_VERSION) === v));
+  }
+  return out;
+}
+
+/**
+ * 출처별 (v2.30.0, Gemini 만) — 같은 종목·같은 날 묶기도 **출처별로** 한다(버전별과 같은 방식: 그 출처의 행만 모아 `summarize`).
+ * 한 출처의 하루 묶기가 다른 출처의 기록을 덮지 않게 하려는 것이다. 채점·전체·버전별 숫자는 바뀌지 않는다.
+ */
+export function byTrigger(items: ScoredAnalysis[]): Partial<Record<GeminiTrigger, AccuracyStats>> {
+  const out: Partial<Record<GeminiTrigger, AccuracyStats>> = {};
+  for (const t of ['auto', 'scheduled', 'manual'] as const) {
+    const subset = items.filter((i) => i.source === 'gemini' && i.trigger === t);
+    if (subset.length) out[t] = summarize(subset);
   }
   return out;
 }

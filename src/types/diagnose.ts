@@ -1,3 +1,4 @@
+import type { GeminiTrigger } from './gemini';
 /**
  * 진단 리포트 — 서버(`server/diagnose`)와 화면(`components/diagnose`)이 함께 쓰는 형태.
  * 요약(`summary`)은 카드 다섯 장(5번째 뉴스 AI 판정은 v2.21.0 부터), 상세(`detail`)는 접이식 표로 그린다.
@@ -154,6 +155,8 @@ export interface DiagnoseDetail {
     claude?: { raw: number; total: number; judged: number; correct: number; rate: number };
     /** 프롬프트 버전별 (Gemini) — v2.15.0 이전 리포트에는 없다 */
     byVersion?: { version: string; total: number; judged: number; rate: number | null }[];
+    /** 출처별 (Gemini) — v2.30.0 이전 리포트에는 없다. 같은 종목·같은 날 묶기는 출처별로 */
+    bySource?: { source: GeminiTrigger; total: number; judged: number; rate: number | null }[];
     raw: number;
     total: number;
     judged: number;

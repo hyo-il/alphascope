@@ -40,6 +40,17 @@ export interface ModeratorVerdict {
 
 export type GeminiTrigger = 'auto' | 'scheduled' | 'manual';
 
+/**
+ * Gemini 분석의 출처 이름 (v2.23.0, v2.30.0 에 화면 파일에서 여기로 — 진단 리포트(서버)도 같은 이름을 쓴다).
+ * 배지·「AI 분석 기록」 필터·진단 출처별 표가 **같은 이름**을 쓴다.
+ * '자동 분석' 이라는 말은 쓰지 않는다 — 차트 탭의 버튼(바로 분석)을 자동으로 도는 것으로 오해하게 했다.
+ */
+export const GEMINI_TRIGGER_LABEL: Record<GeminiTrigger, string> = {
+  auto: '계좌 자동',
+  scheduled: '지정 종목',
+  manual: '바로 분석',
+};
+
 /** 저장되는 분석 한 건 */
 export interface GeminiAnalysis {
   id: number;

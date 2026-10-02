@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { useDiagnose } from '../../hooks/useDiagnose';
 import { useStockNames } from '../../hooks/useStockNames';
 import { modal, toast } from '../../store/uiStore';
 import type { DiagnoseDetail, DiagnoseSummary } from '../../types/diagnose';
+import { GEMINI_TRIGGER_LABEL } from '../../types/gemini';
 import StockName from '../common/StockName';
 import TrashIcon from '../common/TrashIcon';
 
@@ -48,11 +49,37 @@ const Grade = ({ g }: { g: string }) => <span className={GRADE_TONE[g] ?? ''}>{g
  * 표본 부족(weak)이거나 값이 없으면(옛 리포트) 판단 보류.
  */
 type Verdict = 'good' | 'bad' | 'hold';
-function verdictOf(weak: boolean | undefined, good: boolean | null): Verdict {
-  if (weak || good == null) return 'hold';
-  return good ? 'good' : 'bad';
+
+/**
+ * 판정 + 그 판정의 비교식 한 줄 (v2.30.0 — 배지 툴팁). **같은 값**으로 판정과 문구를 함께 만든다 —
+ * 문구를 따로 만들면 판정과 툴팁이 갈라진다.
+ *   value / base: 비교한 두 숫자, valueLabel / baseLabel: 이름, unit: 단위, sample: 표본 설명("채점 12건" 등)
+ */
+interface Judgement {
+  verdict: Verdict;
+  why: string;
 }
-const gt = (a: unknown, b: unknown) => (isNum(a) && isNum(b) ? a > b : null);
+function judge(o: {
+  weak: boolean | undefined;
+  /** 표본이 모자랄 때의 문구 — 카드마다 표본 기준이 다르다 */
+  weakWhy: string;
+  value: unknown;
+  base: unknown;
+  valueLabel: string;
+  baseLabel: string;
+  unit: string;
+  /** 부호를 붙이는 값(수익률·기대값) */
+  signed?: boolean;
+}): Judgement {
+  if (o.weak) return { verdict: 'hold', why: o.weakWhy };
+  if (!isNum(o.value) || !isNum(o.base)) return { verdict: 'hold', why: '비교할 숫자가 없는 리포트라 판단 보류' };
+  const fmt = (v: number) => `${o.signed && v > 0 ? '+' : ''}${v}${o.unit}`;
+  const good = o.value > o.base;
+  return {
+    verdict: good ? 'good' : 'bad',
+    why: `${o.valueLabel} ${fmt(o.value)} ${good ? '>' : '≤'} ${o.baseLabel} ${fmt(o.base)}`,
+  };
+}
 
 /** 배지 — 색만으로 구분하지 않는다(기호 + 글자, v2.28.0 기호 추가). 위 「이 화면은 무엇인가요?」 의 설명도 이 값을 쓴다 */
 const VERDICT_STYLE: Record<Verdict, { mark: string; label: string; badge: string; border: string }> = {
@@ -137,7 +164,7 @@ function Card({
   title,
   hint,
   weak,
-  verdict,
+  judgement,
   numbers,
   conclusion,
 }: {
@@ -145,19 +172,31 @@ function Card({
   /** 무엇을 묻나 · 어떻게 읽나 — 한 줄 (v2.28.0) */
   hint: string;
   weak: boolean;
-  verdict: Verdict;
+  /** 판정과 그 비교식 (v2.30.0) — 배지 툴팁이 `why` 를 보인다 */
+  judgement: Judgement;
   numbers: { label: string; value: ReactNode }[];
   conclusion: string;
 }) {
+  const { verdict, why } = judgement;
   const style = VERDICT_STYLE[verdict];
+  const whyId = useId();
   return (
     <div className={`flex flex-col rounded-lg border bg-bg-secondary p-3 ${style.border}`}>
       <div className="mb-2 flex items-start gap-2">
         <p className="text-xs font-semibold text-text-primary">{title}</p>
         {/* 예전 "표본 부족" 배지와 합쳤다 — 표본이 모자라면 판정 없이 회색 */}
-        <span className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-[12px] ${style.badge}`}>
+        {/* 마우스를 올리면(키보드 포커스로도) 이 카드의 실제 비교식 — 판정과 같은 값에서 만든다 (v2.30.0) */}
+        <span
+          tabIndex={0}
+          title={why}
+          aria-describedby={whyId}
+          className={`ml-auto shrink-0 cursor-help rounded px-1.5 py-0.5 text-[12px] ${style.badge}`}
+        >
           {style.mark} {style.label}
           {verdict === 'hold' && weak ? ' · 표본 부족' : ''}
+        </span>
+        <span id={whyId} className="sr-only">
+          {why}
         </span>
       </div>
       {/* 읽는 법 한 줄 — 배지 옆 좁은 칸에 두면 세로로 길어져 카드 전체 폭에 둔다 */}
@@ -185,7 +224,16 @@ function Cards({ s }: { s: DiagnoseSummary }) {
         title="1. 관심 종목이 스윙에서 부적합한 것은 정상인가?"
         hint={'스윙 추천이 BUY 를 낸 날 샀다면 20거래일 뒤 평균 몇 % 였는지 봅니다. 플러스면 좋은 신호입니다(기준선 = 0).'}
         weak={s.swing.weak}
-        verdict={verdictOf(s.swing.weak, gt(s.swing.forward?.d20, 0))}
+        judgement={judge({
+          weak: s.swing.weak,
+          weakWhy: `과거 BUY 이상 ${s.swing.buyTotal}일 — 30일 미만이라 판단 보류`,
+          value: s.swing.forward?.d20,
+          base: 0,
+          valueLabel: 'BUY 뒤 20일 평균',
+          baseLabel: '기준선',
+          unit: '%',
+          signed: true,
+        })}
         numbers={[
           { label: `과거 ${s.swing.window}거래일 BUY 이상`, value: `${s.swing.buyTotal}일 (${s.swing.buyRate}%)` },
           { label: 'BUY 뒤 20일 평균', value: <span className={tone(s.swing.forward?.d20)}>{signed(s.swing.forward?.d20)}</span> },
@@ -197,7 +245,16 @@ function Cards({ s }: { s: DiagnoseSummary }) {
         title="2. 목표를 3% 로 작게 잡으면 달라지나?"
         hint={'아무 날이나 종가에 사서 10거래일 안에 +3% / −1.5% 중 먼저 닿는 쪽으로 정리했다면 한 번에 평균 몇 %p 였는지 봅니다(수수료 포함, 둘 다 안 닿으면 0). 0 보다 크면 좋음, SPY 는 시장 비교용입니다.'}
         weak={s.target.weak}
-        verdict={verdictOf(s.target.weak, gt(s.target.avgExp, 0))}
+        judgement={judge({
+          weak: s.target.weak,
+          weakWhy: '계산한 종목이 없어 판단 보류',
+          value: s.target.avgExp,
+          base: 0,
+          valueLabel: '기대값(비용 반영)',
+          baseLabel: '기준선',
+          unit: '%p',
+          signed: true,
+        })}
         numbers={[
           { label: '+3%/−1.5%/10일 목표 먼저', value: plain(s.target.avgHit) },
           { label: '기대값 (비용 반영)', value: <span className={tone(s.target.avgExp)}>{signed(s.target.avgExp, '%p')}</span> },
@@ -209,7 +266,15 @@ function Cards({ s }: { s: DiagnoseSummary }) {
         title="3. 급등 탐지의 주기 예측이 맞나?"
         hint={'급등 탐지가 "다음 급등일" 을 맞힌 비율을, 우연히 맞을 비율(기준선)과 비교합니다.'}
         weak={s.surge.weak}
-        verdict={verdictOf(s.surge.weak, gt(s.surge.hitRate, s.surge.baseline))}
+        judgement={judge({
+          weak: s.surge.weak,
+          weakWhy: `주기 적중 표본 ${s.surge.cases}건 — 30건 미만이라 판단 보류`,
+          value: s.surge.hitRate,
+          base: s.surge.baseline,
+          valueLabel: '주기 적중',
+          baseLabel: '우연 기준선',
+          unit: '%',
+        })}
         numbers={[
           { label: `주기 적중 (${s.surge.cases}건)`, value: `${s.surge.hitRate}% vs 우연 ${s.surge.baseline}%` },
           { label: `급등 다음 날 매수 (${s.surge.chase.n}건) 5일`, value: <span className={tone(s.surge.chase.d5)}>{signed(s.surge.chase.d5)}</span> },
@@ -221,7 +286,15 @@ function Cards({ s }: { s: DiagnoseSummary }) {
         title="4. Gemini 분석은 정확한가? (Gemini 만)"
         hint={'Gemini 의 매수·매도 판단이 5거래일 뒤 맞은 비율을, 그냥 "오른다" 고 찍었을 때(5일 뒤 상승 비율)와 비교합니다.'}
         weak={s.ai.weak}
-        verdict={verdictOf(s.ai.weak, gt(s.ai.rate, s.ai.baseline))}
+        judgement={judge({
+          weak: s.ai.weak,
+          weakWhy: `채점 ${s.ai.judged}건 — 30건 미만이라 판단 보류`,
+          value: s.ai.rate,
+          base: s.ai.baseline,
+          valueLabel: '적중',
+          baseLabel: '기준선(5일 뒤 상승 비율)',
+          unit: '%',
+        })}
         numbers={[
           { label: '적중률', value: `${s.ai.rate}% (채점 ${s.ai.judged}건)` },
           { label: '기준선 (5일 뒤 상승 비율)', value: `${s.ai.baseline}%` },
@@ -237,7 +310,15 @@ function Cards({ s }: { s: DiagnoseSummary }) {
           title="5. 뉴스 AI 판정(긍정·부정)은 맞았나?"
           hint={'뉴스 긍정·부정 판정이 5거래일 뒤 주가 방향과 맞은 비율을, 그냥 "오른다" 고 찍었을 때와 비교합니다.'}
           weak={s.news.weak}
-          verdict={verdictOf(s.news.weak, gt(s.news.d5?.rate, s.news.d5?.baseline))}
+          judgement={judge({
+            weak: s.news.weak,
+            weakWhy: `5일 채점 ${s.news.d5?.judged ?? 0}건 — 30건 미만이라 판단 보류`,
+            value: s.news.d5?.rate,
+            base: s.news.d5?.baseline,
+            valueLabel: '5거래일 뒤 적중',
+            baseLabel: '기준선(무조건 상승)',
+            unit: '%',
+          })}
           numbers={[
             { label: '5거래일 뒤 적중', value: `${s.news.d5.rate}% (채점 ${s.news.d5.judged}건)` },
             { label: '기준선 (무조건 상승)', value: `${s.news.d5.baseline}%` },
@@ -437,6 +518,18 @@ function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
           <Table
             headers={['프롬프트 버전(Gemini)', '건수', '채점', '적중률']}
             rows={d.gemini.byVersion.map((v) => [v.version, v.total, v.judged, v.rate == null ? '—' : `${v.rate}%`])}
+          />
+        )}
+        {/* 출처별 (v2.30.0) — 같은 종목·같은 날 묶기는 출처별로. 채점 30건 미만이면 「표본 부족」 */}
+        {d.gemini.bySource && d.gemini.bySource.length > 0 && (
+          <Table
+            headers={['출처(Gemini)', '건수', '채점', '적중률']}
+            rows={d.gemini.bySource.map((v) => [
+              GEMINI_TRIGGER_LABEL[v.source],
+              v.total,
+              v.judged,
+              v.rate == null ? '—' : `${v.rate}%${v.judged < 30 ? ' · 표본 부족' : ''}`,
+            ])}
           />
         )}
         <Table

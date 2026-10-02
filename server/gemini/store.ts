@@ -86,7 +86,7 @@ type Row = {
 };
 
 /** 옛 행은 'auto'·'manual' 둘뿐이다 — 모르는 값은 예전처럼 auto 로 읽는다 */
-function triggerOf(value: string): GeminiTrigger {
+export function triggerOf(value: string): GeminiTrigger {
   return value === 'manual' || value === 'scheduled' ? value : 'auto';
 }
 

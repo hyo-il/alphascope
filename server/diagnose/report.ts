@@ -44,9 +44,10 @@ import {
   firstTouchFrequency,
   type FreqRow,
 } from '../analysis/targetHit';
-import { SCORING_RULE, byPromptVersion, dailyScoredAnalyses, scoredAnalyses } from '../gemini/accuracy';
+import { SCORING_RULE, byPromptVersion, byTrigger, dailyScoredAnalyses, scoredAnalyses } from '../gemini/accuracy';
 import { marketDate, marketMonth } from '../../src/utils/marketDate';
 import type { DiagnoseSummary } from '../../src/types/diagnose';
+import { GEMINI_TRIGGER_LABEL as TRIGGER_LABEL } from '../../src/types/gemini';
 import { saveReport } from './store';
 
 const DAY_MS = 86_400_000;
@@ -570,6 +571,8 @@ async function geminiAccuracy(symbols: string[]) {
 
   // 프롬프트 버전별 (Gemini 만) — 같은 종목·같은 날 묶기도 버전별로 한다
   const versions = byPromptVersion(scoredAnalyses(500));
+  // 출처별 (v2.30.0) — 묶기도 출처별로. 이름은 GEMINI_TRIGGER_LABEL 한 곳(src/types/gemini.ts)
+  const sources = byTrigger(scoredAnalyses(500));
 
   return {
     raw,
@@ -580,6 +583,14 @@ async function geminiAccuracy(symbols: string[]) {
       judged: v.scored,
       rate: v.accuracy === null ? null : round2(v.accuracy),
     })),
+    bySource: (['auto', 'scheduled', 'manual'] as const)
+      .filter((t) => sources[t])
+      .map((t) => ({
+        source: t,
+        total: sources[t]!.total,
+        judged: sources[t]!.scored,
+        rate: sources[t]!.accuracy === null ? null : round2(sources[t]!.accuracy!),
+      })),
     total: scored.length,
     judged: judged.length,
     correct: judged.filter((s) => s.outcome === 'correct').length,
@@ -906,6 +917,10 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
   md.push('');
   md.push(table(['프롬프트 버전(Gemini)', '건수', '채점', '적중률'],
     gemini.byVersion.map((v) => [v.version, v.total, v.judged, v.rate === null ? '—' : `${v.rate}%`])));
+  md.push('');
+  md.push(table(['출처(Gemini)', '건수', '채점', '적중률'],
+    (gemini.bySource ?? []).map((v) => [TRIGGER_LABEL[v.source], v.total, v.judged,
+      v.rate === null ? '—' : `${v.rate}%${v.judged < MIN_SAMPLE ? ' (표본 부족)' : ''}`])));
   md.push('');
   md.push(table(['신호', '건수', '적중', '적중률'],
     gemini.bySignal.map((b) => [b.signal, b.n, b.correct, `${b.rate}%`])));
