@@ -11,6 +11,15 @@
  * 기간(v2.19.0): `period=1w|1m|3m` 은 색이 **마지막 완성 종가 ÷ N거래일 전 종가 − 1** 이 된다(5·21·63봉).
  * 종가 기준이라 **종목·시장 날짜·마감 전후별 1회**만 계산한다(오늘 봉은 정규장 마감 뒤에만 완성으로 본다).
  * 응답에 `sectors[]`(섹터 강세 순위)를 붙인다 — ⚠️ **설명용 통계**다. 판정·자동매매에 쓰지 않는다(검증 전).
+ *
+ * 보기(v2.27.0):
+ * - `view=market`(기본) — **유니버스 상위 100 을 그대로 만들어 캐시**하고, 응답할 때 `top`(30·50·100, 기본 50)만큼
+ *   유니버스 시총 순으로 잘라 `sectorStats()` 를 다시 낸다. ⚠️ 토스 `/prices`·일봉 호출 수는 N 과 무관하다(언제나 100 기준).
+ *   상위 N 밖의 관심 종목은 넣지 않는다(예전에는 100 밖 관심 종목을 더했다) — 그것은 「내 관심 종목」 지도가 맡는다.
+ *   상위 N 안의 관심 종목 표시(`watch`)는 캐시가 아니라 응답 때 붙인다(별을 누르면 다음 응답부터 보인다).
+ * - `view=watch` — 그 시장의 관심 종목만. `top` 은 무시. 크기 = 유니버스 시총 → `stock_profiles.market_cap`.
+ *   크기를 모르는 종목은 `missingCap` 으로 돌려준다(화면이 지도 아래에 적는다). 캐시 키에 관심 종목 목록이 들어간다.
+ * - 분야(섹터) 거르기는 화면에서만 한다 — 서버는 섹터를 모두 돌려준다.
  */
 
 import { getDb } from './db';
@@ -32,6 +41,7 @@ import {
   type HeatmapPeriod,
   type HeatmapResponse,
   type HeatmapSector,
+  type HeatmapView,
 } from '../src/types/heatmap';
 
 const CACHE_MS = 60_000;
@@ -71,25 +81,28 @@ export function profiles(symbols: string[]): Map<string, ProfileRow> {
   return new Map(rows.map((r) => [r.symbol, r]));
 }
 
-/** 대상 종목과 유니버스 시가총액 */
-function targets(market: HeatmapMarket): { symbol: string; cap: number | null; watch: boolean }[] {
-  const out = new Map<string, { symbol: string; cap: number | null; watch: boolean }>();
+interface Target {
+  symbol: string;
+  cap: number | null;
+}
+
+/** 유니버스(시장별 시총 상위 100)와 그 시가총액 — 파일이 없으면 빈 목록 */
+function universeOf(market: HeatmapMarket): Target[] {
   try {
     const u = readUniverse();
-    for (const e of market === 'us' ? u.us : u.kr) out.set(e.symbol, { symbol: e.symbol, cap: e.marketCap, watch: false });
+    return (market === 'us' ? u.us : u.kr).map((e) => ({ symbol: e.symbol, cap: e.marketCap }));
   } catch {
-    /* 유니버스 파일이 없으면 관심 종목만 */
+    return [];
   }
+}
+
+/** 그 시장의 관심 종목(저장 순서) */
+function watchOf(market: HeatmapMarket): string[] {
   try {
-    for (const s of watchlistSymbols()) {
-      if (isKrSymbol(s) !== (market === 'kr')) continue;
-      const found = out.get(s);
-      out.set(s, { symbol: s, cap: found?.cap ?? null, watch: true });
-    }
+    return watchlistSymbols().filter((s) => isKrSymbol(s) === (market === 'kr'));
   } catch {
-    /* 관심 목록이 없으면 유니버스만 */
+    return [];
   }
-  return [...out.values()];
 }
 
 async function lastPrices(symbols: string[]): Promise<Map<string, number>> {
@@ -229,11 +242,16 @@ export function sectorStats(cells: HeatmapCell[]): Pick<HeatmapResponse, 'sector
 
 // ── 응답 ────────────────────────────────────────────────────────────────────
 
-const cache = new Map<string, { at: number; data: HeatmapResponse }>();
-const inflight = new Map<string, Promise<HeatmapResponse>>();
 
-async function build(market: HeatmapMarket, period: HeatmapPeriod, now: number): Promise<HeatmapResponse> {
-  const list = targets(market);
+interface Built {
+  cells: HeatmapCell[];
+  /** 섹터를 아직 모르는 종목 */
+  missing: Set<string>;
+  missingCap: { symbol: string; name: string | null }[];
+  asOf: string;
+}
+
+async function build(list: Target[], period: HeatmapPeriod, now: number): Promise<Built> {
   const symbols = list.map((t) => t.symbol);
   const prof = profiles(symbols);
   const bars = HEATMAP_PERIODS.find((p) => p.id === period)!.bars;
@@ -241,12 +259,18 @@ async function build(market: HeatmapMarket, period: HeatmapPeriod, now: number):
   const prices = period === '1d' ? await lastPrices(symbols) : new Map<string, number>();
 
   const cells: HeatmapCell[] = [];
-  const missing: string[] = [];
+  const missing = new Set<string>();
+  const missingCap: Built['missingCap'] = [];
   for (const t of list) {
     const p = prof.get(t.symbol);
-    if (!p?.sector) missing.push(t.symbol);
+    if (!p?.sector) missing.add(t.symbol);
     const cap = t.cap ?? p?.market_cap ?? null;
-    if (!cap || cap <= 0) continue; // 크기를 모르면 그릴 수 없다
+    if (!cap || cap <= 0) {
+      // 크기를 모르면 그릴 수 없다 — 이름만 돌려주고, 프로필 채우기가 시총도 함께 받는다
+      missing.add(t.symbol);
+      missingCap.push({ symbol: t.symbol, name: findStock(t.symbol)?.name ?? null });
+      continue;
+    }
     let price: number | null;
     let changeRate: number | null;
     if (period === '1d') {
@@ -266,27 +290,73 @@ async function build(market: HeatmapMarket, period: HeatmapPeriod, now: number):
       price,
       changeRate,
       currency: currencyOfSymbol(t.symbol, findStock(t.symbol)?.market),
-      watch: t.watch,
+      watch: false,
     });
   }
-  if (missing.length) fillMissingProfiles(missing);
-  return { market, period, cells, ...sectorStats(cells), asOf: new Date(now).toISOString(), missingSectors: missing.length };
+  if (missing.size) fillMissingProfiles([...missing]);
+  return { cells, missing, missingCap, asOf: new Date(now).toISOString() };
 }
 
-export async function heatmap(market: HeatmapMarket, period: HeatmapPeriod = '1d', now = Date.now()): Promise<HeatmapResponse> {
-  const key = `${market}|${period}`;
+const cache = new Map<string, { at: number; data: Built }>();
+const inflight = new Map<string, Promise<Built>>();
+
+/** 같은 키는 한 번만 만든다(두 화면이 동시에 불러도) — 1d 60초 · 그 밖 10분 */
+async function cached(key: string, period: HeatmapPeriod, now: number, make: () => Promise<Built>): Promise<Built> {
+  const ttl = period === '1d' ? CACHE_MS : PERIOD_CACHE_MS;
   const hit = cache.get(key);
-  if (hit && now - hit.at < (period === '1d' ? CACHE_MS : PERIOD_CACHE_MS)) return hit.data;
-  // 두 화면이 동시에 불러도 한 번만 만든다
+  if (hit && now - hit.at < ttl) return hit.data;
   let pending = inflight.get(key);
   if (!pending) {
-    pending = build(market, period, now)
+    pending = make()
       .then((data) => {
-        cache.set(key, { at: Date.now(), data });
+        const at = Date.now();
+        cache.set(key, { at, data });
+        // 관심 목록이 바뀌면 키가 바뀐다 — 오래된 키를 남겨 두지 않는다
+        for (const [k, v] of cache) if (at - v.at > PERIOD_CACHE_MS) cache.delete(k);
         return data;
       })
       .finally(() => inflight.delete(key));
     inflight.set(key, pending);
   }
   return pending;
+}
+
+export const HEATMAP_TOPS = [30, 50, 100] as const;
+export type HeatmapTop = (typeof HEATMAP_TOPS)[number];
+
+export async function heatmap(
+  market: HeatmapMarket,
+  period: HeatmapPeriod = '1d',
+  options: { view?: HeatmapView; top?: HeatmapTop } = {},
+  now = Date.now(),
+): Promise<HeatmapResponse> {
+  const view = options.view ?? 'market';
+  const watch = watchOf(market);
+  const watchSet = new Set(watch);
+
+  if (view === 'watch') {
+    const caps = new Map(universeOf(market).map((t) => [t.symbol, t.cap]));
+    const built = await cached(`watch|${market}|${period}|${watch.join(',')}`, period, now, () =>
+      build(watch.map((symbol) => ({ symbol, cap: caps.get(symbol) ?? null })), period, now),
+    );
+    const cells = built.cells.map((c) => ({ ...c, watch: true }));
+    return {
+      market, period, view, top: null, cells, ...sectorStats(cells), asOf: built.asOf,
+      missingSectors: cells.filter((c) => built.missing.has(c.symbol)).length,
+      missingCap: built.missingCap,
+    };
+  }
+
+  const top = options.top ?? 50;
+  // 언제나 상위 100 전체를 만든다 — N 을 바꿔도 토스·yfinance 호출이 늘지 않는다
+  const built = await cached(`market|${market}|${period}`, period, now, () => build(universeOf(market), period, now));
+  const cells = [...built.cells]
+    .sort((a, b) => b.marketCap - a.marketCap)
+    .slice(0, top)
+    .map((c) => ({ ...c, watch: watchSet.has(c.symbol) }));
+  return {
+    market, period, view, top, cells, ...sectorStats(cells), asOf: built.asOf,
+    missingSectors: cells.filter((c) => built.missing.has(c.symbol)).length,
+    missingCap: [],
+  };
 }

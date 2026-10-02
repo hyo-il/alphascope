@@ -159,7 +159,7 @@ import { getEarningsDate, startEarningsScheduler } from './earningsCalendar';
 import { startMarketCalendarScheduler } from './marketCalendar';
 import { calendarEvents } from './calendarService';
 import { previewProfile } from './swingPreview';
-import { heatmap } from './heatmap';
+import { HEATMAP_TOPS, heatmap } from './heatmap';
 import { liveRanking } from './liveRanking';
 import { marketDate } from '../src/utils/marketDate';
 import { analyzeNews, getNews } from './news';
@@ -1465,7 +1465,7 @@ app.get('/api/rankings/live', async (req, res) => {
 });
 
 // -- 종목 지도 (v2.18.0) --------------------------------------------------------
-// 유니버스(시장별 시총 상위 100) + 관심 종목. 크기 = 시총, 색 = 기간 수익률(1d 는 전 거래일 종가 대비). 1d 60초 · 그 밖 10분 캐시.
+// 유니버스(시장별 시총 상위 100 중 top N) 또는 관심 종목(view=watch). 크기 = 시총, 색 = 기간 수익률(1d 는 전 거래일 종가 대비). 1d 60초 · 그 밖 10분 캐시.
 // 응답의 sectors[] 는 설명용 섹터 강세 순위 — 판정·자동매매에 쓰지 않는다.
 
 app.get('/api/heatmap', async (req, res) => {
@@ -1474,8 +1474,13 @@ app.get('/api/heatmap', async (req, res) => {
   if (req.query.period !== undefined && period !== req.query.period) {
     return res.status(400).json({ error: 'period 는 1d · 1w · 1m · 3m 중 하나입니다.' });
   }
+  // v2.27.0 — view=market|watch, top=30|50|100(시장 보기만, 기본 50). 상위 100 캐시에서 잘라 내므로 토스 호출은 N 과 무관하다
+  const view = req.query.view === undefined ? 'market' : (['market', 'watch'] as const).find((v) => v === req.query.view);
+  if (!view) return res.status(400).json({ error: 'view 는 market · watch 중 하나입니다.' });
+  const top = req.query.top === undefined ? 50 : HEATMAP_TOPS.find((n) => String(n) === req.query.top);
+  if (!top) return res.status(400).json({ error: 'top 은 30 · 50 · 100 중 하나입니다.' });
   try {
-    res.json(await heatmap(market, period));
+    res.json(await heatmap(market, period, { view, top }));
   } catch (e) {
     fail(res, e);
   }

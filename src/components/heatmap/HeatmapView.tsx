@@ -9,6 +9,7 @@ import {
   type HeatmapResponse,
 } from '../../types/heatmap';
 import SectorRanking from './SectorRanking';
+import HeatmapViewMenu, { TOP_CHOICES, type TopChoice } from './HeatmapViewMenu';
 
 /**
  * 🗺 종목 지도 (v2.18.0) — 시장 온도를 한눈에. 네모 크기 = 시가총액, 색 = 기간 수익률, 섹터로 묶는다.
@@ -24,6 +25,78 @@ import SectorRanking from './SectorRanking';
 
 const REFRESH_MS = 60_000;
 const SECTOR_HEADER = 16;
+
+// ── 마지막 보기 기억 (v2.27.0) ──────────────────────────────────────────────
+// 이 기기·화면 크기에 딸린 설정이라 localStorage 다(서버 user_data 가 아니다).
+// 분야는 **끈 것**을 적는다 — 켠 것을 적으면 나중에 새 분야(섹터를 새로 채운 종목 등)가 생겼을 때 조용히 빠진다.
+
+const VIEW_KEY = 'alphascope.heatmapView';
+
+interface SavedView {
+  market: HeatmapMarket;
+  period: HeatmapPeriod;
+  top: TopChoice;
+  /** 끈 분야 */
+  off: string[];
+}
+
+const DEFAULT_VIEW: SavedView = { market: 'us', period: '1d', top: 50, off: [] };
+
+function readView(): SavedView {
+  try {
+    const raw = JSON.parse(localStorage.getItem(VIEW_KEY) ?? 'null') as Partial<SavedView> | null;
+    if (!raw || typeof raw !== 'object') return DEFAULT_VIEW;
+    return {
+      market: raw.market === 'kr' ? 'kr' : 'us',
+      period: HEATMAP_PERIODS.some((p) => p.id === raw.period) ? (raw.period as HeatmapPeriod) : '1d',
+      top: TOP_CHOICES.find((n) => n === raw.top) ?? 50,
+      off: Array.isArray(raw.off) ? raw.off.filter((x): x is string => typeof x === 'string') : [],
+    };
+  } catch {
+    return DEFAULT_VIEW;
+  }
+}
+
+function writeView(v: SavedView) {
+  try {
+    localStorage.setItem(VIEW_KEY, JSON.stringify(v));
+  } catch {
+    /* 저장이 막힌 브라우저 — 이번 화면에서만 유지 */
+  }
+}
+
+// ── 칸 글자 맞추기 (v2.27.0) ────────────────────────────────────────────────
+// 최소 12px(앱 글자 규칙) · 최대 20px. 12px 로도 칸에 안 들어가면 글자를 **그리지 않는다** — 「AA…」 처럼 잘린 글자는
+// 다른 종목으로 읽힌다. 마우스를 올리면 툴팁이 이름을 보여 준다. 폭은 실제 글꼴로 잰다(canvas measureText).
+
+const LABEL_MIN = 12;
+const LABEL_MAX = 20;
+const RATE_SIZE = 12;
+/** 칸 테두리(1px×2) + 좌우 여백(2px×2) */
+const TILE_PAD_X = 6;
+const LINE = 1.2;
+
+let measureCtx: CanvasRenderingContext2D | null = null;
+let measureFamily = '';
+function textWidth(text: string, size: number, weight = 600): number {
+  if (!measureCtx) {
+    measureCtx = document.createElement('canvas').getContext('2d');
+    measureFamily = getComputedStyle(document.body).fontFamily || 'sans-serif';
+  }
+  if (!measureCtx) return text.length * size * 0.65;
+  measureCtx.font = `${weight} ${size}px ${measureFamily}`;
+  return measureCtx.measureText(text).width;
+}
+
+/** 칸에 맞는 이름 글자 크기와 등락률 줄을 그릴지 — 이름이 안 들어가면 null */
+function fitLabel(label: string, rate: string, w: number, h: number): { size: number; rate: boolean } | null {
+  const room = w - TILE_PAD_X;
+  let size = Math.max(LABEL_MIN, Math.min(LABEL_MAX, Math.floor(Math.sqrt(w * h) / 6)));
+  while (size >= LABEL_MIN && (textWidth(label, size) > room || size * LINE > h - 2)) size -= 1;
+  if (size < LABEL_MIN) return null;
+  const showRate = size * LINE + RATE_SIZE * LINE <= h - 4 && textWidth(rate, RATE_SIZE, 400) <= room;
+  return { size, rate: showRate };
+}
 
 /** 기간별 색 구간(%) — 네 단계. 1일 ±0.5·1·2·3 / 1주 ±1·2·4·6 / 1·3개월 ±2·5·10·15 */
 const BINS: Record<HeatmapPeriod, [number, number, number, number]> = {
@@ -64,6 +137,7 @@ const pct = (v: number | null) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.t
 interface Tile {
   rect: Rect;
   cell: HeatmapCell;
+  fit: { size: number; rate: boolean } | null;
 }
 interface SectorBox {
   rect: Rect;
@@ -71,8 +145,11 @@ interface SectorBox {
 }
 
 export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbol: string) => void }) {
-  const [market, setMarket] = useState<HeatmapMarket>('us');
-  const [period, setPeriod] = useState<HeatmapPeriod>('1d');
+  const [saved] = useState(readView);
+  const [market, setMarket] = useState<HeatmapMarket>(saved.market);
+  const [period, setPeriod] = useState<HeatmapPeriod>(saved.period);
+  const [top, setTop] = useState<TopChoice>(saved.top);
+  const [off, setOff] = useState<Set<string>>(() => new Set(saved.off));
   const [data, setData] = useState<HeatmapResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -86,7 +163,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
     const mine = ++sequence.current;
     setLoading(true);
     try {
-      const r = await fetch(`/api/heatmap?market=${market}&period=${period}`);
+      const r = await fetch(`/api/heatmap?market=${market}&period=${period}&view=market&top=${top}`);
       const payload = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(payload.error ?? `요청 실패 (${r.status})`);
       if (mine === sequence.current) {
@@ -98,12 +175,20 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
     } finally {
       if (mine === sequence.current) setLoading(false);
     }
-  }, [market, period]);
+  }, [market, period, top]);
+
+  useEffect(() => {
+    writeView({ market, period, top, off: [...off] });
+  }, [market, period, top, off]);
 
   // 처음 + (1일만) 60초마다 — 탭이 숨어 있으면 쉬고, 다시 보이면 곧바로 한 번
+  // 상위 N 만 바꿀 때는 보던 지도를 남긴 채 다시 받는다(서버가 같은 100 캐시에서 자른다 — 금방 온다)
   useEffect(() => {
     setData(null);
     setFocusSector(null);
+  }, [market, period]);
+
+  useEffect(() => {
     void load();
     const timer =
       period === '1d'
@@ -128,12 +213,30 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
     return () => ro.disconnect();
   }, []);
 
+  // 지금 데이터의 분야(종목 수 많은 순)와, 실제로 끈 분야 — 끈 분야가 지금 데이터의 분야 전부를 덮으면 거르지 않는다(빈 지도 방지)
+  const sectorCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const c of data?.cells ?? []) m.set(c.sector, (m.get(c.sector) ?? 0) + 1);
+    return [...m.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [data]);
+  const activeOff = useMemo(
+    () => (sectorCounts.length && sectorCounts.every((s) => off.has(s.name)) ? new Set<string>() : off),
+    [sectorCounts, off],
+  );
+
+  useEffect(() => {
+    if (focusSector && activeOff.has(focusSector)) setFocusSector(null);
+  }, [focusSector, activeOff]);
+
   const { tiles, sectors } = useMemo(() => {
     const tiles: Tile[] = [];
     const sectors: SectorBox[] = [];
     if (!data || size.w <= 0 || size.h <= 0) return { tiles, sectors };
     const groups = new Map<string, HeatmapCell[]>();
-    for (const c of data.cells) (groups.get(c.sector) ?? groups.set(c.sector, []).get(c.sector)!).push(c);
+    for (const c of data.cells) {
+      if (activeOff.has(c.sector)) continue;
+      (groups.get(c.sector) ?? groups.set(c.sector, []).get(c.sector)!).push(c);
+    }
     const sectorLayout = squarify(
       [...groups.entries()].map(([name, cells]) => ({ value: cells.reduce((a, c) => a + c.marketCap, 0), data: { name, cells } })),
       { x: 0, y: 0, w: size.w, h: size.h },
@@ -147,11 +250,12 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         h: Math.max(0, s.rect.h - SECTOR_HEADER - 1),
       };
       for (const t of squarify(s.data.cells.map((c) => ({ value: c.marketCap, data: c })), inner)) {
-        tiles.push({ rect: t.rect, cell: t.data });
+        tiles.push({ rect: t.rect, cell: t.data, fit: fitLabel(tileLabel(t.data), pct(t.data.changeRate), t.rect.w, t.rect.h) });
       }
     }
     return { tiles, sectors };
-  }, [data, size]);
+  }, [data, size, activeOff]);
+  const labeled = tiles.filter((t) => t.fit).length;
 
   const periodInfo = HEATMAP_PERIODS.find((p) => p.id === period)!;
   const marketLabel = market === 'us' ? '미국' : '국내';
@@ -193,9 +297,17 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
             </button>
           ))}
         </div>
+        <HeatmapViewMenu
+          top={top}
+          onTopChange={setTop}
+          sectors={sectorCounts}
+          off={activeOff}
+          onOffChange={setOff}
+        />
         {data && (
           <span className="text-[12px] text-text-muted">
-            시총 상위 100 + 관심 종목 · {data.cells.length}종목 ·{' '}
+            시총 상위 {data.top ?? top} · {tiles.length < data.cells.length ? `${tiles.length}/${data.cells.length}` : data.cells.length}
+            종목 ·{' '}
             {period === '1d'
               ? `${new Date(data.asOf).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준`
               : `최근 종가 기준 ${periodInfo.bars}거래일`}
@@ -240,7 +352,12 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
       )}
 
       <div className="flex min-h-0 flex-1 gap-2">
-        <div ref={box} className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-bg-secondary">
+        <div
+          ref={box}
+          data-tiles={tiles.length}
+          data-labeled={labeled}
+          className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-bg-secondary"
+        >
           {!data && !error && (
             <p className="p-4 text-xs text-text-muted">
               지도를 그리는 중… {period === '1d' ? '(처음은 전 거래일 종가를 모으느라 조금 걸립니다)' : '(처음은 일봉을 모으느라 조금 걸립니다)'}
@@ -265,9 +382,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
               )}
             </div>
           ))}
-          {tiles.map(({ rect, cell }) => {
-            const big = rect.w > 46 && rect.h > 30;
-            const medium = rect.w > 30 && rect.h > 16;
+          {tiles.map(({ rect, cell, fit }) => {
             const dimmed = focusSector !== null && focusSector !== cell.sector;
             return (
               <button
@@ -285,17 +400,15 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
                 style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h, textShadow: TILE_TEXT_SHADOW }}
                 aria-label={`${cell.name ?? cell.symbol} ${pct(cell.changeRate)}`}
               >
-                {medium && (
-                  // ⚠️ 칸 크기에 맞춰 계산하는 글자라 v2.25.0(최소 12px)에서 바꾸지 않았다 — 최솟값을 올리면 작은 칸에서 넘친다.
-                  // 6차(맵 종목 수 조건)에서 종목이 줄어든 뒤 다시 본다.
+                {fit && (
                   <span
-                    className="max-w-full truncate px-0.5 font-semibold text-text-primary"
-                    style={{ fontSize: Math.max(9, Math.min(20, Math.sqrt(rect.w * rect.h) / 6)) }}
+                    className="max-w-full whitespace-nowrap px-0.5 font-semibold leading-[1.2] text-text-primary"
+                    style={{ fontSize: fit.size }}
                   >
                     {tileLabel(cell)}
                   </span>
                 )}
-                {big && <span className="text-[12px] tabular-nums text-text-primary/90">{pct(cell.changeRate)}</span>}
+                {fit?.rate && <span className="text-[12px] leading-[1.2] tabular-nums text-text-primary">{pct(cell.changeRate)}</span>}
               </button>
             );
           })}
@@ -330,11 +443,13 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         <aside className="flex w-72 shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-bg-secondary">
           <div className="shrink-0 border-b border-border px-2.5 py-1.5">
             <p className="text-[13px] font-semibold text-text-primary">섹터 강세 순위 · {periodInfo.label}</p>
-            <p className="text-[12px] text-text-muted">시총 가중(현재 시총) 수익률 높은 순 · 줄을 누르면 지도에서 강조</p>
+            <p className="text-[12px] text-text-muted">
+              시총 가중(현재 시총) 수익률 높은 순 · 줄을 누르면 지도에서 강조{activeOff.size > 0 && ' · 흐린 줄은 지도에서 끈 분야'}
+            </p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {data ? (
-              <SectorRanking sectors={data.sectors} selected={focusSector} onSelect={setFocusSector} />
+              <SectorRanking sectors={data.sectors} selected={focusSector} onSelect={setFocusSector} dimmed={activeOff} />
             ) : (
               <p className="p-3 text-[12px] text-text-muted">불러오는 중…</p>
             )}

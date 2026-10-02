@@ -2,6 +2,9 @@
 
 export type HeatmapMarket = 'us' | 'kr';
 
+/** 지도 보기 (v2.27.0) — market = 시총 상위 N(30·50·100) · watch = 그 시장의 관심 종목 */
+export type HeatmapView = 'market' | 'watch';
+
 /**
  * 색으로 보는 기간 (v2.19.0). 1d = 실시간 시세 ÷ 전 거래일 종가(v2.18.0 그대로),
  * 그 밖은 **마지막 완성 종가 ÷ N거래일 전 종가** — 1w = 5, 1m = 21, 3m = 63 거래일.
@@ -47,13 +50,16 @@ export interface HeatmapCell {
   /** 고른 기간의 수익률(%) — 1d 는 전 거래일 종가 대비. 모르면 null(회색, 섹터 통계에서 제외) */
   changeRate: number | null;
   currency: 'KRW' | 'USD';
-  /** 관심 종목인가 (대형주 100 밖이어도 지도에 넣는다) */
+  /** 관심 종목인가 — 시장 보기에서는 파란 테두리(v2.27.0 부터 상위 N 밖의 관심 종목은 넣지 않는다) */
   watch: boolean;
 }
 
 export interface HeatmapResponse {
   market: HeatmapMarket;
   period: HeatmapPeriod;
+  view: HeatmapView;
+  /** 시장 보기의 상위 N (관심 종목 보기는 null) */
+  top: number | null;
   cells: HeatmapCell[];
   /** 섹터 강세 순위 — 시총 가중 수익률 높은 순 */
   sectors: HeatmapSector[];
@@ -64,4 +70,6 @@ export interface HeatmapResponse {
   asOf: string;
   /** 섹터를 아직 모르는 종목 수 — 하루 1회 갱신 전이면 '기타' 로 묶인다 */
   missingSectors: number;
+  /** 시가총액을 몰라 지도에서 빠진 종목 (관심 종목 보기에서만 생긴다) */
+  missingCap: { symbol: string; name: string | null }[];
 }

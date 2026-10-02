@@ -7,6 +7,7 @@ import type { HeatmapSector } from '../../types/heatmap';
  * 한 줄: 시총 가중 수익률(굵게) · 동일 가중(작게) · 상승 종목 비율 · 시장 대비 · 기여 상위 3종목.
  * 시총 가중만 보이면 초대형주 하나가 섹터를 좌우하는지 알 수 없어서 동일 가중과 상승 비율을 함께 둔다.
  * 줄을 누르면 지도에서 그 섹터를 강조한다(다시 누르면 해제).
+ * [보기] 에서 끈 분야(v2.27.0)는 순위에서 지우지 않고 흐리게 둔다 — 순위는 그대로 읽히고, 누르면 강조 대신 아무 일도 없다.
  */
 
 const pct = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
@@ -16,22 +17,28 @@ export default function SectorRanking({
   sectors,
   selected,
   onSelect,
+  dimmed,
 }: {
   sectors: HeatmapSector[];
   selected: string | null;
   onSelect: (sector: string | null) => void;
+  /** 지도에서 끈 분야 — 흐리게 */
+  dimmed?: Set<string>;
 }) {
   if (!sectors.length) return <p className="p-3 text-[12px] text-text-muted">계산할 수 있는 섹터가 없습니다.</p>;
   return (
     <ol className="divide-y divide-border">
       {sectors.map((s, i) => {
         const active = selected === s.sector;
+        const off = dimmed?.has(s.sector) ?? false;
         return (
-          <li key={s.sector}>
+          <li key={s.sector} className={off ? 'opacity-40' : ''}>
             <button
               type="button"
               onClick={() => onSelect(active ? null : s.sector)}
-              className={`w-full px-2.5 py-1.5 text-left transition-colors hover:bg-bg-tertiary/60 ${active ? 'bg-accent/10' : ''}`}
+              disabled={off}
+              title={off ? '[보기] 에서 끈 분야입니다' : undefined}
+              className={`w-full px-2.5 py-1.5 text-left transition-colors enabled:hover:bg-bg-tertiary/60 disabled:cursor-default ${active ? 'bg-accent/10' : ''}`}
               aria-pressed={active}
             >
               <div className="flex items-baseline gap-1.5">
