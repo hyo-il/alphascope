@@ -460,8 +460,10 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
             ⚠️ 키울 때는 **가로로** 키운다. 헤더 높이는 h-12(48px) 고정이라 세로에는 자리가 없고,
             정작 읽기 어려운 것은 긴 종목명이다. 안쪽 입력이 `min-w-0 flex-1` 이라
             래퍼 폭만 바꾸면 입력·버튼이 함께 늘어난다.
+            ⚠️ 글씨 +2px(v2.33.0) 뒤 1280 에서 긴 종목명이 두 줄(「삼성전 / 자」)로 꺾였다 — 높이를 늘리지 않고
+            종목명·가격·등락은 줄바꿈 금지, **검색칸이 대신 줄어든다**(최소 14rem). 넓은 화면에서는 예전처럼 w-96.
           */}
-          <div className="w-72 shrink-0 lg:w-96">
+          <div className="w-96 min-w-56 shrink">
             <SymbolSearch symbol={symbol ?? ''} onSubmit={setSymbol} />
           </div>
 
@@ -492,14 +494,14 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
               </button>
 
               {/* 종목명이 먼저다 — 헤더에서 가장 먼저 읽히는 값이어야 한다 */}
-              <span className="text-base font-semibold">{stockInfo?.name || symbol}</span>
-              {stockInfo?.name && <span className="text-xs text-text-secondary">{symbol}</span>}
+              <span className="shrink-0 whitespace-nowrap text-base font-semibold">{stockInfo?.name || symbol}</span>
+              {stockInfo?.name && <span className="shrink-0 whitespace-nowrap text-xs text-text-secondary">{symbol}</span>}
 
-              <span className="text-lg font-bold tabular-nums">
+              <span className="shrink-0 whitespace-nowrap text-lg font-bold tabular-nums">
                 {formatPrice(displayPrice, currency)}
               </span>
               {livePrice && (
-                <span className={`text-xs tabular-nums ${changeColor(livePrice.change)}`}>
+                <span className={`shrink-0 whitespace-nowrap text-xs tabular-nums ${changeColor(livePrice.change)}`}>
                   {livePrice.change > 0 ? '+' : ''}
                   {currency === 'KRW'
                     ? Math.round(livePrice.change).toLocaleString('ko-KR')

@@ -50,9 +50,19 @@ export default function CompareChart({
     <div className="flex h-full min-h-0 min-w-0 flex-col rounded-md border border-border bg-bg-secondary">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1.5">
         {slotLabel && <span className="shrink-0 text-xs text-text-muted">{slotLabel}</span>}
-        {/* 이름이 먼저, 티커가 괄호로 뒤에 — 티커만 단독으로 적지 않는다 */}
-        <span className="truncate text-sm font-semibold">
-          {name ? `${name} (${symbol})` : symbol}
+        {/*
+          이름이 먼저, 티커가 괄호로 뒤에 — 티커만 단독으로 적지 않는다.
+          ⚠️ 줄일 때는 **이름만** 말줄임한다 — 티커(코드)는 자르지 않는다(v2.33.0, 1280 에서 「(00593…」 처럼 잘렸다).
+        */}
+        <span className="flex min-w-0 items-baseline gap-1 text-sm font-semibold">
+          {name ? (
+            <>
+              <span className="truncate" title={name}>{name}</span>
+              <span className="shrink-0">({symbol})</span>
+            </>
+          ) : (
+            <span className="shrink-0">{symbol}</span>
+          )}
         </span>
 
         {last && (

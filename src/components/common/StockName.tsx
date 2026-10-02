@@ -39,7 +39,8 @@ export default function StockName({
 
   return (
     <span className={`inline-flex min-w-0 items-baseline gap-1.5 ${className}`}>
-      <span className="truncate font-semibold">{label || symbol}</span>
+      {/* 좁은 자리에서 이름이 말줄임되면 마우스로 전체 이름을 본다 (v2.33.0) — 티커는 자르지 않는다 */}
+      <span className="truncate font-semibold" title={label || symbol}>{label || symbol}</span>
       {label && showTicker && (
         <span className={`shrink-0 font-normal ${TICKER_SIZE[size]} ${tickerClassName}`}>
           {symbol}

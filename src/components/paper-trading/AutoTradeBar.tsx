@@ -114,7 +114,14 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
             ⚠️ 이 서버에서는 자동매매가 꺼져 있습니다(AUTO_TRADING_ENABLED=false)
           </span>
         )}
-        {on && status?.blockedReason && (
+        {/*
+          ⚠️ 대기(장 닫힘)는 정상 상태라 경고색을 쓰지 않는다 (v2.33.0) — 맨 위 "지금 상태" 문장이 이미 설명한다.
+          예전에는 대기에도 주황 ⚠️ 배지가 겹쳐 떠서 고장처럼 보였다. 멈춤(설정·하루 손실·서버 꺼짐)만 경고색.
+        */}
+        {on && status?.blockedReason && status.blockedKind === 'market_closed' && (
+          <span className="rounded bg-bg-tertiary px-2 py-0.5 text-[14px] text-text-secondary">◐ 대기 — 장 시간이 아닙니다</span>
+        )}
+        {on && status?.blockedReason && status.blockedKind !== 'market_closed' && (
           <span className="rounded bg-warning/15 px-2 py-0.5 text-[14px] text-warning">
             ⚠️ {status.blockedReason}
           </span>
