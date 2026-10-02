@@ -7,6 +7,7 @@ import {
   type HeatmapMarket,
   type HeatmapPeriod,
   type HeatmapResponse,
+  type HeatmapView as HeatmapViewId,
 } from '../../types/heatmap';
 import SectorRanking from './SectorRanking';
 import HeatmapViewMenu, { TOP_CHOICES, type TopChoice } from './HeatmapViewMenu';
@@ -19,6 +20,8 @@ import HeatmapViewMenu, { TOP_CHOICES, type TopChoice } from './HeatmapViewMenu'
  * - 배치는 직접 구현한 squarified treemap(`utils/treemap.ts`) — 섹터를 먼저 나누고, 섹터 안에서 종목을 나눈다.
  * - 색은 `index.css` 의 heat-* 불투명 단계색(v2.27.0 — bullish/bearish 를 회색에 섞은 4단계 + 회색) + 진하기 구간 —
  *   기간이 길수록 구간을 넓힌다(`BINS`). 0% 근처는 회색.
+ * - 탭(v2.27.0): 「시장 상위」(상위 30·50·100 — 서버가 100 캐시에서 자른다) / 「내 관심 종목」(그 시장의 관심 종목, 크기 = 시총).
+ *   [보기 ▾] 의 분야 거르기는 화면에서만 한다. 마지막 보기는 localStorage `alphascope.heatmapView`.
  * - 오른쪽 「섹터 강세 순위」(v2.19.0)는 **설명용**이다 — 지난 기간의 결과이고 판정·자동매매에 쓰지 않는다.
  * - ⚠️ 다른 사이트의 데이터·디자인을 가져오지 않았다 — 앱 다크 테마로 새로 그렸다.
  */
@@ -33,24 +36,29 @@ const SECTOR_HEADER = 16;
 const VIEW_KEY = 'alphascope.heatmapView';
 
 interface SavedView {
+  view: HeatmapViewId;
   market: HeatmapMarket;
   period: HeatmapPeriod;
   top: TopChoice;
-  /** 끈 분야 */
-  off: string[];
+  /** 끈 분야 — 탭마다 따로(관심 종목 지도에서 끈 분야가 시장 지도에서도 꺼지면 헷갈린다) */
+  off: Record<HeatmapViewId, string[]>;
 }
 
-const DEFAULT_VIEW: SavedView = { market: 'us', period: '1d', top: 50, off: [] };
+const DEFAULT_VIEW: SavedView = { view: 'market', market: 'us', period: '1d', top: 50, off: { market: [], watch: [] } };
+
+const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
 
 function readView(): SavedView {
   try {
     const raw = JSON.parse(localStorage.getItem(VIEW_KEY) ?? 'null') as Partial<SavedView> | null;
     if (!raw || typeof raw !== 'object') return DEFAULT_VIEW;
+    const off = (raw.off ?? {}) as Partial<Record<HeatmapViewId, unknown>>;
     return {
+      view: raw.view === 'watch' ? 'watch' : 'market',
       market: raw.market === 'kr' ? 'kr' : 'us',
       period: HEATMAP_PERIODS.some((p) => p.id === raw.period) ? (raw.period as HeatmapPeriod) : '1d',
       top: TOP_CHOICES.find((n) => n === raw.top) ?? 50,
-      off: Array.isArray(raw.off) ? raw.off.filter((x): x is string => typeof x === 'string') : [],
+      off: { market: strings(off.market), watch: strings(off.watch) },
     };
   } catch {
     return DEFAULT_VIEW;
@@ -146,10 +154,16 @@ interface SectorBox {
 
 export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbol: string) => void }) {
   const [saved] = useState(readView);
+  const [view, setView] = useState<HeatmapViewId>(saved.view);
   const [market, setMarket] = useState<HeatmapMarket>(saved.market);
   const [period, setPeriod] = useState<HeatmapPeriod>(saved.period);
   const [top, setTop] = useState<TopChoice>(saved.top);
-  const [off, setOff] = useState<Set<string>>(() => new Set(saved.off));
+  const [offByView, setOffByView] = useState<Record<HeatmapViewId, Set<string>>>(() => ({
+    market: new Set(saved.off.market),
+    watch: new Set(saved.off.watch),
+  }));
+  const off = offByView[view];
+  const setOff = useCallback((next: Set<string>) => setOffByView((prev) => ({ ...prev, [view]: next })), [view]);
   const [data, setData] = useState<HeatmapResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -163,7 +177,8 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
     const mine = ++sequence.current;
     setLoading(true);
     try {
-      const r = await fetch(`/api/heatmap?market=${market}&period=${period}&view=market&top=${top}`);
+      const q = view === 'watch' ? 'view=watch' : `view=market&top=${top}`;
+      const r = await fetch(`/api/heatmap?market=${market}&period=${period}&${q}`);
       const payload = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(payload.error ?? `요청 실패 (${r.status})`);
       if (mine === sequence.current) {
@@ -175,18 +190,18 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
     } finally {
       if (mine === sequence.current) setLoading(false);
     }
-  }, [market, period, top]);
+  }, [market, period, top, view]);
 
   useEffect(() => {
-    writeView({ market, period, top, off: [...off] });
-  }, [market, period, top, off]);
+    writeView({ view, market, period, top, off: { market: [...offByView.market], watch: [...offByView.watch] } });
+  }, [view, market, period, top, offByView]);
 
   // 처음 + (1일만) 60초마다 — 탭이 숨어 있으면 쉬고, 다시 보이면 곧바로 한 번
   // 상위 N 만 바꿀 때는 보던 지도를 남긴 채 다시 받는다(서버가 같은 100 캐시에서 자른다 — 금방 온다)
   useEffect(() => {
     setData(null);
     setFocusSector(null);
-  }, [market, period]);
+  }, [market, period, view]);
 
   useEffect(() => {
     void load();
@@ -259,6 +274,8 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
 
   const periodInfo = HEATMAP_PERIODS.find((p) => p.id === period)!;
   const marketLabel = market === 'us' ? '미국' : '국내';
+  const watchView = view === 'watch';
+  const empty = watchView && data !== null && data.cells.length === 0 && data.missingCap.length === 0;
   const best = data?.sectors[0];
   const worst = data && data.sectors.length > 1 ? data.sectors[data.sectors.length - 1] : undefined;
   const bins = BINS[period];
@@ -268,6 +285,28 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
     <div className="flex h-full flex-col p-3">
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
         <h2 className="text-sm font-semibold text-text-primary">🗺 종목 지도</h2>
+        {/* 탭 (v2.27.0) — 시장·기간은 두 탭이 함께 쓴다 */}
+        <div className="flex rounded border border-border p-0.5" role="tablist" aria-label="지도 대상">
+          {(
+            [
+              ['market', '시장 상위'],
+              ['watch', '내 관심 종목'],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={view === id}
+              onClick={() => setView(id)}
+              className={`rounded px-2.5 py-0.5 text-[12px] transition-colors ${
+                view === id ? 'bg-accent/15 font-medium text-accent' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex gap-1">
           {(['us', 'kr'] as const).map((m) => (
             <button
@@ -298,7 +337,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           ))}
         </div>
         <HeatmapViewMenu
-          top={top}
+          top={watchView ? null : top}
           onTopChange={setTop}
           sectors={sectorCounts}
           off={activeOff}
@@ -306,7 +345,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         />
         {data && (
           <span className="text-[12px] text-text-muted">
-            시총 상위 {data.top ?? top} · {tiles.length < data.cells.length ? `${tiles.length}/${data.cells.length}` : data.cells.length}
+            {watchView ? `${marketLabel} 관심 종목` : `시총 상위 ${data.top ?? top}`} · {tiles.length < data.cells.length ? `${tiles.length}/${data.cells.length}` : data.cells.length}
             종목 ·{' '}
             {period === '1d'
               ? `${new Date(data.asOf).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준`
@@ -332,7 +371,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
       {/* 한 줄 요약 — 지난 기간의 결과 */}
       {data && best && (
         <p className="mb-1 shrink-0 text-[13px] text-text-primary">
-          {marketLabel} 대형주 {periodInfo.label}: 강세 1위 <b>{best.sector}</b>{' '}
+          {marketLabel} {watchView ? '관심 종목' : '대형주'} {periodInfo.label}: 강세 1위 <b>{best.sector}</b>{' '}
           <span className={best.capReturn >= 0 ? 'text-bullish' : 'text-bearish'}>{pct(best.capReturn)}</span>
           {worst && (
             <>
@@ -358,6 +397,11 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           data-labeled={labeled}
           className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-bg-secondary"
         >
+          {empty && (
+            <p className="p-4 text-[13px] text-text-secondary">
+              관심 목록에 {marketLabel} 종목이 없습니다. 오른쪽 관심 목록에서 ★ 로 담아 보세요.
+            </p>
+          )}
           {!data && !error && (
             <p className="p-4 text-xs text-text-muted">
               지도를 그리는 중… {period === '1d' ? '(처음은 전 거래일 종가를 모으느라 조금 걸립니다)' : '(처음은 일봉을 모으느라 조금 걸립니다)'}
@@ -395,7 +439,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
                 }}
                 onMouseLeave={() => setHover(null)}
                 className={`absolute flex flex-col items-center justify-center overflow-hidden border border-bg-primary/70 text-center transition-[filter,opacity] hover:brightness-125 ${colorOf(cell.changeRate, period)} ${
-                  cell.watch ? 'ring-1 ring-inset ring-accent/70' : ''
+                  cell.watch && !watchView ? 'ring-1 ring-inset ring-accent/70' : ''
                 } ${dimmed ? 'opacity-25' : ''}`}
                 style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h, textShadow: TILE_TEXT_SHADOW }}
                 aria-label={`${cell.name ?? cell.symbol} ${pct(cell.changeRate)}`}
@@ -442,7 +486,10 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         {/* 섹터 강세 순위 — 설명용 */}
         <aside className="flex w-72 shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-bg-secondary">
           <div className="shrink-0 border-b border-border px-2.5 py-1.5">
-            <p className="text-[13px] font-semibold text-text-primary">섹터 강세 순위 · {periodInfo.label}</p>
+            <p className="text-[13px] font-semibold text-text-primary">
+              섹터 강세 순위 · {periodInfo.label}
+              {watchView && <span className="ml-1.5 font-normal text-accent">관심 종목 기준</span>}
+            </p>
             <p className="text-[12px] text-text-muted">
               시총 가중(현재 시총) 수익률 높은 순 · 줄을 누르면 지도에서 강조{activeOff.size > 0 && ' · 흐린 줄은 지도에서 끈 분야'}
             </p>
@@ -461,9 +508,15 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           )}
         </aside>
       </div>
+      {watchView && data && data.missingCap.length > 0 && (
+        <p className="mt-1 shrink-0 text-[12px] text-text-muted">
+          크기 정보가 없어 빠진 종목 {data.missingCap.length}개: {data.missingCap.map((m) => m.name ?? m.symbol).join(', ')} (하루 한 번
+          뒤에서 채웁니다)
+        </p>
+      )}
       <p className="mt-1 shrink-0 text-[12px] text-text-muted">
         <b className="font-medium text-text-secondary">지난 기간의 결과입니다. 앞으로도 강할 것이라는 뜻이 아닙니다.</b> 색은{' '}
-        {period === '1d' ? '전 거래일 종가 대비 등락' : `최근 종가 ÷ ${periodInfo.bars}거래일 전 종가`}입니다. 파란 테두리는 관심 종목.
+        {period === '1d' ? '전 거래일 종가 대비 등락' : `최근 종가 ÷ ${periodInfo.bars}거래일 전 종가`}입니다.{watchView ? ' 크기 = 시가총액.' : ' 파란 테두리는 관심 종목.'}
         {period === '1d' && ' 1분마다 새로고침(화면을 보고 있을 때만).'}
       </p>
     </div>
