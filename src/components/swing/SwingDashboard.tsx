@@ -11,6 +11,8 @@ import CriteriaPanel from '../common/CriteriaPanel';
 import StrategyProfileModal from './StrategyProfileModal';
 import { STANDARD_SWING_CRITERIA, swingCriteria } from '../../data/criteria';
 import { useStrategyProfile } from '../../hooks/useStrategyProfile';
+import { useSwingGoal } from '../../hooks/useSwingGoal';
+import { goalPct, periodLabel } from '../../types/swingGoal';
 import {
   PROFILE_LABEL,
   sameSwingParams,
@@ -62,6 +64,8 @@ export default function SwingDashboard({
   const paperBuy = usePaperQuickBuy();
   const profile = useStrategyProfile();
   const [profileOpen, setProfileOpen] = useState(false);
+  const swingGoal = useSwingGoal();
+  const goal = swingGoal.goal;
 
   const activeId: ProfileId = profile.state?.active ?? 'standard';
   const activeParams = profile.state
@@ -173,6 +177,16 @@ export default function SwingDashboard({
                 className="rounded-md border border-border px-2.5 py-1 text-[12px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
               >
                 ⚙ 기준 편집
+              </button>
+              {/* 초보자 목표 (v2.29.0) — 판정이 아니라 「목표 도달 가능성 분석」 의 조건이다. 누르면 같은 편집 창 */}
+              <button
+                type="button"
+                onClick={() => setProfileOpen(true)}
+                disabled={!profile.state}
+                title="목표 도달 가능성 분석의 조건입니다 — 추천 판정은 바뀌지 않습니다"
+                className="rounded-md border border-accent/40 px-2.5 py-1 text-[12px] text-text-primary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+              >
+                🎯 목표 +{goalPct(goal.targetPct)} · {periodLabel(goal.days)} · 손절 −{goalPct(goal.stopPct)}
               </button>
               {profile.error && (
                 <span className="text-[12px] text-warning">
@@ -301,6 +315,8 @@ export default function SwingDashboard({
         <StrategyProfileModal
           state={profile.state}
           onSave={(custom) => profile.save({ custom })}
+          goal={goal}
+          onSaveGoal={swingGoal.save}
           onClose={() => setProfileOpen(false)}
         />
       )}

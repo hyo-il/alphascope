@@ -159,6 +159,7 @@ import { getEarningsDate, startEarningsScheduler } from './earningsCalendar';
 import { startMarketCalendarScheduler } from './marketCalendar';
 import { calendarEvents } from './calendarService';
 import { previewProfile } from './swingPreview';
+import { getSwingGoal, saveSwingGoal, SwingGoalError } from './swingGoal';
 import { HEATMAP_TOPS, heatmap } from './heatmap';
 import { liveRanking } from './liveRanking';
 import { marketDate } from '../src/utils/marketDate';
@@ -1187,6 +1188,24 @@ app.post('/api/swing/profile-preview', async (req, res) => {
   try {
     res.json(await previewProfile(params));
   } catch (e) {
+    fail(res, e);
+  }
+});
+
+// 초보자 목표 수익률 (v2.29.0) — 「목표 도달 가능성 분석」 의 조건만. 스윙 판정값과 무관하다.
+app.get('/api/swing/goal', (_req, res) => {
+  try {
+    res.json(getSwingGoal());
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.put('/api/swing/goal', (req, res) => {
+  try {
+    res.json(saveSwingGoal(req.body ?? {}));
+  } catch (e) {
+    if (e instanceof SwingGoalError) return res.status(400).json({ error: e.message });
     fail(res, e);
   }
 });
