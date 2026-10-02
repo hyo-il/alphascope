@@ -153,16 +153,15 @@ function Card({
   return (
     <div className={`flex flex-col rounded-lg border bg-bg-secondary p-3 ${style.border}`}>
       <div className="mb-2 flex items-start gap-2">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold text-text-primary">{title}</p>
-          <p className="mt-0.5 text-[12px] leading-snug text-text-secondary">{hint}</p>
-        </div>
+        <p className="text-xs font-semibold text-text-primary">{title}</p>
         {/* 예전 "표본 부족" 배지와 합쳤다 — 표본이 모자라면 판정 없이 회색 */}
         <span className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-[12px] ${style.badge}`}>
           {style.mark} {style.label}
           {verdict === 'hold' && weak ? ' · 표본 부족' : ''}
         </span>
       </div>
+      {/* 읽는 법 한 줄 — 배지 옆 좁은 칸에 두면 세로로 길어져 카드 전체 폭에 둔다 */}
+      <p className="-mt-1 mb-2 text-[12px] leading-snug text-text-secondary">{hint}</p>
       <dl className="space-y-1 text-[12px]">
         {numbers.map((n) => (
           <div key={n.label} className="flex justify-between gap-2">

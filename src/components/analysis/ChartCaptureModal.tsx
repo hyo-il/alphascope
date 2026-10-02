@@ -188,11 +188,21 @@ export default function ChartCaptureModal({
    * 범위는 메인 차트 스냅샷, 지표는 메인 차트 토글, 드로잉은 있으면 포함(같은 봉이라 위치가 맞다), 화질은 기본(저화질).
    */
   const autoDone = useRef(false);
+  /*
+   * ⚠️ 취소는 **언마운트 때만** 한다. 처음에는 effect 정리에서 취소했는데, 찍는 도중 지표·캔들이 한 번 더 바뀌면(재조회)
+   * 정리가 돌아 취소되고 `autoDone` 은 남아 다시 찍지도 닫지도 못했다 — ① 버튼이 「캡처 준비 중…」 에 멈췄다(v2.28.0 점검 중 발견).
+   */
+  const unmounted = useRef(false);
+  useEffect(() => {
+    unmounted.current = false; // StrictMode 의 마운트→정리→마운트에서도 살아 있게
+    return () => {
+      unmounted.current = true;
+    };
+  }, []);
   const indicatorsReady = !needsEngine || Boolean(activeIndicators);
   useEffect(() => {
     if (!auto || autoDone.current || dataLoading || !activeCandles.length || !indicatorsReady) return;
     autoDone.current = true;
-    let cancelled = false;
     void (async () => {
       try {
         // 차트·지표·드로잉이 캔버스에 그려질 때까지 기다린다(창의 [캡처] 와 같은 두 프레임 + 드로잉 여유)
@@ -200,9 +210,9 @@ export default function ChartCaptureModal({
         await nextFrame();
         await new Promise((r) => setTimeout(r, 150));
         const element = chartRef.current?.getElement();
-        if (cancelled || !element) return;
+        if (unmounted.current || !element) return;
         const { blob, width, height } = await captureElementToBlob(element, 'low');
-        if (cancelled) return;
+        if (unmounted.current) return;
         setCapture({
           blob,
           url: URL.createObjectURL(blob),
@@ -216,12 +226,9 @@ export default function ChartCaptureModal({
       } catch (e) {
         console.warn('[capture] 자동 캡처 실패:', e instanceof Error ? e.message : e);
       } finally {
-        if (!cancelled) onClose();
+        if (!unmounted.current) onClose();
       }
     })();
-    return () => {
-      cancelled = true;
-    };
     // 한 번만 — 데이터가 준비되는 순간
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auto, dataLoading, activeCandles.length, indicatorsReady]);
