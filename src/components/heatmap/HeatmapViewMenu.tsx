@@ -21,9 +21,12 @@ interface Props {
   sectors: { name: string; count: number }[];
   off: Set<string>;
   onOffChange: (off: Set<string>) => void;
+  /** 관심 종목 탭의 칸 크기 (v2.29.0) — null 이면 감춘다(시장 상위 탭) */
+  watchSize?: 'cap' | 'sqrt' | null;
+  onWatchSizeChange?: (size: 'cap' | 'sqrt') => void;
 }
 
-export default function HeatmapViewMenu({ top, onTopChange, sectors, off, onOffChange }: Props) {
+export default function HeatmapViewMenu({ top, onTopChange, sectors, off, onOffChange, watchSize = null, onWatchSizeChange }: Props) {
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -50,7 +53,10 @@ export default function HeatmapViewMenu({ top, onTopChange, sectors, off, onOffC
 
   const onCount = sectors.filter((s) => !off.has(s.name)).length;
   const sectorText = onCount >= sectors.length ? '전체 분야' : `분야 ${onCount}개`;
-  const label = top !== null ? `보기: 상위 ${top} · ${sectorText}` : `보기: ${sectorText}`;
+  const label =
+    top !== null
+      ? `보기: 상위 ${top} · ${sectorText}`
+      : `보기: ${sectorText}${watchSize === 'sqrt' ? ' · 크기 차이 줄임' : ''}`;
 
   const toggle = (name: string) => {
     const next = new Set(off);
@@ -92,7 +98,7 @@ export default function HeatmapViewMenu({ top, onTopChange, sectors, off, onOffC
         aria-expanded={open}
         aria-haspopup="dialog"
         className={`rounded border px-2.5 py-0.5 text-[12px] transition-colors ${
-          open || onCount < sectors.length || (top !== null && top !== 50)
+          open || onCount < sectors.length || (top !== null && top !== 50) || watchSize === 'sqrt'
             ? 'border-accent/60 text-text-primary'
             : 'border-border text-text-secondary'
         }`}
@@ -123,6 +129,32 @@ export default function HeatmapViewMenu({ top, onTopChange, sectors, off, onOffC
                   </button>
                 ))}
               </div>
+            </fieldset>
+          )}
+          {watchSize !== null && (
+            <fieldset className="mb-2.5">
+              <legend className="mb-1 font-medium text-text-primary">칸 크기</legend>
+              <div className="flex gap-1">
+                {(
+                  [
+                    ['cap', '시가총액 그대로'],
+                    ['sqrt', '크기 차이 줄이기'],
+                  ] as const
+                ).map(([id, text]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => onWatchSizeChange?.(id)}
+                    aria-pressed={watchSize === id}
+                    className={`flex-1 rounded border px-2 py-0.5 transition-colors ${
+                      watchSize === id ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-border text-text-secondary'
+                    }`}
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-text-muted">크기 차이 줄이기 = 시가총액의 제곱근. 섹터 순위 계산은 실제 시총 그대로입니다.</p>
             </fieldset>
           )}
           <div className="mb-1 flex items-center gap-1">

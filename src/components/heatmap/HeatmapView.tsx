@@ -42,9 +42,13 @@ interface SavedView {
   top: TopChoice;
   /** 끈 분야 — 탭마다 따로(관심 종목 지도에서 끈 분야가 시장 지도에서도 꺼지면 헷갈린다) */
   off: Record<HeatmapViewId, string[]>;
+  /** 관심 종목 탭의 칸 크기 (v2.29.0) — cap = 시가총액 그대로(기본), sqrt = 시가총액의 제곱근(크기 차이 줄이기) */
+  watchSize: WatchSize;
 }
 
-const DEFAULT_VIEW: SavedView = { view: 'market', market: 'us', period: '1d', top: 50, off: { market: [], watch: [] } };
+export type WatchSize = 'cap' | 'sqrt';
+
+const DEFAULT_VIEW: SavedView = { view: 'market', market: 'us', period: '1d', top: 50, off: { market: [], watch: [] }, watchSize: 'cap' };
 
 const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
 
@@ -59,6 +63,7 @@ function readView(): SavedView {
       period: HEATMAP_PERIODS.some((p) => p.id === raw.period) ? (raw.period as HeatmapPeriod) : '1d',
       top: TOP_CHOICES.find((n) => n === raw.top) ?? 50,
       off: { market: strings(off.market), watch: strings(off.watch) },
+      watchSize: raw.watchSize === 'sqrt' ? 'sqrt' : 'cap',
     };
   } catch {
     return DEFAULT_VIEW;
@@ -86,7 +91,17 @@ const LINE = 1.2;
 
 let measureCtx: CanvasRenderingContext2D | null = null;
 let measureFamily = '';
+const widthCache = new Map<string, number>();
 function textWidth(text: string, size: number, weight = 600): number {
+  const key = `${weight}|${size}|${text}`;
+  const hit = widthCache.get(key);
+  if (hit !== undefined) return hit;
+  const width = measure(text, size, weight);
+  if (widthCache.size > 20000) widthCache.clear();
+  widthCache.set(key, width);
+  return width;
+}
+function measure(text: string, size: number, weight: number): number {
   if (!measureCtx) {
     measureCtx = document.createElement('canvas').getContext('2d');
     measureFamily = getComputedStyle(document.body).fontFamily || 'sans-serif';
@@ -96,14 +111,51 @@ function textWidth(text: string, size: number, weight = 600): number {
   return measureCtx.measureText(text).width;
 }
 
-/** 칸에 맞는 이름 글자 크기와 등락률 줄을 그릴지 — 이름이 안 들어가면 null */
-function fitLabel(label: string, rate: string, w: number, h: number): { size: number; rate: boolean } | null {
+interface LabelFit {
+  size: number;
+  /** 한 줄 또는 두 줄(국내 종목명) */
+  lines: string[];
+  rate: boolean;
+}
+
+/** 두 줄로 나눌 자리 — 띄어쓰기가 있으면 그 자리만, 없으면 글자 사이(한글 종목명은 대개 붙여 쓴다) */
+function splitCandidates(label: string): [string, string][] {
+  const out: [string, string][] = [];
+  const spaces = [...label.matchAll(/ /g)].map((m) => m.index!);
+  if (spaces.length) for (const i of spaces) out.push([label.slice(0, i), label.slice(i + 1)]);
+  else for (let i = 1; i < label.length; i++) out.push([label.slice(0, i), label.slice(i)]);
+  return out;
+}
+
+/**
+ * 칸에 맞는 이름 글자 크기·줄과 등락률 줄을 그릴지 — 이름이 안 들어가면 null.
+ * 국내(`twoLines`)는 한 줄에 안 들어가면 **두 줄**까지 나눠 본다(v2.29.0 — 1280 폭 국내 상위 50 에서 이름 보이는 칸이 21/50 이었다).
+ * 12px 최소·말줄임 없음·칸 밖으로 나가지 않음은 그대로 — 두 줄로도 안 들어가면 그리지 않는다(툴팁).
+ */
+function fitLabel(label: string, rate: string, w: number, h: number, twoLines = false): LabelFit | null {
   const room = w - TILE_PAD_X;
-  let size = Math.max(LABEL_MIN, Math.min(LABEL_MAX, Math.floor(Math.sqrt(w * h) / 6)));
-  while (size >= LABEL_MIN && (textWidth(label, size) > room || size * LINE > h - 2)) size -= 1;
-  if (size < LABEL_MIN) return null;
-  const showRate = size * LINE + RATE_SIZE * LINE <= h - 4 && textWidth(rate, RATE_SIZE, 400) <= room;
-  return { size, rate: showRate };
+  const rateW = textWidth(rate, RATE_SIZE, 400);
+  for (let size = Math.max(LABEL_MIN, Math.min(LABEL_MAX, Math.floor(Math.sqrt(w * h) / 6))); size >= LABEL_MIN; size--) {
+    if (textWidth(label, size) <= room && size * LINE <= h - 2) {
+      return { size, lines: [label], rate: size * LINE + RATE_SIZE * LINE <= h - 4 && rateW <= room };
+    }
+    if (twoLines && size * LINE * 2 <= h - 2) {
+      // 두 줄 중 긴 줄이 가장 짧아지는 자리
+      let best: [string, string] | null = null;
+      let bestW = Infinity;
+      for (const pair of splitCandidates(label)) {
+        const width = Math.max(textWidth(pair[0], size), textWidth(pair[1], size));
+        if (width < bestW) {
+          bestW = width;
+          best = pair;
+        }
+      }
+      if (best && bestW <= room) {
+        return { size, lines: best, rate: size * LINE * 2 + RATE_SIZE * LINE <= h - 4 && rateW <= room };
+      }
+    }
+  }
+  return null;
 }
 
 /** 기간별 색 구간(%) — 네 단계. 1일 ±0.5·1·2·3 / 1주 ±1·2·4·6 / 1·3개월 ±2·5·10·15 */
@@ -145,7 +197,7 @@ const pct = (v: number | null) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.t
 interface Tile {
   rect: Rect;
   cell: HeatmapCell;
-  fit: { size: number; rate: boolean } | null;
+  fit: LabelFit | null;
 }
 interface SectorBox {
   rect: Rect;
@@ -158,6 +210,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   const [market, setMarket] = useState<HeatmapMarket>(saved.market);
   const [period, setPeriod] = useState<HeatmapPeriod>(saved.period);
   const [top, setTop] = useState<TopChoice>(saved.top);
+  const [watchSize, setWatchSize] = useState<WatchSize>(saved.watchSize);
   const [offByView, setOffByView] = useState<Record<HeatmapViewId, Set<string>>>(() => ({
     market: new Set(saved.off.market),
     watch: new Set(saved.off.watch),
@@ -193,8 +246,8 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   }, [market, period, top, view]);
 
   useEffect(() => {
-    writeView({ view, market, period, top, off: { market: [...offByView.market], watch: [...offByView.watch] } });
-  }, [view, market, period, top, offByView]);
+    writeView({ view, market, period, top, off: { market: [...offByView.market], watch: [...offByView.watch] }, watchSize });
+  }, [view, market, period, top, offByView, watchSize]);
 
   // 처음 + (1일만) 60초마다 — 탭이 숨어 있으면 쉬고, 다시 보이면 곧바로 한 번
   // 상위 N 만 바꿀 때는 보던 지도를 남긴 채 다시 받는다(서버가 같은 100 캐시에서 자른다 — 금방 온다)
@@ -252,8 +305,10 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
       if (activeOff.has(c.sector)) continue;
       (groups.get(c.sector) ?? groups.set(c.sector, []).get(c.sector)!).push(c);
     }
+    // 칸 크기 — 관심 종목 탭의 「크기 차이 줄이기」 면 시가총액의 제곱근(보기일 뿐 — 섹터 강세 순위는 서버가 실제 시총으로 낸다)
+    const sizeOf = (c: HeatmapCell) => (view === 'watch' && watchSize === 'sqrt' ? Math.sqrt(c.marketCap) : c.marketCap);
     const sectorLayout = squarify(
-      [...groups.entries()].map(([name, cells]) => ({ value: cells.reduce((a, c) => a + c.marketCap, 0), data: { name, cells } })),
+      [...groups.entries()].map(([name, cells]) => ({ value: cells.reduce((a, c) => a + sizeOf(c), 0), data: { name, cells } })),
       { x: 0, y: 0, w: size.w, h: size.h },
     );
     for (const s of sectorLayout) {
@@ -264,12 +319,13 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         w: Math.max(0, s.rect.w - 2),
         h: Math.max(0, s.rect.h - SECTOR_HEADER - 1),
       };
-      for (const t of squarify(s.data.cells.map((c) => ({ value: c.marketCap, data: c })), inner)) {
-        tiles.push({ rect: t.rect, cell: t.data, fit: fitLabel(tileLabel(t.data), pct(t.data.changeRate), t.rect.w, t.rect.h) });
+      for (const t of squarify(s.data.cells.map((c) => ({ value: sizeOf(c), data: c })), inner)) {
+        const twoLines = t.data.currency === 'KRW' && Boolean(t.data.name); // 국내 종목명만 두 줄 — 미국 티커는 한 줄
+        tiles.push({ rect: t.rect, cell: t.data, fit: fitLabel(tileLabel(t.data), pct(t.data.changeRate), t.rect.w, t.rect.h, twoLines) });
       }
     }
     return { tiles, sectors };
-  }, [data, size, activeOff]);
+  }, [data, size, activeOff, view, watchSize]);
   const labeled = tiles.filter((t) => t.fit).length;
 
   const periodInfo = HEATMAP_PERIODS.find((p) => p.id === period)!;
@@ -342,6 +398,8 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           sectors={sectorCounts}
           off={activeOff}
           onOffChange={setOff}
+          watchSize={watchView ? watchSize : null}
+          onWatchSizeChange={setWatchSize}
         />
         {data && (
           <span className="text-[12px] text-text-muted">
@@ -353,19 +411,6 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
             {loading && ' · 새로고침 중…'}
           </span>
         )}
-        {/* 색 범례 — 기간마다 구간이 다르다 */}
-        <span className="ml-auto flex items-center gap-0.5 text-[12px] text-text-muted" aria-label={`색 구간 ±${bins.join('·')}%`}>
-          {legend.map((v) => (
-            <span
-              key={v}
-              style={{ textShadow: TILE_TEXT_SHADOW }}
-              className={`flex h-4 w-8 items-center justify-center text-text-primary ${colorOf(v === 0 ? 0 : v > 0 ? v + 0.01 : v - 0.01, period)}`}
-            >
-              {v > 0 ? `+${v}` : v}
-            </span>
-          ))}
-          <span className="ml-0.5">%</span>
-        </span>
       </header>
 
       {/* 한 줄 요약 — 지난 기간의 결과 */}
@@ -444,14 +489,15 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
                 style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h, textShadow: TILE_TEXT_SHADOW }}
                 aria-label={`${cell.name ?? cell.symbol} ${pct(cell.changeRate)}`}
               >
-                {fit && (
+                {fit?.lines.map((line, i) => (
                   <span
+                    key={i}
                     className="max-w-full whitespace-nowrap px-0.5 font-semibold leading-[1.2] text-text-primary"
                     style={{ fontSize: fit.size }}
                   >
-                    {tileLabel(cell)}
+                    {line}
                   </span>
-                )}
+                ))}
                 {fit?.rate && <span className="text-[12px] leading-[1.2] tabular-nums text-text-primary">{pct(cell.changeRate)}</span>}
               </button>
             );
@@ -507,6 +553,24 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
             </p>
           )}
         </aside>
+      </div>
+      <div className="mt-1 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
+  {/* 색 범례 — 기간마다 구간이 다르다. v2.29.0 에 머리줄에서 지도 아래로(1280 폭에서 머리줄이 두 줄이 됐다) */}
+      <span className="flex items-center gap-0.5 text-[12px] text-text-muted" aria-label={`색 구간 ±${bins.join('·')}%`}>
+        {legend.map((v) => (
+          <span
+            key={v}
+            style={{ textShadow: TILE_TEXT_SHADOW }}
+            className={`flex h-4 w-8 items-center justify-center text-text-primary ${colorOf(v === 0 ? 0 : v > 0 ? v + 0.01 : v - 0.01, period)}`}
+          >
+            {v > 0 ? `+${v}` : v}
+          </span>
+        ))}
+        <span className="ml-0.5">%</span>
+      </span>
+        {watchView && watchSize === 'sqrt' && (
+          <span className="text-[12px] text-warning">칸 크기는 시가총액의 제곱근에 비례합니다(크기 차이를 줄인 보기)</span>
+        )}
       </div>
       {watchView && data && data.missingCap.length > 0 && (
         <p className="mt-1 shrink-0 text-[12px] text-text-muted">
