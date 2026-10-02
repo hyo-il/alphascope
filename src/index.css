@@ -21,8 +21,15 @@
   --color-text-muted: #808080;
   --color-accent: #3182f6; /* 토스 블루 */
   --color-accent-hover: #4b93f8;
-  --color-bullish: #26a69a;
-  --color-bearish: #ef5350;
+  /*
+   * 상승·하락 (v2.33.0, 사용자 결정 2026-10-03 "초록이 파란 느낌 — 또렷한 초록·빨강으로", 앱 전체).
+   * 상승 #33c463 = 색상각 140°(예전 #26a69a 는 174° 청록), 하락 #ff5b5b = 0°. 둘 다 예전보다 밝다.
+   * 글자 대비: 상승 bg-primary 8.09 · bg-secondary 7.32 · bg-tertiary 6.30 / 하락 6.05 · 5.48 · 4.72 (모두 4.5:1 이상).
+   * ⚠️ 호가창은 국내 관례(상승 빨강·하락 초록)를 따르는 의도된 예외다 — 같은 두 토큰을 반대로 쓴다.
+   * ⚠️ `chart/chartTheme.ts` 의 COLORS 와 `public/favicon.svg` 가 같은 값을 들고 있다 — 함께 고친다.
+   */
+  --color-bullish: #33c463;
+  --color-bearish: #ff5b5b;
   --color-warning: #ffa726;
   --color-border: #333333;
   --color-chart-grid: #222222;
