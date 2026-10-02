@@ -401,16 +401,6 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           watchSize={watchView ? watchSize : null}
           onWatchSizeChange={setWatchSize}
         />
-        {data && (
-          <span className="text-[12px] text-text-muted">
-            {watchView ? `${marketLabel} 관심 종목` : `시총 상위 ${data.top ?? top}`} · {tiles.length < data.cells.length ? `${tiles.length}/${data.cells.length}` : data.cells.length}
-            종목 ·{' '}
-            {period === '1d'
-              ? `${new Date(data.asOf).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준`
-              : `최근 종가 기준 ${periodInfo.bars}거래일`}
-            {loading && ' · 새로고침 중…'}
-          </span>
-        )}
       </header>
 
       {/* 한 줄 요약 — 지난 기간의 결과 */}
@@ -568,6 +558,17 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         ))}
         <span className="ml-0.5">%</span>
       </span>
+        {/* 대상·기준 시각 — v2.29.0 에 머리줄에서 이 줄로(1280 폭에서 머리줄이 두 줄이 됐다) */}
+        {data && (
+          <span className="ml-auto text-[12px] text-text-muted">
+            {watchView ? `${marketLabel} 관심 종목` : `시총 상위 ${data.top ?? top}`} · {tiles.length < data.cells.length ? `${tiles.length}/${data.cells.length}` : data.cells.length}
+            종목 ·{' '}
+            {period === '1d'
+              ? `${new Date(data.asOf).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준`
+              : `최근 종가 기준 ${periodInfo.bars}거래일`}
+            {loading && ' · 새로고침 중…'}
+          </span>
+        )}
         {watchView && watchSize === 'sqrt' && (
           <span className="text-[12px] text-warning">칸 크기는 시가총액의 제곱근에 비례합니다(크기 차이를 줄인 보기)</span>
         )}
@@ -580,7 +581,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
       )}
       <p className="mt-1 shrink-0 text-[12px] text-text-muted">
         <b className="font-medium text-text-secondary">지난 기간의 결과입니다. 앞으로도 강할 것이라는 뜻이 아닙니다.</b> 색은{' '}
-        {period === '1d' ? '전 거래일 종가 대비 등락' : `최근 종가 ÷ ${periodInfo.bars}거래일 전 종가`}입니다.{watchView ? ' 크기 = 시가총액.' : ' 파란 테두리는 관심 종목.'}
+        {period === '1d' ? '전 거래일 종가 대비 등락' : `최근 종가 ÷ ${periodInfo.bars}거래일 전 종가`}입니다.{watchView ? (watchSize === 'sqrt' ? ' 크기 = 시가총액의 제곱근(크기 차이 줄인 보기).' : ' 크기 = 시가총액.') : ' 파란 테두리는 관심 종목.'}
         {period === '1d' && ' 1분마다 새로고침(화면을 보고 있을 때만).'}
       </p>
     </div>
