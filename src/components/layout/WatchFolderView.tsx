@@ -57,11 +57,11 @@ export default function WatchFolderView({
         <button
           type="button"
           onClick={() => onToggle(folder.id)}
-          className="flex w-full items-center gap-1 bg-bg-tertiary/40 px-2 py-1.5 text-left text-[12px] font-medium text-text-secondary transition-colors hover:text-text-primary"
+          className="flex w-full items-center gap-1 bg-bg-tertiary/40 px-2 py-1.5 text-left text-[14px] font-medium text-text-secondary transition-colors hover:text-text-primary"
         >
           <span className="w-3 shrink-0">{folder.collapsed ? '▶' : '▼'}</span>
           <span className="min-w-0 truncate">{folder.name}</span>
-          <span className="shrink-0 text-[12px] tabular-nums text-text-muted">
+          <span className="shrink-0 text-[14px] tabular-nums text-text-muted">
             ({folder.symbols.length})
           </span>
         </button>
@@ -70,7 +70,7 @@ export default function WatchFolderView({
       {!collapsed &&
         (folder.symbols.length === 0 ? (
           // 폴더 없는 종목이 0개면 아무것도 그리지 않는다 — 빈 머리줄이 남으면 거슬린다.
-          bare ? null : <p className="px-3 py-2 text-[12px] text-text-muted">비어 있습니다.</p>
+          bare ? null : <p className="px-3 py-2 text-[14px] text-text-muted">비어 있습니다.</p>
         ) : (
           folder.symbols.map((symbol) => {
             const quote = quotes[symbol];
@@ -138,7 +138,7 @@ export default function WatchFolderView({
                         ? `${quote.stale ? '· ' : ''}${formatPrice(quote.price, quote.currency)}`
                         : '—'}
                     </span>
-                    <span className={`block text-[12px] tabular-nums ${color}`}>
+                    <span className={`block text-[14px] tabular-nums ${color}`}>
                       {rate == null ? '—' : formatPercent(rate)}
                     </span>
                   </span>

@@ -118,7 +118,7 @@ export default function TargetSymbolsEditor({
         <button
           type="button"
           onClick={addWatchlist}
-          className="rounded-md border border-border px-3 py-1 text-[12px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+          className="rounded-md border border-border px-3 py-1 text-[14px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
         >
           ★ 관심 목록 전부 담기
         </button>
@@ -126,25 +126,25 @@ export default function TargetSymbolsEditor({
           type="button"
           onClick={() => void addSwing()}
           disabled={busy}
-          className="rounded-md border border-border px-3 py-1 text-[12px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+          className="rounded-md border border-border px-3 py-1 text-[14px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
         >
           {busy ? '불러오는 중…' : '📈 스윙 추천 담기'}
         </button>
         <button
           type="button"
           onClick={() => setDiscoverOpen(true)}
-          className="rounded-md border border-border px-3 py-1 text-[12px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+          className="rounded-md border border-border px-3 py-1 text-[14px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
         >
           🔎 종목 발굴 (스윙·관심 목록)
         </button>
       </div>
-      <p className="text-[12px] text-text-muted">
+      <p className="text-[14px] text-text-muted">
         스윙 추천 담기 = 스윙 화면에 마지막으로 저장된 추천 중 지금 기준({PROFILE_LABEL[activeId]} {swingBuyCut}점 이상 ·
         STRONG/BUY · 최대 10개). 근거를 보고 고르려면 [🔎 종목 발굴].
       </p>
 
       {symbols.length === 0 ? (
-        <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-3 text-center text-[12px] text-text-muted">
+        <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-3 text-center text-[14px] text-text-muted">
           담긴 종목이 없습니다. 종목이 없으면 자동매매를 켤 수 없습니다.
         </p>
       ) : (
@@ -152,7 +152,7 @@ export default function TargetSymbolsEditor({
           {symbols.map((symbol) => (
             <span
               key={symbol}
-              className="flex items-center gap-1 rounded-full border border-border bg-bg-tertiary/60 py-0.5 pl-2 pr-1 text-[12px]"
+              className="flex items-center gap-1 rounded-full border border-border bg-bg-tertiary/60 py-0.5 pl-2 pr-1 text-[14px]"
             >
               <StockName symbol={symbol} size="sm" className="text-text-primary" />
               <button
@@ -169,7 +169,7 @@ export default function TargetSymbolsEditor({
       )}
 
       {symbols.length > maxPositions && (
-        <p className="text-[12px] text-text-secondary">
+        <p className="text-[14px] text-text-secondary">
           대상 {symbols.length}종목 중 <b className="text-text-primary">동시에 최대 {maxPositions}종목</b>까지만 삽니다(조건이 먼저 맞는
           순서).
         </p>
@@ -179,7 +179,7 @@ export default function TargetSymbolsEditor({
         미국 정규장 시간(한국 시간 밤)에 판단하고, 모의 시장가 주문은 장 시간을 보지 않아 그때의 마지막 가격으로 체결된다.
       */}
       {krCount > 0 && marketHoursOnly && (
-        <p className="text-[12px] text-warning">
+        <p className="text-[14px] text-warning">
           국내 종목 {krCount}개가 섞여 있습니다 — 자동매매는 <b>미국 정규장 시간(한국 시간 밤)</b>에만 판단하므로, 국내 종목도 국내
           장이 닫힌 그 시간에 마지막 가격으로 판단·체결됩니다.
         </p>

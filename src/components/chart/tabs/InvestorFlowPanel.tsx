@@ -46,7 +46,7 @@ function Bars({ records }: { records: FlowRecord[] }) {
   const bar = Math.max(2, Math.min(8, (slot - 4) / 3));
 
   return (
-    <svg viewBox={`0 0 ${W} ${H + 16}`} className="block h-auto w-full max-w-[720px]" role="img" aria-label="날짜별 투자자 순매수 막대">
+    <svg viewBox={`0 0 ${W} ${H + 19}`} className="block h-auto w-full max-w-[720px]" role="img" aria-label="날짜별 투자자 순매수 막대">
       <line x1={0} x2={W} y1={mid} y2={mid} stroke="var(--color-border)" />
       {days.map((r, i) => {
         const x0 = i * slot + (slot - bar * 3) / 2;
@@ -69,7 +69,7 @@ function Bars({ records }: { records: FlowRecord[] }) {
               );
             })}
             {(i % 5 === 0 || i === days.length - 1) && (
-              <text x={i * slot + slot / 2} y={H + 12} textAnchor="middle" fontSize={12} fill="var(--color-text-muted)">
+              <text x={i * slot + slot / 2} y={H + 14} textAnchor="middle" fontSize={14} fill="var(--color-text-muted)">
                 {mmdd(r.date)}
               </text>
             )}
@@ -85,20 +85,20 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
 
   if (!supported) {
     return (
-      <p className="p-3 text-[12px] text-text-muted">
+      <p className="p-3 text-[14px] text-text-muted">
         투자자 동향은 국내 종목만 제공됩니다(토스 API 제공 범위).
       </p>
     );
   }
-  if (error) return <p className="p-3 text-[12px] text-bearish">투자자 동향을 불러오지 못했습니다: {error}</p>;
-  if (!flow) return <p className="p-3 text-[12px] text-text-muted">불러오는 중…</p>;
+  if (error) return <p className="p-3 text-[14px] text-bearish">투자자 동향을 불러오지 못했습니다: {error}</p>;
+  if (!flow) return <p className="p-3 text-[14px] text-text-muted">불러오는 중…</p>;
 
   const confirmed = flowWindow(flow.records);
   const period = flow.period;
   const holding = holdingSummary(flow.records);
 
   return (
-    <div className="space-y-3 p-3 text-[12px]">
+    <div className="space-y-3 p-3 text-[14px]">
       <div>
         <p className="mb-1 text-text-secondary">
           {period
@@ -185,7 +185,7 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
               <td className="py-1 text-text-secondary">
                 {r.date}
                 {r.provisional && (
-                  <span className="ml-1 rounded bg-warning/15 px-1 text-[12px] text-warning" title="장중 잠정치 — 개인·기타법인은 그날 저녁 확정치 때 채워집니다">
+                  <span className="ml-1 rounded bg-warning/15 px-1 text-[14px] text-warning" title="장중 잠정치 — 개인·기타법인은 그날 저녁 확정치 때 채워집니다">
                     잠정
                   </span>
                 )}

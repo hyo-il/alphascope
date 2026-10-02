@@ -148,7 +148,7 @@ export default function ChartInfoBar({
    * 사라졌다 나타나면 그 아래 차트 높이가 흔들린다.
    */
   return (
-    <div className="shrink-0 border-b border-border bg-bg-secondary px-3 py-1 text-[12px] leading-relaxed">
+    <div className="shrink-0 border-b border-border bg-bg-secondary px-3 py-1 text-[14px] leading-relaxed">
       <div className="flex min-h-[18px] flex-wrap items-center gap-x-3 gap-y-0.5">
         {legend && (
           <>

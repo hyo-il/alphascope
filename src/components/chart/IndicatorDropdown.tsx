@@ -89,7 +89,7 @@ export default function IndicatorDropdown({ toggles, onChange, loading }: Props)
 
       {open && (
         <div className="absolute left-0 top-full z-30 mt-1 w-52 rounded-md border border-border bg-bg-secondary py-1 shadow-xl">
-          <p className="px-3 py-1 text-[12px] text-text-muted">차트 오버레이</p>
+          <p className="px-3 py-1 text-[14px] text-text-muted">차트 오버레이</p>
 
           {/* MA 는 상위 라벨 + 기간별 하위 항목으로 묶는다 */}
           <div className="px-3 py-0.5 text-xs text-text-secondary">이동평균선</div>
@@ -107,7 +107,7 @@ export default function IndicatorDropdown({ toggles, onChange, loading }: Props)
           )}
 
           <div className="my-1 border-t border-border" />
-          <p className="px-3 py-1 text-[12px] text-text-muted">별도 패널</p>
+          <p className="px-3 py-1 text-[14px] text-text-muted">별도 패널</p>
 
           {PANEL_ITEMS.map((item) =>
             row(toggles.panels[item.key], item.label, () => togglePanel(item.key)),

@@ -41,13 +41,13 @@ const earningsMemo = new Map<string, NextEarnings>();
 const EARNINGS_WARN_DAYS = 14;
 
 function EarningsLine({ info }: { info: NextEarnings | null | undefined }) {
-  if (info === undefined) return <p className="text-[12px] text-text-muted">실적일 확인 중…</p>;
-  if (!info || !info.date || info.daysUntil == null) return <p className="text-[12px] text-text-muted/70">실적일 정보 없음</p>;
+  if (info === undefined) return <p className="text-[14px] text-text-muted">실적일 확인 중…</p>;
+  if (!info || !info.date || info.daysUntil == null) return <p className="text-[14px] text-text-muted/70">실적일 정보 없음</p>;
   const [, m, d] = info.date.split('-').map(Number);
   const when = info.daysUntil === 0 ? '오늘' : `D−${info.daysUntil}`;
   const soon = info.daysUntil <= EARNINGS_WARN_DAYS;
   return (
-    <p className={`text-[12px] ${soon ? 'font-medium text-warning' : 'text-text-secondary'}`}>
+    <p className={`text-[14px] ${soon ? 'font-medium text-warning' : 'text-text-secondary'}`}>
       실적 발표 {m}/{d} (예정·{info.isEstimate ? '추정' : when})
       {info.isEstimate && <span className="ml-1 text-text-muted">{when}</span>}
     </p>
@@ -138,14 +138,14 @@ export default function RankingPreview({
         {row ? (
           <div className="min-w-0 flex-1">
             <StockName symbol={row.symbol} name={row.name ?? undefined} className="text-sm font-semibold text-text-primary" />
-            <p className="text-[13px] tabular-nums">
+            <p className="text-[15px] tabular-nums">
               <span className="text-text-primary">{row.price != null ? formatPrice(row.price, row.currency) : '—'}</span>{' '}
               {row.changeRate != null && <span className={changeColor(row.changeRate)}>{formatPercent(row.changeRate)}</span>}
             </p>
             <EarningsLine info={earnings} />
           </div>
         ) : (
-          <p className="flex-1 text-[13px] text-text-muted">목록의 종목에 마우스를 올리면 여기 차트가 보입니다.</p>
+          <p className="flex-1 text-[15px] text-text-muted">목록의 종목에 마우스를 올리면 여기 차트가 보입니다.</p>
         )}
         <div className="flex shrink-0 gap-1" role="group" aria-label="봉">
           {PREVIEW_TIMEFRAMES.map((t) => (
@@ -154,7 +154,7 @@ export default function RankingPreview({
               type="button"
               onClick={() => onTimeframeChange(t.id)}
               aria-pressed={timeframe === t.id}
-              className={`rounded border px-2 py-0.5 text-[12px] transition-colors ${
+              className={`rounded border px-2 py-0.5 text-[14px] transition-colors ${
                 timeframe === t.id ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-border text-text-secondary'
               }`}
             >
@@ -163,7 +163,7 @@ export default function RankingPreview({
           ))}
         </div>
       </header>
-      <div className="flex shrink-0 gap-2 px-3 pt-1 text-[12px]">
+      <div className="flex shrink-0 gap-2 px-3 pt-1 text-[14px]">
         {LITE_CHART_MAS.map((ma) => (
           <span key={ma.key} style={{ color: ma.color }}>
             {maLabel(ma, timeframe === '1w' ? 'week' : timeframe === '1M' ? 'month' : 'day')}
@@ -179,18 +179,18 @@ export default function RankingPreview({
           </div>
         )}
         {error && !loading && (
-          <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-[12px] text-bearish">{error}</div>
+          <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-[14px] text-bearish">{error}</div>
         )}
       </div>
       <footer className="flex shrink-0 items-center justify-between border-t border-border px-3 py-2">
-        <span className="text-[12px] text-text-muted">
+        <span className="text-[14px] text-text-muted">
           {PREVIEW_TIMEFRAMES.find((t) => t.id === timeframe)!.label}봉 · 캔들 + 거래량 + 이동평균(5·20·60)
         </span>
         <button
           type="button"
           disabled={!row}
           onClick={() => row && onOpen(row.symbol)}
-          className="rounded bg-accent px-3 py-1 text-[12px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+          className="rounded bg-accent px-3 py-1 text-[14px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
         >
           차트로 열기
         </button>

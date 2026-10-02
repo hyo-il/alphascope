@@ -749,7 +749,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
                 x={pending.curX + 10}
                 y={pending.curY - 8}
                 fill={pending.percent >= 0 ? COLORS.bullish : COLORS.bearish}
-                fontSize={13}
+                fontSize={15}
                 fontWeight={600}
               >
                 {pending.percent >= 0 ? '+' : ''}
@@ -773,7 +773,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
             }}
           >
             <div
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded px-2 py-1 text-center text-[12px] font-medium tabular-nums"
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded px-2 py-1 text-center text-[14px] font-medium tabular-nums"
               style={{
                 backgroundColor: COLORS.tooltipBg,
                 color: measureInfo.isUp ? COLORS.bullish : COLORS.bearish,
@@ -802,7 +802,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
               setSelectedAnchor(null);
             }}
             title="이 드로잉 삭제 (Delete)"
-            className="absolute z-20 flex items-center gap-1 rounded-full bg-bearish px-2.5 py-1 text-[12px] font-bold text-white shadow-lg transition-transform hover:scale-105"
+            className="absolute z-20 flex items-center gap-1 rounded-full bg-bearish px-2.5 py-1 text-[14px] font-bold text-white shadow-lg transition-transform hover:scale-105"
             style={{ left: selectedAnchor.x - 24, top: selectedAnchor.y - 30 }}
           >
             ✕ 삭제

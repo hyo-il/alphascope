@@ -106,7 +106,7 @@ export default function AutoTradeSettings({
       <div className="flex h-[min(640px,85vh)] w-[min(680px,90vw)] flex-col overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-2xl">
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold">🤖 자동매매 설정</h2>
-          <span className="rounded bg-warning/15 px-2 py-0.5 text-[12px] text-warning">
+          <span className="rounded bg-warning/15 px-2 py-0.5 text-[14px] text-warning">
             모의 — 실제 주문은 나가지 않습니다
           </span>
           <button
@@ -161,7 +161,7 @@ export default function AutoTradeSettings({
                 <button
                   type="button"
                   onClick={() => setRuleDetailOpen((v) => !v)}
-                  className="text-[12px] text-text-muted transition-colors hover:text-text-primary"
+                  className="text-[14px] text-text-muted transition-colors hover:text-text-primary"
                 >
                   {ruleDetailOpen ? '▾ 자세히 접기' : '▸ 자세히 — 숫자 직접 고치기'}
                 </button>
@@ -175,7 +175,7 @@ export default function AutoTradeSettings({
                       />
                       이동평균 교차 사용
                     </label>
-                    <p className="-mt-1 text-[12px] text-text-muted">짧은 평균선이 긴 평균선을 넘으면 사고, 아래로 내려가면 팝니다.</p>
+                    <p className="-mt-1 text-[14px] text-text-muted">짧은 평균선이 긴 평균선을 넘으면 사고, 아래로 내려가면 팝니다.</p>
                     <Row label="단기 이동평균">
                       <input
                         type="number" min={2}
@@ -183,7 +183,7 @@ export default function AutoTradeSettings({
                         onChange={(e) => patch({ rule: { ...draft.rule, maShort: Number(e.target.value) } })}
                         className={FIELD}
                       />
-                      <span className="text-[12px] text-text-muted">최근 며칠의 평균 가격 — 작을수록 빨리 반응합니다</span>
+                      <span className="text-[14px] text-text-muted">최근 며칠의 평균 가격 — 작을수록 빨리 반응합니다</span>
                     </Row>
                     <Row label="장기 이동평균 (단기보다 커야 합니다)">
                       <input
@@ -192,7 +192,7 @@ export default function AutoTradeSettings({
                         onChange={(e) => patch({ rule: { ...draft.rule, maLong: Number(e.target.value) } })}
                         className={FIELD}
                       />
-                      <span className="text-[12px] text-text-muted">더 긴 기간의 평균 — 큰 흐름의 기준선입니다</span>
+                      <span className="text-[14px] text-text-muted">더 긴 기간의 평균 — 큰 흐름의 기준선입니다</span>
                     </Row>
                     <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">
                       <input
@@ -202,7 +202,7 @@ export default function AutoTradeSettings({
                       />
                       RSI 사용
                     </label>
-                    <p className="-mt-1 text-[12px] text-text-muted">RSI 는 최근 오른 힘과 내린 힘의 비율입니다(0~100, 낮을수록 많이 떨어진 상태).</p>
+                    <p className="-mt-1 text-[14px] text-text-muted">RSI 는 최근 오른 힘과 내린 힘의 비율입니다(0~100, 낮을수록 많이 떨어진 상태).</p>
                     <Row label="RSI 매수 기준 (이 값 이하에서 반등, 50 이하)">
                       <input
                         type="number" min={5} max={50}
@@ -210,7 +210,7 @@ export default function AutoTradeSettings({
                         onChange={(e) => patch({ rule: { ...draft.rule, rsiBuyBelow: Number(e.target.value) } })}
                         className={FIELD}
                       />
-                      <span className="text-[12px] text-text-muted">낮출수록 더 많이 떨어진 뒤에만 삽니다(기회는 줄어듭니다)</span>
+                      <span className="text-[14px] text-text-muted">낮출수록 더 많이 떨어진 뒤에만 삽니다(기회는 줄어듭니다)</span>
                     </Row>
                     <Row label="RSI 매도 기준 (이 값 이상이면 매도)">
                       <input
@@ -219,12 +219,12 @@ export default function AutoTradeSettings({
                         onChange={(e) => patch({ rule: { ...draft.rule, rsiSellAbove: Number(e.target.value) } })}
                         className={FIELD}
                       />
-                      <span className="text-[12px] text-text-muted">높일수록 더 오래 들고 갑니다</span>
+                      <span className="text-[14px] text-text-muted">높일수록 더 오래 들고 갑니다</span>
                     </Row>
                     {!draft.rule.useMaCross && !draft.rule.useRsi && (
-                      <p className="text-[12px] text-warning">⚠️ 둘 다 끄면 매수 신호가 나지 않습니다(손절·트레일링만 동작).</p>
+                      <p className="text-[14px] text-warning">⚠️ 둘 다 끄면 매수 신호가 나지 않습니다(손절·트레일링만 동작).</p>
                     )}
-                    <p className="text-[12px] leading-relaxed text-text-muted">
+                    <p className="text-[14px] leading-relaxed text-text-muted">
                       지표 엔진이 주는 이동평균은 5·20·60·120 입니다. 다른 값을 넣으면 가장 가까운
                       기간으로 맞추고, 실제로 쓴 기간을 거래 사유에 적습니다. 판단은 전날 마감한 일봉 기준입니다.
                     </p>
@@ -248,7 +248,7 @@ export default function AutoTradeSettings({
                   {preset.label}
                 </button>
               ))}
-              <span className="self-center text-[12px] text-text-muted">
+              <span className="self-center text-[14px] text-text-muted">
                 {PRESETS.find((p) => p.id === activePreset)?.hint ?? '직접 설정한 값'}
               </span>
             </div>
@@ -256,7 +256,7 @@ export default function AutoTradeSettings({
             <button
               type="button"
               onClick={() => setDetailOpen((v) => !v)}
-              className="text-[12px] text-text-muted transition-colors hover:text-text-primary"
+              className="text-[14px] text-text-muted transition-colors hover:text-text-primary"
             >
               {detailOpen ? '▾ 상세 접기' : '▸ 상세 설정'}
             </button>
@@ -355,11 +355,11 @@ export default function AutoTradeSettings({
                 onChange={(e) => patch({ hardStopLossPercent: Number(e.target.value) })}
                 className={FIELD}
               />
-              <span className="text-[12px] text-text-muted">
+              <span className="text-[14px] text-text-muted">
                 평균 매수가 대비 -{draft.hardStopLossPercent}% 에서 전량 청산
               </span>
             </Row>
-            <p className="text-[12px] leading-relaxed text-text-muted">
+            <p className="text-[14px] leading-relaxed text-text-muted">
               분석 주기와 무관하게 <span className="text-text-secondary">1분마다</span> 검사하는
               안전망입니다 — 급락은 다음 분석을 기다려 주지 않습니다.
             </p>
@@ -383,7 +383,7 @@ export default function AutoTradeSettings({
               </Row>
             )}
 
-            <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-2 text-[12px] leading-relaxed text-text-muted">
+            <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-2 text-[14px] leading-relaxed text-text-muted">
               💡 <span className="text-text-secondary">익절은 고정하지 않습니다.</span> 추세가 살아
               있으면 계속 들고 가도록 {draft.mode === 'ai' ? 'AI 가 매 주기 보유 종목을 다시 평가해' : '데드크로스·RSI 과열 규칙으로'}{' '}
               팔 때를 정합니다.
@@ -403,7 +403,7 @@ export default function AutoTradeSettings({
                 onChange={(e) => patch({ earningsBlackoutDays: Number(e.target.value) })}
                 className={FIELD}
               />
-              <span className="text-[12px] text-text-muted">
+              <span className="text-[14px] text-text-muted">
                 {draft.earningsBlackoutDays > 0
                   ? `실적 발표 ${draft.earningsBlackoutDays} 거래일 전부터 발표일까지 새로 사지 않습니다`
                   : '끔 — 실적 발표와 상관없이 삽니다'}
@@ -416,13 +416,13 @@ export default function AutoTradeSettings({
                 onChange={(e) => patch({ dailyLossLimitPercent: Number(e.target.value) })}
                 className={FIELD}
               />
-              <span className="text-[12px] text-text-muted">
+              <span className="text-[14px] text-text-muted">
                 {draft.dailyLossLimitPercent > 0
                   ? `하루 동안 계좌 평가액이 ${draft.dailyLossLimitPercent}% 넘게 줄면 그날은 새로 사지 않습니다 (보유 종목 손절·청산은 계속)`
                   : '끔 (0) — 하루 손실과 상관없이 삽니다'}
               </span>
             </Row>
-            <p className="text-[12px] leading-relaxed text-text-muted">
+            <p className="text-[14px] leading-relaxed text-text-muted">
               실적일은 매일 한 번 받아 둔 달력(yfinance)을 봅니다. 실적일을 모르는 종목은 막지 않고 거래 사유에
               「실적일 미확인」 을 남깁니다. 하루는 미국 종목이면 미국 거래일 기준이고, 다음 거래일이 되면 자동으로 풀립니다.
             </p>
@@ -430,7 +430,7 @@ export default function AutoTradeSettings({
         </div>
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">
-          <span className="text-[12px] text-text-muted">
+          <span className="text-[14px] text-text-muted">
             값의 허용 범위는 저장할 때 서버가 다시 한 번 조입니다.
           </span>
           <button

@@ -132,11 +132,11 @@ export default function WatchPanel({
 
         <span className="flex flex-col items-center gap-0.5 text-warning">
           <StarIcon className="h-5 w-5" />
-          <span className="text-[12px] tabular-nums text-text-secondary">{watchlist.length}</span>
+          <span className="text-[14px] tabular-nums text-text-secondary">{watchlist.length}</span>
         </span>
 
         <span
-          className="text-[12px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
+          className="text-[14px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
           style={{ writingMode: 'vertical-rl' }}
         >
           관심
@@ -146,11 +146,11 @@ export default function WatchPanel({
 
         <span className="flex flex-col items-center gap-0.5 text-text-muted">
           <ClockIcon className="h-5 w-5" />
-          <span className="text-[12px] tabular-nums text-text-secondary">{recent.length}</span>
+          <span className="text-[14px] tabular-nums text-text-secondary">{recent.length}</span>
         </span>
 
         <span
-          className="text-[12px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
+          className="text-[14px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
           style={{ writingMode: 'vertical-rl' }}
         >
           최근
@@ -163,7 +163,7 @@ export default function WatchPanel({
         </span>
 
         <span
-          className="text-[12px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
+          className="text-[14px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
           style={{ writingMode: 'vertical-rl' }}
         >
           계좌
@@ -173,11 +173,12 @@ export default function WatchPanel({
   }
 
   return (
-    <aside className="flex w-[250px] shrink-0 flex-col border-l border-border bg-bg-secondary">
+    <aside className="flex w-[280px] shrink-0 flex-col border-l border-border bg-bg-secondary">
       <div className="flex items-center border-b border-border">
         {(
           [
             /*
+             * 패널 폭은 280px 다(v2.33.0 — 글씨 +2px 로 250px 에서는 종목명이 두 줄로 접혔다).
              * ⚠️ 탭이 셋이 되면서 라벨을 줄였다. 250px 패널에서 ⚙️·접기 버튼을 빼면
              * 탭 하나에 70px 남짓인데, "관심 목록"(text-xs 5자)은 아이콘까지 78px 라
              * 줄바꿈이 났다. 아이콘이 이미 뜻을 나르므로 두 글자로 충분하다.
@@ -316,7 +317,7 @@ export default function WatchPanel({
                         ? `${quote.stale ? '· ' : ''}${formatPrice(quote.price, quote.currency)}`
                         : '—'}
                     </span>
-                    <span className={`block text-[12px] tabular-nums ${color}`}>
+                    <span className={`block text-[14px] tabular-nums ${color}`}>
                       {rate == null ? '—' : formatPercent(rate)}
                     </span>
                   </span>
@@ -343,7 +344,7 @@ export default function WatchPanel({
       </div>
 
       {tab === 'account' ? (
-        <p className="border-t border-border px-3 py-2 text-[12px] text-text-muted">
+        <p className="border-t border-border px-3 py-2 text-[14px] text-text-muted">
           모의투자 계좌의 현재 상태입니다. 거래는 차트의 빠른주문에서 진행하세요.
         </p>
       ) : tab === 'watch' ? (
@@ -375,7 +376,7 @@ export default function WatchPanel({
         )
       )}
 
-      <p className="border-t border-border px-3 py-1.5 text-[12px] leading-relaxed text-text-muted">
+      <p className="border-t border-border px-3 py-1.5 text-[14px] leading-relaxed text-text-muted">
         {compareMode ? (
           <>
             클릭: 빈 칸에 차례로 담기 · ✓ 다시 클릭: 빼기

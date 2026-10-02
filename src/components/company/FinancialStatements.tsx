@@ -36,7 +36,7 @@ function Table({
   if (!rows.length) {
     return (
       <div>
-        <h4 className="mb-1 text-[12px] text-text-muted">{title}</h4>
+        <h4 className="mb-1 text-[14px] text-text-muted">{title}</h4>
         <p className="text-xs text-text-muted">데이터 없음</p>
       </div>
     );
@@ -44,7 +44,7 @@ function Table({
 
   return (
     <div className="min-w-0 flex-1 overflow-x-auto">
-      <h4 className="mb-1 text-[12px] text-text-muted">{title} (단위: {currency})</h4>
+      <h4 className="mb-1 text-[14px] text-text-muted">{title} (단위: {currency})</h4>
       <table className="w-full min-w-[280px] text-xs tabular-nums">
         <thead>
           <tr className="text-text-muted">

@@ -79,7 +79,7 @@ export default function AccountMiniView({
         <button
           type="button"
           onClick={onGoToAccounts}
-          className="rounded-md bg-accent px-2.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-accent-hover"
+          className="rounded-md bg-accent px-2.5 py-1.5 text-[14px] font-medium text-white transition-colors hover:bg-accent-hover"
         >
           계좌 관리로 이동
         </button>
@@ -128,7 +128,7 @@ export default function AccountMiniView({
               })}
             </select>
           </div>
-          <p className="mt-1 text-[12px] leading-snug text-text-muted">
+          <p className="mt-1 text-[14px] leading-snug text-text-muted">
             여기서 고른 계좌가 빠른주문·계좌 관리의 현재 계좌가 됩니다
           </p>
         </div>
@@ -140,7 +140,7 @@ export default function AccountMiniView({
       )}
 
       {error && !detail && (
-        <p className="px-3 py-3 text-[12px] text-bearish">계좌를 불러오지 못했습니다. {error}</p>
+        <p className="px-3 py-3 text-[14px] text-bearish">계좌를 불러오지 못했습니다. {error}</p>
       )}
 
       {detail && account && (
@@ -160,18 +160,18 @@ export default function AccountMiniView({
 
           {/* 미체결이 있으면 알린다 — 빠른주문으로 건 지정가가 어디 갔는지 보여야 한다 */}
           {detail.pendingOrders > 0 && (
-            <p className="px-3 pb-2 text-[12px] text-warning">
+            <p className="px-3 pb-2 text-[14px] text-warning">
               미체결 주문 {detail.pendingOrders}건
             </p>
           )}
 
           <div className="border-t border-border">
-            <p className="px-3 py-1.5 text-[12px] font-medium text-text-muted">
+            <p className="px-3 py-1.5 text-[14px] font-medium text-text-muted">
               보유종목 ({positions.length})
             </p>
 
             {positions.length === 0 ? (
-              <p className="px-3 pb-3 text-[12px] text-text-muted">보유 종목이 없습니다.</p>
+              <p className="px-3 pb-3 text-[14px] text-text-muted">보유 종목이 없습니다.</p>
             ) : (
               positions.map((p) => {
                 const held = p.symbol === currentSymbol;
@@ -195,7 +195,7 @@ export default function AccountMiniView({
                         }`}
                         tickerClassName="text-text-muted"
                       />
-                      <span className="text-[12px] text-text-muted">{p.quantity}주</span>
+                      <span className="text-[14px] text-text-muted">{p.quantity}주</span>
                     </span>
 
                     <span className="shrink-0 text-right">
@@ -203,7 +203,7 @@ export default function AccountMiniView({
                         {formatPrice(p.currentPrice, p.currency)}
                       </span>
                       <span
-                        className={`block text-[12px] tabular-nums ${pnlTone(p.unrealizedPnlPercent)}`}
+                        className={`block text-[14px] tabular-nums ${pnlTone(p.unrealizedPnlPercent)}`}
                       >
                         {p.unrealizedPnlPercent == null
                           ? '—'
@@ -238,9 +238,9 @@ function Cell({
   const valueTone = tone ?? (muted ? 'text-text-secondary' : 'text-text-primary');
   return (
     <div className="rounded border border-border/60 bg-bg-tertiary/40 px-2 py-1.5">
-      <p className="text-[12px] text-text-muted">{label}</p>
+      <p className="text-[14px] text-text-muted">{label}</p>
       <p className={`text-xs font-semibold tabular-nums ${valueTone}`}>{value}</p>
-      {sub && <p className={`text-[12px] tabular-nums ${valueTone}`}>{sub}</p>}
+      {sub && <p className={`text-[14px] tabular-nums ${valueTone}`}>{sub}</p>}
     </div>
   );
 }
@@ -256,7 +256,7 @@ function AutoDot({ auto }: { auto: ReturnType<typeof autoTradeView> | null }) {
     <span
       title={auto.reason ? `${auto.label} — ${auto.reason}` : auto.label}
       aria-label={auto.label}
-      className={`shrink-0 text-[12px] leading-none ${AUTO_TRADE_TONE[auto.state]} ${
+      className={`shrink-0 text-[14px] leading-none ${AUTO_TRADE_TONE[auto.state]} ${
         auto.state === 'running' && !auto.busy ? 'motion-safe:animate-pulse' : ''
       }`}
     >

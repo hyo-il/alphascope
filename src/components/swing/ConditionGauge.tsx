@@ -31,7 +31,7 @@ export default function ConditionGauge({
       {Object.entries(conditions).map(([key, condition]) => {
         const ratio = condition.max ? condition.score / condition.max : 0;
         return (
-          <li key={key} className="flex items-center gap-2 text-[12px]">
+          <li key={key} className="flex items-center gap-2 text-[14px]">
             <span className="w-24 shrink-0 text-text-secondary">{LABELS[key] ?? key}</span>
             <span
               className="h-2 min-w-0 flex-1 overflow-hidden rounded bg-bg-tertiary"

@@ -118,7 +118,7 @@ export default function SwingDashboard({
         onPaperBuy={paperBuy}
         onAnalyze={onAnalyze}
         pick={
-          <label className="inline-flex w-fit items-center gap-1 text-[12px] text-text-secondary" title="목표 도달 가능성 분석에 담기">
+          <label className="inline-flex w-fit items-center gap-1 text-[14px] text-text-secondary" title="목표 도달 가능성 분석에 담기">
             <input type="checkbox" checked={picked.includes(symbol)} onChange={() => setPicked(toggleTargetPick(picked, symbol))} />
             🎯
             {analyzedToday(target.records, symbol, goal) && <span className="rounded bg-bg-tertiary px-1 text-text-muted">오늘 분석함</span>}
@@ -151,7 +151,7 @@ export default function SwingDashboard({
       <div className="min-h-0 flex-1 overflow-auto p-3">
         {tab === 'list' && (
           <div className="space-y-4">
-            <header className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-bg-secondary px-3 py-2 text-[12px] text-text-secondary">
+            <header className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-bg-secondary px-3 py-2 text-[14px] text-text-secondary">
               <span>
                 분석 대상: 관심 목록{' '}
                 <span className="text-text-primary">{watchlist.length}개 종목</span>
@@ -170,7 +170,7 @@ export default function SwingDashboard({
                 type="button"
                 onClick={analyze}
                 disabled={loading || !watchlist.length}
-                className="ml-auto rounded bg-accent px-2.5 py-1 text-[12px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+                className="ml-auto rounded bg-accent px-2.5 py-1 text-[14px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
               >
                 {loading ? '분석 중…' : '🔄 다시 분석'}
               </button>
@@ -178,14 +178,14 @@ export default function SwingDashboard({
 
             {/* 판정 기준 — 성향(프로파일)에 따라 값이 달라진다 */}
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[12px] text-text-muted">판정 기준</span>
+              <span className="text-[14px] text-text-muted">판정 기준</span>
               {(['standard', 'aggressive', 'defensive'] as ProfileId[]).map((id) => (
                 <button
                   key={id}
                   type="button"
                   onClick={() => void switchProfile(id)}
                   disabled={!profile.state}
-                  className={`rounded-md border px-2.5 py-1 text-[12px] transition-colors disabled:opacity-50 ${
+                  className={`rounded-md border px-2.5 py-1 text-[14px] transition-colors disabled:opacity-50 ${
                     activeId === id
                       ? 'border-accent bg-accent/10 font-medium text-accent'
                       : 'border-border text-text-secondary hover:border-accent/50'
@@ -198,7 +198,7 @@ export default function SwingDashboard({
                 type="button"
                 onClick={() => setProfileOpen(true)}
                 disabled={!profile.state}
-                className="rounded-md border border-border px-2.5 py-1 text-[12px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                className="rounded-md border border-border px-2.5 py-1 text-[14px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
               >
                 ⚙ 기준 편집
               </button>
@@ -208,19 +208,19 @@ export default function SwingDashboard({
                 onClick={() => setProfileOpen(true)}
                 disabled={!profile.state}
                 title="목표 도달 가능성 분석의 조건입니다 — 추천 판정은 바뀌지 않습니다"
-                className="rounded-md border border-accent/40 px-2.5 py-1 text-[12px] text-text-primary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                className="rounded-md border border-accent/40 px-2.5 py-1 text-[14px] text-text-primary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
               >
                 🎯 목표 +{goalPct(goal.targetPct)} · {periodLabel(goal.days)} · 손절 −{goalPct(goal.stopPct)}
               </button>
               {profile.error && (
-                <span className="text-[12px] text-warning">
+                <span className="text-[14px] text-warning">
                   기준을 불러오지 못해 표준을 표시합니다 ({profile.error})
                 </span>
               )}
             </div>
 
             {untouched && (
-              <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-1.5 text-[12px] text-text-muted">
+              <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-1.5 text-[14px] text-text-muted">
                 {PROFILE_LABEL[activeId]} 기준은 아직 표준과 같은 값입니다 — [⚙ 기준 편집] 에서
                 조정하세요. (공격·수비 값은 사용자 설정이며 근거가 검증되지 않았습니다.)
               </p>
@@ -231,14 +231,14 @@ export default function SwingDashboard({
               관심 종목 전체 분석이라 무겁고, 언제 돌릴지는 사용자가 정한다.
             */}
             {stale && (
-              <p className="flex flex-wrap items-center gap-2 rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[12px] text-warning">
+              <p className="flex flex-wrap items-center gap-2 rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[14px] text-warning">
                 이 결과는 '{PROFILE_LABEL[resultProfile]}' 기준입니다 · 지금은 '
                 {PROFILE_LABEL[activeId]}' 기준
                 <button
                   type="button"
                   onClick={analyze}
                   disabled={loading || !watchlist.length}
-                  className="rounded border border-warning/60 px-2 py-0.5 text-[12px] transition-colors hover:bg-warning/20 disabled:opacity-50"
+                  className="rounded border border-warning/60 px-2 py-0.5 text-[14px] transition-colors hover:bg-warning/20 disabled:opacity-50"
                 >
                   다시 분석
                 </button>
@@ -256,13 +256,13 @@ export default function SwingDashboard({
             )}
 
             {error && (
-              <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-2 text-[12px] text-bearish">
+              <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-2 text-[14px] text-bearish">
                 {error}
               </p>
             )}
 
             {result?.failures.length ? (
-              <p className="rounded border border-warning/40 bg-warning/10 px-3 py-2 text-[12px] text-warning">
+              <p className="rounded border border-warning/40 bg-warning/10 px-3 py-2 text-[14px] text-warning">
                 분석하지 못한 종목:{' '}
                 {result.failures.map((f) => `${f.symbol}(${f.error})`).join(' · ')}
               </p>
@@ -298,7 +298,7 @@ export default function SwingDashboard({
                   setPicked([]);
                 }}
               />
-              <p className="text-[12px] text-text-muted">
+              <p className="text-[14px] text-text-muted">
                 카드나 아래 「부적합」 목록의 🎯 를 체크해 고르세요(체크가 없으면 관심 목록에서 고릅니다). 결과는 지금 목표 조건과 같은 기록만 카드에 붙습니다.
               </p>
               <TargetProgressBox progress={target.progress} />
@@ -318,7 +318,7 @@ export default function SwingDashboard({
                       {items.map(card)}
                     </div>
                   ) : (
-                    <p className="text-[12px] text-text-muted">해당하는 종목이 없습니다.</p>
+                    <p className="text-[14px] text-text-muted">해당하는 종목이 없습니다.</p>
                   )}
                 </section>
               );
@@ -330,10 +330,10 @@ export default function SwingDashboard({
                   ⚪ 부적합 ({rejected.length}개) — 왜 추천하지 않는지
                 </summary>
                 {/* 🎯 체크 (v2.30.0) — 추천 카드와 같은 선택(최대 5 공유). 추천 여부와는 별개다 */}
-                <p className="mt-2 text-[12px] text-text-muted">
+                <p className="mt-2 text-[14px] text-text-muted">
                   🎯 분석은 추천 여부와 별개로 '목표에 먼저 닿을 가능성' 만 추정합니다.
                 </p>
-                <ul className="mt-1 space-y-1 text-[12px]">
+                <ul className="mt-1 space-y-1 text-[14px]">
                   {rejected.map((r) => {
                     const latest = latestFor(target.records, r.symbol, goal);
                     return (
@@ -362,7 +362,7 @@ export default function SwingDashboard({
               </details>
             )}
 
-            <p className="text-[12px] text-text-muted">
+            <p className="text-[14px] text-text-muted">
               ⚠️ 이 추천은 지표 조건을 기계적으로 채점한 결과이며 투자 조언이 아닙니다. 목표가·손절가는
               계획을 세우기 위한 기준일 뿐 가격을 보장하지 않습니다.
             </p>

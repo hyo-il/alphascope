@@ -17,7 +17,7 @@ export default function SurgeMiniChart({
   height?: number;
 }) {
   if (!history.length) {
-    return <p className="text-[12px] text-text-muted">표시할 급등 이력이 없습니다.</p>;
+    return <p className="text-[14px] text-text-muted">표시할 급등 이력이 없습니다.</p>;
   }
 
   const width = 100; // viewBox 기준. 실제 폭은 CSS 가 늘린다.
@@ -57,7 +57,7 @@ export default function SurgeMiniChart({
         })}
       </svg>
 
-      <div className="flex justify-between text-[12px] text-text-muted">
+      <div className="flex justify-between text-[14px] text-text-muted">
         <span>{history[0].date.slice(5)}</span>
         <span className="text-bullish">
           평균 +

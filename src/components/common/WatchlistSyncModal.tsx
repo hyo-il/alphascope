@@ -28,7 +28,7 @@ export default function WatchlistSyncModal() {
   const Side = ({ title, c }: { title: string; c: ReturnType<typeof count> }) => (
     <div className="flex-1 rounded-lg border border-border bg-bg-tertiary/40 p-3">
       <p className="text-xs font-medium text-text-primary">{title}</p>
-      <p className="mt-1.5 text-[12px] leading-relaxed text-text-secondary">
+      <p className="mt-1.5 text-[14px] leading-relaxed text-text-secondary">
         관심 종목 <b className="tabular-nums text-text-primary">{c.symbols}</b>개 · 그룹{' '}
         <b className="tabular-nums text-text-primary">{c.folders}</b>개
         <br />
@@ -60,7 +60,7 @@ export default function WatchlistSyncModal() {
       <span className={`block text-xs font-medium ${primary ? 'text-accent' : 'text-text-primary'}`}>
         {label}
       </span>
-      <span className="mt-0.5 block text-[12px] text-text-muted">{hint}</span>
+      <span className="mt-0.5 block text-[14px] text-text-muted">{hint}</span>
     </button>
   );
 

@@ -126,7 +126,7 @@ function HelpBox() {
         <span className="ml-auto font-normal text-text-muted">{collapsed ? '펼치기 ▾' : '접기 ▴'}</span>
       </button>
       {!collapsed && (
-        <div className="space-y-2.5 border-t border-border px-3 py-2.5 text-[13px] leading-relaxed text-text-secondary">
+        <div className="space-y-2.5 border-t border-border px-3 py-2.5 text-[15px] leading-relaxed text-text-secondary">
           <p>
             이 앱은 여러 가지 "신호"를 냅니다. 스윙 추천, 급등 탐지, Gemini 의 매수·매도 판단, 뉴스의 긍정·부정 판정 같은 것들입니다.
             <br />
@@ -190,7 +190,7 @@ function Card({
           tabIndex={0}
           title={why}
           aria-describedby={whyId}
-          className={`ml-auto shrink-0 cursor-help rounded px-1.5 py-0.5 text-[12px] ${style.badge}`}
+          className={`ml-auto shrink-0 cursor-help rounded px-1.5 py-0.5 text-[14px] ${style.badge}`}
         >
           {style.mark} {style.label}
           {verdict === 'hold' && weak ? ' · 표본 부족' : ''}
@@ -200,8 +200,8 @@ function Card({
         </span>
       </div>
       {/* 읽는 법 한 줄 — 배지 옆 좁은 칸에 두면 세로로 길어져 카드 전체 폭에 둔다 */}
-      <p className="-mt-1 mb-2 text-[12px] leading-snug text-text-secondary">{hint}</p>
-      <dl className="space-y-1 text-[12px]">
+      <p className="-mt-1 mb-2 text-[14px] leading-snug text-text-secondary">{hint}</p>
+      <dl className="space-y-1 text-[14px]">
         {numbers.map((n) => (
           <div key={n.label} className="flex justify-between gap-2">
             <dt className="text-text-secondary">{n.label}</dt>
@@ -209,7 +209,7 @@ function Card({
           </div>
         ))}
       </dl>
-      <p className="mt-auto border-t border-border pt-2 text-[12px] leading-relaxed text-text-secondary">
+      <p className="mt-auto border-t border-border pt-2 text-[14px] leading-relaxed text-text-secondary">
         <span className="text-text-muted">결론 · </span>
         {conclusion}
       </p>
@@ -344,7 +344,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function Table({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-[12px]">
+      <table className="w-full text-[14px]">
         <thead className="text-text-secondary">
           <tr>
             {headers.map((h, i) => (
@@ -408,7 +408,7 @@ function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
       </Section>
 
       <Section title={`스윙 — 과거 ${s.swing.window}거래일 재현 · BUY 날 뒤 수익률`}>
-        <p className="text-[12px] text-text-muted">각 날짜의 판정에는 그날까지의 봉만 넣었습니다(미래 차단).</p>
+        <p className="text-[14px] text-text-muted">각 날짜의 판정에는 그날까지의 봉만 넣었습니다(미래 차단).</p>
         <Table
           headers={['종목', '평가일수', 'STRONG', 'BUY', 'WATCH', 'HOLD', 'AVOID', '손익비 강등', 'BUY 날짜(최근 5)']}
           rows={d.replay.map((r) => [
@@ -432,12 +432,12 @@ function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
             })}
           />
         ) : (
-          <p className="text-[12px] text-text-muted">BUY 신호가 없어 이후 수익률을 낼 수 없습니다.</p>
+          <p className="text-[14px] text-text-muted">BUY 신호가 없어 이후 수익률을 낼 수 없습니다.</p>
         )}
       </Section>
 
       <Section title="목표 수익률 — 10거래일 안 목표 먼저 도달률 · 기대값">
-        <p className="text-[12px] text-text-muted">
+        <p className="text-[14px] text-text-muted">
           매일 종가 매수 가정 · 같은 날 둘 다 닿으면 손절 · 왕복 비용 0.30%p 반영. 조건을 바꿔 보려면
           「투자 분석 &gt; 스윙 추천 &gt; 추천 종목」의 🎯 목표 도달 가능성 분석 결과 카드에서 과거 기준선을 볼 수 있습니다(지난 기록은 「추천 이력」 맨 아래).
         </p>
@@ -461,7 +461,7 @@ function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
       </Section>
 
       <Section title="급등 — 주기성 워크포워드 · 추격 매수">
-        <p className="text-[12px] text-text-secondary">
+        <p className="text-[14px] text-text-secondary">
           주기 판정 {d.surge.cases.length}건 · 적중{' '}
           <span className={vsBase(d.surge.hitRate, d.surge.baseline)}>{d.surge.hitRate}%</span> · 우연 기준선{' '}
           {d.surge.baseline}% · 차이 <span className={tone(d.surge.edge)}>{signed(d.surge.edge, '%p')}</span>
@@ -473,7 +473,7 @@ function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
             b.band, b.n, <span className={vsBase(b.hit, b.base)}>{b.hit}%</span>, `${b.base}%`,
           ])}
         />
-        <p className="text-[12px] text-text-secondary">
+        <p className="text-[14px] text-text-secondary">
           급등 다음 날 시가에 산 경우 {d.surge.chase.n}건: 1일{' '}
           <span className={tone(d.surge.chase.d1)}>{signed(d.surge.chase.d1)}</span> · 3일{' '}
           <span className={tone(d.surge.chase.d3)}>{signed(d.surge.chase.d3)}</span> · 5일{' '}
@@ -497,22 +497,22 @@ function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
       </Section>
 
       <Section title="AI(Gemini) 정확도">
-        <p className="text-[12px] text-text-secondary">
+        <p className="text-[14px] text-text-secondary">
           원본 {d.gemini.raw ?? d.gemini.total}건 → 같은 종목·같은 날 1건으로 묶어 {d.gemini.total}건 · 채점 가능{' '}
           {d.gemini.judged}건 · 적중{' '}
           <span className={vsBase(d.gemini.rate, geminiBase)}>{d.gemini.rate}%</span> · 기준선(무조건 매수 5일 뒤 상승) {d.gemini.baselineUp5}%
         </p>
-        <p className="text-[12px] text-text-muted">
+        <p className="text-[14px] text-text-muted">
           채점 규칙: {d.gemini.rule ?? '5봉 뒤 종가(v2.15.0 이전 규칙 — 장중 분석은 실제로 6거래일 뒤)'}
         </p>
         {d.gemini.claude ? (
-          <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[12px] text-warning">
+          <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[14px] text-warning">
             위 숫자는 Gemini 만입니다. Claude 수동 분석(별도): {d.gemini.claude.total}건 · 채점{' '}
             {d.gemini.claude.judged}건 · 적중 {d.gemini.claude.rate}% — 사용자가 고른 종목만이라 선택 편향이 있어
             직접 비교하지 않습니다.
           </p>
         ) : (
-          <p className="text-[12px] text-text-muted">이 리포트(v2.16.0 이전)는 Claude 수동 분석이 위 숫자에 섞여 있습니다.</p>
+          <p className="text-[14px] text-text-muted">이 리포트(v2.16.0 이전)는 Claude 수동 분석이 위 숫자에 섞여 있습니다.</p>
         )}
         {d.gemini.byVersion && d.gemini.byVersion.length > 0 && (
           <Table
@@ -588,7 +588,7 @@ export default function DiagnoseView() {
         <header className="flex flex-wrap items-center gap-3">
           <div>
             <h2 className="text-sm font-semibold text-text-primary">🩺 진단 리포트</h2>
-            <p className="text-[12px] text-text-muted">
+            <p className="text-[14px] text-text-muted">
               스윙·목표 수익률·급등·AI 가 실제로 쓸모 있는지 과거 데이터로 확인합니다 (기준선과 나란히).
             </p>
           </div>
@@ -597,7 +597,7 @@ export default function DiagnoseView() {
               <select
                 value={selected?.id ?? ''}
                 onChange={(e) => select(Number(e.target.value))}
-                className="rounded border border-border bg-bg-tertiary px-2 py-1 text-[12px]"
+                className="rounded border border-border bg-bg-tertiary px-2 py-1 text-[14px]"
                 aria-label="과거 리포트"
               >
                 {reports.map((r) => (
@@ -624,7 +624,7 @@ export default function DiagnoseView() {
               type="button"
               onClick={() => void run()}
               disabled={running}
-              className="rounded bg-accent px-2.5 py-1 text-[12px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+              className="rounded bg-accent px-2.5 py-1 text-[14px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {running ? '실행 중…' : '▶ 진단 실행'}
             </button>
@@ -633,7 +633,7 @@ export default function DiagnoseView() {
 
         {running && progress && (
           <div className="rounded-lg border border-border bg-bg-secondary px-3 py-2">
-            <div className="mb-1 flex justify-between text-[12px] text-text-secondary">
+            <div className="mb-1 flex justify-between text-[14px] text-text-secondary">
               <span>
                 {progress.step}/{progress.total} {progress.label}
               </span>
@@ -651,7 +651,7 @@ export default function DiagnoseView() {
         <HelpBox />
 
         {(runError || listError) && (
-          <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-2 text-[12px] text-bearish">
+          <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-2 text-[14px] text-bearish">
             {runError ?? listError}
           </p>
         )}
@@ -664,17 +664,17 @@ export default function DiagnoseView() {
 
         {s && (
           <>
-            <p className="text-[12px] text-text-muted">
+            <p className="text-[14px] text-text-muted">
               대상 {s.symbols.length}종목 ({s.source}) · 판정 기준 {s.profile} · 실행 {s.elapsed}초 · {s.server}
               {s.quick && ' · quick'}
             </p>
             <Cards s={s} />
-            {detailError && <p className="text-[12px] text-bearish">상세를 불러오지 못했습니다: {detailError}</p>}
+            {detailError && <p className="text-[14px] text-bearish">상세를 불러오지 못했습니다: {detailError}</p>}
             {detail && <Details d={detail} s={s} />}
           </>
         )}
 
-        <p className="text-[12px] text-text-muted">
+        <p className="text-[14px] text-text-muted">
           ⚠️ 모든 숫자는 과거 데이터의 빈도이며 예측이 아닙니다. 카드 배지는 리포트의 숫자를 기준선과만
           비교합니다 — 표본이 30건 미만이면 "판단 보류 · 표본 부족" 으로 표시합니다. 이 분석은 투자 조언이 아닙니다.
         </p>

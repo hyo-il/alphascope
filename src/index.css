@@ -50,22 +50,22 @@
   --color-heat-down-4: var(--color-bearish);
 
   /*
-   * 글씨 크기 — 2026-10-01 사용자 결정: 기본보다 1px 큰 글씨 (v2.25.0).
+   * 글씨 크기 — 2026-10-01 사용자 결정: 기본보다 1px 큰 글씨 (v2.25.0) → 2026-10-03 다시 +2px (v2.33.0, 가장 작은 글씨 14px).
    * 컴포넌트에서 text-xs 를 다른 값으로 바꾸지 말고 여기서 고친다(단일 출처).
-   * 줄 높이도 함께 적는다 — 크기만 바꾸면 Tailwind 기본 비율이 남아 의도와 다른 높이가 된다.
+   * 줄 높이도 함께 적는다 — 크기만 바꾸면 Tailwind 기본 비율이 남아 의도와 다른 높이가 된다(각 +2~4px).
    */
-  --text-xs: 0.8125rem; /* 13px */
-  --text-xs--line-height: calc(18 / 13);
-  --text-sm: 0.9375rem; /* 15px */
-  --text-sm--line-height: calc(20 / 15);
-  --text-base: 1.0625rem; /* 17px */
-  --text-base--line-height: calc(24 / 17);
-  --text-lg: 1.1875rem; /* 19px */
-  --text-lg--line-height: calc(26 / 19);
-  --text-xl: 1.3125rem; /* 21px */
-  --text-xl--line-height: calc(28 / 21);
-  --text-2xl: 1.5625rem; /* 25px */
-  --text-2xl--line-height: calc(32 / 25);
+  --text-xs: 0.9375rem; /* 15px */
+  --text-xs--line-height: calc(21 / 15);
+  --text-sm: 1.0625rem; /* 17px */
+  --text-sm--line-height: calc(23 / 17);
+  --text-base: 1.1875rem; /* 19px */
+  --text-base--line-height: calc(27 / 19);
+  --text-lg: 1.3125rem; /* 21px */
+  --text-lg--line-height: calc(29 / 21);
+  --text-xl: 1.4375rem; /* 23px */
+  --text-xl--line-height: calc(31 / 23);
+  --text-2xl: 1.6875rem; /* 27px */
+  --text-2xl--line-height: calc(35 / 27);
 }
 
 html,

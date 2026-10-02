@@ -184,16 +184,16 @@ export default function RuleChoices({
               <p className={`text-xs font-semibold ${on ? 'text-accent' : 'text-text-primary'}`}>
                 {c.icon} {c.title}
               </p>
-              <p className="mt-1 text-[12px] leading-snug text-text-secondary">
+              <p className="mt-1 text-[14px] leading-snug text-text-secondary">
                 <b className="text-text-primary">삽니다</b>: {c.buy}
               </p>
-              <p className="text-[12px] leading-snug text-text-secondary">
+              <p className="text-[14px] leading-snug text-text-secondary">
                 <b className="text-text-primary">팝니다</b>: {c.sell}
               </p>
-              <p className="mt-1 text-[12px] leading-snug text-text-secondary">
+              <p className="mt-1 text-[14px] leading-snug text-text-secondary">
                 <b className="text-text-primary">왜 쓰나</b>: {c.why}
               </p>
-              <p className="text-[12px] leading-snug text-warning">
+              <p className="text-[14px] leading-snug text-warning">
                 <b>약점</b>: {c.weak}
               </p>
             </button>
@@ -201,15 +201,15 @@ export default function RuleChoices({
         })}
       </div>
       {!active && (
-        <p className="text-[12px] text-text-secondary">
+        <p className="text-[14px] text-text-secondary">
           <span className="rounded bg-bg-tertiary px-1.5 py-0.5">직접 설정</span> — 아래 「상세 설정」 에서 고친 값입니다.
         </p>
       )}
-      <p className="text-[12px] text-text-muted">
+      <p className="text-[14px] text-text-muted">
         세 가지 값은 앱의 출발값입니다(근거 검증 전). 손절(−{hardStopLossPercent}%)은 어느 방법이든 따로 지켜집니다.
       </p>
       {/* ⚠️ 고정 안내 — 지우지 않는다 */}
-      <p className="rounded-md bg-warning/10 px-2.5 py-1.5 text-[12px] text-warning">
+      <p className="rounded-md bg-warning/10 px-2.5 py-1.5 text-[14px] text-warning">
         어느 방법도 이 앱에서 돈을 번다고 확인된 적은 없습니다. 아래 「과거 1년 재현」 을 먼저 보세요.
       </p>
 
@@ -224,27 +224,27 @@ export default function RuleChoices({
           >
             {busy ? '계산 중…' : '과거 1년에 썼다면?'}
           </button>
-          <span className="text-[12px] text-text-muted">
+          <span className="text-[14px] text-text-muted">
             {symbols.length ? `대상 종목 ${symbols.length}개` : '대상 종목이 없어 관심 목록(최대 20)'} · 지금 고른 방법·손절로 계산
           </span>
           {job?.running && (
-            <span className="text-[12px] text-text-secondary">
+            <span className="text-[14px] text-text-secondary">
               {job.done}/{job.total} {job.current}
             </span>
           )}
         </div>
-        {error && <p className="text-[12px] text-bearish">{error}</p>}
+        {error && <p className="text-[14px] text-bearish">{error}</p>}
         {res && s && (
           <>
-            <p className="text-[13px] leading-relaxed text-text-primary">
+            <p className="text-[15px] leading-relaxed text-text-primary">
               지난 1년 동안 이 방법을 썼다면 종목당 평균 <b>{s.avgTrades ?? 0}번</b> 사고팔았고, 이긴 비율{' '}
               <b>{s.avgWinRate == null ? '—' : `${s.avgWinRate}%`}</b>, 거래당 평균{' '}
               <b className={tone(s.avgReturn)}>{signed(s.avgReturn)}</b>(수수료 포함)였습니다. 그냥 들고 있었다면 평균{' '}
               <b className={tone(s.avgHoldReturn)}>{signed(s.avgHoldReturn)}</b> 였습니다.
-              {s.weak && <span className="ml-1 rounded bg-bg-tertiary px-1 text-[12px] text-text-secondary">표본 적음 — 결론 내기 어려움</span>}
+              {s.weak && <span className="ml-1 rounded bg-bg-tertiary px-1 text-[14px] text-text-secondary">표본 적음 — 결론 내기 어려움</span>}
             </p>
             <div className="max-h-56 overflow-y-auto">
-              <table className="w-full text-[12px] tabular-nums">
+              <table className="w-full text-[14px] tabular-nums">
                 <thead className="text-text-muted">
                   <tr className="border-b border-border">
                     <th className="py-1 text-left font-normal">종목</th>
@@ -286,16 +286,16 @@ export default function RuleChoices({
                 </tbody>
               </table>
             </div>
-            <p className="text-[12px] text-text-muted">
+            <p className="text-[14px] text-text-muted">
               합계 줄은 종목별 결과의 단순 평균입니다. 신호가 난 다음 날 시가에 사고팔았고, 같은 날 손절 조건이 함께 맞으면 손절로 셌습니다.
               기간 끝에 들고 있던 것은 마지막 종가로 정리했습니다.
             </p>
           </>
         )}
         {/* ⚠️ 고정 문구 3개 — 지우지 않는다 */}
-        <p className="text-[12px] text-text-muted">과거 결과이며 앞으로를 보장하지 않습니다.</p>
-        <p className="text-[12px] text-text-muted">여러 방법을 바꿔 보며 가장 좋은 숫자를 고르면 우연에 속기 쉽습니다.</p>
-        <p className="text-[12px] text-text-muted">
+        <p className="text-[14px] text-text-muted">과거 결과이며 앞으로를 보장하지 않습니다.</p>
+        <p className="text-[14px] text-text-muted">여러 방법을 바꿔 보며 가장 좋은 숫자를 고르면 우연에 속기 쉽습니다.</p>
+        <p className="text-[14px] text-text-muted">
           종목마다 따로 계산했습니다 — 실제 계좌의 비중·최대 종목 수 제한은 반영하지 않았습니다.
         </p>
       </div>

@@ -25,7 +25,7 @@ export default function SectorRanking({
   /** 지도에서 끈 분야 — 흐리게 */
   dimmed?: Set<string>;
 }) {
-  if (!sectors.length) return <p className="p-3 text-[12px] text-text-muted">계산할 수 있는 섹터가 없습니다.</p>;
+  if (!sectors.length) return <p className="p-3 text-[14px] text-text-muted">계산할 수 있는 섹터가 없습니다.</p>;
   return (
     <ol className="divide-y divide-border">
       {sectors.map((s, i) => {
@@ -42,13 +42,13 @@ export default function SectorRanking({
               aria-pressed={active}
             >
               <div className="flex items-baseline gap-1.5">
-                <span className="w-4 shrink-0 text-right text-[12px] tabular-nums text-text-muted">{i + 1}</span>
-                <span className={`min-w-0 flex-1 truncate text-[13px] font-medium ${active ? 'text-accent' : 'text-text-primary'}`}>
+                <span className="w-4 shrink-0 text-right text-[14px] tabular-nums text-text-muted">{i + 1}</span>
+                <span className={`min-w-0 flex-1 truncate text-[15px] font-medium ${active ? 'text-accent' : 'text-text-primary'}`}>
                   {s.sector}
                 </span>
-                <span className={`text-[13px] font-semibold tabular-nums ${tone(s.capReturn)}`}>{pct(s.capReturn)}</span>
+                <span className={`text-[15px] font-semibold tabular-nums ${tone(s.capReturn)}`}>{pct(s.capReturn)}</span>
               </div>
-              <div className="ml-5 flex flex-wrap gap-x-2 text-[12px] tabular-nums text-text-muted">
+              <div className="ml-5 flex flex-wrap gap-x-2 text-[14px] tabular-nums text-text-muted">
                 <span title="동일 가중(단순 평균) 수익률">동일 {pct(s.equalReturn)}</span>
                 <span title="오른 종목 / 계산한 종목">
                   상승 {s.up}/{s.counted}
@@ -59,7 +59,7 @@ export default function SectorRanking({
                 </span>
                 {s.excluded > 0 && <span title="N거래일 전 종가가 없어 뺀 종목">제외 {s.excluded}</span>}
               </div>
-              <div className="ml-5 mt-0.5 flex flex-wrap gap-x-2 text-[12px] text-text-secondary">
+              <div className="ml-5 mt-0.5 flex flex-wrap gap-x-2 text-[14px] text-text-secondary">
                 {s.top.map((t) => (
                   <span key={t.symbol} className="inline-flex items-baseline gap-0.5" title={`섹터 수익률 기여 ${t.contribution.toFixed(2)}%p`}>
                     <StockName symbol={t.symbol} name={t.name ?? undefined} size="sm" />

@@ -30,7 +30,7 @@ export default function SyncIndicator() {
     return (
       <div
         role="status"
-        className="pointer-events-none fixed bottom-3 left-[168px] z-40 rounded-md border border-border bg-bg-secondary px-2 py-1 text-[12px] text-text-muted"
+        className="pointer-events-none fixed bottom-3 left-[168px] z-40 rounded-md border border-border bg-bg-secondary px-2 py-1 text-[14px] text-text-muted"
       >
         관심 목록 저장 중…
       </div>
@@ -41,7 +41,7 @@ export default function SyncIndicator() {
   return (
     <div
       role="status"
-      className={`fixed bottom-3 left-[168px] z-40 max-w-[320px] rounded-md border px-2.5 py-1.5 text-[12px] leading-snug ${
+      className={`fixed bottom-3 left-[168px] z-40 max-w-[320px] rounded-md border px-2.5 py-1.5 text-[14px] leading-snug ${
         failed
           ? 'border-bearish/50 bg-bearish/15 text-bearish'
           : 'border-warning/50 bg-warning/15 text-warning'

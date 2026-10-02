@@ -214,7 +214,7 @@ export default function DiscoverSymbolsModal({
       <div className="flex h-[min(620px,82vh)] w-[min(720px,90vw)] flex-col overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-2xl">
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold">종목 발굴</h2>
-          <span className="text-[12px] text-text-muted">기준을 정하고 탐지한 뒤, 근거를 보고 담습니다</span>
+          <span className="text-[14px] text-text-muted">기준을 정하고 탐지한 뒤, 근거를 보고 담습니다</span>
           <button
             type="button"
             onClick={onClose}
@@ -244,7 +244,7 @@ export default function DiscoverSymbolsModal({
                     <p className={`text-xs font-medium ${active ? 'text-accent' : 'text-text-primary'}`}>
                       {s.label}
                     </p>
-                    <p className="mt-0.5 text-[12px] leading-relaxed text-text-muted">{s.desc}</p>
+                    <p className="mt-0.5 text-[14px] leading-relaxed text-text-muted">{s.desc}</p>
                   </button>
                 );
               })}
@@ -257,7 +257,7 @@ export default function DiscoverSymbolsModal({
                 <h3 className="text-xs font-semibold text-text-primary">② 기준</h3>
                 {/* 스윙은 판정 기준이 프로파일에 따라 달라진다 — 무엇으로 걸렀는지 적어 둔다 */}
                 {source === 'swing' && (
-                  <span className="rounded border border-border px-1.5 py-0.5 text-[12px] text-text-secondary">
+                  <span className="rounded border border-border px-1.5 py-0.5 text-[14px] text-text-secondary">
                     기준: {PROFILE_LABEL[activeId]}
                     {activeId !== 'standard' ? '(사용자 설정)' : ''}
                   </span>
@@ -288,7 +288,7 @@ export default function DiscoverSymbolsModal({
                     key={g}
                     type="button"
                     onClick={() => toggleGrade(g)}
-                    className={`rounded border px-2 py-0.5 text-[12px] transition-colors ${
+                    className={`rounded border px-2 py-0.5 text-[14px] transition-colors ${
                       grades.includes(g)
                         ? 'border-accent bg-accent/10 text-accent'
                         : 'border-border text-text-muted hover:border-accent/50'
@@ -313,7 +313,7 @@ export default function DiscoverSymbolsModal({
                 <input type="checkbox" checked={fresh} onChange={(e) => setFresh(e.target.checked)} />
                 다시 분석 (관심 목록 종목을 새로 채점합니다)
               </label>
-              <p className="text-[12px] leading-relaxed text-text-muted">
+              <p className="text-[14px] leading-relaxed text-text-muted">
                 끄면 스윙 추천 화면에서 마지막으로 나온
                 결과를 그대로 읽습니다 — 판정 기준은 그 화면과 같습니다.
               </p>
@@ -330,12 +330,12 @@ export default function DiscoverSymbolsModal({
             >
               {busy ? '탐지 중…' : '탐지'}
             </button>
-            {note && <span className="text-[12px] text-text-muted">{note}</span>}
+            {note && <span className="text-[14px] text-text-muted">{note}</span>}
           </div>
 
           {/* ⚠️ 여기서 다시 채점하지 않는다 — 불러온 추천이 다른 기준이면 그 사실만 알린다 */}
           {source === 'swing' && rowsProfile && rowsProfile !== activeId && (
-            <p className="rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[12px] text-warning">
+            <p className="rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[14px] text-warning">
               이 추천은 '{PROFILE_LABEL[rowsProfile]}' 기준으로 나왔습니다 · 지금 기준은 '
               {PROFILE_LABEL[activeId]}' 입니다 — [다시 분석] 을 켜고 탐지하면 지금 기준으로
               채점합니다.
@@ -353,7 +353,7 @@ export default function DiscoverSymbolsModal({
                   </span>
                 </h3>
                 {rejectedRows.length > 0 && (
-                  <label className="inline-flex w-fit items-center gap-1.5 text-[12px] text-text-muted">
+                  <label className="inline-flex w-fit items-center gap-1.5 text-[14px] text-text-muted">
                     <input
                       type="checkbox"
                       checked={showRejected}
@@ -369,7 +369,7 @@ export default function DiscoverSymbolsModal({
                       selected.length === selectable.length ? [] : selectable.map((r) => r.symbol),
                     )
                   }
-                  className="ml-auto text-[12px] text-text-muted transition-colors hover:text-text-primary"
+                  className="ml-auto text-[14px] text-text-muted transition-colors hover:text-text-primary"
                 >
                   {selected.length === selectable.length && selectable.length > 0
                     ? '전체 해제'
@@ -383,7 +383,7 @@ export default function DiscoverSymbolsModal({
                 숫자로 말해 주지 않으면 사용자는 엉뚱한 손잡이를 계속 돌린다.
               */}
               {stats && stats.total > 0 && source !== 'watchlist' && (
-                <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-2 text-[12px] leading-relaxed text-text-muted">
+                <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-2 text-[14px] leading-relaxed text-text-muted">
                   전체 {stats.total}건 · 통과 {stats.passed} — 점수 미달 {stats.failScore} · 등급 제외{' '}
                   {stats.failGrade}
                   {stats.failGrade > 0 && ` (지금 ${grades.join('·') || '선택 없음'} 만 봄)`}
@@ -397,7 +397,7 @@ export default function DiscoverSymbolsModal({
               )}
 
               {visibleRows.length === 0 ? (
-                <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-4 text-center text-[12px] text-text-muted">
+                <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-4 text-center text-[14px] text-text-muted">
                   기준을 통과한 종목이 없습니다. 점수를 낮추거나 등급을 넓혀 보세요.
                 </p>
               ) : (
@@ -435,20 +435,20 @@ export default function DiscoverSymbolsModal({
                             <span className="flex flex-wrap items-center gap-1.5">
                               <StockName symbol={row.symbol} size="sm" className="text-text-primary" />
                               {row.score != null && (
-                                <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[12px] tabular-nums text-text-secondary">
+                                <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[14px] tabular-nums text-text-secondary">
                                   {num(row.score)}점
                                 </span>
                               )}
                               {row.grade && (
-                                <span className="rounded border border-border px-1.5 py-0.5 text-[12px] text-text-secondary">
+                                <span className="rounded border border-border px-1.5 py-0.5 text-[14px] text-text-secondary">
                                   {row.grade}
                                 </span>
                               )}
                               {added && (
-                                <span className="text-[12px] text-text-muted">이미 담긴 종목</span>
+                                <span className="text-[14px] text-text-muted">이미 담긴 종목</span>
                               )}
                               {rejected && (
-                                <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[12px] text-text-muted">
+                                <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[14px] text-text-muted">
                                   {row.fail === 'score' ? `점수 미달 (< ${minScore})` : '등급 제외'}
                                 </span>
                               )}
@@ -457,7 +457,7 @@ export default function DiscoverSymbolsModal({
                             {row.reasons.map((reason, i) => (
                               <span
                                 key={i}
-                                className="mt-0.5 block text-[12px] leading-relaxed text-text-muted"
+                                className="mt-0.5 block text-[14px] leading-relaxed text-text-muted"
                               >
                                 {reason}
                               </span>
@@ -474,7 +474,7 @@ export default function DiscoverSymbolsModal({
         </div>
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">
-          <span className="text-[12px] text-text-muted">
+          <span className="text-[14px] text-text-muted">
             담아도 자동매매가 곧바로 돌지는 않습니다 — 설정을 저장해야 반영됩니다.
           </span>
           <button

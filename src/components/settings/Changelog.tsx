@@ -13,7 +13,7 @@ export default function Changelog() {
   return (
     <div className="h-full overflow-y-auto p-6">
       <h2 className="mb-1 text-base font-semibold">📋 업데이트 내역</h2>
-      <p className="mb-4 text-[12px] text-text-muted">
+      <p className="mb-4 text-[14px] text-text-muted">
         최신 버전이 맨 위입니다. 사용하면서 달라지는 것만 적었습니다.
       </p>
 
@@ -29,15 +29,15 @@ export default function Changelog() {
               <span className="text-sm font-semibold text-text-primary">{entry.version}</span>
               {/* 가장 최신 항목에만 — 무엇이 새로 들어왔는지 한눈에 */}
               {index === 0 && (
-                <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[12px] font-semibold text-accent">
+                <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[14px] font-semibold text-accent">
                   NEW
                 </span>
               )}
-              <time className="ml-auto text-[12px] text-text-muted">{entry.date}</time>
+              <time className="ml-auto text-[14px] text-text-muted">{entry.date}</time>
             </div>
 
             <p className="mt-1.5 text-xs font-medium text-text-primary">{entry.title}</p>
-            <p className="mt-1 text-[12px] leading-relaxed text-text-secondary">
+            <p className="mt-1 text-[14px] leading-relaxed text-text-secondary">
               {entry.description}
             </p>
 
@@ -45,7 +45,7 @@ export default function Changelog() {
               {entry.changes.map((change) => (
                 <li
                   key={change}
-                  className="flex gap-1.5 text-[12px] leading-relaxed text-text-secondary"
+                  className="flex gap-1.5 text-[14px] leading-relaxed text-text-secondary"
                 >
                   <span aria-hidden className="shrink-0 text-text-muted">
                     •

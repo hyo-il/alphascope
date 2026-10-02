@@ -280,7 +280,7 @@ export default function CompareTable({ symbols, names, fundamentals, summaries, 
             key={s.id}
             type="button"
             onClick={() => setSection(s.id)}
-            className={`rounded border px-2 py-0.5 text-[12px] transition-colors ${
+            className={`rounded border px-2 py-0.5 text-[14px] transition-colors ${
               section === s.id
                 ? 'border-accent bg-accent/10 text-accent'
                 : 'border-border text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
@@ -289,7 +289,7 @@ export default function CompareTable({ symbols, names, fundamentals, summaries, 
             {s.label}
           </button>
         ))}
-        {loading && <span className="ml-auto text-[12px] text-text-muted">불러오는 중…</span>}
+        {loading && <span className="ml-auto text-[14px] text-text-muted">불러오는 중…</span>}
       </div>
 
       <div className="overflow-x-auto">
@@ -303,7 +303,7 @@ export default function CompareTable({ symbols, names, fundamentals, summaries, 
                 <th key={cell.symbol} className="px-3 py-2 text-right font-medium">
                   <span className="block text-text-primary">{names(cell.symbol) || cell.symbol}</span>
                   {names(cell.symbol) && (
-                    <span className="block text-[12px] font-normal text-text-muted">
+                    <span className="block text-[14px] font-normal text-text-muted">
                       {cell.symbol}
                     </span>
                   )}
@@ -318,7 +318,7 @@ export default function CompareTable({ symbols, names, fundamentals, summaries, 
                 <tr className="bg-bg-tertiary/40">
                   <td
                     colSpan={cells.length + 1}
-                    className="px-3 py-1 text-[12px] font-medium text-text-secondary"
+                    className="px-3 py-1 text-[14px] font-medium text-text-secondary"
                   >
                     {group.label}
                   </td>

@@ -170,7 +170,7 @@ function AccuracyReport({ report }: { report: Report }) {
             </div>
           </div>
 
-          <p className="mt-2 text-[12px] text-text-muted">
+          <p className="mt-2 text-[14px] text-text-muted">
             채점 대상 {total}건{rawTotal > total && ` (원본 ${rawTotal}건을 종목·날짜별 1건으로 묶음)`} · 채점
             대기 {pending}건
             {pending > 0 && ` (${report.horizonDays} 거래일이 지나면 자동으로 채점됩니다)`}

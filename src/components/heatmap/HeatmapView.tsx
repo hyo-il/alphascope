@@ -79,12 +79,12 @@ function writeView(v: SavedView) {
 }
 
 // ── 칸 글자 맞추기 (v2.27.0) ────────────────────────────────────────────────
-// 최소 12px(앱 글자 규칙) · 최대 20px. 12px 로도 칸에 안 들어가면 글자를 **그리지 않는다** — 「AA…」 처럼 잘린 글자는
+// 최소 14px(앱 글자 규칙, v2.33.0) · 최대 20px. 14px 로도 칸에 안 들어가면 글자를 **그리지 않는다** — 「AA…」 처럼 잘린 글자는
 // 다른 종목으로 읽힌다. 마우스를 올리면 툴팁이 이름을 보여 준다. 폭은 실제 글꼴로 잰다(canvas measureText).
 
-const LABEL_MIN = 12;
+const LABEL_MIN = 14;
 const LABEL_MAX = 20;
-const RATE_SIZE = 12;
+const RATE_SIZE = 14;
 /** 칸 테두리(1px×2) + 좌우 여백(2px×2) */
 const TILE_PAD_X = 6;
 const LINE = 1.2;
@@ -368,7 +368,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
               role="tab"
               aria-selected={view === id}
               onClick={() => setView(id)}
-              className={`rounded px-2.5 py-0.5 text-[12px] transition-colors ${
+              className={`rounded px-2.5 py-0.5 text-[14px] transition-colors ${
                 view === id ? 'bg-accent/15 font-medium text-accent' : 'text-text-secondary hover:text-text-primary'
               }`}
             >
@@ -382,7 +382,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
               key={m}
               type="button"
               onClick={() => setMarket(m)}
-              className={`rounded border px-2.5 py-0.5 text-[12px] transition-colors ${
+              className={`rounded border px-2.5 py-0.5 text-[14px] transition-colors ${
                 market === m ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-border text-text-secondary'
               }`}
             >
@@ -397,7 +397,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
               type="button"
               onClick={() => setPeriod(p.id)}
               aria-pressed={period === p.id}
-              className={`rounded border px-2 py-0.5 text-[12px] transition-colors ${
+              className={`rounded border px-2 py-0.5 text-[14px] transition-colors ${
                 period === p.id ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-border text-text-secondary'
               }`}
             >
@@ -418,7 +418,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
 
       {/* 한 줄 요약 — 지난 기간의 결과 */}
       {data && best && (
-        <p className="mb-1 shrink-0 text-[13px] text-text-primary">
+        <p className="mb-1 shrink-0 text-[15px] text-text-primary">
           {marketLabel} {watchView ? '관심 종목' : '대형주'} {periodInfo.label}: 강세 1위 <b>{best.sector}</b>{' '}
           <span className={best.capReturn >= 0 ? 'text-bullish' : 'text-bearish'}>{pct(best.capReturn)}</span>
           {worst && (
@@ -431,9 +431,9 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         </p>
       )}
 
-      {error && <p className="mb-2 rounded border border-bearish/40 bg-bearish/10 px-3 py-1.5 text-[12px] text-bearish">{error}</p>}
+      {error && <p className="mb-2 rounded border border-bearish/40 bg-bearish/10 px-3 py-1.5 text-[14px] text-bearish">{error}</p>}
       {data && data.missingSectors > 0 && (
-        <p className="mb-1 text-[12px] text-text-muted">
+        <p className="mb-1 text-[14px] text-text-muted">
           섹터 정보가 없는 {data.missingSectors}종목은 「기타」 로 묶었습니다 (새로 들어온 종목은 하루 한 번 뒤에서 채웁니다).
         </p>
       )}
@@ -446,7 +446,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-bg-secondary"
         >
           {empty && (
-            <p className="p-4 text-[13px] text-text-secondary">
+            <p className="p-4 text-[15px] text-text-secondary">
               관심 목록에 {marketLabel} 종목이 없습니다. 오른쪽 관심 목록에서 ★ 로 담아 보세요.
             </p>
           )}
@@ -465,7 +465,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
             >
               {s.rect.w > 40 && (
                 <span
-                  className={`block truncate px-1 text-[12px] font-medium leading-4 ${
+                  className={`block truncate px-1 text-[14px] font-medium leading-4 ${
                     focusSector === s.name ? 'text-accent' : 'text-text-secondary'
                   }`}
                 >
@@ -501,13 +501,13 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
                     {line}
                   </span>
                 ))}
-                {fit?.rate && <span className="text-[12px] leading-[1.2] tabular-nums text-text-primary">{pct(cell.changeRate)}</span>}
+                {fit?.rate && <span className="text-[14px] leading-[1.2] tabular-nums text-text-primary">{pct(cell.changeRate)}</span>}
               </button>
             );
           })}
           {hover && (
             <div
-              className="pointer-events-none absolute z-10 w-52 rounded border border-border bg-bg-primary/95 px-2 py-1.5 text-[12px] shadow-lg"
+              className="pointer-events-none absolute z-10 w-52 rounded border border-border bg-bg-primary/95 px-2 py-1.5 text-[14px] shadow-lg"
               style={{
                 left: Math.min(hover.x + 12, Math.max(0, size.w - 212)),
                 top: Math.min(hover.y + 12, Math.max(0, size.h - 90)),
@@ -535,11 +535,11 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         {/* 섹터 강세 순위 — 설명용 */}
         <aside className="flex w-72 shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-bg-secondary">
           <div className="shrink-0 border-b border-border px-2.5 py-1.5">
-            <p className="text-[13px] font-semibold text-text-primary">
+            <p className="text-[15px] font-semibold text-text-primary">
               섹터 강세 순위 · {periodInfo.label}
               {watchView && <span className="ml-1.5 font-normal text-accent">관심 종목 기준</span>}
             </p>
-            <p className="text-[12px] text-text-muted">
+            <p className="text-[14px] text-text-muted">
               시총 가중(현재 시총) 수익률 높은 순 · 줄을 누르면 지도에서 강조{activeOff.size > 0 && ' · 흐린 줄은 지도에서 끈 분야'}
             </p>
           </div>
@@ -547,15 +547,15 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
             {data ? (
               <SectorRanking sectors={data.sectors} selected={focusSector} onSelect={setFocusSector} dimmed={activeOff} />
             ) : (
-              <p className="p-3 text-[12px] text-text-muted">불러오는 중…</p>
+              <p className="p-3 text-[14px] text-text-muted">불러오는 중…</p>
             )}
           </div>
           {/* ⚠️ 고정 문구 — 지우지 않는다(CLAUDE.md). v2.30.0 에 지도 아래 줄에서 이 자리로 옮겼다(지도 아래를 한 줄로) */}
-          <p className="shrink-0 border-t border-border px-2.5 py-1 text-[12px] font-medium text-text-secondary">
+          <p className="shrink-0 border-t border-border px-2.5 py-1 text-[14px] font-medium text-text-secondary">
             지난 기간의 결과입니다. 앞으로도 강할 것이라는 뜻이 아닙니다.
           </p>
           {data && data.excluded > 0 && (
-            <p className="shrink-0 border-t border-border px-2.5 py-1 text-[12px] text-text-muted">
+            <p className="shrink-0 border-t border-border px-2.5 py-1 text-[14px] text-text-muted">
               {periodInfo.label} 전 종가가 없어 제외한 종목 {data.excluded}개 (상장 직후·거래 정지 등)
             </p>
           )}
@@ -564,7 +564,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
       {/* 지도 아래 한 줄 (v2.30.0 — 예전에는 범례 줄 + 안내 문구 줄 두 줄): 범례 · 대상·기준 시각 · (제곱근 안내) · 읽는 법 */}
       <div className="mt-1 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
   {/* 색 범례 — 기간마다 구간이 다르다. v2.29.0 에 머리줄에서 지도 아래로(1280 폭에서 머리줄이 두 줄이 됐다) */}
-      <span className="flex items-center gap-0.5 text-[12px] text-text-muted" aria-label={`색 구간 ±${bins.join('·')}%`}>
+      <span className="flex items-center gap-0.5 text-[14px] text-text-muted" aria-label={`색 구간 ±${bins.join('·')}%`}>
         {legend.map((v) => (
           <span
             key={v}
@@ -578,7 +578,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
       </span>
         {/* 대상·기준 시각 — v2.29.0 에 머리줄에서 이 줄로(1280 폭에서 머리줄이 두 줄이 됐다) */}
         {data && (
-          <span className="text-[12px] text-text-muted">
+          <span className="text-[14px] text-text-muted">
             {watchView ? `${marketLabel} 관심 종목` : `시총 상위 ${data.top ?? top}`} · {tiles.length < data.cells.length ? `${tiles.length}/${data.cells.length}` : data.cells.length}
             종목 ·{' '}
             {period === '1d'
@@ -588,21 +588,21 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           </span>
         )}
         {watchView && watchSize === 'sqrt' && (
-          <span className="text-[12px] text-warning">칸 크기는 시가총액의 제곱근에 비례합니다(크기 차이를 줄인 보기)</span>
+          <span className="text-[14px] text-warning">칸 크기는 시가총액의 제곱근에 비례합니다(크기 차이를 줄인 보기)</span>
         )}
         {/* 넓은 화면(지도 영역 1200px 이상)은 글자, 좁으면 ⓘ — 문구를 줄이지 않는다 */}
-        <span className="ml-auto hidden text-[12px] text-text-muted @min-[1200px]:inline">{guide}</span>
+        <span className="ml-auto hidden text-[14px] text-text-muted @min-[1200px]:inline">{guide}</span>
         <span
           tabIndex={0}
           title={guide}
           aria-label={`지도 읽는 법: ${guide}`}
-          className="ml-auto cursor-help rounded px-1 text-[13px] text-text-muted hover:text-text-primary @min-[1200px]:hidden"
+          className="ml-auto cursor-help rounded px-1 text-[15px] text-text-muted hover:text-text-primary @min-[1200px]:hidden"
         >
           ⓘ
         </span>
       </div>
       {watchView && data && data.missingCap.length > 0 && (
-        <p className="mt-1 shrink-0 text-[12px] text-text-muted">
+        <p className="mt-1 shrink-0 text-[14px] text-text-muted">
           크기 정보가 없어 빠진 종목 {data.missingCap.length}개: {data.missingCap.map((m) => m.name ?? m.symbol).join(', ')} (하루 한 번
           뒤에서 채웁니다)
         </p>
