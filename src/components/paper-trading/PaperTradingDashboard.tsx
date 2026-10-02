@@ -10,6 +10,7 @@ import {
 import AccountManager from './AccountManager';
 import AccountsOverview from './AccountsOverview';
 import CreateAccountForm from './CreateAccountForm';
+import AutoTradeWizard from './AutoTradeWizard';
 import { usePaperAccountsOverview, useAutoTradingOverview } from '../../hooks/usePaperOverview';
 import { useGeminiStatus } from '../../hooks/useGemini';
 import AutoTradeBar from './AutoTradeBar';
@@ -62,6 +63,8 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   const [view, setView] = useState<View>('overview');
   /** 모아보기 헤더의 생성 폼 펼침 여부 */
   const [creatingInOverview, setCreatingInOverview] = useState(false);
+  /** 자동매매 처음 켜기 안내 (v2.32.0) */
+  const [wizardOpen, setWizardOpen] = useState(false);
   // 모아보기가 보일 때만 폴링한다 — 상세로 들어가면 그쪽이 1초로 본다.
   const overview = usePaperAccountsOverview(view === 'overview');
   const autoOverview = useAutoTradingOverview(view === 'overview');
@@ -105,6 +108,11 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
     },
     { running: 0, waiting: 0, blocked: 0, off: 0 },
   );
+
+  /** 처음 켜기 버튼 강조 — 켜진 계좌가 없거나 규칙형 계좌가 없을 때 (모아보기 조회 전에는 강조하지 않는다) */
+  const wizardHighlight = autoOverview.items
+    ? !autoOverview.items.some((s) => s.strategy.enabled) || !autoOverview.items.some((s) => s.strategy.mode === 'rule')
+    : false;
 
   const banner = (
     <div className="flex shrink-0 items-center gap-2 border-b border-warning/40 bg-warning/10 px-4 py-2 text-xs text-warning">
@@ -219,10 +227,24 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
             나눠 비교하는 앱이라, 새 계좌를 만들고 싶어지는 순간이 바로 이 화면이다.
             ⚠️ 모아보기 조회가 실패해도 이 버튼은 그대로 보인다 (헤더는 대시보드에 있다).
           */}
+          {/*
+            자동매매 처음 켜기 (v2.32.0) — 켜진 계좌가 하나도 없거나 규칙형 계좌가 없으면 눈에 띄게, 그 밖에는 보통 버튼.
+          */}
+          <button
+            type="button"
+            onClick={() => setWizardOpen(true)}
+            className={`ml-auto rounded-md px-2.5 py-1 text-xs transition-colors ${
+              wizardHighlight
+                ? 'bg-accent font-medium text-white hover:bg-accent-hover'
+                : 'border border-border text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+            }`}
+          >
+            🤖 자동매매 처음 켜기
+          </button>
           <button
             type="button"
             onClick={() => setCreatingInOverview((v) => !v)}
-            className="ml-auto rounded-md border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            className="rounded-md border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
           >
             + 새 계좌
           </button>
@@ -255,6 +277,26 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
           onOpen={openAccount}
           onToggleAuto={toggleAuto}
         />
+        {wizardOpen && (
+          <AutoTradeWizard
+            accounts={overview.items ?? []}
+            strategies={autoOverview.items ?? []}
+            geminiEnabled={gemini?.enabled ?? false}
+            onCreateAccount={create}
+            onDone={(accountId) => {
+              setWizardOpen(false);
+              void overview.refresh();
+              void autoOverview.refresh();
+              // 켠 계좌 상세로 — 자동매매 바 맨 위의 "지금 상태" 문장이 보인다
+              openAccount(accountId);
+            }}
+            onClose={() => {
+              setWizardOpen(false);
+              void overview.refresh();
+              void autoOverview.refresh();
+            }}
+          />
+        )}
       </div>
     );
   }
