@@ -17,7 +17,8 @@ const MARKET_CLOSE_OFFSET_MS = 16 * 60 * 60 * 1000;
 
 const MINUTES: Record<string, number> = { '1m': 1, '5m': 5, '15m': 15, '30m': 30 };
 
-export function isFormingBar(candles: Candle[], timeframe: Timeframe = '1d', symbol = ''): boolean {
+/** `now` 는 시험용(v2.31.0 — 규칙형 판정 점검). 넣지 않으면 지금 시각 */
+export function isFormingBar(candles: Candle[], timeframe: Timeframe = '1d', symbol = '', now = Date.now()): boolean {
   const last = candles.at(-1);
   if (!last) return false;
 
@@ -25,12 +26,12 @@ export function isFormingBar(candles: Candle[], timeframe: Timeframe = '1d', sym
   // symbol 을 모르면 미국 시간대로 본다(국내 6자리 코드는 KST).
   if (timeframe === '1w' || timeframe === '1M') {
     const unit = timeframe === '1w' ? 'week' : 'month';
-    return calendarKey(last.timestamp, symbol, unit) === calendarKey(Date.now(), symbol, unit);
+    return calendarKey(last.timestamp, symbol, unit) === calendarKey(now, symbol, unit);
   }
 
   const minutes = MINUTES[timeframe];
-  if (minutes) return Date.now() < last.timestamp + minutes * 60_000;
-  return Date.now() < last.timestamp + MARKET_CLOSE_OFFSET_MS;
+  if (minutes) return now < last.timestamp + minutes * 60_000;
+  return now < last.timestamp + MARKET_CLOSE_OFFSET_MS;
 }
 
 /**
