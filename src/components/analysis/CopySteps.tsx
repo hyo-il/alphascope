@@ -15,6 +15,10 @@ interface Props {
   includeImage: boolean;
   /** 캡처해 둔 이미지가 없을 때 캡처 팝업을 연다 */
   onOpenCapture: () => void;
+  /** 프롬프트 복사 버튼 글자 (차트 하단 탭은 「기본 프롬프트 복사」, v2.26.0) */
+  promptLabel?: string;
+  /** false 면 데이터가 아직 다 오지 않아 프롬프트 복사를 막는다 — 반쯤 채운 프롬프트가 복사되지 않게 */
+  promptReady?: boolean;
 }
 
 type StepState =
@@ -74,6 +78,8 @@ export default function CopySteps({
   prompt,
   includeImage,
   onOpenCapture,
+  promptLabel = '프롬프트 복사',
+  promptReady = true,
 }: Props) {
   const capture = useCaptureStore((s) => s.capture);
   // HTTPS 를 붙이면 코드 수정 없이 원래 복사 방식으로 돌아온다 (호스트·IP 로 판단하지 않는다)
@@ -241,9 +247,10 @@ export default function CopySteps({
             <button
               type="button"
               onClick={() => void handleText()}
-              className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover"
+              disabled={!promptReady}
+              className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
-              📋 프롬프트 복사
+              {promptReady ? `📋 ${promptLabel}` : '데이터 불러오는 중…'}
             </button>
             <StatusLabel state={textStep} />
             {!includeImage && (

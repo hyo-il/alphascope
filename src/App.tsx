@@ -243,7 +243,6 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           getChartSnapshot={getChartSnapshot}
           onPromptChange={setLastPrompt}
           active={chartVisible}
-          onOpenFullView={setPage}
         />
       )}
 
@@ -297,6 +296,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           <AIAnalysisView
             symbol={symbol}
             currentPrice={displayPrice}
+            initialTab={nav.sub === 'records' ? 'results' : undefined}
             manual={
               // Claude 수동 분석: 프롬프트를 만드는 화면과, 받은 답변을 저장하는 화면을
               // 한자리에 둔다 (복사 → 붙여넣기 → 답변 저장이 한 흐름이다).

@@ -35,6 +35,13 @@ interface Props {
   };
   /** 히스토리 탭이 '방금 쓴 프롬프트'를 함께 저장할 수 있도록 알려 준다 */
   onPromptChange?: (value: { mode: string; text: string }) => void;
+  /**
+   * 차트 하단 탭용 간단 모드 (v2.26.0) — 프롬프트 내용·모드·투자 기간을 그리지 않고 복사 단계만 보인다.
+   * 프롬프트는 같은 조립 함수로 만든 **기본값**(전문가 분석 · DEFAULT_HORIZON, 편집 없음) — 두 벌로 두면 갈라진다.
+   */
+  compact?: boolean;
+  /** 간단 모드의 「투자 분석 > AI 분석 열기」 */
+  onOpenFull?: () => void;
 }
 
 /**
@@ -52,6 +59,8 @@ export default function ManualAnalysis({
   toggles,
   getChartSnapshot,
   onPromptChange,
+  compact = false,
+  onOpenFull,
 }: Props) {
   const [mode, setMode] = useState<AnalysisMode>('multi');
   const [crossReview, setCrossReview] = useState(false);
@@ -163,6 +172,50 @@ export default function ManualAnalysis({
 
   // 포트폴리오는 여러 종목이라 현재 차트 이미지가 프롬프트와 맞지 않는다.
   const includeImage = mode === 'quick' || mode === 'multi';
+
+  const captureModal = captureContext && (
+    <ChartCaptureModal
+      symbol={symbol}
+      timeframe={timeframe}
+      candles={candles}
+      indicators={indicators}
+      toggles={toggles}
+      drawings={captureContext.drawings}
+      initialRange={captureContext.range}
+      onClose={() => setCaptureContext(null)}
+    />
+  );
+
+  /*
+   * 차트 하단 탭의 간단 모드 — 버튼만. mode·horizon·edited 는 기본값에서 바뀌지 않으므로(선택 UI 를 그리지 않는다)
+   * `prompt` 는 곧 이 종목의 기본 프롬프트(전문가 분석 · 기본 투자 기간)다.
+   */
+  if (compact) {
+    return (
+      <div className="max-w-md space-y-3 p-3">
+        <p className="text-[12px] leading-relaxed text-text-secondary">
+          이 종목의 기본 프롬프트(전문가 분석 · {horizonLabel(horizon)})를 Claude 에 보냅니다. ① 차트 이미지를 붙여넣고, ② 프롬프트를 이어서
+          붙여넣은 뒤 전송하세요.
+        </p>
+        <CopySteps
+          symbol={symbol}
+          timeframe={promptTimeframe}
+          prompt={prompt}
+          includeImage
+          onOpenCapture={openCapture}
+          promptLabel="기본 프롬프트 복사"
+          promptReady={!loading}
+        />
+        <p className="text-[12px] text-text-muted">
+          프롬프트를 고치거나 다른 분석 방식을 쓰려면 →{' '}
+          <button type="button" onClick={onOpenFull} className="text-accent hover:underline">
+            투자 분석 &gt; AI 분석 열기
+          </button>
+        </p>
+        {captureModal}
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full justify-center gap-6 overflow-hidden p-6">
@@ -320,18 +373,7 @@ export default function ManualAnalysis({
         />
       </div>
 
-      {captureContext && (
-        <ChartCaptureModal
-          symbol={symbol}
-          timeframe={timeframe}
-          candles={candles}
-          indicators={indicators}
-          toggles={toggles}
-          drawings={captureContext.drawings}
-          initialRange={captureContext.range}
-          onClose={() => setCaptureContext(null)}
-        />
-      )}
+      {captureModal}
     </div>
   );
 }

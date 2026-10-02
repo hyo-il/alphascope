@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import AnalysisTimeline from './AnalysisTimeline';
 import AIAccuracyDashboard from './AIAccuracyDashboard';
 import AIStatusBoard from './AIStatusBoard';
@@ -33,12 +33,22 @@ export default function AIAnalysisView({
   currentPrice,
   /** 수동 분석(Claude) 화면 — App 이 이미 만들어 넘긴다 */
   manual,
+  initialTab,
 }: {
   symbol: string | null;
   currentPrice: number | null;
   manual: ReactNode;
+  /**
+   * 처음 열 탭 (v2.26.0) — 주소 `#/analysis/records`(차트 탭의 [이전 기록 보기])면 'results'.
+   * 메뉴로 그냥 들어오면 없음 → 「수동 분석」. 기록은 「현재 종목만」·출처 「전체」 가 기본이라 그 종목 기록만 보인다.
+   */
+  initialTab?: AITab;
 }) {
-  const [tab, setTab] = useState<AITab>('manual');
+  const [tab, setTab] = useState<AITab>(initialTab ?? 'manual');
+  // 이미 이 화면에 있을 때 주소가 바뀌어도(뒤로·앞으로) 따라간다
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
 
   return (
     <div className="flex h-full flex-col">

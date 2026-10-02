@@ -3,7 +3,7 @@ import type { Candle, Timeframe } from '../../../types/toss';
 import type { IndicatorSeries, IndicatorToggles } from '../../../types/chart';
 import type { GeminiAnalysis } from '../../../types/gemini';
 import ManualAnalysis from '../../analysis/ManualAnalysis';
-import AnalysisTimeline from '../../analysis/AnalysisTimeline';
+import { useAppStore } from '../../../store/appStore';
 import { SIGNAL_CLASS, SIGNAL_LABEL, confidencePercent } from '../../analysis/signalStyle';
 import { toast } from '../../../store/uiStore';
 
@@ -15,16 +15,17 @@ import { toast } from '../../../store/uiStore';
  * 여기서는 "이 종목 지금 분석" 과 "이 종목 결과" 만 남긴다.
  */
 
-type SubTab = 'manual' | 'auto' | 'results';
+type SubTab = 'manual' | 'auto';
 
 /*
-  v2.23.0 — 'auto' 탭은 **이 종목을 지금 바로 분석하는 버튼**이다(trigger: manual). 「자동 분석」 이라는 이름 때문에
-  따로 자동으로 도는 것으로 오해했다. id 는 그대로 두고 이름만 실제 동작대로 바꿨다.
+  v2.26.0 — 하위 탭은 둘(사용자 결정 C-1). 'auto' 는 **이 종목을 지금 한 번 분석하는 버튼**이다 —
+  저장 출처(trigger)는 그대로 'manual'(「바로 분석」 배지)이고, 채점·필터가 그 값을 쓰므로 바꾸지 않는다.
+  탭 안에 "버튼을 누르면 …" 설명을 둬서 계좌 자동매매와 헷갈리지 않게 한다.
+  기록은 차트 탭에서 보여 주지 않는다(C-2) — [이전 기록 보기] 가 「투자 분석 > AI 분석」 의 기록 탭(#/analysis/records)을 연다.
 */
 const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: 'manual', label: '수동 분석' },
-  { id: 'auto', label: 'Gemini 바로 분석' },
-  { id: 'results', label: 'AI 분석 기록' },
+  { id: 'auto', label: '자동 분석' },
 ];
 
 export default function ChartAiPanel({
@@ -36,7 +37,6 @@ export default function ChartAiPanel({
   toggles,
   getChartSnapshot,
   onPromptChange,
-  onOpenFullView,
 }: {
   symbol: string;
   timeframe: Timeframe;
@@ -46,10 +46,9 @@ export default function ChartAiPanel({
   toggles: IndicatorToggles;
   getChartSnapshot: ComponentProps<typeof ManualAnalysis>['getChartSnapshot'];
   onPromptChange?: ComponentProps<typeof ManualAnalysis>['onPromptChange'];
-  onOpenFullView: () => void;
 }) {
   const [tab, setTab] = useState<SubTab>('manual');
-  const [refreshKey, setRefreshKey] = useState(0);
+  const setPage = useAppStore((s) => s.setPage);
 
   return (
     <div className="flex h-full flex-col">
@@ -66,12 +65,13 @@ export default function ChartAiPanel({
             {item.label}
           </button>
         ))}
+        {/* 예전 「전체 화면으로」 자리 — 기록은 AI 분석 화면의 기록 탭에서 이 종목만 걸러 연다(주소 #/analysis/records) */}
         <button
           type="button"
-          onClick={onOpenFullView}
+          onClick={() => setPage('analysis', 'records')}
           className="ml-auto px-2 py-1 text-[12px] text-text-muted transition-colors hover:text-accent"
         >
-          전체 화면으로 ↗
+          이전 기록 보기 ↗
         </button>
       </div>
 
@@ -86,30 +86,12 @@ export default function ChartAiPanel({
             toggles={toggles}
             getChartSnapshot={getChartSnapshot}
             onPromptChange={onPromptChange}
+            compact
+            onOpenFull={() => setPage('analysis')}
           />
         )}
 
-        {tab === 'auto' && (
-          <SingleSymbolGemini
-            symbol={symbol}
-            onAnalyzed={() => {
-              setRefreshKey((key) => key + 1);
-              setTab('results');
-            }}
-          />
-        )}
-
-        {tab === 'results' && (
-          <div className="p-2">
-            {/* 이 종목만 — 차트에서 보고 있는 종목의 결과가 아니면 여기 있을 이유가 없다 */}
-            <AnalysisTimeline
-              symbol={symbol}
-              currentPrice={currentPrice}
-              refreshKey={refreshKey}
-              lastRun={null}
-            />
-          </div>
-        )}
+        {tab === 'auto' && <SingleSymbolGemini symbol={symbol} />}
       </div>
     </div>
   );
@@ -120,13 +102,7 @@ export default function ChartAiPanel({
  *
  * 키가 없으면 서버가 503 + geminiDisabled 로 답한다 — 버튼을 띄우지 않고 이유를 적는다.
  */
-function SingleSymbolGemini({
-  symbol,
-  onAnalyzed,
-}: {
-  symbol: string;
-  onAnalyzed: () => void;
-}) {
+function SingleSymbolGemini({ symbol }: { symbol: string }) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   /** 꺼진 이유 — 키 없음과 서버 스위치(GEMINI_ENABLED=false)는 대처가 다르다 */
   const [offReason, setOffReason] = useState<string | null>(null);
@@ -178,7 +154,6 @@ function SingleSymbolGemini({
       if (!response.ok) throw new Error(data.error ?? '분석 실패');
       toast.success(`${symbol} 분석 완료 — ${data.signal}`, data.summary);
       await loadLatest();
-      onAnalyzed();
     } catch (e) {
       toast.error(`${symbol} 분석 실패`, (e as Error).message);
     } finally {
@@ -208,6 +183,8 @@ function SingleSymbolGemini({
         <span className="text-text-secondary">
           이 종목 Gemini 분석{model && <span className="ml-1 text-text-muted">({model})</span>}
         </span>
+        {/* 계좌 자동매매와 헷갈리지 않게 — 이 탭은 버튼을 눌렀을 때만 돈다 (v2.26.0) */}
+        <span className="text-text-muted">버튼을 누르면 Gemini 가 지금 이 종목을 분석합니다(약 5회 호출)</span>
         <button
           type="button"
           onClick={analyze}
