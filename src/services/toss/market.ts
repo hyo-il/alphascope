@@ -281,8 +281,22 @@ interface InvestorTradingResponse {
       foreigner?: InvestorSideRaw | null;
       institution?: InvestorSideRaw | null;
       otherCorporation?: InvestorSideRaw | null;
+      /** 실측(2026-10-02): 문자열 객체 — holdingRate = holdingQuantity ÷ limitQuantity(소수, 0.4641 = 46.41%) */
+      foreignerHolding?: { holdingQuantity?: string; limitQuantity?: string; holdingRate?: string } | null;
     }[];
   };
+}
+
+/** 외국인 보유 (v2.30.0) — 숫자로 못 읽으면 null */
+function holding(
+  raw: { holdingQuantity?: string; limitQuantity?: string; holdingRate?: string } | null | undefined,
+): FlowRecord['foreignerHolding'] {
+  if (!raw) return null;
+  const rate = Number(raw.holdingRate);
+  if (!Number.isFinite(rate)) return null;
+  const quantity = Number(raw.holdingQuantity);
+  const limit = Number(raw.limitQuantity);
+  return { rate, quantity: Number.isFinite(quantity) ? quantity : null, limit: Number.isFinite(limit) ? limit : null };
 }
 
 function side(raw: InvestorSideRaw | null | undefined): FlowSide | null {
@@ -314,5 +328,6 @@ export async function fetchInvestorTrading(symbol: string, count: number): Promi
     institution: side(r.institution),
     individual: side(r.individual),
     otherCorporation: side(r.otherCorporation),
+    foreignerHolding: holding(r.foreignerHolding),
   }));
 }

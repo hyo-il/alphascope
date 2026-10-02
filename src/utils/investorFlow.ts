@@ -6,7 +6,10 @@
  * - `foreigner` 는 **등록외국인** 기준이다(미등록 제외).
  * - ⚠️ 당일 기록은 장중 **잠정치**라 개인·기타법인이 null 이다(확정치는 그날 저녁). 그래서 합계·일수는
  *   **확정된 날(개인 값이 있는 날)만** 센다 — 잠정 날을 섞으면 외국인·기관만 하루 더 세진다.
- * - 쓰지 않는 칸: 기관 세부(`breakdown`)·외국인 보유(`foreignerHolding`)·CFD 잔고(`cfd`) — 뜻은 명세에 있지만 이번 범위가 아니다.
+ * - 외국인 보유(`foreignerHolding`, v2.30.0): 실측 모양 `{holdingQuantity, limitQuantity, holdingRate}`(문자열),
+ *   `holdingRate` = 보유 수량 ÷ 외국인 한도 수량, 소수(0.4641 = 46.41%). **화면에만** 쓴다 — AI 입력 블록(`investorFlowBlock`)에는
+ *   넣지 않는다(국내 `v1-flow` 입력이 바뀌면 버전을 올려야 하고 채점이 갈라진다). 잠정 행은 '—'.
+ * - 쓰지 않는 칸: 기관 세부(`breakdown`)·CFD 잔고(`cfd`).
  *
  * ⚠️ 사실(순매수량)만 적는다. "외국인이 사면 오른다" 같은 해석은 이 앱에서 검증한 적이 없다.
  * DOM 을 쓰지 않는다 — `src/utils` 는 서버(tsconfig.node)도 컴파일한다.
@@ -27,6 +30,8 @@ export interface FlowRecord {
   institution: FlowSide | null;
   individual: FlowSide | null;
   otherCorporation: FlowSide | null;
+  /** 외국인 보유 (v2.30.0) — rate 는 소수(0.4641 = 46.41%). 없으면 null */
+  foreignerHolding?: { rate: number; quantity: number | null; limit: number | null } | null;
 }
 
 export interface FlowSums {
@@ -73,6 +78,31 @@ export function flowPeriod(records: FlowRecord[]): InvestorFlow['period'] {
   const window = flowWindow(records);
   if (!window.length) return null;
   return { from: window.at(-1)!.date, to: window[0].date, days: window.length };
+}
+
+/**
+ * 외국인 보유 비율 요약 (v2.30.0) — **확정일만**. 최신 확정일 값(%)과, 합계 구간(최대 20 확정일)의 가장 이른 날 대비 변화(%p).
+ * 해석은 붙이지 않는다(검증한 적 없음).
+ */
+export function holdingSummary(records: FlowRecord[]): {
+  latest: number;
+  latestDate: string;
+  base: number | null;
+  baseDate: string | null;
+  diffPp: number | null;
+} | null {
+  const window = flowWindow(records).filter((r) => r.foreignerHolding);
+  if (!window.length) return null;
+  const latest = window[0];
+  const base = window.length > 1 ? window.at(-1)! : null;
+  const pct = (v: number) => Math.round(v * 10000) / 100;
+  return {
+    latest: pct(latest.foreignerHolding!.rate),
+    latestDate: latest.date,
+    base: base ? pct(base.foreignerHolding!.rate) : null,
+    baseDate: base?.date ?? null,
+    diffPp: base ? Math.round((latest.foreignerHolding!.rate - base.foreignerHolding!.rate) * 10000) / 100 : null,
+  };
 }
 
 export function sumFlow(records: FlowRecord[]): InvestorFlow['sums'] {

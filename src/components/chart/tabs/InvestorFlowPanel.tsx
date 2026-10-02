@@ -2,6 +2,7 @@ import { useInvestorFlow } from '../../../hooks/useInvestorFlow';
 import {
   FLOW_SIDE_LABEL,
   flowWindow,
+  holdingSummary,
   type FlowRecord,
   type FlowSide,
   type FlowSideKey,
@@ -94,6 +95,7 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
 
   const confirmed = flowWindow(flow.records);
   const period = flow.period;
+  const holding = holdingSummary(flow.records);
 
   return (
     <div className="space-y-3 p-3 text-[12px]">
@@ -104,6 +106,23 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
             : '확정된 기록이 아직 없습니다.'}
           {flow.records[0]?.provisional && <span className="text-text-muted"> · 오늘 잠정치는 합계에서 뺐습니다</span>}
         </p>
+        {/* 외국인 보유 비율 (v2.30.0) — 사실만. 막대(주 단위 순매수)와 섞지 않는다 */}
+        {holding && (
+          <p className="mb-1 text-text-secondary">
+            외국인 보유 비율 <b className="text-text-primary">{holding.latest.toFixed(2)}%</b>
+            <span className="text-text-muted"> ({mmdd(holding.latestDate)})</span>
+            {holding.diffPp != null && (
+              <>
+                {' · '}
+                {holding.baseDate ? `${mmdd(holding.baseDate)} 대비 ` : ''}
+                <span className={tone(holding.diffPp)}>
+                  {holding.diffPp > 0 ? '+' : ''}
+                  {holding.diffPp.toFixed(2)}%p
+                </span>
+              </>
+            )}
+          </p>
+        )}
         <table className="tabular-nums">
           <thead className="text-text-muted">
             <tr>
@@ -157,6 +176,7 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
             <th className="text-right font-normal">기관</th>
             <th className="text-right font-normal">개인</th>
             <th className="text-right font-normal">기타법인</th>
+            <th className="text-right font-normal">외국인 보유</th>
           </tr>
         </thead>
         <tbody>
@@ -174,13 +194,17 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
               <td className="text-right"><Net side={r.institution} /></td>
               <td className="text-right"><Net side={r.individual} /></td>
               <td className="text-right"><Net side={r.otherCorporation} /></td>
+              <td className="text-right text-text-secondary">
+                {/* 잠정 행은 '—' — 확정치만 보인다 */}
+                {r.provisional || !r.foreignerHolding ? '—' : `${(Math.round(r.foreignerHolding.rate * 10000) / 100).toFixed(2)}%`}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
 
       <p className="text-text-muted">
-        출처: 토스증권 Open API · 단위: 주(금액 아님) · 외국인 = 등록외국인 · 기준{' '}
+        출처: 토스증권 Open API · 단위: 주(금액 아님) · 외국인 = 등록외국인 · 외국인 보유 비율 = 토스 투자자 동향의 외국인 보유 수량 ÷ 외국인 한도 수량 · 기준{' '}
         {flow.updatedAt ? new Date(flow.updatedAt).toLocaleString('ko-KR') : '—'}
       </p>
     </div>
