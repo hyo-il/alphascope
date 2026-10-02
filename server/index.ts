@@ -91,7 +91,11 @@ import {
   listStrategies,
   saveStrategy,
   deleteStrategy,
+  normalizeStrategy,
 } from './autoTrading/store';
+import { watchlistSymbols } from './analysis/targetHit';
+// 규칙형 과거 1년 재현 (v2.31.0) — 주문 모듈을 import 하지 않는다
+import { MAX_SYMBOLS as RULE_PREVIEW_MAX, getRulePreview, startRulePreview } from './autoTrading/ruleBacktest';
 import {
   SERVER_OFF_REASON,
   getStrategyStatus,
@@ -801,6 +805,40 @@ app.get('/api/auto-trading/status/:id', (req, res) => {
  * 지금 한 바퀴 돌린다 (사용자 버튼).
  * 수동 실행은 정규장·주기 판정을 건너뛴다 — 켜져 있지 않아도 돈다.
  */
+/**
+ * 규칙형 과거 1년 재현 (v2.31.0) — 「이 규칙을 과거에 썼다면」. ⚠️ 주문을 내지 않는다(재현 모듈은 모의투자를 import 하지 않는다).
+ * 입력은 저장과 같은 `normalizeStrategy()` 를 지난다. 시작만 하고 진행률을 돌려준다 — 같은 (설정·종목·날짜)는 하루 캐시·진행 중 공유.
+ * 종목: 본문 symbols → 없으면 관심 목록(최대 20). 지표 엔진이 꺼져 있으면 503 + engineDown(결과를 0 으로 꾸미지 않는다).
+ */
+app.post('/api/auto-trading/rule-preview', async (req, res) => {
+  const b = req.body ?? {};
+  const s = normalizeStrategy(0, {
+    mode: 'rule',
+    rule: b.rule,
+    hardStopLossPercent: b.hardStopLossPercent,
+    trailingStopEnabled: b.trailingStopEnabled,
+    trailingStopPercent: b.trailingStopPercent,
+    symbols: Array.isArray(b.symbols) ? b.symbols : [],
+  });
+  const symbols = (s.symbols.length ? s.symbols : watchlistSymbols()).slice(0, RULE_PREVIEW_MAX);
+  if (!symbols.length) return res.status(400).json({ error: '대상 종목이 없습니다 — 대상 종목이나 관심 목록에 종목을 담아 주세요.' });
+  if (!(await indicatorEngineHealthy())) {
+    return res.status(503).json({ error: '지표 엔진이 꺼져 있어 계산할 수 없습니다.', engineDown: true });
+  }
+  const job = startRulePreview(
+    { symbols, rule: s.rule, hardStopLossPercent: s.hardStopLossPercent, trailingStopEnabled: s.trailingStopEnabled, trailingStopPercent: s.trailingStopPercent },
+    new Date().toISOString().slice(0, 10),
+  );
+  res.json(job);
+});
+
+app.get('/api/auto-trading/rule-preview', (req, res) => {
+  const job = getRulePreview(String(req.query.key ?? ''));
+  if (!job) return res.status(404).json({ error: '계산 기록이 없습니다 — 다시 눌러 주세요.' });
+  if (job.error) return res.status(job.engineDown ? 503 : 500).json({ ...job });
+  res.json(job);
+});
+
 app.post('/api/auto-trading/run/:id', async (req, res) => {
   try {
     const id = accountIdOf(req);
