@@ -166,7 +166,7 @@ function RecommendationHistory() {
 }
 
 /**
- * 「추천 이력」 탭 — 스윙 추천 이력 + 맨 아래 「🎯 목표 도달 가능성 기록」(v2.29.0, 예전 「목표 도달 분석」 탭의 기록·필터·삭제·성적 그대로).
+ * 「추천 이력」 탭 — 스윙 추천 이력 + 맨 아래 「목표 도달 가능성 기록」(v2.29.0, 예전 「목표 도달 분석」 탭의 기록·필터·삭제·성적 그대로).
  * 옛 조건(+5/−3/10일 등) 기록도 지우지 않고 여기 그대로 보이고 채점된다.
  */
 export default function SwingHistory() {
@@ -184,7 +184,7 @@ function TargetRecords() {
   return (
     <details className="rounded-lg border border-border bg-bg-secondary/40 px-3 py-2">
       <summary className="text-xs font-semibold text-text-secondary">
-        🎯 목표 도달 가능성 기록{count != null ? ` (${count}건)` : ''}
+        목표 도달 가능성 기록{count != null ? ` (${count}건)` : ''}
       </summary>
       <div className="mt-2">
         <TargetHistorySection

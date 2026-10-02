@@ -318,7 +318,7 @@ export function goalLabel(goal: { targetPct: number; stopPct: number; days: numb
 }
 
 /**
- * [🎯 목표 도달 가능성 분석] — 고른 종목으로 시작한다. `GEMINI_ENABLED=false`·키 없음이면 꺼지고 이유를 보인다.
+ * [목표 도달 가능성 분석] — 고른 종목으로 시작한다. `GEMINI_ENABLED=false`·키 없음이면 꺼지고 이유를 보인다.
  * `symbols` 가 비어 있으면 종목 고르기 창(관심 목록 + 검색)을 연다.
  */
 export function TargetAnalyzeButton({
@@ -355,7 +355,7 @@ export function TargetAnalyzeButton({
         title={geminiOff ?? undefined}
         className="rounded bg-accent px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
       >
-        {running ? '분석 중…' : label ?? `🎯 목표 도달 가능성 분석${symbols.length ? ` (${symbols.length}종목)` : ''}`}
+        {running ? '분석 중…' : label ?? `목표 도달 가능성 분석${symbols.length ? ` (${symbols.length}종목)` : ''}`}
       </button>
       <span className="text-[14px] text-text-muted">
         종목당 Gemini {CALLS_PER_SYMBOL}회 · 최대 {TARGET_MAX_SYMBOLS}종목 · 조건 +{goalPct(goal.targetPct)} / −{goalPct(goal.stopPct)} ·{' '}
@@ -381,7 +381,7 @@ export function TargetSummaryLine({
   return (
     <div className="space-y-2 rounded-md border border-accent/30 bg-accent/5 px-2.5 py-1.5 text-[14px]">
       <p className="text-text-secondary">
-        🎯 <b className="text-text-primary">{goalLabel(record)}</b>: 목표 먼저 <span className="text-bullish">{record.pTarget}%</span> · 손절 먼저{' '}
+        <b className="text-text-primary">목표 {goalLabel(record)}</b>: 목표 먼저 <span className="text-bullish">{record.pTarget}%</span> · 손절 먼저{' '}
         <span className="text-bearish">{record.pStop}%</span> · 둘 다 아님 {record.pNeither}%
         {record.base && <span className="text-text-muted"> (과거 평균 {record.base.target}%)</span>}
         <button type="button" onClick={() => setOpen((v) => !v)} className="ml-2 text-accent hover:underline">
@@ -477,7 +477,7 @@ export function TargetHistorySection({
         {records === null && !error && <p className="text-[14px] text-text-muted">불러오는 중…</p>}
         {records && shown.length === 0 && (
           <p className="rounded-lg border border-border bg-bg-secondary p-6 text-center text-xs text-text-muted">
-            {records.length ? '조건에 맞는 기록이 없습니다.' : '아직 분석 기록이 없습니다. 「추천 종목」·「종목 검색」 의 [🎯 목표 도달 가능성 분석] 으로 시작하세요.'}
+            {records.length ? '조건에 맞는 기록이 없습니다.' : '아직 분석 기록이 없습니다. 「추천 종목」·「종목 검색」 의 [목표 도달 가능성 분석] 으로 시작하세요.'}
           </p>
         )}
         {shown.map((record) => (

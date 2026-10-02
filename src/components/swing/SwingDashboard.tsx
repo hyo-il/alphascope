@@ -24,7 +24,6 @@ import { useSwingGoal } from '../../hooks/useSwingGoal';
 import { goalPct, periodLabel } from '../../types/swingGoal';
 import {
   PROFILE_LABEL,
-  sameSwingParams,
   type ProfileId,
 } from '../../types/strategyProfile';
 import { toast } from '../../store/uiStore';
@@ -39,7 +38,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'list', label: '추천 종목' },
   { id: 'search', label: '종목 검색' },
   { id: 'history', label: '추천 이력' },
-  // 「목표 도달 분석」 탭은 v2.29.0 에 없앴다 — 분석은 추천 종목·종목 검색의 🎯 버튼, 기록은 「추천 이력」 맨 아래
+  // 「목표 도달 분석」 탭은 v2.29.0 에 없앴다 — 분석은 추천 종목·종목 검색의 [목표 도달 가능성 분석] 버튼, 기록은 「추천 이력」 맨 아래
 ];
 
 /*
@@ -92,8 +91,6 @@ export default function SwingDashboard({
   const resultProfile: ProfileId | null =
     result?.recommendations[0]?.profile ?? saved.records[0]?.profile ?? null;
   const stale = resultProfile != null && resultProfile !== activeId;
-  const untouched =
-    activeId !== 'standard' && activeParams != null && sameSwingParams(activeParams, profile.state!.standard);
 
   const switchProfile = async (id: ProfileId) => {
     try {
@@ -120,7 +117,8 @@ export default function SwingDashboard({
         pick={
           <label className="inline-flex w-fit items-center gap-1 text-[14px] text-text-secondary" title="목표 도달 가능성 분석에 담기">
             <input type="checkbox" checked={picked.includes(symbol)} onChange={() => setPicked(toggleTargetPick(picked, symbol))} />
-            🎯
+            {/* 아이콘 없이 글자로 (v2.33.0 사용자 결정) */}
+            가능성 분석
             {analyzedToday(target.records, symbol, goal) && <span className="rounded bg-bg-tertiary px-1 text-text-muted">오늘 분석함</span>}
           </label>
         }
@@ -176,41 +174,19 @@ export default function SwingDashboard({
               </button>
             </header>
 
-            {/* 판정 기준 — 성향(프로파일)에 따라 값이 달라진다 */}
+            {/*
+              스윙 기준 — **버튼 하나** (v2.33.0 사용자 결정 "사실상 같은 메뉴, 하나로"). 예전에는 [표준/공격/수비] + [⚙ 기준 편집] + [목표 요약]
+              셋이 있었고 뒤의 둘은 같은 창을 열었다. 표준/공격/수비 선택은 창 맨 위로 옮겼다(바꾸는 동작은 `switchProfile` 그대로).
+            */}
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[14px] text-text-muted">판정 기준</span>
-              {(['standard', 'aggressive', 'defensive'] as ProfileId[]).map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => void switchProfile(id)}
-                  disabled={!profile.state}
-                  className={`rounded-md border px-2.5 py-1 text-[14px] transition-colors disabled:opacity-50 ${
-                    activeId === id
-                      ? 'border-accent bg-accent/10 font-medium text-accent'
-                      : 'border-border text-text-secondary hover:border-accent/50'
-                  }`}
-                >
-                  {PROFILE_LABEL[id]}
-                </button>
-              ))}
               <button
                 type="button"
                 onClick={() => setProfileOpen(true)}
                 disabled={!profile.state}
-                className="rounded-md border border-border px-2.5 py-1 text-[14px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                title="판정 기준(표준·공격·수비)과 목표 도달 가능성 분석의 조건을 함께 봅니다 — 목표는 추천 판정을 바꾸지 않습니다"
+                className="rounded-md border border-border px-2.5 py-1 text-[14px] text-text-primary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
               >
-                ⚙ 기준 편집
-              </button>
-              {/* 초보자 목표 (v2.29.0) — 판정이 아니라 「목표 도달 가능성 분석」 의 조건이다. 누르면 같은 편집 창 */}
-              <button
-                type="button"
-                onClick={() => setProfileOpen(true)}
-                disabled={!profile.state}
-                title="목표 도달 가능성 분석의 조건입니다 — 추천 판정은 바뀌지 않습니다"
-                className="rounded-md border border-accent/40 px-2.5 py-1 text-[14px] text-text-primary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-              >
-                🎯 목표 +{goalPct(goal.targetPct)} · {periodLabel(goal.days)} · 손절 −{goalPct(goal.stopPct)}
+                ⚙ 스윙 기준 · {PROFILE_LABEL[activeId]} · 목표 +{goalPct(goal.targetPct)} · {periodLabel(goal.days)}
               </button>
               {profile.error && (
                 <span className="text-[14px] text-warning">
@@ -218,13 +194,6 @@ export default function SwingDashboard({
                 </span>
               )}
             </div>
-
-            {untouched && (
-              <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-1.5 text-[14px] text-text-muted">
-                {PROFILE_LABEL[activeId]} 기준은 아직 표준과 같은 값입니다 — [⚙ 기준 편집] 에서
-                조정하세요. (공격·수비 값은 사용자 설정이며 근거가 검증되지 않았습니다.)
-              </p>
-            )}
 
             {/*
               결과와 지금 기준이 다르면 알린다. 자동으로 다시 돌리지는 않는다 —
@@ -286,7 +255,7 @@ export default function SwingDashboard({
               </p>
             )}
 
-            {/* 🎯 목표 도달 가능성 분석 (v2.29.0) — 카드에서 체크(최대 5), 고른 종목이 없으면 고르기 창 */}
+            {/* 목표 도달 가능성 분석 (v2.29.0) — 카드에서 체크(최대 5), 고른 종목이 없으면 고르기 창 */}
             <section className="space-y-2 rounded-lg border border-border bg-bg-secondary px-3 py-2">
               <TargetAnalyzeButton
                 symbols={picked}
@@ -299,7 +268,7 @@ export default function SwingDashboard({
                 }}
               />
               <p className="text-[14px] text-text-muted">
-                카드나 아래 「부적합」 목록의 🎯 를 체크해 고르세요(체크가 없으면 관심 목록에서 고릅니다). 결과는 지금 목표 조건과 같은 기록만 카드에 붙습니다.
+                카드나 아래 「부적합」 목록의 「가능성 분석」 칸을 체크해 고르세요(체크가 없으면 관심 목록에서 고릅니다). 결과는 지금 목표 조건과 같은 기록만 카드에 붙습니다.
               </p>
               <TargetProgressBox progress={target.progress} />
             </section>
@@ -329,9 +298,9 @@ export default function SwingDashboard({
                 <summary className="text-xs font-semibold text-text-secondary">
                   ⚪ 부적합 ({rejected.length}개) — 왜 추천하지 않는지
                 </summary>
-                {/* 🎯 체크 (v2.30.0) — 추천 카드와 같은 선택(최대 5 공유). 추천 여부와는 별개다 */}
+                {/* 「가능성 분석」 체크 (v2.30.0) — 추천 카드와 같은 선택(최대 5 공유). 추천 여부와는 별개다 */}
                 <p className="mt-2 text-[14px] text-text-muted">
-                  🎯 분석은 추천 여부와 별개로 '목표에 먼저 닿을 가능성' 만 추정합니다.
+                  목표 도달 가능성 분석은 추천 여부와 별개로 '목표에 먼저 닿을 가능성' 만 추정합니다.
                 </p>
                 <ul className="mt-1 space-y-1 text-[14px]">
                   {rejected.map((r) => {
@@ -345,7 +314,7 @@ export default function SwingDashboard({
                               checked={picked.includes(r.symbol)}
                               onChange={() => setPicked(toggleTargetPick(picked, r.symbol))}
                             />
-                            🎯
+                            가능성 분석
                           </label>
                           <StockName symbol={r.symbol} name={r.name} />
                           <span className="tabular-nums text-text-muted">({r.score}점)</span>
@@ -379,6 +348,8 @@ export default function SwingDashboard({
           onSave={(custom) => profile.save({ custom })}
           goal={goal}
           onSaveGoal={swingGoal.save}
+          activeId={activeId}
+          onSwitchProfile={switchProfile}
           onClose={() => setProfileOpen(false)}
         />
       )}

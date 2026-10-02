@@ -31,7 +31,7 @@ export function autoStop(targetPct: number): number {
   return Math.max(0.5, Math.round((targetPct / 2) * 10) / 10);
 }
 
-/** `🎯 목표 +5% · 1달 · 손절 −2.5%` 의 기간 부분 */
+/** `목표 +5% · 1달` 의 기간 부분 */
 export function periodLabel(days: number): string {
   return GOAL_PERIOD_CHOICES.find((p) => p.days === days)?.label ?? `${days}거래일`;
 }

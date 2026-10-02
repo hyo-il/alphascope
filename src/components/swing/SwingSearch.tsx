@@ -55,6 +55,25 @@ export default function SwingSearch({
 
       {recommendation && !loading && (
         <>
+          {/*
+            목표 도달 가능성 분석 — 결과 **위쪽 도구줄** (v2.33.0, 「추천 종목」 탭과 같은 자리). 예전에는 카드 아래에 있어 스크롤해야 보였다.
+            지금 목표 조건과 같은 최근 기록 요약도 여기에 붙인다.
+          */}
+          <div className="space-y-2 rounded-lg border border-border bg-bg-secondary px-3 py-2">
+            <TargetAnalyzeButton
+              symbols={[recommendation.symbol]}
+              goal={goal}
+              label="이 종목 목표 도달 가능성 분석"
+              running={target.progress?.running ?? false}
+              geminiOff={target.geminiOff}
+              onStart={target.start}
+            />
+            <TargetProgressBox progress={target.progress} />
+            {(() => {
+              const latest = latestFor(target.records, recommendation.symbol, goal);
+              return latest ? <TargetSummaryLine record={latest} onDelete={confirmTargetDelete} /> : null;
+            })()}
+          </div>
           {recommendation.rejection && (
             <p className="rounded border border-warning/40 bg-warning/10 px-3 py-2 text-[14px] text-warning">
               {GRADE_STYLE[recommendation.grade].icon} 매수 추천 구간이 아닙니다 —{' '}
@@ -66,23 +85,7 @@ export default function SwingSearch({
             onSelectSymbol={onSelectSymbol}
             onPaperBuy={paperBuy}
             onAnalyze={onAnalyze}
-            extra={(() => {
-              const latest = latestFor(target.records, recommendation.symbol, goal);
-              return latest ? <TargetSummaryLine record={latest} onDelete={confirmTargetDelete} /> : undefined;
-            })()}
           />
-          {/* 🎯 이 종목 하나로 목표 도달 가능성 분석 (v2.29.0) */}
-          <div className="space-y-2 rounded-lg border border-border bg-bg-secondary px-3 py-2">
-            <TargetAnalyzeButton
-              symbols={[recommendation.symbol]}
-              goal={goal}
-              label="🎯 이 종목 목표 도달 가능성 분석"
-              running={target.progress?.running ?? false}
-              geminiOff={target.geminiOff}
-              onStart={target.start}
-            />
-            <TargetProgressBox progress={target.progress} />
-          </div>
         </>
       )}
     </div>

@@ -6,6 +6,7 @@ import {
   cloneSwingParams,
   sameSwingParams,
   type CustomProfileId,
+  type ProfileId,
   type ProfileState,
   type SwingParams,
 } from '../../types/strategyProfile';
@@ -175,6 +176,8 @@ export default function StrategyProfileModal({
   onSave,
   goal,
   onSaveGoal,
+  activeId,
+  onSwitchProfile,
   onClose,
 }: {
   state: ProfileState;
@@ -182,6 +185,10 @@ export default function StrategyProfileModal({
   /** 초보자 목표 설정 (v2.29.0) */
   goal: SwingGoal;
   onSaveGoal: (goal: SwingGoal) => Promise<SwingGoal>;
+  /** 지금 쓰는 판정 기준 — 창 맨 위 세그먼트 (v2.33.0, 예전에는 스윙 화면 도구줄에 있었다) */
+  activeId: ProfileId;
+  /** 기준 바꾸기 — 스윙 화면의 `switchProfile` 그대로(저장 경로 동일) */
+  onSwitchProfile: (id: ProfileId) => Promise<void>;
   onClose: () => void;
 }) {
   const [goalDraft, setGoalDraft] = useState<SwingGoal>(goal);
@@ -339,9 +346,38 @@ export default function StrategyProfileModal({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 [scrollbar-gutter:stable]">
+          {/* ── 판정 기준 고르기 (v2.33.0 — 도구줄에서 옮겼다). 바꾸면 곧바로 저장된다(예전 세그먼트와 같은 경로) ── */}
+          <section className="mb-4 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[14px] text-text-muted">판정 기준</span>
+              {(['standard', 'aggressive', 'defensive'] as ProfileId[]).map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => void onSwitchProfile(id)}
+                  aria-pressed={activeId === id}
+                  className={`rounded-md border px-2.5 py-1 text-[14px] transition-colors ${
+                    activeId === id
+                      ? 'border-accent bg-accent/10 font-medium text-accent'
+                      : 'border-border text-text-secondary hover:border-accent/50'
+                  }`}
+                >
+                  {PROFILE_LABEL[id]}
+                </button>
+              ))}
+              <span className="text-[14px] text-text-muted">바꾸면 바로 적용됩니다 — 추천은 [다시 분석] 해야 새 기준으로 나옵니다</span>
+            </div>
+            {activeId !== 'standard' && sameSwingParams(state.custom[activeId as CustomProfileId], state.standard) && (
+              <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-1.5 text-[14px] text-text-muted">
+                {PROFILE_LABEL[activeId]} 기준은 아직 표준과 같은 값입니다 — 아래 「고급 설정 &gt; 추천 판정 기준」 에서 조정하세요.
+                (공격·수비 값은 사용자 설정이며 근거가 검증되지 않았습니다.)
+              </p>
+            )}
+          </section>
+
           {/* ── 1층: 초보자 설정 (v2.29.0) — 가능성 분석의 조건. 판정은 바꾸지 않는다 ── */}
           <section className="space-y-3">
-            <h3 className="text-xs font-semibold text-text-primary">🎯 초보자 설정</h3>
+            <h3 className="text-xs font-semibold text-text-primary">초보자 설정</h3>
             <div>
               <p className="mb-1 text-[14px] text-text-primary">목표 수익률</p>
               <div className="flex flex-wrap items-center gap-1.5">
