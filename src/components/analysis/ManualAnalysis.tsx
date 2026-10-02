@@ -88,12 +88,13 @@ export default function ManualAnalysis({
     setAutoContext(getChartSnapshot());
   };
 
+  // 전체 모드·차트 하단 간단 모드 모두(v2.29.0 — 간단 모드에도 같은 코드로). 간단 모드는 차트 화면에서 그 탭을 열 때만 마운트된다
+  // (ChartBottomTabs 의 `active`) — 다른 화면에서는 돌지 않는다.
   useEffect(() => {
-    if (compact) return;
     startAutoCapture();
     // 종목·봉이 바뀔 때만 — 함수는 매 렌더 새로 만들어진다
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compact, symbol, timeframe]);
+  }, [symbol, timeframe]);
 
   /*
    * 캡처 이미지가 있으면 프롬프트도 그 이미지와 같은 봉을 가리켜야 한다.
@@ -110,7 +111,8 @@ export default function ManualAnalysis({
     symbol,
     mode === 'multi',
   );
-  const { data: peers } = usePeers(symbol, mode === 'multi' && Boolean(fundamentals));
+  const peersState = usePeers(symbol, mode === 'multi' && Boolean(fundamentals));
+  const peers = peersState.data;
   const { data: portfolio } = usePortfolio(true);
   const { data: exchangeRate } = useExchangeRate(mode === 'portfolio');
 
@@ -187,7 +189,12 @@ export default function ManualAnalysis({
   useEffect(() => {
     onPromptChange?.({ mode: `${mode}·${horizonLabel(horizon)}`, text: prompt });
   }, [mode, horizon, prompt, onPromptChange]);
-  const loading = summariesLoading || flowLoading || (mode === 'multi' && fundamentalsLoading);
+  /*
+   * 동종업계도 기다린다 (v2.29.0) — 예전에는 빠져 있어 ② 를 일찍 누르면 동종업계 비교가 빠진 프롬프트가 복사됐다.
+   * 요청을 실제로 보낼 때(전문가 분석 + 재무를 받았을 때)만, 응답(성공·실패·빈 목록)이 올 때까지. 실패·빈 응답은 막지 않는다("(없음)").
+   */
+  const peersWaiting = mode === 'multi' && Boolean(fundamentals) && !peersState.settled;
+  const loading = summariesLoading || flowLoading || (mode === 'multi' && fundamentalsLoading) || peersWaiting;
 
   // 포트폴리오는 여러 종목이라 현재 차트 이미지가 프롬프트와 맞지 않는다.
   const includeImage = mode === 'quick' || mode === 'multi';
@@ -202,6 +209,20 @@ export default function ManualAnalysis({
       drawings={captureContext.drawings}
       initialRange={captureContext.range}
       onClose={() => setCaptureContext(null)}
+    />
+  );
+
+  const autoCaptureModal = autoContext && (
+    <ChartCaptureModal
+      auto
+      symbol={symbol}
+      timeframe={timeframe}
+      candles={candles}
+      indicators={indicators}
+      toggles={toggles}
+      drawings={autoContext.drawings}
+      initialRange={autoContext.range}
+      onClose={() => setAutoContext(null)}
     />
   );
 
@@ -221,7 +242,9 @@ export default function ManualAnalysis({
           timeframe={promptTimeframe}
           prompt={prompt}
           includeImage
-          onOpenCapture={openCapture}
+          onOpenCapture={startAutoCapture}
+          captureLabel="지금 보고 있는 차트 캡처"
+          capturePending={Boolean(autoContext)}
           promptLabel="기본 프롬프트 복사"
           promptReady={!loading}
         />
@@ -231,24 +254,12 @@ export default function ManualAnalysis({
             투자 분석 &gt; AI 분석 열기
           </button>
         </p>
-        {captureModal}
+        {/* 간단 모드에는 「상세 캡처」 를 두지 않는다(상세는 AI 분석 화면에서) */}
+        {autoCaptureModal}
       </div>
     );
   }
 
-  const autoCaptureModal = autoContext && (
-    <ChartCaptureModal
-      auto
-      symbol={symbol}
-      timeframe={timeframe}
-      candles={candles}
-      indicators={indicators}
-      toggles={toggles}
-      drawings={autoContext.drawings}
-      initialRange={autoContext.range}
-      onClose={() => setAutoContext(null)}
-    />
-  );
 
   /*
    * 전체 모드 (v2.28.0 간소화) — 분석 방식 한 줄 + ① 캡처 ② 프롬프트 복사 ③ Claude 열기 + [상세 캡처…] [프롬프트 수정 ▾].

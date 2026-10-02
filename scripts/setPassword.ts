@@ -76,6 +76,19 @@ function createHiddenPrompt() {
 }
 
 async function main() {
+  /*
+   * ⚠️ 터미널에서만 받는다 (v2.29.0). 입력을 받을 수 없는 곳(`!` 실행·파이프·다른 프로그램)에서 돌면 예전에는
+   * 아무것도 저장하지 않고 조용히 끝나, 비밀번호가 바뀐 줄 알고 로그인이 막혔다(7차 점검).
+   * 비밀번호를 파이프·인자·환경변수로 받는 우회 경로는 **만들지 않는다** — 평문이 셸 기록에 남는다(CLAUDE.md 인증 원칙).
+   * DB 를 열기 전에 확인한다 — 아무것도 건드리지 않고 끝난다.
+   */
+  if (!process.stdin.isTTY) {
+    console.error(
+      '❌ 이 명령은 터미널에서 직접 실행해야 합니다(입력을 화면에 숨겨 받기 때문). 터미널을 열고 cd workspace/alphascope 후 npm run auth:set-password 를 실행하세요.',
+    );
+    process.exit(1);
+  }
+
   // DB 를 먼저 연다 — 스키마(app_settings·auth_sessions)가 없으면 여기서 만들어진다.
   getDb();
 
