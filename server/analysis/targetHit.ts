@@ -1,5 +1,6 @@
 /**
- * 목표 수익률별 "먼저 닿을 확률" — 스윙 화면의 「목표 수익률」 탭과 `npm run diagnose` 가 함께 쓴다.
+ * 목표 수익률별 "먼저 닿을 확률" — `npm run diagnose`·목표 도달 가능성 분석(과거 기준선·채점)·연구 스크립트가 함께 쓴다.
+ * (예전 「목표 수익률」 탭과 그 라우트 `/api/swing/target-hit` 는 없어졌다 — v2.24.0 탭 교체, v2.30.0 라우트 삭제)
  *
  * ⚠️ **계산은 여기 한 곳이다.** 진단 스크립트에 있던 것을 옮겼다 (v2.14.0). 두 벌이면
  * 웹 화면과 리포트의 숫자가 달라진다.
@@ -11,7 +12,6 @@ import type { Candle } from '../../src/types/toss';
 import { getCandles } from '../candleService';
 import { loadCandles } from '../db';
 import { getWatchlist } from '../userData';
-import { findStock } from '../stockCatalog';
 
 /** 판정 구간 — 최근 250 거래일(약 1년) */
 export const FREQ_DAYS = 250;
@@ -129,81 +129,11 @@ export async function dailyCandles(symbol: string, limit = FREQ_DAYS + 30): Prom
   return getCandles(symbol, '1d', limit).catch(() => loadCandles(symbol, '1d', limit));
 }
 
-// ── 화면용 표 (`GET /api/swing/target-hit`) ──────────────────────────────────
-
-export const TARGET_CHOICES = [3, 5, 10, 15];
-/** 손절 = 목표 × 비율 — 0.5 는 2:1, 1 은 1:1 */
-export const STOP_RATIO_CHOICES = [0.5, 1];
-export const HORIZON_CHOICES = [5, 10, 20];
-
-export interface TargetHitRow extends Partial<FreqRow> {
-  symbol: string;
-  name: string | null;
-  atr: number | null;
-  error?: string;
-}
-
-export interface TargetHitResult {
-  target: number;
-  stop: number;
-  days: number;
-  rows: TargetHitRow[];
-  spy: TargetHitRow | null;
-  asOf: string;
-  computedAt: string;
-}
+// ── 관심 목록 (진단·스윙 미리보기·실적일·달력·종목 지도가 쓴다) ──────────────────
+// (v2.29.0 까지 여기 있던 `GET /api/swing/target-hit` 표 `targetHitTable()`·하루 캐시는 v2.30.0 에 지웠다 — 부르는 화면이 없었다)
 
 /** 관심 목록 전체 (폴더를 풀어서, 중복 제거) — 스윙 분석과 같은 대상 */
 export function watchlistSymbols(): string[] {
   const folders = getWatchlist().folders ?? [];
   return [...new Set(folders.flatMap((f) => f.symbols ?? []))];
-}
-
-/*
-  (목표, 손절, 기간, 날짜) 단위로 하루 캐시한다. 과거 250일 빈도라 장중에 새로 받아도
-  숫자가 거의 움직이지 않고, 버튼을 누를 때마다 관심 종목 전체 캔들을 다시 읽을 이유가 없다.
-  관심 목록이 바뀌면 키가 달라지게 종목 목록도 넣는다.
-*/
-const cache = new Map<string, TargetHitResult>();
-
-export async function targetHitTable(target: number, stopRatio: number, days: number): Promise<TargetHitResult> {
-  const symbols = watchlistSymbols();
-  const today = new Date().toISOString().slice(0, 10);
-  const key = `${target}|${stopRatio}|${days}|${today}|${symbols.join(',')}`;
-  const hit = cache.get(key);
-  if (hit) return hit;
-
-  const stop = target * stopRatio;
-  let lastBar = 0;
-
-  const rowOf = async (symbol: string): Promise<TargetHitRow> => {
-    const name = findStock(symbol)?.name ?? null;
-    try {
-      const candles = await dailyCandles(symbol);
-      if (candles.length < 60) return { symbol, name, atr: null, error: '일봉이 부족합니다' };
-      lastBar = Math.max(lastBar, candles.at(-1)!.timestamp);
-      return { symbol, name, atr: atrPercent(candles), ...firstTouch(candles, target, stop, days) };
-    } catch (e) {
-      return { symbol, name, atr: null, error: e instanceof Error ? e.message : String(e) };
-    }
-  };
-
-  // 순차 — 관심 종목 십여 개는 캐시를 타서 금방이고, 한꺼번에 보내면 Rate Limit 만 먹는다
-  const rows: TargetHitRow[] = [];
-  for (const symbol of symbols) rows.push(await rowOf(symbol));
-  const spy = await rowOf('SPY');
-
-  const result: TargetHitResult = {
-    target,
-    stop,
-    days,
-    rows,
-    spy: spy.error ? null : { ...spy, name: 'S&P 500 (시장 전체)' },
-    asOf: lastBar ? new Date(lastBar).toISOString() : today,
-    computedAt: new Date().toISOString(),
-  };
-  // 날짜가 바뀐 옛 항목은 버린다 — 하루 캐시라 쌓아 둘 이유가 없다
-  for (const k of cache.keys()) if (!k.includes(`|${today}|`)) cache.delete(k);
-  cache.set(key, result);
-  return result;
 }

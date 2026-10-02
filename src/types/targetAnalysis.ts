@@ -36,6 +36,8 @@ export interface TargetStats {
   aiRate: number | null;
   baseRate: number | null;
   weak: boolean;
+  /** 묶기 전 채점된 원본 수 (v2.30.0 — 옛 서버면 없다) */
+  rawScored?: number;
 }
 
 export interface TargetProgress {

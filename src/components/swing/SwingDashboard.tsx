@@ -299,7 +299,7 @@ export default function SwingDashboard({
                 }}
               />
               <p className="text-[12px] text-text-muted">
-                카드의 🎯 를 체크해 고르세요(체크가 없으면 관심 목록에서 고릅니다). 결과는 지금 목표 조건과 같은 기록만 카드에 붙습니다.
+                카드나 아래 「부적합」 목록의 🎯 를 체크해 고르세요(체크가 없으면 관심 목록에서 고릅니다). 결과는 지금 목표 조건과 같은 기록만 카드에 붙습니다.
               </p>
               <TargetProgressBox progress={target.progress} />
             </section>
@@ -329,14 +329,35 @@ export default function SwingDashboard({
                 <summary className="text-xs font-semibold text-text-secondary">
                   ⚪ 부적합 ({rejected.length}개) — 왜 추천하지 않는지
                 </summary>
-                <ul className="mt-2 space-y-1 text-[12px]">
-                  {rejected.map((r) => (
-                    <li key={r.symbol} className="flex gap-2">
-                      <StockName symbol={r.symbol} name={r.name} />
-                      <span className="tabular-nums text-text-muted">({r.score}점)</span>
-                      <span className="min-w-0 text-text-secondary">{r.rejection}</span>
-                    </li>
-                  ))}
+                {/* 🎯 체크 (v2.30.0) — 추천 카드와 같은 선택(최대 5 공유). 추천 여부와는 별개다 */}
+                <p className="mt-2 text-[12px] text-text-muted">
+                  🎯 분석은 추천 여부와 별개로 '목표에 먼저 닿을 가능성' 만 추정합니다.
+                </p>
+                <ul className="mt-1 space-y-1 text-[12px]">
+                  {rejected.map((r) => {
+                    const latest = latestFor(target.records, r.symbol, goal);
+                    return (
+                      <li key={r.symbol} className="space-y-1">
+                        <div className="flex gap-2">
+                          <label className="inline-flex w-fit shrink-0 items-center gap-1 text-text-secondary" title="목표 도달 가능성 분석에 담기">
+                            <input
+                              type="checkbox"
+                              checked={picked.includes(r.symbol)}
+                              onChange={() => setPicked((list) => toggleTargetPick(list, r.symbol))}
+                            />
+                            🎯
+                          </label>
+                          <StockName symbol={r.symbol} name={r.name} />
+                          <span className="tabular-nums text-text-muted">({r.score}점)</span>
+                          {analyzedToday(target.records, r.symbol, goal) && (
+                            <span className="shrink-0 rounded bg-bg-tertiary px-1 text-text-muted">오늘 분석함</span>
+                          )}
+                          <span className="min-w-0 text-text-secondary">{r.rejection}</span>
+                        </div>
+                        {latest && <TargetSummaryLine record={latest} onDelete={confirmTargetDelete} />}
+                      </li>
+                    );
+                  })}
                 </ul>
               </details>
             )}

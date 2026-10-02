@@ -468,6 +468,9 @@ export function TargetHistorySection({
                   성적(채점 {stats.scored}건): AI 가 가장 높게 준 결과 적중 <b>{stats.aiRate}%</b> vs 과거 기준선 <b>{stats.baseRate}%</b>
                 </>
               )}
+              {stats.rawScored != null && (
+                <span className="ml-1 text-text-muted">· 같은 종목·같은 날·같은 조건은 1건으로 셉니다(원본 {stats.rawScored}건)</span>
+              )}
             </span>
           )}
         </div>

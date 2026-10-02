@@ -458,15 +458,33 @@ export interface TargetStats {
   baseRate: number | null;
   /** 30건 미만 — 판단 보류 */
   weak: boolean;
+  /** 묶기 전 채점된 원본 수 (v2.30.0) */
+  rawScored: number;
 }
 
-/** 채점된 기록에서 AI 의 최고 확률 결과 vs 기준선의 최고 결과가 실제와 맞은 비율 (전체 기록 기준) */
+/**
+ * 성적용 묶기 (v2.30.0) — **(종목, 기준일, 목표·손절·기간)이 같은 기록은 마지막 1건만** 센다.
+ * 같은 날 같은 조건으로 여러 번 돌리면 한 종목이 성적을 지배한다(Gemini 적중률의 `onePerDay` 와 같은 문제).
+ * 목록·채점·삭제는 원본 그대로다 — 통계를 낼 때만 묶는다.
+ */
+export function onePerCondition(records: TargetAnalysisRecord[]): TargetAnalysisRecord[] {
+  const latest = new Map<string, TargetAnalysisRecord>();
+  for (const r of records) {
+    const key = `${r.symbol}|${r.baseDate}|${r.targetPct}|${r.stopPct}|${r.days}`;
+    const kept = latest.get(key);
+    if (!kept || r.createdAt > kept.createdAt) latest.set(key, r);
+  }
+  return [...latest.values()];
+}
+
+/** 채점된 기록에서 AI 의 최고 확률 결과 vs 기준선의 최고 결과가 실제와 맞은 비율 (같은 종목·같은 날·같은 조건은 1건) */
 export function targetStats(records: TargetAnalysisRecord[]): TargetStats {
-  const scored = records.filter((r) => r.outcome && r.base);
+  const rawScored = records.filter((r) => r.outcome && r.base).length;
+  const scored = onePerCondition(records).filter((r) => r.outcome && r.base);
   const aiHit = scored.filter((r) => topPick({ target: r.pTarget, stop: r.pStop, neither: r.pNeither }) === r.outcome).length;
   const baseHit = scored.filter((r) => topPick(r.base!) === r.outcome).length;
   const pct = (n: number) => (scored.length ? Math.round((n / scored.length) * 1000) / 10 : null);
-  return { scored: scored.length, aiHit, baseHit, aiRate: pct(aiHit), baseRate: pct(baseHit), weak: scored.length < 30 };
+  return { scored: scored.length, aiHit, baseHit, aiRate: pct(aiHit), baseRate: pct(baseHit), weak: scored.length < 30, rawScored };
 }
 
 // ── 한 번에 여러 종목 (백그라운드 + 진행률) ─────────────────
