@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AccountStrategy, StrategyMode } from '../../types/autoTrading';
-import SymbolSearch from '../common/SymbolSearch';
-import DiscoverSymbolsModal from './DiscoverSymbolsModal';
 import RuleChoices from './RuleChoices';
-import StockName from '../common/StockName';
-import { useStockNames } from '../../hooks/useStockNames';
-import { useWatchlist } from '../../hooks/useWatchlist';
+import TargetSymbolsEditor from './TargetSymbolsEditor';
 import { toast } from '../../store/uiStore';
 
 /**
@@ -42,23 +38,11 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
   const [detailOpen, setDetailOpen] = useState(false);
   const [ruleDetailOpen, setRuleDetailOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [discoverOpen, setDiscoverOpen] = useState(false);
-  const { watchlist } = useWatchlist();
-  useStockNames(draft.symbols);
 
   // 바깥에서 값이 바뀌면(저장 응답 등) 따라간다.
   useEffect(() => setDraft(strategy), [strategy]);
 
   const patch = (change: Partial<AccountStrategy>) => setDraft((prev) => ({ ...prev, ...change }));
-
-  const addSymbols = (symbols: string[], source: string) => {
-    const merged = [...new Set([...draft.symbols, ...symbols.map((s) => s.toUpperCase())])];
-    const added = merged.length - draft.symbols.length;
-    patch({ symbols: merged });
-    toast[added ? 'success' : 'info'](
-      added ? `${source}에서 ${added}종목 담았습니다` : `${source}에서 새로 담을 종목이 없습니다`,
-    );
-  };
 
   const applyPreset = (preset: (typeof PRESETS)[number]) =>
     patch({
@@ -218,59 +202,12 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
               ② 대상 종목 <span className="font-normal text-text-muted">({draft.symbols.length}개)</span>
             </h3>
 
-            <SymbolSearch
-              symbol=""
-              onSubmit={(s) => addSymbols([s], '검색')}
-              placeholder="종목 검색해 담기 (애플, AAPL…)"
-              submitLabel="담기"
-              compact
-              clearOnSubmit
-              dropUp={false}
-              isAdded={(candidate) => draft.symbols.includes(candidate)}
+            <TargetSymbolsEditor
+              symbols={draft.symbols}
+              onChange={(symbols) => patch({ symbols })}
+              maxPositions={draft.maxPositions}
+              marketHoursOnly={draft.marketHoursOnly}
             />
-
-            {/*
-              ⚠️ 발굴은 **팝업**을 연다. 예전에는 버튼 하나가 곧바로 10종목을 담아서,
-              무엇이 왜 담겼는지 모른 채 목록을 하나씩 지워야 했다.
-              기준 → 탐지 → 근거 → 선택은 전부 `DiscoverSymbolsModal` 안에 있다.
-            */}
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setDiscoverOpen(true)}
-                className="rounded-md border border-border px-3 py-1 text-[12px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
-              >
-                🔎 종목 발굴 (스윙·관심 목록)
-              </button>
-              <span className="text-[12px] text-text-muted">
-                기준을 정해 찾고, 근거를 본 뒤 고른 것만 담습니다
-              </span>
-            </div>
-
-            {draft.symbols.length === 0 ? (
-              <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-3 text-center text-[12px] text-text-muted">
-                담긴 종목이 없습니다. 종목이 없으면 자동매매를 켤 수 없습니다.
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {draft.symbols.map((symbol) => (
-                  <span
-                    key={symbol}
-                    className="flex items-center gap-1 rounded-full border border-border bg-bg-tertiary/60 py-0.5 pl-2 pr-1 text-[12px]"
-                  >
-                    <StockName symbol={symbol} size="sm" className="text-text-primary" />
-                    <button
-                      type="button"
-                      onClick={() => patch({ symbols: draft.symbols.filter((s) => s !== symbol) })}
-                      aria-label={`${symbol} 빼기`}
-                      className="rounded px-1 text-text-muted transition-colors hover:text-bearish"
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
           </section>
 
           {/* ③ 매매 조건 */}
@@ -579,14 +516,6 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
         </div>
       </div>
 
-      {discoverOpen && (
-        <DiscoverSymbolsModal
-          watchlist={watchlist}
-          alreadyAdded={draft.symbols}
-          onAdd={addSymbols}
-          onClose={() => setDiscoverOpen(false)}
-        />
-      )}
     </div>
   );
 }

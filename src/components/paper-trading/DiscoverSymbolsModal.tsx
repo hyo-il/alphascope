@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import type { SwingGrade, SwingRecommendation, SwingRecord } from '../../types/swing';
+import type { SwingGrade, SwingRecommendation } from '../../types/swing';
+import {
+  applyCriteria,
+  DEFAULT_SWING_GRADES,
+  DEFAULT_SWING_LIMIT,
+  loadSavedSwing,
+  splitByLimit,
+  swingRowFromRecommendation,
+  type DiscoverRow,
+  type FilterStats,
+} from './discoverSources';
 import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
 import { toast } from '../../store/uiStore';
@@ -27,68 +37,7 @@ import { PROFILE_LABEL, type ProfileId } from '../../types/strategyProfile';
  */
 
 type Source = 'swing' | 'watchlist';
-
-interface Row {
-  symbol: string;
-  score: number | null;
-  grade: string | null;
-  /** 화면에 그대로 적는 근거 — 계산하지 않고 서버가 준 값을 옮긴다 */
-  reasons: string[];
-  /** 기준을 통과했는지. 떨어진 것도 목록에 남긴다 — 왜 0건인지 보여 주기 위해서다 */
-  passed?: boolean;
-  /** 떨어진 이유 (점수 미달 / 등급 제외) */
-  fail?: 'score' | 'grade';
-}
-
-/** 필터 결과 집계 — "0종목" 의 이유를 숫자로 말하기 위한 것 */
-interface FilterStats {
-  total: number;
-  passed: number;
-  failScore: number;
-  failGrade: number;
-  /** 등급별 건수 (많은 순으로 적는다) */
-  gradeDist: [string, number][];
-}
-
-/**
- * 기준으로 거르고 **떨어진 이유까지 표시**한다.
- *
- * ⚠️ 점수·등급은 서버가 준 값 그대로다. 여기서 다시 계산하지 않는다.
- * 점수를 먼저 보고, 점수를 넘긴 것만 등급을 본다 — 그래야 "점수 미달 0 · 등급 제외 7" 처럼
- * 사유가 한쪽으로 모여 읽힌다 (둘 다 걸린 것을 양쪽에 세면 합이 전체보다 커진다).
- */
-function applyCriteria(rows: Row[], minScore: number, grades: string[]): {
-  rows: Row[];
-  stats: FilterStats;
-} {
-  const dist = new Map<string, number>();
-  let failScore = 0;
-  let failGrade = 0;
-
-  const marked = rows.map((row) => {
-    if (row.grade) dist.set(row.grade, (dist.get(row.grade) ?? 0) + 1);
-    if ((row.score ?? 0) < minScore) {
-      failScore += 1;
-      return { ...row, passed: false, fail: 'score' as const };
-    }
-    if (row.grade && !grades.includes(row.grade)) {
-      failGrade += 1;
-      return { ...row, passed: false, fail: 'grade' as const };
-    }
-    return { ...row, passed: true };
-  });
-
-  return {
-    rows: marked,
-    stats: {
-      total: rows.length,
-      passed: marked.filter((r) => r.passed).length,
-      failScore,
-      failGrade,
-      gradeDist: [...dist.entries()].sort((a, b) => b[1] - a[1]),
-    },
-  };
-}
+type Row = DiscoverRow;
 
 const SOURCES: { id: Source; label: string; desc: string }[] = [
   { id: 'swing', label: '📈 스윙 추천', desc: '5조건 채점 결과 — 진입가·손절·손익비' },
@@ -99,26 +48,6 @@ const SWING_GRADES: SwingGrade[] = ['STRONG', 'BUY', 'WATCH'];
 
 const num = (v: number | null | undefined, digits = 0) =>
   v == null || !Number.isFinite(v) ? '—' : v.toFixed(digits);
-
-function swingRowFromRecord(r: SwingRecord): Row {
-  const reasons = [
-    `진입 ${r.entryType ?? '—'} $${num(r.entryPrice, 2)} · 손절 $${num(r.stopLossPrice, 2)}`,
-    `손익비 ${num(r.riskRewardRatio, 2)} · 권장 비중 ${num(r.recommendedPercent, 1)}%`,
-  ];
-  if (r.entryReason) reasons.push(r.entryReason);
-  return { symbol: r.symbol, score: r.score, grade: r.grade, reasons };
-}
-
-function swingRowFromRecommendation(r: SwingRecommendation): Row {
-  const reasons = [
-    `진입 ${r.entry.type} $${num(r.entry.price, 2)} · 손절 $${num(r.stopLoss.price, 2)}`,
-    `손익비 ${num(r.conditions.riskReward.ratio, 2)} · 권장 비중 ${num(r.position.recommendedPercent, 1)}%`,
-    r.entry.reason,
-  ];
-  if (r.rejection) reasons.push(`제외 사유: ${r.rejection}`);
-  if (r.warnings.length) reasons.push(`⚠️ ${r.warnings[0]}`);
-  return { symbol: r.symbol, score: r.score, grade: r.grade, reasons };
-}
 
 export default function DiscoverSymbolsModal({
   watchlist,
@@ -144,8 +73,8 @@ export default function DiscoverSymbolsModal({
 
   const [source, setSource] = useState<Source>('swing');
   const [minScore, setMinScore] = useState(swingBuyCut);
-  const [grades, setGrades] = useState<string[]>(['STRONG', 'BUY']);
-  const [limit, setLimit] = useState(10);
+  const [grades, setGrades] = useState<string[]>(DEFAULT_SWING_GRADES);
+  const [limit, setLimit] = useState(DEFAULT_SWING_LIMIT);
   const [fresh, setFresh] = useState(false);
 
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -186,7 +115,7 @@ export default function DiscoverSymbolsModal({
     setFresh(false);
     if (next === 'swing') {
       setMinScore(swingBuyCut);
-      setGrades(['STRONG', 'BUY']);
+      setGrades(DEFAULT_SWING_GRADES);
     }
   };
 
@@ -233,15 +162,15 @@ export default function DiscoverSymbolsModal({
         setNote(`관심 목록 ${watchlist.length}종목을 다시 채점했습니다`);
         candidates = all.sort((a, b) => b.score - a.score).map(swingRowFromRecommendation);
       } else {
-        const data = await fetch('/api/swing/recommendations').then((r) => r.json());
-        const all: SwingRecord[] = data.records ?? [];
-        setRowsProfile(all[0]?.profile ?? null);
-        if (!all.length) {
+        // 설정 창의 [📈 스윙 추천 담기] 와 **같은 함수**다 (v2.32.0 — `discoverSources.ts`)
+        const saved = await loadSavedSwing();
+        setRowsProfile(saved.profile);
+        if (!saved.rows.length) {
           setNote('저장된 스윙 추천이 없습니다. [다시 분석] 을 켜고 실행해 보세요.');
-        } else if (data.analyzedAt) {
-          setNote(`분석 시각 ${new Date(data.analyzedAt).toLocaleString('ko-KR')}`);
+        } else if (saved.analyzedAt) {
+          setNote(`분석 시각 ${new Date(saved.analyzedAt).toLocaleString('ko-KR')}`);
         }
-        candidates = all.sort((a, b) => b.score - a.score).map(swingRowFromRecord);
+        candidates = saved.rows;
       }
 
       if (!alive.current) return;
@@ -251,8 +180,7 @@ export default function DiscoverSymbolsModal({
         통과분만 최대 개수로 자른다 — 떨어진 것은 개수 제한과 상관없이 "왜 0건인가" 를
         설명하는 자료라 그대로 둔다 (목록에는 토글을 켰을 때만 나온다).
       */
-      const passed = marked.filter((r) => r.passed).slice(0, limit);
-      const rejected = marked.filter((r) => !r.passed);
+      const { passed, rejected } = splitByLimit(marked, limit);
       setRows([...passed, ...rejected]);
       setStats(counted);
       // 기본은 전체 선택이다 — 기준을 통과한 것만 담기 대상이라, 빼는 쪽이 더 적다.
