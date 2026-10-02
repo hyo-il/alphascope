@@ -17,7 +17,7 @@ import { evaluateRule } from './ruleEngine';
 import { planBuy } from './sizing';
 import { clearPeak, getPeak, updatePeak } from './store';
 import { dailyLossBlock, earningsGuard } from './guards';
-import type { AccountStrategy, AutoTradeRunResult } from '../../src/types/autoTrading';
+import type { AccountStrategy, AutoTradeRunResult, DecisionCode } from '../../src/types/autoTrading';
 
 type Note = AutoTradeRunResult['notes'][number];
 
@@ -35,6 +35,8 @@ async function sell(
   symbol: string,
   quantity: number,
   reason: string,
+  /** 판단 종류 (v2.32.0) — 화면의 쉬운 말용. 판단 자체에는 쓰지 않는다 */
+  code: DecisionCode,
 ): Promise<Note> {
   try {
     const result = await createOrder({
@@ -46,9 +48,9 @@ async function sell(
       reason,
     });
     clearPeak(accountId, symbol);
-    return { symbol, action: 'SELL', reason, orderId: result.order.id };
+    return { symbol, action: 'SELL', reason, code, orderId: result.order.id };
   } catch (error) {
-    return { symbol, action: 'HOLD', reason: `매도 실패: ${(error as Error).message}`, orderId: null };
+    return { symbol, action: 'HOLD', reason: `매도 실패: ${(error as Error).message}`, code: 'error', orderId: null };
   }
 }
 
@@ -77,6 +79,7 @@ export async function runExitChecks(strategy: AccountStrategy): Promise<Note[]> 
           position.symbol,
           position.quantity,
           `하드 손절 ${pct(changePercent)} — 기준 -${strategy.hardStopLossPercent}% 도달로 전량 청산`,
+          'hard_stop',
         ),
       );
       continue;
@@ -95,6 +98,7 @@ export async function runExitChecks(strategy: AccountStrategy): Promise<Note[]> 
           position.symbol,
           position.quantity,
           `트레일링 스톱 — 고점 ${peak.toFixed(2)} 대비 ${pct(fromPeak)} (기준 -${strategy.trailingStopPercent}%)`,
+          'trailing',
         ),
       );
     }
@@ -139,7 +143,7 @@ export async function runStrategyCycle(strategy: AccountStrategy): Promise<AutoT
         const decision = await evaluateRule(symbol, strategy.rule, held);
 
         if (decision.action === 'SELL' && position) {
-          const note = await sell(strategy.accountId, symbol, position.quantity, decision.reason);
+          const note = await sell(strategy.accountId, symbol, position.quantity, decision.reason, decision.code);
           if (note.orderId) {
             result.ordered += 1;
             openCount -= 1;
@@ -148,14 +152,14 @@ export async function runStrategyCycle(strategy: AccountStrategy): Promise<AutoT
           continue;
         }
         if (decision.action === 'BUY' && !held) {
-          result.notes.push(await tryBuy(strategy, symbol, decision.price, decision.reason, openCount));
+          result.notes.push(await tryBuy(strategy, symbol, decision.price, decision.reason, openCount, decision.code));
           if (result.notes.at(-1)?.orderId) {
             result.ordered += 1;
             openCount += 1;
           }
           continue;
         }
-        result.notes.push({ symbol, action: 'HOLD', reason: decision.reason, orderId: null });
+        result.notes.push({ symbol, action: 'HOLD', reason: decision.reason, code: decision.code, orderId: null });
         continue;
       }
 
@@ -173,7 +177,7 @@ export async function runStrategyCycle(strategy: AccountStrategy): Promise<AutoT
       if (direction === 'SELL' && held && position) {
         const strongOnly = strategy.sellSignal === 'STRONG_SELL' && analysis.signal !== 'STRONG_SELL';
         if (strongOnly) {
-          result.notes.push({ symbol, action: 'HOLD', reason: `매도 조건이 "강력 매도만" 이라 ${analysis.signal} 는 건너뜁니다`, orderId: null });
+          result.notes.push({ symbol, action: 'HOLD', reason: `매도 조건이 "강력 매도만" 이라 ${analysis.signal} 는 건너뜁니다`, code: 'other', orderId: null });
           continue;
         }
         if (analysis.confidence < strategy.sellMinConfidence) {
@@ -181,11 +185,12 @@ export async function runStrategyCycle(strategy: AccountStrategy): Promise<AutoT
             symbol,
             action: 'HOLD',
             reason: `AI 매도 신호지만 ${confidence} < 기준 ${(strategy.sellMinConfidence * 100).toFixed(0)}% — 보유 유지`,
+            code: 'ai_low_confidence',
             orderId: null,
           });
           continue;
         }
-        const note = await sell(strategy.accountId, symbol, position.quantity, `AI 매도: ${analysis.signal} (${confidence})${summary}`);
+        const note = await sell(strategy.accountId, symbol, position.quantity, `AI 매도: ${analysis.signal} (${confidence})${summary}`, 'ai_sell');
         if (note.orderId) {
           result.ordered += 1;
           openCount -= 1;
@@ -197,7 +202,7 @@ export async function runStrategyCycle(strategy: AccountStrategy): Promise<AutoT
       if (direction === 'BUY' && !held) {
         const strongOnly = strategy.buySignal === 'STRONG_BUY' && analysis.signal !== 'STRONG_BUY';
         if (strongOnly) {
-          result.notes.push({ symbol, action: 'HOLD', reason: `매수 조건이 "강력 매수만" 이라 ${analysis.signal} 는 건너뜁니다`, orderId: null });
+          result.notes.push({ symbol, action: 'HOLD', reason: `매수 조건이 "강력 매수만" 이라 ${analysis.signal} 는 건너뜁니다`, code: 'other', orderId: null });
           continue;
         }
         if (analysis.confidence < strategy.buyMinConfidence) {
@@ -205,6 +210,7 @@ export async function runStrategyCycle(strategy: AccountStrategy): Promise<AutoT
             symbol,
             action: 'HOLD',
             reason: `AI 매수 신호지만 ${confidence} < 기준 ${(strategy.buyMinConfidence * 100).toFixed(0)}% — 매수 없음`,
+            code: 'ai_low_confidence',
             orderId: null,
           });
           continue;
@@ -215,6 +221,7 @@ export async function runStrategyCycle(strategy: AccountStrategy): Promise<AutoT
           analysis.priceAtAnalysis,
           `AI 매수: ${analysis.signal} (${confidence})${summary}`,
           openCount,
+          'ai_buy',
         );
         if (note.orderId) {
           result.ordered += 1;
@@ -231,6 +238,7 @@ export async function runStrategyCycle(strategy: AccountStrategy): Promise<AutoT
         reason: held
           ? `AI 판단 ${analysis.signal} (${confidence}) — 보유 유지${summary}`
           : `AI 판단 ${analysis.signal} (${confidence}) — 매수 조건 아님`,
+        code: 'ai_hold',
         orderId: null,
       });
     } catch (error) {
@@ -252,14 +260,16 @@ export async function tryBuy(
   price: number | null,
   reason: string,
   openCount: number,
+  /** 매수가 나갔을 때의 판단 종류 (v2.32.0) — 막히면 막힌 이유의 코드로 바뀐다 */
+  code: DecisionCode = 'other',
 ): Promise<Note> {
   // 하루 손실 한도(킬 스위치) — 그 거래일 끝까지 새로 사지 않는다
   const lossBlock = dailyLossBlock(strategy);
-  if (lossBlock) return { symbol, action: 'HOLD', reason: lossBlock, orderId: null };
+  if (lossBlock) return { symbol, action: 'HOLD', reason: lossBlock, code: 'daily_loss', orderId: null };
 
   // 실적 발표 직전 — 실적일을 모르면 막지 않되 사유에 남긴다
   const earnings = earningsGuard(strategy, symbol);
-  if (earnings.blocked) return { symbol, action: 'HOLD', reason: earnings.blocked, orderId: null };
+  if (earnings.blocked) return { symbol, action: 'HOLD', reason: earnings.blocked, code: 'earnings_blackout', orderId: null };
   if (earnings.note) reason = `${reason} · ${earnings.note}`;
 
   /*
@@ -271,12 +281,13 @@ export async function tryBuy(
       symbol,
       action: 'HOLD',
       reason: `보유 종목이 한도(${strategy.maxPositions}종목)에 도달해 신규 매수를 건너뜁니다`,
+      code: 'max_positions',
       orderId: null,
     };
   }
 
   const plan = await planBuy(strategy.accountId, symbol, price ?? 0, strategy.positionSizePercent);
-  if (!plan.ok) return { symbol, action: 'HOLD', reason: plan.reason, orderId: null };
+  if (!plan.ok) return { symbol, action: 'HOLD', reason: plan.reason, code: 'other', orderId: null };
 
   try {
     const result = await createOrder({
@@ -289,9 +300,9 @@ export async function tryBuy(
     });
     // 트레일링 기준점을 매수가로 시작한다 (첫 고점 = 산 가격)
     if (strategy.trailingStopEnabled && price) updatePeak(strategy.accountId, symbol, price);
-    return { symbol, action: 'BUY', reason: `${reason} → ${plan.quantity}주`, orderId: result.order.id };
+    return { symbol, action: 'BUY', reason: `${reason} → ${plan.quantity}주`, code, orderId: result.order.id };
   } catch (error) {
-    return { symbol, action: 'HOLD', reason: `매수 실패: ${(error as Error).message}`, orderId: null };
+    return { symbol, action: 'HOLD', reason: `매수 실패: ${(error as Error).message}`, code: 'error', orderId: null };
   }
 }
 

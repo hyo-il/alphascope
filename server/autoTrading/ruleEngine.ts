@@ -14,7 +14,7 @@ import type { IndicatorSeries } from '../../src/types/chart';
 import type { Candle } from '../../src/types/toss';
 import { isFormingBar } from '../../src/utils/marketBar';
 import { marketDate } from '../../src/utils/marketDate';
-import type { RuleConfig } from '../../src/types/autoTrading';
+import type { DecisionCode, RuleConfig } from '../../src/types/autoTrading';
 
 /** 규칙 판정에 필요한 최소 봉 수 — 장기 MA + RSI 워밍업 여유 */
 const CANDLE_LIMIT = 200;
@@ -23,6 +23,8 @@ export interface RuleDecision {
   action: 'BUY' | 'SELL' | 'HOLD';
   /** 사람이 읽는 사유 — 그대로 거래내역에 남는다 */
   reason: string;
+  /** 판단 종류 (v2.32.0) — 화면의 쉬운 말은 이 값으로 고른다 */
+  code: DecisionCode;
   price: number | null;
 }
 
@@ -71,7 +73,7 @@ export function decideRule(
   held: boolean,
   /** 기준 봉의 시장 날짜(YYYY-MM-DD) — 사유에 붙인다 */
   barDate: string,
-): { action: 'BUY' | 'SELL' | 'HOLD'; reason: string } {
+): { action: 'BUY' | 'SELL' | 'HOLD'; reason: string; code: DecisionCode } {
   const short = pickMa(series, rule.maShort);
   const long = pickMa(series, rule.maLong);
   const shortPair = pairAt(short.line, i);
@@ -95,21 +97,22 @@ export function decideRule(
   const rsiNow = rsiPair ? rsiPair[1].toFixed(1) : '—';
 
   if (held) {
-    if (dead) return { action: 'SELL', reason: `${maLabel} 데드크로스 — 추세 이탈로 전량 매도${basis}` };
+    if (dead) return { action: 'SELL', reason: `${maLabel} 데드크로스 — 추세 이탈로 전량 매도${basis}`, code: 'dead' };
     if (rsiHot) {
-      return { action: 'SELL', reason: `RSI ${rsiNow} — 과열(${rule.rsiSellAbove} 이상) 구간이라 전량 매도${basis}` };
+      return { action: 'SELL', reason: `RSI ${rsiNow} — 과열(${rule.rsiSellAbove} 이상) 구간이라 전량 매도${basis}`, code: 'rsi_hot' };
     }
-    return { action: 'HOLD', reason: `매도 조건 없음 (RSI ${rsiNow}, ${maLabel} 교차 없음) — 보유 유지${basis}` };
+    return { action: 'HOLD', reason: `매도 조건 없음 (RSI ${rsiNow}, ${maLabel} 교차 없음) — 보유 유지${basis}`, code: 'no_signal_hold' };
   }
 
-  if (golden) return { action: 'BUY', reason: `${maLabel} 골든크로스 — 추세 전환 매수${basis}` };
+  if (golden) return { action: 'BUY', reason: `${maLabel} 골든크로스 — 추세 전환 매수${basis}`, code: 'golden' };
   if (rsiRebound) {
     return {
       action: 'BUY',
       reason: `RSI ${rsiPair![0].toFixed(1)} → ${rsiNow} — 과매도(${rule.rsiBuyBelow} 이하) 반등 매수${basis}`,
+      code: 'rsi_rebound',
     };
   }
-  return { action: 'HOLD', reason: `매수 조건 없음 (RSI ${rsiNow}, ${maLabel} 교차 없음)${basis}` };
+  return { action: 'HOLD', reason: `매수 조건 없음 (RSI ${rsiNow}, ${maLabel} 교차 없음)${basis}`, code: 'no_signal_buy' };
 }
 
 /** 진행 중인 일봉을 뺀 완성 봉 (v2.31.0) — 장중에는 오늘 봉이 만들어지는 중이라 교차가 생겼다 사라질 수 있다 */
@@ -134,7 +137,7 @@ export async function evaluateRule(
   const candles = await getCandles(symbol, '1d', CANDLE_LIMIT);
   const completed = completedDaily(candles, symbol, now);
   if (completed.length < 30) {
-    return { action: 'HOLD', reason: `캔들이 ${completed.length}개뿐이라 판정을 건너뜁니다`, price: null };
+    return { action: 'HOLD', reason: `캔들이 ${completed.length}개뿐이라 판정을 건너뜁니다`, code: 'not_enough_candles', price: null };
   }
 
   const series = await computeIndicators(completed);

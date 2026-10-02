@@ -3,6 +3,9 @@ import AutoTradeSettings from './AutoTradeSettings';
 import { useAutoTrading } from '../../hooks/useAutoTrading';
 import { useGeminiStatus } from '../../hooks/useGemini';
 import { toast } from '../../store/uiStore';
+import { useStockNames } from '../../hooks/useStockNames';
+import { autoTradeView } from '../../utils/autoTradeStatus';
+import { explainNote, nowSentence, sortNotes } from '../../utils/autoTradeExplain';
 
 /**
  * 계좌 대시보드 상단의 자동매매 바.
@@ -16,6 +19,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
   const { state: gemini } = useGeminiStatus(60_000);
   const [open, setOpen] = useState(false);
   const [toggling, setToggling] = useState(false);
+  const nameOf = useStockNames(status?.lastNotes.map((n) => n.symbol) ?? []);
 
   if (!accountId || !strategy) return null;
 
@@ -47,9 +51,34 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
   };
 
   const nextRun = status?.nextRunAt ? new Date(status.nextRunAt).toLocaleTimeString('ko-KR') : null;
+  /** 바 맨 위의 "지금 상태" 한 문장 (v2.32.0) — 분류는 `autoTradeView` 한 곳, 문장은 `autoTradeExplain` 한 곳 */
+  const view = autoTradeView(strategy, status);
+  const sentence = nowSentence(strategy, status, view);
+  const notes = status ? sortNotes(status.lastNotes) : [];
 
   return (
     <>
+      {/*
+        켜 놓고 "지금 무엇을 하는지" 를 한 문장으로 (v2.32.0). 기호(●◐⚠)는 카드와 같다 — 색만으로 구분하지 않는다.
+      */}
+      {sentence && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-border bg-bg-tertiary/30 px-4 py-1.5 text-xs">
+          <span className={view.state === 'running' ? 'text-bullish' : view.state === 'blocked' ? 'text-warning' : 'text-text-secondary'}>
+            {view.symbol}
+          </span>
+          <span className="text-text-primary">{sentence.text}</span>
+          {sentence.extra && <span className="text-text-muted">{sentence.extra}</span>}
+          {sentence.fix && (
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="rounded border border-warning/60 px-2 py-0.5 text-[12px] text-warning transition-colors hover:bg-warning/10"
+            >
+              설정 열기
+            </button>
+          )}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
         <span className="text-xs font-medium text-text-primary">🤖 자동매매</span>
 
@@ -138,20 +167,37 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
             최근 판단 {status.lastNotes.length}건
             {status.lastNotesAt && ` · ${new Date(status.lastNotesAt).toLocaleString('ko-KR')}`}
           </summary>
-          <ul className="mt-1 space-y-0.5">
-            {status.lastNotes.map((n, i) => (
-              <li key={i} className="flex gap-2">
-                <span
-                  className={`w-9 shrink-0 font-medium ${
-                    n.action === 'BUY' ? 'text-bullish' : n.action === 'SELL' ? 'text-bearish' : 'text-text-muted'
-                  }`}
-                >
-                  {n.action === 'BUY' ? '매수' : n.action === 'SELL' ? '매도' : '건너뜀'}
-                </span>
-                <span className="w-16 shrink-0 text-text-secondary">{n.symbol}</span>
-                <span className="min-w-0 text-text-secondary">{n.reason}</span>
-              </li>
-            ))}
+          {/* 쉬운 문장이 먼저, 원래 문장은 작은 회색으로 아래 — 사거나 판 줄이 위, 기다림 줄이 아래 */}
+          <ul className="mt-1 space-y-1">
+            {notes.map((n, i) => {
+              const easy = explainNote(n, nameOf(n.symbol) ?? n.symbol, strategy);
+              return (
+                <li key={i} className="flex gap-2">
+                  <span
+                    className={`w-9 shrink-0 font-medium ${
+                      n.action === 'BUY' ? 'text-bullish' : n.action === 'SELL' ? 'text-bearish' : 'text-text-muted'
+                    }`}
+                  >
+                    {n.action === 'BUY' ? '매수' : n.action === 'SELL' ? '매도' : '건너뜀'}
+                  </span>
+                  <span className="min-w-0">
+                    {easy ? (
+                      <>
+                        <span className="block text-text-primary">{easy}</span>
+                        <span className="block text-text-muted">
+                          {n.symbol} · {n.reason}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-text-secondary">
+                        <span className="mr-2 text-text-secondary">{n.symbol}</span>
+                        {n.reason}
+                      </span>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </details>
       )}

@@ -14,6 +14,7 @@ import {
   DEFAULT_RULE,
   defaultStrategy,
   type AccountStrategy,
+  type DecisionNote,
   type RuleConfig,
   type StrategyMode,
 } from '../../src/types/autoTrading';
@@ -23,7 +24,7 @@ const PEAKS_KEY = 'autoTrading.trailingPeaks';
 /** 계좌별 마지막 바퀴의 판단 (건너뜀 사유 포함, v2.16.0) — 재시작해도 화면에서 볼 수 있게 저장한다 */
 const NOTES_KEY = 'autoTrading.lastNotes';
 
-export type DecisionNote = { symbol: string; action: 'BUY' | 'SELL' | 'HOLD'; reason: string };
+export type { DecisionNote };
 type NotesMap = Record<string, { at: string; notes: DecisionNote[] }>;
 
 /** 마지막 바퀴의 판단을 기억한다 — 청산·매수·건너뜀 모두 (최대 30개). 빈 목록은 이전 기록을 지우지 않는다 */
@@ -32,7 +33,8 @@ export function recordNotes(accountId: number, notes: DecisionNote[]): void {
   const map = readSetting<NotesMap>(NOTES_KEY, {});
   map[String(accountId)] = {
     at: new Date().toISOString(),
-    notes: notes.slice(0, 30).map((n) => ({ symbol: n.symbol, action: n.action, reason: n.reason })),
+    // code 는 v2.32.0 부터 — 없으면 저장하지 않는다(옛 형식과 같은 모양)
+    notes: notes.slice(0, 30).map((n) => ({ symbol: n.symbol, action: n.action, reason: n.reason, ...(n.code ? { code: n.code } : {}) })),
   };
   writeSetting(NOTES_KEY, map);
 }

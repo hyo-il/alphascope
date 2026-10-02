@@ -85,6 +85,45 @@ export interface AccountStrategy {
   rule: RuleConfig;
 }
 
+/**
+ * 판단 **종류 코드** (v2.32.0) — 엔진이 판단할 때 이미 아는 것만 담는다.
+ *
+ * ⚠️ 화면은 사유 **문장**이 아니라 이 값으로 쉬운 말을 고른다(`utils/autoTradeExplain.ts` 한 곳).
+ * 문장을 읽어 분기하면 문구를 다듬을 때마다 조용히 깨진다. 사유 문장은 그대로 남는다(거래내역·로그).
+ * 옛 기록(v2.31.0 이전)에는 코드가 없다 — 그때는 문장만 보인다.
+ * - 규칙형: golden · dead · rsi_rebound · rsi_hot · no_signal_buy(매수 조건 없음) · no_signal_hold(보유 유지)
+ * - 공통: hard_stop · trailing · earnings_blackout · max_positions · daily_loss · not_enough_candles · error
+ * - AI형: ai_buy · ai_sell · ai_hold · ai_low_confidence
+ * - other: 위에 없는 경로(예산·현금 부족, "강력 신호만" 조건으로 건너뜀)
+ */
+export type DecisionCode =
+  | 'golden'
+  | 'dead'
+  | 'rsi_rebound'
+  | 'rsi_hot'
+  | 'no_signal_buy'
+  | 'no_signal_hold'
+  | 'hard_stop'
+  | 'trailing'
+  | 'earnings_blackout'
+  | 'max_positions'
+  | 'daily_loss'
+  | 'not_enough_candles'
+  | 'error'
+  | 'ai_buy'
+  | 'ai_sell'
+  | 'ai_hold'
+  | 'ai_low_confidence'
+  | 'other';
+
+/** 「최근 판단」 한 줄 — `code` 는 v2.32.0 부터(옛 기록에는 없다) */
+export interface DecisionNote {
+  symbol: string;
+  action: 'BUY' | 'SELL' | 'HOLD';
+  reason: string;
+  code?: DecisionCode;
+}
+
 /** 계좌별 실행 상태 — 화면(2단계)이 "지금 돌고 있나" 를 보여 주는 데 쓴다 */
 /**
  * 자동매매가 멈춘 **종류**. 화면은 문구가 아니라 이 값으로 분기한다 —
@@ -122,7 +161,7 @@ export interface AccountStrategyStatus {
    * 마지막 한 바퀴의 판단 — 매수·매도뿐 아니라 **건너뛴 이유**도 담는다 (v2.16.0).
    * 예전에는 스케줄러가 돌린 바퀴의 "건너뜀" 사유가 어디에도 남지 않았다(거래내역은 체결만 보인다).
    */
-  lastNotes: { symbol: string; action: 'BUY' | 'SELL' | 'HOLD'; reason: string }[];
+  lastNotes: DecisionNote[];
   lastNotesAt: string | null;
 }
 
@@ -134,7 +173,7 @@ export interface AutoTradeRunResult {
   /** 실제로 낸 주문 수 */
   ordered: number;
   /** 종목별 판단 근거 — 주문이 안 나간 이유도 포함한다 */
-  notes: { symbol: string; action: 'BUY' | 'SELL' | 'HOLD'; reason: string; orderId: number | null }[];
+  notes: (DecisionNote & { orderId: number | null })[];
   errors: string[];
   skipped: string | null;
 }
