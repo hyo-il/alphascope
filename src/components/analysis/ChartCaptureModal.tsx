@@ -157,6 +157,7 @@ export default function ChartCaptureModal({
       // 방금 바꾼 체크박스·범위가 캔버스에 반영될 때까지 두 프레임 기다린다.
       await nextFrame();
       await nextFrame();
+      chartRef.current?.fitToHost(); // 칸 크기에 지금 맞춘다 — 날짜 축이 잘리지 않게 (v2.33.0)
 
       const { blob, width, height } = await captureElementToBlob(element, quality);
       setShot({ blob, url: URL.createObjectURL(blob), width, height });
@@ -211,6 +212,7 @@ export default function ChartCaptureModal({
         await new Promise((r) => setTimeout(r, 150));
         const element = chartRef.current?.getElement();
         if (unmounted.current || !element) return;
+        chartRef.current?.fitToHost(); // 칸 크기에 지금 맞춘다 — 날짜 축이 잘리지 않게 (v2.33.0)
         const { blob, width, height } = await captureElementToBlob(element, 'low');
         if (unmounted.current) return;
         setCapture({

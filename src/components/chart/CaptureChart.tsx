@@ -48,6 +48,12 @@ export interface CaptureChartHandle {
   getElement: () => HTMLElement | null;
   /** '다시 캡처' 할 때 조정해 둔 범위를 잃지 않기 위해 읽어 간다 */
   getVisibleRange: () => { from: number; to: number } | null;
+  /**
+   * 찍기 직전에 차트를 칸 크기에 **지금** 맞춘다 (v2.33.0 — 캡처 PNG 아래 날짜 축 잘림).
+   * `autoSize` 는 ResizeObserver·다음 프레임에 맞추므로, 정보 줄·제목 줄이 늦게 자라 칸이 줄어든 직후에 찍으면
+   * 차트가 옛 높이로 남아 맨 아래 날짜 축이 칸 밖으로 밀려 잘렸다(실측: 칸 583px · 차트 604px → 21px 잘림).
+   */
+  fitToHost: () => void;
 }
 
 /**
@@ -109,6 +115,15 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
     getVisibleRange: () => {
       const range = chartRef.current?.timeScale().getVisibleLogicalRange();
       return range ? { from: range.from, to: range.to } : null;
+    },
+    fitToHost: () => {
+      const chart = chartRef.current;
+      const host = chartHostRef.current;
+      if (!chart || !host || !host.clientWidth || !host.clientHeight) return;
+      // autoSize 가 켜져 있으면 resize 가 무시된다 — 잠깐 끄고 즉시 다시 그린 뒤 되돌린다
+      chart.applyOptions({ autoSize: false });
+      chart.resize(host.clientWidth, host.clientHeight, true);
+      chart.applyOptions({ autoSize: true });
     },
   }));
 
