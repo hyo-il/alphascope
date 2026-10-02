@@ -23,6 +23,13 @@ interface Props {
   captureLabel?: string;
   /** 화면 밖에서 미리 캡처하는 중 — ① 버튼을 잠시 막는다 (v2.28.0) */
   capturePending?: boolean;
+  /**
+   * 가로 3칸 (v2.33.0) — 차트 하단 탭이 좁은 세로 칸 하나에 쌓여 오른쪽이 비고 아래가 잘렸다.
+   * 칸마다 번호 + 짧은 제목 · 버튼 · 상태 한 줄. 동작(복사·저장·열기)은 세로와 같다.
+   */
+  horizontal?: boolean;
+  /** 맨 위 제목·안내 문장을 그리지 않는다 — 부모가 한 줄로 합쳐 보여 줄 때(차트 하단 탭) */
+  hideIntro?: boolean;
 }
 
 type StepState =
@@ -87,6 +94,8 @@ export default function CopySteps({
   promptReady = true,
   captureLabel = '차트 이미지 복사',
   capturePending = false,
+  horizontal = false,
+  hideIntro = false,
 }: Props) {
   const capture = useCaptureStore((s) => s.capture);
   // HTTPS 를 붙이면 코드 수정 없이 원래 복사 방식으로 돌아온다 (호스트·IP 로 판단하지 않는다)
@@ -149,33 +158,48 @@ export default function CopySteps({
     setTipHidden(true);
   };
 
-  const stepCard = (n: number, description: string, children: React.ReactNode) => (
-    <li className="rounded-md bg-bg-tertiary/50 p-3">
-      <div className="mb-2 flex items-start gap-2">
-        <StepBadge n={n} />
-        <p className="text-[14px] leading-relaxed text-text-secondary">{description}</p>
-      </div>
-      {children}
-    </li>
-  );
+  /** 가로 칸의 짧은 제목 — 세로 배치의 긴 설명은 칸 위 툴팁으로 남긴다 */
+  const SHORT_TITLE: Record<number, string> = includeImage
+    ? { 1: '차트 이미지', 2: '프롬프트', 3: 'Claude 열기' }
+    : { 1: '프롬프트', 2: 'Claude 열기' };
 
-  const arrow = (
+  const stepCard = (n: number, description: string, children: React.ReactNode) =>
+    horizontal ? (
+      <li className="flex min-w-0 flex-col gap-1.5 rounded-md bg-bg-tertiary/50 p-2.5" title={description}>
+        <div className="flex items-center gap-2">
+          <StepBadge n={n} />
+          <p className="text-[14px] font-medium text-text-secondary">{SHORT_TITLE[n]}</p>
+        </div>
+        {children}
+      </li>
+    ) : (
+      <li className="rounded-md bg-bg-tertiary/50 p-3">
+        <div className="mb-2 flex items-start gap-2">
+          <StepBadge n={n} />
+          <p className="text-[14px] leading-relaxed text-text-secondary">{description}</p>
+        </div>
+        {children}
+      </li>
+    );
+
+  // 가로 배치에서는 화살표 대신 칸 순서(번호)가 흐름을 말한다
+  const arrow = horizontal ? null : (
     <li aria-hidden className="py-0.5 text-center text-xs text-text-muted">
       ↓
     </li>
   );
 
   return (
-    <section className="space-y-3">
-      <h3 className="text-xs font-medium text-text-secondary">📤 Claude에 보내기</h3>
+    <section className={horizontal ? 'space-y-2' : 'space-y-3'}>
+      {!hideIntro && <h3 className="text-xs font-medium text-text-secondary">📤 Claude에 보내기</h3>}
 
-      {includeImage && (
+      {includeImage && !hideIntro && (
         <p className="text-[14px] leading-relaxed text-text-muted">
           Claude 대화창을 열어 둔 채 ① → ② 를 차례로 <b className="text-text-secondary">복사하고 바로 붙여넣으세요</b>
           (클립보드에는 마지막에 복사한 것 하나만 남습니다).
         </p>
       )}
-      <ol className="space-y-1">
+      <ol className={horizontal ? `grid gap-2 ${includeImage ? 'grid-cols-3' : 'grid-cols-2'}` : 'space-y-1'}>
         {includeImage && (
           <>
             {stepCard(
@@ -197,7 +221,9 @@ export default function CopySteps({
                     💾 PNG로 저장해서 첨부하기
                   </button>
                   <StatusLabel state={imageStep} />
-                  <p className="text-[14px] leading-relaxed text-text-muted">{INSECURE_NOTE}</p>
+                  <p className="text-[14px] leading-relaxed text-text-muted">
+                    {horizontal ? '이미지 복사가 안 됩니다(HTTP) — PNG 로 저장해 끌어 넣기' : INSECURE_NOTE}
+                  </p>
                 </div>
               ) : capture ? (
                 <div className="space-y-1.5">
@@ -271,7 +297,7 @@ export default function CopySteps({
         )}
       </ol>
 
-      {!tipHidden && includeImage && (
+      {!tipHidden && includeImage && !hideIntro && (
         <div className="rounded-md border border-border/60 px-3 py-2 text-[14px] leading-relaxed text-text-muted">
           💡 이미지와 프롬프트를 <b className="text-text-secondary">같은 대화</b>에 함께 보내면
           차트 패턴과 수치를 모두 분석합니다.

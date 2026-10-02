@@ -232,11 +232,23 @@ export default function ManualAnalysis({
    */
   if (compact) {
     return (
-      <div className="max-w-md space-y-3 p-3">
-        <p className="text-[14px] leading-relaxed text-text-secondary">
-          이 종목의 기본 프롬프트(전문가 분석 · {horizonLabel(horizon)})를 Claude 에 보냅니다. ① 차트 이미지를 붙여넣고, ② 프롬프트를 이어서
-          붙여넣은 뒤 전송하세요.
-        </p>
+      /*
+        가로 배치 (v2.33.0) — 예전에는 좁은 세로 칸 하나(max-w-md)에 쌓여 오른쪽이 비고 아래가 잘렸다.
+        위 한 줄(설명 + 오른쪽 끝 AI 분석 열기) → ① ② ③ 가로 3칸. 탭 기본 높이에서 스크롤 없이 다 보인다.
+      */
+      <div className="space-y-2 p-3">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <p className="min-w-0 flex-1 text-[14px] leading-relaxed text-text-secondary">
+            이 종목의 기본 프롬프트(전문가 분석 · {horizonLabel(horizon)})를 Claude 에 보냅니다 — Claude 대화창을 열어 둔 채 ① 이미지 →
+            ② 프롬프트를 차례로 <b className="text-text-primary">복사하고 바로 붙여넣은 뒤</b> 전송하세요(클립보드에는 마지막 것 하나만 남습니다).
+          </p>
+          <p className="shrink-0 text-[14px] text-text-muted">
+            고치려면 →{' '}
+            <button type="button" onClick={onOpenFull} className="text-accent hover:underline">
+              투자 분석 &gt; AI 분석 열기
+            </button>
+          </p>
+        </div>
         <CopySteps
           symbol={symbol}
           timeframe={promptTimeframe}
@@ -247,13 +259,9 @@ export default function ManualAnalysis({
           capturePending={Boolean(autoContext)}
           promptLabel="기본 프롬프트 복사"
           promptReady={!loading}
+          horizontal
+          hideIntro
         />
-        <p className="text-[14px] text-text-muted">
-          프롬프트를 고치거나 다른 분석 방식을 쓰려면 →{' '}
-          <button type="button" onClick={onOpenFull} className="text-accent hover:underline">
-            투자 분석 &gt; AI 분석 열기
-          </button>
-        </p>
         {/* 간단 모드에는 「상세 캡처」 를 두지 않는다(상세는 AI 분석 화면에서) */}
         {autoCaptureModal}
       </div>
@@ -268,7 +276,7 @@ export default function ManualAnalysis({
    */
   return (
     <div className="h-full overflow-y-auto p-6">
-      <div className="mx-auto flex max-w-xl flex-col gap-4">
+      <div className="mx-auto flex max-w-3xl flex-col gap-4">
         <section className="flex flex-wrap items-center gap-2">
           <h3 className="text-xs font-medium text-text-secondary">분석 방식</h3>
           <ModeSelector mode={mode} onChange={setMode} portfolioAvailable={Boolean(portfolio?.holdings.length)} />
@@ -284,6 +292,7 @@ export default function ManualAnalysis({
           capturePending={Boolean(autoContext)}
           promptLabel={edited !== null ? '수정한 프롬프트 복사' : '기본 프롬프트 복사'}
           promptReady={!loading}
+          horizontal
         />
 
         <div className="flex flex-wrap items-center gap-2">
