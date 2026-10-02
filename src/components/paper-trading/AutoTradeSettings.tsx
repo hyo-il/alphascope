@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { AccountStrategy, StrategyMode } from '../../types/autoTrading';
 import SymbolSearch from '../common/SymbolSearch';
 import DiscoverSymbolsModal from './DiscoverSymbolsModal';
+import RuleChoices from './RuleChoices';
 import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
 import { useWatchlist } from '../../hooks/useWatchlist';
@@ -39,6 +40,7 @@ const LABEL = 'text-xs text-text-secondary';
 export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onClose }: Props) {
   const [draft, setDraft] = useState<AccountStrategy>(strategy);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [ruleDetailOpen, setRuleDetailOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [discoverOpen, setDiscoverOpen] = useState(false);
   const { watchlist } = useWatchlist();
@@ -179,6 +181,35 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
                 ⚠️ Gemini 키가 설정되지 않았습니다 — 규칙형은 키 없이 동작합니다.
               </p>
             )}
+            {/* AI형 vs 규칙형 (v2.31.0) — 사실만 적는다. 어느 쪽이 낫다는 말은 하지 않는다 */}
+            <table className="w-full text-[12px]">
+              <thead>
+                <tr className="border-b border-border text-text-muted">
+                  <th className="w-24 py-1 text-left font-normal" />
+                  <th className="py-1 text-left font-normal">AI형</th>
+                  <th className="py-1 text-left font-normal">규칙형</th>
+                </tr>
+              </thead>
+              <tbody className="text-text-secondary">
+                {[
+                  ['판단하는 것', 'Gemini 가 읽고 판단', '정해진 공식'],
+                  ['Gemini 사용', '종목당 5회', '0회'],
+                  ['이유 설명', 'AI 가 쓴 글', '늘 같은 형식'],
+                ].map(([k, a, r]) => (
+                  <tr key={k} className="border-b border-border/50">
+                    <td className="py-1 text-text-muted">{k}</td>
+                    <td className="py-1">{a}</td>
+                    <td className="py-1">{r}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <td className="py-1 text-text-muted">같은 점</td>
+                  <td colSpan={2} className="py-1">
+                    모의투자만 · 비중·최대 종목 수·손절·실적 발표 전 회피 안전장치
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </section>
 
           {/* ② 대상 종목 */}
@@ -245,6 +276,90 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
           {/* ③ 매매 조건 */}
           <section className="space-y-2">
             <h3 className="text-xs font-semibold text-text-primary">③ 매매 조건</h3>
+            {draft.mode === 'rule' && (
+              <>
+                <RuleChoices
+                  rule={draft.rule}
+                  onChange={(rule) => patch({ rule })}
+                  symbols={draft.symbols}
+                  hardStopLossPercent={draft.hardStopLossPercent}
+                  trailingStopEnabled={draft.trailingStopEnabled}
+                  trailingStopPercent={draft.trailingStopPercent}
+                />
+                <button
+                  type="button"
+                  onClick={() => setRuleDetailOpen((v) => !v)}
+                  className="text-[12px] text-text-muted transition-colors hover:text-text-primary"
+                >
+                  {ruleDetailOpen ? '▾ 자세히 접기' : '▸ 자세히 — 숫자 직접 고치기'}
+                </button>
+                {ruleDetailOpen && (
+                  <div className="space-y-2 rounded-md border border-border bg-bg-tertiary/30 p-3">
+                    <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">
+                      <input
+                        type="checkbox"
+                        checked={draft.rule.useMaCross}
+                        onChange={(e) => patch({ rule: { ...draft.rule, useMaCross: e.target.checked } })}
+                      />
+                      이동평균 교차 사용
+                    </label>
+                    <p className="-mt-1 text-[12px] text-text-muted">짧은 평균선이 긴 평균선을 넘으면 사고, 아래로 내려가면 팝니다.</p>
+                    <Row label="단기 이동평균">
+                      <input
+                        type="number" min={2}
+                        value={draft.rule.maShort}
+                        onChange={(e) => patch({ rule: { ...draft.rule, maShort: Number(e.target.value) } })}
+                        className={FIELD}
+                      />
+                      <span className="text-[12px] text-text-muted">최근 며칠의 평균 가격 — 작을수록 빨리 반응합니다</span>
+                    </Row>
+                    <Row label="장기 이동평균 (단기보다 커야 합니다)">
+                      <input
+                        type="number" min={3}
+                        value={draft.rule.maLong}
+                        onChange={(e) => patch({ rule: { ...draft.rule, maLong: Number(e.target.value) } })}
+                        className={FIELD}
+                      />
+                      <span className="text-[12px] text-text-muted">더 긴 기간의 평균 — 큰 흐름의 기준선입니다</span>
+                    </Row>
+                    <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">
+                      <input
+                        type="checkbox"
+                        checked={draft.rule.useRsi}
+                        onChange={(e) => patch({ rule: { ...draft.rule, useRsi: e.target.checked } })}
+                      />
+                      RSI 사용
+                    </label>
+                    <p className="-mt-1 text-[12px] text-text-muted">RSI 는 최근 오른 힘과 내린 힘의 비율입니다(0~100, 낮을수록 많이 떨어진 상태).</p>
+                    <Row label="RSI 매수 기준 (이 값 이하에서 반등, 50 이하)">
+                      <input
+                        type="number" min={5} max={50}
+                        value={draft.rule.rsiBuyBelow}
+                        onChange={(e) => patch({ rule: { ...draft.rule, rsiBuyBelow: Number(e.target.value) } })}
+                        className={FIELD}
+                      />
+                      <span className="text-[12px] text-text-muted">낮출수록 더 많이 떨어진 뒤에만 삽니다(기회는 줄어듭니다)</span>
+                    </Row>
+                    <Row label="RSI 매도 기준 (이 값 이상이면 매도)">
+                      <input
+                        type="number" min={50} max={95}
+                        value={draft.rule.rsiSellAbove}
+                        onChange={(e) => patch({ rule: { ...draft.rule, rsiSellAbove: Number(e.target.value) } })}
+                        className={FIELD}
+                      />
+                      <span className="text-[12px] text-text-muted">높일수록 더 오래 들고 갑니다</span>
+                    </Row>
+                    {!draft.rule.useMaCross && !draft.rule.useRsi && (
+                      <p className="text-[12px] text-warning">⚠️ 둘 다 끄면 매수 신호가 나지 않습니다(손절·트레일링만 동작).</p>
+                    )}
+                    <p className="text-[12px] leading-relaxed text-text-muted">
+                      지표 엔진이 주는 이동평균은 5·20·60·120 입니다. 다른 값을 넣으면 가장 가까운
+                      기간으로 맞추고, 실제로 쓴 기간을 거래 사유에 적습니다. 판단은 전날 마감한 일봉 기준입니다.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
             <div className="flex flex-wrap gap-1.5">
               {PRESETS.map((preset) => (
                 <button
@@ -353,46 +468,7 @@ export default function AutoTradeSettings({ strategy, geminiEnabled, onSave, onC
                       />
                     </Row>
                   </>
-                ) : (
-                  <>
-                    <Row label="단기 이동평균">
-                      <input
-                        type="number" min={2}
-                        value={draft.rule.maShort}
-                        onChange={(e) => patch({ rule: { ...draft.rule, maShort: Number(e.target.value) } })}
-                        className={FIELD}
-                      />
-                    </Row>
-                    <Row label="장기 이동평균 (단기보다 커야 합니다)">
-                      <input
-                        type="number" min={3}
-                        value={draft.rule.maLong}
-                        onChange={(e) => patch({ rule: { ...draft.rule, maLong: Number(e.target.value) } })}
-                        className={FIELD}
-                      />
-                    </Row>
-                    <Row label="RSI 매수 기준 (이 값 이하에서 반등, 50 이하)">
-                      <input
-                        type="number" min={5} max={50}
-                        value={draft.rule.rsiBuyBelow}
-                        onChange={(e) => patch({ rule: { ...draft.rule, rsiBuyBelow: Number(e.target.value) } })}
-                        className={FIELD}
-                      />
-                    </Row>
-                    <Row label="RSI 매도 기준 (이 값 이상이면 매도)">
-                      <input
-                        type="number" min={50} max={95}
-                        value={draft.rule.rsiSellAbove}
-                        onChange={(e) => patch({ rule: { ...draft.rule, rsiSellAbove: Number(e.target.value) } })}
-                        className={FIELD}
-                      />
-                    </Row>
-                    <p className="text-[12px] leading-relaxed text-text-muted">
-                      지표 엔진이 주는 이동평균은 5·20·60·120 입니다. 다른 값을 넣으면 가장 가까운
-                      기간으로 맞추고, 실제로 쓴 기간을 거래 사유에 적습니다.
-                    </p>
-                  </>
-                )}
+                ) : null}
               </div>
             )}
           </section>
