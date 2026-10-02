@@ -164,3 +164,64 @@ export function pageMeta(page: NavPageId): NavPage | undefined {
   }
   return undefined;
 }
+
+// ── 화면 안 탭 (v2.28.0) ─────────────────────────────────────────────────────
+/**
+ * 주소에 넣는 화면 안 탭 — **이 표 한 곳**이 탭 목록이다. 화면(`AIAnalysisView`·`SwingDashboard`·`SurgeDashboard`·
+ * `PortfolioView`)과 주소 해석(`hooks/useHashRoute.ts`)·스토어(`appStore.setPage`)가 모두 여기서 읽는다.
+ * 두 곳에 목록을 두면 새 탭이 한쪽에만 생겨 주소와 화면이 어긋난다.
+ *
+ * - `id` = 코드의 탭 값(`nav.sub` 에 그대로 들어간다), `path` = 주소 조각(`#/{page}/{path}`). 대개 같고,
+ *   AI 분석의 `results` 만 5차 주소(`#/analysis/records`)를 지키려고 `records` 다.
+ * - **첫 줄이 기본 탭**이다 — 탭 없이 들어오면(`#/swing`) 첫 탭으로 연다.
+ * - ⚠️ 넣지 않는 것: 계좌 상세 안의 탭·차트 하단 탭·관심 목록 패널 탭·「AI 분석 기록」 필터 — 화면이 아니라 패널이라
+ *   주소가 바뀌면 뒤로 가기만 길어진다.
+ */
+export const PAGE_TABS = {
+  analysis: [
+    { id: 'manual', path: 'manual' },
+    { id: 'results', path: 'records' },
+    { id: 'accuracy', path: 'accuracy' },
+  ],
+  swing: [
+    { id: 'list', path: 'list' },
+    { id: 'search', path: 'search' },
+    { id: 'history', path: 'history' },
+    { id: 'target', path: 'target' }, // 8차에서 없앨 예정 — 이 줄만 지우면 된다
+  ],
+  surge: [
+    { id: 'list', path: 'list' },
+    { id: 'search', path: 'search' },
+    { id: 'history', path: 'history' },
+    { id: 'settings', path: 'settings' },
+  ],
+  portfolio: [
+    { id: 'paper', path: 'paper' },
+    { id: 'real', path: 'real' },
+  ],
+} as const satisfies Partial<Record<NavPageId, readonly { id: string; path: string }[]>>;
+
+export type TabbedPageId = keyof typeof PAGE_TABS;
+export type PageTab<P extends TabbedPageId> = (typeof PAGE_TABS)[P][number]['id'];
+
+const tabsOf = (page: NavPageId): readonly { id: string; path: string }[] | undefined =>
+  (PAGE_TABS as Partial<Record<NavPageId, readonly { id: string; path: string }[]>>)[page];
+
+/** 그 화면의 탭 값으로 맞춘다 — 탭이 없는 화면은 null, 모르는 값·빈 값은 첫 탭 */
+export function normalizeTab(page: NavPageId, sub: string | null | undefined): string | null {
+  const tabs = tabsOf(page);
+  if (!tabs) return null;
+  return tabs.find((t) => t.id === sub)?.id ?? tabs[0].id;
+}
+
+/** 탭 값 → 주소 조각 */
+export function tabPath(page: NavPageId, sub: string | null | undefined): string | null {
+  const tabs = tabsOf(page);
+  return tabs?.find((t) => t.id === sub)?.path ?? null;
+}
+
+/** 주소 조각 → 탭 값 (모르면 null — 호출부가 첫 탭으로 맞춘다) */
+export function tabFromPath(page: NavPageId, path: string | undefined): string | null {
+  const tabs = tabsOf(page);
+  return (path && tabs?.find((t) => t.path === path)?.id) || null;
+}

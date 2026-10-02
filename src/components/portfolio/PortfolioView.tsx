@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { usePageTab } from '../../hooks/usePageTab';
+import type { PageTab } from '../../types/nav';
 import Holdings from './Holdings';
 import PaperTradingDashboard from '../paper-trading/PaperTradingDashboard';
 
@@ -10,7 +11,8 @@ import PaperTradingDashboard from '../paper-trading/PaperTradingDashboard';
  *
  * ⚠️ 모의투자는 앱 내부 SQLite 에서만 움직인다 — 실제 주문은 어디에서도 나가지 않는다.
  */
-type AccountKind = 'real' | 'paper';
+/** 탭 목록은 `types/nav.ts` 의 `PAGE_TABS.portfolio` 한 곳 — 주소 `#/portfolio/{paper|real}` (v2.28.0, 첫 탭 = 모의투자) */
+type AccountKind = PageTab<'portfolio'>;
 
 /*
  * 계좌 '유형' 은 둘뿐이라 드롭다운이 아니라 **탭**이다.
@@ -29,28 +31,14 @@ const ACCOUNTS: { id: AccountKind; label: string }[] = [
 
 interface Props {
   onSelectSymbol: (symbol: string) => void;
-  /** 모의투자 계좌로 열지 — 빠른주문 패널의 '모의투자로 가기' 가 여기로 온다 */
-  initialAccount?: AccountKind;
-  /**
-   * 열고 나면 호출한다 — `initialAccount` 는 **일회성 의도**다.
-   * 소비한 뒤 되돌리지 않으면, 빠른주문으로 한 번 들어온 사용자는 이후 사이드 메뉴로
-   * 들어갈 때마다 모의투자 계좌가 먼저 열린다 (기본은 실제 계좌다).
-   */
-  onMounted?: () => void;
 }
 
-export default function PortfolioView({
-  onSelectSymbol,
-  initialAccount = 'paper',
-  onMounted,
-}: Props) {
-  const [account, setAccount] = useState<AccountKind>(initialAccount);
-
-  useEffect(() => {
-    onMounted?.();
-    // 마운트 시 한 번만 — 이후 계좌 전환은 이 화면 안의 선택이다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+/*
+ * 유형 탭은 주소와 짝인 `nav.sub` 다 (v2.28.0). 예전에는 App 이 `initialAccount` + `onMounted` 로 "일회성 의도" 를 넘겼다 —
+ * 빠른주문의 [모의투자로 가기] 같은 곳은 이제 `setPage('portfolio', 'paper')` 로 탭을 정해 연다.
+ */
+export default function PortfolioView({ onSelectSymbol }: Props) {
+  const [account, setAccount] = usePageTab('portfolio');
 
   return (
     <div className="flex h-full min-h-0 flex-col">

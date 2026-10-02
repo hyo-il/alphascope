@@ -1,11 +1,13 @@
 import { useEffect } from 'react';
 import { useAppStore, type NavState, type NavSub } from '../store/appStore';
-import { pageMeta, type NavPageId } from '../types/nav';
+import { normalizeTab, pageMeta, tabFromPath, tabPath, type NavPageId } from '../types/nav';
 
 /**
  * 화면 주소(해시) — 브라우저 뒤로·앞으로 가기와 새로고침 (v2.26.0).
  *
- * 형식: `#/{pageId}` (예: `#/chart`, `#/heatmap`). 하위 위치는 `#/analysis/records` 하나뿐이다.
+ * 형식: `#/{pageId}` (예: `#/chart`, `#/heatmap`), 탭이 있는 화면은 `#/{pageId}/{탭}` (v2.28.0 — `#/swing/history`·`#/portfolio/real`).
+ * 탭 목록은 `types/nav.ts` 의 `PAGE_TABS` 한 곳이다. 탭 없이 들어오면(`#/swing`) 첫 탭으로 열고 주소는 `replaceState` 로 고친다.
+ * 모르는 탭 조각은 버리고 첫 탭. 탭을 누르면 한 칸 쌓이고(뒤로 가기 = 앞 탭), 같은 탭을 다시 누르면 쌓지 않는다.
  * - **해시 방식인 이유**: history 방식(`/chart`)은 서버가 모르는 주소에도 앱을 돌려주도록 nginx 설정까지 바꿔야 한다.
  *   해시는 서버 설정 없이 맥·오라클에서 똑같이 동작한다. 라우터 라이브러리는 들이지 않았다 — 위치는 이미 `appStore.nav` 한 곳이다.
  * - ⚠️ page id 는 `types/nav.ts` 의 `NavPageId` 그대로다 — page id 를 바꾸면 저장된 주소(즐겨찾기)가 깨진다.
@@ -21,18 +23,16 @@ import { pageMeta, type NavPageId } from '../types/nav';
  * 로그인한 상태(`AppBody`)에서만 쓴다 — 로그인 화면에서는 주소를 건드리지 않는다.
  */
 
-const SUBS: Record<string, NavSub> = { records: 'records' };
-
 export function hashFor(nav: Pick<NavState, 'page' | 'sub'>): string {
-  return `#/${nav.page}${nav.sub ? `/${nav.sub}` : ''}`;
+  const path = tabPath(nav.page, nav.sub);
+  return `#/${nav.page}${path ? `/${path}` : ''}`;
 }
 
-/** `#/page[/sub]` 해석 — 모르는 page 면 null. 모르는 sub 는 버린다 */
+/** `#/page[/탭]` 해석 — 모르는 page 면 null. 탭은 화면의 탭 값으로 맞춘다(모르는 조각·없음 = 첫 탭) */
 export function parseHash(hash: string): { page: NavPageId; sub: NavSub | null } | null {
-  const [page, sub] = hash.replace(/^#\/?/, '').split('/');
+  const [page, path] = hash.replace(/^#\/?/, '').split('/');
   if (!page || !pageMeta(page as NavPageId)) return null;
-  const known = sub && page === 'analysis' ? (SUBS[sub] ?? null) : null;
-  return { page: page as NavPageId, sub: known };
+  return { page: page as NavPageId, sub: normalizeTab(page as NavPageId, tabFromPath(page as NavPageId, path)) };
 }
 
 export function useHashRoute(): void {
@@ -43,7 +43,7 @@ export function useHashRoute(): void {
     const initial = parseHash(window.location.hash);
     if (initial) {
       setPage(initial.page, initial.sub);
-      // 모르는 sub 를 버렸으면 주소도 정리한다 (기록은 쌓지 않는다)
+      // 탭이 없거나 모르는 조각이었으면 주소도 정리한다 (기록은 쌓지 않는다)
       const clean = hashFor(initial);
       if (window.location.hash !== clean) history.replaceState(null, '', clean);
     } else {
@@ -51,13 +51,22 @@ export function useHashRoute(): void {
       history.replaceState(null, '', hashFor({ page: 'chart' }));
     }
 
+    // 주소에서 온 이동 중인지 — 그때 생기는 주소 정리(#/swing → #/swing/list)는 기록을 쌓지 않는다
+    let fromAddress = false;
+
     // 2) 상태 → 주소 (지금 주소와 다를 때만 한 칸 쌓는다)
     const unsubscribe = useAppStore.subscribe((state, prev) => {
       if (state.nav === prev.nav) return;
       const target = hashFor(state.nav);
       if (window.location.hash === target) return;
+      if (fromAddress) {
+        history.replaceState(null, '', target);
+        return;
+      }
       // 대메뉴를 눌러 지나간 첫 화면에서 같은 대메뉴의 다른 소메뉴로 가면 그 칸을 덮어쓴다(지나가는 자리라 기록에 남기지 않는다)
-      const passing = prev.nav.viaGroup && !state.nav.viaGroup && prev.nav.group === state.nav.group;
+      // (같은 화면 안 탭 이동은 덮어쓰지 않는다 — 탭은 한 칸씩 쌓여 뒤로 가기로 돌아가야 한다, v2.28.0)
+      const passing =
+        prev.nav.viaGroup && !state.nav.viaGroup && prev.nav.group === state.nav.group && prev.nav.page !== state.nav.page;
       if (passing) history.replaceState(null, '', target);
       else history.pushState(null, '', target);
     });
@@ -73,8 +82,16 @@ export function useHashRoute(): void {
       }
       const { nav } = useAppStore.getState();
       if (nav.page !== parsed.page || (nav.sub ?? null) !== parsed.sub) {
-        useAppStore.getState().setPage(parsed.page, parsed.sub);
+        fromAddress = true;
+        try {
+          useAppStore.getState().setPage(parsed.page, parsed.sub);
+        } finally {
+          fromAddress = false;
+        }
       }
+      // 주소창에 탭 없이 친 경우(#/swing) 등 — 화면은 그대로 두고 주소만 맞춘다
+      const clean = hashFor(useAppStore.getState().nav);
+      if (window.location.hash !== clean) history.replaceState(null, '', clean);
     };
     window.addEventListener('popstate', onAddress);
     window.addEventListener('hashchange', onAddress);

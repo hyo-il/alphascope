@@ -68,7 +68,7 @@ export default function ChartAiPanel({
         {/* 예전 「전체 화면으로」 자리 — 기록은 AI 분석 화면의 기록 탭에서 이 종목만 걸러 연다(주소 #/analysis/records) */}
         <button
           type="button"
-          onClick={() => setPage('analysis', 'records')}
+          onClick={() => setPage('analysis', 'results')}
           className="ml-auto px-2 py-1 text-[12px] text-text-muted transition-colors hover:text-accent"
         >
           이전 기록 보기 ↗
@@ -87,7 +87,7 @@ export default function ChartAiPanel({
             getChartSnapshot={getChartSnapshot}
             onPromptChange={onPromptChange}
             compact
-            onOpenFull={() => setPage('analysis')}
+            onOpenFull={() => setPage('analysis', 'manual')}
           />
         )}
 

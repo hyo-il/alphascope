@@ -1,4 +1,6 @@
-import { Fragment, useState } from 'react';
+import { Fragment } from 'react';
+import { usePageTab } from '../../hooks/usePageTab';
+import type { PageTab } from '../../types/nav';
 import { useSurgeDetection, useSurgeHistory } from '../../hooks/useSurge';
 import { usePaperQuickBuy } from '../../hooks/usePaperQuickBuy';
 import PeriodicSurgeList from './PeriodicSurgeList';
@@ -13,7 +15,8 @@ import { modal, toast } from '../../store/uiStore';
 import TrashIcon from '../common/TrashIcon';
 import type { SurgeDetection } from '../../types/surge';
 
-type Tab = 'list' | 'search' | 'history' | 'settings';
+/** 탭 목록은 `types/nav.ts` 의 `PAGE_TABS` 한 곳 — 주소 `#/surge/{탭}` (v2.28.0) */
+type Tab = PageTab<'surge'>;
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'list', label: '주기적 급등 종목' },
@@ -39,7 +42,7 @@ export default function SurgeDashboard({
   onWatch: (symbol: string) => void;
   onAnalyze: (symbol: string) => void;
 }) {
-  const [tab, setTab] = useState<Tab>('list');
+  const [tab, setTab] = usePageTab('surge');
   const detection = useSurgeDetection(watchlist);
   const paperBuy = usePaperQuickBuy();
 

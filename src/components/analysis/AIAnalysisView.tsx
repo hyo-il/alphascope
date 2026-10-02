@@ -1,4 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { usePageTab } from '../../hooks/usePageTab';
+import type { PageTab } from '../../types/nav';
 import AnalysisTimeline from './AnalysisTimeline';
 import AIAccuracyDashboard from './AIAccuracyDashboard';
 import AIStatusBoard from './AIStatusBoard';
@@ -10,7 +12,8 @@ import ScheduledSymbols from './ScheduledSymbols';
  * 두 방식은 입력(차트·지표·재무)도 출력(매매 신호)도 같고 호출 방법만 다르다.
  * 메뉴를 둘로 나누면 "어느 쪽으로 들어가야 하지" 를 매번 고민하게 된다.
  */
-export type AITab = 'manual' | 'results' | 'accuracy';
+/** 탭 목록은 `types/nav.ts` 의 `PAGE_TABS.analysis` 한 곳 — 주소 `#/analysis/{manual|records|accuracy}` (v2.28.0) */
+export type AITab = PageTab<'analysis'>;
 
 /**
  * ⚠️ **자동 분석·자동 매매 탭은 없앴다** (v2.4.0, Step 12 3단계).
@@ -33,22 +36,14 @@ export default function AIAnalysisView({
   currentPrice,
   /** 수동 분석(Claude) 화면 — App 이 이미 만들어 넘긴다 */
   manual,
-  initialTab,
 }: {
   symbol: string | null;
   currentPrice: number | null;
   manual: ReactNode;
-  /**
-   * 처음 열 탭 (v2.26.0) — 주소 `#/analysis/records`(차트 탭의 [이전 기록 보기])면 'results'.
-   * 메뉴로 그냥 들어오면 없음 → 「수동 분석」. 기록은 「현재 종목만」·출처 「전체」 가 기본이라 그 종목 기록만 보인다.
-   */
-  initialTab?: AITab;
 }) {
-  const [tab, setTab] = useState<AITab>(initialTab ?? 'manual');
-  // 이미 이 화면에 있을 때 주소가 바뀌어도(뒤로·앞으로) 따라간다
-  useEffect(() => {
-    if (initialTab) setTab(initialTab);
-  }, [initialTab]);
+  // 탭은 주소와 짝인 `nav.sub` (v2.28.0 — 예전 `initialTab` prop 을 대신한다). 차트 탭의 [이전 기록 보기] = `#/analysis/records`.
+  // 기록은 「현재 종목만」·출처 「전체」 가 기본이라 그 종목 기록만 보인다.
+  const [tab, setTab] = usePageTab('analysis');
 
   return (
     <div className="flex h-full flex-col">

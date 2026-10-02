@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { usePageTab } from '../../hooks/usePageTab';
+import type { PageTab } from '../../types/nav';
 import { useSwingAnalysis } from '../../hooks/useSwing';
 import { usePaperQuickBuy } from '../../hooks/usePaperQuickBuy';
 import SwingRecommendationCard from './SwingRecommendationCard';
@@ -19,7 +21,8 @@ import SavedRecommendations from './SavedRecommendations';
 import StockName from '../common/StockName';
 import type { SwingGrade, SwingRecommendation } from '../../types/swing';
 
-type Tab = 'list' | 'search' | 'history' | 'target';
+/** 탭 목록은 `types/nav.ts` 의 `PAGE_TABS` 한 곳 — 주소 `#/swing/{탭}` (v2.28.0) */
+type Tab = PageTab<'swing'>;
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'list', label: '추천 종목' },
@@ -54,7 +57,7 @@ export default function SwingDashboard({
   onSelectSymbol: (symbol: string) => void;
   onAnalyze: (symbol: string) => void;
 }) {
-  const [tab, setTab] = useState<Tab>('list');
+  const [tab, setTab] = usePageTab('swing');
   const { result, saved, loading, error, analyze } = useSwingAnalysis(watchlist);
   const paperBuy = usePaperQuickBuy();
   const profile = useStrategyProfile();

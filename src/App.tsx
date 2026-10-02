@@ -87,7 +87,6 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   const setGroup = useAppStore((s) => s.setGroup);
   const view = nav.page;
   /** 포트폴리오를 모의투자 계좌로 열지 (빠른주문의 '모의투자로 가기') */
-  const [portfolioAccount, setPortfolioAccount] = useState<'real' | 'paper'>('paper');
   /*
    * 차트는 캡처 대상이라 다른 화면에서도 언마운트하지 않고 화면 밖으로 보낸다.
    * 하지만 보이지 않는 호가·주문 패널까지 계속 폴링할 이유는 없다.
@@ -217,8 +216,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
               currency={currency}
               active={chartVisible}
               onGoToPaperTrading={() => {
-                setPortfolioAccount('paper');
-                setPage('portfolio');
+                setPage('portfolio', 'paper');
               }}
             />
           )}
@@ -296,7 +294,6 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           <AIAnalysisView
             symbol={symbol}
             currentPrice={displayPrice}
-            initialTab={nav.sub === 'records' ? 'results' : undefined}
             manual={
               // Claude 수동 분석: 프롬프트를 만드는 화면과, 받은 답변을 저장하는 화면을
               // 한자리에 둔다 (복사 → 붙여넣기 → 답변 저장이 한 흐름이다).
@@ -390,12 +387,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         return <CompareView initialSymbol={symbol} />;
       case 'portfolio':
         return (
-          <PortfolioView
-            onSelectSymbol={setSymbol}
-            initialAccount={portfolioAccount}
-            /* 'paper' 는 빠른주문에서 넘어온 일회성 의도다 — 다음 진입은 실제 계좌로 연다 */
-            onMounted={() => setPortfolioAccount('paper')}
-          />
+          <PortfolioView onSelectSymbol={setSymbol} />
         );
       case 'settings-account':
         return <Settings isMock={isMock} engineDown={engineDown} section="account" />;
@@ -581,7 +573,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         onRemoveRecent={removeRecent}
         onClearRecent={clearRecent}
         /* 계좌 탭에서 계좌가 없을 때 — 계좌 관리 화면으로 보낸다 */
-        onGoToAccounts={() => setPage('portfolio')}
+        onGoToAccounts={() => setPage('portfolio', 'paper')}
         collapsed={panelCollapsed}
         onToggleCollapse={() => setPanelCollapsed((v) => !v)}
       />

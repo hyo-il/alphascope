@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Timeframe } from '../types/toss';
 import { MAX_COMPARE_SYMBOLS } from '../types/compare';
-import { groupOf, NAV_GROUPS, type NavGroupId, type NavPageId } from '../types/nav';
+import { groupOf, NAV_GROUPS, normalizeTab, type NavGroupId, type NavPageId } from '../types/nav';
 
 /** 관심 목록 클릭 한 번의 결과 — 호출부가 안내 문구를 고른다 */
 export type CompareToggleResult = 'added' | 'removed' | 'full';
@@ -16,8 +16,9 @@ export interface NavState {
   group: NavGroupId;
   page: NavPageId;
   /**
-   * 화면 안 하위 위치 — 지금은 `records`(AI 분석 화면을 「AI 분석 기록」 탭으로 연다) 하나다 (v2.26.0).
-   * 주소 `#/analysis/records` 와 짝이다. 그 밖의 화면 안 탭은 주소에 넣지 않는다.
+   * 화면 안 탭 (v2.28.0 — v2.26.0 에는 `records` 하나였다). 값은 `types/nav.ts` 의 `PAGE_TABS` 의 `id` 이고
+   * 탭이 있는 화면은 **언제나 값이 있다**(`setPage` 가 첫 탭으로 채운다). 탭 상태의 출처는 여기 한 곳 —
+   * 화면은 이 값을 읽고 `setPage(page, tab)` 으로 바꾼다(화면마다 useState 로 두면 주소와 어긋난다).
    */
   sub?: NavSub | null;
   /**
@@ -28,7 +29,7 @@ export interface NavState {
   viaGroup?: boolean;
 }
 
-export type NavSub = 'records';
+export type NavSub = string;
 
 interface AppState {
   /** 선택된 종목. null 이면 아직 고르지 않은 상태(종목 탐색 화면) */
@@ -78,11 +79,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   timeframe: '1d',
   isMock: false,
   compareSlots: emptySlots(),
-  nav: { group: 'chart', page: 'chart' },
-  setPage: (page, sub) => set({ nav: { group: groupOf(page), page, sub: sub ?? null } }),
+  nav: { group: 'chart', page: 'chart', sub: null },
+  setPage: (page, sub) => {
+    // 탭을 말하지 않고 같은 화면을 다시 부르면(사이드 메뉴 재클릭) 보던 탭을 지킨다 — v2.27.0 까지 화면 state 가 그랬다
+    const keep = sub === undefined && get().nav.page === page ? get().nav.sub : sub;
+    set({ nav: { group: groupOf(page), page, sub: normalizeTab(page, keep) } });
+  },
   setGroup: (group) => {
     const first = NAV_GROUPS.find((g) => g.id === group)?.pages[0];
-    if (first) set({ nav: { group, page: first.id, sub: null, viaGroup: true } });
+    if (first) set({ nav: { group, page: first.id, sub: normalizeTab(first.id, null), viaGroup: true } });
   },
   setSymbol: (symbol) => set({ symbol: symbol ? normalize(symbol) : null }),
   clearSymbol: () => set({ symbol: null }),
