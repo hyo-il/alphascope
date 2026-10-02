@@ -135,6 +135,14 @@ export default function RuleChoices({
     setBusy(false);
   }, [signature]);
 
+  // 창을 닫으면 진행률 묻기를 멈춘다 (v2.33.0 — 예전에는 닫은 뒤에도 계산이 끝날 때까지 1초마다 물었다)
+  useEffect(
+    () => () => {
+      seq.current++;
+    },
+    [],
+  );
+
   const run = async () => {
     const mine = ++seq.current;
     setBusy(true);
