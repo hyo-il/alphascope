@@ -72,10 +72,11 @@ export const NAV_GROUPS: NavGroup[] = [
     label: '탐색',
     shortLabel: '탐색',
     pages: [
-      // 토스 실시간 순위 + 마우스를 올리면 차트 미리보기 (v2.20.0). 위치는 이 줄만 옮기면 된다 — 화면은 page id 로만 찾는다
-      { id: 'ranking', label: '실시간 순위', hidesSymbolHeader: true },
+      // 첫 소메뉴 = 대메뉴를 누르면 가는 곳 — 종목 지도가 먼저다 (v2.33.0 사용자 결정). page id·주소는 그대로
       // 시총 상위 100 + 관심 종목의 등락 지도 (v2.18.0). 종목은 지도에서 눌러 고른다 — 상단 헤더를 숨긴다
       { id: 'heatmap', label: '종목 지도', hidesSymbolHeader: true },
+      // 토스 실시간 순위 + 마우스를 올리면 차트 미리보기 (v2.20.0). 위치는 이 줄만 옮기면 된다 — 화면은 page id 로만 찾는다
+      { id: 'ranking', label: '실시간 순위', hidesSymbolHeader: true },
     ],
   },
   {
