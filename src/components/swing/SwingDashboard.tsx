@@ -119,7 +119,7 @@ export default function SwingDashboard({
         onAnalyze={onAnalyze}
         pick={
           <label className="inline-flex w-fit items-center gap-1 text-[12px] text-text-secondary" title="목표 도달 가능성 분석에 담기">
-            <input type="checkbox" checked={picked.includes(symbol)} onChange={() => setPicked((list) => toggleTargetPick(list, symbol))} />
+            <input type="checkbox" checked={picked.includes(symbol)} onChange={() => setPicked(toggleTargetPick(picked, symbol))} />
             🎯
             {analyzedToday(target.records, symbol, goal) && <span className="rounded bg-bg-tertiary px-1 text-text-muted">오늘 분석함</span>}
           </label>
@@ -343,7 +343,7 @@ export default function SwingDashboard({
                             <input
                               type="checkbox"
                               checked={picked.includes(r.symbol)}
-                              onChange={() => setPicked((list) => toggleTargetPick(list, r.symbol))}
+                              onChange={() => setPicked(toggleTargetPick(picked, r.symbol))}
                             />
                             🎯
                           </label>

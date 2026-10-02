@@ -303,7 +303,7 @@ export function analyzedToday(records: TargetAnalysisRecord[] | null, symbol: st
   return Boolean(latest && localDay(latest.createdAt) === localDay(new Date().toISOString()));
 }
 
-/** 체크 토글 — 6번째는 막고 예전 탭과 같은 토스트 */
+/** 체크 토글 — 6번째는 막고 예전 탭과 같은 토스트. ⚠️ 상태 갱신 함수(updater) 안에서 부르지 않는다 — 개발 모드가 두 번 불러 토스트가 두 번 뜬다 */
 export function toggleTargetPick(list: string[], symbol: string): string[] {
   if (list.includes(symbol)) return list.filter((s) => s !== symbol);
   if (list.length >= TARGET_MAX_SYMBOLS) {
