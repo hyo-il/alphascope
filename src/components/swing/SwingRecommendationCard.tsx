@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { SwingRecommendation } from '../../types/swing';
 import StockName from '../common/StockName';
 import ConditionGauge from './ConditionGauge';
@@ -17,11 +18,17 @@ export default function SwingRecommendationCard({
   onSelectSymbol,
   onPaperBuy,
   onAnalyze,
+  pick,
+  extra,
 }: {
   recommendation: SwingRecommendation;
   onSelectSymbol: (symbol: string) => void;
   onPaperBuy: (symbol: string, price: number | null, percent?: number) => void;
   onAnalyze: (symbol: string) => void;
+  /** 머리줄 맨 앞 — 목표 도달 가능성 분석 체크(v2.29.0). 카드의 기존 내용은 바꾸지 않는다 */
+  pick?: ReactNode;
+  /** 카드 맨 아래 — 목표 도달 가능성 결과 한 줄(v2.29.0) */
+  extra?: ReactNode;
 }) {
   const grade = GRADE_STYLE[recommendation.grade];
   const currency = currencyOfSymbol(recommendation.symbol);
@@ -32,6 +39,7 @@ export default function SwingRecommendationCard({
       className={`min-w-[400px] rounded-lg border bg-bg-secondary p-4 break-keep ${grade.className}`}
     >
       <header className="flex flex-wrap items-baseline gap-2">
+        {pick}
         <span>{grade.icon}</span>
         <StockName symbol={recommendation.symbol} name={recommendation.name} className="text-sm" />
         <span className="text-[12px] text-text-secondary">
@@ -132,6 +140,7 @@ export default function SwingRecommendationCard({
           🤖 AI 추가 분석
         </button>
       </div>
+      {extra && <div className="mt-3">{extra}</div>}
     </article>
   );
 }

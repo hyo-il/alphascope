@@ -5,15 +5,23 @@ import { useSwingEvaluation } from '../../hooks/useSwing';
 import { usePaperQuickBuy } from '../../hooks/usePaperQuickBuy';
 import SwingRecommendationCard from './SwingRecommendationCard';
 import { GRADE_STYLE } from './gradeStyle';
+import { useTargetAnalysis } from '../../hooks/useTargetAnalysis';
+import { TargetAnalyzeButton, TargetProgressBox, TargetSummaryLine, latestFor, useConfirmDelete } from './TargetAnalysisParts';
+import type { SwingGoal } from '../../types/swingGoal';
 
 /** 관심 목록에 없는 종목도 같은 5가지 조건으로 평가한다 */
 export default function SwingSearch({
   onSelectSymbol,
   onAnalyze,
+  goal,
 }: {
   onSelectSymbol: (symbol: string) => void;
   onAnalyze: (symbol: string) => void;
+  /** 초보자 목표 설정 — 목표 도달 가능성 분석의 조건 (v2.29.0) */
+  goal: SwingGoal;
 }) {
+  const target = useTargetAnalysis();
+  const confirmTargetDelete = useConfirmDelete(target.remove);
   const { recommendation, loading, error, evaluate } = useSwingEvaluation();
   const paperBuy = usePaperQuickBuy();
   const [queried, setQueried] = useState<string | null>(null);
@@ -58,7 +66,23 @@ export default function SwingSearch({
             onSelectSymbol={onSelectSymbol}
             onPaperBuy={paperBuy}
             onAnalyze={onAnalyze}
+            extra={(() => {
+              const latest = latestFor(target.records, recommendation.symbol, goal);
+              return latest ? <TargetSummaryLine record={latest} onDelete={confirmTargetDelete} /> : undefined;
+            })()}
           />
+          {/* 🎯 이 종목 하나로 목표 도달 가능성 분석 (v2.29.0) */}
+          <div className="space-y-2 rounded-lg border border-border bg-bg-secondary px-3 py-2">
+            <TargetAnalyzeButton
+              symbols={[recommendation.symbol]}
+              goal={goal}
+              label="🎯 이 종목 목표 도달 가능성 분석"
+              running={target.progress?.running ?? false}
+              geminiOff={target.geminiOff}
+              onStart={target.start}
+            />
+            <TargetProgressBox progress={target.progress} />
+          </div>
         </>
       )}
     </div>

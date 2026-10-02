@@ -6,7 +6,16 @@ import { usePaperQuickBuy } from '../../hooks/usePaperQuickBuy';
 import SwingRecommendationCard from './SwingRecommendationCard';
 import SwingSearch from './SwingSearch';
 import SwingHistory from './SwingHistory';
-import TargetAnalysisTab from './TargetAnalysisTab';
+import { useTargetAnalysis } from '../../hooks/useTargetAnalysis';
+import {
+  TargetAnalyzeButton,
+  TargetProgressBox,
+  TargetSummaryLine,
+  analyzedToday,
+  latestFor,
+  toggleTargetPick,
+  useConfirmDelete,
+} from './TargetAnalysisParts';
 import CriteriaPanel from '../common/CriteriaPanel';
 import StrategyProfileModal from './StrategyProfileModal';
 import { STANDARD_SWING_CRITERIA, swingCriteria } from '../../data/criteria';
@@ -30,8 +39,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'list', label: '추천 종목' },
   { id: 'search', label: '종목 검색' },
   { id: 'history', label: '추천 이력' },
-  // v2.24.0 — 예전 「목표 수익률」(과거 빈도표)을 바꿨다. 분석만 하고 등급·추천·주문에 쓰지 않는다
-  { id: 'target', label: '목표 도달 분석' },
+  // 「목표 도달 분석」 탭은 v2.29.0 에 없앴다 — 분석은 추천 종목·종목 검색의 🎯 버튼, 기록은 「추천 이력」 맨 아래
 ];
 
 /*
@@ -66,6 +74,10 @@ export default function SwingDashboard({
   const [profileOpen, setProfileOpen] = useState(false);
   const swingGoal = useSwingGoal();
   const goal = swingGoal.goal;
+  /** 목표 도달 가능성 분석 (v2.29.0) — 엔진·기록·채점은 예전 탭 그대로 */
+  const target = useTargetAnalysis();
+  const confirmTargetDelete = useConfirmDelete(target.remove);
+  const [picked, setPicked] = useState<string[]>([]);
 
   const activeId: ProfileId = profile.state?.active ?? 'standard';
   const activeParams = profile.state
@@ -95,15 +107,27 @@ export default function SwingDashboard({
   const recommendations = result?.recommendations ?? [];
   const rejected = recommendations.filter((r) => r.grade === 'HOLD' || r.grade === 'AVOID');
 
-  const card = (recommendation: SwingRecommendation) => (
-    <SwingRecommendationCard
-      key={recommendation.symbol}
-      recommendation={recommendation}
-      onSelectSymbol={onSelectSymbol}
-      onPaperBuy={paperBuy}
-      onAnalyze={onAnalyze}
-    />
-  );
+  const card = (recommendation: SwingRecommendation) => {
+    const symbol = recommendation.symbol;
+    const latest = latestFor(target.records, symbol, goal);
+    return (
+      <SwingRecommendationCard
+        key={symbol}
+        recommendation={recommendation}
+        onSelectSymbol={onSelectSymbol}
+        onPaperBuy={paperBuy}
+        onAnalyze={onAnalyze}
+        pick={
+          <label className="inline-flex w-fit items-center gap-1 text-[12px] text-text-secondary" title="목표 도달 가능성 분석에 담기">
+            <input type="checkbox" checked={picked.includes(symbol)} onChange={() => setPicked((list) => toggleTargetPick(list, symbol))} />
+            🎯
+            {analyzedToday(target.records, symbol, goal) && <span className="rounded bg-bg-tertiary px-1 text-text-muted">오늘 분석함</span>}
+          </label>
+        }
+        extra={latest ? <TargetSummaryLine record={latest} onDelete={confirmTargetDelete} /> : undefined}
+      />
+    );
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -262,6 +286,24 @@ export default function SwingDashboard({
               </p>
             )}
 
+            {/* 🎯 목표 도달 가능성 분석 (v2.29.0) — 카드에서 체크(최대 5), 고른 종목이 없으면 고르기 창 */}
+            <section className="space-y-2 rounded-lg border border-border bg-bg-secondary px-3 py-2">
+              <TargetAnalyzeButton
+                symbols={picked}
+                goal={goal}
+                running={target.progress?.running ?? false}
+                geminiOff={target.geminiOff}
+                onStart={async (body) => {
+                  await target.start(body);
+                  setPicked([]);
+                }}
+              />
+              <p className="text-[12px] text-text-muted">
+                카드의 🎯 를 체크해 고르세요(체크가 없으면 관심 목록에서 고릅니다). 결과는 지금 목표 조건과 같은 기록만 카드에 붙습니다.
+              </p>
+              <TargetProgressBox progress={target.progress} />
+            </section>
+
             {SECTIONS.map((section) => {
               const items = recommendations.filter((r) => section.grades.includes(r.grade));
               if (!result) return null;
@@ -306,9 +348,8 @@ export default function SwingDashboard({
           </div>
         )}
 
-        {tab === 'search' && <SwingSearch onSelectSymbol={onSelectSymbol} onAnalyze={onAnalyze} />}
+        {tab === 'search' && <SwingSearch onSelectSymbol={onSelectSymbol} onAnalyze={onAnalyze} goal={goal} />}
         {tab === 'history' && <SwingHistory />}
-        {tab === 'target' && <TargetAnalysisTab />}
       </div>
 
       {profileOpen && profile.state && (

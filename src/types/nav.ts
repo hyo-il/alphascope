@@ -187,7 +187,6 @@ export const PAGE_TABS = {
     { id: 'list', path: 'list' },
     { id: 'search', path: 'search' },
     { id: 'history', path: 'history' },
-    { id: 'target', path: 'target' }, // 8차에서 없앨 예정 — 이 줄만 지우면 된다
   ],
   surge: [
     { id: 'list', path: 'list' },
