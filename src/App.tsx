@@ -44,11 +44,14 @@ import { toast } from './store/uiStore';
 import { changeColor, currencyOf, formatPercent, formatPrice } from './utils/formatters';
 import LoginScreen from './components/auth/LoginScreen';
 import { useAuth } from './hooks/useAuth';
+import { useHashRoute } from './hooks/useHashRoute';
 
 /**
  * 앱 본체. **로그인한 뒤에만 마운트된다** (아래 `App` 참고).
  */
 function AppBody({ onLogout }: { onLogout: () => void }) {
+  // 화면 주소(#/pageId) ↔ appStore.nav — 뒤로·앞으로 가기·새로고침 (v2.26.0). 로그인한 상태에서만
+  useHashRoute();
   /*
    * ⚠️ `useAppStore()` 를 인자 없이 부르면 **스토어의 모든 변화**를 구독한다.
    * App 은 차트를 들고 있는 최상위라, 비교 화면에서 슬롯을 하나 바꿀 때마다

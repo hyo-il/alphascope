@@ -15,7 +15,20 @@ const emptySlots = (): (string | null)[] => Array(COMPARE_SLOT_COUNT).fill(null)
 export interface NavState {
   group: NavGroupId;
   page: NavPageId;
+  /**
+   * 화면 안 하위 위치 — 지금은 `records`(AI 분석 화면을 「AI 분석 기록」 탭으로 연다) 하나다 (v2.26.0).
+   * 주소 `#/analysis/records` 와 짝이다. 그 밖의 화면 안 탭은 주소에 넣지 않는다.
+   */
+  sub?: NavSub | null;
+  /**
+   * 대메뉴 클릭으로 그 첫 화면에 온 것인지 (v2.26.0) — 주소 기록용.
+   * 대메뉴를 누르면 첫 소메뉴로 가는데, 곧이어 같은 대메뉴의 다른 소메뉴를 누르면 그 첫 화면은 지나가는 자리라
+   * 브라우저 기록에서 **덮어쓴다**(뒤로 가기가 한 번 더 걸리지 않게) — `hooks/useHashRoute.ts`.
+   */
+  viaGroup?: boolean;
 }
+
+export type NavSub = 'records';
 
 interface AppState {
   /** 선택된 종목. null 이면 아직 고르지 않은 상태(종목 탐색 화면) */
@@ -39,8 +52,8 @@ interface AppState {
    * 있기 때문이다 — 다른 대메뉴를 눌러 목록만 열어 보는 동안에도 보던 화면은 그대로다.
    */
   nav: NavState;
-  /** 소메뉴 이동 — 속한 대메뉴도 함께 펼친다 */
-  setPage: (page: NavPageId) => void;
+  /** 소메뉴 이동 — 속한 대메뉴도 함께 펼친다. `sub` 는 화면 안 하위 위치(없으면 지운다) */
+  setPage: (page: NavPageId, sub?: NavSub | null) => void;
   /** 대메뉴 클릭 — 목록을 펼치고 첫 소메뉴로 간다 */
   setGroup: (group: NavGroupId) => void;
   setSymbol: (symbol: string | null) => void;
@@ -66,10 +79,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   isMock: false,
   compareSlots: emptySlots(),
   nav: { group: 'chart', page: 'chart' },
-  setPage: (page) => set({ nav: { group: groupOf(page), page } }),
+  setPage: (page, sub) => set({ nav: { group: groupOf(page), page, sub: sub ?? null } }),
   setGroup: (group) => {
     const first = NAV_GROUPS.find((g) => g.id === group)?.pages[0];
-    if (first) set({ nav: { group, page: first.id } });
+    if (first) set({ nav: { group, page: first.id, sub: null, viaGroup: true } });
   },
   setSymbol: (symbol) => set({ symbol: symbol ? normalize(symbol) : null }),
   clearSymbol: () => set({ symbol: null }),
