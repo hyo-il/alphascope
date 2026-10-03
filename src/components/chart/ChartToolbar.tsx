@@ -1,3 +1,4 @@
+import { Segmented } from '../ui';
 import { TIMEFRAME_ITEMS, type IndicatorToggles } from '../../types/chart';
 import type { Timeframe } from '../../types/toss';
 import DrawingTools, { type DrawingToolType } from './DrawingTools';
@@ -33,23 +34,15 @@ export default function ChartToolbar({
   hasDrawings,
 }: Props) {
   return (
-    <div className="flex flex-wrap items-center gap-x-1 gap-y-1 border-b border-border px-3 py-1.5">
-      {TIMEFRAME_ITEMS.map((tf) => (
-        <button
-          key={tf.value}
-          type="button"
-          onClick={() => onTimeframeChange(tf.value)}
-          title={tf.label}
-          className={`rounded px-2 py-1 text-xs transition-colors ${
-            timeframe === tf.value
-              ? 'bg-accent/15 font-medium text-accent'
-              : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
-          }`}
-        >
-          {tf.short}
-        </button>
-      ))}
-
+    <div className="flex flex-wrap items-center gap-x-1 gap-y-1 border-b border-border/60 px-3 py-1.5">
+      {/* 봉 = 회색 묶음 버튼 (v2.36.0 공용 Segmented) */}
+      <Segmented
+        label="봉 단위"
+        size="sm"
+        value={timeframe}
+        onChange={onTimeframeChange}
+        options={TIMEFRAME_ITEMS.map((tf) => ({ value: tf.value, label: tf.short, title: tf.label }))}
+      />
       <span className="mx-1.5 h-4 w-px bg-border" />
 
       <IndicatorDropdown

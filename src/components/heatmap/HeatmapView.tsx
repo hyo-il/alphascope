@@ -422,7 +422,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           ref={box}
           data-tiles={tiles.length}
           data-labeled={labeled}
-          className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-bg-secondary"
+          className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl bg-bg-secondary"
         >
           {empty && (
             <p className="p-4 text-[14px] text-text-secondary">

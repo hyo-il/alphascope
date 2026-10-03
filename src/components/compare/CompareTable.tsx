@@ -272,7 +272,7 @@ export default function CompareTable({ symbols, names, fundamentals, summaries, 
   };
 
   return (
-    <section className="rounded-md border border-border bg-bg-secondary">
+    <section className="rounded-xl bg-bg-secondary">
       <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-3 py-2">
         <h3 className="mr-2 text-xs font-medium text-text-secondary">기업정보 비교</h3>
         {[{ id: 'all', label: '전체' }, ...SECTIONS].map((s) => (
@@ -282,8 +282,8 @@ export default function CompareTable({ symbols, names, fundamentals, summaries, 
             onClick={() => setSection(s.id)}
             className={`rounded border px-2 py-0.5 text-[13px] transition-colors ${
               section === s.id
-                ? 'border-accent bg-accent/10 text-accent'
-                : 'border-border text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+                ? 'border-transparent bg-bg-elevated font-medium text-text-primary'
+                : 'border-transparent bg-bg-tertiary text-text-secondary hover:text-text-primary'
             }`}
           >
             {s.label}
@@ -295,7 +295,7 @@ export default function CompareTable({ symbols, names, fundamentals, summaries, 
       <div className="overflow-x-auto">
         <table className="w-full min-w-[520px] text-xs">
           <thead>
-            <tr className="border-b border-border text-text-secondary">
+            <tr className="border-b border-border/50 text-text-secondary">
               <th className="sticky left-0 z-10 bg-bg-secondary px-3 py-2 text-left font-medium">
                 항목
               </th>

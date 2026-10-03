@@ -173,7 +173,7 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
             }}
             className={`border-b-2 px-3 py-1.5 text-xs transition-colors ${
               tab === item.id && !collapsed
-                ? 'border-accent text-text-primary'
+                ? 'border-text-primary text-text-primary'
                 : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >

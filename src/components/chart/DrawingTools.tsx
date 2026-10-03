@@ -82,21 +82,24 @@ export default function DrawingTools({
 
   return (
     <div className="flex items-center gap-1">
-      {DRAWING_TOOLS.map((tool) => (
-        <button
-          key={tool.label}
-          type="button"
-          title={tool.hint}
-          onClick={() => onSelect(tool.type)}
-          className={`rounded-md px-2.5 py-1.5 text-sm transition-colors ${
-            activeTool === tool.type
-              ? 'bg-accent text-white'
-              : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
-          }`}
-        >
-          {tool.label}
-        </button>
-      ))}
+      {/* 도구 = 회색 묶음 안에서 고른 칸만 밝게 (v2.36.0 — 예전 파란 칸). Segmented 와 같은 모양 */}
+      <div role="radiogroup" aria-label="그리기 도구" className="inline-flex gap-0.5 rounded-lg bg-bg-tertiary p-0.5">
+        {DRAWING_TOOLS.map((tool) => (
+          <button
+            key={tool.label}
+            type="button"
+            role="radio"
+            aria-checked={activeTool === tool.type}
+            title={tool.hint}
+            onClick={() => onSelect(tool.type)}
+            className={`whitespace-nowrap rounded-md px-2.5 py-0.5 text-xs transition-colors ${
+              activeTool === tool.type ? 'bg-bg-elevated font-medium text-text-primary' : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            {tool.label}
+          </button>
+        ))}
+      </div>
 
       <span className="mx-1 h-5 w-px bg-border" />
 
@@ -105,7 +108,7 @@ export default function DrawingTools({
         onClick={onClearAll}
         disabled={!hasDrawings}
         title="그린 것 전체 삭제"
-        className="rounded-md px-2.5 py-1.5 text-sm text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-bearish disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
+        className="rounded-md px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-bearish disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
       >
         전체 삭제
       </button>

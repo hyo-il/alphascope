@@ -1,3 +1,4 @@
+import InfoTip from '../ui/InfoTip';
 import type { Timeframe } from '../../types/toss';
 import { useEffect, useState } from 'react';
 import CompareSlot from './CompareSlot';
@@ -63,9 +64,7 @@ export default function CompareView({ initialSymbol }: Props) {
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
       <header className="flex flex-wrap items-center gap-2">
         <h2 className="text-sm font-semibold">기업 비교</h2>
-        <span className="text-[13px] text-text-muted">
-          4칸 · 2개부터 비교됩니다 · 오른쪽 관심 목록에서 클릭하거나 원하는 칸으로 드래그
-        </span>
+        <InfoTip label="기업 비교 쓰는 법">4칸 · 2개부터 비교됩니다 · 오른쪽 관심 목록에서 클릭하거나 원하는 칸으로 드래그</InfoTip>
 
         {chartsVisible && (
           <label className="ml-auto flex w-fit items-center gap-1.5 text-[13px] text-text-secondary">
@@ -92,7 +91,7 @@ export default function CompareView({ initialSymbol }: Props) {
           onClick={refresh}
           disabled={!symbols.length}
           title="비교 화면은 실시간 폴링하지 않습니다 — 이 버튼으로 갱신하세요"
-          className={`rounded-md border border-border px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40 ${
+          className={`rounded-md bg-bg-tertiary px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-40 ${
             chartsVisible ? '' : 'ml-auto'
           }`}
         >
@@ -101,7 +100,7 @@ export default function CompareView({ initialSymbol }: Props) {
         <button
           type="button"
           onClick={() => setChartsVisible((v) => !v)}
-          className="rounded-md border border-border px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          className="rounded-md bg-bg-tertiary px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
         >
           {chartsVisible ? '차트 숨기기' : '차트 보기'}
         </button>
@@ -153,10 +152,10 @@ export default function CompareView({ initialSymbol }: Props) {
         </>
       ) : (
         <>
-          <p className="rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs text-text-muted">
+          <p className="rounded-xl bg-bg-secondary px-3 py-2 text-xs text-text-muted">
             기업정보 비교 — 2개 이상 종목을 추가하면 활성화됩니다
           </p>
-          <p className="rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs text-text-muted">
+          <p className="rounded-xl bg-bg-secondary px-3 py-2 text-xs text-text-muted">
             AI 비교 평가 — 2개 이상 종목을 추가하면 활성화됩니다
           </p>
         </>

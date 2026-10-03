@@ -170,7 +170,7 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
 
       <table className="w-full tabular-nums">
         <thead className="text-text-muted">
-          <tr className="border-b border-border">
+          <tr className="border-b border-border/50">
             <th className="py-1 text-left font-normal">날짜</th>
             <th className="text-right font-normal">외국인</th>
             <th className="text-right font-normal">기관</th>

@@ -49,7 +49,7 @@ export default function CompareChart({
     last && previous?.close ? ((last.close - previous.close) / previous.close) * 100 : null;
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col rounded-md border border-border bg-bg-secondary">
+    <div className="flex h-full min-h-0 min-w-0 flex-col rounded-xl bg-bg-secondary">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1.5">
         {slotLabel && <span className="shrink-0 text-xs text-text-muted">{slotLabel}</span>}
         {/*

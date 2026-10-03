@@ -315,7 +315,7 @@ export default function QuickOrderPanel({
                 type="button"
                 onClick={() => setUnit(u)}
                 className={`rounded px-1.5 py-1 text-[13px] transition-colors ${
-                  unit === u ? 'bg-accent/15 font-medium text-accent' : 'text-text-muted hover:bg-bg-tertiary'
+                  unit === u ? 'bg-bg-elevated font-medium text-text-primary' : 'text-text-muted hover:bg-bg-tertiary'
                 }`}
               >
                 {u === 'shares' ? '주' : '%'}
@@ -332,7 +332,7 @@ export default function QuickOrderPanel({
                     key={n}
                     type="button"
                     onClick={() => setQuantity(n)}
-                    className="flex-1 rounded border border-border py-0.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                    className="flex-1 rounded-md bg-bg-tertiary py-0.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
                   >
                     {n}주
                   </button>
@@ -340,7 +340,7 @@ export default function QuickOrderPanel({
                 <button
                   type="button"
                   onClick={() => setQuantity(maxBuyable)}
-                  className="flex-1 rounded border border-border py-0.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-accent"
+                  className="flex-1 rounded-md bg-bg-tertiary py-0.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-accent"
                 >
                   최대
                 </button>
@@ -351,10 +351,10 @@ export default function QuickOrderPanel({
                   key={n}
                   type="button"
                   onClick={() => setPercent(n)}
-                  className={`flex-1 rounded border py-0.5 text-[13px] transition-colors ${
+                  className={`flex-1 rounded-md py-0.5 text-[13px] transition-colors ${
                     percent === n
-                      ? 'border-accent text-accent'
-                      : 'border-border text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+                      ? 'bg-bg-elevated text-text-primary'
+                      : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
                   }`}
                 >
                   {n}%
@@ -389,7 +389,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('SELL', 'LIMIT')}
             disabled={busy || !price || sellQuantity <= 0}
-            className="rounded bg-accent/80 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-accent disabled:opacity-40"
+            className="rounded-md bg-accent/80 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-accent disabled:opacity-40"
           >
             현재가 판매
           </button>
@@ -397,7 +397,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('BUY', 'LIMIT')}
             disabled={busy || !price || buyQuantity <= 0}
-            className="rounded bg-bearish/80 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-bearish disabled:opacity-40"
+            className="rounded-md bg-bearish/80 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-bearish disabled:opacity-40"
           >
             현재가 구매
           </button>
@@ -405,7 +405,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('SELL', 'MARKET')}
             disabled={busy || !price || sellQuantity <= 0}
-            className="rounded border border-accent/60 py-1.5 text-[13px] text-accent transition-colors hover:bg-accent/10 disabled:opacity-40"
+            className="rounded-md bg-accent/15 py-1.5 text-[13px] text-accent transition-colors hover:bg-accent/25 disabled:opacity-40"
           >
             시장가 판매
           </button>
@@ -413,7 +413,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('BUY', 'MARKET')}
             disabled={busy || !price || buyQuantity <= 0}
-            className="rounded border border-bearish/60 py-1.5 text-[13px] text-bearish transition-colors hover:bg-bearish/10 disabled:opacity-40"
+            className="rounded-md bg-bearish/15 py-1.5 text-[13px] text-bearish transition-colors hover:bg-bearish/25 disabled:opacity-40"
           >
             시장가 구매
           </button>
@@ -423,7 +423,7 @@ export default function QuickOrderPanel({
           type="button"
           onClick={cancelAll}
           disabled={!pending.length}
-          className="w-full rounded border border-border py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40"
+          className="w-full rounded-md bg-bg-tertiary py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40"
         >
           {symbol} 주문 취소 {pending.length > 0 && `(${pending.length})`}
         </button>

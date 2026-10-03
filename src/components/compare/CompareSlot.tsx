@@ -153,7 +153,7 @@ export default function CompareSlot({
             <button
               type="button"
               onClick={() => setSearching(true)}
-              className="rounded border border-border px-2 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+              className="rounded bg-bg-tertiary px-2 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
             >
               종목 검색
             </button>

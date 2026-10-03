@@ -69,7 +69,7 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
   };
 
   return (
-    <section className="rounded-md border border-border bg-bg-secondary p-3">
+    <section className="rounded-xl bg-bg-secondary p-3">
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <h3 className="text-xs font-medium text-text-secondary">AI 비교 평가</h3>
 
@@ -82,8 +82,8 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
               title={h.period}
               className={`rounded border px-2 py-0.5 text-[13px] transition-colors ${
                 horizon === h.id
-                  ? 'border-accent bg-accent/10 text-accent'
-                  : 'border-border text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+                  ? 'border-transparent bg-bg-elevated font-medium text-text-primary'
+                  : 'border-transparent bg-bg-tertiary text-text-secondary hover:text-text-primary'
               }`}
             >
               {h.label}
@@ -117,7 +117,7 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
           href="https://claude.ai/new"
           target="_blank"
           rel="noreferrer"
-          className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          className="rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
         >
           Claude 열기 <ExternalLink {...ICON_SM} />
         </a>
@@ -125,7 +125,7 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
           type="button"
           onClick={resetPrompt}
           disabled={edited == null}
-          className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40"
+          className="rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-40"
         >
           프롬프트 초기화
         </button>

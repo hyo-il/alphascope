@@ -1,3 +1,4 @@
+import InfoTip from './components/ui/InfoTip';
 import WarnIcon from './components/ui/WarnIcon';
 import StarIcon from './components/ui/StarIcon';
 import { ICON_SM } from './components/ui/icon';
@@ -261,16 +262,20 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         />
       )}
 
-      <footer className="shrink-0 border-t border-border px-3 py-1.5 text-[13px] text-text-muted">
+      <footer className="flex shrink-0 items-center gap-1 border-t border-border/60 px-3 py-1.5 text-[13px] text-text-muted">
         {activeTool ? (
           <>
-            <span className="text-accent">{guideFor(activeTool)}</span>
+            <span className="text-text-primary">{guideFor(activeTool)}</span>
             <span className="ml-2">· 하나 그리면 커서로 돌아옵니다 · Esc: 해제</span>
           </>
         ) : (
-          '휠: 커서 기준 확대/축소 · 드래그: 좌우 이동 · 드로잉 클릭 또는 우클릭: 삭제'
+          <>
+            {/* 조작법은 정보 아이콘으로 (v2.36.0 디자인 규칙 6) — 도구를 쥐었을 때의 안내는 지금 하는 일이라 글자로 둔다 */}
+            차트 조작
+            <InfoTip label="차트 조작법">휠: 커서 기준 확대/축소 · 드래그: 좌우 이동 · 드로잉 클릭 또는 우클릭: 삭제</InfoTip>
+          </>
         )}
-        {loadingMore && <span className="ml-2 text-accent">과거 데이터 불러오는 중…</span>}
+        {loadingMore && <span className="ml-2 text-text-secondary">과거 데이터 불러오는 중…</span>}
         {reachedEnd && candles.length > 0 && (
           <span className="ml-2">· 가장 오래된 데이터까지 표시 중</span>
         )}
