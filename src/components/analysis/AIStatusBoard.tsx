@@ -20,7 +20,7 @@ const time = (iso: string | null | undefined) =>
 
 function Cell({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="min-w-0 rounded-lg border border-border bg-bg-secondary p-3">
+    <section className="min-w-0 rounded-xl bg-bg-secondary p-3">
       <h3 className="mb-2 text-xs font-semibold text-text-primary">{title}</h3>
       {children}
     </section>

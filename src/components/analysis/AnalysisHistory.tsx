@@ -242,7 +242,7 @@ export default function AnalysisHistory({
               : null;
 
             return (
-              <article key={record.id} className="rounded-md border border-border bg-bg-primary">
+              <article key={record.id} className="rounded-lg bg-bg-primary">
                 <header
                   onClick={() => setExpanded(isOpen ? null : record.id)}
                   className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-xs hover:bg-bg-tertiary/40"
@@ -283,7 +283,7 @@ export default function AnalysisHistory({
                           disabled={view === 'prompt' && !record.prompt}
                           className={`rounded px-2 py-0.5 text-[13px] transition-colors ${
                             detailView === view
-                              ? 'bg-accent/20 text-accent'
+                              ? 'bg-bg-elevated text-text-primary'
                               : 'text-text-muted hover:text-text-primary'
                           } disabled:opacity-40`}
                         >

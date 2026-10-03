@@ -324,7 +324,7 @@ export default function StrategyProfileModal({
   const periodIsChoice = GOAL_PERIOD_CHOICES.some((c) => c.days === goalDraft.days);
   const chip = (active: boolean) =>
     `rounded-md border px-3 py-1 text-xs transition-colors ${
-      active ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-border text-text-secondary hover:border-accent/50'
+      active ? 'border-transparent bg-bg-elevated font-medium text-text-primary' : 'border-transparent bg-bg-tertiary text-text-secondary hover:text-text-primary'
     }`;
 
   return (
@@ -360,8 +360,8 @@ export default function StrategyProfileModal({
                   aria-pressed={activeId === id}
                   className={`rounded-md border px-2.5 py-1 text-[13px] transition-colors ${
                     activeId === id
-                      ? 'border-accent bg-accent/10 font-medium text-accent'
-                      : 'border-border text-text-secondary hover:border-accent/50'
+                      ? 'border-transparent bg-bg-elevated font-medium text-text-primary'
+                      : 'border-transparent bg-bg-tertiary text-text-secondary hover:text-text-primary'
                   }`}
                 >
                   {PROFILE_LABEL[id]}
@@ -370,7 +370,7 @@ export default function StrategyProfileModal({
               <span className="text-[13px] text-text-muted">바꾸면 바로 적용됩니다 — 추천은 [다시 분석] 해야 새 기준으로 나옵니다</span>
             </div>
             {activeId !== 'standard' && sameSwingParams(state.custom[activeId as CustomProfileId], state.standard) && (
-              <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-1.5 text-[13px] text-text-muted">
+              <p className="rounded-lg bg-bg-tertiary/40 px-3 py-1.5 text-[13px] text-text-muted">
                 {PROFILE_LABEL[activeId]} 기준은 아직 표준과 같은 값입니다 — 아래 「고급 설정 &gt; 추천 판정 기준」 에서 조정하세요.
                 (공격·수비 값은 사용자 설정이며 근거가 검증되지 않았습니다.)
               </p>
@@ -445,7 +445,7 @@ export default function StrategyProfileModal({
 
           {/* ── 2층: 고급 설정 ── */}
           <details
-            className="mt-4 rounded-lg border border-border px-3 py-2"
+            className="mt-4 rounded-lg bg-bg-tertiary/40 px-3 py-2"
             open={advancedOpen}
             onToggle={(e) => setAdvancedOpen((e.currentTarget as HTMLDetailsElement).open)}
           >
@@ -533,7 +533,7 @@ export default function StrategyProfileModal({
                     type="button"
                     onClick={() => setEditing(id)}
                     className={`rounded border px-2.5 py-0.5 text-[13px] transition-colors ${
-                      editing === id ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-border text-text-secondary'
+                      editing === id ? 'border-transparent bg-bg-elevated font-medium text-text-primary' : 'border-transparent bg-bg-tertiary text-text-secondary hover:text-text-primary'
                     }`}
                   >
                     {PROFILE_LABEL[id]}
@@ -569,11 +569,11 @@ export default function StrategyProfileModal({
 
             <PreviewBox state={preview} />
           </section>
-          <details className="rounded-lg border border-border px-3 py-2">
+          <details className="rounded-lg bg-bg-tertiary/40 px-3 py-2">
             <summary className="text-xs font-medium text-text-secondary">숫자표 — 숫자를 직접 고칩니다</summary>
           <table className="mt-2 w-full border-collapse text-left">
             <thead>
-              <tr className="border-b border-border text-[13px] text-text-muted">
+              <tr className="border-b border-border/50 text-[13px] text-text-muted">
                 <th className="py-2 pr-2 font-normal">항목</th>
                 <th className="w-20 py-2 pr-2 font-normal">표준</th>
                 {CUSTOM_PROFILES.map((id) => (
@@ -610,7 +610,7 @@ export default function StrategyProfileModal({
                             err
                               ? 'border-bearish text-bearish'
                               : changed
-                                ? 'border-accent text-accent'
+                                ? 'border-text-primary font-medium text-text-primary'
                                 : 'border-border'
                           }`}
                         />
@@ -630,7 +630,7 @@ export default function StrategyProfileModal({
                 type="button"
                 onClick={() => resetTo(id)}
                 disabled={sameSwingParams(draft[id], state.standard)}
-                className="rounded border border-border px-2 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-40"
+                className="rounded bg-bg-tertiary px-2 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-40"
               >
                 {PROFILE_LABEL[id]}를 표준값으로 되돌리기
               </button>
@@ -648,7 +648,7 @@ export default function StrategyProfileModal({
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 whitespace-nowrap ml-auto rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            className="shrink-0 whitespace-nowrap ml-auto rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             취소
           </button>
@@ -708,7 +708,7 @@ function EasyQuestion<T extends string | number>({
             type="button"
             onClick={() => onPick(o.id)}
             className={`rounded-md border px-3 py-1 text-xs transition-colors ${
-              value === o.id ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-border text-text-secondary hover:border-accent/50'
+              value === o.id ? 'border-transparent bg-bg-elevated font-medium text-text-primary' : 'border-transparent bg-bg-tertiary text-text-secondary hover:text-text-primary'
             }`}
           >
             {o.label}
@@ -730,7 +730,7 @@ const rate = (v: number | null | undefined) => (v == null ? '—' : `${v}%`);
 function PreviewBox({ state }: { state: PreviewState }) {
   const result = state.status === 'done' ? state.result : state.status === 'loading' ? state.last : undefined;
   return (
-    <div className="rounded-lg border border-border bg-bg-tertiary/30 px-3 py-2 text-[13px]">
+    <div className="rounded-lg bg-bg-tertiary/30 px-3 py-2 text-[13px]">
       <p className="mb-1 flex items-center gap-2 font-medium text-text-primary">
         이 설정이었다면
         {state.status === 'loading' && (

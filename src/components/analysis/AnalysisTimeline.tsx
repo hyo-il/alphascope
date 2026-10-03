@@ -287,14 +287,14 @@ export default function AnalysisTimeline({
           <button
             onClick={() => removeMany('claude')}
             disabled={!claude.length}
-            className="rounded border border-border px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary disabled:opacity-40"
+            className="rounded bg-bg-tertiary px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated disabled:opacity-40"
           >
             Claude만 삭제 ({claude.length})
           </button>
           <button
             onClick={() => removeMany('gemini')}
             disabled={!gemini.length}
-            className="rounded border border-border px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary disabled:opacity-40"
+            className="rounded bg-bg-tertiary px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated disabled:opacity-40"
           >
             Gemini만 삭제 ({gemini.length})
           </button>
@@ -305,7 +305,7 @@ export default function AnalysisTimeline({
       )}
 
       {agreement.length > 0 && (
-        <div className="rounded-lg border border-border bg-bg-secondary p-3 text-xs">
+        <div className="rounded-xl bg-bg-secondary p-3 text-xs">
           <p className="mb-1 font-medium text-text-primary">두 AI 가 같은 날 함께 본 종목</p>
           <div className="flex flex-wrap gap-2">
             {agreement.map((pair, index) => (
@@ -321,7 +321,7 @@ export default function AnalysisTimeline({
       )}
 
       {shown.length === 0 && (
-        <p className="rounded-lg border border-border bg-bg-secondary p-6 text-center text-sm text-text-muted">
+        <p className="rounded-xl bg-bg-secondary p-6 text-center text-sm text-text-muted">
           {items.length === 0
             ? "아직 분석 기록이 없습니다. 차트 하단 AI 탭의 'Gemini 바로 분석' 으로 실행하거나, '수동 분석' 탭에서 Claude 답변을 저장하세요."
             : '이 출처의 기록이 없습니다.'}
@@ -373,7 +373,7 @@ function ClaudeCard({
       : null;
 
   return (
-    <div className="rounded-lg border border-border bg-bg-secondary p-3">
+    <div className="rounded-xl bg-bg-secondary p-3">
       <div className="flex flex-wrap items-center gap-2">
         <AISourceBadge source="claude" suffix="수동" />
         <StockName symbol={record.symbol} className="text-text-primary" />

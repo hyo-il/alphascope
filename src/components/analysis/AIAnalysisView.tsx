@@ -47,7 +47,7 @@ export default function AIAnalysisView({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 gap-1 border-b border-border px-1">
+      <div className="flex shrink-0 gap-1 border-b border-border/60 px-1">
         {TABS.map((item) => (
           <button
             key={item.id}
@@ -55,7 +55,7 @@ export default function AIAnalysisView({
             onClick={() => setTab(item.id)}
             className={`border-b-2 px-3 py-2 text-sm transition-colors ${
               tab === item.id
-                ? 'border-accent text-text-primary'
+                ? 'border-text-primary font-medium text-text-primary'
                 : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >

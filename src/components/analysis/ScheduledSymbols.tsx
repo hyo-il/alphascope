@@ -105,7 +105,7 @@ export default function ScheduledSymbols() {
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="rounded border border-border px-2 py-0.5 text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          className="rounded bg-bg-tertiary px-2 py-0.5 text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
         >
           설정
         </button>
@@ -114,7 +114,7 @@ export default function ScheduledSymbols() {
           onClick={confirmRun}
           disabled={!n || status.running || Boolean(status.disabledReason)}
           title={status.disabledReason ?? undefined}
-          className="rounded border border-border px-2 py-0.5 text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40"
+          className="rounded bg-bg-tertiary px-2 py-0.5 text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-40"
         >
           지금 한 번 실행
         </button>
@@ -193,7 +193,7 @@ function ScheduledEditor({
           <button
             type="button"
             onClick={onClose}
-            className="rounded border border-border px-3 py-1 text-xs text-text-secondary hover:bg-bg-tertiary"
+            className="rounded bg-bg-tertiary px-3 py-1 text-xs text-text-secondary hover:bg-bg-elevated"
           >
             취소
           </button>

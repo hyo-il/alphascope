@@ -55,7 +55,7 @@ const MIN_SCORED_FOR_STATS = 20;
 /** 무엇을 재는 화면인지 — 숫자만 있고 정의가 없으면 그 숫자를 믿을 수 없다. */
 function Explainer({ horizonDays, flatBand, rule }: { horizonDays: number; flatBand: number; rule?: string }) {
   return (
-    <div className="rounded-lg border border-border bg-bg-secondary p-4 text-sm">
+    <div className="rounded-xl bg-bg-secondary p-4 text-sm">
       <p className="mb-2 font-medium text-text-primary">AI 분석이 실제로 맞았는지 추적합니다</p>
       <ul className="space-y-1 text-xs leading-relaxed text-text-secondary">
         <li>
@@ -124,7 +124,7 @@ function VersionLine({ report }: { report: Report }) {
   const versions = Object.entries(report.geminiByVersion ?? {});
   if (!versions.length) return null;
   return (
-    <div className="rounded-lg border border-border bg-bg-secondary px-4 py-2 text-xs text-text-secondary">
+    <div className="rounded-xl bg-bg-secondary px-4 py-2 text-xs text-text-secondary">
       <span className="text-text-muted">Gemini 프롬프트 버전별 · </span>
       {versions.map(([version, stats], i) => (
         <span key={version}>
@@ -152,7 +152,7 @@ function AccuracyReport({ report }: { report: Report }) {
         <Explainer horizonDays={report.horizonDays} flatBand={report.flatBandPercent} rule={report.scoringRule} />
         <VersionLine report={report} />
 
-        <div className="rounded-lg border border-warning/30 bg-warning/10 p-4">
+        <div className="rounded-lg bg-warning/10 p-4">
           <p className="mb-1 text-sm font-medium text-warning"><WarnIcon />아직 판단할 만큼 쌓이지 않았습니다</p>
           <p className="text-xs leading-relaxed text-text-secondary">
             적중률은 최소 {MIN_SCORED_FOR_STATS}건이 채점된 뒤부터 보여 줍니다. 표본이 적으면
@@ -196,7 +196,7 @@ function AccuracyReport({ report }: { report: Report }) {
         {(['claude', 'gemini'] as const).map((source) => {
           const stats = report[source];
           return (
-            <div key={source} className="rounded-lg border border-border bg-bg-secondary p-4">
+            <div key={source} className="rounded-xl bg-bg-secondary p-4">
               <div className="mb-2 flex items-center gap-2">
                 <AISourceBadge source={source} />
                 <span className="ml-auto text-xs text-text-muted">
@@ -212,17 +212,17 @@ function AccuracyReport({ report }: { report: Report }) {
         })}
       </div>
 
-      <p className="rounded border border-warning/30 bg-warning/10 p-2 text-xs text-warning">
+      <p className="rounded-lg bg-warning/10 p-2 text-xs text-warning">
         <WarnIcon />위 두 수치를 직접 비교하지 마세요. Claude 는 사용자가 고른 종목만 분석하므로 선택 편향이
         있고 표본 수도 다릅니다. 공정한 비교는 아래 '같은 조건 비교'를 보세요.
       </p>
 
       {/* 신호별 */}
       {signals.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-border bg-bg-secondary">
+        <div className="overflow-x-auto rounded-xl bg-bg-secondary">
           <table className="w-full text-sm">
             <thead className="text-xs text-text-muted">
-              <tr className="border-b border-border">
+              <tr className="border-b border-border/50">
                 <th className="px-3 py-2 text-left font-normal">신호</th>
                 <th className="px-3 py-2 text-right font-normal">Claude</th>
                 <th className="px-3 py-2 text-right font-normal">Gemini</th>
@@ -250,7 +250,7 @@ function AccuracyReport({ report }: { report: Report }) {
       )}
 
       {/* 같은 조건 비교 */}
-      <div className="rounded-lg border border-border bg-bg-secondary p-4">
+      <div className="rounded-xl bg-bg-secondary p-4">
         <h3 className="mb-2 text-sm font-medium text-text-primary">
           같은 조건 비교 (같은 종목·같은 날 둘 다 분석한 건)
         </h3>
@@ -300,7 +300,7 @@ function AccuracyReport({ report }: { report: Report }) {
       </div>
 
       {/* 에이전트별 */}
-      <div className="rounded-lg border border-border bg-bg-secondary p-4">
+      <div className="rounded-xl bg-bg-secondary p-4">
         <h3 className="mb-2 text-sm font-medium text-text-primary">
           Gemini 에이전트별 적중률
         </h3>

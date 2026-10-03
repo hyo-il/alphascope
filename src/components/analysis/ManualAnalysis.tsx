@@ -332,7 +332,7 @@ export default function ManualAnalysis({
               type="button"
               onClick={openCapture}
               title="범위·지표·봉 단위를 골라 캡처합니다"
-              className="rounded-md border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+              className="rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
             >
               상세 캡처…
             </button>
@@ -341,7 +341,7 @@ export default function ManualAnalysis({
             type="button"
             onClick={() => setEditorOpen((v) => !v)}
             aria-expanded={editorOpen}
-            className="rounded-md border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            className="rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             프롬프트 수정 {editorOpen ? <ChevronUp {...ICON_SM} className="inline-block align-[-2px]" /> : <ChevronDown {...ICON_SM} className="inline-block align-[-2px]" />}
           </button>
@@ -355,7 +355,7 @@ export default function ManualAnalysis({
         </div>
 
         {editorOpen && (
-          <section className="space-y-3 rounded-md border border-border p-3">
+          <section className="space-y-3 rounded-lg bg-bg-tertiary/40 p-3">
             <div className="space-y-1.5">
               <h4 className="text-[13px] text-text-secondary">투자 기간</h4>
               <div className="grid grid-cols-4 gap-1">
@@ -367,8 +367,8 @@ export default function ManualAnalysis({
                     title={h.directive}
                     className={`rounded-md border px-1 py-1.5 text-center transition-colors ${
                       horizon === h.id
-                        ? 'border-accent bg-accent/10 text-accent'
-                        : 'border-border text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+                        ? 'border-transparent bg-bg-elevated font-medium text-text-primary'
+                        : 'border-transparent bg-bg-tertiary text-text-secondary hover:text-text-primary'
                     }`}
                   >
                     <span className="block text-[13px] font-medium">{h.label}</span>
@@ -401,7 +401,7 @@ export default function ManualAnalysis({
                   <button
                     type="button"
                     onClick={resetPrompt}
-                    className="rounded border border-border px-2 py-0.5 transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                    className="rounded bg-bg-tertiary px-2 py-0.5 transition-colors hover:bg-bg-elevated hover:text-text-primary"
                   >
                     초기화
                   </button>

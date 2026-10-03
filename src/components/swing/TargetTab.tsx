@@ -123,14 +123,14 @@ export default function TargetTab({
         <button
           type="button"
           onClick={onOpenCriteria}
-          className="shrink-0 whitespace-nowrap rounded border border-border px-2 py-0.5 text-text-secondary transition-colors hover:border-accent hover:text-accent"
+          className="shrink-0 whitespace-nowrap rounded bg-bg-tertiary px-2 py-0.5 text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
         >
           조건 바꾸기
         </button>
       </div>
 
       {/* 종목 고르기 — 관심 목록 표 + 관심 목록 밖 검색 */}
-      <section className="space-y-2 rounded-lg border border-border bg-bg-secondary px-3 py-2">
+      <section className="space-y-2 rounded-xl bg-bg-secondary px-3 py-2">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-xs font-semibold text-text-secondary">
             종목 고르기 <span className="font-normal text-text-muted">({picked.length}/{TARGET_MAX_SYMBOLS})</span>
@@ -157,7 +157,7 @@ export default function TargetTab({
         ) : (
           <table className="w-full text-[13px]">
             <thead className="whitespace-nowrap text-left text-text-muted">
-              <tr className="border-b border-border">
+              <tr className="border-b border-border/50">
                 <th className="w-8 py-1" />
                 <th className="py-1 font-normal">종목</th>
                 <th className="font-normal">지금 살 만한가 등급</th>

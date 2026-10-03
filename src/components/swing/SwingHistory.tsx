@@ -75,8 +75,8 @@ function RecommendationHistory() {
               onClick={() => setFilter(f.id)}
               className={`rounded-md border px-2 py-0.5 text-[13px] transition-colors ${
                 filter === f.id
-                  ? 'border-accent bg-accent/10 font-medium text-accent'
-                  : 'border-border text-text-secondary hover:border-accent/50'
+                  ? 'border-transparent bg-bg-elevated font-medium text-text-primary'
+                  : 'border-transparent bg-bg-tertiary text-text-secondary hover:text-text-primary'
               }`}
             >
               {f.label} {count}
@@ -108,7 +108,7 @@ function RecommendationHistory() {
       <div className="overflow-x-auto">
         <table className="w-full min-w-[820px] text-left text-[13px]">
           <thead className="text-text-muted">
-            <tr className="border-b border-border">
+            <tr className="border-b border-border/50">
               <th className="py-1.5 pr-2">추천일</th>
               <th className="pr-2">종목</th>
               <th className="pr-2">기준</th>

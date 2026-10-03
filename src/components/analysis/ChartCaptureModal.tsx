@@ -283,7 +283,7 @@ export default function ChartCaptureModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="flex h-[78vh] w-[88vw] max-w-[1200px] flex-col gap-3 rounded-lg border border-border bg-bg-secondary p-4">
+      <div className="flex h-[78vh] w-[88vw] max-w-[1200px] flex-col gap-3 rounded-xl bg-bg-secondary p-4">
         <div className="flex shrink-0 items-center justify-between">
           <h2 className="text-sm font-medium text-text-primary">
             {shot ? '캡처 확인' : '차트 캡처'}
@@ -316,7 +316,7 @@ export default function ChartCaptureModal({
                 onClick={() => changeTimeframe(item.value)}
                 className={`rounded px-2 py-1 text-xs transition-colors ${
                   tf === item.value
-                    ? 'bg-accent/15 font-medium text-accent'
+                    ? 'bg-bg-elevated font-medium text-text-primary'
                     : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
                 }`}
               >
@@ -357,7 +357,7 @@ export default function ChartCaptureModal({
             )}
           </div>
 
-          <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-border">
+          <div className="min-h-0 flex-1 overflow-hidden rounded-lg bg-bg-tertiary/40">
             {/*
               타임프레임이 바뀌면 차트를 새로 만든다. 봉 수가 달라져 이전 논리 범위를
               그대로 쓸 수 없고, 남은 시리즈를 일일이 정리하는 것보다 확실하다.
@@ -402,7 +402,7 @@ export default function ChartCaptureModal({
                     title={hint}
                     className={`rounded border px-2 py-0.5 transition-colors ${
                       quality === value
-                        ? 'border-accent text-accent'
+                        ? 'border-text-primary font-medium text-text-primary'
                         : 'border-border text-text-muted hover:text-text-secondary'
                     }`}
                   >

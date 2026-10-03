@@ -13,7 +13,7 @@ interface Props {
  */
 export default function ModeSelector({ mode, onChange, portfolioAvailable }: Props) {
   return (
-    <div role="radiogroup" aria-label="분석 방식" className="inline-flex rounded-md border border-border p-0.5">
+    <div role="radiogroup" aria-label="분석 방식" className="inline-flex gap-0.5 rounded-lg bg-bg-tertiary p-0.5">
       {ANALYSIS_MODES.map((item) => {
         const disabled = item.id === 'portfolio' && !portfolioAvailable;
         const active = mode === item.id;
@@ -27,7 +27,7 @@ export default function ModeSelector({ mode, onChange, portfolioAvailable }: Pro
             onClick={() => onChange(item.id)}
             title={disabled ? '보유 중인 종목이 없습니다' : item.description}
             className={`whitespace-nowrap rounded px-2.5 py-1 text-xs transition-colors ${
-              active ? 'bg-accent/15 font-medium text-accent' : 'text-text-secondary hover:text-text-primary'
+              active ? 'bg-bg-elevated font-medium text-text-primary' : 'text-text-secondary hover:text-text-primary'
             } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
           >
             {item.label}

@@ -63,7 +63,7 @@ function now(): string {
 /** 단계 번호 배지 */
 function StepBadge({ n }: { n: number }) {
   return (
-    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[13px] font-semibold text-white">
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-bg-elevated text-[13px] font-semibold text-text-primary">
       {n}
     </span>
   );
@@ -233,7 +233,7 @@ export default function CopySteps({
                         <button
                           type="button"
                           onClick={handleDownload}
-                          className="w-full rounded-md border border-border bg-bg-secondary px-2 py-1.5 text-xs text-text-primary transition-colors hover:bg-bg-tertiary"
+                          className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated/70"
                         >
                           PNG로 저장해서 첨부하기
                         </button>
@@ -248,7 +248,7 @@ export default function CopySteps({
                           type="button"
                           onClick={() => void handleImage()}
                           disabled={busy}
-                          className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+                          className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated/70 disabled:opacity-40"
                         >
                           {captureLabel}
                         </button>
@@ -258,7 +258,7 @@ export default function CopySteps({
                             <button
                               type="button"
                               onClick={handleDownload}
-                              className="w-full rounded-md border border-border px-2 py-1.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                              className="w-full rounded-md bg-bg-tertiary px-2 py-1.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
                             >
                               PNG로 저장해서 첨부하기
                             </button>
@@ -273,7 +273,7 @@ export default function CopySteps({
                         type="button"
                         onClick={onOpenCapture}
                         disabled={capturePending}
-                        className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+                        className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated/70 disabled:opacity-50"
                       >
                         {capturePending ? '캡처 준비 중…' : '차트 캡처하기'}
                       </button>
@@ -296,7 +296,7 @@ export default function CopySteps({
                   <button
                     type="button"
                     onClick={handleDownload}
-                    className="w-full rounded-md border border-border bg-bg-secondary px-2 py-1.5 text-xs text-text-primary transition-colors hover:bg-bg-tertiary"
+                    className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated/70"
                   >
                     PNG로 저장해서 첨부하기
                   </button>
@@ -311,7 +311,7 @@ export default function CopySteps({
                     type="button"
                     onClick={() => void handleImage()}
                     disabled={busy}
-                    className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+                    className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated/70 disabled:opacity-40"
                   >
                     {captureLabel}
                   </button>
@@ -321,7 +321,7 @@ export default function CopySteps({
                       <button
                         type="button"
                         onClick={handleDownload}
-                        className="w-full rounded-md border border-border px-2 py-1.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                        className="w-full rounded-md bg-bg-tertiary px-2 py-1.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
                       >
                         PNG로 저장해서 첨부하기
                       </button>
@@ -336,7 +336,7 @@ export default function CopySteps({
                   type="button"
                   onClick={onOpenCapture}
                   disabled={capturePending}
-                  className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+                  className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated/70 disabled:opacity-50"
                 >
                   {capturePending ? '캡처 준비 중…' : '차트 캡처하기'}
                 </button>
@@ -357,7 +357,7 @@ export default function CopySteps({
               type="button"
               onClick={() => void handleText()}
               disabled={!promptReady}
-              className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+              className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated/70 disabled:opacity-50"
             >
               {promptReady ? `${promptLabel}` : '데이터 불러오는 중…'}
             </button>
@@ -371,7 +371,7 @@ export default function CopySteps({
           <button
             type="button"
             onClick={() => window.open('https://claude.ai/new', '_blank', 'noopener')}
-            className="w-full rounded-md border border-border bg-bg-secondary px-2 py-1.5 text-xs text-text-primary transition-colors hover:bg-bg-tertiary"
+            className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated/70"
           >
             Claude 대화 열기
           </button>,
@@ -379,7 +379,7 @@ export default function CopySteps({
       </ol>
 
       {!tipHidden && includeImage && !hideIntro && (
-        <div className="rounded-md border border-border/60 px-3 py-2 text-[13px] leading-relaxed text-text-muted">
+        <div className="rounded-lg bg-bg-tertiary/50 px-3 py-2 text-[13px] leading-relaxed text-text-muted">
           이미지와 프롬프트를 <b className="text-text-secondary">같은 대화</b>에 함께 보내면
           차트 패턴과 수치를 모두 분석합니다.
           <button

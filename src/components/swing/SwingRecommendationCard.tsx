@@ -43,7 +43,7 @@ export default function SwingRecommendationCard({
       <header className="flex flex-wrap items-baseline gap-2">
         {pick}
         <Badge tone={grade.tone}>{grade.label}</Badge>
-        <StockName symbol={recommendation.symbol} name={recommendation.name} className="text-sm" />
+        <StockName symbol={recommendation.symbol} name={recommendation.name} className="text-sm font-semibold" />
         <span className="text-[13px] text-text-secondary">
           {currency === 'KRW'
             ? `₩${Math.round(recommendation.currentPrice).toLocaleString('ko-KR')}`
@@ -80,7 +80,7 @@ export default function SwingRecommendationCard({
           <TradePlan plan={recommendation} currency={currency} />
 
           {/* 값이 잘리면 매매 계획이 아니게 된다 — 줄임표 대신 줄바꿈으로 다 보여 준다 */}
-          <dl className="mt-3 space-y-1.5 rounded-md border border-border/60 p-2.5 text-[13px] text-text-secondary">
+          <dl className="mt-3 space-y-1.5 rounded-lg bg-bg-tertiary/40 p-2.5 text-[13px] text-text-secondary">
             <Row label="리스크/리워드" value={`1 : ${conditions.riskReward.ratio}`} />
             <Row label="권장 비중" value={`총자산의 ${recommendation.position.recommendedPercent}%`} />
             <Row
@@ -157,4 +157,4 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 const BUTTON =
-  'rounded border border-border px-2 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent';
+  'rounded bg-bg-tertiary px-2 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary';

@@ -25,7 +25,7 @@ export default function HelpBox({ id, title, children }: { id: string; title: st
     }
   };
   return (
-    <section className="rounded-lg border border-border bg-bg-secondary/60">
+    <section className="rounded-xl bg-bg-secondary/60">
       <button
         type="button"
         onClick={toggle}

@@ -58,7 +58,7 @@ export default function GeminiAnalysisCard({
     >
       <div className="flex flex-wrap items-center gap-2">
         {isNew && (
-          <span className="rounded bg-accent px-1.5 py-0.5 text-[13px] font-medium text-white">
+          <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[13px] text-accent">
             NEW
           </span>
         )}

@@ -136,7 +136,7 @@ export default function SwingDashboard({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 gap-1 border-b border-border px-1">
+      <div className="flex shrink-0 gap-1 border-b border-border/60 px-1">
         {TABS.map((item) => (
           <button
             key={item.id}
@@ -144,7 +144,7 @@ export default function SwingDashboard({
             onClick={() => setTab(item.id)}
             className={`border-b-2 px-3 py-2 text-sm transition-colors ${
               tab === item.id
-                ? 'border-accent text-text-primary'
+                ? 'border-text-primary font-medium text-text-primary'
                 : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >
@@ -174,7 +174,7 @@ export default function SwingDashboard({
               </p>
             </HelpBox>
 
-            <header className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-bg-secondary px-3 py-2 text-[13px] text-text-secondary">
+            <header className="flex flex-wrap items-center gap-3 rounded-xl bg-bg-secondary px-3 py-2 text-[13px] text-text-secondary">
               <span>
                 점검 대상: 관심 목록{' '}
                 <span className="text-text-primary">{watchlist.length}개 종목</span>
@@ -209,7 +209,7 @@ export default function SwingDashboard({
                 onClick={() => setProfileOpen(true)}
                 disabled={!profile.state}
                 title="판정 기준(표준·공격·수비)과 목표 수익 가능성의 조건을 함께 봅니다 — 목표는 점수·등급을 바꾸지 않습니다"
-                className="rounded-md border border-border px-2.5 py-1 text-[13px] text-text-primary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                className="rounded-md bg-bg-tertiary px-2.5 py-1 text-[13px] text-text-primary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-50"
               >
                 판단 기준 · {PROFILE_LABEL[activeId]} · 목표 +{goalPct(goal.targetPct)} · {periodLabel(goal.days)}
               </button>
@@ -225,7 +225,7 @@ export default function SwingDashboard({
               관심 종목 전체 분석이라 무겁고, 언제 돌릴지는 사용자가 정한다.
             */}
             {stale && (
-              <p className="flex flex-wrap items-center gap-2 rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
+              <p className="flex flex-wrap items-center gap-2 rounded-lg bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
                 이 결과는 '{PROFILE_LABEL[resultProfile]}' 기준입니다 · 지금은 '
                 {PROFILE_LABEL[activeId]}' 기준
                 <button
@@ -243,20 +243,20 @@ export default function SwingDashboard({
             <CriteriaPanel spec={criteria} />
 
             {!watchlist.length && (
-              <p className="rounded-lg border border-border bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
+              <p className="rounded-xl bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
                 관심 목록이 비어 있습니다. 오른쪽 관심 목록에 종목을 담거나 「종목 검색」 탭에서 한 종목씩
                 점검해 보세요.
               </p>
             )}
 
             {error && (
-              <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-2 text-[13px] text-bearish">
+              <p className="rounded-lg bg-bearish/10 px-3 py-2 text-[13px] text-bearish">
                 {error}
               </p>
             )}
 
             {result?.failures.length ? (
-              <p className="rounded border border-warning/40 bg-warning/10 px-3 py-2 text-[13px] text-warning">
+              <p className="rounded-lg bg-warning/10 px-3 py-2 text-[13px] text-warning">
                 분석하지 못한 종목:{' '}
                 {result.failures.map((f) => `${f.symbol}(${f.error})`).join(' · ')}
               </p>
@@ -276,7 +276,7 @@ export default function SwingDashboard({
             )}
 
             {!result && !loading && !saved.records.length && watchlist.length > 0 && (
-              <p className="rounded-lg border border-border bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
+              <p className="rounded-xl bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
                 「{checkLabel}」 를 누르면 관심 종목을 5가지 조건으로 채점합니다.
               </p>
             )}
@@ -309,7 +309,7 @@ export default function SwingDashboard({
             })}
 
             {rejected.length > 0 && (
-              <details className="rounded-lg border border-border bg-bg-secondary px-3 py-2">
+              <details className="rounded-xl bg-bg-secondary px-3 py-2">
                 <summary className="text-xs font-semibold text-text-secondary">
                   부적합 ({rejected.length}개) — 왜 추천하지 않는지
                 </summary>

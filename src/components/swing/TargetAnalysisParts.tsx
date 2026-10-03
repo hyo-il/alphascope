@@ -64,8 +64,8 @@ export function ResultCard({
   return (
     <div className={`space-y-2 rounded-lg border bg-bg-secondary p-3 text-[13px] ${isNew ? 'border-accent' : 'border-border'}`}>
       <div className="flex flex-wrap items-baseline gap-2">
-        {isNew && <span className="rounded bg-accent px-1.5 py-0.5 text-[13px] font-medium text-white">NEW</span>}
-        <StockName symbol={record.symbol} className="text-sm text-text-primary" />
+        {isNew && <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[13px] text-accent">NEW</span>}
+        <StockName symbol={record.symbol} className="text-sm font-semibold text-text-primary" />
         <span className="text-text-secondary">
           +{record.targetPct}% / −{record.stopPct}% · {record.days}거래일 · 기준 {record.baseDate} 종가{' '}
           {formatPrice(record.entryPrice, currencyOfSymbol(record.symbol))}
@@ -157,7 +157,7 @@ export function ResultCard({
 export function TargetProgressBox({ progress }: { progress: TargetProgress | null }) {
   if (!progress || !(progress.running || progress.results.length > 0)) return null;
   return (
-        <section className="rounded-lg border border-border bg-bg-secondary px-3 py-2 text-[13px]">
+        <section className="rounded-xl bg-bg-secondary px-3 py-2 text-[13px]">
           <div className="mb-1 flex justify-between text-text-secondary">
             <span>
               {progress.running ? `분석 중 ${progress.current ?? ''}` : '최근 실행'} · {progress.done}/{progress.total}
@@ -215,7 +215,7 @@ export function goalLabel(goal: { targetPct: number; stopPct: number; days: numb
  */
 export function TargetRefLine({ record, onMore }: { record: TargetAnalysisRecord; onMore: () => void }) {
   return (
-    <p className="rounded-md border border-border bg-bg-tertiary/40 px-2.5 py-1.5 text-[13px] text-text-secondary">
+    <p className="rounded-lg bg-bg-tertiary/40 px-2.5 py-1.5 text-[13px] text-text-secondary">
       목표 수익 가능성({goalLabel(record)}): 목표 먼저 <span className="text-bullish">{record.pTarget}%</span> · 손절 먼저{' '}
       <span className="text-bearish">{record.pStop}%</span>
       {record.base && <span className="text-text-muted"> (과거 평균 {record.base.target}%)</span>}
@@ -309,7 +309,7 @@ export function TargetHistorySection({
         </div>
         {records === null && !error && <p className="text-[13px] text-text-muted">불러오는 중…</p>}
         {records && shown.length === 0 && (
-          <p className="rounded-lg border border-border bg-bg-secondary p-6 text-center text-xs text-text-muted">
+          <p className="rounded-xl bg-bg-secondary p-6 text-center text-xs text-text-muted">
             {records.length ? '조건에 맞는 기록이 없습니다.' : '아직 분석 기록이 없습니다. 위에서 종목을 골라 분석하세요.'}
           </p>
         )}

@@ -48,14 +48,14 @@ export default function SwingSearch({
       </div>
 
       {!queried && !loading && (
-        <p className="rounded-lg border border-border bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
+        <p className="rounded-xl bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
           종목을 검색하면 추세 · 타이밍 · 모멘텀 · 거래량 · 리스크/리워드 5가지 조건으로 채점하고
           매수가 · 목표가 · 손절가를 제시합니다.
         </p>
       )}
 
       {error && (
-        <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-2 text-[13px] text-bearish">
+        <p className="rounded-lg bg-bearish/10 px-3 py-2 text-[13px] text-bearish">
           {error}
         </p>
       )}
@@ -63,7 +63,7 @@ export default function SwingSearch({
       {recommendation && !loading && (
         <>
           {/* 목표 수익 가능성 — 여기서 실행하지 않고 그 탭으로 보낸다(종목만 체크). 같은 조건의 최근 결과가 있으면 참고 줄 */}
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg-secondary px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2 rounded-xl bg-bg-secondary px-3 py-2">
             <button
               type="button"
               onClick={() => onGoTarget(recommendation.symbol)}
@@ -78,7 +78,7 @@ export default function SwingSearch({
             })()}
           </div>
           {recommendation.rejection && (
-            <p className="rounded border border-warning/40 bg-warning/10 px-3 py-2 text-[13px] text-warning">
+            <p className="rounded-lg bg-warning/10 px-3 py-2 text-[13px] text-warning">
               {GRADE_STYLE[recommendation.grade].label} — 매수 추천 구간이 아닙니다 —{' '}
               {recommendation.rejection}
             </p>

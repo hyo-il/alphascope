@@ -28,7 +28,7 @@ export default function CapturePreview({
 }: Props) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-md border border-border bg-bg-primary p-3">
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-lg bg-bg-primary p-3">
         <img
           src={url}
           alt={`${symbol} ${timeframe} 캡처 미리보기`}
@@ -46,7 +46,7 @@ export default function CapturePreview({
           <button
             type="button"
             onClick={onRetake}
-            className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            className="rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             다시 캡처
           </button>

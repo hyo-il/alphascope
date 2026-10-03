@@ -60,10 +60,10 @@ export default function SavedRecommendations({
               type="button"
               onClick={() => onSelectSymbol(record.symbol)}
               title={`${record.symbol} 차트로 이동`}
-              className="space-y-1.5 rounded-lg border border-border bg-bg-secondary px-3 py-2.5 text-left transition-colors hover:border-accent"
+              className="space-y-1.5 rounded-xl bg-bg-secondary px-3 py-2.5 text-left transition-colors hover:border-accent"
             >
               <div className="flex items-baseline gap-2">
-                <StockName symbol={record.symbol} name={record.name} className="min-w-0 text-sm" />
+                <StockName symbol={record.symbol} name={record.name} className="min-w-0 text-sm font-semibold" />
                 <span className={`ml-auto shrink-0 text-[13px] ${grade.className}`}>
                   {grade.label}
                 </span>
