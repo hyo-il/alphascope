@@ -82,9 +82,13 @@ export default function ManualAnalysis({
    */
   const [autoContext, setAutoContext] = useState<ReturnType<typeof getChartSnapshot> | null>(null);
 
+  /** 자동 캡처 실패 이유 — 전체 모드의 ① 미리보기 자리에 보인다 (v2.34.0) */
+  const [autoError, setAutoError] = useState<string | null>(null);
+
   const openCapture = () => setCaptureContext(getChartSnapshot());
   const startAutoCapture = () => {
     clearCapture(); // 다른 종목·예전 구간의 캡처가 ① 로 복사되지 않게
+    setAutoError(null);
     setAutoContext(getChartSnapshot());
   };
 
@@ -223,6 +227,7 @@ export default function ManualAnalysis({
       drawings={autoContext.drawings}
       initialRange={autoContext.range}
       onClose={() => setAutoContext(null)}
+      onAutoError={setAutoError}
     />
   );
 
@@ -297,6 +302,8 @@ export default function ManualAnalysis({
           promptLabel={edited !== null ? '수정한 프롬프트 복사' : '기본 프롬프트 복사'}
           promptReady={!loading}
           horizontal
+          // 전체 모드에는 차트가 보이지 않는다 — ① 칸에 복사될 그림을 미리 보인다 (v2.34.0). 간단 모드(차트 바로 아래)에는 두지 않는다
+          preview={{ symbol, error: autoError, onRecapture: startAutoCapture }}
         />
 
         <div className="flex flex-wrap items-center gap-2">

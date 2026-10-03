@@ -38,6 +38,8 @@ interface Props {
    * 수동 분석 화면이 열릴 때 미리 찍어 두므로, 복사 버튼은 Blob 만 쓴다(클릭 때 html2canvas 를 돌리면 NotAllowedError).
    */
   auto?: boolean;
+  /** 자동 캡처가 실패했을 때 이유 (v2.34.0 — 미리보기 자리에 보인다. 예전에는 콘솔 경고뿐이었다) */
+  onAutoError?: (message: string) => void;
 }
 
 /** 매 렌더 새 배열이 만들어지지 않도록 고정해 둔다 */
@@ -69,6 +71,7 @@ export default function ChartCaptureModal({
   initialRange,
   onClose,
   auto = false,
+  onAutoError,
 }: Props) {
   const chartRef = useRef<CaptureChartHandle>(null);
   const [toggles, setToggles] = useState<IndicatorToggles>(initialToggles);
@@ -211,7 +214,11 @@ export default function ChartCaptureModal({
         await nextFrame();
         await new Promise((r) => setTimeout(r, 150));
         const element = chartRef.current?.getElement();
-        if (unmounted.current || !element) return;
+        if (unmounted.current) return;
+        if (!element) {
+          onAutoError?.('캡처할 차트를 찾지 못했습니다');
+          return;
+        }
         chartRef.current?.fitToHost(); // 칸 크기에 지금 맞춘다 — 날짜 축이 잘리지 않게 (v2.33.0)
         const { blob, width, height } = await captureElementToBlob(element, 'low');
         if (unmounted.current) return;
@@ -227,6 +234,7 @@ export default function ChartCaptureModal({
         });
       } catch (e) {
         console.warn('[capture] 자동 캡처 실패:', e instanceof Error ? e.message : e);
+        if (!unmounted.current) onAutoError?.(e instanceof Error ? e.message : '캡처에 실패했습니다');
       } finally {
         if (!unmounted.current) onClose();
       }

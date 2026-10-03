@@ -6,6 +6,7 @@ import {
 } from '../../services/analysis/chartCapture';
 import { useCaptureStore } from '../../store/captureStore';
 import { copyText } from '../../services/clipboard';
+import CopyPreview from './CopyPreview';
 
 interface Props {
   symbol: string;
@@ -30,6 +31,11 @@ interface Props {
   horizontal?: boolean;
   /** 맨 위 제목·안내 문장을 그리지 않는다 — 부모가 한 줄로 합쳐 보여 줄 때(차트 하단 탭) */
   hideIntro?: boolean;
+  /**
+   * ① 칸에 「복사될 차트」 미리보기 (v2.34.0, AI 분석 화면만 — 차트 하단 간단 모드는 차트가 바로 위에 보여 넣지 않는다).
+   * 그림은 복사·저장과 **같은 Blob**(`captureStore`). [다시 캡처] 는 기존 자동 캡처(`onRecapture`)를 한 번 더 돌린다.
+   */
+  preview?: { symbol: string | null; error: string | null; onRecapture: () => void };
 }
 
 type StepState =
@@ -96,6 +102,7 @@ export default function CopySteps({
   capturePending = false,
   horizontal = false,
   hideIntro = false,
+  preview,
 }: Props) {
   const capture = useCaptureStore((s) => s.capture);
   // HTTPS 를 붙이면 코드 수정 없이 원래 복사 방식으로 돌아온다 (호스트·IP 로 판단하지 않는다)
@@ -211,6 +218,79 @@ export default function CopySteps({
                 : capturePending
                   ? '지금 보고 있는 차트를 캡처하고 있습니다…'
                   : '먼저 차트를 캡처하세요.',
+              preview ? (
+                <div className="space-y-1.5">
+                  <CopyPreview
+                    capture={capture}
+                    symbol={preview.symbol}
+                    pending={capturePending}
+                    error={preview.error}
+                    onRecapture={preview.onRecapture}
+                  />
+                  {(capture || (!capturePending && !preview.error)) && (
+                    capture && !secure ? (
+                      <div className="space-y-1.5">
+                        <button
+                          type="button"
+                          onClick={handleDownload}
+                          className="w-full rounded-md border border-border bg-bg-secondary px-2 py-1.5 text-xs text-text-primary transition-colors hover:bg-bg-tertiary"
+                        >
+                          💾 PNG로 저장해서 첨부하기
+                        </button>
+                        <StatusLabel state={imageStep} />
+                        <p className="text-[13px] leading-relaxed text-text-muted">
+                          {horizontal ? '이미지 복사가 안 됩니다(HTTP) — PNG 로 저장해 끌어 넣기' : INSECURE_NOTE}
+                        </p>
+                      </div>
+                    ) : capture ? (
+                      <div className="space-y-1.5">
+                        <button
+                          type="button"
+                          onClick={() => void handleImage()}
+                          disabled={busy}
+                          className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+                        >
+                          📸 {captureLabel}
+                        </button>
+                        <StatusLabel state={imageStep} />
+                        {imageStep.kind === 'failed' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={handleDownload}
+                              className="w-full rounded-md border border-border px-2 py-1.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                            >
+                              💾 PNG로 저장해서 첨부하기
+                            </button>
+                            <p className="text-[13px] leading-relaxed text-text-muted">
+                              저장한 파일을 Claude 대화창에 드래그해 넣으세요.
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onOpenCapture}
+                        disabled={capturePending}
+                        className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+                      >
+                        {capturePending ? '캡처 준비 중…' : '📷 차트 캡처하기'}
+                      </button>
+                    )
+                  )}
+                  {capture && (
+                    <button
+                      type="button"
+                      onClick={preview.onRecapture}
+                      disabled={capturePending}
+                      className="text-[13px] text-text-muted underline transition-colors hover:text-text-primary disabled:opacity-50"
+                    >
+                      다시 캡처
+                    </button>
+                  )}
+                </div>
+              ) : (
               capture && !secure ? (
                 <div className="space-y-1.5">
                   <button
@@ -260,6 +340,7 @@ export default function CopySteps({
                 >
                   {capturePending ? '캡처 준비 중…' : '📷 차트 캡처하기'}
                 </button>
+              )
               ),
             )}
             {arrow}
