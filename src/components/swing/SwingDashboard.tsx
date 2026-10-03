@@ -168,7 +168,7 @@ export default function SwingDashboard({
                 type="button"
                 onClick={analyze}
                 disabled={loading || !watchlist.length}
-                className="ml-auto rounded bg-accent px-2.5 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+                className="ml-auto shrink-0 whitespace-nowrap rounded bg-accent px-2.5 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
               >
                 {loading ? '분석 중…' : '🔄 다시 분석'}
               </button>

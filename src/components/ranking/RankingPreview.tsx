@@ -183,14 +183,14 @@ export default function RankingPreview({
         )}
       </div>
       <footer className="flex shrink-0 items-center justify-between border-t border-border px-3 py-2">
-        <span className="text-[13px] text-text-muted">
+        <span className="min-w-0 text-[13px] text-text-muted">
           {PREVIEW_TIMEFRAMES.find((t) => t.id === timeframe)!.label}봉 · 캔들 + 거래량 + 이동평균(5·20·60)
         </span>
         <button
           type="button"
           disabled={!row}
           onClick={() => row && onOpen(row.symbol)}
-          className="rounded bg-accent px-3 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+          className="shrink-0 whitespace-nowrap rounded bg-accent px-3 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
         >
           차트로 열기
         </button>

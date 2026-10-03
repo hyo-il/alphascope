@@ -640,13 +640,13 @@ export default function StrategyProfileModal({
         </div>
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">
-          <span className="text-[13px] text-text-muted">
+          <span className="min-w-0 text-[13px] text-text-muted">
             저장해도 이미 나온 추천은 바뀌지 않습니다 — 다시 분석해야 새 기준으로 채점됩니다.
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="ml-auto rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            className="shrink-0 whitespace-nowrap ml-auto rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
           >
             취소
           </button>
@@ -654,7 +654,7 @@ export default function StrategyProfileModal({
             type="button"
             onClick={() => void submit()}
             disabled={saving}
-            className="rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+            className="shrink-0 whitespace-nowrap rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
           >
             {saving ? '저장 중…' : '저장'}
           </button>

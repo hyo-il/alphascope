@@ -94,7 +94,7 @@ export default function ModalHost() {
               type="button"
               onClick={cancel}
               disabled={busy}
-              className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40"
+              className="shrink-0 whitespace-nowrap rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40"
             >
               {request.cancelText ?? '취소'}
             </button>
@@ -104,7 +104,7 @@ export default function ModalHost() {
             onClick={() => void accept()}
             disabled={busy}
             autoFocus
-            className={`rounded-md px-4 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-40 ${
+            className={`shrink-0 whitespace-nowrap rounded-md px-4 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-40 ${
               request.danger ? 'bg-bearish hover:brightness-110' : 'bg-accent hover:bg-accent-hover'
             }`}
           >

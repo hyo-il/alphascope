@@ -625,7 +625,7 @@ export default function DiagnoseView() {
               type="button"
               onClick={() => void run()}
               disabled={running}
-              className="rounded bg-accent px-2.5 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+              className="shrink-0 whitespace-nowrap rounded bg-accent px-2.5 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {running ? '실행 중…' : '▶ 진단 실행'}
             </button>

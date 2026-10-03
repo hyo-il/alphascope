@@ -333,20 +333,20 @@ export default function AutoTradeWizard({
         {/* 닫기 확인 — 새 계좌는 이미 만들어졌다 */}
         {closing && created && (
           <div className="flex shrink-0 items-center gap-2 border-t border-warning/40 bg-warning/10 px-4 py-2 text-[13px] text-warning">
-            <span>
+            <span className="min-w-0">
               새 계좌 「{created.name}」 는 이미 만들어져 남습니다. 자동매매 설정은 저장하지 않고 닫을까요?
             </span>
             <button
               type="button"
               onClick={onClose}
-              className="ml-auto rounded border border-warning px-2 py-0.5 hover:bg-warning/10"
+              className="shrink-0 whitespace-nowrap ml-auto rounded border border-warning px-2 py-0.5 hover:bg-warning/10"
             >
               닫기
             </button>
             <button
               type="button"
               onClick={() => setClosing(false)}
-              className="rounded border border-border px-2 py-0.5 text-text-secondary hover:bg-bg-tertiary"
+              className="shrink-0 whitespace-nowrap rounded border border-border px-2 py-0.5 text-text-secondary hover:bg-bg-tertiary"
             >
               계속하기
             </button>
@@ -354,13 +354,13 @@ export default function AutoTradeWizard({
         )}
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">
-          <span className="text-[13px] text-text-muted">
+          <span className="min-w-0 text-[13px] text-text-muted">
             자동매매 설정은 [켜기] 를 눌러야 저장됩니다{created ? ' (새 계좌는 만들 때 바로 생겼습니다)' : ''}.
           </span>
           <button
             type="button"
             onClick={requestClose}
-            className="ml-auto rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            className="shrink-0 whitespace-nowrap ml-auto rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
           >
             취소
           </button>
@@ -368,7 +368,7 @@ export default function AutoTradeWizard({
             <button
               type="button"
               onClick={() => setStep((s) => (s - 1) as Step)}
-              className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+              className="shrink-0 whitespace-nowrap rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
             >
               이전
             </button>
@@ -378,7 +378,7 @@ export default function AutoTradeWizard({
               type="button"
               onClick={() => setStep((s) => (s + 1) as Step)}
               disabled={!canNext}
-              className="rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+              className="shrink-0 whitespace-nowrap rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               다음
             </button>
@@ -387,7 +387,7 @@ export default function AutoTradeWizard({
               type="button"
               onClick={() => void turnOn()}
               disabled={busy || !draft}
-              className="rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+              className="shrink-0 whitespace-nowrap rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {busy ? '켜는 중…' : '켜기'}
             </button>

@@ -72,7 +72,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="rounded border border-warning/60 px-2 py-0.5 text-[13px] text-warning transition-colors hover:bg-warning/10"
+              className="shrink-0 whitespace-nowrap rounded border border-warning/60 px-2 py-0.5 text-[13px] text-warning transition-colors hover:bg-warning/10"
             >
               설정 열기
             </button>
@@ -141,7 +141,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="rounded border border-border px-2 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+            className="shrink-0 whitespace-nowrap rounded border border-border px-2 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
           >
             자동매매 설정
           </button>
@@ -153,7 +153,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
               ⚠️ 끄기는 **빨강**이다. 돌고 있는 자동매매를 멈추는 동작이라, 켜기와 같은 무게로
               보이면 안 된다 — 눌러 놓고 "왜 안 도나" 를 찾게 된다.
             */
-            className={`rounded px-3 py-1 text-[13px] font-medium transition-colors disabled:opacity-50 ${
+            className={`shrink-0 whitespace-nowrap rounded px-3 py-1 text-[13px] font-medium transition-colors disabled:opacity-50 ${
               on
                 ? 'bg-bearish text-white hover:bg-bearish/90'
                 : 'bg-accent text-white hover:bg-accent-hover'

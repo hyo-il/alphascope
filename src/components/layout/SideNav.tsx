@@ -82,7 +82,7 @@ export default function SideNav({
               key={sub.id}
               type="button"
               onClick={() => onSelectPage(sub.id)}
-              className={`block w-full px-3 py-1.5 text-left text-xs transition-colors ${
+              className={`block w-full whitespace-nowrap px-3 py-1.5 text-left text-xs transition-colors ${
                 page === sub.id
                   ? 'bg-accent/10 text-accent'
                   : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
@@ -134,7 +134,7 @@ export default function SideNav({
               key={sub.id}
               type="button"
               onClick={() => onSelectPage(sub.id)}
-              className={`block w-full py-1.5 pl-10 pr-2 text-left text-xs transition-colors ${
+              className={`block w-full whitespace-nowrap py-1.5 pl-10 pr-2 text-left text-xs transition-colors ${
                 page === sub.id
                   ? 'bg-accent/5 text-accent'
                   : 'text-text-muted hover:bg-bg-tertiary/60 hover:text-text-primary'

@@ -474,13 +474,13 @@ export default function DiscoverSymbolsModal({
         </div>
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">
-          <span className="text-[13px] text-text-muted">
+          <span className="min-w-0 text-[13px] text-text-muted">
             담아도 자동매매가 곧바로 돌지는 않습니다 — 설정을 저장해야 반영됩니다.
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="ml-auto rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            className="shrink-0 whitespace-nowrap ml-auto rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
           >
             취소
           </button>
@@ -488,7 +488,7 @@ export default function DiscoverSymbolsModal({
             type="button"
             onClick={add}
             disabled={!selected.length}
-            className="rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+            className="shrink-0 whitespace-nowrap rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
           >
             선택한 {selected.length}종목 담기
           </button>
