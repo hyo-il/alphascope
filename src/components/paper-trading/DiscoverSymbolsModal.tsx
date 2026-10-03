@@ -152,11 +152,14 @@ export default function DiscoverSymbolsModal({
           toast.info('관심 목록이 비어 있어 다시 분석할 수 없습니다');
           return;
         }
-        const data = await fetch('/api/swing/analyze', {
+        const res = await fetch('/api/swing/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ symbols: watchlist }),
-        }).then((r) => r.json());
+        });
+        const data = await res.json().catch(() => ({}));
+        // 실패를 "기준을 통과한 종목이 없습니다" 로 보이지 않는다 (v2.34.1) — 아래 catch 가 오류 알림을 띄운다
+        if (!res.ok) throw new Error(data.error ?? `요청 실패 (${res.status})`);
         const all: SwingRecommendation[] = data.recommendations ?? [];
         setRowsProfile(all[0]?.profile ?? activeId);
         setNote(`관심 목록 ${watchlist.length}종목을 다시 채점했습니다`);

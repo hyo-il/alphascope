@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 // 키 문자열을 여기에 다시 적지 않는다 — 옛 키만 지워 '비우기' 가 동작하지 않던 원인이다.
 import { RECENT_KEY, WATCHLIST_KEYS } from '../../hooks/useWatchlist';
 import { CHANGELOG } from '../../data/changelog';
-import { modal } from '../../store/uiStore';
+import { modal, toast } from '../../store/uiStore';
 import { AUTH_REQUIRED_EVENT } from '../../hooks/useAuth';
 
 interface Props {
@@ -210,7 +210,13 @@ function AuthSection() {
       onConfirm: async () => {
         setBusy(true);
         try {
-          await fetch('/api/auth/logout-all', { method: 'POST' });
+          const res = await fetch('/api/auth/logout-all', { method: 'POST' }).catch(() => null);
+          // ⚠️ 실패하면 다른 기기의 세션은 그대로다 — 이 창만 로그인 화면으로 보내면 끊긴 것처럼 보인다 (v2.34.1)
+          if (!res?.ok) {
+            const body = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
+            toast.error('다른 기기를 로그아웃하지 못했습니다', body?.error ?? (res ? `요청 실패 (${res.status})` : '서버에 연결하지 못했습니다'));
+            return;
+          }
           // 다음 요청이 401 을 받으면 fetch 래퍼가 로그인 화면으로 돌린다.
           window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
         } finally {

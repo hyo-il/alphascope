@@ -92,9 +92,14 @@ export default function AnalysisHistory({
 
   const load = useCallback(async () => {
     const url = onlyThisSymbol ? `/api/analysis?symbol=${symbol}` : '/api/analysis';
-    const res = await fetch(url);
-    const data = await res.json();
-    setRecords(data.analyses ?? []);
+    // ⚠️ 불러오기 실패를 "기록 없음" 으로 보이지 않는다 (v2.34.1) — 목록은 그대로 두고 알린다
+    const res = await fetch(url).catch(() => null);
+    const data = (await res?.json().catch(() => ({}))) as { analyses?: AnalysisRecord[]; error?: string } | undefined;
+    if (!res?.ok) {
+      toast.error('분석 기록을 불러오지 못했습니다', data?.error ?? (res ? `요청 실패 (${res.status})` : '서버에 연결하지 못했습니다'));
+      return;
+    }
+    setRecords(data?.analyses ?? []);
   }, [symbol, onlyThisSymbol]);
 
   useEffect(() => {
@@ -112,7 +117,11 @@ export default function AnalysisHistory({
 
   const handleSave = async () => {
     if (!draft.trim()) return;
-    await fetch('/api/analysis', {
+    /*
+     * ⚠️ 저장이 실패하면 붙여넣은 글을 지우지 않는다 (v2.34.1) — 예전에는 응답을 보지 않고 입력칸을 비워,
+     * 실패해도 글이 사라지고 아무 표시가 없었다. 성공하면 목록에 바로 보이므로 따로 알리지 않는다.
+     */
+    const res = await fetch('/api/analysis', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -125,7 +134,12 @@ export default function AnalysisHistory({
         mode,
         prompt,
       }),
-    });
+    }).catch(() => null);
+    if (!res?.ok) {
+      const body = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
+      toast.error('기록을 저장하지 못했습니다 — 붙여넣은 글은 그대로 있습니다', body?.error ?? (res ? `요청 실패 (${res.status})` : '서버에 연결하지 못했습니다'));
+      return;
+    }
     setDraft('');
     await load();
   };
