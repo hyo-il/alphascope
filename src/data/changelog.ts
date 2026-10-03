@@ -23,6 +23,16 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.34.1',
+    date: '2026-10-03',
+    title: '지우기 전 확인 창 · 실패 알림',
+    description: '되돌릴 수 없는 지우기 전에 한 번 더 묻고, 저장·삭제가 실패하면 알려 줍니다.',
+    changes: [
+      '최근 조회 「기록 모두 지우기」 등 되돌릴 수 없는 지우기 전에 확인 창을 띄웁니다.',
+      '저장·삭제가 실패하면 알려 줍니다.',
+    ],
+  },
+  {
     version: 'v2.34.0',
     date: '2026-10-03',
     title: '글씨 −1px · 복사될 차트 미리보기 · 줄바꿈 정리',
