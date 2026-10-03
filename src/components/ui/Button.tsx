@@ -1,8 +1,9 @@
-import { forwardRef, type ButtonHTMLAttributes, type ComponentType, type ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { ICON, ICON_SM } from './icon';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
-type IconType = ComponentType<{ size?: number; strokeWidth?: number; 'aria-hidden'?: boolean }>;
+type IconType = LucideIcon;
 
 const VARIANT: Record<Variant, string> = {
   // 파란색은 그 화면의 **주요 실행 버튼 하나**에만 (디자인 규칙 2)

@@ -1,3 +1,5 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { IconButton, InfoTip } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import StockName from '../common/StockName';
@@ -102,22 +104,18 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
         <header className="flex flex-wrap items-center gap-2">
           <h2 className="text-sm font-semibold text-text-primary">일정</h2>
           <div className="flex items-center gap-1">
-            <button type="button" onClick={() => move(-1)} className="rounded border border-border px-2 py-0.5 text-xs text-text-secondary hover:text-text-primary" aria-label="이전 달">
-              ‹
-            </button>
+            <IconButton icon={ChevronLeft} label="이전 달" size="sm" onClick={() => move(-1)} />
             <span className="w-24 text-center text-xs font-medium tabular-nums text-text-primary">
               {month.y}년 {month.m}월
             </span>
-            <button type="button" onClick={() => move(1)} className="rounded border border-border px-2 py-0.5 text-xs text-text-secondary hover:text-text-primary" aria-label="다음 달">
-              ›
-            </button>
+            <IconButton icon={ChevronRight} label="다음 달" size="sm" onClick={() => move(1)} />
             <button
               type="button"
               onClick={() => {
                 setMonth({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) });
                 setSelected(today);
               }}
-              className="ml-1 rounded border border-border px-2 py-0.5 text-[13px] text-text-secondary hover:text-text-primary"
+              className="ml-1 rounded-md bg-bg-tertiary px-2 py-0.5 text-[13px] text-text-secondary hover:bg-bg-elevated hover:text-text-primary"
             >
               오늘
             </button>
@@ -129,8 +127,8 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
                 key={t.id}
                 type="button"
                 onClick={() => setFilters((f) => ({ ...f, [t.id]: !f[t.id] }))}
-                className={`flex items-center gap-1 rounded border px-2 py-0.5 text-[13px] transition-colors ${
-                  filters[t.id] ? 'border-accent/60 bg-accent/10 text-text-primary' : 'border-border text-text-muted'
+                className={`flex items-center gap-1 rounded-md px-2 py-0.5 text-[13px] transition-colors ${
+                  filters[t.id] ? 'border-transparent bg-bg-elevated text-text-primary' : 'border-transparent bg-bg-tertiary text-text-muted hover:text-text-primary'
                 }`}
               >
                 <span className={`h-1.5 w-1.5 rounded-full ${t.dot}`} aria-hidden />
@@ -149,7 +147,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
         </header>
 
         {/* 이번 주 요약 한 줄 */}
-        <p className="rounded border border-border bg-bg-secondary px-3 py-1.5 text-[13px] text-text-secondary">
+        <p className="rounded-xl bg-bg-secondary px-3 py-2 text-[13px] text-text-secondary">
           <span className="text-text-muted">이번 주({shortDate(weekStart)}~{shortDate(weekEnd)}) · </span>
           {thisWeek.length
             ? thisWeek.map((e) => `${eventText(e)} ${shortDate(e.date)}`).join(' · ')
@@ -157,20 +155,20 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
         </p>
 
         {data?.meta.fomcStale && (
-          <p className="rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
+          <p className="rounded-lg bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
             FOMC 일정 갱신 필요 — 달력의 FOMC 는 2027년까지만 들어 있습니다 (src/data/fomc.ts)
           </p>
         )}
         {data?.meta.nyse.stale && (
-          <p className="rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
+          <p className="rounded-lg bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
             휴장 상수 갱신 필요 — NYSE 휴장 표는 2027년까지만 들어 있습니다 (src/data/nyseHolidays.ts)
           </p>
         )}
-        {error && <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-1.5 text-[13px] text-bearish">{error}</p>}
+        {error && <p className="rounded-lg bg-bearish/10 px-3 py-1.5 text-[13px] text-bearish">{error}</p>}
 
         <div className="grid gap-3 [grid-template-columns:minmax(0,1fr)_300px]">
           {/* 월 달력 */}
-          <div className="rounded-lg border border-border bg-bg-secondary p-2">
+          <div className="rounded-xl bg-bg-secondary p-2">
             <div className="grid grid-cols-7 text-center text-[13px] text-text-muted">
               {WEEKDAYS.map((w, i) => (
                 <div key={w} className={`py-1 ${i === 0 ? 'text-bearish/80' : ''}`}>
@@ -191,12 +189,12 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
                     type="button"
                     onClick={() => setSelected(day)}
                     className={`flex h-16 flex-col items-start rounded p-1 text-left transition-colors ${
-                      isSelected ? 'bg-accent/15 ring-1 ring-accent/60' : 'hover:bg-bg-tertiary/60'
+                      isSelected ? 'bg-bg-elevated' : 'hover:bg-bg-tertiary/60'
                     } ${inMonth ? '' : 'opacity-40'}`}
                   >
                     <span
                       className={`text-[13px] tabular-nums ${
-                        isToday ? 'rounded bg-accent px-1 font-semibold text-white' : 'text-text-secondary'
+                        isToday ? 'rounded bg-text-primary px-1 font-semibold text-bg-primary' : 'text-text-secondary'
                       }`}
                     >
                       {Number(day.slice(8, 10))}
@@ -214,10 +212,10 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
           </div>
 
           {/* 고른 날의 목록 */}
-          <div className="rounded-lg border border-border bg-bg-secondary p-3">
+          <div className="rounded-xl bg-bg-secondary p-3">
             <p className="mb-2 text-xs font-semibold text-text-primary">
               {Number(selected.slice(5, 7))}월 {Number(selected.slice(8, 10))}일
-              {selected === today && <span className="ml-1 text-[13px] font-normal text-accent">오늘</span>}
+              {selected === today && <span className="ml-1 text-[13px] font-normal text-text-secondary">오늘</span>}
             </p>
             {dayEvents.length === 0 ? (
               <p className="text-[13px] text-text-muted">이날 일정이 없습니다.</p>
@@ -246,13 +244,16 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
           </div>
         </div>
 
-        <p className="text-[13px] leading-relaxed text-text-muted">
+        {/* 데이터 출처 설명은 정보 아이콘으로 (v2.36.0 디자인 규칙 6) */}
+        <p className="flex items-center gap-1 text-[13px] text-text-muted">
+          데이터 출처{data && ` · 실적 대상 ${data.meta.scopeSize}종목`}
+          <InfoTip label="데이터 출처">
           실적일은 yfinance 기준이며 회사가 확정하기 전의 추정일일 수 있습니다(「예정」). FOMC 는 연준 공식 일정표.
           옵션 만기는 매월 셋째 금요일(휴장이면 그 전 거래일), 3·6·9·12월은 분기 동시 만기입니다.
           {holidaysAvailable
             ? ` 휴장일은 토스 시장 달력 기준이고, 미국은 NYSE 공식 일정(${data?.meta.nyse.coverage.to.slice(0, 4) ?? '2027'}년까지)으로 보완합니다 — 둘 중 하나라도 휴장이면 휴장으로 표시합니다.`
             : ' 휴장일은 아직 받지 못해 표시하지 않습니다.'}
-          {data && ` · 실적 대상 ${data.meta.scopeSize}종목`}
+          </InfoTip>
         </p>
         {!!data?.meta.nyse.mismatches.length && (
           <p className="text-[13px] text-warning">

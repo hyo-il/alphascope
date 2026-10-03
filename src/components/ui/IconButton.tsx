@@ -1,7 +1,8 @@
-import { forwardRef, type ButtonHTMLAttributes, type ComponentType } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import { ICON, ICON_SM } from './icon';
 
-type IconType = ComponentType<{ size?: number; strokeWidth?: number; 'aria-hidden'?: boolean }>;
+type IconType = LucideIcon;
 
 /**
  * 아이콘만 있는 버튼 (v2.36.0) — **`label` 이 필수**다(`aria-label` 과 툴팁에 함께 쓴다).
