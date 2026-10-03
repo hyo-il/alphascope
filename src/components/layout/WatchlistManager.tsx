@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { GripVertical, Pencil } from 'lucide-react';
 import { useFlipReorder } from '../../hooks/useFlipReorder';
 import SyncStatusLine from './SyncStatusLine';
 import type { useWatchlist } from '../../hooks/useWatchlist';
@@ -19,19 +20,6 @@ import { formatPercent } from '../../utils/formatters';
  *
  * **저장/취소를 두지 않았다.** 모든 변경은 즉시 localStorage 에 반영된다.
  */
-
-function GripIcon({ className = '' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 10 16" fill="currentColor" className={className} aria-hidden>
-      <circle cx="3" cy="3" r="1.2" />
-      <circle cx="7" cy="3" r="1.2" />
-      <circle cx="3" cy="8" r="1.2" />
-      <circle cx="7" cy="8" r="1.2" />
-      <circle cx="3" cy="13" r="1.2" />
-      <circle cx="7" cy="13" r="1.2" />
-    </svg>
-  );
-}
 
 /** 정렬 방식. '수익률순' 은 시세가 필요해 그때만 폴링한다. */
 type SortMode = 'manual' | 'name' | 'change';
@@ -338,8 +326,9 @@ export default function WatchlistManager({
                             : 'border-transparent hover:bg-bg-tertiary/50'
                         }`}
                       >
-                        <span className="pl-1.5 text-text-muted" aria-hidden>
-                          <GripIcon className="h-4 w-3" />
+                        {/* 손잡이 — 마우스를 올리면 끄는 법과 키보드 대체를 알린다 (v2.35.0, 예전 맨 아래 안내 줄 대신) */}
+                        <span className="pl-1 text-text-muted" title="끌어서 순서 바꾸기 (Alt + ↑/↓ 로도 이동)">
+                          <GripVertical size={14} aria-hidden />
                         </span>
 
                         <button
@@ -364,6 +353,24 @@ export default function WatchlistManager({
                           </span>
                         </button>
 
+                        {/*
+                          이름 바꾸기 — 더블클릭과 같은 동작 (v2.35.0). 더블클릭은 알려 주지 않으면 모른다 — 연필을 늘 옅게 보인다.
+                          미분류(기본 폴더)·「전체 종목」 보기에는 없다(이름을 바꿀 수 없다).
+                        */}
+                        {!isDefault && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDraft(f.name);
+                              setRenaming(f.id);
+                            }}
+                            title="이름 바꾸기"
+                            aria-label="이름 바꾸기"
+                            className="shrink-0 rounded p-1 text-text-muted opacity-50 transition-all hover:text-accent hover:opacity-100 focus:opacity-100"
+                          >
+                            <Pencil size={14} aria-hidden />
+                          </button>
+                        )}
                         {!isDefault && (
                           <button
                             type="button"
@@ -419,9 +426,6 @@ export default function WatchlistManager({
               )}
             </div>
 
-            <p className="shrink-0 border-t border-border px-3 py-2 text-[13px] leading-snug text-text-muted">
-              더블클릭: 이름 변경 · 끌어서 순서 변경 · Alt + ↑↓ 로도 이동
-            </p>
           </nav>
 
           {/* ── 우: 선택한 그룹의 종목 ───────────────────── */}
@@ -629,7 +633,7 @@ export default function WatchlistManager({
                             sort === 'manual' ? '' : 'cursor-not-allowed opacity-30'
                           }`}
                         >
-                          <GripIcon className="h-4 w-2.5" />
+                          <GripVertical size={14} aria-hidden />
                         </span>
 
                         <input
