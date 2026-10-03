@@ -57,7 +57,7 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
                         {peer.name ?? peer.symbol}
                       </span>
                       {peer.name && (
-                        <span className="ml-1.5 text-[14px] text-text-muted">{peer.symbol}</span>
+                        <span className="ml-1.5 text-[13px] text-text-muted">{peer.symbol}</span>
                       )}
                     </td>
                     <td className="py-1 px-2 text-right">{formatCompactMoney(peer.marketCap, peer.currency)}</td>

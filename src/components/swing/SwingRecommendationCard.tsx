@@ -42,7 +42,7 @@ export default function SwingRecommendationCard({
         {pick}
         <span>{grade.icon}</span>
         <StockName symbol={recommendation.symbol} name={recommendation.name} className="text-sm" />
-        <span className="text-[14px] text-text-secondary">
+        <span className="text-[13px] text-text-secondary">
           {currency === 'KRW'
             ? `₩${Math.round(recommendation.currentPrice).toLocaleString('ko-KR')}`
             : `$${recommendation.currentPrice.toFixed(2)}`}
@@ -58,7 +58,7 @@ export default function SwingRecommendationCard({
       */}
       <div className="mt-3 space-y-4">
         <section>
-          <h4 className="mb-1.5 text-[14px] font-semibold text-text-secondary">5가지 조건</h4>
+          <h4 className="mb-1.5 text-[13px] font-semibold text-text-secondary">5가지 조건</h4>
           <ConditionGauge
             conditions={{
               trend: conditions.trend,
@@ -72,13 +72,13 @@ export default function SwingRecommendationCard({
         </section>
 
         <section>
-          <h4 className="mb-1.5 text-[14px] font-semibold text-text-secondary">
+          <h4 className="mb-1.5 text-[13px] font-semibold text-text-secondary">
             📋 매매 계획 · {ENTRY_LABEL[recommendation.entry.type]}
           </h4>
           <TradePlan plan={recommendation} currency={currency} />
 
           {/* 값이 잘리면 매매 계획이 아니게 된다 — 줄임표 대신 줄바꿈으로 다 보여 준다 */}
-          <dl className="mt-3 space-y-1.5 rounded-md border border-border/60 p-2.5 text-[14px] text-text-secondary">
+          <dl className="mt-3 space-y-1.5 rounded-md border border-border/60 p-2.5 text-[13px] text-text-secondary">
             <Row label="리스크/리워드" value={`1 : ${conditions.riskReward.ratio}`} />
             <Row label="권장 비중" value={`총자산의 ${recommendation.position.recommendedPercent}%`} />
             <Row
@@ -87,19 +87,19 @@ export default function SwingRecommendationCard({
             />
             <Row label="손절 근거" value={recommendation.stopLoss.reason} />
           </dl>
-          <p className="mt-1.5 text-[14px] leading-relaxed text-text-muted">
+          <p className="mt-1.5 text-[13px] leading-relaxed text-text-muted">
             {recommendation.position.reason}
           </p>
         </section>
 
         <section>
-          <h4 className="mb-1.5 text-[14px] font-semibold text-text-secondary">💡 매수 이유</h4>
+          <h4 className="mb-1.5 text-[13px] font-semibold text-text-secondary">💡 매수 이유</h4>
           {/* 두세 줄까지 자리를 미리 잡아 둔다 — 카드마다 높이가 들쭉날쭉하면 훑기 어렵다 */}
           <div className="min-h-[3rem] space-y-1">
-            <p className="text-[14px] leading-relaxed text-text-primary">
+            <p className="text-[13px] leading-relaxed text-text-primary">
               {recommendation.entry.reason}
             </p>
-            <p className="text-[14px] leading-relaxed text-text-muted">
+            <p className="text-[13px] leading-relaxed text-text-muted">
               {recommendation.entry.detailedReason}
             </p>
           </div>
@@ -108,11 +108,11 @@ export default function SwingRecommendationCard({
 
       <div className="mt-3 space-y-1.5">
         {recommendation.warnings.map((warning) => (
-          <p key={warning} className="text-[14px] leading-relaxed text-warning">
+          <p key={warning} className="text-[13px] leading-relaxed text-warning">
             ⚠️ {warning}
           </p>
         ))}
-        <p className="text-[14px] leading-relaxed text-text-secondary">
+        <p className="text-[13px] leading-relaxed text-text-secondary">
           🚫 무효 조건: {recommendation.invalidation}
         </p>
       </div>
@@ -155,4 +155,4 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 const BUTTON =
-  'rounded border border-border px-2 py-1 text-[14px] text-text-secondary transition-colors hover:border-accent hover:text-accent';
+  'rounded border border-border px-2 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent';

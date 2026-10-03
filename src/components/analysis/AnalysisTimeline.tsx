@@ -263,7 +263,7 @@ export default function AnalysisTimeline({
           {source === 'all' ? '총' : '표시'} {shown.length}건 (Gemini {gemini.length} · Claude {claude.length})
         </span>
         {highlightSince && (
-          <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[14px] text-accent">
+          <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[13px] text-accent">
             방금 분석한 결과를 표시하고 있습니다
           </span>
         )}
@@ -299,7 +299,7 @@ export default function AnalysisTimeline({
             Gemini만 삭제 ({gemini.length})
           </button>
           {onlyThisSymbol && symbol && (
-            <span className="text-[14px] text-text-muted">— {symbol} 종목만 지웁니다</span>
+            <span className="text-[13px] text-text-muted">— {symbol} 종목만 지웁니다</span>
           )}
         </div>
       )}

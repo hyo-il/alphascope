@@ -262,7 +262,7 @@ export default function SymbolSearch({
                   )}
                 </span>
                 <span
-                  className={`shrink-0 rounded px-1 py-0.5 text-[14px] ${
+                  className={`shrink-0 rounded px-1 py-0.5 text-[13px] ${
                     US_MARKETS.has(result.market)
                       ? 'bg-accent/15 text-accent'
                       : 'bg-bg-tertiary text-text-muted'
@@ -271,7 +271,7 @@ export default function SymbolSearch({
                   {US_MARKETS.has(result.market) ? 'US' : (MARKET_LABEL[result.market] ?? result.market)}
                 </span>
                 {isAdded?.(result.symbol) && (
-                  <span className="shrink-0 text-[14px] text-text-muted">추가됨</span>
+                  <span className="shrink-0 text-[13px] text-text-muted">추가됨</span>
                 )}
               </button>
             </li>

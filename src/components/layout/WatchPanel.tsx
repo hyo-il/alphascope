@@ -132,11 +132,11 @@ export default function WatchPanel({
 
         <span className="flex flex-col items-center gap-0.5 text-warning">
           <StarIcon className="h-5 w-5" />
-          <span className="text-[14px] tabular-nums text-text-secondary">{watchlist.length}</span>
+          <span className="text-[13px] tabular-nums text-text-secondary">{watchlist.length}</span>
         </span>
 
         <span
-          className="text-[14px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
+          className="text-[13px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
           style={{ writingMode: 'vertical-rl' }}
         >
           관심
@@ -146,11 +146,11 @@ export default function WatchPanel({
 
         <span className="flex flex-col items-center gap-0.5 text-text-muted">
           <ClockIcon className="h-5 w-5" />
-          <span className="text-[14px] tabular-nums text-text-secondary">{recent.length}</span>
+          <span className="text-[13px] tabular-nums text-text-secondary">{recent.length}</span>
         </span>
 
         <span
-          className="text-[14px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
+          className="text-[13px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
           style={{ writingMode: 'vertical-rl' }}
         >
           최근
@@ -163,7 +163,7 @@ export default function WatchPanel({
         </span>
 
         <span
-          className="text-[14px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
+          className="text-[13px] leading-tight tracking-widest text-text-secondary transition-colors group-hover:text-text-primary"
           style={{ writingMode: 'vertical-rl' }}
         >
           계좌
@@ -173,7 +173,7 @@ export default function WatchPanel({
   }
 
   return (
-    <aside className="flex w-[280px] shrink-0 flex-col border-l border-border bg-bg-secondary">
+    <aside className="flex w-[250px] shrink-0 flex-col border-l border-border bg-bg-secondary">
       <div className="flex items-center border-b border-border">
         {(
           [
@@ -317,7 +317,7 @@ export default function WatchPanel({
                         ? `${quote.stale ? '· ' : ''}${formatPrice(quote.price, quote.currency)}`
                         : '—'}
                     </span>
-                    <span className={`block text-[14px] tabular-nums ${color}`}>
+                    <span className={`block text-[13px] tabular-nums ${color}`}>
                       {rate == null ? '—' : formatPercent(rate)}
                     </span>
                   </span>
@@ -344,7 +344,7 @@ export default function WatchPanel({
       </div>
 
       {tab === 'account' ? (
-        <p className="border-t border-border px-3 py-2 text-[14px] text-text-muted">
+        <p className="border-t border-border px-3 py-2 text-[13px] text-text-muted">
           모의투자 계좌의 현재 상태입니다. 거래는 차트의 빠른주문에서 진행하세요.
         </p>
       ) : tab === 'watch' ? (
@@ -376,15 +376,24 @@ export default function WatchPanel({
         )
       )}
 
-      <p className="border-t border-border px-3 py-1.5 text-[14px] leading-relaxed text-text-muted">
+      {/*
+        ⚠️ 짧은 안내는 단어 중간에서 끊기지 않게 한다 (v2.34.0) — 사용자가 "작다" 고 한 것은 크기가 아니라 이 줄이
+        엉뚱한 자리에서 꺾인 것이었다. 덩어리마다 줄바꿈 금지 · 들어가면 한 줄, 모자라면 「·」 자리에서만 꺾인다.
+      */}
+      <p className="break-keep border-t border-border px-3 py-1.5 text-[13px] leading-relaxed text-text-muted">
         {compareMode ? (
           <>
-            클릭: 빈 칸에 차례로 담기 · ✓ 다시 클릭: 빼기
+            <span className="whitespace-nowrap">클릭: 빈 칸에 차례로 담기</span> ·{' '}
+            <span className="whitespace-nowrap">✓ 다시 클릭: 빼기</span>
             <br />
-            드래그: 원하는 칸에 놓기 (찬 칸은 교체)
+            <span className="whitespace-nowrap">드래그: 원하는 칸에 놓기</span>{' '}
+            <span className="whitespace-nowrap">(찬 칸은 교체)</span>
           </>
         ) : (
-          '클릭: 종목 전환 · ⚙️ 에서 폴더·순서 관리'
+          <>
+            <span className="whitespace-nowrap">클릭: 종목 전환</span> ·{' '}
+            <span className="whitespace-nowrap">⚙️ 에서 폴더·순서 관리</span>
+          </>
         )}
       </p>
 

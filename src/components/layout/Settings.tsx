@@ -55,7 +55,7 @@ export default function Settings({ isMock, engineDown, section }: Props) {
   };
 
   const updatedAt = health && (
-    <p className="pt-2 text-[14px] text-text-muted">
+    <p className="pt-2 text-[13px] text-text-muted">
       마지막 확인: {new Date(health.time).toLocaleString('ko-KR')}
     </p>
   );
@@ -78,7 +78,7 @@ export default function Settings({ isMock, engineDown, section }: Props) {
                 : `연결 실패 — 캐시된 데이터로 동작 중${health?.tossError ? ` (${health.tossError})` : ''}`,
           )}
           {updatedAt}
-          <p className="mt-2 text-[14px] leading-relaxed text-text-muted">
+          <p className="mt-2 text-[13px] leading-relaxed text-text-muted">
             토스 `CLIENT_ID` · `CLIENT_SECRET` 은 서버의 `.env` 에서만 읽습니다. 브라우저에는
             키가 내려가지 않으므로 이 화면에서 입력받지 않습니다.
           </p>
@@ -86,13 +86,13 @@ export default function Settings({ isMock, engineDown, section }: Props) {
 
         <section className="max-w-2xl">
           <h3 className="mb-1.5 text-xs font-medium text-text-secondary">모의투자 계좌</h3>
-          <p className="text-[14px] leading-relaxed text-text-muted">
+          <p className="text-[13px] leading-relaxed text-text-muted">
             계좌 만들기·초기 자금·초기화는 <b>계좌</b> 메뉴(계좌 관리)의 「모의투자」 탭 안에 있습니다.
             설정에 또 두면 같은 조작이 두 곳이 됩니다.
           </p>
         </section>
 
-        <p className="mt-6 text-[14px] text-text-muted">
+        <p className="mt-6 text-[13px] text-text-muted">
           ⚠️ 이 앱이 제공하는 모든 분석은 참고용이며 투자 조언이 아닙니다.
         </p>
         <AppVersion />
@@ -133,8 +133,8 @@ export default function Settings({ isMock, engineDown, section }: Props) {
             최근 조회 비우기
           </button>
         </div>
-        {cleared && <p className="mt-2 text-[14px] text-text-muted">{cleared}</p>}
-        <p className="mt-2 text-[14px] text-text-muted">
+        {cleared && <p className="mt-2 text-[13px] text-text-muted">{cleared}</p>}
+        <p className="mt-2 text-[13px] text-text-muted">
           관심 목록과 최근 조회는 **서버에 저장**되고 이 브라우저에는 캐시만 남습니다 —
           위 버튼은 이 브라우저의 캐시를 비웁니다(서버 목록은 그대로). 캔들·기업정보 캐시와
           분석 기록은 SQLite(`db/alphascope.db`)에 있습니다.
@@ -158,7 +158,7 @@ export default function Settings({ isMock, engineDown, section }: Props) {
         </ul>
       </section>
 
-      <p className="mt-6 text-[14px] text-text-muted">
+      <p className="mt-6 text-[13px] text-text-muted">
         ⚠️ 이 앱이 제공하는 모든 분석은 참고용이며 투자 조언이 아닙니다.
       </p>
       <AppVersion />
@@ -169,7 +169,7 @@ export default function Settings({ isMock, engineDown, section }: Props) {
 /** 지금 돌고 있는 버전 — 업데이트 내역의 맨 앞 항목이 곧 현재 버전이다 */
 function AppVersion() {
   return (
-    <p className="mt-2 text-[14px] text-text-muted">
+    <p className="mt-2 text-[13px] text-text-muted">
       AlphaScope {CHANGELOG[0]?.version ?? ''}
     </p>
   );
@@ -232,7 +232,7 @@ function AuthSection() {
       >
         모든 기기에서 로그아웃
       </button>
-      <p className="w-full text-[14px] text-text-muted">
+      <p className="w-full text-[13px] text-text-muted">
         비밀번호는 서버에서 <code className="rounded bg-bg-tertiary px-1">npm run auth:set-password</code>{' '}
         로만 바꿉니다. 바꾸면 모든 기기의 로그인이 끊깁니다.
       </p>

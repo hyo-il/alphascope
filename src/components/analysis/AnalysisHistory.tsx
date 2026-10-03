@@ -248,7 +248,7 @@ export default function AnalysisHistory({
                           type="button"
                           onClick={() => setDetailView(view)}
                           disabled={view === 'prompt' && !record.prompt}
-                          className={`rounded px-2 py-0.5 text-[14px] transition-colors ${
+                          className={`rounded px-2 py-0.5 text-[13px] transition-colors ${
                             detailView === view
                               ? 'bg-accent/20 text-accent'
                               : 'text-text-muted hover:text-text-primary'
@@ -258,7 +258,7 @@ export default function AnalysisHistory({
                         </button>
                       ))}
                     </div>
-                    <pre className="max-h-64 overflow-auto whitespace-pre-wrap font-mono text-[14px] leading-relaxed text-text-secondary">
+                    <pre className="max-h-64 overflow-auto whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-text-secondary">
                       {detailView === 'prompt'
                         ? (record.prompt ?? '저장된 프롬프트가 없습니다.')
                         : record.synthesis}
@@ -266,7 +266,7 @@ export default function AnalysisHistory({
                     <button
                       type="button"
                       onClick={() => void handleDelete(record.id)}
-                      className="mt-2 text-[14px] text-text-muted transition-colors hover:text-bearish"
+                      className="mt-2 text-[13px] text-text-muted transition-colors hover:text-bearish"
                     >
                       삭제
                     </button>

@@ -125,7 +125,7 @@ export const BASE_CHART_OPTIONS = {
     textColor: COLORS.text,
     // 축·가격 라벨 글자 — 라이브러리 기본 12 → 13 (v2.25.0, 화면 글씨 한 단계 키우기).
     // 메인·캡처·미리보기(Lite)·모의투자 성과 차트가 모두 이 테마를 펼쳐 쓴다 — 값은 여기 한 곳.
-    fontSize: 14,
+    fontSize: 13,
     attributionLogo: false,
   },
   grid: {

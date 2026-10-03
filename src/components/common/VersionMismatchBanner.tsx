@@ -26,7 +26,7 @@ export default function VersionMismatchBanner() {
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="rounded border border-warning/40 px-1.5 py-0.5 text-[14px] transition-colors hover:bg-warning/15"
+          className="rounded border border-warning/40 px-1.5 py-0.5 text-[13px] transition-colors hover:bg-warning/15"
         >
           자세히
         </button>
@@ -34,14 +34,14 @@ export default function VersionMismatchBanner() {
           type="button"
           onClick={dismiss}
           aria-label="닫기"
-          className="ml-auto rounded px-1.5 py-0.5 text-[14px] transition-colors hover:bg-warning/15"
+          className="ml-auto rounded px-1.5 py-0.5 text-[13px] transition-colors hover:bg-warning/15"
         >
           ✕
         </button>
       </div>
 
       {open && (
-        <div className="mt-1.5 space-y-0.5 pl-7 text-[14px] text-warning/90">
+        <div className="mt-1.5 space-y-0.5 pl-7 text-[13px] text-warning/90">
           <p>
             맥: 실행 창을 닫고 <code className="rounded bg-warning/15 px-1">start.command</code> 를
             다시 실행

@@ -29,7 +29,7 @@ function Toast({ item }: { item: ToastItem }) {
       <div className="min-w-0 flex-1">
         <p className={`text-xs font-medium ${style.text}`}>{item.message}</p>
         {item.detail && (
-          <p className="mt-0.5 text-[14px] leading-relaxed text-text-secondary">{item.detail}</p>
+          <p className="mt-0.5 text-[13px] leading-relaxed text-text-secondary">{item.detail}</p>
         )}
       </div>
       <button

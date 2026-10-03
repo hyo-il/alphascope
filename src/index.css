@@ -50,22 +50,23 @@
   --color-heat-down-4: var(--color-bearish);
 
   /*
-   * 글씨 크기 — 2026-10-01 사용자 결정: 기본보다 1px 큰 글씨 (v2.25.0) → 2026-10-03 다시 +2px (v2.33.0, 가장 작은 글씨 14px).
+   * 글씨 크기 — v2.25.0(+1px) → v2.33.0(+2px) → **v2.34.0(−1px, 가장 작은 글씨 13px)**. 2026-10-03 사용자 결정 "2px 늘린 상태에서 전체 −1px", 예외 없음.
+   * (사용자가 "작다" 고 한 것은 크기가 아니라 관심 목록 맨 아래 안내가 엉뚱한 자리에서 줄바꿈된 것이었다 — 줄바꿈 자리로 푼다.)
    * 컴포넌트에서 text-xs 를 다른 값으로 바꾸지 말고 여기서 고친다(단일 출처).
-   * 줄 높이도 함께 적는다 — 크기만 바꾸면 Tailwind 기본 비율이 남아 의도와 다른 높이가 된다(각 +2~4px).
+   * 줄 높이도 함께 적는다 — v2.32.0 과 비슷한 비율(약 1.3~1.36)로 각 1~2px 줄였다.
    */
-  --text-xs: 0.9375rem; /* 15px */
-  --text-xs--line-height: calc(21 / 15);
-  --text-sm: 1.0625rem; /* 17px */
-  --text-sm--line-height: calc(23 / 17);
-  --text-base: 1.1875rem; /* 19px */
-  --text-base--line-height: calc(27 / 19);
-  --text-lg: 1.3125rem; /* 21px */
-  --text-lg--line-height: calc(29 / 21);
-  --text-xl: 1.4375rem; /* 23px */
-  --text-xl--line-height: calc(31 / 23);
-  --text-2xl: 1.6875rem; /* 27px */
-  --text-2xl--line-height: calc(35 / 27);
+  --text-xs: 0.875rem; /* 14px */
+  --text-xs--line-height: calc(19 / 14);
+  --text-sm: 1rem; /* 16px */
+  --text-sm--line-height: calc(22 / 16);
+  --text-base: 1.125rem; /* 18px */
+  --text-base--line-height: calc(25 / 18);
+  --text-lg: 1.25rem; /* 20px */
+  --text-lg--line-height: calc(27 / 20);
+  --text-xl: 1.375rem; /* 22px */
+  --text-xl--line-height: calc(30 / 22);
+  --text-2xl: 1.625rem; /* 26px */
+  --text-2xl--line-height: calc(33 / 26);
 }
 
 html,
@@ -80,6 +81,14 @@ body {
   font-family:
     ui-sans-serif, system-ui, -apple-system, 'Apple SD Gothic Neo', 'Pretendard',
     sans-serif;
+  /*
+   * 한글은 **단어 단위**로 줄바꿈한다 (v2.34.0). 크롬 기본(word-break: normal)은 한글을 글자 단위로 끊어
+   * 좁은 칸에서 「점 / 수」·「부적 / 합한」 처럼 단어 중간에서 꺾였다. 영문·숫자에는 영향이 없다.
+   * ⚠️ `overflow-wrap: break-word` 를 함께 두지 않는다 — 시황 카드의 「7,003.74」 같은 숫자까지 두 줄로 끊었다(숫자는 끊지 않는다).
+   * ⚠️ 글꼴 파일은 앱에 넣지 않았다 — 맥은 Apple SD Gothic Neo, Windows 는 Segoe UI + 맑은 고딕으로 그려진다
+   * (`Pretendard` 는 이름만 있고 로드되지 않는다). 맑은 고딕이 더 넓어 같은 px 에서도 줄이 더 빨리 넘어간다.
+   */
+  word-break: keep-all;
 }
 
 /**

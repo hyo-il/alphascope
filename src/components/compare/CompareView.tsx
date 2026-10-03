@@ -63,19 +63,19 @@ export default function CompareView({ initialSymbol }: Props) {
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
       <header className="flex flex-wrap items-center gap-2">
         <h2 className="text-sm font-semibold">⚖️ 기업 비교</h2>
-        <span className="text-[14px] text-text-muted">
+        <span className="text-[13px] text-text-muted">
           4칸 · 2개부터 비교됩니다 · 오른쪽 관심 목록에서 클릭하거나 원하는 칸으로 드래그
         </span>
 
         {chartsVisible && (
-          <label className="ml-auto flex w-fit items-center gap-1.5 text-[14px] text-text-secondary">
+          <label className="ml-auto flex w-fit items-center gap-1.5 text-[13px] text-text-secondary">
             전체
             <select
               defaultValue=""
               onChange={(e) => {
                 if (e.target.value) setAllTimeframes(e.target.value as Timeframe);
               }}
-              className="rounded border border-border px-1 py-0.5 text-[14px]"
+              className="rounded border border-border px-1 py-0.5 text-[13px]"
             >
               <option value="">일괄 변경…</option>
               {COMPARE_TIMEFRAMES.map((t) => (

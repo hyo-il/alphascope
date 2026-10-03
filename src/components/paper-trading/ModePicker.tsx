@@ -52,10 +52,10 @@ export default function ModePicker({
               <p className={`text-xs font-medium ${active ? 'text-accent' : 'text-text-primary'}`}>
                 {item.title}
               </p>
-              <p className="mt-0.5 text-[14px] leading-relaxed text-text-muted">{item.desc}</p>
+              <p className="mt-0.5 text-[13px] leading-relaxed text-text-muted">{item.desc}</p>
               {/* 고른 쪽만 펼쳐 설명한다 — 둘 다 펼치면 카드가 길어져 정작 제목이 안 읽힌다 */}
               {active && (
-                <p className="mt-1.5 border-t border-border/60 pt-1.5 text-[14px] leading-relaxed text-text-secondary">
+                <p className="mt-1.5 border-t border-border/60 pt-1.5 text-[13px] leading-relaxed text-text-secondary">
                   {item.easy}
                 </p>
               )}
@@ -64,12 +64,12 @@ export default function ModePicker({
         })}
       </div>
       {!geminiEnabled && (
-        <p className="text-[14px] text-warning">
+        <p className="text-[13px] text-warning">
           ⚠️ Gemini 키가 설정되지 않았습니다 — 규칙형은 키 없이 동작합니다.
         </p>
       )}
       {/* AI형 vs 규칙형 (v2.31.0) — 사실만 적는다. 어느 쪽이 낫다는 말은 하지 않는다 */}
-      <table className="w-full text-[14px]">
+      <table className="w-full text-[13px]">
         <thead>
           <tr className="border-b border-border text-text-muted">
             <th className="w-24 py-1 text-left font-normal" />

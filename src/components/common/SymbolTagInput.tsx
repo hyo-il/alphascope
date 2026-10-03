@@ -175,7 +175,7 @@ export default function SymbolTagInput({
             className="inline-flex items-center gap-1 rounded bg-bg-tertiary py-1 pl-2 pr-1 text-xs text-text-primary"
           >
             <span className="font-medium">{names(item) || item}</span>
-            {names(item) && <span className="text-[14px] text-text-secondary">{item}</span>}
+            {names(item) && <span className="text-[13px] text-text-secondary">{item}</span>}
             <button
               type="button"
               onClick={() => remove(item)}
@@ -288,7 +288,7 @@ export default function SymbolTagInput({
                     {result.name}
                   </span>
                   <span className="w-16 shrink-0 tabular-nums text-accent">{result.symbol}</span>
-                  <span className="shrink-0 text-[14px] text-text-muted">
+                  <span className="shrink-0 text-[13px] text-text-muted">
                     {already ? '추가됨' : (MARKET_LABEL[result.market] ?? result.market)}
                   </span>
                 </button>

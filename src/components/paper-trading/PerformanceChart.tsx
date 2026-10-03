@@ -121,7 +121,7 @@ export default function PerformanceChart({ snapshots }: Props) {
       <div className="flex flex-wrap items-center gap-1">
         <h4 className="text-xs font-medium text-text-secondary">누적 수익률</h4>
         {stats.ret != null && (
-          <span className="mr-auto flex items-center gap-2 text-[14px] tabular-nums">
+          <span className="mr-auto flex items-center gap-2 text-[13px] tabular-nums">
             <span className={stats.ret >= 0 ? 'text-bullish' : 'text-bearish'}>
               구간 {stats.ret > 0 ? '+' : ''}
               {stats.ret.toFixed(2)}%
@@ -137,7 +137,7 @@ export default function PerformanceChart({ snapshots }: Props) {
             key={r.id}
             type="button"
             onClick={() => setRange(r.id)}
-            className={`rounded px-2 py-0.5 text-[14px] transition-colors ${
+            className={`rounded px-2 py-0.5 text-[13px] transition-colors ${
               range === r.id
                 ? 'bg-accent/15 font-medium text-accent'
                 : 'text-text-secondary hover:bg-bg-tertiary'
@@ -151,7 +151,7 @@ export default function PerformanceChart({ snapshots }: Props) {
       <div className="relative min-h-0 flex-1 rounded-md border border-border">
         <div ref={containerRef} className="h-full w-full" />
         {snapshots.length < 2 && (
-          <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-center text-[14px] text-text-muted">
+          <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-center text-[13px] text-text-muted">
             수익률 곡선은 스냅샷이 2일 이상 쌓이면 그려집니다.
             <br />
             (스냅샷은 모의투자 화면을 열 때 하루 한 번 기록됩니다)

@@ -42,9 +42,9 @@ function median(values: (number | null)[]): number | null {
 function Metric({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <div className="rounded-md bg-bg-tertiary/60 p-3">
-      <dt className="text-[14px] text-text-muted">{label}</dt>
+      <dt className="text-[13px] text-text-muted">{label}</dt>
       <dd className="mt-1 text-sm font-medium tabular-nums break-keep">{value}</dd>
-      {note && <p className="mt-0.5 text-[14px] text-text-muted">{note}</p>}
+      {note && <p className="mt-0.5 text-[13px] text-text-muted">{note}</p>}
     </div>
   );
 }
@@ -73,7 +73,7 @@ export default function CompanySummary({
           key={item.id}
           type="button"
           onClick={() => setTab(item.id)}
-          className={`px-2.5 py-1 text-[14px] transition-colors ${
+          className={`px-2.5 py-1 text-[13px] transition-colors ${
             tab === item.id ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
           }`}
         >
@@ -101,7 +101,7 @@ export default function CompanySummary({
         {header}
         <div className="p-3">
           <p className="text-xs text-bearish">기업 정보를 불러오지 못했습니다</p>
-          <p className="mt-1 text-[14px] text-text-secondary">{error}</p>
+          <p className="mt-1 text-[13px] text-text-secondary">{error}</p>
         </div>
       </div>
     );
@@ -121,7 +121,7 @@ export default function CompanySummary({
           <div className="space-y-2">
             <p className="text-xs">
               <span className="font-medium">{profile.name ?? symbol}</span>
-              <span className="ml-1.5 text-[14px] text-accent">{symbol}</span>
+              <span className="ml-1.5 text-[13px] text-accent">{symbol}</span>
               <span className="ml-2 text-text-secondary">
                 {profile.sector ?? '—'} · {profile.industry ?? '—'}
               </span>
@@ -156,7 +156,7 @@ export default function CompanySummary({
               />
             </dl>
 
-            <p className="text-[14px] text-text-muted">
+            <p className="text-[13px] text-text-muted">
               데이터: yfinance · 하루 한 번 갱신. 더 많은 지표는 [전체 화면으로] 에서 봅니다.
             </p>
           </div>

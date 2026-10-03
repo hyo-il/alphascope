@@ -141,10 +141,10 @@ export default function AutoTradeWizard({
         {/* 머리줄 — 단계 표시 1/4 */}
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold">🤖 자동매매 처음 켜기</h2>
-          <span className="text-[14px] text-text-muted">
+          <span className="text-[13px] text-text-muted">
             {step}/4 · {STEP_LABEL[step]}
           </span>
-          <ol className="ml-2 flex items-center gap-1 text-[14px]">
+          <ol className="ml-2 flex items-center gap-1 text-[13px]">
             {([1, 2, 3, 4] as Step[]).map((n) => (
               <li
                 key={n}
@@ -167,7 +167,7 @@ export default function AutoTradeWizard({
         </div>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 [scrollbar-gutter:stable]">
-          {loadError && <p className="text-[14px] text-bearish">설정을 불러오지 못했습니다: {loadError}</p>}
+          {loadError && <p className="text-[13px] text-bearish">설정을 불러오지 못했습니다: {loadError}</p>}
 
           {step === 1 && (
             <section className="space-y-3">
@@ -189,14 +189,14 @@ export default function AutoTradeWizard({
                     }`}
                   >
                     <p className={`text-xs font-medium ${choice === id ? 'text-accent' : 'text-text-primary'}`}>{title}</p>
-                    <p className="mt-0.5 text-[14px] text-text-muted">{desc}</p>
+                    <p className="mt-0.5 text-[13px] text-text-muted">{desc}</p>
                   </button>
                 ))}
               </div>
 
               {choice === 'new' &&
                 (created ? (
-                  <p className="rounded border border-bullish/40 bg-bullish/10 px-3 py-2 text-[14px] text-text-primary">
+                  <p className="rounded border border-bullish/40 bg-bullish/10 px-3 py-2 text-[13px] text-text-primary">
                     ✅ 「{created.name}」 계좌를 만들었습니다. [다음] 으로 넘어가세요.
                   </p>
                 ) : (
@@ -210,7 +210,7 @@ export default function AutoTradeWizard({
 
               {choice === 'existing' && (
                 <div className="space-y-2">
-                  {accounts.length === 0 && <p className="text-[14px] text-text-muted">계좌가 없습니다 — 새 계좌를 만들어 주세요.</p>}
+                  {accounts.length === 0 && <p className="text-[13px] text-text-muted">계좌가 없습니다 — 새 계좌를 만들어 주세요.</p>}
                   {accounts.map((a) => {
                     const st = strategies.find((s) => s.strategy.accountId === a.account.id)?.strategy;
                     return (
@@ -230,7 +230,7 @@ export default function AutoTradeWizard({
                   })}
                   {/* ⚠️ 돌고 있는 계좌를 실수로 바꾸지 않게 한 번 더 누르게 한다 */}
                   {runningWarn && (
-                    <div className="space-y-1.5 rounded border border-warning/50 bg-warning/10 px-3 py-2 text-[14px] text-warning">
+                    <div className="space-y-1.5 rounded border border-warning/50 bg-warning/10 px-3 py-2 text-[13px] text-warning">
                       <p>
                         이 계좌는 지금 <b>{runningWarn.mode === 'ai' ? 'AI형' : '규칙형'}</b>으로 돌고 있습니다. 바꾸면 기존 방식이
                         멈춥니다.
@@ -315,14 +315,14 @@ export default function AutoTradeWizard({
                   ` 하루에 계좌가 ${draft.dailyLossLimitPercent}% 넘게 줄면 그날은 새로 사지 않습니다.`}
               </p>
               {/* ⚠️ 고정 문구 — 지우지 않는다 */}
-              <p className="rounded-md bg-warning/10 px-3 py-1.5 text-[14px] text-warning">모의투자입니다 — 실제 돈은 움직이지 않습니다.</p>
-              <p className="rounded-md bg-warning/10 px-3 py-1.5 text-[14px] text-warning">
+              <p className="rounded-md bg-warning/10 px-3 py-1.5 text-[13px] text-warning">모의투자입니다 — 실제 돈은 움직이지 않습니다.</p>
+              <p className="rounded-md bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
                 어느 방법도 이 앱에서 돈을 번다고 확인된 적은 없습니다.
               </p>
               <button
                 type="button"
                 onClick={() => setDetailOpen(true)}
-                className="rounded-md border border-border px-3 py-1 text-[14px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+                className="rounded-md border border-border px-3 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
               >
                 자세한 설정 열기
               </button>
@@ -332,7 +332,7 @@ export default function AutoTradeWizard({
 
         {/* 닫기 확인 — 새 계좌는 이미 만들어졌다 */}
         {closing && created && (
-          <div className="flex shrink-0 items-center gap-2 border-t border-warning/40 bg-warning/10 px-4 py-2 text-[14px] text-warning">
+          <div className="flex shrink-0 items-center gap-2 border-t border-warning/40 bg-warning/10 px-4 py-2 text-[13px] text-warning">
             <span>
               새 계좌 「{created.name}」 는 이미 만들어져 남습니다. 자동매매 설정은 저장하지 않고 닫을까요?
             </span>
@@ -354,7 +354,7 @@ export default function AutoTradeWizard({
         )}
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">
-          <span className="text-[14px] text-text-muted">
+          <span className="text-[13px] text-text-muted">
             자동매매 설정은 [켜기] 를 눌러야 저장됩니다{created ? ' (새 계좌는 만들 때 바로 생겼습니다)' : ''}.
           </span>
           <button

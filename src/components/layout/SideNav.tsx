@@ -71,7 +71,7 @@ export default function SideNav({
       >
         <span className="text-lg leading-none">{item.icon}</span>
         {/* 접힌 폭(52px)에는 짧은 이름 — 「차트·비교」「증시 일정」「투자 분석」 은 들어가지 않는다 (v2.26.0) */}
-        <span className="text-[14px] leading-tight">{item.shortLabel}</span>
+        <span className="text-[13px] leading-tight">{item.shortLabel}</span>
       </button>
 
       {/* 소메뉴가 하나뿐이면 플라이아웃을 띄우지 않는다 — 대메뉴를 누르면 바로 그 화면이다 */}
@@ -90,7 +90,7 @@ export default function SideNav({
             >
               {sub.label}
               {sub.badge && (
-                <span className="ml-1 rounded bg-warning/15 px-1 py-px text-[14px] align-middle text-warning">
+                <span className="ml-1 rounded bg-warning/15 px-1 py-px text-[13px] align-middle text-warning">
                   {sub.badge}
                 </span>
               )}
@@ -124,7 +124,7 @@ export default function SideNav({
         >
           <span className={ICON_SLOT}>{item.icon}</span>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          {!single && <span className="text-[14px] text-text-muted">{open ? '▾' : '▸'}</span>}
+          {!single && <span className="text-[13px] text-text-muted">{open ? '▾' : '▸'}</span>}
         </button>
 
         {open &&
@@ -142,7 +142,7 @@ export default function SideNav({
             >
               {sub.label}
               {sub.badge && (
-                <span className="ml-1 rounded bg-warning/15 px-1 py-px text-[14px] align-middle text-warning">
+                <span className="ml-1 rounded bg-warning/15 px-1 py-px text-[13px] align-middle text-warning">
                   {sub.badge}
                 </span>
               )}
@@ -201,7 +201,7 @@ export default function SideNav({
               className="flex w-full flex-col items-center gap-0.5 border-l-2 border-transparent py-2.5 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-bearish"
             >
               <span className="text-lg leading-none">⎋</span>
-              <span className="text-[14px] leading-tight">로그아웃</span>
+              <span className="text-[13px] leading-tight">로그아웃</span>
             </button>
           </div>
         )}

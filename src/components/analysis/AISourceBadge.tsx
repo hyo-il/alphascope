@@ -36,7 +36,7 @@ export default function AISourceBadge({
   const style = STYLE[source];
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[14px] font-medium ${style.className}`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[13px] font-medium ${style.className}`}
     >
       <span aria-hidden>{style.icon}</span>
       {style.label}

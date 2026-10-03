@@ -48,7 +48,7 @@ export default function SwingSearch({
       )}
 
       {error && (
-        <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-2 text-[14px] text-bearish">
+        <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-2 text-[13px] text-bearish">
           {error}
         </p>
       )}
@@ -75,7 +75,7 @@ export default function SwingSearch({
             })()}
           </div>
           {recommendation.rejection && (
-            <p className="rounded border border-warning/40 bg-warning/10 px-3 py-2 text-[14px] text-warning">
+            <p className="rounded border border-warning/40 bg-warning/10 px-3 py-2 text-[13px] text-warning">
               {GRADE_STYLE[recommendation.grade].icon} 매수 추천 구간이 아닙니다 —{' '}
               {recommendation.rejection}
             </p>

@@ -37,7 +37,7 @@ export default function SyncStatusLine() {
           : `서버 동기화: 저장됨 · r${getRevision()}${time ? ` · ${time}` : ''}`;
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border px-4 py-1.5 text-[14px]">
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border px-4 py-1.5 text-[13px]">
       <span className={state === 'failed' ? 'text-bearish' : 'text-text-muted'}>{label}</span>
 
       {(state === 'failed' || state === 'offline') && (

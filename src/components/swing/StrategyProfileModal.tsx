@@ -349,14 +349,14 @@ export default function StrategyProfileModal({
           {/* ── 판정 기준 고르기 (v2.33.0 — 도구줄에서 옮겼다). 바꾸면 곧바로 저장된다(예전 세그먼트와 같은 경로) ── */}
           <section className="mb-4 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[14px] text-text-muted">판정 기준</span>
+              <span className="text-[13px] text-text-muted">판정 기준</span>
               {(['standard', 'aggressive', 'defensive'] as ProfileId[]).map((id) => (
                 <button
                   key={id}
                   type="button"
                   onClick={() => void onSwitchProfile(id)}
                   aria-pressed={activeId === id}
-                  className={`rounded-md border px-2.5 py-1 text-[14px] transition-colors ${
+                  className={`rounded-md border px-2.5 py-1 text-[13px] transition-colors ${
                     activeId === id
                       ? 'border-accent bg-accent/10 font-medium text-accent'
                       : 'border-border text-text-secondary hover:border-accent/50'
@@ -365,10 +365,10 @@ export default function StrategyProfileModal({
                   {PROFILE_LABEL[id]}
                 </button>
               ))}
-              <span className="text-[14px] text-text-muted">바꾸면 바로 적용됩니다 — 추천은 [다시 분석] 해야 새 기준으로 나옵니다</span>
+              <span className="text-[13px] text-text-muted">바꾸면 바로 적용됩니다 — 추천은 [다시 분석] 해야 새 기준으로 나옵니다</span>
             </div>
             {activeId !== 'standard' && sameSwingParams(state.custom[activeId as CustomProfileId], state.standard) && (
-              <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-1.5 text-[14px] text-text-muted">
+              <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-1.5 text-[13px] text-text-muted">
                 {PROFILE_LABEL[activeId]} 기준은 아직 표준과 같은 값입니다 — 아래 「고급 설정 &gt; 추천 판정 기준」 에서 조정하세요.
                 (공격·수비 값은 사용자 설정이며 근거가 검증되지 않았습니다.)
               </p>
@@ -379,7 +379,7 @@ export default function StrategyProfileModal({
           <section className="space-y-3">
             <h3 className="text-xs font-semibold text-text-primary">초보자 설정</h3>
             <div>
-              <p className="mb-1 text-[14px] text-text-primary">목표 수익률</p>
+              <p className="mb-1 text-[13px] text-text-primary">목표 수익률</p>
               <div className="flex flex-wrap items-center gap-1.5">
                 {GOAL_TARGET_CHOICES.map((v) => (
                   <button
@@ -416,7 +416,7 @@ export default function StrategyProfileModal({
               </div>
             </div>
             <div>
-              <p className="mb-1 text-[14px] text-text-primary">보유 기간</p>
+              <p className="mb-1 text-[13px] text-text-primary">보유 기간</p>
               <div className="flex flex-wrap items-center gap-1.5">
                 {GOAL_PERIOD_CHOICES.map((p) => (
                   <button key={p.days} type="button" onClick={() => setGoal({ days: p.days })} className={chip(goalDraft.days === p.days)}>
@@ -424,18 +424,18 @@ export default function StrategyProfileModal({
                   </button>
                 ))}
                 {!periodIsChoice && (
-                  <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[14px] text-text-secondary">
+                  <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[13px] text-text-secondary">
                     직접 설정 · {goalDraft.days}거래일
                   </span>
                 )}
               </div>
             </div>
-            <p className="text-[14px] text-text-secondary">
+            <p className="text-[13px] text-text-secondary">
               손절 −{goalPct(shownStop)} ({goalDraft.stopAuto ? '목표의 절반' : '직접 설정'}) · {goalDraft.days}거래일 — 고급 설정에서 바꿀 수 있습니다
             </p>
-            {goalError && <p className="text-[14px] text-bearish">❌ {goalError}</p>}
+            {goalError && <p className="text-[13px] text-bearish">❌ {goalError}</p>}
             {/* ⚠️ 고정 안내 두 줄 — 지우지 않는다(목표가 추천을 바꾼다고 오해하지 않게) */}
-            <div className="space-y-0.5 rounded-md bg-bg-tertiary/40 px-3 py-2 text-[14px] leading-relaxed text-text-muted">
+            <div className="space-y-0.5 rounded-md bg-bg-tertiary/40 px-3 py-2 text-[13px] leading-relaxed text-text-muted">
               <p>목표 수익률은 추천 판정을 바꾸지 않습니다. 「목표 도달 가능성 분석」을 할 때의 조건입니다.</p>
               <p>가능성은 Gemini 의 추정이며 아직 채점이 쌓이지 않았습니다. 투자 조언이 아닙니다.</p>
             </div>
@@ -505,7 +505,7 @@ export default function StrategyProfileModal({
                   거래일 <span className="text-text-muted">({dLo}~{dHi})</span>
                 </label>
               </div>
-              <p className="text-[14px] text-text-muted">
+              <p className="text-[13px] text-text-muted">
                 손절 = 목표의 절반은 앱의 출발값입니다(근거 검증 전). 기간이 길수록 채점까지 오래 걸립니다(63거래일 ≈ 3달).
               </p>
             </section>
@@ -514,7 +514,7 @@ export default function StrategyProfileModal({
             <section className="mt-4 space-y-3 border-t border-border pt-3">
               <h4 className="text-xs font-medium text-text-primary">(나) 추천 판정 기준</h4>
             {/* ⚠️ 이 문구는 지우지 말 것 — 근거 없는 숫자를 권장값처럼 읽게 두지 않기 위한 것이다 */}
-            <p className="rounded-md bg-warning/10 px-3 py-2 text-[14px] leading-relaxed text-warning">
+            <p className="rounded-md bg-warning/10 px-3 py-2 text-[13px] leading-relaxed text-warning">
               공격·수비 값은 <b>사용자 설정이며 근거가 검증되지 않았습니다.</b> 분석 성적표에서
               프로파일별 성과를 비교해 조정하세요. 기준을 낮추면 추천이 늘어날 뿐, 더 잘 맞는다는
               뜻은 아닙니다. (모의투자 전용입니다.)
@@ -530,7 +530,7 @@ export default function StrategyProfileModal({
                     key={id}
                     type="button"
                     onClick={() => setEditing(id)}
-                    className={`rounded border px-2.5 py-0.5 text-[14px] transition-colors ${
+                    className={`rounded border px-2.5 py-0.5 text-[13px] transition-colors ${
                       editing === id ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-border text-text-secondary'
                     }`}
                   >
@@ -539,11 +539,11 @@ export default function StrategyProfileModal({
                 ))}
               </div>
               {!easy && (
-                <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[14px] text-text-secondary">
+                <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[13px] text-text-secondary">
                   직접 설정 — 아래 고급 설정에서 고친 값입니다
                 </span>
               )}
-              <span className="ml-auto text-[14px] text-text-muted">표준은 바꿀 수 없습니다</span>
+              <span className="ml-auto text-[13px] text-text-muted">표준은 바꿀 수 없습니다</span>
             </div>
 
             <EasyQuestion
@@ -571,7 +571,7 @@ export default function StrategyProfileModal({
             <summary className="text-xs font-medium text-text-secondary">숫자표 — 숫자를 직접 고칩니다</summary>
           <table className="mt-2 w-full border-collapse text-left">
             <thead>
-              <tr className="border-b border-border text-[14px] text-text-muted">
+              <tr className="border-b border-border text-[13px] text-text-muted">
                 <th className="py-2 pr-2 font-normal">항목</th>
                 <th className="w-20 py-2 pr-2 font-normal">표준</th>
                 {CUSTOM_PROFILES.map((id) => (
@@ -586,8 +586,8 @@ export default function StrategyProfileModal({
                 <tr key={spec.path} className="border-b border-border/50 align-top">
                   <td className="py-2 pr-2">
                     <p className="text-xs text-text-primary">{spec.label}</p>
-                    <p className="text-[14px] leading-relaxed text-text-secondary">{spec.easy}</p>
-                    <p className="text-[14px] leading-relaxed text-text-muted">{spec.hint}</p>
+                    <p className="text-[13px] leading-relaxed text-text-secondary">{spec.easy}</p>
+                    <p className="text-[13px] leading-relaxed text-text-muted">{spec.hint}</p>
                   </td>
                   <td className="py-2 pr-2 text-xs tabular-nums text-text-muted">
                     {spec.get(state.standard)}
@@ -612,7 +612,7 @@ export default function StrategyProfileModal({
                                 : 'border-border'
                           }`}
                         />
-                        {err && <p className="mt-0.5 text-[14px] text-bearish">{err.message}</p>}
+                        {err && <p className="mt-0.5 text-[13px] text-bearish">{err.message}</p>}
                       </td>
                     );
                   })}
@@ -628,7 +628,7 @@ export default function StrategyProfileModal({
                 type="button"
                 onClick={() => resetTo(id)}
                 disabled={sameSwingParams(draft[id], state.standard)}
-                className="rounded border border-border px-2 py-1 text-[14px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-40"
+                className="rounded border border-border px-2 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-40"
               >
                 {PROFILE_LABEL[id]}를 표준값으로 되돌리기
               </button>
@@ -640,7 +640,7 @@ export default function StrategyProfileModal({
         </div>
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">
-          <span className="text-[14px] text-text-muted">
+          <span className="text-[13px] text-text-muted">
             저장해도 이미 나온 추천은 바뀌지 않습니다 — 다시 분석해야 새 기준으로 채점됩니다.
           </span>
           <button
@@ -698,7 +698,7 @@ function EasyQuestion<T extends string | number>({
   const picked = options.find((o) => o.id === value);
   return (
     <div>
-      <p className="mb-1 text-[14px] text-text-primary">{title}</p>
+      <p className="mb-1 text-[13px] text-text-primary">{title}</p>
       <div className="flex flex-wrap gap-1.5">
         {options.map((o) => (
           <button
@@ -713,7 +713,7 @@ function EasyQuestion<T extends string | number>({
           </button>
         ))}
       </div>
-      {picked && <p className="mt-1 text-[14px] text-text-muted">{picked.hint}</p>}
+      {picked && <p className="mt-1 text-[13px] text-text-muted">{picked.hint}</p>}
     </div>
   );
 }
@@ -728,7 +728,7 @@ const rate = (v: number | null | undefined) => (v == null ? '—' : `${v}%`);
 function PreviewBox({ state }: { state: PreviewState }) {
   const result = state.status === 'done' ? state.result : state.status === 'loading' ? state.last : undefined;
   return (
-    <div className="rounded-lg border border-border bg-bg-tertiary/30 px-3 py-2 text-[14px]">
+    <div className="rounded-lg border border-border bg-bg-tertiary/30 px-3 py-2 text-[13px]">
       <p className="mb-1 flex items-center gap-2 font-medium text-text-primary">
         이 설정이었다면
         {state.status === 'loading' && (
@@ -746,7 +746,7 @@ function PreviewBox({ state }: { state: PreviewState }) {
             {' · '}10일 평균{' '}
             <b className={(result.avg10d ?? 0) >= 0 ? 'text-bullish' : 'text-bearish'}>{pct(result.avg10d)}</b>
             {' · '}계획 손절 먼저 도달 <b className="text-text-primary">{rate(result.stopFirstRate)}</b>
-            {result.sample < 10 && <span className="ml-1 rounded bg-bg-tertiary px-1 text-[14px] text-text-secondary">표본 적음 — 참고만</span>}
+            {result.sample < 10 && <span className="ml-1 rounded bg-bg-tertiary px-1 text-[13px] text-text-secondary">표본 적음 — 참고만</span>}
           </p>
           <p className="text-text-muted">
             표준 설정은 추천 {result.baseline.count}번 · 10일 평균 {pct(result.baseline.avg10d)} · 계획 손절 먼저 도달{' '}
@@ -755,8 +755,8 @@ function PreviewBox({ state }: { state: PreviewState }) {
           </p>
         </div>
       )}
-      <p className="mt-1 text-[14px] text-text-muted">과거 결과이며 앞으로를 보장하지 않습니다.</p>
-      <p className="text-[14px] text-text-muted">
+      <p className="mt-1 text-[13px] text-text-muted">과거 결과이며 앞으로를 보장하지 않습니다.</p>
+      <p className="text-[13px] text-text-muted">
         같은 기간 한 번의 결과입니다. 여러 설정을 바꿔 보며 가장 좋은 숫자를 고르면 우연에 속기 쉽습니다.
       </p>
     </div>

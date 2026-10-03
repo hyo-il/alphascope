@@ -169,7 +169,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
       />
 
       {indicatorError && (
-        <div className="border-b border-warning/30 bg-warning/10 px-3 py-1.5 text-[14px] text-warning">
+        <div className="border-b border-warning/30 bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
           {engineDown ? '⚠️ 지표 엔진이 꺼져 있습니다. ' : '⚠️ 지표 계산 실패: '}
           {indicatorError}
         </div>
@@ -257,7 +257,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         />
       )}
 
-      <footer className="shrink-0 border-t border-border px-3 py-1.5 text-[14px] text-text-muted">
+      <footer className="shrink-0 border-t border-border px-3 py-1.5 text-[13px] text-text-muted">
         {activeTool ? (
           <>
             <span className="text-accent">{guideFor(activeTool)}</span>
@@ -515,7 +515,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           )}
 
           {isMock && (
-            <span className="ml-auto rounded bg-warning/15 px-2 py-1 text-[14px] text-warning">
+            <span className="ml-auto rounded bg-warning/15 px-2 py-1 text-[13px] text-warning">
               ⚠️ 모의 데이터 — .env 에 토스 API 키를 넣으면 실시간으로 전환됩니다
             </span>
           )}

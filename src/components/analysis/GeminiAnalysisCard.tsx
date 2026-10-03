@@ -11,7 +11,7 @@ function AgentDetail({ agent }: { agent: AgentOpinion }) {
   if (!entries.length) return null;
 
   return (
-    <dl className="mt-1 space-y-0.5 text-[14px] text-text-muted">
+    <dl className="mt-1 space-y-0.5 text-[13px] text-text-muted">
       {entries.map(([key, value]) => (
         <div key={key} className="flex gap-1.5">
           <dt className="shrink-0">{key}</dt>
@@ -57,7 +57,7 @@ export default function GeminiAnalysisCard({
     >
       <div className="flex flex-wrap items-center gap-2">
         {isNew && (
-          <span className="rounded bg-accent px-1.5 py-0.5 text-[14px] font-medium text-white">
+          <span className="rounded bg-accent px-1.5 py-0.5 text-[13px] font-medium text-white">
             NEW
           </span>
         )}
@@ -81,7 +81,7 @@ export default function GeminiAnalysisCard({
 
       <p className="mt-1.5 text-sm text-text-secondary">{analysis.summary}</p>
 
-      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[14px] text-text-muted">
+      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[13px] text-text-muted">
         {analysis.agents.map((agent) => (
           <span key={agent.role}>
             {agent.label}{' '}
@@ -134,7 +134,7 @@ export default function GeminiAnalysisCard({
             <section>
               <h4 className="mb-1 text-xs font-medium text-text-primary">액션 플랜</h4>
               <p className="text-xs text-text-secondary">{plan.action}</p>
-              <div className="mt-1 flex flex-wrap gap-3 text-[14px] text-text-muted">
+              <div className="mt-1 flex flex-wrap gap-3 text-[13px] text-text-muted">
                 {plan.entry_price != null && <span>진입 {formatUsd(plan.entry_price)}</span>}
                 {plan.target_price != null && (
                   <span className="text-bullish">목표 {formatUsd(plan.target_price)}</span>
@@ -211,11 +211,11 @@ export default function GeminiAnalysisCard({
             </section>
           ) : null}
 
-          <p className="text-[14px] text-text-muted">
+          <p className="text-[13px] text-text-muted">
             {analysis.model} · 토큰 {analysis.tokens.toLocaleString()} ·{' '}
             {(analysis.elapsedMs / 1000).toFixed(1)}초
           </p>
-          <p className="text-[14px] text-warning">
+          <p className="text-[13px] text-warning">
             ⚠️ 이 분석은 AI 의견이며 투자 조언이 아닙니다.
           </p>
         </div>

@@ -37,7 +37,7 @@ export default function CapturePreview({
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[14px] text-text-muted">
+        <p className="text-[13px] text-text-muted">
           {symbol}{stockNameOf(symbol) ? ` ${stockNameOf(symbol)}` : ''} · {TIMEFRAME_ITEMS.find((i) => i.value === timeframe)?.label ?? timeframe} ·
           이미지 크기 {width} × {height} · PNG
         </p>

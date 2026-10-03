@@ -118,7 +118,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
               type="button"
               onClick={() => setMarket(m)}
               aria-pressed={market === m}
-              className={`rounded border px-2.5 py-0.5 text-[14px] transition-colors ${
+              className={`rounded border px-2.5 py-0.5 text-[13px] transition-colors ${
                 market === m ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-border text-text-secondary'
               }`}
             >
@@ -133,7 +133,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
               type="button"
               onClick={() => setKind(k.id)}
               aria-pressed={kind === k.id}
-              className={`rounded border px-2 py-0.5 text-[14px] transition-colors ${
+              className={`rounded border px-2 py-0.5 text-[13px] transition-colors ${
                 kind === k.id ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-border text-text-secondary'
               }`}
             >
@@ -142,7 +142,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
           ))}
         </div>
         {data && (
-          <span className="text-[14px] text-text-muted">
+          <span className="text-[13px] text-text-muted">
             {data.rankedAt
               ? `${new Date(data.rankedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} 기준`
               : '기준 시각 없음'}{' '}
@@ -151,7 +151,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
         )}
       </header>
 
-      {error && <p className="mb-2 rounded border border-bearish/40 bg-bearish/10 px-3 py-1.5 text-[14px] text-bearish">{error}</p>}
+      {error && <p className="mb-2 rounded border border-bearish/40 bg-bearish/10 px-3 py-1.5 text-[13px] text-bearish">{error}</p>}
 
       <div className="flex min-h-0 flex-1 gap-2">
         {/* 목록 ≈ 55% */}
@@ -163,8 +163,8 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
           className="min-h-0 min-w-0 basis-[60%] overflow-y-auto rounded-lg border border-border bg-bg-secondary outline-none focus-visible:ring-1 focus-visible:ring-accent"
           aria-label="순위 목록 — ↑↓ 로 옮기고 Enter 로 차트 열기"
         >
-          <table className="w-full text-[15px]">
-            <thead className="sticky top-0 z-[1] bg-bg-secondary text-[14px] text-text-muted">
+          <table className="w-full text-[14px]">
+            <thead className="sticky top-0 z-[1] bg-bg-secondary text-[13px] text-text-muted">
               <tr className="border-b border-border">
                 <th className="w-9 py-1.5 pl-2 text-right font-normal">순위</th>
                 <th className="w-7" />
@@ -178,14 +178,14 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
             <tbody>
               {!data && !error && (
                 <tr>
-                  <td colSpan={6} className="p-4 text-center text-[14px] text-text-muted">
+                  <td colSpan={6} className="p-4 text-center text-[13px] text-text-muted">
                     불러오는 중…
                   </td>
                 </tr>
               )}
               {data && !data.rows.length && (
                 <tr>
-                  <td colSpan={6} className="p-4 text-center text-[14px] text-text-muted">
+                  <td colSpan={6} className="p-4 text-center text-[13px] text-text-muted">
                     {data.mock ? '모의 데이터 모드에서는 순위가 없습니다.' : '순위가 비어 있습니다.'}
                   </td>
                 </tr>
@@ -213,7 +213,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
                         disabled={watched}
                         title={watched ? '관심 종목' : '관심 목록에 담기'}
                         aria-label={watched ? `${row.symbol} 관심 종목` : `${row.symbol} 관심 목록에 담기`}
-                        className={`text-[16px] leading-none ${watched ? 'text-warning' : 'text-text-muted hover:text-warning'} disabled:cursor-default`}
+                        className={`text-[15px] leading-none ${watched ? 'text-warning' : 'text-text-muted hover:text-warning'} disabled:cursor-default`}
                       >
                         {watched ? '★' : '☆'}
                       </button>
@@ -242,7 +242,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
             <button
               type="button"
               onClick={() => setShowAll((v) => !v)}
-              className="w-full py-2 text-[14px] text-text-secondary hover:bg-bg-tertiary/60"
+              className="w-full py-2 text-[13px] text-text-secondary hover:bg-bg-tertiary/60"
             >
               {showAll ? '50위까지만 보기' : `더 보기 (+${data.rows.length - FIRST_PAGE})`}
             </button>
@@ -257,7 +257,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
         </div>
       </div>
 
-      <p className="mt-1 shrink-0 text-[14px] text-text-muted">
+      <p className="mt-1 shrink-0 text-[13px] text-text-muted">
         <b className="font-medium text-text-secondary">
           순위는 둘러보기용입니다. 급등 다음 날 추격 매수는 이 앱의 과거 진단에서 불리했습니다.
         </b>{' '}
