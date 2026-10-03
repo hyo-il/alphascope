@@ -183,7 +183,7 @@ export default function AccountMiniView({
                     onClick={() => onSelectSymbol(p.symbol)}
                     title={`${p.name ?? p.symbol} 차트로 이동`}
                     className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left transition-colors hover:bg-bg-tertiary/60 ${
-                      held ? 'bg-accent/10' : ''
+                      held ? 'bg-bg-tertiary' : ''
                     }`}
                   >
                     <span className="flex min-w-0 flex-col">
@@ -191,9 +191,7 @@ export default function AccountMiniView({
                         symbol={p.symbol}
                         name={p.name}
                         size="sm"
-                        className={`truncate text-xs font-medium ${
-                          held ? 'text-accent' : 'text-text-primary'
-                        }`}
+                        className="truncate text-xs font-medium text-text-primary"
                         tickerClassName="text-text-muted"
                       />
                       <span className="text-[13px] text-text-muted">{p.quantity}주</span>

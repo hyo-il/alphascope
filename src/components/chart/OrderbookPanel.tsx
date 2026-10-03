@@ -174,7 +174,7 @@ export default function OrderbookPanel({
 
             {/* 현재가 — 매도벽과 매수벽 사이 */}
             <div className="my-1 border-y border-border bg-bg-tertiary/70 px-3 py-1.5 text-center">
-              <span className="block text-sm font-bold tabular-nums">
+              <span className="block text-sm font-semibold tabular-nums">
                 {currentPrice != null ? formatPrice(currentPrice, currency).replace(/^[$₩]/, '') : '—'}
               </span>
               {changeRate != null && (

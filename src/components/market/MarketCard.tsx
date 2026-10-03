@@ -35,7 +35,7 @@ export default function MarketCard({
     n.toLocaleString('ko-KR', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 
   return (
-    <article className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-border bg-bg-secondary px-3 py-2">
+    <article className="flex min-w-0 items-center justify-between gap-2 rounded-xl bg-bg-secondary px-3 py-2">
       <div className="min-w-0">
         {/* 말줄임으로 자르지 않는다 — 1280 에서 「VIX 공포지수」 가 4px 넘쳤다(v2.33.0). 넘치면 줄을 바꾼다 */}
         <p className="break-keep text-[13px] leading-tight text-text-secondary">{name}</p>

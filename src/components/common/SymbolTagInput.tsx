@@ -272,7 +272,7 @@ export default function SymbolTagInput({
 
       {/* 자동완성 */}
       {open && results.length > 0 && (
-        <ul className="absolute left-0 top-full z-40 mt-1 max-h-64 w-80 overflow-y-auto rounded-md border border-border bg-bg-secondary py-1 shadow-xl">
+        <ul className="absolute left-0 top-full z-40 mt-1 max-h-64 w-80 overflow-y-auto rounded-lg bg-bg-elevated py-1 shadow-xl">
           {results.map((result, index) => {
             const already = symbols.includes(result.symbol);
             return (
@@ -301,14 +301,14 @@ export default function SymbolTagInput({
       )}
 
       {open && searching && results.length === 0 && (
-        <p className="absolute left-0 top-full z-40 mt-1 flex w-80 items-center gap-2 rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs text-text-muted shadow-xl">
+        <p className="absolute left-0 top-full z-40 mt-1 flex w-80 items-center gap-2 rounded-lg bg-bg-elevated px-3 py-2 text-xs text-text-muted shadow-xl">
           <InlineSpinner />
           검색 중…
         </p>
       )}
 
       {open && !searching && query.trim() && results.length === 0 && (
-        <div className="absolute left-0 top-full z-40 mt-1 w-80 max-w-[calc(100vw-2rem)] space-y-1 rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs shadow-xl">
+        <div className="absolute left-0 top-full z-40 mt-1 w-80 max-w-[calc(100vw-2rem)] space-y-1 rounded-lg bg-bg-elevated px-3 py-2 text-xs shadow-xl">
           <p className="break-keep text-text-secondary">
             '{query.trim()}'에 대한 검색 결과가 없습니다.
           </p>

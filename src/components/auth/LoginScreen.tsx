@@ -49,7 +49,7 @@ export default function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
       <form onSubmit={submit} className="w-[min(360px,90vw)]">
         <div className="mb-6 flex items-center justify-center gap-2 text-accent">
           <LogoMark size={28} />
-          <span className="text-xl font-bold">AlphaScope</span>
+          <span className="text-xl font-semibold">AlphaScope</span>
         </div>
 
         <label htmlFor="as-password" className="mb-1.5 block text-xs text-text-secondary">

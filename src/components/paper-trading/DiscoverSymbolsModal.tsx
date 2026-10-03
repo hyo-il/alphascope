@@ -216,7 +216,7 @@ export default function DiscoverSymbolsModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="flex h-[min(620px,82vh)] w-[min(720px,90vw)] flex-col overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-2xl">
+      <div className="flex h-[min(620px,82vh)] w-[min(720px,90vw)] flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl">
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold">종목 발굴</h2>
           <span className="text-[13px] text-text-muted">기준을 정하고 탐지한 뒤, 근거를 보고 담습니다</span>

@@ -63,7 +63,7 @@ function now(): string {
 /** 단계 번호 배지 */
 function StepBadge({ n }: { n: number }) {
   return (
-    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[13px] font-bold text-white">
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[13px] font-semibold text-white">
       {n}
     </span>
   );

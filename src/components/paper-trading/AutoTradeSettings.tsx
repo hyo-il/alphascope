@@ -106,7 +106,7 @@ export default function AutoTradeSettings({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="flex h-[min(640px,85vh)] w-[min(680px,90vw)] flex-col overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-2xl">
+      <div className="flex h-[min(640px,85vh)] w-[min(680px,90vw)] flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl">
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold">자동매매 설정</h2>
           <span className="rounded bg-warning/15 px-2 py-0.5 text-[13px] text-warning">

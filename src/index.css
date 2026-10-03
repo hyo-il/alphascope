@@ -133,6 +133,15 @@ body {
 }
 
 @layer base {
+  /*
+   * 글자 굵기는 3단계만 (v2.36.0 디자인 규칙 4) — 보통 400 · 중간 500 · 굵게 600. 700 이상을 쓰지 않는다.
+   * 브라우저 기본 `b`·`strong` 은 bolder(=700)라 문장 속 강조가 제목보다 굵어 보였다 — 600 으로 묶는다.
+   */
+  b,
+  strong {
+    font-weight: 600;
+  }
+
   /**
    * 폼 요소 기본값.
    *
@@ -148,7 +157,8 @@ body {
   textarea {
     background-color: var(--color-bg-tertiary);
     color: var(--color-text-primary);
-    border: 1px solid var(--color-border);
+    /* v2.36.0 디자인 규칙 3 — 입력칸은 테두리 대신 옅은 바탕. 테두리 자리는 남겨(포커스 때 파랑) 크기가 바뀌지 않게 한다 */
+    border: 1px solid transparent;
     border-radius: 6px;
   }
 
@@ -242,4 +252,13 @@ body {
   [aria-disabled='true'] {
     cursor: not-allowed;
   }
+}
+
+/*
+ * 입력칸의 중립 테두리 지우기 (v2.36.0 디자인 규칙 3) — 컴포넌트가 `border-border` 를 직접 준 입력칸도 테두리 대신 바탕으로 보이게 한다.
+ * ⚠️ 레이어 밖에 둔다 — 유틸리티(`border-border`)보다 앞서야 해서다. 중립 테두리만 지운다:
+ * 포커스(파랑)·오류(빨강 등 다른 색 클래스)는 그대로 보인다.
+ */
+:is(input, select, textarea).border-border:not(:focus) {
+  border-color: transparent;
 }

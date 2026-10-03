@@ -173,7 +173,7 @@ function ScheduledEditor({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="flex w-[min(560px,80vw)] flex-col gap-3 rounded-xl border border-border bg-bg-secondary p-4 shadow-2xl">
+      <div className="flex w-[min(560px,80vw)] flex-col gap-3 rounded-xl bg-bg-secondary p-4 shadow-2xl">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold text-text-primary">내가 지정한 종목 — 하루 1번 Gemini 분석</h2>
           <button type="button" onClick={onClose} className="ml-auto text-text-muted hover:text-text-primary" aria-label="닫기">

@@ -54,7 +54,7 @@ export default function WatchFolderView({
   const canRemove = !compareMode && Boolean(onRemoveSymbol);
 
   return (
-    <section className="border-b border-border/40">
+    <section className="border-b border-border/30">
       {!bare && (
         <button
           type="button"
@@ -92,7 +92,7 @@ export default function WatchFolderView({
               <div
                 key={symbol}
                 className={`flex items-center transition-colors hover:bg-bg-tertiary/60 ${
-                  highlighted ? 'bg-accent/10' : ''
+                  highlighted ? 'bg-bg-tertiary' : ''
                 }`}
               >
                 <button
@@ -115,14 +115,12 @@ export default function WatchFolderView({
                         : `${nameOf(symbol) || symbol} 비교에 담기`
                       : undefined
                   }
-                  className="flex min-w-0 flex-1 items-center justify-between py-2 pl-3 pr-2 text-left"
+                  className="flex min-w-0 flex-1 items-center justify-between py-2.5 pl-3 pr-2 text-left"
                 >
                   <span className="flex min-w-0 flex-col">
                     <span
                       // v2.25.0 — 글씨가 커져 「SK하이닉스 (0006…」 처럼 종목 코드가 잘렸다. 자르지 않고 단어 단위로 두 줄까지 감싼다
-                      className={`line-clamp-2 break-keep text-xs font-medium ${
-                        highlighted ? 'text-accent' : 'text-text-primary'
-                      }`}
+                      className="line-clamp-2 break-keep text-xs font-medium text-text-primary"
                     >
                       {/* 담긴 종목은 ✓ 로 한눈에 구분한다 */}
                       {picked && <Check {...ICON_SM} className="mr-1 inline-block shrink-0 align-[-2px] text-text-primary" />}

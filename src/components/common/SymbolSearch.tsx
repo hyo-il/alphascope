@@ -228,7 +228,7 @@ export default function SymbolSearch({
 
       {open && results.length > 0 && (
         <ul
-          className={`absolute z-40 max-h-72 w-80 min-w-full overflow-y-auto rounded-md border border-border bg-bg-secondary py-1 shadow-xl ${
+          className={`absolute z-40 max-h-72 w-80 min-w-full overflow-y-auto rounded-lg bg-bg-elevated py-1 shadow-xl ${
             /*
              * 좁은 패널(관심 목록)의 입력창은 패널 맨 아래에 있다 — 아래로 열면 화면 밖으로
              * 잘리고, 오른쪽으로도 넘친다. 위·오른쪽 기준으로 붙인다.
@@ -282,7 +282,7 @@ export default function SymbolSearch({
       {/* 아직 응답 전인데 "결과 없음" 을 띄우면 오해를 부른다 — searching 을 함께 본다. */}
       {open && searching && results.length === 0 && (
         <p
-          className={`absolute z-40 flex w-80 items-center gap-2 rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs text-text-muted shadow-xl ${
+          className={`absolute z-40 flex w-80 items-center gap-2 rounded-lg bg-bg-elevated px-3 py-2 text-xs text-text-muted shadow-xl ${
             up ? 'bottom-full right-0 mb-1' : 'left-0 top-full mt-1'
           }`}
         >
@@ -298,7 +298,7 @@ export default function SymbolSearch({
          * (드롭다운만 고치고 이 블록을 빠뜨려 "메시지가 잘린다" 는 신고가 있었다.)
          */
         <div
-          className={`absolute z-40 w-80 max-w-[calc(100vw-2rem)] space-y-1 rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs shadow-xl ${
+          className={`absolute z-40 w-80 max-w-[calc(100vw-2rem)] space-y-1 rounded-lg bg-bg-elevated px-3 py-2 text-xs shadow-xl ${
             up ? 'bottom-full right-0 mb-1' : 'left-0 top-full mt-1'
           }`}
         >

@@ -69,8 +69,8 @@ export default function SideNav({
         title={item.label}
         className={`flex w-full flex-col items-center gap-0.5 border-l-2 py-2.5 transition-colors ${
           group === item.id
-            ? 'border-accent bg-accent/10 text-accent'
-            : 'border-transparent text-text-muted hover:bg-bg-tertiary/60 hover:text-text-secondary'
+            ? 'border-transparent bg-bg-tertiary text-text-primary'
+            : 'border-transparent text-text-muted hover:bg-bg-tertiary/60 hover:text-text-primary'
         }`}
       >
         {(() => {
@@ -83,7 +83,7 @@ export default function SideNav({
 
       {/* 소메뉴가 하나뿐이면 플라이아웃을 띄우지 않는다 — 대메뉴를 누르면 바로 그 화면이다 */}
       {hovered === item.id && item.pages.length > 1 && (
-        <div className="absolute left-full top-0 z-50 ml-px w-40 rounded-r-md border border-border bg-bg-secondary py-1 shadow-xl">
+        <div className="absolute left-full top-0 z-50 ml-px w-40 rounded-lg bg-bg-elevated py-1 shadow-xl">
           {item.pages.map((sub) => (
             <button
               key={sub.id}
@@ -91,13 +91,13 @@ export default function SideNav({
               onClick={() => onSelectPage(sub.id)}
               className={`block w-full whitespace-nowrap px-3 py-1.5 text-left text-xs transition-colors ${
                 page === sub.id
-                  ? 'bg-accent/10 text-accent'
+                  ? 'bg-bg-tertiary font-medium text-text-primary'
                   : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
               }`}
             >
               {sub.label}
               {sub.badge && (
-                <span className="ml-1 rounded bg-warning/15 px-1 py-px text-[13px] align-middle text-warning">
+                <span className="ml-1 rounded bg-warning/15 px-1 py-px align-middle text-[13px] text-warning">
                   {sub.badge}
                 </span>
               )}
@@ -125,7 +125,7 @@ export default function SideNav({
           onClick={() => onSelectGroup(item.id)}
           className={`flex w-full items-center gap-2 border-l-2 px-2.5 py-2 text-left text-xs transition-colors ${
             open
-              ? 'border-accent bg-accent/10 font-medium text-accent'
+              ? 'border-transparent font-medium text-text-primary'
               : 'border-transparent text-text-secondary hover:bg-bg-tertiary/60 hover:text-text-primary'
           }`}
         >
@@ -148,13 +148,13 @@ export default function SideNav({
               onClick={() => onSelectPage(sub.id)}
               className={`block w-full whitespace-nowrap py-1.5 pl-10 pr-2 text-left text-xs transition-colors ${
                 page === sub.id
-                  ? 'bg-accent/5 text-accent'
+                  ? 'bg-bg-tertiary font-medium text-text-primary'
                   : 'text-text-muted hover:bg-bg-tertiary/60 hover:text-text-primary'
               }`}
             >
               {sub.label}
               {sub.badge && (
-                <span className="ml-1 rounded bg-warning/15 px-1 py-px text-[13px] align-middle text-warning">
+                <span className="ml-1 rounded bg-warning/15 px-1 py-px align-middle text-[13px] text-warning">
                   {sub.badge}
                 </span>
               )}
@@ -223,15 +223,17 @@ export default function SideNav({
 
   return (
     <nav className="flex w-[156px] shrink-0 flex-col border-r border-border bg-bg-secondary">
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border pl-3 pr-2">
         <button
           type="button"
           onClick={onGoHome}
           title="홈으로"
           aria-label="홈으로"
-          className="flex min-w-0 items-center gap-1.5 text-sm font-bold text-accent transition-opacity hover:opacity-80"
+          className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-text-primary transition-opacity hover:opacity-80"
         >
-          <LogoMark size={18} />
+          <span className="text-accent">
+            <LogoMark size={18} />
+          </span>
           <span className="truncate">AlphaScope</span>
         </button>
         <button
@@ -239,9 +241,9 @@ export default function SideNav({
           onClick={() => setCollapsed(true)}
           title="메뉴 접기"
           aria-label="메뉴 접기"
-          className="text-text-muted transition-colors hover:text-text-primary"
+          className="shrink-0 text-text-muted transition-colors hover:text-text-primary"
         >
-          <ChevronLeft {...ICON} />
+          <ChevronLeft {...ICON_SM} />
         </button>
       </div>
 

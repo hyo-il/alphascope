@@ -102,7 +102,7 @@ export default function MarketOverview() {
           Array.from({ length: 7 }).map((_, index) => (
             <div
               key={index}
-              className="rounded-lg border border-border bg-bg-secondary px-3 py-2"
+              className="rounded-xl bg-bg-secondary px-3 py-2"
             >
               <Skeleton className="mb-1.5 h-2.5 w-14" />
               <Skeleton className="mb-1 h-5 w-24" />

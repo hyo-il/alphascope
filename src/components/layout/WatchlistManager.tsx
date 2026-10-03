@@ -182,7 +182,7 @@ export default function WatchlistManager({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="flex h-[min(600px,75vh)] w-[min(700px,80vw)] flex-col overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-2xl"
+        className="flex h-[min(600px,75vh)] w-[min(700px,80vw)] flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl"
       >
         <header className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3.5">
           <h2 className="text-base font-semibold">관심 종목 편집</h2>
@@ -452,7 +452,7 @@ export default function WatchlistManager({
                   군 이동
                 </button>
                 {moveOpen && (
-                  <ul className="absolute left-0 top-full z-40 mt-1 max-h-56 w-40 overflow-y-auto rounded-md border border-border bg-bg-secondary py-1 shadow-xl">
+                  <ul className="absolute left-0 top-full z-40 mt-1 max-h-56 w-40 overflow-y-auto rounded-lg bg-bg-elevated py-1 shadow-xl">
                     {/*
                       기본 폴더는 이름('미분류')이 아니라 **'폴더에서 빼기'** 라는 동작으로 적는다 —
                       사용자에게 그것은 옮겨 갈 폴더가 아니라 폴더를 벗어나는 일이다.

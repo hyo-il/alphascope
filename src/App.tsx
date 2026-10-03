@@ -502,7 +502,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
               <span className="shrink-0 whitespace-nowrap text-base font-semibold">{stockInfo?.name || symbol}</span>
               {stockInfo?.name && <span className="shrink-0 whitespace-nowrap text-xs text-text-secondary">{symbol}</span>}
 
-              <span className="shrink-0 whitespace-nowrap text-lg font-bold tabular-nums">
+              <span className="shrink-0 whitespace-nowrap text-lg font-semibold tabular-nums">
                 {formatPrice(displayPrice, currency)}
               </span>
               {livePrice && (

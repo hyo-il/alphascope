@@ -1,5 +1,5 @@
-import { ICON, ICON_SM } from '../ui/icon';
-import { Settings, Check } from 'lucide-react';
+import { ICON, ICON_LG, ICON_SM } from '../ui/icon';
+import { Check, ChevronLeft, ChevronRight, Clock, Settings, Star, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import SymbolSearch from '../common/SymbolSearch';
 import WatchFolderView from './WatchFolderView';
@@ -41,36 +41,6 @@ interface Props {
 }
 
 type PanelTab = 'watch' | 'recent' | 'account';
-
-/** 별 아이콘 — 관심 목록을 뜻한다 */
-function StarIcon({ className = '' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden>
-      <path d="M10 1.6l2.47 5.3 5.53.68-4.09 3.9 1.06 5.72L10 14.5l-4.97 2.7 1.06-5.72L2 7.58l5.53-.68L10 1.6z" />
-    </svg>
-  );
-}
-
-/** 시계 아이콘 — 최근 조회를 뜻한다 */
-function ClockIcon({ className = '' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" className={className} aria-hidden>
-      <circle cx="10" cy="10" r="7.5" />
-      <path d="M10 5.5V10l3 2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-/** 지갑 아이콘 — 계좌를 뜻한다 */
-function WalletIcon({ className = '' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className={className} aria-hidden>
-      <rect x="2" y="5" width="16" height="12" rx="2" />
-      <path d="M2 5V4.5A1.5 1.5 0 013.5 3h10A1.5 1.5 0 0115 4.5V5" />
-      <circle cx="14.5" cy="11" r="1.2" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
 
 /** 오른쪽 사이드 패널 — 관심 목록과 최근 조회. 클릭하면 즉시 그 종목 차트로 전환된다. */
 export default function WatchPanel({
@@ -130,11 +100,12 @@ export default function WatchPanel({
         className="group flex w-9 shrink-0 flex-col items-center gap-2 border-l border-border bg-bg-secondary py-3 transition-colors hover:bg-bg-tertiary"
       >
         <span className="flex h-6 w-6 items-center justify-center rounded text-base text-text-secondary transition-colors group-hover:bg-bg-tertiary group-hover:text-text-primary">
-          ‹
+          <ChevronLeft {...ICON_SM} />
         </span>
 
-        <span className="flex flex-col items-center gap-0.5 text-warning">
-          <StarIcon className="h-5 w-5" />
+        {/* 접힌 패널의 세로 메뉴 — lucide 선 아이콘(회색) + 글자 (v2.36.0, 예전 직접 그린 SVG·노란 별) */}
+        <span className="flex flex-col items-center gap-0.5 text-text-secondary">
+          <Star {...ICON_LG} />
           <span className="text-[13px] tabular-nums text-text-secondary">{watchlist.length}</span>
         </span>
 
@@ -148,7 +119,7 @@ export default function WatchPanel({
         <span className="my-0.5 h-px w-4 bg-border" />
 
         <span className="flex flex-col items-center gap-0.5 text-text-muted">
-          <ClockIcon className="h-5 w-5" />
+          <Clock {...ICON_LG} />
           <span className="text-[13px] tabular-nums text-text-secondary">{recent.length}</span>
         </span>
 
@@ -162,7 +133,7 @@ export default function WatchPanel({
         <span className="my-0.5 h-px w-4 bg-border" />
 
         <span className="flex flex-col items-center gap-0.5 text-text-muted">
-          <WalletIcon className="h-5 w-5" />
+          <Wallet {...ICON_LG} />
         </span>
 
         <span
@@ -186,23 +157,23 @@ export default function WatchPanel({
              * 탭 하나에 70px 남짓인데, "관심 목록"(text-xs 5자)은 아이콘까지 78px 라
              * 줄바꿈이 났다. 아이콘이 이미 뜻을 나르므로 두 글자로 충분하다.
              */
-            ['watch', '관심', <StarIcon key="s" className="h-3 w-3" />],
-            ['recent', '최근', <ClockIcon key="c" className="h-3 w-3" />],
-            ['account', '계좌', <WalletIcon key="w" className="h-3 w-3" />],
+            ['watch', '관심'],
+            ['recent', '최근'],
+            ['account', '계좌'],
           ] as const
-        ).map(([id, label, icon]) => (
+        ).map(([id, label]) => (
           <button
             key={id}
             type="button"
             onClick={() => setTab(id)}
             title={id === 'watch' ? '관심 목록' : id === 'recent' ? '최근 조회' : '모의투자 계좌'}
-            className={`flex flex-1 items-center justify-center gap-1.5 border-b-2 py-2 text-xs transition-colors ${
+            /* 글자 탭 (v2.36.0 디자인 규칙 2) — 아이콘 없이, 고른 탭만 흰 글자 + 밑줄. 파란 밑줄을 쓰지 않는다 */
+            className={`flex flex-1 items-center justify-center border-b-2 py-2.5 text-xs transition-colors ${
               tab === id
-                ? 'border-accent text-text-primary'
+                ? 'border-text-primary font-medium text-text-primary'
                 : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >
-            {icon}
             {label}
           </button>
         ))}
@@ -221,9 +192,10 @@ export default function WatchPanel({
           type="button"
           onClick={onToggleCollapse}
           title="접기"
-          className="px-2 text-xs text-text-muted transition-colors hover:text-text-primary"
+          aria-label="관심 목록 패널 접기"
+          className="px-2 text-text-muted transition-colors hover:text-text-primary"
         >
-          ›
+          <ChevronRight {...ICON_SM} />
         </button>
       </div>
 
@@ -287,7 +259,7 @@ export default function WatchPanel({
               <div
                 key={symbol}
                 className={`group flex items-center transition-colors hover:bg-bg-tertiary/60 ${
-                  highlighted ? 'bg-accent/10' : ''
+                  highlighted ? 'bg-bg-tertiary' : ''
                 }`}
               >
                 <button
@@ -299,14 +271,12 @@ export default function WatchPanel({
                     e.dataTransfer.setData('text/plain', symbol);
                     e.dataTransfer.effectAllowed = 'copy';
                   }}
-                  className="flex min-w-0 flex-1 items-center justify-between py-2 pl-3 pr-1 text-left"
+                  className="flex min-w-0 flex-1 items-center justify-between py-2.5 pl-3 pr-1 text-left"
                 >
                   <span className="flex min-w-0 flex-col">
                     <span
                       // v2.25.0 — 글씨가 커져 「SK하이닉스 (0006…」 처럼 종목 코드가 잘렸다. 자르지 않고 단어 단위로 두 줄까지 감싼다
-                      className={`line-clamp-2 break-keep text-xs font-medium ${
-                        highlighted ? 'text-accent' : 'text-text-primary'
-                      }`}
+                      className="line-clamp-2 break-keep text-xs font-medium text-text-primary"
                     >
                       {picked && <Check {...ICON_SM} className="mr-1 inline-block shrink-0 align-[-2px] text-text-primary" />}
                       {names(symbol) ? `${names(symbol)} (${symbol})` : symbol}

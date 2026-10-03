@@ -67,7 +67,7 @@ export default function WatchlistSyncModal() {
   return (
     // 배경을 눌러 닫지 않는다 — 고르지 않고 넘어가면 어느 목록을 쓸지 정해지지 않는다.
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
-      <div className="w-[min(520px,90vw)] rounded-xl border border-border bg-bg-secondary p-5 shadow-2xl">
+      <div className="w-[min(520px,90vw)] rounded-xl bg-bg-secondary p-5 shadow-2xl">
         <h2 className="text-base font-semibold text-text-primary">관심 목록이 서로 다릅니다</h2>
         <p className="mt-1.5 text-xs leading-relaxed text-text-secondary">
           서버에 저장된 목록과 이 브라우저의 목록이 다릅니다. 어느 쪽을 쓸지 골라 주세요.

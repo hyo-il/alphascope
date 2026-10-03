@@ -829,7 +829,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
               setSelectedAnchor(null);
             }}
             title="이 드로잉 삭제 (Delete)"
-            className="absolute z-20 flex items-center gap-1 rounded-full bg-bearish px-2.5 py-1 text-[13px] font-bold text-white shadow-lg transition-transform hover:scale-105"
+            className="absolute z-20 flex items-center gap-1 rounded-full bg-bearish px-2.5 py-1 text-[13px] font-semibold text-white shadow-lg transition-transform hover:scale-105"
             style={{ left: selectedAnchor.x - 24, top: selectedAnchor.y - 30 }}
           >
             삭제
@@ -839,7 +839,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
         {/* 우클릭 컨텍스트 메뉴 (수정 3-A) */}
         {menu && (
           <div
-            className="absolute z-30 min-w-[110px] overflow-hidden rounded-md border border-border bg-bg-secondary shadow-xl"
+            className="absolute z-30 min-w-[110px] overflow-hidden rounded-lg bg-bg-elevated shadow-xl"
             style={{ left: menu.x, top: menu.y }}
           >
             <button

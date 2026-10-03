@@ -90,7 +90,7 @@ export default function IndicatorDropdown({ toggles, onChange, loading }: Props)
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-30 mt-1 w-52 rounded-md border border-border bg-bg-secondary py-1 shadow-xl">
+        <div className="absolute left-0 top-full z-30 mt-1 w-52 rounded-lg bg-bg-elevated py-1 shadow-xl">
           <p className="px-3 py-1 text-[13px] text-text-muted">차트 오버레이</p>
 
           {/* MA 는 상위 라벨 + 기간별 하위 항목으로 묶는다 */}

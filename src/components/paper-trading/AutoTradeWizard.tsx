@@ -139,7 +139,7 @@ export default function AutoTradeWizard({
 
   return (
     <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/70 p-4">
-      <div className="flex h-[min(640px,85vh)] w-[min(720px,90vw)] flex-col overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-2xl">
+      <div className="flex h-[min(640px,85vh)] w-[min(720px,90vw)] flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl">
         {/* 머리줄 — 단계 표시 1/4 */}
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold">자동매매 처음 켜기</h2>
