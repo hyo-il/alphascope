@@ -23,6 +23,13 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.34.2',
+    date: '2026-10-03',
+    title: '관심 목록 안내 문구 정리',
+    description: '관심 목록 패널 맨 아래의 안내 문구를 없앴습니다.',
+    changes: ['관심 목록 패널 맨 아래의 안내 문구를 없앴습니다. 기업 비교 화면의 안내는 관심·최근 탭에서만 보입니다.'],
+  },
+  {
     version: 'v2.34.1',
     date: '2026-10-03',
     title: '지우기 전 확인 창 · 실패 알림',
