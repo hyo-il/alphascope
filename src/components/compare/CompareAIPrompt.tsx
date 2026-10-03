@@ -1,3 +1,6 @@
+import { ICON_SM } from '../ui/icon';
+import { ExternalLink } from 'lucide-react';
+import WarnIcon from '../ui/WarnIcon';
 import { useEffect, useMemo, useState } from 'react';
 import { buildComparePrompt } from '../../services/analysis/modePrompts';
 import {
@@ -108,7 +111,7 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
           disabled={!ready}
           className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
         >
-          📋 클립보드 복사
+          클립보드 복사
         </button>
         <a
           href="https://claude.ai/new"
@@ -116,7 +119,7 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
           rel="noreferrer"
           className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
         >
-          Claude 열기 ↗
+          Claude 열기 <ExternalLink {...ICON_SM} />
         </a>
         <button
           type="button"
@@ -127,7 +130,7 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
           프롬프트 초기화
         </button>
 
-        <span className="text-[13px] text-warning">⚠️ 이 분석은 투자 조언이 아닙니다.</span>
+        <span className="text-[13px] text-warning"><WarnIcon />이 분석은 투자 조언이 아닙니다.</span>
       </div>
     </section>
   );

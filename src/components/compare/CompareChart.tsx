@@ -1,3 +1,5 @@
+import { ICON_SM } from '../ui/icon';
+import { X } from 'lucide-react';
 import type { Timeframe } from '../../types/toss';
 import LiteCandleChart, { LITE_CHART_MAS } from '../chart/LiteCandleChart';
 import { barUnitOf, maLabel } from '../../types/chart';
@@ -90,9 +92,10 @@ export default function CompareChart({
           type="button"
           onClick={onRemove}
           title="비교에서 빼기"
+          aria-label="비교에서 빼기"
           className="shrink-0 text-xs leading-none text-text-muted transition-colors hover:text-bearish"
         >
-          ✕
+          <X {...ICON_SM} />
         </button>
       </div>
 

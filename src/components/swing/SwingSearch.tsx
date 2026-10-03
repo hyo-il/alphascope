@@ -79,7 +79,7 @@ export default function SwingSearch({
           </div>
           {recommendation.rejection && (
             <p className="rounded border border-warning/40 bg-warning/10 px-3 py-2 text-[13px] text-warning">
-              {GRADE_STYLE[recommendation.grade].icon} 매수 추천 구간이 아닙니다 —{' '}
+              {GRADE_STYLE[recommendation.grade].label} — 매수 추천 구간이 아닙니다 —{' '}
               {recommendation.rejection}
             </p>
           )}

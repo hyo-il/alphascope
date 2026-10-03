@@ -73,12 +73,12 @@ function StatusLabel({ state }: { state: StepState }) {
   if (state.kind === 'done') {
     return (
       <span className="text-[13px] text-bullish">
-        ✅ {state.label ?? '복사 완료'} <span className="text-text-muted">({state.at})</span>
+        {state.label ?? '복사 완료'} <span className="text-text-muted">({state.at})</span>
       </span>
     );
   }
   if (state.kind === 'failed') {
-    return <span className="text-[13px] text-bearish">❌ {state.reason}</span>;
+    return <span className="text-[13px] text-bearish">{state.reason}</span>;
   }
   return null;
 }
@@ -198,7 +198,7 @@ export default function CopySteps({
 
   return (
     <section className={horizontal ? 'space-y-2' : 'space-y-3'}>
-      {!hideIntro && <h3 className="text-xs font-medium text-text-secondary">📤 Claude에 보내기</h3>}
+      {!hideIntro && <h3 className="text-xs font-medium text-text-secondary">Claude에 보내기</h3>}
 
       {includeImage && !hideIntro && (
         <p className="text-[13px] leading-relaxed text-text-muted">
@@ -213,7 +213,7 @@ export default function CopySteps({
               1,
               capture
                 ? secure
-                  ? '차트 이미지를 복사해 Claude 입력창에 붙여넣으세요(⌘V).'
+                  ? '차트 이미지를 복사해 Claude 입력창에 붙여넣으세요(Ctrl+V 또는 Cmd+V).'
                   : '차트 이미지를 PNG 파일로 저장해 Claude 대화창에 끌어다 넣으세요.'
                 : capturePending
                   ? '지금 보고 있는 차트를 캡처하고 있습니다…'
@@ -235,7 +235,7 @@ export default function CopySteps({
                           onClick={handleDownload}
                           className="w-full rounded-md border border-border bg-bg-secondary px-2 py-1.5 text-xs text-text-primary transition-colors hover:bg-bg-tertiary"
                         >
-                          💾 PNG로 저장해서 첨부하기
+                          PNG로 저장해서 첨부하기
                         </button>
                         <StatusLabel state={imageStep} />
                         <p className="text-[13px] leading-relaxed text-text-muted">
@@ -250,7 +250,7 @@ export default function CopySteps({
                           disabled={busy}
                           className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
                         >
-                          📸 {captureLabel}
+                          {captureLabel}
                         </button>
                         <StatusLabel state={imageStep} />
                         {imageStep.kind === 'failed' && (
@@ -260,7 +260,7 @@ export default function CopySteps({
                               onClick={handleDownload}
                               className="w-full rounded-md border border-border px-2 py-1.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
                             >
-                              💾 PNG로 저장해서 첨부하기
+                              PNG로 저장해서 첨부하기
                             </button>
                             <p className="text-[13px] leading-relaxed text-text-muted">
                               저장한 파일을 Claude 대화창에 드래그해 넣으세요.
@@ -275,7 +275,7 @@ export default function CopySteps({
                         disabled={capturePending}
                         className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
                       >
-                        {capturePending ? '캡처 준비 중…' : '📷 차트 캡처하기'}
+                        {capturePending ? '캡처 준비 중…' : '차트 캡처하기'}
                       </button>
                     )
                   )}
@@ -298,7 +298,7 @@ export default function CopySteps({
                     onClick={handleDownload}
                     className="w-full rounded-md border border-border bg-bg-secondary px-2 py-1.5 text-xs text-text-primary transition-colors hover:bg-bg-tertiary"
                   >
-                    💾 PNG로 저장해서 첨부하기
+                    PNG로 저장해서 첨부하기
                   </button>
                   <StatusLabel state={imageStep} />
                   <p className="text-[13px] leading-relaxed text-text-muted">
@@ -313,7 +313,7 @@ export default function CopySteps({
                     disabled={busy}
                     className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
                   >
-                    📸 {captureLabel}
+                    {captureLabel}
                   </button>
                   <StatusLabel state={imageStep} />
                   {imageStep.kind === 'failed' && (
@@ -323,7 +323,7 @@ export default function CopySteps({
                         onClick={handleDownload}
                         className="w-full rounded-md border border-border px-2 py-1.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
                       >
-                        💾 PNG로 저장해서 첨부하기
+                        PNG로 저장해서 첨부하기
                       </button>
                       <p className="text-[13px] leading-relaxed text-text-muted">
                         저장한 파일을 Claude 대화창에 드래그해 넣으세요.
@@ -338,7 +338,7 @@ export default function CopySteps({
                   disabled={capturePending}
                   className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
                 >
-                  {capturePending ? '캡처 준비 중…' : '📷 차트 캡처하기'}
+                  {capturePending ? '캡처 준비 중…' : '차트 캡처하기'}
                 </button>
               )
               ),
@@ -359,7 +359,7 @@ export default function CopySteps({
               disabled={!promptReady}
               className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
-              {promptReady ? `📋 ${promptLabel}` : '데이터 불러오는 중…'}
+              {promptReady ? `${promptLabel}` : '데이터 불러오는 중…'}
             </button>
             <StatusLabel state={textStep} />
           </div>,
@@ -373,14 +373,14 @@ export default function CopySteps({
             onClick={() => window.open('https://claude.ai/new', '_blank', 'noopener')}
             className="w-full rounded-md border border-border bg-bg-secondary px-2 py-1.5 text-xs text-text-primary transition-colors hover:bg-bg-tertiary"
           >
-            🔗 Claude 대화 열기
+            Claude 대화 열기
           </button>,
         )}
       </ol>
 
       {!tipHidden && includeImage && !hideIntro && (
         <div className="rounded-md border border-border/60 px-3 py-2 text-[13px] leading-relaxed text-text-muted">
-          💡 이미지와 프롬프트를 <b className="text-text-secondary">같은 대화</b>에 함께 보내면
+          이미지와 프롬프트를 <b className="text-text-secondary">같은 대화</b>에 함께 보내면
           차트 패턴과 수치를 모두 분석합니다.
           <button
             type="button"

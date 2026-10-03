@@ -47,9 +47,10 @@ export default function MarketCard({
             '—'
           ) : (
             <>
-              {up ? '▲' : down ? '▼' : ''}
-              {change != null ? format(Math.abs(change)) : ''} ({Math.abs(changePercent).toFixed(2)}
-              %)
+              {/* 방향은 부호로 (v2.36.0 — 예전 ▲▼ 기호). 색은 그대로 */}
+              {up ? '+' : down ? '−' : ''}
+              {change != null ? format(Math.abs(change)) : ''} ({up ? '+' : down ? '−' : ''}
+              {Math.abs(changePercent).toFixed(2)}%)
             </>
           )}
         </p>

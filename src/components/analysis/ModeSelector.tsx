@@ -30,7 +30,7 @@ export default function ModeSelector({ mode, onChange, portfolioAvailable }: Pro
               active ? 'bg-accent/15 font-medium text-accent' : 'text-text-secondary hover:text-text-primary'
             } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
           >
-            {item.icon} {item.label}
+            {item.label}
           </button>
         );
       })}

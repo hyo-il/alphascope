@@ -1,3 +1,4 @@
+import WarnIcon from '../../ui/WarnIcon';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGeminiStatus } from '../../../hooks/useGemini';
 import type { NewsAnalysis, NewsList, OverallSentiment } from '../../../types/news';
@@ -99,7 +100,7 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
           disabled={!canAnalyze}
           className="rounded border border-accent/60 bg-accent/10 px-2.5 py-1 text-[13px] font-medium text-accent disabled:border-border disabled:bg-transparent disabled:text-text-muted"
         >
-          {analyzing ? 'AI 판정 중…' : '🤖 AI 요약·판정'}
+          {analyzing ? 'AI 판정 중…' : 'AI 요약·판정'}
         </button>
         <span className="text-[13px] text-text-muted">
           {disabledReason
@@ -131,7 +132,7 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
           {analysis.judgment.summary && <p className="leading-relaxed text-text-secondary">{analysis.judgment.summary}</p>}
           {analysis.judgment.dropped > 0 && (
             <p className="mt-1 text-[13px] text-warning">
-              ⚠ 검증 실패 항목 {analysis.judgment.dropped}개 제외 (목록에 없는 기사 번호를 인용했습니다)
+              <WarnIcon />검증 실패 항목 {analysis.judgment.dropped}개 제외 (목록에 없는 기사 번호를 인용했습니다)
             </p>
           )}
           <p className="mt-1 text-[13px] text-text-muted">
@@ -180,7 +181,7 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
                   <p className="text-[13px] text-text-muted">
                     {item.publisher ?? '발행처 미상'} · {timeAgo(item.publishedAt)}
                   </p>
-                  {judged && <p className="text-[13px] text-text-secondary">↳ {judged.reason}</p>}
+                  {judged && <p className="text-[13px] text-text-secondary">{judged.reason}</p>}
                 </div>
               </li>
             );

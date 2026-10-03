@@ -16,8 +16,11 @@ export type AutoTradeState = 'running' | 'waiting' | 'blocked' | 'off';
 
 export interface AutoTradeView {
   state: AutoTradeState;
-  /** 색을 못 가려내는 사람도 읽을 수 있게 **기호를 반드시 함께** 둔다 */
-  symbol: string;
+  /**
+   * 한 단어 상태(가동·대기·멈춤·꺼짐) — 아이콘을 그릴 수 없는 `<option>` 글자에 쓴다.
+   * 화면의 아이콘은 `ui/AutoTradeIcon`(상태마다 모양이 다르다 — 색만으로 구분하지 않는다, v2.36.0 예전 기호 ●◐⚠○).
+   */
+  short: string;
   label: string;
   /** 배지 옆에 흐리게 붙는 보조 설명 (배지 안에 넣으면 행이 줄바꿈된다) */
   hint: string | null;
@@ -38,7 +41,7 @@ export function autoTradeView(
   if (!strategy?.enabled) {
     return {
       state: 'off',
-      symbol: '○',
+      short: '꺼짐',
       label: '자동매매 꺼짐',
       hint: null,
       reason: null,
@@ -49,7 +52,7 @@ export function autoTradeView(
   if (status?.blockedKind === 'config') {
     return {
       state: 'blocked',
-      symbol: '⚠',
+      short: '멈춤',
       label: '멈춤',
       hint: null,
       reason: status.blockedReason,
@@ -62,7 +65,7 @@ export function autoTradeView(
   if (status?.blockedKind === 'daily_loss') {
     return {
       state: 'blocked',
-      symbol: '⚠',
+      short: '멈춤',
       label: '멈춤',
       hint: '손절·청산은 계속',
       reason: status.blockedReason,
@@ -75,7 +78,7 @@ export function autoTradeView(
   if (status?.blockedKind === 'server_off') {
     return {
       state: 'blocked',
-      symbol: '⚠',
+      short: '멈춤',
       label: '멈춤',
       hint: null,
       reason: status.blockedReason,
@@ -87,7 +90,7 @@ export function autoTradeView(
   if (status?.blockedKind === 'market_closed') {
     return {
       state: 'waiting',
-      symbol: '◐',
+      short: '대기',
       label: '대기',
       /*
         ⚠️ 이 설명을 **배지 안에 넣지 않는다.** 1280px 3열에서 배지가 한 줄을 다 먹어
@@ -102,7 +105,7 @@ export function autoTradeView(
 
   return {
     state: 'running',
-    symbol: '●',
+    short: '가동',
     label: busy ? '실행 중…' : '자동매매 가동 중',
     hint: null,
     reason: null,

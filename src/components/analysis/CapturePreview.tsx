@@ -48,7 +48,7 @@ export default function CapturePreview({
             onClick={onRetake}
             className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
           >
-            ↩ 다시 캡처
+            다시 캡처
           </button>
           <button
             type="button"

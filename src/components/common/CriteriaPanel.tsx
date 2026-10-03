@@ -24,8 +24,8 @@ export default function CriteriaPanel({
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-2 px-3 py-2 text-left"
       >
-        <span className="text-xs font-medium text-text-secondary">📐 {spec.title}</span>
-        <span className="ml-auto text-[13px] text-text-muted">{open ? '접기 ▾' : '펼치기 ▸'}</span>
+        <span className="text-xs font-medium text-text-secondary">{spec.title}</span>
+        <span className="ml-auto text-[13px] text-text-muted">{open ? '접기' : '펼치기'}</span>
       </button>
 
       {open && (

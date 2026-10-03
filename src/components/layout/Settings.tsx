@@ -1,3 +1,6 @@
+import { ICON_SM } from '../ui/icon';
+import { CircleCheck, TriangleAlert } from 'lucide-react';
+import WarnIcon from '../ui/WarnIcon';
 import { useCallback, useEffect, useState } from 'react';
 // 키 문자열을 여기에 다시 적지 않는다 — 옛 키만 지워 '비우기' 가 동작하지 않던 원인이다.
 import { RECENT_KEY, WATCHLIST_KEYS } from '../../hooks/useWatchlist';
@@ -43,8 +46,8 @@ export default function Settings({ isMock, engineDown, section }: Props) {
   const row = (label: string, ok: boolean, detail: string) => (
     <div className="flex items-center justify-between border-b border-border/60 py-2">
       <span className="text-sm text-text-secondary">{label}</span>
-      <span className={`text-xs ${ok ? 'text-bullish' : 'text-warning'}`}>
-        {ok ? '✅' : '⚠️'} {detail}
+      <span className={`inline-flex items-center gap-1 text-xs ${ok ? 'text-bullish' : 'text-warning'}`}>
+        {ok ? <CircleCheck {...ICON_SM} /> : <TriangleAlert {...ICON_SM} />} {detail}
       </span>
     </div>
   );
@@ -93,7 +96,7 @@ export default function Settings({ isMock, engineDown, section }: Props) {
         </section>
 
         <p className="mt-6 text-[13px] text-text-muted">
-          ⚠️ 이 앱이 제공하는 모든 분석은 참고용이며 투자 조언이 아닙니다.
+          <WarnIcon />이 앱이 제공하는 모든 분석은 참고용이며 투자 조언이 아닙니다.
         </p>
         <AppVersion />
       </div>
@@ -152,14 +155,14 @@ export default function Settings({ isMock, engineDown, section }: Props) {
           <li>· 휠: 커서 위치 기준 확대/축소</li>
           <li>· 드래그: 차트 좌우 이동</li>
           <li>· Esc: 드로잉 도구 해제 · Delete: 선택한 드로잉 삭제</li>
-          <li>· 드로잉 우클릭: 삭제 메뉴 · 드로잉 클릭: ✕ 버튼</li>
-          <li>· 관심 목록 ⚙️: 폴더 · 순서 · 삭제 관리</li>
+          <li>· 드로잉 우클릭: 삭제 메뉴 · 드로잉 클릭: 삭제 버튼</li>
+          <li>· 관심 목록 설정 버튼: 폴더 · 순서 · 삭제 관리</li>
           <li>· 차트 하단 탭 경계 드래그: 높이 조절 · 더블클릭: 기본 높이</li>
         </ul>
       </section>
 
       <p className="mt-6 text-[13px] text-text-muted">
-        ⚠️ 이 앱이 제공하는 모든 분석은 참고용이며 투자 조언이 아닙니다.
+        <WarnIcon />이 앱이 제공하는 모든 분석은 참고용이며 투자 조언이 아닙니다.
       </p>
       <AppVersion />
     </div>

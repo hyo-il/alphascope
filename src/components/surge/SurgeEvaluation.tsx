@@ -1,3 +1,4 @@
+import WarnIcon from '../ui/WarnIcon';
 import type { ReactNode } from 'react';
 import type { SurgeEvaluation as Evaluation } from '../../types/surge';
 import StockName from '../common/StockName';
@@ -27,7 +28,7 @@ export default function SurgeEvaluation({
       <header className="flex flex-wrap items-baseline gap-2">
         <StockName symbol={evaluation.symbol} name={evaluation.name} className="text-base" />
         <span className="ml-auto text-sm font-semibold">
-          급등 가능성 {evaluation.surgeScore}/100 ({evaluation.grade} {grade.icon})
+          급등 가능성 {evaluation.surgeScore}/100 · {grade.label}
         </span>
       </header>
 
@@ -38,7 +39,7 @@ export default function SurgeEvaluation({
       )}
 
       <section className="mt-3">
-        <h4 className="text-xs font-semibold text-text-secondary">📊 과거 급등 분석</h4>
+        <h4 className="text-xs font-semibold text-text-secondary">과거 급등 분석</h4>
         <dl className="mt-1.5 space-y-1 text-[13px] text-text-secondary">
           <Row label="분석 구간 급등 횟수" value={`${p.surgeCount}회 (일봉 ${evaluation.candleCount}개)`} />
           <Row label="평균 급등 간격" value={p.avgInterval ? `${p.avgInterval}일` : '—'} />
@@ -63,7 +64,7 @@ export default function SurgeEvaluation({
       </section>
 
       <section className="mt-3">
-        <h4 className="text-xs font-semibold text-text-secondary">📈 현재 상태 체크</h4>
+        <h4 className="text-xs font-semibold text-text-secondary">현재 상태 체크</h4>
         {evaluation.signalDetails.length ? (
           <ul className="mt-1.5 space-y-1 text-[13px]">
             {evaluation.signalDetails.map((detail) => (
@@ -71,7 +72,7 @@ export default function SurgeEvaluation({
                 <span className="w-32 shrink-0 text-text-secondary">{detail.label}</span>
                 <span className="w-40 shrink-0 tabular-nums text-text-primary">{detail.value}</span>
                 <span className={detail.hit ? 'text-bullish' : 'text-text-muted'}>
-                  → {detail.verdict} {detail.hit ? '✅' : '⚪'}
+                  → {detail.verdict}{detail.hit ? ' · 해당' : ''}
                 </span>
               </li>
             ))}
@@ -82,7 +83,7 @@ export default function SurgeEvaluation({
       </section>
 
       <section className="mt-3">
-        <h4 className="text-xs font-semibold text-text-secondary">💡 평가 요약</h4>
+        <h4 className="text-xs font-semibold text-text-secondary">평가 요약</h4>
         <p className="mt-1 text-[13px] leading-relaxed text-text-primary">{evaluation.reason}</p>
       </section>
 
@@ -106,12 +107,12 @@ export default function SurgeEvaluation({
           {watched ? '관심 등록됨' : '관심 등록'}
         </button>
         <button type="button" onClick={() => onAnalyze(evaluation.symbol)} className={BUTTON}>
-          🤖 AI 추가 분석
+          AI 추가 분석
         </button>
       </div>
 
       <p className="mt-3 text-[13px] text-text-muted">
-        ⚠️ 이 평가는 과거 데이터와 기술적 지표에 기반한 참고 정보이며, 투자 조언이 아닙니다.
+        <WarnIcon />이 평가는 과거 데이터와 기술적 지표에 기반한 참고 정보이며, 투자 조언이 아닙니다.
       </p>
     </article>
   );

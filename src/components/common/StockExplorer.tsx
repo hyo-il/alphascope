@@ -200,7 +200,7 @@ export default function StockExplorer({
     <div className="flex h-full min-h-0 flex-col items-center overflow-y-auto p-8">
       <div className="w-full max-w-3xl space-y-7">
         <div className="space-y-3 text-center">
-          <h2 className="text-lg font-semibold text-text-primary">🔍 종목을 검색하세요</h2>
+          <h2 className="text-lg font-semibold text-text-primary">종목을 검색하세요</h2>
           <p className="text-xs text-text-muted">
             한글 종목명으로도 찾을 수 있습니다 (예: 삼성전자, 애플)
           </p>
@@ -211,7 +211,7 @@ export default function StockExplorer({
 
         {section('인기 종목', POPULAR)}
         {section('관심 종목', watchlist, {
-          empty: '관심 목록이 비어 있습니다. 종목 화면의 ☆ 로 담아 보세요.',
+          empty: '관심 목록이 비어 있습니다. 종목 화면의 별 아이콘으로 담아 보세요.',
           onRemove: onRemoveWatch,
           removeLabel: '관심 목록에서 삭제 (모든 그룹)',
           limited: true,

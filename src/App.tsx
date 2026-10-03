@@ -1,3 +1,7 @@
+import WarnIcon from './components/ui/WarnIcon';
+import StarIcon from './components/ui/StarIcon';
+import { ICON_SM } from './components/ui/icon';
+import { X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ManualAnalysis from './components/analysis/ManualAnalysis';
 import AnalysisHistory from './components/analysis/AnalysisHistory';
@@ -170,7 +174,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
 
       {indicatorError && (
         <div className="border-b border-warning/30 bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
-          {engineDown ? '⚠️ 지표 엔진이 꺼져 있습니다. ' : '⚠️ 지표 계산 실패: '}
+          {engineDown ? '지표 엔진이 꺼져 있습니다. ' : '지표 계산 실패: '}
           {indicatorError}
         </div>
       )}
@@ -286,7 +290,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
       <div className="max-w-sm space-y-2 text-center">
         <p className="text-sm font-medium text-text-secondary">분석할 종목을 먼저 고르세요.</p>
         <p className="text-xs leading-relaxed text-text-muted">
-          ⬆️ 화면 <span className="text-text-secondary">왼쪽 위 검색창</span>에 종목명이나 티커를
+          화면 <span className="text-text-secondary">왼쪽 위 검색창</span>에 종목명이나 티커를
           입력하면 바로 분석할 수 있습니다. 한글로도 찾습니다 — 예: 애플, 엔비디아, AAPL
         </p>
       </div>
@@ -477,20 +481,21 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
                   setPage('chart');
                 }}
                 title="종목 선택 해제"
+                aria-label="종목 선택 해제"
                 className="text-sm leading-none text-text-muted transition-colors hover:text-text-primary"
               >
-                ✕
+                <X {...ICON_SM} />
               </button>
 
               <button
                 type="button"
                 onClick={() => toggle(symbol)}
                 title={isWatched ? '관심 목록에서 빼기' : '관심 목록에 담기'}
-                className={`text-lg leading-none transition-colors ${
-                  isWatched ? 'text-warning' : 'text-text-muted hover:text-warning'
-                }`}
+                aria-label={isWatched ? '관심 목록에서 빼기' : '관심 목록에 담기'}
+                aria-pressed={isWatched}
+                className="rounded p-0.5 transition-colors hover:bg-bg-tertiary"
               >
-                {isWatched ? '★' : '☆'}
+                <StarIcon on={isWatched} />
               </button>
 
               {/* 종목명이 먼저다 — 헤더에서 가장 먼저 읽히는 값이어야 한다 */}
@@ -516,7 +521,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
 
           {isMock && (
             <span className="ml-auto rounded bg-warning/15 px-2 py-1 text-[13px] text-warning">
-              ⚠️ 모의 데이터 — .env 에 토스 API 키를 넣으면 실시간으로 전환됩니다
+              <WarnIcon />모의 데이터 — .env 에 토스 API 키를 넣으면 실시간으로 전환됩니다
             </span>
           )}
         </header>

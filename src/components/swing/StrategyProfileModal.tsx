@@ -1,3 +1,5 @@
+import { ICON_SM } from '../ui/icon';
+import { X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CUSTOM_PROFILES,
@@ -341,7 +343,7 @@ export default function StrategyProfileModal({
             aria-label="닫기"
             className="ml-auto text-text-muted transition-colors hover:text-text-primary"
           >
-            ✕
+            <X {...ICON_SM} />
           </button>
         </div>
 
@@ -433,7 +435,7 @@ export default function StrategyProfileModal({
             <p className="text-[13px] text-text-secondary">
               손절 −{goalPct(shownStop)} ({goalDraft.stopAuto ? '목표의 절반' : '직접 설정'}) · {goalDraft.days}거래일 — 고급 설정에서 바꿀 수 있습니다
             </p>
-            {goalError && <p className="text-[13px] text-bearish">❌ {goalError}</p>}
+            {goalError && <p className="text-[13px] text-bearish">{goalError}</p>}
             {/* ⚠️ 고정 안내 두 줄 — 지우지 않는다(목표가 추천을 바꾼다고 오해하지 않게) */}
             <div className="space-y-0.5 rounded-md bg-bg-tertiary/40 px-3 py-2 text-[13px] leading-relaxed text-text-muted">
               <p>목표 수익률은 추천 판정을 바꾸지 않습니다. 「목표 도달 가능성 분석」을 할 때의 조건입니다.</p>

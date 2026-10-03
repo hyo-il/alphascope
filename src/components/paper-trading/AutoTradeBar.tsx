@@ -1,3 +1,5 @@
+import WarnIcon from '../ui/WarnIcon';
+import AutoTradeIcon from '../ui/AutoTradeIcon';
 import { useState } from 'react';
 import AutoTradeSettings from './AutoTradeSettings';
 import { useAutoTrading } from '../../hooks/useAutoTrading';
@@ -59,12 +61,12 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
   return (
     <>
       {/*
-        켜 놓고 "지금 무엇을 하는지" 를 한 문장으로 (v2.32.0). 기호(●◐⚠)는 카드와 같다 — 색만으로 구분하지 않는다.
+        켜 놓고 "지금 무엇을 하는지" 를 한 문장으로 (v2.32.0). 아이콘(`ui/AutoTradeIcon`)은 카드와 같다 — 색만으로 구분하지 않는다.
       */}
       {sentence && (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-border bg-bg-tertiary/30 px-4 py-1.5 text-xs">
           <span className={view.state === 'running' ? 'text-bullish' : view.state === 'blocked' ? 'text-warning' : 'text-text-secondary'}>
-            {view.symbol}
+            <AutoTradeIcon view={view} />
           </span>
           <span className="text-text-primary">{sentence.text}</span>
           {sentence.extra && <span className="text-text-muted">{sentence.extra}</span>}
@@ -80,7 +82,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
-        <span className="text-xs font-medium text-text-primary">🤖 자동매매</span>
+        <span className="text-xs font-medium text-text-primary">자동매매</span>
 
         <span
           className={`rounded px-1.5 py-0.5 text-[13px] font-medium ${
@@ -111,7 +113,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
         {/* 서버 스위치로 꺼진 서버 — 설정이 꺼져 있어도 알린다 (켜 봐야 돌지 않는다) */}
         {!on && status?.serverEnabled === false && (
           <span className="rounded bg-warning/15 px-2 py-0.5 text-[13px] text-warning">
-            ⚠️ 이 서버에서는 자동매매가 꺼져 있습니다(AUTO_TRADING_ENABLED=false)
+            <WarnIcon />이 서버에서는 자동매매가 꺼져 있습니다(AUTO_TRADING_ENABLED=false)
           </span>
         )}
         {/*
@@ -119,11 +121,11 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           예전에는 대기에도 주황 ⚠️ 배지가 겹쳐 떠서 고장처럼 보였다. 멈춤(설정·하루 손실·서버 꺼짐)만 경고색.
         */}
         {on && status?.blockedReason && status.blockedKind === 'market_closed' && (
-          <span className="rounded bg-bg-tertiary px-2 py-0.5 text-[13px] text-text-secondary">◐ 대기 — 장 시간이 아닙니다</span>
+          <span className="rounded bg-bg-tertiary px-2 py-0.5 text-[13px] text-text-secondary">대기 — 장 시간이 아닙니다</span>
         )}
         {on && status?.blockedReason && status.blockedKind !== 'market_closed' && (
           <span className="rounded bg-warning/15 px-2 py-0.5 text-[13px] text-warning">
-            ⚠️ {status.blockedReason}
+            <WarnIcon />{status.blockedReason}
           </span>
         )}
         {on && !status?.blockedReason && nextRun && (

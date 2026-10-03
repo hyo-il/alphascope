@@ -1,3 +1,5 @@
+import { ICON_SM } from '../ui/icon';
+import { SquareCheck, Square, ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
   MA_LINES,
@@ -62,7 +64,7 @@ export default function IndicatorDropdown({ toggles, onChange, loading }: Props)
         options.indent ? 'pl-6' : ''
       }`}
     >
-      <span className={checked ? 'text-accent' : 'text-text-muted'}>{checked ? '☑' : '☐'}</span>
+      <span className={checked ? 'text-text-primary' : 'text-text-muted'}>{checked ? <SquareCheck {...ICON_SM} /> : <Square {...ICON_SM} />}</span>
       {options.color && (
         <span
           className="h-0.5 w-3 shrink-0 rounded"
@@ -83,7 +85,7 @@ export default function IndicatorDropdown({ toggles, onChange, loading }: Props)
           open ? 'bg-bg-tertiary text-text-primary' : 'text-text-secondary hover:text-text-primary'
         }`}
       >
-        지표 {activeCount > 0 && <span className="text-accent">{activeCount}</span>} ▾
+        지표 {activeCount > 0 && <span className="text-text-secondary">{activeCount}</span>} <ChevronDown {...ICON_SM} className="inline-block align-[-2px]" />
         {loading && <span className="ml-1 text-text-muted">계산 중…</span>}
       </button>
 

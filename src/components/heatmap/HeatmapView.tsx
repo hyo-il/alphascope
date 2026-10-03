@@ -358,7 +358,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   return (
     <div className="@container flex h-full flex-col p-3">
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
-        <h2 className="text-sm font-semibold text-text-primary">🗺 종목 지도</h2>
+        <h2 className="text-sm font-semibold text-text-primary">종목 지도</h2>
         {/* 탭 (v2.27.0) — 시장·기간은 두 탭이 함께 쓴다 */}
         <div className="flex rounded border border-border p-0.5" role="tablist" aria-label="지도 대상">
           {(
@@ -452,7 +452,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         >
           {empty && (
             <p className="p-4 text-[14px] text-text-secondary">
-              관심 목록에 {marketLabel} 종목이 없습니다. 오른쪽 관심 목록에서 ★ 로 담아 보세요.
+              관심 목록에 {marketLabel} 종목이 없습니다. 오른쪽 관심 목록에 담아 보세요.
             </p>
           )}
           {!data && !error && (

@@ -29,9 +29,9 @@ export default function SyncStatusLine() {
 
   const label =
     state === 'failed'
-      ? `⚠ 서버 저장 실패 — ${getLastError() ?? '알 수 없는 오류'}`
+      ? `서버 저장 실패 — ${getLastError() ?? '알 수 없는 오류'}`
       : state === 'offline'
-        ? '⚠ 서버 저장 대기 — 연결되면 올립니다'
+        ? '서버 저장 대기 — 연결되면 올립니다'
         : state === 'saving'
           ? '서버에 저장 중…'
           : `서버 동기화: 저장됨 · r${getRevision()}${time ? ` · ${time}` : ''}`;

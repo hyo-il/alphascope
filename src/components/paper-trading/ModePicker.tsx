@@ -1,3 +1,4 @@
+import WarnIcon from '../ui/WarnIcon';
 import type { StrategyMode } from '../../types/autoTrading';
 
 /**
@@ -65,7 +66,7 @@ export default function ModePicker({
       </div>
       {!geminiEnabled && (
         <p className="text-[13px] text-warning">
-          ⚠️ Gemini 키가 설정되지 않았습니다 — 규칙형은 키 없이 동작합니다.
+          <WarnIcon />Gemini 키가 설정되지 않았습니다 — 규칙형은 키 없이 동작합니다.
         </p>
       )}
       {/* AI형 vs 규칙형 (v2.31.0) — 사실만 적는다. 어느 쪽이 낫다는 말은 하지 않는다 */}

@@ -1,3 +1,4 @@
+import WarnIcon from '../ui/WarnIcon';
 import { useState } from 'react';
 import type { AgentOpinion, GeminiAnalysis } from '../../types/gemini';
 import { formatUsd } from '../../utils/formatters';
@@ -96,7 +97,7 @@ export default function GeminiAnalysisCard({
         <p
           className={`mt-1.5 text-xs ${analysis.paperOrderId ? 'text-accent' : 'text-text-muted'}`}
         >
-          {analysis.paperOrderId ? '💰 ' : '· '}
+          {analysis.paperOrderId ? '모의 주문 · ' : '· '}
           {analysis.tradeNote}
         </p>
       )}
@@ -216,7 +217,7 @@ export default function GeminiAnalysisCard({
             {(analysis.elapsedMs / 1000).toFixed(1)}초
           </p>
           <p className="text-[13px] text-warning">
-            ⚠️ 이 분석은 AI 의견이며 투자 조언이 아닙니다.
+            <WarnIcon />이 분석은 AI 의견이며 투자 조언이 아닙니다.
           </p>
         </div>
       )}

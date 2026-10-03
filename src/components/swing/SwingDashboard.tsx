@@ -1,3 +1,4 @@
+import WarnIcon from '../ui/WarnIcon';
 import { useState } from 'react';
 import { usePageTab } from '../../hooks/usePageTab';
 import type { PageTab } from '../../types/nav';
@@ -45,9 +46,9 @@ const TABS: { id: Tab; label: string }[] = [
   실제 값은 위의 「판정 기준」 패널이 활성 프로파일 기준으로 보여 준다.
 */
 const SECTIONS: { grades: SwingGrade[]; title: string }[] = [
-  { grades: ['STRONG'], title: '⭐ 강력 추천' },
-  { grades: ['BUY'], title: '🟢 추천' },
-  { grades: ['WATCH'], title: '🟡 관심 — 아직 매수 시점은 아닙니다' },
+  { grades: ['STRONG'], title: '강력 추천' },
+  { grades: ['BUY'], title: '추천' },
+  { grades: ['WATCH'], title: '관심 — 아직 매수 시점은 아닙니다' },
 ];
 
 /**
@@ -210,7 +211,7 @@ export default function SwingDashboard({
                 title="판정 기준(표준·공격·수비)과 목표 수익 가능성의 조건을 함께 봅니다 — 목표는 점수·등급을 바꾸지 않습니다"
                 className="rounded-md border border-border px-2.5 py-1 text-[13px] text-text-primary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
               >
-                ⚙ 판단 기준 · {PROFILE_LABEL[activeId]} · 목표 +{goalPct(goal.targetPct)} · {periodLabel(goal.days)}
+                판단 기준 · {PROFILE_LABEL[activeId]} · 목표 +{goalPct(goal.targetPct)} · {periodLabel(goal.days)}
               </button>
               {profile.error && (
                 <span className="text-[13px] text-warning">
@@ -310,7 +311,7 @@ export default function SwingDashboard({
             {rejected.length > 0 && (
               <details className="rounded-lg border border-border bg-bg-secondary px-3 py-2">
                 <summary className="text-xs font-semibold text-text-secondary">
-                  ⚪ 부적합 ({rejected.length}개) — 왜 추천하지 않는지
+                  부적합 ({rejected.length}개) — 왜 추천하지 않는지
                 </summary>
                 <ul className="mt-1 space-y-1 text-[13px]">
                   {rejected.map((r) => {
@@ -330,7 +331,7 @@ export default function SwingDashboard({
             )}
 
             <p className="text-[13px] text-text-muted">
-              ⚠️ 이 점수는 지표 조건을 기계적으로 채점한 결과이며 투자 조언이 아닙니다. 목표가·손절가는
+              <WarnIcon />이 점수는 지표 조건을 기계적으로 채점한 결과이며 투자 조언이 아닙니다. 목표가·손절가는
               계획을 세우기 위한 기준일 뿐 가격을 보장하지 않습니다.
             </p>
             <NotProvenLine />

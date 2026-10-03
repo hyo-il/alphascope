@@ -1,3 +1,5 @@
+import { ICON_SM } from '../ui/icon';
+import { Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { StockSearchResult } from '../../types/toss';
 import { hasHangul, searchStocksApi } from '../../utils/stockSearch';
@@ -183,7 +185,7 @@ export default function SymbolTagInput({
               title="제거"
               className="rounded px-1 text-text-muted transition-colors hover:bg-bearish/20 hover:text-bearish"
             >
-              ✕
+              <X {...ICON_SM} />
             </button>
           </span>
         ))}
@@ -192,7 +194,7 @@ export default function SymbolTagInput({
       {/* 검색 입력 */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex items-center">
-          <span className="pointer-events-none absolute left-2 text-xs text-text-muted">🔍</span>
+          <Search {...ICON_SM} className="pointer-events-none absolute left-2 text-text-muted" />
           <input
             value={query}
             onChange={(event) => {
@@ -223,7 +225,7 @@ export default function SymbolTagInput({
               : 'border-border text-text-secondary hover:bg-bg-tertiary'
           }`}
         >
-          📋 관심 목록에서 추가 ({watchlist.length})
+          관심 목록에서 추가 ({watchlist.length})
         </button>
         <button
           type="button"
@@ -234,7 +236,7 @@ export default function SymbolTagInput({
               : 'border-border text-text-secondary hover:bg-bg-tertiary'
           }`}
         >
-          🕐 최근 조회에서 추가 ({recent.length})
+          최근 조회에서 추가 ({recent.length})
         </button>
 
         {symbols.length > 0 && (
@@ -243,7 +245,7 @@ export default function SymbolTagInput({
             onClick={() => onChange([])}
             className="ml-auto rounded border border-bearish/40 px-2.5 py-1 text-xs text-bearish transition-colors hover:bg-bearish/10"
           >
-            🗑 전체 삭제
+            전체 삭제
           </button>
         )}
       </div>
@@ -256,7 +258,7 @@ export default function SymbolTagInput({
             already={symbols}
             emptyMessage={
               picker === 'watchlist'
-                ? '관심 목록이 비어 있습니다. 종목 화면의 ☆ 로 담아 보세요.'
+                ? '관심 목록이 비어 있습니다. 종목 화면의 별 아이콘으로 담아 보세요.'
                 : '최근 조회한 종목이 없습니다.'
             }
             onAdd={(picked) => {

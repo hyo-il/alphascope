@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import { NAV_GROUPS, type NavGroup, type NavGroupId, type NavPageId } from '../../types/nav';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import LogoMark from './LogoMark';
+import { LOGOUT_ICON, NAV_ICON } from './navIcons';
+import { ICON, ICON_LG, ICON_SM } from '../ui/icon';
 
 /**
- * 펼친 메뉴의 아이콘 칸 — **폭 고정**(v2.25.0). 이모지(📊·⚙️)와 기호(⎋)는 글자 폭이 달라
- * 칸 폭을 두지 않으면 라벨 시작점이 어긋났다(로그아웃이 2px 왼쪽). 대메뉴와 로그아웃이 같은 칸을 쓴다.
+ * 펼친 메뉴의 아이콘 칸 — **폭 고정**(v2.25.0). 대메뉴와 로그아웃이 같은 칸을 쓴다 — 라벨 시작점이 한 줄에 선다.
+ * v2.36.0 부터 아이콘은 lucide(`navIcons.ts`)라 폭이 같지만, 칸은 그대로 둔다.
  */
-const ICON_SLOT = 'inline-flex w-5 shrink-0 justify-center text-base leading-none';
+const ICON_SLOT = 'inline-flex w-5 shrink-0 justify-center';
+const LogoutIcon = LOGOUT_ICON;
 
 /**
  * 왼쪽 내비게이션 — **대메뉴 → 소메뉴 2단**이다.
@@ -69,7 +73,10 @@ export default function SideNav({
             : 'border-transparent text-text-muted hover:bg-bg-tertiary/60 hover:text-text-secondary'
         }`}
       >
-        <span className="text-lg leading-none">{item.icon}</span>
+        {(() => {
+          const Icon = NAV_ICON[item.icon];
+          return <Icon {...ICON_LG} />;
+        })()}
         {/* 접힌 폭(52px)에는 짧은 이름 — 「차트·비교」「증시 일정」「투자 분석」 은 들어가지 않는다 (v2.26.0) */}
         <span className="text-[13px] leading-tight">{item.shortLabel}</span>
       </button>
@@ -122,9 +129,14 @@ export default function SideNav({
               : 'border-transparent text-text-secondary hover:bg-bg-tertiary/60 hover:text-text-primary'
           }`}
         >
-          <span className={ICON_SLOT}>{item.icon}</span>
+          <span className={ICON_SLOT}>
+            {(() => {
+              const Icon = NAV_ICON[item.icon];
+              return <Icon {...ICON} />;
+            })()}
+          </span>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          {!single && <span className="text-[13px] text-text-muted">{open ? '▾' : '▸'}</span>}
+          {!single && <span className="text-text-muted">{open ? <ChevronDown {...ICON_SM} /> : <ChevronRight {...ICON_SM} />}</span>}
         </button>
 
         {open &&
@@ -174,9 +186,9 @@ export default function SideNav({
             onClick={() => setCollapsed(false)}
             title="메뉴 펼치기"
             aria-label="메뉴 펼치기"
-            className="px-0.5 text-xs text-text-muted transition-colors hover:text-text-primary"
+            className="text-text-muted transition-colors hover:text-text-primary"
           >
-            ›
+            <ChevronRight {...ICON_SM} />
           </button>
         </div>
 
@@ -200,7 +212,7 @@ export default function SideNav({
               aria-label="로그아웃"
               className="flex w-full flex-col items-center gap-0.5 border-l-2 border-transparent py-2.5 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-bearish"
             >
-              <span className="text-lg leading-none">⎋</span>
+              <LogoutIcon {...ICON_LG} />
               <span className="text-[13px] leading-tight">로그아웃</span>
             </button>
           </div>
@@ -226,9 +238,10 @@ export default function SideNav({
           type="button"
           onClick={() => setCollapsed(true)}
           title="메뉴 접기"
-          className="text-xs text-text-muted transition-colors hover:text-text-primary"
+          aria-label="메뉴 접기"
+          className="text-text-muted transition-colors hover:text-text-primary"
         >
-          ‹
+          <ChevronLeft {...ICON} />
         </button>
       </div>
 
@@ -243,7 +256,9 @@ export default function SideNav({
             onClick={onLogout}
             className="flex w-full items-center gap-2 border-l-2 border-transparent px-2.5 py-2 text-left text-xs text-text-muted transition-colors hover:bg-bg-tertiary hover:text-bearish"
           >
-            <span className={ICON_SLOT}>⎋</span>
+            <span className={ICON_SLOT}>
+              <LogoutIcon {...ICON} />
+            </span>
             <span className="min-w-0 flex-1 truncate">로그아웃</span>
           </button>
         </div>

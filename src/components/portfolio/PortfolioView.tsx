@@ -47,7 +47,7 @@ export default function PortfolioView({ onSelectSymbol }: Props) {
         않는다 — 그래야 선택 탭의 밑줄이 이 줄의 구분선과 맞닿는다 (다른 화면의 탭과 같다).
       */}
       <div className="flex shrink-0 items-stretch gap-1 border-b border-border px-3">
-        <h2 className="flex items-center pr-3 text-sm font-semibold">💼 계좌 관리</h2>
+        <h2 className="flex items-center pr-3 text-sm font-semibold">계좌 관리</h2>
 
         {/* `<select>` 에 붙어 있던 '계좌' 라벨이 사라진 자리를 aria-label 이 대신한다 */}
         <div role="tablist" aria-label="계좌 유형" className="flex items-stretch gap-1">

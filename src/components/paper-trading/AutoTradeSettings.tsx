@@ -1,3 +1,6 @@
+import WarnIcon from '../ui/WarnIcon';
+import { ICON_SM } from '../ui/icon';
+import { X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { AccountStrategy, StrategyMode } from '../../types/autoTrading';
 import RuleChoices from './RuleChoices';
@@ -105,7 +108,7 @@ export default function AutoTradeSettings({
     >
       <div className="flex h-[min(640px,85vh)] w-[min(680px,90vw)] flex-col overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-2xl">
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
-          <h2 className="text-sm font-semibold">🤖 자동매매 설정</h2>
+          <h2 className="text-sm font-semibold">자동매매 설정</h2>
           <span className="rounded bg-warning/15 px-2 py-0.5 text-[13px] text-warning">
             모의 — 실제 주문은 나가지 않습니다
           </span>
@@ -115,7 +118,7 @@ export default function AutoTradeSettings({
             aria-label="닫기"
             className="ml-auto text-text-muted transition-colors hover:text-text-primary"
           >
-            ✕
+            <X {...ICON_SM} />
           </button>
         </div>
 
@@ -163,7 +166,7 @@ export default function AutoTradeSettings({
                   onClick={() => setRuleDetailOpen((v) => !v)}
                   className="text-[13px] text-text-muted transition-colors hover:text-text-primary"
                 >
-                  {ruleDetailOpen ? '▾ 자세히 접기' : '▸ 자세히 — 숫자 직접 고치기'}
+                  {ruleDetailOpen ? '자세히 접기' : '자세히 — 숫자 직접 고치기'}
                 </button>
                 {ruleDetailOpen && (
                   <div className="space-y-2 rounded-md border border-border bg-bg-tertiary/30 p-3">
@@ -222,7 +225,7 @@ export default function AutoTradeSettings({
                       <span className="text-[13px] text-text-muted">높일수록 더 오래 들고 갑니다</span>
                     </Row>
                     {!draft.rule.useMaCross && !draft.rule.useRsi && (
-                      <p className="text-[13px] text-warning">⚠️ 둘 다 끄면 매수 신호가 나지 않습니다(손절·트레일링만 동작).</p>
+                      <p className="text-[13px] text-warning"><WarnIcon />둘 다 끄면 매수 신호가 나지 않습니다(손절·트레일링만 동작).</p>
                     )}
                     <p className="text-[13px] leading-relaxed text-text-muted">
                       지표 엔진이 주는 이동평균은 5·20·60·120 입니다. 다른 값을 넣으면 가장 가까운
@@ -258,7 +261,7 @@ export default function AutoTradeSettings({
               onClick={() => setDetailOpen((v) => !v)}
               className="text-[13px] text-text-muted transition-colors hover:text-text-primary"
             >
-              {detailOpen ? '▾ 상세 접기' : '▸ 상세 설정'}
+              {detailOpen ? '상세 접기' : '상세 설정'}
             </button>
 
             {detailOpen && (
@@ -384,7 +387,7 @@ export default function AutoTradeSettings({
             )}
 
             <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-2 text-[13px] leading-relaxed text-text-muted">
-              💡 <span className="text-text-secondary">익절은 고정하지 않습니다.</span> 추세가 살아
+              <span className="text-text-secondary">익절은 고정하지 않습니다.</span> 추세가 살아
               있으면 계속 들고 가도록 {draft.mode === 'ai' ? 'AI 가 매 주기 보유 종목을 다시 평가해' : '데드크로스·RSI 과열 규칙으로'}{' '}
               팔 때를 정합니다.
             </p>

@@ -25,11 +25,11 @@ export default function TradePlan({
   const money = (value: number) =>
     currency === 'KRW' ? `₩${Math.round(value).toLocaleString('ko-KR')}` : `$${value.toFixed(2)}`;
 
-  const rows: { price: number; label: string; percent: number | null; tone: string; icon: string }[] = [
-    { price: target2.price, label: '2차 목표', percent: target2.percent, tone: 'text-bullish', icon: '🎯' },
-    { price: target1.price, label: '1차 목표', percent: target1.percent, tone: 'text-bullish', icon: '🎯' },
-    { price: entry, label: '매수가', percent: null, tone: 'text-text-primary', icon: '➡️' },
-    { price: stop, label: '손절가', percent: plan.stopLoss.maxLossPercent, tone: 'text-bearish', icon: '🛑' },
+  const rows: { price: number; label: string; percent: number | null; tone: string }[] = [
+    { price: target2.price, label: '2차 목표', percent: target2.percent, tone: 'text-bullish' },
+    { price: target1.price, label: '1차 목표', percent: target1.percent, tone: 'text-bullish' },
+    { price: entry, label: '매수가', percent: null, tone: 'text-text-primary' },
+    { price: stop, label: '손절가', percent: plan.stopLoss.maxLossPercent, tone: 'text-bearish' },
   ];
 
   // 막대 비율 — 매수가를 기준으로 위(리워드)와 아래(리스크)의 크기를 비교한다.
@@ -59,7 +59,6 @@ export default function TradePlan({
                   ? `${row.percent > 0 ? '+' : ''}${row.percent.toFixed(1)}%`
                   : '기준'}
               </td>
-              <td className="py-0.5">{row.icon}</td>
             </tr>
           ))}
         </tbody>

@@ -1,3 +1,5 @@
+import { ICON_SM } from '../ui/icon';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { MarketIndex } from '../../types/analysis';
 import type { ExchangeRate } from '../../types/toss';
@@ -61,7 +63,7 @@ export default function MarketOverview() {
                 className={`tabular-nums ${up ? 'text-bullish' : down ? 'text-bearish' : 'text-text-muted'}`}
               >
                 {index.changeRate != null &&
-                  `${up ? '▲' : down ? '▼' : ''}${Math.abs(index.changeRate).toFixed(2)}%`}
+                  `${up ? '+' : down ? '−' : ''}${Math.abs(index.changeRate).toFixed(2)}%`}
               </span>
             </span>
           );
@@ -70,9 +72,10 @@ export default function MarketOverview() {
         <button
           type="button"
           onClick={toggle}
-          className="ml-auto shrink-0 text-text-muted transition-colors hover:text-text-primary"
+          className="ml-auto inline-flex shrink-0 items-center gap-1 text-text-muted transition-colors hover:text-text-primary"
         >
-          ▼ 시황 펼치기
+          <ChevronDown {...ICON_SM} />
+          시황 펼치기
         </button>
       </div>
     );
@@ -85,9 +88,10 @@ export default function MarketOverview() {
         <button
           type="button"
           onClick={toggle}
-          className="text-[13px] text-text-muted transition-colors hover:text-text-primary"
+          className="inline-flex items-center gap-1 text-[13px] text-text-muted transition-colors hover:text-text-primary"
         >
-          ▲ 접기
+          <ChevronUp {...ICON_SM} />
+          접기
         </button>
       </div>
 

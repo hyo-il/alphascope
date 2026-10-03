@@ -1,3 +1,5 @@
+import WarnIcon from '../ui/WarnIcon';
+import Badge from '../ui/Badge';
 import type { ReactNode } from 'react';
 import type { SwingRecommendation } from '../../types/swing';
 import StockName from '../common/StockName';
@@ -40,7 +42,7 @@ export default function SwingRecommendationCard({
     >
       <header className="flex flex-wrap items-baseline gap-2">
         {pick}
-        <span>{grade.icon}</span>
+        <Badge tone={grade.tone}>{grade.label}</Badge>
         <StockName symbol={recommendation.symbol} name={recommendation.name} className="text-sm" />
         <span className="text-[13px] text-text-secondary">
           {currency === 'KRW'
@@ -73,7 +75,7 @@ export default function SwingRecommendationCard({
 
         <section>
           <h4 className="mb-1.5 text-[13px] font-semibold text-text-secondary">
-            📋 매매 계획 · {ENTRY_LABEL[recommendation.entry.type]}
+            매매 계획 · {ENTRY_LABEL[recommendation.entry.type]}
           </h4>
           <TradePlan plan={recommendation} currency={currency} />
 
@@ -93,7 +95,7 @@ export default function SwingRecommendationCard({
         </section>
 
         <section>
-          <h4 className="mb-1.5 text-[13px] font-semibold text-text-secondary">💡 매수 이유</h4>
+          <h4 className="mb-1.5 text-[13px] font-semibold text-text-secondary">매수 이유</h4>
           {/* 두세 줄까지 자리를 미리 잡아 둔다 — 카드마다 높이가 들쭉날쭉하면 훑기 어렵다 */}
           <div className="min-h-[3rem] space-y-1">
             <p className="text-[13px] leading-relaxed text-text-primary">
@@ -109,11 +111,11 @@ export default function SwingRecommendationCard({
       <div className="mt-3 space-y-1.5">
         {recommendation.warnings.map((warning) => (
           <p key={warning} className="text-[13px] leading-relaxed text-warning">
-            ⚠️ {warning}
+            <WarnIcon />{warning}
           </p>
         ))}
         <p className="text-[13px] leading-relaxed text-text-secondary">
-          🚫 무효 조건: {recommendation.invalidation}
+          무효 조건: {recommendation.invalidation}
         </p>
       </div>
 
@@ -137,7 +139,7 @@ export default function SwingRecommendationCard({
           모의 매수
         </button>
         <button type="button" onClick={() => onAnalyze(recommendation.symbol)} className={BUTTON}>
-          🤖 AI 추가 분석
+          AI 추가 분석
         </button>
       </div>
       {extra && <div className="mt-3">{extra}</div>}

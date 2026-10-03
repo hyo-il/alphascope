@@ -1,3 +1,5 @@
+import { ICON_SM } from '../ui/icon';
+import { X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import CaptureChart, { type CaptureChartHandle } from '../chart/CaptureChart';
 import CapturePreview from './CapturePreview';
@@ -297,7 +299,7 @@ export default function ChartCaptureModal({
             className="text-text-muted transition-colors hover:text-text-primary"
             aria-label="닫기"
           >
-            ✕
+            <X {...ICON_SM} />
           </button>
         </div>
 
@@ -322,7 +324,7 @@ export default function ChartCaptureModal({
               </button>
             ))}
             {dataLoading && <span className="ml-2 text-[13px] text-accent">불러오는 중…</span>}
-            {dataError && <span className="ml-2 text-[13px] text-bearish">❌ {dataError}</span>}
+            {dataError && <span className="ml-2 text-[13px] text-bearish">{dataError}</span>}
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md bg-bg-tertiary/50 px-3 py-2">
@@ -379,7 +381,7 @@ export default function ChartCaptureModal({
             <div className="flex min-w-0 items-center gap-3">
               <p className="text-[13px] text-text-muted">
                 휠: 확대/축소 · 드래그: 좌우 이동 · Esc: 닫기
-                {error && <span className="ml-2 text-bearish">❌ {error}</span>}
+                {error && <span className="ml-2 text-bearish">{error}</span>}
               </p>
 
               {/*
@@ -415,7 +417,7 @@ export default function ChartCaptureModal({
               disabled={busy || dataLoading || !activeCandles.length}
               className="rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
             >
-              {busy ? '캡처 중…' : dataLoading ? '불러오는 중…' : '📸 캡처'}
+              {busy ? '캡처 중…' : dataLoading ? '불러오는 중…' : '캡처'}
             </button>
           </div>
         </div>

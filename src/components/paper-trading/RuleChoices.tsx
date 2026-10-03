@@ -13,7 +13,6 @@ import StockName from '../common/StockName';
 
 export interface RuleChoice {
   id: 'trend' | 'dip' | 'both';
-  icon: string;
   title: string;
   buy: string;
   sell: string;
@@ -27,7 +26,6 @@ const BASE = { maShort: 5, maLong: 20, rsiBuyBelow: 30, rsiSellAbove: 70 };
 export const RULE_CHOICES: RuleChoice[] = [
   {
     id: 'trend',
-    icon: '📈',
     title: '추세 따라가기',
     buy: '최근 5일 평균값이 20일 평균값을 위로 넘어설 때(오르는 흐름이 시작될 때)',
     sell: '5일 평균값이 20일 평균값 아래로 내려갈 때',
@@ -37,7 +35,6 @@ export const RULE_CHOICES: RuleChoice[] = [
   },
   {
     id: 'dip',
-    icon: '🛒',
     title: '많이 떨어지면 사기',
     buy: '최근 많이 떨어져 RSI 가 30 이하였다가 다시 올라설 때',
     sell: 'RSI 가 70 이상으로 많이 올랐을 때',
@@ -47,7 +44,6 @@ export const RULE_CHOICES: RuleChoice[] = [
   },
   {
     id: 'both',
-    icon: '⚖️',
     title: '둘 다 (지금 기본값)',
     buy: '위 두 가지 중 하나라도 맞을 때',
     sell: '위 두 가지 중 하나라도 맞을 때',
@@ -190,7 +186,7 @@ export default function RuleChoices({
               }`}
             >
               <p className={`text-xs font-semibold ${on ? 'text-accent' : 'text-text-primary'}`}>
-                {c.icon} {c.title}
+                {c.title}
               </p>
               <p className="mt-1 text-[13px] leading-snug text-text-secondary">
                 <b className="text-text-primary">삽니다</b>: {c.buy}

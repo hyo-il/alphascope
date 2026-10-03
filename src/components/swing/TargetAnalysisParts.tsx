@@ -23,9 +23,9 @@ import { goalPct, periodLabel, sameCondition, type SwingGoal } from '../../types
  */
 
 const OUTCOME_LABEL: Record<TargetOutcome, { text: string; className: string }> = {
-  target: { text: '목표 도달 ✅', className: 'text-bullish' },
-  stop: { text: '손절 ❌', className: 'text-bearish' },
-  neither: { text: '둘 다 아님 ➖', className: 'text-text-secondary' },
+  target: { text: '목표 도달', className: 'text-bullish' },
+  stop: { text: '손절', className: 'text-bearish' },
+  neither: { text: '둘 다 아님', className: 'text-text-secondary' },
 };
 
 

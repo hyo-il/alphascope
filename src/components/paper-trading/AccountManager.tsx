@@ -101,7 +101,7 @@ export default function AccountManager({
               onClick={confirmReset}
               className="rounded-md border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-warning"
             >
-              🔄 초기화
+              초기화
             </button>
             <button
               type="button"

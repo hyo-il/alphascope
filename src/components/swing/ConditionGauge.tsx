@@ -36,7 +36,7 @@ export default function ConditionGauge({
             <span
               className="h-2 min-w-0 flex-1 overflow-hidden rounded bg-bg-tertiary"
               title={`${condition.details}\n${condition.checks
-                .map((c) => `${c.passed ? '✅' : '⬜'} ${c.label}`)
+                .map((c) => `${c.passed ? '[통과]' : '[미달]'} ${c.label}`)
                 .join('\n')}`}
             >
               <span

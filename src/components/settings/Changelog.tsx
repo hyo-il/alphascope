@@ -12,7 +12,7 @@ import { CHANGELOG } from '../../data/changelog';
 export default function Changelog() {
   return (
     <div className="h-full overflow-y-auto p-6">
-      <h2 className="mb-1 text-base font-semibold">📋 업데이트 내역</h2>
+      <h2 className="mb-1 text-base font-semibold">업데이트 내역</h2>
       <p className="mb-4 text-[13px] text-text-muted">
         최신 버전이 맨 위입니다. 사용하면서 달라지는 것만 적었습니다.
       </p>

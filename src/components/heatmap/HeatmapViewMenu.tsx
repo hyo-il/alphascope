@@ -1,3 +1,5 @@
+import { ICON_SM } from '../ui/icon';
+import { ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 /**
@@ -103,7 +105,7 @@ export default function HeatmapViewMenu({ top, onTopChange, sectors, off, onOffC
             : 'border-border text-text-secondary'
         }`}
       >
-        {label} ▾
+        {label} <ChevronDown {...ICON_SM} className="inline-block align-[-2px]" />
       </button>
       {open && (
         <div

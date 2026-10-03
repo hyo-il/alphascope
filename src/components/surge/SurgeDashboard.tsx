@@ -258,10 +258,10 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
                         <span className="text-text-muted">대기</span>
                       ) : row.actualSurged ? (
                         <span className="text-bullish">
-                          ✅ {row.actualSurgeDate} (+{row.actualSurgePercent?.toFixed(1)}%)
+                          급등 {row.actualSurgeDate} (+{row.actualSurgePercent?.toFixed(1)}%)
                         </span>
                       ) : (
-                        <span className="text-text-secondary">❌ 없음</span>
+                        <span className="text-text-secondary">없음</span>
                       )}
                     </td>
                   </tr>

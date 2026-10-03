@@ -1,3 +1,5 @@
+import { ICON, ICON_SM } from '../ui/icon';
+import { Settings, Check } from 'lucide-react';
 import { useState } from 'react';
 import SymbolSearch from '../common/SymbolSearch';
 import WatchFolderView from './WatchFolderView';
@@ -209,9 +211,10 @@ export default function WatchPanel({
             type="button"
             onClick={() => setManaging(true)}
             title="관심 목록 관리 (폴더·순서)"
-            className="px-1.5 text-sm text-text-muted transition-colors hover:text-text-primary"
+            aria-label="관심 목록 관리 (폴더·순서)"
+            className="px-1.5 text-text-muted transition-colors hover:text-text-primary"
           >
-            ⚙️
+            <Settings {...ICON} />
           </button>
         )}
         <button
@@ -305,7 +308,7 @@ export default function WatchPanel({
                         highlighted ? 'text-accent' : 'text-text-primary'
                       }`}
                     >
-                      {picked && <span className="mr-1 text-accent">✓</span>}
+                      {picked && <Check {...ICON_SM} className="mr-1 inline-block shrink-0 align-[-2px] text-text-primary" />}
                       {names(symbol) ? `${names(symbol)} (${symbol})` : symbol}
                     </span>
                   </span>
@@ -397,7 +400,7 @@ export default function WatchPanel({
       {compareMode && tab !== 'account' && (
         <p className="break-keep border-t border-border px-3 py-1.5 text-[13px] leading-relaxed text-text-muted">
           <span className="whitespace-nowrap">클릭: 빈 칸에 차례로 담기</span> ·{' '}
-          <span className="whitespace-nowrap">✓ 다시 클릭: 빼기</span>
+          <span className="whitespace-nowrap">다시 클릭: 빼기</span>
           <br />
           <span className="whitespace-nowrap">드래그: 원하는 칸에 놓기</span>{' '}
           <span className="whitespace-nowrap">(찬 칸은 교체)</span>

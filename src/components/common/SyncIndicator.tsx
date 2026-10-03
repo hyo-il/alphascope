@@ -48,7 +48,7 @@ export default function SyncIndicator() {
       }`}
     >
       <p>
-        {failed ? '⚠ 관심 목록 서버 저장 실패' : '⚠ 관심 목록 서버 저장 대기'}
+        {failed ? '관심 목록 서버 저장 실패' : '관심 목록 서버 저장 대기'}
         {/* 서버가 준 문구를 그대로 보여 준다 — 짐작한 말로 바꾸면 원인을 못 찾는다 */}
         {failed && getLastError() && (
           <span className="block text-text-secondary">{getLastError()}</span>

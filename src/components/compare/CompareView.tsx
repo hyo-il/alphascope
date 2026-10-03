@@ -62,7 +62,7 @@ export default function CompareView({ initialSymbol }: Props) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
       <header className="flex flex-wrap items-center gap-2">
-        <h2 className="text-sm font-semibold">⚖️ 기업 비교</h2>
+        <h2 className="text-sm font-semibold">기업 비교</h2>
         <span className="text-[13px] text-text-muted">
           4칸 · 2개부터 비교됩니다 · 오른쪽 관심 목록에서 클릭하거나 원하는 칸으로 드래그
         </span>
@@ -96,7 +96,7 @@ export default function CompareView({ initialSymbol }: Props) {
             chartsVisible ? '' : 'ml-auto'
           }`}
         >
-          🔄 새로고침
+          새로고침
         </button>
         <button
           type="button"
@@ -154,10 +154,10 @@ export default function CompareView({ initialSymbol }: Props) {
       ) : (
         <>
           <p className="rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs text-text-muted">
-            📋 기업정보 비교 — 2개 이상 종목을 추가하면 활성화됩니다
+            기업정보 비교 — 2개 이상 종목을 추가하면 활성화됩니다
           </p>
           <p className="rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs text-text-muted">
-            🤖 AI 비교 평가 — 2개 이상 종목을 추가하면 활성화됩니다
+            AI 비교 평가 — 2개 이상 종목을 추가하면 활성화됩니다
           </p>
         </>
       )}

@@ -1,3 +1,5 @@
+import { ICON_SM } from '../ui/icon';
+import { Check, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { AccountStrategy, StrategyMode } from '../../types/autoTrading';
 import type { AccountOverviewItem, StrategyOverviewItem } from '../../hooks/usePaperOverview';
@@ -140,7 +142,7 @@ export default function AutoTradeWizard({
       <div className="flex h-[min(640px,85vh)] w-[min(720px,90vw)] flex-col overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-2xl">
         {/* 머리줄 — 단계 표시 1/4 */}
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
-          <h2 className="text-sm font-semibold">🤖 자동매매 처음 켜기</h2>
+          <h2 className="text-sm font-semibold">자동매매 처음 켜기</h2>
           <span className="text-[13px] text-text-muted">
             {step}/4 · {STEP_LABEL[step]}
           </span>
@@ -152,7 +154,7 @@ export default function AutoTradeWizard({
                   n === step ? 'bg-accent/15 font-medium text-accent' : n < step ? 'text-text-secondary' : 'text-text-muted'
                 }`}
               >
-                {n < step ? '✓' : n}. {STEP_LABEL[n]}
+                {n < step ? <Check {...ICON_SM} className="inline-block align-[-2px]" /> : `${n}.`} {STEP_LABEL[n]}
               </li>
             ))}
           </ol>
@@ -162,7 +164,7 @@ export default function AutoTradeWizard({
             aria-label="닫기"
             className="ml-auto text-text-muted transition-colors hover:text-text-primary"
           >
-            ✕
+            <X {...ICON_SM} />
           </button>
         </div>
 
@@ -197,7 +199,7 @@ export default function AutoTradeWizard({
               {choice === 'new' &&
                 (created ? (
                   <p className="rounded border border-bullish/40 bg-bullish/10 px-3 py-2 text-[13px] text-text-primary">
-                    ✅ 「{created.name}」 계좌를 만들었습니다. [다음] 으로 넘어가세요.
+                    「{created.name}」 계좌를 만들었습니다. [다음] 으로 넘어가세요.
                   </p>
                 ) : (
                   <CreateAccountForm

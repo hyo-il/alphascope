@@ -832,7 +832,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
             className="absolute z-20 flex items-center gap-1 rounded-full bg-bearish px-2.5 py-1 text-[13px] font-bold text-white shadow-lg transition-transform hover:scale-105"
             style={{ left: selectedAnchor.x - 24, top: selectedAnchor.y - 30 }}
           >
-            ✕ 삭제
+            삭제
           </button>
         )}
 

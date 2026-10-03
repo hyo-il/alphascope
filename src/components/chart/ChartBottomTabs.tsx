@@ -1,3 +1,5 @@
+import { ICON_SM } from '../ui/icon';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
 import type { Candle, Timeframe } from '../../types/toss';
 import type { IndicatorSeries, IndicatorToggles } from '../../types/chart';
@@ -183,9 +185,10 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
           type="button"
           onClick={toggleCollapse}
           title={collapsed ? '펼치기' : '접기'}
-          className="ml-auto px-2 py-1 text-xs text-text-muted transition-colors hover:text-text-primary"
+          aria-label={collapsed ? '펼치기' : '접기'}
+          className="ml-auto px-2 py-1 text-text-muted transition-colors hover:text-text-primary"
         >
-          {collapsed ? '▲' : '▼'}
+          {collapsed ? <ChevronUp {...ICON_SM} /> : <ChevronDown {...ICON_SM} />}
         </button>
       </div>
 

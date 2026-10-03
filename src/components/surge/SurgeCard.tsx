@@ -1,3 +1,4 @@
+import Badge from '../ui/Badge';
 import type { ReactNode } from 'react';
 import type { SurgeDetection } from '../../types/surge';
 import StockName from '../common/StockName';
@@ -45,7 +46,7 @@ export default function SurgeCard({
     >
       <header className="flex items-start justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="shrink-0 text-base">{grade.icon}</span>
+          <Badge tone={grade.tone}>{grade.label}</Badge>
           <StockName symbol={detection.symbol} name={detection.name} className="text-sm" />
         </span>
         {/* 점수는 카드 우상단 고정 — 카드를 훑을 때 가장 먼저 보는 값이다 */}
@@ -60,12 +61,12 @@ export default function SurgeCard({
       {/* 각 정보를 한 줄씩 — 좁아지면 값이 아래로 내려간다 */}
       <dl className="space-y-1.5 text-[13px] text-text-secondary">
         <Row
-          label="📊 급등 패턴"
+          label="급등 패턴"
           value={`평균 ${detection.avgInterval ?? '—'}일마다 · 최근 ${detection.surgeCount}회`}
         />
-        <Row label="📅 마지막 급등" value={detection.lastSurgeDate ?? '—'} />
+        <Row label="마지막 급등" value={detection.lastSurgeDate ?? '—'} />
         <Row
-          label="⏰ 다음 예상"
+          label="다음 예상"
           value={
             <NextSurgeDate
               date={detection.nextEstimatedDate}
@@ -74,7 +75,7 @@ export default function SurgeCard({
             />
           }
         />
-        <Row label="📈 규칙성" value={`${detection.regularity ?? '—'}%`} />
+        <Row label="규칙성" value={`${detection.regularity ?? '—'}%`} />
       </dl>
 
       {/* 신호 뱃지는 별도 영역으로 — 위 숫자들과 섞이면 둘 다 안 읽힌다 */}
@@ -87,7 +88,7 @@ export default function SurgeCard({
                 key={key}
                 className="rounded bg-bullish/15 px-1.5 py-0.5 text-[13px] text-bullish"
               >
-                {SIGNAL_LABEL[key] ?? key} 🟢
+                {SIGNAL_LABEL[key] ?? key}
               </span>
             ))
           ) : (

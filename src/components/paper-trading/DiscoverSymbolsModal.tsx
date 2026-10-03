@@ -1,3 +1,5 @@
+import { ICON_SM } from '../ui/icon';
+import { X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { SwingGrade, SwingRecommendation } from '../../types/swing';
 import {
@@ -40,8 +42,8 @@ type Source = 'swing' | 'watchlist';
 type Row = DiscoverRow;
 
 const SOURCES: { id: Source; label: string; desc: string }[] = [
-  { id: 'swing', label: '📈 지금 살 만한가', desc: '5조건 채점 결과 — 진입가·손절·손익비' },
-  { id: 'watchlist', label: '★ 관심 목록', desc: '담아 둔 종목 전부 (기준 없음)' },
+  { id: 'swing', label: '지금 살 만한가', desc: '5조건 채점 결과 — 진입가·손절·손익비' },
+  { id: 'watchlist', label: '관심 목록', desc: '담아 둔 종목 전부 (기준 없음)' },
 ];
 
 const SWING_GRADES: SwingGrade[] = ['STRONG', 'BUY', 'WATCH'];
@@ -224,7 +226,7 @@ export default function DiscoverSymbolsModal({
             aria-label="닫기"
             className="ml-auto text-text-muted transition-colors hover:text-text-primary"
           >
-            ✕
+            <X {...ICON_SM} />
           </button>
         </div>
 

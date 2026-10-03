@@ -1,3 +1,4 @@
+import WarnIcon from '../ui/WarnIcon';
 import { useCallback } from 'react';
 import AISourceBadge from './AISourceBadge';
 import AsyncBoundary from '../common/AsyncBoundary';
@@ -55,7 +56,7 @@ const MIN_SCORED_FOR_STATS = 20;
 function Explainer({ horizonDays, flatBand, rule }: { horizonDays: number; flatBand: number; rule?: string }) {
   return (
     <div className="rounded-lg border border-border bg-bg-secondary p-4 text-sm">
-      <p className="mb-2 font-medium text-text-primary">📊 AI 분석이 실제로 맞았는지 추적합니다</p>
+      <p className="mb-2 font-medium text-text-primary">AI 분석이 실제로 맞았는지 추적합니다</p>
       <ul className="space-y-1 text-xs leading-relaxed text-text-secondary">
         <li>
           분석 당시 <b className="text-bullish">매수</b> 신호를 줬는데 실제로 가격이 올랐으면
@@ -152,7 +153,7 @@ function AccuracyReport({ report }: { report: Report }) {
         <VersionLine report={report} />
 
         <div className="rounded-lg border border-warning/30 bg-warning/10 p-4">
-          <p className="mb-1 text-sm font-medium text-warning">⚠️ 아직 판단할 만큼 쌓이지 않았습니다</p>
+          <p className="mb-1 text-sm font-medium text-warning"><WarnIcon />아직 판단할 만큼 쌓이지 않았습니다</p>
           <p className="text-xs leading-relaxed text-text-secondary">
             적중률은 최소 {MIN_SCORED_FOR_STATS}건이 채점된 뒤부터 보여 줍니다. 표본이 적으면
             한두 건에 수치가 크게 흔들려 오히려 판단을 그르칩니다.
@@ -212,7 +213,7 @@ function AccuracyReport({ report }: { report: Report }) {
       </div>
 
       <p className="rounded border border-warning/30 bg-warning/10 p-2 text-xs text-warning">
-        ⚠️ 위 두 수치를 직접 비교하지 마세요. Claude 는 사용자가 고른 종목만 분석하므로 선택 편향이
+        <WarnIcon />위 두 수치를 직접 비교하지 마세요. Claude 는 사용자가 고른 종목만 분석하므로 선택 편향이
         있고 표본 수도 다릅니다. 공정한 비교는 아래 '같은 조건 비교'를 보세요.
       </p>
 
@@ -223,8 +224,8 @@ function AccuracyReport({ report }: { report: Report }) {
             <thead className="text-xs text-text-muted">
               <tr className="border-b border-border">
                 <th className="px-3 py-2 text-left font-normal">신호</th>
-                <th className="px-3 py-2 text-right font-normal">Claude 🟣</th>
-                <th className="px-3 py-2 text-right font-normal">Gemini 🔵</th>
+                <th className="px-3 py-2 text-right font-normal">Claude</th>
+                <th className="px-3 py-2 text-right font-normal">Gemini</th>
               </tr>
             </thead>
             <tbody>

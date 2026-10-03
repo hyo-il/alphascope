@@ -1,3 +1,5 @@
+import { ICON_SM } from '../ui/icon';
+import { X } from 'lucide-react';
 import { useState } from 'react';
 import SymbolSearch from '../common/SymbolSearch';
 import StockName from '../common/StockName';
@@ -13,7 +15,7 @@ import { toast } from '../../store/uiStore';
 /**
  * 자동매매 **대상 종목** 편집 — 설정 창 「② 대상 종목」 과 처음 켜기 안내 3단계가 **같은 컴포넌트**를 쓴다 (v2.32.0).
  *
- * - 검색으로 하나씩 · [★ 관심 목록 전부 담기] · [📈 스윙 추천 담기] · [🔎 종목 발굴] 팝업.
+ * - 검색으로 하나씩 · [관심 목록 전부 담기] · [📈 스윙 추천 담기] · [🔎 종목 발굴] 팝업.
  * - 두 빠른 버튼은 발굴 팝업의 두 소스와 **같은 함수·같은 기본 기준**이다(`discoverSources.ts`) — 거르는 코드를 두 벌 두지 않는다.
  * - 담는 방식은 하나(중복 제거) — 이미 있던 종목은 세어서 알린다.
  */
@@ -71,7 +73,7 @@ export default function TargetSymbolsEditor({
     try {
       const picks = await savedSwingPicks(swingBuyCut);
       if (picks.empty) {
-        toast.info('저장된 「지금 살 만한가」 결과가 없습니다 — [🔎 종목 발굴]에서 다시 분석하세요');
+        toast.info('저장된 「지금 살 만한가」 결과가 없습니다 — [종목 발굴]에서 다시 분석하세요');
         return;
       }
       const basis = `기준: ${PROFILE_LABEL[activeId]} BUY 컷 ${swingBuyCut}점 이상 · STRONG/BUY`;
@@ -120,7 +122,7 @@ export default function TargetSymbolsEditor({
           onClick={addWatchlist}
           className="rounded-md border border-border px-3 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
         >
-          ★ 관심 목록 전부 담기
+          관심 목록 전부 담기
         </button>
         <button
           type="button"
@@ -135,12 +137,12 @@ export default function TargetSymbolsEditor({
           onClick={() => setDiscoverOpen(true)}
           className="rounded-md border border-border px-3 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
         >
-          🔎 종목 발굴 (지금 살 만한가·관심 목록)
+          종목 발굴 (지금 살 만한가·관심 목록)
         </button>
       </div>
       <p className="text-[13px] text-text-muted">
         지금 살 만한가 종목 담기 = 「매수 판단 도우미 &gt; 지금 살 만한가」 에 마지막으로 저장된 결과 중 지금 기준({PROFILE_LABEL[activeId]} {swingBuyCut}점 이상 ·
-        STRONG/BUY · 최대 10개). 근거를 보고 고르려면 [🔎 종목 발굴].
+        STRONG/BUY · 최대 10개). 근거를 보고 고르려면 [종목 발굴].
       </p>
 
       {symbols.length === 0 ? (
@@ -161,7 +163,7 @@ export default function TargetSymbolsEditor({
                 aria-label={`${symbol} 빼기`}
                 className="rounded px-1 text-text-muted transition-colors hover:text-bearish"
               >
-                ✕
+                <X {...ICON_SM} />
               </button>
             </span>
           ))}

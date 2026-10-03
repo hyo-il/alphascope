@@ -1,3 +1,5 @@
+import { ICON_SM } from '../ui/icon';
+import { ChevronRight, ChevronDown, Check } from 'lucide-react';
 import type { WatchFolder } from '../../types/watchlist';
 import type { Quote } from '../../types/toss';
 import { COMPARE_DRAG_TYPE } from '../../types/compare';
@@ -59,7 +61,7 @@ export default function WatchFolderView({
           onClick={() => onToggle(folder.id)}
           className="flex w-full items-center gap-1 bg-bg-tertiary/40 px-2 py-1.5 text-left text-[13px] font-medium text-text-secondary transition-colors hover:text-text-primary"
         >
-          <span className="w-3 shrink-0">{folder.collapsed ? '▶' : '▼'}</span>
+          <span className="w-3 shrink-0">{folder.collapsed ? <ChevronRight {...ICON_SM} /> : <ChevronDown {...ICON_SM} />}</span>
           <span className="min-w-0 truncate">{folder.name}</span>
           <span className="shrink-0 text-[13px] tabular-nums text-text-muted">
             ({folder.symbols.length})
@@ -123,7 +125,7 @@ export default function WatchFolderView({
                       }`}
                     >
                       {/* 담긴 종목은 ✓ 로 한눈에 구분한다 */}
-                      {picked && <span className="mr-1 text-accent">✓</span>}
+                      {picked && <Check {...ICON_SM} className="mr-1 inline-block shrink-0 align-[-2px] text-text-primary" />}
                       {nameOf(symbol) ? `${nameOf(symbol)} (${symbol})` : symbol}
                     </span>
                   </span>

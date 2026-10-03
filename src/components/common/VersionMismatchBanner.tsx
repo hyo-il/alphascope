@@ -1,3 +1,6 @@
+import WarnIcon from '../ui/WarnIcon';
+import { ICON_SM } from '../ui/icon';
+import { X } from 'lucide-react';
 import { useState } from 'react';
 import { UNKNOWN_OLD, useServerVersion } from '../../hooks/useServerVersion';
 
@@ -16,7 +19,7 @@ export default function VersionMismatchBanner() {
   return (
     <div className="shrink-0 border-b border-warning/40 bg-warning/10 px-4 py-2 text-xs text-warning">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm">⚠️</span>
+        <WarnIcon />
         <span>
           서버가 옛 버전(
           <b>{serverVersion === UNKNOWN_OLD ? UNKNOWN_OLD : serverVersion}</b>)으로 실행 중입니다
@@ -36,7 +39,7 @@ export default function VersionMismatchBanner() {
           aria-label="닫기"
           className="ml-auto rounded px-1.5 py-0.5 text-[13px] transition-colors hover:bg-warning/15"
         >
-          ✕
+          <X {...ICON_SM} />
         </button>
       </div>
 

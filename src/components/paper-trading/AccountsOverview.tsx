@@ -1,3 +1,4 @@
+import AutoTradeIcon from '../ui/AutoTradeIcon';
 import { useState } from 'react';
 import type { AccountOverviewItem, StrategyOverviewItem } from '../../hooks/usePaperOverview';
 import { formatPrice } from '../../utils/formatters';
@@ -221,12 +222,7 @@ export default function AccountsOverview({
                     깜빡이는 것은 **가동 중의 점 하나뿐**이다. 동작 줄이기를 켠 사용자에게는
                     motion-safe 가 이걸 멈춘다.
                   */}
-                  <span
-                    aria-hidden
-                    className={view.state === 'running' && !view.busy ? 'motion-safe:animate-pulse' : ''}
-                  >
-                    {view.busy ? '◌' : view.symbol}
-                  </span>
+                  <AutoTradeIcon view={view} />
                   <span>
                     {view.state === 'blocked' ? `멈춤: ${view.reason}` : view.label}
                   </span>

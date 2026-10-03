@@ -1,5 +1,6 @@
+import { ICON_SM } from '../ui/icon';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { GripVertical, Pencil } from 'lucide-react';
+import { GripVertical, Pencil, Search, X } from 'lucide-react';
 import { useFlipReorder } from '../../hooks/useFlipReorder';
 import SyncStatusLine from './SyncStatusLine';
 import type { useWatchlist } from '../../hooks/useWatchlist';
@@ -191,7 +192,7 @@ export default function WatchlistManager({
             aria-label="닫기"
             className="flex h-8 w-8 items-center justify-center rounded text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary"
           >
-            ✕
+            <X {...ICON_SM} />
           </button>
         </header>
 
@@ -379,7 +380,7 @@ export default function WatchlistManager({
                             aria-label={`${f.name} 그룹 삭제`}
                             className="shrink-0 rounded px-1 text-xs text-text-muted opacity-0 transition-all hover:text-bearish focus:opacity-100 group-hover:opacity-100"
                           >
-                            ✕
+                            <X {...ICON_SM} />
                           </button>
                         )}
                       </div>
@@ -488,7 +489,7 @@ export default function WatchlistManager({
                 disabled={checked.length === 0}
                 className={`${ACTION} hover:border-bearish hover:text-bearish`}
               >
-                🗑 삭제
+                삭제
               </button>
 
               <button
@@ -507,14 +508,14 @@ export default function WatchlistManager({
                 title="정렬 방식 전환"
                 className={ACTION}
               >
-                ↕ {SORT_LABEL[sort]}
+                {SORT_LABEL[sort]}
               </button>
             </div>
 
             {adding && (
               <div className="shrink-0 border-b border-border px-4 py-2">
                 <div className="flex items-center gap-2">
-                  <span className="shrink-0 text-xs text-text-muted">🔍</span>
+                  <Search {...ICON_SM} className="shrink-0 text-text-muted" />
                   <div className="min-w-0 flex-1">
                     <SymbolSearch
                       symbol=""

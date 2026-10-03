@@ -1,3 +1,4 @@
+import AutoTradeIcon from '../ui/AutoTradeIcon';
 import { useEffect, useState, type ReactNode } from 'react';
 import { SIDE_POLL_MS, useAutoTradingOverview } from '../../hooks/usePaperOverview';
 import { usePaperAccounts } from '../../hooks/usePaperTrading';
@@ -65,8 +66,8 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
                   <div className="flex flex-wrap items-baseline gap-x-2">
                     <span className="font-medium text-text-primary">{nameOf(strategy.accountId)}</span>
                     <span className="text-text-secondary">{strategy.mode === 'ai' ? 'AI형' : '규칙형'}</span>
-                    <span className={strategy.enabled ? 'text-bullish' : 'text-text-muted'}>
-                      {view.symbol} {strategy.enabled ? '켜짐' : '꺼짐'}
+                    <span className={`inline-flex items-center gap-1 ${strategy.enabled ? 'text-bullish' : 'text-text-muted'}`}>
+                      <AutoTradeIcon view={view} /> {strategy.enabled ? '켜짐' : '꺼짐'}
                     </span>
                     <span className="text-text-secondary">
                       대상 {strategy.symbols.length}종목 · {strategy.intervalMinutes}분마다

@@ -1,3 +1,4 @@
+import WarnIcon from '../ui/WarnIcon';
 import type { SurgeDetection, SurgeProgress } from '../../types/surge';
 import { SkeletonList } from '../common/SkeletonLoader';
 import SurgeCard from './SurgeCard';
@@ -89,7 +90,7 @@ export default function PeriodicSurgeList({
           disabled={running}
           className="ml-auto rounded bg-accent px-2.5 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
         >
-          {running ? '분석 중…' : '🔄 다시 분석'}
+          {running ? '분석 중…' : '다시 분석'}
         </button>
       </header>
 
@@ -129,7 +130,7 @@ export default function PeriodicSurgeList({
         <p className="rounded-lg border border-border bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
           {running
             ? '분석이 끝나면 여기에 표시됩니다.'
-            : '아직 탐지된 주기적 급등 종목이 없습니다. [🔄 다시 분석] 을 눌러 보세요.'}
+            : '아직 탐지된 주기적 급등 종목이 없습니다. [다시 분석] 을 눌러 보세요.'}
         </p>
       ) : (
         <>
@@ -167,7 +168,7 @@ export default function PeriodicSurgeList({
       )}
 
       <p className="text-[13px] text-text-muted">
-        ⚠️ 과거 급등이 반복됐다는 사실이 다음 급등을 보장하지 않습니다. 이 화면은 탐지·평가만
+        <WarnIcon />과거 급등이 반복됐다는 사실이 다음 급등을 보장하지 않습니다. 이 화면은 탐지·평가만
         하며 투자 조언이 아닙니다.
       </p>
     </div>

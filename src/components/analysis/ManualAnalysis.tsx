@@ -1,3 +1,5 @@
+import { ICON_SM } from '../ui/icon';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { modal } from '../../store/uiStore';
 import type { Candle, Timeframe } from '../../types/toss';
@@ -332,7 +334,7 @@ export default function ManualAnalysis({
               title="범위·지표·봉 단위를 골라 캡처합니다"
               className="rounded-md border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
             >
-              📷 상세 캡처…
+              상세 캡처…
             </button>
           )}
           <button
@@ -341,7 +343,7 @@ export default function ManualAnalysis({
             aria-expanded={editorOpen}
             className="rounded-md border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
           >
-            ✏️ 프롬프트 수정 {editorOpen ? '▴' : '▾'}
+            프롬프트 수정 {editorOpen ? <ChevronUp {...ICON_SM} className="inline-block align-[-2px]" /> : <ChevronDown {...ICON_SM} className="inline-block align-[-2px]" />}
           </button>
           {edited !== null && <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[13px] text-warning">수정됨</span>}
           {capture && capture.symbol === symbol && (
@@ -419,15 +421,15 @@ export default function ManualAnalysis({
               {mode === 'multi' && (
                 <>
                   <li>· 지표 요약 + 최근 10봉 OHLCV</li>
-                  <li>· 재무·밸류에이션 {fundamentals ? '✓' : '(없음)'}</li>
-                  <li>· 동종업계 비교 {peers?.length ? '✓' : '(없음)'}</li>
-                  <li>· 보유 현황 {holding ? '✓ 보유 중' : '미보유'}</li>
+                  <li>· 재무·밸류에이션 {fundamentals ? '포함' : '(없음)'}</li>
+                  <li>· 동종업계 비교 {peers?.length ? '포함' : '(없음)'}</li>
+                  <li>· 보유 현황 {holding ? '보유 중' : '미보유'}</li>
                 </>
               )}
               {mode === 'portfolio' && (
                 <>
                   <li>· 보유 {portfolio?.holdings.length ?? 0}종목 + 종목별 지표</li>
-                  <li>· 포트폴리오 손익 · 환율 {exchangeRate ? '✓' : '(없음)'}</li>
+                  <li>· 포트폴리오 손익 · 환율 {exchangeRate ? '포함' : '(없음)'}</li>
                 </>
               )}
             </ul>

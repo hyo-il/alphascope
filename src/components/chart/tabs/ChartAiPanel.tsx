@@ -71,7 +71,7 @@ export default function ChartAiPanel({
           onClick={() => setPage('analysis', 'results')}
           className="ml-auto px-2 py-1 text-[13px] text-text-muted transition-colors hover:text-accent"
         >
-          이전 기록 보기 ↗
+          이전 기록 보기
         </button>
       </div>
 
@@ -191,7 +191,7 @@ function SingleSymbolGemini({ symbol }: { symbol: string }) {
           disabled={running}
           className="rounded bg-accent px-2.5 py-1 font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
         >
-          {running ? '분석 중… (약 8초)' : '▶ 지금 분석'}
+          {running ? '분석 중… (약 8초)' : '지금 분석'}
         </button>
       </div>
 

@@ -1,3 +1,4 @@
+import WarnIcon from '../ui/WarnIcon';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import StockName from '../common/StockName';
 import type { CalendarEvent, CalendarEventType, CalendarResponse, CalendarScope } from '../../types/calendar';
@@ -99,7 +100,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
     <div className="h-full overflow-auto p-3">
       <div className="space-y-3">
         <header className="flex flex-wrap items-center gap-2">
-          <h2 className="text-sm font-semibold text-text-primary">📅 일정</h2>
+          <h2 className="text-sm font-semibold text-text-primary">일정</h2>
           <div className="flex items-center gap-1">
             <button type="button" onClick={() => move(-1)} className="rounded border border-border px-2 py-0.5 text-xs text-text-secondary hover:text-text-primary" aria-label="이전 달">
               ‹
@@ -255,7 +256,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
         </p>
         {!!data?.meta.nyse.mismatches.length && (
           <p className="text-[13px] text-warning">
-            ⚠ 토스·NYSE 휴장일 불일치: {data.meta.nyse.mismatches.join(', ')} — 둘 중 하나라도 휴장이면 휴장으로 계산합니다.
+            <WarnIcon />토스·NYSE 휴장일 불일치: {data.meta.nyse.mismatches.join(', ')} — 둘 중 하나라도 휴장이면 휴장으로 계산합니다.
           </p>
         )}
       </div>

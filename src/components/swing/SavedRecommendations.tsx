@@ -15,11 +15,11 @@ import { formatPercent, formatPrice } from '../../utils/formatters';
  * v2.35.0: 방금 받은 결과와 **같은 자리·같은 참고 줄**(`extraFor` — 목표 수익 가능성 한 줄)을 붙인다. 카드 본문은 저장된 값만이라 다르다.
  */
 const GRADE: Record<string, { label: string; className: string }> = {
-  STRONG: { label: '⭐ 강력 추천', className: 'text-bullish' },
-  BUY: { label: '🟢 추천', className: 'text-bullish' },
-  WATCH: { label: '🟡 관심', className: 'text-warning' },
-  HOLD: { label: '⚪ 보류', className: 'text-text-muted' },
-  AVOID: { label: '🔴 회피', className: 'text-bearish' },
+  STRONG: { label: '강력 추천', className: 'text-bullish' },
+  BUY: { label: '추천', className: 'text-bullish' },
+  WATCH: { label: '관심', className: 'text-warning' },
+  HOLD: { label: '보류', className: 'text-text-muted' },
+  AVOID: { label: '회피', className: 'text-bearish' },
 };
 
 const ENTRY: Record<string, string> = {

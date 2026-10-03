@@ -282,7 +282,7 @@ export default function AnalysisTimeline({
             onClick={() => removeMany('all')}
             className="rounded border border-bearish/40 px-2 py-1 text-xs text-bearish transition-colors hover:bg-bearish/10"
           >
-            🗑 전체 삭제 ({items.length})
+            전체 삭제 ({items.length})
           </button>
           <button
             onClick={() => removeMany('claude')}
@@ -313,7 +313,7 @@ export default function AnalysisTimeline({
                 key={`${pair.symbol}-${index}`}
                 className={`rounded px-2 py-0.5 ${pair.agreed ? 'bg-bullish/15 text-bullish' : 'bg-warning/15 text-warning'}`}
               >
-                {pair.symbol} {pair.agreed ? '의견 일치 ✅' : '의견 불일치 ⚠️'}
+                {pair.symbol} {pair.agreed ? '의견 일치' : '의견 불일치'}
               </span>
             ))}
           </div>

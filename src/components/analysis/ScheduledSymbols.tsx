@@ -1,3 +1,5 @@
+import { ICON_SM } from '../ui/icon';
+import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useScheduledSymbols, type ScheduledStatus } from '../../hooks/useScheduledSymbols';
 import { useWatchlist } from '../../hooks/useWatchlist';
@@ -105,7 +107,7 @@ export default function ScheduledSymbols() {
           onClick={() => setEditing(true)}
           className="rounded border border-border px-2 py-0.5 text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
         >
-          ⚙ 설정
+          설정
         </button>
         <button
           type="button"
@@ -114,7 +116,7 @@ export default function ScheduledSymbols() {
           title={status.disabledReason ?? undefined}
           className="rounded border border-border px-2 py-0.5 text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40"
         >
-          ▶ 지금 한 번 실행
+          지금 한 번 실행
         </button>
       </div>
       <p className="text-text-muted">분석만 합니다 — 주문은 내지 않습니다.</p>
@@ -175,7 +177,7 @@ function ScheduledEditor({
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold text-text-primary">내가 지정한 종목 — 하루 1번 Gemini 분석</h2>
           <button type="button" onClick={onClose} className="ml-auto text-text-muted hover:text-text-primary" aria-label="닫기">
-            ✕
+            <X {...ICON_SM} />
           </button>
         </div>
         <p className="text-[13px] leading-relaxed text-text-secondary">

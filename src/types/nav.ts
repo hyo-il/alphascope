@@ -52,9 +52,12 @@ export interface NavPage {
   badge?: string;
 }
 
+export type NavIconKey = 'explore' | 'chart' | 'calendar' | 'analysis' | 'lab' | 'account' | 'settings';
+
 export interface NavGroup {
   id: NavGroupId;
-  icon: string;
+  /** 아이콘 이름 — `layout/navIcons.ts` 가 lucide 아이콘으로 바꾼다 (v2.36.0, 예전에는 이모지. 이 파일은 서버도 컴파일해 React 를 들이지 않는다) */
+  icon: NavIconKey;
   label: string;
   /**
    * 접힌 메뉴(52px) 전용 짧은 이름 — 「차트·비교」「증시 일정」「투자 분석」 은 12px 로 52px 에 들어가지 않는다.
@@ -68,7 +71,7 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   {
     id: 'explore',
-    icon: '🧭',
+    icon: 'explore',
     label: '탐색',
     shortLabel: '탐색',
     pages: [
@@ -82,7 +85,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     // 앱을 처음 열었을 때·로고(홈)의 위치가 이 대메뉴의 차트다 — id 'chart' 를 바꾸지 않는다
     id: 'chart',
-    icon: '📊',
+    icon: 'chart',
     label: '차트·비교',
     shortLabel: '차트',
     pages: [
@@ -93,7 +96,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: 'calendar',
-    icon: '📅',
+    icon: 'calendar',
     label: '증시 일정',
     shortLabel: '일정',
     // 실적·FOMC·옵션 만기·휴장 (v2.17.0). 종목은 달력 안에서 눌러 고른다 — 상단 헤더를 숨긴다. 소메뉴 하나 → 바로 이동
@@ -101,7 +104,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: 'analysis',
-    icon: '🔍',
+    icon: 'analysis',
     label: '투자 분석',
     shortLabel: '분석',
     pages: [
@@ -112,7 +115,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: 'lab',
-    icon: '🧪',
+    icon: 'lab',
     label: '실험실',
     shortLabel: '실험실',
     pages: [
@@ -134,7 +137,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: 'account',
-    icon: '💼',
+    icon: 'account',
     label: '계좌',
     shortLabel: '계좌',
     // 모의투자는 별도 메뉴가 아니라 포트폴리오의 **계좌 선택**으로 들어갔다. 소메뉴 하나 → 바로 이동
@@ -142,7 +145,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: 'settings',
-    icon: '⚙️',
+    icon: 'settings',
     label: '설정',
     shortLabel: '설정',
     pages: [

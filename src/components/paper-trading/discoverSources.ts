@@ -102,7 +102,7 @@ export function swingRowFromRecommendation(r: SwingRecommendation): DiscoverRow 
     r.entry.reason,
   ];
   if (r.rejection) reasons.push(`제외 사유: ${r.rejection}`);
-  if (r.warnings.length) reasons.push(`⚠️ ${r.warnings[0]}`);
+  if (r.warnings.length) reasons.push(`${r.warnings[0]}`);
   return { symbol: r.symbol, score: r.score, grade: r.grade, reasons };
 }
 

@@ -1,3 +1,6 @@
+import WarnIcon from '../ui/WarnIcon';
+import { VERDICT_ICON } from '../ui/statusIcons';
+import { ICON_SM } from '../ui/icon';
 import { useId, useState, type ReactNode } from 'react';
 import { useDiagnose } from '../../hooks/useDiagnose';
 import { useStockNames } from '../../hooks/useStockNames';
@@ -81,12 +84,19 @@ function judge(o: {
   };
 }
 
-/** 배지 — 색만으로 구분하지 않는다(기호 + 글자, v2.28.0 기호 추가). 위 「이 화면은 무엇인가요?」 의 설명도 이 값을 쓴다 */
-const VERDICT_STYLE: Record<Verdict, { mark: string; label: string; badge: string; border: string }> = {
-  good: { mark: '🟢', label: '기준선보다 좋음', badge: 'bg-bullish/15 text-bullish', border: 'border-bullish/40' },
-  bad: { mark: '🔴', label: '기준선 이하', badge: 'bg-bearish/15 text-bearish', border: 'border-bearish/40' },
-  hold: { mark: '⚪', label: '판단 보류', badge: 'bg-bg-tertiary text-text-secondary', border: 'border-border' },
+/**
+ * 배지 — 색만으로 구분하지 않는다(모양이 다른 아이콘 + 글자). v2.28.0 의 기호(🟢🔴⚪)를 v2.36.0 에 `ui/statusIcons` 의 VERDICT_ICON 으로 바꿨다.
+ * 위 「이 화면은 무엇인가요?」 의 설명도 이 값을 쓴다.
+ */
+const VERDICT_STYLE: Record<Verdict, { label: string; badge: string; border: string }> = {
+  good: { label: '기준선보다 좋음', badge: 'bg-bullish/15 text-bullish', border: 'border-bullish/40' },
+  bad: { label: '기준선 이하', badge: 'bg-bearish/15 text-bearish', border: 'border-bearish/40' },
+  hold: { label: '판단 보류', badge: 'bg-bg-tertiary text-text-secondary', border: 'border-border' },
 };
+function VerdictMark({ v }: { v: Verdict }) {
+  const Icon = VERDICT_ICON[v];
+  return <Icon {...ICON_SM} />;
+}
 
 // ── 쉬운 설명 (v2.28.0) ─────────────────────────────────────────────────────
 // 숫자·판정·카드 구조는 바꾸지 않는다 — 읽는 법만 더한다. 접힘 상태는 이 기기의 화면 설정이라 localStorage.
@@ -110,8 +120,8 @@ function HelpBox() {
       return !v;
     });
   const badge = (v: Verdict) => (
-    <span className={`rounded px-1.5 py-0.5 ${VERDICT_STYLE[v].badge}`}>
-      {VERDICT_STYLE[v].mark} {VERDICT_STYLE[v].label}
+    <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${VERDICT_STYLE[v].badge}`}>
+      <VerdictMark v={v} /> {VERDICT_STYLE[v].label}
     </span>
   );
   return (
@@ -122,8 +132,8 @@ function HelpBox() {
         aria-expanded={!collapsed}
         className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-text-primary"
       >
-        ❓ 이 화면은 무엇인가요?
-        <span className="ml-auto font-normal text-text-muted">{collapsed ? '펼치기 ▾' : '접기 ▴'}</span>
+        이 화면은 무엇인가요?
+        <span className="ml-auto font-normal text-text-muted">{collapsed ? '펼치기' : '접기'}</span>
       </button>
       {!collapsed && (
         <div className="space-y-2.5 border-t border-border px-3 py-2.5 text-[14px] leading-relaxed text-text-secondary">
@@ -147,10 +157,10 @@ function HelpBox() {
             </ul>
           </div>
           <p>
-            <b className="text-text-primary">언제 보나요?</b> 한 달에 한 번쯤 [▶ 진단 실행]을 눌러 보세요. 같은 신호가 몇 달 계속{' '}
-            {VERDICT_STYLE.bad.mark} 이면 그 기능은 참고만 하세요.
+            <b className="text-text-primary">언제 보나요?</b> 한 달에 한 번쯤 [진단 실행]을 눌러 보세요. 같은 신호가 몇 달 계속{' '}
+            「{VERDICT_STYLE.bad.label}」 이면 그 기능은 참고만 하세요.
           </p>
-          <p className="text-warning">⚠️ 과거 성적이 좋아도 앞으로 맞는다는 보장은 없습니다.</p>
+          <p className="text-warning"><WarnIcon />과거 성적이 좋아도 앞으로 맞는다는 보장은 없습니다.</p>
         </div>
       )}
     </section>
@@ -191,9 +201,9 @@ function Card({
           tabIndex={0}
           title={why}
           aria-describedby={whyId}
-          className={`ml-auto shrink-0 cursor-help rounded px-1.5 py-0.5 text-[13px] ${style.badge}`}
+          className={`ml-auto inline-flex shrink-0 cursor-help items-center gap-1 rounded px-1.5 py-0.5 text-[13px] ${style.badge}`}
         >
-          {style.mark} {style.label}
+          <VerdictMark v={verdict} /> {style.label}
           {verdict === 'hold' && weak ? ' · 표본 부족' : ''}
         </span>
         <span id={whyId} className="sr-only">
@@ -490,8 +500,8 @@ function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
               // v2.20.0 부터 경과 일수를 적는다. 그 전에 저장된 리포트는 overdueDays 가 없어 ⚠️ 로 남긴다
               c.overdueDays != null
                 ? `${c.predicted} — 예상일 지남(${c.overdueDays}일 경과)`
-                : `${c.predicted}${c.stale ? ' ⚠️' : ''}`,
-              c.hit ? <span className="text-bullish">✅</span> : <span className="text-bearish">❌</span>,
+                : `${c.predicted}${c.stale ? ' (예상일 지남)' : ''}`,
+              c.hit ? <span className="text-bullish">적중</span> : <span className="text-bearish">빗나감</span>,
             ])}
           />
         )}
@@ -588,7 +598,7 @@ export default function DiagnoseView() {
       <div className="space-y-3">
         <header className="flex flex-wrap items-center gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-text-primary">🩺 진단 리포트</h2>
+            <h2 className="text-sm font-semibold text-text-primary">진단 리포트</h2>
             <p className="text-[13px] text-text-muted">
               지금 살 만한가·목표 수익률·급등·AI 가 실제로 쓸모 있는지 과거 데이터로 확인합니다 (기준선과 나란히).
             </p>
@@ -627,7 +637,7 @@ export default function DiagnoseView() {
               disabled={running}
               className="shrink-0 whitespace-nowrap rounded bg-accent px-2.5 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
-              {running ? '실행 중…' : '▶ 진단 실행'}
+              {running ? '실행 중…' : '진단 실행'}
             </button>
           </div>
         </header>
@@ -659,7 +669,7 @@ export default function DiagnoseView() {
 
         {!loading && !reports.length && !running && (
           <p className="rounded-lg border border-border bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
-            아직 진단 리포트가 없습니다. [▶ 진단 실행] 을 누르면 관심 목록으로 진단합니다.
+            아직 진단 리포트가 없습니다. [진단 실행] 을 누르면 관심 목록으로 진단합니다.
           </p>
         )}
 
@@ -676,7 +686,7 @@ export default function DiagnoseView() {
         )}
 
         <p className="text-[13px] text-text-muted">
-          ⚠️ 모든 숫자는 과거 데이터의 빈도이며 예측이 아닙니다. 카드 배지는 리포트의 숫자를 기준선과만
+          <WarnIcon />모든 숫자는 과거 데이터의 빈도이며 예측이 아닙니다. 카드 배지는 리포트의 숫자를 기준선과만
           비교합니다 — 표본이 30건 미만이면 "판단 보류 · 표본 부족" 으로 표시합니다. 이 분석은 투자 조언이 아닙니다.
         </p>
       </div>

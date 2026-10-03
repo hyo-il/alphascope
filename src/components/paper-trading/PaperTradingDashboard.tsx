@@ -1,3 +1,4 @@
+import WarnIcon from '../ui/WarnIcon';
 import { useState } from 'react';
 import { Skeleton, SkeletonCards, SkeletonTable } from '../common/SkeletonLoader';
 import {
@@ -116,7 +117,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
 
   const banner = (
     <div className="flex shrink-0 items-center gap-2 border-b border-warning/40 bg-warning/10 px-4 py-2 text-xs text-warning">
-      <span className="text-sm">⚠️</span>
+      <WarnIcon />
       <span>
         <b>모의투자 — 실제 거래가 아닙니다.</b> 시세는 실시간이지만 주문·체결·잔고는 앱 안의
         가상 자금으로만 처리되며, 증권사에 주문이 전송되지 않습니다.
@@ -239,7 +240,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
                 : 'border border-border text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
             }`}
           >
-            🤖 자동매매 처음 켜기
+            자동매매 처음 켜기
           </button>
           <button
             type="button"
@@ -329,7 +330,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
 
       {error && (
         <div className="border-b border-bearish/30 bg-bearish/10 px-4 py-1.5 text-[13px] text-bearish">
-          ❌ {error}
+          {error}
         </div>
       )}
 

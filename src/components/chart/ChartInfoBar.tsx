@@ -206,7 +206,7 @@ export default function ChartInfoBar({
             return (
               <span key={ma.key} className="flex items-center gap-1" style={{ color: ma.color }}>
                 {/* 선 색과 같은 점 — 이름만으로는 차트의 어느 선인지 바로 이어지지 않는다 */}
-                <span aria-hidden>●</span>
+                <span aria-hidden className="inline-block h-2 w-2 shrink-0 rounded-full bg-current" />
                 {maLabel(ma, barUnitOf(candles))}
                 <span className="tabular-nums">
                   {value != null ? formatPrice(value, currency) : '—'}

@@ -1,3 +1,4 @@
+import StarIcon from '../ui/StarIcon';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import StockName from '../common/StockName';
 import { useWatchlist } from '../../hooks/useWatchlist';
@@ -110,7 +111,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
   return (
     <div className="flex h-full flex-col p-3">
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
-        <h2 className="text-sm font-semibold text-text-primary">📶 실시간 순위</h2>
+        <h2 className="text-sm font-semibold text-text-primary">실시간 순위</h2>
         <div className="flex gap-1">
           {(['us', 'kr'] as const).map((m) => (
             <button
@@ -213,9 +214,9 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
                         disabled={watched}
                         title={watched ? '관심 종목' : '관심 목록에 담기'}
                         aria-label={watched ? `${row.symbol} 관심 종목` : `${row.symbol} 관심 목록에 담기`}
-                        className={`text-[15px] leading-none ${watched ? 'text-warning' : 'text-text-muted hover:text-warning'} disabled:cursor-default`}
+                        className="inline-flex align-middle disabled:cursor-default"
                       >
-                        {watched ? '★' : '☆'}
+                        <StarIcon on={watched} size="sm" />
                       </button>
                     </td>
                     <td className="max-w-0 overflow-hidden whitespace-nowrap px-2">

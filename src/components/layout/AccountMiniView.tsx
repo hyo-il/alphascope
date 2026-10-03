@@ -1,3 +1,4 @@
+import AutoTradeIcon from '../ui/AutoTradeIcon';
 import type { PaperAccount, PaperAccountDetail } from '../../types/paper';
 import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
@@ -122,7 +123,7 @@ export default function AccountMiniView({
                 const v = viewOf(a.id);
                 return (
                   <option key={a.id} value={a.id}>
-                    {v ? `${v.symbol} ${a.name}` : a.name}
+                    {v ? `${a.name} · ${v.short}` : a.name}
                   </option>
                 );
               })}
@@ -256,11 +257,9 @@ function AutoDot({ auto }: { auto: ReturnType<typeof autoTradeView> | null }) {
     <span
       title={auto.reason ? `${auto.label} — ${auto.reason}` : auto.label}
       aria-label={auto.label}
-      className={`shrink-0 text-[13px] leading-none ${AUTO_TRADE_TONE[auto.state]} ${
-        auto.state === 'running' && !auto.busy ? 'motion-safe:animate-pulse' : ''
-      }`}
+      className={`inline-flex shrink-0 ${AUTO_TRADE_TONE[auto.state]}`}
     >
-      {auto.busy ? '\u25cc' : auto.symbol}
+      <AutoTradeIcon view={auto} />
     </span>
   );
 }
