@@ -27,7 +27,7 @@ export default function SectorRanking({
 }) {
   if (!sectors.length) return <p className="p-3 text-[13px] text-text-muted">계산할 수 있는 섹터가 없습니다.</p>;
   return (
-    <ol className="divide-y divide-border">
+    <ol className="divide-y divide-border/40">
       {sectors.map((s, i) => {
         const active = selected === s.sector;
         const off = dimmed?.has(s.sector) ?? false;
@@ -38,15 +38,15 @@ export default function SectorRanking({
               onClick={() => onSelect(active ? null : s.sector)}
               disabled={off}
               title={off ? '[보기] 에서 끈 분야입니다' : undefined}
-              className={`w-full px-2.5 py-1.5 text-left transition-colors enabled:hover:bg-bg-tertiary/60 disabled:cursor-default ${active ? 'bg-accent/10' : ''}`}
+              className={`w-full px-3 py-2 text-left transition-colors enabled:hover:bg-bg-tertiary/60 disabled:cursor-default ${active ? 'bg-bg-tertiary' : ''}`}
               aria-pressed={active}
             >
               <div className="flex items-baseline gap-1.5">
                 <span className="w-4 shrink-0 text-right text-[13px] tabular-nums text-text-muted">{i + 1}</span>
-                <span className={`min-w-0 flex-1 truncate text-[14px] font-medium ${active ? 'text-accent' : 'text-text-primary'}`}>
+                <span className={`min-w-0 flex-1 truncate text-[14px] ${active ? 'font-medium text-text-primary' : 'text-text-primary'}`}>
                   {s.sector}
                 </span>
-                <span className={`text-[14px] font-semibold tabular-nums ${tone(s.capReturn)}`}>{pct(s.capReturn)}</span>
+                <span className={`text-[14px] font-medium tabular-nums ${tone(s.capReturn)}`}>{pct(s.capReturn)}</span>
               </div>
               <div className="ml-5 flex flex-wrap gap-x-2 text-[13px] tabular-nums text-text-muted">
                 <span title="동일 가중(단순 평균) 수익률">동일 {pct(s.equalReturn)}</span>

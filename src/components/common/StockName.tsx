@@ -36,11 +36,16 @@ export default function StockName({
   tickerClassName?: string;
 }) {
   const label = name ?? stockNameOf(symbol);
+  /*
+   * 굵기 기본은 중간(500) — v2.36.0 디자인 규칙 4(표의 종목명 = 500). 예전에는 이름을 늘 600 으로 박아 두어
+   * 표·목록이 전부 굵게 보였다. 카드 제목처럼 600 이 필요한 곳은 className 에 `font-semibold` 를 준다.
+   */
+  const weight = /\bfont-(normal|medium|semibold)\b/.test(className) ? '' : 'font-medium';
 
   return (
-    <span className={`inline-flex min-w-0 items-baseline gap-1.5 ${className}`}>
+    <span className={`inline-flex min-w-0 items-baseline gap-1.5 ${weight} ${className}`}>
       {/* 좁은 자리에서 이름이 말줄임되면 마우스로 전체 이름을 본다 (v2.33.0) — 티커는 자르지 않는다 */}
-      <span className="truncate font-semibold" title={label || symbol}>{label || symbol}</span>
+      <span className="truncate" title={label || symbol}>{label || symbol}</span>
       {label && showTicker && (
         <span className={`shrink-0 font-normal ${TICKER_SIZE[size]} ${tickerClassName}`}>
           {symbol}

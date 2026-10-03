@@ -99,13 +99,13 @@ export default function HeatmapViewMenu({ top, onTopChange, sectors, off, onOffC
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className={`rounded border px-2.5 py-0.5 text-[13px] transition-colors ${
+        className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[13px] transition-colors ${
           open || onCount < sectors.length || (top !== null && top !== 50) || watchSize === 'sqrt'
-            ? 'border-accent/60 text-text-primary'
-            : 'border-border text-text-secondary'
+            ? 'bg-bg-elevated text-text-primary'
+            : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
         }`}
       >
-        {label} <ChevronDown {...ICON_SM} className="inline-block align-[-2px]" />
+        {label} <ChevronDown {...ICON_SM} />
       </button>
       {open && (
         <div
@@ -123,8 +123,8 @@ export default function HeatmapViewMenu({ top, onTopChange, sectors, off, onOffC
                     type="button"
                     onClick={() => onTopChange(n)}
                     aria-pressed={top === n}
-                    className={`flex-1 rounded border px-2 py-0.5 transition-colors ${
-                      top === n ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-border text-text-secondary'
+                    className={`flex-1 rounded-md px-2 py-0.5 transition-colors ${
+                      top === n ? 'bg-bg-primary font-medium text-text-primary' : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
                     }`}
                   >
                     상위 {n}
@@ -148,8 +148,8 @@ export default function HeatmapViewMenu({ top, onTopChange, sectors, off, onOffC
                     type="button"
                     onClick={() => onWatchSizeChange?.(id)}
                     aria-pressed={watchSize === id}
-                    className={`flex-1 rounded border px-2 py-0.5 transition-colors ${
-                      watchSize === id ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-border text-text-secondary'
+                    className={`flex-1 rounded-md px-2 py-0.5 transition-colors ${
+                      watchSize === id ? 'bg-bg-primary font-medium text-text-primary' : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
                     }`}
                   >
                     {text}

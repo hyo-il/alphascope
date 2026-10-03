@@ -1,3 +1,4 @@
+import { Segmented } from '../ui';
 import { useEffect, useRef, useState } from 'react';
 import LiteCandleChart, { LITE_CHART_MAS } from '../chart/LiteCandleChart';
 import { InlineSpinner } from '../common/LoadingOverlay';
@@ -133,8 +134,8 @@ export default function RankingPreview({
   }, [symbol, timeframe]);
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-lg border border-border bg-bg-secondary" aria-label="종목 미리보기">
-      <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl bg-bg-secondary" aria-label="종목 미리보기">
+      <header className="flex shrink-0 items-center gap-2 px-3 py-2.5">
         {row ? (
           <div className="min-w-0 flex-1">
             <StockName symbol={row.symbol} name={row.name ?? undefined} className="text-sm font-semibold text-text-primary" />
@@ -147,21 +148,7 @@ export default function RankingPreview({
         ) : (
           <p className="flex-1 text-[14px] text-text-muted">목록의 종목에 마우스를 올리면 여기 차트가 보입니다.</p>
         )}
-        <div className="flex shrink-0 gap-1" role="group" aria-label="봉">
-          {PREVIEW_TIMEFRAMES.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => onTimeframeChange(t.id)}
-              aria-pressed={timeframe === t.id}
-              className={`rounded border px-2 py-0.5 text-[13px] transition-colors ${
-                timeframe === t.id ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-border text-text-secondary'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <Segmented label="봉" size="sm" value={timeframe} onChange={onTimeframeChange} options={PREVIEW_TIMEFRAMES.map((t) => ({ value: t.id, label: t.label }))} />
       </header>
       <div className="flex shrink-0 gap-2 px-3 pt-1 text-[13px]">
         {LITE_CHART_MAS.map((ma) => (
@@ -182,7 +169,7 @@ export default function RankingPreview({
           <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-[13px] text-bearish">{error}</div>
         )}
       </div>
-      <footer className="flex shrink-0 items-center justify-between border-t border-border px-3 py-2">
+      <footer className="flex shrink-0 items-center justify-between px-3 py-2.5">
         <span className="min-w-0 text-[13px] text-text-muted">
           {PREVIEW_TIMEFRAMES.find((t) => t.id === timeframe)!.label}봉 · 캔들 + 거래량 + 이동평균(5·20·60)
         </span>
@@ -190,7 +177,7 @@ export default function RankingPreview({
           type="button"
           disabled={!row}
           onClick={() => row && onOpen(row.symbol)}
-          className="shrink-0 whitespace-nowrap rounded bg-accent px-3 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+          className="shrink-0 whitespace-nowrap rounded-md bg-accent px-3 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
         >
           차트로 열기
         </button>

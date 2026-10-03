@@ -1,3 +1,4 @@
+import { InfoTip, Segmented, Tabs } from '../ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { squarify, type Rect } from '../../utils/treemap';
 import { formatCompactMoney, formatPrice } from '../../utils/formatters';
@@ -359,57 +360,29 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
     <div className="@container flex h-full flex-col p-3">
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
         <h2 className="text-sm font-semibold text-text-primary">종목 지도</h2>
-        {/* 탭 (v2.27.0) — 시장·기간은 두 탭이 함께 쓴다 */}
-        <div className="flex rounded border border-border p-0.5" role="tablist" aria-label="지도 대상">
-          {(
-            [
-              ['market', '시장 상위'],
-              ['watch', '내 관심 종목'],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={view === id}
-              onClick={() => setView(id)}
-              className={`rounded px-2.5 py-0.5 text-[13px] transition-colors ${
-                view === id ? 'bg-accent/15 font-medium text-accent' : 'text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1">
-          {(['us', 'kr'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMarket(m)}
-              className={`rounded border px-2.5 py-0.5 text-[13px] transition-colors ${
-                market === m ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-border text-text-secondary'
-              }`}
-            >
-              {m === 'us' ? '미국' : '국내'}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1" role="group" aria-label="기간">
-          {HEATMAP_PERIODS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setPeriod(p.id)}
-              aria-pressed={period === p.id}
-              className={`rounded border px-2 py-0.5 text-[13px] transition-colors ${
-                period === p.id ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-border text-text-secondary'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+        {/* 탭 (v2.27.0) — 시장·기간은 두 탭이 함께 쓴다. v2.36.0: 탭은 글자 + 밑줄, 시장·기간은 회색 묶음 버튼 */}
+        <Tabs
+          label="지도 대상"
+          size="sm"
+          line={false}
+          value={view}
+          onChange={setView}
+          items={[
+            { id: 'market', label: '시장 상위' },
+            { id: 'watch', label: '내 관심 종목' },
+          ]}
+        />
+        <Segmented
+          label="시장"
+          size="sm"
+          value={market}
+          onChange={setMarket}
+          options={[
+            { value: 'us', label: '미국' },
+            { value: 'kr', label: '국내' },
+          ]}
+        />
+        <Segmented label="기간" size="sm" value={period} onChange={setPeriod} options={HEATMAP_PERIODS.map((p) => ({ value: p.id, label: p.label }))} />
         <HeatmapViewMenu
           top={watchView ? null : top}
           onTopChange={setTop}
@@ -438,8 +411,9 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
 
       {error && <p className="mb-2 rounded border border-bearish/40 bg-bearish/10 px-3 py-1.5 text-[13px] text-bearish">{error}</p>}
       {data && data.missingSectors > 0 && (
-        <p className="mb-1 text-[13px] text-text-muted">
-          섹터 정보가 없는 {data.missingSectors}종목은 「기타」 로 묶었습니다 (새로 들어온 종목은 하루 한 번 뒤에서 채웁니다).
+        <p className="mb-1 flex items-center gap-1 text-[13px] text-text-muted">
+          섹터 정보 없음 {data.missingSectors}종목 → 「기타」
+          <InfoTip>섹터 정보가 없는 종목은 「기타」 로 묶었습니다. 새로 들어온 종목은 하루 한 번 뒤에서 채웁니다.</InfoTip>
         </p>
       )}
 
@@ -513,7 +487,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           })}
           {hover && (
             <div
-              className="pointer-events-none absolute z-10 w-52 rounded border border-border bg-bg-primary/95 px-2 py-1.5 text-[13px] shadow-lg"
+              className="pointer-events-none absolute z-10 w-52 rounded-lg bg-bg-elevated px-2.5 py-2 text-[13px] shadow-lg"
               style={{
                 left: Math.min(hover.x + 12, Math.max(0, size.w - 212)),
                 top: Math.min(hover.y + 12, Math.max(0, size.h - 90)),
@@ -539,15 +513,17 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         </div>
 
         {/* 섹터 강세 순위 — 설명용 */}
-        <aside className="flex w-72 shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-bg-secondary">
-          <div className="shrink-0 border-b border-border px-2.5 py-1.5">
+        <aside className="flex w-72 shrink-0 flex-col overflow-hidden rounded-xl bg-bg-secondary">
+          <div className="flex shrink-0 items-center gap-1.5 px-3 pb-2 pt-3">
             <p className="text-[14px] font-semibold text-text-primary">
               섹터 강세 순위 · {periodInfo.label}
-              {watchView && <span className="ml-1.5 font-normal text-accent">관심 종목 기준</span>}
+              {watchView && <span className="ml-1.5 font-normal text-text-secondary">관심 종목 기준</span>}
             </p>
-            <p className="text-[13px] text-text-muted">
-              시총 가중(현재 시총) 수익률 높은 순 · 줄을 누르면 지도에서 강조{activeOff.size > 0 && ' · 흐린 줄은 지도에서 끈 분야'}
-            </p>
+            {/* 읽는 법은 정보 아이콘으로 (v2.36.0 디자인 규칙 6) */}
+            <InfoTip>
+              시총 가중(현재 시총) 수익률 높은 순입니다. 줄을 누르면 지도에서 그 섹터를 강조합니다.
+              {activeOff.size > 0 && ' 흐린 줄은 지도에서 끈 분야입니다.'}
+            </InfoTip>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {data ? (
@@ -557,11 +533,11 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
             )}
           </div>
           {/* ⚠️ 고정 문구 — 지우지 않는다(CLAUDE.md). v2.30.0 에 지도 아래 줄에서 이 자리로 옮겼다(지도 아래를 한 줄로) */}
-          <p className="shrink-0 border-t border-border px-2.5 py-1 text-[13px] font-medium text-text-secondary">
+          <p className="shrink-0 border-t border-border/50 px-3 py-2 text-[13px] text-text-secondary">
             지난 기간의 결과입니다. 앞으로도 강할 것이라는 뜻이 아닙니다.
           </p>
           {data && data.excluded > 0 && (
-            <p className="shrink-0 border-t border-border px-2.5 py-1 text-[13px] text-text-muted">
+            <p className="shrink-0 px-3 pb-2 text-[13px] text-text-muted">
               {periodInfo.label} 전 종가가 없어 제외한 종목 {data.excluded}개 (상장 직후·거래 정지 등)
             </p>
           )}
@@ -596,15 +572,10 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         {watchView && watchSize === 'sqrt' && (
           <span className="text-[13px] text-warning">칸 크기는 시가총액의 제곱근에 비례합니다(크기 차이를 줄인 보기)</span>
         )}
-        {/* 넓은 화면(지도 영역 1200px 이상)은 글자, 좁으면 ⓘ — 문구를 줄이지 않는다 */}
-        <span className="ml-auto hidden text-[13px] text-text-muted @min-[1200px]:inline">{guide}</span>
-        <span
-          tabIndex={0}
-          title={guide}
-          aria-label={`지도 읽는 법: ${guide}`}
-          className="ml-auto cursor-help rounded px-1 text-[14px] text-text-muted hover:text-text-primary @min-[1200px]:hidden"
-        >
-          ⓘ
+        {/* 읽는 법 — v2.36.0 부터 화면 폭과 상관없이 정보 아이콘(문구는 그대로, 키보드 포커스로도 열린다) */}
+        <span className="ml-auto flex items-center gap-1 text-[13px] text-text-muted">
+          읽는 법
+          <InfoTip label="지도 읽는 법">{guide}</InfoTip>
         </span>
       </div>
       {watchView && data && data.missingCap.length > 0 && (

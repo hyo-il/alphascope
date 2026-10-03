@@ -1,3 +1,4 @@
+import { InfoTip, Segmented } from '../ui';
 import StarIcon from '../ui/StarIcon';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import StockName from '../common/StockName';
@@ -112,42 +113,27 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
     <div className="flex h-full flex-col p-3">
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
         <h2 className="text-sm font-semibold text-text-primary">실시간 순위</h2>
-        <div className="flex gap-1">
-          {(['us', 'kr'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMarket(m)}
-              aria-pressed={market === m}
-              className={`rounded border px-2.5 py-0.5 text-[13px] transition-colors ${
-                market === m ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-border text-text-secondary'
-              }`}
-            >
-              {m === 'us' ? '미국' : '국내'}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1">
-          {LIVE_RANKING_KINDS.map((k) => (
-            <button
-              key={k.id}
-              type="button"
-              onClick={() => setKind(k.id)}
-              aria-pressed={kind === k.id}
-              className={`rounded border px-2 py-0.5 text-[13px] transition-colors ${
-                kind === k.id ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-border text-text-secondary'
-              }`}
-            >
-              {k.label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label="시장"
+          size="sm"
+          value={market}
+          onChange={setMarket}
+          options={[
+            { value: 'us', label: '미국' },
+            { value: 'kr', label: '국내' },
+          ]}
+        />
+        <Segmented label="순위 종류" size="sm" value={kind} onChange={setKind} options={LIVE_RANKING_KINDS.map((k) => ({ value: k.id, label: k.label }))} />
         {data && (
-          <span className="text-[13px] text-text-muted">
+          <span className="flex items-center gap-1 text-[13px] text-text-muted">
             {data.rankedAt
-              ? `${new Date(data.rankedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} 기준`
-              : '기준 시각 없음'}{' '}
-            · {data.duration === 'realtime' ? '실시간' : '오늘 등락 기준(토스가 실시간 상승·하락률을 주지 않는다)'} · 30초마다 새로고침(화면을 볼 때만)
+              ? `${new Date(data.rankedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준`
+              : '기준 시각 없음'}
+            {/* 긴 설명은 정보 아이콘으로 (v2.36.0 디자인 규칙 6) */}
+            <InfoTip>
+              {data.duration === 'realtime' ? '실시간 순위입니다.' : '오늘 등락 기준입니다(토스가 실시간 상승·하락률을 주지 않습니다).'} 30초마다 새로고침합니다(화면을 볼 때만).
+              {data.rankedAt && ` 기준 시각 ${new Date(data.rankedAt).toLocaleTimeString('ko-KR')}.`}
+            </InfoTip>
           </span>
         )}
       </header>
@@ -161,13 +147,13 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
           tabIndex={0}
           onKeyDown={onKeyDown}
           onMouseLeave={leave}
-          className="min-h-0 min-w-0 basis-[60%] overflow-y-auto rounded-lg border border-border bg-bg-secondary outline-none focus-visible:ring-1 focus-visible:ring-accent"
+          className="min-h-0 min-w-0 basis-[60%] overflow-y-auto rounded-xl bg-bg-secondary outline-none focus-visible:ring-1 focus-visible:ring-accent"
           aria-label="순위 목록 — ↑↓ 로 옮기고 Enter 로 차트 열기"
         >
           <table className="w-full text-[14px]">
             <thead className="sticky top-0 z-[1] bg-bg-secondary text-[13px] text-text-muted">
-              <tr className="border-b border-border">
-                <th className="w-9 py-1.5 pl-2 text-right font-normal">순위</th>
+              <tr className="border-b border-border/50">
+                <th className="w-9 py-2.5 pl-2 text-right font-normal">순위</th>
                 <th className="w-7" />
                 <th className="px-2 text-left font-normal">종목</th>
                 {/* 숫자 열은 폭을 정해 둔다 — 자동 배분이면 남는 폭이 숫자 열로 가고 종목명이 0 에 가깝게 줄었다 (v2.25.0) */}
@@ -199,11 +185,11 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
                     data-index={index}
                     onMouseEnter={() => hover(row, index)}
                     onClick={() => open(row.symbol)}
-                    className={`cursor-pointer border-b border-border/50 transition-colors hover:bg-bg-tertiary/60 ${
-                      active === index ? 'bg-accent/10' : ''
+                    className={`cursor-pointer border-b border-border/30 transition-colors hover:bg-bg-tertiary/60 ${
+                      active === index ? 'bg-bg-tertiary' : ''
                     }`}
                   >
-                    <td className="py-1.5 pl-2 text-right tabular-nums text-text-muted">{row.rank}</td>
+                    <td className="py-2.5 pl-2 text-right tabular-nums text-text-muted">{row.rank}</td>
                     <td className="text-center">
                       <button
                         type="button"
@@ -258,11 +244,10 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
         </div>
       </div>
 
-      <p className="mt-1 shrink-0 text-[13px] text-text-muted">
-        <b className="font-medium text-text-secondary">
-          순위는 둘러보기용입니다. 급등 다음 날 추격 매수는 이 앱의 과거 진단에서 불리했습니다.
-        </b>{' '}
-        행을 누르거나 Enter 를 누르면 미리보기에서 고른 봉으로 차트를 엽니다.
+      {/* ⚠️ 고정 문구 — 지우지 않는다(CLAUDE.md). 조작법만 정보 아이콘으로 (v2.36.0) */}
+      <p className="mt-2 flex shrink-0 items-center gap-1 text-[13px] text-text-secondary">
+        순위는 둘러보기용입니다. 급등 다음 날 추격 매수는 이 앱의 과거 진단에서 불리했습니다.
+        <InfoTip label="조작법">행을 누르거나 Enter 를 누르면 미리보기에서 고른 봉으로 차트를 엽니다. ↑↓ 로 행을 옮깁니다.</InfoTip>
       </p>
     </div>
   );
