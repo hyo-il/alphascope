@@ -16,6 +16,8 @@
   --color-bg-primary: #141414;
   --color-bg-secondary: #1e1e1e;
   --color-bg-tertiary: #2a2a2a;
+  /* 한 단계 더 밝은 바탕 (v2.36.0) — 묶음 버튼의 고른 칸·툴팁·secondary 버튼 hover. 기존 색은 그대로 두고 단계만 하나 더했다 */
+  --color-bg-elevated: #383838;
   --color-text-primary: #e0e0e0;
   --color-text-secondary: #999999;
   /*

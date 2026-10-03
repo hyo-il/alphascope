@@ -1,19 +1,25 @@
 import { useEffect } from 'react';
+import { CircleCheck, CircleX, Info, TriangleAlert, X } from 'lucide-react';
 import { useUiStore, type ToastItem, type ToastType } from '../../store/uiStore';
+import { ICON, ICON_SM } from '../ui/icon';
 
 /** 자동으로 사라지기까지의 시간 */
 const AUTO_DISMISS_MS = 3000;
 
-const STYLE: Record<ToastType, { border: string; text: string; icon: string }> = {
-  success: { border: 'border-bullish/50', text: 'text-bullish', icon: '✅' },
-  error: { border: 'border-bearish/50', text: 'text-bearish', icon: '❌' },
-  warning: { border: 'border-warning/50', text: 'text-warning', icon: '⚠️' },
-  info: { border: 'border-accent/50', text: 'text-accent', icon: 'ℹ️' },
+/**
+ * v2.36.0: 이모지(✅❌⚠️ℹ️)·색 테두리 대신 모양이 다른 선 아이콘 + 색. 글은 흰색(색 글자는 아이콘만) — 차분하게.
+ */
+const STYLE: Record<ToastType, { icon: typeof Info; color: string }> = {
+  success: { icon: CircleCheck, color: 'text-bullish' },
+  error: { icon: CircleX, color: 'text-bearish' },
+  warning: { icon: TriangleAlert, color: 'text-warning' },
+  info: { icon: Info, color: 'text-text-secondary' },
 };
 
 function Toast({ item }: { item: ToastItem }) {
   const dismiss = useUiStore((s) => s.dismissToast);
   const style = STYLE[item.type];
+  const Icon = style.icon;
 
   useEffect(() => {
     const timer = setTimeout(() => dismiss(item.id), AUTO_DISMISS_MS);
@@ -23,11 +29,13 @@ function Toast({ item }: { item: ToastItem }) {
   return (
     <div
       role="status"
-      className={`pointer-events-auto flex min-w-[240px] max-w-sm items-start gap-2 rounded-lg border ${style.border} bg-bg-secondary px-3 py-2.5 shadow-xl`}
+      className="pointer-events-auto flex min-w-[240px] max-w-sm items-start gap-2 rounded-xl bg-bg-elevated px-3 py-2.5 shadow-xl"
     >
-      <span className="text-sm leading-none">{style.icon}</span>
+      <span className={`mt-px ${style.color}`}>
+        <Icon {...ICON} />
+      </span>
       <div className="min-w-0 flex-1">
-        <p className={`text-xs font-medium ${style.text}`}>{item.message}</p>
+        <p className="text-xs font-medium text-text-primary">{item.message}</p>
         {item.detail && (
           <p className="mt-0.5 text-[13px] leading-relaxed text-text-secondary">{item.detail}</p>
         )}
@@ -38,7 +46,7 @@ function Toast({ item }: { item: ToastItem }) {
         aria-label="닫기"
         className="text-text-muted transition-colors hover:text-text-primary"
       >
-        ✕
+        <X {...ICON_SM} />
       </button>
     </div>
   );

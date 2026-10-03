@@ -1,0 +1,11 @@
+/** 공용 부품 (v2.36.0) — 새 화면은 이 부품으로 만든다. 규칙은 CLAUDE.md 「디자인 가이드라인」. */
+export { default as Segmented, type SegmentedOption } from './Segmented';
+export { default as Tabs, type TabItem } from './Tabs';
+export { default as Button } from './Button';
+export { default as IconButton } from './IconButton';
+export { default as Panel } from './Panel';
+export { default as Badge } from './Badge';
+export { default as InfoTip } from './InfoTip';
+export { default as SectionTitle } from './SectionTitle';
+export { ICON, ICON_SM, ICON_LG } from './icon';
+export { AUTO_TRADE_ICON, VERDICT_ICON, STEP_ICON } from './statusIcons';

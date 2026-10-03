@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useUiStore, type ModalRow } from '../../store/uiStore';
+import Button from '../ui/Button';
 
 const TONE: Record<NonNullable<ModalRow['tone']>, string> = {
   default: 'text-text-primary',
@@ -59,17 +60,17 @@ export default function ModalHost() {
         if (e.target === e.currentTarget) cancel();
       }}
     >
-      <div className="w-full max-w-sm rounded-lg border border-border bg-bg-secondary shadow-xl">
-        <div className="border-b border-border px-4 py-3">
+      <div className="w-full max-w-sm rounded-xl bg-bg-secondary shadow-xl">
+        <div className="px-4 pt-4">
           <h2
             id="alphascope-modal-title"
-            className="text-sm font-medium text-text-primary"
+            className="text-sm font-semibold text-text-primary"
           >
             {request.title}
           </h2>
         </div>
 
-        <div className="space-y-3 px-4 py-4">
+        <div className="space-y-3 px-4 py-3">
           {request.message && (
             <p className="text-xs leading-relaxed whitespace-pre-line text-text-secondary">
               {request.message}
@@ -88,28 +89,16 @@ export default function ModalHost() {
           )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-border px-4 py-3">
+        <div className="flex justify-end gap-2 px-4 pb-4">
           {!request.alertOnly && (
-            <button
-              type="button"
-              onClick={cancel}
-              disabled={busy}
-              className="shrink-0 whitespace-nowrap rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40"
-            >
+            <Button variant="ghost" onClick={cancel} disabled={busy}>
               {request.cancelText ?? '취소'}
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            onClick={() => void accept()}
-            disabled={busy}
-            autoFocus
-            className={`shrink-0 whitespace-nowrap rounded-md px-4 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-40 ${
-              request.danger ? 'bg-bearish hover:brightness-110' : 'bg-accent hover:bg-accent-hover'
-            }`}
-          >
+          {/* 확인 버튼 하나만 색을 준다 — 지우기는 빨강, 그 밖은 파랑 (v2.36.0 공용 Button) */}
+          <Button variant={request.danger ? 'danger' : 'primary'} onClick={() => void accept()} disabled={busy} autoFocus>
             {busy ? '처리 중…' : (request.confirmText ?? '확인')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
