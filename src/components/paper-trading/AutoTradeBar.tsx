@@ -5,7 +5,7 @@ import { useGeminiStatus } from '../../hooks/useGemini';
 import { toast } from '../../store/uiStore';
 import { useStockNames } from '../../hooks/useStockNames';
 import { autoTradeView } from '../../utils/autoTradeStatus';
-import { explainNote, nowSentence, sortNotes } from '../../utils/autoTradeExplain';
+import { explainNote, kstLabel, nextUsOpen, nowSentence, sortNotes } from '../../utils/autoTradeExplain';
 
 /**
  * 계좌 대시보드 상단의 자동매매 바.
@@ -168,6 +168,16 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
         마지막 한 바퀴의 판단 — 매수·매도와 **건너뛴 이유**(실적 발표 직전·하루 손실 한도·한도 초과 등).
         거래내역은 체결만 보여서, 예전에는 "왜 안 샀나" 를 확인할 곳이 없었다 (v2.16.0).
       */}
+      {/*
+        켰는데 아직 한 번도 판단하지 않았으면 그 자리를 비워 두지 않는다 (v2.35.0) — 비어 있으면 고장인지 모른다.
+        시각은 「지금 상태」 문장과 같은 `nextUsOpen`(주말만 본다, 휴장일은 보지 않는다). 꺼져 있으면 아무것도 그리지 않는다.
+        멈춤(서버 꺼짐·설정·하루 손실)이면 그 시각에도 판단하지 않으므로 그리지 않는다 — 멈춤 이유는 위 줄이 말한다.
+      */}
+      {on && status && status.lastNotes.length === 0 && (!status.blockedKind || status.blockedKind === 'market_closed') && (
+        <p className="border-b border-border px-4 py-1.5 text-[13px] text-text-muted">
+          아직 판단한 적이 없습니다. 미국 장이 열리는 {kstLabel(nextUsOpen())}에 첫 판단을 합니다.
+        </p>
+      )}
       {status && status.lastNotes.length > 0 && (
         <details className="border-b border-border px-4 py-1.5 text-[13px]">
           <summary className="text-text-muted">
