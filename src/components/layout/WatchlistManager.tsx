@@ -155,9 +155,9 @@ export default function WatchlistManager({
 
   const confirmDeleteSymbols = () =>
     modal.confirm({
-      title: '관심 종목 삭제',
-      message: `${checked.length}개 종목을 관심 목록에서 삭제합니다.`,
-      confirmText: '삭제',
+      title: '관심 종목 지우기',
+      message: `${checked.length}개 종목을 관심 목록에서 지웁니다. 되돌릴 수 없습니다.`,
+      confirmText: '지우기',
       danger: true,
       onConfirm: () => {
         checked.forEach((symbol) => watch.remove(symbol));
@@ -167,12 +167,12 @@ export default function WatchlistManager({
 
   const confirmDeleteFolder = (id: string, name: string, count: number) =>
     modal.confirm({
-      title: `'${name}' 그룹 삭제`,
+      title: `'${name}' 그룹 지우기`,
       message:
         count > 0
           ? `안에 있는 ${count}개 종목은 폴더 밖으로 나옵니다. 종목이 지워지지는 않습니다.`
-          : '빈 그룹을 삭제합니다.',
-      confirmText: '삭제',
+          : '빈 그룹을 지웁니다.',
+      confirmText: '지우기',
       danger: true,
       onConfirm: () => {
         watch.deleteFolder(id);

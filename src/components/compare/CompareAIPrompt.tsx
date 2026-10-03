@@ -6,7 +6,7 @@ import {
   type InvestmentHorizon,
 } from '../../services/analysis/horizons';
 import type { SymbolSummary } from '../../types/analysis';
-import { toast } from '../../store/uiStore';
+import { modal, toast } from '../../store/uiStore';
 import { copyText } from '../../services/clipboard';
 
 /**
@@ -38,6 +38,23 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
   }, [summaries, horizon]);
 
   const prompt = edited ?? generated;
+
+  /*
+   * 프롬프트 초기화 — 직접 고친 내용이 있을 때만 확인 창 (v2.34.1). 고친 것이 없거나 자동 생성본과 같으면 바로 되돌린다.
+   */
+  const resetPrompt = () => {
+    if (edited === null || edited === generated) {
+      setEdited(null);
+      return;
+    }
+    modal.confirm({
+      title: '프롬프트 초기화',
+      message: '고친 프롬프트를 버리고 자동 생성본으로 되돌립니다. 되돌릴 수 없습니다.',
+      confirmText: '되돌리기',
+      danger: true,
+      onConfirm: () => setEdited(null),
+    });
+  };
   const ready = summaries.filter((s) => s.price != null).length >= 2;
 
   const copy = async () => {
@@ -103,7 +120,7 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
         </a>
         <button
           type="button"
-          onClick={() => setEdited(null)}
+          onClick={resetPrompt}
           disabled={edited == null}
           className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40"
         >

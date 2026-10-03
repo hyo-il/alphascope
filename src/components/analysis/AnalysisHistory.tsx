@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { analysisModeLabel } from '../../types/analysis';
 import type { Timeframe } from '../../types/toss';
 import { formatUsd } from '../../utils/formatters';
+import { modal, toast } from '../../store/uiStore';
 
 interface Props {
   symbol: string;
@@ -129,9 +130,27 @@ export default function AnalysisHistory({
     await load();
   };
 
-  const handleDelete = async (id: number) => {
-    await fetch(`/api/analysis/${id}`, { method: 'DELETE' });
-    await load();
+  /*
+   * 사용자가 붙여넣어 저장한 글이라 확인 창 (v2.34.1). 예전에는 바로 지웠고, 실패해도 아무 표시가 없었다.
+   * 지우면 「분석 성적표」 집계에서도 빠진다 — 문구에 적는다.
+   */
+  const handleDelete = (record: AnalysisRecord) => {
+    const date = new Date(record.analyzed_at).toLocaleDateString('ko-KR');
+    modal.confirm({
+      title: '분석 기록 지우기',
+      message: `${record.symbol} ${date} 분석 기록을 지웁니다. 되돌릴 수 없고 「분석 성적표」 집계에서도 빠집니다.`,
+      confirmText: '지우기',
+      danger: true,
+      onConfirm: async () => {
+        const res = await fetch(`/api/analysis/${record.id}`, { method: 'DELETE' }).catch(() => null);
+        if (!res?.ok) {
+          const body = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
+          toast.error('기록을 지우지 못했습니다', body?.error ?? (res ? `요청 실패 (${res.status})` : '서버에 연결하지 못했습니다'));
+          return;
+        }
+        await load();
+      },
+    });
   };
 
   return (
@@ -265,7 +284,7 @@ export default function AnalysisHistory({
                     </pre>
                     <button
                       type="button"
-                      onClick={() => void handleDelete(record.id)}
+                      onClick={() => handleDelete(record)}
                       className="mt-2 text-[13px] text-text-muted transition-colors hover:text-bearish"
                     >
                       삭제

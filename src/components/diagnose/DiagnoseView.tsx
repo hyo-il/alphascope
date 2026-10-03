@@ -568,9 +568,9 @@ export default function DiagnoseView() {
     if (!selected) return;
     const target = selected;
     modal.confirm({
-      title: '진단 리포트 삭제',
-      message: `${stamp(target.createdAt)} 리포트를 지울까요? 웹 목록에서만 지워지고, 서버의 파일은 남습니다.`,
-      confirmText: '삭제',
+      title: '진단 리포트 지우기',
+      message: `${stamp(target.createdAt)} 리포트를 지웁니다. 되돌릴 수 없습니다(웹 목록에서만 지워지고, 서버의 파일은 남습니다).`,
+      confirmText: '지우기',
       danger: true,
       onConfirm: async () => {
         try {

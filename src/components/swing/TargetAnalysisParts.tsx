@@ -396,9 +396,9 @@ export function TargetSummaryLine({
 export function useConfirmDelete(remove: (id: number) => Promise<void>) {
   return (record: TargetAnalysisRecord) =>
     modal.confirm({
-      title: '목표 도달 분석 기록 삭제',
-      message: `${record.symbol} (${record.baseDate}, +${record.targetPct}%/−${record.stopPct}%/${record.days}일) 기록을 지울까요? 성적 집계에서도 빠집니다.`,
-      confirmText: '삭제',
+      title: '목표 도달 가능성 기록 지우기',
+      message: `${record.symbol} (${record.baseDate}, +${record.targetPct}%/−${record.stopPct}%/${record.days}일) 기록을 지웁니다. 되돌릴 수 없고 성적 집계에서도 빠집니다.`,
+      confirmText: '지우기',
       danger: true,
       onConfirm: async () => {
         try {

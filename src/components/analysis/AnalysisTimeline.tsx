@@ -203,9 +203,9 @@ export default function AnalysisTimeline({
       source === 'claude' ? 'Claude 분석' : source === 'gemini' ? 'Gemini 분석' : '분석 결과';
 
     modal.confirm({
-      title: `${sourceLabel} ${count}건 삭제`,
-      message: `${scope ? `${scope} 종목의 ` : '전체 '}${sourceLabel} ${count}건을 모두 삭제합니다. 되돌릴 수 없으며, 삭제한 기록은 '분석 성적표' 집계에서도 빠집니다.`,
-      confirmText: '삭제',
+      title: `${sourceLabel} ${count}건 지우기`,
+      message: `${scope ? `${scope} 종목의 ` : '전체 '}${sourceLabel} ${count}건을 모두 지웁니다. 되돌릴 수 없으며, 지운 기록은 '분석 성적표' 집계에서도 빠집니다.`,
+      confirmText: '지우기',
       danger: true,
       onConfirm: async () => {
         const query = new URLSearchParams({ source });

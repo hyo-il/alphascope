@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { modal } from '../../store/uiStore';
 import type { Candle, Timeframe } from '../../types/toss';
 import type { AnalysisMode } from '../../types/analysis';
 import { buildMultiAgentPrompt } from '../../services/analysis/multiAgentPrompt';
@@ -188,6 +189,23 @@ export default function ManualAnalysis({
   }, [mode, symbol, horizon]);
 
   const prompt = edited ?? generated;
+
+  /*
+   * 프롬프트 초기화 — 직접 고친 내용이 있을 때만 확인 창 (v2.34.1). 고친 것이 없거나 자동 생성본과 같으면 바로 되돌린다.
+   */
+  const resetPrompt = () => {
+    if (edited === null || edited === generated) {
+      setEdited(null);
+      return;
+    }
+    modal.confirm({
+      title: '프롬프트 초기화',
+      message: '고친 프롬프트를 버리고 자동 생성본으로 되돌립니다. 되돌릴 수 없습니다.',
+      confirmText: '되돌리기',
+      danger: true,
+      onConfirm: () => setEdited(null),
+    });
+  };
 
   // 편집본까지 반영해 상위로 올린다 (히스토리 저장용).
   useEffect(() => {
@@ -380,7 +398,7 @@ export default function ManualAnalysis({
                 {edited !== null && (
                   <button
                     type="button"
-                    onClick={() => setEdited(null)}
+                    onClick={resetPrompt}
                     className="rounded border border-border px-2 py-0.5 transition-colors hover:bg-bg-tertiary hover:text-text-primary"
                   >
                     초기화

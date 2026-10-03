@@ -13,6 +13,7 @@ import { formatPercent, formatPrice } from '../../utils/formatters';
 import { usePaperAccounts, usePaperAccountDetail } from '../../hooks/usePaperTrading';
 import { SIDE_POLL_MS, useAutoTradingOverview } from '../../hooks/usePaperOverview';
 import AccountMiniView from './AccountMiniView';
+import { modal } from '../../store/uiStore';
 
 interface Props {
   currentSymbol: string;
@@ -367,7 +368,19 @@ export default function WatchPanel({
         recent.length > 0 && (
           <button
             type="button"
-            onClick={onClearRecent}
+            /*
+              ⚠️ 되돌릴 수 없고 한 번에 여러 개를 지운다 — 확인 창 (v2.34.1). 예전에는 바로 지웠다(13차 점검 중 사본 DB 의 기록이 실제로 비었다).
+              0개면 이 버튼 자체가 없다.
+            */
+            onClick={() =>
+              modal.confirm({
+                title: '최근 조회 기록 모두 지우기',
+                message: `최근 조회한 ${recent.length}종목 기록을 모두 지웁니다. 되돌릴 수 없습니다. (관심 목록은 그대로입니다)`,
+                confirmText: '지우기',
+                danger: true,
+                onConfirm: onClearRecent,
+              })
+            }
             className="flex items-center justify-center gap-1.5 border-t border-border py-2 text-xs text-text-muted transition-colors hover:text-bearish"
           >
             <TrashIcon className="h-3.5 w-3.5" />

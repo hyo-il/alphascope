@@ -136,11 +136,11 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
 
   const confirmDelete = (detectedAt?: string, count?: number) => {
     modal.confirm({
-      title: detectedAt ? '탐지 회차 삭제' : '탐지 이력 전체 삭제',
+      title: detectedAt ? '탐지 회차 지우기' : '탐지 이력 모두 지우기',
       message: detectedAt
-        ? `${roundLabel(detectedAt)} 회차(${count}종목)를 지울까요? ${DELETE_NOTE}`
-        : `탐지 이력 ${detections.length}건을 모두 지울까요? ${DELETE_NOTE} 설정과 캐시는 남습니다.`,
-      confirmText: '삭제',
+        ? `${roundLabel(detectedAt)} 회차(${count}종목)를 지웁니다. 되돌릴 수 없습니다. ${DELETE_NOTE}`
+        : `탐지 이력 ${detections.length}건을 모두 지웁니다. 되돌릴 수 없습니다. ${DELETE_NOTE} 설정과 캐시는 남습니다.`,
+      confirmText: '지우기',
       danger: true,
       onConfirm: async () => {
         try {

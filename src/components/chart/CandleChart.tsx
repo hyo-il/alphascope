@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { modal } from '../../store/uiStore';
 import {
   DrawingManager,
   getToolRegistry,
@@ -183,12 +184,32 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
   const onToolConsumedRef = useRef(onToolConsumed);
   onToolConsumedRef.current = onToolConsumed;
 
-  useImperativeHandle(ref, () => ({
-    clearDrawings: () => {
+  /*
+   * 드로잉 모두 지우기 — 도구줄 「전체 삭제」 와 우클릭 「모두 지우기」 가 같은 함수 (v2.34.1).
+   * 2개 이상이면 확인 창(되돌릴 수 없다), 1개면 바로(개별 삭제와 같다), 0개면 아무 일도 하지 않는다.
+   */
+  const clearAllDrawings = () => {
+    const manager = drawingsRef.current;
+    setMenu(null);
+    if (!manager) return;
+    const count = manager.getAllDrawings().length;
+    const run = () => {
       drawingsRef.current?.clearAll();
       setSelectedAnchor(null);
-      setMenu(null);
-    },
+    };
+    if (count === 0) return;
+    if (count === 1) return run();
+    modal.confirm({
+      title: '차트 드로잉 모두 지우기',
+      message: `이 종목 차트에 그린 ${count}개를 모두 지웁니다. 되돌릴 수 없습니다.`,
+      confirmText: '지우기',
+      danger: true,
+      onConfirm: run,
+    });
+  };
+
+  useImperativeHandle(ref, () => ({
+    clearDrawings: clearAllDrawings,
     deleteSelectedDrawing: () => {
       const selected = drawingsRef.current?.getSelectedDrawing();
       if (selected) drawingsRef.current?.removeDrawing(selected.id);
@@ -834,11 +855,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
             </button>
             <button
               type="button"
-              onClick={() => {
-                drawingsRef.current?.clearAll();
-                setMenu(null);
-                setSelectedAnchor(null);
-              }}
+              onClick={clearAllDrawings}
               className="block w-full px-3 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
             >
               모두 지우기
