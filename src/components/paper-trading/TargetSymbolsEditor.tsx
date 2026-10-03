@@ -120,7 +120,7 @@ export default function TargetSymbolsEditor({
         <button
           type="button"
           onClick={addWatchlist}
-          className="rounded-md border border-border px-3 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+          className="rounded-md bg-bg-tertiary px-3 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
         >
           관심 목록 전부 담기
         </button>
@@ -128,14 +128,14 @@ export default function TargetSymbolsEditor({
           type="button"
           onClick={() => void addSwing()}
           disabled={busy}
-          className="rounded-md border border-border px-3 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+          className="rounded-md bg-bg-tertiary px-3 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-50"
         >
           {busy ? '불러오는 중…' : '지금 살 만한가 종목 담기'}
         </button>
         <button
           type="button"
           onClick={() => setDiscoverOpen(true)}
-          className="rounded-md border border-border px-3 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+          className="rounded-md bg-bg-tertiary px-3 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
         >
           종목 발굴 (지금 살 만한가·관심 목록)
         </button>
@@ -146,7 +146,7 @@ export default function TargetSymbolsEditor({
       </p>
 
       {symbols.length === 0 ? (
-        <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-3 text-center text-[13px] text-text-muted">
+        <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-center text-[13px] text-text-muted">
           담긴 종목이 없습니다. 종목이 없으면 자동매매를 켤 수 없습니다.
         </p>
       ) : (
@@ -154,7 +154,7 @@ export default function TargetSymbolsEditor({
           {symbols.map((symbol) => (
             <span
               key={symbol}
-              className="flex items-center gap-1 rounded-full border border-border bg-bg-tertiary/60 py-0.5 pl-2 pr-1 text-[13px]"
+              className="flex items-center gap-1 rounded-lg-full bg-bg-tertiary/60 py-0.5 pl-2 pr-1 text-[13px]"
             >
               <StockName symbol={symbol} size="sm" className="text-text-primary" />
               <button

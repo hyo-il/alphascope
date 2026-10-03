@@ -409,7 +409,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         </p>
       )}
 
-      {error && <p className="mb-2 rounded border border-bearish/40 bg-bearish/10 px-3 py-1.5 text-[13px] text-bearish">{error}</p>}
+      {error && <p className="mb-2 rounded-lg bg-bearish/10 px-3 py-1.5 text-[13px] text-bearish">{error}</p>}
       {data && data.missingSectors > 0 && (
         <p className="mb-1 flex items-center gap-1 text-[13px] text-text-muted">
           섹터 정보 없음 {data.missingSectors}종목 → 「기타」

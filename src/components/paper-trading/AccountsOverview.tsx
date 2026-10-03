@@ -135,7 +135,7 @@ export default function AccountsOverview({
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-4">
       {error && (
-        <p className="mb-2 rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
+        <p className="mb-2 rounded-lg bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
           최신 값을 받지 못했습니다 ({error}) — 아래는 마지막으로 받은 값입니다.
         </p>
       )}

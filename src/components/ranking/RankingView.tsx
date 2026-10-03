@@ -138,7 +138,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
         )}
       </header>
 
-      {error && <p className="mb-2 rounded border border-bearish/40 bg-bearish/10 px-3 py-1.5 text-[13px] text-bearish">{error}</p>}
+      {error && <p className="mb-2 rounded-lg bg-bearish/10 px-3 py-1.5 text-[13px] text-bearish">{error}</p>}
 
       <div className="flex min-h-0 flex-1 gap-2">
         {/* 목록 ≈ 55% */}

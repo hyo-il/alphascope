@@ -221,7 +221,7 @@ export default function SymbolTagInput({
           onClick={() => setPicker(picker === 'watchlist' ? null : 'watchlist')}
           className={`rounded border px-2.5 py-1 text-xs transition-colors ${
             picker === 'watchlist'
-              ? 'border-accent text-accent'
+              ? 'border-text-primary font-medium text-text-primary'
               : 'border-border text-text-secondary hover:bg-bg-tertiary'
           }`}
         >
@@ -232,7 +232,7 @@ export default function SymbolTagInput({
           onClick={() => setPicker(picker === 'recent' ? null : 'recent')}
           className={`rounded border px-2.5 py-1 text-xs transition-colors ${
             picker === 'recent'
-              ? 'border-accent text-accent'
+              ? 'border-text-primary font-medium text-text-primary'
               : 'border-border text-text-secondary hover:bg-bg-tertiary'
           }`}
         >

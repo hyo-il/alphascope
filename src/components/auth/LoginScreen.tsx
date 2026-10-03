@@ -46,10 +46,13 @@ export default function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <div className="flex h-full items-center justify-center bg-bg-primary p-6">
-      <form onSubmit={submit} className="w-[min(360px,90vw)]">
-        <div className="mb-6 flex items-center justify-center gap-2 text-accent">
-          <LogoMark size={28} />
-          <span className="text-xl font-semibold">AlphaScope</span>
+      <form onSubmit={submit} className="w-[min(360px,90vw)] rounded-xl bg-bg-secondary p-6">
+        {/* 로고 도형만 파랑, 글자는 흰색 — 사이드 메뉴와 같다 (v2.36.0) */}
+        <div className="mb-6 flex items-center justify-center gap-2">
+          <span className="text-accent">
+            <LogoMark size={28} />
+          </span>
+          <span className="text-xl font-semibold text-text-primary">AlphaScope</span>
         </div>
 
         <label htmlFor="as-password" className="mb-1.5 block text-xs text-text-secondary">

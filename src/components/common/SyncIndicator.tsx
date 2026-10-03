@@ -30,7 +30,7 @@ export default function SyncIndicator() {
     return (
       <div
         role="status"
-        className="pointer-events-none fixed bottom-3 left-[168px] z-40 rounded-md border border-border bg-bg-secondary px-2 py-1 text-[13px] text-text-muted"
+        className="pointer-events-none fixed bottom-3 left-[168px] z-40 rounded-xl bg-bg-secondary px-2 py-1 text-[13px] text-text-muted"
       >
         관심 목록 저장 중…
       </div>

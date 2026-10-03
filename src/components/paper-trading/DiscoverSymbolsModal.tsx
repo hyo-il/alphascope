@@ -243,7 +243,7 @@ export default function DiscoverSymbolsModal({
                     type="button"
                     onClick={() => pickSource(s.id)}
                     className={`rounded-lg border px-3 py-2 text-left transition-colors ${
-                      active ? 'border-accent bg-accent/10' : 'border-border hover:border-accent/50'
+                      active ? 'border-text-secondary/70 bg-bg-tertiary' : 'border-border/50 hover:border-text-muted'
                     }`}
                   >
                     <p className={`text-xs font-medium ${active ? 'text-accent' : 'text-text-primary'}`}>
@@ -257,12 +257,12 @@ export default function DiscoverSymbolsModal({
           </section>
 
           {source !== 'watchlist' && (
-            <section className="space-y-2 rounded-md border border-border bg-bg-tertiary/30 p-3">
+            <section className="space-y-2 rounded-lg bg-bg-tertiary/30 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-xs font-semibold text-text-primary">② 기준</h3>
                 {/* 스윙은 판정 기준이 프로파일에 따라 달라진다 — 무엇으로 걸렀는지 적어 둔다 */}
                 {source === 'swing' && (
-                  <span className="rounded border border-border px-1.5 py-0.5 text-[13px] text-text-secondary">
+                  <span className="rounded-lg bg-bg-tertiary/40 px-1.5 py-0.5 text-[13px] text-text-secondary">
                     기준: {PROFILE_LABEL[activeId]}
                     {activeId !== 'standard' ? '(사용자 설정)' : ''}
                   </span>
@@ -295,8 +295,8 @@ export default function DiscoverSymbolsModal({
                     onClick={() => toggleGrade(g)}
                     className={`rounded border px-2 py-0.5 text-[13px] transition-colors ${
                       grades.includes(g)
-                        ? 'border-accent bg-accent/10 text-accent'
-                        : 'border-border text-text-muted hover:border-accent/50'
+                        ? 'border-transparent bg-bg-elevated font-medium text-text-primary'
+                        : 'border-transparent bg-bg-tertiary text-text-muted hover:text-text-primary'
                     }`}
                   >
                     {g}
@@ -340,7 +340,7 @@ export default function DiscoverSymbolsModal({
 
           {/* ⚠️ 여기서 다시 채점하지 않는다 — 불러온 추천이 다른 기준이면 그 사실만 알린다 */}
           {source === 'swing' && rowsProfile && rowsProfile !== activeId && (
-            <p className="rounded border border-warning/40 bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
+            <p className="rounded-lg bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
               이 추천은 '{PROFILE_LABEL[rowsProfile]}' 기준으로 나왔습니다 · 지금 기준은 '
               {PROFILE_LABEL[activeId]}' 입니다 — [다시 분석] 을 켜고 탐지하면 지금 기준으로
               채점합니다.
@@ -388,7 +388,7 @@ export default function DiscoverSymbolsModal({
                 숫자로 말해 주지 않으면 사용자는 엉뚱한 손잡이를 계속 돌린다.
               */}
               {stats && stats.total > 0 && source !== 'watchlist' && (
-                <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-2 text-[13px] leading-relaxed text-text-muted">
+                <p className="rounded-lg bg-bg-tertiary/40 px-3 py-2 text-[13px] leading-relaxed text-text-muted">
                   전체 {stats.total}건 · 통과 {stats.passed} — 점수 미달 {stats.failScore} · 등급 제외{' '}
                   {stats.failGrade}
                   {stats.failGrade > 0 && ` (지금 ${grades.join('·') || '선택 없음'} 만 봄)`}
@@ -402,7 +402,7 @@ export default function DiscoverSymbolsModal({
               )}
 
               {visibleRows.length === 0 ? (
-                <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-4 text-center text-[13px] text-text-muted">
+                <p className="rounded-lg bg-bg-tertiary/40 px-3 py-4 text-center text-[13px] text-text-muted">
                   기준을 통과한 종목이 없습니다. 점수를 낮추거나 등급을 넓혀 보세요.
                 </p>
               ) : (
@@ -420,7 +420,7 @@ export default function DiscoverSymbolsModal({
                               ? 'border-border/60 opacity-50'
                               : checked
                                 ? 'border-accent bg-accent/5'
-                                : 'border-border hover:border-accent/50'
+                                : 'border-border/50 hover:border-text-muted'
                           }`}
                         >
                           <input
@@ -445,7 +445,7 @@ export default function DiscoverSymbolsModal({
                                 </span>
                               )}
                               {row.grade && (
-                                <span className="rounded border border-border px-1.5 py-0.5 text-[13px] text-text-secondary">
+                                <span className="rounded-lg bg-bg-tertiary/40 px-1.5 py-0.5 text-[13px] text-text-secondary">
                                   {row.grade}
                                 </span>
                               )}
@@ -485,7 +485,7 @@ export default function DiscoverSymbolsModal({
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 whitespace-nowrap ml-auto rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            className="shrink-0 whitespace-nowrap ml-auto rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             취소
           </button>

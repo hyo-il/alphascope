@@ -151,7 +151,7 @@ export default function AutoTradeWizard({
               <li
                 key={n}
                 className={`rounded px-1.5 py-0.5 ${
-                  n === step ? 'bg-accent/15 font-medium text-accent' : n < step ? 'text-text-secondary' : 'text-text-muted'
+                  n === step ? 'bg-bg-elevated font-medium text-text-primary' : n < step ? 'text-text-secondary' : 'text-text-muted'
                 }`}
               >
                 {n < step ? <Check {...ICON_SM} className="inline-block align-[-2px]" /> : `${n}.`} {STEP_LABEL[n]}
@@ -187,7 +187,7 @@ export default function AutoTradeWizard({
                     onClick={() => setChoice(id)}
                     aria-pressed={choice === id}
                     className={`rounded-lg border px-3 py-2 text-left transition-colors ${
-                      choice === id ? 'border-accent bg-accent/10' : 'border-border hover:border-accent/50'
+                      choice === id ? 'border-text-secondary/70 bg-bg-tertiary' : 'border-border/50 hover:border-text-muted'
                     }`}
                   >
                     <p className={`text-xs font-medium ${choice === id ? 'text-accent' : 'text-text-primary'}`}>{title}</p>
@@ -198,7 +198,7 @@ export default function AutoTradeWizard({
 
               {choice === 'new' &&
                 (created ? (
-                  <p className="rounded border border-bullish/40 bg-bullish/10 px-3 py-2 text-[13px] text-text-primary">
+                  <p className="rounded-lg bg-bullish/10 px-3 py-2 text-[13px] text-text-primary">
                     「{created.name}」 계좌를 만들었습니다. [다음] 으로 넘어가세요.
                   </p>
                 ) : (
@@ -232,7 +232,7 @@ export default function AutoTradeWizard({
                   })}
                   {/* ⚠️ 돌고 있는 계좌를 실수로 바꾸지 않게 한 번 더 누르게 한다 */}
                   {runningWarn && (
-                    <div className="space-y-1.5 rounded border border-warning/50 bg-warning/10 px-3 py-2 text-[13px] text-warning">
+                    <div className="space-y-1.5 rounded-lg bg-warning/10 px-3 py-2 text-[13px] text-warning">
                       <p>
                         이 계좌는 지금 <b>{runningWarn.mode === 'ai' ? 'AI형' : '규칙형'}</b>으로 돌고 있습니다. 바꾸면 기존 방식이
                         멈춥니다.
@@ -289,7 +289,7 @@ export default function AutoTradeWizard({
           {step === 4 && draft && (
             <section className="space-y-3">
               <h3 className="text-xs font-semibold text-text-primary">이렇게 켭니다</h3>
-              <ul className="space-y-1 rounded-md border border-border bg-bg-tertiary/30 px-3 py-2 text-xs text-text-primary">
+              <ul className="space-y-1 rounded-lg bg-bg-tertiary/30 px-3 py-2 text-xs text-text-primary">
                 <li>계좌: {accountName}</li>
                 <li>
                   방식: {draft.mode === 'ai' ? 'AI형' : '규칙형'}
@@ -324,7 +324,7 @@ export default function AutoTradeWizard({
               <button
                 type="button"
                 onClick={() => setDetailOpen(true)}
-                className="rounded-md border border-border px-3 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+                className="rounded-md bg-bg-tertiary px-3 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
               >
                 자세한 설정 열기
               </button>
@@ -348,7 +348,7 @@ export default function AutoTradeWizard({
             <button
               type="button"
               onClick={() => setClosing(false)}
-              className="shrink-0 whitespace-nowrap rounded border border-border px-2 py-0.5 text-text-secondary hover:bg-bg-tertiary"
+              className="shrink-0 whitespace-nowrap rounded bg-bg-tertiary px-2 py-0.5 text-text-secondary hover:bg-bg-elevated"
             >
               계속하기
             </button>
@@ -362,7 +362,7 @@ export default function AutoTradeWizard({
           <button
             type="button"
             onClick={requestClose}
-            className="shrink-0 whitespace-nowrap ml-auto rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            className="shrink-0 whitespace-nowrap ml-auto rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             취소
           </button>
@@ -370,7 +370,7 @@ export default function AutoTradeWizard({
             <button
               type="button"
               onClick={() => setStep((s) => (s - 1) as Step)}
-              className="shrink-0 whitespace-nowrap rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+              className="shrink-0 whitespace-nowrap rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
             >
               이전
             </button>

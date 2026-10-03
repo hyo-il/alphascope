@@ -90,7 +90,7 @@ export default function AccountManager({
         <button
           type="button"
           onClick={() => setCreating((v) => !v)}
-          className="rounded-md border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          className="rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
         >
           + 새 계좌
         </button>
@@ -99,14 +99,14 @@ export default function AccountManager({
             <button
               type="button"
               onClick={confirmReset}
-              className="rounded-md border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-warning"
+              className="rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-warning"
             >
               초기화
             </button>
             <button
               type="button"
               onClick={confirmDelete}
-              className="rounded-md border border-border px-2.5 py-1 text-xs text-text-muted transition-colors hover:bg-bg-tertiary hover:text-bearish"
+              className="rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-muted transition-colors hover:bg-bg-elevated hover:text-bearish"
             >
               삭제
             </button>

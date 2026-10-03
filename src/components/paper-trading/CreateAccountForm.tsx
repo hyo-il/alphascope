@@ -59,7 +59,7 @@ export default function CreateAccountForm({ onCreate, onDone, onCancel }: Props)
           onClick={() => setBalance(value)}
           className={`rounded px-2 py-1 text-xs transition-colors ${
             balance === value
-              ? 'bg-accent/15 font-medium text-accent'
+              ? 'bg-bg-elevated font-medium text-text-primary'
               : 'text-text-secondary hover:bg-bg-tertiary'
           }`}
         >
@@ -84,7 +84,7 @@ export default function CreateAccountForm({ onCreate, onDone, onCancel }: Props)
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-border px-2.5 py-1 text-xs text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-secondary"
+          className="rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-muted transition-colors hover:bg-bg-elevated hover:text-text-secondary"
         >
           취소
         </button>

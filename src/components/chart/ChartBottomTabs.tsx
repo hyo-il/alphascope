@@ -162,7 +162,7 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
         }`}
       />
 
-      <div className="flex shrink-0 items-center gap-1 border-b border-border px-1">
+      <div className="flex shrink-0 items-center gap-1 border-b border-border/60 px-1">
         {TABS.map((item) => (
           <button
             key={item.id}
@@ -173,7 +173,7 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
             }}
             className={`border-b-2 px-3 py-1.5 text-xs transition-colors ${
               tab === item.id && !collapsed
-                ? 'border-text-primary text-text-primary'
+                ? 'border-text-primary font-medium text-text-primary'
                 : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >

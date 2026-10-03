@@ -182,7 +182,7 @@ export default function RuleChoices({
               onClick={() => onChange({ ...rule, ...c.rule })}
               aria-pressed={on}
               className={`flex flex-col justify-start rounded-lg border px-2.5 py-2 text-left transition-colors ${
-                on ? 'border-accent bg-accent/10' : 'border-border hover:border-accent/50'
+                on ? 'border-text-secondary/70 bg-bg-tertiary' : 'border-border/50 hover:border-text-muted'
               }`}
             >
               <p className={`text-xs font-semibold ${on ? 'text-accent' : 'text-text-primary'}`}>
@@ -218,7 +218,7 @@ export default function RuleChoices({
       </p>
 
       {/* 과거 1년 재현 */}
-      <div className="space-y-1.5 rounded-md border border-border p-2.5">
+      <div className="space-y-1.5 rounded-lg bg-bg-tertiary/40 p-2.5">
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -250,7 +250,7 @@ export default function RuleChoices({
             <div className="max-h-56 overflow-y-auto">
               <table className="w-full text-[13px] tabular-nums">
                 <thead className="text-text-muted">
-                  <tr className="border-b border-border">
+                  <tr className="border-b border-border/50">
                     <th className="py-1 text-left font-normal">종목</th>
                     <th className="text-right font-normal">거래</th>
                     <th className="text-right font-normal">이긴 비율</th>

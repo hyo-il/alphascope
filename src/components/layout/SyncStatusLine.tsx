@@ -58,7 +58,7 @@ export default function SyncStatusLine() {
         type="button"
         onClick={resyncWatchlist}
         title="완료 표시를 지우고 서버와 처음처럼 다시 맞춥니다 (다르면 선택 팝업이 뜹니다)"
-        className="ml-auto rounded border border-border px-1.5 py-0.5 text-text-muted transition-colors hover:border-accent hover:text-accent"
+        className="ml-auto rounded bg-bg-tertiary px-1.5 py-0.5 text-text-muted transition-colors hover:bg-bg-elevated hover:text-text-primary"
       >
         서버와 다시 맞추기
       </button>

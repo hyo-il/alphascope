@@ -60,7 +60,7 @@ export default function PortfolioView({ onSelectSymbol }: Props) {
               onClick={() => setAccount(item.id)}
               className={`border-b-2 px-3 py-2 text-sm transition-colors ${
                 account === item.id
-                  ? 'border-accent text-text-primary'
+                  ? 'border-text-primary font-medium text-text-primary'
                   : 'border-transparent text-text-secondary hover:text-text-primary'
               }`}
             >

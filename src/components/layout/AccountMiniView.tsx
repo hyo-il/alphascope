@@ -236,7 +236,7 @@ function Cell({
 }) {
   const valueTone = tone ?? (muted ? 'text-text-secondary' : 'text-text-primary');
   return (
-    <div className="rounded border border-border/60 bg-bg-tertiary/40 px-2 py-1.5">
+    <div className="rounded-lg bg-bg-tertiary/40 px-2 py-1.5">
       <p className="text-[13px] text-text-muted">{label}</p>
       <p className={`text-xs font-semibold tabular-nums ${valueTone}`}>{value}</p>
       {sub && <p className={`text-[13px] tabular-nums ${valueTone}`}>{sub}</p>}

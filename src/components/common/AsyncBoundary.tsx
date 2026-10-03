@@ -29,12 +29,12 @@ export default function AsyncBoundary({
 
   if (error) {
     return (
-      <div className="rounded-lg border border-border bg-bg-secondary p-6 text-center">
+      <div className="rounded-xl bg-bg-secondary p-6 text-center">
         <p className="text-sm text-bearish">{error}</p>
         {onRetry && (
           <button
             onClick={onRetry}
-            className="mt-3 rounded border border-border px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-tertiary"
+            className="mt-3 rounded bg-bg-tertiary px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-elevated"
           >
             다시 시도
           </button>
@@ -45,7 +45,7 @@ export default function AsyncBoundary({
 
   if (isEmpty) {
     return (
-      <p className="rounded-lg border border-border bg-bg-secondary p-6 text-center text-sm text-text-muted">
+      <p className="rounded-xl bg-bg-secondary p-6 text-center text-sm text-text-muted">
         {emptyMessage}
       </p>
     );

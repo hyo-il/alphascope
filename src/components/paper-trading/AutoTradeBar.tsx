@@ -99,7 +99,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
               ? 'AI형 — 전문가 AI 다섯이 매번 새로 읽고 정합니다. 흐름까지 보지만 답이 조금씩 달라지고 Gemini 키가 필요합니다.'
               : '규칙형 — 정해 둔 숫자 조건(이동평균 교차·RSI)이 맞을 때만 삽니다. 이유가 분명하고 키가 필요 없습니다.'
           }
-          className="cursor-help rounded border border-border px-1.5 py-0.5 text-[13px] text-text-secondary"
+          className="cursor-help rounded-lg bg-bg-tertiary/40 px-1.5 py-0.5 text-[13px] text-text-secondary"
         >
           {strategy.mode === 'ai' ? 'AI형' : '규칙형'}
         </span>
@@ -143,7 +143,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="shrink-0 whitespace-nowrap rounded border border-border px-2 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+            className="shrink-0 whitespace-nowrap rounded bg-bg-tertiary px-2 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             자동매매 설정
           </button>

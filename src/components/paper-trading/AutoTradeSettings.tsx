@@ -169,7 +169,7 @@ export default function AutoTradeSettings({
                   {ruleDetailOpen ? '자세히 접기' : '자세히 — 숫자 직접 고치기'}
                 </button>
                 {ruleDetailOpen && (
-                  <div className="space-y-2 rounded-md border border-border bg-bg-tertiary/30 p-3">
+                  <div className="space-y-2 rounded-lg bg-bg-tertiary/30 p-3">
                     <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">
                       <input
                         type="checkbox"
@@ -244,8 +244,8 @@ export default function AutoTradeSettings({
                   title={preset.hint}
                   className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${
                     activePreset === preset.id
-                      ? 'border-accent bg-accent/10 font-medium text-accent'
-                      : 'border-border text-text-secondary hover:border-accent/50'
+                      ? 'border-transparent bg-bg-elevated font-medium text-text-primary'
+                      : 'border-transparent bg-bg-tertiary text-text-secondary hover:text-text-primary'
                   }`}
                 >
                   {preset.label}
@@ -265,7 +265,7 @@ export default function AutoTradeSettings({
             </button>
 
             {detailOpen && (
-              <div className="space-y-2 rounded-md border border-border bg-bg-tertiary/30 p-3">
+              <div className="space-y-2 rounded-lg bg-bg-tertiary/30 p-3">
                 <Row label="분석 주기 (분, 5 이상)">
                   <input
                     type="number"
@@ -386,7 +386,7 @@ export default function AutoTradeSettings({
               </Row>
             )}
 
-            <p className="rounded border border-border bg-bg-tertiary/40 px-3 py-2 text-[13px] leading-relaxed text-text-muted">
+            <p className="rounded-lg bg-bg-tertiary/40 px-3 py-2 text-[13px] leading-relaxed text-text-muted">
               <span className="text-text-secondary">익절은 고정하지 않습니다.</span> 추세가 살아
               있으면 계속 들고 가도록 {draft.mode === 'ai' ? 'AI 가 매 주기 보유 종목을 다시 평가해' : '데드크로스·RSI 과열 규칙으로'}{' '}
               팔 때를 정합니다.
@@ -439,7 +439,7 @@ export default function AutoTradeSettings({
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 whitespace-nowrap ml-auto rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            className="shrink-0 whitespace-nowrap ml-auto rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             취소
           </button>

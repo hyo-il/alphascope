@@ -187,7 +187,7 @@ export default function StockExplorer({
           <button
             type="button"
             onClick={() => toggleSection(title)}
-            className="w-full rounded-md border border-border py-1.5 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+            className="w-full rounded-md bg-bg-tertiary py-1.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             {isOpen ? '접기' : `더 보기 (+${hidden})`}
           </button>
@@ -268,7 +268,7 @@ function SymbolGrid({
           <button
             type="button"
             onClick={() => onSelect(symbol)}
-            className={`flex w-full flex-col items-start rounded-lg border border-border bg-bg-secondary px-3 py-2.5 text-left transition-colors hover:border-accent hover:bg-bg-tertiary ${
+            className={`flex w-full flex-col items-start rounded-xl bg-bg-secondary px-3 py-2.5 text-left transition-colors hover:border-accent hover:bg-bg-tertiary ${
               // 긴 이름이 휴지통 밑으로 들어가지 않게 자리를 비운다.
               onRemove ? 'pr-8' : ''
             }`}

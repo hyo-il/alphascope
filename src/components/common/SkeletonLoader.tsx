@@ -44,7 +44,7 @@ export function SkeletonCards({
   return (
     <div className={`grid gap-3 ${className}`} aria-hidden>
       {Array.from({ length: count }).map((_, index) => (
-        <div key={index} className="rounded-lg border border-border bg-bg-secondary p-4">
+        <div key={index} className="rounded-xl bg-bg-secondary p-4">
           <Skeleton className="mb-2 h-3 w-16" />
           <Skeleton className="h-6 w-28" />
         </div>
@@ -56,7 +56,7 @@ export function SkeletonCards({
 /** 표 — 헤더 한 줄 + 본문 N줄 */
 export function SkeletonTable({ rows = 5, columns = 4 }: { rows?: number; columns?: number }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-border" aria-hidden>
+    <div className="overflow-hidden rounded-lg bg-bg-tertiary/40" aria-hidden>
       <div className="flex gap-4 border-b border-border bg-bg-secondary px-3 py-2">
         {Array.from({ length: columns }).map((_, index) => (
           <Skeleton key={index} className="h-3 flex-1" />
@@ -78,7 +78,7 @@ export function SkeletonList({ count = 3 }: { count?: number }) {
   return (
     <div className="space-y-3" aria-hidden>
       {Array.from({ length: count }).map((_, index) => (
-        <div key={index} className="rounded-lg border border-border bg-bg-secondary p-3">
+        <div key={index} className="rounded-xl bg-bg-secondary p-3">
           <div className="mb-2 flex items-center gap-2">
             <Skeleton className="h-4 w-16" />
             <Skeleton className="h-4 w-12" />

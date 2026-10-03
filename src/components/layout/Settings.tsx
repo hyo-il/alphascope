@@ -124,14 +124,14 @@ export default function Settings({ isMock, engineDown, section }: Props) {
           <button
             type="button"
             onClick={() => clearStorage(WATCHLIST_KEYS, '관심 목록')}
-            className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            className="rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             관심 목록 비우기
           </button>
           <button
             type="button"
             onClick={() => clearStorage([RECENT_KEY], '최근 조회')}
-            className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            className="rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             최근 조회 비우기
           </button>

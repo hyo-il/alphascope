@@ -18,7 +18,7 @@ export default function CriteriaPanel({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <section className="rounded-md border border-border bg-bg-tertiary/30">
+    <section className="rounded-lg bg-bg-tertiary/30">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

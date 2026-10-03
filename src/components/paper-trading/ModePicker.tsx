@@ -47,7 +47,7 @@ export default function ModePicker({
               onClick={() => onMode(item.id)}
               title={item.easy}
               className={`rounded-lg border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                active ? 'border-accent bg-accent/10' : 'border-border hover:border-accent/50'
+                active ? 'border-text-secondary/70 bg-bg-tertiary' : 'border-border/50 hover:border-text-muted'
               }`}
             >
               <p className={`text-xs font-medium ${active ? 'text-accent' : 'text-text-primary'}`}>
@@ -72,7 +72,7 @@ export default function ModePicker({
       {/* AI형 vs 규칙형 (v2.31.0) — 사실만 적는다. 어느 쪽이 낫다는 말은 하지 않는다 */}
       <table className="w-full text-[13px]">
         <thead>
-          <tr className="border-b border-border text-text-muted">
+          <tr className="border-b border-border/50 text-text-muted">
             <th className="w-24 py-1 text-left font-normal" />
             <th className="py-1 text-left font-normal">AI형</th>
             <th className="py-1 text-left font-normal">규칙형</th>

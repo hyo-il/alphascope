@@ -36,7 +36,7 @@ export default function PositionList({ positions, onSelectSymbol }: Props) {
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <thead className="text-text-muted">
-          <tr className="border-b border-border">
+          <tr className="border-b border-border/50">
             <th className="px-3 py-2 text-left font-normal">종목</th>
             <th className="px-3 py-2 text-right font-normal">수량</th>
             <th className="px-3 py-2 text-right font-normal">평균매입가</th>

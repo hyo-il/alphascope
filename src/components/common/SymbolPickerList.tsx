@@ -43,7 +43,7 @@ export default function SymbolPickerList({
   const allChecked = selectable.length > 0 && checked.length === selectable.length;
 
   return (
-    <div className="rounded-lg border border-border bg-bg-primary p-3">
+    <div className="rounded-lg bg-bg-primary p-3">
       <div className="mb-2 flex items-center gap-2">
         <p className="text-xs font-medium text-text-primary">{title}</p>
         <span className="text-[13px] text-text-muted">
@@ -97,7 +97,7 @@ export default function SymbolPickerList({
           type="button"
           onClick={() => setChecked(allChecked ? [] : selectable)}
           disabled={selectable.length === 0}
-          className="rounded border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary disabled:opacity-40"
+          className="rounded bg-bg-tertiary px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated disabled:opacity-40"
         >
           {allChecked ? '선택 해제' : '전체 선택'}
         </button>

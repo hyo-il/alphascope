@@ -110,11 +110,11 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
       </div>
 
       {analyzeError && (
-        <p className="rounded border border-bearish/40 bg-bearish/10 px-2 py-1 text-[13px] text-bearish">{analyzeError}</p>
+        <p className="rounded-lg bg-bearish/10 px-2 py-1 text-[13px] text-bearish">{analyzeError}</p>
       )}
 
       {analysis && (
-        <section className="rounded border border-border bg-bg-secondary p-2">
+        <section className="rounded-lg bg-bg-secondary p-2">
           <div className="mb-1 flex items-center gap-2">
             <span className="text-[13px] font-semibold text-text-primary">종합</span>
             <Badge value={analysis.judgment.overall} />
@@ -151,7 +151,7 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
       )}
 
       {news && news.items.length > 0 && (
-        <ol className="flex flex-col divide-y divide-border rounded border border-border">
+        <ol className="flex flex-col divide-y divide-border rounded-lg bg-bg-tertiary/40">
           {news.items.map((item, i) => {
             const index = i + 1;
             const judged = byIndex.get(index);

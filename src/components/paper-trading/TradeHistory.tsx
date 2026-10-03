@@ -52,7 +52,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
   return (
     <div className="space-y-3 p-3">
       {pending.length > 0 && (
-        <section className="rounded-md border border-warning/30 bg-warning/5 p-2.5">
+        <section className="rounded-lg bg-warning/10 p-2.5">
           <h4 className="mb-1.5 text-[13px] font-medium text-warning">
             대기 중인 지정가 주문 {pending.length}건
           </h4>
@@ -69,7 +69,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
                 <button
                   type="button"
                   onClick={() => void cancel(o.id)}
-                  className="ml-auto rounded border border-border px-2 py-0.5 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-bearish"
+                  className="ml-auto rounded bg-bg-tertiary px-2 py-0.5 text-text-muted transition-colors hover:bg-bg-elevated hover:text-bearish"
                 >
                   취소
                 </button>
@@ -87,7 +87,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
             onClick={() => setFilter(f.id)}
             className={`rounded px-2 py-1 text-[13px] transition-colors ${
               filter === f.id
-                ? 'bg-accent/15 font-medium text-accent'
+                ? 'bg-bg-elevated font-medium text-text-primary'
                 : 'text-text-secondary hover:bg-bg-tertiary'
             }`}
           >
@@ -103,7 +103,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="text-text-muted">
-              <tr className="border-b border-border">
+              <tr className="border-b border-border/50">
                 <th className="px-3 py-2 text-left font-normal">시각</th>
                 <th className="px-3 py-2 text-left font-normal">종목</th>
                 <th className="px-3 py-2 text-left font-normal">구분</th>

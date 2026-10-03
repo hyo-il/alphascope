@@ -264,7 +264,7 @@ export default function SymbolSearch({
                 <span
                   className={`shrink-0 rounded px-1 py-0.5 text-[13px] ${
                     US_MARKETS.has(result.market)
-                      ? 'bg-accent/15 text-accent'
+                      ? 'bg-bg-elevated text-text-primary'
                       : 'bg-bg-tertiary text-text-muted'
                   }`}
                 >

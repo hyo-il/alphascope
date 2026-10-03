@@ -1,3 +1,4 @@
+import InfoTip from '../ui/InfoTip';
 import WarnIcon from '../ui/WarnIcon';
 import { useState } from 'react';
 import { Skeleton, SkeletonCards, SkeletonTable } from '../common/SkeletonLoader';
@@ -167,7 +168,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
           <button
             type="button"
             onClick={() => void reloadAccounts()}
-            className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:border-accent hover:text-accent"
+            className="rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             다시 시도
           </button>
@@ -205,7 +206,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
       <div className="flex h-full min-h-0 flex-col">
         {banner}
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2">
-          <h2 className="text-sm font-medium text-text-primary">계좌 모아보기</h2>
+          <h2 className="text-sm font-semibold text-text-primary">계좌 모아보기</h2>
           {/*
             카드를 다 훑지 않아도 전체 자동매매 상태를 알 수 있게 한 줄로 센다.
             분류는 `utils/autoTradeStatus` 한 곳이라 카드와 숫자가 갈라지지 않는다.
@@ -220,9 +221,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
             <span className="text-border">·</span>
             <span className="text-text-muted">꺼짐 {autoCounts.off}</span>
           </span>
-          <span className="text-[13px] text-text-muted">
-            카드를 누르면 그 계좌의 잔고·거래·자동매매 설정으로 들어갑니다
-          </span>
+          <InfoTip label="모아보기 쓰는 법">카드를 누르면 그 계좌의 잔고·거래·자동매매 설정으로 들어갑니다.</InfoTip>
           {/*
             계좌를 만드는 자리는 **전 계좌를 보는 화면**에도 있어야 한다 — 전략별로 계좌를
             나눠 비교하는 앱이라, 새 계좌를 만들고 싶어지는 순간이 바로 이 화면이다.
@@ -237,7 +236,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
             className={`ml-auto rounded-md px-2.5 py-1 text-xs transition-colors ${
               wizardHighlight
                 ? 'bg-accent font-medium text-white hover:bg-accent-hover'
-                : 'border border-border text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+                : 'bg-bg-tertiary text-text-secondary hover:bg-bg-elevated hover:text-text-primary'
             }`}
           >
             자동매매 처음 켜기
@@ -245,7 +244,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
           <button
             type="button"
             onClick={() => setCreatingInOverview((v) => !v)}
-            className="rounded-md border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            className="rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             + 새 계좌
           </button>
@@ -355,7 +354,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
                   hint: detail.pendingOrders ? `대기 주문 ${detail.pendingOrders}건` : undefined,
                 },
               ].map((c) => (
-                <div key={c.label} className="rounded-lg border border-border bg-bg-secondary px-3 py-2">
+                <div key={c.label} className="rounded-xl bg-bg-secondary px-3 py-2">
                   <p className="text-[13px] text-text-muted">{c.label}</p>
                   <p className={`text-base font-semibold tabular-nums ${c.tone}`}>{c.value}</p>
                   {c.hint && <p className="text-[13px] text-text-muted">{c.hint}</p>}
@@ -364,7 +363,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
             </div>
           )}
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-bg-secondary">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-bg-secondary">
             <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
               {TABS.map((t) => (
                 <button
@@ -373,7 +372,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
                   onClick={() => setTab(t.id)}
                   className={`rounded px-2.5 py-1 text-xs transition-colors ${
                     tab === t.id
-                      ? 'bg-accent/15 font-medium text-accent'
+                      ? 'bg-bg-elevated font-medium text-text-primary'
                       : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
                   }`}
                 >

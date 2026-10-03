@@ -139,7 +139,7 @@ export default function PerformanceChart({ snapshots }: Props) {
             onClick={() => setRange(r.id)}
             className={`rounded px-2 py-0.5 text-[13px] transition-colors ${
               range === r.id
-                ? 'bg-accent/15 font-medium text-accent'
+                ? 'bg-bg-elevated font-medium text-text-primary'
                 : 'text-text-secondary hover:bg-bg-tertiary'
             }`}
           >
@@ -148,7 +148,7 @@ export default function PerformanceChart({ snapshots }: Props) {
         ))}
       </div>
 
-      <div className="relative min-h-0 flex-1 rounded-md border border-border">
+      <div className="relative min-h-0 flex-1 rounded-lg bg-bg-tertiary/40">
         <div ref={containerRef} className="h-full w-full" />
         {snapshots.length < 2 && (
           <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-center text-[13px] text-text-muted">

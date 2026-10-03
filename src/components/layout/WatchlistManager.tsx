@@ -400,7 +400,7 @@ export default function WatchlistManager({
                 <button
                   type="button"
                   onClick={() => setNewFolder('')}
-                  className="w-full rounded-md border border-border py-1.5 text-xs text-text-secondary transition-colors hover:border-accent hover:text-accent"
+                  className="w-full rounded-md bg-bg-tertiary py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
                 >
                   + 그룹 추가
                 </button>
@@ -707,4 +707,4 @@ export default function WatchlistManager({
 }
 
 const ACTION =
-  'shrink-0 rounded border border-border px-2 py-1 text-xs text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-40 disabled:hover:border-border disabled:hover:text-text-secondary';
+  'shrink-0 rounded bg-bg-tertiary px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-40 disabled:hover:bg-bg-tertiary disabled:hover:text-text-secondary';

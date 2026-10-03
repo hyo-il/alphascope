@@ -26,7 +26,7 @@ export default function WatchlistSyncModal() {
   const server = count(choice.server);
 
   const Side = ({ title, c }: { title: string; c: ReturnType<typeof count> }) => (
-    <div className="flex-1 rounded-lg border border-border bg-bg-tertiary/40 p-3">
+    <div className="flex-1 rounded-lg bg-bg-tertiary/40 p-3">
       <p className="text-xs font-medium text-text-primary">{title}</p>
       <p className="mt-1.5 text-[13px] leading-relaxed text-text-secondary">
         관심 종목 <b className="tabular-nums text-text-primary">{c.symbols}</b>개 · 그룹{' '}
@@ -53,7 +53,7 @@ export default function WatchlistSyncModal() {
       onClick={onClick}
       className={`w-full rounded-md border px-3 py-2 text-left transition-colors ${
         primary
-          ? 'border-accent bg-accent/10 hover:bg-accent/20'
+          ? 'border-text-secondary/70 bg-bg-tertiary'
           : 'border-border hover:border-accent hover:bg-bg-tertiary'
       }`}
     >
