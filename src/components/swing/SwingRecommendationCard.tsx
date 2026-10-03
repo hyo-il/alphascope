@@ -38,7 +38,7 @@ export default function SwingRecommendationCard({
 
   return (
     <article
-      className={`min-w-[400px] rounded-lg border bg-bg-secondary p-4 break-keep ${grade.className}`}
+      className="min-w-[400px] rounded-xl bg-bg-secondary p-4 break-keep"
     >
       <header className="flex flex-wrap items-baseline gap-2">
         {pick}

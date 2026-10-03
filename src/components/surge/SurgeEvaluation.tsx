@@ -24,16 +24,16 @@ export default function SurgeEvaluation({
   const p = evaluation.periodicity;
 
   return (
-    <article className={`rounded-lg border bg-bg-secondary p-4 ${grade.className}`}>
+    <article className="rounded-xl bg-bg-secondary p-4">
       <header className="flex flex-wrap items-baseline gap-2">
-        <StockName symbol={evaluation.symbol} name={evaluation.name} className="text-base" />
+        <StockName symbol={evaluation.symbol} name={evaluation.name} className="text-base font-semibold" />
         <span className="ml-auto text-sm font-semibold">
           급등 가능성 {evaluation.surgeScore}/100 · {grade.label}
         </span>
       </header>
 
       {evaluation.error && (
-        <p className="mt-2 rounded border border-warning/40 bg-warning/10 px-2 py-1 text-[13px] text-warning">
+        <p className="mt-2 rounded-lg bg-warning/10 px-2 py-1 text-[13px] text-warning">
           {evaluation.error}
         </p>
       )}
@@ -128,4 +128,4 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 }
 
 const BUTTON =
-  'rounded border border-border px-2 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50 disabled:hover:border-border disabled:hover:text-text-secondary';
+  'rounded bg-bg-tertiary px-2 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-50 disabled:hover:bg-bg-tertiary disabled:hover:text-text-secondary';

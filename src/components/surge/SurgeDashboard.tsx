@@ -62,7 +62,7 @@ export default function SurgeDashboard({
         자동매매 후보에서는 제외됨(2026-09-29, 진단 근거 — 급등 다음 날 매수 시 −5% 먼저 62%).
       </p>
 
-      <div className="flex shrink-0 gap-1 border-b border-border px-1">
+      <div className="flex shrink-0 gap-1 border-b border-border/60 px-1">
         {TABS.map((item) => (
           <button
             key={item.id}
@@ -70,7 +70,7 @@ export default function SurgeDashboard({
             onClick={() => setTab(item.id)}
             className={`border-b-2 px-3 py-2 text-sm transition-colors ${
               tab === item.id
-                ? 'border-accent text-text-primary'
+                ? 'border-text-primary font-medium text-text-primary'
                 : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >
@@ -187,7 +187,7 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
           onClick={() => confirmDelete()}
           disabled={running}
           title={running ? '탐지가 끝난 뒤에 지울 수 있습니다' : undefined}
-          className="ml-auto shrink-0 rounded border border-border px-2 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-bearish disabled:opacity-40"
+          className="ml-auto shrink-0 rounded bg-bg-tertiary px-2 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-bearish disabled:opacity-40"
         >
           이력 전체 지우기
         </button>
@@ -196,7 +196,7 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-[13px]">
           <thead className="whitespace-nowrap text-text-muted">
-            <tr className="border-b border-border">
+            <tr className="border-b border-border/50">
               <th className="py-1.5 pr-2">탐지일</th>
               <th className="pr-2">종목</th>
               <th className="pr-2">점수</th>

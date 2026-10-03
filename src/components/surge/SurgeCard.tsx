@@ -42,12 +42,12 @@ export default function SurgeCard({
      * 최소 높이를 두어 내용이 적은 카드도 찌그러지지 않게 한다.
      */
     <article
-      className={`flex min-h-[260px] min-w-[320px] flex-col gap-3 rounded-lg border bg-bg-secondary p-4 break-keep ${grade.className}`}
+      className="flex min-h-[260px] min-w-[320px] flex-col gap-3 rounded-xl bg-bg-secondary p-4 break-keep"
     >
       <header className="flex items-start justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2">
           <Badge tone={grade.tone}>{grade.label}</Badge>
-          <StockName symbol={detection.symbol} name={detection.name} className="text-sm" />
+          <StockName symbol={detection.symbol} name={detection.name} className="text-sm font-semibold" />
         </span>
         {/* 점수는 카드 우상단 고정 — 카드를 훑을 때 가장 먼저 보는 값이다 */}
         <span className="shrink-0 text-right">
@@ -143,4 +143,4 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 }
 
 const BUTTON =
-  'rounded border border-border px-2.5 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50 disabled:hover:border-border disabled:hover:text-text-secondary';
+  'rounded bg-bg-tertiary px-2.5 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-50 disabled:hover:bg-bg-tertiary disabled:hover:text-text-secondary';

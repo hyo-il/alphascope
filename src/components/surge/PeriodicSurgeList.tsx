@@ -68,7 +68,7 @@ export default function PeriodicSurgeList({
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-bg-secondary px-3 py-2 text-[13px] text-text-secondary">
+      <header className="flex flex-wrap items-center gap-3 rounded-xl bg-bg-secondary px-3 py-2 text-[13px] text-text-secondary">
         <span>
           마지막 분석:{' '}
           <span className="text-text-primary">
@@ -95,7 +95,7 @@ export default function PeriodicSurgeList({
       </header>
 
       {running && progress && (
-        <div className="rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-[13px] text-accent">
+        <div className="rounded-lg bg-accent/10 px-3 py-2 text-[13px] text-accent">
           분석 중… {progress.done}/{progress.total}
           {progress.current && ` (${progress.current})`}
           <div className="mt-1.5 h-1 overflow-hidden rounded bg-bg-tertiary">
@@ -113,13 +113,13 @@ export default function PeriodicSurgeList({
       )}
 
       {progress?.error && !running && (
-        <p className="rounded border border-warning/40 bg-warning/10 px-3 py-2 text-[13px] text-warning">
+        <p className="rounded-lg bg-warning/10 px-3 py-2 text-[13px] text-warning">
           {progress.error}
         </p>
       )}
 
       {error && (
-        <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-2 text-[13px] text-bearish">
+        <p className="rounded-lg bg-bearish/10 px-3 py-2 text-[13px] text-bearish">
           {error}
         </p>
       )}
@@ -127,7 +127,7 @@ export default function PeriodicSurgeList({
       {loading ? (
         <SkeletonList count={3} />
       ) : !results.length ? (
-        <p className="rounded-lg border border-border bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
+        <p className="rounded-xl bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
           {running
             ? '분석이 끝나면 여기에 표시됩니다.'
             : '아직 탐지된 주기적 급등 종목이 없습니다. [다시 분석] 을 눌러 보세요.'}

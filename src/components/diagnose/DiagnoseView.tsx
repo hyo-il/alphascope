@@ -88,10 +88,10 @@ function judge(o: {
  * 배지 — 색만으로 구분하지 않는다(모양이 다른 아이콘 + 글자). v2.28.0 의 기호(🟢🔴⚪)를 v2.36.0 에 `ui/statusIcons` 의 VERDICT_ICON 으로 바꿨다.
  * 위 「이 화면은 무엇인가요?」 의 설명도 이 값을 쓴다.
  */
-const VERDICT_STYLE: Record<Verdict, { label: string; badge: string; border: string }> = {
-  good: { label: '기준선보다 좋음', badge: 'bg-bullish/15 text-bullish', border: 'border-bullish/40' },
-  bad: { label: '기준선 이하', badge: 'bg-bearish/15 text-bearish', border: 'border-bearish/40' },
-  hold: { label: '판단 보류', badge: 'bg-bg-tertiary text-text-secondary', border: 'border-border' },
+const VERDICT_STYLE: Record<Verdict, { label: string; badge: string }> = {
+  good: { label: '기준선보다 좋음', badge: 'bg-bullish/15 text-bullish' },
+  bad: { label: '기준선 이하', badge: 'bg-bearish/15 text-bearish' },
+  hold: { label: '판단 보류', badge: 'bg-bg-tertiary text-text-secondary' },
 };
 function VerdictMark({ v }: { v: Verdict }) {
   const Icon = VERDICT_ICON[v];
@@ -125,7 +125,7 @@ function HelpBox() {
     </span>
   );
   return (
-    <section className="rounded-lg border border-border bg-bg-secondary">
+    <section className="rounded-xl bg-bg-secondary">
       <button
         type="button"
         onClick={toggle}
@@ -191,7 +191,7 @@ function Card({
   const style = VERDICT_STYLE[verdict];
   const whyId = useId();
   return (
-    <div className={`flex flex-col rounded-lg border bg-bg-secondary p-3 ${style.border}`}>
+    <div className="flex flex-col rounded-xl bg-bg-secondary p-3">
       {/* 좁은 카드에서는 배지가 아래 줄로 내려간다 — 제목이 105px 폭에 세 줄로 접혔다 (v2.34.0) */}
       <div className="mb-2 flex flex-wrap items-start gap-x-2 gap-y-1">
         <p className="min-w-[12rem] flex-1 text-xs font-semibold text-text-primary">{title}</p>
@@ -345,7 +345,7 @@ function Cards({ s }: { s: DiagnoseSummary }) {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <details className="rounded-lg border border-border bg-bg-secondary px-3 py-2">
+    <details className="rounded-xl bg-bg-secondary px-3 py-2">
       <summary className="text-xs font-semibold text-text-secondary">{title}</summary>
       <div className="mt-2 space-y-3">{children}</div>
     </details>
@@ -517,7 +517,7 @@ function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
           채점 규칙: {d.gemini.rule ?? '5봉 뒤 종가(v2.15.0 이전 규칙 — 장중 분석은 실제로 6거래일 뒤)'}
         </p>
         {d.gemini.claude ? (
-          <p className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[13px] text-warning">
+          <p className="rounded-lg bg-warning/10 px-2 py-1 text-[13px] text-warning">
             위 숫자는 Gemini 만입니다. Claude 수동 분석(별도): {d.gemini.claude.total}건 · 채점{' '}
             {d.gemini.claude.judged}건 · 적중 {d.gemini.claude.rate}% — 사용자가 고른 종목만이라 선택 편향이 있어
             직접 비교하지 않습니다.
@@ -626,7 +626,7 @@ export default function DiagnoseView() {
                 disabled={running}
                 title="이 리포트 지우기 (웹 목록에서만)"
                 aria-label="이 리포트 지우기"
-                className="rounded border border-border p-1 text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-bearish disabled:opacity-40"
+                className="rounded bg-bg-tertiary p-1 text-text-secondary transition-colors hover:bg-bg-elevated hover:text-bearish disabled:opacity-40"
               >
                 <TrashIcon className="h-3.5 w-3.5" />
               </button>
@@ -643,7 +643,7 @@ export default function DiagnoseView() {
         </header>
 
         {running && progress && (
-          <div className="rounded-lg border border-border bg-bg-secondary px-3 py-2">
+          <div className="rounded-xl bg-bg-secondary px-3 py-2">
             <div className="mb-1 flex justify-between text-[13px] text-text-secondary">
               <span>
                 {progress.step}/{progress.total} {progress.label}
@@ -662,13 +662,13 @@ export default function DiagnoseView() {
         <HelpBox />
 
         {(runError || listError) && (
-          <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-2 text-[13px] text-bearish">
+          <p className="rounded-lg bg-bearish/10 px-3 py-2 text-[13px] text-bearish">
             {runError ?? listError}
           </p>
         )}
 
         {!loading && !reports.length && !running && (
-          <p className="rounded-lg border border-border bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
+          <p className="rounded-xl bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
             아직 진단 리포트가 없습니다. [진단 실행] 을 누르면 관심 목록으로 진단합니다.
           </p>
         )}

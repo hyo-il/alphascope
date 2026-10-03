@@ -39,13 +39,13 @@ export default function SurgeSearch({
       </div>
 
       {!queried && !loading && (
-        <p className="rounded-lg border border-border bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
+        <p className="rounded-xl bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
           종목을 검색하면 과거 급등 패턴을 분석하고 현재 급등 가능성을 점수로 평가합니다.
         </p>
       )}
 
       {error && (
-        <p className="rounded border border-bearish/40 bg-bearish/10 px-3 py-2 text-[13px] text-bearish">
+        <p className="rounded-lg bg-bearish/10 px-3 py-2 text-[13px] text-bearish">
           {error}
         </p>
       )}
