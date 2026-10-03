@@ -6,22 +6,26 @@ import { usePaperQuickBuy } from '../../hooks/usePaperQuickBuy';
 import SwingRecommendationCard from './SwingRecommendationCard';
 import { GRADE_STYLE } from './gradeStyle';
 import { useTargetAnalysis } from '../../hooks/useTargetAnalysis';
-import { TargetAnalyzeButton, TargetProgressBox, TargetSummaryLine, latestFor, useConfirmDelete } from './TargetAnalysisParts';
+import { TargetRefLine, latestFor } from './TargetAnalysisParts';
 import type { SwingGoal } from '../../types/swingGoal';
+import { NotProvenLine } from './HelpBox';
 
 /** 관심 목록에 없는 종목도 같은 5가지 조건으로 평가한다 */
 export default function SwingSearch({
   onSelectSymbol,
   onAnalyze,
   goal,
+  onGoTarget,
 }: {
   onSelectSymbol: (symbol: string) => void;
   onAnalyze: (symbol: string) => void;
   /** 초보자 목표 설정 — 목표 도달 가능성 분석의 조건 (v2.29.0) */
   goal: SwingGoal;
+  /** 「목표 수익 가능성」 탭으로 — 그 종목을 체크만 해 두고 실행하지 않는다 (v2.35.0) */
+  onGoTarget: (symbol: string) => void;
 }) {
+  /** 기록만 읽는다(참고 줄) — 분석 실행은 「목표 수익 가능성」 탭 한 곳 */
   const target = useTargetAnalysis();
-  const confirmTargetDelete = useConfirmDelete(target.remove);
   const { recommendation, loading, error, evaluate } = useSwingEvaluation();
   const paperBuy = usePaperQuickBuy();
   const [queried, setQueried] = useState<string | null>(null);
@@ -35,6 +39,9 @@ export default function SwingSearch({
 
   return (
     <div className="space-y-3">
+      <p className="text-[13px] text-text-secondary">
+        관심 목록에 없는 종목 하나를 「지금 살 만한가」 와 같은 5가지 질문으로 점검합니다.
+      </p>
       <div className="flex items-center gap-2">
         <SymbolSearch symbol={queried ?? ''} onSubmit={submit} />
         {loading && <InlineSpinner />}
@@ -55,23 +62,19 @@ export default function SwingSearch({
 
       {recommendation && !loading && (
         <>
-          {/*
-            목표 도달 가능성 분석 — 결과 **위쪽 도구줄** (v2.33.0, 「추천 종목」 탭과 같은 자리). 예전에는 카드 아래에 있어 스크롤해야 보였다.
-            지금 목표 조건과 같은 최근 기록 요약도 여기에 붙인다.
-          */}
-          <div className="space-y-2 rounded-lg border border-border bg-bg-secondary px-3 py-2">
-            <TargetAnalyzeButton
-              symbols={[recommendation.symbol]}
-              goal={goal}
-              label="이 종목 목표 도달 가능성 분석"
-              running={target.progress?.running ?? false}
-              geminiOff={target.geminiOff}
-              onStart={target.start}
-            />
-            <TargetProgressBox progress={target.progress} />
+          {/* 목표 수익 가능성 — 여기서 실행하지 않고 그 탭으로 보낸다(종목만 체크). 같은 조건의 최근 결과가 있으면 참고 줄 */}
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg-secondary px-3 py-2">
+            <button
+              type="button"
+              onClick={() => onGoTarget(recommendation.symbol)}
+              className="shrink-0 whitespace-nowrap rounded border border-accent/60 px-2.5 py-1 text-xs text-accent transition-colors hover:bg-accent/10"
+            >
+              목표 수익 가능성에서 분석
+            </button>
+            <span className="text-[13px] text-text-muted">그 탭에서 이 종목을 골라 둡니다. 분석은 그 탭의 버튼을 눌러야 시작합니다.</span>
             {(() => {
               const latest = latestFor(target.records, recommendation.symbol, goal);
-              return latest ? <TargetSummaryLine record={latest} onDelete={confirmTargetDelete} /> : null;
+              return latest ? <div className="w-full"><TargetRefLine record={latest} onMore={() => onGoTarget(recommendation.symbol)} /></div> : null;
             })()}
           </div>
           {recommendation.rejection && (
@@ -88,6 +91,7 @@ export default function SwingSearch({
           />
         </>
       )}
+      <NotProvenLine />
     </div>
   );
 }

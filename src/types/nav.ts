@@ -106,7 +106,8 @@ export const NAV_GROUPS: NavGroup[] = [
     shortLabel: '분석',
     pages: [
       { id: 'analysis', label: 'AI 분석', needsSymbol: true },
-      { id: 'swing', label: '스윙 추천', hidesSymbolHeader: true },
+      // v2.35.0 이름 「스윙 추천」 → 「매수 판단 도우미」(사용자 결정). page id 'swing' 은 그대로(주소·저장값)
+      { id: 'swing', label: '매수 판단 도우미', hidesSymbolHeader: true },
     ],
   },
   {
@@ -184,8 +185,10 @@ export const PAGE_TABS = {
     { id: 'results', path: 'records' },
     { id: 'accuracy', path: 'accuracy' },
   ],
+  // v2.35.0: 지금 살 만한가(list) · 목표 수익 가능성(target — 다시 넣었다) · 종목 검색 · 지난 기록(history). 주소 조각은 예전 그대로
   swing: [
     { id: 'list', path: 'list' },
+    { id: 'target', path: 'target' },
     { id: 'search', path: 'search' },
     { id: 'history', path: 'history' },
   ],

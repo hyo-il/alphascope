@@ -3,8 +3,7 @@ import { useSwingHistory } from '../../hooks/useSwing';
 import StockName from '../common/StockName';
 import { formatPercent } from '../../utils/formatters';
 import { PROFILE_LABEL, type ProfileId } from '../../types/strategyProfile';
-import { useTargetAnalysis } from '../../hooks/useTargetAnalysis';
-import { TargetHistorySection } from './TargetAnalysisParts';
+import { NotProvenLine } from './HelpBox';
 
 /** 이 아래로는 승률을 숫자 하나로 믿기 어렵다 — 화면에 '표본 적음' 을 붙인다 */
 const SMALL_SAMPLE = 10;
@@ -42,7 +41,7 @@ function RecommendationHistory() {
   if (!all.length) {
     return (
       <p className="text-xs text-text-muted">
-        아직 추천 이력이 없습니다. [🔄 다시 분석] 으로 관심 종목을 분석하면 BUY 이상만
+        아직 기록이 없습니다. 「지금 살 만한가」 에서 관심 종목을 점검하면 BUY 이상만
         기록됩니다.
       </p>
     );
@@ -166,35 +165,14 @@ function RecommendationHistory() {
 }
 
 /**
- * 「추천 이력」 탭 — 스윙 추천 이력 + 맨 아래 「목표 도달 가능성 기록」(v2.29.0, 예전 「목표 도달 분석」 탭의 기록·필터·삭제·성적 그대로).
- * 옛 조건(+5/−3/10일 등) 기록도 지우지 않고 여기 그대로 보이고 채점된다.
+ * 「지난 기록」 탭 — 「지금 살 만한가」 결과(BUY 이상) 이력 + 성과.
+ * 목표 수익 가능성 기록·성적은 v2.35.0 에 「목표 수익 가능성」 탭으로 옮겼다(같은 `TargetHistorySection`).
  */
 export default function SwingHistory() {
   return (
     <div className="space-y-4">
       <RecommendationHistory />
-      <TargetRecords />
+      <NotProvenLine />
     </div>
-  );
-}
-
-function TargetRecords() {
-  const target = useTargetAnalysis();
-  const count = target.records?.length;
-  return (
-    <details className="rounded-lg border border-border bg-bg-secondary/40 px-3 py-2">
-      <summary className="text-xs font-semibold text-text-secondary">
-        목표 도달 가능성 기록{count != null ? ` (${count}건)` : ''}
-      </summary>
-      <div className="mt-2">
-        <TargetHistorySection
-          records={target.records}
-          stats={target.stats}
-          progress={target.progress}
-          error={target.error}
-          remove={target.remove}
-        />
-      </div>
-    </details>
   );
 }

@@ -40,7 +40,7 @@ export function swingCriteria(params: SwingParams, profileId: ProfileId): Criter
       : `(${PROFILE_LABEL[profileId]} · 사용자 설정)`;
 
   return {
-    title: `스윙 추천 판정 기준 ${suffix}`,
+    title: `지금 살 만한가 판정 기준 ${suffix}`,
     scoring: [
       { label: '추세', value: '30점', detail: '현재가 > 60일선 · 정배열 · 60일선 기울기' },
       {

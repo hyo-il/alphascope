@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { SwingRecord } from '../../types/swing';
 import StockName from '../common/StockName';
 import { formatPercent, formatPrice } from '../../utils/formatters';
@@ -10,7 +11,8 @@ import { formatPercent, formatPrice } from '../../utils/formatters';
  *
  * ⚠️ 추천 카드(`SwingRecommendationCard`)를 그대로 쓰지 않는다. 저장 레코드에는
  * 조건별 채점·경고·보유 기간이 없어서, 카드를 채우려면 없는 값을 지어내야 한다.
- * **저장된 값만** 적고 나머지는 [🔄 다시 분석] 으로 다시 내게 한다.
+ * **저장된 값만** 적고 나머지는 「관심 종목 N개 점검하기」 로 다시 내게 한다.
+ * v2.35.0: 방금 받은 결과와 **같은 자리·같은 참고 줄**(`extraFor` — 목표 수익 가능성 한 줄)을 붙인다. 카드 본문은 저장된 값만이라 다르다.
  */
 const GRADE: Record<string, { label: string; className: string }> = {
   STRONG: { label: '⭐ 강력 추천', className: 'text-bullish' },
@@ -30,33 +32,31 @@ export default function SavedRecommendations({
   records,
   analyzedAt,
   onSelectSymbol,
+  extraFor,
 }: {
   records: SwingRecord[];
   analyzedAt: string | null;
   onSelectSymbol: (symbol: string) => void;
+  /** 카드 아래 참고 줄 — 방금 받은 결과의 카드와 같은 것 */
+  extraFor?: (symbol: string) => ReactNode;
 }) {
   if (!records.length) return null;
 
   return (
     <section className="space-y-2">
       <h3 className="text-xs font-semibold text-text-secondary">
-        💾 저장된 마지막 추천 · {records.length}개
-        {analyzedAt && (
-          <span className="ml-2 font-normal text-text-muted">
-            {new Date(analyzedAt).toLocaleString('ko-KR')} 기준
-          </span>
-        )}
+        {analyzedAt ? `${new Date(analyzedAt).toLocaleString('ko-KR')}에 점검한 결과` : '마지막으로 점검한 결과'} · {records.length}개
       </h3>
       <p className="text-[13px] text-text-muted">
-        저장 당시의 계획입니다. 지금 가격 기준의 채점·경고를 보려면 [🔄 다시 분석] 을 누르세요.
+        저장 당시의 계획입니다(점수가 높은 종목만 저장됩니다). 지금 가격 기준의 채점·경고를 보려면 「관심 종목 점검하기」 를 누르세요.
       </p>
 
       <div className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]">
         {records.map((record) => {
           const grade = GRADE[record.grade] ?? GRADE.HOLD;
           return (
+            <div key={record.id} className="space-y-1.5">
             <button
-              key={record.id}
               type="button"
               onClick={() => onSelectSymbol(record.symbol)}
               title={`${record.symbol} 차트로 이동`}
@@ -104,6 +104,8 @@ export default function SavedRecommendations({
                 />
               </dl>
             </button>
+            {extraFor?.(record.symbol)}
+            </div>
           );
         })}
       </div>

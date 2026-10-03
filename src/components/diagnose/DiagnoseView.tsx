@@ -128,7 +128,7 @@ function HelpBox() {
       {!collapsed && (
         <div className="space-y-2.5 border-t border-border px-3 py-2.5 text-[14px] leading-relaxed text-text-secondary">
           <p>
-            이 앱은 여러 가지 "신호"를 냅니다. 스윙 추천, 급등 탐지, Gemini 의 매수·매도 판단, 뉴스의 긍정·부정 판정 같은 것들입니다.
+            이 앱은 여러 가지 "신호"를 냅니다. 「지금 살 만한가」 점수, 급등 탐지, Gemini 의 매수·매도 판단, 뉴스의 긍정·부정 판정 같은 것들입니다.
             <br />
             진단 리포트는 이 신호들이 <b className="text-text-primary">과거에 실제로 맞았는지 채점하는 성적표</b>입니다. 지금 무엇을 사라고 알려
             주는 화면이 아닙니다.
@@ -222,8 +222,8 @@ function Cards({ s }: { s: DiagnoseSummary }) {
   return (
     <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(250px,1fr))]">
       <Card
-        title="1. 관심 종목이 스윙에서 부적합한 것은 정상인가?"
-        hint={'스윙 추천이 BUY 를 낸 날 샀다면 20거래일 뒤 평균 몇 % 였는지 봅니다. 플러스면 좋은 신호입니다(기준선 = 0).'}
+        title="1. 관심 종목이 「지금 살 만한가」 에서 부적합한 것은 정상인가?"
+        hint={'「지금 살 만한가」 가 BUY 를 낸 날 샀다면 20거래일 뒤 평균 몇 % 였는지 봅니다. 플러스면 좋은 신호입니다(기준선 = 0).'}
         weak={s.swing.weak}
         judgement={judge({
           weak: s.swing.weak,
@@ -387,7 +387,7 @@ function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
   const geminiBase = d.gemini.baselineUp5;
   return (
     <div className="space-y-2">
-      <Section title="스윙 — 오늘 기준">
+      <Section title="지금 살 만한가 — 오늘 기준">
         <Table
           headers={['종목', '등급', '점수', '추세', '타이밍', '모멘텀', '거래량', '손익비', 'RSI', '60일선', 'BUY 까지 모자란 것']}
           rows={d.today.map((t) =>
@@ -408,7 +408,7 @@ function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
         />
       </Section>
 
-      <Section title={`스윙 — 과거 ${s.swing.window}거래일 재현 · BUY 날 뒤 수익률`}>
+      <Section title={`지금 살 만한가 — 과거 ${s.swing.window}거래일 재현 · BUY 날 뒤 수익률`}>
         <p className="text-[13px] text-text-muted">각 날짜의 판정에는 그날까지의 봉만 넣었습니다(미래 차단).</p>
         <Table
           headers={['종목', '평가일수', 'STRONG', 'BUY', 'WATCH', 'HOLD', 'AVOID', '손익비 강등', 'BUY 날짜(최근 5)']}
@@ -440,7 +440,7 @@ function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
       <Section title="목표 수익률 — 10거래일 안 목표 먼저 도달률 · 기대값">
         <p className="text-[13px] text-text-muted">
           매일 종가 매수 가정 · 같은 날 둘 다 닿으면 손절 · 왕복 비용 0.30%p 반영. 조건을 바꿔 보려면
-          「투자 분석 &gt; 스윙 추천 &gt; 추천 종목」의 목표 도달 가능성 분석 결과 카드에서 과거 기준선을 볼 수 있습니다(지난 기록은 「추천 이력」 맨 아래).
+          「투자 분석 &gt; 매수 판단 도우미 &gt; 목표 수익 가능성」 의 결과 카드에서 과거 기준선을 볼 수 있습니다(지난 기록도 그 탭 아래).
         </p>
         <Table
           headers={['종목', 'ATR/일', ...TARGET_COLUMNS.map(([t, st]) => `+${t}/−${st}`)]}
@@ -590,7 +590,7 @@ export default function DiagnoseView() {
           <div>
             <h2 className="text-sm font-semibold text-text-primary">🩺 진단 리포트</h2>
             <p className="text-[13px] text-text-muted">
-              스윙·목표 수익률·급등·AI 가 실제로 쓸모 있는지 과거 데이터로 확인합니다 (기준선과 나란히).
+              지금 살 만한가·목표 수익률·급등·AI 가 실제로 쓸모 있는지 과거 데이터로 확인합니다 (기준선과 나란히).
             </p>
           </div>
           <div className="ml-auto flex items-center gap-2">

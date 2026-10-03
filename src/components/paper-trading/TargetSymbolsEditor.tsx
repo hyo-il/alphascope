@@ -71,7 +71,7 @@ export default function TargetSymbolsEditor({
     try {
       const picks = await savedSwingPicks(swingBuyCut);
       if (picks.empty) {
-        toast.info('저장된 스윙 추천이 없습니다 — [🔎 종목 발굴]에서 다시 분석하세요');
+        toast.info('저장된 「지금 살 만한가」 결과가 없습니다 — [🔎 종목 발굴]에서 다시 분석하세요');
         return;
       }
       const basis = `기준: ${PROFILE_LABEL[activeId]} BUY 컷 ${swingBuyCut}점 이상 · STRONG/BUY`;
@@ -82,14 +82,14 @@ export default function TargetSymbolsEditor({
           : '';
       if (!picks.symbols.length) {
         toast.info(
-          '기준을 통과한 스윙 추천이 없습니다',
+          '기준을 통과한 「지금 살 만한가」 종목이 없습니다',
           `전체 ${picks.stats.total}건 · 점수 미달 ${picks.stats.failScore} · 등급 제외 ${picks.stats.failGrade}${other}`,
         );
         return;
       }
-      addSymbols(picks.symbols, '스윙 추천', basis + other);
+      addSymbols(picks.symbols, '지금 살 만한가', basis + other);
     } catch (e) {
-      toast.error('스윙 추천을 불러오지 못했습니다', (e as Error).message);
+      toast.error('「지금 살 만한가」 결과를 불러오지 못했습니다', (e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -128,18 +128,18 @@ export default function TargetSymbolsEditor({
           disabled={busy}
           className="rounded-md border border-border px-3 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
         >
-          {busy ? '불러오는 중…' : '📈 스윙 추천 담기'}
+          {busy ? '불러오는 중…' : '지금 살 만한가 종목 담기'}
         </button>
         <button
           type="button"
           onClick={() => setDiscoverOpen(true)}
           className="rounded-md border border-border px-3 py-1 text-[13px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
         >
-          🔎 종목 발굴 (스윙·관심 목록)
+          🔎 종목 발굴 (지금 살 만한가·관심 목록)
         </button>
       </div>
       <p className="text-[13px] text-text-muted">
-        스윙 추천 담기 = 스윙 화면에 마지막으로 저장된 추천 중 지금 기준({PROFILE_LABEL[activeId]} {swingBuyCut}점 이상 ·
+        지금 살 만한가 종목 담기 = 「매수 판단 도우미 &gt; 지금 살 만한가」 에 마지막으로 저장된 결과 중 지금 기준({PROFILE_LABEL[activeId]} {swingBuyCut}점 이상 ·
         STRONG/BUY · 최대 10개). 근거를 보고 고르려면 [🔎 종목 발굴].
       </p>
 

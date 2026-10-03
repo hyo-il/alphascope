@@ -40,7 +40,7 @@ type Source = 'swing' | 'watchlist';
 type Row = DiscoverRow;
 
 const SOURCES: { id: Source; label: string; desc: string }[] = [
-  { id: 'swing', label: '📈 스윙 추천', desc: '5조건 채점 결과 — 진입가·손절·손익비' },
+  { id: 'swing', label: '📈 지금 살 만한가', desc: '5조건 채점 결과 — 진입가·손절·손익비' },
   { id: 'watchlist', label: '★ 관심 목록', desc: '담아 둔 종목 전부 (기준 없음)' },
 ];
 
@@ -169,7 +169,7 @@ export default function DiscoverSymbolsModal({
         const saved = await loadSavedSwing();
         setRowsProfile(saved.profile);
         if (!saved.rows.length) {
-          setNote('저장된 스윙 추천이 없습니다. [다시 분석] 을 켜고 실행해 보세요.');
+          setNote('저장된 「지금 살 만한가」 결과가 없습니다. [다시 분석] 을 켜고 실행해 보세요.');
         } else if (saved.analyzedAt) {
           setNote(`분석 시각 ${new Date(saved.analyzedAt).toLocaleString('ko-KR')}`);
         }
@@ -317,7 +317,7 @@ export default function DiscoverSymbolsModal({
                 다시 분석 (관심 목록 종목을 새로 채점합니다)
               </label>
               <p className="text-[13px] leading-relaxed text-text-muted">
-                끄면 스윙 추천 화면에서 마지막으로 나온
+                끄면 「지금 살 만한가」 에서 마지막으로 나온
                 결과를 그대로 읽습니다 — 판정 기준은 그 화면과 같습니다.
               </p>
             </section>

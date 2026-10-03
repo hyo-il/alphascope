@@ -334,7 +334,7 @@ export default function StrategyProfileModal({
     >
       <div className="flex h-[min(640px,85vh)] w-[min(700px,80vw)] flex-col overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-2xl">
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
-          <h2 className="text-sm font-semibold">📐 스윙 기준 편집</h2>
+          <h2 className="text-sm font-semibold">판단 기준 편집</h2>
           <button
             type="button"
             onClick={onClose}
