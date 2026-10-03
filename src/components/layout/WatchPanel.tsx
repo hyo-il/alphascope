@@ -390,25 +390,19 @@ export default function WatchPanel({
       )}
 
       {/*
-        ⚠️ 짧은 안내는 단어 중간에서 끊기지 않게 한다 (v2.34.0) — 사용자가 "작다" 고 한 것은 크기가 아니라 이 줄이
-        엉뚱한 자리에서 꺾인 것이었다. 덩어리마다 줄바꿈 금지 · 들어가면 한 줄, 모자라면 「·」 자리에서만 꺾인다.
+        맨 아래 안내는 **기업 비교 화면에서만** 둔다 (v2.34.2 사용자 결정) — 평소 문구(「클릭: 종목 전환 · ⚙️ 에서 폴더·순서 관리」)는
+        「최근」·「계좌」 탭에서도 남아 그 탭에 없는 ⚙️ 를 가리켰다. 비교 화면은 클릭의 뜻이 "담기/빼기" 로 바뀌므로 그 안내만 남기고,
+        담기가 되는 「관심」·「최근」 탭에서만 그린다(「계좌」 탭에는 없다). 덩어리마다 줄바꿈 금지 — 단어 중간에서 끊기지 않는다(v2.34.0).
       */}
-      <p className="break-keep border-t border-border px-3 py-1.5 text-[13px] leading-relaxed text-text-muted">
-        {compareMode ? (
-          <>
-            <span className="whitespace-nowrap">클릭: 빈 칸에 차례로 담기</span> ·{' '}
-            <span className="whitespace-nowrap">✓ 다시 클릭: 빼기</span>
-            <br />
-            <span className="whitespace-nowrap">드래그: 원하는 칸에 놓기</span>{' '}
-            <span className="whitespace-nowrap">(찬 칸은 교체)</span>
-          </>
-        ) : (
-          <>
-            <span className="whitespace-nowrap">클릭: 종목 전환</span> ·{' '}
-            <span className="whitespace-nowrap">⚙️ 에서 폴더·순서 관리</span>
-          </>
-        )}
-      </p>
+      {compareMode && tab !== 'account' && (
+        <p className="break-keep border-t border-border px-3 py-1.5 text-[13px] leading-relaxed text-text-muted">
+          <span className="whitespace-nowrap">클릭: 빈 칸에 차례로 담기</span> ·{' '}
+          <span className="whitespace-nowrap">✓ 다시 클릭: 빼기</span>
+          <br />
+          <span className="whitespace-nowrap">드래그: 원하는 칸에 놓기</span>{' '}
+          <span className="whitespace-nowrap">(찬 칸은 교체)</span>
+        </p>
+      )}
 
       {managing && <WatchlistManager watch={watch} onClose={() => setManaging(false)} />}
     </aside>
