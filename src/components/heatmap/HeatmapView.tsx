@@ -101,6 +101,11 @@ function textWidth(text: string, size: number, weight = 600): number {
   widthCache.set(key, width);
   return width;
 }
+// 글꼴 조각(본고딕)이 도착하면 그 전에 대체 글꼴로 잰 폭을 버린다 (v2.35.0) — 남겨 두면 칸 글자 크기가 계속 옛 폭으로 정해진다.
+// 다음 그리기(60초 갱신·보기 변경)부터 새 폭을 쓴다.
+if (typeof document !== 'undefined' && document.fonts) {
+  document.fonts.addEventListener('loadingdone', () => widthCache.clear());
+}
 function measure(text: string, size: number, weight: number): number {
   if (!measureCtx) {
     measureCtx = document.createElement('canvas').getContext('2d');

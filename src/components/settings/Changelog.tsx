@@ -57,6 +57,11 @@ export default function Changelog() {
           </section>
         ))}
       </div>
+
+      {/* 앱에 넣은 글꼴의 라이선스 고지 (v2.35.0) — 라이선스 원문은 빌드에 넣지 않았다(패키지 @fontsource-variable/noto-sans-kr 의 LICENSE) */}
+      <p className="mt-6 max-w-2xl border-t border-border pt-3 text-[13px] text-text-muted">
+        글꼴: Noto Sans KR (SIL Open Font License 1.1)
+      </p>
     </div>
   );
 }

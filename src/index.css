@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* 본고딕(Noto Sans KR) — 앱에 넣은 글꼴 (v2.35.0, `fonts.css` 머리말 참고) */
+@import './fonts.css';
 
 /**
  * 색 팔레트 — 토스증권 WTS 다크 테마 계열.
@@ -6,6 +8,11 @@
  * 배경에서 색을 빼야 캔들과 수치가 저절로 강조된다.
  */
 @theme {
+  /*
+   * 글꼴 — 본고딕(Noto Sans KR)이 맨 앞 (v2.35.0 사용자 결정 "글꼴 통일"). 맥·Windows 가 같은 글꼴로 그려 줄바꿈이 같아진다.
+   * 뒤의 이름은 글꼴 조각을 받기 전 잠깐 쓰는 대체 글꼴이다. ⚠️ 차트 캔버스는 CSS 를 읽지 않는다 — `chart/chartTheme.ts` 의 `FONT_FAMILY` 를 같이 고친다.
+   */
+  --font-sans: 'Noto Sans KR Variable', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
   --color-bg-primary: #141414;
   --color-bg-secondary: #1e1e1e;
   --color-bg-tertiary: #2a2a2a;
@@ -78,15 +85,12 @@ body,
 body {
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
-  font-family:
-    ui-sans-serif, system-ui, -apple-system, 'Apple SD Gothic Neo', 'Pretendard',
-    sans-serif;
+  font-family: var(--font-sans);
   /*
    * 한글은 **단어 단위**로 줄바꿈한다 (v2.34.0). 크롬 기본(word-break: normal)은 한글을 글자 단위로 끊어
    * 좁은 칸에서 「점 / 수」·「부적 / 합한」 처럼 단어 중간에서 꺾였다. 영문·숫자에는 영향이 없다.
    * ⚠️ `overflow-wrap: break-word` 를 함께 두지 않는다 — 시황 카드의 「7,003.74」 같은 숫자까지 두 줄로 끊었다(숫자는 끊지 않는다).
-   * ⚠️ 글꼴 파일은 앱에 넣지 않았다 — 맥은 Apple SD Gothic Neo, Windows 는 Segoe UI + 맑은 고딕으로 그려진다
-   * (`Pretendard` 는 이름만 있고 로드되지 않는다). 맑은 고딕이 더 넓어 같은 px 에서도 줄이 더 빨리 넘어간다.
+   * 글꼴은 v2.35.0 부터 앱에 넣은 본고딕이다 — 예전에는 맥 Apple SD Gothic Neo, Windows 맑은 고딕으로 달리 그려져 줄바꿈 자리가 달랐다.
    */
   word-break: keep-all;
 }

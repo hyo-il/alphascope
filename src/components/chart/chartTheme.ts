@@ -118,6 +118,12 @@ export function dateTimeOptions(intraday: boolean) {
   };
 }
 
+/**
+ * 차트 캔버스 글꼴 (v2.35.0) — 캔버스는 CSS 를 읽지 않아 따로 준다. `index.css` 의 `--font-sans` 와 같은 값이어야 한다.
+ * 글꼴 조각이 오기 전에는 대체 글꼴로 그려지고, 다음 다시 그리기(시세 갱신·마우스 이동)부터 본고딕이다.
+ */
+export const FONT_FAMILY = "'Noto Sans KR Variable', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif";
+
 /** 메인 차트와 캡처 팝업이 공유하는 차트 생성 옵션 */
 export const BASE_CHART_OPTIONS = {
   layout: {
@@ -126,6 +132,7 @@ export const BASE_CHART_OPTIONS = {
     // 축·가격 라벨 글자 — 라이브러리 기본 12 → 13 (v2.25.0, 화면 글씨 한 단계 키우기).
     // 메인·캡처·미리보기(Lite)·모의투자 성과 차트가 모두 이 테마를 펼쳐 쓴다 — 값은 여기 한 곳.
     fontSize: 13,
+    fontFamily: FONT_FAMILY,
     attributionLogo: false,
   },
   grid: {
