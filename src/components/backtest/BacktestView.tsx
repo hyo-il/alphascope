@@ -9,6 +9,7 @@ import { ICON_SM } from '../ui/icon';
 import { VERDICT_ICON } from '../ui/statusIcons';
 import { modal, toast } from '../../store/uiStore';
 import { RULE_CHOICES } from '../../types/ruleChoices';
+import ApplyRuleButton from './ApplyRuleButton';
 import { BACKTEST_SECTORS, type BacktestMethodResult, type BacktestReport, type BacktestVerdictKind } from '../../types/backtest';
 
 /**
@@ -63,6 +64,8 @@ function MethodBlock({ m }: { m: BacktestMethodResult }) {
         <span className="min-w-0 text-[13px] text-text-muted">
           {choice ? `산다: ${choice.buy} · 판다: ${choice.sell}` : ''}
         </span>
+        {/* 결과에서 바로 계좌로 — 규칙형 설정만 저장, 자동매매는 켜지 않는다 (D 절) */}
+        <span className="ml-auto">{choice && <ApplyRuleButton choiceId={choice.id} />}</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] tabular-nums">
