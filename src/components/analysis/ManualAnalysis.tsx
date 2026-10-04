@@ -349,7 +349,7 @@ export default function ManualAnalysis({
           {capture && capture.symbol === symbol && (
             <span className="ml-auto text-[13px] text-text-muted">
               캡처 {new Date(capture.capturedAt).toLocaleTimeString('ko-KR')}
-              {capture.timeframe !== timeframe && <span className="text-accent"> · 프롬프트도 캡처한 봉으로</span>}
+              {capture.timeframe !== timeframe && <span className="text-text-secondary"> · 프롬프트도 캡처한 봉으로</span>}
             </span>
           )}
         </div>

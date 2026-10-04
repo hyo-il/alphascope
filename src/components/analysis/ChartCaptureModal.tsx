@@ -323,7 +323,7 @@ export default function ChartCaptureModal({
                 {item.label}
               </button>
             ))}
-            {dataLoading && <span className="ml-2 text-[13px] text-accent">불러오는 중…</span>}
+            {dataLoading && <span className="ml-2 text-[13px] text-text-secondary">불러오는 중…</span>}
             {dataError && <span className="ml-2 text-[13px] text-bearish">{dataError}</span>}
           </div>
 

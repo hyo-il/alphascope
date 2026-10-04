@@ -74,7 +74,7 @@ export default function CompanySummary({
           type="button"
           onClick={() => setTab(item.id)}
           className={`px-2.5 py-1 text-[13px] transition-colors ${
-            tab === item.id ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
+            tab === item.id ? 'font-medium text-text-primary' : 'text-text-secondary hover:text-text-primary'
           }`}
         >
           {item.label}
@@ -121,7 +121,7 @@ export default function CompanySummary({
           <div className="space-y-2">
             <p className="text-xs">
               <span className="font-medium">{profile.name ?? symbol}</span>
-              <span className="ml-1.5 text-[13px] text-accent">{symbol}</span>
+              <span className="ml-1.5 text-[13px] text-text-secondary">{symbol}</span>
               <span className="ml-2 text-text-secondary">
                 {profile.sector ?? '—'} · {profile.industry ?? '—'}
               </span>

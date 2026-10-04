@@ -97,7 +97,7 @@ export default function ScheduledSymbols() {
       ) : (
         <p className="text-text-muted">
           다음 실행 {n ? time(status.nextRunAt) : '— (종목 없음)'} · 하루 최대 약 {n * 5}호출
-          {status.running && <span className="text-accent"> · 지금 실행 중…</span>}
+          {status.running && <span className="text-text-secondary"> · 지금 실행 중…</span>}
         </p>
       )}
       <Summary status={status} />

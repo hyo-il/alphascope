@@ -263,7 +263,7 @@ export default function AnalysisTimeline({
           {source === 'all' ? '총' : '표시'} {shown.length}건 (Gemini {gemini.length} · Claude {claude.length})
         </span>
         {highlightSince && (
-          <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[13px] text-accent">
+          <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[13px] text-text-secondary">
             방금 분석한 결과를 표시하고 있습니다
           </span>
         )}

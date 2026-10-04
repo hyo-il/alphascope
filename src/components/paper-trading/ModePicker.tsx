@@ -50,7 +50,7 @@ export default function ModePicker({
                 active ? 'border-text-secondary/70 bg-bg-tertiary' : 'border-border/50 hover:border-text-muted'
               }`}
             >
-              <p className={`text-xs font-medium ${active ? 'text-accent' : 'text-text-primary'}`}>
+              <p className={`text-xs font-medium text-text-primary`}>
                 {item.title}
               </p>
               <p className="mt-0.5 text-[13px] leading-relaxed text-text-muted">{item.desc}</p>

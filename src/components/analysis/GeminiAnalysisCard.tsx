@@ -58,7 +58,7 @@ export default function GeminiAnalysisCard({
     >
       <div className="flex flex-wrap items-center gap-2">
         {isNew && (
-          <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[13px] text-accent">
+          <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[13px] text-text-secondary">
             NEW
           </span>
         )}
@@ -95,7 +95,7 @@ export default function GeminiAnalysisCard({
 
       {analysis.tradeNote && (
         <p
-          className={`mt-1.5 text-xs ${analysis.paperOrderId ? 'text-accent' : 'text-text-muted'}`}
+          className={`mt-1.5 text-xs ${analysis.paperOrderId ? 'text-text-secondary' : 'text-text-muted'}`}
         >
           {analysis.paperOrderId ? '모의 주문 · ' : '· '}
           {analysis.tradeNote}

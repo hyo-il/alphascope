@@ -64,7 +64,7 @@ export function ResultCard({
   return (
     <div className={`space-y-2 rounded-lg border bg-bg-secondary p-3 text-[13px] ${isNew ? 'border-accent' : 'border-border'}`}>
       <div className="flex flex-wrap items-baseline gap-2">
-        {isNew && <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[13px] text-accent">NEW</span>}
+        {isNew && <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[13px] text-text-secondary">NEW</span>}
         <StockName symbol={record.symbol} className="text-sm font-semibold text-text-primary" />
         <span className="text-text-secondary">
           +{record.targetPct}% / −{record.stopPct}% · {record.days}거래일 · 기준 {record.baseDate} 종가{' '}

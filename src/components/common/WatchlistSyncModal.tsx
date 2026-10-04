@@ -57,7 +57,7 @@ export default function WatchlistSyncModal() {
           : 'border-border hover:border-accent hover:bg-bg-tertiary'
       }`}
     >
-      <span className={`block text-xs font-medium ${primary ? 'text-accent' : 'text-text-primary'}`}>
+      <span className={`block text-xs font-medium text-text-primary`}>
         {label}
       </span>
       <span className="mt-0.5 block text-[13px] text-text-muted">{hint}</span>

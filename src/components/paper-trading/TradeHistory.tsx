@@ -160,7 +160,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
                   <td className="px-3 py-2 text-text-muted">
                     <span className="flex items-center gap-1.5">
                       {isAuto(t.reason) && (
-                        <span className="shrink-0 rounded bg-accent/15 px-1 py-0.5 text-[13px] text-accent">
+                        <span className="shrink-0 rounded bg-bg-tertiary px-1 py-0.5 text-[13px] text-text-secondary">
                           자동
                         </span>
                       )}

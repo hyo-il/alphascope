@@ -289,7 +289,7 @@ export default function SymbolTagInput({
                   <span className="min-w-0 flex-1 truncate font-medium text-text-primary">
                     {result.name}
                   </span>
-                  <span className="w-16 shrink-0 tabular-nums text-accent">{result.symbol}</span>
+                  <span className="w-16 shrink-0 tabular-nums text-text-secondary">{result.symbol}</span>
                   <span className="shrink-0 text-[13px] text-text-muted">
                     {already ? '추가됨' : (MARKET_LABEL[result.market] ?? result.market)}
                   </span>

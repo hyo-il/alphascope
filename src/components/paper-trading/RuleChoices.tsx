@@ -185,7 +185,7 @@ export default function RuleChoices({
                 on ? 'border-text-secondary/70 bg-bg-tertiary' : 'border-border/50 hover:border-text-muted'
               }`}
             >
-              <p className={`text-xs font-semibold ${on ? 'text-accent' : 'text-text-primary'}`}>
+              <p className={`text-xs font-semibold text-text-primary`}>
                 {c.title}
               </p>
               <p className="mt-1 text-[13px] leading-snug text-text-secondary">

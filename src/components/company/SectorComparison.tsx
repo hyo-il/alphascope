@@ -53,7 +53,7 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
                     className={`border-t border-border/60 ${isTarget ? 'bg-accent/10' : ''}`}
                   >
                     <td className="py-1 pr-2">
-                      <span className={isTarget ? 'font-medium text-accent' : 'text-text-primary'}>
+                      <span className={isTarget ? 'font-semibold text-text-primary' : 'text-text-secondary'}>
                         {peer.name ?? peer.symbol}
                       </span>
                       {peer.name && (

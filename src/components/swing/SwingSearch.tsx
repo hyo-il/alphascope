@@ -67,7 +67,7 @@ export default function SwingSearch({
             <button
               type="button"
               onClick={() => onGoTarget(recommendation.symbol)}
-              className="shrink-0 whitespace-nowrap rounded border border-accent/60 px-2.5 py-1 text-xs text-accent transition-colors hover:bg-accent/10"
+              className="shrink-0 whitespace-nowrap rounded-md bg-bg-tertiary px-2.5 py-1 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated"
             >
               목표 수익 가능성에서 분석
             </button>

@@ -251,7 +251,7 @@ export default function SymbolSearch({
                   경우가 많아 방금 친 글자가 맨 앞에서 바로 확인되기 때문이고,
                   **이름 없이 티커만 적지는 않는다** — 어떤 종목인지 떠오르지 않는다.
                 */}
-                <span className="w-16 shrink-0 font-medium tabular-nums text-accent">
+                <span className="w-16 shrink-0 font-medium tabular-nums text-text-secondary">
                   {result.symbol}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-text-primary">

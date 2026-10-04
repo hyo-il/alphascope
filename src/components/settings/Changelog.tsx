@@ -29,7 +29,7 @@ export default function Changelog() {
               <span className="text-sm font-semibold text-text-primary">{entry.version}</span>
               {/* 가장 최신 항목에만 — 무엇이 새로 들어왔는지 한눈에 */}
               {index === 0 && (
-                <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[13px] font-semibold text-accent">
+                <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[13px] font-semibold text-text-secondary">
                   NEW
                 </span>
               )}

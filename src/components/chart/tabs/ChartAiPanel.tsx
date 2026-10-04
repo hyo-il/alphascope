@@ -59,7 +59,7 @@ export default function ChartAiPanel({
             type="button"
             onClick={() => setTab(item.id)}
             className={`px-2.5 py-1 text-[13px] transition-colors ${
-              tab === item.id ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
+              tab === item.id ? 'font-medium text-text-primary' : 'text-text-secondary hover:text-text-primary'
             }`}
           >
             {item.label}

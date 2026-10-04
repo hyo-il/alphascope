@@ -95,7 +95,7 @@ export default function PeriodicSurgeList({
       </header>
 
       {running && progress && (
-        <div className="rounded-lg bg-accent/10 px-3 py-2 text-[13px] text-accent">
+        <div className="rounded-lg bg-bg-tertiary/60 px-3 py-2 text-[13px] text-text-secondary">
           분석 중… {progress.done}/{progress.total}
           {progress.current && ` (${progress.current})`}
           <div className="mt-1.5 h-1 overflow-hidden rounded bg-bg-tertiary">

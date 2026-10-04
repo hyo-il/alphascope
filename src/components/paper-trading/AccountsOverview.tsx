@@ -172,7 +172,7 @@ export default function AccountsOverview({
                 </h3>
                 <span className="shrink-0 text-[13px] text-text-muted">{currency}</span>
                 {item.account.id === selectedId && (
-                  <span className="ml-auto shrink-0 rounded bg-accent/15 px-1.5 py-0.5 text-[13px] font-medium text-accent">
+                  <span className="ml-auto shrink-0 rounded bg-bg-tertiary px-1.5 py-0.5 text-[13px] font-medium text-text-secondary">
                     현재 계좌
                   </span>
                 )}

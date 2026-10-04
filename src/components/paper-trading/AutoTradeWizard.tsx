@@ -190,7 +190,7 @@ export default function AutoTradeWizard({
                       choice === id ? 'border-text-secondary/70 bg-bg-tertiary' : 'border-border/50 hover:border-text-muted'
                     }`}
                   >
-                    <p className={`text-xs font-medium ${choice === id ? 'text-accent' : 'text-text-primary'}`}>{title}</p>
+                    <p className={`text-xs font-medium text-text-primary`}>{title}</p>
                     <p className="mt-0.5 text-[13px] text-text-muted">{desc}</p>
                   </button>
                 ))}

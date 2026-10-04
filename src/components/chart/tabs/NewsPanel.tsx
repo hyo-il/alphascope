@@ -98,7 +98,7 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
           type="button"
           onClick={() => void analyze()}
           disabled={!canAnalyze}
-          className="rounded border border-accent/60 bg-accent/10 px-2.5 py-1 text-[13px] font-medium text-accent disabled:border-border disabled:bg-transparent disabled:text-text-muted"
+          className="rounded-md bg-accent px-2.5 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:bg-bg-tertiary disabled:text-text-muted"
         >
           {analyzing ? 'AI 판정 중…' : 'AI 요약·판정'}
         </button>

@@ -66,7 +66,7 @@ export default function Holdings({ onSelectSymbol }: Props) {
                       {holding.name || holding.symbol}
                     </span>
                     {holding.name && (
-                      <span className="ml-1.5 text-[13px] text-accent">{holding.symbol}</span>
+                      <span className="ml-1.5 text-[13px] text-text-secondary">{holding.symbol}</span>
                     )}
                   </td>
                   <td className="py-1.5 px-2 text-right">{holding.quantity}</td>
