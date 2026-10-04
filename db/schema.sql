@@ -333,6 +333,16 @@ CREATE TABLE IF NOT EXISTS diagnose_reports (
   detail_json TEXT NOT NULL
 );
 
+-- 3년 백테스트 결과 (v2.37.0, 「실험실 > 백테스트」 · npm run research:rule) — diagnose_reports 와 같은 모양, 최근 20개.
+-- 화면만 읽는다(자동매매·판정은 읽지 않는다).
+CREATE TABLE IF NOT EXISTS backtest_reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at TEXT NOT NULL,
+  server TEXT NOT NULL,
+  summary_json TEXT NOT NULL,
+  detail_json TEXT NOT NULL
+);
+
 -- 시가총액 유니버스 월별 스냅샷 (v2.15.0) — 한 달에 한 행(KST 기준 YYYY-MM).
 -- 1년 뒤 "그 시점의 시총 상위" 로 과거를 시험해 생존 편향을 줄이려고 쌓는다.
 -- 최신본은 server/data/universe.json 이고, 이 표는 누적 기록이다 (server/universe.ts).

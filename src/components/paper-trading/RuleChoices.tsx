@@ -11,47 +11,9 @@ import StockName from '../common/StockName';
  *   계산은 서버 `autoTrading/ruleBacktest.ts`(실제 엔진과 같은 판정 함수, 주문 없음).
  */
 
-export interface RuleChoice {
-  id: 'trend' | 'dip' | 'both';
-  title: string;
-  buy: string;
-  sell: string;
-  why: string;
-  weak: string;
-  rule: Pick<RuleConfig, 'useMaCross' | 'useRsi' | 'maShort' | 'maLong' | 'rsiBuyBelow' | 'rsiSellAbove'>;
-}
-
-const BASE = { maShort: 5, maLong: 20, rsiBuyBelow: 30, rsiSellAbove: 70 };
-
-export const RULE_CHOICES: RuleChoice[] = [
-  {
-    id: 'trend',
-    title: '추세 따라가기',
-    buy: '최근 5일 평균값이 20일 평균값을 위로 넘어설 때(오르는 흐름이 시작될 때)',
-    sell: '5일 평균값이 20일 평균값 아래로 내려갈 때',
-    why: '오르기 시작한 흐름에 올라타고, 꺾이면 내리려는 방법입니다.',
-    weak: '오르락내리락만 하는 시기에는 사고팔기를 자주 반복하며 조금씩 잃기 쉽습니다.',
-    rule: { ...BASE, useMaCross: true, useRsi: false },
-  },
-  {
-    id: 'dip',
-    title: '많이 떨어지면 사기',
-    buy: '최근 많이 떨어져 RSI 가 30 이하였다가 다시 올라설 때',
-    sell: 'RSI 가 70 이상으로 많이 올랐을 때',
-    why: '지나치게 떨어진 뒤 되돌아오는 움직임을 노립니다.',
-    weak: '계속 떨어지는 종목은 "싸 보여서" 샀다가 더 떨어질 수 있습니다 — 그래서 손절이 꼭 필요합니다.',
-    rule: { ...BASE, useMaCross: false, useRsi: true },
-  },
-  {
-    id: 'both',
-    title: '둘 다 (지금 기본값)',
-    buy: '위 두 가지 중 하나라도 맞을 때',
-    sell: '위 두 가지 중 하나라도 맞을 때',
-    why: '기회가 많아집니다.',
-    weak: '사고판 이유가 섞여, 무엇 때문에 벌거나 잃었는지 알기 어려워집니다.',
-    rule: { ...BASE, useMaCross: true, useRsi: true },
-  },
-];
+// 세 방법의 정의는 `types/ruleChoices.ts` 한 곳 (v2.37.0 — 서버 백테스트(`autoTrading/ruleResearch.ts`)도 같은 값을 쓴다)
+export { RULE_CHOICES, type RuleChoice } from '../../types/ruleChoices';
+import { RULE_CHOICES, type RuleChoice } from '../../types/ruleChoices';
 
 export function matchChoice(rule: RuleConfig): RuleChoice['id'] | null {
   return (

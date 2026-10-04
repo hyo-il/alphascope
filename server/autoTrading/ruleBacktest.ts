@@ -80,6 +80,8 @@ const round2 = (v: number) => Math.round(v * 100) / 100;
 /**
  * 한 종목 재현 — 순수 함수(캔들·지표를 받는다). 합성 캔들 검산과 실제 재현이 같은 함수를 쓴다.
  * `start` 부터 끝까지가 재현 구간이다(그 앞은 지표 워밍업).
+ * `end`(v2.37.0, 생략 가능) — 구간의 마지막 봉. 3년 백테스트(`ruleResearch.ts`)가 1년씩 끊어 쓴다:
+ * 그 봉 뒤는 보지 않고, 들고 있으면 그 봉 종가로 정리한다. 생략하면 마지막 봉 — 1년 재현은 예전과 바이트 단위로 같다.
  */
 export function simulateRule(
   symbol: string,
@@ -87,12 +89,13 @@ export function simulateRule(
   series: IndicatorSeries,
   start: number,
   opts: BacktestOptions,
+  end?: number,
 ): Omit<SymbolResult, 'symbol'> {
   const list: BacktestTrade[] = [];
   const cost = ROUND_TRIP_COST; // %p
   let position: { entry: number; entryIdx: number; peak: number } | null = null;
   let pending: { action: 'BUY' | 'SELL'; reason: string } | null = null;
-  const last = candles.length - 1;
+  const last = end ?? candles.length - 1;
   const date = (i: number) => marketDate(candles[i].timestamp, symbol);
 
   const close = (i: number, exit: number, kind: ExitKind, reason: string) => {

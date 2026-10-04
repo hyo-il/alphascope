@@ -52,6 +52,9 @@ import { runAnalysis } from './gemini/analyze';
 import { DEFAULT_MODEL, GeminiError, geminiDisabledReason, isGeminiEnabled } from './gemini/client';
 import { accuracyReport } from './gemini/accuracy';
 import { DiagnoseBusyError, getDiagnoseProgress, startDiagnose } from './diagnose/runner';
+import { BacktestBusyError, getBacktestProgress, startBacktest } from './autoTrading/researchRunner';
+import { deleteBacktest, getBacktest, listBacktests } from './autoTrading/researchStore';
+import { EngineDownError } from './diagnose/report';
 import {
   deleteReport as deleteDiagnoseReport,
   getReport as getDiagnoseReport,
@@ -1580,6 +1583,57 @@ app.delete('/api/diagnose/reports/:id', (req, res) => {
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'id 가 올바르지 않습니다.' });
   try {
     if (!deleteDiagnoseReport(id)) return res.status(404).json({ error: '리포트를 찾을 수 없습니다.' });
+    res.json({ ok: true });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+// -- 3년 백테스트 (v2.37.0, 「실험실 > 백테스트」) ----------------------------------
+//
+// `npm run research:rule` 과 같은 함수(`autoTrading/researchRunner.ts` → `ruleResearch.ts`)를 백그라운드로 돌린다.
+// 주문을 내지 않는다. 같은 날·같은 조건이면 저장된 결과를 돌려준다(강제로 다시 계산은 ?force=1).
+
+app.post('/api/backtest/run', async (req, res) => {
+  try {
+    const force = req.query.force === '1' || req.body?.force === true;
+    res.json({ progress: await startBacktest(force) });
+  } catch (e) {
+    if (e instanceof BacktestBusyError) return res.status(409).json({ error: e.message });
+    if (e instanceof EngineDownError) return res.status(503).json({ error: '지표 엔진이 꺼져 있어 계산할 수 없습니다.', engineDown: true });
+    fail(res, e);
+  }
+});
+
+app.get('/api/backtest/progress', (_req, res) => {
+  res.json({ progress: getBacktestProgress() });
+});
+
+app.get('/api/backtest/reports', (_req, res) => {
+  try {
+    res.json({ reports: listBacktests() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/backtest/reports/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'id 가 올바르지 않습니다.' });
+  try {
+    const report = getBacktest(id);
+    if (!report) return res.status(404).json({ error: '결과를 찾을 수 없습니다.' });
+    res.json(report);
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.delete('/api/backtest/reports/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'id 가 올바르지 않습니다.' });
+  try {
+    if (!deleteBacktest(id)) return res.status(404).json({ error: '결과를 찾을 수 없습니다.' });
     res.json({ ok: true });
   } catch (e) {
     fail(res, e);
