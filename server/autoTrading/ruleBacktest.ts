@@ -207,6 +207,8 @@ export interface BacktestResult {
     avgHoldReturn: number | null;
     totalTrades: number;
     weak: boolean;
+    /** 거래 10회 미만 종목 수 (v2.37.0) — 화면이 「M개 중 K개」·결론 배지에 쓴다 */
+    weakSymbols: number;
   };
   leakCheck: { symbol: string; bars: number; ok: boolean };
   computedAt: string;
@@ -268,6 +270,7 @@ export async function runRuleBacktest(
       avgHoldReturn: mean(ok.map((r) => r.holdReturn)),
       totalTrades,
       weak: totalTrades < MIN_TRADES,
+      weakSymbols: ok.filter((r) => r.weak).length,
     },
     leakCheck: leak,
     computedAt: new Date().toISOString(),

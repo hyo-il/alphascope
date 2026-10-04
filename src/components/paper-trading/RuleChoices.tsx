@@ -93,6 +93,8 @@ interface PreviewJob {
       avgHoldReturn: number | null;
       totalTrades: number;
       weak: boolean;
+      /** 거래 10회 미만 종목 수 (v2.37.0 — 옛 서버면 없다) */
+      weakSymbols?: number;
     };
     leakCheck: { ok: boolean };
   } | null;
@@ -240,25 +242,54 @@ export default function RuleChoices({
         {error && <p className="text-[13px] text-bearish">{error}</p>}
         {res && s && (
           <>
-            <p className="text-[14px] leading-relaxed text-text-primary">
-              지난 1년 동안 이 방법을 썼다면 종목당 평균 <b>{s.avgTrades ?? 0}번</b> 사고팔았고, 이긴 비율{' '}
-              <b>{s.avgWinRate == null ? '—' : `${s.avgWinRate}%`}</b>, 거래당 평균{' '}
-              <b className={tone(s.avgReturn)}>{signed(s.avgReturn)}</b>(수수료 포함)였습니다. 그냥 들고 있었다면 평균{' '}
-              <b className={tone(s.avgHoldReturn)}>{signed(s.avgHoldReturn)}</b> 였습니다.
-              {s.weak && <span className="ml-1 rounded bg-bg-tertiary px-1 text-[13px] text-text-secondary">표본 적음 — 결론 내기 어려움</span>}
-            </p>
+            {/*
+              요약은 짧은 줄 목록 (v2.37.0). 예전 한 문장은 「거래당 평균」(한 번 사고팔 때)과 「그냥 들고 있었다면」(1년 전체)을 나란히 둬
+              단위가 다른 비교였다 — 1년 전체끼리를 한 줄에 둔다(둘 다 종목별 결과의 단순 평균). 계산은 바꾸지 않았다.
+            */}
+            {(() => {
+              const weakSymbols = s.weakSymbols ?? res.symbols.filter((r) => !r.error && r.weak).length;
+              const hardToTell = s.weak || weakSymbols * 2 >= s.symbols;
+              return (
+                <div className="space-y-0.5 text-[14px] text-text-primary">
+                  <p className="flex flex-wrap items-center gap-2 text-[13px] text-text-secondary">
+                    지난 1년 · 종목 {s.symbols}개 평균
+                    {hardToTell && <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-text-secondary">결론 내기 어려움</span>}
+                  </p>
+                  <ul className="space-y-0.5">
+                    <li>
+                      사고판 횟수: 종목당 <b>{s.avgTrades ?? 0}번</b>
+                    </li>
+                    <li>
+                      이긴 거래: <b>{s.avgWinRate == null ? '—' : `${s.avgWinRate}%`}</b>
+                      {s.avgWinRate != null && <span className="text-text-secondary"> (10번 중 약 {Math.round(s.avgWinRate / 10)}번)</span>}
+                    </li>
+                    <li>
+                      한 번 사고팔 때 평균: <b className={hardToTell ? '' : tone(s.avgReturn)}>{signed(s.avgReturn)}</b>
+                      <span className="text-text-secondary"> (수수료 포함)</span>
+                    </li>
+                    <li>
+                      1년 전체 결과: 이 방법 <b className={hardToTell ? '' : tone(s.avgRuleReturn)}>{signed(s.avgRuleReturn)}</b> · 그냥 들고 있기{' '}
+                      <b className={hardToTell ? '' : tone(s.avgHoldReturn)}>{signed(s.avgHoldReturn)}</b>
+                    </li>
+                    <li>
+                      거래 10회 미만 종목: {s.symbols}개 중 <b>{weakSymbols}개</b>
+                    </li>
+                  </ul>
+                </div>
+              );
+            })()}
             <div className="max-h-56 overflow-y-auto">
               <table className="w-full text-[13px] tabular-nums">
                 <thead className="text-text-muted">
                   <tr className="border-b border-border/50">
                     <th className="py-1 text-left font-normal">종목</th>
-                    <th className="text-right font-normal">거래</th>
+                    <th className="text-right font-normal">횟수</th>
                     <th className="text-right font-normal">이긴 비율</th>
-                    <th className="text-right font-normal">거래당</th>
+                    <th className="text-right font-normal">한 번 평균</th>
                     <th className="text-right font-normal">손절</th>
                     <th className="text-right font-normal">보유일</th>
-                    <th className="text-right font-normal">이 방법 합계</th>
-                    <th className="text-right font-normal">들고 있기</th>
+                    <th className="text-right font-normal">1년 전체</th>
+                    <th className="text-right font-normal">들고 있기(1년)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -291,7 +322,7 @@ export default function RuleChoices({
               </table>
             </div>
             <p className="text-[13px] text-text-muted">
-              합계 줄은 종목별 결과의 단순 평균입니다. 신호가 난 다음 날 시가에 사고팔았고, 같은 날 손절 조건이 함께 맞으면 손절로 셌습니다.
+              신호가 난 다음 날 시가에 사고팔았고, 같은 날 손절 조건이 함께 맞으면 손절로 셌습니다.
               기간 끝에 들고 있던 것은 마지막 종가로 정리했습니다.
             </p>
           </>
