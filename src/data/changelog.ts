@@ -23,6 +23,13 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.36.1',
+    date: '2026-10-04',
+    title: '서버 화면 전달 방식 변경',
+    description: '오라클 서버가 개발용 서버 대신 완성본으로 화면을 보냅니다.',
+    changes: ['서버가 화면을 보내는 방식을 바꿔, 가끔 뜨던 「URI malformed」 오류 창이 더 이상 나오지 않습니다.'],
+  },
+  {
     version: 'v2.36.0',
     date: '2026-10-04',
     title: '차분한 화면',
