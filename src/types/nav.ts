@@ -24,6 +24,7 @@ export type NavPageId =
   | 'surge'
   | 'swing'
   | 'diagnose'
+  | 'backtest'
   | 'portfolio'
   | 'settings-account'
   | 'settings-app'
@@ -127,6 +128,11 @@ export const NAV_GROUPS: NavGroup[] = [
         주기성 예측이 우연보다 나은지 검증되기 전까지 **실험실 + 테스트 배지**로 둔다(v2.26.0 에 실험실로 옮겼다).
         기능은 지우지 않는다 — 검증 결과를 보고 사용자가 유지·격하·제거를 정한다.
       */
+      /*
+        3년 백테스트 (v2.37.0) — 규칙형 3가지 방법을 미국 시총 상위 100(7분야)에 3년(1년씩 3구간)으로 시험한다. 조건은 고정(사전 등록).
+        주소 #/backtest, 탭 없음(PAGE_TABS 에 넣지 않는다). 종목과 무관한 화면이라 상단 종목 헤더를 감춘다.
+      */
+      { id: 'backtest', label: '백테스트', hidesSymbolHeader: true },
       { id: 'surge', label: '급등 탐지', badge: '테스트', hidesSymbolHeader: true },
       /*
         `npm run diagnose` 와 같은 함수를 웹에서 돌리고 결과를 본다 (v2.14.0). 이름 그대로, 위치만 실험실로(v2.26.0).

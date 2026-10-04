@@ -12,6 +12,7 @@ import PortfolioView from './components/portfolio/PortfolioView';
 import SurgeDashboard from './components/surge/SurgeDashboard';
 import SwingDashboard from './components/swing/SwingDashboard';
 import DiagnoseView from './components/diagnose/DiagnoseView';
+import BacktestView from './components/backtest/BacktestView';
 import CalendarView from './components/calendar/CalendarView';
 import HeatmapView from './components/heatmap/HeatmapView';
 import RankingView from './components/ranking/RankingView';
@@ -372,6 +373,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         );
       case 'diagnose':
         return <DiagnoseView />;
+      case 'backtest':
+        return <BacktestView />;
       case 'ranking':
         return (
           <RankingView

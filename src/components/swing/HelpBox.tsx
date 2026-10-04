@@ -6,8 +6,19 @@ import { useState, type ReactNode } from 'react';
  * 탭 맨 위의 **접을 수 있는 쉬운 설명** (v2.35.0, 매수 판단 도우미).
  * 처음엔 펼쳐 두고, 접은 상태는 탭별로 이 기기에 기억한다(`alphascope.swingHelp.{id}` — 기기 설정이라 localStorage).
  */
-export default function HelpBox({ id, title, children }: { id: string; title: string; children: ReactNode }) {
-  const key = `alphascope.swingHelp.${id}`;
+export default function HelpBox({
+  id,
+  title,
+  children,
+  storageKey,
+}: {
+  id: string;
+  title: string;
+  children: ReactNode;
+  /** 다른 화면이 쓸 때의 기억 키 (v2.37.0 백테스트 = `alphascope.backtestHelp`). 없으면 `alphascope.swingHelp.{id}` */
+  storageKey?: string;
+}) {
+  const key = storageKey ?? `alphascope.swingHelp.${id}`;
   const [open, setOpen] = useState(() => {
     try {
       return localStorage.getItem(key) !== 'closed';

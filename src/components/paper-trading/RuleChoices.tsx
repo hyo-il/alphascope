@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RuleConfig } from '../../types/autoTrading';
 import StockName from '../common/StockName';
+import { useAppStore } from '../../store/appStore';
 
 /**
  * 규칙형 쉬운 선택지 3개 + 「과거 1년에 썼다면?」 (v2.31.0).
@@ -131,6 +132,7 @@ export default function RuleChoices({
     }
   };
 
+  const setPage = useAppStore((st) => st.setPage);
   const res = job?.result;
   const s = res?.summary;
 
@@ -287,6 +289,10 @@ export default function RuleChoices({
               신호가 난 다음 날 시가에 사고팔았고, 같은 날 손절 조건이 함께 맞으면 손절로 셌습니다.
               기간 끝에 들고 있던 것은 마지막 종가로 정리했습니다.
             </p>
+            {/* 더 큰 시험으로 가는 길 (v2.37.0) — 같은 판정 함수로 미국 시총 상위 100(7분야)·3년 */}
+            <button type="button" onClick={() => setPage('backtest')} className="text-[13px] text-accent hover:underline">
+              더 많은 종목·3년으로 보려면 실험실 &gt; 백테스트
+            </button>
           </>
         )}
         {/* ⚠️ 고정 문구 3개 — 지우지 않는다 */}
