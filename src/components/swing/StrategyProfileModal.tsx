@@ -1,3 +1,4 @@
+import DisclosureButton from '../ui/DisclosureButton';
 import { ICON_SM } from '../ui/icon';
 import { X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -444,12 +445,16 @@ export default function StrategyProfileModal({
           </section>
 
           {/* ── 2층: 고급 설정 ── */}
-          <details
-            className="mt-4 rounded-lg bg-bg-tertiary/40 px-3 py-2"
-            open={advancedOpen}
-            onToggle={(e) => setAdvancedOpen((e.currentTarget as HTMLDetailsElement).open)}
-          >
-            <summary className="text-xs font-medium text-text-secondary">고급 설정 — 분석 조건 · 추천 판정 기준</summary>
+          <div className="mt-4 rounded-lg bg-bg-tertiary/40 px-3 py-2">
+            {/* 「자세히」 공용 버튼 (v2.39.0) — 펼쳤을 때만 판정 미리보기를 계산하는 동작은 그대로(advancedOpen) */}
+            <DisclosureButton
+              open={advancedOpen}
+              onToggle={() => setAdvancedOpen((v) => !v)}
+              label="고급 설정 — 분석 조건 · 추천 판정 기준"
+              controls="swing-advanced"
+            />
+            {advancedOpen && (
+            <div id="swing-advanced">
 
             {/* (가) 가능성 분석 조건 */}
             <section className="mt-3 space-y-2">
@@ -638,7 +643,9 @@ export default function StrategyProfileModal({
           </div>
           </details>
             </section>
-          </details>
+          </div>
+          )}
+        </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">

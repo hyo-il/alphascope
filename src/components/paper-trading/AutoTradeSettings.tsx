@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { AccountStrategy, StrategyMode } from '../../types/autoTrading';
 import RuleChoices from './RuleChoices';
+import DisclosureButton from '../ui/DisclosureButton';
 import TargetSymbolsEditor from './TargetSymbolsEditor';
 import ModePicker from './ModePicker';
 import { toast } from '../../store/uiStore';
@@ -165,15 +166,14 @@ export default function AutoTradeSettings({
                   accountId={strategy.accountId}
                   leaveHint="이 창은 닫힙니다 — 저장하지 않은 값은 백테스트로만 넘어갑니다."
                 />
-                <button
-                  type="button"
-                  onClick={() => setRuleDetailOpen((v) => !v)}
-                  className="text-[13px] text-text-muted transition-colors hover:text-text-primary"
-                >
-                  {ruleDetailOpen ? '자세히 접기' : '자세히 — 숫자 직접 고치기'}
-                </button>
+                <DisclosureButton
+                  open={ruleDetailOpen}
+                  onToggle={() => setRuleDetailOpen((v) => !v)}
+                  label="자세히 — 숫자 직접 고치기"
+                  controls="autotrade-rule-detail"
+                />
                 {ruleDetailOpen && (
-                  <div className="space-y-2 rounded-lg bg-bg-tertiary/30 p-3">
+                  <div id="autotrade-rule-detail" className="space-y-2 rounded-lg bg-bg-tertiary/30 p-3">
                     <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">
                       <input
                         type="checkbox"

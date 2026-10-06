@@ -1,9 +1,8 @@
 import { useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronRight, Plus, Sparkles } from 'lucide-react';
+import { Plus, Sparkles } from 'lucide-react';
 import RuleChoiceCards from '../common/RuleChoiceCards';
 import { InlineSpinner } from '../common/LoadingOverlay';
-import { Badge, Button, InfoTip, Panel, Segmented, SectionTitle } from '../ui';
-import { ICON_SM } from '../ui/icon';
+import { Badge, Button, DisclosureButton, InfoTip, Panel, Segmented, SectionTitle } from '../ui';
 import { toast } from '../../store/uiStore';
 import { fetchAdvice } from '../../hooks/useBacktest';
 import { draftInput, type BacktestDraft } from '../../hooks/useBacktestDraft';
@@ -183,17 +182,9 @@ function ConditionCard({
         </p>
       )}
 
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="inline-flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary"
-      >
-        {open ? <ChevronDown {...ICON_SM} /> : <ChevronRight {...ICON_SM} />}
-        자세히 — 숫자 직접 고치기
-      </button>
+      <DisclosureButton open={open} onToggle={() => setOpen((v) => !v)} label="자세히 — 숫자 직접 고치기" controls={`bt-detail-${c.label}`} />
       {open && (
-        <div className="space-y-3 rounded-lg bg-bg-tertiary/40 p-3">
+        <div id={`bt-detail-${c.label}`} className="space-y-3 rounded-lg bg-bg-tertiary/40 p-3">
           <Field label="이동평균 사용" hint="짧은 평균이 긴 평균을 위로 넘으면 사고, 아래로 내려가면 판다." error={err('useAny')}>
             <Check checked={r.useMaCross} onChange={(v) => setRule({ useMaCross: v })}>
               사용
