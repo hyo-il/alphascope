@@ -53,8 +53,9 @@ import { DEFAULT_MODEL, GeminiError, geminiDisabledReason, isGeminiEnabled } fro
 import { accuracyReport } from './gemini/accuracy';
 import { DiagnoseBusyError, getDiagnoseProgress, startDiagnose } from './diagnose/runner';
 import { BacktestBusyError, getBacktestProgress, startCustomBacktest } from './autoTrading/researchRunner';
-import { deleteBacktest, getBacktest, listBacktests } from './autoTrading/researchStore';
+import { deleteBacktest, getBacktest, listBacktests, saveExplain } from './autoTrading/researchStore';
 import { namesAndSectors, researchTargets } from './autoTrading/ruleResearch';
+import { AdviceInputError, adviseBacktest, explainBacktest } from './gemini/backtestAi';
 import { parseBacktestInput } from '../src/utils/backtestInput';
 import { BACKTEST_SECTORS } from '../src/types/backtest';
 import { EngineDownError } from './diagnose/report';
@@ -1589,6 +1590,42 @@ app.get('/api/backtest/universe', async (_req, res) => {
       watchlist: watch.map((symbol) => ({ symbol, name: info.get(symbol)?.name ?? null, sector: info.get(symbol)?.sector ?? null })),
     });
   } catch (e) {
+    fail(res, e);
+  }
+});
+
+/** 「AI에게 조건 물어보기」 — Gemini 1회. 시험 기간 앞 1년 숫자만 보낸다(`gemini/backtestAi.ts`) */
+app.post('/api/backtest/advice', async (req, res) => {
+  const reason = geminiDisabledReason();
+  if (reason) return res.status(503).json({ error: reason, geminiDisabled: true });
+  const parsed = parseBacktestInput(req.body);
+  if ('error' in parsed) return res.status(400).json({ error: parsed.error });
+  const { symbols, years, ...current } = parsed.input;
+  try {
+    res.json({ advice: await adviseBacktest({ symbols, years, current }) });
+  } catch (e) {
+    if (e instanceof AdviceInputError) return res.status(400).json({ error: e.message });
+    if (e instanceof GeminiError) return res.status(e.rateLimited ? 429 : 502).json({ error: e.message });
+    fail(res, e);
+  }
+});
+
+/** 「AI에게 결과 설명 듣기」 — Gemini 1회, 그 기록에 저장(다시 열 때는 부르지 않는다) */
+app.post('/api/backtest/explain', async (req, res) => {
+  const id = Number(req.body?.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'id 가 올바르지 않습니다.' });
+  const found = getBacktest(id);
+  if (!found) return res.status(404).json({ error: '결과를 찾을 수 없습니다.' });
+  if (found.detail.kind !== 'custom') return res.status(400).json({ error: '미리 정한 시험 결과는 설명을 받지 않습니다.' });
+  if (found.detail.explain) return res.json({ explain: found.detail.explain });
+  const reason = geminiDisabledReason();
+  if (reason) return res.status(503).json({ error: reason, geminiDisabled: true });
+  try {
+    const explain = await explainBacktest(found.detail);
+    saveExplain(id, explain);
+    res.json({ explain });
+  } catch (e) {
+    if (e instanceof GeminiError) return res.status(e.rateLimited ? 429 : 502).json({ error: e.message });
     fail(res, e);
   }
 });
