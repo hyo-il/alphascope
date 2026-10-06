@@ -20,35 +20,35 @@ export function explainNote(note: DecisionNote, name: string, s: Settings): stri
     case 'no_signal_hold':
       return `${name}: 들고 있습니다. 팔 조건이 아직 아닙니다.`;
     case 'golden':
-      return `${name}: 최근 평균값이 위로 올라서서(오르는 흐름 시작) 샀습니다.`;
+      return `${name}: 최근 평균값이 위로 올라서서(오르는 흐름 시작) 매수했습니다.`;
     case 'rsi_rebound':
-      return `${name}: 많이 떨어졌다가 다시 오르기 시작해 샀습니다.`;
+      return `${name}: 많이 떨어졌다가 다시 오르기 시작해 매수했습니다.`;
     case 'dead':
-      return `${name}: 오르는 흐름이 꺾여 팔았습니다.`;
+      return `${name}: 오르는 흐름이 꺾여 매도했습니다.`;
     case 'rsi_hot':
-      return `${name}: 많이 올라 팔았습니다.`;
+      return `${name}: 많이 올라 매도했습니다.`;
     case 'hard_stop':
-      return `${name}: 산 값보다 ${s.hardStopLossPercent}% 넘게 떨어져 더 잃지 않으려고 팔았습니다.`;
+      return `${name}: 매수가보다 ${s.hardStopLossPercent}% 넘게 떨어져 더 잃지 않으려고 매도했습니다(손절).`;
     case 'take_profit':
-      return `${name}: 목표 수익 +${s.takeProfitPercent ?? '—'}% 에 닿아 모두 팔았습니다.`;
+      return `${name}: 목표 수익 +${s.takeProfitPercent ?? '—'}% 에 닿아 모두 매도했습니다(익절).`;
     case 'trailing':
-      return `${name}: 가장 높았던 값보다 많이 내려와 팔았습니다.`;
+      return `${name}: 최고가보다 많이 내려와 매도했습니다(트레일링).`;
     case 'earnings_blackout':
-      return `${name}: 곧 실적 발표가 있어 새로 사지 않았습니다(발표 때 크게 움직일 수 있어서).`;
+      return `${name}: 곧 실적 발표가 있어 새로 매수하지 않았습니다(발표 때 크게 움직일 수 있어서).`;
     case 'max_positions':
-      return `${name}: 살 조건이었지만 이미 ${s.maxPositions}종목을 들고 있어 사지 않았습니다.`;
+      return `${name}: 매수 조건이었지만 이미 ${s.maxPositions}종목을 들고 있어 매수하지 않았습니다.`;
     case 'daily_loss':
-      return '오늘 계좌가 많이 줄어 새로 사지 않습니다(하루 손실 한도).';
+      return '오늘 계좌가 많이 줄어 새로 매수하지 않습니다(하루 손실 한도).';
     case 'not_enough_candles':
-      return `${name}: 가격 기록이 아직 부족해 판단하지 않았습니다.`;
+      return `${name}: 가격 데이터가 아직 부족해 판단하지 않았습니다.`;
     case 'error':
       return `${name}: 주문하지 못했습니다(아래 자세한 이유).`;
     case 'ai_buy':
-      return `${name}: AI 가 사자고 판단해 샀습니다.`;
+      return `${name}: AI 가 매수하자고 판단해 매수했습니다.`;
     case 'ai_sell':
-      return `${name}: AI 가 팔자고 판단해 팔았습니다.`;
+      return `${name}: AI 가 매도하자고 판단해 매도했습니다.`;
     case 'ai_hold':
-      return `${name}: AI 판단이 사거나 팔 때가 아니라서 그대로 둡니다.`;
+      return `${name}: AI 판단이 매수·매도할 때가 아니라서 그대로 둡니다.`;
     case 'ai_low_confidence':
       return `${name}: AI 신호는 있었지만 확신이 기준보다 낮아 그대로 둡니다.`;
     default:
@@ -132,7 +132,7 @@ export function nowSentence(
   if (view.state === 'blocked') {
     if (status?.blockedKind === 'daily_loss') {
       return {
-        text: `오늘 계좌가 ${strategy.dailyLossLimitPercent}% 넘게 줄어 새로 사지 않습니다(하루 손실 한도). 이미 산 종목의 손절·청산은 계속하고, 다음 거래일에 저절로 풀립니다.`,
+        text: `오늘 계좌가 ${strategy.dailyLossLimitPercent}% 넘게 줄어 새로 매수하지 않습니다(하루 손실 한도). 이미 매수한 종목의 손절·매도는 계속하고, 다음 거래일에 저절로 풀립니다.`,
         extra,
         fix: true,
       };
@@ -142,7 +142,7 @@ export function nowSentence(
     }
     // config — 무엇이 문제인지는 설정 값으로 가른다(문구로 가르지 않는다)
     if (n === 0) {
-      return { text: '대상 종목이 없어 멈춰 있습니다. [설정 열기]에서 종목을 담아 주세요.', extra: null, fix: true };
+      return { text: '대상 종목이 없어 멈춰 있습니다. [설정 열기]에서 종목을 추가해 주세요.', extra: null, fix: true };
     }
     if (strategy.mode === 'ai') {
       return {

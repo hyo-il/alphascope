@@ -43,7 +43,7 @@ type Row = DiscoverRow;
 
 const SOURCES: { id: Source; label: string; desc: string }[] = [
   { id: 'swing', label: '지금 살 만한가', desc: '5조건 채점 결과 — 진입가·손절·손익비' },
-  { id: 'watchlist', label: '관심 목록', desc: '담아 둔 종목 전부 (기준 없음)' },
+  { id: 'watchlist', label: '관심 목록', desc: '추가해 둔 종목 전부 (기준 없음)' },
 ];
 
 const SWING_GRADES: SwingGrade[] = ['STRONG', 'BUY', 'WATCH'];
@@ -151,7 +151,7 @@ export default function DiscoverSymbolsModal({
 
       if (fresh) {
         if (!watchlist.length) {
-          toast.info('관심 목록이 비어 있어 다시 분석할 수 없습니다');
+          toast.info('관심 목록이 비어 있어 다시 실행할 수 없습니다');
           return;
         }
         const res = await fetch('/api/swing/analyze', {
@@ -171,7 +171,7 @@ export default function DiscoverSymbolsModal({
         const saved = await loadSavedSwing();
         setRowsProfile(saved.profile);
         if (!saved.rows.length) {
-          setNote('저장된 「지금 살 만한가」 결과가 없습니다. [다시 분석] 을 켜고 실행해 보세요.');
+          setNote('저장된 「지금 살 만한가」 결과가 없습니다. [다시 실행] 을 켜고 실행해 보세요.');
         } else if (saved.analyzedAt) {
           setNote(`분석 시각 ${new Date(saved.analyzedAt).toLocaleString('ko-KR')}`);
         }
@@ -316,7 +316,7 @@ export default function DiscoverSymbolsModal({
 
               <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">
                 <input type="checkbox" checked={fresh} onChange={(e) => setFresh(e.target.checked)} />
-                다시 분석 (관심 목록 종목을 새로 채점합니다)
+                다시 실행 (관심 목록 종목을 새로 채점합니다)
               </label>
               <p className="text-[13px] leading-relaxed text-text-muted">
                 끄면 「지금 살 만한가」 에서 마지막으로 나온
@@ -342,7 +342,7 @@ export default function DiscoverSymbolsModal({
           {source === 'swing' && rowsProfile && rowsProfile !== activeId && (
             <p className="rounded-lg bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
               이 추천은 '{PROFILE_LABEL[rowsProfile]}' 기준으로 나왔습니다 · 지금 기준은 '
-              {PROFILE_LABEL[activeId]}' 입니다 — [다시 분석] 을 켜고 탐지하면 지금 기준으로
+              {PROFILE_LABEL[activeId]}' 입니다 — [다시 실행] 을 켜고 탐지하면 지금 기준으로
               채점합니다.
             </p>
           )}
@@ -352,7 +352,7 @@ export default function DiscoverSymbolsModal({
             <section className="space-y-2">
               <div className="flex items-center gap-2">
                 <h3 className="text-xs font-semibold text-text-primary">
-                  ③ 담을 종목{' '}
+                  ③ 추가할 종목{' '}
                   <span className="font-normal text-text-muted">
                     ({selected.length}/{passedRows.length})
                   </span>
@@ -450,7 +450,7 @@ export default function DiscoverSymbolsModal({
                                 </span>
                               )}
                               {added && (
-                                <span className="text-[13px] text-text-muted">이미 담긴 종목</span>
+                                <span className="text-[13px] text-text-muted">이미 추가한 종목</span>
                               )}
                               {rejected && (
                                 <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[13px] text-text-muted">
@@ -480,7 +480,7 @@ export default function DiscoverSymbolsModal({
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">
           <span className="min-w-0 text-[13px] text-text-muted">
-            담아도 자동매매가 곧바로 돌지는 않습니다 — 설정을 저장해야 반영됩니다.
+            추가해도 자동매매가 곧바로 돌지는 않습니다 — 설정을 저장해야 반영됩니다.
           </span>
           <button
             type="button"
@@ -495,7 +495,7 @@ export default function DiscoverSymbolsModal({
             disabled={!selected.length}
             className="shrink-0 whitespace-nowrap rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
           >
-            선택한 {selected.length}종목 담기
+            선택한 {selected.length}종목 추가
           </button>
         </div>
       </div>

@@ -154,7 +154,7 @@ export default function PerformanceChart({ snapshots }: Props) {
           <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-center text-[13px] text-text-muted">
             수익률 곡선은 스냅샷이 2일 이상 쌓이면 그려집니다.
             <br />
-            (스냅샷은 모의투자 화면을 열 때 하루 한 번 기록됩니다)
+            (스냅샷은 모의투자 화면을 열 때 하루 한 번 저장됩니다)
           </p>
         )}
       </div>

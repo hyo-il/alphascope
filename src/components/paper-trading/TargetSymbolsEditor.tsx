@@ -1,5 +1,4 @@
-import { ICON_SM } from '../ui/icon';
-import { X } from 'lucide-react';
+import { ListRemoveButton } from '../ui';
 import { useState } from 'react';
 import SymbolSearch from '../common/SymbolSearch';
 import StockName from '../common/StockName';
@@ -55,13 +54,13 @@ export default function TargetSymbolsEditor({
     const existing = upper.length - added;
     onChange(merged);
     const tail = existing > 0 ? `(이미 있던 ${existing}종목 제외)` : '';
-    if (added) toast.success(`${source}에서 ${added}종목을 담았습니다${tail}`, extra);
-    else toast.info(`${source}에서 새로 담을 종목이 없습니다${tail}`, extra);
+    if (added) toast.success(`${source}에서 ${added}종목을 추가했습니다${tail}`, extra);
+    else toast.info(`${source}에서 새로 추가할 종목이 없습니다${tail}`, extra);
   };
 
   const addWatchlist = () => {
     if (!watchlist.length) {
-      toast.info('관심 목록이 비어 있습니다', '관심 목록에 종목을 먼저 담아 주세요');
+      toast.info('관심 목록이 비어 있습니다', '관심 목록에 종목을 먼저 추가해 주세요');
       return;
     }
     // 발굴 팝업의 「★ 관심 목록」 소스와 같다 — 기준 없이 전부
@@ -73,7 +72,7 @@ export default function TargetSymbolsEditor({
     try {
       const picks = await savedSwingPicks(swingBuyCut);
       if (picks.empty) {
-        toast.info('저장된 「지금 살 만한가」 결과가 없습니다 — [종목 발굴]에서 다시 분석하세요');
+        toast.info('저장된 「지금 살 만한가」 결과가 없습니다 — [종목 발굴]에서 다시 실행하세요');
         return;
       }
       const basis = `기준: ${PROFILE_LABEL[activeId]} BUY 컷 ${swingBuyCut}점 이상 · STRONG/BUY`;
@@ -104,8 +103,8 @@ export default function TargetSymbolsEditor({
       <SymbolSearch
         symbol=""
         onSubmit={(s) => addSymbols([s], '검색')}
-        placeholder="종목 검색해 담기 (애플, AAPL…)"
-        submitLabel="담기"
+        placeholder="종목 검색해 추가 (애플, AAPL…)"
+        submitLabel="종목 추가"
         compact
         clearOnSubmit
         dropUp={false}
@@ -122,7 +121,7 @@ export default function TargetSymbolsEditor({
           onClick={addWatchlist}
           className="rounded-md bg-bg-tertiary px-3 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
         >
-          관심 목록 전부 담기
+          관심 목록 전부 추가
         </button>
         <button
           type="button"
@@ -130,7 +129,7 @@ export default function TargetSymbolsEditor({
           disabled={busy}
           className="rounded-md bg-bg-tertiary px-3 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-50"
         >
-          {busy ? '불러오는 중…' : '지금 살 만한가 종목 담기'}
+          {busy ? '불러오는 중…' : '지금 살 만한가 종목 추가'}
         </button>
         <button
           type="button"
@@ -141,13 +140,13 @@ export default function TargetSymbolsEditor({
         </button>
       </div>
       <p className="text-[13px] text-text-muted">
-        지금 살 만한가 종목 담기 = 「매수 판단 도우미 &gt; 지금 살 만한가」 에 마지막으로 저장된 결과 중 지금 기준({PROFILE_LABEL[activeId]} {swingBuyCut}점 이상 ·
+        지금 살 만한가 종목 추가 = 「매수 판단 도우미 &gt; 지금 살 만한가」 에 마지막으로 저장된 결과 중 지금 기준({PROFILE_LABEL[activeId]} {swingBuyCut}점 이상 ·
         STRONG/BUY · 최대 10개). 근거를 보고 고르려면 [종목 발굴].
       </p>
 
       {symbols.length === 0 ? (
         <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-center text-[13px] text-text-muted">
-          담긴 종목이 없습니다. 종목이 없으면 자동매매를 켤 수 없습니다.
+          추가한 종목이 없습니다. 종목이 없으면 자동매매를 켤 수 없습니다.
         </p>
       ) : (
         <div className="flex flex-wrap gap-1.5">
@@ -157,14 +156,7 @@ export default function TargetSymbolsEditor({
               className="flex items-center gap-1 rounded-lg-full bg-bg-tertiary/60 py-0.5 pl-2 pr-1 text-[13px]"
             >
               <StockName symbol={symbol} size="sm" className="text-text-primary" />
-              <button
-                type="button"
-                onClick={() => onChange(symbols.filter((s) => s !== symbol))}
-                aria-label={`${symbol} 빼기`}
-                className="rounded px-1 text-text-muted transition-colors hover:text-bearish"
-              >
-                <X {...ICON_SM} />
-              </button>
+              <ListRemoveButton onClick={() => onChange(symbols.filter((s) => s !== symbol))} name={symbol} label="대상 종목에서 삭제" />
             </span>
           ))}
         </div>
@@ -172,7 +164,7 @@ export default function TargetSymbolsEditor({
 
       {symbols.length > maxPositions && (
         <p className="text-[13px] text-text-secondary">
-          대상 {symbols.length}종목 중 <b className="text-text-primary">동시에 최대 {maxPositions}종목</b>까지만 삽니다(조건이 먼저 맞는
+          대상 {symbols.length}종목 중 <b className="text-text-primary">동시에 최대 {maxPositions}종목</b>까지만 매수합니다(조건이 먼저 맞는
           순서).
         </p>
       )}

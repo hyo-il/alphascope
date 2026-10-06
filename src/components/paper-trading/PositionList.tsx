@@ -39,7 +39,7 @@ export default function PositionList({ positions, onSelectSymbol }: Props) {
           <tr className="border-b border-border/50">
             <th className="px-3 py-2 text-left font-normal">종목</th>
             <th className="px-3 py-2 text-right font-normal">수량</th>
-            <th className="px-3 py-2 text-right font-normal">평균매입가</th>
+            <th className="px-3 py-2 text-right font-normal">평균 매수가</th>
             <th className="px-3 py-2 text-right font-normal">현재가</th>
             <th className="px-3 py-2 text-right font-normal">평가금액</th>
             <th className="px-3 py-2 text-right font-normal">평가손익</th>

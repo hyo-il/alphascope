@@ -34,7 +34,7 @@ export default function ModePicker({
             id: 'rule' as const,
             title: '규칙형',
             desc: '이동평균 교차와 RSI 로 판단합니다 (AI 키 불필요)',
-            easy: '정해 둔 숫자 조건이 맞을 때만 삽니다. 왜 샀는지가 늘 분명하고 결과가 같게 재현되지만, 조건에 없는 일은 보지 못합니다. 키가 필요 없습니다.',
+            easy: '정해 둔 숫자 조건이 맞을 때만 매수합니다. 왜 매수했는지가 늘 분명하고 결과가 같게 재현되지만, 조건에 없는 일은 보지 못합니다. 키가 필요 없습니다.',
           },
         ]).map((item) => {
           const disabled = item.id === 'ai' && !geminiEnabled;

@@ -78,7 +78,7 @@ export async function runExitChecks(strategy: AccountStrategy): Promise<Note[]> 
           strategy.accountId,
           position.symbol,
           position.quantity,
-          `하드 손절 ${pct(changePercent)} — 기준 -${strategy.hardStopLossPercent}% 도달로 전량 청산`,
+          `손절 ${pct(changePercent)} — 기준 -${strategy.hardStopLossPercent}% 도달로 전량 매도`,
           'hard_stop',
         ),
       );
@@ -92,7 +92,7 @@ export async function runExitChecks(strategy: AccountStrategy): Promise<Note[]> 
           strategy.accountId,
           position.symbol,
           position.quantity,
-          `익절 ${pct(changePercent)} — 기준 +${strategy.takeProfitPercent}% 도달로 전량 청산`,
+          `익절 ${pct(changePercent)} — 기준 +${strategy.takeProfitPercent}% 도달로 전량 매도`,
           'take_profit',
         ),
       );
@@ -111,7 +111,7 @@ export async function runExitChecks(strategy: AccountStrategy): Promise<Note[]> 
           strategy.accountId,
           position.symbol,
           position.quantity,
-          `트레일링 스톱 — 고점 ${peak.toFixed(2)} 대비 ${pct(fromPeak)} (기준 -${strategy.trailingStopPercent}%)`,
+          `트레일링 — 최고가 ${peak.toFixed(2)} 대비 ${pct(fromPeak)} (기준 -${strategy.trailingStopPercent}%)`,
           'trailing',
         ),
       );

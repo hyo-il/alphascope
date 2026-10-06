@@ -155,5 +155,5 @@ export function dailyLossBlock(strategy: AccountStrategy, now = Date.now()): str
   if (!strategy.dailyLossLimitPercent) return null;
   const state = readDailyLoss(strategy.accountId);
   if (!state || !state.hit || state.day !== strategyDay(strategy, now)) return null;
-  return `하루 손실 한도 −${strategy.dailyLossLimitPercent}% 도달(현재 ${state.drawdownPercent.toFixed(2)}%) — 오늘은 새로 사지 않습니다`;
+  return `하루 손실 한도 −${strategy.dailyLossLimitPercent}% 도달(현재 ${state.drawdownPercent.toFixed(2)}%) — 오늘은 새로 매수하지 않습니다`;
 }

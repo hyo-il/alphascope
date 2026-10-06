@@ -145,7 +145,7 @@ export function simulateRule(
       const trailPrice = opts.trailingStopEnabled ? p.peak * (1 - opts.trailingStopPercent / 100) : null;
       const takePrice = opts.takeProfitEnabled && opts.takeProfitPercent ? p.entry * (1 + opts.takeProfitPercent / 100) : null;
       if (bar.low <= stopPrice) {
-        close(i, Math.min(bar.open, stopPrice), 'stop', `하드 손절 −${opts.hardStopLossPercent}%`);
+        close(i, Math.min(bar.open, stopPrice), 'stop', `손절 −${opts.hardStopLossPercent}%`);
       } else if (takePrice != null && bar.high >= takePrice) {
         close(i, Math.max(bar.open, takePrice), 'take_profit', `익절 +${opts.takeProfitPercent}%`);
       } else if (trailPrice != null && bar.low <= trailPrice) {

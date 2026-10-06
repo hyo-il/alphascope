@@ -104,7 +104,7 @@ export default function AutoTradeWizard({
     if (!draft || !accountId) return;
     // 자동매매 바·모아보기 카드와 같은 가드
     if (draft.symbols.length === 0) {
-      toast.warning('대상 종목이 없습니다', '3단계에서 종목을 담아 주세요');
+      toast.warning('대상 종목이 없습니다', '3단계에서 종목을 추가해 주세요');
       setStep(3);
       return;
     }
@@ -304,22 +304,22 @@ export default function AutoTradeWizard({
               </ul>
               {/* 숫자는 저장될 설정(draft — 서버가 준 값에서 출발)에서 그대로 읽는다 */}
               <p className="text-xs leading-relaxed text-text-secondary">
-                한 종목에 계좌의 <b className="text-text-primary">{draft.positionSizePercent}%</b>까지만 삽니다 · 동시에 최대{' '}
-                <b className="text-text-primary">{draft.maxPositions}종목</b> · 산 값보다{' '}
-                <b className="text-text-primary">{draft.hardStopLossPercent}%</b> 떨어지면 바로 팝니다 ·{' '}
+                한 종목에 계좌의 <b className="text-text-primary">{draft.positionSizePercent}%</b>까지만 매수합니다 · 동시에 최대{' '}
+                <b className="text-text-primary">{draft.maxPositions}종목</b> · 매수가보다{' '}
+                <b className="text-text-primary">{draft.hardStopLossPercent}%</b> 떨어지면 바로 매도합니다(손절) ·{' '}
                 {draft.earningsBlackoutDays > 0 ? (
                   <>
-                    실적 발표 <b className="text-text-primary">{draft.earningsBlackoutDays}거래일</b> 전부터는 새로 사지 않습니다 ·{' '}
+                    실적 발표 <b className="text-text-primary">{draft.earningsBlackoutDays}거래일</b> 전부터는 새로 매수하지 않습니다 ·{' '}
                   </>
                 ) : (
-                  '실적 발표와 상관없이 삽니다 · '
+                  '실적 발표와 상관없이 매수합니다 · '
                 )}
                 <b className="text-text-primary">{intervalText(draft.intervalMinutes)}</b>마다 판단합니다
                 {draft.marketHoursOnly ? '(미국 정규장)' : '(시간 제한 없음)'}.
-                {draft.trailingStopEnabled && ` 가장 높았던 값보다 ${draft.trailingStopPercent}% 내려오면 팝니다.`}
-                {draft.takeProfitEnabled ? ` 산 값보다 ${draft.takeProfitPercent}% 오르면 모두 팝니다(익절).` : ' 익절은 꺼져 있습니다.'}
+                {draft.trailingStopEnabled && ` 최고가보다 ${draft.trailingStopPercent}% 내려오면 매도합니다(트레일링).`}
+                {draft.takeProfitEnabled ? ` 매수가보다 ${draft.takeProfitPercent}% 오르면 모두 매도합니다(익절).` : ' 익절은 꺼져 있습니다.'}
                 {draft.dailyLossLimitPercent > 0 &&
-                  ` 하루에 계좌가 ${draft.dailyLossLimitPercent}% 넘게 줄면 그날은 새로 사지 않습니다.`}
+                  ` 하루에 계좌가 ${draft.dailyLossLimitPercent}% 넘게 줄면 그날은 새로 매수하지 않습니다.`}
               </p>
               {/* ⚠️ 고정 문구 — 지우지 않는다 */}
               <p className="rounded-md bg-warning/10 px-3 py-1.5 text-[13px] text-warning">모의투자입니다 — 실제 돈은 움직이지 않습니다.</p>

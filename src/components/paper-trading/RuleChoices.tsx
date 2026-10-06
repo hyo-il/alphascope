@@ -72,7 +72,7 @@ export default function RuleChoices({
         {off(rule.useMaCross)}
       </>,
     ],
-    ['RSI 살 때 · 팔 때', `${rule.rsiBuyBelow} 이하 반등 · ${rule.rsiSellAbove} 이상${off(rule.useRsi)}`],
+    ['RSI 매수 · 매도 기준', `${rule.rsiBuyBelow} 이하 반등 · ${rule.rsiSellAbove} 이상${off(rule.useRsi)}`],
     ['손절', `${hardStopLossPercent}%`],
     ['트레일링', trailingStopEnabled ? `${trailingStopPercent}%` : '끔'],
     ['익절', takeProfitEnabled ? `+${takeProfitPercent}%` : '끔'],
@@ -83,7 +83,7 @@ export default function RuleChoices({
       <RuleChoiceCards rule={rule} onPick={(c) => onChange({ ...rule, ...c.rule })} />
       {!active && (
         <p className="text-[13px] text-text-secondary">
-          <Badge>직접 설정</Badge> 아래 「상세 설정」 에서 고친 값입니다.
+          <Badge>직접 설정</Badge> 아래 「고급 설정」 에서 고친 값입니다.
         </p>
       )}
       <p className="text-[13px] text-text-muted">

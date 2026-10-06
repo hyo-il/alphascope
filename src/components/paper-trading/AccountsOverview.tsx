@@ -79,7 +79,7 @@ export default function AccountsOverview({
     if (on && found) {
       // 켤 수 없는 이유가 있으면 켜지 말고 그 계좌를 열어 준다 (AutoTradeBar 와 같은 판단).
       if (found.strategy.symbols.length === 0) {
-        toast.warning('대상 종목이 없습니다', '계좌를 열어 [자동매매 설정] 에서 담아 주세요');
+        toast.warning('대상 종목이 없습니다', '계좌를 열어 [자동매매 설정] 에서 추가해 주세요');
         onOpen(item.account.id);
         return;
       }

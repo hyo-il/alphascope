@@ -38,10 +38,10 @@ export default function RuleChoiceCards({
               {c.title}
             </p>
             <p className="mt-1 text-[13px] leading-snug text-text-secondary">
-              <b className="text-text-primary">삽니다</b>: {c.buy}
+              <b className="text-text-primary">매수</b>: {c.buy}
             </p>
             <p className="text-[13px] leading-snug text-text-secondary">
-              <b className="text-text-primary">팝니다</b>: {c.sell}
+              <b className="text-text-primary">매도</b>: {c.sell}
             </p>
             {showWhy && (
               <p className="mt-1 text-[13px] leading-snug text-text-secondary">

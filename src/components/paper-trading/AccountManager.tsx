@@ -45,9 +45,9 @@ export default function AccountManager({
   const confirmDelete = () => {
     if (!selected) return;
     modal.confirm({
-      title: '계좌 지우기',
-      message: `"${selected.name}" 계좌를 지웁니다. 보유 종목·주문·거래 내역이 함께 사라집니다.\n되돌릴 수 없습니다.`,
-      confirmText: '지우기',
+      title: '계좌 삭제',
+      message: `"${selected.name}" 계좌를 삭제합니다. 보유 종목·주문·거래 내역이 함께 사라집니다.\n되돌릴 수 없습니다.`,
+      confirmText: '삭제',
       danger: true,
       onConfirm: async () => {
         await onDelete(selected.id);

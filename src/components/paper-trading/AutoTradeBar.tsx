@@ -2,6 +2,7 @@ import WarnIcon from '../ui/WarnIcon';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
 import { useState } from 'react';
 import AutoTradeSettings from './AutoTradeSettings';
+import DisclosureButton from '../ui/DisclosureButton';
 import { useAutoTrading } from '../../hooks/useAutoTrading';
 import { useGeminiStatus } from '../../hooks/useGemini';
 import { toast } from '../../store/uiStore';
@@ -19,6 +20,8 @@ import { explainNote, kstLabel, nextUsOpen, nowSentence, sortNotes, strategyCond
 export default function AutoTradeBar({ accountId }: { accountId: number | null }) {
   const { strategy, status, error, save } = useAutoTrading(accountId);
   const { state: gemini } = useGeminiStatus(60_000);
+  /** 「최근 판단 보기」 펼침 — 기억하지 않는다(용어집 공통 동작) */
+  const [notesOpen, setNotesOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [toggling, setToggling] = useState(false);
   const nameOf = useStockNames(status?.lastNotes.map((n) => n.symbol) ?? []);
@@ -32,7 +35,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
     // 종목이 없으면 켜지지 않는다 — 서버도 같은 상태를 blockedReason 으로 알려 주지만,
     // 켜 놓고 아무 일도 일어나지 않는 것보다 켜는 순간 막고 이유를 말하는 편이 낫다.
     if (!on && strategy.symbols.length === 0) {
-      toast.warning('대상 종목이 없습니다', '[자동매매 설정] 에서 종목을 먼저 담아 주세요');
+      toast.warning('대상 종목이 없습니다', '[자동매매 설정] 에서 종목을 먼저 추가해 주세요');
       setOpen(true);
       return;
     }
@@ -97,7 +100,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           title={
             strategy.mode === 'ai'
               ? 'AI형 — 전문가 AI 다섯이 매번 새로 읽고 정합니다. 흐름까지 보지만 답이 조금씩 달라지고 Gemini 키가 필요합니다.'
-              : '규칙형 — 정해 둔 숫자 조건(이동평균 교차·RSI)이 맞을 때만 삽니다. 이유가 분명하고 키가 필요 없습니다.'
+              : '규칙형 — 정해 둔 숫자 조건(이동평균 교차·RSI)이 맞을 때만 매수합니다. 이유가 분명하고 키가 필요 없습니다.'
           }
           className="cursor-help rounded-lg bg-bg-tertiary/40 px-1.5 py-0.5 text-[13px] text-text-secondary"
         >
@@ -183,11 +186,18 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
         </p>
       )}
       {status && status.lastNotes.length > 0 && (
-        <details className="border-b border-border px-4 py-1.5 text-[13px]">
-          <summary className="text-text-muted">
-            최근 판단 {status.lastNotes.length}건
-            {status.lastNotesAt && ` · ${new Date(status.lastNotesAt).toLocaleString('ko-KR')}`}
-          </summary>
+        <div className="border-b border-border px-4 py-1.5 text-[13px]">
+          <div className="flex flex-wrap items-center gap-2">
+            <DisclosureButton
+              open={notesOpen}
+              onToggle={() => setNotesOpen((v) => !v)}
+              label={`최근 판단 보기 (${status.lastNotes.length}건)`}
+              controls={`autotrade-notes-${strategy.accountId}`}
+            />
+            {status.lastNotesAt && <span className="text-text-muted">{new Date(status.lastNotesAt).toLocaleString('ko-KR')}</span>}
+          </div>
+          {notesOpen && (
+          <div id={`autotrade-notes-${strategy.accountId}`}>
           {/* 쉬운 문장이 먼저, 원래 문장은 작은 회색으로 아래 — 사거나 판 줄이 위, 기다림 줄이 아래 */}
           <ul className="mt-1 space-y-1">
             {notes.map((n, i) => {
@@ -220,7 +230,9 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
               );
             })}
           </ul>
-        </details>
+          </div>
+          )}
+        </div>
       )}
 
       {open && (

@@ -30,15 +30,15 @@ export const FREQUENCY_OPTIONS: { id: Frequency; label: string; hint: string; sh
 ];
 
 export const DIP_OPTIONS: { id: Dip; label: string; hint: string; band: { low: number; high: number } }[] = [
-  { id: 'small', label: '조금', hint: '살짝 쉬어 갈 때 삽니다 (RSI 40~50)', band: { low: 40, high: 50 } },
+  { id: 'small', label: '조금', hint: '살짝 쉬어 갈 때 매수합니다 (RSI 40~50)', band: { low: 40, high: 50 } },
   { id: 'normal', label: '보통', hint: '표준과 같습니다 (RSI 35~45)', band: { low: 35, high: 45 } },
-  { id: 'large', label: '많이', hint: '꽤 떨어졌을 때만 삽니다 (RSI 30~40)', band: { low: 30, high: 40 } },
+  { id: 'large', label: '많이', hint: '꽤 떨어졌을 때만 매수합니다 (RSI 30~40)', band: { low: 30, high: 40 } },
 ];
 
 export const RISK_OPTIONS: { id: RiskChoice; label: string; hint: string }[] = [
-  { id: 0.5, label: '0.5%', hint: '손절에 걸려도 전체의 약 0.5% 만 잃도록 적게 삽니다' },
+  { id: 0.5, label: '0.5%', hint: '손절에 걸려도 전체의 약 0.5% 만 잃도록 적게 매수합니다' },
   { id: 1, label: '1%', hint: '표준과 같습니다' },
-  { id: 1.5, label: '1.5%', hint: '더 많이 사지만 손절 때 잃는 돈도 커집니다 (상한 2%)' },
+  { id: 1.5, label: '1.5%', hint: '더 많이 매수하지만 손절 때 잃는 돈도 커집니다 (상한 2%)' },
 ];
 
 const round2 = (v: number) => Math.round(v * 100) / 100;

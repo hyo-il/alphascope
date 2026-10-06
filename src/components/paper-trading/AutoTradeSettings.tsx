@@ -169,7 +169,7 @@ export default function AutoTradeSettings({
                 <DisclosureButton
                   open={ruleDetailOpen}
                   onToggle={() => setRuleDetailOpen((v) => !v)}
-                  label="자세히 — 숫자 직접 고치기"
+                  label="고급 설정"
                   controls="autotrade-rule-detail"
                 />
                 {ruleDetailOpen && (
@@ -182,7 +182,7 @@ export default function AutoTradeSettings({
                       />
                       이동평균 교차 사용
                     </label>
-                    <p className="-mt-1 text-[13px] text-text-muted">짧은 평균선이 긴 평균선을 넘으면 사고, 아래로 내려가면 팝니다.</p>
+                    <p className="-mt-1 text-[13px] text-text-muted">짧은 평균선이 긴 평균선을 넘으면 매수, 아래로 내려가면 매도합니다.</p>
                     <Row label="단기 이동평균">
                       <input
                         type="number" min={2}
@@ -217,7 +217,7 @@ export default function AutoTradeSettings({
                         onChange={(e) => patch({ rule: { ...draft.rule, rsiBuyBelow: Number(e.target.value) } })}
                         className={FIELD}
                       />
-                      <span className="text-[13px] text-text-muted">낮출수록 더 많이 떨어진 뒤에만 삽니다(기회는 줄어듭니다)</span>
+                      <span className="text-[13px] text-text-muted">낮출수록 더 많이 떨어진 뒤에만 매수합니다(기회는 줄어듭니다)</span>
                     </Row>
                     <Row label="RSI 매도 기준 (이 값 이상이면 매도)">
                       <input
@@ -260,16 +260,10 @@ export default function AutoTradeSettings({
               </span>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setDetailOpen((v) => !v)}
-              className="text-[13px] text-text-muted transition-colors hover:text-text-primary"
-            >
-              {detailOpen ? '상세 접기' : '상세 설정'}
-            </button>
+            <DisclosureButton open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} label="고급 설정" controls="autotrade-detail" />
 
             {detailOpen && (
-              <div className="space-y-2 rounded-lg bg-bg-tertiary/30 p-3">
+              <div id="autotrade-detail" className="space-y-2 rounded-lg bg-bg-tertiary/30 p-3">
                 <Row label="분석 주기 (분, 5 이상)">
                   <input
                     type="number"
@@ -355,7 +349,7 @@ export default function AutoTradeSettings({
           {/* ④ 청산 */}
           <section className="space-y-2">
             <h3 className="text-xs font-semibold text-text-primary">④ 청산</h3>
-            <Row label="하드 손절 (%)">
+            <Row label="손절 (%)">
               <input
                 type="number" min={1} max={50}
                 value={draft.hardStopLossPercent}
@@ -363,7 +357,7 @@ export default function AutoTradeSettings({
                 className={FIELD}
               />
               <span className="text-[13px] text-text-muted">
-                평균 매수가 대비 -{draft.hardStopLossPercent}% 에서 전량 청산
+                매수가보다 {draft.hardStopLossPercent}% 내려가면 전량 매도
               </span>
             </Row>
             <p className="text-[13px] leading-relaxed text-text-muted">
@@ -389,7 +383,7 @@ export default function AutoTradeSettings({
                 className={`${FIELD} disabled:opacity-40`}
               />
               <span className="min-w-0 text-[13px] text-text-muted">
-                산 값보다 {draft.takeProfitPercent}% 오르면 모두 판다. 끄면 오르는 동안 계속 들고 간다(지금까지의 방식).
+                매수가보다 {draft.takeProfitPercent}% 오르면 모두 매도한다. 끄면 오르는 동안 계속 들고 간다(지금까지의 방식).
               </span>
             </Row>
 
@@ -399,10 +393,10 @@ export default function AutoTradeSettings({
                 checked={draft.trailingStopEnabled}
                 onChange={(e) => patch({ trailingStopEnabled: e.target.checked })}
               />
-              트레일링 스톱 사용
+              트레일링 사용 (최고가보다 정한 % 만큼 내려가면 매도)
             </label>
             {draft.trailingStopEnabled && (
-              <Row label="고점 대비 하락 (%)">
+              <Row label="최고가 대비 하락 (%)">
                 <input
                   type="number" min={1} max={50}
                   value={draft.trailingStopPercent}
@@ -415,7 +409,7 @@ export default function AutoTradeSettings({
             <p className="rounded-lg bg-bg-tertiary/40 px-3 py-2 text-[13px] leading-relaxed text-text-muted">
               <span className="text-text-secondary">익절은 기본 꺼짐입니다.</span> 끄면 추세가 살아
               있는 동안 계속 들고 가도록 {draft.mode === 'ai' ? 'AI 가 매 주기 보유 종목을 다시 평가해' : '데드크로스·RSI 과열 규칙으로'}{' '}
-              팔 때를 정합니다.
+              매도할 때를 정합니다.
             </p>
           </section>
 
@@ -434,8 +428,8 @@ export default function AutoTradeSettings({
               />
               <span className="text-[13px] text-text-muted">
                 {draft.earningsBlackoutDays > 0
-                  ? `실적 발표 ${draft.earningsBlackoutDays} 거래일 전부터 발표일까지 새로 사지 않습니다`
-                  : '끔 — 실적 발표와 상관없이 삽니다'}
+                  ? `실적 발표 ${draft.earningsBlackoutDays} 거래일 전부터 발표일까지 새로 매수하지 않습니다`
+                  : '끔 — 실적 발표와 상관없이 매수합니다'}
               </span>
             </Row>
             <Row label="하루 손실 한도 (%)">
@@ -447,8 +441,8 @@ export default function AutoTradeSettings({
               />
               <span className="text-[13px] text-text-muted">
                 {draft.dailyLossLimitPercent > 0
-                  ? `하루 동안 계좌 평가액이 ${draft.dailyLossLimitPercent}% 넘게 줄면 그날은 새로 사지 않습니다 (보유 종목 손절·청산은 계속)`
-                  : '끔 (0) — 하루 손실과 상관없이 삽니다'}
+                  ? `하루 동안 계좌 평가액이 ${draft.dailyLossLimitPercent}% 넘게 줄면 그날은 새로 매수하지 않습니다 (보유 종목 손절·매도는 계속)`
+                  : '끔 (0) — 하루 손실과 상관없이 매수합니다'}
               </span>
             </Row>
             <p className="text-[13px] leading-relaxed text-text-muted">
