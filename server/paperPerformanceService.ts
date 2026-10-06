@@ -1,5 +1,7 @@
 import type { PaperPerformance, PaperSnapshot, PaperTrade } from '../src/types/paper';
 import { getDb } from './db';
+// 고점 대비 최대 낙폭 — 백테스트와 같은 함수 (v2.39.0 에 공용으로 옮겼다)
+import { maxDrawdown } from '../src/utils/drawdown';
 import { getAccountDetail, listTrades } from './paperTradingService';
 
 /**
@@ -84,18 +86,6 @@ export function recordSnapshot(
   );
 
   return listSnapshots(accountId);
-}
-
-/** 고점 대비 최대 낙폭 (%). 값이 하나뿐이면 계산할 수 없다. */
-function maxDrawdown(series: number[]): number | null {
-  if (series.length < 2) return null;
-  let peak = series[0];
-  let worst = 0;
-  for (const value of series) {
-    if (value > peak) peak = value;
-    if (peak > 0) worst = Math.min(worst, (value - peak) / peak);
-  }
-  return worst * 100;
 }
 
 /** 연율화 변동성 (%) — 일간 수익률 표준편차 × √252 */

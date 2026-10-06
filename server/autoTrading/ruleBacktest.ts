@@ -42,9 +42,16 @@ export interface BacktestOptions {
   hardStopLossPercent: number;
   trailingStopEnabled: boolean;
   trailingStopPercent: number;
+  /**
+   * 익절 (v2.39.0, 생략 = 꺼짐). 그날 고가 ≥ 매수가 × (1 + %) 이면 `max(시가, 익절가)` 에 판다.
+   * 같은 날 순서: 손절 → 익절 → 트레일링 — 손절과 익절이 같은 날 둘 다 닿으면 손절(보수적, 일봉으로는 어느 쪽이 먼저인지 모른다).
+   * 꺼져 있으면 결과가 예전과 바이트 단위로 같다.
+   */
+  takeProfitEnabled?: boolean;
+  takeProfitPercent?: number;
 }
 
-export type ExitKind = 'signal' | 'stop' | 'trailing' | 'end';
+export type ExitKind = 'signal' | 'stop' | 'take_profit' | 'trailing' | 'end';
 
 export interface BacktestTrade {
   entryDate: string;
@@ -56,6 +63,9 @@ export interface BacktestTrade {
   holdDays: number;
   exitKind: ExitKind;
   reason: string;
+  /** 캔들 배열 위치 (v2.39.0) — 일별 자산 곡선(MDD)에 쓴다 */
+  entryIdx: number;
+  exitIdx: number;
 }
 
 export interface SymbolResult {
@@ -112,6 +122,8 @@ export function simulateRule(
       holdDays: i - p.entryIdx,
       exitKind: kind,
       reason,
+      entryIdx: p.entryIdx,
+      exitIdx: i,
     });
     position = null;
   };
@@ -131,8 +143,11 @@ export function simulateRule(
       const p = position as { entry: number; entryIdx: number; peak: number };
       const stopPrice = p.entry * (1 - opts.hardStopLossPercent / 100);
       const trailPrice = opts.trailingStopEnabled ? p.peak * (1 - opts.trailingStopPercent / 100) : null;
+      const takePrice = opts.takeProfitEnabled && opts.takeProfitPercent ? p.entry * (1 + opts.takeProfitPercent / 100) : null;
       if (bar.low <= stopPrice) {
         close(i, Math.min(bar.open, stopPrice), 'stop', `하드 손절 −${opts.hardStopLossPercent}%`);
+      } else if (takePrice != null && bar.high >= takePrice) {
+        close(i, Math.max(bar.open, takePrice), 'take_profit', `익절 +${opts.takeProfitPercent}%`);
       } else if (trailPrice != null && bar.low <= trailPrice) {
         close(i, Math.min(bar.open, trailPrice), 'trailing', `트레일링 고점 대비 −${opts.trailingStopPercent}%`);
       } else {
@@ -174,11 +189,49 @@ export function simulateRule(
 }
 
 /**
+ * 일별 자산 곡선 (v2.39.0, MDD 용) — 구간 [start, end] 를 1 에서 시작. 들고 있는 날은 종가로 평가(매수가 대비),
+ * 판 날은 그 거래의 비용 반영 수익률로 확정, 안 들고 있는 날은 현금 그대로. 끝 값 = 거래 수익률을 이어 붙인 복리(= ruleReturn).
+ */
+export function equityCurve(candles: Candle[], start: number, end: number, list: BacktestTrade[]): number[] {
+  const out: number[] = [];
+  let cash = 1;
+  let k = 0;
+  for (let i = start; i <= end; i++) {
+    const t = list[k];
+    if (t && i >= t.entryIdx && i < t.exitIdx) {
+      out.push(cash * (candles[i].close / t.entry));
+    } else if (t && i === t.exitIdx) {
+      cash *= 1 + t.returnPct / 100;
+      out.push(cash);
+      k++;
+      // 같은 날 판 다음 거래가 그날 사는 일은 없다(체결은 다음 날 시가) — 그래도 남은 거래가 같은 날이면 넘긴다
+      while (list[k] && list[k].exitIdx === i) {
+        cash *= 1 + list[k].returnPct / 100;
+        k++;
+      }
+    } else {
+      out.push(cash);
+    }
+  }
+  return out;
+}
+
+/** 그냥 들고 있기 자산 곡선 — 구간 첫날 시가에 사서 종가로 평가, 마지막 날은 비용 반영(= holdReturn) */
+export function holdCurve(candles: Candle[], start: number, end: number): number[] {
+  const first = candles[start].open;
+  const out: number[] = [];
+  for (let i = start; i <= end; i++) out.push(candles[i].close / first);
+  out[out.length - 1] = 1 + ((candles[end].close / first - 1) * 100 - ROUND_TRIP_COST) / 100;
+  return out;
+}
+
+/**
  * 미래 누설 검사 — 봉 i 까지만 잘라 다시 계산한 지표가 전체 계산과 같은지(판정에 쓰는 선: 단기·장기 MA, RSI, 봉 i-1·i).
  * 다르면 그 i 를 돌려준다(없으면 null).
+ * `extraMa`(v2.39.0) — 조건을 비교할 때 다른 조건이 쓰는 이동평균 일수도 함께 본다(생략하면 예전과 같다).
  */
-export async function leakCheck(candles: Candle[], series: IndicatorSeries, start: number, rule: RuleConfig): Promise<string | null> {
-  const lines = (s: IndicatorSeries) => [pickMa(s, rule.maShort).line, pickMa(s, rule.maLong).line, s.rsi14];
+export async function leakCheck(candles: Candle[], series: IndicatorSeries, start: number, rule: RuleConfig, extraMa: number[] = []): Promise<string | null> {
+  const lines = (s: IndicatorSeries) => [pickMa(s, rule.maShort).line, pickMa(s, rule.maLong).line, s.rsi14, ...extraMa.map((p) => pickMa(s, p).line)];
   const full = lines(series);
   for (let i = start; i < candles.length; i++) {
     const part = lines(await computeIndicators(candles.slice(0, i + 1)));
