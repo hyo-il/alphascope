@@ -14,7 +14,7 @@ import type { IndicatorSeries } from '../../src/types/chart';
 import type { Candle } from '../../src/types/toss';
 import { isFormingBar } from '../../src/utils/marketBar';
 import { marketDate } from '../../src/utils/marketDate';
-import type { DecisionCode, RuleConfig } from '../../src/types/autoTrading';
+import { nearestEngineMa, type DecisionCode, type RuleConfig } from '../../src/types/autoTrading';
 
 /** 규칙 판정에 필요한 최소 봉 수 — 장기 MA + RSI 워밍업 여유 */
 const CANDLE_LIMIT = 200;
@@ -43,17 +43,10 @@ function pairAt(line: (number | null)[] | undefined, i: number): [number, number
  * 내림한다 — 없는 기간을 조용히 무시하면 "설정은 10인데 5로 돈다" 를 아무도 모른다.
  */
 export function pickMa(series: IndicatorSeries, period: number): { line: (number | null)[]; used: number } {
-  const available: { period: number; line: (number | null)[] }[] = [
-    { period: 5, line: series.sma5 },
-    { period: 20, line: series.sma20 },
-    { period: 60, line: series.sma60 },
-    { period: 120, line: series.sma120 },
-  ];
-  let best = available[0];
-  for (const item of available) {
-    if (Math.abs(item.period - period) < Math.abs(best.period - period)) best = item;
-  }
-  return { line: best.line, used: best.period };
+  // 어느 일수로 바꿀지는 `nearestEngineMa` 한 곳(화면의 「13일 → 20일로 계산」 과 같은 함수, v2.38.0)
+  const used = nearestEngineMa(period);
+  const line = { 5: series.sma5, 20: series.sma20, 60: series.sma60, 120: series.sma120 }[used];
+  return { line, used };
 }
 
 /**

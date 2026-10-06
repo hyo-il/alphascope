@@ -2,7 +2,7 @@ import type { StockSearchResult } from '../src/types/toss';
 import { tossGet } from '../src/services/toss/httpClient';
 import { getDb } from './db';
 import { englishNameOf, symbolsByAlias, STOCK_ALIASES } from './stockAliases';
-import { hasHangul, isChoseongOnly, toChoseong, toJamo } from './hangul';
+import { hasHangul, isChoseongOnly, toChoseong, toJamo } from '../src/utils/hangul';
 
 /**
  * 전종목 카탈로그 — 한글 종목명 검색을 위한 로컬 캐시.

@@ -1,5 +1,8 @@
 /**
- * 규칙형 자동매매 — 과거 1년 재현 (v2.31.0) · 「이 규칙을 과거에 썼다면」.
+ * 규칙형 자동매매 — 과거 재현의 계산 부품 (v2.31.0).
+ * `simulateRule`·`leakCheck` 는 백테스트(`ruleResearch.ts` — 미리 정한 시험·사용자 시험)가 쓴다.
+ * 계좌 설정 창의 「과거 1년에 썼다면?」 과 그 라우트(`/api/auto-trading/rule-preview`)·하루 캐시는 v2.38.0 에 지웠다
+ * (「실험실 > 백테스트」 가 대신한다). `runRuleBacktest` 는 회귀 비교용으로 남겼다.
  *
  * ⚠️ **주문을 전혀 내지 않는다.** 모의투자·주문 모듈을 import 하지 않는다 — 캔들(`getCandles`)·지표(`computeIndicators`)·
  * 판정(`decideRule`, 실제 엔진과 **같은 함수**)만 쓴다.
@@ -281,46 +284,3 @@ export async function runRuleBacktest(
 }
 
 export class LeakError extends Error {}
-
-// ── 라우트용: 하루 캐시 + 진행 중 공유 + 진행률 ───────────────────────────────
-
-interface Job {
-  key: string;
-  running: boolean;
-  done: number;
-  total: number;
-  current: string;
-  result: BacktestResult | null;
-  error: string | null;
-  engineDown: boolean;
-  day: string;
-}
-
-const jobs = new Map<string, Job>();
-
-/** (설정·종목 목록·날짜) 키 — 같은 키는 하루 동안 다시 계산하지 않는다 */
-export function previewKey(input: { symbols: string[] } & BacktestOptions, day: string): string {
-  return JSON.stringify([day, input.symbols, input.rule, input.hardStopLossPercent, input.trailingStopEnabled, input.trailingStopPercent]);
-}
-
-/** 시작만 하고 돌려준다(이미 있으면 그 상태). 진행률은 같은 키로 다시 물어본다 */
-export function startRulePreview(input: { symbols: string[] } & BacktestOptions, day: string): Job {
-  const key = previewKey(input, day);
-  const hit = jobs.get(key);
-  if (hit && (hit.running || hit.result)) return hit;
-  for (const [k, j] of jobs) if (j.day !== day) jobs.delete(k); // 지난 날 캐시는 버린다
-  const job: Job = { key, running: true, done: 0, total: input.symbols.length, current: '', result: null, error: null, engineDown: false, day };
-  jobs.set(key, job);
-  void runRuleBacktest(input, (done, total, current) => Object.assign(job, { done, total, current }))
-    .then((result) => Object.assign(job, { result }))
-    .catch((e) => Object.assign(job, { error: (e as Error).message, engineDown: e instanceof IndicatorEngineError }))
-    .finally(() => {
-      job.running = false;
-      if (job.error) jobs.delete(key); // 실패는 캐시하지 않는다(엔진을 켜고 다시 누를 수 있게)
-    });
-  return job;
-}
-
-export function getRulePreview(key: string): Job | null {
-  return jobs.get(key) ?? null;
-}

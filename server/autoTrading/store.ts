@@ -12,6 +12,7 @@ import { readSetting, writeSetting } from '../gemini/store';
 import { listAccounts } from '../paperTradingService';
 import {
   DEFAULT_RULE,
+  RULE_LIMITS,
   defaultStrategy,
   type AccountStrategy,
   type DecisionNote,
@@ -71,8 +72,8 @@ function cleanRule(raw: Partial<RuleConfig> | undefined): RuleConfig {
   return {
     maShort,
     maLong,
-    rsiBuyBelow: clamp(r.rsiBuyBelow, 5, 50),
-    rsiSellAbove: clamp(r.rsiSellAbove, 50, 95),
+    rsiBuyBelow: clamp(r.rsiBuyBelow, RULE_LIMITS.rsiBuyBelow.min, RULE_LIMITS.rsiBuyBelow.max),
+    rsiSellAbove: clamp(r.rsiSellAbove, RULE_LIMITS.rsiSellAbove.min, RULE_LIMITS.rsiSellAbove.max),
     useMaCross: Boolean(r.useMaCross),
     useRsi: Boolean(r.useRsi),
   };
@@ -97,9 +98,9 @@ export function normalizeStrategy(accountId: number, raw: Partial<AccountStrateg
    * 하한을 1% 로 둔 이유: 수수료·슬리피지만으로도 -0.3% 가 찍혀서, 그보다 낮으면
    * 체결 직후 곧바로 청산된다.
    */
-  next.hardStopLossPercent = clamp(next.hardStopLossPercent, 1, 50);
+  next.hardStopLossPercent = clamp(next.hardStopLossPercent, RULE_LIMITS.hardStopLossPercent.min, RULE_LIMITS.hardStopLossPercent.max);
   next.trailingStopEnabled = Boolean(next.trailingStopEnabled);
-  next.trailingStopPercent = clamp(next.trailingStopPercent, 1, 50);
+  next.trailingStopPercent = clamp(next.trailingStopPercent, RULE_LIMITS.trailingStopPercent.min, RULE_LIMITS.trailingStopPercent.max);
 
   next.buySignal = next.buySignal === 'STRONG_BUY' ? 'STRONG_BUY' : 'BUY';
   next.sellSignal = next.sellSignal === 'STRONG_SELL' ? 'STRONG_SELL' : 'SELL';

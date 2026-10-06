@@ -10,7 +10,7 @@ import { VERDICT_ICON } from '../ui/statusIcons';
 import { modal, toast } from '../../store/uiStore';
 import { RULE_CHOICES } from '../../types/ruleChoices';
 import ApplyRuleButton from './ApplyRuleButton';
-import { BACKTEST_SECTORS, type BacktestMethodResult, type BacktestReport, type BacktestVerdictKind } from '../../types/backtest';
+import { BACKTEST_SECTORS, isCustomSummary, type BacktestMethodResult, type BacktestReport, type BacktestVerdictKind } from '../../types/backtest';
 
 /**
  * 「실험실 > 백테스트」 (v2.37.0) — 규칙형 3가지 방법을 미국 시총 상위 100(7분야)에 3년(1년씩 3구간)으로 시험한 결과.
@@ -333,7 +333,7 @@ export default function BacktestView() {
                       <span className="text-text-primary">{when(item.createdAt)}</span>
                       <span className="ml-2 text-text-muted">
                         {item.server} · {item.summary.symbols}종목 ·{' '}
-                        {item.summary.methods.map((m) => `${m.title} ${VERDICT[m.verdict].label}`).join(' · ')}
+                        {isCustomSummary(item.summary) ? '사용자 시험' : item.summary.methods.map((m) => `${m.title} ${VERDICT[m.verdict].label}`).join(' · ')}
                       </span>
                     </button>
                     <button

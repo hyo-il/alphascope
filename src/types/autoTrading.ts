@@ -178,6 +178,32 @@ export interface AutoTradeRunResult {
   skipped: string | null;
 }
 
+/**
+ * 지표 엔진(Python 5001)이 계산하는 이동평균 일수 — **이 넷뿐이다** (v2.38.0 에 한 곳으로 모았다).
+ * 다른 값은 판정할 때 가장 가까운 값으로 바뀐다(`nearestEngineMa` — 같은 거리면 짧은 쪽). 13일 → 20일.
+ * 백테스트 화면은 이 넷 중에서만 고르게 하고, 계좌 설정은 예전 저장값 때문에 아무 숫자나 받는다.
+ */
+export const ENGINE_MA_PERIODS = [5, 20, 60, 120] as const;
+export type EngineMaPeriod = (typeof ENGINE_MA_PERIODS)[number];
+
+/** 판정(`ruleEngine.pickMa`)이 실제로 쓰는 이동평균 일수 — 화면의 「13일 → 20일로 계산」 도 이 함수 */
+export function nearestEngineMa(period: number): EngineMaPeriod {
+  let best: EngineMaPeriod = ENGINE_MA_PERIODS[0];
+  for (const p of ENGINE_MA_PERIODS) if (Math.abs(p - period) < Math.abs(best - period)) best = p;
+  return best;
+}
+
+/**
+ * 규칙형 숫자 범위 — 계좌 설정 저장(`server/autoTrading/store.ts`)과 백테스트 입력 검사가 **같은 값**을 쓴다 (v2.38.0).
+ * 범위를 따로 정하면 백테스트에서 시험한 조건을 계좌에 넣을 때 조용히 잘린다.
+ */
+export const RULE_LIMITS = {
+  rsiBuyBelow: { min: 5, max: 50 },
+  rsiSellAbove: { min: 50, max: 95 },
+  hardStopLossPercent: { min: 1, max: 50 },
+  trailingStopPercent: { min: 1, max: 50 },
+} as const;
+
 export const DEFAULT_RULE: RuleConfig = {
   maShort: 5,
   maLong: 20,

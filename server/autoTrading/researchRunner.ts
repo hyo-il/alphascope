@@ -1,9 +1,11 @@
 /**
- * 3년 백테스트 — 웹 실행(시작만 하고 진행률 폴링, 진단 리포트와 같은 방식) + 파일 보고서 (v2.37.0).
+ * 백테스트 실행기.
  *
- * - **한 번에 하나** — 실행 중 다시 시작하면 409.
- * - **같은 날·같은 조건(사전 등록 판·유니버스 기준일)은 다시 계산하지 않는다** — 저장된 결과를 돌려준다. 강제는 `force`.
- * - 지표 엔진이 꺼져 있으면 시작 전에 503(engineDown) — 꺼진 채 돌리면 결과처럼 보이는 빈 숫자가 나온다.
+ * - 웹(「실험실 > 백테스트」, v2.38.0) = **사용자 시험**(`runCustomBacktest`) — 시작만 하고 진행률 폴링(진단 리포트와 같은 방식).
+ *   - **한 번에 하나** — 실행 중 다시 시작하면 409. 화면을 떠났다 와도 `getBacktestProgress()` 로 이어 본다.
+ *   - **같은 날·같은 입력(종목·조건·기간)은 다시 계산하지 않는다** — 저장된 결과를 돌려준다. 강제는 `force`.
+ *   - 지표 엔진이 꺼져 있으면 시작 전에 503(engineDown) — 꺼진 채 돌리면 결과처럼 보이는 빈 숫자가 나온다.
+ * - 명령어(`npm run research:rule`) = v2.37.0 **미리 정한 시험**(`runAndSave`) — 파일 보고서도 쓴다. 화면에서는 실행하지 않는다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,9 +13,9 @@ import { outputDir, requireEngine, EngineDownError } from '../diagnose/report';
 import { IndicatorEngineError } from '../indicatorService';
 import { readUniverse } from '../universe';
 import { marketDate } from '../../src/utils/marketDate';
-import { PREREG_VERSION, researchMarkdown, runRuleResearch } from './ruleResearch';
+import { PREREG_VERSION, customInputKey, researchMarkdown, runCustomBacktest, runRuleResearch } from './ruleResearch';
 import { getBacktest, listBacktests, saveBacktest } from './researchStore';
-import type { BacktestProgress, BacktestReport } from '../../src/types/backtest';
+import { isCustomSummary, type BacktestInput, type BacktestProgress, type BacktestReport } from '../../src/types/backtest';
 
 let progress: BacktestProgress = {
   running: false, done: 0, total: 0, current: null, startedAt: null, finishedAt: null, error: null, engineDown: false, reportId: null,
@@ -29,7 +31,7 @@ export class BacktestBusyError extends Error {
 
 const kstDay = (iso: string | number) => marketDate(typeof iso === 'string' ? Date.parse(iso) : iso, '005930');
 
-/** 오늘(KST)·같은 사전 등록 판·같은 유니버스 기준일로 이미 만든 결과 */
+/** 오늘(KST)·같은 사전 등록 판·같은 유니버스 기준일로 이미 만든 **미리 정한 시험** 결과 */
 export function sameDayReportId(now = Date.now()): number | null {
   let asOf = '';
   try {
@@ -38,9 +40,18 @@ export function sameDayReportId(now = Date.now()): number | null {
     return null;
   }
   for (const item of listBacktests()) {
-    if (kstDay(item.createdAt) !== kstDay(now)) continue;
+    if (isCustomSummary(item.summary) || kstDay(item.createdAt) !== kstDay(now)) continue;
     const full = getBacktest(item.id);
-    if (full && full.detail.version === PREREG_VERSION && full.detail.universeAsOf === asOf) return item.id;
+    if (full && full.detail.kind !== 'custom' && full.detail.version === PREREG_VERSION && full.detail.universeAsOf === asOf) return item.id;
+  }
+  return null;
+}
+
+/** 오늘(KST) 같은 입력으로 이미 만든 사용자 시험 결과 */
+export function sameDayCustomId(input: BacktestInput, now = Date.now()): number | null {
+  const key = customInputKey(input);
+  for (const item of listBacktests()) {
+    if (isCustomSummary(item.summary) && item.summary.inputKey === key && kstDay(item.createdAt) === kstDay(now)) return item.id;
   }
   return null;
 }
@@ -66,11 +77,12 @@ export async function runAndSave(onProgress?: (done: number, total: number, curr
   return { id, report, files };
 }
 
-export async function startBacktest(force = false): Promise<BacktestProgress> {
+/** 사용자 시험 시작 — 시작만 하고 돌려준다(같은 날 같은 입력이면 계산 없이 그 결과 id) */
+export async function startCustomBacktest(input: BacktestInput, force = false): Promise<BacktestProgress> {
   if (progress.running) throw new BacktestBusyError();
   if (!force) {
-    const id = sameDayReportId();
-    if (id != null) return { ...progress, running: false, reportId: id, error: null, engineDown: false };
+    const id = sameDayCustomId(input);
+    if (id != null) return { ...progress, running: false, reportId: id, error: null, engineDown: false, reused: true };
   }
   try {
     await requireEngine();
@@ -80,11 +92,15 @@ export async function startBacktest(force = false): Promise<BacktestProgress> {
     }
     throw e;
   }
-  progress = { running: true, done: 0, total: 0, current: '대상 고르는 중', startedAt: new Date().toISOString(), finishedAt: null, error: null, engineDown: false, reportId: null };
-  void runAndSave((done, total, current) => {
+  progress = {
+    running: true, done: 0, total: input.symbols.length, current: null, startedAt: new Date().toISOString(),
+    finishedAt: null, error: null, engineDown: false, reportId: null,
+  };
+  void runCustomBacktest(input, (done, total, current) => {
     progress = { ...progress, done, total, current: current || null };
   })
-    .then(({ id }) => {
+    .then((report) => {
+      const id = saveBacktest(outputDir().server, report);
       progress = { ...progress, running: false, finishedAt: new Date().toISOString(), reportId: id, current: null };
     })
     .catch((e) => {

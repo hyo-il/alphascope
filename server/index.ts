@@ -52,8 +52,11 @@ import { runAnalysis } from './gemini/analyze';
 import { DEFAULT_MODEL, GeminiError, geminiDisabledReason, isGeminiEnabled } from './gemini/client';
 import { accuracyReport } from './gemini/accuracy';
 import { DiagnoseBusyError, getDiagnoseProgress, startDiagnose } from './diagnose/runner';
-import { BacktestBusyError, getBacktestProgress, startBacktest } from './autoTrading/researchRunner';
+import { BacktestBusyError, getBacktestProgress, startCustomBacktest } from './autoTrading/researchRunner';
 import { deleteBacktest, getBacktest, listBacktests } from './autoTrading/researchStore';
+import { namesAndSectors, researchTargets } from './autoTrading/ruleResearch';
+import { parseBacktestInput } from '../src/utils/backtestInput';
+import { BACKTEST_SECTORS } from '../src/types/backtest';
 import { EngineDownError } from './diagnose/report';
 import {
   deleteReport as deleteDiagnoseReport,
@@ -94,11 +97,8 @@ import {
   listStrategies,
   saveStrategy,
   deleteStrategy,
-  normalizeStrategy,
 } from './autoTrading/store';
 import { watchlistSymbols } from './analysis/targetHit';
-// 규칙형 과거 1년 재현 (v2.31.0) — 주문 모듈을 import 하지 않는다
-import { MAX_SYMBOLS as RULE_PREVIEW_MAX, getRulePreview, startRulePreview } from './autoTrading/ruleBacktest';
 import {
   SERVER_OFF_REASON,
   getStrategyStatus,
@@ -808,40 +808,6 @@ app.get('/api/auto-trading/status/:id', (req, res) => {
  * 지금 한 바퀴 돌린다 (사용자 버튼).
  * 수동 실행은 정규장·주기 판정을 건너뛴다 — 켜져 있지 않아도 돈다.
  */
-/**
- * 규칙형 과거 1년 재현 (v2.31.0) — 「이 규칙을 과거에 썼다면」. ⚠️ 주문을 내지 않는다(재현 모듈은 모의투자를 import 하지 않는다).
- * 입력은 저장과 같은 `normalizeStrategy()` 를 지난다. 시작만 하고 진행률을 돌려준다 — 같은 (설정·종목·날짜)는 하루 캐시·진행 중 공유.
- * 종목: 본문 symbols → 없으면 관심 목록(최대 20). 지표 엔진이 꺼져 있으면 503 + engineDown(결과를 0 으로 꾸미지 않는다).
- */
-app.post('/api/auto-trading/rule-preview', async (req, res) => {
-  const b = req.body ?? {};
-  const s = normalizeStrategy(0, {
-    mode: 'rule',
-    rule: b.rule,
-    hardStopLossPercent: b.hardStopLossPercent,
-    trailingStopEnabled: b.trailingStopEnabled,
-    trailingStopPercent: b.trailingStopPercent,
-    symbols: Array.isArray(b.symbols) ? b.symbols : [],
-  });
-  const symbols = (s.symbols.length ? s.symbols : watchlistSymbols()).slice(0, RULE_PREVIEW_MAX);
-  if (!symbols.length) return res.status(400).json({ error: '대상 종목이 없습니다 — 대상 종목이나 관심 목록에 종목을 담아 주세요.' });
-  if (!(await indicatorEngineHealthy())) {
-    return res.status(503).json({ error: '지표 엔진이 꺼져 있어 계산할 수 없습니다.', engineDown: true });
-  }
-  const job = startRulePreview(
-    { symbols, rule: s.rule, hardStopLossPercent: s.hardStopLossPercent, trailingStopEnabled: s.trailingStopEnabled, trailingStopPercent: s.trailingStopPercent },
-    new Date().toISOString().slice(0, 10),
-  );
-  res.json(job);
-});
-
-app.get('/api/auto-trading/rule-preview', (req, res) => {
-  const job = getRulePreview(String(req.query.key ?? ''));
-  if (!job) return res.status(404).json({ error: '계산 기록이 없습니다 — 다시 눌러 주세요.' });
-  if (job.error) return res.status(job.engineDown ? 503 : 500).json({ ...job });
-  res.json(job);
-});
-
 app.post('/api/auto-trading/run/:id', async (req, res) => {
   try {
     const id = accountIdOf(req);
@@ -1589,18 +1555,40 @@ app.delete('/api/diagnose/reports/:id', (req, res) => {
   }
 });
 
-// -- 3년 백테스트 (v2.37.0, 「실험실 > 백테스트」) ----------------------------------
+// -- 백테스트 (v2.38.0, 「실험실 > 백테스트」 — 내가 고른 종목 · 내가 정한 조건) -----------------------
 //
-// `npm run research:rule` 과 같은 함수(`autoTrading/researchRunner.ts` → `ruleResearch.ts`)를 백그라운드로 돌린다.
-// 주문을 내지 않는다. 같은 날·같은 조건이면 저장된 결과를 돌려준다(강제로 다시 계산은 ?force=1).
+// 계산은 `autoTrading/ruleResearch.ts` 의 `runCustomBacktest`(v2.37.0 구간·재현·기준선·누설 검사 함수 그대로)를 백그라운드로.
+// 주문을 내지 않는다. 같은 날 같은 입력이면 저장된 결과를 돌려준다(강제로 다시 계산은 ?force=1).
+// v2.37.0 「미리 정한 시험」 은 화면에서 실행하지 않는다 — `npm run research:rule` 로만, 결과는 같은 표에 kind 'fixed' 로 쌓여 지난 기록에서 읽는다.
 
 app.post('/api/backtest/run', async (req, res) => {
+  const parsed = parseBacktestInput(req.body);
+  if ('error' in parsed) return res.status(400).json({ error: parsed.error });
   try {
     const force = req.query.force === '1' || req.body?.force === true;
-    res.json({ progress: await startBacktest(force) });
+    res.json({ progress: await startCustomBacktest(parsed.input, force) });
   } catch (e) {
     if (e instanceof BacktestBusyError) return res.status(409).json({ error: e.message });
     if (e instanceof EngineDownError) return res.status(503).json({ error: '지표 엔진이 꺼져 있어 계산할 수 없습니다.', engineDown: true });
+    fail(res, e);
+  }
+});
+
+/** ① 종목 고르기의 묶음 — 시총 상위 100 중 7분야(순서 고정) + 내 관심 목록. 분야 밖 종목은 묶음에 넣지 않는다(검색으로는 추가할 수 있다) */
+app.get('/api/backtest/universe', async (_req, res) => {
+  try {
+    const t = await researchTargets();
+    const watch = watchlistSymbols();
+    const info = namesAndSectors(watch);
+    res.json({
+      asOf: t.asOf,
+      sectors: BACKTEST_SECTORS.map((sector) => ({
+        sector,
+        symbols: t.included.filter((x) => x.sector === sector).map((x) => ({ symbol: x.symbol, name: x.name })),
+      })),
+      watchlist: watch.map((symbol) => ({ symbol, name: info.get(symbol)?.name ?? null, sector: info.get(symbol)?.sector ?? null })),
+    });
+  } catch (e) {
     fail(res, e);
   }
 });
