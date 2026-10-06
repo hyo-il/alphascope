@@ -499,8 +499,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
               <button
                 type="button"
                 onClick={() => toggle(symbol)}
-                title={isWatched ? '관심 목록에서 빼기' : '관심 목록에 담기'}
-                aria-label={isWatched ? '관심 목록에서 빼기' : '관심 목록에 담기'}
+                title={isWatched ? '관심 목록에서 삭제' : '관심 목록에 추가'}
+                aria-label={isWatched ? '관심 목록에서 삭제' : '관심 목록에 추가'}
                 aria-pressed={isWatched}
                 className="rounded p-0.5 transition-colors hover:bg-bg-tertiary"
               >
@@ -594,7 +594,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
             ? (next) => {
                 const result = toggleCompareSymbol(next);
                 if (result === 'full') {
-                  toast.warning('최대 4개까지 비교 가능합니다', '하나를 빼고 담으세요');
+                  toast.warning('최대 4개까지 비교 가능합니다', '하나를 삭제하고 추가하세요');
                 }
               }
             : setSymbol

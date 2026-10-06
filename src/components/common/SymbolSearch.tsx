@@ -45,7 +45,7 @@ const US_MARKETS = new Set(['NASDAQ', 'NYSE', 'AMEX']);
 export default function SymbolSearch({
   symbol,
   onSubmit,
-  placeholder = '종목명 또는 심볼',
+  placeholder = '종목명 또는 티커',
   submitLabel = '조회',
   compact = false,
   clearOnSubmit = false,
@@ -309,7 +309,7 @@ export default function SymbolSearch({
           <p className="break-keep text-text-muted">
             {/[가-힣]/.test(value)
               ? '미국 주식은 영문 티커(예: GOOGL)로 검색해 보세요.'
-              : '심볼을 직접 입력하면 그대로 조회합니다.'}
+              : '티커를 직접 입력하면 그대로 조회합니다.'}
           </p>
         </div>
       )}

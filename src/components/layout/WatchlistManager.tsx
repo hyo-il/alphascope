@@ -1,3 +1,4 @@
+import TrashIcon from '../common/TrashIcon';
 import { ICON_SM } from '../ui/icon';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GripVertical, Pencil, Search, X } from 'lucide-react';
@@ -27,7 +28,7 @@ type SortMode = 'manual' | 'name' | 'change';
 const SORT_LABEL: Record<SortMode, string> = {
   manual: '직접 설정한 순',
   name: '이름순',
-  change: '수익률순',
+  change: '등락률순',
 };
 const SORT_ORDER: SortMode[] = ['manual', 'name', 'change'];
 
@@ -144,9 +145,9 @@ export default function WatchlistManager({
 
   const confirmDeleteSymbols = () =>
     modal.confirm({
-      title: '관심 종목 지우기',
-      message: `${checked.length}개 종목을 관심 목록에서 지웁니다. 되돌릴 수 없습니다.`,
-      confirmText: '지우기',
+      title: '관심 종목 삭제',
+      message: `${checked.length}개 종목을 관심 목록에서 삭제합니다. 되돌릴 수 없습니다.`,
+      confirmText: '삭제',
       danger: true,
       onConfirm: () => {
         checked.forEach((symbol) => watch.remove(symbol));
@@ -156,12 +157,12 @@ export default function WatchlistManager({
 
   const confirmDeleteFolder = (id: string, name: string, count: number) =>
     modal.confirm({
-      title: `'${name}' 그룹 지우기`,
+      title: `'${name}' 그룹 삭제`,
       message:
         count > 0
-          ? `안에 있는 ${count}개 종목은 폴더 밖으로 나옵니다. 종목이 지워지지는 않습니다.`
-          : '빈 그룹을 지웁니다.',
-      confirmText: '지우기',
+          ? `안에 있는 ${count}개 종목은 폴더 밖으로 나옵니다. 종목이 삭제되지는 않습니다.`
+          : '빈 그룹을 삭제합니다.',
+      confirmText: '삭제',
       danger: true,
       onConfirm: () => {
         watch.deleteFolder(id);
@@ -378,9 +379,9 @@ export default function WatchlistManager({
                             onClick={() => confirmDeleteFolder(f.id, f.name, f.symbols.length)}
                             title="그룹 삭제 (종목은 폴더 밖으로)"
                             aria-label={`${f.name} 그룹 삭제`}
-                            className="shrink-0 rounded px-1 text-xs text-text-muted opacity-0 transition-all hover:text-bearish focus:opacity-100 group-hover:opacity-100"
+                            className="shrink-0 rounded p-1 text-text-muted opacity-50 transition-all hover:text-bearish hover:opacity-100 focus:opacity-100"
                           >
-                            <X {...ICON_SM} />
+                            <TrashIcon className="h-3.5 w-3.5" />
                           </button>
                         )}
                       </div>
@@ -463,7 +464,7 @@ export default function WatchlistManager({
                         onClick={() => moveChecked(DEFAULT_FOLDER_ID)}
                         className="w-full px-3 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
                       >
-                        폴더에서 빼기
+                        폴더 밖으로 이동
                       </button>
                     </li>
                     {movable
@@ -557,7 +558,7 @@ export default function WatchlistManager({
                 <p className="px-4 py-8 text-center text-xs text-text-muted">
                   {isAllView
                     ? '관심 종목이 없습니다. [+ 종목 추가] 로 시작해 보세요.'
-                    : '이 그룹에 담긴 종목이 없습니다. [+ 종목 추가] 로 시작해 보세요.'}
+                    : '이 그룹에 추가한 종목이 없습니다. [+ 종목 추가] 로 시작해 보세요.'}
                 </p>
               ) : (
                 sorted.map((symbol, index) => {

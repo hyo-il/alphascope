@@ -1,11 +1,11 @@
 import { ICON, ICON_LG, ICON_SM } from '../ui/icon';
+import { ListRemoveButton, RemoveAllButton } from '../ui';
 import { Check, ChevronLeft, ChevronRight, Clock, Settings, Star, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import SymbolSearch from '../common/SymbolSearch';
 import WatchFolderView from './WatchFolderView';
 import { UNGROUPED_ID } from '../../types/watchlist';
 import WatchlistManager from './WatchlistManager';
-import TrashIcon from '../common/TrashIcon';
 import type { useWatchlist } from '../../hooks/useWatchlist';
 import { DEFAULT_FOLDER_ID } from '../../types/watchlist';
 import { useQuotes } from '../../hooks/useQuotes';
@@ -297,20 +297,8 @@ export default function WatchPanel({
                   </span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => onRemoveRecent(symbol)}
-                  title="최근 조회에서 삭제"
-                  aria-label={`${symbol} 삭제`}
-                  /*
-                    ⚠️ 항상 보인다. hover 에서만 나타나게 두었더니 **버튼이 있는 줄도 몰랐다** —
-                    "최근 조회에서 종목을 못 지운다" 는 신고가 그것이었다. 평소엔 옅게 두고
-                    올리면 빨강으로 또렷해진다.
-                  */
-                  className="mr-2 shrink-0 rounded p-1 text-text-muted/70 transition-colors hover:bg-bearish/15 hover:text-bearish"
-                >
-                  <TrashIcon className="h-3.5 w-3.5" />
-                </button>
+                {/* ⚠️ 항상 보인다(hover 전용이면 있는 줄도 몰랐다) — 목록에서 삭제 ×, 확인 창 없음 */}
+                <ListRemoveButton onClick={() => onRemoveRecent(symbol)} name={symbol} label="최근 조회에서 삭제" keeps="관심 목록은 그대로" className="mr-2" />
               </div>
             );
           })
@@ -339,26 +327,22 @@ export default function WatchPanel({
         </div>
       ) : (
         recent.length > 0 && (
-          <button
-            type="button"
-            /*
-              ⚠️ 되돌릴 수 없고 한 번에 여러 개를 지운다 — 확인 창 (v2.34.1). 예전에는 바로 지웠다(13차 점검 중 사본 DB 의 기록이 실제로 비었다).
-              0개면 이 버튼 자체가 없다.
-            */
-            onClick={() =>
-              modal.confirm({
-                title: '최근 조회 기록 모두 지우기',
-                message: `최근 조회한 ${recent.length}종목 기록을 모두 지웁니다. 되돌릴 수 없습니다. (관심 목록은 그대로입니다)`,
-                confirmText: '지우기',
-                danger: true,
-                onConfirm: onClearRecent,
-              })
-            }
-            className="flex items-center justify-center gap-1.5 border-t border-border py-2 text-xs text-text-muted transition-colors hover:text-bearish"
-          >
-            <TrashIcon className="h-3.5 w-3.5" />
-            기록 모두 지우기
-          </button>
+          /*
+            ⚠️ 되돌릴 수 없고 한 번에 여러 개를 삭제한다 — 확인 창 (v2.34.1). 0개면 이 버튼 자체가 없다.
+          */
+          <div className="flex justify-center border-t border-border py-1.5">
+            <RemoveAllButton
+              onClick={() =>
+                modal.confirm({
+                  title: '최근 조회 모두 삭제',
+                  message: `최근 조회한 ${recent.length}종목을 모두 삭제합니다. 되돌릴 수 없습니다. (관심 목록은 그대로입니다)`,
+                  confirmText: '삭제',
+                  danger: true,
+                  onConfirm: onClearRecent,
+                })
+              }
+            />
+          </div>
         )
       )}
 
@@ -369,8 +353,8 @@ export default function WatchPanel({
       */}
       {compareMode && tab !== 'account' && (
         <p className="break-keep border-t border-border px-3 py-1.5 text-[13px] leading-relaxed text-text-muted">
-          <span className="whitespace-nowrap">클릭: 빈 칸에 차례로 담기</span> ·{' '}
-          <span className="whitespace-nowrap">다시 클릭: 빼기</span>
+          <span className="whitespace-nowrap">클릭: 빈 칸에 차례로 추가</span> ·{' '}
+          <span className="whitespace-nowrap">다시 클릭: 삭제</span>
           <br />
           <span className="whitespace-nowrap">드래그: 원하는 칸에 놓기</span>{' '}
           <span className="whitespace-nowrap">(찬 칸은 교체)</span>

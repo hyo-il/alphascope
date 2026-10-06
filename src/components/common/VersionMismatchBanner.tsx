@@ -1,3 +1,4 @@
+import DisclosureButton from '../ui/DisclosureButton';
 import WarnIcon from '../ui/WarnIcon';
 import { ICON_SM } from '../ui/icon';
 import { X } from 'lucide-react';
@@ -26,13 +27,7 @@ export default function VersionMismatchBanner() {
           <span className="mx-1.5 text-warning/50">·</span>
           화면은 <b>{appVersion}</b> — 서버를 다시 시작하세요
         </span>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="rounded border border-warning/40 px-1.5 py-0.5 text-[13px] transition-colors hover:bg-warning/15"
-        >
-          자세히
-        </button>
+        <DisclosureButton open={open} onToggle={() => setOpen((v) => !v)} label="상세 보기" controls="version-mismatch-detail" />
         <button
           type="button"
           onClick={dismiss}
@@ -44,7 +39,7 @@ export default function VersionMismatchBanner() {
       </div>
 
       {open && (
-        <div className="mt-1.5 space-y-0.5 pl-7 text-[13px] text-warning/90">
+        <div id="version-mismatch-detail" className="mt-1.5 space-y-0.5 pl-7 text-[13px] text-warning/90">
           <p>
             맥: 실행 창을 닫고 <code className="rounded bg-warning/15 px-1">start.command</code> 를
             다시 실행

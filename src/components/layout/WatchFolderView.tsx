@@ -1,10 +1,10 @@
 import { ICON_SM } from '../ui/icon';
+import { ListRemoveButton } from '../ui';
 import { ChevronRight, ChevronDown, Check } from 'lucide-react';
 import type { WatchFolder } from '../../types/watchlist';
 import type { Quote } from '../../types/toss';
 import { COMPARE_DRAG_TYPE } from '../../types/compare';
 import { formatPercent, formatPrice } from '../../utils/formatters';
-import TrashIcon from '../common/TrashIcon';
 
 /**
  * 관심 목록 패널의 폴더 하나 — **거의** 읽기 전용이다.
@@ -111,8 +111,8 @@ export default function WatchFolderView({
                   title={
                     compareMode
                       ? picked
-                        ? `${nameOf(symbol) || symbol} 비교에서 빼기`
-                        : `${nameOf(symbol) || symbol} 비교에 담기`
+                        ? `${nameOf(symbol) || symbol} 비교에서 삭제`
+                        : `${nameOf(symbol) || symbol} 비교에 추가`
                       : undefined
                   }
                   className="flex min-w-0 flex-1 items-center justify-between py-2.5 pl-3 pr-2 text-left"
@@ -145,19 +145,8 @@ export default function WatchFolderView({
                 </button>
 
                 {canRemove && (
-                  <button
-                    type="button"
-                    onClick={() => onRemoveSymbol?.(symbol)}
-                    title={`${nameOf(symbol) || symbol} 관심 목록에서 제거`}
-                    aria-label={`${nameOf(symbol) || symbol} 관심 목록에서 제거`}
-                    /*
-                      ⚠️ 항상 보인다. hover 에서만 나타나게 두면 **버튼이 있는 줄도 모른다** —
-                      평소엔 옅게 두고 올리면 빨강으로 또렷해진다.
-                    */
-                    className="mr-2 shrink-0 rounded p-1 text-text-muted/70 transition-colors hover:bg-bearish/15 hover:text-bearish"
-                  >
-                    <TrashIcon className="h-3.5 w-3.5" />
-                  </button>
+                  /* ⚠️ 항상 보인다 — 목록에서 삭제(×, 확인 창 없음, v2.40.0 공통 동작 규칙) */
+                  <ListRemoveButton onClick={() => onRemoveSymbol?.(symbol)} name={nameOf(symbol) || symbol} label="관심 목록에서 삭제" className="mr-2" />
                 )}
               </div>
             );

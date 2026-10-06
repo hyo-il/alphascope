@@ -4,6 +4,7 @@ export { default as Tabs, type TabItem } from './Tabs';
 export { default as Button } from './Button';
 export { default as DisclosureButton } from './DisclosureButton';
 export { default as ListRemoveButton } from './ListRemoveButton';
+export { default as RemoveAllButton } from './RemoveAllButton';
 export { default as IconButton } from './IconButton';
 export { default as Panel } from './Panel';
 export { default as Badge } from './Badge';

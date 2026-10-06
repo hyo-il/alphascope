@@ -1,5 +1,6 @@
 import { ICON_SM } from '../ui/icon';
-import { Search, X } from 'lucide-react';
+import { Search } from 'lucide-react';
+import { ListRemoveButton } from '../ui';
 import { useEffect, useRef, useState } from 'react';
 import type { StockSearchResult } from '../../types/toss';
 import { hasHangul, searchStocksApi } from '../../utils/stockSearch';
@@ -36,7 +37,7 @@ export default function SymbolTagInput({
   watchlist = [],
   /** 빠른 추가 — 최근 조회 */
   recent = [],
-  placeholder = '종목명 또는 심볼로 검색…',
+  placeholder = '종목명 또는 티커로 검색…',
 }: {
   symbols: string[];
   onChange: (symbols: string[]) => void;
@@ -121,7 +122,7 @@ export default function SymbolTagInput({
     const next = symbol.trim().toUpperCase();
     if (!next) return;
     if (!SYMBOL_PATTERN.test(next)) {
-      setInputError(`"${symbol.trim()}" 은 심볼이 아닙니다. 목록에서 종목을 고르세요.`);
+      setInputError(`"${symbol.trim()}" 은 티커가 아닙니다. 목록에서 종목을 고르세요.`);
       return;
     }
     setInputError(null);
@@ -178,15 +179,7 @@ export default function SymbolTagInput({
           >
             <span className="font-medium">{names(item) || item}</span>
             {names(item) && <span className="text-[13px] text-text-secondary">{item}</span>}
-            <button
-              type="button"
-              onClick={() => remove(item)}
-              aria-label={`${item} 제거`}
-              title="제거"
-              className="rounded px-1 text-text-muted transition-colors hover:bg-bearish/20 hover:text-bearish"
-            >
-              <X {...ICON_SM} />
-            </button>
+            <ListRemoveButton onClick={() => remove(item)} name={names(item) || item} />
           </span>
         ))}
       </div>
@@ -258,7 +251,7 @@ export default function SymbolTagInput({
             already={symbols}
             emptyMessage={
               picker === 'watchlist'
-                ? '관심 목록이 비어 있습니다. 종목 화면의 별 아이콘으로 담아 보세요.'
+                ? '관심 목록이 비어 있습니다. 종목 화면의 별 아이콘으로 추가해 보세요.'
                 : '최근 조회한 종목이 없습니다.'
             }
             onAdd={(picked) => {
@@ -315,7 +308,7 @@ export default function SymbolTagInput({
           <p className="break-keep text-text-muted">
             {/[가-힣]/.test(query)
               ? '미국 주식은 영문 티커(예: GOOGL)로 검색해 보세요.'
-              : '영문 심볼(AAPL)은 Enter 로 바로 추가할 수 있습니다.'}
+              : '영문 티커(AAPL)는 Enter 로 바로 추가할 수 있습니다.'}
           </p>
         </div>
       )}

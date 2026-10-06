@@ -139,21 +139,21 @@ export default function Settings({ isMock, engineDown, section }: Props) {
             onClick={() => clearStorage(WATCHLIST_KEYS, '관심 목록')}
             className="rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
-            관심 목록 비우기
+            관심 목록 캐시 삭제
           </button>
           <button
             type="button"
             onClick={() => clearStorage([RECENT_KEY], '최근 조회')}
             className="rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
-            최근 조회 비우기
+            최근 조회 캐시 삭제
           </button>
         </div>
         {cleared && <p className="mt-2 text-[13px] text-text-muted">{cleared}</p>}
         <p className="mt-2 text-[13px] text-text-muted">
           관심 목록과 최근 조회는 **서버에 저장**되고 이 브라우저에는 캐시만 남습니다 —
-          위 버튼은 이 브라우저의 캐시를 비웁니다(서버 목록은 그대로). 캔들·기업정보 캐시와
-          분석 기록은 SQLite(`db/alphascope.db`)에 있습니다.
+          위 버튼은 이 브라우저의 캐시를 삭제합니다(서버 목록은 그대로). 캔들·기업정보 캐시와
+          분석 히스토리는 SQLite(`db/alphascope.db`)에 있습니다.
         </p>
       </section>
 

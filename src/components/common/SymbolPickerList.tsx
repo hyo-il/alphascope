@@ -47,7 +47,7 @@ export default function SymbolPickerList({
       <div className="mb-2 flex items-center gap-2">
         <p className="text-xs font-medium text-text-primary">{title}</p>
         <span className="text-[13px] text-text-muted">
-          {candidates.length}종목 · 담을 수 있는 것 {selectable.length}개
+          {candidates.length}종목 · 추가할 수 있는 것 {selectable.length}개
         </span>
       </div>
 

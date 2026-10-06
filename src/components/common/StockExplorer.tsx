@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ListRemoveButton, RemoveAllButton } from '../ui';
 import { usePaperAccounts } from '../../hooks/usePaperTrading';
 import type { PaperPositionValued } from '../../types/paper';
 import type { Quote } from '../../types/toss';
@@ -6,7 +7,6 @@ import { useQuotes } from '../../hooks/useQuotes';
 import SymbolSearch from './SymbolSearch';
 import { useStockNames } from '../../hooks/useStockNames';
 import { formatPercent, formatPrice } from '../../utils/formatters';
-import TrashIcon from './TrashIcon';
 
 interface Props {
   onSelect: (symbol: string) => void;
@@ -166,13 +166,7 @@ export default function StockExplorer({
         <div className="flex items-center gap-2">
           <h3 className="text-xs font-medium text-text-secondary">{title}</h3>
           {options.onClear && (
-            <button
-              type="button"
-              onClick={options.onClear}
-              className="ml-auto text-[13px] text-text-muted transition-colors hover:text-bearish"
-            >
-              전체 지우기
-            </button>
+            <RemoveAllButton onClick={options.onClear} className="ml-auto" />
           )}
         </div>
         <SymbolGrid
@@ -211,7 +205,7 @@ export default function StockExplorer({
 
         {section('인기 종목', POPULAR)}
         {section('관심 종목', watchlist, {
-          empty: '관심 목록이 비어 있습니다. 종목 화면의 별 아이콘으로 담아 보세요.',
+          empty: '관심 목록이 비어 있습니다. 종목 화면의 별 아이콘으로 추가해 보세요.',
           onRemove: onRemoveWatch,
           removeLabel: '관심 목록에서 삭제 (모든 그룹)',
           limited: true,
@@ -295,23 +289,13 @@ function SymbolGrid({
           </button>
 
           {onRemove && (
-            <button
-              type="button"
-              onClick={(e) => {
-                // 버튼이 분리돼 있어도 안전하게 막아 둔다.
-                e.stopPropagation();
-                onRemove(symbol);
-              }}
-              title={removeLabel}
-              aria-label={`${nameOf(symbol) || symbol} ${removeLabel ?? '삭제'}`}
-              /*
-                ⚠️ 항상 보인다. hover 에서만 나타나게 두면 버튼이 있는 줄도 모른다 —
-                이미 신고된 문제다 (관심 목록 패널과 같은 규칙).
-              */
-              className="absolute right-1.5 top-1.5 rounded p-1 text-text-muted transition-colors hover:bg-bearish/15 hover:text-bearish"
-            >
-              <TrashIcon className="h-3.5 w-3.5" />
-            </button>
+            /* ⚠️ 항상 보인다 — 목록에서 삭제(×, 확인 창 없음, v2.40.0 공통 동작 규칙) */
+            <ListRemoveButton
+              onClick={() => onRemove(symbol)}
+              name={nameOf(symbol) || symbol}
+              label={removeLabel ?? '목록에서 삭제'}
+              className="absolute right-1.5 top-1.5"
+            />
           )}
           </div>
         );
