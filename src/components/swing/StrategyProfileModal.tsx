@@ -101,7 +101,7 @@ const FIELDS: FieldSpec[] = [
   },
   {
     path: 'grades.watch',
-    easy: "이 점수 이상이면 '관심'(아직 살 때는 아님) 입니다",
+    easy: "이 점수 이상이면 '관심'(아직 매수할 때는 아님) 입니다",
     label: 'WATCH 컷',
     hint: `${g.grade.min}~${g.grade.max} 정수`,
     step: 1,
@@ -368,7 +368,7 @@ export default function StrategyProfileModal({
                   {PROFILE_LABEL[id]}
                 </button>
               ))}
-              <span className="text-[13px] text-text-muted">바꾸면 바로 적용됩니다 — 추천은 [다시 분석] 해야 새 기준으로 나옵니다</span>
+              <span className="text-[13px] text-text-muted">바꾸면 바로 적용됩니다 — 추천은 [다시 실행] 해야 새 기준으로 나옵니다</span>
             </div>
             {activeId !== 'standard' && sameSwingParams(state.custom[activeId as CustomProfileId], state.standard) && (
               <p className="rounded-lg bg-bg-tertiary/40 px-3 py-1.5 text-[13px] text-text-muted">
@@ -560,7 +560,7 @@ export default function StrategyProfileModal({
               onPick={(v) => choose({ frequency: v })}
             />
             <EasyQuestion
-              title="얼마나 떨어졌을 때 사고 싶나요?"
+              title="얼마나 떨어졌을 때 매수하고 싶나요?"
               options={DIP_OPTIONS.map((o) => ({ id: o.id, label: o.label, hint: o.hint }))}
               value={easy?.dip}
               onPick={(v) => choose({ dip: v })}
@@ -574,8 +574,9 @@ export default function StrategyProfileModal({
 
             <PreviewBox state={preview} />
           </section>
-          <details className="rounded-lg bg-bg-tertiary/40 px-3 py-2">
-            <summary className="text-xs font-medium text-text-secondary">숫자표 — 숫자를 직접 고칩니다</summary>
+          {/* 접기 안의 접기를 없앴다(v2.40.0) — 고급 설정을 펼치면 바로 보인다 */}
+          <div className="rounded-lg bg-bg-tertiary/40 px-3 py-2">
+            <h5 className="text-xs font-medium text-text-secondary">판정 기준 숫자</h5>
           <table className="mt-2 w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-border/50 text-[13px] text-text-muted">
@@ -637,11 +638,11 @@ export default function StrategyProfileModal({
                 disabled={sameSwingParams(draft[id], state.standard)}
                 className="rounded bg-bg-tertiary px-2 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-40"
               >
-                {PROFILE_LABEL[id]}를 표준값으로 되돌리기
+                {PROFILE_LABEL[id]}를 표준값으로 초기화
               </button>
             ))}
           </div>
-          </details>
+          </div>
             </section>
           </div>
           )}
@@ -650,7 +651,7 @@ export default function StrategyProfileModal({
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">
           <span className="min-w-0 text-[13px] text-text-muted">
-            저장해도 이미 나온 추천은 바뀌지 않습니다 — 다시 분석해야 새 기준으로 채점됩니다.
+            저장해도 이미 나온 추천은 바뀌지 않습니다 — 다시 실행해야 새 기준으로 채점됩니다.
           </span>
           <button
             type="button"

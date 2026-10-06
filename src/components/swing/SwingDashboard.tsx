@@ -1,3 +1,4 @@
+import DisclosureButton from '../ui/DisclosureButton';
 import WarnIcon from '../ui/WarnIcon';
 import { useState } from 'react';
 import { usePageTab } from '../../hooks/usePageTab';
@@ -39,7 +40,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'list', label: '지금 살 만한가' },
   { id: 'target', label: '목표 수익 가능성' },
   { id: 'search', label: '종목 검색' },
-  { id: 'history', label: '지난 기록' },
+  { id: 'history', label: '히스토리' },
 ];
 
 /*
@@ -73,6 +74,8 @@ export default function SwingDashboard({
   const paperBuy = usePaperQuickBuy();
   const profile = useStrategyProfile();
   const [profileOpen, setProfileOpen] = useState(false);
+  /** 「부적합 이유 보기」 펼침 — 기억하지 않는다 */
+  const [rejectedOpen, setRejectedOpen] = useState(false);
   const swingGoal = useSwingGoal();
   const goal = swingGoal.goal;
   /** 목표 수익 가능성 — 엔진·기록·채점은 그대로. 「지금 살 만한가」 카드의 참고 줄과 탭이 같은 상태를 본다 */
@@ -101,7 +104,7 @@ export default function SwingDashboard({
   const switchProfile = async (id: ProfileId) => {
     try {
       await profile.save({ active: id });
-      toast.success(`${PROFILE_LABEL[id]} 기준으로 바꿨습니다`, '다시 분석해야 새 기준이 적용됩니다');
+      toast.success(`${PROFILE_LABEL[id]} 기준으로 바꿨습니다`, '다시 실행해야 새 기준이 적용됩니다');
     } catch (e) {
       toast.error('기준을 바꾸지 못했습니다', (e as Error).message);
     }
@@ -166,11 +169,11 @@ export default function SwingDashboard({
                 <li>오르는 흐름인가요? (추세)</li>
                 <li>너무 오르지 않고 잠깐 쉬는 중인가요? (타이밍)</li>
                 <li>다시 오를 신호가 있나요? (모멘텀)</li>
-                <li>사고파는 사람이 많은가요? (거래량)</li>
+                <li>매수·매도하는 사람이 많은가요? (거래량)</li>
                 <li>벌 수 있는 돈이 잃을 돈보다 큰가요? (손익비)</li>
               </ol>
               <p>
-                결과로 <b className="text-text-primary">등급</b>과 <b className="text-text-primary">매매 계획</b>(어디서 사고, 어디서 팔고, 어디서 손절할지)이
+                결과로 <b className="text-text-primary">등급</b>과 <b className="text-text-primary">매매 계획</b>(어디서 매수하고, 어디서 매도하고, 어디서 손절할지)이
                 나옵니다. 정해진 공식으로 계산해 AI 를 쓰지 않고 바로 끝납니다. 내 목표 수익률은 보지 않습니다.
               </p>
             </HelpBox>
@@ -311,11 +314,15 @@ export default function SwingDashboard({
             })}
 
             {rejected.length > 0 && (
-              <details className="rounded-xl bg-bg-secondary px-3 py-2">
-                <summary className="text-xs font-semibold text-text-secondary">
-                  부적합 ({rejected.length}개) — 왜 추천하지 않는지
-                </summary>
-                <ul className="mt-1 space-y-1 text-[13px]">
+              <div className="rounded-xl bg-bg-secondary px-3 py-2">
+                <DisclosureButton
+                  open={rejectedOpen}
+                  onToggle={() => setRejectedOpen((v) => !v)}
+                  label={`부적합 이유 보기 (${rejected.length}개)`}
+                  controls="swing-rejected"
+                />
+                {rejectedOpen && (
+                <ul id="swing-rejected" className="mt-1 space-y-1 text-[13px]">
                   {rejected.map((r) => {
                     return (
                       <li key={r.symbol} className="space-y-1">
@@ -329,7 +336,8 @@ export default function SwingDashboard({
                     );
                   })}
                 </ul>
-              </details>
+                )}
+              </div>
             )}
 
             <p className="text-[13px] text-text-muted">

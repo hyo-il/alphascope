@@ -108,7 +108,7 @@ export default function TargetTab({
         <p>내가 정한 목표로 묻습니다. 예: "1달 안에 +5% 오르는 게 먼저일까, −2.5% 떨어지는 게 먼저일까?"</p>
         <p>
           AI(Gemini)가 자료를 읽고 확률을 추정합니다(예: 목표 먼저 42% · 손절 먼저 35% · 둘 다 아님 23%). 비교용으로 "지난 1년 아무 날이나
-          샀다면 실제로 몇 %였나" 도 함께 보여 줍니다.
+          매수했다면 실제로 몇 %였나" 도 함께 보여 줍니다.
         </p>
         <p>
           고른 종목만(최대 {TARGET_MAX_SYMBOLS}개) 보고, 종목당 Gemini {CALLS_PER_SYMBOL}회를 써서 1~2분 걸립니다. 아직 채점이 쌓이지 않은
@@ -225,14 +225,14 @@ export default function TargetTab({
           {focusRecord ? (
             <ResultCard record={focusRecord} isNew={false} onDelete={confirmDelete} />
           ) : (
-            <p className="text-[13px] text-text-muted">이 조건으로 분석한 기록이 없습니다.</p>
+            <p className="text-[13px] text-text-muted">이 조건으로 분석한 결과가 없습니다.</p>
           )}
         </div>
       )}
 
       {/* 지난 기록·성적 — 예전 「추천 이력」 맨 아래 섹션을 그대로 옮겼다 */}
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold text-text-secondary">지난 기록과 성적</h3>
+        <h3 className="text-xs font-semibold text-text-secondary">히스토리와 성적</h3>
         <TargetHistorySection
           records={target.records}
           stats={target.stats}

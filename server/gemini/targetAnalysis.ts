@@ -526,7 +526,7 @@ export function validateTargetRequest(body: unknown): { symbols: string[]; targe
   if (!symbols.length) throw new TargetInputError('종목을 1개 이상 고르세요.');
   if (symbols.length > TARGET_MAX_SYMBOLS) throw new TargetInputError(`한 번에 최대 ${TARGET_MAX_SYMBOLS}종목입니다(종목당 Gemini 5호출).`);
   const bad = symbols.filter((s) => !SYMBOL_RE.test(s));
-  if (bad.length) throw new TargetInputError(`종목 코드 형식이 아닙니다: ${bad.join(', ')}`);
+  if (bad.length) throw new TargetInputError(`티커 형식이 아닙니다: ${bad.join(', ')}`);
   const num = (key: 'targetPct' | 'stopPct' | 'days', label: string) => {
     const v = Number(b[key]);
     const [lo, hi] = TARGET_LIMITS[key];

@@ -73,8 +73,8 @@ export function ResultCard({
         <button
           type="button"
           onClick={() => onDelete(record)}
-          aria-label="이 기록 지우기"
-          title="이 기록 지우기"
+          aria-label="이 결과 삭제"
+          title="이 결과 삭제"
           className="ml-auto rounded p-1 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-bearish"
         >
           <TrashIcon className="h-3.5 w-3.5" />
@@ -92,7 +92,7 @@ export function ResultCard({
 
       {record.base ? (
         <p className="text-text-secondary">
-          <b className="text-text-primary">과거 기준선</b> — 같은 조건으로 최근 1년 아무 날이나 샀다면 목표 먼저 {record.base.target}% · 손절 먼저{' '}
+          <b className="text-text-primary">과거 기준선</b> — 같은 조건으로 최근 1년 아무 날이나 매수했다면 목표 먼저 {record.base.target}% · 손절 먼저{' '}
           {record.base.stop}% · 기대값 {record.base.expectancy > 0 ? '+' : ''}
           {record.base.expectancy}%p <span className="text-text-muted">({record.base.samples}일 기준, 비용 반영)</span>
         </p>
@@ -220,7 +220,7 @@ export function TargetRefLine({ record, onMore }: { record: TargetAnalysisRecord
       <span className="text-bearish">{record.pStop}%</span>
       {record.base && <span className="text-text-muted"> (과거 평균 {record.base.target}%)</span>}
       <button type="button" onClick={onMore} className="ml-2 whitespace-nowrap text-accent hover:underline">
-        자세히
+        결과 보기
       </button>
     </p>
   );
@@ -229,14 +229,14 @@ export function TargetRefLine({ record, onMore }: { record: TargetAnalysisRecord
 export function useConfirmDelete(remove: (id: number) => Promise<void>) {
   return (record: TargetAnalysisRecord) =>
     modal.confirm({
-      title: '목표 도달 가능성 기록 지우기',
-      message: `${record.symbol} (${record.baseDate}, +${record.targetPct}%/−${record.stopPct}%/${record.days}일) 기록을 지웁니다. 되돌릴 수 없고 성적 집계에서도 빠집니다.`,
-      confirmText: '지우기',
+      title: '목표 수익 가능성 결과 삭제',
+      message: `${record.symbol} (${record.baseDate}, +${record.targetPct}%/−${record.stopPct}%/${record.days}일) 결과를 삭제합니다. 되돌릴 수 없고 성적 집계에서도 빠집니다.`,
+      confirmText: '삭제',
       danger: true,
       onConfirm: async () => {
         try {
           await remove(record.id);
-          toast.success('기록을 지웠습니다');
+          toast.success('삭제했습니다');
         } catch (e) {
           toast.error('삭제 실패', (e as Error).message);
         }
@@ -271,10 +271,10 @@ export function TargetHistorySection({
   );
   return (
     <div className="space-y-3">
-      {error && <p className="text-[13px] text-bearish">기록을 불러오지 못했습니다: {error}</p>}
+      {error && <p className="text-[13px] text-bearish">히스토리를 불러오지 못했습니다: {error}</p>}
       <section className="space-y-2">
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <h3 className="font-medium text-text-secondary">분석 기록 (모든 조건)</h3>
+          <h3 className="font-medium text-text-secondary">분석 히스토리 (모든 조건)</h3>
           <select value={symbolFilter} onChange={(e) => setSymbolFilter(e.target.value)} aria-label="종목" className="rounded border border-border bg-bg-tertiary px-2 py-0.5 text-[13px]">
             <option value="all">모든 종목</option>
             {symbols.map((s) => (
@@ -310,7 +310,7 @@ export function TargetHistorySection({
         {records === null && !error && <p className="text-[13px] text-text-muted">불러오는 중…</p>}
         {records && shown.length === 0 && (
           <p className="rounded-xl bg-bg-secondary p-6 text-center text-xs text-text-muted">
-            {records.length ? '조건에 맞는 기록이 없습니다.' : '아직 분석 기록이 없습니다. 위에서 종목을 골라 분석하세요.'}
+            {records.length ? '조건에 맞는 결과가 없습니다.' : '아직 분석 히스토리가 없습니다. 위에서 종목을 골라 분석하세요.'}
           </p>
         )}
         {shown.map((record) => (

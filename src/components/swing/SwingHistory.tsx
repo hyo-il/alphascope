@@ -37,12 +37,12 @@ function RecommendationHistory() {
   const { records: all, loading } = useSwingHistory(true);
   const [filter, setFilter] = useState<Filter>('all');
 
-  if (loading) return <p className="text-xs text-text-muted">이력을 불러오는 중…</p>;
+  if (loading) return <p className="text-xs text-text-muted">히스토리를 불러오는 중…</p>;
   if (!all.length) {
     return (
       <p className="text-xs text-text-muted">
-        아직 기록이 없습니다. 「지금 살 만한가」 에서 관심 종목을 점검하면 BUY 이상만
-        기록됩니다.
+        아직 히스토리가 없습니다. 「지금 살 만한가」 에서 관심 종목을 점검하면 BUY 이상만
+        저장됩니다.
       </p>
     );
   }
@@ -86,11 +86,11 @@ function RecommendationHistory() {
       </div>
 
       {!records.length ? (
-        <p className="text-xs text-text-muted">이 기준으로 기록된 추천이 없습니다.</p>
+        <p className="text-xs text-text-muted">이 기준으로 저장된 추천이 없습니다.</p>
       ) : (
       <>
       <p className="text-[13px] text-text-secondary">
-        기록된 추천 {records.length}건 · 체결 {triggered.length}건 · 결판 {closed.length}건 중 목표
+        저장된 추천 {records.length}건 · 체결 {triggered.length}건 · 결판 {closed.length}건 중 목표
         도달 {wins}건
         {closed.length ? ` (${Math.round((wins / closed.length) * 100)}%)` : ''} · 평균 수익률{' '}
         {avgReturn == null ? '—' : formatPercent(avgReturn)}
@@ -102,7 +102,7 @@ function RecommendationHistory() {
         <br />
         계획대로 1차에서 절반, 2차에서 나머지를 정리했다고 가정해 계산합니다. 눌림·돌파 대기 추천은
         조건이 오지 않으면 <span className="text-text-primary">미체결</span> 로 두고 승률 계산에서
-        뺍니다.
+        제외합니다.
       </p>
 
       <div className="overflow-x-auto">
