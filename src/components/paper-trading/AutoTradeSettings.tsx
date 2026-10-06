@@ -160,6 +160,8 @@ export default function AutoTradeSettings({
                   hardStopLossPercent={draft.hardStopLossPercent}
                   trailingStopEnabled={draft.trailingStopEnabled}
                   trailingStopPercent={draft.trailingStopPercent}
+                  accountId={strategy.accountId}
+                  leaveHint="이 창은 닫힙니다 — 저장하지 않은 값은 백테스트로만 넘어갑니다."
                 />
                 <button
                   type="button"

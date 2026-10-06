@@ -7,7 +7,7 @@ import { useGeminiStatus } from '../../hooks/useGemini';
 import { toast } from '../../store/uiStore';
 import { useStockNames } from '../../hooks/useStockNames';
 import { autoTradeView } from '../../utils/autoTradeStatus';
-import { explainNote, kstLabel, nextUsOpen, nowSentence, sortNotes } from '../../utils/autoTradeExplain';
+import { explainNote, kstLabel, nextUsOpen, nowSentence, sortNotes, strategyConditionLine } from '../../utils/autoTradeExplain';
 
 /**
  * 계좌 대시보드 상단의 자동매매 바.
@@ -105,6 +105,8 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
         </span>
 
         <span className="text-[13px] text-text-muted">종목 {strategy.symbols.length}개</span>
+        {/* 지금 조건 한 줄 (v2.38.0) — 문장은 `autoTradeExplain.strategyConditionLine` 한 곳(설정 창 요약·백테스트와 같은 말) */}
+        <span className="min-w-0 text-[13px] text-text-secondary">지금 조건: {strategyConditionLine(strategy)}</span>
 
         {/*
           켜져 있는데 못 도는 이유가 있으면 그것을 먼저 보여 준다.

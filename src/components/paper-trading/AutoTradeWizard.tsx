@@ -13,7 +13,7 @@ import { toast } from '../../store/uiStore';
 /**
  * 자동매매 **처음 켜기** 4단계 안내 (v2.32.0) — 계좌 → 방식 → 종목 → 확인.
  *
- * ⚠️ 새 화면 부품을 만들지 않았다 — 계좌 생성 `CreateAccountForm`, 방식 `ModePicker` + `RuleChoices`(10차 쉬운 선택지·과거 1년),
+ * ⚠️ 새 화면 부품을 만들지 않았다 — 계좌 생성 `CreateAccountForm`, 방식 `ModePicker` + `RuleChoices`(10차 쉬운 선택지 · v2.38.0 「지금 조건」 요약),
  * 종목 `TargetSymbolsEditor`, 숫자 `AutoTradeSettings` 를 그대로 쓴다(두 벌이면 갈라진다).
  * ⚠️ **새 기본값을 만들지 않는다** — 설정은 서버에서 그 계좌의 값(새 계좌면 `defaultStrategy()`)을 읽어 출발하고,
  * 확인 화면의 숫자도 **저장될 그 값**에서 읽는다(화면용 숫자를 따로 두지 않는다).
@@ -267,6 +267,8 @@ export default function AutoTradeWizard({
                   hardStopLossPercent={draft.hardStopLossPercent}
                   trailingStopEnabled={draft.trailingStopEnabled}
                   trailingStopPercent={draft.trailingStopPercent}
+                  accountId={accountId}
+                  leaveHint="이 안내 창은 닫히고, 아직 켜지 않은 설정은 저장되지 않습니다."
                 />
               )}
             </section>
