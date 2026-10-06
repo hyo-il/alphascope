@@ -47,3 +47,12 @@ export const RULE_CHOICES: RuleChoice[] = [
   },
 ];
 
+
+/** 규칙 값이 세 선택지 중 어느 것과 같은지 — 없으면 null(화면 「직접 설정」). 계좌 설정·백테스트가 같은 함수 */
+export function matchChoice(rule: RuleConfig): RuleChoice['id'] | null {
+  return (
+    RULE_CHOICES.find((c) =>
+      (Object.keys(c.rule) as (keyof RuleChoice['rule'])[]).every((k) => rule[k] === c.rule[k]),
+    )?.id ?? null
+  );
+}

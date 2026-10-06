@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Timeframe } from '../types/toss';
 import { MAX_COMPARE_SYMBOLS } from '../types/compare';
+import type { RuleConfig } from '../types/autoTrading';
 import { groupOf, NAV_GROUPS, normalizeTab, type NavGroupId, type NavPageId } from '../types/nav';
 
 /** 관심 목록 클릭 한 번의 결과 — 호출부가 안내 문구를 고른다 */
@@ -70,6 +71,22 @@ interface AppState {
   setCompareSlot: (index: number, symbol: string) => void;
   removeCompareSlot: (index: number) => void;
   clearCompareSymbols: () => void;
+  /**
+   * 계좌 → 백테스트로 넘기는 **일회성** 값 (v2.38.0, [백테스트에서 시험하기]). 백테스트 화면이 읽어 ①② 를 채우고 곧바로 비운다.
+   * 주소에는 넣지 않는다(종목·조건이 주소에 남으면 뒤로 가기마다 덮어쓴다).
+   */
+  backtestPreset: BacktestPreset | null;
+  setBacktestPreset: (preset: BacktestPreset | null) => void;
+}
+
+export interface BacktestPreset {
+  /** 안내 줄에 쓰는 출처 — 계좌 이름 */
+  from: string;
+  symbols: string[];
+  rule: RuleConfig;
+  hardStopLossPercent: number;
+  trailingStopEnabled: boolean;
+  trailingStopPercent: number;
 }
 
 const normalize = (symbol: string) => symbol.trim().toUpperCase();
@@ -80,6 +97,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   isMock: false,
   compareSlots: emptySlots(),
   nav: { group: 'chart', page: 'chart', sub: null },
+  backtestPreset: null,
+  setBacktestPreset: (backtestPreset) => set({ backtestPreset }),
   setPage: (page, sub) => {
     // 탭을 말하지 않고 같은 화면을 다시 부르면(사이드 메뉴 재클릭) 보던 탭을 지킨다 — v2.27.0 까지 화면 state 가 그랬다
     const keep = sub === undefined && get().nav.page === page ? get().nav.sub : sub;

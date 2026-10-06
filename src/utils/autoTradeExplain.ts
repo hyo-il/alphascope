@@ -1,4 +1,5 @@
-import type { AccountStrategy, AccountStrategyStatus, DecisionNote } from '../types/autoTrading';
+import { nearestEngineMa, type AccountStrategy, type AccountStrategyStatus, type DecisionNote, type RuleConfig } from '../types/autoTrading';
+import { RULE_CHOICES, matchChoice } from '../types/ruleChoices';
 import type { AutoTradeView } from './autoTradeStatus';
 
 /**
@@ -159,4 +160,51 @@ export function nowSentence(
     extra,
     fix: false,
   };
+}
+
+// ── 「지금 조건」 한 줄 (v2.38.0) — 계좌 자동매매 바·설정 창 요약·백테스트 결과 머리줄이 같은 문장을 쓴다 ──
+
+export interface RuleConditions {
+  rule: RuleConfig;
+  hardStopLossPercent: number;
+  trailingStopEnabled: boolean;
+  trailingStopPercent: number;
+}
+
+/** 방법 이름 — 세 쉬운 선택지 중 같은 것이 있으면 그 이름(「둘 다 (지금 기본값)」 은 괄호를 뗀다), 없으면 「직접 설정」 */
+export function ruleMethodName(rule: RuleConfig): string {
+  const id = matchChoice(rule);
+  const title = RULE_CHOICES.find((c) => c.id === id)?.title;
+  return title ? title.replace(/\s*\(.*\)$/, '') : '직접 설정';
+}
+
+/** 엔진이 실제로 쓰는 이동평균 일수와 다를 때의 안내 — 예) "단기 이동평균 13일은 20일로 계산됩니다" (같으면 빈 배열) */
+export function maRoundingNotes(rule: Pick<RuleConfig, 'maShort' | 'maLong'>): string[] {
+  const out: string[] = [];
+  for (const [label, v] of [['단기', rule.maShort], ['장기', rule.maLong]] as const) {
+    const used = nearestEngineMa(v);
+    if (used !== v) out.push(`${label} 이동평균 ${v}일은 ${used}일로 계산됩니다`);
+  }
+  return out;
+}
+
+/** 규칙형 조건 한 줄 — "추세 따라가기(5·20일) · 손절 7% · 트레일링 끔". 이동평균은 **엔진이 실제 쓰는 일수** */
+export function ruleConditionLine(c: RuleConditions): string {
+  const r = c.rule;
+  const parts: string[] = [];
+  const ma = r.useMaCross ? `${nearestEngineMa(r.maShort)}·${nearestEngineMa(r.maLong)}일` : '';
+  const rsi = r.useRsi ? `RSI ${r.rsiBuyBelow}/${r.rsiSellAbove}` : '';
+  parts.push(`${ruleMethodName(r)}(${[ma, rsi].filter(Boolean).join(' · ') || '조건 없음'})`);
+  parts.push(`손절 ${c.hardStopLossPercent}%`);
+  parts.push(c.trailingStopEnabled ? `트레일링 ${c.trailingStopPercent}%` : '트레일링 끔');
+  return parts.join(' · ');
+}
+
+/** 계좌의 「지금 조건」 한 줄 — 규칙형이면 위 문장, AI형이면 매수 신호·신뢰도·손절 (지금 설정 값에서만) */
+export function strategyConditionLine(s: AccountStrategy): string {
+  if (s.mode === 'rule') return `규칙형 · ${ruleConditionLine(s)}`;
+  const buy = s.buySignal === 'STRONG_BUY' ? 'STRONG_BUY' : 'BUY 이상';
+  return `AI형 · 매수 ${buy} 신뢰도 ${Math.round(s.buyMinConfidence * 100)}% · 손절 ${s.hardStopLossPercent}% · ${
+    s.trailingStopEnabled ? `트레일링 ${s.trailingStopPercent}%` : '트레일링 끔'
+  }`;
 }

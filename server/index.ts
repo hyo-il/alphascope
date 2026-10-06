@@ -1580,12 +1580,13 @@ app.get('/api/backtest/universe', async (_req, res) => {
   try {
     const t = await researchTargets();
     const watch = watchlistSymbols();
-    const info = namesAndSectors(watch);
+    // 이름은 카탈로그의 한글 이름이 먼저(목록 안 검색이 한글·초성으로 찾는다), 없으면 유니버스 이름
+    const info = namesAndSectors([...new Set([...watch, ...t.included.map((x) => x.symbol)])]);
     res.json({
       asOf: t.asOf,
       sectors: BACKTEST_SECTORS.map((sector) => ({
         sector,
-        symbols: t.included.filter((x) => x.sector === sector).map((x) => ({ symbol: x.symbol, name: x.name })),
+        symbols: t.included.filter((x) => x.sector === sector).map((x) => ({ symbol: x.symbol, name: info.get(x.symbol)?.name ?? x.name })),
       })),
       watchlist: watch.map((symbol) => ({ symbol, name: info.get(symbol)?.name ?? null, sector: info.get(symbol)?.sector ?? null })),
     });

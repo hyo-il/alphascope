@@ -13,16 +13,8 @@ import { useAppStore } from '../../store/appStore';
  */
 
 // 세 방법의 정의는 `types/ruleChoices.ts` 한 곳 (v2.37.0 — 서버 백테스트(`autoTrading/ruleResearch.ts`)도 같은 값을 쓴다)
-export { RULE_CHOICES, type RuleChoice } from '../../types/ruleChoices';
-import { RULE_CHOICES, type RuleChoice } from '../../types/ruleChoices';
-
-export function matchChoice(rule: RuleConfig): RuleChoice['id'] | null {
-  return (
-    RULE_CHOICES.find((c) =>
-      (Object.keys(c.rule) as (keyof RuleChoice['rule'])[]).every((k) => rule[k] === c.rule[k]),
-    )?.id ?? null
-  );
-}
+export { RULE_CHOICES, matchChoice, type RuleChoice } from '../../types/ruleChoices';
+import { RULE_CHOICES, matchChoice } from '../../types/ruleChoices';
 
 interface SymbolRow {
   symbol: string;
