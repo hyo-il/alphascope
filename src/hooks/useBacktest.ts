@@ -7,6 +7,7 @@ import type {
   BacktestListItem,
   BacktestProgress,
   BacktestUniverse,
+  ConditionLabel,
 } from '../types/backtest';
 
 /**
@@ -140,8 +141,9 @@ export function useBacktest() {
   return { reports, selectedId, setSelectedId, detail, detailLoading, progress, error, engineDown, finished, start, remove, explain };
 }
 
-export async function fetchAdvice(input: BacktestInput): Promise<BacktestAdvice> {
-  return (await backtestJson<{ advice: BacktestAdvice }>('/api/backtest/advice', post(input))).advice;
+/** 「AI에게 조건 물어보기」 — `label` = 지금 고친 조건 카드(그 조건을 「지금 화면의 조건」 으로 보낸다) */
+export async function fetchAdvice(input: BacktestInput, label: ConditionLabel): Promise<BacktestAdvice> {
+  return (await backtestJson<{ advice: BacktestAdvice }>('/api/backtest/advice', post({ ...input, label }))).advice;
 }
 
 /** ① 종목 묶음 — 화면을 열 때 한 번 */

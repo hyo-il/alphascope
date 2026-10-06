@@ -11,7 +11,7 @@ import { modal, toast } from '../../store/uiStore';
 import { useAppStore } from '../../store/appStore';
 import { stockNameOf } from '../../utils/stockNames';
 import { maRoundingNotes, ruleConditionLine } from '../../utils/autoTradeExplain';
-import { backtestInputErrors } from '../../utils/backtestInput';
+import { backtestInputError } from '../../utils/backtestInput';
 import { nearestEngineMa } from '../../types/autoTrading';
 import { isCustomReport, isCustomSummary, type BacktestListItem } from '../../types/backtest';
 import SymbolPicker from './SymbolPicker';
@@ -53,7 +53,7 @@ function HistoryRow({ item, selected, onOpen, onRetry, onRemove }: { item: Backt
                 {s.symbols}종목 · {s.years}년
               </span>
               <span className="tabular-nums text-text-secondary">
-                이 방법 {pct(s.rule)} vs 들고 있기 {pct(s.hold)}
+                {s.input.conditions.length > 1 ? `조건 ${s.input.conditions.length}개 · 조건 A` : '이 방법'} {pct(s.rule)} vs 들고 있기 {pct(s.hold)}
               </span>
             </>
           ) : (
@@ -64,7 +64,9 @@ function HistoryRow({ item, selected, onOpen, onRetry, onRemove }: { item: Backt
           )}
         </span>
         <span className="mt-0.5 block text-text-muted">
-          {isCustomSummary(s) ? ruleConditionLine(s.input) : s.methods.map((m) => `${m.title} ${VERDICT_LABEL[m.verdict]}`).join(' · ')}
+          {isCustomSummary(s)
+            ? s.input.conditions.map((c) => (s.input.conditions.length > 1 ? `${c.label}: ${ruleConditionLine(c)}` : ruleConditionLine(c))).join(' / ')
+            : s.methods.map((m) => `${m.title} ${VERDICT_LABEL[m.verdict]}`).join(' · ')}
         </span>
       </button>
       {onRetry && (
@@ -89,7 +91,7 @@ export default function BacktestView() {
   const bt = useBacktest();
   const uni = useBacktestUniverse();
   const gemini = useGeminiStatus();
-  const { draft, setDraft, patch, toggle, addMany, removeMany } = useBacktestDraft();
+  const { draft, setDraft, patch, patchCondition, addCondition, removeCondition, toggle, addMany, removeMany } = useBacktestDraft();
   const preset = useAppStore((s) => s.backtestPreset);
   const setPreset = useAppStore((s) => s.setBacktestPreset);
   const [loadedNote, setLoadedNote] = useState<string[] | null>(null);
@@ -104,13 +106,22 @@ export default function BacktestView() {
   useEffect(() => {
     if (!preset) return;
     const notes = maRoundingNotes(preset.rule).map((n) => `이 계좌의 ${n} — 엔진이 5·20·60·120일만 계산합니다`);
+    // 계좌 조건은 조건 A 하나로(익절 포함) — 비교하던 B·C 는 지운다
     setDraft((d) => ({
       ...d,
       symbols: [...preset.symbols],
-      rule: { ...preset.rule, maShort: nearestEngineMa(preset.rule.maShort), maLong: nearestEngineMa(preset.rule.maLong) },
-      hardStopLossPercent: preset.hardStopLossPercent,
-      trailingStopEnabled: preset.trailingStopEnabled,
-      trailingStopPercent: preset.trailingStopPercent,
+      active: 'A',
+      conditions: [
+        {
+          label: 'A',
+          rule: { ...preset.rule, maShort: nearestEngineMa(preset.rule.maShort), maLong: nearestEngineMa(preset.rule.maLong) },
+          hardStopLossPercent: preset.hardStopLossPercent,
+          trailingStopEnabled: preset.trailingStopEnabled,
+          trailingStopPercent: preset.trailingStopPercent,
+          takeProfitEnabled: preset.takeProfitEnabled,
+          takeProfitPercent: preset.takeProfitPercent,
+        },
+      ],
     }));
     setLoadedNote([`${preset.from}의 종목·조건을 불러왔습니다.`, ...notes]);
     setPreset(null);
@@ -148,8 +159,8 @@ export default function BacktestView() {
   }, [bt.detail]);
 
   const input = draftInput(draft);
-  const errors = backtestInputErrors(input);
-  const firstError = Object.values(errors)[0] ?? null;
+  // 종목 21개 이상 + 조건 2개 이상이면 여기서 막고 이유를 보인다(조용히 자르지 않는다)
+  const firstError = backtestInputError(input);
 
   const run = async (force = false, override = input) => {
     setStarting(true);
@@ -187,7 +198,8 @@ export default function BacktestView() {
   const retry = (item: BacktestListItem) => {
     if (!isCustomSummary(item.summary)) return;
     const i = item.summary.input;
-    setDraft((d) => ({ ...d, symbols: [...i.symbols], rule: { ...i.rule }, hardStopLossPercent: i.hardStopLossPercent, trailingStopEnabled: i.trailingStopEnabled, trailingStopPercent: i.trailingStopPercent, years: i.years }));
+    // 조건 전부를 채운다(20차 기록은 조건 A 하나로 읽힌다)
+    setDraft((d) => ({ ...d, symbols: [...i.symbols], years: i.years, conditions: i.conditions.map((c) => ({ ...c, rule: { ...c.rule } })), active: 'A' }));
     setLoadedNote([`${when(item.createdAt)} 시험의 종목·조건을 채웠습니다.`]);
     document.getElementById('backtest-top')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -241,7 +253,14 @@ export default function BacktestView() {
           </Panel>
         )}
 
-        <ConditionForm draft={draft} patch={patch} gemini={gemini} />
+        <ConditionForm
+          draft={draft}
+          patch={patch}
+          patchCondition={patchCondition}
+          addCondition={addCondition}
+          removeCondition={removeCondition}
+          gemini={gemini}
+        />
 
         {/* ③ 실행 */}
         <Panel pad="sm" className="space-y-2">
@@ -252,7 +271,7 @@ export default function BacktestView() {
             {!running && firstError && <span className="min-w-0 text-[13px] text-text-muted">{firstError}</span>}
             {!running && !firstError && (
               <span className="min-w-0 text-[13px] text-text-muted">
-                {draft.symbols.length}종목 · {ruleConditionLine(input)} · 기간 {draft.years}년
+                {draft.symbols.length}종목 · {input.conditions.length > 1 ? `조건 ${input.conditions.length}개 비교` : ruleConditionLine(input.conditions[0])} · 기간 {draft.years}년
               </span>
             )}
           </div>
@@ -292,7 +311,7 @@ export default function BacktestView() {
                 onExplain={bt.explain}
                 onRerun={() => isCustomReport(d.detail) && void run(true, d.detail.input)}
                 rerunBusy={running || starting}
-                applySlot={<ApplyRuleButton conditions={d.detail.input} />}
+                applySlot={<ApplyRuleButton conditions={d.detail.input.conditions[0]} />}
               />
             ) : (
               <FixedResult r={d.detail} />
