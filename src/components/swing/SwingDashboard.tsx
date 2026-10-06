@@ -23,6 +23,7 @@ import {
 } from '../../types/strategyProfile';
 import { toast } from '../../store/uiStore';
 import SavedRecommendations from './SavedRecommendations';
+import { SkeletonCards } from '../common/SkeletonLoader';
 import StockName from '../common/StockName';
 import { GRADE_STYLE } from './gradeStyle';
 import type { SwingGrade, SwingRecommendation } from '../../types/swing';
@@ -68,7 +69,7 @@ export default function SwingDashboard({
   onAnalyze: (symbol: string) => void;
 }) {
   const [tab, setTab] = usePageTab('swing');
-  const { result, saved, loading, error, analyze } = useSwingAnalysis(watchlist);
+  const { result, saved, savedLoading, loading, error, analyze } = useSwingAnalysis(watchlist);
   const paperBuy = usePaperQuickBuy();
   const profile = useStrategyProfile();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -266,7 +267,8 @@ export default function SwingDashboard({
               이번 세션에서 아직 돌리지 않았어도 저장된 마지막 추천을 보여 준다 —
               화면을 오갈 때마다 빈 화면에서 다시 시작하지 않게.
             */}
-            {!result && !loading && (
+            {!result && !loading && savedLoading && <SkeletonCards count={3} />}
+            {!result && !loading && !savedLoading && (
               <SavedRecommendations
                 records={saved.records}
                 analyzedAt={saved.analyzedAt}
@@ -275,7 +277,7 @@ export default function SwingDashboard({
               />
             )}
 
-            {!result && !loading && !saved.records.length && watchlist.length > 0 && (
+            {!result && !loading && !savedLoading && !saved.records.length && watchlist.length > 0 && (
               <p className="rounded-xl bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
                 「{checkLabel}」 를 누르면 관심 종목을 5가지 조건으로 채점합니다.
               </p>

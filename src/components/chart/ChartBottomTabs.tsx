@@ -65,6 +65,8 @@ export interface ChartBottomTabsProps {
   symbol: string;
   timeframe: Timeframe;
   candles: Candle[];
+  /** 캔들을 받는 중 — 차트 지표 탭이 "캔들이 없습니다" 대신 불러오는 중을 보인다 (v2.38.0) */
+  candlesLoading?: boolean;
   currentPrice: number | null;
   indicators: IndicatorSeries | null;
   toggles: IndicatorToggles;
@@ -198,6 +200,7 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
             <IndicatorSummaryPanel
               symbol={props.symbol}
               candles={props.candles}
+              loading={props.candlesLoading}
               timeframe={props.timeframe}
               indicators={props.indicators}
               currentPrice={props.currentPrice}

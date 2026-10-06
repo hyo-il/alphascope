@@ -254,6 +254,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           symbol={symbol}
           timeframe={timeframe}
           candles={candles}
+          candlesLoading={loading}
           currentPrice={displayPrice}
           indicators={indicators}
           toggles={toggles}

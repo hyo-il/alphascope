@@ -2,6 +2,7 @@ import { ICON_SM } from '../ui/icon';
 import { CircleCheck, TriangleAlert } from 'lucide-react';
 import WarnIcon from '../ui/WarnIcon';
 import { useCallback, useEffect, useState } from 'react';
+import { InlineSpinner } from '../common/LoadingOverlay';
 // 키 문자열을 여기에 다시 적지 않는다 — 옛 키만 지워 '비우기' 가 동작하지 않던 원인이다.
 import { RECENT_KEY, WATCHLIST_KEYS } from '../../hooks/useWatchlist';
 import { CHANGELOG } from '../../data/changelog';
@@ -34,21 +35,33 @@ interface Health {
 /** 설정 · 상태 확인 화면 — 무엇이 연결돼 있고 무엇이 저장돼 있는지 한눈에 보여 준다. */
 export default function Settings({ isMock, engineDown, section }: Props) {
   const [health, setHealth] = useState<Health | null>(null);
+  /**
+   * 상태 확인이 끝났는지 (v2.38.0 로딩 점검) — 응답 전에 "연결 실패·중지됨·응답 없음" 을 그리면
+   * 멀쩡한 서버가 고장처럼 보인다. 확인 중에는 줄마다 「확인 중…」 만.
+   */
+  const [checking, setChecking] = useState(true);
   const [cleared, setCleared] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/health')
       .then((res) => res.json())
       .then(setHealth)
-      .catch(() => setHealth(null));
+      .catch(() => setHealth(null))
+      .finally(() => setChecking(false));
   }, []);
 
   const row = (label: string, ok: boolean, detail: string) => (
     <div className="flex items-center justify-between border-b border-border/60 py-2">
       <span className="text-sm text-text-secondary">{label}</span>
-      <span className={`inline-flex items-center gap-1 text-xs ${ok ? 'text-bullish' : 'text-warning'}`}>
-        {ok ? <CircleCheck {...ICON_SM} /> : <TriangleAlert {...ICON_SM} />} {detail}
-      </span>
+      {checking ? (
+        <span className="inline-flex items-center gap-1.5 text-xs text-text-muted">
+          <InlineSpinner /> 확인 중…
+        </span>
+      ) : (
+        <span className={`inline-flex items-center gap-1 text-xs ${ok ? 'text-bullish' : 'text-warning'}`}>
+          {ok ? <CircleCheck {...ICON_SM} /> : <TriangleAlert {...ICON_SM} />} {detail}
+        </span>
+      )}
     </div>
   );
 

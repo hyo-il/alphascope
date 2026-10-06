@@ -26,13 +26,16 @@ export function useSwingAnalysis(symbols: string[]) {
     analyzedAt: null,
     records: [],
   });
+  /** 저장된 추천을 받는 중 (v2.38.0 로딩 점검) — 받기 전에 "누르면 채점합니다" 안내를 띄우지 않는다 */
+  const [savedLoading, setSavedLoading] = useState(true);
 
   useEffect(() => {
     void json<{ analyzedAt: string | null; records: SwingRecord[] }>(
       '/api/swing/recommendations',
     )
       .then(setSaved)
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setSavedLoading(false));
   }, []);
 
   const analyze = useCallback(async () => {
@@ -52,7 +55,7 @@ export function useSwingAnalysis(symbols: string[]) {
     }
   }, [symbols]);
 
-  return { result, saved, loading, error, analyze };
+  return { result, saved, savedLoading, loading, error, analyze };
 }
 
 export function useSwingEvaluation() {

@@ -2,6 +2,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { IconButton, InfoTip } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { InlineSpinner } from '../common/LoadingOverlay';
+import { SkeletonList } from '../common/SkeletonLoader';
 import StockName from '../common/StockName';
 import type { CalendarEvent, CalendarEventType, CalendarResponse, CalendarScope } from '../../types/calendar';
 
@@ -47,6 +49,8 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
   });
   const [data, setData] = useState<CalendarResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** 받는 중 — 처음에는 "일정이 없습니다" 대신 불러오는 중을, 달을 바꿀 때는 제목 옆 작은 스피너만 (v2.38.0 로딩 점검) */
+  const [loading, setLoading] = useState(true);
   const sequence = useRef(0);
 
   // 달력 한 장 + 이번 주가 다음 달로 넘어가도 보이게 앞뒤로 조금 넉넉히 받는다
@@ -59,6 +63,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
   useEffect(() => {
     const mine = ++sequence.current;
     setError(null);
+    setLoading(true);
     fetch(`/api/calendar?from=${range.from}&to=${range.to}&scope=${scope}`)
       .then(async (r) => {
         const payload = await r.json().catch(() => ({}));
@@ -66,8 +71,10 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
         return payload as CalendarResponse;
       })
       .then((d) => mine === sequence.current && setData(d))
-      .catch((e: Error) => mine === sequence.current && setError(e.message));
+      .catch((e: Error) => mine === sequence.current && setError(e.message))
+      .finally(() => mine === sequence.current && setLoading(false));
   }, [range, scope]);
+  const firstLoad = loading && !data;
 
   const holidaysAvailable = Boolean(data?.meta.holidays.US || data?.meta.holidays.KR);
   const visible = (data?.events ?? []).filter((e) => filters[e.type] && (e.type !== 'holiday' || holidaysAvailable));
@@ -149,9 +156,17 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
         {/* 이번 주 요약 한 줄 */}
         <p className="rounded-xl bg-bg-secondary px-3 py-2 text-[13px] text-text-secondary">
           <span className="text-text-muted">이번 주({shortDate(weekStart)}~{shortDate(weekEnd)}) · </span>
-          {thisWeek.length
-            ? thisWeek.map((e) => `${eventText(e)} ${shortDate(e.date)}`).join(' · ')
-            : '고른 종류의 일정이 없습니다'}
+          {firstLoad ? (
+            <>
+              <InlineSpinner className="mr-1 align-[-2px]" />
+              일정을 불러오는 중…
+            </>
+          ) : thisWeek.length ? (
+            thisWeek.map((e) => `${eventText(e)} ${shortDate(e.date)}`).join(' · ')
+          ) : (
+            '고른 종류의 일정이 없습니다'
+          )}
+          {loading && !firstLoad && <InlineSpinner className="ml-2 align-[-2px]" />}
         </p>
 
         {data?.meta.fomcStale && (
@@ -217,7 +232,9 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
               {Number(selected.slice(5, 7))}월 {Number(selected.slice(8, 10))}일
               {selected === today && <span className="ml-1 text-[13px] font-normal text-text-secondary">오늘</span>}
             </p>
-            {dayEvents.length === 0 ? (
+            {firstLoad ? (
+              <SkeletonList count={3} />
+            ) : dayEvents.length === 0 ? (
               <p className="text-[13px] text-text-muted">이날 일정이 없습니다.</p>
             ) : (
               <ul className="space-y-1.5">

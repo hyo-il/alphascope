@@ -54,15 +54,17 @@ export default function IndicatorSummaryPanel({
   indicators,
   currentPrice,
   symbol = '',
+  loading = false,
 }: {
   symbol?: string;
+  loading?: boolean;
   candles: Candle[];
   timeframe: Timeframe;
   indicators: IndicatorSeries | null;
   currentPrice: number | null;
 }) {
   const summary = summarize(candles);
-  if (!summary) return <p className="p-3 text-xs text-text-muted">캔들이 없습니다.</p>;
+  if (!summary) return <p className="p-3 text-xs text-text-muted">{loading ? '캔들을 불러오는 중…' : '캔들이 없습니다.'}</p>;
 
   const price = currentPrice ?? summary.price;
   // 장중에는 마지막 봉이 미완성이라 거래량이 평균의 몇 % 로 찍힌다 — 완성 봉 기준으로 본다.

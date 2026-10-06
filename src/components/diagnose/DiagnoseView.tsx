@@ -1,4 +1,5 @@
 import WarnIcon from '../ui/WarnIcon';
+import { SkeletonCards } from '../common/SkeletonLoader';
 import { VERDICT_ICON } from '../ui/statusIcons';
 import { ICON_SM } from '../ui/icon';
 import { useId, useState, type ReactNode } from 'react';
@@ -666,6 +667,9 @@ export default function DiagnoseView() {
             {runError ?? listError}
           </p>
         )}
+
+        {/* 목록을 받는 중 (v2.38.0 로딩 점검) — 예전에는 받을 때까지 이 자리가 비어 있었다 */}
+        {loading && !reports.length && <SkeletonCards count={4} />}
 
         {!loading && !reports.length && !running && (
           <p className="rounded-xl bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">

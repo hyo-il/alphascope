@@ -108,6 +108,8 @@ function SingleSymbolGemini({ symbol }: { symbol: string }) {
   const [offReason, setOffReason] = useState<string | null>(null);
   const [model, setModel] = useState<string>('');
   const [latest, setLatest] = useState<GeminiAnalysis | null>(null);
+  /** 최근 결과를 받았는지 (v2.38.0 로딩 점검) — 받기 전에 "기록이 아직 없습니다" 를 띄우지 않는다 */
+  const [latestLoaded, setLatestLoaded] = useState(false);
   const [running, setRunning] = useState(false);
 
   const loadLatest = useCallback(async () => {
@@ -120,11 +122,15 @@ function SingleSymbolGemini({ symbol }: { symbol: string }) {
       setLatest(rows[0] ?? null);
     } catch {
       // 최근 결과는 없어도 실행에는 지장이 없다.
+    } finally {
+      setLatestLoaded(true);
     }
   }, [symbol]);
 
   useEffect(() => {
     let cancelled = false;
+    setLatest(null);
+    setLatestLoaded(false);
     void fetch('/api/gemini/status')
       .then((r) => r.json())
       .then((data: { enabled?: boolean; model?: string; reason?: string | null }) => {
@@ -205,6 +211,8 @@ function SingleSymbolGemini({ symbol }: { symbol: string }) {
           </span>
           {latest.summary && <span className="ml-1 text-text-muted">"{latest.summary}"</span>}
         </p>
+      ) : !latestLoaded ? (
+        <p className="text-text-muted">최근 결과를 불러오는 중…</p>
       ) : (
         <p className="text-text-muted">이 종목의 분석 기록이 아직 없습니다.</p>
       )}

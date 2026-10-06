@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { SkeletonList } from '../common/SkeletonLoader';
 import { analysisModeLabel } from '../../types/analysis';
 import type { Timeframe } from '../../types/toss';
 import { formatUsd } from '../../utils/formatters';
@@ -82,6 +83,8 @@ export default function AnalysisHistory({
   prompt,
 }: Props) {
   const [records, setRecords] = useState<AnalysisRecord[]>([]);
+  /** 처음 받는 중 (v2.38.0 로딩 점검) — 받기 전에 "저장된 분석이 없습니다" 를 띄우지 않는다 */
+  const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState('');
   const [verdict, setVerdict] = useState('neutral');
   const [confidence, setConfidence] = useState('medium');
@@ -95,6 +98,7 @@ export default function AnalysisHistory({
     // ⚠️ 불러오기 실패를 "기록 없음" 으로 보이지 않는다 (v2.34.1) — 목록은 그대로 두고 알린다
     const res = await fetch(url).catch(() => null);
     const data = (await res?.json().catch(() => ({}))) as { analyses?: AnalysisRecord[]; error?: string } | undefined;
+    setLoaded(true);
     if (!res?.ok) {
       toast.error('분석 기록을 불러오지 못했습니다', data?.error ?? (res ? `요청 실패 (${res.status})` : '서버에 연결하지 못했습니다'));
       return;
@@ -231,7 +235,8 @@ export default function AnalysisHistory({
         </div>
 
         <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
-          {records.length === 0 && (
+          {!loaded && <SkeletonList count={3} />}
+          {loaded && records.length === 0 && (
             <p className="py-6 text-center text-xs text-text-muted">저장된 분석이 없습니다.</p>
           )}
 
