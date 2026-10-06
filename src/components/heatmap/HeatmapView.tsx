@@ -181,8 +181,8 @@ const BINS: Record<HeatmapPeriod, [number, number, number, number]> = {
 };
 /** 불투명 단계색 — `index.css` 의 heat-* 토큰(앱 bullish/bearish 에서 섞은 값, v2.27.0) */
 const SHADES = {
-  up: ['bg-heat-up-1', 'bg-heat-up-2', 'bg-heat-up-3', 'bg-heat-up-4'],
-  down: ['bg-heat-down-1', 'bg-heat-down-2', 'bg-heat-down-3', 'bg-heat-down-4'],
+  up: ['bg-heat-up-0', 'bg-heat-up-1', 'bg-heat-up-2', 'bg-heat-up-3', 'bg-heat-up-4'],
+  down: ['bg-heat-down-0', 'bg-heat-down-1', 'bg-heat-down-2', 'bg-heat-down-3', 'bg-heat-down-4'],
 };
 
 /**
@@ -191,16 +191,20 @@ const SHADES = {
  */
 const TILE_TEXT_SHADOW = '0 0 2px rgb(0 0 0 / 0.9), 0 1px 1px rgb(0 0 0 / 0.7)';
 
+/**
+ * 칸 색 (v2.39.0) — 회색은 **화면에 보이는 값이 0.00%(소수 둘째 자리 반올림 결과 0)일 때와 값이 없을 때만**.
+ * 0 초과 ~ 첫 구간 미만은 옅은 0단계 색 — 예전에는 1일 ±0.5% 미만이 모두 회색이라 조금 오른 종목이 "변화 없음" 으로 보였다.
+ */
 function colorOf(change: number | null, period: HeatmapPeriod): string {
-  if (change == null) return 'bg-heat-flat';
+  if (change == null || Math.round(Math.abs(change) * 100) === 0) return 'bg-heat-flat';
   const [b0, b1, b2, b3] = BINS[period];
   const a = Math.abs(change);
-  if (a < b0) return 'bg-heat-flat';
   const shades = change > 0 ? SHADES.up : SHADES.down;
-  if (a < b1) return shades[0];
-  if (a < b2) return shades[1];
-  if (a < b3) return shades[2];
-  return shades[3];
+  if (a < b0) return shades[0];
+  if (a < b1) return shades[1];
+  if (a < b2) return shades[2];
+  if (a < b3) return shades[3];
+  return shades[4];
 }
 
 /** 칸 글자 — 미국은 티커, 국내는 이름(6자리 코드로는 알아볼 수 없다. 이름을 못 받았으면 코드) */
@@ -349,7 +353,14 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   const best = data?.sectors[0];
   const worst = data && data.sectors.length > 1 ? data.sectors[data.sectors.length - 1] : undefined;
   const bins = BINS[period];
-  const legend = [...[...bins].reverse().map((b) => -b), 0, ...bins];
+  /** 범례 — 회색 「0」 양옆에 0단계(0~±첫 구간)를 한 칸씩 (v2.39.0) */
+  const legend: { key: string; text: string; cls: string; title: string }[] = [
+    ...[...bins].reverse().map((b) => ({ key: `-${b}`, text: `${-b}`, cls: colorOf(-b - 0.01, period), title: `−${b}% 이하 구간` })),
+    { key: '-0', text: '−0~', cls: colorOf(-0.01, period), title: `0 ~ −${bins[0]}%` },
+    { key: '0', text: '0', cls: colorOf(0, period), title: '0.00%(변화 없음)' },
+    { key: '+0', text: '+0~', cls: colorOf(0.01, period), title: `0 ~ +${bins[0]}%` },
+    ...bins.map((b) => ({ key: `+${b}`, text: `+${b}`, cls: colorOf(b + 0.01, period), title: `+${b}% 이상 구간` })),
+  ];
 
   /** 지도 읽는 법 — 넓으면 지도 아래 줄 오른쪽에 글자로, 좁으면 ⓘ 툴팁 (v2.30.0). 고정 문구는 섹터 순위 아래에 늘 글자로 있다 */
   const guide = `색은 ${period === '1d' ? '전 거래일 종가 대비 등락' : `최근 종가 ÷ ${periodInfo.bars}거래일 전 종가`}입니다.${
@@ -546,14 +557,15 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
       {/* 지도 아래 한 줄 (v2.30.0 — 예전에는 범례 줄 + 안내 문구 줄 두 줄): 범례 · 대상·기준 시각 · (제곱근 안내) · 읽는 법 */}
       <div className="mt-1 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
   {/* 색 범례 — 기간마다 구간이 다르다. v2.29.0 에 머리줄에서 지도 아래로(1280 폭에서 머리줄이 두 줄이 됐다) */}
-      <span className="flex items-center gap-0.5 text-[13px] text-text-muted" aria-label={`색 구간 ±${bins.join('·')}%`}>
+      <span className="flex items-center gap-0.5 text-[13px] text-text-muted" aria-label={`색 구간: 0% 회색, 0~±${bins[0]}% 옅은 색, ±${bins.join('·')}%`}>
         {legend.map((v) => (
           <span
-            key={v}
+            key={v.key}
+            title={v.title}
             style={{ textShadow: TILE_TEXT_SHADOW }}
-            className={`flex h-4 w-8 items-center justify-center text-text-primary ${colorOf(v === 0 ? 0 : v > 0 ? v + 0.01 : v - 0.01, period)}`}
+            className={`flex h-4 w-8 items-center justify-center text-text-primary ${v.cls}`}
           >
-            {v > 0 ? `+${v}` : v}
+            {v.text}
           </span>
         ))}
         <span className="ml-0.5">%</span>

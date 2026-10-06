@@ -49,6 +49,9 @@
    * heat-flat 은 칸 바탕(bg-secondary)보다 밝아 "흐름 없음" 칸이 빈자리와 구분된다. 상승 초록·하락 빨강 — 호가창의 국내 관례는 쓰지 않는다.
    */
   --color-heat-flat: color-mix(in oklab, var(--color-text-muted) 35%, var(--color-bg-secondary));
+  /* 0단계 (v2.39.0) — 0 초과 ~ 첫 구간 미만. 회색은 화면 값이 0.00% 일 때와 값이 없을 때만. 15% 는 상승 쪽이 회색과 구분이 약해 20% */
+  --color-heat-up-0: color-mix(in oklab, var(--color-bullish) 20%, var(--color-heat-flat));
+  --color-heat-down-0: color-mix(in oklab, var(--color-bearish) 20%, var(--color-heat-flat));
   --color-heat-up-1: color-mix(in oklab, var(--color-bullish) 30%, var(--color-heat-flat));
   --color-heat-up-2: color-mix(in oklab, var(--color-bullish) 55%, var(--color-heat-flat));
   --color-heat-up-3: color-mix(in oklab, var(--color-bullish) 78%, var(--color-heat-flat));
