@@ -5,15 +5,16 @@ import { useAppStore } from '../../store/appStore';
 import { modal, toast } from '../../store/uiStore';
 import { autoTradeView } from '../../utils/autoTradeStatus';
 import { nearestEngineMa, type AccountStrategy, type AccountStrategyStatus } from '../../types/autoTrading';
-import { ruleMethodName, type RuleConditions } from '../../utils/autoTradeExplain';
-import { Button, IconButton } from '../ui';
+import { ruleConditionLine, ruleMethodName, type RuleConditions } from '../../utils/autoTradeExplain';
+import type { BacktestCondition, ConditionLabel } from '../../types/backtest';
+import { Button, IconButton, Segmented } from '../ui';
 import type { ModalRow } from '../../store/uiStore';
 
 /**
  * [이 조건을 계좌에 적용] (v2.37.0 → v2.38.0) — 백테스트 결과의 조건을 계좌의 규칙형 설정으로.
  *
  * ⚠️ **조건만 저장한다. 대상 종목은 바꾸지 않고, 자동매매를 켜거나 끄지 않는다** — 켜기는 계좌 화면에서 사람이 한다.
- * 저장은 기존 `PUT /api/auto-trading/strategies/:id` 에 `{ mode: 'rule', rule, hardStopLossPercent, trailingStopEnabled, trailingStopPercent }` 만
+ * 저장은 기존 `PUT /api/auto-trading/strategies/:id` 에 `{ mode: 'rule', rule, hardStopLossPercent, trailingStopEnabled, trailingStopPercent, takeProfitEnabled, takeProfitPercent }` 만
  * 보낸다(서버 `saveStrategy` 가 지금 설정과 합친다 — 종목·비중·주기·켜짐은 그대로). 새 라우트를 만들지 않는다.
  * 확인 창에는 **바뀌는 것만** "지금 → 바꿀 값" 으로. 켜진 계좌면 다음 판단부터 바로 쓰인다는 사실을 적는다.
  */
@@ -46,11 +47,18 @@ export function changeRows(current: AccountStrategy, next: RuleConditions): Moda
     current.trailingStopEnabled ? `${current.trailingStopPercent}%` : '끔',
     next.trailingStopEnabled ? `${next.trailingStopPercent}%` : '끔',
   );
+  // 익절 (v2.39.0) — 조건에 없으면(옛 값) 꺼짐
+  add('익절', current.takeProfitEnabled ? `+${current.takeProfitPercent}%` : '끔', next.takeProfitEnabled ? `+${next.takeProfitPercent}%` : '끔');
   return rows;
 }
 
-export default function ApplyRuleButton({ conditions }: { conditions: RuleConditions }) {
+/**
+ * 조건이 여럿이면(조건 비교 결과) 창 맨 위에서 **어느 조건인지 먼저 고른다**(v2.39.0). 하나면 고르는 줄이 없다.
+ */
+export default function ApplyRuleButton({ options }: { options: BacktestCondition[] }) {
   const [open, setOpen] = useState(false);
+  const [label, setLabel] = useState<ConditionLabel>(options[0]?.label ?? 'A');
+  const conditions: RuleConditions = options.find((o) => o.label === label) ?? options[0];
   const { accounts, loading } = usePaperAccounts();
   const [overview, setOverview] = useState<OverviewItem[] | null>(null);
   const setPage = useAppStore((s) => s.setPage);
@@ -87,7 +95,7 @@ export default function ApplyRuleButton({ conditions }: { conditions: RuleCondit
     lines.push('자동매매를 켜거나 끄지 않습니다.');
     if (current.enabled) lines.push('이 계좌는 자동매매가 켜져 있어 다음 판단부터 바로 적용됩니다.');
     modal.confirm({
-      title: `${name}에 이 조건 적용`,
+      title: options.length > 1 ? `${name}에 조건 ${label} 적용` : `${name}에 이 조건 적용`,
       rows,
       message: lines.join('\n'),
       confirmText: '적용',
@@ -103,6 +111,8 @@ export default function ApplyRuleButton({ conditions }: { conditions: RuleCondit
               hardStopLossPercent: conditions.hardStopLossPercent,
               trailingStopEnabled: conditions.trailingStopEnabled,
               trailingStopPercent: conditions.trailingStopPercent,
+              takeProfitEnabled: conditions.takeProfitEnabled ?? false,
+              ...(conditions.takeProfitPercent != null ? { takeProfitPercent: conditions.takeProfitPercent } : {}),
             }),
           });
           toast.success(`${name}에 적용했습니다. 자동매매 켜기는 계좌 화면에서 합니다.`);
@@ -133,6 +143,17 @@ export default function ApplyRuleButton({ conditions }: { conditions: RuleCondit
               <h3 className="text-sm font-semibold text-text-primary">이 조건을 적용할 계좌</h3>
               <IconButton icon={X} label="닫기" size="sm" className="ml-auto" onClick={() => setOpen(false)} />
             </div>
+            {options.length > 1 && (
+              <div className="mb-3 space-y-1.5">
+                <Segmented
+                  label="적용할 조건"
+                  options={options.map((o) => ({ value: o.label, label: `조건 ${o.label}` }))}
+                  value={label}
+                  onChange={setLabel}
+                />
+                <p className="text-[13px] text-text-secondary">{ruleConditionLine(conditions)}</p>
+              </div>
+            )}
             {loading && !accounts.length ? (
               <p className="text-[13px] text-text-muted">계좌를 불러오는 중…</p>
             ) : accounts.length === 0 ? (
@@ -171,7 +192,7 @@ export default function ApplyRuleButton({ conditions }: { conditions: RuleCondit
                 })}
               </ul>
             )}
-            <p className="mt-3 text-[13px] text-text-muted">조건(판단 방식·방법 숫자·손절·트레일링)만 저장합니다. 대상 종목은 그대로이고, 자동매매를 켜거나 끄지 않습니다.</p>
+            <p className="mt-3 text-[13px] text-text-muted">조건(판단 방식·방법 숫자·손절·트레일링·익절)만 저장합니다. 대상 종목은 그대로이고, 자동매매를 켜거나 끄지 않습니다.</p>
           </div>
         </div>
       )}

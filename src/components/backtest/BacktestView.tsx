@@ -311,7 +311,7 @@ export default function BacktestView() {
                 onExplain={bt.explain}
                 onRerun={() => isCustomReport(d.detail) && void run(true, d.detail.input)}
                 rerunBusy={running || starting}
-                applySlot={<ApplyRuleButton conditions={d.detail.input.conditions[0]} />}
+                applySlot={<ApplyRuleButton key={d.id} options={d.detail.input.conditions} />}
               />
             ) : (
               <FixedResult r={d.detail} />
