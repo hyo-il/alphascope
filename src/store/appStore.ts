@@ -87,6 +87,8 @@ export interface BacktestPreset {
   hardStopLossPercent: number;
   trailingStopEnabled: boolean;
   trailingStopPercent: number;
+  takeProfitEnabled: boolean;
+  takeProfitPercent: number;
 }
 
 const normalize = (symbol: string) => symbol.trim().toUpperCase();

@@ -61,6 +61,13 @@ export interface AccountStrategy {
   trailingStopEnabled: boolean;
   /** 보유 중 고점 대비 이만큼 하락하면 청산(%, 양수) */
   trailingStopPercent: number;
+  /**
+   * 익절 사용 여부 (v2.39.0) — **기본 꺼짐**. 꺼져 있으면 엔진은 아무 일도 하지 않는다(기존 계좌 동작 불변).
+   * 켜면 평균 매수가 대비 `takeProfitPercent` 이상 오르면 **전량** 매도. 검사 순서: 하드 손절 → 익절 → 트레일링(매 틱).
+   */
+  takeProfitEnabled: boolean;
+  /** 익절 기준(%, 양수). 기본 10 — **앱의 출발값(근거 검증 전)**, 권장값이 아니다 */
+  takeProfitPercent: number;
 
   // ── 신규 매수 안전장치 (v2.16.0) — 둘 다 새로 사는 것만 막는다. 손절·청산은 그대로 ──
   /**
@@ -92,7 +99,7 @@ export interface AccountStrategy {
  * 문장을 읽어 분기하면 문구를 다듬을 때마다 조용히 깨진다. 사유 문장은 그대로 남는다(거래내역·로그).
  * 옛 기록(v2.31.0 이전)에는 코드가 없다 — 그때는 문장만 보인다.
  * - 규칙형: golden · dead · rsi_rebound · rsi_hot · no_signal_buy(매수 조건 없음) · no_signal_hold(보유 유지)
- * - 공통: hard_stop · trailing · earnings_blackout · max_positions · daily_loss · not_enough_candles · error
+ * - 공통: hard_stop · take_profit(v2.39.0) · trailing · earnings_blackout · max_positions · daily_loss · not_enough_candles · error
  * - AI형: ai_buy · ai_sell · ai_hold · ai_low_confidence
  * - other: 위에 없는 경로(예산·현금 부족, "강력 신호만" 조건으로 건너뜀)
  */
@@ -104,6 +111,7 @@ export type DecisionCode =
   | 'no_signal_buy'
   | 'no_signal_hold'
   | 'hard_stop'
+  | 'take_profit'
   | 'trailing'
   | 'earnings_blackout'
   | 'max_positions'
@@ -202,6 +210,7 @@ export const RULE_LIMITS = {
   rsiSellAbove: { min: 50, max: 95 },
   hardStopLossPercent: { min: 1, max: 50 },
   trailingStopPercent: { min: 1, max: 50 },
+  takeProfitPercent: { min: 1, max: 100 },
 } as const;
 
 export const DEFAULT_RULE: RuleConfig = {
@@ -234,6 +243,8 @@ export function defaultStrategy(accountId: number): AccountStrategy {
     hardStopLossPercent: 7,
     trailingStopEnabled: false,
     trailingStopPercent: 8,
+    takeProfitEnabled: false,
+    takeProfitPercent: 10,
 
     earningsBlackoutDays: 3,
     dailyLossLimitPercent: 0,

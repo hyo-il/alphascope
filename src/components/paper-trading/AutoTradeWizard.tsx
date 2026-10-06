@@ -267,6 +267,8 @@ export default function AutoTradeWizard({
                   hardStopLossPercent={draft.hardStopLossPercent}
                   trailingStopEnabled={draft.trailingStopEnabled}
                   trailingStopPercent={draft.trailingStopPercent}
+                  takeProfitEnabled={draft.takeProfitEnabled}
+                  takeProfitPercent={draft.takeProfitPercent}
                   accountId={accountId}
                   leaveHint="이 안내 창은 닫히고, 아직 켜지 않은 설정은 저장되지 않습니다."
                 />
@@ -315,6 +317,7 @@ export default function AutoTradeWizard({
                 <b className="text-text-primary">{intervalText(draft.intervalMinutes)}</b>마다 판단합니다
                 {draft.marketHoursOnly ? '(미국 정규장)' : '(시간 제한 없음)'}.
                 {draft.trailingStopEnabled && ` 가장 높았던 값보다 ${draft.trailingStopPercent}% 내려오면 팝니다.`}
+                {draft.takeProfitEnabled ? ` 산 값보다 ${draft.takeProfitPercent}% 오르면 모두 팝니다(익절).` : ' 익절은 꺼져 있습니다.'}
                 {draft.dailyLossLimitPercent > 0 &&
                   ` 하루에 계좌가 ${draft.dailyLossLimitPercent}% 넘게 줄면 그날은 새로 사지 않습니다.`}
               </p>

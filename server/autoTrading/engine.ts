@@ -85,6 +85,20 @@ export async function runExitChecks(strategy: AccountStrategy): Promise<Note[]> 
       continue;
     }
 
+    // 익절 (v2.39.0, 기본 꺼짐) — 손절 다음, 트레일링 앞. 꺼져 있으면 아무 일도 하지 않는다
+    if (strategy.takeProfitEnabled && changePercent >= strategy.takeProfitPercent) {
+      notes.push(
+        await sell(
+          strategy.accountId,
+          position.symbol,
+          position.quantity,
+          `익절 ${pct(changePercent)} — 기준 +${strategy.takeProfitPercent}% 도달로 전량 청산`,
+          'take_profit',
+        ),
+      );
+      continue;
+    }
+
     if (!strategy.trailingStopEnabled) continue;
 
     // 트레일링 — 고점은 올라갈 때만 갱신된다

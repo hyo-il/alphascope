@@ -101,6 +101,9 @@ export function normalizeStrategy(accountId: number, raw: Partial<AccountStrateg
   next.hardStopLossPercent = clamp(next.hardStopLossPercent, RULE_LIMITS.hardStopLossPercent.min, RULE_LIMITS.hardStopLossPercent.max);
   next.trailingStopEnabled = Boolean(next.trailingStopEnabled);
   next.trailingStopPercent = clamp(next.trailingStopPercent, RULE_LIMITS.trailingStopPercent.min, RULE_LIMITS.trailingStopPercent.max);
+  // 익절 (v2.39.0) — 저장된 옛 설정에는 없으므로 기본값(꺼짐·10)으로 채워진다
+  next.takeProfitEnabled = Boolean(next.takeProfitEnabled);
+  next.takeProfitPercent = clamp(next.takeProfitPercent, RULE_LIMITS.takeProfitPercent.min, RULE_LIMITS.takeProfitPercent.max);
 
   next.buySignal = next.buySignal === 'STRONG_BUY' ? 'STRONG_BUY' : 'BUY';
   next.sellSignal = next.sellSignal === 'STRONG_SELL' ? 'STRONG_SELL' : 'SELL';

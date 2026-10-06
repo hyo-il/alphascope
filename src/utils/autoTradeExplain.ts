@@ -11,7 +11,7 @@ import type { AutoTradeView } from './autoTradeStatus';
  * 코드가 없는 옛 기록·`other` 는 `null` 을 돌려준다(화면은 원래 문장만 보인다).
  */
 
-type Settings = Pick<AccountStrategy, 'hardStopLossPercent' | 'maxPositions' | 'dailyLossLimitPercent'>;
+type Settings = Pick<AccountStrategy, 'hardStopLossPercent' | 'maxPositions' | 'dailyLossLimitPercent'> & Partial<Pick<AccountStrategy, 'takeProfitPercent'>>;
 
 export function explainNote(note: DecisionNote, name: string, s: Settings): string | null {
   switch (note.code) {
@@ -29,6 +29,8 @@ export function explainNote(note: DecisionNote, name: string, s: Settings): stri
       return `${name}: 많이 올라 팔았습니다.`;
     case 'hard_stop':
       return `${name}: 산 값보다 ${s.hardStopLossPercent}% 넘게 떨어져 더 잃지 않으려고 팔았습니다.`;
+    case 'take_profit':
+      return `${name}: 목표 수익 +${s.takeProfitPercent ?? '—'}% 에 닿아 모두 팔았습니다.`;
     case 'trailing':
       return `${name}: 가장 높았던 값보다 많이 내려와 팔았습니다.`;
     case 'earnings_blackout':
@@ -169,7 +171,14 @@ export interface RuleConditions {
   hardStopLossPercent: number;
   trailingStopEnabled: boolean;
   trailingStopPercent: number;
+  /** 익절 (v2.39.0) — 없으면 꺼짐(20차 기록·옛 값) */
+  takeProfitEnabled?: boolean;
+  takeProfitPercent?: number;
 }
+
+/** 익절 한 조각 — "익절 +10%" / "익절 끔" */
+export const takeProfitText = (c: { takeProfitEnabled?: boolean; takeProfitPercent?: number }) =>
+  c.takeProfitEnabled ? `익절 +${c.takeProfitPercent}%` : '익절 끔';
 
 /** 방법 이름 — 세 쉬운 선택지 중 같은 것이 있으면 그 이름(「둘 다 (지금 기본값)」 은 괄호를 뗀다), 없으면 「직접 설정」 */
 export function ruleMethodName(rule: RuleConfig): string {
@@ -197,6 +206,7 @@ export function ruleConditionLine(c: RuleConditions): string {
   parts.push(`${ruleMethodName(r)}(${[ma, rsi].filter(Boolean).join(' · ') || '조건 없음'})`);
   parts.push(`손절 ${c.hardStopLossPercent}%`);
   parts.push(c.trailingStopEnabled ? `트레일링 ${c.trailingStopPercent}%` : '트레일링 끔');
+  parts.push(takeProfitText(c));
   return parts.join(' · ');
 }
 
@@ -206,5 +216,5 @@ export function strategyConditionLine(s: AccountStrategy): string {
   const buy = s.buySignal === 'STRONG_BUY' ? 'STRONG_BUY' : 'BUY 이상';
   return `AI형 · 매수 ${buy} 신뢰도 ${Math.round(s.buyMinConfidence * 100)}% · 손절 ${s.hardStopLossPercent}% · ${
     s.trailingStopEnabled ? `트레일링 ${s.trailingStopPercent}%` : '트레일링 끔'
-  }`;
+  } · ${takeProfitText(s)}`;
 }

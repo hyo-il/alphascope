@@ -21,7 +21,7 @@ import { runExitChecks, tryBuy } from '../server/autoTrading/engine';
 import { dailyLossBlock, evaluateDailyLoss, strategyDay } from '../server/autoTrading/guards';
 import { getStrategyStatus } from '../server/autoTrading/scheduler';
 import { marketDate } from '../src/utils/marketDate';
-import { deleteStrategy, normalizeStrategy, saveStrategy, updatePeak } from '../server/autoTrading/store';
+import { deleteStrategy, getPeak, normalizeStrategy, saveStrategy, updatePeak } from '../server/autoTrading/store';
 import type { AccountStrategy } from '../src/types/autoTrading';
 
 const SYMBOL = 'AAPL';
@@ -237,6 +237,28 @@ async function main(): Promise<void> {
     const nextDay = await evaluateDailyLoss(kill, next, value(97_000));
     check('다음 거래일에는 풀린다', nextDay?.hit === false && dailyLossBlock(kill, next) === null, `${strategyDay(kill, next)} 기준 ${nextDay?.base}`);
     await evaluateDailyLoss({ ...kill, dailyLossLimitPercent: 0 }, next); // 기록 정리
+
+    // ── 7. 익절 (v2.39.0, 기본 꺼짐) ─────────────────
+    console.log('\n7) 익절 (기본 꺼짐 · 기준 +10%)');
+    const defaults = normalizeStrategy(account.id, {});
+    check('기본값은 꺼짐 · 10%', defaults.takeProfitEnabled === false && defaults.takeProfitPercent === 10);
+    check('범위는 1~100 으로 조인다', normalizeStrategy(account.id, { takeProfitPercent: 150 }).takeProfitPercent === 100);
+    const leftover = listPositions(account.id).find((p) => p.symbol === SYMBOL && p.quantity > 0);
+    if (leftover) {
+      await createOrder({ accountId: account.id, symbol: SYMBOL, side: 'SELL', orderType: 'MARKET', quantity: leftover.quantity, reason: '점검 정리' });
+    }
+    await createOrder({ accountId: account.id, symbol: SYMBOL, side: 'BUY', orderType: 'MARKET', quantity: 10, reason: '점검용 매수' });
+    inflateAvgPrice(account.id, SYMBOL, 1 / 1.15); // 평균 매입가를 낮춰 +15% 수익 상태
+    const tpOff = await runExitChecks({ ...base, takeProfitEnabled: false, takeProfitPercent: 10 });
+    check('꺼져 있으면 +15% 여도 팔지 않는다', tpOff.length === 0, `주문 ${tpOff.length}건`);
+    const below = await runExitChecks({ ...base, takeProfitEnabled: true, takeProfitPercent: 20 });
+    check('+15% 는 기준 +20% 에 못 미쳐 팔지 않는다', below.length === 0, `주문 ${below.length}건`);
+    updatePeak(account.id, SYMBOL, 999_999); // 청산하면 트레일링 고점 기록도 버리는지
+    const tp = await runExitChecks({ ...base, takeProfitEnabled: true, takeProfitPercent: 10 });
+    const tpNote = tp.find((n) => n.action === 'SELL');
+    check('+15% 면 기준 +10% 에 닿아 전량 청산한다', Boolean(tpNote) && tpNote?.code === 'take_profit', tpNote?.reason ?? '주문 없음');
+    check('포지션이 비었다', listPositions(account.id).every((p) => p.symbol !== SYMBOL || p.quantity === 0));
+    check('트레일링 고점 기록을 버렸다', getPeak(account.id, SYMBOL) == null);
   } finally {
     deleteStrategy(account.id);
     deleteAccount(account.id);

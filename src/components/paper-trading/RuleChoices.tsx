@@ -31,6 +31,8 @@ export default function RuleChoices({
   hardStopLossPercent,
   trailingStopEnabled,
   trailingStopPercent,
+  takeProfitEnabled,
+  takeProfitPercent,
   accountId,
   leaveHint,
 }: {
@@ -40,6 +42,8 @@ export default function RuleChoices({
   hardStopLossPercent: number;
   trailingStopEnabled: boolean;
   trailingStopPercent: number;
+  takeProfitEnabled: boolean;
+  takeProfitPercent: number;
   /** [백테스트에서 시험하기] 안내 줄의 계좌 이름을 찾는다 */
   accountId: number | null;
   /** 창을 떠날 때 사라지는 것 — 버튼 아래 한 줄 */
@@ -54,7 +58,7 @@ export default function RuleChoices({
 
   const tryBacktest = () => {
     // 고치는 중인 값 그대로 넘긴다 — 이동평균은 백테스트 화면이 엔진 일수로 맞추고 안내한다
-    setPreset({ from: name, symbols: [...symbols], rule: { ...rule }, hardStopLossPercent, trailingStopEnabled, trailingStopPercent });
+    setPreset({ from: name, symbols: [...symbols], rule: { ...rule }, hardStopLossPercent, trailingStopEnabled, trailingStopPercent, takeProfitEnabled, takeProfitPercent });
     setPage('backtest');
   };
 
@@ -71,6 +75,7 @@ export default function RuleChoices({
     ['RSI 살 때 · 팔 때', `${rule.rsiBuyBelow} 이하 반등 · ${rule.rsiSellAbove} 이상${off(rule.useRsi)}`],
     ['손절', `${hardStopLossPercent}%`],
     ['트레일링', trailingStopEnabled ? `${trailingStopPercent}%` : '끔'],
+    ['익절', takeProfitEnabled ? `+${takeProfitPercent}%` : '끔'],
   ];
 
   return (
