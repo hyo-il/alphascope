@@ -16,10 +16,12 @@ import { getCandles } from '../candleService';
 import { completedDaily } from '../autoTrading/ruleEngine';
 import { namesAndSectors, SEGMENT_DAYS } from '../autoTrading/ruleResearch';
 import { ENGINE_MA_PERIODS, RULE_LIMITS } from '../../src/types/autoTrading';
-import type { BacktestAdvice, BacktestCustomReport, BacktestExplain, BacktestInput } from '../../src/types/backtest';
+import type { BacktestAdvice, BacktestCondition, BacktestCustomReport, BacktestExplain, BacktestInput, ConditionLabel } from '../../src/types/backtest';
+import { CONDITION_LABELS } from '../../src/types/backtest';
 
-export const ADVICE_PROMPT_VERSION = 'bt-advice-v1';
-export const EXPLAIN_PROMPT_VERSION = 'bt-explain-v1';
+// v2 (v2.39.0): 조언에 익절 추가 · 설명은 조건 비교 모양(조건 1개도 같은 모양) + MDD·Profit Factor 숫자
+export const ADVICE_PROMPT_VERSION = 'bt-advice-v2';
+export const EXPLAIN_PROMPT_VERSION = 'bt-explain-v2';
 /** 이보다 많으면 분야별 평균으로 줄여 보낸다 */
 const SUMMARIZE_OVER = 30;
 const PRE_DAYS = 252;
@@ -132,6 +134,8 @@ interface RawAdvice {
   hardStopLossPercent?: number;
   trailingStopEnabled?: boolean;
   trailingStopPercent?: number;
+  takeProfitEnabled?: boolean;
+  takeProfitPercent?: number;
   reasons?: string[];
   cautions?: string[];
 }
@@ -149,6 +153,8 @@ const ADVICE_SCHEMA = {
     hardStopLossPercent: { type: 'NUMBER' },
     trailingStopEnabled: { type: 'BOOLEAN' },
     trailingStopPercent: { type: 'NUMBER' },
+    takeProfitEnabled: { type: 'BOOLEAN' },
+    takeProfitPercent: { type: 'NUMBER' },
     reasons: { type: 'ARRAY', items: { type: 'STRING' }, maxItems: 3 },
     cautions: { type: 'ARRAY', items: { type: 'STRING' }, maxItems: 2 },
   },
@@ -169,6 +175,7 @@ const LIMIT_TEXT = [
   `RSI 팔 때 기준(이 값 이상이면 판다): ${RULE_LIMITS.rsiSellAbove.min}~${RULE_LIMITS.rsiSellAbove.max}`,
   `손절 %: ${RULE_LIMITS.hardStopLossPercent.min}~${RULE_LIMITS.hardStopLossPercent.max}`,
   `트레일링 %: ${RULE_LIMITS.trailingStopPercent.min}~${RULE_LIMITS.trailingStopPercent.max}`,
+  `익절 %(산 값보다 이만큼 오르면 모두 판다, 끌 수 있다): ${RULE_LIMITS.takeProfitPercent.min}~${RULE_LIMITS.takeProfitPercent.max}`,
 ].join('\n');
 
 const FEATURE_LABEL: Record<keyof PreYearFeatures, string> = {
@@ -222,12 +229,17 @@ export function validateAdvice(raw: RawAdvice): Pick<BacktestAdvice, 'method' | 
     if (inR(raw.trailingStopPercent, RULE_LIMITS.trailingStopPercent)) values.trailingStopPercent = raw.trailingStopPercent;
     else dropped.push(`트레일링 ${raw.trailingStopPercent}%`);
   }
+  if (typeof raw.takeProfitEnabled === 'boolean') values.takeProfitEnabled = raw.takeProfitEnabled;
+  if (raw.takeProfitPercent != null) {
+    if (inR(raw.takeProfitPercent, RULE_LIMITS.takeProfitPercent)) values.takeProfitPercent = raw.takeProfitPercent;
+    else dropped.push(`익절 ${raw.takeProfitPercent}%`);
+  }
   const method = (['trend', 'dip', 'both', 'custom'] as const).find((m) => m === raw.method) ?? null;
   const strs = (a: unknown, n: number) => (Array.isArray(a) ? a.filter((x): x is string => typeof x === 'string' && x.trim() !== '').slice(0, n) : []);
   return { method, values, reasons: strs(raw.reasons, 3), cautions: strs(raw.cautions, 2), dropped };
 }
 
-export async function adviseBacktest(input: Pick<BacktestInput, 'symbols' | 'years'> & { current: Omit<BacktestInput, 'symbols' | 'years'> }, caller: Caller = defaultCaller): Promise<BacktestAdvice> {
+export async function adviseBacktest(input: Pick<BacktestInput, 'symbols' | 'years'> & { current: Omit<BacktestCondition, 'label'> }, caller: Caller = defaultCaller): Promise<BacktestAdvice> {
   const days = SEGMENT_DAYS * input.years;
   const info = namesAndSectors(input.symbols);
   const rows: { symbol: string; sector: string; f: PreYearFeatures }[] = [];
@@ -268,7 +280,7 @@ export async function adviseBacktest(input: Pick<BacktestInput, 'symbols' | 'yea
     '',
     `지금 화면의 조건: 이동평균 사용 ${c.rule.useMaCross ? '예' : '아니오'}(단기 ${c.rule.maShort}일·장기 ${c.rule.maLong}일), ` +
       `RSI 사용 ${c.rule.useRsi ? '예' : '아니오'}(살 때 ${c.rule.rsiBuyBelow} 이하·팔 때 ${c.rule.rsiSellAbove} 이상), ` +
-      `손절 ${c.hardStopLossPercent}%, 트레일링 ${c.trailingStopEnabled ? `${c.trailingStopPercent}%` : '끔'}.`,
+      `손절 ${c.hardStopLossPercent}%, 트레일링 ${c.trailingStopEnabled ? `${c.trailingStopPercent}%` : '끔'}, 익절 ${c.takeProfitEnabled ? `${c.takeProfitPercent}%` : '끔'}.`,
     '',
     '이 종목들을 시험할 때 어떤 조건이 어울릴지 제안해 주세요.',
   ].join('\n');
@@ -283,8 +295,7 @@ export class AdviceInputError extends Error {}
 
 interface RawExplain {
   summary?: string[];
-  good?: string[];
-  bad?: string[];
+  byCondition?: { label?: string; good?: string[]; bad?: string[] }[];
   cautions?: string[];
 }
 
@@ -292,11 +303,22 @@ const EXPLAIN_SCHEMA = {
   type: 'OBJECT',
   properties: {
     summary: { type: 'ARRAY', items: { type: 'STRING' }, maxItems: 3 },
-    good: { type: 'ARRAY', items: { type: 'STRING' }, maxItems: 3 },
-    bad: { type: 'ARRAY', items: { type: 'STRING' }, maxItems: 3 },
+    byCondition: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          label: { type: 'STRING', enum: ['A', 'B', 'C'] },
+          good: { type: 'ARRAY', items: { type: 'STRING' }, maxItems: 2 },
+          bad: { type: 'ARRAY', items: { type: 'STRING' }, maxItems: 2 },
+        },
+        required: ['label', 'good', 'bad'],
+      },
+      maxItems: 3,
+    },
     cautions: { type: 'ARRAY', items: { type: 'STRING' }, maxItems: 2 },
   },
-  required: ['summary', 'good', 'bad', 'cautions'],
+  required: ['summary', 'byCondition', 'cautions'],
 };
 
 const EXPLAIN_SYSTEM = [
@@ -304,8 +326,15 @@ const EXPLAIN_SYSTEM = [
   '규칙: 1) 입력 표에 없는 숫자를 쓰지 않습니다. 숫자를 쓸 때는 표의 값을 그대로 옮깁니다(새로 계산하지 않습니다).',
   '2) 미래를 말하지 않습니다(앞으로 오른다·벌 것이다 금지). 3) 수익을 약속하지 않습니다.',
   '4) "조건을 바꾸면 더 좋아진다" 식의 권유는 "여러 조건을 바꿔 보며 고르면 우연에 속기 쉽다" 와 함께만 씁니다.',
-  '5) summary 는 3문장 이하, good·bad 는 각 3개 이하, cautions 는 2개 이하.',
+  '5) 조건이 여러 개면 어느 조건이 가장 좋다고 고르지 않습니다 — 차이를 설명하고, 여러 조건을 비교해 고르면 우연에 속기 쉽다는 점을 함께 말합니다.',
+  '6) MDD 는 "가장 크게 떨어졌던 폭", Profit Factor 는 "번 돈 ÷ 잃은 돈" 이라고 풀어 씁니다.',
+  '7) summary 는 3문장 이하, byCondition 은 조건마다 good·bad 각 2개 이하, cautions 는 2개 이하.',
 ].join('\n');
+
+const ruleText = (c: BacktestCondition, n: (v: number | null | undefined) => string) =>
+  `이동평균 ${c.rule.useMaCross ? `사용(단기 ${n(c.rule.maShort)}일·장기 ${n(c.rule.maLong)}일)` : '안 씀'} · ` +
+  `RSI ${c.rule.useRsi ? `사용(살 때 ${n(c.rule.rsiBuyBelow)} 이하 반등·팔 때 ${n(c.rule.rsiSellAbove)} 이상)` : '안 씀'} · ` +
+  `손절 ${n(c.hardStopLossPercent)}% · 트레일링 ${c.trailingStopEnabled ? `${n(c.trailingStopPercent)}%` : '끔'} · 익절 ${c.takeProfitEnabled ? `${n(c.takeProfitPercent)}%` : '끔'}`;
 
 /** 설명에 보낼 숫자 표 — 검증도 이 숫자로 한다(차이 숫자도 미리 계산해 넣는다 — 모델이 새로 빼지 않게) */
 export function explainPayload(r: BacktestCustomReport): { text: string; numbers: number[] } {
@@ -315,30 +344,31 @@ export function explainPayload(r: BacktestCustomReport): { text: string; numbers
     numbers.push(v);
     return String(v);
   };
-  const diff = (a: number | null, b: number | null) => (a == null || b == null ? null : r2(a - b));
-  const s = r.summary;
-  const i = r.input;
+  const diff = (a: number | null | undefined, b: number | null | undefined) => (a == null || b == null ? null : r2(a - b));
   const lines: string[] = [];
-  lines.push(
-    `조건: 이동평균 ${i.rule.useMaCross ? `사용(단기 ${n(i.rule.maShort)}일·장기 ${n(i.rule.maLong)}일)` : '안 씀'} · ` +
-      `RSI ${i.rule.useRsi ? `사용(살 때 ${n(i.rule.rsiBuyBelow)} 이하 반등·팔 때 ${n(i.rule.rsiSellAbove)} 이상)` : '안 씀'} · ` +
-      `손절 ${n(i.hardStopLossPercent)}% · 트레일링 ${i.trailingStopEnabled ? `${n(i.trailingStopPercent)}%` : '끔'} · 기간 ${n(i.years)}년 · 수수료 왕복 ${n(0.3)}%p 포함`,
-  );
-  lines.push('', '요약(종목 평균, 기간 전체, %):');
-  lines.push(`- 종목 ${n(s.symbols)}개 · 이 방법 ${n(s.rule)} · 그냥 들고 있기 ${n(s.hold)} · 아무 날이나 사고팔기 ${n(s.random)}`);
-  lines.push(`- 이 방법 − 들고 있기 ${n(diff(s.rule, s.hold))} · 이 방법 − 아무 날이나 ${n(diff(s.rule, s.random))}`);
-  lines.push(`- 한 번 사고팔 때 평균 ${n(s.avgTradeReturn)} · 이긴 거래 ${n(s.winRate)} · 종목당 거래 ${n(s.avgTrades)}회 · 거래 10회 미만 종목 ${n(s.weakSymbols)}개`);
-  if (r.segmentRows.length) {
-    lines.push('', '구간별(1년씩):', '| 구간 | 기간 | 이 방법 | 들고 있기 | 아무 날이나 | 한 번 평균 | 이긴 거래 | 종목당 거래 |');
-    for (const g of r.segmentRows) {
-      lines.push(`| ${g.segment}년차 | ${g.from}~${g.to} | ${n(g.rule)} | ${n(g.hold)} | ${n(g.random)} | ${n(g.avgTradeReturn)} | ${n(g.winRate)} | ${n(g.avgTrades)} |`);
+  lines.push(`기간 ${n(r.input.years)}년 · 종목 ${n(r.conditions[0]?.summary.symbols ?? 0)}개 · 수수료 왕복 ${n(0.3)}%p 포함 · 숫자는 모두 종목 평균(%)`);
+  lines.push(`그냥 들고 있기: 기간 전체 ${n(r.hold.rule)} · MDD ${n(r.hold.mdd)}`);
+  for (const c of r.conditions) {
+    const s = c.summary;
+    lines.push('', `조건 ${c.label}: ${ruleText(c.condition, n)}`);
+    lines.push(`- 기간 전체 ${n(s.rule)} · 아무 날이나 사고팔기 ${n(s.random)} · 이 조건 − 들고 있기 ${n(diff(s.rule, s.hold))} · 이 조건 − 아무 날이나 ${n(diff(s.rule, s.random))}`);
+    lines.push(`- MDD(가장 크게 떨어졌던 폭) ${n(s.mdd)}${s.mddWorst ? ` · 가장 나쁜 종목 ${s.mddWorst.name ?? s.mddWorst.symbol} ${n(s.mddWorst.value)}` : ''} · Profit Factor(번 돈 ÷ 잃은 돈) ${s.profitFactor != null ? n(s.profitFactor) : (s.profitFactorNote ?? '—')}`);
+    lines.push(`- 한 번 사고팔 때 평균 ${n(s.avgTradeReturn)} · 이긴 거래 ${n(s.winRate)} · 종목당 거래 ${n(s.avgTrades)}회 · 거래 10회 미만 종목 ${n(s.weakSymbols)}개`);
+    if (s.exits) {
+      lines.push(`- 판 이유 비율: 신호 ${n(s.exits.signal)} · 손절 ${n(s.exits.stop)} · 익절 ${n(s.exits.take_profit)} · 트레일링 ${n(s.exits.trailing)} · 기간 끝 ${n(s.exits.end)}`);
+    }
+    if (c.segmentRows.length) {
+      lines.push(`- 구간별(이 조건 / 들고 있기): ${c.segmentRows.map((g) => `${g.segment}년차 ${n(g.rule)} / ${n(g.hold)}`).join(' · ')}`);
     }
   }
-  lines.push('', '종목별(기간 전체):', '| 종목 | 분야 | 횟수 | 이긴 거래 | 한 번 평균 | 손절 비율 | 이 방법 | 들고 있기 | 아무 날이나 |');
-  for (const x of r.symbols) {
-    lines.push(
-      `| ${x.name ?? x.symbol}(${x.symbol}) | ${x.sector ?? '분야 미확인'} | ${n(x.trades)} | ${n(x.winRate)} | ${n(x.avgReturn)} | ${n(x.stopRate)} | ${n(x.rule)} | ${n(x.hold)} | ${n(x.random)} |`,
-    );
+  // 조건이 하나일 때만 종목별 표를 보낸다(여럿이면 조건별 숫자표만 — 지시서 B-4)
+  if (r.conditions.length === 1) {
+    lines.push('', '종목별(기간 전체):', '| 종목 | 분야 | 횟수 | 이긴 거래 | 한 번 평균 | 손절 비율 | 이 방법 | 들고 있기 | 아무 날이나 | MDD |');
+    for (const x of r.conditions[0].symbols) {
+      lines.push(
+        `| ${x.name ?? x.symbol}(${x.symbol}) | ${x.sector ?? '분야 미확인'} | ${n(x.trades)} | ${n(x.winRate)} | ${n(x.avgReturn)} | ${n(x.stopRate)} | ${n(x.rule)} | ${n(x.hold)} | ${n(x.random)} | ${n(x.mdd)} |`,
+      );
+    }
   }
   if (r.excluded.length) lines.push('', `계산하지 못한 종목 ${n(r.excluded.length)}개`);
   return { text: lines.join('\n'), numbers };
@@ -352,7 +382,8 @@ export function sentenceOk(sentence: string, numbers: number[]): boolean {
 
 export async function explainBacktest(report: BacktestCustomReport, caller: Caller = defaultCaller): Promise<BacktestExplain> {
   const { text, numbers } = explainPayload(report);
-  const res = await caller<RawExplain>({ system: EXPLAIN_SYSTEM, parts: [{ text: `${text}\n\n이 결과를 초보자에게 설명해 주세요.` }], schema: EXPLAIN_SCHEMA, temperature: 0.3 });
+  const ask = report.conditions.length > 1 ? '조건들의 차이를 초보자에게 설명해 주세요(어느 조건이 가장 좋다고 고르지 마세요).' : '이 결과를 초보자에게 설명해 주세요.';
+  const res = await caller<RawExplain>({ system: EXPLAIN_SYSTEM, parts: [{ text: `${text}\n\n${ask}` }], schema: EXPLAIN_SCHEMA, temperature: 0.3 });
   let removed = 0;
   const keep = (a: unknown, max: number) => {
     const list = Array.isArray(a) ? a.filter((x): x is string => typeof x === 'string' && x.trim() !== '').slice(0, max) : [];
@@ -361,10 +392,15 @@ export async function explainBacktest(report: BacktestCustomReport, caller: Call
     return ok;
   };
   const d = res.data ?? {};
+  const labels = new Set<ConditionLabel>(report.conditions.map((c) => c.label));
+  // 입력에 없는 조건 이름은 버린다 · 조건마다 하나만
+  const seen = new Set<string>();
+  const byCondition = (Array.isArray(d.byCondition) ? d.byCondition : [])
+    .filter((x) => x && CONDITION_LABELS.includes(x.label as ConditionLabel) && labels.has(x.label as ConditionLabel) && !seen.has(x.label!) && seen.add(x.label!))
+    .map((x) => ({ label: x.label as ConditionLabel, good: keep(x.good, 2), bad: keep(x.bad, 2) }));
   return {
     summary: keep(d.summary, 3),
-    good: keep(d.good, 3),
-    bad: keep(d.bad, 3),
+    byCondition,
     cautions: keep(d.cautions, 2),
     removed,
     promptVersion: EXPLAIN_PROMPT_VERSION,

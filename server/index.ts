@@ -1601,7 +1601,9 @@ app.post('/api/backtest/advice', async (req, res) => {
   if (reason) return res.status(503).json({ error: reason, geminiDisabled: true });
   const parsed = parseBacktestInput(req.body);
   if ('error' in parsed) return res.status(400).json({ error: parsed.error });
-  const { symbols, years, ...current } = parsed.input;
+  // 지금 고친 조건(몸의 `label`, 없으면 A)을 「지금 화면의 조건」 으로 보낸다 (v2.39.0)
+  const { symbols, years, conditions } = parsed.input;
+  const { label: _label, ...current } = conditions.find((c) => c.label === req.body?.label) ?? conditions[0];
   try {
     res.json({ advice: await adviseBacktest({ symbols, years, current }) });
   } catch (e) {

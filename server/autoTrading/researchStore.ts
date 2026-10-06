@@ -9,6 +9,7 @@
  */
 import { getDb } from '../db';
 import { customInputKey } from './ruleResearch';
+import { normalizeCustomReport, normalizeCustomSummary } from '../../src/utils/backtestCompat';
 import type {
   BacktestAnyReport,
   BacktestCustomReport,
@@ -36,13 +37,13 @@ function customSummaryOf(report: BacktestCustomReport): BacktestSummary {
   return {
     kind: 'custom',
     createdAt: report.computedAt,
-    symbols: report.summary.symbols,
+    symbols: report.conditions[0]?.summary.symbols ?? 0,
     requested: report.input.symbols.length,
     years: report.input.years,
     input: report.input,
     inputKey: customInputKey(report.input),
-    rule: report.summary.rule,
-    hold: report.summary.hold,
+    rule: report.conditions[0]?.summary.rule ?? null,
+    hold: report.hold.rule,
   };
 }
 
@@ -76,8 +77,13 @@ interface Row {
 
 const parseSummary = (json: string): BacktestSummary => {
   const s = JSON.parse(json) as BacktestSummary;
-  return s.kind === 'custom' ? s : { ...s, kind: 'fixed' };
+  // 20차 사용자 시험의 input(조건 하나를 펼친 모양)은 조건 A 하나로 읽는다 (v2.39.0)
+  return s.kind === 'custom' ? normalizeCustomSummary(s) : { ...s, kind: 'fixed' };
 };
+
+/** 사용자 시험 상세는 새 모양으로(20차 기록 = 조건 A 하나), 고정 시험은 그대로 */
+const readDetail = (raw: unknown): BacktestAnyReport =>
+  (raw as { kind?: string })?.kind === 'custom' ? normalizeCustomReport(raw) : (raw as BacktestAnyReport);
 
 export function listBacktests(): BacktestListItem[] {
   const rows = getDb().prepare(`SELECT id, created_at, server, summary_json FROM backtest_reports ORDER BY id DESC`).all() as Row[];
@@ -92,7 +98,7 @@ export function getBacktest(id: number): (BacktestListItem & { detail: BacktestA
     createdAt: r.created_at,
     server: r.server,
     summary: parseSummary(r.summary_json),
-    detail: JSON.parse(r.detail_json ?? 'null') as BacktestAnyReport,
+    detail: readDetail(JSON.parse(r.detail_json ?? 'null')),
   };
 }
 

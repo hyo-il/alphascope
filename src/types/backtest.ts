@@ -115,10 +115,11 @@ export interface BacktestCustomSummary {
   symbols: number;
   requested: number;
   years: BacktestYears;
+  /** v2.39.0 부터 조건 배열. 옛 행(조건 하나를 펼친 모양)은 읽을 때 `normalizeBacktestInput` 이 조건 A 하나로 바꾼다 */
   input: BacktestInput;
   /** 같은 날 같은 입력이면 다시 계산하지 않는다 — 그 비교 키 */
   inputKey: string;
-  /** 기간 전체 종목 평균 — 이 방법 · 들고 있기 */
+  /** 조건 A 의 기간 전체 종목 평균 · 들고 있기 */
   rule: number | null;
   hold: number | null;
 }
@@ -134,19 +135,43 @@ export interface BacktestListItem {
   summary: BacktestSummary;
 }
 
-// ── 내가 고른 종목 · 내가 정한 조건 (v2.38.0) ─────────────────────────────────
+// ── 내가 고른 종목 · 내가 정한 조건 (v2.38.0) · 조건 비교·MDD·Profit Factor·익절 (v2.39.0) ──────────
 
 export type BacktestYears = 1 | 2 | 3;
 export const BACKTEST_YEARS: BacktestYears[] = [1, 2, 3];
 
-/** 시험 입력 — 자동매매 규칙형이 실제로 쓰는 것만 + 기간 */
-export interface BacktestInput {
-  symbols: string[];
+export type ConditionLabel = 'A' | 'B' | 'C';
+export const CONDITION_LABELS: ConditionLabel[] = ['A', 'B', 'C'];
+/** 한 번에 비교할 수 있는 조건 수 */
+export const MAX_CONDITIONS = 3;
+/** 조건이 2개 이상일 때 고를 수 있는 종목 수 (조건 1개면 제한 없음) */
+export const MAX_COMPARE_SYMBOLS = 20;
+
+/** 조건 하나 — 자동매매 규칙형이 실제로 쓰는 것만(+ 익절, v2.39.0) */
+export interface BacktestCondition {
+  label: ConditionLabel;
   rule: RuleConfig;
   hardStopLossPercent: number;
   trailingStopEnabled: boolean;
   trailingStopPercent: number;
+  takeProfitEnabled: boolean;
+  takeProfitPercent: number;
+}
+
+/** 시험 입력 — 같은 종목·같은 기간에 조건 1~3개 */
+export interface BacktestInput {
+  symbols: string[];
   years: BacktestYears;
+  conditions: BacktestCondition[];
+}
+
+export type BacktestExitName = 'signal' | 'stop' | 'take_profit' | 'trailing' | 'end';
+
+/** MDD 가 가장 나쁜 종목 */
+export interface WorstDrawdown {
+  symbol: string;
+  name: string | null;
+  value: number;
 }
 
 /** 묶음 하나의 숫자(종목 평균, 동일 가중) — 요약과 구간 표가 같은 모양 */
@@ -162,6 +187,20 @@ export interface BacktestCustomStats {
   avgTrades: number | null;
   /** 거래 10회 미만 종목 수 */
   weakSymbols: number;
+  /**
+   * MDD(최대 낙폭, %, 0 이하, v2.39.0) — 종목마다 일별 자산 곡선(들고 있는 날 종가 평가 · 안 들고 있는 날 현금 · 비용 반영 · 구간 복리)의 고점 대비 최대 하락, 그 종목 평균.
+   * 20차 기록에는 없다(null).
+   */
+  mdd?: number | null;
+  mddWorst?: WorstDrawdown | null;
+  /**
+   * Profit Factor(v2.39.0) = 모든 종목·모든 거래의 (+ 수익률 합) ÷ |− 수익률 합|. 손실 거래가 없거나 거래가 없으면 null(`profitFactorNote`).
+   * ⚠️ 모의 계좌 성적의 「손익비」(평균수익 ÷ 평균손실)와 **다른 지표**다.
+   */
+  profitFactor?: number | null;
+  profitFactorNote?: '손실 거래 없음' | '거래 없음' | null;
+  /** 청산 이유 비율(%) — 신호·손절·익절·트레일링·기간 끝 */
+  exits?: Record<BacktestExitName, number> | null;
 }
 
 export interface BacktestCustomSymbol {
@@ -178,12 +217,30 @@ export interface BacktestCustomSymbol {
   rule: number;
   hold: number | null;
   random: number | null;
+  /** MDD(v2.39.0) — 이 조건 · 그냥 들고 있기 */
+  mdd?: number | null;
+  holdMdd?: number | null;
 }
 
+/** 조건 하나의 결과 */
+export interface BacktestConditionResult {
+  label: ConditionLabel;
+  condition: BacktestCondition;
+  summary: BacktestCustomStats & {
+    /** 거래 10회 미만 종목이 절반 이상 — 숫자를 색칠하지 않는다 */
+    hardToTell: boolean;
+  };
+  /** 구간별(2·3년일 때) */
+  segmentRows: (BacktestCustomStats & { segment: number; from: string; to: string })[];
+  symbols: BacktestCustomSymbol[];
+}
+
+/**
+ * 「AI에게 결과 설명 듣기」·「AI에게 비교 설명 듣기」(v2.39.0 한 모양). 20차 설명(good/bad 한 벌)은 읽을 때 조건 A 로 바꾼다.
+ */
 export interface BacktestExplain {
   summary: string[];
-  good: string[];
-  bad: string[];
+  byCondition: { label: ConditionLabel; good: string[]; bad: string[] }[];
   cautions: string[];
   /** 입력에 없는 숫자를 써서 뺀 문장 수 */
   removed: number;
@@ -197,20 +254,16 @@ export interface BacktestCustomReport {
   input: BacktestInput;
   /** 첫 종목의 구간 날짜(시장이 섞이면 종목마다 하루쯤 다를 수 있다) */
   segments: { segment: number; from: string; to: string }[];
-  /** 기간 전체 */
-  summary: BacktestCustomStats & {
-    /** 거래 10회 미만 종목이 절반 이상 — 숫자를 색칠하지 않는다 */
-    hardToTell: boolean;
-  };
-  /** 구간별(2·3년일 때) */
-  segmentRows: (BacktestCustomStats & { segment: number; from: string; to: string })[];
-  symbols: BacktestCustomSymbol[];
+  /** 조건마다 하나(입력 순서 A·B·C) */
+  conditions: BacktestConditionResult[];
+  /** 그냥 들고 있기(조건과 무관) — 기간 전체 평균·MDD */
+  hold: { rule: number | null; mdd: number | null; mddWorst: WorstDrawdown | null };
   /** 계산하지 못한 종목과 이유 — 조용히 빼지 않는다 */
   excluded: { symbol: string; name: string | null; reason: string }[];
   leakCheck: { symbol: string; bars: number; ok: boolean };
   measure: { ms: number; indicatorCalls: number; rssMaxMb: number; symbols: number };
   computedAt: string;
-  /** 「AI에게 결과 설명 듣기」 — 한 번 받으면 기록에 함께 둔다(다시 열 때 Gemini 를 부르지 않는다) */
+  /** 한 번 받으면 기록에 함께 둔다(다시 열 때 Gemini 를 부르지 않는다) */
   explain?: BacktestExplain;
 }
 
@@ -229,7 +282,7 @@ export interface BacktestAdvice {
   method: 'trend' | 'dip' | 'both' | 'custom' | null;
   /** 남은(범위 안) 제안 값만 */
   values: Partial<Pick<RuleConfig, 'maShort' | 'maLong' | 'rsiBuyBelow' | 'rsiSellAbove' | 'useMaCross' | 'useRsi'>> &
-    Partial<Pick<BacktestInput, 'hardStopLossPercent' | 'trailingStopEnabled' | 'trailingStopPercent'>>;
+    Partial<Pick<BacktestCondition, 'hardStopLossPercent' | 'trailingStopEnabled' | 'trailingStopPercent' | 'takeProfitEnabled' | 'takeProfitPercent'>>;
   reasons: string[];
   cautions: string[];
   /** 범위 밖이라 뺀 값의 수와 그 이름 */

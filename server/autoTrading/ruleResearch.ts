@@ -31,7 +31,8 @@ import { getCandles } from '../candleService';
 import { computeIndicators, IndicatorEngineError } from '../indicatorService';
 import { ROUND_TRIP_COST } from '../analysis/targetHit';
 import { completedDaily } from './ruleEngine';
-import { LeakError, leakCheck, MIN_TRADES, simulateRule, type BacktestOptions } from './ruleBacktest';
+import { LeakError, equityCurve, holdCurve, leakCheck, MIN_TRADES, simulateRule, type BacktestOptions } from './ruleBacktest';
+import { maxDrawdown } from '../../src/utils/drawdown';
 import { readUniverse } from '../universe';
 import { profiles, sectorKo } from '../heatmap';
 import { findNames } from '../stockCatalog';
@@ -44,9 +45,12 @@ import type { RuleConfig } from '../../src/types/autoTrading';
 import {
   BACKTEST_SECTORS,
   type BacktestCheck,
+  type BacktestCondition,
+  type BacktestConditionResult,
   type BacktestCustomReport,
   type BacktestCustomStats,
   type BacktestCustomSymbol,
+  type BacktestExitName,
   type BacktestInput,
   type BacktestMethodId,
   type BacktestMethodResult,
@@ -370,22 +374,25 @@ export async function runRuleResearch(onProgress?: ResearchProgress): Promise<Ba
   };
 }
 
-// ── 내가 고른 종목 · 내가 정한 조건 (v2.38.0) ────────────────────────────────────
+// ── 내가 고른 종목 · 내가 정한 조건 (v2.38.0) · 조건 비교·MDD·Profit Factor·익절 (v2.39.0) ─────────────
 
-/** 이 시험이 필요로 하는 지표 워밍업 봉 수 — 장기 이동평균(최대 120)이 구간 첫날에 값을 가져야 한다. 고정 시험의 +30 보다 엄격하다 */
+/** 이 시험이 필요로 하는 지표 워밍업 봉 수 — 장기 이동평균(최대 120)이 구간 첫날에 값을 가져야 한다. 조건 중 가장 긴 것. 고정 시험의 +30 보다 엄격하다 */
 function customWarmupNeeded(input: BacktestInput): number {
-  const ma = input.rule.useMaCross ? Math.max(input.rule.maShort, input.rule.maLong) : 0;
+  const ma = Math.max(0, ...input.conditions.map((c) => (c.rule.useMaCross ? Math.max(c.rule.maShort, c.rule.maLong) : 0)));
   return Math.max(30, ma + 1, 15 + 1);
 }
 
-/** 종목·조건이 같으면 같은 결과 — 같은 날 다시 계산하지 않는 비교 키(종목 순서는 무시) */
+/** 종목·기간·조건 전체가 같으면 같은 결과 — 같은 날 다시 계산하지 않는 비교 키(종목 순서는 무시) */
 export function customInputKey(input: BacktestInput): string {
   return JSON.stringify([
     [...input.symbols].sort(),
-    input.rule.useMaCross, input.rule.maShort, input.rule.maLong,
-    input.rule.useRsi, input.rule.rsiBuyBelow, input.rule.rsiSellAbove,
-    input.hardStopLossPercent, input.trailingStopEnabled, input.trailingStopEnabled ? input.trailingStopPercent : null,
     input.years,
+    input.conditions.map((c) => [
+      c.rule.useMaCross, c.rule.maShort, c.rule.maLong,
+      c.rule.useRsi, c.rule.rsiBuyBelow, c.rule.rsiSellAbove,
+      c.hardStopLossPercent, c.trailingStopEnabled, c.trailingStopEnabled ? c.trailingStopPercent : null,
+      c.takeProfitEnabled, c.takeProfitEnabled ? c.takeProfitPercent : null,
+    ]),
   ]);
 }
 
@@ -408,11 +415,43 @@ export function namesAndSectors(symbols: string[]): Map<string, { name: string |
   );
 }
 
-export type Cell = { rule: number; hold: number | null; random: number | null; trades: number; list: { returnPct: number; exitKind: string }[] };
+export type Cell = {
+  rule: number;
+  hold: number | null;
+  random: number | null;
+  trades: number;
+  list: { returnPct: number; exitKind: string }[];
+  /** 그 구간의 일별 자산 곡선(1 에서 시작) — MDD 용 (v2.39.0) */
+  curve: number[];
+};
+
+const EXIT_NAMES = ['signal', 'stop', 'take_profit', 'trailing', 'end'] as const;
+
+/** 조건 → 재현 옵션 */
+export const conditionOptions = (c: BacktestCondition): BacktestOptions => ({
+  rule: { ...c.rule },
+  hardStopLossPercent: c.hardStopLossPercent,
+  trailingStopEnabled: c.trailingStopEnabled,
+  trailingStopPercent: c.trailingStopPercent,
+  takeProfitEnabled: c.takeProfitEnabled,
+  takeProfitPercent: c.takeProfitPercent,
+});
+
+/** 구간 곡선을 복리로 이어 붙인다(다음 구간은 앞 구간 끝 값에서 시작) */
+function chainCurves(curves: number[][]): number[] {
+  const out: number[] = [];
+  let base = 1;
+  for (const c of curves) {
+    for (const v of c) out.push(base * v);
+    base *= c[c.length - 1] ?? 1;
+  }
+  return out;
+}
 
 /**
  * 한 종목을 1년(252봉)씩 `years` 구간으로 — 순수 함수(합성 캔들 검산과 실제 시험이 같은 함수).
- * 시험 기간 = 마지막 `252 × years` 봉. 구간마다 `simulateRule(…, end)` 와 같은 횟수·보유일의 무작위 기준선(시드 고정).
+ * 시험 기간 = 마지막 `252 × years` 봉. 구간마다 `simulateRule(…, end)` 와 같은 횟수·보유일의 무작위 기준선.
+ * 시드는 조건과 무관(`custom|종목|구간`) — 같은 거래 횟수·보유일이면 같은 기준선이 나와 조건끼리 공정하게 비교된다.
  */
 export function simulateSegments(symbol: string, candles: Candle[], series: IndicatorSeries, years: number, opts: BacktestOptions) {
   const first = candles.length - SEGMENT_DAYS * years;
@@ -424,13 +463,26 @@ export function simulateSegments(symbol: string, candles: Candle[], series: Indi
   const segs = bounds.map((b, k): Cell => {
     const r = simulateRule(symbol, candles, series, b.start, opts, b.end);
     const random = randomBaseline(candles, b.start, b.end, r.list.map((t) => t.holdDays), hashSeed(`custom|${symbol}|${k}`));
-    return { rule: r.ruleReturn, hold: r.holdReturn, random, trades: r.trades, list: r.list.map((t) => ({ returnPct: t.returnPct, exitKind: t.exitKind })) };
+    return {
+      rule: r.ruleReturn,
+      hold: r.holdReturn,
+      random,
+      trades: r.trades,
+      list: r.list.map((t) => ({ returnPct: t.returnPct, exitKind: t.exitKind })),
+      curve: equityCurve(candles, b.start, b.end, r.list),
+    };
   });
-  return { segs, dates: bounds.map((b) => ({ from: date(b.start), to: date(b.end) })) };
+  const holdCurves = bounds.map((b) => holdCurve(candles, b.start, b.end));
+  return { segs, holdCurves, dates: bounds.map((b) => ({ from: date(b.start), to: date(b.end) })) };
 }
 
-/** 셀 묶음 → 종목 평균 숫자 (요약·구간 표 공용) */
-function stats(cells: Cell[]): BacktestCustomStats {
+const toMdd = (curve: number[]) => {
+  const v = maxDrawdown(curve);
+  return v == null ? null : round2(v);
+};
+
+/** 셀 묶음 → 종목 평균 숫자 (요약·구간 표 공용). 20차 칸(앞 8개)은 계산이 그대로다 */
+export function customStats(cells: Cell[], who: { symbol: string; name: string | null }[]): BacktestCustomStats {
   const per = cells.map((c) => {
     const n = c.list.length;
     return {
@@ -440,8 +492,21 @@ function stats(cells: Cell[]): BacktestCustomStats {
       trades: c.trades,
       avg: n ? round2(c.list.reduce((a, t) => a + t.returnPct, 0) / n) : null,
       win: n ? round2((c.list.filter((t) => t.returnPct > 0).length / n) * 100) : null,
+      mdd: toMdd(c.curve),
     };
   });
+  // MDD — 종목 평균과 가장 나쁜 종목
+  let worst: BacktestCustomStats['mddWorst'] = null;
+  per.forEach((p, i) => {
+    if (p.mdd != null && (worst == null || p.mdd < worst.value)) worst = { ...who[i], value: p.mdd };
+  });
+  // Profit Factor — 모든 종목·모든 거래를 모아 (+ 합) ÷ |− 합|
+  const all = cells.flatMap((c) => c.list);
+  const gain = all.filter((t) => t.returnPct > 0).reduce((a, t) => a + t.returnPct, 0);
+  const loss = Math.abs(all.filter((t) => t.returnPct < 0).reduce((a, t) => a + t.returnPct, 0));
+  const exits = Object.fromEntries(
+    EXIT_NAMES.map((k) => [k, all.length ? round2((all.filter((t) => t.exitKind === k).length / all.length) * 100) : 0]),
+  ) as Record<BacktestExitName, number>;
   return {
     symbols: cells.length,
     rule: mean(per.map((p) => p.rule)),
@@ -451,14 +516,19 @@ function stats(cells: Cell[]): BacktestCustomStats {
     winRate: mean(per.map((p) => p.win)),
     avgTrades: mean(per.map((p) => p.trades)),
     weakSymbols: per.filter((p) => p.trades < MIN_TRADES).length,
+    mdd: mean(per.map((p) => p.mdd)),
+    mddWorst: worst,
+    profitFactor: all.length && loss > 0 ? round2(gain / loss) : null,
+    profitFactorNote: !all.length ? '거래 없음' : loss === 0 ? '손실 거래 없음' : null,
+    exits: all.length ? exits : null,
   };
 }
 
 /**
- * 사용자 시험 본체 — 종목 수 제한 없음(종목마다 캔들·지표 한 번). 구간 = 1년(252 완성 거래일)씩 `years` 개,
- * 구간마다 빈손으로 시작해 끝 종가로 정리(고정 시험과 같다). 기간 전체 = 구간 수익률 복리.
+ * 사용자 시험 본체 — 같은 종목·같은 기간에 조건 1~3개. 종목마다 캔들·지표를 **한 번** 받아 모든 조건에 쓴다.
+ * 구간 = 1년(252 완성 거래일)씩 `years` 개, 구간마다 빈손으로 시작해 끝 종가로 정리(고정 시험과 같다). 기간 전체 = 구간 수익률 복리.
  * 일봉이 모자라거나 오류가 난 종목은 `excluded` 에 이유와 함께 — 조용히 빼지 않는다.
- * 미래 누설: 첫 종목(계산되는)에서 `leakCheck` — 실패하면 결과를 내지 않는다(LeakError).
+ * 미래 누설: 첫 종목(계산되는)에서 `leakCheck` 한 번 — 조건들이 쓰는 이동평균을 모두 본다. 실패하면 결과를 내지 않는다(LeakError).
  * ⚠️ 주문을 내지 않는다.
  */
 export async function runCustomBacktest(input: BacktestInput, onProgress?: ResearchProgress): Promise<BacktestCustomReport> {
@@ -469,14 +539,11 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
   const days = SEGMENT_DAYS * input.years;
   const warmup = customWarmupNeeded(input);
   const info = namesAndSectors(input.symbols);
-  const opts: BacktestOptions = {
-    rule: { ...input.rule },
-    hardStopLossPercent: input.hardStopLossPercent,
-    trailingStopEnabled: input.trailingStopEnabled,
-    trailingStopPercent: input.trailingStopPercent,
-  };
+  const options = input.conditions.map(conditionOptions);
+  // 누설 검사: 첫 조건의 선 + 다른 조건이 쓰는 이동평균 (조건 하나면 예전과 같은 검사)
+  const extraMa = [...new Set(input.conditions.slice(1).flatMap((c) => [c.rule.maShort, c.rule.maLong]))];
 
-  const done: { symbol: string; segs: Cell[]; dates: { from: string; to: string }[] }[] = [];
+  const done: { symbol: string; segsBy: Cell[][]; holdCurves: number[][]; dates: { from: string; to: string }[] }[] = [];
   const excluded: BacktestCustomReport['excluded'] = [];
   let leak: BacktestCustomReport['leakCheck'] = { symbol: '', bars: 0, ok: true };
   const total = input.symbols.length;
@@ -493,13 +560,14 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
       indicatorCalls++;
       const first = candles.length - days;
       if (!leak.symbol) {
-        const bad = await leakCheck(candles, series, first, opts.rule);
+        const bad = await leakCheck(candles, series, first, options[0].rule, extraMa);
         indicatorCalls += candles.length - first;
         leak = { symbol, bars: candles.length - first, ok: !bad };
         console.log(`[backtest] 미래 누설 검사 ${symbol} ${leak.bars}봉: ${bad ? `실패 — ${bad}` : '통과'}`);
         if (bad) throw new LeakError(`미래 누설 검사 실패(${symbol}): ${bad}`);
       }
-      done.push({ symbol, ...simulateSegments(symbol, candles, series, input.years, opts) });
+      const runs = options.map((o) => simulateSegments(symbol, candles, series, input.years, o));
+      done.push({ symbol, segsBy: runs.map((r) => r.segs), holdCurves: runs[0].holdCurves, dates: runs[0].dates });
     } catch (e) {
       if (e instanceof LeakError || e instanceof IndicatorEngineError) throw e; // 엔진 꺼짐·누설은 결과로 꾸미지 않는다
       excluded.push({ symbol, name: info.get(symbol)?.name ?? null, reason: (e as Error).message });
@@ -508,36 +576,55 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
   }
   onProgress?.(total, total, '');
 
-  // 기간 전체 셀(구간 복리, 거래 목록은 이어 붙인다)
+  // 기간 전체 셀(구간 복리, 거래 목록·자산 곡선은 이어 붙인다)
   const whole = (segs: Cell[]): Cell => ({
     rule: compound(segs.map((c) => c.rule)),
     hold: segs.every((c) => c.hold != null) ? compound(segs.map((c) => c.hold!)) : null,
     random: segs.every((c) => c.random != null) ? compound(segs.map((c) => c.random!)) : null,
     trades: segs.reduce((a, c) => a + c.trades, 0),
     list: segs.flatMap((c) => c.list),
+    curve: chainCurves(segs.map((c) => c.curve)),
   });
-  const wholeCells = done.map((d) => whole(d.segs));
-  const summary = stats(wholeCells);
+  const who = done.map((d) => ({ symbol: d.symbol, name: info.get(d.symbol)?.name ?? null }));
   const segDates = done[0]?.dates ?? [];
-  const segmentRows =
-    input.years > 1
-      ? segDates.map((d, k) => ({ segment: k + 1, ...d, ...stats(done.map((x) => x.segs[k])) }))
-      : [];
-  const symbols: BacktestCustomSymbol[] = done.map((d, i) => {
-    const c = wholeCells[i];
-    const n = c.list.length;
+
+  const conditions: BacktestConditionResult[] = input.conditions.map((condition, ci) => {
+    const wholeCells = done.map((d) => whole(d.segsBy[ci]));
+    const summary = customStats(wholeCells, who);
+    const segmentRows =
+      input.years > 1 ? segDates.map((d, k) => ({ segment: k + 1, ...d, ...customStats(done.map((x) => x.segsBy[ci][k]), who) })) : [];
+    const symbols: BacktestCustomSymbol[] = done.map((d, i) => {
+      const c = wholeCells[i];
+      const n = c.list.length;
+      return {
+        symbol: d.symbol,
+        name: info.get(d.symbol)?.name ?? null,
+        sector: info.get(d.symbol)?.sector ?? null,
+        trades: c.trades,
+        winRate: n ? round2((c.list.filter((t) => t.returnPct > 0).length / n) * 100) : null,
+        avgReturn: n ? round2(c.list.reduce((a, t) => a + t.returnPct, 0) / n) : null,
+        stopRate: n ? round2((c.list.filter((t) => t.exitKind === 'stop').length / n) * 100) : null,
+        rule: c.rule,
+        hold: c.hold,
+        random: c.random,
+        mdd: toMdd(c.curve),
+        holdMdd: toMdd(chainCurves(d.holdCurves)),
+      };
+    });
     return {
-      symbol: d.symbol,
-      name: info.get(d.symbol)?.name ?? null,
-      sector: info.get(d.symbol)?.sector ?? null,
-      trades: c.trades,
-      winRate: n ? round2((c.list.filter((t) => t.returnPct > 0).length / n) * 100) : null,
-      avgReturn: n ? round2(c.list.reduce((a, t) => a + t.returnPct, 0) / n) : null,
-      stopRate: n ? round2((c.list.filter((t) => t.exitKind === 'stop').length / n) * 100) : null,
-      rule: c.rule,
-      hold: c.hold,
-      random: c.random,
+      label: condition.label,
+      condition,
+      summary: { ...summary, hardToTell: summary.symbols === 0 || summary.weakSymbols * 2 >= summary.symbols },
+      segmentRows,
+      symbols,
     };
+  });
+
+  // 그냥 들고 있기 — 조건과 무관
+  const holdMdds = done.map((d) => toMdd(chainCurves(d.holdCurves)));
+  let holdWorst: BacktestCustomReport['hold']['mddWorst'] = null;
+  holdMdds.forEach((v, i) => {
+    if (v != null && (holdWorst == null || v < holdWorst.value)) holdWorst = { ...who[i], value: v };
   });
 
   sample();
@@ -545,9 +632,8 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
     kind: 'custom',
     input,
     segments: segDates.map((d, k) => ({ segment: k + 1, ...d })),
-    summary: { ...summary, hardToTell: summary.symbols === 0 || summary.weakSymbols * 2 >= summary.symbols },
-    segmentRows,
-    symbols,
+    conditions,
+    hold: { rule: conditions[0]?.summary.hold ?? null, mdd: mean(holdMdds), mddWorst: holdWorst },
     excluded,
     leakCheck: leak,
     measure: { ms: Date.now() - t0, indicatorCalls, rssMaxMb: Math.round(rssMax / 1048576), symbols: total },
