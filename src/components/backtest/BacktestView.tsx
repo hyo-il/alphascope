@@ -18,6 +18,7 @@ import SymbolPicker from './SymbolPicker';
 import ConditionForm from './ConditionForm';
 import CustomResult from './CustomResult';
 import FixedResult from './FixedResult';
+import ApplyRuleButton from './ApplyRuleButton';
 
 /**
  * 「실험실 > 백테스트」 (v2.38.0) — **내가 고른 종목을 내가 정한 조건으로** 과거에 시험한다.
@@ -291,6 +292,7 @@ export default function BacktestView() {
                 onExplain={bt.explain}
                 onRerun={() => isCustomReport(d.detail) && void run(true, d.detail.input)}
                 rerunBusy={running || starting}
+                applySlot={<ApplyRuleButton conditions={d.detail.input} />}
               />
             ) : (
               <FixedResult r={d.detail} />

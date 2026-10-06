@@ -4,18 +4,18 @@ import { usePaperAccounts } from '../../hooks/usePaperTrading';
 import { useAppStore } from '../../store/appStore';
 import { modal, toast } from '../../store/uiStore';
 import { autoTradeView } from '../../utils/autoTradeStatus';
-import { RULE_CHOICES, type RuleChoice } from '../../types/ruleChoices';
-import type { AccountStrategy, AccountStrategyStatus } from '../../types/autoTrading';
+import { nearestEngineMa, type AccountStrategy, type AccountStrategyStatus } from '../../types/autoTrading';
+import { ruleMethodName, type RuleConditions } from '../../utils/autoTradeExplain';
 import { Button, IconButton } from '../ui';
-import { STOP_LOSS_TESTED } from './constants';
+import type { ModalRow } from '../../store/uiStore';
 
 /**
- * [이 방법을 계좌에 적용] (v2.37.0) — 백테스트 결과에서 바로 계좌의 규칙형 설정으로.
+ * [이 조건을 계좌에 적용] (v2.37.0 → v2.38.0) — 백테스트 결과의 조건을 계좌의 규칙형 설정으로.
  *
- * ⚠️ **저장만 한다. 자동매매를 켜거나 끄지 않는다** — 켜기는 계좌 화면에서 사람이 한다.
- * 저장은 기존 `PUT /api/auto-trading/strategies/:id` — 그 계좌의 지금 설정을 읽어 **`mode: 'rule'` 과 `rule` 의 방법 값만** 바꿔 보낸다
- * (대상 종목·손절·트레일링·켜짐 상태·주기 등은 그대로). 새 라우트를 만들지 않는다.
- * 켜진 계좌면 다음 판단부터 바로 쓰이므로 확인 창에 그 사실을 적는다.
+ * ⚠️ **조건만 저장한다. 대상 종목은 바꾸지 않고, 자동매매를 켜거나 끄지 않는다** — 켜기는 계좌 화면에서 사람이 한다.
+ * 저장은 기존 `PUT /api/auto-trading/strategies/:id` 에 `{ mode: 'rule', rule, hardStopLossPercent, trailingStopEnabled, trailingStopPercent }` 만
+ * 보낸다(서버 `saveStrategy` 가 지금 설정과 합친다 — 종목·비중·주기·켜짐은 그대로). 새 라우트를 만들지 않는다.
+ * 확인 창에는 **바뀌는 것만** "지금 → 바꿀 값" 으로. 켜진 계좌면 다음 판단부터 바로 쓰인다는 사실을 적는다.
  */
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -26,8 +26,30 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
 
 type OverviewItem = { strategy: AccountStrategy; status: AccountStrategyStatus | null };
 
-export default function ApplyRuleButton({ choiceId }: { choiceId: RuleChoice['id'] }) {
-  const choice = RULE_CHOICES.find((c) => c.id === choiceId)!;
+const onOff = (v: boolean) => (v ? '사용' : '안 씀');
+
+/** 바뀌는 칸만 — 지금 값과 같으면 줄을 만들지 않는다. 이동평균은 판정이 실제로 쓰는 일수로 비교한다 */
+export function changeRows(current: AccountStrategy, next: RuleConditions): ModalRow[] {
+  const rows: ModalRow[] = [];
+  const add = (label: string, a: string, b: string) => a !== b && rows.push({ label, value: `${a} → ${b}` });
+  add('판단 방식', current.mode === 'ai' ? 'AI형' : '규칙형', '규칙형');
+  const c = current.rule;
+  const n = next.rule;
+  add('방법', ruleMethodName(c), ruleMethodName(n));
+  add('이동평균 교차', onOff(c.useMaCross), onOff(n.useMaCross));
+  if (n.useMaCross) add('이동평균(단기·장기)', `${nearestEngineMa(c.maShort)}·${nearestEngineMa(c.maLong)}일`, `${n.maShort}·${n.maLong}일`);
+  add('RSI', onOff(c.useRsi), onOff(n.useRsi));
+  if (n.useRsi) add('RSI 살 때 · 팔 때', `${c.rsiBuyBelow} · ${c.rsiSellAbove}`, `${n.rsiBuyBelow} · ${n.rsiSellAbove}`);
+  add('손절', `${current.hardStopLossPercent}%`, `${next.hardStopLossPercent}%`);
+  add(
+    '트레일링',
+    current.trailingStopEnabled ? `${current.trailingStopPercent}%` : '끔',
+    next.trailingStopEnabled ? `${next.trailingStopPercent}%` : '끔',
+  );
+  return rows;
+}
+
+export default function ApplyRuleButton({ conditions }: { conditions: RuleConditions }) {
   const [open, setOpen] = useState(false);
   const { accounts, loading } = usePaperAccounts();
   const [overview, setOverview] = useState<OverviewItem[] | null>(null);
@@ -58,25 +80,30 @@ export default function ApplyRuleButton({ choiceId }: { choiceId: RuleChoice['id
       toast.error('계좌 설정을 읽지 못했습니다', (e as Error).message);
       return;
     }
+    const rows = changeRows(current, conditions);
     const lines: string[] = [];
-    lines.push(current.mode === 'ai' ? '판단 방식: AI형 → 규칙형으로 바뀝니다.' : '판단 방식: 규칙형(그대로)');
-    lines.push(`사고파는 조건: 산다 — ${choice.buy} / 판다 — ${choice.sell}`);
-    if (current.hardStopLossPercent !== STOP_LOSS_TESTED) {
-      lines.push(`이 계좌의 손절은 ${current.hardStopLossPercent}% 입니다. 백테스트는 ${STOP_LOSS_TESTED}% 로 계산했습니다.`);
-    }
+    if (!rows.length) lines.push('이 계좌는 이미 같은 조건입니다. 저장해도 바뀌는 것이 없습니다.');
+    lines.push('대상 종목은 바꾸지 않습니다.');
+    lines.push('자동매매를 켜거나 끄지 않습니다.');
     if (current.enabled) lines.push('이 계좌는 자동매매가 켜져 있어 다음 판단부터 바로 적용됩니다.');
-    lines.push('자동매매를 켜거나 끄지 않습니다. 대상 종목·손절·트레일링 등 다른 설정은 그대로입니다.');
     modal.confirm({
-      title: `${name}에 '${choice.title}' 적용`,
+      title: `${name}에 이 조건 적용`,
+      rows,
       message: lines.join('\n'),
       confirmText: '적용',
       onConfirm: async () => {
         try {
-          // 방법 값만 바꾼다 — rule 의 나머지 칸(있다면)과 다른 설정은 지금 값 그대로
+          // 조건만 보낸다 — 서버가 지금 설정과 합친다(종목·비중·주기·켜짐은 보내지 않는다)
           await json(`/api/auto-trading/strategies/${accountId}`, {
             method: 'PUT',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ mode: 'rule', rule: { ...current.rule, ...choice.rule } }),
+            body: JSON.stringify({
+              mode: 'rule',
+              rule: conditions.rule,
+              hardStopLossPercent: conditions.hardStopLossPercent,
+              trailingStopEnabled: conditions.trailingStopEnabled,
+              trailingStopPercent: conditions.trailingStopPercent,
+            }),
           });
           toast.success(`${name}에 적용했습니다. 자동매매 켜기는 계좌 화면에서 합니다.`);
         } catch (e) {
@@ -89,13 +116,13 @@ export default function ApplyRuleButton({ choiceId }: { choiceId: RuleChoice['id
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}>
-        이 방법을 계좌에 적용
+        이 조건을 계좌에 적용
       </Button>
       {open && (
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={`'${choice.title}' 을 적용할 계좌 고르기`}
+          aria-label="이 조건을 적용할 계좌 고르기"
           className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-6"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setOpen(false);
@@ -103,7 +130,7 @@ export default function ApplyRuleButton({ choiceId }: { choiceId: RuleChoice['id
         >
           <div className="w-[min(420px,90vw)] rounded-xl bg-bg-secondary p-4 shadow-xl">
             <div className="mb-3 flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-text-primary">'{choice.title}' 을 적용할 계좌</h3>
+              <h3 className="text-sm font-semibold text-text-primary">이 조건을 적용할 계좌</h3>
               <IconButton icon={X} label="닫기" size="sm" className="ml-auto" onClick={() => setOpen(false)} />
             </div>
             {loading && !accounts.length ? (
@@ -144,7 +171,7 @@ export default function ApplyRuleButton({ choiceId }: { choiceId: RuleChoice['id
                 })}
               </ul>
             )}
-            <p className="mt-3 text-[13px] text-text-muted">규칙형 설정만 저장합니다. 자동매매를 켜거나 끄지 않습니다.</p>
+            <p className="mt-3 text-[13px] text-text-muted">조건(판단 방식·방법 숫자·손절·트레일링)만 저장합니다. 대상 종목은 그대로이고, 자동매매를 켜거나 끄지 않습니다.</p>
           </div>
         </div>
       )}
