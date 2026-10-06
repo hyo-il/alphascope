@@ -3,7 +3,8 @@ import Button from './Button';
 import { ICON_SM } from './icon';
 
 /**
- * 「자세히」 펼치기 버튼 (v2.39.0) — 숫자 설정을 접어 둔 곳은 **이 버튼 하나**로 연다(눈에 띄는 같은 모양).
+ * 접기 버튼 (v2.39.0 · v2.40.0 용어집) — 앱의 **모든 접기는 이 버튼 하나**다(`<summary>` 를 쓰지 않는다).
+ * 글자는 용어집을 따른다: 숫자를 고치는 칸 = 「고급 설정」, 설정이 아닌 칸 = 「○○ 보기」, 펼치면 「접기」.
  * 예전에는 작은 회색 글자(`<summary>`·글자 버튼)라 있는 줄도 몰랐다. 펼침 상태는 기억하지 않는다(쓰는 곳이 상태를 들고 있다).
  * `controls` = 펼쳐지는 영역의 id (`aria-controls`).
  */
@@ -17,7 +18,7 @@ export default function DisclosureButton({
 }: {
   open: boolean;
   onToggle: () => void;
-  /** 접혀 있을 때 글자 — 예) 「자세히 — 숫자 직접 고치기」 */
+  /** 접혀 있을 때 글자 — 예) 「고급 설정」 · 「최근 판단 보기」 */
   label: string;
   /** 펼쳤을 때 글자 */
   openLabel?: string;
