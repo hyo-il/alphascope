@@ -17,7 +17,7 @@ export default function SurgeMiniChart({
   height?: number;
 }) {
   if (!history.length) {
-    return <p className="text-[13px] text-text-muted">표시할 급등 이력이 없습니다.</p>;
+    return <p className="text-[13px] text-text-muted">표시할 과거 급등일이 없습니다.</p>;
   }
 
   const width = 100; // viewBox 기준. 실제 폭은 CSS 가 늘린다.
@@ -37,7 +37,7 @@ export default function SurgeMiniChart({
         preserveAspectRatio="none"
         className="h-16 w-full"
         role="img"
-        aria-label="급등 이력"
+        aria-label="과거 급등일"
       >
         {history.map((event, index) => {
           const barHeight = Math.max(3, (event.changePercent / maxPercent) * (height - 14));

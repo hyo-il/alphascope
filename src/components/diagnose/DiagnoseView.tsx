@@ -1,3 +1,4 @@
+import DisclosureButton from '../ui/DisclosureButton';
 import WarnIcon from '../ui/WarnIcon';
 import { SkeletonCards } from '../common/SkeletonLoader';
 import { VERDICT_ICON } from '../ui/statusIcons';
@@ -146,7 +147,7 @@ function HelpBox() {
           </p>
           <p>
             <b className="text-text-primary">어떻게 채점하나요?</b> 신호가 나온 뒤 실제 주가가 어떻게 움직였는지 봅니다. 그리고{' '}
-            <b className="text-text-primary">기준선</b>과 비교합니다 — "아무 생각 없이 샀을 때" 나 "우연히 맞힐 확률", "본전(0)" 같은 비교
+            <b className="text-text-primary">기준선</b>과 비교합니다 — "아무 생각 없이 매수했을 때" 나 "우연히 맞힐 확률", "본전(0)" 같은 비교
             대상이고, 카드마다 다르므로 각 카드 제목 아래에 적어 두었습니다. 기준선보다 나아야 그 신호가 쓸모 있다고 봅니다.
           </p>
           <div>
@@ -154,7 +155,7 @@ function HelpBox() {
             <ul className="mt-1 space-y-1">
               <li>{badge('good')} — 기준선보다 결과가 좋았습니다. (수익이 났다는 뜻과 같지는 않습니다.)</li>
               <li>{badge('bad')} — 기준선보다 나을 게 없었습니다. 이 신호만 믿고 사면 안 됩니다.</li>
-              <li>{badge('hold')} — 채점한 기록이 아직 적어 결론을 낼 수 없습니다. 기록이 쌓일 때까지 기다립니다.</li>
+              <li>{badge('hold')} — 채점한 결과가 아직 적어 결론을 낼 수 없습니다. 결과가 쌓일 때까지 기다립니다.</li>
             </ul>
           </div>
           <p>
@@ -234,7 +235,7 @@ function Cards({ s }: { s: DiagnoseSummary }) {
     <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(250px,1fr))]">
       <Card
         title="1. 관심 종목이 「지금 살 만한가」 에서 부적합한 것은 정상인가?"
-        hint={'「지금 살 만한가」 가 BUY 를 낸 날 샀다면 20거래일 뒤 평균 몇 % 였는지 봅니다. 플러스면 좋은 신호입니다(기준선 = 0).'}
+        hint={'「지금 살 만한가」 가 BUY 를 낸 날 매수했다면 20거래일 뒤 평균 몇 % 였는지 봅니다. 플러스면 좋은 신호입니다(기준선 = 0).'}
         weak={s.swing.weak}
         judgement={judge({
           weak: s.swing.weak,
@@ -310,7 +311,7 @@ function Cards({ s }: { s: DiagnoseSummary }) {
         numbers={[
           { label: '적중률', value: `${s.ai.rate}% (채점 ${s.ai.judged}건)` },
           { label: '기준선 (5일 뒤 상승 비율)', value: `${s.ai.baseline}%` },
-          { label: '분석 기록', value: `${s.ai.total}건 (원본 ${s.ai.raw}건)` },
+          { label: '분석 결과', value: `${s.ai.total}건 (원본 ${s.ai.raw}건)` },
           s.ai.claude
             ? { label: 'Claude 수동(별도·선택 편향)', value: `${s.ai.claude.rate}% (채점 ${s.ai.claude.judged}건)` }
             : { label: '출처', value: 'Claude 수동 분석이 섞인 옛 리포트' },
@@ -335,7 +336,7 @@ function Cards({ s }: { s: DiagnoseSummary }) {
             { label: '5거래일 뒤 적중', value: `${s.news.d5.rate}% (채점 ${s.news.d5.judged}건)` },
             { label: '기준선 (무조건 상승)', value: `${s.news.d5.baseline}%` },
             { label: '1거래일 뒤 적중 · 기준선', value: `${s.news.d1.rate}% · ${s.news.d1.baseline}% (${s.news.d1.judged}건)` },
-            { label: '판정 기록', value: `${s.news.total}건 (원본 ${s.news.raw} · 판단 불가 ${s.news.undetermined})` },
+            { label: '판정 결과', value: `${s.news.total}건 (원본 ${s.news.raw} · 판단 불가 ${s.news.undetermined})` },
           ]}
           conclusion={s.news.conclusion}
         />
@@ -344,12 +345,19 @@ function Cards({ s }: { s: DiagnoseSummary }) {
   );
 }
 
+/** 상세 섹션 — 접기는 DisclosureButton 「○○ 보기」 (v2.40.0 공통 동작 규칙, 펼침은 기억하지 않는다) */
 function Section({ title, children }: { title: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
   return (
-    <details className="rounded-xl bg-bg-secondary px-3 py-2">
-      <summary className="text-xs font-semibold text-text-secondary">{title}</summary>
-      <div className="mt-2 space-y-3">{children}</div>
-    </details>
+    <div className="rounded-xl bg-bg-secondary px-3 py-2">
+      <DisclosureButton open={open} onToggle={() => setOpen((v) => !v)} label={`${title} 보기`} controls={id} />
+      {open && (
+        <div id={id} className="mt-2 space-y-3">
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -451,7 +459,7 @@ function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
       <Section title="목표 수익률 — 10거래일 안 목표 먼저 도달률 · 기대값">
         <p className="text-[13px] text-text-muted">
           매일 종가 매수 가정 · 같은 날 둘 다 닿으면 손절 · 왕복 비용 0.30%p 반영. 조건을 바꿔 보려면
-          「투자 분석 &gt; 매수 판단 도우미 &gt; 목표 수익 가능성」 의 결과 카드에서 과거 기준선을 볼 수 있습니다(지난 기록도 그 탭 아래).
+          「투자 분석 &gt; 매수 판단 도우미 &gt; 목표 수익 가능성」 의 결과 카드에서 과거 기준선을 볼 수 있습니다(히스토리도 그 탭 아래).
         </p>
         <Table
           headers={['종목', 'ATR/일', ...TARGET_COLUMNS.map(([t, st]) => `+${t}/−${st}`)]}
@@ -579,14 +587,14 @@ export default function DiagnoseView() {
     if (!selected) return;
     const target = selected;
     modal.confirm({
-      title: '진단 리포트 지우기',
-      message: `${stamp(target.createdAt)} 리포트를 지웁니다. 되돌릴 수 없습니다(웹 목록에서만 지워지고, 서버의 파일은 남습니다).`,
-      confirmText: '지우기',
+      title: '진단 리포트 삭제',
+      message: `${stamp(target.createdAt)} 리포트를 삭제합니다. 되돌릴 수 없습니다(웹 목록에서만 삭제되고, 서버의 파일은 남습니다).`,
+      confirmText: '삭제',
       danger: true,
       onConfirm: async () => {
         try {
           await remove(target.id);
-          toast.success('리포트를 지웠습니다');
+          toast.success('리포트를 삭제했습니다');
         } catch (e) {
           toast.error('삭제 실패', (e as Error).message);
         }
@@ -625,8 +633,8 @@ export default function DiagnoseView() {
                 type="button"
                 onClick={confirmDelete}
                 disabled={running}
-                title="이 리포트 지우기 (웹 목록에서만)"
-                aria-label="이 리포트 지우기"
+                title="이 리포트 삭제 (웹 목록에서만)"
+                aria-label="이 리포트 삭제"
                 className="rounded bg-bg-tertiary p-1 text-text-secondary transition-colors hover:bg-bg-elevated hover:text-bearish disabled:opacity-40"
               >
                 <TrashIcon className="h-3.5 w-3.5" />

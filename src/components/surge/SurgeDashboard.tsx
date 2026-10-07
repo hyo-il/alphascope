@@ -1,3 +1,4 @@
+import { RemoveAllButton } from '../ui';
 import { Fragment } from 'react';
 import { usePageTab } from '../../hooks/usePageTab';
 import type { PageTab } from '../../types/nav';
@@ -21,7 +22,7 @@ type Tab = PageTab<'surge'>;
 const TABS: { id: Tab; label: string }[] = [
   { id: 'list', label: '주기적 급등 종목' },
   { id: 'search', label: '종목 검색 평가' },
-  { id: 'history', label: '탐지 이력' },
+  { id: 'history', label: '탐지 히스토리' },
   { id: 'settings', label: '설정' },
 ];
 
@@ -124,7 +125,7 @@ export default function SurgeDashboard({
  */
 /** 삭제 확인창 공통 문구 — 무엇이 사라지고 무엇이 남는지 */
 const DELETE_NOTE =
-  '지우면 진단 리포트의 급등 예측 성적이 처음부터 다시 쌓입니다. 「주기적 급등 종목」 탭의 최근 결과도 함께 사라질 수 있습니다. AI 분석은 이 기록을 읽지 않으므로 영향이 없습니다.';
+  '삭제하면 진단 리포트의 급등 예측 성적이 처음부터 다시 쌓입니다. 「주기적 급등 종목」 탭의 최근 결과도 함께 사라질 수 있습니다. AI 분석은 이 히스토리를 읽지 않으므로 영향이 없습니다.';
 
 const roundLabel = (iso: string) => {
   const d = new Date(iso);
@@ -136,11 +137,11 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
 
   const confirmDelete = (detectedAt?: string, count?: number) => {
     modal.confirm({
-      title: detectedAt ? '탐지 회차 지우기' : '탐지 이력 모두 지우기',
+      title: detectedAt ? '탐지 회차 삭제' : '탐지 히스토리 모두 삭제',
       message: detectedAt
-        ? `${roundLabel(detectedAt)} 회차(${count}종목)를 지웁니다. 되돌릴 수 없습니다. ${DELETE_NOTE}`
-        : `탐지 이력 ${detections.length}건을 모두 지웁니다. 되돌릴 수 없습니다. ${DELETE_NOTE} 설정과 캐시는 남습니다.`,
-      confirmText: '지우기',
+        ? `${roundLabel(detectedAt)} 회차(${count}종목)를 삭제합니다. 되돌릴 수 없습니다. ${DELETE_NOTE}`
+        : `탐지 히스토리 ${detections.length}건을 모두 삭제합니다. 되돌릴 수 없습니다. ${DELETE_NOTE} 설정과 캐시는 남습니다.`,
+      confirmText: '삭제',
       danger: true,
       onConfirm: async () => {
         try {
@@ -155,9 +156,9 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
     });
   };
 
-  if (loading && !detections.length) return <p className="text-xs text-text-muted">이력을 불러오는 중…</p>;
+  if (loading && !detections.length) return <p className="text-xs text-text-muted">히스토리를 불러오는 중…</p>;
   if (!detections.length) {
-    return <p className="text-xs text-text-muted">아직 탐지 이력이 없습니다.</p>;
+    return <p className="text-xs text-text-muted">아직 탐지 히스토리가 없습니다.</p>;
   }
 
   // 회차(detected_at)별로 묶는다 — 서버가 최신 회차부터 준다
@@ -182,15 +183,8 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
           {judged.length ? ` (${Math.round((hits / judged.length) * 100)}%)` : ''} · 탐지 후 30일
           안에 같은 기준의 급등이 나왔는지로 판정합니다.
         </p>
-        <button
-          type="button"
-          onClick={() => confirmDelete()}
-          disabled={running}
-          title={running ? '탐지가 끝난 뒤에 지울 수 있습니다' : undefined}
-          className="ml-auto shrink-0 rounded bg-bg-tertiary px-2 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-bearish disabled:opacity-40"
-        >
-          이력 전체 지우기
-        </button>
+        {/* 탐지 중에는 감춘다(예전: 꺼진 버튼 + "탐지가 끝난 뒤에 지울 수 있습니다") */}
+        {!running && <RemoveAllButton onClick={() => confirmDelete()} className="ml-auto" />}
       </div>
 
       <div className="overflow-x-auto">
@@ -220,8 +214,8 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
                         type="button"
                         onClick={() => confirmDelete(round.at, round.rows.length)}
                         disabled={running}
-                        aria-label={`${roundLabel(round.at)} 회차 지우기`}
-                        title="이 회차 지우기"
+                        aria-label={`${roundLabel(round.at)} 회차 삭제`}
+                        title="이 회차 삭제"
                         className="ml-auto rounded p-1 transition-colors hover:bg-bg-tertiary hover:text-bearish disabled:opacity-40"
                       >
                         <TrashIcon className="h-3.5 w-3.5" />

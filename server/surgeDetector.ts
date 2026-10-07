@@ -500,7 +500,7 @@ export async function evaluateSurgePotential(
       appliedThreshold: threshold,
       thresholdReason,
       marketCap,
-      error: '과거 일봉이 부족합니다 (상장 직후이거나 심볼이 다를 수 있습니다).',
+      error: '과거 일봉이 부족합니다 (상장 직후이거나 티커가 다를 수 있습니다).',
     };
   }
 

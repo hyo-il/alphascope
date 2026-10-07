@@ -88,7 +88,7 @@ export default function SurgeEvaluation({
       </section>
 
       <section className="mt-3">
-        <h4 className="text-xs font-semibold text-text-secondary">급등 이력</h4>
+        <h4 className="text-xs font-semibold text-text-secondary">과거 급등일</h4>
         <div className="mt-1">
           <SurgeMiniChart history={evaluation.surgeHistory} />
         </div>
