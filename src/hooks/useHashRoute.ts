@@ -39,7 +39,7 @@ export function useHashRoute(): void {
   useEffect(() => {
     const { setPage } = useAppStore.getState();
 
-    // 1) 처음 열기·새로고침 — 주소를 먼저 반영하고 나서 구독한다(기본값 chart 가 주소를 덮어쓰지 않게)
+    // 1) 처음 열기·새로고침 — 주소를 먼저 반영하고 나서 구독한다(기본값 home 이 주소를 덮어쓰지 않게)
     const initial = parseHash(window.location.hash);
     if (initial) {
       setPage(initial.page, initial.sub);
@@ -47,8 +47,8 @@ export function useHashRoute(): void {
       const clean = hashFor(initial);
       if (window.location.hash !== clean) history.replaceState(null, '', clean);
     } else {
-      setPage('chart');
-      history.replaceState(null, '', hashFor({ page: 'chart' }));
+      setPage('home');
+      history.replaceState(null, '', hashFor({ page: 'home' }));
     }
 
     // 주소에서 온 이동 중인지 — 그때 생기는 주소 정리(#/swing → #/swing/list)는 기록을 쌓지 않는다
@@ -75,9 +75,9 @@ export function useHashRoute(): void {
     const onAddress = () => {
       const parsed = parseHash(window.location.hash);
       if (!parsed) {
-        // 모르는 주소 — 차트로, 주소만 고친다
-        history.replaceState(null, '', hashFor({ page: 'chart' }));
-        useAppStore.getState().setPage('chart');
+        // 모르는 주소 — 홈으로(v2.41.0), 주소만 고친다
+        history.replaceState(null, '', hashFor({ page: 'home' }));
+        useAppStore.getState().setPage('home');
         return;
       }
       const { nav } = useAppStore.getState();

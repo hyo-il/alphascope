@@ -1,4 +1,4 @@
-import { CalendarDays, ChartCandlestick, Compass, FlaskConical, Lightbulb, LogOut, Settings, Wallet } from 'lucide-react';
+import { House, CalendarDays, ChartCandlestick, Compass, FlaskConical, Lightbulb, LogOut, Settings, Wallet } from 'lucide-react';
 import type { NavIconKey } from '../../types/nav';
 
 /**
@@ -6,6 +6,7 @@ import type { NavIconKey } from '../../types/nav';
  * 투자 분석은 돋보기·과녁 계열을 피했다(검색·목표 수익 가능성과 헷갈린다) — 「살펴보고 판단한다」 는 뜻으로 전구.
  */
 export const NAV_ICON: Record<NavIconKey, typeof Compass> = {
+  home: House,
   explore: Compass,
   chart: ChartCandlestick,
   calendar: CalendarDays,

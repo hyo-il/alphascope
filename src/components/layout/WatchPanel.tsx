@@ -1,3 +1,4 @@
+import { confirmClearRecent } from '../common/confirmClearRecent';
 import { ICON, ICON_LG, ICON_SM } from '../ui/icon';
 import { ListRemoveButton, RemoveAllButton } from '../ui';
 import { Check, ChevronLeft, ChevronRight, Clock, Settings, Star, Wallet } from 'lucide-react';
@@ -15,7 +16,6 @@ import { formatPercent, formatPrice } from '../../utils/formatters';
 import { usePaperAccounts, usePaperAccountDetail } from '../../hooks/usePaperTrading';
 import { SIDE_POLL_MS, useAutoTradingOverview } from '../../hooks/usePaperOverview';
 import AccountMiniView from './AccountMiniView';
-import { modal } from '../../store/uiStore';
 
 interface Props {
   currentSymbol: string;
@@ -333,13 +333,7 @@ export default function WatchPanel({
           <div className="flex justify-center border-t border-border py-1.5">
             <RemoveAllButton
               onClick={() =>
-                modal.confirm({
-                  title: '최근 조회 모두 삭제',
-                  message: `최근 조회한 ${recent.length}종목을 모두 삭제합니다. 되돌릴 수 없습니다. (관심 목록은 그대로입니다)`,
-                  confirmText: '삭제',
-                  danger: true,
-                  onConfirm: onClearRecent,
-                })
+                confirmClearRecent(recent.length, onClearRecent)
               }
             />
           </div>

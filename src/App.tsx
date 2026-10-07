@@ -18,6 +18,7 @@ import HeatmapView from './components/heatmap/HeatmapView';
 import RankingView from './components/ranking/RankingView';
 import QuickOrderPanel from './components/chart/QuickOrderPanel';
 import StockExplorer from './components/common/StockExplorer';
+import { confirmClearRecent } from './components/common/confirmClearRecent';
 import CandleChart, { type CandleChartHandle } from './components/chart/CandleChart';
 import ChartToolbar from './components/chart/ChartToolbar';
 import ChartBottomTabs from './components/chart/ChartBottomTabs';
@@ -69,6 +70,11 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   const setSymbol = useAppStore((s) => s.setSymbol);
   const setTimeframe = useAppStore((s) => s.setTimeframe);
   const clearSymbol = useAppStore((s) => s.clearSymbol);
+  /** 종목 고르기 — 홈에서 고르면 차트로 간다(v2.41.0). 다른 화면에서는 그 화면에 머문다(예전 그대로) */
+  const selectSymbol = (next: string) => {
+    setSymbol(next);
+    if (useAppStore.getState().nav.page === 'home') useAppStore.getState().setPage('chart');
+  };
 
   // 탭 제목에 종목을 적어 여러 탭을 구분한다 (가격은 넣지 않는다 — 매초 바뀐다)
   useDocumentTitle(symbol);
@@ -448,14 +454,10 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         onSelectPage={setPage}
         onSelectGroup={setGroup}
         /*
-          홈 = 차트 화면 + 종목 미선택 (= 종목 탐색 홈). 앱을 처음 열었을 때와 같은 상태다.
-          ⚠️ 차트는 언마운트하지 않는 원칙이라 `symbol` 만 비운다 — 시작 시와 같은 상태이므로
-          차트 쪽에서 빈 요청이 나가지 않는다.
+          로고 = 홈 메뉴 (v2.41.0). ⚠️ 보던 종목은 지우지 않는다 — 차트는 화면 밖에 그대로 있고(언마운트 금지 원칙),
+          「차트」 메뉴를 누르면 보던 종목 차트로 돌아간다.
         */
-        onGoHome={() => {
-          setPage('chart');
-          clearSymbol();
-        }}
+        onGoHome={() => setPage('home')}
         onLogout={onLogout}
       />
 
@@ -477,7 +479,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
             종목명·가격·등락은 줄바꿈 금지, **검색칸이 대신 줄어든다**(최소 14rem). 넓은 화면에서는 예전처럼 w-96.
           */}
           <div className="w-96 min-w-56 shrink">
-            <SymbolSearch symbol={symbol ?? ''} onSubmit={setSymbol} />
+            <SymbolSearch symbol={symbol ?? ''} onSubmit={selectSymbol} />
           </div>
 
           {symbol ? (
@@ -487,7 +489,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
                 type="button"
                 onClick={() => {
                   clearSymbol();
-                  setPage('chart');
+                  setPage('home');
                 }}
                 title="종목 선택 해제"
                 aria-label="종목 선택 해제"
@@ -560,21 +562,25 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           </div>
         )}
 
-        {view === 'chart' && !symbol && (
+        {/* 종목 탐색 — 홈, 그리고 종목 없이 연 차트. 둘 중 보이는 곳 하나만 그린다(시세 폴링이 두 벌이 되지 않게) */}
+        {(view === 'home' || (view === 'chart' && !symbol)) && (
           <div className="flex min-h-0 flex-1 flex-col">
             <StockExplorer
-              onSelect={setSymbol}
+              onSelect={(next) => {
+                setSymbol(next);
+                setPage('chart');
+              }}
               watchlist={watchlist}
               recent={recent}
               /* 패널과 **같은 함수**를 넘긴다 — 삭제 로직을 화면마다 만들면 갈라진다 */
               onRemoveWatch={watch.remove}
               onRemoveRecent={removeRecent}
-              onClearRecent={clearRecent}
+              onClearRecent={() => confirmClearRecent(recent.length, clearRecent)}
             />
           </div>
         )}
 
-        {view !== 'chart' && (
+        {view !== 'chart' && view !== 'home' && (
           <div className="flex min-h-0 flex-1 flex-col">{mainContent()}</div>
         )}
       </div>
@@ -597,7 +603,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
                   toast.warning('최대 4개까지 비교 가능합니다', '하나를 삭제하고 추가하세요');
                 }
               }
-            : setSymbol
+            : selectSymbol
         }
         onRemoveRecent={removeRecent}
         onClearRecent={clearRecent}

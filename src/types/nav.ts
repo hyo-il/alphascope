@@ -12,9 +12,10 @@
  * 대메뉴 (v2.26.0 다시 묶음 — 2026-10-02 사용자 결정): 탐색 · 차트·비교 · 증시 일정 · 투자 분석 · 실험실 · 계좌 · (맨 아래) 설정.
  * ⚠️ page id 는 바꾸지 않았다 — 주소(#/pageId)·저장값·`needsSymbol` 이 page id 로 찾는다. 대메뉴만 다시 묶었다.
  */
-export type NavGroupId = 'explore' | 'chart' | 'calendar' | 'analysis' | 'lab' | 'account' | 'settings';
+export type NavGroupId = 'home' | 'explore' | 'chart' | 'calendar' | 'analysis' | 'lab' | 'account' | 'settings';
 
 export type NavPageId =
+  | 'home'
   | 'chart'
   | 'compare'
   | 'calendar'
@@ -53,7 +54,7 @@ export interface NavPage {
   badge?: string;
 }
 
-export type NavIconKey = 'explore' | 'chart' | 'calendar' | 'analysis' | 'lab' | 'account' | 'settings';
+export type NavIconKey = 'home' | 'explore' | 'chart' | 'calendar' | 'analysis' | 'lab' | 'account' | 'settings';
 
 export interface NavGroup {
   id: NavGroupId;
@@ -71,6 +72,18 @@ export interface NavGroup {
 
 export const NAV_GROUPS: NavGroup[] = [
   {
+    /*
+      홈 (v2.41.0 사용자 결정) — 맨 위, 소메뉴 하나(누르면 바로 화면). 화면 = 종목 탐색(StockExplorer).
+      앱을 처음 열 때·주소 없음·모르는 주소 = 홈. 로고도 홈이다 — ⚠️ 보던 종목은 지우지 않는다(차트 언마운트 금지 원칙).
+      상단 종목 헤더는 둔다 — 헤더 검색으로 종목을 고르면 차트로 간다.
+    */
+    id: 'home',
+    icon: 'home',
+    label: '홈',
+    shortLabel: '홈',
+    pages: [{ id: 'home', label: '홈' }],
+  },
+  {
     id: 'explore',
     icon: 'explore',
     label: '탐색',
@@ -84,7 +97,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // 앱을 처음 열었을 때·로고(홈)의 위치가 이 대메뉴의 차트다 — id 'chart' 를 바꾸지 않는다
+    // id 'chart' 를 바꾸지 않는다(주소 #/chart). v2.41.0 부터 처음 화면·로고는 홈이다
     id: 'chart',
     icon: 'chart',
     label: '차트·비교',

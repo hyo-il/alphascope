@@ -98,7 +98,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   timeframe: '1d',
   isMock: false,
   compareSlots: emptySlots(),
-  nav: { group: 'chart', page: 'chart', sub: null },
+  nav: { group: 'home', page: 'home', sub: null },
   backtestPreset: null,
   setBacktestPreset: (backtestPreset) => set({ backtestPreset }),
   setPage: (page, sub) => {
