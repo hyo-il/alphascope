@@ -1,3 +1,4 @@
+import TrashIcon from '../common/TrashIcon';
 import { useCallback, useEffect, useState } from 'react';
 import { SkeletonList } from '../common/SkeletonLoader';
 import { analysisModeLabel } from '../../types/analysis';
@@ -304,8 +305,9 @@ export default function AnalysisHistory({
                     <button
                       type="button"
                       onClick={() => handleDelete(record)}
-                      className="mt-2 text-[13px] text-text-muted transition-colors hover:text-bearish"
+                      className="mt-2 inline-flex items-center gap-1 text-[13px] text-text-muted transition-colors hover:text-bearish"
                     >
+                      <TrashIcon className="h-3.5 w-3.5" />
                       삭제
                     </button>
                   </div>

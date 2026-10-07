@@ -141,8 +141,8 @@ export default function TargetTab({
               compact
               dropUp={false}
               clearOnSubmit
-              placeholder="관심 목록 밖 종목 넣기"
-              submitLabel="넣기"
+              placeholder="관심 목록 밖 종목 추가"
+              submitLabel="종목 추가"
               isAdded={(s) => rows.includes(s)}
               onSubmit={(s) => {
                 const sym = s.toUpperCase();

@@ -488,8 +488,9 @@ export default function WatchlistManager({
                 type="button"
                 onClick={confirmDeleteSymbols}
                 disabled={checked.length === 0}
-                className={`${ACTION} hover:border-bearish hover:text-bearish`}
+                className={`${ACTION} inline-flex items-center gap-1 hover:border-bearish hover:text-bearish`}
               >
+                <TrashIcon className="h-3.5 w-3.5" />
                 삭제
               </button>
 
@@ -528,7 +529,7 @@ export default function WatchlistManager({
                       placeholder={
                         folder ? `'${folder.name}' 에 추가 (구글, 애플, AAPL…)` : '폴더 없이 추가 (구글, 애플, AAPL…)'
                       }
-                      submitLabel="추가"
+                      submitLabel="종목 추가"
                       compact
                       clearOnSubmit
                       /*

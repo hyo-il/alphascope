@@ -1,3 +1,4 @@
+import TrashIcon from '../common/TrashIcon';
 import { useState } from 'react';
 import type { PaperAccount } from '../../types/paper';
 import { formatPrice } from '../../utils/formatters';
@@ -106,8 +107,9 @@ export default function AccountManager({
             <button
               type="button"
               onClick={confirmDelete}
-              className="rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-muted transition-colors hover:bg-bg-elevated hover:text-bearish"
+              className="inline-flex items-center gap-1 rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-muted transition-colors hover:bg-bg-elevated hover:text-bearish"
             >
+              <TrashIcon className="h-3.5 w-3.5" />
               삭제
             </button>
           </>

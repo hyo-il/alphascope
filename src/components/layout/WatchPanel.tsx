@@ -319,7 +319,7 @@ export default function WatchPanel({
             symbol=""
             onSubmit={(symbol) => watch.add(symbol, DEFAULT_FOLDER_ID)}
             placeholder="+ 빠른 추가 (구글, 애플…)"
-            submitLabel="추가"
+            submitLabel="종목 추가"
             compact
             clearOnSubmit
             isAdded={(candidate: string) => watchlist.includes(candidate)}

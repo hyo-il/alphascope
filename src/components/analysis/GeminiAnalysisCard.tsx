@@ -1,3 +1,4 @@
+import TrashIcon from '../common/TrashIcon';
 import DisclosureButton from '../ui/DisclosureButton';
 import WarnIcon from '../ui/WarnIcon';
 import { useState } from 'react';
@@ -120,9 +121,11 @@ export default function GeminiAnalysisCard({
         <DisclosureButton open={open} onToggle={() => setOpen(!open)} label="상세 보기" controls={`gemini-card-${analysis.id}`} />
         {onDelete && (
           <button
+            type="button"
             onClick={() => onDelete(analysis.id)}
-            className="text-text-muted hover:text-bearish"
+            className="inline-flex items-center gap-1 text-text-muted hover:text-bearish"
           >
+            <TrashIcon className="h-3.5 w-3.5" />
             삭제
           </button>
         )}
