@@ -141,9 +141,6 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
         {error && <span className="text-[13px] text-bearish">상태 조회 실패: {error}</span>}
 
         <span className="ml-auto flex items-center gap-2">
-          <span className="rounded bg-warning/15 px-2 py-0.5 text-[13px] text-warning">
-            모의 — 실제 주문은 나가지 않습니다
-          </span>
           <button
             type="button"
             onClick={() => setOpen(true)}

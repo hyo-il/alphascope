@@ -1,5 +1,4 @@
 import InfoTip from '../ui/InfoTip';
-import WarnIcon from '../ui/WarnIcon';
 import { useState } from 'react';
 import { Skeleton, SkeletonCards, SkeletonTable } from '../common/SkeletonLoader';
 import {
@@ -116,22 +115,13 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
     ? !autoOverview.items.some((s) => s.strategy.enabled) || !autoOverview.items.some((s) => s.strategy.mode === 'rule')
     : false;
 
-  const banner = (
-    <div className="flex shrink-0 items-center gap-2 border-b border-warning/40 bg-warning/10 px-4 py-2 text-xs text-warning">
-      <WarnIcon />
-      <span>
-        <b>모의투자 — 실제 거래가 아닙니다.</b> 시세는 실시간이지만 주문·체결·잔고는 앱 안의
-        가상 자금으로만 처리되며, 증권사에 주문이 전송되지 않습니다.
-      </span>
-    </div>
-  );
+  // 모의투자 안내는 계좌 화면 탭 줄의 배지 하나 + 정보 아이콘이다 (v2.41.1 — 예전 이 자리의 노란 띠·자동매매 바 배지와 세 번 겹쳤다)
 
   if (loading) {
     // 계좌 목록이 오기 전에도 **실제와 같은 배치**를 그려 둔다.
     // 빈 화면을 잠깐 보여 주면 계좌가 없는 것으로 오해하게 된다.
     return (
       <div className="flex h-full flex-col">
-        {banner}
         <div className="flex items-center gap-2 border-b border-border px-4 py-2">
           <Skeleton className="h-4 w-10" />
           <Skeleton className="h-7 w-40" />
@@ -154,7 +144,6 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   if (accountsError && !accounts.length) {
     return (
       <div className="flex h-full flex-col">
-        {banner}
         <div className="flex flex-1 flex-col items-center justify-center gap-3">
           <p className="text-center text-xs leading-relaxed text-text-secondary">
             계좌 목록을 불러오지 못했습니다.
@@ -180,7 +169,6 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   if (!accounts.length) {
     return (
       <div className="flex h-full flex-col">
-        {banner}
         <AccountManager
           accounts={accounts}
           selectedId={selectedId}
@@ -204,7 +192,6 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   if (view === 'overview') {
     return (
       <div className="flex h-full min-h-0 flex-col">
-        {banner}
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2">
           <h2 className="text-sm font-semibold text-text-primary">계좌 모아보기</h2>
           {/*
@@ -305,7 +292,6 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   // 자리가 모자라면 화면 전체가 스크롤된다 (v2.41.0, 「최근 판단 보기」 를 펼치면 아래가 0까지 줄었다)
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto">
-      {banner}
 
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
         <button
