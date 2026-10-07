@@ -203,6 +203,12 @@ let running = false;
  * 실패하면 로그만 남기고 다음 날 다시 시도한다. 한 번에 하나만 돈다.
  */
 export function startUniverseSnapshotScheduler(): void {
+  // 테스트 서버 스위치 (v2.41.0) — false 면 유니버스 파일 쓰기·월별 스냅샷 받기를 하지 않는다(읽기는 그대로).
+  // 복사본 DB 로 띄운 테스트 서버가 저장소의 server/data/universe.json 을 덮어쓰던 일을 막는다. `npm run universe:update` 는 사람이 직접 부르는 것이라 그대로 동작한다.
+  if (process.env.UNIVERSE_UPDATE_ENABLED === 'false') {
+    console.log('[universe] 유니버스 갱신 꺼짐 (UNIVERSE_UPDATE_ENABLED=false) — 파일·스냅샷을 쓰지 않습니다');
+    return;
+  }
   const tick = () => {
     if (running) return;
     running = true;

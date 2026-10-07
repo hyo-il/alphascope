@@ -1,4 +1,6 @@
 import Dialog from '../ui/Dialog';
+import InfoTip from '../ui/InfoTip';
+import { ATR_HELP } from '../../data/indicatorHelp';
 import DisclosureButton from '../ui/DisclosureButton';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -569,7 +571,11 @@ export default function StrategyProfileModal({
               {FIELDS.map((spec) => (
                 <tr key={spec.path} className="border-b border-border/50 align-top">
                   <td className="py-2 pr-2">
-                    <p className="text-xs text-text-primary">{spec.label}</p>
+                    <p className="inline-flex items-center gap-1 text-xs text-text-primary">
+                      {spec.label}
+                      {/* 설명이 없던 지표 칸에만 (v2.41.0) — ATR */}
+                      {spec.label.startsWith('리스크 %') && <InfoTip label="ATR 설명">{ATR_HELP}</InfoTip>}
+                    </p>
                     <p className="text-[13px] leading-relaxed text-text-secondary">{spec.easy}</p>
                     <p className="text-[13px] leading-relaxed text-text-muted">{spec.hint}</p>
                   </td>

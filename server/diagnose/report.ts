@@ -640,7 +640,7 @@ export function outputDir(): { dir: string; server: string } {
  */
 export class EngineDownError extends Error {
   constructor() {
-    super('지표 엔진(5001)이 응답하지 않습니다. 이 상태로 돌리면 스윙 점수·급등 채점이 전부 0 으로 나와 결과처럼 보입니다 — 엔진을 먼저 띄우세요.');
+    super('지표 엔진(5001)이 응답하지 않습니다. 이 상태로 돌리면 「지금 살 만한가」 점수·급등 채점이 전부 0 으로 나와 결과처럼 보입니다 — 엔진을 먼저 띄우세요.');
     this.name = 'EngineDownError';
   }
 }
@@ -675,9 +675,9 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
     gemini: (getDb().prepare(`SELECT COUNT(*) n FROM gemini_analysis`).get() as { n: number }).n,
   };
 
-  step(1, '스윙 — 오늘 기준');
+  step(1, '지금 살 만한가 — 오늘 기준');
   const today = await swingToday(list);
-  step(2, '스윙 — 과거 재현');
+  step(2, '지금 살 만한가 — 과거 재현');
   const replay = await swingReplay(list);
 
   step(3, '목표 수익률별 빈도');
@@ -734,7 +734,7 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
   // Q1
   const gradeAll: Record<string, number> = {};
   for (const r of replay) for (const [g, n] of Object.entries(r.grades)) gradeAll[g] = (gradeAll[g] ?? 0) + n;
-  md.push('### 1. 관심 종목이 스윙에서 전부 부적합한 것은 정상인가?');
+  md.push('### 1. 관심 종목이 「지금 살 만한가」 에서 전부 부적합한 것은 정상인가?');
   md.push(
     buyTotal === 0
       ? `- 과거 ${REPLAY_DAYS}거래일을 되돌려도 **BUY 이상이 ${buyTotal}일**(총 ${replayDays}일 평가)이었습니다. 오늘만의 일이 아닙니다.`
@@ -802,7 +802,7 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
   md.push('---');
   md.push('');
   // ── 상세 ──
-  md.push('## 상세 1 — 스윙: 오늘 기준');
+  md.push('## 상세 1 — 지금 살 만한가: 오늘 기준');
   md.push('');
   md.push(table(
     ['종목', '등급', '점수', '추세', '타이밍', '모멘텀', '거래량', '손익비', 'RSI', '20일선', '60일선', 'ATR%'],
@@ -831,7 +831,7 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
     md.push('');
   }
 
-  md.push(`## 상세 2 — 스윙: 과거 ${REPLAY_DAYS}거래일 재현`);
+  md.push(`## 상세 2 — 지금 살 만한가: 과거 ${REPLAY_DAYS}거래일 재현`);
   md.push('');
   md.push('⚠️ 각 날짜의 판정에는 **그날까지의 봉만** 넣었습니다(미래 차단).');
   md.push('');

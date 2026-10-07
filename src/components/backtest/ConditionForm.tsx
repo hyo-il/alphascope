@@ -1,3 +1,4 @@
+import { RSI_HELP } from '../../data/indicatorHelp';
 import { useState, type ReactNode } from 'react';
 import { Plus, Sparkles } from 'lucide-react';
 import RuleChoiceCards from '../common/RuleChoiceCards';
@@ -195,7 +196,7 @@ function ConditionCard({
             <span className="text-text-muted">/</span>
             <Segmented label="장기 이동평균" size="sm" options={maOptions.filter((o) => o.value !== 5)} value={r.maLong as EngineMaPeriod} onChange={(v) => setRule({ maLong: v })} />
           </Field>
-          <Field label="RSI 사용" hint="RSI 는 최근 14일 동안 얼마나 올랐는지·떨어졌는지를 0~100 으로 나타낸 값입니다.">
+          <Field label="RSI 사용" hint={RSI_HELP}>
             <Check checked={r.useRsi} onChange={(v) => setRule({ useRsi: v })}>
               사용
             </Check>

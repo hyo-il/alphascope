@@ -1,4 +1,6 @@
 import Dialog from '../ui/Dialog';
+import InfoTip from '../ui/InfoTip';
+import { RSI_HELP, trailingHelp } from '../../data/indicatorHelp';
 import WarnIcon from '../ui/WarnIcon';
 import { useEffect, useMemo, useState } from 'react';
 import { ENGINE_MA_PERIODS, nearestEngineMa, type AccountStrategy, type StrategyMode } from '../../types/autoTrading';
@@ -209,7 +211,7 @@ export default function AutoTradeSettings({
                       />
                       RSI 사용
                     </label>
-                    <p className="-mt-1 text-[13px] text-text-muted">RSI 는 최근 오른 힘과 내린 힘의 비율입니다(0~100, 낮을수록 많이 떨어진 상태).</p>
+                    <p className="-mt-1 text-[13px] text-text-muted">{RSI_HELP}</p>
                     <Row label="RSI 매수 기준 (이 값 이하에서 반등, 50 이하)">
                       <input
                         type="number" min={5} max={50}
@@ -396,7 +398,13 @@ export default function AutoTradeSettings({
               트레일링 사용 (최고가보다 정한 % 만큼 내려가면 매도)
             </label>
             {draft.trailingStopEnabled && (
-              <Row label="최고가 대비 하락 (%)">
+              <Row
+                label={
+                  <span className="inline-flex items-center gap-1">
+                    최고가 대비 하락 (%) <InfoTip label="트레일링 설명">{trailingHelp(draft.trailingStopPercent)}</InfoTip>
+                  </span>
+                }
+              >
                 <input
                   type="number" min={1} max={50}
                   value={draft.trailingStopPercent}
@@ -476,7 +484,7 @@ export default function AutoTradeSettings({
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className={`${LABEL} min-w-[14rem]`}>{label}</span>
