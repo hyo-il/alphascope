@@ -426,7 +426,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
        * 캡처 대상이 아니라 화면 밖에 살려 둘 이유가 없다).
        */
       case 'compare':
-        return <CompareView initialSymbol={symbol} />;
+        return <CompareView currentSymbol={symbol} />;
       case 'portfolio':
         return (
           <PortfolioView onSelectSymbol={setSymbol} />
@@ -610,7 +610,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
             ? (next) => {
                 const result = toggleCompareSymbol(next);
                 if (result === 'full') {
-                  toast.warning('최대 4개까지 비교 가능합니다', '하나를 삭제하고 추가하세요');
+                  const n = useAppStore.getState().compareLayout;
+                  toast.warning(`최대 ${n}개까지 비교 가능합니다`, n === 2 ? '하나를 삭제하거나 4개 보기로 바꾸세요' : '하나를 삭제하고 추가하세요');
                 }
               }
             : selectSymbol

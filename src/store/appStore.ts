@@ -7,6 +7,15 @@ import { groupOf, NAV_GROUPS, normalizeTab, type NavGroupId, type NavPageId } fr
 /** 관심 목록 클릭 한 번의 결과 — 호출부가 안내 문구를 고른다 */
 export type CompareToggleResult = 'added' | 'removed' | 'full';
 
+const COMPARE_LAYOUT_KEY = 'alphascope.compareLayout';
+function readCompareLayout(): 2 | 4 {
+  try {
+    return localStorage.getItem(COMPARE_LAYOUT_KEY) === '2' ? 2 : 4;
+  } catch {
+    return 4;
+  }
+}
+
 /** 비교 화면은 항상 2×2 = 4칸이다 */
 export const COMPARE_SLOT_COUNT = MAX_COMPARE_SYMBOLS;
 
@@ -49,6 +58,12 @@ interface AppState {
    * 비교 화면을 나가면 비운다 (`CompareView` 언마운트).
    */
   compareSlots: (string | null)[];
+  /**
+   * 기업 비교 보기 — 2개(①② 한 줄) / 4개(2×2) (v2.41.0). 이 기기에 기억(`alphascope.compareLayout`).
+   * 2개 보기에서는 담기도 ①② 안에서만 — ③④ 에 담으면 보이지 않는 칸에 들어간다.
+   */
+  compareLayout: 2 | 4;
+  setCompareLayout: (layout: 2 | 4) => void;
   /**
    * 화면 위치. 대메뉴를 함께 들고 있는 이유는 **소메뉴 없이 대메뉴만 펼친 상태**가
    * 있기 때문이다 — 다른 대메뉴를 눌러 목록만 열어 보는 동안에도 보던 화면은 그대로다.
@@ -98,6 +113,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   timeframe: '1d',
   isMock: false,
   compareSlots: emptySlots(),
+  compareLayout: readCompareLayout(),
+  setCompareLayout: (compareLayout) => {
+    try {
+      localStorage.setItem(COMPARE_LAYOUT_KEY, String(compareLayout));
+    } catch {
+      /* 기억하지 못해도 이번 화면에서는 동작한다 */
+    }
+    set({ compareLayout });
+  },
   nav: { group: 'home', page: 'home', sub: null },
   backtestPreset: null,
   setBacktestPreset: (backtestPreset) => set({ backtestPreset }),
@@ -122,7 +146,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (slots.includes(symbol)) return 'added';
 
     const empty = slots.indexOf(null);
-    if (empty === -1) return 'full';
+    // 2개 보기에서는 ①② 안에서만 — 보이지 않는 ③④ 에 담지 않는다
+    if (empty === -1 || empty >= get().compareLayout) return 'full';
 
     const next = [...slots];
     next[empty] = symbol;

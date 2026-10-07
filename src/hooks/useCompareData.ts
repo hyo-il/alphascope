@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Candle, Timeframe } from '../types/toss';
 import type { CompareChartData } from '../types/compare';
 import type { Fundamentals } from '../types/company';
+import type { SymbolSummary } from '../types/analysis';
 import { useSymbolSummaries } from './useSymbolSummaries';
 
 /**
@@ -56,11 +57,34 @@ export function useCompareData(symbols: string[], timeframes: Record<string, Tim
   const symbolKey = symbols.join(',');
   const timeframeKey = symbols.map((s) => timeframes[s] ?? '1d').join(',');
 
+  /*
+   * 지표·재무 요약 — **아직 받지 않은 종목만** 묻는다 (v2.41.0). 예전에는 종목을 하나 담을 때마다
+   * 담겨 있던 종목까지 전부 다시 계산했다(종목마다 캔들 300봉 + 지표 엔진). 받은 것은 [새로고침] 전까지 다시 쓴다.
+   */
+  const summaryCache = useRef(new Map<string, SymbolSummary>());
+  const [summaryTick, setSummaryTick] = useState(0);
+  const missing = symbols.filter((s) => !summaryCache.current.has(s));
   const {
-    summaries,
-    loading: summariesLoading,
+    summaries: fetched,
+    loading: fetchLoading,
     error: summariesError,
-  } = useSymbolSummaries(symbols, nonce);
+  } = useSymbolSummaries(missing, nonce);
+  useEffect(() => {
+    let changed = false;
+    for (const s of fetched) {
+      if (!summaryCache.current.has(s.symbol)) {
+        summaryCache.current.set(s.symbol, s);
+        changed = true;
+      }
+    }
+    if (changed) setSummaryTick((n) => n + 1);
+  }, [fetched]);
+  const summaries = useMemo(
+    () => symbols.map((s) => summaryCache.current.get(s)).filter((x): x is SymbolSummary => Boolean(x)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [symbolKey, summaryTick],
+  );
+  const summariesLoading = fetchLoading || summaries.length < symbols.length && !summariesError;
 
   // ── 캔들 (순차) ──────────────────────────────────────────────
   useEffect(() => {
@@ -165,6 +189,7 @@ export function useCompareData(symbols: string[], timeframes: Record<string, Tim
   const refresh = useCallback(() => {
     candleCache.current.clear();
     fundamentalsCache.current.clear();
+    summaryCache.current.clear();
     setNonce((v) => v + 1);
   }, []);
 

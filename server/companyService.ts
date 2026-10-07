@@ -83,15 +83,28 @@ export function cachedFundamentals(symbol: string): Fundamentals | null {
   return readCache(symbol);
 }
 
+/**
+ * 진행 중인 yfinance 조회 공유 (v2.41.0) — 기업 비교에 처음 보는 종목을 넣으면 `/api/company` 와 `/api/summary` 가
+ * 같은 종목을 동시에 물어 yfinance 를 두 번 불렀다(각 2~3초). 같은 종목이 조회 중이면 그 결과를 함께 기다린다.
+ */
+const inFlight = new Map<string, Promise<Fundamentals>>();
+
 export async function getFundamentals(symbol: string, refresh = false): Promise<Fundamentals> {
   if (!refresh) {
     const cached = readCache(symbol);
     if (cached) return cached;
   }
+  const running = inFlight.get(symbol);
+  if (running) return running;
 
-  const data = await callPython<Fundamentals>('/fundamentals', { symbol });
-  writeCache(symbol, data);
-  return data;
+  const job = callPython<Fundamentals>('/fundamentals', { symbol })
+    .then((data) => {
+      writeCache(symbol, data);
+      return data;
+    })
+    .finally(() => inFlight.delete(symbol));
+  inFlight.set(symbol, job);
+  return job;
 }
 
 /** 같은 섹터의 대표 종목들과 비교한다. 자기 자신은 항상 포함한다. */

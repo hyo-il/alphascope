@@ -1,4 +1,5 @@
 import InfoTip from '../ui/InfoTip';
+import { Button, DisclosureButton, Segmented } from '../ui';
 import type { Timeframe } from '../../types/toss';
 import { useEffect, useState } from 'react';
 import CompareSlot from './CompareSlot';
@@ -10,7 +11,7 @@ import { COMPARE_TIMEFRAMES } from '../../types/compare';
 import { useAppStore } from '../../store/appStore';
 
 /**
- * 기업 비교 — **항상 2×2 = 4칸**의 고정 그리드다.
+ * 기업 비교 — **보기 2개(①② 한 줄) / 4개(2×2)** (v2.41.0, 예전에는 항상 2×2). 종목 수가 아니라 사용자가 고른 보기로 칸 수가 정해진다.
  *
  * 종목 수에 따라 칸 수를 바꾸지 않는다. 빈 칸이 그대로 남아 있어야 "② 번 자리에 이 종목"
  * 처럼 자리를 고를 수 있고, 빈 칸 자체가 드롭 목표이자 검색 진입점이 된다.
@@ -23,22 +24,28 @@ import { useAppStore } from '../../store/appStore';
  * 캡처 대상이 아니라 살려 둘 이유가 없고, 넷을 화면 밖에 띄워 두는 비용이 크다.
  */
 interface Props {
-  /** 차트에서 보던 종목 — 비교를 열면 첫 칸에 들어가 있다 */
-  initialSymbol?: string | null;
+  /** 차트에서 보던 종목 — [보던 종목 추가] 로 넣는다(v2.41.0 부터 들어올 때 자동으로 넣지 않는다) */
+  currentSymbol?: string | null;
 }
 
-export default function CompareView({ initialSymbol }: Props) {
+export default function CompareView({ currentSymbol }: Props) {
   const slots = useAppStore((s) => s.compareSlots);
   const addSymbol = useAppStore((s) => s.addCompareSymbol);
   const setSlot = useAppStore((s) => s.setCompareSlot);
   const removeSlot = useAppStore((s) => s.removeCompareSlot);
   const clearSymbols = useAppStore((s) => s.clearCompareSymbols);
+  const layout = useAppStore((s) => s.compareLayout);
+  const setLayout = useAppStore((s) => s.setCompareLayout);
+  const [promptOpen, setPromptOpen] = useState(false);
 
   const [timeframes, setTimeframes] = useState<Record<string, Timeframe>>({});
   const [chartsVisible, setChartsVisible] = useState(true);
 
-  /** 데이터 조회는 실제로 담긴 종목만 (빈 칸은 부르지 않는다) */
-  const symbols = slots.filter((s): s is string => Boolean(s));
+  /** 보이는 칸 — 2개 보기면 ①② 만. ③④ 의 종목은 지우지 않고 숨긴다 */
+  const visibleSlots = slots.slice(0, layout);
+  const hiddenCount = slots.slice(layout).filter(Boolean).length;
+  /** 데이터 조회는 **보이는 칸에** 실제로 담긴 종목만 (빈 칸·숨긴 칸은 부르지 않는다) */
+  const symbols = visibleSlots.filter((s): s is string => Boolean(s));
 
   const { charts, fundamentals, summaries, summariesLoading, refresh } = useCompareData(
     symbols,
@@ -46,12 +53,14 @@ export default function CompareView({ initialSymbol }: Props) {
   );
   const names = useStockNames(symbols);
 
-  // 보던 종목을 첫 칸에 넣어 둔다. 화면을 나가면 선택을 비운다 (의도된 동작).
+  // 빈 칸에서 시작한다(v2.41.0 — 예전에는 보던 종목을 첫 칸에 넣었다). 화면을 나가면 선택을 비운다 (의도된 동작).
   useEffect(() => {
-    if (initialSymbol) addSymbol(initialSymbol);
     return () => clearSymbols();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** [보던 종목 추가] — 보던 종목이 있고, 아직 담지 않았고, 보이는 빈 칸이 있을 때만 */
+  const canAddCurrent = Boolean(currentSymbol) && !slots.includes(currentSymbol!) && visibleSlots.includes(null);
 
   /** 전체 일괄 변경 — 개별 설정을 모두 덮어쓴다 (이후 개별 변경은 그 차트만 바뀐다) */
   const setAllTimeframes = (timeframe: Timeframe) =>
@@ -64,7 +73,22 @@ export default function CompareView({ initialSymbol }: Props) {
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
       <header className="flex flex-wrap items-center gap-2">
         <h2 className="text-sm font-semibold">기업 비교</h2>
-        <InfoTip label="기업 비교 쓰는 법">4칸 · 2개부터 비교됩니다 · 오른쪽 관심 목록에서 클릭하거나 원하는 칸으로 드래그</InfoTip>
+        <InfoTip label="기업 비교 쓰는 법">2개부터 비교됩니다 · 오른쪽 관심 목록에서 클릭하거나 원하는 칸으로 드래그</InfoTip>
+        <Segmented
+          label="보기"
+          size="sm"
+          value={String(layout) as '2' | '4'}
+          onChange={(v) => setLayout(v === '2' ? 2 : 4)}
+          options={[
+            { value: '2', label: '2개' },
+            { value: '4', label: '4개' },
+          ]}
+        />
+        {canAddCurrent && (
+          <Button size="sm" onClick={() => addSymbol(currentSymbol!)} className="shrink-0 whitespace-nowrap">
+            보던 종목 추가
+          </Button>
+        )}
 
         {chartsVisible && (
           <label className="ml-auto flex w-fit items-center gap-1.5 text-[13px] text-text-secondary">
@@ -76,7 +100,7 @@ export default function CompareView({ initialSymbol }: Props) {
               }}
               className="rounded border border-border px-1 py-0.5 text-[13px]"
             >
-              <option value="">일괄 변경…</option>
+              <option value="">일괄 변경</option>
               {COMPARE_TIMEFRAMES.map((t) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
@@ -114,8 +138,9 @@ export default function CompareView({ initialSymbol }: Props) {
       <div
         className={`grid grid-cols-1 gap-2 lg:grid-cols-2 ${chartsVisible ? '' : 'hidden'}`}
       >
-        {slots.map((symbol, index) => (
-          <div key={index} className="h-[280px]">
+        {/* 보기 4개 = 2×2 · 차트 380px / 2개 = ①② 한 줄 · 560px (v2.41.0, 예전 280px) */}
+        {visibleSlots.map((symbol, index) => (
+          <div key={index} className={layout === 2 ? 'h-[560px]' : 'h-[380px]'}>
             <CompareSlot
               index={index}
               symbol={symbol}
@@ -139,6 +164,10 @@ export default function CompareView({ initialSymbol }: Props) {
         ))}
       </div>
 
+      {hiddenCount > 0 && (
+        <p className="text-[13px] text-text-muted">③④ 칸 종목 {hiddenCount}개는 4개 보기에서 보입니다.</p>
+      )}
+
       {ready ? (
         <>
           <CompareTable
@@ -148,7 +177,15 @@ export default function CompareView({ initialSymbol }: Props) {
             summaries={summaries}
             loading={summariesLoading}
           />
-          <CompareAIPrompt summaries={summaries} loading={summariesLoading} />
+          {/* AI 비교 프롬프트 — 처음엔 접혀 있다(기억하지 않음, v2.41.0) */}
+          <div className="space-y-2">
+            <DisclosureButton open={promptOpen} onToggle={() => setPromptOpen((v) => !v)} label="AI 비교 프롬프트 보기" controls="compare-ai-prompt" />
+            {promptOpen && (
+              <div id="compare-ai-prompt">
+                <CompareAIPrompt summaries={summaries} loading={summariesLoading} />
+              </div>
+            )}
+          </div>
         </>
       ) : (
         <>
