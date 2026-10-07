@@ -57,17 +57,31 @@ export default function LiteCandleChart({
   candles,
   barSpacing = 5,
   currency,
+  datasetKey,
+  onReachStart,
 }: {
   candles: Candle[];
   barSpacing?: number;
   /** 가격 자릿수 — 원화는 소수점 없이 (v2.33.0) */
   currency?: 'KRW' | 'USD' | string | null;
+  /**
+   * 과거 봉 이어 받기 (선택 — v2.41.0 실시간 순위 미리보기). 둘 다 주면: 사용자가 끌어서 왼쪽 끝에 닿으면 `onReachStart`,
+   * 같은 `datasetKey` 에서 앞에 봉이 붙으면 보던 위치를 유지한다(fitContent 하지 않는다). 주지 않으면 예전 그대로(기업 비교).
+   */
+  datasetKey?: string;
+  onReachStart?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const maSeriesRef = useRef<ISeriesApi<'Line'>[]>([]);
+  const reachRef = useRef(onReachStart);
+  reachRef.current = onReachStart;
+  /** 직전에 그린 데이터 — 앞에 붙은 것인지 가린다 */
+  const drawnRef = useRef<{ key: string | undefined; count: number; first: number | null }>({ key: undefined, count: 0, first: null });
+  /** 사용자가 차트를 움직였는가 — fitContent 로 왼쪽 끝이 보이는 것만으로는 받지 않는다(종목마다 자동으로 받지 않게) */
+  const interactedRef = useRef(false);
 
   // 차트 생성 (한 번만)
   useEffect(() => {
@@ -106,11 +120,26 @@ export default function LiteCandleChart({
     panes[0]?.setStretchFactor(6);
     panes[1]?.setStretchFactor(1.6);
 
+    // 왼쪽 끝 근처까지 끌면 과거를 이어 받는다(onReachStart 가 있을 때만)
+    chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (!range || !interactedRef.current || !reachRef.current) return;
+      if (range.from < 3) reachRef.current();
+    });
+    const mark = () => {
+      interactedRef.current = true;
+    };
+    container.addEventListener('mousedown', mark);
+    container.addEventListener('wheel', mark, { passive: true });
+    container.addEventListener('touchstart', mark, { passive: true });
+
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
     volumeSeriesRef.current = volumeSeries;
 
     return () => {
+      container.removeEventListener('mousedown', mark);
+      container.removeEventListener('wheel', mark);
+      container.removeEventListener('touchstart', mark);
       chart.remove();
       chartRef.current = null;
       candleSeriesRef.current = null;
@@ -128,6 +157,20 @@ export default function LiteCandleChart({
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart || !candleSeriesRef.current || !volumeSeriesRef.current) return;
+
+    // 같은 데이터 묶음에 과거가 앞에 붙었는가 — 그렇다면 보던 위치를 붙은 만큼 밀어 유지한다
+    const drawn = drawnRef.current;
+    const added = candles.length - drawn.count;
+    const prepended =
+      onReachStart != null &&
+      datasetKey != null &&
+      drawn.key === datasetKey &&
+      added > 0 &&
+      drawn.first != null &&
+      candles[added]?.timestamp === drawn.first;
+    const keep = prepended ? chart.timeScale().getVisibleLogicalRange() : null;
+    if (datasetKey !== drawn.key) interactedRef.current = false;
+    drawnRef.current = { key: datasetKey, count: candles.length, first: candles[0]?.timestamp ?? null };
 
     candleSeriesRef.current.setData(
       candles.map((c) => ({
@@ -149,7 +192,9 @@ export default function LiteCandleChart({
       series.setData(maPoints(candles, PERIODS[COMPARE_MAS[index].key] ?? 20));
     });
 
-    if (candles.length) chart.timeScale().fitContent();
+    if (keep) chart.timeScale().setVisibleLogicalRange({ from: keep.from + added, to: keep.to + added });
+    else if (candles.length) chart.timeScale().fitContent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candles]);
 
   return <div ref={containerRef} className="h-full w-full" />;

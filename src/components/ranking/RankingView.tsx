@@ -240,7 +240,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
         {/* 미리보기 ≈ 45% */}
         <div className="flex min-h-0 min-w-0 basis-[40%]">
           <div className="flex min-h-0 w-full flex-col">
-            <RankingPreview row={preview} timeframe={previewTf} onTimeframeChange={setPreviewTf} onOpen={open} />
+            <RankingPreview row={preview} timeframe={previewTf} onTimeframeChange={setPreviewTf} />
           </div>
         </div>
       </div>
@@ -248,7 +248,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
       {/* ⚠️ 고정 문구 — 지우지 않는다(CLAUDE.md). 조작법만 정보 아이콘으로 (v2.36.0) */}
       <p className="mt-2 flex shrink-0 items-center gap-1 text-[13px] text-text-secondary">
         순위는 둘러보기용입니다. 급등 다음 날 추격 매수는 이 앱의 과거 진단에서 불리했습니다.
-        <InfoTip label="조작법">행을 누르거나 Enter 를 누르면 미리보기에서 고른 봉으로 차트를 엽니다. ↑↓ 로 행을 옮깁니다.</InfoTip>
+        <InfoTip label="조작법">행을 누르거나 Enter 를 누르면 미리보기에서 고른 봉으로 차트를 엽니다. ↑↓ 로 행을 옮깁니다. 미리보기 차트를 왼쪽 끝까지 끌면 옛날 봉을 이어 받습니다.</InfoTip>
       </p>
     </div>
   );

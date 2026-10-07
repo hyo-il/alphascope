@@ -5,6 +5,7 @@ import { InlineSpinner } from '../common/LoadingOverlay';
 import StockName from '../common/StockName';
 import { maLabel } from '../../types/chart';
 import type { Candle, Timeframe } from '../../types/toss';
+import { CHART_PAGE_SIZE } from '../../utils/constants';
 import type { LiveRankingRow } from '../../types/ranking';
 import { changeColor, formatPercent, formatPrice } from '../../utils/formatters';
 
@@ -59,17 +60,20 @@ export default function RankingPreview({
   row,
   timeframe,
   onTimeframeChange,
-  onOpen,
 }: {
   row: LiveRankingRow | null;
   timeframe: PreviewTimeframe;
   onTimeframeChange: (tf: PreviewTimeframe) => void;
-  onOpen: (symbol: string) => void;
 }) {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const controller = useRef<AbortController | null>(null);
+  /** 과거 봉 이어 받기 (v2.41.0) — 메인 차트와 같은 API(before=)·같은 페이지 크기. 더 없으면 그 (종목, 봉)은 멈춘다 */
+  const olderCtl = useRef<AbortController | null>(null);
+  const olderBusy = useRef(false);
+  const ended = useRef(new Set<string>());
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const symbol = row?.symbol ?? null;
   const [earnings, setEarnings] = useState<NextEarnings | null | undefined>(undefined);
 
@@ -101,6 +105,9 @@ export default function RankingPreview({
 
   useEffect(() => {
     controller.current?.abort(); // 훑고 지나간 행의 요청은 버린다
+    olderCtl.current?.abort(); // 과거 받기도 — 종목·봉이 바뀌면 취소
+    olderBusy.current = false;
+    setLoadingOlder(false);
     if (!symbol) return;
     const key = `${symbol}|${timeframe}`;
     const hit = memo.get(key);
@@ -133,6 +140,43 @@ export default function RankingPreview({
     return () => ac.abort();
   }, [symbol, timeframe]);
 
+  const key = symbol ? `${symbol}|${timeframe}` : '';
+  const loadOlder = () => {
+    if (!symbol || loading || olderBusy.current || ended.current.has(key)) return;
+    const oldest = candles[0]?.timestamp;
+    if (!oldest) return;
+    const ac = new AbortController();
+    olderCtl.current = ac;
+    olderBusy.current = true;
+    setLoadingOlder(true);
+    const forKey = key;
+    fetch(`/api/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&limit=${CHART_PAGE_SIZE[timeframe]}&before=${oldest}`, { signal: ac.signal })
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok || data.error) throw new Error(data.error ?? `요청 실패 (${r.status})`);
+        const older: Candle[] = Array.isArray(data.candles) ? data.candles : [];
+        const base = memo.get(forKey) ?? candles;
+        const have = new Set(base.map((c) => c.timestamp));
+        const fresh = older.filter((c) => !have.has(c.timestamp));
+        if (!fresh.length) {
+          ended.current.add(forKey);
+          return;
+        }
+        const merged = [...fresh, ...base];
+        memo.set(forKey, merged);
+        setCandles(merged);
+      })
+      .catch(() => {
+        /* 취소·실패 — 다음에 다시 끌면 다시 받는다 */
+      })
+      .finally(() => {
+        if (olderCtl.current === ac) {
+          olderBusy.current = false;
+          setLoadingOlder(false);
+        }
+      });
+  };
+
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl bg-bg-secondary" aria-label="종목 미리보기">
       <header className="flex shrink-0 items-center gap-2 px-3 py-2.5">
@@ -159,7 +203,12 @@ export default function RankingPreview({
       </div>
       <div className="relative min-h-0 flex-1">
         {/* 차트는 종목이 없어도 마운트해 둔다 — 인스턴스 하나를 계속 쓴다 */}
-        <LiteCandleChart candles={row ? candles : []} barSpacing={4} currency={row?.currency} />
+        <LiteCandleChart candles={row ? candles : []} barSpacing={4} currency={row?.currency} datasetKey={key} onReachStart={loadOlder} />
+        {loadingOlder && (
+          <div className="pointer-events-none absolute left-2 top-2 flex items-center gap-1 rounded bg-bg-elevated/90 px-2 py-0.5 text-[13px] text-text-secondary">
+            <InlineSpinner /> 과거 봉 불러오는 중…
+          </div>
+        )}
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-bg-secondary/60 text-xs text-text-secondary">
             <InlineSpinner /> <span className="ml-1.5">불러오는 중…</span>
@@ -169,18 +218,10 @@ export default function RankingPreview({
           <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-[13px] text-bearish">{error}</div>
         )}
       </div>
-      <footer className="flex shrink-0 items-center justify-between px-3 py-2.5">
+      <footer className="flex shrink-0 items-center px-3 py-2.5">
         <span className="min-w-0 text-[13px] text-text-muted">
-          {PREVIEW_TIMEFRAMES.find((t) => t.id === timeframe)!.label}봉 · 캔들 + 거래량 + 이동평균(5·20·60)
+          {PREVIEW_TIMEFRAMES.find((t) => t.id === timeframe)!.label}봉 · 캔들 + 거래량 + 이동평균(5·20·60) · 왼쪽으로 끌면 과거 봉
         </span>
-        <button
-          type="button"
-          disabled={!row}
-          onClick={() => row && onOpen(row.symbol)}
-          className="shrink-0 whitespace-nowrap rounded-md bg-accent px-3 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
-        >
-          차트로 열기
-        </button>
       </footer>
     </section>
   );
