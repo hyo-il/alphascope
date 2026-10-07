@@ -167,7 +167,7 @@ export default function BacktestView() {
     try {
       const p = await bt.start(override, force);
       if (p.reused) {
-        toast.info('오늘 같은 조건으로 한 시험 결과를 열었습니다', '다시 계산하려면 결과의 [다시 실행] 을 누르세요.');
+        toast.info('오늘 같은 조건으로 한 시험 결과를 열었습니다', '새로 계산하려면 결과의 [다시 실행] 을 누르세요.');
         scrollTo.current = p.reportId;
         if (bt.detail?.id === p.reportId) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }

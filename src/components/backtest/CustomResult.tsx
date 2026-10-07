@@ -405,7 +405,7 @@ export default function CustomResult({
         {!ex && gemini && !gemini.enabled && <p className="text-[13px] text-text-muted">AI 설명: {gemini.reason ?? 'Gemini 를 쓸 수 없습니다'}</p>}
         {!ex && gemini?.enabled && (
           <p className="text-[13px] text-text-muted">
-            누르면 Gemini 를 1번 부릅니다(무료 한도를 자동매매와 함께 씁니다). {many ? '방법별 숫자표만 보내고, 어느 방법이 가장 좋다고 고르지 않습니다. ' : ''}
+            누르면 Gemini 를 1번 부릅니다(무료 한도를 자동매매와 함께 씁니다). {many ? '방법별 숫자만 보내고, 어느 방법이 가장 좋다고 고르지 않습니다. ' : ''}
             받은 설명은 이 히스토리에 함께 저장됩니다.
           </p>
         )}

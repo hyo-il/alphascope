@@ -32,7 +32,7 @@ export default function AccountManager({
     if (!selected) return;
     modal.confirm({
       title: '계좌 초기화',
-      message: `"${selected.name}" 계좌를 초기화합니다.\n보유 종목·주문·거래 내역이 모두 지워집니다. 되돌릴 수 없습니다.`,
+      message: `"${selected.name}" 계좌를 초기화합니다.\n보유 종목·주문·거래 내역이 모두 삭제됩니다. 되돌릴 수 없습니다.`,
       rows: [{ label: '잔고', value: formatPrice(selected.initialBalance, selected.currency) }],
       confirmText: '초기화',
       danger: true,
