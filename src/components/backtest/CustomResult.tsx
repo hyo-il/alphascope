@@ -7,7 +7,7 @@ import { ICON_SM } from '../ui/icon';
 import { toast } from '../../store/uiStore';
 import { exitReasonText, ruleConditionLine, type ExitReason } from '../../utils/autoTradeExplain';
 import WarnIcon from '../ui/WarnIcon';
-import { methodName, type BacktestConditionResult, type BacktestCustomReport, type BacktestCustomSymbol, type ConditionLabel, type WorstDrawdown } from '../../types/backtest';
+import { fixMethodNames, methodName, type BacktestConditionResult, type BacktestCustomReport, type BacktestCustomSymbol, type ConditionLabel, type WorstDrawdown } from '../../types/backtest';
 
 /**
  * ④ 결과 (v2.38.0 → v2.39.0 조건 비교) — 사용자 시험. **판정 배지 없음**.
@@ -416,7 +416,7 @@ export default function CustomResult({
                 <p className="text-text-muted">요약</p>
                 <ul className="list-disc space-y-0.5 pl-5">
                   {ex.summary.map((t, i) => (
-                    <li key={i}>{t}</li>
+                    <li key={i}>{fixMethodNames(t)}</li>
                   ))}
                 </ul>
               </div>
@@ -426,10 +426,10 @@ export default function CustomResult({
                 <p className="text-text-muted">{many ? methodName(b.label) : '좋았던 점 · 아쉬운 점'}</p>
                 <ul className="list-disc space-y-0.5 pl-5">
                   {b.good.map((t, i) => (
-                    <li key={`g${i}`}>좋았던 점: {t}</li>
+                    <li key={`g${i}`}>좋았던 점: {fixMethodNames(t)}</li>
                   ))}
                   {b.bad.map((t, i) => (
-                    <li key={`b${i}`}>아쉬운 점: {t}</li>
+                    <li key={`b${i}`}>아쉬운 점: {fixMethodNames(t)}</li>
                   ))}
                 </ul>
               </div>
@@ -439,7 +439,7 @@ export default function CustomResult({
                 <p className="text-text-muted">주의</p>
                 <ul className="list-disc space-y-0.5 pl-5">
                   {ex.cautions.map((t, i) => (
-                    <li key={i}>{t}</li>
+                    <li key={i}>{fixMethodNames(t)}</li>
                   ))}
                 </ul>
               </div>

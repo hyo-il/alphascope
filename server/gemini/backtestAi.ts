@@ -17,11 +17,20 @@ import { completedDaily } from '../autoTrading/ruleEngine';
 import { namesAndSectors, SEGMENT_DAYS } from '../autoTrading/ruleResearch';
 import { ENGINE_MA_PERIODS, RULE_LIMITS } from '../../src/types/autoTrading';
 import type { BacktestAdvice, BacktestCondition, BacktestCustomReport, BacktestExplain, BacktestInput, ConditionLabel } from '../../src/types/backtest';
-import { CONDITION_LABELS } from '../../src/types/backtest';
+import { CONDITION_LABELS, methodName } from '../../src/types/backtest';
 
 // v2 (v2.39.0): 조언에 익절 추가 · 설명은 조건 비교 모양(조건 1개도 같은 모양) + MDD·Profit Factor 숫자
-export const ADVICE_PROMPT_VERSION = 'bt-advice-v2';
-export const EXPLAIN_PROMPT_VERSION = 'bt-explain-v2';
+// v3 (v2.40.0): 초등학생도 아는 쉬운 말 규칙(전문용어 풀이·한 문장 40자 안팎·숫자 1~2개·용어집 이름·"방법 1·2·3")
+export const ADVICE_PROMPT_VERSION = 'bt-advice-v3';
+export const EXPLAIN_PROMPT_VERSION = 'bt-explain-v3';
+
+/** 쉬운 말 규칙 (v2.40.0) — 조언·설명 두 시스템 규칙이 함께 쓴다 */
+const EASY_RULES = [
+  '쉬운 말 규칙: 초등학생도 아는 말로 씁니다. MDD·Profit Factor·RSI·이동평균·트레일링 같은 전문용어를 쓰면 같은 문장에서 쉬운 말로 풀어 줍니다',
+  '(예: "MDD(가장 크게 떨어졌던 폭)", "트레일링(최고가보다 정한 만큼 내려가면 매도)").',
+  '한 문장은 40자 안팎, 한 문장에 숫자는 1~2개만 씁니다.',
+  '용어: 사고팔기는 "매수·매도", 산 값은 "매수가", 시험한 조건 묶음은 "방법 1·방법 2·방법 3" 이라고 부릅니다.',
+].join(' ');
 /** 이보다 많으면 분야별 평균으로 줄여 보낸다 */
 const SUMMARIZE_OVER = 30;
 const PRE_DAYS = 252;
@@ -167,15 +176,16 @@ const ADVICE_SYSTEM = [
   '3) 쉬운 한국어로, 이유(reasons)는 보낸 숫자를 근거로 3개 이하, 주의(cautions)는 2개 이하로 씁니다.',
   '4) 값은 주어진 범위 안에서만 고릅니다. 이동평균 단기는 5·20·60, 장기는 20·60·120 중 하나이며 단기 < 장기입니다.',
   '5) method: trend = 이동평균 교차만, dip = RSI 만, both = 둘 다, custom = 그 밖.',
+  `6) ${EASY_RULES} 이유·주의 문장에도 이 규칙을 지킵니다.`,
 ].join('\n');
 
 const LIMIT_TEXT = [
   `이동평균 일수: ${ENGINE_MA_PERIODS.join('·')}일 중에서(단기 < 장기)`,
-  `RSI 살 때 기준(이 값 이하에서 반등하면 산다): ${RULE_LIMITS.rsiBuyBelow.min}~${RULE_LIMITS.rsiBuyBelow.max}`,
-  `RSI 팔 때 기준(이 값 이상이면 판다): ${RULE_LIMITS.rsiSellAbove.min}~${RULE_LIMITS.rsiSellAbove.max}`,
+  `RSI 매수 기준(이 값 이하에서 반등하면 매수): ${RULE_LIMITS.rsiBuyBelow.min}~${RULE_LIMITS.rsiBuyBelow.max}`,
+  `RSI 매도 기준(이 값 이상이면 매도): ${RULE_LIMITS.rsiSellAbove.min}~${RULE_LIMITS.rsiSellAbove.max}`,
   `손절 %: ${RULE_LIMITS.hardStopLossPercent.min}~${RULE_LIMITS.hardStopLossPercent.max}`,
   `트레일링 %: ${RULE_LIMITS.trailingStopPercent.min}~${RULE_LIMITS.trailingStopPercent.max}`,
-  `익절 %(산 값보다 이만큼 오르면 모두 판다, 끌 수 있다): ${RULE_LIMITS.takeProfitPercent.min}~${RULE_LIMITS.takeProfitPercent.max}`,
+  `익절 %(매수가보다 이만큼 오르면 모두 매도, 끌 수 있다): ${RULE_LIMITS.takeProfitPercent.min}~${RULE_LIMITS.takeProfitPercent.max}`,
 ].join('\n');
 
 const FEATURE_LABEL: Record<keyof PreYearFeatures, string> = {
@@ -213,11 +223,11 @@ export function validateAdvice(raw: RawAdvice): Pick<BacktestAdvice, 'method' | 
 
   if (raw.rsiBuyBelow != null) {
     if (inR(raw.rsiBuyBelow, RULE_LIMITS.rsiBuyBelow)) values.rsiBuyBelow = raw.rsiBuyBelow;
-    else dropped.push(`RSI 살 때 기준 ${raw.rsiBuyBelow}`);
+    else dropped.push(`RSI 매수 기준 ${raw.rsiBuyBelow}`);
   }
   if (raw.rsiSellAbove != null) {
     if (inR(raw.rsiSellAbove, RULE_LIMITS.rsiSellAbove)) values.rsiSellAbove = raw.rsiSellAbove;
-    else dropped.push(`RSI 팔 때 기준 ${raw.rsiSellAbove}`);
+    else dropped.push(`RSI 매도 기준 ${raw.rsiSellAbove}`);
   }
   if (typeof raw.useRsi === 'boolean') values.useRsi = raw.useRsi;
   if (raw.hardStopLossPercent != null) {
@@ -279,7 +289,7 @@ export async function adviseBacktest(input: Pick<BacktestInput, 'symbols' | 'yea
     LIMIT_TEXT,
     '',
     `지금 화면의 조건: 이동평균 사용 ${c.rule.useMaCross ? '예' : '아니오'}(단기 ${c.rule.maShort}일·장기 ${c.rule.maLong}일), ` +
-      `RSI 사용 ${c.rule.useRsi ? '예' : '아니오'}(살 때 ${c.rule.rsiBuyBelow} 이하·팔 때 ${c.rule.rsiSellAbove} 이상), ` +
+      `RSI 사용 ${c.rule.useRsi ? '예' : '아니오'}(매수 ${c.rule.rsiBuyBelow} 이하·매도 ${c.rule.rsiSellAbove} 이상), ` +
       `손절 ${c.hardStopLossPercent}%, 트레일링 ${c.trailingStopEnabled ? `${c.trailingStopPercent}%` : '끔'}, 익절 ${c.takeProfitEnabled ? `${c.takeProfitPercent}%` : '끔'}.`,
     '',
     '이 종목들을 시험할 때 어떤 조건이 어울릴지 제안해 주세요.',
@@ -326,14 +336,16 @@ const EXPLAIN_SYSTEM = [
   '규칙: 1) 입력 표에 없는 숫자를 쓰지 않습니다. 숫자를 쓸 때는 표의 값을 그대로 옮깁니다(새로 계산하지 않습니다).',
   '2) 미래를 말하지 않습니다(앞으로 오른다·벌 것이다 금지). 3) 수익을 약속하지 않습니다.',
   '4) "조건을 바꾸면 더 좋아진다" 식의 권유는 "여러 조건을 바꿔 보며 고르면 우연에 속기 쉽다" 와 함께만 씁니다.',
-  '5) 조건이 여러 개면 어느 조건이 가장 좋다고 고르지 않습니다 — 차이를 설명하고, 여러 조건을 비교해 고르면 우연에 속기 쉽다는 점을 함께 말합니다.',
+  '5) 방법이 여러 개면 어느 방법이 가장 좋다고 고르지 않습니다 — 차이를 설명하고, 여러 방법을 비교해 고르면 우연에 속기 쉽다는 점을 함께 말합니다.',
   '6) MDD 는 "가장 크게 떨어졌던 폭", Profit Factor 는 "번 돈 ÷ 잃은 돈" 이라고 풀어 씁니다.',
-  '7) summary 는 3문장 이하, byCondition 은 조건마다 good·bad 각 2개 이하, cautions 는 2개 이하.',
+  '7) summary 는 3문장 이하, byCondition 은 방법마다 good·bad 각 2개 이하, cautions 는 2개 이하.',
+  '8) byCondition 의 label 칸에는 입력의 (label A/B/C) 값을 넣고, 문장 안에서는 "방법 1·2·3" 으로 부릅니다.',
+  `9) ${EASY_RULES}`,
 ].join('\n');
 
 const ruleText = (c: BacktestCondition, n: (v: number | null | undefined) => string) =>
   `이동평균 ${c.rule.useMaCross ? `사용(단기 ${n(c.rule.maShort)}일·장기 ${n(c.rule.maLong)}일)` : '안 씀'} · ` +
-  `RSI ${c.rule.useRsi ? `사용(살 때 ${n(c.rule.rsiBuyBelow)} 이하 반등·팔 때 ${n(c.rule.rsiSellAbove)} 이상)` : '안 씀'} · ` +
+  `RSI ${c.rule.useRsi ? `사용(매수 ${n(c.rule.rsiBuyBelow)} 이하 반등·매도 ${n(c.rule.rsiSellAbove)} 이상)` : '안 씀'} · ` +
   `손절 ${n(c.hardStopLossPercent)}% · 트레일링 ${c.trailingStopEnabled ? `${n(c.trailingStopPercent)}%` : '끔'} · 익절 ${c.takeProfitEnabled ? `${n(c.takeProfitPercent)}%` : '끔'}`;
 
 /** 설명에 보낼 숫자 표 — 검증도 이 숫자로 한다(차이 숫자도 미리 계산해 넣는다 — 모델이 새로 빼지 않게) */
@@ -350,12 +362,12 @@ export function explainPayload(r: BacktestCustomReport): { text: string; numbers
   lines.push(`그냥 들고 있기: 기간 전체 ${n(r.hold.rule)} · MDD ${n(r.hold.mdd)}`);
   for (const c of r.conditions) {
     const s = c.summary;
-    lines.push('', `조건 ${c.label}: ${ruleText(c.condition, n)}`);
-    lines.push(`- 기간 전체 ${n(s.rule)} · 아무 날이나 사고팔기 ${n(s.random)} · 이 조건 − 들고 있기 ${n(diff(s.rule, s.hold))} · 이 조건 − 아무 날이나 ${n(diff(s.rule, s.random))}`);
+    lines.push('', `${methodName(c.label)} (label ${c.label}): ${ruleText(c.condition, n)}`);
+    lines.push(`- 기간 전체 ${n(s.rule)} · 아무 날이나 매수·매도 ${n(s.random)} · 이 방법 − 들고 있기 ${n(diff(s.rule, s.hold))} · 이 방법 − 아무 날이나 ${n(diff(s.rule, s.random))}`);
     lines.push(`- MDD(가장 크게 떨어졌던 폭) ${n(s.mdd)}${s.mddWorst ? ` · 가장 나쁜 종목 ${s.mddWorst.name ?? s.mddWorst.symbol} ${n(s.mddWorst.value)}` : ''} · Profit Factor(번 돈 ÷ 잃은 돈) ${s.profitFactor != null ? n(s.profitFactor) : (s.profitFactorNote ?? '—')}`);
-    lines.push(`- 한 번 사고팔 때 평균 ${n(s.avgTradeReturn)} · 이긴 거래 ${n(s.winRate)} · 종목당 거래 ${n(s.avgTrades)}회 · 거래 10회 미만 종목 ${n(s.weakSymbols)}개`);
+    lines.push(`- 한 번 매수·매도할 때 평균 ${n(s.avgTradeReturn)} · 이긴 거래 ${n(s.winRate)} · 종목당 거래 ${n(s.avgTrades)}회 · 거래 10회 미만 종목 ${n(s.weakSymbols)}개`);
     if (s.exits) {
-      lines.push(`- 판 이유 비율: 신호 ${n(s.exits.signal)} · 손절 ${n(s.exits.stop)} · 익절 ${n(s.exits.take_profit)} · 트레일링 ${n(s.exits.trailing)} · 기간 끝 ${n(s.exits.end)}`);
+      lines.push(`- 매도한 이유 비율: 매도 신호 ${n(s.exits.signal)} · 손절 ${n(s.exits.stop)} · 익절 ${n(s.exits.take_profit)} · 트레일링 ${n(s.exits.trailing)} · 시험 기간이 끝나 정리 ${n(s.exits.end)}`);
     }
     if (c.segmentRows.length) {
       lines.push(`- 구간별(이 조건 / 들고 있기): ${c.segmentRows.map((g) => `${g.segment}년차 ${n(g.rule)} / ${n(g.hold)}`).join(' · ')}`);
@@ -382,7 +394,7 @@ export function sentenceOk(sentence: string, numbers: number[]): boolean {
 
 export async function explainBacktest(report: BacktestCustomReport, caller: Caller = defaultCaller): Promise<BacktestExplain> {
   const { text, numbers } = explainPayload(report);
-  const ask = report.conditions.length > 1 ? '조건들의 차이를 초보자에게 설명해 주세요(어느 조건이 가장 좋다고 고르지 마세요).' : '이 결과를 초보자에게 설명해 주세요.';
+  const ask = report.conditions.length > 1 ? '방법들의 차이를 초보자에게 쉬운 말로 설명해 주세요(어느 방법이 가장 좋다고 고르지 마세요).' : '이 결과를 초보자에게 쉬운 말로 설명해 주세요.';
   const res = await caller<RawExplain>({ system: EXPLAIN_SYSTEM, parts: [{ text: `${text}\n\n${ask}` }], schema: EXPLAIN_SCHEMA, temperature: 0.3 });
   let removed = 0;
   const keep = (a: unknown, max: number) => {

@@ -9,7 +9,7 @@ import { draftInput, type BacktestDraft } from '../../hooks/useBacktestDraft';
 import { conditionErrors, type ConditionField } from '../../utils/backtestInput';
 import { ruleConditionLine } from '../../utils/autoTradeExplain';
 import { ENGINE_MA_PERIODS, RULE_LIMITS, type EngineMaPeriod } from '../../types/autoTrading';
-import { BACKTEST_YEARS, MAX_CONDITIONS, methodName, type BacktestAdvice, type BacktestCondition, type ConditionLabel } from '../../types/backtest';
+import { BACKTEST_YEARS, MAX_CONDITIONS, fixMethodNames, methodName, type BacktestAdvice, type BacktestCondition, type ConditionLabel } from '../../types/backtest';
 import { RULE_CHOICES, matchChoice } from '../../types/ruleChoices';
 
 /**
@@ -112,7 +112,7 @@ function AdviceCard({
           <p className="text-text-muted">이유</p>
           <ul className="list-disc space-y-0.5 pl-5 text-text-secondary">
             {advice.reasons.map((r, i) => (
-              <li key={i}>{r}</li>
+              <li key={i}>{fixMethodNames(r)}</li>
             ))}
           </ul>
         </div>
@@ -120,7 +120,7 @@ function AdviceCard({
       {advice.cautions.length > 0 && (
         <ul className="list-disc space-y-0.5 pl-5 text-[13px] text-warning">
           {advice.cautions.map((r, i) => (
-            <li key={i}>{r}</li>
+            <li key={i}>{fixMethodNames(r)}</li>
           ))}
         </ul>
       )}

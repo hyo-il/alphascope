@@ -147,6 +147,8 @@ export const CONDITION_LABELS: ConditionLabel[] = ['A', 'B', 'C'];
  * AI 설명이 돌려주는 이름(A·B·C)도 이 함수로 바꿔 보인다.
  */
 export const methodName = (label: ConditionLabel | string): string => `방법 ${({ A: 1, B: 2, C: 3 } as Record<string, number>)[label] ?? label}`;
+/** AI 문장 속 「조건 A」·「방법 B」 같은 이름을 화면 이름(방법 1·2)으로 — 모델이 라벨을 그대로 쓴 경우 */
+export const fixMethodNames = (text: string): string => text.replace(/(조건|방법)\s?([ABC])(?![A-Za-z])/g, (_m, _w, l: string) => methodName(l));
 /** 한 번에 비교할 수 있는 조건 수 */
 export const MAX_CONDITIONS = 3;
 /** 조건이 2개 이상일 때 고를 수 있는 종목 수 (조건 1개면 제한 없음) */
