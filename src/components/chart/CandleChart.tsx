@@ -95,6 +95,8 @@ export interface CandleChartHandle {
   getVisibleRange: () => { from: number; to: number } | null;
   /** 캡처 팝업 차트에 같은 드로잉을 복제하기 위한 스냅샷 */
   getDrawings: () => DrawingSnapshot[];
+  /** 확대·위치를 처음으로 — 종목을 바꿀 때와 같은 값(v2.41.0 [초기화]). 드로잉은 지우지 않는다 */
+  resetView: () => void;
 }
 
 /** 캡처 팝업 차트로 옮겨 그릴 드로잉 한 개 (수정 3) */
@@ -210,6 +212,10 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
 
   useImperativeHandle(ref, () => ({
     clearDrawings: clearAllDrawings,
+    resetView: () => {
+      chartRef.current?.timeScale().resetTimeScale();
+      candleSeriesRef.current?.priceScale().applyOptions({ autoScale: true });
+    },
     deleteSelectedDrawing: () => {
       const selected = drawingsRef.current?.getSelectedDrawing();
       if (selected) drawingsRef.current?.removeDrawing(selected.id);

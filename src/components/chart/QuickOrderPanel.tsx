@@ -19,6 +19,20 @@ interface Props {
   active?: boolean;
   /** 계좌를 만들러 보내기 */
   onGoToPaperTrading: () => void;
+  /** 호가 가격 칸을 누른 값 — 가격 칸을 그 가격으로 채운다(nonce 가 바뀔 때만) */
+  pickedPrice?: { price: number; nonce: number } | null;
+}
+
+/** 가격 칸 표시 — 국내 원 정수 / 미국 소수 둘째 자리 */
+function priceText(value: number, currency: 'KRW' | 'USD'): string {
+  return currency === 'KRW' ? String(Math.round(value)) : value.toFixed(2);
+}
+
+/** 가격 칸 값 읽기 — 국내 원 정수 / 미국 소수 둘째 자리로 맞춘다(호가 단위 검사는 하지 않는다) */
+function parsePrice(text: string, currency: 'KRW' | 'USD'): number | null {
+  const n = Number(text.replace(/,/g, '').trim());
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return currency === 'KRW' ? Math.round(n) : Math.round(n * 100) / 100;
 }
 
 const REFRESH_MS = 2000;
@@ -37,6 +51,7 @@ export default function QuickOrderPanel({
   currency,
   active = true,
   onGoToPaperTrading,
+  pickedPrice = null,
 }: Props) {
   const { accounts, selectedId: accountId, select: selectAccount } = usePaperAccounts();
   const [positions, setPositions] = useState<PaperPositionValued[]>([]);
@@ -50,6 +65,28 @@ export default function QuickOrderPanel({
   const [percent, setPercent] = useState(30);
   const [busy, setBusy] = useState(false);
   const [version, setVersion] = useState(0);
+  /**
+   * 지정가 가격 칸 (v2.41.0). 처음 값 = 현재가, 종목이 바뀌면 현재가로. 사용자가 고친 뒤에는(`touched`)
+   * 시세가 바뀌어도 덮지 않는다. 호가 가격 칸을 누르면 그 가격으로 채운다.
+   */
+  const [limitText, setLimitText] = useState('');
+  const [touched, setTouched] = useState(false);
+
+  useEffect(() => {
+    setTouched(false);
+    setLimitText(price != null ? priceText(price, currency) : '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol]);
+  useEffect(() => {
+    if (!touched && price != null) setLimitText(priceText(price, currency));
+  }, [price, touched, currency]);
+  useEffect(() => {
+    if (!pickedPrice) return;
+    setLimitText(priceText(pickedPrice.price, currency));
+    setTouched(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickedPrice?.nonce]);
+  const limitPrice = parsePrice(limitText, currency);
 
   const account = accounts.find((a) => a.id === accountId) ?? null;
   useStockNames([symbol, ...positions.map((p) => p.symbol)]);
@@ -126,8 +163,10 @@ export default function QuickOrderPanel({
 
   const commissionRate = account?.commissionRate ?? 0.001;
   const held = position?.quantity ?? 0;
-  const maxBuyable =
-    price && price > 0 ? Math.floor(cashInSymbolCurrency / (price * (1 + commissionRate))) : 0;
+  /** 가능 수량·예상 금액은 지정가 칸 값으로 낸다(시장가 주문은 확인 창에서 현재가로 다시 낸다) */
+  const basis = limitPrice;
+  const maxBuyableAt = (p: number | null) => (p && p > 0 ? Math.floor(cashInSymbolCurrency / (p * (1 + commissionRate))) : 0);
+  const maxBuyable = maxBuyableAt(basis);
 
   /*
    * % 는 매수·매도에서 기준이 다르다.
@@ -136,21 +175,25 @@ export default function QuickOrderPanel({
    * 하나의 값으로 뭉뚱그리면 "50% 매도" 가 잔고 기준으로 계산돼 엉뚱한 수량이 된다.
    * 매수 환산에는 수수료를 포함한다 — 그러지 않으면 100% 가 잔고를 넘겨 거부된다.
    */
-  const quantityFor = (side: OrderSide): number => {
+  const quantityFor = (side: OrderSide, at: number | null = basis): number => {
     if (unit === 'shares') return quantity;
     if (side === 'BUY') {
-      if (!price || price <= 0) return 0;
+      if (!at || at <= 0) return 0;
       const budget = (cashInSymbolCurrency * percent) / 100;
-      return Math.max(0, Math.floor(budget / (price * (1 + commissionRate))));
+      return Math.max(0, Math.floor(budget / (at * (1 + commissionRate))));
     }
     return Math.max(0, Math.floor((held * percent) / 100));
   };
+  const estimateFor = (side: OrderSide, qty: number, at: number | null) =>
+    at ? qty * at * (side === 'BUY' ? 1 + commissionRate : 1 - commissionRate) : 0;
 
   const buyQuantity = quantityFor('BUY');
   const sellQuantity = quantityFor('SELL');
+  const marketBuyQuantity = quantityFor('BUY', price);
+  const marketSellQuantity = quantityFor('SELL', price);
 
-  const buyEstimate = price ? buyQuantity * price * (1 + commissionRate) : 0;
-  const sellEstimate = price ? sellQuantity * price * (1 - commissionRate) : 0;
+  const buyEstimate = estimateFor('BUY', buyQuantity, basis);
+  const sellEstimate = estimateFor('SELL', sellQuantity, basis);
 
   /** 입력한 %가 몇 주가 되는지 — 방향이 다르면 둘 다 보여 준다. */
   const percentHint = (() => {
@@ -163,25 +206,28 @@ export default function QuickOrderPanel({
   const refresh = () => setVersion((n) => n + 1);
 
   const order = (side: OrderSide, orderType: OrderType) => {
-    const orderQuantity = quantityFor(side);
-    if (!account || !price || orderQuantity <= 0) return;
+    // 지정가 = 가격 칸 값, 시장가 = 지금 현재가
+    const at = orderType === 'LIMIT' ? limitPrice : price;
+    const orderQuantity = quantityFor(side, at);
+    if (!account || !price || !at || orderQuantity <= 0) return;
 
-    const label = side === 'BUY' ? '구매' : '판매';
-    const typeLabel = orderType === 'MARKET' ? '시장가' : '현재가 지정가';
+    const label = side === 'BUY' ? '매수' : '매도';
+    const typeLabel = orderType === 'MARKET' ? '시장가' : '지정가';
 
     modal.confirm({
       title: `${symbol}${stockNameOf(symbol) ? ` ${stockNameOf(symbol)}` : ''} ${orderQuantity}주 ${typeLabel} ${label}`,
-      message: '모의투자 주문입니다. 증권사로 주문이 전송되지 않습니다.',
+      message:
+        orderType === 'LIMIT'
+          ? `모의투자 주문입니다. 증권사로 주문이 전송되지 않습니다.\n지정가 — ${side === 'BUY' ? '현재가가 이 가격 이하' : '현재가가 이 가격 이상'}이면 체결되고, 아니면 대기합니다.`
+          : '모의투자 주문입니다. 증권사로 주문이 전송되지 않습니다.',
       rows: [
         { label: '계좌', value: account.name },
         { label: '현재가', value: formatPrice(price, currency) },
+        ...(orderType === 'LIMIT' ? [{ label: '지정가', value: formatPrice(at, currency) }] : []),
         {
-          label: '예상 금액',
-          value: formatPrice(side === 'BUY' ? buyEstimate : sellEstimate, currency),
+          label: orderType === 'LIMIT' ? '예상 금액 (지정가 기준)' : '예상 금액 (현재가 기준)',
+          value: formatPrice(estimateFor(side, orderQuantity, at), currency),
         },
-        ...(orderType === 'LIMIT'
-          ? [{ label: '지정가', value: formatPrice(price, currency), tone: 'muted' as const }]
-          : []),
       ],
       confirmText: `${label} 주문`,
       onConfirm: async () => {
@@ -193,7 +239,7 @@ export default function QuickOrderPanel({
             side,
             orderType,
             quantity: orderQuantity,
-            requestedPrice: orderType === 'LIMIT' ? price : null,
+            requestedPrice: orderType === 'LIMIT' ? at : null,
             reason: `차트 빠른주문 (${typeLabel})`,
           });
 
@@ -368,19 +414,44 @@ export default function QuickOrderPanel({
           )}
         </div>
 
-        {/* 가능 수량 · 예상 금액 */}
+        {/* 가격 칸 (지정가) — 호가 가격을 누르면 그 가격으로 채워진다 */}
+        <div className="flex items-center gap-1.5">
+          <span className="shrink-0 text-[13px] text-text-muted">가격</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={limitText}
+            onChange={(e) => {
+              setLimitText(e.target.value);
+              setTouched(true);
+            }}
+            aria-label="지정가 가격"
+            title="지정가 — 매수는 현재가가 이 가격 이하, 매도는 이 가격 이상이면 체결됩니다"
+            className={`min-w-0 flex-1 rounded border bg-bg-primary px-1.5 py-1 text-right text-[13px] tabular-nums text-text-primary focus:border-accent focus:outline-none ${
+              limitText && limitPrice == null ? 'border-bearish' : 'border-border'
+            }`}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              if (price != null) setLimitText(priceText(price, currency));
+              setTouched(false);
+            }}
+            disabled={price == null}
+            className="shrink-0 whitespace-nowrap rounded bg-bg-tertiary px-1.5 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-40"
+          >
+            현재가
+          </button>
+        </div>
+
+        {/* 가능 수량 · 예상 금액 — 가격 칸(지정가) 기준. 시장가 주문은 확인 창에서 현재가로 다시 낸다 */}
         <div className="space-y-0.5">
-          {info('판매가능', `${held}주`)}
+          {info('매도 가능', `${held}주`)}
           {/* 환율을 못 받았으면 0 주라고 단언하지 않는다 — 잔고가 없다는 뜻으로 읽힌다. */}
-          {info('구매가능', fxMissing ? '환율 조회 실패' : `${maxBuyable}주`)}
-          {info(
-            unit === 'percent' ? `판매예상 (${percent}%)` : '판매예상',
-            formatPrice(sellEstimate, currency),
-          )}
-          {info(
-            unit === 'percent' ? `구매예상 (${percent}%)` : '구매예상',
-            formatPrice(buyEstimate, currency),
-          )}
+          {info('매수 가능', fxMissing ? '환율 조회 실패' : `${maxBuyable}주`)}
+          {info(unit === 'percent' ? `매도 예상 (${percent}%)` : '매도 예상', formatPrice(sellEstimate, currency))}
+          {info(unit === 'percent' ? `매수 예상 (${percent}%)` : '매수 예상', formatPrice(buyEstimate, currency))}
+          <p className="text-right text-[13px] text-text-muted">지정가 {basis != null ? formatPrice(basis, currency) : '—'} 기준</p>
         </div>
 
         {/* 주문 버튼 — 매도 파랑 / 매수 빨강 (국내 관례) */}
@@ -388,34 +459,34 @@ export default function QuickOrderPanel({
           <button
             type="button"
             onClick={() => order('SELL', 'LIMIT')}
-            disabled={busy || !price || sellQuantity <= 0}
+            disabled={busy || !price || !limitPrice || sellQuantity <= 0}
             className="rounded-md bg-accent/80 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-accent disabled:opacity-40"
           >
-            현재가 판매
+            지정가 매도
           </button>
           <button
             type="button"
             onClick={() => order('BUY', 'LIMIT')}
-            disabled={busy || !price || buyQuantity <= 0}
+            disabled={busy || !price || !limitPrice || buyQuantity <= 0}
             className="rounded-md bg-bearish/80 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-bearish disabled:opacity-40"
           >
-            현재가 구매
+            지정가 매수
           </button>
           <button
             type="button"
             onClick={() => order('SELL', 'MARKET')}
-            disabled={busy || !price || sellQuantity <= 0}
+            disabled={busy || !price || marketSellQuantity <= 0}
             className="rounded-md bg-accent/15 py-1.5 text-[13px] text-accent transition-colors hover:bg-accent/25 disabled:opacity-40"
           >
-            시장가 판매
+            시장가 매도
           </button>
           <button
             type="button"
             onClick={() => order('BUY', 'MARKET')}
-            disabled={busy || !price || buyQuantity <= 0}
+            disabled={busy || !price || marketBuyQuantity <= 0}
             className="rounded-md bg-bearish/15 py-1.5 text-[13px] text-bearish transition-colors hover:bg-bearish/25 disabled:opacity-40"
           >
-            시장가 구매
+            시장가 매수
           </button>
         </div>
 

@@ -119,6 +119,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   const week52 = useRangeStats(symbol);
   const orderbook = useOrderbook(symbol, chartVisible);
   const [activeTool, setActiveTool] = useState<DrawingToolType>(null);
+  /** 호가 가격 칸을 누른 값 — 빠른주문 가격 칸으로 보낸다 */
+  const [pickedPrice, setPickedPrice] = useState<{ price: number; nonce: number } | null>(null);
   const [drawingCount, setDrawingCount] = useState(0);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [toggles, setToggles] = useState<IndicatorToggles>(DEFAULT_TOGGLES);
@@ -178,6 +180,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         onClearDrawings={() => chartRef.current?.clearDrawings()}
         onDeleteSelected={() => chartRef.current?.deleteSelectedDrawing()}
         hasDrawings={drawingCount > 0}
+        onResetView={() => chartRef.current?.resetView()}
       />
 
       {indicatorError && (
@@ -226,12 +229,18 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           하단 탭이 생기면서 이 열이 세로로 짧아졌다. min-h-0 + overflow-y-auto 가 없으면
           호가·빠른주문이 아래 탭 위로 흘러넘쳐 겹친다.
         */}
-        <div className="flex min-h-0 shrink-0 flex-col overflow-y-auto">
+        {/*
+          오른쪽 열 (v2.41.0) — 열 전체는 스크롤하지 않는다. 호가 목록만 스크롤되고(OrderbookPanel 안, 최소 3칸),
+          빠른주문은 아래에 늘 보인다(shrink-0). 예전에는 열 전체와 호가 목록이 두 겹으로 스크롤돼 Windows 에서 칸이 밀렸다.
+        */}
+        <div className="flex min-h-0 shrink-0 flex-col">
           <OrderbookPanel
             orderbook={orderbook}
             currentPrice={displayPrice}
             previousClose={previousClose}
             currency={currency}
+            symbol={symbol}
+            onPickPrice={(price) => setPickedPrice({ price, nonce: Date.now() })}
           />
           {/* 토스 WTS 처럼 호가창 바로 아래에 둔다 — 시세를 보다 그대로 주문으로 이어진다 */}
           {symbol && (
@@ -240,6 +249,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
               price={displayPrice}
               currency={currency}
               active={chartVisible}
+              pickedPrice={pickedPrice}
               onGoToPaperTrading={() => {
                 setPage('portfolio', 'paper');
               }}
