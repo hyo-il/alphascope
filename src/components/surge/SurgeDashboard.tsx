@@ -1,6 +1,7 @@
 import { RemoveAllButton } from '../ui';
 import { Fragment } from 'react';
 import { usePageTab } from '../../hooks/usePageTab';
+import PageHeader from '../ui/PageHeader';
 import type { PageTab } from '../../types/nav';
 import { useSurgeDetection, useSurgeHistory } from '../../hooks/useSurge';
 import { usePaperQuickBuy } from '../../hooks/usePaperQuickBuy';
@@ -63,22 +64,7 @@ export default function SurgeDashboard({
         자동매매 후보에서는 제외됨(2026-09-29, 진단 근거 — 급등 다음 날 매수 시 −5% 먼저 62%).
       </p>
 
-      <div className="flex shrink-0 gap-1 border-b border-border/60 px-1">
-        {TABS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setTab(item.id)}
-            className={`border-b-2 px-3 py-2 text-sm transition-colors ${
-              tab === item.id
-                ? 'border-text-primary font-medium text-text-primary'
-                : 'border-transparent text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <PageHeader tabs={TABS} value={tab} onChange={setTab} tabsLabel="급등 탐지" />
 
       <div className="min-h-0 flex-1 overflow-auto p-3">
         {tab === 'list' && (

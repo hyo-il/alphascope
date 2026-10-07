@@ -1,7 +1,8 @@
+import Dialog, { useDialogEsc } from '../ui/Dialog';
 import TrashIcon from '../common/TrashIcon';
 import { ICON_SM } from '../ui/icon';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { GripVertical, Pencil, Search, X } from 'lucide-react';
+import { GripVertical, Pencil, Search } from 'lucide-react';
 import { useFlipReorder } from '../../hooks/useFlipReorder';
 import SyncStatusLine from './SyncStatusLine';
 import type { useWatchlist } from '../../hooks/useWatchlist';
@@ -89,18 +90,14 @@ export default function WatchlistManager({
   }, [selectedFolderId]);
 
   // ESC 로 닫는다 — 팝업의 기본 기대다. 검색·이름 입력이 열려 있으면 그것부터 닫는다.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      if (adding) setAdding(false);
-      else if (moveOpen) setMoveOpen(false);
-      else if (newFolder !== null) setNewFolder(null);
-      else if (renaming) setRenaming(null);
-      else onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose, adding, moveOpen, newFolder, renaming]);
+  // 맨 위 창일 때만(공용 창 틀의 순서 규칙 — v2.41.0). 종목 고르기·확인 창이 위에 떠 있으면 그 창이 먼저 닫힌다
+  useDialogEsc(() => {
+    if (adding) setAdding(false);
+    else if (moveOpen) setMoveOpen(false);
+    else if (newFolder !== null) setNewFolder(null);
+    else if (renaming) setRenaming(null);
+    else onClose();
+  });
 
   // [군 이동] 드롭다운은 바깥을 누르면 닫는다.
   useEffect(() => {
@@ -177,25 +174,7 @@ export default function WatchlistManager({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="flex h-[min(600px,75vh)] w-[min(700px,80vw)] flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl"
-      >
-        <header className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3.5">
-          <h2 className="text-base font-semibold">관심 종목 편집</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="flex h-8 w-8 items-center justify-center rounded text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary"
-          >
-            <X {...ICON_SM} />
-          </button>
-        </header>
+    <Dialog title="관심 종목 편집" onClose={onClose} size="lg" z={50} closeOnEsc={false} bodyClassName="flex flex-col">
 
         <div className="flex min-h-0 flex-1">
           {/* ── 좌: 그룹 목록 ───────────────────────────── */}
@@ -703,8 +682,7 @@ export default function WatchlistManager({
             <SyncStatusLine />
           </section>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }
 

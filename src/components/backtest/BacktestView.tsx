@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
 import { useBacktest, useBacktestUniverse, useGeminiStatus } from '../../hooks/useBacktest';
 import { draftInput, useBacktestDraft } from '../../hooks/useBacktestDraft';
-import HelpBox from '../swing/HelpBox';
+import HelpBox from '../common/HelpBox';
 import TrashIcon from '../common/TrashIcon';
 import { SkeletonList } from '../common/SkeletonLoader';
 import { Badge, Button, Panel, SectionTitle } from '../ui';

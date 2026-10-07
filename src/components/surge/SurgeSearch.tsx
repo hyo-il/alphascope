@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import SymbolSearch from '../common/SymbolSearch';
-import { InlineSpinner } from '../common/LoadingOverlay';
+import SingleSymbolSearch from '../common/SingleSymbolSearch';
 import { useSurgeEvaluation } from '../../hooks/useSurge';
 import SurgeEvaluationView from './SurgeEvaluation';
 
@@ -32,25 +31,15 @@ export default function SurgeSearch({
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <SymbolSearch symbol={queried ?? ''} onSubmit={submit} />
-        {loading && <InlineSpinner />}
-      </div>
-
-      {!queried && !loading && (
-        <p className="rounded-xl bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
-          종목을 검색하면 과거 급등 패턴을 분석하고 현재 급등 가능성을 점수로 평가합니다.
-        </p>
-      )}
-
-      {error && (
-        <p className="rounded-lg bg-bearish/10 px-3 py-2 text-[13px] text-bearish">
-          {error}
-        </p>
-      )}
-
-      {evaluation && !loading && (
+    <SingleSymbolSearch
+      intro="종목 하나의 과거 급등 패턴과 지금 급등 가능성을 점검합니다. 결과는 히스토리에 저장하지 않습니다."
+      queried={queried}
+      loading={loading}
+      error={error}
+      emptyText="종목을 검색하면 과거 급등 패턴을 분석하고 현재 급등 가능성을 점수로 평가합니다."
+      onSubmit={submit}
+    >
+      {evaluation && (
         <SurgeEvaluationView
           evaluation={evaluation}
           watched={watchlist.includes(evaluation.symbol)}
@@ -59,6 +48,6 @@ export default function SurgeSearch({
           onAnalyze={onAnalyze}
         />
       )}
-    </div>
+    </SingleSymbolSearch>
   );
 }

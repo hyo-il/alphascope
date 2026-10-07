@@ -1,6 +1,5 @@
+import Dialog from '../ui/Dialog';
 import DisclosureButton from '../ui/DisclosureButton';
-import { ICON_SM } from '../ui/icon';
-import { X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CUSTOM_PROFILES,
@@ -253,12 +252,6 @@ export default function StrategyProfileModal({
     return () => clearTimeout(timer);
   }, [editingParams, advancedOpen]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   const errorOf = useMemo(
     () => (id: CustomProfileId, path: FieldPath) =>
       errors.find((e) => e.field === `${id}.${path}` || e.field === `${id}.${path.split('.')[0]}`),
@@ -329,24 +322,7 @@ export default function StrategyProfileModal({
     }`;
 
   return (
-    <div
-      className="fixed inset-0 z-[95] flex items-center justify-center bg-black/70 p-4"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="flex h-[min(640px,85vh)] w-[min(700px,80vw)] flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl">
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
-          <h2 className="text-sm font-semibold">판단 기준 편집</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="ml-auto text-text-muted transition-colors hover:text-text-primary"
-          >
-            <X {...ICON_SM} />
-          </button>
-        </div>
+    <Dialog title="판단 기준 편집" onClose={onClose} size="lg" z={95} bodyClassName="flex flex-col">
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 [scrollbar-gutter:stable]">
           {/* ── 판정 기준 고르기 (v2.33.0 — 도구줄에서 옮겼다). 바꾸면 곧바로 저장된다(예전 세그먼트와 같은 경로) ── */}
@@ -669,8 +645,7 @@ export default function StrategyProfileModal({
             {saving ? '저장 중…' : '저장'}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }
 

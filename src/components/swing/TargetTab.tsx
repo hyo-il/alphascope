@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import SymbolPicker from '../common/SymbolPicker';
 import StockName from '../common/StockName';
-import HelpBox, { NotProvenLine } from './HelpBox';
+import HelpBox from '../common/HelpBox';
+import NotProvenLine from './NotProvenLine';
 import {
   ResultCard,
   TargetHistorySection,

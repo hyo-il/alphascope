@@ -1,5 +1,4 @@
-import { ICON_SM } from '../ui/icon';
-import { X } from 'lucide-react';
+import Dialog from '../ui/Dialog';
 import { useEffect, useRef, useState } from 'react';
 import type { SwingGrade, SwingRecommendation } from '../../types/swing';
 import {
@@ -97,12 +96,6 @@ export default function DiscoverSymbolsModal({
       alive.current = false;
     };
   }, []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   useStockNames(rows?.map((r) => r.symbol) ?? []);
 
@@ -210,25 +203,7 @@ export default function DiscoverSymbolsModal({
   const selectable = passedRows.filter((r) => !alreadyAdded.includes(r.symbol));
 
   return (
-    <div
-      className="fixed inset-0 z-[95] flex items-center justify-center bg-black/70 p-4"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="flex h-[min(620px,82vh)] w-[min(720px,90vw)] flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl">
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
-          <h2 className="text-sm font-semibold">종목 발굴</h2>
-          <span className="text-[13px] text-text-muted">기준을 정하고 탐지한 뒤, 근거를 보고 담습니다</span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="ml-auto text-text-muted transition-colors hover:text-text-primary"
-          >
-            <X {...ICON_SM} />
-          </button>
-        </div>
+    <Dialog title="종목 발굴" titleAside="기준을 정하고 탐지한 뒤, 근거를 보고 추가합니다" onClose={onClose} size="lg" z={95} bodyClassName="flex flex-col">
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 [scrollbar-gutter:stable]">
           {/* ① 기준 */}
@@ -498,7 +473,6 @@ export default function DiscoverSymbolsModal({
             선택한 {selected.length}종목 추가
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Dialog from '../ui/Dialog';
 import { useUiStore, type ModalRow } from '../../store/uiStore';
 import Button from '../ui/Button';
 
@@ -17,18 +18,6 @@ export default function ModalHost() {
   const request = useUiStore((s) => s.modal);
   const close = useUiStore((s) => s.closeModal);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (!request) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        request.onCancel?.();
-        close();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [request, close]);
 
   // 새 확인창이 뜨면 이전 진행 상태를 물려받지 않는다.
   useEffect(() => setBusy(false), [request]);
@@ -50,26 +39,28 @@ export default function ModalHost() {
     }
   };
 
+  // 공용 창 틀(v2.41.0) — 확인 창은 맨 위(z 100). ESC·바깥 클릭·닫기 X = 취소
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="alphascope-modal-title"
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-6"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) cancel();
-      }}
+    <Dialog
+      title={request.title}
+      onClose={cancel}
+      size="sm"
+      z={100}
+      bodyClassName="p-0"
+      footer={
+        <>
+          {!request.alertOnly && (
+            <Button variant="ghost" onClick={cancel} disabled={busy}>
+              {request.cancelText ?? '취소'}
+            </Button>
+          )}
+          {/* 확인 버튼 하나만 색을 준다 — 지우기는 빨강, 그 밖은 파랑 (v2.36.0 공용 Button) */}
+          <Button variant={request.danger ? 'danger' : 'primary'} onClick={() => void accept()} disabled={busy} autoFocus>
+            {busy ? '처리 중…' : (request.confirmText ?? '확인')}
+          </Button>
+        </>
+      }
     >
-      <div className="w-full max-w-sm rounded-xl bg-bg-secondary shadow-xl">
-        <div className="px-4 pt-4">
-          <h2
-            id="alphascope-modal-title"
-            className="text-sm font-semibold text-text-primary"
-          >
-            {request.title}
-          </h2>
-        </div>
-
         <div className="space-y-3 px-4 py-3">
           {request.message && (
             <p className="text-xs leading-relaxed whitespace-pre-line text-text-secondary">
@@ -89,18 +80,6 @@ export default function ModalHost() {
           )}
         </div>
 
-        <div className="flex justify-end gap-2 px-4 pb-4">
-          {!request.alertOnly && (
-            <Button variant="ghost" onClick={cancel} disabled={busy}>
-              {request.cancelText ?? '취소'}
-            </Button>
-          )}
-          {/* 확인 버튼 하나만 색을 준다 — 지우기는 빨강, 그 밖은 파랑 (v2.36.0 공용 Button) */}
-          <Button variant={request.danger ? 'danger' : 'primary'} onClick={() => void accept()} disabled={busy} autoFocus>
-            {busy ? '처리 중…' : (request.confirmText ?? '확인')}
-          </Button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

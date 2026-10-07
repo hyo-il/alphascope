@@ -108,8 +108,9 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
   return (
     <div className="h-full overflow-auto p-3">
       <div className="space-y-3">
+        {/* 제목 줄 / 고르기 줄을 나눈다 (v2.41.0 디자인 규칙 7) */}
+        <h2 className="text-sm font-semibold text-text-primary">일정</h2>
         <header className="flex flex-wrap items-center gap-2">
-          <h2 className="text-sm font-semibold text-text-primary">일정</h2>
           <div className="flex items-center gap-1">
             <IconButton icon={ChevronLeft} label="이전 달" size="sm" onClick={() => move(-1)} />
             <span className="w-24 text-center text-xs font-medium tabular-nums text-text-primary">

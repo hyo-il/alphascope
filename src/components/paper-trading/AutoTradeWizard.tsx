@@ -1,5 +1,6 @@
+import Dialog from '../ui/Dialog';
 import { ICON_SM } from '../ui/icon';
-import { Check, X } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { AccountStrategy, StrategyMode } from '../../types/autoTrading';
 import type { AccountOverviewItem, StrategyOverviewItem } from '../../hooks/usePaperOverview';
@@ -138,15 +139,15 @@ export default function AutoTradeWizard({
   };
 
   return (
-    <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/70 p-4">
-      <div className="flex h-[min(640px,85vh)] w-[min(720px,90vw)] flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl">
-        {/* 머리줄 — 단계 표시 1/4 */}
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
-          <h2 className="text-sm font-semibold">자동매매 처음 켜기</h2>
-          <span className="text-[13px] text-text-muted">
+    // 바깥 클릭으로 닫지 않는다(예전과 같다) — 닫기 X·ESC 는 닫기 확인 줄을 거친다(requestClose)
+    <Dialog
+      title="자동매매 처음 켜기"
+      titleAside={
+        <span className="flex items-center gap-2">
+          <span>
             {step}/4 · {STEP_LABEL[step]}
           </span>
-          <ol className="ml-2 flex items-center gap-1 text-[13px]">
+          <ol className="flex items-center gap-1 text-[13px]">
             {([1, 2, 3, 4] as Step[]).map((n) => (
               <li
                 key={n}
@@ -158,15 +159,14 @@ export default function AutoTradeWizard({
               </li>
             ))}
           </ol>
-          <button
-            type="button"
-            onClick={requestClose}
-            aria-label="닫기"
-            className="ml-auto text-text-muted transition-colors hover:text-text-primary"
-          >
-            <X {...ICON_SM} />
-          </button>
-        </div>
+        </span>
+      }
+      onClose={requestClose}
+      size="lg"
+      z={85}
+      closeOnBackdrop={false}
+      bodyClassName="flex flex-col"
+    >
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 [scrollbar-gutter:stable]">
           {loadError && <p className="text-[13px] text-bearish">설정을 불러오지 못했습니다: {loadError}</p>}
@@ -400,7 +400,6 @@ export default function AutoTradeWizard({
             </button>
           )}
         </div>
-      </div>
 
       {detailOpen && draft && (
         <AutoTradeSettings
@@ -416,6 +415,6 @@ export default function AutoTradeWizard({
           saveLabel="안내에 반영"
         />
       )}
-    </div>
+    </Dialog>
   );
 }

@@ -111,8 +111,9 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
 
   return (
     <div className="flex h-full flex-col p-3">
+      {/* 제목 줄 / 고르기 줄을 나눈다 (v2.41.0 디자인 규칙 7) */}
+      <h2 className="shrink-0 pb-2 text-sm font-semibold text-text-primary">실시간 순위</h2>
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
-        <h2 className="text-sm font-semibold text-text-primary">실시간 순위</h2>
         <Segmented
           label="시장"
           size="sm"

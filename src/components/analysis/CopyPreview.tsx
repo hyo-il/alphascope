@@ -1,3 +1,4 @@
+import Dialog from '../ui/Dialog';
 import { useEffect, useState } from 'react';
 import type { ChartCapture } from '../../store/captureStore';
 import { TIMEFRAME_LABEL } from '../../types/toss';
@@ -39,13 +40,6 @@ export default function CopyPreview({
     return () => URL.revokeObjectURL(next);
   }, [blob]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
-
   const box = 'flex aspect-[16/10] w-full items-center justify-center rounded border border-border bg-bg-primary text-center text-[13px] text-text-muted';
 
   if (!symbol) return <div className={box}>차트에서 종목을 먼저 고르세요</div>;
@@ -77,16 +71,18 @@ export default function CopyPreview({
       <p className="text-[13px] text-text-muted">
         {nameOf(capture.symbol) ?? ''} {capture.symbol} · {TIMEFRAME_LABEL[capture.timeframe]} · 캡처 {time}
       </p>
-      {/* 큰 미리보기 — 그림만 둔다. ESC·바깥 클릭으로 닫는다 */}
+      {/* 큰 미리보기 — 공용 창 틀(v2.41.0). ESC·바깥 클릭·닫기 X 로 닫는다 */}
       {open && (
-        <div
-          className="fixed inset-0 z-[96] flex items-center justify-center bg-black/80 p-6"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setOpen(false);
-          }}
+        <Dialog
+          title="복사될 차트"
+          titleAside={`${nameOf(capture.symbol) ?? ''} ${capture.symbol} · ${TIMEFRAME_LABEL[capture.timeframe]} · 캡처 ${time}`}
+          onClose={() => setOpen(false)}
+          size="full"
+          z={96}
+          bodyClassName="flex items-center justify-center p-4"
         >
-          <img src={url} alt="복사될 차트 (크게)" className="max-h-full max-w-full rounded border border-border" />
-        </div>
+          <img src={url} alt="복사될 차트 (크게)" className="max-h-full max-w-full rounded" />
+        </Dialog>
       )}
     </>
   );

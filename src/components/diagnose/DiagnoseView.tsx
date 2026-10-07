@@ -1,3 +1,4 @@
+import HelpBox from '../common/HelpBox';
 import DisclosureButton from '../ui/DisclosureButton';
 import WarnIcon from '../ui/WarnIcon';
 import { SkeletonCards } from '../common/SkeletonLoader';
@@ -102,43 +103,16 @@ function VerdictMark({ v }: { v: Verdict }) {
 
 // ── 쉬운 설명 (v2.28.0) ─────────────────────────────────────────────────────
 // 숫자·판정·카드 구조는 바꾸지 않는다 — 읽는 법만 더한다. 접힘 상태는 이 기기의 화면 설정이라 localStorage.
-const HELP_KEY = 'alphascope.diagnoseHelpCollapsed';
-
-function HelpBox() {
-  const [collapsed, setCollapsed] = useState(() => {
-    try {
-      return localStorage.getItem(HELP_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
-  const toggle = () =>
-    setCollapsed((v) => {
-      try {
-        localStorage.setItem(HELP_KEY, v ? '0' : '1');
-      } catch {
-        /* 저장이 막힌 브라우저 — 이번 화면에서만 */
-      }
-      return !v;
-    });
+function DiagnoseHelp() {
   const badge = (v: Verdict) => (
     <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 ${VERDICT_STYLE[v].badge}`}>
       <VerdictMark v={v} /> {VERDICT_STYLE[v].label}
     </span>
   );
+  // 공용 설명 상자(v2.41.0) — 처음엔 닫혀 있다. 기억 키는 새 키(옛 alphascope.diagnoseHelpCollapsed 는 읽지 않는다)
   return (
-    <section className="rounded-xl bg-bg-secondary">
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={!collapsed}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-text-primary"
-      >
-        이 화면은 무엇인가요?
-        <span className="ml-auto font-normal text-text-muted">{collapsed ? '펼치기' : '접기'}</span>
-      </button>
-      {!collapsed && (
-        <div className="space-y-2.5 border-t border-border px-3 py-2.5 text-[14px] leading-relaxed text-text-secondary">
+    <HelpBox id="diagnose" title="이 화면은 무엇인가요?" storageKey="alphascope.diagnoseHelp">
+        <div className="space-y-2.5">
           <p>
             이 앱은 여러 가지 "신호"를 냅니다. 「지금 살 만한가」 점수, 급등 탐지, Gemini 의 매수·매도 판단, 뉴스의 긍정·부정 판정 같은 것들입니다.
             <br />
@@ -164,8 +138,7 @@ function HelpBox() {
           </p>
           <p className="text-warning"><WarnIcon />과거 성적이 좋아도 앞으로 맞는다는 보장은 없습니다.</p>
         </div>
-      )}
-    </section>
+    </HelpBox>
   );
 }
 
@@ -668,7 +641,7 @@ export default function DiagnoseView() {
           </div>
         )}
 
-        <HelpBox />
+        <DiagnoseHelp />
 
         {(runError || listError) && (
           <p className="rounded-lg bg-bearish/10 px-3 py-2 text-[13px] text-bearish">

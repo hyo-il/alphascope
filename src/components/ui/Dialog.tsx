@@ -66,7 +66,8 @@ export default function Dialog({
   title: ReactNode;
   /** 제목 옆 짧은 회색 글자 */
   titleAside?: ReactNode;
-  onClose: () => void;
+  /** 없으면 닫기 X·ESC·바깥 클릭이 모두 없다 — 반드시 하나를 골라야 하는 창(관심 목록 맞추기) */
+  onClose?: () => void;
   size?: DialogSize;
   /** 겹침 순서 — 창마다 지금 값 그대로 */
   z?: number;
@@ -81,7 +82,7 @@ export default function Dialog({
   headerRight?: ReactNode;
 }) {
   const titleId = useId();
-  useDialogEsc(closeOnEsc ? onClose : null);
+  useDialogEsc(closeOnEsc && onClose ? onClose : null);
 
   return (
     <div
@@ -91,7 +92,7 @@ export default function Dialog({
       style={{ zIndex: z }}
       className="fixed inset-0 flex items-center justify-center bg-black/70 p-4"
       onMouseDown={(e) => {
-        if (closeOnBackdrop && e.target === e.currentTarget) onClose();
+        if (closeOnBackdrop && onClose && e.target === e.currentTarget) onClose();
       }}
     >
       <div className={`flex flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl ${SIZE[size]}`}>
@@ -102,7 +103,7 @@ export default function Dialog({
           {titleAside != null && <span className="min-w-0 text-[13px] text-text-muted">{titleAside}</span>}
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {headerRight}
-            <IconButton icon={X} label="닫기" size="sm" onClick={onClose} />
+            {onClose && <IconButton icon={X} label="닫기" size="sm" onClick={onClose} />}
           </div>
         </div>
         <div className={`min-h-0 flex-1 overflow-y-auto ${bodyClassName}`}>{children}</div>

@@ -3,7 +3,7 @@ import { useSwingHistory } from '../../hooks/useSwing';
 import StockName from '../common/StockName';
 import { formatPercent } from '../../utils/formatters';
 import { PROFILE_LABEL, type ProfileId } from '../../types/strategyProfile';
-import { NotProvenLine } from './HelpBox';
+import NotProvenLine from './NotProvenLine';
 
 /** 이 아래로는 승률을 숫자 하나로 믿기 어렵다 — 화면에 '표본 적음' 을 붙인다 */
 const SMALL_SAMPLE = 10;

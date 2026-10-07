@@ -1,5 +1,5 @@
+import Dialog from '../ui/Dialog';
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
 import { usePaperAccounts } from '../../hooks/usePaperTrading';
 import { useAppStore } from '../../store/appStore';
 import { modal, toast } from '../../store/uiStore';
@@ -7,7 +7,7 @@ import { autoTradeView } from '../../utils/autoTradeStatus';
 import { nearestEngineMa, type AccountStrategy, type AccountStrategyStatus } from '../../types/autoTrading';
 import { ruleConditionLine, ruleMethodName, type RuleConditions } from '../../utils/autoTradeExplain';
 import { methodName, type BacktestCondition, type ConditionLabel } from '../../types/backtest';
-import { Button, IconButton, Segmented } from '../ui';
+import { Button, Segmented } from '../ui';
 import type { ModalRow } from '../../store/uiStore';
 
 /**
@@ -69,11 +69,8 @@ export default function ApplyRuleButton({ options }: { options: BacktestConditio
     json<{ items: OverviewItem[] }>('/api/auto-trading/overview')
       .then((d) => alive && setOverview(d.items))
       .catch(() => alive && setOverview([]));
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    window.addEventListener('keydown', onKey);
     return () => {
       alive = false;
-      window.removeEventListener('keydown', onKey);
     };
   }, [open]);
 
@@ -129,20 +126,7 @@ export default function ApplyRuleButton({ options }: { options: BacktestConditio
         이 조건을 계좌에 적용
       </Button>
       {open && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="이 조건을 적용할 계좌 고르기"
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-6"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setOpen(false);
-          }}
-        >
-          <div className="w-[min(420px,90vw)] rounded-xl bg-bg-secondary p-4 shadow-xl">
-            <div className="mb-3 flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-text-primary">이 조건을 적용할 계좌</h3>
-              <IconButton icon={X} label="닫기" size="sm" className="ml-auto" onClick={() => setOpen(false)} />
-            </div>
+        <Dialog title="이 조건을 적용할 계좌" onClose={() => setOpen(false)} size="sm" z={90}>
             {options.length > 1 && (
               <div className="mb-3 space-y-1.5">
                 <Segmented
@@ -193,8 +177,7 @@ export default function ApplyRuleButton({ options }: { options: BacktestConditio
               </ul>
             )}
             <p className="mt-3 text-[13px] text-text-muted">조건(판단 방식·방법 숫자·손절·트레일링·익절)만 저장합니다. 대상 종목은 그대로이고, 자동매매를 켜거나 끄지 않습니다.</p>
-          </div>
-        </div>
+        </Dialog>
       )}
     </>
   );

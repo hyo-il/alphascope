@@ -1,4 +1,5 @@
 import { usePageTab } from '../../hooks/usePageTab';
+import PageHeader from '../ui/PageHeader';
 import type { PageTab } from '../../types/nav';
 import Holdings from './Holdings';
 import PaperTradingDashboard from '../paper-trading/PaperTradingDashboard';
@@ -42,39 +43,19 @@ export default function PortfolioView({ onSelectSymbol }: Props) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/*
-        제목 · 탭 · 뱃지가 한 줄이다. 세로 여백은 탭 버튼(py-2)이 정하고 컨테이너는 주지
-        않는다 — 그래야 선택 탭의 밑줄이 이 줄의 구분선과 맞닿는다 (다른 화면의 탭과 같다).
-      */}
-      <div className="flex shrink-0 items-stretch gap-1 border-b border-border px-3">
-        <h2 className="flex items-center pr-3 text-sm font-semibold">계좌 관리</h2>
-
-        {/* `<select>` 에 붙어 있던 '계좌' 라벨이 사라진 자리를 aria-label 이 대신한다 */}
-        <div role="tablist" aria-label="계좌 유형" className="flex items-stretch gap-1">
-          {ACCOUNTS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={account === item.id}
-              onClick={() => setAccount(item.id)}
-              className={`border-b-2 px-3 py-2 text-sm transition-colors ${
-                account === item.id
-                  ? 'border-text-primary font-medium text-text-primary'
-                  : 'border-transparent text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-
-        {account === 'paper' && (
-          <span className="my-auto ml-2 rounded bg-warning/15 px-2 py-0.5 text-[13px] text-warning">
-            모의 — 실제 주문은 나가지 않습니다
-          </span>
-        )}
-      </div>
+      {/* 제목 줄 / 탭 줄을 나눈다 (v2.41.0 — 예전에는 제목·탭·배지가 한 줄이라 구분이 어려웠다) */}
+      <PageHeader
+        title="계좌 관리"
+        tabs={ACCOUNTS}
+        value={account}
+        onChange={setAccount}
+        tabsLabel="계좌 유형"
+        tabsRight={
+          account === 'paper' ? (
+            <span className="rounded bg-warning/15 px-2 py-0.5 text-[13px] text-warning">모의 — 실제 주문은 나가지 않습니다</span>
+          ) : null
+        }
+      />
 
       <div className="min-h-0 flex-1">
         {account === 'real' ? (

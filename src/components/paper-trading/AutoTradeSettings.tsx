@@ -1,6 +1,5 @@
+import Dialog from '../ui/Dialog';
 import WarnIcon from '../ui/WarnIcon';
-import { ICON_SM } from '../ui/icon';
-import { X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { AccountStrategy, StrategyMode } from '../../types/autoTrading';
 import RuleChoices from './RuleChoices';
@@ -101,27 +100,14 @@ export default function AutoTradeSettings({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-4"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <Dialog
+      title="자동매매 설정"
+      titleAside={<span className="rounded bg-warning/15 px-2 py-0.5 text-[13px] text-warning">모의 — 실제 주문은 나가지 않습니다</span>}
+      onClose={onClose}
+      size="lg"
+      z={90}
+      bodyClassName="flex flex-col"
     >
-      <div className="flex h-[min(640px,85vh)] w-[min(680px,90vw)] flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl">
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
-          <h2 className="text-sm font-semibold">자동매매 설정</h2>
-          <span className="rounded bg-warning/15 px-2 py-0.5 text-[13px] text-warning">
-            모의 — 실제 주문은 나가지 않습니다
-          </span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="ml-auto text-text-muted transition-colors hover:text-text-primary"
-          >
-            <X {...ICON_SM} />
-          </button>
-        </div>
 
         {/*
           ⚠️ `scrollbar-gutter: stable` 이 필요하다. 트레일링 스톱을 켜면 입력 한 줄이 늘어
@@ -472,9 +458,7 @@ export default function AutoTradeSettings({
             {saving ? '저장 중…' : saveLabel}
           </button>
         </div>
-      </div>
-
-    </div>
+    </Dialog>
   );
 }
 

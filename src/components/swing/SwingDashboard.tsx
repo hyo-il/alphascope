@@ -2,6 +2,7 @@ import DisclosureButton from '../ui/DisclosureButton';
 import WarnIcon from '../ui/WarnIcon';
 import { useState } from 'react';
 import { usePageTab } from '../../hooks/usePageTab';
+import PageHeader from '../ui/PageHeader';
 import type { PageTab } from '../../types/nav';
 import { useSwingAnalysis } from '../../hooks/useSwing';
 import { usePaperQuickBuy } from '../../hooks/usePaperQuickBuy';
@@ -11,7 +12,8 @@ import SwingHistory from './SwingHistory';
 import { useTargetAnalysis } from '../../hooks/useTargetAnalysis';
 import { TargetRefLine, latestFor } from './TargetAnalysisParts';
 import TargetTab, { type TargetSeed } from './TargetTab';
-import HelpBox, { NotProvenLine } from './HelpBox';
+import HelpBox from '../common/HelpBox';
+import NotProvenLine from './NotProvenLine';
 import CriteriaPanel from '../common/CriteriaPanel';
 import StrategyProfileModal from './StrategyProfileModal';
 import { STANDARD_SWING_CRITERIA, swingCriteria } from '../../data/criteria';
@@ -140,22 +142,7 @@ export default function SwingDashboard({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 gap-1 border-b border-border/60 px-1">
-        {TABS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setTab(item.id)}
-            className={`border-b-2 px-3 py-2 text-sm transition-colors ${
-              tab === item.id
-                ? 'border-text-primary font-medium text-text-primary'
-                : 'border-transparent text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <PageHeader tabs={TABS} value={tab} onChange={setTab} tabsLabel="매수 판단 도우미" />
 
       <div className="min-h-0 flex-1 overflow-auto p-3">
         {tab === 'list' && (
