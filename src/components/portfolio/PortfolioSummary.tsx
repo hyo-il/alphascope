@@ -27,7 +27,7 @@ export default function PortfolioSummaryBar({ summary, exchangeRate }: Props) {
       </div>
 
       <div>
-        <p className="text-[13px] text-text-muted">매입금액</p>
+        <p className="text-[13px] text-text-muted">매수 금액</p>
         <p className="text-sm tabular-nums">{formatUsd(summary.purchaseAmountUsd)}</p>
       </div>
 

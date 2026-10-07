@@ -241,3 +241,33 @@ export function exitReasonText(kind: ExitReason, c: RuleConditions): string {
       return '시험 기간이 끝나 정리';
   }
 }
+
+// ── 계좌 「지금 조건」 카드 (v2.40.0) — 매수·매도 조건 문장. 숫자는 설정값에서만, 이동평균은 엔진이 실제 쓰는 일수 ──
+
+/** 규칙형 매수 조건 — 예) "5일 평균이 20일 평균을 위로 넘을 때 또는 RSI 가 30 이하로 떨어졌다가 오를 때" */
+export function ruleBuySentence(r: RuleConfig): string {
+  const parts: string[] = [];
+  if (r.useMaCross) parts.push(`${nearestEngineMa(r.maShort)}일 평균이 ${nearestEngineMa(r.maLong)}일 평균을 위로 넘을 때`);
+  if (r.useRsi) parts.push(`RSI 가 ${r.rsiBuyBelow} 이하로 떨어졌다가 오를 때`);
+  return parts.join(' 또는 ') || '매수 조건 없음(이동평균·RSI 모두 꺼짐)';
+}
+
+/** 규칙형 매도 조건 — 예) "5일 평균이 20일 평균 아래로 내려갈 때 또는 RSI 가 70 이상일 때" */
+export function ruleSellSentence(r: RuleConfig): string {
+  const parts: string[] = [];
+  if (r.useMaCross) parts.push(`${nearestEngineMa(r.maShort)}일 평균이 ${nearestEngineMa(r.maLong)}일 평균 아래로 내려갈 때`);
+  if (r.useRsi) parts.push(`RSI 가 ${r.rsiSellAbove} 이상일 때`);
+  return parts.join(' 또는 ') || '매도 신호 없음(손절·익절·트레일링만)';
+}
+
+/** AI형 매수·매도 조건 — 신호·신뢰도 */
+export function aiBuySentence(s: AccountStrategy): string {
+  return `AI 신호 ${s.buySignal === 'STRONG_BUY' ? '강력 매수' : '매수 이상'} · 신뢰도 ${Math.round(s.buyMinConfidence * 100)}% 이상`;
+}
+export function aiSellSentence(s: AccountStrategy): string {
+  return `AI 신호 ${s.sellSignal === 'STRONG_SELL' ? '강력 매도' : '매도 이상'} · 신뢰도 ${Math.round(s.sellMinConfidence * 100)}% 이상`;
+}
+
+/** 손절·익절 한 줄 — 계좌 모아보기 카드 */
+export const safetyLine = (s: Pick<AccountStrategy, 'hardStopLossPercent' | 'takeProfitEnabled' | 'takeProfitPercent'>) =>
+  `손절 −${s.hardStopLossPercent}% · ${s.takeProfitEnabled ? `익절 +${s.takeProfitPercent}%` : '익절 끔'}`;

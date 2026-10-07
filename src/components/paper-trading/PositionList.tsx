@@ -89,7 +89,7 @@ export default function PositionList({ positions, onSelectSymbol }: Props) {
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
                 {formatPrice(totalValue, single)}
-                <span className="ml-1 text-text-muted">/ 매입 {formatPrice(totalCost, single)}</span>
+                <span className="ml-1 text-text-muted">/ 매수 {formatPrice(totalCost, single)}</span>
               </td>
               <td className={`px-3 py-2 text-right tabular-nums ${tone(totalPnl)}`}>
                 {totalPnl > 0 ? '+' : ''}

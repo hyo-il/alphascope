@@ -2,13 +2,14 @@ import WarnIcon from '../ui/WarnIcon';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
 import { useState } from 'react';
 import AutoTradeSettings from './AutoTradeSettings';
+import ConditionCard from './ConditionCard';
 import DisclosureButton from '../ui/DisclosureButton';
 import { useAutoTrading } from '../../hooks/useAutoTrading';
 import { useGeminiStatus } from '../../hooks/useGemini';
 import { toast } from '../../store/uiStore';
 import { useStockNames } from '../../hooks/useStockNames';
 import { autoTradeView } from '../../utils/autoTradeStatus';
-import { explainNote, kstLabel, nextUsOpen, nowSentence, sortNotes, strategyConditionLine } from '../../utils/autoTradeExplain';
+import { explainNote, kstLabel, nextUsOpen, nowSentence, sortNotes } from '../../utils/autoTradeExplain';
 
 /**
  * 계좌 대시보드 상단의 자동매매 바.
@@ -108,8 +109,6 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
         </span>
 
         <span className="text-[13px] text-text-muted">종목 {strategy.symbols.length}개</span>
-        {/* 지금 조건 한 줄 (v2.38.0) — 문장은 `autoTradeExplain.strategyConditionLine` 한 곳(설정 창 요약·백테스트와 같은 말) */}
-        <span className="min-w-0 text-[13px] text-text-secondary">지금 조건: {strategyConditionLine(strategy)}</span>
 
         {/*
           켜져 있는데 못 도는 이유가 있으면 그것을 먼저 보여 준다.
@@ -180,6 +179,8 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
         시각은 「지금 상태」 문장과 같은 `nextUsOpen`(주말만 본다, 휴장일은 보지 않는다). 꺼져 있으면 아무것도 그리지 않는다.
         멈춤(서버 꺼짐·설정·하루 손실)이면 그 시각에도 판단하지 않으므로 그리지 않는다 — 멈춤 이유는 위 줄이 말한다.
       */}
+      {/* 「지금 조건」 카드 (v2.40.0) — 예전 이 바의 회색 한 줄을 옮겼다(두 번 보이지 않게) */}
+      <ConditionCard strategy={strategy} onOpenSettings={() => setOpen(true)} />
       {on && status && status.lastNotes.length === 0 && (!status.blockedKind || status.blockedKind === 'market_closed') && (
         <p className="border-b border-border px-4 py-1.5 text-[13px] text-text-muted">
           아직 판단한 적이 없습니다. 미국 장이 열리는 {kstLabel(nextUsOpen())}에 첫 판단을 합니다.

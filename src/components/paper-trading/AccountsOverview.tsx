@@ -4,6 +4,7 @@ import type { AccountOverviewItem, StrategyOverviewItem } from '../../hooks/useP
 import { formatPrice } from '../../utils/formatters';
 import { toast } from '../../store/uiStore';
 import { autoTradeView } from '../../utils/autoTradeStatus';
+import { safetyLine } from '../../utils/autoTradeExplain';
 
 /**
  * 계좌 **모아보기** — 계좌 관리에 들어가면 먼저 보이는 화면.
@@ -276,6 +277,8 @@ export default function AccountsOverview({
                   {busyId === item.account.id ? '…' : on ? '끄기' : '켜기'}
                 </button>
               </div>
+              {/* 손절·익절 한 줄 (v2.40.0) — 안전장치를 모아보기에서도 한눈에. 문장은 autoTradeExplain.safetyLine 한 곳 */}
+              {strategy && <p className="mt-1.5 text-[13px] font-medium text-text-secondary">{safetyLine(strategy)}</p>}
             </article>
           );
         })}
