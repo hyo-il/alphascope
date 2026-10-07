@@ -9,7 +9,7 @@ import { draftInput, type BacktestDraft } from '../../hooks/useBacktestDraft';
 import { conditionErrors, type ConditionField } from '../../utils/backtestInput';
 import { ruleConditionLine } from '../../utils/autoTradeExplain';
 import { ENGINE_MA_PERIODS, RULE_LIMITS, type EngineMaPeriod } from '../../types/autoTrading';
-import { BACKTEST_YEARS, MAX_CONDITIONS, type BacktestAdvice, type BacktestCondition, type ConditionLabel } from '../../types/backtest';
+import { BACKTEST_YEARS, MAX_CONDITIONS, methodName, type BacktestAdvice, type BacktestCondition, type ConditionLabel } from '../../types/backtest';
 import { RULE_CHOICES, matchChoice } from '../../types/ruleChoices';
 
 /**
@@ -22,8 +22,8 @@ const LABEL: Record<string, string> = {
   maShort: '단기 이동평균',
   maLong: '장기 이동평균',
   useMaCross: '이동평균 사용',
-  rsiBuyBelow: 'RSI 살 때 기준',
-  rsiSellAbove: 'RSI 팔 때 기준',
+  rsiBuyBelow: 'RSI 매수 기준',
+  rsiSellAbove: 'RSI 매도 기준',
   useRsi: 'RSI 사용',
   hardStopLossPercent: '손절',
   trailingStopEnabled: '트레일링',
@@ -92,7 +92,7 @@ function AdviceCard({
   return (
     <Panel pad="sm" tone="tertiary" className="space-y-2">
       <div className="flex items-center gap-2">
-        <p className="text-xs font-semibold text-text-primary">AI 제안 — 조건 {target.label}</p>
+        <p className="text-xs font-semibold text-text-primary">AI 제안 — {methodName(target.label)}</p>
         {methodTitle && <Badge>{methodTitle}</Badge>}
         <span className="ml-auto text-[13px] text-text-muted">{advice.model}</span>
       </div>
@@ -125,11 +125,11 @@ function AdviceCard({
         </ul>
       )}
       <div className="space-y-0.5 text-[13px] text-text-muted">
-        {advice.dropped.length > 0 && <p>AI 제안 중 범위 밖 값 {advice.dropped.length}개를 뺐습니다: {advice.dropped.join(', ')}</p>}
+        {advice.dropped.length > 0 && <p>AI 제안 중 범위 밖 값 {advice.dropped.length}개를 제외했습니다: {advice.dropped.join(', ')}</p>}
         <p>
           시험 기간이 시작되기 전 1년의 숫자만 보냈습니다 · {advice.summarized ? `종목이 많아 분야별 평균으로 줄여 보냈습니다(${advice.sent}종목)` : `${advice.sent}종목`}
         </p>
-        {advice.excluded.length > 0 && <p>앞 1년 기록이 모자라 빼고 물은 종목: {advice.excluded.map((e) => e.symbol).join(', ')}</p>}
+        {advice.excluded.length > 0 && <p>앞 1년 데이터가 모자라 제외하고 물은 종목: {advice.excluded.map((e) => e.symbol).join(', ')}</p>}
         {/* 고정 문구 — 지우지 않는다 */}
         <p>AI 제안은 검증된 값이 아닙니다. 시험해 보고 판단하세요.</p>
       </div>
@@ -167,25 +167,25 @@ function ConditionCard({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <p className="min-w-0 text-[13px] text-text-secondary">
-          <b className="font-semibold text-text-primary">조건 {c.label}</b> · {ruleConditionLine(c)}
+          <b className="font-semibold text-text-primary">{methodName(c.label)}</b> · {ruleConditionLine(c)}
         </p>
         {onRemove && (
           <Button size="sm" variant="ghost" className="ml-auto" onClick={onRemove}>
-            조건 {c.label} 지우기
+            {methodName(c.label)} 삭제
           </Button>
         )}
       </div>
       <RuleChoiceCards rule={r} showWhy={false} onPick={(ch) => setRule(ch.rule)} />
       {!active && (
         <p className="text-[13px] text-text-secondary">
-          <Badge>직접 설정</Badge> 세 가지와 다른 값입니다 — 아래 「자세히」 에서 고친 값으로 시험합니다.
+          <Badge>직접 설정</Badge> 세 가지와 다른 값입니다 — 아래 「고급 설정」 에서 고친 값으로 시험합니다.
         </p>
       )}
 
-      <DisclosureButton open={open} onToggle={() => setOpen((v) => !v)} label="자세히 — 숫자 직접 고치기" controls={`bt-detail-${c.label}`} />
+      <DisclosureButton open={open} onToggle={() => setOpen((v) => !v)} label="고급 설정" controls={`bt-detail-${c.label}`} />
       {open && (
         <div id={`bt-detail-${c.label}`} className="space-y-3 rounded-lg bg-bg-tertiary/40 p-3">
-          <Field label="이동평균 사용" hint="짧은 평균이 긴 평균을 위로 넘으면 사고, 아래로 내려가면 판다." error={err('useAny')}>
+          <Field label="이동평균 사용" hint="짧은 평균이 긴 평균을 위로 넘으면 매수, 아래로 내려가면 매도." error={err('useAny')}>
             <Check checked={r.useMaCross} onChange={(v) => setRule({ useMaCross: v })}>
               사용
             </Check>
@@ -201,29 +201,29 @@ function ConditionCard({
             </Check>
           </Field>
           <Field
-            label="RSI 살 때 기준"
-            hint={`RSI 가 이 값 이하로 떨어졌다가 다시 오를 때 산다 (${RULE_LIMITS.rsiBuyBelow.min}~${RULE_LIMITS.rsiBuyBelow.max}).`}
+            label="RSI 매수 기준"
+            hint={`RSI 가 이 값 이하로 떨어졌다가 다시 오를 때 매수 (${RULE_LIMITS.rsiBuyBelow.min}~${RULE_LIMITS.rsiBuyBelow.max}).`}
             error={err('rsiBuyBelow')}
           >
-            <NumberBox label="RSI 살 때 기준" value={r.rsiBuyBelow} disabled={!r.useRsi} onChange={(v) => setRule({ rsiBuyBelow: v })} />
+            <NumberBox label="RSI 매수 기준" value={r.rsiBuyBelow} disabled={!r.useRsi} onChange={(v) => setRule({ rsiBuyBelow: v })} />
           </Field>
           <Field
-            label="RSI 팔 때 기준"
-            hint={`RSI 가 이 값 이상이면 판다 (${RULE_LIMITS.rsiSellAbove.min}~${RULE_LIMITS.rsiSellAbove.max}).`}
+            label="RSI 매도 기준"
+            hint={`RSI 가 이 값 이상이면 매도 (${RULE_LIMITS.rsiSellAbove.min}~${RULE_LIMITS.rsiSellAbove.max}).`}
             error={err('rsiSellAbove')}
           >
-            <NumberBox label="RSI 팔 때 기준" value={r.rsiSellAbove} disabled={!r.useRsi} onChange={(v) => setRule({ rsiSellAbove: v })} />
+            <NumberBox label="RSI 매도 기준" value={r.rsiSellAbove} disabled={!r.useRsi} onChange={(v) => setRule({ rsiSellAbove: v })} />
           </Field>
           <Field
             label="손절 %"
-            hint={`손절 ${Number.isFinite(c.hardStopLossPercent) ? c.hardStopLossPercent : '—'}% — 산 값보다 이만큼 내려가면 바로 판다 (${RULE_LIMITS.hardStopLossPercent.min}~${RULE_LIMITS.hardStopLossPercent.max}).`}
+            hint={`손절 ${Number.isFinite(c.hardStopLossPercent) ? c.hardStopLossPercent : '—'}% — 매수가보다 이만큼 내려가면 바로 매도 (${RULE_LIMITS.hardStopLossPercent.min}~${RULE_LIMITS.hardStopLossPercent.max}).`}
             error={err('hardStopLossPercent')}
           >
             <NumberBox label="손절 %" value={c.hardStopLossPercent} onChange={(v) => onChange({ hardStopLossPercent: v })} />
           </Field>
           <Field
             label="익절"
-            hint={`산 값보다 이만큼 오르면 모두 판다 (${RULE_LIMITS.takeProfitPercent.min}~${RULE_LIMITS.takeProfitPercent.max}). 끄면 오르는 동안 계속 들고 간다. 같은 날 손절과 둘 다 닿으면 손절로 센다.`}
+            hint={`매수가보다 이만큼 오르면 모두 매도 (${RULE_LIMITS.takeProfitPercent.min}~${RULE_LIMITS.takeProfitPercent.max}). 끄면 오르는 동안 계속 들고 간다. 같은 날 손절과 둘 다 닿으면 손절로 센다.`}
             error={err('takeProfitPercent')}
           >
             <Check checked={c.takeProfitEnabled} onChange={(v) => onChange({ takeProfitEnabled: v })}>
@@ -233,7 +233,7 @@ function ConditionCard({
           </Field>
           <Field
             label="트레일링"
-            hint={`산 뒤 가장 높았던 종가보다 이만큼 내려가면 판다 (${RULE_LIMITS.trailingStopPercent.min}~${RULE_LIMITS.trailingStopPercent.max}).`}
+            hint={`매수한 뒤 최고가(종가 기준)보다 이만큼 내려가면 매도 (${RULE_LIMITS.trailingStopPercent.min}~${RULE_LIMITS.trailingStopPercent.max}).`}
             error={err('trailingStopPercent')}
           >
             <Check checked={c.trailingStopEnabled} onChange={(v) => onChange({ trailingStopEnabled: v })}>
@@ -243,7 +243,7 @@ function ConditionCard({
           </Field>
         </div>
       )}
-      {!open && Object.keys(errors).length > 0 && <p className="text-[13px] text-bearish">고칠 칸이 있습니다 — 「자세히」 를 펼쳐 보세요.</p>}
+      {!open && Object.keys(errors).length > 0 && <p className="text-[13px] text-bearish">고칠 칸이 있습니다 — 「고급 설정」 을 펼쳐 보세요.</p>}
     </div>
   );
 }
@@ -292,7 +292,7 @@ export default function ConditionForm({
     });
     patch({ active: adviceTarget.label });
     setAdvice(null);
-    toast.info(`조건 ${adviceTarget.label} 에 채웠습니다`, '「자세히」 에서 확인하고 고칠 수 있습니다.');
+    toast.info(`${methodName(adviceTarget.label)} 에 채웠습니다`, '「고급 설정」 에서 확인하고 고칠 수 있습니다.');
   };
 
   const askDisabled = asking || !draft.symbols.length || !gemini?.enabled;
@@ -306,7 +306,7 @@ export default function ConditionForm({
           <span className="flex items-center gap-2">
             <Button size="sm" icon={asking ? undefined : Sparkles} onClick={() => void ask()} disabled={askDisabled}>
               {asking && <InlineSpinner />}
-              {asking ? 'AI에게 묻는 중…' : many ? `AI에게 조건 ${current.label} 물어보기` : 'AI에게 조건 물어보기'}
+              {asking ? 'AI에게 묻는 중…' : many ? `AI에게 ${methodName(current.label)} 조건 물어보기` : 'AI에게 조건 물어보기'}
             </Button>
             <InfoTip label="AI에게 조건 물어보기 설명">
               누를 때마다 Gemini 를 1번 부릅니다. 무료 사용 한도를 자동매매와 함께 씁니다. 시험 기간이 시작되기 전 1년의 숫자만 보냅니다.
@@ -323,17 +323,17 @@ export default function ConditionForm({
       <div className="flex flex-wrap items-center gap-2">
         {many && (
           <Segmented
-            label="고칠 조건"
-            options={draft.conditions.map((c) => ({ value: c.label, label: `조건 ${c.label}` }))}
+            label="고칠 방법"
+            options={draft.conditions.map((c) => ({ value: c.label, label: methodName(c.label) }))}
             value={current.label}
             onChange={(v) => patch({ active: v })}
           />
         )}
-        <Button size="sm" icon={Plus} onClick={addCondition} disabled={full} title={full ? `조건은 ${MAX_CONDITIONS}개까지입니다` : '바로 앞 조건을 복사해 새 조건을 만듭니다'}>
-          조건 추가
+        <Button size="sm" icon={Plus} onClick={addCondition} disabled={full} title={full ? `방법은 ${MAX_CONDITIONS}개까지입니다` : '바로 앞 방법을 복사해 새 방법을 만듭니다'}>
+          비교할 방법 추가
         </Button>
         <span className="min-w-0 text-[13px] text-text-muted">
-          {full ? `조건은 ${MAX_CONDITIONS}개까지 비교합니다.` : '같은 종목으로 조건을 최대 3개까지 나란히 비교합니다. 추가하면 앞 조건을 복사합니다.'}
+          {full ? `방법은 ${MAX_CONDITIONS}개까지 비교합니다.` : '같은 종목으로 방법을 최대 3개까지 나란히 비교합니다. 추가하면 앞 방법을 복사합니다.'}
         </span>
       </div>
 
@@ -349,7 +349,7 @@ export default function ConditionForm({
         <span className="text-xs text-text-primary">기간</span>
         <Segmented label="기간" options={BACKTEST_YEARS.map((y) => ({ value: y, label: `${y}년` }))} value={draft.years} onChange={(v) => patch({ years: v })} />
         <span className="min-w-0 text-[13px] text-text-muted">
-          모든 조건에 같은 기간 · 최근 {draft.years}년(1년씩 나눠 계산), 수수료 왕복 0.30%p 포함, 신호 다음 날 시가에 사고팝니다.
+          모든 방법에 같은 기간 · 최근 {draft.years}년(1년씩 나눠 계산), 수수료 왕복 0.30%p 포함, 신호 다음 날 시가에 매수·매도합니다.
         </span>
       </div>
     </Panel>

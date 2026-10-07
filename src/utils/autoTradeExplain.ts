@@ -218,3 +218,26 @@ export function strategyConditionLine(s: AccountStrategy): string {
     s.trailingStopEnabled ? `트레일링 ${s.trailingStopPercent}%` : '트레일링 끔'
   } · ${takeProfitText(s)}`;
 }
+
+// ── 백테스트 「매도한 이유」 쉬운 말 (v2.40.0) — 비교 표·종목별 표·InfoTip 이 같은 문장을 쓴다 ──
+
+export type ExitReason = 'signal' | 'stop' | 'take_profit' | 'trailing' | 'end';
+
+/** 그 방법의 숫자로 만든 매도 이유 문장 — 예) "손절(매수가보다 7% 하락)" */
+export function exitReasonText(kind: ExitReason, c: RuleConditions): string {
+  const r = c.rule;
+  switch (kind) {
+    case 'signal':
+      if (r.useMaCross && r.useRsi) return `매도 신호(평균선 교차 또는 RSI ${r.rsiSellAbove} 이상)`;
+      if (r.useMaCross) return `매도 신호(${nearestEngineMa(r.maShort)}일 평균이 ${nearestEngineMa(r.maLong)}일 평균 아래로)`;
+      return `매도 신호(RSI ${r.rsiSellAbove} 이상)`;
+    case 'stop':
+      return `손절(매수가보다 ${c.hardStopLossPercent}% 하락)`;
+    case 'take_profit':
+      return `익절(매수가보다 ${c.takeProfitPercent ?? '—'}% 상승)`;
+    case 'trailing':
+      return `트레일링(최고가보다 ${c.trailingStopPercent}% 하락)`;
+    case 'end':
+      return '시험 기간이 끝나 정리';
+  }
+}

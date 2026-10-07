@@ -5,19 +5,23 @@ import { InlineSpinner } from '../common/LoadingOverlay';
 import { Badge, Button, InfoTip, Panel, Segmented, SectionTitle } from '../ui';
 import { ICON_SM } from '../ui/icon';
 import { toast } from '../../store/uiStore';
-import { ruleConditionLine } from '../../utils/autoTradeExplain';
-import type { BacktestConditionResult, BacktestCustomReport, BacktestCustomSymbol, ConditionLabel, WorstDrawdown } from '../../types/backtest';
+import { exitReasonText, ruleConditionLine, type ExitReason } from '../../utils/autoTradeExplain';
+import WarnIcon from '../ui/WarnIcon';
+import { methodName, type BacktestConditionResult, type BacktestCustomReport, type BacktestCustomSymbol, type ConditionLabel, type WorstDrawdown } from '../../types/backtest';
 
 /**
  * ④ 결과 (v2.38.0 → v2.39.0 조건 비교) — 사용자 시험. **판정 배지 없음**.
- * - 비교 표: 열 = 조건 A·B·C · 그냥 들고 있기, 행 = 조건 · 기간 전체 · 아무 날이나 대비 · MDD · Profit Factor · 거래 · 10회 미만 · 판 이유.
+ * - 비교 표: 열 = 방법 1·2·3(저장 라벨 A·B·C — 화면 이름만 숫자, `methodName`) · 들고 있기, 행 = 조건 · 기간 전체 · 아무 날이나 대비 · MDD · Profit Factor · 거래 · 10회 미만 · 매도한 이유.
+ * - v2.40.0: 숫자 색은 **항상**(표본이 적어도 끄지 않는다) — 대신 결과 맨 위 **표본 경고 상자**. MDD 는 빨강, Profit Factor 는 1 이상 초록·미만 빨강.
  *   ⚠️ **「가장 좋음」 표시·굵게·강조를 하지 않는다**(숫자의 +/− 색은 앱 공통 그대로) — 여러 조건을 비교해 고르면 우연에 속기 쉽다.
  * - 거래 10회 미만 종목이 절반 이상인 조건은 「결론 내기 어려움」, 그 조건의 숫자는 색칠하지 않는다.
  * - 종목별 표는 조건 하나를 골라 본다. 숫자는 모두 종목 평균(동일 가중)·수수료 왕복 0.30%p 포함. "기간 전체" = 1년 구간 수익률을 복리로 이은 값.
  */
 const pct = (v: number | null | undefined) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%`);
 const pp = (v: number | null | undefined) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%p`);
-const tone = (v: number | null | undefined, plain: boolean) => (plain || v == null ? '' : v > 0 ? 'text-bullish' : v < 0 ? 'text-bearish' : '');
+const tone = (v: number | null | undefined) => (v == null ? '' : v > 0 ? 'text-bullish' : v < 0 ? 'text-bearish' : '');
+const mddTone = (v: number | null | undefined) => (v != null && v < 0 ? 'text-bearish' : '');
+const pfTone = (v: number | null | undefined) => (v == null ? '' : v >= 1 ? 'text-bullish' : 'text-bearish');
 const when = (iso: string) => new Date(iso).toLocaleString('ko-KR');
 const worstText = (w: WorstDrawdown | null | undefined) => (w ? `${w.name ?? w.symbol} ${pct(w.value)}` : '—');
 const diffOf = (a: number | null | undefined, b: number | null | undefined) => (a == null || b == null ? null : a - b);
@@ -37,9 +41,9 @@ const COLS: { key: SortKey; label: string }[] = [
   { key: 'trades', label: '횟수' },
   { key: 'winRate', label: '이긴 거래' },
   { key: 'avgReturn', label: '한 번 평균' },
-  { key: 'stopRate', label: '손절 비율' },
+  { key: 'stopRate', label: '손절로 매도' },
 ];
-const EXIT_LABEL = { signal: '신호', stop: '손절', take_profit: '익절', trailing: '트레일링', end: '기간 끝' } as const;
+const EXITS: ExitReason[] = ['signal', 'stop', 'take_profit', 'trailing', 'end'];
 
 /** " · " 로 이은 조각을 조각마다 줄바꿈 없이 — 좁은 칸에서 줄이 "· 기간 끝" 처럼 점으로 시작하지 않게 */
 function Pieces({ parts }: { parts: string[] }) {
@@ -79,7 +83,6 @@ function Row({ head, help, cells, hold }: { head: string; help?: string; cells: 
 }
 
 function SymbolTable({ result }: { result: BacktestConditionResult }) {
-  const plain = result.summary.hardToTell;
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: 'rule', desc: true });
   const rows = useMemo(() => {
     const v = (x: BacktestCustomSymbol) => x[sort.key] ?? null;
@@ -119,16 +122,16 @@ function SymbolTable({ result }: { result: BacktestConditionResult }) {
                 <StockName symbol={x.symbol} name={x.name} size="sm" />
                 <span className="block text-text-muted">{x.sector ?? '분야 미확인'}</span>
               </td>
-              <td className={`text-right font-medium ${tone(x.rule, plain)}`}>{pct(x.rule)}</td>
-              <td className={`text-right ${tone(x.hold, plain)}`}>{pct(x.hold)}</td>
-              <td className={`text-right ${tone(x.random, plain)}`}>{pct(x.random)}</td>
-              <td className="text-right">{pct(x.mdd)}</td>
+              <td className={`text-right font-medium ${tone(x.rule)}`}>{pct(x.rule)}</td>
+              <td className={`text-right ${tone(x.hold)}`}>{pct(x.hold)}</td>
+              <td className={`text-right ${tone(x.random)}`}>{pct(x.random)}</td>
+              <td className={`text-right ${mddTone(x.mdd)}`}>{pct(x.mdd)}</td>
               <td className="whitespace-nowrap text-right">
                 {x.trades}
                 {x.trades < 10 && <span className="text-text-muted"> (적음)</span>}
               </td>
               <td className="text-right">{x.winRate == null ? '—' : `${x.winRate}%`}</td>
-              <td className={`text-right ${tone(x.avgReturn, plain)}`}>{pct(x.avgReturn)}</td>
+              <td className={`text-right ${tone(x.avgReturn)}`}>{pct(x.avgReturn)}</td>
               <td className="text-right">{x.stopRate == null ? '—' : `${x.stopRate}%`}</td>
             </tr>
           ))}
@@ -175,16 +178,40 @@ export default function CustomResult({
   };
   const ex = report.explain;
 
+  // 표본 경고 — 어느 방법이든 거래 10회 미만 종목이 절반 이상이면 결과 맨 위에(색을 켠 대신, 색이 확신처럼 보이지 않게)
+  const weakOnes = cs.filter((c) => c.summary.hardToTell);
+
   return (
     <div className="space-y-3">
+      {weakOnes.length > 0 && (
+        <div role="note" className="flex gap-2 rounded-xl bg-warning/10 px-3 py-2 text-[13px] text-warning">
+          <WarnIcon />
+          <div className="min-w-0 space-y-0.5">
+            {weakOnes.length === 1 && !many ? (
+              <p>
+                거래가 10번이 안 된 종목이 {weakOnes[0].summary.symbols}개 중 {weakOnes[0].summary.weakSymbols}개라, 이 결과로 결론을 내기 어렵습니다. 종목 수나 기간을 늘려 보세요.
+              </p>
+            ) : (
+              <>
+                <p>거래가 10번이 안 된 종목이 절반 이상이라 결론을 내기 어려운 방법이 있습니다. 종목 수나 기간을 늘려 보세요.</p>
+                {weakOnes.map((c) => (
+                  <p key={c.label}>
+                    {methodName(c.label)}: {c.summary.symbols}개 중 {c.summary.weakSymbols}개
+                  </p>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
+      )}
       <Panel pad="sm" className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <p className="min-w-0 text-xs text-text-secondary">
-            기간 {report.input.years}년 · 종목 {symbolsCount}개{many ? ` · 조건 ${cs.length}개` : ''} · {when(report.computedAt)}
+            기간 {report.input.years}년 · 종목 {symbolsCount}개{many ? ` · 방법 ${cs.length}개` : ''} · {when(report.computedAt)}
           </p>
           <span className="ml-auto flex items-center gap-2">
             <Button size="sm" variant="ghost" onClick={onRerun} disabled={rerunBusy}>
-              다시 계산
+              다시 실행
             </Button>
             {applySlot}
           </span>
@@ -196,7 +223,7 @@ export default function CustomResult({
                 <th className="py-1.5 text-left font-normal">종목 {symbolsCount}개 평균</th>
                 {cs.map((c) => (
                   <th key={c.label} className="pr-3 text-right font-normal text-text-primary">
-                    조건 {c.label}
+                    {methodName(c.label)}
                   </th>
                 ))}
                 <th className="text-right font-normal">들고 있기</th>
@@ -214,15 +241,15 @@ export default function CustomResult({
               />
               <Row
                 head="기간 전체 수익"
-                cells={cs.map((c) => <span className={tone(c.summary.rule, c.summary.hardToTell)}>{pct(c.summary.rule)}</span>)}
-                hold={<span className={tone(report.hold.rule, false)}>{pct(report.hold.rule)}</span>}
+                cells={cs.map((c) => <span className={tone(c.summary.rule)}>{pct(c.summary.rule)}</span>)}
+                hold={<span className={tone(report.hold.rule)}>{pct(report.hold.rule)}</span>}
               />
               <Row
                 head="아무 날이나 대비"
-                help="같은 종목·같은 횟수·같은 보유일로 아무 날이나 사고팔았을 때(200번 평균)보다 얼마나 높았나(%p)."
+                help="같은 종목·같은 횟수·같은 보유일로 아무 날이나 매수·매도했을 때(200번 평균)보다 얼마나 높았나(%p)."
                 cells={cs.map((c) => {
                   const d = diffOf(c.summary.rule, c.summary.random);
-                  return <span className={tone(d, c.summary.hardToTell)}>{pp(d)}</span>;
+                  return <span className={tone(d)}>{pp(d)}</span>;
                 })}
                 hold="—"
               />
@@ -231,13 +258,13 @@ export default function CustomResult({
                 help={MDD_HELP}
                 cells={cs.map((c) => (
                   <span>
-                    {pct(c.summary.mdd)}
+                    <span className={mddTone(c.summary.mdd)}>{pct(c.summary.mdd)}</span>
                     <span className="block text-text-muted">가장 나쁨 {worstText(c.summary.mddWorst)}</span>
                   </span>
                 ))}
                 hold={
                   <span>
-                    {pct(report.hold.mdd)}
+                    <span className={mddTone(report.hold.mdd)}>{pct(report.hold.mdd)}</span>
                     <span className="block text-text-muted">가장 나쁨 {worstText(report.hold.mddWorst)}</span>
                   </span>
                 }
@@ -246,7 +273,7 @@ export default function CustomResult({
                 head="Profit Factor (번 돈 ÷ 잃은 돈)"
                 help={PF_HELP}
                 cells={cs.map((c) =>
-                  c.summary.profitFactor != null ? c.summary.profitFactor.toFixed(2) : c.summary.profitFactorNote ? `— (${c.summary.profitFactorNote})` : '—',
+                  c.summary.profitFactor != null ? <span className={pfTone(c.summary.profitFactor)}>{c.summary.profitFactor.toFixed(2)}</span> : c.summary.profitFactorNote ? `— (${c.summary.profitFactorNote})` : '—',
                 )}
                 hold="—"
               />
@@ -256,7 +283,7 @@ export default function CustomResult({
                   <span>
                     <span className="whitespace-nowrap">{c.summary.winRate == null ? '—' : `${c.summary.winRate}%`} · </span>
                     <wbr />
-                    <span className={`whitespace-nowrap ${tone(c.summary.avgTradeReturn, c.summary.hardToTell)}`}>{pct(c.summary.avgTradeReturn)}</span>
+                    <span className={`whitespace-nowrap ${tone(c.summary.avgTradeReturn)}`}>{pct(c.summary.avgTradeReturn)}</span>
                     <span className="whitespace-nowrap"> · {c.summary.avgTrades ?? 0}번</span>
                   </span>
                 ))}
@@ -277,15 +304,15 @@ export default function CustomResult({
                 hold="—"
               />
               <Row
-                head="판 이유"
-                help="신호(조건이 팔라고 함) · 손절 · 익절 · 트레일링 · 기간 끝(기간이 끝나 마지막 종가로 정리) 의 비율."
+                head="매도한 이유"
+                help="이 방법으로 매도한 거래가 어떤 이유로 매도됐는지의 비율입니다. 괄호 안 숫자는 그 방법의 설정입니다 — 매도 신호(방법의 매도 조건) · 손절 · 익절 · 트레일링 · 시험 기간이 끝나 마지막 종가로 정리."
                 cells={cs.map((c) =>
                   c.summary.exits ? (
                     <span className="text-text-secondary">
                       <Pieces
-                        parts={(Object.keys(EXIT_LABEL) as (keyof typeof EXIT_LABEL)[])
-                          .filter((k) => c.summary.exits![k] > 0)
-                          .map((k) => `${EXIT_LABEL[k]} ${Math.round(c.summary.exits![k])}%`)}
+                        parts={EXITS.filter((k) => c.summary.exits![k] > 0).map(
+                          (k) => `${exitReasonText(k, c.condition)} ${Math.round(c.summary.exits![k])}%`,
+                        )}
                       />
                     </span>
                   ) : (
@@ -299,11 +326,6 @@ export default function CustomResult({
         </div>
         {/* ⚠️ 고정 문구 — 지우지 않는다 */}
         <p className="text-[13px] text-text-muted">여러 조건을 바꿔 보며 가장 좋은 숫자를 고르면 우연에 속기 쉽습니다.</p>
-        {cs.some((c) => c.summary.hardToTell) && (
-          <p className="text-[13px] text-text-muted">
-            「결론 내기 어려움」 — 그 조건은 거래 10회 미만 종목이 절반 이상이라 숫자만으로 결론을 내기 어렵습니다. 기간을 늘리거나 종목을 더 담아 보세요.
-          </p>
-        )}
       </Panel>
 
       {report.segments.length > 1 && (
@@ -316,7 +338,7 @@ export default function CustomResult({
                   <th className="py-1.5 text-left font-normal">구간</th>
                   {cs.map((c) => (
                     <th key={c.label} className="text-right font-normal">
-                      조건 {c.label}
+                      {methodName(c.label)}
                     </th>
                   ))}
                   <th className="text-right font-normal">들고 있기</th>
@@ -332,11 +354,11 @@ export default function CustomResult({
                       </span>
                     </td>
                     {cs.map((c) => (
-                      <td key={c.label} className={`text-right ${tone(c.segmentRows[k]?.rule, c.summary.hardToTell)}`}>
+                      <td key={c.label} className={`text-right ${tone(c.segmentRows[k]?.rule)}`}>
                         {pct(c.segmentRows[k]?.rule)}
                       </td>
                     ))}
-                    <td className={`text-right ${tone(cs[0]?.segmentRows[k]?.hold, false)}`}>{pct(cs[0]?.segmentRows[k]?.hold)}</td>
+                    <td className={`text-right ${tone(cs[0]?.segmentRows[k]?.hold)}`}>{pct(cs[0]?.segmentRows[k]?.hold)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -350,11 +372,11 @@ export default function CustomResult({
           aside="기간 전체 · 머리를 누르면 정렬"
           right={
             many ? (
-              <Segmented label="종목별 표의 조건" size="sm" options={cs.map((c) => ({ value: c.label, label: `조건 ${c.label}` }))} value={picked.label} onChange={setPick} />
+              <Segmented label="종목별 표의 방법" size="sm" options={cs.map((c) => ({ value: c.label, label: methodName(c.label) }))} value={picked.label} onChange={setPick} />
             ) : undefined
           }
         >
-          종목별{many ? ` — 조건 ${picked.label}` : ''}
+          종목별{many ? ` — ${methodName(picked.label)}` : ''}
         </SectionTitle>
         <SymbolTable key={picked.label} result={picked} />
         {report.excluded.length > 0 && (
@@ -383,8 +405,8 @@ export default function CustomResult({
         {!ex && gemini && !gemini.enabled && <p className="text-[13px] text-text-muted">AI 설명: {gemini.reason ?? 'Gemini 를 쓸 수 없습니다'}</p>}
         {!ex && gemini?.enabled && (
           <p className="text-[13px] text-text-muted">
-            누르면 Gemini 를 1번 부릅니다(무료 한도를 자동매매와 함께 씁니다). {many ? '조건별 숫자표만 보내고, 어느 조건이 가장 좋다고 고르지 않습니다. ' : ''}
-            받은 설명은 이 기록에 함께 남습니다.
+            누르면 Gemini 를 1번 부릅니다(무료 한도를 자동매매와 함께 씁니다). {many ? '방법별 숫자표만 보내고, 어느 방법이 가장 좋다고 고르지 않습니다. ' : ''}
+            받은 설명은 이 히스토리에 함께 저장됩니다.
           </p>
         )}
         {ex && (
@@ -401,7 +423,7 @@ export default function CustomResult({
             )}
             {ex.byCondition.map((b) => (
               <div key={b.label}>
-                <p className="text-text-muted">{many ? `조건 ${b.label}` : '좋았던 점 · 아쉬운 점'}</p>
+                <p className="text-text-muted">{many ? methodName(b.label) : '좋았던 점 · 아쉬운 점'}</p>
                 <ul className="list-disc space-y-0.5 pl-5">
                   {b.good.map((t, i) => (
                     <li key={`g${i}`}>좋았던 점: {t}</li>

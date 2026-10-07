@@ -13,7 +13,7 @@ import { stockNameOf } from '../../utils/stockNames';
 import { maRoundingNotes, ruleConditionLine } from '../../utils/autoTradeExplain';
 import { backtestInputError } from '../../utils/backtestInput';
 import { nearestEngineMa } from '../../types/autoTrading';
-import { MAX_COMPARE_SYMBOLS, isCustomReport, isCustomSummary, type BacktestListItem } from '../../types/backtest';
+import { MAX_COMPARE_SYMBOLS, isCustomReport, methodName, isCustomSummary, type BacktestListItem } from '../../types/backtest';
 import SymbolPicker from './SymbolPicker';
 import ConditionForm from './ConditionForm';
 import CustomResult from './CustomResult';
@@ -53,7 +53,7 @@ function HistoryRow({ item, selected, onOpen, onRetry, onRemove }: { item: Backt
                 {s.symbols}종목 · {s.years}년
               </span>
               <span className="tabular-nums text-text-secondary">
-                {s.input.conditions.length > 1 ? `조건 ${s.input.conditions.length}개 · 조건 A` : '이 방법'} {pct(s.rule)} vs 들고 있기 {pct(s.hold)}
+                {s.input.conditions.length > 1 ? `방법 ${s.input.conditions.length}개 · 방법 1` : '이 방법'} {pct(s.rule)} vs 들고 있기 {pct(s.hold)}
               </span>
             </>
           ) : (
@@ -65,20 +65,20 @@ function HistoryRow({ item, selected, onOpen, onRetry, onRemove }: { item: Backt
         </span>
         <span className="mt-0.5 block text-text-muted">
           {isCustomSummary(s)
-            ? s.input.conditions.map((c) => (s.input.conditions.length > 1 ? `${c.label}: ${ruleConditionLine(c)}` : ruleConditionLine(c))).join(' / ')
+            ? s.input.conditions.map((c) => (s.input.conditions.length > 1 ? `${methodName(c.label)}: ${ruleConditionLine(c)}` : ruleConditionLine(c))).join(' / ')
             : s.methods.map((m) => `${m.title} ${VERDICT_LABEL[m.verdict]}`).join(' · ')}
         </span>
       </button>
       {onRetry && (
         <Button size="sm" variant="ghost" onClick={onRetry}>
-          이 조건으로 다시 시험
+          이 조건으로 다시 실행
         </Button>
       )}
       <button
         type="button"
         onClick={onRemove}
-        aria-label={`${when(item.createdAt)} 기록 지우기`}
-        title="지우기"
+        aria-label={`${when(item.createdAt)} 결과 삭제`}
+        title="삭제"
         className="shrink-0 rounded p-1 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-bearish"
       >
         <TrashIcon className="h-3.5 w-3.5" />
@@ -167,7 +167,7 @@ export default function BacktestView() {
     try {
       const p = await bt.start(override, force);
       if (p.reused) {
-        toast.info('오늘 같은 조건으로 한 시험 결과를 열었습니다', '다시 계산하려면 결과의 [다시 계산] 을 누르세요.');
+        toast.info('오늘 같은 조건으로 한 시험 결과를 열었습니다', '다시 계산하려면 결과의 [다시 실행] 을 누르세요.');
         scrollTo.current = p.reportId;
         if (bt.detail?.id === p.reportId) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
@@ -180,11 +180,11 @@ export default function BacktestView() {
 
   const confirmRemove = (item: BacktestListItem) =>
     modal.confirm({
-      title: '백테스트 기록 지우기',
+      title: '백테스트 결과 삭제',
       message: `${when(item.createdAt)} ${isCustomSummary(item.summary) ? `시험(${item.summary.symbols}종목)` : '미리 정한 시험'}의 결과${
         isCustomSummary(item.summary) ? '와 AI 설명' : ''
-      }을 지웁니다. 되돌릴 수 없습니다.${isCustomSummary(item.summary) ? '' : '\n서버의 파일 보고서는 남습니다.'}`,
-      confirmText: '지우기',
+      }을 삭제합니다. 되돌릴 수 없습니다.${isCustomSummary(item.summary) ? '' : '\n서버의 파일 보고서는 남습니다.'}`,
+      confirmText: '삭제',
       danger: true,
       onConfirm: async () => {
         try {
@@ -273,7 +273,7 @@ export default function BacktestView() {
             {!running && firstError && <span className="min-w-0 text-[13px] text-text-muted">{firstError}</span>}
             {!running && !firstError && (
               <span className="min-w-0 text-[13px] text-text-muted">
-                {draft.symbols.length}종목 · {input.conditions.length > 1 ? `조건 ${input.conditions.length}개 비교` : ruleConditionLine(input.conditions[0])} · 기간 {draft.years}년
+                {draft.symbols.length}종목 · {input.conditions.length > 1 ? `방법 ${input.conditions.length}개 비교` : ruleConditionLine(input.conditions[0])} · 기간 {draft.years}년
               </span>
             )}
           </div>
@@ -327,14 +327,14 @@ export default function BacktestView() {
 
         {/* ⑤ 지난 기록 */}
         <section className="space-y-2">
-          <SectionTitle aside="내 시험 최근 20개 · 미리 정한 시험 최근 5개">지난 기록</SectionTitle>
+          <SectionTitle aside="내 시험 최근 20개 · 미리 정한 시험 최근 5개">백테스트 히스토리</SectionTitle>
           <Panel pad="none">
             {bt.reports == null ? (
               <div className="p-3">
                 <SkeletonList count={3} />
               </div>
             ) : bt.reports.length === 0 ? (
-              <p className="p-3 text-[13px] text-text-muted">아직 기록이 없습니다.</p>
+              <p className="p-3 text-[13px] text-text-muted">아직 히스토리가 없습니다.</p>
             ) : (
               <ul className="divide-y divide-border/40">
                 {bt.reports.map((item) => (

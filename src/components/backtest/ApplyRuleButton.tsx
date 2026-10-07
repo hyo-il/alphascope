@@ -6,7 +6,7 @@ import { modal, toast } from '../../store/uiStore';
 import { autoTradeView } from '../../utils/autoTradeStatus';
 import { nearestEngineMa, type AccountStrategy, type AccountStrategyStatus } from '../../types/autoTrading';
 import { ruleConditionLine, ruleMethodName, type RuleConditions } from '../../utils/autoTradeExplain';
-import type { BacktestCondition, ConditionLabel } from '../../types/backtest';
+import { methodName, type BacktestCondition, type ConditionLabel } from '../../types/backtest';
 import { Button, IconButton, Segmented } from '../ui';
 import type { ModalRow } from '../../store/uiStore';
 
@@ -40,7 +40,7 @@ export function changeRows(current: AccountStrategy, next: RuleConditions): Moda
   add('이동평균 교차', onOff(c.useMaCross), onOff(n.useMaCross));
   if (n.useMaCross) add('이동평균(단기·장기)', `${nearestEngineMa(c.maShort)}·${nearestEngineMa(c.maLong)}일`, `${n.maShort}·${n.maLong}일`);
   add('RSI', onOff(c.useRsi), onOff(n.useRsi));
-  if (n.useRsi) add('RSI 살 때 · 팔 때', `${c.rsiBuyBelow} · ${c.rsiSellAbove}`, `${n.rsiBuyBelow} · ${n.rsiSellAbove}`);
+  if (n.useRsi) add('RSI 매수 · 매도 기준', `${c.rsiBuyBelow} · ${c.rsiSellAbove}`, `${n.rsiBuyBelow} · ${n.rsiSellAbove}`);
   add('손절', `${current.hardStopLossPercent}%`, `${next.hardStopLossPercent}%`);
   add(
     '트레일링',
@@ -147,7 +147,7 @@ export default function ApplyRuleButton({ options }: { options: BacktestConditio
               <div className="mb-3 space-y-1.5">
                 <Segmented
                   label="적용할 조건"
-                  options={options.map((o) => ({ value: o.label, label: `조건 ${o.label}` }))}
+                  options={options.map((o) => ({ value: o.label, label: methodName(o.label) }))}
                   value={label}
                   onChange={setLabel}
                 />

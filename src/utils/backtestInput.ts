@@ -9,6 +9,7 @@ import {
   CONDITION_LABELS,
   MAX_COMPARE_SYMBOLS,
   MAX_CONDITIONS,
+  methodName,
   type BacktestCondition,
   type BacktestInput,
 } from '../types/backtest';
@@ -44,7 +45,7 @@ export function conditionErrors(c: Partial<BacktestCondition> & { rule?: Partial
     if (!inRange(r.rsiBuyBelow, b)) e.rsiBuyBelow = `${b.min}~${b.max} 사이로 적어 주세요.`;
     if (!inRange(r.rsiSellAbove, s)) e.rsiSellAbove = `${s.min}~${s.max} 사이로 적어 주세요.`;
   }
-  if (!r.useMaCross && !r.useRsi) e.useAny = '이동평균과 RSI 중 하나는 써야 사고팔 수 있습니다.';
+  if (!r.useMaCross && !r.useRsi) e.useAny = '이동평균과 RSI 중 하나는 써야 매수·매도할 수 있습니다.';
   const st = RULE_LIMITS.hardStopLossPercent;
   if (!inRange(c.hardStopLossPercent, st)) e.hardStopLossPercent = `${st.min}~${st.max} 사이로 적어 주세요.`;
   const tr = RULE_LIMITS.trailingStopPercent;
@@ -59,15 +60,15 @@ export function backtestInputError(input: Partial<BacktestInput>): string | null
   const symbols = input.symbols;
   const conditions = input.conditions ?? [];
   if (!Array.isArray(symbols) || symbols.length === 0) return '종목을 하나 이상 골라 주세요.';
-  if (symbols.some((s) => typeof s !== 'string' || !SYMBOL_PATTERN.test(s))) return '종목 코드가 올바르지 않습니다(영문·숫자만).';
+  if (symbols.some((s) => typeof s !== 'string' || !SYMBOL_PATTERN.test(s))) return '티커가 올바르지 않습니다(영문·숫자만).';
   if (!(BACKTEST_YEARS as number[]).includes(input.years as number)) return '기간은 1·2·3년 중에서 고릅니다.';
-  if (conditions.length < 1 || conditions.length > MAX_CONDITIONS) return `조건은 1~${MAX_CONDITIONS}개입니다.`;
+  if (conditions.length < 1 || conditions.length > MAX_CONDITIONS) return `방법은 1~${MAX_CONDITIONS}개입니다.`;
   if (conditions.length >= 2 && symbols.length > MAX_COMPARE_SYMBOLS) {
-    return `조건을 비교할 때는 종목을 ${MAX_COMPARE_SYMBOLS}개까지 고를 수 있습니다 — 지금 ${symbols.length}개`;
+    return `방법을 비교할 때는 종목을 ${MAX_COMPARE_SYMBOLS}개까지 고를 수 있습니다 — 지금 ${symbols.length}개`;
   }
   for (const c of conditions) {
     const first = Object.values(conditionErrors(c))[0];
-    if (first) return conditions.length > 1 ? `조건 ${c.label}: ${first}` : first;
+    if (first) return conditions.length > 1 ? `${methodName(c.label)}: ${first}` : first;
   }
   return null;
 }
@@ -131,7 +132,7 @@ export function normalizeBacktestInput(raw: unknown): BacktestInput {
 export function parseBacktestInput(raw: unknown): { input: BacktestInput } | { error: string } {
   const b = (raw ?? {}) as Record<string, unknown>;
   if (Array.isArray(b.conditions) && (b.conditions.length < 1 || b.conditions.length > MAX_CONDITIONS)) {
-    return { error: `조건은 1~${MAX_CONDITIONS}개입니다.` };
+    return { error: `방법은 1~${MAX_CONDITIONS}개입니다.` };
   }
   const input = normalizeBacktestInput(raw);
   const error = backtestInputError(input);

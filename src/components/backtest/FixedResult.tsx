@@ -51,7 +51,7 @@ function MethodBlock({ m }: { m: BacktestMethodResult }) {
         <h4 className="text-sm font-semibold text-text-primary">{m.title}</h4>
         <VerdictBadge verdict={m.verdict} why={m.why} />
         <span className="min-w-0 text-[13px] text-text-muted">
-          {choice ? `산다: ${choice.buy} · 판다: ${choice.sell}` : ''}
+          {choice ? `매수: ${choice.buy} · 매도: ${choice.sell}` : ''}
         </span>
       </div>
       <div className="overflow-x-auto">
@@ -100,7 +100,7 @@ function Conditions({ r }: { r: BacktestReport }) {
     ['방법', RULE_CHOICES.map((c) => c.title).join(' · ')],
     ['손절 · 트레일링', `손절 ${r.conditions.stopLossPercent}% · 트레일링 끔`],
     ['비용 · 체결', `왕복 ${r.conditions.costPct}%p · ${r.conditions.fill}`],
-    ['비교 기준', '그냥 들고 있기 · 아무 날이나 사고팔기(같은 횟수·같은 보유일, 200번 평균)'],
+    ['비교 기준', '그냥 들고 있기 · 아무 날이나 매수·매도(같은 횟수·같은 보유일, 200번 평균)'],
     ['사전 등록', r.version],
   ];
   return (
@@ -114,7 +114,7 @@ function Conditions({ r }: { r: BacktestReport }) {
           </div>
         ))}
       </dl>
-      <p className="mt-2 text-[13px] text-text-muted">결과를 보기 전에 정해 둔 조건입니다. 판정은 그때 기록된 그대로입니다.</p>
+      <p className="mt-2 text-[13px] text-text-muted">결과를 보기 전에 정해 둔 조건입니다. 판정은 그때 저장된 그대로입니다.</p>
     </Panel>
   );
 }
@@ -236,7 +236,7 @@ export default function FixedResult({ r }: { r: BacktestReport }) {
         </p>
         {errors.length > 0 && (
           <p>
-            3년치 기록이 모자라 계산하지 못한 종목 {errors.length}개: {errors.map((s) => s.name ?? s.symbol).join(', ')}
+            3년치 데이터가 모자라 계산하지 못한 종목 {errors.length}개: {errors.map((s) => s.name ?? s.symbol).join(', ')}
           </p>
         )}
         <p>

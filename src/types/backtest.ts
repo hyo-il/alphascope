@@ -142,6 +142,11 @@ export const BACKTEST_YEARS: BacktestYears[] = [1, 2, 3];
 
 export type ConditionLabel = 'A' | 'B' | 'C';
 export const CONDITION_LABELS: ConditionLabel[] = ['A', 'B', 'C'];
+/**
+ * 화면 이름 (v2.40.0) — 저장 데이터의 `label: 'A'|'B'|'C'` 는 그대로 두고 **화면에서만** 「방법 1·2·3」 으로 보인다(옛 히스토리도 같다).
+ * AI 설명이 돌려주는 이름(A·B·C)도 이 함수로 바꿔 보인다.
+ */
+export const methodName = (label: ConditionLabel | string): string => `방법 ${({ A: 1, B: 2, C: 3 } as Record<string, number>)[label] ?? label}`;
 /** 한 번에 비교할 수 있는 조건 수 */
 export const MAX_CONDITIONS = 3;
 /** 조건이 2개 이상일 때 고를 수 있는 종목 수 (조건 1개면 제한 없음) */
