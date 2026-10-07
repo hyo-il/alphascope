@@ -92,7 +92,7 @@ export default function DrawingTools({
             aria-checked={activeTool === tool.type}
             title={tool.hint}
             onClick={() => onSelect(tool.type)}
-            className={`whitespace-nowrap rounded-md px-2.5 py-0.5 text-xs transition-colors ${
+            className={`whitespace-nowrap rounded-md px-2 py-0.5 text-xs transition-colors ${
               activeTool === tool.type ? 'bg-bg-elevated font-medium text-text-primary' : 'text-text-secondary hover:text-text-primary'
             }`}
           >
@@ -101,16 +101,16 @@ export default function DrawingTools({
         ))}
       </div>
 
-      <span className="mx-1 h-5 w-px bg-border" />
+      <span className="mx-0.5 h-5 w-px bg-border" />
 
       <button
         type="button"
         onClick={onClearAll}
         disabled={!hasDrawings}
-        title="그린 것 전체 삭제"
-        className="rounded-md px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-bearish disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
+        title="그린 것 모두 삭제"
+        className="whitespace-nowrap rounded-md px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-bearish disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
       >
-        전체 삭제
+        모두 삭제
       </button>
     </div>
   );

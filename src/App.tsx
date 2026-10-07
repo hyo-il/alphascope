@@ -230,10 +230,11 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           호가·빠른주문이 아래 탭 위로 흘러넘쳐 겹친다.
         */}
         {/*
-          오른쪽 열 (v2.41.0) — 열 전체는 스크롤하지 않는다. 호가 목록만 스크롤되고(OrderbookPanel 안, 최소 3칸),
-          빠른주문은 아래에 늘 보인다(shrink-0). 예전에는 열 전체와 호가 목록이 두 겹으로 스크롤돼 Windows 에서 칸이 밀렸다.
+          오른쪽 열 (v2.41.0) — 평소에는 호가 목록만 스크롤되고(OrderbookPanel 안), 빠른주문은 아래에 늘 보인다(shrink-0).
+          호가는 최소 3칸 아래로 줄지 않는다 — 그보다 낮은 창에서만 열 전체가 스크롤된다(겹쳐 그리지 않게, 마지막 수단).
+          예전에는 열 전체와 호가 목록이 늘 두 겹으로 스크롤돼 Windows 에서 칸이 밀렸다.
         */}
-        <div className="flex min-h-0 shrink-0 flex-col">
+        <div className="flex min-h-0 w-[248px] shrink-0 flex-col overflow-y-auto overflow-x-hidden">
           <OrderbookPanel
             orderbook={orderbook}
             currentPrice={displayPrice}

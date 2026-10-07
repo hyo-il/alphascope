@@ -37,7 +37,7 @@ export default function ChartToolbar({
   onResetView,
 }: Props) {
   return (
-    <div className="flex flex-wrap items-center gap-x-1 gap-y-1 border-b border-border/60 px-3 py-1.5">
+    <div className="flex flex-wrap items-center gap-x-0.5 gap-y-1 border-b border-border/60 px-3 py-1.5">
       {/* 봉 = 회색 묶음 버튼 (v2.36.0 공용 Segmented) */}
       <Segmented
         label="봉 단위"
@@ -46,7 +46,7 @@ export default function ChartToolbar({
         onChange={onTimeframeChange}
         options={TIMEFRAME_ITEMS.map((tf) => ({ value: tf.value, label: tf.short, title: tf.label }))}
       />
-      <span className="mx-1.5 h-4 w-px bg-border" />
+      <span className="mx-1 h-4 w-px bg-border" />
 
       <IndicatorDropdown
         toggles={toggles}
@@ -54,7 +54,7 @@ export default function ChartToolbar({
         loading={indicatorsLoading}
       />
 
-      <span className="mx-1.5 h-4 w-px bg-border" />
+      <span className="mx-1 h-4 w-px bg-border" />
 
       <DrawingTools
         activeTool={activeTool}
@@ -64,9 +64,9 @@ export default function ChartToolbar({
         hasDrawings={hasDrawings}
       />
 
-      <span className="mx-1.5 h-4 w-px bg-border" />
+      <span className="mx-1 h-4 w-px bg-border" />
       {/* 확대·위치만 처음으로 — 그린 선은 남는다 (v2.41.0) */}
-      <Button size="sm" variant="ghost" onClick={onResetView} title="확대·위치를 처음으로" className="shrink-0 whitespace-nowrap">
+      <Button size="sm" variant="ghost" onClick={onResetView} title="확대·위치를 처음으로" className="shrink-0 whitespace-nowrap !px-2">
         초기화
       </Button>
     </div>

@@ -157,7 +157,8 @@ export default function OrderbookPanel({
   }, [isEmpty, bookSymbol, symbol]);
 
   return (
-    <aside className="flex min-h-0 w-[248px] flex-1 flex-col border-l border-border bg-bg-secondary">
+    // 최소 높이 241px = 머리 36 + 줄 이름 23 + 호가 3칸 120 + 총잔량 62 (v2.41.0) — 이보다 낮은 창에서만 열 전체가 스크롤된다
+    <aside className="flex min-h-[241px] w-[248px] flex-1 flex-col border-l border-border bg-bg-secondary">
       <header className="flex items-center justify-between border-b border-border px-3 py-2">
         <h2 className="text-xs font-medium">호가</h2>
       </header>
@@ -173,7 +174,7 @@ export default function OrderbookPanel({
         </div>
       ) : (
         <>
-          <div className="flex justify-between px-3 py-1 text-[13px] text-text-muted">
+          <div className="flex justify-between px-3 py-0.5 text-[13px] text-text-muted">
             <span>매도 잔량</span>
             <span>호가</span>
             <span>매수 잔량</span>
@@ -213,7 +214,7 @@ export default function OrderbookPanel({
             ))}
           </div>
 
-          <div className="border-t border-border px-3 py-1.5">
+          <div className="border-t border-border px-3 py-1">
             <div className="flex items-center justify-between text-[13px] tabular-nums">
               <span className="text-bearish">{formatCompact(askTotal)}</span>
               <span className="text-[13px] text-text-muted">총잔량</span>

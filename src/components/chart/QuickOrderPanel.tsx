@@ -327,7 +327,7 @@ export default function QuickOrderPanel({
     <div className="flex shrink-0 flex-col border-t border-border">
       {header}
 
-      <div className="space-y-2 px-2.5 py-2">
+      <div className="space-y-1.5 px-2.5 py-1.5">
         <select
           value={accountId ?? ''}
           onChange={(e) => selectAccount(Number(e.target.value))}
@@ -341,7 +341,7 @@ export default function QuickOrderPanel({
         </select>
 
         {/* 수량 */}
-        <div className="space-y-1.5 rounded-md bg-bg-tertiary/50 px-2 py-2">
+        <div className="space-y-1 rounded-md bg-bg-tertiary/50 px-2 py-1.5">
           <div className="flex items-center gap-1.5">
             <input
               type="number"
@@ -449,9 +449,9 @@ export default function QuickOrderPanel({
           {info('매도 가능', `${held}주`)}
           {/* 환율을 못 받았으면 0 주라고 단언하지 않는다 — 잔고가 없다는 뜻으로 읽힌다. */}
           {info('매수 가능', fxMissing ? '환율 조회 실패' : `${maxBuyable}주`)}
-          {info(unit === 'percent' ? `매도 예상 (${percent}%)` : '매도 예상', formatPrice(sellEstimate, currency))}
-          {info(unit === 'percent' ? `매수 예상 (${percent}%)` : '매수 예상', formatPrice(buyEstimate, currency))}
-          <p className="text-right text-[13px] text-text-muted">지정가 {basis != null ? formatPrice(basis, currency) : '—'} 기준</p>
+          {/* 예상 금액은 가격 칸(지정가) 기준 — 시장가는 확인 창에서 현재가로 다시 낸다 */}
+          {info(unit === 'percent' ? `매도 예상 (${percent}%, 지정가)` : '매도 예상 (지정가)', formatPrice(sellEstimate, currency))}
+          {info(unit === 'percent' ? `매수 예상 (${percent}%, 지정가)` : '매수 예상 (지정가)', formatPrice(buyEstimate, currency))}
         </div>
 
         {/* 주문 버튼 — 매도 파랑 / 매수 빨강 (국내 관례) */}
@@ -460,7 +460,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('SELL', 'LIMIT')}
             disabled={busy || !price || !limitPrice || sellQuantity <= 0}
-            className="rounded-md bg-accent/80 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-accent disabled:opacity-40"
+            className="rounded-md bg-accent/80 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent disabled:opacity-40"
           >
             지정가 매도
           </button>
@@ -468,7 +468,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('BUY', 'LIMIT')}
             disabled={busy || !price || !limitPrice || buyQuantity <= 0}
-            className="rounded-md bg-bearish/80 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-bearish disabled:opacity-40"
+            className="rounded-md bg-bearish/80 py-1 text-[13px] font-medium text-white transition-colors hover:bg-bearish disabled:opacity-40"
           >
             지정가 매수
           </button>
@@ -476,7 +476,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('SELL', 'MARKET')}
             disabled={busy || !price || marketSellQuantity <= 0}
-            className="rounded-md bg-accent/15 py-1.5 text-[13px] text-accent transition-colors hover:bg-accent/25 disabled:opacity-40"
+            className="rounded-md bg-accent/15 py-1 text-[13px] text-accent transition-colors hover:bg-accent/25 disabled:opacity-40"
           >
             시장가 매도
           </button>
@@ -484,23 +484,26 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('BUY', 'MARKET')}
             disabled={busy || !price || marketBuyQuantity <= 0}
-            className="rounded-md bg-bearish/15 py-1.5 text-[13px] text-bearish transition-colors hover:bg-bearish/25 disabled:opacity-40"
+            className="rounded-md bg-bearish/15 py-1 text-[13px] text-bearish transition-colors hover:bg-bearish/25 disabled:opacity-40"
           >
             시장가 매수
           </button>
         </div>
 
+        {/* 대기 주문이 있을 때만 — 없을 때 꺼진 버튼으로 자리를 차지하지 않는다(v2.41.0, 1280×1080 에서 빠른주문이 다 보이게) */}
+        {pending.length > 0 && (
         <button
           type="button"
           onClick={cancelAll}
           disabled={!pending.length}
           className="w-full rounded-md bg-bg-tertiary py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40"
         >
-          {symbol} 주문 취소 {pending.length > 0 && `(${pending.length})`}
+          {symbol} 대기 주문 취소 ({pending.length})
         </button>
+        )}
 
         {/* 내 정보 */}
-        <div className="space-y-0.5 border-t border-border pt-2">
+        <div className="space-y-0.5 border-t border-border pt-1.5">
           {position ? (
             <>
               {info('내 주식 평균', formatPrice(position.avgPrice, currency))}
@@ -519,7 +522,6 @@ export default function QuickOrderPanel({
           ) : (
             <p className="text-[13px] text-text-muted">보유하지 않은 종목입니다</p>
           )}
-          {info(`미체결 (${symbol})`, `${pending.length}건`)}
         </div>
       </div>
     </div>
