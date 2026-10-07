@@ -271,3 +271,7 @@ export function aiSellSentence(s: AccountStrategy): string {
 /** 손절·익절 한 줄 — 계좌 모아보기 카드 */
 export const safetyLine = (s: Pick<AccountStrategy, 'hardStopLossPercent' | 'takeProfitEnabled' | 'takeProfitPercent'>) =>
   `손절 −${s.hardStopLossPercent}% · ${s.takeProfitEnabled ? `익절 +${s.takeProfitPercent}%` : '익절 끔'}`;
+
+/** 트레일링 한 조각 — 「지금 조건」 카드의 접힌 한 줄이 safetyLine 뒤에 붙인다 (v2.41.1) */
+export const trailingLine = (s: Pick<AccountStrategy, 'trailingStopEnabled' | 'trailingStopPercent'>) =>
+  s.trailingStopEnabled ? `트레일링 −${s.trailingStopPercent}%` : '트레일링 끔';
