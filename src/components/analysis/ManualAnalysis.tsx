@@ -1,5 +1,4 @@
-import { ICON_SM } from '../ui/icon';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import DisclosureButton from '../ui/DisclosureButton';
 import { useEffect, useMemo, useState } from 'react';
 import { modal } from '../../store/uiStore';
 import type { Candle, Timeframe } from '../../types/toss';
@@ -202,8 +201,8 @@ export default function ManualAnalysis({
     }
     modal.confirm({
       title: '프롬프트 초기화',
-      message: '고친 프롬프트를 버리고 자동 생성본으로 되돌립니다. 되돌릴 수 없습니다.',
-      confirmText: '되돌리기',
+      message: '고친 프롬프트를 버리고 자동 생성본으로 초기화합니다. 되돌릴 수 없습니다.',
+      confirmText: '초기화',
       danger: true,
       onConfirm: () => setEdited(null),
     });
@@ -337,14 +336,7 @@ export default function ManualAnalysis({
               상세 캡처…
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setEditorOpen((v) => !v)}
-            aria-expanded={editorOpen}
-            className="rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
-            프롬프트 수정 {editorOpen ? <ChevronUp {...ICON_SM} className="inline-block align-[-2px]" /> : <ChevronDown {...ICON_SM} className="inline-block align-[-2px]" />}
-          </button>
+          <DisclosureButton open={editorOpen} onToggle={() => setEditorOpen((v) => !v)} label="프롬프트 수정 보기" controls="manual-prompt-editor" />
           {edited !== null && <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[13px] text-warning">수정됨</span>}
           {capture && capture.symbol === symbol && (
             <span className="ml-auto text-[13px] text-text-muted">
@@ -355,7 +347,7 @@ export default function ManualAnalysis({
         </div>
 
         {editorOpen && (
-          <section className="space-y-3 rounded-lg bg-bg-tertiary/40 p-3">
+          <section id="manual-prompt-editor" className="space-y-3 rounded-lg bg-bg-tertiary/40 p-3">
             <div className="space-y-1.5">
               <h4 className="text-[13px] text-text-secondary">투자 기간</h4>
               <div className="grid grid-cols-4 gap-1">

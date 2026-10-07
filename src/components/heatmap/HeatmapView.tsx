@@ -437,7 +437,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         >
           {empty && (
             <p className="p-4 text-[14px] text-text-secondary">
-              관심 목록에 {marketLabel} 종목이 없습니다. 오른쪽 관심 목록에 담아 보세요.
+              관심 목록에 {marketLabel} 종목이 없습니다. 오른쪽 관심 목록에 추가해 보세요.
             </p>
           )}
           {!data && !error && (

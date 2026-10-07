@@ -60,7 +60,7 @@ function Explainer({ horizonDays, flatBand, rule }: { horizonDays: number; flatB
       <ul className="space-y-1 text-xs leading-relaxed text-text-secondary">
         <li>
           분석 당시 <b className="text-bullish">매수</b> 신호를 줬는데 실제로 가격이 올랐으면
-          '적중', 내렸으면 '빗나감' 으로 기록됩니다.
+          '적중', 내렸으면 '빗나감' 으로 셉니다.
         </li>
         <li>
           <b className="text-bearish">매도</b> 는 반대로, <b>중립</b> 은 ±{flatBand}% 안에
@@ -78,7 +78,7 @@ function Explainer({ horizonDays, flatBand, rule }: { horizonDays: number; flatB
         )}
         <li>
           같은 종목을 <b className="text-text-primary">같은 날 여러 번</b> 분석했으면 그날
-          마지막 분석 1건만 셉니다 — 자동매매가 한 시간마다 분석한 기록을 모두 세면 한 종목·한
+          마지막 분석 1건만 셉니다 — 자동매매가 한 시간마다 분석한 결과를 모두 세면 한 종목·한
           날이 적중률을 좌우합니다.
         </li>
         <li>
@@ -256,7 +256,7 @@ function AccuracyReport({ report }: { report: Report }) {
         </h3>
         {report.paired.pairs.length === 0 ? (
           <p className="text-xs text-text-muted">
-            아직 짝지을 기록이 없습니다. 같은 날 같은 종목을 Claude 와 Gemini 로 모두 분석하면 여기에
+            아직 짝지을 결과가 없습니다. 같은 날 같은 종목을 Claude 와 Gemini 로 모두 분석하면 여기에
             쌓입니다.
           </p>
         ) : (

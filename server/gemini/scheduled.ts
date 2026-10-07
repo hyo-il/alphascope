@@ -78,7 +78,7 @@ export function saveScheduledSymbols(input: unknown): string[] {
   if (!Array.isArray(input)) throw new ScheduledError('symbols 는 배열이어야 합니다.');
   const symbols = [...new Set(input.map((s) => String(s ?? '').trim().toUpperCase()).filter(Boolean))];
   const bad = symbols.filter((s) => !SYMBOL_RE.test(s));
-  if (bad.length) throw new ScheduledError(`종목 코드 형식이 아닙니다: ${bad.join(', ')} (한글 이름은 검색에서 골라 주세요)`);
+  if (bad.length) throw new ScheduledError(`티커 형식이 아닙니다: ${bad.join(', ')} (한글 이름은 검색에서 골라 주세요)`);
   if (symbols.length > SCHEDULED_MAX) {
     throw new ScheduledError(`지정 종목은 최대 ${SCHEDULED_MAX}개입니다 (하루 최대 ${SCHEDULED_MAX * 5}호출).`);
   }

@@ -70,7 +70,7 @@ export default function ScheduledSymbols() {
       onConfirm: async () => {
         try {
           await runNow();
-          toast.success('지정 종목 분석을 시작했습니다', '끝나면 이 칸과 기록 목록에 나타납니다');
+          toast.success('지정 종목 분석을 시작했습니다', '끝나면 이 칸과 히스토리에 나타납니다');
         } catch (e) {
           toast.error('실행하지 못했습니다', (e as Error).message);
         }
@@ -182,7 +182,7 @@ function ScheduledEditor({
         </div>
         <p className="text-[13px] leading-relaxed text-text-secondary">
           미국 장 마감 30분 뒤 첫 확인(약 10분 간격)에 하루 1번 분석합니다. 휴장일은 건너뜁니다. 국내 종목도 같은 시각에
-          마지막 종가 기준으로 분석합니다. 결과는 「AI 분석 기록」 의 「지정 종목」 으로 쌓이고, <b>주문은 내지 않습니다.</b>
+          마지막 종가 기준으로 분석합니다. 결과는 「AI 분석 히스토리」 의 「지정 종목」 으로 쌓이고, <b>주문은 내지 않습니다.</b>
         </p>
         <SymbolTagInput symbols={draft} onChange={change} watchlist={watchlist} />
         <p className="text-[13px] text-text-muted">

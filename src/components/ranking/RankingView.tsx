@@ -198,8 +198,8 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
                           if (!watched) add(row.symbol);
                         }}
                         disabled={watched}
-                        title={watched ? '관심 종목' : '관심 목록에 담기'}
-                        aria-label={watched ? `${row.symbol} 관심 종목` : `${row.symbol} 관심 목록에 담기`}
+                        title={watched ? '관심 종목' : '관심 목록에 추가'}
+                        aria-label={watched ? `${row.symbol} 관심 종목` : `${row.symbol} 관심 목록에 추가`}
                         className="inline-flex align-middle disabled:cursor-default"
                       >
                         <StarIcon on={watched} size="sm" />

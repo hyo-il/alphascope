@@ -52,8 +52,8 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
     }
     modal.confirm({
       title: '프롬프트 초기화',
-      message: '고친 프롬프트를 버리고 자동 생성본으로 되돌립니다. 되돌릴 수 없습니다.',
-      confirmText: '되돌리기',
+      message: '고친 프롬프트를 버리고 자동 생성본으로 초기화합니다. 되돌릴 수 없습니다.',
+      confirmText: '초기화',
       danger: true,
       onConfirm: () => setEdited(null),
     });

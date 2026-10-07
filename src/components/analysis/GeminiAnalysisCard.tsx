@@ -1,3 +1,4 @@
+import DisclosureButton from '../ui/DisclosureButton';
 import WarnIcon from '../ui/WarnIcon';
 import { useState } from 'react';
 import type { AgentOpinion, GeminiAnalysis } from '../../types/gemini';
@@ -116,9 +117,7 @@ export default function GeminiAnalysisCard({
       )}
 
       <div className="mt-2 flex gap-3 text-xs">
-        <button onClick={() => setOpen(!open)} className="text-accent hover:underline">
-          {open ? '접기' : '자세히'}
-        </button>
+        <DisclosureButton open={open} onToggle={() => setOpen(!open)} label="상세 보기" controls={`gemini-card-${analysis.id}`} />
         {onDelete && (
           <button
             onClick={() => onDelete(analysis.id)}
@@ -130,7 +129,7 @@ export default function GeminiAnalysisCard({
       </div>
 
       {open && (
-        <div className="mt-3 space-y-3 border-t border-border pt-3">
+        <div id={`gemini-card-${analysis.id}`} className="mt-3 space-y-3 border-t border-border pt-3">
           {plan && (
             <section>
               <h4 className="mb-1 text-xs font-medium text-text-primary">액션 플랜</h4>

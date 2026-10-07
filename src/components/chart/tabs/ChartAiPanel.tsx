@@ -71,7 +71,7 @@ export default function ChartAiPanel({
           onClick={() => setPage('analysis', 'results')}
           className="ml-auto px-2 py-1 text-[13px] text-text-muted transition-colors hover:text-accent"
         >
-          이전 기록 보기
+          AI 분석 히스토리로 이동
         </button>
       </div>
 
@@ -214,14 +214,14 @@ function SingleSymbolGemini({ symbol }: { symbol: string }) {
       ) : !latestLoaded ? (
         <p className="text-text-muted">최근 결과를 불러오는 중…</p>
       ) : (
-        <p className="text-text-muted">이 종목의 분석 기록이 아직 없습니다.</p>
+        <p className="text-text-muted">이 종목의 분석 히스토리가 아직 없습니다.</p>
       )}
 
       <p className="text-text-muted">
         4명의 에이전트 + 종합 의장이 2라운드로 토론합니다 (1종목 5회 호출). 이 버튼은 지금 이 종목만 한 번 분석합니다.
       </p>
       <p className="text-text-muted">
-        계좌 자동 분석과 지정 종목 분석은 「투자 분석 &gt; AI 분석 &gt; AI 분석 기록」에서 봅니다.
+        계좌 자동 분석과 지정 종목 분석은 「투자 분석 &gt; AI 분석 &gt; AI 분석 히스토리」에서 봅니다.
       </p>
     </div>
   );

@@ -203,9 +203,9 @@ export default function AnalysisTimeline({
       source === 'claude' ? 'Claude 분석' : source === 'gemini' ? 'Gemini 분석' : '분석 결과';
 
     modal.confirm({
-      title: `${sourceLabel} ${count}건 지우기`,
-      message: `${scope ? `${scope} 종목의 ` : '전체 '}${sourceLabel} ${count}건을 모두 지웁니다. 되돌릴 수 없으며, 지운 기록은 '분석 성적표' 집계에서도 빠집니다.`,
-      confirmText: '지우기',
+      title: `${sourceLabel} ${count}건 삭제`,
+      message: `${scope ? `${scope} 종목의 ` : '전체 '}${sourceLabel} ${count}건을 모두 삭제합니다. 되돌릴 수 없으며, 삭제한 결과는 '분석 성적표' 집계에서도 빠집니다.`,
+      confirmText: '삭제',
       danger: true,
       onConfirm: async () => {
         const query = new URLSearchParams({ source });
@@ -299,7 +299,7 @@ export default function AnalysisTimeline({
             Gemini만 삭제 ({gemini.length})
           </button>
           {onlyThisSymbol && symbol && (
-            <span className="text-[13px] text-text-muted">— {symbol} 종목만 지웁니다</span>
+            <span className="text-[13px] text-text-muted">— {symbol} 종목만 삭제합니다</span>
           )}
         </div>
       )}
@@ -323,8 +323,8 @@ export default function AnalysisTimeline({
       {shown.length === 0 && (
         <p className="rounded-xl bg-bg-secondary p-6 text-center text-sm text-text-muted">
           {items.length === 0
-            ? "아직 분석 기록이 없습니다. 차트 하단 AI 탭의 'Gemini 바로 분석' 으로 실행하거나, '수동 분석' 탭에서 Claude 답변을 저장하세요."
-            : '이 출처의 기록이 없습니다.'}
+            ? "아직 분석 히스토리가 없습니다. 차트 하단 AI 탭의 'Gemini 바로 분석' 으로 실행하거나, '수동 분석' 탭에서 Claude 답변을 저장하세요."
+            : '이 출처의 결과가 없습니다.'}
         </p>
       )}
 

@@ -1,5 +1,4 @@
-import { ICON_SM } from '../ui/icon';
-import { X } from 'lucide-react';
+import { ListRemoveButton } from '../ui';
 import type { Timeframe } from '../../types/toss';
 import LiteCandleChart, { LITE_CHART_MAS } from '../chart/LiteCandleChart';
 import { barUnitOf, maLabel } from '../../types/chart';
@@ -88,15 +87,7 @@ export default function CompareChart({
           ))}
         </select>
 
-        <button
-          type="button"
-          onClick={onRemove}
-          title="비교에서 빼기"
-          aria-label="비교에서 빼기"
-          className="shrink-0 text-xs leading-none text-text-muted transition-colors hover:text-bearish"
-        >
-          <X {...ICON_SM} />
-        </button>
+        <ListRemoveButton onClick={onRemove} label="비교에서 삭제" keeps="관심 목록은 그대로" />
       </div>
 
       {/* MA 범례 — 색만 봐도 어느 선인지 알 수 있게 (메인 차트와 같은 색) */}

@@ -200,9 +200,9 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     if (count === 0) return;
     if (count === 1) return run();
     modal.confirm({
-      title: '차트 드로잉 모두 지우기',
-      message: `이 종목 차트에 그린 ${count}개를 모두 지웁니다. 되돌릴 수 없습니다.`,
-      confirmText: '지우기',
+      title: '차트 드로잉 모두 삭제',
+      message: `이 종목 차트에 그린 ${count}개를 모두 삭제합니다. 되돌릴 수 없습니다.`,
+      confirmText: '삭제',
       danger: true,
       onConfirm: run,
     });
@@ -858,7 +858,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
               onClick={clearAllDrawings}
               className="block w-full px-3 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
             >
-              모두 지우기
+              모두 삭제
             </button>
             <button
               type="button"

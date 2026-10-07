@@ -120,7 +120,7 @@ export default function CompareSlot({
             symbol=""
             onSubmit={onPlace}
             placeholder="종목명 또는 티커 (엔비디아, NVDA…)"
-            submitLabel="담기"
+            submitLabel="종목 추가"
             compact
             clearOnSubmit
             autoFocus

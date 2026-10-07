@@ -285,7 +285,7 @@ function parseSymbol(raw: unknown): string | null {
   return symbol && symbol.length <= 20 && SYMBOL_PATTERN.test(symbol) ? symbol : null;
 }
 
-const BAD_SYMBOL = { error: '올바른 심볼이 아닙니다 (영문·숫자·. - 만 가능).' };
+const BAD_SYMBOL = { error: '올바른 티커가 아닙니다 (영문·숫자·. - 만 가능).' };
 
 function fail(res: express.Response, e: unknown) {
   const message = e instanceof Error ? e.message : String(e);
@@ -1025,7 +1025,7 @@ app.delete('/api/target-analysis/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'id 가 올바르지 않습니다.' });
   try {
-    if (!deleteTargetAnalysis(id)) return res.status(404).json({ error: '기록을 찾을 수 없습니다.' });
+    if (!deleteTargetAnalysis(id)) return res.status(404).json({ error: '결과를 찾을 수 없습니다.' });
     res.json({ ok: true });
   } catch (e) {
     fail(res, e);
@@ -1242,7 +1242,7 @@ app.post('/api/swing/analyze', async (req, res) => {
   ].slice(0, 50);
 
   if (!symbols.length) {
-    return res.status(400).json({ error: '분석할 종목이 없습니다. 관심 목록에 종목을 담아 주세요.' });
+    return res.status(400).json({ error: '분석할 종목이 없습니다. 관심 목록에 종목을 추가해 주세요.' });
   }
 
   const analyzedAt = new Date().toISOString();
@@ -1369,7 +1369,7 @@ app.get('/api/surge/history', async (_req, res) => {
 app.delete('/api/surge/history', (req, res) => {
   try {
     if (getSurgeProgress().running) {
-      return res.status(409).json({ error: '탐지가 실행 중입니다. 끝난 뒤에 지워 주세요.' });
+      return res.status(409).json({ error: '탐지가 실행 중입니다. 끝난 뒤에 삭제해 주세요.' });
     }
     const raw = req.query.detectedAt;
     if (raw !== undefined && (typeof raw !== 'string' || !raw.trim())) {

@@ -27,7 +27,7 @@ export type AITab = PageTab<'analysis'>;
 const TABS: { id: AITab; label: string }[] = [
   { id: 'manual', label: '수동 분석' },
   // v2.23.0 「분석 결과」 → 「AI 분석 기록」. 맨 위에 무엇이 언제 분석되는지 상태 판을 둔다
-  { id: 'results', label: 'AI 분석 기록' },
+  { id: 'results', label: 'AI 분석 히스토리' },
   { id: 'accuracy', label: '분석 성적표' },
 ];
 

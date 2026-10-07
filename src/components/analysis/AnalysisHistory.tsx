@@ -100,7 +100,7 @@ export default function AnalysisHistory({
     const data = (await res?.json().catch(() => ({}))) as { analyses?: AnalysisRecord[]; error?: string } | undefined;
     setLoaded(true);
     if (!res?.ok) {
-      toast.error('분석 기록을 불러오지 못했습니다', data?.error ?? (res ? `요청 실패 (${res.status})` : '서버에 연결하지 못했습니다'));
+      toast.error('분석 히스토리를 불러오지 못했습니다', data?.error ?? (res ? `요청 실패 (${res.status})` : '서버에 연결하지 못했습니다'));
       return;
     }
     setRecords(data?.analyses ?? []);
@@ -141,7 +141,7 @@ export default function AnalysisHistory({
     }).catch(() => null);
     if (!res?.ok) {
       const body = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
-      toast.error('기록을 저장하지 못했습니다 — 붙여넣은 글은 그대로 있습니다', body?.error ?? (res ? `요청 실패 (${res.status})` : '서버에 연결하지 못했습니다'));
+      toast.error('저장하지 못했습니다 — 붙여넣은 글은 그대로 있습니다', body?.error ?? (res ? `요청 실패 (${res.status})` : '서버에 연결하지 못했습니다'));
       return;
     }
     setDraft('');
@@ -155,15 +155,15 @@ export default function AnalysisHistory({
   const handleDelete = (record: AnalysisRecord) => {
     const date = new Date(record.analyzed_at).toLocaleDateString('ko-KR');
     modal.confirm({
-      title: '분석 기록 지우기',
-      message: `${record.symbol} ${date} 분석 기록을 지웁니다. 되돌릴 수 없고 「분석 성적표」 집계에서도 빠집니다.`,
-      confirmText: '지우기',
+      title: '분석 결과 삭제',
+      message: `${record.symbol} ${date} 분석 결과를 삭제합니다. 되돌릴 수 없고 「분석 성적표」 집계에서도 빠집니다.`,
+      confirmText: '삭제',
       danger: true,
       onConfirm: async () => {
         const res = await fetch(`/api/analysis/${record.id}`, { method: 'DELETE' }).catch(() => null);
         if (!res?.ok) {
           const body = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
-          toast.error('기록을 지우지 못했습니다', body?.error ?? (res ? `요청 실패 (${res.status})` : '서버에 연결하지 못했습니다'));
+          toast.error('삭제하지 못했습니다', body?.error ?? (res ? `요청 실패 (${res.status})` : '서버에 연결하지 못했습니다'));
           return;
         }
         await load();
@@ -175,7 +175,7 @@ export default function AnalysisHistory({
     <div className="flex h-full gap-4 overflow-hidden p-4">
       <div className="flex w-80 shrink-0 flex-col gap-2">
         <p className="text-xs text-text-secondary">
-          Claude 대화의 분석 결과를 붙여넣어 {symbol} 기록으로 남깁니다.
+          Claude 대화의 분석 결과를 붙여넣어 {symbol} 히스토리에 저장합니다.
         </p>
 
         <textarea
@@ -216,7 +216,7 @@ export default function AnalysisHistory({
           disabled={!draft.trim()}
           className="rounded-md bg-accent px-3 py-2 text-sm text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
         >
-          기록 저장 (현재가 {formatUsd(currentPrice)})
+          저장 (현재가 {formatUsd(currentPrice)})
         </button>
       </div>
 

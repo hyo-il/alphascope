@@ -103,8 +103,8 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
         <p className="mb-1 text-text-secondary">
           {period
             ? `확정 ${period.days}거래일: ${mmdd(period.from)} ~ ${mmdd(period.to)} · 순매수(주)`
-            : '확정된 기록이 아직 없습니다.'}
-          {flow.records[0]?.provisional && <span className="text-text-muted"> · 오늘 잠정치는 합계에서 뺐습니다</span>}
+            : '확정된 데이터가 아직 없습니다.'}
+          {flow.records[0]?.provisional && <span className="text-text-muted"> · 오늘 잠정치는 합계에서 제외했습니다</span>}
         </p>
         {/* 외국인 보유 비율 (v2.30.0) — 사실만. 막대(주 단위 순매수)와 섞지 않는다 */}
         {holding && (

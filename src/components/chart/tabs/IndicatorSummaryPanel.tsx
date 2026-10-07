@@ -173,7 +173,7 @@ export default function IndicatorSummaryPanel({
           value={volume.ratio == null ? '—' : `평균 대비 ${Math.round(volume.ratio)}%`}
           note={
             volume.forming
-              ? '진행 중인 봉을 빼고 직전 완성 봉으로 계산했습니다'
+              ? '진행 중인 봉을 제외하고 직전 완성 봉으로 계산했습니다'
               : '20봉 평균 대비'
           }
         />
