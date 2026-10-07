@@ -13,7 +13,7 @@ import { stockNameOf } from '../../utils/stockNames';
 import { maRoundingNotes, ruleConditionLine } from '../../utils/autoTradeExplain';
 import { backtestInputError } from '../../utils/backtestInput';
 import { nearestEngineMa } from '../../types/autoTrading';
-import { isCustomReport, isCustomSummary, type BacktestListItem } from '../../types/backtest';
+import { MAX_COMPARE_SYMBOLS, isCustomReport, isCustomSummary, type BacktestListItem } from '../../types/backtest';
 import SymbolPicker from './SymbolPicker';
 import ConditionForm from './ConditionForm';
 import CustomResult from './CustomResult';
@@ -209,9 +209,18 @@ export default function BacktestView() {
   const currentName = p?.current ? (stockNameOf(p.current) ?? p.current) : null;
 
   return (
-    <div className="flex h-full min-h-0 gap-4 p-4">
-      {/* ① 왼쪽 — 세로로 스크롤. 폭 360px, 1280 창에서는 300px(오른쪽 결과 표 자리를 남긴다) */}
-      <div className="flex w-[300px] shrink-0 flex-col min-[1500px]:w-[360px]">
+    <div className="h-full min-h-0 overflow-y-auto p-4 [scrollbar-gutter:stable]">
+      <div className="mx-auto max-w-5xl space-y-4">
+        <div id="backtest-top">
+          <SectionTitle level={1}>백테스트</SectionTitle>
+        </div>
+        <HelpBox id="backtest" storageKey="alphascope.backtestHelp" title="백테스트는 무엇인가요?">
+          <p>백테스트는 정한 규칙으로 과거에 매수·매도했다면 어땠을지 계산해 보는 것입니다. 실제 주문은 나가지 않습니다.</p>
+          <p>순서: [종목 고르기] → 방법 정하기 → [시험 실행]. 그냥 들고 있었을 때·아무 날이나 매수·매도했을 때와 나란히 보여 줍니다.</p>
+          <p>과거 결과는 앞으로를 보장하지 않습니다.</p>
+        </HelpBox>
+
+        {/* ① 고른 종목 칩 + [종목 고르기] 팝업 (v2.40.0 — 예전 왼쪽 세로 목록) */}
         <SymbolPicker
           universe={uni.data}
           loading={uni.loading}
@@ -226,19 +235,12 @@ export default function BacktestView() {
             patch({ added: draft.added.includes(s) ? draft.added : [...draft.added, s] });
             addMany([s]);
           }}
+          onRemoveAdded={(list) => {
+            patch({ added: draft.added.filter((x) => !list.includes(x)) });
+            removeMany(list);
+          }}
+          limit={draft.conditions.length >= 2 ? MAX_COMPARE_SYMBOLS : null}
         />
-      </div>
-
-      {/* ②~⑤ 오른쪽 */}
-      <div className="min-w-0 flex-1 space-y-4 overflow-y-auto pr-1 [scrollbar-gutter:stable]">
-        <div id="backtest-top">
-          <SectionTitle level={1}>백테스트</SectionTitle>
-        </div>
-        <HelpBox id="backtest" storageKey="alphascope.backtestHelp" title="백테스트는 무엇인가요?">
-          <p>백테스트는 정한 규칙으로 과거에 사고팔았다면 어땠을지 계산해 보는 것입니다. 실제 주문은 나가지 않습니다.</p>
-          <p>순서: 왼쪽에서 종목을 고르고 → 조건을 정하고 → [시험 실행]. 그냥 들고 있었을 때·아무 날이나 사고팔았을 때와 나란히 보여 줍니다.</p>
-          <p>과거 결과는 앞으로를 보장하지 않습니다.</p>
-        </HelpBox>
 
         {loadedNote && (
           <Panel pad="sm" tone="tertiary" className="flex items-start gap-3 text-[13px] text-text-secondary">
