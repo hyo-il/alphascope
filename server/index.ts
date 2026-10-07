@@ -56,7 +56,8 @@ import { BacktestBusyError, getBacktestProgress, startCustomBacktest } from './a
 import { deleteBacktest, getBacktest, listBacktests, saveExplain } from './autoTrading/researchStore';
 import { namesAndSectors, researchTargets } from './autoTrading/ruleResearch';
 import { AdviceInputError, adviseBacktest, explainBacktest } from './gemini/backtestAi';
-import { parseBacktestInput } from '../src/utils/backtestInput';
+import { maPeriodErrors, parseBacktestInput } from '../src/utils/backtestInput';
+import type { AccountStrategy } from '../src/types/autoTrading';
 import { BACKTEST_SECTORS } from '../src/types/backtest';
 import { EngineDownError } from './diagnose/report';
 import {
@@ -790,7 +791,29 @@ app.put('/api/auto-trading/strategies/:id', (req, res) => {
   try {
     const id = accountIdOf(req);
     getPaperAccount(id); // 없는 계좌면 여기서 400
-    res.json({ strategy: saveStrategy(id, req.body ?? {}) });
+    // 이동평균은 **새로 저장하는 값만** 5·20·60·120 중 하나(v2.41.0 — 백테스트와 같은 검사). 이미 저장된 옛 값(예 13)은
+    // 그대로 다시 보내면 받는다 — 판정은 지금처럼 pickMa 가 가까운 값으로 계산한다(판정 불변).
+    const body = (req.body ?? {}) as Partial<AccountStrategy>;
+    if (body.rule) {
+      const saved = getStrategy(id).rule;
+      const changed = {
+        maShort: body.rule.maShort !== saved.maShort ? body.rule.maShort : undefined,
+        maLong: body.rule.maLong !== saved.maLong ? body.rule.maLong : undefined,
+      };
+      if (changed.maShort !== undefined || changed.maLong !== undefined) {
+        const errs = maPeriodErrors({ maShort: body.rule.maShort ?? saved.maShort, maLong: body.rule.maLong ?? saved.maLong });
+        // 바뀐 칸만 일수를 본다(그대로 둔 옛 값은 받는다). 단기 ≥ 장기는 둘 다 넷 중 하나일 때만 나오는 오류다
+        const msg =
+          (changed.maShort !== undefined ? errs.maShort : undefined) ??
+          (changed.maLong !== undefined ? errs.maLong : undefined) ??
+          (errs.maLong === '장기는 단기보다 길어야 합니다.' ? errs.maLong : undefined);
+        if (msg) {
+          res.status(400).json({ error: msg });
+          return;
+        }
+      }
+    }
+    res.json({ strategy: saveStrategy(id, body) });
   } catch (e) {
     failPaper(res, e);
   }

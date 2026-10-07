@@ -1,5 +1,8 @@
 import type { Currency, PaperPerformance } from '../../types/paper';
+import type { ReactNode } from 'react';
 import { formatPrice } from '../../utils/formatters';
+import { PF_HELP_ACCOUNT } from '../../data/indicatorHelp';
+import InfoTip from '../ui/InfoTip';
 
 interface Props {
   performance: PaperPerformance;
@@ -14,8 +17,8 @@ const tone = (value: number | null | undefined) =>
 
 /** 성과 지표 카드 그리드 */
 export default function PerformanceStats({ performance: p, currency }: Props) {
-  const card = (label: string, value: string, valueTone = 'text-text-primary', hint?: string) => (
-    <div key={label} className="rounded-xl bg-bg-secondary px-3 py-2">
+  const card = (label: ReactNode, value: string, valueTone = 'text-text-primary', hint?: string) => (
+    <div key={typeof label === 'string' ? label : value + String(hint)} className="rounded-xl bg-bg-secondary px-3 py-2">
       <p className="text-[13px] text-text-muted">{label}</p>
       <p className={`text-base font-semibold tabular-nums ${valueTone}`}>{value}</p>
       {hint && <p className="text-[13px] text-text-muted">{hint}</p>}
@@ -38,10 +41,17 @@ export default function PerformanceStats({ performance: p, currency }: Props) {
         `${p.winCount}승 ${p.lossCount}패`,
       )}
       {card(
-        '손익비',
+        '손익비 (평균 수익 ÷ 평균 손실)',
+        p.payoffRatio == null ? '—' : p.payoffRatio.toFixed(2),
+        'text-text-primary',
+      )}
+      {card(
+        <span className="inline-flex items-center gap-1">
+          Profit Factor (번 돈 ÷ 잃은 돈) <InfoTip label="Profit Factor 정의">{PF_HELP_ACCOUNT}</InfoTip>
+        </span>,
         p.profitFactor == null ? '—' : p.profitFactor.toFixed(2),
         'text-text-primary',
-        '평균수익 / 평균손실',
+        p.profitFactor == null && p.profitFactorNote ? p.profitFactorNote : undefined,
       )}
       {card('총 거래', `${p.tradeCount}회`, 'text-text-primary', `청산 ${p.closedCount}회`)}
       {card(

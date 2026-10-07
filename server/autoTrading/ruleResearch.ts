@@ -27,6 +27,7 @@
  * | 미래 누설         | 첫 종목에서 `leakCheck` 를 756봉 전체에 — 실패하면 결과를 내지 않는다 |
  */
 
+import { profitFactor } from '../../src/utils/profitFactor';
 import { getCandles } from '../candleService';
 import { computeIndicators, IndicatorEngineError } from '../indicatorService';
 import { ROUND_TRIP_COST } from '../analysis/targetHit';
@@ -502,8 +503,7 @@ export function customStats(cells: Cell[], who: { symbol: string; name: string |
   });
   // Profit Factor — 모든 종목·모든 거래를 모아 (+ 합) ÷ |− 합|
   const all = cells.flatMap((c) => c.list);
-  const gain = all.filter((t) => t.returnPct > 0).reduce((a, t) => a + t.returnPct, 0);
-  const loss = Math.abs(all.filter((t) => t.returnPct < 0).reduce((a, t) => a + t.returnPct, 0));
+  const pf = profitFactor(all.map((t) => t.returnPct));
   const exits = Object.fromEntries(
     EXIT_NAMES.map((k) => [k, all.length ? round2((all.filter((t) => t.exitKind === k).length / all.length) * 100) : 0]),
   ) as Record<BacktestExitName, number>;
@@ -518,8 +518,8 @@ export function customStats(cells: Cell[], who: { symbol: string; name: string |
     weakSymbols: per.filter((p) => p.trades < MIN_TRADES).length,
     mdd: mean(per.map((p) => p.mdd)),
     mddWorst: worst,
-    profitFactor: all.length && loss > 0 ? round2(gain / loss) : null,
-    profitFactorNote: !all.length ? '거래 없음' : loss === 0 ? '손실 거래 없음' : null,
+    profitFactor: pf.value != null ? round2(pf.value) : null,
+    profitFactorNote: pf.note as '손실 거래 없음' | '거래 없음' | null,
     exits: all.length ? exits : null,
   };
 }

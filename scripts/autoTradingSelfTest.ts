@@ -18,7 +18,10 @@ import {
   listTrades,
 } from '../server/paperTradingService';
 import { runExitChecks, tryBuy } from '../server/autoTrading/engine';
-import { dailyLossBlock, evaluateDailyLoss, strategyDay } from '../server/autoTrading/guards';
+import { dailyLossBlock, evaluateDailyLoss, setEarningsLookupForTest, strategyDay } from '../server/autoTrading/guards';
+import { decideRule } from '../server/autoTrading/ruleEngine';
+import { explainNote } from '../src/utils/autoTradeExplain';
+import type { IndicatorSeries } from '../src/types/chart';
 import { getStrategyStatus } from '../server/autoTrading/scheduler';
 import { marketDate } from '../src/utils/marketDate';
 import { deleteStrategy, getPeak, normalizeStrategy, saveStrategy, updatePeak } from '../server/autoTrading/store';
@@ -47,31 +50,6 @@ function inflateAvgPrice(accountId: number, symbol: string, factor: number): num
   return next;
 }
 
-// ── 실적일 조작 (임시 — 끝나면 원래 행으로 되돌린다) ──
-type EarningsRow = { symbol: string; earnings_date: string | null; fetched_at: string; is_estimate: number | null };
-
-function saveEarningsRow(symbol: string): EarningsRow | undefined {
-  return getDb().prepare(`SELECT * FROM earnings_calendar WHERE symbol = ?`).get(symbol) as EarningsRow | undefined;
-}
-function setEarnings(symbol: string, date: string, estimate: boolean): void {
-  getDb()
-    .prepare(
-      `INSERT INTO earnings_calendar (symbol, earnings_date, fetched_at, is_estimate) VALUES (?, ?, ?, ?)
-         ON CONFLICT(symbol) DO UPDATE SET earnings_date = excluded.earnings_date, fetched_at = excluded.fetched_at, is_estimate = excluded.is_estimate`,
-    )
-    .run(symbol, date, new Date().toISOString(), estimate ? 1 : 0);
-}
-function clearEarnings(symbol: string): void {
-  getDb().prepare(`DELETE FROM earnings_calendar WHERE symbol = ?`).run(symbol);
-}
-function restoreEarningsRow(symbol: string, row: EarningsRow | undefined): void {
-  clearEarnings(symbol);
-  if (row) {
-    getDb()
-      .prepare(`INSERT INTO earnings_calendar (symbol, earnings_date, fetched_at, is_estimate) VALUES (?, ?, ?, ?)`)
-      .run(row.symbol, row.earnings_date, row.fetched_at, row.is_estimate);
-  }
-}
 /** 주말을 건너뛰며 N 거래일 뒤 날짜 */
 function addTradingDays(day: string, n: number): string {
   const d = new Date(`${day}T12:00:00Z`);
@@ -176,10 +154,12 @@ async function main(): Promise<void> {
     const price = loadCandles(SYMBOL, '1d', 1).at(-1)?.close ?? 300;
     const guarded: AccountStrategy = { ...base, earningsBlackoutDays: 3, dailyLossLimitPercent: 0 };
     saveStrategy(account.id, guarded);
-    // 가짜 실적일 = 오늘로부터 2거래일 뒤 (끝나면 원래 행으로 되돌린다)
-    const saved = saveEarningsRow(SYMBOL);
+    // 가짜 실적일 = 오늘로부터 2거래일 뒤 — ⚠️ 실제 DB 의 실적 달력은 건드리지 않는다(v2.41.0). 판정 함수에 날짜를 넣는다
+    const marketToday = marketDate(Date.now(), SYMBOL);
+    const fakeEarnings = (date: string | null, isEstimate = true) =>
+      setEarningsLookupForTest((sym) => (sym.toUpperCase() === SYMBOL && date ? { date, isEstimate } : null));
     try {
-      setEarnings(SYMBOL, addTradingDays(marketDate(Date.now(), SYMBOL), 2), true);
+      fakeEarnings(addTradingDays(marketToday, 2));
       const skip = await tryBuy(guarded, SYMBOL, price, '점검용 자동 매수', 0);
       check('실적 2거래일 전에는 새로 사지 않는다', skip.action === 'HOLD' && !skip.orderId, skip.reason);
       check('사유에 실적일·거래일이 적힌다', skip.reason.includes('실적 발표') && skip.reason.includes('2거래일 전'), skip.reason);
@@ -187,17 +167,36 @@ async function main(): Promise<void> {
       const off0 = await tryBuy({ ...guarded, earningsBlackoutDays: 0 }, SYMBOL, price, '점검용 자동 매수', 0);
       check('설정 0 이면 막지 않는다', off0.action === 'BUY', off0.reason);
 
-      clearEarnings(SYMBOL);
+      fakeEarnings(null);
       const unknown = await tryBuy(guarded, SYMBOL, price, '점검용 자동 매수', 0);
       check('실적일을 모르면 사되 사유에 남긴다', unknown.action === 'BUY' && unknown.reason.includes('실적일 미확인'), unknown.reason);
 
       // 실적 회피 중에도 손절은 돈다
-      setEarnings(SYMBOL, addTradingDays(marketDate(Date.now(), SYMBOL), 1), false);
+      fakeEarnings(addTradingDays(marketToday, 1), false);
       inflateAvgPrice(account.id, SYMBOL, 1 / 0.85);
       const stopDuring = await runExitChecks(guarded);
       check('실적 회피 중에도 손절은 돈다', stopDuring.some((n) => n.action === 'SELL'), stopDuring.map((n) => n.reason).join(' | '));
+
+      // ── 5-2. 매수 신호가 있는데 실적 회피 기간이면 (v2.41.0 — 화면으로는 신호가 나와야만 확인할 수 있어 여기서 본다) ──
+      console.log('\n5-2) 매수 신호(골든크로스) + 실적 회피 기간');
+      // 봉 0 → 1 에서 5일선이 20일선을 아래→위로 통과하는 지표(합성)
+      const series = { sma5: [9, 11], sma20: [10, 10], sma60: [null, null], sma120: [null, null], rsi14: [50, 52] } as unknown as IndicatorSeries;
+      const rule = { maShort: 5, maLong: 20, rsiBuyBelow: 30, rsiSellAbove: 70, useMaCross: true, useRsi: false };
+      const signal = decideRule(series, 1, rule, false, marketToday);
+      check('합성 지표에서 매수 신호가 나온다', signal.action === 'BUY' && signal.code === 'golden', signal.reason);
+      fakeEarnings(addTradingDays(marketToday, 2));
+      const ruleStrategy: AccountStrategy = { ...guarded, mode: 'rule', rule };
+      const blocked = await tryBuy(ruleStrategy, SYMBOL, price, signal.reason, 0, signal.code);
+      check('신호가 있어도 회피 기간이면 사지 않는다 (code earnings_blackout)', blocked.action === 'HOLD' && blocked.code === 'earnings_blackout' && !blocked.orderId, `${blocked.code} · ${blocked.reason}`);
+      const easy = explainNote({ ...blocked, symbol: SYMBOL }, SYMBOL, ruleStrategy);
+      check('쉬운 문장이 나온다', Boolean(easy && easy.includes('실적')), easy ?? '(없음)');
+      const allowed = await tryBuy({ ...ruleStrategy, earningsBlackoutDays: 0 }, SYMBOL, price, signal.reason, 0, signal.code);
+      check('회피 일수 0(끔)이면 신호대로 산다', allowed.action === 'BUY' && allowed.code === 'golden', `${allowed.code} · ${allowed.reason}`);
+      fakeEarnings(null);
+      const unknown2 = await tryBuy(ruleStrategy, SYMBOL, price, signal.reason, 0, signal.code);
+      check('실적일을 모르면 사되 "실적일 미확인"', unknown2.action === 'BUY' && unknown2.reason.includes('실적일 미확인'), unknown2.reason);
     } finally {
-      restoreEarningsRow(SYMBOL, saved);
+      setEarningsLookupForTest(null);
     }
 
     // ── 6. 하루 손실 한도 (킬 스위치) ───────────────

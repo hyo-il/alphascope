@@ -48,6 +48,15 @@ export function tradingDaysUntil(from: string, to: string, market?: CalendarMark
  *
  * 실적 전후 변동성 확대를 피하는 관행 — 값 3은 앱의 출발값(검증 전).
  */
+/**
+ * 실적일 조회 — 점검(`npm run autotrade:test`)이 날짜를 넣어 시험할 수 있게 한 자리 (v2.41.0).
+ * ⚠️ 점검이 **실제 DB 의 실적 달력을 바꾸지 않게** 하려는 것이다. 서버는 이 함수를 부르지 않는다(늘 `getEarningsDate`).
+ */
+let earningsLookup: typeof getEarningsDate = getEarningsDate;
+export function setEarningsLookupForTest(fn: typeof getEarningsDate | null): void {
+  earningsLookup = fn ?? getEarningsDate;
+}
+
 export function earningsGuard(
   strategy: AccountStrategy,
   symbol: string,
@@ -55,7 +64,7 @@ export function earningsGuard(
 ): { blocked: string | null; note: string | null } {
   const days = strategy.earningsBlackoutDays;
   if (!days) return { blocked: null, note: null };
-  const e = getEarningsDate(symbol);
+  const e = earningsLookup(symbol);
   if (!e) return { blocked: null, note: '실적일 미확인' };
   const today = marketDate(now, symbol);
   const until = tradingDaysUntil(today, e.date, isKrSymbol(symbol) ? 'KR' : 'US');

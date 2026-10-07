@@ -1,3 +1,4 @@
+import { MDD_HELP, PF_HELP } from '../../data/indicatorHelp';
 import { useMemo, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, Sparkles } from 'lucide-react';
 import StockName from '../common/StockName';
@@ -25,12 +26,6 @@ const pfTone = (v: number | null | undefined) => (v == null ? '' : v >= 1 ? 'tex
 const when = (iso: string) => new Date(iso).toLocaleString('ko-KR');
 const worstText = (w: WorstDrawdown | null | undefined) => (w ? `${w.name ?? w.symbol} ${pct(w.value)}` : '—');
 const diffOf = (a: number | null | undefined, b: number | null | undefined) => (a == null || b == null ? null : a - b);
-
-/** MDD·Profit Factor 정의 — 화면 InfoTip 과 보고서에 같은 문장 */
-export const MDD_HELP =
-  '가장 크게 떨어졌던 폭입니다. 종목마다 하루하루의 자산(들고 있는 날은 종가로, 안 들고 있는 날은 현금 그대로, 수수료 포함, 1년 구간은 이어 붙임)이 그때까지의 가장 높은 값에서 얼마나 떨어졌는지 가장 큰 값을 재고, 종목 평균을 냅니다. 「그냥 들고 있기」 도 같은 방식(종가)으로 잽니다.';
-export const PF_HELP =
-  'Profit Factor = 번 돈 ÷ 잃은 돈. 이 조건의 모든 종목·모든 거래에서 이긴 거래 수익률(%)의 합을 진 거래 손실률(%)의 합으로 나눈 값입니다. 1 보다 크면 번 쪽이 더 컸다는 뜻입니다. 손실 거래가 없거나 거래가 없으면 「—」. 계좌 화면의 「손익비」(평균 수익 ÷ 평균 손실)와는 다른 숫자입니다.';
 
 type SortKey = 'rule' | 'hold' | 'random' | 'trades' | 'winRate' | 'avgReturn' | 'stopRate' | 'mdd';
 const COLS: { key: SortKey; label: string }[] = [

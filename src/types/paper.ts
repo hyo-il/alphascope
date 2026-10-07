@@ -134,7 +134,11 @@ export interface PaperPerformance {
   winRate: number | null;
   avgWin: number | null;
   avgLoss: number | null;
+  /** 손익비 = 평균 수익 ÷ 평균 손실 (v2.41.0 — 예전 필드 이름 profitFactor) */
+  payoffRatio: number | null;
+  /** Profit Factor = 청산 거래 실현손익 (+ 합) ÷ |− 합| (백테스트와 같은 함수) */
   profitFactor: number | null;
+  profitFactorNote: '손실 거래 없음' | '거래 없음' | '청산 거래 없음' | null;
   maxWinStreak: number;
   maxLossStreak: number;
 

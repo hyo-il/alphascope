@@ -301,8 +301,10 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
     );
   }
 
+  // 위(계좌 줄·자동매매 바·지금 조건·최근 판단)가 길어져도 아래 보유 종목·거래내역이 최소 320px 는 보이게 —
+  // 자리가 모자라면 화면 전체가 스크롤된다 (v2.41.0, 「최근 판단 보기」 를 펼치면 아래가 0까지 줄었다)
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col overflow-y-auto">
       {banner}
 
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
@@ -333,7 +335,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3">
+      <div className="flex min-h-[320px] flex-1 flex-col gap-3 overflow-hidden p-3">
         <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden">
           {!detail && <SkeletonCards count={4} className="shrink-0 grid-cols-2 md:grid-cols-4" />}
           {detail && (

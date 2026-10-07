@@ -30,15 +30,23 @@ export type ConditionField =
 const inRange = (v: unknown, lim: { min: number; max: number }) => typeof v === 'number' && Number.isFinite(v) && v >= lim.min && v <= lim.max;
 const isMa = (v: unknown) => (ENGINE_MA_PERIODS as readonly number[]).includes(v as number);
 
+/**
+ * 이동평균 일수 검사 — 백테스트 입력과 자동매매 설정 저장(v2.41.0)이 **같은 함수**를 쓴다.
+ * 엔진은 5·20·60·120일만 계산한다(그 밖의 값은 가까운 값으로 바뀌어 계산된다 — `pickMa`).
+ */
+export function maPeriodErrors(r: Partial<Pick<RuleConfig, 'maShort' | 'maLong'>>): { maShort?: string; maLong?: string } {
+  const e: { maShort?: string; maLong?: string } = {};
+  if (!isMa(r.maShort)) e.maShort = `단기 이동평균은 ${ENGINE_MA_PERIODS.join('·')}일 중에서 고릅니다.`;
+  if (!isMa(r.maLong)) e.maLong = `장기 이동평균은 ${ENGINE_MA_PERIODS.join('·')}일 중에서 고릅니다.`;
+  if (isMa(r.maShort) && isMa(r.maLong) && (r.maShort as number) >= (r.maLong as number)) e.maLong = '장기는 단기보다 길어야 합니다.';
+  return e;
+}
+
 /** 조건 하나의 칸별 오류 문구(없으면 빈 객체) */
 export function conditionErrors(c: Partial<BacktestCondition> & { rule?: Partial<RuleConfig> }): Partial<Record<ConditionField, string>> {
   const e: Partial<Record<ConditionField, string>> = {};
   const r: Partial<RuleConfig> = c.rule ?? {};
-  if (r.useMaCross) {
-    if (!isMa(r.maShort)) e.maShort = `단기 이동평균은 ${ENGINE_MA_PERIODS.join('·')}일 중에서 고릅니다.`;
-    if (!isMa(r.maLong)) e.maLong = `장기 이동평균은 ${ENGINE_MA_PERIODS.join('·')}일 중에서 고릅니다.`;
-    if (isMa(r.maShort) && isMa(r.maLong) && (r.maShort as number) >= (r.maLong as number)) e.maLong = '장기는 단기보다 길어야 합니다.';
-  }
+  if (r.useMaCross) Object.assign(e, maPeriodErrors(r));
   if (r.useRsi) {
     const b = RULE_LIMITS.rsiBuyBelow;
     const s = RULE_LIMITS.rsiSellAbove;

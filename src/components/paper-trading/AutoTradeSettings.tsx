@@ -1,7 +1,8 @@
 import Dialog from '../ui/Dialog';
 import WarnIcon from '../ui/WarnIcon';
 import { useEffect, useMemo, useState } from 'react';
-import type { AccountStrategy, StrategyMode } from '../../types/autoTrading';
+import { ENGINE_MA_PERIODS, nearestEngineMa, type AccountStrategy, type StrategyMode } from '../../types/autoTrading';
+import Segmented from '../ui/Segmented';
 import RuleChoices from './RuleChoices';
 import DisclosureButton from '../ui/DisclosureButton';
 import TargetSymbolsEditor from './TargetSymbolsEditor';
@@ -84,7 +85,8 @@ export default function AutoTradeSettings({
   const save = async () => {
     setSaving(true);
     try {
-      await onSave(draft);
+      // 이동평균은 엔진이 계산하는 5·20·60·120 으로 맞춰 저장한다(v2.41.0 — 화면에 "저장하면 N일로 바뀝니다" 로 알린 값)
+      await onSave({ ...draft, rule: { ...draft.rule, maShort: nearestEngineMa(draft.rule.maShort), maLong: nearestEngineMa(draft.rule.maLong) } });
       toast.success(doneMessage);
       onClose();
     } catch (e) {
@@ -170,23 +172,35 @@ export default function AutoTradeSettings({
                     </label>
                     <p className="-mt-1 text-[13px] text-text-muted">짧은 평균선이 긴 평균선을 넘으면 매수, 아래로 내려가면 매도합니다.</p>
                     <Row label="단기 이동평균">
-                      <input
-                        type="number" min={2}
-                        value={draft.rule.maShort}
-                        onChange={(e) => patch({ rule: { ...draft.rule, maShort: Number(e.target.value) } })}
-                        className={FIELD}
+                      <Segmented
+                        label="단기 이동평균"
+                        size="sm"
+                        value={String(nearestEngineMa(draft.rule.maShort))}
+                        onChange={(v) => patch({ rule: { ...draft.rule, maShort: Number(v) } })}
+                        options={ENGINE_MA_PERIODS.map((p) => ({ value: String(p), label: `${p}일` }))}
                       />
                       <span className="text-[13px] text-text-muted">최근 며칠의 평균 가격 — 작을수록 빨리 반응합니다</span>
                     </Row>
+                    {!ENGINE_MA_PERIODS.includes(draft.rule.maShort as (typeof ENGINE_MA_PERIODS)[number]) && (
+                      <p className="text-[13px] text-warning">
+                        지금 저장값 {draft.rule.maShort}일 → {nearestEngineMa(draft.rule.maShort)}일로 계산 중입니다. 저장하면 {nearestEngineMa(draft.rule.maShort)}일로 바뀝니다.
+                      </p>
+                    )}
                     <Row label="장기 이동평균 (단기보다 커야 합니다)">
-                      <input
-                        type="number" min={3}
-                        value={draft.rule.maLong}
-                        onChange={(e) => patch({ rule: { ...draft.rule, maLong: Number(e.target.value) } })}
-                        className={FIELD}
+                      <Segmented
+                        label="장기 이동평균"
+                        size="sm"
+                        value={String(nearestEngineMa(draft.rule.maLong))}
+                        onChange={(v) => patch({ rule: { ...draft.rule, maLong: Number(v) } })}
+                        options={ENGINE_MA_PERIODS.map((p) => ({ value: String(p), label: `${p}일` }))}
                       />
                       <span className="text-[13px] text-text-muted">더 긴 기간의 평균 — 큰 흐름의 기준선입니다</span>
                     </Row>
+                    {!ENGINE_MA_PERIODS.includes(draft.rule.maLong as (typeof ENGINE_MA_PERIODS)[number]) && (
+                      <p className="text-[13px] text-warning">
+                        지금 저장값 {draft.rule.maLong}일 → {nearestEngineMa(draft.rule.maLong)}일로 계산 중입니다. 저장하면 {nearestEngineMa(draft.rule.maLong)}일로 바뀝니다.
+                      </p>
+                    )}
                     <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">
                       <input
                         type="checkbox"
