@@ -531,6 +531,9 @@ export function customStats(cells: Cell[], who: { symbol: string; name: string |
  * 미래 누설: 첫 종목(계산되는)에서 `leakCheck` 한 번 — 조건들이 쓰는 이동평균을 모두 본다. 실패하면 결과를 내지 않는다(LeakError).
  * ⚠️ 주문을 내지 않는다.
  */
+/** 같은 기간 비교용 — 미국 시장 전체를 따르는 ETF(지수 자체가 아니다) */
+const SPY = 'SPY';
+
 export async function runCustomBacktest(input: BacktestInput, onProgress?: ResearchProgress): Promise<BacktestCustomReport> {
   const t0 = Date.now();
   let indicatorCalls = 0;
@@ -574,7 +577,31 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
     }
     sample();
   }
-  onProgress?.(total, total, '');
+  // 같은 기간 SPY 그냥 들고 있기 (v2.41.0) — 종목의 「그냥 들고 있기」 와 **같은 함수**(simulateSegments 의 holdReturn)·같은 기간·
+  // 같은 구간 복리. 비교 기준일 뿐 판정·"좋음" 표시는 없다. 고른 종목에 SPY 가 있으면 그 계산을 그대로 쓴다.
+  let spy: BacktestCustomReport['spy'];
+  try {
+    const mine = done.find((d) => d.symbol === SPY);
+    let segs: Cell[];
+    let dates: { from: string; to: string }[];
+    if (mine) {
+      segs = mine.segsBy[0];
+      dates = mine.dates;
+    } else {
+      const candles = completedDaily(await getCandles(SPY, '1d', days + WARMUP), SPY);
+      if (candles.length < days + warmup) throw new Error('short');
+      const series: IndicatorSeries = await computeIndicators(candles);
+      indicatorCalls++;
+      const run = simulateSegments(SPY, candles, series, input.years, options[0]);
+      segs = run.segs;
+      dates = run.dates;
+    }
+    const hold = segs.every((c) => c.hold != null) ? compound(segs.map((c) => c.hold!)) : null;
+    spy = hold == null || !dates.length ? { error: 'SPY 일봉이 모자라 비교하지 못했습니다' } : { hold, from: dates[0].from, to: dates[dates.length - 1].to };
+  } catch (e) {
+    if (e instanceof IndicatorEngineError) throw e;
+    spy = { error: 'SPY 일봉이 모자라 비교하지 못했습니다' };
+  }
 
   // 기간 전체 셀(구간 복리, 거래 목록·자산 곡선은 이어 붙인다)
   const whole = (segs: Cell[]): Cell => ({
@@ -636,6 +663,7 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
     hold: { rule: conditions[0]?.summary.hold ?? null, mdd: mean(holdMdds), mddWorst: holdWorst },
     excluded,
     leakCheck: leak,
+    spy,
     measure: { ms: Date.now() - t0, indicatorCalls, rssMaxMb: Math.round(rssMax / 1048576), symbols: total },
     computedAt: new Date().toISOString(),
   };

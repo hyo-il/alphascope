@@ -272,6 +272,11 @@ export interface BacktestCustomReport {
   computedAt: string;
   /** 한 번 받으면 기록에 함께 둔다(다시 열 때 Gemini 를 부르지 않는다) */
   explain?: BacktestExplain;
+  /**
+   * 같은 기간 SPY 그냥 들고 있기 (v2.41.0) — 종목의 들고 있기와 같은 함수·같은 기간·구간 복리. 옛 기록에는 없다(줄을 그리지 않는다).
+   * ⚠️ AI 설명 입력·고정 시험에는 넣지 않는다.
+   */
+  spy?: { hold: number; from: string; to: string } | { error: string };
 }
 
 export type BacktestAnyReport = BacktestReport | BacktestCustomReport;

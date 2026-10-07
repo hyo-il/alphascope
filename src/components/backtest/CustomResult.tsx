@@ -211,6 +211,20 @@ export default function CustomResult({
             {applySlot}
           </span>
         </div>
+        {/* 같은 기간 SPY 한 줄 (v2.41.0) — 비교 기준일 뿐, 판정·강조 없음. 옛 기록에는 없다 */}
+        {report.spy &&
+          ('error' in report.spy ? (
+            <p className="text-[13px] text-text-muted">{report.spy.error}</p>
+          ) : (
+            <p className="flex flex-wrap items-center gap-1 text-[13px] text-text-secondary">
+              <span>
+                같은 기간 SPY(미국 시장 전체) 그냥 들고 있기 <span className={tone(report.spy.hold)}>{pct(report.spy.hold)}</span> · {report.spy.from} ~ {report.spy.to}
+              </span>
+              <InfoTip label="SPY 란">
+                SPY 는 미국 S&amp;P 500 지수를 따르는 ETF 의 가격입니다(지수 그 자체는 아닙니다). 종목의 「그냥 들고 있기」 와 같은 계산(같은 기간, 1년씩 이어 붙인 수익률, 수수료 포함)입니다.
+              </InfoTip>
+            </p>
+          ))}
         <div className="overflow-x-auto">
           <table className="w-full text-[13px] tabular-nums">
             <thead className="whitespace-nowrap text-text-muted">

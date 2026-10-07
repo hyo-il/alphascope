@@ -50,6 +50,40 @@ async function dailyForCalendar(symbol: string, need: number): Promise<Candle[]>
   return loadCandles(symbol, '1d', need);
 }
 
+/** 캐시의 일봉이 필요한 만큼 있고 빈 구간이 없는가 — 주·월 봉 갱신(`dailyForCalendar`)과 같은 기준(연 252/365 거래일의 90%) */
+function dailyCacheComplete(cached: Candle[], need: number): boolean {
+  const spanDays = cached.length > 1 ? (cached.at(-1)!.timestamp - cached[0].timestamp) / 86_400_000 : 0;
+  return cached.length >= need && cached.length >= spanDays * (252 / 365) * 0.9;
+}
+
+/** 겹치는 날 종가가 이만큼 넘게 다르면 과거 가격이 바뀐 것(액면분할 등)으로 보고 전부 다시 받는다 */
+const SPLIT_TOLERANCE = 0.005;
+/** 새로 받는 봉 앞에 겹쳐 받는 날 수 — 분할 감지용 */
+const OVERLAP_DAYS = 5;
+
+/**
+ * 마지막 캐시 봉 이후만 받는다. 겹치는 날의 종가가 0.5% 넘게 다르거나 겹치는 날이 없으면 false(호출부가 전부 다시 받는다).
+ */
+async function refreshRecentDaily(symbol: string, cached: Candle[]): Promise<boolean> {
+  const latest = cached.at(-1)!.timestamp;
+  const gapDays = Math.ceil((Date.now() - latest) / 86_400_000);
+  const count = Math.min(200, Math.max(OVERLAP_DAYS + 2, gapDays + OVERLAP_DAYS + 2));
+  const page = await fetchCandles(symbol, '1d', count);
+  const byTs = new Map(cached.map((c) => [c.timestamp, c.close]));
+  const overlap = page.filter((c) => byTs.has(c.timestamp) && c.timestamp < latest);
+  if (!overlap.length || page[0].timestamp > latest) return false; // 겹치는 구간이 없다 — 사이에 빈 날이 생길 수 있다
+  const changed = overlap.some((c) => {
+    const old = byTs.get(c.timestamp)!;
+    return old > 0 && Math.abs(c.close - old) / old > SPLIT_TOLERANCE;
+  });
+  if (changed) {
+    console.log(`[candles] ${symbol} 1d 겹치는 날 종가가 달라 전부 다시 받습니다(액면분할 등)`);
+    return false;
+  }
+  saveCandles(symbol, '1d', page);
+  return true;
+}
+
 /**
  * 캔들 조회: SQLite 캐시 우선, 오래됐으면 토스 API 갱신.
  * 5m/15m/30m 은 1분봉을 받아 집계한다. 1w/1M 은 일봉을 **시장 달력**의 주·월로 묶는다(v2.20.0).
@@ -85,8 +119,13 @@ export async function getCandles(
     // 여기서 그냥 던지면 이미 받아 둔 수천 봉을 두고도 차트가 통째로 빈다.
     // 캐시가 아예 없을 때만 원래 에러를 올려 보낸다. (summaryService 와 같은 방침)
     try {
-      const fresh = await fetchCandles(symbol, base, baseLimit);
-      if (fresh.length) saveCandles(symbol, base, fresh);
+      // 일봉은 **새 것만** 받는다 (v2.41.0) — 빈틈 없는 캐시가 충분하면 마지막 캐시 봉 이후(+겹치는 며칠)만.
+      // 일봉 timestamp 는 그날 자정이라 위 "1시간 안" 판정이 거의 늘 거짓이어서, 예전에는 부를 때마다 전부(800봉이면 5페이지) 다시 받았다.
+      const recentOnly = base === '1d' && latest !== null && dailyCacheComplete(cached, baseLimit) ? await refreshRecentDaily(symbol, cached) : false;
+      if (!recentOnly) {
+        const fresh = await fetchCandles(symbol, base, baseLimit);
+        if (fresh.length) saveCandles(symbol, base, fresh);
+      }
     } catch (error) {
       if (!cached.length) throw error;
       console.warn(`[candles] ${symbol} ${base} 실시간 조회 실패, 캐시 사용:`, error);
