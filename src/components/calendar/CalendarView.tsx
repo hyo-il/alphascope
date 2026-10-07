@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { IconButton, InfoTip } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import DatePicker from './DatePicker';
 import { InlineSpinner } from '../common/LoadingOverlay';
 import { SkeletonList } from '../common/SkeletonLoader';
 import StockName from '../common/StockName';
@@ -40,6 +41,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
   const initial = todayKst();
   const [month, setMonth] = useState<{ y: number; m: number }>({ y: Number(initial.slice(0, 4)), m: Number(initial.slice(5, 7)) });
   const [selected, setSelected] = useState<string>(initial);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [scope, setScope] = useState<CalendarScope>('watchlist');
   const [filters, setFilters] = useState<Record<CalendarEventType, boolean>>({
     earnings: true,
@@ -113,9 +115,16 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
         <header className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1">
             <IconButton icon={ChevronLeft} label="이전 달" size="sm" onClick={() => move(-1)} />
-            <span className="w-24 text-center text-xs font-medium tabular-nums text-text-primary">
+            {/* 제목 = 날짜 고르기 창 버튼 (v2.41.0) */}
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              aria-haspopup="dialog"
+              title="날짜 고르기"
+              className="w-24 rounded-md py-0.5 text-center text-xs font-medium tabular-nums text-text-primary transition-colors hover:bg-bg-tertiary"
+            >
               {month.y}년 {month.m}월
-            </span>
+            </button>
             <IconButton icon={ChevronRight} label="다음 달" size="sm" onClick={() => move(1)} />
             <button
               type="button"
@@ -279,6 +288,18 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
           </p>
         )}
       </div>
+      {pickerOpen && (
+        <DatePicker
+          selected={selected}
+          today={data?.meta.today ?? initial}
+          onPick={(day) => {
+            setMonth({ y: Number(day.slice(0, 4)), m: Number(day.slice(5, 7)) });
+            setSelected(day);
+            setPickerOpen(false);
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }
