@@ -80,6 +80,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   useDocumentTitle(symbol);
   /** 비교 화면의 4칸 — 관심 목록 패널이 여기에 담고 뺀다 (빈 칸은 null) */
   const compareSlots = useAppStore((s) => s.compareSlots);
+  const compareLayout = useAppStore((s) => s.compareLayout);
   const toggleCompareSymbol = useAppStore((s) => s.toggleCompareSymbol);
   /*
    * 종목을 아직 고르지 않았으면(symbol === null) 홈은 탐색 화면을 보여 준다.
@@ -601,7 +602,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         watch={watch}
         recent={recent}
         compareMode={compareMode}
-        compareSymbols={compareSlots.filter((s): s is string => Boolean(s))}
+        /* ✓ 는 **보이는 칸**의 종목만(v2.41.1 — 2개 보기면 ①②). 클릭 동작(toggleCompareSymbol)도 같은 compareLayout 을 본다 */
+        compareSymbols={compareSlots.slice(0, compareLayout).filter((s): s is string => Boolean(s))}
         /*
           비교 화면에서는 클릭이 차트 전환이 아니라 '비교에 담기/빼기' 다.
           팝업으로 한 번 더 묻지 않는다 — 원클릭으로 담기는 것이 이 화면의 기본 동작이다.

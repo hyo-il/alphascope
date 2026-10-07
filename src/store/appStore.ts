@@ -161,6 +161,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     const slots = get().compareSlots;
     const at = slots.indexOf(symbol);
 
+    const visible = get().compareLayout;
+    // 2개 보기에서 숨긴 ③④ 의 종목을 누르면 → ①② 의 빈 칸으로 **옮긴다**(v2.41.1). 빈 칸이 없으면 바꾸지 않고 'full'
+    // (예전에는 토글이라 보이지 않는 칸에서 조용히 빠졌다 — 화면에는 아무 변화가 없었다)
+    if (at >= visible) {
+      const empty = slots.slice(0, visible).indexOf(null);
+      if (empty === -1) return 'full';
+      const next = [...slots];
+      next[at] = null;
+      next[empty] = symbol;
+      set({ compareSlots: next });
+      return 'added';
+    }
     if (at !== -1) {
       const next = [...slots];
       next[at] = null;
