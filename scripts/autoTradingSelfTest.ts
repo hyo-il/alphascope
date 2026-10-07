@@ -106,7 +106,7 @@ async function main(): Promise<void> {
     saveStrategy(account.id, base);
 
     // ── 1. 하드 손절 ────────────────────────────────
-    console.log('1) 하드 손절 (-7%)');
+    console.log('1) 손절 (-7%)');
     await createOrder({
       accountId: account.id,
       symbol: SYMBOL,
@@ -126,11 +126,11 @@ async function main(): Promise<void> {
     const hit = await runExitChecks(base);
     const stopNote = hit.find((n) => n.action === 'SELL');
     check('손실 -10% 는 전량 청산한다', Boolean(stopNote), stopNote?.reason ?? '주문 없음');
-    check('사유에 "하드 손절" 이 적힌다', Boolean(stopNote?.reason.includes('하드 손절')), stopNote?.reason ?? '');
+    check('사유에 "손절" 이 적힌다 (v2.40.0 용어 — 예전 "하드 손절")', Boolean(stopNote?.reason.startsWith('손절 ')) && stopNote?.code === 'hard_stop', stopNote?.reason ?? '');
     check('포지션이 비었다', listPositions(account.id).every((p) => p.symbol !== SYMBOL || p.quantity === 0));
 
     // ── 2. 트레일링 스톱 ────────────────────────────
-    console.log('\n2) 트레일링 스톱 (-8%)');
+    console.log('\n2) 트레일링 (-8%)');
     await createOrder({
       accountId: account.id,
       symbol: SYMBOL,
@@ -147,7 +147,7 @@ async function main(): Promise<void> {
     const trailed = await runExitChecks(trailing);
     const trailNote = trailed.find((n) => n.action === 'SELL');
     check('고점 대비 -8% 이상 하락하면 청산한다', Boolean(trailNote), trailNote?.reason ?? '주문 없음');
-    check('사유에 "트레일링 스톱" 이 적힌다', Boolean(trailNote?.reason.includes('트레일링 스톱')), trailNote?.reason ?? '');
+    check('사유에 "트레일링" 이 적힌다 (v2.40.0 용어 — 예전 "트레일링 스톱")', Boolean(trailNote?.reason.startsWith('트레일링 — ')) && trailNote?.code === 'trailing', trailNote?.reason ?? '');
 
     // ── 3. 트레일링이 꺼져 있으면 작동하지 않는다 ──
     console.log('\n3) 트레일링 꺼짐');
@@ -195,7 +195,7 @@ async function main(): Promise<void> {
       setEarnings(SYMBOL, addTradingDays(marketDate(Date.now(), SYMBOL), 1), false);
       inflateAvgPrice(account.id, SYMBOL, 1 / 0.85);
       const stopDuring = await runExitChecks(guarded);
-      check('실적 회피 중에도 하드 손절은 돈다', stopDuring.some((n) => n.action === 'SELL'), stopDuring.map((n) => n.reason).join(' | '));
+      check('실적 회피 중에도 손절은 돈다', stopDuring.some((n) => n.action === 'SELL'), stopDuring.map((n) => n.reason).join(' | '));
     } finally {
       restoreEarningsRow(SYMBOL, saved);
     }
