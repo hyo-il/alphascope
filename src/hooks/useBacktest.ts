@@ -147,20 +147,31 @@ export async function fetchAdvice(input: BacktestInput, label: ConditionLabel): 
 }
 
 /** ① 종목 묶음 — 화면을 열 때 한 번 */
+/** 분야 묶음 목록은 한 번 받으면 앱 안에서 다시 쓴다 — 종목 고르기 창(4곳)과 백테스트가 함께 쓴다 */
+let universeCache: BacktestUniverse | null = null;
+
 export function useBacktestUniverse() {
-  const [data, setData] = useState<BacktestUniverse | null>(null);
+  const [data, setData] = useState<BacktestUniverse | null>(universeCache);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const load = useCallback(() => {
+  const [loading, setLoading] = useState(universeCache == null);
+  const load = useCallback((force = false) => {
+    if (universeCache && !force) {
+      setData(universeCache);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     backtestJson<BacktestUniverse>('/api/backtest/universe')
-      .then(setData)
+      .then((d) => {
+        universeCache = d;
+        setData(d);
+      })
       .catch((e) => setError((e as Error).message))
       .finally(() => setLoading(false));
   }, []);
-  useEffect(load, [load]);
-  return { data, error, loading, reload: load };
+  useEffect(() => load(), [load]);
+  return { data, error, loading, reload: () => load(true) };
 }
 
 /** Gemini 를 부를 수 있는지 — 버튼을 끄고 이유를 보인다 (`/api/gemini/status`) */

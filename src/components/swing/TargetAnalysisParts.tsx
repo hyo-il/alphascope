@@ -5,8 +5,6 @@ import { currencyOfSymbol } from '../../utils/market';
 import StockName from '../common/StockName';
 import TrashIcon from '../common/TrashIcon';
 import {
-  CALLS_PER_SYMBOL,
-  TARGET_MAX_SYMBOLS,
   type TargetAnalysisRecord,
   type TargetOutcome,
   type TargetProgress,
@@ -196,15 +194,6 @@ export function latestFor(records: TargetAnalysisRecord[] | null, symbol: string
 
 
 /** 체크 토글 — 6번째는 막고 예전 탭과 같은 토스트. ⚠️ 상태 갱신 함수(updater) 안에서 부르지 않는다 — 개발 모드가 두 번 불러 토스트가 두 번 뜬다 */
-export function toggleTargetPick(list: string[], symbol: string): string[] {
-  if (list.includes(symbol)) return list.filter((s) => s !== symbol);
-  if (list.length >= TARGET_MAX_SYMBOLS) {
-    toast.warning(`한 번에 최대 ${TARGET_MAX_SYMBOLS}종목입니다`, `종목당 Gemini ${CALLS_PER_SYMBOL}회 — 무료 한도를 아끼려고 막았습니다`);
-    return list;
-  }
-  return [...list, symbol];
-}
-
 export function goalLabel(goal: { targetPct: number; stopPct: number; days: number }): string {
   return `+${goalPct(goal.targetPct)}/${periodLabel(goal.days)}`;
 }

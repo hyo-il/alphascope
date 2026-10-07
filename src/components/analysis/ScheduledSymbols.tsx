@@ -1,11 +1,10 @@
-import { ICON_SM } from '../ui/icon';
-import { X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { Button } from '../ui';
+import Dialog from '../ui/Dialog';
 import { useScheduledSymbols, type ScheduledStatus } from '../../hooks/useScheduledSymbols';
-import { useWatchlist } from '../../hooks/useWatchlist';
 import { useStockNames } from '../../hooks/useStockNames';
 import { modal, toast } from '../../store/uiStore';
-import SymbolTagInput from '../common/SymbolTagInput';
+import SymbolPicker from '../common/SymbolPicker';
 import { SIGNAL_LABEL } from './signalStyle';
 
 /**
@@ -137,21 +136,6 @@ function ScheduledEditor({
 }) {
   const [draft, setDraft] = useState<string[]>(status.symbols);
   const [saving, setSaving] = useState(false);
-  const { watchlist } = useWatchlist();
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  const change = (next: string[]) => {
-    if (next.length > status.max) {
-      toast.warning(`지정 종목은 최대 ${status.max}개입니다`, `하루 최대 ${status.max * 5}호출 — 필요하면 나중에 늘립니다`);
-      return;
-    }
-    setDraft(next);
-  };
 
   const submit = async () => {
     setSaving(true);
@@ -167,46 +151,39 @@ function ScheduledEditor({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[95] flex items-center justify-center bg-black/70 p-4"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="flex w-[min(560px,80vw)] flex-col gap-3 rounded-xl bg-bg-secondary p-4 shadow-2xl">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-text-primary">내가 지정한 종목 — 하루 1번 Gemini 분석</h2>
-          <button type="button" onClick={onClose} className="ml-auto text-text-muted hover:text-text-primary" aria-label="닫기">
-            <X {...ICON_SM} />
-          </button>
-        </div>
-        <p className="text-[13px] leading-relaxed text-text-secondary">
-          미국 장 마감 30분 뒤 첫 확인(약 10분 간격)에 하루 1번 분석합니다. 휴장일은 건너뜁니다. 국내 종목도 같은 시각에
-          마지막 종가 기준으로 분석합니다. 결과는 「AI 분석 히스토리」 의 「지정 종목」 으로 쌓이고, <b>주문은 내지 않습니다.</b>
-        </p>
-        <SymbolTagInput symbols={draft} onChange={change} watchlist={watchlist} />
-        <p className="text-[13px] text-text-muted">
-          {draft.length}/{status.max}종목 · 하루 최대 약 <b className="text-text-secondary">{draft.length * 5}</b>호출
-          (1종목 = 에이전트 4 + 의장 1)
-        </p>
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded bg-bg-tertiary px-3 py-1 text-xs text-text-secondary hover:bg-bg-elevated"
-          >
+    <Dialog
+      title="내가 지정한 종목 — 하루 1번 Gemini 분석"
+      onClose={onClose}
+      size="md"
+      z={95}
+      bodyClassName="space-y-3 p-4"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
             취소
-          </button>
-          <button
-            type="button"
-            onClick={() => void submit()}
-            disabled={saving}
-            className="rounded bg-accent px-3 py-1 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="primary" onClick={() => void submit()} disabled={saving}>
             {saving ? '저장 중…' : '저장'}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </>
+      }
+    >
+      <p className="text-[13px] leading-relaxed text-text-secondary">
+        미국 장 마감 30분 뒤 첫 확인(약 10분 간격)에 하루 1번 분석합니다. 휴장일은 건너뜁니다. 국내 종목도 같은 시각에
+        마지막 종가 기준으로 분석합니다. 결과는 「AI 분석 히스토리」 의 「지정 종목」 으로 쌓이고, <b>주문은 내지 않습니다.</b>
+      </p>
+      <SymbolPicker
+        selected={draft}
+        onChange={setDraft}
+        max={status.max}
+        maxReason={`하루 최대 ${status.max * 5}호출 — 필요하면 나중에 늘립니다`}
+        dialogTitle="지정 종목 고르기"
+        emptyText="[종목 고르기] 에서 하루 1번 분석할 종목을 고르세요."
+      />
+      <p className="text-[13px] text-text-muted">
+        {draft.length}/{status.max}종목 · 하루 최대 약 <b className="text-text-secondary">{draft.length * 5}</b>호출
+        (1종목 = 에이전트 4 + 의장 1)
+      </p>
+    </Dialog>
   );
 }

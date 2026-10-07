@@ -1,7 +1,6 @@
-import { ListRemoveButton } from '../ui';
+import { Button } from '../ui';
 import { useState } from 'react';
-import SymbolSearch from '../common/SymbolSearch';
-import StockName from '../common/StockName';
+import SymbolPicker from '../common/SymbolPicker';
 import DiscoverSymbolsModal from './DiscoverSymbolsModal';
 import { savedSwingPicks } from './discoverSources';
 import { useStockNames } from '../../hooks/useStockNames';
@@ -14,8 +13,8 @@ import { toast } from '../../store/uiStore';
 /**
  * 자동매매 **대상 종목** 편집 — 설정 창 「② 대상 종목」 과 처음 켜기 안내 3단계가 **같은 컴포넌트**를 쓴다 (v2.32.0).
  *
- * - 검색으로 하나씩 · [관심 목록 전부 담기] · [📈 스윙 추천 담기] · [🔎 종목 발굴] 팝업.
- * - 두 빠른 버튼은 발굴 팝업의 두 소스와 **같은 함수·같은 기본 기준**이다(`discoverSources.ts`) — 거르는 코드를 두 벌 두지 않는다.
+ * - 공용 「종목 고르기」(v2.41.0 — 관심 목록 폴더별 일부·분야·검색) · [지금 살 만한가 추천 추가] · [종목 발굴] 팝업.
+ * - 추천 추가 버튼은 발굴 팝업의 두 소스와 **같은 함수·같은 기본 기준**이다(`discoverSources.ts`) — 거르는 코드를 두 벌 두지 않는다.
  * - 담는 방식은 하나(중복 제거) — 이미 있던 종목은 세어서 알린다.
  */
 export default function TargetSymbolsEditor({
@@ -58,15 +57,6 @@ export default function TargetSymbolsEditor({
     else toast.info(`${source}에서 새로 추가할 종목이 없습니다${tail}`, extra);
   };
 
-  const addWatchlist = () => {
-    if (!watchlist.length) {
-      toast.info('관심 목록이 비어 있습니다', '관심 목록에 종목을 먼저 추가해 주세요');
-      return;
-    }
-    // 발굴 팝업의 「★ 관심 목록」 소스와 같다 — 기준 없이 전부
-    addSymbols(watchlist, '관심 목록');
-  };
-
   const addSwing = async () => {
     setBusy(true);
     try {
@@ -100,67 +90,30 @@ export default function TargetSymbolsEditor({
 
   return (
     <>
-      <SymbolSearch
-        symbol=""
-        onSubmit={(s) => addSymbols([s], '검색')}
-        placeholder="종목 검색해 추가 (애플, AAPL…)"
-        submitLabel="종목 추가"
-        compact
-        clearOnSubmit
-        dropUp={false}
-        isAdded={(candidate) => symbols.includes(candidate)}
-      />
-
       {/*
-        ⚠️ 발굴은 **팝업**을 연다(기준 → 탐지 → 근거 → 선택). 빠른 버튼 두 개는 그 팝업의 **기본 기준 그대로**를
-        한 번에 담는다 — 무엇이 왜 담기는지는 [🔎 종목 발굴] 에서 볼 수 있다.
+        ⚠️ 발굴은 **팝업**을 연다(기준 → 탐지 → 근거 → 선택). [지금 살 만한가 추천 추가] 는 그 팝업의 **기본 기준 그대로**를
+        한 번에 추가한다 — 무엇이 왜 추가되는지는 [종목 발굴] 에서 볼 수 있다. 관심 목록(폴더별 일부만)·검색은 [종목 고르기] 창 안에 있다.
       */}
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={addWatchlist}
-          className="rounded-md bg-bg-tertiary px-3 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-        >
-          관심 목록 전부 추가
-        </button>
-        <button
-          type="button"
-          onClick={() => void addSwing()}
-          disabled={busy}
-          className="rounded-md bg-bg-tertiary px-3 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-50"
-        >
-          {busy ? '불러오는 중…' : '지금 살 만한가 종목 추가'}
-        </button>
-        <button
-          type="button"
-          onClick={() => setDiscoverOpen(true)}
-          className="rounded-md bg-bg-tertiary px-3 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-        >
-          종목 발굴 (지금 살 만한가·관심 목록)
-        </button>
-      </div>
+      <SymbolPicker
+        selected={symbols}
+        onChange={onChange}
+        dialogTitle="자동매매 대상 종목 고르기"
+        emptyText="추가한 종목이 없습니다. 종목이 없으면 자동매매를 켤 수 없습니다."
+        extraButtons={
+          <>
+            <Button size="sm" onClick={() => void addSwing()} disabled={busy} className="shrink-0 whitespace-nowrap">
+              {busy ? '불러오는 중…' : '지금 살 만한가 추천 추가'}
+            </Button>
+            <Button size="sm" onClick={() => setDiscoverOpen(true)} className="shrink-0 whitespace-nowrap">
+              종목 발굴
+            </Button>
+          </>
+        }
+      />
       <p className="text-[13px] text-text-muted">
-        지금 살 만한가 종목 추가 = 「매수 판단 도우미 &gt; 지금 살 만한가」 에 마지막으로 저장된 결과 중 지금 기준({PROFILE_LABEL[activeId]} {swingBuyCut}점 이상 ·
-        STRONG/BUY · 최대 10개). 근거를 보고 고르려면 [종목 발굴].
+        지금 살 만한가 추천 추가 = 「매수 판단 도우미 &gt; 지금 살 만한가」 에 마지막으로 저장된 결과 중 지금 기준({PROFILE_LABEL[activeId]} {swingBuyCut}점 이상 ·
+        STRONG/BUY · 최대 10개). 근거를 보고 고르려면 [종목 발굴](지금 살 만한가·관심 목록).
       </p>
-
-      {symbols.length === 0 ? (
-        <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-center text-[13px] text-text-muted">
-          추가한 종목이 없습니다. 종목이 없으면 자동매매를 켤 수 없습니다.
-        </p>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {symbols.map((symbol) => (
-            <span
-              key={symbol}
-              className="flex items-center gap-1 rounded-lg-full bg-bg-tertiary/60 py-0.5 pl-2 pr-1 text-[13px]"
-            >
-              <StockName symbol={symbol} size="sm" className="text-text-primary" />
-              <ListRemoveButton onClick={() => onChange(symbols.filter((s) => s !== symbol))} name={symbol} label="대상 종목에서 삭제" />
-            </span>
-          ))}
-        </div>
-      )}
 
       {symbols.length > maxPositions && (
         <p className="text-[13px] text-text-secondary">

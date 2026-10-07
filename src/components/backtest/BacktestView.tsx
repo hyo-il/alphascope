@@ -14,7 +14,7 @@ import { maRoundingNotes, ruleConditionLine } from '../../utils/autoTradeExplain
 import { backtestInputError } from '../../utils/backtestInput';
 import { nearestEngineMa } from '../../types/autoTrading';
 import { MAX_COMPARE_SYMBOLS, isCustomReport, methodName, isCustomSummary, type BacktestListItem } from '../../types/backtest';
-import SymbolPicker from './SymbolPicker';
+import SymbolPicker from '../common/SymbolPicker';
 import ConditionForm from './ConditionForm';
 import CustomResult from './CustomResult';
 import FixedResult from './FixedResult';
@@ -91,7 +91,7 @@ export default function BacktestView() {
   const bt = useBacktest();
   const uni = useBacktestUniverse();
   const gemini = useGeminiStatus();
-  const { draft, setDraft, patch, patchCondition, addCondition, removeCondition, toggle, addMany, removeMany } = useBacktestDraft();
+  const { draft, setDraft, patch, patchCondition, addCondition, removeCondition, } = useBacktestDraft();
   const preset = useAppStore((s) => s.backtestPreset);
   const setPreset = useAppStore((s) => s.setBacktestPreset);
   const [loadedNote, setLoadedNote] = useState<string[] | null>(null);
@@ -221,26 +221,18 @@ export default function BacktestView() {
         </HelpBox>
 
         {/* ① 고른 종목 칩 + [종목 고르기] 팝업 (v2.40.0 — 예전 왼쪽 세로 목록) */}
-        <SymbolPicker
-          universe={uni.data}
-          loading={uni.loading}
-          error={uni.error}
-          onRetry={uni.reload}
-          selected={draft.symbols}
-          added={draft.added}
-          onToggle={toggle}
-          onAddMany={addMany}
-          onRemoveMany={removeMany}
-          onAddOutside={(s) => {
-            patch({ added: draft.added.includes(s) ? draft.added : [...draft.added, s] });
-            addMany([s]);
-          }}
-          onRemoveAdded={(list) => {
-            patch({ added: draft.added.filter((x) => !list.includes(x)) });
-            removeMany(list);
-          }}
-          limit={draft.conditions.length >= 2 ? MAX_COMPARE_SYMBOLS : null}
-        />
+        <Panel pad="sm">
+          <SymbolPicker
+            title="① 종목"
+            selected={draft.symbols}
+            onChange={(next) => patch({ symbols: next })}
+            added={draft.added}
+            onAddedChange={(next) => patch({ added: next })}
+            softLimit={draft.conditions.length >= 2 ? MAX_COMPARE_SYMBOLS : null}
+            softLimitText={(n, limit) => `방법을 비교할 때는 종목을 ${limit}개까지 고를 수 있습니다 — 지금 ${n}개`}
+            dialogTitle="백테스트 종목 고르기"
+          />
+        </Panel>
 
         {loadedNote && (
           <Panel pad="sm" tone="tertiary" className="flex items-start gap-3 text-[13px] text-text-secondary">

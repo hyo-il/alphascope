@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import SymbolSearch from '../common/SymbolSearch';
+import { useEffect, useRef, useState } from 'react';
+import SymbolPicker from '../common/SymbolPicker';
 import StockName from '../common/StockName';
 import HelpBox, { NotProvenLine } from './HelpBox';
 import {
@@ -7,14 +7,12 @@ import {
   TargetHistorySection,
   TargetProgressBox,
   latestFor,
-  toggleTargetPick,
   useConfirmDelete,
 } from './TargetAnalysisParts';
 import type { useTargetAnalysis } from '../../hooks/useTargetAnalysis';
 import type { SwingGoal } from '../../types/swingGoal';
 import { goalPct, periodLabel } from '../../types/swingGoal';
 import { CALLS_PER_SYMBOL, TARGET_MAX_SYMBOLS } from '../../types/targetAnalysis';
-import { useStockNames } from '../../hooks/useStockNames';
 import { toast } from '../../store/uiStore';
 
 /** 다른 탭에서 넘겨받는 것 — 미리 체크할 종목 · 결과로 스크롤할 종목. nonce 가 바뀔 때만 적용한다 */
@@ -32,14 +30,12 @@ export interface TargetSeed {
  * Gemini 는 버튼으로만 부른다.
  */
 export default function TargetTab({
-  watchlist,
   goal,
   target,
   gradeOf,
   seed,
   onOpenCriteria,
 }: {
-  watchlist: string[];
   goal: SwingGoal;
   target: ReturnType<typeof useTargetAnalysis>;
   /** 「지금 살 만한가」 등급(방금 결과 또는 저장된 결과에 있으면) */
@@ -48,8 +44,6 @@ export default function TargetTab({
   onOpenCriteria: () => void;
 }) {
   const [picked, setPicked] = useState<string[]>([]);
-  /** 관심 목록 밖에서 검색해 넣은 종목 */
-  const [outside, setOutside] = useState<string[]>([]);
   const [focus, setFocus] = useState<string | null>(null);
   /** 이번에 시작한 실행의 종목 — 끝나면 바로 아래에 결과를 모아 보인다 */
   const [runSymbols, setRunSymbols] = useState<string[] | null>(null);
@@ -58,15 +52,12 @@ export default function TargetTab({
   const running = target.progress?.running ?? false;
   const wasRunning = useRef(running);
 
-  const rows = useMemo(() => [...watchlist, ...outside.filter((s) => !watchlist.includes(s))], [watchlist, outside]);
-  useStockNames(rows);
 
   // 다른 탭(종목 검색·지금 살 만한가)에서 넘어오면 — 체크만 하고 자동으로 실행하지 않는다
   useEffect(() => {
     if (!seed) return;
     // 「자세히」 는 볼 종목만 넘긴다 — 이미 골라 둔 체크는 지우지 않는다
     if (seed.symbols.length) setPicked(seed.symbols.slice(0, TARGET_MAX_SYMBOLS));
-    setOutside((prev) => [...new Set([...prev, ...seed.symbols.filter((s) => !watchlist.includes(s))])]);
     setFocus(seed.focus);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seed?.nonce]);
@@ -129,67 +120,30 @@ export default function TargetTab({
         </button>
       </div>
 
-      {/* 종목 고르기 — 관심 목록 표 + 관심 목록 밖 검색 */}
+      {/* 종목 고르기 — 공용 「종목 고르기」(v2.41.0, 예전 화면 안 관심 목록 표 + 검색칸) */}
       <section className="space-y-2 rounded-xl bg-bg-secondary px-3 py-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-xs font-semibold text-text-secondary">
-            종목 고르기 <span className="font-normal text-text-muted">({picked.length}/{TARGET_MAX_SYMBOLS})</span>
-          </h3>
-          <div className="ml-auto w-72">
-            <SymbolSearch
-              symbol=""
-              compact
-              dropUp={false}
-              clearOnSubmit
-              placeholder="관심 목록 밖 종목 추가"
-              submitLabel="종목 추가"
-              isAdded={(s) => rows.includes(s)}
-              onSubmit={(s) => {
-                const sym = s.toUpperCase();
-                setOutside((prev) => (prev.includes(sym) || watchlist.includes(sym) ? prev : [...prev, sym]));
-                setPicked((prev) => (prev.includes(sym) ? prev : toggleTargetPick(prev, sym)));
-              }}
-            />
-          </div>
-        </div>
-        {rows.length === 0 ? (
-          <p className="py-3 text-center text-[13px] text-text-muted">관심 목록이 비어 있습니다. 위 검색칸으로 종목을 넣으세요.</p>
-        ) : (
-          <table className="w-full text-[13px]">
-            <thead className="whitespace-nowrap text-left text-text-muted">
-              <tr className="border-b border-border/50">
-                <th className="w-8 py-1" />
-                <th className="py-1 font-normal">종목</th>
-                <th className="font-normal">지금 살 만한가 등급</th>
-                <th className="font-normal">이 조건으로 마지막 분석</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((symbol) => {
-                const last = latestFor(target.records, symbol, goal);
-                return (
-                  <tr key={symbol} className="border-b border-border/50">
-                    <td className="py-1">
-                      <input
-                        type="checkbox"
-                        aria-label={`${symbol} 고르기`}
-                        checked={picked.includes(symbol)}
-                        onChange={() => setPicked(toggleTargetPick(picked, symbol))}
-                      />
-                    </td>
-                    <td className="py-1">
-                      <StockName symbol={symbol} />
-                      {!watchlist.includes(symbol) && <span className="ml-1.5 text-text-muted">(관심 목록 밖)</span>}
-                    </td>
-                    <td className="text-text-secondary">{gradeOf(symbol) ?? '—'}</td>
-                    <td className="whitespace-nowrap text-text-secondary">
-                      {last ? new Date(last.createdAt).toLocaleDateString('ko-KR') : '—'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <SymbolPicker
+          title="종목"
+          selected={picked}
+          onChange={setPicked}
+          max={TARGET_MAX_SYMBOLS}
+          maxReason={`종목당 Gemini ${CALLS_PER_SYMBOL}회 — 무료 한도를 아끼려고 막았습니다`}
+          dialogTitle="목표 수익 가능성 — 종목 고르기"
+          emptyText={`[종목 고르기] 에서 분석할 종목을 고르세요(최대 ${TARGET_MAX_SYMBOLS}개).`}
+        />
+        {picked.length > 0 && (
+          <ul className="space-y-0.5 text-[13px]">
+            {picked.map((s) => {
+              const last = latestFor(target.records, s, goal);
+              return (
+                <li key={s} className="flex flex-wrap items-baseline gap-x-3">
+                  <StockName symbol={s} size="sm" />
+                  <span className="text-text-muted">지금 살 만한가 등급 {gradeOf(s) ?? '—'}</span>
+                  <span className="text-text-muted">이 조건 마지막 분석 {last ? new Date(last.createdAt).toLocaleDateString('ko-KR') : '—'}</span>
+                </li>
+              );
+            })}
+          </ul>
         )}
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <button

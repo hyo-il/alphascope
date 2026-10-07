@@ -350,7 +350,6 @@ export default function SwingDashboard({
 
         {tab === 'target' && (
           <TargetTab
-            watchlist={watchlist}
             goal={goal}
             target={target}
             gradeOf={gradeOf}
