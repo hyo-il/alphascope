@@ -46,6 +46,7 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
   // 국내 종목 한글 이름을 받아 둔다 — 받으면 다시 그린다(관심 목록에 없는 LG전자 등이 티커로만 보였다)
   useStockNames((peers ?? []).map((p) => p.symbol).filter(isKrSymbol));
   const [money, setMoney] = useState<Money>('KRW');
+  const byPair = (peers ?? []).some((p) => p.basis === 'pair');
   const [fx, setFx] = useState<{ rate: number; at: number } | null>(null);
   const [fxError, setFxError] = useState<string | null>(null);
 
@@ -78,8 +79,12 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
         <h3 className="text-xs font-medium text-text-secondary">
           동종업계 비교 {sector && <span className="text-text-muted">— {sectorKo(sector)}</span>}
         </h3>
+        {/* 어느 규칙으로 골랐는지 (v2.42.1) — 짝이 있으면 짝만, 없으면 자동 */}
+        {peers && peers.length > 1 && (
+          <span className="text-caption text-text-muted">{byPair ? '직접 정한 관련 종목' : '같은 업종 자동 선택'}</span>
+        )}
         <InfoTip label="동종업계 고르는 법">
-          최대 {PEER_MAX}개. ① 직접 정한 짝(같은 주력 사업) ② 미국·국내 시가총액 상위 종목 중 같은 세부 업종, 시가총액이 가까운 순 ③ 같은 섹터 순으로 고릅니다.
+          주력 사업이 같아 직접 정해 둔 관련 종목이 있으면 그 종목만 보여 줍니다. 없으면 미국·국내 시가총액 상위 종목 중 같은 세부 업종(없으면 같은 섹터)에서 시가총액이 가까운 순으로 최대 {PEER_MAX}개를 고릅니다.
         </InfoTip>
         <span className="ml-auto flex items-center gap-2">
           {fx && (
@@ -131,7 +136,7 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
                           {peer.name && <span className="ml-1.5 text-caption text-text-muted">{peer.symbol}</span>}
                         </>
                       )}
-                      {peer.basis && peer.basis !== 'self' && <span className="ml-1.5 text-caption text-text-muted">· {BASIS_LABEL[peer.basis]}</span>}
+                      {!byPair && peer.basis && peer.basis !== 'self' && <span className="ml-1.5 text-caption text-text-muted">· {BASIS_LABEL[peer.basis]}</span>}
                     </td>
                     <td className="py-1.5 px-2 text-right">{cap(peer)}</td>
                     <td className="py-1.5 px-2 text-right">{fixed(peer.per)}</td>

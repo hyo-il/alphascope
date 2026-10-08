@@ -96,9 +96,10 @@ export async function getFundamentals(symbol: string, refresh = false): Promise<
 }
 
 /**
- * 동종업계 (v2.42.0) — 자기 자신 + 최대 `PEER_MAX`(5)개. 국내·미국 함께. 고르는 순서:
- *   ① 직접 정한 짝 표(`src/data/peerPairs.ts`) ② 유니버스(미국·국내 시총 상위) 중 **같은 세부 업종**, 시총이 가까운 순
- *   ③ 그래도 모자라면 유니버스 중 **같은 섹터**, 시총이 가까운 순. 모자라면 있는 만큼.
+ * 동종업계 (v2.42.0 → v2.42.1) — 자기 자신 + 최대 `PEER_MAX`(5)개. 국내·미국 함께.
+ *   - **직접 정한 짝 표(`src/data/peerPairs.ts`)에 있는 종목은 짝만** 보여 준다(5개보다 적어도 채우지 않는다 — v2.42.1 사용자 결정.
+ *     v2.42.0 은 짝 뒤를 자동으로 채워 삼성전자에 LG전자·LG(지주회사)·애플이 붙었다 — yfinance 가 삼성전자를 「가전」 으로 분류).
+ *   - 짝이 없는 종목만 자동: 유니버스(미국·국내 시총 상위) 중 **같은 세부 업종**, 시총이 가까운 순 → 모자라면 **같은 섹터**. 모자라면 있는 만큼.
  * 세부 업종·섹터는 `stock_profiles`(실적일 하루 1회 갱신이 같은 yfinance info 로 채운다 — 여기서 새로 부르지 않는다).
  * 예전에는 섹터별 **미국 종목 고정 표**(SECTOR_PEERS)라 국내 종목에 미국 대형주만 나왔다.
  */
@@ -115,9 +116,10 @@ export async function getPeers(symbol: string, sector?: string): Promise<PeerSum
     if (up === me || picked.length >= PEER_MAX || picked.some((p) => p.symbol === up)) return;
     picked.push({ symbol: up, basis });
   };
-  for (const s of PEER_PAIRS[me] ?? []) add(s, 'pair');
+  const pairs = PEER_PAIRS[me] ?? [];
+  for (const s of pairs) add(s, 'pair');
 
-  if (picked.length < PEER_MAX) {
+  if (!pairs.length) {
     let universe: { symbol: string; marketCap: number | null }[] = [];
     try {
       const u = readUniverse();
