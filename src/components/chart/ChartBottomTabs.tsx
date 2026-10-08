@@ -30,6 +30,12 @@ const STORAGE_KEY = 'alphascope.chartTabsHeight';
 const HEADER_HEIGHT = 38;
 /** 펼친 상태의 최소 높이 — 이보다 작으면 기업정보 카드 한 줄도 못 보여 준다 */
 const MIN_EXPANDED = 200;
+/**
+ * 기본 높이를 정할 때 위 차트 줄에 남기는 최소 높이 (v2.42.2) — **가격 칸 300px** 가 되는 차트 줄 높이.
+ * 차트 줄 = 정보 줄(약 73px) + 가격 칸 + 거래량 칸(가격 칸의 약 27%) + 날짜 축(30px). 실측: 차트 줄 425px → 가격 칸 253px · 324 → 173.
+ * 300 ÷ 0.787 + 73 + 31 ≈ 490.
+ */
+const CHART_MIN_HEIGHT = 490;
 
 type TabId = 'indicators' | 'company' | 'flow' | 'news' | 'ai';
 
@@ -49,6 +55,27 @@ function maxHeight(): number {
 /** 기본 높이 = 화면의 35% (최소 300px). 기업정보 지표 카드 두 줄이 들어가는 높이다. */
 function defaultHeight(): number {
   return Math.min(maxHeight(), Math.max(300, Math.round(window.innerHeight * 0.35)));
+}
+
+/** 사용자가 끌어서 정한 높이가 저장돼 있는가 — 있으면 그 값을 존중하고, 없으면 기본 높이를 화면에 맞춰 계산한다 (v2.42.2) */
+function hasSavedHeight(): boolean {
+  try {
+    const saved = Number(localStorage.getItem(STORAGE_KEY));
+    return Number.isFinite(saved) && saved > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 화면에 맞춘 기본 높이 (v2.42.2) — 기본(창의 35%, 최소 300px)에서 시작하되 **가격 칸이 300px 가 되도록(차트 줄 `CHART_MIN_HEIGHT`)** 줄인다
+ * (아래 탭 펼친 최소 200px 까지). 1440×900 처럼 낮은 창에서 가격 차트가 약 170px 로 눌렸다.
+ * `columnH` = 차트 + 아래 탭 + 바닥줄이 들어 있는 세로 열의 높이, `otherH` = 그 열의 바닥줄 등 나머지.
+ */
+function fittedDefault(columnH: number | null, otherH: number): number {
+  const base = defaultHeight();
+  if (!columnH) return base;
+  return Math.max(MIN_EXPANDED, Math.min(base, columnH - otherH - CHART_MIN_HEIGHT));
 }
 
 function readHeight(): number {
@@ -82,6 +109,19 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
   const { active } = props;
   const [tab, setTab] = useState<TabId>('indicators');
   const [height, setHeight] = useState(readHeight);
+  /** 저장된(사용자가 정한) 높이가 있는가 — 없으면 열 높이가 바뀔 때마다 기본 높이를 다시 맞춘다 */
+  const userSet = useRef(hasSavedHeight());
+  const rootRef = useRef<HTMLDivElement>(null);
+  /** 지금 열 크기에 맞춘 기본 높이 */
+  const fitDefault = useCallback(() => {
+    const root = rootRef.current;
+    const col = root?.parentElement;
+    if (!root || !col) return defaultHeight();
+    const otherH = [...col.children]
+      .filter((c) => c !== root && c !== root.previousElementSibling)
+      .reduce((sum, c) => sum + c.getBoundingClientRect().height, 0);
+    return fittedDefault(col.getBoundingClientRect().height, otherH);
+  }, []);
   /** 드래그 중인지 — 경계선을 강조해 어디를 잡고 있는지 보이게 한다 */
   const [dragging, setDragging] = useState(false);
   const dragState = useRef<{ startY: number; startHeight: number } | null>(null);
@@ -89,6 +129,7 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
   const collapsed = height <= HEADER_HEIGHT + 8;
 
   const persist = useCallback((next: number) => {
+    userSet.current = true;
     setHeight(next);
     try {
       localStorage.setItem(STORAGE_KEY, String(next));
@@ -149,17 +190,41 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  const toggleCollapse = () => persist(collapsed ? defaultHeight() : HEADER_HEIGHT);
+  /** 기본 높이로 — 저장값을 지우고 화면에 맞춘 기본 높이(더블클릭 · 접힌 상태에서 펼치기) */
+  const resetDefault = useCallback(() => {
+    userSet.current = false;
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* 무시 */
+    }
+    setHeight(fitDefault());
+  }, [fitDefault]);
+
+  // 저장값이 없으면 열 높이(창 크기·시황 카드 접기)에 맞춰 기본 높이를 다시 정한다
+  useEffect(() => {
+    const col = rootRef.current?.parentElement;
+    if (!col || typeof ResizeObserver === 'undefined') return;
+    const apply = () => {
+      if (!userSet.current) setHeight(fitDefault());
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(col);
+    return () => ro.disconnect();
+  }, [fitDefault]);
+
+  const toggleCollapse = () => (collapsed ? resetDefault() : persist(HEADER_HEIGHT));
 
   return (
-    <div className="flex shrink-0 flex-col border-t border-border" style={{ height }}>
+    <div ref={rootRef} className="flex shrink-0 flex-col border-t border-border" style={{ height }}>
       {/* 드래그 손잡이 — 얇지만 잡을 수 있게 위아래 여유를 둔다 */}
       <div
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         /* 더블클릭하면 기본 높이로 돌아온다 — 잘못 끌었을 때 되돌리는 가장 빠른 길 */
-        onDoubleClick={() => persist(defaultHeight())}
+        onDoubleClick={resetDefault}
         title="드래그: 높이 조절 · 더블클릭: 기본 높이"
         className={`h-1 shrink-0 cursor-row-resize transition-colors ${
           dragging ? 'bg-accent' : 'bg-transparent hover:bg-accent/40'
@@ -176,7 +241,7 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
           value={collapsed ? ('' as TabId) : tab}
           onChange={(id) => {
             setTab(id);
-            if (collapsed) persist(defaultHeight());
+            if (collapsed) resetDefault();
           }}
         />
 

@@ -1,3 +1,4 @@
+import { HEATMAP_SECTOR_LINE, HEATMAP_SECTOR_PAD_Y } from '../ui/tokens';
 import { InfoTip, Segmented, Tabs } from '../ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { squarify, type Rect } from '../../utils/treemap';
@@ -28,7 +29,8 @@ import HeatmapViewMenu, { TOP_CHOICES, type TopChoice } from './HeatmapViewMenu'
  */
 
 const REFRESH_MS = 60_000;
-const SECTOR_HEADER = 16;
+/** 분야 이름 줄 높이 = 글자 줄 + 위아래 여백(기준표 변수, v2.42.2 — 예전 16px 여백 없음) */
+const SECTOR_HEADER = HEATMAP_SECTOR_LINE + HEATMAP_SECTOR_PAD_Y * 2;
 
 // ── 마지막 보기 기억 (v2.27.0) ──────────────────────────────────────────────
 // 이 기기·화면 크기에 딸린 설정이라 localStorage 다(서버 user_data 가 아니다).
@@ -457,6 +459,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
               {s.rect.w > 40 && (
                 <span
                   title={s.name}
+                  style={{ paddingTop: HEATMAP_SECTOR_PAD_Y, paddingBottom: HEATMAP_SECTOR_PAD_Y }}
                   className={`block truncate px-1 text-caption font-medium leading-4 ${
                     focusSector === s.name ? 'text-accent' : 'text-text-secondary'
                   }`}

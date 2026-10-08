@@ -1,3 +1,4 @@
+import { CARD_GRID } from '../ui/tokens';
 import Button from '../ui/Button';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
 import { useState } from 'react';
@@ -142,7 +143,7 @@ export default function AccountsOverview({
         </p>
       )}
 
-      <div className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+      <div className={`grid gap-3 ${CARD_GRID}`}>
         {accounts.map((item) => {
           const found = strategyOf(item.account.id);
           const strategy = found?.strategy;

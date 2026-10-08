@@ -65,3 +65,16 @@ export const ORDER_LABEL_W = 'w-8';
 export const ORDER_TRAIL_W = 'w-[4.5rem]';
 /** 빠른주문 — 입력칸 아래 줄(프리셋 버튼)을 입력칸 왼쪽 끝에서 시작하게: `ORDER_LABEL_W`(2rem) + 간격(0.375rem) */
 export const ORDER_INDENT = 'pl-[2.375rem]';
+
+/**
+ * 종목 지도 분야 이름 줄 (v2.42.2 — 사용자 지적 4). 이름 글자 줄(16px) 위아래 여백. 칸 배치(squarified)는 이 높이를 뺀 영역으로 계산된다.
+ * 예전에는 여백 0 이라 「기술」·「금융」 글자가 위 분야 경계와 아래 첫 칸에 붙어 있었다.
+ */
+export const HEATMAP_SECTOR_PAD_Y = 4;
+export const HEATMAP_SECTOR_LINE = 16;
+
+/**
+ * 카드 격자 (v2.42.2 — 계좌 모아보기). 카드 최소 폭 18rem 으로 **있는 카드가 가로를 나눠 채운다**(auto-fit).
+ * 예전 `xl:grid-cols-3` 은 1280 에서 계좌 2개면 오른쪽 3분의 1, 1920 에서도 빈 칸이 크게 남았다. 카드 높이는 내용이고 같은 줄은 같은 높이(격자 기본 stretch).
+ */
+export const CARD_GRID = 'grid-cols-[repeat(auto-fit,minmax(18rem,1fr))]';

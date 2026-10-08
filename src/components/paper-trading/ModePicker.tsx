@@ -1,3 +1,4 @@
+import { TABLE_FILL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import WarnIcon from '../ui/WarnIcon';
 import type { StrategyMode } from '../../types/autoTrading';
 
@@ -72,12 +73,14 @@ export default function ModePicker({
         </p>
       )}
       {/* AI형 vs 규칙형 (v2.31.0) — 사실만 적는다. 어느 쪽이 낫다는 말은 하지 않는다 */}
-      <table className="w-full text-caption">
+      {/* 기준표 「표」 — 칸은 내용 폭 + 고정 여백, 남는 폭은 마지막 빈 칸(v2.42.2 — 예전에는 「규칙형」 칸이 창 가운데 뒤로 벌어졌다) */}
+      <table className="w-full whitespace-nowrap text-caption">
         <thead>
           <tr className="border-b border-border/50 text-text-muted">
-            <th className="w-24 py-1 text-left font-normal" />
-            <th className="py-1 text-left font-normal">AI형</th>
-            <th className="py-1 text-left font-normal">규칙형</th>
+            <th className={`${TABLE_NUM_COL} py-1 text-left font-normal`} />
+            <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} py-1 text-left font-normal`}>AI형</th>
+            <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} py-1 text-left font-normal`}>규칙형</th>
+            <th className={TABLE_FILL} />
           </tr>
         </thead>
         <tbody className="text-text-secondary">
@@ -88,13 +91,14 @@ export default function ModePicker({
           ].map(([k, a, r]) => (
             <tr key={k} className="border-b border-border/50">
               <td className="py-1 text-text-muted">{k}</td>
-              <td className="py-1">{a}</td>
-              <td className="py-1">{r}</td>
+              <td className={`${TABLE_NUM_GAP} py-1`}>{a}</td>
+              <td className={`${TABLE_NUM_GAP} py-1`}>{r}</td>
+              <td />
             </tr>
           ))}
           <tr>
             <td className="py-1 text-text-muted">같은 점</td>
-            <td colSpan={2} className="py-1">
+            <td colSpan={3} className={`${TABLE_NUM_GAP} whitespace-normal py-1`}>
               모의투자만 · 비중·최대 종목 수·손절·실적 발표 전 회피 안전장치
             </td>
           </tr>

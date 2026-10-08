@@ -204,10 +204,15 @@ export default function ChartInfoBar({
           {activeMa.map((ma) => {
             const value = legend?.ma?.[ma.label];
             return (
-              <span key={ma.key} className="flex items-center gap-1" style={{ color: ma.color }}>
+              /*
+                일반 글자 줄(inline-block · 고정 줄 높이) — flex 로 두면 캡처 PNG(html2canvas)에서 점이 글자보다 위로 떴다(v2.42.2, CLAUDE.md 「캡처」 규칙).
+                점은 상자(inline-block 원)가 아니라 **글자 「●」** 다 — html2canvas 가 글자를 DOM 보다 아래 기준선에 그려, 상자로 그린 점만 위에 떠 보였다.
+                글자끼리는 같은 기준선이라 PNG 에서도 같은 높이다. 줄 높이는 정수(18px).
+              */
+              <span key={ma.key} className="inline-block h-[18px] whitespace-nowrap leading-[18px]" style={{ color: ma.color }}>
                 {/* 선 색과 같은 점 — 이름만으로는 차트의 어느 선인지 바로 이어지지 않는다 */}
-                <span aria-hidden className="inline-block h-2 w-2 shrink-0 rounded-full bg-current" />
-                {maLabel(ma, barUnitOf(candles))}
+                <span aria-hidden className="mr-1">●</span>
+                {maLabel(ma, barUnitOf(candles))}{' '}
                 <span className="tabular-nums">
                   {value != null ? formatPrice(value, currency) : '—'}
                 </span>
