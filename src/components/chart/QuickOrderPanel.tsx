@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { OrderSide, OrderType, PaperOrder, PaperPositionValued } from '../../types/paper';
 import { cancelPaperOrder, submitOrder, usePaperAccounts } from '../../hooks/usePaperTrading';
 import { modal, toast } from '../../store/uiStore';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatSignedMoney } from '../../utils/formatters';
 import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
 import { stockNameOf } from '../../utils/stockNames';
@@ -510,7 +510,7 @@ export default function QuickOrderPanel({
               {info(
                 '현재 수익',
                 position.unrealizedPnl != null
-                  ? `${position.unrealizedPnl > 0 ? '+' : ''}${formatPrice(position.unrealizedPnl, currency)}`
+                  ? formatSignedMoney(position.unrealizedPnl, currency)
                   : '—',
                 position.unrealizedPnl == null
                   ? 'text-text-muted'

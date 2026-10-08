@@ -4,7 +4,7 @@ import AutoTradeIcon from '../ui/AutoTradeIcon';
 import type { PaperAccount, PaperAccountDetail } from '../../types/paper';
 import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatSignedMoney } from '../../utils/formatters';
 import { AUTO_TRADE_TONE, autoTradeView } from '../../utils/autoTradeStatus';
 import type { StrategyOverviewItem } from '../../hooks/usePaperOverview';
 import { toast } from '../../store/uiStore';
@@ -93,8 +93,7 @@ export default function AccountMiniView({
   const pnlTone = (value: number | null | undefined) =>
     value == null ? 'text-text-muted' : value > 0 ? 'text-bullish' : value < 0 ? 'text-bearish' : 'text-text-secondary';
 
-  const signed = (value: number, currencyCode: typeof currency) =>
-    `${value > 0 ? '+' : ''}${formatPrice(value, currencyCode)}`;
+  const signed = (value: number, currencyCode: typeof currency) => formatSignedMoney(value, currencyCode);
 
   return (
     <div className="flex flex-col">

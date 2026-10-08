@@ -2,7 +2,7 @@ import Button from '../ui/Button';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
 import { useState } from 'react';
 import type { AccountOverviewItem, StrategyOverviewItem } from '../../hooks/usePaperOverview';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatSignedMoney } from '../../utils/formatters';
 import { toast } from '../../store/uiStore';
 import { autoTradeView } from '../../utils/autoTradeStatus';
 import { safetyLine } from '../../utils/autoTradeExplain';
@@ -192,8 +192,7 @@ export default function AccountsOverview({
                       (pnl ?? 0) > 0 ? 'text-bullish' : (pnl ?? 0) < 0 ? 'text-bearish' : 'text-text-secondary'
                     }`}
                   >
-                    {(pnl ?? 0) > 0 ? '+' : ''}
-                    {formatPrice(pnl ?? 0, currency)} ({(item.totalReturn ?? 0) > 0 ? '+' : ''}
+                    {formatSignedMoney(pnl ?? 0, currency)} ({(item.totalReturn ?? 0) > 0 ? '+' : ''}
                     {(item.totalReturn ?? 0).toFixed(2)}%)
                   </p>
                   <p className="mt-1 text-caption text-text-muted">

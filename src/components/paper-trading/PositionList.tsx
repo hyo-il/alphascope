@@ -1,5 +1,5 @@
 import type { PaperPositionValued } from '../../types/paper';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatSignedMoney } from '../../utils/formatters';
 
 interface Props {
   positions: PaperPositionValued[];
@@ -70,8 +70,7 @@ export default function PositionList({ positions, onSelectSymbol }: Props) {
                 {formatPrice(p.marketValue, p.currency)}
               </td>
               <td className={`px-3 py-2 text-right tabular-nums ${tone(p.unrealizedPnl)}`}>
-                {p.unrealizedPnl != null && p.unrealizedPnl > 0 ? '+' : ''}
-                {formatPrice(p.unrealizedPnl, p.currency)}
+                {formatSignedMoney(p.unrealizedPnl, p.currency)}
               </td>
               <td className={`px-3 py-2 text-right tabular-nums ${tone(p.unrealizedPnlPercent)}`}>
                 {p.unrealizedPnlPercent != null
@@ -92,8 +91,7 @@ export default function PositionList({ positions, onSelectSymbol }: Props) {
                 <span className="ml-1 text-text-muted">/ 매수 {formatPrice(totalCost, single)}</span>
               </td>
               <td className={`px-3 py-2 text-right tabular-nums ${tone(totalPnl)}`}>
-                {totalPnl > 0 ? '+' : ''}
-                {formatPrice(totalPnl, single)}
+                {formatSignedMoney(totalPnl, single)}
               </td>
               <td className={`px-3 py-2 text-right tabular-nums ${tone(totalPnl)}`}>
                 {totalCost ? `${totalPnl > 0 ? '+' : ''}${((totalPnl / totalCost) * 100).toFixed(2)}%` : '—'}

@@ -1,7 +1,7 @@
 import { SkeletonCards, SkeletonTable } from '../common/SkeletonLoader';
 import PortfolioSummaryBar from './PortfolioSummary';
 import { useExchangeRate, usePortfolio } from '../../hooks/useCompany';
-import { changeColor, formatPercent, formatUsd } from '../../utils/formatters';
+import { changeColor, formatPercent, formatUsd, formatSignedMoney } from '../../utils/formatters';
 
 interface Props {
   /** 종목 클릭 시 차트를 그 종목으로 바꾼다. */
@@ -74,11 +74,11 @@ export default function Holdings({ onSelectSymbol }: Props) {
                   <td className="py-1.5 px-2 text-right">{formatUsd(holding.currentPrice)}</td>
                   <td className="py-1.5 px-2 text-right">{formatUsd(holding.evaluationAmount)}</td>
                   <td className={`py-1.5 px-2 text-right ${changeColor(holding.profitLoss)}`}>
-                    {formatUsd(holding.profitLoss)}
+                    {formatSignedMoney(holding.profitLoss, 'USD')}
                     <span className="ml-1">({formatPercent(holding.profitLossRate)})</span>
                   </td>
                   <td className={`py-1.5 pl-2 pr-4 text-right ${changeColor(holding.dailyProfitLoss)}`}>
-                    {formatUsd(holding.dailyProfitLoss)}
+                    {formatSignedMoney(holding.dailyProfitLoss, 'USD')}
                     <span className="ml-1">({formatPercent(holding.dailyProfitLossRate)})</span>
                   </td>
                 </tr>

@@ -21,6 +21,23 @@ export function formatPrice(
   })}`;
 }
 
+/**
+ * 부호가 붙는 금액(손익·변동액) — **화면 전용** (v2.42.1). `−₩12,180` · `+$18.19` · `₩0`.
+ * 예전 화면은 `formatPrice` 앞에 '+' 만 붙여 손실이 `₩-12,180` 처럼 부호가 통화 기호 **뒤**에 붙었다(이익으로 잘못 읽힐 수 있다).
+ * ⚠️ `formatPrice` 는 분석 프롬프트에도 쓰이므로 바꾸지 않는다 — 부호 금액을 그리는 화면만 이 함수를 쓴다.
+ * 부호 = 마이너스 기호(U+2212 −) 또는 +, 0 은 부호 없음. 통화 규칙은 `formatPrice` 그대로(원화 소수점 없음).
+ */
+export function formatSignedMoney(
+  value: number | null | undefined,
+  currency: 'KRW' | 'USD' = 'USD',
+): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  const body = formatPrice(Math.abs(value), currency);
+  // 반올림해서 0 이 되는 값(−0.004 달러 등)은 부호를 붙이지 않는다
+  if (body === formatPrice(0, currency)) return body;
+  return `${value > 0 ? '+' : '−'}${body}`;
+}
+
 export function formatUsd(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—';
   return `$${value.toLocaleString('en-US', {

@@ -2,7 +2,7 @@ import Button from '../ui/Button';
 import { useState } from 'react';
 import type { PaperOrder, PaperTrade } from '../../types/paper';
 import { cancelPaperOrder } from '../../hooks/usePaperTrading';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatSignedMoney } from '../../utils/formatters';
 import StockName from '../common/StockName';
 
 interface Props {
@@ -151,7 +151,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
                   >
                     {t.pnl == null
                       ? '—'
-                      : `${t.pnl > 0 ? '+' : ''}${formatPrice(t.pnl, t.currency)} (${t.pnlPercent?.toFixed(2)}%)`}
+                      : `${formatSignedMoney(t.pnl, t.currency)} (${t.pnlPercent?.toFixed(2)}%)`}
                   </td>
                   {/*
                     사유는 길다 ("하드 손절 -10.13% — 기준 -7% 도달로 전량 청산").

@@ -1,6 +1,6 @@
 import type { Currency, PaperPerformance } from '../../types/paper';
 import type { ReactNode } from 'react';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatSignedMoney } from '../../utils/formatters';
 import { PF_HELP_ACCOUNT } from '../../data/indicatorHelp';
 import InfoTip from '../ui/InfoTip';
 
@@ -27,7 +27,7 @@ export default function PerformanceStats({ performance: p, currency }: Props) {
 
   return (
     <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-      {card('총 수익률', pct(p.totalReturn), tone(p.totalReturn), formatPrice(p.totalPnl, currency))}
+      {card('총 수익률', pct(p.totalReturn), tone(p.totalReturn), formatSignedMoney(p.totalPnl, currency))}
       {card(
         'MDD',
         p.mdd == null ? '—' : `${p.mdd.toFixed(2)}%`,
@@ -61,7 +61,7 @@ export default function PerformanceStats({ performance: p, currency }: Props) {
       )}
       {card(
         '평균 손실',
-        p.avgLoss == null ? '—' : formatPrice(p.avgLoss, currency),
+        p.avgLoss == null ? '—' : formatSignedMoney(p.avgLoss, currency),
         p.avgLoss == null ? 'text-text-muted' : 'text-bearish',
       )}
       {card(

@@ -1,5 +1,5 @@
 import type { ExchangeRate, PortfolioSummary } from '../../types/toss';
-import { changeColor, formatPercent, formatUsd } from '../../utils/formatters';
+import { changeColor, formatPercent, formatUsd, formatSignedMoney } from '../../utils/formatters';
 
 interface Props {
   summary: PortfolioSummary | null;
@@ -34,14 +34,14 @@ export default function PortfolioSummaryBar({ summary, exchangeRate }: Props) {
       <div>
         <p className="text-caption text-text-muted">총 평가손익</p>
         <p className={`text-sm tabular-nums ${changeColor(summary.profitLossUsd)}`}>
-          {formatUsd(summary.profitLossUsd)} ({formatPercent(summary.profitLossRate)})
+          {formatSignedMoney(summary.profitLossUsd, 'USD')} ({formatPercent(summary.profitLossRate)})
         </p>
       </div>
 
       <div>
         <p className="text-caption text-text-muted">당일 손익</p>
         <p className={`text-sm tabular-nums ${changeColor(summary.dailyProfitLossUsd)}`}>
-          {formatUsd(summary.dailyProfitLossUsd)} ({formatPercent(summary.dailyProfitLossRate)})
+          {formatSignedMoney(summary.dailyProfitLossUsd, 'USD')} ({formatPercent(summary.dailyProfitLossRate)})
         </p>
       </div>
 
