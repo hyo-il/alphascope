@@ -56,9 +56,8 @@ export default function GeminiAnalysisCard({
 
   return (
     <div
-      className={`rounded-lg border bg-bg-secondary p-3 transition-colors ${
-        isNew ? 'border-accent' : 'border-border'
-      }`}
+      // 테두리 없이 바탕색으로 구역을 나눈다(디자인 기준 — 상자 안에 상자 금지). 방금 생긴 결과만 잠깐 파란 ring
+      className={`rounded-xl bg-bg-secondary p-3 transition-shadow ${isNew ? 'ring-1 ring-accent' : ''}`}
     >
       <div className="flex flex-wrap items-center gap-2">
         {isNew && (

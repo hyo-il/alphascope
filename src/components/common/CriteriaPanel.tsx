@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
+import DisclosureButton from '../ui/DisclosureButton';
 import type { CriteriaSpec } from '../../data/criteria';
 
 /**
@@ -16,20 +17,18 @@ export default function CriteriaPanel({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const id = useId();
 
   return (
     <section className="rounded-lg bg-bg-tertiary/30">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left"
-      >
+      {/* 접기는 앱 공통 버튼 하나(v2.42.0 — 예전 오른쪽 끝 회색 「펼치기」 글자) */}
+      <div className="flex w-full items-center gap-2 px-3 py-2">
         <span className="text-xs font-medium text-text-secondary">{spec.title}</span>
-        <span className="ml-auto text-caption text-text-muted">{open ? '접기' : '펼치기'}</span>
-      </button>
+        <DisclosureButton open={open} onToggle={() => setOpen((v) => !v)} label="기준 보기" controls={id} className="ml-auto" />
+      </div>
 
       {open && (
-        <div className="space-y-2 border-t border-border px-3 py-2.5">
+        <div id={id} className="space-y-2 border-t border-border px-3 py-2.5">
           <p className="text-caption text-text-secondary">{spec.grades}</p>
 
           <ul className="space-y-1">

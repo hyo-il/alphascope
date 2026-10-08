@@ -1,3 +1,4 @@
+import Segmented from '../ui/Segmented';
 import NumberField from '../ui/NumberField';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
@@ -325,10 +326,6 @@ export default function StrategyProfileModal({
   const [dLo, dHi] = TARGET_INPUT_LIMITS.days;
   const targetIsChoice = !customTarget && GOAL_TARGET_CHOICES.some((c) => c === goalDraft.targetPct);
   const periodIsChoice = GOAL_PERIOD_CHOICES.some((c) => c.days === goalDraft.days);
-  const chip = (active: boolean) =>
-    `rounded-md border px-3 py-1 text-xs transition-colors ${
-      active ? 'border-transparent bg-bg-elevated font-medium text-text-primary' : 'border-transparent bg-bg-tertiary text-text-secondary hover:text-text-primary'
-    }`;
 
   return (
     <Dialog title="판단 기준 편집" onClose={onClose} size="lg" z={95} bodyClassName="flex flex-col">
@@ -338,21 +335,14 @@ export default function StrategyProfileModal({
           <section className="mb-4 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-caption text-text-muted">판정 기준</span>
-              {(['standard', 'aggressive', 'defensive'] as ProfileId[]).map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => void onSwitchProfile(id)}
-                  aria-pressed={activeId === id}
-                  className={`rounded-md border px-2.5 py-1 text-caption transition-colors ${
-                    activeId === id
-                      ? 'border-transparent bg-bg-elevated font-medium text-text-primary'
-                      : 'border-transparent bg-bg-tertiary text-text-secondary hover:text-text-primary'
-                  }`}
-                >
-                  {PROFILE_LABEL[id]}
-                </button>
-              ))}
+              {/* 묶음 버튼 하나 — 앱의 다른 고르기(기간·보기)와 같은 모양 (v2.42.0) */}
+              <Segmented
+                label="판정 기준"
+                size="sm"
+                value={activeId}
+                onChange={(id) => void onSwitchProfile(id)}
+                options={(['standard', 'aggressive', 'defensive'] as ProfileId[]).map((id) => ({ value: id, label: PROFILE_LABEL[id] }))}
+              />
               <span className="text-caption text-text-muted">바꾸면 바로 적용됩니다 — 추천은 [다시 실행] 해야 새 기준으로 나옵니다</span>
             </div>
             {activeId !== 'standard' && sameSwingParams(state.custom[activeId as CustomProfileId], state.standard) && (
@@ -369,22 +359,17 @@ export default function StrategyProfileModal({
             <div>
               <p className="mb-1 text-caption text-text-primary">목표 수익률</p>
               <div className="flex flex-wrap items-center gap-1.5">
-                {GOAL_TARGET_CHOICES.map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => {
-                      setCustomTarget(false);
-                      setGoal({ targetPct: v });
-                    }}
-                    className={chip(targetIsChoice && goalDraft.targetPct === v)}
-                  >
-                    {v}%
-                  </button>
-                ))}
-                <button type="button" onClick={() => setCustomTarget(true)} className={chip(!targetIsChoice)}>
-                  직접 입력
-                </button>
+                <Segmented
+                  label="목표 수익률"
+                  size="sm"
+                  value={targetIsChoice ? String(goalDraft.targetPct) : 'custom'}
+                  onChange={(v) => {
+                    if (v === 'custom') return setCustomTarget(true);
+                    setCustomTarget(false);
+                    setGoal({ targetPct: Number(v) });
+                  }}
+                  options={[...GOAL_TARGET_CHOICES.map((v) => ({ value: String(v), label: `${v}%` })), { value: 'custom', label: '직접 입력' }]}
+                />
                 {!targetIsChoice && (
                   <span className="inline-flex items-center gap-1 text-xs">
                     +
@@ -404,11 +389,13 @@ export default function StrategyProfileModal({
             <div>
               <p className="mb-1 text-caption text-text-primary">보유 기간</p>
               <div className="flex flex-wrap items-center gap-1.5">
-                {GOAL_PERIOD_CHOICES.map((p) => (
-                  <button key={p.days} type="button" onClick={() => setGoal({ days: p.days })} className={chip(goalDraft.days === p.days)}>
-                    {p.label}
-                  </button>
-                ))}
+                <Segmented
+                  label="보유 기간"
+                  size="sm"
+                  value={goalDraft.days}
+                  onChange={(days) => setGoal({ days })}
+                  options={GOAL_PERIOD_CHOICES.map((p) => ({ value: p.days, label: p.label }))}
+                />
                 {!periodIsChoice && (
                   <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-caption text-text-secondary">
                     직접 설정 · {goalDraft.days}거래일
@@ -428,7 +415,7 @@ export default function StrategyProfileModal({
           </section>
 
           {/* ── 2층: 고급 설정 ── */}
-          <div className="mt-4 rounded-lg bg-bg-tertiary/40 px-3 py-2">
+          <div className="mt-4">
             {/* 「자세히」 공용 버튼 (v2.39.0) — 펼쳤을 때만 판정 미리보기를 계산하는 동작은 그대로(advancedOpen) */}
             <DisclosureButton
               open={advancedOpen}

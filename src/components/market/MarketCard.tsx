@@ -39,7 +39,7 @@ export default function MarketCard({
       <div className="min-w-0">
         {/* 말줄임으로 자르지 않는다 — 1280 에서 「VIX 공포지수」 가 4px 넘쳤다(v2.33.0). 넘치면 줄을 바꾼다 */}
         <p className="break-keep text-caption leading-tight text-text-secondary">{name}</p>
-        <p className="text-base font-semibold tabular-nums text-text-primary">
+        <p className="text-sm font-semibold tabular-nums text-text-primary">
           {value != null ? `${unit}${format(value)}` : '—'}
         </p>
         <p className={`text-caption tabular-nums ${color}`}>

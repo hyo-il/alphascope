@@ -20,7 +20,7 @@ export default function PerformanceStats({ performance: p, currency }: Props) {
   const card = (label: ReactNode, value: string, valueTone = 'text-text-primary', hint?: string) => (
     <div key={typeof label === 'string' ? label : value + String(hint)} className="rounded-xl bg-bg-secondary px-3 py-2">
       <p className="text-caption text-text-muted">{label}</p>
-      <p className={`text-base font-semibold tabular-nums ${valueTone}`}>{value}</p>
+      <p className={`text-sm font-semibold tabular-nums ${valueTone}`}>{value}</p>
       {hint && <p className="text-caption text-text-muted">{hint}</p>}
     </div>
   );

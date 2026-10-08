@@ -318,7 +318,7 @@ export default function WatchPanel({
           <SymbolSearch
             symbol=""
             onSubmit={(symbol) => watch.add(symbol, DEFAULT_FOLDER_ID)}
-            placeholder="+ 빠른 추가 (구글, 애플…)"
+            placeholder="종목 이름·티커"
             submitLabel="종목 추가"
             compact
             clearOnSubmit

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useSwingHistory } from '../../hooks/useSwing';
 import StockName from '../common/StockName';
-import { formatPercent } from '../../utils/formatters';
+import { formatPercent, formatPrice } from '../../utils/formatters';
+import { currencyOfSymbol } from '../../utils/market';
 import { PROFILE_LABEL, type ProfileId } from '../../types/strategyProfile';
 import NotProvenLine from './NotProvenLine';
 
@@ -112,15 +113,15 @@ function RecommendationHistory() {
               <th className="py-1.5 pr-2">추천일</th>
               <th className="pr-2">종목</th>
               <th className="pr-2">기준</th>
-              <th className="pr-2">점수</th>
-              <th className="pr-2">매수</th>
-              <th className="pr-2">1차</th>
-              <th className="pr-2">2차</th>
-              <th className="pr-2">손절</th>
-              <th className="pr-2">7일</th>
-              <th className="pr-2">30일</th>
+              <th className="pr-2 text-right">점수</th>
+              <th className="pr-2 text-right">매수</th>
+              <th className="pr-2 text-right">1차</th>
+              <th className="pr-2 text-right">2차</th>
+              <th className="pr-2 text-right">손절</th>
+              <th className="pr-2 text-right">7일</th>
+              <th className="pr-2 text-right">30일</th>
               <th className="pr-2">결과</th>
-              <th>수익률</th>
+              <th className="text-right">수익률</th>
             </tr>
           </thead>
           <tbody>
@@ -141,15 +142,15 @@ function RecommendationHistory() {
                       {PROFILE_LABEL[row.profile]}
                     </span>
                   </td>
-                  <td className="pr-2 tabular-nums">{row.score}</td>
-                  <td className="pr-2 tabular-nums">{row.entryPrice?.toFixed(2) ?? '—'}</td>
-                  <td className="pr-2 tabular-nums">{row.target1Price?.toFixed(2) ?? '—'}</td>
-                  <td className="pr-2 tabular-nums">{row.target2Price?.toFixed(2) ?? '—'}</td>
-                  <td className="pr-2 tabular-nums">{row.stopLossPrice?.toFixed(2) ?? '—'}</td>
-                  <td className="pr-2 tabular-nums">{change(row.priceAfter7d)}</td>
-                  <td className="pr-2 tabular-nums">{change(row.priceAfter30d)}</td>
+                  <td className="pr-2 text-right tabular-nums">{row.score}</td>
+                  <td className="pr-2 text-right tabular-nums">{formatPrice(row.entryPrice, currencyOfSymbol(row.symbol))}</td>
+                  <td className="pr-2 text-right tabular-nums">{formatPrice(row.target1Price, currencyOfSymbol(row.symbol))}</td>
+                  <td className="pr-2 text-right tabular-nums">{formatPrice(row.target2Price, currencyOfSymbol(row.symbol))}</td>
+                  <td className="pr-2 text-right tabular-nums">{formatPrice(row.stopLossPrice, currencyOfSymbol(row.symbol))}</td>
+                  <td className="pr-2 text-right tabular-nums">{change(row.priceAfter7d)}</td>
+                  <td className="pr-2 text-right tabular-nums">{change(row.priceAfter30d)}</td>
                   <td className={`pr-2 ${result.className}`}>{result.text}</td>
-                  <td className="tabular-nums">
+                  <td className="text-right tabular-nums">
                     {row.actualReturn == null ? '—' : formatPercent(row.actualReturn)}
                   </td>
                 </tr>

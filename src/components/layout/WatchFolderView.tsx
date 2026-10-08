@@ -116,7 +116,7 @@ export default function WatchFolderView({
                           : `${nameOf(symbol) || symbol} 비교에 추가`
                         : undefined
                     }
-                    className="flex min-w-0 flex-1 items-center justify-between py-2.5 pl-3 pr-2 text-left"
+                    className="flex min-w-0 flex-1 items-center justify-between gap-2 py-2.5 pl-3 pr-2 text-left"
                   >
                     <span className="flex min-w-0 flex-col">
                       <span

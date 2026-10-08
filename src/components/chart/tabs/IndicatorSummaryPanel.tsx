@@ -41,11 +41,12 @@ function Row({
   tone?: string;
 }) {
   return (
-    <div className="flex items-baseline gap-2 py-0.5">
-      <span className="w-24 shrink-0 whitespace-nowrap text-text-secondary">{label}</span>
-      {/* 값 칸은 국내 7자리 가격 두 개(「1,234,000 / 1,200,000」)가 한 줄에 들어가는 폭 — 문구와 겹치지 않고 문구 칸도 너무 좁지 않게 (v2.42.0) */}
-      <span className={`w-40 shrink-0 whitespace-nowrap tabular-nums ${tone}`}>{value}</span>
-      {note && <span className="min-w-0 text-text-muted">{note}</span>}
+    // 칸 셋은 바깥 격자의 열에 그대로 놓인다(display: contents) — 값 칸이 **가장 긴 값만큼만** 넓어져 문구 칸이 좁아지지 않는다 (v2.42.0)
+    <div className="contents">
+      <span className="whitespace-nowrap py-0.5 text-text-secondary">{label}</span>
+      {/* 값은 줄바꿈하지 않는다 — 국내 7자리 가격 두 개(「1,234,000 / 1,200,000」)도 한 줄 */}
+      <span className={`whitespace-nowrap py-0.5 tabular-nums ${tone}`}>{value}</span>
+      <span className="min-w-0 py-0.5 text-text-muted">{note}</span>
     </div>
   );
 }
@@ -127,7 +128,7 @@ export default function IndicatorSummaryPanel({
           {volume.forming && ` 마지막 봉(이번 ${timeframe === '1w' ? '주' : '달'})은 아직 진행 중입니다.`}
         </p>
       )}
-      <div className="grid gap-x-6 gap-y-0 md:grid-cols-2">
+      <div className="grid grid-cols-[auto_auto_1fr] items-baseline gap-x-3 gap-y-0 md:grid-cols-[auto_auto_1fr_auto_auto_1fr]">
         <Row
           label="RSI(14)"
           value={summary.rsi == null ? '—' : summary.rsi.toFixed(1)}

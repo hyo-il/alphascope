@@ -328,7 +328,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
               ].map((c) => (
                 <div key={c.label} className="rounded-xl bg-bg-secondary px-3 py-2">
                   <p className="text-caption text-text-muted">{c.label}</p>
-                  <p className={`text-base font-semibold tabular-nums ${c.tone}`}>{c.value}</p>
+                  <p className={`text-sm font-semibold tabular-nums ${c.tone}`}>{c.value}</p>
                   {c.hint && <p className="text-caption text-text-muted">{c.hint}</p>}
                 </div>
               ))}

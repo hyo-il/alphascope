@@ -279,18 +279,16 @@ export default function AnalysisTimeline({
       {/* 일괄 삭제는 「전체」 에서만 — 출처로 걸러 둔 채 지우면 화면에 없는 기록까지 지워진다 */}
       {items.length > 0 && source === 'all' && (
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => removeMany('all')}
-            className="rounded border border-danger/40 px-2 py-1 text-xs text-danger transition-colors hover:bg-danger/10"
-          >
-            전체 삭제 ({items.length})
-          </button>
-          <Button variant="secondary" size="sm"
+          {/* 화면 안의 삭제 = 빨간 글자 버튼 셋, 같은 모양 (v2.42.0) */}
+          <Button variant="danger-text" size="sm" onClick={() => removeMany('all')}>
+            모두 삭제 ({items.length})
+          </Button>
+          <Button variant="danger-text" size="sm"
             onClick={() => removeMany('claude')}
             disabled={!claude.length}>
             Claude만 삭제 ({claude.length})
           </Button>
-          <Button variant="secondary" size="sm"
+          <Button variant="danger-text" size="sm"
             onClick={() => removeMany('gemini')}
             disabled={!gemini.length}>
             Gemini만 삭제 ({gemini.length})

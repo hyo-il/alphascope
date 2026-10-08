@@ -46,8 +46,10 @@ export default function ModePicker({
               disabled={disabled}
               onClick={() => onMode(item.id)}
               title={item.easy}
-              className={`rounded-lg border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                active ? 'border-text-secondary/70 bg-bg-tertiary' : 'border-border/50 hover:border-text-muted'
+              aria-pressed={active}
+              // 고른 카드 = 밝은 바탕(테두리 없음) — 규칙형 쉬운 선택지 카드(RuleChoiceCards)와 같은 모양 (v2.42.0)
+              className={`rounded-lg px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                active ? 'bg-bg-elevated' : 'bg-bg-tertiary/60 hover:bg-bg-tertiary'
               }`}
             >
               <p className={`text-xs font-medium text-text-primary`}>
@@ -56,7 +58,7 @@ export default function ModePicker({
               <p className="mt-0.5 text-caption leading-relaxed text-text-muted">{item.desc}</p>
               {/* 고른 쪽만 펼쳐 설명한다 — 둘 다 펼치면 카드가 길어져 정작 제목이 안 읽힌다 */}
               {active && (
-                <p className="mt-1.5 border-t border-border/60 pt-1.5 text-caption leading-relaxed text-text-secondary">
+                <p className="mt-1.5 text-caption leading-relaxed text-text-secondary">
                   {item.easy}
                 </p>
               )}

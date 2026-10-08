@@ -79,7 +79,7 @@ export default function Settings({ isMock, engineDown, section }: Props) {
 
   if (section === 'account') {
     return (
-      <div className="h-full overflow-y-auto p-6">
+      <div className="h-full overflow-y-auto p-4">
         <h2 className="mb-4 text-base font-semibold">계좌 설정</h2>
 
         <section className="mb-6 max-w-2xl">
@@ -96,7 +96,7 @@ export default function Settings({ isMock, engineDown, section }: Props) {
           )}
           {updatedAt}
           <p className="mt-2 text-caption leading-relaxed text-text-muted">
-            토스 `CLIENT_ID` · `CLIENT_SECRET` 은 서버의 `.env` 에서만 읽습니다. 브라우저에는
+            토스 <code className="rounded bg-bg-tertiary px-1">CLIENT_ID</code> · <code className="rounded bg-bg-tertiary px-1">CLIENT_SECRET</code> 은 서버의 <code className="rounded bg-bg-tertiary px-1">.env</code> 에서만 읽습니다. 브라우저에는
             키가 내려가지 않으므로 이 화면에서 입력받지 않습니다.
           </p>
         </section>
@@ -118,7 +118,7 @@ export default function Settings({ isMock, engineDown, section }: Props) {
   }
 
   return (
-    <div className="h-full overflow-y-auto p-6">
+    <div className="h-full overflow-y-auto p-4">
       <h2 className="mb-4 text-base font-semibold">앱 기능 설정</h2>
 
       <section className="mb-6 max-w-2xl">
@@ -146,9 +146,9 @@ export default function Settings({ isMock, engineDown, section }: Props) {
         </div>
         {cleared && <p className="mt-2 text-caption text-text-muted">{cleared}</p>}
         <p className="mt-2 text-caption text-text-muted">
-          관심 목록과 최근 조회는 **서버에 저장**되고 이 브라우저에는 캐시만 남습니다 —
+          관심 목록과 최근 조회는 <b>서버에 저장</b>되고 이 브라우저에는 캐시만 남습니다 —
           위 버튼은 이 브라우저의 캐시를 삭제합니다(서버 목록은 그대로). 캔들·기업정보 캐시와
-          분석 히스토리는 SQLite(`db/alphascope.db`)에 있습니다.
+          분석 히스토리는 SQLite(<code className="rounded bg-bg-tertiary px-1">db/alphascope.db</code>)에 있습니다.
         </p>
       </section>
 

@@ -26,7 +26,7 @@ export default function SurgeEvaluation({
   return (
     <article className="rounded-xl bg-bg-secondary p-4">
       <header className="flex flex-wrap items-baseline gap-2">
-        <StockName symbol={evaluation.symbol} name={evaluation.name} className="text-base font-semibold" />
+        <StockName symbol={evaluation.symbol} name={evaluation.name} className="text-sm font-semibold" />
         <span className="ml-auto text-sm font-semibold">
           급등 가능성 {evaluation.surgeScore}/100 · {grade.label}
         </span>

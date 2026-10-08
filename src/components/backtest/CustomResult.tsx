@@ -205,7 +205,7 @@ export default function CustomResult({
             기간 {report.input.years}년 · 종목 {symbolsCount}개{many ? ` · 방법 ${cs.length}개` : ''} · {when(report.computedAt)}
           </p>
           <span className="ml-auto flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={onRerun} disabled={rerunBusy}>
+            <Button size="sm" variant="secondary" onClick={onRerun} disabled={rerunBusy}>
               다시 실행
             </Button>
             {applySlot}

@@ -45,10 +45,21 @@ export default function StockName({
    */
   const weight = /\bfont-(normal|medium|semibold)\b/.test(className) ? '' : 'font-medium';
 
+  // wrap: 글자 흐름 그대로(이름 다음 줄에 티커가 이어진다) — flex 로 두면 이름이 두 줄일 때 티커가 오른쪽 끝으로 떨어져 나갔다
+  if (wrap)
+    return (
+      <span className={`min-w-0 break-keep ${weight} ${className}`} title={label || symbol}>
+        {label || symbol}
+        {label && showTicker && (
+          <span className={`ml-1.5 whitespace-nowrap font-normal ${TICKER_SIZE[size]} ${tickerClassName}`}>{symbol}</span>
+        )}
+      </span>
+    );
+
   return (
     <span className={`inline-flex min-w-0 items-baseline gap-1.5 ${weight} ${className}`}>
       {/* 좁은 자리에서 이름이 말줄임되면 마우스로 전체 이름을 본다 (v2.33.0) — 티커는 자르지 않는다 */}
-      <span className={wrap ? 'break-keep' : 'truncate'} title={label || symbol}>{label || symbol}</span>
+      <span className="truncate" title={label || symbol}>{label || symbol}</span>
       {label && showTicker && (
         <span className={`shrink-0 font-normal ${TICKER_SIZE[size]} ${tickerClassName}`}>
           {symbol}

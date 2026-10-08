@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
 import { useState } from 'react';
 import type { AccountOverviewItem, StrategyOverviewItem } from '../../hooks/usePaperOverview';
@@ -262,20 +263,20 @@ export default function AccountsOverview({
                   </span>
                 )}
 
-                <button
-                  type="button"
+                {/* 카드마다 파란 버튼이 생기지 않게 보조 버튼(켜기) · 빨간 글자(끄기) — 파랑은 화면의 주요 실행 하나만 (v2.42.0) */}
+                <Button
+                  variant={on ? 'danger-text' : 'secondary'}
+                  size="sm"
+                  className="ml-auto"
                   disabled={busyId === item.account.id || !strategy}
                   onClick={(e) => {
                     // 카드 클릭(상세 열기)과 겹치면 켜려다 화면이 바뀐다.
                     e.stopPropagation();
                     void toggle(item, !on);
                   }}
-                  className={`ml-auto rounded px-2 py-0.5 text-caption font-medium text-white transition-colors disabled:opacity-50 ${
-                    on ? 'bg-danger hover:bg-danger/90' : 'bg-accent hover:bg-accent-hover'
-                  }`}
                 >
                   {busyId === item.account.id ? '…' : on ? '끄기' : '켜기'}
-                </button>
+                </Button>
               </div>
               {/* 손절·익절 한 줄 (v2.40.0) — 안전장치를 모아보기에서도 한눈에. 문장은 autoTradeExplain.safetyLine 한 곳 */}
               {strategy && <p className="mt-1.5 text-caption font-medium text-text-secondary">{safetyLine(strategy)}</p>}
