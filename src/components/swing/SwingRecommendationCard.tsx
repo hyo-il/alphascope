@@ -43,7 +43,7 @@ export default function SwingRecommendationCard({
       <header className="flex flex-wrap items-baseline gap-2">
         {pick}
         <Badge tone={grade.tone}>{grade.label}</Badge>
-        <StockName symbol={recommendation.symbol} name={recommendation.name} className="text-sm font-semibold" />
+        <StockName symbol={recommendation.symbol} name={recommendation.name} wrap className="text-sm font-semibold" />
         <span className="text-caption text-text-secondary">
           {currency === 'KRW'
             ? `₩${Math.round(recommendation.currentPrice).toLocaleString('ko-KR')}`

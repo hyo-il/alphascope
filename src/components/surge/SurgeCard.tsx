@@ -45,9 +45,9 @@ export default function SurgeCard({
       className="flex min-h-[260px] min-w-[320px] flex-col gap-3 rounded-xl bg-bg-secondary p-4 break-keep"
     >
       <header className="flex items-start justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-2">
+        <span className="flex min-w-0 items-start gap-2">
           <Badge tone={grade.tone}>{grade.label}</Badge>
-          <StockName symbol={detection.symbol} name={detection.name} className="text-sm font-semibold" />
+          <StockName symbol={detection.symbol} name={detection.name} wrap className="text-sm font-semibold" />
         </span>
         {/* 점수는 카드 우상단 고정 — 카드를 훑을 때 가장 먼저 보는 값이다 */}
         <span className="shrink-0 text-right">

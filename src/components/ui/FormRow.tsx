@@ -23,11 +23,11 @@ export default function FormRow({
   htmlFor?: string;
 }) {
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+    <div data-formrow className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
       <label htmlFor={htmlFor} className={`shrink-0 text-xs text-text-secondary ${FORM_LABEL_W[labelW]}`}>
         {label}
       </label>
-      <div className={`flex shrink-0 items-center [&>*]:w-full ${valueW === 'auto' ? '' : FORM_VALUE_W[valueW]}`}>{children}</div>
+      <div data-formrow-value className={`flex shrink-0 items-center [&>*]:w-full ${valueW === 'auto' ? '' : FORM_VALUE_W[valueW]}`}>{children}</div>
       {hint != null && <span className="min-w-0 flex-1 text-caption text-text-muted">{hint}</span>}
     </div>
   );

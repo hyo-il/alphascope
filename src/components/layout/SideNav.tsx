@@ -118,7 +118,7 @@ export default function SideNav({
         <button
           type="button"
           onClick={() => onSelectGroup(item.id)}
-          className={`flex w-full items-center gap-2 rounded-md border-l-2 px-2.5 py-2 text-left text-xs transition-colors ${
+          className={`flex w-full items-center gap-1.5 rounded-md border-l-2 px-2.5 py-2 text-left text-xs transition-colors ${
             open
               ? 'border-transparent font-medium text-text-primary'
               : 'border-transparent text-text-secondary hover:bg-bg-tertiary/60 hover:text-text-primary'
@@ -130,11 +130,12 @@ export default function SideNav({
               return <Icon {...ICON} />;
             })()}
           </span>
-          <span className="min-w-0 truncate">{item.label}</span>
-          {/* 대메뉴 배지 (v2.42.0 — 실험실 「테스트」, 예전에는 소메뉴 셋에) */}
-          {item.badge && <span className="shrink-0 rounded bg-warning/15 px-1 py-px text-caption text-warning">{item.badge}</span>}
-          <span className="flex-1" />
-          {!single && <span className="text-text-muted">{open ? <ChevronDown {...ICON_SM} /> : <ChevronRight {...ICON_SM} />}</span>}
+          {/* 대메뉴 배지 (v2.42.0 — 실험실 「테스트」, 예전에는 소메뉴 셋에). 라벨과 한 덩어리(간격 4px)로 두어야 156px 메뉴에 「실험실」 이 잘리지 않는다 */}
+          <span className="flex min-w-0 items-center gap-1">
+            <span className="min-w-0 truncate">{item.label}</span>
+            {item.badge && <span className="shrink-0 rounded bg-warning/15 px-0.5 py-px text-caption text-warning">{item.badge}</span>}
+          </span>
+          {!single && <span className="ml-auto text-text-muted">{open ? <ChevronDown {...ICON_SM} /> : <ChevronRight {...ICON_SM} />}</span>}
         </button>
 
         {open &&
@@ -241,16 +242,16 @@ export default function SideNav({
       </div>
 
       {/* 목록 줄 사이 4px (v2.42.0 디자인 기준표 A-4) */}
-      <div data-list className="flex-1 space-y-1 overflow-y-auto px-1 py-1">{MAIN_GROUPS.map(expandedGroup)}</div>
+      <div data-list className="flex-1 space-y-1 overflow-y-auto py-1">{MAIN_GROUPS.map(expandedGroup)}</div>
 
       {SETTINGS_GROUP && (
-        <div data-list className="mt-auto space-y-1 border-t border-border px-1 py-1">
+        <div data-list className="mt-auto space-y-1 border-t border-border py-1">
           {expandedGroup(SETTINGS_GROUP)}
           {/* 대메뉴 줄과 같은 틀(투명 border-l-2 · px-2.5 · py-2 · 고정 아이콘 칸) — 라벨 시작점이 한 줄에 선다 (v2.25.0) */}
           <button
             type="button"
             onClick={onLogout}
-            className="flex w-full items-center gap-2 rounded-md border-l-2 border-transparent px-2.5 py-2 text-left text-xs text-text-muted transition-colors hover:bg-bg-tertiary hover:text-danger"
+            className="flex w-full items-center gap-1.5 rounded-md border-l-2 border-transparent px-2.5 py-2 text-left text-xs text-text-muted transition-colors hover:bg-bg-tertiary hover:text-danger"
           >
             <span className={ICON_SLOT}>
               <LogoutIcon {...ICON} />

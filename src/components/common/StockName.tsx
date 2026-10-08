@@ -27,6 +27,7 @@ export default function StockName({
   /** 종목명 쪽 글자 크기·굵기는 쓰는 곳에서 정한다 */
   className = '',
   tickerClassName = 'text-text-secondary',
+  wrap = false,
 }: {
   symbol: string;
   name?: string | null;
@@ -34,6 +35,8 @@ export default function StockName({
   size?: keyof typeof TICKER_SIZE;
   className?: string;
   tickerClassName?: string;
+  /** 카드 제목처럼 자리가 넉넉하지 않아도 이름 전체가 보여야 하는 곳 — 말줄임 대신 단어 단위로 줄바꿈 (v2.42.0) */
+  wrap?: boolean;
 }) {
   const label = name ?? stockNameOf(symbol);
   /*
@@ -45,7 +48,7 @@ export default function StockName({
   return (
     <span className={`inline-flex min-w-0 items-baseline gap-1.5 ${weight} ${className}`}>
       {/* 좁은 자리에서 이름이 말줄임되면 마우스로 전체 이름을 본다 (v2.33.0) — 티커는 자르지 않는다 */}
-      <span className="truncate" title={label || symbol}>{label || symbol}</span>
+      <span className={wrap ? 'break-keep' : 'truncate'} title={label || symbol}>{label || symbol}</span>
       {label && showTicker && (
         <span className={`shrink-0 font-normal ${TICKER_SIZE[size]} ${tickerClassName}`}>
           {symbol}
