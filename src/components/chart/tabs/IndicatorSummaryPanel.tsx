@@ -42,9 +42,9 @@ function Row({
 }) {
   return (
     <div className="flex items-baseline gap-2 py-0.5">
-      <span className="w-28 shrink-0 text-text-secondary">{label}</span>
-      {/* 값 칸은 국내 7자리 가격 두 개(「267,550 / 260,000」)가 한 줄에 들어가는 폭 — 문구와 겹치지 않게 (v2.42.0) */}
-      <span className={`w-44 shrink-0 whitespace-nowrap tabular-nums ${tone}`}>{value}</span>
+      <span className="w-24 shrink-0 whitespace-nowrap text-text-secondary">{label}</span>
+      {/* 값 칸은 국내 7자리 가격 두 개(「1,234,000 / 1,200,000」)가 한 줄에 들어가는 폭 — 문구와 겹치지 않고 문구 칸도 너무 좁지 않게 (v2.42.0) */}
+      <span className={`w-40 shrink-0 whitespace-nowrap tabular-nums ${tone}`}>{value}</span>
       {note && <span className="min-w-0 text-text-muted">{note}</span>}
     </div>
   );
@@ -127,7 +127,7 @@ export default function IndicatorSummaryPanel({
           {volume.forming && ` 마지막 봉(이번 ${timeframe === '1w' ? '주' : '달'})은 아직 진행 중입니다.`}
         </p>
       )}
-      <div className="grid gap-x-8 gap-y-0 md:grid-cols-2">
+      <div className="grid gap-x-6 gap-y-0 md:grid-cols-2">
         <Row
           label="RSI(14)"
           value={summary.rsi == null ? '—' : summary.rsi.toFixed(1)}

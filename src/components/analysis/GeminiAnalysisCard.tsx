@@ -4,7 +4,8 @@ import DisclosureButton from '../ui/DisclosureButton';
 import WarnIcon from '../ui/WarnIcon';
 import { useState } from 'react';
 import type { AgentOpinion, GeminiAnalysis } from '../../types/gemini';
-import { formatUsd } from '../../utils/formatters';
+import { formatPrice } from '../../utils/formatters';
+import { currencyOfSymbol } from '../../utils/market';
 import AISourceBadge, { GEMINI_TRIGGER_LABEL } from './AISourceBadge';
 import StockName from '../common/StockName';
 import { confidencePercent, SIGNAL_CLASS, SIGNAL_LABEL, VOTE_CLASS } from './signalStyle';
@@ -107,7 +108,7 @@ export default function GeminiAnalysisCard({
 
       {analysis.priceAtAnalysis != null && (
         <p className="mt-1 text-xs text-text-muted">
-          분석 시점 {formatUsd(analysis.priceAtAnalysis)}
+          분석 시점 {formatPrice(analysis.priceAtAnalysis, currencyOfSymbol(analysis.symbol))}
           {change != null && (
             <span className={change >= 0 ? 'text-bullish' : 'text-bearish'}>
               {' '}
@@ -136,12 +137,12 @@ export default function GeminiAnalysisCard({
               <h4 className="mb-1 text-xs font-medium text-text-primary">액션 플랜</h4>
               <p className="text-xs text-text-secondary">{plan.action}</p>
               <div className="mt-1 flex flex-wrap gap-3 text-caption text-text-muted">
-                {plan.entry_price != null && <span>진입 {formatUsd(plan.entry_price)}</span>}
+                {plan.entry_price != null && <span>진입 {formatPrice(plan.entry_price, currencyOfSymbol(analysis.symbol))}</span>}
                 {plan.target_price != null && (
-                  <span className="text-bullish">목표 {formatUsd(plan.target_price)}</span>
+                  <span className="text-bullish">목표 {formatPrice(plan.target_price, currencyOfSymbol(analysis.symbol))}</span>
                 )}
                 {plan.stop_loss != null && (
-                  <span className="text-bearish">손절 {formatUsd(plan.stop_loss)}</span>
+                  <span className="text-bearish">손절 {formatPrice(plan.stop_loss, currencyOfSymbol(analysis.symbol))}</span>
                 )}
                 {plan.position_size_percent != null && (
                   <span>비중 {plan.position_size_percent}%</span>

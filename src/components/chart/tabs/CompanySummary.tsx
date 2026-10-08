@@ -4,7 +4,7 @@ import { useFundamentals, usePeers } from '../../../hooks/useCompany';
 import { Skeleton, SkeletonCards } from '../../common/SkeletonLoader';
 import FinancialStatements from '../../company/FinancialStatements';
 import SectorComparison from '../../company/SectorComparison';
-import { formatCompactMoney } from '../../../utils/formatters';
+import { formatCompactMoney, formatPrice } from '../../../utils/formatters';
 import { currencyOfSymbol, isKrSymbol } from '../../../utils/market';
 import { industryKo, sectorKo } from '../../../data/sectors';
 import StockName from '../../common/StockName';
@@ -120,7 +120,7 @@ export default function CompanySummary({
   const calcPbr = valuation.pbr == null && profile.marketCap && latestEquity ? profile.marketCap / (latestEquity['Stockholders Equity'] as number) : null;
   const NO_VALUE = 'yfinance 가 이 종목 값을 주지 않습니다(국내 종목은 대개 비어 있다).';
   /** 52주 고/저 — 통화 규칙(원화 소수점 없음) */
-  const px = (v: number) => (currencyOfSymbol(symbol) === 'KRW' ? Math.round(v).toLocaleString('ko-KR') : v.toFixed(2));
+  const px = (v: number) => formatPrice(v, currencyOfSymbol(symbol));
 
   return (
     <div className="flex h-full flex-col">

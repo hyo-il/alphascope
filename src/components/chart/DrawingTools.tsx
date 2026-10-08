@@ -104,7 +104,8 @@ export default function DrawingTools({
 
       <span className="mx-0.5 h-5 w-px bg-border" />
 
-      <Button variant="secondary" size="sm"
+      {/* 도구줄의 글자 버튼은 「초기화」 와 같은 모양(ghost · 좁은 여백) — 1280 에서 도구줄이 한 줄에 들어가야 빠른주문이 잘리지 않는다 (v2.41.0 K) */}
+      <Button variant="ghost" size="sm" className="!px-2"
         onClick={onClearAll}
         disabled={!hasDrawings}
         title="그린 것 모두 삭제">

@@ -5,7 +5,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { SkeletonList } from '../common/SkeletonLoader';
 import { analysisModeLabel } from '../../types/analysis';
 import type { Timeframe } from '../../types/toss';
-import { formatUsd } from '../../utils/formatters';
+import { formatPrice } from '../../utils/formatters';
+import { currencyOfSymbol } from '../../utils/market';
 import { modal, toast } from '../../store/uiStore';
 
 interface Props {
@@ -214,7 +215,7 @@ export default function AnalysisHistory({
         <Button variant="primary" size="md"
           onClick={() => void handleSave()}
           disabled={!draft.trim()}>
-          저장 (현재가 {formatUsd(currentPrice)})
+          저장 (현재가 {formatPrice(currentPrice, currencyOfSymbol(symbol))})
         </Button>
       </div>
 
@@ -258,7 +259,7 @@ export default function AnalysisHistory({
                     신뢰도 {CONFIDENCES.find((c) => c.value === record.confidence)?.label ?? '—'}
                   </span>
                   <span className="text-text-muted">
-                    분석 시점 {formatUsd(record.price_at_analysis)}
+                    분석 시점 {formatPrice(record.price_at_analysis, currencyOfSymbol(record.symbol))}
                     {record.symbol === symbol && priceChange != null && (
                       <span className={priceChange >= 0 ? ' text-bullish' : ' text-bearish'}>
                         {' '}

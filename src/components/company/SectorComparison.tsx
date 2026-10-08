@@ -6,6 +6,7 @@ import { sectorKo } from '../../data/sectors';
 import { PEER_MAX } from '../../data/peerPairs';
 import StockName from '../common/StockName';
 import { InfoTip, Segmented } from '../ui';
+import { useStockNames } from '../../hooks/useStockNames';
 
 interface Props {
   symbol: string;
@@ -42,6 +43,8 @@ const BASIS_LABEL: Record<NonNullable<PeerSummary['basis']>, string> = {
  * 국내 종목 이름은 카탈로그 한글 이름(`StockName`).
  */
 export default function SectorComparison({ symbol, sector, peers, loading, error }: Props) {
+  // 국내 종목 한글 이름을 받아 둔다 — 받으면 다시 그린다(관심 목록에 없는 LG전자 등이 티커로만 보였다)
+  useStockNames((peers ?? []).map((p) => p.symbol).filter(isKrSymbol));
   const [money, setMoney] = useState<Money>('KRW');
   const [fx, setFx] = useState<{ rate: number; at: number } | null>(null);
   const [fxError, setFxError] = useState<string | null>(null);

@@ -2,7 +2,8 @@ import Select from '../ui/Select';
 import Button from '../ui/Button';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GeminiAnalysis } from '../../types/gemini';
-import { formatUsd } from '../../utils/formatters';
+import { formatPrice } from '../../utils/formatters';
+import { currencyOfSymbol } from '../../utils/market';
 import { modal, toast } from '../../store/uiStore';
 import AISourceBadge from './AISourceBadge';
 import StockName from '../common/StockName';
@@ -388,7 +389,7 @@ function ClaudeCard({
 
       {record.price_at_analysis > 0 && (
         <p className="mt-1 text-xs text-text-muted">
-          분석 시점 {formatUsd(record.price_at_analysis)}
+          분석 시점 {formatPrice(record.price_at_analysis, currencyOfSymbol(record.symbol))}
           {change != null && (
             <span className={change >= 0 ? 'text-bullish' : 'text-bearish'}>
               {' '}
