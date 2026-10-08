@@ -43,7 +43,7 @@ export default function DatePicker({
         <IconButton icon={ChevronRight} label="다음 달" size="sm" onClick={() => move(1)} />
         <IconButton icon={ChevronsRight} label="1년 뒤" size="sm" onClick={() => move(12)} />
       </div>
-      <div className="grid grid-cols-7 gap-0.5 text-center text-[13px]">
+      <div className="grid grid-cols-7 gap-0.5 text-center text-caption">
         {WEEKDAYS.map((w) => (
           <span key={w} className="py-1 text-text-muted">
             {w}

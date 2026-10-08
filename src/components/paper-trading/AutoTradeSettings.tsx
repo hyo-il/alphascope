@@ -106,7 +106,7 @@ export default function AutoTradeSettings({
   return (
     <Dialog
       title="자동매매 설정"
-      titleAside={<span className="rounded bg-warning/15 px-2 py-0.5 text-[13px] text-warning">모의 — 실제 주문은 나가지 않습니다</span>}
+      titleAside={<span className="rounded bg-warning/15 px-2 py-0.5 text-caption text-warning">모의 — 실제 주문은 나가지 않습니다</span>}
       onClose={onClose}
       size="lg"
       z={90}
@@ -172,7 +172,7 @@ export default function AutoTradeSettings({
                       />
                       이동평균 교차 사용
                     </label>
-                    <p className="-mt-1 text-[13px] text-text-muted">짧은 평균선이 긴 평균선을 넘으면 매수, 아래로 내려가면 매도합니다.</p>
+                    <p className="-mt-1 text-caption text-text-muted">짧은 평균선이 긴 평균선을 넘으면 매수, 아래로 내려가면 매도합니다.</p>
                     <Row label="단기 이동평균">
                       <Segmented
                         label="단기 이동평균"
@@ -181,10 +181,10 @@ export default function AutoTradeSettings({
                         onChange={(v) => patch({ rule: { ...draft.rule, maShort: Number(v) } })}
                         options={ENGINE_MA_PERIODS.map((p) => ({ value: String(p), label: `${p}일` }))}
                       />
-                      <span className="text-[13px] text-text-muted">최근 며칠의 평균 가격 — 작을수록 빨리 반응합니다</span>
+                      <span className="text-caption text-text-muted">최근 며칠의 평균 가격 — 작을수록 빨리 반응합니다</span>
                     </Row>
                     {!ENGINE_MA_PERIODS.includes(draft.rule.maShort as (typeof ENGINE_MA_PERIODS)[number]) && (
-                      <p className="text-[13px] text-warning">
+                      <p className="text-caption text-warning">
                         지금 저장값 {draft.rule.maShort}일 → {nearestEngineMa(draft.rule.maShort)}일로 계산 중입니다. 저장하면 {nearestEngineMa(draft.rule.maShort)}일로 바뀝니다.
                       </p>
                     )}
@@ -196,10 +196,10 @@ export default function AutoTradeSettings({
                         onChange={(v) => patch({ rule: { ...draft.rule, maLong: Number(v) } })}
                         options={ENGINE_MA_PERIODS.map((p) => ({ value: String(p), label: `${p}일` }))}
                       />
-                      <span className="text-[13px] text-text-muted">더 긴 기간의 평균 — 큰 흐름의 기준선입니다</span>
+                      <span className="text-caption text-text-muted">더 긴 기간의 평균 — 큰 흐름의 기준선입니다</span>
                     </Row>
                     {!ENGINE_MA_PERIODS.includes(draft.rule.maLong as (typeof ENGINE_MA_PERIODS)[number]) && (
-                      <p className="text-[13px] text-warning">
+                      <p className="text-caption text-warning">
                         지금 저장값 {draft.rule.maLong}일 → {nearestEngineMa(draft.rule.maLong)}일로 계산 중입니다. 저장하면 {nearestEngineMa(draft.rule.maLong)}일로 바뀝니다.
                       </p>
                     )}
@@ -211,7 +211,7 @@ export default function AutoTradeSettings({
                       />
                       RSI 사용
                     </label>
-                    <p className="-mt-1 text-[13px] text-text-muted">{RSI_HELP}</p>
+                    <p className="-mt-1 text-caption text-text-muted">{RSI_HELP}</p>
                     <Row label="RSI 매수 기준 (이 값 이하에서 반등, 50 이하)">
                       <input
                         type="number" min={5} max={50}
@@ -219,7 +219,7 @@ export default function AutoTradeSettings({
                         onChange={(e) => patch({ rule: { ...draft.rule, rsiBuyBelow: Number(e.target.value) } })}
                         className={FIELD}
                       />
-                      <span className="text-[13px] text-text-muted">낮출수록 더 많이 떨어진 뒤에만 매수합니다(기회는 줄어듭니다)</span>
+                      <span className="text-caption text-text-muted">낮출수록 더 많이 떨어진 뒤에만 매수합니다(기회는 줄어듭니다)</span>
                     </Row>
                     <Row label="RSI 매도 기준 (이 값 이상이면 매도)">
                       <input
@@ -228,12 +228,12 @@ export default function AutoTradeSettings({
                         onChange={(e) => patch({ rule: { ...draft.rule, rsiSellAbove: Number(e.target.value) } })}
                         className={FIELD}
                       />
-                      <span className="text-[13px] text-text-muted">높일수록 더 오래 들고 갑니다</span>
+                      <span className="text-caption text-text-muted">높일수록 더 오래 들고 갑니다</span>
                     </Row>
                     {!draft.rule.useMaCross && !draft.rule.useRsi && (
-                      <p className="text-[13px] text-warning"><WarnIcon />둘 다 끄면 매수 신호가 나지 않습니다(손절·트레일링만 동작).</p>
+                      <p className="text-caption text-warning"><WarnIcon />둘 다 끄면 매수 신호가 나지 않습니다(손절·트레일링만 동작).</p>
                     )}
-                    <p className="text-[13px] leading-relaxed text-text-muted">
+                    <p className="text-caption leading-relaxed text-text-muted">
                       지표 엔진이 주는 이동평균은 5·20·60·120 입니다. 다른 값을 넣으면 가장 가까운
                       기간으로 맞추고, 실제로 쓴 기간을 거래 사유에 적습니다. 판단은 전날 마감한 일봉 기준입니다.
                     </p>
@@ -257,7 +257,7 @@ export default function AutoTradeSettings({
                   {preset.label}
                 </button>
               ))}
-              <span className="self-center text-[13px] text-text-muted">
+              <span className="self-center text-caption text-text-muted">
                 {PRESETS.find((p) => p.id === activePreset)?.hint ?? '직접 설정한 값'}
               </span>
             </div>
@@ -358,11 +358,11 @@ export default function AutoTradeSettings({
                 onChange={(e) => patch({ hardStopLossPercent: Number(e.target.value) })}
                 className={FIELD}
               />
-              <span className="text-[13px] text-text-muted">
+              <span className="text-caption text-text-muted">
                 매수가보다 {draft.hardStopLossPercent}% 내려가면 전량 매도
               </span>
             </Row>
-            <p className="text-[13px] leading-relaxed text-text-muted">
+            <p className="text-caption leading-relaxed text-text-muted">
               분석 주기와 무관하게 <span className="text-text-secondary">1분마다</span> 검사하는
               안전망입니다 — 급락은 다음 분석을 기다려 주지 않습니다.
             </p>
@@ -384,7 +384,7 @@ export default function AutoTradeSettings({
                 onChange={(e) => patch({ takeProfitPercent: Number(e.target.value) })}
                 className={`${FIELD} disabled:opacity-40`}
               />
-              <span className="min-w-0 text-[13px] text-text-muted">
+              <span className="min-w-0 text-caption text-text-muted">
                 매수가보다 {draft.takeProfitPercent}% 오르면 모두 매도한다. 끄면 오르는 동안 계속 들고 간다(지금까지의 방식).
               </span>
             </Row>
@@ -414,7 +414,7 @@ export default function AutoTradeSettings({
               </Row>
             )}
 
-            <p className="rounded-lg bg-bg-tertiary/40 px-3 py-2 text-[13px] leading-relaxed text-text-muted">
+            <p className="rounded-lg bg-bg-tertiary/40 px-3 py-2 text-caption leading-relaxed text-text-muted">
               <span className="text-text-secondary">익절은 기본 꺼짐입니다.</span> 끄면 추세가 살아
               있는 동안 계속 들고 가도록 {draft.mode === 'ai' ? 'AI 가 매 주기 보유 종목을 다시 평가해' : '데드크로스·RSI 과열 규칙으로'}{' '}
               매도할 때를 정합니다.
@@ -434,7 +434,7 @@ export default function AutoTradeSettings({
                 onChange={(e) => patch({ earningsBlackoutDays: Number(e.target.value) })}
                 className={FIELD}
               />
-              <span className="text-[13px] text-text-muted">
+              <span className="text-caption text-text-muted">
                 {draft.earningsBlackoutDays > 0
                   ? `실적 발표 ${draft.earningsBlackoutDays} 거래일 전부터 발표일까지 새로 매수하지 않습니다`
                   : '끔 — 실적 발표와 상관없이 매수합니다'}
@@ -447,13 +447,13 @@ export default function AutoTradeSettings({
                 onChange={(e) => patch({ dailyLossLimitPercent: Number(e.target.value) })}
                 className={FIELD}
               />
-              <span className="text-[13px] text-text-muted">
+              <span className="text-caption text-text-muted">
                 {draft.dailyLossLimitPercent > 0
                   ? `하루 동안 계좌 평가액이 ${draft.dailyLossLimitPercent}% 넘게 줄면 그날은 새로 매수하지 않습니다 (보유 종목 손절·매도는 계속)`
                   : '끔 (0) — 하루 손실과 상관없이 매수합니다'}
               </span>
             </Row>
-            <p className="text-[13px] leading-relaxed text-text-muted">
+            <p className="text-caption leading-relaxed text-text-muted">
               실적일은 매일 한 번 받아 둔 달력(yfinance)을 봅니다. 실적일을 모르는 종목은 막지 않고 거래 사유에
               「실적일 미확인」 을 남깁니다. 하루는 미국 종목이면 미국 거래일 기준이고, 다음 거래일이 되면 자동으로 풀립니다.
             </p>
@@ -461,7 +461,7 @@ export default function AutoTradeSettings({
         </div>
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">
-          <span className="min-w-0 text-[13px] text-text-muted">
+          <span className="min-w-0 text-caption text-text-muted">
             값의 허용 범위는 저장할 때 서버가 다시 한 번 조입니다.
           </span>
           <button

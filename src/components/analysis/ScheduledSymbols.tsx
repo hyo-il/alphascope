@@ -29,7 +29,7 @@ function Summary({ status }: { status: ScheduledStatus }) {
         <p className="text-text-secondary">
           마지막 {RUN_LABEL[last.trigger] ?? '정기 실행'} {time(last.finishedAt ?? last.startedAt)} (기준일{' '}
           {last.baseDate}) — 완료 {last.done.length}
-          {last.failed.length > 0 && <span className="text-bearish"> · 실패 {last.failed.length}</span>}
+          {last.failed.length > 0 && <span className="text-danger"> · 실패 {last.failed.length}</span>}
           {last.rateLimited && (
             <span className="text-warning"> · 무료 한도 초과로 {last.skipped.length}종목 중단</span>
           )}
@@ -43,7 +43,7 @@ function Summary({ status }: { status: ScheduledStatus }) {
         </p>
       )}
       {last && last.failed.length > 0 && (
-        <p className="truncate text-bearish" title={last.failed.map((f) => `${f.symbol}: ${f.error}`).join('\n')}>
+        <p className="truncate text-danger" title={last.failed.map((f) => `${f.symbol}: ${f.error}`).join('\n')}>
           실패: {last.failed.map((f) => `${f.symbol}(${f.error})`).join(' · ')}
         </p>
       )}
@@ -56,8 +56,8 @@ export default function ScheduledSymbols() {
   const [editing, setEditing] = useState(false);
   const names = useStockNames(status?.symbols ?? []);
 
-  if (error && !status) return <p className="text-[13px] text-bearish">불러오지 못했습니다: {error}</p>;
-  if (!status) return <p className="text-[13px] text-text-muted">불러오는 중…</p>;
+  if (error && !status) return <p className="text-caption text-danger">불러오지 못했습니다: {error}</p>;
+  if (!status) return <p className="text-caption text-text-muted">불러오는 중…</p>;
 
   const n = status.symbols.length;
 
@@ -78,7 +78,7 @@ export default function ScheduledSymbols() {
   };
 
   return (
-    <div className="space-y-1.5 text-[13px] leading-relaxed">
+    <div className="space-y-1.5 text-caption leading-relaxed">
       <div className="flex flex-wrap items-baseline gap-x-2">
         <span className="text-text-primary">
           {n ? (
@@ -168,7 +168,7 @@ function ScheduledEditor({
         </>
       }
     >
-      <p className="text-[13px] leading-relaxed text-text-secondary">
+      <p className="text-caption leading-relaxed text-text-secondary">
         미국 장 마감 30분 뒤 첫 확인(약 10분 간격)에 하루 1번 분석합니다. 휴장일은 건너뜁니다. 국내 종목도 같은 시각에
         마지막 종가 기준으로 분석합니다. 결과는 「AI 분석 히스토리」 의 「지정 종목」 으로 쌓이고, <b>주문은 내지 않습니다.</b>
       </p>
@@ -180,7 +180,7 @@ function ScheduledEditor({
         dialogTitle="지정 종목 고르기"
         emptyText="[종목 고르기] 에서 하루 1번 분석할 종목을 고르세요."
       />
-      <p className="text-[13px] text-text-muted">
+      <p className="text-caption text-text-muted">
         {draft.length}/{status.max}종목 · 하루 최대 약 <b className="text-text-secondary">{draft.length * 5}</b>호출
         (1종목 = 에이전트 4 + 의장 1)
       </p>

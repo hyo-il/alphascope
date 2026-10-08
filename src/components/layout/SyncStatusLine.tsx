@@ -37,8 +37,8 @@ export default function SyncStatusLine() {
           : `서버 동기화: 저장됨 · r${getRevision()}${time ? ` · ${time}` : ''}`;
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border px-4 py-1.5 text-[13px]">
-      <span className={state === 'failed' ? 'text-bearish' : 'text-text-muted'}>{label}</span>
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border px-4 py-1.5 text-caption">
+      <span className={state === 'failed' ? 'text-danger' : 'text-text-muted'}>{label}</span>
 
       {(state === 'failed' || state === 'offline') && (
         <button
@@ -48,7 +48,7 @@ export default function SyncStatusLine() {
             setBusy(true);
             void retrySave().finally(() => setBusy(false));
           }}
-          className="rounded border border-current px-1.5 py-0.5 text-bearish transition-opacity hover:opacity-70 disabled:opacity-40"
+          className="rounded border border-current px-1.5 py-0.5 text-danger transition-opacity hover:opacity-70 disabled:opacity-40"
         >
           다시 시도
         </button>

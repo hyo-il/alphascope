@@ -55,7 +55,7 @@ export default function PortfolioView({ onSelectSymbol }: Props) {
           account === 'paper' ? (
             // 계좌 화면의 모의 안내는 여기 하나(v2.41.1) — 긴 설명은 정보 아이콘에
             <span className="flex items-center gap-1">
-              <span className="rounded bg-warning/15 px-2 py-0.5 text-[13px] text-warning">모의 — 실제 주문은 나가지 않습니다</span>
+              <span className="rounded bg-warning/15 px-2 py-0.5 text-caption text-warning">모의 — 실제 주문은 나가지 않습니다</span>
               <InfoTip label="모의투자 안내">
                 모의투자 — 실제 거래가 아닙니다. 시세는 실시간이지만 주문·체결·잔고는 앱 안의 가상 자금으로만 처리되며, 증권사에 주문이 전송되지 않습니다.
               </InfoTip>

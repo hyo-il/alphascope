@@ -37,18 +37,18 @@ export default function RuleChoiceCards({
               {on && <Check {...ICON_SM} aria-hidden />}
               {c.title}
             </p>
-            <p className="mt-1 text-[13px] leading-snug text-text-secondary">
+            <p className="mt-1 text-caption leading-snug text-text-secondary">
               <b className="text-text-primary">매수</b>: {c.buy}
             </p>
-            <p className="text-[13px] leading-snug text-text-secondary">
+            <p className="text-caption leading-snug text-text-secondary">
               <b className="text-text-primary">매도</b>: {c.sell}
             </p>
             {showWhy && (
-              <p className="mt-1 text-[13px] leading-snug text-text-secondary">
+              <p className="mt-1 text-caption leading-snug text-text-secondary">
                 <b className="text-text-primary">왜 쓰나</b>: {c.why}
               </p>
             )}
-            <p className="mt-1 text-[13px] leading-snug text-warning">
+            <p className="mt-1 text-caption leading-snug text-warning">
               <b>약점</b>: {c.weak}
             </p>
           </button>

@@ -82,22 +82,22 @@ export default function RuleChoices({
     <div className="space-y-2">
       <RuleChoiceCards rule={rule} onPick={(c) => onChange({ ...rule, ...c.rule })} />
       {!active && (
-        <p className="text-[13px] text-text-secondary">
+        <p className="text-caption text-text-secondary">
           <Badge>직접 설정</Badge> 아래 「고급 설정」 에서 고친 값입니다.
         </p>
       )}
-      <p className="text-[13px] text-text-muted">
+      <p className="text-caption text-text-muted">
         세 가지 값은 앱의 출발값입니다(근거 검증 전). 손절(−{hardStopLossPercent}%)은 어느 방법이든 따로 지켜집니다.
       </p>
       {/* ⚠️ 고정 안내 — 지우지 않는다 */}
-      <p className="rounded-md bg-warning/10 px-2.5 py-1.5 text-[13px] text-warning">
+      <p className="rounded-md bg-warning/10 px-2.5 py-1.5 text-caption text-warning">
         어느 방법도 이 앱에서 돈을 번다고 확인된 적은 없습니다. 「실험실 &gt; 백테스트」 에서 과거에 시험해 보세요.
       </p>
 
       {/* 지금 조건 요약 (v2.38.0) */}
       <div className="space-y-2 rounded-lg bg-bg-tertiary/40 p-3">
         <p className="text-xs font-semibold text-text-primary">지금 조건</p>
-        <dl className="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-1 text-[13px]">
+        <dl className="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-1 text-caption">
           {rows.map(([k, v]) => (
             <div key={k} className="contents">
               <dt className="text-text-muted">{k}</dt>
@@ -109,7 +109,7 @@ export default function RuleChoices({
           <Button size="sm" onClick={tryBacktest}>
             백테스트에서 시험하기
           </Button>
-          <span className="min-w-0 text-[13px] text-text-muted">
+          <span className="min-w-0 text-caption text-text-muted">
             대상 종목 {symbols.length}개와 지금 조건을 채워 「실험실 &gt; 백테스트」 를 엽니다.{leaveHint ? ` ${leaveHint}` : ''}
           </span>
         </div>

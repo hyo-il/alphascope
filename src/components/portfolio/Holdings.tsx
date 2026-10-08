@@ -24,7 +24,7 @@ export default function Holdings({ onSelectSymbol }: Props) {
   if (error) {
     return (
       <div className="p-4">
-        <p className="text-sm text-bearish">보유 주식을 불러오지 못했습니다</p>
+        <p className="text-sm text-danger">보유 주식을 불러오지 못했습니다</p>
         <p className="mt-1 text-xs text-text-secondary">{error}</p>
       </div>
     );
@@ -66,7 +66,7 @@ export default function Holdings({ onSelectSymbol }: Props) {
                       {holding.name || holding.symbol}
                     </span>
                     {holding.name && (
-                      <span className="ml-1.5 text-[13px] text-text-secondary">{holding.symbol}</span>
+                      <span className="ml-1.5 text-caption text-text-secondary">{holding.symbol}</span>
                     )}
                   </td>
                   <td className="py-1.5 px-2 text-right">{holding.quantity}</td>

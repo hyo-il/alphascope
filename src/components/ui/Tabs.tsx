@@ -46,7 +46,7 @@ export default function Tabs<T extends string>({
             }`}
           >
             {t.label}
-            {t.badge != null && <span className="text-[13px] font-normal text-text-muted">{t.badge}</span>}
+            {t.badge != null && <span className="text-caption font-normal text-text-muted">{t.badge}</span>}
           </button>
         );
       })}

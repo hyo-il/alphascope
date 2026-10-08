@@ -63,7 +63,7 @@ function now(): string {
 /** 단계 번호 배지 */
 function StepBadge({ n }: { n: number }) {
   return (
-    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-bg-elevated text-[13px] font-semibold text-text-primary">
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-bg-elevated text-caption font-semibold text-text-primary">
       {n}
     </span>
   );
@@ -72,13 +72,13 @@ function StepBadge({ n }: { n: number }) {
 function StatusLabel({ state }: { state: StepState }) {
   if (state.kind === 'done') {
     return (
-      <span className="text-[13px] text-bullish">
+      <span className="text-caption text-bullish">
         {state.label ?? '복사 완료'} <span className="text-text-muted">({state.at})</span>
       </span>
     );
   }
   if (state.kind === 'failed') {
-    return <span className="text-[13px] text-bearish">{state.reason}</span>;
+    return <span className="text-caption text-bearish">{state.reason}</span>;
   }
   return null;
 }
@@ -175,7 +175,7 @@ export default function CopySteps({
       <li className="flex min-w-0 flex-col gap-1.5 rounded-md bg-bg-tertiary/50 p-2.5" title={description}>
         <div className="flex items-center gap-2">
           <StepBadge n={n} />
-          <p className="text-[13px] font-medium text-text-secondary">{SHORT_TITLE[n]}</p>
+          <p className="text-caption font-medium text-text-secondary">{SHORT_TITLE[n]}</p>
         </div>
         {children}
       </li>
@@ -183,7 +183,7 @@ export default function CopySteps({
       <li className="rounded-md bg-bg-tertiary/50 p-3">
         <div className="mb-2 flex items-start gap-2">
           <StepBadge n={n} />
-          <p className="text-[13px] leading-relaxed text-text-secondary">{description}</p>
+          <p className="text-caption leading-relaxed text-text-secondary">{description}</p>
         </div>
         {children}
       </li>
@@ -201,7 +201,7 @@ export default function CopySteps({
       {!hideIntro && <h3 className="text-xs font-medium text-text-secondary">Claude에 보내기</h3>}
 
       {includeImage && !hideIntro && (
-        <p className="text-[13px] leading-relaxed text-text-muted">
+        <p className="text-caption leading-relaxed text-text-muted">
           Claude 대화창을 열어 둔 채 ① → ② 를 차례로 <b className="text-text-secondary">복사하고 바로 붙여넣으세요</b>
           (클립보드에는 마지막에 복사한 것 하나만 남습니다).
         </p>
@@ -238,7 +238,7 @@ export default function CopySteps({
                           PNG로 저장해서 첨부하기
                         </button>
                         <StatusLabel state={imageStep} />
-                        <p className="text-[13px] leading-relaxed text-text-muted">
+                        <p className="text-caption leading-relaxed text-text-muted">
                           {horizontal ? '이미지 복사가 안 됩니다(HTTP) — PNG 로 저장해 끌어 넣기' : INSECURE_NOTE}
                         </p>
                       </div>
@@ -258,11 +258,11 @@ export default function CopySteps({
                             <button
                               type="button"
                               onClick={handleDownload}
-                              className="w-full rounded-md bg-bg-tertiary px-2 py-1.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+                              className="w-full rounded-md bg-bg-tertiary px-2 py-1.5 text-caption text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
                             >
                               PNG로 저장해서 첨부하기
                             </button>
-                            <p className="text-[13px] leading-relaxed text-text-muted">
+                            <p className="text-caption leading-relaxed text-text-muted">
                               저장한 파일을 Claude 대화창에 드래그해 넣으세요.
                             </p>
                           </>
@@ -284,7 +284,7 @@ export default function CopySteps({
                       type="button"
                       onClick={preview.onRecapture}
                       disabled={capturePending}
-                      className="text-[13px] text-text-muted underline transition-colors hover:text-text-primary disabled:opacity-50"
+                      className="text-caption text-text-muted underline transition-colors hover:text-text-primary disabled:opacity-50"
                     >
                       다시 캡처
                     </button>
@@ -301,7 +301,7 @@ export default function CopySteps({
                     PNG로 저장해서 첨부하기
                   </button>
                   <StatusLabel state={imageStep} />
-                  <p className="text-[13px] leading-relaxed text-text-muted">
+                  <p className="text-caption leading-relaxed text-text-muted">
                     {horizontal ? '이미지 복사가 안 됩니다(HTTP) — PNG 로 저장해 끌어 넣기' : INSECURE_NOTE}
                   </p>
                 </div>
@@ -321,11 +321,11 @@ export default function CopySteps({
                       <button
                         type="button"
                         onClick={handleDownload}
-                        className="w-full rounded-md bg-bg-tertiary px-2 py-1.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+                        className="w-full rounded-md bg-bg-tertiary px-2 py-1.5 text-caption text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
                       >
                         PNG로 저장해서 첨부하기
                       </button>
-                      <p className="text-[13px] leading-relaxed text-text-muted">
+                      <p className="text-caption leading-relaxed text-text-muted">
                         저장한 파일을 Claude 대화창에 드래그해 넣으세요.
                       </p>
                     </>
@@ -379,7 +379,7 @@ export default function CopySteps({
       </ol>
 
       {!tipHidden && includeImage && !hideIntro && (
-        <div className="rounded-lg bg-bg-tertiary/50 px-3 py-2 text-[13px] leading-relaxed text-text-muted">
+        <div className="rounded-lg bg-bg-tertiary/50 px-3 py-2 text-caption leading-relaxed text-text-muted">
           이미지와 프롬프트를 <b className="text-text-secondary">같은 대화</b>에 함께 보내면
           차트 패턴과 수치를 모두 분석합니다.
           <button

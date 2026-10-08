@@ -48,7 +48,7 @@ export default function ConditionCard({ strategy: s, onOpenSettings }: { strateg
       {/* 접힌 상태에도 한 줄 요약 — 판단 방식 · 손절 · 익절 · 트레일링 (v2.41.1, 처음 접힘 · 펼침은 기억하지 않는다) */}
       <div className="flex flex-wrap items-center gap-2">
         <p className="shrink-0 text-xs font-semibold text-text-primary">지금 조건</p>
-        <p className="min-w-0 text-[13px] text-text-secondary">
+        <p className="min-w-0 text-caption text-text-secondary">
           {rule ? `규칙형 · ${ruleMethodName(s.rule)}` : 'AI형'} ·{' '}
           <span className="font-medium text-text-primary">
             {safetyLine(s)} · {trailingLine(s)}
@@ -67,7 +67,7 @@ export default function ConditionCard({ strategy: s, onOpenSettings }: { strateg
         </span>
       </div>
       {open && (
-      <dl id={`condition-card-${s.accountId}`} className="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1 text-[13px]">
+      <dl id={`condition-card-${s.accountId}`} className="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1 text-caption">
         <Line label="판단 방식">{rule ? `규칙형 · ${ruleMethodName(s.rule)}` : 'AI형'}</Line>
         <Line label="매수 조건">{rule ? ruleBuySentence(s.rule) : aiBuySentence(s)}</Line>
         <Line label="매도 조건">{rule ? ruleSellSentence(s.rule) : aiSellSentence(s)}</Line>

@@ -24,7 +24,7 @@ export default function Changelog() {
   return (
     <div className="h-full overflow-y-auto p-6">
       <h2 className="mb-1 text-base font-semibold">업데이트 내역</h2>
-      <p className="mb-4 text-[13px] text-text-muted">
+      <p className="mb-4 text-caption text-text-muted">
         최신 버전이 맨 위입니다. 줄을 누르면 바뀐 내용이 펼쳐집니다.
       </p>
 
@@ -51,18 +51,18 @@ export default function Changelog() {
                 <span className="shrink-0 text-sm font-semibold text-text-primary">{entry.version}</span>
                 {/* 가장 최신 항목에만 — 무엇이 새로 들어왔는지 한눈에 */}
                 {index === 0 && (
-                  <span className="shrink-0 rounded bg-bg-tertiary px-1.5 py-0.5 text-[13px] font-semibold text-text-secondary">NEW</span>
+                  <span className="shrink-0 rounded bg-bg-tertiary px-1.5 py-0.5 text-caption font-semibold text-text-secondary">NEW</span>
                 )}
                 <span className="min-w-0 flex-1 text-xs text-text-primary">{entry.title}</span>
-                <time className="shrink-0 text-[13px] text-text-muted">{entry.date}</time>
+                <time className="shrink-0 text-caption text-text-muted">{entry.date}</time>
               </button>
 
               {isOpen && (
                 <div id={id} className="pb-4 pl-6">
-                  <p className="text-[13px] leading-relaxed text-text-secondary">{entry.description}</p>
+                  <p className="text-caption leading-relaxed text-text-secondary">{entry.description}</p>
                   <ul className="mt-2 space-y-1">
                     {entry.changes.map((change) => (
-                      <li key={change} className="flex gap-1.5 text-[13px] leading-relaxed text-text-secondary">
+                      <li key={change} className="flex gap-1.5 text-caption leading-relaxed text-text-secondary">
                         <span aria-hidden className="shrink-0 text-text-muted">
                           •
                         </span>
@@ -78,7 +78,7 @@ export default function Changelog() {
       </div>
 
       {/* 앱에 넣은 글꼴의 라이선스 고지 (v2.35.0) — 라이선스 원문은 빌드에 넣지 않았다(패키지 @fontsource-variable/noto-sans-kr 의 LICENSE) */}
-      <p className="mt-6 max-w-2xl border-t border-border pt-3 text-[13px] text-text-muted">
+      <p className="mt-6 max-w-2xl border-t border-border pt-3 text-caption text-text-muted">
         글꼴: Noto Sans KR (SIL Open Font License 1.1)
       </p>
     </div>

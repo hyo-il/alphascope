@@ -116,7 +116,7 @@ export default function IndicatorSummaryPanel({
           : '중단 부근';
 
   return (
-    <div className="p-3 text-[13px]">
+    <div className="p-3 text-caption">
       {(timeframe === '1w' || timeframe === '1M') && (
         <p className="mb-1.5 text-text-muted">
           {TIMEFRAME_LABEL[timeframe]} 기준 — 이동평균·RSI·MACD·거래량 비교가 모두 {TIMEFRAME_LABEL[timeframe]}으로 계산됩니다.
@@ -188,7 +188,7 @@ export default function IndicatorSummaryPanel({
         />
       </div>
 
-      <p className="mt-2 text-[13px] text-text-muted">
+      <p className="mt-2 text-caption text-text-muted">
         RSI · MACD · MA · 거래량은 이 화면에서 직접 계산합니다(추가 요청 없음). 볼린저 · ATR ·
         스토캐스틱은 차트에 켜 둔 지표의 엔진 계산값을 그대로 보여 줍니다.
       </p>

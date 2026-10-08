@@ -99,7 +99,7 @@ export default function HeatmapViewMenu({ top, onTopChange, sectors, off, onOffC
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[13px] transition-colors ${
+        className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-caption transition-colors ${
           open || onCount < sectors.length || (top !== null && top !== 50) || watchSize === 'sqrt'
             ? 'bg-bg-elevated text-text-primary'
             : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
@@ -111,7 +111,7 @@ export default function HeatmapViewMenu({ top, onTopChange, sectors, off, onOffC
         <div
           role="dialog"
           aria-label="지도 보기 설정"
-          className="absolute left-0 top-full z-20 mt-1 w-64 rounded-lg bg-bg-elevated p-2.5 text-[13px] shadow-xl"
+          className="absolute left-0 top-full z-20 mt-1 w-64 rounded-lg bg-bg-elevated p-2.5 text-caption shadow-xl"
         >
           {top !== null && (
             <fieldset className="mb-2.5">

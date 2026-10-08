@@ -80,7 +80,7 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
               type="button"
               onClick={() => setHorizon(h.id)}
               title={h.period}
-              className={`rounded border px-2 py-0.5 text-[13px] transition-colors ${
+              className={`rounded border px-2 py-0.5 text-caption transition-colors ${
                 horizon === h.id
                   ? 'border-transparent bg-bg-elevated font-medium text-text-primary'
                   : 'border-transparent bg-bg-tertiary text-text-secondary hover:text-text-primary'
@@ -91,7 +91,7 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
           ))}
         </div>
 
-        <span className="ml-auto text-[13px] text-text-muted">
+        <span className="ml-auto text-caption text-text-muted">
           {loading ? '요약 불러오는 중…' : `${prompt.length.toLocaleString('ko-KR')}자`}
         </span>
       </div>
@@ -101,7 +101,7 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
         onChange={(e) => setEdited(e.target.value)}
         spellCheck={false}
         rows={12}
-        className="w-full resize-y rounded border border-border bg-bg-tertiary p-2 font-mono text-[13px] leading-relaxed text-text-primary focus:border-accent focus:outline-none"
+        className="w-full resize-y rounded border border-border bg-bg-tertiary p-2 font-mono text-caption leading-relaxed text-text-primary focus:border-accent focus:outline-none"
       />
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -130,7 +130,7 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
           프롬프트 초기화
         </button>
 
-        <span className="text-[13px] text-warning"><WarnIcon />이 분석은 투자 조언이 아닙니다.</span>
+        <span className="text-caption text-warning"><WarnIcon />이 분석은 투자 조언이 아닙니다.</span>
       </div>
     </section>
   );

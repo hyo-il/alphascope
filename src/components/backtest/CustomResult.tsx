@@ -92,7 +92,7 @@ function SymbolTable({ result }: { result: BacktestConditionResult }) {
   }, [result.symbols, sort]);
   return (
     <div className="mt-2 max-h-[28rem] overflow-auto">
-      <table className="w-full text-[13px] tabular-nums [&_td+td]:pl-3 [&_th+th]:pl-3">
+      <table className="w-full text-caption tabular-nums [&_td+td]:pl-3 [&_th+th]:pl-3">
         <thead className="sticky top-0 whitespace-nowrap bg-bg-secondary text-text-muted">
           <tr className="border-b border-border/50">
             <th className="py-1.5 text-left font-normal">종목 · 분야</th>
@@ -179,7 +179,7 @@ export default function CustomResult({
   return (
     <div className="space-y-3">
       {weakOnes.length > 0 && (
-        <div role="note" className="flex gap-2 rounded-xl bg-warning/10 px-3 py-2 text-[13px] text-warning">
+        <div role="note" className="flex gap-2 rounded-xl bg-warning/10 px-3 py-2 text-caption text-warning">
           <WarnIcon />
           <div className="min-w-0 space-y-0.5">
             {weakOnes.length === 1 && !many ? (
@@ -214,9 +214,9 @@ export default function CustomResult({
         {/* 같은 기간 SPY 한 줄 (v2.41.0) — 비교 기준일 뿐, 판정·강조 없음. 옛 기록에는 없다 */}
         {report.spy &&
           ('error' in report.spy ? (
-            <p className="text-[13px] text-text-muted">{report.spy.error}</p>
+            <p className="text-caption text-text-muted">{report.spy.error}</p>
           ) : (
-            <p className="flex flex-wrap items-center gap-1 text-[13px] text-text-secondary">
+            <p className="flex flex-wrap items-center gap-1 text-caption text-text-secondary">
               <span>
                 같은 기간 SPY(미국 시장 전체) 그냥 들고 있기 <span className={tone(report.spy.hold)}>{pct(report.spy.hold)}</span> · {report.spy.from} ~ {report.spy.to}
               </span>
@@ -226,7 +226,7 @@ export default function CustomResult({
             </p>
           ))}
         <div className="overflow-x-auto">
-          <table className="w-full text-[13px] tabular-nums">
+          <table className="w-full text-caption tabular-nums">
             <thead className="whitespace-nowrap text-text-muted">
               <tr className="border-b border-border/50">
                 <th className="py-1.5 text-left font-normal">종목 {symbolsCount}개 평균</th>
@@ -334,14 +334,14 @@ export default function CustomResult({
           </table>
         </div>
         {/* ⚠️ 고정 문구 — 지우지 않는다 */}
-        <p className="text-[13px] text-text-muted">여러 조건을 바꿔 보며 가장 좋은 숫자를 고르면 우연에 속기 쉽습니다.</p>
+        <p className="text-caption text-text-muted">여러 조건을 바꿔 보며 가장 좋은 숫자를 고르면 우연에 속기 쉽습니다.</p>
       </Panel>
 
       {report.segments.length > 1 && (
         <Panel pad="sm">
           <SectionTitle aside="1년씩 · 종목 평균 · 기간 수익">구간별</SectionTitle>
           <div className="mt-2 overflow-x-auto">
-            <table className="w-full text-[13px] tabular-nums [&_td+td]:pl-3 [&_th+th]:pl-3">
+            <table className="w-full text-caption tabular-nums [&_td+td]:pl-3 [&_th+th]:pl-3">
               <thead className="whitespace-nowrap text-text-muted">
                 <tr className="border-b border-border/50">
                   <th className="py-1.5 text-left font-normal">구간</th>
@@ -389,11 +389,11 @@ export default function CustomResult({
         </SectionTitle>
         <SymbolTable key={picked.label} result={picked} />
         {report.excluded.length > 0 && (
-          <p className="mt-2 text-[13px] text-text-muted">
+          <p className="mt-2 text-caption text-text-muted">
             계산하지 못해 뺀 종목 {report.excluded.length}개: {report.excluded.map((e) => `${e.name ?? e.symbol}(${e.reason})`).join(' · ')}
           </p>
         )}
-        <p className="mt-1 text-[13px] text-text-muted">
+        <p className="mt-1 text-caption text-text-muted">
           미래 누설 검사: {report.leakCheck.symbol || '—'} {report.leakCheck.bars}봉 {report.leakCheck.ok ? '통과' : '실패'}
         </p>
       </Panel>
@@ -411,15 +411,15 @@ export default function CustomResult({
         >
           AI 설명
         </SectionTitle>
-        {!ex && gemini && !gemini.enabled && <p className="text-[13px] text-text-muted">AI 설명: {gemini.reason ?? 'Gemini 를 쓸 수 없습니다'}</p>}
+        {!ex && gemini && !gemini.enabled && <p className="text-caption text-text-muted">AI 설명: {gemini.reason ?? 'Gemini 를 쓸 수 없습니다'}</p>}
         {!ex && gemini?.enabled && (
-          <p className="text-[13px] text-text-muted">
+          <p className="text-caption text-text-muted">
             누르면 Gemini 를 1번 부릅니다(무료 한도를 자동매매와 함께 씁니다). {many ? '방법별 숫자만 보내고, 어느 방법이 가장 좋다고 고르지 않습니다. ' : ''}
             받은 설명은 이 히스토리에 함께 저장됩니다.
           </p>
         )}
         {ex && (
-          <div className="space-y-2 text-[13px] text-text-secondary">
+          <div className="space-y-2 text-caption text-text-secondary">
             {ex.summary.length > 0 && (
               <div>
                 <p className="text-text-muted">요약</p>

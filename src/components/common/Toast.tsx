@@ -11,7 +11,7 @@ const AUTO_DISMISS_MS = 3000;
  */
 const STYLE: Record<ToastType, { icon: typeof Info; color: string }> = {
   success: { icon: CircleCheck, color: 'text-bullish' },
-  error: { icon: CircleX, color: 'text-bearish' },
+  error: { icon: CircleX, color: 'text-danger' },
   warning: { icon: TriangleAlert, color: 'text-warning' },
   info: { icon: Info, color: 'text-text-secondary' },
 };
@@ -37,7 +37,7 @@ function Toast({ item }: { item: ToastItem }) {
       <div className="min-w-0 flex-1">
         <p className="text-xs font-medium text-text-primary">{item.message}</p>
         {item.detail && (
-          <p className="mt-0.5 text-[13px] leading-relaxed text-text-secondary">{item.detail}</p>
+          <p className="mt-0.5 text-caption leading-relaxed text-text-secondary">{item.detail}</p>
         )}
       </div>
       <button

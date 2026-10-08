@@ -54,12 +54,12 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
     <div className="space-y-3 p-3">
       {pending.length > 0 && (
         <section className="rounded-lg bg-warning/10 p-2.5">
-          <h4 className="mb-1.5 text-[13px] font-medium text-warning">
+          <h4 className="mb-1.5 text-caption font-medium text-warning">
             대기 중인 지정가 주문 {pending.length}건
           </h4>
           <ul className="space-y-1">
             {pending.map((o) => (
-              <li key={o.id} className="flex items-center gap-2 text-[13px] text-text-secondary">
+              <li key={o.id} className="flex items-center gap-2 text-caption text-text-secondary">
                 <span className={o.side === 'BUY' ? 'text-bearish' : 'text-bullish'}>
                   {o.side === 'BUY' ? '매수' : '매도'}
                 </span>
@@ -70,7 +70,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
                 <button
                   type="button"
                   onClick={() => void cancel(o.id)}
-                  className="ml-auto rounded bg-bg-tertiary px-2 py-0.5 text-text-muted transition-colors hover:bg-bg-elevated hover:text-bearish"
+                  className="ml-auto rounded bg-bg-tertiary px-2 py-0.5 text-text-muted transition-colors hover:bg-bg-elevated hover:text-danger"
                 >
                   취소
                 </button>
@@ -86,7 +86,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
             key={f.id}
             type="button"
             onClick={() => setFilter(f.id)}
-            className={`rounded px-2 py-1 text-[13px] transition-colors ${
+            className={`rounded px-2 py-1 text-caption transition-colors ${
               filter === f.id
                 ? 'bg-bg-elevated font-medium text-text-primary'
                 : 'text-text-secondary hover:bg-bg-tertiary'
@@ -95,7 +95,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
             {f.label}
           </button>
         ))}
-        <span className="ml-2 text-[13px] text-text-muted">{filtered.length}건</span>
+        <span className="ml-2 text-caption text-text-muted">{filtered.length}건</span>
       </div>
 
       {!filtered.length ? (
@@ -131,7 +131,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
                   </td>
                   <td className="px-3 py-2">
                     <span
-                      className={`rounded px-1.5 py-0.5 text-[13px] ${
+                      className={`rounded px-1.5 py-0.5 text-caption ${
                         t.side === 'BUY' ? 'bg-bearish/15 text-bearish' : 'bg-bullish/15 text-bullish'
                       }`}
                     >
@@ -161,7 +161,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
                   <td className="px-3 py-2 text-text-muted">
                     <span className="flex items-center gap-1.5">
                       {isAuto(t.reason) && (
-                        <span className="shrink-0 rounded bg-bg-tertiary px-1 py-0.5 text-[13px] text-text-secondary">
+                        <span className="shrink-0 rounded bg-bg-tertiary px-1 py-0.5 text-caption text-text-secondary">
                           자동
                         </span>
                       )}

@@ -58,7 +58,7 @@ export default function ChartAiPanel({
             key={item.id}
             type="button"
             onClick={() => setTab(item.id)}
-            className={`px-2.5 py-1 text-[13px] transition-colors ${
+            className={`px-2.5 py-1 text-caption transition-colors ${
               tab === item.id ? 'font-medium text-text-primary' : 'text-text-secondary hover:text-text-primary'
             }`}
           >
@@ -69,7 +69,7 @@ export default function ChartAiPanel({
         <button
           type="button"
           onClick={() => setPage('analysis', 'results')}
-          className="ml-auto px-2 py-1 text-[13px] text-text-muted transition-colors hover:text-accent"
+          className="ml-auto px-2 py-1 text-caption text-text-muted transition-colors hover:text-accent"
         >
           AI 분석 히스토리로 이동
         </button>
@@ -167,15 +167,15 @@ function SingleSymbolGemini({ symbol }: { symbol: string }) {
     }
   };
 
-  if (enabled === null) return <p className="p-3 text-[13px] text-text-muted">확인 중…</p>;
+  if (enabled === null) return <p className="p-3 text-caption text-text-muted">확인 중…</p>;
 
   if (!enabled && offReason?.includes('GEMINI_ENABLED')) {
-    return <p className="p-3 text-[13px] text-text-muted">{offReason}. 수동 분석(Claude)은 그대로 씁니다.</p>;
+    return <p className="p-3 text-caption text-text-muted">{offReason}. 수동 분석(Claude)은 그대로 씁니다.</p>;
   }
 
   if (!enabled) {
     return (
-      <p className="p-3 text-[13px] text-text-muted">
+      <p className="p-3 text-caption text-text-muted">
         Gemini 키가 없어 Gemini 분석을 쓸 수 없습니다. <code>.env</code> 에{' '}
         <code>GEMINI_API_KEY</code> 를 넣으면 이 버튼이 활성화됩니다. 수동 분석(Claude)은 키 없이
         그대로 씁니다.
@@ -184,7 +184,7 @@ function SingleSymbolGemini({ symbol }: { symbol: string }) {
   }
 
   return (
-    <div className="space-y-2 p-3 text-[13px]">
+    <div className="space-y-2 p-3 text-caption">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-text-secondary">
           이 종목 Gemini 분석{model && <span className="ml-1 text-text-muted">({model})</span>}

@@ -806,7 +806,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
             }}
           >
             <div
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded px-2 py-1 text-center text-[13px] font-medium tabular-nums"
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded px-2 py-1 text-center text-caption font-medium tabular-nums"
               style={{
                 backgroundColor: COLORS.tooltipBg,
                 color: measureInfo.isUp ? COLORS.bullish : COLORS.bearish,
@@ -835,7 +835,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
               setSelectedAnchor(null);
             }}
             title="이 드로잉 삭제 (Delete)"
-            className="absolute z-20 flex items-center gap-1 rounded-full bg-bearish px-2.5 py-1 text-[13px] font-semibold text-white shadow-lg transition-transform hover:scale-105"
+            className="absolute z-20 flex items-center gap-1 rounded-full bg-danger px-2.5 py-1 text-caption font-semibold text-white shadow-lg transition-transform hover:scale-105"
             style={{ left: selectedAnchor.x - 24, top: selectedAnchor.y - 30 }}
           >
             삭제
@@ -855,7 +855,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
                 setMenu(null);
                 setSelectedAnchor(null);
               }}
-              className="block w-full px-3 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-bearish"
+              className="block w-full px-3 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-danger"
             >
               삭제
             </button>

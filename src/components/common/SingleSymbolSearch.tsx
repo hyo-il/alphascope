@@ -29,7 +29,7 @@ export default function SingleSymbolSearch({
 }) {
   return (
     <div className="space-y-3">
-      <p className="text-[13px] text-text-secondary">{intro}</p>
+      <p className="text-caption text-text-secondary">{intro}</p>
       <div className="flex items-center gap-2">
         <div className="w-96 max-w-full">
           <SymbolSearch symbol={queried ?? ''} onSubmit={onSubmit} />
@@ -40,7 +40,7 @@ export default function SingleSymbolSearch({
       {!queried && !loading && <p className="rounded-xl bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">{emptyText}</p>}
       {/* 받기 전에는 결과 자리를 미리 그린다 — 「없음」 을 먼저 그리지 않는다(로딩 표시 규칙) */}
       {loading && queried && <SkeletonCards count={1} />}
-      {error && !loading && <p className="rounded-lg bg-bearish/10 px-3 py-2 text-[13px] text-bearish">{error}</p>}
+      {error && !loading && <p className="rounded-lg bg-danger/10 px-3 py-2 text-caption text-danger">{error}</p>}
       {!loading && children}
       {footer}
     </div>

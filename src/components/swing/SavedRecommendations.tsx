@@ -47,7 +47,7 @@ export default function SavedRecommendations({
       <h3 className="text-xs font-semibold text-text-secondary">
         {analyzedAt ? `${new Date(analyzedAt).toLocaleString('ko-KR')}에 점검한 결과` : '마지막으로 점검한 결과'} · {records.length}개
       </h3>
-      <p className="text-[13px] text-text-muted">
+      <p className="text-caption text-text-muted">
         저장 당시의 계획입니다(점수가 높은 종목만 저장됩니다). 지금 가격 기준의 채점·경고를 보려면 「관심 종목 점검하기」 를 누르세요.
       </p>
 
@@ -64,13 +64,13 @@ export default function SavedRecommendations({
             >
               <div className="flex items-baseline gap-2">
                 <StockName symbol={record.symbol} name={record.name} className="min-w-0 text-sm font-semibold" />
-                <span className={`ml-auto shrink-0 text-[13px] ${grade.className}`}>
+                <span className={`ml-auto shrink-0 text-caption ${grade.className}`}>
                   {grade.label}
                 </span>
                 <span className="shrink-0 text-xs font-semibold tabular-nums">{record.score}점</span>
               </div>
 
-              <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[13px]">
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-caption">
                 <Row label="분석 시점가" value={formatPrice(record.priceAtAnalysis)} />
                 <Row
                   label="진입"

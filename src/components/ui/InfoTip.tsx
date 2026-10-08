@@ -55,7 +55,7 @@ export default function InfoTip({ children, label = '설명' }: { children: Reac
             id={id}
             role="tooltip"
             style={{ left: pos.left, top: pos.top, transform: pos.up ? 'translateY(-100%)' : undefined }}
-            className="pointer-events-none fixed z-[120] w-80 rounded-lg bg-bg-elevated px-3 py-2 text-[13px] leading-relaxed text-text-secondary shadow-lg"
+            className="pointer-events-none fixed z-[120] w-80 rounded-lg bg-bg-elevated px-3 py-2 text-caption leading-relaxed text-text-secondary shadow-lg"
           >
             {children}
           </div>,

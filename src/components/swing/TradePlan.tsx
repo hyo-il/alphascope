@@ -19,7 +19,7 @@ export default function TradePlan({
   const stop = plan.stopLoss.price;
 
   if (!entry || !stop || !target1.price) {
-    return <p className="text-[13px] text-text-muted">매매 계획을 계산하지 못했습니다.</p>;
+    return <p className="text-caption text-text-muted">매매 계획을 계산하지 못했습니다.</p>;
   }
 
   const money = (value: number) =>
@@ -46,7 +46,7 @@ export default function TradePlan({
       </div>
 
       {/* 열 너비를 고정해 값이 길어져도 라벨과 겹치지 않게 한다 */}
-      <table className="min-w-0 flex-1 text-[13px] tabular-nums">
+      <table className="min-w-0 flex-1 text-caption tabular-nums">
         <tbody>
           {rows.map((row) => (
             <tr key={row.label}>

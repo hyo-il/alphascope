@@ -33,14 +33,14 @@ export default function SurgeEvaluation({
       </header>
 
       {evaluation.error && (
-        <p className="mt-2 rounded-lg bg-warning/10 px-2 py-1 text-[13px] text-warning">
+        <p className="mt-2 rounded-lg bg-warning/10 px-2 py-1 text-caption text-warning">
           {evaluation.error}
         </p>
       )}
 
       <section className="mt-3">
         <h4 className="text-xs font-semibold text-text-secondary">과거 급등 분석</h4>
-        <dl className="mt-1.5 space-y-1 text-[13px] text-text-secondary">
+        <dl className="mt-1.5 space-y-1 text-caption text-text-secondary">
           <Row label="분석 구간 급등 횟수" value={`${p.surgeCount}회 (일봉 ${evaluation.candleCount}개)`} />
           <Row label="평균 급등 간격" value={p.avgInterval ? `${p.avgInterval}일` : '—'} />
           <Row
@@ -66,7 +66,7 @@ export default function SurgeEvaluation({
       <section className="mt-3">
         <h4 className="text-xs font-semibold text-text-secondary">현재 상태 체크</h4>
         {evaluation.signalDetails.length ? (
-          <ul className="mt-1.5 space-y-1 text-[13px]">
+          <ul className="mt-1.5 space-y-1 text-caption">
             {evaluation.signalDetails.map((detail) => (
               <li key={detail.key} className="flex gap-2">
                 <span className="w-32 shrink-0 text-text-secondary">{detail.label}</span>
@@ -78,13 +78,13 @@ export default function SurgeEvaluation({
             ))}
           </ul>
         ) : (
-          <p className="mt-1.5 text-[13px] text-text-muted">계산할 데이터가 부족합니다.</p>
+          <p className="mt-1.5 text-caption text-text-muted">계산할 데이터가 부족합니다.</p>
         )}
       </section>
 
       <section className="mt-3">
         <h4 className="text-xs font-semibold text-text-secondary">평가 요약</h4>
-        <p className="mt-1 text-[13px] leading-relaxed text-text-primary">{evaluation.reason}</p>
+        <p className="mt-1 text-caption leading-relaxed text-text-primary">{evaluation.reason}</p>
       </section>
 
       <section className="mt-3">
@@ -111,7 +111,7 @@ export default function SurgeEvaluation({
         </button>
       </div>
 
-      <p className="mt-3 text-[13px] text-text-muted">
+      <p className="mt-3 text-caption text-text-muted">
         <WarnIcon />이 평가는 과거 데이터와 기술적 지표에 기반한 참고 정보이며, 투자 조언이 아닙니다.
       </p>
     </article>
@@ -128,4 +128,4 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 }
 
 const BUTTON =
-  'rounded bg-bg-tertiary px-2 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-50 disabled:hover:bg-bg-tertiary disabled:hover:text-text-secondary';
+  'rounded bg-bg-tertiary px-2 py-1 text-caption text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-50 disabled:hover:bg-bg-tertiary disabled:hover:text-text-secondary';

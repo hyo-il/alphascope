@@ -165,7 +165,7 @@ export default function SwingDashboard({
               </p>
             </HelpBox>
 
-            <header className="flex flex-wrap items-center gap-3 rounded-xl bg-bg-secondary px-3 py-2 text-[13px] text-text-secondary">
+            <header className="flex flex-wrap items-center gap-3 rounded-xl bg-bg-secondary px-3 py-2 text-caption text-text-secondary">
               <span>
                 점검 대상: 관심 목록{' '}
                 <span className="text-text-primary">{watchlist.length}개 종목</span>
@@ -184,7 +184,7 @@ export default function SwingDashboard({
                 type="button"
                 onClick={analyze}
                 disabled={loading || !watchlist.length}
-                className="ml-auto shrink-0 whitespace-nowrap rounded bg-accent px-2.5 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+                className="ml-auto shrink-0 whitespace-nowrap rounded bg-accent px-2.5 py-1 text-caption font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
               >
                 {loading ? '점검 중…' : checkLabel}
               </button>
@@ -200,12 +200,12 @@ export default function SwingDashboard({
                 onClick={() => setProfileOpen(true)}
                 disabled={!profile.state}
                 title="판정 기준(표준·공격·수비)과 목표 수익 가능성의 조건을 함께 봅니다 — 목표는 점수·등급을 바꾸지 않습니다"
-                className="rounded-md bg-bg-tertiary px-2.5 py-1 text-[13px] text-text-primary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-50"
+                className="rounded-md bg-bg-tertiary px-2.5 py-1 text-caption text-text-primary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-50"
               >
                 판단 기준 · {PROFILE_LABEL[activeId]} · 목표 +{goalPct(goal.targetPct)} · {periodLabel(goal.days)}
               </button>
               {profile.error && (
-                <span className="text-[13px] text-warning">
+                <span className="text-caption text-warning">
                   기준을 불러오지 못해 표준을 표시합니다 ({profile.error})
                 </span>
               )}
@@ -216,14 +216,14 @@ export default function SwingDashboard({
               관심 종목 전체 분석이라 무겁고, 언제 돌릴지는 사용자가 정한다.
             */}
             {stale && (
-              <p className="flex flex-wrap items-center gap-2 rounded-lg bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
+              <p className="flex flex-wrap items-center gap-2 rounded-lg bg-warning/10 px-3 py-1.5 text-caption text-warning">
                 이 결과는 '{PROFILE_LABEL[resultProfile]}' 기준입니다 · 지금은 '
                 {PROFILE_LABEL[activeId]}' 기준
                 <button
                   type="button"
                   onClick={analyze}
                   disabled={loading || !watchlist.length}
-                  className="rounded border border-warning/60 px-2 py-0.5 text-[13px] transition-colors hover:bg-warning/20 disabled:opacity-50"
+                  className="rounded border border-warning/60 px-2 py-0.5 text-caption transition-colors hover:bg-warning/20 disabled:opacity-50"
                 >
                   다시 점검
                 </button>
@@ -241,13 +241,13 @@ export default function SwingDashboard({
             )}
 
             {error && (
-              <p className="rounded-lg bg-bearish/10 px-3 py-2 text-[13px] text-bearish">
+              <p className="rounded-lg bg-danger/10 px-3 py-2 text-caption text-danger">
                 {error}
               </p>
             )}
 
             {result?.failures.length ? (
-              <p className="rounded-lg bg-warning/10 px-3 py-2 text-[13px] text-warning">
+              <p className="rounded-lg bg-warning/10 px-3 py-2 text-caption text-warning">
                 분석하지 못한 종목:{' '}
                 {result.failures.map((f) => `${f.symbol}(${f.error})`).join(' · ')}
               </p>
@@ -294,7 +294,7 @@ export default function SwingDashboard({
                       {items.map(card)}
                     </div>
                   ) : (
-                    <p className="text-[13px] text-text-muted">해당하는 종목이 없습니다.</p>
+                    <p className="text-caption text-text-muted">해당하는 종목이 없습니다.</p>
                   )}
                 </section>
               );
@@ -309,7 +309,7 @@ export default function SwingDashboard({
                   controls="swing-rejected"
                 />
                 {rejectedOpen && (
-                <ul id="swing-rejected" className="mt-1 space-y-1 text-[13px]">
+                <ul id="swing-rejected" className="mt-1 space-y-1 text-caption">
                   {rejected.map((r) => {
                     return (
                       <li key={r.symbol} className="space-y-1">
@@ -327,7 +327,7 @@ export default function SwingDashboard({
               </div>
             )}
 
-            <p className="text-[13px] text-text-muted">
+            <p className="text-caption text-text-muted">
               <WarnIcon />이 점수는 지표 조건을 기계적으로 채점한 결과이며 투자 조언이 아닙니다. 목표가·손절가는
               계획을 세우기 위한 기준일 뿐 가격을 보장하지 않습니다.
             </p>

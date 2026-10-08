@@ -42,8 +42,8 @@ function Field({ label, hint, error, children }: { label: string; hint: string; 
         <span className="w-28 shrink-0 text-xs text-text-primary">{label}</span>
         {children}
       </div>
-      <p className="pl-[7.75rem] text-[13px] text-text-muted">{hint}</p>
-      {error && <p className="pl-[7.75rem] text-[13px] text-bearish">{error}</p>}
+      <p className="pl-[7.75rem] text-caption text-text-muted">{hint}</p>
+      {error && <p className="pl-[7.75rem] text-caption text-danger">{error}</p>}
     </div>
   );
 }
@@ -95,10 +95,10 @@ function AdviceCard({
       <div className="flex items-center gap-2">
         <p className="text-xs font-semibold text-text-primary">AI 제안 — {methodName(target.label)}</p>
         {methodTitle && <Badge>{methodTitle}</Badge>}
-        <span className="ml-auto text-[13px] text-text-muted">{advice.model}</span>
+        <span className="ml-auto text-caption text-text-muted">{advice.model}</span>
       </div>
       {changes.length ? (
-        <ul className="space-y-0.5 text-[13px] text-text-secondary">
+        <ul className="space-y-0.5 text-caption text-text-secondary">
           {changes.map(([k, v]) => (
             <li key={k}>
               {LABEL[k] ?? k}: {show(k, cur[k])} → <b className="text-text-primary">{show(k, v)}</b>
@@ -106,10 +106,10 @@ function AdviceCard({
           ))}
         </ul>
       ) : (
-        <p className="text-[13px] text-text-secondary">지금 조건과 같은 값을 제안했습니다.</p>
+        <p className="text-caption text-text-secondary">지금 조건과 같은 값을 제안했습니다.</p>
       )}
       {advice.reasons.length > 0 && (
-        <div className="text-[13px]">
+        <div className="text-caption">
           <p className="text-text-muted">이유</p>
           <ul className="list-disc space-y-0.5 pl-5 text-text-secondary">
             {advice.reasons.map((r, i) => (
@@ -119,13 +119,13 @@ function AdviceCard({
         </div>
       )}
       {advice.cautions.length > 0 && (
-        <ul className="list-disc space-y-0.5 pl-5 text-[13px] text-warning">
+        <ul className="list-disc space-y-0.5 pl-5 text-caption text-warning">
           {advice.cautions.map((r, i) => (
             <li key={i}>{fixMethodNames(r)}</li>
           ))}
         </ul>
       )}
-      <div className="space-y-0.5 text-[13px] text-text-muted">
+      <div className="space-y-0.5 text-caption text-text-muted">
         {advice.dropped.length > 0 && <p>AI 제안 중 범위 밖 값 {advice.dropped.length}개를 제외했습니다: {advice.dropped.join(', ')}</p>}
         <p>
           시험 기간이 시작되기 전 1년의 숫자만 보냈습니다 · {advice.summarized ? `종목이 많아 분야별 평균으로 줄여 보냈습니다(${advice.sent}종목)` : `${advice.sent}종목`}
@@ -167,7 +167,7 @@ function ConditionCard({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="min-w-0 text-[13px] text-text-secondary">
+        <p className="min-w-0 text-caption text-text-secondary">
           <b className="font-semibold text-text-primary">{methodName(c.label)}</b> · {ruleConditionLine(c)}
         </p>
         {onRemove && (
@@ -178,7 +178,7 @@ function ConditionCard({
       </div>
       <RuleChoiceCards rule={r} showWhy={false} onPick={(ch) => setRule(ch.rule)} />
       {!active && (
-        <p className="text-[13px] text-text-secondary">
+        <p className="text-caption text-text-secondary">
           <Badge>직접 설정</Badge> 세 가지와 다른 값입니다 — 아래 「고급 설정」 에서 고친 값으로 시험합니다.
         </p>
       )}
@@ -244,7 +244,7 @@ function ConditionCard({
           </Field>
         </div>
       )}
-      {!open && Object.keys(errors).length > 0 && <p className="text-[13px] text-bearish">고칠 칸이 있습니다 — 「고급 설정」 을 펼쳐 보세요.</p>}
+      {!open && Object.keys(errors).length > 0 && <p className="text-caption text-danger">고칠 칸이 있습니다 — 「고급 설정」 을 펼쳐 보세요.</p>}
     </div>
   );
 }
@@ -318,7 +318,7 @@ export default function ConditionForm({
       >
         ② 조건 정하기
       </SectionTitle>
-      {askWhy && <p className="text-[13px] text-text-muted">AI에게 묻기: {askWhy}</p>}
+      {askWhy && <p className="text-caption text-text-muted">AI에게 묻기: {askWhy}</p>}
       {advice && adviceTarget && <AdviceCard advice={advice.data} target={adviceTarget} onFill={fill} onClose={() => setAdvice(null)} />}
 
       <div className="flex flex-wrap items-center gap-2">
@@ -333,7 +333,7 @@ export default function ConditionForm({
         <Button size="sm" icon={Plus} onClick={addCondition} disabled={full} title={full ? `방법은 ${MAX_CONDITIONS}개까지입니다` : '바로 앞 방법을 복사해 새 방법을 만듭니다'}>
           비교할 방법 추가
         </Button>
-        <span className="min-w-0 text-[13px] text-text-muted">
+        <span className="min-w-0 text-caption text-text-muted">
           {full ? `방법은 ${MAX_CONDITIONS}개까지 비교합니다.` : '같은 종목으로 방법을 최대 3개까지 나란히 비교합니다. 추가하면 앞 방법을 복사합니다.'}
         </span>
       </div>
@@ -349,7 +349,7 @@ export default function ConditionForm({
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-xs text-text-primary">기간</span>
         <Segmented label="기간" options={BACKTEST_YEARS.map((y) => ({ value: y, label: `${y}년` }))} value={draft.years} onChange={(v) => patch({ years: v })} />
-        <span className="min-w-0 text-[13px] text-text-muted">
+        <span className="min-w-0 text-caption text-text-muted">
           모든 방법에 같은 기간 · 최근 {draft.years}년(1년씩 나눠 계산), 수수료 왕복 0.30%p 포함, 신호 다음 날 시가에 매수·매도합니다.
         </span>
       </div>

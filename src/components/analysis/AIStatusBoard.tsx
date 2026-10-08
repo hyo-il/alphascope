@@ -52,17 +52,17 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
     <div className="space-y-2">
       <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(360px,1fr))]">
         <Cell title="계좌 자동 분석">
-          {error && !items && <p className="text-[13px] text-bearish">상태를 불러오지 못했습니다: {error}</p>}
+          {error && !items && <p className="text-caption text-danger">상태를 불러오지 못했습니다: {error}</p>}
           {items && items.length === 0 && (
-            <p className="text-[13px] text-text-muted">자동매매를 설정한 계좌가 없습니다 (「계좌」 메뉴 &gt; 자동매매).</p>
+            <p className="text-caption text-text-muted">자동매매를 설정한 계좌가 없습니다 (「계좌」 메뉴 &gt; 자동매매).</p>
           )}
-          {!items && !error && <p className="text-[13px] text-text-muted">불러오는 중…</p>}
+          {!items && !error && <p className="text-caption text-text-muted">불러오는 중…</p>}
           <ul className="space-y-2">
             {(items ?? []).map(({ strategy, status }) => {
               const view = autoTradeView(strategy, status);
               const note = status.lastNotes?.[0];
               return (
-                <li key={strategy.accountId} className="text-[13px] leading-relaxed">
+                <li key={strategy.accountId} className="text-caption leading-relaxed">
                   <div className="flex flex-wrap items-baseline gap-x-2">
                     <span className="font-medium text-text-primary">{nameOf(strategy.accountId)}</span>
                     <span className="text-text-secondary">{strategy.mode === 'ai' ? 'AI형' : '규칙형'}</span>
@@ -96,7 +96,7 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
         {scheduled && <Cell title="내가 지정한 종목">{scheduled}</Cell>}
       </div>
 
-      <p className="text-[13px] text-text-muted">
+      <p className="text-caption text-text-muted">
         오늘 Gemini 사용:{' '}
         {usage ? (
           <>

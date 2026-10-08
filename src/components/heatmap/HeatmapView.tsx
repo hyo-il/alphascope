@@ -370,7 +370,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   return (
     <div className="@container flex h-full flex-col p-3">
       {/* 제목 줄 / 탭 줄을 나눈다 (v2.41.0 디자인 규칙 7) */}
-      <h2 className="shrink-0 pb-2 text-sm font-semibold text-text-primary">종목 지도</h2>
+      <h2 className="shrink-0 pb-2 text-base font-semibold text-text-primary">종목 지도</h2>
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60">
         {/* 탭 (v2.27.0) — 시장·기간은 두 탭이 함께 쓴다. v2.36.0: 탭은 글자 + 밑줄, 시장·기간은 회색 묶음 버튼 */}
         <Tabs
@@ -408,7 +408,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
 
       {/* 한 줄 요약 — 지난 기간의 결과 */}
       {data && best && (
-        <p className="mb-1 shrink-0 text-[14px] text-text-primary">
+        <p className="mb-1 shrink-0 text-xs text-text-primary">
           {marketLabel} {watchView ? '관심 종목' : '대형주'} {periodInfo.label}: 강세 1위 <b>{best.sector}</b>{' '}
           <span className={best.capReturn >= 0 ? 'text-bullish' : 'text-bearish'}>{pct(best.capReturn)}</span>
           {worst && (
@@ -421,9 +421,9 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         </p>
       )}
 
-      {error && <p className="mb-2 rounded-lg bg-bearish/10 px-3 py-1.5 text-[13px] text-bearish">{error}</p>}
+      {error && <p className="mb-2 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">{error}</p>}
       {data && data.missingSectors > 0 && (
-        <p className="mb-1 flex items-center gap-1 text-[13px] text-text-muted">
+        <p className="mb-1 flex items-center gap-1 text-caption text-text-muted">
           섹터 정보 없음 {data.missingSectors}종목 → 「기타」
           <InfoTip>섹터 정보가 없는 종목은 「기타」 로 묶었습니다. 새로 들어온 종목은 하루 한 번 뒤에서 채웁니다.</InfoTip>
         </p>
@@ -437,7 +437,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl bg-bg-secondary"
         >
           {empty && (
-            <p className="p-4 text-[14px] text-text-secondary">
+            <p className="p-4 text-xs text-text-secondary">
               관심 목록에 {marketLabel} 종목이 없습니다. 오른쪽 관심 목록에 추가해 보세요.
             </p>
           )}
@@ -457,7 +457,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
               {s.rect.w > 40 && (
                 <span
                   title={s.name}
-                  className={`block truncate px-1 text-[13px] font-medium leading-4 ${
+                  className={`block truncate px-1 text-caption font-medium leading-4 ${
                     focusSector === s.name ? 'text-accent' : 'text-text-secondary'
                   }`}
                 >
@@ -493,13 +493,13 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
                     {line}
                   </span>
                 ))}
-                {fit?.rate && <span className="text-[13px] leading-[1.2] tabular-nums text-text-primary">{pct(cell.changeRate)}</span>}
+                {fit?.rate && <span className="text-caption leading-[1.2] tabular-nums text-text-primary">{pct(cell.changeRate)}</span>}
               </button>
             );
           })}
           {hover && (
             <div
-              className="pointer-events-none absolute z-10 w-52 rounded-lg bg-bg-elevated px-2.5 py-2 text-[13px] shadow-lg"
+              className="pointer-events-none absolute z-10 w-52 rounded-lg bg-bg-elevated px-2.5 py-2 text-caption shadow-lg"
               style={{
                 left: Math.min(hover.x + 12, Math.max(0, size.w - 212)),
                 top: Math.min(hover.y + 12, Math.max(0, size.h - 90)),
@@ -527,7 +527,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         {/* 섹터 강세 순위 — 설명용 */}
         <aside className="flex w-72 shrink-0 flex-col overflow-hidden rounded-xl bg-bg-secondary">
           <div className="flex shrink-0 items-center gap-1.5 px-3 pb-2 pt-3">
-            <p className="text-[14px] font-semibold text-text-primary">
+            <p className="text-xs font-semibold text-text-primary">
               섹터 강세 순위 · {periodInfo.label}
               {watchView && <span className="ml-1.5 font-normal text-text-secondary">관심 종목 기준</span>}
             </p>
@@ -541,15 +541,15 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
             {data ? (
               <SectorRanking sectors={data.sectors} selected={focusSector} onSelect={setFocusSector} dimmed={activeOff} />
             ) : (
-              <p className="p-3 text-[13px] text-text-muted">불러오는 중…</p>
+              <p className="p-3 text-caption text-text-muted">불러오는 중…</p>
             )}
           </div>
           {/* ⚠️ 고정 문구 — 지우지 않는다(CLAUDE.md). v2.30.0 에 지도 아래 줄에서 이 자리로 옮겼다(지도 아래를 한 줄로) */}
-          <p className="shrink-0 border-t border-border/50 px-3 py-2 text-[13px] text-text-secondary">
+          <p className="shrink-0 border-t border-border/50 px-3 py-2 text-caption text-text-secondary">
             지난 기간의 결과입니다. 앞으로도 강할 것이라는 뜻이 아닙니다.
           </p>
           {data && data.excluded > 0 && (
-            <p className="shrink-0 px-3 pb-2 text-[13px] text-text-muted">
+            <p className="shrink-0 px-3 pb-2 text-caption text-text-muted">
               {periodInfo.label} 전 종가가 없어 제외한 종목 {data.excluded}개 (상장 직후·거래 정지 등)
             </p>
           )}
@@ -558,7 +558,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
       {/* 지도 아래 한 줄 (v2.30.0 — 예전에는 범례 줄 + 안내 문구 줄 두 줄): 범례 · 대상·기준 시각 · (제곱근 안내) · 읽는 법 */}
       <div className="mt-1 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
   {/* 색 범례 — 기간마다 구간이 다르다. v2.29.0 에 머리줄에서 지도 아래로(1280 폭에서 머리줄이 두 줄이 됐다) */}
-      <span className="flex items-center gap-0.5 text-[13px] text-text-muted" aria-label={`색 구간: 0% 회색, 0~±${bins[0]}% 옅은 색, ±${bins.join('·')}%`}>
+      <span className="flex items-center gap-0.5 text-caption text-text-muted" aria-label={`색 구간: 0% 회색, 0~±${bins[0]}% 옅은 색, ±${bins.join('·')}%`}>
         {legend.map((v) => (
           <span
             key={v.key}
@@ -573,7 +573,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
       </span>
         {/* 대상·기준 시각 — v2.29.0 에 머리줄에서 이 줄로(1280 폭에서 머리줄이 두 줄이 됐다) */}
         {data && (
-          <span className="text-[13px] text-text-muted">
+          <span className="text-caption text-text-muted">
             {watchView ? `${marketLabel} 관심 종목` : `시총 상위 ${data.top ?? top}`} · {tiles.length < data.cells.length ? `${tiles.length}/${data.cells.length}` : data.cells.length}
             종목 ·{' '}
             {period === '1d'
@@ -583,16 +583,16 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           </span>
         )}
         {watchView && watchSize === 'sqrt' && (
-          <span className="text-[13px] text-warning">칸 크기는 시가총액의 제곱근에 비례합니다(크기 차이를 줄인 보기)</span>
+          <span className="text-caption text-warning">칸 크기는 시가총액의 제곱근에 비례합니다(크기 차이를 줄인 보기)</span>
         )}
         {/* 읽는 법 — v2.36.0 부터 화면 폭과 상관없이 정보 아이콘(문구는 그대로, 키보드 포커스로도 열린다) */}
-        <span className="ml-auto flex items-center gap-1 text-[13px] text-text-muted">
+        <span className="ml-auto flex items-center gap-1 text-caption text-text-muted">
           읽는 법
           <InfoTip label="지도 읽는 법">{guide}</InfoTip>
         </span>
       </div>
       {watchView && data && data.missingCap.length > 0 && (
-        <p className="mt-1 shrink-0 text-[13px] text-text-muted">
+        <p className="mt-1 shrink-0 text-caption text-text-muted">
           크기 정보가 없어 빠진 종목 {data.missingCap.length}개: {data.missingCap.map((m) => m.name ?? m.symbol).join(', ')} (하루 한 번
           뒤에서 채웁니다)
         </p>

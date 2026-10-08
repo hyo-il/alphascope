@@ -56,7 +56,7 @@ export default function SurgeDashboard({
         상승률·거래량 상위 랭킹이고 판정은 일봉의 과거 급등 간격 평균이다.
         지우지 않고 격하해 두는 이유는, 검증 뒤 되돌리기 쉽게 하기 위해서다.
       */}
-      <p className="shrink-0 border-b border-warning/40 bg-warning/10 px-3 py-2 text-[13px] leading-relaxed text-warning">
+      <p className="shrink-0 border-b border-warning/40 bg-warning/10 px-3 py-2 text-caption leading-relaxed text-warning">
         <b>테스트 기능</b> — 이미 많이 오른 종목(상승률·거래량 상위)에서 출발하고, 하루 단위
         데이터로 판단합니다. 매매 근거로 쓰기 전에 성과 검증이 필요합니다.
         {/* 왜 발굴 팝업에서 사라졌는지 여기 남긴다 — "왜 없어졌지?" 를 막는다 (v2.15.0) */}
@@ -164,7 +164,7 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
   return (
     <div className="space-y-3">
       <div className="flex items-start gap-3">
-        <p className="text-[13px] text-text-secondary">
+        <p className="text-caption text-text-secondary">
           채점 완료 {judged.length}건 중 실제 급등 {hits}건
           {judged.length ? ` (${Math.round((hits / judged.length) * 100)}%)` : ''} · 탐지 후 30일
           안에 같은 기준의 급등이 나왔는지로 판정합니다.
@@ -174,7 +174,7 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] text-left text-[13px]">
+        <table className="w-full min-w-[720px] text-left text-caption">
           <thead className="whitespace-nowrap text-text-muted">
             <tr className="border-b border-border/50">
               <th className="py-1.5 pr-2">탐지일</th>
@@ -202,7 +202,7 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
                         disabled={running}
                         aria-label={`${roundLabel(round.at)} 회차 삭제`}
                         title="이 회차 삭제"
-                        className="ml-auto rounded p-1 transition-colors hover:bg-bg-tertiary hover:text-bearish disabled:opacity-40"
+                        className="ml-auto rounded p-1 transition-colors hover:bg-bg-tertiary hover:text-danger disabled:opacity-40"
                       >
                         <TrashIcon className="h-3.5 w-3.5" />
                       </button>

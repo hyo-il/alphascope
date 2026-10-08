@@ -98,7 +98,7 @@ function RowButton({
         <span className="min-w-0 flex-1 truncate">
           <StockName symbol={row.symbol} name={row.name} size="sm" />
         </span>
-        {showSector && <span className="shrink-0 text-[13px] text-text-muted">{row.sector ?? '분야 미확인'}</span>}
+        {showSector && <span className="shrink-0 text-caption text-text-muted">{row.sector ?? '분야 미확인'}</span>}
       </button>
       {onRemove && <ListRemoveButton onClick={() => onRemove(row.symbol)} name={row.symbol} label="직접 추가한 종목에서 삭제" keeps="선택도 함께 해제" />}
     </li>
@@ -250,7 +250,7 @@ function PickerDialog({
         <Button size="sm" onClick={() => add(watchAll)} disabled={!watchAll.length || full || watchAll.every((s) => sel.has(s))} className="self-start">
           관심 목록 전부 선택
         </Button>
-        {full && maxReason && <p className="text-[13px] text-warning">최대 {max}개입니다 — {maxReason}</p>}
+        {full && maxReason && <p className="text-caption text-warning">최대 {max}개입니다 — {maxReason}</p>}
         <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-gutter:stable]">
           {/* 관심 목록 — 폴더 밖 종목은 머리 바로 아래(패널과 같은 규칙), 그다음 폴더별 */}
           <section>
@@ -279,12 +279,12 @@ function PickerDialog({
                         {g.rows.map((r) => (
                           <RowButton key={r.symbol} row={r} on={sel.has(r.symbol)} disabled={rowDisabled(r.symbol)} showSector onToggle={toggle} />
                         ))}
-                        {g.rows.length === 0 && <li className="px-2 py-1.5 text-[13px] text-text-muted">{q ? '맞는 종목이 없습니다.' : '빈 폴더입니다.'}</li>}
+                        {g.rows.length === 0 && <li className="px-2 py-1.5 text-caption text-text-muted">{q ? '맞는 종목이 없습니다.' : '빈 폴더입니다.'}</li>}
                       </ul>
                     )}
                   </section>
                 ))}
-                {watchCount === 0 && <p className="px-2 py-1.5 text-[13px] text-text-muted">{q ? '맞는 종목이 없습니다.' : '관심 목록이 비어 있습니다.'}</p>}
+                {watchCount === 0 && <p className="px-2 py-1.5 text-caption text-text-muted">{q ? '맞는 종목이 없습니다.' : '관심 목록이 비어 있습니다.'}</p>}
               </div>
             )}
           </section>
@@ -292,11 +292,11 @@ function PickerDialog({
           {/* 분야 7개 — 미국 시가총액 상위 100 */}
           {loadingSectors ? (
             <div className="px-1 py-2">
-              <p className="pb-1 text-[13px] text-text-muted">분야 목록을 불러오는 중…</p>
+              <p className="pb-1 text-caption text-text-muted">분야 목록을 불러오는 중…</p>
               <SkeletonList count={4} />
             </div>
           ) : uni.error && !uni.data ? (
-            <div className="space-y-2 p-2 text-[13px] text-bearish">
+            <div className="space-y-2 p-2 text-caption text-danger">
               <p>분야 목록을 불러오지 못했습니다: {uni.error}</p>
               <Button size="sm" onClick={uni.reload}>
                 다시 시도
@@ -356,12 +356,12 @@ function PickerDialog({
                   />
                 ))}
                 {addedRows.length === 0 && (
-                  <li className="px-2 py-1.5 text-[13px] text-text-muted">{q ? '맞는 종목이 없습니다.' : '위 「종목 추가」 로 넣은 종목이 여기에 보입니다.'}</li>
+                  <li className="px-2 py-1.5 text-caption text-text-muted">{q ? '맞는 종목이 없습니다.' : '위 「종목 추가」 로 넣은 종목이 여기에 보입니다.'}</li>
                 )}
               </ul>
             )}
           </section>
-          {uni.data && <p className="px-1 pt-2 text-[13px] text-text-muted">분야 묶음 = 미국 시가총액 상위 100 기준 {uni.data.asOf.slice(0, 10)}</p>}
+          {uni.data && <p className="px-1 pt-2 text-caption text-text-muted">분야 묶음 = 미국 시가총액 상위 100 기준 {uni.data.asOf.slice(0, 10)}</p>}
         </div>
       </div>
 
@@ -375,7 +375,7 @@ function PickerDialog({
           {selected.length > 0 && <RemoveAllButton onClick={() => onChange([])} className="ml-auto" />}
         </div>
         {softLimit != null && (
-          <p className={`text-[13px] ${soft ? 'text-bearish' : 'text-text-muted'}`}>
+          <p className={`text-caption ${soft ? 'text-danger' : 'text-text-muted'}`}>
             {softLimitText ? softLimitText(selected.length, softLimit) : `${softLimit}개까지 — 지금 ${selected.length}개`}
           </p>
         )}
@@ -385,11 +385,11 @@ function PickerDialog({
               <span className="min-w-0 flex-1 truncate">
                 <StockName symbol={s} size="sm" />
               </span>
-              <span className="shrink-0 text-[13px] text-text-muted">{sectorOf.get(s) ?? ''}</span>
+              <span className="shrink-0 text-caption text-text-muted">{sectorOf.get(s) ?? ''}</span>
               <ListRemoveButton onClick={() => remove([s])} name={s} label="고른 종목에서 삭제" />
             </li>
           ))}
-          {selected.length === 0 && <li className="px-2 py-1.5 text-[13px] text-text-muted">왼쪽에서 종목을 누르면 여기에 보입니다.</li>}
+          {selected.length === 0 && <li className="px-2 py-1.5 text-caption text-text-muted">왼쪽에서 종목을 누르면 여기에 보입니다.</li>}
         </ul>
       </div>
     </Dialog>
@@ -445,7 +445,7 @@ export default function SymbolPicker(props: SymbolPickerProps) {
         </Button>
         {extraButtons}
         <span className="ml-auto flex shrink-0 items-center gap-2">
-          <span className="text-[13px] text-text-muted tabular-nums">
+          <span className="text-caption text-text-muted tabular-nums">
             ({selected.length}
             {max != null ? `/${max}` : ''})
           </span>
@@ -453,26 +453,26 @@ export default function SymbolPicker(props: SymbolPickerProps) {
         </span>
       </div>
       {selected.length === 0 ? (
-        <p className="text-[13px] text-text-muted">{emptyText ?? '[종목 고르기] 에서 관심 목록·분야별 종목을 고르거나 다른 종목을 추가하세요.'}</p>
+        <p className="text-caption text-text-muted">{emptyText ?? '[종목 고르기] 에서 관심 목록·분야별 종목을 고르거나 다른 종목을 추가하세요.'}</p>
       ) : (
         <>
           <div ref={boxRef} className={`flex flex-wrap gap-1.5 overflow-hidden ${expanded ? '' : 'max-h-[3.75rem]'}`}>
             {selected.map((s) => (
-              <span key={s} className="inline-flex items-center gap-0.5 rounded-md bg-bg-tertiary py-0.5 pl-2 pr-0.5 text-[13px]">
+              <span key={s} className="inline-flex items-center gap-0.5 rounded-md bg-bg-tertiary py-0.5 pl-2 pr-0.5 text-caption">
                 <StockName symbol={s} size="sm" />
                 <ListRemoveButton onClick={() => onChange(selected.filter((x) => x !== s))} name={s} label="목록에서 삭제" />
               </span>
             ))}
           </div>
           {(hidden > 0 || expanded) && (
-            <button type="button" onClick={() => setExpanded((v) => !v)} className="text-[13px] text-text-secondary hover:text-text-primary">
+            <button type="button" onClick={() => setExpanded((v) => !v)} className="text-caption text-text-secondary hover:text-text-primary">
               {expanded ? '접기' : `+${hidden}개 더 보기`}
             </button>
           )}
         </>
       )}
       {soft && softLimit != null && (
-        <p className="text-[13px] text-bearish">
+        <p className="text-caption text-danger">
           {softLimitText ? softLimitText(selected.length, softLimit) : `${softLimit}개까지 — 지금 ${selected.length}개`}
         </p>
       )}

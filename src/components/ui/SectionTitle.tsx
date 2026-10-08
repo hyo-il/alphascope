@@ -22,7 +22,7 @@ export default function SectionTitle({
   return (
     <div className="flex min-w-0 items-center gap-2">
       <Tag className={`shrink-0 font-semibold text-text-primary ${level === 1 ? 'text-base' : 'text-sm'}`}>{children}</Tag>
-      {aside != null && <span className="min-w-0 text-[13px] text-text-muted">{aside}</span>}
+      {aside != null && <span className="min-w-0 text-caption text-text-muted">{aside}</span>}
       {info != null && <InfoTip>{info}</InfoTip>}
       {right != null && <div className="ml-auto flex shrink-0 items-center gap-2">{right}</div>}
     </div>

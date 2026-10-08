@@ -19,27 +19,27 @@ export default function PortfolioSummaryBar({ summary, exchangeRate }: Props) {
   return (
     <div className="flex flex-wrap items-end gap-x-6 gap-y-2 border-b border-border px-4 py-3">
       <div>
-        <p className="text-[13px] text-text-muted">평가금액</p>
-        <p className="text-lg font-semibold tabular-nums">
+        <p className="text-caption text-text-muted">평가금액</p>
+        <p className="text-sm font-semibold tabular-nums">
           {formatUsd(summary.evaluationAmountUsd)}
         </p>
-        <p className="text-[13px] text-text-muted">{krw(summary.evaluationAmountUsd, rate)}</p>
+        <p className="text-caption text-text-muted">{krw(summary.evaluationAmountUsd, rate)}</p>
       </div>
 
       <div>
-        <p className="text-[13px] text-text-muted">매수 금액</p>
+        <p className="text-caption text-text-muted">매수 금액</p>
         <p className="text-sm tabular-nums">{formatUsd(summary.purchaseAmountUsd)}</p>
       </div>
 
       <div>
-        <p className="text-[13px] text-text-muted">총 평가손익</p>
+        <p className="text-caption text-text-muted">총 평가손익</p>
         <p className={`text-sm tabular-nums ${changeColor(summary.profitLossUsd)}`}>
           {formatUsd(summary.profitLossUsd)} ({formatPercent(summary.profitLossRate)})
         </p>
       </div>
 
       <div>
-        <p className="text-[13px] text-text-muted">당일 손익</p>
+        <p className="text-caption text-text-muted">당일 손익</p>
         <p className={`text-sm tabular-nums ${changeColor(summary.dailyProfitLossUsd)}`}>
           {formatUsd(summary.dailyProfitLossUsd)} ({formatPercent(summary.dailyProfitLossRate)})
         </p>
@@ -47,7 +47,7 @@ export default function PortfolioSummaryBar({ summary, exchangeRate }: Props) {
 
       {rate && (
         <div className="ml-auto text-right">
-          <p className="text-[13px] text-text-muted">
+          <p className="text-caption text-text-muted">
             {exchangeRate?.baseCurrency}/{exchangeRate?.quoteCurrency}
           </p>
           <p className="text-sm tabular-nums">₩{rate.toLocaleString('ko-KR')}</p>

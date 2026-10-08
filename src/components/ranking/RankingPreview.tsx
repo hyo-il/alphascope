@@ -43,13 +43,13 @@ const earningsMemo = new Map<string, NextEarnings>();
 const EARNINGS_WARN_DAYS = 14;
 
 function EarningsLine({ info }: { info: NextEarnings | null | undefined }) {
-  if (info === undefined) return <p className="text-[13px] text-text-muted">실적일 확인 중…</p>;
-  if (!info || !info.date || info.daysUntil == null) return <p className="text-[13px] text-text-muted/70">실적일 정보 없음</p>;
+  if (info === undefined) return <p className="text-caption text-text-muted">실적일 확인 중…</p>;
+  if (!info || !info.date || info.daysUntil == null) return <p className="text-caption text-text-muted/70">실적일 정보 없음</p>;
   const [, m, d] = info.date.split('-').map(Number);
   const when = info.daysUntil === 0 ? '오늘' : `D−${info.daysUntil}`;
   const soon = info.daysUntil <= EARNINGS_WARN_DAYS;
   return (
-    <p className={`text-[13px] ${soon ? 'font-medium text-warning' : 'text-text-secondary'}`}>
+    <p className={`text-caption ${soon ? 'font-medium text-warning' : 'text-text-secondary'}`}>
       실적 발표 {m}/{d} (예정·{info.isEstimate ? '추정' : when})
       {info.isEstimate && <span className="ml-1 text-text-muted">{when}</span>}
     </p>
@@ -183,18 +183,18 @@ export default function RankingPreview({
         {row ? (
           <div className="min-w-0 flex-1">
             <StockName symbol={row.symbol} name={row.name ?? undefined} className="text-sm font-semibold text-text-primary" />
-            <p className="text-[14px] tabular-nums">
+            <p className="text-xs tabular-nums">
               <span className="text-text-primary">{row.price != null ? formatPrice(row.price, row.currency) : '—'}</span>{' '}
               {row.changeRate != null && <span className={changeColor(row.changeRate)}>{formatPercent(row.changeRate)}</span>}
             </p>
             <EarningsLine info={earnings} />
           </div>
         ) : (
-          <p className="flex-1 text-[14px] text-text-muted">목록의 종목에 마우스를 올리면 여기 차트가 보입니다.</p>
+          <p className="flex-1 text-xs text-text-muted">목록의 종목에 마우스를 올리면 여기 차트가 보입니다.</p>
         )}
         <Segmented label="봉" size="sm" value={timeframe} onChange={onTimeframeChange} options={PREVIEW_TIMEFRAMES.map((t) => ({ value: t.id, label: t.label }))} />
       </header>
-      <div className="flex shrink-0 gap-2 px-3 pt-1 text-[13px]">
+      <div className="flex shrink-0 gap-2 px-3 pt-1 text-caption">
         {LITE_CHART_MAS.map((ma) => (
           <span key={ma.key} style={{ color: ma.color }}>
             {maLabel(ma, timeframe === '1w' ? 'week' : timeframe === '1M' ? 'month' : 'day')}
@@ -205,7 +205,7 @@ export default function RankingPreview({
         {/* 차트는 종목이 없어도 마운트해 둔다 — 인스턴스 하나를 계속 쓴다 */}
         <LiteCandleChart candles={row ? candles : []} barSpacing={4} currency={row?.currency} datasetKey={key} onReachStart={loadOlder} />
         {loadingOlder && (
-          <div className="pointer-events-none absolute left-2 top-2 flex items-center gap-1 rounded bg-bg-elevated/90 px-2 py-0.5 text-[13px] text-text-secondary">
+          <div className="pointer-events-none absolute left-2 top-2 flex items-center gap-1 rounded bg-bg-elevated/90 px-2 py-0.5 text-caption text-text-secondary">
             <InlineSpinner /> 과거 봉 불러오는 중…
           </div>
         )}
@@ -215,11 +215,11 @@ export default function RankingPreview({
           </div>
         )}
         {error && !loading && (
-          <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-[13px] text-bearish">{error}</div>
+          <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-caption text-danger">{error}</div>
         )}
       </div>
       <footer className="flex shrink-0 items-center px-3 py-2.5">
-        <span className="min-w-0 text-[13px] text-text-muted">
+        <span className="min-w-0 text-caption text-text-muted">
           {PREVIEW_TIMEFRAMES.find((t) => t.id === timeframe)!.label}봉 · 캔들 + 거래량 + 이동평균(5·20·60) · 왼쪽으로 끌면 과거 봉
         </span>
       </footer>

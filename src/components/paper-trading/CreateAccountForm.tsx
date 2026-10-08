@@ -89,7 +89,7 @@ export default function CreateAccountForm({ onCreate, onDone, onCancel }: Props)
           취소
         </button>
       )}
-      {error && <span className="text-xs text-bearish">{error}</span>}
+      {error && <span className="text-xs text-danger">{error}</span>}
     </div>
   );
 }

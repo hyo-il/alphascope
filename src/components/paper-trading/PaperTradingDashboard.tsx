@@ -198,7 +198,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
             카드를 다 훑지 않아도 전체 자동매매 상태를 알 수 있게 한 줄로 센다.
             분류는 `utils/autoTradeStatus` 한 곳이라 카드와 숫자가 갈라지지 않는다.
           */}
-          <span className="flex items-center gap-1 text-[13px] text-text-muted">
+          <span className="flex items-center gap-1 text-caption text-text-muted">
             자동매매
             <span className="text-bullish">가동 {autoCounts.running}</span>
             <span className="text-border">·</span>
@@ -297,7 +297,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
         <button
           type="button"
           onClick={() => setView('overview')}
-          className="rounded px-2 py-0.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          className="rounded px-2 py-0.5 text-caption text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
         >
           ← 계좌 모아보기
         </button>
@@ -316,7 +316,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
       <AutoTradeBar accountId={selectedId} />
 
       {error && (
-        <div className="border-b border-bearish/30 bg-bearish/10 px-4 py-1.5 text-[13px] text-bearish">
+        <div className="border-b border-danger/30 bg-danger/10 px-4 py-1.5 text-caption text-danger">
           {error}
         </div>
       )}
@@ -343,9 +343,9 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
                 },
               ].map((c) => (
                 <div key={c.label} className="rounded-xl bg-bg-secondary px-3 py-2">
-                  <p className="text-[13px] text-text-muted">{c.label}</p>
+                  <p className="text-caption text-text-muted">{c.label}</p>
                   <p className={`text-base font-semibold tabular-nums ${c.tone}`}>{c.value}</p>
-                  {c.hint && <p className="text-[13px] text-text-muted">{c.hint}</p>}
+                  {c.hint && <p className="text-caption text-text-muted">{c.hint}</p>}
                 </div>
               ))}
             </div>

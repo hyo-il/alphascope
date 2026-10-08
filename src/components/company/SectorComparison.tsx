@@ -29,7 +29,7 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
       </h3>
 
       {loading && <p className="text-xs text-text-muted">비교 종목 불러오는 중…</p>}
-      {error && <p className="text-xs text-bearish">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
 
       {peers && peers.length > 0 && (
         <div className="overflow-x-auto">
@@ -57,7 +57,7 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
                         {peer.name ?? peer.symbol}
                       </span>
                       {peer.name && (
-                        <span className="ml-1.5 text-[13px] text-text-muted">{peer.symbol}</span>
+                        <span className="ml-1.5 text-caption text-text-muted">{peer.symbol}</span>
                       )}
                     </td>
                     <td className="py-1 px-2 text-right">{formatCompactMoney(peer.marketCap, peer.currency)}</td>

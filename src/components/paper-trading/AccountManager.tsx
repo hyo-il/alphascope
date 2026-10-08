@@ -107,7 +107,7 @@ export default function AccountManager({
             <button
               type="button"
               onClick={confirmDelete}
-              className="inline-flex items-center gap-1 rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-muted transition-colors hover:bg-bg-elevated hover:text-bearish"
+              className="inline-flex items-center gap-1 rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-muted transition-colors hover:bg-bg-elevated hover:text-danger"
             >
               <TrashIcon className="h-3.5 w-3.5" />
               삭제

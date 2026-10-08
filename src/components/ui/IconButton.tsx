@@ -23,7 +23,7 @@ const IconButton = forwardRef<
   const color = active
     ? 'bg-bg-tertiary text-text-primary'
     : tone === 'danger'
-      ? 'text-text-muted hover:bg-bg-tertiary hover:text-bearish'
+      ? 'text-text-muted hover:bg-bg-tertiary hover:text-danger'
       : 'text-text-muted hover:bg-bg-tertiary hover:text-text-primary';
   return (
     <button

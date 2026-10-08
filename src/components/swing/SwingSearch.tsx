@@ -57,14 +57,14 @@ export default function SwingSearch({
             >
               목표 수익 가능성에서 분석
             </button>
-            <span className="text-[13px] text-text-muted">그 탭에서 이 종목을 골라 둡니다. 분석은 그 탭의 버튼을 눌러야 시작합니다.</span>
+            <span className="text-caption text-text-muted">그 탭에서 이 종목을 골라 둡니다. 분석은 그 탭의 버튼을 눌러야 시작합니다.</span>
             {(() => {
               const latest = latestFor(target.records, recommendation.symbol, goal);
               return latest ? <div className="w-full"><TargetRefLine record={latest} onMore={() => onGoTarget(recommendation.symbol)} /></div> : null;
             })()}
           </div>
           {recommendation.rejection && (
-            <p className="rounded-lg bg-warning/10 px-3 py-2 text-[13px] text-warning">
+            <p className="rounded-lg bg-warning/10 px-3 py-2 text-caption text-warning">
               {GRADE_STYLE[recommendation.grade].label} — 매수 추천 구간이 아닙니다 —{' '}
               {recommendation.rejection}
             </p>

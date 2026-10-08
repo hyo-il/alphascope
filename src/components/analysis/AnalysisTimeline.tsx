@@ -263,7 +263,7 @@ export default function AnalysisTimeline({
           {source === 'all' ? '총' : '표시'} {shown.length}건 (Gemini {gemini.length} · Claude {claude.length})
         </span>
         {highlightSince && (
-          <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[13px] text-text-secondary">
+          <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-caption text-text-secondary">
             방금 분석한 결과를 표시하고 있습니다
           </span>
         )}
@@ -280,7 +280,7 @@ export default function AnalysisTimeline({
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => removeMany('all')}
-            className="rounded border border-bearish/40 px-2 py-1 text-xs text-bearish transition-colors hover:bg-bearish/10"
+            className="rounded border border-danger/40 px-2 py-1 text-xs text-danger transition-colors hover:bg-danger/10"
           >
             전체 삭제 ({items.length})
           </button>
@@ -299,7 +299,7 @@ export default function AnalysisTimeline({
             Gemini만 삭제 ({gemini.length})
           </button>
           {onlyThisSymbol && symbol && (
-            <span className="text-[13px] text-text-muted">— {symbol} 종목만 삭제합니다</span>
+            <span className="text-caption text-text-muted">— {symbol} 종목만 삭제합니다</span>
           )}
         </div>
       )}

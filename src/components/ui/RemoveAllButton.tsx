@@ -8,7 +8,7 @@ export default function RemoveAllButton({ onClick, label = '모두 삭제', clas
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-[13px] text-bearish transition-colors hover:bg-bearish/10 ${className}`}
+      className={`shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-caption text-danger transition-colors hover:bg-danger/10 ${className}`}
     >
       {label}
     </button>

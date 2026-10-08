@@ -135,13 +135,13 @@ export default function ApplyRuleButton({ options }: { options: BacktestConditio
                   value={label}
                   onChange={setLabel}
                 />
-                <p className="text-[13px] text-text-secondary">{ruleConditionLine(conditions)}</p>
+                <p className="text-caption text-text-secondary">{ruleConditionLine(conditions)}</p>
               </div>
             )}
             {loading && !accounts.length ? (
-              <p className="text-[13px] text-text-muted">계좌를 불러오는 중…</p>
+              <p className="text-caption text-text-muted">계좌를 불러오는 중…</p>
             ) : accounts.length === 0 ? (
-              <div className="space-y-3 text-[13px] text-text-secondary">
+              <div className="space-y-3 text-caption text-text-secondary">
                 <p>계좌 관리에서 먼저 계좌를 만들어 주세요.</p>
                 <Button
                   size="sm"
@@ -163,7 +163,7 @@ export default function ApplyRuleButton({ options }: { options: BacktestConditio
                       <button
                         type="button"
                         onClick={() => void pick(a.id, a.name)}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] transition-colors hover:bg-bg-tertiary"
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-caption transition-colors hover:bg-bg-tertiary"
                       >
                         <span className="min-w-0 flex-1 truncate font-medium text-text-primary">{a.name}</span>
                         <span className="shrink-0 text-text-secondary">
@@ -176,7 +176,7 @@ export default function ApplyRuleButton({ options }: { options: BacktestConditio
                 })}
               </ul>
             )}
-            <p className="mt-3 text-[13px] text-text-muted">조건(판단 방식·방법 숫자·손절·트레일링·익절)만 저장합니다. 대상 종목은 그대로이고, 자동매매를 켜거나 끄지 않습니다.</p>
+            <p className="mt-3 text-caption text-text-muted">조건(판단 방식·방법 숫자·손절·트레일링·익절)만 저장합니다. 대상 종목은 그대로이고, 자동매매를 켜거나 끄지 않습니다.</p>
         </Dialog>
       )}
     </>

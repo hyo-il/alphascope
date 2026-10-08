@@ -85,20 +85,20 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
 
   if (!supported) {
     return (
-      <p className="p-3 text-[13px] text-text-muted">
+      <p className="p-3 text-caption text-text-muted">
         투자자 동향은 국내 종목만 제공됩니다(토스 API 제공 범위).
       </p>
     );
   }
-  if (error) return <p className="p-3 text-[13px] text-bearish">투자자 동향을 불러오지 못했습니다: {error}</p>;
-  if (!flow) return <p className="p-3 text-[13px] text-text-muted">불러오는 중…</p>;
+  if (error) return <p className="p-3 text-caption text-danger">투자자 동향을 불러오지 못했습니다: {error}</p>;
+  if (!flow) return <p className="p-3 text-caption text-text-muted">불러오는 중…</p>;
 
   const confirmed = flowWindow(flow.records);
   const period = flow.period;
   const holding = holdingSummary(flow.records);
 
   return (
-    <div className="space-y-3 p-3 text-[13px]">
+    <div className="space-y-3 p-3 text-caption">
       <div>
         <p className="mb-1 text-text-secondary">
           {period
@@ -185,7 +185,7 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
               <td className="py-1 text-text-secondary">
                 {r.date}
                 {r.provisional && (
-                  <span className="ml-1 rounded bg-warning/15 px-1 text-[13px] text-warning" title="장중 잠정치 — 개인·기타법인은 그날 저녁 확정치 때 채워집니다">
+                  <span className="ml-1 rounded bg-warning/15 px-1 text-caption text-warning" title="장중 잠정치 — 개인·기타법인은 그날 저녁 확정치 때 채워집니다">
                     잠정
                   </span>
                 )}

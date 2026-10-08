@@ -157,7 +157,7 @@ export default function StockExplorer({
       return options.empty ? (
         <section key={title} className="space-y-2">
           <h3 className="text-xs font-medium text-text-secondary">{title}</h3>
-          <p className="text-[13px] text-text-muted">{options.empty}</p>
+          <p className="text-caption text-text-muted">{options.empty}</p>
         </section>
       ) : null;
     }
@@ -181,7 +181,7 @@ export default function StockExplorer({
           <button
             type="button"
             onClick={() => toggleSection(title)}
-            className="w-full rounded-md bg-bg-tertiary py-1.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+            className="w-full rounded-md bg-bg-tertiary py-1.5 text-caption text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             {isOpen ? '접기' : `더 보기 (+${hidden})`}
           </button>
@@ -194,7 +194,7 @@ export default function StockExplorer({
     <div className="flex h-full min-h-0 flex-col items-center overflow-y-auto p-8">
       <div className="w-full max-w-3xl space-y-7">
         <div className="space-y-3 text-center">
-          <h2 className="text-lg font-semibold text-text-primary">종목을 검색하세요</h2>
+          <h2 className="text-base font-semibold text-text-primary">종목을 검색하세요</h2>
           <p className="text-xs text-text-muted">
             한글 종목명으로도 찾을 수 있습니다 (예: 삼성전자, 애플)
           </p>
@@ -272,7 +272,7 @@ function SymbolGrid({
                 {nameOf(symbol) || symbol}
               </span>
               {nameOf(symbol) && (
-                <span className="shrink-0 text-[13px] text-text-secondary">{symbol}</span>
+                <span className="shrink-0 text-caption text-text-secondary">{symbol}</span>
               )}
             </span>
             {/* 포맷은 formatters 한 곳을 쓴다 — 여기서 따로 만들면 관심 목록은
@@ -285,7 +285,7 @@ function SymbolGrid({
                 ? `${quote.stale ? '· ' : ''}${formatPrice(quote.price, quote.currency)}`
                 : '—'}
             </span>
-            <span className={`text-[13px] tabular-nums ${tone}`}>{formatPercent(rate)}</span>
+            <span className={`text-caption tabular-nums ${tone}`}>{formatPercent(rate)}</span>
           </button>
 
           {onRemove && (

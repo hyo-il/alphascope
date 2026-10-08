@@ -31,7 +31,7 @@ function VerdictBadge({ verdict, why }: { verdict: BacktestVerdictKind; why: str
         tabIndex={0}
         title={why}
         aria-describedby={id}
-        className={`inline-flex shrink-0 cursor-help items-center gap-1 rounded px-1.5 py-0.5 text-[13px] ${VERDICT[verdict].badge}`}
+        className={`inline-flex shrink-0 cursor-help items-center gap-1 rounded px-1.5 py-0.5 text-caption ${VERDICT[verdict].badge}`}
       >
         <Icon {...ICON_SM} /> {VERDICT[verdict].label}
       </span>
@@ -50,12 +50,12 @@ function MethodBlock({ m }: { m: BacktestMethodResult }) {
       <div className="flex flex-wrap items-center gap-2">
         <h4 className="text-sm font-semibold text-text-primary">{m.title}</h4>
         <VerdictBadge verdict={m.verdict} why={m.why} />
-        <span className="min-w-0 text-[13px] text-text-muted">
+        <span className="min-w-0 text-caption text-text-muted">
           {choice ? `매수: ${choice.buy} · 매도: ${choice.sell}` : ''}
         </span>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-[13px] tabular-nums">
+        <table className="w-full text-caption tabular-nums">
           <thead className="whitespace-nowrap text-text-muted">
             <tr className="border-b border-border/50">
               <th className="py-1.5 text-left font-normal">구간</th>
@@ -86,7 +86,7 @@ function MethodBlock({ m }: { m: BacktestMethodResult }) {
           </tbody>
         </table>
       </div>
-      <p className="text-[13px] text-text-muted">
+      <p className="text-caption text-text-muted">
         차이(이 방법 − 들고 있기 / − 아무 날이나): {m.segments.map((s) => `${s.segment}년차 ${pp(s.diffHold)} / ${pp(s.diffRandom)}`).join(' · ')}
       </p>
     </Panel>
@@ -106,7 +106,7 @@ function Conditions({ r }: { r: BacktestReport }) {
   return (
     <Panel pad="sm">
       <SectionTitle>미리 정한 시험 조건</SectionTitle>
-      <dl className="mt-2 grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1.5 text-[13px]">
+      <dl className="mt-2 grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1.5 text-caption">
         {rows.map(([k, v]) => (
           <div key={k} className="contents">
             <dt className="text-text-muted">{k}</dt>
@@ -114,7 +114,7 @@ function Conditions({ r }: { r: BacktestReport }) {
           </div>
         ))}
       </dl>
-      <p className="mt-2 text-[13px] text-text-muted">결과를 보기 전에 정해 둔 조건입니다. 판정은 그때 저장된 그대로입니다.</p>
+      <p className="mt-2 text-caption text-text-muted">결과를 보기 전에 정해 둔 조건입니다. 판정은 그때 저장된 그대로입니다.</p>
     </Panel>
   );
 }
@@ -135,7 +135,7 @@ export default function FixedResult({ r }: { r: BacktestReport }) {
       <section className="space-y-2">
         <SectionTitle aside="3년(1년씩 복리로 이은 값) 이 방법 − 들고 있기 · 종목 평균">분야별 결과</SectionTitle>
         <Panel pad="sm">
-          <table className="w-full text-[13px] tabular-nums">
+          <table className="w-full text-caption tabular-nums">
             <thead className="text-text-muted">
               <tr className="border-b border-border/50">
                 <th className="py-1.5 text-left font-normal">분야</th>
@@ -164,7 +164,7 @@ export default function FixedResult({ r }: { r: BacktestReport }) {
               ))}
             </tbody>
           </table>
-          <p className="mt-2 text-[13px] text-text-muted">
+          <p className="mt-2 text-caption text-text-muted">
             분야별 숫자는 설명용입니다. 강한 분야가 다음에도 강한지는 확인되지 않았습니다(섹터 강세 시험 6개 중 0개 통과).
           </p>
         </Panel>
@@ -182,7 +182,7 @@ export default function FixedResult({ r }: { r: BacktestReport }) {
         </button>
         {symbolsOpen && (
           <Panel pad="sm" className="max-h-[28rem] overflow-y-auto">
-            <table className="w-full text-[13px] tabular-nums">
+            <table className="w-full text-caption tabular-nums">
               <thead className="sticky top-0 bg-bg-secondary text-text-muted">
                 <tr className="border-b border-border/50">
                   <th className="py-1.5 text-left font-normal">종목</th>
@@ -227,7 +227,7 @@ export default function FixedResult({ r }: { r: BacktestReport }) {
         )}
       </section>
 
-      <div className="space-y-1 text-[13px] text-text-muted">
+      <div className="space-y-1 text-caption text-text-muted">
         <p>
           분야 밖이라 뺀 종목 {r.targets.outOfSector.length}개: {r.targets.outOfSector.map((t) => `${t.name ?? t.symbol}(${t.sector})`).join(', ') || '없음'}
         </p>

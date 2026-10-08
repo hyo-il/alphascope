@@ -284,13 +284,13 @@ export default function QuickOrderPanel({
   const header = (
     <div className="flex items-center gap-1.5 border-b border-border px-2.5 py-1.5">
       <span className="text-xs font-medium text-text-secondary">빠른주문</span>
-      <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[13px] font-medium text-warning">
+      <span className="rounded bg-warning/15 px-1.5 py-0.5 text-caption font-medium text-warning">
         모의
       </span>
       {/* 어떤 종목을 주문하는지 패널 안에서 바로 보이게 한다 */}
       <StockName
         symbol={symbol}
-        className="ml-auto min-w-0 text-[13px] text-text-primary"
+        className="ml-auto min-w-0 text-caption text-text-primary"
         tickerClassName="text-text-muted"
       />
     </div>
@@ -301,13 +301,13 @@ export default function QuickOrderPanel({
       <div className="shrink-0 border-t border-border">
         {header}
         <div className="space-y-2 px-2.5 py-3">
-          <p className="text-[13px] leading-relaxed text-text-muted">
+          <p className="text-caption leading-relaxed text-text-muted">
             모의투자 계좌를 먼저 만드세요.
           </p>
           <button
             type="button"
             onClick={onGoToPaperTrading}
-            className="w-full rounded-md bg-accent px-2 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover"
+            className="w-full rounded-md bg-accent px-2 py-1.5 text-caption font-medium text-white transition-colors hover:bg-accent-hover"
           >
             계좌 생성
           </button>
@@ -317,7 +317,7 @@ export default function QuickOrderPanel({
   }
 
   const info = (label: string, value: string, tone = 'text-text-secondary') => (
-    <div className="flex justify-between text-[13px]">
+    <div className="flex justify-between text-caption">
       <span className="text-text-muted">{label}</span>
       <span className={`tabular-nums ${tone}`}>{value}</span>
     </div>
@@ -331,7 +331,7 @@ export default function QuickOrderPanel({
         <select
           value={accountId ?? ''}
           onChange={(e) => selectAccount(Number(e.target.value))}
-          className="w-full rounded border border-border bg-bg-tertiary px-2 py-1 text-[13px] text-text-primary focus:border-accent focus:outline-none"
+          className="w-full rounded border border-border bg-bg-tertiary px-2 py-1 text-caption text-text-primary focus:border-accent focus:outline-none"
         >
           {accounts.map((a) => (
             <option key={a.id} value={a.id}>
@@ -353,14 +353,14 @@ export default function QuickOrderPanel({
                   ? setQuantity(Math.max(0, Number(e.target.value)))
                   : setPercent(Math.min(100, Math.max(0, Number(e.target.value))))
               }
-              className="min-w-0 flex-1 rounded border border-border bg-bg-primary px-1.5 py-1 text-right text-[13px] tabular-nums text-text-primary focus:border-accent focus:outline-none"
+              className="min-w-0 flex-1 rounded border border-border bg-bg-primary px-1.5 py-1 text-right text-caption tabular-nums text-text-primary focus:border-accent focus:outline-none"
             />
             {(['shares', 'percent'] as const).map((u) => (
               <button
                 key={u}
                 type="button"
                 onClick={() => setUnit(u)}
-                className={`rounded px-1.5 py-1 text-[13px] transition-colors ${
+                className={`rounded px-1.5 py-1 text-caption transition-colors ${
                   unit === u ? 'bg-bg-elevated font-medium text-text-primary' : 'text-text-muted hover:bg-bg-tertiary'
                 }`}
               >
@@ -378,7 +378,7 @@ export default function QuickOrderPanel({
                     key={n}
                     type="button"
                     onClick={() => setQuantity(n)}
-                    className="flex-1 rounded-md bg-bg-tertiary py-0.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                    className="flex-1 rounded-md bg-bg-tertiary py-0.5 text-caption text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
                   >
                     {n}주
                   </button>
@@ -386,7 +386,7 @@ export default function QuickOrderPanel({
                 <button
                   type="button"
                   onClick={() => setQuantity(maxBuyable)}
-                  className="flex-1 rounded-md bg-bg-tertiary py-0.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-accent"
+                  className="flex-1 rounded-md bg-bg-tertiary py-0.5 text-caption text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-accent"
                 >
                   최대
                 </button>
@@ -397,7 +397,7 @@ export default function QuickOrderPanel({
                   key={n}
                   type="button"
                   onClick={() => setPercent(n)}
-                  className={`flex-1 rounded-md py-0.5 text-[13px] transition-colors ${
+                  className={`flex-1 rounded-md py-0.5 text-caption transition-colors ${
                     percent === n
                       ? 'bg-bg-elevated text-text-primary'
                       : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
@@ -410,13 +410,13 @@ export default function QuickOrderPanel({
           </div>
 
           {percentHint && (
-            <p className="text-right text-[13px] text-text-muted">{percentHint}</p>
+            <p className="text-right text-caption text-text-muted">{percentHint}</p>
           )}
         </div>
 
         {/* 가격 칸 (지정가) — 호가 가격을 누르면 그 가격으로 채워진다 */}
         <div className="flex items-center gap-1.5">
-          <span className="shrink-0 text-[13px] text-text-muted">가격</span>
+          <span className="shrink-0 text-caption text-text-muted">가격</span>
           <input
             type="text"
             inputMode="decimal"
@@ -427,8 +427,8 @@ export default function QuickOrderPanel({
             }}
             aria-label="지정가 가격"
             title="지정가 — 매수는 현재가가 이 가격 이하, 매도는 이 가격 이상이면 체결됩니다"
-            className={`min-w-0 flex-1 rounded border bg-bg-primary px-1.5 py-1 text-right text-[13px] tabular-nums text-text-primary focus:border-accent focus:outline-none ${
-              limitText && limitPrice == null ? 'border-bearish' : 'border-border'
+            className={`min-w-0 flex-1 rounded border bg-bg-primary px-1.5 py-1 text-right text-caption tabular-nums text-text-primary focus:border-accent focus:outline-none ${
+              limitText && limitPrice == null ? 'border-danger' : 'border-border'
             }`}
           />
           <button
@@ -438,7 +438,7 @@ export default function QuickOrderPanel({
               setTouched(false);
             }}
             disabled={price == null}
-            className="shrink-0 whitespace-nowrap rounded bg-bg-tertiary px-1.5 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-40"
+            className="shrink-0 whitespace-nowrap rounded bg-bg-tertiary px-1.5 py-1 text-caption text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-40"
           >
             현재가
           </button>
@@ -460,7 +460,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('SELL', 'LIMIT')}
             disabled={busy || !price || !limitPrice || sellQuantity <= 0}
-            className="rounded-md bg-accent/80 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent disabled:opacity-40"
+            className="rounded-md bg-accent/80 py-1 text-caption font-medium text-white transition-colors hover:bg-accent disabled:opacity-40"
           >
             지정가 매도
           </button>
@@ -468,7 +468,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('BUY', 'LIMIT')}
             disabled={busy || !price || !limitPrice || buyQuantity <= 0}
-            className="rounded-md bg-bearish/80 py-1 text-[13px] font-medium text-white transition-colors hover:bg-bearish disabled:opacity-40"
+            className="rounded-md bg-danger/80 py-1 text-caption font-medium text-white transition-colors hover:bg-danger disabled:opacity-40"
           >
             지정가 매수
           </button>
@@ -476,7 +476,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('SELL', 'MARKET')}
             disabled={busy || !price || marketSellQuantity <= 0}
-            className="rounded-md bg-accent/15 py-1 text-[13px] text-accent transition-colors hover:bg-accent/25 disabled:opacity-40"
+            className="rounded-md bg-accent/15 py-1 text-caption text-accent transition-colors hover:bg-accent/25 disabled:opacity-40"
           >
             시장가 매도
           </button>
@@ -484,7 +484,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('BUY', 'MARKET')}
             disabled={busy || !price || marketBuyQuantity <= 0}
-            className="rounded-md bg-bearish/15 py-1 text-[13px] text-bearish transition-colors hover:bg-bearish/25 disabled:opacity-40"
+            className="rounded-md bg-danger/15 py-1 text-caption text-danger transition-colors hover:bg-danger/25 disabled:opacity-40"
           >
             시장가 매수
           </button>
@@ -496,7 +496,7 @@ export default function QuickOrderPanel({
           type="button"
           onClick={cancelAll}
           disabled={!pending.length}
-          className="w-full rounded-md bg-bg-tertiary py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40"
+          className="w-full rounded-md bg-bg-tertiary py-1 text-caption text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40"
         >
           {symbol} 대기 주문 취소 ({pending.length})
         </button>
@@ -520,7 +520,7 @@ export default function QuickOrderPanel({
               )}
             </>
           ) : (
-            <p className="text-[13px] text-text-muted">보유하지 않은 종목입니다</p>
+            <p className="text-caption text-text-muted">보유하지 않은 종목입니다</p>
           )}
         </div>
       </div>

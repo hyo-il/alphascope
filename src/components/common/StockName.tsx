@@ -12,8 +12,8 @@ import { stockNameOf } from '../../utils/stockNames';
  */
 
 const TICKER_SIZE = {
-  sm: 'text-[13px]',
-  md: 'text-[13px]',
+  sm: 'text-caption',
+  md: 'text-caption',
   lg: 'text-xs',
 } as const;
 

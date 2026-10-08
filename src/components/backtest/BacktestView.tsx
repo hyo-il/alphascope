@@ -43,7 +43,7 @@ function elapsed(startedAt: string | null, now: number): string {
 function HistoryRow({ item, selected, onOpen, onRetry, onRemove }: { item: BacktestListItem; selected: boolean; onOpen: () => void; onRetry?: () => void; onRemove: () => void }) {
   const s = item.summary;
   return (
-    <li className={`flex items-center gap-3 px-3 py-2 text-[13px] ${selected ? 'bg-bg-tertiary' : ''}`}>
+    <li className={`flex items-center gap-3 px-3 py-2 text-caption ${selected ? 'bg-bg-tertiary' : ''}`}>
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className="text-text-primary">{when(item.createdAt)}</span>
@@ -79,7 +79,7 @@ function HistoryRow({ item, selected, onOpen, onRetry, onRemove }: { item: Backt
         onClick={onRemove}
         aria-label={`${when(item.createdAt)} 결과 삭제`}
         title="삭제"
-        className="shrink-0 rounded p-1 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-bearish"
+        className="shrink-0 rounded p-1 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-danger"
       >
         <TrashIcon className="h-3.5 w-3.5" />
       </button>
@@ -235,7 +235,7 @@ export default function BacktestView() {
         </Panel>
 
         {loadedNote && (
-          <Panel pad="sm" tone="tertiary" className="flex items-start gap-3 text-[13px] text-text-secondary">
+          <Panel pad="sm" tone="tertiary" className="flex items-start gap-3 text-caption text-text-secondary">
             <div className="min-w-0 flex-1 space-y-0.5">
               {loadedNote.map((n) => (
                 <p key={n}>{n}</p>
@@ -262,16 +262,16 @@ export default function BacktestView() {
             <Button variant="primary" onClick={() => void run()} disabled={running || starting || !!firstError}>
               {running || starting ? '시험 중…' : '시험 실행'}
             </Button>
-            {!running && firstError && <span className="min-w-0 text-[13px] text-text-muted">{firstError}</span>}
+            {!running && firstError && <span className="min-w-0 text-caption text-text-muted">{firstError}</span>}
             {!running && !firstError && (
-              <span className="min-w-0 text-[13px] text-text-muted">
+              <span className="min-w-0 text-caption text-text-muted">
                 {draft.symbols.length}종목 · {input.conditions.length > 1 ? `방법 ${input.conditions.length}개 비교` : ruleConditionLine(input.conditions[0])} · 기간 {draft.years}년
               </span>
             )}
           </div>
           {running && p && (
             <div role="status" aria-live="polite" className="space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2 text-[13px] text-text-secondary">
+              <div className="flex flex-wrap items-center gap-2 text-caption text-text-secondary">
                 <LoaderCircle {...ICON} className="animate-spin text-text-muted" aria-hidden />
                 <span className="tabular-nums">
                   {p.done}/{p.total || '…'}
@@ -282,11 +282,11 @@ export default function BacktestView() {
               <div className="h-1.5 overflow-hidden rounded-full bg-bg-tertiary">
                 <div className="h-full rounded-full bg-accent transition-[width]" style={{ width: `${p.total ? Math.round((p.done / p.total) * 100) : 3}%` }} />
               </div>
-              <p className="text-[13px] text-text-muted">다른 화면에 다녀와도 계산은 이어집니다.</p>
+              <p className="text-caption text-text-muted">다른 화면에 다녀와도 계산은 이어집니다.</p>
             </div>
           )}
-          {bt.engineDown && <p className="rounded-lg bg-warning/10 px-3 py-2 text-[13px] text-warning">지표 엔진이 꺼져 있어 계산할 수 없습니다.</p>}
-          {bt.error && !bt.engineDown && <p className="rounded-lg bg-bearish/10 px-3 py-2 text-[13px] text-bearish">{bt.error}</p>}
+          {bt.engineDown && <p className="rounded-lg bg-warning/10 px-3 py-2 text-caption text-warning">지표 엔진이 꺼져 있어 계산할 수 없습니다.</p>}
+          {bt.error && !bt.engineDown && <p className="rounded-lg bg-danger/10 px-3 py-2 text-caption text-danger">{bt.error}</p>}
         </Panel>
 
         {/* ④ 결과 */}
@@ -311,7 +311,7 @@ export default function BacktestView() {
               <FixedResult r={d.detail} />
             )
           ) : (
-            <Panel pad="sm" className="text-[13px] text-text-muted">
+            <Panel pad="sm" className="text-caption text-text-muted">
               {bt.reports == null ? '불러오는 중…' : '아직 결과가 없습니다. 종목과 조건을 정하고 [시험 실행] 을 누르세요.'}
             </Panel>
           )}
@@ -326,7 +326,7 @@ export default function BacktestView() {
                 <SkeletonList count={3} />
               </div>
             ) : bt.reports.length === 0 ? (
-              <p className="p-3 text-[13px] text-text-muted">아직 히스토리가 없습니다.</p>
+              <p className="p-3 text-caption text-text-muted">아직 히스토리가 없습니다.</p>
             ) : (
               <ul className="divide-y divide-border/40">
                 {bt.reports.map((item) => (
@@ -349,7 +349,7 @@ export default function BacktestView() {
         </section>
 
         {/* ⚠️ 고정 문구 5개 — 지우지 않는다, 정보 아이콘에 넣지 않는다 (CLAUDE.md) */}
-        <div className="space-y-0.5 pb-2 text-[13px] text-text-muted">
+        <div className="space-y-0.5 pb-2 text-caption text-text-muted">
           <p>과거 결과이며 앞으로를 보장하지 않습니다.</p>
           <p>여러 조건을 바꿔 보며 가장 좋은 숫자를 고르면 우연에 속기 쉽습니다.</p>
           <p>종목마다 따로 계산했습니다 — 실제 계좌의 비중·동시 보유 한도는 반영하지 않았습니다.</p>

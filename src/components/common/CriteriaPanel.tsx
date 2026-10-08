@@ -25,16 +25,16 @@ export default function CriteriaPanel({
         className="flex w-full items-center gap-2 px-3 py-2 text-left"
       >
         <span className="text-xs font-medium text-text-secondary">{spec.title}</span>
-        <span className="ml-auto text-[13px] text-text-muted">{open ? '접기' : '펼치기'}</span>
+        <span className="ml-auto text-caption text-text-muted">{open ? '접기' : '펼치기'}</span>
       </button>
 
       {open && (
         <div className="space-y-2 border-t border-border px-3 py-2.5">
-          <p className="text-[13px] text-text-secondary">{spec.grades}</p>
+          <p className="text-caption text-text-secondary">{spec.grades}</p>
 
           <ul className="space-y-1">
             {spec.scoring.map((item) => (
-              <li key={item.label} className="flex flex-wrap items-baseline gap-x-2 text-[13px]">
+              <li key={item.label} className="flex flex-wrap items-baseline gap-x-2 text-caption">
                 <span className="w-20 shrink-0 text-text-secondary">{item.label}</span>
                 <span className="w-12 shrink-0 tabular-nums text-text-primary">{item.value}</span>
                 <span className="min-w-0 flex-1 text-text-muted">{item.detail}</span>
@@ -44,7 +44,7 @@ export default function CriteriaPanel({
 
           <ul className="space-y-1 border-t border-border/60 pt-2">
             {spec.gates.map((gate) => (
-              <li key={gate} className="text-[13px] leading-relaxed text-text-muted">
+              <li key={gate} className="text-caption leading-relaxed text-text-muted">
                 · {gate}
               </li>
             ))}

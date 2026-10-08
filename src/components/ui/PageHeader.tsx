@@ -29,7 +29,7 @@ export default function PageHeader<T extends string>({
     <div className="shrink-0 px-3">
       {title != null && (
         <div className="flex min-w-0 items-center gap-2 pt-3 pb-2">
-          <h2 className="min-w-0 text-sm font-semibold text-text-primary">{title}</h2>
+          <h2 className="min-w-0 text-base font-semibold text-text-primary">{title}</h2>
           {right != null && <div className="ml-auto flex shrink-0 items-center gap-2">{right}</div>}
         </div>
       )}

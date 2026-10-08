@@ -40,14 +40,14 @@ export default function CopyPreview({
     return () => URL.revokeObjectURL(next);
   }, [blob]);
 
-  const box = 'flex aspect-[16/10] w-full items-center justify-center rounded border border-border bg-bg-primary text-center text-[13px] text-text-muted';
+  const box = 'flex aspect-[16/10] w-full items-center justify-center rounded border border-border bg-bg-primary text-center text-caption text-text-muted';
 
   if (!symbol) return <div className={box}>차트에서 종목을 먼저 고르세요</div>;
   if (pending) return <div className={box}>캡처 준비 중…</div>;
   if (error) {
     return (
       <div className={`${box} flex-col gap-1 px-2`}>
-        <span className="text-bearish">캡처하지 못했습니다 — {error}</span>
+        <span className="text-danger">캡처하지 못했습니다 — {error}</span>
         <button type="button" onClick={onRecapture} className="text-accent hover:underline">
           다시 캡처
         </button>
@@ -68,7 +68,7 @@ export default function CopyPreview({
       >
         <img src={url} alt="복사될 차트" className="block h-auto w-full" />
       </button>
-      <p className="text-[13px] text-text-muted">
+      <p className="text-caption text-text-muted">
         {nameOf(capture.symbol) ?? ''} {capture.symbol} · {TIMEFRAME_LABEL[capture.timeframe]} · 캡처 {time}
       </p>
       {/* 큰 미리보기 — 공용 창 틀(v2.41.0). ESC·바깥 클릭·닫기 X 로 닫는다 */}

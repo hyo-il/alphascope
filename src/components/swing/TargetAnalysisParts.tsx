@@ -60,9 +60,9 @@ export function ResultCard({
   const word = record.base ? compareWord(record.pTarget, record.base.target) : null;
 
   return (
-    <div className={`space-y-2 rounded-lg border bg-bg-secondary p-3 text-[13px] ${isNew ? 'border-accent' : 'border-border'}`}>
+    <div className={`space-y-2 rounded-lg border bg-bg-secondary p-3 text-caption ${isNew ? 'border-accent' : 'border-border'}`}>
       <div className="flex flex-wrap items-baseline gap-2">
-        {isNew && <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[13px] text-text-secondary">NEW</span>}
+        {isNew && <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-caption text-text-secondary">NEW</span>}
         <StockName symbol={record.symbol} className="text-sm font-semibold text-text-primary" />
         <span className="text-text-secondary">
           +{record.targetPct}% / −{record.stopPct}% · {record.days}거래일 · 기준 {record.baseDate} 종가{' '}
@@ -73,7 +73,7 @@ export function ResultCard({
           onClick={() => onDelete(record)}
           aria-label="이 결과 삭제"
           title="이 결과 삭제"
-          className="ml-auto rounded p-1 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-bearish"
+          className="ml-auto rounded p-1 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-danger"
         >
           <TrashIcon className="h-3.5 w-3.5" />
         </button>
@@ -132,7 +132,7 @@ export function ResultCard({
             <ul className="space-y-0.5">
               {record.agents.map((a) => (
                 <li key={a.role}>
-                  {a.label}: {a.error ? <span className="text-bearish">실패 — {a.error}</span> : `목표 ${a.pTarget}% · 손절 ${a.pStop}% · 둘 다 아님 ${a.pNeither}% — ${a.summary}`}
+                  {a.label}: {a.error ? <span className="text-danger">실패 — {a.error}</span> : `목표 ${a.pTarget}% · 손절 ${a.pStop}% · 둘 다 아님 ${a.pNeither}% — ${a.summary}`}
                 </li>
               ))}
             </ul>
@@ -155,7 +155,7 @@ export function ResultCard({
 export function TargetProgressBox({ progress }: { progress: TargetProgress | null }) {
   if (!progress || !(progress.running || progress.results.length > 0)) return null;
   return (
-        <section className="rounded-xl bg-bg-secondary px-3 py-2 text-[13px]">
+        <section className="rounded-xl bg-bg-secondary px-3 py-2 text-caption">
           <div className="mb-1 flex justify-between text-text-secondary">
             <span>
               {progress.running ? `분석 중 ${progress.current ?? ''}` : '최근 실행'} · {progress.done}/{progress.total}
@@ -172,7 +172,7 @@ export function TargetProgressBox({ progress }: { progress: TargetProgress | nul
             </div>
           )}
           {progress.results.filter((r) => r.error).map((r) => (
-            <p key={r.symbol} className="text-bearish">
+            <p key={r.symbol} className="text-danger">
               {r.symbol}: {r.error}
             </p>
           ))}
@@ -204,7 +204,7 @@ export function goalLabel(goal: { targetPct: number; stopPct: number; days: numb
  */
 export function TargetRefLine({ record, onMore }: { record: TargetAnalysisRecord; onMore: () => void }) {
   return (
-    <p className="rounded-lg bg-bg-tertiary/40 px-2.5 py-1.5 text-[13px] text-text-secondary">
+    <p className="rounded-lg bg-bg-tertiary/40 px-2.5 py-1.5 text-caption text-text-secondary">
       목표 수익 가능성({goalLabel(record)}): 목표 먼저 <span className="text-bullish">{record.pTarget}%</span> · 손절 먼저{' '}
       <span className="text-bearish">{record.pStop}%</span>
       {record.base && <span className="text-text-muted"> (과거 평균 {record.base.target}%)</span>}
@@ -260,11 +260,11 @@ export function TargetHistorySection({
   );
   return (
     <div className="space-y-3">
-      {error && <p className="text-[13px] text-bearish">히스토리를 불러오지 못했습니다: {error}</p>}
+      {error && <p className="text-caption text-danger">히스토리를 불러오지 못했습니다: {error}</p>}
       <section className="space-y-2">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <h3 className="font-medium text-text-secondary">분석 히스토리 (모든 조건)</h3>
-          <select value={symbolFilter} onChange={(e) => setSymbolFilter(e.target.value)} aria-label="종목" className="rounded border border-border bg-bg-tertiary px-2 py-0.5 text-[13px]">
+          <select value={symbolFilter} onChange={(e) => setSymbolFilter(e.target.value)} aria-label="종목" className="rounded border border-border bg-bg-tertiary px-2 py-0.5 text-caption">
             <option value="all">모든 종목</option>
             {symbols.map((s) => (
               <option key={s} value={s}>
@@ -272,7 +272,7 @@ export function TargetHistorySection({
               </option>
             ))}
           </select>
-          <select value={outcomeFilter} onChange={(e) => setOutcomeFilter(e.target.value as typeof outcomeFilter)} aria-label="결과" className="rounded border border-border bg-bg-tertiary px-2 py-0.5 text-[13px]">
+          <select value={outcomeFilter} onChange={(e) => setOutcomeFilter(e.target.value as typeof outcomeFilter)} aria-label="결과" className="rounded border border-border bg-bg-tertiary px-2 py-0.5 text-caption">
             <option value="all">모든 결과</option>
             <option value="pending">채점 대기</option>
             <option value="target">목표 도달</option>
@@ -280,7 +280,7 @@ export function TargetHistorySection({
             <option value="neither">둘 다 아님</option>
           </select>
           {stats && (
-            <span className="ml-auto text-[13px] text-text-secondary">
+            <span className="ml-auto text-caption text-text-secondary">
               {stats.weak ? (
                 <>
                   성적: <b>판단 보류</b> — 채점 {stats.scored}건(30건 미만)
@@ -296,7 +296,7 @@ export function TargetHistorySection({
             </span>
           )}
         </div>
-        {records === null && !error && <p className="text-[13px] text-text-muted">불러오는 중…</p>}
+        {records === null && !error && <p className="text-caption text-text-muted">불러오는 중…</p>}
         {records && shown.length === 0 && (
           <p className="rounded-xl bg-bg-secondary p-6 text-center text-xs text-text-muted">
             {records.length ? '조건에 맞는 결과가 없습니다.' : '아직 분석 히스토리가 없습니다. 위에서 종목을 골라 분석하세요.'}
@@ -307,7 +307,7 @@ export function TargetHistorySection({
         ))}
       </section>
 
-      <p className="text-[13px] text-text-muted">
+      <p className="text-caption text-text-muted">
         AI 예상은 참고용입니다. 이 앱의 연구에서 '목표 수익 후보 선별'은 우연 수준이었습니다. 실제 매매 판단은 직접 하세요. 이 분석은 투자 조언이 아닙니다.
       </p>
 

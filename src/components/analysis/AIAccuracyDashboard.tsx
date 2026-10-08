@@ -171,7 +171,7 @@ function AccuracyReport({ report }: { report: Report }) {
             </div>
           </div>
 
-          <p className="mt-2 text-[13px] text-text-muted">
+          <p className="mt-2 text-caption text-text-muted">
             채점 대상 {total}건{rawTotal > total && ` (원본 ${rawTotal}건을 종목·날짜별 1건으로 묶음)`} · 채점
             대기 {pending}건
             {pending > 0 && ` (${report.horizonDays} 거래일이 지나면 자동으로 채점됩니다)`}
@@ -204,7 +204,7 @@ function AccuracyReport({ report }: { report: Report }) {
                   {stats.rawTotal > stats.total && ` · 원본 ${stats.rawTotal}건`}
                 </span>
               </div>
-              <p className={`text-2xl font-semibold ${accuracyClass(stats.accuracy)}`}>
+              <p className={`text-sm font-semibold ${accuracyClass(stats.accuracy)}`}>
                 {percent(stats.accuracy)}
               </p>
             </div>

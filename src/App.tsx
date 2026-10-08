@@ -185,7 +185,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
       />
 
       {indicatorError && (
-        <div className="border-b border-warning/30 bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
+        <div className="border-b border-warning/30 bg-warning/10 px-3 py-1.5 text-caption text-warning">
           {engineDown ? '지표 엔진이 꺼져 있습니다. ' : '지표 계산 실패: '}
           {indicatorError}
         </div>
@@ -214,8 +214,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           />
           {error ? (
             <div className="absolute inset-0 z-30 flex items-center justify-center bg-bg-primary px-8">
-              <div className="max-w-lg rounded-lg border border-bearish/40 bg-bg-secondary p-5">
-                <p className="font-medium text-bearish">데이터를 불러오지 못했습니다</p>
+              <div className="max-w-lg rounded-lg border border-danger/40 bg-bg-secondary p-5">
+                <p className="font-medium text-danger">데이터를 불러오지 못했습니다</p>
                 <p className="mt-2 text-sm text-text-secondary">{error}</p>
               </div>
             </div>
@@ -282,7 +282,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         />
       )}
 
-      <footer className="flex shrink-0 items-center gap-1 border-t border-border/60 px-3 py-1.5 text-[13px] text-text-muted">
+      <footer className="flex shrink-0 items-center gap-1 border-t border-border/60 px-3 py-1.5 text-caption text-text-muted">
         {activeTool ? (
           <>
             <span className="text-text-primary">{guideFor(activeTool)}</span>
@@ -525,7 +525,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
               <span className="shrink-0 whitespace-nowrap text-base font-semibold">{stockInfo?.name || symbol}</span>
               {stockInfo?.name && <span className="shrink-0 whitespace-nowrap text-xs text-text-secondary">{symbol}</span>}
 
-              <span className="shrink-0 whitespace-nowrap text-lg font-semibold tabular-nums">
+              <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums">
                 {formatPrice(displayPrice, currency)}
               </span>
               {livePrice && (
@@ -543,7 +543,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           )}
 
           {isMock && (
-            <span className="ml-auto rounded bg-warning/15 px-2 py-1 text-[13px] text-warning">
+            <span className="ml-auto rounded bg-warning/15 px-2 py-1 text-caption text-warning">
               <WarnIcon />모의 데이터 — .env 에 토스 API 키를 넣으면 실시간으로 전환됩니다
             </span>
           )}

@@ -47,7 +47,7 @@ export default function HelpBox({
         <span className="w-3 shrink-0">{open ? <ChevronDown {...ICON_SM} /> : <ChevronRight {...ICON_SM} />}</span>
         {title}
       </button>
-      {open && <div className="space-y-1.5 border-t border-border px-3 py-2.5 text-[13px] leading-relaxed text-text-secondary">{children}</div>}
+      {open && <div className="space-y-1.5 border-t border-border px-3 py-2.5 text-caption leading-relaxed text-text-secondary">{children}</div>}
     </section>
   );
 }

@@ -108,7 +108,7 @@ export default function DrawingTools({
         onClick={onClearAll}
         disabled={!hasDrawings}
         title="그린 것 모두 삭제"
-        className="whitespace-nowrap rounded-md px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-bearish disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
+        className="whitespace-nowrap rounded-md px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-danger disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
       >
         모두 삭제
       </button>

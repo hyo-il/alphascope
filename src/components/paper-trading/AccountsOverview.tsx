@@ -136,7 +136,7 @@ export default function AccountsOverview({
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-4">
       {error && (
-        <p className="mb-2 rounded-lg bg-warning/10 px-3 py-1.5 text-[13px] text-warning">
+        <p className="mb-2 rounded-lg bg-warning/10 px-3 py-1.5 text-caption text-warning">
           최신 값을 받지 못했습니다 ({error}) — 아래는 마지막으로 받은 값입니다.
         </p>
       )}
@@ -171,19 +171,19 @@ export default function AccountsOverview({
                 <h3 className="min-w-0 truncate text-sm font-medium text-text-primary">
                   {item.account.name}
                 </h3>
-                <span className="shrink-0 text-[13px] text-text-muted">{currency}</span>
+                <span className="shrink-0 text-caption text-text-muted">{currency}</span>
                 {item.account.id === selectedId && (
-                  <span className="ml-auto shrink-0 rounded bg-bg-tertiary px-1.5 py-0.5 text-[13px] font-medium text-text-secondary">
+                  <span className="ml-auto shrink-0 rounded bg-bg-tertiary px-1.5 py-0.5 text-caption font-medium text-text-secondary">
                     현재 계좌
                   </span>
                 )}
               </header>
 
               {item.error ? (
-                <p className="mt-2 text-[13px] text-bearish">평가 실패: {item.error}</p>
+                <p className="mt-2 text-caption text-danger">평가 실패: {item.error}</p>
               ) : (
                 <>
-                  <p className="mt-2 text-lg font-semibold tabular-nums text-text-primary">
+                  <p className="mt-2 text-sm font-semibold tabular-nums text-text-primary">
                     {formatPrice(item.totalValue ?? 0, currency)}
                   </p>
                   <p
@@ -195,7 +195,7 @@ export default function AccountsOverview({
                     {formatPrice(pnl ?? 0, currency)} ({(item.totalReturn ?? 0) > 0 ? '+' : ''}
                     {(item.totalReturn ?? 0).toFixed(2)}%)
                   </p>
-                  <p className="mt-1 text-[13px] text-text-muted">
+                  <p className="mt-1 text-caption text-text-muted">
                     현금 {formatPrice(item.account.currentCash, currency)} · 주식{' '}
                     {formatPrice(item.stockValue ?? 0, currency)}
                     {item.pendingOrders > 0 && ` · 대기 주문 ${item.pendingOrders}건`}
@@ -208,7 +208,7 @@ export default function AccountsOverview({
                 "켜기" 를 눌러도 돌지 않는다는 것을 모르면 고장으로 읽는다 (v2.16.0).
               */}
               {status && status.serverEnabled === false && !on && (
-                <p className="mt-2 rounded bg-warning/10 px-2 py-1 text-[13px] text-warning">
+                <p className="mt-2 rounded bg-warning/10 px-2 py-1 text-caption text-warning">
                   이 서버에서는 자동매매가 꺼져 있습니다(AUTO_TRADING_ENABLED=false)
                 </p>
               )}
@@ -217,7 +217,7 @@ export default function AccountsOverview({
               <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border pt-2">
                 <span
                   title={view.reason ?? undefined}
-                  className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[13px] font-medium ${BADGE[view.state]}`}
+                  className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-caption font-medium ${BADGE[view.state]}`}
                 >
                   {/*
                     깜빡이는 것은 **가동 중의 점 하나뿐**이다. 동작 줄이기를 켠 사용자에게는
@@ -229,10 +229,10 @@ export default function AccountsOverview({
                   </span>
                 </span>
 
-                {view.hint && <span className="text-[13px] text-text-muted">{view.hint}</span>}
+                {view.hint && <span className="text-caption text-text-muted">{view.hint}</span>}
 
                 {view.state === 'running' && status?.nextRunAt && !view.busy && (
-                  <span className="text-[13px] text-text-muted">
+                  <span className="text-caption text-text-muted">
                     다음 실행{' '}
                     {new Date(status.nextRunAt).toLocaleTimeString('ko-KR', {
                       hour: '2-digit',
@@ -249,14 +249,14 @@ export default function AccountsOverview({
                       e.stopPropagation();
                       onOpen(item.account.id);
                     }}
-                    className="rounded border border-warning/50 px-1.5 py-0.5 text-[13px] font-medium text-warning transition-colors hover:bg-warning/15"
+                    className="rounded border border-warning/50 px-1.5 py-0.5 text-caption font-medium text-warning transition-colors hover:bg-warning/15"
                   >
                     설정 열기
                   </button>
                 )}
 
                 {strategy && (
-                  <span className="text-[13px] text-text-muted">
+                  <span className="text-caption text-text-muted">
                     {strategy.mode === 'ai' ? 'AI형' : '규칙형'} · 대상 {strategy.symbols.length}종목 ·
                     비중 {strategy.positionSizePercent}%
                   </span>
@@ -270,15 +270,15 @@ export default function AccountsOverview({
                     e.stopPropagation();
                     void toggle(item, !on);
                   }}
-                  className={`ml-auto rounded px-2 py-0.5 text-[13px] font-medium text-white transition-colors disabled:opacity-50 ${
-                    on ? 'bg-bearish hover:bg-bearish/90' : 'bg-accent hover:bg-accent-hover'
+                  className={`ml-auto rounded px-2 py-0.5 text-caption font-medium text-white transition-colors disabled:opacity-50 ${
+                    on ? 'bg-danger hover:bg-danger/90' : 'bg-accent hover:bg-accent-hover'
                   }`}
                 >
                   {busyId === item.account.id ? '…' : on ? '끄기' : '켜기'}
                 </button>
               </div>
               {/* 손절·익절 한 줄 (v2.40.0) — 안전장치를 모아보기에서도 한눈에. 문장은 autoTradeExplain.safetyLine 한 곳 */}
-              {strategy && <p className="mt-1.5 text-[13px] font-medium text-text-secondary">{safetyLine(strategy)}</p>}
+              {strategy && <p className="mt-1.5 text-caption font-medium text-text-secondary">{safetyLine(strategy)}</p>}
             </article>
           );
         })}

@@ -108,7 +108,7 @@ export default function TargetTab({
         </p>
       </HelpBox>
 
-      <div className="flex flex-wrap items-center gap-2 text-[13px]">
+      <div className="flex flex-wrap items-center gap-2 text-caption">
         <span className="text-text-secondary">
           지금 조건: <b className="text-text-primary">목표 +{goalPct(goal.targetPct)} · {periodLabel(goal.days)} · 손절 −{goalPct(goal.stopPct)}</b>
         </span>
@@ -133,7 +133,7 @@ export default function TargetTab({
           emptyText={`[종목 고르기] 에서 분석할 종목을 고르세요(최대 ${TARGET_MAX_SYMBOLS}개).`}
         />
         {picked.length > 0 && (
-          <ul className="space-y-0.5 text-[13px]">
+          <ul className="space-y-0.5 text-caption">
             {picked.map((s) => {
               const last = latestFor(target.records, s, goal);
               return (
@@ -156,7 +156,7 @@ export default function TargetTab({
           >
             {running ? '분석 중…' : `선택한 ${picked.length}종목 분석 (Gemini 약 ${picked.length * CALLS_PER_SYMBOL}회)`}
           </button>
-          {target.geminiOff && <span className="text-[13px] text-warning">지금은 분석할 수 없습니다 — {target.geminiOff}</span>}
+          {target.geminiOff && <span className="text-caption text-warning">지금은 분석할 수 없습니다 — {target.geminiOff}</span>}
         </div>
       </section>
 
@@ -180,7 +180,7 @@ export default function TargetTab({
           {focusRecord ? (
             <ResultCard record={focusRecord} isNew={false} onDelete={confirmDelete} />
           ) : (
-            <p className="text-[13px] text-text-muted">이 조건으로 분석한 결과가 없습니다.</p>
+            <p className="text-caption text-text-muted">이 조건으로 분석한 결과가 없습니다.</p>
           )}
         </div>
       )}

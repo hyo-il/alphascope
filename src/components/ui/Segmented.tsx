@@ -1,3 +1,4 @@
+import { CONTROL_H, SEGMENT_H } from './tokens';
 import type { ReactNode } from 'react';
 
 export interface SegmentedOption<T extends string | number> {
@@ -29,9 +30,10 @@ export default function Segmented<T extends string | number>({
   /** 화면 읽기용 이름(예: "시장") — 글자로는 보이지 않는다 */
   label: string;
 }) {
-  const pad = size === 'sm' ? 'px-2.5 py-0.5' : 'px-3 py-1';
+  // 높이는 기준표(tokens) — 바깥 틀 = 버튼·입력칸과 같은 높이(32/28px), 안 칸 = 그 안에서 2px 씩 여백
+  const pad = `${SEGMENT_H[size]} ${size === 'sm' ? 'px-2.5' : 'px-3'}`;
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex shrink-0 gap-0.5 rounded-lg bg-bg-tertiary p-0.5">
+    <div role="radiogroup" aria-label={label} className={`inline-flex shrink-0 items-center gap-0.5 rounded-lg bg-bg-tertiary p-0.5 ${CONTROL_H[size]}`}>
       {options.map((o) => {
         const on = o.value === value;
         return (

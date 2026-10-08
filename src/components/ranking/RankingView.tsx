@@ -112,7 +112,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
   return (
     <div className="flex h-full flex-col p-3">
       {/* 제목 줄 / 고르기 줄을 나눈다 (v2.41.0 디자인 규칙 7) */}
-      <h2 className="shrink-0 pb-2 text-sm font-semibold text-text-primary">실시간 순위</h2>
+      <h2 className="shrink-0 pb-2 text-base font-semibold text-text-primary">실시간 순위</h2>
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
         <Segmented
           label="시장"
@@ -126,7 +126,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
         />
         <Segmented label="순위 종류" size="sm" value={kind} onChange={setKind} options={LIVE_RANKING_KINDS.map((k) => ({ value: k.id, label: k.label }))} />
         {data && (
-          <span className="flex items-center gap-1 text-[13px] text-text-muted">
+          <span className="flex items-center gap-1 text-caption text-text-muted">
             {data.rankedAt
               ? `${new Date(data.rankedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준`
               : '기준 시각 없음'}
@@ -139,7 +139,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
         )}
       </header>
 
-      {error && <p className="mb-2 rounded-lg bg-bearish/10 px-3 py-1.5 text-[13px] text-bearish">{error}</p>}
+      {error && <p className="mb-2 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">{error}</p>}
 
       <div className="flex min-h-0 flex-1 gap-2">
         {/* 목록 ≈ 55% */}
@@ -151,8 +151,8 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
           className="min-h-0 min-w-0 basis-[60%] overflow-y-auto rounded-xl bg-bg-secondary outline-none focus-visible:ring-1 focus-visible:ring-accent"
           aria-label="순위 목록 — ↑↓ 로 옮기고 Enter 로 차트 열기"
         >
-          <table className="w-full text-[14px]">
-            <thead className="sticky top-0 z-[1] bg-bg-secondary text-[13px] text-text-muted">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 z-[1] bg-bg-secondary text-caption text-text-muted">
               <tr className="border-b border-border/50">
                 <th className="w-9 py-2.5 pl-2 text-right font-normal">순위</th>
                 <th className="w-7" />
@@ -166,14 +166,14 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
             <tbody>
               {!data && !error && (
                 <tr>
-                  <td colSpan={6} className="p-4 text-center text-[13px] text-text-muted">
+                  <td colSpan={6} className="p-4 text-center text-caption text-text-muted">
                     불러오는 중…
                   </td>
                 </tr>
               )}
               {data && !data.rows.length && (
                 <tr>
-                  <td colSpan={6} className="p-4 text-center text-[13px] text-text-muted">
+                  <td colSpan={6} className="p-4 text-center text-caption text-text-muted">
                     {data.mock ? '모의 데이터 모드에서는 순위가 없습니다.' : '순위가 비어 있습니다.'}
                   </td>
                 </tr>
@@ -230,7 +230,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
             <button
               type="button"
               onClick={() => setShowAll((v) => !v)}
-              className="w-full py-2 text-[13px] text-text-secondary hover:bg-bg-tertiary/60"
+              className="w-full py-2 text-caption text-text-secondary hover:bg-bg-tertiary/60"
             >
               {showAll ? '50위까지만 보기' : `더 보기 (+${data.rows.length - FIRST_PAGE})`}
             </button>
@@ -246,7 +246,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
       </div>
 
       {/* ⚠️ 고정 문구 — 지우지 않는다(CLAUDE.md). 조작법만 정보 아이콘으로 (v2.36.0) */}
-      <p className="mt-2 flex shrink-0 items-center gap-1 text-[13px] text-text-secondary">
+      <p className="mt-2 flex shrink-0 items-center gap-1 text-caption text-text-secondary">
         순위는 둘러보기용입니다. 급등 다음 날 추격 매수는 이 앱의 과거 진단에서 불리했습니다.
         <InfoTip label="조작법">행을 누르거나 Enter 를 누르면 미리보기에서 고른 봉으로 차트를 엽니다. ↑↓ 로 행을 옮깁니다. 미리보기 차트를 왼쪽 끝까지 끌면 옛날 봉을 이어 받습니다.</InfoTip>
       </p>

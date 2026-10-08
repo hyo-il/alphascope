@@ -68,7 +68,7 @@ export default function PeriodicSurgeList({
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-wrap items-center gap-3 rounded-xl bg-bg-secondary px-3 py-2 text-[13px] text-text-secondary">
+      <header className="flex flex-wrap items-center gap-3 rounded-xl bg-bg-secondary px-3 py-2 text-caption text-text-secondary">
         <span>
           마지막 분석:{' '}
           <span className="text-text-primary">
@@ -88,14 +88,14 @@ export default function PeriodicSurgeList({
           type="button"
           onClick={onDetect}
           disabled={running}
-          className="ml-auto rounded bg-accent px-2.5 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+          className="ml-auto rounded bg-accent px-2.5 py-1 text-caption font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
         >
           {running ? '분석 중…' : '다시 실행'}
         </button>
       </header>
 
       {running && progress && (
-        <div className="rounded-lg bg-bg-tertiary/60 px-3 py-2 text-[13px] text-text-secondary">
+        <div className="rounded-lg bg-bg-tertiary/60 px-3 py-2 text-caption text-text-secondary">
           분석 중… {progress.done}/{progress.total}
           {progress.current && ` (${progress.current})`}
           <div className="mt-1.5 h-1 overflow-hidden rounded bg-bg-tertiary">
@@ -113,13 +113,13 @@ export default function PeriodicSurgeList({
       )}
 
       {progress?.error && !running && (
-        <p className="rounded-lg bg-warning/10 px-3 py-2 text-[13px] text-warning">
+        <p className="rounded-lg bg-warning/10 px-3 py-2 text-caption text-warning">
           {progress.error}
         </p>
       )}
 
       {error && (
-        <p className="rounded-lg bg-bearish/10 px-3 py-2 text-[13px] text-bearish">
+        <p className="rounded-lg bg-danger/10 px-3 py-2 text-caption text-danger">
           {error}
         </p>
       )}
@@ -141,7 +141,7 @@ export default function PeriodicSurgeList({
             {imminent.length ? (
               <div className={gridClass}>{imminent.map(card)}</div>
             ) : (
-              <p className="text-[13px] text-text-muted">임박한 종목이 없습니다.</p>
+              <p className="text-caption text-text-muted">임박한 종목이 없습니다.</p>
             )}
           </section>
 
@@ -152,7 +152,7 @@ export default function PeriodicSurgeList({
             {later.length ? (
               <div className={gridClass}>{later.map(card)}</div>
             ) : (
-              <p className="text-[13px] text-text-muted">해당하는 종목이 없습니다.</p>
+              <p className="text-caption text-text-muted">해당하는 종목이 없습니다.</p>
             )}
           </section>
 
@@ -167,7 +167,7 @@ export default function PeriodicSurgeList({
         </>
       )}
 
-      <p className="text-[13px] text-text-muted">
+      <p className="text-caption text-text-muted">
         <WarnIcon />과거 급등이 반복됐다는 사실이 다음 급등을 보장하지 않습니다. 이 화면은 탐지·평가만
         하며 투자 조언이 아닙니다.
       </p>

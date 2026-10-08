@@ -49,7 +49,7 @@ export default function MarketOverview() {
   // 접힌 상태 — 한 줄 요약만 남긴다.
   if (collapsed) {
     return (
-      <div className="flex h-8 shrink-0 items-center gap-4 overflow-x-auto border-b border-border bg-bg-secondary px-3 text-[13px] whitespace-nowrap">
+      <div className="flex h-8 shrink-0 items-center gap-4 overflow-x-auto border-b border-border bg-bg-secondary px-3 text-caption whitespace-nowrap">
         {indices.slice(0, 4).map((index) => {
           const up = index.changeRate != null && index.changeRate > 0;
           const down = index.changeRate != null && index.changeRate < 0;
@@ -84,11 +84,11 @@ export default function MarketOverview() {
   return (
     <section className="shrink-0 border-b border-border bg-bg-primary px-3 py-2">
       <div className="mb-1.5 flex items-center justify-between">
-        <h2 className="text-[13px] text-text-secondary">시황</h2>
+        <h2 className="text-caption text-text-secondary">시황</h2>
         <button
           type="button"
           onClick={toggle}
-          className="inline-flex items-center gap-1 text-[13px] text-text-muted transition-colors hover:text-text-primary"
+          className="inline-flex items-center gap-1 text-caption text-text-muted transition-colors hover:text-text-primary"
         >
           <ChevronUp {...ICON_SM} />
           접기

@@ -78,7 +78,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="shrink-0 whitespace-nowrap rounded border border-warning/60 px-2 py-0.5 text-[13px] text-warning transition-colors hover:bg-warning/10"
+              className="shrink-0 whitespace-nowrap rounded border border-warning/60 px-2 py-0.5 text-caption text-warning transition-colors hover:bg-warning/10"
             >
               설정 열기
             </button>
@@ -89,7 +89,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
         <span className="text-xs font-medium text-text-primary">자동매매</span>
 
         <span
-          className={`rounded px-1.5 py-0.5 text-[13px] font-medium ${
+          className={`rounded px-1.5 py-0.5 text-caption font-medium ${
             on ? 'bg-bullish/15 text-bullish' : 'bg-bg-tertiary text-text-muted'
           }`}
         >
@@ -103,12 +103,12 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
               ? 'AI형 — 전문가 AI 다섯이 매번 새로 읽고 정합니다. 흐름까지 보지만 답이 조금씩 달라지고 Gemini 키가 필요합니다.'
               : '규칙형 — 정해 둔 숫자 조건(이동평균 교차·RSI)이 맞을 때만 매수합니다. 이유가 분명하고 키가 필요 없습니다.'
           }
-          className="cursor-help rounded-lg bg-bg-tertiary/40 px-1.5 py-0.5 text-[13px] text-text-secondary"
+          className="cursor-help rounded-lg bg-bg-tertiary/40 px-1.5 py-0.5 text-caption text-text-secondary"
         >
           {strategy.mode === 'ai' ? 'AI형' : '규칙형'}
         </span>
 
-        <span className="text-[13px] text-text-muted">종목 {strategy.symbols.length}개</span>
+        <span className="text-caption text-text-muted">종목 {strategy.symbols.length}개</span>
 
         {/*
           켜져 있는데 못 도는 이유가 있으면 그것을 먼저 보여 준다.
@@ -116,7 +116,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
         */}
         {/* 서버 스위치로 꺼진 서버 — 설정이 꺼져 있어도 알린다 (켜 봐야 돌지 않는다) */}
         {!on && status?.serverEnabled === false && (
-          <span className="rounded bg-warning/15 px-2 py-0.5 text-[13px] text-warning">
+          <span className="rounded bg-warning/15 px-2 py-0.5 text-caption text-warning">
             <WarnIcon />이 서버에서는 자동매매가 꺼져 있습니다(AUTO_TRADING_ENABLED=false)
           </span>
         )}
@@ -125,26 +125,26 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           예전에는 대기에도 주황 ⚠️ 배지가 겹쳐 떠서 고장처럼 보였다. 멈춤(설정·하루 손실·서버 꺼짐)만 경고색.
         */}
         {on && status?.blockedReason && status.blockedKind === 'market_closed' && (
-          <span className="rounded bg-bg-tertiary px-2 py-0.5 text-[13px] text-text-secondary">대기 — 장 시간이 아닙니다</span>
+          <span className="rounded bg-bg-tertiary px-2 py-0.5 text-caption text-text-secondary">대기 — 장 시간이 아닙니다</span>
         )}
         {on && status?.blockedReason && status.blockedKind !== 'market_closed' && (
-          <span className="rounded bg-warning/15 px-2 py-0.5 text-[13px] text-warning">
+          <span className="rounded bg-warning/15 px-2 py-0.5 text-caption text-warning">
             <WarnIcon />{status.blockedReason}
           </span>
         )}
         {on && !status?.blockedReason && nextRun && (
-          <span className="text-[13px] text-text-muted">
+          <span className="text-caption text-text-muted">
             다음 실행 {nextRun}
             {strategy.mode === 'ai' && status ? ` · 오늘 호출 ${status.callsToday}회` : ''}
           </span>
         )}
-        {error && <span className="text-[13px] text-bearish">상태 조회 실패: {error}</span>}
+        {error && <span className="text-caption text-danger">상태 조회 실패: {error}</span>}
 
         <span className="ml-auto flex items-center gap-2">
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="shrink-0 whitespace-nowrap rounded bg-bg-tertiary px-2 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+            className="shrink-0 whitespace-nowrap rounded bg-bg-tertiary px-2 py-1 text-caption text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             자동매매 설정
           </button>
@@ -156,9 +156,9 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
               ⚠️ 끄기는 **빨강**이다. 돌고 있는 자동매매를 멈추는 동작이라, 켜기와 같은 무게로
               보이면 안 된다 — 눌러 놓고 "왜 안 도나" 를 찾게 된다.
             */
-            className={`shrink-0 whitespace-nowrap rounded px-3 py-1 text-[13px] font-medium transition-colors disabled:opacity-50 ${
+            className={`shrink-0 whitespace-nowrap rounded px-3 py-1 text-caption font-medium transition-colors disabled:opacity-50 ${
               on
-                ? 'bg-bearish text-white hover:bg-bearish/90'
+                ? 'bg-danger text-white hover:bg-danger/90'
                 : 'bg-accent text-white hover:bg-accent-hover'
             }`}
           >
@@ -179,12 +179,12 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
       {/* 「지금 조건」 카드 (v2.40.0) — 예전 이 바의 회색 한 줄을 옮겼다(두 번 보이지 않게) */}
       <ConditionCard strategy={strategy} onOpenSettings={() => setOpen(true)} />
       {on && status && status.lastNotes.length === 0 && (!status.blockedKind || status.blockedKind === 'market_closed') && (
-        <p className="border-b border-border px-4 py-1.5 text-[13px] text-text-muted">
+        <p className="border-b border-border px-4 py-1.5 text-caption text-text-muted">
           아직 판단한 적이 없습니다. 미국 장이 열리는 {kstLabel(nextUsOpen())}에 첫 판단을 합니다.
         </p>
       )}
       {status && status.lastNotes.length > 0 && (
-        <div className="border-b border-border px-4 py-1.5 text-[13px]">
+        <div className="border-b border-border px-4 py-1.5 text-caption">
           <div className="flex flex-wrap items-center gap-2">
             <DisclosureButton
               open={notesOpen}

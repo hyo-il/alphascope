@@ -100,7 +100,7 @@ export default function Dialog({
           <h2 id={titleId} className="min-w-0 text-sm font-semibold text-text-primary">
             {title}
           </h2>
-          {titleAside != null && <span className="min-w-0 text-[13px] text-text-muted">{titleAside}</span>}
+          {titleAside != null && <span className="min-w-0 text-caption text-text-muted">{titleAside}</span>}
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {headerRight}
             {onClose && <IconButton icon={X} label="닫기" size="sm" onClick={onClose} />}

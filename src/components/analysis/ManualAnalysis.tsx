@@ -262,11 +262,11 @@ export default function ManualAnalysis({
       */
       <div className="space-y-2 p-3">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-text-secondary">
+          <p className="min-w-0 flex-1 text-caption leading-relaxed text-text-secondary">
             이 종목의 기본 프롬프트(전문가 분석 · {horizonLabel(horizon)})를 Claude 에 보냅니다 — Claude 대화창을 열어 둔 채 ① 이미지 →
             ② 프롬프트를 차례로 <b className="text-text-primary">복사하고 바로 붙여넣은 뒤</b> 전송하세요(클립보드에는 마지막 것 하나만 남습니다).
           </p>
-          <p className="shrink-0 text-[13px] text-text-muted">
+          <p className="shrink-0 text-caption text-text-muted">
             고치려면 →{' '}
             <button type="button" onClick={onOpenFull} className="text-accent hover:underline">
               투자 분석 &gt; AI 분석 열기
@@ -337,9 +337,9 @@ export default function ManualAnalysis({
             </button>
           )}
           <DisclosureButton open={editorOpen} onToggle={() => setEditorOpen((v) => !v)} label="프롬프트 수정 보기" controls="manual-prompt-editor" />
-          {edited !== null && <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[13px] text-warning">수정됨</span>}
+          {edited !== null && <span className="rounded bg-warning/15 px-1.5 py-0.5 text-caption text-warning">수정됨</span>}
           {capture && capture.symbol === symbol && (
-            <span className="ml-auto text-[13px] text-text-muted">
+            <span className="ml-auto text-caption text-text-muted">
               캡처 {new Date(capture.capturedAt).toLocaleTimeString('ko-KR')}
               {capture.timeframe !== timeframe && <span className="text-text-secondary"> · 프롬프트도 캡처한 봉으로</span>}
             </span>
@@ -349,7 +349,7 @@ export default function ManualAnalysis({
         {editorOpen && (
           <section id="manual-prompt-editor" className="space-y-3 rounded-lg bg-bg-tertiary/40 p-3">
             <div className="space-y-1.5">
-              <h4 className="text-[13px] text-text-secondary">투자 기간</h4>
+              <h4 className="text-caption text-text-secondary">투자 기간</h4>
               <div className="grid grid-cols-4 gap-1">
                 {HORIZONS.map((h) => (
                   <button
@@ -363,8 +363,8 @@ export default function ManualAnalysis({
                         : 'border-transparent bg-bg-tertiary text-text-secondary hover:text-text-primary'
                     }`}
                   >
-                    <span className="block text-[13px] font-medium">{h.label}</span>
-                    <span className="block text-[13px] text-text-muted">{h.period}</span>
+                    <span className="block text-caption font-medium">{h.label}</span>
+                    <span className="block text-caption text-text-muted">{h.period}</span>
                   </button>
                 ))}
               </div>
@@ -406,7 +406,7 @@ export default function ManualAnalysis({
               spellCheck={false}
               className="h-[45vh] w-full resize-y rounded-md border border-border bg-bg-tertiary p-3 font-mono text-xs leading-relaxed text-text-secondary focus:border-accent focus:outline-none"
             />
-            <ul className="space-y-0.5 text-[13px] leading-relaxed text-text-muted">
+            <ul className="space-y-0.5 text-caption leading-relaxed text-text-muted">
               {includeImage && <li>· 차트 이미지 (① 로 복사)</li>}
               {mode === 'quick' && <li>· RSI · MACD · MA · 볼린저 · ATR · 스토캐스틱</li>}
               {flowBlock && <li>· 투자자 동향 (최근 확정 거래일 순매수, 국내 종목)</li>}
@@ -428,7 +428,7 @@ export default function ManualAnalysis({
           </section>
         )}
 
-        <p className="text-[13px] leading-relaxed text-text-muted">
+        <p className="text-caption leading-relaxed text-text-muted">
           API 키 없이 Claude 구독 대화에서 사용합니다. AI 의견은 투자 조언이 아닙니다.
         </p>
       </div>

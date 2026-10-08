@@ -54,12 +54,12 @@ export default function SurgeCard({
           <span className="block text-sm font-semibold tabular-nums">
             {detection.surgeScore}/100
           </span>
-          <span className="block text-[13px] text-text-muted">급등 점수</span>
+          <span className="block text-caption text-text-muted">급등 점수</span>
         </span>
       </header>
 
       {/* 각 정보를 한 줄씩 — 좁아지면 값이 아래로 내려간다 */}
-      <dl className="space-y-1.5 text-[13px] text-text-secondary">
+      <dl className="space-y-1.5 text-caption text-text-secondary">
         <Row
           label="급등 패턴"
           value={`평균 ${detection.avgInterval ?? '—'}일마다 · 최근 ${detection.surgeCount}회`}
@@ -80,19 +80,19 @@ export default function SurgeCard({
 
       {/* 신호 뱃지는 별도 영역으로 — 위 숫자들과 섞이면 둘 다 안 읽힌다 */}
       <div className="space-y-1">
-        <p className="text-[13px] text-text-secondary">현재 신호</p>
+        <p className="text-caption text-text-secondary">현재 신호</p>
         <div className="flex flex-wrap gap-1.5">
           {hits.length ? (
             hits.map(([key]) => (
               <span
                 key={key}
-                className="rounded bg-bullish/15 px-1.5 py-0.5 text-[13px] text-bullish"
+                className="rounded bg-bullish/15 px-1.5 py-0.5 text-caption text-bullish"
               >
                 {SIGNAL_LABEL[key] ?? key}
               </span>
             ))
           ) : (
-            <span className="text-[13px] text-text-muted">없음</span>
+            <span className="text-caption text-text-muted">없음</span>
           )}
         </div>
       </div>
@@ -100,7 +100,7 @@ export default function SurgeCard({
       <SurgeMiniChart history={detection.surgeHistory} />
 
       {detection.reason && (
-        <p className="text-[13px] leading-relaxed text-text-muted">{detection.reason}</p>
+        <p className="text-caption leading-relaxed text-text-muted">{detection.reason}</p>
       )}
 
       <div className="mt-auto flex flex-wrap gap-2 pt-1">
@@ -126,7 +126,7 @@ export default function SurgeCard({
           AI 분석
         </button>
         {/* 버튼 옆에 한 번 더 적는다 — 카드만 보고 매수를 누르는 자리라서 */}
-        <span className="ml-auto self-center text-[13px] text-warning">테스트 기능</span>
+        <span className="ml-auto self-center text-caption text-warning">테스트 기능</span>
       </div>
     </article>
   );
@@ -143,4 +143,4 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 }
 
 const BUTTON =
-  'rounded bg-bg-tertiary px-2.5 py-1 text-[13px] text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-50 disabled:hover:bg-bg-tertiary disabled:hover:text-text-secondary';
+  'rounded bg-bg-tertiary px-2.5 py-1 text-caption text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-50 disabled:hover:bg-bg-tertiary disabled:hover:text-text-secondary';

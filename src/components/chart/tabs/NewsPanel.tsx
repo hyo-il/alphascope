@@ -21,7 +21,7 @@ const SENTIMENT_STYLE: Record<OverallSentiment, string> = {
 
 function Badge({ value }: { value: OverallSentiment }) {
   return (
-    <span className={`shrink-0 rounded border px-1.5 py-px text-[13px] font-medium ${SENTIMENT_STYLE[value]}`}>{value}</span>
+    <span className={`shrink-0 rounded border px-1.5 py-px text-caption font-medium ${SENTIMENT_STYLE[value]}`}>{value}</span>
   );
 }
 
@@ -98,11 +98,11 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
           type="button"
           onClick={() => void analyze()}
           disabled={!canAnalyze}
-          className="rounded-md bg-accent px-2.5 py-1 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:bg-bg-tertiary disabled:text-text-muted"
+          className="rounded-md bg-accent px-2.5 py-1 text-caption font-medium text-white transition-colors hover:bg-accent-hover disabled:bg-bg-tertiary disabled:text-text-muted"
         >
           {analyzing ? 'AI 판정 중…' : 'AI 요약·판정'}
         </button>
-        <span className="text-[13px] text-text-muted">
+        <span className="text-caption text-text-muted">
           {disabledReason
             ? `버튼이 꺼져 있습니다 — ${disabledReason}`
             : '누를 때만 Gemini 를 1회 부릅니다. 기사 제목만 보냅니다.'}
@@ -110,16 +110,16 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
       </div>
 
       {analyzeError && (
-        <p className="rounded-lg bg-bearish/10 px-2 py-1 text-[13px] text-bearish">{analyzeError}</p>
+        <p className="rounded-lg bg-danger/10 px-2 py-1 text-caption text-danger">{analyzeError}</p>
       )}
 
       {analysis && (
         <section className="rounded-lg bg-bg-secondary p-2">
           <div className="mb-1 flex items-center gap-2">
-            <span className="text-[13px] font-semibold text-text-primary">종합</span>
+            <span className="text-caption font-semibold text-text-primary">종합</span>
             <Badge value={analysis.judgment.overall} />
             {analysis.judgment.citedIndexes.length > 0 && (
-              <span className="text-[13px] text-text-muted">
+              <span className="text-caption text-text-muted">
                 근거:{' '}
                 {analysis.judgment.citedIndexes.map((i) => (
                   <button key={i} type="button" onClick={() => jumpTo(i)} className="mr-1 text-accent hover:underline">
@@ -131,20 +131,20 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
           </div>
           {analysis.judgment.summary && <p className="leading-relaxed text-text-secondary">{analysis.judgment.summary}</p>}
           {analysis.judgment.dropped > 0 && (
-            <p className="mt-1 text-[13px] text-warning">
+            <p className="mt-1 text-caption text-warning">
               <WarnIcon />검증 실패 항목 {analysis.judgment.dropped}개 제외 (목록에 없는 기사 번호를 인용했습니다)
             </p>
           )}
-          <p className="mt-1 text-[13px] text-text-muted">
+          <p className="mt-1 text-caption text-text-muted">
             참고용 — 투자 조언이 아닙니다. 제목만 보고 판단했습니다. · {analysis.model} · {analysis.promptVersion}
           </p>
         </section>
       )}
 
-      {error && <p className="text-[13px] text-bearish">뉴스를 불러오지 못했습니다: {error}</p>}
-      {!news && !error && <p className="text-[13px] text-text-muted">뉴스를 불러오는 중…</p>}
+      {error && <p className="text-caption text-danger">뉴스를 불러오지 못했습니다: {error}</p>}
+      {!news && !error && <p className="text-caption text-text-muted">뉴스를 불러오는 중…</p>}
       {news && news.items.length === 0 && (
-        <p className="text-[13px] text-text-muted">
+        <p className="text-caption text-text-muted">
           뉴스 없음 — 이 종목과 연결된 최근 기사가 yfinance 에 없습니다
           {/^\d/.test(symbol) ? ' (국내 종목은 대개 비어 있습니다).' : '.'}
         </p>
@@ -178,10 +178,10 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
                       {item.title}
                     </a>
                   </div>
-                  <p className="text-[13px] text-text-muted">
+                  <p className="text-caption text-text-muted">
                     {item.publisher ?? '발행처 미상'} · {timeAgo(item.publishedAt)}
                   </p>
-                  {judged && <p className="text-[13px] text-text-secondary">{judged.reason}</p>}
+                  {judged && <p className="text-caption text-text-secondary">{judged.reason}</p>}
                 </div>
               </li>
             );
@@ -189,7 +189,7 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
         </ol>
       )}
       {news && (
-        <p className="text-[13px] text-text-muted">
+        <p className="text-caption text-text-muted">
           출처: Yahoo Finance(yfinance) · 30분마다 새로 받습니다 ·{' '}
           {new Date(news.fetchedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준
         </p>

@@ -280,7 +280,7 @@ export default function CompareTable({ symbols, names, fundamentals, summaries, 
             key={s.id}
             type="button"
             onClick={() => setSection(s.id)}
-            className={`rounded border px-2 py-0.5 text-[13px] transition-colors ${
+            className={`rounded border px-2 py-0.5 text-caption transition-colors ${
               section === s.id
                 ? 'border-transparent bg-bg-elevated font-medium text-text-primary'
                 : 'border-transparent bg-bg-tertiary text-text-secondary hover:text-text-primary'
@@ -289,7 +289,7 @@ export default function CompareTable({ symbols, names, fundamentals, summaries, 
             {s.label}
           </button>
         ))}
-        {loading && <span className="ml-auto text-[13px] text-text-muted">불러오는 중…</span>}
+        {loading && <span className="ml-auto text-caption text-text-muted">불러오는 중…</span>}
       </div>
 
       <div className="overflow-x-auto">
@@ -303,7 +303,7 @@ export default function CompareTable({ symbols, names, fundamentals, summaries, 
                 <th key={cell.symbol} className="px-3 py-2 text-right font-medium">
                   <span className="block text-text-primary">{names(cell.symbol) || cell.symbol}</span>
                   {names(cell.symbol) && (
-                    <span className="block text-[13px] font-normal text-text-muted">
+                    <span className="block text-caption font-normal text-text-muted">
                       {cell.symbol}
                     </span>
                   )}
@@ -318,7 +318,7 @@ export default function CompareTable({ symbols, names, fundamentals, summaries, 
                 <tr className="bg-bg-tertiary/40">
                   <td
                     colSpan={cells.length + 1}
-                    className="px-3 py-1 text-[13px] font-medium text-text-secondary"
+                    className="px-3 py-1 text-caption font-medium text-text-secondary"
                   >
                     {group.label}
                   </td>

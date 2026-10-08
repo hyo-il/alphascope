@@ -358,7 +358,7 @@ export default function WatchlistManager({
                             onClick={() => confirmDeleteFolder(f.id, f.name, f.symbols.length)}
                             title="그룹 삭제 (종목은 폴더 밖으로)"
                             aria-label={`${f.name} 그룹 삭제`}
-                            className="shrink-0 rounded p-1 text-text-muted opacity-50 transition-all hover:text-bearish hover:opacity-100 focus:opacity-100"
+                            className="shrink-0 rounded p-1 text-text-muted opacity-50 transition-all hover:text-danger hover:opacity-100 focus:opacity-100"
                           >
                             <TrashIcon className="h-3.5 w-3.5" />
                           </button>
@@ -467,7 +467,7 @@ export default function WatchlistManager({
                 type="button"
                 onClick={confirmDeleteSymbols}
                 disabled={checked.length === 0}
-                className={`${ACTION} inline-flex items-center gap-1 hover:border-bearish hover:text-bearish`}
+                className={`${ACTION} inline-flex items-center gap-1 hover:border-danger hover:text-danger`}
               >
                 <TrashIcon className="h-3.5 w-3.5" />
                 삭제
@@ -635,13 +635,13 @@ export default function WatchlistManager({
                             {names(symbol) || symbol}
                           </span>
                           {names(symbol) && (
-                            <span className="shrink-0 text-[15px] tabular-nums text-text-secondary">
+                            <span className="shrink-0 text-xs tabular-nums text-text-secondary">
                               {symbol}
                             </span>
                           )}
                           {/* 전체 보기에서는 어느 그룹에 있는지 알아야 옮길지 말지 정할 수 있다 */}
                           {isAllView && (
-                            <span className="shrink-0 text-[13px] text-text-muted">
+                            <span className="shrink-0 text-caption text-text-muted">
                               {folderNameOf(symbol) ?? '—'}
                             </span>
                           )}
@@ -649,7 +649,7 @@ export default function WatchlistManager({
 
                         {sort === 'change' && (
                           <span
-                            className={`w-16 shrink-0 text-right text-[15px] tabular-nums ${
+                            className={`w-16 shrink-0 text-right text-xs tabular-nums ${
                               rate == null
                                 ? 'text-text-muted'
                                 : rate > 0
@@ -673,7 +673,7 @@ export default function WatchlistManager({
               )}
             </div>
 
-            <p className="shrink-0 border-t border-border px-4 py-2 text-[13px] text-text-muted">
+            <p className="shrink-0 border-t border-border px-4 py-2 text-caption text-text-muted">
               변경은 바로 저장됩니다 · 끌어서 순서·그룹을 바꿉니다 (Alt + ↑↓ 로도 이동) ·
               폴더에 넣지 않은 종목은 목록 맨 위에 그대로 보입니다.
             </p>
