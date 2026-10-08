@@ -191,40 +191,91 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         </div>
       )}
 
+      {/*
+        본문 = [차트 + 아래 탭 + 바닥줄] | [오른쪽 열: 호가 + 빠른주문] (v2.42.1).
+        오른쪽 열은 **아래 탭 옆까지 세로로 쭉** 내려간다 — 예전에는 차트 높이만 써서, 아래 탭 기본 높이(창의 35%)에서
+        1280×1080 이면 열이 425px(시황 카드 펼침)·550px(접힘)뿐이라 호가 최소 241 + 빠른주문 379 = 620px 이 들어가지 않았다.
+        아래 탭은 그만큼 좁아진다(1280 에서 874 → 626px). 탭 높이 규칙은 그대로.
+      */}
       <div className="flex min-h-0 flex-1">
-        {/*
-          ⚠️ 차트는 종목·봉을 바꿀 때도 언마운트하지 않는다 (v2.30.0). 예전에는 로딩·오류 때 스피너·오류 카드가 차트 자리를
-          대신해 매번 차트를 새로 만들었다(깜빡임, v2.24.0 "Object is disposed" 의 재현 조건). 이제 로딩·오류는 차트 **위에 덮는 층**이다.
-          덮개는 이전 종목 캔들이 새 종목으로 보이지 않게 충분히 어둡고, 덮여 있는 동안 차트 조작(드로잉)을 받지 않는다.
-        */}
-        <main className="relative min-w-0 flex-1">
-          <CandleChart
-            ref={chartRef}
-            candles={candles}
-            datasetKey={loadedKeyRef.current}
-            livePrice={livePrice}
-            activeTool={activeTool}
-            onDrawingCountChange={setDrawingCount}
-            onToolConsumed={() => setActiveTool(null)}
-            onReachPast={loadMore}
-            indicators={indicators}
-            toggles={toggles}
-            week52={week52}
-            currency={currency}
-          />
-          {error ? (
-            <div className="absolute inset-0 z-30 flex items-center justify-center bg-bg-primary px-8">
-              <div className="max-w-lg rounded-lg border border-danger/40 bg-bg-secondary p-5">
-                <p className="font-medium text-danger">데이터를 불러오지 못했습니다</p>
-                <p className="mt-2 text-sm text-text-secondary">{error}</p>
-              </div>
-            </div>
-          ) : loading ? (
-            <div className="absolute inset-0 z-30 bg-bg-primary/85" aria-busy="true">
-              <LoadingSpinner label={`${symbol} 캔들 불러오는 중…`} />
-            </div>
-          ) : null}
-        </main>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1">
+            {/*
+              ⚠️ 차트는 종목·봉을 바꿀 때도 언마운트하지 않는다 (v2.30.0). 예전에는 로딩·오류 때 스피너·오류 카드가 차트 자리를
+              대신해 매번 차트를 새로 만들었다(깜빡임, v2.24.0 "Object is disposed" 의 재현 조건). 이제 로딩·오류는 차트 **위에 덮는 층**이다.
+              덮개는 이전 종목 캔들이 새 종목으로 보이지 않게 충분히 어둡고, 덮여 있는 동안 차트 조작(드로잉)을 받지 않는다.
+            */}
+            <main className="relative min-w-0 flex-1">
+              <CandleChart
+                ref={chartRef}
+                candles={candles}
+                datasetKey={loadedKeyRef.current}
+                livePrice={livePrice}
+                activeTool={activeTool}
+                onDrawingCountChange={setDrawingCount}
+                onToolConsumed={() => setActiveTool(null)}
+                onReachPast={loadMore}
+                indicators={indicators}
+                toggles={toggles}
+                week52={week52}
+                currency={currency}
+              />
+              {error ? (
+                <div className="absolute inset-0 z-30 flex items-center justify-center bg-bg-primary px-8">
+                  <div className="max-w-lg rounded-lg border border-danger/40 bg-bg-secondary p-5">
+                    <p className="font-medium text-danger">데이터를 불러오지 못했습니다</p>
+                    <p className="mt-2 text-sm text-text-secondary">{error}</p>
+                  </div>
+                </div>
+              ) : loading ? (
+                <div className="absolute inset-0 z-30 bg-bg-primary/85" aria-busy="true">
+                  <LoadingSpinner label={`${symbol} 캔들 불러오는 중…`} />
+                </div>
+              ) : null}
+            </main>
+          </div>
+
+          {/*
+            차트 하단 탭 — 차트를 보면서 기업정보·AI 분석을 함께 본다.
+            사이드 메뉴의 전체 화면은 그대로 두고(옵션 B), 여기는 요약 자리다.
+            `active` 로 차트 화면일 때만 내용을 렌더한다 — 차트는 캡처 때문에
+            화면 밖에서도 마운트를 유지하므로, 그때 탭까지 살아 있으면 보이지 않는
+            기업정보·분석 결과를 계속 불러온다.
+          */}
+          {symbol && (
+            <ChartBottomTabs
+              symbol={symbol}
+              timeframe={timeframe}
+              candles={candles}
+              candlesLoading={loading}
+              currentPrice={displayPrice}
+              indicators={indicators}
+              toggles={toggles}
+              getChartSnapshot={getChartSnapshot}
+              onPromptChange={setLastPrompt}
+              active={chartVisible}
+            />
+          )}
+
+          <footer className="flex shrink-0 items-center gap-1 border-t border-border/60 px-3 py-1.5 text-caption text-text-muted">
+            {activeTool ? (
+              <>
+                <span className="text-text-primary">{guideFor(activeTool)}</span>
+                <span className="ml-2">· 하나 그리면 커서로 돌아옵니다 · Esc: 해제</span>
+              </>
+            ) : (
+              <>
+                {/* 조작법은 정보 아이콘으로 (v2.36.0 디자인 규칙 6) — 도구를 쥐었을 때의 안내는 지금 하는 일이라 글자로 둔다 */}
+                차트 조작
+                <InfoTip label="차트 조작법">휠: 커서 기준 확대/축소 · 드래그: 좌우 이동 · 드로잉 클릭 또는 우클릭: 삭제</InfoTip>
+              </>
+            )}
+            {loadingMore && <span className="ml-2 text-text-secondary">과거 데이터 불러오는 중…</span>}
+            {reachedEnd && candles.length > 0 && (
+              <span className="ml-2">· 가장 오래된 데이터까지 표시 중</span>
+            )}
+          </footer>
+        </div>
 
         {/*
           하단 탭이 생기면서 이 열이 세로로 짧아졌다. min-h-0 + overflow-y-auto 가 없으면
@@ -259,47 +310,6 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           )}
         </div>
       </div>
-
-      {/*
-        차트 하단 탭 — 차트를 보면서 기업정보·AI 분석을 함께 본다.
-        사이드 메뉴의 전체 화면은 그대로 두고(옵션 B), 여기는 요약 자리다.
-        `active` 로 차트 화면일 때만 내용을 렌더한다 — 차트는 캡처 때문에
-        화면 밖에서도 마운트를 유지하므로, 그때 탭까지 살아 있으면 보이지 않는
-        기업정보·분석 결과를 계속 불러온다.
-      */}
-      {symbol && (
-        <ChartBottomTabs
-          symbol={symbol}
-          timeframe={timeframe}
-          candles={candles}
-          candlesLoading={loading}
-          currentPrice={displayPrice}
-          indicators={indicators}
-          toggles={toggles}
-          getChartSnapshot={getChartSnapshot}
-          onPromptChange={setLastPrompt}
-          active={chartVisible}
-        />
-      )}
-
-      <footer className="flex shrink-0 items-center gap-1 border-t border-border/60 px-3 py-1.5 text-caption text-text-muted">
-        {activeTool ? (
-          <>
-            <span className="text-text-primary">{guideFor(activeTool)}</span>
-            <span className="ml-2">· 하나 그리면 커서로 돌아옵니다 · Esc: 해제</span>
-          </>
-        ) : (
-          <>
-            {/* 조작법은 정보 아이콘으로 (v2.36.0 디자인 규칙 6) — 도구를 쥐었을 때의 안내는 지금 하는 일이라 글자로 둔다 */}
-            차트 조작
-            <InfoTip label="차트 조작법">휠: 커서 기준 확대/축소 · 드래그: 좌우 이동 · 드로잉 클릭 또는 우클릭: 삭제</InfoTip>
-          </>
-        )}
-        {loadingMore && <span className="ml-2 text-text-secondary">과거 데이터 불러오는 중…</span>}
-        {reachedEnd && candles.length > 0 && (
-          <span className="ml-2">· 가장 오래된 데이터까지 표시 중</span>
-        )}
-      </footer>
     </>
   );
 

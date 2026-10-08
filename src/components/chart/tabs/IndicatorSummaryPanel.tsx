@@ -121,14 +121,15 @@ export default function IndicatorSummaryPanel({
           : '중단 부근';
 
   return (
-    <div className="p-3 text-caption">
+    <div className="@container p-3 text-caption">
       {(timeframe === '1w' || timeframe === '1M') && (
         <p className="mb-1.5 text-text-muted">
           {TIMEFRAME_LABEL[timeframe]} 기준 — 이동평균·RSI·MACD·거래량 비교가 모두 {TIMEFRAME_LABEL[timeframe]}으로 계산됩니다.
           {volume.forming && ` 마지막 봉(이번 ${timeframe === '1w' ? '주' : '달'})은 아직 진행 중입니다.`}
         </p>
       )}
-      <div className="grid grid-cols-[auto_auto_1fr] items-baseline gap-x-3 gap-y-0 md:grid-cols-[auto_auto_1fr_auto_auto_1fr]">
+      {/* 탭 폭(컨테이너)이 넓을 때만 두 묶음 — 1280 에서 아래 탭이 오른쪽 열 옆으로 좁아져(626px) 한 묶음이 읽기 쉽다 (v2.42.1) */}
+      <div className="grid grid-cols-[auto_auto_1fr] items-baseline gap-x-3 gap-y-0 @min-[760px]:grid-cols-[auto_auto_1fr_auto_auto_1fr]">
         <Row
           label="RSI(14)"
           value={summary.rsi == null ? '—' : summary.rsi.toFixed(1)}
