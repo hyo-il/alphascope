@@ -14,6 +14,10 @@
  *   7. 화면 내용이 화면 폭을 꽉 채움(가운데로 좁힌 넓은 상자 — 좌우 여백이 같고 max-width 가 걸린 것)
  *   8. 콘솔 오류 0
  *   9. 표 숫자 칸 벌어짐(v2.42.1) — 숫자 칸 폭이 내용보다 64px 넘게 넓으면(남는 폭은 이름 칸이 가져가야 한다)
+ *  10. 탭 줄 첫 탭 ↔ 같은 영역 내용 첫 요소의 왼쪽 끝(v2.42.2)
+ *  11. 숫자 입력칸 — 스피너 없음 · 같은 묶음 FormRow 숫자 오른쪽 끝 0px
+ *  12. 4자리 이상 숫자에 쉼표 없음(날짜·시각·버전·연도·종목 코드·「포트 N」 제외) · 13. 하이픈 음수 · 14. 같은 표 열의 소수 자릿수 다름
+ *  `[data-measure-skip]` 안(업데이트 내역 같은 기록 글)은 12~14 를 재지 않는다
  * 결과: `<OUT>/report.md`(화면별 표) · `<OUT>/{1280,1920}/<이름>.png` · `<OUT>/result.json`.
  *
  * 쓰는 법(테스트 서버를 띄운 뒤):
@@ -249,6 +253,120 @@ export function measure() {
       }
     }
   }
+  // 10. 탭 줄 · 내용 왼쪽 끝 (v2.42.2) — 탭 줄(role=tablist)의 첫 탭 왼쪽과, 같은 영역에서 그 다음에 오는 내용의 첫 요소 왼쪽이 같아야 한다
+  const firstLeaf = (root: Element): Element | null => {
+    let el: Element | null = root;
+    for (let d = 0; el && d < 12; d++) {
+      const kids: Element[] = [...el.children].filter((c) => visible(c) && getComputedStyle(c).position !== 'absolute' && getComputedStyle(c).position !== 'fixed');
+      const hasOwnText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent!.trim());
+      // 바탕색이 있는 상자(카드·안내 상자)는 상자의 왼쪽 끝으로 잰다 — 상자 안 글자의 안쪽 여백은 상자의 일이다
+      const bg = getComputedStyle(el).backgroundColor;
+      const boxed = el !== root && bg !== 'transparent' && !/rgba\(.*,\s*0\)$/.test(bg);
+      if (boxed || hasOwnText || !kids.length || /^(BUTTON|INPUT|SELECT|TEXTAREA|TABLE|svg|CANVAS|IMG)$/i.test(el.tagName) || el.getAttribute('role') === 'tablist') return el;
+      el = kids[0];
+    }
+    return el;
+  };
+  for (const tl of document.querySelectorAll('[role=tablist]')) {
+    if (!visible(tl) || offscreen(tl) || tl.closest('[data-measure-skip]')) continue;
+    const firstTab = [...tl.children].find((c) => visible(c));
+    if (!firstTab) continue;
+    const tabLeft = firstTab.getBoundingClientRect().left;
+    let node: Element = tl;
+    for (let up = 0; up < 4 && node.parentElement; up++) {
+      const parent: Element = node.parentElement;
+      const sibs = [...parent.children];
+      // 탭 줄과 같은 줄(옆)에 있는 것(오른쪽 끝 배지·버튼)은 내용이 아니다 — 탭 줄 **아래**에서 시작하는 첫 요소
+      const tlBottom = tl.getBoundingClientRect().bottom;
+      const next = sibs
+        .slice(sibs.indexOf(node) + 1)
+        .find((c) => visible(c) && !['absolute', 'fixed'].includes(getComputedStyle(c).position) && c.getBoundingClientRect().top >= tlBottom - 1);
+      if (next) {
+        const leaf = firstLeaf(next);
+        if (leaf && visible(leaf)) {
+          const cs = getComputedStyle(leaf);
+          // 가운데 정렬한 안내(빈 화면 등)는 왼쪽 끝 대상이 아니다
+          if (cs.textAlign !== 'center' && !leaf.closest('.text-center, .justify-center')) {
+            const d = Math.round(leaf.getBoundingClientRect().left - tabLeft);
+            if (Math.abs(d) > 1)
+              issues.push({ kind: '탭·내용 왼쪽 끝', detail: `「${label(firstTab)}」 탭 줄 ↔ 「${label(leaf)}」 ${d > 0 ? '+' : ''}${d}px` });
+          }
+        }
+        break;
+      }
+      node = parent;
+    }
+  }
+
+  // 11. 숫자 입력칸 — 스피너 없음 · 같은 묶음(창·구역)의 FormRow 숫자 오른쪽 끝 0px
+  const numGroups = new Map<Element, HTMLInputElement[]>();
+  for (const inp of document.querySelectorAll<HTMLInputElement>('input[type=number], input[inputmode=decimal], input[inputmode=numeric]')) {
+    if (!visible(inp) || offscreen(inp)) continue;
+    if (inp.type === 'number' && getComputedStyle(inp).appearance !== 'textfield') issues.push({ kind: '숫자 입력칸', detail: `스피너 있음 — ${inp.getAttribute('aria-label') ?? inp.name ?? '입력칸'}` });
+    const row = inp.closest('[data-formrow-value]');
+    if (!row) continue;
+    const g = row.closest('[role=dialog], section, main') ?? document.body;
+    numGroups.set(g, [...(numGroups.get(g) ?? []), inp]);
+  }
+  for (const [, ins] of numGroups) {
+    if (ins.length < 2) continue;
+    const rights = ins.map((i) => {
+      const r = i.getBoundingClientRect();
+      return Math.round(r.right - parseFloat(getComputedStyle(i).paddingRight));
+    });
+    const d = Math.max(...rights) - Math.min(...rights);
+    if (d > 0) issues.push({ kind: '숫자 입력칸', detail: `숫자 오른쪽 끝 차이 ${d}px (${ins.length}칸)` });
+  }
+
+  // 12·13. 화면 글자의 숫자 표기 — 4자리 이상 쉼표 없음 · 하이픈 음수
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const seenNum = new Set<string>();
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const el = n.parentElement;
+    const text = n.textContent ?? '';
+    if (!el || !text.trim() || !visible(el) || offscreen(el) || el.closest('pre, code, textarea, script, style, [data-measure-skip], .tv-lightweight-charts')) continue;
+    // 날짜·시각·버전·연도를 먼저 지운다(쉼표를 붙이지 않는 숫자)
+    const cleaned = text
+      .replace(/\d{4}-\d{2}-\d{2}|\d{4}\.\s?\d{1,2}\.\s?\d{1,2}\.?|\d{2}:\d{2}(:\d{2})?|v\d+\.\d+\.\d+|\b(19|20)\d{2}(?=년|\b)/g, ' ')
+      .replace(/\(\d{6}\)|\b[0-9][0-9A-Z]{5}\b(?=\s*$)|포트 \d+/g, ' ');
+    const trimmed = text.trim();
+    // 종목 코드만 적힌 칸(티커 자리 — 6자리 코드)은 제외
+    if (/^[0-9][0-9A-Z]{5}$/.test(trimmed)) continue;
+    const big = cleaned.match(/(?<![\d.,])\d{4,}(?![\d,])/);
+    if (big && !seenNum.has('c' + trimmed)) {
+      seenNum.add('c' + trimmed);
+      issues.push({ kind: '쉼표 없는 큰 수', detail: `${big[0]} — 「${trimmed.slice(0, 30)}」` });
+    }
+    const hy = cleaned.match(/(^|[\s(:·\[/])-\$?₩?\d/);
+    if (hy && !seenNum.has('h' + trimmed)) {
+      seenNum.add('h' + trimmed);
+      issues.push({ kind: '하이픈 음수', detail: `「${trimmed.slice(0, 30)}」` });
+    }
+  }
+
+  // 14. 같은 표 열 안에서 소수 자릿수 다름
+  for (const table of document.querySelectorAll('table')) {
+    if (!visible(table) || offscreen(table) || table.closest('[data-measure-skip]')) continue;
+    const rows = [...table.querySelectorAll('tbody tr')].filter((r) => r.children.length > 1).slice(0, 40);
+    const cols = rows.length ? Math.max(...rows.map((r) => r.children.length)) : 0;
+    const head = table.querySelector('thead tr');
+    for (let c = 0; c < cols; c++) {
+      const decs = new Set<number>();
+      let anyDec = false;
+      for (const r of rows) {
+        const cell = r.children[c] as HTMLElement | undefined;
+        const t = cell?.innerText.trim().split('\n')[0] ?? '';
+        const m = t.match(/^[−+\-]?[₩$]?[−+\-]?[\d,]+(\.(\d+))?(%|%p)?$/);
+        if (!m) continue;
+        if (m[2]) anyDec = true;
+        decs.add(m[2]?.length ?? 0);
+      }
+      if (anyDec && decs.size > 1) {
+        const name = (head?.children[c] as HTMLElement | undefined)?.innerText.trim() || `${c + 1}번째 칸`;
+        issues.push({ kind: '소수 자릿수', detail: `「${name}」 칸: 소수 ${[...decs].sort().join('·')}자리가 섞임` });
+      }
+    }
+  }
   return issues;
 }
 
@@ -293,7 +411,7 @@ async function main() {
   }
   await browser.close();
 
-  const KINDS = ['같은 줄 높이', '입력칸 끝 맞춤', '글자 잘림', '말줄임', '겹침', '목록 줄 간격', '13px 미만', '기준표 밖 크기', '화면 폭 좁힘', '표 숫자 칸 벌어짐'];
+  const KINDS = ['같은 줄 높이', '입력칸 끝 맞춤', '글자 잘림', '말줄임', '겹침', '목록 줄 간격', '13px 미만', '기준표 밖 크기', '화면 폭 좁힘', '표 숫자 칸 벌어짐', '탭·내용 왼쪽 끝', '숫자 입력칸', '쉼표 없는 큰 수', '하이픈 음수', '소수 자릿수'];
   const md: string[] = [
     `# 디자인 숫자 측정 — ${CHANGELOG[0].version}`,
     '',
