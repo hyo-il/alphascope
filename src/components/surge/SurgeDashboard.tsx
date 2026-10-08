@@ -179,11 +179,11 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
             <tr className="border-b border-border/50">
               <th className="py-1.5 pr-2">탐지일</th>
               <th className="pr-2">종목</th>
-              <th className="pr-2 text-right">점수</th>
-              <th className="pr-4">예상일</th>
-              <th className="pr-2 text-right">7일</th>
-              <th className="pr-2 text-right">14일</th>
-              <th className="pr-2 text-right">30일</th>
+              <th className="pl-4 pr-2 text-right">점수</th>
+              <th className="min-w-56 pr-4">예상일</th>
+              <th className="pl-4 pr-2 text-right">7일</th>
+              <th className="pl-4 pr-2 text-right">14일</th>
+              <th className="pl-4 pr-2 text-right">30일</th>
               <th className="pl-4">실제 급등</th>
             </tr>
           </thead>
@@ -215,7 +215,7 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
                     <td className="pr-2">
                       <StockName symbol={row.symbol} name={row.name} />
                     </td>
-                    <td className="pr-2 text-right tabular-nums">{row.surgeScore}</td>
+                    <td className="pl-4 pr-2 text-right tabular-nums">{row.surgeScore}</td>
                     <td className="pr-4 text-text-secondary">
                       <NextSurgeDate
                         date={row.nextEstimatedDate}
@@ -224,13 +224,13 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
                         atDetection
                       />
                     </td>
-                    <td className="pr-2 text-right tabular-nums">
+                    <td className="pl-4 pr-2 text-right tabular-nums">
                       {changeOf(row.priceAtDetection, row.priceAfter7d)}
                     </td>
-                    <td className="pr-2 text-right tabular-nums">
+                    <td className="pl-4 pr-2 text-right tabular-nums">
                       {changeOf(row.priceAtDetection, row.priceAfter14d)}
                     </td>
-                    <td className="pr-2 text-right tabular-nums">
+                    <td className="pl-4 pr-2 text-right tabular-nums">
                       {changeOf(row.priceAtDetection, row.priceAfter30d)}
                     </td>
                     {/* 날짜와 등락률을 한 덩어리로 — 괄호만 다음 줄로 꺾이지 않게 */}

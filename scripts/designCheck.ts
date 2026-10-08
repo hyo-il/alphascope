@@ -1,4 +1,5 @@
 /// <reference lib="dom" />
+/// <reference lib="dom.iterable" />
 /**
  * 디자인 숫자 측정 (v2.42.0, `npm run design:check`) — 디자인 점검 세 겹의 둘째(CLAUDE.md 「디자인 점검」).
  *
