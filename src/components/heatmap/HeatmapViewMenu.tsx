@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import { ICON_SM } from '../ui/icon';
 import { ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -161,12 +162,12 @@ export default function HeatmapViewMenu({ top, onTopChange, sectors, off, onOffC
           )}
           <div className="mb-1 flex items-center gap-1">
             <span className="mr-auto font-medium text-text-primary">분야</span>
-            <button type="button" onClick={selectAll} className="rounded px-1.5 py-0.5 text-accent hover:bg-bg-tertiary">
+            <Button variant="secondary" size="sm" onClick={selectAll}>
               전체 선택
-            </button>
-            <button type="button" onClick={clearAll} className="rounded px-1.5 py-0.5 text-text-secondary hover:bg-bg-tertiary">
+            </Button>
+            <Button variant="secondary" size="sm" onClick={clearAll}>
               전체 해제
-            </button>
+            </Button>
           </div>
           {sectors.length === 0 ? (
             <p className="text-text-muted">지도를 불러온 뒤 고를 수 있습니다.</p>

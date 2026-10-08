@@ -14,11 +14,12 @@ export type AISource = 'claude' | 'gemini';
 const STYLE: Record<AISource, { label: string; className: string }> = {
   claude: {
     label: 'Claude',
-    className: 'border-purple-500/40 bg-purple-500/10 text-purple-300',
+    // v2.42.0 — 기본 팔레트(보라·파랑) 대신 앱 토큰. Claude = 회색 바탕, Gemini = 파랑(accent) 옅은 바탕
+    className: 'border-transparent bg-bg-tertiary text-text-secondary',
   },
   gemini: {
     label: 'Gemini',
-    className: 'border-blue-500/40 bg-blue-500/10 text-blue-300',
+    className: 'border-transparent bg-accent/10 text-accent',
   },
 };
 

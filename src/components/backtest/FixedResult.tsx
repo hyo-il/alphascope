@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import StockName from '../common/StockName';
-import { Panel, SectionTitle } from '../ui';
+import { Panel, SectionTitle, Button } from '../ui';
 import { ICON_SM } from '../ui/icon';
 import { VERDICT_ICON } from '../ui/statusIcons';
 import { RULE_CHOICES } from '../../types/ruleChoices';
@@ -171,15 +171,12 @@ export default function FixedResult({ r }: { r: BacktestReport }) {
       </section>
 
       <section className="space-y-2">
-        <button
-          type="button"
+        <Button variant="ghost" size="md"
           onClick={() => setSymbolsOpen((v) => !v)}
-          aria-expanded={symbolsOpen}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-text-secondary hover:text-text-primary"
-        >
+          aria-expanded={symbolsOpen}>
           {symbolsOpen ? <ChevronDown {...ICON_SM} /> : <ChevronRight {...ICON_SM} />}
           종목별 상세 ({r.symbols.length})
-        </button>
+        </Button>
         {symbolsOpen && (
           <Panel pad="sm" className="max-h-[28rem] overflow-y-auto">
             <table className="w-full text-caption tabular-nums">

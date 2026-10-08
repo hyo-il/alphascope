@@ -101,22 +101,16 @@ export default function ScheduledSymbols() {
       )}
       <Summary status={status} />
       <div className="flex gap-2 pt-1">
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="rounded bg-bg-tertiary px-2 py-0.5 text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-        >
+        <Button variant="secondary" size="sm"
+          onClick={() => setEditing(true)}>
           설정
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button variant="secondary" size="sm"
           onClick={confirmRun}
           disabled={!n || status.running || Boolean(status.disabledReason)}
-          title={status.disabledReason ?? undefined}
-          className="rounded bg-bg-tertiary px-2 py-0.5 text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-40"
-        >
+          title={status.disabledReason ?? undefined}>
           지금 한 번 실행
-        </button>
+        </Button>
       </div>
       <p className="text-text-muted">분석만 합니다 — 주문은 내지 않습니다.</p>
 

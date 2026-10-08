@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import { ICON_SM } from '../ui/icon';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
@@ -183,15 +184,13 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
           </button>
         ))}
 
-        <button
-          type="button"
+        <Button variant="ghost" size="sm"
           onClick={toggleCollapse}
           title={collapsed ? '펼치기' : '접기'}
           aria-label={collapsed ? '펼치기' : '접기'}
-          className="ml-auto px-2 py-1 text-text-muted transition-colors hover:text-text-primary"
-        >
+          className="ml-auto">
           {collapsed ? <ChevronUp {...ICON_SM} /> : <ChevronDown {...ICON_SM} />}
-        </button>
+        </Button>
       </div>
 
       {!collapsed && active && (

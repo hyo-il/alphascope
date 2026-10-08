@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import { useEffect, useRef, useState } from 'react';
 import {
   copyBlobToClipboard,
@@ -255,13 +256,11 @@ export default function CopySteps({
                         <StatusLabel state={imageStep} />
                         {imageStep.kind === 'failed' && (
                           <>
-                            <button
-                              type="button"
+                            <Button variant="secondary" size="sm"
                               onClick={handleDownload}
-                              className="w-full rounded-md bg-bg-tertiary px-2 py-1.5 text-caption text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-                            >
+                              className="w-full">
                               PNG로 저장해서 첨부하기
-                            </button>
+                            </Button>
                             <p className="text-caption leading-relaxed text-text-muted">
                               저장한 파일을 Claude 대화창에 드래그해 넣으세요.
                             </p>
@@ -280,14 +279,11 @@ export default function CopySteps({
                     )
                   )}
                   {capture && (
-                    <button
-                      type="button"
+                    <Button variant="ghost" size="sm"
                       onClick={preview.onRecapture}
-                      disabled={capturePending}
-                      className="text-caption text-text-muted underline transition-colors hover:text-text-primary disabled:opacity-50"
-                    >
+                      disabled={capturePending}>
                       다시 캡처
-                    </button>
+                    </Button>
                   )}
                 </div>
               ) : (
@@ -318,13 +314,11 @@ export default function CopySteps({
                   <StatusLabel state={imageStep} />
                   {imageStep.kind === 'failed' && (
                     <>
-                      <button
-                        type="button"
+                      <Button variant="secondary" size="sm"
                         onClick={handleDownload}
-                        className="w-full rounded-md bg-bg-tertiary px-2 py-1.5 text-caption text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-                      >
+                        className="w-full">
                         PNG로 저장해서 첨부하기
-                      </button>
+                      </Button>
                       <p className="text-caption leading-relaxed text-text-muted">
                         저장한 파일을 Claude 대화창에 드래그해 넣으세요.
                       </p>
@@ -382,13 +376,11 @@ export default function CopySteps({
         <div className="rounded-lg bg-bg-tertiary/50 px-3 py-2 text-caption leading-relaxed text-text-muted">
           이미지와 프롬프트를 <b className="text-text-secondary">같은 대화</b>에 함께 보내면
           차트 패턴과 수치를 모두 분석합니다.
-          <button
-            type="button"
+          <Button variant="ghost" size="md"
             onClick={hideTip}
-            className="ml-1 underline transition-colors hover:text-text-primary"
-          >
+            className="ml-1">
             다시 보지 않기
-          </button>
+          </Button>
         </div>
       )}
     </section>

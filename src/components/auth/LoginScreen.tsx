@@ -1,3 +1,5 @@
+import Input from '../ui/Input';
+import Button from '../ui/Button';
 import { useEffect, useRef, useState } from 'react';
 import LogoMark from '../layout/LogoMark';
 
@@ -58,7 +60,7 @@ export default function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
         <label htmlFor="as-password" className="mb-1.5 block text-xs text-text-secondary">
           비밀번호
         </label>
-        <input
+        <Input
           id="as-password"
           ref={inputRef}
           type="password"
@@ -66,18 +68,16 @@ export default function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
           onChange={(e) => setPassword(e.target.value)}
           /* 크롬 비밀번호 저장이 동작하게 한다 — 매번 손으로 치게 두면 짧은 값을 쓰게 된다 */
           autoComplete="current-password"
-          className="w-full rounded-md border border-border bg-bg-tertiary px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
-        />
+          className="w-full" />
 
         {error && <p className="mt-2 text-xs leading-relaxed text-danger">{error}</p>}
 
-        <button
+        <Button variant="primary" size="md"
           type="submit"
           disabled={busy || !password}
-          className="mt-4 w-full rounded-md bg-accent py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
-        >
+          className="mt-4 w-full">
           {busy ? '확인 중…' : '로그인'}
-        </button>
+        </Button>
 
         <p className="mt-5 text-center text-caption leading-relaxed text-text-muted">
           비밀번호를 잊었으면 서버에서{' '}

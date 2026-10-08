@@ -184,6 +184,7 @@ export default function SymbolSearch({
     /* 폭은 바깥 래퍼가 정한다 — 여기서는 주어진 폭을 그대로 채운다 */
     <div ref={rootRef} className="relative w-full">
       <form onSubmit={submit} className="flex items-center gap-1.5">
+        {/* design-lint-ignore: 아이콘과 한 상자인 검색칸 — 바깥 상자가 입력칸 모양(높이·바탕)을 맡는다 */}
         <input
           value={value}
           onChange={(e) => {

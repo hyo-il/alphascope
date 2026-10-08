@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import { useState } from 'react';
 import SingleSymbolSearch from '../common/SingleSymbolSearch';
 import { useSwingEvaluation } from '../../hooks/useSwing';
@@ -50,13 +51,10 @@ export default function SwingSearch({
         <>
           {/* 목표 수익 가능성 — 여기서 실행하지 않고 그 탭으로 보낸다(종목만 체크). 같은 조건의 최근 결과가 있으면 참고 줄 */}
           <div className="flex flex-wrap items-center gap-2 rounded-xl bg-bg-secondary px-3 py-2">
-            <button
-              type="button"
-              onClick={() => onGoTarget(recommendation.symbol)}
-              className="shrink-0 whitespace-nowrap rounded-md bg-bg-tertiary px-2.5 py-1 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated"
-            >
+            <Button variant="secondary" size="sm"
+              onClick={() => onGoTarget(recommendation.symbol)}>
               목표 수익 가능성에서 분석
-            </button>
+            </Button>
             <span className="text-caption text-text-muted">그 탭에서 이 종목을 골라 둡니다. 분석은 그 탭의 버튼을 눌러야 시작합니다.</span>
             {(() => {
               const latest = latestFor(target.records, recommendation.symbol, goal);

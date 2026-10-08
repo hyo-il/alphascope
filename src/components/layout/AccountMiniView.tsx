@@ -1,3 +1,5 @@
+import Select from '../ui/Select';
+import Button from '../ui/Button';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
 import type { PaperAccount, PaperAccountDetail } from '../../types/paper';
 import StockName from '../common/StockName';
@@ -77,13 +79,10 @@ export default function AccountMiniView({
     return (
       <div className="space-y-2.5 px-3 py-6 text-center">
         <p className="text-xs text-text-muted">모의투자 계좌가 없습니다.</p>
-        <button
-          type="button"
-          onClick={onGoToAccounts}
-          className="rounded-md bg-accent px-2.5 py-1.5 text-caption font-medium text-white transition-colors hover:bg-accent-hover"
-        >
+        <Button variant="primary" size="sm"
+          onClick={onGoToAccounts}>
           계좌 관리로 이동
-        </button>
+        </Button>
       </div>
     );
   }
@@ -112,13 +111,12 @@ export default function AccountMiniView({
               그래서 상태를 **글자 기호**로 앞에 붙인다 — 드롭다운을 펼치면 어느 계좌가
               돌고 있는지 한눈에 보인다. 모르는 계좌(조회 전)는 기호 없이 이름만 나온다.
             */}
-            <select
+            <Select size="sm"
               value={selectedId ?? ''}
               onChange={(e) => changeAccount(Number(e.target.value))}
               aria-label="모의투자 계좌 선택"
               title={auto ? (auto.reason ? `${auto.label} — ${auto.reason}` : auto.label) : undefined}
-              className="min-w-0 flex-1 rounded border border-border bg-bg-tertiary px-2 py-1 text-xs text-text-primary focus:border-accent focus:outline-none"
-            >
+              className="min-w-0 flex-1">
               {accounts.map((a) => {
                 const v = viewOf(a.id);
                 return (
@@ -127,7 +125,7 @@ export default function AccountMiniView({
                   </option>
                 );
               })}
-            </select>
+            </Select>
           </div>
           <p className="mt-1 text-caption leading-snug text-text-muted">
             여기서 고른 계좌가 빠른주문·계좌 관리의 현재 계좌가 됩니다

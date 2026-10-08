@@ -1,3 +1,5 @@
+import NumberField from '../ui/NumberField';
+import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
 import InfoTip from '../ui/InfoTip';
 import { ATR_HELP } from '../../data/indicatorHelp';
@@ -381,16 +383,14 @@ export default function StrategyProfileModal({
                 {!targetIsChoice && (
                   <span className="inline-flex items-center gap-1 text-xs">
                     +
-                    <input
-                      type="number"
+                    <NumberField
                       step={0.5}
                       min={tLo}
                       max={tHi}
                       value={goalDraft.targetPct}
                       onChange={(e) => setGoal({ targetPct: Number(e.target.value) })}
                       aria-label="목표 수익률 직접 입력(%)"
-                      className="w-16 rounded border border-border px-1.5 py-0.5 tabular-nums"
-                    />
+                      className="w-16" />
                     % <span className="text-text-muted">({tLo}~{tHi})</span>
                   </span>
                 )}
@@ -440,8 +440,7 @@ export default function StrategyProfileModal({
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
                 <label className="inline-flex w-fit items-center gap-1">
                   목표 +
-                  <input
-                    type="number"
+                  <NumberField
                     step={0.5}
                     min={tLo}
                     max={tHi}
@@ -450,22 +449,19 @@ export default function StrategyProfileModal({
                       setCustomTarget(true);
                       setGoal({ targetPct: Number(e.target.value) });
                     }}
-                    className="w-16 rounded border border-border px-1.5 py-0.5 tabular-nums"
-                  />
+                    className="w-16" />
                   %
                 </label>
                 <label className="inline-flex w-fit items-center gap-1">
                   손절 −
-                  <input
-                    type="number"
+                  <NumberField
                     step={0.5}
                     min={sLo}
                     max={sHi}
                     value={shownStop}
                     disabled={goalDraft.stopAuto}
                     onChange={(e) => setGoal({ stopPct: Number(e.target.value) })}
-                    className="w-16 rounded border border-border px-1.5 py-0.5 tabular-nums disabled:opacity-50"
-                  />
+                    className="w-16" />
                   %
                 </label>
                 <label className="inline-flex w-fit items-center gap-1.5 text-text-secondary">
@@ -478,15 +474,13 @@ export default function StrategyProfileModal({
                 </label>
                 <label className="inline-flex w-fit items-center gap-1">
                   기간
-                  <input
-                    type="number"
+                  <NumberField
                     step={1}
                     min={dLo}
                     max={dHi}
                     value={goalDraft.days}
                     onChange={(e) => setGoal({ days: Number(e.target.value) })}
-                    className="w-16 rounded border border-border px-1.5 py-0.5 tabular-nums"
-                  />
+                    className="w-16" />
                   거래일 <span className="text-text-muted">({dLo}~{dHi})</span>
                 </label>
               </div>
@@ -588,21 +582,17 @@ export default function StrategyProfileModal({
                     const err = errorOf(id, spec.path);
                     return (
                       <td key={id} className="py-2 pr-2">
-                        <input
-                          type="number"
+                        <NumberField
+                          size="sm"
                           step={spec.step}
                           value={value}
                           onChange={(e) => edit(id, spec, e.target.value)}
                           aria-label={`${PROFILE_LABEL[id]} ${spec.label}`}
-                          className={`w-20 rounded border px-2 py-1 text-xs tabular-nums ${
-                            err
-                              ? 'border-bearish text-bearish'
-                              : changed
-                                ? 'border-text-primary font-medium text-text-primary'
-                                : 'border-border'
-                          }`}
+                          invalid={Boolean(err)}
+                          changed={changed}
+                          className="w-24"
                         />
-                        {err && <p className="mt-0.5 text-caption text-bearish">{err.message}</p>}
+                        {err && <p className="mt-0.5 text-caption text-danger">{err.message}</p>}
                       </td>
                     );
                   })}
@@ -613,15 +603,12 @@ export default function StrategyProfileModal({
 
           <div className="mt-3 flex flex-wrap gap-2">
             {CUSTOM_PROFILES.map((id) => (
-              <button
+              <Button variant="secondary" size="sm"
                 key={id}
-                type="button"
                 onClick={() => resetTo(id)}
-                disabled={sameSwingParams(draft[id], state.standard)}
-                className="rounded bg-bg-tertiary px-2 py-1 text-caption text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-40"
-              >
+                disabled={sameSwingParams(draft[id], state.standard)}>
                 {PROFILE_LABEL[id]}를 표준값으로 초기화
-              </button>
+              </Button>
             ))}
           </div>
           </div>
@@ -635,21 +622,16 @@ export default function StrategyProfileModal({
           <span className="min-w-0 text-caption text-text-muted">
             저장해도 이미 나온 추천은 바뀌지 않습니다 — 다시 실행해야 새 기준으로 채점됩니다.
           </span>
-          <button
-            type="button"
+          <Button variant="secondary" size="md"
             onClick={onClose}
-            className="shrink-0 whitespace-nowrap ml-auto rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
+            className="ml-auto">
             취소
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button variant="primary" size="md"
             onClick={() => void submit()}
-            disabled={saving}
-            className="shrink-0 whitespace-nowrap rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-          >
+            disabled={saving}>
             {saving ? '저장 중…' : '저장'}
-          </button>
+          </Button>
         </div>
     </Dialog>
   );

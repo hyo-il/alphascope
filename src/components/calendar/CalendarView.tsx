@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { IconButton, InfoTip } from '../ui';
+import { IconButton, InfoTip, Button } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import DatePicker from './DatePicker';
@@ -116,26 +116,22 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
           <div className="flex items-center gap-1">
             <IconButton icon={ChevronLeft} label="이전 달" size="sm" onClick={() => move(-1)} />
             {/* 제목 = 날짜 고르기 창 버튼 (v2.41.0) */}
-            <button
-              type="button"
+            <Button variant="secondary" size="sm"
               onClick={() => setPickerOpen(true)}
               aria-haspopup="dialog"
               title="날짜 고르기"
-              className="w-24 rounded-md py-0.5 text-center text-xs font-medium tabular-nums text-text-primary transition-colors hover:bg-bg-tertiary"
-            >
+              className="w-24">
               {month.y}년 {month.m}월
-            </button>
+            </Button>
             <IconButton icon={ChevronRight} label="다음 달" size="sm" onClick={() => move(1)} />
-            <button
-              type="button"
+            <Button variant="secondary" size="sm"
               onClick={() => {
                 setMonth({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) });
                 setSelected(today);
               }}
-              className="ml-1 rounded-md bg-bg-tertiary px-2 py-0.5 text-caption text-text-secondary hover:bg-bg-elevated hover:text-text-primary"
-            >
+              className="ml-1">
               오늘
-            </button>
+            </Button>
           </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-1.5">

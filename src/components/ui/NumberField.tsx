@@ -7,12 +7,12 @@ import { CONTROL_H, type ControlSize } from './tokens';
  */
 const NumberField = forwardRef<
   HTMLInputElement,
-  Omit<InputHTMLAttributes<HTMLInputElement>, 'size' | 'type'> & { size?: ControlSize; unit?: string; invalid?: boolean }
->(function NumberField({ size = 'md', unit, invalid = false, className = '', ...rest }, ref) {
+  Omit<InputHTMLAttributes<HTMLInputElement>, 'size' | 'type'> & { size?: ControlSize; unit?: string; invalid?: boolean; /** 기본값과 다른 값(판단 기준 숫자표) — 밝은 테두리 + 굵게 */ changed?: boolean }
+>(function NumberField({ size = 'md', unit, invalid = false, changed = false, className = '', ...rest }, ref) {
   return (
     <span
       className={`flex min-w-0 items-center rounded-md border bg-bg-tertiary focus-within:border-accent ${CONTROL_H[size]} ${
-        invalid ? 'border-danger' : 'border-transparent'
+        invalid ? 'border-danger' : changed ? 'border-text-primary/70' : 'border-transparent'
       } ${className}`}
     >
       <input
@@ -20,7 +20,7 @@ const NumberField = forwardRef<
         type="number"
         {...rest}
         aria-invalid={invalid || undefined}
-        className="h-full min-w-0 flex-1 border-0 bg-transparent px-2 text-right text-xs tabular-nums text-text-primary focus:outline-none disabled:opacity-50"
+        className={`h-full min-w-0 flex-1 border-0 bg-transparent px-2 text-right text-xs tabular-nums text-text-primary focus:outline-none disabled:opacity-50 ${changed ? 'font-medium' : ''}`}
       />
       {unit && <span className="shrink-0 pr-2 text-caption text-text-muted">{unit}</span>}
     </span>

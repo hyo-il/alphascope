@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import { ICON_SM } from '../ui/icon';
 import { ExternalLink } from 'lucide-react';
 import WarnIcon from '../ui/WarnIcon';
@@ -105,14 +106,11 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
       />
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
+        <Button variant="primary" size="md"
           onClick={copy}
-          disabled={!ready}
-          className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
-        >
+          disabled={!ready}>
           클립보드 복사
-        </button>
+        </Button>
         <a
           href="https://claude.ai/new"
           target="_blank"
@@ -121,14 +119,11 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
         >
           Claude 열기 <ExternalLink {...ICON_SM} />
         </a>
-        <button
-          type="button"
+        <Button variant="secondary" size="md"
           onClick={resetPrompt}
-          disabled={edited == null}
-          className="rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-40"
-        >
+          disabled={edited == null}>
           프롬프트 초기화
-        </button>
+        </Button>
 
         <span className="text-caption text-warning"><WarnIcon />이 분석은 투자 조언이 아닙니다.</span>
       </div>

@@ -1,4 +1,4 @@
-import { InfoTip, Segmented } from '../ui';
+import { InfoTip, Segmented, Button } from '../ui';
 import StarIcon from '../ui/StarIcon';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import StockName from '../common/StockName';
@@ -227,13 +227,11 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
             </tbody>
           </table>
           {data && data.rows.length > FIRST_PAGE && (
-            <button
-              type="button"
+            <Button variant="secondary" size="sm"
               onClick={() => setShowAll((v) => !v)}
-              className="w-full py-2 text-caption text-text-secondary hover:bg-bg-tertiary/60"
-            >
+              className="w-full">
               {showAll ? '50위까지만 보기' : `더 보기 (+${data.rows.length - FIRST_PAGE})`}
-            </button>
+            </Button>
           )}
         </div>
 

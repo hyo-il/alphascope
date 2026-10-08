@@ -225,6 +225,7 @@ function PickerDialog({
       <div className="flex min-w-0 flex-1 flex-col gap-2 border-r border-border/40 p-3">
         <label className="flex items-center gap-2 rounded-md bg-bg-tertiary px-2">
           <Search {...ICON_SM} className="shrink-0 text-text-muted" aria-hidden />
+          {/* design-lint-ignore: 아이콘과 한 상자인 검색칸 — 바깥 상자가 입력칸 모양(높이·바탕)을 맡는다 */}
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -465,9 +466,9 @@ export default function SymbolPicker(props: SymbolPickerProps) {
             ))}
           </div>
           {(hidden > 0 || expanded) && (
-            <button type="button" onClick={() => setExpanded((v) => !v)} className="text-caption text-text-secondary hover:text-text-primary">
+            <Button variant="ghost" size="sm" onClick={() => setExpanded((v) => !v)}>
               {expanded ? '접기' : `+${hidden}개 더 보기`}
-            </button>
+            </Button>
           )}
         </>
       )}

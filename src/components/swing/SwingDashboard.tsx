@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import DisclosureButton from '../ui/DisclosureButton';
 import WarnIcon from '../ui/WarnIcon';
 import { useState } from 'react';
@@ -180,14 +181,12 @@ export default function SwingDashboard({
                       : '없음'}
                 </span>
               </span>
-              <button
-                type="button"
+              <Button variant="primary" size="sm"
                 onClick={analyze}
                 disabled={loading || !watchlist.length}
-                className="ml-auto shrink-0 whitespace-nowrap rounded bg-accent px-2.5 py-1 text-caption font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-              >
+                className="ml-auto">
                 {loading ? '점검 중…' : checkLabel}
-              </button>
+              </Button>
             </header>
 
             {/*
@@ -195,15 +194,12 @@ export default function SwingDashboard({
               셋이 있었고 뒤의 둘은 같은 창을 열었다. 표준/공격/수비 선택은 창 맨 위로 옮겼다(바꾸는 동작은 `switchProfile` 그대로).
             */}
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
+              <Button variant="secondary" size="sm"
                 onClick={() => setProfileOpen(true)}
                 disabled={!profile.state}
-                title="판정 기준(표준·공격·수비)과 목표 수익 가능성의 조건을 함께 봅니다 — 목표는 점수·등급을 바꾸지 않습니다"
-                className="rounded-md bg-bg-tertiary px-2.5 py-1 text-caption text-text-primary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-50"
-              >
+                title="판정 기준(표준·공격·수비)과 목표 수익 가능성의 조건을 함께 봅니다 — 목표는 점수·등급을 바꾸지 않습니다">
                 판단 기준 · {PROFILE_LABEL[activeId]} · 목표 +{goalPct(goal.targetPct)} · {periodLabel(goal.days)}
-              </button>
+              </Button>
               {profile.error && (
                 <span className="text-caption text-warning">
                   기준을 불러오지 못해 표준을 표시합니다 ({profile.error})

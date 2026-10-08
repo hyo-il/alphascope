@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import InfoTip from '../ui/InfoTip';
 import { useState } from 'react';
 import { Skeleton, SkeletonCards, SkeletonTable } from '../common/SkeletonLoader';
@@ -154,13 +155,10 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
               저장된 계좌·보유 종목·거래 내역은 그대로 있습니다 (지워지지 않습니다).
             </span>
           </p>
-          <button
-            type="button"
-            onClick={() => void reloadAccounts()}
-            className="rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
+          <Button variant="secondary" size="md"
+            onClick={() => void reloadAccounts()}>
             다시 시도
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -217,24 +215,13 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
           {/*
             자동매매 처음 켜기 (v2.32.0) — 켜진 계좌가 하나도 없거나 규칙형 계좌가 없으면 눈에 띄게, 그 밖에는 보통 버튼.
           */}
-          <button
-            type="button"
-            onClick={() => setWizardOpen(true)}
-            className={`ml-auto rounded-md px-2.5 py-1 text-xs transition-colors ${
-              wizardHighlight
-                ? 'bg-accent font-medium text-white hover:bg-accent-hover'
-                : 'bg-bg-tertiary text-text-secondary hover:bg-bg-elevated hover:text-text-primary'
-            }`}
-          >
+          <Button size="sm" variant={wizardHighlight ? 'primary' : 'secondary'} onClick={() => setWizardOpen(true)} className="ml-auto">
             자동매매 처음 켜기
-          </button>
-          <button
-            type="button"
-            onClick={() => setCreatingInOverview((v) => !v)}
-            className="rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
+          </Button>
+          <Button variant="secondary" size="sm"
+            onClick={() => setCreatingInOverview((v) => !v)}>
             + 새 계좌
-          </button>
+          </Button>
           {creatingInOverview && (
             <CreateAccountForm
               onCreate={create}
@@ -294,13 +281,10 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
     <div className="flex h-full min-h-0 flex-col overflow-y-auto">
 
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
-        <button
-          type="button"
-          onClick={() => setView('overview')}
-          className="rounded px-2 py-0.5 text-caption text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
-        >
+        <Button variant="secondary" size="sm"
+          onClick={() => setView('overview')}>
           ← 계좌 모아보기
-        </button>
+        </Button>
       </div>
 
       <AccountManager

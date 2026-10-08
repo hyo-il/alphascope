@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import type { ReactNode } from 'react';
 
 /**
@@ -32,12 +33,11 @@ export default function AsyncBoundary({
       <div className="rounded-xl bg-bg-secondary p-6 text-center">
         <p className="text-sm text-danger">{error}</p>
         {onRetry && (
-          <button
+          <Button variant="secondary" size="md"
             onClick={onRetry}
-            className="mt-3 rounded bg-bg-tertiary px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-elevated"
-          >
+            className="mt-3">
             다시 시도
-          </button>
+          </Button>
         )}
       </div>
     );

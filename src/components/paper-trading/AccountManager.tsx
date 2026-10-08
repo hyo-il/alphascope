@@ -1,3 +1,5 @@
+import Select from '../ui/Select';
+import Button from '../ui/Button';
 import TrashIcon from '../common/TrashIcon';
 import { useState } from 'react';
 import type { PaperAccount } from '../../types/paper';
@@ -61,18 +63,16 @@ export default function AccountManager({
     <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
       <span className="text-xs text-text-secondary">계좌</span>
 
-      <select
+      <Select
         value={selectedId ?? ''}
-        onChange={(e) => onSelect(Number(e.target.value))}
-        className="rounded-md border border-border bg-bg-tertiary px-2 py-1 text-xs text-text-primary focus:border-accent focus:outline-none"
-      >
+        onChange={(e) => onSelect(Number(e.target.value))}>
         {!accounts.length && <option value="">계좌 없음</option>}
         {accounts.map((account) => (
           <option key={account.id} value={account.id}>
             {account.name}
           </option>
         ))}
-      </select>
+      </Select>
 
       {selected && (
         <span className="text-xs text-text-muted">
@@ -88,30 +88,21 @@ export default function AccountManager({
       )}
 
       <div className="ml-auto flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => setCreating((v) => !v)}
-          className="rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-        >
+        <Button variant="secondary" size="sm"
+          onClick={() => setCreating((v) => !v)}>
           + 새 계좌
-        </button>
+        </Button>
         {selected && (
           <>
-            <button
-              type="button"
-              onClick={confirmReset}
-              className="rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-warning"
-            >
+            <Button variant="secondary" size="sm"
+              onClick={confirmReset}>
               초기화
-            </button>
-            <button
-              type="button"
-              onClick={confirmDelete}
-              className="inline-flex items-center gap-1 rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-muted transition-colors hover:bg-bg-elevated hover:text-danger"
-            >
+            </Button>
+            <Button variant="secondary" size="sm"
+              onClick={confirmDelete}>
               <TrashIcon className="h-3.5 w-3.5" />
               삭제
-            </button>
+            </Button>
           </>
         )}
       </div>

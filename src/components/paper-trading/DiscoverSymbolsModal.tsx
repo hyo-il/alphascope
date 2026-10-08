@@ -1,3 +1,5 @@
+import NumberField from '../ui/NumberField';
+import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
 import { useEffect, useRef, useState } from 'react';
 import type { SwingGrade, SwingRecommendation } from '../../types/swing';
@@ -254,14 +256,12 @@ export default function DiscoverSymbolsModal({
               />
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-text-secondary">최소 점수</span>
-                <input
-                  type="number"
+                <NumberField
                   min={0}
                   max={100}
                   value={minScore}
                   onChange={(e) => setMinScore(Number(e.target.value))}
-                  className="w-20 rounded border border-border bg-bg-tertiary px-2 py-1 text-xs tabular-nums"
-                />
+                  className="w-20" />
                 <span className="ml-2 text-xs text-text-secondary">등급</span>
                 {gradeOptions.map((g) => (
                   <button
@@ -278,14 +278,12 @@ export default function DiscoverSymbolsModal({
                   </button>
                 ))}
                 <span className="ml-2 text-xs text-text-secondary">최대</span>
-                <input
-                  type="number"
+                <NumberField
                   min={1}
                   max={50}
                   value={limit}
                   onChange={(e) => setLimit(Number(e.target.value))}
-                  className="w-16 rounded border border-border bg-bg-tertiary px-2 py-1 text-xs tabular-nums"
-                />
+                  className="w-16" />
                 <span className="text-xs text-text-secondary">종목</span>
               </div>
 
@@ -302,14 +300,11 @@ export default function DiscoverSymbolsModal({
 
           {/* ② 탐지 */}
           <div className="flex items-center gap-2">
-            <button
-              type="button"
+            <Button variant="primary" size="md"
               onClick={() => void detect()}
-              disabled={busy}
-              className="rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-            >
+              disabled={busy}>
               {busy ? '탐지 중…' : '탐지'}
-            </button>
+            </Button>
             {note && <span className="text-caption text-text-muted">{note}</span>}
           </div>
 
@@ -342,19 +337,17 @@ export default function DiscoverSymbolsModal({
                     기준 미달도 보기 ({rejectedRows.length})
                   </label>
                 )}
-                <button
-                  type="button"
+                <Button variant="ghost" size="sm"
                   onClick={() =>
                     setSelected(
                       selected.length === selectable.length ? [] : selectable.map((r) => r.symbol),
                     )
                   }
-                  className="ml-auto text-caption text-text-muted transition-colors hover:text-text-primary"
-                >
+                  className="ml-auto">
                   {selected.length === selectable.length && selectable.length > 0
                     ? '전체 해제'
                     : '전체 선택'}
-                </button>
+                </Button>
               </div>
 
               {/*
@@ -457,21 +450,16 @@ export default function DiscoverSymbolsModal({
           <span className="min-w-0 text-caption text-text-muted">
             추가해도 자동매매가 곧바로 돌지는 않습니다 — 설정을 저장해야 반영됩니다.
           </span>
-          <button
-            type="button"
+          <Button variant="secondary" size="md"
             onClick={onClose}
-            className="shrink-0 whitespace-nowrap ml-auto rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
+            className="ml-auto">
             취소
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button variant="primary" size="md"
             onClick={add}
-            disabled={!selected.length}
-            className="shrink-0 whitespace-nowrap rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-          >
+            disabled={!selected.length}>
             선택한 {selected.length}종목 추가
-          </button>
+          </Button>
         </div>
     </Dialog>
   );

@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import DisclosureButton from '../ui/DisclosureButton';
 import { useEffect, useMemo, useState } from 'react';
 import { modal } from '../../store/uiStore';
@@ -327,14 +328,11 @@ export default function ManualAnalysis({
 
         <div className="flex flex-wrap items-center gap-2">
           {includeImage && (
-            <button
-              type="button"
+            <Button variant="secondary" size="sm"
               onClick={openCapture}
-              title="범위·지표·봉 단위를 골라 캡처합니다"
-              className="rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-            >
+              title="범위·지표·봉 단위를 골라 캡처합니다">
               상세 캡처…
-            </button>
+            </Button>
           )}
           <DisclosureButton open={editorOpen} onToggle={() => setEditorOpen((v) => !v)} label="프롬프트 수정 보기" controls="manual-prompt-editor" />
           {edited !== null && <span className="rounded bg-warning/15 px-1.5 py-0.5 text-caption text-warning">수정됨</span>}
@@ -390,13 +388,10 @@ export default function ManualAnalysis({
               <span className="flex items-center gap-2 text-text-muted">
                 {prompt.length.toLocaleString('ko-KR')}자
                 {edited !== null && (
-                  <button
-                    type="button"
-                    onClick={resetPrompt}
-                    className="rounded bg-bg-tertiary px-2 py-0.5 transition-colors hover:bg-bg-elevated hover:text-text-primary"
-                  >
+                  <Button variant="secondary" size="sm"
+                    onClick={resetPrompt}>
                     초기화
-                  </button>
+                  </Button>
                 )}
               </span>
             </div>

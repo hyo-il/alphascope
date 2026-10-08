@@ -1,3 +1,4 @@
+import NumberField from '../ui/NumberField';
 import { RSI_HELP } from '../../data/indicatorHelp';
 import { useState, type ReactNode } from 'react';
 import { Plus, Sparkles } from 'lucide-react';
@@ -50,14 +51,12 @@ function Field({ label, hint, error, children }: { label: string; hint: string; 
 
 function NumberBox({ value, onChange, disabled, label }: { value: number; onChange: (v: number) => void; disabled?: boolean; label: string }) {
   return (
-    <input
-      type="number"
+    <NumberField
       aria-label={label}
       value={Number.isFinite(value) ? value : ''}
       disabled={disabled}
       onChange={(e) => onChange(e.target.value === '' ? NaN : Number(e.target.value))}
-      className="h-8 w-20 rounded-md border border-border bg-bg-tertiary px-2 text-xs tabular-nums disabled:opacity-40"
-    />
+      className="w-20" />
   );
 }
 

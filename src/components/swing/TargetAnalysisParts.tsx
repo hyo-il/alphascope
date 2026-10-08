@@ -1,3 +1,4 @@
+import Select from '../ui/Select';
 import { useMemo, useState } from 'react';
 import { modal, toast } from '../../store/uiStore';
 import { formatPrice } from '../../utils/formatters';
@@ -264,21 +265,21 @@ export function TargetHistorySection({
       <section className="space-y-2">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <h3 className="font-medium text-text-secondary">분석 히스토리 (모든 조건)</h3>
-          <select value={symbolFilter} onChange={(e) => setSymbolFilter(e.target.value)} aria-label="종목" className="rounded border border-border bg-bg-tertiary px-2 py-0.5 text-caption">
+          <Select size="sm" value={symbolFilter} onChange={(e) => setSymbolFilter(e.target.value)} aria-label="종목">
             <option value="all">모든 종목</option>
             {symbols.map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
             ))}
-          </select>
-          <select value={outcomeFilter} onChange={(e) => setOutcomeFilter(e.target.value as typeof outcomeFilter)} aria-label="결과" className="rounded border border-border bg-bg-tertiary px-2 py-0.5 text-caption">
+          </Select>
+          <Select size="sm" value={outcomeFilter} onChange={(e) => setOutcomeFilter(e.target.value as typeof outcomeFilter)} aria-label="결과">
             <option value="all">모든 결과</option>
             <option value="pending">채점 대기</option>
             <option value="target">목표 도달</option>
             <option value="stop">손절</option>
             <option value="neither">둘 다 아님</option>
-          </select>
+          </Select>
           {stats && (
             <span className="ml-auto text-caption text-text-secondary">
               {stats.weak ? (

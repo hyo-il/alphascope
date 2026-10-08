@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import { ICON_SM } from '../ui/icon';
 import { X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -411,14 +412,11 @@ export default function ChartCaptureModal({
                 ))}
               </div>
             </div>
-            <button
-              type="button"
+            <Button variant="primary" size="md"
               onClick={() => void handleCapture()}
-              disabled={busy || dataLoading || !activeCandles.length}
-              className="rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
-            >
+              disabled={busy || dataLoading || !activeCandles.length}>
               {busy ? '캡처 중…' : dataLoading ? '불러오는 중…' : '캡처'}
-            </button>
+            </Button>
           </div>
         </div>
 

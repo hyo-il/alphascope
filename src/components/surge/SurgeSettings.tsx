@@ -1,3 +1,6 @@
+import Select from '../ui/Select';
+import NumberField from '../ui/NumberField';
+import Button from '../ui/Button';
 import { useEffect, useState } from 'react';
 import type { AnalysisPeriod, SurgeSettings as Settings } from '../../types/surge';
 import { MARKET_CAP_TIERS } from '../../types/surge';
@@ -76,69 +79,59 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
         </label>
 
         <Field label="가격 변동 (% 이상)">
-          <input
-            type="number"
+          <NumberField
             step={0.5}
             min={0.5}
             max={50}
             disabled={draft.thresholdMode === 'auto'}
             value={draft.priceThreshold}
             onChange={(e) => patch({ priceThreshold: Number(e.target.value) })}
-            className="w-24 rounded px-2 py-1"
-          />
+            className="w-24" />
         </Field>
         <p className="text-caption text-text-muted">
           대형주는 하루 3%도 드물고 소형주는 5%가 예사입니다. 하나의 기준으로 재면 대형주는 급등이
           아예 안 잡히고 소형주는 잡음이 쏟아집니다. 시가총액은 yfinance 에서 가져옵니다.
         </p>
         <Field label="거래량 (% 이상, 20일 평균 대비)">
-          <input
-            type="number"
+          <NumberField
             step={10}
             min={100}
             max={2000}
             value={draft.volumeThreshold}
             onChange={(e) => patch({ volumeThreshold: Number(e.target.value) })}
-            className="w-24 rounded px-2 py-1"
-          />
+            className="w-24" />
         </Field>
       </section>
 
       <section className="space-y-2">
         <h3 className="font-semibold text-text-secondary">주기성 판정</h3>
         <Field label="최소 급등 횟수">
-          <input
-            type="number"
+          <NumberField
             min={2}
             max={20}
             value={draft.minSurgeCount}
             onChange={(e) => patch({ minSurgeCount: Number(e.target.value) })}
-            className="w-24 rounded px-2 py-1"
-          />
+            className="w-24" />
         </Field>
         <Field label="분석 기간">
-          <select
+          <Select
             value={draft.analysisPeriod}
-            onChange={(e) => patch({ analysisPeriod: e.target.value as AnalysisPeriod })}
-            className="rounded px-2 py-1"
-          >
+            onChange={(e) => patch({ analysisPeriod: e.target.value as AnalysisPeriod })}>
             {PERIODS.map((period) => (
               <option key={period.id} value={period.id}>
                 {period.label}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label="규칙성 기준 (% 이상)">
-          <input
-            type="number"
+          <NumberField
             min={0}
             max={100}
             step={5}
             value={draft.regularityThreshold}
             onChange={(e) => patch({ regularityThreshold: Number(e.target.value) })}
-            className="w-24 rounded px-2 py-1"
-          />
+            className="w-24" />
         </Field>
         <p className="text-caption text-text-muted">
           규칙성 = 100 × (1 − 표준편차/평균). 50% 는 "표준편차가 평균의 절반 이하" 와 같은 선입니다.
@@ -194,14 +187,11 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
         </p>
       </section>
 
-      <button
-        type="button"
+      <Button variant="primary" size="md"
         onClick={submit}
-        disabled={saving}
-        className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-      >
+        disabled={saving}>
         {saving ? '저장 중…' : '설정 저장'}
-      </button>
+      </Button>
     </div>
   );
 }

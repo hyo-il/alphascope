@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
 import { ICON_SM } from '../ui/icon';
 import { Check } from 'lucide-react';
@@ -326,13 +327,10 @@ export default function AutoTradeWizard({
               <p className="rounded-md bg-warning/10 px-3 py-1.5 text-caption text-warning">
                 어느 방법도 이 앱에서 돈을 번다고 확인된 적은 없습니다.
               </p>
-              <button
-                type="button"
-                onClick={() => setDetailOpen(true)}
-                className="rounded-md bg-bg-tertiary px-3 py-1 text-caption text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-              >
+              <Button variant="secondary" size="sm"
+                onClick={() => setDetailOpen(true)}>
                 자세한 설정 열기
-              </button>
+              </Button>
             </section>
           )}
         </div>
@@ -350,13 +348,10 @@ export default function AutoTradeWizard({
             >
               닫기
             </button>
-            <button
-              type="button"
-              onClick={() => setClosing(false)}
-              className="shrink-0 whitespace-nowrap rounded bg-bg-tertiary px-2 py-0.5 text-text-secondary hover:bg-bg-elevated"
-            >
+            <Button variant="secondary" size="sm"
+              onClick={() => setClosing(false)}>
               계속하기
-            </button>
+            </Button>
           </div>
         )}
 
@@ -364,40 +359,29 @@ export default function AutoTradeWizard({
           <span className="min-w-0 text-caption text-text-muted">
             자동매매 설정은 [켜기] 를 눌러야 저장됩니다{created ? ' (새 계좌는 만들 때 바로 생겼습니다)' : ''}.
           </span>
-          <button
-            type="button"
+          <Button variant="secondary" size="md"
             onClick={requestClose}
-            className="shrink-0 whitespace-nowrap ml-auto rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
+            className="ml-auto">
             취소
-          </button>
+          </Button>
           {step > 1 && (
-            <button
-              type="button"
-              onClick={() => setStep((s) => (s - 1) as Step)}
-              className="shrink-0 whitespace-nowrap rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-            >
+            <Button variant="secondary" size="md"
+              onClick={() => setStep((s) => (s - 1) as Step)}>
               이전
-            </button>
+            </Button>
           )}
           {step < 4 ? (
-            <button
-              type="button"
+            <Button variant="primary" size="md"
               onClick={() => setStep((s) => (s + 1) as Step)}
-              disabled={!canNext}
-              className="shrink-0 whitespace-nowrap rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-            >
+              disabled={!canNext}>
               다음
-            </button>
+            </Button>
           ) : (
-            <button
-              type="button"
+            <Button variant="primary" size="md"
               onClick={() => void turnOn()}
-              disabled={busy || !draft}
-              className="shrink-0 whitespace-nowrap rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-            >
+              disabled={busy || !draft}>
               {busy ? '켜는 중…' : '켜기'}
-            </button>
+            </Button>
           )}
         </div>
 

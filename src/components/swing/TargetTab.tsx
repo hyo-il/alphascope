@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import { useEffect, useRef, useState } from 'react';
 import SymbolPicker from '../common/SymbolPicker';
 import StockName from '../common/StockName';
@@ -112,13 +113,10 @@ export default function TargetTab({
         <span className="text-text-secondary">
           지금 조건: <b className="text-text-primary">목표 +{goalPct(goal.targetPct)} · {periodLabel(goal.days)} · 손절 −{goalPct(goal.stopPct)}</b>
         </span>
-        <button
-          type="button"
-          onClick={onOpenCriteria}
-          className="shrink-0 whitespace-nowrap rounded bg-bg-tertiary px-2 py-0.5 text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-        >
+        <Button variant="secondary" size="sm"
+          onClick={onOpenCriteria}>
           조건 바꾸기
-        </button>
+        </Button>
       </div>
 
       {/* 종목 고르기 — 공용 「종목 고르기」(v2.41.0, 예전 화면 안 관심 목록 표 + 검색칸) */}
@@ -147,15 +145,12 @@ export default function TargetTab({
           </ul>
         )}
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <button
-            type="button"
+          <Button variant="primary" size="sm"
             onClick={() => void start()}
             disabled={!picked.length || running || Boolean(target.geminiOff)}
-            title={target.geminiOff ?? undefined}
-            className="shrink-0 whitespace-nowrap rounded bg-accent px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
-          >
+            title={target.geminiOff ?? undefined}>
             {running ? '분석 중…' : `선택한 ${picked.length}종목 분석 (Gemini 약 ${picked.length * CALLS_PER_SYMBOL}회)`}
-          </button>
+          </Button>
           {target.geminiOff && <span className="text-caption text-warning">지금은 분석할 수 없습니다 — {target.geminiOff}</span>}
         </div>
       </section>

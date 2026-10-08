@@ -1,3 +1,4 @@
+import Button from '../../ui/Button';
 import { useCallback, useEffect, useState, type ComponentProps } from 'react';
 import type { Candle, Timeframe } from '../../../types/toss';
 import type { IndicatorSeries, IndicatorToggles } from '../../../types/chart';
@@ -191,14 +192,11 @@ function SingleSymbolGemini({ symbol }: { symbol: string }) {
         </span>
         {/* 계좌 자동매매와 헷갈리지 않게 — 이 탭은 버튼을 눌렀을 때만 돈다 (v2.26.0) */}
         <span className="text-text-muted">버튼을 누르면 Gemini 가 지금 이 종목을 분석합니다(약 5회 호출)</span>
-        <button
-          type="button"
+        <Button variant="primary" size="sm"
           onClick={analyze}
-          disabled={running}
-          className="rounded bg-accent px-2.5 py-1 font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-        >
+          disabled={running}>
           {running ? '분석 중… (약 8초)' : '지금 분석'}
-        </button>
+        </Button>
       </div>
 
       {latest ? (

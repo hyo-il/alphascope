@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import { ICON_SM } from '../ui/icon';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -69,14 +70,12 @@ export default function MarketOverview() {
           );
         })}
 
-        <button
-          type="button"
+        <Button variant="ghost" size="md"
           onClick={toggle}
-          className="ml-auto inline-flex shrink-0 items-center gap-1 text-text-muted transition-colors hover:text-text-primary"
-        >
+          className="ml-auto">
           <ChevronDown {...ICON_SM} />
           시황 펼치기
-        </button>
+        </Button>
       </div>
     );
   }
@@ -85,14 +84,11 @@ export default function MarketOverview() {
     <section className="shrink-0 border-b border-border bg-bg-primary px-3 py-2">
       <div className="mb-1.5 flex items-center justify-between">
         <h2 className="text-caption text-text-secondary">시황</h2>
-        <button
-          type="button"
-          onClick={toggle}
-          className="inline-flex items-center gap-1 text-caption text-text-muted transition-colors hover:text-text-primary"
-        >
+        <Button variant="ghost" size="sm"
+          onClick={toggle}>
           <ChevronUp {...ICON_SM} />
           접기
-        </button>
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">

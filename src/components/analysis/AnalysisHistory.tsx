@@ -1,3 +1,5 @@
+import Select from '../ui/Select';
+import Button from '../ui/Button';
 import TrashIcon from '../common/TrashIcon';
 import { useCallback, useEffect, useState } from 'react';
 import { SkeletonList } from '../common/SkeletonLoader';
@@ -187,38 +189,33 @@ export default function AnalysisHistory({
         />
 
         <div className="flex gap-2">
-          <select
+          <Select
             value={verdict}
             onChange={(e) => setVerdict(e.target.value)}
-            className="flex-1 rounded-md border border-border bg-bg-tertiary px-2 py-1.5 text-xs text-text-primary"
-          >
+            className="flex-1">
             {VERDICTS.map((v) => (
               <option key={v.value} value={v.value}>
                 {v.label}
               </option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             value={confidence}
             onChange={(e) => setConfidence(e.target.value)}
-            className="flex-1 rounded-md border border-border bg-bg-tertiary px-2 py-1.5 text-xs text-text-primary"
-          >
+            className="flex-1">
             {CONFIDENCES.map((c) => (
               <option key={c.value} value={c.value}>
                 신뢰도 {c.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
-        <button
-          type="button"
+        <Button variant="primary" size="md"
           onClick={() => void handleSave()}
-          disabled={!draft.trim()}
-          className="rounded-md bg-accent px-3 py-2 text-sm text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
-        >
+          disabled={!draft.trim()}>
           저장 (현재가 {formatUsd(currentPrice)})
-        </button>
+        </Button>
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -302,14 +299,12 @@ export default function AnalysisHistory({
                         ? (record.prompt ?? '저장된 프롬프트가 없습니다.')
                         : record.synthesis}
                     </pre>
-                    <button
-                      type="button"
+                    <Button variant="danger-text" size="sm"
                       onClick={() => handleDelete(record)}
-                      className="mt-2 inline-flex items-center gap-1 text-caption text-text-muted transition-colors hover:text-danger"
-                    >
+                      className="mt-2">
                       <TrashIcon className="h-3.5 w-3.5" />
                       삭제
-                    </button>
+                    </Button>
                   </div>
                 )}
               </article>

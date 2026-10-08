@@ -1,4 +1,9 @@
+import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
+import { Children } from 'react';
+import FormRow from '../ui/FormRow';
+import NumberField from '../ui/NumberField';
+import Select from '../ui/Select';
 import InfoTip from '../ui/InfoTip';
 import { RSI_HELP, trailingHelp } from '../../data/indicatorHelp';
 import WarnIcon from '../ui/WarnIcon';
@@ -44,8 +49,6 @@ const PRESETS = [
   { id: 'bold', label: '공격', confidence: 0.6, size: 20, max: 8, hint: '신뢰도 60% · 비중 20% · 8종목' },
 ] as const;
 
-const FIELD = 'w-24 rounded border border-border bg-bg-tertiary px-2 py-1 text-xs tabular-nums';
-const LABEL = 'text-xs text-text-secondary';
 
 export default function AutoTradeSettings({
   strategy,
@@ -213,20 +216,18 @@ export default function AutoTradeSettings({
                     </label>
                     <p className="-mt-1 text-caption text-text-muted">{RSI_HELP}</p>
                     <Row label="RSI 매수 기준 (이 값 이하에서 반등, 50 이하)">
-                      <input
-                        type="number" min={5} max={50}
+                      <NumberField
+min={5} max={50}
                         value={draft.rule.rsiBuyBelow}
                         onChange={(e) => patch({ rule: { ...draft.rule, rsiBuyBelow: Number(e.target.value) } })}
-                        className={FIELD}
                       />
                       <span className="text-caption text-text-muted">낮출수록 더 많이 떨어진 뒤에만 매수합니다(기회는 줄어듭니다)</span>
                     </Row>
                     <Row label="RSI 매도 기준 (이 값 이상이면 매도)">
-                      <input
-                        type="number" min={50} max={95}
+                      <NumberField
+min={50} max={95}
                         value={draft.rule.rsiSellAbove}
                         onChange={(e) => patch({ rule: { ...draft.rule, rsiSellAbove: Number(e.target.value) } })}
-                        className={FIELD}
                       />
                       <span className="text-caption text-text-muted">높일수록 더 오래 들고 갑니다</span>
                     </Row>
@@ -266,13 +267,12 @@ export default function AutoTradeSettings({
 
             {detailOpen && (
               <div id="autotrade-detail" className="space-y-2 rounded-lg bg-bg-tertiary/30 p-3">
-                <Row label="분석 주기 (분, 5 이상)">
-                  <input
-                    type="number"
-                    min={5}
+                <Row label="분석 주기 (5분 이상)">
+                  <NumberField
+unit="분"
+min={5}
                     value={draft.intervalMinutes}
                     onChange={(e) => patch({ intervalMinutes: Number(e.target.value) })}
-                    className={FIELD}
                   />
                 </Row>
                 <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">
@@ -283,63 +283,57 @@ export default function AutoTradeSettings({
                   />
                   미국 정규장에만 실행 (청산은 시간과 무관하게 항상 검사합니다)
                 </label>
-                <Row label="종목당 비중 (%)">
-                  <input
-                    type="number"
-                    min={1}
+                <Row label="종목당 비중">
+                  <NumberField
+unit="%"
+min={1}
                     max={100}
                     value={draft.positionSizePercent}
                     onChange={(e) => patch({ positionSizePercent: Number(e.target.value) })}
-                    className={FIELD}
                   />
                 </Row>
                 <Row label="최대 보유 종목 수">
-                  <input
-                    type="number"
-                    min={1}
+                  <NumberField
+unit="종목"
+min={1}
                     max={50}
                     value={draft.maxPositions}
                     onChange={(e) => patch({ maxPositions: Number(e.target.value) })}
-                    className={FIELD}
                   />
                 </Row>
 
                 {draft.mode === 'ai' ? (
                   <>
                     <Row label="매수 신호">
-                      <select
+                      <Select
                         value={draft.buySignal}
                         onChange={(e) => patch({ buySignal: e.target.value as 'BUY' | 'STRONG_BUY' })}
-                        className="rounded border border-border bg-bg-tertiary px-2 py-1 text-xs"
                       >
                         <option value="BUY">매수 이상</option>
                         <option value="STRONG_BUY">강력 매수만</option>
-                      </select>
+                      </Select>
                     </Row>
                     <Row label="매수 최소 신뢰도 (0~1)">
-                      <input
-                        type="number" step={0.05} min={0} max={1}
+                      <NumberField
+step={0.05} min={0} max={1}
                         value={draft.buyMinConfidence}
                         onChange={(e) => patch({ buyMinConfidence: Number(e.target.value) })}
-                        className={FIELD}
                       />
                     </Row>
                     <Row label="매도 신호">
-                      <select
+                      <Select
                         value={draft.sellSignal}
                         onChange={(e) => patch({ sellSignal: e.target.value as 'SELL' | 'STRONG_SELL' })}
-                        className="rounded border border-border bg-bg-tertiary px-2 py-1 text-xs"
                       >
                         <option value="SELL">매도 이상</option>
                         <option value="STRONG_SELL">강력 매도만</option>
-                      </select>
+                      </Select>
                     </Row>
                     <Row label="매도 최소 신뢰도 (0~1)">
-                      <input
-                        type="number" step={0.05} min={0} max={1}
+                      <NumberField
+step={0.05} min={0} max={1}
                         value={draft.sellMinConfidence}
                         onChange={(e) => patch({ sellMinConfidence: Number(e.target.value) })}
-                        className={FIELD}
                       />
                     </Row>
                   </>
@@ -351,12 +345,12 @@ export default function AutoTradeSettings({
           {/* ④ 청산 */}
           <section className="space-y-2">
             <h3 className="text-xs font-semibold text-text-primary">④ 청산</h3>
-            <Row label="손절 (%)">
-              <input
-                type="number" min={1} max={50}
+            <Row label="손절">
+              <NumberField
+unit="%"
+min={1} max={50}
                 value={draft.hardStopLossPercent}
                 onChange={(e) => patch({ hardStopLossPercent: Number(e.target.value) })}
-                className={FIELD}
               />
               <span className="text-caption text-text-muted">
                 매수가보다 {draft.hardStopLossPercent}% 내려가면 전량 매도
@@ -376,13 +370,13 @@ export default function AutoTradeSettings({
               />
               익절 사용
             </label>
-            <Row label="익절 (%)">
-              <input
-                type="number" min={1} max={100}
+            <Row label="익절">
+              <NumberField
+unit="%"
+min={1} max={100}
                 value={draft.takeProfitPercent}
                 disabled={!draft.takeProfitEnabled}
                 onChange={(e) => patch({ takeProfitPercent: Number(e.target.value) })}
-                className={`${FIELD} disabled:opacity-40`}
               />
               <span className="min-w-0 text-caption text-text-muted">
                 매수가보다 {draft.takeProfitPercent}% 오르면 모두 매도한다. 끄면 오르는 동안 계속 들고 간다(지금까지의 방식).
@@ -401,15 +395,15 @@ export default function AutoTradeSettings({
               <Row
                 label={
                   <span className="inline-flex items-center gap-1">
-                    최고가 대비 하락 (%) <InfoTip label="트레일링 설명">{trailingHelp(draft.trailingStopPercent)}</InfoTip>
+                    최고가 대비 하락 <InfoTip label="트레일링 설명">{trailingHelp(draft.trailingStopPercent)}</InfoTip>
                   </span>
                 }
               >
-                <input
-                  type="number" min={1} max={50}
+                <NumberField
+unit="%"
+min={1} max={50}
                   value={draft.trailingStopPercent}
                   onChange={(e) => patch({ trailingStopPercent: Number(e.target.value) })}
-                  className={FIELD}
                 />
               </Row>
             )}
@@ -427,12 +421,12 @@ export default function AutoTradeSettings({
           */}
           <section className="space-y-2">
             <h3 className="text-xs font-semibold text-text-primary">⑤ 신규 매수 안전장치</h3>
-            <Row label="실적 발표 전 (거래일)">
-              <input
-                type="number" min={0} max={10} step={1}
+            <Row label="실적 발표 전">
+              <NumberField
+unit="거래일"
+min={0} max={10} step={1}
                 value={draft.earningsBlackoutDays}
                 onChange={(e) => patch({ earningsBlackoutDays: Number(e.target.value) })}
-                className={FIELD}
               />
               <span className="text-caption text-text-muted">
                 {draft.earningsBlackoutDays > 0
@@ -440,12 +434,12 @@ export default function AutoTradeSettings({
                   : '끔 — 실적 발표와 상관없이 매수합니다'}
               </span>
             </Row>
-            <Row label="하루 손실 한도 (%)">
-              <input
-                type="number" min={0} max={20} step={0.5}
+            <Row label="하루 손실 한도">
+              <NumberField
+unit="%"
+min={0} max={20} step={0.5}
                 value={draft.dailyLossLimitPercent}
                 onChange={(e) => patch({ dailyLossLimitPercent: Number(e.target.value) })}
-                className={FIELD}
               />
               <span className="text-caption text-text-muted">
                 {draft.dailyLossLimitPercent > 0
@@ -464,31 +458,31 @@ export default function AutoTradeSettings({
           <span className="min-w-0 text-caption text-text-muted">
             값의 허용 범위는 저장할 때 서버가 다시 한 번 조입니다.
           </span>
-          <button
-            type="button"
+          <Button variant="secondary" size="md"
             onClick={onClose}
-            className="shrink-0 whitespace-nowrap ml-auto rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
+            className="ml-auto">
             취소
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button variant="primary" size="md"
             onClick={() => void save()}
-            disabled={saving}
-            className="shrink-0 whitespace-nowrap rounded-md bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-          >
+            disabled={saving}>
             {saving ? '저장 중…' : saveLabel}
-          </button>
+          </Button>
         </div>
     </Dialog>
   );
 }
 
+/**
+ * 이 창의 폼 줄 — 공용 `FormRow` 하나의 폭(이름 lg · 값 lg)으로 **모든 입력칸의 왼쪽·오른쪽 끝을 맞춘다** (v2.42.0).
+ * 첫 자식 = 값 칸(입력칸·드롭박스·묶음 버튼), 나머지 = 오른쪽 설명.
+ * 값 칸 폭은 이 창에서 가장 긴 값(이동평균 묶음 버튼 5·20·60·120일)이 들어가는 폭이다.
+ */
 function Row({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
+  const [control, ...rest] = Children.toArray(children);
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className={`${LABEL} min-w-[14rem]`}>{label}</span>
-      {children}
-    </div>
+    <FormRow label={label} labelW="lg" valueW="lg" hint={rest.length ? <>{rest}</> : undefined}>
+      {control}
+    </FormRow>
   );
 }

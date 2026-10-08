@@ -1,3 +1,4 @@
+import { currencyOfSymbol } from '../../../utils/market';
 import { TIMEFRAME_LABEL, type Candle, type Timeframe } from '../../../types/toss';
 
 const UNIT: Partial<Record<Timeframe, { line: string; range: string }>> = {
@@ -42,7 +43,8 @@ function Row({
   return (
     <div className="flex items-baseline gap-2 py-0.5">
       <span className="w-28 shrink-0 text-text-secondary">{label}</span>
-      <span className={`w-28 shrink-0 tabular-nums ${tone}`}>{value}</span>
+      {/* 값 칸은 국내 7자리 가격 두 개(「267,550 / 260,000」)가 한 줄에 들어가는 폭 — 문구와 겹치지 않게 (v2.42.0) */}
+      <span className={`w-44 shrink-0 whitespace-nowrap tabular-nums ${tone}`}>{value}</span>
       {note && <span className="min-w-0 text-text-muted">{note}</span>}
     </div>
   );
@@ -69,6 +71,8 @@ export default function IndicatorSummaryPanel({
   const price = currentPrice ?? summary.price;
   // 장중에는 마지막 봉이 미완성이라 거래량이 평균의 몇 % 로 찍힌다 — 완성 봉 기준으로 본다.
   const volume = completedVolumeRatio(candles, timeframe, 20, symbol);
+  /** 가격 숫자는 통화 규칙대로 — 원화는 소수점 없이(예전 toFixed(2) 라 「267550.00」), 달러는 소수 둘째 자리 (v2.42.0) */
+  const px = (v: number) => (currencyOfSymbol(symbol) === 'KRW' ? Math.round(v).toLocaleString('ko-KR') : v.toFixed(2));
   // 봉 단위를 문구에 드러낸다 — 주봉에서 "20일선" 이라 쓰면 20주 평균을 20일로 읽는다 (v2.20.0)
   const unit = UNIT[timeframe] ?? { line: '봉선', range: '한 봉' };
 
@@ -136,21 +140,17 @@ export default function IndicatorSummaryPanel({
         />
         <Row
           label={`20 / 60${unit.line}`}
-          value={
-            summary.ma20 == null || summary.ma60 == null
-              ? '—'
-              : `${summary.ma20.toFixed(2)} / ${summary.ma60.toFixed(2)}`
-          }
+          value={summary.ma20 == null || summary.ma60 == null ? '—' : `${px(summary.ma20)} / ${px(summary.ma60)}`}
           note={maNote}
         />
         <Row
           label="볼린저"
-          value={bbLower == null ? '—' : `${bbLower.toFixed(2)}~${bbUpper!.toFixed(2)}`}
-          note={bbNote}
+          // 숫자는 지우고 해석 문구만 (v2.42.0 사용자 요청)
+          value={bbLower == null ? '—' : bbNote}
         />
         <Row
           label="ATR(14)"
-          value={atr == null ? '—' : atr.toFixed(2)}
+          value={atr == null ? '—' : px(atr)}
           note={
             atr == null
               ? '차트에서 ATR 패널을 켜면 표시됩니다'
@@ -179,11 +179,7 @@ export default function IndicatorSummaryPanel({
         />
         <Row
           label="최근 20봉 고/저"
-          value={
-            summary.recentHigh == null
-              ? '—'
-              : `${summary.recentHigh.toFixed(2)} / ${summary.recentLow!.toFixed(2)}`
-          }
+          value={summary.recentHigh == null ? '—' : `${px(summary.recentHigh)} / ${px(summary.recentLow!)}`}
           note="단순 저항·지지 참고선"
         />
       </div>

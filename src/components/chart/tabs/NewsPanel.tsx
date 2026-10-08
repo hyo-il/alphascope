@@ -1,3 +1,4 @@
+import Button from '../../ui/Button';
 import WarnIcon from '../../ui/WarnIcon';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGeminiStatus } from '../../../hooks/useGemini';
@@ -94,14 +95,11 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
   return (
     <div className="flex flex-col gap-2 p-3 text-xs">
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
+        <Button variant="primary" size="sm"
           onClick={() => void analyze()}
-          disabled={!canAnalyze}
-          className="rounded-md bg-accent px-2.5 py-1 text-caption font-medium text-white transition-colors hover:bg-accent-hover disabled:bg-bg-tertiary disabled:text-text-muted"
-        >
+          disabled={!canAnalyze}>
           {analyzing ? 'AI 판정 중…' : 'AI 요약·판정'}
-        </button>
+        </Button>
         <span className="text-caption text-text-muted">
           {disabledReason
             ? `버튼이 꺼져 있습니다 — ${disabledReason}`

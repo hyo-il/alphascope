@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ListRemoveButton, RemoveAllButton } from '../ui';
+import { ListRemoveButton, RemoveAllButton, Button } from '../ui';
 import { usePaperAccounts } from '../../hooks/usePaperTrading';
 import type { PaperPositionValued } from '../../types/paper';
 import type { Quote } from '../../types/toss';
@@ -178,13 +178,11 @@ export default function StockExplorer({
           removeLabel={options.removeLabel}
         />
         {limited && (hidden > 0 || isOpen) && (
-          <button
-            type="button"
+          <Button variant="secondary" size="sm"
             onClick={() => toggleSection(title)}
-            className="w-full rounded-md bg-bg-tertiary py-1.5 text-caption text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
+            className="w-full">
             {isOpen ? '접기' : `더 보기 (+${hidden})`}
-          </button>
+          </Button>
         )}
       </section>
     );
@@ -198,6 +196,7 @@ export default function StockExplorer({
           <p className="text-xs text-text-muted">
             한글 종목명으로도 찾을 수 있습니다 (예: 삼성전자, 애플)
           </p>
+          {/* design-lint-ignore: 화면 가운데 검색칸 하나 — 읽기 폭 상한(화면 자체는 폭을 꽉 채운다) */}
           <div className="mx-auto max-w-md">
             <SymbolSearch symbol="" onSubmit={onSelect} />
           </div>

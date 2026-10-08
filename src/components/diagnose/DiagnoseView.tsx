@@ -1,3 +1,5 @@
+import Select from '../ui/Select';
+import Button from '../ui/Button';
 import HelpBox from '../common/HelpBox';
 import DisclosureButton from '../ui/DisclosureButton';
 import WarnIcon from '../ui/WarnIcon';
@@ -587,19 +589,18 @@ export default function DiagnoseView() {
           </div>
           <div className="ml-auto flex items-center gap-2">
             {reports.length > 0 && (
-              <select
+              <Select
                 value={selected?.id ?? ''}
                 onChange={(e) => select(Number(e.target.value))}
-                className="rounded border border-border bg-bg-tertiary px-2 py-1 text-caption"
-                aria-label="과거 리포트"
-              >
+                
+                aria-label="과거 리포트">
                 {reports.map((r) => (
                   <option key={r.id} value={r.id}>
                     {new Date(r.createdAt).toLocaleString('ko-KR')} · {r.server}
                     {r.summary.quick ? ' · quick' : ''}
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
             {selected && (
               <button
@@ -613,14 +614,11 @@ export default function DiagnoseView() {
                 <TrashIcon className="h-3.5 w-3.5" />
               </button>
             )}
-            <button
-              type="button"
+            <Button variant="primary" size="sm"
               onClick={() => void run()}
-              disabled={running}
-              className="shrink-0 whitespace-nowrap rounded bg-accent px-2.5 py-1 text-caption font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-            >
+              disabled={running}>
               {running ? '실행 중…' : '진단 실행'}
-            </button>
+            </Button>
           </div>
         </header>
 

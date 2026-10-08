@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import WarnIcon from '../ui/WarnIcon';
 import type { SurgeDetection, SurgeProgress } from '../../types/surge';
 import { SkeletonList } from '../common/SkeletonLoader';
@@ -84,14 +85,12 @@ export default function PeriodicSurgeList({
           발견: <span className="text-text-primary">{results.length}개</span>
         </span>
 
-        <button
-          type="button"
+        <Button variant="primary" size="sm"
           onClick={onDetect}
           disabled={running}
-          className="ml-auto rounded bg-accent px-2.5 py-1 text-caption font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-        >
+          className="ml-auto">
           {running ? '분석 중…' : '다시 실행'}
-        </button>
+        </Button>
       </header>
 
       {running && progress && (

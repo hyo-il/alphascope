@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import type { Timeframe } from '../../types/toss';
 import { useEffect, useState } from 'react';
 import CompareChart from './CompareChart';
@@ -128,13 +129,10 @@ export default function CompareSlot({
             dropUp={false}
             isAdded={isAdded}
           />
-          <button
-            type="button"
-            onClick={() => setSearching(false)}
-            className="text-caption text-text-muted transition-colors hover:text-text-primary"
-          >
+          <Button variant="ghost" size="sm"
+            onClick={() => setSearching(false)}>
             닫기
-          </button>
+          </Button>
         </div>
       ) : (
         <>
@@ -150,13 +148,10 @@ export default function CompareSlot({
             )}
           </p>
           {!dragOver && (
-            <button
-              type="button"
-              onClick={() => setSearching(true)}
-              className="rounded bg-bg-tertiary px-2 py-1 text-caption text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-            >
+            <Button variant="secondary" size="sm"
+              onClick={() => setSearching(true)}>
               종목 검색
-            </button>
+            </Button>
           )}
         </>
       )}

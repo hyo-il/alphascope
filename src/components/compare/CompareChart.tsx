@@ -1,3 +1,4 @@
+import Select from '../ui/Select';
 import { ListRemoveButton } from '../ui';
 import type { Timeframe } from '../../types/toss';
 import LiteCandleChart, { LITE_CHART_MAS } from '../chart/LiteCandleChart';
@@ -75,17 +76,16 @@ export default function CompareChart({
           </span>
         )}
 
-        <select
+        <Select size="sm"
           value={timeframe}
           onChange={(e) => onTimeframeChange(e.target.value as Timeframe)}
-          className="ml-auto shrink-0 rounded border border-border px-1 py-0.5 text-caption"
-        >
+          className="ml-auto shrink-0">
           {COMPARE_TIMEFRAMES.map((t) => (
             <option key={t.value} value={t.value}>
               {t.label}
             </option>
           ))}
-        </select>
+        </Select>
 
         <ListRemoveButton onClick={onRemove} label="비교에서 삭제" keeps="관심 목록은 그대로" />
       </div>

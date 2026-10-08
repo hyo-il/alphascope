@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import { useEffect } from 'react';
 
 /** 툴바에 노출할 도구 — 플러그인의 67종 중 스윙 트레이딩에 자주 쓰는 것만 추린다. */
@@ -103,15 +104,12 @@ export default function DrawingTools({
 
       <span className="mx-0.5 h-5 w-px bg-border" />
 
-      <button
-        type="button"
+      <Button variant="secondary" size="sm"
         onClick={onClearAll}
         disabled={!hasDrawings}
-        title="그린 것 모두 삭제"
-        className="whitespace-nowrap rounded-md px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-danger disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
-      >
+        title="그린 것 모두 삭제">
         모두 삭제
-      </button>
+      </Button>
     </div>
   );
 }

@@ -210,7 +210,7 @@ export default function BacktestView() {
 
   return (
     <div className="h-full min-h-0 overflow-y-auto p-4 [scrollbar-gutter:stable]">
-      <div className="mx-auto max-w-5xl space-y-4">
+      <div className="space-y-4">
         <div id="backtest-top">
           <SectionTitle level={1}>백테스트</SectionTitle>
         </div>

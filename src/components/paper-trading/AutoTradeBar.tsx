@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import WarnIcon from '../ui/WarnIcon';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
 import { useState } from 'react';
@@ -141,29 +142,22 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
         {error && <span className="text-caption text-danger">상태 조회 실패: {error}</span>}
 
         <span className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="shrink-0 whitespace-nowrap rounded bg-bg-tertiary px-2 py-1 text-caption text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
+          <Button variant="secondary" size="sm"
+            onClick={() => setOpen(true)}>
             자동매매 설정
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="sm"
+            variant={on ? 'danger' : 'primary'}
             onClick={() => void toggle()}
             disabled={toggling}
             /*
               ⚠️ 끄기는 **빨강**이다. 돌고 있는 자동매매를 멈추는 동작이라, 켜기와 같은 무게로
               보이면 안 된다 — 눌러 놓고 "왜 안 도나" 를 찾게 된다.
             */
-            className={`shrink-0 whitespace-nowrap rounded px-3 py-1 text-caption font-medium transition-colors disabled:opacity-50 ${
-              on
-                ? 'bg-danger text-white hover:bg-danger/90'
-                : 'bg-accent text-white hover:bg-accent-hover'
-            }`}
           >
             {toggling ? '…' : on ? '끄기' : '켜기'}
-          </button>
+          </Button>
         </span>
       </div>
 

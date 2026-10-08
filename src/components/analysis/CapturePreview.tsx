@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import { TIMEFRAME_ITEMS } from '../../types/chart';
 import { stockNameOf } from '../../utils/stockNames';
 
@@ -43,20 +44,14 @@ export default function CapturePreview({
         </p>
 
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onRetake}
-            className="rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
+          <Button variant="secondary" size="md"
+            onClick={onRetake}>
             다시 캡처
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover"
-          >
+          </Button>
+          <Button variant="primary" size="md"
+            onClick={onConfirm}>
             이 이미지로 분석 →
-          </button>
+          </Button>
         </div>
       </div>
     </div>

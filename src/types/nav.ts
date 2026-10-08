@@ -45,13 +45,6 @@ export interface NavPage {
    * 비교는 남긴다. ⚠️ 헤더만 감춘다 — 차트는 화면 밖에 그대로 마운트된다(App 의 chartVisible 과 무관).
    */
   hidesSymbolHeader?: boolean;
-  /**
-   * 라벨 뒤에 붙는 작은 배지 — 지금은 `테스트` 하나다.
-   *
-   * ⚠️ 라벨 문자열에 "(테스트)" 를 적어 넣지 않는다. 라벨은 화면 제목·검색 등 다른 곳에서도
-   * 쓰이고, 나중에 배지를 떼려면 문자열을 다시 찾아 고쳐야 한다.
-   */
-  badge?: string;
 }
 
 export type NavIconKey = 'home' | 'explore' | 'chart' | 'calendar' | 'analysis' | 'lab' | 'account' | 'settings';
@@ -66,6 +59,11 @@ export interface NavGroup {
    * 펼친 메뉴·제목·툴팁에는 `label` 을 쓴다.
    */
   shortLabel: string;
+  /**
+   * 대메뉴 이름 옆 작은 배지 — 지금은 실험실의 `테스트` 하나 (v2.42.0 — 예전에는 소메뉴 셋에 각각 붙어 있었다).
+   * ⚠️ 라벨 문자열에 "(테스트)" 를 적어 넣지 않는다 — 뗄 때 문자열을 다시 찾아야 한다. 접힌 메뉴에서는 배지 대신 툴팁 「실험실 (테스트)」.
+   */
+  badge?: string;
   /** 소메뉴가 하나뿐이면 펼친 메뉴에 소메뉴 줄·화살표를, 접힌 메뉴에 플라이아웃을 그리지 않는다 — 대메뉴를 누르면 바로 그 화면이다 */
   pages: NavPage[];
 }
@@ -132,6 +130,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: 'lab',
     label: '실험실',
     shortLabel: '실험실',
+    badge: '테스트',
     pages: [
       /*
         ⚠️ **급등 탐지는 검증 전 테스트 기능이다** (2026-09-25 사용자 결정).
@@ -145,13 +144,13 @@ export const NAV_GROUPS: NavGroup[] = [
         3년 백테스트 (v2.37.0) — 규칙형 3가지 방법을 미국 시총 상위 100(7분야)에 3년(1년씩 3구간)으로 시험한다. 조건은 고정(사전 등록).
         주소 #/backtest, 탭 없음(PAGE_TABS 에 넣지 않는다). 종목과 무관한 화면이라 상단 종목 헤더를 감춘다.
       */
-      { id: 'backtest', label: '백테스트', badge: '테스트', hidesSymbolHeader: true },
-      { id: 'surge', label: '급등 탐지', badge: '테스트', hidesSymbolHeader: true },
+      { id: 'backtest', label: '백테스트', hidesSymbolHeader: true },
+      { id: 'surge', label: '급등 탐지', hidesSymbolHeader: true },
       /*
         `npm run diagnose` 와 같은 함수를 웹에서 돌리고 결과를 본다 (v2.14.0). 이름 그대로, 위치만 실험실로(v2.26.0).
         종목과 무관한 화면이라 상단 종목 헤더를 감춘다.
       */
-      { id: 'diagnose', label: '진단 리포트', badge: '테스트', hidesSymbolHeader: true },
+      { id: 'diagnose', label: '진단 리포트', hidesSymbolHeader: true },
     ],
   },
   {

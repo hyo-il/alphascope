@@ -1,3 +1,5 @@
+import Input from '../ui/Input';
+import Button from '../ui/Button';
 import Dialog, { useDialogEsc } from '../ui/Dialog';
 import TrashIcon from '../common/TrashIcon';
 import { ICON_SM } from '../ui/icon';
@@ -263,7 +265,7 @@ export default function WatchlistManager({
                     } ${dropFolderId === f.id ? 'bg-accent/15 ring-1 ring-accent' : ''}`}
                   >
                     {renaming === f.id ? (
-                      <input
+                      <Input size="sm"
                         autoFocus
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
@@ -277,8 +279,7 @@ export default function WatchlistManager({
                             setRenaming(null);
                           }
                         }}
-                        className="m-2 w-[calc(100%-1rem)] rounded px-2 py-1 text-xs"
-                      />
+                        className="m-2 w-[calc(100%-1rem)]" />
                     ) : (
                       <div
                         /*
@@ -377,13 +378,11 @@ export default function WatchlistManager({
             */}
             <div className="mt-auto shrink-0 border-t border-border p-3">
               {newFolder === null ? (
-                <button
-                  type="button"
+                <Button variant="secondary" size="md"
                   onClick={() => setNewFolder('')}
-                  className="w-full rounded-md bg-bg-tertiary py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-                >
+                  className="w-full">
                   + 그룹 추가
-                </button>
+                </Button>
               ) : (
                 <form
                   onSubmit={(e) => {
@@ -392,7 +391,7 @@ export default function WatchlistManager({
                     setNewFolder(null);
                   }}
                 >
-                  <input
+                  <Input
                     autoFocus
                     value={newFolder}
                     onChange={(e) => setNewFolder(e.target.value)}
@@ -401,8 +400,7 @@ export default function WatchlistManager({
                       setNewFolder(null);
                     }}
                     placeholder="그룹 이름"
-                    className="w-full rounded-md px-2 py-1.5 text-xs"
-                  />
+                    className="w-full" />
                 </form>
               )}
             </div>

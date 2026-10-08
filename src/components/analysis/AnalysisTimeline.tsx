@@ -1,3 +1,5 @@
+import Select from '../ui/Select';
+import Button from '../ui/Button';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GeminiAnalysis } from '../../types/gemini';
 import { formatUsd } from '../../utils/formatters';
@@ -247,18 +249,16 @@ export default function AnalysisTimeline({
           />
           현재 종목만 {symbol ? `(${symbol})` : ''}
         </label>
-        <select
+        <Select size="sm"
           value={source}
           onChange={(e) => setSource(e.target.value as SourceFilter)}
-          aria-label="분석 출처"
-          className="rounded border border-border bg-bg-tertiary px-2 py-1 text-xs"
-        >
+          aria-label="분석 출처">
           {sourceOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
           ))}
-        </select>
+        </Select>
         <span className="text-xs text-text-muted">
           {source === 'all' ? '총' : '표시'} {shown.length}건 (Gemini {gemini.length} · Claude {claude.length})
         </span>
@@ -284,20 +284,16 @@ export default function AnalysisTimeline({
           >
             전체 삭제 ({items.length})
           </button>
-          <button
+          <Button variant="secondary" size="sm"
             onClick={() => removeMany('claude')}
-            disabled={!claude.length}
-            className="rounded bg-bg-tertiary px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated disabled:opacity-40"
-          >
+            disabled={!claude.length}>
             Claude만 삭제 ({claude.length})
-          </button>
-          <button
+          </Button>
+          <Button variant="secondary" size="sm"
             onClick={() => removeMany('gemini')}
-            disabled={!gemini.length}
-            className="rounded bg-bg-tertiary px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated disabled:opacity-40"
-          >
+            disabled={!gemini.length}>
             Gemini만 삭제 ({gemini.length})
-          </button>
+          </Button>
           {onlyThisSymbol && symbol && (
             <span className="text-caption text-text-muted">— {symbol} 종목만 삭제합니다</span>
           )}

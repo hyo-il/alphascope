@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import { ICON_SM } from '../ui/icon';
 import { CircleCheck, TriangleAlert } from 'lucide-react';
 import WarnIcon from '../ui/WarnIcon';
@@ -134,20 +135,14 @@ export default function Settings({ isMock, engineDown, section }: Props) {
       <section className="mb-6 max-w-2xl">
         <h3 className="mb-1.5 text-xs font-medium text-text-secondary">저장된 데이터</h3>
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => clearStorage(WATCHLIST_KEYS, '관심 목록')}
-            className="rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
+          <Button variant="secondary" size="md"
+            onClick={() => clearStorage(WATCHLIST_KEYS, '관심 목록')}>
             관심 목록 캐시 삭제
-          </button>
-          <button
-            type="button"
-            onClick={() => clearStorage([RECENT_KEY], '최근 조회')}
-            className="rounded-md bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
+          </Button>
+          <Button variant="secondary" size="md"
+            onClick={() => clearStorage([RECENT_KEY], '최근 조회')}>
             최근 조회 캐시 삭제
-          </button>
+          </Button>
         </div>
         {cleared && <p className="mt-2 text-caption text-text-muted">{cleared}</p>}
         <p className="mt-2 text-caption text-text-muted">
@@ -246,14 +241,11 @@ function AuthSection() {
       <span className="text-xs text-text-muted">
         현재 로그인된 기기 {sessions === null ? '—' : `${sessions}개`}
       </span>
-      <button
-        type="button"
+      <Button variant="danger-text" size="md"
         disabled={busy}
-        onClick={logoutAll}
-        className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:border-danger hover:text-danger disabled:opacity-40"
-      >
+        onClick={logoutAll}>
         모든 기기에서 로그아웃
-      </button>
+      </Button>
       <p className="w-full text-caption text-text-muted">
         비밀번호는 서버에서 <code className="rounded bg-bg-tertiary px-1">npm run auth:set-password</code>{' '}
         로만 바꿉니다. 바꾸면 모든 기기의 로그인이 끊깁니다.

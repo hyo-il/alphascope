@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import { useState } from 'react';
 import type { PaperOrder, PaperTrade } from '../../types/paper';
 import { cancelPaperOrder } from '../../hooks/usePaperTrading';
@@ -67,13 +68,11 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
                 <span className="tabular-nums">{o.quantity}주</span>
                 <span className="tabular-nums">@ {formatPrice(o.requestedPrice, o.currency)}</span>
                 {o.reason && <span className="text-text-muted">· {o.reason}</span>}
-                <button
-                  type="button"
+                <Button variant="secondary" size="sm"
                   onClick={() => void cancel(o.id)}
-                  className="ml-auto rounded bg-bg-tertiary px-2 py-0.5 text-text-muted transition-colors hover:bg-bg-elevated hover:text-danger"
-                >
+                  className="ml-auto">
                   취소
-                </button>
+                </Button>
               </li>
             ))}
           </ul>

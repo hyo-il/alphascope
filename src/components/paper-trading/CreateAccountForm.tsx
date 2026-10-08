@@ -1,3 +1,6 @@
+import NumberField from '../ui/NumberField';
+import Input from '../ui/Input';
+import Button from '../ui/Button';
 import { useState } from 'react';
 import type { PaperAccount } from '../../types/paper';
 
@@ -45,12 +48,11 @@ export default function CreateAccountForm({ onCreate, onDone, onCancel }: Props)
 
   return (
     <div className="flex w-full flex-wrap items-center gap-2 rounded-md bg-bg-tertiary/50 px-3 py-2">
-      <input
+      <Input
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="계좌 이름 (예: 스윙 테스트)"
-        className="w-56 rounded border border-border bg-bg-tertiary px-2 py-1 text-xs text-text-primary focus:border-accent focus:outline-none"
-      />
+        className="w-56" />
       <span className="text-xs text-text-muted">초기 자금</span>
       {PRESETS.map((value) => (
         <button
@@ -66,28 +68,20 @@ export default function CreateAccountForm({ onCreate, onDone, onCancel }: Props)
           {(value / 10_000).toLocaleString('ko-KR')}만
         </button>
       ))}
-      <input
-        type="number"
+      <NumberField
         value={balance}
         onChange={(e) => setBalance(Number(e.target.value))}
-        className="w-36 rounded border border-border bg-bg-tertiary px-2 py-1 text-right text-xs tabular-nums text-text-primary focus:border-accent focus:outline-none"
-      />
-      <button
-        type="button"
+        className="w-36" />
+      <Button variant="primary" size="sm"
         onClick={() => void submit()}
-        disabled={busy}
-        className="rounded-md bg-accent px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
-      >
+        disabled={busy}>
         만들기
-      </button>
+      </Button>
       {onCancel && (
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-md bg-bg-tertiary px-2.5 py-1 text-xs text-text-muted transition-colors hover:bg-bg-elevated hover:text-text-secondary"
-        >
+        <Button variant="secondary" size="sm"
+          onClick={onCancel}>
           취소
-        </button>
+        </Button>
       )}
       {error && <span className="text-xs text-danger">{error}</span>}
     </div>

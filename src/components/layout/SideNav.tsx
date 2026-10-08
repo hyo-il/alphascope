@@ -66,7 +66,7 @@ export default function SideNav({
       <button
         type="button"
         onClick={() => onSelectGroup(item.id)}
-        title={item.label}
+        title={item.badge ? `${item.label} (${item.badge})` : item.label}
         className={`flex w-full flex-col items-center gap-0.5 border-l-2 py-2.5 transition-colors ${
           group === item.id
             ? 'border-transparent bg-bg-tertiary text-text-primary'
@@ -96,11 +96,6 @@ export default function SideNav({
               }`}
             >
               {sub.label}
-              {sub.badge && (
-                <span className="ml-1 rounded bg-warning/15 px-1 py-px align-middle text-caption text-warning">
-                  {sub.badge}
-                </span>
-              )}
             </button>
           ))}
         </div>
@@ -135,7 +130,10 @@ export default function SideNav({
               return <Icon {...ICON} />;
             })()}
           </span>
-          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          <span className="min-w-0 truncate">{item.label}</span>
+          {/* 대메뉴 배지 (v2.42.0 — 실험실 「테스트」, 예전에는 소메뉴 셋에) */}
+          {item.badge && <span className="shrink-0 rounded bg-warning/15 px-1 py-px text-caption text-warning">{item.badge}</span>}
+          <span className="flex-1" />
           {!single && <span className="text-text-muted">{open ? <ChevronDown {...ICON_SM} /> : <ChevronRight {...ICON_SM} />}</span>}
         </button>
 
@@ -153,11 +151,6 @@ export default function SideNav({
               }`}
             >
               {sub.label}
-              {sub.badge && (
-                <span className="ml-1 rounded bg-warning/15 px-1 py-px align-middle text-caption text-warning">
-                  {sub.badge}
-                </span>
-              )}
             </button>
           ))}
       </div>

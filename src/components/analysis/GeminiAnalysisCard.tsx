@@ -1,3 +1,4 @@
+import Button from '../ui/Button';
 import TrashIcon from '../common/TrashIcon';
 import DisclosureButton from '../ui/DisclosureButton';
 import WarnIcon from '../ui/WarnIcon';
@@ -120,14 +121,11 @@ export default function GeminiAnalysisCard({
       <div className="mt-2 flex gap-3 text-xs">
         <DisclosureButton open={open} onToggle={() => setOpen(!open)} label="상세 보기" controls={`gemini-card-${analysis.id}`} />
         {onDelete && (
-          <button
-            type="button"
-            onClick={() => onDelete(analysis.id)}
-            className="inline-flex items-center gap-1 text-text-muted hover:text-danger"
-          >
+          <Button variant="danger-text" size="md"
+            onClick={() => onDelete(analysis.id)}>
             <TrashIcon className="h-3.5 w-3.5" />
             삭제
-          </button>
+          </Button>
         )}
       </div>
 

@@ -1,3 +1,4 @@
+import Select from '../ui/Select';
 import InfoTip from '../ui/InfoTip';
 import { Button, DisclosureButton, Segmented } from '../ui';
 import type { Timeframe } from '../../types/toss';
@@ -93,41 +94,34 @@ export default function CompareView({ currentSymbol }: Props) {
         {chartsVisible && (
           <label className="ml-auto flex w-fit items-center gap-1.5 text-caption text-text-secondary">
             전체
-            <select
+            <Select size="sm"
               defaultValue=""
               onChange={(e) => {
                 if (e.target.value) setAllTimeframes(e.target.value as Timeframe);
-              }}
-              className="rounded border border-border px-1 py-0.5 text-caption"
-            >
+              }}>
               <option value="">일괄 변경</option>
               {COMPARE_TIMEFRAMES.map((t) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
 
-        <button
-          type="button"
+        <Button
+          size="sm"
           onClick={refresh}
           disabled={!symbols.length}
           title="비교 화면은 실시간 폴링하지 않습니다 — 이 버튼으로 갱신하세요"
-          className={`rounded-md bg-bg-tertiary px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-40 ${
-            chartsVisible ? '' : 'ml-auto'
-          }`}
+          className={chartsVisible ? '' : 'ml-auto'}
         >
           새로고침
-        </button>
-        <button
-          type="button"
-          onClick={() => setChartsVisible((v) => !v)}
-          className="rounded-md bg-bg-tertiary px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-        >
+        </Button>
+        <Button variant="secondary" size="sm"
+          onClick={() => setChartsVisible((v) => !v)}>
           {chartsVisible ? '차트 숨기기' : '차트 보기'}
-        </button>
+        </Button>
       </header>
 
       {/*

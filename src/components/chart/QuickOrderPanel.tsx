@@ -1,3 +1,6 @@
+import Input from '../ui/Input';
+import Select from '../ui/Select';
+import NumberField from '../ui/NumberField';
 import { useEffect, useMemo, useState } from 'react';
 import type { OrderSide, OrderType, PaperOrder, PaperPositionValued } from '../../types/paper';
 import { cancelPaperOrder, submitOrder, usePaperAccounts } from '../../hooks/usePaperTrading';
@@ -328,23 +331,21 @@ export default function QuickOrderPanel({
       {header}
 
       <div className="space-y-1.5 px-2.5 py-1.5">
-        <select
+        <Select size="sm"
           value={accountId ?? ''}
           onChange={(e) => selectAccount(Number(e.target.value))}
-          className="w-full rounded border border-border bg-bg-tertiary px-2 py-1 text-caption text-text-primary focus:border-accent focus:outline-none"
-        >
+          className="w-full">
           {accounts.map((a) => (
             <option key={a.id} value={a.id}>
               {a.name}
             </option>
           ))}
-        </select>
+        </Select>
 
         {/* 수량 */}
         <div className="space-y-1 rounded-md bg-bg-tertiary/50 px-2 py-1.5">
           <div className="flex items-center gap-1.5">
-            <input
-              type="number"
+            <NumberField size="sm"
               min={0}
               max={unit === 'percent' ? 100 : undefined}
               value={unit === 'shares' ? quantity : percent}
@@ -353,8 +354,7 @@ export default function QuickOrderPanel({
                   ? setQuantity(Math.max(0, Number(e.target.value)))
                   : setPercent(Math.min(100, Math.max(0, Number(e.target.value))))
               }
-              className="min-w-0 flex-1 rounded border border-border bg-bg-primary px-1.5 py-1 text-right text-caption tabular-nums text-text-primary focus:border-accent focus:outline-none"
-            />
+              className="min-w-0 flex-1" />
             {(['shares', 'percent'] as const).map((u) => (
               <button
                 key={u}
@@ -417,7 +417,8 @@ export default function QuickOrderPanel({
         {/* 가격 칸 (지정가) — 호가 가격을 누르면 그 가격으로 채워진다 */}
         <div className="flex items-center gap-1.5">
           <span className="shrink-0 text-caption text-text-muted">가격</span>
-          <input
+          <Input
+            size="sm"
             type="text"
             inputMode="decimal"
             value={limitText}
@@ -427,9 +428,8 @@ export default function QuickOrderPanel({
             }}
             aria-label="지정가 가격"
             title="지정가 — 매수는 현재가가 이 가격 이하, 매도는 이 가격 이상이면 체결됩니다"
-            className={`min-w-0 flex-1 rounded border bg-bg-primary px-1.5 py-1 text-right text-caption tabular-nums text-text-primary focus:border-accent focus:outline-none ${
-              limitText && limitPrice == null ? 'border-danger' : 'border-border'
-            }`}
+            invalid={Boolean(limitText) && limitPrice == null}
+            className="flex-1 text-right tabular-nums"
           />
           <button
             type="button"
@@ -468,7 +468,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('BUY', 'LIMIT')}
             disabled={busy || !price || !limitPrice || buyQuantity <= 0}
-            className="rounded-md bg-danger/80 py-1 text-caption font-medium text-white transition-colors hover:bg-danger disabled:opacity-40"
+            className="rounded-md bg-bearish/80 py-1 text-caption font-medium text-white transition-colors hover:bg-bearish disabled:opacity-40"
           >
             지정가 매수
           </button>
@@ -484,7 +484,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('BUY', 'MARKET')}
             disabled={busy || !price || marketBuyQuantity <= 0}
-            className="rounded-md bg-danger/15 py-1 text-caption text-danger transition-colors hover:bg-danger/25 disabled:opacity-40"
+            className="rounded-md bg-bearish/15 py-1 text-caption text-bearish transition-colors hover:bg-bearish/25 disabled:opacity-40"
           >
             시장가 매수
           </button>

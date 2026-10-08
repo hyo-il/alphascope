@@ -1,9 +1,7 @@
 import { useInvestorFlow } from '../../../hooks/useInvestorFlow';
 import {
   FLOW_SIDE_LABEL,
-  flowWindow,
   holdingSummary,
-  type FlowRecord,
   type FlowSide,
   type FlowSideKey,
 } from '../../../utils/investorFlow';
@@ -11,9 +9,9 @@ import {
 /**
  * 차트 하단 「투자자 동향」 탭 (v2.23.0) — 국내 종목만, 최근 20 확정 거래일.
  *
- * 요약(5일·20일 순매수) → 막대(날짜별 순매수) → 표(최신이 위) 순서다.
+ * 요약(5일·20일 순매수) → 표(최신이 위) 순서다(날짜별 막대 차트는 v2.42.0 에 지웠다 — 사용자 요청).
  * - ⚠️ **미국 종목은 요청하지 않는다**(토스 API 가 국내만 준다) — 안내만 보인다.
- * - ⚠️ 당일 행은 장중 **잠정치**다(개인·기타법인 없음). 표에 「잠정」 을 붙이고 합계·막대에는 넣지 않는다.
+ * - ⚠️ 당일 행은 장중 **잠정치**다(개인·기타법인 없음). 표에 「잠정」 을 붙이고 합계에는 넣지 않는다.
  * - 단위는 **주(거래량)** — 금액이 아니다. 해석(오른다/내린다)은 붙이지 않는다.
  * - 탭이 보일 때만 그려진다(`ChartBottomTabs` 의 active) — 이 컴포넌트가 마운트될 때만 부른다.
  */
@@ -35,50 +33,6 @@ function Net({ side }: { side: FlowSide | null }) {
   return <span className={tone(side.net)}>{signed(side.net)}</span>;
 }
 
-function Bars({ records }: { records: FlowRecord[] }) {
-  // 왼쪽이 과거, 오른쪽이 최근
-  const days = [...records].reverse();
-  const max = Math.max(1, ...days.flatMap((r) => SIDES.map((s) => Math.abs(r[s]?.net ?? 0))));
-  const W = 640;
-  const H = 140;
-  const mid = H / 2;
-  const slot = W / days.length;
-  const bar = Math.max(2, Math.min(8, (slot - 4) / 3));
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H + 18}`} className="block h-auto w-full max-w-[720px]" role="img" aria-label="날짜별 투자자 순매수 막대">
-      <line x1={0} x2={W} y1={mid} y2={mid} stroke="var(--color-border)" />
-      {days.map((r, i) => {
-        const x0 = i * slot + (slot - bar * 3) / 2;
-        return (
-          <g key={r.date}>
-            {SIDES.map((side, k) => {
-              const net = r[side]?.net ?? 0;
-              const h = (Math.abs(net) / max) * (mid - 4);
-              return (
-                <rect
-                  key={side}
-                  x={x0 + k * bar}
-                  y={net >= 0 ? mid - h : mid}
-                  width={bar - 1}
-                  height={Math.max(h, 0.5)}
-                  fill={SIDE_COLOR[side]}
-                >
-                  <title>{`${r.date} ${FLOW_SIDE_LABEL[side]} ${signed(net)}주`}</title>
-                </rect>
-              );
-            })}
-            {(i % 5 === 0 || i === days.length - 1) && (
-              <text x={i * slot + slot / 2} y={H + 13} textAnchor="middle" fontSize={13} fill="var(--color-text-muted)">
-                {mmdd(r.date)}
-              </text>
-            )}
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
 
 export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
   const { supported, flow, error } = useInvestorFlow(symbol);
@@ -93,7 +47,6 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
   if (error) return <p className="p-3 text-caption text-danger">투자자 동향을 불러오지 못했습니다: {error}</p>;
   if (!flow) return <p className="p-3 text-caption text-text-muted">불러오는 중…</p>;
 
-  const confirmed = flowWindow(flow.records);
   const period = flow.period;
   const holding = holdingSummary(flow.records);
 
@@ -153,20 +106,7 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
         </table>
       </div>
 
-      {confirmed.length > 0 && (
-        <div>
-          <Bars records={confirmed} />
-          <div className="flex gap-3 text-text-muted">
-            {SIDES.map((side) => (
-              <span key={side} className="inline-flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-sm" style={{ background: SIDE_COLOR[side] }} />
-                {FLOW_SIDE_LABEL[side]}
-              </span>
-            ))}
-            <span>· 가운데 선 위 = 순매수, 아래 = 순매도</span>
-          </div>
-        </div>
-      )}
+      {/* 막대 차트·범례는 v2.42.0 에 지웠다(사용자 요청) — 표·합계·외국인 보유 비율은 그대로 */}
 
       <table className="w-full tabular-nums">
         <thead className="text-text-muted">

@@ -26,7 +26,9 @@
     "universe:update": "tsx scripts/universeUpdate.ts",
     "research:target": "tsx scripts/targetScreenResearch.ts",
     "research:sector": "tsx scripts/sectorPersistenceResearch.ts",
-    "research:rule": "tsx scripts/ruleResearch.ts"
+    "research:rule": "tsx scripts/ruleResearch.ts",
+    "design:lint": "tsx scripts/designLint.ts",
+    "design:check": "tsx scripts/designCheck.ts"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-kr": "^5.3.0",
@@ -52,6 +54,7 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
+    "playwright": "^1.64.0",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
