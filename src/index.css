@@ -290,3 +290,18 @@ select:not([multiple]) {
 select:not([multiple]):disabled {
   opacity: 0.5;
 }
+
+/*
+  숫자 입력칸 (v2.42.2) — 위아래 화살표(스피너)를 숨긴다. 브라우저가 type=number 에 그리는 것이라 부품의 클래스가 닿지 않는다.
+  실수로 값이 바뀌는 것을 막는다(키보드 ↑↓·휠은 ui/NumberField 가 막는다). 숫자만 입력되는 검사는 그대로.
+  레이어 밖이라 유틸리티가 덮지 못한다(일부러).
+*/
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}

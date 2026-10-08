@@ -1,4 +1,4 @@
-import NumberField from '../ui/NumberField';
+import NumberField, { NumberUnitGroup } from '../ui/NumberField';
 import { RSI_HELP } from '../../data/indicatorHelp';
 import { useState, type ReactNode } from 'react';
 import { Plus, Sparkles } from 'lucide-react';
@@ -49,14 +49,16 @@ function Field({ label, hint, error, children }: { label: string; hint: string; 
   );
 }
 
-function NumberBox({ value, onChange, disabled, label }: { value: number; onChange: (v: number) => void; disabled?: boolean; label: string }) {
+/** 숫자 칸 — 폭 w-24 고정 + 단위 칸(묶음 `NumberUnitGroup`)이라 칸의 왼쪽·오른쪽 끝과 숫자 오른쪽 끝이 줄마다 같다 (v2.42.2) */
+function NumberBox({ value, onChange, disabled, label, unit }: { value: number; onChange: (v: number) => void; disabled?: boolean; label: string; unit?: string }) {
   return (
     <NumberField
       aria-label={label}
+      unit={unit}
       value={Number.isFinite(value) ? value : ''}
       disabled={disabled}
       onChange={(e) => onChange(e.target.value === '' ? NaN : Number(e.target.value))}
-      className="w-20" />
+      className="w-24" />
   );
 }
 
@@ -177,6 +179,7 @@ function ConditionCard({
 
       <DisclosureButton open={open} onToggle={() => setOpen((v) => !v)} label="고급 설정" controls={`bt-detail-${c.label}`} />
       {open && (
+        <NumberUnitGroup w="sm">
         <div id={`bt-detail-${c.label}`} className="space-y-3 rounded-lg bg-bg-tertiary/40 p-3">
           <Field label="이동평균 사용" hint="짧은 평균이 긴 평균을 위로 넘으면 매수, 아래로 내려가면 매도." error={err('useAny')}>
             <Check checked={r.useMaCross} onChange={(v) => setRule({ useMaCross: v })}>
@@ -208,33 +211,34 @@ function ConditionCard({
             <NumberBox label="RSI 매도 기준" value={r.rsiSellAbove} disabled={!r.useRsi} onChange={(v) => setRule({ rsiSellAbove: v })} />
           </Field>
           <Field
-            label="손절 %"
+            label="손절"
             hint={`손절 ${Number.isFinite(c.hardStopLossPercent) ? c.hardStopLossPercent : '—'}% — 매수가보다 이만큼 내려가면 바로 매도 (${RULE_LIMITS.hardStopLossPercent.min}~${RULE_LIMITS.hardStopLossPercent.max}).`}
             error={err('hardStopLossPercent')}
           >
-            <NumberBox label="손절 %" value={c.hardStopLossPercent} onChange={(v) => onChange({ hardStopLossPercent: v })} />
+            <NumberBox label="손절 %" unit="%" value={c.hardStopLossPercent} onChange={(v) => onChange({ hardStopLossPercent: v })} />
           </Field>
           <Field
             label="익절"
             hint={`매수가보다 이만큼 오르면 모두 매도 (${RULE_LIMITS.takeProfitPercent.min}~${RULE_LIMITS.takeProfitPercent.max}). 끄면 오르는 동안 계속 들고 간다. 같은 날 손절과 둘 다 닿으면 손절로 센다.`}
             error={err('takeProfitPercent')}
           >
+            <NumberBox label="익절 %" unit="%" value={c.takeProfitPercent} disabled={!c.takeProfitEnabled} onChange={(v) => onChange({ takeProfitPercent: v })} />
             <Check checked={c.takeProfitEnabled} onChange={(v) => onChange({ takeProfitEnabled: v })}>
               켜기
             </Check>
-            <NumberBox label="익절 %" value={c.takeProfitPercent} disabled={!c.takeProfitEnabled} onChange={(v) => onChange({ takeProfitPercent: v })} />
           </Field>
           <Field
             label="트레일링"
             hint={`매수한 뒤 최고가(종가 기준)보다 이만큼 내려가면 매도 (${RULE_LIMITS.trailingStopPercent.min}~${RULE_LIMITS.trailingStopPercent.max}).`}
             error={err('trailingStopPercent')}
           >
+            <NumberBox label="트레일링 %" unit="%" value={c.trailingStopPercent} disabled={!c.trailingStopEnabled} onChange={(v) => onChange({ trailingStopPercent: v })} />
             <Check checked={c.trailingStopEnabled} onChange={(v) => onChange({ trailingStopEnabled: v })}>
               켜기
             </Check>
-            <NumberBox label="트레일링 %" value={c.trailingStopPercent} disabled={!c.trailingStopEnabled} onChange={(v) => onChange({ trailingStopPercent: v })} />
           </Field>
         </div>
+        </NumberUnitGroup>
       )}
       {!open && Object.keys(errors).length > 0 && <p className="text-caption text-danger">고칠 칸이 있습니다 — 「고급 설정」 을 펼쳐 보세요.</p>}
     </div>

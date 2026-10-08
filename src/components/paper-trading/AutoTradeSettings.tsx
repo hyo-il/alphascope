@@ -2,7 +2,7 @@ import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
 import { Children } from 'react';
 import FormRow from '../ui/FormRow';
-import NumberField from '../ui/NumberField';
+import NumberField, { NumberUnitGroup } from '../ui/NumberField';
 import Select from '../ui/Select';
 import InfoTip from '../ui/InfoTip';
 import { RSI_HELP, trailingHelp } from '../../data/indicatorHelp';
@@ -115,6 +115,8 @@ export default function AutoTradeSettings({
       z={90}
       bodyClassName="flex flex-col"
     >
+      {/* 숫자 칸 단위 폭을 창 전체가 같게 — 「분」·「%」·「종목」·「거래일」 이 달라도 숫자 오른쪽 끝이 한 줄 (v2.42.2) */}
+      <NumberUnitGroup w="lg">
 
         {/*
           ⚠️ `scrollbar-gutter: stable` 이 필요하다. 트레일링 스톱을 켜면 입력 한 줄이 늘어
@@ -469,6 +471,7 @@ min={0} max={20} step={0.5}
             {saving ? '저장 중…' : saveLabel}
           </Button>
         </div>
+      </NumberUnitGroup>
     </Dialog>
   );
 }
