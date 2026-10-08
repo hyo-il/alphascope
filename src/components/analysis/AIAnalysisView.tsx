@@ -1,3 +1,4 @@
+import { PANEL_PAD } from '../ui/tokens';
 import type { ReactNode } from 'react';
 import { usePageTab } from '../../hooks/usePageTab';
 import PageHeader from '../ui/PageHeader';
@@ -50,7 +51,7 @@ export default function AIAnalysisView({
     <div className="flex h-full flex-col">
       <PageHeader tabs={TABS} value={tab} onChange={setTab} tabsLabel="AI 분석" />
 
-      <div className="min-h-0 flex-1 overflow-auto p-3">
+      <div className={`min-h-0 flex-1 overflow-auto ${PANEL_PAD}`}>
         {tab === 'manual' && manual}
         {tab === 'results' && (
           <div className="space-y-3">

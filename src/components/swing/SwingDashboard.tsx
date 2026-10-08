@@ -1,3 +1,4 @@
+import { PANEL_PAD } from '../ui/tokens';
 import Button from '../ui/Button';
 import DisclosureButton from '../ui/DisclosureButton';
 import WarnIcon from '../ui/WarnIcon';
@@ -145,7 +146,7 @@ export default function SwingDashboard({
     <div className="flex h-full flex-col">
       <PageHeader tabs={TABS} value={tab} onChange={setTab} tabsLabel="매수 판단 도우미" />
 
-      <div className="min-h-0 flex-1 overflow-auto p-3">
+      <div className={`min-h-0 flex-1 overflow-auto ${PANEL_PAD}`}>
         {tab === 'list' && (
           <div className="space-y-4">
             <HelpBox id="list" title="지금 살 만한가는 무엇을 하나요?">

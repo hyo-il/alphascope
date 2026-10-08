@@ -1,3 +1,4 @@
+import { PANEL_PAD, PANEL_X, Tabs } from '../../ui';
 import Button from '../../ui/Button';
 import { useCallback, useEffect, useState, type ComponentProps } from 'react';
 import type { Candle, Timeframe } from '../../../types/toss';
@@ -53,24 +54,14 @@ export default function ChartAiPanel({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center gap-1 border-b border-border/60 px-1">
-        {SUB_TABS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setTab(item.id)}
-            className={`px-2.5 py-1 text-caption transition-colors ${
-              tab === item.id ? 'font-medium text-text-primary' : 'text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
+      {/* 소탭 줄 — ui/Tabs(sm) · 왼쪽 끝은 위 탭 줄·아래 내용과 같은 선(PANEL_X, v2.42.2 — 예전 직접 만든 버튼 px-2.5) */}
+      <div className={`flex shrink-0 items-center border-b border-border/60 ${PANEL_X}`}>
+        <Tabs label="AI 분석 하위 탭" line={false} size="sm" items={SUB_TABS} value={tab} onChange={setTab} />
         {/* 예전 「전체 화면으로」 자리 — 기록은 AI 분석 화면의 기록 탭에서 이 종목만 걸러 연다(주소 #/analysis/records) */}
         <button
           type="button"
           onClick={() => setPage('analysis', 'results')}
-          className="ml-auto px-2 py-1 text-caption text-text-muted transition-colors hover:text-accent"
+          className="ml-auto py-1 text-caption text-text-muted transition-colors hover:text-accent"
         >
           AI 분석 히스토리로 이동
         </button>
@@ -168,15 +159,15 @@ function SingleSymbolGemini({ symbol }: { symbol: string }) {
     }
   };
 
-  if (enabled === null) return <p className="p-3 text-caption text-text-muted">확인 중…</p>;
+  if (enabled === null) return <p className={`${PANEL_PAD} text-caption text-text-muted`}>확인 중…</p>;
 
   if (!enabled && offReason?.includes('GEMINI_ENABLED')) {
-    return <p className="p-3 text-caption text-text-muted">{offReason}. 수동 분석(Claude)은 그대로 씁니다.</p>;
+    return <p className={`${PANEL_PAD} text-caption text-text-muted`}>{offReason}. 수동 분석(Claude)은 그대로 씁니다.</p>;
   }
 
   if (!enabled) {
     return (
-      <p className="p-3 text-caption text-text-muted">
+      <p className={`${PANEL_PAD} text-caption text-text-muted`}>
         Gemini 키가 없어 Gemini 분석을 쓸 수 없습니다. <code>.env</code> 에{' '}
         <code>GEMINI_API_KEY</code> 를 넣으면 이 버튼이 활성화됩니다. 수동 분석(Claude)은 키 없이
         그대로 씁니다.
@@ -185,7 +176,7 @@ function SingleSymbolGemini({ symbol }: { symbol: string }) {
   }
 
   return (
-    <div className="space-y-2 p-3 text-caption">
+    <div className={`space-y-2 ${PANEL_PAD} text-caption`}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-text-secondary">
           이 종목 Gemini 분석{model && <span className="ml-1 text-text-muted">({model})</span>}

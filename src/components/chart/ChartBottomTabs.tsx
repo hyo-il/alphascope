@@ -1,3 +1,4 @@
+import { PANEL_X, Tabs } from '../ui';
 import Button from '../ui/Button';
 import { ICON_SM } from '../ui/icon';
 import { ChevronUp, ChevronDown } from 'lucide-react';
@@ -165,24 +166,19 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
         }`}
       />
 
-      <div className="flex shrink-0 items-center gap-1 border-b border-border/60 px-1">
-        {TABS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => {
-              setTab(item.id);
-              if (collapsed) persist(defaultHeight());
-            }}
-            className={`border-b-2 px-3 py-1.5 text-xs transition-colors ${
-              tab === item.id && !collapsed
-                ? 'border-text-primary font-medium text-text-primary'
-                : 'border-transparent text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
+      {/* 탭 줄 — 탭 글자·내용의 왼쪽 끝이 같은 선(PANEL_X, v2.42.2). 접힌 상태에서는 고른 탭 밑줄을 그리지 않는다 */}
+      <div className={`flex shrink-0 items-center border-b border-border/60 ${PANEL_X}`}>
+        <Tabs
+          label="차트 아래 탭"
+          line={false}
+          size="sm"
+          items={TABS}
+          value={collapsed ? ('' as TabId) : tab}
+          onChange={(id) => {
+            setTab(id);
+            if (collapsed) persist(defaultHeight());
+          }}
+        />
 
         <Button variant="ghost" size="sm"
           onClick={toggleCollapse}

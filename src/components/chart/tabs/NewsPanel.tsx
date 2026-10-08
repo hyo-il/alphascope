@@ -1,3 +1,4 @@
+import { PANEL_PAD } from '../../ui/tokens';
 import Button from '../../ui/Button';
 import WarnIcon from '../../ui/WarnIcon';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -93,7 +94,7 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
   const canAnalyze = !!news?.items.length && !analyzing && !!gemini?.enabled;
 
   return (
-    <div className="flex flex-col gap-2 p-3 text-xs">
+    <div className={`flex flex-col gap-2 ${PANEL_PAD} text-xs`}>
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="primary" size="sm"
           onClick={() => void analyze()}

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import Tabs, { type TabItem } from './Tabs';
+import { PANEL_X } from './tokens';
 
 /**
  * 화면 머리 (v2.41.0, 디자인 규칙 7 — **제목 줄과 탭 줄은 나눈다**).
@@ -26,7 +27,8 @@ export default function PageHeader<T extends string>({
   tabsRight?: ReactNode;
 }) {
   return (
-    <div className="shrink-0 px-3">
+    // 가로 여백은 PANEL_X — 탭 글자와 화면 내용의 왼쪽 끝이 같은 선 (v2.42.2, 예전 px-3)
+    <div className={`shrink-0 ${PANEL_X}`}>
       {title != null && (
         <div className="flex min-w-0 items-center gap-2 pt-3 pb-2">
           <h2 className="min-w-0 text-base font-semibold text-text-primary">{title}</h2>
