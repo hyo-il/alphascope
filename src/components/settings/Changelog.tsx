@@ -28,8 +28,8 @@ export default function Changelog() {
         최신 버전이 맨 위입니다. 줄을 누르면 바뀐 내용이 펼쳐집니다.
       </p>
 
-      {/* 설정 화면의 다른 절과 같은 폭으로 둔다 — 긴 줄이 화면 끝까지 늘어나면 읽기 어렵다 */}
-      <div className="max-w-2xl">
+      {/* 화면 폭을 꽉 채운다 (v2.42.0 사용자 결정 — 예전 max-w-2xl) */}
+      <div>
         {CHANGELOG.map((entry, index) => {
           const isOpen = open.has(entry.version);
           const id = `changelog-${entry.version}`;
@@ -45,7 +45,7 @@ export default function Changelog() {
                 onClick={() => toggle(entry.version)}
                 aria-expanded={isOpen}
                 aria-controls={id}
-                className="flex w-full items-center gap-2 py-3 text-left transition-colors hover:bg-bg-tertiary/40"
+                className="flex w-full items-center gap-2 rounded-md px-3 py-3 text-left transition-colors hover:bg-bg-tertiary/40"
               >
                 {isOpen ? <ChevronDown {...ICON_SM} className="shrink-0 text-text-muted" /> : <ChevronRight {...ICON_SM} className="shrink-0 text-text-muted" />}
                 <span className="shrink-0 text-sm font-semibold text-text-primary">{entry.version}</span>
@@ -58,7 +58,7 @@ export default function Changelog() {
               </button>
 
               {isOpen && (
-                <div id={id} className="pb-4 pl-6">
+                <div id={id} className="px-3 pb-4 pl-9">
                   <p className="text-caption leading-relaxed text-text-secondary">{entry.description}</p>
                   <ul className="mt-2 space-y-1">
                     {entry.changes.map((change) => (
@@ -78,7 +78,7 @@ export default function Changelog() {
       </div>
 
       {/* 앱에 넣은 글꼴의 라이선스 고지 (v2.35.0) — 라이선스 원문은 빌드에 넣지 않았다(패키지 @fontsource-variable/noto-sans-kr 의 LICENSE) */}
-      <p className="mt-6 max-w-2xl border-t border-border pt-3 text-caption text-text-muted">
+      <p className="mt-6 border-t border-border pt-3 text-caption text-text-muted">
         글꼴: Noto Sans KR (SIL Open Font License 1.1)
       </p>
     </div>

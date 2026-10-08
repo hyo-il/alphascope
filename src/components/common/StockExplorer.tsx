@@ -189,8 +189,9 @@ export default function StockExplorer({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col items-center overflow-y-auto p-8">
-      <div className="w-full max-w-3xl space-y-7">
+    // 화면 폭을 꽉 채운다 (v2.42.0 — 예전 가운데 max-w-3xl). 가운데 검색칸 하나만 읽기 폭 상한(max-w-md)
+    <div className="flex h-full min-h-0 flex-col overflow-y-auto p-4">
+      <div className="w-full space-y-6">
         <div className="space-y-3 text-center">
           <h2 className="text-base font-semibold text-text-primary">종목을 검색하세요</h2>
           <p className="text-xs text-text-muted">

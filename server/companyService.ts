@@ -1,5 +1,7 @@
 import type { Fundamentals, PeerSummary } from '../src/types/company';
 import { getDb } from './db';
+import { readUniverse } from './universe';
+import { PEER_MAX, PEER_PAIRS } from '../src/data/peerPairs';
 
 /**
  * 기업 재무 데이터 (yfinance) — Python 서비스 호출 + SQLite 캐시.
@@ -13,20 +15,6 @@ const PYTHON_URL =
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
-/** 섹터별 대표 종목 — yfinance 에는 동종업계 목록 API 가 없어서 직접 둔다. */
-const SECTOR_PEERS: Record<string, string[]> = {
-  Technology: ['AAPL', 'MSFT', 'NVDA', 'AVGO', 'ORCL', 'CRM', 'AMD'],
-  'Communication Services': ['GOOGL', 'META', 'NFLX', 'DIS', 'TMUS'],
-  'Consumer Cyclical': ['AMZN', 'TSLA', 'HD', 'MCD', 'NKE', 'SBUX'],
-  'Consumer Defensive': ['WMT', 'COST', 'PG', 'KO', 'PEP'],
-  Healthcare: ['LLY', 'UNH', 'JNJ', 'ABBV', 'MRK', 'PFE'],
-  'Financial Services': ['BRK-B', 'JPM', 'V', 'MA', 'BAC', 'GS'],
-  Energy: ['XOM', 'CVX', 'COP', 'SLB'],
-  Industrials: ['GE', 'CAT', 'RTX', 'BA', 'UNP'],
-  'Basic Materials': ['LIN', 'SHW', 'FCX', 'NEM'],
-  Utilities: ['NEE', 'DUK', 'SO', 'AEP'],
-  'Real Estate': ['PLD', 'AMT', 'EQIX', 'SPG'],
-};
 
 async function callPython<T>(path: string, params: Record<string, string>): Promise<T> {
   const url = new URL(path, PYTHON_URL);
@@ -107,14 +95,54 @@ export async function getFundamentals(symbol: string, refresh = false): Promise<
   return job;
 }
 
-/** 같은 섹터의 대표 종목들과 비교한다. 자기 자신은 항상 포함한다. */
+/**
+ * 동종업계 (v2.42.0) — 자기 자신 + 최대 `PEER_MAX`(5)개. 국내·미국 함께. 고르는 순서:
+ *   ① 직접 정한 짝 표(`src/data/peerPairs.ts`) ② 유니버스(미국·국내 시총 상위) 중 **같은 세부 업종**, 시총이 가까운 순
+ *   ③ 그래도 모자라면 유니버스 중 **같은 섹터**, 시총이 가까운 순. 모자라면 있는 만큼.
+ * 세부 업종·섹터는 `stock_profiles`(실적일 하루 1회 갱신이 같은 yfinance info 로 채운다 — 여기서 새로 부르지 않는다).
+ * 예전에는 섹터별 **미국 종목 고정 표**(SECTOR_PEERS)라 국내 종목에 미국 대형주만 나왔다.
+ */
 export async function getPeers(symbol: string, sector?: string): Promise<PeerSummary[]> {
-  const resolvedSector = sector ?? (await getFundamentals(symbol)).profile.sector ?? '';
-  const peers = SECTOR_PEERS[resolvedSector] ?? [];
+  const me = symbol.toUpperCase();
+  const fundamentals = await getFundamentals(me).catch(() => null);
+  const mySector = sector ?? fundamentals?.profile.sector ?? null;
+  const myIndustry = fundamentals?.profile.industry ?? null;
+  const myCap = fundamentals?.profile.marketCap ?? null;
 
-  const symbols = [symbol, ...peers.filter((peer) => peer !== symbol)].slice(0, 8);
-  const payload = await callPython<{ peers: PeerSummary[] }>('/peers', {
-    symbols: symbols.join(','),
-  });
-  return payload.peers;
+  const picked: { symbol: string; basis: PeerSummary['basis'] }[] = [];
+  const add = (s: string, basis: PeerSummary['basis']) => {
+    const up = s.toUpperCase();
+    if (up === me || picked.length >= PEER_MAX || picked.some((p) => p.symbol === up)) return;
+    picked.push({ symbol: up, basis });
+  };
+  for (const s of PEER_PAIRS[me] ?? []) add(s, 'pair');
+
+  if (picked.length < PEER_MAX) {
+    let universe: { symbol: string; marketCap: number | null }[] = [];
+    try {
+      const u = readUniverse();
+      universe = [...u.us, ...u.kr].map((e) => ({ symbol: e.symbol.toUpperCase(), marketCap: e.marketCap }));
+    } catch {
+      /* 유니버스 파일이 없으면 짝 표만 */
+    }
+    const rows = universe.length
+      ? (getDb()
+          .prepare(`SELECT symbol, sector, industry, market_cap FROM stock_profiles WHERE symbol IN (${universe.map(() => '?').join(',')})`)
+          .all(...universe.map((e) => e.symbol)) as { symbol: string; sector: string | null; industry: string | null; market_cap: number | null }[])
+      : [];
+    const info = new Map(rows.map((r) => [r.symbol, r]));
+    /** 시총이 가까운 순(로그 거리) — 시총을 모르면 뒤로 */
+    const near = (a: { symbol: string; marketCap: number | null }) => {
+      const cap = a.marketCap ?? info.get(a.symbol)?.market_cap ?? null;
+      return cap && myCap ? Math.abs(Math.log(cap) - Math.log(myCap)) : Number.POSITIVE_INFINITY;
+    };
+    const byNear = [...universe].sort((a, b) => near(a) - near(b));
+    if (myIndustry) for (const e of byNear) if (info.get(e.symbol)?.industry === myIndustry) add(e.symbol, 'industry');
+    if (mySector) for (const e of byNear) if (info.get(e.symbol)?.sector === mySector) add(e.symbol, 'sector');
+  }
+
+  const symbols = [me, ...picked.map((p) => p.symbol)];
+  const payload = await callPython<{ peers: PeerSummary[] }>('/peers', { symbols: symbols.join(',') });
+  const basisOf = new Map(picked.map((p) => [p.symbol, p.basis]));
+  return payload.peers.map((p) => ({ ...p, basis: p.symbol.toUpperCase() === me ? 'self' : (basisOf.get(p.symbol.toUpperCase()) ?? 'sector') }));
 }

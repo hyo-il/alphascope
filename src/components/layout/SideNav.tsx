@@ -114,11 +114,11 @@ export default function SideNav({
     const single = item.pages.length === 1;
 
     return (
-      <div key={item.id}>
+      <div key={item.id} data-list className="space-y-1">
         <button
           type="button"
           onClick={() => onSelectGroup(item.id)}
-          className={`flex w-full items-center gap-2 border-l-2 px-2.5 py-2 text-left text-xs transition-colors ${
+          className={`flex w-full items-center gap-2 rounded-md border-l-2 px-2.5 py-2 text-left text-xs transition-colors ${
             open
               ? 'border-transparent font-medium text-text-primary'
               : 'border-transparent text-text-secondary hover:bg-bg-tertiary/60 hover:text-text-primary'
@@ -144,7 +144,7 @@ export default function SideNav({
               key={sub.id}
               type="button"
               onClick={() => onSelectPage(sub.id)}
-              className={`block w-full whitespace-nowrap py-1.5 pl-10 pr-2 text-left text-xs transition-colors ${
+              className={`block w-full whitespace-nowrap rounded-md py-1.5 pl-10 pr-2 text-left text-xs transition-colors ${
                 page === sub.id
                   ? 'bg-bg-tertiary font-medium text-text-primary'
                   : 'text-text-muted hover:bg-bg-tertiary/60 hover:text-text-primary'
@@ -191,7 +191,7 @@ export default function SideNav({
           대메뉴는 넷뿐이라 스크롤이 필요 없다 — 메뉴가 더 늘어 스크롤이 필요해지면
           플라이아웃을 `position: fixed` 로 바꿔야 한다.
         */}
-        <div className="flex-1">{MAIN_GROUPS.map(collapsedGroup)}</div>
+        <div data-list className="flex-1 space-y-1 py-1">{MAIN_GROUPS.map(collapsedGroup)}</div>
 
         {/* 설정은 스크롤과 무관하게 늘 맨 아래에 보인다 */}
         {SETTINGS_GROUP && (
@@ -240,16 +240,17 @@ export default function SideNav({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-1">{MAIN_GROUPS.map(expandedGroup)}</div>
+      {/* 목록 줄 사이 4px (v2.42.0 디자인 기준표 A-4) */}
+      <div data-list className="flex-1 space-y-1 overflow-y-auto px-1 py-1">{MAIN_GROUPS.map(expandedGroup)}</div>
 
       {SETTINGS_GROUP && (
-        <div className="mt-auto border-t border-border py-1">
+        <div data-list className="mt-auto space-y-1 border-t border-border px-1 py-1">
           {expandedGroup(SETTINGS_GROUP)}
           {/* 대메뉴 줄과 같은 틀(투명 border-l-2 · px-2.5 · py-2 · 고정 아이콘 칸) — 라벨 시작점이 한 줄에 선다 (v2.25.0) */}
           <button
             type="button"
             onClick={onLogout}
-            className="flex w-full items-center gap-2 border-l-2 border-transparent px-2.5 py-2 text-left text-xs text-text-muted transition-colors hover:bg-bg-tertiary hover:text-danger"
+            className="flex w-full items-center gap-2 rounded-md border-l-2 border-transparent px-2.5 py-2 text-left text-xs text-text-muted transition-colors hover:bg-bg-tertiary hover:text-danger"
           >
             <span className={ICON_SLOT}>
               <LogoutIcon {...ICON} />

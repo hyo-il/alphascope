@@ -1,22 +1,25 @@
-import { useState } from 'react';
+import { useState, type RefObject } from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
-import Dialog from '../ui/Dialog';
+import Popover from '../ui/Popover';
 import IconButton from '../ui/IconButton';
 
 /**
- * 증시 일정의 날짜 고르기 창 (v2.41.0) — 「2026년 10월」 제목을 누르면 뜬다.
+ * 증시 일정의 날짜 고르기 (v2.41.0 → v2.42.0 **제목 바로 아래 뜨는 Popover**, 예전 가운데 창) — 「2026년 10월」 제목을 누르면 뜬다.
  * ‹‹ ›› = 1년, ‹ › = 1달. 주 시작 요일은 본 달력과 같다(일요일). 오늘 = 밑줄, 지금 고른 날 = 밝은 바탕(디자인 규칙 2).
- * 날짜를 누르면 그 달로 이동 + 그 날 선택 + 창 닫힘. ESC·바깥 클릭 = 닫힘(공용 창 틀).
+ * ⚠️ **늘 6주 줄**(앞뒤 달 날짜는 흐리게) — 달마다 주 수가 달라 창 높이가 흔들렸다. 앞뒤 달 날짜를 눌러도 그 날로 간다.
+ * 날짜를 누르면 그 달로 이동 + 그 날 선택 + 닫힘. ESC·바깥 클릭 = 닫힘.
  */
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const pad = (n: number) => String(n).padStart(2, '0');
 
 export default function DatePicker({
+  anchorRef,
   selected,
   today,
   onPick,
   onClose,
 }: {
+  anchorRef: RefObject<HTMLElement | null>;
   selected: string;
   today: string;
   onPick: (day: string) => void;
@@ -29,11 +32,16 @@ export default function DatePicker({
       return { y: Math.floor(t / 12), m: (t % 12) + 1 };
     });
   const firstDow = new Date(Date.UTC(view.y, view.m - 1, 1)).getUTCDay();
-  const days = new Date(Date.UTC(view.y, view.m, 0)).getUTCDate();
-  const cells: (string | null)[] = [...Array(firstDow).fill(null), ...Array.from({ length: days }, (_, i) => `${view.y}-${pad(view.m)}-${pad(i + 1)}`)];
+  /** 6주 × 7일 = 42칸 고정 — 첫 칸은 이 달 1일이 든 주의 일요일 */
+  const start = Date.UTC(view.y, view.m - 1, 1 - firstDow);
+  const cells = Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(start + i * 86_400_000);
+    const day = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+    return { day, inMonth: d.getUTCMonth() + 1 === view.m };
+  });
 
   return (
-    <Dialog title="날짜 고르기" onClose={onClose} size="sm" z={90}>
+    <Popover anchorRef={anchorRef} onClose={onClose} width={300} label="날짜 고르기">
       <div className="mb-2 flex items-center justify-center gap-1">
         <IconButton icon={ChevronsLeft} label="1년 전" size="sm" onClick={() => move(-12)} />
         <IconButton icon={ChevronLeft} label="이전 달" size="sm" onClick={() => move(-1)} />
@@ -49,25 +57,25 @@ export default function DatePicker({
             {w}
           </span>
         ))}
-        {cells.map((day, i) =>
-          day ? (
-            <button
-              key={day}
-              type="button"
-              onClick={() => onPick(day)}
-              aria-current={day === today ? 'date' : undefined}
-              aria-pressed={day === selected}
-              className={`rounded-md py-1.5 tabular-nums transition-colors ${
-                day === selected ? 'bg-bg-elevated font-medium text-text-primary' : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
-              } ${day === today ? 'underline underline-offset-4' : ''}`}
-            >
-              {Number(day.slice(8, 10))}
-            </button>
-          ) : (
-            <span key={`e${i}`} />
-          ),
-        )}
+        {cells.map(({ day, inMonth }) => (
+          <button
+            key={day}
+            type="button"
+            onClick={() => onPick(day)}
+            aria-current={day === today ? 'date' : undefined}
+            aria-pressed={day === selected}
+            className={`h-8 rounded-md tabular-nums transition-colors ${
+              day === selected
+                ? 'bg-bg-tertiary font-medium text-text-primary'
+                : inMonth
+                  ? 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+                  : 'text-text-muted/50 hover:bg-bg-tertiary hover:text-text-secondary'
+            } ${day === today ? 'underline underline-offset-4' : ''}`}
+          >
+            {Number(day.slice(8, 10))}
+          </button>
+        ))}
       </div>
-    </Dialog>
+    </Popover>
   );
 }

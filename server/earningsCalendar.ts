@@ -85,16 +85,19 @@ type EarningsRowIn = {
   /** v2.18.0 — 같은 yfinance info 에서 온 섹터·시총 (종목 지도가 쓴다) */
   sector?: string | null;
   marketCap?: number | null;
+  /** v2.42.0 — 세부 업종(동종업계 자동 고르기) */
+  industry?: string | null;
 };
 
 function saveRows(rows: EarningsRowIn[], at: string): void {
   // 섹터·시총은 stock_profiles 에 — 실적과 성격이 달라 표를 나눈다. 값이 없으면 기존 값을 지우지 않는다
   const profile = getDb().prepare(
-    `INSERT INTO stock_profiles (symbol, sector, market_cap, fetched_at) VALUES (?, ?, ?, ?)
+    `INSERT INTO stock_profiles (symbol, sector, market_cap, fetched_at, industry) VALUES (?, ?, ?, ?, ?)
        ON CONFLICT(symbol) DO UPDATE SET sector = COALESCE(excluded.sector, sector),
-         market_cap = COALESCE(excluded.market_cap, market_cap), fetched_at = excluded.fetched_at`,
+         market_cap = COALESCE(excluded.market_cap, market_cap), fetched_at = excluded.fetched_at,
+         industry = COALESCE(excluded.industry, industry)`,
   );
-  for (const r of rows) profile.run(r.symbol.toUpperCase(), r.sector ?? null, r.marketCap ?? null, at);
+  for (const r of rows) profile.run(r.symbol.toUpperCase(), r.sector ?? null, r.marketCap ?? null, at, r.industry ?? null);
   const put = getDb().prepare(
     `INSERT INTO earnings_calendar (symbol, earnings_date, fetched_at, is_estimate) VALUES (?, ?, ?, ?)
        ON CONFLICT(symbol) DO UPDATE SET earnings_date = excluded.earnings_date,

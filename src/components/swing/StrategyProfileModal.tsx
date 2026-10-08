@@ -4,7 +4,7 @@ import Dialog from '../ui/Dialog';
 import InfoTip from '../ui/InfoTip';
 import { ATR_HELP } from '../../data/indicatorHelp';
 import DisclosureButton from '../ui/DisclosureButton';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   CUSTOM_PROFILES,
   PARAM_LIMITS,
@@ -233,28 +233,33 @@ export default function StrategyProfileModal({
     setErrors((prev) => prev.filter((e) => !e.field.startsWith(`${editing}.`)));
   };
 
-  // 고칠 때마다 과거 결과 미리보기 — 연타를 모아 한 번만 보낸다(서버는 설정별 하루 캐시)
+  /**
+   * 과거 결과 미리보기 — **버튼을 눌렀을 때만** 계산한다 (v2.42.0 사용자 요청 — 예전에는 값을 바꿀 때마다 자동으로 요청했다).
+   * 한 번 계산한 뒤 값을 바꾸면 이전 결과에 "설정이 바뀌었습니다" 를 붙인다. 서버 계산·캐시(설정별 하루)는 그대로.
+   */
   const editingParams = JSON.stringify(draft[editing]);
-  useEffect(() => {
-    if (!advancedOpen) return;
+  const [previewFor, setPreviewFor] = useState<string | null>(null);
+  const runPreview = () => {
     const mine = ++previewSeq.current;
+    const params = editingParams;
     setPreview((p) => ({ status: 'loading', last: p.status === 'done' ? p.result : p.status === 'loading' ? p.last : undefined }));
-    const timer = setTimeout(() => {
-      fetch('/api/swing/profile-preview', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ params: JSON.parse(editingParams) }),
+    fetch('/api/swing/profile-preview', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ params: JSON.parse(params) }),
+    })
+      .then(async (r) => {
+        const payload = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(payload.error ?? `요청 실패 (${r.status})`);
+        return payload as PreviewResult;
       })
-        .then(async (r) => {
-          const payload = await r.json().catch(() => ({}));
-          if (!r.ok) throw new Error(payload.error ?? `요청 실패 (${r.status})`);
-          return payload as PreviewResult;
-        })
-        .then((result) => mine === previewSeq.current && setPreview({ status: 'done', result }))
-        .catch((e: Error) => mine === previewSeq.current && setPreview({ status: 'error', message: e.message }));
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [editingParams, advancedOpen]);
+      .then((result) => {
+        if (mine !== previewSeq.current) return;
+        setPreview({ status: 'done', result });
+        setPreviewFor(params);
+      })
+      .catch((e: Error) => mine === previewSeq.current && setPreview({ status: 'error', message: e.message }));
+  };
 
   const errorOf = useMemo(
     () => (id: CustomProfileId, path: FieldPath) =>
@@ -544,7 +549,7 @@ export default function StrategyProfileModal({
               onPick={(v) => choose({ risk: v })}
             />
 
-            <PreviewBox state={preview} />
+            <PreviewBox state={preview} onRun={runPreview} stale={previewFor != null && previewFor !== editingParams} />
           </section>
           {/* 접기 안의 접기를 없앴다(v2.40.0) — 고급 설정을 펼치면 바로 보인다 */}
           <div className="rounded-lg bg-bg-tertiary/40 px-3 py-2">
@@ -698,12 +703,16 @@ const rate = (v: number | null | undefined) => (v == null ? '—' : `${v}%`);
  * 결과 미리보기 — 진단의 120일 재현을 그 설정으로 다시 돌린 값.
  * ⚠️ 고정 문구 "과거 결과이며 앞으로를 보장하지 않습니다" 는 지우지 않는다. 표본 10 미만이면 "표본 적음 — 참고만".
  */
-function PreviewBox({ state }: { state: PreviewState }) {
+function PreviewBox({ state, onRun, stale }: { state: PreviewState; onRun: () => void; stale: boolean }) {
   const result = state.status === 'done' ? state.result : state.status === 'loading' ? state.last : undefined;
+  const ran = state.status !== 'idle';
   return (
     <div className="rounded-lg bg-bg-tertiary/30 px-3 py-2 text-caption">
       <p className="mb-1 flex items-center gap-2 font-medium text-text-primary">
         이 설정이었다면
+        <Button size="sm" onClick={onRun} disabled={state.status === 'loading'} className="ml-auto">
+          {ran ? '다시 실행' : '이 설정으로 계산'}
+        </Button>
         {state.status === 'loading' && (
           <span className="inline-flex items-center gap-1 font-normal text-text-muted">
             <span className="h-3 w-3 animate-spin rounded-full border-2 border-border border-t-accent" aria-hidden />
@@ -712,6 +721,8 @@ function PreviewBox({ state }: { state: PreviewState }) {
         )}
       </p>
       {state.status === 'error' && <p className="text-danger">{state.message}</p>}
+      {state.status === 'idle' && <p className="text-text-muted">[이 설정으로 계산] 을 누르면 지난 120일 관심 종목으로 계산합니다(처음은 수십 초).</p>}
+      {stale && state.status === 'done' && <p className="text-warning">설정이 바뀌었습니다 — 다시 실행하면 새 값으로 계산합니다.</p>}
       {result && (
         <div className={state.status === 'loading' ? 'opacity-50' : ''}>
           <p className="text-text-secondary">

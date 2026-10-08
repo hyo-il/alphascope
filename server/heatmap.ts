@@ -49,23 +49,9 @@ const CACHE_MS = 60_000;
 const PERIOD_CACHE_MS = 10 * 60_000;
 const PRICE_CHUNK = 30;
 
-/** yfinance 섹터 → 한국어 (GICS 11개 + yfinance 표기) */
-const SECTOR_KO: Record<string, string> = {
-  Technology: '기술',
-  'Communication Services': '커뮤니케이션',
-  'Consumer Cyclical': '경기소비재',
-  'Consumer Defensive': '필수소비재',
-  'Financial Services': '금융',
-  Healthcare: '헬스케어',
-  Industrials: '산업재',
-  Energy: '에너지',
-  Utilities: '유틸리티',
-  'Real Estate': '부동산',
-  'Basic Materials': '소재',
-};
-
-/** 섹터 연구(`npm run research:sector`)도 쓴다 — 지도와 같은 분류여야 한다 */
-export const sectorKo = (sector: string | null | undefined) => (sector ? SECTOR_KO[sector] ?? sector : '기타');
+/** 섹터 한국어 표는 `src/data/sectors.ts` 한 곳(v2.42.0 — 기업정보도 쓴다). 섹터 연구(`npm run research:sector`)가 여기서 가져가던 이름은 그대로 다시 내보낸다 */
+import { sectorKo } from '../src/data/sectors';
+export { sectorKo };
 
 interface ProfileRow {
   symbol: string;

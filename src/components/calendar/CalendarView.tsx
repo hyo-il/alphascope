@@ -42,6 +42,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
   const [month, setMonth] = useState<{ y: number; m: number }>({ y: Number(initial.slice(0, 4)), m: Number(initial.slice(5, 7)) });
   const [selected, setSelected] = useState<string>(initial);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const titleRef = useRef<HTMLButtonElement>(null);
   const [scope, setScope] = useState<CalendarScope>('watchlist');
   const [filters, setFilters] = useState<Record<CalendarEventType, boolean>>({
     earnings: true,
@@ -117,8 +118,10 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
             <IconButton icon={ChevronLeft} label="이전 달" size="sm" onClick={() => move(-1)} />
             {/* 제목 = 날짜 고르기 창 버튼 (v2.41.0) */}
             <Button variant="secondary" size="sm"
-              onClick={() => setPickerOpen(true)}
+              ref={titleRef}
+              onClick={() => setPickerOpen((v) => !v)}
               aria-haspopup="dialog"
+              aria-expanded={pickerOpen}
               title="날짜 고르기"
               className="w-24">
               {month.y}년 {month.m}월
@@ -286,6 +289,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
       </div>
       {pickerOpen && (
         <DatePicker
+          anchorRef={titleRef}
           selected={selected}
           today={data?.meta.today ?? initial}
           onPick={(day) => {

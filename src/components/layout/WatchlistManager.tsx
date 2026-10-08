@@ -181,7 +181,7 @@ export default function WatchlistManager({
         <div className="flex min-h-0 flex-1">
           {/* ── 좌: 그룹 목록 ───────────────────────────── */}
           <nav className="flex w-[30%] min-w-[160px] shrink-0 flex-col border-r border-border">
-            <ul className="min-h-0 flex-1 overflow-y-auto">
+            <ul data-list className="min-h-0 flex-1 space-y-1 overflow-y-auto p-1">
               {/*
                 ⚠️ **폴더가 아니라 '보기'** 다 — 이름변경·삭제·순서변경이 없다.
                 그래서 아이콘(손잡이·▲▼·✕) 없이 굵은 글씨 + 아래 구분선으로 그룹 행과 구분한다.
@@ -527,7 +527,8 @@ export default function WatchlistManager({
             )}
 
             <div
-              className="min-h-0 flex-1 overflow-y-auto"
+              data-list
+              className="min-h-0 flex-1 space-y-1 overflow-y-auto p-1"
               onDragOver={(e) => {
                 if (dragSymbol && sort === 'manual' && symbols.length === 0) e.preventDefault();
               }}

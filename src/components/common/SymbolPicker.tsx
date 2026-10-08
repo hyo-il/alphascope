@@ -3,7 +3,7 @@ import { Check, ChevronDown, ChevronRight, Search } from 'lucide-react';
 import StockName from './StockName';
 import SymbolSearch from './SymbolSearch';
 import { SkeletonList } from './SkeletonLoader';
-import { Button, ListRemoveButton, RemoveAllButton } from '../ui';
+import { Button, ListRemoveButton, RemoveAllButton, Tabs } from '../ui';
 import Dialog from '../ui/Dialog';
 import { ICON_SM } from '../ui/icon';
 import { useBacktestUniverse } from '../../hooks/useBacktest';
@@ -88,7 +88,7 @@ function RowButton({
         onClick={() => onToggle(row.symbol)}
         aria-pressed={on}
         disabled={disabled}
-        className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors disabled:opacity-40 ${
+        className={`flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors disabled:opacity-40 ${
           on ? 'bg-bg-elevated text-text-primary' : 'hover:bg-bg-tertiary'
         }`}
       >
@@ -164,6 +164,7 @@ function PickerDialog({
   const uni = useBacktestUniverse();
   const { folders } = useWatchlist();
   const [query, setQuery] = useState('');
+  const [leftTab, setLeftTab] = useState<'list' | 'search'>('list');
   const [openMap, setOpenMap] = useState<Record<string, boolean>>({ watch: true, added: true });
   const sel = useMemo(() => new Set(selected), [selected]);
   const q = query.trim();
@@ -221,9 +222,40 @@ function PickerDialog({
       bodyClassName="flex"
       footer={<Button onClick={onClose}>완료</Button>}
     >
-      {/* 왼쪽 — 묶음 목록 */}
+      {/* 왼쪽 — 맨 위 탭 둘 (v2.42.0): [목록에서 고르기] 목록 안 찾기 + 묶음 목록 / [새 종목 검색] 목록 밖 종목 추가 */}
       <div className="flex min-w-0 flex-1 flex-col gap-2 border-r border-border/40 p-3">
-        <label className="flex items-center gap-2 rounded-md bg-bg-tertiary px-2">
+        <Tabs
+          label="종목 고르는 방법"
+          size="sm"
+          value={leftTab}
+          onChange={setLeftTab}
+          items={[
+            { id: 'list', label: '목록에서 고르기' },
+            { id: 'search', label: '새 종목 검색' },
+          ]}
+        />
+        {leftTab === 'search' && (
+          <div className="space-y-2">
+            <SymbolSearch
+              symbol=""
+              compact
+              dropUp={false}
+              clearOnSubmit
+              placeholder="목록에 없는 종목 검색 (이름·티커)"
+              submitLabel="종목 추가"
+              isAdded={(s) => sel.has(s.toUpperCase())}
+              onSubmit={(s) => {
+                const sym = s.toUpperCase();
+                if (!added.includes(sym)) onAddedChange([...added, sym]);
+                add([sym]);
+              }}
+            />
+            <p className="text-caption text-text-muted">추가한 종목은 「직접 추가한 종목」 에 들어가며 바로 선택됩니다.</p>
+          </div>
+        )}
+        {leftTab === 'list' && (
+          <>
+        <label className="flex h-8 items-center gap-2 rounded-md bg-bg-tertiary px-2">
           <Search {...ICON_SM} className="shrink-0 text-text-muted" aria-hidden />
           {/* design-lint-ignore: 아이콘과 한 상자인 검색칸 — 바깥 상자가 입력칸 모양(높이·바탕)을 맡는다 */}
           <input
@@ -231,34 +263,24 @@ function PickerDialog({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="목록 안에서 찾기 (이름·티커·초성)"
             aria-label="목록 안에서 찾기"
-            className="h-8 min-w-0 flex-1 bg-transparent text-xs outline-none"
+            className="h-full min-w-0 flex-1 bg-transparent text-xs outline-none"
           />
         </label>
-        <SymbolSearch
-          symbol=""
-          compact
-          dropUp={false}
-          clearOnSubmit
-          placeholder="목록에 없는 종목 검색"
-          submitLabel="종목 추가"
-          isAdded={(s) => sel.has(s.toUpperCase())}
-          onSubmit={(s) => {
-            const sym = s.toUpperCase();
-            if (!added.includes(sym)) onAddedChange([...added, sym]);
-            add([sym]);
-          }}
-        />
         <Button size="sm" onClick={() => add(watchAll)} disabled={!watchAll.length || full || watchAll.every((s) => sel.has(s))} className="self-start">
           관심 목록 전부 선택
         </Button>
+          </>
+        )}
         {full && maxReason && <p className="text-caption text-warning">최대 {max}개입니다 — {maxReason}</p>}
         <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-gutter:stable]">
+          {leftTab === 'list' && (
+          <>
           {/* 관심 목록 — 폴더 밖 종목은 머리 바로 아래(패널과 같은 규칙), 그다음 폴더별 */}
           <section>
             <GroupHead id="watch" title="관심 목록" count={watchCount} open={isOpen('watch', [...bare, ...folderGroups.flatMap((g) => g.rows)])} setOpen={setOpen('watch')} all={false} />
             {isOpen('watch', [...bare, ...folderGroups.flatMap((g) => g.rows)]) && (
               <div id="sp-group-watch">
-                <ul>
+                <ul data-list className="space-y-1">
                   {bare.map((r) => (
                     <RowButton key={r.symbol} row={r} on={sel.has(r.symbol)} disabled={rowDisabled(r.symbol)} showSector onToggle={toggle} />
                   ))}
@@ -276,7 +298,7 @@ function PickerDialog({
                       indent
                     />
                     {(isOpen(g.id, g.rows) || (!q && openMap[g.id] === undefined)) && (
-                      <ul id={`sp-group-${g.id}`} className="pl-3">
+                      <ul id={`sp-group-${g.id}`} data-list className="space-y-1 pl-3">
                         {g.rows.map((r) => (
                           <RowButton key={r.symbol} row={r} on={sel.has(r.symbol)} disabled={rowDisabled(r.symbol)} showSector onToggle={toggle} />
                         ))}
@@ -316,7 +338,7 @@ function PickerDialog({
                   onAll={(on) => (on ? add(g.rows.map((r) => r.symbol)) : remove(g.rows.map((r) => r.symbol)))}
                 />
                 {isOpen(g.id, g.rows) && (
-                  <ul id={`sp-group-${g.id}`}>
+                  <ul id={`sp-group-${g.id}`} data-list className="space-y-1">
                     {g.rows.map((r) => (
                       <RowButton key={r.symbol} row={r} on={sel.has(r.symbol)} disabled={rowDisabled(r.symbol)} showSector={false} onToggle={toggle} />
                     ))}
@@ -326,7 +348,9 @@ function PickerDialog({
             ))
           )}
 
-          {/* 직접 추가한 종목 */}
+          </>
+          )}
+          {/* 직접 추가한 종목 — 두 탭 모두에 보인다(새 종목 검색으로 추가한 것이 바로 여기 들어간다) */}
           <section>
             <GroupHead
               id="added"
@@ -341,7 +365,7 @@ function PickerDialog({
               }}
             />
             {(isOpen('added', addedRows) || (!q && openMap.added !== false)) && (
-              <ul id="sp-group-added">
+              <ul id="sp-group-added" data-list className="space-y-1">
                 {addedRows.map((r) => (
                   <RowButton
                     key={r.symbol}
@@ -380,9 +404,9 @@ function PickerDialog({
             {softLimitText ? softLimitText(selected.length, softLimit) : `${softLimit}개까지 — 지금 ${selected.length}개`}
           </p>
         )}
-        <ul className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-gutter:stable]">
+        <ul data-list className="-mx-1 min-h-0 flex-1 space-y-1 overflow-y-auto px-1 [scrollbar-gutter:stable]">
           {selected.map((s) => (
-            <li key={s} className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-bg-tertiary/60">
+            <li key={s} className="flex min-h-9 items-center gap-2 rounded-md px-2 py-1 hover:bg-bg-tertiary/60">
               <span className="min-w-0 flex-1 truncate">
                 <StockName symbol={s} size="sm" />
               </span>

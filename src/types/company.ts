@@ -92,4 +92,6 @@ export interface PeerSummary {
   pbr: number | null;
   dividendYield: number | null;
   profitMargin: number | null;
+  /** 고른 이유 (v2.42.0) — self = 이 종목, pair = 직접 정한 짝 표, industry = 같은 세부 업종, sector = 같은 섹터 */
+  basis?: 'self' | 'pair' | 'industry' | 'sector';
 }

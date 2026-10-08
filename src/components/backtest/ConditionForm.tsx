@@ -149,11 +149,9 @@ function AdviceCard({
 function ConditionCard({
   c,
   onChange,
-  onRemove,
 }: {
   c: BacktestCondition;
   onChange: (p: Partial<BacktestCondition>) => void;
-  onRemove?: () => void;
 }) {
   const active = matchChoice(c.rule);
   const [open, setOpen] = useState(active == null);
@@ -169,11 +167,6 @@ function ConditionCard({
         <p className="min-w-0 text-caption text-text-secondary">
           <b className="font-semibold text-text-primary">{methodName(c.label)}</b> · {ruleConditionLine(c)}
         </p>
-        {onRemove && (
-          <Button size="sm" variant="ghost" className="ml-auto" onClick={onRemove}>
-            {methodName(c.label)} 삭제
-          </Button>
-        )}
       </div>
       <RuleChoiceCards rule={r} showWhy={false} onPick={(ch) => setRule(ch.rule)} />
       {!active && (
@@ -329,12 +322,18 @@ export default function ConditionForm({
             onChange={(v) => patch({ active: v })}
           />
         )}
-        <Button size="sm" icon={Plus} onClick={addCondition} disabled={full} title={full ? `방법은 ${MAX_CONDITIONS}개까지입니다` : '바로 앞 방법을 복사해 새 방법을 만듭니다'}>
+        <Button icon={Plus} onClick={addCondition} disabled={full} title={full ? `방법은 ${MAX_CONDITIONS}개까지입니다` : '바로 앞 방법을 복사해 새 방법을 만듭니다'}>
           비교할 방법 추가
         </Button>
-        <span className="min-w-0 text-caption text-text-muted">
+        <span className="min-w-0 flex-1 text-caption text-text-muted">
           {full ? `방법은 ${MAX_CONDITIONS}개까지 비교합니다.` : '같은 종목으로 방법을 최대 3개까지 나란히 비교합니다. 추가하면 앞 방법을 복사합니다.'}
         </span>
+        {/* 삭제 = 추가 버튼과 같은 줄 오른쪽 끝의 빨간 글자 버튼 (v2.42.0 — 예전에는 회색 글자로 요약 줄 끝에 있었다) */}
+        {many && (
+          <Button variant="danger-text" className="ml-auto" onClick={() => removeCondition(current.label)}>
+            {methodName(current.label)} 삭제
+          </Button>
+        )}
       </div>
 
       {/* key = label — 카드를 바꾸면 「자세히」 펼침 상태도 그 카드 것으로 새로 시작한다 */}
@@ -342,7 +341,6 @@ export default function ConditionForm({
         key={current.label}
         c={current}
         onChange={(p) => patchCondition(current.label, p)}
-        onRemove={many ? () => removeCondition(current.label) : undefined}
       />
 
       <div className="flex flex-wrap items-center gap-3">

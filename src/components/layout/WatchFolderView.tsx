@@ -74,83 +74,85 @@ export default function WatchFolderView({
           // 폴더 없는 종목이 0개면 아무것도 그리지 않는다 — 빈 머리줄이 남으면 거슬린다.
           bare ? null : <p className="px-3 py-2 text-caption text-text-muted">비어 있습니다.</p>
         ) : (
-          folder.symbols.map((symbol) => {
-            const quote = quotes[symbol];
-            const rate = quote?.changeRate ?? null;
-            const color =
-              rate == null
-                ? 'text-text-muted'
-                : rate > 0
-                  ? 'text-bullish'
-                  : rate < 0
-                    ? 'text-bearish'
-                    : 'text-text-secondary';
-            const picked = compareMode && selectedSymbols.includes(symbol);
-            const highlighted = compareMode ? picked : symbol === currentSymbol;
+          <div data-list className="space-y-1">
+          {folder.symbols.map((symbol) => {
+              const quote = quotes[symbol];
+              const rate = quote?.changeRate ?? null;
+              const color =
+                rate == null
+                  ? 'text-text-muted'
+                  : rate > 0
+                    ? 'text-bullish'
+                    : rate < 0
+                      ? 'text-bearish'
+                      : 'text-text-secondary';
+              const picked = compareMode && selectedSymbols.includes(symbol);
+              const highlighted = compareMode ? picked : symbol === currentSymbol;
 
-            return (
-              <div
-                key={symbol}
-                className={`flex items-center transition-colors hover:bg-bg-tertiary/60 ${
-                  highlighted ? 'bg-bg-tertiary' : ''
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => onSelect(symbol)}
-                  /*
-                   * 비교 화면에서만 끌 수 있게 한다. 평소에도 draggable 로 두면
-                   * 종목을 눌러 차트를 바꾸려던 동작이 드래그로 먹힌다.
-                   */
-                  draggable={compareMode}
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData(COMPARE_DRAG_TYPE, symbol);
-                    e.dataTransfer.setData('text/plain', symbol);
-                    e.dataTransfer.effectAllowed = 'copy';
-                  }}
-                  title={
-                    compareMode
-                      ? picked
-                        ? `${nameOf(symbol) || symbol} 비교에서 삭제`
-                        : `${nameOf(symbol) || symbol} 비교에 추가`
-                      : undefined
-                  }
-                  className="flex min-w-0 flex-1 items-center justify-between py-2.5 pl-3 pr-2 text-left"
+              return (
+                <div
+                  key={symbol}
+                  className={`flex items-center transition-colors hover:bg-bg-tertiary/60 ${
+                    highlighted ? 'bg-bg-tertiary' : ''
+                  }`}
                 >
-                  <span className="flex min-w-0 flex-col">
-                    <span
-                      // v2.25.0 — 글씨가 커져 「SK하이닉스 (0006…」 처럼 종목 코드가 잘렸다. 자르지 않고 단어 단위로 두 줄까지 감싼다
-                      className="line-clamp-2 break-keep text-xs font-medium text-text-primary"
-                    >
-                      {/* 담긴 종목은 ✓ 로 한눈에 구분한다 */}
-                      {picked && <Check {...ICON_SM} className="mr-1 inline-block shrink-0 align-[-2px] text-text-primary" />}
-                      {nameOf(symbol) ? `${nameOf(symbol)} (${symbol})` : symbol}
-                    </span>
-                  </span>
-
-                  <span
-                    className="shrink-0 text-right"
-                    title={quote?.stale ? '실시간 조회 실패 — 마지막 캐시 종가입니다.' : undefined}
+                  <button
+                    type="button"
+                    onClick={() => onSelect(symbol)}
+                    /*
+                     * 비교 화면에서만 끌 수 있게 한다. 평소에도 draggable 로 두면
+                     * 종목을 눌러 차트를 바꾸려던 동작이 드래그로 먹힌다.
+                     */
+                    draggable={compareMode}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData(COMPARE_DRAG_TYPE, symbol);
+                      e.dataTransfer.setData('text/plain', symbol);
+                      e.dataTransfer.effectAllowed = 'copy';
+                    }}
+                    title={
+                      compareMode
+                        ? picked
+                          ? `${nameOf(symbol) || symbol} 비교에서 삭제`
+                          : `${nameOf(symbol) || symbol} 비교에 추가`
+                        : undefined
+                    }
+                    className="flex min-w-0 flex-1 items-center justify-between py-2.5 pl-3 pr-2 text-left"
                   >
-                    <span className="block text-xs tabular-nums text-text-secondary">
-                      {/* 지연 시세는 앞에 · 를 붙여 실시간인 척하지 않게 한다. */}
-                      {quote?.price != null
-                        ? `${quote.stale ? '· ' : ''}${formatPrice(quote.price, quote.currency)}`
-                        : '—'}
+                    <span className="flex min-w-0 flex-col">
+                      <span
+                        // v2.25.0 — 글씨가 커져 「SK하이닉스 (0006…」 처럼 종목 코드가 잘렸다. 자르지 않고 단어 단위로 두 줄까지 감싼다
+                        className="line-clamp-2 break-keep text-xs font-medium text-text-primary"
+                      >
+                        {/* 담긴 종목은 ✓ 로 한눈에 구분한다 */}
+                        {picked && <Check {...ICON_SM} className="mr-1 inline-block shrink-0 align-[-2px] text-text-primary" />}
+                        {nameOf(symbol) ? `${nameOf(symbol)} (${symbol})` : symbol}
+                      </span>
                     </span>
-                    <span className={`block text-caption tabular-nums ${color}`}>
-                      {rate == null ? '—' : formatPercent(rate)}
-                    </span>
-                  </span>
-                </button>
 
-                {canRemove && (
-                  /* ⚠️ 항상 보인다 — 목록에서 삭제(×, 확인 창 없음, v2.40.0 공통 동작 규칙) */
-                  <ListRemoveButton onClick={() => onRemoveSymbol?.(symbol)} name={nameOf(symbol) || symbol} label="관심 목록에서 삭제" className="mr-2" />
-                )}
-              </div>
-            );
-          })
+                    <span
+                      className="shrink-0 text-right"
+                      title={quote?.stale ? '실시간 조회 실패 — 마지막 캐시 종가입니다.' : undefined}
+                    >
+                      <span className="block text-xs tabular-nums text-text-secondary">
+                        {/* 지연 시세는 앞에 · 를 붙여 실시간인 척하지 않게 한다. */}
+                        {quote?.price != null
+                          ? `${quote.stale ? '· ' : ''}${formatPrice(quote.price, quote.currency)}`
+                          : '—'}
+                      </span>
+                      <span className={`block text-caption tabular-nums ${color}`}>
+                        {rate == null ? '—' : formatPercent(rate)}
+                      </span>
+                    </span>
+                  </button>
+
+                  {canRemove && (
+                    /* ⚠️ 항상 보인다 — 목록에서 삭제(×, 확인 창 없음, v2.40.0 공통 동작 규칙) */
+                    <ListRemoveButton onClick={() => onRemoveSymbol?.(symbol)} name={nameOf(symbol) || symbol} label="관심 목록에서 삭제" className="mr-2" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
         ))}
     </section>
   );

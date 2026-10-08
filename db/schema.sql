@@ -379,7 +379,9 @@ CREATE TABLE IF NOT EXISTS stock_profiles (
   symbol TEXT PRIMARY KEY,
   sector TEXT,
   market_cap REAL,
-  fetched_at TEXT NOT NULL
+  fetched_at TEXT NOT NULL,
+  -- v2.42.0 — 세부 업종(yfinance industry). 동종업계 자동 고르기가 쓴다. 옛 DB 는 db.ts migrate() 가 더한다
+  industry TEXT
 );
 
 -- 뉴스 AI 판정 (v2.18.0) — 버튼을 눌렀을 때만 만든다. 나중에 적중(판정 뒤 주가)을 재려고 입력·출력을 그대로 둔다.

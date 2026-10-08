@@ -328,7 +328,7 @@ export default function BacktestView() {
             ) : bt.reports.length === 0 ? (
               <p className="p-3 text-caption text-text-muted">아직 히스토리가 없습니다.</p>
             ) : (
-              <ul className="divide-y divide-border/40">
+              <ul data-list className="space-y-1">
                 {bt.reports.map((item) => (
                   <HistoryRow
                     key={item.id}

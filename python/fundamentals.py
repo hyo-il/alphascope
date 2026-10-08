@@ -114,6 +114,8 @@ def get_earnings(symbols: list[str]) -> list[dict]:
             "found": bool(info),
             # 같은 info 에서 섹터·시총도 함께 준다 (v2.18.0 종목 지도) — 따로 받으면 하루에 같은 호출을 두 번 한다
             "sector": info.get("sector"),
+            # v2.42.0 — 동종업계 자동 고르기(같은 세부 업종). 같은 info 에서 함께 받는다(호출을 늘리지 않는다)
+            "industry": info.get("industry"),
             "marketCap": clean(info.get("marketCap")),
         })
     return out

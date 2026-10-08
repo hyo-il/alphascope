@@ -46,6 +46,12 @@ function migrate(database: Database.Database): void {
   if (!swingColumns.some((c) => c.name === 'profile')) {
     database.exec(`ALTER TABLE swing_recommendations ADD COLUMN profile TEXT`);
   }
+
+  // 종목 프로필의 세부 업종 (v2.42.0) — 동종업계 자동 고르기. 실적일 하루 1회 갱신이 같은 yfinance info 로 채운다
+  const profileColumns = database.prepare(`PRAGMA table_info(stock_profiles)`).all() as { name: string }[];
+  if (profileColumns.length && !profileColumns.some((c) => c.name === 'industry')) {
+    database.exec(`ALTER TABLE stock_profiles ADD COLUMN industry TEXT`);
+  }
 }
 
 const upsertCandle = () =>
