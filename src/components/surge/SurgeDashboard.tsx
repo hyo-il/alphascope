@@ -179,9 +179,10 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
           <thead className="whitespace-nowrap text-text-muted">
             <tr className="border-b border-border/50">
               <th className="py-1.5 pr-2">탐지일</th>
-              <th className={`${TABLE_NAME_COL} pr-2`}>종목</th>
+              <th className="pr-2">종목</th>
               <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>점수</th>
-              <th className="min-w-56 pr-4">예상일</th>
+              {/* 남는 폭은 긴 글 칸(예상일 — 「탐지 시점에 이미 예상일 지남 … 주기가 깨졌을 수 있음」)이 가져간다(v2.42.1 — 종목 칸이 가져가면 이 칸이 3줄로 꺾였다) */}
+              <th className={`${TABLE_NAME_COL} min-w-56 pr-4`}>예상일</th>
               <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>7일</th>
               <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>14일</th>
               <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>30일</th>
@@ -213,8 +214,9 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
                 {round.rows.map((row) => (
                   <tr key={row.id} className="border-b border-border/50">
                     <td className="whitespace-nowrap py-1.5 pr-2 text-text-secondary">{row.detectedAt.slice(0, 10)}</td>
-                    <td className="pr-2">
-                      <StockName symbol={row.symbol} name={row.name} />
+                    {/* 종목명은 한 줄 그대로(말줄임 없음) — 남는 폭을 예상일 칸이 가져가므로 이 칸이 눌리지 않게 */}
+                    <td className="whitespace-nowrap pr-2">
+                      <StockName symbol={row.symbol} name={row.name} wrap />
                     </td>
                     <td className="pl-4 pr-2 text-right tabular-nums">{row.surgeScore}</td>
                     <td className="pr-4 text-text-secondary">

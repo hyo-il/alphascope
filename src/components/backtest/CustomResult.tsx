@@ -58,8 +58,8 @@ function Pieces({ parts }: { parts: string[] }) {
 function Row({ head, help, cells, hold }: { head: string; help?: string; cells: ReactNode[]; hold: ReactNode }) {
   return (
     <tr className="border-b border-border/30 align-top">
-      {/* 행 머리는 폭을 정하고 줄바꿈을 허용한다 — 1280 창에서 조건 3개 + 들고 있기 열이 들어가게 */}
-      <th scope="row" className="w-32 min-w-32 py-2 pr-3 text-left font-normal text-text-muted">
+      {/* 행 머리는 폭을 정하고 줄바꿈을 허용한다 — 1280 창에서 조건 3개 + 들고 있기 열이 들어가게. 넓은 창(1536px 이상)에서는 넓혀 한 줄로 (v2.42.1) */}
+      <th scope="row" className="w-32 min-w-32 py-2 pr-3 text-left font-normal text-text-muted 2xl:w-52 2xl:min-w-52">
         {head}
         {help && (
           <span className="ml-1 inline-block align-[-2px]">

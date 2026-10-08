@@ -145,16 +145,52 @@ export default function OrderbookPanel({
   const isEmpty = asks.length === 0 && bids.length === 0;
   const bookSymbol = orderbook?.symbol ?? null;
 
-  // 처음·종목이 바뀔 때 한 번 — 매도·매수 경계(현재가 근처)를 목록 가운데로
-  useEffect(() => {
-    if (isEmpty || !bookSymbol || bookSymbol !== symbol || centeredFor.current === bookSymbol) return;
+  /** 사용자가 이 종목에서 목록을 직접 스크롤했는가 — 그 뒤로는 위치를 건드리지 않는다 */
+  const userMoved = useRef(false);
+  /** 우리가 맞춘 scrollTop — 이 값으로 생긴 scroll 이벤트는 사용자 스크롤로 세지 않는다 */
+  const programmatic = useRef<number | null>(null);
+  const center = () => {
     const list = listRef.current;
     const mark = boundaryRef.current;
     if (!list || !mark) return;
     const offset = mark.getBoundingClientRect().top - list.getBoundingClientRect().top;
     list.scrollTop += offset - list.clientHeight / 2;
+    programmatic.current = list.scrollTop;
+  };
+
+  // 처음·종목이 바뀔 때 한 번 — 매도·매수 경계(현재가 근처)를 목록 가운데로
+  useEffect(() => {
+    if (isEmpty || !bookSymbol || bookSymbol !== symbol || centeredFor.current === bookSymbol) return;
+    userMoved.current = false;
+    center();
     centeredFor.current = bookSymbol;
   }, [isEmpty, bookSymbol, symbol]);
+
+  /*
+   * 목록 높이가 나중에 바뀌면(차트 화면이 보이게 될 때·빠른주문이 그려질 때·창 크기) 다시 가운데로 (v2.42.1).
+   * v2.42.1 에 오른쪽 열이 길어지면서, 처음 맞춘 뒤 목록이 자라 매수 호가가 화면 밖에 남았다(1920 에서 매수 0줄).
+   * 사용자가 직접 스크롤한 뒤에는 맞추지 않는다 — 1초 폴링으로 다시 맞추지 않는 규칙도 그대로다.
+   */
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || typeof ResizeObserver === 'undefined') return;
+    let lastH = list.clientHeight;
+    const ro = new ResizeObserver(() => {
+      if (list.clientHeight === lastH) return;
+      lastH = list.clientHeight;
+      if (!userMoved.current && centeredFor.current) center();
+    });
+    ro.observe(list);
+    const onScroll = () => {
+      if (programmatic.current != null && Math.abs(list.scrollTop - programmatic.current) <= 1) return;
+      userMoved.current = true;
+    };
+    list.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      ro.disconnect();
+      list.removeEventListener('scroll', onScroll);
+    };
+  }, [isEmpty]);
 
   return (
     // 최소 높이 241px = 머리 36 + 줄 이름 23 + 호가 3칸 120 + 총잔량 62 (v2.41.0) — 이보다 낮은 창에서만 열 전체가 스크롤된다

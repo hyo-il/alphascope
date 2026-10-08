@@ -132,7 +132,7 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
                         <StockName symbol={peer.symbol} size="sm" className={isTarget ? 'font-semibold' : ''} />
                       ) : (
                         <>
-                          <span className={isTarget ? 'font-semibold text-text-primary' : 'text-text-secondary'}>{peer.name ?? peer.symbol}</span>
+                          <span className={isTarget ? 'font-semibold text-text-primary' : 'font-medium text-text-primary'}>{peer.name ?? peer.symbol}</span>
                           {peer.name && <span className="ml-1.5 text-caption text-text-muted">{peer.symbol}</span>}
                         </>
                       )}

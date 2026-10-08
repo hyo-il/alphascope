@@ -111,7 +111,7 @@ function RecommendationHistory() {
         <table className="w-full min-w-[820px] text-left text-caption">
           <thead className="text-text-muted">
             <tr className="border-b border-border/50">
-              <th className="py-1.5 pr-2">추천일</th>
+              <th className="whitespace-nowrap py-1.5 pr-2">추천일</th>
               <th className={`${TABLE_NAME_COL} pr-2`}>종목</th>
               <th className="pr-2">기준</th>
               <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>점수</th>
@@ -134,7 +134,7 @@ function RecommendationHistory() {
                   : '—';
               return (
                 <tr key={row.id} className="border-b border-border/50">
-                  <td className="py-1.5 pr-2 text-text-secondary">{row.analyzedAt.slice(0, 10)}</td>
+                  <td className="whitespace-nowrap py-1.5 pr-2 text-text-secondary">{row.analyzedAt.slice(0, 10)}</td>
                   <td className="pr-2">
                     <StockName symbol={row.symbol} name={row.name} />
                   </td>
