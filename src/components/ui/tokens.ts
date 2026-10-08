@@ -19,3 +19,23 @@ export const FORM_VALUE_W = { sm: 'w-28', md: 'w-40', lg: 'w-56' } as const;
 /** 목록 줄 — 높이 약 36px + 줄 사이 4px (사용자: "아이템 사이 약간의 간격이 있어야 구분") */
 export const LIST_ROW = 'min-h-9';
 export const LIST_GAP = 'space-y-1';
+
+/**
+ * 표 (v2.42.1 — 기준표 「표」 규칙) — **화면은 꽉 채우되 숫자 칸은 내용 폭 + 고정 여백**, 남는 폭은 이름(종목) 칸이 가져간다.
+ * 예전 표는 브라우저가 남는 폭을 모든 칸에 나눠 줘 넓은 화면(1920·2560)에서 숫자 칸 사이가 100~200px 씩 벌어졌다 — 비교가 안 된다.
+ * - `TABLE_NAME_COL` — 이름 칸(th 하나에). 남는 폭을 다 가져간다. 긴 종목명만 말줄임 + 툴팁(숫자·티커는 자르지 않는다).
+ * - `TABLE_NUM_COL` — 숫자 칸(th·td). 폭 = 내용 폭(줄바꿈 없음) — 숫자 칸의 폭 상한이 곧 「내용 + `TABLE_NUM_GAP`」 이다.
+ * - `TABLE_NUM_GAP` — 숫자 칸 왼쪽 여백(옆 칸과 붙어 읽히지 않게).
+ * - 이름 칸이 없는 표는 마지막 칸 뒤에 빈 칸(`TABLE_FILL`)을 둔다(열을 고르게 벌리지 않는다).
+ */
+export const TABLE_NAME_COL = 'w-full';
+export const TABLE_NUM_COL = 'w-px whitespace-nowrap';
+export const TABLE_NUM_GAP = 'pl-6';
+export const TABLE_FILL = 'w-full';
+/**
+ * 글자가 섞인 비교 칸(백테스트 비교 표의 방법·들고 있기 칸 — 조건 한 줄·판 이유) — 넓은 창(1536px 이상)에서만 최소 폭 176px.
+ * 폭을 고정하지 않는다 — 빈 칸(`TABLE_FILL`)이 남는 폭을 가져가므로 이 칸은 내용의 줄바꿈 단위(줄바꿈 금지 조각) 폭까지만 넓어진다.
+ * 1280 에서는 최소 폭을 두지 않는다(예전처럼 줄바꿈해 들어간다 — 최소 폭을 두면 표가 35px 넘쳤다).
+ * 넓은 창에서 최소 폭이 없으면 빈 칸에 밀려 「들고 있기」 가 한 단어씩 꺾였다.
+ */
+export const TABLE_TEXT_COL = '2xl:min-w-44';

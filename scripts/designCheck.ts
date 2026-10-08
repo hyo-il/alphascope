@@ -4,7 +4,7 @@
  * 디자인 숫자 측정 (v2.42.0, `npm run design:check`) — 디자인 점검 세 겹의 둘째(CLAUDE.md 「디자인 점검」).
  *
  * 테스트 서버(기본 http://localhost:5180)의 **모든 화면 주소**(메뉴·탭 — `types/nav.ts` 의 NAV_GROUPS·PAGE_TABS 에서 읽는다) +
- * 주요 창(종목 고르기 · 자동매매 설정 · 판단 기준 편집 · 날짜 고르기)을 **1280×1080 · 1920×1080** 에서 열어 잰다:
+ * 주요 창(종목 고르기 · 자동매매 설정 · 판단 기준 편집 · 날짜 고르기)을 **1280×1080 · 1440×900 · 1920×1080 · 2560×1440** 에서 열어 잰다:
  *   1. 같은 줄의 입력칸·드롭박스·버튼(높이 클래스 h-7/h-8 이 있는 것)·묶음 버튼 높이 같음
  *   2. 같은 묶음(창·구역)의 `FormRow` 값 칸 왼쪽·오른쪽 끝 차이 0px
  *   3. 글자 넘침·잘림(overflow 가 숨김인데 scrollWidth > clientWidth) — 말줄임(truncate)은 「말줄임」 으로 따로 센다
@@ -13,6 +13,7 @@
  *   6. 글자 크기 — 13px 미만 0, 기준표(13·14·16·18) 밖 0(로그인 앱 제목 22 · 인라인 style 로 크기를 정하는 종목 지도 칸 예외)
  *   7. 화면 내용이 화면 폭을 꽉 채움(가운데로 좁힌 넓은 상자 — 좌우 여백이 같고 max-width 가 걸린 것)
  *   8. 콘솔 오류 0
+ *   9. 표 숫자 칸 벌어짐(v2.42.1) — 숫자 칸 폭이 내용보다 64px 넘게 넓으면(남는 폭은 이름 칸이 가져가야 한다)
  * 결과: `<OUT>/report.md`(화면별 표) · `<OUT>/{1280,1920}/<이름>.png` · `<OUT>/result.json`.
  *
  * 쓰는 법(테스트 서버를 띄운 뒤):
@@ -29,10 +30,11 @@ import { CHANGELOG } from '../src/data/changelog';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const BASE = process.env.BASE ?? 'http://localhost:5180';
 const OUT = path.resolve(ROOT, process.env.OUT ?? `../../docs/design-check/${CHANGELOG[0].version}`);
-const SIZES = [
-  { w: 1280, h: 1080 },
-  { w: 1920, h: 1080 },
-];
+/** v2.42.1 — 1280 이상 여러 크기를 쓴다(사용자). 1440×900 은 1080 보다 낮다(오른쪽 열 예비 스크롤). `SIZES=1920x1080,2560x1440` 로 일부만 */
+const SIZES = (process.env.SIZES ?? '1280x1080,1440x900,1920x1080,2560x1440').split(',').map((x) => {
+  const [w, h] = x.split('x').map(Number);
+  return { w, h };
+});
 
 interface Target {
   name: string;
@@ -221,6 +223,32 @@ export function measure() {
     const w = el.getBoundingClientRect().width;
     if (w > 500 && ml > 24 && Math.abs(ml - mr) < 2) issues.push({ kind: '화면 폭 좁힘', detail: `${label(el)} 폭 ${Math.round(w)}px · 좌우 ${Math.round(ml)}px` });
   }
+  // 9. 표 숫자 칸 벌어짐 (v2.42.1) — 숫자 칸은 내용 폭 + 고정 여백. 칸 폭이 내용보다 64px 넘게 넓으면 남는 폭이 숫자 칸으로 간 것이다
+  const NUM = /^[−+\-]?[₩$]?[−+\-]?[\d,.]+(%|%p|억|조|만|주|일|회|R)?$|^—$/;
+  for (const table of document.querySelectorAll('table')) {
+    if (!visible(table) || offscreen(table) || table.getBoundingClientRect().width < 600) continue;
+    const rows = [...table.querySelectorAll('tbody tr')].filter((r) => r.children.length > 1).slice(0, 30);
+    if (rows.length < 2) continue;
+    const head = table.querySelector('thead tr');
+    const cols = Math.max(...rows.map((r) => r.children.length));
+    for (let c = 0; c < cols; c++) {
+      const cells = rows.map((r) => r.children[c] as HTMLTableCellElement | undefined).filter((x): x is HTMLTableCellElement => !!x && x.colSpan === 1);
+      const texts = cells.map((x) => x.innerText.trim()).filter(Boolean);
+      if (texts.length < 2 || texts.filter((t) => NUM.test(t.replace(/\s/g, ''))).length < texts.length * 0.8) continue;
+      let slack = Infinity;
+      for (const cell of cells) {
+        const range = document.createRange();
+        range.selectNodeContents(cell);
+        const content = range.getBoundingClientRect().width;
+        const cs = getComputedStyle(cell);
+        slack = Math.min(slack, cell.getBoundingClientRect().width - content - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight));
+      }
+      if (slack > 64) {
+        const name = (head?.children[c] as HTMLElement | undefined)?.innerText.trim() || `${c + 1}번째 칸`;
+        issues.push({ kind: '표 숫자 칸 벌어짐', detail: `${label(table.closest('section, main, [role=dialog]') ?? table)} · 「${name}」 칸이 내용보다 ${Math.round(slack)}px 넓음` });
+      }
+    }
+  }
   return issues;
 }
 
@@ -265,7 +293,7 @@ async function main() {
   }
   await browser.close();
 
-  const KINDS = ['같은 줄 높이', '입력칸 끝 맞춤', '글자 잘림', '말줄임', '겹침', '목록 줄 간격', '13px 미만', '기준표 밖 크기', '화면 폭 좁힘'];
+  const KINDS = ['같은 줄 높이', '입력칸 끝 맞춤', '글자 잘림', '말줄임', '겹침', '목록 줄 간격', '13px 미만', '기준표 밖 크기', '화면 폭 좁힘', '표 숫자 칸 벌어짐'];
   const md: string[] = [
     `# 디자인 숫자 측정 — ${CHANGELOG[0].version}`,
     '',

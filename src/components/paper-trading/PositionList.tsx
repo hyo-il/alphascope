@@ -1,3 +1,4 @@
+import { TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import type { PaperPositionValued } from '../../types/paper';
 import { formatPrice, formatSignedMoney } from '../../utils/formatters';
 
@@ -34,16 +35,16 @@ export default function PositionList({ positions, onSelectSymbol }: Props) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-xs">
+      <table className="w-full whitespace-nowrap text-xs">
         <thead className="text-text-muted">
           <tr className="border-b border-border/50">
-            <th className="px-3 py-2 text-left font-normal">종목</th>
-            <th className="px-3 py-2 text-right font-normal">수량</th>
-            <th className="px-3 py-2 text-right font-normal">평균 매수가</th>
-            <th className="px-3 py-2 text-right font-normal">현재가</th>
-            <th className="px-3 py-2 text-right font-normal">평가금액</th>
-            <th className="px-3 py-2 text-right font-normal">평가손익</th>
-            <th className="px-3 py-2 text-right font-normal">수익률</th>
+            <th className={`${TABLE_NAME_COL} px-3 py-2 text-left font-normal`}>종목</th>
+            <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} py-2 pr-3 text-right font-normal`}>수량</th>
+            <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} py-2 pr-3 text-right font-normal`}>평균 매수가</th>
+            <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} py-2 pr-3 text-right font-normal`}>현재가</th>
+            <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} py-2 pr-3 text-right font-normal`}>평가금액</th>
+            <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} py-2 pr-3 text-right font-normal`}>평가손익</th>
+            <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} py-2 pr-3 text-right font-normal`}>수익률</th>
           </tr>
         </thead>
         <tbody>
@@ -88,7 +89,7 @@ export default function PositionList({ positions, onSelectSymbol }: Props) {
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
                 {formatPrice(totalValue, single)}
-                <span className="ml-1 text-text-muted">/ 매수 {formatPrice(totalCost, single)}</span>
+                <span className="block text-caption text-text-muted">매수 {formatPrice(totalCost, single)}</span>
               </td>
               <td className={`px-3 py-2 text-right tabular-nums ${tone(totalPnl)}`}>
                 {formatSignedMoney(totalPnl, single)}

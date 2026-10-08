@@ -1,3 +1,4 @@
+import { TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { RemoveAllButton } from '../ui';
 import { Fragment } from 'react';
 import { usePageTab } from '../../hooks/usePageTab';
@@ -178,12 +179,12 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
           <thead className="whitespace-nowrap text-text-muted">
             <tr className="border-b border-border/50">
               <th className="py-1.5 pr-2">탐지일</th>
-              <th className="pr-2">종목</th>
-              <th className="pl-4 pr-2 text-right">점수</th>
+              <th className={`${TABLE_NAME_COL} pr-2`}>종목</th>
+              <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>점수</th>
               <th className="min-w-56 pr-4">예상일</th>
-              <th className="pl-4 pr-2 text-right">7일</th>
-              <th className="pl-4 pr-2 text-right">14일</th>
-              <th className="pl-4 pr-2 text-right">30일</th>
+              <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>7일</th>
+              <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>14일</th>
+              <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>30일</th>
               <th className="pl-4">실제 급등</th>
             </tr>
           </thead>

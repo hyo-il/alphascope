@@ -1,3 +1,4 @@
+import { TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { useState } from 'react';
 import { useSwingHistory } from '../../hooks/useSwing';
 import StockName from '../common/StockName';
@@ -111,17 +112,17 @@ function RecommendationHistory() {
           <thead className="text-text-muted">
             <tr className="border-b border-border/50">
               <th className="py-1.5 pr-2">추천일</th>
-              <th className="pr-2">종목</th>
+              <th className={`${TABLE_NAME_COL} pr-2`}>종목</th>
               <th className="pr-2">기준</th>
-              <th className="pl-4 pr-2 text-right">점수</th>
-              <th className="pl-4 pr-2 text-right">매수</th>
-              <th className="pl-4 pr-2 text-right">1차</th>
-              <th className="pl-4 pr-2 text-right">2차</th>
-              <th className="pl-4 pr-2 text-right">손절</th>
-              <th className="pl-4 pr-2 text-right">7일</th>
-              <th className="pl-4 pr-2 text-right">30일</th>
+              <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>점수</th>
+              <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>매수</th>
+              <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>1차</th>
+              <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>2차</th>
+              <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>손절</th>
+              <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>7일</th>
+              <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>30일</th>
               <th className="pl-4 pr-2">결과</th>
-              <th className="pl-4 text-right">수익률</th>
+              <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right`}>수익률</th>
             </tr>
           </thead>
           <tbody>

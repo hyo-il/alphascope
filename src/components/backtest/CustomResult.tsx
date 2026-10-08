@@ -3,7 +3,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, Sparkles } from 'lucide-react';
 import StockName from '../common/StockName';
 import { InlineSpinner } from '../common/LoadingOverlay';
-import { Badge, Button, InfoTip, Panel, Segmented, SectionTitle } from '../ui';
+import { Badge, Button, InfoTip, Panel, Segmented, SectionTitle, TABLE_FILL, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP, TABLE_TEXT_COL } from '../ui';
 import { ICON_SM } from '../ui/icon';
 import { toast } from '../../store/uiStore';
 import { exitReasonText, ruleConditionLine, type ExitReason } from '../../utils/autoTradeExplain';
@@ -73,6 +73,8 @@ function Row({ head, help, cells, hold }: { head: string; help?: string; cells: 
         </td>
       ))}
       <td className="py-2 text-right text-text-secondary">{hold}</td>
+      {/* 남는 폭은 마지막 빈 칸이 가져간다(기준표 「표」 — 방법 칸을 고르게 벌리지 않는다) */}
+      <td className={TABLE_FILL} />
     </tr>
   );
 }
@@ -95,9 +97,9 @@ function SymbolTable({ result }: { result: BacktestConditionResult }) {
       <table className="w-full text-caption tabular-nums [&_td+td]:pl-3 [&_th+th]:pl-3">
         <thead className="sticky top-0 whitespace-nowrap bg-bg-secondary text-text-muted">
           <tr className="border-b border-border/50">
-            <th className="py-1.5 text-left font-normal">종목 · 분야</th>
+            <th className={`${TABLE_NAME_COL} py-1.5 text-left font-normal`}>종목 · 분야</th>
             {COLS.map((c) => (
-              <th key={c.key} className="text-right font-normal" aria-sort={sort.key === c.key ? (sort.desc ? 'descending' : 'ascending') : 'none'}>
+              <th key={c.key} className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right font-normal`} aria-sort={sort.key === c.key ? (sort.desc ? 'descending' : 'ascending') : 'none'}>
                 <button
                   type="button"
                   onClick={() => setSort((cur) => ({ key: c.key, desc: cur.key === c.key ? !cur.desc : true }))}
@@ -231,11 +233,12 @@ export default function CustomResult({
               <tr className="border-b border-border/50">
                 <th className="py-1.5 text-left font-normal">종목 {symbolsCount}개 평균</th>
                 {cs.map((c) => (
-                  <th key={c.label} className="pr-3 text-right font-normal text-text-primary">
+                  <th key={c.label} className={`${TABLE_TEXT_COL} pr-3 text-right font-normal text-text-primary`}>
                     {methodName(c.label)}
                   </th>
                 ))}
-                <th className="text-right font-normal">들고 있기</th>
+                <th className={`${TABLE_TEXT_COL} text-right font-normal`}>들고 있기</th>
+                <th className={TABLE_FILL} />
               </tr>
             </thead>
             <tbody>
@@ -346,11 +349,12 @@ export default function CustomResult({
                 <tr className="border-b border-border/50">
                   <th className="py-1.5 text-left font-normal">구간</th>
                   {cs.map((c) => (
-                    <th key={c.label} className="text-right font-normal">
+                    <th key={c.label} className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right font-normal`}>
                       {methodName(c.label)}
                     </th>
                   ))}
-                  <th className="text-right font-normal">들고 있기</th>
+                  <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right font-normal`}>들고 있기</th>
+                  <th className={TABLE_FILL} />
                 </tr>
               </thead>
               <tbody>
@@ -368,6 +372,7 @@ export default function CustomResult({
                       </td>
                     ))}
                     <td className={`text-right ${tone(cs[0]?.segmentRows[k]?.hold)}`}>{pct(cs[0]?.segmentRows[k]?.hold)}</td>
+                    <td className={TABLE_FILL} />
                   </tr>
                 ))}
               </tbody>
