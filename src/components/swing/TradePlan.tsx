@@ -1,3 +1,4 @@
+import { formatSigned, formatPrice } from '../../utils/formatters';
 import type { SwingRecommendation } from '../../types/swing';
 
 /**
@@ -23,7 +24,7 @@ export default function TradePlan({
   }
 
   const money = (value: number) =>
-    currency === 'KRW' ? `₩${Math.round(value).toLocaleString('ko-KR')}` : `$${value.toFixed(2)}`;
+    formatPrice(value, currency);
 
   const rows: { price: number; label: string; percent: number | null; tone: string }[] = [
     { price: target2.price, label: '2차 목표', percent: target2.percent, tone: 'text-bullish' },
@@ -56,7 +57,7 @@ export default function TradePlan({
               <td className={`w-[68px] py-0.5 pr-2 ${row.tone}`}>{row.label}</td>
               <td className={`w-[64px] py-0.5 pr-1 text-right ${row.tone}`}>
                 {row.percent != null
-                  ? `${row.percent > 0 ? '+' : ''}${row.percent.toFixed(1)}%`
+                  ? `${formatSigned(row.percent, 1)}%`
                   : '기준'}
               </td>
             </tr>

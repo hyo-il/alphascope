@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { SkeletonList } from '../common/SkeletonLoader';
 import { analysisModeLabel } from '../../types/analysis';
 import type { Timeframe } from '../../types/toss';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatSigned } from '../../utils/formatters';
 import { currencyOfSymbol } from '../../utils/market';
 import { modal, toast } from '../../store/uiStore';
 
@@ -263,8 +263,7 @@ export default function AnalysisHistory({
                     {record.symbol === symbol && priceChange != null && (
                       <span className={priceChange >= 0 ? ' text-bullish' : ' text-bearish'}>
                         {' '}
-                        → 현재 {priceChange > 0 ? '+' : ''}
-                        {priceChange.toFixed(2)}%
+                        → 현재 {formatSigned(priceChange, 2, '%')}
                       </span>
                     )}
                   </span>

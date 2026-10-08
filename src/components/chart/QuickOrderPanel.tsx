@@ -1,3 +1,6 @@
+import Button from '../ui/Button';
+import Segmented from '../ui/Segmented';
+import { ORDER_INDENT, ORDER_LABEL_W, ORDER_TRAIL_W } from '../ui/tokens';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import NumberField from '../ui/NumberField';
@@ -5,7 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { OrderSide, OrderType, PaperOrder, PaperPositionValued } from '../../types/paper';
 import { cancelPaperOrder, submitOrder, usePaperAccounts } from '../../hooks/usePaperTrading';
 import { modal, toast } from '../../store/uiStore';
-import { formatPrice, formatSignedMoney } from '../../utils/formatters';
+import { formatPrice, formatSignedMoney, formatSigned } from '../../utils/formatters';
 import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
 import { stockNameOf } from '../../utils/stockNames';
@@ -252,7 +255,7 @@ export default function QuickOrderPanel({
             const t = result.trade!;
             const pnl =
               t.pnl != null
-                ? ` · 실현손익 ${formatPrice(t.pnl, currency)} (${t.pnlPercent?.toFixed(2)}%)`
+                ? ` · 실현손익 ${formatSignedMoney(t.pnl, currency)} (${formatSigned(t.pnlPercent, 2, '%')})`
                 : '';
             toast.success(
               `${label} 체결`,
@@ -342,9 +345,10 @@ export default function QuickOrderPanel({
           ))}
         </Select>
 
-        {/* 수량 */}
-        <div className="space-y-1 rounded-md bg-bg-tertiary/50 px-2 py-1.5">
+        {/* 수량 — 「이름 | 입력칸 | 주·%」 (v2.42.2: 가격 줄과 같은 세 칸 폭이라 입력칸 양쪽 끝이 맞는다) */}
+        <div className="space-y-1">
           <div className="flex items-center gap-1.5">
+            <span className={`shrink-0 text-caption text-text-muted ${ORDER_LABEL_W}`}>수량</span>
             <NumberField size="sm"
               min={0}
               max={unit === 'percent' ? 100 : undefined}
@@ -354,23 +358,24 @@ export default function QuickOrderPanel({
                   ? setQuantity(Math.max(0, Number(e.target.value)))
                   : setPercent(Math.min(100, Math.max(0, Number(e.target.value))))
               }
+              aria-label={unit === 'shares' ? '수량(주)' : '수량(현금의 %)'}
               className="min-w-0 flex-1" />
-            {(['shares', 'percent'] as const).map((u) => (
-              <button
-                key={u}
-                type="button"
-                onClick={() => setUnit(u)}
-                className={`rounded px-1.5 py-1 text-caption transition-colors ${
-                  unit === u ? 'bg-bg-elevated font-medium text-text-primary' : 'text-text-muted hover:bg-bg-tertiary'
-                }`}
-              >
-                {u === 'shares' ? '주' : '%'}
-              </button>
-            ))}
+            <div className={`shrink-0 ${ORDER_TRAIL_W} [&>div]:w-full [&_button]:flex-1`}>
+              <Segmented
+                label="수량 단위"
+                size="sm"
+                value={unit}
+                onChange={setUnit}
+                options={[
+                  { value: 'shares', label: '주' },
+                  { value: 'percent', label: '%' },
+                ]}
+              />
+            </div>
           </div>
 
-          {/* 프리셋은 단위에 따라 통째로 바뀐다 */}
-          <div className="flex gap-1">
+          {/* 프리셋은 단위에 따라 통째로 바뀐다 — 입력칸 왼쪽 끝부터 오른쪽 버튼 칸 끝까지 */}
+          <div className={`flex gap-1 ${ORDER_INDENT}`}>
             {unit === 'shares' ? (
               <>
                 {SHARE_PRESETS.map((n) => (
@@ -416,7 +421,7 @@ export default function QuickOrderPanel({
 
         {/* 가격 칸 (지정가) — 호가 가격을 누르면 그 가격으로 채워진다 */}
         <div className="flex items-center gap-1.5">
-          <span className="shrink-0 text-caption text-text-muted">가격</span>
+          <span className={`shrink-0 text-caption text-text-muted ${ORDER_LABEL_W}`}>가격</span>
           <Input
             size="sm"
             type="text"
@@ -429,19 +434,20 @@ export default function QuickOrderPanel({
             aria-label="지정가 가격"
             title="지정가 — 매수는 현재가가 이 가격 이하, 매도는 이 가격 이상이면 체결됩니다"
             invalid={Boolean(limitText) && limitPrice == null}
-            className="flex-1 text-right tabular-nums"
+            className="min-w-0 flex-1 text-right tabular-nums"
           />
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => {
               if (price != null) setLimitText(priceText(price, currency));
               setTouched(false);
             }}
             disabled={price == null}
-            className="shrink-0 whitespace-nowrap rounded bg-bg-tertiary px-1.5 py-1 text-caption text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-40"
+            className={`shrink-0 ${ORDER_TRAIL_W}`}
           >
             현재가
-          </button>
+          </Button>
         </div>
 
         {/* 가능 수량 · 예상 금액 — 가격 칸(지정가) 기준. 시장가 주문은 확인 창에서 현재가로 다시 낸다 */}

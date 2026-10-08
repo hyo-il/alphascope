@@ -1,3 +1,4 @@
+import { displayMinus, formatSigned } from '../../utils/formatters';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
 import HelpBox from '../common/HelpBox';
@@ -23,7 +24,7 @@ import TrashIcon from '../common/TrashIcon';
  */
 
 const signed = (v: number | null | undefined, suffix = '%') =>
-  v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}${suffix}`;
+  v == null ? '—' : `${formatSigned(v, 2)}${suffix}`;
 const plain = (v: number | null | undefined, suffix = '%') => (v == null ? '—' : `${v}${suffix}`);
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
 const tone = (v: number | null | undefined) =>
@@ -81,7 +82,7 @@ function judge(o: {
 }): Judgement {
   if (o.weak) return { verdict: 'hold', why: o.weakWhy };
   if (!isNum(o.value) || !isNum(o.base)) return { verdict: 'hold', why: '비교할 숫자가 없는 리포트라 판단 보류' };
-  const fmt = (v: number) => `${o.signed && v > 0 ? '+' : ''}${v}${o.unit}`;
+  const fmt = (v: number) => displayMinus(`${o.signed && v > 0 ? '+' : ''}${v}${o.unit}`);
   const good = o.value > o.base;
   return {
     verdict: good ? 'good' : 'bad',

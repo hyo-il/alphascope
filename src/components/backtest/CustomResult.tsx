@@ -1,3 +1,4 @@
+import { formatSigned, formatNumber } from '../../utils/formatters';
 import { MDD_HELP, PF_HELP } from '../../data/indicatorHelp';
 import { useMemo, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, Sparkles } from 'lucide-react';
@@ -18,8 +19,8 @@ import { fixMethodNames, methodName, type BacktestConditionResult, type Backtest
  * - 거래 10회 미만 종목이 절반 이상인 조건은 「결론 내기 어려움」, 그 조건의 숫자는 색칠하지 않는다.
  * - 종목별 표는 조건 하나를 골라 본다. 숫자는 모두 종목 평균(동일 가중)·수수료 왕복 0.30%p 포함. "기간 전체" = 1년 구간 수익률을 복리로 이은 값.
  */
-const pct = (v: number | null | undefined) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%`);
-const pp = (v: number | null | undefined) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%p`);
+const pct = (v: number | null | undefined) => (v == null ? '—' : `${formatSigned(v, 2)}%`);
+const pp = (v: number | null | undefined) => (v == null ? '—' : `${formatSigned(v, 2)}%p`);
 const tone = (v: number | null | undefined) => (v == null ? '' : v > 0 ? 'text-bullish' : v < 0 ? 'text-bearish' : '');
 const mddTone = (v: number | null | undefined) => (v != null && v < 0 ? 'text-bearish' : '');
 const pfTone = (v: number | null | undefined) => (v == null ? '' : v >= 1 ? 'text-bullish' : 'text-bearish');
@@ -127,9 +128,9 @@ function SymbolTable({ result }: { result: BacktestConditionResult }) {
                 {x.trades}
                 {x.trades < 10 && <span className="text-text-muted"> (적음)</span>}
               </td>
-              <td className="text-right">{x.winRate == null ? '—' : `${x.winRate}%`}</td>
+              <td className="text-right">{x.winRate == null ? '—' : formatNumber(x.winRate, 2, '%')}</td>
               <td className={`text-right ${tone(x.avgReturn)}`}>{pct(x.avgReturn)}</td>
-              <td className="text-right">{x.stopRate == null ? '—' : `${x.stopRate}%`}</td>
+              <td className="text-right">{x.stopRate == null ? '—' : formatNumber(x.stopRate, 2, '%')}</td>
             </tr>
           ))}
         </tbody>
@@ -293,7 +294,7 @@ export default function CustomResult({
                 head="이긴 거래 · 한 번 평균 · 횟수"
                 cells={cs.map((c) => (
                   <span>
-                    <span className="whitespace-nowrap">{c.summary.winRate == null ? '—' : `${c.summary.winRate}%`} · </span>
+                    <span className="whitespace-nowrap">{c.summary.winRate == null ? '—' : formatNumber(c.summary.winRate, 2, '%')} · </span>
                     <wbr />
                     <span className={`whitespace-nowrap ${tone(c.summary.avgTradeReturn)}`}>{pct(c.summary.avgTradeReturn)}</span>
                     <span className="whitespace-nowrap"> · {c.summary.avgTrades ?? 0}번</span>

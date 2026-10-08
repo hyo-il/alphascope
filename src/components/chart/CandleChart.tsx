@@ -1,3 +1,4 @@
+import { formatSigned } from '../../utils/formatters';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { modal } from '../../store/uiStore';
 import {
@@ -785,8 +786,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
                 fontSize={14}
                 fontWeight={600}
               >
-                {pending.percent >= 0 ? '+' : ''}
-                {pending.percent.toFixed(2)}%
+                {formatSigned(pending.percent, 2, '%')}
               </text>
             )}
           </svg>

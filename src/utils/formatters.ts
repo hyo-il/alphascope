@@ -46,15 +46,47 @@ export function formatUsd(value: number | null | undefined): string {
   })}`;
 }
 
-export function formatPercent(value: number | null | undefined): string {
+/**
+ * 화면의 음수 기호 (v2.42.2 — 기준표 「화면 음수 = −」). 하이픈(-)은 줄표·구분 기호와 헷갈려 마이너스 기호(U+2212)로 쓴다.
+ * ⚠️ **화면 전용** — 이 파일(`utils/formatters.ts`)은 분석 프롬프트·서버가 쓰지 않는다. 프롬프트·서버 문장·CSV 로 나가는 숫자는 바꾸지 않는다.
+ */
+export const MINUS = '−';
+
+/** 문장 속 하이픈 음수(`-4.11%` · `-$12` · `(-0.5)`)만 마이너스 기호로 — 날짜(2026-10-08)·범위(1-3)·D-14 는 그대로 */
+export function displayMinus(text: string): string {
+  return text.replace(/(^|[^\w.,)\]])-(?=[$₩]?\d)/g, `$1${MINUS}`);
+}
+
+/**
+ * 부호 있는 숫자 — `+1.23%` · `−1.23%` · `0.00%`(반올림해 0 이면 부호 없음). 화면 전용.
+ * `plus: false` 면 양수에 + 를 붙이지 않는다(MDD 처럼 늘 음수인 값 등).
+ */
+export function formatSigned(
+  value: number | null | undefined,
+  digits = 2,
+  suffix = '',
+  { plus = true }: { plus?: boolean } = {},
+): string {
   if (value == null || !Number.isFinite(value)) return '—';
-  const sign = value > 0 ? '+' : '';
-  return `${sign}${value.toFixed(2)}%`;
+  // 4자리 이상은 천 단위 쉼표(+1,010.53%)
+  const body = Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  if (Number(body.replace(/,/g, '')) === 0) return `${body}${suffix}`;
+  return `${value < 0 ? MINUS : plus ? '+' : ''}${body}${suffix}`;
+}
+
+/** 부호 없이(양수에 + 를 붙이지 않고) 숫자 — 천 단위 쉼표 · 음수는 마이너스 기호. 화면 전용 (v2.42.2) */
+export function formatNumber(value: number | null | undefined, digits = 2, suffix = ''): string {
+  return formatSigned(value, digits, suffix, { plus: false });
+}
+
+export function formatPercent(value: number | null | undefined): string {
+  return formatSigned(value, 2, '%');
 }
 
 export function formatCompact(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—';
-  return Intl.NumberFormat('ko-KR', { notation: 'compact' }).format(value);
+  // 압축 표기에도 천 단위 쉼표(1,021억 · 4,035만, v2.42.2) — ko-KR compact 기본은 쉼표가 없다. 음수는 마이너스 기호
+  return displayMinus(Intl.NumberFormat('ko-KR', { notation: 'compact', useGrouping: 'always' } as unknown as Intl.NumberFormatOptions).format(value));
 }
 
 /**

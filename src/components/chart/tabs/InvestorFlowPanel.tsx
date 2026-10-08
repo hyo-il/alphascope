@@ -1,3 +1,5 @@
+import { displayMinus, formatSigned } from '../../../utils/formatters';
+import { PANEL_PAD } from '../../ui/tokens';
 import { useInvestorFlow } from '../../../hooks/useInvestorFlow';
 import {
   FLOW_SIDE_LABEL,
@@ -24,7 +26,7 @@ const SIDE_COLOR: Record<FlowSideKey, string> = {
 };
 const SIDES: FlowSideKey[] = ['foreigner', 'institution', 'individual'];
 
-const signed = (n: number) => `${n > 0 ? '+' : ''}${Math.round(n).toLocaleString('ko-KR')}`;
+const signed = (n: number) => displayMinus(`${n > 0 ? '+' : ''}${Math.round(n).toLocaleString('ko-KR')}`);
 const tone = (n: number) => (n > 0 ? 'text-bullish' : n < 0 ? 'text-bearish' : 'text-text-secondary');
 const mmdd = (date: string) => date.slice(5);
 
@@ -39,19 +41,19 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
 
   if (!supported) {
     return (
-      <p className="p-3 text-caption text-text-muted">
+      <p className={`${PANEL_PAD} text-caption text-text-muted`}>
         투자자 동향은 국내 종목만 제공됩니다(토스 API 제공 범위).
       </p>
     );
   }
-  if (error) return <p className="p-3 text-caption text-danger">투자자 동향을 불러오지 못했습니다: {error}</p>;
-  if (!flow) return <p className="p-3 text-caption text-text-muted">불러오는 중…</p>;
+  if (error) return <p className={`${PANEL_PAD} text-caption text-danger`}>투자자 동향을 불러오지 못했습니다: {error}</p>;
+  if (!flow) return <p className={`${PANEL_PAD} text-caption text-text-muted`}>불러오는 중…</p>;
 
   const period = flow.period;
   const holding = holdingSummary(flow.records);
 
   return (
-    <div className="space-y-3 p-3 text-caption">
+    <div className={`space-y-3 ${PANEL_PAD} text-caption`}>
       <div>
         <p className="mb-1 text-text-secondary">
           {period
@@ -69,8 +71,7 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
                 {' · '}
                 {holding.baseDate ? `${mmdd(holding.baseDate)} 대비 ` : ''}
                 <span className={tone(holding.diffPp)}>
-                  {holding.diffPp > 0 ? '+' : ''}
-                  {holding.diffPp.toFixed(2)}%p
+                  {formatSigned(holding.diffPp, 2, '%p')}
                 </span>
               </>
             )}

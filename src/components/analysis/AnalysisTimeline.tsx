@@ -2,7 +2,7 @@ import Select from '../ui/Select';
 import Button from '../ui/Button';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GeminiAnalysis } from '../../types/gemini';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatSigned } from '../../utils/formatters';
 import { currencyOfSymbol } from '../../utils/market';
 import { modal, toast } from '../../store/uiStore';
 import AISourceBadge from './AISourceBadge';
@@ -391,8 +391,7 @@ function ClaudeCard({
           {change != null && (
             <span className={change >= 0 ? 'text-bullish' : 'text-bearish'}>
               {' '}
-              → 현재 {change >= 0 ? '+' : ''}
-              {change.toFixed(2)}%
+              → 현재 {formatSigned(change, 2, '%')}
             </span>
           )}
         </p>

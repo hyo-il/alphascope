@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import type { SymbolSummary } from '../../types/analysis';
 import type { Fundamentals } from '../../types/company';
-import { changeColor, formatCompactMoney, formatPrice } from '../../utils/formatters';
+import { changeColor, formatCompactMoney, formatPrice, formatSigned, formatNumber } from '../../utils/formatters';
 
 /**
  * 기업정보 비교 테이블 — 행이 항목, 열이 종목이다.
@@ -34,11 +34,11 @@ interface Row {
 }
 
 const num = (value: number | null | undefined, digits = 2, suffix = ''): string =>
-  value == null || !Number.isFinite(value) ? NONE : `${value.toFixed(digits)}${suffix}`;
+  value == null || !Number.isFinite(value) ? NONE : formatNumber(value, digits, suffix);
 
 /** yfinance 의 비율은 소수다 (0.2762 = 27.62%) */
 const pct = (value: number | null | undefined, digits = 1): string =>
-  value == null || !Number.isFinite(value) ? NONE : `${(value * 100).toFixed(digits)}%`;
+  value == null || !Number.isFinite(value) ? NONE : formatNumber(value * 100, digits, '%');
 
 /** 현재가 대비 기준선의 괴리율 */
 function gap(price: number | null | undefined, line: number | null | undefined): number | null {
@@ -218,7 +218,7 @@ const SECTIONS: { id: string; label: string; rows: Row[] }[] = [
         label,
         text: (c: Cell) => {
           const value = gap(c.summary?.price, c.summary?.indicators[key]);
-          return value == null ? NONE : `${value > 0 ? '+' : ''}${value.toFixed(2)}%`;
+          return value == null ? NONE : `${formatSigned(value, 2)}%`;
         },
         tone: (c: Cell) => {
           const value = gap(c.summary?.price, c.summary?.indicators[key]);

@@ -1,3 +1,4 @@
+import { formatSigned } from '../../utils/formatters';
 import StockName from '../common/StockName';
 import type { HeatmapSector } from '../../types/heatmap';
 
@@ -10,7 +11,7 @@ import type { HeatmapSector } from '../../types/heatmap';
  * [보기] 에서 끈 분야(v2.27.0)는 순위에서 지우지 않고 흐리게 둔다 — 순위는 그대로 읽히고, 누르면 강조 대신 아무 일도 없다.
  */
 
-const pct = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
+const pct = (v: number) => `${formatSigned(v, 2)}%`;
 const tone = (v: number) => (v > 0 ? 'text-bullish' : v < 0 ? 'text-bearish' : 'text-text-secondary');
 
 export default function SectorRanking({
@@ -54,14 +55,13 @@ export default function SectorRanking({
                   상승 {s.up}/{s.counted}
                 </span>
                 <span className={tone(s.vsMarket)} title="시장 평균(시총 가중) 대비">
-                  시장 대비 {s.vsMarket > 0 ? '+' : ''}
-                  {s.vsMarket.toFixed(2)}%p
+                  시장 대비 {formatSigned(s.vsMarket, 2, '%p')}
                 </span>
                 {s.excluded > 0 && <span title="N거래일 전 종가가 없어 뺀 종목">제외 {s.excluded}</span>}
               </div>
               <div className="ml-5 mt-0.5 flex flex-wrap gap-x-2 text-caption text-text-secondary">
                 {s.top.map((t) => (
-                  <span key={t.symbol} className="inline-flex items-baseline gap-0.5" title={`섹터 수익률 기여 ${t.contribution.toFixed(2)}%p`}>
+                  <span key={t.symbol} className="inline-flex items-baseline gap-0.5" title={`섹터 수익률 기여 ${formatSigned(t.contribution, 2, '%p', { plus: false })}`}>
                     <StockName symbol={t.symbol} name={t.name ?? undefined} size="sm" />
                     <span className={`tabular-nums ${tone(t.returnPct)}`}>{pct(t.returnPct)}</span>
                   </span>

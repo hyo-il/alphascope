@@ -1,3 +1,4 @@
+import { formatSigned } from '../../utils/formatters';
 import Segmented from '../ui/Segmented';
 import NumberField from '../ui/NumberField';
 import Button from '../ui/Button';
@@ -683,7 +684,7 @@ function EasyQuestion<T extends string | number>({
   );
 }
 
-const pct = (v: number | null) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%`);
+const pct = (v: number | null) => (v == null ? '—' : `${formatSigned(v, 2)}%`);
 const rate = (v: number | null | undefined) => (v == null ? '—' : `${v}%`);
 
 /**

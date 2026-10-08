@@ -1,3 +1,5 @@
+import { formatSigned, formatNumber } from '../../../utils/formatters';
+import { PANEL_PAD } from '../../ui/tokens';
 import { currencyOfSymbol } from '../../../utils/market';
 import { TIMEFRAME_LABEL, type Candle, type Timeframe } from '../../../types/toss';
 
@@ -67,13 +69,13 @@ export default function IndicatorSummaryPanel({
   currentPrice: number | null;
 }) {
   const summary = summarize(candles);
-  if (!summary) return <p className="p-3 text-xs text-text-muted">{loading ? '캔들을 불러오는 중…' : '캔들이 없습니다.'}</p>;
+  if (!summary) return <p className={`${PANEL_PAD} text-xs text-text-muted`}>{loading ? '캔들을 불러오는 중…' : '캔들이 없습니다.'}</p>;
 
   const price = currentPrice ?? summary.price;
   // 장중에는 마지막 봉이 미완성이라 거래량이 평균의 몇 % 로 찍힌다 — 완성 봉 기준으로 본다.
   const volume = completedVolumeRatio(candles, timeframe, 20, symbol);
   /** 가격 숫자는 통화 규칙대로 — 원화는 소수점 없이(예전 toFixed(2) 라 「267550.00」), 달러는 소수 둘째 자리 (v2.42.0) */
-  const px = (v: number) => (currencyOfSymbol(symbol) === 'KRW' ? Math.round(v).toLocaleString('ko-KR') : v.toFixed(2));
+  const px = (v: number) => (currencyOfSymbol(symbol) === 'KRW' ? Math.round(v).toLocaleString('ko-KR') : formatNumber(v, 2));
   // 봉 단위를 문구에 드러낸다 — 주봉에서 "20일선" 이라 쓰면 20주 평균을 20일로 읽는다 (v2.20.0)
   const unit = UNIT[timeframe] ?? { line: '봉선', range: '한 봉' };
 
@@ -121,7 +123,7 @@ export default function IndicatorSummaryPanel({
           : '중단 부근';
 
   return (
-    <div className="@container p-3 text-caption">
+    <div className={`@container ${PANEL_PAD} text-caption`}>
       {(timeframe === '1w' || timeframe === '1M') && (
         <p className="mb-1.5 text-text-muted">
           {TIMEFRAME_LABEL[timeframe]} 기준 — 이동평균·RSI·MACD·거래량 비교가 모두 {TIMEFRAME_LABEL[timeframe]}으로 계산됩니다.
@@ -137,7 +139,7 @@ export default function IndicatorSummaryPanel({
         />
         <Row
           label="MACD"
-          value={summary.macd == null ? '—' : summary.macd.histogram.toFixed(3)}
+          value={summary.macd == null ? '—' : formatSigned(summary.macd.histogram, 3, '', { plus: false })}
           note={macdNote}
         />
         <Row

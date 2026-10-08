@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { PeerSummary } from '../../types/company';
-import { formatCompactMoney } from '../../utils/formatters';
+import { formatCompactMoney, formatNumber } from '../../utils/formatters';
 import { isKrSymbol } from '../../utils/market';
 import { sectorKo } from '../../data/sectors';
 import { PEER_MAX } from '../../data/peerPairs';
@@ -19,7 +19,7 @@ interface Props {
 type Money = 'KRW' | 'USD';
 
 function fixed(value: number | null, digits = 2): string {
-  return value == null || !Number.isFinite(value) ? '—' : value.toFixed(digits);
+  return value == null || !Number.isFinite(value) ? '—' : formatNumber(value, digits);
 }
 
 /** 업종 중앙값 — 이상치에 덜 흔들리도록 중앙값을 쓴다. 보이는 종목으로 낸다 */
@@ -141,7 +141,7 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
                     <td className="py-1.5 px-2 text-right">{cap(peer)}</td>
                     <td className="py-1.5 px-2 text-right">{fixed(peer.per)}</td>
                     <td className="py-1.5 px-2 text-right">{fixed(peer.pbr)}</td>
-                    <td className="py-1.5 px-2 text-right">{peer.profitMargin == null ? '—' : `${(peer.profitMargin * 100).toFixed(1)}%`}</td>
+                    <td className="py-1.5 px-2 text-right">{peer.profitMargin == null ? '—' : formatNumber(peer.profitMargin * 100, 1, '%')}</td>
                     <td className="py-1.5 pl-2 text-right">{peer.dividendYield == null ? '—' : `${peer.dividendYield.toFixed(2)}%`}</td>
                   </tr>
                 );

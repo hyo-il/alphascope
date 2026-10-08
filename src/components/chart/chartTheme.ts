@@ -13,7 +13,7 @@ import {
   type SeriesMarker,
   type UTCTimestamp,
 } from 'lightweight-charts';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatSigned } from '../../utils/formatters';
 import type { VisibleExtent } from './ChartInfoBar';
 import type { Candle } from '../../types/toss';
 import {
@@ -170,8 +170,9 @@ export const BASE_CHART_OPTIONS = {
  * 예전에는 시리즈 기본값(소수 2자리)이라 국내 종목 가격 축이 "200000.00" 으로 보였다. 값은 그대로, 표시만 바뀐다.
  */
 export function priceFormatOf(currency: 'KRW' | 'USD' | string | null | undefined) {
+  // 원화는 천 단위 쉼표(263,500 — v2.42.2, 예전 263500). 축 눈금·현재가 라벨·십자선 값이 모두 이 형식을 쓴다. 달러는 그대로(소수 둘째 자리)
   return currency === 'KRW'
-    ? { type: 'price' as const, precision: 0, minMove: 1 }
+    ? { type: 'custom' as const, minMove: 1, formatter: (p: number) => Math.round(p).toLocaleString('ko-KR') }
     : { type: 'price' as const, precision: 2, minMove: 0.01 };
 }
 
@@ -224,7 +225,7 @@ export function drawExtremeMarkers(
 
   const label = (price: number, at: number) => {
     const gap = current != null && price > 0 ? ((current - price) / price) * 100 : null;
-    const rate = gap == null ? '' : `${gap > 0 ? '+' : ''}${gap.toFixed(2)}%, `;
+    const rate = gap == null ? '' : `${formatSigned(gap, 2)}%, `;
     const date = new Date(at);
     const when = intraday
       ? `${pad2(date.getMonth() + 1)}.${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`

@@ -1,6 +1,6 @@
 import { TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import type { PaperPositionValued } from '../../types/paper';
-import { formatPrice, formatSignedMoney } from '../../utils/formatters';
+import { formatPrice, formatSignedMoney, formatSigned } from '../../utils/formatters';
 
 interface Props {
   positions: PaperPositionValued[];
@@ -75,7 +75,7 @@ export default function PositionList({ positions, onSelectSymbol }: Props) {
               </td>
               <td className={`px-3 py-2 text-right tabular-nums ${tone(p.unrealizedPnlPercent)}`}>
                 {p.unrealizedPnlPercent != null
-                  ? `${p.unrealizedPnlPercent > 0 ? '+' : ''}${p.unrealizedPnlPercent.toFixed(2)}%`
+                  ? `${formatSigned(p.unrealizedPnlPercent, 2)}%`
                   : '—'}
               </td>
             </tr>
@@ -95,7 +95,7 @@ export default function PositionList({ positions, onSelectSymbol }: Props) {
                 {formatSignedMoney(totalPnl, single)}
               </td>
               <td className={`px-3 py-2 text-right tabular-nums ${tone(totalPnl)}`}>
-                {totalCost ? `${totalPnl > 0 ? '+' : ''}${((totalPnl / totalCost) * 100).toFixed(2)}%` : '—'}
+                {totalCost ? formatSigned((totalPnl / totalCost) * 100, 2, '%') : '—'}
               </td>
             </tr>
           </tfoot>

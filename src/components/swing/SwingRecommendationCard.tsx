@@ -1,3 +1,4 @@
+import { formatPrice } from '../../utils/formatters';
 import WarnIcon from '../ui/WarnIcon';
 import Badge from '../ui/Badge';
 import type { ReactNode } from 'react';
@@ -45,9 +46,7 @@ export default function SwingRecommendationCard({
         <Badge tone={grade.tone}>{grade.label}</Badge>
         <StockName symbol={recommendation.symbol} name={recommendation.name} wrap className="text-sm font-semibold" />
         <span className="text-caption text-text-secondary">
-          {currency === 'KRW'
-            ? `₩${Math.round(recommendation.currentPrice).toLocaleString('ko-KR')}`
-            : `$${recommendation.currentPrice.toFixed(2)}`}
+          {formatPrice(recommendation.currentPrice, currency)}
         </span>
         <span className="ml-auto text-sm font-semibold tabular-nums">
           점수 {recommendation.score}/100

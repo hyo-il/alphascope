@@ -1,3 +1,4 @@
+import { formatSigned } from '../../utils/formatters';
 import { useEffect, useRef, useState } from 'react';
 import {
   LineSeries,
@@ -73,7 +74,7 @@ export default function PerformanceChart({ snapshots }: Props) {
       priceLineVisible: false,
       crosshairMarkerVisible: true,
       pointMarkersVisible: true,
-      priceFormat: { type: 'custom', formatter: (v: number) => `${v.toFixed(2)}%` },
+      priceFormat: { type: 'custom', formatter: (v: number) => formatSigned(v, 2, '%', { plus: false }) },
     });
     // 0% 기준선 — 이 위/아래가 곧 손익이다.
     series.createPriceLine({
@@ -123,11 +124,10 @@ export default function PerformanceChart({ snapshots }: Props) {
         {stats.ret != null && (
           <span className="mr-auto flex items-center gap-2 text-caption tabular-nums">
             <span className={stats.ret >= 0 ? 'text-bullish' : 'text-bearish'}>
-              구간 {stats.ret > 0 ? '+' : ''}
-              {stats.ret.toFixed(2)}%
+              구간 {formatSigned(stats.ret, 2, '%')}
             </span>
             {stats.mdd != null && (
-              <span className="text-text-muted">MDD {stats.mdd.toFixed(2)}%</span>
+              <span className="text-text-muted">MDD {formatSigned(stats.mdd, 2, '%', { plus: false })}</span>
             )}
           </span>
         )}

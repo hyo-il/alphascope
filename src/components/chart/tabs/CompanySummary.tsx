@@ -1,10 +1,11 @@
+import { PANEL_PAD, PANEL_X } from '../../ui/tokens';
 import { useState } from 'react';
 import type { Candle } from '../../../types/toss';
 import { useFundamentals, usePeers } from '../../../hooks/useCompany';
 import { Skeleton, SkeletonCards } from '../../common/SkeletonLoader';
 import FinancialStatements from '../../company/FinancialStatements';
 import SectorComparison from '../../company/SectorComparison';
-import { formatCompactMoney, formatPrice } from '../../../utils/formatters';
+import { formatCompactMoney, formatPrice, formatNumber } from '../../../utils/formatters';
 import { currencyOfSymbol, isKrSymbol } from '../../../utils/market';
 import { industryKo, sectorKo } from '../../../data/sectors';
 import StockName from '../../common/StockName';
@@ -29,11 +30,11 @@ const SUB_TABS: { id: SubTab; label: string }[] = [
 ];
 
 function ratio(value: number | null | undefined): string {
-  return value == null || !Number.isFinite(value) ? '—' : `${(value * 100).toFixed(2)}%`;
+  return value == null || !Number.isFinite(value) ? '—' : formatNumber(value * 100, 2, '%');
 }
 
 function fixed(value: number | null | undefined, digits = 2): string {
-  return value == null || !Number.isFinite(value) ? '—' : value.toFixed(digits);
+  return value == null || !Number.isFinite(value) ? '—' : formatNumber(value, digits);
 }
 
 /** 업종 중앙값 — 이상치에 덜 흔들리도록 평균 대신 중앙값을 쓴다 (SectorComparison 과 같은 방침) */
@@ -75,7 +76,7 @@ export default function CompanySummary({
   const low52 = window.length ? Math.min(...window.map((c) => c.low)) : null;
 
   const header = (
-    <div className="shrink-0 px-1">
+    <div className={`shrink-0 ${PANEL_X}`}>
       <Tabs items={SUB_TABS} value={tab} onChange={setTab} size="sm" label="기업정보 하위 탭" />
     </div>
   );
@@ -84,7 +85,7 @@ export default function CompanySummary({
     return (
       <div className="flex h-full flex-col">
         {header}
-        <div className="space-y-2 p-3">
+        <div className={`space-y-2 ${PANEL_PAD}`}>
           <Skeleton className="h-4 w-56" />
           <SkeletonCards count={4} className="grid-cols-2 md:grid-cols-4" />
         </div>
@@ -96,7 +97,7 @@ export default function CompanySummary({
     return (
       <div className="flex h-full flex-col">
         {header}
-        <div className="p-3">
+        <div className={PANEL_PAD}>
           <p className="text-xs text-danger">기업 정보를 불러오지 못했습니다</p>
           <p className="mt-1 text-caption text-text-secondary">{error}</p>
         </div>
@@ -126,7 +127,7 @@ export default function CompanySummary({
     <div className="flex h-full flex-col">
       {header}
 
-      <div className="min-h-0 flex-1 overflow-auto p-3">
+      <div className={`min-h-0 flex-1 overflow-auto ${PANEL_PAD}`}>
         {tab === 'basic' && (
           <div className="space-y-2">
             {kr ? (

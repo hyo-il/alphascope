@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { Orderbook, OrderbookLevel } from '../../types/toss';
-import { formatCompact } from '../../utils/formatters';
+import { formatCompact, formatSigned, formatNumber } from '../../utils/formatters';
 
 interface Props {
   orderbook: Orderbook | null;
@@ -70,7 +70,7 @@ function Row({
     </div>
   );
 
-  const label = currency === 'KRW' ? Math.round(level.price).toLocaleString('ko-KR') : level.price.toFixed(2);
+  const label = currency === 'KRW' ? Math.round(level.price).toLocaleString('ko-KR') : formatNumber(level.price, 2);
   /* 가격 칸 = 버튼(키보드로도) — 누르면 빠른주문 가격 칸이 이 가격으로 채워진다 */
   const price = (
     <button
@@ -85,8 +85,7 @@ function Row({
       <span className={`block whitespace-nowrap text-xs font-medium leading-tight tabular-nums ${priceColor}`}>{label}</span>
       {rate != null && (
         <span className={`block whitespace-nowrap text-caption leading-tight tabular-nums ${priceColor} opacity-70`}>
-          {rate > 0 ? '+' : ''}
-          {rate.toFixed(2)}%
+          {formatSigned(rate, 2, '%')}
         </span>
       )}
     </button>
@@ -268,7 +267,7 @@ export default function OrderbookPanel({
 
             {spread != null && (
               <p className="mt-1.5 text-center text-caption text-text-muted">
-                스프레드 {currency === 'KRW' ? Math.round(spread).toLocaleString('ko-KR') : spread.toFixed(2)}
+                스프레드 {currency === 'KRW' ? Math.round(spread).toLocaleString('ko-KR') : formatNumber(spread, 2)}
               </p>
             )}
           </div>

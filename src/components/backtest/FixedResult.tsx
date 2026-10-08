@@ -1,3 +1,4 @@
+import { formatNumber, formatSigned } from '../../utils/formatters';
 import { useId, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import StockName from '../common/StockName';
@@ -17,8 +18,8 @@ const VERDICT: Record<BacktestVerdictKind, { label: string; badge: string }> = {
   hold: { label: '판단 보류', badge: 'bg-bg-tertiary text-text-secondary' },
 };
 
-const pct = (v: number | null | undefined) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%`);
-const pp = (v: number | null | undefined) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%p`);
+const pct = (v: number | null | undefined) => (v == null ? '—' : `${formatSigned(v, 2)}%`);
+const pp = (v: number | null | undefined) => (v == null ? '—' : `${formatSigned(v, 2)}%p`);
 const tone = (v: number | null | undefined, plain = false) => (plain || v == null ? '' : v > 0 ? 'text-bullish' : v < 0 ? 'text-bearish' : '');
 
 function VerdictBadge({ verdict, why }: { verdict: BacktestVerdictKind; why: string }) {
@@ -77,7 +78,7 @@ function MethodBlock({ m }: { m: BacktestMethodResult }) {
                 <td className={`text-right ${tone(s.avgHold, plain)}`}>{pct(s.avgHold)}</td>
                 <td className={`text-right ${tone(s.avgRandom, plain)}`}>{pct(s.avgRandom)}</td>
                 <td className={`text-right ${tone(s.avgTradeReturn, plain)}`}>{pct(s.avgTradeReturn)}</td>
-                <td className="text-right">{s.avgWinRate == null ? '—' : `${s.avgWinRate}%`}</td>
+                <td className="text-right">{s.avgWinRate == null ? '—' : formatNumber(s.avgWinRate, 2, '%')}</td>
                 <td className="pr-1 text-right">
                   {s.weakSymbols}/{s.symbols}
                 </td>

@@ -4,7 +4,7 @@ import AutoTradeIcon from '../ui/AutoTradeIcon';
 import type { PaperAccount, PaperAccountDetail } from '../../types/paper';
 import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
-import { formatPrice, formatSignedMoney } from '../../utils/formatters';
+import { formatPrice, formatSignedMoney, formatSigned } from '../../utils/formatters';
 import { AUTO_TRADE_TONE, autoTradeView } from '../../utils/autoTradeStatus';
 import type { StrategyOverviewItem } from '../../hooks/usePaperOverview';
 import { toast } from '../../store/uiStore';
@@ -149,7 +149,7 @@ export default function AccountMiniView({
             <Cell
               label="총 손익"
               value={signed(detail.totalPnl, currency)}
-              sub={`${detail.totalReturn > 0 ? '+' : ''}${detail.totalReturn.toFixed(2)}%`}
+              sub={`${formatSigned(detail.totalReturn, 2)}%`}
               tone={pnlTone(detail.totalPnl)}
             />
             <Cell label="현금" value={formatPrice(account.currentCash, currency)} muted />
@@ -203,7 +203,7 @@ export default function AccountMiniView({
                       >
                         {p.unrealizedPnlPercent == null
                           ? '—'
-                          : `${p.unrealizedPnlPercent > 0 ? '+' : ''}${p.unrealizedPnlPercent.toFixed(2)}%`}
+                          : `${formatSigned(p.unrealizedPnlPercent, 2)}%`}
                       </span>
                     </span>
                   </button>

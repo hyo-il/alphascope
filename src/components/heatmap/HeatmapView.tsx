@@ -1,7 +1,7 @@
 import { InfoTip, Segmented, Tabs } from '../ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { squarify, type Rect } from '../../utils/treemap';
-import { formatCompactMoney, formatPrice } from '../../utils/formatters';
+import { formatCompactMoney, formatPrice, formatSigned, MINUS } from '../../utils/formatters';
 import {
   HEATMAP_PERIODS,
   type HeatmapCell,
@@ -210,7 +210,7 @@ function colorOf(change: number | null, period: HeatmapPeriod): string {
 /** 칸 글자 — 미국은 티커, 국내는 이름(6자리 코드로는 알아볼 수 없다. 이름을 못 받았으면 코드) */
 const tileLabel = (c: HeatmapCell) => (c.currency === 'KRW' && c.name ? c.name : c.symbol);
 
-const pct = (v: number | null) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%`);
+const pct = (v: number | null) => (v == null ? '—' : `${formatSigned(v, 2)}%`);
 
 interface Tile {
   rect: Rect;
@@ -355,7 +355,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   const bins = BINS[period];
   /** 범례 — 회색 「0」 양옆에 0단계(0~±첫 구간)를 한 칸씩 (v2.39.0) */
   const legend: { key: string; text: string; cls: string; title: string }[] = [
-    ...[...bins].reverse().map((b) => ({ key: `-${b}`, text: `${-b}`, cls: colorOf(-b - 0.01, period), title: `−${b}% 이하 구간` })),
+    ...[...bins].reverse().map((b) => ({ key: `-${b}`, text: `${MINUS}${b}`, cls: colorOf(-b - 0.01, period), title: `−${b}% 이하 구간` })),
     { key: '-0', text: '−0~', cls: colorOf(-0.01, period), title: `0 ~ −${bins[0]}%` },
     { key: '0', text: '0', cls: colorOf(0, period), title: '0.00%(변화 없음)' },
     { key: '+0', text: '+0~', cls: colorOf(0.01, period), title: `0 ~ +${bins[0]}%` },

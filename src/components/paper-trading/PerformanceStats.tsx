@@ -1,6 +1,6 @@
 import type { Currency, PaperPerformance } from '../../types/paper';
 import type { ReactNode } from 'react';
-import { formatPrice, formatSignedMoney } from '../../utils/formatters';
+import { formatPrice, formatSignedMoney, formatSigned } from '../../utils/formatters';
 import { PF_HELP_ACCOUNT } from '../../data/indicatorHelp';
 import InfoTip from '../ui/InfoTip';
 
@@ -10,7 +10,7 @@ interface Props {
 }
 
 const pct = (value: number | null | undefined, digits = 2) =>
-  value == null || !Number.isFinite(value) ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(digits)}%`;
+  value == null || !Number.isFinite(value) ? '—' : formatSigned(value, digits, '%');
 
 const tone = (value: number | null | undefined) =>
   value == null ? 'text-text-primary' : value > 0 ? 'text-bullish' : value < 0 ? 'text-bearish' : 'text-text-primary';
@@ -30,7 +30,7 @@ export default function PerformanceStats({ performance: p, currency }: Props) {
       {card('총 수익률', pct(p.totalReturn), tone(p.totalReturn), formatSignedMoney(p.totalPnl, currency))}
       {card(
         'MDD',
-        p.mdd == null ? '—' : `${p.mdd.toFixed(2)}%`,
+        p.mdd == null ? '—' : formatSigned(p.mdd, 2, '%', { plus: false }),
         p.mdd == null ? 'text-text-muted' : 'text-bearish',
         p.mdd == null ? '스냅샷 2일 이상 필요' : '고점 대비 최대 낙폭',
       )}

@@ -126,9 +126,9 @@ export default function Settings({ isMock, engineDown, section }: Props) {
         {row(
           '지표 엔진 (Python)',
           !engineDown && (health?.indicatorEngine ?? false),
-          health?.indicatorEngine ? '실행 중 (5001)' : '중지됨 — npm run dev:py',
+          health?.indicatorEngine ? '실행 중 · 포트 5001' : '중지됨 — npm run dev:py',
         )}
-        {row('API 서버', health?.ok ?? false, health?.ok ? '실행 중 (4000)' : '응답 없음')}
+        {row('API 서버', health?.ok ?? false, health?.ok ? '실행 중 · 포트 4000' : '응답 없음')}
         {updatedAt}
       </section>
 

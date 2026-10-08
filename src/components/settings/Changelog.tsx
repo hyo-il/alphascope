@@ -28,8 +28,8 @@ export default function Changelog() {
         최신 버전이 맨 위입니다. 줄을 누르면 바뀐 내용이 펼쳐집니다.
       </p>
 
-      {/* 화면 폭을 꽉 채운다 (v2.42.0 사용자 결정 — 예전 max-w-2xl) */}
-      <div>
+      {/* 화면 폭을 꽉 채운다 (v2.42.0 사용자 결정 — 예전 max-w-2xl). 지난 버전 글은 기록이라 숫자 표기 측정에서 뺀다(data-measure-skip, v2.42.2) */}
+      <div data-measure-skip>
         {CHANGELOG.map((entry, index) => {
           const isOpen = open.has(entry.version);
           const id = `changelog-${entry.version}`;

@@ -4,7 +4,7 @@ import DisclosureButton from '../ui/DisclosureButton';
 import WarnIcon from '../ui/WarnIcon';
 import { useState } from 'react';
 import type { AgentOpinion, GeminiAnalysis } from '../../types/gemini';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatSigned } from '../../utils/formatters';
 import { currencyOfSymbol } from '../../utils/market';
 import AISourceBadge, { GEMINI_TRIGGER_LABEL } from './AISourceBadge';
 import StockName from '../common/StockName';
@@ -111,8 +111,7 @@ export default function GeminiAnalysisCard({
           {change != null && (
             <span className={change >= 0 ? 'text-bullish' : 'text-bearish'}>
               {' '}
-              → 현재 {change >= 0 ? '+' : ''}
-              {change.toFixed(2)}%
+              → 현재 {formatSigned(change, 2, '%')}
             </span>
           )}
         </p>

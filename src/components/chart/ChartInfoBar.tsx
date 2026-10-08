@@ -1,7 +1,7 @@
 import { MA_LINES, barUnitOf, maLabel, type IndicatorSeries, type IndicatorToggles } from '../../types/chart';
 import type { Candle } from '../../types/toss';
 import type { RangeStats } from '../../hooks/useRangeStats';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatSigned, formatCompact } from '../../utils/formatters';
 import { formatChartDateTime, isIntraday } from './chartTheme';
 
 /**
@@ -101,7 +101,7 @@ function Extreme({
             ? kind === 'high'
               ? '신고가'
               : '신저가'
-            : `${gap > 0 ? '+' : ''}${gap.toFixed(1)}%`}
+            : `${formatSigned(gap, 1)}%`}
       </span>
     </span>
   );
@@ -168,7 +168,7 @@ export default function ChartInfoBar({
               label="거래량"
               value={
                 legend.volume > 0
-                  ? Intl.NumberFormat('ko-KR', { notation: 'compact' }).format(legend.volume)
+                  ? formatCompact(legend.volume)
                   : '—'
               }
               className="text-text-secondary"

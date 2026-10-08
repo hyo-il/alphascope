@@ -1,7 +1,7 @@
 import Select from '../ui/Select';
 import { useMemo, useState } from 'react';
 import { modal, toast } from '../../store/uiStore';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, formatSigned } from '../../utils/formatters';
 import { currencyOfSymbol } from '../../utils/market';
 import StockName from '../common/StockName';
 import TrashIcon from '../common/TrashIcon';
@@ -92,8 +92,7 @@ export function ResultCard({
       {record.base ? (
         <p className="text-text-secondary">
           <b className="text-text-primary">과거 기준선</b> — 같은 조건으로 최근 1년 아무 날이나 매수했다면 목표 먼저 {record.base.target}% · 손절 먼저{' '}
-          {record.base.stop}% · 기대값 {record.base.expectancy > 0 ? '+' : ''}
-          {record.base.expectancy}%p <span className="text-text-muted">({record.base.samples}일 기준, 비용 반영)</span>
+          {record.base.stop}% · 기대값 {formatSigned(record.base.expectancy, 2, '%p')} <span className="text-text-muted">({record.base.samples}일 기준, 비용 반영)</span>
         </p>
       ) : (
         <p className="text-text-muted">과거 기준선 없음</p>

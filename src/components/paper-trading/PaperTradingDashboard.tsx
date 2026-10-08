@@ -21,7 +21,7 @@ import PerformanceStats from './PerformanceStats';
 import PositionList from './PositionList';
 import TradeHistory from './TradeHistory';
 import { toast } from '../../store/uiStore';
-import { formatPrice, formatSignedMoney } from '../../utils/formatters';
+import { formatPrice, formatSignedMoney, formatSigned } from '../../utils/formatters';
 import { autoTradeView } from '../../utils/autoTradeStatus';
 
 interface Props {
@@ -316,7 +316,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
                   label: '총 손익',
                   value: formatSignedMoney(detail.totalPnl, currency),
                   tone: detail.totalPnl > 0 ? 'text-bullish' : detail.totalPnl < 0 ? 'text-bearish' : 'text-text-primary',
-                  hint: `${detail.totalReturn > 0 ? '+' : ''}${detail.totalReturn.toFixed(2)}%`,
+                  hint: `${formatSigned(detail.totalReturn, 2)}%`,
                 },
                 { label: '현금', value: formatPrice(detail.account.currentCash, currency), tone: 'text-text-secondary' },
                 {

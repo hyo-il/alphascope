@@ -1,5 +1,5 @@
 import { TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
-import { RemoveAllButton } from '../ui';
+import { RemoveAllButton, PANEL_PAD } from '../ui';
 import { Fragment } from 'react';
 import { usePageTab } from '../../hooks/usePageTab';
 import PageHeader from '../ui/PageHeader';
@@ -67,7 +67,7 @@ export default function SurgeDashboard({
 
       <PageHeader tabs={TABS} value={tab} onChange={setTab} tabsLabel="급등 탐지" />
 
-      <div className="min-h-0 flex-1 overflow-auto p-3">
+      <div className={`min-h-0 flex-1 overflow-auto ${PANEL_PAD}`}>
         {tab === 'list' && (
           <div className="space-y-3">
             {/* 무슨 기준으로 급등이라 부르는지 — 결과 위에 둔다 */}

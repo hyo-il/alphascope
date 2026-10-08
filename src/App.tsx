@@ -48,7 +48,7 @@ import { useAppStore } from './store/appStore';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
 import { pageMeta } from './types/nav';
 import { toast } from './store/uiStore';
-import { changeColor, currencyOf, formatPercent, formatPrice } from './utils/formatters';
+import { changeColor, currencyOf, formatPercent, formatPrice, displayMinus, formatSigned } from './utils/formatters';
 import LoginScreen from './components/auth/LoginScreen';
 import { useAuth } from './hooks/useAuth';
 import { useHashRoute } from './hooks/useHashRoute';
@@ -540,10 +540,9 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
               </span>
               {livePrice && (
                 <span className={`shrink-0 whitespace-nowrap text-xs tabular-nums ${changeColor(livePrice.change)}`}>
-                  {livePrice.change > 0 ? '+' : ''}
                   {currency === 'KRW'
-                    ? Math.round(livePrice.change).toLocaleString('ko-KR')
-                    : livePrice.change.toFixed(2)}{' '}
+                    ? displayMinus(`${livePrice.change > 0 ? '+' : ''}${Math.round(livePrice.change).toLocaleString('ko-KR')}`)
+                    : formatSigned(livePrice.change, 2)}{' '}
                   ({formatPercent(livePrice.changeRate)})
                 </span>
               )}

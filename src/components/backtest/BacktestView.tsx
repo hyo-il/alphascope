@@ -1,3 +1,4 @@
+import { formatSigned } from '../../utils/formatters';
 import { useEffect, useRef, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
 import { useBacktest, useBacktestUniverse, useGeminiStatus } from '../../hooks/useBacktest';
@@ -31,7 +32,7 @@ import ApplyRuleButton from './ApplyRuleButton';
  * - v2.36.0 디자인 규칙 — 이모지 없음, 파란 주요 버튼은 [시험 실행] 하나.
  */
 const when = (iso: string) => new Date(iso).toLocaleString('ko-KR');
-const pct = (v: number | null | undefined) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%`);
+const pct = (v: number | null | undefined) => (v == null ? '—' : `${formatSigned(v, 2)}%`);
 const VERDICT_LABEL = { good: '기준선보다 좋음', bad: '기준선 이하', hold: '판단 보류' } as const;
 
 function elapsed(startedAt: string | null, now: number): string {
