@@ -49,7 +49,7 @@ export default function ModePicker({
               title={item.easy}
               aria-pressed={active}
               // 고른 카드 = 밝은 바탕(테두리 없음) — 규칙형 쉬운 선택지 카드(RuleChoiceCards)와 같은 모양 (v2.42.0)
-              className={`rounded-lg px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+              className={`flex flex-col items-start justify-start rounded-lg px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                 active ? 'bg-bg-elevated' : 'bg-bg-tertiary/60 hover:bg-bg-tertiary'
               }`}
             >

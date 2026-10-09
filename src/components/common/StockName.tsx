@@ -38,7 +38,9 @@ export default function StockName({
   /** 카드 제목처럼 자리가 넉넉하지 않아도 이름 전체가 보여야 하는 곳 — 말줄임 대신 단어 단위로 줄바꿈 (v2.42.0) */
   wrap?: boolean;
 }) {
-  const label = name ?? stockNameOf(symbol);
+  const raw = name ?? stockNameOf(symbol);
+  // 이름이 티커와 같으면(QQQ·SOXL 같은 ETF) 같은 값을 두 번 적지 않는다 — 티커만 (v2.42.2)
+  const label = raw && raw.trim().toUpperCase() === symbol.toUpperCase() ? null : raw;
   /*
    * 굵기 기본은 중간(500) — v2.36.0 디자인 규칙 4(표의 종목명 = 500). 예전에는 이름을 늘 600 으로 박아 두어
    * 표·목록이 전부 굵게 보였다. 카드 제목처럼 600 이 필요한 곳은 className 에 `font-semibold` 를 준다.

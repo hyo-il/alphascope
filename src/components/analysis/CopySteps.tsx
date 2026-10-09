@@ -278,8 +278,9 @@ export default function CopySteps({
                       </button>
                     )
                   )}
+                  {/* 다시 캡처 — 위 버튼과 양 끝을 맞춘다(보조 버튼 · 칸 폭, v2.42.2 — 예전 글자 버튼은 글자가 10px 안쪽에서 시작했다) */}
                   {capture && (
-                    <Button variant="ghost" size="sm"
+                    <Button variant="secondary" size="sm" className="w-full"
                       onClick={preview.onRecapture}
                       disabled={capturePending}>
                       다시 캡처

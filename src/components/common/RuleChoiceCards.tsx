@@ -48,8 +48,9 @@ export default function RuleChoiceCards({
                 <b className="text-text-primary">왜 쓰나</b>: {c.why}
               </p>
             )}
-            <p className="mt-1 text-caption leading-snug text-warning">
-              <b>약점</b>: {c.weak}
+            {/* 「약점」 이름만 주의색 — 문장 전체를 주황으로 두면 카드 셋이 모두 경고처럼 보였다 (v2.42.2) */}
+            <p className="mt-1 text-caption leading-snug text-text-secondary">
+              <b className="text-warning">약점</b>: {c.weak}
             </p>
           </button>
         );

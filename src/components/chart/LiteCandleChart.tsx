@@ -16,6 +16,7 @@ import {
   PRICE_SCALE_MARGINS,
   VOLUME_SCALE_MARGINS,
   toChartTime,
+  VOLUME_PRICE_FORMAT,
 } from './chartTheme';
 import { MA_LINES } from '../../types/chart';
 import type { Candle } from '../../types/toss';
@@ -99,7 +100,7 @@ export default function LiteCandleChart({
 
     const volumeSeries = chart.addSeries(
       HistogramSeries,
-      { priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: false },
+      { priceFormat: VOLUME_PRICE_FORMAT, priceLineVisible: false, lastValueVisible: false },
       1,
     );
     volumeSeries.priceScale().applyOptions({ scaleMargins: VOLUME_SCALE_MARGINS });

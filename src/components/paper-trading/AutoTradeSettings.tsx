@@ -133,7 +133,7 @@ export default function AutoTradeSettings({
           {/* ② 대상 종목 */}
           <section className="space-y-2">
             <h3 className="text-xs font-semibold text-text-primary">
-              ② 대상 종목 <span className="font-normal text-text-muted">({draft.symbols.length}개)</span>
+              ② 대상 종목
             </h3>
 
             <TargetSymbolsEditor

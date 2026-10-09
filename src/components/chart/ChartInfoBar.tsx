@@ -101,7 +101,7 @@ function Extreme({
             ? kind === 'high'
               ? '신고가'
               : '신저가'
-            : `${formatSigned(gap, 1)}%`}
+            : `${formatSigned(gap, 2)}%`}
       </span>
     </span>
   );

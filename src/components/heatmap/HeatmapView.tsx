@@ -1,3 +1,4 @@
+import { PANEL_PAD } from '../ui/tokens';
 import { HEATMAP_SECTOR_LINE, HEATMAP_SECTOR_PAD_Y } from '../ui/tokens';
 import { InfoTip, Segmented, Tabs } from '../ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -370,7 +371,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   }${period === '1d' ? ' 1분마다 새로고침(화면을 보고 있을 때만).' : ''}`;
 
   return (
-    <div className="@container flex h-full flex-col p-3">
+    <div className={`@container flex h-full flex-col ${PANEL_PAD}`}>
       {/* 제목 줄 / 탭 줄을 나눈다 (v2.41.0 디자인 규칙 7) */}
       <h2 className="shrink-0 pb-2 text-base font-semibold text-text-primary">종목 지도</h2>
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60">

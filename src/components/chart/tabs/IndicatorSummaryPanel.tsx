@@ -139,7 +139,7 @@ export default function IndicatorSummaryPanel({
         />
         <Row
           label="MACD"
-          value={summary.macd == null ? '—' : formatSigned(summary.macd.histogram, 3, '', { plus: false })}
+          value={summary.macd == null ? '—' : formatSigned(summary.macd.histogram, currencyOfSymbol(symbol) === 'KRW' ? 0 : 3, '', { plus: false })}
           note={macdNote}
         />
         <Row

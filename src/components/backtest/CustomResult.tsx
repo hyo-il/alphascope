@@ -1,7 +1,7 @@
 import { formatSigned, formatNumber } from '../../utils/formatters';
 import { MDD_HELP, PF_HELP } from '../../data/indicatorHelp';
 import { useMemo, useState, type ReactNode } from 'react';
-import { ArrowDown, ArrowUp, Sparkles } from 'lucide-react';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 import StockName from '../common/StockName';
 import { InlineSpinner } from '../common/LoadingOverlay';
 import { Badge, Button, InfoTip, Panel, Segmented, SectionTitle, TABLE_FILL, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP, TABLE_TEXT_COL } from '../ui';
@@ -25,7 +25,15 @@ const tone = (v: number | null | undefined) => (v == null ? '' : v > 0 ? 'text-b
 const mddTone = (v: number | null | undefined) => (v != null && v < 0 ? 'text-bearish' : '');
 const pfTone = (v: number | null | undefined) => (v == null ? '' : v >= 1 ? 'text-bullish' : 'text-bearish');
 const when = (iso: string) => new Date(iso).toLocaleString('ko-KR');
-const worstText = (w: WorstDrawdown | null | undefined) => (w ? `${w.name ?? w.symbol} ${pct(w.value)}` : '—');
+/** 가장 나쁜 종목 — 이름은 줄바꿈될 수 있지만 숫자는 이름 끝에 붙어 다닌다(숫자만 다음 줄로 떨어지지 않게, v2.42.2) */
+const worstText = (w: WorstDrawdown | null | undefined) =>
+  w ? (
+    <>
+      {w.name ?? w.symbol} <span className="whitespace-nowrap">{pct(w.value)}</span>
+    </>
+  ) : (
+    '—'
+  );
 const diffOf = (a: number | null | undefined, b: number | null | undefined) => (a == null || b == null ? null : a - b);
 
 type SortKey = 'rule' | 'hold' | 'random' | 'trades' | 'winRate' | 'avgReturn' | 'stopRate' | 'mdd';
@@ -408,7 +416,7 @@ export default function CustomResult({
         <SectionTitle
           right={
             !ex ? (
-              <Button size="sm" icon={explaining ? undefined : Sparkles} onClick={() => void explain()} disabled={explaining || !gemini?.enabled}>
+              <Button size="sm" onClick={() => void explain()} disabled={explaining || !gemini?.enabled}>
                 {explaining && <InlineSpinner />}
                 {explaining ? '설명 받는 중…' : many ? 'AI에게 비교 설명 듣기' : 'AI에게 결과 설명 듣기'}
               </Button>

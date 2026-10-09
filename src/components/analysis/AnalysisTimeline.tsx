@@ -278,21 +278,21 @@ export default function AnalysisTimeline({
 
       {/* 일괄 삭제는 「전체」 에서만 — 출처로 걸러 둔 채 지우면 화면에 없는 기록까지 지워진다 */}
       {items.length > 0 && source === 'all' && (
-        <div className="flex flex-wrap items-center gap-2">
-          {/* 화면 안의 삭제 = 빨간 글자 버튼 셋, 같은 모양 (v2.42.0) */}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {/* 화면 안의 삭제 = 빨간 글자 버튼, 줄 오른쪽 끝 · 0개면 감춘다 (v2.42.0 · v2.42.2) */}
           <Button variant="danger-text" size="sm" onClick={() => removeMany('all')}>
             모두 삭제 ({items.length})
           </Button>
-          <Button variant="danger-text" size="sm"
-            onClick={() => removeMany('claude')}
-            disabled={!claude.length}>
-            Claude만 삭제 ({claude.length})
-          </Button>
-          <Button variant="danger-text" size="sm"
-            onClick={() => removeMany('gemini')}
-            disabled={!gemini.length}>
-            Gemini만 삭제 ({gemini.length})
-          </Button>
+          {claude.length > 0 && (
+            <Button variant="danger-text" size="sm" onClick={() => removeMany('claude')}>
+              Claude만 삭제 ({claude.length})
+            </Button>
+          )}
+          {gemini.length > 0 && (
+            <Button variant="danger-text" size="sm" onClick={() => removeMany('gemini')}>
+              Gemini만 삭제 ({gemini.length})
+            </Button>
+          )}
           {onlyThisSymbol && symbol && (
             <span className="text-caption text-text-muted">— {symbol} 종목만 삭제합니다</span>
           )}

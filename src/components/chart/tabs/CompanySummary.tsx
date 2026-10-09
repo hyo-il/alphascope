@@ -48,7 +48,7 @@ function median(values: (number | null)[]): number | null {
 function Metric({ label, value, note, info }: { label: string; value: string; note?: string; info?: string }) {
   return (
     <div className="rounded-md bg-bg-tertiary/60 p-3">
-      <dt className="flex items-center gap-1 text-caption text-text-muted">
+      <dt className="flex items-center gap-1 whitespace-nowrap text-caption text-text-muted">
         {label}
         {info && <InfoTip label={`${label} 설명`}>{info}</InfoTip>}
       </dt>
@@ -184,12 +184,14 @@ export default function CompanySummary({
               />
               {/* 정의는 분기 손익계산서로 확인했다(2026-10-08, AAPL·005930.KS): revenueGrowth = 최근 분기 ÷ 1년 전 같은 분기 − 1 (일치), operatingMargins = **최근 분기** 영업이익 ÷ 매출 (일치 — 최근 12개월 합계와는 다르다) */}
               <Metric
-                label="영업이익률 (최근 분기)"
+                label="영업이익률"
+                note="최근 분기"
                 value={ratio(profitability.operatingMargin)}
                 info="yfinance operatingMargins — 가장 최근 분기의 영업이익 ÷ 매출(분기 손익계산서와 같은 값으로 확인)."
               />
               <Metric
-                label="매출 성장률 (최근 분기, 전년 같은 분기 대비)"
+                label="매출 성장률"
+                note="최근 분기 · 전년 같은 분기 대비"
                 value={ratio(profitability.revenueGrowth)}
                 info="yfinance revenueGrowth — 가장 최근 분기 매출을 1년 전 같은 분기와 비교한 값(분기 손익계산서와 같은 값으로 확인)."
               />

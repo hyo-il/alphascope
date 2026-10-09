@@ -1,7 +1,7 @@
 import NumberField, { NumberUnitGroup } from '../ui/NumberField';
 import { RSI_HELP } from '../../data/indicatorHelp';
 import { useState, type ReactNode } from 'react';
-import { Plus, Sparkles } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import RuleChoiceCards from '../common/RuleChoiceCards';
 import { InlineSpinner } from '../common/LoadingOverlay';
 import { Badge, Button, DisclosureButton, InfoTip, Panel, Segmented, SectionTitle } from '../ui';
@@ -301,7 +301,7 @@ export default function ConditionForm({
       <SectionTitle
         right={
           <span className="flex items-center gap-2">
-            <Button size="sm" icon={asking ? undefined : Sparkles} onClick={() => void ask()} disabled={askDisabled}>
+            <Button size="sm" onClick={() => void ask()} disabled={askDisabled}>
               {asking && <InlineSpinner />}
               {asking ? 'AI에게 묻는 중…' : many ? `AI에게 ${methodName(current.label)} 조건 물어보기` : 'AI에게 조건 물어보기'}
             </Button>

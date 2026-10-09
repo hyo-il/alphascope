@@ -13,7 +13,7 @@ import {
   type SeriesMarker,
   type UTCTimestamp,
 } from 'lightweight-charts';
-import { formatPrice, formatSigned } from '../../utils/formatters';
+import { formatPrice, formatSigned, formatCompact } from '../../utils/formatters';
 import type { VisibleExtent } from './ChartInfoBar';
 import type { Candle } from '../../types/toss';
 import {
@@ -169,6 +169,9 @@ export const BASE_CHART_OPTIONS = {
  * 가격 축·가격 라벨의 자릿수 — **통화로 정한다** (v2.33.0). 원화는 소수점 없이(앱 규칙 — `formatPrice` 와 같다).
  * 예전에는 시리즈 기본값(소수 2자리)이라 국내 종목 가격 축이 "200000.00" 으로 보였다. 값은 그대로, 표시만 바뀐다.
  */
+/** 거래량 축 — 한글 압축 표기(4,035만 · 1.2억, v2.42.2). 라이브러리 기본 'volume' 은 100M·120M 영문 단위라 화면의 다른 거래량(3,035만)과 섞였다 */
+export const VOLUME_PRICE_FORMAT = { type: 'custom' as const, minMove: 1, formatter: (v: number) => formatCompact(v) };
+
 export function priceFormatOf(currency: 'KRW' | 'USD' | string | null | undefined) {
   // 원화는 천 단위 쉼표(263,500 — v2.42.2, 예전 263500). 축 눈금·현재가 라벨·십자선 값이 모두 이 형식을 쓴다. 달러는 그대로(소수 둘째 자리)
   return currency === 'KRW'
@@ -220,8 +223,10 @@ export function drawExtremeMarkers(
    * 잃는 정보가 없다 (그래서 그 줄을 정보 바에 남겨 두었다).
    */
   const span = Math.max(1, extent.end - extent.start);
+  /** 가장자리 범위 — 12% 로는 1280 차트(약 620px)에서 「$300.00 (+13.43%, 07.31)」 앞자리가 잘렸다(v2.42.2 → 20%) */
+  const EDGE = 0.2;
   const atEdge = (index: number) =>
-    (index - extent.start) / span < 0.12 || (extent.end - index) / span < 0.12;
+    (index - extent.start) / span < EDGE || (extent.end - index) / span < EDGE;
 
   const label = (price: number, at: number) => {
     const gap = current != null && price > 0 ? ((current - price) / price) * 100 : null;
@@ -362,7 +367,7 @@ export function renderIndicators(
   if (toggles.panels.volume && candles.length) {
     const volume = chart.addSeries(
       HistogramSeries,
-      { priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: false },
+      { priceFormat: VOLUME_PRICE_FORMAT, priceLineVisible: false, lastValueVisible: false },
       pane,
     );
     volume.priceScale().applyOptions({ scaleMargins: VOLUME_SCALE_MARGINS });

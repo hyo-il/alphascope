@@ -1,3 +1,4 @@
+import { PANEL_PAD } from '../ui/tokens';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { IconButton, InfoTip, Button } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
@@ -109,7 +110,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
   const dayEvents = byDay.get(selected) ?? [];
 
   return (
-    <div className="h-full overflow-auto p-3">
+    <div className={`h-full overflow-auto ${PANEL_PAD}`}>
       <div className="space-y-3">
         {/* 제목 줄 / 고르기 줄을 나눈다 (v2.41.0 디자인 규칙 7) */}
         <h2 className="text-base font-semibold text-text-primary">증시 일정</h2>

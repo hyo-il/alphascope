@@ -1,3 +1,4 @@
+import { PANEL_PAD } from '../ui/tokens';
 import { displayMinus, formatSigned } from '../../utils/formatters';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
@@ -579,7 +580,7 @@ export default function DiagnoseView() {
   };
 
   return (
-    <div className="h-full overflow-auto p-3">
+    <div className={`h-full overflow-auto ${PANEL_PAD}`}>
       <div className="space-y-3">
         <header className="flex flex-wrap items-center gap-3">
           <div>

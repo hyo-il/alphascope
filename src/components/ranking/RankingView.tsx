@@ -1,3 +1,4 @@
+import { PANEL_PAD } from '../ui/tokens';
 import { InfoTip, Segmented, Button } from '../ui';
 import StarIcon from '../ui/StarIcon';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -110,7 +111,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
   const valueLabel = kind === 'volume' ? '거래량' : '거래대금';
 
   return (
-    <div className="flex h-full flex-col p-3">
+    <div className={`flex h-full flex-col ${PANEL_PAD}`}>
       {/* 제목 줄 / 고르기 줄을 나눈다 (v2.41.0 디자인 규칙 7) */}
       <h2 className="shrink-0 pb-2 text-base font-semibold text-text-primary">실시간 순위</h2>
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
