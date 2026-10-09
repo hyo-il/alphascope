@@ -176,7 +176,7 @@ export default function AnalysisHistory({
   };
 
   return (
-    <div className="flex h-full gap-4 overflow-hidden p-4">
+    <div className="flex h-full gap-4 overflow-hidden py-4">
       <div className="flex w-80 shrink-0 flex-col gap-2">
         <p className="text-xs text-text-secondary">
           Claude 대화의 분석 결과를 붙여넣어 {symbol} 히스토리에 저장합니다.

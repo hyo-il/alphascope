@@ -301,11 +301,12 @@ export default function ManualAnalysis({
    * 프롬프트를 만드는 함수·내용은 바꾸지 않았다 — 위 `generated` 그대로.
    */
   /*
-   * ⚠️ 바깥 틀은 아래 기록 영역(`AnalysisHistory` — p-4, 화면 폭)과 **같다** (v2.34.0) — 예전에는 위만 가운데로 모인 좁은 폭(max-w-3xl)이라
+   * ⚠️ 바깥 틀은 아래 기록 영역(`AnalysisHistory` — 가로 여백 없음, 화면 폭)과 **같다** (v2.34.0 · v2.42.2) — 예전에는 위만 가운데로 모인 좁은 폭(max-w-3xl)이라
    * 위·아래 좌우 끝이 맞지 않았다. ①②③ 은 이 폭에서 3등분된다. 스크롤은 바깥(AI 분석 화면)이 맡는다.
    */
   return (
-    <div className="px-4 pt-4">
+    // 가로 여백은 바깥(AI 분석 화면의 PANEL_PAD)이 맡는다 — 탭 글자와 왼쪽 끝이 같은 선 (v2.42.2, 예전 px-4 pt-4 가 한 번 더 들어가 +16px)
+    <div>
       <div className="flex flex-col gap-4">
         <section className="flex flex-wrap items-center gap-2">
           <h3 className="text-xs font-medium text-text-secondary">분석 방식</h3>
