@@ -1,4 +1,4 @@
-import { PANEL_PAD } from '../ui/tokens';
+import { PANEL_PAD, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { InfoTip, Segmented, Button } from '../ui';
 import StarIcon from '../ui/StarIcon';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -157,11 +157,14 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
               <tr className="border-b border-border/50">
                 <th className="w-9 py-2.5 pl-2 text-right font-normal">순위</th>
                 <th className="w-7" />
-                <th className="px-2 text-left font-normal">종목</th>
-                {/* 숫자 열은 폭을 정해 둔다 — 자동 배분이면 남는 폭이 숫자 열로 가고 종목명이 0 에 가깝게 줄었다 (v2.25.0) */}
-                <th className="w-[104px] px-2 text-right font-normal">현재가</th>
-                <th className="w-[84px] px-2 text-right font-normal">등락률</th>
-                <th className="w-[92px] pr-3 text-right font-normal">{valueLabel}</th>
+                <th className={`${TABLE_NAME_COL} px-2 text-left font-normal`}>종목</th>
+                {/*
+                  숫자 열 = 내용 폭 + 고정 여백, 남는 폭은 종목 칸(기준표 「표」, v2.42.2). 예전 고정 폭(104·84·92px)은 내용보다 넓어
+                  1280 에서 종목명이 더 많이 말줄임됐다. (v2.25.0 의 「자동 배분이면 종목명이 0 에 가깝게」 는 종목 칸이 w-full 이라 생기지 않는다)
+                */}
+                <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right font-normal`}>현재가</th>
+                <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right font-normal`}>등락률</th>
+                <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-3 text-right font-normal`}>{valueLabel}</th>
               </tr>
             </thead>
             <tbody>
