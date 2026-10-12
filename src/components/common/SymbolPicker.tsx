@@ -468,12 +468,14 @@ export default function SymbolPicker(props: SymbolPickerProps) {
         <Button size="sm" onClick={() => setOpen(true)} className="shrink-0 whitespace-nowrap">
           종목 고르기
         </Button>
-        {/* 고른 개수는 「종목 고르기」 바로 옆에 — 오른쪽 끝에 「(3)」 만 떨어져 있으면 무엇의 개수인지 읽히지 않았다 (v2.42.2) */}
-        <span className="shrink-0 text-caption text-text-muted tabular-nums">
-          {selected.length}개{max != null ? ` / 최대 ${max}개` : ''}
-        </span>
         {extraButtons}
-        {selected.length > 0 && <RemoveAllButton onClick={() => onChange([])} className="ml-auto" />}
+        {/* 고른 개수 + 모두 삭제는 줄 오른쪽 끝에 한 묶음 「3개 · 모두 삭제」 — 버튼 묶음 사이에 끼지 않게(v2.42.2) */}
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          <span className="text-caption text-text-muted tabular-nums">
+            {selected.length}개{max != null ? ` / 최대 ${max}개` : ''}
+          </span>
+          {selected.length > 0 && <RemoveAllButton onClick={() => onChange([])} />}
+        </span>
       </div>
       {selected.length === 0 ? (
         <p className="text-caption text-text-muted">{emptyText ?? '[종목 고르기] 에서 관심 목록·분야별 종목을 고르거나 다른 종목을 추가하세요.'}</p>

@@ -29,7 +29,7 @@ const when = (iso: string) => new Date(iso).toLocaleString('ko-KR');
 const worstText = (w: WorstDrawdown | null | undefined) =>
   w ? (
     <>
-      {w.name ?? w.symbol} <span className="whitespace-nowrap">{pct(w.value)}</span>
+      {w.name ?? w.symbol}{'\u00a0'}<span className="whitespace-nowrap">{pct(w.value)}</span>
     </>
   ) : (
     '—'

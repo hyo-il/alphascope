@@ -155,8 +155,8 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
           <table className="w-full text-xs">
             <thead className="sticky top-0 z-[1] bg-bg-secondary text-caption text-text-muted">
               <tr className="border-b border-border/50">
-                <th className="w-9 py-2.5 pl-2 text-right font-normal">순위</th>
-                <th className="w-7" />
+                <th className="w-10 min-w-10 py-2.5 pl-2 pr-1 text-right font-normal">순위</th>
+                <th className="w-8 min-w-8" />
                 <th className={`${TABLE_NAME_COL} px-2 text-left font-normal`}>종목</th>
                 {/*
                   숫자 열 = 내용 폭 + 고정 여백, 남는 폭은 종목 칸(기준표 「표」, v2.42.2). 예전 고정 폭(104·84·92px)은 내용보다 넓어
@@ -194,7 +194,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
                       active === index ? 'bg-bg-tertiary' : ''
                     }`}
                   >
-                    <td className="py-2.5 pl-2 text-right tabular-nums text-text-muted">{row.rank}</td>
+                    <td className="py-2.5 pl-2 pr-1 text-right tabular-nums text-text-muted">{row.rank}</td>
                     <td className="text-center">
                       <button
                         type="button"

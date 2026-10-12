@@ -134,12 +134,12 @@ export default function IndicatorSummaryPanel({
       <div className="grid grid-cols-[auto_auto_minmax(0,28rem)] items-baseline gap-x-3 gap-y-0 @min-[760px]:grid-cols-[auto_auto_minmax(0,28rem)_auto_auto_minmax(0,28rem)]">
         <Row
           label="RSI(14)"
-          value={summary.rsi == null ? '—' : summary.rsi.toFixed(1)}
+          value={summary.rsi == null ? '—' : formatNumber(summary.rsi, 2)}
           note={rsiNote}
         />
         <Row
           label="MACD"
-          value={summary.macd == null ? '—' : formatSigned(summary.macd.histogram, currencyOfSymbol(symbol) === 'KRW' ? 0 : 3, '', { plus: false })}
+          value={summary.macd == null ? '—' : formatSigned(summary.macd.histogram, currencyOfSymbol(symbol) === 'KRW' ? 0 : 2, '', { plus: false })}
           note={macdNote}
         />
         <Row
@@ -163,7 +163,7 @@ export default function IndicatorSummaryPanel({
         />
         <Row
           label="스토캐스틱"
-          value={stochK == null ? '—' : `${stochK.toFixed(1)} / ${stochD?.toFixed(1) ?? '—'}`}
+          value={stochK == null ? '—' : `${formatNumber(stochK, 2)} / ${stochD != null ? formatNumber(stochD, 2) : '—'}`}
           note={
             stochK == null
               ? '차트에서 스토캐스틱을 켜면 표시됩니다'

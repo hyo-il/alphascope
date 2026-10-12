@@ -223,10 +223,18 @@ export function drawExtremeMarkers(
    * 잃는 정보가 없다 (그래서 그 줄을 정보 바에 남겨 두었다).
    */
   const span = Math.max(1, extent.end - extent.start);
-  /** 가장자리 범위 — 12% 로는 1280 차트(약 620px)에서 「$300.00 (+13.43%, 07.31)」 앞자리가 잘렸다(v2.42.2 → 20%) */
-  const EDGE = 0.2;
-  const atEdge = (index: number) =>
-    (index - extent.start) / span < EDGE || (extent.end - index) / span < EDGE;
+  /** 봉이 보이는 구간의 어디쯤인가(0 = 왼쪽 끝, 1 = 오른쪽 끝) — 가장자리에서 가까운 쪽 거리 */
+  const edgeDist = (index: number) => Math.min((index - extent.start) / span, (extent.end - index) / span);
+  /*
+   * 가장자리 처리 (v2.42.2): 아주 끝(7% 안)이면 글자 없이 화살표만, 그다음(25% 안)은 **가격만** 짧게, 그 밖은 가격·등락률·날짜.
+   * 12% 에서 모두 숨기던 예전 방식은 1280 에서 긴 글자가 잘렸고, 20% 로 늘리니 고점·저점 중 한쪽 글자만 남아 짝이 안 맞았다.
+   */
+  const textOf = (index: number, price: number, at: number) => {
+    const d = edgeDist(index);
+    if (d < 0.07) return undefined;
+    if (d < 0.25) return formatPrice(price, currency);
+    return label(price, at);
+  };
 
   const label = (price: number, at: number) => {
     const gap = current != null && price > 0 ? ((current - price) / price) * 100 : null;
@@ -244,14 +252,14 @@ export function drawExtremeMarkers(
       position: 'aboveBar',
       color: COLORS.bearish,
       shape: 'arrowDown',
-      text: atEdge(extent.highIndex) ? undefined : label(extent.high, highBar.timestamp),
+      text: textOf(extent.highIndex, extent.high, highBar.timestamp),
     },
     {
       time: toChartTime(lowBar.timestamp),
       position: 'belowBar',
       color: COLORS.bullish,
       shape: 'arrowUp',
-      text: atEdge(extent.lowIndex) ? undefined : label(extent.low, lowBar.timestamp),
+      text: textOf(extent.lowIndex, extent.low, lowBar.timestamp),
     },
   ];
 
