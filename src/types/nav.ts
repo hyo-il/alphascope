@@ -12,13 +12,14 @@
  * 대메뉴 (v2.26.0 다시 묶음 — 2026-10-02 사용자 결정): 탐색 · 차트·비교 · 증시 일정 · 투자 분석 · 실험실 · 계좌 · (맨 아래) 설정.
  * ⚠️ page id 는 바꾸지 않았다 — 주소(#/pageId)·저장값·`needsSymbol` 이 page id 로 찾는다. 대메뉴만 다시 묶었다.
  */
-export type NavGroupId = 'home' | 'explore' | 'chart' | 'calendar' | 'analysis' | 'lab' | 'account' | 'settings';
+export type NavGroupId = 'home' | 'explore' | 'chart' | 'calendar' | 'quant' | 'analysis' | 'lab' | 'account' | 'settings';
 
 export type NavPageId =
   | 'home'
   | 'chart'
   | 'compare'
   | 'calendar'
+  | 'rules'
   | 'heatmap'
   | 'ranking'
   | 'analysis'
@@ -47,7 +48,7 @@ export interface NavPage {
   hidesSymbolHeader?: boolean;
 }
 
-export type NavIconKey = 'home' | 'explore' | 'chart' | 'calendar' | 'analysis' | 'lab' | 'account' | 'settings';
+export type NavIconKey = 'home' | 'explore' | 'chart' | 'calendar' | 'quant' | 'analysis' | 'lab' | 'account' | 'settings';
 
 export interface NavGroup {
   id: NavGroupId;
@@ -113,6 +114,17 @@ export const NAV_GROUPS: NavGroup[] = [
     shortLabel: '일정',
     // 실적·FOMC·옵션 만기·휴장 (v2.17.0). 종목은 달력 안에서 눌러 고른다 — 상단 헤더를 숨긴다. 소메뉴 하나 → 바로 이동
     pages: [{ id: 'calendar', label: '일정', hidesSymbolHeader: true }],
+  },
+  {
+    /*
+      퀀트 (v2.43.0 — 퀀트 다시 만들기 1단계, 사용자 결정 2026-10-13). 지금은 「매매 규칙」 하나(소메뉴 하나 → 누르면 바로 화면).
+      나머지 소메뉴는 2·3·5단계에서 더한다. 「투자 분석」·「실험실」 은 5단계까지 그대로. 종목과 무관한 화면이라 상단 종목 헤더를 감춘다.
+    */
+    id: 'quant',
+    icon: 'quant',
+    label: '퀀트',
+    shortLabel: '퀀트',
+    pages: [{ id: 'rules', label: '매매 규칙', hidesSymbolHeader: true }],
   },
   {
     id: 'analysis',

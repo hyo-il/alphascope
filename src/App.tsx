@@ -13,6 +13,7 @@ import SurgeDashboard from './components/surge/SurgeDashboard';
 import SwingDashboard from './components/swing/SwingDashboard';
 import DiagnoseView from './components/diagnose/DiagnoseView';
 import BacktestView from './components/backtest/BacktestView';
+import RulesView from './components/rules/RulesView';
 import CalendarView from './components/calendar/CalendarView';
 import HeatmapView from './components/heatmap/HeatmapView';
 import RankingView from './components/ranking/RankingView';
@@ -404,6 +405,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         return <DiagnoseView />;
       case 'backtest':
         return <BacktestView />;
+      case 'rules':
+        return <RulesView />;
       case 'ranking':
         return (
           <RankingView

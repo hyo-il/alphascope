@@ -1,4 +1,4 @@
-import { House, CalendarDays, ChartCandlestick, Compass, FlaskConical, Lightbulb, LogOut, Settings, Wallet } from 'lucide-react';
+import { House, CalendarDays, Sigma, ChartCandlestick, Compass, FlaskConical, Lightbulb, LogOut, Settings, Wallet } from 'lucide-react';
 import type { NavIconKey } from '../../types/nav';
 
 /**
@@ -10,6 +10,8 @@ export const NAV_ICON: Record<NavIconKey, typeof Compass> = {
   explore: Compass,
   chart: ChartCandlestick,
   calendar: CalendarDays,
+  // 퀀트 (v2.43.0) — 매수 조건 점수의 「합계」. 차트·전구·플라스크와 겹치지 않는 모양
+  quant: Sigma,
   analysis: Lightbulb,
   lab: FlaskConical,
   account: Wallet,
