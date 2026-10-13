@@ -45,6 +45,11 @@
    */
   --color-danger: #ff5b5b;
   --color-warning: #ffa726;
+  /*
+   * 관심 별 (v2.42.3) — 담은 별(채운 별)만 노랑. 경고(warning 주황)와 다른 색이라 "경고" 로 읽히지 않는다.
+   * 대비: bg-primary 11.36 · bg-secondary 10.28 · bg-tertiary 8.85 · bg-elevated 7.23 (모두 3:1 이상 — 아이콘 기준).
+   */
+  --color-star: #f5c542;
   --color-border: #333333;
   --color-chart-grid: #222222;
 
