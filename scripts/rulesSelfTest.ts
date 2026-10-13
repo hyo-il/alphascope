@@ -1,0 +1,384 @@
+/**
+ * `npm run rules:test` — 「매매 규칙」 엔진 시험 (v2.43.0, 퀀트 다시 만들기 1단계).
+ *
+ * ① 교차와 같은 판단 — 규칙 = 교차(1점) + RSI 반등(1점) · 기준 1점 · 반대 신호 켬 · 점수 매도 끔 · 대기 0 ·
+ *    손익비 안전장치 끔(시험용 인자) → 예전 `decideRule` 과 action 이 모두 같은지 (규칙형 4종 × 보유/미보유)
+ * ② 점수와 같은 점수 — 기본 규칙 → 관심 목록 × 최근 120 거래일, 같은 끝난 봉을 넣은 `evaluateSwing`(표준 기준)과
+ *    5그룹 점수·합계가 같은지, 손익비로 막힌 날 = 손익비 강등 날인지
+ * ③ 미래 정보 — 봉 i 까지 잘라 계산한 판단 == 전체로 계산한 i 의 판단
+ * ④ 속도 — 미국 시총 상위 100 × 3년(756 거래일) 판단 시간 · 지표 엔진 호출 수
+ * ⑤ 단위 시험 — 다시 사기 대기 · 점수 매도 · 빈 규칙 · 점수표 비례 · 손익비 막음 · 반대 신호 · 입력 검사
+ *
+ * ⚠️ **실제 DB 를 바꾸지 않는다** — DB 를 임시 파일로 복사해 그것만 연다. 토스를 부르지 않는다(캔들은 DB 캐시만 — 고정 캔들).
+ * ⚠️ 지표 엔진이 떠 있어야 한다(①~④). 꺼져 있으면 ⑤만 돌고 실패로 끝난다.
+ */
+import 'dotenv/config';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import Database from 'better-sqlite3';
+
+const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const srcDb = path.resolve(root, process.env.DB_PATH ?? './db/alphascope.db');
+const tmpDb = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'rules-test-')), 'copy.db');
+await new Database(srcDb, { readonly: true }).backup(tmpDb);
+process.env.DB_PATH = tmpDb;
+
+// 지표 엔진 호출 수를 센다 (토스는 부르지 않는다 — 부르면 실패로 센다)
+let engineCalls = 0;
+let tossCalls = 0;
+const realFetch = globalThis.fetch;
+globalThis.fetch = (async (input: any, init?: any) => {
+  const url = typeof input === 'string' ? input : input.url ?? String(input);
+  if (url.includes('/indicators')) engineCalls++;
+  if (url.includes('tossinvest')) {
+    tossCalls++;
+    throw new Error('rules:test 는 토스를 부르지 않는다');
+  }
+  return realFetch(input, init);
+}) as typeof fetch;
+
+const { loadCandles } = await import('../server/db');
+const { computeIndicators } = await import('../server/indicatorService');
+const { completedDaily, decideRule } = await import('../server/autoTrading/ruleEngine');
+const { evaluateRule, exitLevels, scoreAt } = await import('../server/rules/engine');
+const { evaluateSwing } = await import('../server/swingAnalyzer');
+const { watchlistSymbols } = await import('../server/analysis/targetHit');
+const { readUniverse } = await import('../server/universe');
+const { RULE_CHOICES } = await import('../src/types/ruleChoices');
+const { STANDARD_SWING } = await import('../src/types/strategyProfile');
+const { marketDate } = await import('../src/utils/marketDate');
+const T = await import('../src/types/tradingRule');
+const { ruleFieldErrors, ruleWarnings, parseRuleBody } = await import('../src/utils/ruleInput');
+type RuleBody = import('../src/types/tradingRule').RuleBody;
+type RuleConfig = import('../src/types/autoTrading').RuleConfig;
+type Candle = import('../src/types/toss').Candle;
+type IndicatorSeries = import('../src/types/chart').IndicatorSeries;
+
+let failures = 0;
+const results: string[] = [];
+function check(name: string, ok: boolean, detail = ''): void {
+  if (!ok) failures++;
+  const line = `${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`;
+  results.push(line);
+  console.log(line);
+}
+
+/** 예전 규칙형 설정 → 새 규칙 (① 비교용) */
+function fromRuleConfig(r: RuleConfig): RuleBody {
+  const body = T.emptyRuleBody();
+  body.buy.maCross = { on: r.useMaCross, points: 1, short: r.maShort, long: r.maLong };
+  body.buy.rsiRebound = { on: r.useRsi, points: 1, below: r.rsiBuyBelow };
+  body.buy.minScore = 1;
+  body.sell.opposite = { on: true, rsiAbove: r.rsiSellAbove };
+  body.reentryWaitDays = 0;
+  return body;
+}
+
+// 고정 시각 — 예전 비교 자료와 같은 기준(2026-10-07 0시 UTC 에 끝난 봉)
+const FIXED_NOW = Date.parse('2026-10-07T00:00:00Z');
+
+// ── ① ─────────────────────────────────────────────────────────────────────
+async function testCross(): Promise<void> {
+  const syms = ['NVDA', 'AAPL', 'MSFT', 'AMZN', 'JPM', 'XOM', 'LLY', 'WMT', '005930', '000660'];
+  const configs: RuleConfig[] = [
+    ...RULE_CHOICES.map((c) => ({ ...c.rule }) as RuleConfig),
+    { maShort: 20, maLong: 60, rsiBuyBelow: 35, rsiSellAbove: 65, useMaCross: true, useRsi: true },
+  ];
+  let rows = 0;
+  let actionDiff = 0;
+  let codeDiff = 0;
+  let reasonDiff = 0;
+  const examples: string[] = [];
+  for (const s of syms) {
+    const c = completedDaily(loadCandles(s, '1d', 260), s, FIXED_NOW);
+    if (c.length < 30) {
+      check(`① ${s} 캔들`, false, `${c.length}봉뿐`);
+      continue;
+    }
+    const series = await computeIndicators(c);
+    const ctx = { symbol: s, candles: c, series };
+    for (let i = 1; i < c.length; i++) {
+      for (const cfg of configs) {
+        const body = fromRuleConfig(cfg);
+        for (const held of [false, true]) {
+          const old = decideRule(series, i, cfg, held, marketDate(c[i].timestamp, s));
+          const neu = evaluateRule(ctx, i, body, { held }, { testOnlySkipRrGuard: true });
+          rows++;
+          if (old.action !== neu.action) {
+            actionDiff++;
+            if (examples.length < 5) examples.push(`${s} i=${i} held=${held} ${old.action}≠${neu.action}`);
+          }
+          // 코드: 매수는 예전 golden/rsi_rebound → 새 score_buy, 그 밖은 같아야 한다
+          const expectCode = old.action === 'BUY' ? 'score_buy' : old.code;
+          if (expectCode !== neu.code) codeDiff++;
+          if (old.reason !== neu.reasons[0]) reasonDiff++;
+        }
+      }
+    }
+  }
+  check('① 교차와 같은 판단 (action)', actionDiff === 0, `${rows.toLocaleString('en-US')}행 중 다름 ${actionDiff}${examples.length ? ` 예: ${examples.join(', ')}` : ''}`);
+  check('① 판단 코드 (매수 = score_buy)', codeDiff === 0, `다름 ${codeDiff}`);
+  results.push(`INFO  ① 사유 문장이 다른 행 ${reasonDiff.toLocaleString('en-US')} / ${rows.toLocaleString('en-US')} (문장은 달라도 된다)`);
+  console.log(results.at(-1));
+}
+
+// ── ② ─────────────────────────────────────────────────────────────────────
+async function testScore(): Promise<void> {
+  const body = T.defaultRuleBody();
+  const syms = watchlistSymbols();
+  let days = 0;
+  let scoreDiff = 0;
+  let totalDiff = 0;
+  let blockDiff = 0;
+  let buyDiff = 0;
+  let planDiff = 0;
+  let blocked = 0;
+  let buys = 0;
+  const examples: string[] = [];
+  const profile = { id: 'standard' as const, params: STANDARD_SWING };
+  for (const s of syms) {
+    const c = completedDaily(loadCandles(s, '1d', 300), s, FIXED_NOW);
+    if (c.length < 60) {
+      results.push(`INFO  ② ${s} 건너뜀 — 끝난 일봉 ${c.length}개(60개 미만)`);
+      console.log(results.at(-1));
+      continue;
+    }
+    const series = await computeIndicators(c);
+    const ctx = { symbol: s, candles: c, series };
+    for (let i = Math.max(59, c.length - 120); i < c.length; i++) {
+      const old = await evaluateSwing(s, profile, c.slice(0, i + 1));
+      const neu = evaluateRule(ctx, i, body, { held: false });
+      days++;
+      const groups = ['trend', 'timing', 'momentum', 'volume', 'riskReward'] as const;
+      for (const g of groups) {
+        const a = old.conditions[g].score;
+        const b = neu.breakdown.find((x) => x.key === g)!.score;
+        if (a !== b) {
+          scoreDiff++;
+          if (examples.length < 5) examples.push(`${s} i=${i} ${g} ${a}≠${b}`);
+        }
+      }
+      if (old.score !== neu.score) totalDiff++;
+      const demoted = old.score >= STANDARD_SWING.grades.buy && old.conditions.riskReward.ratio < STANDARD_SWING.rrDemoteBelow;
+      if (demoted !== neu.rrBlocked) blockDiff++;
+      if (neu.rrBlocked) blocked++;
+      const oldBuy = old.grade === 'STRONG' || old.grade === 'BUY';
+      if (oldBuy !== (neu.action === 'BUY')) buyDiff++;
+      if (neu.action === 'BUY') buys++;
+      // 참고 계획도 같은지 (매수가·손절·목표·비율·비중)
+      const r = neu.reference;
+      const samePlan = r
+        ? r.entryPrice === old.entry.price && r.stop === old.stopLoss.price && r.target1 === old.targets.target1.price &&
+          r.target2 === old.targets.target2.price && r.ratio === old.conditions.riskReward.ratio &&
+          r.sizePercent === old.position.recommendedPercent && r.entryType === old.entry.type
+        : old.stopLoss.price === 0;
+      if (!samePlan) {
+        planDiff++;
+        if (process.env.RULES_TEST_DEBUG) console.log('plan', s, i, JSON.stringify(r), JSON.stringify({ e: old.entry.price, t: old.entry.type, s: old.stopLoss.price, t1: old.targets.target1.price, t2: old.targets.target2.price, r: old.conditions.riskReward.ratio, p: old.position.recommendedPercent }));
+      }
+    }
+  }
+  check('② 5그룹 점수', scoreDiff === 0, `${syms.length}종목 · ${days}일 · 다른 그룹 점수 ${scoreDiff}${examples.length ? ` 예: ${examples.join(', ')}` : ''}`);
+  check('② 합계', totalDiff === 0, `다름 ${totalDiff}`);
+  check('② 손익비로 막힌 날 = 손익비 강등 날', blockDiff === 0, `막힌 날 ${blocked} · 다름 ${blockDiff}`);
+  check('② 매수 날 = 예전 STRONG·BUY 날', buyDiff === 0, `매수 ${buys} · 다름 ${buyDiff}`);
+  check('② 참고 계획(매수가·손절·목표·손익비·비중·진입)', planDiff === 0, `다름 ${planDiff}`);
+}
+
+// ── ③ ─────────────────────────────────────────────────────────────────────
+async function testLeak(): Promise<void> {
+  const rules: [string, RuleBody][] = [['기본 규칙', T.defaultRuleBody()]];
+  const all = T.defaultRuleBody();
+  all.buy.maCross.on = true;
+  all.buy.rsiRebound.on = true;
+  all.sell.opposite.on = true;
+  rules.push(['모든 조건', all]);
+  let compared = 0;
+  let diff = 0;
+  for (const s of ['AAPL', '005930']) {
+    const c = completedDaily(loadCandles(s, '1d', 300), s, FIXED_NOW);
+    const full = { symbol: s, candles: c, series: await computeIndicators(c) };
+    for (let i = c.length - 60; i < c.length; i++) {
+      const cut = c.slice(0, i + 1);
+      const part = { symbol: s, candles: cut, series: await computeIndicators(cut) };
+      for (const [, body] of rules) {
+        for (const held of [false, true]) {
+          compared++;
+          if (JSON.stringify(evaluateRule(full, i, body, { held })) !== JSON.stringify(evaluateRule(part, i, body, { held }))) diff++;
+        }
+      }
+    }
+  }
+  check('③ 미래 정보 (잘라 계산 == 전체)', diff === 0, `${compared}건 비교 · 다름 ${diff}`);
+}
+
+// ── ④ ─────────────────────────────────────────────────────────────────────
+async function testSpeed(): Promise<void> {
+  const DAYS = 756;
+  const syms = readUniverse().us.map((e) => e.symbol.toUpperCase());
+  const body = T.defaultRuleBody();
+  const before = engineCalls;
+  let evaluated = 0;
+  let short = 0;
+  let loadMs = 0;
+  let indMs = 0;
+  let evalMs = 0;
+  const t0 = Date.now();
+  for (const s of syms) {
+    let t = Date.now();
+    const c = completedDaily(loadCandles(s, '1d', DAYS + 200), s, FIXED_NOW);
+    loadMs += Date.now() - t;
+    if (c.length < DAYS + 60) short++;
+    if (c.length < 60) continue;
+    t = Date.now();
+    const series = await computeIndicators(c);
+    indMs += Date.now() - t;
+    const ctx = { symbol: s, candles: c, series };
+    t = Date.now();
+    let held = false;
+    for (let i = Math.max(59, c.length - DAYS); i < c.length; i++) {
+      const r = evaluateRule(ctx, i, body, { held });
+      if (r.action === 'BUY') held = true;
+      else if (r.action === 'SELL') held = false;
+      evaluated++;
+    }
+    evalMs += Date.now() - t;
+  }
+  const total = Date.now() - t0;
+  results.push(
+    `INFO  ④ 속도 — ${syms.length}종목 · 판단 ${evaluated.toLocaleString('en-US')}번 · 전체 ${(total / 1000).toFixed(1)}초 ` +
+      `(캔들 읽기 ${(loadMs / 1000).toFixed(1)} · 지표 ${(indMs / 1000).toFixed(1)} · 판단 ${(evalMs / 1000).toFixed(1)}) · 지표 엔진 ${engineCalls - before}회 · 3년치 모자란 종목 ${short}`,
+  );
+  console.log(results.at(-1));
+  check('④ 지표 엔진은 종목마다 한 번', engineCalls - before <= syms.length, `${engineCalls - before}회 / ${syms.length}종목`);
+}
+
+// ── ⑤ ─────────────────────────────────────────────────────────────────────
+function synth(n: number): { candles: Candle[]; series: IndicatorSeries } {
+  const day = 86_400_000;
+  const start = Date.parse('2026-01-05T05:00:00Z');
+  const candles: Candle[] = Array.from({ length: n }, (_, i) => ({
+    timestamp: start + i * day,
+    open: 100,
+    high: 101,
+    // 저가를 크게 낮춰 손절 폭을 넓힌다 → 손익비 1 미만(손익비 막음 시험). 다른 매수 시험은 시험용 인자로 막음을 끈다
+    low: 50,
+    close: 100,
+    volume: 1000,
+  }));
+  const blank = () => Array<number | null>(n).fill(null);
+  const series = {
+    sma5: blank(), sma20: blank(), sma60: blank(), sma120: blank(), rsi14: blank(),
+    macdHistogram: blank(), stochK: blank(), stochD: blank(), bbLower: blank(), bbMiddle: blank(), bbUpper: blank(),
+    atr14: blank(), obv: blank(),
+  } as unknown as IndicatorSeries;
+  return { candles, series };
+}
+
+function testUnits(): void {
+  // 점수표 비례
+  for (const k of Object.keys(T.GROUP_TABLES) as (keyof typeof T.GROUP_TABLES)[]) {
+    const base = T.GROUP_TABLES[k];
+    check(`⑤ 점수표 기본값 = 예전 표 (${k})`, JSON.stringify(T.scaledTable(k, base[3])) === JSON.stringify(base));
+  }
+  check('⑤ 추세 만점 50 → [0,17,33,50]', JSON.stringify(T.scaledTable('trend', 50)) === '[0,17,33,50]', JSON.stringify(T.scaledTable('trend', 50)));
+  check('⑤ 타이밍 만점 10 → [0,3,6,10]', JSON.stringify(T.scaledTable('timing', 10)) === '[0,3,6,10]', JSON.stringify(T.scaledTable('timing', 10)));
+  check('⑤ 만점 0 → 모두 0', JSON.stringify(T.scaledTable('volume', 0)) === '[0,0,0,0]');
+
+  // 빈 규칙
+  const { candles, series } = synth(30);
+  const ctx = { symbol: 'TEST', candles, series };
+  const empty = T.emptyRuleBody();
+  const r0 = evaluateRule(ctx, 29, empty, { held: false });
+  check('⑤ 빈 규칙 → 매수 안 함', r0.action === 'HOLD' && r0.maxScore === 0 && r0.code === 'no_signal_buy', r0.reasons[0]);
+  check('⑤ 빈 규칙 경고 「매수 조건이 없습니다」', ruleWarnings(empty).some((w) => w.includes('매수 조건이 없습니다')));
+  check('⑤ 빈 규칙 · 기본 규칙 입력 오류 없음', Object.keys(ruleFieldErrors(empty)).length === 0 && Object.keys(ruleFieldErrors(T.defaultRuleBody())).length === 0);
+
+  // 골든크로스를 봉 20 에 만든다
+  const s = series as any;
+  for (let i = 0; i < 30; i++) {
+    s.sma5[i] = i < 20 ? 1 : 3;
+    s.sma20[i] = 2;
+    s.bbUpper[i] = 102;
+  }
+  const cross = T.emptyRuleBody();
+  cross.buy.maCross = { on: true, points: 1, short: 5, long: 20 };
+  cross.buy.minScore = 1;
+  const date = (i: number) => marketDate(candles[i].timestamp, 'TEST');
+
+  // 다시 사기 대기: 손절 = 봉 17 → 봉 20 까지 3거래일
+  const wait = (days: number) => evaluateRule(ctx, 20, { ...cross, reentryWaitDays: days }, { held: false, lastStopDate: date(17) }, { testOnlySkipRrGuard: true });
+  check('⑤ 대기 5거래일 · 3일째 → 기다림', wait(5).action === 'HOLD' && wait(5).code === 'reentry_wait', wait(5).reasons[0]);
+  check('⑤ 대기 3거래일 · 3일째 → 매수', wait(3).action === 'BUY');
+  check('⑤ 대기 0 → 바로 매수', wait(0).action === 'BUY');
+  check('⑤ 손절 기록 없음 → 대기 없음', evaluateRule(ctx, 20, { ...cross, reentryWaitDays: 5 }, { held: false }, { testOnlySkipRrGuard: true }).action === 'BUY');
+
+  // 손익비 막음 (계획을 세울 수 없음 = 손익비 0) — 시험 인자 없이는 막힌다
+  const rr = evaluateRule(ctx, 20, cross, { held: false });
+  check('⑤ 손익비 1 미만 → 매수하지 않음 (끌 수 없다)', rr.action === 'HOLD' && rr.code === 'rr_block' && rr.rrBlocked, rr.reasons[0]);
+
+  // 목표를 세울 수 없으면(볼린저 상단 없음) 계획 없음 → 손익비 0 → 매수하지 않음
+  const noBand = synth(30);
+  const nb = noBand.series as any;
+  for (let i = 0; i < 30; i++) {
+    nb.sma5[i] = i < 20 ? 1 : 3;
+    nb.sma20[i] = 2;
+  }
+  const nbr = evaluateRule({ symbol: 'TEST', ...noBand }, 20, cross, { held: false });
+  check('⑤ 목표가 무한대(볼린저 상단 없음) → 계획 없음 · 매수 안 함', nbr.reference === null && nbr.code === 'rr_block', nbr.reasons[0]);
+
+  // 점수 매도
+  const sellRule = { ...cross, sell: { ...cross.sell, scoreBelow: { on: true, value: 1 } } };
+  const sold = evaluateRule(ctx, 25, sellRule, { held: true });
+  check('⑤ 점수 1 아래 → 매도', sold.action === 'SELL' && sold.code === 'score_sell', sold.reasons[0]);
+  check('⑤ 점수 매도 끔 → 보유', evaluateRule(ctx, 25, cross, { held: true }).action === 'HOLD');
+  check('⑤ 교차 당일 점수 1 → 점수 매도 안 함', evaluateRule(ctx, 20, sellRule, { held: true }).action === 'HOLD');
+
+  // 반대 신호: 데드크로스를 봉 25 에
+  for (let i = 25; i < 30; i++) s.sma5[i] = 1;
+  const opp = { ...cross, sell: { ...cross.sell, opposite: { on: true, rsiAbove: 70 } } };
+  check('⑤ 반대 신호 켬 · 데드크로스 → 매도', evaluateRule(ctx, 25, opp, { held: true }).code === 'dead');
+  check('⑤ 반대 신호 끔 → 보유', evaluateRule(ctx, 25, cross, { held: true }).action === 'HOLD');
+  const oppNoCross = { ...opp, buy: { ...opp.buy, maCross: { ...opp.buy.maCross, on: false }, minScore: 1 } };
+  check('⑤ 교차를 끄면 데드크로스를 보지 않음', evaluateRule(ctx, 25, oppNoCross, { held: true }).action === 'HOLD');
+
+  // 순간 조건은 그날만
+  check('⑤ 교차 다음 날은 점수 0', scoreAt(ctx, 21, cross).score === 0);
+
+  // 가격
+  const lv = exitLevels({ ...cross, sell: { ...cross.sell, stopLoss: { on: true, percent: 7 }, takeProfit: { on: true, percent: 10 }, trailing: { on: true, percent: 5 } } }, { held: true, avgPrice: 100, peak: 120 });
+  check('⑤ 손절·익절·트레일링 가격', Math.abs(lv.stop! - 93) < 1e-9 && Math.abs(lv.takeProfit! - 110) < 1e-9 && Math.abs(lv.trailing! - 114) < 1e-9, JSON.stringify(lv));
+
+  // 입력 검사
+  const bad = T.defaultRuleBody();
+  bad.sell.scoreBelow.value = 65;
+  check('⑤ 매도 점수 ≥ 매수 기준 → 오류', !!ruleFieldErrors(bad)['sell.scoreBelow.value']);
+  const badMa = T.defaultRuleBody();
+  badMa.buy.maCross.short = 60;
+  badMa.buy.maCross.long = 20;
+  check('⑤ 단기선 ≥ 장기선 → 오류', !!ruleFieldErrors(badMa)['buy.maCross.long']);
+  badMa.buy.maCross.short = 13;
+  check('⑤ 엔진에 없는 이동평균(13일) → 오류', !!ruleFieldErrors(badMa)['buy.maCross.short']);
+  const badRsi = T.defaultRuleBody();
+  badRsi.buy.timing.rsiLow = 50;
+  badRsi.buy.timing.rsiHigh = 40;
+  check('⑤ RSI 구간 거꾸로 → 오류', !!ruleFieldErrors(badRsi)['buy.timing.rsiHigh']);
+  check('⑤ 모양이 틀린 규칙 → 거절', 'error' in parseRuleBody({ buy: { trend: { on: 'yes' } } }));
+  check('⑤ 올바른 규칙 → 그대로', JSON.stringify((parseRuleBody(JSON.parse(JSON.stringify(T.defaultRuleBody()))) as any).body) === JSON.stringify(T.defaultRuleBody()));
+}
+
+const t0 = Date.now();
+testUnits();
+try {
+  await testCross();
+  await testScore();
+  await testLeak();
+  await testSpeed();
+} catch (e) {
+  check('지표 엔진이 필요한 시험', false, (e as Error).message);
+}
+check('토스 호출 0회', tossCalls === 0, `${tossCalls}회`);
+fs.rmSync(path.dirname(tmpDb), { recursive: true, force: true });
+console.log(`\n${failures ? `실패 ${failures}건` : '모두 통과'} · ${((Date.now() - t0) / 1000).toFixed(1)}초 · DB 사본 ${srcDb}`);
+process.exit(failures ? 1 : 0);
