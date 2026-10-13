@@ -173,10 +173,11 @@ export const BASE_CHART_OPTIONS = {
 export const VOLUME_PRICE_FORMAT = { type: 'custom' as const, minMove: 1, formatter: (v: number) => formatCompact(v) };
 
 export function priceFormatOf(currency: 'KRW' | 'USD' | string | null | undefined) {
-  // 원화는 천 단위 쉼표(263,500 — v2.42.2, 예전 263500). 축 눈금·현재가 라벨·십자선 값이 모두 이 형식을 쓴다. 달러는 그대로(소수 둘째 자리)
+  // 원화는 천 단위 쉼표(263,500 — v2.42.2, 예전 263500). 축 눈금·현재가 라벨·십자선 값이 모두 이 형식을 쓴다.
+  // 달러도 천 단위 쉼표 + 소수 둘째 자리(1,427.82 — v2.42.3, 예전 1427.82: 1,000달러 넘는 종목의 축에 쉼표가 없었다). 화면 표기만이다
   return currency === 'KRW'
     ? { type: 'custom' as const, minMove: 1, formatter: (p: number) => Math.round(p).toLocaleString('ko-KR') }
-    : { type: 'price' as const, precision: 2, minMove: 0.01 };
+    : { type: 'custom' as const, minMove: 0.01, formatter: (p: number) => p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) };
 }
 
 export const CANDLE_SERIES_OPTIONS = {

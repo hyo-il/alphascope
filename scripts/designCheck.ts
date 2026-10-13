@@ -177,8 +177,13 @@ export function measure() {
     const hintLeft: number[] = [];
     for (const row of rows) {
       const cell = row.querySelector('[data-formrow-value]');
-      const last = cell ? [...cell.children].filter((c) => visible(c)).pop() : null;
-      if (last) cellRight.push(Math.round(last.getBoundingClientRect().right));
+      // 감싼 요소가 아니라 **보이는 조작 요소 자체**의 오른쪽 끝(숫자 칸은 칸 상자) — 감싼 span 에 빈 단위 자리가 남아 있으면 그 폭이 끝으로 잡혀 어긋남을 놓쳤다(v2.42.3)
+      const ctrls = cell
+        ? [...cell.querySelectorAll('input:not([type=checkbox]):not([type=radio]), select, [role=radiogroup], label, button')]
+            .map((c) => (c.tagName === 'INPUT' ? c.parentElement! : c))
+            .filter((c) => visible(c))
+        : [];
+      if (ctrls.length) cellRight.push(Math.max(...ctrls.map((c) => Math.round(c.getBoundingClientRect().right))));
       const unit = row.querySelector('[data-formrow-unit]');
       if (unit && visible(unit)) unitLeft.push(Math.round(unit.getBoundingClientRect().left));
       const hint = row.querySelector('[data-formrow-hint]');
@@ -450,6 +455,8 @@ async function main() {
     await page.waitForTimeout(1500);
     for (const t of targets().filter((x) => !process.env.ONLY || new RegExp(process.env.ONLY).test(x.name))) {
       consoleErrors = [];
+      // 마우스를 화면 구석으로 — 앞 화면에서 누른 자리에 남아 있으면 새 화면의 줄에 올라가 있는 상태(마우스 오버 미리보기 등)로 찍힌다(v2.42.3)
+      await page.mouse.move(0, 0);
       await page.evaluate((h) => (location.hash = h), t.hash);
       await page.waitForTimeout(2200);
       if (t.open) await t.open(page).catch((e) => consoleErrors.push(`창 열기 실패: ${String(e).slice(0, 120)}`));

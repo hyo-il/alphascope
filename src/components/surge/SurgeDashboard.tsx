@@ -187,7 +187,7 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
               <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>7일</th>
               <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>14일</th>
               <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>30일</th>
-              <th className="pl-4">실제 급등</th>
+              <th className="pl-4 pr-4">실제 급등</th>
             </tr>
           </thead>
           <tbody>
@@ -237,13 +237,17 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
                     <td className="pl-4 pr-2 text-right tabular-nums">
                       {changeOf(row.priceAtDetection, row.priceAfter30d)}
                     </td>
-                    {/* 날짜와 등락률을 한 덩어리로 — 괄호만 다음 줄로 꺾이지 않게 */}
-                    <td className="whitespace-nowrap pl-4">
+                    {/*
+                      날짜 줄 · 등락률 줄 두 줄(덩어리마다 줄바꿈 금지) — 한 줄(「급등 2026-09-21 (+5.3%)」)이면 1280 에서 표가 넘쳐
+                      이 열이 화면 밖으로 잘렸다(v2.42.3 캡처 검토). 괄호만 따로 꺾이지는 않는다.
+                    */}
+                    <td className="pl-4">
                       {row.actualSurged == null ? (
                         <span className="text-text-muted">대기</span>
                       ) : row.actualSurged ? (
                         <span className="text-bullish">
-                          급등 {row.actualSurgeDate} (+{row.actualSurgePercent?.toFixed(1)}%)
+                          <span className="block whitespace-nowrap">급등 {row.actualSurgeDate}</span>
+                          <span className="block whitespace-nowrap">(+{row.actualSurgePercent?.toFixed(1)}%)</span>
                         </span>
                       ) : (
                         <span className="text-text-secondary">없음</span>

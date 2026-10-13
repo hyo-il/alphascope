@@ -10,6 +10,14 @@ export function NumberUnitGroup({ w, children }: { w: keyof typeof UNIT_W; child
 export function useUnitWidth() {
   return useContext(UnitWidth);
 }
+/**
+ * `FormRow` 값 칸 안 표시 (v2.42.3) — 그 안의 `NumberField` 는 **칸만** 그린다(단위 열은 FormRow 가 그린다).
+ * 없으면 묶음 안의 칸이 제 단위 자리(빈 칸)를 한 번 더 비워, 같은 값 칸의 드롭박스·묶음 버튼보다 칸 오른쪽 끝이 그만큼 안쪽에 있었다(캡처 검토에서 찾음).
+ */
+const InFormRow = createContext(false);
+export function FormRowValue({ children }: { children: ReactNode }) {
+  return <InFormRow.Provider value>{children}</InFormRow.Provider>;
+}
 
 /** 쉼표 입력(thousands) — 숫자·소수점만 남긴다. `decimals` 0 이면 정수 */
 export function sanitizeNumber(text: string, decimals: number): string {
@@ -67,6 +75,7 @@ const NumberField = forwardRef<HTMLInputElement, Props>(function NumberField(
   ref,
 ) {
   const groupW = useContext(UnitWidth);
+  const inFormRow = useContext(InFormRow);
   const w = unitW ?? groupW;
   const inner = useRef<HTMLInputElement | null>(null);
   /** thousands — 다음 렌더 뒤 커서를 둘 자리(커서 앞 숫자·소수점 개수) */
@@ -141,7 +150,7 @@ const NumberField = forwardRef<HTMLInputElement, Props>(function NumberField(
       />
     </span>
   );
-  if (!unit && !w) return box;
+  if (inFormRow || (!unit && !w)) return box;
   // 단위는 칸 밖 오른쪽 — 묶음이면 단위 열 폭을 같게(단위가 없어도 자리를 비운다)
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5">

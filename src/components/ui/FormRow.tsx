@@ -1,6 +1,6 @@
 import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { FORM_LABEL_W, FORM_VALUE_W, UNIT_W } from './tokens';
-import { useUnitWidth } from './NumberField';
+import { FormRowValue, useUnitWidth } from './NumberField';
 
 /**
  * 폼 줄 (v2.42.0 → v2.42.3 — 기준표 「입력칸」, 사용자 결정 2026-10-13)
@@ -54,7 +54,7 @@ export default function FormRow({
         </label>
         <div className="flex shrink-0 items-center gap-1.5">
           <div data-formrow-value className={`flex items-center justify-end gap-2 ${valueW === 'auto' ? '' : FORM_VALUE_W[valueW]}`}>
-            {control}
+            <FormRowValue>{control}</FormRowValue>
           </div>
           {showUnit && (
             <span data-formrow-unit className={`shrink-0 text-caption text-text-muted ${groupW ? UNIT_W[groupW] : ''}`}>

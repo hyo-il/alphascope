@@ -199,7 +199,7 @@ export default function WatchlistManager({
                   onDragEnter={() => dragSymbol && setDropFolderId(LOOSE)}
                   onDragLeave={() => setDropFolderId((prev) => (prev === LOOSE ? null : prev))}
                   className={`border-l-2 transition-colors ${
-                    isLoose ? 'border-accent bg-bg-tertiary' : 'border-transparent hover:bg-bg-tertiary/50'
+                    isLoose ? 'border-transparent bg-bg-elevated' : 'border-transparent hover:bg-bg-tertiary/50'
                   } ${dropFolderId === LOOSE ? 'bg-accent/15 ring-1 ring-accent' : ''}`}
                 >
                   <button
@@ -299,7 +299,8 @@ export default function WatchlistManager({
                         }}
                         className={`group flex h-12 cursor-grab items-center gap-1.5 border-l-2 pr-2 transition-colors active:cursor-grabbing ${
                           active
-                            ? 'border-accent bg-bg-tertiary'
+                            ? // 고른 그룹 = 밝은 바탕 + 흰 글자(파란 세로줄 없음 — 디자인 규칙 2, v2.42.3 캡처 검토)
+                              'border-transparent bg-bg-elevated'
                             : 'border-transparent hover:bg-bg-tertiary/50'
                         }`}
                       >
@@ -325,8 +326,9 @@ export default function WatchlistManager({
                           >
                             {f.name}
                           </span>
+                          {/* 개수는 「폴더 없음 (N)」 과 같은 괄호 표기 */}
                           <span className="shrink-0 text-sm tabular-nums text-text-muted">
-                            {f.symbols.length}
+                            ({f.symbols.length})
                           </span>
                         </button>
 
