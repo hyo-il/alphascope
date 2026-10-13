@@ -546,7 +546,8 @@ export default function StrategyProfileModal({
           {/* 접기 안의 접기를 없앴다(v2.40.0) — 고급 설정을 펼치면 바로 보인다 */}
           <div className="rounded-lg bg-bg-tertiary/40 px-3 py-2">
             <h5 className="text-xs font-medium text-text-secondary">판정 기준 숫자</h5>
-          <table className="mt-2 w-full border-collapse text-left">
+          {/* data-rows-differ: 줄마다 다른 값(점수·비율·%)이라 「같은 열 소수 자릿수」 측정에서 뺀다 — 같은 줄 안의 칸끼리는 자릿수가 같다 */}
+          <table data-rows-differ className="mt-2 w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-border/50 text-caption text-text-muted">
                 <th className="py-2 pr-2 font-normal">항목</th>
@@ -571,7 +572,8 @@ export default function StrategyProfileModal({
                     <p className="text-caption leading-relaxed text-text-muted">{spec.hint}</p>
                   </td>
                   <td className="py-2 pr-2 text-xs tabular-nums text-text-muted">
-                    {spec.get(state.standard)}
+                    {/* 소수 단위 줄(손익비·리스크 %)은 소수 한 자리로 — 같은 열에 1 과 1.5 가 섞여 읽히지 않게(화면 표기만, v2.42.3) */}
+                    {spec.step < 1 ? spec.get(state.standard).toFixed(1) : spec.get(state.standard)}
                   </td>
                   {CUSTOM_PROFILES.map((id) => {
                     const value = spec.get(draft[id]);

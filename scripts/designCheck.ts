@@ -62,7 +62,26 @@ function targets(): Target[] {
     await page.getByRole('button', { name: text }).first().click();
     await page.waitForTimeout(900);
   };
+  /** 접힌 「고급 설정」 을 모두 펼친다(펼치면 안에 또 있을 수 있어 몇 번 돈다) — 접힌 폼 줄도 재기 위해 (v2.42.3) */
+  const expandAdvanced = async (page: Page) => {
+    for (let i = 0; i < 4; i++) {
+      const closed = page.locator('button[aria-expanded="false"]', { hasText: '고급 설정' });
+      const n = await closed.count();
+      if (!n) break;
+      for (let k = 0; k < n; k++) await closed.first().click().catch(() => {});
+      await page.waitForTimeout(400);
+    }
+  };
+  const openAccountSettings = async (page: Page) => {
+    await page.getByText('현재 계좌').first().click();
+    await page.waitForTimeout(1200);
+    await click('자동매매 설정')(page);
+  };
   list.push(
+    { name: 'dialog-자동매매설정-고급', hash: '#/portfolio/paper', open: async (page) => { await openAccountSettings(page); await expandAdvanced(page); } },
+    { name: 'dialog-판단기준편집-고급', hash: '#/swing/list', open: async (page) => { await click(/판단 기준/)(page); await expandAdvanced(page); } },
+    { name: 'backtest-고급', hash: '#/backtest', open: expandAdvanced },
+    { name: 'form-새계좌', hash: '#/portfolio/paper', open: click(/새 계좌/) },
     { name: 'dialog-종목고르기', hash: '#/backtest', open: click('종목 고르기') },
     {
       name: 'dialog-자동매매설정',
@@ -366,7 +385,8 @@ export function measure() {
 
   // 14. 같은 표 열 안에서 소수 자릿수 다름
   for (const table of document.querySelectorAll('table')) {
-    if (!visible(table) || offscreen(table) || table.closest('[data-measure-skip]')) continue;
+    // 줄마다 다른 값을 담는 설정표(`data-rows-differ` — 판단 기준 숫자표)는 열의 자릿수가 섞이는 게 맞다 (v2.42.3)
+    if (!visible(table) || offscreen(table) || table.closest('[data-measure-skip]') || table.hasAttribute('data-rows-differ')) continue;
     const rows = [...table.querySelectorAll('tbody tr')].filter((r) => r.children.length > 1).slice(0, 40);
     const cols = rows.length ? Math.max(...rows.map((r) => r.children.length)) : 0;
     const head = table.querySelector('thead tr');
@@ -428,7 +448,7 @@ async function main() {
     // 종목이 있어야 의미가 있는 화면(차트·AI 분석) — 홈 첫 카드(애플)를 골라 둔다(주소에는 종목이 없다)
     await page.getByRole('button', { name: /애플/ }).first().click().catch(() => {});
     await page.waitForTimeout(1500);
-    for (const t of targets()) {
+    for (const t of targets().filter((x) => !process.env.ONLY || new RegExp(process.env.ONLY).test(x.name))) {
       consoleErrors = [];
       await page.evaluate((h) => (location.hash = h), t.hash);
       await page.waitForTimeout(2200);

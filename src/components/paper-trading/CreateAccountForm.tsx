@@ -77,13 +77,13 @@ export default function CreateAccountForm({ onCreate, onDone, onCancel }: Props)
         aria-label="초기 자금"
         value={String(balance)}
         onValue={(raw) => setBalance(raw === '' ? 0 : Number(raw))} />
-      <Button variant="primary" size="sm"
+      <Button variant="primary" size="md"
         onClick={() => void submit()}
         disabled={busy}>
         만들기
       </Button>
       {onCancel && (
-        <Button variant="secondary" size="sm"
+        <Button variant="secondary" size="md"
           onClick={onCancel}>
           취소
         </Button>
