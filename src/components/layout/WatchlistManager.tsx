@@ -36,12 +36,12 @@ const SORT_LABEL: Record<SortMode, string> = {
 const SORT_ORDER: SortMode[] = ['manual', 'name', 'change'];
 
 /**
- * 왼쪽 목록 맨 위의 **`전체 종목` 은 폴더가 아니라 '보기'** 다 (2026-09-23).
- *
- * 예전에는 여기 '미분류' 폴더가 있었는데, 사용자에게 그것은 폴더가 아니라
- * "폴더에 없음" 이라는 상태다. 이름변경·삭제·순서변경이 없고 모양도 그룹 행과 구분한다.
+ * 왼쪽 목록 맨 위는 **「폴더 없음」** (v2.42.3) — 저장 형식의 기본 폴더(`DEFAULT_FOLDER_ID`) 안의 종목만 보인다.
+ * 사용자에게 그것은 폴더가 아니라 "폴더에 없음" 이라는 상태라 이름 바꾸기·삭제·순서 바꾸기가 없고, 모양도 그룹 행과 구분한다.
+ * 종목을 여기에 놓으면 「폴더에서 빼기」 다. 저장 형식은 그대로다.
+ * (v2.42.2 까지 이 자리는 모든 폴더를 이어 붙인 「전체 종목」 보기였다 — 폴더 밖 종목만 따로 볼 방법이 없었다.)
  */
-const ALL_VIEW = '__all__';
+const LOOSE = DEFAULT_FOLDER_ID;
 
 export default function WatchlistManager({
   watch,
@@ -52,16 +52,12 @@ export default function WatchlistManager({
 }) {
   const { folders } = watch;
 
-  const [selectedFolderId, setSelectedFolderId] = useState<string>(ALL_VIEW);
-  const isAllView = selectedFolderId === ALL_VIEW;
-  const folder = isAllView ? null : (folders.find((f) => f.id === selectedFolderId) ?? null);
+  const [selectedFolderId, setSelectedFolderId] = useState<string>(LOOSE);
+  const isLoose = selectedFolderId === LOOSE;
+  const folder = folders.find((f) => f.id === selectedFolderId) ?? null;
+  const looseCount = folders.find((f) => f.id === LOOSE)?.symbols.length ?? 0;
   /** 화면에 그룹으로 보이는 폴더 — 기본 폴더(폴더 없음)는 그룹이 아니다 */
   const movable = folders.filter((f) => f.id !== DEFAULT_FOLDER_ID);
-  /** 종목 → 소속 그룹 이름 (없으면 null) — `전체 종목` 보기에서 뒤에 작게 적는다 */
-  const folderNameOf = (symbol: string) => {
-    const found = folders.find((f) => f.id !== DEFAULT_FOLDER_ID && f.symbols.includes(symbol));
-    return found?.name ?? null;
-  };
 
   const [checked, setChecked] = useState<string[]>([]);
   const [sort, setSort] = useState<SortMode>('manual');
@@ -73,7 +69,7 @@ export default function WatchlistManager({
   const [dragFolder, setDragFolder] = useState<string | null>(null);
   const [dragSymbol, setDragSymbol] = useState<string | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
-  /** 종목을 끌고 있을 때 올라가 있는 그룹(또는 `전체 종목`) — 놓기 전에 결과를 미리 보여 준다 */
+  /** 종목을 끌고 있을 때 올라가 있는 그룹(또는 「폴더 없음」) — 놓기 전에 결과를 미리 보여 준다 */
   const [dropFolderId, setDropFolderId] = useState<string | null>(null);
 
   /*
@@ -111,8 +107,7 @@ export default function WatchlistManager({
     return () => document.removeEventListener('mousedown', onDown);
   }, [moveOpen]);
 
-  // `전체 종목` 보기에서는 모든 폴더의 종목을 이어 붙인다 (기본 폴더가 맨 앞이다).
-  const symbols = isAllView ? folders.flatMap((f) => f.symbols) : (folder?.symbols ?? []);
+  const symbols = folder?.symbols ?? [];
   const names = useStockNames(symbols);
   // 수익률순일 때만 시세를 받는다 — 편집 화면이 열려 있는 내내 1초 폴링을 돌릴 이유가 없다.
   const quotes = useQuotes(sort === 'change' ? symbols : []);
@@ -165,7 +160,7 @@ export default function WatchlistManager({
       danger: true,
       onConfirm: () => {
         watch.deleteFolder(id);
-        if (selectedFolderId === id) setSelectedFolderId(ALL_VIEW);
+        if (selectedFolderId === id) setSelectedFolderId(LOOSE);
       },
     });
 
@@ -183,7 +178,7 @@ export default function WatchlistManager({
           <nav className="flex w-[30%] min-w-[160px] shrink-0 flex-col border-r border-border">
             <ul data-list className="min-h-0 flex-1 space-y-1 overflow-y-auto p-1">
               {/*
-                ⚠️ **폴더가 아니라 '보기'** 다 — 이름변경·삭제·순서변경이 없다.
+                「폴더 없음」 — 이름변경·삭제·순서변경이 없다.
                 그래서 아이콘(손잡이·▲▼·✕) 없이 굵은 글씨 + 아래 구분선으로 그룹 행과 구분한다.
                 종목을 여기에 떨어뜨리면 **폴더에서 빼기**가 된다.
               */}
@@ -201,26 +196,26 @@ export default function WatchlistManager({
                     setDragSymbol(null);
                     setDropFolderId(null);
                   }}
-                  onDragEnter={() => dragSymbol && setDropFolderId(ALL_VIEW)}
-                  onDragLeave={() => setDropFolderId((prev) => (prev === ALL_VIEW ? null : prev))}
+                  onDragEnter={() => dragSymbol && setDropFolderId(LOOSE)}
+                  onDragLeave={() => setDropFolderId((prev) => (prev === LOOSE ? null : prev))}
                   className={`border-l-2 transition-colors ${
-                    isAllView ? 'border-accent bg-bg-tertiary' : 'border-transparent hover:bg-bg-tertiary/50'
-                  } ${dropFolderId === ALL_VIEW ? 'bg-accent/15 ring-1 ring-accent' : ''}`}
+                    isLoose ? 'border-accent bg-bg-tertiary' : 'border-transparent hover:bg-bg-tertiary/50'
+                  } ${dropFolderId === LOOSE ? 'bg-accent/15 ring-1 ring-accent' : ''}`}
                 >
                   <button
                     type="button"
-                    onClick={() => setSelectedFolderId(ALL_VIEW)}
+                    onClick={() => setSelectedFolderId(LOOSE)}
                     className="flex h-12 w-full items-center gap-2 px-3 text-left"
                   >
                     <span
                       className={`min-w-0 flex-1 truncate text-sm font-semibold ${
-                        isAllView ? 'text-text-primary' : 'text-text-secondary'
+                        isLoose ? 'text-text-primary' : 'text-text-secondary'
                       }`}
                     >
-                      전체 종목
+                      폴더 없음
                     </span>
                     <span className="shrink-0 text-sm tabular-nums text-text-muted">
-                      {watch.watchlist.length}
+                      ({looseCount})
                     </span>
                   </button>
                 </div>
@@ -337,7 +332,7 @@ export default function WatchlistManager({
 
                         {/*
                           이름 바꾸기 — 더블클릭과 같은 동작 (v2.35.0). 더블클릭은 알려 주지 않으면 모른다 — 연필을 늘 옅게 보인다.
-                          미분류(기본 폴더)·「전체 종목」 보기에는 없다(이름을 바꿀 수 없다).
+                          「폴더 없음」(기본 폴더)에는 없다(이름을 바꿀 수 없다).
                         */}
                         {!isDefault && (
                           <button
@@ -435,15 +430,15 @@ export default function WatchlistManager({
                       기본 폴더는 이름('미분류')이 아니라 **'폴더에서 빼기'** 라는 동작으로 적는다 —
                       사용자에게 그것은 옮겨 갈 폴더가 아니라 폴더를 벗어나는 일이다.
                     */}
-                    <li>
+                    {!isLoose && (<li>
                       <button
                         type="button"
                         onClick={() => moveChecked(DEFAULT_FOLDER_ID)}
                         className="w-full px-3 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
                       >
-                        폴더 밖으로 이동
+                        폴더에서 빼기
                       </button>
-                    </li>
+                    </li>)}
                     {movable
                       .filter((f) => f.id !== folder?.id)
                       .map((f) => (
@@ -499,7 +494,7 @@ export default function WatchlistManager({
                     <SymbolSearch
                       symbol=""
                       onSubmit={(symbol) => {
-                        // `전체 종목` 보기에서 추가하면 폴더 없이 담는다.
+                        // 「폴더 없음」 에서 추가하면 폴더 없이 추가한다.
                         watch.add(symbol, folder?.id ?? DEFAULT_FOLDER_ID);
                         watch.rememberFolder(folder?.id ?? DEFAULT_FOLDER_ID);
                       }}
@@ -535,8 +530,8 @@ export default function WatchlistManager({
             >
               {symbols.length === 0 ? (
                 <p className="px-4 py-8 text-center text-xs text-text-muted">
-                  {isAllView
-                    ? '관심 종목이 없습니다. [+ 종목 추가] 로 시작해 보세요.'
+                  {isLoose
+                    ? '폴더에 넣지 않은 종목이 없습니다. [+ 종목 추가] 로 추가하거나, 그룹의 종목을 여기에 끌어 놓으면 폴더에서 빠집니다.'
                     : '이 그룹에 추가한 종목이 없습니다. [+ 종목 추가] 로 시작해 보세요.'}
                 </p>
               ) : (
@@ -557,9 +552,7 @@ export default function WatchlistManager({
                           갈라 주므로 체크 토글은 그대로 동작한다.
                           정렬이 이름순·수익률순이면 끌 수 없다 — 정렬된 화면의 위치를 저장
                           순서로 옮기면 엉뚱한 자리에 꽂힌다(기존 규칙).
-                          ⚠️ `전체 종목` 보기에서도 **끌 수는 있다** — 순서 바꾸기만 막고
-                          (여러 폴더가 섞여 인덱스가 뜻을 잃는다) 그룹으로 옮기기는 살린다.
-                          종목을 추려 그룹에 넣는 일이 바로 이 보기에서 하는 일이다.
+                          「폴더 없음」 안의 순서도 바꿀 수 있다(저장 형식상 기본 폴더 — 패널 맨 위의 순서다).
                         */
                         draggable={sort === 'manual'}
                         onDragStart={() => setDragSymbol(symbol)}
@@ -571,15 +564,14 @@ export default function WatchlistManager({
                         tabIndex={0}
                         onKeyDown={(e) => {
                           if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
-                          if (sort !== 'manual' || isAllView || !folder) return;
+                          if (sort !== 'manual' || !folder) return;
                           e.preventDefault();
                           const to = index + (e.key === 'ArrowUp' ? -1 : 1);
                           if (to < 0 || to >= symbols.length) return;
                           watch.moveSymbol(symbol, folder.id, to);
                         }}
                         onDragOver={(e) => {
-                          // `전체 종목` 은 여러 폴더가 섞여 있어 순서 인덱스가 뜻을 잃는다.
-                          if (!dragSymbol || sort !== 'manual' || isAllView) return;
+                          if (!dragSymbol || sort !== 'manual') return;
                           e.preventDefault();
                           const box = e.currentTarget.getBoundingClientRect();
                           setDropIndex(e.clientY - box.top > box.height / 2 ? index + 1 : index);
@@ -606,9 +598,7 @@ export default function WatchlistManager({
                           title={
                             sort !== 'manual'
                               ? '직접 설정한 순일 때만 순서를 바꿀 수 있습니다'
-                              : isAllView
-                                ? '끌어서 그룹으로 옮기기 (순서는 그룹을 골라야 바꿉니다)'
-                                : '끌어서 순서 변경 · 그룹 위에 놓으면 이동'
+                              : '끌어서 순서 변경 · 그룹 위에 놓으면 이동'
                           }
                           className={`shrink-0 text-text-muted ${
                             sort === 'manual' ? '' : 'cursor-not-allowed opacity-30'
@@ -636,12 +626,6 @@ export default function WatchlistManager({
                           {names(symbol) && (
                             <span className="shrink-0 text-xs tabular-nums text-text-secondary">
                               {symbol}
-                            </span>
-                          )}
-                          {/* 전체 보기에서는 어느 그룹에 있는지 알아야 옮길지 말지 정할 수 있다 */}
-                          {isAllView && (
-                            <span className="shrink-0 text-caption text-text-muted">
-                              {folderNameOf(symbol) ?? '—'}
                             </span>
                           )}
                         </button>
