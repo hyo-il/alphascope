@@ -259,9 +259,9 @@ export default function DiscoverSymbolsModal({
                 <NumberField
                   min={0}
                   max={100}
+                  unit="점"
                   value={minScore}
-                  onChange={(e) => setMinScore(Number(e.target.value))}
-                  className="w-20" />
+                  onChange={(e) => setMinScore(Number(e.target.value))} />
                 <span className="ml-2 text-xs text-text-secondary">등급</span>
                 {gradeOptions.map((g) => (
                   <button
@@ -281,10 +281,9 @@ export default function DiscoverSymbolsModal({
                 <NumberField
                   min={1}
                   max={50}
+                  unit="종목"
                   value={limit}
-                  onChange={(e) => setLimit(Number(e.target.value))}
-                  className="w-16" />
-                <span className="text-xs text-text-secondary">종목</span>
+                  onChange={(e) => setLimit(Number(e.target.value))} />
               </div>
 
               <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">

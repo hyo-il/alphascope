@@ -1,3 +1,4 @@
+import FormRow from '../ui/FormRow';
 import NumberField, { NumberUnitGroup } from '../ui/NumberField';
 import { RSI_HELP } from '../../data/indicatorHelp';
 import { useState, type ReactNode } from 'react';
@@ -36,29 +37,26 @@ const LABEL: Record<string, string> = {
 const show = (k: string, v: unknown) =>
   typeof v === 'boolean' ? (v ? '사용' : '안 씀') : k === 'maShort' || k === 'maLong' ? `${v}일` : k.endsWith('Percent') ? `${v}%` : String(v);
 
-function Field({ label, hint, error, children }: { label: string; hint: string; error?: string; children: ReactNode }) {
+/**
+ * 이 폼의 줄 — 공용 `FormRow`(이름 sm · 값 lg · 단위 열 sm) (v2.42.3 기준표 「입력칸」). 칸 오른쪽 끝 · 단위 · 설명 시작점이 한 줄.
+ * 예전에는 설명이 칸 아래 줄에 있었고 칸 폭(w-24)·위치가 줄마다 달랐다.
+ */
+function Field({ label, hint, error, unit, children }: { label: string; hint: string; error?: string; unit?: string; children: ReactNode }) {
   return (
-    <div className="space-y-1">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="w-28 shrink-0 text-xs text-text-primary">{label}</span>
-        {children}
-      </div>
-      <p className="pl-[7.75rem] text-caption text-text-muted">{hint}</p>
-      {error && <p className="pl-[7.75rem] text-caption text-danger">{error}</p>}
-    </div>
+    <FormRow label={label} hint={hint} error={error} unit={unit} labelW="sm" valueW="lg">
+      {children}
+    </FormRow>
   );
 }
 
-/** 숫자 칸 — 폭 w-24 고정 + 단위 칸(묶음 `NumberUnitGroup`)이라 칸의 왼쪽·오른쪽 끝과 숫자 오른쪽 끝이 줄마다 같다 (v2.42.2) */
-function NumberBox({ value, onChange, disabled, label, unit }: { value: number; onChange: (v: number) => void; disabled?: boolean; label: string; unit?: string }) {
+/** 숫자 칸 — 짧은 숫자 폭(`FIELD_W.short`). 단위는 `Field` 의 단위 열(칸 밖) (v2.42.3) */
+function NumberBox({ value, onChange, disabled, label }: { value: number; onChange: (v: number) => void; disabled?: boolean; label: string }) {
   return (
     <NumberField
       aria-label={label}
-      unit={unit}
       value={Number.isFinite(value) ? value : ''}
       disabled={disabled}
-      onChange={(e) => onChange(e.target.value === '' ? NaN : Number(e.target.value))}
-      className="w-24" />
+      onChange={(e) => onChange(e.target.value === '' ? NaN : Number(e.target.value))} />
   );
 }
 
@@ -186,9 +184,10 @@ function ConditionCard({
               사용
             </Check>
           </Field>
-          <Field label="단기 · 장기" hint="엔진이 계산하는 5·20·60·120일 중에서 고릅니다(장기가 더 길어야 합니다)." error={err('maShort') ?? err('maLong')}>
+          <Field label="단기 이동평균" hint="엔진이 계산하는 5·20·60일 중에서 — 작을수록 빨리 반응합니다." error={err('maShort')}>
             <Segmented label="단기 이동평균" size="sm" options={maOptions.filter((o) => o.value !== 120)} value={r.maShort as EngineMaPeriod} onChange={(v) => setRule({ maShort: v })} />
-            <span className="text-text-muted">/</span>
+          </Field>
+          <Field label="장기 이동평균" hint="20·60·120일 중에서 — 단기보다 길어야 합니다." error={err('maLong')}>
             <Segmented label="장기 이동평균" size="sm" options={maOptions.filter((o) => o.value !== 5)} value={r.maLong as EngineMaPeriod} onChange={(v) => setRule({ maLong: v })} />
           </Field>
           <Field label="RSI 사용" hint={RSI_HELP}>
@@ -198,44 +197,48 @@ function ConditionCard({
           </Field>
           <Field
             label="RSI 매수 기준"
-            hint={`RSI 가 이 값 이하로 떨어졌다가 다시 오를 때 매수 (${RULE_LIMITS.rsiBuyBelow.min}~${RULE_LIMITS.rsiBuyBelow.max}).`}
+            hint={`이 값 이하로 떨어졌다가 오르면 매수 · ${RULE_LIMITS.rsiBuyBelow.min}~${RULE_LIMITS.rsiBuyBelow.max}`}
             error={err('rsiBuyBelow')}
           >
             <NumberBox label="RSI 매수 기준" value={r.rsiBuyBelow} disabled={!r.useRsi} onChange={(v) => setRule({ rsiBuyBelow: v })} />
           </Field>
           <Field
             label="RSI 매도 기준"
-            hint={`RSI 가 이 값 이상이면 매도 (${RULE_LIMITS.rsiSellAbove.min}~${RULE_LIMITS.rsiSellAbove.max}).`}
+            hint={`이 값 이상이면 매도 · ${RULE_LIMITS.rsiSellAbove.min}~${RULE_LIMITS.rsiSellAbove.max}`}
             error={err('rsiSellAbove')}
           >
             <NumberBox label="RSI 매도 기준" value={r.rsiSellAbove} disabled={!r.useRsi} onChange={(v) => setRule({ rsiSellAbove: v })} />
           </Field>
           <Field
             label="손절"
-            hint={`손절 ${Number.isFinite(c.hardStopLossPercent) ? c.hardStopLossPercent : '—'}% — 매수가보다 이만큼 내려가면 바로 매도 (${RULE_LIMITS.hardStopLossPercent.min}~${RULE_LIMITS.hardStopLossPercent.max}).`}
+            hint={`매수가보다 이만큼 내려가면 바로 매도 · ${RULE_LIMITS.hardStopLossPercent.min}~${RULE_LIMITS.hardStopLossPercent.max}`}
             error={err('hardStopLossPercent')}
+            unit="%"
           >
-            <NumberBox label="손절 %" unit="%" value={c.hardStopLossPercent} onChange={(v) => onChange({ hardStopLossPercent: v })} />
+            <NumberBox label="손절 %" value={c.hardStopLossPercent} onChange={(v) => onChange({ hardStopLossPercent: v })} />
           </Field>
           <Field
             label="익절"
-            hint={`매수가보다 이만큼 오르면 모두 매도 (${RULE_LIMITS.takeProfitPercent.min}~${RULE_LIMITS.takeProfitPercent.max}). 끄면 오르는 동안 계속 들고 간다. 같은 날 손절과 둘 다 닿으면 손절로 센다.`}
+            hint={`매수가보다 이만큼 오르면 모두 매도 · ${RULE_LIMITS.takeProfitPercent.min}~${RULE_LIMITS.takeProfitPercent.max}. 끄면 오르는 동안 계속 들고 간다. 같은 날 손절과 둘 다 닿으면 손절로 센다.`}
             error={err('takeProfitPercent')}
+            unit="%"
           >
-            <NumberBox label="익절 %" unit="%" value={c.takeProfitPercent} disabled={!c.takeProfitEnabled} onChange={(v) => onChange({ takeProfitPercent: v })} />
+            {/* 「켜기」 는 칸 왼쪽 — 칸의 오른쪽 끝이 다른 줄과 같게 */}
             <Check checked={c.takeProfitEnabled} onChange={(v) => onChange({ takeProfitEnabled: v })}>
               켜기
             </Check>
+            <NumberBox label="익절 %" value={c.takeProfitPercent} disabled={!c.takeProfitEnabled} onChange={(v) => onChange({ takeProfitPercent: v })} />
           </Field>
           <Field
             label="트레일링"
-            hint={`매수한 뒤 최고가(종가 기준)보다 이만큼 내려가면 매도 (${RULE_LIMITS.trailingStopPercent.min}~${RULE_LIMITS.trailingStopPercent.max}).`}
+            hint={`매수한 뒤 최고가(종가 기준)보다 이만큼 내려가면 매도 · ${RULE_LIMITS.trailingStopPercent.min}~${RULE_LIMITS.trailingStopPercent.max}`}
             error={err('trailingStopPercent')}
+            unit="%"
           >
-            <NumberBox label="트레일링 %" unit="%" value={c.trailingStopPercent} disabled={!c.trailingStopEnabled} onChange={(v) => onChange({ trailingStopPercent: v })} />
             <Check checked={c.trailingStopEnabled} onChange={(v) => onChange({ trailingStopEnabled: v })}>
               켜기
             </Check>
+            <NumberBox label="트레일링 %" value={c.trailingStopPercent} disabled={!c.trailingStopEnabled} onChange={(v) => onChange({ trailingStopPercent: v })} />
           </Field>
         </div>
         </NumberUnitGroup>

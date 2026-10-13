@@ -1,6 +1,7 @@
+import FormRow from '../ui/FormRow';
 import { formatSigned } from '../../utils/formatters';
 import Segmented from '../ui/Segmented';
-import NumberField from '../ui/NumberField';
+import NumberField, { NumberUnitGroup } from '../ui/NumberField';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
 import InfoTip from '../ui/InfoTip';
@@ -381,8 +382,8 @@ export default function StrategyProfileModal({
                       value={goalDraft.targetPct}
                       onChange={(e) => setGoal({ targetPct: Number(e.target.value) })}
                       aria-label="목표 수익률 직접 입력(%)"
-                      className="w-16" />
-                    % <span className="text-text-muted">({tLo}~{tHi})</span>
+                      unit="%" />
+                    <span className="text-text-muted">({tLo}~{tHi})</span>
                   </span>
                 )}
               </div>
@@ -430,53 +431,56 @@ export default function StrategyProfileModal({
             {/* (가) 가능성 분석 조건 */}
             <section className="mt-3 space-y-2">
               <h4 className="text-xs font-medium text-text-primary">(가) 가능성 분석 조건</h4>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
-                <label className="inline-flex w-fit items-center gap-1">
-                  목표 +
-                  <NumberField
-                    step={0.5}
-                    min={tLo}
-                    max={tHi}
-                    value={goalDraft.targetPct}
-                    onChange={(e) => {
-                      setCustomTarget(true);
-                      setGoal({ targetPct: Number(e.target.value) });
-                    }}
-                    className="w-16" />
-                  %
-                </label>
-                <label className="inline-flex w-fit items-center gap-1">
-                  손절 −
-                  <NumberField
-                    step={0.5}
-                    min={sLo}
-                    max={sHi}
-                    value={shownStop}
-                    disabled={goalDraft.stopAuto}
-                    onChange={(e) => setGoal({ stopPct: Number(e.target.value) })}
-                    className="w-16" />
-                  %
-                </label>
-                <label className="inline-flex w-fit items-center gap-1.5 text-text-secondary">
-                  <input
-                    type="checkbox"
-                    checked={goalDraft.stopAuto}
-                    onChange={(e) => setGoal({ stopAuto: e.target.checked, stopPct: e.target.checked ? goalDraft.stopPct : shownStop })}
-                  />
-                  목표의 절반으로 자동
-                </label>
-                <label className="inline-flex w-fit items-center gap-1">
-                  기간
-                  <NumberField
-                    step={1}
-                    min={dLo}
-                    max={dHi}
-                    value={goalDraft.days}
-                    onChange={(e) => setGoal({ days: Number(e.target.value) })}
-                    className="w-16" />
-                  거래일 <span className="text-text-muted">({dLo}~{dHi})</span>
-                </label>
-              </div>
+              {/* 폼 줄 — 칸 오른쪽 끝 · 단위 열 · 설명 시작점이 한 줄(v2.42.3 기준표 「입력칸」) */}
+              <NumberUnitGroup w="lg">
+                <div className="space-y-2">
+                  <FormRow label="목표 수익률" hint={`+${tLo}~${tHi}%`} labelW="sm" valueW="sm">
+                    <NumberField
+                      step={0.5}
+                      min={tLo}
+                      max={tHi}
+                      unit="%"
+                      value={goalDraft.targetPct}
+                      onChange={(e) => {
+                        setCustomTarget(true);
+                        setGoal({ targetPct: Number(e.target.value) });
+                      }} />
+                  </FormRow>
+                  <FormRow
+                    label="손절"
+                    labelW="sm"
+                    valueW="sm"
+                    hint={
+                      <label className="inline-flex w-fit items-center gap-1.5 text-text-secondary">
+                        <input
+                          type="checkbox"
+                          checked={goalDraft.stopAuto}
+                          onChange={(e) => setGoal({ stopAuto: e.target.checked, stopPct: e.target.checked ? goalDraft.stopPct : shownStop })}
+                        />
+                        목표의 절반으로 자동 · {sLo}~{sHi}%
+                      </label>
+                    }
+                  >
+                    <NumberField
+                      step={0.5}
+                      min={sLo}
+                      max={sHi}
+                      unit="%"
+                      value={shownStop}
+                      disabled={goalDraft.stopAuto}
+                      onChange={(e) => setGoal({ stopPct: Number(e.target.value) })} />
+                  </FormRow>
+                  <FormRow label="기간" hint={`${dLo}~${dHi}거래일`} labelW="sm" valueW="sm">
+                    <NumberField
+                      step={1}
+                      min={dLo}
+                      max={dHi}
+                      unit="거래일"
+                      value={goalDraft.days}
+                      onChange={(e) => setGoal({ days: Number(e.target.value) })} />
+                  </FormRow>
+                </div>
+              </NumberUnitGroup>
               <p className="text-caption text-text-muted">
                 손절 = 목표의 절반은 앱의 출발값입니다(근거 검증 전). 기간이 길수록 채점까지 오래 걸립니다(63거래일 ≈ 3달).
               </p>
@@ -583,7 +587,6 @@ export default function StrategyProfileModal({
                           aria-label={`${PROFILE_LABEL[id]} ${spec.label}`}
                           invalid={Boolean(err)}
                           changed={changed}
-                          className="w-24"
                         />
                         {err && <p className="mt-0.5 text-caption text-danger">{err.message}</p>}
                       </td>

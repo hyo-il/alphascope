@@ -1,3 +1,6 @@
+import FormRow from '../ui/FormRow';
+import { NumberUnitGroup } from '../ui/NumberField';
+import { formatDateTime } from '../../utils/dateFormat';
 import Select from '../ui/Select';
 import NumberField from '../ui/NumberField';
 import Button from '../ui/Button';
@@ -53,7 +56,9 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
   };
 
   return (
-    <div className="max-w-lg space-y-4 text-xs">
+    // 숫자 칸 묶음 — 단위 열(%·회) 폭이 같아 설명 시작점이 한 줄 (v2.42.3). 폭은 이름+칸+단위+설명이 한 줄에 들어가는 읽기 폭
+    <NumberUnitGroup w="sm">
+    <div className="max-w-2xl space-y-4 text-xs">
       <section className="space-y-2">
         <h3 className="font-semibold text-text-secondary">급등 판정 기준</h3>
 
@@ -78,40 +83,40 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
           <span>수동 설정</span>
         </label>
 
-        <Field label="가격 변동 (% 이상)">
+        <Field label="가격 변동" hint="전일 종가 대비 하루 변동 · 이 값 이상">
           <NumberField
             step={0.5}
             min={0.5}
             max={50}
             disabled={draft.thresholdMode === 'auto'}
+            unit="%"
             value={draft.priceThreshold}
-            onChange={(e) => patch({ priceThreshold: Number(e.target.value) })}
-            className="w-24" />
+            onChange={(e) => patch({ priceThreshold: Number(e.target.value) })} />
         </Field>
         <p className="text-caption text-text-muted">
           대형주는 하루 3%도 드물고 소형주는 5%가 예사입니다. 하나의 기준으로 재면 대형주는 급등이
           아예 안 잡히고 소형주는 잡음이 쏟아집니다. 시가총액은 yfinance 에서 가져옵니다.
         </p>
-        <Field label="거래량 (% 이상, 20일 평균 대비)">
+        <Field label="거래량" hint="20일 평균 대비 · 이 값 이상">
           <NumberField
             step={10}
             min={100}
             max={2000}
+            unit="%"
             value={draft.volumeThreshold}
-            onChange={(e) => patch({ volumeThreshold: Number(e.target.value) })}
-            className="w-24" />
+            onChange={(e) => patch({ volumeThreshold: Number(e.target.value) })} />
         </Field>
       </section>
 
       <section className="space-y-2">
         <h3 className="font-semibold text-text-secondary">주기성 판정</h3>
-        <Field label="최소 급등 횟수">
+        <Field label="최소 급등 횟수" hint="분석 기간 안 급등일 수">
           <NumberField
             min={2}
             max={20}
+            unit="회"
             value={draft.minSurgeCount}
-            onChange={(e) => patch({ minSurgeCount: Number(e.target.value) })}
-            className="w-24" />
+            onChange={(e) => patch({ minSurgeCount: Number(e.target.value) })} />
         </Field>
         <Field label="분석 기간">
           <Select
@@ -124,14 +129,14 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
             ))}
           </Select>
         </Field>
-        <Field label="규칙성 기준 (% 이상)">
+        <Field label="규칙성 기준" hint="이 값 이상이면 주기적">
           <NumberField
             min={0}
             max={100}
             step={5}
+            unit="%"
             value={draft.regularityThreshold}
-            onChange={(e) => patch({ regularityThreshold: Number(e.target.value) })}
-            className="w-24" />
+            onChange={(e) => patch({ regularityThreshold: Number(e.target.value) })} />
         </Field>
         <p className="text-caption text-text-muted">
           규칙성 = 100 × (1 − 표준편차/평균). 50% 는 "표준편차가 평균의 절반 이하" 와 같은 선입니다.
@@ -172,7 +177,7 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
           움직인 종목</span>인 랭킹을 기본으로 둡니다.
           {rankingUpdatedAt && (
             <>
-              {' '}랭킹 갱신: {new Date(rankingUpdatedAt).toLocaleString('ko-KR')} (8시간 캐시)
+              {' '}랭킹 갱신: {formatDateTime(rankingUpdatedAt)} (8시간 캐시)
             </>
           )}
         </p>
@@ -193,14 +198,15 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
         {saving ? '저장 중…' : '설정 저장'}
       </Button>
     </div>
+    </NumberUnitGroup>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+/** 이 화면의 폼 줄 — 공용 `FormRow`(이름 md · 값 md, 단위 열 sm) — 칸 오른쪽 끝 · 단위 · 설명 시작점이 한 줄 (v2.42.3) */
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="w-56 text-text-secondary">{label}</span>
+    <FormRow label={label} hint={hint} labelW="md" valueW="md">
       {children}
-    </div>
+    </FormRow>
   );
 }
