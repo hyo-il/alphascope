@@ -68,10 +68,15 @@ export default function CreateAccountForm({ onCreate, onDone, onCancel }: Props)
           {(value / 10_000).toLocaleString('ko-KR')}만
         </button>
       ))}
+      {/* 금액 칸 — 입력하는 동안에도 천 단위 쉼표(v2.42.3 thousands). 값은 쉼표 없는 숫자로 */}
       <NumberField
-        value={balance}
-        onChange={(e) => setBalance(Number(e.target.value))}
-        className="w-36" />
+        kind="long"
+        thousands
+        decimals={0}
+        unit="원"
+        aria-label="초기 자금"
+        value={String(balance)}
+        onValue={(raw) => setBalance(raw === '' ? 0 : Number(raw))} />
       <Button variant="primary" size="sm"
         onClick={() => void submit()}
         disabled={busy}>

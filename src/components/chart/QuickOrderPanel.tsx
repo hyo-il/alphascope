@@ -1,7 +1,6 @@
 import Button from '../ui/Button';
 import Segmented from '../ui/Segmented';
 import { ORDER_INDENT, ORDER_LABEL_W, ORDER_TRAIL_W } from '../ui/tokens';
-import Input from '../ui/Input';
 import Select from '../ui/Select';
 import NumberField from '../ui/NumberField';
 import { useEffect, useMemo, useState } from 'react';
@@ -422,19 +421,23 @@ export default function QuickOrderPanel({
         {/* 가격 칸 (지정가) — 호가 가격을 누르면 그 가격으로 채워진다 */}
         <div className="flex items-center gap-1.5">
           <span className={`shrink-0 text-caption text-text-muted ${ORDER_LABEL_W}`}>가격</span>
-          <Input
+          {/*
+            금액 칸 — 입력하는 동안에도 천 단위 쉼표(v2.42.3 thousands · 263,500 · 1,234.56). 화면 글자만 쉼표이고
+            limitText 는 쉼표 없는 숫자 문자열 그대로라 주문 가격(parsePrice)은 예전과 같다. 원화 정수 · 달러 소수 둘째 자리.
+          */}
+          <NumberField
             size="sm"
-            type="text"
-            inputMode="decimal"
+            thousands
+            decimals={currency === 'KRW' ? 0 : 2}
             value={limitText}
-            onChange={(e) => {
-              setLimitText(e.target.value);
+            onValue={(raw) => {
+              setLimitText(raw);
               setTouched(true);
             }}
             aria-label="지정가 가격"
             title="지정가 — 매수는 현재가가 이 가격 이하, 매도는 이 가격 이상이면 체결됩니다"
             invalid={Boolean(limitText) && limitPrice == null}
-            className="min-w-0 flex-1 text-right tabular-nums"
+            boxClassName="min-w-0 flex-1"
           />
           <Button
             variant="secondary"
