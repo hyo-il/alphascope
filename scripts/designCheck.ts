@@ -6,7 +6,7 @@
  * 테스트 서버(기본 http://localhost:5180)의 **모든 화면 주소**(메뉴·탭 — `types/nav.ts` 의 NAV_GROUPS·PAGE_TABS 에서 읽는다) +
  * 주요 창(종목 고르기 · 자동매매 설정 · 판단 기준 편집 · 날짜 고르기)을 **1280×1080 · 1440×900 · 1920×1080 · 2560×1440** 에서 열어 잰다:
  *   1. 같은 줄의 입력칸·드롭박스·버튼(높이 클래스 h-7/h-8 이 있는 것)·묶음 버튼 높이 같음
- *   2. 같은 묶음(창·구역)의 `FormRow` 값 칸 왼쪽·오른쪽 끝 차이 0px
+ *   2. 같은 묶음(창·구역)의 `FormRow` — 칸 오른쪽 끝 · 단위 열 왼쪽 끝 · 설명 시작점 차이 0px, 숫자 칸 폭 = 종류 변수, 이름 넘침 0 (v2.42.3)
  *   3. 글자 넘침·잘림(overflow 가 숨김인데 scrollWidth > clientWidth) — 말줄임(truncate)은 「말줄임」 으로 따로 센다
  *   4. 요소 겹침(일반 흐름의 형제 요소 사각형이 2px 넘게 겹침)
  *   5. 목록(`data-list`) 줄 사이 간격 ≥ 4px
@@ -17,6 +17,7 @@
  *  10. 탭 줄 첫 탭 ↔ 같은 영역 내용 첫 요소의 왼쪽 끝(v2.42.2)
  *  11. 숫자 입력칸 — 스피너 없음 · 같은 묶음 FormRow 숫자 오른쪽 끝 0px
  *  12. 4자리 이상 숫자에 쉼표 없음(날짜·시각·버전·연도·종목 코드·「포트 N」 제외) · 13. 하이픈 음수 · 14. 같은 표 열의 소수 자릿수 다름
+ *  15. 날짜 표기 — 오전/오후 시각 · 「YYYY. M. D.」 형식 0 (v2.42.3, 형식 2026-10-08 14:30)
  *  `[data-measure-skip]` 안(업데이트 내역 같은 기록 글)은 12~14 를 재지 않는다
  * 결과: `<OUT>/report.md`(화면별 표) · `<OUT>/{1280,1920}/<이름>.png` · `<OUT>/result.json`.
  *
@@ -142,20 +143,39 @@ export function measure() {
     }
   }
 
-  // 2. FormRow 값 칸 끝 맞춤 — 같은 창·구역(dialog·section·main) 안에서
+  // 2. 폼 줄(FormRow) — 같은 묶음(창·구역) 안에서 (v2.42.3 기준표 「입력칸」)
+  //    칸 오른쪽 끝 0px · 단위 열 왼쪽 끝 0px · 설명 시작점 0px · 숫자 칸 폭 = 종류 변수(short 64 · long 128) · 이름 넘침 0
   const groups = new Map<Element, Element[]>();
-  for (const v of document.querySelectorAll('[data-formrow-value]')) {
-    if (!visible(v)) continue;
-    const g = v.closest('[role=dialog], section, main') ?? document.body;
-    groups.set(g, [...(groups.get(g) ?? []), v]);
+  for (const row of document.querySelectorAll('[data-formrow]')) {
+    if (!visible(row)) continue;
+    const g = row.closest('[role=dialog], section, main') ?? document.body;
+    groups.set(g, [...(groups.get(g) ?? []), row]);
   }
-  for (const [, vs] of groups) {
-    if (vs.length < 2) continue;
-    const ls = vs.map((v) => Math.round(v.getBoundingClientRect().left));
-    const rs = vs.map((v) => Math.round(v.getBoundingClientRect().right));
-    const dl = Math.max(...ls) - Math.min(...ls);
-    const dr = Math.max(...rs) - Math.min(...rs);
-    if (dl > 0 || dr > 0) issues.push({ kind: '입력칸 끝 맞춤', detail: `${vs.length}칸 왼쪽 차이 ${dl}px · 오른쪽 차이 ${dr}px` });
+  const spread = (xs: number[]) => (xs.length < 2 ? 0 : Math.max(...xs) - Math.min(...xs));
+  for (const [, rows] of groups) {
+    const cellRight: number[] = [];
+    const unitLeft: number[] = [];
+    const hintLeft: number[] = [];
+    for (const row of rows) {
+      const cell = row.querySelector('[data-formrow-value]');
+      const last = cell ? [...cell.children].filter((c) => visible(c)).pop() : null;
+      if (last) cellRight.push(Math.round(last.getBoundingClientRect().right));
+      const unit = row.querySelector('[data-formrow-unit]');
+      if (unit && visible(unit)) unitLeft.push(Math.round(unit.getBoundingClientRect().left));
+      const hint = row.querySelector('[data-formrow-hint]');
+      if (hint && visible(hint)) hintLeft.push(Math.round(hint.getBoundingClientRect().left));
+      const lab = row.querySelector('label');
+      if (lab && (lab as HTMLElement).scrollWidth > (lab as HTMLElement).clientWidth + 1)
+        issues.push({ kind: '입력칸 끝 맞춤', detail: `이름이 이름 칸을 넘침 — 「${label(lab)}」` });
+      for (const box of cell?.querySelectorAll('input[type=number], input[inputmode=decimal]') ?? []) {
+        const w = Math.round(box.parentElement!.getBoundingClientRect().width);
+        if (![64, 128].includes(w)) issues.push({ kind: '입력칸 끝 맞춤', detail: `숫자 칸 폭 ${w}px — 종류 변수(64·128)와 다름 「${label(row.querySelector('label') ?? row)}」` });
+      }
+    }
+    const dr = spread(cellRight);
+    const du = spread(unitLeft);
+    const dh = spread(hintLeft);
+    if (dr > 0 || du > 0 || dh > 0) issues.push({ kind: '입력칸 끝 맞춤', detail: `${rows.length}줄 — 칸 오른쪽 끝 차이 ${dr}px · 단위 열 ${du}px · 설명 시작 ${dh}px` });
   }
 
   // 3. 넘침·잘림
@@ -367,6 +387,18 @@ export function measure() {
       }
     }
   }
+  // 15. 날짜 표기 (v2.42.3) — 오전/오후 시각 · 「2026. 9. 3.」 형식이 화면에 남아 있으면 안 된다(형식 `2026-10-08 14:30`)
+  const dw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const seenDate = new Set<string>();
+  for (let n = dw.nextNode(); n; n = dw.nextNode()) {
+    const el = n.parentElement;
+    const text = n.textContent ?? '';
+    if (!el || !text.trim() || !visible(el) || offscreen(el) || el.closest('pre, code, textarea, [data-measure-skip]')) continue;
+    if (/(오전|오후)\s?\d{1,2}:\d{2}|\d{4}\.\s?\d{1,2}\.\s?\d{1,2}\./.test(text) && !seenDate.has(text.trim())) {
+      seenDate.add(text.trim());
+      issues.push({ kind: '날짜 표기', detail: `「${text.trim().slice(0, 40)}」` });
+    }
+  }
   return issues;
 }
 
@@ -411,7 +443,7 @@ async function main() {
   }
   await browser.close();
 
-  const KINDS = ['같은 줄 높이', '입력칸 끝 맞춤', '글자 잘림', '말줄임', '겹침', '목록 줄 간격', '13px 미만', '기준표 밖 크기', '화면 폭 좁힘', '표 숫자 칸 벌어짐', '탭·내용 왼쪽 끝', '숫자 입력칸', '쉼표 없는 큰 수', '하이픈 음수', '소수 자릿수'];
+  const KINDS = ['같은 줄 높이', '입력칸 끝 맞춤', '글자 잘림', '말줄임', '겹침', '목록 줄 간격', '13px 미만', '기준표 밖 크기', '화면 폭 좁힘', '표 숫자 칸 벌어짐', '탭·내용 왼쪽 끝', '숫자 입력칸', '쉼표 없는 큰 수', '하이픈 음수', '소수 자릿수', '날짜 표기'];
   const md: string[] = [
     `# 디자인 숫자 측정 — ${CHANGELOG[0].version}`,
     '',
