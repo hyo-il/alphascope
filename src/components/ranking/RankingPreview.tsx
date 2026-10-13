@@ -45,12 +45,12 @@ const EARNINGS_WARN_DAYS = 14;
 function EarningsLine({ info }: { info: NextEarnings | null | undefined }) {
   if (info === undefined) return <p className="text-caption text-text-muted">실적일 확인 중…</p>;
   if (!info || !info.date || info.daysUntil == null) return <p className="text-caption text-text-muted/70">실적일 정보 없음</p>;
-  const [, m, d] = info.date.split('-').map(Number);
   const when = info.daysUntil === 0 ? '오늘' : `D−${info.daysUntil}`;
   const soon = info.daysUntil <= EARNINGS_WARN_DAYS;
   return (
     <p className={`text-caption ${soon ? 'font-medium text-warning' : 'text-text-secondary'}`}>
-      실적 발표 {m}/{d} (예정·{info.isEstimate ? '추정' : when})
+      {/* 날짜는 시장 날짜 문자열(YYYY-MM-DD) 그대로 — 앱 공통 표기(v2.42.3, 예전 「12/23」) */}
+      실적 발표 {info.date} (예정·{info.isEstimate ? '추정' : when})
       {info.isEstimate && <span className="ml-1 text-text-muted">{when}</span>}
     </p>
   );
@@ -60,8 +60,11 @@ export default function RankingPreview({
   row,
   timeframe,
   onTimeframeChange,
+  pending = false,
 }: {
   row: LiveRankingRow | null;
+  /** 순위를 받는 중(처음·종류·시장을 바꿀 때) — 안내 대신 로딩 표시 (v2.42.3) */
+  pending?: boolean;
   timeframe: PreviewTimeframe;
   onTimeframeChange: (tf: PreviewTimeframe) => void;
 }) {
@@ -190,7 +193,15 @@ export default function RankingPreview({
             <EarningsLine info={earnings} />
           </div>
         ) : (
-          <p className="flex-1 text-xs text-text-muted">목록의 종목에 마우스를 올리면 여기 차트가 보입니다.</p>
+          <p className="flex flex-1 items-center gap-1.5 text-xs text-text-muted">
+            {pending ? (
+              <>
+                <InlineSpinner /> 순위를 불러오는 중…
+              </>
+            ) : (
+              '목록의 종목에 마우스를 올리면 여기 차트가 보입니다.'
+            )}
+          </p>
         )}
         <Segmented label="봉" size="sm" value={timeframe} onChange={onTimeframeChange} options={PREVIEW_TIMEFRAMES.map((t) => ({ value: t.id, label: t.label }))} />
       </header>

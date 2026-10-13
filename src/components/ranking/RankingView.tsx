@@ -65,6 +65,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
   useEffect(() => {
     setData(null);
     setActive(-1);
+    setPreview(null);
     void load();
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') void load();
@@ -82,6 +83,21 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
   }, []);
 
   const rows = data ? (showAll ? data.rows : data.rows.slice(0, FIRST_PAGE)) : [];
+
+  /*
+    첫 미리보기 (v2.42.3) — 순위가 처음 오면·종류·시장을 바꾸면 1위를 바로 미리 본다(빈 미리보기로 두지 않는다).
+    30초 새로고침에는 보던 종목을 지킨다 — 순위가 바뀌어도 그 종목 줄을 다시 강조하고 값만 새것으로,
+    목록(보이는 줄)에서 사라졌으면 1위로. 위 effect 가 종류·시장 변경 때 preview 를 비우므로 「비어 있음」 = 첫 도착이다.
+  */
+  useEffect(() => {
+    if (!data || !rows.length) return;
+    const index = preview ? rows.findIndex((r) => r.symbol === preview.symbol) : -1;
+    const next = index >= 0 ? index : 0;
+    setActive(next);
+    setPreview(rows[next]);
+    // preview 는 여기서 바꾸므로 의존성에 넣지 않는다(넣으면 자기 자신을 다시 부른다). rows 는 data·showAll 에서 나온다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, showAll]);
   const open = (symbol: string) => onOpen(symbol, previewTf);
 
   const hover = (row: LiveRankingRow, index: number) => {
@@ -243,7 +259,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
         {/* 미리보기 ≈ 45% */}
         <div className="flex min-h-0 min-w-0 basis-[40%]">
           <div className="flex min-h-0 w-full flex-col">
-            <RankingPreview row={preview} timeframe={previewTf} onTimeframeChange={setPreviewTf} />
+            <RankingPreview row={preview} pending={!data && !error} timeframe={previewTf} onTimeframeChange={setPreviewTf} />
           </div>
         </div>
       </div>
