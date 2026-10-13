@@ -102,6 +102,7 @@ export interface AccountStrategy {
  * - 공통: hard_stop · take_profit(v2.39.0) · trailing · earnings_blackout · max_positions · daily_loss · not_enough_candles · error
  * - AI형: ai_buy · ai_sell · ai_hold · ai_low_confidence
  * - other: 위에 없는 경로(예산·현금 부족, "강력 신호만" 조건으로 건너뜀)
+ * - 매매 규칙 엔진(v2.43.0, `server/rules/engine.ts`): score_buy(점수 매수) · score_sell(점수 매도) · rr_block(손익비 1 미만이라 막음) · reentry_wait(손절 뒤 다시 사기 대기)
  */
 export type DecisionCode =
   | 'golden'
@@ -122,6 +123,10 @@ export type DecisionCode =
   | 'ai_sell'
   | 'ai_hold'
   | 'ai_low_confidence'
+  | 'score_buy'
+  | 'score_sell'
+  | 'rr_block'
+  | 'reentry_wait'
   | 'other';
 
 /** 「최근 판단」 한 줄 — `code` 는 v2.32.0 부터(옛 기록에는 없다) */

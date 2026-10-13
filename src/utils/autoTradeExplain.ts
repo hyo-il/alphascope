@@ -51,6 +51,14 @@ export function explainNote(note: DecisionNote, name: string, s: Settings): stri
       return `${name}: AI 판단이 매수·매도할 때가 아니라서 그대로 둡니다.`;
     case 'ai_low_confidence':
       return `${name}: AI 신호는 있었지만 확신이 기준보다 낮아 그대로 둡니다.`;
+    case 'score_buy':
+      return `${name}: 매수 조건 점수가 기준 이상이라 매수했습니다.`;
+    case 'score_sell':
+      return `${name}: 점수가 매도 기준 아래로 떨어져 매도했습니다.`;
+    case 'rr_block':
+      return `${name}: 점수는 기준 이상이지만 잃을 돈이 벌 돈보다 커서(손익비 1 미만) 매수하지 않았습니다.`;
+    case 'reentry_wait':
+      return `${name}: 손절한 지 얼마 되지 않아 정해 둔 거래일이 지날 때까지 다시 매수하지 않습니다.`;
     default:
       return null;
   }
