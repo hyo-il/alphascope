@@ -217,6 +217,8 @@ export default function WatchlistManager({
                     <span className="shrink-0 text-sm tabular-nums text-text-muted">
                       ({looseCount})
                     </span>
+                    {/* 그룹 줄의 연필·휴지통 자리만큼 비운다 — 개수 「(N)」 이 그룹 줄과 같은 x 에 서도록(v2.42.3) */}
+                    <span aria-hidden className="w-11 shrink-0" />
                   </button>
                 </div>
               </li>

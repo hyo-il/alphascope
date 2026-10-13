@@ -183,7 +183,8 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
               <th className="pr-2">종목</th>
               <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>점수</th>
               {/* 남는 폭은 긴 글 칸(예상일 — 「탐지 시점에 이미 예상일 지남 … 주기가 깨졌을 수 있음」)이 가져간다(v2.42.1 — 종목 칸이 가져가면 이 칸이 3줄로 꺾였다) */}
-              <th className={`${TABLE_NAME_COL} min-w-56 pr-4`}>예상일</th>
+              {/* 최소 폭 160px(v2.42.3 — 224px 이면 1280 에서 표가 842px 칸보다 넓어(900px) 「실제 급등」 열이 잘렸다) */}
+              <th className={`${TABLE_NAME_COL} min-w-40 pr-4`}>예상일</th>
               <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>7일</th>
               <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>14일</th>
               <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>30일</th>
