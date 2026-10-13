@@ -120,6 +120,15 @@ const NumberField = forwardRef<HTMLInputElement, Props>(function NumberField(
         onKeyDown={(e) => {
           // ↑↓ 로 값이 바뀌지 않게 (v2.42.2)
           if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
+          // 쉼표 바로 옆에서 지우면 쉼표 너머의 숫자를 지운다 — 쉼표만 지우면 값이 그대로라 아무 일도 없고 커서가 끝으로 튀었다 (v2.42.3)
+          if (thousands && (e.key === 'Backspace' || e.key === 'Delete')) {
+            const el = e.currentTarget;
+            const at = el.selectionStart ?? 0;
+            if (at === el.selectionEnd) {
+              if (e.key === 'Backspace' && el.value[at - 1] === ',') el.setSelectionRange(at - 1, at - 1);
+              if (e.key === 'Delete' && el.value[at] === ',') el.setSelectionRange(at + 1, at + 1);
+            }
+          }
           onKeyDown?.(e);
         }}
         onWheel={(e) => {
