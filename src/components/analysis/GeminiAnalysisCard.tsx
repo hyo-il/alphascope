@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../utils/dateFormat';
 import Button from '../ui/Button';
 import TrashIcon from '../common/TrashIcon';
 import DisclosureButton from '../ui/DisclosureButton';
@@ -79,7 +80,7 @@ export default function GeminiAnalysisCard({
         </span>
         <span className="text-xs text-text-muted">{confidencePercent(analysis.confidence)}</span>
         <span className="ml-auto text-xs text-text-muted">
-          {new Date(analysis.createdAt).toLocaleString('ko-KR')}
+          {formatDateTime(analysis.createdAt)}
         </span>
       </div>
 

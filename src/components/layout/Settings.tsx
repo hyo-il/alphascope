@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../utils/dateFormat';
 import Button from '../ui/Button';
 import { ICON_SM } from '../ui/icon';
 import { CircleCheck, TriangleAlert } from 'lucide-react';
@@ -73,7 +74,7 @@ export default function Settings({ isMock, engineDown, section }: Props) {
 
   const updatedAt = health && (
     <p className="pt-2 text-caption text-text-muted">
-      마지막 확인: {new Date(health.time).toLocaleString('ko-KR')}
+      마지막 확인: {formatDateTime(health.time)}
     </p>
   );
 

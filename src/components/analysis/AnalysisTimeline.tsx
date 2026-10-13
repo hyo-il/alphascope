@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../utils/dateFormat';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -377,7 +378,7 @@ function ClaudeCard({
           신뢰도 {CONFIDENCE_LABEL[record.confidence] ?? record.confidence}
         </span>
         <span className="ml-auto text-xs text-text-muted">
-          {new Date(record.analyzed_at).toLocaleString('ko-KR')}
+          {formatDateTime(record.analyzed_at)}
         </span>
       </div>
 

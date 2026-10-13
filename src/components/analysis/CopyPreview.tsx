@@ -1,3 +1,4 @@
+import { formatTime } from '../../utils/dateFormat';
 import Dialog from '../ui/Dialog';
 import { useEffect, useState } from 'react';
 import type { ChartCapture } from '../../store/captureStore';
@@ -57,7 +58,8 @@ export default function CopyPreview({
   if (!capture || !url) return null;
 
   const at = new Date(capture.capturedAt);
-  const time = [at.getHours(), at.getMinutes(), at.getSeconds()].map((v) => String(v).padStart(2, '0')).join(':');
+  // 시각은 앱 공통 표기(24시간, 초 없음 — v2.42.3 「날짜 표기」)
+  const time = formatTime(at);
   return (
     <>
       <button

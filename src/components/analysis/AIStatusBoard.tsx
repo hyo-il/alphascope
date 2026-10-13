@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../utils/dateFormat';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
 import { useEffect, useState, type ReactNode } from 'react';
 import { SIDE_POLL_MS, useAutoTradingOverview } from '../../hooks/usePaperOverview';
@@ -15,7 +16,7 @@ import { autoTradeView } from '../../utils/autoTradeStatus';
 
 const time = (iso: string | null | undefined) =>
   iso
-    ? new Date(iso).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    ? formatDateTime(iso)
     : '—';
 
 function Cell({ title, children }: { title: string; children: ReactNode }) {

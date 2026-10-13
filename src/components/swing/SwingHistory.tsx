@@ -1,3 +1,4 @@
+import { formatDate } from '../../utils/dateFormat';
 import { TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { useState } from 'react';
 import { useSwingHistory } from '../../hooks/useSwing';
@@ -134,7 +135,7 @@ function RecommendationHistory() {
                   : '—';
               return (
                 <tr key={row.id} className="border-b border-border/50">
-                  <td className="whitespace-nowrap py-1.5 pr-2 text-text-secondary">{row.analyzedAt.slice(0, 10)}</td>
+                  <td className="whitespace-nowrap py-1.5 pr-2 text-text-secondary">{formatDate(row.analyzedAt)}</td>
                   <td className="pr-2">
                     <StockName symbol={row.symbol} name={row.name} />
                   </td>

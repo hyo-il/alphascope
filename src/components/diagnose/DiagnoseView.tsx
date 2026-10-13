@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../utils/dateFormat';
 import { PANEL_PAD } from '../ui/tokens';
 import { displayMinus, formatSigned } from '../../utils/formatters';
 import Select from '../ui/Select';
@@ -548,9 +549,7 @@ function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
 
 /** "2026-10-01 09:12" — 확인창 문구용 */
 function stamp(iso: string): string {
-  const d = new Date(iso);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return formatDateTime(iso);
 }
 
 export default function DiagnoseView() {
@@ -598,7 +597,7 @@ export default function DiagnoseView() {
                 aria-label="과거 리포트">
                 {reports.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {new Date(r.createdAt).toLocaleString('ko-KR')} · {r.server}
+                    {formatDateTime(r.createdAt)} · {r.server}
                     {r.summary.quick ? ' · quick' : ''}
                   </option>
                 ))}

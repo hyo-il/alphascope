@@ -1,3 +1,4 @@
+import { formatDate } from '../../utils/dateFormat';
 import Button from '../ui/Button';
 import { useEffect, useRef, useState } from 'react';
 import SymbolPicker from '../common/SymbolPicker';
@@ -138,7 +139,7 @@ export default function TargetTab({
                 <li key={s} className="flex flex-wrap items-baseline gap-x-3">
                   <StockName symbol={s} size="sm" />
                   <span className="text-text-muted">지금 살 만한가 등급 {gradeOf(s) ?? '—'}</span>
-                  <span className="text-text-muted">이 조건 마지막 분석 {last ? new Date(last.createdAt).toLocaleDateString('ko-KR') : '—'}</span>
+                  <span className="text-text-muted">이 조건 마지막 분석 {last ? formatDate(last.createdAt) : '—'}</span>
                 </li>
               );
             })}

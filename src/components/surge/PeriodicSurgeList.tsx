@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../utils/dateFormat';
 import Button from '../ui/Button';
 import WarnIcon from '../ui/WarnIcon';
 import type { SurgeDetection, SurgeProgress } from '../../types/surge';
@@ -73,7 +74,7 @@ export default function PeriodicSurgeList({
         <span>
           마지막 분석:{' '}
           <span className="text-text-primary">
-            {detectedAt ? new Date(detectedAt).toLocaleString('ko-KR') : '없음'}
+            {detectedAt ? formatDateTime(detectedAt) : '없음'}
           </span>
         </span>
         {progress && progress.total > 0 && (

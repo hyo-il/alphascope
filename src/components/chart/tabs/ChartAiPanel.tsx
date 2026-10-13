@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../../utils/dateFormat';
 import { PANEL_PAD, PANEL_X, Tabs } from '../../ui';
 import Button from '../../ui/Button';
 import { useCallback, useEffect, useState, type ComponentProps } from 'react';
@@ -196,7 +197,7 @@ function SingleSymbolGemini({ symbol }: { symbol: string }) {
           <span className={SIGNAL_CLASS[latest.signal]}>{SIGNAL_LABEL[latest.signal]}</span>{' '}
           {confidencePercent(latest.confidence)} ·{' '}
           <span className="text-text-muted">
-            {new Date(latest.createdAt).toLocaleString('ko-KR')}
+            {formatDateTime(latest.createdAt)}
           </span>
           {latest.summary && <span className="ml-1 text-text-muted">"{latest.summary}"</span>}
         </p>

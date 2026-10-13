@@ -1,3 +1,4 @@
+import { formatTime } from '../../utils/dateFormat';
 import { useEffect, useState } from 'react';
 import type { PeerSummary } from '../../types/company';
 import { formatCompactMoney, formatNumber } from '../../utils/formatters';
@@ -89,7 +90,7 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
         <span className="ml-auto flex items-center gap-2">
           {fx && (
             <span className="text-caption text-text-muted">
-              환율 {fx.rate.toLocaleString('ko-KR', { maximumFractionDigits: 2 })}원 · {new Date(fx.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준
+              환율 {fx.rate.toLocaleString('ko-KR', { maximumFractionDigits: 2 })}원 · {formatTime(fx.at)} 기준
             </span>
           )}
           {fxError && <span className="text-caption text-text-muted">{fxError} — 원래 통화로 보입니다</span>}

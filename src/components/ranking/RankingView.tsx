@@ -1,3 +1,4 @@
+import { formatTime } from '../../utils/dateFormat';
 import { PANEL_PAD, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { InfoTip, Segmented, Button } from '../ui';
 import StarIcon from '../ui/StarIcon';
@@ -129,12 +130,12 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
         {data && (
           <span className="flex items-center gap-1 text-caption text-text-muted">
             {data.rankedAt
-              ? `${new Date(data.rankedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준`
+              ? `${formatTime(data.rankedAt)} 기준`
               : '기준 시각 없음'}
             {/* 긴 설명은 정보 아이콘으로 (v2.36.0 디자인 규칙 6) */}
             <InfoTip>
               {data.duration === 'realtime' ? '실시간 순위입니다.' : '오늘 등락 기준입니다(토스가 실시간 상승·하락률을 주지 않습니다).'} 30초마다 새로고침합니다(화면을 볼 때만).
-              {data.rankedAt && ` 기준 시각 ${new Date(data.rankedAt).toLocaleTimeString('ko-KR')}.`}
+              {data.rankedAt && ` 기준 시각 ${formatTime(data.rankedAt)}.`}
             </InfoTip>
           </span>
         )}

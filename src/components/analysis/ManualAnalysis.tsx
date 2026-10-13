@@ -1,3 +1,4 @@
+import { formatTime } from '../../utils/dateFormat';
 import { PANEL_PAD } from '../ui/tokens';
 import Button from '../ui/Button';
 import DisclosureButton from '../ui/DisclosureButton';
@@ -340,7 +341,7 @@ export default function ManualAnalysis({
           {edited !== null && <span className="rounded bg-warning/15 px-1.5 py-0.5 text-caption text-warning">수정됨</span>}
           {capture && capture.symbol === symbol && (
             <span className="ml-auto text-caption text-text-muted">
-              캡처 {new Date(capture.capturedAt).toLocaleTimeString('ko-KR')}
+              캡처 {formatTime(capture.capturedAt)}
               {capture.timeframe !== timeframe && <span className="text-text-secondary"> · 프롬프트도 캡처한 봉으로</span>}
             </span>
           )}

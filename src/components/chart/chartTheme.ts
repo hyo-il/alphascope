@@ -241,8 +241,9 @@ export function drawExtremeMarkers(
     const rate = gap == null ? '' : `${formatSigned(gap, 2)}%, `;
     const date = new Date(at);
     const when = intraday
-      ? `${pad2(date.getMonth() + 1)}.${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`
-      : `${pad2(date.getMonth() + 1)}.${pad2(date.getDate())}`;
+      // 차트 안 짧은 날짜는 축 눈금과 같은 「MM-DD」(v2.42.3 — 예전 「08.18」). 연도는 축·정보 줄에 있다
+      ? `${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+      : `${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
     return `${formatPrice(price, currency)} (${rate}${when})`;
   };
 

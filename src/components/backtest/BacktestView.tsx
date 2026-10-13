@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../utils/dateFormat';
 import { formatSigned } from '../../utils/formatters';
 import { useEffect, useRef, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
@@ -31,7 +32,7 @@ import ApplyRuleButton from './ApplyRuleButton';
  * - 계좌 [백테스트에서 시험하기] 가 넘긴 종목·조건은 `appStore.backtestPreset`(일회성)으로 받아 ①② 를 채운다.
  * - v2.36.0 디자인 규칙 — 이모지 없음, 파란 주요 버튼은 [시험 실행] 하나.
  */
-const when = (iso: string) => new Date(iso).toLocaleString('ko-KR');
+const when = (iso: string) => formatDateTime(iso);
 const pct = (v: number | null | undefined) => (v == null ? '—' : `${formatSigned(v, 2)}%`);
 const VERDICT_LABEL = { good: '기준선보다 좋음', bad: '기준선 이하', hold: '판단 보류' } as const;
 

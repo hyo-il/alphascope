@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../utils/dateFormat';
 import { PANEL_PAD } from '../ui/tokens';
 import Button from '../ui/Button';
 import DisclosureButton from '../ui/DisclosureButton';
@@ -176,9 +177,9 @@ export default function SwingDashboard({
                 마지막 점검:{' '}
                 <span className="text-text-primary">
                   {result
-                    ? new Date(result.analyzedAt).toLocaleString('ko-KR')
+                    ? formatDateTime(result.analyzedAt)
                     : saved.analyzedAt
-                      ? `${new Date(saved.analyzedAt).toLocaleString('ko-KR')} (저장된 결과 ${saved.records.length}건)`
+                      ? `${formatDateTime(saved.analyzedAt)} (저장된 결과 ${saved.records.length}건)`
                       : '없음'}
                 </span>
               </span>
@@ -273,7 +274,7 @@ export default function SwingDashboard({
             {/* 방금 점검한 결과 — 저장된 결과와 같은 자리, 같은 참고 줄 */}
             {result && (
               <p className="text-xs font-semibold text-text-secondary">
-                {new Date(result.analyzedAt).toLocaleString('ko-KR')}에 점검한 결과
+                {formatDateTime(result.analyzedAt)}에 점검한 결과
               </p>
             )}
 

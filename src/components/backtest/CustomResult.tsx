@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../utils/dateFormat';
 import { formatSigned, formatNumber } from '../../utils/formatters';
 import { MDD_HELP, PF_HELP } from '../../data/indicatorHelp';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -24,7 +25,7 @@ const pp = (v: number | null | undefined) => (v == null ? '—' : `${formatSigne
 const tone = (v: number | null | undefined) => (v == null ? '' : v > 0 ? 'text-bullish' : v < 0 ? 'text-bearish' : '');
 const mddTone = (v: number | null | undefined) => (v != null && v < 0 ? 'text-bearish' : '');
 const pfTone = (v: number | null | undefined) => (v == null ? '' : v >= 1 ? 'text-bullish' : 'text-bearish');
-const when = (iso: string) => new Date(iso).toLocaleString('ko-KR');
+const when = (iso: string) => formatDateTime(iso);
 /** 가장 나쁜 종목 — 이름은 줄바꿈될 수 있지만 숫자는 이름 끝에 붙어 다닌다(숫자만 다음 줄로 떨어지지 않게, v2.42.2) */
 const worstText = (w: WorstDrawdown | null | undefined) =>
   w ? (

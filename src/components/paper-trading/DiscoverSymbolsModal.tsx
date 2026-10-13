@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../utils/dateFormat';
 import NumberField from '../ui/NumberField';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
@@ -168,7 +169,7 @@ export default function DiscoverSymbolsModal({
         if (!saved.rows.length) {
           setNote('저장된 「지금 살 만한가」 결과가 없습니다. [다시 실행] 을 켜고 실행해 보세요.');
         } else if (saved.analyzedAt) {
-          setNote(`분석 시각 ${new Date(saved.analyzedAt).toLocaleString('ko-KR')}`);
+          setNote(`분석 시각 ${formatDateTime(saved.analyzedAt)}`);
         }
         candidates = saved.rows;
       }

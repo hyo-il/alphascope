@@ -1,3 +1,4 @@
+import { formatDate, formatDateTime } from '../../utils/dateFormat';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
 import TrashIcon from '../common/TrashIcon';
@@ -157,7 +158,7 @@ export default function AnalysisHistory({
    * 지우면 「분석 성적표」 집계에서도 빠진다 — 문구에 적는다.
    */
   const handleDelete = (record: AnalysisRecord) => {
-    const date = new Date(record.analyzed_at).toLocaleDateString('ko-KR');
+    const date = formatDate(record.analyzed_at);
     modal.confirm({
       title: '분석 결과 삭제',
       message: `${record.symbol} ${date} 분석 결과를 삭제합니다. 되돌릴 수 없고 「분석 성적표」 집계에서도 빠집니다.`,
@@ -271,7 +272,7 @@ export default function AnalysisHistory({
                     {analysisModeLabel(record.mode)}
                   </span>
                   <span className="ml-auto text-text-muted">
-                    {new Date(record.analyzed_at).toLocaleString('ko-KR')}
+                    {formatDateTime(record.analyzed_at)}
                   </span>
                 </header>
 

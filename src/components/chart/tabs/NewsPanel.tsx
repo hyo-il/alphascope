@@ -1,3 +1,4 @@
+import { formatDate, formatTime } from '../../../utils/dateFormat';
 import { PANEL_PAD } from '../../ui/tokens';
 import Button from '../../ui/Button';
 import WarnIcon from '../../ui/WarnIcon';
@@ -35,7 +36,7 @@ function timeAgo(iso: string | null): string {
   if (min < 1) return '방금';
   if (min < 60) return `${min}분 전`;
   if (min < 24 * 60) return `${Math.round(min / 60)}시간 전`;
-  return new Date(t).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+  return formatDate(t);
 }
 
 export default function NewsPanel({ symbol }: { symbol: string }) {
@@ -190,7 +191,7 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
       {news && (
         <p className="text-caption text-text-muted">
           출처: Yahoo Finance(yfinance) · 30분마다 새로 받습니다 ·{' '}
-          {new Date(news.fetchedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준
+          {formatTime(news.fetchedAt)} 기준
         </p>
       )}
     </div>

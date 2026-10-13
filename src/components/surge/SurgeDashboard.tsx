@@ -1,3 +1,4 @@
+import { formatDate, formatDateTime } from '../../utils/dateFormat';
 import { TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { RemoveAllButton, PANEL_PAD, PANEL_X } from '../ui';
 import { Fragment } from 'react';
@@ -116,7 +117,7 @@ const DELETE_NOTE =
 
 const roundLabel = (iso: string) => {
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+  return Number.isNaN(d.getTime()) ? iso : formatDateTime(d);
 };
 
 function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted: () => void }) {
@@ -213,7 +214,7 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
                 </tr>
                 {round.rows.map((row) => (
                   <tr key={row.id} className="border-b border-border/50">
-                    <td className="whitespace-nowrap py-1.5 pr-2 text-text-secondary">{row.detectedAt.slice(0, 10)}</td>
+                    <td className="whitespace-nowrap py-1.5 pr-2 text-text-secondary">{formatDate(row.detectedAt)}</td>
                     {/* 종목명은 한 줄 그대로(말줄임 없음) — 남는 폭을 예상일 칸이 가져가므로 이 칸이 눌리지 않게 */}
                     <td className="whitespace-nowrap pr-2">
                       <StockName symbol={row.symbol} name={row.name} wrap />

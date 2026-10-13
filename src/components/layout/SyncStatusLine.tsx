@@ -1,3 +1,4 @@
+import { formatTime } from '../../utils/dateFormat';
 import Button from '../ui/Button';
 import { useEffect, useState } from 'react';
 import {
@@ -25,7 +26,7 @@ export default function SyncStatusLine() {
 
   const savedAt = getLastSavedAt();
   const time = savedAt
-    ? new Date(savedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+    ? formatTime(savedAt)
     : null;
 
   const label =

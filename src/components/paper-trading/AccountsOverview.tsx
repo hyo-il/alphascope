@@ -1,3 +1,4 @@
+import { formatTime } from '../../utils/dateFormat';
 import { CARD_GRID } from '../ui/tokens';
 import Button from '../ui/Button';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
@@ -234,10 +235,7 @@ export default function AccountsOverview({
                 {view.state === 'running' && status?.nextRunAt && !view.busy && (
                   <span className="text-caption text-text-muted">
                     다음 실행{' '}
-                    {new Date(status.nextRunAt).toLocaleTimeString('ko-KR', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    {formatTime(status.nextRunAt)}
                   </span>
                 )}
 

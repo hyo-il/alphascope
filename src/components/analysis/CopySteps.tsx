@@ -1,3 +1,4 @@
+import { formatTime } from '../../utils/dateFormat';
 import Button from '../ui/Button';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -58,7 +59,7 @@ const IMAGE_FAIL_REASON: Record<Exclude<ImageCopyResult, 'copied'>, string> = {
 };
 
 function now(): string {
-  return new Date().toLocaleTimeString('ko-KR');
+  return formatTime(new Date());
 }
 
 /** 단계 번호 배지 */

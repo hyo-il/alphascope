@@ -1,3 +1,4 @@
+import { formatDateTime, formatTime } from '../../utils/dateFormat';
 import Button from '../ui/Button';
 import WarnIcon from '../ui/WarnIcon';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
@@ -57,7 +58,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
     }
   };
 
-  const nextRun = status?.nextRunAt ? new Date(status.nextRunAt).toLocaleTimeString('ko-KR') : null;
+  const nextRun = status?.nextRunAt ? formatTime(status.nextRunAt) : null;
   /** 바 맨 위의 "지금 상태" 한 문장 (v2.32.0) — 분류는 `autoTradeView` 한 곳, 문장은 `autoTradeExplain` 한 곳 */
   const view = autoTradeView(strategy, status);
   const sentence = nowSentence(strategy, status, view);
@@ -186,7 +187,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
               label={`최근 판단 보기 (${status.lastNotes.length}건)`}
               controls={`autotrade-notes-${strategy.accountId}`}
             />
-            {status.lastNotesAt && <span className="text-text-muted">{new Date(status.lastNotesAt).toLocaleString('ko-KR')}</span>}
+            {status.lastNotesAt && <span className="text-text-muted">{formatDateTime(status.lastNotesAt)}</span>}
           </div>
           {notesOpen && (
           // 최대 약 240px(6줄쯤) + 안에서 스크롤 (v2.41.0) — 높이 제한이 없으면 아래 보유 종목·거래내역 영역이 0까지 줄었다

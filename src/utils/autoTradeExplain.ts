@@ -62,17 +62,17 @@ export function sortNotes<T extends DecisionNote>(notes: T[]): T[] {
   return notes.map((n, i) => ({ n, i })).sort((a, b) => rank(a.n) - rank(b.n) || a.i - b.i).map((x) => x.n);
 }
 
-/** 한국 시간으로 적는다 — "10월 2일 (금) 22:30" */
+/**
+ * 한국 시간으로 적는다 — "2026-10-02 22:30" (v2.42.3 기준표 「날짜 표기」 — 예전 "10월 2일 (금) 22:30").
+ * 화면 문장에만 쓴다. 한국 시간을 명시하는 문장이라 브라우저 시간대가 아니라 Asia/Seoul 로 잰다.
+ */
 export function kstLabel(at: Date): string {
-  return at.toLocaleString('ko-KR', {
-    timeZone: 'Asia/Seoul',
-    month: 'long',
-    day: 'numeric',
-    weekday: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+      .formatToParts(at)
+      .map((p) => [p.type, p.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
 }
 
 /**

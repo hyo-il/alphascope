@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../../utils/dateFormat';
 import { displayMinus, formatSigned } from '../../../utils/formatters';
 import { PANEL_PAD } from '../../ui/tokens';
 import { useInvestorFlow } from '../../../hooks/useInvestorFlow';
@@ -146,7 +147,7 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
 
       <p className="text-text-muted">
         출처: 토스증권 Open API · 단위: 주(금액 아님) · 외국인 = 등록외국인 · 외국인 보유 비율 = 토스 투자자 동향의 외국인 보유 수량 ÷ 외국인 한도 수량 · 기준{' '}
-        {flow.updatedAt ? new Date(flow.updatedAt).toLocaleString('ko-KR') : '—'}
+        {flow.updatedAt ? formatDateTime(flow.updatedAt) : '—'}
       </p>
     </div>
   );

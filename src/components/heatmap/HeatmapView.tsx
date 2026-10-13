@@ -1,3 +1,4 @@
+import { formatTime } from '../../utils/dateFormat';
 import { PANEL_PAD } from '../ui/tokens';
 import { HEATMAP_SECTOR_LINE, HEATMAP_SECTOR_PAD_Y } from '../ui/tokens';
 import { InfoTip, Segmented, Tabs } from '../ui';
@@ -581,7 +582,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
             {watchView ? `${marketLabel} 관심 종목` : `시총 상위 ${data.top ?? top}`} · {tiles.length < data.cells.length ? `${tiles.length}/${data.cells.length}` : data.cells.length}
             종목 ·{' '}
             {period === '1d'
-              ? `${new Date(data.asOf).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준`
+              ? `${formatTime(data.asOf)} 기준`
               : `최근 종가 기준 ${periodInfo.bars}거래일`}
             {loading && ' · 새로고침 중…'}
           </span>

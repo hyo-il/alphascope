@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../utils/dateFormat';
 import Button from '../ui/Button';
 import { useState } from 'react';
 import type { PaperOrder, PaperTrade } from '../../types/paper';
@@ -118,12 +119,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
               {filtered.map((t) => (
                 <tr key={t.id} className="border-b border-border/60 hover:bg-bg-tertiary/40">
                   <td className="px-3 py-2 whitespace-nowrap text-text-muted">
-                    {new Date(t.tradedAt).toLocaleString('ko-KR', {
-                      month: '2-digit',
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    {formatDateTime(t.tradedAt)}
                   </td>
                   <td className="px-3 py-2 text-text-primary">
                     <StockName symbol={t.symbol} name={t.name} />

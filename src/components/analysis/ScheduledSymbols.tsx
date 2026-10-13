@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../utils/dateFormat';
 import { useState } from 'react';
 import { Button } from '../ui';
 import Dialog from '../ui/Dialog';
@@ -18,7 +19,7 @@ const RUN_LABEL: Record<string, string> = { schedule: '정기 실행', catchup: 
 
 const time = (iso: string | null | undefined) =>
   iso
-    ? new Date(iso).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    ? formatDateTime(iso)
     : '—';
 
 function Summary({ status }: { status: ScheduledStatus }) {

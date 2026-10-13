@@ -1,3 +1,4 @@
+import { formatDateTime } from '../../utils/dateFormat';
 import type { ReactNode } from 'react';
 import type { SwingRecord } from '../../types/swing';
 import StockName from '../common/StockName';
@@ -45,7 +46,7 @@ export default function SavedRecommendations({
   return (
     <section className="space-y-2">
       <h3 className="text-xs font-semibold text-text-secondary">
-        {analyzedAt ? `${new Date(analyzedAt).toLocaleString('ko-KR')}에 점검한 결과` : '마지막으로 점검한 결과'} · {records.length}개
+        {analyzedAt ? `${formatDateTime(analyzedAt)}에 점검한 결과` : '마지막으로 점검한 결과'} · {records.length}개
       </h3>
       <p className="text-caption text-text-muted">
         저장 당시의 계획입니다(점수가 높은 종목만 저장됩니다). 지금 가격 기준의 채점·경고를 보려면 「관심 종목 점검하기」 를 누르세요.
