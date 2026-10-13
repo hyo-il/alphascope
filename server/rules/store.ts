@@ -1,0 +1,127 @@
+/**
+ * 매매 규칙 저장 — `trading_rules` (db/schema.sql, v2.43.0).
+ *
+ * - 「기본 규칙」 은 **처음 한 번만** 넣는다: `app_settings` 'tradingRules.seeded' 가 없을 때만 넣고 표시를 남긴다.
+ *   사용자가 모두 지워도 다시 만들지 않는다(사용자 결정 A-2).
+ * - 「적용된 곳」(`usedBy`)은 1단계에서 **늘 비어 있다** — 매수 판단·계좌·백테스트에 아직 연결하지 않았다(2단계에서 채운다).
+ *   삭제·저장 확인 창은 이 값으로 문장을 만든다.
+ */
+import { getDb } from '../db';
+import {
+  DEFAULT_RULE_NAME,
+  EMPTY_USAGE,
+  cloneRuleBody,
+  defaultRuleBody,
+  type RuleBody,
+  type RuleUsage,
+  type TradingRule,
+} from '../../src/types/tradingRule';
+
+const SEEDED_KEY = 'tradingRules.seeded';
+
+interface Row {
+  id: number;
+  name: string;
+  rule_json: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export class RuleNameTakenError extends Error {}
+
+/** 이 규칙을 쓰는 곳 — 1단계에서는 아무 곳도 연결하지 않았다 */
+function usageOf(_id: number): RuleUsage {
+  return { ...EMPTY_USAGE, accounts: [] };
+}
+
+function toRule(row: Row): TradingRule {
+  const body = JSON.parse(row.rule_json) as RuleBody;
+  return {
+    id: row.id,
+    name: row.name,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    ...cloneRuleBody(body),
+    usedBy: usageOf(row.id),
+  };
+}
+
+let seededChecked = false;
+
+/** 기본 규칙을 처음 한 번만 넣는다 — 표시와 규칙을 한 트랜잭션으로 */
+export function ensureSeeded(): void {
+  if (seededChecked) return;
+  const db = getDb();
+  db.transaction(() => {
+    const done = db.prepare(`SELECT value FROM app_settings WHERE key = ?`).get(SEEDED_KEY);
+    if (done) return;
+    const now = new Date().toISOString();
+    db.prepare(`INSERT INTO trading_rules (name, rule_json, created_at, updated_at) VALUES (?, ?, ?, ?)`).run(
+      DEFAULT_RULE_NAME,
+      JSON.stringify(defaultRuleBody()),
+      now,
+      now,
+    );
+    db.prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?)`).run(SEEDED_KEY, now);
+  })();
+  seededChecked = true;
+}
+
+export function listRules(): TradingRule[] {
+  ensureSeeded();
+  return (getDb().prepare(`SELECT * FROM trading_rules ORDER BY id`).all() as Row[]).map(toRule);
+}
+
+export function getRule(id: number): TradingRule | null {
+  ensureSeeded();
+  const row = getDb().prepare(`SELECT * FROM trading_rules WHERE id = ?`).get(id) as Row | undefined;
+  return row ? toRule(row) : null;
+}
+
+function nameTaken(name: string, exceptId?: number): boolean {
+  const row = getDb()
+    .prepare(`SELECT id FROM trading_rules WHERE name = ? AND id != ?`)
+    .get(name, exceptId ?? -1);
+  return !!row;
+}
+
+export function createRule(name: string, body: RuleBody): TradingRule {
+  ensureSeeded();
+  const n = name.trim();
+  if (nameTaken(n)) throw new RuleNameTakenError(`같은 이름의 규칙이 있습니다: ${n}`);
+  const now = new Date().toISOString();
+  const info = getDb()
+    .prepare(`INSERT INTO trading_rules (name, rule_json, created_at, updated_at) VALUES (?, ?, ?, ?)`)
+    .run(n, JSON.stringify(cloneRuleBody(body)), now, now);
+  return getRule(Number(info.lastInsertRowid))!;
+}
+
+export function updateRule(id: number, name: string, body: RuleBody): TradingRule | null {
+  ensureSeeded();
+  const n = name.trim();
+  if (!getRule(id)) return null;
+  if (nameTaken(n, id)) throw new RuleNameTakenError(`같은 이름의 규칙이 있습니다: ${n}`);
+  getDb()
+    .prepare(`UPDATE trading_rules SET name = ?, rule_json = ?, updated_at = ? WHERE id = ?`)
+    .run(n, JSON.stringify(cloneRuleBody(body)), new Date().toISOString(), id);
+  return getRule(id);
+}
+
+export function deleteRule(id: number): boolean {
+  ensureSeeded();
+  return getDb().prepare(`DELETE FROM trading_rules WHERE id = ?`).run(id).changes > 0;
+}
+
+/** 복사 이름 — 「○○ 복사본」, 이미 있으면 「○○ 복사본 2」 · 3 … (40자를 넘으면 원래 이름을 줄인다) */
+export function copyName(name: string): string {
+  const fit = (base: string, suffix: string) => base.slice(0, Math.max(1, 40 - suffix.length)) + suffix;
+  let candidate = fit(name, ' 복사본');
+  for (let n = 2; nameTaken(candidate); n++) candidate = fit(name, ` 복사본 ${n}`);
+  return candidate;
+}
+
+export function copyRule(id: number): TradingRule | null {
+  const src = getRule(id);
+  if (!src) return null;
+  return createRule(copyName(src.name), src);
+}

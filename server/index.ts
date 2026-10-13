@@ -54,6 +54,9 @@ import { accuracyReport } from './gemini/accuracy';
 import { DiagnoseBusyError, getDiagnoseProgress, startDiagnose } from './diagnose/runner';
 import { BacktestBusyError, getBacktestProgress, startCustomBacktest } from './autoTrading/researchRunner';
 import { deleteBacktest, getBacktest, listBacktests, saveExplain } from './autoTrading/researchStore';
+import { RuleNameTakenError, copyRule, createRule, deleteRule, getRule, listRules, updateRule } from './rules/store';
+import { parseRuleBody, ruleFieldErrors, ruleNameError } from '../src/utils/ruleInput';
+import type { RuleBody } from '../src/types/tradingRule';
 import { namesAndSectors, researchTargets } from './autoTrading/ruleResearch';
 import { AdviceInputError, adviseBacktest, explainBacktest } from './gemini/backtestAi';
 import { maPeriodErrors, parseBacktestInput } from '../src/utils/backtestInput';
@@ -1686,6 +1689,98 @@ app.delete('/api/backtest/reports/:id', (req, res) => {
   try {
     if (!deleteBacktest(id)) return res.status(404).json({ error: '결과를 찾을 수 없습니다.' });
     res.json({ ok: true });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+// -- 매매 규칙 (v2.43.0 — 퀀트 다시 만들기 1단계, 「퀀트 > 매매 규칙」) ------------------------------------------
+//
+// 규칙 목록만 다룬다. ⚠️ 1단계에서는 매수 판단·계좌·백테스트가 이 규칙을 쓰지 않는다(`usedBy` 는 늘 비어 있다).
+// 입력 검사는 `src/utils/ruleInput.ts` 한 곳(화면 칸 오류와 같은 함수).
+
+/** 몸 `{ name, rule }` → 이름·내용, 검사 실패면 400 문장 */
+function ruleInputOf(body: any): { name: string; rule: RuleBody } | { error: string } {
+  const name = typeof body?.name === 'string' ? body.name : '';
+  const nameError = ruleNameError(name);
+  if (nameError) return { error: nameError };
+  const parsed = parseRuleBody(body?.rule);
+  if ('error' in parsed) return parsed;
+  const errors = ruleFieldErrors(parsed.body);
+  const first = Object.entries(errors)[0];
+  if (first) return { error: `${first[0]}: ${first[1]}` };
+  return { name, rule: parsed.body };
+}
+
+const ruleIdOf = (raw: string): number | null => {
+  const id = Number(raw);
+  return Number.isInteger(id) && id > 0 ? id : null;
+};
+
+app.get('/api/rules', (_req, res) => {
+  try {
+    res.json({ rules: listRules() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/rules/:id', (req, res) => {
+  const id = ruleIdOf(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id 가 올바르지 않습니다.' });
+  try {
+    const rule = getRule(id);
+    if (!rule) return res.status(404).json({ error: '규칙을 찾을 수 없습니다.' });
+    res.json({ rule });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.post('/api/rules', (req, res) => {
+  const input = ruleInputOf(req.body);
+  if ('error' in input) return res.status(400).json({ error: input.error });
+  try {
+    res.json({ rule: createRule(input.name, input.rule) });
+  } catch (e) {
+    if (e instanceof RuleNameTakenError) return res.status(409).json({ error: e.message });
+    fail(res, e);
+  }
+});
+
+app.put('/api/rules/:id', (req, res) => {
+  const id = ruleIdOf(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id 가 올바르지 않습니다.' });
+  const input = ruleInputOf(req.body);
+  if ('error' in input) return res.status(400).json({ error: input.error });
+  try {
+    const rule = updateRule(id, input.name, input.rule);
+    if (!rule) return res.status(404).json({ error: '규칙을 찾을 수 없습니다.' });
+    res.json({ rule });
+  } catch (e) {
+    if (e instanceof RuleNameTakenError) return res.status(409).json({ error: e.message });
+    fail(res, e);
+  }
+});
+
+app.delete('/api/rules/:id', (req, res) => {
+  const id = ruleIdOf(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id 가 올바르지 않습니다.' });
+  try {
+    if (!deleteRule(id)) return res.status(404).json({ error: '규칙을 찾을 수 없습니다.' });
+    res.json({ ok: true });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.post('/api/rules/:id/copy', (req, res) => {
+  const id = ruleIdOf(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id 가 올바르지 않습니다.' });
+  try {
+    const rule = copyRule(id);
+    if (!rule) return res.status(404).json({ error: '규칙을 찾을 수 없습니다.' });
+    res.json({ rule });
   } catch (e) {
     fail(res, e);
   }

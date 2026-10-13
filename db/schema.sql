@@ -395,3 +395,13 @@ CREATE TABLE IF NOT EXISTS news_sentiment (
   output_json TEXT NOT NULL,
   prompt_version TEXT NOT NULL
 );
+
+-- 매매 규칙 (v2.43.0 — 퀀트 다시 만들기 1단계). 규칙 내용(매수·매도 조건)은 rule_json 하나에 담는다(src/types/tradingRule.ts 의 RuleBody).
+-- 「기본 규칙」 은 처음 한 번만 넣는다 — app_settings 'tradingRules.seeded' 가 표시(사용자가 다 지워도 다시 만들지 않는다). server/rules/store.ts
+CREATE TABLE IF NOT EXISTS trading_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  rule_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
