@@ -476,15 +476,16 @@ export default function SymbolPicker(props: SymbolPickerProps) {
 
   return (
     <div className="space-y-2">
+      {/* 제목은 따로 한 줄 — [종목 추가] 줄은 어느 화면에서나 같은 자리·모양(목록 바로 위, v2.44.2) */}
+      {title != null && <h3 className="text-sm font-semibold text-text-primary">{title}</h3>}
       <div className="flex flex-wrap items-center gap-2">
-        {title != null && <h3 className="shrink-0 text-sm font-semibold text-text-primary">{title}</h3>}
         <Button size="sm" icon={Plus} onClick={() => setOpen(true)} className="shrink-0 whitespace-nowrap">
           종목 추가
         </Button>
         {/* 고른 개수 + 모두 삭제는 줄 오른쪽 끝에 한 묶음 「3개 · 모두 삭제」 — 버튼 묶음 사이에 끼지 않게(v2.42.2) */}
         <span className="ml-auto flex shrink-0 items-center gap-2">
           <span className="text-caption text-text-muted tabular-nums">
-            {selected.length}개{max != null ? ` / 최대 ${max}개` : ''}
+            {selected.length}종목{max != null ? ` / 최대 ${max}종목` : ''}
           </span>
           {selected.length > 0 && <RemoveAllButton onClick={() => onChange([])} />}
         </span>

@@ -87,6 +87,54 @@ function targets(): Target[] {
     { name: 'dialog-판단기준편집-고급', hash: '#/swing/list', open: async (page) => { await click(/판단 기준/)(page); await expandAdvanced(page); } },
     { name: 'backtest-고급', hash: '#/backtest', open: expandAdvanced },
     { name: 'form-새계좌', hash: '#/portfolio/paper', open: click(/새 계좌/) },
+    // v2.44.2 — 종목 지도(시장 상위 미국 100 · 내 관심 국내), 「N초 전 갱신」(장이 닫힌 시각에도 보이게 응답의 marketOpen 만 바꿔치기 — DB 는 그대로),
+    // 처음 켜기 안내 종목 단계, 지정 종목 설정 창의 [종목 추가]
+    ...(
+      [
+        ['heatmap-시장상위-미국100', { view: 'market', market: 'us', top: 100 }],
+        ['heatmap-관심-국내', { view: 'watch', market: 'kr', top: 50 }],
+      ] as const
+    ).map(([name, v]) => ({
+      name,
+      hash: '#/heatmap',
+      before: async (page: Page) => {
+        await page.evaluate((v) => localStorage.setItem('alphascope.heatmapView', JSON.stringify({ ...v, period: '1d', off: { market: [], watch: [] }, watchSize: 'cap' })), v);
+      },
+    })),
+    {
+      name: 'heatmap-장중-N초전갱신',
+      hash: '#/heatmap',
+      before: async (page) => {
+        await page.evaluate(() => localStorage.setItem('alphascope.heatmapView', JSON.stringify({ view: 'market', market: 'us', top: 50, period: '1d', off: { market: [], watch: [] }, watchSize: 'cap' })));
+        await page.route('**/api/heatmap**', async (r) => {
+          const res = await r.fetch();
+          const body = (await res.json()) as Record<string, unknown>;
+          await r.fulfill({ response: res, json: { ...body, marketOpen: true } });
+        });
+      },
+      after: (page) => page.unroute('**/api/heatmap**'),
+      open: async (page) => { await page.waitForTimeout(3000); },
+    },
+    {
+      name: 'dialog-처음켜기-종목단계',
+      hash: '#/portfolio/paper',
+      open: async (page) => {
+        await page.getByRole('button', { name: /계좌 모아보기/ }).first().click().catch(() => {});
+        await page.waitForTimeout(1000);
+        await click(/자동매매 처음 켜기/)(page);
+        await click('있는 계좌 고르기')(page);
+        await click(/^다음$/)(page);
+        await click(/^다음$/)(page);
+      },
+    },
+    {
+      name: 'dialog-지정종목-설정',
+      hash: '#/analysis/records',
+      open: async (page) => {
+        await page.getByText('내가 지정한 종목').first().locator('xpath=..').getByRole('button', { name: '설정', exact: true }).first().click();
+        await page.waitForTimeout(800);
+      },
+    },
     // v2.44.1 — 계좌 「지금 조건」 펼침(「다음 판단」 시장별 개장 시각 — 서버가 휴장일까지 보고 계산)
     {
       name: 'account-지금조건-다음판단',

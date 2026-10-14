@@ -38,7 +38,7 @@ export default function ConditionCard({
   useEffect(() => setOpen(false), [s.accountId]);
 
   return (
-    <Panel pad="sm" className="mx-4 my-2 space-y-2">
+    <Panel pad="sm" className="mx-3 my-2 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <p className="shrink-0 text-xs font-semibold text-text-primary">지금 조건</p>
         <p className="min-w-0 text-caption text-text-secondary">

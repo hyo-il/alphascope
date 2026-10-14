@@ -129,7 +129,7 @@ export default function TargetTab({
           max={TARGET_MAX_SYMBOLS}
           maxReason={`종목당 Gemini ${CALLS_PER_SYMBOL}회 — 무료 한도를 아끼려고 막았습니다`}
           dialogTitle="목표 수익 가능성 — 종목 추가"
-          emptyText={`[종목 추가] 에서 분석할 종목을 추가하세요(최대 ${TARGET_MAX_SYMBOLS}개).`}
+          emptyText={`[종목 추가] 에서 분석할 종목을 추가하세요(최대 ${TARGET_MAX_SYMBOLS}종목).`}
         />
         {picked.length > 0 && (
           <ul className="space-y-0.5 text-caption">

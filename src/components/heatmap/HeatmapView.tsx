@@ -158,11 +158,20 @@ function splitCandidates(label: string): [string, string][] {
  * 12px 최소·말줄임 없음·칸 밖으로 나가지 않음은 그대로 — 두 줄로도 안 들어가면 그리지 않는다(툴팁).
  */
 function fitLabel(label: string, rate: string, w: number, h: number, twoLines = false): LabelFit | null {
+  // 이름 + 등락률이 함께 들어가는 가장 큰 글자를 먼저 고른다 (v2.44.2) — 예전에는 이름만 들어가는 가장 큰 글자를 골라 그 높이 때문에 등락률 줄이 빠졌다.
+  // 함께 들어가는 크기가 없으면 이름만이라도(예전과 같다)
+  const both = fitLabelOnce(label, rate, w, h, twoLines, true);
+  return both ?? fitLabelOnce(label, rate, w, h, twoLines, false);
+}
+
+function fitLabelOnce(label: string, rate: string, w: number, h: number, twoLines: boolean, needRate: boolean): LabelFit | null {
   const room = w - TILE_PAD_X;
   const rateW = textWidth(rate, RATE_SIZE, 400);
+  const ok = (f: LabelFit) => (needRate ? f.rate : true);
   for (let size = Math.max(LABEL_MIN, Math.min(LABEL_MAX, Math.floor(Math.sqrt(w * h) / 6))); size >= LABEL_MIN; size--) {
     if (textWidth(label, size) <= room && size * LINE <= h - 2) {
-      return { size, lines: [label], rate: size * LINE + RATE_SIZE * LINE <= h - 4 && rateW <= room };
+      const f = { size, lines: [label], rate: size * LINE + RATE_SIZE * LINE <= h - 4 && rateW <= room };
+      if (ok(f)) return f;
     }
     if (twoLines && size * LINE * 2 <= h - 2) {
       // 두 줄 중 긴 줄이 가장 짧아지는 자리
@@ -176,7 +185,8 @@ function fitLabel(label: string, rate: string, w: number, h: number, twoLines = 
         }
       }
       if (best && bestW <= room) {
-        return { size, lines: best, rate: size * LINE * 2 + RATE_SIZE * LINE <= h - 4 && rateW <= room };
+        const f = { size, lines: best, rate: size * LINE * 2 + RATE_SIZE * LINE <= h - 4 && rateW <= room };
+        if (ok(f)) return f;
       }
     }
   }
@@ -339,14 +349,16 @@ function layoutTiles(groups: [string, HeatmapCell[]][], W: number, H: number, si
   for (let pass = 0; pass < LAYOUT_PASSES; pass++) {
     passes = pass + 1;
     const r = layoutOnce(groups, W, H, (c) => area.get(c)!);
-    const labeled = r.tiles.filter((t) => t.fit).length;
+    // 고르는 기준: 이름이 보이는 칸 수, 같으면 등락률까지 보이는 칸 수
+    const labeled = r.tiles.filter((t) => t.fit).length * 1000 + r.tiles.filter((t) => t.fit?.rate).length;
     if (labeled > bestLabeled) {
       best = r;
       bestLabeled = labeled;
     }
     // 이름이 안 들어간 칸 + **칸이 아예 생기지 않은 종목**(섹터 띠가 분야 이름 줄보다 얇으면 안쪽 높이가 0 이라 칸이 없다 — 실측)
     const placed = new Map(r.tiles.map((t) => [t.cell, t] as const));
-    const missing = all.filter((c) => !placed.get(c)?.fit);
+    // 이름과 등락률 둘 다 — 이름만 들어간 칸도 모자란 칸으로 본다 (v2.44.2)
+    const missing = all.filter((c) => !placed.get(c)?.fit?.rate);
     if (!missing.length) break;
     // 3) 모자란 만큼 키운다 — 칸이 띠 모양이면 높이(또는 폭) 부족분만큼 넓이를 늘려야 두께가 그만큼 는다
     let grew = false;
@@ -579,6 +591,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           data-tiles={tiles.length}
           data-labeled={labeled}
           data-passes={passes}
+          data-rated={tiles.filter((t) => t.fit?.rate).length}
           className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl bg-bg-secondary"
         >
           {empty && (

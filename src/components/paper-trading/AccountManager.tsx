@@ -98,7 +98,8 @@ export default function AccountManager({
               onClick={confirmReset}>
               초기화
             </Button>
-            <Button variant="secondary" size="sm"
+            {/* 화면 안의 삭제 = 빨간 글자(기준표 「버튼」 — v2.44.2 캡처 검토에서 찾음) */}
+            <Button variant="danger-text" size="sm"
               onClick={confirmDelete}>
               <TrashIcon className="h-3.5 w-3.5" />
               삭제
