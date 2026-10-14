@@ -86,6 +86,16 @@ function targets(): Target[] {
     { name: 'dialog-판단기준편집-고급', hash: '#/swing/list', open: async (page) => { await click(/판단 기준/)(page); await expandAdvanced(page); } },
     { name: 'backtest-고급', hash: '#/backtest', open: expandAdvanced },
     { name: 'form-새계좌', hash: '#/portfolio/paper', open: click(/새 계좌/) },
+    // v2.44.1 — 계좌 「지금 조건」 펼침(「다음 판단」 시장별 개장 시각 — 서버가 휴장일까지 보고 계산)
+    {
+      name: 'account-지금조건-다음판단',
+      hash: '#/portfolio/paper',
+      open: async (page) => {
+        await page.getByText('현재 계좌').first().click();
+        await page.waitForTimeout(1200);
+        await click('지금 조건 보기')(page);
+      },
+    },
     { name: 'dialog-종목고르기', hash: '#/backtest', open: click('종목 고르기') },
     {
       name: 'dialog-자동매매설정',

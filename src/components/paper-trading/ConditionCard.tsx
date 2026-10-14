@@ -16,7 +16,7 @@ import { nextJudgeText } from '../../utils/autoTradeExplain';
 function Line({ label, children, strong = false }: { label: string; children: ReactNode; strong?: boolean }) {
   return (
     <div className="contents">
-      <dt className="text-text-muted">{label}</dt>
+      <dt className="whitespace-nowrap text-text-muted">{label}</dt>
       <dd className={strong ? 'font-medium text-text-primary' : 'text-text-secondary'}>{children}</dd>
     </div>
   );
@@ -82,7 +82,7 @@ export default function ConditionCard({
         </p>
       )}
       {open && (
-        <dl id={`condition-card-${s.accountId}`} className="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1 text-caption">
+        <dl id={`condition-card-${s.accountId}`} className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1 text-caption">
           <Line label="매매 규칙">{rule ? `「${rule.name}」` : '없음'}</Line>
           <Line label="매수 조건">{rule ? ruleBuyText(rule) : '—'}</Line>
           <Line label="매도 조건">{rule ? ruleSellText(rule) : '—'}</Line>
