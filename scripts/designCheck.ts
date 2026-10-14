@@ -26,6 +26,7 @@
  *   BASE=http://localhost:5180 OUT=../../docs/design-check/v2.42.0 …   (기본 OUT = 관리 루트 docs/design-check/<changelog 맨 앞 버전>)
  * ⚠️ 실제 Windows 크롬은 재지 못한다(맥 크롬 — 스크롤바는 앱이 꾸며서 자리를 차지하는 같은 조건).
  */
+import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다(v2.44.2)
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium, type Page } from 'playwright';

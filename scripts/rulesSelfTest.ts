@@ -14,6 +14,7 @@
  * ⚠️ **실제 DB 를 바꾸지 않는다** — DB 를 임시 파일로 복사해 그것만 연다. 토스를 부르지 않는다(캔들은 DB 캐시만 — 고정 캔들).
  * ⚠️ 지표 엔진이 떠 있어야 한다(①~④). 꺼져 있으면 ⑤만 돌고 실패로 끝난다.
  */
+import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다(v2.44.2)
 import 'dotenv/config';
 import fs from 'node:fs';
 import os from 'node:os';

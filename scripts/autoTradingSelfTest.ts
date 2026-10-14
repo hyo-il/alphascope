@@ -9,6 +9,7 @@
  * ⚠️ 임시 계좌·임시 규칙은 끝나고 지운다. 사용자의 계좌·규칙은 건드리지 않는다.
  * ⚠️ 여기서도 주문은 모의 계좌(SQLite)에만 들어간다.
  */
+import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다(v2.44.2)
 import { getDb, loadCandles } from '../server/db';
 import { createAccount, createOrder, deleteAccount, listPositions, listTrades } from '../server/paperTradingService';
 import { runExitChecks, runSignalChecks, tryBuy } from '../server/autoTrading/engine';
