@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NAV_GROUPS, type NavGroup, type NavGroupId, type NavPageId } from '../../types/nav';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import LogoMark from './LogoMark';
@@ -54,6 +54,13 @@ export default function SideNav({
   const [collapsed, setCollapsed] = useState(false);
   /** 접힌 상태에서 아이콘에 올린 대메뉴 — 소메뉴를 옆에 띄운다 */
   const [hovered, setHovered] = useState<NavGroupId | null>(null);
+  /**
+   * 보고 있는 대메뉴를 접었는지 (v2.43.1). **이 컴포넌트 안에만** 둔다 — 전역 상태·주소는 바꾸지 않는다(접기는 메뉴 표시일 뿐).
+   * 저장하지 않는다(새로고침하면 펼친 채 시작).
+   */
+  const [foldedGroup, setFoldedGroup] = useState<NavGroupId | null>(null);
+  // 대메뉴가 바뀌면(다른 대메뉴 클릭 · 로고 → 홈 · 화면 안 링크 · 주소 이동 · 뒤로 가기) 접힘을 지운다 — 한 곳에서
+  useEffect(() => setFoldedGroup(null), [group]);
 
   /** 접힌 상태의 대메뉴 한 칸 (아이콘 + 호버 플라이아웃) */
   const collapsedGroup = (item: NavGroup) => (
@@ -106,22 +113,31 @@ export default function SideNav({
   /** 펼친 상태의 대메뉴 한 칸 (아코디언) */
   const expandedGroup = (item: NavGroup) => {
     /*
-     * 보고 있는 화면이 속한 대메뉴는 **항상 펼쳐 둔다.** 접을 수 있게 하면
-     * 지금 어디에 있는지가 화면에서 사라진다.
+     * 보고 있는 대메뉴도 **접을 수 있다** (v2.43.1 — 2026-10-14 사용자 결정. 예전에는 늘 펼쳐 두었다).
+     * 접어도 그 대메뉴가 선택된 소메뉴와 같은 「밝은 바탕 + 흰 글자」 라 지금 어디에 있는지가 보인다.
+     * 보고 있는 대메뉴를 누르면 이동하지 않고 접기 ↔ 펴기만 한다(예전에는 그 메뉴의 첫 화면으로 갔다). 다른 대메뉴는 예전처럼 이동 + 펼침.
      */
-    const open = group === item.id;
-    /** 소메뉴가 하나뿐인 대메뉴(증시 일정·계좌) — 소메뉴 줄·화살표 없이 대메뉴가 곧 그 화면이다 (v2.26.0) */
+    const current = group === item.id;
+    /** 소메뉴가 하나뿐인 대메뉴(증시 일정·퀀트·계좌) — 소메뉴 줄·화살표 없이 대메뉴가 곧 그 화면이다 (v2.26.0). 접기 대상이 아니다 */
     const single = item.pages.length === 1;
+    const folded = current && !single && foldedGroup === item.id;
+    const open = current && !folded;
 
     return (
       <div key={item.id} data-list className="space-y-1">
         <button
           type="button"
-          onClick={() => onSelectGroup(item.id)}
+          onClick={() => {
+            if (current && !single) setFoldedGroup(folded ? null : item.id);
+            else onSelectGroup(item.id);
+          }}
+          aria-expanded={single ? undefined : open}
           className={`flex w-full items-center gap-1.5 rounded-md border-l-2 px-2.5 py-2 text-left text-xs transition-colors ${
-            open
-              ? 'border-transparent font-medium text-text-primary'
-              : 'border-transparent text-text-secondary hover:bg-bg-tertiary/60 hover:text-text-primary'
+            folded
+              ? 'border-transparent bg-bg-tertiary font-medium text-text-primary'
+              : open
+                ? 'border-transparent font-medium text-text-primary'
+                : 'border-transparent text-text-secondary hover:bg-bg-tertiary/60 hover:text-text-primary'
           }`}
         >
           <span className={ICON_SLOT}>
