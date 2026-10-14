@@ -212,7 +212,7 @@ export default function RuleDialog({
             <thead className="text-caption text-text-muted">
               <tr className="border-b border-border/50">
                 {/* 사용 48px + 조건 140px = 188px — 위 「이름」 폼 줄의 값 칸 시작(이름 칸 176px + 간격 12px)과 같은 선 */}
-                <th className="w-12 whitespace-nowrap py-1.5">사용</th>
+                <th className="w-12 whitespace-nowrap py-1.5 text-center">사용</th>
                 <th className="w-[8.75rem] whitespace-nowrap py-1.5">조건</th>
                 <th className="w-px whitespace-nowrap py-1.5 pr-4">점수</th>
                 <th className="py-1.5">설명</th>
@@ -223,8 +223,10 @@ export default function RuleDialog({
                 const c = body.buy[key];
                 return (
                   <tr key={key} className="border-b border-border/30">
-                    <td className="py-1.5">
+                    {/* 체크 박스는 칸 가운데 — 머리 「사용」 글자와 가로 가운데가 같은 선 (v2.43.1). 브라우저 기본 여백(왼 4·오 3px)을 지워 정확히 가운데 */}
+                    <td className="py-1.5 text-center">
                       <input
+                        className="m-0 align-middle"
                         type="checkbox"
                         aria-label={`${NAMES[key]} 사용`}
                         checked={c.on}
