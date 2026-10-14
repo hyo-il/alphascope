@@ -105,6 +105,15 @@ function targets(): Target[] {
       },
     },
     { name: 'dialog-매매규칙-새규칙', hash: '#/rules', open: click('새 규칙 만들기') },
+    // 사이드 메뉴 — 보고 있는 대메뉴를 접은 상태 (v2.43.1)
+    {
+      name: 'nav-보고있는대메뉴-접힘',
+      hash: '#/compare',
+      open: async (page) => {
+        await page.locator('nav button[aria-expanded="true"]', { hasText: '차트·비교' }).first().click();
+        await page.waitForTimeout(400);
+      },
+    },
     {
       name: 'popover-날짜고르기',
       hash: '#/calendar',
