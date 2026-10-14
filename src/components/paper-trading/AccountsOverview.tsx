@@ -1,4 +1,3 @@
-import { formatTime } from '../../utils/dateFormat';
 import { CARD_GRID } from '../ui/tokens';
 import Button from '../ui/Button';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
@@ -7,7 +6,8 @@ import type { AccountOverviewItem, StrategyOverviewItem } from '../../hooks/useP
 import { formatPrice, formatSignedMoney, formatSigned } from '../../utils/formatters';
 import { toast } from '../../store/uiStore';
 import { autoTradeView } from '../../utils/autoTradeStatus';
-import { safetyLine } from '../../utils/autoTradeExplain';
+import { useTradingRules } from '../../hooks/useTradingRules';
+import { ruleSafetyText } from '../../utils/ruleText';
 
 /**
  * 계좌 **모아보기** — 계좌 관리에 들어가면 먼저 보이는 화면.
@@ -17,7 +17,7 @@ import { safetyLine } from '../../utils/autoTradeExplain';
  * 계좌가 하나뿐이어도 카드 한 장을 그린다 — 계좌가 늘어날 때 화면이 달라지면
  * "내 계좌가 어디 갔나" 가 된다.
  *
- * ⚠️ 카드의 [켜기] 는 `AutoTradeBar` 와 **같은 가드**를 쓴다. 종목이 없거나 키 없는 AI형이면
+ * ⚠️ 카드의 [켜기] 는 `AutoTradeBar` 와 **같은 가드**를 쓴다. 종목이 없거나 매매 규칙이 없으면
  * 켜 봐야 서버가 매 틱 `blockedReason` 만 돌려준다 — 그래서 켜지 말고 상세로 보낸다.
  */
 /**
@@ -50,7 +50,6 @@ const BADGE: Record<string, string> = {
 export default function AccountsOverview({
   accounts,
   strategies,
-  geminiEnabled,
   error,
   hasAccounts,
   selectedId,
@@ -59,7 +58,6 @@ export default function AccountsOverview({
 }: {
   accounts: AccountOverviewItem[] | null;
   strategies: StrategyOverviewItem[] | null;
-  geminiEnabled: boolean;
   error: string | null;
   /**
    * 계좌 목록(`/api/paper/accounts`) 조회는 성공했는가.
@@ -74,6 +72,9 @@ export default function AccountsOverview({
   onToggleAuto: (accountId: number, enabled: boolean) => Promise<void>;
 }) {
   const [busyId, setBusyId] = useState<number | null>(null);
+  const { rules } = useTradingRules();
+  const ruleOf = (id: number | null) => (id != null ? (rules?.find((r) => r.id === id) ?? null) : null);
+  const ruleName = (id: number | null) => (id == null ? '없음' : (ruleOf(id)?.name ?? '—'));
 
   const strategyOf = (accountId: number) =>
     strategies?.find((s) => s.strategy.accountId === accountId) ?? null;
@@ -87,8 +88,8 @@ export default function AccountsOverview({
         onOpen(item.account.id);
         return;
       }
-      if (found.strategy.mode === 'ai' && !geminiEnabled) {
-        toast.warning('Gemini 키가 설정되지 않았습니다', '규칙형으로 바꾸면 키 없이 동작합니다');
+      if (found.strategy.ruleId == null) {
+        toast.warning('매매 규칙을 고르세요.', '계좌를 열어 [자동매매 설정] 의 「① 매매 규칙」 에서 고릅니다');
         onOpen(item.account.id);
         return;
       }
@@ -232,10 +233,9 @@ export default function AccountsOverview({
 
                 {view.hint && <span className="text-caption text-text-muted">{view.hint}</span>}
 
-                {view.state === 'running' && status?.nextRunAt && !view.busy && (
+                {view.state === 'running' && status && !view.busy && strategy && (
                   <span className="text-caption text-text-muted">
-                    다음 실행{' '}
-                    {formatTime(status.nextRunAt)}
+                    오늘 판단 {status.judgedToday}/{strategy.symbols.length}종목
                   </span>
                 )}
 
@@ -255,7 +255,7 @@ export default function AccountsOverview({
 
                 {strategy && (
                   <span className="text-caption text-text-muted">
-                    {strategy.mode === 'ai' ? 'AI형' : '규칙형'} · 대상 {strategy.symbols.length}종목 ·
+                    규칙 「{ruleName(strategy.ruleId)}」 · 대상 {strategy.symbols.length}종목 ·
                     비중 {strategy.positionSizePercent}%
                   </span>
                 )}
@@ -275,8 +275,10 @@ export default function AccountsOverview({
                   {busyId === item.account.id ? '…' : on ? '끄기' : '켜기'}
                 </Button>
               </div>
-              {/* 손절·익절 한 줄 (v2.40.0) — 안전장치를 모아보기에서도 한눈에. 문장은 autoTradeExplain.safetyLine 한 곳 */}
-              {strategy && <p className="mt-1.5 text-caption font-medium text-text-secondary">{safetyLine(strategy)}</p>}
+              {/* 손절·익절·트레일링 한 줄 — 안전장치를 모아보기에서도 한눈에. 이 계좌 규칙의 값(utils/ruleText) */}
+              {strategy && ruleOf(strategy.ruleId) && (
+                <p className="mt-1.5 text-caption font-medium text-text-secondary">{ruleSafetyText(ruleOf(strategy.ruleId)!)}</p>
+              )}
             </article>
           );
         })}

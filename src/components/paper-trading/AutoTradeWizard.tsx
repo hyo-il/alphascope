@@ -3,28 +3,29 @@ import Dialog from '../ui/Dialog';
 import { ICON_SM } from '../ui/icon';
 import { Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { AccountStrategy, StrategyMode } from '../../types/autoTrading';
+import type { AccountStrategy } from '../../types/autoTrading';
 import type { AccountOverviewItem, StrategyOverviewItem } from '../../hooks/usePaperOverview';
 import CreateAccountForm, { type CreateAccountInput } from './CreateAccountForm';
-import ModePicker from './ModePicker';
-import RuleChoices, { matchChoice, RULE_CHOICES } from './RuleChoices';
+import RuleSelect from '../rules/RuleSelect';
+import { useTradingRules } from '../../hooks/useTradingRules';
+import { JUDGE_TIMING_TEXT, ruleBuyText, ruleSafetyText, ruleSellText } from '../../utils/ruleText';
 import TargetSymbolsEditor from './TargetSymbolsEditor';
 import AutoTradeSettings from './AutoTradeSettings';
 import { toast } from '../../store/uiStore';
 
 /**
- * 자동매매 **처음 켜기** 4단계 안내 (v2.32.0) — 계좌 → 방식 → 종목 → 확인.
+ * 자동매매 **처음 켜기** 4단계 안내 (v2.32.0 → v2.44.0) — 계좌 → **매매 규칙** → 종목 → 확인.
  *
- * ⚠️ 새 화면 부품을 만들지 않았다 — 계좌 생성 `CreateAccountForm`, 방식 `ModePicker` + `RuleChoices`(10차 쉬운 선택지 · v2.38.0 「지금 조건」 요약),
+ * ⚠️ 새 화면 부품을 만들지 않았다 — 계좌 생성 `CreateAccountForm`, 규칙 `RuleSelect`(설정 창 ①과 같다),
  * 종목 `TargetSymbolsEditor`, 숫자 `AutoTradeSettings` 를 그대로 쓴다(두 벌이면 갈라진다).
  * ⚠️ **새 기본값을 만들지 않는다** — 설정은 서버에서 그 계좌의 값(새 계좌면 `defaultStrategy()`)을 읽어 출발하고,
  * 확인 화면의 숫자도 **저장될 그 값**에서 읽는다(화면용 숫자를 따로 두지 않는다).
  * ⚠️ [켜기] 전에는 아무것도 저장하지 않는다(새 계좌를 만들었다면 계좌만 남는다 — 닫을 때 알린다).
- * [켜기] 는 설정 창·자동매매 바와 **같은 저장 경로·같은 가드**(종목 0개 · 키 없는 AI형이면 켜지 않는다)다.
+ * [켜기] 는 설정 창·자동매매 바와 **같은 저장 경로·같은 가드**(종목 0개 · 규칙 없음이면 켜지 않는다)다.
  */
 
 type Step = 1 | 2 | 3 | 4;
-const STEP_LABEL: Record<Step, string> = { 1: '계좌', 2: '방식', 3: '종목', 4: '확인' };
+const STEP_LABEL: Record<Step, string> = { 1: '계좌', 2: '매매 규칙', 3: '종목', 4: '확인' };
 
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
@@ -33,20 +34,15 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-const intervalText = (minutes: number) =>
-  minutes % 60 === 0 ? `${minutes / 60}시간` : `${minutes}분`;
-
 export default function AutoTradeWizard({
   accounts,
   strategies,
-  geminiEnabled,
   onCreateAccount,
   onDone,
   onClose,
 }: {
   accounts: AccountOverviewItem[];
   strategies: StrategyOverviewItem[];
-  geminiEnabled: boolean;
   /** 계좌 생성 — 모아보기 헤더와 같은 `usePaperAccounts().create` */
   onCreateAccount: (input: CreateAccountInput) => Promise<unknown>;
   /** 켜기 성공 — 그 계좌 상세로 간다 */
@@ -65,6 +61,7 @@ export default function AutoTradeWizard({
   const [detailOpen, setDetailOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [closing, setClosing] = useState(false);
+  const { rules } = useTradingRules();
 
   const accountId = choice === 'new' ? (created?.id ?? null) : existingId;
   const accountName =
@@ -88,16 +85,14 @@ export default function AutoTradeWizard({
   }, [accountId]);
 
   const patch = (change: Partial<AccountStrategy>) => setDraft((prev) => (prev ? { ...prev, ...change } : prev));
-  const pickMode = (mode: StrategyMode) => {
-    if (mode === 'ai' && !geminiEnabled) return;
-    patch({ mode });
-  };
+  const rule = draft?.ruleId != null ? (rules?.find((r) => r.id === draft.ruleId) ?? null) : null;
+  const ruleName = (id: number | null | undefined) => (id != null ? rules?.find((r) => r.id === id)?.name : undefined);
 
   const canNext =
     step === 1
       ? Boolean(accountId && draft) && (!runningWarn || overrideOk)
       : step === 2
-        ? Boolean(draft) && (draft!.mode === 'rule' || geminiEnabled)
+        ? Boolean(rule)
         : step === 3
           ? (draft?.symbols.length ?? 0) > 0
           : false;
@@ -110,8 +105,8 @@ export default function AutoTradeWizard({
       setStep(3);
       return;
     }
-    if (draft.mode === 'ai' && !geminiEnabled) {
-      toast.warning('Gemini 키가 설정되지 않았습니다', '규칙형으로 바꾸면 키 없이 동작합니다');
+    if (!rule) {
+      toast.warning('매매 규칙을 고르세요.', '2단계에서 고릅니다');
       setStep(2);
       return;
     }
@@ -226,7 +221,7 @@ export default function AutoTradeWizard({
                         />
                         <span className="text-text-primary">{a.account.name}</span>
                         <span className="text-text-muted">
-                          {st?.enabled ? `자동매매 켜짐 · ${st.mode === 'ai' ? 'AI형' : '규칙형'}` : '자동매매 꺼짐'}
+                          {st?.enabled ? `자동매매 켜짐 · 규칙 「${ruleName(st.ruleId) ?? '—'}」` : '자동매매 꺼짐'}
                         </span>
                       </label>
                     );
@@ -235,8 +230,8 @@ export default function AutoTradeWizard({
                   {runningWarn && (
                     <div className="space-y-1.5 rounded-lg bg-warning/10 px-3 py-2 text-caption text-warning">
                       <p>
-                        이 계좌는 지금 <b>{runningWarn.mode === 'ai' ? 'AI형' : '규칙형'}</b>으로 돌고 있습니다. 바꾸면 기존 방식이
-                        멈춥니다.
+                        이 계좌는 지금 규칙 <b>「{ruleName(runningWarn.ruleId) ?? '—'}」</b>로 돌고 있습니다. 바꾸면 다음 판단부터 새 설정을
+                        씁니다.
                       </p>
                       {!overrideOk ? (
                         <button
@@ -258,22 +253,11 @@ export default function AutoTradeWizard({
 
           {step === 2 && draft && (
             <section className="space-y-3">
-              <h3 className="text-xs font-semibold text-text-primary">어떤 방식으로 판단할까요?</h3>
-              <ModePicker mode={draft.mode} onMode={pickMode} geminiEnabled={geminiEnabled} />
-              {draft.mode === 'rule' && (
-                <RuleChoices
-                  rule={draft.rule}
-                  onChange={(rule) => patch({ rule })}
-                  symbols={draft.symbols}
-                  hardStopLossPercent={draft.hardStopLossPercent}
-                  trailingStopEnabled={draft.trailingStopEnabled}
-                  trailingStopPercent={draft.trailingStopPercent}
-                  takeProfitEnabled={draft.takeProfitEnabled}
-                  takeProfitPercent={draft.takeProfitPercent}
-                  accountId={accountId}
-                  leaveHint="이 안내 창은 닫히고, 아직 켜지 않은 설정은 저장되지 않습니다."
-                />
-              )}
+              <h3 className="text-xs font-semibold text-text-primary">어떤 매매 규칙으로 판단할까요?</h3>
+              <RuleSelect rules={rules} value={draft.ruleId} onChange={(ruleId) => patch({ ruleId })} warnNoStop />
+              <p className="text-caption text-text-muted">
+                매수·매도 조건과 손절·익절·트레일링은 규칙 안에 있습니다. 규칙은 「퀀트 &gt; 매매 규칙」 에서 만들고 고칩니다. {JUDGE_TIMING_TEXT}.
+              </p>
             </section>
           )}
 
@@ -286,7 +270,6 @@ export default function AutoTradeWizard({
                 symbols={draft.symbols}
                 onChange={(symbols) => patch({ symbols })}
                 maxPositions={draft.maxPositions}
-                marketHoursOnly={draft.marketHoursOnly}
               />
             </section>
           )}
@@ -297,17 +280,15 @@ export default function AutoTradeWizard({
               <ul className="space-y-1 rounded-lg bg-bg-tertiary/30 px-3 py-2 text-xs text-text-primary">
                 <li>계좌: {accountName}</li>
                 <li>
-                  방식: {draft.mode === 'ai' ? 'AI형' : '규칙형'}
-                  {draft.mode === 'rule' &&
-                    ` 「${RULE_CHOICES.find((c) => c.id === matchChoice(draft.rule))?.title ?? '직접 설정'}」`}{' '}
-                  · 대상 {draft.symbols.length}종목
+                  매매 규칙: 「{rule?.name ?? '—'}」 · 대상 {draft.symbols.length}종목
                 </li>
+                {rule && <li className="text-text-secondary">매수: {ruleBuyText(rule)}</li>}
+                {rule && <li className="text-text-secondary">매도: {ruleSellText(rule)}</li>}
               </ul>
               {/* 숫자는 저장될 설정(draft — 서버가 준 값에서 출발)에서 그대로 읽는다 */}
               <p className="text-xs leading-relaxed text-text-secondary">
                 한 종목에 계좌의 <b className="text-text-primary">{draft.positionSizePercent}%</b>까지만 매수합니다 · 동시에 최대{' '}
-                <b className="text-text-primary">{draft.maxPositions}종목</b> · 매수가보다{' '}
-                <b className="text-text-primary">{draft.hardStopLossPercent}%</b> 떨어지면 바로 매도합니다(손절) ·{' '}
+                <b className="text-text-primary">{draft.maxPositions}종목</b> · <b className="text-text-primary">{rule ? ruleSafetyText(rule) : '—'}</b> ·{' '}
                 {draft.earningsBlackoutDays > 0 ? (
                   <>
                     실적 발표 <b className="text-text-primary">{draft.earningsBlackoutDays}거래일</b> 전부터는 새로 매수하지 않습니다 ·{' '}
@@ -315,10 +296,7 @@ export default function AutoTradeWizard({
                 ) : (
                   '실적 발표와 상관없이 매수합니다 · '
                 )}
-                <b className="text-text-primary">{intervalText(draft.intervalMinutes)}</b>마다 판단합니다
-                {draft.marketHoursOnly ? '(미국 정규장)' : '(시간 제한 없음)'}.
-                {draft.trailingStopEnabled && ` 최고가보다 ${draft.trailingStopPercent}% 내려오면 매도합니다(트레일링).`}
-                {draft.takeProfitEnabled ? ` 매수가보다 ${draft.takeProfitPercent}% 오르면 모두 매도합니다(익절).` : ' 익절은 꺼져 있습니다.'}
+                {JUDGE_TIMING_TEXT}.
                 {draft.dailyLossLimitPercent > 0 &&
                   ` 하루에 계좌가 ${draft.dailyLossLimitPercent}% 넘게 줄면 그날은 새로 매수하지 않습니다.`}
               </p>
@@ -388,7 +366,6 @@ export default function AutoTradeWizard({
       {detailOpen && draft && (
         <AutoTradeSettings
           strategy={draft}
-          geminiEnabled={geminiEnabled}
           onSave={async (next) => {
             const merged = { ...draft, ...next };
             setDraft(merged);

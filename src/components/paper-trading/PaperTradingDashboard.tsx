@@ -14,7 +14,6 @@ import AccountsOverview from './AccountsOverview';
 import CreateAccountForm from './CreateAccountForm';
 import AutoTradeWizard from './AutoTradeWizard';
 import { usePaperAccountsOverview, useAutoTradingOverview } from '../../hooks/usePaperOverview';
-import { useGeminiStatus } from '../../hooks/useGemini';
 import AutoTradeBar from './AutoTradeBar';
 import PerformanceChart from './PerformanceChart';
 import PerformanceStats from './PerformanceStats';
@@ -70,7 +69,6 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   // 모아보기가 보일 때만 폴링한다 — 상세로 들어가면 그쪽이 1초로 본다.
   const overview = usePaperAccountsOverview(view === 'overview');
   const autoOverview = useAutoTradingOverview(view === 'overview');
-  const { state: gemini } = useGeminiStatus(60_000);
   /** 주문·취소 후 목록을 다시 읽기 위한 카운터 */
   const [version, setVersion] = useState(0);
 
@@ -111,10 +109,8 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
     { running: 0, waiting: 0, blocked: 0, off: 0 },
   );
 
-  /** 처음 켜기 버튼 강조 — 켜진 계좌가 없거나 규칙형 계좌가 없을 때 (모아보기 조회 전에는 강조하지 않는다) */
-  const wizardHighlight = autoOverview.items
-    ? !autoOverview.items.some((s) => s.strategy.enabled) || !autoOverview.items.some((s) => s.strategy.mode === 'rule')
-    : false;
+  /** 처음 켜기 버튼 강조 — 켜진 계좌가 없을 때 (모아보기 조회 전에는 강조하지 않는다) */
+  const wizardHighlight = autoOverview.items ? !autoOverview.items.some((s) => s.strategy.enabled) : false;
 
   // 모의투자 안내는 계좌 화면 탭 줄의 배지 하나 + 정보 아이콘이다 (v2.41.1 — 예전 이 자리의 노란 띠·자동매매 바 배지와 세 번 겹쳤다)
 
@@ -213,7 +209,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
             ⚠️ 모아보기 조회가 실패해도 이 버튼은 그대로 보인다 (헤더는 대시보드에 있다).
           */}
           {/*
-            자동매매 처음 켜기 (v2.32.0) — 켜진 계좌가 하나도 없거나 규칙형 계좌가 없으면 눈에 띄게, 그 밖에는 보통 버튼.
+            자동매매 처음 켜기 (v2.32.0) — 켜진 계좌가 하나도 없으면 눈에 띄게, 그 밖에는 보통 버튼.
           */}
           <Button size="sm" variant={wizardHighlight ? 'primary' : 'secondary'} onClick={() => setWizardOpen(true)} className="ml-auto">
             자동매매 처음 켜기
@@ -244,7 +240,6 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
         <AccountsOverview
           accounts={overview.items}
           strategies={autoOverview.items}
-          geminiEnabled={gemini?.enabled ?? false}
           error={overview.error ?? autoOverview.error}
           hasAccounts={accounts.length > 0}
           selectedId={selectedId}
@@ -255,7 +250,6 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
           <AutoTradeWizard
             accounts={overview.items ?? []}
             strategies={autoOverview.items ?? []}
-            geminiEnabled={gemini?.enabled ?? false}
             onCreateAccount={create}
             onDone={(accountId) => {
               setWizardOpen(false);

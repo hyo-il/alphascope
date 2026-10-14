@@ -104,12 +104,15 @@ export default function RuleDialog({
   onClose,
   onSave,
   accountName,
+  readOnly = false,
 }: {
   /** null = 새 규칙(빈 규칙) */
   rule: TradingRule | null;
   onClose: () => void;
-  onSave: (name: string, body: RuleBody) => Promise<void>;
+  onSave?: (name: string, body: RuleBody) => Promise<void>;
   accountName: (id: number) => string;
+  /** 보기 전용 (v2.44.0 — 계좌 설정·백테스트의 [조건 보기]) — [수정] 을 숨긴다. 고치기는 「퀀트 > 매매 규칙」 에서만 */
+  readOnly?: boolean;
 }) {
   const isNew = rule == null;
   const [editing, setEditing] = useState(isNew);
@@ -136,7 +139,7 @@ export default function RuleDialog({
   const doSave = async () => {
     setSaving(true);
     try {
-      await onSave(name.trim(), body);
+      await onSave?.(name.trim(), body);
       if (!isNew) setEditing(false);
     } catch (e) {
       toast.error('저장하지 못했습니다', (e as Error).message);
@@ -176,7 +179,7 @@ export default function RuleDialog({
   return (
     <Dialog
       title={isNew ? '새 규칙 만들기' : editing ? '규칙 수정' : '규칙 조건 보기'}
-      titleAside={!isNew && !editing ? '보기 상태 — 고치려면 [수정] 을 누르세요' : undefined}
+      titleAside={readOnly ? '보기 전용 — 고치려면 「퀀트 > 매매 규칙」 에서' : !isNew && !editing ? '보기 상태 — 고치려면 [수정] 을 누르세요' : undefined}
       onClose={onClose}
       size="xl"
       closeOnBackdrop={!editing}
@@ -196,9 +199,11 @@ export default function RuleDialog({
             <Button variant="ghost" onClick={onClose}>
               닫기
             </Button>
-            <Button variant="primary" icon={Pencil} onClick={() => setEditing(true)}>
-              수정
-            </Button>
+            {!readOnly && (
+              <Button variant="primary" icon={Pencil} onClick={() => setEditing(true)}>
+                수정
+              </Button>
+            )}
           </>
         )
       }

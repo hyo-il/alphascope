@@ -3,6 +3,7 @@ import AutoTradeIcon from '../ui/AutoTradeIcon';
 import { useEffect, useState, type ReactNode } from 'react';
 import { SIDE_POLL_MS, useAutoTradingOverview } from '../../hooks/usePaperOverview';
 import { usePaperAccounts } from '../../hooks/usePaperTrading';
+import { useTradingRules } from '../../hooks/useTradingRules';
 import { autoTradeView } from '../../utils/autoTradeStatus';
 
 /**
@@ -48,11 +49,13 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
   }, []);
 
   const nameOf = (id: number) => accounts.find((a) => a.id === id)?.name ?? `계좌 ${id}`;
+  const { rules } = useTradingRules();
+  const ruleName = (id: number | null) => (id != null ? (rules?.find((r) => r.id === id)?.name ?? '—') : '없음');
 
   return (
     <div className="space-y-2">
       <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(360px,1fr))]">
-        <Cell title="계좌 자동 분석">
+        <Cell title="계좌 자동매매">
           {error && !items && <p className="text-caption text-danger">상태를 불러오지 못했습니다: {error}</p>}
           {items && items.length === 0 && (
             <p className="text-caption text-text-muted">자동매매를 설정한 계좌가 없습니다 (「계좌」 메뉴 &gt; 자동매매).</p>
@@ -66,18 +69,16 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
                 <li key={strategy.accountId} className="text-caption leading-relaxed">
                   <div className="flex flex-wrap items-baseline gap-x-2">
                     <span className="font-medium text-text-primary">{nameOf(strategy.accountId)}</span>
-                    <span className="text-text-secondary">{strategy.mode === 'ai' ? 'AI형' : '규칙형'}</span>
+                    <span className="text-text-secondary">규칙 「{ruleName(strategy.ruleId)}」</span>
                     <span className={`inline-flex items-center gap-1 ${strategy.enabled ? 'text-bullish' : 'text-text-muted'}`}>
                       <AutoTradeIcon view={view} /> {strategy.enabled ? '켜짐' : '꺼짐'}
                     </span>
                     <span className="text-text-secondary">
-                      대상 {strategy.symbols.length}종목 · {strategy.intervalMinutes}분마다
-                      {strategy.marketHoursOnly ? ' · 정규장만' : ''}
+                      대상 {strategy.symbols.length}종목 · 시장이 열린 뒤 하루 한 번
                     </span>
                   </div>
                   <div className="text-text-muted">
-                    마지막 {time(status.lastRunAt)} · 다음 {strategy.enabled ? time(status.nextRunAt) : '—'}
-                    {strategy.mode === 'rule' && <span> · Gemini 를 쓰지 않습니다</span>}
+                    마지막 {time(status.lastRunAt)} · 오늘 판단 {status.judgedToday}/{strategy.symbols.length}종목 · Gemini 를 쓰지 않습니다
                     {status.blockedReason && strategy.enabled && (
                       <span className="text-warning"> · {status.blockedReason}</span>
                     )}

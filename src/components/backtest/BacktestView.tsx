@@ -3,38 +3,36 @@ import { formatSigned } from '../../utils/formatters';
 import { useEffect, useRef, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
 import { useBacktest, useBacktestUniverse, useGeminiStatus } from '../../hooks/useBacktest';
-import { draftInput, useBacktestDraft } from '../../hooks/useBacktestDraft';
+import { draftRequest, useBacktestDraft } from '../../hooks/useBacktestDraft';
+import { useTradingRules } from '../../hooks/useTradingRules';
 import HelpBox from '../common/HelpBox';
 import TrashIcon from '../common/TrashIcon';
 import { SkeletonList } from '../common/SkeletonLoader';
-import { Badge, Button, Panel, SectionTitle } from '../ui';
+import { Button, Panel, SectionTitle } from '../ui';
 import { ICON } from '../ui/icon';
 import { modal, toast } from '../../store/uiStore';
 import { useAppStore } from '../../store/appStore';
 import { stockNameOf } from '../../utils/stockNames';
-import { maRoundingNotes, ruleConditionLine } from '../../utils/autoTradeExplain';
 import { backtestInputError } from '../../utils/backtestInput';
-import { nearestEngineMa } from '../../types/autoTrading';
-import { MAX_COMPARE_SYMBOLS, isCustomReport, methodName, isCustomSummary, type BacktestListItem } from '../../types/backtest';
-import SymbolPicker from '../common/SymbolPicker';
+import { ruleSellText } from '../../utils/ruleText';
+import { MAX_COMPARE_SYMBOLS, methodName, type BacktestListItem } from '../../types/backtest';
+import SymbolTable from '../common/SymbolTable';
 import ConditionForm from './ConditionForm';
 import CustomResult from './CustomResult';
-import FixedResult from './FixedResult';
 import ApplyRuleButton from './ApplyRuleButton';
 
 /**
- * 「실험실 > 백테스트」 (v2.38.0) — **내가 고른 종목을 내가 정한 조건으로** 과거에 시험한다.
- * ① 종목 고르기(왼쪽) → ② 조건 정하기 → ③ 실행 → ④ 결과 → ⑤ 지난 기록(오른쪽 맨 아래).
+ * 「실험실 > 백테스트」 (v2.38.0 → v2.44.0 매매 규칙) — **내가 고른 종목을 내가 고른 매매 규칙으로** 과거에 시험한다.
+ * ① 종목(표) → ② 방법(규칙 1~3개) → ③ 기간 → [시험 실행] → 결과 → 백테스트 히스토리.
  *
- * - 계산은 서버(`runCustomBacktest` — v2.37.0 재현 함수 그대로). 주문을 내지 않는다.
- * - 판정 배지 없음 — 조건을 바꿔 보는 화면이라 "좋음" 을 붙이면 우연을 고르게 된다. 거래가 적으면 「결론 내기 어려움」 만.
- * - v2.37.0 「미리 정한 시험」 은 여기서 실행하지 않는다(`npm run research:rule`). ⑤ 에서 「미리 정한 시험」 배지로 읽기만 한다.
- * - 계좌 [백테스트에서 시험하기] 가 넘긴 종목·조건은 `appStore.backtestPreset`(일회성)으로 받아 ①② 를 채운다.
+ * - 계산은 서버(`runCustomBacktest` → 계좌와 같은 엔진 `evaluateRule`). 주문을 내지 않는다.
+ * - 판정 배지 없음 — 거래가 적으면 「결론 내기 어려움」 만. 「가장 좋음」 강조 금지.
+ * - 예전 「미리 정한 시험」(교차 계산기 고정 3년)은 v2.44.0 에 지웠다.
+ * - 계좌 [백테스트에서 시험하기] 가 넘긴 종목·규칙은 `appStore.backtestPreset`(일회성)으로 받아 ①② 를 채운다.
  * - v2.36.0 디자인 규칙 — 이모지 없음, 파란 주요 버튼은 [시험 실행] 하나.
  */
 const when = (iso: string) => formatDateTime(iso);
 const pct = (v: number | null | undefined) => (v == null ? '—' : `${formatSigned(v, 2)}%`);
-const VERDICT_LABEL = { good: '기준선보다 좋음', bad: '기준선 이하', hold: '판단 보류' } as const;
 
 function elapsed(startedAt: string | null, now: number): string {
   if (!startedAt) return '';
@@ -49,26 +47,17 @@ function HistoryRow({ item, selected, onOpen, onRetry, onRemove }: { item: Backt
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className="text-text-primary">{when(item.createdAt)}</span>
-          {isCustomSummary(s) ? (
-            <>
-              <span className="text-text-secondary">
-                {s.symbols}종목 · {s.years}년
-              </span>
-              <span className="tabular-nums text-text-secondary">
-                {s.input.conditions.length > 1 ? `방법 ${s.input.conditions.length}개 · 방법 1` : '이 방법'} {pct(s.rule)} vs 들고 있기 {pct(s.hold)}
-              </span>
-            </>
-          ) : (
-            <>
-              <Badge>미리 정한 시험</Badge>
-              <span className="text-text-secondary">{s.symbols}종목 · 3년</span>
-            </>
-          )}
+          <span className="text-text-secondary">
+            {s.symbols}종목 · {s.years}년
+          </span>
+          <span className="tabular-nums text-text-secondary">
+            {s.input.conditions.length > 1 ? `방법 ${s.input.conditions.length}개 · 방법 1` : '이 방법'} {pct(s.rule)} vs 들고 있기 {pct(s.hold)}
+          </span>
         </span>
         <span className="mt-0.5 block text-text-muted">
-          {isCustomSummary(s)
-            ? s.input.conditions.map((c) => (s.input.conditions.length > 1 ? `${methodName(c.label)}: ${ruleConditionLine(c)}` : ruleConditionLine(c))).join(' / ')
-            : s.methods.map((m) => `${m.title} ${VERDICT_LABEL[m.verdict]}`).join(' · ')}
+          {s.input.conditions
+            .map((c) => `${s.input.conditions.length > 1 ? `${methodName(c.label)}: ` : ''}규칙 「${c.ruleName}」 (${ruleSellText(c.rule)})`)
+            .join(' / ')}
         </span>
       </button>
       {onRetry && (
@@ -93,7 +82,8 @@ export default function BacktestView() {
   const bt = useBacktest();
   const uni = useBacktestUniverse();
   const gemini = useGeminiStatus();
-  const { draft, setDraft, patch, patchCondition, addCondition, removeCondition, } = useBacktestDraft();
+  const { draft, setDraft, patch, setMethodRule, addMethod, removeMethod } = useBacktestDraft();
+  const { rules } = useTradingRules();
   const preset = useAppStore((s) => s.backtestPreset);
   const setPreset = useAppStore((s) => s.setBacktestPreset);
   const [loadedNote, setLoadedNote] = useState<string[] | null>(null);
@@ -104,28 +94,11 @@ export default function BacktestView() {
   const scrollTo = useRef<number | null>(null);
   const running = bt.progress?.running ?? false;
 
-  // 계좌에서 넘어온 종목·조건 — 한 번 채우고 비운다
+  // 계좌에서 넘어온 종목·규칙 — 한 번 채우고 비운다. 규칙은 방법 1 하나로(비교하던 방법 2·3 은 지운다), 규칙이 없으면 방법 1 을 비워 둔다
   useEffect(() => {
     if (!preset) return;
-    const notes = maRoundingNotes(preset.rule).map((n) => `이 계좌의 ${n} — 엔진이 5·20·60·120일만 계산합니다`);
-    // 계좌 조건은 조건 A 하나로(익절 포함) — 비교하던 B·C 는 지운다
-    setDraft((d) => ({
-      ...d,
-      symbols: [...preset.symbols],
-      active: 'A',
-      conditions: [
-        {
-          label: 'A',
-          rule: { ...preset.rule, maShort: nearestEngineMa(preset.rule.maShort), maLong: nearestEngineMa(preset.rule.maLong) },
-          hardStopLossPercent: preset.hardStopLossPercent,
-          trailingStopEnabled: preset.trailingStopEnabled,
-          trailingStopPercent: preset.trailingStopPercent,
-          takeProfitEnabled: preset.takeProfitEnabled,
-          takeProfitPercent: preset.takeProfitPercent,
-        },
-      ],
-    }));
-    setLoadedNote([`${preset.from}의 종목·조건을 불러왔습니다.`, ...notes]);
+    setDraft((d) => ({ ...d, symbols: [...preset.symbols], conditions: [{ label: 'A', ruleId: preset.ruleId }] }));
+    setLoadedNote([preset.ruleId != null ? `${preset.from}의 종목·매매 규칙을 불러왔습니다.` : `${preset.from}의 종목을 불러왔습니다 — 이 계좌에는 매매 규칙이 없어 방법 1 을 비워 두었습니다.`]);
     setPreset(null);
   }, [preset, setDraft, setPreset]);
 
@@ -148,7 +121,7 @@ export default function BacktestView() {
   useEffect(() => {
     if (!bt.finished) return;
     const r = bt.reports?.find((x) => x.id === bt.finished!.id);
-    toast.success(`시험이 끝났습니다 (${r && isCustomSummary(r.summary) ? r.summary.symbols : bt.progress?.total ?? 0}종목)`);
+    toast.success(`시험이 끝났습니다 (${r ? r.summary.symbols : (bt.progress?.total ?? 0)}종목)`);
     scrollTo.current = bt.finished.id;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bt.finished]);
@@ -160,9 +133,10 @@ export default function BacktestView() {
     }
   }, [bt.detail]);
 
-  const input = draftInput(draft);
-  // 종목 21개 이상 + 조건 2개 이상이면 여기서 막고 이유를 보인다(조용히 자르지 않는다)
-  const firstError = backtestInputError(input);
+  const input = draftRequest(draft);
+  // 종목 21개 이상 + 방법 2개 이상 · 규칙을 고르지 않은 방법이면 여기서 막고 이유를 보인다(조용히 자르지 않는다)
+  const firstError = rules != null && rules.length === 0 ? '매매 규칙이 없습니다. 「퀀트 > 매매 규칙」 에서 먼저 만드세요.' : backtestInputError(input);
+  const ruleNameOf = (id: number | null) => (id != null ? (rules?.find((r) => r.id === id)?.name ?? '—') : '—');
 
   const run = async (force = false, override = input) => {
     setStarting(true);
@@ -183,9 +157,7 @@ export default function BacktestView() {
   const confirmRemove = (item: BacktestListItem) =>
     modal.confirm({
       title: '백테스트 결과 삭제',
-      message: `${when(item.createdAt)} ${isCustomSummary(item.summary) ? `시험(${item.summary.symbols}종목)` : '미리 정한 시험'}의 결과${
-        isCustomSummary(item.summary) ? '와 AI 설명' : ''
-      }을 삭제합니다. 되돌릴 수 없습니다.${isCustomSummary(item.summary) ? '' : '\n서버의 파일 보고서는 남습니다.'}`,
+      message: `${when(item.createdAt)} 시험(${item.summary.symbols}종목)의 결과와 AI 설명을 삭제합니다. 되돌릴 수 없습니다.`,
       confirmText: '삭제',
       danger: true,
       onConfirm: async () => {
@@ -198,11 +170,19 @@ export default function BacktestView() {
     });
 
   const retry = (item: BacktestListItem) => {
-    if (!isCustomSummary(item.summary)) return;
     const i = item.summary.input;
-    // 조건 전부를 채운다(20차 기록은 조건 A 하나로 읽힌다)
-    setDraft((d) => ({ ...d, symbols: [...i.symbols], years: i.years, conditions: i.conditions.map((c) => ({ ...c, rule: { ...c.rule } })), active: 'A' }));
-    setLoadedNote([`${when(item.createdAt)} 시험의 종목·조건을 채웠습니다.`]);
+    // 방법 전부를 채운다 — 규칙은 id 로(지금 그 규칙의 내용으로 시험된다). 지워진 규칙이면 그 방법을 비워 둔다
+    const missing = i.conditions.filter((c) => !rules?.some((r) => r.id === c.ruleId));
+    setDraft((d) => ({
+      ...d,
+      symbols: [...i.symbols],
+      years: i.years,
+      conditions: i.conditions.map((c) => ({ label: c.label, ruleId: rules?.some((r) => r.id === c.ruleId) ? c.ruleId : null })),
+    }));
+    setLoadedNote([
+      `${when(item.createdAt)} 시험의 종목·방법을 채웠습니다. 규칙은 지금 내용으로 시험됩니다.`,
+      ...(missing.length ? [`그 사이 지워진 규칙(${missing.map((c) => `「${c.ruleName}」`).join(', ')})은 비워 두었습니다.`] : []),
+    ]);
     document.getElementById('backtest-top')?.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -218,14 +198,16 @@ export default function BacktestView() {
         </div>
         <HelpBox id="backtest" storageKey="alphascope.backtestHelp" title="백테스트는 무엇인가요?">
           <p>백테스트는 정한 규칙으로 과거에 매수·매도했다면 어땠을지 계산해 보는 것입니다. 실제 주문은 나가지 않습니다.</p>
-          <p>순서: [종목 고르기] → 방법 정하기 → [시험 실행]. 그냥 들고 있었을 때·아무 날이나 매수·매도했을 때와 나란히 보여 줍니다.</p>
+          <p>순서: [종목 고르기] → 방법(매매 규칙) 고르기 → 기간 → [시험 실행]. 그냥 들고 있었을 때·아무 날이나 매수·매도했을 때와 나란히 보여 줍니다.</p>
+          <p>계좌와 같은 판단(매매 규칙 엔진)으로 계산합니다 — 신호는 그날 끝난 봉 기준, 매수·매도는 다음 날 시가, 손절·익절·트레일링은 그날 고가·저가로 봅니다.</p>
+          <p>실적 발표 전 매수 막기 · 하루 손실 한도 · 종목당 비중 · 최대 보유 종목 수는 계좌 설정이라 백테스트에는 들어가지 않습니다.</p>
           <p>과거 결과는 앞으로를 보장하지 않습니다.</p>
         </HelpBox>
 
-        {/* ① 고른 종목 칩 + [종목 고르기] 팝업 (v2.40.0 — 예전 왼쪽 세로 목록) */}
-        <Panel pad="sm">
-          <SymbolPicker
-            title="① 종목"
+        {/* ① 종목 — 종목 목록 표(`common/SymbolTable`, v2.44.0 — 계좌 「② 대상 종목」 과 같은 부품) */}
+        <Panel pad="sm" className="space-y-2">
+          <SectionTitle>① 종목</SectionTitle>
+          <SymbolTable
             selected={draft.symbols}
             onChange={(next) => patch({ symbols: next })}
             added={draft.added}
@@ -249,16 +231,9 @@ export default function BacktestView() {
           </Panel>
         )}
 
-        <ConditionForm
-          draft={draft}
-          patch={patch}
-          patchCondition={patchCondition}
-          addCondition={addCondition}
-          removeCondition={removeCondition}
-          gemini={gemini}
-        />
+        <ConditionForm draft={draft} rules={rules} patch={patch} setMethodRule={setMethodRule} addMethod={addMethod} removeMethod={removeMethod} />
 
-        {/* ③ 실행 */}
+        {/* 실행 */}
         <Panel pad="sm" className="space-y-2">
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="primary" onClick={() => void run()} disabled={running || starting || !!firstError}>
@@ -267,7 +242,7 @@ export default function BacktestView() {
             {!running && firstError && <span className="min-w-0 text-caption text-text-muted">{firstError}</span>}
             {!running && !firstError && (
               <span className="min-w-0 text-caption text-text-muted">
-                {draft.symbols.length}종목 · {input.conditions.length > 1 ? `방법 ${input.conditions.length}개 비교` : ruleConditionLine(input.conditions[0])} · 기간 {draft.years}년
+                {draft.symbols.length}종목 · {input.conditions.length > 1 ? `방법 ${input.conditions.length}개 비교` : `규칙 「${ruleNameOf(input.conditions[0].ruleId)}」`} · 기간 {draft.years}년
               </span>
             )}
           </div>
@@ -299,29 +274,28 @@ export default function BacktestView() {
               <SkeletonList count={4} />
             </Panel>
           ) : d ? (
-            isCustomReport(d.detail) ? (
-              <CustomResult
-                id={d.id}
-                report={d.detail}
-                gemini={gemini}
-                onExplain={bt.explain}
-                onRerun={() => isCustomReport(d.detail) && void run(true, d.detail.input)}
-                rerunBusy={running || starting}
-                applySlot={<ApplyRuleButton key={d.id} options={d.detail.input.conditions} />}
-              />
-            ) : (
-              <FixedResult r={d.detail} />
-            )
+            <CustomResult
+              id={d.id}
+              report={d.detail}
+              rules={rules}
+              gemini={gemini}
+              onExplain={bt.explain}
+              onRerun={() =>
+                void run(true, { symbols: d.detail.input.symbols, years: d.detail.input.years, conditions: d.detail.input.conditions.map((c) => ({ label: c.label, ruleId: c.ruleId })) })
+              }
+              rerunBusy={running || starting}
+              applySlot={<ApplyRuleButton key={d.id} options={d.detail.input.conditions} rules={rules} />}
+            />
           ) : (
             <Panel pad="sm" className="text-caption text-text-muted">
-              {bt.reports == null ? '불러오는 중…' : '아직 결과가 없습니다. 종목과 조건을 정하고 [시험 실행] 을 누르세요.'}
+              {bt.reports == null ? '불러오는 중…' : '아직 결과가 없습니다. 종목과 방법(매매 규칙)을 고르고 [시험 실행] 을 누르세요.'}
             </Panel>
           )}
         </div>
 
         {/* ⑤ 지난 기록 */}
         <section className="space-y-2">
-          <SectionTitle aside="내 시험 최근 20개 · 미리 정한 시험 최근 5개">백테스트 히스토리</SectionTitle>
+          <SectionTitle aside="최근 20개">백테스트 히스토리</SectionTitle>
           <Panel pad="none">
             {bt.reports == null ? (
               <div className="p-3">
@@ -341,7 +315,7 @@ export default function BacktestView() {
                       if (bt.detail?.id === item.id) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                       bt.setSelectedId(item.id);
                     }}
-                    onRetry={isCustomSummary(item.summary) ? () => retry(item) : undefined}
+                    onRetry={() => retry(item)}
                     onRemove={() => confirmRemove(item)}
                   />
                 ))}

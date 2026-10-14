@@ -1,4 +1,4 @@
-import { formatDateTime, formatTime } from '../../utils/dateFormat';
+import { formatDateTime } from '../../utils/dateFormat';
 import Button from '../ui/Button';
 import WarnIcon from '../ui/WarnIcon';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
@@ -7,11 +7,12 @@ import AutoTradeSettings from './AutoTradeSettings';
 import ConditionCard from './ConditionCard';
 import DisclosureButton from '../ui/DisclosureButton';
 import { useAutoTrading } from '../../hooks/useAutoTrading';
-import { useGeminiStatus } from '../../hooks/useGemini';
+import { useTradingRules } from '../../hooks/useTradingRules';
+import { NO_STOP_WARNING } from '../../utils/ruleText';
 import { toast } from '../../store/uiStore';
 import { useStockNames } from '../../hooks/useStockNames';
 import { autoTradeView } from '../../utils/autoTradeStatus';
-import { explainNote, kstLabel, nextUsOpen, nowSentence, sortNotes } from '../../utils/autoTradeExplain';
+import { explainNote, nextJudgeText, nowSentence, sortNotes } from '../../utils/autoTradeExplain';
 
 /**
  * 계좌 대시보드 상단의 자동매매 바.
@@ -22,7 +23,7 @@ import { explainNote, kstLabel, nextUsOpen, nowSentence, sortNotes } from '../..
  */
 export default function AutoTradeBar({ accountId }: { accountId: number | null }) {
   const { strategy, status, error, save } = useAutoTrading(accountId);
-  const { state: gemini } = useGeminiStatus(60_000);
+  const { rules } = useTradingRules();
   /** 「최근 판단 보기」 펼침 — 기억하지 않는다(용어집 공통 동작) */
   const [notesOpen, setNotesOpen] = useState(false);
   const [open, setOpen] = useState(false);
@@ -32,7 +33,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
   if (!accountId || !strategy) return null;
 
   const on = strategy.enabled;
-  const geminiEnabled = gemini?.enabled ?? false;
+  const rule = strategy.ruleId != null ? (rules?.find((r) => r.id === strategy.ruleId) ?? null) : null;
 
   const toggle = async () => {
     // 종목이 없으면 켜지지 않는다 — 서버도 같은 상태를 blockedReason 으로 알려 주지만,
@@ -42,8 +43,9 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
       setOpen(true);
       return;
     }
-    if (!on && strategy.mode === 'ai' && !geminiEnabled) {
-      toast.warning('Gemini 키가 설정되지 않았습니다', '규칙형으로 바꾸면 키 없이 동작합니다');
+    // 규칙이 없으면 켜지지 않는다(서버도 막는다 — 400 「매매 규칙을 고르세요.」)
+    if (!on && !rule) {
+      toast.warning('매매 규칙을 고르세요.', '[자동매매 설정] 의 「① 매매 규칙」 에서 고릅니다');
       setOpen(true);
       return;
     }
@@ -58,7 +60,6 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
     }
   };
 
-  const nextRun = status?.nextRunAt ? formatTime(status.nextRunAt) : null;
   /** 바 맨 위의 "지금 상태" 한 문장 (v2.32.0) — 분류는 `autoTradeView` 한 곳, 문장은 `autoTradeExplain` 한 곳 */
   const view = autoTradeView(strategy, status);
   const sentence = nowSentence(strategy, status, view);
@@ -98,16 +99,8 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           {on ? '켜짐' : '꺼짐'}
         </span>
 
-        {/* 뱃지만 보고는 둘의 차이를 알 수 없다 — 올리면 한 줄로 설명한다 (설정 패널과 같은 문장) */}
-        <span
-          title={
-            strategy.mode === 'ai'
-              ? 'AI형 — 전문가 AI 다섯이 매번 새로 읽고 정합니다. 흐름까지 보지만 답이 조금씩 달라지고 Gemini 키가 필요합니다.'
-              : '규칙형 — 정해 둔 숫자 조건(이동평균 교차·RSI)이 맞을 때만 매수합니다. 이유가 분명하고 키가 필요 없습니다.'
-          }
-          className="cursor-help rounded-lg bg-bg-tertiary/40 px-1.5 py-0.5 text-caption text-text-secondary"
-        >
-          {strategy.mode === 'ai' ? 'AI형' : '규칙형'}
+        <span className="rounded-lg bg-bg-tertiary/40 px-1.5 py-0.5 text-caption text-text-secondary">
+          {rule ? `규칙 「${rule.name}」` : rules ? '매매 규칙 없음' : '…'}
         </span>
 
         <span className="text-caption text-text-muted">종목 {strategy.symbols.length}개</span>
@@ -127,17 +120,16 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           예전에는 대기에도 주황 ⚠️ 배지가 겹쳐 떠서 고장처럼 보였다. 멈춤(설정·하루 손실·서버 꺼짐)만 경고색.
         */}
         {on && status?.blockedReason && status.blockedKind === 'market_closed' && (
-          <span className="rounded bg-bg-tertiary px-2 py-0.5 text-caption text-text-secondary">대기 — 장 시간이 아닙니다</span>
+          <span className="rounded bg-bg-tertiary px-2 py-0.5 text-caption text-text-secondary">대기 — 대상 종목의 시장이 닫혀 있습니다</span>
         )}
         {on && status?.blockedReason && status.blockedKind !== 'market_closed' && (
           <span className="rounded bg-warning/15 px-2 py-0.5 text-caption text-warning">
             <WarnIcon />{status.blockedReason}
           </span>
         )}
-        {on && !status?.blockedReason && nextRun && (
+        {on && !status?.blockedReason && status && (
           <span className="text-caption text-text-muted">
-            다음 실행 {nextRun}
-            {strategy.mode === 'ai' && status ? ` · 오늘 호출 ${status.callsToday}회` : ''}
+            오늘 판단 {status.judgedToday}/{strategy.symbols.length}종목
           </span>
         )}
         {error && <span className="text-caption text-danger">상태 조회 실패: {error}</span>}
@@ -168,14 +160,14 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
       */}
       {/*
         켰는데 아직 한 번도 판단하지 않았으면 그 자리를 비워 두지 않는다 (v2.35.0) — 비어 있으면 고장인지 모른다.
-        시각은 「지금 상태」 문장과 같은 `nextUsOpen`(주말만 본다, 휴장일은 보지 않는다). 꺼져 있으면 아무것도 그리지 않는다.
+        시각은 「지금 상태」 문장과 같은 `nextJudgeText`(대상 종목의 시장별 개장 시각, 주말만 본다). 꺼져 있으면 아무것도 그리지 않는다.
         멈춤(서버 꺼짐·설정·하루 손실)이면 그 시각에도 판단하지 않으므로 그리지 않는다 — 멈춤 이유는 위 줄이 말한다.
       */}
       {/* 「지금 조건」 카드 (v2.40.0) — 예전 이 바의 회색 한 줄을 옮겼다(두 번 보이지 않게) */}
-      <ConditionCard strategy={strategy} onOpenSettings={() => setOpen(true)} />
+      <ConditionCard strategy={strategy} rule={rule} rulesLoaded={rules != null} onOpenSettings={() => setOpen(true)} />
       {on && status && status.lastNotes.length === 0 && (!status.blockedKind || status.blockedKind === 'market_closed') && (
         <p className="border-b border-border px-4 py-1.5 text-caption text-text-muted">
-          아직 판단한 적이 없습니다. 미국 장이 열리는 {kstLabel(nextUsOpen())}에 첫 판단을 합니다.
+          아직 판단한 적이 없습니다. 다음 판단: {nextJudgeText(strategy.symbols)}.
         </p>
       )}
       {status && status.lastNotes.length > 0 && (
@@ -188,6 +180,12 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
               controls={`autotrade-notes-${strategy.accountId}`}
             />
             {status.lastNotesAt && <span className="text-text-muted">{formatDateTime(status.lastNotesAt)}</span>}
+            {rule && !rule.sell.stopLoss.on && (
+              <span className="text-warning">
+                <WarnIcon />
+                {NO_STOP_WARNING}
+              </span>
+            )}
           </div>
           {notesOpen && (
           // 최대 약 240px(6줄쯤) + 안에서 스크롤 (v2.41.0) — 높이 제한이 없으면 아래 보유 종목·거래내역 영역이 0까지 줄었다
@@ -195,7 +193,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           {/* 쉬운 문장이 먼저, 원래 문장은 작은 회색으로 아래 — 사거나 판 줄이 위, 기다림 줄이 아래 */}
           <ul className="mt-1 space-y-1">
             {notes.map((n, i) => {
-              const easy = explainNote(n, nameOf(n.symbol) ?? n.symbol, strategy);
+              const easy = explainNote(n, nameOf(n.symbol) ?? n.symbol, strategy, rule);
               return (
                 <li key={i} className="flex gap-2">
                   <span
@@ -232,7 +230,6 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
       {open && (
         <AutoTradeSettings
           strategy={strategy}
-          geminiEnabled={geminiEnabled}
           onSave={save}
           onClose={() => setOpen(false)}
         />

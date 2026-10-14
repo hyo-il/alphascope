@@ -1,96 +1,49 @@
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
-import { Children } from 'react';
+import { Children, useEffect, useState } from 'react';
 import FormRow from '../ui/FormRow';
 import NumberField, { NumberUnitGroup } from '../ui/NumberField';
-import Select from '../ui/Select';
-import InfoTip from '../ui/InfoTip';
-import { RSI_HELP, trailingHelp } from '../../data/indicatorHelp';
-import WarnIcon from '../ui/WarnIcon';
-import { useEffect, useMemo, useState } from 'react';
-import { ENGINE_MA_PERIODS, nearestEngineMa, type AccountStrategy, type StrategyMode } from '../../types/autoTrading';
-import Segmented from '../ui/Segmented';
-import RuleChoices from './RuleChoices';
-import DisclosureButton from '../ui/DisclosureButton';
+import type { AccountStrategy } from '../../types/autoTrading';
 import TargetSymbolsEditor from './TargetSymbolsEditor';
-import ModePicker from './ModePicker';
+import RuleSelect from '../rules/RuleSelect';
+import { useTradingRules } from '../../hooks/useTradingRules';
+import { JUDGE_TIMING_TEXT } from '../../utils/ruleText';
 import { toast } from '../../store/uiStore';
 
 /**
- * 계좌별 자동매매 설정 패널.
+ * 계좌별 자동매매 설정 패널 (v2.44.0 — 퀀트 다시 만들기 2단계).
  *
- * 흐름을 위에서 아래로 한 줄로 세운다 — **모드 → 종목 → 조건 → 청산 → 저장**.
- * 조건은 프리셋을 먼저 보여 주고 상세는 접어 둔다: 처음 쓰는 사람이 신뢰도·비중·종목 수를
- * 각각 정하려면 시작을 못 한다.
+ * 위에서 아래로 한 줄: **① 매매 규칙 → ② 대상 종목 → ③ 계좌 운용 → ④ 신규 매수 안전장치 → 저장**.
+ * 매수·매도 조건과 손절·익절·트레일링은 **매매 규칙 안에만** 있다(「퀀트 > 매매 규칙」 에서 고친다). 판단 방식·성향·분석 주기·「미국 정규장만」·
+ * ④ 청산은 v2.44.0 에 없앴다. 이 창에 「고급 설정」 은 없다(남는 숫자가 적다).
  *
- * ⚠️ 값 검증의 최종 권한은 **서버**다 (1단계 `normalizeStrategy`). 여기서는 범위를 힌트로만
- * 주고, 저장 응답으로 온 값을 그대로 화면에 되돌린다 — 두 곳에서 조이면 규칙이 갈라진다.
+ * ⚠️ 값 검증의 최종 권한은 **서버**다(`normalizeStrategy` · 켤 때 규칙 확인). 저장 응답으로 온 값을 그대로 화면에 되돌린다.
  */
 
 interface Props {
   strategy: AccountStrategy;
-  /** Gemini 키가 있는지 — 없으면 AI형을 고를 수 없다 */
-  geminiEnabled: boolean;
   onSave: (patch: Partial<AccountStrategy>) => Promise<AccountStrategy>;
   onClose: () => void;
-  /**
-   * 저장 뒤 토스트 (v2.32.0) — 처음 켜기 안내는 이 창의 값을 서버에 저장하지 않고 안내로 되돌려 받는다
-   * ([켜기] 를 눌러야 저장된다). 그 경우 "저장했습니다" 라고 말하면 거짓이 된다.
-   */
+  /** 저장 뒤 토스트 — 처음 켜기 안내는 이 창의 값을 서버에 저장하지 않고 안내로 되돌려 받는다 */
   doneMessage?: string;
   /** 저장 버튼 글자 — 기본 「저장」 */
   saveLabel?: string;
 }
 
-/** 조건 프리셋 — 1단계 기본값(중립)과 정합을 맞춘다 */
-const PRESETS = [
-  { id: 'safe', label: '보수', confidence: 0.8, size: 5, max: 3, hint: '신뢰도 80% · 비중 5% · 3종목' },
-  { id: 'normal', label: '중립', confidence: 0.7, size: 10, max: 5, hint: '신뢰도 70% · 비중 10% · 5종목' },
-  { id: 'bold', label: '공격', confidence: 0.6, size: 20, max: 8, hint: '신뢰도 60% · 비중 20% · 8종목' },
-] as const;
-
-
-export default function AutoTradeSettings({
-  strategy,
-  geminiEnabled,
-  onSave,
-  onClose,
-  doneMessage = '자동매매 설정을 저장했습니다',
-  saveLabel = '저장',
-}: Props) {
+export default function AutoTradeSettings({ strategy, onSave, onClose, doneMessage = '자동매매 설정을 저장했습니다', saveLabel = '저장' }: Props) {
   const [draft, setDraft] = useState<AccountStrategy>(strategy);
-  const [detailOpen, setDetailOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { rules } = useTradingRules();
 
   // 바깥에서 값이 바뀌면(저장 응답 등) 따라간다.
   useEffect(() => setDraft(strategy), [strategy]);
 
   const patch = (change: Partial<AccountStrategy>) => setDraft((prev) => ({ ...prev, ...change }));
 
-  const applyPreset = (preset: (typeof PRESETS)[number]) =>
-    patch({
-      buyMinConfidence: preset.confidence,
-      sellMinConfidence: preset.confidence,
-      positionSizePercent: preset.size,
-      maxPositions: preset.max,
-    });
-
-  const activePreset = useMemo(
-    () =>
-      PRESETS.find(
-        (p) =>
-          p.confidence === draft.buyMinConfidence &&
-          p.size === draft.positionSizePercent &&
-          p.max === draft.maxPositions,
-      )?.id ?? null,
-    [draft.buyMinConfidence, draft.positionSizePercent, draft.maxPositions],
-  );
-
   const save = async () => {
     setSaving(true);
     try {
-      // 이동평균은 엔진이 계산하는 5·20·60·120 으로 맞춰 저장한다(v2.41.0 — 화면에 "저장하면 N일로 바뀝니다" 로 알린 값)
-      await onSave({ ...draft, rule: { ...draft.rule, maShort: nearestEngineMa(draft.rule.maShort), maLong: nearestEngineMa(draft.rule.maLong) } });
+      await onSave(draft);
       toast.success(doneMessage);
       onClose();
     } catch (e) {
@@ -98,11 +51,6 @@ export default function AutoTradeSettings({
     } finally {
       setSaving(false);
     }
-  };
-
-  const mode = (value: StrategyMode) => {
-    if (value === 'ai' && !geminiEnabled) return;
-    patch({ mode: value });
   };
 
   return (
@@ -114,318 +62,43 @@ export default function AutoTradeSettings({
       z={90}
       bodyClassName="flex flex-col"
     >
-      {/* 숫자 칸 단위 폭을 창 전체가 같게 — 「분」·「%」·「종목」·「거래일」 이 달라도 숫자 오른쪽 끝이 한 줄 (v2.42.2) */}
+      {/* 숫자 칸 단위 폭을 창 전체가 같게 — 「%」·「종목」·「거래일」 이 달라도 숫자 오른쪽 끝이 한 줄 */}
       <NumberUnitGroup w="lg">
-
-        {/*
-          ⚠️ `scrollbar-gutter: stable` 이 필요하다. 트레일링 스톱을 켜면 입력 한 줄이 늘어
-          스크롤바가 생기는데, 그 순간 안쪽 폭이 줄면서 **패널 전체가 옆으로 튄다** —
-          체크박스를 껐다 켰다 하면 화면이 흔들린다. 자리를 미리 비워 두면 움직이지 않는다.
-        */}
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4 [scrollbar-gutter:stable]">
-          {/* ① 모드 */}
+          {/* ① 매매 규칙 */}
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-text-primary">① 판단 방식</h3>
-            <ModePicker mode={draft.mode} onMode={mode} geminiEnabled={geminiEnabled} />
+            <h3 className="text-xs font-semibold text-text-primary">① 매매 규칙</h3>
+            <RuleSelect rules={rules} value={draft.ruleId} onChange={(ruleId) => patch({ ruleId })} warnNoStop />
+            <p className="text-caption text-text-muted">{JUDGE_TIMING_TEXT}(값은 규칙의 매도 조건).</p>
           </section>
 
           {/* ② 대상 종목 */}
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-text-primary">
-              ② 대상 종목
-            </h3>
+            <h3 className="text-xs font-semibold text-text-primary">② 대상 종목</h3>
+            <TargetSymbolsEditor symbols={draft.symbols} onChange={(symbols) => patch({ symbols })} maxPositions={draft.maxPositions} />
+          </section>
 
-            <TargetSymbolsEditor
-              symbols={draft.symbols}
-              onChange={(symbols) => patch({ symbols })}
-              maxPositions={draft.maxPositions}
-              marketHoursOnly={draft.marketHoursOnly}
-            />
+          {/* ③ 계좌 운용 */}
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold text-text-primary">③ 계좌 운용</h3>
+            <Row label="종목당 비중">
+              <NumberField unit="%" min={1} max={100} value={draft.positionSizePercent} onChange={(e) => patch({ positionSizePercent: Number(e.target.value) })} />
+              <span>총자산 대비 한 종목에 넣는 비중</span>
+            </Row>
+            <Row label="최대 보유 종목 수">
+              <NumberField unit="종목" min={1} max={50} value={draft.maxPositions} onChange={(e) => patch({ maxPositions: Number(e.target.value) })} />
+              <span>이미 보유한 종목의 추가 매수는 막지 않습니다</span>
+            </Row>
           </section>
 
           {/*
-            ③ 매매 조건 (v2.42.3 — 한 구역에 「고급 설정」 은 하나). 쉬운 선택지(규칙형) → [보수|중립|공격] → 구역 끝의 「고급 설정」 하나.
-            펼치면 소제목 두 개: 「매수·매도 신호」(규칙형 숫자) · 「주기·비중」. AI형은 「매수·매도 신호」 소제목 없이 「주기·비중」 아래에 AI 숫자.
-            예전에는 규칙 숫자용과 주기·비중용 「고급 설정」 이 연달아 두 개 보여 무엇을 펼치는지 몰랐다.
-          */}
-          <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-text-primary">③ 매매 조건</h3>
-            {draft.mode === 'rule' && (
-              <RuleChoices
-                rule={draft.rule}
-                onChange={(rule) => patch({ rule })}
-                symbols={draft.symbols}
-                hardStopLossPercent={draft.hardStopLossPercent}
-                trailingStopEnabled={draft.trailingStopEnabled}
-                trailingStopPercent={draft.trailingStopPercent}
-                takeProfitEnabled={draft.takeProfitEnabled}
-                takeProfitPercent={draft.takeProfitPercent}
-                accountId={strategy.accountId}
-                leaveHint="이 창은 닫힙니다 — 저장하지 않은 값은 백테스트로만 넘어갑니다."
-              />
-            )}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Segmented
-                label="성향"
-                size="md"
-                value={activePreset ?? ''}
-                onChange={(id) => {
-                  const preset = PRESETS.find((p) => p.id === id);
-                  if (preset) applyPreset(preset);
-                }}
-                options={PRESETS.map((p) => ({ value: p.id, label: p.label, title: p.hint }))}
-              />
-              <span className="text-caption text-text-muted">
-                {PRESETS.find((p) => p.id === activePreset)?.hint ?? '직접 설정한 값'}
-              </span>
-            </div>
-
-            <DisclosureButton open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} label="고급 설정" controls="autotrade-detail" />
-
-            {detailOpen && (
-              <div id="autotrade-detail" className="space-y-4 rounded-lg bg-bg-tertiary/30 p-3">
-                {draft.mode === 'rule' && (
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-medium text-text-primary">매수·매도 신호</h4>
-                    <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">
-                      <input
-                        type="checkbox"
-                        checked={draft.rule.useMaCross}
-                        onChange={(e) => patch({ rule: { ...draft.rule, useMaCross: e.target.checked } })}
-                      />
-                      이동평균 교차 사용
-                    </label>
-                    <p className="-mt-1 text-caption text-text-muted">짧은 평균선이 긴 평균선을 넘으면 매수, 아래로 내려가면 매도합니다.</p>
-                    <Row label="단기 이동평균">
-                      <Segmented
-                        label="단기 이동평균"
-                        size="sm"
-                        value={String(nearestEngineMa(draft.rule.maShort))}
-                        onChange={(v) => patch({ rule: { ...draft.rule, maShort: Number(v) } })}
-                        options={ENGINE_MA_PERIODS.map((p) => ({ value: String(p), label: `${p}일` }))}
-                      />
-                      <span>최근 며칠의 평균 가격 — 작을수록 빨리 반응합니다</span>
-                    </Row>
-                    {!ENGINE_MA_PERIODS.includes(draft.rule.maShort as (typeof ENGINE_MA_PERIODS)[number]) && (
-                      <p className="text-caption text-warning">
-                        지금 저장값 {draft.rule.maShort}일 → {nearestEngineMa(draft.rule.maShort)}일로 계산 중입니다. 저장하면 {nearestEngineMa(draft.rule.maShort)}일로 바뀝니다.
-                      </p>
-                    )}
-                    <Row label="장기 이동평균">
-                      <Segmented
-                        label="장기 이동평균"
-                        size="sm"
-                        value={String(nearestEngineMa(draft.rule.maLong))}
-                        onChange={(v) => patch({ rule: { ...draft.rule, maLong: Number(v) } })}
-                        options={ENGINE_MA_PERIODS.map((p) => ({ value: String(p), label: `${p}일` }))}
-                      />
-                      <span>단기보다 커야 합니다 · 더 긴 기간의 평균 — 큰 흐름의 기준선</span>
-                    </Row>
-                    {!ENGINE_MA_PERIODS.includes(draft.rule.maLong as (typeof ENGINE_MA_PERIODS)[number]) && (
-                      <p className="text-caption text-warning">
-                        지금 저장값 {draft.rule.maLong}일 → {nearestEngineMa(draft.rule.maLong)}일로 계산 중입니다. 저장하면 {nearestEngineMa(draft.rule.maLong)}일로 바뀝니다.
-                      </p>
-                    )}
-                    <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">
-                      <input
-                        type="checkbox"
-                        checked={draft.rule.useRsi}
-                        onChange={(e) => patch({ rule: { ...draft.rule, useRsi: e.target.checked } })}
-                      />
-                      RSI 사용
-                    </label>
-                    <p className="-mt-1 text-caption text-text-muted">{RSI_HELP}</p>
-                    <Row label="RSI 매수 기준">
-                      <NumberField
-                        min={5} max={50}
-                        value={draft.rule.rsiBuyBelow}
-                        onChange={(e) => patch({ rule: { ...draft.rule, rsiBuyBelow: Number(e.target.value) } })}
-                      />
-                      <span>이 값 이하로 떨어졌다가 오르면 매수 · 5~50. 낮출수록 기회가 줄어듭니다</span>
-                    </Row>
-                    <Row label="RSI 매도 기준">
-                      <NumberField
-                        min={50} max={95}
-                        value={draft.rule.rsiSellAbove}
-                        onChange={(e) => patch({ rule: { ...draft.rule, rsiSellAbove: Number(e.target.value) } })}
-                      />
-                      <span>이 값 이상이면 매도 · 50~95. 높일수록 더 오래 들고 갑니다</span>
-                    </Row>
-                    {!draft.rule.useMaCross && !draft.rule.useRsi && (
-                      <p className="text-caption text-warning"><WarnIcon />둘 다 끄면 매수 신호가 나지 않습니다(손절·트레일링만 동작).</p>
-                    )}
-                    <p className="text-caption leading-relaxed text-text-muted">
-                      지표 엔진이 주는 이동평균은 5·20·60·120 입니다. 다른 값을 넣으면 가장 가까운
-                      기간으로 맞추고, 실제로 쓴 기간을 거래 사유에 적습니다. 판단은 전날 마감한 일봉 기준입니다.
-                    </p>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <h4 className="text-xs font-medium text-text-primary">주기·비중</h4>
-                  <Row label="분석 주기">
-                    <NumberField
-                      unit="분"
-                      min={5}
-                      value={draft.intervalMinutes}
-                      onChange={(e) => patch({ intervalMinutes: Number(e.target.value) })}
-                    />
-                    <span>5분 이상</span>
-                  </Row>
-                  <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">
-                    <input
-                      type="checkbox"
-                      checked={draft.marketHoursOnly}
-                      onChange={(e) => patch({ marketHoursOnly: e.target.checked })}
-                    />
-                    미국 정규장에만 실행 (청산은 시간과 무관하게 항상 검사합니다)
-                  </label>
-                  <Row label="종목당 비중">
-                    <NumberField
-                      unit="%"
-                      min={1}
-                      max={100}
-                      value={draft.positionSizePercent}
-                      onChange={(e) => patch({ positionSizePercent: Number(e.target.value) })}
-                    />
-                    <span>총자산 대비 한 종목에 넣는 비중</span>
-                  </Row>
-                  <Row label="최대 보유 종목 수">
-                    <NumberField
-                      unit="종목"
-                      min={1}
-                      max={50}
-                      value={draft.maxPositions}
-                      onChange={(e) => patch({ maxPositions: Number(e.target.value) })}
-                    />
-                    <span>이미 보유한 종목의 추가 매수는 막지 않습니다</span>
-                  </Row>
-
-                  {draft.mode === 'ai' && (
-                    <>
-                      <Row label="매수 신호">
-                        <Select
-                          value={draft.buySignal}
-                          onChange={(e) => patch({ buySignal: e.target.value as 'BUY' | 'STRONG_BUY' })}
-                        >
-                          <option value="BUY">매수 이상</option>
-                          <option value="STRONG_BUY">강력 매수만</option>
-                        </Select>
-                      </Row>
-                      <Row label="매수 최소 신뢰도">
-                        <NumberField
-                          step={0.05} min={0} max={1}
-                          value={draft.buyMinConfidence}
-                          onChange={(e) => patch({ buyMinConfidence: Number(e.target.value) })}
-                        />
-                        <span>0~1</span>
-                      </Row>
-                      <Row label="매도 신호">
-                        <Select
-                          value={draft.sellSignal}
-                          onChange={(e) => patch({ sellSignal: e.target.value as 'SELL' | 'STRONG_SELL' })}
-                        >
-                          <option value="SELL">매도 이상</option>
-                          <option value="STRONG_SELL">강력 매도만</option>
-                        </Select>
-                      </Row>
-                      <Row label="매도 최소 신뢰도">
-                        <NumberField
-                          step={0.05} min={0} max={1}
-                          value={draft.sellMinConfidence}
-                          onChange={(e) => patch({ sellMinConfidence: Number(e.target.value) })}
-                        />
-                        <span>0~1</span>
-                      </Row>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* ④ 청산 */}
-          <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-text-primary">④ 청산</h3>
-            <Row label="손절">
-              <NumberField
-                unit="%"
-min={1} max={50}
-                value={draft.hardStopLossPercent}
-                onChange={(e) => patch({ hardStopLossPercent: Number(e.target.value) })}
-              />
-              <span>매수가보다 {draft.hardStopLossPercent}% 내려가면 전량 매도</span>
-            </Row>
-            <p className="text-caption leading-relaxed text-text-muted">
-              분석 주기와 무관하게 <span className="text-text-secondary">1분마다</span> 검사하는
-              안전망입니다 — 급락은 다음 분석을 기다려 주지 않습니다.
-            </p>
-
-            {/* 익절 (v2.39.0) — 기본 꺼짐. 손절 다음·트레일링 앞에 1분마다 검사. 10% 는 앱의 출발값(근거 검증 전) */}
-            <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">
-              <input
-                type="checkbox"
-                checked={draft.takeProfitEnabled}
-                onChange={(e) => patch({ takeProfitEnabled: e.target.checked })}
-              />
-              익절 사용
-            </label>
-            <Row label="익절">
-              <NumberField
-                unit="%"
-min={1} max={100}
-                value={draft.takeProfitPercent}
-                disabled={!draft.takeProfitEnabled}
-                onChange={(e) => patch({ takeProfitPercent: Number(e.target.value) })}
-              />
-              <span>매수가보다 {draft.takeProfitPercent}% 오르면 모두 매도한다. 끄면 오르는 동안 계속 들고 간다(지금까지의 방식).</span>
-            </Row>
-
-            <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">
-              <input
-                type="checkbox"
-                checked={draft.trailingStopEnabled}
-                onChange={(e) => patch({ trailingStopEnabled: e.target.checked })}
-              />
-              트레일링 사용 (최고가보다 정한 % 만큼 내려가면 매도)
-            </label>
-            {draft.trailingStopEnabled && (
-              <Row
-                label={
-                  <span className="inline-flex items-center gap-1">
-                    최고가 대비 하락 <InfoTip label="트레일링 설명">{trailingHelp(draft.trailingStopPercent)}</InfoTip>
-                  </span>
-                }
-              >
-                <NumberField
-                unit="%"
-min={1} max={50}
-                  value={draft.trailingStopPercent}
-                  onChange={(e) => patch({ trailingStopPercent: Number(e.target.value) })}
-                />
-              </Row>
-            )}
-
-            <p className="rounded-lg bg-bg-tertiary/40 px-3 py-2 text-caption leading-relaxed text-text-muted">
-              <span className="text-text-secondary">익절은 기본 꺼짐입니다.</span> 끄면 추세가 살아
-              있는 동안 계속 들고 가도록 {draft.mode === 'ai' ? 'AI 가 매 주기 보유 종목을 다시 평가해' : '데드크로스·RSI 과열 규칙으로'}{' '}
-              매도할 때를 정합니다.
-            </p>
-          </section>
-
-          {/*
-            ⑤ 신규 매수 안전장치 (v2.16.0) — 둘 다 **새로 사는 것만** 막는다. 손절·청산은 그대로 돈다.
+            ④ 신규 매수 안전장치 (v2.16.0) — 둘 다 **새로 사는 것만** 막는다. 손절·청산은 그대로 돈다.
             값은 앱의 출발값이지 검증된 권장값이 아니다 — 권장값을 적지 않는다.
           */}
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-text-primary">⑤ 신규 매수 안전장치</h3>
+            <h3 className="text-xs font-semibold text-text-primary">④ 신규 매수 안전장치</h3>
             <Row label="실적 발표 전">
-              <NumberField
-                unit="거래일"
-min={0} max={10} step={1}
-                value={draft.earningsBlackoutDays}
-                onChange={(e) => patch({ earningsBlackoutDays: Number(e.target.value) })}
-              />
+              <NumberField unit="거래일" min={0} max={10} step={1} value={draft.earningsBlackoutDays} onChange={(e) => patch({ earningsBlackoutDays: Number(e.target.value) })} />
               <span>
                 {draft.earningsBlackoutDays > 0
                   ? `실적 발표 ${draft.earningsBlackoutDays} 거래일 전부터 발표일까지 새로 매수하지 않습니다`
@@ -433,12 +106,7 @@ min={0} max={10} step={1}
               </span>
             </Row>
             <Row label="하루 손실 한도">
-              <NumberField
-                unit="%"
-min={0} max={20} step={0.5}
-                value={draft.dailyLossLimitPercent}
-                onChange={(e) => patch({ dailyLossLimitPercent: Number(e.target.value) })}
-              />
+              <NumberField unit="%" min={0} max={20} step={0.5} value={draft.dailyLossLimitPercent} onChange={(e) => patch({ dailyLossLimitPercent: Number(e.target.value) })} />
               <span>
                 {draft.dailyLossLimitPercent > 0
                   ? `하루 동안 계좌 평가액이 ${draft.dailyLossLimitPercent}% 넘게 줄면 그날은 새로 매수하지 않습니다 (보유 종목 손절·매도는 계속)`
@@ -446,24 +114,18 @@ min={0} max={20} step={0.5}
               </span>
             </Row>
             <p className="text-caption leading-relaxed text-text-muted">
-              실적일은 매일 한 번 받아 둔 달력(yfinance)을 봅니다. 실적일을 모르는 종목은 막지 않고 거래 사유에
-              「실적일 미확인」 을 남깁니다. 하루는 미국 종목이면 미국 거래일 기준이고, 다음 거래일이 되면 자동으로 풀립니다.
+              실적일은 매일 한 번 받아 둔 달력(yfinance)을 봅니다. 실적일을 모르는 종목은 막지 않고 거래 사유에 「실적일 미확인」 을 남깁니다. 하루는 미국 종목이면 미국
+              거래일 기준이고, 다음 거래일이 되면 자동으로 풀립니다.
             </p>
           </section>
         </div>
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">
-          <span className="min-w-0 text-caption text-text-muted">
-            값의 허용 범위는 저장할 때 서버가 다시 한 번 조입니다.
-          </span>
-          <Button variant="secondary" size="md"
-            onClick={onClose}
-            className="ml-auto">
+          <span className="min-w-0 text-caption text-text-muted">값의 허용 범위는 저장할 때 서버가 다시 한 번 조입니다.</span>
+          <Button variant="secondary" size="md" onClick={onClose} className="ml-auto">
             취소
           </Button>
-          <Button variant="primary" size="md"
-            onClick={() => void save()}
-            disabled={saving}>
+          <Button variant="primary" size="md" onClick={() => void save()} disabled={saving}>
             {saving ? '저장 중…' : saveLabel}
           </Button>
         </div>
@@ -472,15 +134,11 @@ min={0} max={20} step={0.5}
   );
 }
 
-/**
- * 이 창의 폼 줄 — 공용 `FormRow` 하나의 폭(이름 md · 값 lg)으로 **입력칸의 오른쪽 끝 · 단위 열 · 설명 시작점을 맞춘다** (v2.42.0 → v2.42.3).
- * 첫 자식 = 값 칸(입력칸·드롭박스·묶음 버튼), 나머지 = 오른쪽 설명.
- * 값 칸 폭은 이 창에서 가장 긴 값(이동평균 묶음 버튼 5·20·60·120일)이 들어가는 폭이다.
- */
+/** 이 창의 폼 줄 — 첫 자식 = 값 칸, 나머지 = 오른쪽 설명 (입력칸 오른쪽 끝 · 단위 열 · 설명 시작점을 맞춘다) */
 function Row({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   const [control, ...rest] = Children.toArray(children);
   return (
-    <FormRow label={label} labelW="md" valueW="lg" hint={rest.length ? <>{rest}</> : undefined}>
+    <FormRow label={label} labelW="md" valueW="sm" hint={rest.length ? <>{rest}</> : undefined}>
       {control}
     </FormRow>
   );

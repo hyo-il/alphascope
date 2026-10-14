@@ -1,14 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type {
-  BacktestAdvice,
-  BacktestAnyReport,
-  BacktestExplain,
-  BacktestInput,
-  BacktestListItem,
-  BacktestProgress,
-  BacktestUniverse,
-  ConditionLabel,
-} from '../types/backtest';
+import type { BacktestCustomReport, BacktestExplain, BacktestListItem, BacktestProgress, BacktestUniverse, ConditionLabel } from '../types/backtest';
 
 /**
  * 「실험실 > 백테스트」 데이터 (v2.38.0) — 진단 리포트(`useDiagnose`)와 같은 방식:
@@ -28,7 +19,14 @@ export async function backtestJson<T>(url: string, init?: RequestInit): Promise<
 
 const post = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 
-export type BacktestDetail = BacktestListItem & { detail: BacktestAnyReport };
+export type BacktestDetail = BacktestListItem & { detail: BacktestCustomReport };
+
+/** 시험 요청 — 방법마다 규칙 id (v2.44.0) */
+export interface BacktestStart {
+  symbols: string[];
+  years: number;
+  conditions: { label: ConditionLabel; ruleId: number | null }[];
+}
 
 export function useBacktest() {
   const [reports, setReports] = useState<BacktestListItem[] | null>(null);
@@ -106,7 +104,7 @@ export function useBacktest() {
 
   /** 실패는 throw — 화면이 서버 문구 그대로 알린다. 같은 날 같은 입력이면 계산 없이 그 결과를 연다(reused) */
   const start = useCallback(
-    async (input: BacktestInput, force = false): Promise<BacktestProgress> => {
+    async (input: BacktestStart, force = false): Promise<BacktestProgress> => {
       setError(null);
       setEngineDown(false);
       try {
@@ -134,16 +132,11 @@ export function useBacktest() {
   /** 결과 설명 — 서버가 그 기록에 저장한다. 받은 설명을 지금 보는 결과에도 넣는다 */
   const explain = useCallback(async (id: number): Promise<BacktestExplain> => {
     const d = await backtestJson<{ explain: BacktestExplain }>('/api/backtest/explain', post({ id }));
-    setDetail((cur) => (cur && cur.id === id && cur.detail.kind === 'custom' ? { ...cur, detail: { ...cur.detail, explain: d.explain } } : cur));
+    setDetail((cur) => (cur && cur.id === id ? { ...cur, detail: { ...cur.detail, explain: d.explain } } : cur));
     return d.explain;
   }, []);
 
   return { reports, selectedId, setSelectedId, detail, detailLoading, progress, error, engineDown, finished, start, remove, explain };
-}
-
-/** 「AI에게 조건 물어보기」 — `label` = 지금 고친 조건 카드(그 조건을 「지금 화면의 조건」 으로 보낸다) */
-export async function fetchAdvice(input: BacktestInput, label: ConditionLabel): Promise<BacktestAdvice> {
-  return (await backtestJson<{ advice: BacktestAdvice }>('/api/backtest/advice', post({ ...input, label }))).advice;
 }
 
 /** ① 종목 묶음 — 화면을 열 때 한 번 */

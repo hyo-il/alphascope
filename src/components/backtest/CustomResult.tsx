@@ -8,7 +8,10 @@ import { InlineSpinner } from '../common/LoadingOverlay';
 import { Badge, Button, InfoTip, Panel, Segmented, SectionTitle, TABLE_FILL, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP, TABLE_TEXT_COL } from '../ui';
 import { ICON_SM } from '../ui/icon';
 import { toast } from '../../store/uiStore';
-import { exitReasonText, ruleConditionLine, type ExitReason } from '../../utils/autoTradeExplain';
+import { exitReasonText, type ExitReason } from '../../utils/autoTradeExplain';
+import { ruleBuyText, ruleSellText } from '../../utils/ruleText';
+import { sameRuleBody } from './ApplyRuleButton';
+import type { TradingRule } from '../../types/tradingRule';
 import WarnIcon from '../ui/WarnIcon';
 import { fixMethodNames, methodName, type BacktestConditionResult, type BacktestCustomReport, type BacktestCustomSymbol, type ConditionLabel, type WorstDrawdown } from '../../types/backtest';
 
@@ -156,7 +159,10 @@ export default function CustomResult({
   onRerun,
   rerunBusy,
   applySlot,
+  rules,
 }: {
+  /** 지금 규칙 목록 — 시험 뒤 지워졌거나 바뀐 규칙에 「(시험 당시 조건)」 을 붙인다. 판정은 저장된 규칙 내용 기준 */
+  rules: TradingRule[] | null;
   id: number;
   report: BacktestCustomReport;
   onExplain: (id: number) => Promise<unknown>;
@@ -253,10 +259,24 @@ export default function CustomResult({
             </thead>
             <tbody>
               <Row
-                head="조건"
+                head="매매 규칙"
+                cells={cs.map((c) => {
+                  const now = rules?.find((r) => r.id === c.condition.ruleId);
+                  const then = rules != null && (!now || !sameRuleBody(now, c.condition));
+                  return (
+                    <span className="text-text-primary" title={`매수: ${ruleBuyText(c.condition.rule)}\n매도: ${ruleSellText(c.condition.rule)}`}>
+                      「{c.condition.ruleName}」
+                      {then && <span className="block text-caption text-text-muted">(시험 당시 조건)</span>}
+                    </span>
+                  );
+                })}
+                hold="—"
+              />
+              <Row
+                head="매도 조건"
                 cells={cs.map((c) => (
                   <span className="text-text-secondary">
-                    <Pieces parts={ruleConditionLine(c.condition).split(' · ')} />
+                    <Pieces parts={ruleSellText(c.condition.rule).split(' · ')} />
                   </span>
                 ))}
                 hold="—"
@@ -333,7 +353,7 @@ export default function CustomResult({
                     <span className="text-text-secondary">
                       <Pieces
                         parts={EXITS.filter((k) => c.summary.exits![k] > 0).map(
-                          (k) => `${exitReasonText(k, c.condition)} ${Math.round(c.summary.exits![k])}%`,
+                          (k) => `${exitReasonText(k, c.condition.rule)} ${Math.round(c.summary.exits![k])}%`,
                         )}
                       />
                     </span>

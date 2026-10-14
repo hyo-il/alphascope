@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import type { Timeframe } from '../types/toss';
 import { MAX_COMPARE_SYMBOLS } from '../types/compare';
-import type { RuleConfig } from '../types/autoTrading';
 import { groupOf, NAV_GROUPS, normalizeTab, type NavGroupId, type NavPageId } from '../types/nav';
 
 /** 관심 목록 클릭 한 번의 결과 — 호출부가 안내 문구를 고른다 */
@@ -98,12 +97,8 @@ export interface BacktestPreset {
   /** 안내 줄에 쓰는 출처 — 계좌 이름 */
   from: string;
   symbols: string[];
-  rule: RuleConfig;
-  hardStopLossPercent: number;
-  trailingStopEnabled: boolean;
-  trailingStopPercent: number;
-  takeProfitEnabled: boolean;
-  takeProfitPercent: number;
+  /** 그 계좌의 매매 규칙 — 방법 1 에 넣는다. 없으면 방법 1 을 비워 둔다 (v2.44.0) */
+  ruleId: number | null;
 }
 
 const normalize = (symbol: string) => symbol.trim().toUpperCase();

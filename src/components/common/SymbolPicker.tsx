@@ -149,7 +149,7 @@ function GroupHead({
   );
 }
 
-function PickerDialog({
+export function PickerDialog({
   selected,
   onChange,
   max,
@@ -421,6 +421,30 @@ function PickerDialog({
   );
 }
 
+/**
+ * 「직접 추가한 종목」 — 화면이 넘긴 목록, 아니면 「종목 추가」 로 넣은 것 + 관심 목록·분야 어디에도 없는 고른 종목.
+ * 칩 모양(`SymbolPicker`)과 표 모양(`SymbolTable`, v2.44.0)이 같은 함수를 쓴다.
+ */
+export function usePickerAdded(
+  selected: string[],
+  given: string[] | undefined,
+  onGiven: ((next: string[]) => void) | undefined,
+  own: string[],
+  setOwn: (next: string[]) => void,
+): { added: string[]; onAddedChange: (next: string[]) => void } {
+  const { watchlist } = useWatchlist();
+  const uni = useBacktestUniverse();
+  const inGroups = useMemo(() => {
+    const s = new Set(watchlist);
+    for (const g of uni.data?.sectors ?? []) for (const x of g.symbols) s.add(x.symbol);
+    return s;
+  }, [watchlist, uni.data]);
+  return {
+    added: given ?? uniq([...own, ...selected.filter((s) => !inGroups.has(s))]),
+    onAddedChange: onGiven ?? setOwn,
+  };
+}
+
 export default function SymbolPicker(props: SymbolPickerProps) {
   const { selected, onChange, max, softLimit, softLimitText, title, extraButtons, emptyText } = props;
   const [open, setOpen] = useState(false);
@@ -429,18 +453,8 @@ export default function SymbolPicker(props: SymbolPickerProps) {
   /** 화면이 따로 기억하지 않을 때 — 이 화면에서 「종목 추가」 로 넣은 종목 */
   const [ownAdded, setOwnAdded] = useState<string[]>([]);
   const boxRef = useRef<HTMLDivElement>(null);
-  const { watchlist } = useWatchlist();
-  const uni = useBacktestUniverse();
   useStockNames(selected);
-
-  // 「직접 추가한 종목」 — 화면이 넘긴 목록, 아니면 「종목 추가」 로 넣은 것 + 관심 목록·분야 어디에도 없는 고른 종목
-  const inGroups = useMemo(() => {
-    const s = new Set(watchlist);
-    for (const g of uni.data?.sectors ?? []) for (const x of g.symbols) s.add(x.symbol);
-    return s;
-  }, [watchlist, uni.data]);
-  const added = props.added ?? uniq([...ownAdded, ...selected.filter((s) => !inGroups.has(s))]);
-  const onAddedChange = props.onAddedChange ?? setOwnAdded;
+  const { added, onAddedChange } = usePickerAdded(selected, props.added, props.onAddedChange, ownAdded, setOwnAdded);
 
   // 접힌 상태에서 2줄 밖으로 밀린 칩 수를 센다(+N개 더 보기)
   useLayoutEffect(() => {
