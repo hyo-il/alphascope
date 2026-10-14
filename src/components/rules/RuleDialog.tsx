@@ -29,11 +29,25 @@ import { usageText } from './usage';
  * - 스토캐스틱(14, 3, 3) — George Lane 의 %K·%D (14기간 · 3기간 평활이 해설 자료의 흔한 기본값)
  * MACD·볼린저·스토캐스틱은 지표 엔진이 이 값으로만 계산한다(`python/indicators.py`) — 그래서 늘 붙는다.
  * 붙이지 않는 것: 5일·20일 교차(널리 알려진 교차는 50·200일) · RSI 35~45 · 점수 배분 · 65점(앱이 정한 값).
+ * 처음 화면(매수 조건 표 이름 옆, v2.43.1): 「모멘텀」 = 늘(안의 MACD·스토캐스틱이 엔진 고정 표준값) · 「RSI 반등」 = 30 일 때만 ·
+ * 「타이밍」 은 붙이지 않는다(RSI 35~45 라는 앱이 정한 값을 포함한다 — 볼린저 배지는 고급 설정 안에만). 매도 「반대 신호」 = 이름 옆, 70 일 때만.
+ * 색은 파랑(accent) — CLAUDE.md 「예외로 남은 파랑」 에 적었다.
  */
 const RECOMMENDED = { rsiBelow: 30, rsiAbove: 70 } as const;
 
 function Rec({ show = true }: { show?: boolean }) {
-  return show ? <Badge title="자주 사용되는 설정입니다 (수익이 확인된 설정은 아닙니다)">추천</Badge> : null;
+  return show ? (
+    <Badge tone="accent" title="자주 사용되는 설정입니다 (수익이 확인된 설정은 아닙니다)">
+      추천
+    </Badge>
+  ) : null;
+}
+
+/** 처음 화면 매수 조건 이름 옆 「추천」 — 고급 설정 안 배지와 같은 조건(값이 바뀌면 함께 사라진다) */
+function nameRecommended(key: BuyKey, b: RuleBody['buy']): boolean {
+  if (key === 'momentum') return true;
+  if (key === 'rsiRebound') return b.rsiRebound.below === RECOMMENDED.rsiBelow;
+  return false;
 }
 
 const NAMES: Record<BuyKey, string> = {
@@ -234,7 +248,12 @@ export default function RuleDialog({
                         onChange={(e) => setBuy(key, { on: e.target.checked } as never)}
                       />
                     </td>
-                    <td className={`whitespace-nowrap py-1.5 ${c.on ? 'font-medium text-text-primary' : 'text-text-secondary'}`}>{NAMES[key]}</td>
+                    <td className={`whitespace-nowrap py-1.5 ${c.on ? 'font-medium text-text-primary' : 'text-text-secondary'}`}>
+                      <span className="inline-flex items-center gap-1.5">
+                        {NAMES[key]}
+                        <Rec show={nameRecommended(key, body.buy)} />
+                      </span>
+                    </td>
                     <td className="py-1.5 pr-4">
                       <div className="flex">
                         <NumberField
@@ -436,13 +455,20 @@ export default function RuleDialog({
                 />
               </FormRow>
               <FormRow
-                label={<Toggle label="반대 신호" checked={body.sell.opposite.on} disabled={locked} onChange={(on) => setSell('opposite', { on })} />}
+                label={
+                  <Toggle
+                    label="반대 신호"
+                    checked={body.sell.opposite.on}
+                    disabled={locked}
+                    onChange={(on) => setSell('opposite', { on })}
+                    badge={<Rec show={body.sell.opposite.rsiAbove === RECOMMENDED.rsiAbove} />}
+                  />
+                }
                 labelW="md"
                 valueW="sm"
                 hint={
                   <span className="inline-flex flex-wrap items-center gap-1.5">
                     <span>RSI 반등을 켰으면 RSI(14) 가 이 값 이상일 때 매도</span>
-                    <Rec show={body.sell.opposite.rsiAbove === RECOMMENDED.rsiAbove} />
                     <span>· 이동평균 교차를 켰으면 데드크로스(단기선이 장기선 아래로)일 때 매도</span>
                   </span>
                 }
@@ -545,11 +571,25 @@ function TableLine({ k, points }: { k: GroupKey; points: number }) {
 }
 
 /** 폼 줄 이름 칸의 체크박스 + 이름 */
-function Toggle({ label, checked, disabled, onChange }: { label: string; checked: boolean; disabled: boolean; onChange: (on: boolean) => void }) {
+function Toggle({
+  label,
+  checked,
+  disabled,
+  onChange,
+  badge,
+}: {
+  label: string;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (on: boolean) => void;
+  /** 이름 옆 배지(「추천」) */
+  badge?: ReactNode;
+}) {
   return (
     <span className="inline-flex items-center gap-2">
       <input type="checkbox" aria-label={`${label} 사용`} checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       <span className={checked ? 'text-text-primary' : ''}>{label}</span>
+      {badge}
     </span>
   );
 }
