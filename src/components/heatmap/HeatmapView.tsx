@@ -233,6 +233,138 @@ interface SectorBox {
   name: string;
 }
 
+// ── 작은 칸 최소 크기 (v2.44.2, 사용자 결정 E) ──────────────────────────────
+// 시가총액 그대로 나누면 작은 종목 칸에 이름(최소 13px)이 들어가지 않아 「무엇인지 모르는 칸」 이 됐다(국내 관심 종목의 두산에너빌리티 등).
+// squarify 하기 **전에** 칸 크기 값을 키운다 — 큰 칸이 그만큼 조금 줄어든다. 보기일 뿐이다(등락률·섹터 순위는 서버가 실제 시총으로 낸다).
+//  1) 바닥 — 모든 칸 = 이름이 **가장 긴** 종목이 13px 이름 + 등락률 줄로 들어가는 넓이 × 1.3 (국내는 두 줄로 나눈 쪽이 작으면 그쪽)
+//  2) 섹터 — 칸 값의 합 + 분야 이름 줄 넓이(섹터 폭 ≈ √넓이 로 어림) → 칸이 많은 섹터일수록 바닥도 그만큼 크다
+//  3) 나눈 뒤 이름이 빠진 칸은 모자란 만큼(필요 폭 ÷ 폭, 필요 높이 ÷ 높이 중 큰 쪽) 값을 키워 다시 나눈다 — 최대 `LAYOUT_PASSES`(6)번.
+//     넓이 바닥만으로는 안 된다: 칸 하나뿐인 섹터는 지도 한 변 전체를 차지하는 **얇은 띠**가 되기 때문(실측 — 국내 관심 「산업재」 띠 6px)
+//  - 칸 하나가 키울 수 있는 넓이는 지도의 절반 ÷ 칸 수까지 — 나머지는 시가총액 비율 그대로(전부 같은 크기가 되면 지도가 시총을 말하지 못한다)
+//  - 이름이 가장 많이 들어간 배치(같으면 먼저 — 시총 비율에 더 가까운 것)를 쓴다
+
+const LAYOUT_PASSES = 6;
+const FLOOR_MARGIN = 1.3;
+const FLOOR_SHARE_MAX = 0.5;
+const NEED_H_ONE = LABEL_MIN * LINE + RATE_SIZE * LINE + 4;
+const NEED_H_TWO = LABEL_MIN * LINE * 2 + RATE_SIZE * LINE + 4;
+
+/** 이름 + 등락률이 13px 로 들어가는 최소 칸(px) — 국내는 두 줄로 나눈 쪽이 넓이가 작으면 그쪽 */
+function labelNeed(c: HeatmapCell): { w: number; h: number } {
+  const label = tileLabel(c);
+  const rateW = textWidth('−00.00%', RATE_SIZE, 400);
+  const one = { w: Math.max(textWidth(label, LABEL_MIN), rateW) + TILE_PAD_X, h: NEED_H_ONE };
+  if (!(c.currency === 'KRW' && c.name)) return one;
+  let best = Infinity;
+  for (const pair of splitCandidates(label)) best = Math.min(best, Math.max(textWidth(pair[0], LABEL_MIN), textWidth(pair[1], LABEL_MIN)));
+  if (best === Infinity) return one;
+  const two = { w: Math.max(best, rateW) + TILE_PAD_X, h: NEED_H_TWO };
+  return two.w * two.h < one.w * one.h ? two : one;
+}
+
+function layoutOnce(
+  groups: [string, HeatmapCell[]][],
+  W: number,
+  H: number,
+  valueOf: (c: HeatmapCell) => number,
+): { tiles: Tile[]; sectors: SectorBox[] } {
+  // 섹터 값 = 칸 값의 합 + 분야 이름 줄 넓이(값으로 바꿔서) — 값 ↔ 넓이 비율 k 를 몇 번 맞춘다
+  const cellSum = new Map(groups.map(([name, cells]) => [name, cells.reduce((a, c) => a + valueOf(c), 0)] as const));
+  let k = (W * H) / Math.max(1e-9, [...cellSum.values()].reduce((a, v) => a + v, 0));
+  let sectorVal = new Map<string, number>();
+  for (let it = 0; it < 4; it++) {
+    sectorVal = new Map(
+      groups.map(([name]) => {
+        const cellsArea = cellSum.get(name)! * k;
+        return [name, (cellsArea + (SECTOR_HEADER + 4) * Math.sqrt(cellsArea)) / k] as const; // 분야 이름 줄 + 테두리
+      }),
+    );
+    k = (W * H) / Math.max(1e-9, [...sectorVal.values()].reduce((a, v) => a + v, 0));
+  }
+  const tiles: Tile[] = [];
+  const sectors: SectorBox[] = [];
+  const sectorLayout = squarify(
+    groups.map(([name, cells]) => ({ value: sectorVal.get(name)!, data: { name, cells } })),
+    { x: 0, y: 0, w: W, h: H },
+  );
+  for (const s of sectorLayout) {
+    sectors.push({ rect: s.rect, name: s.data.name });
+    const inner = {
+      x: s.rect.x + 1,
+      y: s.rect.y + SECTOR_HEADER,
+      w: Math.max(0, s.rect.w - 2),
+      h: Math.max(0, s.rect.h - SECTOR_HEADER - 1),
+    };
+    for (const t of squarify(s.data.cells.map((c) => ({ value: valueOf(c), data: c })), inner)) {
+      const twoLines = t.data.currency === 'KRW' && Boolean(t.data.name); // 국내 종목명만 두 줄 — 미국 티커는 한 줄
+      tiles.push({ rect: t.rect, cell: t.data, fit: fitLabel(tileLabel(t.data), pct(t.data.changeRate), t.rect.w, t.rect.h, twoLines) });
+    }
+  }
+  return { tiles, sectors };
+}
+
+function layoutTiles(groups: [string, HeatmapCell[]][], W: number, H: number, sizeOf: (c: HeatmapCell) => number) {
+  const all = groups.flatMap(([, cells]) => cells);
+  if (!all.length) return { tiles: [] as Tile[], sectors: [] as SectorBox[], passes: 0 };
+  const raw = new Map(all.map((c) => [c, sizeOf(c)] as const));
+  const need = new Map(all.map((c) => [c, labelNeed(c)] as const));
+  const capArea = (W * H * FLOOR_SHARE_MAX) / all.length;
+  const floorArea = Math.min(Math.max(...[...need.values()].map((n) => n.w * n.h)) * FLOOR_MARGIN, capArea);
+  // 값 → 넓이 비율 k0 — 바닥에 걸린 칸은 바닥 넓이를 **실제로** 차지하고 나머지 넓이를 시총 비율로 나누도록 맞춘다(고정점).
+  // 그냥 「지도 넓이 ÷ 시총 합」 으로 바꾸면 바닥이 합을 키워 실제 바닥이 1/3 쯤으로 줄었다(실측 — 1280 국내 상위 100 이름 79 → 51)
+  const rawTotal = Math.max(1e-9, [...raw.values()].reduce((a, v) => a + v, 0));
+  // 분야 이름 줄이 가져갈 넓이(어림 — 섹터 폭 ≈ √넓이)를 먼저 뺀다. 안 빼면 그만큼 바닥이 줄어든다
+  const headerArea = groups.reduce((a, [, cells]) => {
+    const share = cells.reduce((x, c) => x + raw.get(c)!, 0) / rawTotal;
+    return a + (SECTOR_HEADER + 4) * Math.sqrt(Math.max(share * W * H, floorArea * cells.length));
+  }, 0);
+  const usable = Math.max(W * H * 0.5, W * H - headerArea);
+  let k0 = usable / rawTotal;
+  for (let it = 0; it < 30; it++) {
+    let floored = 0;
+    let rest = 0;
+    for (const v of raw.values()) {
+      if (v * k0 < floorArea) floored++;
+      else rest += v;
+    }
+    const next = rest > 0 ? Math.max(0, usable - floored * floorArea) / rest : k0;
+    if (Math.abs(next - k0) <= k0 * 1e-6) break;
+    k0 = next;
+  }
+  // 칸 값(넓이 단위로 들고 다닌다) — 1) 바닥
+  const area = new Map(all.map((c) => [c, Math.max(raw.get(c)! * k0, floorArea)] as const));
+  let best: { tiles: Tile[]; sectors: SectorBox[] } | null = null;
+  let bestLabeled = -1;
+  let passes = 0;
+  for (let pass = 0; pass < LAYOUT_PASSES; pass++) {
+    passes = pass + 1;
+    const r = layoutOnce(groups, W, H, (c) => area.get(c)!);
+    const labeled = r.tiles.filter((t) => t.fit).length;
+    if (labeled > bestLabeled) {
+      best = r;
+      bestLabeled = labeled;
+    }
+    // 이름이 안 들어간 칸 + **칸이 아예 생기지 않은 종목**(섹터 띠가 분야 이름 줄보다 얇으면 안쪽 높이가 0 이라 칸이 없다 — 실측)
+    const placed = new Map(r.tiles.map((t) => [t.cell, t] as const));
+    const missing = all.filter((c) => !placed.get(c)?.fit);
+    if (!missing.length) break;
+    // 3) 모자란 만큼 키운다 — 칸이 띠 모양이면 높이(또는 폭) 부족분만큼 넓이를 늘려야 두께가 그만큼 는다
+    let grew = false;
+    for (const c of missing) {
+      const n = need.get(c)!;
+      const t = placed.get(c);
+      const short = t ? Math.max(n.w / Math.max(1, t.rect.w), n.h / Math.max(1, t.rect.h)) : Infinity;
+      const f = Math.min(8, Math.max(1.25, 1.1 * short));
+      const before = area.get(c)!;
+      const after = Math.max(before, Math.min(before * f, Math.max(capArea, raw.get(c)! * k0)));
+      if (after > before) grew = true;
+      area.set(c, after);
+    }
+    if (!grew) break; // 더 키울 수 없다(상한) — 칸이 너무 많은 화면 크기
+  }
+  return { ...(best ?? { tiles: [], sectors: [] }), passes };
+}
+
 export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbol: string) => void }) {
   const [saved] = useState(readView);
   const [view, setView] = useState<HeatmapViewId>(saved.view);
@@ -342,10 +474,10 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
     if (focusSector && activeOff.has(focusSector)) setFocusSector(null);
   }, [focusSector, activeOff]);
 
-  const { tiles, sectors } = useMemo(() => {
+  const { tiles, sectors, passes } = useMemo(() => {
     const tiles: Tile[] = [];
     const sectors: SectorBox[] = [];
-    if (!data || size.w <= 0 || size.h <= 0) return { tiles, sectors };
+    if (!data || size.w <= 0 || size.h <= 0) return { tiles, sectors, passes: 0 };
     const groups = new Map<string, HeatmapCell[]>();
     for (const c of data.cells) {
       if (activeOff.has(c.sector)) continue;
@@ -353,24 +485,8 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
     }
     // 칸 크기 — 관심 종목 탭의 「크기 차이 줄이기」 면 시가총액의 제곱근(보기일 뿐 — 섹터 강세 순위는 서버가 실제 시총으로 낸다)
     const sizeOf = (c: HeatmapCell) => (view === 'watch' && watchSize === 'sqrt' ? Math.sqrt(c.marketCap) : c.marketCap);
-    const sectorLayout = squarify(
-      [...groups.entries()].map(([name, cells]) => ({ value: cells.reduce((a, c) => a + sizeOf(c), 0), data: { name, cells } })),
-      { x: 0, y: 0, w: size.w, h: size.h },
-    );
-    for (const s of sectorLayout) {
-      sectors.push({ rect: s.rect, name: s.data.name });
-      const inner = {
-        x: s.rect.x + 1,
-        y: s.rect.y + SECTOR_HEADER,
-        w: Math.max(0, s.rect.w - 2),
-        h: Math.max(0, s.rect.h - SECTOR_HEADER - 1),
-      };
-      for (const t of squarify(s.data.cells.map((c) => ({ value: sizeOf(c), data: c })), inner)) {
-        const twoLines = t.data.currency === 'KRW' && Boolean(t.data.name); // 국내 종목명만 두 줄 — 미국 티커는 한 줄
-        tiles.push({ rect: t.rect, cell: t.data, fit: fitLabel(tileLabel(t.data), pct(t.data.changeRate), t.rect.w, t.rect.h, twoLines) });
-      }
-    }
-    return { tiles, sectors };
+    // 작은 칸에도 이름이 들어가게 최소 크기를 둔다 (v2.44.2 — `layoutTiles`)
+    return layoutTiles([...groups.entries()], size.w, size.h, sizeOf);
   }, [data, size, activeOff, view, watchSize]);
   const labeled = tiles.filter((t) => t.fit).length;
 
@@ -393,7 +509,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   /** 지도 읽는 법 — 넓으면 지도 아래 줄 오른쪽에 글자로, 좁으면 ⓘ 툴팁 (v2.30.0). 고정 문구는 섹터 순위 아래에 늘 글자로 있다 */
   const guide = `색은 ${period === '1d' ? '전 거래일 종가 대비 등락' : `최근 종가 ÷ ${periodInfo.bars}거래일 전 종가`}입니다.${
     watchView ? (watchSize === 'sqrt' ? ' 크기 = 시가총액의 제곱근(크기 차이 줄인 보기).' : ' 크기 = 시가총액.') : ' 파란 테두리는 관심 종목.'
-  }${period === '1d' ? ` 장이 열려 있는 동안 ${HEATMAP_LIVE_MS / 1000}초마다 새로고침(화면을 보고 있을 때만). 장이 닫히면 「장 마감」 으로 보이고 다시 받지 않습니다.` : ''}`;
+  } 작은 종목도 이름이 보이도록 칸에 최소 크기를 두었습니다 — 작은 칸은 실제 시가총액 비율보다 조금 큽니다.${period === '1d' ? ` 장이 열려 있는 동안 ${HEATMAP_LIVE_MS / 1000}초마다 새로고침(화면을 보고 있을 때만). 장이 닫히면 「장 마감」 으로 보이고 다시 받지 않습니다.` : ''}`;
 
   return (
     <div className={`@container flex h-full flex-col ${PANEL_PAD}`}>
@@ -462,6 +578,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           ref={box}
           data-tiles={tiles.length}
           data-labeled={labeled}
+          data-passes={passes}
           className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl bg-bg-secondary"
         >
           {empty && (
