@@ -6,6 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { squarify, type Rect } from '../../utils/treemap';
 import { formatCompactMoney, formatPrice, formatSigned, MINUS } from '../../utils/formatters';
 import {
+  HEATMAP_LIVE_MS,
   HEATMAP_PERIODS,
   type HeatmapCell,
   type HeatmapMarket,
@@ -19,7 +20,8 @@ import HeatmapViewMenu, { TOP_CHOICES, type TopChoice } from './HeatmapViewMenu'
 /**
  * 🗺 종목 지도 (v2.18.0) — 시장 온도를 한눈에. 네모 크기 = 시가총액, 색 = 기간 수익률, 섹터로 묶는다.
  *
- * - 데이터는 `GET /api/heatmap?market=&period=` 한 곳. 1일은 서버 60초 캐시 + 화면이 보일 때만 60초마다 다시 받는다(숨은 탭 정지).
+ * - 데이터는 `GET /api/heatmap?market=&period=` 한 곳. 1일은 화면 주기·서버 캐시가 같은 값 `HEATMAP_LIVE_MS`(10초, v2.44.2 — 예전 60초 + 60초) —
+ *   화면이 보일 때만, 그 시장 장이 열려 있을 때만 다시 받는다(닫혀 있으면 「장 마감」, 다음 개장 시각에 한 번 다시 받는다). 숨은 탭 정지.
  *   1주 이상(v2.19.0)은 종가 기준이라 주기 새로고침을 하지 않는다(탭이 다시 보일 때만).
  * - 배치는 직접 구현한 squarified treemap(`utils/treemap.ts`) — 섹터를 먼저 나누고, 섹터 안에서 종목을 나눈다.
  * - 색은 `index.css` 의 heat-* 불투명 단계색(v2.27.0 — bullish/bearish 를 회색에 섞은 4단계 + 회색) + 진하기 구간 —
@@ -30,7 +32,12 @@ import HeatmapViewMenu, { TOP_CHOICES, type TopChoice } from './HeatmapViewMenu'
  * - ⚠️ 다른 사이트의 데이터·디자인을 가져오지 않았다 — 앱 다크 테마로 새로 그렸다.
  */
 
-const REFRESH_MS = 60_000;
+/** 「N초 전 갱신」 — 1분이 넘으면 「N분 전 갱신」 */
+function updatedAgo(now: number, asOf: string): string {
+  const sec = Math.max(0, Math.floor((now - Date.parse(asOf)) / 1000));
+  return sec < 60 ? `${sec}초 전 갱신` : `${Math.floor(sec / 60)}분 전 갱신`;
+}
+
 /** 분야 이름 줄 높이 = 글자 줄 + 위아래 여백(기준표 변수, v2.42.2 — 예전 16px 여백 없음) */
 const SECTOR_HEADER = HEATMAP_SECTOR_LINE + HEATMAP_SECTOR_PAD_Y * 2;
 
@@ -107,7 +114,7 @@ function textWidth(text: string, size: number, weight = 600): number {
   return width;
 }
 // 글꼴 조각(본고딕)이 도착하면 그 전에 대체 글꼴로 잰 폭을 버린다 (v2.35.0) — 남겨 두면 칸 글자 크기가 계속 옛 폭으로 정해진다.
-// 다음 그리기(60초 갱신·보기 변경)부터 새 폭을 쓴다.
+// 다음 그리기(새로고침·보기 변경)부터 새 폭을 쓴다.
 if (typeof document !== 'undefined' && document.fonts) {
   document.fonts.addEventListener('loadingdone', () => widthCache.clear());
 }
@@ -271,28 +278,45 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
     writeView({ view, market, period, top, off: { market: [...offByView.market], watch: [...offByView.watch] }, watchSize });
   }, [view, market, period, top, offByView, watchSize]);
 
-  // 처음 + (1일만) 60초마다 — 탭이 숨어 있으면 쉬고, 다시 보이면 곧바로 한 번
+  // 시장·기간·보기가 바뀌면 지도를 비운다
   // 상위 N 만 바꿀 때는 보던 지도를 남긴 채 다시 받는다(서버가 같은 100 캐시에서 자른다 — 금방 온다)
   useEffect(() => {
     setData(null);
     setFocusSector(null);
   }, [market, period, view]);
 
+  // 처음 한 번 + 탭이 다시 보일 때 — 단 1일 지도의 시장이 닫혀 있으면 다시 받지 않는다(값이 바뀌지 않는다)
+  const closedRef = useRef(false);
+  closedRef.current = period === '1d' && data != null && !data.marketOpen;
   useEffect(() => {
     void load();
-    const timer =
-      period === '1d'
-        ? setInterval(() => {
-            if (document.visibilityState === 'visible') void load();
-          }, REFRESH_MS)
-        : null;
-    const onVisible = () => document.visibilityState === 'visible' && void load();
+    const onVisible = () => document.visibilityState === 'visible' && !closedRef.current && void load();
     document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      if (timer) clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, [load, period]);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [load]);
+
+  // 1일만: 장이 열려 있으면 `HEATMAP_LIVE_MS` 마다(서버 캐시와 같은 값), 닫혀 있으면 다음 개장(휴장일 반영, 서버 계산) 5초 뒤 한 번
+  const liveOpen = period === '1d' && data != null ? data.marketOpen : null;
+  const nextOpen = data?.nextOpen ?? null;
+  useEffect(() => {
+    if (liveOpen == null) return;
+    if (liveOpen) {
+      const t = setInterval(() => document.visibilityState === 'visible' && void load(), HEATMAP_LIVE_MS);
+      return () => clearInterval(t);
+    }
+    const wait = nextOpen ? Date.parse(nextOpen) - Date.now() + 5_000 : NaN;
+    if (!(wait > 0 && wait < 2 ** 31 - 1)) return;
+    const t = setTimeout(() => void load(), wait);
+    return () => clearTimeout(t);
+  }, [liveOpen, nextOpen, load]);
+
+  // 「N초 전 갱신」 — 장이 열려 있을 때만 1초마다 다시 그린다
+  const [tick, setTick] = useState(() => Date.now());
+  useEffect(() => {
+    if (!liveOpen) return;
+    const t = setInterval(() => setTick(Date.now()), 1_000);
+    return () => clearInterval(t);
+  }, [liveOpen]);
 
   useLayoutEffect(() => {
     const el = box.current;
@@ -369,7 +393,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   /** 지도 읽는 법 — 넓으면 지도 아래 줄 오른쪽에 글자로, 좁으면 ⓘ 툴팁 (v2.30.0). 고정 문구는 섹터 순위 아래에 늘 글자로 있다 */
   const guide = `색은 ${period === '1d' ? '전 거래일 종가 대비 등락' : `최근 종가 ÷ ${periodInfo.bars}거래일 전 종가`}입니다.${
     watchView ? (watchSize === 'sqrt' ? ' 크기 = 시가총액의 제곱근(크기 차이 줄인 보기).' : ' 크기 = 시가총액.') : ' 파란 테두리는 관심 종목.'
-  }${period === '1d' ? ' 1분마다 새로고침(화면을 보고 있을 때만).' : ''}`;
+  }${period === '1d' ? ` 장이 열려 있는 동안 ${HEATMAP_LIVE_MS / 1000}초마다 새로고침(화면을 보고 있을 때만). 장이 닫히면 「장 마감」 으로 보이고 다시 받지 않습니다.` : ''}`;
 
   return (
     <div className={`@container flex h-full flex-col ${PANEL_PAD}`}>
@@ -582,7 +606,9 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
             {watchView ? `${marketLabel} 관심 종목` : `시총 상위 ${data.top ?? top}`} · {tiles.length < data.cells.length ? `${tiles.length}/${data.cells.length}` : data.cells.length}
             종목 ·{' '}
             {period === '1d'
-              ? `${formatTime(data.asOf)} 기준`
+              ? data.marketOpen
+                ? `${updatedAgo(tick, data.asOf)} · ${formatTime(data.asOf)} 기준`
+                : `장 마감 · ${formatTime(data.asOf)} 기준`
               : `최근 종가 기준 ${periodInfo.bars}거래일`}
             {loading && ' · 새로고침 중…'}
           </span>

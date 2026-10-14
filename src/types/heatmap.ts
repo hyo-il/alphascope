@@ -11,6 +11,14 @@ export type HeatmapView = 'market' | 'watch';
  */
 export type HeatmapPeriod = '1d' | '1w' | '1m' | '3m';
 
+/**
+ * 「1일」 지도 새로고침 간격 — **화면 주기와 서버 캐시가 이 값 하나**를 쓴다 (v2.44.2, 예전 화면 60초 + 서버 60초 = 최대 약 2분 늦음).
+ * 근거(테스트 서버 실측, 2026-10-14): 한 번 만들 때 토스 `/prices` 는 30종목씩 — 시장 상위 100 = 4회, 관심 종목 = 종목 수 ÷ 30 올림.
+ * 10초면 지도 하나(상위 100)에 초당 약 0.4회 · 1시간 1,440회(MARKET_DATA 한도 15/s). 최악(1일 지도 네 개를 10초마다 + 차트 현재가·호가·관심 시세 약 3회/s)을
+ * 3분 돌려 `/prices` 512회 · 429 0회 · `x-ratelimit-remaining` 최저 2/15(401 3회는 토큰 재발급) — 10초로 정했다(prompts/v2.44.2).
+ */
+export const HEATMAP_LIVE_MS = 10_000;
+
 export const HEATMAP_PERIODS: { id: HeatmapPeriod; label: string; bars: number }[] = [
   { id: '1d', label: '1일', bars: 1 },
   { id: '1w', label: '1주', bars: 5 },
@@ -68,6 +76,10 @@ export interface HeatmapResponse {
   counted: number;
   excluded: number;
   asOf: string;
+  /** 그 시장 정규장이 지금 열려 있나(`server/marketHours.ts`) — 닫혀 있으면 화면은 「장 마감」 이고 다시 받지 않는다 (v2.44.2) */
+  marketOpen: boolean;
+  /** 다음 정규장 시작(ISO, 휴장일 반영) — 장이 닫혀 있을 때 화면이 이 시각에 다시 받는다 */
+  nextOpen: string;
   /** 섹터를 아직 모르는 종목 수 — 하루 1회 갱신 전이면 '기타' 로 묶인다 */
   missingSectors: number;
   /** 시가총액을 몰라 지도에서 빠진 종목 (관심 종목 보기에서만 생긴다) */

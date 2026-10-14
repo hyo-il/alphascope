@@ -6,7 +6,7 @@
  * - 색: 당일 등락률 = 토스 `/prices` 현재가(30종목씩 묶어서) ÷ **전 거래일 종가**.
  *   전 거래일 종가는 `previousClose.ts`(관심 목록 시세와 공유 — 종목·시장 날짜별 1회).
  * - 섹터: `stock_profiles.sector`(yfinance). 없으면 '기타' — 처음 한 번은 빠진 종목의 프로필을 뒤에서 채운다.
- * - 응답 전체를 시장별 **60초 캐시**한다 (화면도 60초마다 부른다 — Rate Limit 보호).
+ * - 응답 전체를 시장별로 캐시한다 — 1일 장중은 `HEATMAP_LIVE_MS`(10초)보다 1초 짧게, 장 마감 뒤와 그 밖 기간은 10분 (v2.44.2 — 예전 60초).
  *
  * 기간(v2.19.0): `period=1w|1m|3m` 은 색이 **마지막 완성 종가 ÷ N거래일 전 종가 − 1** 이 된다(5·21·63봉).
  * 종가 기준이라 **종목·시장 날짜·마감 전후별 1회**만 계산한다(오늘 봉은 정규장 마감 뒤에만 완성으로 본다).
@@ -34,7 +34,9 @@ import { refreshEarnings } from './earningsCalendar';
 import { isMockMode, mockPrice } from './mockData';
 import { tossGet } from '../src/services/toss/httpClient';
 import { currencyOfSymbol, isKrSymbol } from '../src/utils/market';
+import { isMarketOpen, nextMarketOpen } from './marketHours';
 import {
+  HEATMAP_LIVE_MS,
   HEATMAP_PERIODS,
   type HeatmapCell,
   type HeatmapMarket,
@@ -44,7 +46,8 @@ import {
   type HeatmapView,
 } from '../src/types/heatmap';
 
-const CACHE_MS = 60_000;
+/** 「1일」 캐시 — 화면 주기(`HEATMAP_LIVE_MS`)보다 1초 짧게: 화면이 부를 때마다 새 시세가 된다(여러 창이 함께 봐도 한 번) */
+const CACHE_MS = HEATMAP_LIVE_MS - 1_000;
 /** 1주 이상은 종가 기준이라 자주 바뀌지 않는다 — 관심 종목·섹터 변경만 반영되면 된다 */
 const PERIOD_CACHE_MS = 10 * 60_000;
 const PRICE_CHUNK = 30;
@@ -286,9 +289,11 @@ async function build(list: Target[], period: HeatmapPeriod, now: number): Promis
 const cache = new Map<string, { at: number; data: Built }>();
 const inflight = new Map<string, Promise<Built>>();
 
-/** 같은 키는 한 번만 만든다(두 화면이 동시에 불러도) — 1d 60초 · 그 밖 10분 */
-async function cached(key: string, period: HeatmapPeriod, now: number, make: () => Promise<Built>): Promise<Built> {
-  const ttl = period === '1d' ? CACHE_MS : PERIOD_CACHE_MS;
+/** 같은 키는 한 번만 만든다(두 화면이 동시에 불러도) — 1d 장중 `CACHE_MS` · 장 마감 뒤와 그 밖 기간 10분 */
+async function cached(key: string, period: HeatmapPeriod, now: number, make: () => Promise<Built>, open: boolean): Promise<Built> {
+  const ttl = period === '1d' && open ? CACHE_MS : PERIOD_CACHE_MS;
+  // 장이 닫혀 있을 때 만든 1일 지도가 장이 열린 뒤까지 10분 남지 않게 — 열림 여부를 키에 넣는다
+  if (period === '1d') key = `${key}|${open ? 'open' : 'closed'}`;
   const hit = cache.get(key);
   if (hit && now - hit.at < ttl) return hit.data;
   let pending = inflight.get(key);
@@ -317,6 +322,9 @@ export async function heatmap(
   now = Date.now(),
 ): Promise<HeatmapResponse> {
   const view = options.view ?? 'market';
+  const cal = market === 'us' ? 'US' : 'KR';
+  const marketOpen = isMarketOpen(cal, new Date(now));
+  const nextOpen = nextMarketOpen(cal, new Date(now)).toISOString();
   const watch = watchOf(market);
   const watchSet = new Set(watch);
 
@@ -324,10 +332,10 @@ export async function heatmap(
     const caps = new Map(universeOf(market).map((t) => [t.symbol, t.cap]));
     const built = await cached(`watch|${market}|${period}|${watch.join(',')}`, period, now, () =>
       build(watch.map((symbol) => ({ symbol, cap: caps.get(symbol) ?? null })), period, now),
-    );
+    marketOpen);
     const cells = built.cells.map((c) => ({ ...c, watch: true }));
     return {
-      market, period, view, top: null, cells, ...sectorStats(cells), asOf: built.asOf,
+      market, period, view, top: null, cells, ...sectorStats(cells), asOf: built.asOf, marketOpen, nextOpen,
       missingSectors: cells.filter((c) => built.missing.has(c.symbol)).length,
       missingCap: built.missingCap,
     };
@@ -335,13 +343,13 @@ export async function heatmap(
 
   const top = options.top ?? 50;
   // 언제나 상위 100 전체를 만든다 — N 을 바꿔도 토스·yfinance 호출이 늘지 않는다
-  const built = await cached(`market|${market}|${period}`, period, now, () => build(universeOf(market), period, now));
+  const built = await cached(`market|${market}|${period}`, period, now, () => build(universeOf(market), period, now), marketOpen);
   const cells = [...built.cells]
     .sort((a, b) => b.marketCap - a.marketCap)
     .slice(0, top)
     .map((c) => ({ ...c, watch: watchSet.has(c.symbol) }));
   return {
-    market, period, view, top, cells, ...sectorStats(cells), asOf: built.asOf,
+    market, period, view, top, cells, ...sectorStats(cells), asOf: built.asOf, marketOpen, nextOpen,
     missingSectors: cells.filter((c) => built.missing.has(c.symbol)).length,
     missingCap: [],
   };
