@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Check, ChevronDown, ChevronRight, Search } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Plus, Search } from 'lucide-react';
 import StockName from './StockName';
 import SymbolSearch from './SymbolSearch';
 import { SkeletonList } from './SkeletonLoader';
@@ -14,11 +14,12 @@ import { isChoseongOnly, toChoseong, toJamo } from '../../utils/hangul';
 import { stockNameOf } from '../../utils/stockNames';
 
 /**
- * 여러 종목 고르기 — 앱에 하나 (v2.41.0). 자동매매 대상 종목 · 백테스트 · 목표 수익 가능성 · AI 지정 종목이 같은 부품을 쓴다.
+ * 여러 종목 추가 — 앱에 하나 (v2.41.0). 자동매매 대상 종목 · 백테스트 · 목표 수익 가능성 · AI 지정 종목이 같은 부품을 쓴다.
  * (한 종목만 고르는 검색은 `SymbolSearch`, 기업 비교는 칸에 놓는 방식이라 예외 — CLAUDE.md 「공통 동작 규칙」)
  *
- * 화면에 놓이는 부분: 도구 줄 [종목 고르기] · (화면별 버튼) · (N/최대) · [모두 삭제] + 고른 종목 칩(× = 목록에서 삭제, 2줄 넘으면 「+N개 더 보기」).
- * [종목 고르기] 창: 왼쪽 = 목록 안 검색 · 「종목 추가」 · 관심 목록 전부 선택 · 묶음(관심 목록(폴더 밖 종목 → 폴더별) → 분야 7개 → 직접 추가한 종목),
+ * 화면에 놓이는 부분: 목록 **위** 도구 줄 [종목 추가] · (화면별 버튼) · (N/최대) · [모두 삭제] + 고른 종목 칩(× = 목록에서 삭제, 2줄 넘으면 「+N개 더 보기」).
+ * 이름은 용어집 「목록에 종목 넣기 = 종목 추가」(v2.44.2 — 예전 「종목 고르기」). 창 안의 탭 「목록에서 고르기」 는 창 안에서 고르는 동작이라 그대로 둔다.
+ * [종목 추가] 창: 왼쪽 = 목록 안 검색 · 「종목 추가」 · 관심 목록 전부 선택 · 묶음(관심 목록(폴더 밖 종목 → 폴더별) → 분야 7개 → 직접 추가한 종목),
  * 오른쪽 = 고른 종목. **누르는 즉시 반영**하고 [완료]·ESC·바깥 클릭은 닫기만 한다.
  *
  * 최대 개수는 화면마다 그대로 —
@@ -214,7 +215,7 @@ export function PickerDialog({
 
   return (
     <Dialog
-      title={dialogTitle ?? '종목 고르기'}
+      title={dialogTitle ?? '종목 추가'}
       titleAside="누르는 즉시 반영됩니다"
       onClose={onClose}
       size="xl"
@@ -479,8 +480,8 @@ export default function SymbolPicker(props: SymbolPickerProps) {
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         {title != null && <h3 className="shrink-0 text-sm font-semibold text-text-primary">{title}</h3>}
-        <Button size="sm" onClick={() => setOpen(true)} className="shrink-0 whitespace-nowrap">
-          종목 고르기
+        <Button size="sm" icon={Plus} onClick={() => setOpen(true)} className="shrink-0 whitespace-nowrap">
+          종목 추가
         </Button>
         {extraButtons}
         {/* 고른 개수 + 모두 삭제는 줄 오른쪽 끝에 한 묶음 「3개 · 모두 삭제」 — 버튼 묶음 사이에 끼지 않게(v2.42.2) */}
@@ -492,7 +493,7 @@ export default function SymbolPicker(props: SymbolPickerProps) {
         </span>
       </div>
       {selected.length === 0 ? (
-        <p className="text-caption text-text-muted">{emptyText ?? '[종목 고르기] 에서 관심 목록·분야별 종목을 고르거나 다른 종목을 추가하세요.'}</p>
+        <p className="text-caption text-text-muted">{emptyText ?? '[종목 추가] 에서 관심 목록·분야별 종목을 고르거나 다른 종목을 검색해 추가하세요.'}</p>
       ) : (
         <>
           <div ref={boxRef} className={`flex flex-wrap gap-1.5 overflow-hidden ${expanded ? '' : 'max-h-[3.75rem]'}`}>

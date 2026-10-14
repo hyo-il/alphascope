@@ -140,7 +140,7 @@ export function useBacktest() {
 }
 
 /** ① 종목 묶음 — 화면을 열 때 한 번 */
-/** 분야 묶음 목록은 한 번 받으면 앱 안에서 다시 쓴다 — 종목 고르기 창(4곳)과 백테스트가 함께 쓴다 */
+/** 분야 묶음 목록은 한 번 받으면 앱 안에서 다시 쓴다 — 종목 추가 창(4곳)과 백테스트가 함께 쓴다 */
 let universeCache: BacktestUniverse | null = null;
 
 export function useBacktestUniverse() {

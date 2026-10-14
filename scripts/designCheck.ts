@@ -4,7 +4,7 @@
  * 디자인 숫자 측정 (v2.42.0, `npm run design:check`) — 디자인 점검 세 겹의 둘째(CLAUDE.md 「디자인 점검」).
  *
  * 테스트 서버(기본 http://localhost:5180)의 **모든 화면 주소**(메뉴·탭 — `types/nav.ts` 의 NAV_GROUPS·PAGE_TABS 에서 읽는다) +
- * 주요 창(종목 고르기 · 자동매매 설정 · 판단 기준 편집 · 날짜 고르기)을 **1280×1080 · 1440×900 · 1920×1080 · 2560×1440** 에서 열어 잰다:
+ * 주요 창(종목 추가 · 자동매매 설정 · 판단 기준 편집 · 날짜 고르기)을 **1280×1080 · 1440×900 · 1920×1080 · 2560×1440** 에서 열어 잰다:
  *   1. 같은 줄의 입력칸·드롭박스·버튼(높이 클래스 h-7/h-8 이 있는 것)·묶음 버튼 높이 같음
  *   2. 같은 묶음(창·구역)의 `FormRow` — 칸 오른쪽 끝 · 단위 열 왼쪽 끝 · 설명 시작점 차이 0px, 숫자 칸 폭 = 종류 변수, 이름 넘침 0 (v2.42.3)
  *   3. 글자 넘침·잘림(overflow 가 숨김인데 scrollWidth > clientWidth) — 말줄임(truncate)은 「말줄임」 으로 따로 센다
@@ -97,7 +97,7 @@ function targets(): Target[] {
         await click('지금 조건 보기')(page);
       },
     },
-    { name: 'dialog-종목고르기', hash: '#/backtest', open: click('종목 고르기') },
+    { name: 'dialog-종목추가', hash: '#/backtest', open: click('종목 추가') },
     {
       name: 'dialog-자동매매설정',
       hash: '#/portfolio/paper',

@@ -91,7 +91,7 @@ export default function TargetSymbolsEditor({
       <SymbolTable
         selected={symbols}
         onChange={onChange}
-        dialogTitle="자동매매 대상 종목 고르기"
+        dialogTitle="자동매매 대상 종목 추가"
         emptyText="아직 고른 종목이 없습니다. 종목이 없으면 자동매매를 켤 수 없습니다."
         extraButtons={
           <>

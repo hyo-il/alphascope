@@ -4,7 +4,7 @@ import Dialog, { useDialogEsc } from '../ui/Dialog';
 import TrashIcon from '../common/TrashIcon';
 import { ICON_SM } from '../ui/icon';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { GripVertical, Pencil, Search } from 'lucide-react';
+import { GripVertical, Pencil, Plus, Search } from 'lucide-react';
 import { useFlipReorder } from '../../hooks/useFlipReorder';
 import SyncStatusLine from './SyncStatusLine';
 import type { useWatchlist } from '../../hooks/useWatchlist';
@@ -88,7 +88,7 @@ export default function WatchlistManager({
   }, [selectedFolderId]);
 
   // ESC 로 닫는다 — 팝업의 기본 기대다. 검색·이름 입력이 열려 있으면 그것부터 닫는다.
-  // 맨 위 창일 때만(공용 창 틀의 순서 규칙 — v2.41.0). 종목 고르기·확인 창이 위에 떠 있으면 그 창이 먼저 닫힌다
+  // 맨 위 창일 때만(공용 창 틀의 순서 규칙 — v2.41.0). 종목 추가·확인 창이 위에 떠 있으면 그 창이 먼저 닫힌다
   useDialogEsc(() => {
     if (adding) setAdding(false);
     else if (moveOpen) setMoveOpen(false);
@@ -470,13 +470,10 @@ export default function WatchlistManager({
                 삭제
               </button>
 
-              <button
-                type="button"
-                onClick={() => setAdding((v) => !v)}
-                className={`${ACTION} ml-auto`}
-              >
-                + 종목 추가
-              </button>
+              {/* 앱 전체 [종목 추가] 와 같은 모양(Button sm + Plus — v2.44.2) */}
+              <Button size="sm" icon={Plus} onClick={() => setAdding((v) => !v)} className="ml-auto">
+                종목 추가
+              </Button>
 
               <button
                 type="button"
@@ -535,8 +532,8 @@ export default function WatchlistManager({
               {symbols.length === 0 ? (
                 <p className="px-4 py-8 text-center text-xs text-text-muted">
                   {isLoose
-                    ? '폴더에 넣지 않은 종목이 없습니다. [+ 종목 추가] 로 추가하거나, 그룹의 종목을 여기에 끌어 놓으면 폴더에서 빠집니다.'
-                    : '이 그룹에 추가한 종목이 없습니다. [+ 종목 추가] 로 시작해 보세요.'}
+                    ? '폴더에 넣지 않은 종목이 없습니다. [종목 추가] 로 추가하거나, 그룹의 종목을 여기에 끌어 놓으면 폴더에서 빠집니다.'
+                    : '이 그룹에 추가한 종목이 없습니다. [종목 추가] 로 시작해 보세요.'}
                 </p>
               ) : (
                 sorted.map((symbol, index) => {

@@ -6,7 +6,7 @@ import { isUsed, type TradingRule } from '../../types/tradingRule';
 import { usageText } from './usage';
 import { modal, toast } from '../../store/uiStore';
 import { Button, PageHeader } from '../ui';
-import { LIST_ROW, TABLE_NAME_COL } from '../ui/tokens';
+import { LIST_TABLE_ROW, TABLE_NAME_COL } from '../ui/tokens';
 import { SkeletonText } from '../common/SkeletonLoader';
 import RuleDialog from './RuleDialog';
 
@@ -105,14 +105,14 @@ export default function RulesView() {
               </thead>
               <tbody>
                 {r.rules.map((rule) => (
-                  <tr key={rule.id} className={`border-b border-border/30 last:border-b-0 ${LIST_ROW}`}>
-                    <td className="max-w-0 py-1.5 pr-4">
+                  <tr key={rule.id} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW}`}>
+                    <td className="max-w-0 py-1 pr-4">
                       <span className="block truncate font-medium text-text-primary" title={rule.name}>
                         {rule.name}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap py-1.5 pr-6 text-text-secondary">{usageText(rule.usedBy, accountName)}</td>
-                    <td className="py-1.5">
+                    <td className="whitespace-nowrap py-1 pr-6 text-text-secondary">{usageText(rule.usedBy, accountName)}</td>
+                    <td className="py-1">
                       <div className="flex items-center justify-end gap-2">
                         <Button size="sm" icon={Eye} onClick={() => setOpen(rule.id)}>
                           조건 보기

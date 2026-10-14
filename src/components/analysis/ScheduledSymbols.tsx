@@ -172,8 +172,8 @@ function ScheduledEditor({
         onChange={setDraft}
         max={status.max}
         maxReason={`하루 최대 ${status.max * 5}호출 — 필요하면 나중에 늘립니다`}
-        dialogTitle="지정 종목 고르기"
-        emptyText="[종목 고르기] 에서 하루 1번 분석할 종목을 고르세요."
+        dialogTitle="지정 종목 추가"
+        emptyText="[종목 추가] 에서 하루 1번 분석할 종목을 추가하세요."
       />
       <p className="text-caption text-text-muted">
         {draft.length}/{status.max}종목 · 하루 최대 약 <b className="text-text-secondary">{draft.length * 5}</b>호출

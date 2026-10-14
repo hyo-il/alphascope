@@ -20,6 +20,11 @@ export const FORM_VALUE_W = { sm: 'w-28', md: 'w-40', lg: 'w-56' } as const;
 /** 목록 줄 — 높이 약 36px + 줄 사이 4px (사용자: "아이템 사이 약간의 간격이 있어야 구분") */
 export const LIST_ROW = 'min-h-9';
 export const LIST_GAP = 'space-y-1';
+/**
+ * 목록 **표** 의 줄 높이 (v2.44.2) — 40px. 표 줄(`tr`)에는 min-height 가 먹지 않아 `LIST_ROW` 대신 이것을 쓴다.
+ * 매매 규칙 목록(버튼 28px 줄)과 종목 목록 표(계좌 ② · 백테스트 ①)가 같은 높이가 된다.
+ */
+export const LIST_TABLE_ROW = 'h-10';
 
 /**
  * 표 (v2.42.1 — 기준표 「표」 규칙) — **화면은 꽉 채우되 숫자 칸은 내용 폭 + 고정 여백**, 남는 폭은 이름(종목) 칸이 가져간다.

@@ -151,7 +151,7 @@ export interface BacktestCustomReport {
   spy?: { hold: number; from: string; to: string } | { error: string };
 }
 
-/** ① 종목 고르기 묶음 — 시총 상위 100 중 7분야 + 내 관심 목록 */
+/** ① 종목 추가 창의 묶음 — 시총 상위 100 중 7분야 + 내 관심 목록 */
 export interface BacktestUniverse {
   asOf: string;
   sectors: { sector: string; symbols: { symbol: string; name: string | null }[] }[];

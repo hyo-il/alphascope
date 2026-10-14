@@ -1612,7 +1612,7 @@ app.get('/api/symbols/info', (req, res) => {
   }
 });
 
-/** ① 종목 고르기의 묶음 — 시총 상위 100 중 7분야(순서 고정) + 내 관심 목록. 분야 밖 종목은 묶음에 넣지 않는다(검색으로는 추가할 수 있다) */
+/** ① 종목 추가 창의 묶음 — 시총 상위 100 중 7분야(순서 고정) + 내 관심 목록. 분야 밖 종목은 묶음에 넣지 않는다(검색으로는 추가할 수 있다) */
 app.get('/api/backtest/universe', async (_req, res) => {
   try {
     const t = await researchTargets();

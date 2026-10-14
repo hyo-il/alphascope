@@ -198,7 +198,7 @@ export default function BacktestView() {
         </div>
         <HelpBox id="backtest" storageKey="alphascope.backtestHelp" title="백테스트는 무엇인가요?">
           <p>백테스트는 정한 규칙으로 과거에 매수·매도했다면 어땠을지 계산해 보는 것입니다. 실제 주문은 나가지 않습니다.</p>
-          <p>순서: [종목 고르기] → 방법(매매 규칙) 고르기 → 기간 → [시험 실행]. 그냥 들고 있었을 때·아무 날이나 매수·매도했을 때와 나란히 보여 줍니다.</p>
+          <p>순서: [종목 추가] → 방법(매매 규칙) 고르기 → 기간 → [시험 실행]. 그냥 들고 있었을 때·아무 날이나 매수·매도했을 때와 나란히 보여 줍니다.</p>
           <p>계좌와 같은 판단(매매 규칙 엔진)으로 계산합니다 — 신호는 그날 끝난 봉 기준, 매수·매도는 다음 날 시가, 손절·익절·트레일링은 그날 고가·저가로 봅니다.</p>
           <p>실적 발표 전 매수 막기 · 하루 손실 한도 · 종목당 비중 · 최대 보유 종목 수는 계좌 설정이라 백테스트에는 들어가지 않습니다.</p>
           <p>과거 결과는 앞으로를 보장하지 않습니다.</p>
@@ -214,7 +214,7 @@ export default function BacktestView() {
             onAddedChange={(next) => patch({ added: next })}
             softLimit={draft.conditions.length >= 2 ? MAX_COMPARE_SYMBOLS : null}
             softLimitText={(n, limit) => `방법을 비교할 때는 종목을 ${limit}개까지 고를 수 있습니다 — 지금 ${n}개`}
-            dialogTitle="백테스트 종목 고르기"
+            dialogTitle="백테스트 종목 추가"
           />
         </Panel>
 

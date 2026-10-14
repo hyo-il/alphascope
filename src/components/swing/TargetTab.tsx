@@ -120,7 +120,7 @@ export default function TargetTab({
         </Button>
       </div>
 
-      {/* 종목 고르기 — 공용 「종목 고르기」(v2.41.0, 예전 화면 안 관심 목록 표 + 검색칸) */}
+      {/* 종목 — 공용 「종목 추가」(v2.41.0, 예전 화면 안 관심 목록 표 + 검색칸) */}
       <section className="space-y-2 rounded-xl bg-bg-secondary px-3 py-2">
         <SymbolPicker
           title="종목"
@@ -128,8 +128,8 @@ export default function TargetTab({
           onChange={setPicked}
           max={TARGET_MAX_SYMBOLS}
           maxReason={`종목당 Gemini ${CALLS_PER_SYMBOL}회 — 무료 한도를 아끼려고 막았습니다`}
-          dialogTitle="목표 수익 가능성 — 종목 고르기"
-          emptyText={`[종목 고르기] 에서 분석할 종목을 고르세요(최대 ${TARGET_MAX_SYMBOLS}개).`}
+          dialogTitle="목표 수익 가능성 — 종목 추가"
+          emptyText={`[종목 추가] 에서 분석할 종목을 추가하세요(최대 ${TARGET_MAX_SYMBOLS}개).`}
         />
         {picked.length > 0 && (
           <ul className="space-y-0.5 text-caption">
