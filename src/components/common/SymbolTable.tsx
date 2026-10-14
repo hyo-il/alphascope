@@ -28,6 +28,7 @@ export default function SymbolTable(
   useStockNames(selected);
   const info = useSymbolInfo(selected);
   const soft = softLimit != null && selected.length > softLimit;
+  const scrolls = selected.length > 10;
 
   return (
     <div className="space-y-2">
@@ -45,7 +46,8 @@ export default function SymbolTable(
       {selected.length === 0 ? (
         <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">{emptyText ?? '아직 고른 종목이 없습니다.'}</p>
       ) : (
-        <div className="max-h-[23rem] overflow-y-auto rounded-lg bg-bg-tertiary/40 [scrollbar-gutter:stable]" data-symbol-table>
+        // 10줄이 넘을 때만 표 안 스크롤(그때만 스크롤 칸을 비운다 — 적을 때 비우면 표 오른쪽 끝이 위아래 줄과 어긋난다)
+        <div className={`rounded-lg bg-bg-tertiary/40 ${scrolls ? 'max-h-[23rem] overflow-y-auto [scrollbar-gutter:stable]' : ''}`} data-symbol-table>
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 z-10 bg-bg-secondary text-caption text-text-muted">
               <tr className="border-b border-border/50">
@@ -74,6 +76,8 @@ export default function SymbolTable(
           </table>
         </div>
       )}
+
+      {scrolls && <p className="text-caption text-text-muted">표 안에서 스크롤하면 나머지 {selected.length - 10}종목이 보입니다.</p>}
 
       {soft && softLimit != null && (
         <p className="text-caption text-danger">{softLimitText ? softLimitText(selected.length, softLimit) : `${softLimit}개까지 — 지금 ${selected.length}개`}</p>

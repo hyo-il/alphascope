@@ -61,8 +61,12 @@ export default function ApplyRuleButton({ options, rules }: { options: BacktestC
     setOpen(false);
     const item = itemOf(accountId);
     const before = item?.strategy.ruleId ?? null;
+    // 이미 같은 규칙이면 실행 버튼 없이 알리기만 한다(바뀌는 것이 없는데 [적용] 을 권하지 않는다)
+    if (before === current.id) {
+      modal.alert({ title: `${name} — 이미 이 규칙을 씁니다`, message: `이 계좌는 이미 규칙 「${current.name}」 을 씁니다. 바뀌는 것이 없습니다.`, confirmText: '닫기' });
+      return;
+    }
     const lines: string[] = [];
-    if (before === current.id) lines.push('이 계좌는 이미 이 규칙을 씁니다. 저장해도 바뀌는 것이 없습니다.');
     if (!sameRuleBody(current, condition)) lines.push('시험한 뒤 이 규칙의 내용이 바뀌었습니다 — 지금 내용이 쓰입니다.');
     lines.push('대상 종목은 바꾸지 않습니다.');
     lines.push('자동매매를 켜거나 끄지 않습니다.');

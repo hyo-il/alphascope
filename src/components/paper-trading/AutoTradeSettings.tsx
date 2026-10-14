@@ -69,7 +69,7 @@ export default function AutoTradeSettings({ strategy, onSave, onClose, doneMessa
           <section className="space-y-2">
             <h3 className="text-xs font-semibold text-text-primary">① 매매 규칙</h3>
             <RuleSelect rules={rules} value={draft.ruleId} onChange={(ruleId) => patch({ ruleId })} warnNoStop />
-            <p className="text-caption text-text-muted">{JUDGE_TIMING_TEXT}(값은 규칙의 매도 조건).</p>
+            {rules != null && rules.length > 0 && <p className="text-caption text-text-muted">{JUDGE_TIMING_TEXT}(값은 규칙의 매도 조건).</p>}
           </section>
 
           {/* ② 대상 종목 */}

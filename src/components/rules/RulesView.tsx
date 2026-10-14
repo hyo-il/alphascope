@@ -35,11 +35,11 @@ export default function RulesView() {
 
   const confirmRemove = (rule: TradingRule) => {
     const used = isUsed(rule.usedBy);
-    const accountsLine = rule.usedBy.accounts.length ? `계좌 ${rule.usedBy.accounts.length}개의 자동매매가 꺼집니다. ` : '';
+    const n = rule.usedBy.accounts.length;
     modal.confirm({
       title: '매매 규칙 삭제',
       message: used
-        ? `「${rule.name}」 규칙을 삭제합니다. 이 규칙을 쓰는 곳: ${usageText(rule.usedBy, accountName)}.\n${accountsLine}되돌릴 수 없습니다.`
+        ? `「${rule.name}」 — 계좌 ${n}개가 이 규칙을 씁니다(${usageText(rule.usedBy, accountName)}). 지우면 그 계좌의 자동매매가 꺼집니다.\n되돌릴 수 없습니다.`
         : `「${rule.name}」 규칙을 삭제합니다. 되돌릴 수 없습니다.`,
       confirmText: '삭제',
       danger: true,

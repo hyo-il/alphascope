@@ -46,6 +46,10 @@ interface Target {
   hash: string;
   /** 창을 여는 동작(주소로 간 뒤) */
   open?: (page: Page) => Promise<void>;
+  /** 주소로 가기 전 (v2.44.0) — 응답 바꿔치기(`page.route`)로 「규칙 없음」 같은 상태를 DB 를 건드리지 않고 만든다 */
+  before?: (page: Page) => Promise<void>;
+  /** 잰 뒤 되돌리기 */
+  after?: (page: Page) => Promise<void>;
 }
 
 /** 화면 주소 — 메뉴(NAV_GROUPS)의 모든 page × 그 page 의 탭(PAGE_TABS) */
@@ -105,6 +109,71 @@ function targets(): Target[] {
       },
     },
     { name: 'dialog-매매규칙-새규칙', hash: '#/rules', open: click('새 규칙 만들기') },
+    // v2.44.0 — 자동매매 설정 「규칙 없음」 · 「손절 끔 경고」(규칙 목록 응답을 바꿔치기 — DB 는 건드리지 않는다), 처음 켜기 2단계,
+    // 백테스트 방법 3개 + 종목 표 12줄(이 기기 초안) · 규칙 없음 · [계좌에 적용] 확인 창
+    {
+      name: 'dialog-자동매매설정-규칙없음',
+      hash: '#/portfolio/paper',
+      before: async (page) => { await page.route('**/api/rules', (r) => r.fulfill({ json: { rules: [] } })); },
+      after: (page) => page.unroute('**/api/rules'),
+      open: openAccountSettings,
+    },
+    {
+      name: 'dialog-자동매매설정-손절끔경고',
+      hash: '#/portfolio/paper',
+      before: async (page) => {
+        await page.route('**/api/rules', async (r) => {
+          const res = await r.fetch();
+          const body = (await res.json()) as { rules: { sell: { stopLoss: { on: boolean } } }[] };
+          for (const x of body.rules) x.sell.stopLoss.on = false;
+          await r.fulfill({ response: res, json: body });
+        });
+      },
+      after: (page) => page.unroute('**/api/rules'),
+      open: openAccountSettings,
+    },
+    {
+      name: 'dialog-처음켜기-2단계',
+      hash: '#/portfolio/paper',
+      open: async (page) => {
+        await page.getByRole('button', { name: /계좌 모아보기/ }).first().click().catch(() => {});
+        await page.waitForTimeout(1000);
+        await click(/자동매매 처음 켜기/)(page);
+        await click('있는 계좌 고르기')(page);
+        await click(/^다음$/)(page);
+      },
+    },
+    {
+      name: 'backtest-방법3개-종목표',
+      hash: '#/backtest',
+      before: async (page) => {
+        await page.evaluate(async () => {
+          const rules = (await (await fetch('/api/rules')).json()) as { rules: { id: number }[] };
+          const id = rules.rules[0]?.id ?? null;
+          const uni = (await (await fetch('/api/backtest/universe')).json()) as { sectors: { symbols: { symbol: string }[] }[] };
+          const symbols = uni.sectors.flatMap((g) => g.symbols.map((x) => x.symbol)).slice(0, 12);
+          localStorage.setItem('alphascope.backtestDraft', JSON.stringify({ symbols, added: [], years: 1, conditions: [{ ruleId: id }, { ruleId: id }, { ruleId: id }] }));
+        });
+      },
+      after: (page) => page.evaluate(() => localStorage.removeItem('alphascope.backtestDraft')),
+    },
+    {
+      name: 'backtest-규칙없음',
+      hash: '#/backtest',
+      before: async (page) => { await page.route('**/api/rules', (r) => r.fulfill({ json: { rules: [] } })); },
+      after: (page) => page.unroute('**/api/rules'),
+    },
+    {
+      name: 'dialog-백테스트-계좌에적용-확인',
+      hash: '#/backtest',
+      // 앞 대상(규칙 없음 바꿔치기)의 화면이 남지 않게 홈을 거쳐 다시 그린다
+      before: async () => {},
+      open: async (page) => {
+        await click('계좌에 적용')(page);
+        await page.locator('[role=dialog] li button').first().click();
+        await page.waitForTimeout(700);
+      },
+    },
     // 사이드 메뉴 — 보고 있는 대메뉴를 접은 상태 (v2.43.1)
     {
       name: 'nav-보고있는대메뉴-접힘',
@@ -478,6 +547,12 @@ async function main() {
       consoleErrors = [];
       // 마우스를 화면 구석으로 — 앞 화면에서 누른 자리에 남아 있으면 새 화면의 줄에 올라가 있는 상태(마우스 오버 미리보기 등)로 찍힌다(v2.42.3)
       await page.mouse.move(0, 0);
+      if (t.before) {
+        // 같은 화면이 이미 떠 있으면 새로 받지 않으므로 홈을 거쳐 다시 그리게 한다
+        await page.evaluate(() => (location.hash = '#/home'));
+        await page.waitForTimeout(500);
+        await t.before(page);
+      }
       await page.evaluate((h) => (location.hash = h), t.hash);
       await page.waitForTimeout(2200);
       if (t.open) await t.open(page).catch((e) => consoleErrors.push(`창 열기 실패: ${String(e).slice(0, 120)}`));
@@ -485,6 +560,7 @@ async function main() {
       await page.screenshot({ path: path.join(dir, `${t.name}.png`) });
       all.push({ size: String(size.w), name: t.name, issues, console: [...consoleErrors] });
       if (t.open) await page.keyboard.press('Escape').catch(() => {});
+      if (t.after) await t.after(page).catch(() => {});
       console.log(`${size.w} ${t.name}: ${issues.length}건${consoleErrors.length ? ` · 콘솔 오류 ${consoleErrors.length}` : ''}`);
     }
     await ctx.close();

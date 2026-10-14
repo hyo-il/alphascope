@@ -39,12 +39,12 @@ export default function RuleSelect({
   if (rules == null) return <p className="text-xs text-text-muted">매매 규칙을 불러오는 중…</p>;
   if (!rules.length) {
     return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary">
-        <span>매매 규칙이 없습니다. 「퀀트 &gt; 매매 규칙」 에서 먼저 만드세요.</span>
-        <Button size="sm" variant="ghost" onClick={() => setPage('rules')}>
+      <p className="text-xs text-text-secondary">
+        매매 규칙이 없습니다. 「퀀트 &gt; 매매 규칙」 에서 먼저 만드세요.{' '}
+        <button type="button" className="text-accent hover:underline" onClick={() => setPage('rules')}>
           매매 규칙으로 가기
-        </Button>
-      </div>
+        </button>
+      </p>
     );
   }
 
