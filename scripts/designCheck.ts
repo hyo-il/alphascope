@@ -94,7 +94,7 @@ function targets(): Target[] {
       open: async (page) => {
         await page.getByText('현재 계좌').first().click();
         await page.waitForTimeout(1200);
-        await click('지금 조건 보기')(page);
+        await click('조건 상세 보기')(page);
       },
     },
     { name: 'dialog-종목추가', hash: '#/backtest', open: click('종목 추가') },

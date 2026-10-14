@@ -1,10 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { AccountStrategy, AccountStrategyStatus } from '../../types/autoTrading';
 import type { TradingRule } from '../../types/tradingRule';
-import { Button, DisclosureButton, Panel } from '../ui';
+import { DisclosureButton, Panel } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
-import { useAppStore } from '../../store/appStore';
-import { usePaperAccounts } from '../../hooks/usePaperTrading';
 import { JUDGE_TIMING_TEXT, NO_STOP_WARNING, ruleBuyText, ruleSafetyText, ruleSellText } from '../../utils/ruleText';
 import { nextJudgeText } from '../../utils/autoTradeExplain';
 
@@ -12,6 +10,7 @@ import { nextJudgeText } from '../../utils/autoTradeExplain';
  * 계좌 「지금 조건」 카드 (v2.40.0 → v2.44.0 매매 규칙) — 자동매매 바 바로 아래, 처음 접힘 + 한 줄 요약.
  * 손절·익절·트레일링 값은 한 단계 굵게(500), **색은 쓰지 않는다**(상태색과 섞이지 않게). 문장은 `utils/ruleText.ts` 한 곳.
  * 규칙의 손절이 꺼져 있으면 경고 한 줄(B-3).
+ * v2.44.2: [설정 열기] · [백테스트에서 시험하기] 를 없앴다(사용자 결정 C-1·C-2) — 설정은 자동매매 바의 [자동매매 설정] 하나, 펼치기 문구 「조건 상세 보기」.
  */
 function Line({ label, children, strong = false }: { label: string; children: ReactNode; strong?: boolean }) {
   return (
@@ -27,7 +26,6 @@ export default function ConditionCard({
   rule,
   rulesLoaded,
   status,
-  onOpenSettings,
 }: {
   /** 계좌 자동매매 상태 — 다음 개장 시각(서버 계산)을 읽는다 */
   status: AccountStrategyStatus | null;
@@ -35,20 +33,9 @@ export default function ConditionCard({
   /** 이 계좌의 매매 규칙 — 없거나 지워졌으면 null */
   rule: TradingRule | null;
   rulesLoaded: boolean;
-  onOpenSettings: () => void;
 }) {
-  const setPage = useAppStore((st) => st.setPage);
-  const setPreset = useAppStore((st) => st.setBacktestPreset);
-  const { accounts } = usePaperAccounts();
-  const name = accounts.find((a) => a.id === s.accountId)?.name ?? '이 계좌';
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [s.accountId]);
-
-  // 계좌 → 백테스트: 이 계좌의 규칙을 방법 1 로, 종목을 ① 로 (규칙이 없으면 종목만)
-  const tryBacktest = () => {
-    setPreset({ from: name, symbols: [...s.symbols], ruleId: rule?.id ?? null });
-    setPage('backtest');
-  };
 
   return (
     <Panel pad="sm" className="mx-4 my-2 space-y-2">
@@ -66,13 +53,7 @@ export default function ConditionCard({
           )}
         </p>
         <span className="ml-auto flex shrink-0 items-center gap-2">
-          <DisclosureButton open={open} onToggle={() => setOpen((v) => !v)} label="지금 조건 보기" controls={`condition-card-${s.accountId}`} />
-          <Button size="sm" onClick={onOpenSettings} className="whitespace-nowrap">
-            설정 열기
-          </Button>
-          <Button size="sm" onClick={tryBacktest} className="whitespace-nowrap">
-            백테스트에서 시험하기
-          </Button>
+          <DisclosureButton open={open} onToggle={() => setOpen((v) => !v)} label="조건 상세 보기" controls={`condition-card-${s.accountId}`} />
         </span>
       </div>
       {rule && !rule.sell.stopLoss.on && (

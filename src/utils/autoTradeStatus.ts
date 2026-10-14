@@ -28,7 +28,7 @@ export interface AutoTradeView {
   reason: string | null;
   /** 지금 이 계좌를 처리 중 */
   busy: boolean;
-  /** 계좌 설정을 고치면 풀리는 멈춤인가 — [설정 열기] 를 보여 줄지 (서버 스위치로 꺼진 것은 설정으로 못 푼다) */
+  /** 계좌 설정을 고치면 풀리는 멈춤인가 — 계좌 모아보기 카드에 [설정 열기](그 계좌 상세로)를 보여 줄지 (서버 스위치로 꺼진 것은 설정으로 못 푼다) */
   fixable?: boolean;
 }
 

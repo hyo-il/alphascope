@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import StockName from './StockName';
 import { PickerDialog, usePickerAdded, type SymbolPickerProps } from './SymbolPicker';
@@ -17,13 +17,8 @@ import { isKrSymbol } from '../../utils/market';
  * 줄 높이는 매매 규칙 목록과 같다(`LIST_TABLE_ROW` 40px). 10줄이 넘으면 표 안에서 스크롤(머리 줄 고정).
  * ⚠️ 줄 삭제는 × 아이콘(「목록에서 삭제」 — 용어집 「삭제」, 확인 창 없음). 지시서의 「빼기」 는 용어집이 쓰지 않는 이름이라 쓰지 않았다.
  */
-export default function SymbolTable(
-  props: Omit<SymbolPickerProps, 'title'> & {
-    /** 도구 줄 [종목 추가] 옆 버튼 */
-    extraButtons?: ReactNode;
-  },
-) {
-  const { selected, onChange, max, softLimit, softLimitText, extraButtons, emptyText } = props;
+export default function SymbolTable(props: Omit<SymbolPickerProps, 'title'>) {
+  const { selected, onChange, max, softLimit, softLimitText, emptyText } = props;
   const [open, setOpen] = useState(false);
   const [ownAdded, setOwnAdded] = useState<string[]>([]);
   const { added, onAddedChange } = usePickerAdded(selected, props.added, props.onAddedChange, ownAdded, setOwnAdded);
@@ -34,12 +29,11 @@ export default function SymbolTable(
 
   return (
     <div className="space-y-2">
-      {/* 목록 위 도구 줄 — 칩 모양 SymbolPicker 와 같은 배치: [종목 추가] · (화면별 버튼) … N종목 · 모두 삭제 */}
+      {/* 목록 위 도구 줄 — 칩 모양 SymbolPicker 와 같은 배치: [종목 추가] … N종목 · 모두 삭제 */}
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" icon={Plus} onClick={() => setOpen(true)} className="shrink-0 whitespace-nowrap">
           종목 추가
         </Button>
-        {extraButtons}
         <span className="ml-auto flex shrink-0 items-center gap-2">
           <span className="text-caption text-text-muted tabular-nums">
             {selected.length}종목{max != null ? ` / 최대 ${max}종목` : ''}

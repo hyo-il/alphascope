@@ -11,7 +11,6 @@ import { SkeletonList } from '../common/SkeletonLoader';
 import { Button, Panel, SectionTitle } from '../ui';
 import { ICON } from '../ui/icon';
 import { modal, toast } from '../../store/uiStore';
-import { useAppStore } from '../../store/appStore';
 import { stockNameOf } from '../../utils/stockNames';
 import { backtestInputError } from '../../utils/backtestInput';
 import { ruleSellText } from '../../utils/ruleText';
@@ -28,7 +27,7 @@ import ApplyRuleButton from './ApplyRuleButton';
  * - 계산은 서버(`runCustomBacktest` → 계좌와 같은 엔진 `evaluateRule`). 주문을 내지 않는다.
  * - 판정 배지 없음 — 거래가 적으면 「결론 내기 어려움」 만. 「가장 좋음」 강조 금지.
  * - 예전 「미리 정한 시험」(교차 계산기 고정 3년)은 v2.44.0 에 지웠다.
- * - 계좌 [백테스트에서 시험하기] 가 넘긴 종목·규칙은 `appStore.backtestPreset`(일회성)으로 받아 ①② 를 채운다.
+ * - 계좌 → 백테스트로 값을 넘기던 [백테스트에서 시험하기] 는 v2.44.2 에 없앴다(사용자 결정 C-2). 결과의 [계좌에 적용](백테스트 → 계좌)은 그대로.
  * - v2.36.0 디자인 규칙 — 이모지 없음, 파란 주요 버튼은 [시험 실행] 하나.
  */
 const when = (iso: string) => formatDateTime(iso);
@@ -84,8 +83,6 @@ export default function BacktestView() {
   const gemini = useGeminiStatus();
   const { draft, setDraft, patch, setMethodRule, addMethod, removeMethod } = useBacktestDraft();
   const { rules } = useTradingRules();
-  const preset = useAppStore((s) => s.backtestPreset);
-  const setPreset = useAppStore((s) => s.setBacktestPreset);
   const [loadedNote, setLoadedNote] = useState<string[] | null>(null);
   const [starting, setStarting] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -94,15 +91,7 @@ export default function BacktestView() {
   const scrollTo = useRef<number | null>(null);
   const running = bt.progress?.running ?? false;
 
-  // 계좌에서 넘어온 종목·규칙 — 한 번 채우고 비운다. 규칙은 방법 1 하나로(비교하던 방법 2·3 은 지운다), 규칙이 없으면 방법 1 을 비워 둔다
-  useEffect(() => {
-    if (!preset) return;
-    setDraft((d) => ({ ...d, symbols: [...preset.symbols], conditions: [{ label: 'A', ruleId: preset.ruleId }] }));
-    setLoadedNote([preset.ruleId != null ? `${preset.from}의 종목·매매 규칙을 불러왔습니다.` : `${preset.from}의 종목을 불러왔습니다 — 이 계좌에는 매매 규칙이 없어 방법 1 을 비워 두었습니다.`]);
-    setPreset(null);
-  }, [preset, setDraft, setPreset]);
-
-  // 고른 종목 중 어느 묶음에도 없는 것은 「직접 추가한 종목」 에 보이게 한다(계좌에서 넘어온 종목·다시 시험 등)
+  // 고른 종목 중 어느 묶음에도 없는 것은 「직접 추가한 종목」 에 보이게 한다(다시 시험 등)
   useEffect(() => {
     if (!uni.data) return;
     const known = new Set([...uni.data.watchlist.map((w) => w.symbol), ...uni.data.sectors.flatMap((g) => g.symbols.map((s) => s.symbol)), ...draft.added]);

@@ -80,11 +80,10 @@ export function nextJudgeText(status: Pick<AccountStrategyStatus, 'nextOpen'> | 
   return parts.length ? `${prefix} (${parts.join(' · ')}, 한국 시간)` : prefix;
 }
 
+/** 고칠 곳은 문장 끝에 「[자동매매 설정] 에서 고칩니다」 로 알린다 — 같은 화면에 설정 버튼을 두 개 두지 않는다(v2.44.2, 사용자 결정 C-1) */
 export interface NowSentence {
   text: string;
   extra: string | null;
-  /** [설정 열기] 를 보일지 — 설정을 고치면 풀리는 멈춤만 */
-  fix: boolean;
 }
 
 const JUDGE_EXTRA = '매수·매도 판단은 종목마다 그 시장이 열린 뒤 하루 한 번(어제까지 끝난 봉 기준)이고, 손절·익절·트레일링은 1분마다 봅니다.';
@@ -94,30 +93,28 @@ export function nowSentence(strategy: AccountStrategy, status: AccountStrategySt
   if (!strategy.enabled) return null;
   const n = strategy.symbols.length;
   if (view.state === 'waiting') {
-    return { text: `지금은 대상 종목의 시장이 닫혀 기다리는 중입니다. 다음 판단: ${nextJudgeText(status)}.`, extra: JUDGE_EXTRA, fix: false };
+    return { text: `지금은 대상 종목의 시장이 닫혀 기다리는 중입니다. 다음 판단: ${nextJudgeText(status)}.`, extra: JUDGE_EXTRA };
   }
   if (view.state === 'blocked') {
     if (status?.blockedKind === 'daily_loss') {
       return {
-        text: `오늘 계좌가 ${strategy.dailyLossLimitPercent}% 넘게 줄어 새로 매수하지 않습니다(하루 손실 한도). 이미 매수한 종목의 손절·매도는 계속하고, 다음 거래일에 저절로 풀립니다.`,
+        text: `오늘 계좌가 ${strategy.dailyLossLimitPercent}% 넘게 줄어 새로 매수하지 않습니다(하루 손실 한도). 이미 매수한 종목의 손절·매도는 계속하고, 다음 거래일에 저절로 풀립니다. 한도는 [자동매매 설정] 에서 고칩니다.`,
         extra: JUDGE_EXTRA,
-        fix: true,
       };
     }
-    if (status?.blockedKind === 'server_off') return { text: '이 서버에서는 자동매매가 꺼져 있어 돌지 않습니다(서버 설정).', extra: null, fix: false };
-    if (strategy.ruleId == null) return { text: '매매 규칙을 고르세요. [설정 열기]에서 「① 매매 규칙」 을 고르면 돕니다.', extra: null, fix: true };
-    if (n === 0) return { text: '대상 종목이 없어 멈춰 있습니다. [설정 열기]에서 종목을 추가해 주세요.', extra: null, fix: true };
-    return { text: status?.blockedReason ?? '설정 문제로 멈춰 있습니다. [설정 열기]에서 확인해 주세요.', extra: null, fix: true };
+    if (status?.blockedKind === 'server_off') return { text: '이 서버에서는 자동매매가 꺼져 있어 돌지 않습니다(서버 설정).', extra: null };
+    if (strategy.ruleId == null) return { text: '매매 규칙을 고르세요. 「① 매매 규칙」 은 [자동매매 설정] 에서 고칩니다.', extra: null };
+    if (n === 0) return { text: '대상 종목이 없어 멈춰 있습니다. 「② 대상 종목」 은 [자동매매 설정] 에서 고칩니다.', extra: null };
+    return { text: `${status?.blockedReason ?? '설정 문제로 멈춰 있습니다'}. [자동매매 설정] 에서 고칩니다.`, extra: null };
   }
   const judged = status?.judgedToday ?? 0;
   // 열린 시장의 오늘 판단을 이미 마쳤으면 다음 개장을 알린다(아니면 「오늘 판단 N/M종목」)
   if (n > 0 && judged >= n) {
-    return { text: `오늘 판단을 마쳤습니다. 다음 판단: ${nextJudgeText(status, '다음 개장')}.`, extra: JUDGE_EXTRA, fix: false };
+    return { text: `오늘 판단을 마쳤습니다. 다음 판단: ${nextJudgeText(status, '다음 개장')}.`, extra: JUDGE_EXTRA };
   }
   return {
     text: `시장이 열려 있습니다. 오늘 ${n}종목 중 ${judged}종목을 판단했고, 나머지는 1분 안에 봅니다.`,
     extra: JUDGE_EXTRA,
-    fix: false,
   };
 }
 

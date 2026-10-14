@@ -61,7 +61,7 @@ export default function SurgeDashboard({
       <p className={`shrink-0 border-b border-warning/40 bg-warning/10 ${PANEL_X} py-2 text-caption leading-relaxed text-warning`}>
         <b>테스트 기능</b> — 이미 많이 오른 종목(상승률·거래량 상위)에서 출발하고, 하루 단위
         데이터로 판단합니다. 매매 근거로 쓰기 전에 성과 검증이 필요합니다.
-        {/* 왜 발굴 팝업에서 사라졌는지 여기 남긴다 — "왜 없어졌지?" 를 막는다 (v2.15.0) */}
+        {/* 자동매매 후보에서 왜 빠졌는지 여기 남긴다 — "왜 없어졌지?" 를 막는다 (v2.15.0 · 발굴 창 자체는 v2.44.2 에 없앴다) */}
         <br />
         자동매매 후보에서는 제외됨(2026-09-29, 진단 근거 — 급등 다음 날 매수 시 −5% 먼저 62%).
       </p>
