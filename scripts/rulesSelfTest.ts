@@ -2,9 +2,11 @@
  * `npm run rules:test` — 「매매 규칙」 엔진 시험 (v2.43.0, 퀀트 다시 만들기 1단계).
  *
  * ① 교차와 같은 판단 — 규칙 = 교차(1점) + RSI 반등(1점) · 기준 1점 · 반대 신호 켬 · 점수 매도 끔 · 대기 0 ·
- *    손익비 안전장치 끔(시험용 인자) → 예전 `decideRule` 과 action 이 모두 같은지 (규칙형 4종 × 보유/미보유)
- * ② 점수와 같은 점수 — 기본 규칙 → 관심 목록 × 최근 120 거래일, 같은 끝난 봉을 넣은 `evaluateSwing`(표준 기준)과
- *    5그룹 점수·합계가 같은지, 손익비로 막힌 날 = 손익비 강등 날인지
+ *    손익비 안전장치 끔(시험용 인자) → 예전 `decideRule` 의 **정답 파일**(`scripts/fixtures/crossRuleAnswers.json`, 5b16cc4 에서 만듦 —
+ *    캔들까지 담았다)과 action 이 모두 같은지 (규칙형 4종 × 보유/미보유). 예전 코드는 v2.44.0 에 지웠다.
+ * ①-b 백테스트 — 같은 규칙 + 손절(·트레일링·익절) → 새 `simulateRule` 의 거래 목록 == 예전 `simulateRule` 정답(같은 파일)
+ * ② 점수와 같은 점수 — 기본 규칙 → 미국 시총 상위 100 × 최근 120 거래일(v2.44.0 에 관심 목록에서 넓혔다), 같은 끝난 봉을 넣은
+ *    `evaluateSwing`(표준 기준)과 5그룹 점수·합계가 같은지, 손익비로 막힌 날 = 손익비 강등 날인지
  * ③ 미래 정보 — 봉 i 까지 잘라 계산한 판단 == 전체로 계산한 i 의 판단
  * ④ 속도 — 미국 시총 상위 100 × 3년(756 거래일) 판단 시간 · 지표 엔진 호출 수
  * ⑤ 단위 시험 — 다시 사기 대기 · 점수 매도 · 빈 규칙 · 점수표 비례 · 손익비 막음 · 반대 신호 · 입력 검사
@@ -40,18 +42,37 @@ globalThis.fetch = (async (input: any, init?: any) => {
 
 const { loadCandles } = await import('../server/db');
 const { computeIndicators } = await import('../server/indicatorService');
-const { completedDaily, decideRule } = await import('../server/autoTrading/ruleEngine');
-const { evaluateRule, exitLevels, scoreAt } = await import('../server/rules/engine');
+const { completedDaily, evaluateRule, exitLevels, scoreAt } = await import('../server/rules/engine');
+const { simulateRule } = await import('../server/autoTrading/ruleBacktest');
 const { evaluateSwing } = await import('../server/swingAnalyzer');
-const { watchlistSymbols } = await import('../server/analysis/targetHit');
 const { readUniverse } = await import('../server/universe');
-const { RULE_CHOICES } = await import('../src/types/ruleChoices');
 const { STANDARD_SWING } = await import('../src/types/strategyProfile');
 const { marketDate } = await import('../src/utils/marketDate');
 const T = await import('../src/types/tradingRule');
 const { ruleFieldErrors, ruleWarnings, parseRuleBody } = await import('../src/utils/ruleInput');
 type RuleBody = import('../src/types/tradingRule').RuleBody;
-type RuleConfig = import('../src/types/autoTrading').RuleConfig;
+/** 예전 규칙형 설정 모양 — 정답 파일이 담고 있다 */
+interface RuleConfig {
+  maShort: number;
+  maLong: number;
+  rsiBuyBelow: number;
+  rsiSellAbove: number;
+  useMaCross: boolean;
+  useRsi: boolean;
+}
+interface Fixture {
+  configs: RuleConfig[];
+  variants: { hardStopLossPercent: number; trailingStopEnabled: boolean; trailingStopPercent: number; takeProfitEnabled?: boolean; takeProfitPercent?: number }[];
+  symbols: {
+    symbol: string;
+    candles: [number, number, number, number, number, number][];
+    decisions: { actions: string; codes: string[] }[][];
+    backtests: { ruleReturn: number; holdReturn: number | null; trades: [number, number, number, number, number, string][] }[][];
+  }[];
+}
+const fixture = JSON.parse(fs.readFileSync(path.join(root, 'scripts/fixtures/crossRuleAnswers.json'), 'utf8')) as Fixture;
+const toCandles = (rows: Fixture['symbols'][number]['candles']): Candle[] =>
+  rows.map(([timestamp, open, high, low, close, volume]) => ({ timestamp, open, high, low, close, volume }));
 type Candle = import('../src/types/toss').Candle;
 type IndicatorSeries = import('../src/types/chart').IndicatorSeries;
 
@@ -79,54 +100,63 @@ function fromRuleConfig(r: RuleConfig): RuleBody {
 const FIXED_NOW = Date.parse('2026-10-07T00:00:00Z');
 
 // ── ① ─────────────────────────────────────────────────────────────────────
+/** 예전 decideRule 의 코드 → 새 엔진 코드 (매수는 점수 매수 하나로 모인다) */
+const mapCode = (old: string) => (old === 'golden' || old === 'rsi_rebound' ? 'score_buy' : old);
+
 async function testCross(): Promise<void> {
-  const syms = ['NVDA', 'AAPL', 'MSFT', 'AMZN', 'JPM', 'XOM', 'LLY', 'WMT', '005930', '000660'];
-  const configs: RuleConfig[] = [
-    ...RULE_CHOICES.map((c) => ({ ...c.rule }) as RuleConfig),
-    { maShort: 20, maLong: 60, rsiBuyBelow: 35, rsiSellAbove: 65, useMaCross: true, useRsi: true },
-  ];
   let rows = 0;
   let actionDiff = 0;
   let codeDiff = 0;
-  let reasonDiff = 0;
+  let tradeDiff = 0;
+  let runs = 0;
+  let trades = 0;
   const examples: string[] = [];
-  for (const s of syms) {
-    const c = completedDaily(loadCandles(s, '1d', 260), s, FIXED_NOW);
-    if (c.length < 30) {
-      check(`① ${s} 캔들`, false, `${c.length}봉뿐`);
-      continue;
-    }
+  for (const fx of fixture.symbols) {
+    const s = fx.symbol;
+    const c = toCandles(fx.candles);
     const series = await computeIndicators(c);
     const ctx = { symbol: s, candles: c, series };
-    for (let i = 1; i < c.length; i++) {
-      for (const cfg of configs) {
-        const body = fromRuleConfig(cfg);
-        for (const held of [false, true]) {
-          const old = decideRule(series, i, cfg, held, marketDate(c[i].timestamp, s));
+    for (const [k, cfg] of fixture.configs.entries()) {
+      const body = fromRuleConfig(cfg);
+      for (const [h, held] of [false, true].entries()) {
+        const ans = fx.decisions[k][h];
+        for (let i = 1; i < c.length; i++) {
           const neu = evaluateRule(ctx, i, body, { held }, { testOnlySkipRrGuard: true });
           rows++;
-          if (old.action !== neu.action) {
+          if (ans.actions[i - 1] !== neu.action[0]) {
             actionDiff++;
-            if (examples.length < 5) examples.push(`${s} i=${i} held=${held} ${old.action}≠${neu.action}`);
+            if (examples.length < 5) examples.push(`${s} i=${i} held=${held} ${ans.actions[i - 1]}≠${neu.action[0]}`);
           }
-          // 코드: 매수는 예전 golden/rsi_rebound → 새 score_buy, 그 밖은 같아야 한다
-          const expectCode = old.action === 'BUY' ? 'score_buy' : old.code;
-          if (expectCode !== neu.code) codeDiff++;
-          if (old.reason !== neu.reasons[0]) reasonDiff++;
+          if (mapCode(ans.codes[i - 1]) !== neu.code) codeDiff++;
+        }
+      }
+      // ①-b 백테스트 — 같은 규칙 + 예전 손절(늘 켬)·트레일링·익절 → 거래 목록이 같은지
+      for (const [v, variant] of fixture.variants.entries()) {
+        const rule = fromRuleConfig(cfg);
+        rule.sell.stopLoss = { on: true, percent: variant.hardStopLossPercent };
+        rule.sell.trailing = { on: variant.trailingStopEnabled, percent: variant.trailingStopPercent };
+        rule.sell.takeProfit = { on: Boolean(variant.takeProfitEnabled), percent: variant.takeProfitPercent ?? 10 };
+        const r = simulateRule(s, c, series, c.length - 250, rule, undefined, { testOnlySkipRrGuard: true });
+        const ans = fx.backtests[k][v];
+        const got = r.list.map((t) => [t.entryIdx, t.exitIdx, t.entry, t.exit, t.returnPct, t.exitKind]);
+        runs++;
+        trades += ans.trades.length;
+        if (JSON.stringify(got) !== JSON.stringify(ans.trades) || r.ruleReturn !== ans.ruleReturn || r.holdReturn !== ans.holdReturn) {
+          tradeDiff++;
+          if (examples.length < 8) examples.push(`백테스트 ${s} 규칙${k} 변형${v}: 거래 ${got.length} vs 정답 ${ans.trades.length}`);
         }
       }
     }
   }
-  check('① 교차와 같은 판단 (action)', actionDiff === 0, `${rows.toLocaleString('en-US')}행 중 다름 ${actionDiff}${examples.length ? ` 예: ${examples.join(', ')}` : ''}`);
-  check('① 판단 코드 (매수 = score_buy)', codeDiff === 0, `다름 ${codeDiff}`);
-  results.push(`INFO  ① 사유 문장이 다른 행 ${reasonDiff.toLocaleString('en-US')} / ${rows.toLocaleString('en-US')} (문장은 달라도 된다)`);
-  console.log(results.at(-1));
+  check('① 교차와 같은 판단 (정답 파일, action)', actionDiff === 0, `${rows.toLocaleString('en-US')}행 중 다름 ${actionDiff}${examples.length ? ` 예: ${examples.join(', ')}` : ''}`);
+  check('① 판단 코드 (예전 매수 코드 → score_buy)', codeDiff === 0, `다름 ${codeDiff}`);
+  check('①-b 백테스트 거래 목록 = 예전 simulateRule 정답', tradeDiff === 0, `${runs}번 실행 · 정답 거래 ${trades}건 · 다른 실행 ${tradeDiff}`);
 }
 
 // ── ② ─────────────────────────────────────────────────────────────────────
 async function testScore(): Promise<void> {
   const body = T.defaultRuleBody();
-  const syms = watchlistSymbols();
+  const syms = readUniverse().us.map((e) => e.symbol.toUpperCase());
   let days = 0;
   let scoreDiff = 0;
   let totalDiff = 0;
@@ -135,13 +165,13 @@ async function testScore(): Promise<void> {
   let planDiff = 0;
   let blocked = 0;
   let buys = 0;
+  let skipped = 0;
   const examples: string[] = [];
   const profile = { id: 'standard' as const, params: STANDARD_SWING };
   for (const s of syms) {
     const c = completedDaily(loadCandles(s, '1d', 300), s, FIXED_NOW);
     if (c.length < 60) {
-      results.push(`INFO  ② ${s} 건너뜀 — 끝난 일봉 ${c.length}개(60개 미만)`);
-      console.log(results.at(-1));
+      skipped++;
       continue;
     }
     const series = await computeIndicators(c);
@@ -179,7 +209,7 @@ async function testScore(): Promise<void> {
       }
     }
   }
-  check('② 5그룹 점수', scoreDiff === 0, `${syms.length}종목 · ${days}일 · 다른 그룹 점수 ${scoreDiff}${examples.length ? ` 예: ${examples.join(', ')}` : ''}`);
+  check('② 5그룹 점수', scoreDiff === 0, `${syms.length - skipped}종목(일봉 60개 미만 ${skipped} 제외) · ${days}일 · 다른 그룹 점수 ${scoreDiff}${examples.length ? ` 예: ${examples.join(', ')}` : ''}`);
   check('② 합계', totalDiff === 0, `다름 ${totalDiff}`);
   check('② 손익비로 막힌 날 = 손익비 강등 날', blockDiff === 0, `막힌 날 ${blocked} · 다름 ${blockDiff}`);
   check('② 매수 날 = 예전 STRONG·BUY 날', buyDiff === 0, `매수 ${buys} · 다름 ${buyDiff}`);

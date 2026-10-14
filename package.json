@@ -26,7 +26,6 @@
     "universe:update": "tsx scripts/universeUpdate.ts",
     "research:target": "tsx scripts/targetScreenResearch.ts",
     "research:sector": "tsx scripts/sectorPersistenceResearch.ts",
-    "research:rule": "tsx scripts/ruleResearch.ts",
     "rules:test": "tsx scripts/rulesSelfTest.ts",
     "design:lint": "tsx scripts/designLint.ts",
     "design:check": "tsx scripts/designCheck.ts"
