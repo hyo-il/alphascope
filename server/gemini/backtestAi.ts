@@ -1,307 +1,34 @@
 /**
- * 백테스트 AI 도움 두 가지 (v2.38.0, 「실험실 > 백테스트」) — **버튼 한 번에 Gemini 1회**, 버튼으로만 부른다.
- *
- * 1. 「AI에게 조건 물어보기」(`adviseBacktest`) — 고른 종목의 **시험 기간이 시작되기 바로 전 1년(252 완성 봉)** 숫자만 보낸다.
- *    ⚠️ 시험 기간의 자료를 보내지 않는다 — 같은 기간을 보고 고른 조건은 시험 결과를 실제보다 좋게 만든다.
- *    종목이 30개를 넘으면 분야별 평균 + 종목 수로 줄여 보낸다. 응답 중 **범위 밖 값은 버린다(고치지 않는다)**,
- *    단기 ≥ 장기면 이동평균 제안 전체를 버린다. 제안은 화면에서 [이 값으로 채우기]를 눌러야 칸에 들어간다.
- * 2. 「AI에게 결과 설명 듣기」(`explainBacktest`) — 그 결과의 숫자만 보낸다. 응답 문장 속 % 숫자가 입력 숫자(±0.05)에 없으면
- *    그 문장을 뺀다(뉴스 판정의 인용 검증과 같은 생각). 설명은 그 기록에 저장해 다시 열 때 Gemini 를 부르지 않는다.
+ * 백테스트 AI 도움 — 「AI에게 결과 설명 듣기」(`explainBacktest`, v2.38.0). **버튼 한 번에 Gemini 1회**, 버튼으로만 부른다.
+ * 그 결과의 숫자만 보낸다. 응답 문장 속 % 숫자가 입력 숫자(±0.05)에 없으면 그 문장을 뺀다(뉴스 판정의 인용 검증과 같은 생각).
+ * 설명은 그 기록에 저장해 다시 열 때 Gemini 를 부르지 않는다.
+ * v2.44.0 에 「AI에게 조건 물어보기」(조언)를 지웠다 — 방법이 「매매 규칙 고르기」 가 되어 채울 숫자 칸이 없어졌다.
  *
  * ⚠️ `gemini_analysis` 에 저장하지 않는다(매매 신호가 아니다). 주문·자동매매와 무관하다.
- * 프롬프트·스키마를 고치면 버전(`ADVICE_PROMPT_VERSION`·`EXPLAIN_PROMPT_VERSION`)을 올린다.
+ * 프롬프트·스키마를 고치면 버전(`EXPLAIN_PROMPT_VERSION`)을 올린다.
  */
 import { callGemini, type GeminiCallOptions, type GeminiCallResult } from './client';
-import { getCandles } from '../candleService';
-import { completedDaily } from '../autoTrading/ruleEngine';
-import { namesAndSectors, SEGMENT_DAYS } from '../autoTrading/ruleResearch';
-import { ENGINE_MA_PERIODS, RULE_LIMITS } from '../../src/types/autoTrading';
-import type { BacktestAdvice, BacktestCondition, BacktestCustomReport, BacktestExplain, BacktestInput, ConditionLabel } from '../../src/types/backtest';
+import type { BacktestCondition, BacktestCustomReport, BacktestExplain, ConditionLabel } from '../../src/types/backtest';
 import { CONDITION_LABELS, methodName } from '../../src/types/backtest';
+import { ruleBuyText, ruleSellText } from '../../src/utils/ruleText';
 
 // v2 (v2.39.0): 조언에 익절 추가 · 설명은 조건 비교 모양(조건 1개도 같은 모양) + MDD·Profit Factor 숫자
 // v3 (v2.40.0): 초등학생도 아는 쉬운 말 규칙(전문용어 풀이·한 문장 40자 안팎·숫자 1~2개·용어집 이름·"방법 1·2·3")
-export const ADVICE_PROMPT_VERSION = 'bt-advice-v3';
-export const EXPLAIN_PROMPT_VERSION = 'bt-explain-v3';
+/** v4 (v2.44.0) — 방법 = 매매 규칙(이름·매수·매도 조건 문장). 프롬프트·스키마를 고치면 올린다 */
+export const EXPLAIN_PROMPT_VERSION = 'bt-explain-v4';
 
-/** 쉬운 말 규칙 (v2.40.0) — 조언·설명 두 시스템 규칙이 함께 쓴다 */
+/** 쉬운 말 규칙 (v2.40.0) */
 const EASY_RULES = [
   '쉬운 말 규칙: 초등학생도 아는 말로 씁니다. MDD·Profit Factor·RSI·이동평균·트레일링 같은 전문용어를 쓰면 같은 문장에서 쉬운 말로 풀어 줍니다',
   '(예: "MDD(가장 크게 떨어졌던 폭)", "트레일링(최고가보다 정한 만큼 내려가면 매도)").',
   '한 문장은 40자 안팎, 한 문장에 숫자는 1~2개만 씁니다.',
   '용어: 사고팔기는 "매수·매도", 산 값은 "매수가", 시험한 조건 묶음은 "방법 1·방법 2·방법 3" 이라고 부릅니다.',
 ].join(' ');
-/** 이보다 많으면 분야별 평균으로 줄여 보낸다 */
-const SUMMARIZE_OVER = 30;
-const PRE_DAYS = 252;
-/** 앞 1년의 첫날에도 60일선이 있어야 한다 */
-const PRE_WARMUP = 60;
-
 type Caller = <T>(o: GeminiCallOptions) => Promise<GeminiCallResult<T>>;
 const defaultCaller: Caller = (o) => callGemini(o);
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
-// ── 1. 조건 물어보기 ──────────────────────────────────────────────────────────
-
-export interface PreYearFeatures {
-  /** 연 변동성 % (일간 수익률 표준편차 × √252) */
-  volatility: number;
-  /** ATR% 평균 (그날 움직임 폭 ÷ 종가) */
-  atrPct: number;
-  /** 그 1년 수익률 % */
-  return1y: number;
-  /** 60일선 위에 있던 날 비율 % */
-  aboveMa60Pct: number;
-  /** 5·20일선 교차 횟수(위·아래 모두) */
-  maCross5x20: number;
-  /** RSI(14) 30 이하·70 이상이었던 날 비율 % */
-  rsiLow30Pct: number;
-  rsiHigh70Pct: number;
-}
-
-/** 종가 배열 → Wilder RSI(14) 시리즈 (앞쪽은 null) */
-function rsiSeries(closes: number[], period = 14): (number | null)[] {
-  const out: (number | null)[] = closes.map(() => null);
-  if (closes.length <= period) return out;
-  let gain = 0;
-  let loss = 0;
-  for (let i = 1; i <= period; i++) {
-    const d = closes[i] - closes[i - 1];
-    gain += Math.max(d, 0);
-    loss += Math.max(-d, 0);
-  }
-  gain /= period;
-  loss /= period;
-  const val = () => (loss === 0 ? 100 : 100 - 100 / (1 + gain / loss));
-  out[period] = val();
-  for (let i = period + 1; i < closes.length; i++) {
-    const d = closes[i] - closes[i - 1];
-    gain = (gain * (period - 1) + Math.max(d, 0)) / period;
-    loss = (loss * (period - 1) + Math.max(-d, 0)) / period;
-    out[i] = val();
-  }
-  return out;
-}
-
-const smaAt = (closes: number[], i: number, n: number) => {
-  if (i < n - 1) return null;
-  let s = 0;
-  for (let k = i - n + 1; k <= i; k++) s += closes[k];
-  return s / n;
-};
-
-/** 순수 함수 — 캔들(완성 봉)과 시험 첫 봉 위치로 앞 1년 숫자를 낸다. 모자라면 null */
-export function preYearFeatures(candles: { open: number; high: number; low: number; close: number }[], first: number): PreYearFeatures | null {
-  const from = first - PRE_DAYS;
-  if (from - PRE_WARMUP < 0) return null;
-  const closes = candles.map((c) => c.close);
-  const rsi = rsiSeries(closes);
-  const rets: number[] = [];
-  let trSum = 0;
-  let above = 0;
-  let crosses = 0;
-  let low = 0;
-  let high = 0;
-  for (let i = from; i < first; i++) {
-    const prev = closes[i - 1];
-    rets.push(closes[i] / prev - 1);
-    const c = candles[i];
-    trSum += Math.max(c.high - c.low, Math.abs(c.high - prev), Math.abs(c.low - prev)) / c.close;
-    const ma60 = smaAt(closes, i, 60);
-    if (ma60 != null && closes[i] > ma60) above++;
-    const s0 = smaAt(closes, i - 1, 5);
-    const l0 = smaAt(closes, i - 1, 20);
-    const s1 = smaAt(closes, i, 5);
-    const l1 = smaAt(closes, i, 20);
-    if (s0 != null && l0 != null && s1 != null && l1 != null && Math.sign(s0 - l0) !== Math.sign(s1 - l1) && s1 !== l1) crosses++;
-    const r = rsi[i];
-    if (r != null && r <= 30) low++;
-    if (r != null && r >= 70) high++;
-  }
-  const m = rets.reduce((a, b) => a + b, 0) / rets.length;
-  const sd = Math.sqrt(rets.reduce((a, b) => a + (b - m) ** 2, 0) / (rets.length - 1));
-  return {
-    volatility: r2(sd * Math.sqrt(252) * 100),
-    atrPct: r2((trSum / PRE_DAYS) * 100),
-    return1y: r2((closes[first - 1] / closes[from - 1] - 1) * 100),
-    aboveMa60Pct: r2((above / PRE_DAYS) * 100),
-    maCross5x20: crosses,
-    rsiLow30Pct: r2((low / PRE_DAYS) * 100),
-    rsiHigh70Pct: r2((high / PRE_DAYS) * 100),
-  };
-}
-
-interface RawAdvice {
-  method?: string;
-  maShort?: number;
-  maLong?: number;
-  rsiBuyBelow?: number;
-  rsiSellAbove?: number;
-  useMaCross?: boolean;
-  useRsi?: boolean;
-  hardStopLossPercent?: number;
-  trailingStopEnabled?: boolean;
-  trailingStopPercent?: number;
-  takeProfitEnabled?: boolean;
-  takeProfitPercent?: number;
-  reasons?: string[];
-  cautions?: string[];
-}
-
-const ADVICE_SCHEMA = {
-  type: 'OBJECT',
-  properties: {
-    method: { type: 'STRING', enum: ['trend', 'dip', 'both', 'custom'] },
-    maShort: { type: 'INTEGER', description: '5·20·60 중 하나' },
-    maLong: { type: 'INTEGER', description: '20·60·120 중 하나, maShort 보다 커야 한다' },
-    rsiBuyBelow: { type: 'NUMBER' },
-    rsiSellAbove: { type: 'NUMBER' },
-    useMaCross: { type: 'BOOLEAN' },
-    useRsi: { type: 'BOOLEAN' },
-    hardStopLossPercent: { type: 'NUMBER' },
-    trailingStopEnabled: { type: 'BOOLEAN' },
-    trailingStopPercent: { type: 'NUMBER' },
-    takeProfitEnabled: { type: 'BOOLEAN' },
-    takeProfitPercent: { type: 'NUMBER' },
-    reasons: { type: 'ARRAY', items: { type: 'STRING' }, maxItems: 3 },
-    cautions: { type: 'ARRAY', items: { type: 'STRING' }, maxItems: 2 },
-  },
-  required: ['method', 'useMaCross', 'useRsi', 'hardStopLossPercent', 'trailingStopEnabled', 'reasons', 'cautions'],
-};
-
-const ADVICE_SYSTEM = [
-  '당신은 주식 초보자에게 자동매매 규칙의 시험 조건을 제안하는 도우미입니다.',
-  '규칙: 1) 사용자가 보낸 숫자에 없는 사실(뉴스·실적·전망 등)을 쓰지 않습니다. 2) 수익을 약속하지 않습니다.',
-  '3) 쉬운 한국어로, 이유(reasons)는 보낸 숫자를 근거로 3개 이하, 주의(cautions)는 2개 이하로 씁니다.',
-  '4) 값은 주어진 범위 안에서만 고릅니다. 이동평균 단기는 5·20·60, 장기는 20·60·120 중 하나이며 단기 < 장기입니다.',
-  '5) method: trend = 이동평균 교차만, dip = RSI 만, both = 둘 다, custom = 그 밖.',
-  `6) ${EASY_RULES} 이유·주의 문장에도 이 규칙을 지킵니다.`,
-].join('\n');
-
-const LIMIT_TEXT = [
-  `이동평균 일수: ${ENGINE_MA_PERIODS.join('·')}일 중에서(단기 < 장기)`,
-  `RSI 매수 기준(이 값 이하에서 반등하면 매수): ${RULE_LIMITS.rsiBuyBelow.min}~${RULE_LIMITS.rsiBuyBelow.max}`,
-  `RSI 매도 기준(이 값 이상이면 매도): ${RULE_LIMITS.rsiSellAbove.min}~${RULE_LIMITS.rsiSellAbove.max}`,
-  `손절 %: ${RULE_LIMITS.hardStopLossPercent.min}~${RULE_LIMITS.hardStopLossPercent.max}`,
-  `트레일링 %: ${RULE_LIMITS.trailingStopPercent.min}~${RULE_LIMITS.trailingStopPercent.max}`,
-  `익절 %(매수가보다 이만큼 오르면 모두 매도, 끌 수 있다): ${RULE_LIMITS.takeProfitPercent.min}~${RULE_LIMITS.takeProfitPercent.max}`,
-].join('\n');
-
-const FEATURE_LABEL: Record<keyof PreYearFeatures, string> = {
-  volatility: '연 변동성 %',
-  atrPct: 'ATR% 평균',
-  return1y: '그 1년 수익률 %',
-  aboveMa60Pct: '60일선 위 날 비율 %',
-  maCross5x20: '5·20일선 교차 횟수',
-  rsiLow30Pct: 'RSI 30 이하 날 비율 %',
-  rsiHigh70Pct: 'RSI 70 이상 날 비율 %',
-};
-const KEYS = Object.keys(FEATURE_LABEL) as (keyof PreYearFeatures)[];
-
-/** 범위 밖 값은 **버린다** — 고쳐서 넣으면 AI 가 말하지 않은 값이 된다 */
-export function validateAdvice(raw: RawAdvice): Pick<BacktestAdvice, 'method' | 'values' | 'reasons' | 'cautions' | 'dropped'> {
-  const values: BacktestAdvice['values'] = {};
-  const dropped: string[] = [];
-  const inR = (v: unknown, l: { min: number; max: number }) => typeof v === 'number' && Number.isFinite(v) && v >= l.min && v <= l.max;
-  const isMa = (v: unknown) => (ENGINE_MA_PERIODS as readonly number[]).includes(v as number);
-
-  if (raw.maShort != null || raw.maLong != null) {
-    const okS = raw.maShort == null || isMa(raw.maShort);
-    const okL = raw.maLong == null || isMa(raw.maLong);
-    if (!okS) dropped.push(`단기 이동평균 ${raw.maShort}일`);
-    if (!okL) dropped.push(`장기 이동평균 ${raw.maLong}일`);
-    if (okS && okL && raw.maShort != null && raw.maLong != null && raw.maShort >= raw.maLong) {
-      // 단기 ≥ 장기면 이동평균 제안 전체를 버린다
-      dropped.push(`이동평균 제안 전체(단기 ${raw.maShort}일 ≥ 장기 ${raw.maLong}일)`);
-    } else {
-      if (okS && raw.maShort != null) values.maShort = raw.maShort;
-      if (okL && raw.maLong != null) values.maLong = raw.maLong;
-      if (typeof raw.useMaCross === 'boolean') values.useMaCross = raw.useMaCross;
-    }
-  } else if (typeof raw.useMaCross === 'boolean') values.useMaCross = raw.useMaCross;
-
-  if (raw.rsiBuyBelow != null) {
-    if (inR(raw.rsiBuyBelow, RULE_LIMITS.rsiBuyBelow)) values.rsiBuyBelow = raw.rsiBuyBelow;
-    else dropped.push(`RSI 매수 기준 ${raw.rsiBuyBelow}`);
-  }
-  if (raw.rsiSellAbove != null) {
-    if (inR(raw.rsiSellAbove, RULE_LIMITS.rsiSellAbove)) values.rsiSellAbove = raw.rsiSellAbove;
-    else dropped.push(`RSI 매도 기준 ${raw.rsiSellAbove}`);
-  }
-  if (typeof raw.useRsi === 'boolean') values.useRsi = raw.useRsi;
-  if (raw.hardStopLossPercent != null) {
-    if (inR(raw.hardStopLossPercent, RULE_LIMITS.hardStopLossPercent)) values.hardStopLossPercent = raw.hardStopLossPercent;
-    else dropped.push(`손절 ${raw.hardStopLossPercent}%`);
-  }
-  if (typeof raw.trailingStopEnabled === 'boolean') values.trailingStopEnabled = raw.trailingStopEnabled;
-  if (raw.trailingStopPercent != null) {
-    if (inR(raw.trailingStopPercent, RULE_LIMITS.trailingStopPercent)) values.trailingStopPercent = raw.trailingStopPercent;
-    else dropped.push(`트레일링 ${raw.trailingStopPercent}%`);
-  }
-  if (typeof raw.takeProfitEnabled === 'boolean') values.takeProfitEnabled = raw.takeProfitEnabled;
-  if (raw.takeProfitPercent != null) {
-    if (inR(raw.takeProfitPercent, RULE_LIMITS.takeProfitPercent)) values.takeProfitPercent = raw.takeProfitPercent;
-    else dropped.push(`익절 ${raw.takeProfitPercent}%`);
-  }
-  const method = (['trend', 'dip', 'both', 'custom'] as const).find((m) => m === raw.method) ?? null;
-  const strs = (a: unknown, n: number) => (Array.isArray(a) ? a.filter((x): x is string => typeof x === 'string' && x.trim() !== '').slice(0, n) : []);
-  return { method, values, reasons: strs(raw.reasons, 3), cautions: strs(raw.cautions, 2), dropped };
-}
-
-export async function adviseBacktest(input: Pick<BacktestInput, 'symbols' | 'years'> & { current: Omit<BacktestCondition, 'label'> }, caller: Caller = defaultCaller): Promise<BacktestAdvice> {
-  const days = SEGMENT_DAYS * input.years;
-  const info = namesAndSectors(input.symbols);
-  const rows: { symbol: string; sector: string; f: PreYearFeatures }[] = [];
-  const excluded: BacktestAdvice['excluded'] = [];
-  for (const symbol of input.symbols) {
-    try {
-      const candles = completedDaily(await getCandles(symbol, '1d', days + PRE_DAYS + PRE_WARMUP + 20), symbol);
-      const f = preYearFeatures(candles, candles.length - days);
-      if (!f) throw new Error(`시험 기간 앞 1년 일봉이 모자랍니다(${candles.length}개)`);
-      rows.push({ symbol, sector: info.get(symbol)?.sector ?? '분야 미확인', f });
-    } catch (e) {
-      excluded.push({ symbol, reason: (e as Error).message });
-    }
-  }
-  if (!rows.length) throw new AdviceInputError('앞 1년 일봉이 있는 종목이 없어 물어볼 수 없습니다.');
-
-  const summarized = rows.length > SUMMARIZE_OVER;
-  const head = `| ${summarized ? '분야 | 종목 수' : '종목 | 분야'} | ${KEYS.map((k) => FEATURE_LABEL[k]).join(' | ')} |`;
-  const lines: string[] = [head];
-  if (summarized) {
-    const groups = new Map<string, PreYearFeatures[]>();
-    for (const r of rows) groups.set(r.sector, [...(groups.get(r.sector) ?? []), r.f]);
-    for (const [sector, fs] of groups) {
-      lines.push(`| ${sector} | ${fs.length} | ${KEYS.map((k) => r2(fs.reduce((a, f) => a + f[k], 0) / fs.length)).join(' | ')} |`);
-    }
-  } else {
-    for (const r of rows) lines.push(`| ${r.symbol} | ${r.sector} | ${KEYS.map((k) => r.f[k]).join(' | ')} |`);
-  }
-  const c = input.current;
-  const text = [
-    `시험 기간: 최근 ${input.years}년. 아래 숫자는 그 **시험 기간이 시작되기 전 1년(252거래일)** 의 숫자입니다(시험 기간 자료는 보내지 않습니다).`,
-    summarized ? `종목이 ${rows.length}개라 분야별 평균으로 줄였습니다.` : `종목 ${rows.length}개.`,
-    '',
-    lines.join('\n'),
-    '',
-    '고를 수 있는 값의 범위:',
-    LIMIT_TEXT,
-    '',
-    `지금 화면의 조건: 이동평균 사용 ${c.rule.useMaCross ? '예' : '아니오'}(단기 ${c.rule.maShort}일·장기 ${c.rule.maLong}일), ` +
-      `RSI 사용 ${c.rule.useRsi ? '예' : '아니오'}(매수 ${c.rule.rsiBuyBelow} 이하·매도 ${c.rule.rsiSellAbove} 이상), ` +
-      `손절 ${c.hardStopLossPercent}%, 트레일링 ${c.trailingStopEnabled ? `${c.trailingStopPercent}%` : '끔'}, 익절 ${c.takeProfitEnabled ? `${c.takeProfitPercent}%` : '끔'}.`,
-    '',
-    '이 종목들을 시험할 때 어떤 조건이 어울릴지 제안해 주세요.',
-  ].join('\n');
-
-  const res = await caller<RawAdvice>({ system: ADVICE_SYSTEM, parts: [{ text }], schema: ADVICE_SCHEMA, temperature: 0.3 });
-  return { ...validateAdvice(res.data ?? {}), summarized, excluded, sent: rows.length, promptVersion: ADVICE_PROMPT_VERSION, model: res.model };
-}
-
-export class AdviceInputError extends Error {}
-
-// ── 2. 결과 설명 듣기 ─────────────────────────────────────────────────────────
 
 interface RawExplain {
   summary?: string[];
@@ -344,9 +71,7 @@ const EXPLAIN_SYSTEM = [
 ].join('\n');
 
 const ruleText = (c: BacktestCondition, n: (v: number | null | undefined) => string) =>
-  `이동평균 ${c.rule.useMaCross ? `사용(단기 ${n(c.rule.maShort)}일·장기 ${n(c.rule.maLong)}일)` : '안 씀'} · ` +
-  `RSI ${c.rule.useRsi ? `사용(매수 ${n(c.rule.rsiBuyBelow)} 이하 반등·매도 ${n(c.rule.rsiSellAbove)} 이상)` : '안 씀'} · ` +
-  `손절 ${n(c.hardStopLossPercent)}% · 트레일링 ${c.trailingStopEnabled ? `${n(c.trailingStopPercent)}%` : '끔'} · 익절 ${c.takeProfitEnabled ? `${n(c.takeProfitPercent)}%` : '끔'}`;
+  `매매 규칙 「${c.ruleName}」 — 매수: ${ruleBuyText(c.rule, (v) => n(v))} / 매도: ${ruleSellText(c.rule, (v) => n(v))}`;
 
 /** 설명에 보낼 숫자 표 — 검증도 이 숫자로 한다(차이 숫자도 미리 계산해 넣는다 — 모델이 새로 빼지 않게) */
 export function explainPayload(r: BacktestCustomReport): { text: string; numbers: number[] } {

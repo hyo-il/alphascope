@@ -9,10 +9,15 @@ const projectRoot = path.resolve(here, '..');
 
 let db: Database.Database | null = null;
 
+/** DB 파일 경로 (`DB_PATH`, 기본 ./db/alphascope.db) — 데이터 정리의 백업 위치가 이 폴더 아래 `backup/` 이다 */
+export function dbFilePath(): string {
+  return path.resolve(projectRoot, process.env.DB_PATH ?? './db/alphascope.db');
+}
+
 export function getDb(): Database.Database {
   if (db) return db;
 
-  const dbPath = path.resolve(projectRoot, process.env.DB_PATH ?? './db/alphascope.db');
+  const dbPath = dbFilePath();
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
   db = new Database(dbPath);

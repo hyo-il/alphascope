@@ -56,12 +56,14 @@ import { BacktestBusyError, getBacktestProgress, startCustomBacktest } from './a
 import { deleteBacktest, getBacktest, listBacktests, saveExplain } from './autoTrading/researchStore';
 import { RuleNameTakenError, copyRule, createRule, deleteRule, getRule, listRules, updateRule } from './rules/store';
 import { parseRuleBody, ruleFieldErrors, ruleNameError } from '../src/utils/ruleInput';
-import type { RuleBody } from '../src/types/tradingRule';
+import { cloneRuleBody, type RuleBody } from '../src/types/tradingRule';
 import { namesAndSectors, researchTargets } from './autoTrading/ruleResearch';
-import { AdviceInputError, adviseBacktest, explainBacktest } from './gemini/backtestAi';
-import { maPeriodErrors, parseBacktestInput } from '../src/utils/backtestInput';
+import { explainBacktest } from './gemini/backtestAi';
+import { parseBacktestInput } from '../src/utils/backtestInput';
+import { runDataResetV2440 } from './dataReset/v2_44_0';
+import { BACKTEST_SECTORS, methodName, type BacktestCondition } from '../src/types/backtest';
 import type { AccountStrategy } from '../src/types/autoTrading';
-import { BACKTEST_SECTORS } from '../src/types/backtest';
+
 import { EngineDownError } from './diagnose/report';
 import {
   deleteReport as deleteDiagnoseReport,
@@ -101,6 +103,7 @@ import {
   getStrategy,
   listStrategies,
   saveStrategy,
+  StrategyRuleError,
   deleteStrategy,
 } from './autoTrading/store';
 import { watchlistSymbols } from './analysis/targetHit';
@@ -789,35 +792,18 @@ app.get('/api/auto-trading/strategies/:id', (req, res) => {
   }
 });
 
-/** 설정 저장 — 값 검증은 store.normalizeStrategy 가 한다 */
+/**
+ * 설정 저장 — 값 검증은 store.normalizeStrategy 가 한다.
+ * ⚠️ 켜려면 매매 규칙이 있어야 한다(없거나 지워진 규칙이면 400 「매매 규칙을 고르세요.」 — v2.44.0).
+ */
 app.put('/api/auto-trading/strategies/:id', (req, res) => {
   try {
     const id = accountIdOf(req);
     getPaperAccount(id); // 없는 계좌면 여기서 400
-    // 이동평균은 **새로 저장하는 값만** 5·20·60·120 중 하나(v2.41.0 — 백테스트와 같은 검사). 이미 저장된 옛 값(예 13)은
-    // 그대로 다시 보내면 받는다 — 판정은 지금처럼 pickMa 가 가까운 값으로 계산한다(판정 불변).
     const body = (req.body ?? {}) as Partial<AccountStrategy>;
-    if (body.rule) {
-      const saved = getStrategy(id).rule;
-      const changed = {
-        maShort: body.rule.maShort !== saved.maShort ? body.rule.maShort : undefined,
-        maLong: body.rule.maLong !== saved.maLong ? body.rule.maLong : undefined,
-      };
-      if (changed.maShort !== undefined || changed.maLong !== undefined) {
-        const errs = maPeriodErrors({ maShort: body.rule.maShort ?? saved.maShort, maLong: body.rule.maLong ?? saved.maLong });
-        // 바뀐 칸만 일수를 본다(그대로 둔 옛 값은 받는다). 단기 ≥ 장기는 둘 다 넷 중 하나일 때만 나오는 오류다
-        const msg =
-          (changed.maShort !== undefined ? errs.maShort : undefined) ??
-          (changed.maLong !== undefined ? errs.maLong : undefined) ??
-          (errs.maLong === '장기는 단기보다 길어야 합니다.' ? errs.maLong : undefined);
-        if (msg) {
-          res.status(400).json({ error: msg });
-          return;
-        }
-      }
-    }
-    res.json({ strategy: saveStrategy(id, body) });
+    res.json({ strategy: saveStrategy(id, body, (ruleId) => getRule(ruleId) != null) });
   } catch (e) {
+    if (e instanceof StrategyRuleError) return res.status(400).json({ error: e.message });
     failPaper(res, e);
   }
 });
@@ -1582,21 +1568,46 @@ app.delete('/api/diagnose/reports/:id', (req, res) => {
   }
 });
 
-// -- 백테스트 (v2.38.0, 「실험실 > 백테스트」 — 내가 고른 종목 · 내가 정한 조건) -----------------------
+// -- 백테스트 (v2.38.0 → v2.44.0, 「실험실 > 백테스트」 — 내가 고른 종목 · 내가 고른 매매 규칙) ----------
 //
-// 계산은 `autoTrading/ruleResearch.ts` 의 `runCustomBacktest`(v2.37.0 구간·재현·기준선·누설 검사 함수 그대로)를 백그라운드로.
-// 주문을 내지 않는다. 같은 날 같은 입력이면 저장된 결과를 돌려준다(강제로 다시 계산은 ?force=1).
-// v2.37.0 「미리 정한 시험」 은 화면에서 실행하지 않는다 — `npm run research:rule` 로만, 결과는 같은 표에 kind 'fixed' 로 쌓여 지난 기록에서 읽는다.
+// 계산은 `autoTrading/ruleResearch.ts` 의 `runCustomBacktest`(구간·재현·기준선·누설 검사 — 판단은 계좌와 같은 `evaluateRule`)를 백그라운드로.
+// 주문을 내지 않는다. 같은 날 같은 입력(규칙 내용까지)이면 저장된 결과를 돌려준다(강제로 다시 계산은 ?force=1).
+// 예전 「미리 정한 시험」(`npm run research:rule`)과 「AI에게 조건 물어보기」 는 v2.44.0 에 지웠다.
 
 app.post('/api/backtest/run', async (req, res) => {
   const parsed = parseBacktestInput(req.body);
   if ('error' in parsed) return res.status(400).json({ error: parsed.error });
+  // 방법마다 규칙을 찾아 **그때의 이름·내용**을 입력에 넣는다(기록에 남는다 — 나중에 규칙을 고쳐도 그때 조건이 남는다, v2.44.0)
+  const conditions: BacktestCondition[] = [];
+  for (const c of parsed.input.conditions) {
+    const rule = getRule(c.ruleId);
+    if (!rule) return res.status(400).json({ error: `${parsed.input.conditions.length > 1 ? `${methodName(c.label)}: ` : ''}매매 규칙을 찾을 수 없습니다. 다시 고르세요.` });
+    conditions.push({ label: c.label, ruleId: rule.id, ruleName: rule.name, rule: cloneRuleBody(rule) });
+  }
   try {
     const force = req.query.force === '1' || req.body?.force === true;
-    res.json({ progress: await startCustomBacktest(parsed.input, force) });
+    res.json({ progress: await startCustomBacktest({ ...parsed.input, conditions }, force) });
   } catch (e) {
     if (e instanceof BacktestBusyError) return res.status(409).json({ error: e.message });
     if (e instanceof EngineDownError) return res.status(503).json({ error: '지표 엔진이 꺼져 있어 계산할 수 없습니다.', engineDown: true });
+    fail(res, e);
+  }
+});
+
+/**
+ * 종목 이름·분야 (v2.44.0, 종목 목록 표 `common/SymbolTable`) — 이름은 카탈로그(한글), 분야는 종목 지도와 같은 `stock_profiles` 의 한글 이름.
+ * 여기서 yfinance 를 부르지 않는다(없으면 null — 화면이 「기타」).
+ */
+app.get('/api/symbols/info', (req, res) => {
+  const symbols = String(req.query.symbols ?? '')
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter((s) => /^[A-Z0-9.\-]{1,20}$/.test(s))
+    .slice(0, 200);
+  try {
+    const info = namesAndSectors(symbols);
+    res.json({ items: symbols.map((symbol) => ({ symbol, name: info.get(symbol)?.name ?? null, sector: info.get(symbol)?.sector ?? null })) });
+  } catch (e) {
     fail(res, e);
   }
 });
@@ -1621,31 +1632,12 @@ app.get('/api/backtest/universe', async (_req, res) => {
   }
 });
 
-/** 「AI에게 조건 물어보기」 — Gemini 1회. 시험 기간 앞 1년 숫자만 보낸다(`gemini/backtestAi.ts`) */
-app.post('/api/backtest/advice', async (req, res) => {
-  const reason = geminiDisabledReason();
-  if (reason) return res.status(503).json({ error: reason, geminiDisabled: true });
-  const parsed = parseBacktestInput(req.body);
-  if ('error' in parsed) return res.status(400).json({ error: parsed.error });
-  // 지금 고친 조건(몸의 `label`, 없으면 A)을 「지금 화면의 조건」 으로 보낸다 (v2.39.0)
-  const { symbols, years, conditions } = parsed.input;
-  const { label: _label, ...current } = conditions.find((c) => c.label === req.body?.label) ?? conditions[0];
-  try {
-    res.json({ advice: await adviseBacktest({ symbols, years, current }) });
-  } catch (e) {
-    if (e instanceof AdviceInputError) return res.status(400).json({ error: e.message });
-    if (e instanceof GeminiError) return res.status(e.rateLimited ? 429 : 502).json({ error: e.message });
-    fail(res, e);
-  }
-});
-
 /** 「AI에게 결과 설명 듣기」 — Gemini 1회, 그 기록에 저장(다시 열 때는 부르지 않는다) */
 app.post('/api/backtest/explain', async (req, res) => {
   const id = Number(req.body?.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'id 가 올바르지 않습니다.' });
   const found = getBacktest(id);
   if (!found) return res.status(404).json({ error: '결과를 찾을 수 없습니다.' });
-  if (found.detail.kind !== 'custom') return res.status(400).json({ error: '미리 정한 시험 결과는 설명을 받지 않습니다.' });
   if (found.detail.explain) return res.json({ explain: found.detail.explain });
   const reason = geminiDisabledReason();
   if (reason) return res.status(503).json({ error: reason, geminiDisabled: true });
@@ -1767,8 +1759,9 @@ app.delete('/api/rules/:id', (req, res) => {
   const id = ruleIdOf(req.params.id);
   if (!id) return res.status(400).json({ error: 'id 가 올바르지 않습니다.' });
   try {
-    if (!deleteRule(id)) return res.status(404).json({ error: '규칙을 찾을 수 없습니다.' });
-    res.json({ ok: true });
+    const detached = deleteRule(id);
+    if (!detached) return res.status(404).json({ error: '규칙을 찾을 수 없습니다.' });
+    res.json({ ok: true, disabledAccounts: detached });
   } catch (e) {
     fail(res, e);
   }
@@ -1788,6 +1781,12 @@ app.post('/api/rules/:id/copy', (req, res) => {
 
 const port = Number(process.env.API_PORT ?? 4000);
 getDb(); // 시작 시 스키마 생성
+// v2.44.0 데이터 정리 — 처음 켜질 때 한 번만(백업 확인 후). 이미 했으면 아무것도 하지 않는다. 스케줄러보다 먼저
+try {
+  runDataResetV2440();
+} catch (e) {
+  console.error('[data-reset v2.44.0] 실패 — 다음 시작 때 다시 시도합니다:', e);
+}
 
 /*
  * ⚠️ 루프백에만 바인딩한다. 기본값(0.0.0.0)은 같은 공유기 아래의 다른 기기에서도

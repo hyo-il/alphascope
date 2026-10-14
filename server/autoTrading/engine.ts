@@ -1,52 +1,46 @@
 /**
- * 계좌 한 개의 자동매매 한 바퀴.
+ * 계좌 한 개의 자동매매 (v2.44.0 — 매매 규칙 엔진).
  *
- * 순서가 중요하다:
- *   ① **청산 검사**(하드 손절 · 트레일링) — 분석 주기와 무관하게 먼저 돈다.
- *      급락은 60분을 기다려 주지 않는다.
- *   ② 보유 종목 재평가 (AI: Gemini 가 SELL/HOLD / 규칙: 데드크로스·RSI 과열)
- *   ③ 미보유 종목 매수 판단
+ * - ① **청산 검사**(매 틱 = 1분): 규칙의 매도 조건 손절 → 익절 → 트레일링. 꺼진 조건은 보지 않는다. 그 종목 시장이 열려 있을 때만.
+ * - ② **신호 판단**(종목마다 하루 한 번): 그 종목 시장이 열려 있고 그 시장 날짜로 오늘 아직 보지 않았으면 —
+ *   일봉 300개 → 끝난 봉만(`completedDaily`) → 지표 한 번 → 마지막 봉 i 로 `evaluateRule`. BUY + 미보유 → 안전장치를 지나면 매수,
+ *   SELL + 보유 → 전량 매도. 캔들·지표를 못 불러오면 판단하지 않은 것으로 두고 다음 틱에 다시 본다.
+ * - 손절(hard_stop)로 판 날을 계좌 × 종목별로 남겨 「손절 뒤 다시 매수」 대기(`lastStopDate`)에 쓴다. 트레일링·익절·신호 매도는 남기지 않는다.
  *
  * ⚠️ 실제 주문은 어디에도 나가지 않는다. `createOrder` 는 모의 계좌(SQLite) 전용이다.
+ * ⚠️ 판단은 `evaluateRule` 하나 — 여기서 조건을 다시 계산하지 않는다(백테스트와 같은 판단).
  */
 
 import { createOrder, valuePositions, getAccount } from '../paperTradingService';
-import { runAnalysis, signalDirection } from '../gemini/analyze';
-import { isGeminiEnabled } from '../gemini/client';
-import { evaluateRule } from './ruleEngine';
+import { getCandles } from '../candleService';
+import { computeIndicators } from '../indicatorService';
+import { completedDaily, evaluateRule, exitLevels } from '../rules/engine';
 import { planBuy } from './sizing';
-import { clearPeak, getPeak, updatePeak } from './store';
+import { clearPeak, getJudgedDay, getPeak, getStopDay, setJudgedDay, setStopDay, updatePeak } from './store';
 import { dailyLossBlock, earningsGuard } from './guards';
+import { isSymbolMarketOpen } from '../marketHours';
+import { marketDate } from '../../src/utils/marketDate';
 import type { AccountStrategy, AutoTradeRunResult, DecisionCode } from '../../src/types/autoTrading';
+import type { RuleBody } from '../../src/types/tradingRule';
 
 type Note = AutoTradeRunResult['notes'][number];
 
+/** 신호 판단에 받는 일봉 수 */
+const CANDLE_LIMIT = 300;
+/** 이보다 적으면 판단하지 않는다(그날은 판단한 것으로 친다 — 데이터가 늘 때까지 같은 답이다) */
+const MIN_CANDLES = 30;
+
 const pct = (value: number) => `${value > 0 ? '+' : ''}${value.toFixed(2)}%`;
 
-/** 보유 종목의 현재가·수익률 — 청산 판단의 입력 */
 async function valuedPositions(accountId: number) {
   const account = getAccount(accountId);
   const { positions } = await valuePositions(accountId, account.currency);
   return positions;
 }
 
-async function sell(
-  accountId: number,
-  symbol: string,
-  quantity: number,
-  reason: string,
-  /** 판단 종류 (v2.32.0) — 화면의 쉬운 말용. 판단 자체에는 쓰지 않는다 */
-  code: DecisionCode,
-): Promise<Note> {
+async function sell(accountId: number, symbol: string, quantity: number, reason: string, code: DecisionCode): Promise<Note> {
   try {
-    const result = await createOrder({
-      accountId,
-      symbol,
-      side: 'SELL',
-      orderType: 'MARKET',
-      quantity,
-      reason,
-    });
+    const result = await createOrder({ accountId, symbol, side: 'SELL', orderType: 'MARKET', quantity, reason });
     clearPeak(accountId, symbol);
     return { symbol, action: 'SELL', reason, code, orderId: result.order.id };
   } catch (error) {
@@ -55,87 +49,72 @@ async function sell(
 }
 
 /**
- * ① 청산 안전망 — 하드 손절과 트레일링 스톱.
- *
- * **AI·규칙 판단보다 먼저, 그리고 매 틱 돈다.** 스케줄러가 이 함수만 따로 부를 수 있게
- * 분리해 두었다 (분석 주기가 60분이어도 손절은 1분 간격으로 검사된다).
+ * ① 청산 — 손절 → 익절 → 트레일링 (규칙의 매도 조건, 꺼진 것은 보지 않는다).
+ * 손절이 꺼진 규칙이면 손절하지 않는다(사용자가 고른 것 — 화면이 경고한다).
  */
-export async function runExitChecks(strategy: AccountStrategy): Promise<Note[]> {
+export async function runExitChecks(strategy: AccountStrategy, rule: RuleBody, now = new Date()): Promise<Note[]> {
   const notes: Note[] = [];
+  const s = rule.sell;
+  if (!s.stopLoss.on && !s.takeProfit.on && !s.trailing.on) return notes;
   const positions = await valuedPositions(strategy.accountId);
 
   for (const position of positions) {
     if (position.quantity <= 0) continue;
+    if (!isSymbolMarketOpen(position.symbol, now)) continue;
     const price = position.currentPrice;
     if (price == null || !Number.isFinite(price) || price <= 0) continue;
-
     const changePercent = position.unrealizedPnlPercent ?? ((price - position.avgPrice) / position.avgPrice) * 100;
 
-    // 하드 손절 — 항상 작동하는 안전망
-    if (changePercent <= -strategy.hardStopLossPercent) {
+    if (s.stopLoss.on && changePercent <= -s.stopLoss.percent) {
+      const note = await sell(
+        strategy.accountId,
+        position.symbol,
+        position.quantity,
+        `손절 ${pct(changePercent)} — 기준 −${s.stopLoss.percent}% 도달로 전량 매도`,
+        'hard_stop',
+      );
+      // 손절 날짜 — 「손절 뒤 다시 매수」 대기 (그 종목 시장 날짜)
+      if (note.orderId) setStopDay(strategy.accountId, position.symbol, marketDate(now.getTime(), position.symbol));
+      notes.push(note);
+      continue;
+    }
+    if (s.takeProfit.on && changePercent >= s.takeProfit.percent) {
       notes.push(
-        await sell(
-          strategy.accountId,
-          position.symbol,
-          position.quantity,
-          `손절 ${pct(changePercent)} — 기준 -${strategy.hardStopLossPercent}% 도달로 전량 매도`,
-          'hard_stop',
-        ),
+        await sell(strategy.accountId, position.symbol, position.quantity, `익절 ${pct(changePercent)} — 기준 +${s.takeProfit.percent}% 도달로 전량 매도`, 'take_profit'),
       );
       continue;
     }
-
-    // 익절 (v2.39.0, 기본 꺼짐) — 손절 다음, 트레일링 앞. 꺼져 있으면 아무 일도 하지 않는다
-    if (strategy.takeProfitEnabled && changePercent >= strategy.takeProfitPercent) {
-      notes.push(
-        await sell(
-          strategy.accountId,
-          position.symbol,
-          position.quantity,
-          `익절 ${pct(changePercent)} — 기준 +${strategy.takeProfitPercent}% 도달로 전량 매도`,
-          'take_profit',
-        ),
-      );
-      continue;
-    }
-
-    if (!strategy.trailingStopEnabled) continue;
-
+    if (!s.trailing.on) continue;
     // 트레일링 — 고점은 올라갈 때만 갱신된다
     const peak = updatePeak(strategy.accountId, position.symbol, Math.max(price, position.avgPrice));
-    if (peak <= 0) continue;
-    const fromPeak = ((price - peak) / peak) * 100;
-    if (fromPeak <= -strategy.trailingStopPercent) {
+    const line = exitLevels(rule, { held: true, avgPrice: position.avgPrice, peak }).trailing;
+    if (peak > 0 && line != null && price <= line) {
+      const fromPeak = ((price - peak) / peak) * 100;
       notes.push(
         await sell(
           strategy.accountId,
           position.symbol,
           position.quantity,
-          `트레일링 — 최고가 ${peak.toFixed(2)} 대비 ${pct(fromPeak)} (기준 -${strategy.trailingStopPercent}%)`,
+          `트레일링 — 최고가 ${peak.toFixed(2)} 대비 ${pct(fromPeak)} (기준 −${s.trailing.percent}%)`,
           'trailing',
         ),
       );
     }
   }
-
   return notes;
 }
 
-/** ②③ 보유 재평가 + 신규 매수. 청산 검사는 호출부가 먼저 돌린다. */
-export async function runStrategyCycle(strategy: AccountStrategy): Promise<AutoTradeRunResult> {
-  const result: AutoTradeRunResult = {
-    accountId: strategy.accountId,
-    evaluated: 0,
-    ordered: 0,
-    notes: [],
-    errors: [],
-    skipped: null,
-  };
-
-  if (strategy.mode === 'ai' && !isGeminiEnabled()) {
-    result.skipped = 'Gemini 키가 설정되지 않았습니다 — 규칙형으로 바꾸면 키 없이 동작합니다';
-    return result;
-  }
+/**
+ * ② 신호 판단 — 종목마다 하루 한 번. `force`(수동 실행)면 시장 열림·오늘 판단 여부를 보지 않는다.
+ * 판단을 마친 종목은 그 시장 날짜를 남긴다(재시작해도 같은 날 두 번 보지 않는다).
+ */
+export async function runSignalChecks(
+  strategy: AccountStrategy,
+  rule: RuleBody,
+  options: { now?: Date; force?: boolean } = {},
+): Promise<AutoTradeRunResult> {
+  const now = options.now ?? new Date();
+  const result: AutoTradeRunResult = { accountId: strategy.accountId, evaluated: 0, ordered: 0, notes: [], errors: [], skipped: null };
   if (!strategy.symbols.length) {
     result.skipped = '대상 종목이 없습니다';
     return result;
@@ -146,150 +125,85 @@ export async function runStrategyCycle(strategy: AccountStrategy): Promise<AutoT
   let openCount = heldMap.size;
 
   for (const symbol of strategy.symbols) {
+    const today = marketDate(now.getTime(), symbol);
+    if (!options.force) {
+      if (!isSymbolMarketOpen(symbol, now)) continue;
+      if (getJudgedDay(strategy.accountId, symbol) === today) continue;
+    }
     const position = heldMap.get(symbol);
-    const held = Boolean(position);
-
     try {
+      const candles = await getCandles(symbol, '1d', CANDLE_LIMIT);
+      const completed = completedDaily(candles, symbol, now.getTime());
       result.evaluated += 1;
-
-      // ── 규칙형 ────────────────────────────────
-      if (strategy.mode === 'rule') {
-        const decision = await evaluateRule(symbol, strategy.rule, held);
-
-        if (decision.action === 'SELL' && position) {
-          const note = await sell(strategy.accountId, symbol, position.quantity, decision.reason, decision.code);
-          if (note.orderId) {
-            result.ordered += 1;
-            openCount -= 1;
-          }
-          result.notes.push(note);
-          continue;
-        }
-        if (decision.action === 'BUY' && !held) {
-          result.notes.push(await tryBuy(strategy, symbol, decision.price, decision.reason, openCount, decision.code));
-          if (result.notes.at(-1)?.orderId) {
-            result.ordered += 1;
-            openCount += 1;
-          }
-          continue;
-        }
-        result.notes.push({ symbol, action: 'HOLD', reason: decision.reason, code: decision.code, orderId: null });
+      if (completed.length < MIN_CANDLES) {
+        result.notes.push({
+          symbol,
+          action: 'HOLD',
+          reason: `캔들이 ${completed.length}개뿐이라 판단을 건너뜁니다`,
+          code: 'not_enough_candles',
+          orderId: null,
+        });
+        setJudgedDay(strategy.accountId, symbol, today);
         continue;
       }
-
-      // ── AI형 ──────────────────────────────────
-      const analysis = await runAnalysis({
-        symbol,
-        trigger: 'auto',
-        accountId: strategy.accountId,
-        horizon: strategy.horizon,
+      const series = await computeIndicators(completed);
+      const ev = evaluateRule({ symbol, candles: completed, series }, completed.length - 1, rule, {
+        held: Boolean(position),
+        avgPrice: position?.avgPrice,
+        peak: getPeak(strategy.accountId, symbol) ?? undefined,
+        lastStopDate: getStopDay(strategy.accountId, symbol),
       });
-      const direction = signalDirection(analysis.signal);
-      const confidence = `신뢰도 ${(analysis.confidence * 100).toFixed(0)}%`;
-      const summary = analysis.summary ? ` — ${analysis.summary}` : '';
+      const reason = ev.reasons[0] ?? '';
+      const price = candles.at(-1)?.close ?? null;
 
-      if (direction === 'SELL' && held && position) {
-        const strongOnly = strategy.sellSignal === 'STRONG_SELL' && analysis.signal !== 'STRONG_SELL';
-        if (strongOnly) {
-          result.notes.push({ symbol, action: 'HOLD', reason: `매도 조건이 "강력 매도만" 이라 ${analysis.signal} 는 건너뜁니다`, code: 'other', orderId: null });
-          continue;
-        }
-        if (analysis.confidence < strategy.sellMinConfidence) {
-          result.notes.push({
-            symbol,
-            action: 'HOLD',
-            reason: `AI 매도 신호지만 ${confidence} < 기준 ${(strategy.sellMinConfidence * 100).toFixed(0)}% — 보유 유지`,
-            code: 'ai_low_confidence',
-            orderId: null,
-          });
-          continue;
-        }
-        const note = await sell(strategy.accountId, symbol, position.quantity, `AI 매도: ${analysis.signal} (${confidence})${summary}`, 'ai_sell');
+      if (ev.action === 'SELL' && position) {
+        const note = await sell(strategy.accountId, symbol, position.quantity, reason, ev.code);
         if (note.orderId) {
           result.ordered += 1;
           openCount -= 1;
         }
         result.notes.push(note);
-        continue;
-      }
-
-      if (direction === 'BUY' && !held) {
-        const strongOnly = strategy.buySignal === 'STRONG_BUY' && analysis.signal !== 'STRONG_BUY';
-        if (strongOnly) {
-          result.notes.push({ symbol, action: 'HOLD', reason: `매수 조건이 "강력 매수만" 이라 ${analysis.signal} 는 건너뜁니다`, code: 'other', orderId: null });
-          continue;
-        }
-        if (analysis.confidence < strategy.buyMinConfidence) {
-          result.notes.push({
-            symbol,
-            action: 'HOLD',
-            reason: `AI 매수 신호지만 ${confidence} < 기준 ${(strategy.buyMinConfidence * 100).toFixed(0)}% — 매수 없음`,
-            code: 'ai_low_confidence',
-            orderId: null,
-          });
-          continue;
-        }
-        const note = await tryBuy(
-          strategy,
-          symbol,
-          analysis.priceAtAnalysis,
-          `AI 매수: ${analysis.signal} (${confidence})${summary}`,
-          openCount,
-          'ai_buy',
-        );
+      } else if (ev.action === 'BUY' && !position) {
+        const note = await tryBuy(strategy, rule, symbol, price, reason, openCount, ev.code);
         if (note.orderId) {
           result.ordered += 1;
           openCount += 1;
         }
         result.notes.push(note);
-        continue;
+      } else {
+        result.notes.push({ symbol, action: 'HOLD', reason, code: ev.code, orderId: null });
       }
-
-      // 보유 중인데 HOLD/BUY → 추세가 살아 있다고 본다 (고정 익절을 두지 않는 이유다)
-      result.notes.push({
-        symbol,
-        action: 'HOLD',
-        reason: held
-          ? `AI 판단 ${analysis.signal} (${confidence}) — 보유 유지${summary}`
-          : `AI 판단 ${analysis.signal} (${confidence}) — 매수 조건 아님`,
-        code: 'ai_hold',
-        orderId: null,
-      });
+      setJudgedDay(strategy.accountId, symbol, today);
     } catch (error) {
+      // 캔들·지표를 못 불러왔다 — 판단하지 않은 것으로 두고 다음 틱에 다시
       result.errors.push(`${symbol}: ${(error as Error).message}`);
     }
   }
-
   return result;
 }
 
 /**
  * 매수 시도 — 신규 매수 안전장치(v2.16.0) → 보유 종목 수 한도 → 예산 순으로 본다.
- * ⚠️ 안전장치는 **여기서만** 막는다. 보유 재평가 매도·청산 경로는 이 함수를 지나지 않는다.
- * export 는 점검 스크립트(`npm run autotrade:test`)용이다 — 규칙형 매수 신호는 억지로 만들 수 없어서.
+ * ⚠️ 안전장치는 **여기서만** 막는다. 매도·청산 경로는 이 함수를 지나지 않는다.
+ * export 는 점검 스크립트(`npm run autotrade:test`)용이다.
  */
 export async function tryBuy(
   strategy: AccountStrategy,
+  rule: RuleBody,
   symbol: string,
   price: number | null,
   reason: string,
   openCount: number,
-  /** 매수가 나갔을 때의 판단 종류 (v2.32.0) — 막히면 막힌 이유의 코드로 바뀐다 */
+  /** 매수가 나갔을 때의 판단 종류 — 막히면 막힌 이유의 코드로 바뀐다 */
   code: DecisionCode = 'other',
 ): Promise<Note> {
-  // 하루 손실 한도(킬 스위치) — 그 거래일 끝까지 새로 사지 않는다
   const lossBlock = dailyLossBlock(strategy);
   if (lossBlock) return { symbol, action: 'HOLD', reason: lossBlock, code: 'daily_loss', orderId: null };
 
-  // 실적 발표 직전 — 실적일을 모르면 막지 않되 사유에 남긴다
   const earnings = earningsGuard(strategy, symbol);
   if (earnings.blocked) return { symbol, action: 'HOLD', reason: earnings.blocked, code: 'earnings_blackout', orderId: null };
   if (earnings.note) reason = `${reason} · ${earnings.note}`;
 
-  /*
-   * 한도는 "몇 종목에 분산할지" 이지 "추가 매수 금지" 가 아니다 —
-   * 이미 들고 있는 종목은 이 함수로 오지 않는다(호출부가 held 를 걸러낸다).
-   */
   if (openCount >= strategy.maxPositions) {
     return {
       symbol,
@@ -304,29 +218,21 @@ export async function tryBuy(
   if (!plan.ok) return { symbol, action: 'HOLD', reason: plan.reason, code: 'other', orderId: null };
 
   try {
-    const result = await createOrder({
-      accountId: strategy.accountId,
-      symbol,
-      side: 'BUY',
-      orderType: 'MARKET',
-      quantity: plan.quantity,
-      reason,
-    });
-    // 트레일링 기준점을 매수가로 시작한다 (첫 고점 = 산 가격)
-    if (strategy.trailingStopEnabled && price) updatePeak(strategy.accountId, symbol, price);
+    const result = await createOrder({ accountId: strategy.accountId, symbol, side: 'BUY', orderType: 'MARKET', quantity: plan.quantity, reason });
+    // 트레일링 기준점을 매수가로 시작한다 (첫 고점 = 산 가격). 옛 고점이 남아 있으면 버린다
+    clearPeak(strategy.accountId, symbol);
+    if (rule.sell.trailing.on && price) updatePeak(strategy.accountId, symbol, price);
     return { symbol, action: 'BUY', reason: `${reason} → ${plan.quantity}주`, code, orderId: result.order.id };
   } catch (error) {
     return { symbol, action: 'HOLD', reason: `매수 실패: ${(error as Error).message}`, code: 'error', orderId: null };
   }
 }
 
-/** 보유 종목의 고점만 갱신한다 (매수 판단 주기와 무관하게 틱마다 부른다) */
-export async function refreshPeaks(strategy: AccountStrategy): Promise<void> {
-  if (!strategy.trailingStopEnabled) return;
+/** 보유 종목의 고점만 갱신한다 (트레일링이 켜진 규칙, 그 종목 시장이 열려 있을 때 — 틱마다) */
+export async function refreshPeaks(strategy: AccountStrategy, rule: RuleBody, now = new Date()): Promise<void> {
+  if (!rule.sell.trailing.on) return;
   const positions = await valuedPositions(strategy.accountId);
   for (const p of positions) {
-    if (p.quantity > 0 && p.currentPrice) updatePeak(strategy.accountId, p.symbol, p.currentPrice);
+    if (p.quantity > 0 && p.currentPrice && isSymbolMarketOpen(p.symbol, now)) updatePeak(strategy.accountId, p.symbol, p.currentPrice);
   }
 }
-
-export { getPeak };

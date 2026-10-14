@@ -10,8 +10,8 @@
  *   실행 방식은 쓰는 곳이 정한다(계좌 = 장중 1분, 백테스트 = 일봉 고저). 2단계.
  *
  * 그룹 안 작은 검사와 점수표는 **예전 점수 계산기(`server/swingAnalyzer.ts`) 그대로** 옮겼다. 순간 조건(교차·RSI 반등)은
- * 예전 교차 계산기(`server/autoTrading/ruleEngine.ts` 의 `decideRule`)와 같은 정의다(`pickMa` 그대로).
- * ⚠️ 두 예전 계산기는 3단계까지 그대로 둔다 — 같은 판단인지는 `npm run rules:test` 가 시험한다.
+ * 예전 교차 계산기(`decideRule`, v2.44.0 에 지웠다)와 같은 정의다 — 같은 판단인지는 `npm run rules:test` ① 이 정답 파일과 비교한다.
+ * ⚠️ 예전 점수 계산기(`swingAnalyzer`)는 3단계까지 그대로 둔다(② 가 같은 점수인지 본다).
  * ⚠️ 주문을 내지 않는다. 모의투자·주문 모듈을 import 하지 않는다.
  */
 import type { Candle } from '../../src/types/toss';
@@ -20,7 +20,20 @@ import type { DecisionCode } from '../../src/types/autoTrading';
 import type { EntryType } from '../../src/types/swing';
 import { scaledTable, maxScoreOf, type GroupKey, type RuleBody, type BuyKey } from '../../src/types/tradingRule';
 import { marketDate } from '../../src/utils/marketDate';
-import { pickMa } from '../autoTrading/ruleEngine';
+import { isFormingBar } from '../../src/utils/marketBar';
+import { nearestEngineMa } from '../../src/types/autoTrading';
+
+/** 진행 중인 일봉을 뺀 끝난 봉 (v2.31.0 → v2.44.0 에 예전 `ruleEngine.ts` 에서 옮겼다) — 신호는 마감 기준이다 */
+export function completedDaily(candles: Candle[], symbol: string, now = Date.now()): Candle[] {
+  return isFormingBar(candles, '1d', symbol, now) ? candles.slice(0, -1) : candles;
+}
+
+/** 이동평균 일수 → 엔진 시리즈 (5·20·60·120 — 다른 값은 가장 가까운 값). 예전 `ruleEngine.pickMa` 그대로 옮겼다 */
+export function pickMa(series: IndicatorSeries, period: number): { line: (number | null)[]; used: number } {
+  const used = nearestEngineMa(period);
+  const line = { 5: series.sma5, 20: series.sma20, 60: series.sma60, 120: series.sma120 }[used];
+  return { line, used };
+}
 
 // ── 봉 i 기준 시리즈 도우미 ─────────────────────────────────────────────────
 

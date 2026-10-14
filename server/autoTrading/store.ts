@@ -1,29 +1,26 @@
 /**
  * 계좌별 자동매매 설정 저장소.
  *
- * 저장은 `gemini_settings` 테이블(key-value)을 재사용한다 — 새 테이블을 만들 만큼
- * 구조가 복잡하지 않고, 이미 있는 읽기/쓰기 유틸을 그대로 쓸 수 있다.
+ * 저장은 `gemini_settings` 테이블(key-value)을 재사용한다 — 이미 있는 읽기/쓰기 유틸을 그대로 쓴다.
+ * ⚠️ **계좌마다 키를 나누지 않고 맵 하나에 담는다.** 스케줄러가 "활성화된 계좌 전부" 를 매 틱 훑기 때문이다.
  *
- * ⚠️ **계좌마다 키를 나누지 않고 맵 하나에 담는다.** 스케줄러가 "활성화된 계좌 전부" 를
- * 매 틱 훑어야 하는데, 키가 흩어져 있으면 계좌 목록을 따로 들고 다녀야 한다.
+ * v2.44.0: 설정 모양이 「규칙 하나 + 종목 + 계좌 운용 + 신규 매수 안전장치」 로 줄었다. 예전 칸(mode · 분석 주기 · 청산 등)은
+ * 읽을 때 버린다(`normalizeStrategy`). 데이터 정리(`server/dataReset/v2_44_0.ts`)가 저장값도 한 번 새 모양으로 바꾼다.
+ * 같은 테이블에 계좌 × 종목별로 「마지막 신호 판단 시장 날짜」·「마지막 손절 시장 날짜」·트레일링 최고가를 둔다.
  */
 
 import { readSetting, writeSetting } from '../gemini/store';
 import { listAccounts } from '../paperTradingService';
-import {
-  DEFAULT_RULE,
-  RULE_LIMITS,
-  defaultStrategy,
-  type AccountStrategy,
-  type DecisionNote,
-  type RuleConfig,
-  type StrategyMode,
-} from '../../src/types/autoTrading';
+import { defaultStrategy, type AccountStrategy, type DecisionNote } from '../../src/types/autoTrading';
 
-const STRATEGIES_KEY = 'autoTrading.strategies';
-const PEAKS_KEY = 'autoTrading.trailingPeaks';
+export const STRATEGIES_KEY = 'autoTrading.strategies';
+export const PEAKS_KEY = 'autoTrading.trailingPeaks';
 /** 계좌별 마지막 바퀴의 판단 (건너뜀 사유 포함, v2.16.0) — 재시작해도 화면에서 볼 수 있게 저장한다 */
-const NOTES_KEY = 'autoTrading.lastNotes';
+export const NOTES_KEY = 'autoTrading.lastNotes';
+/** 계좌 × 종목 → 마지막으로 신호를 본 그 종목 시장 날짜 (v2.44.0 — 하루 한 번 판단) */
+export const JUDGED_KEY = 'autoTrading.lastJudged';
+/** 계좌 × 종목 → 마지막 손절(hard_stop)로 판 그 종목 시장 날짜 (v2.44.0 — 손절 뒤 다시 매수 대기) */
+export const STOPS_KEY = 'autoTrading.lastStops';
 
 export type { DecisionNote };
 type NotesMap = Record<string, { at: string; notes: DecisionNote[] }>;
@@ -34,7 +31,6 @@ export function recordNotes(accountId: number, notes: DecisionNote[]): void {
   const map = readSetting<NotesMap>(NOTES_KEY, {});
   map[String(accountId)] = {
     at: new Date().toISOString(),
-    // code 는 v2.32.0 부터 — 없으면 저장하지 않는다(옛 형식과 같은 모양)
     notes: notes.slice(0, 30).map((n) => ({ symbol: n.symbol, action: n.action, reason: n.reason, ...(n.code ? { code: n.code } : {}) })),
   };
   writeSetting(NOTES_KEY, map);
@@ -45,78 +41,34 @@ export function readNotes(accountId: number): { at: string | null; notes: Decisi
   return { at: found?.at ?? null, notes: found?.notes ?? [] };
 }
 
-type StrategyMap = Record<string, AccountStrategy>;
+type StrategyMap = Record<string, Partial<AccountStrategy> & Record<string, unknown>>;
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, Number.isFinite(value) ? value : min));
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, Number.isFinite(value) ? value : min));
 
 /** 토스 symbol 은 영문·숫자·점·하이픈만 허용한다 (한글 종목명이 들어오면 매번 실패한다) */
 const SYMBOL_PATTERN = /^[A-Z0-9.\-]+$/;
 
 function cleanSymbols(raw: unknown): string[] {
   const list = Array.isArray(raw) ? raw : [];
-  return [
-    ...new Set(
-      list
-        .map((s) => String(s).trim().toUpperCase())
-        .filter((s) => s && s.length <= 20 && SYMBOL_PATTERN.test(s)),
-    ),
-  ];
+  return [...new Set(list.map((s) => String(s).trim().toUpperCase()).filter((s) => s && s.length <= 20 && SYMBOL_PATTERN.test(s)))];
 }
 
-function cleanRule(raw: Partial<RuleConfig> | undefined): RuleConfig {
-  const r = { ...DEFAULT_RULE, ...(raw ?? {}) };
-  const maShort = clamp(Math.round(r.maShort), 2, 120);
-  // 단기가 장기보다 길면 교차 판정이 뒤집힌다 — 최소 한 칸은 벌려 둔다.
-  const maLong = clamp(Math.round(r.maLong), maShort + 1, 240);
-  return {
-    maShort,
-    maLong,
-    rsiBuyBelow: clamp(r.rsiBuyBelow, RULE_LIMITS.rsiBuyBelow.min, RULE_LIMITS.rsiBuyBelow.max),
-    rsiSellAbove: clamp(r.rsiSellAbove, RULE_LIMITS.rsiSellAbove.min, RULE_LIMITS.rsiSellAbove.max),
-    useMaCross: Boolean(r.useMaCross),
-    useRsi: Boolean(r.useRsi),
-  };
-}
-
-/** 저장 전 값을 조인다 — 화면 입력만 믿으면 거래량 0%, 손절 0% 같은 값이 그대로 들어온다 */
-export function normalizeStrategy(accountId: number, raw: Partial<AccountStrategy>): AccountStrategy {
+/** 저장 전·읽을 때 값을 조이고 **새 모양 칸만** 남긴다 — 예전 칸(mode·intervalMinutes·청산·AI)은 여기서 버려진다 */
+export function normalizeStrategy(accountId: number, raw: Partial<AccountStrategy> & Record<string, unknown>): AccountStrategy {
   const base = defaultStrategy(accountId);
-  const next = { ...base, ...raw, accountId };
-
-  next.mode = (next.mode === 'rule' ? 'rule' : 'ai') as StrategyMode;
-  next.enabled = Boolean(next.enabled);
-  next.symbols = cleanSymbols(next.symbols);
-
-  next.positionSizePercent = clamp(next.positionSizePercent, 1, 100);
-  next.maxPositions = clamp(Math.round(next.maxPositions), 1, 50);
-  next.intervalMinutes = Math.max(5, Math.round(next.intervalMinutes));
-  next.marketHoursOnly = Boolean(next.marketHoursOnly);
-
-  /*
-   * 손절 0% 는 "사자마자 손절" 이고 100% 는 "사실상 없음" 이다. 둘 다 사고이므로 막는다.
-   * 하한을 1% 로 둔 이유: 수수료·슬리피지만으로도 -0.3% 가 찍혀서, 그보다 낮으면
-   * 체결 직후 곧바로 청산된다.
-   */
-  next.hardStopLossPercent = clamp(next.hardStopLossPercent, RULE_LIMITS.hardStopLossPercent.min, RULE_LIMITS.hardStopLossPercent.max);
-  next.trailingStopEnabled = Boolean(next.trailingStopEnabled);
-  next.trailingStopPercent = clamp(next.trailingStopPercent, RULE_LIMITS.trailingStopPercent.min, RULE_LIMITS.trailingStopPercent.max);
-  // 익절 (v2.39.0) — 저장된 옛 설정에는 없으므로 기본값(꺼짐·10)으로 채워진다
-  next.takeProfitEnabled = Boolean(next.takeProfitEnabled);
-  next.takeProfitPercent = clamp(next.takeProfitPercent, RULE_LIMITS.takeProfitPercent.min, RULE_LIMITS.takeProfitPercent.max);
-
-  next.buySignal = next.buySignal === 'STRONG_BUY' ? 'STRONG_BUY' : 'BUY';
-  next.sellSignal = next.sellSignal === 'STRONG_SELL' ? 'STRONG_SELL' : 'SELL';
-  next.buyMinConfidence = clamp(next.buyMinConfidence, 0, 1);
-  next.sellMinConfidence = clamp(next.sellMinConfidence, 0, 1);
-
-  // 신규 매수 안전장치 (v2.16.0) — 저장된 옛 설정에는 없으므로 기본값(3·0)으로 채워진다
-  next.earningsBlackoutDays = clamp(Math.round(next.earningsBlackoutDays), 0, 10);
-  // 0~20%, 0.5 단위
-  next.dailyLossLimitPercent = Math.round(clamp(next.dailyLossLimitPercent, 0, 20) * 2) / 2;
-
-  next.rule = cleanRule(next.rule);
-  return next;
+  const v = { ...base, ...raw };
+  const ruleId = typeof v.ruleId === 'number' && Number.isInteger(v.ruleId) && v.ruleId > 0 ? v.ruleId : null;
+  return {
+    accountId,
+    enabled: Boolean(v.enabled) && ruleId != null,
+    ruleId,
+    symbols: cleanSymbols(v.symbols),
+    positionSizePercent: clamp(Number(v.positionSizePercent), 1, 100),
+    maxPositions: clamp(Math.round(Number(v.maxPositions)), 1, 50),
+    earningsBlackoutDays: clamp(Math.round(Number(v.earningsBlackoutDays)), 0, 10),
+    // 0~20%, 0.5 단위
+    dailyLossLimitPercent: Math.round(clamp(Number(v.dailyLossLimitPercent), 0, 20) * 2) / 2,
+  };
 }
 
 function readMap(): StrategyMap {
@@ -147,60 +99,94 @@ export function listActiveStrategies(): AccountStrategy[] {
   return listStrategies().filter((s) => s.enabled);
 }
 
-export function saveStrategy(accountId: number, patch: Partial<AccountStrategy>): AccountStrategy {
+export class StrategyRuleError extends Error {}
+
+/**
+ * 저장. ⚠️ 켜려면 규칙이 있어야 한다 — `ruleExists` 로 확인한다(호출부가 매매 규칙 저장소를 넘긴다 — 두 저장소가 서로를 import 하지 않게).
+ */
+export function saveStrategy(
+  accountId: number,
+  patch: Partial<AccountStrategy>,
+  ruleExists: (id: number) => boolean,
+): AccountStrategy {
+  const wantEnabled = Boolean({ ...getStrategy(accountId), ...patch }.enabled);
   const merged = normalizeStrategy(accountId, { ...getStrategy(accountId), ...patch });
+  if (merged.ruleId != null && !ruleExists(merged.ruleId)) merged.ruleId = null;
+  if (wantEnabled && merged.ruleId == null) throw new StrategyRuleError('매매 규칙을 고르세요.');
   const map = readMap();
-  map[String(accountId)] = merged;
+  map[String(accountId)] = merged as StrategyMap[string];
   writeMap(map);
   return merged;
 }
 
-/** 계좌를 지우면 설정·고점 기록도 함께 지운다 (남겨 두면 계좌 id 가 재사용될 때 섞인다) */
+/** 이 규칙을 쓰는 계좌 id — 「매매 규칙」 의 「적용된 곳」 */
+export function accountsUsingRule(ruleId: number): number[] {
+  return listStrategies().filter((s) => s.ruleId === ruleId).map((s) => s.accountId);
+}
+
+/** 규칙을 지울 때 — 그 규칙을 쓰던 계좌는 자동매매를 끄고 규칙을 비운다. 바뀐 계좌 id */
+export function detachRule(ruleId: number): number[] {
+  const map = readMap();
+  const changed: number[] = [];
+  for (const s of listStrategies()) {
+    if (s.ruleId !== ruleId) continue;
+    map[String(s.accountId)] = { ...s, ruleId: null, enabled: false } as StrategyMap[string];
+    changed.push(s.accountId);
+  }
+  if (changed.length) writeMap(map);
+  return changed;
+}
+
+/** 계좌를 지우면 설정·고점·판단 기록도 함께 지운다 (남겨 두면 계좌 id 가 재사용될 때 섞인다) */
 export function deleteStrategy(accountId: number): void {
   const map = readMap();
   delete map[String(accountId)];
   writeMap(map);
-
-  const peaks = readPeaks();
-  delete peaks[String(accountId)];
-  writeSetting(PEAKS_KEY, peaks);
-
-  const notes = readSetting<NotesMap>(NOTES_KEY, {});
-  delete notes[String(accountId)];
-  writeSetting(NOTES_KEY, notes);
+  for (const key of [PEAKS_KEY, NOTES_KEY, JUDGED_KEY, STOPS_KEY]) {
+    const m = readSetting<Record<string, unknown>>(key, {});
+    delete m[String(accountId)];
+    writeSetting(key, m);
+  }
 }
 
-// ── 트레일링 스톱의 고점 기록 ────────────────────────────────
-// { accountId: { symbol: 고점 } }
+// ── 계좌 × 종목 값 (최고가 · 판단 날짜 · 손절 날짜) ──────────────────────────
+type PerSymbol<T> = Record<string, Record<string, T>>;
 
-type PeakMap = Record<string, Record<string, number>>;
-
-function readPeaks(): PeakMap {
-  return readSetting<PeakMap>(PEAKS_KEY, {});
+function readPer<T>(key: string, accountId: number, symbol: string): T | null {
+  return readSetting<PerSymbol<T>>(key, {})[String(accountId)]?.[symbol] ?? null;
 }
 
-export function getPeak(accountId: number, symbol: string): number | null {
-  return readPeaks()[String(accountId)]?.[symbol] ?? null;
+function writePer<T>(key: string, accountId: number, symbol: string, value: T | null): void {
+  const all = readSetting<PerSymbol<T>>(key, {});
+  const forAccount = all[String(accountId)] ?? {};
+  if (value == null) {
+    if (!(symbol in forAccount)) return;
+    delete forAccount[symbol];
+  } else {
+    forAccount[symbol] = value;
+  }
+  all[String(accountId)] = forAccount;
+  writeSetting(key, all);
 }
+
+export const getPeak = (accountId: number, symbol: string): number | null => readPer<number>(PEAKS_KEY, accountId, symbol);
 
 /** 고점은 올라갈 때만 갱신한다 — 내려갈 때 따라 내리면 트레일링이 아니다 */
 export function updatePeak(accountId: number, symbol: string, price: number): number {
-  if (!Number.isFinite(price) || price <= 0) return getPeak(accountId, symbol) ?? 0;
-  const peaks = readPeaks();
-  const forAccount = peaks[String(accountId)] ?? {};
-  const next = Math.max(forAccount[symbol] ?? 0, price);
-  forAccount[symbol] = next;
-  peaks[String(accountId)] = forAccount;
-  writeSetting(PEAKS_KEY, peaks);
+  const prev = getPeak(accountId, symbol) ?? 0;
+  if (!Number.isFinite(price) || price <= 0) return prev;
+  const next = Math.max(prev, price);
+  if (next !== prev) writePer(PEAKS_KEY, accountId, symbol, next);
   return next;
 }
 
 /** 포지션을 정리했으면 고점도 버린다 — 다음에 다시 샀을 때 옛 고점으로 즉시 청산되지 않게 */
-export function clearPeak(accountId: number, symbol: string): void {
-  const peaks = readPeaks();
-  const forAccount = peaks[String(accountId)];
-  if (!forAccount || !(symbol in forAccount)) return;
-  delete forAccount[symbol];
-  peaks[String(accountId)] = forAccount;
-  writeSetting(PEAKS_KEY, peaks);
-}
+export const clearPeak = (accountId: number, symbol: string): void => writePer<number>(PEAKS_KEY, accountId, symbol, null);
+
+/** 마지막으로 신호를 본 시장 날짜 */
+export const getJudgedDay = (accountId: number, symbol: string): string | null => readPer<string>(JUDGED_KEY, accountId, symbol);
+export const setJudgedDay = (accountId: number, symbol: string, day: string): void => writePer(JUDGED_KEY, accountId, symbol, day);
+
+/** 마지막 손절 날(시장 날짜) — 「손절 뒤 다시 매수」 대기. 트레일링·익절·신호 매도는 남기지 않는다 */
+export const getStopDay = (accountId: number, symbol: string): string | null => readPer<string>(STOPS_KEY, accountId, symbol);
+export const setStopDay = (accountId: number, symbol: string, day: string): void => writePer(STOPS_KEY, accountId, symbol, day);

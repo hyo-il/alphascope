@@ -3,10 +3,11 @@
  *
  * - 「기본 규칙」 은 **처음 한 번만** 넣는다: `app_settings` 'tradingRules.seeded' 가 없을 때만 넣고 표시를 남긴다.
  *   사용자가 모두 지워도 다시 만들지 않는다(사용자 결정 A-2).
- * - 「적용된 곳」(`usedBy`)은 1단계에서 **늘 비어 있다** — 매수 판단·계좌·백테스트에 아직 연결하지 않았다(2단계에서 채운다).
- *   삭제·저장 확인 창은 이 값으로 문장을 만든다.
+ * - 「적용된 곳」(`usedBy`) — v2.44.0 부터 계좌(`accounts`)를 채운다. 매수 판단은 3단계, 백테스트는 기록이라 「쓰는 곳」 이 아니다(늘 false).
+ *   삭제·저장 확인 창은 이 값으로 문장을 만든다. 쓰는 규칙을 지우면 그 계좌들은 자동매매가 꺼지고 규칙이 비워진다(`detachRule`).
  */
 import { getDb } from '../db';
+import { accountsUsingRule, detachRule } from '../autoTrading/store';
 import {
   DEFAULT_RULE_NAME,
   EMPTY_USAGE,
@@ -29,9 +30,9 @@ interface Row {
 
 export class RuleNameTakenError extends Error {}
 
-/** 이 규칙을 쓰는 곳 — 1단계에서는 아무 곳도 연결하지 않았다 */
-function usageOf(_id: number): RuleUsage {
-  return { ...EMPTY_USAGE, accounts: [] };
+/** 이 규칙을 쓰는 곳 — 계좌(v2.44.0). 매수 판단은 3단계 */
+function usageOf(id: number): RuleUsage {
+  return { ...EMPTY_USAGE, accounts: accountsUsingRule(id) };
 }
 
 function toRule(row: Row): TradingRule {
@@ -107,9 +108,13 @@ export function updateRule(id: number, name: string, body: RuleBody): TradingRul
   return getRule(id);
 }
 
-export function deleteRule(id: number): boolean {
+/** 지운다 — 이 규칙을 쓰던 계좌는 자동매매가 꺼지고 규칙이 비워진다. 꺼진 계좌 id (지우지 못했으면 null) */
+export function deleteRule(id: number): number[] | null {
   ensureSeeded();
-  return getDb().prepare(`DELETE FROM trading_rules WHERE id = ?`).run(id).changes > 0;
+  if (!getRule(id)) return null;
+  const detached = detachRule(id);
+  getDb().prepare(`DELETE FROM trading_rules WHERE id = ?`).run(id);
+  return detached;
 }
 
 /** 복사 이름 — 「○○ 복사본」, 이미 있으면 「○○ 복사본 2」 · 3 … (40자를 넘으면 원래 이름을 줄인다) */

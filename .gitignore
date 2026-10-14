@@ -12,3 +12,4 @@ python/.venv/
 __pycache__/
 *.pyc
 reports/
+db/backup/
