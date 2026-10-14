@@ -15,7 +15,7 @@ import { runExitChecks, runSignalChecks, tryBuy } from '../server/autoTrading/en
 import { dailyLossBlock, evaluateDailyLoss, setEarningsLookupForTest, strategyDay } from '../server/autoTrading/guards';
 import { evaluateRule } from '../server/rules/engine';
 import { createRule, deleteRule } from '../server/rules/store';
-import { isMarketOpen } from '../server/marketHours';
+import { isMarketOpen, nextMarketOpen, setClosedLookupForTest } from '../server/marketHours';
 import { explainNote } from '../src/utils/autoTradeExplain';
 import type { IndicatorSeries } from '../src/types/chart';
 import type { Candle } from '../src/types/toss';
@@ -102,6 +102,30 @@ async function main(): Promise<void> {
     check('국내 수요일 10:00 KST 열림', isMarketOpen('KR', new Date('2026-10-14T01:00:00Z')));
     check('국내 수요일 15:40 KST 닫힘(마감 뒤)', !isMarketOpen('KR', new Date('2026-10-14T06:40:00Z')));
     check('국내 일요일 닫힘', !isMarketOpen('KR', new Date('2026-10-18T01:00:00Z')));
+
+    // ── 0-2. 다음 개장 시각 (v2.44.1 — 서버가 휴장일까지 본다). 휴장일은 시험 안에서 넣는다(실제 DB 달력은 건드리지 않는다) ──
+    console.log('\n0-2) 다음 개장 시각 (휴장일 반영)');
+    const fakeHolidays = new Set(['US:2026-11-26', 'KR:2026-10-09']);
+    setClosedLookupForTest((market, day) => {
+      const w = new Date(`${day}T12:00:00Z`).getUTCDay();
+      return w === 0 || w === 6 || fakeHolidays.has(`${market}:${day}`);
+    });
+    try {
+      const iso = (d: Date) => d.toISOString();
+      const us1 = nextMarketOpen('US', new Date('2026-11-25T21:00:00Z')); // 휴장일(11-26 목) 전날 마감 뒤
+      check('미국: 휴장일 전날 마감 뒤 → 휴장일 다음 영업일(11-27 09:30 ET)', iso(us1) === '2026-11-27T14:30:00.000Z', iso(us1));
+      const us2 = nextMarketOpen('US', new Date('2026-10-17T15:00:00Z')); // 토요일
+      check('미국: 주말 → 월요일(10-19 09:30 ET)', iso(us2) === '2026-10-19T13:30:00.000Z', iso(us2));
+      const us3 = nextMarketOpen('US', new Date('2026-10-14T12:00:00Z')); // 수요일 개장 전
+      check('미국: 평일 개장 전 → 그날 09:30 ET', iso(us3) === '2026-10-14T13:30:00.000Z', iso(us3));
+      const kr1 = nextMarketOpen('KR', new Date('2026-10-08T07:00:00Z')); // 휴장일(10-09 금) 전날 마감 뒤
+      check('국내: 휴장일 전날 마감 뒤 → 휴장일 다음 영업일(10-12 월 09:00 KST)', iso(kr1) === '2026-10-12T00:00:00.000Z', iso(kr1));
+      const kr2 = nextMarketOpen('KR', new Date('2026-10-17T03:00:00Z')); // 토요일
+      check('국내: 주말 → 월요일(10-19 09:00 KST)', iso(kr2) === '2026-10-19T00:00:00.000Z', iso(kr2));
+      check('휴장일에는 열려 있지 않다', !isMarketOpen('KR', new Date('2026-10-09T02:00:00Z')) && !isMarketOpen('US', new Date('2026-11-26T16:00:00Z')));
+    } finally {
+      setClosedLookupForTest(null);
+    }
 
     // ── 1. 손절 ──────────────────────────────────────
     console.log('\n1) 손절 (규칙 −7%)');

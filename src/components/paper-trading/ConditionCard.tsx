@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import type { AccountStrategy } from '../../types/autoTrading';
+import type { AccountStrategy, AccountStrategyStatus } from '../../types/autoTrading';
 import type { TradingRule } from '../../types/tradingRule';
 import { Button, DisclosureButton, Panel } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
@@ -26,8 +26,11 @@ export default function ConditionCard({
   strategy: s,
   rule,
   rulesLoaded,
+  status,
   onOpenSettings,
 }: {
+  /** 계좌 자동매매 상태 — 다음 개장 시각(서버 계산)을 읽는다 */
+  status: AccountStrategyStatus | null;
   strategy: AccountStrategy;
   /** 이 계좌의 매매 규칙 — 없거나 지워졌으면 null */
   rule: TradingRule | null;
@@ -88,7 +91,7 @@ export default function ConditionCard({
           </Line>
           <Line label="대상 종목">{s.symbols.length}개</Line>
           <Line label="판단 시각">{JUDGE_TIMING_TEXT}</Line>
-          <Line label="다음 판단">{nextJudgeText(s.symbols)}</Line>
+          <Line label="다음 판단">{s.symbols.length ? nextJudgeText(status) : '대상 종목이 없습니다'}</Line>
         </dl>
       )}
     </Panel>

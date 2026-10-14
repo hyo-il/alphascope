@@ -7,7 +7,7 @@
  * 하루 한 번 — `engine.runSignalChecks` 가 시장 날짜로 거른다). 예전의 계좌별 「분석 주기」·「미국 정규장만」 은 없앴다.
  */
 
-import { isSymbolMarketOpen } from '../marketHours';
+import { isSymbolMarketOpen, marketOf, nextMarketOpen } from '../marketHours';
 import { runExitChecks, runSignalChecks, refreshPeaks } from './engine';
 import { dailyLossBlock, evaluateDailyLoss } from './guards';
 import { listActiveStrategies, getStrategy, getJudgedDay, readNotes, recordNotes } from './store';
@@ -91,6 +91,7 @@ export function getStrategyStatus(accountId: number): AccountStrategyStatus {
     blockedKind: b.kind,
     serverEnabled: isAutoTradingEnabled(),
     judgedToday: strategy.symbols.filter((sym) => getJudgedDay(accountId, sym) === marketDate(now, sym)).length,
+    nextOpen: Object.fromEntries([...new Set(strategy.symbols.map(marketOf))].map((m) => [m, nextMarketOpen(m, new Date(now)).toISOString()])),
     lastNotes: notes.notes,
     lastNotesAt: notes.at,
   };

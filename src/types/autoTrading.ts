@@ -100,6 +100,11 @@ export interface AccountStrategyStatus {
   serverEnabled: boolean;
   /** 대상 종목 중 오늘(그 종목 시장 날짜) 이미 신호를 본 수 (v2.44.0) */
   judgedToday: number;
+  /**
+   * 대상 종목 시장별 **다음 개장 시각**(ISO, v2.44.1) — 서버가 휴장일까지 보고 계산한다(`marketHours.nextMarketOpen`).
+   * 화면은 시각을 따로 계산하지 않고 이것을 한국 시간으로 보이기만 한다. 대상 종목의 시장만 들어 있다.
+   */
+  nextOpen: Partial<Record<'US' | 'KR', string>>;
   /** 마지막 한 바퀴의 판단 — 매수·매도뿐 아니라 **건너뛴 이유**도 담는다 (v2.16.0) */
   lastNotes: DecisionNote[];
   lastNotesAt: string | null;

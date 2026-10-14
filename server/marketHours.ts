@@ -29,10 +29,19 @@ function localParts(market: CalendarMarket, now: Date): { day: string; minutes: 
   return { day: `${get('year')}-${get('month')}-${get('day')}`, minutes: hour * 60 + Number(get('minute')) };
 }
 
+/**
+ * 휴장일 판단 — 점검(`npm run autotrade:test`)이 휴장일을 넣어 시험할 수 있게 한 자리 (v2.44.1).
+ * ⚠️ 실제 DB 의 휴장 달력을 바꾸지 않으려는 것이다. 서버는 이 함수를 부르지 않는다(늘 `isMarketClosed`).
+ */
+let closedLookup: typeof isMarketClosed = isMarketClosed;
+export function setClosedLookupForTest(fn: typeof isMarketClosed | null): void {
+  closedLookup = fn ?? isMarketClosed;
+}
+
 /** 그 시장이 지금 열려 있나 — 휴장일(주말 포함)이면 닫힘 */
 export function isMarketOpen(market: CalendarMarket, now = new Date()): boolean {
   const { day, minutes } = localParts(market, now);
-  if (isMarketClosed(market, day)) return false;
+  if (closedLookup(market, day)) return false;
   return minutes >= SESSION[market].open && minutes < SESSION[market].close;
 }
 
@@ -41,7 +50,17 @@ export const marketOf = (symbol: string): CalendarMarket => (isKrSymbol(symbol) 
 /** 종목의 시장이 지금 열려 있나 */
 export const isSymbolMarketOpen = (symbol: string, now = new Date()): boolean => isMarketOpen(marketOf(symbol), now);
 
-/** 미국 정규장 — 예전 이름 (쓰는 곳이 남아 있다) */
-export function isUsMarketOpen(now = new Date()): boolean {
-  return isMarketOpen('US', now);
+/**
+ * 다음 정규장 시작 시각 (v2.44.1) — `now` 보다 뒤의 첫 개장. **휴장일을 본다**(확인 범위 밖은 주말만).
+ * 개장 시각은 UTC 로 늘 15분 경계라(시간대 차가 정수 시간) 15분씩 넘기며 찾는다. 계좌 자동매매 상태의 「다음 판단」 이 쓴다 — 화면은 계산하지 않는다.
+ */
+export function nextMarketOpen(market: CalendarMarket, now = new Date()): Date {
+  const step = 15 * 60_000;
+  let t = Math.floor(now.getTime() / step) * step + step;
+  for (let k = 0; k < 4 * 24 * 30; k++, t += step) {
+    const at = new Date(t);
+    const { day, minutes } = localParts(market, at);
+    if (minutes === SESSION[market].open && !closedLookup(market, day)) return at;
+  }
+  return new Date(t);
 }

@@ -1,6 +1,5 @@
 import type { AccountStrategy, AccountStrategyStatus, DecisionNote } from '../types/autoTrading';
 import type { RuleBody } from '../types/tradingRule';
-import { isKrSymbol } from './market';
 import type { AutoTradeView } from './autoTradeStatus';
 
 /**
@@ -70,42 +69,15 @@ export function kstLabel(at: Date): string {
   return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
 }
 
-/** 시장 개장 시각 (현지) */
-const OPEN = { US: { tz: 'America/New_York', hour: 9, minute: 30 }, KR: { tz: 'Asia/Seoul', hour: 9, minute: 0 } } as const;
-
 /**
- * 다음 정규장 시작 — 평일만 본다(화면은 휴장 달력을 갖고 있지 않다 — 휴장일이면 실제로는 그다음 거래일이다).
- * 개장 시각은 UTC 로 늘 15분 경계라(시간대 차가 정수 시간) 15분씩 넘기며 찾는다.
+ * 「다음 판단」 — 서버가 휴장일까지 보고 계산한 시장별 다음 개장 시각(`status.nextOpen`, v2.44.1)을 한국 시간으로 보이기만 한다.
+ * 예: "시장이 열린 뒤 (미국 2026-10-14 22:30 · 국내 2026-10-15 09:00, 한국 시간)". 상태를 아직 못 받았으면 시각 없이.
+ * ⚠️ 화면에서 개장 시각을 계산하지 않는다(v2.44.0 까지는 평일만 보고 계산해 휴장일에 틀렸다).
  */
-export function nextMarketOpen(market: 'US' | 'KR', now = new Date()): Date {
-  const o = OPEN[market];
-  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: o.tz, weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
-  const step = 15 * 60_000;
-  let t = Math.ceil((now.getTime() + 1) / step) * step;
-  for (let k = 0; k < 4 * 96 * 2; k++, t += step) {
-    const parts = fmt.formatToParts(new Date(t));
-    const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
-    const wd = get('weekday');
-    if (wd === 'Sat' || wd === 'Sun') continue;
-    if (Number(get('hour')) % 24 === o.hour && Number(get('minute')) === o.minute) return new Date(t);
-  }
-  return new Date(t);
-}
-
-/** 대상 종목의 시장(국내·미국) */
-export function marketsOf(symbols: string[]): ('US' | 'KR')[] {
-  const out: ('US' | 'KR')[] = [];
-  if (symbols.some((s) => !isKrSymbol(s))) out.push('US');
-  if (symbols.some((s) => isKrSymbol(s))) out.push('KR');
-  return out;
-}
-
-/** 「다음 판단」 — "시장이 열린 뒤 (미국 2026-10-14 22:30 · 국내 2026-10-15 09:00, 한국 시간)" */
-export function nextJudgeText(symbols: string[], now = new Date()): string {
-  const markets = marketsOf(symbols);
-  if (!markets.length) return '대상 종목이 없습니다';
+export function nextJudgeText(status: Pick<AccountStrategyStatus, 'nextOpen'> | null, prefix = '시장이 열린 뒤'): string {
   const label = { US: '미국', KR: '국내' } as const;
-  return `시장이 열린 뒤 (${markets.map((m) => `${label[m]} ${kstLabel(nextMarketOpen(m, now))}`).join(' · ')}, 한국 시간)`;
+  const parts = (['US', 'KR'] as const).filter((m) => status?.nextOpen?.[m]).map((m) => `${label[m]} ${kstLabel(new Date(status!.nextOpen[m]!))}`);
+  return parts.length ? `${prefix} (${parts.join(' · ')}, 한국 시간)` : prefix;
 }
 
 export interface NowSentence {
@@ -118,11 +90,11 @@ export interface NowSentence {
 const JUDGE_EXTRA = '매수·매도 판단은 종목마다 그 시장이 열린 뒤 하루 한 번(어제까지 끝난 봉 기준)이고, 손절·익절·트레일링은 1분마다 봅니다.';
 
 /** 자동매매 바 맨 위의 "지금 상태" 한 문장 — 켜져 있을 때만. 분류는 `autoTradeView()` 를 그대로 쓴다 */
-export function nowSentence(strategy: AccountStrategy, status: AccountStrategyStatus | null, view: AutoTradeView, now = new Date()): NowSentence | null {
+export function nowSentence(strategy: AccountStrategy, status: AccountStrategyStatus | null, view: AutoTradeView): NowSentence | null {
   if (!strategy.enabled) return null;
   const n = strategy.symbols.length;
   if (view.state === 'waiting') {
-    return { text: `지금은 대상 종목의 시장이 닫혀 기다리는 중입니다. 다음 판단: ${nextJudgeText(strategy.symbols, now)}.`, extra: JUDGE_EXTRA, fix: false };
+    return { text: `지금은 대상 종목의 시장이 닫혀 기다리는 중입니다. 다음 판단: ${nextJudgeText(status)}.`, extra: JUDGE_EXTRA, fix: false };
   }
   if (view.state === 'blocked') {
     if (status?.blockedKind === 'daily_loss') {
@@ -138,6 +110,10 @@ export function nowSentence(strategy: AccountStrategy, status: AccountStrategySt
     return { text: status?.blockedReason ?? '설정 문제로 멈춰 있습니다. [설정 열기]에서 확인해 주세요.', extra: null, fix: true };
   }
   const judged = status?.judgedToday ?? 0;
+  // 열린 시장의 오늘 판단을 이미 마쳤으면 다음 개장을 알린다(아니면 「오늘 판단 N/M종목」)
+  if (n > 0 && judged >= n) {
+    return { text: `오늘 판단을 마쳤습니다. 다음 판단: ${nextJudgeText(status, '다음 개장')}.`, extra: JUDGE_EXTRA, fix: false };
+  }
   return {
     text: `시장이 열려 있습니다. 오늘 ${n}종목 중 ${judged}종목을 판단했고, 나머지는 1분 안에 봅니다.`,
     extra: JUDGE_EXTRA,
