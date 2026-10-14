@@ -93,6 +93,18 @@ function targets(): Target[] {
       },
     },
     { name: 'dialog-판단기준편집', hash: '#/swing/list', open: click(/판단 기준/) },
+    // 매매 규칙 (v2.43.0) — 보기(잠김) · 수정 + 고급 설정 펼침 · 새 규칙(빈 규칙)
+    { name: 'dialog-매매규칙-보기', hash: '#/rules', open: click('조건 보기') },
+    {
+      name: 'dialog-매매규칙-수정-고급',
+      hash: '#/rules',
+      open: async (page) => {
+        await click('조건 보기')(page);
+        await click(/^수정$/)(page);
+        await expandAdvanced(page);
+      },
+    },
+    { name: 'dialog-매매규칙-새규칙', hash: '#/rules', open: click('새 규칙 만들기') },
     {
       name: 'popover-날짜고르기',
       hash: '#/calendar',

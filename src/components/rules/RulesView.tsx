@@ -100,9 +100,7 @@ export default function RulesView() {
                 <tr className="border-b border-border/50">
                   <th className={`${TABLE_NAME_COL} py-2 pr-4`}>규칙 이름</th>
                   <th className="whitespace-nowrap py-2 pr-6">적용된 곳</th>
-                  <th className="py-2">
-                    <span className="sr-only">동작</span>
-                  </th>
+                  <th className="py-2" aria-label="동작" />
                 </tr>
               </thead>
               <tbody>

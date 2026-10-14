@@ -190,7 +190,7 @@ export default function RuleDialog({
       }
     >
       <div className="space-y-5">
-        <FormRow label="이름" labelW="sm" valueW="auto" error={editing && nameTouched ? nameError : undefined}>
+        <FormRow label="이름" labelW="md" valueW="auto" error={editing && nameTouched ? nameError : undefined}>
           <Input
             value={name}
             onChange={(e) => {
@@ -211,9 +211,10 @@ export default function RuleDialog({
           <table className="w-full text-left text-xs" data-rows-differ>
             <thead className="text-caption text-text-muted">
               <tr className="border-b border-border/50">
-                <th className="w-px whitespace-nowrap py-1.5 pr-3">사용</th>
-                <th className="w-px whitespace-nowrap py-1.5 pr-4">조건</th>
-                <th className="w-px whitespace-nowrap py-1.5 pr-4 text-right">점수</th>
+                {/* 사용 48px + 조건 140px = 188px — 위 「이름」 폼 줄의 값 칸 시작(이름 칸 176px + 간격 12px)과 같은 선 */}
+                <th className="w-12 whitespace-nowrap py-1.5">사용</th>
+                <th className="w-[8.75rem] whitespace-nowrap py-1.5">조건</th>
+                <th className="w-px whitespace-nowrap py-1.5 pr-4">점수</th>
                 <th className="py-1.5">설명</th>
               </tr>
             </thead>
@@ -222,7 +223,7 @@ export default function RuleDialog({
                 const c = body.buy[key];
                 return (
                   <tr key={key} className="border-b border-border/30">
-                    <td className="py-1.5 pr-3">
+                    <td className="py-1.5">
                       <input
                         type="checkbox"
                         aria-label={`${NAMES[key]} 사용`}
@@ -231,9 +232,9 @@ export default function RuleDialog({
                         onChange={(e) => setBuy(key, { on: e.target.checked } as never)}
                       />
                     </td>
-                    <td className={`whitespace-nowrap py-1.5 pr-4 ${c.on ? 'font-medium text-text-primary' : 'text-text-secondary'}`}>{NAMES[key]}</td>
+                    <td className={`whitespace-nowrap py-1.5 ${c.on ? 'font-medium text-text-primary' : 'text-text-secondary'}`}>{NAMES[key]}</td>
                     <td className="py-1.5 pr-4">
-                      <div className="flex justify-end">
+                      <div className="flex">
                         <NumberField
                           size="sm"
                           unit="점"
@@ -257,23 +258,35 @@ export default function RuleDialog({
                 );
               })}
             </tbody>
+            <tfoot>
+              {/* 매수 기준 — 점수 칸과 같은 열(입력칸·단위·설명 시작점이 위 줄과 한 선) */}
+              <tr>
+                <td className="py-2" />
+                <td className="whitespace-nowrap py-2 font-medium text-text-primary">매수 기준</td>
+                <td className="py-2 pr-4">
+                  <div className="flex">
+                    <NumberField
+                      size="sm"
+                      unit="점"
+                      unitW="sm"
+                      aria-label="매수 기준 점수"
+                      min={L.minScore.min}
+                      max={L.minScore.max}
+                      value={shown(body.buy.minScore)}
+                      disabled={locked}
+                      invalid={!!err('buy.minScore')}
+                      onChange={(e) => setBody((b) => ({ ...b, buy: { ...b.buy, minScore: num(e.target.value) } }))}
+                    />
+                  </div>
+                </td>
+                <td className="py-2 text-text-secondary">
+                  합계가 이 점수 이상이면 매수 <span className="text-text-muted">· 켠 조건의 최대 점수 {maxScore}점</span>
+                  {err('buy.minScore') && <span className="ml-2 text-danger">{err('buy.minScore')}</span>}
+                </td>
+              </tr>
+            </tfoot>
           </table>
 
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
-            <span>합계</span>
-            <NumberField
-              aria-label="매수 기준 점수"
-              min={L.minScore.min}
-              max={L.minScore.max}
-              value={shown(body.buy.minScore)}
-              disabled={locked}
-              invalid={!!err('buy.minScore')}
-              onChange={(e) => setBody((b) => ({ ...b, buy: { ...b.buy, minScore: num(e.target.value) } }))}
-            />
-            <span>점 이상이면 매수</span>
-            <span className="text-text-muted">· 켠 조건의 최대 점수 {maxScore}점</span>
-            {err('buy.minScore') && <span className="text-danger">{err('buy.minScore')}</span>}
-          </div>
           <p className="text-xs text-text-primary">잃을 돈이 벌 돈보다 큰 거래(손익비 1 미만)는 어떤 규칙이든 사지 않습니다.</p>
           {warnings.map((w) => (
             <p key={w} className="text-caption text-warning">
