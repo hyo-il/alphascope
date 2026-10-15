@@ -248,7 +248,7 @@ export function TargetHistorySection({
         {records === null && !error && <p className="text-caption text-text-muted">불러오는 중…</p>}
         {records && shown.length === 0 && (
           <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">
-            {records.length ? '조건에 맞는 결과가 없습니다.' : '아직 분석 히스토리가 없습니다. 「매수 판단」 탭에서 종목 줄의 [목표 수익 가능성] 을 누르면 분석합니다.'}
+            {records.length ? '조건에 맞는 결과가 없습니다.' : '아직 분석 히스토리가 없습니다. 「퀀트 > 매수 판단」 에서 종목 줄의 [목표 수익 가능성] 을 누르면 분석합니다.'}
           </p>
         )}
         {shown.map((record) => (

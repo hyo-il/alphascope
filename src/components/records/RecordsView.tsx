@@ -90,6 +90,7 @@ function AiCheckTab() {
         error={history.error}
         onMore={history.more}
         accountName={nameOf}
+        flush
         emptyText={
           scope === 'all'
             ? '아직 AI 검증 기록이 없습니다. 계좌 자동매매 설정에서 「AI 검증」 을 켜면, 규칙이 「사도 됨」 을 낸 날 사기 직전에 AI에게 묻고 여기에 남깁니다.'

@@ -41,6 +41,7 @@ export function AiVerdictText({ verdict }: { verdict: AiVerdict }) {
  * 「AI 검증 기록」 (v2.46.0, A-7) — 채점 한 줄 + 표. 계좌 화면(계좌 하나)과 「퀀트 > 검증 기록 > AI 검증」(v2.47.0 — 모든 계좌 또는 계좌 하나)이
  * **같은 부품**을 쓴다. 채점은 서버가 읽을 때 캔들에서 낸다(`server/aiCheck/history.ts`).
  * `accountName` 을 주면 「이 계좌」 열 대신 「계좌」 열(계좌 이름과 그 계좌의 행동 — 여러 계좌면 모두)을 그린다.
+ * `flush` — 바깥이 이미 여백(PANEL_PAD)을 준 자리(검증 기록 탭)에서 자체 여백을 뺀다. 탭 글자와 왼쪽 끝을 맞춘다(PANEL_X 규칙).
  */
 export default function AiCheckHistoryPanel({
   data,
@@ -48,6 +49,7 @@ export default function AiCheckHistoryPanel({
   error,
   onMore,
   accountName,
+  flush = false,
   emptyText = '아직 AI 검증 기록이 없습니다. AI 검증을 켠 계좌는 규칙이 「사도 됨」 을 낸 날 사기 직전에 AI에게 묻고 여기에 남깁니다.',
 }: {
   data: AiCheckHistory | null;
@@ -55,6 +57,7 @@ export default function AiCheckHistoryPanel({
   error: string | null;
   onMore: () => void;
   accountName?: (accountId: number) => string;
+  flush?: boolean;
   emptyText?: string;
 }) {
   const [days, setDays] = useState<AiOutcomeDays>(20);
@@ -69,7 +72,7 @@ export default function AiCheckHistoryPanel({
 
   if (!data) {
     return (
-      <div className="p-3">
+      <div className={flush ? '' : 'p-3'}>
         {error ? <p className="text-caption text-danger">{error}</p> : <SkeletonTable rows={4} columns={6} />}
       </div>
     );
@@ -80,7 +83,7 @@ export default function AiCheckHistoryPanel({
   const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right`;
 
   return (
-    <div className="space-y-3 p-3">
+    <div className={`space-y-3 ${flush ? '' : 'p-3'}`}>
       {/* 채점 한 줄 */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs">
         <Segmented
@@ -146,7 +149,7 @@ export default function AiCheckHistoryPanel({
                       </td>
                       <td className={`${TABLE_NUM_COL} py-1 pl-4 pr-2 text-text-secondary`}>
                         {accountName
-                          ? r.accounts.map((a) => `${accountName(a.accountId)} ${a.action === 'bought' ? '샀음' : '사지 않음'}`).join(' · ')
+                          ? r.accounts.map((a) => `${accountName(a.accountId)}(${a.action === 'bought' ? '샀음' : '사지 않음'})`).join(' · ')
                           : r.action === 'bought'
                             ? '샀음'
                             : '사지 않음'}

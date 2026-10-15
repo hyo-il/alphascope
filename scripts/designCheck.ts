@@ -86,6 +86,53 @@ function targets(): Target[] {
     { name: 'dialog-자동매매설정-고급', hash: '#/portfolio/paper', open: async (page) => { await openAccountSettings(page); await expandAdvanced(page); } },
     { name: 'backtest-고급', hash: '#/backtest', open: expandAdvanced },
     { name: 'form-새계좌', hash: '#/portfolio/paper', open: click(/새 계좌/) },
+    // v2.47.0 — 퀀트 5단계: 차트 아래 「AI 분석」 탭(간단 · 전체 모드), 검증 기록(AI 검증 계좌 하나 · 빈 화면 · AI 분석 성적표), 퀀트 메뉴 접힘
+    ...(['간단', '전체'] as const).map((mode) => ({
+      name: `chart-아래AI탭-${mode}`,
+      hash: '#/home',
+      open: async (page: Page) => {
+        await page.locator('header input').first().fill('AAPL');
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(3000);
+        await page.getByRole('tab', { name: 'AI 분석', exact: true }).first().click();
+        await page.waitForTimeout(1500);
+        if (mode === '전체') await click('분석 방식·프롬프트 수정 보기')(page);
+      },
+    })),
+    {
+      name: 'records-aicheck-계좌하나',
+      hash: '#/records/aicheck',
+      open: async (page) => {
+        await page.waitForTimeout(1200);
+        const sel = page.getByRole('combobox', { name: '계좌' });
+        // 기록이 있는 계좌(점검 DB 에 심은 「AI 검증 비교 A」)가 있으면 그것, 없으면 첫 계좌
+        const named = sel.locator('option', { hasText: 'AI 검증 비교' });
+        const v = await ((await named.count()) ? named.first() : sel.locator('option').nth(1)).getAttribute('value');
+        if (v) await sel.selectOption(v);
+        await page.waitForTimeout(1500);
+      },
+    },
+    {
+      name: 'records-빈화면',
+      hash: '#/records/target',
+      before: async (page) => {
+        await page.route('**/api/target-analysis?**', (r) =>
+          r.fulfill({ json: { records: [], stats: { scored: 0, aiHit: 0, baseHit: 0, aiRate: null, baseRate: null, weak: true, rawScored: 0 }, progress: { running: false, total: 0, done: 0, results: [] } } }));
+        await page.route('**/api/ai-check/records**', (r) =>
+          r.fulfill({ json: { rows: [], total: 0, stats: { blocked: { n: { 5: 0, 10: 0, 20: 0 }, avg: { 5: null, 10: null, 20: null } }, passed: { n: { 5: 0, 10: 0, 20: 0 }, avg: { 5: null, 10: null, 20: null } }, unavailable: 0 } } }));
+      },
+      after: async (page) => {
+        await page.unroute('**/api/target-analysis?**');
+        await page.unroute('**/api/ai-check/records**');
+      },
+      open: async (page) => {
+        await page.waitForTimeout(1500);
+        await page.getByRole('tab', { name: 'AI 검증' }).click();
+        await page.waitForTimeout(1500);
+      },
+    },
+    { name: 'records-analysis-성적표', hash: '#/records/analysis', open: async (page) => { await page.waitForTimeout(1200); await page.getByRole('radio', { name: '성적표' }).click().catch(() => page.getByRole('button', { name: '성적표' }).click()); await page.waitForTimeout(1500); } },
+    { name: 'nav-퀀트접힘', hash: '#/rules', open: click(/^퀀트/) },
     // v2.44.2 — 종목 지도(시장 상위 미국 100 · 내 관심 국내), 「N초 전 갱신」(장이 닫힌 시각에도 보이게 응답의 marketOpen 만 바꿔치기 — DB 는 그대로),
     // 처음 켜기 안내 종목 단계, 지정 종목 설정 창의 [종목 추가]
     ...(

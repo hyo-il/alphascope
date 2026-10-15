@@ -305,7 +305,7 @@ export default function AnalysisTimeline({
       {shown.length === 0 && (
         <p className="rounded-xl bg-bg-secondary p-6 text-center text-sm text-text-muted">
           {items.length === 0
-            ? "아직 분석 히스토리가 없습니다. 차트 하단 AI 탭의 'Gemini 바로 분석' 으로 실행하거나, '수동 분석' 탭에서 Claude 답변을 저장하세요."
+            ? '아직 분석 히스토리가 없습니다. 차트 아래 「AI 분석」 탭의 「자동 분석」 으로 실행하거나, 「수동 분석」 의 [분석 방식·프롬프트 수정 보기] 에서 Claude 답변을 저장하세요.'
             : '이 출처의 결과가 없습니다.'}
         </p>
       )}
