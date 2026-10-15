@@ -39,7 +39,14 @@ export default function RulesView() {
     modal.confirm({
       title: '매매 규칙 삭제',
       message: used
-        ? `「${rule.name}」 — 계좌 ${n}개가 이 규칙을 씁니다(${usageText(rule.usedBy, accountName)}). 지우면 그 계좌의 자동매매가 꺼집니다.\n되돌릴 수 없습니다.`
+        ? [
+            `「${rule.name}」 — 이 규칙을 쓰는 곳: ${usageText(rule.usedBy, accountName)}.`,
+            n ? `지우면 계좌 ${n}개의 자동매매가 꺼집니다.` : null,
+            rule.usedBy.buyJudge ? '매수 판단도 이 규칙을 씁니다 — 지우면 매수 판단의 규칙이 비워집니다.' : null,
+            '되돌릴 수 없습니다.',
+          ]
+            .filter(Boolean)
+            .join('\n')
         : `「${rule.name}」 규칙을 삭제합니다. 되돌릴 수 없습니다.`,
       confirmText: '삭제',
       danger: true,

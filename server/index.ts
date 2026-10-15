@@ -122,22 +122,17 @@ import {
   refreshOutcomes,
   startDetection,
 } from './surgeScanner';
-import { evaluateSwing } from './swingAnalyzer';
+import { buildState as buildBuyJudgeState, daysFor as buyJudgeDaysFor, history as buyJudgeHistory } from './buyJudge/judge';
 import {
-  ProfileValidationError,
-  coerceParams,
-  validateSwingParams,
-  getActiveSwingParams,
-  getProfileState,
-  saveProfileState,
-} from './strategyProfile';
-import {
-  insertRecommendation,
-  latestRun,
-  recordedRecently,
-  listRecommendations,
-  refreshSwingOutcomes,
-} from './swingStore';
+  MAX_SYMBOLS as BUY_JUDGE_MAX_SYMBOLS,
+  clearJudgments as clearBuyJudgments,
+  pruneOld as pruneBuyJudgments,
+  setRetention as setBuyJudgeRetention,
+  setRuleId as setBuyJudgeRuleId,
+  setSymbols as setBuyJudgeSymbols,
+} from './buyJudge/store';
+import { startBuyJudgeScheduler } from './buyJudge/scheduler';
+import { isRetention } from '../src/types/buyJudge';
 import {
   getSettings as getSurgeSettings,
   latestDetections,
@@ -168,7 +163,6 @@ import { startUniverseSnapshotScheduler } from './universe';
 import { getEarningsDate, startEarningsScheduler } from './earningsCalendar';
 import { startMarketCalendarScheduler } from './marketCalendar';
 import { calendarEvents } from './calendarService';
-import { previewProfile } from './swingPreview';
 import { getSwingGoal, saveSwingGoal, SwingGoalError } from './swingGoal';
 import { HEATMAP_TOPS, heatmap } from './heatmap';
 import { liveRanking } from './liveRanking';
@@ -1174,39 +1168,83 @@ app.delete('/api/analyses', (req, res) => {
 /** Claude · Gemini 통합 정확도 */
 
 
-// -- 스윙 투자 추천 (Step 10) -------------------------------------------------
+// -- 매수 판단 도우미 (v2.45.0 — 퀀트 다시 만들기 3단계) ---------------------------
 //
-// 관심 종목을 5가지 조건으로 채점하고 매수가·목표가·손절가·비중을 함께 낸다.
-// 관심 목록은 브라우저(localStorage)에만 있으므로 화면이 종목을 실어 보낸다.
-// 종목 수가 십여 개고 캔들·지표 모두 로컬 캐시를 타므로 동기 응답으로 충분하다
-// (급등 탐지와 달리 yfinance 를 종목마다 새로 부르지 않는다).
+// 고른 「매매 규칙」 하나로 전용 목록을 판단한다(`server/buyJudge/*`). 마감 판단은 계좌 자동매매와 같은 함수(`rules/judge.ts`).
+// 주문을 내지 않는다. 서버가 각 시장 마감 뒤 매일 기록한다(`buyJudge/scheduler.ts`). 예전 `/api/swing/*` 판단·추천·이력·프로파일 라우트는 지웠다.
 
-// ── 판정 기준 프로파일 (Step 10 보강, v2.7.0) ───────────────
-//
-// 스윙 판정값 네 종류를 표준 / 공격 / 수비 중에서 골라 쓴다.
-// ⚠️ 표준은 코드 상수(`STANDARD_SWING`)이고 저장하지 않는다 — 저장된 값이 표준을 덮으면
-// "표준인데 예전과 다른 결과" 가 된다.
-
-/**
- * 기준 편집 미리보기 (v2.17.0) — 이 판정값이었다면 지난 120일 관심 종목에서 추천이 몇 번, 그 뒤 10일 평균 수익은.
- * 저장과 같은 검증을 먼저 한다(검증을 통과하지 못하는 값은 미리보기도 하지 않는다). 처음 계산은 수십 초 걸릴 수 있다.
- */
-app.post('/api/swing/profile-preview', async (req, res) => {
-  const params = coerceParams(req.body?.params);
-  const errors = validateSwingParams(params);
-  if (errors.length) return res.status(400).json({ error: errors[0].message, fields: errors });
-  // ⚠️ 재현은 날마다의 오류를 건너뛰므로, 엔진이 꺼져 있으면 "추천 0번" 이 결과처럼 보인다 — 먼저 확인한다
-  if (!(await indicatorEngineHealthy())) {
-    return res.status(503).json({ error: '지표 엔진이 꺼져 있어 미리보기를 계산하지 못했습니다.', engineDown: true });
-  }
+/** 표 — 지금 계산(쓰지 않는다) */
+app.get('/api/buy-judge', async (_req, res) => {
   try {
-    res.json(await previewProfile(params));
+    res.json(await buildBuyJudgeState());
   } catch (e) {
     fail(res, e);
   }
 });
 
-// 초보자 목표 수익률 (v2.29.0) — 「목표 도달 가능성 분석」 의 조건만. 스윙 판정값과 무관하다.
+/** [다시 계산] — 지금 기준으로 다시 계산하고 그날(기준 봉 날짜) 줄을 덮어쓴다 */
+app.post('/api/buy-judge/recalc', async (_req, res) => {
+  try {
+    res.json(await buildBuyJudgeState({ write: true }));
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+/** 전용 목록 · 고른 규칙 — 바뀐 것만 보낸다 */
+app.put('/api/buy-judge/settings', (req, res) => {
+  const body = (req.body ?? {}) as { symbols?: unknown; ruleId?: unknown };
+  if (body.symbols !== undefined) {
+    if (!Array.isArray(body.symbols)) return res.status(400).json({ error: '종목 목록 형식이 틀렸습니다.' });
+    const parsed = body.symbols.map((x) => parseSymbol(x));
+    if (parsed.some((x) => x === null)) return res.status(400).json(BAD_SYMBOL);
+    const list = [...new Set(parsed as string[])];
+    if (list.length > BUY_JUDGE_MAX_SYMBOLS) return res.status(400).json({ error: `매수 판단 목록은 ${BUY_JUDGE_MAX_SYMBOLS}종목까지입니다.` });
+    setBuyJudgeSymbols(list);
+  }
+  if (body.ruleId !== undefined) {
+    if (body.ruleId === null) setBuyJudgeRuleId(null);
+    else {
+      const id = Number(body.ruleId);
+      if (!Number.isInteger(id) || !getRule(id)) return res.status(400).json({ error: '없는 매매 규칙입니다.' });
+      setBuyJudgeRuleId(id);
+    }
+  }
+  res.json({ ok: true });
+});
+
+/** 보관 기간 — 바꾸면 곧바로 정리한다. `?dryRun=1` 이면 지워질 줄 수만 */
+app.put('/api/buy-judge/retention', (req, res) => {
+  const r = req.body?.retention;
+  if (!isRetention(r)) return res.status(400).json({ error: '보관 기간은 6m · 1y · 2y · forever 중 하나입니다.' });
+  const today = new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10);
+  if (req.query.dryRun) return res.json({ willDelete: pruneBuyJudgments(r, today, true) });
+  setBuyJudgeRetention(r);
+  res.json({ deleted: pruneBuyJudgments(r, today) });
+});
+
+app.get('/api/buy-judge/history', async (_req, res) => {
+  try {
+    res.json(await buyJudgeHistory());
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/buy-judge/history/:symbol', (req, res) => {
+  const symbol = parseSymbol(req.params.symbol);
+  if (!symbol) return res.status(400).json(BAD_SYMBOL);
+  res.json({ days: buyJudgeDaysFor(symbol) });
+});
+
+/** 기록 지우기 — `scope=nonBuy` 면 「사도 됨」 은 남긴다 */
+app.delete('/api/buy-judge/history', (req, res) => {
+  const scope = req.query.scope === 'all' ? 'all' : req.query.scope === 'nonBuy' ? 'nonBuy' : null;
+  if (!scope) return res.status(400).json({ error: 'scope 는 all · nonBuy 중 하나입니다.' });
+  res.json({ deleted: clearBuyJudgments(scope) });
+});
+
+// 목표 수익 가능성의 조건(목표·손절·기간) — 매수 판단 화면의 [목표 수익 가능성] 이 쓴다(v2.29.0)
 app.get('/api/swing/goal', (_req, res) => {
   try {
     res.json(getSwingGoal());
@@ -1224,97 +1262,6 @@ app.put('/api/swing/goal', (req, res) => {
   }
 });
 
-app.get('/api/strategy-profile', (_req, res) => {
-  try {
-    res.json(getProfileState());
-  } catch (e) {
-    fail(res, e);
-  }
-});
-
-/** 활성 프로파일 전환 · 공격/수비 값 저장. 검증 실패는 400 + 어느 값이 왜 틀렸는지. */
-app.put('/api/strategy-profile', (req, res) => {
-  try {
-    res.json(saveProfileState(req.body ?? {}));
-  } catch (e) {
-    if (e instanceof ProfileValidationError) {
-      return res.status(400).json({ error: e.message, fields: e.fields });
-    }
-    fail(res, e);
-  }
-});
-
-app.post('/api/swing/analyze', async (req, res) => {
-  const symbols = [
-    ...new Set(
-      (Array.isArray(req.body?.symbols) ? (req.body.symbols as unknown[]) : [])
-        .map((s) => parseSymbol(s))
-        .filter((s): s is string => s !== null),
-    ),
-  ].slice(0, 50);
-
-  if (!symbols.length) {
-    return res.status(400).json({ error: '분석할 종목이 없습니다. 관심 목록에 종목을 추가해 주세요.' });
-  }
-
-  const analyzedAt = new Date().toISOString();
-  /*
-   * ⚠️ 프로파일은 **요청 시작 때 한 번만** 읽는다. 종목마다 읽으면 분석 도중 사용자가
-   * 기준을 바꿨을 때 한 결과 안에 두 기준이 섞여, 무엇으로 낸 추천인지 말할 수 없게 된다.
-   */
-  const profile = getActiveSwingParams();
-  const recommendations = [];
-  const failures: { symbol: string; error: string }[] = [];
-
-  for (const symbol of symbols) {
-    try {
-      const recommendation = await evaluateSwing(symbol, profile);
-      // 추천만 저장한다 — 부적합 종목까지 쌓으면 성과 표본이 추천의 정확도를 말하지 못한다.
-      if (
-        (recommendation.grade === 'STRONG' || recommendation.grade === 'BUY') &&
-        !recordedRecently(symbol, profile.id)
-      ) {
-        insertRecommendation(analyzedAt, recommendation);
-      }
-      recommendations.push(recommendation);
-    } catch (e) {
-      // 한 종목이 실패해도 나머지는 살린다 (상장 직후·지표 엔진 일시 오류 등).
-      failures.push({ symbol, error: e instanceof Error ? e.message : String(e) });
-    }
-  }
-
-  res.json({ analyzedAt, profile: profile.id, recommendations, failures });
-});
-
-app.post('/api/swing/evaluate', async (req, res) => {
-  const symbol = parseSymbol(req.body?.symbol ?? req.query.symbol);
-  if (!symbol) return res.status(400).json(BAD_SYMBOL);
-  try {
-    res.json({ recommendation: await evaluateSwing(symbol, getActiveSwingParams()) });
-  } catch (e) {
-    fail(res, e);
-  }
-});
-
-/** 저장된 마지막 추천 (화면을 다시 열었을 때 빈 화면을 보여 주지 않기 위한 것) */
-app.get('/api/swing/recommendations', (_req, res) => {
-  try {
-    const { analyzedAt, rows } = latestRun();
-    res.json({ analyzedAt, records: rows });
-  } catch (e) {
-    fail(res, e);
-  }
-});
-
-/** 추천 이력 + 성과. 읽는 김에 채점도 갱신한다. */
-app.get('/api/swing/history', async (_req, res) => {
-  try {
-    await refreshSwingOutcomes().catch(() => 0);
-    res.json({ records: listRecommendations() });
-  } catch (e) {
-    fail(res, e);
-  }
-});
 
 // -- 급등 탐지 (Step 9) ------------------------------------------------------
 //
@@ -1837,6 +1784,8 @@ app.listen(port, host, () => {
 
   // 실적 발표일 — 하루 1회 (v2.16.0). 스윙 실적 경고와 자동매매 실적 회피가 함께 쓴다
   if (!isMockMode()) startEarningsScheduler();
+  // 매수 판단 매일 기록 (v2.45.0) — 주문을 내지 않으므로 자동매매 스위치와 무관하게 돈다
+  startBuyJudgeScheduler();
 
   // 휴장일 — 하루 1회 (v2.17.0). 실적 회피 거래일 계산·옵션 만기·일정 달력이 쓴다
   startMarketCalendarScheduler();

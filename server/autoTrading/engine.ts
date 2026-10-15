@@ -12,9 +12,8 @@
  */
 
 import { createOrder, valuePositions, getAccount } from '../paperTradingService';
-import { getCandles } from '../candleService';
-import { computeIndicators } from '../indicatorService';
-import { completedDaily, evaluateRule, exitLevels } from '../rules/engine';
+import { exitLevels } from '../rules/engine';
+import { judgeOnClose } from '../rules/judge';
 import { planBuy } from './sizing';
 import { clearPeak, getJudgedDay, getPeak, getStopDay, setJudgedDay, setStopDay, updatePeak } from './store';
 import { dailyLossBlock, earningsGuard } from './guards';
@@ -25,10 +24,6 @@ import type { RuleBody } from '../../src/types/tradingRule';
 
 type Note = AutoTradeRunResult['notes'][number];
 
-/** 신호 판단에 받는 일봉 수 */
-const CANDLE_LIMIT = 300;
-/** 이보다 적으면 판단하지 않는다(그날은 판단한 것으로 친다 — 데이터가 늘 때까지 같은 답이다) */
-const MIN_CANDLES = 30;
 
 const pct = (value: number) => `${value > 0 ? '+' : ''}${value.toFixed(2)}%`;
 
@@ -132,27 +127,31 @@ export async function runSignalChecks(
     }
     const position = heldMap.get(symbol);
     try {
-      const candles = await getCandles(symbol, '1d', CANDLE_LIMIT);
-      const completed = completedDaily(candles, symbol, now.getTime());
+      // 마감 판단은 매수 판단과 같은 함수 한 곳(`rules/judge.ts`, v2.45.0)
+      const judged = await judgeOnClose(
+        symbol,
+        rule,
+        {
+          held: Boolean(position),
+          avgPrice: position?.avgPrice,
+          peak: getPeak(strategy.accountId, symbol) ?? undefined,
+          lastStopDate: getStopDay(strategy.accountId, symbol),
+        },
+        now.getTime(),
+      );
       result.evaluated += 1;
-      if (completed.length < MIN_CANDLES) {
+      if (judged.kind === 'short') {
         result.notes.push({
           symbol,
           action: 'HOLD',
-          reason: `캔들이 ${completed.length}개뿐이라 판단을 건너뜁니다`,
+          reason: `캔들이 ${judged.count}개뿐이라 판단을 건너뜁니다`,
           code: 'not_enough_candles',
           orderId: null,
         });
         setJudgedDay(strategy.accountId, symbol, today);
         continue;
       }
-      const series = await computeIndicators(completed);
-      const ev = evaluateRule({ symbol, candles: completed, series }, completed.length - 1, rule, {
-        held: Boolean(position),
-        avgPrice: position?.avgPrice,
-        peak: getPeak(strategy.accountId, symbol) ?? undefined,
-        lastStopDate: getStopDay(strategy.accountId, symbol),
-      });
+      const { ev, candles } = judged;
       const reason = ev.reasons[0] ?? '';
       const price = candles.at(-1)?.close ?? null;
 

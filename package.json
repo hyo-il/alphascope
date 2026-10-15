@@ -28,6 +28,7 @@
     "research:sector": "tsx scripts/sectorPersistenceResearch.ts",
     "rules:test": "tsx scripts/rulesSelfTest.ts",
     "prevclose:test": "tsx scripts/prevCloseSelfTest.ts",
+    "buyjudge:test": "tsx scripts/buyJudgeSelfTest.ts",
     "design:lint": "tsx scripts/designLint.ts",
     "design:check": "tsx scripts/designCheck.ts"
   },

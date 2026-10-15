@@ -405,3 +405,27 @@ CREATE TABLE IF NOT EXISTS trading_rules (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+-- 매수 판단 기록 (v2.45.0 — 퀀트 다시 만들기 3단계). server/buyJudge/*
+-- 서버가 각 시장 마감 뒤 전용 목록을 고른 규칙으로 판단해 쓴다(마감 판단만, 참고 점수는 저장하지 않는다). [다시 계산] 은 그날 줄을 덮어쓴다.
+-- (날짜, 종목, 규칙) 한 줄. 그날 쓴 규칙 이름·내용(rule_json)을 함께 남긴다. 「사도 됨」(code = 'score_buy') 은 계속 보관,
+-- 나머지는 app_settings 'buyJudge.retention' 기간이 지나면 하루 한 번 지운다. 성과(5·10·20거래일 뒤)는 저장하지 않고 읽을 때 캔들에서 구한다.
+CREATE TABLE IF NOT EXISTS buy_judgments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  market_date TEXT NOT NULL,        -- 기준 봉 날짜(그 종목 시장 날짜)
+  symbol TEXT NOT NULL,
+  rule_id INTEGER NOT NULL,
+  rule_name TEXT NOT NULL,
+  rule_json TEXT NOT NULL,
+  action TEXT NOT NULL,             -- BUY · HOLD
+  code TEXT NOT NULL,               -- score_buy · no_signal_buy · rr_block …
+  score INTEGER NOT NULL,
+  max_score INTEGER NOT NULL,
+  min_score INTEGER NOT NULL,
+  breakdown_json TEXT NOT NULL,     -- 켠 조건의 [{key, score, max}]
+  reference_json TEXT,              -- 진입 방식·매수가·손절·목표·손익비·비중(참고)
+  reason TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE (market_date, symbol, rule_id)
+);
+CREATE INDEX IF NOT EXISTS idx_buy_judgments_symbol ON buy_judgments (symbol, market_date);
