@@ -84,7 +84,7 @@ export default function SideNav({
           const Icon = NAV_ICON[item.icon];
           return <Icon {...ICON_LG} />;
         })()}
-        {/* 접힌 폭(52px)에는 짧은 이름 — 「차트·비교」「증시 일정」「투자 분석」 은 들어가지 않는다 (v2.26.0) */}
+        {/* 접힌 폭(52px)에는 짧은 이름 — 「차트·비교」「증시 일정」 은 들어가지 않는다 (v2.26.0) */}
         <span className="text-caption leading-tight">{item.shortLabel}</span>
       </button>
 

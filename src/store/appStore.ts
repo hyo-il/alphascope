@@ -72,6 +72,13 @@ interface AppState {
   setPage: (page: NavPageId, sub?: NavSub | null) => void;
   /** 대메뉴 클릭 — 목록을 펼치고 첫 소메뉴로 간다 */
   setGroup: (group: NavGroupId) => void;
+  /**
+   * 차트 아래 「AI 분석」 탭을 열어 달라는 요청 번호 (v2.47.0) — 「AI 분석」 화면을 없애면서 옛 주소 `#/analysis`·급등 탐지 [분석] 이
+   * 차트로 가며 그 탭을 연다. `ChartBottomTabs` 가 번호가 바뀌는 것을 보고 탭을 바꾼다(탭 상태는 그 컴포넌트 안에 있다).
+   */
+  chartAiRequest: number;
+  /** 차트 화면으로 가서 아래 「AI 분석」 탭을 연다 */
+  openChartAi: () => void;
   setSymbol: (symbol: string | null) => void;
   /** 종목 선택을 해제하고 탐색 화면으로 돌아간다 */
   clearSymbol: () => void;
@@ -112,6 +119,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   setGroup: (group) => {
     const first = NAV_GROUPS.find((g) => g.id === group)?.pages[0];
     if (first) set({ nav: { group, page: first.id, sub: normalizeTab(first.id, null), viaGroup: true } });
+  },
+  chartAiRequest: 0,
+  openChartAi: () => {
+    get().setPage('chart');
+    set({ chartAiRequest: get().chartAiRequest + 1 });
   },
   setSymbol: (symbol) => set({ symbol: symbol ? normalize(symbol) : null }),
   clearSymbol: () => set({ symbol: null }),

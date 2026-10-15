@@ -772,8 +772,9 @@ app.post('/api/paper/accounts/:id/copy', (req, res) => {
 // ── AI 검증 기록 (v2.46.0) — 그 계좌가 쓴 검증 + 채점(읽을 때 캔들에서) ──
 app.get('/api/ai-check/records', async (req, res) => {
   try {
-    const accountId = accountIdOf(req);
-    getPaperAccount(accountId);
+    // accountId 가 없으면 모든 계좌 (v2.47.0 「검증 기록 > AI 검증」)
+    const accountId = req.query.accountId == null || req.query.accountId === '' ? null : accountIdOf(req);
+    if (accountId != null) getPaperAccount(accountId);
     const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
     const offset = Math.max(0, Number(req.query.offset) || 0);
     res.json(await aiCheckHistory(accountId, limit, offset));
@@ -1205,7 +1206,7 @@ app.delete('/api/analyses', (req, res) => {
 /** Claude · Gemini 통합 정확도 */
 
 
-// -- 매수 판단 도우미 (v2.45.0 — 퀀트 다시 만들기 3단계) ---------------------------
+// -- 매수 판단 (v2.45.0 — 퀀트 다시 만들기 3단계) ---------------------------
 //
 // 고른 「매매 규칙」 하나로 전용 목록을 판단한다(`server/buyJudge/*`). 마감 판단은 계좌 자동매매와 같은 함수(`rules/judge.ts`).
 // 주문을 내지 않는다. 서버가 각 시장 마감 뒤 매일 기록한다(`buyJudge/scheduler.ts`). 예전 `/api/swing/*` 판단·추천·이력·프로파일 라우트는 지웠다.
@@ -1554,7 +1555,7 @@ app.delete('/api/diagnose/reports/:id', (req, res) => {
   }
 });
 
-// -- 백테스트 (v2.38.0 → v2.44.0, 「실험실 > 백테스트」 — 내가 고른 종목 · 내가 고른 매매 규칙) ----------
+// -- 백테스트 (v2.38.0 → v2.44.0, 「퀀트 > 백테스트」 — 내가 고른 종목 · 내가 고른 매매 규칙) ----------
 //
 // 계산은 `autoTrading/ruleResearch.ts` 의 `runCustomBacktest`(구간·재현·기준선·누설 검사 — 판단은 계좌와 같은 `evaluateRule`)를 백그라운드로.
 // 주문을 내지 않는다. 같은 날 같은 입력(규칙 내용까지)이면 저장된 결과를 돌려준다(강제로 다시 계산은 ?force=1).

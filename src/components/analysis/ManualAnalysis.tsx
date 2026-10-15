@@ -45,7 +45,7 @@ interface Props {
    * 프롬프트는 같은 조립 함수로 만든 **기본값**(전문가 분석 · DEFAULT_HORIZON, 편집 없음) — 두 벌로 두면 갈라진다.
    */
   compact?: boolean;
-  /** 간단 모드의 「투자 분석 > AI 분석 열기」 */
+  /** 간단 모드의 「분석 방식·프롬프트 수정 보기」 — 같은 자리(차트 아래 AI 탭)에서 전체 모드로 바꾼다 (v2.47.0) */
   onOpenFull?: () => void;
 }
 
@@ -261,7 +261,7 @@ export default function ManualAnalysis({
     return (
       /*
         가로 배치 (v2.33.0) — 예전에는 좁은 세로 칸 하나(max-w-md)에 쌓여 오른쪽이 비고 아래가 잘렸다.
-        위 한 줄(설명 + 오른쪽 끝 AI 분석 열기) → ① ② ③ 가로 3칸. 탭 기본 높이에서 스크롤 없이 다 보인다.
+        위 한 줄(설명 + 오른쪽 끝 「분석 방식·프롬프트 수정 보기」) → ① ② ③ 가로 3칸. 탭 기본 높이에서 스크롤 없이 다 보인다.
       */
       <div className={`space-y-2 ${PANEL_PAD}`}>
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -272,7 +272,7 @@ export default function ManualAnalysis({
           <p className="shrink-0 text-caption text-text-muted">
             고치려면 →{' '}
             <button type="button" onClick={onOpenFull} className="text-accent hover:underline">
-              투자 분석 &gt; AI 분석 열기
+              분석 방식·프롬프트 수정 보기
             </button>
           </p>
         </div>
@@ -289,7 +289,7 @@ export default function ManualAnalysis({
           horizontal
           hideIntro
         />
-        {/* 간단 모드에는 「상세 캡처」 를 두지 않는다(상세는 AI 분석 화면에서) */}
+        {/* 간단 모드에는 「상세 캡처」 를 두지 않는다(상세는 전체 모드에서 — v2.47.0 부터 같은 탭 안) */}
         {autoCaptureModal}
       </div>
     );
@@ -303,10 +303,10 @@ export default function ManualAnalysis({
    */
   /*
    * ⚠️ 바깥 틀은 아래 기록 영역(`AnalysisHistory` — 가로 여백 없음, 화면 폭)과 **같다** (v2.34.0 · v2.42.2) — 예전에는 위만 가운데로 모인 좁은 폭(max-w-3xl)이라
-   * 위·아래 좌우 끝이 맞지 않았다. ①②③ 은 이 폭에서 3등분된다. 스크롤은 바깥(AI 분석 화면)이 맡는다.
+   * 위·아래 좌우 끝이 맞지 않았다. ①②③ 은 이 폭에서 3등분된다. 스크롤은 바깥(차트 아래 AI 탭)이 맡는다.
    */
   return (
-    // 가로 여백은 바깥(AI 분석 화면의 PANEL_PAD)이 맡는다 — 탭 글자와 왼쪽 끝이 같은 선 (v2.42.2, 예전 px-4 pt-4 가 한 번 더 들어가 +16px)
+    // 가로 여백은 바깥(차트 아래 AI 탭 전체 모드의 PANEL_PAD — v2.47.0 전에는 AI 분석 화면)이 맡는다 — 탭 글자와 왼쪽 끝이 같은 선 (v2.42.2, 예전 px-4 pt-4 가 한 번 더 들어가 +16px)
     <div>
       <div className="flex flex-col gap-4">
         <section className="flex flex-wrap items-center gap-2">

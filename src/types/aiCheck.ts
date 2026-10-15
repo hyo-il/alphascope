@@ -57,6 +57,8 @@ export interface AiCheckRecord {
   /** 검증 때 가격 → N거래일 뒤 종가(%). 아직 날이 안 지났으면 null. 비용은 빼지 않는다(두 묶음 비교용) */
   returns: Record<AiOutcomeDays, number | null>;
   createdAt: string;
+  /** 이 검증을 쓴 계좌와 각 계좌의 행동 (v2.47.0 — 모든 계좌 보기의 「계좌」 열). 계좌 하나 보기에서는 그 계좌 하나 */
+  accounts: { accountId: number; action: 'bought' | 'skipped' }[];
 }
 
 /** 묶음 하나의 평균(기간별) */
@@ -68,7 +70,7 @@ export interface AiGroupStats {
 
 export interface AiCheckHistory {
   rows: AiCheckRecord[];
-  /** 이 계좌의 전체 줄 수(더 보기용) */
+  /** 고른 범위(계좌 하나 · 모든 계좌)의 전체 줄 수(더 보기용) */
   total: number;
   stats: {
     /** 「위험」 으로 막은 것 */

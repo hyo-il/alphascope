@@ -1,5 +1,5 @@
 /**
- * 매수 판단 도우미 (v2.45.0 — 퀀트 다시 만들기 3단계). 서버 `server/buyJudge/*` 와 화면 `components/swing/BuyJudge*` 가 함께 쓴다.
+ * 매수 판단 (v2.45.0 — 퀀트 다시 만들기 3단계). 서버 `server/buyJudge/*` 와 화면 `components/swing/BuyJudge*` 가 함께 쓴다.
  *
  * 화면 위에서 고른 「매매 규칙」 하나로 전용 목록의 종목을 판단한다 — 엔진 `evaluateRule`, 보유 없음(`held: false`).
  * 마감 판단은 계좌 자동매매와 **같은 함수**(`server/rules/judge.ts`)라 같은 종목·날·규칙이면 같은 답이다.

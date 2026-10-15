@@ -5,13 +5,11 @@ import { SkeletonCards } from '../common/SkeletonLoader';
 import { Badge, Button, InfoTip, Segmented } from '../ui';
 import { ICON_SM } from '../ui/icon';
 import { LIST_TABLE_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
-import { TargetHistorySection } from './TargetAnalysisParts';
 import { fetchJudgeDays, useBuyJudgeHistory } from '../../hooks/useBuyJudge';
 import { formatSigned } from '../../utils/formatters';
 import { modal, toast } from '../../store/uiStore';
 import { REASON_DAYS, SMALL_SAMPLE, type JudgeDay } from '../../types/buyJudge';
 import { VerdictText } from './BuyJudgeTable';
-import type { useTargetAnalysis } from '../../hooks/useTargetAnalysis';
 
 const OUTCOME_HELP =
   '「사도 됨」 다음 거래일 시가에 샀다고 보고, 그 판단 날(기준 봉)에서 5·10·20번째 거래일 종가로 계산한 수익률입니다. 백테스트와 같은 왕복 비용 0.30%p 를 뺐습니다. 아직 날이 지나지 않은 칸은 「—」 입니다.';
@@ -20,10 +18,10 @@ const pct = (v: number | null) => (v == null ? '—' : `${formatSigned(v, 2)}%`)
 const tone = (v: number | null) => (v == null ? 'text-text-muted' : v > 0 ? 'text-bullish' : v < 0 ? 'text-bearish' : 'text-text-secondary');
 
 /**
- * 매수 판단 히스토리 (v2.45.0, 사용자 결정 A-8) — ① 「사도 됨」 기록과 5·10·20거래일 뒤 수익 ② 「사지 않은 이유」 종목별 한 줄
- * ③ 목표 수익 가능성 기록·성적(예전 `TargetHistorySection` 그대로). [기록 지우기] 는 판단 기록만(목표 수익 가능성은 그 기록의 삭제를 쓴다).
+ * 매수 판단 히스토리 (v2.45.0, 사용자 결정 A-8) — ① 「사도 됨」 기록과 5·10·20거래일 뒤 수익 ② 「사지 않은 이유」 종목별 한 줄.
+ * [기록 삭제] 는 판단 기록만. 목표 수익 가능성 기록·성적은 v2.47.0 에 「퀀트 > 검증 기록」 탭으로 옮겼다(A-5).
  */
-export default function BuyJudgeHistory({ target }: { target: ReturnType<typeof useTargetAnalysis> }) {
+export default function BuyJudgeHistory() {
   const h = useBuyJudgeHistory();
   const [scope, setScope] = useState<'nonBuy' | 'all'>('nonBuy');
   const [openSym, setOpenSym] = useState<string | null>(null);
@@ -50,7 +48,7 @@ export default function BuyJudgeHistory({ target }: { target: ReturnType<typeof 
     if (!n) return toast.info('삭제할 판단 기록이 없습니다');
     modal.confirm({
       title: '매수 판단 기록 삭제',
-      message: `${n}줄이 삭제됩니다${scope === 'nonBuy' ? '(「사도 됨」 기록은 남습니다)' : '(「사도 됨」 기록과 성과도 함께 지워집니다)'}. 되돌릴 수 없습니다.\n목표 수익 가능성 기록은 삭제하지 않습니다.`,
+      message: `${n}줄이 삭제됩니다${scope === 'nonBuy' ? '(「사도 됨」 기록은 남습니다)' : '(「사도 됨」 기록과 성과도 함께 지워집니다)'}. 되돌릴 수 없습니다.\n목표 수익 가능성 기록(「검증 기록」)은 삭제하지 않습니다.`,
       confirmText: '삭제',
       danger: true,
       onConfirm: async () => {
@@ -211,12 +209,6 @@ export default function BuyJudgeHistory({ target }: { target: ReturnType<typeof 
             </Button>
           </span>
         )}
-      </section>
-
-      {/* ③ 목표 수익 가능성 기록·성적 */}
-      <section className="space-y-2">
-        <h3 className="text-sm font-semibold text-text-primary">목표 수익 가능성 — 히스토리와 성적</h3>
-        <TargetHistorySection records={target.records} stats={target.stats} progress={target.progress} error={target.error} remove={target.remove} />
       </section>
     </div>
   );

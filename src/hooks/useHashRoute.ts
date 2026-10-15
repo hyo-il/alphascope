@@ -18,10 +18,37 @@ import { normalizeTab, pageMeta, tabFromPath, tabPath, type NavPageId } from '..
  *   (대메뉴를 눌러 지나간 첫 화면은 같은 대메뉴의 다른 소메뉴로 곧 옮기면 `replaceState` 로 덮어쓴다 — `viaGroup`)
  *   같은 화면을 다시 누르거나, 아래처럼 주소에서 온 이동이면 결과 주소가 이미 같아서 반복이 생기지 않는다.
  * - 주소 → 상태: 뒤로·앞으로 가기(popstate·hashchange)면 그 화면으로 간다(기록은 쌓지 않는다 — 위 비교 덕분).
- * - 처음 열기·새로고침: 주소의 화면으로 연다. 없거나 모르는 값이면 `chart` 로 열고 `replaceState` 로 주소만 고친다.
+ * - 처음 열기·새로고침: 주소의 화면으로 연다. 없앤 주소면 `LEGACY_ROUTES` 의 새 자리(v2.47.0), 없거나 모르는 값이면 `home` 으로 열고 `replaceState` 로 주소만 고친다.
  *
  * 로그인한 상태(`AppBody`)에서만 쓴다 — 로그인 화면에서는 주소를 건드리지 않는다.
  */
+
+/**
+ * 없앤 주소 → 새 자리 (v2.47.0 — 「투자 분석 > AI 분석」 · 「실험실 > 진단 리포트」 를 없앴다). **보내기 표는 여기 한 곳**이다.
+ * 즐겨찾기·옛 링크가 홈으로 떨어지지 않게 한다. `chartAi` 면 차트로 가서 아래 「AI 분석」 탭을 연다(보던 종목이 없으면 종목 탐색).
+ */
+const LEGACY_ROUTES: Record<string, { page: NavPageId; sub: NavSub | null; chartAi?: boolean }> = {
+  'analysis': { page: 'chart', sub: null, chartAi: true },
+  'analysis/manual': { page: 'chart', sub: null, chartAi: true },
+  'analysis/records': { page: 'records', sub: 'analysis' },
+  'analysis/accuracy': { page: 'records', sub: 'analysis' },
+  'diagnose': { page: 'records', sub: 'diagnose' },
+};
+
+/** 옛 주소면 새 자리를 돌려준다. 모르는 탭 조각(`#/analysis/xyz`)은 탭 없는 주소로 본다 */
+export function legacyRoute(hash: string): { page: NavPageId; sub: NavSub | null; chartAi?: boolean } | null {
+  const [page, path] = hash.replace(/^#\/?/, '').split('/');
+  if (!page) return null;
+  return LEGACY_ROUTES[path ? `${page}/${path}` : page] ?? LEGACY_ROUTES[page] ?? null;
+}
+
+/** 옛 주소를 새 자리로 옮긴다 — 주소는 replaceState(옛 주소를 기록에 남기지 않는다) */
+function goLegacy(target: { page: NavPageId; sub: NavSub | null; chartAi?: boolean }): void {
+  const store = useAppStore.getState();
+  if (target.chartAi) store.openChartAi();
+  else store.setPage(target.page, target.sub);
+  history.replaceState(null, '', hashFor(useAppStore.getState().nav));
+}
 
 export function hashFor(nav: Pick<NavState, 'page' | 'sub'>): string {
   const path = tabPath(nav.page, nav.sub);
@@ -41,7 +68,10 @@ export function useHashRoute(): void {
 
     // 1) 처음 열기·새로고침 — 주소를 먼저 반영하고 나서 구독한다(기본값 home 이 주소를 덮어쓰지 않게)
     const initial = parseHash(window.location.hash);
-    if (initial) {
+    const initialLegacy = initial ? null : legacyRoute(window.location.hash);
+    if (initialLegacy) {
+      goLegacy(initialLegacy);
+    } else if (initial) {
       setPage(initial.page, initial.sub);
       // 탭이 없거나 모르는 조각이었으면 주소도 정리한다 (기록은 쌓지 않는다)
       const clean = hashFor(initial);
@@ -74,6 +104,16 @@ export function useHashRoute(): void {
     // 3) 주소 → 상태 (뒤로·앞으로 가기, 주소창 직접 수정)
     const onAddress = () => {
       const parsed = parseHash(window.location.hash);
+      const legacy = parsed ? null : legacyRoute(window.location.hash);
+      if (legacy) {
+        fromAddress = true;
+        try {
+          goLegacy(legacy);
+        } finally {
+          fromAddress = false;
+        }
+        return;
+      }
       if (!parsed) {
         // 모르는 주소 — 홈으로(v2.41.0), 주소만 고친다
         history.replaceState(null, '', hashFor({ page: 'home' }));

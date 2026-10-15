@@ -165,7 +165,7 @@ function ScheduledEditor({
     >
       <p className="text-caption leading-relaxed text-text-secondary">
         미국 장 마감 30분 뒤 첫 확인(약 10분 간격)에 하루 1번 분석합니다. 휴장일은 건너뜁니다. 국내 종목도 같은 시각에
-        마지막 종가 기준으로 분석합니다. 결과는 「AI 분석 히스토리」 의 「지정 종목」 으로 쌓이고, <b>주문은 내지 않습니다.</b>
+        마지막 종가 기준으로 분석합니다. 결과는 아래 히스토리에 「지정 종목」 으로 쌓이고, <b>주문은 내지 않습니다.</b>
       </p>
       <SymbolPicker
         selected={draft}

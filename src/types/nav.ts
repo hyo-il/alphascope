@@ -9,10 +9,11 @@
  */
 
 /**
- * 대메뉴 (v2.26.0 다시 묶음 — 2026-10-02 사용자 결정): 탐색 · 차트·비교 · 증시 일정 · 투자 분석 · 실험실 · 계좌 · (맨 아래) 설정.
- * ⚠️ page id 는 바꾸지 않았다 — 주소(#/pageId)·저장값·`needsSymbol` 이 page id 로 찾는다. 대메뉴만 다시 묶었다.
+ * 대메뉴 (v2.47.0 — 퀀트 다시 만들기 5단계, 사용자 결정 A-1): 홈 · 탐색 · 차트·비교 · 증시 일정 · 퀀트 · 실험실 · 계좌 · (맨 아래) 설정.
+ * 「투자 분석」 대메뉴와 「AI 분석」 화면은 v2.47.0 에 없앴다 — 수동 분석·이 종목 Gemini 분석은 차트 아래 「AI 분석」 탭, 기록·성적표는 「퀀트 > 검증 기록」.
+ * ⚠️ page id 는 바꾸지 않는다 — 주소(#/pageId)·저장값·`needsSymbol` 이 page id 로 찾는다. 없앤 주소는 `hooks/useHashRoute.ts` 의 `LEGACY_ROUTES` 가 새 자리로 보낸다.
  */
-export type NavGroupId = 'home' | 'explore' | 'chart' | 'calendar' | 'quant' | 'analysis' | 'lab' | 'account' | 'settings';
+export type NavGroupId = 'home' | 'explore' | 'chart' | 'calendar' | 'quant' | 'lab' | 'account' | 'settings';
 
 export type NavPageId =
   | 'home'
@@ -22,11 +23,10 @@ export type NavPageId =
   | 'rules'
   | 'heatmap'
   | 'ranking'
-  | 'analysis'
   | 'surge'
   | 'swing'
-  | 'diagnose'
   | 'backtest'
+  | 'records'
   | 'portfolio'
   | 'settings-account'
   | 'settings-app'
@@ -48,7 +48,7 @@ export interface NavPage {
   hidesSymbolHeader?: boolean;
 }
 
-export type NavIconKey = 'home' | 'explore' | 'chart' | 'calendar' | 'quant' | 'analysis' | 'lab' | 'account' | 'settings';
+export type NavIconKey = 'home' | 'explore' | 'chart' | 'calendar' | 'quant' | 'lab' | 'account' | 'settings';
 
 export interface NavGroup {
   id: NavGroupId;
@@ -56,7 +56,7 @@ export interface NavGroup {
   icon: NavIconKey;
   label: string;
   /**
-   * 접힌 메뉴(52px) 전용 짧은 이름 — 「차트·비교」「증시 일정」「투자 분석」 은 12px 로 52px 에 들어가지 않는다.
+   * 접힌 메뉴(52px) 전용 짧은 이름 — 「차트·비교」「증시 일정」 은 12px 로 52px 에 들어가지 않는다.
    * 펼친 메뉴·제목·툴팁에는 `label` 을 쓴다.
    */
   shortLabel: string;
@@ -117,24 +117,21 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     /*
-      퀀트 (v2.43.0 — 퀀트 다시 만들기 1단계, 사용자 결정 2026-10-13). 지금은 「매매 규칙」 하나(소메뉴 하나 → 누르면 바로 화면).
-      나머지 소메뉴는 2·3·5단계에서 더한다. 「투자 분석」·「실험실」 은 5단계까지 그대로. 종목과 무관한 화면이라 상단 종목 헤더를 감춘다.
+      퀀트 (v2.43.0 → v2.47.0 — 퀀트 다시 만들기 5단계 완료, 사용자 결정 A-1). 규칙 → 판단 → 시험 → 검증 순서.
+      소메뉴가 넷이라 보고 있는 대메뉴를 접을 수 있다(v2.43.1). 넷 다 종목과 무관한 화면이라 상단 종목 헤더를 감춘다.
     */
     id: 'quant',
     icon: 'quant',
     label: '퀀트',
     shortLabel: '퀀트',
-    pages: [{ id: 'rules', label: '매매 규칙', hidesSymbolHeader: true }],
-  },
-  {
-    id: 'analysis',
-    icon: 'analysis',
-    label: '투자 분석',
-    shortLabel: '분석',
     pages: [
-      { id: 'analysis', label: 'AI 분석', needsSymbol: true },
-      // v2.35.0 이름 「스윙 추천」 → 「매수 판단 도우미」(사용자 결정). page id 'swing' 은 그대로(주소·저장값)
-      { id: 'swing', label: '매수 판단 도우미', hidesSymbolHeader: true },
+      { id: 'rules', label: '매매 규칙', hidesSymbolHeader: true },
+      // v2.47.0 이름 「매수 판단 도우미」 → 「매수 판단」(A-3). page id 'swing' 은 그대로(주소·저장값) — 예전 「스윙 추천」 · 「매수 판단 도우미」
+      { id: 'swing', label: '매수 판단', hidesSymbolHeader: true },
+      // 고른 종목을 고른 매매 규칙(방법 1~3개)으로 1~3년 시험한다 (v2.38.0 → v2.44.0). 주소 #/backtest, 탭 없음 — v2.47.0 에 실험실에서 옮겼다
+      { id: 'backtest', label: '백테스트', hidesSymbolHeader: true },
+      // 검증 기록 (v2.47.0, A-4) — 목표 수익 가능성 · AI 검증 · AI 분석 · 진단 리포트 탭 넷. 예전 「AI 분석」 의 기록·성적표와 「실험실 > 진단 리포트」 를 모았다
+      { id: 'records', label: '검증 기록', hidesSymbolHeader: true },
     ],
   },
   {
@@ -151,18 +148,9 @@ export const NAV_GROUPS: NavGroup[] = [
         평균이다. 장중 실시간 탐지가 아니다.
         주기성 예측이 우연보다 나은지 검증되기 전까지 **실험실 + 테스트 배지**로 둔다(v2.26.0 에 실험실로 옮겼다).
         기능은 지우지 않는다 — 검증 결과를 보고 사용자가 유지·격하·제거를 정한다.
+        v2.47.0 부터 실험실은 급등 탐지 하나 — 소메뉴 하나라 대메뉴를 누르면 바로 급등 탐지다(백테스트는 퀀트, 진단 리포트는 「검증 기록」 탭으로).
       */
-      /*
-        백테스트 (v2.38.0 → v2.44.0) — 고른 종목을 고른 매매 규칙(방법 1~3개)으로 1~3년 시험한다.
-        주소 #/backtest, 탭 없음(PAGE_TABS 에 넣지 않는다). 종목과 무관한 화면이라 상단 종목 헤더를 감춘다.
-      */
-      { id: 'backtest', label: '백테스트', hidesSymbolHeader: true },
       { id: 'surge', label: '급등 탐지', hidesSymbolHeader: true },
-      /*
-        `npm run diagnose` 와 같은 함수를 웹에서 돌리고 결과를 본다 (v2.14.0). 이름 그대로, 위치만 실험실로(v2.26.0).
-        종목과 무관한 화면이라 상단 종목 헤더를 감춘다.
-      */
-      { id: 'diagnose', label: '진단 리포트', hidesSymbolHeader: true },
     ],
   },
   {
@@ -202,21 +190,22 @@ export function pageMeta(page: NavPageId): NavPage | undefined {
 
 // ── 화면 안 탭 (v2.28.0) ─────────────────────────────────────────────────────
 /**
- * 주소에 넣는 화면 안 탭 — **이 표 한 곳**이 탭 목록이다. 화면(`AIAnalysisView`·`SwingDashboard`·`SurgeDashboard`·
+ * 주소에 넣는 화면 안 탭 — **이 표 한 곳**이 탭 목록이다. 화면(`RecordsView`·`BuyJudgeView`·`SurgeDashboard`·
  * `PortfolioView`)과 주소 해석(`hooks/useHashRoute.ts`)·스토어(`appStore.setPage`)가 모두 여기서 읽는다.
  * 두 곳에 목록을 두면 새 탭이 한쪽에만 생겨 주소와 화면이 어긋난다.
  *
- * - `id` = 코드의 탭 값(`nav.sub` 에 그대로 들어간다), `path` = 주소 조각(`#/{page}/{path}`). 대개 같고,
- *   AI 분석의 `results` 만 5차 주소(`#/analysis/records`)를 지키려고 `records` 다.
+ * - `id` = 코드의 탭 값(`nav.sub` 에 그대로 들어간다), `path` = 주소 조각(`#/{page}/{path}`). 지금은 모두 같다.
  * - **첫 줄이 기본 탭**이다 — 탭 없이 들어오면(`#/swing`) 첫 탭으로 연다.
  * - ⚠️ 넣지 않는 것: 계좌 상세 안의 탭·차트 하단 탭·관심 목록 패널 탭·「AI 분석 기록」 필터 — 화면이 아니라 패널이라
  *   주소가 바뀌면 뒤로 가기만 길어진다.
  */
 export const PAGE_TABS = {
-  analysis: [
-    { id: 'manual', path: 'manual' },
-    { id: 'results', path: 'records' },
-    { id: 'accuracy', path: 'accuracy' },
+  // 검증 기록 (v2.47.0, A-4) — 목표 수익 가능성이 맨 앞(기본 탭). 예전 #/analysis/* · #/diagnose 는 useHashRoute 의 LEGACY_ROUTES 가 여기로 보낸다
+  records: [
+    { id: 'target', path: 'target' },
+    { id: 'aicheck', path: 'aicheck' },
+    { id: 'analysis', path: 'analysis' },
+    { id: 'diagnose', path: 'diagnose' },
   ],
   // v2.35.0: 지금 살 만한가(list) · 목표 수익 가능성(target — 다시 넣었다) · 종목 검색 · 지난 기록(history). 주소 조각은 예전 그대로
   // v2.45.0 — 「매수 판단」 · 「히스토리」 둘. 예전 #/swing/target · #/swing/search 는 모르는 조각이라 첫 탭(#/swing/list)으로 간다

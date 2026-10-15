@@ -11,6 +11,7 @@ import IndicatorSummaryPanel from './tabs/IndicatorSummaryPanel';
 import ChartAiPanel from './tabs/ChartAiPanel';
 import NewsPanel from './tabs/NewsPanel';
 import InvestorFlowPanel from './tabs/InvestorFlowPanel';
+import { useAppStore } from '../../store/appStore';
 
 /**
  * 차트 하단 탭 — 차트를 보면서 기업정보·AI 분석을 함께 본다.
@@ -100,7 +101,6 @@ export interface ChartBottomTabsProps {
   indicators: IndicatorSeries | null;
   toggles: IndicatorToggles;
   getChartSnapshot: ComponentProps<typeof ManualAnalysis>['getChartSnapshot'];
-  onPromptChange?: ComponentProps<typeof ManualAnalysis>['onPromptChange'];
   /** 차트 화면이 실제로 보이는 중인지 */
   active: boolean;
 }
@@ -127,6 +127,10 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
   const dragState = useRef<{ startY: number; startHeight: number } | null>(null);
 
   const collapsed = height <= HEADER_HEIGHT + 8;
+
+  // 「AI 분석」 탭을 열어 달라는 요청(v2.47.0 — 옛 주소 #/analysis · 급등 탐지 [분석]). 처음 값(마운트 때 번호)은 무시한다
+  const chartAiRequest = useAppStore((s) => s.chartAiRequest);
+  const seenAiRequest = useRef(chartAiRequest);
 
   const persist = useCallback((next: number) => {
     userSet.current = true;
@@ -200,6 +204,13 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
     }
     setHeight(fitDefault());
   }, [fitDefault]);
+
+  useEffect(() => {
+    if (chartAiRequest === seenAiRequest.current) return;
+    seenAiRequest.current = chartAiRequest;
+    setTab('ai');
+    if (collapsed) resetDefault();
+  }, [chartAiRequest, collapsed, resetDefault]);
 
   // 저장값이 없으면 열 높이(창 크기·시황 카드 접기)에 맞춰 기본 높이를 다시 정한다
   useEffect(() => {
@@ -280,7 +291,6 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
               indicators={props.indicators}
               toggles={props.toggles}
               getChartSnapshot={props.getChartSnapshot}
-              onPromptChange={props.onPromptChange}
             />
           )}
         </div>

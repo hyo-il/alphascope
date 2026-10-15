@@ -22,7 +22,7 @@ interface Props {
   promptLabel?: string;
   /** false 면 데이터가 아직 다 오지 않아 프롬프트 복사를 막는다 — 반쯤 채운 프롬프트가 복사되지 않게 */
   promptReady?: boolean;
-  /** 캡처가 준비됐을 때 ① 버튼 글자 (AI 분석 화면은 「지금 보고 있는 차트 캡처」, v2.28.0) */
+  /** 캡처가 준비됐을 때 ① 버튼 글자 (「지금 보고 있는 차트 캡처」, v2.28.0) */
   captureLabel?: string;
   /** 화면 밖에서 미리 캡처하는 중 — ① 버튼을 잠시 막는다 (v2.28.0) */
   capturePending?: boolean;
@@ -34,7 +34,7 @@ interface Props {
   /** 맨 위 제목·안내 문장을 그리지 않는다 — 부모가 한 줄로 합쳐 보여 줄 때(차트 하단 탭) */
   hideIntro?: boolean;
   /**
-   * ① 칸에 「복사될 차트」 미리보기 (v2.34.0, AI 분석 화면만 — 차트 하단 간단 모드는 차트가 바로 위에 보여 넣지 않는다).
+   * ① 칸에 「복사될 차트」 미리보기 (v2.34.0, 전체 모드만 — 간단 모드는 차트가 바로 위에 보여 넣지 않는다).
    * 그림은 복사·저장과 **같은 Blob**(`captureStore`). [다시 캡처] 는 기존 자동 캡처(`onRecapture`)를 한 번 더 돌린다.
    */
   preview?: { symbol: string | null; error: string | null; onRecapture: () => void };

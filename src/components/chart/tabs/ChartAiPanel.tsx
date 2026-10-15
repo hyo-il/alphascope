@@ -6,16 +6,18 @@ import type { Candle, Timeframe } from '../../../types/toss';
 import type { IndicatorSeries, IndicatorToggles } from '../../../types/chart';
 import type { GeminiAnalysis } from '../../../types/gemini';
 import ManualAnalysis from '../../analysis/ManualAnalysis';
+import AnalysisHistory from '../../analysis/AnalysisHistory';
 import { useAppStore } from '../../../store/appStore';
 import { SIGNAL_CLASS, SIGNAL_LABEL, confidencePercent } from '../../analysis/signalStyle';
 import { toast } from '../../../store/uiStore';
 
 /**
- * 차트 하단의 AI 분석 탭.
+ * 차트 하단의 AI 분석 탭 — **지금 보고 있는 종목만** 다룬다.
  *
- * 사이드 메뉴의 AI 분석 화면과 달리 **지금 보고 있는 종목만** 다룬다 —
- * 자동 분석 설정(대상 종목·주기·자동매매)은 전체 화면 쪽에 그대로 두고,
- * 여기서는 "이 종목 지금 분석" 과 "이 종목 결과" 만 남긴다.
+ * v2.47.0 (퀀트 5단계, A-2): 사이드 메뉴의 「AI 분석」 화면을 없애고 이 탭 하나로 모았다.
+ * - 수동 분석은 간단 모드(①②③ 버튼)가 기본이고, [분석 방식·프롬프트 수정 보기] 를 누르면 **같은 자리에서** 예전 AI 분석 화면의
+ *   전체 모드(분석 방식 3종 · 상세 캡처 · 프롬프트 수정 · Claude 답변 저장 `AnalysisHistory`)로 바뀐다 — 기능을 잃지 않게.
+ * - 기록·성적표·지정 종목은 「퀀트 > 검증 기록 > AI 분석」(#/records/analysis).
  */
 
 type SubTab = 'manual' | 'auto';
@@ -24,7 +26,7 @@ type SubTab = 'manual' | 'auto';
   v2.26.0 — 하위 탭은 둘(사용자 결정 C-1). 'auto' 는 **이 종목을 지금 한 번 분석하는 버튼**이다 —
   저장 출처(trigger)는 그대로 'manual'(「바로 분석」 배지)이고, 채점·필터가 그 값을 쓰므로 바꾸지 않는다.
   탭 안에 "버튼을 누르면 …" 설명을 둬서 계좌 자동매매와 헷갈리지 않게 한다.
-  기록은 차트 탭에서 보여 주지 않는다(C-2) — [이전 기록 보기] 가 「투자 분석 > AI 분석」 의 기록 탭(#/analysis/records)을 연다.
+  기록은 차트 탭에서 보여 주지 않는다(C-2) — [AI 분석 히스토리로 이동] 이 「퀀트 > 검증 기록 > AI 분석」(#/records/analysis)을 연다(v2.47.0).
 */
 const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: 'manual', label: '수동 분석' },
@@ -39,7 +41,6 @@ export default function ChartAiPanel({
   indicators,
   toggles,
   getChartSnapshot,
-  onPromptChange,
 }: {
   symbol: string;
   timeframe: Timeframe;
@@ -48,20 +49,23 @@ export default function ChartAiPanel({
   indicators: IndicatorSeries | null;
   toggles: IndicatorToggles;
   getChartSnapshot: ComponentProps<typeof ManualAnalysis>['getChartSnapshot'];
-  onPromptChange?: ComponentProps<typeof ManualAnalysis>['onPromptChange'];
 }) {
   const [tab, setTab] = useState<SubTab>('manual');
   const setPage = useAppStore((s) => s.setPage);
+  /** 수동 분석 전체 모드인지 (v2.47.0) — 펼침은 기억하지 않는다 */
+  const [full, setFull] = useState(false);
+  /** 전체 모드에서 Claude 답변을 저장할 때 함께 남길 '방금 쓴 프롬프트' (예전 App 이 들고 있던 값) */
+  const [lastPrompt, setLastPrompt] = useState({ mode: 'multi', text: '' });
 
   return (
     <div className="flex h-full flex-col">
       {/* 소탭 줄 — ui/Tabs(sm) · 왼쪽 끝은 위 탭 줄·아래 내용과 같은 선(PANEL_X, v2.42.2 — 예전 직접 만든 버튼 px-2.5) */}
       <div className={`flex shrink-0 items-center border-b border-border/60 ${PANEL_X}`}>
         <Tabs label="AI 분석 하위 탭" line={false} size="sm" items={SUB_TABS} value={tab} onChange={setTab} />
-        {/* 예전 「전체 화면으로」 자리 — 기록은 AI 분석 화면의 기록 탭에서 이 종목만 걸러 연다(주소 #/analysis/records) */}
+        {/* 기록은 「검증 기록」 의 AI 분석 탭(주소 #/records/analysis, v2.47.0) */}
         <button
           type="button"
-          onClick={() => setPage('analysis', 'results')}
+          onClick={() => setPage('records', 'analysis')}
           className="ml-auto py-1 text-caption text-text-muted transition-colors hover:text-accent"
         >
           AI 분석 히스토리로 이동
@@ -69,7 +73,28 @@ export default function ChartAiPanel({
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
-        {tab === 'manual' && (
+        {tab === 'manual' && full && (
+          <div className={`space-y-4 ${PANEL_PAD}`}>
+            <div className="flex items-center gap-2">
+              <span className="text-caption text-text-muted">분석 방식을 고르고 프롬프트를 고쳐 Claude 에 보냅니다. 받은 답변은 아래에 저장합니다.</span>
+              <Button size="sm" variant="secondary" className="ml-auto shrink-0" onClick={() => setFull(false)}>
+                간단히 보기
+              </Button>
+            </div>
+            <ManualAnalysis
+              symbol={symbol}
+              timeframe={timeframe}
+              candles={candles}
+              currentPrice={currentPrice}
+              indicators={indicators}
+              toggles={toggles}
+              getChartSnapshot={getChartSnapshot}
+              onPromptChange={setLastPrompt}
+            />
+            <AnalysisHistory symbol={symbol} timeframe={timeframe} currentPrice={currentPrice} mode={lastPrompt.mode} prompt={lastPrompt.text} />
+          </div>
+        )}
+        {tab === 'manual' && !full && (
           <ManualAnalysis
             symbol={symbol}
             timeframe={timeframe}
@@ -78,9 +103,8 @@ export default function ChartAiPanel({
             indicators={indicators}
             toggles={toggles}
             getChartSnapshot={getChartSnapshot}
-            onPromptChange={onPromptChange}
             compact
-            onOpenFull={() => setPage('analysis', 'manual')}
+            onOpenFull={() => setFull(true)}
           />
         )}
 
@@ -211,7 +235,7 @@ function SingleSymbolGemini({ symbol }: { symbol: string }) {
         4명의 에이전트 + 종합 의장이 2라운드로 토론합니다 (1종목 5회 호출). 이 버튼은 지금 이 종목만 한 번 분석합니다.
       </p>
       <p className="text-text-muted">
-        계좌 자동 분석과 지정 종목 분석은 「투자 분석 &gt; AI 분석 &gt; AI 분석 히스토리」에서 봅니다.
+        지정 종목 분석과 지난 분석은 「퀀트 &gt; 검증 기록 &gt; AI 분석」에서 봅니다.
       </p>
     </div>
   );

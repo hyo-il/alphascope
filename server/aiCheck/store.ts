@@ -70,26 +70,33 @@ export function addUse(checkId: number, accountId: number, action: 'bought' | 's
 
 export interface UseRow extends AiCheckRow {
   use_id: number;
+  account_id: number;
   action: 'bought' | 'skipped';
   order_id: number | null;
   used_at: string;
 }
 
-/** 계좌가 쓴 검증 — 최근 것부터 */
-export function listUses(accountId: number, limit: number, offset = 0): UseRow[] {
+/** 계좌가 쓴 검증 — 최근 것부터. `accountId` 가 null 이면 모든 계좌(v2.47.0 「검증 기록」) */
+export function listUses(accountId: number | null, limit: number, offset = 0): UseRow[] {
+  const where = accountId == null ? '' : 'WHERE u.account_id = ?';
+  const args = accountId == null ? [limit, offset] : [accountId, limit, offset];
   return getDb()
     .prepare(
-      `SELECT c.*, u.id AS use_id, u.action, u.order_id, u.created_at AS used_at
+      `SELECT c.*, u.id AS use_id, u.account_id, u.action, u.order_id, u.created_at AS used_at
          FROM ai_check_uses u JOIN ai_checks c ON c.id = u.check_id
-        WHERE u.account_id = ?
+        ${where}
         ORDER BY u.created_at DESC, u.id DESC
         LIMIT ? OFFSET ?`,
     )
-    .all(accountId, limit, offset) as UseRow[];
+    .all(...args) as UseRow[];
 }
 
-export function countUses(accountId: number): number {
-  return (getDb().prepare(`SELECT COUNT(*) AS n FROM ai_check_uses WHERE account_id = ?`).get(accountId) as { n: number }).n;
+export function countUses(accountId: number | null): number {
+  const row =
+    accountId == null
+      ? getDb().prepare(`SELECT COUNT(*) AS n FROM ai_check_uses`).get()
+      : getDb().prepare(`SELECT COUNT(*) AS n FROM ai_check_uses WHERE account_id = ?`).get(accountId);
+  return (row as { n: number }).n;
 }
 
 /** 계좌를 지울 때 그 계좌의 사용 기록도 — 검증 줄(ai_checks)은 다른 계좌와 같이 쓰므로 남긴다 */

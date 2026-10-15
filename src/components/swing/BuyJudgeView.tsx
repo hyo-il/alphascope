@@ -32,7 +32,7 @@ const TABS: { id: Tab; label: string }[] = [
 const MAX_SYMBOLS = 50;
 
 /**
- * 매수 판단 도우미 (v2.45.0 — 퀀트 다시 만들기 3단계). page id 는 예전 그대로 `swing`(주소·저장값).
+ * 매수 판단 (v2.47.0 이름 — 예전 「매수 판단 도우미」, v2.45.0 — 퀀트 다시 만들기 3단계). page id 는 예전 그대로 `swing`(주소·저장값).
  *
  * 위에서 고른 「매매 규칙」 하나로 전용 목록을 판단한다(서버 `buyJudge` — 마감 판단은 계좌 자동매매와 같은 함수).
  * 표 하나 + 장중 참고 점수 + 줄마다 [목표 수익 가능성](한 번에 한 종목) · 「히스토리」 탭.
@@ -84,11 +84,11 @@ export default function BuyJudgeView() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="매수 판단 도우미" tabs={TABS} value={tab} onChange={setTab} tabsLabel="매수 판단 도우미" />
+      <PageHeader title="매수 판단" tabs={TABS} value={tab} onChange={setTab} tabsLabel="매수 판단" />
       <div className={`min-h-0 flex-1 space-y-4 overflow-auto ${PANEL_PAD}`}>
         {tab === 'list' && (
           <>
-            <HelpBox id="list" title="매수 판단 도우미는 무엇을 하나요?" storageKey="alphascope.swingHelp.list">
+            <HelpBox id="list" title="매수 판단은 무엇을 하나요?" storageKey="alphascope.swingHelp.list">
               <p>위에서 고른 「매매 규칙」 으로 아래 목록의 종목을 판단합니다. 계좌 자동매매와 같은 계산이라, 같은 종목·같은 규칙이면 계좌의 판단과 같습니다.</p>
               <p>「판단」 은 끝난 봉(마감) 기준이고, 「참고 점수」 는 지금 가격(장중) 또는 마지막 가격을 넣어 한 번 더 계산한 점수입니다 — 확정이 아닙니다.</p>
               <p>서버가 매일 각 시장 마감 뒤 판단을 기록합니다(화면을 열지 않은 날도). 기록과 「사도 됨」 의 그 뒤 수익은 「히스토리」 에서 봅니다. 이 화면은 주문을 내지 않습니다.</p>
@@ -146,7 +146,7 @@ export default function BuyJudgeView() {
             </div>
           </>
         )}
-        {tab === 'history' && <BuyJudgeHistory target={target} />}
+        {tab === 'history' && <BuyJudgeHistory />}
         <NotProvenLine />
       </div>
       {goalOpen && <GoalDialog goal={goal.goal} onSave={goal.save} onClose={() => setGoalOpen(false)} />}

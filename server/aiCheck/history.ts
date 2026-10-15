@@ -1,5 +1,5 @@
 /**
- * AI 검증 기록·채점 (v2.46.0) — 계좌 화면 「AI 검증 기록」.
+ * AI 검증 기록·채점 (v2.46.0) — 계좌 화면 「AI 검증 기록」 · (v2.47.0) 「퀀트 > 검증 기록 > AI 검증」(모든 계좌 또는 계좌 하나).
  *
  * 채점은 **저장하지 않고 읽을 때** 캔들에서 구한다(Gemini 적중률 · 매수 판단 성과와 같은 방식 — 기준을 고쳐도 옛 기록까지 같은 기준으로).
  * 수익률 = 검증 때 가격(`price_at_check`) → 검증한 날(그 종목 시장 날짜) 뒤 N번째 거래일 **종가**. 끝난 봉만 쓴다.
@@ -46,7 +46,7 @@ function groupStats(rows: AiCheckRecord[]): AiGroupStats {
   return { n, avg: a };
 }
 
-function toRecord(r: UseRow, returns: AiCheckRecord['returns']): AiCheckRecord {
+function toRecord(r: UseRow, returns: AiCheckRecord['returns'], accounts?: AiCheckRecord['accounts']): AiCheckRecord {
   return {
     useId: r.use_id,
     checkId: r.id,
@@ -59,16 +59,37 @@ function toRecord(r: UseRow, returns: AiCheckRecord['returns']): AiCheckRecord {
     priceAtCheck: r.price_at_check,
     returns,
     createdAt: r.used_at,
+    accounts: accounts ?? [{ accountId: r.account_id, action: r.action }],
   };
 }
 
 /**
- * 계좌 하나의 기록 — 표는 최근 `limit` 건(+ offset), 채점 한 줄은 **그 계좌 전체**로.
+ * 모든 계좌 보기(v2.47.0, A-6) — 같은 검증(check)을 여러 계좌가 썼으면 **한 줄**로 묶는다(AI 호출은 한 번이다).
+ * 그 줄의 행동은 한 계좌라도 샀으면 「샀음」, 계좌별 행동은 `accounts` 에. 채점은 계좌 하나 보기와 **같은 함수**(`checkReturns`·`groupStats`).
+ */
+function groupByCheck(rows: UseRow[]): { row: UseRow; accounts: AiCheckRecord['accounts'] }[] {
+  const byCheck = new Map<number, { row: UseRow; accounts: AiCheckRecord['accounts'] }>();
+  for (const r of rows) {
+    const g = byCheck.get(r.id);
+    if (!g) byCheck.set(r.id, { row: r, accounts: [{ accountId: r.account_id, action: r.action }] });
+    else {
+      if (!g.accounts.some((a) => a.accountId === r.account_id)) g.accounts.push({ accountId: r.account_id, action: r.action });
+      else if (r.action === 'bought') g.accounts = g.accounts.map((a) => (a.accountId === r.account_id ? { ...a, action: 'bought' } : a));
+      if (r.action === 'bought') g.row = { ...g.row, action: 'bought' };
+    }
+  }
+  return [...byCheck.values()].map((g) => ({ ...g, accounts: [...g.accounts].sort((a, b) => a.accountId - b.accountId) }));
+}
+
+/**
+ * 계좌 하나(또는 `accountId` null = 모든 계좌)의 기록 — 표는 최근 `limit` 건(+ offset), 채점 한 줄은 **고른 범위 전체**로.
  * 성과가 아직 다 안 나온 종목만 일봉을 새로 받는다(종목마다 한 번, 실패하면 캐시로).
  */
-export async function aiCheckHistory(accountId: number, limit = 50, offset = 0, now = Date.now()): Promise<AiCheckHistory> {
-  const total = countUses(accountId);
-  const all = listUses(accountId, Math.max(total, 1), 0);
+export async function aiCheckHistory(accountId: number | null, limit = 50, offset = 0, now = Date.now()): Promise<AiCheckHistory> {
+  const uses = countUses(accountId);
+  const all = listUses(accountId, Math.max(uses, 1), 0);
+  const groups = accountId == null ? groupByCheck(all) : all.map((row) => ({ row, accounts: undefined }));
+  const total = groups.length;
   const recentCut = (s: string) => marketDate(now - 40 * 86_400_000, s);
   const pending = [...new Set(all.filter((r) => r.market_date >= recentCut(r.symbol)).map((r) => r.symbol))];
   for (const s of pending) await getCandles(s, '1d', 60).catch(() => []);
@@ -82,9 +103,9 @@ export async function aiCheckHistory(accountId: number, limit = 50, offset = 0, 
     }
     return c;
   };
-  const records = all.map((r) => {
+  const records = groups.map(({ row: r, accounts }) => {
     const { bars, completed } = barsOf(r.symbol);
-    return toRecord(r, checkReturns(bars, completed, r.symbol, r.market_date, r.price_at_check));
+    return toRecord(r, checkReturns(bars, completed, r.symbol, r.market_date, r.price_at_check), accounts);
   });
   return {
     rows: records.slice(offset, offset + limit),

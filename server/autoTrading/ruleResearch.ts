@@ -1,5 +1,5 @@
 /**
- * 백테스트 — 「실험실 > 백테스트」 사용자 시험(`runCustomBacktest`). 사용자가 고른 종목 · 방법(매매 규칙 1~3개) · 기간(1~3년).
+ * 백테스트 — 「퀀트 > 백테스트」 사용자 시험(`runCustomBacktest`). 사용자가 고른 종목 · 방법(매매 규칙 1~3개) · 기간(1~3년).
  * 판단은 계좌와 같은 엔진(`ruleBacktest.simulateRule` → `evaluateRule`). 판정 배지 없음.
  * 구간 나누기 · 아무 날이나 기준선(`randomBaseline`) · 미래 누설 검사 · MDD · Profit Factor · SPY 비교는 v2.37~v2.41 그대로다.
  * v2.44.0 에 예전 「미리 정한 시험」(교차 계산기 고정 3년 — `runRuleResearch` · 판정 · 보고서 md)을 지웠다.

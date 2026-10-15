@@ -38,19 +38,24 @@ export function AiVerdictText({ verdict }: { verdict: AiVerdict }) {
 }
 
 /**
- * 계좌 화면 「AI 검증 기록」 (v2.46.0, A-7) — 채점 한 줄 + 표. 5단계에서 「검증 기록」 화면으로 옮긴다.
- * 채점은 서버가 읽을 때 캔들에서 낸다(`server/aiCheck/history.ts`).
+ * 「AI 검증 기록」 (v2.46.0, A-7) — 채점 한 줄 + 표. 계좌 화면(계좌 하나)과 「퀀트 > 검증 기록 > AI 검증」(v2.47.0 — 모든 계좌 또는 계좌 하나)이
+ * **같은 부품**을 쓴다. 채점은 서버가 읽을 때 캔들에서 낸다(`server/aiCheck/history.ts`).
+ * `accountName` 을 주면 「이 계좌」 열 대신 「계좌」 열(계좌 이름과 그 계좌의 행동 — 여러 계좌면 모두)을 그린다.
  */
 export default function AiCheckHistoryPanel({
   data,
   loading,
   error,
   onMore,
+  accountName,
+  emptyText = '아직 AI 검증 기록이 없습니다. AI 검증을 켠 계좌는 규칙이 「사도 됨」 을 낸 날 사기 직전에 AI에게 묻고 여기에 남깁니다.',
 }: {
   data: AiCheckHistory | null;
   loading: boolean;
   error: string | null;
   onMore: () => void;
+  accountName?: (accountId: number) => string;
+  emptyText?: string;
 }) {
   const [days, setDays] = useState<AiOutcomeDays>(20);
   const [open, setOpen] = useState<Set<number>>(new Set());
@@ -98,7 +103,7 @@ export default function AiCheckHistoryPanel({
 
       {!data.rows.length ? (
         <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">
-          아직 AI 검증 기록이 없습니다. AI 검증을 켠 계좌는 규칙이 「사도 됨」 을 낸 날 사기 직전에 AI에게 묻고 여기에 남깁니다.
+          {emptyText}
         </p>
       ) : (
         <div className="rounded-lg bg-bg-tertiary/40">
@@ -108,7 +113,7 @@ export default function AiCheckHistoryPanel({
                 <th className={`${TABLE_NUM_COL} py-2 pl-3 pr-2`}>날짜</th>
                 <th className={`${TABLE_NAME_COL} py-2 pl-4 pr-3`}>종목</th>
                 <th className={`${TABLE_NUM_COL} py-2 pr-2`}>결과</th>
-                <th className={`${TABLE_NUM_COL} py-2 pl-4 pr-2`}>이 계좌</th>
+                <th className={`${TABLE_NUM_COL} py-2 pl-4 pr-2`}>{accountName ? '계좌' : '이 계좌'}</th>
                 {AI_CHECK_OUTCOME_DAYS.map((d) => (
                   <th key={d} className={`${NUM} py-2 ${d === 20 ? 'pr-3' : ''}`}>
                     {d}거래일
@@ -139,7 +144,13 @@ export default function AiCheckHistoryPanel({
                       <td className={`${TABLE_NUM_COL} py-1 pr-2`}>
                         <AiVerdictText verdict={r.verdict} />
                       </td>
-                      <td className={`${TABLE_NUM_COL} py-1 pl-4 pr-2 text-text-secondary`}>{r.action === 'bought' ? '샀음' : '사지 않음'}</td>
+                      <td className={`${TABLE_NUM_COL} py-1 pl-4 pr-2 text-text-secondary`}>
+                        {accountName
+                          ? r.accounts.map((a) => `${accountName(a.accountId)} ${a.action === 'bought' ? '샀음' : '사지 않음'}`).join(' · ')
+                          : r.action === 'bought'
+                            ? '샀음'
+                            : '사지 않음'}
+                      </td>
                       {AI_CHECK_OUTCOME_DAYS.map((d) => (
                         <td key={d} className={`${NUM} py-1 tabular-nums ${tone(r.returns[d])} ${d === 20 ? 'pr-3' : ''}`}>
                           {pct(r.returns[d])}

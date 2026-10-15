@@ -1,5 +1,4 @@
 import { formatDateTime } from '../../utils/dateFormat';
-import { PANEL_PAD } from '../ui/tokens';
 import { displayMinus, formatSigned } from '../../utils/formatters';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
@@ -19,8 +18,8 @@ import StockName from '../common/StockName';
 import TrashIcon from '../common/TrashIcon';
 
 /**
- * 진단 리포트 — 네 질문(목표 수익률·급등·Gemini·뉴스 AI)에 숫자로 답한다.
- * (예전 「지금 살 만한가」 카드는 v2.45.0 에 지웠다 — 매수 판단의 성적은 「매수 판단 도우미 > 히스토리」. 옛 리포트의 swing 필드는 읽지 않는다.)
+ * 진단 리포트 — 「퀀트 > 검증 기록 > 진단 리포트」 탭(v2.47.0, 예전 「실험실 > 진단 리포트」). 네 질문(목표 수익률·급등·Gemini·뉴스 AI)에 숫자로 답한다.
+ * (예전 「지금 살 만한가」 카드는 v2.45.0 에 지웠다 — 매수 판단의 성적은 「매수 판단 > 히스토리」. 옛 리포트의 swing 필드는 읽지 않는다.)
  *
  * `npm run diagnose` 와 **같은 함수**를 서버에서 돌린다. 요약 카드 네 장 → 상세 표(접이식).
  * 표는 JSON 에서 그린다 — 마크다운을 HTML 로 바꾸지 않는다.
@@ -344,7 +343,7 @@ function Details({ d }: { d: DiagnoseDetail }) {
       <Section title="목표 수익률 — 10거래일 안 목표 먼저 도달률 · 기대값">
         <p className="text-caption text-text-muted">
           매일 종가 매수 가정 · 같은 날 둘 다 닿으면 손절 · 왕복 비용 0.30%p 반영. 조건을 바꿔 보려면
-          「투자 분석 &gt; 매수 판단 도우미」 에서 종목 줄을 펼친 목표 수익 가능성 결과에서 과거 기준선을 볼 수 있습니다(히스토리는 「히스토리」 탭).
+          「퀀트 &gt; 매수 판단」 에서 종목 줄을 펼친 목표 수익 가능성 결과에서 과거 기준선을 볼 수 있습니다(히스토리는 이 화면의 「목표 수익 가능성」 탭).
         </p>
         <Table
           headers={['종목', 'ATR/일', ...TARGET_COLUMNS.map(([t, st]) => `+${t}/−${st}`)]}
@@ -486,15 +485,13 @@ export default function DiagnoseView() {
   };
 
   return (
-    <div className={`h-full overflow-auto ${PANEL_PAD}`}>
+    // v2.47.0 — 「검증 기록」 의 탭 안에 들어간다. 스크롤·여백·제목은 바깥(RecordsView)이 맡는다(탭 이름이 곧 제목)
+    <div>
       <div className="space-y-3">
         <header className="flex flex-wrap items-center gap-3">
-          <div>
-            <h2 className="text-base font-semibold text-text-primary">진단 리포트</h2>
-            <p className="text-caption text-text-muted">
-              목표 수익률·급등·AI 가 실제로 쓸모 있는지 과거 데이터로 확인합니다 (기준선과 나란히).
-            </p>
-          </div>
+          <p className="min-w-0 text-caption text-text-muted">
+            목표 수익률·급등·AI 가 실제로 쓸모 있는지 과거 데이터로 확인합니다 (기준선과 나란히).
+          </p>
           <div className="ml-auto flex items-center gap-2">
             {reports.length > 0 && (
               <Select

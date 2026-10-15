@@ -1,5 +1,5 @@
 /**
- * 백테스트 (「실험실 > 백테스트」) — 서버 `server/autoTrading/ruleResearch.ts` 와 화면이 같은 모양을 쓴다.
+ * 백테스트 (「퀀트 > 백테스트」) — 서버 `server/autoTrading/ruleResearch.ts` 와 화면이 같은 모양을 쓴다.
  * 숫자는 모두 % (수수료 왕복 0.30%p 반영). "1년 전체" = 그 구간에서 이 방법으로 거래를 이어 붙인 복리 수익률.
  *
  * v2.44.0 — 방법 하나 = 「매매 규칙」 하나(`ruleId`). 판단은 계좌와 같은 엔진(`evaluateRule`).

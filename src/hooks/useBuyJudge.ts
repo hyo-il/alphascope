@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BuyJudgeHistory, BuyJudgeState, JudgeDay, Retention } from '../types/buyJudge';
 
 /**
- * 매수 판단 도우미 (v2.45.0) — 서버 `GET|POST|PUT /api/buy-judge*` 만 부른다(설정을 브라우저에 두지 않는다 — 기기가 달라도 같은 목록·규칙).
+ * 매수 판단 (v2.45.0) — 서버 `GET|POST|PUT /api/buy-judge*` 만 부른다(설정을 브라우저에 두지 않는다 — 기기가 달라도 같은 목록·규칙).
  * 폴링하지 않는다 — 처음 한 번, [다시 계산], 목록·규칙을 바꿀 때 다시 받는다. 판단은 하루 한 번(마감) 바뀐다.
  */
 async function json<T>(url: string, init?: RequestInit): Promise<T> {

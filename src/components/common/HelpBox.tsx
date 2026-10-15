@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
 /**
- * 화면 맨 위의 **접을 수 있는 쉬운 설명** — 앱에 한 벌 (v2.35.0 매수 판단 도우미 → v2.41.0 공용: 지금 살 만한가 · 목표 수익 가능성 · 백테스트 · 진단 리포트).
+ * 화면 맨 위의 **접을 수 있는 쉬운 설명** — 앱에 한 벌 (v2.35.0 매수 판단 → v2.41.0 공용: 지금 살 만한가 · 목표 수익 가능성 · 백테스트 · 진단 리포트).
  * ⚠️ **처음엔 닫혀 있다**(v2.41.0 사용자 결정). 제목이 질문 형태라 열어 볼 수 있다. 열고 닫은 것은 이 기기에 기억한다
  * (`storageKey` 또는 `alphascope.swingHelp.{id}` — 기기 설정이라 localStorage). 한 번도 누르지 않았으면 닫힘.
  */

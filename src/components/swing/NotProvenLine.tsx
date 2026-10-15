@@ -1,4 +1,4 @@
-/** 매수 판단 도우미 맨 아래 한 줄 — 지우지 않는다 (v2.45.0 문구) */
+/** 매수 판단 맨 아래 한 줄 — 지우지 않는다 (v2.45.0 문구) */
 export default function NotProvenLine() {
   return (
     <p className="text-caption text-text-muted">

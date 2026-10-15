@@ -4,14 +4,11 @@ import StarIcon from './components/ui/StarIcon';
 import { ICON_SM } from './components/ui/icon';
 import { X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import ManualAnalysis from './components/analysis/ManualAnalysis';
-import AnalysisHistory from './components/analysis/AnalysisHistory';
-import AIAnalysisView from './components/analysis/AIAnalysisView';
 import CompareView from './components/compare/CompareView';
 import PortfolioView from './components/portfolio/PortfolioView';
 import SurgeDashboard from './components/surge/SurgeDashboard';
 import BuyJudgeView from './components/swing/BuyJudgeView';
-import DiagnoseView from './components/diagnose/DiagnoseView';
+import RecordsView from './components/records/RecordsView';
 import BacktestView from './components/backtest/BacktestView';
 import RulesView from './components/rules/RulesView';
 import CalendarView from './components/calendar/CalendarView';
@@ -71,6 +68,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   const setSymbol = useAppStore((s) => s.setSymbol);
   const setTimeframe = useAppStore((s) => s.setTimeframe);
   const clearSymbol = useAppStore((s) => s.clearSymbol);
+  const openChartAi = useAppStore((s) => s.openChartAi);
   /** 종목 고르기 — 홈에서 고르면 차트로 간다(v2.41.0). 다른 화면에서는 그 화면에 머문다(예전 그대로) */
   const selectSymbol = (next: string) => {
     setSymbol(next);
@@ -126,8 +124,6 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   const [drawingCount, setDrawingCount] = useState(0);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [toggles, setToggles] = useState<IndicatorToggles>(DEFAULT_TOGGLES);
-  // 히스토리 화면에서 '방금 쓴 프롬프트'를 함께 저장하기 위해 App 이 들고 있는다.
-  const [lastPrompt, setLastPrompt] = useState({ mode: 'multi', text: '' });
 
   useEffect(() => {
     if (compareMode) setPanelCollapsed(false);
@@ -253,7 +249,6 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
               indicators={indicators}
               toggles={toggles}
               getChartSnapshot={getChartSnapshot}
-              onPromptChange={setLastPrompt}
               active={chartVisible}
             />
           )}
@@ -342,36 +337,6 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
     if (!symbol && pageMeta(view)?.needsSymbol) return needSymbol;
 
     switch (view) {
-      case 'analysis':
-        return (
-          <AIAnalysisView
-            symbol={symbol}
-            currentPrice={displayPrice}
-            manual={
-              // Claude 수동 분석: 프롬프트를 만드는 화면과, 받은 답변을 저장하는 화면을
-              // 한자리에 둔다 (복사 → 붙여넣기 → 답변 저장이 한 흐름이다).
-              <div className="space-y-4">
-                <ManualAnalysis
-                  symbol={symbol!}
-                  timeframe={timeframe}
-                  candles={candles}
-                  currentPrice={displayPrice}
-                  indicators={indicators}
-                  toggles={toggles}
-                  getChartSnapshot={getChartSnapshot}
-                  onPromptChange={setLastPrompt}
-                />
-                <AnalysisHistory
-                  symbol={symbol!}
-                  timeframe={timeframe}
-                  currentPrice={displayPrice}
-                  mode={lastPrompt.mode}
-                  prompt={lastPrompt.text}
-                />
-              </div>
-            }
-          />
-        );
       case 'surge':
         return (
           <SurgeDashboard
@@ -382,8 +347,9 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
             }}
             onWatch={add}
             onAnalyze={(next) => {
+              // v2.47.0 — 「AI 분석」 화면을 없앴다. 차트로 가서 아래 「AI 분석」 탭을 연다
               setSymbol(next);
-              setPage('analysis');
+              openChartAi();
             }}
           />
         );
@@ -391,8 +357,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         return (
           <BuyJudgeView />
         );
-      case 'diagnose':
-        return <DiagnoseView />;
+      case 'records':
+        return <RecordsView currentPrice={displayPrice} />;
       case 'backtest':
         return <BacktestView />;
       case 'rules':
@@ -554,7 +520,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
 
         {/*
           차트는 어느 화면에서도 언마운트하지 않는다.
-          AI 분석 화면의 '차트 이미지 복사'가 캡처할 대상이 필요하고,
+          차트 아래 AI 탭의 '차트 이미지 복사'가 캡처할 대상이 필요하고,
           화면을 오갈 때마다 차트를 다시 만드는 비용도 사라진다.
           숨길 때는 display:none 대신 화면 밖으로 보낸다 — html2canvas 는
           display:none 요소를 캡처하지 못한다.

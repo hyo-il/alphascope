@@ -155,13 +155,13 @@ export default function AnalysisHistory({
 
   /*
    * 사용자가 붙여넣어 저장한 글이라 확인 창 (v2.34.1). 예전에는 바로 지웠고, 실패해도 아무 표시가 없었다.
-   * 지우면 「분석 성적표」 집계에서도 빠진다 — 문구에 적는다.
+   * 지우면 「AI 분석 성적표」 집계에서도 빠진다 — 문구에 적는다.
    */
   const handleDelete = (record: AnalysisRecord) => {
     const date = formatDate(record.analyzed_at);
     modal.confirm({
       title: '분석 결과 삭제',
-      message: `${record.symbol} ${date} 분석 결과를 삭제합니다. 되돌릴 수 없고 「분석 성적표」 집계에서도 빠집니다.`,
+      message: `${record.symbol} ${date} 분석 결과를 삭제합니다. 되돌릴 수 없고 「AI 분석 성적표」 집계에서도 빠집니다.`,
       confirmText: '삭제',
       danger: true,
       onConfirm: async () => {

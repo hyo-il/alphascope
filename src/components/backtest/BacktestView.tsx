@@ -21,7 +21,7 @@ import CustomResult from './CustomResult';
 import ApplyRuleButton from './ApplyRuleButton';
 
 /**
- * 「실험실 > 백테스트」 (v2.38.0 → v2.44.0 매매 규칙) — **내가 고른 종목을 내가 고른 매매 규칙으로** 과거에 시험한다.
+ * 「퀀트 > 백테스트」 (v2.38.0 → v2.44.0 매매 규칙) — **내가 고른 종목을 내가 고른 매매 규칙으로** 과거에 시험한다.
  * ① 종목(표) → ② 방법(규칙 1~3개) → ③ 기간 → [시험 실행] → 결과 → 백테스트 히스토리.
  *
  * - 계산은 서버(`runCustomBacktest` → 계좌와 같은 엔진 `evaluateRule`). 주문을 내지 않는다.

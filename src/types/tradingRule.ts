@@ -148,7 +148,7 @@ export function emptyRuleBody(): RuleBody {
 }
 
 /**
- * 「기본 규칙」 — 지금 매수 판단 도우미(표준 기준)와 같은 5그룹 점수 · 65점 이상 매수.
+ * 「기본 규칙」 — 지금 매수 판단(표준 기준)와 같은 5그룹 점수 · 65점 이상 매수.
  * 50점 아래 매도 · 손절 7%(계좌 기본값과 같다) · 다시 사기까지 5거래일. 처음 한 번만 만든다(`server/rules/store.ts`).
  */
 export function defaultRuleBody(): RuleBody {

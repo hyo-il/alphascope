@@ -153,7 +153,7 @@ function targets(): Target[] {
     },
     {
       name: 'dialog-지정종목-설정',
-      hash: '#/analysis/records',
+      hash: '#/records/analysis',
       open: async (page) => {
         await page.getByText('내가 지정한 종목').first().locator('xpath=..').getByRole('button', { name: '설정', exact: true }).first().click();
         await page.waitForTimeout(800);
@@ -256,7 +256,7 @@ function targets(): Target[] {
         await page.waitForTimeout(700);
       },
     },
-    // 매수 판단 도우미 (v2.45.0) — 상태는 응답 바꿔치기로 만든다(DB 를 건드리지 않는다)
+    // 매수 판단 (v2.45.0) — 상태는 응답 바꿔치기로 만든다(DB 를 건드리지 않는다)
     {
       name: 'swing-빈목록',
       hash: '#/swing/list',
