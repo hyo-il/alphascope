@@ -1,41 +1,29 @@
 import { formatSigned, formatPrice } from '../../utils/formatters';
-import type { SwingRecommendation } from '../../types/swing';
+import type { JudgeReference } from '../../types/buyJudge';
 
 /**
- * 매수 · 목표 · 손절을 **표로** 적고, 왼쪽에 리스크/리워드 막대를 함께 둔다.
+ * 매수 · 목표 · 손절을 **표로** 적고, 왼쪽에 손익 막대를 함께 둔다 — 매수 판단 펼친 줄의 「가격 계획」(참고, v2.45.0 에 엔진 참고 계획으로 바꿨다).
  *
  * 예전에는 가격 축 위에 라벨을 절대 위치로 얹었는데, 1·2차 목표가 0.1% 차이면
  * 라벨이 그대로 포개졌다. 표는 값이 아무리 가까워도 겹치지 않는다 —
  * 대신 "리워드가 리스크보다 넓다" 는 감각은 왼쪽 막대가 맡는다.
  */
-export default function TradePlan({
-  plan,
-  currency = 'USD',
-}: {
-  plan: Pick<SwingRecommendation, 'entry' | 'targets' | 'stopLoss' | 'currentPrice'>;
-  currency?: 'KRW' | 'USD';
-}) {
-  const entry = plan.entry.price;
-  const { target1, target2 } = plan.targets;
-  const stop = plan.stopLoss.price;
-
-  if (!entry || !stop || !target1.price) {
+export default function TradePlan({ plan, currency = 'USD' }: { plan: JudgeReference; currency?: 'KRW' | 'USD' }) {
+  const entry = plan.entryPrice;
+  if (!entry || !plan.stop || !plan.target1) {
     return <p className="text-caption text-text-muted">매매 계획을 계산하지 못했습니다.</p>;
   }
-
-  const money = (value: number) =>
-    formatPrice(value, currency);
-
+  const pct = (v: number) => ((v / entry - 1) * 100);
   const rows: { price: number; label: string; percent: number | null; tone: string }[] = [
-    { price: target2.price, label: '2차 목표', percent: target2.percent, tone: 'text-bullish' },
-    { price: target1.price, label: '1차 목표', percent: target1.percent, tone: 'text-bullish' },
+    { price: plan.target2, label: '2차 목표', percent: pct(plan.target2), tone: 'text-bullish' },
+    { price: plan.target1, label: '1차 목표', percent: pct(plan.target1), tone: 'text-bullish' },
     { price: entry, label: '매수가', percent: null, tone: 'text-text-primary' },
-    { price: stop, label: '손절가', percent: plan.stopLoss.maxLossPercent, tone: 'text-bearish' },
+    { price: plan.stop, label: '손절가', percent: pct(plan.stop), tone: 'text-bearish' },
   ];
 
   // 막대 비율 — 매수가를 기준으로 위(리워드)와 아래(리스크)의 크기를 비교한다.
-  const reward = Math.max(0, target2.price - entry);
-  const risk = Math.max(0, entry - stop);
+  const reward = Math.max(0, plan.target2 - entry);
+  const risk = Math.max(0, entry - plan.stop);
   const total = reward + risk || 1;
 
   return (
@@ -45,21 +33,14 @@ export default function TradePlan({
         <span className="h-px shrink-0 bg-text-primary" />
         <span className="bg-bearish/50" style={{ flexGrow: risk / total }} />
       </div>
-
       {/* 열 너비를 고정해 값이 길어져도 라벨과 겹치지 않게 한다 */}
-      <table className="min-w-0 flex-1 text-caption tabular-nums">
+      <table className="min-w-0 text-caption tabular-nums">
         <tbody>
           {rows.map((row) => (
             <tr key={row.label}>
-              <td className="w-[92px] py-0.5 pr-2 text-right font-medium text-text-primary">
-                {money(row.price)}
-              </td>
-              <td className={`w-[68px] py-0.5 pr-2 ${row.tone}`}>{row.label}</td>
-              <td className={`w-[64px] py-0.5 pr-1 text-right ${row.tone}`}>
-                {row.percent != null
-                  ? `${formatSigned(row.percent, 1)}%`
-                  : '기준'}
-              </td>
+              <td className="w-[92px] whitespace-nowrap py-0.5 pr-2 text-right font-medium text-text-primary">{formatPrice(row.price, currency)}</td>
+              <td className={`w-[68px] whitespace-nowrap py-0.5 pr-2 ${row.tone}`}>{row.label}</td>
+              <td className={`w-[64px] whitespace-nowrap py-0.5 pr-1 text-right ${row.tone}`}>{row.percent != null ? `${formatSigned(row.percent, 1)}%` : '기준'}</td>
             </tr>
           ))}
         </tbody>

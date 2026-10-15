@@ -35,6 +35,8 @@ interface Health {
 }
 
 /** 설정 · 상태 확인 화면 — 무엇이 연결돼 있고 무엇이 저장돼 있는지 한눈에 보여 준다. */
+import BuyJudgeRetention from '../swing/BuyJudgeRetention';
+
 export default function Settings({ isMock, engineDown, section }: Props) {
   const [health, setHealth] = useState<Health | null>(null);
   /**
@@ -151,6 +153,11 @@ export default function Settings({ isMock, engineDown, section }: Props) {
           위 버튼은 이 브라우저의 캐시를 삭제합니다(서버 목록은 그대로). 캔들·기업정보 캐시와
           분석 히스토리는 SQLite(<code className="rounded bg-bg-tertiary px-1">db/alphascope.db</code>)에 있습니다.
         </p>
+      </section>
+
+      <section className="mb-6 max-w-2xl">
+        <h3 className="mb-1.5 text-xs font-medium text-text-secondary">매수 판단 기록 보관 기간</h3>
+        <BuyJudgeRetention />
       </section>
 
       <section className="mb-6 max-w-2xl">

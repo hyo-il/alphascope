@@ -1,8 +1,7 @@
-import { useState } from 'react';
-import { Plus } from 'lucide-react';
 import StockName from './StockName';
-import { PickerDialog, usePickerAdded, type SymbolPickerProps } from './SymbolPicker';
-import { Button, ListRemoveButton, RemoveAllButton } from '../ui';
+import type { SymbolPickerProps } from './SymbolPicker';
+import SymbolListBar from './SymbolListBar';
+import { ListRemoveButton } from '../ui';
 import { LIST_TABLE_ROW, TABLE_NAME_COL } from '../ui/tokens';
 import { useStockNames } from '../../hooks/useStockNames';
 import { useSymbolInfo } from '../../hooks/useSymbolInfo';
@@ -18,10 +17,7 @@ import { isKrSymbol } from '../../utils/market';
  * ⚠️ 줄 삭제는 × 아이콘(「목록에서 삭제」 — 용어집 「삭제」, 확인 창 없음). 지시서의 「빼기」 는 용어집이 쓰지 않는 이름이라 쓰지 않았다.
  */
 export default function SymbolTable(props: Omit<SymbolPickerProps, 'title'>) {
-  const { selected, onChange, max, softLimit, softLimitText, emptyText } = props;
-  const [open, setOpen] = useState(false);
-  const [ownAdded, setOwnAdded] = useState<string[]>([]);
-  const { added, onAddedChange } = usePickerAdded(selected, props.added, props.onAddedChange, ownAdded, setOwnAdded);
+  const { selected, onChange, softLimit, softLimitText, emptyText } = props;
   useStockNames(selected);
   const info = useSymbolInfo(selected);
   const soft = softLimit != null && selected.length > softLimit;
@@ -29,18 +25,8 @@ export default function SymbolTable(props: Omit<SymbolPickerProps, 'title'>) {
 
   return (
     <div className="space-y-2">
-      {/* 목록 위 도구 줄 — 칩 모양 SymbolPicker 와 같은 배치: [종목 추가] … N종목 · 모두 삭제 */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" icon={Plus} onClick={() => setOpen(true)} className="shrink-0 whitespace-nowrap">
-          종목 추가
-        </Button>
-        <span className="ml-auto flex shrink-0 items-center gap-2">
-          <span className="text-caption text-text-muted tabular-nums">
-            {selected.length}종목{max != null ? ` / 최대 ${max}종목` : ''}
-          </span>
-          {selected.length > 0 && <RemoveAllButton onClick={() => onChange([])} />}
-        </span>
-      </div>
+      {/* 목록 위 도구 줄 — 매수 판단 표와 같은 부품(`SymbolListBar`): [종목 추가] … N종목 · 모두 삭제 */}
+      <SymbolListBar {...props} />
 
       {selected.length === 0 ? (
         <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">{emptyText ?? '아직 추가한 종목이 없습니다. [종목 추가] 로 시작하세요.'}</p>
@@ -82,7 +68,6 @@ export default function SymbolTable(props: Omit<SymbolPickerProps, 'title'>) {
         <p className="text-caption text-danger">{softLimitText ? softLimitText(selected.length, softLimit) : `${softLimit}개까지 — 지금 ${selected.length}개`}</p>
       )}
 
-      {open && <PickerDialog {...props} added={added} onAddedChange={onAddedChange} onClose={() => setOpen(false)} />}
     </div>
   );
 }

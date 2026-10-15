@@ -10,7 +10,7 @@ import AIAnalysisView from './components/analysis/AIAnalysisView';
 import CompareView from './components/compare/CompareView';
 import PortfolioView from './components/portfolio/PortfolioView';
 import SurgeDashboard from './components/surge/SurgeDashboard';
-import SwingDashboard from './components/swing/SwingDashboard';
+import BuyJudgeView from './components/swing/BuyJudgeView';
 import DiagnoseView from './components/diagnose/DiagnoseView';
 import BacktestView from './components/backtest/BacktestView';
 import RulesView from './components/rules/RulesView';
@@ -389,17 +389,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         );
       case 'swing':
         return (
-          <SwingDashboard
-            watchlist={watchlist}
-            onSelectSymbol={(next) => {
-              setSymbol(next);
-              setPage('chart');
-            }}
-            onAnalyze={(next) => {
-              setSymbol(next);
-              setPage('analysis');
-            }}
-          />
+          <BuyJudgeView />
         );
       case 'diagnose':
         return <DiagnoseView />;

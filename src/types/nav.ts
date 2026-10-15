@@ -219,10 +219,9 @@ export const PAGE_TABS = {
     { id: 'accuracy', path: 'accuracy' },
   ],
   // v2.35.0: 지금 살 만한가(list) · 목표 수익 가능성(target — 다시 넣었다) · 종목 검색 · 지난 기록(history). 주소 조각은 예전 그대로
+  // v2.45.0 — 「매수 판단」 · 「히스토리」 둘. 예전 #/swing/target · #/swing/search 는 모르는 조각이라 첫 탭(#/swing/list)으로 간다
   swing: [
     { id: 'list', path: 'list' },
-    { id: 'target', path: 'target' },
-    { id: 'search', path: 'search' },
     { id: 'history', path: 'history' },
   ],
   surge: [

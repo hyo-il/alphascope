@@ -127,6 +127,7 @@ import {
   MAX_SYMBOLS as BUY_JUDGE_MAX_SYMBOLS,
   clearJudgments as clearBuyJudgments,
   pruneOld as pruneBuyJudgments,
+  getRetention as getBuyJudgeRetention,
   setRetention as setBuyJudgeRetention,
   setRuleId as setBuyJudgeRuleId,
   setSymbols as setBuyJudgeSymbols,
@@ -1212,6 +1213,8 @@ app.put('/api/buy-judge/settings', (req, res) => {
   }
   res.json({ ok: true });
 });
+
+app.get('/api/buy-judge/retention', (_req, res) => res.json({ retention: getBuyJudgeRetention() }));
 
 /** 보관 기간 — 바꾸면 곧바로 정리한다. `?dryRun=1` 이면 지워질 줄 수만 */
 app.put('/api/buy-judge/retention', (req, res) => {
