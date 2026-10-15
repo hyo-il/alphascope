@@ -1,7 +1,8 @@
 /**
  * 전 거래일 종가 점검 (v2.44.3) — `npm run prevclose:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import).
  *
- * 등락률이 이틀치로 보이던 버그(어제 봉이 캐시에 없으면 그저께 종가를 전일 종가로 썼다)를 재현하고, 고친 규칙을 확인한다.
+ * 등락률이 이틀치로 보이던 버그(어제 봉이 캐시에 없으면 그저께 종가를 전일 종가로 썼다 · 미국 「오늘」 을 뉴욕 달력으로 잡았다)를 재현하고,
+ * 고친 규칙(토스 순위 기준가 우선 → 가격 날 바로 앞 영업일의 일봉)을 확인한다.
  * - 합성 종목(`ZZTESTUS` 미국 · `999990` 국내)에 일봉을 직접 넣고, 일봉 다시 받기는 바꿔 끼운다(`setCandleRefreshForTest`) — 토스를 부르지 않는다.
  * - 마지막 절만 실제 토스로: 사본 DB 에서 000660 의 전 거래일 봉을 지우고 다시 받아 오는지.
  * 넣은 합성 봉·휴장일은 끝에서 지운다(사본 DB 라도 남기지 않는다).
@@ -9,7 +10,8 @@
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다(v2.44.2)
 import 'dotenv/config';
 import { getDb, loadCandles, saveCandles } from '../server/db';
-import { previousClose, previousTradingDay, resetPreviousCloseForTest, setCandleRefreshForTest } from '../server/previousClose';
+import { previousClose, previousTradingDay, priceDay, resetPreviousCloseForTest, setCandleRefreshForTest, setPriceLimitsForTest, setRankingBasesForTest, solveKrBase } from '../server/previousClose';
+import { tossGet } from '../src/services/toss/httpClient';
 import { marketDate } from '../src/utils/marketDate';
 import { isMockMode } from '../server/mockData';
 import type { Candle } from '../src/types/toss';
@@ -50,6 +52,7 @@ const oldRule = (symbol: string, now: number) => {
 };
 
 clear();
+setRankingBasesForTest(async () => new Map()); // 합성 절은 순위에 없는 종목 — ② 일봉 경로
 const addedHoliday = !db.prepare(`SELECT 1 FROM market_holidays WHERE market = 'KR' AND date = '2026-10-09'`).get();
 if (addedHoliday) db.prepare(`INSERT INTO market_holidays (market, date) VALUES ('KR', '2026-10-09')`).run();
 
@@ -134,25 +137,103 @@ try {
   const v7 = await previousClose(US, noon(US, '2026-11-27'));
   check('미국 휴장일 다음 날 → 휴장 전 영업일 종가 50', v7 === 50, `값 ${v7}`);
 
-  // ── 7. 실제 토스 — 사본 DB 의 000660 전 거래일 봉을 지우고 다시 받아 오는지 ──
+  // ── 7. 가격 날(토스 거래일) — 국내 08:00 KST · 미국 20:00 ET 에 넘어간다 ──
+  const at2 = (iso: string) => Date.parse(iso);
+  const pd = (sym: string, iso: string, want: string, label: string) =>
+    check(`가격 날 ${label} → ${want}`, priceDay(sym, at2(iso)) === want, priceDay(sym, at2(iso)));
+  pd(KR, '2026-10-15T07:30:00+09:00', '2026-10-14', '국내 목 07:30(장 전)');
+  pd(KR, '2026-10-15T08:30:00+09:00', '2026-10-15', '국내 목 08:30');
+  pd(KR, '2026-10-17T12:00:00+09:00', '2026-10-16', '국내 토요일');
+  pd(US, '2026-10-14T19:30:00-04:00', '2026-10-14', '미국 수 19:30 ET(애프터마켓)');
+  pd(US, '2026-10-14T21:30:00-04:00', '2026-10-15', '미국 수 21:30 ET(= 한국 목 10:30)');
+  pd(US, '2026-10-17T12:00:00-04:00', '2026-10-16', '미국 토요일');
+  pd(US, '2026-10-18T21:00:00-04:00', '2026-10-19', '미국 일 21:00 ET(= 한국 월 아침)');
+  // 재현 2: 한국 목 10:30(= 미국 수 21:30 ET) — 예전에는 미국 「오늘」 = 수요일이라 화요일 종가와 비교했다(이틀치)
+  resetPreviousCloseForTest();
+  clear();
+  put(US, [['2026-10-13', 100], ['2026-10-14', 90]]);
+  setCandleRefreshForTest(async () => {});
+  const kst1030 = at2('2026-10-15T10:30:00+09:00');
+  check('재현: 예전 규칙은 한국 목 10:30 미국 기준가 = 화(10-13) 100', oldRule(US, kst1030) === 100, `예전 값 ${oldRule(US, kst1030)}`);
+  const v8 = await previousClose(US, kst1030);
+  check('한국 목 10:30 미국 기준가 = 수(10-14) 종가 90', v8 === 90, `값 ${v8}`);
+
+  // ── 8. 토스 순위 기준가가 1순위 ──
+  resetPreviousCloseForTest();
+  clear();
+  const nowPd = priceDay(US);
+  const expected = previousTradingDay(US, nowPd);
+  put(US, [[expected, 120]]);
+  let refreshCalls = 0;
+  setCandleRefreshForTest(async () => {
+    refreshCalls++;
+  });
+  setRankingBasesForTest(async (m) => new Map(m === 'US' ? [[US, 123]] : []));
+  const v9 = await previousClose(US);
+  check('순위에 기준가가 있으면 그 값(123, 일봉 120 이 아니라) · 일봉은 받지 않음', v9 === 123 && refreshCalls === 0, `값 ${v9} · 다시 받기 ${refreshCalls}번`);
+  resetPreviousCloseForTest();
+  setRankingBasesForTest(async () => new Map());
+  const v10 = await previousClose(US);
+  check('순위에 없으면 일봉(120)', v10 === 120 && refreshCalls === 1, `값 ${v10} · 다시 받기 ${refreshCalls}번`);
+
+  // ── 9. 국내 상·하한가에서 기준가 풀기 ──
+  check('풀기: 상 1,844,000 · 하 994,000 → 1,419,000', JSON.stringify(solveKrBase(1844000, 994000)) === '[1419000]', JSON.stringify(solveKrBase(1844000, 994000)));
+  check('풀기: 상 225,500 · 하 121,600 → 173,600 · 173,700(인접 호가 둘)', JSON.stringify(solveKrBase(225500, 121600)) === '[173600,173700]', JSON.stringify(solveKrBase(225500, 121600)));
+  check('풀기: ETF(호가 5원) 상 123,245 · 하 66,365 → 답 없음', solveKrBase(123245, 66365).length === 0);
+  const krPd = priceDay(KR);
+  const krExp = previousTradingDay(KR, krPd);
+  const limitCase = async (label: string, lim: { upper: number; lower: number } | null, candle: number, want: number | null) => {
+    resetPreviousCloseForTest();
+    clear();
+    put(KR, [[krExp, candle]]);
+    setCandleRefreshForTest(async () => {});
+    setRankingBasesForTest(async () => new Map());
+    setPriceLimitsForTest(async () => lim);
+    const v = await previousClose(KR);
+    check(label, v === want, `값 ${v}`);
+  };
+  await limitCase('국내 순위에 없음 · 상·하한가 답 하나 → 그 기준가(일봉 1,425,000 이 아니라 1,419,000)', { upper: 1844000, lower: 994000 }, 1425000, 1419000);
+  await limitCase('국내 인접 호가 둘 → 일봉 종가에 가까운 쪽(173,700)', { upper: 225500, lower: 121600 }, 173690, 173700);
+  await limitCase('국내 상·하한가 답 없음(ETF 등) → 일봉 종가', { upper: 123245, lower: 66365 }, 94800, 94800);
+  await limitCase('국내 상·하한가 답이 일봉과 5% 넘게 다름 → 일봉 종가', { upper: 1844000, lower: 994000 }, 1300000, 1300000);
+  await limitCase('국내 상·하한가 받기 실패 → 일봉 종가', null, 50000, 50000);
+  setPriceLimitsForTest(null);
+
+  // ── 10. 실제 토스 — 사본 DB 의 000660 전 거래일 봉을 지우고 다시 받아 오는지 ──
   setCandleRefreshForTest(null);
+  setRankingBasesForTest(null);
   resetPreviousCloseForTest();
   if (isMockMode()) {
     console.log('SKIP  실제 토스 절 — 키 없음(모의 모드)');
   } else {
     const sym = '000660';
-    const today = marketDate(Date.now(), sym);
-    const prevDay = previousTradingDay(sym, today);
+    const prevDay = previousTradingDay(sym, priceDay(sym));
     db.prepare(`DELETE FROM candles WHERE symbol = ? AND timeframe = '1d' AND timestamp >= ?`).run(sym, krMidnight(prevDay));
     const oldVal = oldRule(sym, Date.now());
     const oldDay = loadCandles(sym, '1d', 5).at(-1);
-    const real = await previousClose(sym);
+    // ① 순위 기준가 — 토스 순위 응답의 basePrice 와 같아야 한다
+    const r = await tossGet<any>('/api/v1/rankings', { type: 'MARKET_TRADING_AMOUNT', marketCountry: 'KR', duration: '1d' }, 'RANKING');
+    const tossBase = Number(r.result?.rankings?.find((x: any) => x.symbol === sym)?.price?.basePrice);
+    const viaRank = await previousClose(sym);
+    check(`실제 토스 ①: ${sym} 기준가 = 토스 순위 basePrice ${tossBase}`, viaRank === tossBase, `값 ${viaRank} · 예전 규칙이면 ${oldVal}(${oldDay ? marketDate(oldDay.timestamp, sym) : '—'} 봉)`);
+    // ② 순위를 빼면 상·하한가로 푼 기준가 — 토스 기준가와 같아야 한다
+    resetPreviousCloseForTest();
+    setRankingBasesForTest(async () => new Map());
+    const viaLimits = await previousClose(sym);
+    check(`실제 토스 ②: 순위 없이 상·하한가로 푼 기준가 = ${tossBase}`, viaLimits === tossBase, `값 ${viaLimits}`);
+    // ③ 순위·상하한가를 빼면 일봉 — 지운 봉을 다시 받아 그 날짜 종가
+    resetPreviousCloseForTest();
+    setPriceLimitsForTest(async () => null);
+    const viaCandle = await previousClose(sym);
     const realBar = loadCandles(sym, '1d', 10).find((c) => marketDate(c.timestamp, sym) === prevDay);
-    check(`실제 토스: ${sym} 전 거래일(${prevDay}) 봉을 지운 뒤 다시 받아 그 종가`, real !== null && realBar != null && real === realBar.close,
-      `값 ${real} · 예전 규칙이면 ${oldVal}(${oldDay ? marketDate(oldDay.timestamp, sym) : '—'} 봉)`);
+    check(`실제 토스 ③: 순위·상하한가 없이 — ${prevDay} 봉을 지운 뒤 다시 받아 그 종가`, viaCandle !== null && realBar != null && viaCandle === realBar.close,
+      `값 ${viaCandle} (일봉은 KRX+NXT 통합 종가라 기준가와 ${tossBase ? (((viaCandle ?? 0) / tossBase - 1) * 100).toFixed(2) : '—'}% 차이)`);
+    setPriceLimitsForTest(null);
   }
 } finally {
   setCandleRefreshForTest(null);
+  setRankingBasesForTest(null);
+  setPriceLimitsForTest(null);
   clear();
   if (addedHoliday) db.prepare(`DELETE FROM market_holidays WHERE market = 'KR' AND date = '2026-10-09'`).run();
 }
