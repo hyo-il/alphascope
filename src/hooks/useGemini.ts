@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
  * 계좌별 설정·상태는 `useAutoTrading` 이 맡는다 — 여기에 다시 들이지 말 것.
  *
  * 지금 이 값을 쓰는 곳은 두 군데다:
- * *   - 계좌 자동매매 설정: 「AI 검증」 을 켜도 AI 를 쓸 수 있는가(v2.46.0 — 꺼져 있으면 경고 한 줄)
+ *   - 계좌 자동매매 설정: 「AI 검증」 을 켜도 AI 를 쓸 수 있는가(v2.46.0 — 꺼져 있으면 경고 한 줄)
  *   - 차트 AI 탭: "이 종목 분석 버튼을 켤 수 있는가"
  */
 interface GeminiAvailability {

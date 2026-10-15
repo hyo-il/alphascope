@@ -13,6 +13,12 @@ import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니�
 import { getDb, loadCandles } from '../server/db';
 import { createAccount, createOrder, deleteAccount, getAccount, listPositions, listTrades, setUsdKrwForTest } from '../server/paperTradingService';
 import { planBuy } from '../server/autoTrading/sizing';
+import { aiCheckCallsForTest, kstDate, setAiCheckForTest } from '../server/aiCheck/check';
+import { countCallsOn, findCheck, insertCheck } from '../server/aiCheck/store';
+import { checkReturns } from '../server/aiCheck/history';
+import { copyAccount } from '../server/autoTrading/copy';
+import { judgeOnClose } from '../server/rules/judge';
+import { GeminiError } from '../server/gemini/client';
 import { fetchQuotes } from '../server/quoteService';
 import { runExitChecks, runSignalChecks, tryBuy } from '../server/autoTrading/engine';
 import { dailyLossBlock, evaluateDailyLoss, setEarningsLookupForTest, strategyDay } from '../server/autoTrading/guards';
@@ -318,6 +324,7 @@ async function main(): Promise<void> {
   }
 
   await fxSection();
+  await aiSection();
 
   console.log(`\n결과: ${pass}개 통과 / ${fail}개 실패`);
   if (fail > 0) process.exit(1);
@@ -386,6 +393,167 @@ async function fxSection(): Promise<void> {
     deleteAccount(usd.id);
     deleteAccount(small.id);
     console.log(`임시 계좌 #${krw.id} · #${usd.id} · #${small.id} 삭제 완료`);
+  }
+}
+
+/**
+ * 11. AI 검증 (v2.46.0) — Gemini 는 부르지 않는다(가짜 답 · 실패 · 시간 초과 · 429 로 바꿔치기).
+ * 매수 경로(tryBuy)를 그대로 부르고, 검증 결과·주문·사용 기록을 본다. 시험 종목의 오늘 검증 줄은 경우마다 지운다(사본 DB).
+ */
+async function aiSection(): Promise<void> {
+  console.log('\n11) AI 검증 (Gemini 바꿔치기)');
+  const SYM = SYMBOL;
+  const db = getDb();
+  const rule = createRule(`__AI 검증 점검 ${Date.now()}`, defaultRuleBody());
+  const exists = (id: number) => id === rule.id;
+  const a = createAccount({ name: `__AI 검증 점검 A ${Date.now()}`, initialBalance: 100_000, currency: 'USD' });
+  const b = createAccount({ name: `__AI 검증 점검 B ${Date.now()}`, initialBalance: 100_000, currency: 'USD' });
+  const poor = createAccount({ name: `__AI 검증 점검 현금 ${Date.now()}`, initialBalance: 10, currency: 'USD' });
+  const copies: number[] = [];
+  const resetChecks = () => {
+    db.prepare(`DELETE FROM ai_check_uses WHERE check_id IN (SELECT id FROM ai_checks WHERE symbol = ?)`).run(SYM);
+    db.prepare(`DELETE FROM ai_checks WHERE symbol = ?`).run(SYM);
+  };
+  let fakeCalls = 0;
+  const fake = (data: unknown, delayMs = 0) => async () => {
+    fakeCalls += 1;
+    if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
+    return { data: data as { verdict?: unknown; reasons?: unknown }, raw: JSON.stringify(data), model: 'fake-model', tokens: 42, elapsedMs: 1 };
+  };
+  const NEWS_TITLE = '점검용 뉴스 제목 — 실적 기대감';
+  setAiCheckForTest({
+    enabled: true,
+    news: async (s) => ({ symbol: s, source: 'ticker', items: [{ title: NEWS_TITLE, publisher: '점검', link: 'https://example.com', publishedAt: new Date().toISOString() }], fetchedAt: new Date().toISOString() }),
+    earnings: () => ({ date: '2099-01-02', isEstimate: true }),
+  });
+  try {
+    const judged = await judgeOnClose(SYM, rule, { held: false });
+    if (judged.kind !== 'ok') throw new Error(`${SYM} 캔들이 모자랍니다`);
+    const ctx = { ev: judged.ev, candles: judged.completed, series: judged.series };
+    const price = judged.candles.at(-1)!.close;
+    const strategyOf = (accountId: number, aiCheck: boolean) =>
+      normalizeStrategy(accountId, { enabled: true, ruleId: rule.id, symbols: [SYM], positionSizePercent: 10, maxPositions: 5, earningsBlackoutDays: 0, aiCheck });
+    const buyWith = (accountId: number, aiCheck = true, openCount = 0) => tryBuy(strategyOf(accountId, aiCheck), rule, SYM, price, '점검 매수', openCount, 'score_buy', ctx);
+    const usesOf = (accountId: number) => db.prepare(`SELECT u.action, u.order_id, c.verdict FROM ai_check_uses u JOIN ai_checks c ON c.id = u.check_id WHERE u.account_id = ?`).all(accountId) as { action: string; order_id: number | null; verdict: string }[];
+    const today = () => findCheck(marketDate(Date.now(), SYM), SYM);
+
+    // ── 통과 → 매수 ──
+    resetChecks();
+    setAiCheckForTest({ caller: fake({ verdict: 'PASS', reasons: ['RSI(14) 가 과열이 아닙니다', '[1] 위험 근거 없음'] }) });
+    const pass = await buyWith(a.id);
+    check('켬 + 통과 → 매수(ai_pass)', pass.action === 'BUY' && pass.code === 'ai_pass' && pass.orderId != null && (pass.detail?.length ?? 0) === 2, `${pass.code} · ${pass.reason}`);
+    check('통과 → 사용 기록 「샀음」 + 주문 번호', usesOf(a.id).some((u) => u.action === 'bought' && u.order_id === pass.orderId));
+    const row = today();
+    const input = JSON.parse(row?.input_json ?? '{}');
+    check('AI 에게 준 정보(input_json)에 뉴스 제목 · 실적일 · 규칙 점수', input.news?.[0]?.title === NEWS_TITLE && input.earnings?.date === '2099-01-02' && input.rule?.score === judged.ev.score && input.bars?.length > 0,
+      `뉴스 ${input.news?.length} · 실적 ${input.earnings?.date} · 점수 ${input.rule?.score}/${input.rule?.maxScore} · 봉 ${input.bars?.length}`);
+    check('원문 답 · 모델 · 질문 버전 저장', row?.raw_output?.includes('PASS') === true && row?.model === 'fake-model' && row?.prompt_version === 'ai-check-v1');
+
+    // ── 위험 → 사지 않음 ──
+    resetChecks();
+    setAiCheckForTest({ caller: fake({ verdict: 'RISK', reasons: ['[1] 실적 발표 전 변동 위험', 'RSI(14) 75 — 과열', '(실적일) 가까움'] }) });
+    const risk = await buyWith(a.id);
+    const riskRow = today();
+    check('켬 + 위험 → 사지 않음(ai_risk)', risk.action === 'HOLD' && risk.code === 'ai_risk' && risk.reason.startsWith('AI 검증: 위험 — [1] 실적') && risk.detail?.length === 3, risk.reason);
+    check('위험 → 이유 3줄 저장 · 사용 기록 「사지 않음」', JSON.parse(riskRow?.reasons_json ?? '[]').length === 3 && usesOf(a.id).some((u) => u.action === 'skipped' && u.verdict === 'risk'));
+
+    // ── 못 함 — 까닭별 ──
+    const cases: [string, Parameters<typeof setAiCheckForTest>[0], string][] = [
+      ['오류', { caller: async () => { fakeCalls += 1; throw new Error('가짜 오류'); } }, 'error'],
+      ['429', { caller: async () => { fakeCalls += 1; throw new GeminiError('Gemini 한도 초과(429)', 429, true); } }, 'rate_limit'],
+      ['시간 초과', { caller: () => { fakeCalls += 1; return new Promise(() => {}); }, timeoutMs: 300 }, 'timeout'],
+      ['형식 오류', { caller: fake({ verdict: 'MAYBE', reasons: [] }), timeoutMs: null }, 'format'],
+      ['이유 비어 있음', { caller: fake({ verdict: 'RISK', reasons: ['  '] }) }, 'format'],
+    ];
+    for (const [label, opts, reason] of cases) {
+      resetChecks();
+      setAiCheckForTest(opts);
+      const n = await buyWith(a.id);
+      check(`켬 + ${label} → 사지 않음(ai_unavailable · ${reason})`, n.action === 'HOLD' && n.code === 'ai_unavailable' && today()?.unavailable_reason === reason, n.reason);
+    }
+    setAiCheckForTest({ timeoutMs: null });
+    resetChecks();
+    setAiCheckForTest({ enabled: false, caller: fake({ verdict: 'PASS', reasons: ['x'] }) });
+    let before = fakeCalls;
+    const off = await buyWith(a.id);
+    check('Gemini 꺼짐 → 부르지 않고 ai_unavailable(disabled)', off.code === 'ai_unavailable' && today()?.unavailable_reason === 'disabled' && fakeCalls === before, off.reason);
+    setAiCheckForTest({ enabled: true });
+
+    // ── 하루 20번 ──
+    resetChecks();
+    const now = new Date();
+    const dummy = Array.from({ length: 20 }, (_, k) => `ZZAI${k}`);
+    const baseCount = countCallsOn(kstDate(now));
+    for (const s of dummy.slice(0, Math.max(0, 20 - baseCount)))
+      insertCheck({ market_date: marketDate(now.getTime(), s), symbol: s, verdict: 'pass', reasons_json: '["x"]', unavailable_reason: null, price_at_check: 1, model: 'fake', prompt_version: 'ai-check-v1', input_json: '{}', raw_output: '{}', tokens: 1, elapsed_ms: 1 }, now);
+    check('하루 셈 = 20', countCallsOn(kstDate(now)) === 20, String(countCallsOn(kstDate(now))));
+    setAiCheckForTest({ caller: fake({ verdict: 'PASS', reasons: ['x'] }) });
+    before = fakeCalls;
+    const limited = await buyWith(a.id);
+    check('21번째는 부르지 않고 ai_unavailable(daily_limit)', limited.code === 'ai_unavailable' && today()?.unavailable_reason === 'daily_limit' && fakeCalls === before, limited.reason);
+    const again = await buyWith(b.id);
+    check('저장된 결과 재사용은 세지 않음(셈 그대로 · 부르지 않음)', again.code === 'ai_unavailable' && countCallsOn(kstDate(now)) === 20 && fakeCalls === before);
+    db.prepare(`DELETE FROM ai_checks WHERE symbol LIKE 'ZZAI%'`).run();
+
+    // ── 두 계좌가 같은 날 같은 종목 → 1번 ──
+    resetChecks();
+    setAiCheckForTest({ caller: fake({ verdict: 'PASS', reasons: ['위험 근거 없음'] }, 300) });
+    before = fakeCalls;
+    const [na, nb] = await Promise.all([buyWith(a.id), buyWith(b.id)]);
+    const checkId = today()?.id;
+    const uses = db.prepare(`SELECT COUNT(*) AS n FROM ai_check_uses WHERE check_id = ?`).get(checkId) as { n: number };
+    check('두 계좌 동시 → Gemini 1번 · 사용 기록 2줄', fakeCalls - before === 1 && uses.n === 2 && na.code === 'ai_pass' && nb.code === 'ai_pass', `호출 ${fakeCalls - before} · 사용 ${uses.n}`);
+
+    // ── 끔 → AI 를 부르지 않음 · 예전과 같은 판단 ──
+    resetChecks();
+    before = fakeCalls;
+    const callsBefore = aiCheckCallsForTest();
+    const plain = await buyWith(a.id, false);
+    check('끔 → AI 함수를 부르지 않음 · 검증 줄 없음', fakeCalls === before && aiCheckCallsForTest() === callsBefore && today() == null);
+    check('끔 → 예전 판단 그대로(score_buy · 「점검 매수 → N주」 · detail 없음)', plain.code === 'score_buy' && /^점검 매수 → \d+주$/.test(plain.reason) && !('detail' in plain), plain.reason);
+
+    // ── 안전장치에 막히면 AI 를 부르지 않음 ──
+    resetChecks();
+    before = fakeCalls;
+    const maxed = await buyWith(a.id, true, 5);
+    setEarningsLookupForTest((s) => (s.toUpperCase() === SYM ? { date: marketDate(Date.now(), SYM), isEstimate: false } : null));
+    const earnings = await tryBuy({ ...strategyOf(a.id, true), earningsBlackoutDays: 3 }, rule, SYM, price, '점검 매수', 0, 'score_buy', ctx);
+    setEarningsLookupForTest(null);
+    const cash = await buyWith(poor.id);
+    check('최대 보유 · 실적 · 현금에 막히면 AI 를 부르지 않음', maxed.code === 'max_positions' && earnings.code === 'earnings_blackout' && cash.code === 'other' && fakeCalls === before && today() == null,
+      `${maxed.code} · ${earnings.code} · ${cash.code}`);
+
+    // ── 채점 계산 (손 계산) ──
+    // 검증한 날 2026-01-05(월) 검증 때 가격 100 → 뒤 거래일 종가 101, 102, … — 5거래일 뒤 = 105 → +5% · 10거래일 뒤 = 110 → +10% · 20거래일 뒤는 아직(끝난 봉 15개) → null
+    const day0 = Date.UTC(2026, 0, 5, 5); // ET 자정 = 05:00 UTC(겨울)
+    const bars = Array.from({ length: 16 }, (_, k) => ({ timestamp: day0 + k * 86_400_000, close: 100 + k }));
+    const ret = checkReturns(bars, 16, SYM, '2026-01-05', 100);
+    check('채점 5·10·20거래일 = 손 계산(+5% · +10% · 아직)', ret[5] === 5 && ret[10] === 10 && ret[20] === null, JSON.stringify(ret));
+    const ret2 = checkReturns(bars, 8, SYM, '2026-01-05', 100);
+    check('끝나지 않은 봉은 쓰지 않음(끝난 봉 8개 → 10거래일 null)', ret2[5] === 5 && ret2[10] === null, JSON.stringify(ret2));
+
+    // ── 계좌 복사 ──
+    saveStrategy(a.id, { ...strategyOf(a.id, true), enabled: true, dailyLossLimitPercent: 3 }, exists);
+    const c1 = copyAccount(a.id, null, exists);
+    const c2 = copyAccount(a.id, null, exists);
+    copies.push(c1.id, c2.id);
+    const src = getStrategy(a.id);
+    const dst = getStrategy(c1.id);
+    const same = JSON.stringify({ ...src, accountId: 0, enabled: false }) === JSON.stringify({ ...dst, accountId: 0 });
+    check('계좌 복사 → 설정 같음(규칙 · 종목 · 운용 · 안전장치 · AI 검증) · 자동매매 꺼짐', same && !dst.enabled && dst.aiCheck, JSON.stringify(dst));
+    check('계좌 복사 → 초기 자금 · 통화 · 수수료 같음 · 보유·거래 없음', c1.initialBalance === a.initialBalance && c1.currency === a.currency && c1.commissionRate === a.commissionRate && listPositions(c1.id).length === 0 && listTrades(c1.id).length === 0);
+    check('계좌 복사 이름 「… 복사본」 → 겹치면 「… 복사본 2」', c1.name === `${a.name} 복사본` && c2.name === `${a.name} 복사본 2`, `${c1.name} / ${c2.name}`);
+  } finally {
+    setAiCheckForTest({ caller: null, enabled: null, timeoutMs: null, news: null, earnings: null });
+    resetChecks();
+    db.prepare(`DELETE FROM ai_checks WHERE symbol LIKE 'ZZAI%'`).run();
+    for (const id of [a.id, b.id, poor.id, ...copies]) {
+      deleteStrategy(id);
+      deleteAccount(id);
+      db.prepare(`DELETE FROM ai_check_uses WHERE account_id = ?`).run(id);
+    }
+    deleteRule(rule.id);
+    console.log(`임시 계좌 #${a.id} · #${b.id} · #${poor.id}${copies.length ? ` · 복사 #${copies.join(' · #')}` : ''} · 임시 규칙 #${rule.id} 삭제 완료`);
   }
 }
 

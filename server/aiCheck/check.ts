@@ -45,11 +45,23 @@ let caller: Caller = defaultCaller;
 let enabledOverride: boolean | null = null;
 let timeoutMs = AI_CHECK_TIMEOUT_MS;
 let calls = 0;
-/** `autotrade:test` 전용 — 가짜 답 · Gemini 켬/끔 · 시간 제한. null 이면 원래대로 */
-export function setAiCheckForTest(opts: { caller?: Caller | null; enabled?: boolean | null; timeoutMs?: number | null }): void {
+type NewsLookup = typeof getNews;
+type EarningsLookup = typeof getEarningsDate;
+let newsLookup: NewsLookup = getNews;
+let earningsLookup: EarningsLookup = getEarningsDate;
+/** `autotrade:test` 전용 — 가짜 답 · Gemini 켬/끔 · 시간 제한 · 뉴스 · 실적일. null 이면 원래대로 */
+export function setAiCheckForTest(opts: {
+  caller?: Caller | null;
+  enabled?: boolean | null;
+  timeoutMs?: number | null;
+  news?: NewsLookup | null;
+  earnings?: EarningsLookup | null;
+}): void {
   if (opts.caller !== undefined) caller = opts.caller ?? defaultCaller;
   if (opts.enabled !== undefined) enabledOverride = opts.enabled;
   if (opts.timeoutMs !== undefined) timeoutMs = opts.timeoutMs ?? AI_CHECK_TIMEOUT_MS;
+  if (opts.news !== undefined) newsLookup = opts.news ?? getNews;
+  if (opts.earnings !== undefined) earningsLookup = opts.earnings ?? getEarningsDate;
 }
 /** 시험용 — 이 프로세스에서 실제로 caller 를 부른 수 */
 export const aiCheckCallsForTest = () => calls;
@@ -110,7 +122,7 @@ async function buildInput(symbol: string, price: number, ev: RuleEvaluation, can
   let news: AiCheckInput['news'] = [];
   let newsNote: string | null = null;
   try {
-    const list = await getNews(symbol);
+    const list = await newsLookup(symbol);
     const since = now.getTime() - 7 * 86_400_000;
     news = list.items
       .filter((n) => n.publishedAt && Date.parse(n.publishedAt) >= since)
@@ -122,7 +134,7 @@ async function buildInput(symbol: string, price: number, ev: RuleEvaluation, can
   }
   const market = marketOf(symbol);
   const today = marketDate(now.getTime(), symbol);
-  const e = getEarningsDate(symbol);
+  const e = earningsLookup(symbol);
   const earnings = e && e.date >= today ? { date: e.date, isEstimate: e.isEstimate, tradingDaysLeft: tradingDaysUntil(today, e.date, market) } : null;
   return {
     symbol,
