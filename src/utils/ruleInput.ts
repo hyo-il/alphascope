@@ -2,13 +2,12 @@
  * 「매매 규칙」 입력 검사 — **한 곳** (v2.43.0). 서버 저장(400)과 화면의 칸 오류가 같은 함수를 쓴다.
  *
  * 범위는 새로 정하지 않는다 — 기존 두 곳을 합친다:
- * - RSI 눌림 구간 = 판단 기준 편집의 `PARAM_LIMITS.rsi`(10~70)
+ * - RSI 눌림 구간 = 10~70(예전 판단 기준 편집의 범위 — v2.45.0 에 그 창을 지우며 여기로 옮겼다)
  * - RSI 반등·과열 · 손절 · 익절 · 트레일링 = 계좌 설정의 `RULE_LIMITS`
  * - 이동평균 = 지표 엔진이 계산하는 `ENGINE_MA_PERIODS`(5·20·60·120)만
  * ⚠️ 서버도 컴파일한다 — DOM·React 를 들이지 않는다.
  */
 import { ENGINE_MA_PERIODS, RULE_LIMITS } from '../types/autoTrading';
-import { PARAM_LIMITS } from '../types/strategyProfile';
 import { BUY_KEYS, emptyRuleBody, hasBuyCondition, maxScoreOf, type RuleBody } from '../types/tradingRule';
 
 export const RULE_INPUT_LIMITS = {
@@ -16,7 +15,8 @@ export const RULE_INPUT_LIMITS = {
   /** 기준 점수 — 조건 7개 × 만점 100 */
   minScore: { min: 1, max: 700 },
   scoreBelow: { min: 0, max: 700 },
-  rsiBand: PARAM_LIMITS.rsi,
+  // 예전 판단 기준 편집의 RSI 범위(10~70)를 그대로 옮겼다(v2.45.0 — 그 편집 창과 타입은 지웠다)
+  rsiBand: { min: 10, max: 70 },
   rsiBelow: RULE_LIMITS.rsiBuyBelow,
   rsiAbove: RULE_LIMITS.rsiSellAbove,
   stopLoss: RULE_LIMITS.hardStopLossPercent,

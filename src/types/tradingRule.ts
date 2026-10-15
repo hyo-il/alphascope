@@ -2,7 +2,7 @@
  * 「매매 규칙」 (v2.43.0 — 퀀트 다시 만들기 1단계). 매수·매도 조건을 담은 묶음 하나.
  *
  * 계산기는 **점수형 하나**다(사용자 결정 2026-10-13): 매수 조건마다 [사용] · [점수] → 합계가 기준 점수 이상이면 매수.
- * 예전 두 계산기 — 점수 계산기(`server/swingAnalyzer.ts`)와 교차 계산기(`server/autoTrading/ruleEngine.ts` 의 `decideRule`) —
+ * 예전 두 계산기 — 점수 계산기(`server/swingAnalyzer.ts`, v2.45.0 에 지움)와 교차 계산기(`server/autoTrading/ruleEngine.ts` 의 `decideRule`) —
  * 는 3단계까지 그대로 남고, 새 엔진(`server/rules/engine.ts`)이 같은 판단을 내는지 `npm run rules:test` 가 시험한다.
  *
  * ⚠️ 1단계에서는 **어디에도 연결하지 않는다** — 매수 판단 · 계좌 · 백테스트는 예전 계산기 그대로다(2·3단계).
@@ -91,7 +91,7 @@ export const BUY_KEYS = ['trend', 'timing', 'momentum', 'volume', 'riskReward', 
 export type BuyKey = (typeof BUY_KEYS)[number];
 
 /**
- * 그룹 점수표 — **예전 점수 계산기(`swingAnalyzer.ts`) 그대로**: 작은 검사 0·1·2·3개 통과 → 점수.
+ * 그룹 점수표 — **예전 점수 계산기(`swingAnalyzer.ts`, v2.45.0 에 지움) 그대로**: 작은 검사 0·1·2·3개 통과 → 점수.
  * 손익비는 비율 표다(<1 → 0 · ≥1 → 3 · ≥1.5 → 7 · ≥2 → 10).
  */
 export const GROUP_TABLES = {

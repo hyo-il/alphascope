@@ -9,15 +9,15 @@
  * - 매도(보유 중) = 반대 신호 · 점수 N점 아래. **손절·익절·트레일링은 가격만 계산해 준다**(`exitLevels`) —
  *   실행 방식은 쓰는 곳이 정한다(계좌 = 장중 1분, 백테스트 = 일봉 고저). 2단계.
  *
- * 그룹 안 작은 검사와 점수표는 **예전 점수 계산기(`server/swingAnalyzer.ts`) 그대로** 옮겼다. 순간 조건(교차·RSI 반등)은
+ * 그룹 안 작은 검사와 점수표는 **예전 점수 계산기(`server/swingAnalyzer.ts`, v2.45.0 에 지웠다) 그대로** 옮겼다. 순간 조건(교차·RSI 반등)은
  * 예전 교차 계산기(`decideRule`, v2.44.0 에 지웠다)와 같은 정의다 — 같은 판단인지는 `npm run rules:test` ① 이 정답 파일과 비교한다.
- * ⚠️ 예전 점수 계산기(`swingAnalyzer`)는 3단계까지 그대로 둔다(② 가 같은 점수인지 본다).
+ * 같은 점수인지는 `npm run rules:test` ② 가 지운 점수 계산기의 정답 파일(`scripts/fixtures/swingScoreAnswers.json`)과 비교한다.
  * ⚠️ 주문을 내지 않는다. 모의투자·주문 모듈을 import 하지 않는다.
  */
 import type { Candle } from '../../src/types/toss';
 import type { IndicatorSeries } from '../../src/types/chart';
 import type { DecisionCode } from '../../src/types/autoTrading';
-import type { EntryType } from '../../src/types/swing';
+import type { EntryType } from '../../src/types/buyJudge';
 import { scaledTable, maxScoreOf, type GroupKey, type RuleBody, type BuyKey } from '../../src/types/tradingRule';
 import { marketDate } from '../../src/utils/marketDate';
 import { isFormingBar } from '../../src/utils/marketBar';

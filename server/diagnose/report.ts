@@ -3,16 +3,17 @@
  * **같은 함수**(`runDiagnose`)를 부른다 (v2.14.0 에 스크립트에서 분리). 두 벌이면 웹과 리포트가
  * 다른 숫자를 낸다.
  *
- * 사용자가 물은 네 가지에 **숫자로** 답하기 위한 도구다 (2026-09-25).
- *   1) 관심 종목이 스윙에서 전부 부적합인 이유
- *   2) 목표 수익률(3·5·10·15%)을 바꾸면 결과가 달라지는가
- *   3) 급등 탐지의 주기성 예측이 실제로 맞는가
- *   4) Gemini 분석이 정확한가
+ * 사용자가 물은 것에 **숫자로** 답하기 위한 도구다 (2026-09-25).
+ *   1) 목표 수익률(3·5·10·15%)을 바꾸면 결과가 달라지는가
+ *   2) 급등 탐지의 주기성 예측이 실제로 맞는가
+ *   3) Gemini 분석이 정확한가  4) 뉴스 AI 판정이 맞았나
+ * (예전 1번 「관심 종목이 스윙에서 전부 부적합인 이유」 는 v2.45.0 에 점수 계산기와 함께 지웠다 —
+ *  매수 판단의 성적은 「매수 판단 도우미 > 히스토리」 가 매일 기록으로 본다.)
  *
- * ⚠️ **판정 엔진을 복사하지 않는다.** `evaluateSwing`·`findSurgeEvents`·`analyzePeriodicity`·
+ * ⚠️ **판정 엔진을 복사하지 않는다.** `findSurgeEvents`·`analyzePeriodicity`·
  * `scoredAnalyses` 를 그대로 부른다. 복사하면 진단과 실제 화면이 다른 말을 하게 된다.
  * ⚠️ **미래 데이터 금지.** 과거 날짜 D 의 판정에는 **D 까지의 봉만** 넣는다.
- * ⚠️ **표본을 오염시키지 않는다.** `swing_recommendations`·`gemini_analysis` 에 새 행을 쓰지
+ * ⚠️ **표본을 오염시키지 않는다.** `gemini_analysis` 에 새 행을 쓰지
  * 않는다. 급등 채점(기존 행의 결과 칸 채우기)만 예외다 — 그건 원래 돌아야 하는 기능이다.
  * ⚠️ **Gemini 를 새로 부르지 않는다** (비용·한도). 기존 기록만 읽는다.
  * ⚠️ HTTP API 를 거치지 않고 DB·함수를 직접 부른다 — 그래서 **로그인과 무관하게** 서버 안에서 돈다.
@@ -26,9 +27,6 @@ import { fileURLToPath } from 'node:url';
 import type { Candle } from '../../src/types/toss';
 import { getDb, loadCandles } from '../db';
 import { getCandles } from '../candleService';
-import { evaluateSwing } from '../swingAnalyzer';
-import { getActiveSwingParams } from '../strategyProfile';
-import type { ProfileId, SwingParams } from '../../src/types/strategyProfile';
 import {
   analyzePeriodicity,
   findSurgeEvents,
@@ -69,10 +67,9 @@ export interface DiagnoseOptions {
   서버는 `runner.ts` 가 한 번에 하나만 돌리고, 스크립트는 한 번 돌고 끝난다.
 */
 let QUICK = false;
-let REPLAY_DAYS = 120;
 let FREQ_DAYS = 250;
 
-export const TOTAL_STEPS = 5;
+export const TOTAL_STEPS = 3;
 
 // ── 유틸 ─────────────────────────────────────────────────────────────────────
 
@@ -115,178 +112,6 @@ function targetSymbols(override?: string[]): { symbols: string[]; source: string
     /* 아래 기본값으로 내려간다 */
   }
   return { symbols: ['AAPL', 'NVDA', 'MSFT'], source: '기본값 (관심 목록이 비어 있음)' };
-}
-
-// ── 3-1. 스윙: 왜 부적합인가 ─────────────────────────────────────────────────
-
-interface SwingToday {
-  symbol: string;
-  grade: string;
-  score: number;
-  conditions: Record<string, { score: number; max: number; checks: string[] }>;
-  numbers: Record<string, string>;
-  rejection: string | null;
-  missing: string[];
-  error?: string;
-}
-
-async function swingToday(symbols: string[]): Promise<SwingToday[]> {
-  const profile = getActiveSwingParams();
-  const out: SwingToday[] = [];
-
-  for (const symbol of symbols) {
-    try {
-      const r = await evaluateSwing(symbol, profile);
-      const c = r.conditions;
-      const cond = (x: { score: number; max: number; checks: { label: string; passed: boolean }[] }) => ({
-        score: x.score,
-        max: x.max,
-        checks: x.checks.map((k) => `${k.passed ? '✅' : '❌'} ${k.label}`),
-      });
-
-      /*
-        "BUY 까지 무엇이 모자란가" 를 가격·지표 조건으로 적는다.
-        점수만 보여 주면 "그래서 뭘 기다려야 하나" 에 답이 안 된다.
-      */
-      const missing: string[] = [];
-      const p = profile.params;
-      const price = r.currentPrice;
-      const rsi = r.indicators.rsi14 ?? null;
-      const ma20 = r.indicators.sma20 ?? null;
-      const ma60 = r.indicators.sma60 ?? null;
-      const atr = r.indicators.atr14 ?? null;
-      const gap20 = ma20 ? ((price - ma20) / ma20) * 100 : null;
-      const gap60 = ma60 ? ((price - ma60) / ma60) * 100 : null;
-
-      if (rsi !== null && rsi > p.rsiBand.high) {
-        missing.push(`RSI ${rsi.toFixed(1)} → ${p.rsiBand.high} 이하로 내려오면 타이밍 점수`);
-      }
-      if (c.riskReward.ratio < p.rrDemoteBelow) {
-        missing.push(`손익비 ${c.riskReward.ratio.toFixed(2)} → ${p.rrDemoteBelow} 이상이어야 강등을 면함`);
-      }
-      if (gap60 !== null && gap60 < 0) {
-        missing.push(`60일선 아래 ${pct(gap60)} → 위로 올라와야 추세 점수(최대 30)`);
-      }
-      const need = p.grades.buy - r.score;
-      if (need > 0) missing.push(`BUY(${p.grades.buy}점)까지 ${need}점 부족`);
-
-      out.push({
-        symbol,
-        grade: r.grade,
-        score: r.score,
-        conditions: {
-          '추세(30)': cond(c.trend),
-          '타이밍(25)': cond(c.timing),
-          '모멘텀(20)': cond(c.momentum),
-          '거래량(15)': cond(c.volume),
-          '손익비(10)': cond(c.riskReward),
-        },
-        numbers: {
-          현재가: String(round2(price)),
-          RSI: rsi?.toFixed(1) ?? '—',
-          '20일선거리': gap20 !== null ? pct(gap20) : '—',
-          '60일선거리': gap60 !== null ? pct(gap60) : '—',
-          'ATR%': atr ? `${((atr / price) * 100).toFixed(2)}%` : '—',
-          진입: `${round2(r.entry.price)} (${r.entry.type})`,
-          손절: `${round2(r.stopLoss.price)} (${r.stopLoss.maxLossPercent.toFixed(1)}%)`,
-          '1차목표': `${round2(r.targets.target1.price)} (${r.targets.target1.percent.toFixed(1)}%)`,
-          손익비: c.riskReward.ratio.toFixed(2),
-        },
-        rejection: r.rejection,
-        missing,
-      });
-    } catch (e) {
-      out.push({
-        symbol, grade: 'ERROR', score: 0, conditions: {}, numbers: {}, rejection: null,
-        missing: [], error: e instanceof Error ? e.message : String(e),
-      });
-    }
-  }
-  return out;
-}
-
-export interface ReplayResult {
-  symbol: string;
-  days: number;
-  grades: Record<string, number>;
-  buyDates: string[];
-  rrDemoted: number;
-  forward: { d5: number[]; d10: number[]; d20: number[] };
-  /**
-   * BUY 날 뒤 10거래일 안에 **카드의 손절가에 먼저 닿은** 날 수 / 10일 뒤가 있는 BUY 날 수 (v2.18.0).
-   * 저가 ≤ 손절가가 1차 목표(고가 ≥ 목표가)보다 먼저면 손절 — 같은 날 둘 다 닿으면 **손절로 센다**(보수적으로).
-   * 10일 안에 어느 쪽에도 안 닿으면 손절이 아니다.
-   */
-  stopFirst: { hit: number; n: number };
-  lastBarChecked: string | null;
-}
-
-/**
- * 과거 재현 — 하루씩 뒤로 가며 **그날까지의 봉만** 넣어 평가한다.
- * ⚠️ `slice(0, i + 1)` 이 미래 차단의 전부다. 여기를 잘못 건드리면 숫자가 전부 거짓이 된다.
- */
-async function swingReplay(symbols: string[]): Promise<ReplayResult[]> {
-  return replaySwing(symbols, getActiveSwingParams(), REPLAY_DAYS);
-}
-
-/**
- * 과거 재현 본체 — 판정 기준(profile)과 기간을 **밖에서 넣는다** (v2.17.0).
- * 진단과 스윙 「기준 편집」 미리보기(`server/swingPreview.ts`)가 같은 함수를 쓴다 — 두 벌이면 숫자가 달라진다.
- */
-export async function replaySwing(
-  symbols: string[],
-  profile: { id: ProfileId; params: SwingParams },
-  days: number,
-): Promise<ReplayResult[]> {
-  const out: ReplayResult[] = [];
-
-  for (const symbol of symbols) {
-    const candles = await candlesOf(symbol, 400);
-    if (candles.length < 120) continue;
-
-    const grades: Record<string, number> = {};
-    const buyDates: string[] = [];
-    const forward = { d5: [] as number[], d10: [] as number[], d20: [] as number[] };
-    const stopFirst = { hit: 0, n: 0 };
-    let rrDemoted = 0;
-    let lastBarChecked: string | null = null;
-
-    const start = Math.max(60, candles.length - days);
-    for (let i = start; i < candles.length; i += 1) {
-      const upto = candles.slice(0, i + 1); // ← 미래 차단
-      let r;
-      try {
-        r = await evaluateSwing(symbol, profile, upto);
-      } catch {
-        continue;
-      }
-      lastBarChecked = dateOf(upto.at(-1)!.timestamp, symbol);
-      grades[r.grade] = (grades[r.grade] ?? 0) + 1;
-      if (r.rejection?.includes('손익비')) rrDemoted += 1;
-
-      if (r.grade === 'STRONG' || r.grade === 'BUY') {
-        buyDates.push(lastBarChecked);
-        const base = upto.at(-1)!.close;
-        for (const [key, n] of [['d5', 5], ['d10', 10], ['d20', 20]] as const) {
-          const later = candles[i + n];
-          if (later) forward[key].push(((later.close - base) / base) * 100);
-        }
-        if (candles[i + 10]) {
-          stopFirst.n += 1;
-          for (let k = 1; k <= 10; k += 1) {
-            const bar = candles[i + k];
-            if (bar.low <= r.stopLoss.price) {
-              stopFirst.hit += 1; // 같은 날 목표에도 닿았어도 손절로 센다
-              break;
-            }
-            if (bar.high >= r.targets.target1.price) break;
-          }
-        }
-      }
-    }
-    out.push({ symbol, days: candles.length - start, grades, buyDates, rrDemoted, forward, stopFirst, lastBarChecked });
-  }
-  return out;
 }
 
 // ── 3-2. 목표 수익률별 "먼저 닿을 확률" ─────────────────────────────────────
@@ -655,7 +480,6 @@ export async function requireEngine() {
 
 export async function runDiagnose(options: DiagnoseOptions = {}): Promise<DiagnoseOutcome> {
   QUICK = Boolean(options.quick);
-  REPLAY_DAYS = QUICK ? 60 : 120;
   FREQ_DAYS = QUICK ? 125 : 250;
   const step = (n: number, label: string) => {
     console.log(`[진단] ${n}/${TOTAL_STEPS} ${label}`);
@@ -666,21 +490,14 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
   const started = Date.now();
   const { symbols, source } = targetSymbols(options.symbols);
   const list = QUICK ? symbols.slice(0, 5) : symbols;
-  const profile = getActiveSwingParams();
 
   console.log(`[진단] 대상 ${list.length}종목 (${source})${QUICK ? ' · --quick' : ''}`);
 
   const beforeRows = {
-    swing: (getDb().prepare(`SELECT COUNT(*) n FROM swing_recommendations`).get() as { n: number }).n,
     gemini: (getDb().prepare(`SELECT COUNT(*) n FROM gemini_analysis`).get() as { n: number }).n,
   };
 
-  step(1, '지금 살 만한가 — 오늘 기준');
-  const today = await swingToday(list);
-  step(2, '지금 살 만한가 — 과거 재현');
-  const replay = await swingReplay(list);
-
-  step(3, '목표 수익률별 빈도');
+  step(1, '목표 수익률별 빈도');
   const freq: Record<string, { rows: FreqRow[]; atr: number | null }> = {};
   for (const symbol of [...list, 'SPY']) {
     const candles = await dailyCandles(symbol);
@@ -691,20 +508,19 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
     };
   }
 
-  step(4, '급등 — 주기성 검증');
+  step(2, '급등 — 주기성 검증');
   const detected = [...new Set(listDetections().map((d) => d.symbol))];
   const surgePool = [...new Set([...detected, ...list])].slice(0, QUICK ? 8 : 25);
   const surge = await surgeWalkForward(surgePool);
   const outcomes = await surgeOutcomes();
 
-  step(5, 'Gemini 정확도');
+  step(3, 'Gemini 정확도');
   const gemini = await geminiAccuracy(list);
   const trades = autoTrades();
   // 뉴스 AI 판정 (v2.21.0) — 저장된 판정만 채점한다. Gemini 를 새로 부르지 않는다
   const news = newsAccuracy();
 
   const afterRows = {
-    swing: (getDb().prepare(`SELECT COUNT(*) n FROM swing_recommendations`).get() as { n: number }).n,
     gemini: (getDb().prepare(`SELECT COUNT(*) n FROM gemini_analysis`).get() as { n: number }).n,
   };
 
@@ -715,37 +531,20 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
   // quick 은 파일명을 나눈다 — 같은 날 전체 실행 결과를 덮어쓰지 않게
   const base = path.join(dir, `diagnosis_${server}_${stamp}${QUICK ? '_quick' : ''}`);
 
-  const buyTotal = replay.reduce((n, r) => n + r.buyDates.length, 0);
-  const replayDays = replay.reduce((n, r) => n + r.days, 0);
-
   // ── 마크다운 ──
   const md: string[] = [];
   md.push(`# AlphaScope 진단 리포트 — ${server} · ${stamp}`);
   md.push('');
   md.push(`- 대상: **${list.length}종목** (${source}) — ${list.join(', ')}`);
-  md.push(`- 판정 기준: **${profile.id}** (BUY 컷 ${profile.params.grades.buy}점, 손익비 ${profile.params.rrDemoteBelow} 미만 강등)`);
   md.push(`- 실행 시간 ${elapsed}초${QUICK ? ' (--quick)' : ''}`);
   md.push('');
   md.push('---');
   md.push('');
-  md.push('## 네 가지 질문에 대한 답');
+  md.push('## 질문에 대한 답');
   md.push('');
 
   // Q1
-  const gradeAll: Record<string, number> = {};
-  for (const r of replay) for (const [g, n] of Object.entries(r.grades)) gradeAll[g] = (gradeAll[g] ?? 0) + n;
-  md.push('### 1. 관심 종목이 「지금 살 만한가」 에서 전부 부적합한 것은 정상인가?');
-  md.push(
-    buyTotal === 0
-      ? `- 과거 ${REPLAY_DAYS}거래일을 되돌려도 **BUY 이상이 ${buyTotal}일**(총 ${replayDays}일 평가)이었습니다. 오늘만의 일이 아닙니다.`
-      : `- 과거 ${REPLAY_DAYS}거래일 중 **BUY 이상이 ${buyTotal}일**(총 ${replayDays}일 중 ${round2((buyTotal / Math.max(1, replayDays)) * 100)}%)이었습니다.`,
-  );
-  md.push(`- 등급 분포: ${Object.entries(gradeAll).map(([g, n]) => `${g} ${n}일`).join(' · ') || '—'}`);
-  md.push(`- 엔진 오류로 평가에 실패한 종목: ${today.filter((t) => t.error).length}개`);
-  md.push('');
-
-  // Q2
-  md.push('### 2. 목표 수익을 3%처럼 작게 잡으면 달라지는가?');
+  md.push('### 1. 목표 수익을 3%처럼 작게 잡으면 달라지는가?');
   const spy = freq['SPY'];
   const pick = (f: typeof spy | undefined, X: number, N: number, ratio: '2:1' | '1:1') =>
     f?.rows.find((r) => r.target === X && r.horizon === N && (ratio === '2:1' ? r.stop === X / 2 : r.stop === X));
@@ -760,8 +559,8 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
   md.push('- ⚠️ 이 숫자는 **아무 조건 없이 매일 샀을 때의 과거 빈도**입니다. 신호는 이 기준선보다 나아야 의미가 있고, 과거 빈도가 미래를 보장하지 않습니다.');
   md.push('');
 
-  // Q3
-  md.push('### 3. 급등 탐지의 "며칠에 한 번" 예측이 맞는가?');
+  // Q2
+  md.push('### 2. 급등 탐지의 "며칠에 한 번" 예측이 맞는가?');
   if (surge.cases.length === 0) {
     md.push('- **판단 불가** — 워크포워드에서 "주기적" 판정이 한 건도 나오지 않았습니다.');
   } else {
@@ -779,8 +578,8 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
   }
   md.push('');
 
-  // Q4
-  md.push('### 4. Gemini 분석은 정확한가?');
+  // Q3
+  md.push('### 3. Gemini 분석은 정확한가?');
   if (gemini.judged < MIN_SAMPLE) {
     md.push(`- **표본 부족 — 결론 내릴 수 없음** (채점 가능 ${gemini.judged}건, 전체 ${gemini.total}건 · 원본 ${gemini.raw}건을 종목·날짜별 1건으로 묶음).`);
   }
@@ -789,8 +588,8 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
   if (trades.n) md.push(`- 자동매매 청산 거래 ${trades.n}건: 승률 ${trades.winRate}%, 평균 ${pct(trades.avgPnl)}.`);
   md.push('');
 
-  // Q5 (v2.21.0)
-  md.push('### 5. 뉴스 AI 판정(긍정·부정)은 맞았나?');
+  // Q4 (v2.21.0)
+  md.push('### 4. 뉴스 AI 판정(긍정·부정)은 맞았나?');
   if (news.weak) {
     md.push(`- **표본 부족 — 결론 불가.** 5일 채점 ${news.d5.judged}건 — **${news.need}건 더** 쌓여야 판단할 수 있습니다(기준 ${NEWS_MIN_SAMPLE}건). 판정은 [AI 요약·판정] 버튼을 누를 때만 생깁니다.`);
   }
@@ -802,66 +601,7 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
   md.push('---');
   md.push('');
   // ── 상세 ──
-  md.push('## 상세 1 — 지금 살 만한가: 오늘 기준');
-  md.push('');
-  md.push(table(
-    ['종목', '등급', '점수', '추세', '타이밍', '모멘텀', '거래량', '손익비', 'RSI', '20일선', '60일선', 'ATR%'],
-    today.map((t) => t.error
-      ? [t.symbol, 'ERROR', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—']
-      : [
-          t.symbol, t.grade, t.score,
-          `${t.conditions['추세(30)'].score}/30`,
-          `${t.conditions['타이밍(25)'].score}/25`,
-          `${t.conditions['모멘텀(20)'].score}/20`,
-          `${t.conditions['거래량(15)'].score}/15`,
-          `${t.conditions['손익비(10)'].score}/10`,
-          t.numbers.RSI, t.numbers['20일선거리'], t.numbers['60일선거리'], t.numbers['ATR%'],
-        ]),
-  ));
-  md.push('');
-  for (const t of today) {
-    md.push(`### ${t.symbol} — ${t.grade} (${t.score}점)`);
-    if (t.error) { md.push(`- ⚠️ 평가 실패: ${t.error}`); md.push(''); continue; }
-    md.push(`- 진입 ${t.numbers.진입} · 손절 ${t.numbers.손절} · 1차목표 ${t.numbers['1차목표']} · 손익비 ${t.numbers.손익비}`);
-    if (t.rejection) md.push(`- 제외 사유: ${t.rejection}`);
-    for (const [name, c] of Object.entries(t.conditions)) {
-      md.push(`- **${name} ${c.score}/${c.max}** — ${c.checks.join(' · ') || '체크 없음'}`);
-    }
-    if (t.missing.length) md.push(`- **BUY 까지 모자란 것**: ${t.missing.join(' / ')}`);
-    md.push('');
-  }
-
-  md.push(`## 상세 2 — 지금 살 만한가: 과거 ${REPLAY_DAYS}거래일 재현`);
-  md.push('');
-  md.push('⚠️ 각 날짜의 판정에는 **그날까지의 봉만** 넣었습니다(미래 차단).');
-  md.push('');
-  md.push(table(
-    ['종목', '평가일수', '마지막 검사봉', 'STRONG', 'BUY', 'WATCH', 'HOLD', 'AVOID', '손익비 강등', 'BUY 날짜'],
-    replay.map((r) => [
-      r.symbol, r.days, r.lastBarChecked ?? '—',
-      r.grades.STRONG ?? 0, r.grades.BUY ?? 0, r.grades.WATCH ?? 0, r.grades.HOLD ?? 0, r.grades.AVOID ?? 0,
-      r.rrDemoted, r.buyDates.slice(0, 5).join(' ') || '—',
-    ]),
-  ));
-  md.push('');
-  const fwd = replay.filter((r) => r.forward.d5.length);
-  if (fwd.length) {
-    const mean = (xs: number[]) => round2(xs.reduce((a, b) => a + b, 0) / xs.length);
-    md.push('BUY 날 이후 수익률:');
-    md.push('');
-    const stopPct = (x: { hit: number; n: number }) => (x.n ? `${Math.round((x.hit / x.n) * 100)}% (${x.hit}/${x.n})` : '—');
-    md.push(table(['종목', '건수', '5일', '10일', '20일', '10일 안 손절 먼저'],
-      fwd.map((r) => [r.symbol, r.forward.d5.length, pct(mean(r.forward.d5)), pct(mean(r.forward.d10)), pct(mean(r.forward.d20)), stopPct(r.stopFirst)])));
-    md.push('');
-    const allStop = replay.reduce((a, r) => ({ hit: a.hit + r.stopFirst.hit, n: a.n + r.stopFirst.n }), { hit: 0, n: 0 });
-    md.push(`계획 손절 먼저 도달(10일 안, 같은 날 목표·손절 동시 = 손절): **${stopPct(allStop)}** — 기준 편집 미리보기와 같은 계산이다.`);
-    md.push('');
-  } else {
-    md.push('BUY 신호가 없어 이후 수익률을 낼 수 없습니다.');
-    md.push('');
-  }
-
-  md.push(`## 상세 3 — 목표 수익률별 먼저 닿을 확률 (최근 ${FREQ_DAYS}거래일)`);
+  md.push(`## 상세 1 — 목표 수익률별 먼저 닿을 확률 (최근 ${FREQ_DAYS}거래일)`);
   md.push('');
   md.push('⚠️ 매일 종가 매수 가정. 같은 날 목표·손절 동시 도달은 **손절로** 셉니다(보수적).');
   md.push(`⚠️ 기대값에는 수수료·슬리피지 왕복 ${ROUND_TRIP_COST.toFixed(2)}%p 를 뺐습니다.`);
@@ -878,7 +618,7 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
     md.push('');
   }
 
-  md.push('## 상세 4 — 급등: 주기성 워크포워드');
+  md.push('## 상세 2 — 급등: 주기성 워크포워드');
   md.push('');
   md.push(`대상 ${surgePool.length}종목 · 주기 판정 ${surge.cases.length}건 · 적중 ${surge.hitRate}% · 기준선 ${surge.baseline}% · 차이 ${surge.edge >= 0 ? '+' : ''}${surge.edge}%p`);
   md.push('');
@@ -895,7 +635,7 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
     md.push('');
   }
 
-  md.push('## 상세 5 — 급등 탐지 기록의 실제 성과');
+  md.push('## 상세 3 — 급등 탐지 기록의 실제 성과');
   md.push('');
   md.push(`- 기록 ${outcomes.total}건 · 채점 전 미완 ${outcomes.emptyBefore}건 → 이번 실행으로 ${outcomes.updated}건 갱신 → 남은 미완 ${outcomes.emptyAfter}건`);
   md.push(`- 채점 완료 ${outcomes.judged}건 중 30일 안 실제 급등 ${outcomes.hits}건`);
@@ -909,7 +649,7 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
     md.push('');
   }
 
-  md.push('## 상세 6 — Gemini 정확도');
+  md.push('## 상세 4 — Gemini 정확도');
   md.push('');
   md.push(`- 전체 ${gemini.total}건 · 채점 가능 ${gemini.judged}건 · 적중 ${gemini.rate}% (Gemini 만)`);
   md.push(`- 참고 — Claude 수동 분석(별도): ${gemini.claude.total}건 · 채점 ${gemini.claude.judged}건 · 적중 ${gemini.claude.rate}% ⚠️ 사용자가 고른 종목만이라 선택 편향 — Gemini 와 직접 비교하지 않는다`);
@@ -932,31 +672,30 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
   md.push('');
   md.push('---');
   md.push('');
-  md.push(`표본 오염 확인: swing_recommendations ${beforeRows.swing}→${afterRows.swing}행, gemini_analysis ${beforeRows.gemini}→${afterRows.gemini}행 (같아야 정상)`);
+  md.push(`표본 오염 확인: gemini_analysis ${beforeRows.gemini}→${afterRows.gemini}행 (같아야 정상)`);
 
   fs.writeFileSync(`${base}.md`, md.join('\n'), 'utf8');
   fs.writeFileSync(`${base}.json`, JSON.stringify(
-    { server, stamp, symbols: list, profile: profile.id, today, replay, freq, surge, outcomes, gemini, trades, beforeRows, afterRows, elapsed },
+    { server, stamp, symbols: list, freq, surge, outcomes, gemini, trades, beforeRows, afterRows, elapsed },
     null, 2), 'utf8');
 
 
   const summary = buildSummary({
-    server, stamp, elapsed, list, source, profileId: profile.id,
-    replay, today, replayDays, buyTotal, freq, spyRow: pick(spy, 3, 10, '2:1') ?? null, sample,
+    server, stamp, elapsed, list, source,
+    freq, spyRow: pick(spy, 3, 10, '2:1') ?? null, sample,
     surge, gemini, trades, news,
   });
-  const detail = { server, stamp, symbols: list, profile: profile.id, today, replay, freq, surge, outcomes, gemini, trades, beforeRows, afterRows, elapsed };
+  const detail = { server, stamp, symbols: list, freq, surge, outcomes, gemini, trades, beforeRows, afterRows, elapsed };
   const id = saveReport(server, summary, detail);
 
   // ── 콘솔 요약 (20줄 이내) ──
   const consoleLines = [
     `── 진단 요약 (${server} · ${stamp} · ${elapsed}초) ──`,
-    `1) 스윙: 과거 ${replayDays}일 평가 중 BUY 이상 ${buyTotal}일`,
-    `2) +3%/−1.5%/10일 기대값 평균: ${sample.length ? round2(sample.reduce((a, r) => a + r.expectancy, 0) / sample.length) : '—'}%p (SPY ${pick(spy, 3, 10, '2:1')?.expectancy ?? '—'}%p)`,
-    `3) 급등 주기 적중 ${surge.hitRate}% vs 기준선 ${surge.baseline}% (차이 ${surge.edge >= 0 ? '+' : ''}${surge.edge}%p, 표본 ${surge.cases.length})`,
-    `4) Gemini 적중 ${gemini.rate}% vs 기준선 ${gemini.baselineUp5}% (채점 ${gemini.judged}건 · 원본 ${gemini.raw}건)`,
+    `1) +3%/−1.5%/10일 기대값 평균: ${sample.length ? round2(sample.reduce((a, r) => a + r.expectancy, 0) / sample.length) : '—'}%p (SPY ${pick(spy, 3, 10, '2:1')?.expectancy ?? '—'}%p)`,
+    `2) 급등 주기 적중 ${surge.hitRate}% vs 기준선 ${surge.baseline}% (차이 ${surge.edge >= 0 ? '+' : ''}${surge.edge}%p, 표본 ${surge.cases.length})`,
+    `3) Gemini 적중 ${gemini.rate}% vs 기준선 ${gemini.baselineUp5}% (채점 ${gemini.judged}건 · 원본 ${gemini.raw}건)`,
     `급등 채점: ${outcomes.updated}건 갱신, 미완 ${outcomes.emptyAfter}건`,
-    `표본 오염: swing ${beforeRows.swing}→${afterRows.swing}, gemini ${beforeRows.gemini}→${afterRows.gemini}`,
+    `표본 오염: gemini ${beforeRows.gemini}→${afterRows.gemini}`,
     `리포트: ${base}.md · DB #${id}`,
   ];
   return { id, summary, consoleLines };
@@ -977,8 +716,7 @@ const mean = (xs: number[]) => (xs.length ? round2(xs.reduce((a, b) => a + b, 0)
  * 만든다 — 웹과 파일이 다른 말을 하지 않게.
  */
 function buildSummary(x: {
-  server: string; stamp: string; elapsed: number; list: string[]; source: string; profileId: string;
-  replay: ReplayResult[]; today: SwingToday[]; replayDays: number; buyTotal: number;
+  server: string; stamp: string; elapsed: number; list: string[]; source: string;
   freq: Record<string, { rows: FreqRow[]; atr: number | null }>;
   spyRow: FreqRow | null; sample: FreqRow[];
   surge: SurgeVerdict;
@@ -986,12 +724,6 @@ function buildSummary(x: {
   trades: ReturnType<typeof autoTrades>;
   news: NewsAccuracy;
 }): DiagnoseSummary {
-  // BUY 날 뒤 수익률 — 종목별 평균을 낸 뒤, 20일 뒤가 플러스인 종목 수
-  const fwd = x.replay.filter((r) => r.forward.d20.length);
-  const positive20 = fwd.filter((r) => (mean(r.forward.d20) ?? 0) > 0).length;
-  const pooled = (key: 'd5' | 'd10' | 'd20') => mean(x.replay.flatMap((r) => r.forward[key]));
-  const buyRate = round2((x.buyTotal / Math.max(1, x.replayDays)) * 100);
-
   const avgHit = mean(x.sample.map((r) => r.hitTarget));
   const avgExp = mean(x.sample.map((r) => r.expectancy));
 
@@ -1008,22 +740,6 @@ function buildSummary(x: {
     quick: QUICK,
     symbols: x.list,
     source: x.source,
-    profile: x.profileId,
-    swing: {
-      replayDays: x.replayDays,
-      window: REPLAY_DAYS,
-      buyTotal: x.buyTotal,
-      buyRate,
-      errors: x.today.filter((t) => t.error).length,
-      forward: { d5: pooled('d5'), d10: pooled('d10'), d20: pooled('d20') },
-      positive20,
-      withBuy: fwd.length,
-      weak: x.buyTotal < MIN_SAMPLE,
-      conclusion:
-        x.buyTotal === 0
-          ? `과거 ${REPLAY_DAYS}거래일 동안 BUY 가 한 번도 없었습니다 — 오늘만의 일이 아닙니다.`
-          : `BUY 이상은 ${buyRate}% 로 드뭅니다. BUY 뒤 20일 수익이 플러스인 종목은 ${positive20}/${fwd.length}개입니다.`,
-    },
     target: {
       avgHit,
       avgExp,

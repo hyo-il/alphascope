@@ -221,58 +221,8 @@ CREATE TABLE IF NOT EXISTS surge_history_cache (
   PRIMARY KEY (symbol, period)
 );
 
--- ─────────────────────────────────────────────────────────────────────────────
--- 스윙 투자 추천 (Step 10)
---
--- 추천은 "한 번 돌린 것" 단위로 남긴다 — 같은 analyzed_at 이 한 번의 분석이다.
--- 매수 전에 목표가·손절가가 함께 저장돼야 나중에 성과를 채점할 수 있다.
--- ─────────────────────────────────────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS swing_recommendations (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  analyzed_at TEXT NOT NULL,
-  symbol TEXT NOT NULL,
-  profile TEXT,                      -- 'standard' | 'aggressive' | 'defensive' (NULL = 표준 시절 기록)
-  name TEXT,
-  price_at_analysis REAL NOT NULL,
-
-  score INTEGER NOT NULL,
-  grade TEXT NOT NULL,               -- 'STRONG' | 'BUY' | 'WATCH' | 'HOLD' | 'AVOID'
-
-  trend_score INTEGER,
-  timing_score INTEGER,
-  momentum_score INTEGER,
-  volume_score INTEGER,
-  risk_reward_score INTEGER,
-
-  entry_price REAL,
-  entry_type TEXT,                   -- 'NOW' | 'PULLBACK' | 'BREAKOUT'
-  entry_reason TEXT,
-  target1_price REAL,
-  target2_price REAL,
-  stop_loss_price REAL,
-  risk_reward_ratio REAL,
-  recommended_percent REAL,
-  holding_period_min INTEGER,
-  holding_period_max INTEGER,
-  warnings TEXT,                     -- JSON
-  invalidation TEXT,
-
-  conditions_detail TEXT,            -- JSON: 조건별 점수·근거
-  indicators_snapshot TEXT,          -- JSON: 당시 지표값
-
-  price_after_7d REAL,
-  price_after_14d REAL,
-  price_after_30d REAL,
-  target1_hit INTEGER DEFAULT 0,
-  target2_hit INTEGER DEFAULT 0,
-  stop_loss_hit INTEGER DEFAULT 0,
-  actual_result TEXT DEFAULT 'pending',  -- target1 | target2 | stop_loss | open | not_triggered | pending
-  actual_return REAL
-);
-
-CREATE INDEX IF NOT EXISTS idx_swing_analyzed ON swing_recommendations(analyzed_at DESC);
-CREATE INDEX IF NOT EXISTS idx_swing_symbol ON swing_recommendations(symbol, analyzed_at DESC);
+-- 스윙 투자 추천 표(swing_recommendations)는 v2.45.0 에 지웠다 — 매수 판단은 buy_judgments 에 남긴다.
+-- ⚠️ 운영 DB 에서 DROP 하지 않는다(이미 있는 표는 그대로 남고, 읽고 쓰는 코드가 없다). v2.44.0 데이터 정리 때 비웠다.
 
 -- 급등 탐지의 종목 풀 — 토스 랭킹 캐시
 --
@@ -287,7 +237,7 @@ CREATE TABLE IF NOT EXISTS surge_ranking_cache (
 
 -- 앱 전역 설정 (키-값). 급등 전용인 surge_settings 와 섞지 않는다 —
 -- 이름이 기능에 묶여 있으면 다음 세션이 못 찾는다.
--- 지금 쓰는 키: strategyProfile = { active, custom }  (스윙 판정 기준 프로파일)
+-- 지금 쓰는 키 예: tradingRules.seeded · buyJudge.* · swing.goal (예전 strategyProfile 은 v2.45.0 부터 읽지 않는다)
 CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL

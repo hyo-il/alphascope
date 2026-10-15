@@ -19,7 +19,8 @@ import StockName from '../common/StockName';
 import TrashIcon from '../common/TrashIcon';
 
 /**
- * 🩺 진단 리포트 — 네 질문(스윙·목표 수익률·급등·AI)에 숫자로 답한다.
+ * 진단 리포트 — 네 질문(목표 수익률·급등·Gemini·뉴스 AI)에 숫자로 답한다.
+ * (예전 「지금 살 만한가」 카드는 v2.45.0 에 지웠다 — 매수 판단의 성적은 「매수 판단 도우미 > 히스토리」. 옛 리포트의 swing 필드는 읽지 않는다.)
  *
  * `npm run diagnose` 와 **같은 함수**를 서버에서 돌린다. 요약 카드 네 장 → 상세 표(접이식).
  * 표는 JSON 에서 그린다 — 마크다운을 HTML 로 바꾸지 않는다.
@@ -28,32 +29,12 @@ import TrashIcon from '../common/TrashIcon';
 const signed = (v: number | null | undefined, suffix = '%') =>
   v == null ? '—' : `${formatSigned(v, 2)}${suffix}`;
 const plain = (v: number | null | undefined, suffix = '%') => (v == null ? '—' : `${v}${suffix}`);
-const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
 const tone = (v: number | null | undefined) =>
   v == null ? 'text-text-muted' : v > 0 ? 'text-bullish' : v < 0 ? 'text-bearish' : 'text-text-secondary';
-/** "+3.2%" 같은 문자열 숫자 — 부호로 색을 정한다 (리포트의 numbers 는 문자열이다) */
-const toneText = (v: string | null | undefined) => {
-  const n = Number.parseFloat(String(v ?? '').replace(/[^0-9.+-]/g, ''));
-  return Number.isFinite(n) ? tone(n) : 'text-text-secondary';
-};
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 /** 적중률 vs 기준선 — 높으면 초록, 낮거나 같으면 빨강. 기준선이 없으면 색 없음 */
 const vsBase = (rate: number | null | undefined, base: number | null | undefined) =>
   isNum(rate) && isNum(base) ? (rate > base ? 'text-bullish' : 'text-bearish') : '';
-
-/**
- * 등급 색 — STRONG·BUY 초록 / WATCH 주황 / HOLD 회색 / AVOID·ERROR 빨강 (v2.22.0).
- * 앱 공통 4색만 쓴다.
- */
-const GRADE_TONE: Record<string, string> = {
-  STRONG: 'text-bullish',
-  BUY: 'text-bullish',
-  WATCH: 'text-warning',
-  HOLD: 'text-text-secondary',
-  AVOID: 'text-bearish',
-  ERROR: 'text-danger',
-};
-const Grade = ({ g }: { g: string }) => <span className={GRADE_TONE[g] ?? ''}>{g}</span>;
 
 /**
  * 카드 판정 (v2.22.0) — **리포트에 이미 있는 숫자와 기준선만** 비교한다. 새 기준을 만들지 않는다.
@@ -119,7 +100,7 @@ function DiagnoseHelp() {
     <HelpBox id="diagnose" title="이 화면은 무엇인가요?" storageKey="alphascope.diagnoseHelp">
         <div className="space-y-2.5">
           <p>
-            이 앱은 여러 가지 "신호"를 냅니다. 「지금 살 만한가」 점수, 급등 탐지, Gemini 의 매수·매도 판단, 뉴스의 긍정·부정 판정 같은 것들입니다.
+            이 앱은 여러 가지 "신호"를 냅니다. 급등 탐지, Gemini 의 매수·매도 판단, 뉴스의 긍정·부정 판정 같은 것들입니다.
             <br />
             진단 리포트는 이 신호들이 <b className="text-text-primary">과거에 실제로 맞았는지 채점하는 성적표</b>입니다. 지금 무엇을 사라고 알려
             주는 화면이 아닙니다.
@@ -212,28 +193,7 @@ function Cards({ s }: { s: DiagnoseSummary }) {
   return (
     <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(250px,1fr))]">
       <Card
-        title="1. 관심 종목이 「지금 살 만한가」 에서 부적합한 것은 정상인가?"
-        hint={'「지금 살 만한가」 가 BUY 를 낸 날 매수했다면 20거래일 뒤 평균 몇 % 였는지 봅니다. 플러스면 좋은 신호입니다(기준선 = 0).'}
-        weak={s.swing.weak}
-        judgement={judge({
-          weak: s.swing.weak,
-          weakWhy: `과거 BUY 이상 ${s.swing.buyTotal}일 — 30일 미만이라 판단 보류`,
-          value: s.swing.forward?.d20,
-          base: 0,
-          valueLabel: 'BUY 뒤 20일 평균',
-          baseLabel: '기준선',
-          unit: '%',
-          signed: true,
-        })}
-        numbers={[
-          { label: `과거 ${s.swing.window}거래일 BUY 이상`, value: `${s.swing.buyTotal}일 (${s.swing.buyRate}%)` },
-          { label: 'BUY 뒤 20일 평균', value: <span className={tone(s.swing.forward?.d20)}>{signed(s.swing.forward?.d20)}</span> },
-          { label: '20일 뒤 플러스 종목', value: `${s.swing.positive20}/${s.swing.withBuy}` },
-        ]}
-        conclusion={s.swing.conclusion}
-      />
-      <Card
-        title="2. 목표를 3% 로 작게 잡으면 달라지나?"
+        title="1. 목표를 3% 로 작게 잡으면 달라지나?"
         hint={'아무 날이나 종가에 사서 10거래일 안에 +3% / −1.5% 중 먼저 닿는 쪽으로 정리했다면 한 번에 평균 몇 %p 였는지 봅니다(수수료 포함, 둘 다 안 닿으면 0). 0 보다 크면 좋음, SPY 는 시장 비교용입니다.'}
         weak={s.target.weak}
         judgement={judge({
@@ -254,7 +214,7 @@ function Cards({ s }: { s: DiagnoseSummary }) {
         conclusion={s.target.conclusion}
       />
       <Card
-        title="3. 급등 탐지의 주기 예측이 맞나?"
+        title="2. 급등 탐지의 주기 예측이 맞나?"
         hint={'급등 탐지가 "다음 급등일" 을 맞힌 비율을, 우연히 맞을 비율(기준선)과 비교합니다.'}
         weak={s.surge.weak}
         judgement={judge({
@@ -274,7 +234,7 @@ function Cards({ s }: { s: DiagnoseSummary }) {
         conclusion={s.surge.conclusion}
       />
       <Card
-        title="4. Gemini 분석은 정확한가? (Gemini 만)"
+        title="3. Gemini 분석은 정확한가? (Gemini 만)"
         hint={'Gemini 의 매수·매도 판단이 5거래일 뒤 맞은 비율을, 그냥 "오른다" 고 찍었을 때(5일 뒤 상승 비율)와 비교합니다.'}
         weak={s.ai.weak}
         judgement={judge({
@@ -298,7 +258,7 @@ function Cards({ s }: { s: DiagnoseSummary }) {
       />
       {s.news && (
         <Card
-          title="5. 뉴스 AI 판정(긍정·부정)은 맞았나?"
+          title="4. 뉴스 AI 판정(긍정·부정)은 맞았나?"
           hint={'뉴스 긍정·부정 판정이 5거래일 뒤 주가 방향과 맞은 비율을, 그냥 "오른다" 고 찍었을 때와 비교합니다.'}
           weak={s.news.weak}
           judgement={judge({
@@ -372,68 +332,15 @@ const TARGET_COLUMNS: [number, number][] = [
   [3, 1.5], [3, 3], [5, 2.5], [5, 5], [10, 5], [10, 10], [15, 7.5], [15, 15],
 ];
 
-function Details({ d, s }: { d: DiagnoseDetail; s: DiagnoseSummary }) {
-  const withForward = d.replay.filter((r) => r.forward.d5.length);
+function Details({ d }: { d: DiagnoseDetail }) {
   // 종목명은 다른 화면과 같은 캐시에서 받는다 (모르는 것만 한 번에)
   useStockNames([
-    ...d.today.map((t) => t.symbol),
-    ...d.replay.map((r) => r.symbol),
     ...Object.keys(d.freq),
     ...d.surge.cases.map((c) => c.symbol),
   ]);
   const geminiBase = d.gemini.baselineUp5;
   return (
     <div className="space-y-2">
-      <Section title="지금 살 만한가 — 오늘 기준">
-        <Table
-          headers={['종목', '등급', '점수', '추세', '타이밍', '모멘텀', '거래량', '손익비', 'RSI', '60일선', 'BUY 까지 모자란 것']}
-          rows={d.today.map((t) =>
-            t.error
-              ? [<Sym symbol={t.symbol} />, <Grade g="ERROR" />, '—', '—', '—', '—', '—', '—', '—', '—', t.error]
-              : [
-                  <Sym symbol={t.symbol} />,
-                  <Grade g={t.grade} />,
-                  t.score,
-                  ...['추세(30)', '타이밍(25)', '모멘텀(20)', '거래량(15)', '손익비(10)'].map(
-                    (k) => `${t.conditions[k]?.score ?? '—'}/${t.conditions[k]?.max ?? '—'}`,
-                  ),
-                  t.numbers.RSI,
-                  <span className={toneText(t.numbers['60일선거리'])}>{t.numbers['60일선거리']}</span>,
-                  <span className="block max-w-[360px] text-left text-text-secondary">{t.missing.join(' / ') || '—'}</span>,
-                ],
-          )}
-        />
-      </Section>
-
-      <Section title={`지금 살 만한가 — 과거 ${s.swing.window}거래일 재현 · BUY 날 뒤 수익률`}>
-        <p className="text-caption text-text-muted">각 날짜의 판정에는 그날까지의 봉만 넣었습니다(미래 차단).</p>
-        <Table
-          headers={['종목', '평가일수', 'STRONG', 'BUY', 'WATCH', 'HOLD', 'AVOID', '손익비 강등', 'BUY 날짜(최근 5)']}
-          rows={d.replay.map((r) => [
-            <Sym symbol={r.symbol} />, r.days,
-            r.grades.STRONG ?? 0, r.grades.BUY ?? 0, r.grades.WATCH ?? 0, r.grades.HOLD ?? 0, r.grades.AVOID ?? 0,
-            r.rrDemoted,
-            <span className="text-text-secondary">{r.buyDates.slice(-5).join(' ') || '—'}</span>,
-          ])}
-        />
-        {withForward.length ? (
-          <Table
-            headers={['BUY 날 뒤', '건수', '5일', '10일', '20일']}
-            rows={withForward.map((r) => {
-              const [a, b, c] = [mean(r.forward.d5), mean(r.forward.d10), mean(r.forward.d20)];
-              return [
-                <Sym symbol={r.symbol} />, r.forward.d5.length,
-                <span className={tone(a)}>{signed(a)}</span>,
-                <span className={tone(b)}>{signed(b)}</span>,
-                <span className={tone(c)}>{signed(c)}</span>,
-              ];
-            })}
-          />
-        ) : (
-          <p className="text-caption text-text-muted">BUY 신호가 없어 이후 수익률을 낼 수 없습니다.</p>
-        )}
-      </Section>
-
       <Section title="목표 수익률 — 10거래일 안 목표 먼저 도달률 · 기대값">
         <p className="text-caption text-text-muted">
           매일 종가 매수 가정 · 같은 날 둘 다 닿으면 손절 · 왕복 비용 0.30%p 반영. 조건을 바꿔 보려면
@@ -585,7 +492,7 @@ export default function DiagnoseView() {
           <div>
             <h2 className="text-base font-semibold text-text-primary">진단 리포트</h2>
             <p className="text-caption text-text-muted">
-              지금 살 만한가·목표 수익률·급등·AI 가 실제로 쓸모 있는지 과거 데이터로 확인합니다 (기준선과 나란히).
+              목표 수익률·급등·AI 가 실제로 쓸모 있는지 과거 데이터로 확인합니다 (기준선과 나란히).
             </p>
           </div>
           <div className="ml-auto flex items-center gap-2">
@@ -660,12 +567,12 @@ export default function DiagnoseView() {
         {s && (
           <>
             <p className="text-caption text-text-muted">
-              대상 {s.symbols.length}종목 ({s.source}) · 판정 기준 {s.profile} · 실행 {s.elapsed}초 · {s.server}
+              대상 {s.symbols.length}종목 ({s.source}) · 실행 {s.elapsed}초 · {s.server}
               {s.quick && ' · quick'}
             </p>
             <Cards s={s} />
             {detailError && <p className="text-caption text-danger">상세를 불러오지 못했습니다: {detailError}</p>}
-            {detail && <Details d={detail} s={s} />}
+            {detail && <Details d={detail} />}
           </>
         )}
 

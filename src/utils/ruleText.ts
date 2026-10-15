@@ -30,15 +30,15 @@ export function ruleBuyText(rule: RuleBody, n: Num = plain): string {
   return `${parts.join(' · ')} — 합계 ${n(rule.buy.minScore)}점 이상(최대 ${n(maxScoreOf(rule.buy))}점)`;
 }
 
-/** 매도 — "50점 아래 · 반대 신호 · 손절 7% · 익절 끔 · 트레일링 끔" */
+/** 매도 — "점수 50점 아래 · 반대 신호 · 손절 −7% · 익절 끔 · 트레일링 끔" (v2.45.0 — 손절·트레일링 −, 익절 + : `ruleSafetyText` 와 같은 표기) */
 export function ruleSellText(rule: RuleBody, n: Num = plain): string {
   const s = rule.sell;
   const parts: string[] = [];
   if (s.scoreBelow.on) parts.push(`점수 ${n(s.scoreBelow.value)}점 아래`);
   if (s.opposite.on) parts.push('반대 신호');
-  parts.push(s.stopLoss.on ? `손절 ${n(s.stopLoss.percent)}%` : '손절 끔');
-  parts.push(s.takeProfit.on ? `익절 ${n(s.takeProfit.percent)}%` : '익절 끔');
-  parts.push(s.trailing.on ? `트레일링 ${n(s.trailing.percent)}%` : '트레일링 끔');
+  parts.push(s.stopLoss.on ? `손절 −${n(s.stopLoss.percent)}%` : '손절 끔');
+  parts.push(s.takeProfit.on ? `익절 +${n(s.takeProfit.percent)}%` : '익절 끔');
+  parts.push(s.trailing.on ? `트레일링 −${n(s.trailing.percent)}%` : '트레일링 끔');
   return parts.join(' · ');
 }
 

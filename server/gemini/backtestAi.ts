@@ -15,7 +15,7 @@ import { ruleBuyText, ruleSellText } from '../../src/utils/ruleText';
 // v2 (v2.39.0): 조언에 익절 추가 · 설명은 조건 비교 모양(조건 1개도 같은 모양) + MDD·Profit Factor 숫자
 // v3 (v2.40.0): 초등학생도 아는 쉬운 말 규칙(전문용어 풀이·한 문장 40자 안팎·숫자 1~2개·용어집 이름·"방법 1·2·3")
 /** v4 (v2.44.0) — 방법 = 매매 규칙(이름·매수·매도 조건 문장). 프롬프트·스키마를 고치면 올린다 */
-export const EXPLAIN_PROMPT_VERSION = 'bt-explain-v4';
+export const EXPLAIN_PROMPT_VERSION = 'bt-explain-v5'; // v5(v2.45.0): 매도 문장 표기만 — 손절 −7% · 익절 +10% · 트레일링 −5%
 
 /** 쉬운 말 규칙 (v2.40.0) */
 const EASY_RULES = [

@@ -5,8 +5,8 @@
  *    손익비 안전장치 끔(시험용 인자) → 예전 `decideRule` 의 **정답 파일**(`scripts/fixtures/crossRuleAnswers.json`, 5b16cc4 에서 만듦 —
  *    캔들까지 담았다)과 action 이 모두 같은지 (규칙형 4종 × 보유/미보유). 예전 코드는 v2.44.0 에 지웠다.
  * ①-b 백테스트 — 같은 규칙 + 손절(·트레일링·익절) → 새 `simulateRule` 의 거래 목록 == 예전 `simulateRule` 정답(같은 파일)
- * ② 점수와 같은 점수 — 기본 규칙 → 미국 시총 상위 100 × 최근 120 거래일(v2.44.0 에 관심 목록에서 넓혔다), 같은 끝난 봉을 넣은
- *    `evaluateSwing`(표준 기준)과 5그룹 점수·합계가 같은지, 손익비로 막힌 날 = 손익비 강등 날인지
+ * ② 점수와 같은 점수 — 기본 규칙 → 미국 시총 상위 100 × 최근 120 거래일, 지운 예전 점수 계산기(`evaluateSwing`, 표준 기준)의 **정답 파일**
+ *    (`scripts/fixtures/swingScoreAnswers.json`, 510b0e4 에서 만듦 — 캔들 포함)과 5그룹 점수·합계가 같은지, 손익비로 막힌 날 = 손익비 강등 날인지
  * ③ 미래 정보 — 봉 i 까지 잘라 계산한 판단 == 전체로 계산한 i 의 판단
  * ④ 속도 — 미국 시총 상위 100 × 3년(756 거래일) 판단 시간 · 지표 엔진 호출 수
  * ⑤ 단위 시험 — 다시 사기 대기 · 점수 매도 · 빈 규칙 · 점수표 비례 · 손익비 막음 · 반대 신호 · 입력 검사
@@ -45,9 +45,7 @@ const { loadCandles } = await import('../server/db');
 const { computeIndicators } = await import('../server/indicatorService');
 const { completedDaily, evaluateRule, exitLevels, scoreAt } = await import('../server/rules/engine');
 const { simulateRule } = await import('../server/autoTrading/ruleBacktest');
-const { evaluateSwing } = await import('../server/swingAnalyzer');
 const { readUniverse } = await import('../server/universe');
-const { STANDARD_SWING } = await import('../src/types/strategyProfile');
 const { marketDate } = await import('../src/utils/marketDate');
 const T = await import('../src/types/tradingRule');
 const { ruleFieldErrors, ruleWarnings, parseRuleBody } = await import('../src/utils/ruleInput');
@@ -155,9 +153,18 @@ async function testCross(): Promise<void> {
 }
 
 // ── ② ─────────────────────────────────────────────────────────────────────
+/**
+ * 예전 점수 계산기(`evaluateSwing`, 표준 기준)의 **정답 파일**과 비교 — v2.45.0 에 그 계산기를 지웠다(A-11).
+ * `scripts/fixtures/swingScoreAnswers.json`(510b0e4 에서 만듦): 미국 시총 상위 100 의 끝난 일봉(그때 쓴 그대로) + 최근 120 거래일마다
+ * [i, 5그룹 점수, 합계, 매수(STRONG·BUY), 손익비 강등, 진입 종류, 매수가, 손절가, 1차, 2차, 손익비, 비중].
+ */
+interface SwingFixture {
+  symbols: { symbol: string; skipped?: number; candles?: Fixture['symbols'][number]['candles']; days?: [number, number[], number, number, number, string, number, number, number, number, number, number][] }[];
+}
 async function testScore(): Promise<void> {
+  const answers = JSON.parse(fs.readFileSync(path.join(root, 'scripts/fixtures/swingScoreAnswers.json'), 'utf8')) as SwingFixture;
   const body = T.defaultRuleBody();
-  const syms = readUniverse().us.map((e) => e.symbol.toUpperCase());
+  const groups = ['trend', 'timing', 'momentum', 'volume', 'riskReward'] as const;
   let days = 0;
   let scoreDiff = 0;
   let totalDiff = 0;
@@ -168,49 +175,39 @@ async function testScore(): Promise<void> {
   let buys = 0;
   let skipped = 0;
   const examples: string[] = [];
-  const profile = { id: 'standard' as const, params: STANDARD_SWING };
-  for (const s of syms) {
-    const c = completedDaily(loadCandles(s, '1d', 300), s, FIXED_NOW);
-    if (c.length < 60) {
+  for (const sym of answers.symbols) {
+    if (!sym.candles || !sym.days) {
       skipped++;
       continue;
     }
+    const s = sym.symbol;
+    const c = toCandles(sym.candles);
     const series = await computeIndicators(c);
     const ctx = { symbol: s, candles: c, series };
-    for (let i = Math.max(59, c.length - 120); i < c.length; i++) {
-      const old = await evaluateSwing(s, profile, c.slice(0, i + 1));
+    for (const [i, oldGroups, oldScore, oldBuy, demoted, entryType, entry, stop, t1, t2, ratio, size] of sym.days) {
       const neu = evaluateRule(ctx, i, body, { held: false });
       days++;
-      const groups = ['trend', 'timing', 'momentum', 'volume', 'riskReward'] as const;
-      for (const g of groups) {
-        const a = old.conditions[g].score;
+      groups.forEach((g, k) => {
         const b = neu.breakdown.find((x) => x.key === g)!.score;
-        if (a !== b) {
+        if (oldGroups[k] !== b) {
           scoreDiff++;
-          if (examples.length < 5) examples.push(`${s} i=${i} ${g} ${a}≠${b}`);
+          if (examples.length < 5) examples.push(`${s} i=${i} ${g} ${oldGroups[k]}≠${b}`);
         }
-      }
-      if (old.score !== neu.score) totalDiff++;
-      const demoted = old.score >= STANDARD_SWING.grades.buy && old.conditions.riskReward.ratio < STANDARD_SWING.rrDemoteBelow;
-      if (demoted !== neu.rrBlocked) blockDiff++;
+      });
+      if (oldScore !== neu.score) totalDiff++;
+      if (Boolean(demoted) !== neu.rrBlocked) blockDiff++;
       if (neu.rrBlocked) blocked++;
-      const oldBuy = old.grade === 'STRONG' || old.grade === 'BUY';
-      if (oldBuy !== (neu.action === 'BUY')) buyDiff++;
+      if (Boolean(oldBuy) !== (neu.action === 'BUY')) buyDiff++;
       if (neu.action === 'BUY') buys++;
       // 참고 계획도 같은지 (매수가·손절·목표·비율·비중)
       const r = neu.reference;
       const samePlan = r
-        ? r.entryPrice === old.entry.price && r.stop === old.stopLoss.price && r.target1 === old.targets.target1.price &&
-          r.target2 === old.targets.target2.price && r.ratio === old.conditions.riskReward.ratio &&
-          r.sizePercent === old.position.recommendedPercent && r.entryType === old.entry.type
-        : old.stopLoss.price === 0;
-      if (!samePlan) {
-        planDiff++;
-        if (process.env.RULES_TEST_DEBUG) console.log('plan', s, i, JSON.stringify(r), JSON.stringify({ e: old.entry.price, t: old.entry.type, s: old.stopLoss.price, t1: old.targets.target1.price, t2: old.targets.target2.price, r: old.conditions.riskReward.ratio, p: old.position.recommendedPercent }));
-      }
+        ? r.entryPrice === entry && r.stop === stop && r.target1 === t1 && r.target2 === t2 && r.ratio === ratio && r.sizePercent === size && r.entryType === entryType
+        : stop === 0;
+      if (!samePlan) planDiff++;
     }
   }
-  check('② 5그룹 점수', scoreDiff === 0, `${syms.length - skipped}종목(일봉 60개 미만 ${skipped} 제외) · ${days}일 · 다른 그룹 점수 ${scoreDiff}${examples.length ? ` 예: ${examples.join(', ')}` : ''}`);
+  check('② 5그룹 점수 (정답 파일)', scoreDiff === 0, `${answers.symbols.length - skipped}종목(일봉 60개 미만 ${skipped} 제외) · ${days}일 · 다른 그룹 점수 ${scoreDiff}${examples.length ? ` 예: ${examples.join(', ')}` : ''}`);
   check('② 합계', totalDiff === 0, `다름 ${totalDiff}`);
   check('② 손익비로 막힌 날 = 손익비 강등 날', blockDiff === 0, `막힌 날 ${blocked} · 다름 ${blockDiff}`);
   check('② 매수 날 = 예전 STRONG·BUY 날', buyDiff === 0, `매수 ${buys} · 다름 ${buyDiff}`);

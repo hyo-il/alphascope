@@ -5,7 +5,7 @@
  * ⚠️ **계산은 여기 한 곳이다.** 진단 스크립트에 있던 것을 옮겼다 (v2.14.0). 두 벌이면
  * 웹 화면과 리포트의 숫자가 달라진다.
  * ⚠️ 이것은 **예측이 아니라 과거 빈도**다. 아무 조건 없이 매일 샀을 때의 숫자이므로
- * 매매 신호는 이 기준선보다 나아야 의미가 있다. 스윙 등급·추천·자동매매에는 쓰지 않는다.
+ * 매매 신호는 이 기준선보다 나아야 의미가 있다. 매수 판단·자동매매에는 쓰지 않는다.
  */
 
 import type { Candle } from '../../src/types/toss';
@@ -129,10 +129,10 @@ export async function dailyCandles(symbol: string, limit = FREQ_DAYS + 30): Prom
   return getCandles(symbol, '1d', limit).catch(() => loadCandles(symbol, '1d', limit));
 }
 
-// ── 관심 목록 (진단·스윙 미리보기·실적일·달력·종목 지도가 쓴다) ──────────────────
+// ── 관심 목록 (진단·실적일·달력·종목 지도가 쓴다) ──────────────────
 // (v2.29.0 까지 여기 있던 `GET /api/swing/target-hit` 표 `targetHitTable()`·하루 캐시는 v2.30.0 에 지웠다 — 부르는 화면이 없었다)
 
-/** 관심 목록 전체 (폴더를 풀어서, 중복 제거) — 스윙 분석과 같은 대상 */
+/** 관심 목록 전체 (폴더를 풀어서, 중복 제거) — 진단의 대상 */
 export function watchlistSymbols(): string[] {
   const folders = getWatchlist().folders ?? [];
   return [...new Set(folders.flatMap((f) => f.symbols ?? []))];

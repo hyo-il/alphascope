@@ -1,7 +1,7 @@
 import type { GeminiTrigger } from './gemini';
 /**
  * 진단 리포트 — 서버(`server/diagnose`)와 화면(`components/diagnose`)이 함께 쓰는 형태.
- * 요약(`summary`)은 카드 다섯 장(5번째 뉴스 AI 판정은 v2.21.0 부터), 상세(`detail`)는 접이식 표로 그린다.
+ * 요약(`summary`)은 카드 네 장(v2.45.0 에 「지금 살 만한가」 카드를 지웠다), 상세(`detail`)는 접이식 표로 그린다.
  * 화면은 **JSON 에서** 표를 그린다 — 마크다운을 HTML 로 바꾸지 않는다.
  */
 
@@ -13,22 +13,6 @@ export interface DiagnoseSummary {
   quick: boolean;
   symbols: string[];
   source: string;
-  profile: string;
-  swing: {
-    /** 평가한 날 수 (종목 × 일) */
-    replayDays: number;
-    /** 되돌려 본 거래일 수 (120, --quick 은 60) */
-    window: number;
-    buyTotal: number;
-    buyRate: number;
-    errors: number;
-    /** BUY 날 뒤 평균 수익률(전 종목 합산) */
-    forward: { d5: number | null; d10: number | null; d20: number | null };
-    positive20: number;
-    withBuy: number;
-    weak: boolean;
-    conclusion: string;
-  };
   target: {
     avgHit: number | null;
     avgExp: number | null;
@@ -108,25 +92,6 @@ export interface DiagnoseFreqRow {
 }
 
 export interface DiagnoseDetail {
-  today: {
-    symbol: string;
-    grade: string;
-    score: number;
-    conditions: Record<string, { score: number; max: number; checks: string[] }>;
-    numbers: Record<string, string>;
-    rejection: string | null;
-    missing: string[];
-    error?: string;
-  }[];
-  replay: {
-    symbol: string;
-    days: number;
-    grades: Record<string, number>;
-    buyDates: string[];
-    rrDemoted: number;
-    forward: { d5: number[]; d10: number[]; d20: number[] };
-    lastBarChecked: string | null;
-  }[];
   freq: Record<string, { rows: DiagnoseFreqRow[]; atr: number | null }>;
   surge: {
     cases: {
