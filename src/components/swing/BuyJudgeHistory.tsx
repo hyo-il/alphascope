@@ -9,7 +9,8 @@ import { TargetHistorySection } from './TargetAnalysisParts';
 import { fetchJudgeDays, useBuyJudgeHistory } from '../../hooks/useBuyJudge';
 import { formatSigned } from '../../utils/formatters';
 import { modal, toast } from '../../store/uiStore';
-import { REASON_DAYS, SMALL_SAMPLE, VERDICT_LABEL, type JudgeDay } from '../../types/buyJudge';
+import { REASON_DAYS, SMALL_SAMPLE, type JudgeDay } from '../../types/buyJudge';
+import { VerdictText } from './BuyJudgeTable';
 import type { useTargetAnalysis } from '../../hooks/useTargetAnalysis';
 
 const OUTCOME_HELP =
@@ -46,20 +47,20 @@ export default function BuyJudgeHistory({ target }: { target: ReturnType<typeof 
 
   const clear = () => {
     const n = scope === 'all' ? (h.data?.counts.all ?? 0) : (h.data?.counts.nonBuy ?? 0);
-    if (!n) return toast.info('지울 판단 기록이 없습니다');
+    if (!n) return toast.info('삭제할 판단 기록이 없습니다');
     modal.confirm({
-      title: '매수 판단 기록 지우기',
-      message: `${n}줄이 지워집니다${scope === 'nonBuy' ? '(「사도 됨」 기록은 남습니다)' : '(「사도 됨」 기록과 성과도 함께 지워집니다)'}. 되돌릴 수 없습니다.\n목표 수익 가능성 기록은 지우지 않습니다.`,
+      title: '매수 판단 기록 삭제',
+      message: `${n}줄이 삭제됩니다${scope === 'nonBuy' ? '(「사도 됨」 기록은 남습니다)' : '(「사도 됨」 기록과 성과도 함께 지워집니다)'}. 되돌릴 수 없습니다.\n목표 수익 가능성 기록은 삭제하지 않습니다.`,
       confirmText: '삭제',
       danger: true,
       onConfirm: async () => {
         setClearing(true);
         try {
           const deleted = await h.clear(scope);
-          toast.success(`판단 기록 ${deleted}줄을 지웠습니다`);
+          toast.success(`판단 기록 ${deleted}줄을 삭제했습니다`);
           setDays({});
         } catch (e) {
-          toast.error('지우지 못했습니다', (e as Error).message);
+          toast.error('삭제하지 못했습니다', (e as Error).message);
         } finally {
           setClearing(false);
         }
@@ -134,7 +135,7 @@ export default function BuyJudgeHistory({ target }: { target: ReturnType<typeof 
         {h.loading && !h.data ? (
           <SkeletonCards count={2} className="grid-cols-1" />
         ) : !h.data?.reasons.length ? (
-          <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">아직 판단 기록이 없습니다.</p>
+          <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">아직 판단 기록이 없습니다. 「매수 판단」 탭에 종목을 추가하면 서버가 매일 각 시장 마감 뒤 기록합니다.</p>
         ) : (
           <ul className="space-y-1">
             {h.data.reasons.map((r) => {
@@ -167,7 +168,9 @@ export default function BuyJudgeHistory({ target }: { target: ReturnType<typeof 
                             {list.map((d) => (
                               <tr key={`${d.marketDate}-${d.ruleName}`} className="border-b border-border/30 last:border-b-0">
                                 <td className={`${TABLE_NUM_COL} py-1 pr-4 tabular-nums text-text-secondary`}>{d.marketDate}</td>
-                                <td className={`${TABLE_NUM_COL} py-1 pr-4`}>{VERDICT_LABEL[d.verdict]}</td>
+                                <td className={`${TABLE_NUM_COL} py-1 pr-4`}>
+                                  <VerdictText verdict={d.verdict} />
+                                </td>
                                 <td className={`${TABLE_NUM_COL} py-1 pr-4 text-right tabular-nums`}>
                                   {d.score}/{d.maxScore}
                                 </td>
@@ -186,24 +189,28 @@ export default function BuyJudgeHistory({ target }: { target: ReturnType<typeof 
         )}
       </section>
 
-      {/* [기록 지우기] — 판단 기록만 */}
+      {/* [기록 삭제] — 판단 기록만. 0줄이면 삭제 칸을 감추고(공통 동작 규칙) 삭제 버튼은 줄 오른쪽 끝(기준표 9) */}
       <section className="flex flex-wrap items-center gap-2 rounded-lg bg-bg-tertiary/30 px-3 py-2">
         <span className="text-xs text-text-secondary">판단 기록 {h.data?.counts.all ?? 0}줄</span>
-        <Segmented
-          label="지울 범위"
-          size="sm"
-          value={scope}
-          onChange={setScope}
-          options={[
-            { value: 'nonBuy', label: '「사도 됨」 제외' },
-            { value: 'all', label: '전부' },
-          ]}
-        />
-        <Button size="sm" variant="danger-text" onClick={clear} disabled={!h.data || clearing}>
-          {clearing && <LoaderCircle {...ICON_SM} className="mr-1 animate-spin" />}
-          {clearing ? '지우는 중…' : '기록 지우기'}
-        </Button>
-        <span className="text-caption text-text-muted">보관 기간은 「설정 &gt; 앱 기능 설정」 에서 고릅니다(「사도 됨」 은 늘 남습니다).</span>
+        <span className="min-w-0 text-caption text-text-muted">보관 기간은 「설정 &gt; 앱 기능 설정」 에서 고릅니다(「사도 됨」 은 늘 남습니다).</span>
+        {(h.data?.counts.all ?? 0) > 0 && (
+          <span className="ml-auto flex shrink-0 items-center gap-2">
+            <Segmented
+              label="삭제할 범위"
+              size="sm"
+              value={scope}
+              onChange={setScope}
+              options={[
+                { value: 'nonBuy', label: '「사도 됨」 제외' },
+                { value: 'all', label: '전부' },
+              ]}
+            />
+            <Button size="sm" variant="danger-text" onClick={clear} disabled={clearing}>
+              {clearing && <LoaderCircle {...ICON_SM} className="mr-1 animate-spin" />}
+              {clearing ? '삭제하는 중…' : '기록 삭제'}
+            </Button>
+          </span>
+        )}
       </section>
 
       {/* ③ 목표 수익 가능성 기록·성적 */}

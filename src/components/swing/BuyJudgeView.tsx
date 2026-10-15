@@ -96,8 +96,8 @@ export default function BuyJudgeView() {
 
             <div className="flex flex-wrap items-start gap-3">
               <RuleSelect rules={rules} value={j.state?.ruleId ?? null} onChange={(id) => void act(j.setRule(id), '규칙을 바꾸지 못했습니다')} disabled={busy != null} label="매매 규칙" />
-              <Button className="ml-auto" icon={RefreshCw} onClick={() => void act(j.recalc(), '다시 계산하지 못했습니다')} disabled={busy != null || ruleMissing || !symbols.length}>
-                다시 계산
+              <Button className="ml-auto" icon={RefreshCw} onClick={() => void act(j.recalc(), '다시 실행하지 못했습니다')} disabled={busy != null || ruleMissing || !symbols.length}>
+                다시 실행
               </Button>
             </div>
             {ruleMissing && <p className="text-xs text-warning">매매 규칙을 고르세요.</p>}

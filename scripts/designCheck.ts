@@ -308,6 +308,28 @@ function targets(): Target[] {
         await page.waitForTimeout(500);
       },
     },
+    {
+      // 실제 응답의 두 번째 줄을 「손익비 부족」 으로 바꾼다(판단 글자 · 경고 아이콘 · 손절가~비중 칸 확인용)
+      name: 'swing-손익비부족섞임',
+      hash: '#/swing/list',
+      before: async (page) => {
+        await page.route('**/api/buy-judge', async (r) => {
+          const res = await r.fetch();
+          const body = (await res.json()) as { rows: { verdict: string; reference: unknown }[] };
+          const withRef = body.rows.find((x) => x.reference);
+          if (body.rows[1] && withRef) Object.assign(body.rows[1], { verdict: 'rr_block', reference: withRef.reference });
+          // 국내 줄(원화 큰 가격 — 가장 넓은 숫자 칸)도 하나: 같은 계획을 원화 크기로 키운다
+          const kr = body.rows.find((x) => /^\d/.test((x as unknown as { symbol: string }).symbol));
+          const ref = withRef?.reference as Record<string, number> | undefined;
+          if (kr && ref) {
+            const big = Object.fromEntries(Object.entries(ref).map(([k, v]) => [k, typeof v === 'number' && k !== 'ratio' && k !== 'sizePercent' ? Math.round(v * 4000) : v]));
+            Object.assign(kr, { verdict: 'rr_block', reference: big });
+          }
+          await r.fulfill({ response: res, json: body });
+        });
+      },
+      after: (page) => page.unroute('**/api/buy-judge'),
+    },
     { name: 'dialog-매수판단-조건보기', hash: '#/swing/list', before: async () => {}, open: click('조건 보기') },
     {
       name: 'swing-history-기록있음',
@@ -345,7 +367,7 @@ function targets(): Target[] {
           r.fulfill({ json: { bought: [], stats: { n5: 0, n10: 0, n20: 0, avg5: null, avg10: null, avg20: null, smallSample: true }, reasons: [], counts: { all: 61, nonBuy: 58 } } }));
       },
       after: (page) => page.unroute('**/api/buy-judge/history'),
-      open: click('기록 지우기'),
+      open: click('기록 삭제'),
     },
     {
       name: 'dialog-보관기간-줄이기',

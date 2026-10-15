@@ -14,7 +14,7 @@ import type { SwingGoal } from '../../types/swingGoal';
 import type { TargetAnalysisRecord } from '../../types/targetAnalysis';
 
 /** 판단 글자 — 색만으로 뜻을 전하지 않는다(글자가 있다). 손익비 부족은 경고 아이콘도 */
-function VerdictText({ verdict }: { verdict: Verdict | null }) {
+export function VerdictText({ verdict }: { verdict: Verdict | null }) {
   if (!verdict) return <span className="text-text-muted">—</span>;
   if (verdict === 'buy') return <span className="font-medium text-bullish">{VERDICT_LABEL.buy}</span>;
   if (verdict === 'rr_block')
@@ -71,7 +71,8 @@ export default function BuyJudgeTable({
 
   return (
     <div className="rounded-lg bg-bg-tertiary/40" data-buy-judge-table>
-      <table className="w-full text-left text-xs">
+      {/* 미국($ 소수 둘째)·국내(₩ 정수) 종목이 한 표에 섞여 가격 열의 소수 자릿수가 통화마다 다르다 — 통화 규칙이 맞다(data-rows-differ: 자릿수 측정 제외) */}
+      <table className="w-full text-left text-xs" data-rows-differ>
         <thead className="text-caption text-text-muted">
           <tr className="border-b border-border/50">
             <th className={`${TABLE_NAME_COL} py-2 pl-3 pr-3`}>종목</th>
@@ -82,7 +83,7 @@ export default function BuyJudgeTable({
             <th className={`${NUM} py-2`}>목표가</th>
             <th className={`${NUM} py-2`}>손익비</th>
             <th className={`${NUM} py-2`}>비중(참고)</th>
-            <th className={`${TABLE_NUM_COL} py-2 pl-4 pr-2`} aria-label="목표 수익 가능성" />
+            <th className={`${TABLE_NUM_COL} py-2 pl-3 pr-2`} aria-label="목표 수익 가능성" />
             <th className="w-px py-2 pr-2" aria-label="목록에서 삭제" />
           </tr>
         </thead>
@@ -102,20 +103,22 @@ export default function BuyJudgeTable({
                   onClick={() => toggle(r.symbol)}
                   aria-expanded={isOpen}
                 >
-                  <td className="max-w-0 py-1 pl-3 pr-3">
+                  <td className="py-1 pl-3 pr-3">
                     <span className="flex min-w-0 items-center gap-1.5">
                       {isOpen ? <ChevronDown {...ICON_SM} className="shrink-0 text-text-muted" /> : <ChevronRight {...ICON_SM} className="shrink-0 text-text-muted" />}
-                      {/* 이름만 말줄임(StockName 안) — 티커는 자르지 않는다 */}
-                      <StockName symbol={r.symbol} className="max-w-full" />
+                      {/* 칸이 10개라 1280 에서 종목 칸이 좁다 — 말줄임 대신 단어 단위 줄바꿈(티커는 자르지 않는다). 칸 최소 폭 = 가장 긴 단어 */}
+                      <StockName symbol={r.symbol} wrap />
                     </span>
                   </td>
                   <td className={`${TABLE_NUM_COL} py-1 pr-1`}>{r.error ? <span className="text-text-muted">판단 못 함</span> : <VerdictText verdict={r.verdict} />}</td>
                   <td className={`${NUM} py-1 tabular-nums`}>{r.score != null ? `${r.score}/${r.maxScore}` : '—'}</td>
                   <td className={`${NUM} py-1 tabular-nums text-text-secondary`}>
                     {r.refScore != null ? (
-                      <>
-                        {r.refScore} <span className="text-caption text-text-muted">({r.refLabel})</span>
-                      </>
+                      // 「(장 마감 가격)」 은 숫자 아래 줄 — 칸이 10개라 1280 에서 한 줄로 두면 표가 넘쳤다
+                      <span className="flex flex-col items-end leading-tight">
+                        <span>{r.refScore}</span>
+                        <span className="text-caption text-text-muted">({r.refLabel})</span>
+                      </span>
                     ) : (
                       '—'
                     )}
@@ -124,7 +127,7 @@ export default function BuyJudgeTable({
                   <td className={`${NUM} py-1 tabular-nums`}>{ref ? formatPrice(ref.target1, cur) : '—'}</td>
                   <td className={`${NUM} py-1 tabular-nums`}>{ref ? formatNumber(ref.ratio, 2) : '—'}</td>
                   <td className={`${NUM} py-1 tabular-nums`}>{ref ? `${formatNumber(ref.sizePercent, 1)}%` : '—'}</td>
-                  <td className={`${TABLE_NUM_COL} py-1 pl-4 pr-2`} onClick={(e) => e.stopPropagation()}>
+                  <td className={`${TABLE_NUM_COL} py-1 pl-3 pr-2`} onClick={(e) => e.stopPropagation()}>
                     <Button
                       size="sm"
                       onClick={() => {
@@ -186,12 +189,12 @@ function Detail({
           </p>
           <ul className="space-y-1">
             {r.conditions.map((c) => (
-              <li key={c.key} className="flex flex-wrap items-baseline gap-x-2">
+              <li key={c.key} className="flex items-baseline gap-x-2">
                 <span className="w-24 shrink-0 text-text-secondary">{c.name}</span>
                 <span className={`w-14 shrink-0 text-right tabular-nums ${c.score >= c.max ? 'text-bullish' : 'text-text-primary'}`}>
                   {c.score}/{c.max}
                 </span>
-                <span className="min-w-0 text-text-muted">
+                <span className="min-w-0 flex-1 text-text-muted">
                   {c.checks.map((k) => `${k.passed ? '○' : '×'} ${k.label}`).join(' · ')}
                 </span>
               </li>

@@ -62,7 +62,8 @@ export function ResultCard({
   const word = record.base ? compareWord(record.pTarget, record.base.target) : null;
 
   return (
-    <div className={`space-y-2 rounded-lg border bg-bg-secondary p-3 text-caption ${isNew ? 'border-accent' : 'border-border'}`}>
+    // 테두리 없이 바탕색만(기준표 8 — 표의 펼친 줄 안에 들어가 상자 안 상자가 되지 않게, v2.45.0). 새 결과만 accent 테두리
+    <div className={`space-y-2 rounded-lg bg-bg-tertiary/40 p-3 text-caption ${isNew ? 'border border-accent' : ''}`}>
       <div className="flex flex-wrap items-baseline gap-2">
         {isNew && <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-caption text-text-secondary">NEW</span>}
         <StockName symbol={record.symbol} className="text-sm font-semibold text-text-primary" />
@@ -243,7 +244,7 @@ export function TargetHistorySection({
         </div>
         {records === null && !error && <p className="text-caption text-text-muted">불러오는 중…</p>}
         {records && shown.length === 0 && (
-          <p className="rounded-xl bg-bg-secondary p-6 text-center text-xs text-text-muted">
+          <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">
             {records.length ? '조건에 맞는 결과가 없습니다.' : '아직 분석 히스토리가 없습니다. 「매수 판단」 탭에서 종목 줄의 [목표 수익 가능성] 을 누르면 분석합니다.'}
           </p>
         )}
