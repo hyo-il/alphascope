@@ -47,7 +47,7 @@ export function insertCheck(row: Omit<AiCheckRow, 'id' | 'created_at'>, now = ne
 
 /**
  * 그날(한국 시간 날짜) **실제로 Gemini 를 부른** 수 — 통과 · 위험 · 부른 뒤 못 한 것(한도 초과 · 오류 · 시간 초과 · 형식).
- * 꺼짐 · 하루 한도로 못 한 줄과 저장된 결과 재사용은 세지 않는다. 따로 카운터를 두지 않는다(재시작해도 같다).
+ * 꺼짐 · 하루 한도로 못 한 줄, 부르기 전 정보 모으기에서 실패한 줄(input_json 없음), 저장된 결과 재사용은 세지 않는다. 따로 카운터를 두지 않는다(재시작해도 같다).
  */
 export function countCallsOn(kstDate: string): number {
   const placeholders = CALLED_UNAVAILABLE.map(() => '?').join(', ');
@@ -56,7 +56,7 @@ export function countCallsOn(kstDate: string): number {
       .prepare(
         `SELECT COUNT(*) AS n FROM ai_checks
           WHERE date(created_at, '+9 hours') = ?
-            AND (verdict IN ('pass', 'risk') OR unavailable_reason IN (${placeholders}))`,
+            AND (verdict IN ('pass', 'risk') OR (unavailable_reason IN (${placeholders}) AND input_json IS NOT NULL))`,
       )
       .get(kstDate, ...CALLED_UNAVAILABLE) as { n: number }
   ).n;

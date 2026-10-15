@@ -45,6 +45,13 @@ export function explainNote(note: DecisionNote, name: string, s: Pick<AccountStr
       return `${name}: 가격 데이터가 아직 부족해 판단하지 않았습니다.`;
     case 'error':
       return `${name}: 주문하지 못했습니다(아래 자세한 이유).`;
+    // AI 검증(v2.46.0) — 이유는 줄을 펼치면(note.detail) 보인다
+    case 'ai_pass':
+      return `${name}: 규칙 사도 됨 · AI 검증 통과 — 매수했습니다.`;
+    case 'ai_risk':
+      return `${name}: 규칙은 사도 됨이었지만 AI 검증에서 위험하다고 해 매수하지 않았습니다 — ${note.detail?.[0] ?? '이유는 펼쳐서 보세요'}`;
+    case 'ai_unavailable':
+      return `${name}: AI 검증을 하지 못해 매수하지 않았습니다(${note.detail?.[0] ?? 'AI 오류'}).`;
     default:
       return null;
   }

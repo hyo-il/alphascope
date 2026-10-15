@@ -15,6 +15,12 @@ import { createOrder, valuePositions, getAccount } from '../paperTradingService'
 import { exitLevels } from '../rules/engine';
 import { judgeOnClose } from '../rules/judge';
 import { planBuy } from './sizing';
+import { checkBeforeBuy } from '../aiCheck/check';
+import { addUse } from '../aiCheck/store';
+import { AI_UNAVAILABLE_LABEL } from '../../src/types/aiCheck';
+import type { RuleEvaluation } from '../rules/engine';
+import type { Candle } from '../../src/types/toss';
+import type { IndicatorSeries } from '../../src/types/chart';
 import { clearPeak, getJudgedDay, getPeak, getStopDay, setJudgedDay, setStopDay, updatePeak } from './store';
 import { dailyLossBlock, earningsGuard } from './guards';
 import { isSymbolMarketOpen } from '../marketHours';
@@ -151,7 +157,7 @@ export async function runSignalChecks(
         setJudgedDay(strategy.accountId, symbol, today);
         continue;
       }
-      const { ev, candles } = judged;
+      const { ev, candles, completed, series } = judged;
       const reason = ev.reasons[0] ?? '';
       const price = candles.at(-1)?.close ?? null;
 
@@ -163,7 +169,8 @@ export async function runSignalChecks(
         }
         result.notes.push(note);
       } else if (ev.action === 'BUY' && !position) {
-        const note = await tryBuy(strategy, rule, symbol, price, reason, openCount, ev.code);
+        // AI 검증을 켠 계좌만 이번 판단의 결과·끝난 봉·지표를 AI 질문에 쓴다(다시 계산하지 않게). 끈 계좌는 쓰지 않는다
+        const note = await tryBuy(strategy, rule, symbol, price, reason, openCount, ev.code, { ev, candles: completed, series, now });
         if (note.orderId) {
           result.ordered += 1;
           openCount += 1;
@@ -195,6 +202,8 @@ export async function tryBuy(
   openCount: number,
   /** 매수가 나갔을 때의 판단 종류 — 막히면 막힌 이유의 코드로 바뀐다 */
   code: DecisionCode = 'other',
+  /** AI 검증(v2.46.0)에 쓸 이번 판단 — 없으면 AI 검증 모듈이 다시 계산한다. AI 검증을 끈 계좌는 쓰지 않는다 */
+  ai?: { ev: RuleEvaluation; candles: Candle[]; series: IndicatorSeries; now?: Date },
 ): Promise<Note> {
   const lossBlock = dailyLossBlock(strategy);
   if (lossBlock) return { symbol, action: 'HOLD', reason: lossBlock, code: 'daily_loss', orderId: null };
@@ -216,13 +225,35 @@ export async function tryBuy(
   const plan = await planBuy(strategy.accountId, symbol, price ?? 0, strategy.positionSizePercent);
   if (!plan.ok) return { symbol, action: 'HOLD', reason: plan.reason, code: 'other', orderId: null };
 
+  // ── AI 검증 (v2.46.0) — 안전장치·수량·현금을 모두 지난 뒤, 주문 앞. 꺼진 계좌는 이 자리를 지나치기만 한다 ──
+  let aiCheckId: number | null = null;
+  let aiReasons: string[] = [];
+  if (strategy.aiCheck) {
+    const { row } = await checkBeforeBuy({ symbol, price: price ?? 0, rule, context: ai, now: ai?.now });
+    aiCheckId = row.id;
+    const reasons = JSON.parse(row.reasons_json) as string[];
+    aiReasons = reasons;
+    if (row.verdict !== 'pass') {
+      addUse(row.id, strategy.accountId, 'skipped', null);
+      if (row.verdict === 'risk') {
+        return { symbol, action: 'HOLD', reason: `AI 검증: 위험 — ${reasons[0] ?? ''}`, code: 'ai_risk', orderId: null, detail: reasons };
+      }
+      const why = row.unavailable_reason ? AI_UNAVAILABLE_LABEL[row.unavailable_reason] : 'AI 오류';
+      return { symbol, action: 'HOLD', reason: `AI 검증을 하지 못해 사지 않았습니다 (${why})`, code: 'ai_unavailable', orderId: null, detail: [why] };
+    }
+    reason = `${reason} · AI 검증 통과`;
+    code = 'ai_pass';
+  }
+
   try {
     const result = await createOrder({ accountId: strategy.accountId, symbol, side: 'BUY', orderType: 'MARKET', quantity: plan.quantity, reason });
     // 트레일링 기준점을 매수가로 시작한다 (첫 고점 = 산 가격). 옛 고점이 남아 있으면 버린다
     clearPeak(strategy.accountId, symbol);
     if (rule.sell.trailing.on && price) updatePeak(strategy.accountId, symbol, price);
-    return { symbol, action: 'BUY', reason: `${reason} → ${plan.quantity}주`, code, orderId: result.order.id };
+    if (aiCheckId != null) addUse(aiCheckId, strategy.accountId, 'bought', result.order.id);
+    return { symbol, action: 'BUY', reason: `${reason} → ${plan.quantity}주`, code, orderId: result.order.id, ...(aiReasons.length ? { detail: aiReasons } : {}) };
   } catch (error) {
+    if (aiCheckId != null) addUse(aiCheckId, strategy.accountId, 'skipped', null);
     return { symbol, action: 'HOLD', reason: `매수 실패: ${(error as Error).message}`, code: 'error', orderId: null };
   }
 }

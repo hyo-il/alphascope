@@ -132,6 +132,8 @@ import {
   setRuleId as setBuyJudgeRuleId,
   setSymbols as setBuyJudgeSymbols,
 } from './buyJudge/store';
+import { aiCheckHistory } from './aiCheck/history';
+import { copyAccount, copyName, CopyNameError } from './autoTrading/copy';
 import { deleteUsesOf as deleteAiCheckUses } from './aiCheck/store';
 import { startBuyJudgeScheduler } from './buyJudge/scheduler';
 import { isRetention } from '../src/types/buyJudge';
@@ -743,6 +745,38 @@ app.delete('/api/paper/accounts/:id', (req, res) => {
     deleteStrategy(id);
     deleteAiCheckUses(id);
     res.json({ ok: true });
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+// ── 계좌 복사 (v2.46.0) — 같은 설정의 새 계좌(보유·거래 없음 · 자동매매 꺼짐) ──
+app.get('/api/paper/accounts/:id/copy-name', (req, res) => {
+  try {
+    res.json({ name: copyName(getPaperAccount(accountIdOf(req)).name) });
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+app.post('/api/paper/accounts/:id/copy', (req, res) => {
+  try {
+    const name = typeof req.body?.name === 'string' ? req.body.name : null;
+    res.json({ account: copyAccount(accountIdOf(req), name, (ruleId) => getRule(ruleId) != null) });
+  } catch (e) {
+    if (e instanceof CopyNameError) return res.status(409).json({ error: e.message });
+    failPaper(res, e);
+  }
+});
+
+// ── AI 검증 기록 (v2.46.0) — 그 계좌가 쓴 검증 + 채점(읽을 때 캔들에서) ──
+app.get('/api/ai-check/records', async (req, res) => {
+  try {
+    const accountId = accountIdOf(req);
+    getPaperAccount(accountId);
+    const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+    const offset = Math.max(0, Number(req.query.offset) || 0);
+    res.json(await aiCheckHistory(accountId, limit, offset));
   } catch (e) {
     failPaper(res, e);
   }
