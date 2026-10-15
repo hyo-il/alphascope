@@ -26,6 +26,15 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
   const { rules } = useTradingRules();
   /** 「최근 판단 보기」 펼침 — 기억하지 않는다(용어집 공통 동작) */
   const [notesOpen, setNotesOpen] = useState(false);
+  /** 「최근 판단」 AI 이유를 펼친 줄(번호) — 기억하지 않는다 */
+  const [openDetails, setOpenDetails] = useState<Set<number>>(new Set());
+  const toggleDetail = (i: number) =>
+    setOpenDetails((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
   const [open, setOpen] = useState(false);
   const [toggling, setToggling] = useState(false);
   const nameOf = useStockNames(status?.lastNotes.map((n) => n.symbol) ?? []);
@@ -185,6 +194,10 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           <ul className="mt-1 space-y-1">
             {notes.map((n, i) => {
               const easy = explainNote(n, nameOf(n.symbol) ?? n.symbol, strategy, rule);
+              // AI 검증(v2.46.0) — 위험 · 못 함 줄은 경고 색 + 아이콘, 이유(detail)는 줄마다 펼친다
+              const aiWarn = n.code === 'ai_risk' || n.code === 'ai_unavailable';
+              const hasDetail = (n.code === 'ai_pass' || aiWarn) && (n.detail?.length ?? 0) > 0;
+              const detailOpen = openDetails.has(i);
               return (
                 <li key={i} className="flex gap-2">
                   <span
@@ -197,10 +210,30 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
                   <span className="min-w-0">
                     {easy ? (
                       <>
-                        <span className="block text-text-primary">{easy}</span>
+                        <span className={`block ${aiWarn ? 'text-warning' : 'text-text-primary'}`}>
+                          {aiWarn && <WarnIcon />}
+                          {easy}
+                        </span>
                         <span className="block text-text-muted">
                           {n.symbol} · {n.reason}
                         </span>
+                        {hasDetail && (
+                          <span className="mt-1 block">
+                            <DisclosureButton
+                              open={detailOpen}
+                              onToggle={() => toggleDetail(i)}
+                              label={n.code === 'ai_unavailable' ? '까닭 보기' : 'AI 이유 보기'}
+                              controls={`autotrade-note-${strategy.accountId}-${i}`}
+                            />
+                            {detailOpen && (
+                              <ul id={`autotrade-note-${strategy.accountId}-${i}`} className="mt-1 list-disc space-y-0.5 pl-5 text-text-secondary">
+                                {n.detail!.map((d, k) => (
+                                  <li key={k}>{d}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </span>
+                        )}
                       </>
                     ) : (
                       <span className="text-text-secondary">

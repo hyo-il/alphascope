@@ -45,6 +45,8 @@ export default function ConditionCard({
           {rule ? (
             <>
               규칙 「{rule.name}」 · <span className="font-medium text-text-primary">{ruleSafetyText(rule)}</span>
+              {/* AI 검증(v2.46.0) — 켰을 때만 */}
+              {s.aiCheck && <> · <span className="font-medium text-text-primary">AI 검증 켬</span></>}
             </>
           ) : rulesLoaded ? (
             <span className="text-warning">매매 규칙을 고르세요.</span>

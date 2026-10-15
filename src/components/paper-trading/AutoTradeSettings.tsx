@@ -9,6 +9,10 @@ import RuleSelect from '../rules/RuleSelect';
 import { useTradingRules } from '../../hooks/useTradingRules';
 import { JUDGE_TIMING_TEXT } from '../../utils/ruleText';
 import { toast } from '../../store/uiStore';
+import { InfoTip, Segmented } from '../ui';
+import WarnIcon from '../ui/WarnIcon';
+import { useGeminiStatus } from '../../hooks/useGemini';
+import { AI_CHECK_DAILY_LIMIT } from '../../types/aiCheck';
 
 /**
  * 계좌별 자동매매 설정 패널 (v2.44.0 — 퀀트 다시 만들기 2단계).
@@ -16,6 +20,7 @@ import { toast } from '../../store/uiStore';
  * 위에서 아래로 한 줄: **① 매매 규칙 → ② 대상 종목 → ③ 계좌 운용 → ④ 신규 매수 안전장치 → 저장**.
  * 매수·매도 조건과 손절·익절·트레일링은 **매매 규칙 안에만** 있다(「퀀트 > 매매 규칙」 에서 고친다). 판단 방식·성향·분석 주기·「미국 정규장만」·
  * ④ 청산은 v2.44.0 에 없앴다. 이 창에 「고급 설정」 은 없다(남는 숫자가 적다).
+ * v2.46.0: ① 줄 맨 오른쪽 「AI 검증 [끔 | 켬]」(따로 번호 칸을 두지 않는다 — 규칙 고르기의 덧붙임) · ② 대상 종목은 종목이 있으면 접힌 한 줄 요약으로 연다.
  *
  * ⚠️ 값 검증의 최종 권한은 **서버**다(`normalizeStrategy` · 켤 때 규칙 확인). 저장 응답으로 온 값을 그대로 화면에 되돌린다.
  */
@@ -34,6 +39,8 @@ export default function AutoTradeSettings({ strategy, onSave, onClose, doneMessa
   const [draft, setDraft] = useState<AccountStrategy>(strategy);
   const [saving, setSaving] = useState(false);
   const { rules } = useTradingRules();
+  // AI 검증 — 서버에서 Gemini 가 꺼져 있으면 켜 두었을 때 매수가 모두 「검증 못 함」 이 된다는 것을 미리 알린다(키 유무는 서버 재시작 때만 바뀐다 — 한 번만 묻는다)
+  const { state: gemini } = useGeminiStatus(0);
 
   // 바깥에서 값이 바뀌면(저장 응답 등) 따라간다.
   useEffect(() => setDraft(strategy), [strategy]);
@@ -68,14 +75,43 @@ export default function AutoTradeSettings({ strategy, onSave, onClose, doneMessa
           {/* ① 매매 규칙 */}
           <section className="space-y-2">
             <h3 className="text-xs font-semibold text-text-primary">① 매매 규칙</h3>
-            <RuleSelect rules={rules} value={draft.ruleId} onChange={(ruleId) => patch({ ruleId })} warnNoStop />
+            <RuleSelect
+              rules={rules}
+              value={draft.ruleId}
+              onChange={(ruleId) => patch({ ruleId })}
+              warnNoStop
+              aside={
+                <>
+                  <span className="whitespace-nowrap text-xs text-text-secondary">AI 검증</span>
+                  <Segmented
+                    label="AI 검증"
+                    value={draft.aiCheck ? 'on' : 'off'}
+                    onChange={(v) => patch({ aiCheck: v === 'on' })}
+                    options={[
+                      { value: 'off', label: '끔' },
+                      { value: 'on', label: '켬' },
+                    ]}
+                  />
+                  <InfoTip label="AI 검증">
+                    규칙이 「사도 됨」 을 낸 종목을 사기 직전에 AI에게 한 번 묻고, 위험하다고 하면 사지 않습니다. 하루 최대 {AI_CHECK_DAILY_LIMIT}번 · AI가 답을 못
+                    하면 사지 않습니다. 매도에는 쓰지 않습니다.
+                  </InfoTip>
+                </>
+              }
+            />
+            {gemini && !gemini.enabled && (
+              <p className="text-caption text-warning">
+                <WarnIcon />
+                이 서버에서는 AI를 쓸 수 없어, 켜 두면 매수가 모두 「AI 검증 못 함」이 됩니다.
+              </p>
+            )}
             {rules != null && rules.length > 0 && <p className="text-caption text-text-muted">{JUDGE_TIMING_TEXT}(값은 규칙의 매도 조건).</p>}
           </section>
 
           {/* ② 대상 종목 */}
           <section className="space-y-2">
             <h3 className="text-xs font-semibold text-text-primary">② 대상 종목</h3>
-            <TargetSymbolsEditor symbols={draft.symbols} onChange={(symbols) => patch({ symbols })} maxPositions={draft.maxPositions} />
+            <TargetSymbolsEditor symbols={draft.symbols} onChange={(symbols) => patch({ symbols })} maxPositions={draft.maxPositions} collapsible />
           </section>
 
           {/* ③ 계좌 운용 */}
@@ -126,7 +162,7 @@ export default function AutoTradeSettings({ strategy, onSave, onClose, doneMessa
             취소
           </Button>
           <Button variant="primary" size="md" onClick={() => void save()} disabled={saving}>
-            {saving ? '저장 중…' : saveLabel}
+            {saving ? '저장하는 중…' : saveLabel}
           </Button>
         </div>
       </NumberUnitGroup>

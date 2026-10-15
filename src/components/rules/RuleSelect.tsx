@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Eye } from 'lucide-react';
 import { Button, Select } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
@@ -21,6 +21,7 @@ export default function RuleSelect({
   warnNoStop = false,
   label = '매매 규칙',
   size = 'md',
+  aside,
 }: {
   /** `useTradingRules().rules` — null = 불러오는 중 */
   rules: TradingRule[] | null;
@@ -30,6 +31,8 @@ export default function RuleSelect({
   warnNoStop?: boolean;
   label?: string;
   size?: 'sm' | 'md';
+  /** 고르기 줄 **맨 오른쪽**에 붙이는 덧붙임(계좌 설정의 「AI 검증」 토글 — v2.46.0) */
+  aside?: ReactNode;
 }) {
   const [viewing, setViewing] = useState(false);
   const setPage = useAppStore((s) => s.setPage);
@@ -71,6 +74,7 @@ export default function RuleSelect({
         <Button size={size} icon={Eye} onClick={() => setViewing(true)} disabled={!selected}>
           조건 보기
         </Button>
+        {aside && <div className="ml-auto flex shrink-0 items-center gap-2">{aside}</div>}
       </div>
       {missing && <p className="text-caption text-warning">고른 규칙이 지워졌습니다 — 다시 고르세요.</p>}
       {!selected && !missing && (

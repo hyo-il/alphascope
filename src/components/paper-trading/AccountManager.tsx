@@ -6,6 +6,8 @@ import type { PaperAccount } from '../../types/paper';
 import { formatPrice } from '../../utils/formatters';
 import { modal, toast } from '../../store/uiStore';
 import CreateAccountForm from './CreateAccountForm';
+import CopyAccountDialog from './CopyAccountDialog';
+import { Copy } from 'lucide-react';
 
 interface Props {
   accounts: PaperAccount[];
@@ -14,6 +16,8 @@ interface Props {
   onCreate: (input: { name: string; initialBalance: number }) => Promise<unknown>;
   onReset: (id: number) => Promise<unknown>;
   onDelete: (id: number) => Promise<unknown>;
+  /** [계좌 복사] 뒤 — 새 계좌 화면으로 (v2.46.0) */
+  onCopied?: (account: PaperAccount) => Promise<void> | void;
 }
 
 /** 계좌 선택 · 생성 · 초기화 — 대시보드 상단 줄 */
@@ -24,8 +28,10 @@ export default function AccountManager({
   onCreate,
   onReset,
   onDelete,
+  onCopied,
 }: Props) {
   const [creating, setCreating] = useState(false);
+  const [copying, setCopying] = useState(false);
 
   const selected = accounts.find((a) => a.id === selectedId) ?? null;
 
@@ -94,6 +100,13 @@ export default function AccountManager({
         </Button>
         {selected && (
           <>
+            {/* 같은 설정의 새 계좌 — AI 검증 켠 계좌와 끈 계좌를 같은 조건으로 비교하려고 (v2.46.0) */}
+            {onCopied && (
+              <Button variant="secondary" size="sm" icon={Copy}
+                onClick={() => setCopying(true)}>
+                계좌 복사
+              </Button>
+            )}
             <Button variant="secondary" size="sm"
               onClick={confirmReset}>
               초기화
@@ -107,6 +120,8 @@ export default function AccountManager({
           </>
         )}
       </div>
+
+      {copying && selected && onCopied && <CopyAccountDialog account={selected} onClose={() => setCopying(false)} onCopied={onCopied} />}
 
       {creating && (
         <CreateAccountForm

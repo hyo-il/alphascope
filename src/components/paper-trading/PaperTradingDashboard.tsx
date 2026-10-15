@@ -1,6 +1,6 @@
 import Button from '../ui/Button';
 import InfoTip from '../ui/InfoTip';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Skeleton, SkeletonCards, SkeletonTable } from '../common/SkeletonLoader';
 import {
   usePaperAccountDetail,
@@ -19,6 +19,8 @@ import PerformanceChart from './PerformanceChart';
 import PerformanceStats from './PerformanceStats';
 import PositionList from './PositionList';
 import TradeHistory from './TradeHistory';
+import AiCheckHistoryPanel from './AiCheckHistoryPanel';
+import { useAiCheckHistory } from '../../hooks/useAiCheckHistory';
 import { toast } from '../../store/uiStore';
 import { formatPrice, formatSignedMoney, formatSigned } from '../../utils/formatters';
 import { autoTradeView } from '../../utils/autoTradeStatus';
@@ -27,7 +29,7 @@ interface Props {
   onSelectSymbol: (symbol: string) => void;
 }
 
-type Tab = 'positions' | 'trades' | 'performance';
+type Tab = 'positions' | 'trades' | 'performance' | 'aiCheck';
 /**
  * 계좌 관리는 **모아보기 → 상세** 두 화면이다 (2026-09-22).
  * 들어오면 전 계좌를 카드로 먼저 보여 준다 — 계좌가 여럿이면 "어느 계좌가 어떤가" 가 먼저 궁금하고,
@@ -40,6 +42,8 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'trades', label: '거래내역' },
   { id: 'performance', label: '성과분석' },
 ];
+/** AI 검증 기록 탭(v2.46.0) — 그 계좌에 기록이 있거나 AI 검증이 켜져 있을 때만 */
+const AI_TAB: { id: Tab; label: string } = { id: 'aiCheck', label: 'AI 검증 기록' };
 
 /**
  * 모의투자 대시보드.
@@ -75,6 +79,12 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   const trades = usePaperTrades(selectedId, version);
   const orders = usePaperOrders(selectedId, version);
   const perf = usePaperPerformance(selectedId, version);
+  const aiHistory = useAiCheckHistory(view === 'detail' ? selectedId : null, version + (tab === 'aiCheck' ? 1 : 0));
+  const tabs = aiHistory.visible ? [...TABS, AI_TAB] : TABS;
+  // AI 검증 기록 탭을 보던 중 그 탭이 없는 계좌로 바꾸면(받은 뒤에) 보유 종목으로
+  useEffect(() => {
+    if (tab === 'aiCheck' && aiHistory.data && !aiHistory.visible) setTab('positions');
+  }, [tab, aiHistory.data, aiHistory.visible]);
 
   const openAccount = (id: number) => {
     select(id);
@@ -288,6 +298,10 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
         onCreate={create}
         onReset={reset}
         onDelete={remove}
+        onCopied={async (copy) => {
+          await reloadAccounts();
+          select(copy.id);
+        }}
       />
 
       {/* 계좌마다 독립된 자동매매 — 설정·상태는 서버가 단일 출처다 (Step 12) */}
@@ -331,7 +345,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-bg-secondary">
             <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
-              {TABS.map((t) => (
+              {tabs.map((t) => (
                 <button
                   key={t.id}
                   type="button"
@@ -361,6 +375,9 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
               )}
               {tab === 'trades' && (
                 <TradeHistory trades={trades} orders={orders} onChanged={bump} />
+              )}
+              {tab === 'aiCheck' && (
+                <AiCheckHistoryPanel data={aiHistory.data} loading={aiHistory.loading} error={aiHistory.error} onMore={aiHistory.more} />
               )}
               {tab === 'performance' && (
                 <div className="flex h-full min-h-0 flex-col gap-3 p-3">
