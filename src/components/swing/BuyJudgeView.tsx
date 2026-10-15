@@ -102,7 +102,7 @@ export default function BuyJudgeView() {
             </div>
             {ruleMissing && <p className="text-xs text-warning">매매 규칙을 고르세요.</p>}
             <p className="text-caption text-text-secondary">
-              기준: {markets.length ? markets.join(' · ') : '—'} 마감(끝난 봉) · 참고 점수: 장중엔 지금 가격 / 장 마감 뒤엔 마지막 가격(확정 아님)
+              기준: {markets.length ? `${markets.join(' · ')} 마감(끝난 봉)` : '마감(끝난 봉)'} · 참고 점수: 장중엔 지금 가격 / 장 마감 뒤엔 마지막 가격(확정 아님)
               {j.state && <span className="text-text-muted"> · {formatDateTime(j.state.computedAt)} 계산</span>}
             </p>
 

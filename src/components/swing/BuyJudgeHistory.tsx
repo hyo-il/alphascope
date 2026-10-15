@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react';
 import StockName from '../common/StockName';
 import { SkeletonCards } from '../common/SkeletonLoader';
 import { Badge, Button, InfoTip, Segmented } from '../ui';
@@ -27,6 +27,7 @@ export default function BuyJudgeHistory({ target }: { target: ReturnType<typeof 
   const [scope, setScope] = useState<'nonBuy' | 'all'>('nonBuy');
   const [openSym, setOpenSym] = useState<string | null>(null);
   const [days, setDays] = useState<Record<string, JudgeDay[] | 'loading'>>({});
+  const [clearing, setClearing] = useState(false);
 
   const toggle = async (s: string) => {
     if (openSym === s) return setOpenSym(null);
@@ -52,12 +53,15 @@ export default function BuyJudgeHistory({ target }: { target: ReturnType<typeof 
       confirmText: '삭제',
       danger: true,
       onConfirm: async () => {
+        setClearing(true);
         try {
           const deleted = await h.clear(scope);
           toast.success(`판단 기록 ${deleted}줄을 지웠습니다`);
           setDays({});
         } catch (e) {
           toast.error('지우지 못했습니다', (e as Error).message);
+        } finally {
+          setClearing(false);
         }
       },
     });
@@ -195,8 +199,9 @@ export default function BuyJudgeHistory({ target }: { target: ReturnType<typeof 
             { value: 'all', label: '전부' },
           ]}
         />
-        <Button size="sm" variant="danger-text" onClick={clear} disabled={!h.data}>
-          기록 지우기
+        <Button size="sm" variant="danger-text" onClick={clear} disabled={!h.data || clearing}>
+          {clearing && <LoaderCircle {...ICON_SM} className="mr-1 animate-spin" />}
+          {clearing ? '지우는 중…' : '기록 지우기'}
         </Button>
         <span className="text-caption text-text-muted">보관 기간은 「설정 &gt; 앱 기능 설정」 에서 고릅니다(「사도 됨」 은 늘 남습니다).</span>
       </section>
