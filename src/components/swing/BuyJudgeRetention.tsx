@@ -43,8 +43,8 @@ export default function BuyJudgeRetention() {
     setBusy(false);
     if (!n) return void apply(next);
     modal.confirm({
-      title: '매수 판단 기록 보관 기간 바꾸기',
-      message: `보관 기간이 지난 판단 기록 ${n}줄이 지워집니다(「사도 됨」 기록은 남습니다). 되돌릴 수 없습니다.`,
+      title: '보관 기간을 줄이고 판단 기록 삭제',
+      message: `보관 기간이 지난 판단 기록 ${n}줄이 삭제됩니다(「사도 됨」 기록은 남습니다). 되돌릴 수 없습니다.`,
       confirmText: '삭제',
       danger: true,
       onConfirm: () => apply(next),

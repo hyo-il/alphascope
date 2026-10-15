@@ -53,17 +53,20 @@ export function ResultCard({
   record,
   isNew,
   onDelete,
+  flat = false,
 }: {
   record: TargetAnalysisRecord;
   isNew: boolean;
   onDelete: (record: TargetAnalysisRecord) => void;
+  /** 매수 판단 표의 펼친 줄 안 — 바탕·안쪽 여백 없이(상자 안 상자가 되지 않게) */
+  flat?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const word = record.base ? compareWord(record.pTarget, record.base.target) : null;
 
   return (
     // 테두리 없이 바탕색만(기준표 8 — 표의 펼친 줄 안에 들어가 상자 안 상자가 되지 않게, v2.45.0). 새 결과만 accent 테두리
-    <div className={`space-y-2 rounded-lg bg-bg-tertiary/40 p-3 text-caption ${isNew ? 'border border-accent' : ''}`}>
+    <div className={`space-y-2 text-caption ${flat ? '' : 'rounded-lg bg-bg-tertiary/40 p-3'} ${isNew ? 'border border-accent' : ''}`}>
       <div className="flex flex-wrap items-baseline gap-2">
         {isNew && <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-caption text-text-secondary">NEW</span>}
         <StockName symbol={record.symbol} className="text-sm font-semibold text-text-primary" />

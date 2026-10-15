@@ -111,7 +111,7 @@ export default function BuyJudgeHistory({ target }: { target: ReturnType<typeof 
                     <td className="max-w-0 py-1 pl-4 pr-4">
                       <StockName symbol={b.symbol} className="max-w-full" />
                     </td>
-                    <td className={`${TABLE_NUM_COL} py-1 pr-2 text-text-secondary`}>「{b.ruleName}」</td>
+                    <td className={`${TABLE_NUM_COL} py-1 pr-2 text-text-secondary`}>{b.ruleName}</td>
                     <td className={`${NUM} py-1 tabular-nums`}>
                       {b.score}/{b.maxScore}
                     </td>

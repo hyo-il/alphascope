@@ -148,7 +148,10 @@ export default function BuyJudgeTable({
                 {isOpen && (
                   <tr className="border-b border-border/30 bg-bg-secondary/60">
                     <td colSpan={10} className="px-4 py-3">
+                      {/* w-0 min-w-full — 펼친 내용의 폭이 위 표의 열 폭을 바꾸지 않게(펼칠 때 「판단」 열이 옮겨 갔다) */}
+                      <div className="w-0 min-w-full">
                       <Detail row={r} currency={cur} record={record} running={running} goal={goal} onDeleteTarget={onDeleteTarget} onEditGoal={onEditGoal} />
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -236,7 +239,7 @@ function Detail({
             분석하는 중… 1분 안팎 걸립니다.
           </p>
         ) : record ? (
-          <ResultCard record={record} isNew={false} onDelete={onDeleteTarget} />
+          <ResultCard record={record} isNew={false} onDelete={onDeleteTarget} flat />
         ) : (
           <p className="text-text-muted">이 조건으로 분석한 결과가 없습니다. 줄의 [목표 수익 가능성] 을 누르면 이 종목 하나를 분석합니다.</p>
         )}
