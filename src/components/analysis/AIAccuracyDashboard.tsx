@@ -67,8 +67,8 @@ function Explainer({ horizonDays, flatBand, rule }: { horizonDays: number; flatB
           머물렀으면 적중입니다.
         </li>
         <li>
-          기준 시점은 분석일로부터 <b className="text-text-primary">{horizonDays} 거래일 뒤 종가</b>
-          입니다 (스윙 트레이딩 보유 기간에 맞췄습니다). 아직 {horizonDays} 거래일이 지나지 않은
+          기준 시점은 분석일로부터 <b className="text-text-primary">{horizonDays}거래일 뒤 종가</b>
+          입니다 (스윙 트레이딩 보유 기간에 맞췄습니다). 아직 {horizonDays}거래일이 지나지 않은
           분석은 '대기' 로 남습니다.
         </li>
         {rule && (
@@ -174,7 +174,7 @@ function AccuracyReport({ report }: { report: Report }) {
           <p className="mt-2 text-caption text-text-muted">
             채점 대상 {total}건{rawTotal > total && ` (원본 ${rawTotal}건을 종목·날짜별 1건으로 묶음)`} · 채점
             대기 {pending}건
-            {pending > 0 && ` (${report.horizonDays} 거래일이 지나면 자동으로 채점됩니다)`}
+            {pending > 0 && ` (${report.horizonDays}거래일이 지나면 자동으로 채점됩니다)`}
           </p>
         </div>
       </div>

@@ -18,6 +18,9 @@ import { formatNumber } from '../../utils/formatters';
  * - 오늘 Gemini 사용량: `/api/gemini/status` 의 usage — 기능별(v2.47.0, `server/gemini/usage.ts`).
  */
 
+/** 「최근 판단」 의 행동 — 화면에는 용어집 이름(매수·매도) */
+const ACTION_LABEL: Record<string, string> = { BUY: '매수', SELL: '매도', HOLD: '보유' };
+
 const time = (iso: string | null | undefined) =>
   iso
     ? formatDateTime(iso)
@@ -90,7 +93,7 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
                   {note && (
                     // 긴 사유를 말줄임으로 숨기지 않는다 — 줄바꿈한다 (v2.34.0)
                     <div className="break-keep text-text-muted" title={note.reason}>
-                      최근 판단: {note.symbol} {note.action} — {note.reason}
+                      최근 판단: {note.symbol} {ACTION_LABEL[note.action] ?? note.action} — {note.reason}
                     </div>
                   )}
                 </li>
@@ -115,7 +118,7 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
             {' · '}
             <span className="whitespace-nowrap">
               합계 약 <b className="text-text-secondary">{formatNumber(usage.usage.totalCalls, 0)}</b>회
-            </span>
+            </span>{' '}
             <InfoTip label="Gemini 사용량 세는 법">
               따로 세는 장치 없이 저장된 기록에서 셉니다. AI 분석·목표 수익 가능성은 한 번에 5회(에이전트 4 + 의장 1), 뉴스 AI 판정·백테스트 AI 설명은 1회, AI 검증은 실제로
               부른 수입니다. 저장되지 않은 실패 호출(한도 초과·오류)은 AI 검증 말고는 세지 않습니다. 백테스트 설명은 남아 있는 기록(최근 20개)에 붙은 것만 셉니다.

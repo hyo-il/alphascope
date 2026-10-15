@@ -26,7 +26,7 @@ type SubTab = 'manual' | 'auto';
   v2.26.0 — 하위 탭은 둘(사용자 결정 C-1). 'auto' 는 **이 종목을 지금 한 번 분석하는 버튼**이다 —
   저장 출처(trigger)는 그대로 'manual'(「바로 분석」 배지)이고, 채점·필터가 그 값을 쓰므로 바꾸지 않는다.
   탭 안에 "버튼을 누르면 …" 설명을 둬서 계좌 자동매매와 헷갈리지 않게 한다.
-  기록은 차트 탭에서 보여 주지 않는다(C-2) — [AI 분석 히스토리로 이동] 이 「퀀트 > 검증 기록 > AI 분석」(#/records/analysis)을 연다(v2.47.0).
+  기록은 차트 탭에서 보여 주지 않는다(C-2) — [검증 기록에서 히스토리 보기] 가 「퀀트 > 검증 기록 > AI 분석」(#/records/analysis)을 연다(v2.47.0).
 */
 const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: 'manual', label: '수동 분석' },
@@ -68,7 +68,7 @@ export default function ChartAiPanel({
           onClick={() => setPage('records', 'analysis')}
           className="ml-auto py-1 text-caption text-text-muted transition-colors hover:text-accent"
         >
-          AI 분석 히스토리로 이동
+          검증 기록에서 히스토리 보기
         </button>
       </div>
 

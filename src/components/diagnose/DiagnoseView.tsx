@@ -556,7 +556,7 @@ export default function DiagnoseView() {
         {loading && !reports.length && <SkeletonCards count={4} />}
 
         {!loading && !reports.length && !running && (
-          <p className="rounded-xl bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">
+          <p className="rounded-xl bg-bg-secondary px-3 py-3 text-xs text-text-muted">
             아직 진단 리포트가 없습니다. [진단 실행] 을 누르면 관심 목록으로 진단합니다.
           </p>
         )}

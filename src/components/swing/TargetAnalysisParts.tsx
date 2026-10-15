@@ -229,7 +229,7 @@ export function TargetHistorySection({
             <option value="neither">둘 다 아님</option>
           </Select>
           {stats && (
-            <span className="ml-auto text-caption text-text-secondary">
+            <span className="text-caption text-text-secondary">
               {stats.weak ? (
                 <>
                   성적: <b>판단 보류</b> — 채점 {stats.scored}건(30건 미만)
