@@ -4,7 +4,7 @@
  * - 대상: `server/data/universe.json` 의 시장별 상위 100 + 그 시장의 관심 종목 — 앱 전체의 "대형주" 정의를 하나로 둔다.
  * - 크기: 유니버스의 시가총액, 없으면 `stock_profiles.market_cap`(실적일 하루 1회 갱신이 함께 채운다).
  * - 색: 당일 등락률 = 토스 `/prices` 현재가(30종목씩 묶어서) ÷ **전 거래일 종가**.
- *   전 거래일 종가는 `previousClose.ts`(관심 목록 시세와 공유 — 종목·시장 날짜별 1회).
+ *   전 거래일 종가는 `previousClose.ts`(관심 목록 시세와 공유 — 전 거래일 날짜의 봉, 종목·시장 날짜별 1회 새로 받는다).
  * - 섹터: `stock_profiles.sector`(yfinance). 없으면 '기타' — 처음 한 번은 빠진 종목의 프로필을 뒤에서 채운다.
  * - 응답 전체를 시장별로 캐시한다 — 1일 장중은 `HEATMAP_LIVE_MS`(10초)보다 1초 짧게, 장 마감 뒤와 그 밖 기간은 10분 (v2.44.2 — 예전 60초).
  *
@@ -246,6 +246,11 @@ async function build(list: Target[], period: HeatmapPeriod, now: number): Promis
   const bars = HEATMAP_PERIODS.find((p) => p.id === period)!.bars;
   // 1일만 실시간 시세를 부른다. 1주 이상은 종가 기준이라 토스 /prices 를 부르지 않는다
   const prices = period === '1d' ? await lastPrices(symbols) : new Map<string, number>();
+  // 전일 종가는 종목·날짜마다 하루 한 번 일봉을 새로 받는다(v2.44.3) — 한 종목씩 기다리지 않게 미리 함께 부른다(토스 한도는 rate limiter 가 지킨다)
+  const prevs =
+    period === '1d'
+      ? new Map(await Promise.all(symbols.map(async (s) => [s, prices.has(s) ? await previousClose(s, now) : null] as const)))
+      : new Map<string, number | null>();
 
   const cells: HeatmapCell[] = [];
   const missing = new Set<string>();
@@ -264,7 +269,7 @@ async function build(list: Target[], period: HeatmapPeriod, now: number): Promis
     let changeRate: number | null;
     if (period === '1d') {
       price = prices.get(t.symbol) ?? null;
-      const prev = price !== null ? await previousClose(t.symbol, now) : null;
+      const prev = price !== null ? (prevs.get(t.symbol) ?? null) : null;
       changeRate = price !== null && prev ? ((price - prev) / prev) * 100 : null;
     } else {
       const c = await periodCloses(t.symbol, bars, now);

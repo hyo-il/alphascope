@@ -27,6 +27,7 @@
     "research:target": "tsx scripts/targetScreenResearch.ts",
     "research:sector": "tsx scripts/sectorPersistenceResearch.ts",
     "rules:test": "tsx scripts/rulesSelfTest.ts",
+    "prevclose:test": "tsx scripts/prevCloseSelfTest.ts",
     "design:lint": "tsx scripts/designLint.ts",
     "design:check": "tsx scripts/designCheck.ts"
   },

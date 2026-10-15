@@ -61,6 +61,7 @@ import { namesAndSectors, researchTargets } from './autoTrading/ruleResearch';
 import { explainBacktest } from './gemini/backtestAi';
 import { parseBacktestInput } from '../src/utils/backtestInput';
 import { runDataResetV2440 } from './dataReset/v2_44_0';
+import { previousClose as previousCloseOf } from './previousClose';
 import { BACKTEST_SECTORS, methodName, type BacktestCondition } from '../src/types/backtest';
 import type { AccountStrategy } from '../src/types/autoTrading';
 
@@ -303,16 +304,15 @@ function fail(res: express.Response, e: unknown) {
 /**
  * 현재가에 전일 대비 변동을 채워 준다.
  *
- * 토스 /prices 응답에는 변동 정보가 없어서 직접 계산한다. 기준가는 SQLite 에 캐시된
- * 일봉에서 가져오므로, 1초 폴링마다 캔들 API 를 부르지 않는다.
+ * 토스 /prices 응답에는 변동 정보가 없어서 직접 계산한다. 전일 종가는 관심 목록·종목 지도와 같은 `previousClose`(전 거래일 날짜의 봉,
+ * 종목·날짜마다 한 번 받고 기억) — v2.44.3 까지는 "캐시의 끝에서 두 번째 봉" 이라 어제 봉이 없으면 그저께와 비교했다.
  */
 async function withDailyChange(symbol: string) {
   const price = await fetchPrice(symbol);
-  // 오름차순이므로 [전일, 당일] 순이다. 캔들이 하나뿐이면 기준가가 없어 변동을 계산할 수 없다.
-  const daily = loadCandles(symbol, '1d', 2);
-  if (daily.length < 2 || !Number.isFinite(price.close)) return price;
+  if (!Number.isFinite(price.close)) return price;
+  const daily = loadCandles(symbol, '1d', 1);
 
-  const previousClose = daily[0].close;
+  const previousClose = await previousCloseOf(symbol);
   if (!previousClose) return price;
 
   const change = price.close - previousClose;
