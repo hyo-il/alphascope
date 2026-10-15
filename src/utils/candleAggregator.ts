@@ -85,6 +85,3 @@ export function aggregateCalendar(candles: Candle[], symbol: string, unit: Calen
   }
   return out;
 }
-
-export const aggregateWeekly = (candles: Candle[], symbol: string) => aggregateCalendar(candles, symbol, 'week');
-export const aggregateMonthly = (candles: Candle[], symbol: string) => aggregateCalendar(candles, symbol, 'month');

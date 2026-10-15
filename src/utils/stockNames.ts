@@ -70,11 +70,3 @@ export function subscribeStockNames(listener: () => void): () => void {
   };
 }
 
-/** 이미 아는 이름을 캐시에 넣는다 (서버 응답에 이름이 함께 오는 경우) */
-export function primeStockName(symbol: string, name: string | null | undefined): void {
-  if (!name) return;
-  const key = symbol.trim().toUpperCase();
-  if (cache.get(key) === name) return;
-  cache.set(key, name);
-  notify();
-}

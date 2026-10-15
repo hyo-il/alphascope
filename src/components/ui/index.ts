@@ -12,7 +12,7 @@ export { default as Dialog, type DialogSize } from './Dialog';
 export { default as InfoTip } from './InfoTip';
 export { default as SectionTitle } from './SectionTitle';
 export { ICON, ICON_SM, ICON_LG } from './icon';
-export { AUTO_TRADE_ICON, VERDICT_ICON, STEP_ICON } from './statusIcons';
+export { AUTO_TRADE_ICON, VERDICT_ICON } from './statusIcons';
 export { default as Input } from './Input';
 export { default as Select } from './Select';
 export { default as NumberField, NumberUnitGroup } from './NumberField';

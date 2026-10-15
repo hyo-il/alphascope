@@ -23,5 +23,3 @@ export const DEFAULT_FOLDER_ID = 'default';
 export const DEFAULT_FOLDER_NAME = '미분류';
 /** 코드에서 뜻이 드러나게 쓰는 별칭 (저장된 id 값은 바꾸지 않는다) */
 export const UNGROUPED_ID = DEFAULT_FOLDER_ID;
-/** 화면에 쓰는 말 */
-export const UNGROUPED_LABEL = '폴더 없는 종목';

@@ -155,17 +155,9 @@ async function tick(): Promise<void> {
   }
 }
 
-/** 점검(`npm run autotrade:test`)용 — 타이머 없이 한 틱 */
-export const tickForTest = tick;
-
 export function startAutoTradingScheduler(): void {
   if (timer) return;
   if (!isAutoTradingEnabled()) return; // 호출부(index.ts)가 로그를 남긴다
   timer = setInterval(() => void tick(), TICK_MS);
 }
 
-export function stopAutoTradingScheduler(): void {
-  if (!timer) return;
-  clearInterval(timer);
-  timer = null;
-}

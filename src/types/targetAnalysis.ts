@@ -55,6 +55,3 @@ export interface TargetProgress {
 
 /** 입력 범위 — 서버 검사(`TARGET_LIMITS`)와 같아야 한다 */
 export const TARGET_INPUT_LIMITS = { targetPct: [0.5, 50], stopPct: [0.5, 30], days: [2, 120] } as const;
-export const TARGET_MAX_SYMBOLS = 5;
-/** 종목당 Gemini 호출 수 (에이전트 4 + 의장 1) */
-export const CALLS_PER_SYMBOL = 5;

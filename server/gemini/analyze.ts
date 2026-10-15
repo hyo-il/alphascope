@@ -14,7 +14,6 @@ import type {
   GeminiAnalysis,
   GeminiTrigger,
   ModeratorVerdict,
-  TradeSignal,
 } from '../../src/types/gemini';
 import { AGENTS, FLOW_PROMPT_VERSION, PROMPT_VERSION } from './agents';
 import { callGemini, DEFAULT_MODEL, GeminiError, type GeminiPart } from './client';
@@ -63,13 +62,6 @@ function parseDataUrl(image: string): { mimeType: string; data: string } | null 
   if (/^[A-Za-z0-9+/=\s]+$/.test(image) && image.length > 100) {
     return { mimeType: 'image/png', data: image.replace(/\s/g, '') };
   }
-  return null;
-}
-
-/** 5개 신호를 모의주문용 방향으로 좁힌다 */
-export function signalDirection(signal: TradeSignal): 'BUY' | 'SELL' | null {
-  if (signal === 'STRONG_BUY' || signal === 'BUY') return 'BUY';
-  if (signal === 'STRONG_SELL' || signal === 'SELL') return 'SELL';
   return null;
 }
 

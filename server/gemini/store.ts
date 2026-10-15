@@ -138,12 +138,6 @@ export function insertAnalysis(record: Omit<GeminiAnalysis, 'id'>): number {
   return Number(result.lastInsertRowid);
 }
 
-export function attachOrder(id: number, orderId: number | null, note: string | null): void {
-  db()
-    .prepare(`UPDATE gemini_analysis SET paper_order_id = ?, trade_note = ? WHERE id = ?`)
-    .run(orderId, note, id);
-}
-
 export function listAnalyses(symbol?: string, limit = 100): GeminiAnalysis[] {
   const rows = symbol
     ? (db()

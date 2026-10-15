@@ -28,10 +28,6 @@ export function findCheck(marketDate: string, symbol: string): AiCheckRow | null
   return (getDb().prepare(`SELECT * FROM ai_checks WHERE market_date = ? AND symbol = ?`).get(marketDate, symbol) as AiCheckRow | undefined) ?? null;
 }
 
-export function getCheck(id: number): AiCheckRow | null {
-  return (getDb().prepare(`SELECT * FROM ai_checks WHERE id = ?`).get(id) as AiCheckRow | undefined) ?? null;
-}
-
 export function insertCheck(row: Omit<AiCheckRow, 'id' | 'created_at'>, now = new Date()): AiCheckRow {
   const db = getDb();
   // 같은 날 같은 종목이 이미 있으면(드문 경합) 그 줄을 쓴다 — UNIQUE(market_date, symbol)

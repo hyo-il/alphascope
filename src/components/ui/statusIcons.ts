@@ -19,5 +19,3 @@ export const VERDICT_ICON = {
   hold: CircleMinus, // 판단 보류
 } as const;
 
-/** 단계 표시(복사 단계 등) — 끝남 / 아직 */
-export const STEP_ICON = { done: CircleCheck, todo: Circle } as const;

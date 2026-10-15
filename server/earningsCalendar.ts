@@ -45,17 +45,6 @@ export function getEarningsDate(symbol: string): EarningsDate | null {
   return { date: row.earnings_date, isEstimate: row.is_estimate === 1 };
 }
 
-export function listEarnings(): { symbol: string; date: string | null; isEstimate: boolean | null; fetchedAt: string }[] {
-  return (
-    getDb().prepare(`SELECT symbol, earnings_date, fetched_at, is_estimate FROM earnings_calendar ORDER BY symbol`).all() as Row[]
-  ).map((r) => ({
-    symbol: r.symbol,
-    date: r.earnings_date,
-    isEstimate: r.is_estimate === null ? null : r.is_estimate === 1,
-    fetchedAt: r.fetched_at,
-  }));
-}
-
 /** 받을 종목 — 관심 목록 + 대형주 유니버스 + 자동매매 대상 (중복 제거) */
 export function earningsTargets(): string[] {
   const set = new Set<string>();
