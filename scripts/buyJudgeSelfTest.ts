@@ -48,11 +48,13 @@ try {
   // ── ① 매수 판단 = 계좌 판단 ──
   // 계좌는 매수 신호에서 안전장치(실적 회피 · 최대 보유 등)로 사유가 바뀔 수 있다 — 엔진 사유가 남은 줄만 점수까지 비교하고,
   // 안전장치 줄은 「엔진이 매수였는지」 만 비교한다. 매수 기준 999점 규칙(늘 기준 미달)으로 한 번 더 — 모든 종목이 점수까지 비교된다.
-  const acc = createAccount({ name: '매수판단 시험(지움)', initialBalance: 1_000_000_000, currency: 'KRW' });
-  tempAccount = acc.id;
+  // ⚠️ 변형마다 **빈 새 계좌** — 매수 판단은 보유 없음(held=false)이라, 앞 변형에서 계좌가 실제로 산 종목이 남으면 다음 변형의 계좌는
+  // 「보유 중」 으로 판단한다(v2.45.1 — 환율 버그가 고쳐져 원화 계좌가 미국 종목을 실제로 사게 되며 드러났다).
   const now = Date.now();
   const GUARD = new Set(['max_positions', 'earnings_blackout', 'daily_loss', 'other', 'error']);
   for (const [label, body] of [['기본 규칙', rule.body], ['기준 999점', { ...rule.body, buy: { ...rule.body.buy, minScore: 999 } }]] as const) {
+    const acc = createAccount({ name: '매수판단 시험(지움)', initialBalance: 1_000_000_000, currency: 'KRW' });
+    tempAccount = acc.id;
     const strategy = { ...defaultStrategy(acc.id), ruleId: base.id, symbols: syms, maxPositions: 10 };
     const acct = await runSignalChecks(strategy, body, { force: true, now: new Date(now) });
     for (const s of syms) {
@@ -64,9 +66,9 @@ try {
       const same = guarded ? row.code === 'score_buy' : row.score === acctScore && row.code === acctCode;
       check(`① ${label} · ${s} 매수 판단 = 계좌 판단`, same, `매수 판단 ${row.code} ${row.score} · 계좌 ${note?.action} ${note?.code} ${guarded ? '(안전장치)' : acctScore}`);
     }
+    deleteAccount(acc.id);
+    tempAccount = null;
   }
-  deleteAccount(acc.id);
-  tempAccount = null;
 
   // ── ② 같은 날 두 번 기록해도 한 줄 ──
   store.setSymbols(syms);
