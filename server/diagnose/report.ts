@@ -465,7 +465,7 @@ export function outputDir(): { dir: string; server: string } {
  */
 export class EngineDownError extends Error {
   constructor() {
-    super('지표 엔진(5001)이 응답하지 않습니다. 이 상태로 돌리면 「지금 살 만한가」 점수·급등 채점이 전부 0 으로 나와 결과처럼 보입니다 — 엔진을 먼저 띄우세요.');
+    super('지표 엔진(5001)이 응답하지 않습니다. 이 상태로 돌리면 급등 채점이 전부 0 으로 나와 결과처럼 보입니다 — 엔진을 먼저 띄우세요.');
     this.name = 'EngineDownError';
   }
 }

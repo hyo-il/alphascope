@@ -84,7 +84,6 @@ function targets(): Target[] {
   };
   list.push(
     { name: 'dialog-자동매매설정-고급', hash: '#/portfolio/paper', open: async (page) => { await openAccountSettings(page); await expandAdvanced(page); } },
-    { name: 'dialog-판단기준편집-고급', hash: '#/swing/list', open: async (page) => { await click(/판단 기준/)(page); await expandAdvanced(page); } },
     { name: 'backtest-고급', hash: '#/backtest', open: expandAdvanced },
     { name: 'form-새계좌', hash: '#/portfolio/paper', open: click(/새 계좌/) },
     // v2.44.2 — 종목 지도(시장 상위 미국 100 · 내 관심 국내), 「N초 전 갱신」(장이 닫힌 시각에도 보이게 응답의 marketOpen 만 바꿔치기 — DB 는 그대로),
@@ -180,7 +179,6 @@ function targets(): Target[] {
         await click('자동매매 설정')(page);
       },
     },
-    { name: 'dialog-판단기준편집', hash: '#/swing/list', open: click(/판단 기준/) },
     // 매매 규칙 (v2.43.0) — 보기(잠김) · 수정 + 고급 설정 펼침 · 새 규칙(빈 규칙)
     { name: 'dialog-매매규칙-보기', hash: '#/rules', open: click('조건 보기') },
     {
@@ -256,6 +254,109 @@ function targets(): Target[] {
         await click('계좌에 적용')(page);
         await page.locator('[role=dialog] li button').first().click();
         await page.waitForTimeout(700);
+      },
+    },
+    // 매수 판단 도우미 (v2.45.0) — 상태는 응답 바꿔치기로 만든다(DB 를 건드리지 않는다)
+    {
+      name: 'swing-빈목록',
+      hash: '#/swing/list',
+      before: async (page) => {
+        await page.route('**/api/buy-judge', (r) =>
+          r.fulfill({ json: { ruleId: 1, ruleName: '기본 규칙', symbols: [], retention: '1y', computedAt: new Date().toISOString(), rows: [] } }));
+      },
+      after: (page) => page.unroute('**/api/buy-judge'),
+    },
+    {
+      name: 'swing-규칙없음',
+      hash: '#/swing/list',
+      before: async (page) => {
+        await page.route('**/api/buy-judge', (r) =>
+          r.fulfill({ json: { ruleId: null, ruleName: null, symbols: ['AAPL', 'NVDA', '005930'], retention: '1y', computedAt: new Date().toISOString(), rows: [] } }));
+      },
+      after: (page) => page.unroute('**/api/buy-judge'),
+    },
+    {
+      name: 'swing-줄펼침',
+      hash: '#/swing/list',
+      // 앞 대상(바꿔치기)의 화면이 남지 않게 홈을 거쳐 다시 그린다
+      before: async () => {},
+      open: async (page) => {
+        await page.locator('[data-buy-judge-table] tbody tr').first().click();
+        await page.waitForTimeout(500);
+      },
+    },
+    {
+      name: 'swing-목표수익가능성결과',
+      hash: '#/swing/list',
+      before: async (page) => {
+        const goal = (await page.evaluate(async () => (await (await fetch('/api/swing/goal')).json()))) as { targetPct: number; stopPct: number; days: number };
+        const sym = (await page.evaluate(async () => (await (await fetch('/api/buy-judge')).json()).symbols[0])) as string;
+        const rec = {
+          id: 9001, symbol: sym, createdAt: new Date().toISOString(), baseDate: '2026-10-14', entryPrice: 100,
+          targetPct: goal.targetPct, stopPct: goal.stopPct, days: goal.days, pTarget: 42, pStop: 35, pNeither: 23, normalized: false,
+          summary: '점검용 결과입니다. 최근 추세는 유지되고 있으나 실적 발표가 기간 안에 있습니다.',
+          reasons: ['20일선 위에서 움직입니다', '거래량이 평균보다 많습니다'], risks: ['실적 발표가 기간 안에 있습니다'],
+          agents: [], base: { target: 31, stop: 38, neither: 31, expectancy: -0.12, samples: 250 },
+          promptVersion: 't1', model: 'test', tokens: 0, outcome: null, outcomeDate: null, dueDate: '2026-11-12',
+        };
+        await page.route('**/api/target-analysis?**', (r) =>
+          r.fulfill({ json: { records: [rec], stats: { scored: 0, aiHit: 0, baseHit: 0, aiRate: null, baseRate: null, weak: true, rawScored: 0 } } }));
+      },
+      after: (page) => page.unroute('**/api/target-analysis?**'),
+      open: async (page) => {
+        await page.locator('[data-buy-judge-table] tbody tr').first().click();
+        await page.waitForTimeout(500);
+      },
+    },
+    { name: 'dialog-매수판단-조건보기', hash: '#/swing/list', before: async () => {}, open: click('조건 보기') },
+    {
+      name: 'swing-history-기록있음',
+      hash: '#/swing/history',
+      before: async (page) => {
+        const bought = [
+          { id: 1, marketDate: '2026-09-02', symbol: 'NVDA', ruleName: '기본 규칙', score: 70, maxScore: 100, r5: 2.31, r10: -1.4, r20: 5.02 },
+          { id: 2, marketDate: '2026-09-15', symbol: 'AAPL', ruleName: '기본 규칙', score: 66, maxScore: 100, r5: -0.85, r10: 1.2, r20: null },
+          { id: 3, marketDate: '2026-10-09', symbol: '005930', ruleName: '기본 규칙', score: 68, maxScore: 100, r5: null, r10: null, r20: null },
+        ];
+        const reasons = [
+          { symbol: 'AAPL', days: 20, below: 17, rrBlock: 2, buy: 1, mostMissing: '추세' },
+          { symbol: 'LLY', days: 20, below: 20, rrBlock: 0, buy: 0, mostMissing: '타이밍' },
+          { symbol: '005930', days: 18, below: 15, rrBlock: 2, buy: 1, mostMissing: '거래량' },
+        ];
+        await page.route('**/api/buy-judge/history', (r) =>
+          r.fulfill({ json: { bought, stats: { n5: 2, n10: 2, n20: 1, avg5: 0.73, avg10: -0.1, avg20: 5.02, smallSample: true }, reasons, counts: { all: 61, nonBuy: 58 } } }));
+        await page.route('**/api/buy-judge/history/*', (r) =>
+          r.fulfill({ json: { days: [
+            { marketDate: '2026-10-14', ruleName: '기본 규칙', verdict: 'below', score: 47, maxScore: 100, minScore: 65, reason: '점수 47점 — 기준 65점 미달' },
+            { marketDate: '2026-10-13', ruleName: '기본 규칙', verdict: 'rr_block', score: 66, maxScore: 100, minScore: 65, reason: '손익비 0.84 — 1 미만이라 매수하지 않습니다' },
+          ] } }));
+      },
+      after: async (page) => { await page.unroute('**/api/buy-judge/history'); await page.unroute('**/api/buy-judge/history/*'); },
+      open: async (page) => {
+        await page.getByRole('button', { name: /애플/ }).first().click();
+        await page.waitForTimeout(500);
+      },
+    },
+    {
+      name: 'dialog-매수판단-기록지우기',
+      hash: '#/swing/history',
+      before: async (page) => {
+        await page.route('**/api/buy-judge/history', (r) =>
+          r.fulfill({ json: { bought: [], stats: { n5: 0, n10: 0, n20: 0, avg5: null, avg10: null, avg20: null, smallSample: true }, reasons: [], counts: { all: 61, nonBuy: 58 } } }));
+      },
+      after: (page) => page.unroute('**/api/buy-judge/history'),
+      open: click('기록 지우기'),
+    },
+    {
+      name: 'dialog-보관기간-줄이기',
+      hash: '#/settings-app',
+      // 지워질 줄 수만 바꿔치기 — [삭제] 를 누르지 않으므로 실제로 바뀌지 않는다
+      before: async (page) => { await page.route('**/api/buy-judge/retention?dryRun=1', (r) => r.fulfill({ json: { willDelete: 42 } })); },
+      after: (page) => page.unroute('**/api/buy-judge/retention?dryRun=1'),
+      open: async (page) => {
+        await page.getByRole('radiogroup', { name: '매수 판단 기록 보관 기간' }).getByText('6개월').click()
+          .catch(() => page.getByText('6개월', { exact: true }).first().click());
+        await page.waitForTimeout(600);
       },
     },
     // 사이드 메뉴 — 보고 있는 대메뉴를 접은 상태 (v2.43.1)

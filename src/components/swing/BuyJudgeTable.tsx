@@ -4,7 +4,7 @@ import StockName from '../common/StockName';
 import { Button, ListRemoveButton } from '../ui';
 import { ICON_SM } from '../ui/icon';
 import WarnIcon from '../ui/WarnIcon';
-import { LIST_TABLE_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
+import { LIST_TABLE_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP_TIGHT } from '../ui/tokens';
 import TradePlan from './TradePlan';
 import { ResultCard, latestFor } from './TargetAnalysisParts';
 import { formatNumber, formatPrice } from '../../utils/formatters';
@@ -66,22 +66,23 @@ export default function BuyJudgeTable({
     else next.add(s);
     return next;
   });
-  const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right`;
+  // 칸이 10개라 숫자 칸 여백을 좁힌다(1280 에서 종목 칸에 이름·티커 자리 — 티커는 자르지 않는다)
+  const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP_TIGHT} text-right`;
 
   return (
     <div className="rounded-lg bg-bg-tertiary/40" data-buy-judge-table>
       <table className="w-full text-left text-xs">
         <thead className="text-caption text-text-muted">
           <tr className="border-b border-border/50">
-            <th className={`${TABLE_NAME_COL} py-2 pl-3 pr-4`}>종목</th>
-            <th className={`${TABLE_NUM_COL} py-2 pr-2`}>판단</th>
+            <th className={`${TABLE_NAME_COL} py-2 pl-3 pr-3`}>종목</th>
+            <th className={`${TABLE_NUM_COL} py-2 pr-1`}>판단</th>
             <th className={`${NUM} py-2`}>점수(마감)</th>
             <th className={`${NUM} py-2`}>참고 점수</th>
             <th className={`${NUM} py-2`}>손절가</th>
             <th className={`${NUM} py-2`}>목표가</th>
             <th className={`${NUM} py-2`}>손익비</th>
             <th className={`${NUM} py-2`}>비중(참고)</th>
-            <th className={`${TABLE_NUM_COL} py-2 pl-6 pr-2`} aria-label="목표 수익 가능성" />
+            <th className={`${TABLE_NUM_COL} py-2 pl-4 pr-2`} aria-label="목표 수익 가능성" />
             <th className="w-px py-2 pr-2" aria-label="목록에서 삭제" />
           </tr>
         </thead>
@@ -101,15 +102,14 @@ export default function BuyJudgeTable({
                   onClick={() => toggle(r.symbol)}
                   aria-expanded={isOpen}
                 >
-                  <td className="max-w-0 py-1 pl-3 pr-4">
+                  <td className="max-w-0 py-1 pl-3 pr-3">
                     <span className="flex min-w-0 items-center gap-1.5">
                       {isOpen ? <ChevronDown {...ICON_SM} className="shrink-0 text-text-muted" /> : <ChevronRight {...ICON_SM} className="shrink-0 text-text-muted" />}
-                      <span className="block min-w-0 truncate">
-                        <StockName symbol={r.symbol} />
-                      </span>
+                      {/* 이름만 말줄임(StockName 안) — 티커는 자르지 않는다 */}
+                      <StockName symbol={r.symbol} className="max-w-full" />
                     </span>
                   </td>
-                  <td className={`${TABLE_NUM_COL} py-1 pr-2`}>{r.error ? <span className="text-text-muted">판단 못 함</span> : <VerdictText verdict={r.verdict} />}</td>
+                  <td className={`${TABLE_NUM_COL} py-1 pr-1`}>{r.error ? <span className="text-text-muted">판단 못 함</span> : <VerdictText verdict={r.verdict} />}</td>
                   <td className={`${NUM} py-1 tabular-nums`}>{r.score != null ? `${r.score}/${r.maxScore}` : '—'}</td>
                   <td className={`${NUM} py-1 tabular-nums text-text-secondary`}>
                     {r.refScore != null ? (
@@ -124,7 +124,7 @@ export default function BuyJudgeTable({
                   <td className={`${NUM} py-1 tabular-nums`}>{ref ? formatPrice(ref.target1, cur) : '—'}</td>
                   <td className={`${NUM} py-1 tabular-nums`}>{ref ? formatNumber(ref.ratio, 2) : '—'}</td>
                   <td className={`${NUM} py-1 tabular-nums`}>{ref ? `${formatNumber(ref.sizePercent, 1)}%` : '—'}</td>
-                  <td className={`${TABLE_NUM_COL} py-1 pl-6 pr-2`} onClick={(e) => e.stopPropagation()}>
+                  <td className={`${TABLE_NUM_COL} py-1 pl-4 pr-2`} onClick={(e) => e.stopPropagation()}>
                     <Button
                       size="sm"
                       onClick={() => {

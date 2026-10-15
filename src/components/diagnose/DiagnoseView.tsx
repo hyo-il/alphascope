@@ -344,7 +344,7 @@ function Details({ d }: { d: DiagnoseDetail }) {
       <Section title="목표 수익률 — 10거래일 안 목표 먼저 도달률 · 기대값">
         <p className="text-caption text-text-muted">
           매일 종가 매수 가정 · 같은 날 둘 다 닿으면 손절 · 왕복 비용 0.30%p 반영. 조건을 바꿔 보려면
-          「투자 분석 &gt; 매수 판단 도우미 &gt; 목표 수익 가능성」 의 결과 카드에서 과거 기준선을 볼 수 있습니다(히스토리도 그 탭 아래).
+          「투자 분석 &gt; 매수 판단 도우미」 에서 종목 줄을 펼친 목표 수익 가능성 결과에서 과거 기준선을 볼 수 있습니다(히스토리는 「히스토리」 탭).
         </p>
         <Table
           headers={['종목', 'ATR/일', ...TARGET_COLUMNS.map(([t, st]) => `+${t}/−${st}`)]}

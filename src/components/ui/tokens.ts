@@ -37,6 +37,8 @@ export const LIST_TABLE_ROW = 'h-10';
 export const TABLE_NAME_COL = 'w-full';
 export const TABLE_NUM_COL = 'w-px whitespace-nowrap';
 export const TABLE_NUM_GAP = 'pl-6';
+/** 숫자 칸이 많은 표(매수 판단 — 칸 10개, v2.45.0)의 숫자 칸 왼쪽 여백. 1280 에서 종목 칸에 이름·티커가 들어갈 자리를 남긴다 */
+export const TABLE_NUM_GAP_TIGHT = 'pl-4';
 export const TABLE_FILL = 'w-full';
 /**
  * 글자가 섞인 비교 칸(백테스트 비교 표의 방법·들고 있기 칸 — 조건 한 줄·판 이유) — 넓은 창(1536px 이상)에서만 최소 폭 176px.

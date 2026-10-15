@@ -104,9 +104,7 @@ export default function BuyJudgeHistory({ target }: { target: ReturnType<typeof 
                   <tr key={b.id} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW}`}>
                     <td className={`${TABLE_NUM_COL} py-1 pl-3 pr-2 tabular-nums text-text-secondary`}>{b.marketDate}</td>
                     <td className="max-w-0 py-1 pl-4 pr-4">
-                      <span className="block truncate">
-                        <StockName symbol={b.symbol} />
-                      </span>
+                      <StockName symbol={b.symbol} className="max-w-full" />
                     </td>
                     <td className={`${TABLE_NUM_COL} py-1 pr-2 text-text-secondary`}>「{b.ruleName}」</td>
                     <td className={`${NUM} py-1 tabular-nums`}>
@@ -148,9 +146,7 @@ export default function BuyJudgeHistory({ target }: { target: ReturnType<typeof 
                       className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-bg-tertiary/60 ${open ? 'bg-bg-tertiary/60' : 'bg-bg-tertiary/30'}`}
                     >
                       {open ? <ChevronDown {...ICON_SM} className="shrink-0 text-text-muted" /> : <ChevronRight {...ICON_SM} className="shrink-0 text-text-muted" />}
-                      <span className="w-48 shrink-0 truncate">
-                        <StockName symbol={r.symbol} />
-                      </span>
+                      <StockName symbol={r.symbol} className="w-48 shrink-0" />
                       <span className="min-w-0 text-text-secondary">
                         최근 {r.days}거래일 — 기준 미달 {r.below}일 · 손익비 부족 {r.rrBlock}일 · 사도 됨 {r.buy}일
                         {r.mostMissing ? ` · 가장 자주 모자란 조건: ${r.mostMissing}` : ''}

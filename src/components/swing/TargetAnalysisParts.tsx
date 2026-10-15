@@ -11,12 +11,13 @@ import {
   type TargetProgress,
   type TargetStats,
 } from '../../types/targetAnalysis';
-import { goalPct, periodLabel, sameCondition, type SwingGoal } from '../../types/swingGoal';
+import { sameCondition, type SwingGoal } from '../../types/swingGoal';
 
 /**
  * 목표 도달 가능성 분석 부품 (v2.29.0 — 예전 「목표 도달 분석」 탭 `TargetAnalysisTab.tsx`(v2.24.0)에서 떼어 냈다).
  *
- * 쓰는 곳(v2.35.0): 「목표 수익 가능성」 탭(진행·결과·기록) · 「지금 살 만한가」·「종목 검색」 의 참고 한 줄(`TargetRefLine`).
+ * 쓰는 곳(v2.45.0): 매수 판단 표의 펼친 줄(결과 카드 `ResultCard` · `latestFor`) · 「히스토리」 탭(`TargetHistorySection`).
+ * (예전 탭·참고 한 줄 `TargetRefLine`·진행 상자 `TargetProgressBox` 는 v2.45.0 에 지웠다 — 한 번에 한 종목, 진행은 그 줄에 보인다.)
  * 엔진·저장·채점·성적은 서버 그대로(`server/gemini/targetAnalysis.ts`, 프롬프트 `t1`). 조건은 초보자 목표 설정(`swing.goal`).
  * ⚠️ 분석만 한다 — 주문·판정·자동매매에 쓰지 않는다. 비교 문장("과거 평균보다 높게/낮게/비슷하게(±5%p)")과 안내 문구는 지우지 않는다.
  */
@@ -29,7 +30,7 @@ const OUTCOME_LABEL: Record<TargetOutcome, { text: string; className: string }> 
 
 
 /** AI 가 과거 평균보다 목표 도달을 어떻게 보는가 — ±5%p 이내는 "비슷하게" */
-export function compareWord(aiTarget: number, baseTarget: number): '높게' | '낮게' | '비슷하게' {
+function compareWord(aiTarget: number, baseTarget: number): '높게' | '낮게' | '비슷하게' {
   const diff = aiTarget - baseTarget;
   if (diff > 5) return '높게';
   if (diff < -5) return '낮게';
@@ -150,69 +151,13 @@ export function ResultCard({
 }
 
 
-// ── 진행률 ───────────────────────────────────────────────────────────────────
-
-export function TargetProgressBox({ progress }: { progress: TargetProgress | null }) {
-  if (!progress || !(progress.running || progress.results.length > 0)) return null;
-  return (
-        <section className="rounded-xl bg-bg-secondary px-3 py-2 text-caption">
-          <div className="mb-1 flex justify-between text-text-secondary">
-            <span>
-              {progress.running ? `분석 중 ${progress.current ?? ''}` : '최근 실행'} · {progress.done}/{progress.total}
-            </span>
-            {progress.input && (
-              <span className="text-text-muted">
-                +{progress.input.targetPct}% / −{progress.input.stopPct}% · {progress.input.days}거래일
-              </span>
-            )}
-          </div>
-          {progress.running && (
-            <div className="h-1.5 rounded bg-bg-tertiary">
-              <div className="h-full rounded bg-accent transition-all" style={{ width: `${Math.max(5, (progress.done / Math.max(1, progress.total)) * 100)}%` }} />
-            </div>
-          )}
-          {progress.results.filter((r) => r.error).map((r) => (
-            <p key={r.symbol} className="text-danger">
-              {r.symbol}: {r.error}
-            </p>
-          ))}
-          {progress.rateLimited && (
-            <p className="text-warning">무료 한도 초과로 남은 {progress.skipped.length}종목({progress.skipped.join(', ')})은 분석하지 않았습니다.</p>
-          )}
-        </section>
-  );
-}
-
-// ── 참고 줄·도우미 (지금 살 만한가·종목 검색·목표 수익 가능성) ──────────────────────────────────────────────
+// ── 도우미 (매수 판단 표의 펼친 줄) ──────────────────────────────────────────────
 
 /** 같은 조건의 그 종목 **가장 최근 기록 1건** — 조건이 다르면 null(옛 조건 결과를 지금 목표의 답처럼 보이지 않게) */
 export function latestFor(records: TargetAnalysisRecord[] | null, symbol: string, goal: SwingGoal): TargetAnalysisRecord | null {
   if (!records) return null;
   const list = records.filter((r) => r.symbol === symbol && sameCondition(r, goal));
   return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
-}
-
-
-/** 체크 토글 — 6번째는 막고 예전 탭과 같은 토스트. ⚠️ 상태 갱신 함수(updater) 안에서 부르지 않는다 — 개발 모드가 두 번 불러 토스트가 두 번 뜬다 */
-export function goalLabel(goal: { targetPct: number; stopPct: number; days: number }): string {
-  return `+${goalPct(goal.targetPct)}/${periodLabel(goal.days)}`;
-}
-
-/**
- * 「지금 살 만한가」 카드의 **참고 한 줄** (v2.35.0) — 지금 목표 조건과 같은 가능성 결과가 있을 때만.
- * [자세히] 는 「목표 수익 가능성」 탭의 그 종목 결과로 간다(카드 안에서 펼치지 않는다 — 분석은 그 탭의 일이다).
- */
-export function TargetRefLine({ record, onMore }: { record: TargetAnalysisRecord; onMore: () => void }) {
-  return (
-    <p className="rounded-lg bg-bg-tertiary/40 px-2.5 py-1.5 text-caption text-text-secondary">
-      목표 수익 가능성({goalLabel(record)}): 목표 먼저 <span className="text-bullish">{record.pTarget}%</span> · 손절 먼저{' '}
-      <span className="text-bearish">{record.pStop}%</span>
-      {record.base && <span className="text-text-muted"> (과거 평균 {record.base.target}%)</span>}
-      <button type="button" onClick={onMore} className="ml-2 whitespace-nowrap text-accent hover:underline">
-        결과 보기
-      </button>
-    </p>
-  );
 }
 
 export function useConfirmDelete(remove: (id: number) => Promise<void>) {
@@ -233,7 +178,7 @@ export function useConfirmDelete(remove: (id: number) => Promise<void>) {
     });
 }
 
-// ── 기록 섹션 (목표 수익 가능성 탭 아래) ────────────────────────────────────────────
+// ── 기록 섹션 (「히스토리」 탭) ────────────────────────────────────────────
 
 export function TargetHistorySection({
   records,
@@ -299,7 +244,7 @@ export function TargetHistorySection({
         {records === null && !error && <p className="text-caption text-text-muted">불러오는 중…</p>}
         {records && shown.length === 0 && (
           <p className="rounded-xl bg-bg-secondary p-6 text-center text-xs text-text-muted">
-            {records.length ? '조건에 맞는 결과가 없습니다.' : '아직 분석 히스토리가 없습니다. 위에서 종목을 골라 분석하세요.'}
+            {records.length ? '조건에 맞는 결과가 없습니다.' : '아직 분석 히스토리가 없습니다. 「매수 판단」 탭에서 종목 줄의 [목표 수익 가능성] 을 누르면 분석합니다.'}
           </p>
         )}
         {shown.map((record) => (
