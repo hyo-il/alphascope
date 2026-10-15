@@ -11,7 +11,9 @@
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다(v2.44.2)
 import { getDb, loadCandles } from '../server/db';
-import { createAccount, createOrder, deleteAccount, listPositions, listTrades } from '../server/paperTradingService';
+import { createAccount, createOrder, deleteAccount, getAccount, listPositions, listTrades, setUsdKrwForTest } from '../server/paperTradingService';
+import { planBuy } from '../server/autoTrading/sizing';
+import { fetchQuotes } from '../server/quoteService';
 import { runExitChecks, runSignalChecks, tryBuy } from '../server/autoTrading/engine';
 import { dailyLossBlock, evaluateDailyLoss, setEarningsLookupForTest, strategyDay } from '../server/autoTrading/guards';
 import { evaluateRule } from '../server/rules/engine';
@@ -315,8 +317,76 @@ async function main(): Promise<void> {
     console.log(`\n임시 계좌 #${account.id} · 임시 규칙 #${tempRule.id} 삭제 완료`);
   }
 
+  await fxSection();
+
   console.log(`\n결과: ${pass}개 통과 / ${fail}개 실패`);
   if (fail > 0) process.exit(1);
+}
+
+/**
+ * 10. 통화가 다른 계좌·종목 (v2.45.1) — 예전 수량 계산이 환율을 거꾸로 적용해 원화 계좌는 미국 종목을,
+ * 달러 계좌는 국내 종목을 사지 못했다(시험에 통화가 다른 경우가 없어서 놓쳤다). 환율은 1,350 으로 고정한다.
+ */
+async function fxSection(): Promise<void> {
+  console.log('\n10) 통화가 다른 계좌·종목 (환율 1,350 고정)');
+  const RATE = 1350;
+  setUsdKrwForTest(RATE);
+  const krw = createAccount({ name: `__환율 점검 원화 ${Date.now()}`, initialBalance: 100_000_000, currency: 'KRW' });
+  const usd = createAccount({ name: `__환율 점검 달러 ${Date.now()}`, initialBalance: 100_000, currency: 'USD' });
+  const small = createAccount({ name: `__환율 점검 현금 경계 ${Date.now()}`, initialBalance: 1_000, currency: 'USD' });
+  try {
+    // 손 계산: 예산 = 총자산 × 10% → 종목 통화 → 내림
+    const cases: [string, number, string, number, number][] = [
+      ['원화 ₩1억 + 미국 AAPL $300', krw.id, 'AAPL', 300, Math.floor((100_000_000 * 0.1) / RATE / 300)], // $7,407.41 → 24주
+      ['달러 $10만 + 국내 005930 ₩70,000', usd.id, '005930', 70_000, Math.floor((100_000 * 0.1 * RATE) / 70_000)], // ₩1,350만 → 192주
+      ['원화 ₩1억 + 국내 005930 ₩70,000', krw.id, '005930', 70_000, Math.floor((100_000_000 * 0.1) / 70_000)], // 142주
+      ['달러 $10만 + 미국 AAPL $300', usd.id, 'AAPL', 300, Math.floor((100_000 * 0.1) / 300)], // 33주
+    ];
+    for (const [label, id, sym, price, want] of cases) {
+      const plan = await planBuy(id, sym, price, 10);
+      check(`${label} → ${want}주`, plan.ok && plan.quantity === want, JSON.stringify(plan));
+    }
+
+    // 현금 경계: 100% 비중, $250 → 4주 = $1,000 + 슬리피지·수수료 > 현금 $1,000 → 막는다 / $300 → 3주는 산다
+    const edge = await planBuy(small.id, 'AAPL', 250, 100);
+    check('실제 주문 금액(수수료·슬리피지 포함)이 현금을 넘으면 막는다', !edge.ok && edge.reason.startsWith('현금 부족') && edge.reason.includes('$'), JSON.stringify(edge));
+    const fits = await planBuy(small.id, 'AAPL', 300, 100);
+    check('현금 안이면 산다(3주)', fits.ok && fits.quantity === 3, JSON.stringify(fits));
+    const tiny = await planBuy(small.id, '005930', 70_000_000, 10);
+    check('「1주도 살 수 없습니다」 에 통화 기호', !tiny.ok && tiny.reason.includes('₩'), JSON.stringify(tiny));
+
+    // 환율을 못 가져오면 매수를 건너뛴다(통화가 같으면 환율을 부르지 않는다)
+    setUsdKrwForTest('fail');
+    const noFx = await planBuy(krw.id, 'AAPL', 300, 10);
+    check('환율 실패 → 매수를 건너뛴다', !noFx.ok && noFx.reason.includes('환율을 가져오지 못해'), JSON.stringify(noFx));
+    const sameCur = await planBuy(krw.id, '005930', 70_000, 10);
+    check('같은 통화는 환율 실패와 무관', sameCur.ok && sameCur.quantity === 142, JSON.stringify(sameCur));
+    setUsdKrwForTest(RATE);
+
+    // 원화 계좌가 미국 종목을 **실제로 산다** — 자동매매 매수 경로(tryBuy) 그대로, 체결까지
+    const strategy = normalizeStrategy(krw.id, { enabled: true, ruleId: null, symbols: ['AAPL', '005930'], positionSizePercent: 10, maxPositions: 5 });
+    const rule = defaultRuleBody();
+    for (const sym of ['AAPL', '005930']) {
+      const [quote] = await fetchQuotes([sym]);
+      const price = quote?.price ?? null;
+      const cashBefore = getAccount(krw.id).currentCash;
+      const note = await tryBuy({ ...strategy, earningsBlackoutDays: 0, dailyLossLimitPercent: 0 }, rule, sym, price, '환율 점검 매수', 0, 'score_buy');
+      const pos = listPositions(krw.id).find((p) => p.symbol === sym);
+      const spent = cashBefore - getAccount(krw.id).currentCash;
+      // 예산 ₩1,000만 근처(내림 · 슬리피지 · 수수료 · 그 사이 가격 변동) — 0 보다 크고 예산의 1.01배를 넘지 않는다
+      const budgetKrw = getAccount(krw.id).initialBalance * 0.1;
+      check(`원화 계좌가 ${sym} 를 실제로 산다(체결)`, note.action === 'BUY' && (pos?.quantity ?? 0) > 0 && spent > budgetKrw * 0.5 && spent <= budgetKrw * 1.01,
+        `${note.reason} · 보유 ${pos?.quantity ?? 0}주 · 쓴 현금 ₩${Math.round(spent).toLocaleString('ko-KR')} (가격 ${price})`);
+      const easy = explainNote(note, sym, strategy, rule);
+      check(`「최근 판단」 문장 — ${sym}`, easy != null && /\d+주/.test(note.reason), `${easy} / ${note.reason}`);
+    }
+  } finally {
+    setUsdKrwForTest(null);
+    deleteAccount(krw.id);
+    deleteAccount(usd.id);
+    deleteAccount(small.id);
+    console.log(`임시 계좌 #${krw.id} · #${usd.id} · #${small.id} 삭제 완료`);
+  }
 }
 
 void main().catch((error) => {

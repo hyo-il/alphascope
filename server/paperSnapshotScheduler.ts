@@ -1,7 +1,9 @@
 import type { Candle } from '../src/types/toss';
 import { getCandles } from './candleService';
 import { getDb, loadCandles } from './db';
-import { listAccounts, listPositions } from './paperTradingService';
+import { listAccounts, listPositions, usdKrwRate } from './paperTradingService';
+import { convertAmount } from '../src/utils/fx';
+import type { Currency } from '../src/types/paper';
 import { computePerformance } from './paperPerformanceService';
 
 /**
@@ -116,25 +118,23 @@ async function backfillAccount(accountId: number): Promise<number> {
   let previousValue = last.total_value;
   let filled = 0;
 
+  // 환율은 마지막 스냅샷에서 역산한 1달러 = N원 하나를 빈 날 모두에 쓴다 — 과거 환율을 다시 받아 오는 것은
+  // 이 기능의 값어치에 비해 과하다. 역산이 안 되면 지금 환율, 그것도 없으면 통화가 섞인 계좌는 건너뛴다.
+  const needsFx = positions.some((p) => p.currency !== account.currency);
+  const usdKrw = needsFx
+    ? (estimateUsdKrw(last, positions, seriesOf, account.currency) ?? (await usdKrwRate().catch(() => null)))
+    : null;
+  if (needsFx && usdKrw == null) return 0;
+
   for (const date of missing) {
-    let stockValue = 0;
-    let priced = true;
-
-    for (const position of positions) {
-      const close = closeOn(seriesOf.get(position.symbol) ?? [], date);
-      if (close == null) {
-        priced = false;
-        break;
-      }
-      // 계좌 통화 환산은 마지막 스냅샷의 비율을 그대로 따른다 — 과거 환율을 다시
-      // 받아 오는 것은 이 기능의 값어치에 비해 과하다.
-      stockValue += close * position.quantity;
-    }
+    const native = nativeValues(positions, seriesOf, date);
     // 그날 가격을 모르는 종목이 있으면 건너뛴다. 추정값으로 곡선을 채우지 않는다.
-    if (!priced) continue;
+    if (!native) continue;
 
-    const fxRate = estimateFxRate(last, positions, seriesOf);
-    const totalValue = cash + stockValue * fxRate;
+    // 통화별 합을 계좌 통화로(convertAmount 하나 — v2.45.1, 예전에는 통화가 섞이면 원화와 달러를 그냥 더했다)
+    const stockValue =
+      convertAmount(native.KRW, 'KRW', account.currency, usdKrw) + convertAmount(native.USD, 'USD', account.currency, usdKrw);
+    const totalValue = cash + stockValue;
     const dailyPnl = totalValue - previousValue;
 
     insert.run(
@@ -142,7 +142,7 @@ async function backfillAccount(accountId: number): Promise<number> {
       date,
       totalValue,
       cash,
-      stockValue * fxRate,
+      stockValue,
       dailyPnl,
       previousValue ? (dailyPnl / previousValue) * 100 : null,
       account.initialBalance ? (totalValue / account.initialBalance - 1) * 100 : null,
@@ -155,25 +155,41 @@ async function backfillAccount(accountId: number): Promise<number> {
   return filled;
 }
 
+/** 그날 종가로 낸 통화별 평가액 합(종목 통화 그대로). 가격을 모르는 종목이 있으면 null */
+function nativeValues(
+  positions: ReturnType<typeof listPositions>,
+  seriesOf: Map<string, Candle[]>,
+  date: string,
+): Record<Currency, number> | null {
+  const sum: Record<Currency, number> = { KRW: 0, USD: 0 };
+  for (const position of positions) {
+    const close = closeOn(seriesOf.get(position.symbol) ?? [], date);
+    if (close == null) return null;
+    sum[position.currency] += close * position.quantity;
+  }
+  return sum;
+}
+
 /**
- * 마지막 스냅샷에서 환율을 역산한다.
- * (stock_value 는 계좌 통화, 종목 평가는 종목 통화이므로 그 비율이 곧 환율이다.)
+ * 마지막 스냅샷에서 1달러 = N원을 역산한다(stock_value 는 계좌 통화).
+ * 원화 계좌: stock_value = 원화 합 + 달러 합 × N → N = (stock_value − 원화 합) ÷ 달러 합.
+ * 달러 계좌: stock_value = 달러 합 + 원화 합 ÷ N → N = 원화 합 ÷ (stock_value − 달러 합).
+ * 예전에는 「stock_value ÷ 종목 통화 합」 하나라 통화가 섞이거나 달러 계좌가 국내 종목만 들고 있으면 틀렸다(v2.45.1).
  */
-function estimateFxRate(
+function estimateUsdKrw(
   last: SnapshotRow,
   positions: ReturnType<typeof listPositions>,
   seriesOf: Map<string, Candle[]>,
-): number {
-  if (!positions.length || !last.stock_value) return 1;
-  if (positions.every((p) => p.currency === 'KRW')) return 1;
-
-  let nativeValue = 0;
-  for (const position of positions) {
-    const close = closeOn(seriesOf.get(position.symbol) ?? [], last.date);
-    if (close == null) return 1;
-    nativeValue += close * position.quantity;
-  }
-  return nativeValue > 0 ? last.stock_value / nativeValue : 1;
+  accountCurrency: Currency,
+): number | null {
+  if (!last.stock_value) return null;
+  const native = nativeValues(positions, seriesOf, last.date);
+  if (!native) return null;
+  const rate =
+    accountCurrency === 'KRW'
+      ? native.USD > 0 ? (last.stock_value - native.KRW) / native.USD : null
+      : native.KRW > 0 ? native.KRW / (last.stock_value - native.USD) : null;
+  return rate != null && Number.isFinite(rate) && rate > 0 ? rate : null;
 }
 
 /** 모든 계좌의 빠진 날짜를 채운다 (서버 기동 시 1회). */

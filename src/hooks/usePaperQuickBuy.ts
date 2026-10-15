@@ -3,6 +3,7 @@ import { modal, toast } from '../store/uiStore';
 import { stockNameOf } from '../utils/stockNames';
 import { currencyOfSymbol } from '../utils/market';
 import { usePaperAccounts } from './usePaperTrading';
+import { convertAmount } from '../utils/fx';
 
 /**
  * [모의 매수] — 모의투자 계좌에 시장가 매수를 넣는다.
@@ -40,19 +41,16 @@ export function usePaperQuickBuy(defaultPercent = 5) {
           return;
         }
 
-        const detail = await json<{ account: { currentCash: number }; fxRate?: number }>(
+        const detail = await json<{ account: { currentCash: number }; usdKrw?: number | null }>(
           `/api/paper/accounts/${account.id}`,
         );
         const currency = currencyOfSymbol(symbol);
-        const fxRate = typeof detail.fxRate === 'number' && detail.fxRate > 0 ? detail.fxRate : null;
+        const usdKrw = typeof detail.usdKrw === 'number' && detail.usdKrw > 0 ? detail.usdKrw : null;
+        // 계좌 통화 현금 → 종목 통화(convertAmount 하나). 통화가 다른데 환율이 없으면 0 — 수량이 부풀지 않게
         const cash =
-          account.currency === currency
-            ? detail.account.currentCash
-            : fxRate == null
-              ? 0
-              : currency === 'USD'
-                ? detail.account.currentCash / fxRate
-                : detail.account.currentCash * fxRate;
+          account.currency === currency || usdKrw != null
+            ? convertAmount(detail.account.currentCash, account.currency, currency, usdKrw)
+            : 0;
 
         const budget = (cash * percent) / 100;
         const quantity = Math.floor(budget / (price * (1 + (account.commissionRate ?? 0.001))));

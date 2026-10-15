@@ -15,6 +15,7 @@ import { findStock } from './stockCatalog';
 import { currencyOfSymbol as currencyByRule } from '../src/utils/market';
 import { fetchExchangeRate } from '../src/services/toss/account';
 import { isMockMode } from './mockData';
+import { convertAmount } from '../src/utils/fx';
 
 /**
  * 모의투자 체결 엔진.
@@ -58,34 +59,35 @@ function nameOfSymbol(symbol: string): string | null {
   return findStock(symbol)?.name ?? null;
 }
 
-/**
- * 종목 통화 → 계좌 통화 환율.
- * 같은 통화면 1. 모의 데이터 모드에서는 고정값을 쓴다(키 없이도 굴려 볼 수 있게).
- */
-async function fxRateFor(from: Currency, to: Currency): Promise<number> {
-  if (from === to) return 1;
-  if (isMockMode()) return from === 'USD' ? 1380 : 1 / 1380;
+/** 시험용 고정 환율 — `autotrade:test` 가 환율을 정해 손 계산과 비교한다('fail' = 환율 조회 실패). 실제 서버는 부르지 않는다 */
+let usdKrwForTest: number | 'fail' | null = null;
+export function setUsdKrwForTest(rate: number | 'fail' | null): void {
+  usdKrwForTest = rate;
+}
 
+/**
+ * 1달러 = N원 (토스 USD→KRW, 60초 캐시). 환산은 이 값 하나로 `convertAmount`(src/utils/fx.ts)가 한다.
+ * 모의 데이터 모드에서는 1,380 고정(키 없이도 굴려 볼 수 있게). 못 가져오면 던진다.
+ */
+export async function usdKrwRate(): Promise<number> {
+  if (usdKrwForTest === 'fail') throw new PaperTradingError('환율을 가져오지 못해 주문을 처리할 수 없습니다.');
+  if (usdKrwForTest != null) return usdKrwForTest;
+  if (isMockMode()) return 1380;
   const rate = await fetchExchangeRate('USD', 'KRW');
   if (!Number.isFinite(rate.rate) || rate.rate <= 0) {
     throw new PaperTradingError('환율을 가져오지 못해 주문을 처리할 수 없습니다.');
   }
-  return from === 'USD' ? rate.rate : 1 / rate.rate;
+  return rate.rate;
 }
 
-/**
- * 계좌 통화 → 그 종목 통화 환산율. 자동매매가 예산을 종목 통화로 환산할 때 쓴다.
- * 환율을 못 가져오면 던진다 — 여기서 1 로 넘어가면 원화 계좌의 매수 예산이
- * 1,000배 넘게 부풀어 엉뚱한 수량이 주문된다.
- */
-export async function accountToSymbolRate(
-  symbol: string,
-  accountCurrency: Currency,
-): Promise<number> {
-  const currency = currencyOfSymbol(symbol);
-  if (currency === accountCurrency) return 1;
-  return 1 / (await fxRateFor(currency, accountCurrency));
+/** 종목 통화 금액 1 → 계좌 통화 금액. 주문에 저장해 두고 체결 때 곱한다(지정가는 나중에 체결돼도 주문 시점 환율 하나). 같은 통화면 환율을 부르지 않는다 */
+async function orderFxRate(symbolCurrency: Currency, accountCurrency: Currency): Promise<number> {
+  if (symbolCurrency === accountCurrency) return 1;
+  return convertAmount(1, symbolCurrency, accountCurrency, await usdKrwRate());
 }
+
+/** 종목이 어느 통화로 거래되는지 — 자동매매 수량 계산도 체결과 같은 판단을 쓴다 */
+export const symbolCurrency = (symbol: string): Currency => currencyOfSymbol(symbol);
 
 /** 현재가 한 종목 — 체결 기준가 */
 async function currentPrice(symbol: string): Promise<number> {
@@ -256,7 +258,7 @@ export function listPositions(accountId: number): PaperPosition[] {
 export async function valuePositions(
   accountId: number,
   accountCurrency: Currency,
-): Promise<{ positions: PaperPositionValued[]; stockValue: number; fxRate: number | null }> {
+): Promise<{ positions: PaperPositionValued[]; stockValue: number; usdKrw: number | null }> {
   const positions = listPositions(accountId);
 
   /*
@@ -269,9 +271,9 @@ export async function valuePositions(
    * 지나가면 되고, 주문은 다르다(createOrder 는 환율 없이는 거부한다).
    * 조회는 60초 캐시라 포지션이 없을 때 매번 나가지도 않는다.
    */
-  const fxRate = await fxRateFor('USD', accountCurrency).catch(() => null);
+  const usdKrw = await usdKrwRate().catch(() => null);
 
-  if (!positions.length) return { positions: [], stockValue: 0, fxRate };
+  if (!positions.length) return { positions: [], stockValue: 0, usdKrw };
 
   const quotes = await fetchQuotes(positions.map((p) => p.symbol));
   const priceOf = new Map(quotes.map((q) => [q.symbol, q.price]));
@@ -280,7 +282,7 @@ export async function valuePositions(
   const valued = positions.map((position): PaperPositionValued => {
     const price = priceOf.get(position.symbol) ?? null;
     const needsFx = position.currency !== accountCurrency;
-    if (price == null || !Number.isFinite(price) || (needsFx && fxRate == null)) {
+    if (price == null || !Number.isFinite(price) || (needsFx && usdKrw == null)) {
       return {
         ...position,
         currentPrice: null,
@@ -293,8 +295,8 @@ export async function valuePositions(
 
     const marketValue = price * position.quantity;
     const unrealizedPnl = marketValue - position.totalCost;
-    const toAccountRate = needsFx ? fxRate! : 1;
-    const marketValueInAccount = marketValue * toAccountRate;
+    // 종목 통화 → 계좌 통화. 예전에는 「USD → 계좌」 값 하나를 모든 종목에 곱해, 달러 계좌의 국내 종목은 원화 금액이 그대로 달러로 더해졌다
+    const marketValueInAccount = convertAmount(marketValue, position.currency, accountCurrency, usdKrw);
     stockValue += marketValueInAccount;
 
     return {
@@ -307,12 +309,12 @@ export async function valuePositions(
     };
   });
 
-  return { positions: valued, stockValue, fxRate };
+  return { positions: valued, stockValue, usdKrw };
 }
 
 export async function getAccountDetail(accountId: number): Promise<PaperAccountDetail> {
   const account = getAccount(accountId);
-  const { positions, stockValue, fxRate } = await valuePositions(accountId, account.currency);
+  const { positions, stockValue, usdKrw } = await valuePositions(accountId, account.currency);
   const totalValue = account.currentCash + stockValue;
   const pendingOrders = (
     getDb()
@@ -329,7 +331,7 @@ export async function getAccountDetail(accountId: number): Promise<PaperAccountD
     totalReturn: account.initialBalance
       ? (totalValue / account.initialBalance - 1) * 100
       : 0,
-    fxRate,
+    usdKrw,
     pendingOrders,
   };
 }
@@ -378,7 +380,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
   const currency = currencyOfSymbol(symbol);
   const name = nameOfSymbol(symbol);
   const price = await currentPrice(symbol);
-  const fxRate = await fxRateFor(currency, account.currency);
+  const fxRate = await orderFxRate(currency, account.currency);
 
   // 매도는 주문 시점에 보유 수량을 먼저 확인한다 — PENDING 으로 걸어 두는 경우도 마찬가지다.
   if (input.side === 'SELL') {

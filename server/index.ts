@@ -886,8 +886,8 @@ app.get('/api/paper/positions', async (req, res) => {
     const accountId = accountIdOf(req);
     const filled = await settlePendingOrders(accountId);
     const account = getPaperAccount(accountId);
-    const { positions, stockValue, fxRate } = await valuePositions(accountId, account.currency);
-    res.json({ positions, stockValue, fxRate, filled });
+    const { positions, stockValue, usdKrw } = await valuePositions(accountId, account.currency);
+    res.json({ positions, stockValue, usdKrw, filled });
   } catch (e) {
     failPaper(res, e);
   }

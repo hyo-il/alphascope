@@ -1,4 +1,5 @@
 import Button from '../ui/Button';
+import { convertAmount } from '../../utils/fx';
 import Segmented from '../ui/Segmented';
 import { ORDER_INDENT, ORDER_LABEL_W, ORDER_TRAIL_W } from '../ui/tokens';
 import Select from '../ui/Select';
@@ -62,9 +63,9 @@ export default function QuickOrderPanel({
   const [positions, setPositions] = useState<PaperPositionValued[]>([]);
   const [orders, setOrders] = useState<PaperOrder[]>([]);
   const [cash, setCash] = useState(0);
-  /** USD → 계좌 통화 환율 (서버가 계좌 상세와 함께 준다) */
-  /** null = 환율을 아직/끝내 못 받았다. 1 로 때우면 원화 계좌 수량이 1,000배가 된다. */
-  const [fxRate, setFxRate] = useState<number | null>(1);
+  /** 1달러 = N원 (서버가 계좌 상세와 함께 준다 — v2.45.1, 예전 「USD → 계좌 통화」 fxRate 는 달러 계좌에서 1 이라 국내 종목을 환산하지 못했다) */
+  /** undefined = 아직 받기 전 · null = 끝내 못 받았다. 1 로 때우면 원화 계좌 수량이 1,000배가 된다. */
+  const [usdKrw, setUsdKrw] = useState<number | null | undefined>(undefined);
   const [quantity, setQuantity] = useState(10);
   const [unit, setUnit] = useState<'shares' | 'percent'>('shares');
   const [percent, setPercent] = useState(30);
@@ -121,7 +122,7 @@ export default function QuickOrderPanel({
         if (cancelled) return;
         setPositions(detail.positions ?? []);
         setCash(detail.account?.currentCash ?? 0);
-        setFxRate(typeof detail.fxRate === 'number' && detail.fxRate > 0 ? detail.fxRate : null);
+        setUsdKrw(typeof detail.usdKrw === 'number' && detail.usdKrw > 0 ? detail.usdKrw : null);
         setOrders(orderList.orders ?? []);
       } catch {
         // 다음 주기에 자연스럽게 재시도된다.
@@ -157,14 +158,15 @@ export default function QuickOrderPanel({
   const cashInSymbolCurrency = useMemo(() => {
     if (!account) return 0;
     if (account.currency === currency) return cash;
-    // 계좌 KRW · 종목 USD 가 사실상 전부다. fxRate 는 USD → 계좌 통화 기준이다.
-    // 환율이 없으면 환산할 방법이 없다 — 0 으로 두어 수량이 부풀지 않게 한다.
-    if (fxRate == null) return 0;
-    return currency === 'USD' ? cash / fxRate : cash * fxRate;
-  }, [account, cash, currency, fxRate]);
+    // 환산은 convertAmount 하나(src/utils/fx.ts). 환율이 없으면 환산할 방법이 없다 — 0 으로 두어 수량이 부풀지 않게 한다.
+    if (usdKrw == null) return 0;
+    return convertAmount(cash, account.currency, currency, usdKrw);
+  }, [account, cash, currency, usdKrw]);
 
   /** 통화가 달라 환산이 필요한데 환율이 없는 상태 — 매수 수량을 낼 수 없다. */
-  const fxMissing = Boolean(account) && account!.currency !== currency && fxRate == null;
+  const fxMissing = Boolean(account) && account!.currency !== currency && usdKrw === null;
+  /** 통화가 다른데 환율을 아직 받기 전 — 「실패」 를 그리지 않는다(로딩 규칙) */
+  const fxPending = Boolean(account) && account!.currency !== currency && usdKrw === undefined;
 
   const commissionRate = account?.commissionRate ?? 0.001;
   const held = position?.quantity ?? 0;
@@ -457,7 +459,7 @@ export default function QuickOrderPanel({
         <div className="space-y-0.5">
           {info('매도 가능', `${held}주`)}
           {/* 환율을 못 받았으면 0 주라고 단언하지 않는다 — 잔고가 없다는 뜻으로 읽힌다. */}
-          {info('매수 가능', fxMissing ? '환율 조회 실패' : `${maxBuyable}주`)}
+          {info('매수 가능', fxMissing ? '환율 조회 실패' : fxPending ? '확인 중…' : `${maxBuyable}주`)}
           {/* 예상 금액은 가격 칸(지정가) 기준 — 시장가는 확인 창에서 현재가로 다시 낸다 */}
           {info(unit === 'percent' ? `매도 예상 (${percent}%, 지정가)` : '매도 예상 (지정가)', formatPrice(sellEstimate, currency))}
           {info(unit === 'percent' ? `매수 예상 (${percent}%, 지정가)` : '매수 예상 (지정가)', formatPrice(buyEstimate, currency))}

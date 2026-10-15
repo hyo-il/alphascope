@@ -106,8 +106,8 @@ export interface PaperAccountDetail {
   totalValue: number;
   totalPnl: number;
   totalReturn: number;
-  /** USD → 계좌 통화 환율 (계좌가 USD 면 1). 조회에 실패했거나 필요 없으면 null */
-  fxRate: number | null;
+  /** 1달러 = N원 (v2.45.1 — 예전 fxRate 「USD → 계좌 통화」). 환산은 `utils/fx.convertAmount`. 조회에 실패하면 null */
+  usdKrw: number | null;
   pendingOrders: number;
 }
 
