@@ -381,6 +381,103 @@ function targets(): Target[] {
         await page.waitForTimeout(600);
       },
     },
+    // AI 검증 · 계좌 복사 (v2.46.0) — 사본 DB 에 심은 계좌(「AI 검증 비교 A」 · 「AI 검증 빈 계좌」)를 골라 둔다(앱이 처음 읽는 선택 계좌라 새로 고침)
+    ...((): Target[] => {
+      const pickAccount = (name: string) => async (page: Page) => {
+        await page.evaluate(async (name) => {
+          const { accounts } = (await (await fetch('/api/paper/accounts')).json()) as { accounts: { id: number; name: string }[] };
+          const id = accounts.find((a) => a.name === name)?.id;
+          if (id) localStorage.setItem('alphascope.paperAccountId', String(id));
+        }, name);
+        await page.reload();
+        await page.waitForTimeout(2000);
+      };
+      const openDetail = async (page: Page) => {
+        await page.getByText('현재 계좌').first().click();
+        await page.waitForTimeout(1500);
+      };
+      const A = 'AI 검증 비교 A';
+      return [
+        {
+          name: 'account-AI검증-최근판단',
+          hash: '#/portfolio/paper',
+          before: pickAccount(A),
+          open: async (page) => {
+            await openDetail(page);
+            await click(/최근 판단 보기/)(page);
+            await page.getByRole('button', { name: 'AI 이유 보기' }).first().click();
+            await page.getByRole('button', { name: '까닭 보기' }).first().click();
+            await page.waitForTimeout(400);
+          },
+        },
+        {
+          name: 'account-AI검증기록',
+          hash: '#/portfolio/paper',
+          before: pickAccount(A),
+          open: async (page) => {
+            await openDetail(page);
+            await page.getByRole('button', { name: 'AI 검증 기록' }).first().click();
+            await page.waitForTimeout(1500);
+            await page.locator('tbody tr[aria-expanded]').nth(1).click();
+            await page.waitForTimeout(400);
+          },
+        },
+        {
+          name: 'dialog-자동매매설정-AI켬-접힘',
+          hash: '#/portfolio/paper',
+          before: pickAccount(A),
+          open: async (page) => {
+            await openDetail(page);
+            await click('자동매매 설정')(page);
+          },
+        },
+        {
+          name: 'dialog-자동매매설정-AI켬-펼침',
+          hash: '#/portfolio/paper',
+          before: pickAccount(A),
+          open: async (page) => {
+            await openDetail(page);
+            await click('자동매매 설정')(page);
+            await click('펼치기')(page);
+          },
+        },
+        {
+          // Gemini 가 켜진 서버처럼(경고 없음) · 끔 상태 — 응답 바꿔치기
+          name: 'dialog-자동매매설정-AI끔-Gemini켬',
+          hash: '#/portfolio/paper',
+          before: async (page) => {
+            await page.route('**/api/gemini/status', (r) => r.fulfill({ json: { enabled: true, model: 'test', reason: null, analysesToday: 0 } }));
+            await pickAccount(A)(page);
+          },
+          after: (page) => page.unroute('**/api/gemini/status'),
+          open: async (page) => {
+            await openDetail(page);
+            await click('자동매매 설정')(page);
+            await page.getByRole('radiogroup', { name: 'AI 검증' }).getByText('끔').click();
+            await page.waitForTimeout(300);
+          },
+        },
+        {
+          name: 'dialog-자동매매설정-0종목',
+          hash: '#/portfolio/paper',
+          before: pickAccount('AI 검증 빈 계좌'),
+          open: async (page) => {
+            await openDetail(page);
+            await click('자동매매 설정')(page);
+          },
+        },
+        {
+          name: 'dialog-계좌복사',
+          hash: '#/portfolio/paper',
+          before: pickAccount(A),
+          open: async (page) => {
+            await openDetail(page);
+            await click('계좌 복사')(page);
+            await page.waitForTimeout(800);
+          },
+        },
+      ];
+    })(),
     // 사이드 메뉴 — 보고 있는 대메뉴를 접은 상태 (v2.43.1)
     {
       name: 'nav-보고있는대메뉴-접힘',

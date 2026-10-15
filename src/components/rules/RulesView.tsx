@@ -77,7 +77,7 @@ export default function RulesView() {
           매매 규칙은 매수·매도 조건을 담은 묶음입니다. 매수 조건마다 점수를 정하고, 합계가 기준 점수 이상이면 매수합니다.
           <br />
           <span className="text-text-muted">
-            지금은 규칙을 만들고 살펴보는 단계입니다 — 매수 판단 도우미·계좌 자동매매·백테스트는 아직 예전 방식 그대로이고, 다음 단계에서 여기 규칙을 골라 쓰게 됩니다.
+            매수 판단 도우미 · 계좌 자동매매 · 백테스트가 여기 규칙을 하나씩 골라 씁니다 — 같은 종목·같은 규칙이면 같은 판단입니다.
           </span>
         </p>
 
@@ -105,21 +105,22 @@ export default function RulesView() {
             <table className="w-full text-left text-xs">
               <thead className="text-caption text-text-muted">
                 <tr className="border-b border-border/50">
-                  <th className={`${TABLE_NAME_COL} py-2 pr-4`}>규칙 이름</th>
-                  <th className="whitespace-nowrap py-2 pr-6">적용된 곳</th>
+                  {/* 규칙 이름 = 내용 폭(최대 16rem, 넘으면 말줄임) · 적용된 곳 = 남는 폭, 줄바꿈 · 버튼 = 줄바꿈 금지 (v2.46.0 — 계좌가 많으면 이름이 「기…」 로 잘리고 [삭제] 가 밀려났다) */}
+                  <th className="whitespace-nowrap py-2 pr-6">규칙 이름</th>
+                  <th className={`${TABLE_NAME_COL} py-2 pr-6`}>적용된 곳</th>
                   <th className="py-2" aria-label="동작" />
                 </tr>
               </thead>
               <tbody>
                 {r.rules.map((rule) => (
                   <tr key={rule.id} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW}`}>
-                    <td className="max-w-0 py-1 pr-4">
-                      <span className="block truncate font-medium text-text-primary" title={rule.name}>
+                    <td className="py-1 pr-6">
+                      <span className="block max-w-64 truncate whitespace-nowrap font-medium text-text-primary" title={rule.name}>
                         {rule.name}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap py-1 pr-6 text-text-secondary">{usageText(rule.usedBy, accountName)}</td>
-                    <td className="py-1">
+                    <td className="py-1 pr-6 text-text-secondary">{usageText(rule.usedBy, accountName)}</td>
+                    <td className="whitespace-nowrap py-1">
                       <div className="flex items-center justify-end gap-2">
                         <Button size="sm" icon={Eye} onClick={() => setOpen(rule.id)}>
                           조건 보기
