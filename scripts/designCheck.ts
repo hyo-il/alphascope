@@ -446,7 +446,7 @@ function targets(): Target[] {
           name: 'dialog-자동매매설정-AI끔-Gemini켬',
           hash: '#/portfolio/paper',
           before: async (page) => {
-            await page.route('**/api/gemini/status', (r) => r.fulfill({ json: { enabled: true, model: 'test', reason: null, analysesToday: 0 } }));
+            await page.route('**/api/gemini/status', (r) => r.fulfill({ json: { enabled: true, model: 'test', reason: null, usage: { date: '2026-10-15', items: [], totalCalls: 0 } } }));
             await pickAccount(A)(page);
           },
           after: (page) => page.unroute('**/api/gemini/status'),

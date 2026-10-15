@@ -385,7 +385,7 @@ export function byPromptVersion(items: ScoredAnalysis[]): Record<string, Accurac
  */
 export function byTrigger(items: ScoredAnalysis[]): Partial<Record<GeminiTrigger, AccuracyStats>> {
   const out: Partial<Record<GeminiTrigger, AccuracyStats>> = {};
-  for (const t of ['auto', 'scheduled', 'manual'] as const) {
+  for (const t of ['scheduled', 'manual', 'other'] as const) {
     const subset = items.filter((i) => i.source === 'gemini' && i.trigger === t);
     if (subset.length) out[t] = summarize(subset);
   }

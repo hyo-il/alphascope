@@ -25,10 +25,8 @@ import { insertAnalysis } from './store';
 
 export interface RunOptions {
   symbol: string;
-  /** 'auto' = 계좌 자동매매 · 'scheduled' = 지정 종목 · 'manual' = 바로 분석 */
-  trigger: GeminiTrigger;
-  /** 계좌 자동매매일 때 그 계좌 id — 「AI 분석 기록」 이 계좌별로 거른다 */
-  accountId?: number | null;
+  /** 'scheduled' = 지정 종목 · 'manual' = 바로 분석 */
+  trigger: Exclude<GeminiTrigger, 'other'>;
   /** 판단의 시간축. 수동 분석과 같은 정의를 쓴다. */
   horizon?: InvestmentHorizon;
   /** 차트 이미지 (data URL 또는 순수 base64). 기술 분석가에게만 붙는다. */
@@ -167,7 +165,6 @@ export async function runAnalysis(options: RunOptions): Promise<GeminiAnalysis> 
     tokens,
     elapsedMs: Date.now() - startedAt,
     trigger: options.trigger,
-    accountId: options.accountId ?? null,
     // 국내 종목에 투자자 동향 블록이 실제로 들어갔을 때만 v1-flow (agents.ts 의 규칙)
     promptVersion: context.flowIncluded ? FLOW_PROMPT_VERSION : PROMPT_VERSION,
   };

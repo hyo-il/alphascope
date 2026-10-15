@@ -85,9 +85,9 @@ type Row = {
   account_id: number | null;
 };
 
-/** 옛 행은 'auto'·'manual' 둘뿐이다 — 모르는 값은 예전처럼 auto 로 읽는다 */
+/** 옛 'auto'(계좌 자동, v2.44.0 에 없앴다)·모르는 값은 'other' 로 읽는다 (v2.47.0) */
 export function triggerOf(value: string): GeminiTrigger {
-  return value === 'manual' || value === 'scheduled' ? value : 'auto';
+  return value === 'manual' || value === 'scheduled' ? value : 'other';
 }
 
 function toRecord(row: Row): GeminiAnalysis {
@@ -107,7 +107,6 @@ function toRecord(row: Row): GeminiAnalysis {
     tokens: row.tokens,
     elapsedMs: row.elapsed_ms,
     trigger: triggerOf(row.trigger),
-    accountId: row.account_id ?? null,
     promptVersion: row.prompt_version ?? LEGACY_PROMPT_VERSION,
   };
 }
@@ -131,6 +130,8 @@ export function insertAnalysis(record: Omit<GeminiAnalysis, 'id'>): number {
     )
     .run({
       ...record,
+      // account_id 칸은 옛 「계좌 자동」 기록용이다 — v2.47.0 부터 쓰지 않는다(칸은 옛 DB 와 맞추려고 남긴다)
+      accountId: null,
       agents: JSON.stringify(record.agents),
       verdict: JSON.stringify(record.verdict),
     });
@@ -171,21 +172,6 @@ export function deleteAllAnalyses(symbol?: string): number {
     ? db().prepare(`DELETE FROM gemini_analysis WHERE symbol = ?`).run(symbol.toUpperCase())
     : db().prepare(`DELETE FROM gemini_analysis`).run();
   return result.changes;
-}
-
-/** 오늘(서버 로컬 기준) 저장된 분석 건수 — 출처(계좌·지정·바로)를 가리지 않는다 */
-export function analysesToday(): number {
-  const midnight = new Date();
-  midnight.setHours(0, 0, 0, 0);
-  const row = db()
-    .prepare(`SELECT COUNT(*) AS n FROM gemini_analysis WHERE created_at >= ?`)
-    .get(midnight.toISOString()) as { n: number };
-  return row.n;
-}
-
-/** 오늘(로컬 기준) 호출 수 — 1종목당 5회로 환산해 예산을 가늠한다 */
-export function countToday(): number {
-  return analysesToday() * 5;
 }
 
 // ── 설정 ────────────────────────────────────────────────

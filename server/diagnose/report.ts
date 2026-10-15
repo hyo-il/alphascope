@@ -408,7 +408,7 @@ async function geminiAccuracy(symbols: string[]) {
       judged: v.scored,
       rate: v.accuracy === null ? null : round2(v.accuracy),
     })),
-    bySource: (['auto', 'scheduled', 'manual'] as const)
+    bySource: (['scheduled', 'manual', 'other'] as const)
       .filter((t) => sources[t])
       .map((t) => ({
         source: t,
@@ -424,23 +424,6 @@ async function geminiAccuracy(symbols: string[]) {
     byConfidence: [byConfidence(0, 0.6), byConfidence(0.6, 0.7), byConfidence(0.7, 0.8), byConfidence(0.8, 1.01)],
     baselineUp5: totalDays ? round2((upDays / totalDays) * 100) : 0,
     claude,
-  };
-}
-
-/** 자동매매 AI형의 실제 거래 (사유로 가른다 — TradeHistory 의 `isAuto` 와 같은 방식) */
-function autoTrades() {
-  const rows = getDb()
-    .prepare(
-      `SELECT pnl, pnl_percent FROM paper_trades
-        WHERE side = 'SELL' AND reason IS NOT NULL AND reason != '' AND pnl IS NOT NULL`,
-    )
-    .all() as { pnl: number; pnl_percent: number }[];
-  if (!rows.length) return { n: 0, winRate: 0, avgPnl: 0 };
-  const wins = rows.filter((r) => r.pnl > 0).length;
-  return {
-    n: rows.length,
-    winRate: round2((wins / rows.length) * 100),
-    avgPnl: round2(rows.reduce((a, r) => a + r.pnl_percent, 0) / rows.length),
   };
 }
 
@@ -516,7 +499,6 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
 
   step(3, 'Gemini 정확도');
   const gemini = await geminiAccuracy(list);
-  const trades = autoTrades();
   // 뉴스 AI 판정 (v2.21.0) — 저장된 판정만 채점한다. Gemini 를 새로 부르지 않는다
   const news = newsAccuracy();
 
@@ -585,7 +567,6 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
   }
   md.push(`- 적중률 **${gemini.rate}%** (${gemini.correct}/${gemini.judged})${weak(gemini.judged)}.`);
   md.push(`- 기준선(같은 종목을 아무 날 샀을 때 5일 뒤 상승 비율) **${gemini.baselineUp5}%** — AI 가 이보다 높아야 의미가 있습니다.`);
-  if (trades.n) md.push(`- 자동매매 청산 거래 ${trades.n}건: 승률 ${trades.winRate}%, 평균 ${pct(trades.avgPnl)}.`);
   md.push('');
 
   // Q4 (v2.21.0)
@@ -676,16 +657,16 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
 
   fs.writeFileSync(`${base}.md`, md.join('\n'), 'utf8');
   fs.writeFileSync(`${base}.json`, JSON.stringify(
-    { server, stamp, symbols: list, freq, surge, outcomes, gemini, trades, beforeRows, afterRows, elapsed },
+    { server, stamp, symbols: list, freq, surge, outcomes, gemini, beforeRows, afterRows, elapsed },
     null, 2), 'utf8');
 
 
   const summary = buildSummary({
     server, stamp, elapsed, list, source,
     freq, spyRow: pick(spy, 3, 10, '2:1') ?? null, sample,
-    surge, gemini, trades, news,
+    surge, gemini, news,
   });
-  const detail = { server, stamp, symbols: list, freq, surge, outcomes, gemini, trades, beforeRows, afterRows, elapsed };
+  const detail = { server, stamp, symbols: list, freq, surge, outcomes, gemini, beforeRows, afterRows, elapsed };
   const id = saveReport(server, summary, detail);
 
   // ── 콘솔 요약 (20줄 이내) ──
@@ -721,7 +702,6 @@ function buildSummary(x: {
   spyRow: FreqRow | null; sample: FreqRow[];
   surge: SurgeVerdict;
   gemini: Awaited<ReturnType<typeof geminiAccuracy>>;
-  trades: ReturnType<typeof autoTrades>;
   news: NewsAccuracy;
 }): DiagnoseSummary {
   const avgHit = mean(x.sample.map((r) => r.hitTarget));
@@ -777,7 +757,6 @@ function buildSummary(x: {
       judged: g.judged,
       rate: g.rate,
       baseline: g.baselineUp5,
-      trades: x.trades,
       weak: aiWeak,
       conclusion: aiWeak
         ? `표본 부족 — 결론 내릴 수 없습니다 (채점 가능 ${g.judged}건).`

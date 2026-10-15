@@ -11,7 +11,6 @@ import StockName from '../common/StockName';
 import { useStockNames } from '../../hooks/useStockNames';
 import GeminiAnalysisCard from './GeminiAnalysisCard';
 import { GEMINI_TRIGGER_LABEL } from './AISourceBadge';
-import { usePaperAccounts } from '../../hooks/usePaperTrading';
 import { SkeletonList } from '../common/SkeletonLoader';
 
 /** Claude 기록 (analysis_history) — 저장·편집은 '수동 분석' 탭이 담당하고 여기서는 읽기만 한다 */
@@ -45,18 +44,16 @@ function directionOf(signal: string): 'up' | 'down' | 'flat' {
 }
 
 /**
- * 출처 필터 (v2.23.0) — 전체 / 계좌 자동(계좌별) / 지정 종목 / 바로 분석 / Claude 수동.
- * 배지와 같은 이름을 쓴다(`GEMINI_TRIGGER_LABEL`).
+ * 출처 필터 (v2.23.0 → v2.47.0) — 전체 / 지정 종목 / 바로 분석 / (있을 때만) 기타 / Claude 수동.
+ * 배지와 같은 이름을 쓴다(`GEMINI_TRIGGER_LABEL`). 예전 「계좌 자동」(계좌별) 필터는 AI형 자동매매와 함께 없앴다.
  */
-type SourceFilter = 'all' | 'auto' | `auto:${number}` | 'scheduled' | 'manual' | 'claude';
+type SourceFilter = 'all' | 'scheduled' | 'manual' | 'other' | 'claude';
 
 function matchesSource(item: Item, filter: SourceFilter): boolean {
   if (filter === 'all') return true;
   if (filter === 'claude') return item.kind === 'claude';
   if (item.kind !== 'gemini') return false;
-  const { trigger, accountId } = item.data;
-  if (filter.startsWith('auto:')) return trigger === 'auto' && accountId === Number(filter.slice(5));
-  return trigger === filter;
+  return item.data.trigger === filter;
 }
 
 type Item =
@@ -88,11 +85,6 @@ export default function AnalysisTimeline({
   /** NEW 뱃지를 보여 줄 기준 시각 — 3초 뒤에 스스로 꺼진다 */
   const [highlightSince, setHighlightSince] = useState<number | null>(null);
   const [source, setSource] = useState<SourceFilter>('all');
-  const { accounts } = usePaperAccounts();
-  const accountName = useCallback(
-    (id: number | null) => (id == null ? null : (accounts.find((a) => a.id === id)?.name ?? `계좌 ${id}`)),
-    [accounts],
-  );
 
   /*
    * 여러 종목을 돌렸으면 '현재 종목만' 을 자동으로 푼다.
@@ -156,25 +148,19 @@ export default function AnalysisTimeline({
 
   const shown = useMemo(() => items.filter((item) => matchesSource(item, source)), [items, source]);
 
-  /** 필터 목록 — 계좌 자동은 기록에 나온 계좌별로 하나씩 (계좌가 없는 옛 기록은 「계좌 자동」 전체에만) */
+  /** 필터 목록 — 출처마다 하나, 「기타」 는 옛 기록이 있을 때만 */
   const sourceOptions = useMemo(() => {
     const count = (filter: SourceFilter) => items.filter((item) => matchesSource(item, filter)).length;
-    const accountIds = [
-      ...new Set(gemini.filter((g) => g.trigger === 'auto' && g.accountId != null).map((g) => g.accountId!)),
-    ];
     const options: { value: SourceFilter; label: string }[] = [
       { value: 'all', label: `전체 (${items.length})` },
-      { value: 'auto', label: `${GEMINI_TRIGGER_LABEL.auto} — 모든 계좌 (${count('auto')})` },
-      ...accountIds.map((id) => ({
-        value: `auto:${id}` as SourceFilter,
-        label: `　${GEMINI_TRIGGER_LABEL.auto} — ${accountName(id)} (${count(`auto:${id}`)})`,
-      })),
       { value: 'scheduled', label: `${GEMINI_TRIGGER_LABEL.scheduled} (${count('scheduled')})` },
       { value: 'manual', label: `${GEMINI_TRIGGER_LABEL.manual} (${count('manual')})` },
+      // 옛 기록(예전 「계좌 자동」 등)이 남아 있을 때만
+      ...(count('other') ? [{ value: 'other' as SourceFilter, label: `${GEMINI_TRIGGER_LABEL.other} (${count('other')})` }] : []),
       { value: 'claude', label: `Claude 수동 (${count('claude')})` },
     ];
     return options;
-  }, [items, gemini, accountName]);
+  }, [items]);
 
   /** 같은 종목·같은 날 두 AI 가 모두 분석한 경우의 일치 여부 */
   const agreement = useMemo(() => {
@@ -332,7 +318,6 @@ export default function AnalysisTimeline({
             currentPrice={item.data.symbol === symbol ? currentPrice : null}
             isNew={highlightSince != null && Date.parse(item.at) >= highlightSince}
             onDelete={(id) => void removeGemini(id)}
-            accountName={item.data.trigger === 'auto' ? accountName(item.data.accountId) : null}
           />
         ) : (
           <ClaudeCard

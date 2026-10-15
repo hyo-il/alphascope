@@ -59,6 +59,7 @@ import { parseRuleBody, ruleFieldErrors, ruleNameError } from '../src/utils/rule
 import { cloneRuleBody, type RuleBody } from '../src/types/tradingRule';
 import { namesAndSectors, researchTargets } from './autoTrading/ruleResearch';
 import { explainBacktest } from './gemini/backtestAi';
+import { geminiUsageToday } from './gemini/usage';
 import { parseBacktestInput } from '../src/utils/backtestInput';
 import { runDataResetV2440 } from './dataReset/v2_44_0';
 import { previousClose as previousCloseOf } from './previousClose';
@@ -72,7 +73,6 @@ import {
   listReports as listDiagnoseReports,
 } from './diagnose/store';
 import {
-  analysesToday as analysesTodayCount,
   deleteAllAnalyses as deleteAllGeminiAnalyses,
   deleteAnalysis as deleteGeminiAnalysis,
   getAnalysis as getGeminiAnalysis,
@@ -1018,12 +1018,12 @@ function requireGemini(res: express.Response): boolean {
 app.get('/api/gemini/status', (_req, res) => {
   try {
     // 꺼져 있으면 이유도 함께 준다 — 키 없음과 서버 스위치(GEMINI_ENABLED=false)는 대처가 다르다
-    // analysesToday — 「AI 분석 기록」 상태 판의 "오늘 Gemini 사용" (무료 등급 사용량을 가늠한다, v2.23.0)
+    // usage — 「검증 기록 > AI 분석」 상태 판의 "오늘 Gemini 사용" — 기능별(v2.47.0, 예전 analysesToday = AI 분석만)
     res.json({
       enabled: isGeminiEnabled(),
       model: DEFAULT_MODEL,
       reason: geminiDisabledReason(),
-      analysesToday: analysesTodayCount(),
+      usage: geminiUsageToday(),
     });
   } catch (e) {
     fail(res, e);

@@ -38,7 +38,11 @@ export interface ModeratorVerdict {
   summary: string;
 }
 
-export type GeminiTrigger = 'auto' | 'scheduled' | 'manual';
+/**
+ * 분석 출처. v2.47.0 — 「계좌 자동」(AI형 자동매매, v2.44.0 에 없앴다)은 더 생기지 않는다. 옛 DB 값 'auto'·모르는 값은 'other' 로 읽는다
+ * (v2.44.0 데이터 정리가 그 기록을 지웠으므로 보통 0건이다).
+ */
+export type GeminiTrigger = 'scheduled' | 'manual' | 'other';
 
 /**
  * Gemini 분석의 출처 이름 (v2.23.0, v2.30.0 에 화면 파일에서 여기로 — 진단 리포트(서버)도 같은 이름을 쓴다).
@@ -46,10 +50,27 @@ export type GeminiTrigger = 'auto' | 'scheduled' | 'manual';
  * '자동 분석' 이라는 말은 쓰지 않는다 — 차트 탭의 버튼(바로 분석)을 자동으로 도는 것으로 오해하게 했다.
  */
 export const GEMINI_TRIGGER_LABEL: Record<GeminiTrigger, string> = {
-  auto: '계좌 자동',
   scheduled: '지정 종목',
   manual: '바로 분석',
+  other: '기타',
 };
+
+/** 오늘 Gemini 사용량 한 줄 (v2.47.0, `server/gemini/usage.ts`) */
+export interface GeminiUsageItem {
+  key: 'analysis' | 'aiCheck' | 'news' | 'target' | 'backtestExplain';
+  label: string;
+  /** 실행 수(종목·버튼 수). AI 검증은 실행 = 호출이라 null */
+  runs: number | null;
+  /** 호출 수(기록에서 환산) */
+  calls: number;
+}
+
+export interface GeminiUsage {
+  /** 한국 시간 날짜 */
+  date: string;
+  items: GeminiUsageItem[];
+  totalCalls: number;
+}
 
 /** 저장되는 분석 한 건 */
 export interface GeminiAnalysis {
@@ -71,15 +92,13 @@ export interface GeminiAnalysis {
   tokens: number;
   elapsedMs: number;
   /**
-   * 분석 출처 (v2.23.0 에 셋으로 나눴다)
-   * - 'auto' = 계좌 자동매매(AI형) — `accountId` 가 함께 저장된다(그 전 기록은 null)
+   * 분석 출처 (v2.23.0 → v2.47.0)
    * - 'scheduled' = 내가 지정한 종목(하루 1번)
    * - 'manual' = 사용자가 버튼으로 바로 실행
-   * 채점은 셋 다 똑같이 한다 (accuracy.ts 는 출처를 보지 않는다).
+   * - 'other' = 옛 「계좌 자동」 등 지금은 생기지 않는 값
+   * 채점은 출처를 보지 않는다 (accuracy.ts).
    */
   trigger: GeminiTrigger;
-  /** 계좌 자동매매가 낸 분석이면 그 계좌 id. 그 밖·옛 기록은 null */
-  accountId: number | null;
   /** 분석에 쓴 프롬프트 버전 (server/gemini/agents.ts 의 PROMPT_VERSION). 옛 기록은 'v1' */
   promptVersion: string;
 }

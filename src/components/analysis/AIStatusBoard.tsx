@@ -1,18 +1,21 @@
 import { formatDateTime } from '../../utils/dateFormat';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
+import InfoTip from '../ui/InfoTip';
 import { useEffect, useState, type ReactNode } from 'react';
 import { SIDE_POLL_MS, useAutoTradingOverview } from '../../hooks/usePaperOverview';
 import { usePaperAccounts } from '../../hooks/usePaperTrading';
 import { useTradingRules } from '../../hooks/useTradingRules';
 import { autoTradeView } from '../../utils/autoTradeStatus';
+import type { GeminiUsage } from '../../types/gemini';
+import { formatNumber } from '../../utils/formatters';
 
 /**
- * 「AI 분석 기록」 맨 위 상태 판 (v2.23.0) — "무엇이, 언제, 왜 분석되는가" 를 한눈에.
+ * 「검증 기록 > AI 분석」 맨 위 상태 판 (v2.23.0 → v2.47.0) — "무엇이, 언제, 왜 Gemini 를 부르는가" 를 한눈에.
  *
- * - 계좌 자동 분석: **기존 자동매매 상태 묶음 라우트**(`/api/auto-trading/overview`)를 그대로 쓴다.
- *   새 라우트·새 폴링을 만들지 않는다 — 오른쪽 계좌 탭과 같은 15초 주기 훅이다.
+ * - 계좌 자동매매: **기존 자동매매 상태 묶음 라우트**(`/api/auto-trading/overview`)를 그대로 쓴다.
+ *   새 라우트·새 폴링을 만들지 않는다 — 오른쪽 계좌 탭과 같은 15초 주기 훅이다. 판단은 매매 규칙이 하고, Gemini 는 「AI 검증」 을 켠 계좌만 부른다(v2.46.0).
  * - 내가 지정한 종목: `scheduled` 로 받은 칸을 그대로 둔다(지정 종목 화면이 그린다).
- * - 오늘 Gemini 사용량: `/api/gemini/status` 의 analysesToday (1종목 = 5호출로 환산).
+ * - 오늘 Gemini 사용량: `/api/gemini/status` 의 usage — 기능별(v2.47.0, `server/gemini/usage.ts`).
  */
 
 const time = (iso: string | null | undefined) =>
@@ -32,15 +35,15 @@ function Cell({ title, children }: { title: string; children: ReactNode }) {
 export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) {
   const { items, error } = useAutoTradingOverview(true, SIDE_POLL_MS);
   const { accounts } = usePaperAccounts();
-  const [usage, setUsage] = useState<{ analyses: number; enabled: boolean } | null>(null);
+  const [usage, setUsage] = useState<{ usage: GeminiUsage | null; enabled: boolean } | null>(null);
 
   // 사용량은 화면을 열 때 한 번 — 폴링할 값이 아니다(분석은 길게는 한 시간에 한 바퀴다)
   useEffect(() => {
     let alive = true;
     void fetch('/api/gemini/status')
       .then((r) => r.json())
-      .then((data: { enabled?: boolean; analysesToday?: number }) => {
-        if (alive) setUsage({ analyses: data.analysesToday ?? 0, enabled: Boolean(data.enabled) });
+      .then((data: { enabled?: boolean; usage?: GeminiUsage }) => {
+        if (alive) setUsage({ usage: data.usage ?? null, enabled: Boolean(data.enabled) });
       })
       .catch(() => undefined);
     return () => {
@@ -78,7 +81,8 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
                     </span>
                   </div>
                   <div className="text-text-muted">
-                    마지막 {time(status.lastRunAt)} · 오늘 판단 {status.judgedToday}/{strategy.symbols.length}종목 · Gemini 를 쓰지 않습니다
+                    마지막 {time(status.lastRunAt)} · 오늘 판단 {status.judgedToday}/{strategy.symbols.length}종목 ·{' '}
+                    {strategy.aiCheck ? 'AI 검증 켬(「사도 됨」 이면 사기 직전 Gemini 1회)' : 'AI 검증 끔 — Gemini 를 쓰지 않습니다'}
                     {status.blockedReason && strategy.enabled && (
                       <span className="text-warning"> · {status.blockedReason}</span>
                     )}
@@ -99,11 +103,23 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
       </div>
 
       <p className="text-caption text-text-muted">
-        오늘 Gemini 사용:{' '}
-        {usage ? (
+        오늘 Gemini 사용{usage?.usage ? ` (${usage.usage.date}, 한국 시간)` : ''}:{' '}
+        {usage?.usage ? (
           <>
-            분석 <b className="text-text-secondary">{usage.analyses}</b>건 ≈ 약{' '}
-            <b className="text-text-secondary">{usage.analyses * 5}</b>호출 (1종목 = 에이전트 4 + 의장 1)
+            {usage.usage.items.map((item, i) => (
+              <span key={item.key} className="whitespace-nowrap">
+                {i > 0 && ' · '}
+                {item.label} <b className="text-text-secondary">{formatNumber(item.calls, 0)}</b>회
+              </span>
+            ))}
+            {' · '}
+            <span className="whitespace-nowrap">
+              합계 약 <b className="text-text-secondary">{formatNumber(usage.usage.totalCalls, 0)}</b>회
+            </span>
+            <InfoTip label="Gemini 사용량 세는 법">
+              따로 세는 장치 없이 저장된 기록에서 셉니다. AI 분석·목표 수익 가능성은 한 번에 5회(에이전트 4 + 의장 1), 뉴스 AI 판정·백테스트 AI 설명은 1회, AI 검증은 실제로
+              부른 수입니다. 저장되지 않은 실패 호출(한도 초과·오류)은 AI 검증 말고는 세지 않습니다. 백테스트 설명은 남아 있는 기록(최근 20개)에 붙은 것만 셉니다.
+            </InfoTip>
             {!usage.enabled && ' · 이 서버에서는 Gemini 가 꺼져 있습니다'}
           </>
         ) : (

@@ -41,7 +41,6 @@ export interface DiagnoseSummary {
     judged: number;
     rate: number;
     baseline: number;
-    trades: { n: number; winRate: number; avgPnl: number };
     weak: boolean;
     conclusion: string;
   };
