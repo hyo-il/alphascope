@@ -61,9 +61,14 @@ export default function SectorRanking({
               </div>
               <div className="ml-5 mt-0.5 flex flex-wrap gap-x-2 text-caption text-text-secondary">
                 {s.top.map((t) => (
-                  <span key={t.symbol} className="inline-flex items-baseline gap-0.5" title={`섹터 수익률 기여 ${formatSigned(t.contribution, 2, '%p', { plus: false })}`}>
+                  // 긴 이름(「스미토모 미쓰이 파이낸셜 그룹(ADR)」 등)은 이름만 줄이고 등락률은 늘 보인다 — 숫자를 자르지 않는다(v2.44.3 캡처 검토)
+                  <span
+                    key={t.symbol}
+                    className="inline-flex min-w-0 max-w-full items-baseline gap-1"
+                    title={`${t.name ?? t.symbol} — 섹터 수익률 기여 ${formatSigned(t.contribution, 2, '%p', { plus: false })}`}
+                  >
                     <StockName symbol={t.symbol} name={t.name ?? undefined} size="sm" />
-                    <span className={`tabular-nums ${tone(t.returnPct)}`}>{pct(t.returnPct)}</span>
+                    <span className={`shrink-0 whitespace-nowrap tabular-nums ${tone(t.returnPct)}`}>{pct(t.returnPct)}</span>
                   </span>
                 ))}
               </div>

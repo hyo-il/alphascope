@@ -101,6 +101,31 @@ function targets(): Target[] {
         await page.evaluate((v) => localStorage.setItem('alphascope.heatmapView', JSON.stringify({ ...v, period: '1d', off: { market: [], watch: [] }, watchSize: 'cap' })), v);
       },
     })),
+    // v2.44.3 — 기준가를 확인하지 못한 종목은 등락률이 null → 「—」(지도 칸 · 관심 패널). 응답의 절반을 null 로 바꿔치기 — DB 는 그대로
+    {
+      name: 'heatmap-등락률없음',
+      hash: '#/heatmap',
+      before: async (page) => {
+        await page.evaluate(() => localStorage.setItem('alphascope.heatmapView', JSON.stringify({ view: 'watch', market: 'kr', top: 50, period: '1d', off: { market: [], watch: [] }, watchSize: 'cap' })));
+        await page.route('**/api/heatmap**', async (r) => {
+          const res = await r.fetch();
+          const body = (await res.json()) as { cells: { changeRate: number | null }[] };
+          body.cells.forEach((c, i) => i % 2 === 0 && (c.changeRate = null));
+          await r.fulfill({ response: res, json: body });
+        });
+        await page.route('**/api/quotes**', async (r) => {
+          const res = await r.fetch();
+          const body = (await res.json()) as { quotes: { changeRate: number | null }[] };
+          body.quotes?.forEach((q, i) => i % 2 === 0 && (q.changeRate = null));
+          await r.fulfill({ response: res, json: body });
+        });
+      },
+      after: async (page) => {
+        await page.unroute('**/api/heatmap**');
+        await page.unroute('**/api/quotes**');
+      },
+      open: async (page) => { await page.waitForTimeout(2500); },
+    },
     {
       name: 'heatmap-장중-N초전갱신',
       hash: '#/heatmap',
