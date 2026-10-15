@@ -379,3 +379,37 @@ CREATE TABLE IF NOT EXISTS buy_judgments (
   UNIQUE (market_date, symbol, rule_id)
 );
 CREATE INDEX IF NOT EXISTS idx_buy_judgments_symbol ON buy_judgments (symbol, market_date);
+
+-- AI 검증 (v2.46.0, 퀀트 4단계) — 규칙이 「사도 됨」 을 낸 종목을 사기 직전 AI(Gemini)에게 위험만 묻는다.
+-- (그 종목 시장 날짜, 종목) 한 줄 — 같은 날 같은 종목은 한 번만 묻고 여러 계좌가 같이 쓴다. 「못 함」 줄도 남긴다(그날 다시 묻지 않는다 — 한도를 지키려고).
+-- 하루 횟수(한국 시간 날짜, 최대 20번)는 따로 세지 않고 이 표에서 구한다 — 실제로 Gemini 를 부른 줄만(통과 · 위험 · 못 함 중 rate_limit/error/timeout/format).
+-- 채점(5·10·20거래일 뒤)은 저장하지 않고 읽을 때 캔들에서 구한다(price_at_check → N거래일 뒤 종가, 비용 빼지 않음).
+CREATE TABLE IF NOT EXISTS ai_checks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  market_date TEXT NOT NULL,          -- 그 종목 시장 날짜
+  symbol TEXT NOT NULL,
+  verdict TEXT NOT NULL,              -- pass · risk · unavailable
+  reasons_json TEXT NOT NULL DEFAULT '[]',  -- 이유 최대 3줄
+  unavailable_reason TEXT,            -- disabled · daily_limit · rate_limit · error · timeout · format
+  price_at_check REAL,
+  model TEXT,
+  prompt_version TEXT NOT NULL,
+  input_json TEXT,                    -- AI 에게 준 정보 그대로
+  raw_output TEXT,                    -- 모델 원문
+  tokens INTEGER,
+  elapsed_ms INTEGER,
+  created_at TEXT NOT NULL,
+  UNIQUE (market_date, symbol)
+);
+CREATE INDEX IF NOT EXISTS idx_ai_checks_created ON ai_checks(created_at);
+
+-- 계좌별 사용 기록 — 같은 검증 결과를 어느 계좌가 어떻게 썼는지(산 것 · 사지 않은 것). 채점을 계좌별로 한다.
+CREATE TABLE IF NOT EXISTS ai_check_uses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  check_id INTEGER NOT NULL REFERENCES ai_checks(id) ON DELETE CASCADE,
+  account_id INTEGER NOT NULL,
+  action TEXT NOT NULL,               -- bought · skipped
+  order_id INTEGER,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ai_check_uses_account ON ai_check_uses(account_id, created_at DESC);

@@ -31,7 +31,8 @@ export function recordNotes(accountId: number, notes: DecisionNote[]): void {
   const map = readSetting<NotesMap>(NOTES_KEY, {});
   map[String(accountId)] = {
     at: new Date().toISOString(),
-    notes: notes.slice(0, 30).map((n) => ({ symbol: n.symbol, action: n.action, reason: n.reason, ...(n.code ? { code: n.code } : {}) })),
+    // detail(AI 검증 이유)은 있을 때만 — AI 검증을 끈 계좌의 기록 모양은 예전과 같다
+    notes: notes.slice(0, 30).map((n) => ({ symbol: n.symbol, action: n.action, reason: n.reason, ...(n.code ? { code: n.code } : {}), ...(n.detail?.length ? { detail: n.detail } : {}) })),
   };
   writeSetting(NOTES_KEY, map);
 }
@@ -68,6 +69,8 @@ export function normalizeStrategy(accountId: number, raw: Partial<AccountStrateg
     earningsBlackoutDays: clamp(Math.round(Number(v.earningsBlackoutDays)), 0, 10),
     // 0~20%, 0.5 단위
     dailyLossLimitPercent: Math.round(clamp(Number(v.dailyLossLimitPercent), 0, 20) * 2) / 2,
+    // AI 검증(v2.46.0) — 옛 계좌(칸 없음)는 끔
+    aiCheck: v.aiCheck === true,
   };
 }
 

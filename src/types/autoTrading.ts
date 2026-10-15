@@ -35,6 +35,13 @@ export interface AccountStrategy {
    * 기본을 끔으로 둔 이유: 사용자 모르게 기존 계좌 동작을 바꾸지 않는다. 권장값은 없다(근거 없음).
    */
   dailyLossLimitPercent: number;
+
+  // ── AI 검증 (v2.46.0, 퀀트 4단계) ──────────────────
+  /**
+   * 규칙이 「사도 됨」 을 낸 종목을 사기 직전에 AI(Gemini)에게 한 번 묻고, 「위험」 이면 사지 않는다. 기본 끔.
+   * 매도(점수 매도 · 반대 신호 · 손절 · 익절 · 트레일링)에는 쓰지 않는다. 꺼진 계좌는 판단·주문이 예전과 같다(바이트 비교).
+   */
+  aiCheck: boolean;
 }
 
 /**
@@ -63,7 +70,11 @@ export type DecisionCode =
   | 'daily_loss'
   | 'not_enough_candles'
   | 'error'
-  | 'other';
+  | 'other'
+  // AI 검증(v2.46.0) — 규칙 「사도 됨」 → 안전장치·현금 통과 뒤 AI 에게 물은 결과
+  | 'ai_pass'
+  | 'ai_risk'
+  | 'ai_unavailable';
 
 /** 「최근 판단」 한 줄 */
 export interface DecisionNote {
@@ -71,6 +82,8 @@ export interface DecisionNote {
   action: 'BUY' | 'SELL' | 'HOLD';
   reason: string;
   code?: DecisionCode;
+  /** AI 검증 이유(최대 3줄) 또는 못 한 까닭 — 「최근 판단」 줄을 펼치면 보인다(v2.46.0). AI 검증 줄에만 붙는다 */
+  detail?: string[];
 }
 
 /**
@@ -157,5 +170,6 @@ export function defaultStrategy(accountId: number): AccountStrategy {
     maxPositions: 5,
     earningsBlackoutDays: 3,
     dailyLossLimitPercent: 0,
+    aiCheck: false,
   };
 }

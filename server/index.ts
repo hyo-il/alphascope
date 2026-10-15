@@ -132,6 +132,7 @@ import {
   setRuleId as setBuyJudgeRuleId,
   setSymbols as setBuyJudgeSymbols,
 } from './buyJudge/store';
+import { deleteUsesOf as deleteAiCheckUses } from './aiCheck/store';
 import { startBuyJudgeScheduler } from './buyJudge/scheduler';
 import { isRetention } from '../src/types/buyJudge';
 import {
@@ -738,8 +739,9 @@ app.delete('/api/paper/accounts/:id', (req, res) => {
   try {
     const id = accountIdOf(req);
     deleteAccount(id);
-    // 계좌가 사라지면 그 계좌의 자동매매 설정·트레일링 고점도 함께 버린다.
+    // 계좌가 사라지면 그 계좌의 자동매매 설정·트레일링 고점·AI 검증 사용 기록도 함께 버린다(검증 줄은 다른 계좌와 같이 쓰므로 남긴다).
     deleteStrategy(id);
+    deleteAiCheckUses(id);
     res.json({ ok: true });
   } catch (e) {
     failPaper(res, e);
