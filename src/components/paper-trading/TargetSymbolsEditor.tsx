@@ -39,8 +39,9 @@ export default function TargetSymbolsEditor({
     <>
       {collapsible && symbols.length > 0 && (
         <div className="flex items-center gap-3">
-          <p className="min-w-0 flex-1 truncate text-xs text-text-secondary" title={summary}>
-            {summary}
+          {/* 펼치면 요약 문장은 숨긴다 — 아래 표 도구 줄에 「N종목」 이 또 있다 */}
+          <p className="min-w-0 flex-1 truncate text-xs text-text-secondary" title={open ? undefined : summary}>
+            {open ? '' : summary}
           </p>
           <DisclosureButton open={open} onToggle={() => setOpen((v) => !v)} label="펼치기" controls={bodyId} />
         </div>
@@ -51,7 +52,7 @@ export default function TargetSymbolsEditor({
         selected={symbols}
         onChange={onChange}
         dialogTitle="자동매매 대상 종목 추가"
-        emptyText="아직 추가한 종목이 없습니다. 종목이 없으면 자동매매를 켤 수 없습니다."
+        emptyText="아직 추가한 종목이 없습니다. [종목 추가] 로 넣으세요 — 종목이 없으면 자동매매를 켤 수 없습니다."
       />
         </div>
       )}
