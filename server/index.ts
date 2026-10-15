@@ -161,7 +161,7 @@ import {
   valuePositions,
   getAccount as getPaperAccount,
 } from './paperTradingService';
-import { computePerformance, listSnapshots } from './paperPerformanceService';
+import { computePerformance } from './paperPerformanceService';
 import { backfillSnapshots, startSnapshotScheduler } from './paperSnapshotScheduler';
 import { startUniverseSnapshotScheduler } from './universe';
 import { getEarningsDate, startEarningsScheduler } from './earningsCalendar';
@@ -552,14 +552,6 @@ app.get('/api/stocks/names', (req, res) => {
   }
 });
 
-app.post('/api/stocks/refresh', async (_req, res) => {
-  try {
-    res.json({ count: await refreshCatalog(true) });
-  } catch (e) {
-    fail(res, e);
-  }
-});
-
 app.get('/api/market-overview', async (_req, res) => {
   const url = `${process.env.INDICATORS_URL ?? `http://127.0.0.1:${process.env.INDICATORS_PORT ?? 5001}`}/market-overview`;
 
@@ -941,14 +933,6 @@ app.get('/api/paper/trades', (req, res) => {
 app.get('/api/paper/performance', async (req, res) => {
   try {
     res.json(await computePerformance(accountIdOf(req)));
-  } catch (e) {
-    failPaper(res, e);
-  }
-});
-
-app.get('/api/paper/snapshots', (req, res) => {
-  try {
-    res.json({ snapshots: listSnapshots(accountIdOf(req)) });
   } catch (e) {
     failPaper(res, e);
   }
