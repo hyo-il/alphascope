@@ -149,6 +149,8 @@ export interface BacktestCustomReport {
   computedAt: string;
   explain?: BacktestExplain;
   spy?: { hold: number; from: string; to: string } | { error: string };
+  /** 시장 필터(v2.51.0) — 시장 기준 데이터가 없어 「시장 데이터 없음」 으로 사지 않은 기간이 있으면 한 줄씩(없으면 칸이 없다) */
+  marketWarnings?: string[];
 }
 
 /** ① 종목 추가 창의 묶음 — 시총 상위 100 중 7분야 + 내 관심 목록 */

@@ -22,7 +22,7 @@ import { marketDate } from '../../src/utils/marketDate';
 import type { Candle } from '../../src/types/toss';
 import type { IndicatorSeries } from '../../src/types/chart';
 import { usesMa200, usesMarketFilter, type RuleBody } from '../../src/types/tradingRule';
-import { loadMarketRef, marketOfSymbol } from '../rules/marketRef';
+import { marketOfSymbol, marketRefLoader, MARKET_REF } from '../rules/marketRef';
 import type { MarketRefData } from '../rules/engine';
 import {
   BACKTEST_SECTORS,
@@ -299,15 +299,24 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
   // 시장 필터(v2.51.0) — 켠 방법이 있으면 시장 기준 일봉을 시장마다 한 번(시험 기간 + 준비 220). 못 받으면 null → 그 시장 종목은 매수 날마다 「시장 데이터 없음」
   const useMarket = rules.some((r) => usesMarketFilter(r));
   const markets = new Map<string, MarketRefData | null>();
+  const refs = marketRefLoader(Date.now(), undefined, days + WARMUP_200);
   const marketFor = async (symbol: string): Promise<MarketRefData | null | undefined> => {
     if (!useMarket) return undefined;
     const m = marketOfSymbol(symbol);
     if (!markets.has(m)) {
-      const ref = await loadMarketRef(m, Date.now(), days + WARMUP_200);
+      const ref = await refs.get(m);
       if (ref) indicatorCalls++;
       markets.set(m, ref);
     }
     return markets.get(m)!;
+  };
+
+  const leakMarkets = new Set<string>();
+  // 시장 기준 데이터가 모자란 기간(v2.51.0) — 받지 못한 시장 · 시험 첫날보다 200일선이 늦게 시작한 시장을 결과에 알린다(조용히 「시장 데이터 없음」 이 되지 않게)
+  const marketStart = new Map<string, string>(); // 시장 → 가장 이른 시험 첫날
+  const noteMarketStart = (m: string, _ref: MarketRefData, firstBar: Candle) => {
+    const d = marketDate(firstBar.timestamp, MARKET_REF[m as 'US' | 'KR'].symbol);
+    if (!marketStart.has(m) || d < marketStart.get(m)!) marketStart.set(m, d);
   };
 
   const done: { symbol: string; segsBy: Cell[][]; holdCurves: number[][]; dates: { from: string; to: string }[] }[] = [];
@@ -329,14 +338,18 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
       indicatorCalls++;
       const first = candles.length - days;
       const market = await marketFor(symbol);
-      if (!leak.symbol) {
-        // 누설 검사: 모든 방법의 판단(보유·미보유)을 봉마다 — 지표를 잘라 다시 계산해 같은지(시장 필터면 시장 기준도 잘라서)
+      // 누설 검사: 모든 방법의 판단(보유·미보유)을 봉마다 — 지표를 잘라 다시 계산해 같은지(시장 필터면 시장 기준도 잘라서).
+      // 첫 종목 한 번 + 시장 필터를 켰으면 시장마다 첫 종목 한 번(v2.51.0 — 국내·미국을 섞어도 두 시장 기준을 모두 검사)
+      const mkt = marketOfSymbol(symbol);
+      if (!leak.symbol || (useMarket && !leakMarkets.has(mkt))) {
         const bad = await leakCheck(symbol, candles, series, first, rules, market);
         indicatorCalls += (candles.length - first) * (market ? 2 : 1);
-        leak = { symbol, bars: candles.length - first, ok: !bad };
-        console.log(`[backtest] 미래 누설 검사 ${symbol} ${leak.bars}봉: ${bad ? `실패 — ${bad}` : '통과'}`);
+        leakMarkets.add(mkt);
+        if (!leak.symbol) leak = { symbol, bars: candles.length - first, ok: !bad };
+        console.log(`[backtest] 미래 누설 검사 ${symbol} ${candles.length - first}봉: ${bad ? `실패 — ${bad}` : '통과'}`);
         if (bad) throw new LeakError(`미래 누설 검사 실패(${symbol}): ${bad}`);
       }
+      if (market) noteMarketStart(mkt, market, candles[first]);
       const runs = rules.map((r) => simulateSegments(symbol, candles, series, input.years, r, market));
       done.push({ symbol, segsBy: runs.map((r) => r.segs), holdCurves: runs[0].holdCurves, dates: runs[0].dates });
     } catch (e) {
@@ -422,6 +435,22 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
     if (v != null && (holdWorst == null || v < holdWorst.value)) holdWorst = { ...who[i], value: v };
   });
 
+  const marketWarnings: string[] = [];
+  for (const [m, ref] of markets) {
+    const { name } = MARKET_REF[m as 'US' | 'KR'];
+    const label = m === 'KR' ? '국내' : '미국';
+    if (!ref) {
+      marketWarnings.push(`${name} 일봉을 받지 못해, 시장 필터를 켠 방법은 ${label} 종목을 시험 기간 내내 「시장 데이터 없음」 으로 사지 않았습니다.`);
+      continue;
+    }
+    const k = ref.series.sma200?.findIndex((v) => v != null) ?? -1;
+    const from = k >= 0 ? marketDate(ref.candles[k].timestamp, ref.symbol) : null;
+    const start = marketStart.get(m);
+    if (start && (!from || from > start)) {
+      marketWarnings.push(`${name} 200일선이 ${from ?? '시험 기간 안에 없음'}${from ? ' 부터라' : '이라'} 그 전의 ${label} 종목 매수 신호는 「시장 데이터 없음」 으로 사지 않았습니다.`);
+    }
+  }
+
   sample();
   return {
     kind: 'custom',
@@ -432,6 +461,7 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
     excluded,
     leakCheck: leak,
     spy,
+    ...(marketWarnings.length ? { marketWarnings } : {}),
     measure: { ms: Date.now() - t0, indicatorCalls, rssMaxMb: Math.round(rssMax / 1048576), symbols: total },
     computedAt: new Date().toISOString(),
   };

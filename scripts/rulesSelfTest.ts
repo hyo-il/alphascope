@@ -493,14 +493,14 @@ async function testMarketFilter(): Promise<void> {
   check('⑦ 시장 기준 > 200일선 · 손익비 막음 끔 → 매수', ev(ref, rule, { testOnlySkipRrGuard: true }).action === 'BUY');
   (refSeries.sma200 as (number | null)[])[20] = 100;
   const down = ev(ref);
-  check('⑦ 시장 기준 ≤ 200일선 → gate_block · market · 「시장 기준 SPY 가 200일선 아래라」', down.code === 'gate_block' && down.gateReason === 'market' && down.reasons[0].includes('시장 기준 SPY 가 200일선 아래라 사지 않습니다 (SPY $100.00 · 200일선 $100.00)'), down.reasons[0]);
+  check('⑦ 시장 기준 ≤ 200일선 → gate_block · market · 「시장 기준(SPY)이 200일선 아래라」', down.code === 'gate_block' && down.gateReason === 'market' && down.reasons[0].includes('시장 기준(SPY)이 200일선 아래라 사지 않습니다 (SPY $100.00 · 200일선 $100.00)'), down.reasons[0]);
   (refSeries.sma200 as (number | null)[])[20] = null;
   check('⑦ 시장 기준 200일선 없음(봉 부족) → market_nodata', ev(ref).gateReason === 'market_nodata');
   (refSeries.sma200 as (number | null)[])[20] = 90;
   const gap: MarketRef = { ...ref, candles: ref.candles.filter((_, k) => k !== 20) };
   // 같은 날짜 봉이 없으면 다른 날 값을 쓰지 않는다(지표 배열이 하나 밀린 자료라도)
-  check('⑦ 같은 날짜 봉 없음 → market_nodata (다른 날로 때우지 않음)', ev(gap).gateReason === 'market_nodata' && ev(gap).reasons[0].includes('데이터가 없어'), ev(gap).reasons[0]);
-  check('⑦ 받기 실패(null) → market_nodata', ev(null).gateReason === 'market_nodata');
+  check('⑦ 같은 날짜 봉 없음 → market_nodata (다른 날로 때우지 않음)', ev(gap).gateReason === 'market_nodata' && ev(gap).reasons[0].includes('시장 기준(SPY)의 2026-01-25 가격이 없거나'), ev(gap).reasons[0]);
+  check('⑦ 받기 실패(null) → market_nodata · 문장에 종목 시장의 기준 이름(SPY)', ev(null).gateReason === 'market_nodata' && ev(null).reasons[0].includes('시장 기준(SPY)'), ev(null).reasons[0]);
   check('⑦ 시장 기준을 넘기지 않음(undefined) → market_nodata (안전 쪽)', ev(undefined).gateReason === 'market_nodata');
   // 순서: 종목 200일선 → 시장 → 손익비
   const both = T.cloneRuleBody(rule);
@@ -548,13 +548,17 @@ async function testMarketFilter(): Promise<void> {
   leakRule.buy.minScore = 30;
   leakRule.buy.gates = { above200: { on: false }, marketAbove200: { on: true } };
   const bad = await leakCheck('AAPL', aapl, await computeIndicators(aapl), aapl.length - 40, [leakRule], realRef);
-  const codes = new Set<string>();
+  // 비어 있는 자료로 통과하지 않게 — SPY 캐시가 200일선을 낼 만큼 있고, 40봉 중 시장 필터 판정까지 간 봉이 있어야 한다
+  const aSeries = await computeIndicators(aapl);
+  const codes: Record<string, number> = {};
   for (let i = aapl.length - 40; i < aapl.length; i++) {
-    const e = evaluateRule({ symbol: 'AAPL', candles: aapl, series: await computeIndicators(aapl), market: realRef }, i, leakRule, { held: false });
-    codes.add(e.gateReason ?? e.code);
-    break;
+    const e = evaluateRule({ symbol: 'AAPL', candles: aapl, series: aSeries, market: realRef }, i, leakRule, { held: false });
+    const k = e.gateReason ?? e.code;
+    codes[k] = (codes[k] ?? 0) + 1;
   }
-  check('⑦ 미래 누설 — 시장 기준(SPY 캐시)을 날짜까지 잘라 다시 계산해도 같은 판단(AAPL 40봉)', bad === null, bad ?? `SPY ${spy.length}봉 · 예: ${[...codes].join(',')}`);
+  const reached = (codes.market ?? 0) + (codes.market_nodata ?? 0) + (codes.score_buy ?? 0) + (codes.rr_block ?? 0);
+  check('⑦ 미래 누설 — 시장 기준(SPY 캐시)을 날짜까지 잘라 다시 계산해도 같은 판단(AAPL 40봉 · 시장 판정까지 간 봉 있음)', bad === null && spy.length >= 200 && reached > 0,
+    bad ?? `SPY ${spy.length}봉 · ${JSON.stringify(codes)}`);
 }
 
 const t0 = Date.now();

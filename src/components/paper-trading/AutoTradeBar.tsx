@@ -81,11 +81,12 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
   // 「매수·매도만 보기」(v2.51.0 — 화면에만 기억, 새로고침하면 「전체」) — 기다림(그대로) 줄을 숨기고, 남는 줄이 없는 묶음은 감춘다
   const shownGroups = groups
     .map((g, gi) => ({ g, gi, items: g.notes.map((n, j) => ({ n, i: offsets[gi] + j })).filter(({ n }) => noteFilter === 'all' || n.action !== 'HOLD') }))
-    .filter((x) => x.items.length > 0);
-  // 묶음 접기(v2.51.0) — 처음엔 가장 최근 묶음(맨 위)만 펼친다. 사용자가 누른 묶음만 기억(화면에만)
-  const isGroupOpen = (key: string, gi: number) => groupOpenMap.get(key) ?? gi === 0;
-  const toggleGroup = (key: string, gi: number) =>
-    setGroupOpenMap((prev) => new Map(prev).set(key, !(prev.get(key) ?? gi === 0)));
+    .filter((x) => x.items.length > 0)
+    .map((x, si) => ({ ...x, si }));
+  // 묶음 접기(v2.51.0) — 처음엔 **보이는** 묶음 중 맨 위(가장 최근)만 펼친다(「매수·매도만」 으로 맨 위 묶음이 숨어도 다음 묶음이 펼쳐진다). 사용자가 누른 묶음만 기억(화면에만)
+  const isGroupOpen = (key: string, si: number) => groupOpenMap.get(key) ?? si === 0;
+  const toggleGroup = (key: string, si: number) =>
+    setGroupOpenMap((prev) => new Map(prev).set(key, !(prev.get(key) ?? si === 0)));
 
   return (
     <>
@@ -218,17 +219,17 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           <div id={`autotrade-notes-${strategy.accountId}`} className="mt-1.5 max-h-[240px] overflow-y-auto border-t border-border/30 pt-1 [scrollbar-gutter:stable]">
           {/* 판단 한 번마다 머리 줄(「22:31 미국 판단 · 6종목」) · 쉬운 문장이 먼저, 원래 문장은 작은 회색으로 아래 — 사거나 판 줄이 위, 기다림 줄이 아래 */}
           <ul className="mt-1 space-y-2">
-            {shownGroups.length === 0 && <li className="text-text-muted">이날 매수·매도는 없습니다.</li>}
-            {shownGroups.map(({ g, gi, items }) => {
+            {shownGroups.length === 0 && <li className="text-text-muted">매수·매도한 줄이 없습니다.</li>}
+            {shownGroups.map(({ g, gi, si, items }) => {
               const key = g.at ?? `g${gi}`;
-              const groupOpen = isGroupOpen(key, gi);
+              const groupOpen = isGroupOpen(key, si);
               // 묶음 머리(v2.51.0) — 시각 · 시장 · 종목 수 · 매수 N · 매도 N · 그대로 N. 접기 버튼 글자 그대로(열고 닫아도 같은 글자)
               const head = `${g.at ? formatTime(g.at) : '—'} ${g.market} 판단 · ${g.symbols}종목 · 매수 ${g.buys} · 매도 ${g.sells} · 그대로 ${g.holds}`;
               return (
-            <li key={`${key}-${gi}`} className={gi > 0 ? 'border-t border-border/30 pt-2' : ''} data-notes-group>
+            <li key={`${key}-${gi}`} className={si > 0 ? 'border-t border-border/30 pt-2' : ''} data-notes-group>
               <DisclosureButton
                 open={groupOpen}
-                onToggle={() => toggleGroup(key, gi)}
+                onToggle={() => toggleGroup(key, si)}
                 label={head}
                 openLabel={head}
                 controls={`autotrade-group-${strategy.accountId}-${gi}`}

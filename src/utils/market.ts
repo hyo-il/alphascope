@@ -35,3 +35,15 @@ export function isKrStock(symbol: string, market?: string | null): boolean {
 export function currencyOfSymbol(symbol: string, market?: string | null): 'KRW' | 'USD' {
   return isKrStock(symbol, market) ? 'KRW' : 'USD';
 }
+
+/**
+ * 시장 기준 (v2.51.0 — 거름망 「시장 필터」) — 시장 → 지수를 따라가는 ETF. **이 표 한 곳**을 서버(`server/rules/marketRef.ts` 가 받는다)와
+ * 화면 문장(쉬운 말 · 규칙 창 설명)이 같이 쓴다 — 기준 ETF 를 바꾸면 문장도 같이 바뀐다.
+ */
+export const MARKET_REF = {
+  US: { symbol: 'SPY', name: 'SPY', tracks: 'S&P 500' },
+  KR: { symbol: '069500', name: 'KODEX 200', tracks: '코스피 200' },
+} as const;
+
+/** 이 종목의 시장 기준 */
+export const marketRefOfSymbol = (symbol: string) => MARKET_REF[isKrSymbol(symbol) ? 'KR' : 'US'];

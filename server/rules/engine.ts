@@ -20,7 +20,7 @@ import type { DecisionCode } from '../../src/types/autoTrading';
 import type { EntryType } from '../../src/types/buyJudge';
 import { gatesOf, scaledTable, maxScoreOf, type GroupKey, type RuleBody, type BuyKey } from '../../src/types/tradingRule';
 import { marketDate } from '../../src/utils/marketDate';
-import { isKrSymbol } from '../../src/utils/market';
+import { isKrSymbol, marketRefOfSymbol } from '../../src/utils/market';
 import { isFormingBar } from '../../src/utils/marketBar';
 import { nearestEngineMa, type EngineMaPeriod, type GateReason } from '../../src/types/autoTrading';
 
@@ -488,14 +488,16 @@ export function evaluateRule(ctx: RuleContext, i: number, rule: RuleBody, state:
     const refClose = ref && j != null ? ref.candles[j].close : null;
     const refMa = ref && j != null ? (ref.series.sma200?.[j] ?? null) : null;
     if (!ref || refClose == null || refMa == null) {
-      const name = ref?.name ?? '시장 기준';
-      return out('HOLD', 'gate_block', `${scoreText} — ${name} 의 ${day} 데이터가 없어(받기 실패 · 봉 없음 · 200일선 계산 불가) 사지 않습니다`, false, 'market_nodata');
+      // 받기 실패여도 어느 기준인지 적는다(종목 시장의 기준 — `MARKET_REF`)
+      const name = ref?.name ?? marketRefOfSymbol(ctx.symbol).name;
+      return out('HOLD', 'gate_block', `${scoreText} — 시장 기준(${name})의 ${day} 가격이 없거나 200일 평균을 낼 수 없어 사지 않습니다`, false, 'market_nodata');
     }
     if (!(refClose > refMa)) {
+      // 조사가 이름(SPY · KODEX 200)의 받침에 달리지 않게 괄호 뒤에 붙인다
       return out(
         'HOLD',
         'gate_block',
-        `${scoreText} — 시장 기준 ${ref.name} 가 200일선 아래라 사지 않습니다 (${ref.name} ${priceText(ref.symbol, refClose)} · 200일선 ${priceText(ref.symbol, refMa)})`,
+        `${scoreText} — 시장 기준(${ref.name})이 200일선 아래라 사지 않습니다 (${ref.name} ${priceText(ref.symbol, refClose)} · 200일선 ${priceText(ref.symbol, refMa)})`,
         false,
         'market',
       );

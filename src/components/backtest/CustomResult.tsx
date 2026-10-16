@@ -217,6 +217,17 @@ export default function CustomResult({
           </div>
         </div>
       )}
+      {/* 시장 필터(v2.51.0) — 시장 기준 데이터가 없어 사지 않은 기간이 있으면 알린다(거래가 적은 것이 규칙 탓인지 데이터 탓인지 구분되게) */}
+      {report.marketWarnings?.length ? (
+        <div role="note" className="flex gap-2 rounded-xl bg-warning/10 px-3 py-2 text-caption text-warning">
+          <WarnIcon />
+          <div className="min-w-0 space-y-0.5">
+            {report.marketWarnings.map((w) => (
+              <p key={w}>{w}</p>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {/* 트레일링을 켠 방법이 있으면 기준 차이 한 줄(v2.49.0) — 계좌는 실시간 최고가, 백테스트는 종가 최고가 */}
       {report.input.conditions.some((c) => c.rule?.sell.trailing.on) && <p className="text-caption text-text-muted">{TRAILING_BASIS_TEXT}</p>}
       <Panel pad="sm" className="space-y-2">

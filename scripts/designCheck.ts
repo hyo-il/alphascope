@@ -645,7 +645,7 @@ function targets(): Target[] {
       name: 'dialog-매매규칙-거름망끔',
       hash: '#/rules',
       open: async (page: Page) => {
-        await page.getByRole('row').filter({ hasText: /^\s*기본 규칙\s/ }).first().getByRole('button', { name: '조건 보기' }).click();
+        await page.getByRole('row').filter({ has: page.getByRole('cell', { name: '기본 규칙', exact: true }) }).first().getByRole('button', { name: '조건 보기' }).click();
         await page.waitForTimeout(500);
         await page.locator('[data-gate="above200"]').scrollIntoViewIfNeeded();
         await page.waitForTimeout(200);

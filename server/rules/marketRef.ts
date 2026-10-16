@@ -11,14 +11,12 @@
 import { getCandles } from '../candleService';
 import { computeIndicators } from '../indicatorService';
 import { completedDaily } from './engine';
-import { isKrSymbol } from '../../src/utils/market';
+import { isKrSymbol, MARKET_REF } from '../../src/utils/market';
 import type { CalendarMarket } from '../marketCalendar';
 import type { MarketRefData } from './engine';
 
-export const MARKET_REF: Record<CalendarMarket, { symbol: string; name: string }> = {
-  US: { symbol: 'SPY', name: 'SPY' },
-  KR: { symbol: '069500', name: 'KODEX 200' },
-};
+// 시장 → 기준 ETF 표는 화면 문장과 같이 쓰려고 `src/utils/market.ts` 한 곳에 둔다
+export { MARKET_REF };
 
 export const marketOfSymbol = (symbol: string): CalendarMarket => (isKrSymbol(symbol) ? 'KR' : 'US');
 
@@ -52,7 +50,7 @@ export function setMarketRefLoadForTest(fn: typeof loadMarketRef | null): void {
 }
 
 /** 한 판단 안에서 시장마다 한 번만 받는다(같은 시장 요청은 같은 Promise) */
-export function marketRefLoader(now = Date.now(), load: typeof loadMarketRef = loadForTest ?? loadMarketRef): MarketRefLoader {
+export function marketRefLoader(now = Date.now(), load: typeof loadMarketRef = loadForTest ?? loadMarketRef, limit = MARKET_REF_LIMIT): MarketRefLoader {
   const cache = new Map<CalendarMarket, Promise<MarketRefData | null>>();
   const counts: Record<string, number> = {};
   return {
@@ -60,7 +58,7 @@ export function marketRefLoader(now = Date.now(), load: typeof loadMarketRef = l
       let p = cache.get(market);
       if (!p) {
         counts[market] = (counts[market] ?? 0) + 1;
-        p = load(market, now);
+        p = load(market, now, limit);
         cache.set(market, p);
       }
       return p;

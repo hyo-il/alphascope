@@ -64,6 +64,13 @@ export const GATE_REASON_LABEL: Record<GateReason, string> = {
   market: '시장 하락',
   market_nodata: '시장 데이터 없음',
 };
+/** 이유 풀이(툴팁) — 「시장 하락」 은 오늘 등락이 아니라 200일선 아래(긴 하락 흐름)라는 뜻이다 */
+export const GATE_REASON_HELP: Record<GateReason, string> = {
+  below200: '전날 종가가 200일선(최근 200거래일 평균) 이하입니다.',
+  short: '일봉이 200개가 안 돼 200일선을 낼 수 없습니다.',
+  market: '시장 기준(미국 SPY · 국내 KODEX 200)의 전날 종가가 200일선 이하입니다 — 오늘 등락이 아니라 긴 하락 흐름이라는 뜻입니다.',
+  market_nodata: '시장 기준(미국 SPY · 국내 KODEX 200) 가격을 받지 못해 안전하게 사지 않았습니다.',
+};
 /** 「거름망에 걸림 (시장 하락)」 — 이유를 모르는 옛 기록은 「거름망에 걸림」 */
 export const gateBlockLabel = (reason?: GateReason | null): string => (reason ? `거름망에 걸림 (${GATE_REASON_LABEL[reason]})` : '거름망에 걸림');
 

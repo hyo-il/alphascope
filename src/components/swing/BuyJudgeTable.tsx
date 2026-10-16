@@ -1,4 +1,4 @@
-import { GATE_REASON_LABEL, gateBlockLabel, type GateReason } from '../../types/autoTrading';
+import { GATE_REASON_HELP, GATE_REASON_LABEL, gateBlockLabel, type GateReason } from '../../types/autoTrading';
 import { Fragment, useState } from 'react';
 import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react';
 import StockName from '../common/StockName';
@@ -55,7 +55,7 @@ export function VerdictText({
   // 기준 미달 · 거름망에 걸림(v2.50.0) — 같은 빨강, 글자로 구분
   if (verdict === 'gate_block' && stackReason && gateReason)
     return (
-      <span className="text-danger">
+      <span className="text-danger" title={GATE_REASON_HELP[gateReason]}>
         <span className="whitespace-nowrap">
           {VERDICT_LABEL.gate_block}
           {total}
@@ -64,7 +64,7 @@ export function VerdictText({
       </span>
     );
   return (
-    <span className="whitespace-nowrap text-danger">
+    <span className="whitespace-nowrap text-danger" title={verdict === 'gate_block' && gateReason ? GATE_REASON_HELP[gateReason] : undefined}>
       {verdict === 'gate_block' ? gateBlockLabel(gateReason) : VERDICT_LABEL[verdict]}
       {total}
     </span>

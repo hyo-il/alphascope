@@ -1,3 +1,4 @@
+import { MARKET_REF } from '../../utils/market';
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import { Pencil } from 'lucide-react';
 import {
@@ -462,9 +463,13 @@ export default function RuleDialog({
           <div className="space-y-2">
             {(
               [
-                ['above200', '주가가 200일선 위일 때만 매수', '전날 마감 종가 기준입니다. 200일선을 계산할 일봉(200개)이 모자라면 사지 않습니다.'],
+                ['above200', '주가가 200일선 위일 때만 매수', '전날 마감 종가 기준입니다(200일선 = 최근 200거래일 종가 평균, 약 10개월). 일봉이 200개가 안 되면 사지 않습니다.'],
                 // 시장 필터(v2.51.0) — 시장 기준은 `server/rules/marketRef.ts`
-                ['marketAbove200', '시장이 200일선 위일 때만 매수', '미국 종목은 SPY, 국내 종목은 KODEX 200 기준입니다. 시장 가격을 받지 못한 날은 사지 않습니다.'],
+                [
+                  'marketAbove200',
+                  '시장이 200일선 위일 때만 매수',
+                  `미국 종목은 ${MARKET_REF.US.name}(${MARKET_REF.US.tracks} 지수를 따라가는 ETF), 국내 종목은 ${MARKET_REF.KR.name}(${MARKET_REF.KR.tracks} 지수를 따라가는 ETF) 기준이며, 종목과 같은 날 마감 종가로 봅니다. 시장 가격을 받지 못한 날은 사지 않습니다.`,
+                ],
               ] as const
             ).map(([key, label, hint]) => {
               const on = gatesOf(body.buy)[key].on;

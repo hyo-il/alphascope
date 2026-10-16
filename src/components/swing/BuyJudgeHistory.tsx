@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { GATE_REASON_LABEL, type GateReason } from '../../types/autoTrading';
 import { Fragment, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -26,10 +27,10 @@ const tone = (v: number | null) => (v == null ? 'text-text-muted' : v > 0 ? 'tex
  * 「사도 됨」 의 5·10·20거래일 뒤 수익) ② 아래 접힌 칸 「종목별 사지 않은 이유」.
  * [기록 삭제] 는 판단 기록만. 목표 수익 가능성 기록·성적은 v2.47.0 에 「퀀트 > 검증 기록」 탭으로 옮겼다(A-5).
  */
-/** 「거름망에 걸림 N일(시장 하락 2 · 200일선 아래 1)」 의 괄호 (v2.51.0) — 이유를 아는 날만 */
-function gateBreakdown(reasons?: Partial<Record<GateReason, number>>): string {
+/** 「거름망에 걸림 N일 (시장 하락 2 · 200일선 아래 1)」 의 괄호 (v2.51.0) — 이유를 아는 날만. 괄호 덩어리는 한 번에 꺾인다(「1)」 만 남지 않게) */
+function gateBreakdown(reasons?: Partial<Record<GateReason, number>>): ReactNode {
   const parts = (Object.keys(GATE_REASON_LABEL) as GateReason[]).filter((k) => reasons?.[k]).map((k) => `${GATE_REASON_LABEL[k]} ${reasons![k]}`);
-  return parts.length ? `(${parts.join(' · ')})` : '';
+  return parts.length ? <> <span className="whitespace-nowrap">({parts.join(' · ')})</span></> : null;
 }
 
 export default function BuyJudgeHistory() {
@@ -144,7 +145,7 @@ export default function BuyJudgeHistory() {
                           <StockName symbol={r.symbol} className="max-w-full" />
                         </td>
                         <td className="whitespace-nowrap py-1 pr-4">
-                          <VerdictText verdict={r.verdict} score={r.score} maxScore={r.maxScore} gateReason={r.gateReason} />
+                          <VerdictText verdict={r.verdict} score={r.score} maxScore={r.maxScore} gateReason={r.gateReason} stackReason />
                         </td>
                         <td className="truncate py-1 pr-2 text-text-secondary" title={r.ruleName}>
                           {r.ruleName}
@@ -207,7 +208,7 @@ export default function BuyJudgeHistory() {
                               <tr key={`${d.marketDate}-${d.ruleName}`} className="border-b border-border/30 last:border-b-0">
                                 <td className={`${TABLE_NUM_COL} py-1 pr-4 tabular-nums text-text-secondary`}>{d.marketDate}</td>
                                 <td className={`${TABLE_NUM_COL} py-1 pr-4`}>
-                                  <VerdictText verdict={d.verdict} score={d.score} maxScore={d.maxScore} gateReason={d.gateReason} />
+                                  <VerdictText verdict={d.verdict} score={d.score} maxScore={d.maxScore} gateReason={d.gateReason} stackReason />
                                 </td>
                                 <td className="py-1 text-text-muted">{d.reason}</td>
                               </tr>

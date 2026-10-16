@@ -29,6 +29,7 @@ import { NOTES_MAX, readNotes, recordNotes } from '../server/autoTrading/store';
 import { ABOVE200_RULE_NAME } from '../src/types/tradingRule';
 import { groupNotes } from '../src/utils/autoTradeExplain';
 import { loadMarketRef, marketRefLoader, setMarketRefLoadForTest } from '../server/rules/marketRef';
+import { runCustomBacktest } from '../server/autoTrading/ruleResearch';
 import { gateBlockLabel } from '../src/types/autoTrading';
 import { isMarketOpen, nextMarketOpen, setClosedLookupForTest } from '../server/marketHours';
 import { explainNote } from '../src/utils/autoTradeExplain';
@@ -850,7 +851,7 @@ async function marketSection(): Promise<void> {
     const r = await runSignalChecks(st, rule, { force: true });
     check('계좌 한 바퀴(미국 3 · 국내 2종목) → SPY 1번 · KODEX 200 1번', counts.US === 1 && counts.KR === 1, JSON.stringify(counts));
     const gated = r.notes.filter((n) => n.code === 'gate_block');
-    check('거름망 줄에 이유가 붙음(시장 하락 또는 통과)', gated.every((n) => n.gateReason === 'market' || n.gateReason === 'market_nodata'), `${r.notes.map((n) => `${n.symbol}:${n.code}${n.gateReason ? `(${n.gateReason})` : ''}`).join(' ')} | ${gated[0]?.reason ?? ''}`);
+    check('거름망 줄에 이유가 붙음(시장 하락 또는 통과) · 거름망 줄 1개 이상', gated.length > 0 && gated.every((n) => n.gateReason === 'market' || n.gateReason === 'market_nodata'), `${r.notes.map((n) => `${n.symbol}:${n.code}${n.gateReason ? `(${n.gateReason})` : ''}`).join(' ')} | ${gated[0]?.reason ?? ''}`);
 
     // 받기 실패 → 점수가 기준 이상인 종목은 모두 「시장 데이터 없음」 · 주문 없음
     setMarketRefLoadForTest(async () => null);
@@ -862,6 +863,15 @@ async function marketSection(): Promise<void> {
     const scored = r2.notes.filter((n) => n.code !== 'not_enough_candles');
     check('시장 데이터 받기 실패 → 「시장 데이터 없음」 으로 사지 않음 · 주문 0', r2.ordered === 0 && scored.length > 0 && scored.every((n) => n.code === 'gate_block' && n.gateReason === 'market_nodata'),
       r2.notes.map((n) => `${n.symbol}:${n.code}${n.gateReason ? `(${n.gateReason})` : ''}`).join(' '));
+    // 백테스트 — 시장 기준을 받지 못하면 결과에 알린다(조용히 거래 0 이 되지 않게). 시장 필터를 끈 방법이면 알림 칸이 없다(예전 결과 모양)
+    const input = (r: typeof rule, ruleBody: typeof rule) => ({ symbols: ['AAPL', 'MSFT'], years: 1, conditions: [{ label: 'A' as const, ruleId: r.id, ruleName: r.name, rule: ruleBody }] });
+    const failed = await runCustomBacktest(input(rule, rule) as never);
+    const plainBody = (() => { const b = defaultRuleBody(); b.buy.minScore = 1; return b; })();
+    setMarketRefLoadForTest(null);
+    const plain = await runCustomBacktest(input(rule, { ...rule, ...plainBody }) as never);
+    check('백테스트 — 시장 기준 받기 실패 → 결과에 「SPY 일봉을 받지 못해 …」 한 줄 · 거래 0', failed.marketWarnings?.length === 1 && failed.marketWarnings[0].includes('SPY 일봉을 받지 못해') && (failed.conditions[0].summary.avgTrades ?? 0) === 0,
+      JSON.stringify(failed.marketWarnings));
+    check('백테스트 — 시장 필터를 끈 방법은 알림 칸 없음', !('marketWarnings' in plain));
   } finally {
     setMarketRefLoadForTest(null);
     for (const id of made) {
