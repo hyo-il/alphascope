@@ -20,6 +20,7 @@ import * as store from '../server/buyJudge/store';
 import { ROUND_TRIP_COST } from '../server/analysis/targetHit';
 import { marketDate } from '../src/utils/marketDate';
 import { daySymbols, sortDayRows } from '../src/utils/buyJudgeOrder';
+import { VERDICT_LABEL, verdictOf } from '../src/types/buyJudge';
 
 let pass = 0;
 let fail = 0;
@@ -53,7 +54,10 @@ try {
   // 「보유 중」 으로 판단한다(v2.45.1 — 환율 버그가 고쳐져 원화 계좌가 미국 종목을 실제로 사게 되며 드러났다).
   const now = Date.now();
   const GUARD = new Set(['max_positions', 'earnings_blackout', 'daily_loss', 'other', 'error']);
-  for (const [label, body] of [['기본 규칙', rule.body], ['기준 999점', { ...rule.body, buy: { ...rule.body.buy, minScore: 999 } }]] as const) {
+  // v2.50.0 — 거름망(200일선) 켬 · 기준 1점(점수는 늘 통과 → 거름망이 가른다)
+  const gateBody = { ...rule.body, buy: { ...rule.body.buy, minScore: 1, gates: { above200: { on: true } } } };
+  const gateCodes: string[] = [];
+  for (const [label, body] of [['기본 규칙', rule.body], ['기준 999점', { ...rule.body, buy: { ...rule.body.buy, minScore: 999 } }], ['거름망 켬', gateBody]] as const) {
     const acc = createAccount({ name: '매수판단 시험(지움)', initialBalance: 1_000_000_000, currency: 'KRW' });
     tempAccount = acc.id;
     const strategy = { ...defaultStrategy(acc.id), ruleId: base.id, symbols: syms, maxPositions: 10 };
@@ -65,11 +69,15 @@ try {
       const acctScore = Number(/점수 (\d+)\//.exec(note?.reason ?? '')?.[1] ?? NaN);
       const acctCode = note?.action === 'BUY' ? 'score_buy' : note?.code;
       const same = guarded ? row.code === 'score_buy' : row.score === acctScore && row.code === acctCode;
+      if (label === '거름망 켬') gateCodes.push(`${s}:${row.code}`);
       check(`① ${label} · ${s} 매수 판단 = 계좌 판단`, same, `매수 판단 ${row.code} ${row.score} · 계좌 ${note?.action} ${note?.code} ${guarded ? '(안전장치)' : acctScore}`);
     }
     deleteAccount(acc.id);
     tempAccount = null;
   }
+
+  console.log(`  INFO 거름망 켬 판단: ${gateCodes.join(' · ')}`);
+  check('① 거름망 — gate_block 은 「거름망에 걸림」 · 순서는 손익비 부족 다음', verdictOf('gate_block') === 'gate_block' && VERDICT_LABEL.gate_block === '거름망에 걸림' && sortDayRows([{ symbol: 'A', verdict: 'below', score: 90 }, { symbol: 'B', verdict: 'gate_block', score: 10 }, { symbol: 'C', verdict: 'rr_block', score: 5 }]).map((r) => r.symbol).join() === 'C,B,A');
 
   // ── ② 같은 날 두 번 기록해도 한 줄 ──
   store.setSymbols(syms);

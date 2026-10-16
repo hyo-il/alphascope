@@ -396,8 +396,76 @@ function testUnits(): void {
   check('⑤ 올바른 규칙 → 그대로', JSON.stringify((parseRuleBody(JSON.parse(JSON.stringify(T.defaultRuleBody()))) as any).body) === JSON.stringify(T.defaultRuleBody()));
 }
 
+// ── ⑥ 거름망(200일선) · 50/200 교차 (v2.50.0) — 손으로 만든 시리즈 ─────────────────
+function testGates(): void {
+  const { candles, series } = synth(30);
+  const ctx = { symbol: 'TEST', candles, series };
+  const s = series as any;
+  s.sma50 = Array<number | null>(30).fill(null);
+  s.sma200 = Array<number | null>(30).fill(null);
+  for (let i = 0; i < 30; i++) {
+    s.sma5[i] = i < 20 ? 1 : 3;
+    s.sma20[i] = 2;
+    s.bbUpper[i] = 102;
+  }
+  const cross = T.emptyRuleBody();
+  cross.buy.maCross = { on: true, points: 1, short: 5, long: 20 };
+  cross.buy.minScore = 1;
+  const gated = T.cloneRuleBody(cross);
+  gated.buy.gates = { above200: { on: true } };
+
+  // 봉 부족(200일선 없음) → 막음 — 안전 쪽
+  const none = evaluateRule(ctx, 20, gated, { held: false });
+  check('⑥ 200일선 없음(봉 부족) → gate_block 「200일선을 계산할 일봉이 부족해」', none.action === 'HOLD' && none.code === 'gate_block' && none.reasons[0].includes('200일선을 계산할 일봉이 부족해'), none.reasons[0]);
+  // 종가 100 ≤ 200일선 101 → 막음. 손익비도 1 미만인 자료 — 거름망이 먼저다
+  s.sma200[20] = 101;
+  const below = evaluateRule(ctx, 20, gated, { held: false });
+  check('⑥ 종가 ≤ 200일선 → gate_block (손익비 안전장치보다 먼저)', below.code === 'gate_block' && !below.rrBlocked && below.reasons[0].includes('주가가 200일선 아래라 사지 않습니다 (종가 100.00 · 200일선 101.00)'), below.reasons[0]);
+  s.sma200[20] = 100;
+  check('⑥ 종가 = 200일선 → 막음(위일 때만)', evaluateRule(ctx, 20, gated, { held: false }).code === 'gate_block');
+  // 종가 > 200일선 → 거름망 통과 → 다음은 손익비(이 자료는 1 미만) → 시험 인자로 막음을 끄면 매수
+  s.sma200[20] = 99;
+  check('⑥ 종가 > 200일선 → 통과 · 다음은 손익비 안전장치', evaluateRule(ctx, 20, gated, { held: false }).code === 'rr_block');
+  check('⑥ 종가 > 200일선 · 손익비 막음 끔 → 매수', evaluateRule(ctx, 20, gated, { held: false }, { testOnlySkipRrGuard: true }).action === 'BUY');
+  // 점수 미달이면 거름망까지 가지 않는다(예전 문장 그대로)
+  s.sma200[21] = 101;
+  check('⑥ 점수 미달 → no_signal_buy (거름망 문장 아님)', evaluateRule(ctx, 21, gated, { held: false }).code === 'no_signal_buy');
+  // 보유 중 매도에는 영향 없음 — 200일선 아래여도 반대 신호로 매도, 매도 조건 없으면 보유
+  for (let i = 25; i < 30; i++) s.sma5[i] = 1;
+  s.sma200[25] = 999;
+  const opp = { ...gated, sell: { ...gated.sell, opposite: { on: true, rsiAbove: 70 } } };
+  check('⑥ 보유 중 · 200일선 아래 · 데드크로스 → 매도(거름망은 매수만 막는다)', evaluateRule(ctx, 25, opp, { held: true }).code === 'dead');
+  check('⑥ 보유 중 · 200일선 아래 · 매도 조건 없음 → 보유', evaluateRule(ctx, 24, gated, { held: true }).code === 'no_signal_hold');
+  // 옛 규칙(거름망 칸 없음) = 끈 것과 같다
+  const old = T.cloneRuleBody(cross);
+  delete (old.buy as any).gates;
+  s.sma200[20] = 999;
+  const same = JSON.stringify(evaluateRule(ctx, 20, old, { held: false })) === JSON.stringify(evaluateRule(ctx, 20, cross, { held: false }));
+  check('⑥ 거름망 칸 없는 옛 규칙 = 거름망 끔과 같은 판단', same && evaluateRule(ctx, 20, old, { held: false }).code === 'rr_block');
+  check('⑥ 옛 규칙(거름망 칸 없음) 받기 → 꺼진 거름망으로', (() => { const r = parseRuleBody(JSON.parse(JSON.stringify(old))) as any; return !!r.body && r.body.buy.gates.above200.on === false; })());
+  check('⑥ 기본 규칙 = 200일선 안 씀 · 예시 규칙 = 씀', !T.usesMa200(T.defaultRuleBody()) && T.usesMa200(T.above200RuleBody()) && T.above200RuleBody().buy.gates?.above200.on === true);
+
+  // 50/200 교차 — 봉 20 에 골든크로스, 봉 25 에 데드크로스
+  const g = synth(30);
+  const gs = g.series as any;
+  gs.sma50 = Array.from({ length: 30 }, (_, i) => (i < 20 ? 90 : i < 25 ? 110 : 90));
+  gs.sma200 = Array<number | null>(30).fill(100);
+  for (let i = 0; i < 30; i++) gs.bbUpper[i] = 102;
+  const gctx = { symbol: 'TEST', ...g };
+  const gc = T.emptyRuleBody();
+  gc.buy.maCross = { on: true, points: 1, short: 50, long: 200 };
+  gc.buy.minScore = 1;
+  check('⑥ 50/200 입력 검사 통과 · 200/50 은 오류', Object.keys(ruleFieldErrors(gc)).length === 0 && (() => { const b = T.cloneRuleBody(gc); b.buy.maCross = { ...b.buy.maCross, short: 200, long: 50 }; return !!ruleFieldErrors(b)['buy.maCross.long']; })());
+  check('⑥ 50/200 골든크로스 날(봉 20) → 점수 1 · 매수', scoreAt(gctx, 20, gc).score === 1 && evaluateRule(gctx, 20, gc, { held: false }, { testOnlySkipRrGuard: true }).action === 'BUY');
+  check('⑥ 50/200 골든크로스 전날·다음 날 → 점수 0', scoreAt(gctx, 19, gc).score === 0 && scoreAt(gctx, 21, gc).score === 0);
+  const gcOpp = { ...gc, sell: { ...gc.sell, opposite: { on: true, rsiAbove: 70 } } };
+  const dead = evaluateRule(gctx, 25, gcOpp, { held: true });
+  check('⑥ 50/200 데드크로스(봉 25) → 반대 신호 매도 · MA50·MA200', dead.code === 'dead' && dead.reasons[0].includes('MA50·MA200'), dead.reasons[0]);
+}
+
 const t0 = Date.now();
 testUnits();
+testGates();
 try {
   await testCross();
   await testScore();

@@ -24,7 +24,10 @@ import { runExitChecks, runSignalChecks, setJudgeForTest, tryBuy } from '../serv
 import { rankBuyCandidates, recentReturn } from '../server/autoTrading/buyOrder';
 import { dailyLossBlock, evaluateDailyLoss, setEarningsLookupForTest, strategyDay } from '../server/autoTrading/guards';
 import { evaluateRule } from '../server/rules/engine';
-import { createRule, deleteRule } from '../server/rules/store';
+import { createRule, deleteRule, ensureSeeded, listRules, resetSeedCheckForTest } from '../server/rules/store';
+import { NOTES_MAX, readNotes, recordNotes } from '../server/autoTrading/store';
+import { ABOVE200_RULE_NAME } from '../src/types/tradingRule';
+import { groupNotes } from '../src/utils/autoTradeExplain';
 import { isMarketOpen, nextMarketOpen, setClosedLookupForTest } from '../server/marketHours';
 import { explainNote } from '../src/utils/autoTradeExplain';
 import type { IndicatorSeries } from '../src/types/chart';
@@ -328,6 +331,7 @@ async function main(): Promise<void> {
   await aiSection();
   orderSection();
   await rankSection();
+  dailySection();
 
   console.log(`\n결과: ${pass}개 통과 / ${fail}개 실패`);
   if (fail > 0) process.exit(1);
@@ -740,4 +744,70 @@ async function rankSection(): Promise<void> {
     deleteRule(rule.id);
     console.log(`임시 계좌 ${made.length}개 · 임시 규칙 #${rule.id} 삭제 완료`);
   }
+}
+
+/**
+ * 14. 거름망 문장 · 「최근 판단」 하루치 · 예시 규칙 (v2.50.0).
+ * 최근 판단은 임시 계좌 번호(쓰지 않는 큰 수)로 기록했다 지운다. 예시 규칙은 사본 DB 에서 지우고 다시 넣어 본다.
+ */
+function dailySection(): void {
+  console.log('\n── 14. 거름망 · 최근 판단 하루치 · 예시 규칙 ──');
+  // 거름망 쉬운 말
+  const ex = explainNote({ symbol: 'NVDA', action: 'HOLD', reason: '…', code: 'gate_block' }, '엔비디아', { maxPositions: 5, dailyLossLimitPercent: 0 }, null);
+  check('gate_block 쉬운 말 — 거름망 · 200일선', !!ex && ex.includes('거름망') && ex.includes('200일선'), ex ?? '');
+
+  // 최근 판단 하루치 — 같은 날 덧붙임 · 최근이 위 · 날짜 바뀌면 비움 · 200줄
+  const ID = 987_654;
+  const db = getDb();
+  // 이 계좌 번호의 설정·고점·최근 판단·판단 날짜를 지운다(계좌는 없다)
+  const clear = () => deleteStrategy(ID);
+  try {
+    clear();
+    const kr = new Date('2026-10-16T00:05:00Z'); // 09:05 KST
+    const us = new Date('2026-10-16T13:35:00Z'); // 22:35 KST · 09:35 ET
+    recordNotes(ID, [{ symbol: '005930', action: 'BUY', reason: '국내 매수', code: 'score_buy' }, { symbol: '000660', action: 'HOLD', reason: '국내 기다림', code: 'no_signal_buy' }], kr);
+    recordNotes(ID, [{ symbol: 'NVDA', action: 'HOLD', reason: '거름망', code: 'gate_block' }], us);
+    const day = readNotes(ID);
+    check('같은 날 국내 판단 + 미국 판단 → 모두 남음 · 최근(미국)이 위', day.notes.length === 3 && day.notes[0].symbol === 'NVDA' && day.notes[0].market === 'US' && day.notes[2].market === 'KR', day.notes.map((n) => `${n.symbol}:${n.market}`).join(' '));
+    const groups = groupNotes(day.notes);
+    check('판단 한 번씩 묶음 — 미국 1종목 · 국내 2종목', groups.length === 2 && groups[0].market === '미국' && groups[0].symbols === 1 && groups[1].market === '국내' && groups[1].symbols === 2 && groups[1].at === kr.toISOString(), JSON.stringify(groups.map((g) => [g.at, g.market, g.symbols])));
+    recordNotes(ID, [{ symbol: 'AAPL', action: 'HOLD', reason: '다음 날', code: 'no_signal_buy' }], new Date('2026-10-17T00:05:00Z'));
+    check('한국 날짜가 바뀐 첫 판단 → 예전 날 비움', readNotes(ID).notes.length === 1 && readNotes(ID).notes[0].symbol === 'AAPL');
+    const many = Array.from({ length: 150 }, (_, k) => ({ symbol: `ZZ${k}`, action: 'HOLD' as const, reason: 'x', code: 'no_signal_buy' as const }));
+    recordNotes(ID, many, new Date('2026-10-17T01:00:00Z'));
+    recordNotes(ID, many, new Date('2026-10-17T02:00:00Z'));
+    const capped = readNotes(ID).notes;
+    check(`계좌마다 최대 ${NOTES_MAX}줄 — 오래된 줄부터 버림`, capped.length === NOTES_MAX && capped[0].at === '2026-10-17T02:00:00.000Z' && !capped.some((n) => n.symbol === 'AAPL'), `${capped.length}줄`);
+  } finally {
+    clear();
+  }
+
+  // 예시 규칙 「기본 규칙 + 200일선」 — 한 번만 · 지우면 다시 만들지 않음 · 같은 이름이 있으면 표시만
+  const named = () => listRules().filter((r) => r.name === ABOVE200_RULE_NAME);
+  const mark = () => db.prepare(`SELECT value FROM app_settings WHERE key = 'tradingRules.seeded.above200'`).get();
+  ensureSeeded();
+  const first = named();
+  check('예시 규칙 있음 · 거름망 켬 · 나머지는 기본 규칙과 같음', first.length === 1 && first[0].buy.gates?.above200.on === true && (() => {
+    const def = listRules().find((r) => r.name === '기본 규칙');
+    if (!def) return true; // 사용자가 기본 규칙을 지운 DB
+    const a = { ...first[0].buy, gates: undefined };
+    const b = { ...def.buy, gates: undefined };
+    return JSON.stringify(a) === JSON.stringify(b) && JSON.stringify(first[0].sell) === JSON.stringify(def.sell) && first[0].reentryWaitDays === def.reentryWaitDays;
+  })());
+  const def = listRules().find((r) => r.name === '기본 규칙');
+  check('「기본 규칙」 은 그대로(거름망 칸 없음 또는 꺼짐)', !def || !def.buy.gates?.above200.on);
+  resetSeedCheckForTest();
+  ensureSeeded();
+  check('다시 확인해도 하나뿐', named().length === 1);
+  const saved = first[0];
+  deleteRule(saved.id);
+  resetSeedCheckForTest();
+  ensureSeeded();
+  check('지운 뒤 다시 만들지 않음', named().length === 0 && !!mark());
+  // 같은 이름이 이미 있고 표시가 없으면 → 만들지 않고 표시만
+  const again = createRule(ABOVE200_RULE_NAME, saved);
+  db.prepare(`DELETE FROM app_settings WHERE key = 'tradingRules.seeded.above200'`).run();
+  resetSeedCheckForTest();
+  ensureSeeded();
+  check('같은 이름이 있으면 만들지 않고 표시만', named().length === 1 && named()[0].id === again.id && !!mark());
 }

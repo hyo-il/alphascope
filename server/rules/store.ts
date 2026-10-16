@@ -54,6 +54,10 @@ function toRule(row: Row): TradingRule {
 }
 
 let seededChecked = false;
+/** 시험 전용 — 「한 번만 넣기」 를 다시 확인하게 한다(autotrade:test 14절) */
+export function resetSeedCheckForTest(): void {
+  seededChecked = false;
+}
 
 /** 기본 규칙을 처음 한 번만 넣는다 — 표시와 규칙을 한 트랜잭션으로 */
 export function ensureSeeded(): void {
