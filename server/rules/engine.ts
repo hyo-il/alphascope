@@ -318,11 +318,11 @@ function instantSignals(s: IndicatorSeries, i: number, rule: RuleBody): Instant 
 
 // ── 판단 ────────────────────────────────────────────────────────────────────
 
-/** 문장 속 가격 — 국내 원 정수 · 미국 소수 둘째, 4자리 이상 쉼표 (거름망 문장, v2.50.0 — 「최근 판단」 에 그대로 보인다) */
+/** 문장 속 가격 — 국내 ₩ 원 정수 · 미국 $ 소수 둘째, 4자리 이상 쉼표 (거름망 문장, v2.50.0 — 「최근 판단」 에 그대로 보인다) */
 const priceText = (symbol: string, v: number): string =>
   isKrSymbol(symbol)
-    ? Math.round(v).toLocaleString('en-US')
-    : v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    ? `₩${Math.round(v).toLocaleString('en-US')}`
+    : `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const CONDITION_NAME: Record<BuyKey, string> = {
   trend: '추세',

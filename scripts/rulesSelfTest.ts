@@ -420,12 +420,12 @@ function testGates(): void {
   // 종가 100 ≤ 200일선 101 → 막음. 손익비도 1 미만인 자료 — 거름망이 먼저다
   s.sma200[20] = 101;
   const below = evaluateRule(ctx, 20, gated, { held: false });
-  check('⑥ 종가 ≤ 200일선 → gate_block (손익비 안전장치보다 먼저)', below.code === 'gate_block' && !below.rrBlocked && below.reasons[0].includes('주가가 200일선 아래라 사지 않습니다 (종가 100.00 · 200일선 101.00)'), below.reasons[0]);
+  check('⑥ 종가 ≤ 200일선 → gate_block (손익비 안전장치보다 먼저)', below.code === 'gate_block' && !below.rrBlocked && below.reasons[0].includes('주가가 200일선 아래라 사지 않습니다 (종가 $100.00 · 200일선 $101.00)'), below.reasons[0]);
   // 문장 속 가격은 쉼표 — 국내 원 정수 · 미국 소수 둘째
   const krCtx = { symbol: '005930', candles: candles.map((c) => ({ ...c, close: 207_500 })), series };
   s.sma200[20] = 231_956.5;
   const kr = evaluateRule(krCtx, 20, gated, { held: false });
-  check('⑥ 국내 문장 가격 쉼표 — 「종가 207,500 · 200일선 231,957」', kr.reasons[0].includes('(종가 207,500 · 200일선 231,957)'), kr.reasons[0]);
+  check('⑥ 국내 문장 가격 ₩ · 쉼표 — 「종가 ₩207,500 · 200일선 ₩231,957」', kr.reasons[0].includes('(종가 ₩207,500 · 200일선 ₩231,957)'), kr.reasons[0]);
   s.sma200[20] = 100;
   check('⑥ 종가 = 200일선 → 막음(위일 때만)', evaluateRule(ctx, 20, gated, { held: false }).code === 'gate_block');
   // 종가 > 200일선 → 거름망 통과 → 다음은 손익비(이 자료는 1 미만) → 시험 인자로 막음을 끄면 매수

@@ -457,15 +457,26 @@ export default function RuleDialog({
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-text-primary">거름망</h3>
           <p className="text-caption text-text-secondary">아래 조건을 통과하지 못하면 점수가 높아도 사지 않습니다.</p>
-          <div className="space-y-1">
-            <Toggle
-              label="주가가 200일선 위일 때만 매수"
+          {/* 항목 글자는 다른 조건 이름과 같은 본문 크기(text-xs) · 보조 설명은 항목 글자 시작점에 맞춘다(체크 박스 칸 + 간격) */}
+          <div className="flex items-baseline gap-2 text-xs" data-gate="above200">
+            <input
+              type="checkbox"
+              className="m-0 shrink-0"
+              aria-label="주가가 200일선 위일 때만 매수 사용"
               checked={gatesOf(body.buy).above200.on}
               disabled={locked}
-              onChange={(on) => setBody((b) => ({ ...b, buy: { ...b.buy, gates: { ...gatesOf(b.buy), above200: { on } } } }))}
-              badge={<Rec />}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setBody((b) => ({ ...b, buy: { ...b.buy, gates: { ...gatesOf(b.buy), above200: { on } } } }));
+              }}
             />
-            <p className="pl-6 text-caption text-text-muted">전날 마감 종가 기준입니다. 200일선을 계산할 일봉(200개)이 모자라면 사지 않습니다.</p>
+            <div className="min-w-0 space-y-0.5">
+              <span className="inline-flex items-center gap-2">
+                <span className={gatesOf(body.buy).above200.on ? 'text-text-primary' : 'text-text-secondary'}>주가가 200일선 위일 때만 매수</span>
+                <Rec />
+              </span>
+              <p className="text-caption text-text-muted">전날 마감 종가 기준입니다. 200일선을 계산할 일봉(200개)이 모자라면 사지 않습니다.</p>
+            </div>
           </div>
         </section>
 

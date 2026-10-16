@@ -459,7 +459,7 @@ function targets(): Target[] {
             { symbol: 'MSFT', action: 'BUY', reason: '매수 점수 80점(기준 65점) → 35주 · 총점 순위 1위(3종목 중)', code: 'score_buy', rank: { n: 1, of: 3 }, ...U },
             { symbol: 'NVDA', action: 'HOLD', reason: '보유 종목 수가 가득 차 사지 않았습니다 (총점 순위 2위 / 3종목 중)', code: 'max_positions', rank: { n: 2, of: 3 }, ...U },
             { symbol: 'AAPL', action: 'HOLD', reason: '보유 종목 수가 가득 차 사지 않았습니다 (총점 순위 3위 / 3종목 중)', code: 'max_positions', rank: { n: 3, of: 3 }, ...U },
-            { symbol: '005930', action: 'HOLD', reason: '점수 72/100 — 주가가 200일선 아래라 사지 않습니다 (종가 207,500 · 200일선 231,957) (10-15 마감 기준)', code: 'gate_block', ...K },
+            { symbol: '005930', action: 'HOLD', reason: '점수 72/100 — 주가가 200일선 아래라 사지 않습니다 (종가 ₩207,500 · 200일선 ₩231,957) (10-15 마감 기준)', code: 'gate_block', ...K },
             { symbol: '000660', action: 'HOLD', reason: '점수 40/100 — 기준 65점 미만 (10-15 마감 기준)', code: 'no_signal_buy', ...K },
           ];
           const status = (body.status ?? body) as { lastNotes: unknown[]; lastNotesAt: string | null };
@@ -629,7 +629,19 @@ function targets(): Target[] {
       open: async (page: Page) => {
         await page.getByRole('row').filter({ hasText: '기본 규칙 + 200일선' }).getByRole('button', { name: '조건 보기' }).click();
         await page.waitForTimeout(500);
-        await page.getByText('거름망', { exact: true }).first().scrollIntoViewIfNeeded();
+        await page.locator('[data-gate="above200"]').scrollIntoViewIfNeeded();
+        await page.waitForTimeout(200);
+      },
+    },
+    {
+      // 거름망 꺼진 규칙(기본 규칙)의 보기 상태 — 잠김 · 빈 체크
+      name: 'dialog-매매규칙-거름망끔',
+      hash: '#/rules',
+      open: async (page: Page) => {
+        await page.getByRole('row').filter({ hasText: /^\s*기본 규칙\s/ }).first().getByRole('button', { name: '조건 보기' }).click();
+        await page.waitForTimeout(500);
+        await page.locator('[data-gate="above200"]').scrollIntoViewIfNeeded();
+        await page.waitForTimeout(200);
       },
     },
     {
@@ -643,7 +655,7 @@ function targets(): Target[] {
         await page.getByLabel('장기 이동평균').selectOption('200');
         await page.getByLabel('단기 이동평균').selectOption('50');
         await page.getByRole('checkbox', { name: '주가가 200일선 위일 때만 매수 사용' }).check();
-        await page.getByText('이동평균 교차', { exact: false }).nth(1).scrollIntoViewIfNeeded();
+        await page.locator('[data-gate="above200"]').scrollIntoViewIfNeeded();
         await page.waitForTimeout(300);
       },
     },

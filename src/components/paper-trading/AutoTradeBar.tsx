@@ -192,12 +192,13 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           </div>
           {notesOpen && (
           // 최대 약 240px(6줄쯤) + 안에서 스크롤 (v2.41.0) — 높이 제한이 없으면 아래 보유 종목·거래내역 영역이 0까지 줄었다
-          <div id={`autotrade-notes-${strategy.accountId}`} className="max-h-[240px] overflow-y-auto [scrollbar-gutter:stable]">
+          <div id={`autotrade-notes-${strategy.accountId}`} className="mt-1.5 max-h-[240px] overflow-y-auto border-t border-border/30 pt-1 [scrollbar-gutter:stable]">
           {/* 판단 한 번마다 머리 줄(「22:31 미국 판단 · 6종목」) · 쉬운 문장이 먼저, 원래 문장은 작은 회색으로 아래 — 사거나 판 줄이 위, 기다림 줄이 아래 */}
           <ul className="mt-1 space-y-2">
             {groups.map((g, gi) => (
             <li key={`${g.at}-${gi}`}>
-              <p className="font-medium text-text-secondary" data-notes-head>
+              {/* 묶음 머리 — 본문 줄과 구분되게 흰 글자 500 + 두 번째 묶음부터 위에 옅은 선 */}
+              <p className={`font-medium text-text-primary ${gi > 0 ? 'border-t border-border/30 pt-2' : ''}`} data-notes-head>
                 {g.at ? formatTime(g.at) : '—'} {g.market} 판단 · {g.symbols}종목
               </p>
           <ul className="mt-1 space-y-1">

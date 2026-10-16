@@ -184,7 +184,7 @@ export default function BuyJudgeHistory() {
                       {open ? <ChevronDown {...ICON_SM} className="shrink-0 text-text-muted" /> : <ChevronRight {...ICON_SM} className="shrink-0 text-text-muted" />}
                       <StockName symbol={r.symbol} className="w-48 shrink-0" />
                       <span className="min-w-0 text-text-secondary">
-                        최근 {r.days}거래일 — 기준 미달 {r.below}일 · 손익비 부족 {r.rrBlock}일{r.gateBlock ? ` · 거름망에 걸림 ${r.gateBlock}일` : ''} · 사도 됨 {r.buy}일
+                        최근 {r.days}거래일 — 기준 미달 {r.below}일 · 손익비 부족 {r.rrBlock}일 · 거름망에 걸림 {r.gateBlock ?? 0}일 · 사도 됨 {r.buy}일
                         {r.mostMissing ? ` · 가장 자주 모자란 조건: ${r.mostMissing}` : ''}
                       </span>
                     </button>
