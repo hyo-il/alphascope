@@ -14,13 +14,15 @@ import { runSignalChecks } from '../server/autoTrading/engine';
 import { defaultStrategy } from '../src/types/autoTrading';
 import { createRule, deleteRule, getRule, listRules } from '../server/rules/store';
 import { defaultRuleBody, DEFAULT_RULE_NAME } from '../src/types/tradingRule';
-import { judgeSymbol, latestRecordDay, outcomes, reasonSummaries, recordMarket, currentRule, historyDays } from '../server/buyJudge/judge';
+import { judgeSymbol, latestRecordDay, outcomes, reasonSummaries, recordMarket, currentRule, historyDays, buildState } from '../server/buyJudge/judge';
 import { buyJudgeTick } from '../server/buyJudge/scheduler';
 import * as store from '../server/buyJudge/store';
 import { ROUND_TRIP_COST } from '../server/analysis/targetHit';
 import { marketDate } from '../src/utils/marketDate';
 import { daySymbols, sortDayRows } from '../src/utils/buyJudgeOrder';
 import { VERDICT_LABEL, verdictOf } from '../src/types/buyJudge';
+import { gateBlockLabel } from '../src/types/autoTrading';
+import { loadMarketRef, setMarketRefLoadForTest } from '../server/rules/marketRef';
 
 let pass = 0;
 let fail = 0;
@@ -57,7 +59,9 @@ try {
   // v2.50.0 — 거름망(200일선) 켬 · 기준 1점(점수는 늘 통과 → 거름망이 가른다)
   const gateBody = { ...rule.body, buy: { ...rule.body.buy, minScore: 1, gates: { above200: { on: true } } } };
   const gateCodes: string[] = [];
-  for (const [label, body] of [['기본 규칙', rule.body], ['기준 999점', { ...rule.body, buy: { ...rule.body.buy, minScore: 999 } }], ['거름망 켬', gateBody]] as const) {
+  // v2.51.0 — 시장 필터 켬(기준 1점) — 시장 기준(SPY · KODEX 200)이 가른다. 이유(gateReason)까지 같아야 한다
+  const marketBody = { ...rule.body, buy: { ...rule.body.buy, minScore: 1, gates: { above200: { on: false }, marketAbove200: { on: true } } } };
+  for (const [label, body] of [['기본 규칙', rule.body], ['기준 999점', { ...rule.body, buy: { ...rule.body.buy, minScore: 999 } }], ['거름망 켬', gateBody], ['시장 필터 켬', marketBody]] as const) {
     const acc = createAccount({ name: '매수판단 시험(지움)', initialBalance: 1_000_000_000, currency: 'KRW' });
     tempAccount = acc.id;
     const strategy = { ...defaultStrategy(acc.id), ruleId: base.id, symbols: syms, maxPositions: 10 };
@@ -68,15 +72,47 @@ try {
       const guarded = GUARD.has(note?.code ?? '');
       const acctScore = Number(/점수 (\d+)\//.exec(note?.reason ?? '')?.[1] ?? NaN);
       const acctCode = note?.action === 'BUY' ? 'score_buy' : note?.code;
-      const same = guarded ? row.code === 'score_buy' : row.score === acctScore && row.code === acctCode;
-      if (label === '거름망 켬') gateCodes.push(`${s}:${row.code}`);
-      check(`① ${label} · ${s} 매수 판단 = 계좌 판단`, same, `매수 판단 ${row.code} ${row.score} · 계좌 ${note?.action} ${note?.code} ${guarded ? '(안전장치)' : acctScore}`);
+      const same = guarded ? row.code === 'score_buy' : row.score === acctScore && row.code === acctCode && (row.gateReason ?? null) === (note?.gateReason ?? null);
+      if (label !== '기본 규칙' && label !== '기준 999점') gateCodes.push(`${label}/${s}:${row.code}${row.gateReason ? `(${row.gateReason})` : ''}`);
+      check(`① ${label} · ${s} 매수 판단 = 계좌 판단`, same, `매수 판단 ${row.code}${row.gateReason ? `(${row.gateReason})` : ''} ${row.score} · 계좌 ${note?.action} ${note?.code}${note?.gateReason ? `(${note.gateReason})` : ''} ${guarded ? '(안전장치)' : acctScore}`);
     }
     deleteAccount(acc.id);
     tempAccount = null;
   }
 
-  console.log(`  INFO 거름망 켬 판단: ${gateCodes.join(' · ')}`);
+  console.log(`  INFO 거름망 판단: ${gateCodes.join(' · ')}`);
+  check('① 시장 필터 — 표시 「거름망에 걸림 (시장 하락)」 · 이유 4가지 이름', gateBlockLabel('market') === '거름망에 걸림 (시장 하락)' && gateBlockLabel('market_nodata') === '거름망에 걸림 (시장 데이터 없음)' && gateBlockLabel('short') === '거름망에 걸림 (일봉 부족)' && gateBlockLabel('below200') === '거름망에 걸림 (200일선 아래)');
+
+  // 매수 판단 한 번 실행(buildState)에서 시장 기준은 시장마다 한 번 — 미국 3 · 국내 1종목
+  {
+    const counts: Record<string, number> = {};
+    setMarketRefLoadForTest(async (m, n, limit) => {
+      counts[m] = (counts[m] ?? 0) + 1;
+      return loadMarketRef(m, n, limit);
+    });
+    const mr = createRule(`__매수판단 시장 필터 ${Date.now()}`, marketBody);
+    const prevRule = store.getRuleId();
+    const prevSyms = store.getSymbols();
+    try {
+      store.setRuleId(mr.id);
+      store.setSymbols(syms);
+      const st = await buildState({ write: false });
+      const gr = st.rows.filter((r) => r.code === 'gate_block');
+      check('매수 판단 실행 1번 → SPY 1번 · KODEX 200 1번 · 거름망 줄은 이유가 시장', counts.US === 1 && counts.KR === 1 && gr.every((r) => r.gateReason === 'market' || r.gateReason === 'market_nodata'),
+        `${JSON.stringify(counts)} · ${st.rows.map((r) => `${r.symbol}:${r.code}${r.gateReason ? `(${r.gateReason})` : ''}`).join(' ')}`);
+      // 기록 저장 → 히스토리·사지 않은 이유에도 이유가 남는다
+      for (const r of gr) store.upsertJudgment({ marketDate: '2026-01-02', symbol: r.symbol, ruleId: mr.id, ruleName: mr.name, rule: marketBody, action: 'HOLD', code: 'gate_block', score: r.score ?? 0, maxScore: r.maxScore ?? 0, minScore: 1, breakdown: [], reference: null, reason: r.reason ?? '', gateReason: r.gateReason ?? null });
+      const sums = reasonSummaries();
+      const anyGate = gr[0];
+      check('저장한 이유 → 「사지 않은 이유」 이유별 날 수', !anyGate || (sums.find((x) => x.symbol === anyGate.symbol)?.gateReasons[anyGate.gateReason!] ?? 0) >= 1, JSON.stringify(sums.find((x) => x.symbol === anyGate?.symbol)));
+      getDb().prepare(`DELETE FROM buy_judgments WHERE rule_id = ?`).run(mr.id);
+    } finally {
+      setMarketRefLoadForTest(null);
+      store.setRuleId(prevRule);
+      store.setSymbols(prevSyms);
+      deleteRule(mr.id);
+    }
+  }
   check('① 거름망 — gate_block 은 「거름망에 걸림」 · 순서는 손익비 부족 다음', verdictOf('gate_block') === 'gate_block' && VERDICT_LABEL.gate_block === '거름망에 걸림' && sortDayRows([{ symbol: 'A', verdict: 'below', score: 90 }, { symbol: 'B', verdict: 'gate_block', score: 10 }, { symbol: 'C', verdict: 'rr_block', score: 5 }]).map((r) => r.symbol).join() === 'C,B,A');
 
   // ── ② 같은 날 두 번 기록해도 한 줄 ──

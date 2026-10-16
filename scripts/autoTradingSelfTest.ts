@@ -28,6 +28,8 @@ import { createRule, deleteRule, ensureSeeded, listRules, resetSeedCheckForTest 
 import { NOTES_MAX, readNotes, recordNotes } from '../server/autoTrading/store';
 import { ABOVE200_RULE_NAME } from '../src/types/tradingRule';
 import { groupNotes } from '../src/utils/autoTradeExplain';
+import { loadMarketRef, marketRefLoader, setMarketRefLoadForTest } from '../server/rules/marketRef';
+import { gateBlockLabel } from '../src/types/autoTrading';
 import { isMarketOpen, nextMarketOpen, setClosedLookupForTest } from '../server/marketHours';
 import { explainNote } from '../src/utils/autoTradeExplain';
 import type { IndicatorSeries } from '../src/types/chart';
@@ -332,6 +334,7 @@ async function main(): Promise<void> {
   orderSection();
   await rankSection();
   dailySection();
+  await marketSection();
 
   console.log(`\n결과: ${pass}개 통과 / ${fail}개 실패`);
   if (fail > 0) process.exit(1);
@@ -810,4 +813,62 @@ function dailySection(): void {
   resetSeedCheckForTest();
   ensureSeeded();
   check('같은 이름이 있으면 만들지 않고 표시만', named().length === 1 && named()[0].id === again.id && !!mark());
+}
+
+/**
+ * 15. 시장 필터 · 거름망 이유 (v2.51.0) — 이유 4가지 표시 · 쉬운 말 · 한 판단에서 시장 기준을 시장마다 한 번 · 받기 실패면 사지 않음.
+ */
+async function marketSection(): Promise<void> {
+  console.log('\n── 15. 시장 필터 · 거름망 이유 ──');
+  const base = { maxPositions: 5, dailyLossLimitPercent: 0 };
+  const note = (symbol: string, gateReason?: 'below200' | 'short' | 'market' | 'market_nodata') =>
+    explainNote({ symbol, action: 'HOLD', reason: '…', code: 'gate_block', ...(gateReason ? { gateReason } : {}) }, symbol, base, null) ?? '';
+  check('표시 이름 4가지 + 옛 기록', gateBlockLabel('below200') === '거름망에 걸림 (200일선 아래)' && gateBlockLabel('short') === '거름망에 걸림 (일봉 부족)' && gateBlockLabel('market') === '거름망에 걸림 (시장 하락)' && gateBlockLabel('market_nodata') === '거름망에 걸림 (시장 데이터 없음)' && gateBlockLabel() === '거름망에 걸림');
+  check('쉬운 말 — 이유마다 다름 · 시장은 종목 시장의 기준 이름', note('AAPL', 'market').includes('SPY') && note('AAPL', 'market').includes('시장 하락') && note('005930', 'market').includes('KODEX 200') &&
+    note('AAPL', 'market_nodata').includes('시장 데이터 없음') && note('AAPL', 'short').includes('일봉 부족') && note('AAPL', 'below200').includes('200일선 아래') && note('AAPL').includes('거름망'),
+    note('005930', 'market'));
+
+  // 한 판단에서 시장마다 한 번 — 받기를 세는 바꿔치기(실제 받기는 그대로)
+  const counts: Record<string, number> = {};
+  setMarketRefLoadForTest(async (m, now, limit) => {
+    counts[m] = (counts[m] ?? 0) + 1;
+    return loadMarketRef(m, now, limit);
+  });
+  const loader = marketRefLoader();
+  await Promise.all([loader.get('US'), loader.get('US'), loader.get('KR'), loader.get('US')]);
+  check('marketRefLoader — 같은 판단에서 같은 시장은 한 번만 받는다', JSON.stringify(loader.fetched()) === JSON.stringify({ US: 1, KR: 1 }), JSON.stringify(loader.fetched()));
+
+  const rule = createRule(`__시장 필터 점검 ${Date.now()}`, (() => { const b = defaultRuleBody(); b.buy.minScore = 1; b.buy.gates = { above200: { on: false }, marketAbove200: { on: true } }; return b; })());
+  const exists = (id: number) => id === rule.id;
+  const made: number[] = [];
+  try {
+    const acc = createAccount({ name: `__시장 필터 점검 ${Date.now()}`, initialBalance: 1_000_000, currency: 'USD' });
+    made.push(acc.id);
+    const st = normalizeStrategy(acc.id, { enabled: true, ruleId: rule.id, symbols: ['AAPL', 'MSFT', 'NVDA', '005930', '000660'], positionSizePercent: 5, maxPositions: 10, earningsBlackoutDays: 0 });
+    saveStrategy(acc.id, st, exists);
+    for (const k of Object.keys(counts)) delete counts[k];
+    const r = await runSignalChecks(st, rule, { force: true });
+    check('계좌 한 바퀴(미국 3 · 국내 2종목) → SPY 1번 · KODEX 200 1번', counts.US === 1 && counts.KR === 1, JSON.stringify(counts));
+    const gated = r.notes.filter((n) => n.code === 'gate_block');
+    check('거름망 줄에 이유가 붙음(시장 하락 또는 통과)', gated.every((n) => n.gateReason === 'market' || n.gateReason === 'market_nodata'), `${r.notes.map((n) => `${n.symbol}:${n.code}${n.gateReason ? `(${n.gateReason})` : ''}`).join(' ')} | ${gated[0]?.reason ?? ''}`);
+
+    // 받기 실패 → 점수가 기준 이상인 종목은 모두 「시장 데이터 없음」 · 주문 없음
+    setMarketRefLoadForTest(async () => null);
+    const acc2 = createAccount({ name: `__시장 필터 점검 실패 ${Date.now()}`, initialBalance: 1_000_000, currency: 'USD' });
+    made.push(acc2.id);
+    const st2 = { ...st, accountId: acc2.id };
+    saveStrategy(acc2.id, st2, exists);
+    const r2 = await runSignalChecks(st2, rule, { force: true });
+    const scored = r2.notes.filter((n) => n.code !== 'not_enough_candles');
+    check('시장 데이터 받기 실패 → 「시장 데이터 없음」 으로 사지 않음 · 주문 0', r2.ordered === 0 && scored.length > 0 && scored.every((n) => n.code === 'gate_block' && n.gateReason === 'market_nodata'),
+      r2.notes.map((n) => `${n.symbol}:${n.code}${n.gateReason ? `(${n.gateReason})` : ''}`).join(' '));
+  } finally {
+    setMarketRefLoadForTest(null);
+    for (const id of made) {
+      deleteStrategy(id);
+      deleteAccount(id);
+    }
+    deleteRule(rule.id);
+    console.log(`임시 계좌 ${made.length}개 · 임시 규칙 #${rule.id} 삭제 완료`);
+  }
 }

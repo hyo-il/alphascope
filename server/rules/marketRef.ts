@@ -45,8 +45,14 @@ export interface MarketRefLoader {
   fetched(): Record<string, number>;
 }
 
+/** 시험 전용 — 받기를 바꿔치기한다(횟수 세기 · 실패 흉내). null 이면 원래대로 */
+let loadForTest: typeof loadMarketRef | null = null;
+export function setMarketRefLoadForTest(fn: typeof loadMarketRef | null): void {
+  loadForTest = fn;
+}
+
 /** 한 판단 안에서 시장마다 한 번만 받는다(같은 시장 요청은 같은 Promise) */
-export function marketRefLoader(now = Date.now(), load: typeof loadMarketRef = loadMarketRef): MarketRefLoader {
+export function marketRefLoader(now = Date.now(), load: typeof loadMarketRef = loadForTest ?? loadMarketRef): MarketRefLoader {
   const cache = new Map<CalendarMarket, Promise<MarketRefData | null>>();
   const counts: Record<string, number> = {};
   return {

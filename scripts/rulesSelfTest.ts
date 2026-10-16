@@ -44,7 +44,7 @@ globalThis.fetch = (async (input: any, init?: any) => {
 const { loadCandles } = await import('../server/db');
 const { computeIndicators } = await import('../server/indicatorService');
 const { completedDaily, evaluateRule, exitLevels, scoreAt } = await import('../server/rules/engine');
-const { simulateRule } = await import('../server/autoTrading/ruleBacktest');
+const { simulateRule, leakCheck } = await import('../server/autoTrading/ruleBacktest');
 const { readUniverse } = await import('../server/universe');
 const { marketDate } = await import('../src/utils/marketDate');
 const T = await import('../src/types/tradingRule');
@@ -468,9 +468,99 @@ function testGates(): void {
   check('⑥ 50/200 데드크로스(봉 25) → 반대 신호 매도 · MA50·MA200', dead.code === 'dead' && dead.reasons[0].includes('MA50·MA200'), dead.reasons[0]);
 }
 
+// ── ⑦ 시장 필터 (v2.51.0) — 손으로 만든 시장 기준 · 백테스트 날짜별 판정 · 실제 캐시(SPY)로 미래 누설 ──────────
+type MarketRef = import('../server/rules/engine').MarketRefData;
+async function testMarketFilter(): Promise<void> {
+  const { candles, series } = synth(30);
+  const s = series as any;
+  s.sma200 = Array<number | null>(30).fill(50); // 종목 200일선은 늘 아래(종목 거름망 통과)
+  for (let i = 0; i < 30; i++) {
+    s.sma5[i] = i < 20 ? 1 : 3;
+    s.sma20[i] = 2;
+    s.bbUpper[i] = 102;
+  }
+  // 시장 기준 — 종목과 같은 날짜의 봉(미국 날짜). 종가 100, 200일선은 날마다 정한다
+  const refSeries = { sma200: Array<number | null>(30).fill(90) } as unknown as IndicatorSeries;
+  const ref: MarketRef = { market: 'US', symbol: 'SPY', name: 'SPY', candles: candles.map((c) => ({ ...c })), series: refSeries };
+  const rule = T.emptyRuleBody();
+  rule.buy.maCross = { on: true, points: 1, short: 5, long: 20 };
+  rule.buy.minScore = 1;
+  rule.buy.gates = { above200: { on: false }, marketAbove200: { on: true } };
+  const ev = (market: MarketRef | null | undefined, r = rule, opts = {}) =>
+    evaluateRule({ symbol: 'TEST', candles, series, ...(market !== undefined ? { market } : {}) }, 20, r, { held: false }, opts);
+
+  check('⑦ 시장 기준 > 200일선 → 통과 · 다음은 손익비', ev(ref).code === 'rr_block' && !('gateReason' in ev(ref)));
+  check('⑦ 시장 기준 > 200일선 · 손익비 막음 끔 → 매수', ev(ref, rule, { testOnlySkipRrGuard: true }).action === 'BUY');
+  (refSeries.sma200 as (number | null)[])[20] = 100;
+  const down = ev(ref);
+  check('⑦ 시장 기준 ≤ 200일선 → gate_block · market · 「시장 기준 SPY 가 200일선 아래라」', down.code === 'gate_block' && down.gateReason === 'market' && down.reasons[0].includes('시장 기준 SPY 가 200일선 아래라 사지 않습니다 (SPY $100.00 · 200일선 $100.00)'), down.reasons[0]);
+  (refSeries.sma200 as (number | null)[])[20] = null;
+  check('⑦ 시장 기준 200일선 없음(봉 부족) → market_nodata', ev(ref).gateReason === 'market_nodata');
+  (refSeries.sma200 as (number | null)[])[20] = 90;
+  const gap: MarketRef = { ...ref, candles: ref.candles.filter((_, k) => k !== 20) };
+  // 같은 날짜 봉이 없으면 다른 날 값을 쓰지 않는다(지표 배열이 하나 밀린 자료라도)
+  check('⑦ 같은 날짜 봉 없음 → market_nodata (다른 날로 때우지 않음)', ev(gap).gateReason === 'market_nodata' && ev(gap).reasons[0].includes('데이터가 없어'), ev(gap).reasons[0]);
+  check('⑦ 받기 실패(null) → market_nodata', ev(null).gateReason === 'market_nodata');
+  check('⑦ 시장 기준을 넘기지 않음(undefined) → market_nodata (안전 쪽)', ev(undefined).gateReason === 'market_nodata');
+  // 순서: 종목 200일선 → 시장 → 손익비
+  const both = T.cloneRuleBody(rule);
+  both.buy.gates = { above200: { on: true }, marketAbove200: { on: true } };
+  (refSeries.sma200 as (number | null)[])[20] = 100;
+  s.sma200[20] = 101;
+  check('⑦ 순서 — 종목 200일선 아래가 먼저(below200)', ev(ref, both).gateReason === 'below200');
+  s.sma200[20] = 50;
+  check('⑦ 순서 — 종목 통과 · 시장 하락 → market', ev(ref, both).gateReason === 'market');
+  (refSeries.sma200 as (number | null)[])[20] = 90;
+  check('⑦ 순서 — 둘 다 통과 → 손익비 안전장치', ev(ref, both).code === 'rr_block');
+  // 보유 중 매도에는 쓰지 않는다
+  (refSeries.sma200 as (number | null)[])[25] = 999;
+  for (let i = 25; i < 30; i++) s.sma5[i] = 1;
+  const opp = { ...rule, sell: { ...rule.sell, opposite: { on: true, rsiAbove: 70 } } };
+  check('⑦ 보유 중 · 시장 하락 · 데드크로스 → 매도(시장 필터는 매수만 막는다)', evaluateRule({ symbol: 'TEST', candles, series, market: ref }, 25, opp, { held: true }).code === 'dead');
+  // 시장 필터 끈 규칙은 시장 기준이 있든 없든 같은 판단
+  const off = T.cloneRuleBody(rule);
+  off.buy.gates = { above200: { on: false }, marketAbove200: { on: false } };
+  check('⑦ 시장 필터 끔 → 시장 기준과 무관(바이트 같음)', JSON.stringify(ev(null, off)) === JSON.stringify(ev(undefined, off)) && JSON.stringify(ev(ref, off)) === JSON.stringify(ev(undefined, off)));
+  check('⑦ 옛 규칙(거름망에 above200 만) 받기 → 시장 필터 꺼짐', (() => { const r = parseRuleBody(JSON.parse(JSON.stringify(T.above200RuleBody()))) as any; return !!r.body && r.body.buy.gates.marketAbove200.on === false && r.body.buy.gates.above200.on === true; })());
+
+  // 백테스트 날짜별 판정 — 교차가 10봉마다 오고, 시장 기준은 봉 60 부터만 200일선 위 → 매수는 봉 60 이후 신호에서만
+  const n = 120;
+  const g = synth(n);
+  const gs = g.series as any;
+  gs.sma200 = Array<number | null>(n).fill(50);
+  for (let i = 0; i < n; i++) {
+    gs.sma5[i] = i % 10 < 5 ? 1 : 3; // 봉 5·15·25… 골든크로스, 10·20… 데드크로스
+    gs.sma20[i] = 2;
+    gs.bbUpper[i] = 102;
+  }
+  const mRef: MarketRef = { market: 'US', symbol: 'SPY', name: 'SPY', candles: g.candles.map((c) => ({ ...c })), series: { sma200: Array.from({ length: n }, (_, k) => (k < 60 ? 200 : 50)) } as unknown as IndicatorSeries };
+  const bt = T.cloneRuleBody(rule);
+  bt.sell.opposite = { on: true, rsiAbove: 70 };
+  const sim = simulateRule('TEST', g.candles, g.series, 1, bt, undefined, { testOnlySkipRrGuard: true }, mRef);
+  const noGate = simulateRule('TEST', g.candles, g.series, 1, { ...bt, buy: { ...bt.buy, gates: { above200: { on: false }, marketAbove200: { on: false } } } }, undefined, { testOnlySkipRrGuard: true });
+  check('⑦ 백테스트 — 시장 하락 구간(봉 60 전) 신호로는 사지 않음 · 그 뒤는 삼', sim.list.length > 0 && sim.list.every((t) => t.entryIdx > 60) && noGate.list.some((t) => t.entryIdx <= 60), `거름망 ${sim.list.map((t) => t.entryIdx)} / 없음 ${noGate.list.map((t) => t.entryIdx)}`);
+
+  // 실제 캐시(AAPL · SPY)로 미래 누설 — 시장 기준도 그 날짜까지 잘라 다시 계산해 같은 판단
+  const aapl = completedDaily(loadCandles('AAPL', '1d', 300), 'AAPL', FIXED_NOW);
+  const spy = completedDaily(loadCandles('SPY', '1d', 400), 'SPY', FIXED_NOW);
+  const realRef: MarketRef = { market: 'US', symbol: 'SPY', name: 'SPY', candles: spy, series: await computeIndicators(spy) };
+  const leakRule = T.cloneRuleBody(T.defaultRuleBody());
+  leakRule.buy.minScore = 30;
+  leakRule.buy.gates = { above200: { on: false }, marketAbove200: { on: true } };
+  const bad = await leakCheck('AAPL', aapl, await computeIndicators(aapl), aapl.length - 40, [leakRule], realRef);
+  const codes = new Set<string>();
+  for (let i = aapl.length - 40; i < aapl.length; i++) {
+    const e = evaluateRule({ symbol: 'AAPL', candles: aapl, series: await computeIndicators(aapl), market: realRef }, i, leakRule, { held: false });
+    codes.add(e.gateReason ?? e.code);
+    break;
+  }
+  check('⑦ 미래 누설 — 시장 기준(SPY 캐시)을 날짜까지 잘라 다시 계산해도 같은 판단(AAPL 40봉)', bad === null, bad ?? `SPY ${spy.length}봉 · 예: ${[...codes].join(',')}`);
+}
+
 const t0 = Date.now();
 testUnits();
 testGates();
+await testMarketFilter().catch((e) => check('⑦ 시장 필터 시험', false, (e as Error).message));
 try {
   await testCross();
   await testScore();
