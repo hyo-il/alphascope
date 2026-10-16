@@ -75,7 +75,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
     if (useAppStore.getState().nav.page === 'home') useAppStore.getState().setPage('chart');
   };
 
-  // 탭 제목에 종목을 적어 여러 탭을 구분한다 (가격은 넣지 않는다 — 매초 바뀐다)
+  // 탭 제목에 종목 이름을 적어 여러 탭을 구분한다(「AlphaScope · 애플」 — 이름을 모르면 앱 이름만, 가격은 넣지 않는다)
   useDocumentTitle(symbol);
   /** 비교 화면의 4칸 — 관심 목록 패널이 여기에 담고 뺀다 (빈 칸은 null) */
   const compareSlots = useAppStore((s) => s.compareSlots);
