@@ -57,7 +57,7 @@ export async function judgeOnClose(
       const offset = dailyCloseOffsetMs(symbol);
       const expected = lastClosedDay(market, now, offset);
       if (marketDate(completed.at(-1)!.timestamp, symbol) < expected) {
-        const fetchedAt = lastDailyFetchedAt(symbol);
+        const fetchedAt = lastDailyFetchedAt(symbol, completed.at(-1)!.timestamp);
         const fetchedAfterClose = fetchedAt != null && fetchedAt >= marketDayTime(market, expected, offset) + CONFIRM_MARGIN_MS;
         if (!fetchedAfterClose) return { kind: 'unconfirmed', dates: [expected], candles: all };
       }

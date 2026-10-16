@@ -101,9 +101,12 @@ export function unconfirmedDailyTimestamps(symbol: string, fromTs: number, close
   return rows.map((r) => r.timestamp);
 }
 
-/** 그 종목 일봉을 마지막으로 **받은**(받기 성공) 시각 — 받을 때마다 겹치는 봉도 다시 저장하므로 가장 늦은 fetched_at 이다(v2.51.2). 모르면 null */
-export function lastDailyFetchedAt(symbol: string): number | null {
-  const row = getDb().prepare(`SELECT MAX(fetched_at) AS f FROM candles WHERE symbol = ? AND timeframe = '1d'`).get(symbol) as { f: number | null } | undefined;
+/**
+ * 그 종목 **최근** 일봉을 마지막으로 받은(받기 성공) 시각 — 최근 받기는 겹치는 봉도 다시 저장하므로 `fromTs`(마지막 끝난 봉) 이후 줄의 가장 늦은 fetched_at 이다(v2.51.2).
+ * ⚠️ `fromTs` 로 좁힌다 — 차트를 과거로 스크롤하면(`getCandlesBefore`) 옛 봉도 지금 시각으로 저장되어, 최근 받기가 실패했는데도 「받기 성공」 으로 보일 수 있다. 모르면 null
+ */
+export function lastDailyFetchedAt(symbol: string, fromTs: number): number | null {
+  const row = getDb().prepare(`SELECT MAX(fetched_at) AS f FROM candles WHERE symbol = ? AND timeframe = '1d' AND timestamp >= ?`).get(symbol, fromTs) as { f: number | null } | undefined;
   return row?.f ?? null;
 }
 
