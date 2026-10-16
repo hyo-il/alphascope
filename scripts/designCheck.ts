@@ -219,8 +219,19 @@ function targets(): Target[] {
           item(9002, '2026-10-16T01:05:00Z', ['005930', '000660'], 1, 1),
           item(9001, '2026-10-14T06:30:00Z', ['AAPL', 'NVDA'], 2, 1),
         ];
+        // (목록 바꿔치기보다 먼저) 화면은 맨 위 기록의 상세를 연다 — 사본 DB 의 실제 기록 하나를 빌려 id 만 바꿔 준다(없으면 404 — 그때는 콘솔 오류 1건이 의도)
+        const real = await page.evaluate(async () => {
+          const list = (await (await fetch('/api/backtest/reports')).json()) as { reports: { id: number }[] };
+          const id = list.reports[0]?.id;
+          if (id == null) return null;
+          const res = await fetch(`/api/backtest/reports/${id}`);
+          return res.ok ? await res.json() : null;
+        });
         await page.route('**/api/backtest/reports', (r) => r.fulfill({ json: { reports } }));
-        await page.route('**/api/backtest/reports/*', (r) => r.fulfill({ status: 404, json: { error: '시험용 기록입니다' } }));
+        await page.route('**/api/backtest/reports/*', (r) => {
+          const id = Number(r.request().url().split('/').pop());
+          return real ? r.fulfill({ json: { ...real, id } }) : r.fulfill({ status: 404, json: { error: '시험용 기록입니다' } });
+        });
       },
       after: async (page: Page) => {
         await page.unroute('**/api/backtest/reports');
