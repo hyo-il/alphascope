@@ -152,6 +152,7 @@ import {
   deleteAccount,
   getAccountDetail,
   listAccounts,
+  reorderAccounts,
   listOrders,
   listTrades,
   PaperTradingError,
@@ -645,6 +646,16 @@ function accountIdOf(req: express.Request): number {
 app.get('/api/paper/accounts', (_req, res) => {
   try {
     res.json({ accounts: listAccounts() });
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
+// 계좌 순서 (v2.48.0) — /:id 보다 먼저 둔다(Express 는 먼저 걸리는 쪽이 이긴다)
+app.put('/api/paper/accounts/order', (req, res) => {
+  try {
+    const ids = (req.body?.ids ?? null) as unknown;
+    res.json({ accounts: reorderAccounts(Array.isArray(ids) ? ids.map(Number) : (null as unknown as number[])) });
   } catch (e) {
     failPaper(res, e);
   }

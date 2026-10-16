@@ -1,7 +1,11 @@
 import { CARD_GRID } from '../ui/tokens';
 import Button from '../ui/Button';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, GripVertical, LoaderCircle } from 'lucide-react';
+import IconButton from '../ui/IconButton';
+import { ICON_SM } from '../ui/icon';
+import { useFlipReorder } from '../../hooks/useFlipReorder';
 import type { AccountOverviewItem, StrategyOverviewItem } from '../../hooks/usePaperOverview';
 import { formatPrice, formatSignedMoney, formatSigned } from '../../utils/formatters';
 import { toast } from '../../store/uiStore';
@@ -55,6 +59,7 @@ export default function AccountsOverview({
   selectedId,
   onOpen,
   onToggleAuto,
+  onReorder,
 }: {
   accounts: AccountOverviewItem[] | null;
   strategies: StrategyOverviewItem[] | null;
@@ -70,8 +75,52 @@ export default function AccountsOverview({
   onOpen: (accountId: number) => void;
   /** 켜기/끄기 — 실패는 이 컴포넌트가 토스트로 알린다 */
   onToggleAuto: (accountId: number, enabled: boolean) => Promise<void>;
+  /** 계좌 순서 저장 (v2.48.0) — 새 순서(계좌 id 전부). 실패하면 던진다 → 이 컴포넌트가 원래 순서로 되돌리고 알린다 */
+  onReorder: (ids: number[]) => Promise<void>;
 }) {
   const [busyId, setBusyId] = useState<number | null>(null);
+  /*
+   * 계좌 순서 바꾸기 (v2.48.0 — 사용자 결정: 끌어 옮기기 + ↑↓ 둘 다). 관심 목록 편집 창과 같은 끌기 방식·피드백
+   * (끄는 원래 자리 = 점선 · 놓을 자리 = 파란 줄 · FLIP 미끄러짐). 바꾸는 즉시 서버에 저장하고, 저장하는 동안은 화면에 새 순서를 먼저 보인다.
+   * 실패하면 원래 순서로 되돌리고 알린다. 순서의 출처는 서버(`listAccounts()` — sort_order) 하나다.
+   */
+  const [pendingOrder, setPendingOrder] = useState<number[] | null>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const shown = useMemo(() => {
+    if (!accounts || !pendingOrder) return accounts;
+    const byId = new Map(accounts.map((a) => [a.account.id, a]));
+    const ordered = pendingOrder.map((id) => byId.get(id)).filter((a): a is AccountOverviewItem => Boolean(a));
+    // 저장하는 사이 계좌가 늘거나 줄었으면 서버 목록을 그대로 쓴다
+    return ordered.length === accounts.length ? ordered : accounts;
+  }, [accounts, pendingOrder]);
+  // 서버가 준 순서가 새 순서와 같아지면 화면 쪽 순서를 버린다(출처는 서버 하나)
+  useEffect(() => {
+    if (pendingOrder && !savingOrder && accounts && accounts.map((a) => a.account.id).join(',') === pendingOrder.join(',')) setPendingOrder(null);
+  }, [accounts, pendingOrder, savingOrder]);
+  const flip = useFlipReorder((shown ?? []).map((a) => a.account.id).join(','));
+
+  const moveAccount = async (id: number, to: number) => {
+    if (!shown || savingOrder) return;
+    const ids = shown.map((a) => a.account.id);
+    const from = ids.indexOf(id);
+    const target = Math.max(0, Math.min(ids.length - 1, from < to ? to - 1 : to));
+    if (from < 0 || from === target) return;
+    ids.splice(from, 1);
+    ids.splice(target, 0, id);
+    const before = pendingOrder;
+    setPendingOrder(ids);
+    setSavingOrder(true);
+    try {
+      await onReorder(ids);
+    } catch (e) {
+      setPendingOrder(before);
+      toast.error('순서를 바꾸지 못했습니다', (e as Error).message);
+    } finally {
+      setSavingOrder(false);
+    }
+  };
   const { rules } = useTradingRules();
   const ruleOf = (id: number | null) => (id != null ? (rules?.find((r) => r.id === id) ?? null) : null);
   const ruleName = (id: number | null) => (id == null ? '없음' : (ruleOf(id)?.name ?? '—'));
@@ -145,8 +194,14 @@ export default function AccountsOverview({
         </p>
       )}
 
+      {savingOrder && (
+        <p className="mb-2 flex items-center gap-1.5 text-caption text-text-muted" role="status">
+          <LoaderCircle {...ICON_SM} className="animate-spin" />
+          순서를 저장하는 중…
+        </p>
+      )}
       <div className={`grid gap-3 ${CARD_GRID}`}>
-        {accounts.map((item) => {
+        {(shown ?? []).map((item, index, list) => {
           const found = strategyOf(item.account.id);
           const strategy = found?.strategy;
           const status = found?.status;
@@ -158,8 +213,34 @@ export default function AccountsOverview({
           return (
             <article
               key={item.account.id}
+              ref={flip(String(item.account.id))}
               role="button"
               tabIndex={0}
+              // 카드 전체를 잡아 끈다(관심 목록 편집과 같은 방식). 짧은 클릭은 브라우저가 끌기와 갈라 주므로 열기는 그대로다
+              draggable={list.length > 1 && !savingOrder}
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = 'move';
+                setDragId(item.account.id);
+              }}
+              onDragEnd={() => {
+                setDragId(null);
+                setDropIndex(null);
+              }}
+              onDragOver={(e) => {
+                if (dragId == null) return;
+                e.preventDefault();
+                const box = e.currentTarget.getBoundingClientRect();
+                // 카드 격자라 가로 위치로 앞/뒤를 정한다(한 줄에 여러 장)
+                setDropIndex(e.clientX - box.left > box.width / 2 ? index + 1 : index);
+              }}
+              onDrop={(e) => {
+                if (dragId == null) return;
+                e.preventDefault();
+                const id = dragId;
+                setDragId(null);
+                setDropIndex(null);
+                void moveAccount(id, dropIndex ?? index);
+              }}
               onClick={() => onOpen(item.account.id)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') onOpen(item.account.id);
@@ -169,9 +250,21 @@ export default function AccountsOverview({
                 덮어써서, 카드를 보려고 마우스를 올리는 순간 상태 표시가 사라졌다.
                 hover 는 배경으로만 알린다.
               */
-              className={`rounded-lg bg-bg-secondary p-3 text-left transition-colors hover:bg-bg-tertiary/40 ${BORDER[view.state]}`}
+              className={`relative rounded-lg bg-bg-secondary p-3 text-left transition-colors hover:bg-bg-tertiary/40 ${BORDER[view.state]} ${
+                list.length > 1 ? 'cursor-grab active:cursor-grabbing' : ''
+              } ${dragId === item.account.id ? 'border-dashed !border-accent/60 opacity-40' : ''}`}
             >
+              {/* 놓을 자리 — 카드 앞(왼쪽)·뒤(오른쪽)에 파란 세로 줄 */}
+              {dragId != null && dropIndex === index && <span aria-hidden className="absolute inset-y-2 -left-2 w-0.5 rounded bg-accent" />}
+              {dragId != null && dropIndex === index + 1 && index === list.length - 1 && (
+                <span aria-hidden className="absolute inset-y-2 -right-2 w-0.5 rounded bg-accent" />
+              )}
               <header className="flex items-center gap-2">
+                {list.length > 1 && (
+                  <span aria-hidden title="끌어서 순서 바꾸기 (↑↓ 버튼으로도)" className="-ml-1 shrink-0 text-text-muted">
+                    <GripVertical {...ICON_SM} />
+                  </span>
+                )}
                 <h3 className="min-w-0 truncate text-sm font-medium text-text-primary">
                   {item.account.name}
                 </h3>
@@ -179,6 +272,13 @@ export default function AccountsOverview({
                 {item.account.id === selectedId && (
                   <span className="ml-auto shrink-0 rounded bg-bg-tertiary px-1.5 py-0.5 text-caption font-medium text-text-secondary">
                     현재 계좌
+                  </span>
+                )}
+                {list.length > 1 && (
+                  // ↑↓ — 끌기를 모르는 사람도 바꿀 수 있게(사용자 결정). 맨 위의 ↑ · 맨 아래의 ↓ 는 잠근다. 카드 열기와 겹치지 않게 막는다
+                  <span className={`flex shrink-0 items-center ${item.account.id === selectedId ? '' : 'ml-auto'}`} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                    <IconButton icon={ArrowUp} size="sm" label="위로" disabled={index === 0 || savingOrder} onClick={() => void moveAccount(item.account.id, index - 1)} />
+                    <IconButton icon={ArrowDown} size="sm" label="아래로" disabled={index === list.length - 1 || savingOrder} onClick={() => void moveAccount(item.account.id, index + 2)} />
                   </span>
                 )}
               </header>

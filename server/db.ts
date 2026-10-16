@@ -40,6 +40,13 @@ function migrate(database: Database.Database): void {
   if (!names.has('mode')) database.exec(`ALTER TABLE analysis_history ADD COLUMN mode TEXT`);
   if (!names.has('prompt')) database.exec(`ALTER TABLE analysis_history ADD COLUMN prompt TEXT`);
 
+  // 계좌 화면 순서 (v2.48.0) — 옛 DB 는 지금 보이던 순서(id 순) 그대로 채운다
+  const accountColumns = database.prepare(`PRAGMA table_info(paper_accounts)`).all() as { name: string }[];
+  if (accountColumns.length && !accountColumns.some((c) => c.name === 'sort_order')) {
+    database.exec(`ALTER TABLE paper_accounts ADD COLUMN sort_order INTEGER`);
+  }
+  if (accountColumns.length) database.exec(`UPDATE paper_accounts SET sort_order = id WHERE sort_order IS NULL`);
+
   // 종목 프로필의 세부 업종 (v2.42.0) — 동종업계 자동 고르기. 실적일 하루 1회 갱신이 같은 yfinance info 로 채운다
   const profileColumns = database.prepare(`PRAGMA table_info(stock_profiles)`).all() as { name: string }[];
   if (profileColumns.length && !profileColumns.some((c) => c.name === 'industry')) {

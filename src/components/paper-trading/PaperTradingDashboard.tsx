@@ -8,6 +8,7 @@ import {
   usePaperOrders,
   usePaperPerformance,
   usePaperTrades,
+  reorderPaperAccounts,
 } from '../../hooks/usePaperTrading';
 import AccountManager from './AccountManager';
 import AccountsOverview from './AccountsOverview';
@@ -255,6 +256,11 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
           selectedId={selectedId}
           onOpen={openAccount}
           onToggleAuto={toggleAuto}
+          onReorder={async (ids) => {
+            // 서버에 저장 → 앱 공유 계좌 목록이 그 순서로 바뀐다 → 모아보기 묶음도 다시 받는다(카드 순서 = 서버 순서)
+            await reorderPaperAccounts(ids);
+            await overview.refresh();
+          }}
         />
         {wizardOpen && (
           <AutoTradeWizard

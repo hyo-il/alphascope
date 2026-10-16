@@ -11,7 +11,7 @@
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다(v2.44.2)
 import { getDb, loadCandles } from '../server/db';
-import { createAccount, createOrder, deleteAccount, getAccount, listPositions, listTrades, setUsdKrwForTest } from '../server/paperTradingService';
+import { createAccount, createOrder, deleteAccount, getAccount, listAccounts, listPositions, listTrades, reorderAccounts, setUsdKrwForTest } from '../server/paperTradingService';
 import { planBuy } from '../server/autoTrading/sizing';
 import { aiCheckCallsForTest, kstDate, setAiCheckForTest } from '../server/aiCheck/check';
 import { countCallsOn, findCheck, insertCheck } from '../server/aiCheck/store';
@@ -325,6 +325,7 @@ async function main(): Promise<void> {
 
   await fxSection();
   await aiSection();
+  orderSection();
 
   console.log(`\n결과: ${pass}개 통과 / ${fail}개 실패`);
   if (fail > 0) process.exit(1);
@@ -554,6 +555,47 @@ async function aiSection(): Promise<void> {
     }
     deleteRule(rule.id);
     console.log(`임시 계좌 #${a.id} · #${b.id} · #${poor.id}${copies.length ? ` · 복사 #${copies.join(' · #')}` : ''} · 임시 규칙 #${rule.id} 삭제 완료`);
+  }
+}
+
+/**
+ * 12. 계좌 순서 (v2.48.0) — 순서 저장·읽기 · 새 계좌는 맨 뒤 · 계좌 삭제 뒤 나머지 순서 유지 · 잘못된 목록은 거절.
+ * 임시 계좌를 만들었다 지우고, 원래 계좌들의 순서는 끝에 되돌린다.
+ */
+function orderSection(): void {
+  console.log('\n── 12. 계좌 순서 ──');
+  const original = listAccounts().map((a) => a.id);
+  const made: number[] = [];
+  try {
+    const x = createAccount({ name: 'ZZ순서 X', initialBalance: 1_000_000 });
+    const y = createAccount({ name: 'ZZ순서 Y', initialBalance: 1_000_000 });
+    made.push(x.id, y.id);
+    const ids = () => listAccounts().map((a) => a.id);
+    check('새 계좌는 맨 뒤', ids().slice(-2).join(',') === `${x.id},${y.id}`, ids().join(','));
+    // Y 를 맨 앞으로
+    const wanted = [y.id, ...ids().filter((id) => id !== y.id)];
+    const after = reorderAccounts(wanted).map((a) => a.id);
+    check('순서 저장 → 읽기 같음', after.join(',') === wanted.join(',') && ids().join(',') === wanted.join(','), ids().join(','));
+    const z = createAccount({ name: 'ZZ순서 Z', initialBalance: 1_000_000 });
+    made.push(z.id);
+    check('순서를 바꾼 뒤 새 계좌도 맨 뒤', ids().at(-1) === z.id && ids()[0] === y.id, ids().join(','));
+    deleteAccount(x.id);
+    made.splice(made.indexOf(x.id), 1);
+    const left = wanted.filter((id) => id !== x.id).concat(z.id);
+    check('계좌 삭제 뒤 나머지 순서 유지', ids().join(',') === left.join(','), ids().join(','));
+    let rejected = 0;
+    for (const bad of [ids().slice(1), [...ids(), ids()[0]], [...ids().slice(1), 999_999]]) {
+      try {
+        reorderAccounts(bad);
+      } catch {
+        rejected++;
+      }
+    }
+    check('빠지거나 겹치거나 없는 id 면 거절(순서 그대로)', rejected === 3 && ids().join(',') === left.join(','), `거절 ${rejected}/3`);
+  } finally {
+    for (const id of made) deleteAccount(id);
+    if (original.length) reorderAccounts(original);
+    console.log(`임시 계좌 ${made.length ? `#${made.join(' · #')} ` : ''}삭제 · 원래 순서로 되돌림`);
   }
 }
 

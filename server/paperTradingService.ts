@@ -170,10 +170,29 @@ const toTrade = (r: Row): PaperTrade => ({
 
 // ── 계좌 ─────────────────────────────────────────────────────────────────────
 
+/** 화면 순서(v2.48.0 `sort_order`, 사용자가 바꾼다) — 모아보기 · 오른쪽 계좌 탭 · 계좌를 고르는 모든 목록이 이 순서를 그대로 쓴다 */
 export function listAccounts(): PaperAccount[] {
   return (
-    getDb().prepare(`SELECT * FROM paper_accounts ORDER BY id`).all() as Row[]
+    getDb().prepare(`SELECT * FROM paper_accounts ORDER BY sort_order, id`).all() as Row[]
   ).map(toAccount);
+}
+
+/**
+ * 계좌 순서 저장 (v2.48.0) — `ids` 는 **지금 있는 계좌 전부**의 새 순서여야 한다(빠지거나 겹치거나 없는 id 면 400).
+ * 일부만 받으면 나머지 순서가 모호해진다.
+ */
+export function reorderAccounts(ids: number[]): PaperAccount[] {
+  const db = getDb();
+  const existing = (db.prepare(`SELECT id FROM paper_accounts`).all() as { id: number }[]).map((r) => r.id);
+  const valid =
+    Array.isArray(ids) &&
+    ids.length === existing.length &&
+    new Set(ids).size === ids.length &&
+    ids.every((id) => Number.isInteger(id) && existing.includes(id));
+  if (!valid) throw new PaperTradingError('계좌 순서가 지금 계좌 목록과 맞지 않습니다. 새로고침한 뒤 다시 시도하세요.');
+  const update = db.prepare(`UPDATE paper_accounts SET sort_order = ? WHERE id = ?`);
+  db.transaction(() => ids.forEach((id, i) => update.run(i + 1, id)))();
+  return listAccounts();
 }
 
 export function getAccount(id: number): PaperAccount {
@@ -196,8 +215,8 @@ export function createAccount(input: {
   const result = getDb()
     .prepare(
       `INSERT INTO paper_accounts
-         (name, initial_balance, current_cash, currency, commission_rate, slippage_rate, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+         (name, initial_balance, current_cash, currency, commission_rate, slippage_rate, created_at, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM paper_accounts))`,
     )
     .run(
       name,

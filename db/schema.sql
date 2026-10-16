@@ -78,7 +78,8 @@ CREATE TABLE IF NOT EXISTS paper_accounts (
   commission_rate REAL NOT NULL DEFAULT 0.001,  -- 수수료율 (0.1%)
   slippage_rate REAL NOT NULL DEFAULT 0.0005,   -- 슬리피지율 (0.05%)
   created_at TEXT NOT NULL,
-  is_active INTEGER NOT NULL DEFAULT 1   -- 활성/비활성
+  is_active INTEGER NOT NULL DEFAULT 1,  -- 활성/비활성
+  sort_order INTEGER                     -- 화면 순서 (v2.48.0 — 작을수록 위, 옛 DB 는 migrate() 가 채운다)
 );
 
 -- 모의투자 주문

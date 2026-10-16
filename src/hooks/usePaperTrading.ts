@@ -160,6 +160,18 @@ export async function reloadPaperAccounts(): Promise<boolean> {
   }
 }
 
+/**
+ * 계좌 순서 저장 (v2.48.0) — 서버(`PUT /api/paper/accounts/order`)가 순서를 정하고, 앱 전체가 공유하는 목록을 그 순서로 바꾼다.
+ * 모아보기 · 오른쪽 계좌 탭 · 계좌를 고르는 모든 목록이 이 목록(=서버 `listAccounts()` 순서)을 그대로 쓴다. 실패하면 던진다(화면이 되돌린다).
+ */
+export async function reorderPaperAccounts(ids: number[]): Promise<void> {
+  const { accounts: list } = await request<{ accounts: PaperAccount[] }>('/api/paper/accounts/order', {
+    method: 'PUT',
+    body: JSON.stringify({ ids }),
+  });
+  setShared({ accounts: list, error: null });
+}
+
 /*
  * 첫 조회는 성공할 때까지 다시 시도한다 — 앱을 재실행한 직후에는 API 가 아직 뜨지 않아
  * 거의 항상 한 번은 실패한다. 여기서 멈추면 사용자는 빈 계좌 화면을 보게 된다.
