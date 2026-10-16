@@ -88,8 +88,8 @@ export default function SideNav({
         <span className="text-caption leading-tight">{item.shortLabel}</span>
       </button>
 
-      {/* 소메뉴가 하나뿐이면 플라이아웃을 띄우지 않는다 — 대메뉴를 누르면 바로 그 화면이다 */}
-      {hovered === item.id && item.pages.length > 1 && (
+      {/* 소메뉴가 하나뿐이면 플라이아웃을 띄우지 않는다 — 대메뉴를 누르면 바로 그 화면이다(`showSinglePage` 인 실험실은 예외, v2.48.0) */}
+      {hovered === item.id && (item.pages.length > 1 || item.showSinglePage) && (
         <div className="absolute left-full top-0 z-50 ml-px w-40 rounded-lg bg-bg-elevated py-1 shadow-xl">
           {item.pages.map((sub) => (
             <button
@@ -118,8 +118,11 @@ export default function SideNav({
      * 보고 있는 대메뉴를 누르면 이동하지 않고 접기 ↔ 펴기만 한다(예전에는 그 메뉴의 첫 화면으로 갔다). 다른 대메뉴는 예전처럼 이동 + 펼침.
      */
     const current = group === item.id;
-    /** 소메뉴가 하나뿐인 대메뉴(증시 일정·퀀트·계좌) — 소메뉴 줄·화살표 없이 대메뉴가 곧 그 화면이다 (v2.26.0). 접기 대상이 아니다 */
-    const single = item.pages.length === 1;
+    /**
+     * 소메뉴가 하나뿐인 대메뉴(홈·증시 일정·계좌) — 소메뉴 줄·화살표 없이 대메뉴가 곧 그 화면이다 (v2.26.0). 접기 대상이 아니다.
+     * `showSinglePage`(실험실, v2.48.0)는 예외 — 소메뉴 하나여도 줄을 보이고 접을 수 있다.
+     */
+    const single = item.pages.length === 1 && !item.showSinglePage;
     const folded = current && !single && foldedGroup === item.id;
     const open = current && !folded;
 
