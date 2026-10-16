@@ -86,7 +86,7 @@ export default function PeriodicSurgeList({
           발견: <span className="text-text-primary">{results.length}개</span>
         </span>
 
-        <Button variant="primary" size="sm"
+        <Button busy={running} variant="primary" size="sm"
           onClick={onDetect}
           disabled={running}
           className="ml-auto">

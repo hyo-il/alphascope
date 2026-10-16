@@ -126,7 +126,8 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
             {!usage.enabled && ' · 이 서버에서는 Gemini 가 꺼져 있습니다'}
           </>
         ) : (
-          '—'
+          // 받기 전에 「—」(없음)으로 보이지 않게 (v2.48.0 로딩 점검)
+          '불러오는 중…'
         )}
       </p>
     </div>

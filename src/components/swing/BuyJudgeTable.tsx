@@ -144,7 +144,7 @@ export default function BuyJudgeTable({
                   <td className={`${NUM} py-1 tabular-nums`}>{ref ? formatNumber(ref.ratio, 2) : '—'}</td>
                   <td className={`${NUM} py-1 tabular-nums`}>{ref ? `${formatNumber(ref.sizePercent, 1)}%` : '—'}</td>
                   <td className={`${TABLE_NUM_COL} py-1 pl-3 pr-2`} onClick={(e) => e.stopPropagation()}>
-                    <Button
+                    <Button busy={running}
                       size="sm"
                       onClick={() => {
                         setOpen((prev) => new Set(prev).add(r.symbol));
@@ -153,8 +153,8 @@ export default function BuyJudgeTable({
                       disabled={targetDisabled}
                       title={targetBlockedReason ?? TARGET_ONE_AT_A_TIME}
                     >
-                      {running && <LoaderCircle {...ICON_SM} className="mr-1 animate-spin" />}
-                      목표 수익 가능성
+                      {/* 한 종목 약 5회 호출 — 10초 넘게 걸릴 수 있어 진행 문구를 보인다 (v2.48.0) */}
+                      {running ? '분석 중…' : '목표 수익 가능성'}
                     </Button>
                   </td>
                   <td className="w-px py-1 pr-2 text-right" onClick={(e) => e.stopPropagation()}>

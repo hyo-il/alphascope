@@ -190,7 +190,7 @@ export default function RuleDialog({
             <Button variant="ghost" onClick={cancelEdit} disabled={saving}>
               취소
             </Button>
-            <Button variant="primary" onClick={save} disabled={saving}>
+            <Button busy={saving} variant="primary" onClick={save} disabled={saving}>
               {saving ? '저장 중…' : '저장'}
             </Button>
           </>

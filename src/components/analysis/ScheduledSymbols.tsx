@@ -157,7 +157,7 @@ function ScheduledEditor({
           <Button variant="ghost" onClick={onClose}>
             취소
           </Button>
-          <Button variant="primary" onClick={() => void submit()} disabled={saving}>
+          <Button busy={saving} variant="primary" onClick={() => void submit()} disabled={saving}>
             {saving ? '저장 중…' : '저장'}
           </Button>
         </>

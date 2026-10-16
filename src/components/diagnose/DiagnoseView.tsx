@@ -519,7 +519,7 @@ export default function DiagnoseView() {
                 <TrashIcon className="h-3.5 w-3.5" />
               </button>
             )}
-            <Button variant="primary" size="sm"
+            <Button busy={running} variant="primary" size="sm"
               onClick={() => void run()}
               disabled={running}>
               {running ? '실행 중…' : '진단 실행'}

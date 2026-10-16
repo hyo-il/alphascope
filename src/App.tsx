@@ -561,7 +561,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         )}
 
         {view !== 'chart' && view !== 'home' && (
-          <div className="flex min-h-0 flex-1 flex-col">{mainContent()}</div>
+          <div className="flex min-h-0 flex-1 flex-col" data-main-content>{mainContent()}</div>
         )}
       </div>
 

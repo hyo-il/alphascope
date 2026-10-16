@@ -162,7 +162,7 @@ export default function AutoTradeSettings({ strategy, onSave, onClose, doneMessa
           <Button variant="secondary" size="md" onClick={onClose} className="ml-auto">
             취소
           </Button>
-          <Button variant="primary" size="md" onClick={() => void save()} disabled={saving}>
+          <Button busy={saving} variant="primary" size="md" onClick={() => void save()} disabled={saving}>
             {saving ? '저장하는 중…' : saveLabel}
           </Button>
         </div>

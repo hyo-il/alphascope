@@ -97,7 +97,7 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
   return (
     <div className={`flex flex-col gap-2 ${PANEL_PAD} text-xs`}>
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="primary" size="sm"
+        <Button busy={analyzing} variant="primary" size="sm"
           onClick={() => void analyze()}
           disabled={!canAnalyze}>
           {analyzing ? 'AI 판정 중…' : 'AI 요약·판정'}

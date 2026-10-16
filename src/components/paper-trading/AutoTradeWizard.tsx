@@ -355,7 +355,7 @@ export default function AutoTradeWizard({
               다음
             </Button>
           ) : (
-            <Button variant="primary" size="md"
+            <Button busy={busy} variant="primary" size="md"
               onClick={() => void turnOn()}
               disabled={busy || !draft}>
               {busy ? '켜는 중…' : '켜기'}

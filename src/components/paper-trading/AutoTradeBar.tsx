@@ -141,6 +141,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           </Button>
           <Button
             size="sm"
+            busy={toggling}
             variant={on ? 'danger' : 'primary'}
             onClick={() => void toggle()}
             disabled={toggling}
@@ -149,7 +150,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
               보이면 안 된다 — 눌러 놓고 "왜 안 도나" 를 찾게 된다.
             */
           >
-            {toggling ? '…' : on ? '끄기' : '켜기'}
+            {toggling ? (on ? '끄는 중…' : '켜는 중…') : on ? '끄기' : '켜기'}
           </Button>
         </span>
       </div>

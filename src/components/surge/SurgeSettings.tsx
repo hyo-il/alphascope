@@ -192,7 +192,7 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
         </p>
       </section>
 
-      <Button variant="primary" size="md"
+      <Button busy={saving} variant="primary" size="md"
         onClick={submit}
         disabled={saving}>
         {saving ? '저장 중…' : '설정 저장'}

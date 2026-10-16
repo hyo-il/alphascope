@@ -84,12 +84,15 @@ export default function StockExplorer({
   const { selectedId: accountId } = usePaperAccounts();
 
   // 모의투자 보유 종목 — 계좌가 없으면 그냥 비워 둔다.
+  /** 보유 종목을 받는 중 — 받기 전에는 섹션을 「불러오는 중…」 으로 둔다 (v2.48.0 로딩 점검) */
+  const [holdingsLoading, setHoldingsLoading] = useState(false);
   useEffect(() => {
     if (!accountId) {
       setHoldings([]);
       return;
     }
     let cancelled = false;
+    setHoldingsLoading(true);
     const load = async () => {
       try {
         const data = await fetch(`/api/paper/positions?accountId=${accountId}`).then((r) =>
@@ -98,6 +101,8 @@ export default function StockExplorer({
         if (!cancelled) setHoldings(data.positions ?? []);
       } catch {
         // 모의투자를 안 쓰는 사용자도 있다 — 조용히 넘어간다.
+      } finally {
+        if (!cancelled) setHoldingsLoading(false);
       }
     };
     void load();
@@ -211,7 +216,7 @@ export default function StockExplorer({
           limited: true,
         })}
         {/* 보유는 실제 모의투자 포지션이다 — 여기 삭제를 두면 매도로 오해한다 */}
-        {section('보유 종목 (모의투자)', held, { limited: true })}
+        {section('보유 종목 (모의투자)', held, { limited: true, empty: holdingsLoading ? '불러오는 중…' : undefined })}
         {section('최근 조회', recent, {
           onRemove: onRemoveRecent,
           removeLabel: '최근 조회에서 삭제',

@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import StockName from '../common/StockName';
 import { SkeletonCards } from '../common/SkeletonLoader';
 import { Badge, Button, InfoTip, Segmented } from '../ui';
@@ -221,8 +221,7 @@ export default function BuyJudgeHistory() {
                 { value: 'all', label: '전부' },
               ]}
             />
-            <Button size="sm" variant="danger-text" onClick={clear} disabled={clearing}>
-              {clearing && <LoaderCircle {...ICON_SM} className="mr-1 animate-spin" />}
+            <Button busy={clearing} size="sm" variant="danger-text" onClick={clear} disabled={clearing}>
               {clearing ? '삭제하는 중…' : '기록 삭제'}
             </Button>
           </span>

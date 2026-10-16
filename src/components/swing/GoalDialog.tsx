@@ -39,7 +39,7 @@ export default function GoalDialog({ goal, onSave, onClose }: { goal: SwingGoal;
       footer={
         <>
           <Button onClick={onClose}>취소</Button>
-          <Button variant="primary" onClick={() => void save()} disabled={saving}>
+          <Button busy={saving} variant="primary" onClick={() => void save()} disabled={saving}>
             {saving ? '저장하는 중…' : '저장'}
           </Button>
         </>

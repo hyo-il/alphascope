@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LoaderCircle } from 'lucide-react';
 import { Button, Dialog, Input } from '../ui';
-import { ICON_SM } from '../ui/icon';
 import { toast } from '../../store/uiStore';
 import type { PaperAccount } from '../../types/paper';
 
@@ -64,8 +62,7 @@ export default function CopyAccountDialog({
           <Button onClick={onClose} disabled={saving}>
             취소
           </Button>
-          <Button variant="primary" onClick={() => void copy()} disabled={saving || !name?.trim()}>
-            {saving && <LoaderCircle {...ICON_SM} className="mr-1 animate-spin" />}
+          <Button busy={saving} variant="primary" onClick={() => void copy()} disabled={saving || !name?.trim()}>
             {saving ? '복사하는 중…' : '복사'}
           </Button>
         </>

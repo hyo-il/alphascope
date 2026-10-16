@@ -1,6 +1,7 @@
 import { formatDateTime } from '../../utils/dateFormat';
 import Button from '../ui/Button';
 import { useState } from 'react';
+import { toast } from '../../store/uiStore';
 import type { PaperOrder, PaperTrade } from '../../types/paper';
 import { cancelPaperOrder } from '../../hooks/usePaperTrading';
 import { formatPrice, formatSignedMoney } from '../../utils/formatters';
@@ -47,9 +48,18 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
     return true;
   });
 
+  /** 대기 주문 취소 — 취소하는 동안 그 줄 버튼에 회전 아이콘, 실패하면 알린다 (v2.48.0 로딩 점검) */
+  const [cancelling, setCancelling] = useState<number | null>(null);
   const cancel = async (id: number) => {
-    await cancelPaperOrder(id);
-    onChanged();
+    setCancelling(id);
+    try {
+      await cancelPaperOrder(id);
+      onChanged();
+    } catch (e) {
+      toast.error('취소하지 못했습니다', (e as Error).message);
+    } finally {
+      setCancelling(null);
+    }
   };
 
   return (
@@ -70,9 +80,10 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
                 <span className="tabular-nums">@ {formatPrice(o.requestedPrice, o.currency)}</span>
                 {o.reason && <span className="text-text-muted">· {o.reason}</span>}
                 <Button variant="secondary" size="sm"
+                  busy={cancelling === o.id}
                   onClick={() => void cancel(o.id)}
                   className="ml-auto">
-                  취소
+                  {cancelling === o.id ? '취소 중…' : '취소'}
                 </Button>
               </li>
             ))}

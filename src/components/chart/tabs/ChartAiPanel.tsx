@@ -208,7 +208,7 @@ function SingleSymbolGemini({ symbol }: { symbol: string }) {
         </span>
         {/* 계좌 자동매매와 헷갈리지 않게 — 이 탭은 버튼을 눌렀을 때만 돈다 (v2.26.0) */}
         <span className="text-text-muted">버튼을 누르면 Gemini 가 지금 이 종목을 분석합니다(약 5회 호출)</span>
-        <Button variant="primary" size="sm"
+        <Button busy={running} variant="primary" size="sm"
           onClick={analyze}
           disabled={running}>
           {running ? '분석 중… (약 8초)' : '지금 분석'}

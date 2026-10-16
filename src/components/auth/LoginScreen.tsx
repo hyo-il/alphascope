@@ -72,7 +72,7 @@ export default function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
 
         {error && <p className="mt-2 text-xs leading-relaxed text-danger">{error}</p>}
 
-        <Button variant="primary" size="md"
+        <Button busy={busy} variant="primary" size="md"
           type="submit"
           disabled={busy || !password}
           className="mt-4 w-full">

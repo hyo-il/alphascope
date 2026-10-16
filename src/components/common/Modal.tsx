@@ -55,7 +55,7 @@ export default function ModalHost() {
             </Button>
           )}
           {/* 확인 버튼 하나만 색을 준다 — 지우기는 빨강, 그 밖은 파랑 (v2.36.0 공용 Button) */}
-          <Button variant={request.danger ? 'danger' : 'primary'} onClick={() => void accept()} disabled={busy} autoFocus>
+          <Button busy={busy} variant={request.danger ? 'danger' : 'primary'} onClick={() => void accept()} disabled={busy} autoFocus>
             {busy ? '처리 중…' : (request.confirmText ?? '확인')}
           </Button>
         </>

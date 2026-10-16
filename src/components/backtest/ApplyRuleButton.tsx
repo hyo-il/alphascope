@@ -96,7 +96,7 @@ export default function ApplyRuleButton({ options, rules }: { options: BacktestC
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)} disabled={busy}>
+      <Button busy={busy} size="sm" onClick={() => setOpen(true)} disabled={busy}>
         {busy ? '적용 중…' : '계좌에 적용'}
       </Button>
       {open && (

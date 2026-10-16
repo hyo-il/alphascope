@@ -365,6 +365,7 @@ export default function AccountsOverview({
                   variant={on ? 'danger-text' : 'secondary'}
                   size="sm"
                   className="ml-auto"
+                  busy={busyId === item.account.id}
                   disabled={busyId === item.account.id || !strategy}
                   onClick={(e) => {
                     // 카드 클릭(상세 열기)과 겹치면 켜려다 화면이 바뀐다.
@@ -372,7 +373,7 @@ export default function AccountsOverview({
                     void toggle(item, !on);
                   }}
                 >
-                  {busyId === item.account.id ? '…' : on ? '끄기' : '켜기'}
+                  {busyId === item.account.id ? (on ? '끄는 중…' : '켜는 중…') : on ? '끄기' : '켜기'}
                 </Button>
               </div>
               {/* 손절·익절·트레일링 한 줄 — 안전장치를 모아보기에서도 한눈에. 이 계좌 규칙의 값(utils/ruleText) */}

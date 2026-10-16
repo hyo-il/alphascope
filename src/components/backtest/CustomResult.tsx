@@ -437,7 +437,7 @@ export default function CustomResult({
         <SectionTitle
           right={
             !ex ? (
-              <Button size="sm" onClick={() => void explain()} disabled={explaining || !gemini?.enabled}>
+              <Button busy={explaining} size="sm" onClick={() => void explain()} disabled={explaining || !gemini?.enabled}>
                 {explaining && <InlineSpinner />}
                 {explaining ? '설명 받는 중…' : many ? 'AI에게 비교 설명 듣기' : 'AI에게 결과 설명 듣기'}
               </Button>

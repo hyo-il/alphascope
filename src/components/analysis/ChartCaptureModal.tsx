@@ -412,7 +412,7 @@ export default function ChartCaptureModal({
                 ))}
               </div>
             </div>
-            <Button variant="primary" size="md"
+            <Button busy={busy} variant="primary" size="md"
               onClick={() => void handleCapture()}
               disabled={busy || dataLoading || !activeCandles.length}>
               {busy ? '캡처 중…' : dataLoading ? '불러오는 중…' : '캡처'}
