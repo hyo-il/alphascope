@@ -78,9 +78,20 @@ export default function BuyJudgeView() {
   };
 
   const busy = j.busy;
+  /** [실행] — 끝나면 「실행이 완료됐습니다」 + 몇 종목·사도 됨 몇 개, 실패면 「실행하지 못했습니다」 + 이유 */
+  const runAll = async () => {
+    try {
+      const next = await j.recalc();
+      const buys = next.rows.filter((r) => r.verdict === 'buy').length;
+      toast.success('실행이 완료됐습니다', `${next.rows.length}종목 판단 · 사도 됨 ${buys}종목 · ${formatDateTime(next.computedAt)}`);
+    } catch (e) {
+      toast.error('실행하지 못했습니다', (e as Error).message);
+    }
+  };
   const rows = j.state?.rows ?? [];
   const markets = [...new Set(rows.filter((r) => r.basisDate).map((r) => `${isKrSymbol(r.symbol) ? '국내' : '미국'} ${r.basisDate}`))];
   const ruleMissing = j.state != null && j.state.ruleId == null;
+  const tableShown = j.state != null && symbols.length > 0 && !ruleMissing;
 
   return (
     <div className="flex h-full flex-col">
@@ -96,8 +107,12 @@ export default function BuyJudgeView() {
 
             <div className="flex flex-wrap items-start gap-3">
               <RuleSelect rules={rules} value={j.state?.ruleId ?? null} onChange={(id) => void act(j.setRule(id), '규칙을 바꾸지 못했습니다')} disabled={busy != null} label="매매 규칙" />
-              <Button className="ml-auto" icon={RefreshCw} onClick={() => void act(j.recalc(), '다시 실행하지 못했습니다')} disabled={busy != null || ruleMissing || !symbols.length}>
-                다시 실행
+              {/*
+                [실행] (v2.48.0 — 예전 [다시 실행]). 같은 날 다시 실행하면 판단(끝난 봉)은 같고 걸리는 시간도 짧아 예전에는 바뀐 것이
+                하나도 보이지 않았다(진행 표시 0.2초 · 계산 시각은 분 단위 · 완료 알림 없음 — 40차에 재현). 그래서 끝나면 알림을 띄운다.
+              */}
+              <Button className="ml-auto" icon={RefreshCw} busy={busy === '실행 중…'} onClick={() => void runAll()} disabled={busy != null || ruleMissing || !symbols.length}>
+                {busy === '실행 중…' ? '실행 중…' : '실행'}
               </Button>
             </div>
             {ruleMissing && <p className="text-xs text-warning">매매 규칙을 고르세요.</p>}
@@ -114,7 +129,8 @@ export default function BuyJudgeView() {
                 dialogTitle="매수 판단 종목 추가"
                 disabled={busy != null || j.state == null}
               />
-              {busy && (
+              {/* 표가 있으면 진행 표시는 표 위에 덮는다(아래) — 표가 없을 때만 이 줄 */}
+              {busy && !tableShown && (
                 <p className="flex items-center gap-1.5 text-caption text-text-secondary" role="status">
                   <LoaderCircle {...ICON_SM} className="animate-spin" />
                   {busy}
@@ -128,7 +144,17 @@ export default function BuyJudgeView() {
               ) : ruleMissing ? (
                 <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">매매 규칙을 고르면 {symbols.length}종목을 판단합니다.</p>
               ) : (
-                <div className={busy ? 'pointer-events-none opacity-60' : ''}>
+                // 작업 중에는 표 위에 회전 아이콘 + 문구(버튼과 함께 — 표에 결과가 새로 들어올 자리라는 것이 보이게)
+                <div className="relative" aria-busy={busy != null}>
+                  {busy && (
+                    <div className="absolute inset-0 z-10 flex items-start justify-center rounded-lg bg-bg-primary/40 pt-6" role="status">
+                      <span className="flex items-center gap-1.5 rounded-md bg-bg-elevated px-3 py-1.5 text-xs text-text-secondary shadow">
+                        <LoaderCircle {...ICON_SM} className="animate-spin" />
+                        {busy}
+                      </span>
+                    </div>
+                  )}
+                  <div className={busy ? 'pointer-events-none opacity-60' : ''}>
                   <BuyJudgeTable
                     rows={rows}
                     onRemove={(s) => void act(j.setSymbols(symbols.filter((x) => x !== s)), '목록을 바꾸지 못했습니다')}
@@ -141,6 +167,7 @@ export default function BuyJudgeView() {
                     onDeleteTarget={confirmDeleteTarget}
                     onEditGoal={() => setGoalOpen(true)}
                   />
+                  </div>
                 </div>
               )}
             </div>

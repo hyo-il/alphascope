@@ -122,7 +122,7 @@ import {
   refreshOutcomes,
   startDetection,
 } from './surgeScanner';
-import { buildState as buildBuyJudgeState, daysFor as buyJudgeDaysFor, history as buyJudgeHistory } from './buyJudge/judge';
+import { buildState as buildBuyJudgeState, daysFor as buyJudgeDaysFor, history as buyJudgeHistory, historyDays as buyJudgeHistoryDays } from './buyJudge/judge';
 import {
   MAX_SYMBOLS as BUY_JUDGE_MAX_SYMBOLS,
   clearJudgments as clearBuyJudgments,
@@ -1261,6 +1261,17 @@ app.put('/api/buy-judge/retention', (req, res) => {
 app.get('/api/buy-judge/history', async (_req, res) => {
   try {
     res.json(await buyJudgeHistory());
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+// 날짜별 히스토리 (v2.48.0) — ?offset=&limit=(기본 30일). /history/:symbol 보다 먼저 둔다(이름이 겹치지 않게 /days)
+app.get('/api/buy-judge/days', async (req, res) => {
+  try {
+    const offset = Math.max(0, Number(req.query.offset) || 0);
+    const limit = Math.min(90, Math.max(1, Number(req.query.limit) || 30));
+    res.json(await buyJudgeHistoryDays(offset, limit));
   } catch (e) {
     fail(res, e);
   }

@@ -27,11 +27,14 @@ import {
   OUTCOME_DAYS,
   REASON_DAYS,
   SMALL_SAMPLE,
+  HISTORY_DAYS_PAGE,
   verdictOf,
   type BoughtRecord,
   type BuyJudgeHistory,
   type BuyJudgeRow,
+  type BuyJudgeDays,
   type BuyJudgeState,
+  type HistoryDay,
   type JudgeDay,
   type JudgeReference,
   type ReasonSummary,
@@ -274,9 +277,11 @@ export function outcomes(candles: { timestamp: number; open: number; close: numb
 
 const avg = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 100) / 100 : null);
 
-export async function history(now = Date.now()): Promise<BuyJudgeHistory> {
-  const rows = store.listBought();
-  // 성과가 아직 다 안 나온 종목만 일봉을 새로 받는다(종목마다 한 번)
+/**
+ * 「사도 됨」 기록의 5·10·20거래일 뒤 수익률을 읽는다 — 성과가 아직 다 안 나온 종목만 일봉을 새로 받는다(종목마다 한 번).
+ * 히스토리 요약 한 줄과 날짜별 목록이 같은 계산을 쓴다.
+ */
+async function outcomeReader(rows: store.JudgmentRow[], now: number): Promise<(r: store.JudgmentRow) => Record<number, number | null>> {
   const pending = new Set(rows.filter((r) => r.market_date >= marketDate(now - 45 * 86_400_000, r.symbol)).map((r) => r.symbol));
   await mapLimit([...pending], 4, (s) => getCandles(s, '1d', 60).catch(() => []));
   const bySymbol = new Map<string, { candles: ReturnType<typeof loadCandles>; completed: number }>();
@@ -290,9 +295,17 @@ export async function history(now = Date.now()): Promise<BuyJudgeHistory> {
     }
     return c;
   };
-  const bought: BoughtRecord[] = rows.map((r) => {
+  return (r) => {
     const c = candlesOf(r.symbol);
-    const o = outcomes(c.candles, r.symbol, r.market_date, c.completed);
+    return outcomes(c.candles, r.symbol, r.market_date, c.completed);
+  };
+}
+
+export async function history(now = Date.now()): Promise<BuyJudgeHistory> {
+  const rows = store.listBought();
+  const read = await outcomeReader(rows, now);
+  const bought: BoughtRecord[] = rows.map((r) => {
+    const o = read(r);
     return { id: r.id, marketDate: r.market_date, symbol: r.symbol, ruleName: r.rule_name, score: r.score, maxScore: r.max_score, r5: o[5], r10: o[10], r20: o[20] };
   });
   const n = (k: 'r5' | 'r10' | 'r20') => bought.map((b) => b[k]).filter((v): v is number => v !== null);
@@ -301,7 +314,26 @@ export async function history(now = Date.now()): Promise<BuyJudgeHistory> {
     avg5: avg(n('r5')), avg10: avg(n('r10')), avg20: avg(n('r20')),
     smallSample: n('r5').length < SMALL_SAMPLE,
   };
-  return { bought, stats, reasons: reasonSummaries(), counts: store.countRows() };
+  return { stats, reasons: reasonSummaries(), counts: store.countRows() };
+}
+
+/** 날짜별 히스토리 (v2.48.0 — 사용자 결정) — 최근 날짜부터 `limit` 일씩. 「사도 됨」 줄에는 5·10·20거래일 뒤 수익률 */
+export async function historyDays(offset = 0, limit = HISTORY_DAYS_PAGE, now = Date.now()): Promise<BuyJudgeDays> {
+  const dates = store.listDates(limit, offset);
+  const rows = store.listOnDates(dates);
+  const read = await outcomeReader(rows.filter((r) => r.code === 'score_buy'), now);
+  const days: HistoryDay[] = dates.map((d) => {
+    const list = rows
+      .filter((r) => r.market_date === d)
+      .map((r) => {
+        const verdict = verdictOf(r.code);
+        const o = verdict === 'buy' ? read(r) : null;
+        return { symbol: r.symbol, ruleName: r.rule_name, verdict, score: r.score, maxScore: r.max_score, r5: o?.[5] ?? null, r10: o?.[10] ?? null, r20: o?.[20] ?? null };
+      });
+    const buys = list.filter((x) => x.verdict === 'buy').length;
+    return { marketDate: d, rows: list, buys, nonBuys: list.length - buys };
+  });
+  return { days, totalDays: store.countDates() };
 }
 
 /** 종목별 「사지 않은 이유」 — 최근 `REASON_DAYS` 개 기록(날짜) */

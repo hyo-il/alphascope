@@ -5,7 +5,9 @@ import { SkeletonCards } from '../common/SkeletonLoader';
 import { Badge, Button, InfoTip, Segmented } from '../ui';
 import { ICON_SM } from '../ui/icon';
 import { LIST_TABLE_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
-import { fetchJudgeDays, useBuyJudgeHistory } from '../../hooks/useBuyJudge';
+import { fetchJudgeDays, useBuyJudgeDays, useBuyJudgeHistory } from '../../hooks/useBuyJudge';
+import DateGroupList, { SymbolsTitle } from '../common/DateGroupList';
+import DisclosureButton from '../ui/DisclosureButton';
 import { formatSigned } from '../../utils/formatters';
 import { modal, toast } from '../../store/uiStore';
 import { REASON_DAYS, SMALL_SAMPLE, type JudgeDay } from '../../types/buyJudge';
@@ -18,11 +20,14 @@ const pct = (v: number | null) => (v == null ? '—' : `${formatSigned(v, 2)}%`)
 const tone = (v: number | null) => (v == null ? 'text-text-muted' : v > 0 ? 'text-bullish' : v < 0 ? 'text-bearish' : 'text-text-secondary');
 
 /**
- * 매수 판단 히스토리 (v2.45.0, 사용자 결정 A-8) — ① 「사도 됨」 기록과 5·10·20거래일 뒤 수익 ② 「사지 않은 이유」 종목별 한 줄.
+ * 매수 판단 히스토리 (v2.45.0, 사용자 결정 A-8 → v2.48.0) — ① 날짜별 목록(위 한 줄 = 「사도 됨」 성과 요약, 펼치면 그날 종목 · 판단(색 + 총점) · 규칙 ·
+ * 「사도 됨」 의 5·10·20거래일 뒤 수익) ② 아래 접힌 칸 「종목별 사지 않은 이유」.
  * [기록 삭제] 는 판단 기록만. 목표 수익 가능성 기록·성적은 v2.47.0 에 「퀀트 > 검증 기록」 탭으로 옮겼다(A-5).
  */
 export default function BuyJudgeHistory() {
   const h = useBuyJudgeHistory();
+  const dayList = useBuyJudgeDays();
+  const [reasonsOpen, setReasonsOpen] = useState(false);
   const [scope, setScope] = useState<'nonBuy' | 'all'>('nonBuy');
   const [openSym, setOpenSym] = useState<string | null>(null);
   const [days, setDays] = useState<Record<string, JudgeDay[] | 'loading'>>({});
@@ -57,6 +62,7 @@ export default function BuyJudgeHistory() {
           const deleted = await h.clear(scope);
           toast.success(`판단 기록 ${deleted}줄을 삭제했습니다`);
           setDays({});
+          void dayList.reload();
         } catch (e) {
           toast.error('삭제하지 못했습니다', (e as Error).message);
         } finally {
@@ -70,66 +76,80 @@ export default function BuyJudgeHistory() {
   const s = h.data?.stats;
   return (
     <div className="space-y-6">
-      {/* ① 「사도 됨」 기록 */}
+      {/* ① 날짜별 목록 (v2.48.0 — 사용자 결정) — 위 한 줄 = 「사도 됨」 성과 요약, 날짜를 펼치면 그날 종목 전부. 백테스트 히스토리와 같은 부품(DateGroupList) */}
       <section className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold text-text-primary">「사도 됨」 기록과 그 뒤 수익</h3>
+          <h3 className="text-sm font-semibold text-text-primary">날짜별 판단</h3>
           <InfoTip label="수익 계산">{OUTCOME_HELP}</InfoTip>
           {s && (
             <span className="text-caption text-text-secondary">
-              평균 5거래일 {pct(s.avg5)}({s.n5}건) · 10거래일 {pct(s.avg10)}({s.n10}건) · 20거래일 {pct(s.avg20)}({s.n20}건)
+              「사도 됨」 그 뒤 평균 수익 — 5거래일 {pct(s.avg5)}({s.n5}건) · 10거래일 {pct(s.avg10)}({s.n10}건) · 20거래일 {pct(s.avg20)}({s.n20}건)
             </span>
           )}
           {s?.smallSample && <Badge tone="neutral">표본 적음(5거래일 {s.n5}건 · {SMALL_SAMPLE}건 미만)</Badge>}
         </div>
-        {h.loading && !h.data ? (
-          <SkeletonCards count={2} className="grid-cols-1" />
-        ) : h.error ? (
-          <p className="text-caption text-danger">{h.error}</p>
-        ) : !h.data?.bought.length ? (
-          <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">아직 「사도 됨」 기록이 없습니다. 서버가 매일 각 시장 마감 뒤 판단을 기록합니다.</p>
+        {dayList.days == null ? (
+          dayList.error ? <p className="text-caption text-danger">{dayList.error}</p> : <SkeletonCards count={2} className="grid-cols-1" />
+        ) : !dayList.days.length ? (
+          <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">아직 판단 기록이 없습니다. 서버가 매일 각 시장 마감 뒤 기록하고, [실행] 을 눌러도 기록합니다.</p>
         ) : (
-          <div className="max-h-[24rem] overflow-y-auto rounded-lg bg-bg-tertiary/40 [scrollbar-gutter:stable]">
-            <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 z-10 bg-bg-secondary text-caption text-text-muted">
-                <tr className="border-b border-border/50">
-                  <th className={`${TABLE_NUM_COL} py-2 pl-3 pr-2`}>날짜</th>
-                  <th className={`${TABLE_NAME_COL} py-2 pl-4 pr-4`}>종목</th>
-                  <th className={`${TABLE_NUM_COL} py-2 pr-2`}>규칙</th>
-                  <th className={`${NUM} py-2`}>점수</th>
-                  <th className={`${NUM} py-2`}>5거래일</th>
-                  <th className={`${NUM} py-2`}>10거래일</th>
-                  <th className={`${NUM} py-2 pr-3`}>20거래일</th>
-                </tr>
-              </thead>
-              <tbody>
-                {h.data.bought.map((b) => (
-                  <tr key={b.id} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW}`}>
-                    <td className={`${TABLE_NUM_COL} py-1 pl-3 pr-2 tabular-nums text-text-secondary`}>{b.marketDate}</td>
-                    <td className="max-w-0 py-1 pl-4 pr-4">
-                      <StockName symbol={b.symbol} className="max-w-full" />
-                    </td>
-                    <td className={`${TABLE_NUM_COL} py-1 pr-2 text-text-secondary`}>{b.ruleName}</td>
-                    <td className={`${NUM} py-1 tabular-nums`}>
-                      {b.score}/{b.maxScore}
-                    </td>
-                    <td className={`${NUM} py-1 tabular-nums ${tone(b.r5)}`}>{pct(b.r5)}</td>
-                    <td className={`${NUM} py-1 tabular-nums ${tone(b.r10)}`}>{pct(b.r10)}</td>
-                    <td className={`${NUM} py-1 pr-3 tabular-nums ${tone(b.r20)}`}>{pct(b.r20)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DateGroupList
+            label="날짜별 매수 판단"
+            hasMore={dayList.days.length < dayList.totalDays}
+            onMore={() => void dayList.more()}
+            loadingMore={dayList.loadingMore}
+            groups={dayList.days.map((d) => ({
+              key: d.marketDate,
+              date: d.marketDate,
+              title: <SymbolsTitle symbols={d.rows.map((r) => r.symbol)} />,
+              summary: (
+                <>
+                  <span className={d.buys ? 'text-bullish' : ''}>사도 됨 {d.buys}</span> · <span className={d.nonBuys ? 'text-danger' : ''}>안 됨 {d.nonBuys}</span>
+                </>
+              ),
+              render: () => (
+                <table className="w-full text-left text-xs">
+                  <thead className="text-caption text-text-muted">
+                    <tr className="border-b border-border/50">
+                      <th className={`${TABLE_NAME_COL} py-2 pr-4`}>종목</th>
+                      <th className={`${TABLE_NUM_COL} py-2 pr-4`}>판단 · 점수</th>
+                      <th className={`${TABLE_NUM_COL} py-2 pr-2`}>규칙</th>
+                      <th className={`${NUM} py-2`}>5거래일</th>
+                      <th className={`${NUM} py-2`}>10거래일</th>
+                      <th className={`${NUM} py-2`}>20거래일</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {d.rows.map((r) => (
+                      <tr key={`${r.symbol}-${r.ruleName}`} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW}`}>
+                        <td className="max-w-0 py-1 pr-4">
+                          <StockName symbol={r.symbol} className="max-w-full" />
+                        </td>
+                        <td className={`${TABLE_NUM_COL} py-1 pr-4`}>
+                          <VerdictText verdict={r.verdict} score={r.score} maxScore={r.maxScore} />
+                        </td>
+                        <td className={`${TABLE_NUM_COL} py-1 pr-2 text-text-secondary`}>{r.ruleName}</td>
+                        {/* 「사도 됨」 만 그 뒤 수익률 — 다른 판단은 「—」 */}
+                        <td className={`${NUM} py-1 tabular-nums ${tone(r.r5)}`}>{pct(r.r5)}</td>
+                        <td className={`${NUM} py-1 tabular-nums ${tone(r.r10)}`}>{pct(r.r10)}</td>
+                        <td className={`${NUM} py-1 tabular-nums ${tone(r.r20)}`}>{pct(r.r20)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ),
+            }))}
+          />
         )}
       </section>
 
-      {/* ② 「사지 않은 이유」 */}
+      {/* ② 종목별 「사지 않은 이유」 — 목록 아래 접힌 칸 (v2.48.0) */}
       <section className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold text-text-primary">사지 않은 이유</h3>
+          <DisclosureButton open={reasonsOpen} onToggle={() => setReasonsOpen((v) => !v)} label="종목별 사지 않은 이유 보기" controls="buy-judge-reasons" />
           <span className="text-caption text-text-muted">종목마다 최근 {REASON_DAYS}거래일 판단 — 누르면 날짜별 판단</span>
         </div>
+        <div id="buy-judge-reasons" hidden={!reasonsOpen} className="space-y-2">
         {h.loading && !h.data ? (
           <SkeletonCards count={2} className="grid-cols-1" />
         ) : !h.data?.reasons.length ? (
@@ -167,10 +187,7 @@ export default function BuyJudgeHistory() {
                               <tr key={`${d.marketDate}-${d.ruleName}`} className="border-b border-border/30 last:border-b-0">
                                 <td className={`${TABLE_NUM_COL} py-1 pr-4 tabular-nums text-text-secondary`}>{d.marketDate}</td>
                                 <td className={`${TABLE_NUM_COL} py-1 pr-4`}>
-                                  <VerdictText verdict={d.verdict} />
-                                </td>
-                                <td className={`${TABLE_NUM_COL} py-1 pr-4 text-right tabular-nums`}>
-                                  {d.score}/{d.maxScore}
+                                  <VerdictText verdict={d.verdict} score={d.score} maxScore={d.maxScore} />
                                 </td>
                                 <td className="py-1 text-text-muted">{d.reason}</td>
                               </tr>
@@ -185,6 +202,7 @@ export default function BuyJudgeHistory() {
             })}
           </ul>
         )}
+        </div>
       </section>
 
       {/* [기록 삭제] — 판단 기록만. 0줄이면 삭제 칸을 감추고(공통 동작 규칙) 삭제 버튼은 줄 오른쪽 끝(기준표 9) */}

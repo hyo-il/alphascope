@@ -123,12 +123,43 @@ export interface JudgeDay {
   reason: string;
 }
 
+/**
+ * 히스토리 위 요약 한 줄 · 아래 「종목별 사지 않은 이유」 · 기록 수 (v2.48.0 — 예전 「사도 됨」 기록 표 `bought` 는 날짜별 목록 `BuyJudgeDays` 로 바뀌었다).
+ */
 export interface BuyJudgeHistory {
-  bought: BoughtRecord[];
   stats: BoughtStats;
   reasons: ReasonSummary[];
   counts: { all: number; nonBuy: number };
 }
+
+/** 날짜별 히스토리 한 줄의 종목 하나 (v2.48.0) — 「사도 됨」 이면 5·10·20거래일 뒤 수익률(아니면 null) */
+export interface HistoryDayRow {
+  symbol: string;
+  ruleName: string;
+  verdict: Verdict;
+  score: number;
+  maxScore: number;
+  r5: number | null;
+  r10: number | null;
+  r20: number | null;
+}
+
+/** 날짜별 히스토리 — 그날(시장 날짜) 판단한 종목 모두 */
+export interface HistoryDay {
+  marketDate: string;
+  rows: HistoryDayRow[];
+  buys: number;
+  nonBuys: number;
+}
+
+export interface BuyJudgeDays {
+  days: HistoryDay[];
+  /** 기록이 있는 날짜 수 — [더 보기] 판단 */
+  totalDays: number;
+}
+
+/** 날짜별 히스토리 한 번에 받는 날 수 */
+export const HISTORY_DAYS_PAGE = 30;
 
 /** 성과 계산의 비용 — 백테스트와 같은 값(`autoTrading/ruleBacktest` 의 `ROUND_TRIP_COST`, %p) */
 export const OUTCOME_DAYS = [5, 10, 20] as const;

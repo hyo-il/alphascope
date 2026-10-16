@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react';
+import { LoaderCircle, type LucideIcon } from 'lucide-react';
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { ICON, ICON_SM } from './icon';
 import { CONTROL_H } from './tokens';
@@ -30,16 +30,21 @@ const Button = forwardRef<
     size?: keyof typeof SIZE;
     icon?: IconType;
     children?: ReactNode;
+    /** 작업 중 (v2.48.0) — 아이콘 자리에 회전 아이콘을 보이고 누를 수 없게 한다. 글자는 부르는 쪽이 「실행 중…」 처럼 바꾼다 */
+    busy?: boolean;
   }
->(function Button({ variant = 'secondary', size = 'md', icon: Icon, children, className = '', type = 'button', ...rest }, ref) {
+>(function Button({ variant = 'secondary', size = 'md', icon: Icon, children, className = '', type = 'button', busy = false, disabled, ...rest }, ref) {
+  const iconProps = size === 'sm' ? ICON_SM : ICON;
   return (
     <button
       ref={ref}
       type={type}
       {...rest}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
       className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors disabled:opacity-40 ${VARIANT[variant]} ${SIZE[size]} ${className}`}
     >
-      {Icon && <Icon {...(size === 'sm' ? ICON_SM : ICON)} />}
+      {busy ? <LoaderCircle {...iconProps} className="animate-spin" /> : Icon && <Icon {...iconProps} />}
       {children}
     </button>
   );

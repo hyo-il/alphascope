@@ -14,23 +14,41 @@ import type { SwingGoal } from '../../types/swingGoal';
 import type { TargetAnalysisRecord } from '../../types/targetAnalysis';
 
 /** 판단 글자 — 색만으로 뜻을 전하지 않는다(글자가 있다). 손익비 부족은 경고 아이콘도 */
-export function VerdictText({ verdict }: { verdict: Verdict | null }) {
+/**
+ * 판단 글자 (v2.48.0 — 사용자 결정): 「사도 됨」 = 초록(상승 토큰 `bullish`) · 「기준 미달」 · 「손익비 부족」 = 빨강(`danger`).
+ * 총점이 있으면 함께 — `사도 됨 · 72/100`. 펼치기 전에도 판단과 점수가 한눈에 보이게. 색만으로 뜻을 전하지 않는다(글자가 있다).
+ * 손익비 부족은 경고 아이콘을 그대로 둔다(같은 빨강이라 「기준 미달」 과 모양으로 구분).
+ */
+export function VerdictText({ verdict, score, maxScore }: { verdict: Verdict | null; score?: number | null; maxScore?: number | null }) {
   if (!verdict) return <span className="text-text-muted">—</span>;
-  if (verdict === 'buy') return <span className="font-medium text-bullish">{VERDICT_LABEL.buy}</span>;
-  if (verdict === 'rr_block')
+  const total = score != null && maxScore != null ? <span className="tabular-nums"> · {score}/{maxScore}</span> : null;
+  if (verdict === 'buy')
     return (
-      <span className="whitespace-nowrap text-warning">
-        <WarnIcon />
-        {VERDICT_LABEL.rr_block}
+      <span className="whitespace-nowrap font-medium text-bullish">
+        {VERDICT_LABEL.buy}
+        {total}
       </span>
     );
-  return <span className="text-text-secondary">{VERDICT_LABEL.below}</span>;
+  if (verdict === 'rr_block')
+    return (
+      <span className="whitespace-nowrap text-danger">
+        <WarnIcon />
+        {VERDICT_LABEL.rr_block}
+        {total}
+      </span>
+    );
+  return (
+    <span className="whitespace-nowrap text-danger">
+      {VERDICT_LABEL.below}
+      {total}
+    </span>
+  );
 }
 
 const TARGET_ONE_AT_A_TIME = '목표 수익 가능성은 한 번에 한 종목만 분석합니다 — Gemini 무료 한도를 아끼기 위해서입니다(종목당 약 5회 호출).';
 
 /**
- * 매수 판단 표 (v2.45.0 — 사용자 결정 A-2). 종목 · 판단 · 점수(마감) · 참고 점수 · 손절가 · 목표가 · 손익비 · 비중(참고) · [목표 수익 가능성] · ×.
+ * 매수 판단 표 (v2.45.0 — 사용자 결정 A-2). 종목 · 판단(총점 함께, v2.48.0 — 예전 「점수(마감)」 칸을 합쳤다) · 참고 점수 · 손절가 · 목표가 · 손익비 · 비중(참고) · [목표 수익 가능성] · ×.
  * 줄을 누르면 아래에 조건별 점수 · 진입 방식 · 가격 계획 · 경고 · 목표 수익 가능성 결과가 펼쳐진다.
  * 표 규칙(기준표 「표」): 숫자 칸 = 내용 폭 + 고정 여백, 남는 폭 = 종목 칸. 손절가~비중은 「사도 됨」 · 「손익비 부족」 줄에만.
  */
@@ -76,8 +94,7 @@ export default function BuyJudgeTable({
         <thead className="text-caption text-text-muted">
           <tr className="border-b border-border/50">
             <th className={`${TABLE_NAME_COL} py-2 pl-3 pr-3`}>종목</th>
-            <th className={`${TABLE_NUM_COL} py-2 pr-1`}>판단</th>
-            <th className={`${NUM} py-2`}>점수(마감)</th>
+            <th className={`${TABLE_NUM_COL} py-2 pr-1`}>판단 · 점수(마감)</th>
             <th className={`${NUM} py-2`}>참고 점수</th>
             <th className={`${NUM} py-2`}>손절가</th>
             <th className={`${NUM} py-2`}>목표가</th>
@@ -106,12 +123,11 @@ export default function BuyJudgeTable({
                   <td className="py-1 pl-3 pr-3">
                     <span className="flex min-w-0 items-center gap-1.5">
                       {isOpen ? <ChevronDown {...ICON_SM} className="shrink-0 text-text-muted" /> : <ChevronRight {...ICON_SM} className="shrink-0 text-text-muted" />}
-                      {/* 칸이 10개라 1280 에서 종목 칸이 좁다 — 말줄임 대신 단어 단위 줄바꿈(티커는 자르지 않는다). 칸 최소 폭 = 가장 긴 단어 */}
+                      {/* 칸이 9개라 1280 에서 종목 칸이 좁다 — 말줄임 대신 단어 단위 줄바꿈(티커는 자르지 않는다). 칸 최소 폭 = 가장 긴 단어 */}
                       <StockName symbol={r.symbol} wrap />
                     </span>
                   </td>
-                  <td className={`${TABLE_NUM_COL} py-1 pr-1`}>{r.error ? <span className="text-text-muted">판단 못 함</span> : <VerdictText verdict={r.verdict} />}</td>
-                  <td className={`${NUM} py-1 tabular-nums`}>{r.score != null ? `${r.score}/${r.maxScore}` : '—'}</td>
+                  <td className={`${TABLE_NUM_COL} py-1 pr-1`}>{r.error ? <span className="text-text-muted">판단 못 함</span> : <VerdictText verdict={r.verdict} score={r.score} maxScore={r.maxScore} />}</td>
                   <td className={`${NUM} py-1 tabular-nums text-text-secondary`}>
                     {r.refScore != null ? (
                       // 「(장 마감 가격)」 은 숫자 아래 줄 — 칸이 10개라 1280 에서 한 줄로 두면 표가 넘쳤다
@@ -147,7 +163,7 @@ export default function BuyJudgeTable({
                 </tr>
                 {isOpen && (
                   <tr className="border-b border-border/30 bg-bg-secondary/60">
-                    <td colSpan={10} className="px-4 py-3">
+                    <td colSpan={9} className="px-4 py-3">
                       {/* w-0 min-w-full — 펼친 내용의 폭이 위 표의 열 폭을 바꾸지 않게(펼칠 때 「판단」 열이 옮겨 갔다) */}
                       <div className="w-0 min-w-full">
                       <Detail row={r} currency={cur} record={record} running={running} goal={goal} onDeleteTarget={onDeleteTarget} onEditGoal={onEditGoal} />

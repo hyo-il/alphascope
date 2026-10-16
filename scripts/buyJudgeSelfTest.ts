@@ -14,7 +14,7 @@ import { runSignalChecks } from '../server/autoTrading/engine';
 import { defaultStrategy } from '../src/types/autoTrading';
 import { createRule, deleteRule, getRule, listRules } from '../server/rules/store';
 import { defaultRuleBody, DEFAULT_RULE_NAME } from '../src/types/tradingRule';
-import { judgeSymbol, latestRecordDay, outcomes, reasonSummaries, recordMarket, currentRule } from '../server/buyJudge/judge';
+import { judgeSymbol, latestRecordDay, outcomes, reasonSummaries, recordMarket, currentRule, historyDays } from '../server/buyJudge/judge';
 import { buyJudgeTick } from '../server/buyJudge/scheduler';
 import * as store from '../server/buyJudge/store';
 import { ROUND_TRIP_COST } from '../server/analysis/targetHit';
@@ -132,6 +132,18 @@ try {
   putB('2026-10-07', 'score_buy', []);
   const sum = reasonSummaries().find((x) => x.symbol === FAKE);
   check('⑦ 기준 미달 3 · 손익비 부족 1 · 사도 됨 1 · 가장 자주 모자란 조건 = 추세', !!sum && sum.days === 5 && sum.below === 3 && sum.rrBlock === 1 && sum.buy === 1 && sum.mostMissing === '추세', JSON.stringify(sum));
+
+  // ── ⑦-b 날짜별 히스토리 (v2.48.0) — 같은 기록을 날짜로 묶는다 · 최근 날짜가 위 · 「사도 됨」 만 수익률 칸 ──
+  const hd = await historyDays(0, 400);
+  const dayOf = (d: string) => hd.days.find((x) => x.marketDate === d);
+  const fakeOn = (d: string) => dayOf(d)?.rows.find((r) => r.symbol === FAKE);
+  const sorted = hd.days.every((d, i) => i === 0 || hd.days[i - 1].marketDate > d.marketDate);
+  check('⑦-b 날짜별 — 최근 날짜가 위 · 기록 있는 날 5일이 모두 보임', sorted && ['2026-10-01', '2026-10-02', '2026-10-05', '2026-10-06', '2026-10-07'].every((d) => fakeOn(d)), hd.days.map((d) => d.marketDate).join(','));
+  check('⑦-b 날짜별 — 판단·점수 · 「사도 됨」 개수', fakeOn('2026-10-07')?.verdict === 'buy' && fakeOn('2026-10-06')?.verdict === 'rr_block' && fakeOn('2026-10-01')?.verdict === 'below' && fakeOn('2026-10-01')?.score === 40 && (dayOf('2026-10-07')?.buys ?? 0) >= 1, JSON.stringify(dayOf('2026-10-07')));
+  check('⑦-b 날짜별 — 「사도 됨」 이 아닌 줄은 수익률 칸 비움', [fakeOn('2026-10-06'), fakeOn('2026-10-01')].every((r) => r && r.r5 === null && r.r10 === null && r.r20 === null));
+  const page1 = await historyDays(0, 2);
+  const page2 = await historyDays(2, 2);
+  check('⑦-b 날짜별 — 30일씩 [더 보기](여기선 2일씩) 겹치지 않음', page1.days.length === Math.min(2, hd.totalDays) && !page2.days.some((d) => page1.days.some((p) => p.marketDate === d.marketDate)) && page1.totalDays === hd.totalDays, `${page1.days.map((d) => d.marketDate)} / ${page2.days.map((d) => d.marketDate)}`);
 
   // ── ⑧ 규칙 삭제 → 매수 판단 규칙 비움 ──
   const tr = createRule('매수판단 시험 규칙(지움)', defaultRuleBody());

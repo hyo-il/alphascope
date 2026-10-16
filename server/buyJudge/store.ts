@@ -136,6 +136,25 @@ export function listBought(limit = 500): JudgmentRow[] {
   return getDb().prepare(`SELECT * FROM buy_judgments WHERE code = 'score_buy' ORDER BY market_date DESC, symbol LIMIT ?`).all(limit) as JudgmentRow[];
 }
 
+/** 기록이 있는 날짜 — 최근이 먼저 (v2.48.0 날짜별 히스토리) */
+export function listDates(limit: number, offset: number): string[] {
+  return (getDb().prepare(`SELECT DISTINCT market_date FROM buy_judgments ORDER BY market_date DESC LIMIT ? OFFSET ?`).all(limit, offset) as { market_date: string }[]).map(
+    (r) => r.market_date,
+  );
+}
+
+export function countDates(): number {
+  return (getDb().prepare(`SELECT COUNT(DISTINCT market_date) AS n FROM buy_judgments`).get() as { n: number }).n;
+}
+
+/** 그 날짜들의 기록 전부 */
+export function listOnDates(dates: string[]): JudgmentRow[] {
+  if (!dates.length) return [];
+  return getDb()
+    .prepare(`SELECT * FROM buy_judgments WHERE market_date IN (${dates.map(() => '?').join(', ')}) ORDER BY market_date DESC, symbol, id`)
+    .all(...dates) as JudgmentRow[];
+}
+
 /** 종목별 최근 기록(날짜 내림차순) */
 export function listForSymbol(symbol: string, limit: number): JudgmentRow[] {
   return getDb().prepare(`SELECT * FROM buy_judgments WHERE symbol = ? ORDER BY market_date DESC, id DESC LIMIT ?`).all(symbol, limit) as JudgmentRow[];

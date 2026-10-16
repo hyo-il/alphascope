@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { BuyJudgeHistory, BuyJudgeState, JudgeDay, Retention } from '../types/buyJudge';
+import { HISTORY_DAYS_PAGE, type BuyJudgeDays, type BuyJudgeHistory, type BuyJudgeState, type HistoryDay, type JudgeDay, type Retention } from '../types/buyJudge';
 
 /**
  * 매수 판단 (v2.45.0) — 서버 `GET|POST|PUT /api/buy-judge*` 만 부른다(설정을 브라우저에 두지 않는다 — 기기가 달라도 같은 목록·규칙).
- * 폴링하지 않는다 — 처음 한 번, [다시 계산], 목록·규칙을 바꿀 때 다시 받는다. 판단은 하루 한 번(마감) 바뀐다.
+ * 폴링하지 않는다 — 처음 한 번, [실행], 목록·규칙을 바꿀 때 다시 받는다. 판단은 하루 한 번(마감) 바뀐다.
+ * `recalc`·`setSymbols`·`setRule` 은 새 상태를 돌려준다(화면이 완료 알림에 종목 수를 적는다).
  */
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -20,7 +21,7 @@ export function useBuyJudge() {
   const [error, setError] = useState<string | null>(null);
   const seq = useRef(0);
 
-  const run = useCallback(async (label: string, task: () => Promise<BuyJudgeState>) => {
+  const run = useCallback(async (label: string, task: () => Promise<BuyJudgeState>): Promise<BuyJudgeState> => {
     const mine = ++seq.current;
     setBusy(label);
     try {
@@ -29,6 +30,7 @@ export function useBuyJudge() {
         setState(next);
         setError(null);
       }
+      return next;
     } catch (e) {
       if (mine === seq.current) setError((e as Error).message);
       throw e;
@@ -42,10 +44,10 @@ export function useBuyJudge() {
     void load().catch(() => undefined);
   }, [load]);
 
-  const recalc = useCallback(() => run('다시 계산하는 중…', () => json<BuyJudgeState>('/api/buy-judge/recalc', { method: 'POST' })), [run]);
+  const recalc = useCallback(() => run('실행 중…', () => json<BuyJudgeState>('/api/buy-judge/recalc', { method: 'POST' })), [run]);
   const setSymbols = useCallback(
     (symbols: string[]) =>
-      run('종목을 바꾸고 다시 계산하는 중…', async () => {
+      run('종목을 바꾸고 실행 중…', async () => {
         await put('/api/buy-judge/settings', { symbols });
         return json<BuyJudgeState>('/api/buy-judge');
       }),
@@ -53,7 +55,7 @@ export function useBuyJudge() {
   );
   const setRule = useCallback(
     (ruleId: number | null) =>
-      run('규칙을 바꾸고 다시 계산하는 중…', async () => {
+      run('규칙을 바꾸고 실행 중…', async () => {
         await put('/api/buy-judge/settings', { ruleId });
         return json<BuyJudgeState>('/api/buy-judge');
       }),
@@ -90,6 +92,40 @@ export function useBuyJudgeHistory() {
     [reload],
   );
   return { data, loading, error, reload, clear };
+}
+
+/** 날짜별 히스토리 (v2.48.0) — 30일씩, [더 보기] 로 이어 받는다. `reload` 는 처음 30일부터 다시 */
+export function useBuyJudgeDays() {
+  const [days, setDays] = useState<HistoryDay[] | null>(null);
+  const [totalDays, setTotalDays] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const reload = useCallback(async () => {
+    try {
+      const r = await json<BuyJudgeDays>(`/api/buy-judge/days?offset=0&limit=${HISTORY_DAYS_PAGE}`);
+      setDays(r.days);
+      setTotalDays(r.totalDays);
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, []);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+  const more = useCallback(async () => {
+    setLoadingMore(true);
+    try {
+      const r = await json<BuyJudgeDays>(`/api/buy-judge/days?offset=${days?.length ?? 0}&limit=${HISTORY_DAYS_PAGE}`);
+      setDays((prev) => [...(prev ?? []), ...r.days]);
+      setTotalDays(r.totalDays);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [days]);
+  return { days, totalDays, loadingMore, error, reload, more };
 }
 
 export const fetchJudgeDays = (symbol: string) => json<{ days: JudgeDay[] }>(`/api/buy-judge/history/${encodeURIComponent(symbol)}`).then((r) => r.days);
