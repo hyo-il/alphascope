@@ -1,13 +1,13 @@
 /**
  * 백테스트 결과 저장 — `backtest_reports` (db/schema.sql, v2.37.0). `diagnose/store.ts` 와 같은 모양.
- * 화면만 읽는다(자동매매·판정은 읽지 않는다). **최근 20개**.
+ * 화면만 읽는다(자동매매·판정은 읽지 않는다). **최근 100개**(v2.48.1 — 예전 20).
  * v2.44.0 에 예전 「미리 정한 시험」(kind fixed) 기록과 옛 모양 읽기(`backtestCompat`)를 지웠다 — 그 기록은 데이터 정리 때 지웠다.
  */
 import { getDb } from '../db';
 import { customInputKey } from './ruleResearch';
 import type { BacktestCustomReport, BacktestExplain, BacktestListItem, BacktestSummary } from '../../src/types/backtest';
 
-const KEEP = 20;
+const KEEP = 100;
 
 function summaryOf(report: BacktestCustomReport): BacktestSummary {
   return {

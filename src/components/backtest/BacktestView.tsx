@@ -305,10 +305,10 @@ export default function BacktestView() {
         {/*
           ⑤ 백테스트 히스토리 (v2.48.0 — 매수 판단 히스토리와 같은 날짜별 목록 · 공용 DateGroupList).
           날짜 줄 = 그날 시험한 종목(「애플 외 9개」) · 방법 수·기간(시험이 여럿이면 「시험 N건」). 펼치면 그날 시험들.
-          서버는 최근 20개를 보관한다(`researchStore` KEEP) — 날짜는 30일씩 보이고 [더 보기].
+          서버는 최근 100개를 보관한다(`researchStore` KEEP) — 날짜는 30일씩 보이고 [더 보기].
         */}
         <section className="space-y-2">
-          <SectionTitle aside="최근 20개 보관">백테스트 히스토리</SectionTitle>
+          <SectionTitle aside="최근 100개 보관">백테스트 히스토리</SectionTitle>
           {bt.reports == null ? (
             <Panel pad="sm">
               <SkeletonList count={3} />

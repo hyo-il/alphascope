@@ -121,7 +121,7 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
             </span>{' '}
             <InfoTip label="Gemini 사용량 세는 법">
               따로 세는 장치 없이 저장된 기록에서 셉니다. AI 분석·목표 수익 가능성은 한 번에 5회(에이전트 4 + 의장 1), 뉴스 AI 판정·백테스트 AI 설명은 1회, AI 검증은 실제로
-              부른 수입니다. 저장되지 않은 실패 호출(한도 초과·오류)은 AI 검증 말고는 세지 않습니다. 백테스트 설명은 남아 있는 기록(최근 20개)에 붙은 것만 셉니다.
+              부른 수입니다. 저장되지 않은 실패 호출(한도 초과·오류)은 AI 검증 말고는 세지 않습니다. 백테스트 설명은 남아 있는 기록(최근 100개)에 붙은 것만 셉니다.
             </InfoTip>
             {!usage.enabled && ' · 이 서버에서는 Gemini 가 꺼져 있습니다'}
           </>
