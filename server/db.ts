@@ -97,8 +97,27 @@ export function saveCandles(symbol: string, timeframe: BaseTimeframe, candles: C
 export function unconfirmedDailyTimestamps(symbol: string, fromTs: number, closeOffsetMs: number): number[] {
   const rows = getDb()
     .prepare(`SELECT timestamp FROM candles WHERE symbol = ? AND timeframe = '1d' AND timestamp >= ? AND fetched_at IS NOT NULL AND fetched_at < timestamp + ?`)
-    .all(symbol, fromTs, closeOffsetMs) as { timestamp: number }[];
+    .all(symbol, fromTs, closeOffsetMs + CONFIRM_MARGIN_MS) as { timestamp: number }[];
   return rows.map((r) => r.timestamp);
+}
+
+/** 마감 직후 받은 값에는 마지막 체결이 아직 덜 들어왔을 수 있다 — 마감 뒤 10분부터 받은 값을 끝난 값으로 본다(v2.51.1) */
+export const CONFIRM_MARGIN_MS = 10 * 60_000;
+
+/**
+ * 받기가 **성공한 뒤** — 받은 범위(첫 봉~마지막 봉) 안에 있는데 토스가 다시 주지 않은 「끝나지 않은 채 저장된」 일봉을 지운다(v2.51.1).
+ * 장중에만 잠깐 보였거나 날짜가 바뀐 봉이 남으면 영영 「확정 못 함」 이 되어 그 종목을 판단하지 못한다. 끝난 줄(fetched_at 이 마감 뒤 · NULL)은 건드리지 않는다.
+ */
+export function pruneUnconfirmedMissing(symbol: string, page: Candle[], closeOffsetMs: number): number {
+  if (!page.length) return 0;
+  const ts = page.map((c) => c.timestamp);
+  const lo = Math.min(...ts);
+  const hi = Math.max(...ts);
+  const keep = new Set(ts);
+  const stale = unconfirmedDailyTimestamps(symbol, lo, closeOffsetMs).filter((t) => t <= hi && !keep.has(t));
+  const del = getDb().prepare(`DELETE FROM candles WHERE symbol = ? AND timeframe = '1d' AND timestamp = ?`);
+  for (const t of stale) del.run(symbol, t);
+  return stale.length;
 }
 
 export function loadCandles(

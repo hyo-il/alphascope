@@ -32,6 +32,8 @@ export async function loadMarketRef(market: CalendarMarket, now = Date.now(), li
     const all = completedDaily(await getCandles(symbol, '1d', limit), symbol, now);
     // 끝나지 않은 채 저장된 봉(v2.51.1)은 뺀다 — 그날은 「시장 데이터 없음」 이 되고 다음 틱에 다시 받는다(끝나지 않은 값으로 판정하지 않는다)
     const bad = all.length ? new Set(unconfirmedDailyTimestamps(symbol, all[0].timestamp, dailyCloseOffsetMs(symbol))) : new Set<number>();
+    // 마지막이 아닌 봉이 비면 200일선이 이어지지 않은 봉으로 계산된다 — 그런 날은 통째로 「시장 데이터 없음」(다시 시도)
+    if (bad.size && all.slice(0, -1).some((c) => bad.has(c.timestamp))) return null;
     const candles = bad.size ? all.filter((c) => !bad.has(c.timestamp)) : all;
     if (!candles.length) return null;
     const series = await computeIndicators(candles);

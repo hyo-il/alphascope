@@ -925,6 +925,54 @@ async function retrySection(): Promise<void> {
     const r5 = await tick(MARKET_REF_RETRY_MS + 60_000);
     check('그 뒤 틱 — 이미 판단을 마쳐 다시 보지 않음(같은 날 판단은 한 번만 확정)', r5.evaluated === 0 && r5.notes.length === 0);
 
+    // 섞인 종목 — 한 종목은 시장 데이터 없음, 다른 종목은 점수 미달(시장 필터까지 가지 않음) → 기다림이 풀리지 않는다(5분 간격 유지)
+    {
+      resetMarketRefMissForTest();
+      resetPendingNotesForTest();
+      fail = true;
+      calls = 0;
+      const acc4 = createAccount({ name: `__다시 시도 점검 섞임 ${Date.now()}`, initialBalance: 1_000_000, currency: 'USD' });
+      try {
+        const st4 = { ...st, accountId: acc4.id };
+        saveStrategy(acc4.id, st4, exists);
+        setJudgeForTest(async (symbol, r, state, n, candles, refsArg) => {
+          const j = await judgeOnClose(symbol, r, state, n, candles, refsArg);
+          return j.kind === 'ok' && symbol === 'MSFT' ? { ...j, ev: { ...j.ev, action: 'HOLD', code: 'no_signal_buy', gateReason: undefined, reasons: ['점수 미달(시험)'] } } : j;
+        });
+        await runSignalChecks(st4, rule, { now: new Date(t0) });
+        await runSignalChecks(st4, rule, { now: new Date(t0 + 60_000) });
+        check('섞인 종목(시장 데이터 없음 + 점수 미달) → 기다림이 풀리지 않아 1분 뒤 받지 않음', calls === 1, `받기 ${calls}`);
+      } finally {
+        setJudgeForTest(null);
+        deleteStrategy(acc4.id);
+        deleteAccount(acc4.id);
+      }
+    }
+    // 일봉 미확정 — 종목마다 5분 동안 다시 받지 않는다(토스 장애 때 매 틱 다시 부르지 않게)
+    {
+      resetPendingNotesForTest();
+      let judges = 0;
+      const acc5 = createAccount({ name: `__다시 시도 점검 미확정 ${Date.now()}`, initialBalance: 1_000_000, currency: 'USD' });
+      try {
+        const st5 = { ...st, accountId: acc5.id, symbols: ['AAPL'] };
+        saveStrategy(acc5.id, st5, exists);
+        setJudgeForTest(async () => {
+          judges += 1;
+          return { kind: 'unconfirmed', dates: ['2026-10-13'], candles: [] };
+        });
+        const u1 = await runSignalChecks(st5, rule, { now: new Date(t0) });
+        const u2 = await runSignalChecks(st5, rule, { now: new Date(t0 + 60_000) });
+        const u3 = await runSignalChecks(st5, rule, { now: new Date(t0 + 5 * 60_000) });
+        check('일봉 미확정 → 5분 동안 다시 판단하지 않음 · 5분 뒤 다시 · 「최근 판단」 은 처음 한 번 · 그날 판단 마치지 않음',
+          judges === 2 && u1.notes.some((n) => n.code === 'bar_unconfirmed') && u2.notes.length === 0 && u3.notes.length === 0 && getJudgedDay(acc5.id, 'AAPL') !== day,
+          `판단 ${judges} · ${u1.notes.map((n) => n.code)} / ${u2.notes.length} / ${u3.notes.length}`);
+      } finally {
+        setJudgeForTest(null);
+        resetPendingNotesForTest();
+        deleteStrategy(acc5.id);
+        deleteAccount(acc5.id);
+      }
+    }
     // 장 마감까지 실패 — 마감 뒤에는 판단하지 않는다(그날은 「시장 데이터 없음」 으로 끝, 오늘 판단 기록 없음)
     const acc2 = createAccount({ name: `__다시 시도 점검 마감 ${Date.now()}`, initialBalance: 1_000_000, currency: 'USD' });
     try {

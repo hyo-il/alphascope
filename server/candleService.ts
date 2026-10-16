@@ -8,7 +8,8 @@ import {
   resolveTimeframe,
   type CalendarUnit,
 } from '../src/utils/candleAggregator';
-import { latestCandleTimestamp, loadCandles, loadCandlesBefore, saveCandles } from './db';
+import { latestCandleTimestamp, loadCandles, loadCandlesBefore, pruneUnconfirmedMissing, saveCandles } from './db';
+import { dailyCloseOffsetMs } from '../src/utils/marketBar';
 import { isMockMode, mockCandles } from './mockData';
 
 /** 원본 주기별 캐시 신선도 — 이 시간 안에 받아온 데이터면 API를 다시 부르지 않는다. */
@@ -81,6 +82,7 @@ async function refreshRecentDaily(symbol: string, cached: Candle[]): Promise<boo
     return false;
   }
   saveCandles(symbol, '1d', page);
+  pruneUnconfirmedMissing(symbol, page, dailyCloseOffsetMs(symbol));
   return true;
 }
 
@@ -125,6 +127,7 @@ export async function getCandles(
       if (!recentOnly) {
         const fresh = await fetchCandles(symbol, base, baseLimit);
         if (fresh.length) saveCandles(symbol, base, fresh);
+        if (fresh.length && base === '1d') pruneUnconfirmedMissing(symbol, fresh, dailyCloseOffsetMs(symbol));
       }
     } catch (error) {
       if (!cached.length) throw error;

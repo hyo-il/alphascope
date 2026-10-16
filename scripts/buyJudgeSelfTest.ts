@@ -25,7 +25,7 @@ import { gateBlockLabel } from '../src/types/autoTrading';
 import { loadMarketRef, setMarketRefLoadForTest } from '../server/rules/marketRef';
 import { judgeOnClose } from '../server/rules/judge';
 import { completedDaily } from '../server/rules/engine';
-import { loadCandles, saveCandles } from '../server/db';
+import { loadCandles, pruneUnconfirmedMissing, saveCandles } from '../server/db';
 import { deleteStrategy, getJudgedDay } from '../server/autoTrading/store';
 
 let pass = 0;
@@ -233,9 +233,17 @@ try {
       check('⑨ 매수 판단도 「일봉을 확정하지 못해 판단을 미룹니다」', (r1.error ?? '').includes('확정하지 못해') && r1.verdict === null, r1.error ?? '');
       const st = { ...defaultStrategy(acc.id), ruleId: rule.id, symbols: ['AAPL'], maxPositions: 10 };
       const a1 = await runSignalChecks(st, rule.body, { force: true, now: new Date(nextDay) });
-      const a2 = await runSignalChecks(st, rule.body, { force: true, now: new Date(nextDay + 60_000) });
-      check('⑨ 계좌 — 판단을 미루고(그날 판단을 마친 것으로 두지 않음) 「최근 판단」 은 한 번만', a1.notes.some((n) => n.code === 'bar_unconfirmed') && !a2.notes.some((n) => n.code === 'bar_unconfirmed') &&
-        getJudgedDay(acc.id, 'AAPL') !== marketDate(nextDay, 'AAPL') && a1.ordered === 0, `${a1.notes.map((n) => n.code)} / ${a2.notes.map((n) => n.code)}`);
+      check('⑨ 계좌 — 판단을 미루고 그날 판단을 마친 것으로 두지 않음(수동 실행은 늘 이유를 보임)', a1.notes.some((n) => n.code === 'bar_unconfirmed') &&
+        getJudgedDay(acc.id, 'AAPL') !== marketDate(nextDay, 'AAPL') && a1.ordered === 0, `${a1.notes.map((n) => n.code)}`);
+      // 매일 기록 — 일봉을 확정하지 못한 종목은 다음 틱에 다시(그 날짜를 「기록함」 으로 두지 않게 알려 준다)
+      const prevSyms = store.getSymbols();
+      const prevRule = store.getRuleId();
+      store.setSymbols(['AAPL']);
+      store.setRuleId(rule.id);
+      const rec = await recordMarket('US', marketDate(D, 'AAPL'), nextDay);
+      store.setSymbols(prevSyms);
+      store.setRuleId(prevRule);
+      check('⑨ 매일 기록 — 확정 못 한 종목은 unconfirmed 로 알림(그날을 기록함으로 두지 않음)', rec.unconfirmed.includes('AAPL') && rec.written === 0, JSON.stringify(rec));
       // 받기가 성공하면(마감 뒤 받은 값으로 덮임) 끝난 값으로 판단
       saveCandles('AAPL', '1d', [last], D + 17 * H);
       const j2 = await judgeOnClose('AAPL', rule.body, { held: false }, nextDay);
@@ -243,7 +251,19 @@ try {
       // 시장 기준(SPY)도 장중 저장 봉은 빼고 쓴다 → 그날은 시장 데이터 없음(다음 틱에 다시)
       saveCandles('SPY', '1d', [{ ...spyLast, close: spyLast.close * 1.01 }], spyLast.timestamp + 10 * H);
       const ref = await loadMarketRef('US', spyLast.timestamp + 24 * H + 18 * H);
-      check('⑨ 시장 기준 — 장중에 저장된 SPY 봉은 빼고 쓴다', !!ref && !ref.candles.some((c) => c.timestamp === spyLast.timestamp) && ref.candles.length > 0);
+      check('⑨ 시장 기준 — 장중에 저장된 SPY 봉(마지막)은 빼고 쓴다', !!ref && !ref.candles.some((c) => c.timestamp === spyLast.timestamp) && ref.candles.length > 0);
+      // 가운데 봉이 끝나지 않은 채면 200일선이 이어지지 않으므로 통째로 「시장 데이터 없음」
+      saveCandles('SPY', '1d', [spyLast]);
+      const spy2 = loadCandles('SPY', '1d', 3)[0];
+      saveCandles('SPY', '1d', [{ ...spy2, close: spy2.close * 1.01 }], spy2.timestamp + 10 * H);
+      check('⑨ 시장 기준 — 가운데 봉이 끝나지 않은 채면 null(시장 데이터 없음 → 다시 시도)', (await loadMarketRef('US', spyLast.timestamp + 24 * H + 18 * H)) === null);
+      saveCandles('SPY', '1d', [spy2]);
+      // 받기에 성공했는데 토스가 다시 주지 않은 「끝나지 않은」 줄은 지운다(영영 확정 못 함이 되지 않게)
+      const tail = loadCandles('AAPL', '1d', 10);
+      const ghostTs = tail[3].timestamp + 12 * H; // 받은 범위 안 · 토스 응답에는 없는 시각
+      saveCandles('AAPL', '1d', [{ ...tail[3], timestamp: ghostTs }], ghostTs + 2 * H);
+      const pruned = pruneUnconfirmedMissing('AAPL', tail, 16 * H);
+      check('⑨ 받기 성공 뒤 응답에 없는 끝나지 않은 줄은 지움 · 끝난 줄은 그대로', pruned === 1 && !loadCandles('AAPL', '1d', 12).some((c) => c.timestamp === ghostTs) && loadCandles('AAPL', '1d', 10).length === 10);
     } finally {
       globalThis.fetch = realFetch;
       saveCandles('AAPL', '1d', [last]);

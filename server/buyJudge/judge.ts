@@ -130,7 +130,7 @@ export async function judgeSymbol(
   now = Date.now(),
   /** 이번 실행이 같이 쓰는 시장 기준 받기(v2.51.0 — 시장마다 한 번) */
   refs?: MarketRefLoader,
-): Promise<{ row: BuyJudgeRow; record: { marketDate: string; ev: RuleEvaluation } | null }> {
+): Promise<{ row: BuyJudgeRow; record: { marketDate: string; ev: RuleEvaluation } | null; unconfirmed?: boolean }> {
   const empty: BuyJudgeRow = {
     symbol, basisDate: null, verdict: null, code: null, score: null, maxScore: null, minScore: null, conditions: [], reference: null,
     reason: null, refScore: null, refLabel: null, warnings: [], error: null,
@@ -139,7 +139,7 @@ export async function judgeSymbol(
     const j = await judgeOnClose(symbol, rule, { held: false }, now, undefined, refs);
     if (j.kind === 'short') return { row: { ...empty, error: `가격 데이터가 ${j.count}개뿐이라 판단하지 않았습니다` }, record: null };
     // 끝나지 않은 채 저장된 일봉(v2.51.1) — 끝나지 않은 값으로 판단하지 않는다. 다음 실행 · 다음 기록 때 다시 받는다
-    if (j.kind === 'unconfirmed') return { row: { ...empty, error: `일봉(${j.dates.join(', ')})을 확정하지 못해 판단을 미룹니다` }, record: null };
+    if (j.kind === 'unconfirmed') return { row: { ...empty, error: `일봉(${j.dates.join(', ')})을 확정하지 못해 판단을 미룹니다` }, record: null, unconfirmed: true };
     const { ev, completed, series, candles } = j;
     const lastBar = completed.at(-1)!;
     const basisDate = marketDate(lastBar.timestamp, symbol);
@@ -241,7 +241,8 @@ export async function buildState(opts: { write?: boolean; now?: number } = {}): 
   const base = { ruleId: rule?.id ?? null, ruleName: rule?.name ?? null, symbols, retention: store.getRetention(), computedAt: new Date(now).toISOString() };
   if (!rule || !symbols.length) return { ...base, rows: [] };
   const prices = await livePrices(symbols);
-  const refs = marketRefLoader(now);
+  // 매수 판단은 계좌의 「5분 기다림」 을 쓰지 않는다 — 기다림 중이라 받지 않은 「시장 데이터 없음」 으로 그날 줄을 덮지 않게(v2.51.1)
+  const refs = marketRefLoader(now, undefined, undefined, false);
   const results = await mapLimit(symbols, 4, (s) => judgeSymbol(s, rule.body, prices.get(s) ?? null, now, refs));
   if (opts.write) for (const r of results) if (r.record) save(rule, r.row.symbol, r.record.marketDate, r.record.ev);
   return { ...base, rows: results.map((r) => r.row) };
@@ -251,21 +252,25 @@ export async function buildState(opts: { write?: boolean; now?: number } = {}): 
  * 매일 기록 — 그 시장 종목 전부를 `day`(기록할 시장 날짜) 기준으로 판단해 쓴다. 기준 봉이 `day` 가 아닌 종목(데이터가 아직 없음 등)은 건너뛴다.
  * 돌려준 값은 로그용.
  */
-export async function recordMarket(market: CalendarMarket, day: string, now = Date.now()): Promise<{ written: number; skipped: string[] }> {
+export async function recordMarket(market: CalendarMarket, day: string, now = Date.now()): Promise<{ written: number; skipped: string[]; unconfirmed: string[] }> {
   const rule = currentRule();
   const symbols = store.getSymbols().filter((s) => marketOf(s) === market);
-  if (!rule || !symbols.length) return { written: 0, skipped: [] };
+  if (!rule || !symbols.length) return { written: 0, skipped: [], unconfirmed: [] };
   let written = 0;
   const skipped: string[] = [];
-  const refs = marketRefLoader(now);
+  const refs = marketRefLoader(now, undefined, undefined, false);
+  const unconfirmed: string[] = [];
   await mapLimit(symbols, 4, async (s) => {
-    const { record } = await judgeSymbol(s, rule.body, null, now, refs);
+    const { record, unconfirmed: notYet } = await judgeSymbol(s, rule.body, null, now, refs);
     if (record && record.marketDate === day) {
       save(rule, s, day, record.ev);
       written++;
-    } else skipped.push(s);
+    } else {
+      skipped.push(s);
+      if (notYet) unconfirmed.push(s);
+    }
   });
-  return { written, skipped };
+  return { written, skipped, unconfirmed };
 }
 
 // ── 히스토리 ─────────────────────────────────────────────────────────────────

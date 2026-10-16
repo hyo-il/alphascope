@@ -35,19 +35,30 @@ import type { RuleBody } from '../../src/types/tradingRule';
 type Note = AutoTradeRunResult['notes'][number];
 
 /**
- * 그날 다시 판단할 종목(시장 데이터 없음 · 일봉 미확정, v2.51.1)의 「최근 판단」 을 처음 한 번만 남기려는 표 — 계좌 · 종목 · 시장 날짜 · 종류.
- * 메모리에만 둔다(서버를 다시 켜면 한 번 더 남을 수 있다). 날짜가 바뀌면 키가 달라 저절로 새로 남는다.
+ * 그날 다시 판단할 종목(시장 데이터 없음 · 일봉 미확정, v2.51.1)의 「최근 판단」 을 처음 한 번만 남기려는 표 — 계좌 · 종목 · 시장 날짜 · **한국 날짜** · 종류.
+ * 한국 날짜도 넣는다 — 「최근 판단」 은 한국 날짜로 묶여 자정에 비워지므로, 미국 장 중 자정을 넘기면 다시 한 번 남겨야 줄이 보인다.
+ * 메모리에만 둔다(서버를 다시 켜면 한 번 더 남을 수 있다). 2,000개를 넘으면 비운다(지난 날짜 키가 쌓이지 않게).
  */
 const pendingNoted = new Set<string>();
-function firstPending(accountId: number, symbol: string, day: string, kind: string): boolean {
-  const key = `${accountId}|${symbol}|${day}|${kind}`;
+function firstPending(accountId: number, symbol: string, day: string, kind: string, now: number, force = false): boolean {
+  if (force) return true; // 수동 실행은 늘 결과를 보인다
+  const key = `${accountId}|${symbol}|${day}|${marketDate(now, '005930')}|${kind}`;
   if (pendingNoted.has(key)) return false;
+  if (pendingNoted.size > 2000) pendingNoted.clear();
   pendingNoted.add(key);
   return true;
 }
+
+/**
+ * 일봉을 확정하지 못한 종목(v2.51.1)은 5분 동안 다시 받지 않는다 — 토스 장애 동안 매 틱 · 계좌마다 · 종목마다 다시 부르면 호출이 쌓이고
+ * 한 틱이 길어져 다른 계좌의 손절 검사가 밀린다. 종목 단위(모든 계좌가 같이 쓴다). 수동 실행은 기다리지 않는다.
+ */
+const UNCONFIRMED_RETRY_MS = 5 * 60_000;
+const unconfirmedAt = new Map<string, number>();
 /** 시험 전용 */
 export function resetPendingNotesForTest(): void {
   pendingNoted.clear();
+  unconfirmedAt.clear();
 }
 
 /** 판단 함수 — 시험(`npm run autotrade:test`)만 바꿔치기한다(총점 순서로 사기 시험에서 점수를 정하려고, v2.49.0). 평소에는 `judgeOnClose` 그대로 */
@@ -163,6 +174,8 @@ export async function runSignalChecks(
       if (getJudgedDay(strategy.accountId, symbol) === today) continue;
     }
     const position = heldMap.get(symbol);
+    const waitAt = unconfirmedAt.get(symbol);
+    if (!options.force && waitAt != null && now.getTime() - waitAt < UNCONFIRMED_RETRY_MS) continue; // 일봉 미확정 — 5분 뒤 다시
     try {
       // 마감 판단은 매수 판단과 같은 함수 한 곳(`rules/judge.ts`, v2.45.0)
       const judged = await judge(
@@ -179,9 +192,11 @@ export async function runSignalChecks(
         refs,
       );
       result.evaluated += 1;
+      if (judged.kind !== 'unconfirmed') unconfirmedAt.delete(symbol);
       // 끝나지 않은 채 저장된 일봉(v2.51.1) — 판단하지 않고 그날 판단을 마친 것으로 두지 않는다(다음 틱에 다시 받는다). 「최근 판단」 에는 그날 처음 한 번만
       if (judged.kind === 'unconfirmed') {
-        if (firstPending(strategy.accountId, symbol, today, 'bar_unconfirmed')) {
+        unconfirmedAt.set(symbol, now.getTime());
+        if (firstPending(strategy.accountId, symbol, today, 'bar_unconfirmed', now.getTime(), options.force)) {
           result.notes.push({ symbol, action: 'HOLD', reason: `일봉(${judged.dates.join(', ')})을 확정하지 못해 판단을 미룹니다`, code: 'bar_unconfirmed', orderId: null });
         }
         continue;
@@ -261,15 +276,19 @@ export async function runSignalChecks(
     // 시장 기준 받기는 5분 간격(`markMarketRefMiss`). 같은 실패를 매 틱 남기지 않게 「최근 판단」 에는 그날 처음 한 번만
     if (ev.gateReason === 'market_nodata') {
       markMarketRefMiss(marketOfSymbol(d.symbol), now.getTime());
-      if (firstPending(strategy.accountId, d.symbol, d.today, 'market_nodata')) result.notes.push(note);
+      if (firstPending(strategy.accountId, d.symbol, d.today, 'market_nodata', now.getTime(), options.force)) result.notes.push(note);
       continue;
     }
     result.notes.push(note);
     setJudgedDay(strategy.accountId, d.symbol, d.today);
   }
-  // 시장 필터를 받은 데이터로 판정한 시장은 다시 받기 기다림을 푼다
+  // 시장 기준을 **실제로 받아** 이번 바퀴에 「시장 데이터 없음」 이 하나도 없었던 시장만 다시 받기 기다림을 푼다
+  // (점수 미달 · 보유 중 종목은 시장 필터까지 가지 않아 이유가 없으므로 그것으로 풀지 않는다)
   if (usesMarketFilter(rule)) {
-    for (const d of due) if (d.judged.ev.gateReason !== 'market_nodata') clearMarketRefMiss(marketOfSymbol(d.symbol));
+    for (const m of new Set(due.map((d) => marketOfSymbol(d.symbol)))) {
+      const missed = due.some((d) => marketOfSymbol(d.symbol) === m && d.judged.ev.gateReason === 'market_nodata');
+      if (!missed && (await refs.get(m))) clearMarketRefMiss(m);
+    }
   }
   return result;
 }

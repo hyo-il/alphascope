@@ -30,10 +30,13 @@ export async function buyJudgeTick(now = Date.now()): Promise<{ recorded: Partia
       const day = latestRecordDay(market, now);
       if (last[market] && last[market]! >= day) continue;
       const r = await recordMarket(market, day, now);
-      store.setLastRecorded(market, day);
-      out.recorded[market] = { day, ...r };
+      // 일봉을 확정하지 못한 종목이 있으면(v2.51.1) 그 날짜를 「기록함」 으로 두지 않는다 — 다음 틱에 다시 기록(이미 쓴 종목은 같은 줄을 덮어쓴다)
+      if (!r.unconfirmed.length) store.setLastRecorded(market, day);
+      out.recorded[market] = { day, written: r.written, skipped: r.skipped };
       if (r.written || r.skipped.length) {
-        console.log(`[buyJudge] ${market} ${day} 판단 기록 ${r.written}종목${r.skipped.length ? ` · 기준 봉이 없어 건너뜀 ${r.skipped.join(',')}` : ''}`);
+        const notYet = r.unconfirmed.length ? ` · 일봉을 확정하지 못해 다음에 다시 ${r.unconfirmed.join(',')}` : '';
+        const other = r.skipped.filter((s) => !r.unconfirmed.includes(s));
+        console.log(`[buyJudge] ${market} ${day} 판단 기록 ${r.written}종목${other.length ? ` · 기준 봉이 없어 건너뜀 ${other.join(',')}` : ''}${notYet}`);
       }
     }
     const today = kstDay(now);
