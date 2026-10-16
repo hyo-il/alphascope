@@ -11,6 +11,8 @@ import { computeIndicators } from '../indicatorService';
 import { completedDaily, evaluateRule, type RuleEvaluation, type RuleState } from './engine';
 import { usesMarketFilter, type RuleBody } from '../../src/types/tradingRule';
 import { loadMarketRef, marketOfSymbol, type MarketRefLoader } from './marketRef';
+import { lastClosedDay } from '../marketHours';
+import { isMockMode } from '../mockData';
 import type { Candle } from '../../src/types/toss';
 import type { IndicatorSeries } from '../../src/types/chart';
 
@@ -22,7 +24,10 @@ export const JUDGE_MIN_CANDLES = 30;
 export type ClosedJudgement =
   | { kind: 'ok'; ev: RuleEvaluation; candles: Candle[]; completed: Candle[]; series: IndicatorSeries }
   | { kind: 'short'; count: number; candles: Candle[] }
-  /** v2.51.1 — 끝난 봉 가운데 그 시장 마감 전에 받은 값(장중에 저장된 뒤 다시 받기 실패)이 있다 → 판단하지 않는다(다음 틱에 다시) */
+  /**
+   * v2.51.1 — 끝난 봉 가운데 그 시장 마감 전에 받은 값(장중에 저장된 뒤 다시 받기 실패)이 있다 → 판단하지 않는다(다음 틱에 다시).
+   * v2.51.2 — 마지막 끝난 봉이 직전 거래일(`marketHours.lastClosedDay`)보다 오래됐다(받기 실패로 옛 값만 있음)도 같다. `dates` = 확정하지 못한 날짜
+   */
   | { kind: 'unconfirmed'; dates: string[]; candles: Candle[] };
 
 /**
@@ -44,6 +49,12 @@ export async function judgeOnClose(
   if (!candles) {
     const bad = unconfirmedDailyTimestamps(symbol, completed[0].timestamp, dailyCloseOffsetMs(symbol)).filter((ts) => ts <= completed.at(-1)!.timestamp);
     if (bad.length) return { kind: 'unconfirmed', dates: bad.map((ts) => marketDate(ts, symbol)), candles: all };
+    // 오래된 끝난 봉(v2.51.2) — 받기에 실패했고 장중 저장 봉도 없으면 마지막 끝난 봉이 직전 거래일보다 앞이다. 그 값으로 판단하고 그날을 마치지 않는다.
+    // 모의 데이터 모드는 뺀다 — 모의 일봉은 받은 값이 아니라 지금 시각으로 매일(주말 포함) 만들어 시장 달력과 맞지 않는다
+    if (!isMockMode()) {
+      const expected = lastClosedDay(marketOfSymbol(symbol), now, dailyCloseOffsetMs(symbol));
+      if (marketDate(completed.at(-1)!.timestamp, symbol) < expected) return { kind: 'unconfirmed', dates: [expected], candles: all };
+    }
   }
   const series = await computeIndicators(completed);
   const market = usesMarketFilter(rule) ? await (refs ? refs.get(marketOfSymbol(symbol)) : loadMarketRef(marketOfSymbol(symbol), now)) : undefined;

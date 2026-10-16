@@ -10,7 +10,9 @@ import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니�
 import 'dotenv/config';
 import { getDb } from '../server/db';
 import { createAccount, deleteAccount } from '../server/paperTradingService';
-import { runSignalChecks } from '../server/autoTrading/engine';
+import { resetPendingNotesForTest, runSignalChecks } from '../server/autoTrading/engine';
+import { isMarketClosed } from '../server/marketCalendar';
+import { lastClosedDay } from '../server/marketHours';
 import { defaultStrategy } from '../src/types/autoTrading';
 import { createRule, deleteRule, getRule, listRules } from '../server/rules/store';
 import { defaultRuleBody, DEFAULT_RULE_NAME } from '../src/types/tradingRule';
@@ -222,7 +224,7 @@ try {
     const last = loadCandles('AAPL', '1d', 1)[0];
     const spyLast = loadCandles('SPY', '1d', 1)[0];
     const D = last.timestamp;
-    const nextDay = D + 24 * H + 18 * H; // 다음 날 18:00(그 날 봉은 아직 없다 — 받기 실패라 캐시만)
+    const nextDay = D + 17.5 * H; // 그날 17:30 ET(마감 뒤 — 다시 받기 실패라 캐시만). v2.51.2: 「다음 날」 로 두면 D 가 목요일 이하일 때 직전 거래일 봉이 없어 「오래된 봉」 이 먼저 걸린다
     const acc = createAccount({ name: '끝나지 않은 일봉 시험(지움)', initialBalance: 1_000_000, currency: 'USD' });
     try {
       offline();
@@ -278,6 +280,97 @@ try {
     const u = us.at(-1)!.timestamp;
     check('⑨ 국내 — 17:00 KST(NXT 중)에는 그날 봉을 빼고, 20:30 KST 에는 넣는다', completedDaily(kr, '005930', k + 17 * H).length === kr.length - 1 && completedDaily(kr, '005930', k + 20.5 * H).length === kr.length);
     check('⑨ 미국 — 15:00 ET 에는 빼고, 17:00 ET 에는 넣는다', completedDaily(us, 'AAPL', u + 15 * H).length === us.length - 1 && completedDaily(us, 'AAPL', u + 17 * H).length === us.length);
+  }
+
+  // ── ⑩ 오래된 끝난 봉 (v2.51.2) — 받기 실패 + 장중 저장 봉도 없음 → 마지막 끝난 봉이 직전 거래일보다 앞이면 판단을 미룬다 ──
+  //   가짜 종목(캐시에만 있음)에 날짜를 정한 일봉을 넣고 토스를 끊는다 — 월요일 · 휴장일 다음 날 · 국내 NXT · 미국
+  {
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: any, init?: any) => {
+      const u = typeof input === 'string' ? input : input.url ?? String(input);
+      if (u.includes('openapi.tossinvest.com')) throw new Error('offline(시험)');
+      return realFetch(input, init);
+    }) as typeof fetch;
+    const US = 'ZZSTALE'; // 영문 → 미국
+    const KR = '9ZSTAL'; // 숫자로 시작 → 국내(isKrSymbol)
+    const H = 3_600_000;
+    const back = (d: string) => new Date(Date.parse(`${d}T12:00:00Z`) - 24 * H).toISOString().slice(0, 10);
+    // 그 시장 자정(봉 timestamp) — 미국 10월 EDT −4 · 11월 말 EST −5 · 국내 KST +9
+    const midnight = (sym: string, d: string) => Date.parse(`${d}T00:00:00${sym === KR ? '+09:00' : d >= '2026-11-01' ? '-05:00' : '-04:00'}`);
+    const at = (sym: string, d: string, hour: number) => midnight(sym, d) + hour * H;
+    const clear = (sym: string) => getDb().prepare(`DELETE FROM candles WHERE symbol = ?`).run(sym);
+    /** 그 시장 거래일 40개(휴장 건너뜀)를 lastDay 까지 — 마감 뒤에 받은 값으로 저장 */
+    const seed = (sym: string, lastDay: string) => {
+      clear(sym);
+      const days: string[] = [];
+      for (let d = lastDay; days.length < 40; d = back(d)) if (!isMarketClosed(sym === KR ? 'KR' : 'US', d)) days.unshift(d);
+      let p = 100;
+      const bars = days.map((d, i) => {
+        p = +(p * (1 + Math.sin(i) * 0.01)).toFixed(2);
+        return { timestamp: midnight(sym, d), open: p, high: +(p * 1.01).toFixed(2), low: +(p * 0.99).toFixed(2), close: p, volume: 1_000_000 + i };
+      });
+      saveCandles(sym, '1d', bars, midnight(sym, lastDay) + 22 * H);
+    };
+    const kindOf = async (sym: string, now: number) => {
+      const j = await judgeOnClose(sym, rule.body, { held: false }, now);
+      return j.kind === 'unconfirmed' ? `unconfirmed:${j.dates.join(',')}` : j.kind;
+    };
+    const acc = createAccount({ name: '오래된 일봉 시험(지움)', initialBalance: 1_000_000, currency: 'USD' });
+    try {
+      // 미국 — 이틀 전 봉(수)만 있고 금 10:00 ET → 직전 거래일(목) 없음 → 미룸
+      seed(US, '2026-10-07');
+      check('⑩ 미국 — 받기 실패 + 마지막 봉이 이틀 전 → 판단 미룸(확정 못 한 날짜 = 직전 거래일)', (await kindOf(US, at(US, '2026-10-09', 10))) === 'unconfirmed:2026-10-08', await kindOf(US, at(US, '2026-10-09', 10)));
+      seed(US, '2026-10-08');
+      check('⑩ 미국 — 직전 거래일(목) 봉 있음 → 정상', (await kindOf(US, at(US, '2026-10-09', 10))) === 'ok');
+      seed(US, '2026-10-09');
+      check('⑩ 미국 — 월요일 10:00 ET · 직전 거래일 = 금요일 → 정상', (await kindOf(US, at(US, '2026-10-12', 10))) === 'ok');
+      check('⑩ 미국 — 월요일 17:00 ET(마감 뒤)인데 월요일 봉 없음 → 미룸', (await kindOf(US, at(US, '2026-10-12', 17))) === 'unconfirmed:2026-10-12');
+      seed(US, '2026-11-25');
+      check('⑩ 미국 — 추수감사절(목 휴장) 다음 날 금 10:00 ET · 직전 거래일 = 수 → 정상', (await kindOf(US, at(US, '2026-11-27', 10))) === 'ok');
+      check('⑩ 미국 — 그 금요일 17:00 ET 에 금요일 봉 없음 → 미룸', (await kindOf(US, at(US, '2026-11-27', 17))) === 'unconfirmed:2026-11-27');
+      // 국내 — 2026-10-05(월, 개천절 대체) · 10-09(금, 한글날) 휴장
+      seed(KR, '2026-10-02');
+      check('⑩ 국내 — 주말 + 대체 휴일(월) 다음 날 화 10:00 KST · 직전 거래일 = 금 → 정상', (await kindOf(KR, at(KR, '2026-10-06', 10))) === 'ok');
+      seed(KR, '2026-10-07');
+      check('⑩ 국내 — 마지막 봉이 수요일, 월 10:00 KST(목이 직전 거래일 — 금은 한글날) → 미룸', (await kindOf(KR, at(KR, '2026-10-12', 10))) === 'unconfirmed:2026-10-08');
+      check('⑩ 국내 — 목 19:00 KST(NXT 중)에는 직전 거래일 = 수 → 정상', (await kindOf(KR, at(KR, '2026-10-08', 19))) === 'ok');
+      check('⑩ 국내 — 목 20:30 KST(NXT 끝)에 목요일 봉 없음 → 미룸', (await kindOf(KR, at(KR, '2026-10-08', 20.5))) === 'unconfirmed:2026-10-08');
+      check('⑩ 직전 거래일 계산 = 시장 달력(주말 · 휴장 건너뜀)', lastClosedDay('KR', at(KR, '2026-10-12', 10), 20 * H) === '2026-10-08' && lastClosedDay('US', at(US, '2026-11-27', 10), 16 * H) === '2026-11-25' && lastClosedDay('US', at(US, '2026-10-12', 10), 16 * H) === '2026-10-09');
+
+      // 매수 판단 · 매일 기록 · 계좌 — 45차 「확정 못 함」 과 같은 경로
+      seed(US, '2026-10-07');
+      const now = at(US, '2026-10-09', 10);
+      const { row } = await judgeSymbol(US, rule.body, null, now);
+      check('⑩ 매수 판단 — 「일봉을 확정하지 못해 판단을 미룹니다」', (row.error ?? '').includes('2026-10-08') && (row.error ?? '').includes('확정하지 못해') && row.verdict === null, row.error ?? '');
+      const prevSyms = store.getSymbols();
+      const prevRule = store.getRuleId();
+      store.setSymbols([US]);
+      store.setRuleId(rule.id);
+      const rec = await recordMarket('US', '2026-10-09', at(US, '2026-10-09', 16.5));
+      store.setSymbols(prevSyms);
+      store.setRuleId(prevRule);
+      check('⑩ 매일 기록 — 확정 못 한 종목은 unconfirmed(그날 다시 시도)', rec.unconfirmed.includes(US) && rec.written === 0, JSON.stringify(rec));
+      resetPendingNotesForTest();
+      const st = { ...defaultStrategy(acc.id), ruleId: rule.id, symbols: [US], maxPositions: 10 };
+      const a1 = await runSignalChecks(st, rule.body, { now: new Date(now) });
+      const a2 = await runSignalChecks(st, rule.body, { now: new Date(now + 60_000) });
+      const a3 = await runSignalChecks(st, rule.body, { now: new Date(now + 6 * 60_000) });
+      check('⑩ 계좌 — 미룸 · 그날 판단을 마치지 않음 · 1분 뒤는 보지 않고 5분 뒤 다시 · 「최근 판단」 은 처음 한 번',
+        a1.notes.length === 1 && a1.notes[0].code === 'bar_unconfirmed' && a1.notes[0].reason.includes('2026-10-08') && a2.evaluated === 0 && a3.evaluated === 1 && a3.notes.length === 0 &&
+          getJudgedDay(acc.id, US) !== '2026-10-09' && a1.ordered + a3.ordered === 0,
+        `${a1.notes.map((n) => n.code)} · ${a2.evaluated} · ${a3.evaluated}/${a3.notes.length}`);
+      // 다시 받기가 성공해 직전 거래일 봉이 들어오면 정상 판단 → 그날을 마친다
+      seed(US, '2026-10-08');
+      const a4 = await runSignalChecks(st, rule.body, { now: new Date(now + 12 * 60_000) });
+      check('⑩ 계좌 — 직전 거래일 봉이 들어오면 판단하고 그날을 마침', a4.evaluated === 1 && !a4.notes.some((n) => n.code === 'bar_unconfirmed') && getJudgedDay(acc.id, US) === '2026-10-09', `${a4.notes.map((n) => n.code)}`);
+    } finally {
+      globalThis.fetch = realFetch;
+      clear(US);
+      clear(KR);
+      resetPendingNotesForTest();
+      deleteStrategy(acc.id);
+      deleteAccount(acc.id);
+    }
   }
 
   // ── ⑧ 규칙 삭제 → 매수 판단 규칙 비움 ──

@@ -51,6 +51,24 @@ export const marketOf = (symbol: string): CalendarMarket => (isKrSymbol(symbol) 
 export const isSymbolMarketOpen = (symbol: string, now = new Date()): boolean => isMarketOpen(marketOf(symbol), now);
 
 /**
+ * 지금 「끝나 있어야 하는」 마지막 일봉의 날짜 (v2.51.2) — 그 시장 날짜로, 오늘 일봉이 끝났으면(`closeOffsetMs` — `marketBar.dailyCloseOffsetMs`) 오늘,
+ * 아니면 어제부터 거꾸로 **휴장일(주말 · 확인된 휴장일 — `closedLookup`)을 건너뛴 첫 거래일**. 판단(`rules/judge.judgeOnClose`)은 마지막 끝난 봉이
+ * 이 날짜보다 앞이면(받기 실패로 오래된 값만 있음) 판단하지 않고 미룬다. ⚠️ 휴장 달력 확인 범위 밖은 주말만 쉰다(`isMarketClosed`).
+ */
+export function lastClosedDay(market: CalendarMarket, now: number, closeOffsetMs: number): string {
+  const { day, minutes } = localParts(market, new Date(now));
+  const back = (d: string) => {
+    const t = new Date(`${d}T12:00:00Z`);
+    t.setUTCDate(t.getUTCDate() - 1);
+    return t.toISOString().slice(0, 10);
+  };
+  let d = minutes * 60_000 >= closeOffsetMs ? day : back(day);
+  // 30일 — 연휴가 길어도 넉넉하다(무한 반복 방지)
+  for (let k = 0; k < 30 && closedLookup(market, d); k++) d = back(d);
+  return d;
+}
+
+/**
  * 다음 정규장 시작 시각 (v2.44.1) — `now` 보다 뒤의 첫 개장. **휴장일을 본다**(확인 범위 밖은 주말만).
  * 개장 시각은 UTC 로 늘 15분 경계라(시간대 차가 정수 시간) 15분씩 넘기며 찾는다. 계좌 자동매매 상태의 「다음 판단」 이 쓴다 — 화면은 계산하지 않는다.
  */
