@@ -32,6 +32,7 @@ import { usageText } from './usage';
  * - 50일·200일 이동평균 교차(골든·데드크로스) · 200일선 위에서만 매수(장기 추세 거름망) — 기술적 분석 해설서가 대표 예로 드는 값
  *   (John J. Murphy, 『Technical Analysis of the Financial Markets』(1999) 의 이동평균 장 · 장기 이동평균 거름망은 Mebane Faber,
  *   「A Quantitative Approach to Tactical Asset Allocation」(2007, 10개월 ≈ 200거래일) 이 흔히 인용된다). v2.50.0 — 교차는 50/200 일 때만 붙는다.
+ * - 시장이 200일선 위일 때만 매수(시장 필터, v2.51.0) — 같은 Faber(2007)의 장기 이동평균 거름망을 시장 전체 지수에 적용한 형태(지수를 따라가는 ETF 로 잰다).
  * 붙이지 않는 것: 5일·20일 교차 · RSI 35~45 · 점수 배분 · 65점(앱이 정한 값).
  * 처음 화면(매수 조건 표 이름 옆, v2.43.1): 「모멘텀」 = 늘(안의 MACD·스토캐스틱이 엔진 고정 표준값) · 「RSI 반등」 = 30 일 때만 ·
  * 「타이밍」 은 붙이지 않는다(RSI 35~45 라는 앱이 정한 값을 포함한다 — 볼린저 배지는 고급 설정 안에만). 매도 「반대 신호」 = 이름 옆, 70 일 때만.
@@ -458,25 +459,38 @@ export default function RuleDialog({
           <h3 className="text-sm font-semibold text-text-primary">거름망</h3>
           <p className="text-caption text-text-secondary">아래 조건을 통과하지 못하면 점수가 높아도 사지 않습니다.</p>
           {/* 항목 글자는 다른 조건 이름과 같은 본문 크기(text-xs) · 보조 설명은 항목 글자 시작점에 맞춘다(체크 박스 칸 + 간격) */}
-          <div className="flex items-baseline gap-2 text-xs" data-gate="above200">
-            <input
-              type="checkbox"
-              className="m-0 shrink-0"
-              aria-label="주가가 200일선 위일 때만 매수 사용"
-              checked={gatesOf(body.buy).above200.on}
-              disabled={locked}
-              onChange={(e) => {
-                const on = e.target.checked;
-                setBody((b) => ({ ...b, buy: { ...b.buy, gates: { ...gatesOf(b.buy), above200: { on } } } }));
-              }}
-            />
-            <div className="min-w-0 space-y-0.5">
-              <span className="inline-flex items-center gap-2">
-                <span className={gatesOf(body.buy).above200.on ? 'text-text-primary' : 'text-text-secondary'}>주가가 200일선 위일 때만 매수</span>
-                <Rec />
-              </span>
-              <p className="text-caption text-text-muted">전날 마감 종가 기준입니다. 200일선을 계산할 일봉(200개)이 모자라면 사지 않습니다.</p>
-            </div>
+          <div className="space-y-2">
+            {(
+              [
+                ['above200', '주가가 200일선 위일 때만 매수', '전날 마감 종가 기준입니다. 200일선을 계산할 일봉(200개)이 모자라면 사지 않습니다.'],
+                // 시장 필터(v2.51.0) — 시장 기준은 `server/rules/marketRef.ts`
+                ['marketAbove200', '시장이 200일선 위일 때만 매수', '미국 종목은 SPY, 국내 종목은 KODEX 200 기준입니다. 시장 가격을 받지 못한 날은 사지 않습니다.'],
+              ] as const
+            ).map(([key, label, hint]) => {
+              const on = gatesOf(body.buy)[key].on;
+              return (
+                <div key={key} className="flex items-baseline gap-2 text-xs" data-gate={key}>
+                  <input
+                    type="checkbox"
+                    className="m-0 shrink-0"
+                    aria-label={`${label} 사용`}
+                    checked={on}
+                    disabled={locked}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setBody((b) => ({ ...b, buy: { ...b.buy, gates: { ...gatesOf(b.buy), [key]: { on: next } } } }));
+                    }}
+                  />
+                  <div className="min-w-0 space-y-0.5">
+                    <span className="inline-flex items-center gap-2">
+                      <span className={on ? 'text-text-primary' : 'text-text-secondary'}>{label}</span>
+                      <Rec />
+                    </span>
+                    <p className="text-caption text-text-muted">{hint}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
 

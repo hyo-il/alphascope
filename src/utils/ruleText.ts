@@ -28,7 +28,9 @@ export function ruleBuyText(rule: RuleBody, n: Num = plain): string {
     return `${BUY_CONDITION_NAME[k]}${extra} ${n(c.points)}`;
   });
   // 거름망(v2.50.0) — 켰을 때만 덧붙인다(끈 규칙·옛 규칙의 문장은 예전 그대로)
-  const gate = gatesOf(rule.buy).above200.on ? ' · 거름망: 200일선 위일 때만' : '';
+  const g = gatesOf(rule.buy);
+  const gateParts = [g.above200.on ? '200일선 위일 때만' : '', g.marketAbove200.on ? '시장이 200일선 위일 때만' : ''].filter(Boolean);
+  const gate = gateParts.length ? ` · 거름망: ${gateParts.join(' · ')}` : '';
   return `${parts.join(' · ')} — 합계 ${n(rule.buy.minScore)}점 이상(최대 ${n(maxScoreOf(rule.buy))}점)${gate}`;
 }
 

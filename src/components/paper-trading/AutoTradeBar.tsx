@@ -6,6 +6,7 @@ import { useState } from 'react';
 import AutoTradeSettings from './AutoTradeSettings';
 import ConditionCard from './ConditionCard';
 import DisclosureButton from '../ui/DisclosureButton';
+import Segmented from '../ui/Segmented';
 import { useAutoTrading } from '../../hooks/useAutoTrading';
 import { useTradingRules } from '../../hooks/useTradingRules';
 import { NO_STOP_WARNING } from '../../utils/ruleText';
@@ -26,6 +27,8 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
   const { rules } = useTradingRules();
   /** 「최근 판단 보기」 펼침 — 기억하지 않는다(용어집 공통 동작) */
   const [notesOpen, setNotesOpen] = useState(false);
+  const [noteFilter, setNoteFilter] = useState<'all' | 'trades'>('all');
+  const [groupOpenMap, setGroupOpenMap] = useState<Map<string, boolean>>(new Map());
   /** 「최근 판단」 AI 이유를 펼친 줄(번호) — 기억하지 않는다 */
   const [openDetails, setOpenDetails] = useState<Set<number>>(new Set());
   const toggleDetail = (i: number) =>
@@ -75,6 +78,14 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
   // 「최근 판단」 하루치(v2.50.0) — 판단 한 번씩 묶음(최근이 위). 줄 번호는 묶음을 이어 센다(AI 이유 펼침 상태)
   const groups = groupNotes(status?.lastNotes ?? []);
   const offsets = groups.reduce<number[]>((acc, _g, k) => [...acc, k === 0 ? 0 : acc[k - 1] + groups[k - 1].notes.length], []);
+  // 「매수·매도만 보기」(v2.51.0 — 화면에만 기억, 새로고침하면 「전체」) — 기다림(그대로) 줄을 숨기고, 남는 줄이 없는 묶음은 감춘다
+  const shownGroups = groups
+    .map((g, gi) => ({ g, gi, items: g.notes.map((n, j) => ({ n, i: offsets[gi] + j })).filter(({ n }) => noteFilter === 'all' || n.action !== 'HOLD') }))
+    .filter((x) => x.items.length > 0);
+  // 묶음 접기(v2.51.0) — 처음엔 가장 최근 묶음(맨 위)만 펼친다. 사용자가 누른 묶음만 기억(화면에만)
+  const isGroupOpen = (key: string, gi: number) => groupOpenMap.get(key) ?? gi === 0;
+  const toggleGroup = (key: string, gi: number) =>
+    setGroupOpenMap((prev) => new Map(prev).set(key, !(prev.get(key) ?? gi === 0)));
 
   return (
     <>
@@ -183,6 +194,18 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
               controls={`autotrade-notes-${strategy.accountId}`}
             />
             {status.lastNotesAt && <span className="text-text-muted">{formatDateTime(status.lastNotesAt)}</span>}
+            {notesOpen && (
+              <Segmented
+                label="최근 판단 보기 범위"
+                size="sm"
+                value={noteFilter}
+                onChange={setNoteFilter}
+                options={[
+                  { value: 'all', label: '전체' },
+                  { value: 'trades', label: '매수·매도만' },
+                ]}
+              />
+            )}
             {rule && !rule.sell.stopLoss.on && (
               <span className="text-warning">
                 <WarnIcon />
@@ -195,15 +218,24 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           <div id={`autotrade-notes-${strategy.accountId}`} className="mt-1.5 max-h-[240px] overflow-y-auto border-t border-border/30 pt-1 [scrollbar-gutter:stable]">
           {/* 판단 한 번마다 머리 줄(「22:31 미국 판단 · 6종목」) · 쉬운 문장이 먼저, 원래 문장은 작은 회색으로 아래 — 사거나 판 줄이 위, 기다림 줄이 아래 */}
           <ul className="mt-1 space-y-2">
-            {groups.map((g, gi) => (
-            <li key={`${g.at}-${gi}`}>
-              {/* 묶음 머리 — 본문 줄과 구분되게 흰 글자 500 + 두 번째 묶음부터 위에 옅은 선 */}
-              <p className={`font-medium text-text-primary ${gi > 0 ? 'border-t border-border/30 pt-2' : ''}`} data-notes-head>
-                {g.at ? formatTime(g.at) : '—'} {g.market} 판단 · {g.symbols}종목
-              </p>
-          <ul className="mt-1 space-y-1">
-            {g.notes.map((n, j) => {
-              const i = offsets[gi] + j;
+            {shownGroups.length === 0 && <li className="text-text-muted">이날 매수·매도는 없습니다.</li>}
+            {shownGroups.map(({ g, gi, items }) => {
+              const key = g.at ?? `g${gi}`;
+              const groupOpen = isGroupOpen(key, gi);
+              // 묶음 머리(v2.51.0) — 시각 · 시장 · 종목 수 · 매수 N · 매도 N · 그대로 N. 접기 버튼 글자 그대로(열고 닫아도 같은 글자)
+              const head = `${g.at ? formatTime(g.at) : '—'} ${g.market} 판단 · ${g.symbols}종목 · 매수 ${g.buys} · 매도 ${g.sells} · 그대로 ${g.holds}`;
+              return (
+            <li key={`${key}-${gi}`} className={gi > 0 ? 'border-t border-border/30 pt-2' : ''} data-notes-group>
+              <DisclosureButton
+                open={groupOpen}
+                onToggle={() => toggleGroup(key, gi)}
+                label={head}
+                openLabel={head}
+                controls={`autotrade-group-${strategy.accountId}-${gi}`}
+              />
+          {groupOpen && (
+          <ul id={`autotrade-group-${strategy.accountId}-${gi}`} className="mt-1 space-y-1">
+            {items.map(({ n, i }) => {
               const easy = explainNote(n, nameOf(n.symbol) ?? n.symbol, strategy, rule);
               // AI 검증(v2.46.0) — 위험 · 못 함 줄은 경고 색 + 아이콘, 이유(detail)는 줄마다 펼친다
               const aiWarn = n.code === 'ai_risk' || n.code === 'ai_unavailable';
@@ -257,8 +289,10 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
               );
             })}
           </ul>
+          )}
             </li>
-            ))}
+              );
+            })}
           </ul>
           </div>
           )}

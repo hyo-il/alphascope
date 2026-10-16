@@ -80,7 +80,9 @@ export function explainNote(note: DecisionNote, name: string, s: Pick<AccountStr
  * 「최근 판단」 하루치(v2.50.0)를 판단 한 번씩 묶는다 — 저장 순서(최근이 위)대로, 같은 `at` 이 한 묶음.
  * 묶음 안은 `sortNotes`(사거나 판 줄이 위). 머리 줄 = 시각 · 시장(국내/미국/국내·미국) · 종목 수.
  */
-export function groupNotes<T extends DecisionNote>(notes: T[]): { at: string | null; market: string; symbols: number; notes: T[] }[] {
+export function groupNotes<T extends DecisionNote>(
+  notes: T[],
+): { at: string | null; market: string; symbols: number; buys: number; sells: number; holds: number; notes: T[] }[] {
   const groups: { at: string | null; notes: T[] }[] = [];
   for (const n of notes) {
     const last = groups.at(-1);
@@ -90,7 +92,8 @@ export function groupNotes<T extends DecisionNote>(notes: T[]): { at: string | n
   return groups.map((g) => {
     const markets = new Set(g.notes.map((n) => n.market));
     const market = markets.has('KR') && markets.has('US') ? '국내·미국' : markets.has('KR') ? '국내' : '미국';
-    return { at: g.at, market, symbols: new Set(g.notes.map((n) => n.symbol)).size, notes: sortNotes(g.notes) };
+    const count = (a: DecisionNote['action']) => g.notes.filter((n) => n.action === a).length;
+    return { at: g.at, market, symbols: new Set(g.notes.map((n) => n.symbol)).size, buys: count('BUY'), sells: count('SELL'), holds: count('HOLD'), notes: sortNotes(g.notes) };
   });
 }
 
