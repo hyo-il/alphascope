@@ -5,6 +5,7 @@
  * - ② **신호 판단**(종목마다 하루 한 번): 그 종목 시장이 열려 있고 그 시장 날짜로 오늘 아직 보지 않았으면 —
  *   일봉 300개 → 끝난 봉만(`completedDaily`) → 지표 한 번 → 마지막 봉 i 로 `evaluateRule`. BUY + 미보유 → 안전장치를 지나면 매수,
  *   SELL + 보유 → 전량 매도. 캔들·지표를 못 불러오면 판단하지 않은 것으로 두고 다음 틱에 다시 본다.
+ *   순서(v2.49.0): 이번에 볼 종목을 모두 판단 → 매도 먼저 → 「사도 됨」 을 총점 순서로(`buyOrder.ts`) 위에서부터 매수 → 나머지.
  * - 손절(hard_stop)로 판 날을 계좌 × 종목별로 남겨 「손절 뒤 다시 매수」 대기(`lastStopDate`)에 쓴다. 트레일링·익절·신호 매도는 남기지 않는다.
  *
  * ⚠️ 실제 주문은 어디에도 나가지 않는다. `createOrder` 는 모의 계좌(SQLite) 전용이다.
@@ -15,6 +16,7 @@ import { createOrder, valuePositions, getAccount } from '../paperTradingService'
 import { exitLevels } from '../rules/engine';
 import { judgeOnClose } from '../rules/judge';
 import { planBuy } from './sizing';
+import { rankBuyCandidates, recentReturn } from './buyOrder';
 import { checkBeforeBuy } from '../aiCheck/check';
 import { addUse } from '../aiCheck/store';
 import { AI_UNAVAILABLE_LABEL } from '../../src/types/aiCheck';
@@ -29,6 +31,12 @@ import type { AccountStrategy, AutoTradeRunResult, DecisionCode } from '../../sr
 import type { RuleBody } from '../../src/types/tradingRule';
 
 type Note = AutoTradeRunResult['notes'][number];
+
+/** 판단 함수 — 시험(`npm run autotrade:test`)만 바꿔치기한다(총점 순서로 사기 시험에서 점수를 정하려고, v2.49.0). 평소에는 `judgeOnClose` 그대로 */
+let judge: typeof judgeOnClose = judgeOnClose;
+export function setJudgeForTest(fn: typeof judgeOnClose | null): void {
+  judge = fn ?? judgeOnClose;
+}
 
 
 const pct = (value: number) => `${value > 0 ? '+' : ''}${value.toFixed(2)}%`;
@@ -125,6 +133,9 @@ export async function runSignalChecks(
   const heldMap = new Map(positions.filter((p) => p.quantity > 0).map((p) => [p.symbol, p]));
   let openCount = heldMap.size;
 
+  // ── 1) 이번에 볼 종목을 모두 먼저 판단한다(판단 함수·입력은 예전 그대로) ──
+  type Judged = Extract<Awaited<ReturnType<typeof judgeOnClose>>, { kind: 'ok' }>;
+  const due: { symbol: string; today: string; position: (typeof positions)[number] | undefined; judged: Judged }[] = [];
   for (const symbol of strategy.symbols) {
     const today = marketDate(now.getTime(), symbol);
     if (!options.force) {
@@ -134,7 +145,7 @@ export async function runSignalChecks(
     const position = heldMap.get(symbol);
     try {
       // 마감 판단은 매수 판단과 같은 함수 한 곳(`rules/judge.ts`, v2.45.0)
-      const judged = await judgeOnClose(
+      const judged = await judge(
         symbol,
         rule,
         {
@@ -157,33 +168,67 @@ export async function runSignalChecks(
         setJudgedDay(strategy.accountId, symbol, today);
         continue;
       }
-      const { ev, candles, completed, series } = judged;
-      const reason = ev.reasons[0] ?? '';
-      const price = candles.at(-1)?.close ?? null;
-
-      if (ev.action === 'SELL' && position) {
-        const note = await sell(strategy.accountId, symbol, position.quantity, reason, ev.code);
-        if (note.orderId) {
-          result.ordered += 1;
-          openCount -= 1;
-        }
-        result.notes.push(note);
-      } else if (ev.action === 'BUY' && !position) {
-        // AI 검증을 켠 계좌만 이번 판단의 결과·끝난 봉·지표를 AI 질문에 쓴다(다시 계산하지 않게). 끈 계좌는 쓰지 않는다
-        const note = await tryBuy(strategy, rule, symbol, price, reason, openCount, ev.code, { ev, candles: completed, series, now });
-        if (note.orderId) {
-          result.ordered += 1;
-          openCount += 1;
-        }
-        result.notes.push(note);
-      } else {
-        result.notes.push({ symbol, action: 'HOLD', reason, code: ev.code, orderId: null });
-      }
-      setJudgedDay(strategy.accountId, symbol, today);
+      due.push({ symbol, today, position, judged });
     } catch (error) {
       // 캔들·지표를 못 불러왔다 — 판단하지 않은 것으로 두고 다음 틱에 다시
       result.errors.push(`${symbol}: ${(error as Error).message}`);
     }
+  }
+
+  // ── 2) 매도 먼저 — 판 만큼 더 살 수 있는 종목 수가 늘어난다 ──
+  for (const d of due) {
+    const { ev } = d.judged;
+    if (!(ev.action === 'SELL' && d.position)) continue;
+    const note = await sell(strategy.accountId, d.symbol, d.position.quantity, ev.reasons[0] ?? '', ev.code);
+    if (note.orderId) {
+      result.ordered += 1;
+      openCount -= 1;
+    }
+    result.notes.push(note);
+    setJudgedDay(strategy.accountId, d.symbol, d.today);
+  }
+
+  // ── 3) 「사도 됨」 을 총점 순서로 줄 세워 위에서부터 산다(v2.49.0, `buyOrder.ts`) ──
+  // 안전장치·현금·AI 검증으로 못 산 종목은 더 살 수 있는 종목 수를 쓰지 않는다(다음 순위로). 가득 차면 나머지는 순위와 함께 남긴다
+  const ranked = rankBuyCandidates(
+    due
+      .filter((d) => d.judged.ev.action === 'BUY' && !d.position)
+      .map((d) => ({ ...d, score: d.judged.ev.score, ret60: recentReturn(d.judged.completed) })),
+  );
+  const of = ranked.length;
+  for (const [k, d] of ranked.entries()) {
+    const { ev, candles, completed, series } = d.judged;
+    const rank = of > 1 ? { n: k + 1, of } : undefined;
+    let note: Note;
+    if (rank && openCount >= strategy.maxPositions) {
+      note = {
+        symbol: d.symbol,
+        action: 'HOLD',
+        reason: `보유 종목 수가 가득 차 사지 않았습니다 (총점 순위 ${rank.n}위 / ${of}종목 중)`,
+        code: 'max_positions',
+        orderId: null,
+        rank,
+      };
+    } else {
+      const price = candles.at(-1)?.close ?? null;
+      // AI 검증을 켠 계좌만 이번 판단의 결과·끝난 봉·지표를 AI 질문에 쓴다(다시 계산하지 않게). 끈 계좌는 쓰지 않는다
+      note = await tryBuy(strategy, rule, d.symbol, price, ev.reasons[0] ?? '', openCount, ev.code, { ev, candles: completed, series, now });
+      if (note.orderId) {
+        result.ordered += 1;
+        openCount += 1;
+        if (rank) note = { ...note, reason: `${note.reason} · 총점 순위 ${rank.n}위(${of}종목 중)`, rank };
+      }
+    }
+    result.notes.push(note);
+    setJudgedDay(strategy.accountId, d.symbol, d.today);
+  }
+
+  // ── 4) 나머지(기다림·보유) ──
+  for (const d of due) {
+    const { ev } = d.judged;
+    if ((ev.action === 'SELL' && d.position) || (ev.action === 'BUY' && !d.position)) continue;
+    result.notes.push({ symbol: d.symbol, action: 'HOLD', reason: ev.reasons[0] ?? '', code: ev.code, orderId: null });
+    setJudgedDay(strategy.accountId, d.symbol, d.today);
   }
   return result;
 }

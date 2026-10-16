@@ -20,7 +20,8 @@ import { copyAccount } from '../server/autoTrading/copy';
 import { judgeOnClose } from '../server/rules/judge';
 import { GeminiError } from '../server/gemini/client';
 import { fetchQuotes } from '../server/quoteService';
-import { runExitChecks, runSignalChecks, tryBuy } from '../server/autoTrading/engine';
+import { runExitChecks, runSignalChecks, setJudgeForTest, tryBuy } from '../server/autoTrading/engine';
+import { rankBuyCandidates, recentReturn } from '../server/autoTrading/buyOrder';
 import { dailyLossBlock, evaluateDailyLoss, setEarningsLookupForTest, strategyDay } from '../server/autoTrading/guards';
 import { evaluateRule } from '../server/rules/engine';
 import { createRule, deleteRule } from '../server/rules/store';
@@ -326,6 +327,7 @@ async function main(): Promise<void> {
   await fxSection();
   await aiSection();
   orderSection();
+  await rankSection();
 
   console.log(`\n결과: ${pass}개 통과 / ${fail}개 실패`);
   if (fail > 0) process.exit(1);
@@ -603,3 +605,139 @@ void main().catch((error) => {
   console.error('점검 실패:', error);
   process.exit(1);
 });
+
+/**
+ * 13. 총점 순서로 사기 (v2.49.0) — 같은 판단에서 「사도 됨」 이 더 살 수 있는 종목 수보다 많으면 총점 높은 순(→ 60거래일 수익률 → 티커)으로 산다.
+ * 판단 함수를 바꿔치기해 점수만 정한다(끝난 봉·지표는 실제 `judgeOnClose` 결과 — 가격·AI 질문은 진짜 값). 임시 계좌·규칙은 끝에 지운다.
+ */
+async function rankSection(): Promise<void> {
+  console.log('\n── 13. 총점 순서로 사기 ──');
+  const db = getDb();
+  const SYMS = ['AAPL', 'MSFT', 'NVDA', 'AMZN'];
+  const rule = createRule(`__순서 점검 ${Date.now()}`, defaultRuleBody());
+  const exists = (id: number) => id === rule.id;
+  const made: number[] = [];
+  const real = new Map<string, Awaited<ReturnType<typeof judgeOnClose>>>();
+  for (const sym of SYMS) real.set(sym, await judgeOnClose(sym, rule, { held: false }));
+  // 종목 → [action, score]. 없는 종목은 기다림(HOLD)
+  let plan: Record<string, ['BUY' | 'SELL' | 'HOLD', number]> = {};
+  setJudgeForTest(async (symbol) => {
+    const j = real.get(symbol)!;
+    if (j.kind !== 'ok') return j;
+    const [action, score] = plan[symbol] ?? ['HOLD', 30];
+    const code = action === 'BUY' ? 'score_buy' : action === 'SELL' ? 'score_sell' : 'no_signal_buy';
+    return { ...j, ev: { ...j.ev, action, score, code, reasons: [`점검 ${action} ${score}점`] } };
+  });
+  const account = (maxPositions: number, symbols = SYMS, extra: Partial<AccountStrategy> = {}) => {
+    const a = createAccount({ name: `__순서 점검 ${Date.now()} ${made.length}`, initialBalance: 1_000_000, currency: 'USD' });
+    made.push(a.id);
+    const st = normalizeStrategy(a.id, { enabled: true, ruleId: rule.id, symbols, positionSizePercent: 5, maxPositions, earningsBlackoutDays: 0, ...extra });
+    saveStrategy(a.id, st, exists);
+    return st;
+  };
+  const run = (st: AccountStrategy) => runSignalChecks(st, rule, { force: true });
+  const bought = (r: Awaited<ReturnType<typeof run>>) => r.notes.filter((n) => n.action === 'BUY').map((n) => n.symbol);
+  const noteOf = (r: Awaited<ReturnType<typeof run>>, sym: string) => r.notes.find((n) => n.symbol === sym);
+  try {
+    if (SYMS.some((x) => real.get(x)?.kind !== 'ok')) throw new Error('점검 종목 캔들이 모자랍니다');
+
+    // ① 사도 됨 3 · 더 살 수 있는 종목 수 1 → 총점 1위만, 나머지는 A-2 문장(2·3위)
+    plan = { AAPL: ['BUY', 70], MSFT: ['BUY', 80], NVDA: ['BUY', 75] };
+    const r1 = await run(account(1));
+    const ok1 = bought(r1).join() === 'MSFT' && /· 총점 순위 1위\(3종목 중\)$/.test(noteOf(r1, 'MSFT')!.reason);
+    const nv = noteOf(r1, 'NVDA')!;
+    const aa = noteOf(r1, 'AAPL')!;
+    check('사도 됨 3 · 1자리 → 총점 1위(MSFT 80)만 매수 · 「총점 순위 1위(3종목 중)」', ok1, noteOf(r1, 'MSFT')?.reason);
+    check('나머지 → 「보유 종목 수가 가득 차 사지 않았습니다 (총점 순위 2위 / 3종목 중)」 · 3위 · max_positions',
+      nv.code === 'max_positions' && nv.reason === '보유 종목 수가 가득 차 사지 않았습니다 (총점 순위 2위 / 3종목 중)' && aa.reason === '보유 종목 수가 가득 차 사지 않았습니다 (총점 순위 3위 / 3종목 중)' && nv.rank?.n === 2,
+      `${nv.reason} / ${aa.reason}`);
+    const ex = explainNote(nv, '엔비디아', { maxPositions: 1, dailyLossLimitPercent: 0 }, rule);
+    check('쉬운 말 — 가득 참 · 순위', !!ex && ex.includes('보유 종목 수가 가득 차') && ex.includes('총점 순위 2위') && !ex.includes('빈자리'), ex ?? '');
+
+    // ② 총점 같음 → 60거래일 수익률 → 티커 (순수 함수 + 실제 실행)
+    const ranked = rankBuyCandidates([
+      { symbol: 'BBB', score: 70, ret60: 0.1 },
+      { symbol: 'AAA', score: 70, ret60: 0.1 },
+      { symbol: 'CCC', score: 70, ret60: 0.2 },
+      { symbol: 'DDD', score: 70, ret60: null },
+      { symbol: 'EEE', score: 71, ret60: -0.5 },
+    ]).map((x) => x.symbol).join();
+    check('순서 = 총점 → 60거래일 수익률 → 티커 · 봉 부족(null)은 맨 뒤', ranked === 'EEE,CCC,AAA,BBB,DDD', ranked);
+    const flat = Array.from({ length: 61 }, (_, k) => ({ timestamp: k, open: 1, high: 1, low: 1, close: k === 60 ? 110 : 100, volume: 1 }));
+    check('60거래일 수익률 = 종가[i] / 종가[i−60] − 1 · 61봉 미만 null', Math.abs((recentReturn(flat) ?? 0) - 0.1) < 1e-12 && recentReturn(flat.slice(1)) === null);
+    plan = { AAPL: ['BUY', 70], MSFT: ['BUY', 70], NVDA: ['BUY', 70] };
+    const expect = ['AAPL', 'MSFT', 'NVDA']
+      .map((x) => { const j = real.get(x)!; return { symbol: x, score: 70, ret60: j.kind === 'ok' ? recentReturn(j.completed) : null }; });
+    const top = rankBuyCandidates(expect)[0].symbol;
+    const r2 = await run(account(1));
+    check('총점 같음 → 실제 60거래일 수익률이 가장 높은 종목을 매수', bought(r2).join() === top, `${bought(r2)} (기대 ${top} · ${expect.map((e) => `${e.symbol} ${e.ret60?.toFixed(4)}`).join(' ')})`);
+
+    // ③ 1위가 AI 검증 「위험」 → 2위를 산다
+    const resetAi = () => {
+      db.prepare(`DELETE FROM ai_check_uses WHERE check_id IN (SELECT id FROM ai_checks WHERE symbol IN (${SYMS.map(() => '?').join(',')}))`).run(...SYMS);
+      db.prepare(`DELETE FROM ai_checks WHERE symbol IN (${SYMS.map(() => '?').join(',')})`).run(...SYMS);
+    };
+    resetAi();
+    let calls = 0;
+    setAiCheckForTest({
+      enabled: true,
+      news: async (sym) => ({ symbol: sym, source: 'ticker', items: [], fetchedAt: new Date().toISOString() }),
+      earnings: () => null,
+      caller: async () => {
+        calls += 1;
+        const data = calls === 1 ? { verdict: 'RISK', reasons: ['점검 — 위험'] } : { verdict: 'PASS', reasons: ['점검 — 통과'] };
+        return { data, raw: JSON.stringify(data), model: 'fake-model', tokens: 1, elapsedMs: 1 };
+      },
+    });
+    plan = { AAPL: ['BUY', 70], MSFT: ['BUY', 80], NVDA: ['BUY', 75] };
+    const r3 = await run(account(1, SYMS, { aiCheck: true }));
+    setAiCheckForTest({ caller: null, enabled: null, timeoutMs: null, news: null, earnings: null });
+    resetAi();
+    check('1위 AI 검증 「위험」 → 자리를 쓰지 않고 2위(NVDA) 매수 · 3위는 가득 참', noteOf(r3, 'MSFT')?.code === 'ai_risk' && bought(r3).join() === 'NVDA' && /총점 순위 2위\(3종목 중\)$/.test(noteOf(r3, 'NVDA')!.reason) && noteOf(r3, 'AAPL')?.code === 'max_positions',
+      r3.notes.map((n) => `${n.symbol}:${n.code}`).join(' '));
+
+    // ④ 1위가 실적 발표 전 막힘 → 2위
+    setEarningsLookupForTest((sym) => (sym.toUpperCase() === 'MSFT' ? { date: marketDate(Date.now(), 'MSFT'), isEstimate: false } : null));
+    const r4 = await run(account(1, SYMS, { earningsBlackoutDays: 3 }));
+    setEarningsLookupForTest(null);
+    check('1위 실적 발표 전 막힘 → 2위(NVDA) 매수', noteOf(r4, 'MSFT')?.code === 'earnings_blackout' && bought(r4).join() === 'NVDA', r4.notes.map((n) => `${n.symbol}:${n.code}`).join(' '));
+
+    // ⑤ 같은 판단에서 매도 1 + 매수 후보 2, 자리 0 → 매도 뒤 1개 매수
+    const st5 = account(1);
+    await createOrder({ accountId: st5.accountId, symbol: 'AMZN', side: 'BUY', orderType: 'MARKET', quantity: 1, reason: '점검 보유' });
+    plan = { AMZN: ['SELL', 20], AAPL: ['BUY', 70], NVDA: ['BUY', 75] };
+    const r5 = await run(st5);
+    check('매도 1 + 후보 2 · 자리 0 → 매도 먼저, 뒤에 1위(NVDA) 매수 · 2위 가득 참', noteOf(r5, 'AMZN')?.action === 'SELL' && bought(r5).join() === 'NVDA' && noteOf(r5, 'AAPL')?.code === 'max_positions',
+      r5.notes.map((n) => `${n.symbol}:${n.action}:${n.code}`).join(' '));
+
+    // ⑥ 사도 됨 1개 → 예전과 같은 문장(순위 없음)
+    plan = { NVDA: ['BUY', 75] };
+    const r6 = await run(account(1));
+    const n6 = noteOf(r6, 'NVDA')!;
+    check('사도 됨 1개 → 「점검 BUY 75점 → N주」 그대로 · rank 없음', /^점검 BUY 75점 → \d+주$/.test(n6.reason) && n6.rank == null, n6.reason);
+    // 가득 참 — 최대 보유 1 · 이미 1종목(AMZN) 보유 (최대 보유는 1 아래로 저장되지 않는다)
+    plan = { NVDA: ['BUY', 75] };
+    const st6b = account(1);
+    await createOrder({ accountId: st6b.accountId, symbol: 'AMZN', side: 'BUY', orderType: 'MARKET', quantity: 1, reason: '점검 보유' });
+    const n6b = noteOf(await run(st6b), 'NVDA')!;
+    check('사도 됨 1개 · 가득 참 → 예전 문장(보유 종목이 한도…)', n6b.code === 'max_positions' && n6b.reason.startsWith('보유 종목이 한도') && n6b.rank == null, n6b.reason);
+
+    // ⑦ 대상 종목 목록 순서를 바꿔도 같다
+    plan = { AAPL: ['BUY', 70], MSFT: ['BUY', 80], NVDA: ['BUY', 75], AMZN: ['BUY', 60] };
+    const key = (r: Awaited<ReturnType<typeof run>>) => r.notes.map((n) => `${n.symbol}:${n.action}:${n.code}:${n.rank?.n ?? ''}`).sort().join(' ');
+    const ra = await run(account(2, ['AAPL', 'MSFT', 'NVDA', 'AMZN']));
+    const rb = await run(account(2, ['AMZN', 'NVDA', 'MSFT', 'AAPL']));
+    check('대상 종목 순서를 바꿔도 같은 결과(MSFT · NVDA 매수)', key(ra) === key(rb) && bought(ra).sort().join() === 'MSFT,NVDA', `${key(ra)} | ${key(rb)}`);
+  } finally {
+    setJudgeForTest(null);
+    setAiCheckForTest({ caller: null, enabled: null, timeoutMs: null, news: null, earnings: null });
+    setEarningsLookupForTest(null);
+    for (const id of made) {
+      deleteStrategy(id);
+      deleteAccount(id);
+      db.prepare(`DELETE FROM ai_check_uses WHERE account_id = ?`).run(id);
+    }
+    deleteRule(rule.id);
+    console.log(`임시 계좌 ${made.length}개 · 임시 규칙 #${rule.id} 삭제 완료`);
+  }
+}

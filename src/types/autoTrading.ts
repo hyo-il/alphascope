@@ -84,6 +84,8 @@ export interface DecisionNote {
   code?: DecisionCode;
   /** AI 검증 이유(최대 3줄) 또는 못 한 까닭 — 「최근 판단」 줄을 펼치면 보인다(v2.46.0). AI 검증 줄에만 붙는다 */
   detail?: string[];
+  /** 총점 순위(v2.49.0) — 같은 판단에서 「사도 됨」 이 2개 이상일 때 산 줄과 「보유 종목 수가 가득 참」 줄에만 붙는다 */
+  rank?: { n: number; of: number };
 }
 
 /**

@@ -12,13 +12,15 @@ import type { AutoTradeView } from './autoTradeStatus';
  */
 
 export function explainNote(note: DecisionNote, name: string, s: Pick<AccountStrategy, 'maxPositions' | 'dailyLossLimitPercent'>, rule: RuleBody | null): string | null {
+  // 총점 순위(v2.49.0) — 같은 판단에서 「사도 됨」 이 2개 이상일 때만 붙는다
+  const ranked = note.rank ? ` 같은 판단의 「사도 됨」 ${note.rank.of}종목 중 총점 순위 ${note.rank.n}위라 먼저 매수했습니다.` : '';
   switch (note.code) {
     case 'no_signal_buy':
       return `${name}: 매수 조건 점수가 아직 기준에 못 미쳐 기다리는 중입니다.`;
     case 'no_signal_hold':
       return `${name}: 들고 있습니다. 매도 조건이 아직 아닙니다.`;
     case 'score_buy':
-      return `${name}: 매수 조건 점수가 기준 이상이라 매수했습니다.`;
+      return `${name}: 매수 조건 점수가 기준 이상이라 매수했습니다.${ranked}`;
     case 'score_sell':
       return `${name}: 점수가 매도 기준 아래로 떨어져 매도했습니다.`;
     case 'rr_block':
@@ -38,7 +40,9 @@ export function explainNote(note: DecisionNote, name: string, s: Pick<AccountStr
     case 'earnings_blackout':
       return `${name}: 곧 실적 발표가 있어 새로 매수하지 않았습니다(발표 때 크게 움직일 수 있어서).`;
     case 'max_positions':
-      return `${name}: 매수 조건이었지만 이미 ${s.maxPositions}종목을 들고 있어 매수하지 않았습니다.`;
+      return note.rank
+        ? `${name}: 매수 조건이었지만 보유 종목 수가 가득 차(최대 ${s.maxPositions}종목) 매수하지 않았습니다 — 같은 판단의 「사도 됨」 ${note.rank.of}종목 중 총점 순위 ${note.rank.n}위.`
+        : `${name}: 매수 조건이었지만 이미 ${s.maxPositions}종목을 들고 있어 매수하지 않았습니다.`;
     case 'daily_loss':
       return '오늘 계좌가 많이 줄어 새로 매수하지 않습니다(하루 손실 한도).';
     case 'not_enough_candles':
@@ -47,7 +51,7 @@ export function explainNote(note: DecisionNote, name: string, s: Pick<AccountStr
       return `${name}: 주문하지 못했습니다(아래 자세한 이유).`;
     // AI 검증(v2.46.0) — 이유는 줄을 펼치면(note.detail) 보인다
     case 'ai_pass':
-      return `${name}: 규칙 사도 됨 · AI 검증 통과 — 매수했습니다.`;
+      return `${name}: 규칙 사도 됨 · AI 검증 통과 — 매수했습니다.${ranked}`;
     case 'ai_risk':
       return `${name}: 규칙은 사도 됨이었지만 AI 검증에서 위험하다고 해 매수하지 않았습니다 — ${note.detail?.[0] ?? '이유는 펼쳐서 보세요'}`;
     case 'ai_unavailable':

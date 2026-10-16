@@ -32,7 +32,7 @@ export function recordNotes(accountId: number, notes: DecisionNote[]): void {
   map[String(accountId)] = {
     at: new Date().toISOString(),
     // detail(AI 검증 이유)은 있을 때만 — AI 검증을 끈 계좌의 기록 모양은 예전과 같다
-    notes: notes.slice(0, 30).map((n) => ({ symbol: n.symbol, action: n.action, reason: n.reason, ...(n.code ? { code: n.code } : {}), ...(n.detail?.length ? { detail: n.detail } : {}) })),
+    notes: notes.slice(0, 30).map((n) => ({ symbol: n.symbol, action: n.action, reason: n.reason, ...(n.code ? { code: n.code } : {}), ...(n.detail?.length ? { detail: n.detail } : {}), ...(n.rank ? { rank: n.rank } : {}) })),
   };
   writeSetting(NOTES_KEY, map);
 }
