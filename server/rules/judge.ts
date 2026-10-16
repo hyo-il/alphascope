@@ -4,14 +4,14 @@
  * 그래서 같은 종목·같은 날·같은 규칙·같은 상태(보유 없음 등)면 action · score · code 가 같다(`npm run buyjudge:test`).
  */
 import { getCandles } from '../candleService';
-import { unconfirmedDailyTimestamps } from '../db';
+import { CONFIRM_MARGIN_MS, lastDailyFetchedAt, unconfirmedDailyTimestamps } from '../db';
 import { dailyCloseOffsetMs } from '../../src/utils/marketBar';
 import { marketDate } from '../../src/utils/marketDate';
 import { computeIndicators } from '../indicatorService';
 import { completedDaily, evaluateRule, type RuleEvaluation, type RuleState } from './engine';
 import { usesMarketFilter, type RuleBody } from '../../src/types/tradingRule';
 import { loadMarketRef, marketOfSymbol, type MarketRefLoader } from './marketRef';
-import { lastClosedDay } from '../marketHours';
+import { lastClosedDay, marketDayTime } from '../marketHours';
 import { isMockMode } from '../mockData';
 import type { Candle } from '../../src/types/toss';
 import type { IndicatorSeries } from '../../src/types/chart';
@@ -50,10 +50,17 @@ export async function judgeOnClose(
     const bad = unconfirmedDailyTimestamps(symbol, completed[0].timestamp, dailyCloseOffsetMs(symbol)).filter((ts) => ts <= completed.at(-1)!.timestamp);
     if (bad.length) return { kind: 'unconfirmed', dates: bad.map((ts) => marketDate(ts, symbol)), candles: all };
     // 오래된 끝난 봉(v2.51.2) — 받기에 실패했고 장중 저장 봉도 없으면 마지막 끝난 봉이 직전 거래일보다 앞이다. 그 값으로 판단하고 그날을 마치지 않는다.
+    // 단, 그 날 마감(+10분) 뒤에 받기가 **성공**했는데도 그 봉이 없으면 그날 거래가 없던 종목(거래정지 등)이다 — 미루지 않는다(미루면 영영 판단하지 못한다).
     // 모의 데이터 모드는 뺀다 — 모의 일봉은 받은 값이 아니라 지금 시각으로 매일(주말 포함) 만들어 시장 달력과 맞지 않는다
     if (!isMockMode()) {
-      const expected = lastClosedDay(marketOfSymbol(symbol), now, dailyCloseOffsetMs(symbol));
-      if (marketDate(completed.at(-1)!.timestamp, symbol) < expected) return { kind: 'unconfirmed', dates: [expected], candles: all };
+      const market = marketOfSymbol(symbol);
+      const offset = dailyCloseOffsetMs(symbol);
+      const expected = lastClosedDay(market, now, offset);
+      if (marketDate(completed.at(-1)!.timestamp, symbol) < expected) {
+        const fetchedAt = lastDailyFetchedAt(symbol);
+        const fetchedAfterClose = fetchedAt != null && fetchedAt >= marketDayTime(market, expected, offset) + CONFIRM_MARGIN_MS;
+        if (!fetchedAfterClose) return { kind: 'unconfirmed', dates: [expected], candles: all };
+      }
     }
   }
   const series = await computeIndicators(completed);

@@ -12,7 +12,7 @@ import { getDb } from '../server/db';
 import { createAccount, deleteAccount } from '../server/paperTradingService';
 import { resetPendingNotesForTest, runSignalChecks } from '../server/autoTrading/engine';
 import { isMarketClosed } from '../server/marketCalendar';
-import { lastClosedDay } from '../server/marketHours';
+import { lastClosedDay, marketDayTime } from '../server/marketHours';
 import { defaultStrategy } from '../src/types/autoTrading';
 import { createRule, deleteRule, getRule, listRules } from '../server/rules/store';
 import { defaultRuleBody, DEFAULT_RULE_NAME } from '../src/types/tradingRule';
@@ -335,6 +335,17 @@ try {
       check('⑩ 국내 — 마지막 봉이 수요일, 월 10:00 KST(목이 직전 거래일 — 금은 한글날) → 미룸', (await kindOf(KR, at(KR, '2026-10-12', 10))) === 'unconfirmed:2026-10-08');
       check('⑩ 국내 — 목 19:00 KST(NXT 중)에는 직전 거래일 = 수 → 정상', (await kindOf(KR, at(KR, '2026-10-08', 19))) === 'ok');
       check('⑩ 국내 — 목 20:30 KST(NXT 끝)에 목요일 봉 없음 → 미룸', (await kindOf(KR, at(KR, '2026-10-08', 20.5))) === 'unconfirmed:2026-10-08');
+      // 거래정지처럼 그날 봉이 원래 없는 종목 — 그 날 마감(+10분) 뒤에 받기가 성공했는데도 봉이 없으면 미루지 않는다(영영 판단 못 하게 되지 않게)
+      seed(US, '2026-10-07');
+      const lastBar = loadCandles(US, '1d', 1)[0];
+      saveCandles(US, '1d', [lastBar], at(US, '2026-10-08', 16.05)); // 목 마감 3분 뒤 — 아직 덜 들어왔을 수 있다
+      check('⑩ 직전 거래일 마감 직후(10분 안)에 받은 것뿐 → 미룸', (await kindOf(US, at(US, '2026-10-09', 10))) === 'unconfirmed:2026-10-08');
+      saveCandles(US, '1d', [lastBar], at(US, '2026-10-08', 18)); // 목 18:00 ET 에 받기 성공 — 그런데 목요일 봉이 없다
+      check('⑩ 직전 거래일 마감 뒤에 받기가 성공했는데 그 봉이 없음(거래정지 등) → 미루지 않고 판단', (await kindOf(US, at(US, '2026-10-09', 10))) === 'ok');
+      seed(KR, '2026-10-07');
+      saveCandles(KR, '1d', [loadCandles(KR, '1d', 1)[0]], at(KR, '2026-10-12', 9.5)); // 월 09:30 KST 받기 성공(목 봉 없음)
+      check('⑩ 국내 — 월 09:30 받기 성공에 목 봉 없음 → 판단', (await kindOf(KR, at(KR, '2026-10-12', 10))) === 'ok');
+      check('⑩ 그 시장 날짜의 시각 — 미국 EDT · EST · 국내', marketDayTime('US', '2026-10-08', 16 * H) === Date.parse('2026-10-08T20:00:00Z') && marketDayTime('US', '2026-11-27', 16 * H) === Date.parse('2026-11-27T21:00:00Z') && marketDayTime('KR', '2026-10-08', 20 * H) === Date.parse('2026-10-08T11:00:00Z'));
       check('⑩ 직전 거래일 계산 = 시장 달력(주말 · 휴장 건너뜀)', lastClosedDay('KR', at(KR, '2026-10-12', 10), 20 * H) === '2026-10-08' && lastClosedDay('US', at(US, '2026-11-27', 10), 16 * H) === '2026-11-25' && lastClosedDay('US', at(US, '2026-10-12', 10), 16 * H) === '2026-10-09');
 
       // 매수 판단 · 매일 기록 · 계좌 — 45차 「확정 못 함」 과 같은 경로
@@ -350,6 +361,19 @@ try {
       store.setSymbols(prevSyms);
       store.setRuleId(prevRule);
       check('⑩ 매일 기록 — 확정 못 한 종목은 unconfirmed(그날 다시 시도)', rec.unconfirmed.includes(US) && rec.written === 0, JSON.stringify(rec));
+      // 시장 기준도 같은 규칙 — 매일 기록에서 「시장 데이터 없음」 이면 줄은 쓰되 그날 다시 시도(계좌는 v2.51.1 부터 다시 시도)
+      seed(US, '2026-10-09');
+      const mrule = createRule(`__시장 데이터 없음 기록 ${Date.now()}`, (() => { const b = defaultRuleBody(); b.buy.minScore = 1; b.buy.gates = { above200: { on: false }, marketAbove200: { on: true } }; return b; })());
+      store.setSymbols([US]);
+      store.setRuleId(mrule.id);
+      setMarketRefLoadForTest(async () => null);
+      const recM = await recordMarket('US', '2026-10-09', at(US, '2026-10-09', 16.5));
+      setMarketRefLoadForTest(null);
+      store.setSymbols(prevSyms);
+      store.setRuleId(prevRule);
+      deleteRule(mrule.id);
+      check('⑩ 매일 기록 — 시장 데이터 없음이면 줄은 쓰되 그날 다시 시도(unconfirmed)', recM.written === 1 && recM.unconfirmed.includes(US), JSON.stringify(recM));
+      seed(US, '2026-10-07');
       resetPendingNotesForTest();
       const st = { ...defaultStrategy(acc.id), ruleId: rule.id, symbols: [US], maxPositions: 10 };
       const a1 = await runSignalChecks(st, rule.body, { now: new Date(now) });

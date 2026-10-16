@@ -68,6 +68,14 @@ export function lastClosedDay(market: CalendarMarket, now: number, closeOffsetMs
   return d;
 }
 
+/** 그 시장 날짜(day)의 자정 + `offsetMs` 의 시각(ms) — 일봉 timestamp(그 시장 자정)와 같은 기준 (v2.51.2) */
+export function marketDayTime(market: CalendarMarket, day: string, offsetMs: number): number {
+  const noon = Date.parse(`${day}T12:00:00Z`);
+  const p = localParts(market, new Date(noon));
+  const shift = p.minutes - 12 * 60 + (p.day > day ? 1440 : p.day < day ? -1440 : 0); // 그 시장의 UTC 차(분)
+  return Date.parse(`${day}T00:00:00Z`) - shift * 60_000 + offsetMs;
+}
+
 /**
  * 다음 정규장 시작 시각 (v2.44.1) — `now` 보다 뒤의 첫 개장. **휴장일을 본다**(확인 범위 밖은 주말만).
  * 개장 시각은 UTC 로 늘 15분 경계라(시간대 차가 정수 시간) 15분씩 넘기며 찾는다. 계좌 자동매매 상태의 「다음 판단」 이 쓴다 — 화면은 계산하지 않는다.

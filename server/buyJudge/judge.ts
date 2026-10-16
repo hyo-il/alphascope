@@ -250,7 +250,7 @@ export async function buildState(opts: { write?: boolean; now?: number } = {}): 
 
 /**
  * 매일 기록 — 그 시장 종목 전부를 `day`(기록할 시장 날짜) 기준으로 판단해 쓴다. 기준 봉이 `day` 가 아닌 종목(데이터가 아직 없음 등)은 건너뛴다.
- * 돌려준 값은 로그용.
+ * `unconfirmed` = 그날 다시 시도할 종목(일봉 확정 못 함 · 시장 데이터 없음) — 스케줄러가 그 날짜를 「기록함」 으로 두지 않는다. 나머지는 로그용.
  */
 export async function recordMarket(market: CalendarMarket, day: string, now = Date.now()): Promise<{ written: number; skipped: string[]; unconfirmed: string[] }> {
   const rule = currentRule();
@@ -265,6 +265,8 @@ export async function recordMarket(market: CalendarMarket, day: string, now = Da
     if (record && record.marketDate === day) {
       save(rule, s, day, record.ev);
       written++;
+      // 시장 기준(SPY · KODEX 200)을 받지 못했거나 그날 봉이 없다(v2.51.2 — 계좌와 같은 규칙) — 줄은 쓰되 그날을 「기록함」 으로 두지 않고 다시 시도한다(다시 쓰면 같은 줄을 덮는다)
+      if (record.ev.gateReason === 'market_nodata') unconfirmed.push(s);
     } else {
       skipped.push(s);
       if (notYet) unconfirmed.push(s);

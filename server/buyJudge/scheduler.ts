@@ -34,7 +34,7 @@ export async function buyJudgeTick(now = Date.now()): Promise<{ recorded: Partia
       if (!r.unconfirmed.length) store.setLastRecorded(market, day);
       out.recorded[market] = { day, written: r.written, skipped: r.skipped };
       if (r.written || r.skipped.length) {
-        const notYet = r.unconfirmed.length ? ` · 일봉을 확정하지 못해 다음에 다시 ${r.unconfirmed.join(',')}` : '';
+        const notYet = r.unconfirmed.length ? ` · 일봉 · 시장 기준을 확정하지 못해 다음에 다시 ${r.unconfirmed.join(',')}` : '';
         const other = r.skipped.filter((s) => !r.unconfirmed.includes(s));
         console.log(`[buyJudge] ${market} ${day} 판단 기록 ${r.written}종목${other.length ? ` · 기준 봉이 없어 건너뜀 ${other.join(',')}` : ''}${notYet}`);
       }

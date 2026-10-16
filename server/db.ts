@@ -101,6 +101,12 @@ export function unconfirmedDailyTimestamps(symbol: string, fromTs: number, close
   return rows.map((r) => r.timestamp);
 }
 
+/** 그 종목 일봉을 마지막으로 **받은**(받기 성공) 시각 — 받을 때마다 겹치는 봉도 다시 저장하므로 가장 늦은 fetched_at 이다(v2.51.2). 모르면 null */
+export function lastDailyFetchedAt(symbol: string): number | null {
+  const row = getDb().prepare(`SELECT MAX(fetched_at) AS f FROM candles WHERE symbol = ? AND timeframe = '1d'`).get(symbol) as { f: number | null } | undefined;
+  return row?.f ?? null;
+}
+
 /** 마감 직후 받은 값에는 마지막 체결이 아직 덜 들어왔을 수 있다 — 마감 뒤 10분부터 받은 값을 끝난 값으로 본다(v2.51.1) */
 export const CONFIRM_MARGIN_MS = 10 * 60_000;
 
