@@ -32,7 +32,9 @@ import {
   createSession,
   deleteAllSessions,
   deleteSession,
+  deleteSessionById,
   isPasswordSet,
+  listSessions,
   purgeExpiredSessions,
   readSessionCookie,
   setSessionCookie,
@@ -48,6 +50,7 @@ import {
 } from './authGuard';
 // 버전의 단일 출처. package.json 은 0.1.0 그대로라 쓸 수 없다.
 import { CHANGELOG } from '../src/data/changelog';
+import { deviceName } from '../src/utils/deviceName';
 import { runAnalysis } from './gemini/analyze';
 import { DEFAULT_MODEL, GeminiError, geminiDisabledReason, isGeminiEnabled } from './gemini/client';
 import { accuracyReport } from './gemini/accuracy';
@@ -257,6 +260,31 @@ app.post('/api/auth/logout-all', (req, res) => {
   res.json({ ok: true, removed });
 });
 
+/**
+ * 로그인된 기기 목록(v2.51.3) — 문지기 뒤(로그인 필요). 토큰·해시 전체·user_agent 원문은 보내지 않는다:
+ * 식별값(해시 앞 12자) · 기기 이름(`utils/deviceName`) · 처음 로그인 · 마지막 사용 · 이 기기인가.
+ */
+app.get('/api/auth/sessions', (req, res) => {
+  const sessions = listSessions(readSessionCookie(req)).map((s) => ({
+    id: s.id,
+    device: deviceName(s.userAgent),
+    createdAt: s.createdAt,
+    lastSeenAt: s.lastSeenAt,
+    current: s.current,
+  }));
+  res.json({ sessions });
+});
+
+/** 기기 하나만 로그아웃(v2.51.3). 이 기기 세션이면 쿠키도 지운다 — 화면은 로그인 화면으로 간다 */
+app.delete('/api/auth/sessions/:id', (req, res) => {
+  const { result, current } = deleteSessionById(String(req.params.id ?? ''), readSessionCookie(req));
+  if (result === 'invalid') return res.status(400).json({ error: '세션 식별값이 올바르지 않습니다.' });
+  if (result === 'ambiguous') return res.status(400).json({ error: '식별값이 여러 세션에 맞아 지우지 않았습니다.' });
+  if (result === 'none') return res.status(404).json({ error: '이미 로그아웃된 기기입니다.' });
+  if (current) clearSessionCookie(req, res);
+  res.json({ ok: true, current });
+});
+
 /** 앱이 시작할 때 가장 먼저 부른다 — 401 이면 로그인 화면만 그린다 */
 app.get('/api/auth/me', (req, res) => {
   if (!isPasswordSet()) {
@@ -271,7 +299,7 @@ app.get('/api/auth/me', (req, res) => {
   if (!touchSession(token)) {
     return res.status(401).json({ error: '로그인이 필요합니다.', authRequired: true });
   }
-  res.json({ loggedIn: true, sessions: countSessions() });
+  res.json({ loggedIn: true });
 });
 
 /** 1w·1M(v2.20.0)은 일봉을 시장 달력으로 묶는다 — 지표도 그 묶인 봉으로 계산한다(주봉 RSI = 주봉 14개) */

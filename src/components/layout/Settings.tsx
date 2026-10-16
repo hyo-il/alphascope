@@ -5,6 +5,9 @@ import { CircleCheck, TriangleAlert } from 'lucide-react';
 import WarnIcon from '../ui/WarnIcon';
 import { useCallback, useEffect, useState } from 'react';
 import { InlineSpinner } from '../common/LoadingOverlay';
+import { SkeletonTable } from '../common/SkeletonLoader';
+import Badge from '../ui/Badge';
+import { LIST_TABLE_ROW, TABLE_NAME_COL, TABLE_NUM_COL } from '../ui/tokens';
 // 키 문자열을 여기에 다시 적지 않는다 — 옛 키만 지워 '비우기' 가 동작하지 않던 원인이다.
 import { RECENT_KEY, WATCHLIST_KEYS } from '../../hooks/useWatchlist';
 import { CHANGELOG } from '../../data/changelog';
@@ -194,30 +197,70 @@ function AppVersion() {
   );
 }
 
+/** `GET /api/auth/sessions` 한 줄 — 토큰·해시 전체는 오지 않는다(식별값 = 해시 앞 12자) */
+interface LoginSession {
+  id: string;
+  device: string;
+  createdAt: string;
+  lastSeenAt: string;
+  current: boolean;
+}
+
 /**
- * 로그인 상태 — 지금 몇 대에서 로그인돼 있는지 보여 주고, 한 번에 끊을 수 있게 한다.
+ * 로그인 — 「로그인된 기기」 표(v2.51.3 — 기기마다 로그아웃) + 모든 기기에서 로그아웃.
  *
  * 비밀번호를 바꾸는 명령(`npm run auth:set-password`)도 세션을 전부 끊지만,
- * 서버에 들어가지 않고 끊고 싶을 때가 있다 (PC 방에서 쓴 것 같을 때 등).
+ * 서버에 들어가지 않고 끊고 싶을 때가 있다 (PC 방에서 쓴 것 같을 때 등). 한 대만 끊으려면 표의 [로그아웃].
  */
 function AuthSection() {
-  const [sessions, setSessions] = useState<number | null>(null);
+  /** null = 아직 응답 전(스켈레톤) · 'error' = 못 읽음 */
+  const [sessions, setSessions] = useState<LoginSession[] | 'error' | null>(null);
   const [busy, setBusy] = useState(false);
+  /** 로그아웃 중인 줄 */
+  const [removing, setRemoving] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/auth/me');
-      if (!res.ok) return;
-      const body = (await res.json()) as { sessions?: number };
-      setSessions(body.sessions ?? null);
+      const res = await fetch('/api/auth/sessions');
+      if (!res.ok) throw new Error(String(res.status));
+      const body = (await res.json()) as { sessions?: LoginSession[] };
+      setSessions(body.sessions ?? []);
     } catch {
-      /* 못 읽으면 개수를 감춘다 — 틀린 수를 보여 주지 않는다 */
+      setSessions((prev) => (Array.isArray(prev) ? prev : 'error'));
     }
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const logoutOne = (s: LoginSession) =>
+    modal.confirm({
+      title: `${s.device} 로그아웃`,
+      message: s.current ? '이 기기의 로그인을 끊습니다.\n지금 보고 있는 이 창이라 로그인 화면으로 돌아갑니다.' : '이 기기의 로그인을 끊습니다.',
+      confirmText: '로그아웃',
+      danger: true,
+      onConfirm: async () => {
+        setRemoving(s.id);
+        try {
+          const res = await fetch(`/api/auth/sessions/${encodeURIComponent(s.id)}`, { method: 'DELETE' }).catch(() => null);
+          // 이미 끊긴 기기(404)는 목록만 새로 그린다
+          if (!res?.ok && res?.status !== 404) {
+            const body = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
+            toast.error('로그아웃하지 못했습니다', body?.error ?? (res ? `요청 실패 (${res.status})` : '서버에 연결하지 못했습니다'));
+            return;
+          }
+          if (s.current) {
+            // 이 기기 세션을 지웠다 — 로그인 화면으로
+            window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
+            return;
+          }
+          await load();
+        } finally {
+          setRemoving(null);
+        }
+      },
+    });
 
   const logoutAll = () =>
     modal.confirm({
@@ -245,16 +288,56 @@ function AuthSection() {
     });
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <span className="text-xs text-text-muted">
-        현재 로그인된 기기 {sessions === null ? '—' : `${sessions}개`}
-      </span>
-      <Button variant="danger-text" size="md"
-        disabled={busy}
-        onClick={logoutAll}>
-        모든 기기에서 로그아웃
-      </Button>
-      <p className="w-full text-caption text-text-muted">
+    <div data-check="login-devices">
+      <h4 className="mb-1 text-caption text-text-muted">로그인된 기기</h4>
+      {sessions === null ? (
+        <SkeletonTable rows={2} columns={4} />
+      ) : sessions === 'error' ? (
+        <p className="py-2 text-xs text-text-muted">
+          로그인된 기기 목록을 불러오지 못했습니다.{' '}
+          <Button variant="ghost" size="sm" onClick={() => { setSessions(null); void load(); }}>
+            다시 시도
+          </Button>
+        </p>
+      ) : (
+        <table className="w-full text-left text-xs">
+          <thead className="text-caption text-text-muted">
+            <tr className="border-b border-border/60">
+              <th className={`${TABLE_NAME_COL} py-2 pr-4 font-normal`}>기기</th>
+              <th className={`${TABLE_NUM_COL} py-2 pr-6 font-normal`}>처음 로그인</th>
+              <th className={`${TABLE_NUM_COL} py-2 pr-6 font-normal`}>마지막 사용</th>
+              <th className={`${TABLE_NUM_COL} py-2 font-normal`}>
+                <span className="sr-only">로그아웃</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {sessions.map((s) => (
+              <tr key={s.id} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW}`}>
+                <td className="pr-4">
+                  <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                    {s.device}
+                    {s.current && <Badge>이 기기</Badge>}
+                  </span>
+                </td>
+                <td className={`${TABLE_NUM_COL} pr-6 tabular-nums text-text-secondary`}>{formatDateTime(s.createdAt)}</td>
+                <td className={`${TABLE_NUM_COL} pr-6 tabular-nums text-text-secondary`}>{formatDateTime(s.lastSeenAt)}</td>
+                <td className={`${TABLE_NUM_COL} text-right`}>
+                  <Button variant="danger-text" size="sm" busy={removing === s.id} disabled={removing !== null || busy} onClick={() => logoutOne(s)}>
+                    로그아웃
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Button variant="danger-text" size="md" busy={busy} disabled={removing !== null} onClick={logoutAll}>
+          모든 기기에서 로그아웃
+        </Button>
+      </div>
+      <p className="mt-2 text-caption text-text-muted">
         비밀번호는 서버에서 <code className="rounded bg-bg-tertiary px-1">npm run auth:set-password</code>{' '}
         로만 바꿉니다. 바꾸면 모든 기기의 로그인이 끊깁니다.
       </p>

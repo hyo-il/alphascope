@@ -160,6 +160,56 @@ export function countSessions(): number {
   return row.n;
 }
 
+/**
+ * 기기별 로그아웃(v2.51.3) — 세션 식별값. **토큰도 해시 전체도 아닌** 해시 앞 12자(16진수).
+ * 목록·지우기 모두 문지기(`authGuard`) 뒤라 로그인한 주인만 부른다. 식별값으로 토큰을 되살릴 수 없다(해시의 일부일 뿐).
+ */
+export const SESSION_ID_LENGTH = 12;
+const SESSION_ID_PATTERN = new RegExp(`^[0-9a-f]{${SESSION_ID_LENGTH}}$`);
+
+export interface SessionInfo {
+  id: string;
+  /** user_agent 원문 — 화면에는 보내지 않고 기기 이름으로 바꿔 보낸다(라우트) */
+  userAgent: string;
+  createdAt: string;
+  lastSeenAt: string;
+  /** 이 요청의 세션인가 */
+  current: boolean;
+}
+
+/** 만료되지 않은 세션 — 이 기기 먼저, 그다음 마지막 사용이 최근인 순 */
+export function listSessions(currentToken: string | null): SessionInfo[] {
+  const currentHash = currentToken ? sha256(currentToken) : null;
+  const rows = getDb()
+    .prepare(`SELECT token_hash, created_at, last_seen_at, user_agent FROM auth_sessions WHERE expires_at > ? ORDER BY last_seen_at DESC`)
+    .all(new Date().toISOString()) as { token_hash: string; created_at: string; last_seen_at: string; user_agent: string | null }[];
+  return rows
+    .map((r) => ({
+      id: r.token_hash.slice(0, SESSION_ID_LENGTH),
+      userAgent: r.user_agent ?? '',
+      createdAt: r.created_at,
+      lastSeenAt: r.last_seen_at,
+      current: r.token_hash === currentHash,
+    }))
+    .sort((a, b) => Number(b.current) - Number(a.current));
+}
+
+/**
+ * 식별값으로 세션 하나만 지운다. `invalid` = 형식이 틀림 · `none` = 맞는 세션 없음 · `ambiguous` = 여러 세션에 맞음(지우지 않는다).
+ * `current` = 지운 것이 이 요청의 세션인가.
+ */
+export function deleteSessionById(id: string, currentToken: string | null): { result: 'ok' | 'invalid' | 'none' | 'ambiguous'; current: boolean } {
+  if (!SESSION_ID_PATTERN.test(id)) return { result: 'invalid', current: false };
+  const db = getDb();
+  // LIKE 대신 substr 로 맞춘다(식별값은 16진수만이라 와일드카드가 없지만, 비교 규칙을 단순하게)
+  const rows = db.prepare(`SELECT token_hash FROM auth_sessions WHERE substr(token_hash, 1, ?) = ?`).all(SESSION_ID_LENGTH, id) as { token_hash: string }[];
+  if (!rows.length) return { result: 'none', current: false };
+  if (rows.length > 1) return { result: 'ambiguous', current: false };
+  const hash = rows[0].token_hash;
+  db.prepare(`DELETE FROM auth_sessions WHERE token_hash = ?`).run(hash);
+  return { result: 'ok', current: currentToken != null && sha256(currentToken) === hash };
+}
+
 /** 만료된 세션 청소 — 서버 시작 때와 하루 1회 */
 export function purgeExpiredSessions(): number {
   return getDb()
