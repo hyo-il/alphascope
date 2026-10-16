@@ -1,4 +1,5 @@
-import { formatDateTime } from '../../utils/dateFormat';
+import { formatDate, formatDateTime, formatTime } from '../../utils/dateFormat';
+import DateGroupList, { SymbolsTitle } from '../common/DateGroupList';
 import { formatSigned } from '../../utils/formatters';
 import { useEffect, useRef, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
@@ -15,6 +16,7 @@ import { stockNameOf } from '../../utils/stockNames';
 import { backtestInputError } from '../../utils/backtestInput';
 import { ruleSellText } from '../../utils/ruleText';
 import { MAX_COMPARE_SYMBOLS, methodName, type BacktestListItem } from '../../types/backtest';
+import { HISTORY_DAYS_PAGE } from '../../types/buyJudge'; // 날짜 목록 한 번에 30일 — 매수 판단 히스토리와 같은 값
 import SymbolTable from '../common/SymbolTable';
 import ConditionForm from './ConditionForm';
 import CustomResult from './CustomResult';
@@ -39,13 +41,14 @@ function elapsed(startedAt: string | null, now: number): string {
   return sec >= 60 ? `${Math.floor(sec / 60)}분 ${sec % 60}초` : `${sec}초`;
 }
 
+/** 날짜를 펼친 안의 시험 한 줄 — 시각 · 종목 수 · 기간 · 방법(규칙 이름) · [열기] · [이 조건으로 다시 실행] · 삭제 */
 function HistoryRow({ item, selected, onOpen, onRetry, onRemove }: { item: BacktestListItem; selected: boolean; onOpen: () => void; onRetry?: () => void; onRemove: () => void }) {
   const s = item.summary;
   return (
-    <li className={`flex items-center gap-3 px-3 py-2 text-caption ${selected ? 'bg-bg-tertiary' : ''}`}>
+    <li className={`flex items-center gap-3 rounded-md px-2 py-2 text-caption ${selected ? 'bg-bg-tertiary' : ''}`}>
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <span className="text-text-primary">{when(item.createdAt)}</span>
+          <span className="tabular-nums text-text-primary">{formatTime(item.createdAt)}</span>
           <span className="text-text-secondary">
             {s.symbols}종목 · {s.years}년
           </span>
@@ -59,6 +62,9 @@ function HistoryRow({ item, selected, onOpen, onRetry, onRemove }: { item: Backt
             .join(' / ')}
         </span>
       </button>
+      <Button size="sm" variant="secondary" onClick={onOpen}>
+        열기
+      </Button>
       {onRetry && (
         <Button size="sm" variant="ghost" onClick={onRetry}>
           이 조건으로 다시 실행
@@ -90,6 +96,16 @@ export default function BacktestView() {
   /** 이 id 의 결과가 화면에 도착하면 그리로 내린다 — 상세를 받기 전에 내리면 높이가 바뀌며 밀린다 */
   const scrollTo = useRef<number | null>(null);
   const running = bt.progress?.running ?? false;
+  /** 백테스트 히스토리 — 날짜(이 기기 날짜)별로 묶는다. 최근이 위 */
+  const [historyDays, setHistoryDays] = useState(HISTORY_DAYS_PAGE);
+  const historyGroups = (() => {
+    const map = new Map<string, BacktestListItem[]>();
+    for (const r of bt.reports ?? []) {
+      const d = formatDate(r.createdAt);
+      map.set(d, [...(map.get(d) ?? []), r]);
+    }
+    return [...map.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1)).map(([date, items]) => ({ date, items }));
+  })();
 
   // 고른 종목 중 어느 묶음에도 없는 것은 「직접 추가한 종목」 에 보이게 한다(다시 시험 등)
   useEffect(() => {
@@ -282,35 +298,55 @@ export default function BacktestView() {
           )}
         </div>
 
-        {/* ⑤ 지난 기록 */}
+        {/*
+          ⑤ 백테스트 히스토리 (v2.48.0 — 매수 판단 히스토리와 같은 날짜별 목록 · 공용 DateGroupList).
+          날짜 줄 = 그날 시험한 종목(「애플 외 9개」) · 방법 수·기간(시험이 여럿이면 「시험 N건」). 펼치면 그날 시험들.
+          서버는 최근 20개를 보관한다(`researchStore` KEEP) — 날짜는 30일씩 보이고 [더 보기].
+        */}
         <section className="space-y-2">
-          <SectionTitle aside="최근 20개">백테스트 히스토리</SectionTitle>
-          <Panel pad="none">
-            {bt.reports == null ? (
-              <div className="p-3">
-                <SkeletonList count={3} />
-              </div>
-            ) : bt.reports.length === 0 ? (
-              <p className="p-3 text-caption text-text-muted">아직 히스토리가 없습니다.</p>
-            ) : (
-              <ul data-list className="space-y-1">
-                {bt.reports.map((item) => (
-                  <HistoryRow
-                    key={item.id}
-                    item={item}
-                    selected={item.id === bt.selectedId}
-                    onOpen={() => {
-                      scrollTo.current = item.id;
-                      if (bt.detail?.id === item.id) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      bt.setSelectedId(item.id);
-                    }}
-                    onRetry={() => retry(item)}
-                    onRemove={() => confirmRemove(item)}
-                  />
-                ))}
-              </ul>
-            )}
-          </Panel>
+          <SectionTitle aside="최근 20개 보관">백테스트 히스토리</SectionTitle>
+          {bt.reports == null ? (
+            <Panel pad="sm">
+              <SkeletonList count={3} />
+            </Panel>
+          ) : bt.reports.length === 0 ? (
+            <Panel pad="sm" className="text-caption text-text-muted">
+              아직 히스토리가 없습니다.
+            </Panel>
+          ) : (
+            <DateGroupList
+              label="날짜별 백테스트"
+              hasMore={historyGroups.length > historyDays}
+              onMore={() => setHistoryDays((n) => n + HISTORY_DAYS_PAGE)}
+              groups={historyGroups.slice(0, historyDays).map(({ date, items }) => ({
+                key: date,
+                date,
+                title: <SymbolsTitle symbols={[...new Set(items.flatMap((x) => x.summary.input.symbols))]} />,
+                summary:
+                  items.length === 1
+                    ? `방법 ${items[0].summary.input.conditions.length}개 · ${items[0].summary.years}년`
+                    : `시험 ${items.length}건`,
+                render: () => (
+                  <ul data-list className="space-y-1">
+                    {items.map((item) => (
+                      <HistoryRow
+                        key={item.id}
+                        item={item}
+                        selected={item.id === bt.selectedId}
+                        onOpen={() => {
+                          scrollTo.current = item.id;
+                          if (bt.detail?.id === item.id) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          bt.setSelectedId(item.id);
+                        }}
+                        onRetry={() => retry(item)}
+                        onRemove={() => confirmRemove(item)}
+                      />
+                    ))}
+                  </ul>
+                ),
+              }))}
+            />
+          )}
         </section>
 
         {/* ⚠️ 고정 문구 5개 — 지우지 않는다, 정보 아이콘에 넣지 않는다 (CLAUDE.md) */}
