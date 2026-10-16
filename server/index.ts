@@ -54,7 +54,7 @@ import { accuracyReport } from './gemini/accuracy';
 import { DiagnoseBusyError, getDiagnoseProgress, startDiagnose } from './diagnose/runner';
 import { BacktestBusyError, getBacktestProgress, startCustomBacktest } from './autoTrading/researchRunner';
 import { deleteBacktest, getBacktest, listBacktests, saveExplain } from './autoTrading/researchStore';
-import { RuleNameTakenError, copyRule, createRule, deleteRule, getRule, listRules, updateRule } from './rules/store';
+import { RuleNameTakenError, copyRule, createRule, deleteRule, ensureSeeded, getRule, listRules, updateRule } from './rules/store';
 import { parseRuleBody, ruleFieldErrors, ruleNameError } from '../src/utils/ruleInput';
 import { cloneRuleBody, type RuleBody } from '../src/types/tradingRule';
 import { namesAndSectors, researchTargets } from './autoTrading/ruleResearch';
@@ -1779,6 +1779,12 @@ try {
   runDataResetV2440();
 } catch (e) {
   console.error('[data-reset v2.44.0] 실패 — 다음 시작 때 다시 시도합니다:', e);
+}
+// 기본 규칙 · 예시 규칙 「기본 규칙 + 200일선」(v2.50.0) — 표시가 없을 때 한 번만(데이터 정리 뒤)
+try {
+  ensureSeeded();
+} catch (e) {
+  console.error('[rules] 기본·예시 규칙 넣기 실패:', e);
 }
 
 /*

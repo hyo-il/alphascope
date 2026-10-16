@@ -18,21 +18,29 @@ import type { Candle } from '../../src/types/toss';
 import type { IndicatorSeries } from '../../src/types/chart';
 import type { DecisionCode } from '../../src/types/autoTrading';
 import type { EntryType } from '../../src/types/buyJudge';
-import { scaledTable, maxScoreOf, type GroupKey, type RuleBody, type BuyKey } from '../../src/types/tradingRule';
+import { gatesOf, scaledTable, maxScoreOf, type GroupKey, type RuleBody, type BuyKey } from '../../src/types/tradingRule';
 import { marketDate } from '../../src/utils/marketDate';
+import { isKrSymbol } from '../../src/utils/market';
 import { isFormingBar } from '../../src/utils/marketBar';
-import { nearestEngineMa } from '../../src/types/autoTrading';
+import { nearestEngineMa, type EngineMaPeriod } from '../../src/types/autoTrading';
 
 /** 진행 중인 일봉을 뺀 끝난 봉 (v2.31.0 → v2.44.0 에 예전 `ruleEngine.ts` 에서 옮겼다) — 신호는 마감 기준이다 */
 export function completedDaily(candles: Candle[], symbol: string, now = Date.now()): Candle[] {
   return isFormingBar(candles, '1d', symbol, now) ? candles.slice(0, -1) : candles;
 }
 
-/** 이동평균 일수 → 엔진 시리즈 (5·20·60·120 — 다른 값은 가장 가까운 값). 예전 `ruleEngine.pickMa` 그대로 옮겼다 */
+/** 이동평균 일수 → 엔진 시리즈 (`ENGINE_MA_PERIODS` — 다른 값은 가장 가까운 값). 예전 `ruleEngine.pickMa` 그대로 옮겼다 · v2.50.0 50·200 */
 export function pickMa(series: IndicatorSeries, period: number): { line: (number | null)[]; used: number } {
   const used = nearestEngineMa(period);
-  const line = { 5: series.sma5, 20: series.sma20, 60: series.sma60, 120: series.sma120 }[used];
-  return { line, used };
+  const lines: Record<EngineMaPeriod, (number | null)[] | undefined> = {
+    5: series.sma5,
+    20: series.sma20,
+    50: series.sma50,
+    60: series.sma60,
+    120: series.sma120,
+    200: series.sma200,
+  };
+  return { line: lines[used] ?? [], used };
 }
 
 // ── 봉 i 기준 시리즈 도우미 ─────────────────────────────────────────────────
@@ -310,6 +318,9 @@ function instantSignals(s: IndicatorSeries, i: number, rule: RuleBody): Instant 
 
 // ── 판단 ────────────────────────────────────────────────────────────────────
 
+/** 문장 속 가격 — 국내 원 정수 · 미국 소수 둘째 (거름망 문장, v2.50.0) */
+const priceText = (symbol: string, v: number): string => (isKrSymbol(symbol) ? String(Math.round(v)) : v.toFixed(2));
+
 const CONDITION_NAME: Record<BuyKey, string> = {
   trend: '추세',
   timing: '타이밍',
@@ -421,6 +432,15 @@ export function evaluateRule(ctx: RuleContext, i: number, rule: RuleBody, state:
     }
   }
   if (score < rule.buy.minScore) return out('HOLD', 'no_signal_buy', `${scoreText} — 기준 ${rule.buy.minScore}점 미만`);
+  // 거름망(v2.50.0) — 손익비 안전장치보다 먼저. 끝난 봉 i 의 종가와 그 봉의 200일선. 200일선이 없으면(봉 < 200) 통과하지 못한 것으로 본다(안전 쪽)
+  if (gatesOf(rule.buy).above200.on) {
+    const ma200 = ctx.series.sma200?.[i] ?? null;
+    const close = ctx.candles[i].close;
+    if (ma200 == null) return out('HOLD', 'gate_block', `${scoreText} — 200일선을 계산할 일봉이 부족해 사지 않습니다`);
+    if (!(close > ma200)) {
+      return out('HOLD', 'gate_block', `${scoreText} — 주가가 200일선 아래라 사지 않습니다 (종가 ${priceText(ctx.symbol, close)} · 200일선 ${priceText(ctx.symbol, ma200)})`);
+    }
+  }
   // A-7 — 잃을 돈이 벌 돈보다 큰 거래는 어떤 규칙이든 사지 않는다(끌 수 없다. 시험 코드만 예외)
   const ratio = reference?.ratio ?? 0;
   if (!opts.testOnlySkipRrGuard && ratio < 1) {

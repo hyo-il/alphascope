@@ -11,10 +11,11 @@ export type EntryType = 'NOW' | 'PULLBACK' | 'BREAKOUT';
 export const ENTRY_LABEL: Record<EntryType, string> = { NOW: '지금 매수', PULLBACK: '눌림 대기', BREAKOUT: '돌파 대기' };
 
 /** 판단 — 마감 기준 엔진 결과 */
-export type Verdict = 'buy' | 'below' | 'rr_block';
-export const VERDICT_LABEL: Record<Verdict, string> = { buy: '사도 됨', below: '기준 미달', rr_block: '손익비 부족' };
+export type Verdict = 'buy' | 'below' | 'rr_block' | 'gate_block';
+export const VERDICT_LABEL: Record<Verdict, string> = { buy: '사도 됨', below: '기준 미달', rr_block: '손익비 부족', gate_block: '거름망에 걸림' };
 /** 엔진 판단 코드 → 판단 */
-export const verdictOf = (code: string): Verdict => (code === 'score_buy' ? 'buy' : code === 'rr_block' ? 'rr_block' : 'below');
+export const verdictOf = (code: string): Verdict =>
+  code === 'score_buy' ? 'buy' : code === 'rr_block' ? 'rr_block' : code === 'gate_block' ? 'gate_block' : 'below';
 
 /** 판단 기록 보관 기간 — 「사도 됨」 은 기간과 상관없이 남는다 */
 export type Retention = '6m' | '1y' | '2y' | 'forever';
@@ -108,6 +109,8 @@ export interface ReasonSummary {
   days: number;
   below: number;
   rrBlock: number;
+  /** 「거름망에 걸림」 날 수 (v2.50.0) */
+  gateBlock: number;
   buy: number;
   /** 기준 미달인 날 가장 자주 만점에 못 미친 조건 */
   mostMissing: string | null;

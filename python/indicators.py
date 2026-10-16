@@ -77,6 +77,9 @@ def compute(frame: pd.DataFrame) -> dict:
         "sma20": series_to_list(ta.sma(close, length=20)),
         "sma60": series_to_list(ta.sma(close, length=60)),
         "sma120": series_to_list(ta.sma(close, length=120)),
+        # v2.50.0 — 매매 규칙의 50/200 교차 · 200일선 거름망 (차트에는 그리지 않는다)
+        "sma50": series_to_list(ta.sma(close, length=50)),
+        "sma200": series_to_list(ta.sma(close, length=200)),
         "ema12": series_to_list(ta.ema(close, length=12)),
         "ema26": series_to_list(ta.ema(close, length=26)),
         # 볼린저밴드 — 하단/중단/상단 순서로 반환된다

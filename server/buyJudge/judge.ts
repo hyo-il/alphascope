@@ -346,12 +346,14 @@ export function reasonSummaries(): ReasonSummary[] {
     const rows = store.listForSymbol(symbol, REASON_DAYS);
     let below = 0;
     let rrBlock = 0;
+    let gateBlock = 0;
     let buy = 0;
     const missing = new Map<string, number>();
     for (const r of rows) {
       const v = verdictOf(r.code);
       if (v === 'buy') buy++;
       else if (v === 'rr_block') rrBlock++;
+      else if (v === 'gate_block') gateBlock++;
       else {
         below++;
         for (const c of JSON.parse(r.breakdown_json) as { key: string; score: number; max: number }[]) {
@@ -360,7 +362,7 @@ export function reasonSummaries(): ReasonSummary[] {
       }
     }
     const top = [...missing.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
-    return { symbol, days: rows.length, below, rrBlock, buy, mostMissing: top ? (BUY_CONDITION_NAME[top[0] as BuyKey] ?? top[0]) : null };
+    return { symbol, days: rows.length, below, rrBlock, gateBlock, buy, mostMissing: top ? (BUY_CONDITION_NAME[top[0] as BuyKey] ?? top[0]) : null };
   });
 }
 

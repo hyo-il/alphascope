@@ -57,6 +57,8 @@ export type DecisionCode =
   | 'score_buy'
   | 'score_sell'
   | 'rr_block'
+  /** v2.50.0 — 점수는 기준 이상이지만 「거름망」(200일선 위일 때만 매수)을 통과하지 못해 사지 않음 */
+  | 'gate_block'
   | 'reentry_wait'
   | 'dead'
   | 'rsi_hot'
@@ -139,10 +141,10 @@ export interface AutoTradeRunResult {
 }
 
 /**
- * 지표 엔진(Python 5001)이 계산하는 이동평균 일수 — **이 넷뿐이다** (v2.38.0 에 한 곳으로 모았다).
- * 매매 규칙의 이동평균 교차는 이 넷 중에서만 고른다(`utils/ruleInput.ts`).
+ * 지표 엔진(Python 5001)이 계산하는 이동평균 일수 — **이 목록뿐이다** (v2.38.0 에 한 곳으로 모았다 · v2.50.0 에 50 · 200 을 더했다).
+ * 매매 규칙의 이동평균 교차는 이 중에서만 고른다(`utils/ruleInput.ts` · `rules/RuleDialog.tsx` · `rules/engine.pickMa` 가 이 목록 하나를 따른다).
  */
-export const ENGINE_MA_PERIODS = [5, 20, 60, 120] as const;
+export const ENGINE_MA_PERIODS = [5, 20, 50, 60, 120, 200] as const;
 export type EngineMaPeriod = (typeof ENGINE_MA_PERIODS)[number];
 
 /** 엔진이 실제로 쓰는 이동평균 일수 — 가장 가까운 값(같은 거리면 짧은 쪽) */

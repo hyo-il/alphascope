@@ -4,7 +4,7 @@
  * 범위는 새로 정하지 않는다 — 기존 두 곳을 합친다:
  * - RSI 눌림 구간 = 10~70(예전 판단 기준 편집의 범위 — v2.45.0 에 그 창을 지우며 여기로 옮겼다)
  * - RSI 반등·과열 · 손절 · 익절 · 트레일링 = 계좌 설정의 `RULE_LIMITS`
- * - 이동평균 = 지표 엔진이 계산하는 `ENGINE_MA_PERIODS`(5·20·60·120)만
+ * - 이동평균 = 지표 엔진이 계산하는 `ENGINE_MA_PERIODS`(5·20·50·60·120·200 — v2.50.0 에 50·200)만
  * ⚠️ 서버도 컴파일한다 — DOM·React 를 들이지 않는다.
  */
 import { ENGINE_MA_PERIODS, RULE_LIMITS } from '../types/autoTrading';
@@ -103,11 +103,14 @@ export function parseRuleBody(raw: unknown): { body: RuleBody } | { error: strin
   const body = emptyRuleBody();
   const shapeError = (path: string) => ({ error: `규칙 모양이 올바르지 않습니다: ${path}` });
 
+  // v2.50.0 전에 만든 규칙(거름망 칸 없음)도 받는다 — 없으면 빈 규칙 값(꺼짐) 그대로
+  const OPTIONAL = new Set(['buy.gates']);
   const copy = (src: any, dst: any, tpl: any, path: string): string | null => {
     if (!src || typeof src !== 'object') return path;
     for (const key of Object.keys(tpl)) {
       const t = tpl[key];
       const v = src[key];
+      if (v === undefined && OPTIONAL.has(`${path}.${key}`)) continue;
       if (typeof t === 'object') {
         const bad = copy(v, dst[key], t, `${path}.${key}`);
         if (bad) return bad;

@@ -12,6 +12,9 @@ export interface IndicatorSeries {
   sma20: IndicatorLine;
   sma60: IndicatorLine;
   sma120: IndicatorLine;
+  /** v2.50.0 — 매매 규칙(50/200 교차 · 200일선 거름망)만 쓴다. 옛 엔진·시험 자료에는 없을 수 있다 */
+  sma50?: IndicatorLine;
+  sma200?: IndicatorLine;
   ema12: IndicatorLine;
   ema26: IndicatorLine;
   bbLower: IndicatorLine;

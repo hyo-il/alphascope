@@ -1,6 +1,7 @@
 /**
  * 매매 규칙 저장 — `trading_rules` (db/schema.sql, v2.43.0).
  *
+ * - 예시 규칙 「기본 규칙 + 200일선」 도 처음 한 번만(v2.50.0, 표시 'tradingRules.seeded.above200').
  * - 「기본 규칙」 은 **처음 한 번만** 넣는다: `app_settings` 'tradingRules.seeded' 가 없을 때만 넣고 표시를 남긴다.
  *   사용자가 모두 지워도 다시 만들지 않는다(사용자 결정 A-2).
  * - 「적용된 곳」(`usedBy`) — 계좌(`accounts`, v2.44.0) · 매수 판단(`buyJudge`, v2.45.0). 백테스트는 기록이라 「쓰는 곳」 이 아니다(늘 false).
@@ -10,8 +11,10 @@ import { getDb } from '../db';
 import { accountsUsingRule, detachRule } from '../autoTrading/store';
 import { detachBuyJudgeRule, getRuleId as getBuyJudgeRuleId } from '../buyJudge/store';
 import {
+  ABOVE200_RULE_NAME,
   DEFAULT_RULE_NAME,
   EMPTY_USAGE,
+  above200RuleBody,
   cloneRuleBody,
   defaultRuleBody,
   type RuleBody,
@@ -20,6 +23,8 @@ import {
 } from '../../src/types/tradingRule';
 
 const SEEDED_KEY = 'tradingRules.seeded';
+/** 예시 규칙 「기본 규칙 + 200일선」 (v2.50.0 — 사용자 결정 A-3) 을 넣었다는 표시 — 지워도 다시 만들지 않는다 */
+const SEEDED_ABOVE200_KEY = 'tradingRules.seeded.above200';
 
 interface Row {
   id: number;
@@ -65,6 +70,21 @@ export function ensureSeeded(): void {
       now,
     );
     db.prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?)`).run(SEEDED_KEY, now);
+  })();
+  // 예시 규칙 — 기본 규칙과 같고 200일선 거름망만 켬. 같은 이름이 이미 있으면 만들지 않고 표시만 남긴다. 「기본 규칙」 은 손대지 않는다
+  db.transaction(() => {
+    const done = db.prepare(`SELECT value FROM app_settings WHERE key = ?`).get(SEEDED_ABOVE200_KEY);
+    if (done) return;
+    const now = new Date().toISOString();
+    if (!db.prepare(`SELECT id FROM trading_rules WHERE name = ?`).get(ABOVE200_RULE_NAME)) {
+      db.prepare(`INSERT INTO trading_rules (name, rule_json, created_at, updated_at) VALUES (?, ?, ?, ?)`).run(
+        ABOVE200_RULE_NAME,
+        JSON.stringify(above200RuleBody()),
+        now,
+        now,
+      );
+    }
+    db.prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?)`).run(SEEDED_ABOVE200_KEY, now);
   })();
   seededChecked = true;
 }

@@ -25,6 +25,8 @@ export function explainNote(note: DecisionNote, name: string, s: Pick<AccountStr
       return `${name}: 점수가 매도 기준 아래로 떨어져 매도했습니다.`;
     case 'rr_block':
       return `${name}: 점수는 기준 이상이지만 잃을 돈이 벌 돈보다 커서(손익비 1 미만) 매수하지 않았습니다.`;
+    case 'gate_block':
+      return `${name}: 점수는 기준 이상이지만 거름망(주가가 200일선 위일 때만 매수)을 통과하지 못해 매수하지 않았습니다.`;
     case 'reentry_wait':
       return `${name}: 손절한 지 얼마 되지 않아 정해 둔 거래일이 지날 때까지 다시 매수하지 않습니다.`;
     case 'dead':

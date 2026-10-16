@@ -33,6 +33,14 @@ export interface RsiReboundCondition extends GroupCondition {
   below: number;
 }
 
+/**
+ * 「거름망」 (v2.50.0 — 사용자 결정 A-1) — 점수와 따로, **통과하지 못하면 점수가 높아도 사지 않는다.** 매도에는 쓰지 않는다.
+ * 첫 항목 = 주가(끝난 봉 종가)가 200일선 위일 때만 매수. 다음 묶음의 시장 필터가 같은 자리에 들어온다.
+ */
+export interface RuleGates {
+  above200: { on: boolean };
+}
+
 export interface RuleBuy {
   trend: GroupCondition;
   timing: TimingCondition;
@@ -43,6 +51,21 @@ export interface RuleBuy {
   rsiRebound: RsiReboundCondition;
   /** 켠 조건의 점수 합계가 이 값 이상이면 매수 */
   minScore: number;
+  /**
+   * 거름망 (v2.50.0). ⚠️ v2.50.0 전에 저장한 규칙에는 없다 — 없으면 모두 꺼진 것으로 읽는다(`gatesOf`).
+   * 옛 규칙의 저장 내용을 바꾸지 않아야 백테스트 기록·판단이 바이트까지 같다.
+   */
+  gates?: RuleGates;
+}
+
+/** 거름망 읽기 — 없으면(옛 규칙) 모두 꺼짐 */
+export function gatesOf(buy: RuleBuy): RuleGates {
+  return { above200: { on: Boolean(buy.gates?.above200?.on) } };
+}
+
+/** 이 규칙이 200일선을 쓰는가 — 거름망 또는 이동평균 교차에 200 (백테스트 준비 봉을 늘린다) */
+export function usesMa200(body: RuleBody): boolean {
+  return gatesOf(body.buy).above200.on || (body.buy.maCross.on && (body.buy.maCross.short === 200 || body.buy.maCross.long === 200));
 }
 
 export interface RuleSell {
@@ -135,6 +158,7 @@ export function emptyRuleBody(): RuleBody {
       maCross: { on: false, points: 10, short: 5, long: 20 },
       rsiRebound: { on: false, points: 10, below: 30 },
       minScore: 65,
+      gates: { above200: { on: false } },
     },
     sell: {
       scoreBelow: { on: false, value: 50 },
@@ -160,6 +184,17 @@ export function defaultRuleBody(): RuleBody {
 }
 
 export const DEFAULT_RULE_NAME = '기본 규칙';
+
+/**
+ * 예시 규칙 「기본 규칙 + 200일선」 (v2.50.0 — 사용자 결정 A-3) — 기본 규칙과 같고 거름망(200일선 위일 때만 매수)만 켬.
+ * 처음 한 번만 만든다(`server/rules/store.ts`). 「기본 규칙」 은 바꾸지 않는다.
+ */
+export const ABOVE200_RULE_NAME = '기본 규칙 + 200일선';
+export function above200RuleBody(): RuleBody {
+  const body = defaultRuleBody();
+  body.buy.gates = { above200: { on: true } };
+  return body;
+}
 
 export function cloneRuleBody(b: RuleBody): RuleBody {
   return JSON.parse(JSON.stringify({ buy: b.buy, sell: b.sell, reentryWaitDays: b.reentryWaitDays })) as RuleBody;

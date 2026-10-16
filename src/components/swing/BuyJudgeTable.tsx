@@ -37,9 +37,10 @@ export function VerdictText({ verdict, score, maxScore }: { verdict: Verdict | n
         {total}
       </span>
     );
+  // 기준 미달 · 거름망에 걸림(v2.50.0) — 같은 빨강, 글자로 구분
   return (
     <span className="whitespace-nowrap text-danger">
-      {VERDICT_LABEL.below}
+      {VERDICT_LABEL[verdict]}
       {total}
     </span>
   );
@@ -107,7 +108,7 @@ export default function BuyJudgeTable({
         <tbody>
           {rows.map((r) => {
             const cur = currencyOfSymbol(r.symbol);
-            const planned = r.verdict === 'buy' || r.verdict === 'rr_block';
+            const planned = r.verdict === 'buy' || r.verdict === 'rr_block' || r.verdict === 'gate_block';
             const ref = planned ? r.reference : null;
             const isOpen = open.has(r.symbol);
             const running = targetRunning === r.symbol;
