@@ -53,6 +53,7 @@ export function recordNotes(accountId: number, notes: DecisionNote[], now = new 
     ...(n.code ? { code: n.code } : {}),
     ...(n.detail?.length ? { detail: n.detail } : {}),
     ...(n.rank ? { rank: n.rank } : {}),
+    ...(n.gateReason ? { gateReason: n.gateReason } : {}),
     at,
     market: isKrSymbol(n.symbol) ? ('KR' as const) : ('US' as const),
   }));

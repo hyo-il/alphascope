@@ -377,6 +377,7 @@ CREATE TABLE IF NOT EXISTS buy_judgments (
   reference_json TEXT,              -- 진입 방식·매수가·손절·목표·손익비·비중(참고)
   reason TEXT NOT NULL,
   created_at TEXT NOT NULL,
+  gate_reason TEXT,                 -- 「거름망에 걸림」 이유(v2.51.0): below200 · short · market · market_nodata (gate_block 줄만)
   UNIQUE (market_date, symbol, rule_id)
 );
 CREATE INDEX IF NOT EXISTS idx_buy_judgments_symbol ON buy_judgments (symbol, market_date);

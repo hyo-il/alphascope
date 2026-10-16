@@ -1,3 +1,4 @@
+import { gateBlockLabel, type GateReason } from '../../types/autoTrading';
 import { Fragment, useState } from 'react';
 import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react';
 import StockName from '../common/StockName';
@@ -19,7 +20,18 @@ import type { TargetAnalysisRecord } from '../../types/targetAnalysis';
  * 총점이 있으면 함께 — `사도 됨 · 72/100`. 펼치기 전에도 판단과 점수가 한눈에 보이게. 색만으로 뜻을 전하지 않는다(글자가 있다).
  * 손익비 부족은 경고 아이콘을 그대로 둔다(같은 빨강이라 「기준 미달」 과 모양으로 구분).
  */
-export function VerdictText({ verdict, score, maxScore }: { verdict: Verdict | null; score?: number | null; maxScore?: number | null }) {
+export function VerdictText({
+  verdict,
+  score,
+  maxScore,
+  gateReason,
+}: {
+  verdict: Verdict | null;
+  score?: number | null;
+  maxScore?: number | null;
+  /** 「거름망에 걸림 (시장 하락)」 — 이유(v2.51.0). 모르는 옛 줄은 「거름망에 걸림」 */
+  gateReason?: GateReason;
+}) {
   if (!verdict) return <span className="text-text-muted">—</span>;
   const total = score != null && maxScore != null ? <span className="tabular-nums"> · {score}/{maxScore}</span> : null;
   if (verdict === 'buy')
@@ -40,7 +52,7 @@ export function VerdictText({ verdict, score, maxScore }: { verdict: Verdict | n
   // 기준 미달 · 거름망에 걸림(v2.50.0) — 같은 빨강, 글자로 구분
   return (
     <span className="whitespace-nowrap text-danger">
-      {VERDICT_LABEL[verdict]}
+      {verdict === 'gate_block' ? gateBlockLabel(gateReason) : VERDICT_LABEL[verdict]}
       {total}
     </span>
   );
@@ -128,7 +140,7 @@ export default function BuyJudgeTable({
                       <StockName symbol={r.symbol} wrap />
                     </span>
                   </td>
-                  <td className={`${TABLE_NUM_COL} py-1 pr-1`}>{r.error ? <span className="text-text-muted">판단 못 함</span> : <VerdictText verdict={r.verdict} score={r.score} maxScore={r.maxScore} />}</td>
+                  <td className={`${TABLE_NUM_COL} py-1 pr-1`}>{r.error ? <span className="text-text-muted">판단 못 함</span> : <VerdictText verdict={r.verdict} score={r.score} maxScore={r.maxScore} gateReason={r.gateReason} />}</td>
                   <td className={`${NUM} py-1 tabular-nums text-text-secondary`}>
                     {r.refScore != null ? (
                       // 「(장 마감 가격)」 은 숫자 아래 줄 — 칸이 10개라 1280 에서 한 줄로 두면 표가 넘쳤다

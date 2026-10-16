@@ -787,7 +787,7 @@ function dailySection(): void {
   const mark = () => db.prepare(`SELECT value FROM app_settings WHERE key = 'tradingRules.seeded.above200'`).get();
   ensureSeeded();
   const first = named();
-  check('예시 규칙 있음 · 거름망 켬 · 나머지는 기본 규칙과 같음', first.length === 1 && first[0].buy.gates?.above200.on === true && (() => {
+  check('예시 규칙 있음 · 거름망 켬 · 나머지는 기본 규칙과 같음', first.length === 1 && first[0].buy.gates?.above200?.on === true && (() => {
     const def = listRules().find((r) => r.name === '기본 규칙');
     if (!def) return true; // 사용자가 기본 규칙을 지운 DB
     const a = { ...first[0].buy, gates: undefined };
@@ -795,7 +795,7 @@ function dailySection(): void {
     return JSON.stringify(a) === JSON.stringify(b) && JSON.stringify(first[0].sell) === JSON.stringify(def.sell) && first[0].reentryWaitDays === def.reentryWaitDays;
   })());
   const def = listRules().find((r) => r.name === '기본 규칙');
-  check('「기본 규칙」 은 그대로(거름망 칸 없음 또는 꺼짐)', !def || !def.buy.gates?.above200.on);
+  check('「기본 규칙」 은 그대로(거름망 칸 없음 또는 꺼짐)', !def || !def.buy.gates?.above200?.on);
   resetSeedCheckForTest();
   ensureSeeded();
   check('다시 확인해도 하나뿐', named().length === 1);

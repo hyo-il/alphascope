@@ -47,6 +47,12 @@ function migrate(database: Database.Database): void {
   }
   if (accountColumns.length) database.exec(`UPDATE paper_accounts SET sort_order = id WHERE sort_order IS NULL`);
 
+  // 매수 판단 「거름망에 걸림」 이유 (v2.51.0) — 옛 줄은 NULL(화면은 「거름망에 걸림」 만)
+  const judgmentColumns = database.prepare(`PRAGMA table_info(buy_judgments)`).all() as { name: string }[];
+  if (judgmentColumns.length && !judgmentColumns.some((c) => c.name === 'gate_reason')) {
+    database.exec(`ALTER TABLE buy_judgments ADD COLUMN gate_reason TEXT`);
+  }
+
   // 종목 프로필의 세부 업종 (v2.42.0) — 동종업계 자동 고르기. 실적일 하루 1회 갱신이 같은 yfinance info 로 채운다
   const profileColumns = database.prepare(`PRAGMA table_info(stock_profiles)`).all() as { name: string }[];
   if (profileColumns.length && !profileColumns.some((c) => c.name === 'industry')) {

@@ -1,3 +1,4 @@
+import { GATE_REASON_LABEL, type GateReason } from '../../types/autoTrading';
 import { Fragment, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import StockName from '../common/StockName';
@@ -25,6 +26,12 @@ const tone = (v: number | null) => (v == null ? 'text-text-muted' : v > 0 ? 'tex
  * 「사도 됨」 의 5·10·20거래일 뒤 수익) ② 아래 접힌 칸 「종목별 사지 않은 이유」.
  * [기록 삭제] 는 판단 기록만. 목표 수익 가능성 기록·성적은 v2.47.0 에 「퀀트 > 검증 기록」 탭으로 옮겼다(A-5).
  */
+/** 「거름망에 걸림 N일(시장 하락 2 · 200일선 아래 1)」 의 괄호 (v2.51.0) — 이유를 아는 날만 */
+function gateBreakdown(reasons?: Partial<Record<GateReason, number>>): string {
+  const parts = (Object.keys(GATE_REASON_LABEL) as GateReason[]).filter((k) => reasons?.[k]).map((k) => `${GATE_REASON_LABEL[k]} ${reasons![k]}`);
+  return parts.length ? `(${parts.join(' · ')})` : '';
+}
+
 export default function BuyJudgeHistory() {
   const h = useBuyJudgeHistory();
   const dayList = useBuyJudgeDays();
@@ -137,7 +144,7 @@ export default function BuyJudgeHistory() {
                           <StockName symbol={r.symbol} className="max-w-full" />
                         </td>
                         <td className="whitespace-nowrap py-1 pr-4">
-                          <VerdictText verdict={r.verdict} score={r.score} maxScore={r.maxScore} />
+                          <VerdictText verdict={r.verdict} score={r.score} maxScore={r.maxScore} gateReason={r.gateReason} />
                         </td>
                         <td className="truncate py-1 pr-2 text-text-secondary" title={r.ruleName}>
                           {r.ruleName}
@@ -184,7 +191,7 @@ export default function BuyJudgeHistory() {
                       {open ? <ChevronDown {...ICON_SM} className="shrink-0 text-text-muted" /> : <ChevronRight {...ICON_SM} className="shrink-0 text-text-muted" />}
                       <StockName symbol={r.symbol} className="w-48 shrink-0" />
                       <span className="min-w-0 text-text-secondary">
-                        최근 {r.days}거래일 — 기준 미달 {r.below}일 · 손익비 부족 {r.rrBlock}일 · 거름망에 걸림 {r.gateBlock ?? 0}일 · 사도 됨 {r.buy}일
+                        최근 {r.days}거래일 — 기준 미달 {r.below}일 · 손익비 부족 {r.rrBlock}일 · 거름망에 걸림 {r.gateBlock ?? 0}일{gateBreakdown(r.gateReasons)} · 사도 됨 {r.buy}일
                         {r.mostMissing ? ` · 가장 자주 모자란 조건: ${r.mostMissing}` : ''}
                       </span>
                     </button>
@@ -200,7 +207,7 @@ export default function BuyJudgeHistory() {
                               <tr key={`${d.marketDate}-${d.ruleName}`} className="border-b border-border/30 last:border-b-0">
                                 <td className={`${TABLE_NUM_COL} py-1 pr-4 tabular-nums text-text-secondary`}>{d.marketDate}</td>
                                 <td className={`${TABLE_NUM_COL} py-1 pr-4`}>
-                                  <VerdictText verdict={d.verdict} score={d.score} maxScore={d.maxScore} />
+                                  <VerdictText verdict={d.verdict} score={d.score} maxScore={d.maxScore} gateReason={d.gateReason} />
                                 </td>
                                 <td className="py-1 text-text-muted">{d.reason}</td>
                               </tr>

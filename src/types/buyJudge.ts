@@ -1,3 +1,4 @@
+import type { GateReason } from './autoTrading';
 /**
  * 매수 판단 (v2.45.0 — 퀀트 다시 만들기 3단계). 서버 `server/buyJudge/*` 와 화면 `components/swing/BuyJudge*` 가 함께 쓴다.
  *
@@ -53,6 +54,8 @@ export interface BuyJudgeRow {
   basisDate: string | null;
   verdict: Verdict | null;
   code: string | null;
+  /** 「거름망에 걸림」 이유(v2.51.0) — gate_block 줄만 */
+  gateReason?: GateReason;
   score: number | null;
   maxScore: number | null;
   minScore: number | null;
@@ -111,6 +114,8 @@ export interface ReasonSummary {
   rrBlock: number;
   /** 「거름망에 걸림」 날 수 (v2.50.0) */
   gateBlock: number;
+  /** 그중 이유별 날 수 (v2.51.0 — 이유를 모르는 옛 줄은 빠진다) */
+  gateReasons: Partial<Record<GateReason, number>>;
   buy: number;
   /** 기준 미달인 날 가장 자주 만점에 못 미친 조건 */
   mostMissing: string | null;
@@ -120,6 +125,7 @@ export interface JudgeDay {
   marketDate: string;
   ruleName: string;
   verdict: Verdict;
+  gateReason?: GateReason;
   score: number;
   maxScore: number;
   minScore: number;
@@ -140,6 +146,7 @@ export interface HistoryDayRow {
   symbol: string;
   ruleName: string;
   verdict: Verdict;
+  gateReason?: GateReason;
   score: number;
   maxScore: number;
   r5: number | null;

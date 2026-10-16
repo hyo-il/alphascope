@@ -104,7 +104,8 @@ export function parseRuleBody(raw: unknown): { body: RuleBody } | { error: strin
   const shapeError = (path: string) => ({ error: `규칙 모양이 올바르지 않습니다: ${path}` });
 
   // v2.50.0 전에 만든 규칙(거름망 칸 없음)도 받는다 — 없으면 빈 규칙 값(꺼짐) 그대로
-  const OPTIONAL = new Set(['buy.gates']);
+  // v2.51.0 — 시장 필터 칸도(v2.50.0 규칙은 거름망에 above200 만 있다)
+  const OPTIONAL = new Set(['buy.gates', 'buy.gates.marketAbove200']);
   const copy = (src: any, dst: any, tpl: any, path: string): string | null => {
     if (!src || typeof src !== 'object') return path;
     for (const key of Object.keys(tpl)) {

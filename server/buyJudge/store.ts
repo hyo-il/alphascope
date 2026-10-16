@@ -97,6 +97,8 @@ export interface JudgmentRow {
   reference_json: string | null;
   reason: string;
   created_at: string;
+  /** v2.51.0 — gate_block 줄의 이유 */
+  gate_reason: string | null;
 }
 
 export interface JudgmentInput {
@@ -113,22 +115,24 @@ export interface JudgmentInput {
   breakdown: unknown;
   reference: unknown;
   reason: string;
+  gateReason?: string | null;
 }
 
 /** 같은 (날짜, 종목, 규칙) 이면 덮어쓴다 */
 export function upsertJudgment(j: JudgmentInput): void {
   getDb()
     .prepare(
-      `INSERT INTO buy_judgments (market_date, symbol, rule_id, rule_name, rule_json, action, code, score, max_score, min_score, breakdown_json, reference_json, reason, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO buy_judgments (market_date, symbol, rule_id, rule_name, rule_json, action, code, score, max_score, min_score, breakdown_json, reference_json, reason, created_at, gate_reason)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(market_date, symbol, rule_id) DO UPDATE SET
          rule_name = excluded.rule_name, rule_json = excluded.rule_json, action = excluded.action, code = excluded.code,
          score = excluded.score, max_score = excluded.max_score, min_score = excluded.min_score, breakdown_json = excluded.breakdown_json,
-         reference_json = excluded.reference_json, reason = excluded.reason, created_at = excluded.created_at`,
+         reference_json = excluded.reference_json, reason = excluded.reason, created_at = excluded.created_at, gate_reason = excluded.gate_reason`,
     )
     .run(
       j.marketDate, j.symbol, j.ruleId, j.ruleName, JSON.stringify(j.rule), j.action, j.code, j.score, j.maxScore, j.minScore,
       JSON.stringify(j.breakdown), j.reference == null ? null : JSON.stringify(j.reference), j.reason, new Date().toISOString(),
+      j.gateReason ?? null,
     );
 }
 

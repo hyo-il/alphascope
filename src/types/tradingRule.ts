@@ -39,6 +39,11 @@ export interface RsiReboundCondition extends GroupCondition {
  */
 export interface RuleGates {
   above200: { on: boolean };
+  /**
+   * 시장 필터 (v2.51.0 — 사용자 결정 A-1·A-2): 종목의 시장 기준(미국 SPY · 국내 KODEX 200 — `server/rules/marketRef.ts`)이
+   * 200일선 위일 때만 매수. 시장 기준 데이터를 못 받은 날은 사지 않는다(A-3).
+   */
+  marketAbove200: { on: boolean };
 }
 
 export interface RuleBuy {
@@ -55,13 +60,16 @@ export interface RuleBuy {
    * 거름망 (v2.50.0). ⚠️ v2.50.0 전에 저장한 규칙에는 없다 — 없으면 모두 꺼진 것으로 읽는다(`gatesOf`).
    * 옛 규칙의 저장 내용을 바꾸지 않아야 백테스트 기록·판단이 바이트까지 같다.
    */
-  gates?: RuleGates;
+  gates?: Partial<RuleGates>;
 }
 
 /** 거름망 읽기 — 없으면(옛 규칙) 모두 꺼짐 */
 export function gatesOf(buy: RuleBuy): RuleGates {
-  return { above200: { on: Boolean(buy.gates?.above200?.on) } };
+  return { above200: { on: Boolean(buy.gates?.above200?.on) }, marketAbove200: { on: Boolean(buy.gates?.marketAbove200?.on) } };
 }
+
+/** 시장 필터를 켰는가 — 켠 규칙만 시장 기준 일봉을 받는다(끈 규칙은 받지 않아 예전과 같다) */
+export const usesMarketFilter = (body: RuleBody): boolean => gatesOf(body.buy).marketAbove200.on;
 
 /** 이 규칙이 200일선을 쓰는가 — 거름망 또는 이동평균 교차에 200 (백테스트 준비 봉을 늘린다) */
 export function usesMa200(body: RuleBody): boolean {
@@ -158,7 +166,7 @@ export function emptyRuleBody(): RuleBody {
       maCross: { on: false, points: 10, short: 5, long: 20 },
       rsiRebound: { on: false, points: 10, below: 30 },
       minScore: 65,
-      gates: { above200: { on: false } },
+      gates: { above200: { on: false }, marketAbove200: { on: false } },
     },
     sell: {
       scoreBelow: { on: false, value: 50 },

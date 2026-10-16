@@ -17,11 +17,11 @@
 
 import { computeIndicators } from '../indicatorService';
 import { ROUND_TRIP_COST } from '../analysis/targetHit';
-import { evaluateRule, exitLevels, type EvaluateOptions } from '../rules/engine';
+import { evaluateRule, exitLevels, type EvaluateOptions, type MarketRefData } from '../rules/engine';
 import { marketDate } from '../../src/utils/marketDate';
 import type { Candle } from '../../src/types/toss';
 import type { IndicatorSeries } from '../../src/types/chart';
-import type { RuleBody } from '../../src/types/tradingRule';
+import { usesMarketFilter, type RuleBody } from '../../src/types/tradingRule';
 
 export const MIN_TRADES = 10;
 
@@ -67,6 +67,8 @@ export function simulateRule(
   rule: RuleBody,
   end?: number,
   opts: EvaluateOptions = {},
+  /** 시장 기준(v2.51.0 — 시장 필터를 켠 규칙). 날짜로 맞춰 쓴다 */
+  market?: MarketRefData | null,
 ): SimResult {
   const list: BacktestTrade[] = [];
   const cost = ROUND_TRIP_COST; // %p
@@ -75,7 +77,7 @@ export function simulateRule(
   let lastStopDate: string | null = null;
   const last = end ?? candles.length - 1;
   const date = (i: number) => marketDate(candles[i].timestamp, symbol);
-  const ctx = { symbol, candles, series };
+  const ctx = { symbol, candles, series, ...(market !== undefined ? { market } : {}) };
 
   const close = (i: number, exit: number, kind: ExitKind, reason: string) => {
     const p = position!;
@@ -182,11 +184,30 @@ export function holdCurve(candles: Candle[], start: number, end: number): number
  * 미래 누설 검사 — 봉 i 까지만 잘라 다시 계산한 지표로 낸 판단이 전체로 낸 판단과 같은지(보유·미보유, 규칙마다).
  * 다르면 그 i 를 돌려준다(없으면 null).
  */
-export async function leakCheck(symbol: string, candles: Candle[], series: IndicatorSeries, start: number, rules: RuleBody[]): Promise<string | null> {
-  const full = { symbol, candles, series };
+export async function leakCheck(
+  symbol: string,
+  candles: Candle[],
+  series: IndicatorSeries,
+  start: number,
+  rules: RuleBody[],
+  /** 시장 기준(v2.51.0) — 있으면 시장 기준도 그 날짜까지 잘라 지표를 다시 계산해 넣는다(시장 필터를 켠 규칙만) */
+  market?: MarketRefData | null,
+): Promise<string | null> {
+  const full = { symbol, candles, series, ...(market !== undefined ? { market } : {}) };
+  const useMarket = market != null && rules.some((r) => usesMarketFilter(r));
+  let lastCut: MarketRefData | null = null;
   for (let i = start; i < candles.length; i++) {
     const cut = candles.slice(0, i + 1);
-    const part = { symbol, candles: cut, series: await computeIndicators(cut) };
+    let partMarket: MarketRefData | null | undefined = market;
+    if (useMarket) {
+      // 그 날짜까지의 시장 기준 끝난 봉만 — 미래 봉을 넣지 않고 다시 계산한 200일선으로도 같은 판단이 나와야 한다
+      const day = marketDate(candles[i].timestamp, symbol);
+      const refCut = market!.candles.filter((c) => marketDate(c.timestamp, market!.symbol) <= day);
+      // 봉 수가 같으면 앞에서 계산한 것을 다시 쓴다(시장 기준 지표는 그 날짜까지의 봉에만 달렸다)
+      if (lastCut && lastCut.candles.length === refCut.length) partMarket = lastCut;
+      else partMarket = lastCut = refCut.length ? { ...market!, candles: refCut, series: await computeIndicators(refCut) } : null;
+    }
+    const part = { symbol, candles: cut, series: await computeIndicators(cut), ...(partMarket !== undefined ? { market: partMarket } : {}) };
     for (const [k, rule] of rules.entries()) {
       for (const held of [false, true]) {
         const a = JSON.stringify(evaluateRule(full, i, rule, { held }));

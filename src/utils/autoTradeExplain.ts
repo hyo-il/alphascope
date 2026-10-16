@@ -1,3 +1,4 @@
+import { isKrSymbol } from './market';
 import type { AccountStrategy, AccountStrategyStatus, DecisionNote } from '../types/autoTrading';
 import type { RuleBody } from '../types/tradingRule';
 import type { AutoTradeView } from './autoTradeStatus';
@@ -25,8 +26,20 @@ export function explainNote(note: DecisionNote, name: string, s: Pick<AccountStr
       return `${name}: 점수가 매도 기준 아래로 떨어져 매도했습니다.`;
     case 'rr_block':
       return `${name}: 점수는 기준 이상이지만 잃을 돈이 벌 돈보다 커서(손익비 1 미만) 매수하지 않았습니다.`;
+    // 거름망(v2.50.0) — 이유별 문장(v2.51.0). 이유를 모르는 옛 기록은 예전 문장
     case 'gate_block':
-      return `${name}: 점수는 기준 이상이지만 거름망(주가가 200일선 위일 때만 매수)을 통과하지 못해 매수하지 않았습니다.`;
+      switch (note.gateReason) {
+        case 'short':
+          return `${name}: 점수는 기준 이상이지만 상장한 지 오래되지 않아 200일선을 계산할 수 없어 매수하지 않았습니다(거름망 — 일봉 부족).`;
+        case 'market':
+          return `${name}: 점수는 기준 이상이지만 시장 전체(${isKrSymbol(note.symbol) ? 'KODEX 200' : 'SPY'})가 200일선 아래라 매수하지 않았습니다(거름망 — 시장 하락).`;
+        case 'market_nodata':
+          return `${name}: 점수는 기준 이상이지만 시장 기준(${isKrSymbol(note.symbol) ? 'KODEX 200' : 'SPY'}) 가격을 받지 못해 안전하게 매수하지 않았습니다(거름망 — 시장 데이터 없음).`;
+        case 'below200':
+          return `${name}: 점수는 기준 이상이지만 주가가 200일선 아래라 매수하지 않았습니다(거름망 — 200일선 아래).`;
+        default:
+          return `${name}: 점수는 기준 이상이지만 거름망(주가가 200일선 위일 때만 매수)을 통과하지 못해 매수하지 않았습니다.`;
+      }
     case 'reentry_wait':
       return `${name}: 손절한 지 얼마 되지 않아 정해 둔 거래일이 지날 때까지 다시 매수하지 않습니다.`;
     case 'dead':

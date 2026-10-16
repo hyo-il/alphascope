@@ -8,6 +8,8 @@
  *   예전 매수 판단 카드의 경고와 같은 뜻. "손익비 1 미만" 은 이제 판단(「손익비 부족」) 자체다.
  */
 import { judgeOnClose } from '../rules/judge';
+import type { GateReason } from '../../src/types/autoTrading';
+import { marketRefLoader, type MarketRefLoader } from '../rules/marketRef';
 import { sortDayRows } from '../../src/utils/buyJudgeOrder';
 import { completedDaily, scoreAt, type ConditionResult, type RuleEvaluation } from '../rules/engine';
 import { computeIndicators } from '../indicatorService';
@@ -126,13 +128,15 @@ export async function judgeSymbol(
   rule: RuleBody,
   livePrice: number | null,
   now = Date.now(),
+  /** 이번 실행이 같이 쓰는 시장 기준 받기(v2.51.0 — 시장마다 한 번) */
+  refs?: MarketRefLoader,
 ): Promise<{ row: BuyJudgeRow; record: { marketDate: string; ev: RuleEvaluation } | null }> {
   const empty: BuyJudgeRow = {
     symbol, basisDate: null, verdict: null, code: null, score: null, maxScore: null, minScore: null, conditions: [], reference: null,
     reason: null, refScore: null, refLabel: null, warnings: [], error: null,
   };
   try {
-    const j = await judgeOnClose(symbol, rule, { held: false }, now);
+    const j = await judgeOnClose(symbol, rule, { held: false }, now, undefined, refs);
     if (j.kind === 'short') return { row: { ...empty, error: `가격 데이터가 ${j.count}개뿐이라 판단하지 않았습니다` }, record: null };
     const { ev, completed, series, candles } = j;
     const lastBar = completed.at(-1)!;
@@ -154,6 +158,7 @@ export async function judgeSymbol(
       basisDate,
       verdict: verdictOf(ev.code),
       code: ev.code,
+      ...(ev.gateReason ? { gateReason: ev.gateReason } : {}),
       score: ev.score,
       maxScore: ev.maxScore,
       minScore: rule.buy.minScore,
@@ -222,6 +227,7 @@ function save(rule: CurrentRule, symbol: string, marketDate: string, ev: RuleEva
     breakdown: ev.breakdown.filter((c) => c.on).map((c) => ({ key: c.key, score: c.score, max: c.max })),
     reference: referenceOf(ev),
     reason: ev.reasons[0] ?? '',
+    gateReason: ev.gateReason ?? null,
   });
 }
 
@@ -233,7 +239,8 @@ export async function buildState(opts: { write?: boolean; now?: number } = {}): 
   const base = { ruleId: rule?.id ?? null, ruleName: rule?.name ?? null, symbols, retention: store.getRetention(), computedAt: new Date(now).toISOString() };
   if (!rule || !symbols.length) return { ...base, rows: [] };
   const prices = await livePrices(symbols);
-  const results = await mapLimit(symbols, 4, (s) => judgeSymbol(s, rule.body, prices.get(s) ?? null, now));
+  const refs = marketRefLoader(now);
+  const results = await mapLimit(symbols, 4, (s) => judgeSymbol(s, rule.body, prices.get(s) ?? null, now, refs));
   if (opts.write) for (const r of results) if (r.record) save(rule, r.row.symbol, r.record.marketDate, r.record.ev);
   return { ...base, rows: results.map((r) => r.row) };
 }
@@ -248,8 +255,9 @@ export async function recordMarket(market: CalendarMarket, day: string, now = Da
   if (!rule || !symbols.length) return { written: 0, skipped: [] };
   let written = 0;
   const skipped: string[] = [];
+  const refs = marketRefLoader(now);
   await mapLimit(symbols, 4, async (s) => {
-    const { record } = await judgeSymbol(s, rule.body, null, now);
+    const { record } = await judgeSymbol(s, rule.body, null, now, refs);
     if (record && record.marketDate === day) {
       save(rule, s, day, record.ev);
       written++;
@@ -331,7 +339,7 @@ export async function historyDays(offset = 0, limit = HISTORY_DAYS_PAGE, now = D
         .map((r) => {
           const verdict = verdictOf(r.code);
           const o = verdict === 'buy' ? read(r) : null;
-          return { symbol: r.symbol, ruleName: r.rule_name, verdict, score: r.score, maxScore: r.max_score, r5: o?.[5] ?? null, r10: o?.[10] ?? null, r20: o?.[20] ?? null };
+          return { symbol: r.symbol, ruleName: r.rule_name, verdict, ...(r.gate_reason ? { gateReason: r.gate_reason as GateReason } : {}), score: r.score, maxScore: r.max_score, r5: o?.[5] ?? null, r10: o?.[10] ?? null, r20: o?.[20] ?? null };
         }),
     );
     const buys = list.filter((x) => x.verdict === 'buy').length;
@@ -347,13 +355,17 @@ export function reasonSummaries(): ReasonSummary[] {
     let below = 0;
     let rrBlock = 0;
     let gateBlock = 0;
+    const gateReasons: Partial<Record<GateReason, number>> = {};
     let buy = 0;
     const missing = new Map<string, number>();
     for (const r of rows) {
       const v = verdictOf(r.code);
       if (v === 'buy') buy++;
       else if (v === 'rr_block') rrBlock++;
-      else if (v === 'gate_block') gateBlock++;
+      else if (v === 'gate_block') {
+        gateBlock++;
+        if (r.gate_reason) gateReasons[r.gate_reason as GateReason] = (gateReasons[r.gate_reason as GateReason] ?? 0) + 1;
+      }
       else {
         below++;
         for (const c of JSON.parse(r.breakdown_json) as { key: string; score: number; max: number }[]) {
@@ -362,7 +374,7 @@ export function reasonSummaries(): ReasonSummary[] {
       }
     }
     const top = [...missing.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
-    return { symbol, days: rows.length, below, rrBlock, gateBlock, buy, mostMissing: top ? (BUY_CONDITION_NAME[top[0] as BuyKey] ?? top[0]) : null };
+    return { symbol, days: rows.length, below, rrBlock, gateBlock, gateReasons, buy, mostMissing: top ? (BUY_CONDITION_NAME[top[0] as BuyKey] ?? top[0]) : null };
   });
 }
 
@@ -371,6 +383,7 @@ export function daysFor(symbol: string): JudgeDay[] {
     marketDate: r.market_date,
     ruleName: r.rule_name,
     verdict: verdictOf(r.code),
+    ...(r.gate_reason ? { gateReason: r.gate_reason as GateReason } : {}),
     score: r.score,
     maxScore: r.max_score,
     minScore: r.min_score,

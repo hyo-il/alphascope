@@ -17,6 +17,7 @@ import { exitLevels } from '../rules/engine';
 import { judgeOnClose } from '../rules/judge';
 import { planBuy } from './sizing';
 import { rankBuyCandidates, recentReturn } from './buyOrder';
+import { marketRefLoader } from '../rules/marketRef';
 import { checkBeforeBuy } from '../aiCheck/check';
 import { addUse } from '../aiCheck/store';
 import { AI_UNAVAILABLE_LABEL } from '../../src/types/aiCheck';
@@ -133,6 +134,8 @@ export async function runSignalChecks(
   const heldMap = new Map(positions.filter((p) => p.quantity > 0).map((p) => [p.symbol, p]));
   let openCount = heldMap.size;
 
+  // 시장 기준(v2.51.0) — 이 바퀴에서 시장마다 한 번만 받는다. 시장 필터를 끈 규칙은 받지 않는다
+  const refs = marketRefLoader(now.getTime());
   // ── 1) 이번에 볼 종목을 모두 먼저 판단한다(판단 함수·입력은 예전 그대로) ──
   type Judged = Extract<Awaited<ReturnType<typeof judgeOnClose>>, { kind: 'ok' }>;
   const due: { symbol: string; today: string; position: (typeof positions)[number] | undefined; judged: Judged }[] = [];
@@ -155,6 +158,8 @@ export async function runSignalChecks(
           lastStopDate: getStopDay(strategy.accountId, symbol),
         },
         now.getTime(),
+        undefined,
+        refs,
       );
       result.evaluated += 1;
       if (judged.kind === 'short') {
@@ -227,7 +232,7 @@ export async function runSignalChecks(
   for (const d of due) {
     const { ev } = d.judged;
     if ((ev.action === 'SELL' && d.position) || (ev.action === 'BUY' && !d.position)) continue;
-    result.notes.push({ symbol: d.symbol, action: 'HOLD', reason: ev.reasons[0] ?? '', code: ev.code, orderId: null });
+    result.notes.push({ symbol: d.symbol, action: 'HOLD', reason: ev.reasons[0] ?? '', code: ev.code, orderId: null, ...(ev.gateReason ? { gateReason: ev.gateReason } : {}) });
     setJudgedDay(strategy.accountId, d.symbol, d.today);
   }
   return result;

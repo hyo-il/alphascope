@@ -21,7 +21,9 @@ import { refreshEarnings } from '../earningsCalendar';
 import { marketDate } from '../../src/utils/marketDate';
 import type { Candle } from '../../src/types/toss';
 import type { IndicatorSeries } from '../../src/types/chart';
-import { usesMa200, type RuleBody } from '../../src/types/tradingRule';
+import { usesMa200, usesMarketFilter, type RuleBody } from '../../src/types/tradingRule';
+import { loadMarketRef, marketOfSymbol } from '../rules/marketRef';
+import type { MarketRefData } from '../rules/engine';
 import {
   BACKTEST_SECTORS,
   type BacktestConditionResult,
@@ -203,7 +205,7 @@ function chainCurves(curves: number[][]): number[] {
  * 시험 기간 = 마지막 `252 × years` 봉. 구간마다 `simulateRule(…, end)` 와 같은 횟수·보유일의 무작위 기준선.
  * 시드는 조건과 무관(`custom|종목|구간`) — 같은 거래 횟수·보유일이면 같은 기준선이 나와 조건끼리 공정하게 비교된다.
  */
-export function simulateSegments(symbol: string, candles: Candle[], series: IndicatorSeries, years: number, rule: RuleBody) {
+export function simulateSegments(symbol: string, candles: Candle[], series: IndicatorSeries, years: number, rule: RuleBody, market?: MarketRefData | null) {
   const first = candles.length - SEGMENT_DAYS * years;
   const date = (i: number) => marketDate(candles[i].timestamp, symbol);
   const bounds = Array.from({ length: years }, (_, k) => {
@@ -211,7 +213,7 @@ export function simulateSegments(symbol: string, candles: Candle[], series: Indi
     return { start, end: start + SEGMENT_DAYS - 1 };
   });
   const segs = bounds.map((b, k): Cell => {
-    const r = simulateRule(symbol, candles, series, b.start, rule, b.end);
+    const r = simulateRule(symbol, candles, series, b.start, rule, b.end, {}, market);
     const random = randomBaseline(candles, b.start, b.end, r.list.map((t) => t.holdDays), hashSeed(`custom|${symbol}|${k}`));
     return {
       rule: r.ruleReturn,
@@ -294,6 +296,19 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
   const warmup = uses200 ? WARMUP_NEEDED_200 : WARMUP_NEEDED;
   const fetchWarmup = uses200 ? WARMUP_200 : WARMUP;
   const info = namesAndSectors(input.symbols);
+  // 시장 필터(v2.51.0) — 켠 방법이 있으면 시장 기준 일봉을 시장마다 한 번(시험 기간 + 준비 220). 못 받으면 null → 그 시장 종목은 매수 날마다 「시장 데이터 없음」
+  const useMarket = rules.some((r) => usesMarketFilter(r));
+  const markets = new Map<string, MarketRefData | null>();
+  const marketFor = async (symbol: string): Promise<MarketRefData | null | undefined> => {
+    if (!useMarket) return undefined;
+    const m = marketOfSymbol(symbol);
+    if (!markets.has(m)) {
+      const ref = await loadMarketRef(m, Date.now(), days + WARMUP_200);
+      if (ref) indicatorCalls++;
+      markets.set(m, ref);
+    }
+    return markets.get(m)!;
+  };
 
   const done: { symbol: string; segsBy: Cell[][]; holdCurves: number[][]; dates: { from: string; to: string }[] }[] = [];
   const excluded: BacktestCustomReport['excluded'] = [];
@@ -313,15 +328,16 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
       const series: IndicatorSeries = await computeIndicators(candles);
       indicatorCalls++;
       const first = candles.length - days;
+      const market = await marketFor(symbol);
       if (!leak.symbol) {
-        // 누설 검사: 모든 방법의 판단(보유·미보유)을 봉마다 — 지표를 잘라 다시 계산해 같은지
-        const bad = await leakCheck(symbol, candles, series, first, rules);
-        indicatorCalls += candles.length - first;
+        // 누설 검사: 모든 방법의 판단(보유·미보유)을 봉마다 — 지표를 잘라 다시 계산해 같은지(시장 필터면 시장 기준도 잘라서)
+        const bad = await leakCheck(symbol, candles, series, first, rules, market);
+        indicatorCalls += (candles.length - first) * (market ? 2 : 1);
         leak = { symbol, bars: candles.length - first, ok: !bad };
         console.log(`[backtest] 미래 누설 검사 ${symbol} ${leak.bars}봉: ${bad ? `실패 — ${bad}` : '통과'}`);
         if (bad) throw new LeakError(`미래 누설 검사 실패(${symbol}): ${bad}`);
       }
-      const runs = rules.map((r) => simulateSegments(symbol, candles, series, input.years, r));
+      const runs = rules.map((r) => simulateSegments(symbol, candles, series, input.years, r, market));
       done.push({ symbol, segsBy: runs.map((r) => r.segs), holdCurves: runs[0].holdCurves, dates: runs[0].dates });
     } catch (e) {
       if (e instanceof LeakError || e instanceof IndicatorEngineError) throw e; // 엔진 꺼짐·누설은 결과로 꾸미지 않는다

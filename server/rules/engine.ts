@@ -22,7 +22,7 @@ import { gatesOf, scaledTable, maxScoreOf, type GroupKey, type RuleBody, type Bu
 import { marketDate } from '../../src/utils/marketDate';
 import { isKrSymbol } from '../../src/utils/market';
 import { isFormingBar } from '../../src/utils/marketBar';
-import { nearestEngineMa, type EngineMaPeriod } from '../../src/types/autoTrading';
+import { nearestEngineMa, type EngineMaPeriod, type GateReason } from '../../src/types/autoTrading';
 
 /** 진행 중인 일봉을 뺀 끝난 봉 (v2.31.0 → v2.44.0 에 예전 `ruleEngine.ts` 에서 옮겼다) — 신호는 마감 기준이다 */
 export function completedDaily(candles: Candle[], symbol: string, now = Date.now()): Candle[] {
@@ -115,6 +115,28 @@ export interface RuleEvaluation {
   rrBlocked: boolean;
   /** 매매 계획을 세울 수 없으면 null (손절 자리 없음) */
   reference: RuleReference | null;
+  /** 「거름망에 걸림」 이유(v2.51.0) — gate_block 일 때만 있다(다른 판단의 모양은 예전 그대로) */
+  gateReason?: GateReason;
+}
+
+/** 시장 기준 일봉(끝난 봉) + 지표 — `rules/marketRef.ts` 가 받는다 (v2.51.0) */
+export interface MarketRefData {
+  market: 'US' | 'KR';
+  symbol: string;
+  name: string;
+  candles: Candle[];
+  series: IndicatorSeries;
+}
+
+/** 시장 기준 날짜 → 봉 번호 (한 번 만들어 둔다 — 백테스트가 날짜마다 찾는다) */
+const refIndex = new WeakMap<MarketRefData, Map<string, number>>();
+function refIndexOf(ref: MarketRefData): Map<string, number> {
+  let m = refIndex.get(ref);
+  if (!m) {
+    m = new Map(ref.candles.map((c, k) => [marketDate(c.timestamp, ref.symbol), k] as const));
+    refIndex.set(ref, m);
+  }
+  return m;
 }
 
 export interface RuleState {
@@ -131,6 +153,11 @@ export interface RuleContext {
   candles: Candle[];
   /** `candles` 전체로 한 번 계산한 지표 */
   series: IndicatorSeries;
+  /**
+   * 시장 기준(v2.51.0 — 시장 필터를 켠 규칙만 쓴다). undefined · null(받기 실패) 이면 시장 필터는 「시장 데이터 없음」 으로 막는다.
+   * ⚠️ 날짜로 맞춘다 — 종목 봉 i 의 시장 날짜와 같은 날의 끝난 봉만 본다(미래 봉을 보지 않는다).
+   */
+  market?: MarketRefData | null;
 }
 
 export interface EvaluateOptions {
@@ -403,7 +430,7 @@ export function evaluateRule(ctx: RuleContext, i: number, rule: RuleBody, state:
   const basis = ` (${marketDate(ctx.candles[i].timestamp, ctx.symbol).slice(5)} 마감 기준)`;
   const parts = breakdown.filter((c) => c.on).map((c) => `${CONDITION_NAME[c.key]} ${c.score}`).join(' · ');
   const scoreText = `점수 ${score}/${maxScore}${parts ? ` (${parts})` : ''}`;
-  const out = (action: RuleEvaluation['action'], code: DecisionCode, reason: string, rrBlocked = false): RuleEvaluation => ({
+  const out = (action: RuleEvaluation['action'], code: DecisionCode, reason: string, rrBlocked = false, gateReason?: GateReason): RuleEvaluation => ({
     action,
     score,
     maxScore,
@@ -412,6 +439,7 @@ export function evaluateRule(ctx: RuleContext, i: number, rule: RuleBody, state:
     code,
     rrBlocked,
     reference,
+    ...(gateReason ? { gateReason } : {}),
   });
 
   if (state.held) {
@@ -436,12 +464,41 @@ export function evaluateRule(ctx: RuleContext, i: number, rule: RuleBody, state:
   }
   if (score < rule.buy.minScore) return out('HOLD', 'no_signal_buy', `${scoreText} — 기준 ${rule.buy.minScore}점 미만`);
   // 거름망(v2.50.0) — 손익비 안전장치보다 먼저. 끝난 봉 i 의 종가와 그 봉의 200일선. 200일선이 없으면(봉 < 200) 통과하지 못한 것으로 본다(안전 쪽)
-  if (gatesOf(rule.buy).above200.on) {
+  // 순서(v2.51.0): 종목 200일선 → 시장 필터 → 손익비
+  const gates = gatesOf(rule.buy);
+  if (gates.above200.on) {
     const ma200 = ctx.series.sma200?.[i] ?? null;
     const close = ctx.candles[i].close;
-    if (ma200 == null) return out('HOLD', 'gate_block', `${scoreText} — 200일선을 계산할 일봉이 부족해 사지 않습니다`);
+    if (ma200 == null) return out('HOLD', 'gate_block', `${scoreText} — 200일선을 계산할 일봉이 부족해 사지 않습니다`, false, 'short');
     if (!(close > ma200)) {
-      return out('HOLD', 'gate_block', `${scoreText} — 주가가 200일선 아래라 사지 않습니다 (종가 ${priceText(ctx.symbol, close)} · 200일선 ${priceText(ctx.symbol, ma200)})`);
+      return out(
+        'HOLD',
+        'gate_block',
+        `${scoreText} — 주가가 200일선 아래라 사지 않습니다 (종가 ${priceText(ctx.symbol, close)} · 200일선 ${priceText(ctx.symbol, ma200)})`,
+        false,
+        'below200',
+      );
+    }
+  }
+  // 시장 필터(v2.51.0) — 종목의 끝난 봉 i 와 **같은 시장 날짜**의 시장 기준 끝난 봉. 없거나 200일선을 낼 수 없으면 사지 않는다(안전 쪽)
+  if (gates.marketAbove200.on) {
+    const ref = ctx.market;
+    const day = marketDate(ctx.candles[i].timestamp, ctx.symbol);
+    const j = ref ? refIndexOf(ref).get(day) : undefined;
+    const refClose = ref && j != null ? ref.candles[j].close : null;
+    const refMa = ref && j != null ? (ref.series.sma200?.[j] ?? null) : null;
+    if (!ref || refClose == null || refMa == null) {
+      const name = ref?.name ?? '시장 기준';
+      return out('HOLD', 'gate_block', `${scoreText} — ${name} 의 ${day} 데이터가 없어(받기 실패 · 봉 없음 · 200일선 계산 불가) 사지 않습니다`, false, 'market_nodata');
+    }
+    if (!(refClose > refMa)) {
+      return out(
+        'HOLD',
+        'gate_block',
+        `${scoreText} — 시장 기준 ${ref.name} 가 200일선 아래라 사지 않습니다 (${ref.name} ${priceText(ref.symbol, refClose)} · 200일선 ${priceText(ref.symbol, refMa)})`,
+        false,
+        'market',
+      );
     }
   }
   // A-7 — 잃을 돈이 벌 돈보다 큰 거래는 어떤 규칙이든 사지 않는다(끌 수 없다. 시험 코드만 예외)

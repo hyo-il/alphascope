@@ -448,7 +448,7 @@ function testGates(): void {
   const same = JSON.stringify(evaluateRule(ctx, 20, old, { held: false })) === JSON.stringify(evaluateRule(ctx, 20, cross, { held: false }));
   check('⑥ 거름망 칸 없는 옛 규칙 = 거름망 끔과 같은 판단', same && evaluateRule(ctx, 20, old, { held: false }).code === 'rr_block');
   check('⑥ 옛 규칙(거름망 칸 없음) 받기 → 꺼진 거름망으로', (() => { const r = parseRuleBody(JSON.parse(JSON.stringify(old))) as any; return !!r.body && r.body.buy.gates.above200.on === false; })());
-  check('⑥ 기본 규칙 = 200일선 안 씀 · 예시 규칙 = 씀', !T.usesMa200(T.defaultRuleBody()) && T.usesMa200(T.above200RuleBody()) && T.above200RuleBody().buy.gates?.above200.on === true);
+  check('⑥ 기본 규칙 = 200일선 안 씀 · 예시 규칙 = 씀', !T.usesMa200(T.defaultRuleBody()) && T.usesMa200(T.above200RuleBody()) && T.above200RuleBody().buy.gates?.above200?.on === true);
 
   // 50/200 교차 — 봉 20 에 골든크로스, 봉 25 에 데드크로스
   const g = synth(30);

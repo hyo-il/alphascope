@@ -53,6 +53,20 @@ export interface AccountStrategy {
  * - other: 위에 없는 경로(예산·현금 부족 등)
  * v2.44.0 에 AI형(ai_*)과 예전 교차 계산기 전용 코드(golden · rsi_rebound)를 지웠다 — 그 기록(「최근 판단」)은 데이터 정리 때 지웠다.
  */
+/**
+ * 「거름망에 걸림」 이유 (v2.51.0 — 사용자 결정 A-3). `gate_block` 판단에만 붙는다.
+ * below200 = 종목 종가가 200일선 이하 · short = 종목 200일선을 계산할 일봉 부족 · market = 시장 기준이 200일선 이하 · market_nodata = 시장 기준 데이터 없음
+ */
+export type GateReason = 'below200' | 'short' | 'market' | 'market_nodata';
+export const GATE_REASON_LABEL: Record<GateReason, string> = {
+  below200: '200일선 아래',
+  short: '일봉 부족',
+  market: '시장 하락',
+  market_nodata: '시장 데이터 없음',
+};
+/** 「거름망에 걸림 (시장 하락)」 — 이유를 모르는 옛 기록은 「거름망에 걸림」 */
+export const gateBlockLabel = (reason?: GateReason | null): string => (reason ? `거름망에 걸림 (${GATE_REASON_LABEL[reason]})` : '거름망에 걸림');
+
 export type DecisionCode =
   | 'score_buy'
   | 'score_sell'
@@ -88,6 +102,8 @@ export interface DecisionNote {
   detail?: string[];
   /** 총점 순위(v2.49.0) — 같은 판단에서 「사도 됨」 이 2개 이상일 때 산 줄과 「보유 종목 수가 가득 참」 줄에만 붙는다 */
   rank?: { n: number; of: number };
+  /** 「거름망에 걸림」 이유(v2.51.0) — gate_block 줄에만 */
+  gateReason?: GateReason;
   /** 「최근 판단」 하루치(v2.50.0) — 판단한 시각(같은 판단 = 같은 값) · 종목의 시장. 저장할 때 붙는다 */
   at?: string;
   market?: 'KR' | 'US';
