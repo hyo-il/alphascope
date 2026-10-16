@@ -21,7 +21,7 @@ import { refreshEarnings } from '../earningsCalendar';
 import { marketDate } from '../../src/utils/marketDate';
 import type { Candle } from '../../src/types/toss';
 import type { IndicatorSeries } from '../../src/types/chart';
-import type { RuleBody } from '../../src/types/tradingRule';
+import { usesMa200, type RuleBody } from '../../src/types/tradingRule';
 import {
   BACKTEST_SECTORS,
   type BacktestConditionResult,
@@ -40,6 +40,12 @@ const WARMUP = 140;
  * 예전 교차 규칙은 장기 이동평균 + 1 이었다 — 규칙의 점수 조건이 더 긴 지표를 쓴다(v2.44.0).
  */
 const WARMUP_NEEDED = 130;
+/**
+ * 200일선을 쓰는 규칙(거름망 · 교차에 200 — `usesMa200`, v2.50.0): 200일선이 구간 첫날 전 봉(교차는 전날 → 오늘 비교)에도 값을 가져야 한다 → 200 + 여유 10.
+ * 받는 일봉도 같은 여유(+10)로 늘린다. 200일선을 안 쓰는 규칙은 130 · 140 그대로 — 상장이 짧은 종목이 괜히 빠지지 않고 결과도 예전과 같다.
+ */
+const WARMUP_NEEDED_200 = 210;
+const WARMUP_200 = 220;
 const RANDOM_RUNS = 200;
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
@@ -283,9 +289,11 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
   let rssMax = process.memoryUsage().rss;
   const sample = () => (rssMax = Math.max(rssMax, process.memoryUsage().rss));
   const days = SEGMENT_DAYS * input.years;
-  const warmup = WARMUP_NEEDED;
-  const info = namesAndSectors(input.symbols);
   const rules = input.conditions.map((c) => c.rule);
+  const uses200 = rules.some((r) => usesMa200(r));
+  const warmup = uses200 ? WARMUP_NEEDED_200 : WARMUP_NEEDED;
+  const fetchWarmup = uses200 ? WARMUP_200 : WARMUP;
+  const info = namesAndSectors(input.symbols);
 
   const done: { symbol: string; segsBy: Cell[][]; holdCurves: number[][]; dates: { from: string; to: string }[] }[] = [];
   const excluded: BacktestCustomReport['excluded'] = [];
@@ -296,9 +304,11 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
     const symbol = input.symbols[n];
     onProgress?.(n, total, symbol);
     try {
-      const candles = completedDaily(await getCandles(symbol, '1d', days + WARMUP), symbol);
+      const candles = completedDaily(await getCandles(symbol, '1d', days + fetchWarmup), symbol);
       if (candles.length < days + warmup) {
-        throw new Error(`일봉이 ${candles.length}개뿐입니다 — ${input.years}년 시험에 ${days}개 + 지표 준비 ${warmup}개가 필요합니다(상장이 짧은 종목 등)`);
+        throw new Error(
+          `일봉이 ${candles.length}개뿐입니다 — ${input.years}년 시험에 ${days}개 + 지표 준비 ${warmup}개가 필요합니다${uses200 ? `(200일선을 쓰는 규칙이라 지표 준비에 ${warmup}개가 필요합니다)` : ''}(상장이 짧은 종목 등)`,
+        );
       }
       const series: IndicatorSeries = await computeIndicators(candles);
       indicatorCalls++;
