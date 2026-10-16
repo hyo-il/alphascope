@@ -60,6 +60,8 @@ export function explainNote(note: DecisionNote, name: string, s: Pick<AccountStr
         : `${name}: 매수 조건이었지만 이미 ${s.maxPositions}종목을 들고 있어 매수하지 않았습니다.`;
     case 'daily_loss':
       return '오늘 계좌가 많이 줄어 새로 매수하지 않습니다(하루 손실 한도).';
+    case 'bar_unconfirmed':
+      return `${name}: 일봉을 확정하지 못해(가격을 다시 받지 못함) 판단을 미뤘습니다 — 장이 열려 있는 동안 다시 판단합니다.`;
     case 'not_enough_candles':
       return `${name}: 가격 데이터가 아직 부족해 판단하지 않았습니다.`;
     case 'error':

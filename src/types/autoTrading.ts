@@ -78,6 +78,8 @@ export type DecisionCode =
   | 'score_buy'
   | 'score_sell'
   | 'rr_block'
+  /** v2.51.1 — 끝난 봉 가운데 장중에 저장된 값이 있고 다시 받지 못해 판단을 미룸(다음 틱에 다시) */
+  | 'bar_unconfirmed'
   /** v2.50.0 — 점수는 기준 이상이지만 「거름망」(200일선 위일 때만 매수)을 통과하지 못해 사지 않음 */
   | 'gate_block'
   | 'reentry_wait'

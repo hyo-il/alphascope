@@ -138,6 +138,8 @@ export async function judgeSymbol(
   try {
     const j = await judgeOnClose(symbol, rule, { held: false }, now, undefined, refs);
     if (j.kind === 'short') return { row: { ...empty, error: `가격 데이터가 ${j.count}개뿐이라 판단하지 않았습니다` }, record: null };
+    // 끝나지 않은 채 저장된 일봉(v2.51.1) — 끝나지 않은 값으로 판단하지 않는다. 다음 실행 · 다음 기록 때 다시 받는다
+    if (j.kind === 'unconfirmed') return { row: { ...empty, error: `일봉(${j.dates.join(', ')})을 확정하지 못해 판단을 미룹니다` }, record: null };
     const { ev, completed, series, candles } = j;
     const lastBar = completed.at(-1)!;
     const basisDate = marketDate(lastBar.timestamp, symbol);

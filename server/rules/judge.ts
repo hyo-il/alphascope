@@ -4,6 +4,9 @@
  * 그래서 같은 종목·같은 날·같은 규칙·같은 상태(보유 없음 등)면 action · score · code 가 같다(`npm run buyjudge:test`).
  */
 import { getCandles } from '../candleService';
+import { unconfirmedDailyTimestamps } from '../db';
+import { dailyCloseOffsetMs } from '../../src/utils/marketBar';
+import { marketDate } from '../../src/utils/marketDate';
 import { computeIndicators } from '../indicatorService';
 import { completedDaily, evaluateRule, type RuleEvaluation, type RuleState } from './engine';
 import { usesMarketFilter, type RuleBody } from '../../src/types/tradingRule';
@@ -18,7 +21,9 @@ export const JUDGE_MIN_CANDLES = 30;
 
 export type ClosedJudgement =
   | { kind: 'ok'; ev: RuleEvaluation; candles: Candle[]; completed: Candle[]; series: IndicatorSeries }
-  | { kind: 'short'; count: number; candles: Candle[] };
+  | { kind: 'short'; count: number; candles: Candle[] }
+  /** v2.51.1 — 끝난 봉 가운데 그 시장 마감 전에 받은 값(장중에 저장된 뒤 다시 받기 실패)이 있다 → 판단하지 않는다(다음 틱에 다시) */
+  | { kind: 'unconfirmed'; dates: string[]; candles: Candle[] };
 
 /**
  * 끝난 봉 기준 판단. `candles` 를 넘기면 다시 받지 않는다(시험·한 번 받은 것을 같이 쓸 때).
@@ -35,6 +40,11 @@ export async function judgeOnClose(
   const all = candles ?? (await getCandles(symbol, '1d', JUDGE_CANDLE_LIMIT));
   const completed = completedDaily(all, symbol, now);
   if (completed.length < JUDGE_MIN_CANDLES) return { kind: 'short', count: completed.length, candles: all };
+  // 끝나지 않은 채 저장된 봉(v2.51.1) — 캐시에서 읽은 경우만(넘겨받은 캔들은 부른 쪽이 책임진다). 끝나지 않은 값으로 판단하지 않는다
+  if (!candles) {
+    const bad = unconfirmedDailyTimestamps(symbol, completed[0].timestamp, dailyCloseOffsetMs(symbol)).filter((ts) => ts <= completed.at(-1)!.timestamp);
+    if (bad.length) return { kind: 'unconfirmed', dates: bad.map((ts) => marketDate(ts, symbol)), candles: all };
+  }
   const series = await computeIndicators(completed);
   const market = usesMarketFilter(rule) ? await (refs ? refs.get(marketOfSymbol(symbol)) : loadMarketRef(marketOfSymbol(symbol), now)) : undefined;
   const ev = evaluateRule({ symbol, candles: completed, series, ...(market !== undefined ? { market } : {}) }, completed.length - 1, rule, state);

@@ -299,7 +299,7 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
   // 시장 필터(v2.51.0) — 켠 방법이 있으면 시장 기준 일봉을 시장마다 한 번(시험 기간 + 준비 220). 못 받으면 null → 그 시장 종목은 매수 날마다 「시장 데이터 없음」
   const useMarket = rules.some((r) => usesMarketFilter(r));
   const markets = new Map<string, MarketRefData | null>();
-  const refs = marketRefLoader(Date.now(), undefined, days + WARMUP_200);
+  const refs = marketRefLoader(Date.now(), undefined, days + WARMUP_200, false);
   const marketFor = async (symbol: string): Promise<MarketRefData | null | undefined> => {
     if (!useMarket) return undefined;
     const m = marketOfSymbol(symbol);

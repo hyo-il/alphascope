@@ -1,5 +1,6 @@
 import type { Candle, Timeframe } from '../types/toss';
 import { calendarKey } from './candleAggregator';
+import { isKrSymbol } from './market';
 
 /**
  * 마지막 봉이 아직 만들어지는 중인지.
@@ -14,6 +15,13 @@ import { calendarKey } from './candleAggregator';
  * (자정 + 16시간 = 16:00 ET)이 지났는지로 판단해야 한다.
  */
 const MARKET_CLOSE_OFFSET_MS = 16 * 60 * 60 * 1000;
+
+/**
+ * 일봉이 **끝나는** 시각 — 봉 timestamp(그 시장 자정)부터 (v2.51.1). 미국 16:00 ET(정규장 마감 = 토스 미국 일봉 종가) ·
+ * 국내 **20:00 KST** — 국내 일봉은 KRX+NXT 통합이라 NXT 애프터마켓(20:00)까지 종가가 바뀐다(매수 판단 기록도 20:30 KST).
+ * 매매 규칙의 끝난 봉 고르기(`rules/engine.completedDaily`)와 캐시의 「끝나지 않은 채 저장됨」 판별이 쓴다.
+ */
+export const dailyCloseOffsetMs = (symbol: string): number => (isKrSymbol(symbol) ? 20 : 16) * 60 * 60 * 1000;
 
 const MINUTES: Record<string, number> = { '1m': 1, '5m': 5, '15m': 15, '30m': 30 };
 

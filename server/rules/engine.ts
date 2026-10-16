@@ -21,12 +21,17 @@ import type { EntryType } from '../../src/types/buyJudge';
 import { gatesOf, scaledTable, maxScoreOf, type GroupKey, type RuleBody, type BuyKey } from '../../src/types/tradingRule';
 import { marketDate } from '../../src/utils/marketDate';
 import { isKrSymbol, marketRefOfSymbol } from '../../src/utils/market';
-import { isFormingBar } from '../../src/utils/marketBar';
+import { dailyCloseOffsetMs } from '../../src/utils/marketBar';
 import { nearestEngineMa, type EngineMaPeriod, type GateReason } from '../../src/types/autoTrading';
 
-/** 진행 중인 일봉을 뺀 끝난 봉 (v2.31.0 → v2.44.0 에 예전 `ruleEngine.ts` 에서 옮겼다) — 신호는 마감 기준이다 */
+/**
+ * 진행 중인 일봉을 뺀 끝난 봉 (v2.31.0 → v2.44.0 에 예전 `ruleEngine.ts` 에서 옮겼다) — 신호는 마감 기준이다.
+ * v2.51.1: 끝나는 시각을 시장마다(`dailyCloseOffsetMs` — 국내 20:00 KST, NXT 애프터마켓까지 일봉이 바뀐다). 예전에는 모든 시장 16:00 이라
+ * 국내 16:00~20:00 에 아직 바뀌는 그날 봉을 끝난 봉으로 썼다(같은 판단 안에서 두 번 받으면 점수가 달라졌다).
+ */
 export function completedDaily(candles: Candle[], symbol: string, now = Date.now()): Candle[] {
-  return isFormingBar(candles, '1d', symbol, now) ? candles.slice(0, -1) : candles;
+  const last = candles.at(-1);
+  return last && now < last.timestamp + dailyCloseOffsetMs(symbol) ? candles.slice(0, -1) : candles;
 }
 
 /** 이동평균 일수 → 엔진 시리즈 (`ENGINE_MA_PERIODS` — 다른 값은 가장 가까운 값). 예전 `ruleEngine.pickMa` 그대로 옮겼다 · v2.50.0 50·200 */

@@ -32,6 +32,12 @@ export function getDb(): Database.Database {
  * 나중에 추가된 컬럼은 여기서 채워 넣는다 (이미 있으면 조용히 넘어간다).
  */
 function migrate(database: Database.Database): void {
+  // 캔들을 받은 시각 (v2.51.1) — 장중에 받아 저장된 일봉을 끝난 봉으로 쓰지 않으려고. 옛 줄은 NULL(알 수 없음 — 끝난 것으로 본다)
+  const candleColumns = database.prepare(`PRAGMA table_info(candles)`).all() as { name: string }[];
+  if (candleColumns.length && !candleColumns.some((c) => c.name === 'fetched_at')) {
+    database.exec(`ALTER TABLE candles ADD COLUMN fetched_at INTEGER`);
+  }
+
   const columns = database
     .prepare(`PRAGMA table_info(analysis_history)`)
     .all() as { name: string }[];
@@ -62,23 +68,37 @@ function migrate(database: Database.Database): void {
 
 const upsertCandle = () =>
   getDb().prepare(`
-    INSERT INTO candles (symbol, timeframe, timestamp, open, high, low, close, volume)
-    VALUES (@symbol, @timeframe, @timestamp, @open, @high, @low, @close, @volume)
+    INSERT INTO candles (symbol, timeframe, timestamp, open, high, low, close, volume, fetched_at)
+    VALUES (@symbol, @timeframe, @timestamp, @open, @high, @low, @close, @volume, @fetchedAt)
     ON CONFLICT(symbol, timeframe, timestamp) DO UPDATE SET
       open = excluded.open,
       high = excluded.high,
       low = excluded.low,
       close = excluded.close,
-      volume = excluded.volume
+      volume = excluded.volume,
+      fetched_at = excluded.fetched_at
   `);
 
-export function saveCandles(symbol: string, timeframe: BaseTimeframe, candles: Candle[]): void {
+/** `fetchedAt` = 받은 시각(v2.51.1 — 끝나지 않은 일봉 판별). 시험이 장중 저장을 흉내 낼 때만 넘긴다 */
+export function saveCandles(symbol: string, timeframe: BaseTimeframe, candles: Candle[], fetchedAt = Date.now()): void {
   if (!candles.length) return;
   const stmt = upsertCandle();
   const insertMany = getDb().transaction((rows: Candle[]) => {
-    for (const row of rows) stmt.run({ symbol, timeframe, ...row });
+    for (const row of rows) stmt.run({ symbol, timeframe, ...row, fetchedAt });
   });
   insertMany(candles);
+}
+
+/**
+ * 일봉 중 **그 시장 마감 전에 받은 값**(끝나지 않은 채 저장됨)의 timestamp 들 (v2.51.1).
+ * 받기가 성공하면 그 봉은 마감 뒤 값으로 덮인다 — 받기가 실패해 장중 값이 남았을 때만 걸린다.
+ * `closeOffsetMs` = 봉 timestamp(그 시장 자정) → 그날 일봉이 끝나는 시각. fetched_at 이 NULL 인 옛 줄은 알 수 없어 끝난 것으로 본다.
+ */
+export function unconfirmedDailyTimestamps(symbol: string, fromTs: number, closeOffsetMs: number): number[] {
+  const rows = getDb()
+    .prepare(`SELECT timestamp FROM candles WHERE symbol = ? AND timeframe = '1d' AND timestamp >= ? AND fetched_at IS NOT NULL AND fetched_at < timestamp + ?`)
+    .all(symbol, fromTs, closeOffsetMs) as { timestamp: number }[];
+  return rows.map((r) => r.timestamp);
 }
 
 export function loadCandles(

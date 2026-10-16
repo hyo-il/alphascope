@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS candles (
   low REAL NOT NULL,
   close REAL NOT NULL,
   volume REAL NOT NULL,
+  fetched_at INTEGER,       -- 받은 시각(ms, v2.51.1) — 그 시장 마감 전에 받은 일봉은 아직 끝나지 않은 값이다. 옛 줄은 NULL
   PRIMARY KEY (symbol, timeframe, timestamp)
 );
 

@@ -11,6 +11,8 @@
 import { getCandles } from '../candleService';
 import { computeIndicators } from '../indicatorService';
 import { completedDaily } from './engine';
+import { unconfirmedDailyTimestamps } from '../db';
+import { dailyCloseOffsetMs } from '../../src/utils/marketBar';
 import { isKrSymbol, MARKET_REF } from '../../src/utils/market';
 import type { CalendarMarket } from '../marketCalendar';
 import type { MarketRefData } from './engine';
@@ -27,7 +29,10 @@ export const MARKET_REF_LIMIT = 300;
 export async function loadMarketRef(market: CalendarMarket, now = Date.now(), limit = MARKET_REF_LIMIT): Promise<MarketRefData | null> {
   const { symbol, name } = MARKET_REF[market];
   try {
-    const candles = completedDaily(await getCandles(symbol, '1d', limit), symbol, now);
+    const all = completedDaily(await getCandles(symbol, '1d', limit), symbol, now);
+    // 끝나지 않은 채 저장된 봉(v2.51.1)은 뺀다 — 그날은 「시장 데이터 없음」 이 되고 다음 틱에 다시 받는다(끝나지 않은 값으로 판정하지 않는다)
+    const bad = all.length ? new Set(unconfirmedDailyTimestamps(symbol, all[0].timestamp, dailyCloseOffsetMs(symbol))) : new Set<number>();
+    const candles = bad.size ? all.filter((c) => !bad.has(c.timestamp)) : all;
     if (!candles.length) return null;
     const series = await computeIndicators(candles);
     return { market, symbol, name, candles, series };
@@ -49,16 +54,46 @@ export function setMarketRefLoadForTest(fn: typeof loadMarketRef | null): void {
   loadForTest = fn;
 }
 
-/** 한 판단 안에서 시장마다 한 번만 받는다(같은 시장 요청은 같은 Promise) */
-export function marketRefLoader(now = Date.now(), load: typeof loadMarketRef = loadForTest ?? loadMarketRef, limit = MARKET_REF_LIMIT): MarketRefLoader {
+/**
+ * 「시장 데이터 없음」 뒤 다시 받기 간격 (v2.51.1 — 사용자 결정: 그날 다시 시도, 토스 호출 한도 보호).
+ * 계좌 판단이 「시장 데이터 없음」 을 내면 `markMarketRefMiss` — 그 뒤 5분 동안은 그 시장 기준을 받지 않고 바로 null(다시 「시장 데이터 없음」).
+ * 그 시장 종목이 시장 필터를 지나면(받은 데이터로 판정) `clearMarketRefMiss`. 서버를 다시 켜면 비워진다(곧바로 한 번 다시 받는다).
+ */
+export const MARKET_REF_RETRY_MS = 5 * 60_000;
+const missAt = new Map<CalendarMarket, number>();
+/** 아직 기다리는 중이 아니면 지금을 실패 시각으로(기다리는 동안 다시 표시해도 시작 시각을 늦추지 않는다 — 늦추면 영영 다시 받지 않는다) */
+export function markMarketRefMiss(market: CalendarMarket, now = Date.now()): void {
+  const at = missAt.get(market);
+  if (at == null || now - at >= MARKET_REF_RETRY_MS) missAt.set(market, now);
+}
+export function clearMarketRefMiss(market: CalendarMarket): void {
+  missAt.delete(market);
+}
+/** 시험 전용 */
+export function resetMarketRefMissForTest(): void {
+  missAt.clear();
+}
+
+/** 한 판단 안에서 시장마다 한 번만 받는다(같은 시장 요청은 같은 Promise). `backoff` = 실패 뒤 5분 간격 지키기(백테스트는 끈다) */
+export function marketRefLoader(
+  now = Date.now(),
+  load: typeof loadMarketRef = loadForTest ?? loadMarketRef,
+  limit = MARKET_REF_LIMIT,
+  backoff = true,
+): MarketRefLoader {
   const cache = new Map<CalendarMarket, Promise<MarketRefData | null>>();
   const counts: Record<string, number> = {};
   return {
     get(market) {
       let p = cache.get(market);
       if (!p) {
-        counts[market] = (counts[market] ?? 0) + 1;
-        p = load(market, now, limit);
+        const at = missAt.get(market);
+        if (backoff && at != null && now - at < MARKET_REF_RETRY_MS) {
+          p = Promise.resolve(null); // 기다리는 중 — 받지 않는다
+        } else {
+          counts[market] = (counts[market] ?? 0) + 1;
+          p = load(market, now, limit);
+        }
         cache.set(market, p);
       }
       return p;

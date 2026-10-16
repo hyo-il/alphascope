@@ -17,7 +17,8 @@ import { exitLevels } from '../rules/engine';
 import { judgeOnClose } from '../rules/judge';
 import { planBuy } from './sizing';
 import { rankBuyCandidates, recentReturn } from './buyOrder';
-import { marketRefLoader } from '../rules/marketRef';
+import { clearMarketRefMiss, markMarketRefMiss, marketOfSymbol, marketRefLoader } from '../rules/marketRef';
+import { usesMarketFilter } from '../../src/types/tradingRule';
 import { checkBeforeBuy } from '../aiCheck/check';
 import { addUse } from '../aiCheck/store';
 import { AI_UNAVAILABLE_LABEL } from '../../src/types/aiCheck';
@@ -32,6 +33,22 @@ import type { AccountStrategy, AutoTradeRunResult, DecisionCode } from '../../sr
 import type { RuleBody } from '../../src/types/tradingRule';
 
 type Note = AutoTradeRunResult['notes'][number];
+
+/**
+ * 그날 다시 판단할 종목(시장 데이터 없음 · 일봉 미확정, v2.51.1)의 「최근 판단」 을 처음 한 번만 남기려는 표 — 계좌 · 종목 · 시장 날짜 · 종류.
+ * 메모리에만 둔다(서버를 다시 켜면 한 번 더 남을 수 있다). 날짜가 바뀌면 키가 달라 저절로 새로 남는다.
+ */
+const pendingNoted = new Set<string>();
+function firstPending(accountId: number, symbol: string, day: string, kind: string): boolean {
+  const key = `${accountId}|${symbol}|${day}|${kind}`;
+  if (pendingNoted.has(key)) return false;
+  pendingNoted.add(key);
+  return true;
+}
+/** 시험 전용 */
+export function resetPendingNotesForTest(): void {
+  pendingNoted.clear();
+}
 
 /** 판단 함수 — 시험(`npm run autotrade:test`)만 바꿔치기한다(총점 순서로 사기 시험에서 점수를 정하려고, v2.49.0). 평소에는 `judgeOnClose` 그대로 */
 let judge: typeof judgeOnClose = judgeOnClose;
@@ -162,6 +179,13 @@ export async function runSignalChecks(
         refs,
       );
       result.evaluated += 1;
+      // 끝나지 않은 채 저장된 일봉(v2.51.1) — 판단하지 않고 그날 판단을 마친 것으로 두지 않는다(다음 틱에 다시 받는다). 「최근 판단」 에는 그날 처음 한 번만
+      if (judged.kind === 'unconfirmed') {
+        if (firstPending(strategy.accountId, symbol, today, 'bar_unconfirmed')) {
+          result.notes.push({ symbol, action: 'HOLD', reason: `일봉(${judged.dates.join(', ')})을 확정하지 못해 판단을 미룹니다`, code: 'bar_unconfirmed', orderId: null });
+        }
+        continue;
+      }
       if (judged.kind === 'short') {
         result.notes.push({
           symbol,
@@ -232,8 +256,20 @@ export async function runSignalChecks(
   for (const d of due) {
     const { ev } = d.judged;
     if ((ev.action === 'SELL' && d.position) || (ev.action === 'BUY' && !d.position)) continue;
-    result.notes.push({ symbol: d.symbol, action: 'HOLD', reason: ev.reasons[0] ?? '', code: ev.code, orderId: null, ...(ev.gateReason ? { gateReason: ev.gateReason } : {}) });
+    const note: Note = { symbol: d.symbol, action: 'HOLD', reason: ev.reasons[0] ?? '', code: ev.code, orderId: null, ...(ev.gateReason ? { gateReason: ev.gateReason } : {}) };
+    // 「시장 데이터 없음」(v2.51.1 — 사용자 결정: 그날 다시 시도) — 그날 판단을 마친 것으로 두지 않는다. 그 시장이 열려 있는 동안 다음 틱에 다시 판단하고,
+    // 시장 기준 받기는 5분 간격(`markMarketRefMiss`). 같은 실패를 매 틱 남기지 않게 「최근 판단」 에는 그날 처음 한 번만
+    if (ev.gateReason === 'market_nodata') {
+      markMarketRefMiss(marketOfSymbol(d.symbol), now.getTime());
+      if (firstPending(strategy.accountId, d.symbol, d.today, 'market_nodata')) result.notes.push(note);
+      continue;
+    }
+    result.notes.push(note);
     setJudgedDay(strategy.accountId, d.symbol, d.today);
+  }
+  // 시장 필터를 받은 데이터로 판정한 시장은 다시 받기 기다림을 푼다
+  if (usesMarketFilter(rule)) {
+    for (const d of due) if (d.judged.ev.gateReason !== 'market_nodata') clearMarketRefMiss(marketOfSymbol(d.symbol));
   }
   return result;
 }
