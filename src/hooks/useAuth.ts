@@ -49,7 +49,7 @@ export function useAuth() {
   return {
     state,
     notConfigured,
-    /** 로그인 성공 직후 — 세션 수까지 다시 받아 온다 */
+    /** 로그인 성공 직후 — 로그인 상태를 다시 확인한다 */
     onLoggedIn: check,
     logout: useCallback(async () => {
       await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});

@@ -255,6 +255,8 @@ function AuthSection() {
             window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
             return;
           }
+          // 지운 줄은 바로 뺀다 — 다시 읽기가 실패해도 끊긴 기기가 표에 남지 않게
+          setSessions((prev) => (Array.isArray(prev) ? prev.filter((x) => x.id !== s.id) : prev));
           await load();
         } finally {
           setRemoving(null);
@@ -299,6 +301,8 @@ function AuthSection() {
             다시 시도
           </Button>
         </p>
+      ) : sessions.length === 0 ? (
+        <p className="py-2 text-xs text-text-muted">로그인된 기기가 없습니다.</p>
       ) : (
         <table className="w-full text-left text-xs">
           <thead className="text-caption text-text-muted">
@@ -306,9 +310,7 @@ function AuthSection() {
               <th className={`${TABLE_NAME_COL} py-2 pr-4 font-normal`}>기기</th>
               <th className={`${TABLE_NUM_COL} py-2 pr-6 font-normal`}>처음 로그인</th>
               <th className={`${TABLE_NUM_COL} py-2 pr-6 font-normal`}>마지막 사용</th>
-              <th className={`${TABLE_NUM_COL} py-2 font-normal`}>
-                <span className="sr-only">로그아웃</span>
-              </th>
+              <th className={`${TABLE_NUM_COL} py-2 font-normal`} aria-label="로그아웃" />
             </tr>
           </thead>
           <tbody>
@@ -323,7 +325,8 @@ function AuthSection() {
                 <td className={`${TABLE_NUM_COL} pr-6 tabular-nums text-text-secondary`}>{formatDateTime(s.createdAt)}</td>
                 <td className={`${TABLE_NUM_COL} pr-6 tabular-nums text-text-secondary`}>{formatDateTime(s.lastSeenAt)}</td>
                 <td className={`${TABLE_NUM_COL} text-right`}>
-                  <Button variant="danger-text" size="sm" busy={removing === s.id} disabled={removing !== null || busy} onClick={() => logoutOne(s)}>
+                  {/* 글자형 버튼의 안쪽 여백만큼 밀어 글자 끝을 표 오른쪽 끝에 맞춘다 */}
+                  <Button variant="danger-text" size="sm" className="-mr-2.5" busy={removing === s.id} disabled={removing !== null || busy} onClick={() => logoutOne(s)}>
                     로그아웃
                   </Button>
                 </td>
@@ -333,7 +336,8 @@ function AuthSection() {
         </table>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <Button variant="danger-text" size="md" busy={busy} disabled={removing !== null} onClick={logoutAll}>
+        {/* 글자 시작을 표 왼쪽 끝에 맞춘다(글자형 버튼 안쪽 여백 px-3) */}
+        <Button variant="danger-text" size="md" className="-ml-3" busy={busy} disabled={removing !== null} onClick={logoutAll}>
           모든 기기에서 로그아웃
         </Button>
       </div>

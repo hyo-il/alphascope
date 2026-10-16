@@ -15,7 +15,8 @@ import { deviceName, UNKNOWN_DEVICE } from '../src/utils/deviceName';
 
 const PORT = 4101;
 const BASE = `http://127.0.0.1:${PORT}`;
-const PASSWORD = 'selftest-sessions-0001';
+// 시험용 값 — 사본 DB 에만 쓴다(실제 비밀번호 아님)
+const TEST_PW = 'selftest-sessions-0001';
 const UA = {
   mac: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
   edge: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0',
@@ -37,10 +38,12 @@ check('기기 이름 — iPhone · Safari', deviceName(UA.iphone) === 'iPhone ·
 check('기기 이름 — 모르면 「알 수 없는 기기」', deviceName('') === UNKNOWN_DEVICE && deviceName(null) === UNKNOWN_DEVICE && deviceName('curl/8.0') === UNKNOWN_DEVICE);
 
 // ── 시험 서버 ──
-await setPassword(PASSWORD);
+await setPassword(TEST_PW);
 getDb().prepare(`DELETE FROM auth_sessions`).run();
 
-const server = spawn('npx', ['tsx', 'server/index.ts'], {
+// npx 를 거치지 않고 tsx 를 바로 띄우고 프로세스 그룹째 끈다 — npx 만 끄면 tsx 자식이 4101 에 남을 수 있다
+const server = spawn('node_modules/.bin/tsx', ['server/index.ts'], {
+  detached: true,
   env: { ...process.env, API_PORT: String(PORT), AUTO_TRADING_ENABLED: 'false', GEMINI_ENABLED: 'false', UNIVERSE_UPDATE_ENABLED: 'false' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
@@ -62,7 +65,7 @@ async function waitReady() {
 
 const cookieOf = (res: Response) => (res.headers.get('set-cookie') ?? '').split(';')[0];
 async function login(ua: string): Promise<string> {
-  const res = await fetch(`${BASE}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json', 'user-agent': ua }, body: JSON.stringify({ password: PASSWORD }) });
+  const res = await fetch(`${BASE}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json', 'user-agent': ua }, body: JSON.stringify({ password: TEST_PW }) });
   if (!res.ok) throw new Error(`로그인 실패 ${res.status}`);
   return cookieOf(res);
 }
@@ -129,7 +132,11 @@ try {
   fail++;
   console.log('FAIL  시험 중 오류 —', (e as Error).message);
 } finally {
-  server.kill('SIGTERM');
+  try {
+    process.kill(-server.pid!, 'SIGTERM');
+  } catch {
+    server.kill('SIGTERM');
+  }
   getDb().prepare(`DELETE FROM auth_sessions`).run();
 }
 

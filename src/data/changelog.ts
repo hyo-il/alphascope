@@ -23,6 +23,16 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.51.3',
+    date: '2026-10-17',
+    title: '탭 제목에 종목 이름 · 기기별 로그아웃',
+    description: '브라우저 탭 제목에 종목 이름이 보이고, 로그인된 기기를 하나씩 로그아웃할 수 있습니다.',
+    changes: [
+      '브라우저 탭 제목이 「AlphaScope · 애플」 처럼 앱 이름 다음에 보고 있는 종목 이름을 보여 줍니다(이름을 아직 모르면 「AlphaScope」 만).',
+      '설정 > 앱 기능 설정의 「로그인」 에 「로그인된 기기」 표가 생겼습니다 — 기기(「Mac · Chrome」 처럼) · 처음 로그인 · 마지막 사용을 보고, 기기마다 [로그아웃] 으로 그 기기만 끊을 수 있습니다. 지금 쓰는 기기에는 「이 기기」 가 붙습니다.',
+    ],
+  },
+  {
     version: 'v2.51.2',
     date: '2026-10-17',
     title: '일봉을 새로 받지 못하면 오래된 값으로 판단하지 않음',
