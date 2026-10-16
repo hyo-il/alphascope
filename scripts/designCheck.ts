@@ -32,6 +32,7 @@ import path from 'node:path';
 import { chromium, type Page } from 'playwright';
 import { NAV_GROUPS, PAGE_TABS } from '../src/types/nav';
 import { CHANGELOG } from '../src/data/changelog';
+import { sortDayRows } from '../src/utils/buyJudgeOrder';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const BASE = process.env.BASE ?? 'http://localhost:5180';
@@ -413,6 +414,21 @@ function targets(): Target[] {
       open: click('펼치기'),
     },
     {
+      // v2.48.1 — 보관 100개: 사본 DB 의 실제 기록으로 날짜 목록 [더 보기] 를 한 번 누른 모습(기록이 30일보다 많아야 버튼이 보인다)
+      name: 'backtest-히스토리-더보기',
+      hash: '#/backtest',
+      open: async (page: Page) => {
+        // 앞 대상(날짜펼침)이 바꿔치기한 목록이 같은 창에 남아 있다 — 새로 읽는다
+        await page.reload();
+        const more = page.getByRole('button', { name: '더 보기', exact: true });
+        await more.waitFor({ timeout: 15000 });
+        await more.click();
+        await page.waitForTimeout(500);
+        await page.getByRole('list', { name: '날짜별 백테스트' }).locator('li').last().scrollIntoViewIfNeeded();
+        await page.waitForTimeout(300);
+      },
+    },
+    {
       // v2.48.0 — 종목 12개면 ① 이 「…외 N개」 한 줄로 접혀 있다(아래 ② 방법이 밀리지 않는다)
       name: 'backtest-종목접힘',
       hash: '#/backtest',
@@ -522,14 +538,16 @@ function targets(): Target[] {
       name: `swing-history-${which}`,
       hash: '#/swing/history',
       before: async (page: Page) => {
-        const row = (symbol: string, verdict: string, score: number, r5: number | null = null, r10: number | null = null, r20: number | null = null) =>
+        const row = (symbol: string, verdict: 'buy' | 'below' | 'rr_block', score: number, r5: number | null = null, r10: number | null = null, r20: number | null = null) =>
           ({ symbol, ruleName: '기본 규칙', verdict, score, maxScore: 100, r5, r10, r20 });
         const days = [
           { marketDate: '2026-10-15', rows: [row('005930', 'below', 51), row('AAPL', 'buy', 72, 2.31, -1.4, 5.02), row('LLY', 'rr_block', 66), row('NVDA', 'buy', 68, -0.85, null, null), row('XOM', 'below', 45)], buys: 2, nonBuys: 3 },
           { marketDate: '2026-10-14', rows: [row('005930', 'below', 47), row('AAPL', 'below', 60), row('LLY', 'below', 41), row('NVDA', 'buy', 70, 1.2, 3.4, null), row('XOM', 'below', 44)], buys: 1, nonBuys: 4 },
           { marketDate: '2026-10-13', rows: [row('AAPL', 'below', 58), row('NVDA', 'below', 62)], buys: 0, nonBuys: 2 },
         ];
-        await page.route('**/api/buy-judge/days?**', (r) => r.fulfill({ json: { days, totalDays: 45 } }));
+        // 서버(`historyDays`)와 같은 순서로 보낸다 — 사도 됨 → 손익비 부족 → 기준 미달(v2.48.1)
+        const served = days.map((d) => ({ ...d, rows: sortDayRows(d.rows) }));
+        await page.route('**/api/buy-judge/days?**', (r) => r.fulfill({ json: { days: served, totalDays: 45 } }));
         const reasons = [
           { symbol: 'AAPL', days: 20, below: 17, rrBlock: 2, buy: 1, mostMissing: '추세' },
           { symbol: 'LLY', days: 20, below: 20, rrBlock: 0, buy: 0, mostMissing: '타이밍' },
