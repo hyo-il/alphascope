@@ -133,6 +133,105 @@ function targets(): Target[] {
     },
     { name: 'records-analysis-성적표', hash: '#/records/analysis', open: async (page) => { await page.waitForTimeout(1200); await page.getByRole('radio', { name: '성적표' }).click().catch(() => page.getByRole('button', { name: '성적표' }).click()); await page.waitForTimeout(1500); } },
     { name: 'nav-퀀트접힘', hash: '#/rules', open: click(/^퀀트/) },
+    // v2.48.0 — 실험실은 소메뉴 「급등 탐지」 를 보인다(펼친 메뉴 · 접힌 메뉴 플라이아웃)
+    { name: 'nav-실험실-펼침', hash: '#/surge/list' },
+    {
+      name: 'nav-접힌메뉴-실험실',
+      hash: '#/rules',
+      open: async (page: Page) => {
+        await page.getByRole('button', { name: '메뉴 접기' }).click();
+        await page.waitForTimeout(400);
+        await page.getByTitle('실험실 (테스트)').hover();
+        await page.waitForTimeout(400);
+      },
+    },
+    // v2.48.0 — 계좌 모아보기 ↑↓ · 끄는 중(첫 카드를 둘째 카드 앞으로 끄는 순간 — 놓지 않는다)
+    {
+      name: 'account-순서-끄는중',
+      hash: '#/portfolio/paper',
+      open: async (page: Page) => {
+        await page.waitForSelector('article[draggable=true]', { timeout: 8000 });
+        await page.evaluate(() => {
+          const cards = [...document.querySelectorAll('article[draggable=true]')] as HTMLElement[];
+          if (cards.length < 2) return;
+          const dt = new DataTransfer();
+          cards[0].dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
+          (window as unknown as { __dt: DataTransfer }).__dt = dt;
+        });
+        // 끌기 시작 상태가 그려진 뒤에 놓을 자리를 지난다(같은 틱이면 화면이 아직 끄는 중을 모른다)
+        await page.waitForTimeout(200);
+        await page.evaluate(() => {
+          const cards = [...document.querySelectorAll('article[draggable=true]')] as HTMLElement[];
+          const dt = (window as unknown as { __dt: DataTransfer }).__dt;
+          if (cards.length < 2 || !dt) return;
+          const r = cards[1].getBoundingClientRect();
+          cards[1].dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: r.right - 10, clientY: r.top + 10 }));
+        });
+        await page.waitForTimeout(400);
+      },
+    },
+    // v2.48.0 — 매수 판단 [실행] 중(서버 응답을 늦춘다) · 완료 알림
+    {
+      name: 'swing-실행중',
+      hash: '#/swing/list',
+      before: async (page: Page) => {
+        await page.route('**/api/buy-judge/recalc', async (r) => {
+          await new Promise((res) => setTimeout(res, 8000));
+          await r.continue().catch(() => undefined);
+        });
+      },
+      after: (page: Page) => page.unroute('**/api/buy-judge/recalc'),
+      open: async (page: Page) => {
+        await page.waitForSelector('table', { timeout: 30000 });
+        await page.getByRole('button', { name: '실행', exact: true }).click();
+        await page.waitForTimeout(700);
+      },
+    },
+    {
+      name: 'swing-실행완료',
+      hash: '#/swing/list',
+      open: async (page: Page) => {
+        await page.waitForSelector('table', { timeout: 30000 });
+        await page.getByRole('button', { name: '실행', exact: true }).click();
+        await page.getByText('실행이 완료됐습니다').first().waitFor({ timeout: 30000 });
+        await page.waitForTimeout(300);
+      },
+    },
+    // v2.48.0 — 백테스트 히스토리 날짜별 목록(펼침). 기록은 바꿔치기(규칙은 지금 목록의 첫 규칙)
+    {
+      name: 'backtest-히스토리-날짜펼침',
+      hash: '#/backtest',
+      before: async (page: Page) => {
+        const rules = (await page.evaluate(async () => (await (await fetch('/api/rules')).json()) as { rules: { id: number; name: string; buy: unknown; sell: unknown; reentryWaitDays: number }[] })).rules;
+        const r0 = rules[0];
+        // 규칙 목록 한 줄 = 규칙 본문 + id·이름 — 기록에는 본문만(buy · sell · reentryWaitDays)
+        const body = r0 ? { buy: r0.buy, sell: r0.sell, reentryWaitDays: r0.reentryWaitDays } : undefined;
+        const item = (id: number, createdAt: string, symbols: string[], years: number, n: number) => ({
+          id, createdAt, server: 'mac',
+          summary: {
+            kind: 'custom', createdAt, symbols: symbols.length, requested: symbols.length, years,
+            input: { symbols, years, conditions: Array.from({ length: n }, (_, k) => ({ label: 'ABC'[k], ruleId: r0?.id ?? 1, ruleName: r0?.name ?? '기본 규칙', rule: body })) },
+            inputKey: `k${id}`, rule: 3.21 * (id % 3) - 2, hold: 12.5,
+          },
+        });
+        const reports = [
+          item(9003, '2026-10-16T02:10:00Z', ['AAPL', 'NVDA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'LLY', 'JPM', 'XOM'], 3, 2),
+          item(9002, '2026-10-16T01:05:00Z', ['005930', '000660'], 1, 1),
+          item(9001, '2026-10-14T06:30:00Z', ['AAPL', 'NVDA'], 2, 1),
+        ];
+        await page.route('**/api/backtest/reports', (r) => r.fulfill({ json: { reports } }));
+        await page.route('**/api/backtest/reports/*', (r) => r.fulfill({ status: 404, json: { error: '시험용 기록입니다' } }));
+      },
+      after: async (page: Page) => {
+        await page.unroute('**/api/backtest/reports');
+        await page.unroute('**/api/backtest/reports/*');
+      },
+      open: async (page: Page) => {
+        await page.waitForTimeout(800);
+        await page.getByRole('button', { name: /2026-10-16/ }).first().click();
+        await page.waitForTimeout(500);
+      },
+    },
     // v2.44.2 — 종목 지도(시장 상위 미국 100 · 내 관심 국내), 「N초 전 갱신」(장이 닫힌 시각에도 보이게 응답의 marketOpen 만 바꿔치기 — DB 는 그대로),
     // 처음 켜기 안내 종목 단계, 지정 종목 설정 창의 [종목 추가]
     ...(
@@ -201,6 +300,16 @@ function targets(): Target[] {
     {
       name: 'dialog-지정종목-설정',
       hash: '#/records/analysis',
+      // v2.48.0 — 종목이 있으면 접힌 한 줄로 연다(응답의 종목만 바꿔치기)
+      before: async (page) => {
+        await page.route('**/api/gemini/scheduled', async (r) => {
+          if (r.request().method() !== 'GET') return r.continue();
+          const res = await r.fetch();
+          const body = (await res.json()) as Record<string, unknown>;
+          await r.fulfill({ response: res, json: { ...body, symbols: ['AAPL', 'NVDA', 'MSFT', '005930', 'LLY', 'XOM'] } });
+        });
+      },
+      after: (page) => page.unroute('**/api/gemini/scheduled'),
       open: async (page) => {
         await page.getByText('내가 지정한 종목').first().locator('xpath=..').getByRole('button', { name: '설정', exact: true }).first().click();
         await page.waitForTimeout(800);
@@ -282,6 +391,21 @@ function targets(): Target[] {
           const uni = (await (await fetch('/api/backtest/universe')).json()) as { sectors: { symbols: { symbol: string }[] }[] };
           const symbols = uni.sectors.flatMap((g) => g.symbols.map((x) => x.symbol)).slice(0, 12);
           localStorage.setItem('alphascope.backtestDraft', JSON.stringify({ symbols, added: [], years: 1, conditions: [{ ruleId: id }, { ruleId: id }, { ruleId: id }] }));
+        });
+      },
+      after: (page) => page.evaluate(() => localStorage.removeItem('alphascope.backtestDraft')),
+      // v2.48.0 — ① 종목은 접힌 채로 연다 → 표를 재려면 펼친다
+      open: click('펼치기'),
+    },
+    {
+      // v2.48.0 — 종목 12개면 ① 이 「…외 N개」 한 줄로 접혀 있다(아래 ② 방법이 밀리지 않는다)
+      name: 'backtest-종목접힘',
+      hash: '#/backtest',
+      before: async (page) => {
+        await page.evaluate(async () => {
+          const uni = (await (await fetch('/api/backtest/universe')).json()) as { sectors: { symbols: { symbol: string }[] }[] };
+          const symbols = uni.sectors.flatMap((g) => g.symbols.map((x) => x.symbol)).slice(0, 12);
+          localStorage.setItem('alphascope.backtestDraft', JSON.stringify({ symbols, added: [], years: 1, conditions: [{ ruleId: null }] }));
         });
       },
       after: (page) => page.evaluate(() => localStorage.removeItem('alphascope.backtestDraft')),
@@ -378,40 +502,54 @@ function targets(): Target[] {
       after: (page) => page.unroute('**/api/buy-judge'),
     },
     { name: 'dialog-매수판단-조건보기', hash: '#/swing/list', before: async () => {}, open: click('조건 보기') },
-    {
-      name: 'swing-history-기록있음',
+    // v2.48.0 — 매수 판단 히스토리 = 날짜별 목록(펼침) · 아래 접힌 「종목별 사지 않은 이유」(펼침). 응답 바꿔치기 — DB 는 그대로
+    ...(['날짜펼침', '사지않은이유'] as const).map((which) => ({
+      name: `swing-history-${which}`,
       hash: '#/swing/history',
-      before: async (page) => {
-        const bought = [
-          { id: 1, marketDate: '2026-09-02', symbol: 'NVDA', ruleName: '기본 규칙', score: 70, maxScore: 100, r5: 2.31, r10: -1.4, r20: 5.02 },
-          { id: 2, marketDate: '2026-09-15', symbol: 'AAPL', ruleName: '기본 규칙', score: 66, maxScore: 100, r5: -0.85, r10: 1.2, r20: null },
-          { id: 3, marketDate: '2026-10-09', symbol: '005930', ruleName: '기본 규칙', score: 68, maxScore: 100, r5: null, r10: null, r20: null },
+      before: async (page: Page) => {
+        const row = (symbol: string, verdict: string, score: number, r5: number | null = null, r10: number | null = null, r20: number | null = null) =>
+          ({ symbol, ruleName: '기본 규칙', verdict, score, maxScore: 100, r5, r10, r20 });
+        const days = [
+          { marketDate: '2026-10-15', rows: [row('005930', 'below', 51), row('AAPL', 'buy', 72, 2.31, -1.4, 5.02), row('LLY', 'rr_block', 66), row('NVDA', 'buy', 68, -0.85, null, null), row('XOM', 'below', 45)], buys: 2, nonBuys: 3 },
+          { marketDate: '2026-10-14', rows: [row('005930', 'below', 47), row('AAPL', 'below', 60), row('LLY', 'below', 41), row('NVDA', 'buy', 70, 1.2, 3.4, null), row('XOM', 'below', 44)], buys: 1, nonBuys: 4 },
+          { marketDate: '2026-10-13', rows: [row('AAPL', 'below', 58), row('NVDA', 'below', 62)], buys: 0, nonBuys: 2 },
         ];
+        await page.route('**/api/buy-judge/days?**', (r) => r.fulfill({ json: { days, totalDays: 45 } }));
         const reasons = [
           { symbol: 'AAPL', days: 20, below: 17, rrBlock: 2, buy: 1, mostMissing: '추세' },
           { symbol: 'LLY', days: 20, below: 20, rrBlock: 0, buy: 0, mostMissing: '타이밍' },
           { symbol: '005930', days: 18, below: 15, rrBlock: 2, buy: 1, mostMissing: '거래량' },
         ];
         await page.route('**/api/buy-judge/history', (r) =>
-          r.fulfill({ json: { bought, stats: { n5: 2, n10: 2, n20: 1, avg5: 0.73, avg10: -0.1, avg20: 5.02, smallSample: true }, reasons, counts: { all: 61, nonBuy: 58 } } }));
+          r.fulfill({ json: { stats: { n5: 2, n10: 2, n20: 1, avg5: 0.73, avg10: -0.1, avg20: 5.02, smallSample: true }, reasons, counts: { all: 61, nonBuy: 58 } } }));
         await page.route('**/api/buy-judge/history/*', (r) =>
           r.fulfill({ json: { days: [
             { marketDate: '2026-10-14', ruleName: '기본 규칙', verdict: 'below', score: 47, maxScore: 100, minScore: 65, reason: '점수 47점 — 기준 65점 미달' },
             { marketDate: '2026-10-13', ruleName: '기본 규칙', verdict: 'rr_block', score: 66, maxScore: 100, minScore: 65, reason: '손익비 0.84 — 1 미만이라 매수하지 않습니다' },
           ] } }));
       },
-      after: async (page) => { await page.unroute('**/api/buy-judge/history'); await page.unroute('**/api/buy-judge/history/*'); },
-      open: async (page) => {
-        await page.getByRole('button', { name: /애플/ }).first().click();
-        await page.waitForTimeout(500);
+      after: async (page: Page) => {
+        await page.unroute('**/api/buy-judge/history');
+        await page.unroute('**/api/buy-judge/history/*');
+        await page.unroute('**/api/buy-judge/days?**');
       },
-    },
+      open: async (page: Page) => {
+        await page.waitForTimeout(800);
+        if (which === '날짜펼침') {
+          await page.getByRole('button', { name: /2026-10-15/ }).first().click();
+        } else {
+          await click('종목별 사지 않은 이유 보기')(page);
+          await page.getByRole('button', { name: /애플/ }).first().click();
+        }
+        await page.waitForTimeout(600);
+      },
+    })),
     {
       name: 'dialog-매수판단-기록지우기',
       hash: '#/swing/history',
       before: async (page) => {
         await page.route('**/api/buy-judge/history', (r) =>
-          r.fulfill({ json: { bought: [], stats: { n5: 0, n10: 0, n20: 0, avg5: null, avg10: null, avg20: null, smallSample: true }, reasons: [], counts: { all: 61, nonBuy: 58 } } }));
+          r.fulfill({ json: { stats: { n5: 0, n10: 0, n20: 0, avg5: null, avg10: null, avg20: null, smallSample: true }, reasons: [], counts: { all: 61, nonBuy: 58 } } }));
       },
       after: (page) => page.unroute('**/api/buy-judge/history'),
       open: click('기록 삭제'),

@@ -255,9 +255,9 @@ export default function AccountsOverview({
               } ${dragId === item.account.id ? 'border-dashed !border-accent/60 opacity-40' : ''}`}
             >
               {/* 놓을 자리 — 카드 앞(왼쪽)·뒤(오른쪽)에 파란 세로 줄 */}
-              {dragId != null && dropIndex === index && <span aria-hidden className="absolute inset-y-2 -left-2 w-0.5 rounded bg-accent" />}
+              {dragId != null && dropIndex === index && <span aria-hidden className="absolute inset-y-1 -left-1.5 w-1 -translate-x-1/2 rounded bg-accent" />}
               {dragId != null && dropIndex === index + 1 && index === list.length - 1 && (
-                <span aria-hidden className="absolute inset-y-2 -right-2 w-0.5 rounded bg-accent" />
+                <span aria-hidden className="absolute inset-y-1 -right-1.5 w-1 translate-x-1/2 rounded bg-accent" />
               )}
               <header className="flex items-center gap-2">
                 {list.length > 1 && (
