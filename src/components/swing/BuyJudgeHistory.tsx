@@ -4,7 +4,7 @@ import StockName from '../common/StockName';
 import { SkeletonCards } from '../common/SkeletonLoader';
 import { Badge, Button, InfoTip, Segmented } from '../ui';
 import { ICON_SM } from '../ui/icon';
-import { LIST_TABLE_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
+import { LIST_TABLE_ROW, TABLE_NUM_COL } from '../ui/tokens';
 import { fetchJudgeDays, useBuyJudgeDays, useBuyJudgeHistory } from '../../hooks/useBuyJudge';
 import DateGroupList, { SymbolsTitle } from '../common/DateGroupList';
 import DisclosureButton from '../ui/DisclosureButton';
@@ -72,7 +72,8 @@ export default function BuyJudgeHistory() {
     });
   };
 
-  const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right`;
+  /** 날짜를 펼친 표의 숫자 칸(폭은 colgroup 이 정한다) */
+  const DAY_NUM = 'whitespace-nowrap pl-8 text-right';
   const s = h.data?.stats;
   return (
     <div className="space-y-6">
@@ -108,15 +109,24 @@ export default function BuyJudgeHistory() {
                 </>
               ),
               render: () => (
-                <table className="w-full text-left text-xs">
+                // 칸 폭 고정(table-fixed) — 날짜마다 내용 폭이 달라 두 날짜를 펼치면 열이 어긋났다(v2.48.0 캡처 검토)
+                <table className="w-full table-fixed text-left text-xs">
+                  <colgroup>
+                    <col />
+                    <col className="w-44" />
+                    <col className="w-36" />
+                    <col className="w-24" />
+                    <col className="w-24" />
+                    <col className="w-24" />
+                  </colgroup>
                   <thead className="text-caption text-text-muted">
                     <tr className="border-b border-border/50">
-                      <th className={`${TABLE_NAME_COL} py-2 pr-4`}>종목</th>
-                      <th className={`${TABLE_NUM_COL} py-2 pr-4`}>판단 · 점수</th>
-                      <th className={`${TABLE_NUM_COL} py-2 pr-2`}>규칙</th>
-                      <th className={`${NUM} py-2`}>5거래일</th>
-                      <th className={`${NUM} py-2`}>10거래일</th>
-                      <th className={`${NUM} py-2`}>20거래일</th>
+                      <th className="py-2 pr-4">종목</th>
+                      <th className="whitespace-nowrap py-2 pr-4">판단 · 점수</th>
+                      <th className="whitespace-nowrap py-2 pr-2">규칙</th>
+                      <th className={`${DAY_NUM} py-2`}>5거래일</th>
+                      <th className={`${DAY_NUM} py-2`}>10거래일</th>
+                      <th className={`${DAY_NUM} py-2`}>20거래일</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -125,14 +135,16 @@ export default function BuyJudgeHistory() {
                         <td className="max-w-0 py-1 pr-4">
                           <StockName symbol={r.symbol} className="max-w-full" />
                         </td>
-                        <td className={`${TABLE_NUM_COL} py-1 pr-4`}>
+                        <td className="whitespace-nowrap py-1 pr-4">
                           <VerdictText verdict={r.verdict} score={r.score} maxScore={r.maxScore} />
                         </td>
-                        <td className={`${TABLE_NUM_COL} py-1 pr-2 text-text-secondary`}>{r.ruleName}</td>
+                        <td className="truncate py-1 pr-2 text-text-secondary" title={r.ruleName}>
+                          {r.ruleName}
+                        </td>
                         {/* 「사도 됨」 만 그 뒤 수익률 — 다른 판단은 「—」 */}
-                        <td className={`${NUM} py-1 tabular-nums ${tone(r.r5)}`}>{pct(r.r5)}</td>
-                        <td className={`${NUM} py-1 tabular-nums ${tone(r.r10)}`}>{pct(r.r10)}</td>
-                        <td className={`${NUM} py-1 tabular-nums ${tone(r.r20)}`}>{pct(r.r20)}</td>
+                        <td className={`${DAY_NUM} py-1 tabular-nums ${tone(r.r5)}`}>{pct(r.r5)}</td>
+                        <td className={`${DAY_NUM} py-1 tabular-nums ${tone(r.r10)}`}>{pct(r.r10)}</td>
+                        <td className={`${DAY_NUM} py-1 tabular-nums ${tone(r.r20)}`}>{pct(r.r20)}</td>
                       </tr>
                     ))}
                   </tbody>

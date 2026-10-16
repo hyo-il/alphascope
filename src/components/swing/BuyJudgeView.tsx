@@ -147,7 +147,7 @@ export default function BuyJudgeView() {
                 // 작업 중에는 표 위에 회전 아이콘 + 문구(버튼과 함께 — 표에 결과가 새로 들어올 자리라는 것이 보이게)
                 <div className="relative" aria-busy={busy != null}>
                   {busy && (
-                    <div className="absolute inset-0 z-10 flex items-start justify-center rounded-lg bg-bg-primary/40 pt-6" role="status">
+                    <div className="absolute inset-0 z-10 flex items-start justify-center rounded-lg bg-bg-primary/40 pt-1.5" role="status">
                       <span className="flex items-center gap-1.5 rounded-md bg-bg-elevated px-3 py-1.5 text-xs text-text-secondary shadow">
                         <LoaderCircle {...ICON_SM} className="animate-spin" />
                         {busy}

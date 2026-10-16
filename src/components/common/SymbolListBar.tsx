@@ -22,7 +22,7 @@ export default function SymbolListBar(props: Omit<SymbolPickerProps, 'title'> & 
           <span className="text-caption text-text-muted tabular-nums">
             {selected.length}종목{max != null ? ` / 최대 ${max}종목` : ''}
           </span>
-          {selected.length > 0 && !disabled && <RemoveAllButton onClick={() => onChange([])} />}
+          {selected.length > 0 && <RemoveAllButton onClick={() => onChange([])} disabled={disabled} />}
         </span>
       </div>
       {open && <PickerDialog {...props} added={added} onAddedChange={onAddedChange} onClose={() => setOpen(false)} />}

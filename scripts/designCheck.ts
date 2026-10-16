@@ -192,6 +192,10 @@ function targets(): Target[] {
       hash: '#/swing/list',
       open: async (page: Page) => {
         await page.waitForSelector('table', { timeout: 30000 });
+        // 앞 대상(실행 중)의 늦춘 요청이 끝나고 남긴 알림을 지운다 — 같은 창을 이어 쓰므로 알림이 두 개로 찍혔다
+        await page.waitForFunction(() => !document.querySelector('[aria-busy=true]'), undefined, { timeout: 20000 });
+        await page.waitForTimeout(300);
+        for (const b of await page.getByRole('button', { name: '닫기' }).all()) await b.click().catch(() => undefined);
         await page.getByRole('button', { name: '실행', exact: true }).click();
         await page.getByText('실행이 완료됐습니다').first().waitFor({ timeout: 30000 });
         await page.waitForTimeout(300);

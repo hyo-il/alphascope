@@ -45,10 +45,12 @@ function elapsed(startedAt: string | null, now: number): string {
 function HistoryRow({ item, selected, onOpen, onRetry, onRemove }: { item: BacktestListItem; selected: boolean; onOpen: () => void; onRetry?: () => void; onRemove: () => void }) {
   const s = item.summary;
   return (
-    <li className={`flex items-center gap-3 rounded-md px-2 py-2 text-caption ${selected ? 'bg-bg-tertiary' : ''}`}>
+    // 왼쪽 끝은 날짜 줄 안쪽과 같다(매수 판단 히스토리와 같은 모양 — 들여쓰기·바탕 상자 없음). 지금 보는 결과는 「보는 중」 글자로
+    <li className="flex items-center gap-3 py-2 text-caption">
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className="tabular-nums text-text-primary">{formatTime(item.createdAt)}</span>
+          {selected && <span className="text-text-primary">· 보는 중</span>}
           <span className="text-text-secondary">
             {s.symbols}종목 · {s.years}년
           </span>
@@ -326,7 +328,7 @@ export default function BacktestView() {
                 title: <SymbolsTitle symbols={[...new Set(items.flatMap((x) => x.summary.input.symbols))]} />,
                 summary:
                   items.length === 1
-                    ? `방법 ${items[0].summary.input.conditions.length}개 · ${items[0].summary.years}년`
+                    ? `시험 1건 · 방법 ${items[0].summary.input.conditions.length}개 · ${items[0].summary.years}년`
                     : `시험 ${items.length}건`,
                 render: () => (
                   <ul data-list className="space-y-1">
