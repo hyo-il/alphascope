@@ -1,6 +1,7 @@
 import StockName from './StockName';
 import type { SymbolPickerProps } from './SymbolPicker';
 import SymbolListBar from './SymbolListBar';
+import SymbolCollapse from './SymbolCollapse';
 import { ListRemoveButton } from '../ui';
 import { LIST_TABLE_ROW, TABLE_NAME_COL } from '../ui/tokens';
 import { useStockNames } from '../../hooks/useStockNames';
@@ -24,6 +25,8 @@ export default function SymbolTable(props: Omit<SymbolPickerProps, 'title'>) {
   const scrolls = selected.length > 10;
 
   return (
+    <div className="space-y-2">
+    <SymbolCollapse symbols={selected} collapsible={props.collapsible}>
     <div className="space-y-2">
       {/* 목록 위 도구 줄 — 매수 판단 표와 같은 부품(`SymbolListBar`): [종목 추가] … N종목 · 모두 삭제 */}
       <SymbolListBar {...props} />
@@ -63,11 +66,12 @@ export default function SymbolTable(props: Omit<SymbolPickerProps, 'title'>) {
       )}
 
       {scrolls && <p className="text-caption text-text-muted">표 안에서 스크롤하면 나머지 {selected.length - 10}종목이 보입니다.</p>}
-
-      {soft && softLimit != null && (
-        <p className="text-caption text-danger">{softLimitText ? softLimitText(selected.length, softLimit) : `${softLimit}개까지 — 지금 ${selected.length}개`}</p>
-      )}
-
+    </div>
+    </SymbolCollapse>
+    {/* 한도 안내는 접혀 있어도 보인다(접기 밖) */}
+    {soft && softLimit != null && (
+      <p className="text-caption text-danger">{softLimitText ? softLimitText(selected.length, softLimit) : `${softLimit}개까지 — 지금 ${selected.length}개`}</p>
+    )}
     </div>
   );
 }

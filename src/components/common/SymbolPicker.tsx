@@ -1,4 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import SymbolCollapse from './SymbolCollapse';
 import { Check, ChevronDown, ChevronRight, Plus, Search } from 'lucide-react';
 import StockName from './StockName';
 import SymbolSearch from './SymbolSearch';
@@ -46,6 +47,11 @@ export interface SymbolPickerProps {
   emptyText?: ReactNode;
   /** 창 제목 */
   dialogTitle?: string;
+  /**
+   * 접힌 한 줄 요약으로 열기 (v2.48.0 — `common/SymbolCollapse`, 사용자 결정: 종목을 넣어 시험하는 곳 모두 — 자동매매 설정 · 백테스트 ① · 지정 종목).
+   * 종목이 1개 이상이면 접힌 채, 0개면 펼친 채. 매수 판단의 결과 표는 접지 않는다.
+   */
+  collapsible?: boolean;
 }
 
 interface Row {
@@ -476,6 +482,8 @@ export default function SymbolPicker(props: SymbolPickerProps) {
 
   return (
     <div className="space-y-2">
+    <SymbolCollapse symbols={selected} collapsible={props.collapsible}>
+    <div className="space-y-2">
       {/* 제목은 따로 한 줄 — [종목 추가] 줄은 어느 화면에서나 같은 자리·모양(목록 바로 위, v2.44.2) */}
       {title != null && <h3 className="text-sm font-semibold text-text-primary">{title}</h3>}
       <div className="flex flex-wrap items-center gap-2">
@@ -509,12 +517,15 @@ export default function SymbolPicker(props: SymbolPickerProps) {
           )}
         </>
       )}
-      {soft && softLimit != null && (
-        <p className="text-caption text-danger">
-          {softLimitText ? softLimitText(selected.length, softLimit) : `${softLimit}개까지 — 지금 ${selected.length}개`}
-        </p>
-      )}
       {open && <PickerDialog {...props} added={added} onAddedChange={onAddedChange} onClose={() => setOpen(false)} />}
+    </div>
+    </SymbolCollapse>
+    {/* 한도 안내는 접혀 있어도 보인다(접기 밖) */}
+    {soft && softLimit != null && (
+      <p className="text-caption text-danger">
+        {softLimitText ? softLimitText(selected.length, softLimit) : `${softLimit}개까지 — 지금 ${selected.length}개`}
+      </p>
+    )}
     </div>
   );
 }

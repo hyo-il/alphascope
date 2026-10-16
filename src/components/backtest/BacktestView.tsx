@@ -220,6 +220,8 @@ export default function BacktestView() {
             softLimit={draft.conditions.length >= 2 ? MAX_COMPARE_SYMBOLS : null}
             softLimitText={(n, limit) => `방법을 비교할 때는 종목을 ${limit}개까지 고를 수 있습니다 — 지금 ${n}개`}
             dialogTitle="백테스트 종목 추가"
+            // 종목이 많아도 아래 ② 방법이 밀리지 않게 접힌 한 줄로 연다 (v2.48.0)
+            collapsible
           />
         </Panel>
 

@@ -174,6 +174,8 @@ function ScheduledEditor({
         maxReason={`하루 최대 ${status.max * 5}호출 — 필요하면 나중에 늘립니다`}
         dialogTitle="지정 종목 추가"
         emptyText="[종목 추가] 에서 하루 1번 분석할 종목을 추가하세요."
+        // 접힌 한 줄로 연다 (v2.48.0 — 종목을 넣는 곳 모두)
+        collapsible
       />
       <p className="text-caption text-text-muted">
         {draft.length}/{status.max}종목 · 하루 최대 약 <b className="text-text-secondary">{draft.length * 5}</b>호출
