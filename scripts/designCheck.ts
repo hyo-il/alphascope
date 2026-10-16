@@ -413,6 +413,75 @@ function targets(): Target[] {
       // v2.48.0 — ① 종목은 접힌 채로 연다 → 표를 재려면 펼친다
       open: click('펼치기'),
     },
+    // v2.49.0 — 트레일링 기준 차이 안내(백테스트 안내 · 결과 위 한 줄) · 계좌 「지금 조건」 · 「최근 판단」 총점 순위 문장.
+    // 응답을 받아 고쳐 보낸다: 규칙의 트레일링을 켜고, 최근 판단에 총점 순위 줄을 넣는다(엔진이 만드는 문장 그대로)
+    { name: 'backtest-안내-트레일링', hash: '#/backtest', open: click('백테스트는 무엇인가요?') },
+    {
+      name: 'backtest-결과-트레일링',
+      hash: '#/backtest',
+      before: async (page: Page) => {
+        await page.route('**/api/backtest/reports/*', async (r) => {
+          if (r.request().method() !== 'GET') return r.continue();
+          const res = await r.fetch();
+          const body = await res.json();
+          const walk = (o: unknown): void => {
+            if (!o || typeof o !== 'object') return;
+            for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
+              if (k === 'sell' && v && typeof v === 'object' && 'trailing' in v) (v as { trailing: { on: boolean } }).trailing.on = true;
+              else walk(v);
+            }
+          };
+          walk(body);
+          await r.fulfill({ response: res, json: body });
+        });
+      },
+      after: (page: Page) => page.unroute('**/api/backtest/reports/*'),
+      open: async (page: Page) => {
+        await page.reload();
+        await page.waitForTimeout(2500);
+        await page.getByText('트레일링은 계좌는 실시간 최고가', { exact: false }).last().scrollIntoViewIfNeeded();
+        await page.waitForTimeout(300);
+      },
+    },
+    {
+      name: 'account-최근판단-총점순위',
+      hash: '#/portfolio/paper',
+      before: async (page: Page) => {
+        await page.route('**/api/auto-trading/status/*', async (r) => {
+          const res = await r.fetch();
+          const body = await res.json();
+          const notes = [
+            { symbol: 'MSFT', action: 'BUY', reason: '매수 점수 80점(기준 65점) → 35주 · 총점 순위 1위(3종목 중)', code: 'score_buy', rank: { n: 1, of: 3 } },
+            { symbol: 'NVDA', action: 'HOLD', reason: '보유 종목 수가 가득 차 사지 않았습니다 (총점 순위 2위 / 3종목 중)', code: 'max_positions', rank: { n: 2, of: 3 } },
+            { symbol: 'AAPL', action: 'HOLD', reason: '보유 종목 수가 가득 차 사지 않았습니다 (총점 순위 3위 / 3종목 중)', code: 'max_positions', rank: { n: 3, of: 3 } },
+          ];
+          const status = (body.status ?? body) as { lastNotes: unknown[]; lastNotesAt: string | null };
+          status.lastNotes = notes;
+          status.lastNotesAt = new Date().toISOString();
+          await r.fulfill({ response: res, json: body });
+        });
+        await page.route('**/api/rules', async (r) => {
+          if (r.request().method() !== 'GET') return r.continue();
+          const res = await r.fetch();
+          const body = (await res.json()) as { rules: { sell: { trailing: { on: boolean } } }[] };
+          for (const rule of body.rules) rule.sell.trailing.on = true;
+          await r.fulfill({ response: res, json: body });
+        });
+      },
+      after: async (page: Page) => {
+        await page.unroute('**/api/auto-trading/status/*');
+        await page.unroute('**/api/rules');
+      },
+      open: async (page: Page) => {
+        await page.reload();
+        await page.waitForTimeout(1500);
+        await page.getByText('현재 계좌').first().click();
+        await page.waitForTimeout(1500);
+        await click('조건 상세 보기')(page);
+        await click(/최근 판단 보기/)(page);
+        await page.waitForTimeout(400);
+      },
+    },
     {
       // v2.48.1 — 보관 100개: 사본 DB 의 실제 기록으로 날짜 목록 [더 보기] 를 한 번 누른 모습(기록이 30일보다 많아야 버튼이 보인다)
       name: 'backtest-히스토리-더보기',
