@@ -70,7 +70,7 @@ export default function ConditionCard({
           <Line label="매수 조건">{rule ? ruleBuyText(rule) : '—'}</Line>
           <Line label="매도 조건">{rule ? ruleSellText(rule) : '—'}</Line>
           <Line label="손절 · 익절 · 트레일링" strong>
-            {rule ? ruleSafetyText(rule) : '—'}
+            {rule ? `${ruleSafetyText(rule)}${rule.sell.trailing.on ? ' (트레일링은 실시간 최고가 기준)' : ''}` : '—'}
           </Line>
           <Line label="대상 종목">{s.symbols.length}개</Line>
           <Line label="판단 시각">{JUDGE_TIMING_TEXT}</Line>

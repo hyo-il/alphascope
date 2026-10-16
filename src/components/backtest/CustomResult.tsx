@@ -9,7 +9,7 @@ import { Badge, Button, InfoTip, Panel, Segmented, SectionTitle, TABLE_FILL, TAB
 import { ICON_SM } from '../ui/icon';
 import { toast } from '../../store/uiStore';
 import { exitReasonText, type ExitReason } from '../../utils/autoTradeExplain';
-import { ruleBuyText, ruleSellText } from '../../utils/ruleText';
+import { ruleBuyText, ruleSellText, TRAILING_BASIS_TEXT } from '../../utils/ruleText';
 import { sameRuleBody } from './ApplyRuleButton';
 import type { TradingRule } from '../../types/tradingRule';
 import WarnIcon from '../ui/WarnIcon';
@@ -217,6 +217,8 @@ export default function CustomResult({
           </div>
         </div>
       )}
+      {/* 트레일링을 켠 방법이 있으면 기준 차이 한 줄(v2.49.0) — 계좌는 실시간 최고가, 백테스트는 종가 최고가 */}
+      {report.input.conditions.some((c) => c.rule?.sell.trailing.on) && <p className="text-caption text-text-muted">{TRAILING_BASIS_TEXT}</p>}
       <Panel pad="sm" className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <p className="min-w-0 text-xs text-text-secondary">

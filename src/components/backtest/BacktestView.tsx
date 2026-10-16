@@ -14,7 +14,7 @@ import { ICON } from '../ui/icon';
 import { modal, toast } from '../../store/uiStore';
 import { stockNameOf } from '../../utils/stockNames';
 import { backtestInputError } from '../../utils/backtestInput';
-import { ruleSellText } from '../../utils/ruleText';
+import { ruleSellText, TRAILING_BASIS_TEXT } from '../../utils/ruleText';
 import { MAX_COMPARE_SYMBOLS, methodName, type BacktestListItem } from '../../types/backtest';
 import { HISTORY_DAYS_PAGE } from '../../types/buyJudge'; // 날짜 목록 한 번에 30일 — 매수 판단 히스토리와 같은 값
 import SymbolTable from '../common/SymbolTable';
@@ -207,6 +207,7 @@ export default function BacktestView() {
           <p>백테스트는 정한 규칙으로 과거에 매수·매도했다면 어땠을지 계산해 보는 것입니다. 실제 주문은 나가지 않습니다.</p>
           <p>순서: [종목 추가] → 방법(매매 규칙) 고르기 → 기간 → [시험 실행]. 그냥 들고 있었을 때·아무 날이나 매수·매도했을 때와 나란히 보여 줍니다.</p>
           <p>계좌와 같은 판단(매매 규칙 엔진)으로 계산합니다 — 신호는 그날 끝난 봉 기준, 매수·매도는 다음 날 시가, 손절·익절·트레일링은 그날 고가·저가로 봅니다.</p>
+          <p>{TRAILING_BASIS_TEXT}</p>
           <p>실적 발표 전 매수 막기 · 하루 손실 한도 · 종목당 비중 · 최대 보유 종목 수는 계좌 설정이라 백테스트에는 들어가지 않습니다.</p>
           <p>과거 결과는 앞으로를 보장하지 않습니다.</p>
         </HelpBox>

@@ -56,4 +56,7 @@ export function ruleSafetyText(rule: RuleBody): string {
 export const NO_STOP_WARNING = '이 규칙은 손절이 꺼져 있습니다 — 값이 계속 떨어져도 팔지 않습니다.';
 
 /** 계좌·백테스트 공통 판단 시각 문장 */
+/** 트레일링 최고가 기준 차이(v2.49.0 — 사용자 결정 A-3: 동작은 그대로, 알리기만) — 백테스트 안내 · 결과 위 한 줄 */
+export const TRAILING_BASIS_TEXT = '트레일링은 계좌는 실시간 최고가, 백테스트는 하루 종가 최고가로 잽니다. 그래서 계좌가 조금 더 일찍 팔 수 있습니다.';
+
 export const JUDGE_TIMING_TEXT = '시장이 열린 뒤 하루 한 번 판단(어제까지 끝난 봉 기준) · 손절·익절·트레일링은 1분마다';
