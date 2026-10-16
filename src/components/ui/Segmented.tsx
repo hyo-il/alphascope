@@ -7,6 +7,11 @@ export interface SegmentedOption<T extends string | number> {
   /** 툴팁 — 칸 글자만으로 뜻이 모자랄 때 */
   title?: string;
   disabled?: boolean;
+  /**
+   * 이 칸을 골랐을 때의 색 (v2.48.0) — 기본은 밝은 바탕 + 흰 글자. `warning` = 주황 바탕 + 주황 글자.
+   * 켜 두면 동작이 달라지는 설정을 켰을 때만 쓴다(지금: 자동매매 설정 「AI 검증 [켬]」). 새 색을 만들지 않고 기준표 토큰을 쓴다.
+   */
+  activeTone?: 'warning';
 }
 
 /**
@@ -14,7 +19,7 @@ export interface SegmentedOption<T extends string | number> {
  *
  * 회색 바탕 묶음 안에서 **고른 칸만 한 단계 밝은 바탕 + 흰 글자**. 테두리·파란색을 쓰지 않는다 —
  * 예전에는 고른 버튼마다 파란 테두리 + 파란 글자라 화면이 파란 상자로 어지러웠다.
- * 색·굵기는 바꿀 수 없다(크기만 sm/md). 키보드: radiogroup 이라 Tab 으로 들어와 각 칸을 누른다.
+ * 색·굵기는 바꿀 수 없다(크기만 sm/md) — 예외는 칸의 `activeTone`(v2.48.0). 키보드: radiogroup 이라 Tab 으로 들어와 각 칸을 누른다.
  */
 export default function Segmented<T extends string | number>({
   options,
@@ -46,7 +51,11 @@ export default function Segmented<T extends string | number>({
             disabled={o.disabled}
             onClick={() => !on && onChange(o.value)}
             className={`whitespace-nowrap rounded-md text-xs transition-colors disabled:opacity-40 ${pad} ${
-              on ? 'bg-bg-elevated font-medium text-text-primary' : 'text-text-secondary hover:text-text-primary'
+              on
+                ? o.activeTone === 'warning'
+                  ? 'bg-warning/20 font-medium text-warning'
+                  : 'bg-bg-elevated font-medium text-text-primary'
+                : 'text-text-secondary hover:text-text-primary'
             }`}
           >
             {o.label}

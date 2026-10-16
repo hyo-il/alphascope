@@ -89,7 +89,8 @@ export default function AutoTradeSettings({ strategy, onSave, onClose, doneMessa
                     onChange={(v) => patch({ aiCheck: v === 'on' })}
                     options={[
                       { value: 'off', label: '끔' },
-                      { value: 'on', label: '켬' },
+                      // 켬 = 주황(v2.48.0) — 켜 두면 매수 직전 AI 가 막을 수 있다는 것이 한눈에 보이게
+                      { value: 'on', label: '켬', activeTone: 'warning' },
                     ]}
                   />
                   <InfoTip label="AI 검증">
