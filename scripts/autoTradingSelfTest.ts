@@ -28,7 +28,8 @@ import { createRule, deleteRule, ensureSeeded, listRules, resetSeedCheckForTest 
 import { NOTES_MAX, readNotes, recordNotes } from '../server/autoTrading/store';
 import { ABOVE200_RULE_NAME } from '../src/types/tradingRule';
 import { groupNotes } from '../src/utils/autoTradeExplain';
-import { loadMarketRef, marketRefLoader, setMarketRefLoadForTest } from '../server/rules/marketRef';
+import { loadMarketRef, marketRefLoader, MARKET_REF_RETRY_MS, resetMarketRefMissForTest, setMarketRefLoadForTest } from '../server/rules/marketRef';
+import { resetPendingNotesForTest } from '../server/autoTrading/engine';
 import { runCustomBacktest } from '../server/autoTrading/ruleResearch';
 import { gateBlockLabel } from '../src/types/autoTrading';
 import { isMarketOpen, nextMarketOpen, setClosedLookupForTest } from '../server/marketHours';
@@ -336,6 +337,7 @@ async function main(): Promise<void> {
   await rankSection();
   dailySection();
   await marketSection();
+  await retrySection();
 
   console.log(`\n결과: ${pass}개 통과 / ${fail}개 실패`);
   if (fail > 0) process.exit(1);
@@ -880,5 +882,89 @@ async function marketSection(): Promise<void> {
     }
     deleteRule(rule.id);
     console.log(`임시 계좌 ${made.length}개 · 임시 규칙 #${rule.id} 삭제 완료`);
+  }
+}
+
+/**
+ * 16. 시장 데이터를 잠깐 못 받은 날 (v2.51.1 — 사용자 결정: 그날 다시 시도).
+ * 「시장 데이터 없음」 은 그날 판단을 마친 것으로 두지 않는다 → 다음 틱에 다시. 시장 기준 받기는 실패 뒤 5분 간격. 「최근 판단」 은 처음 한 번 + 성공했을 때.
+ * 시장이 열린 시각(OPEN_US)부터 1분 · 5분 뒤로 틱을 흉내 낸다(force 없이 — 「오늘 판단함」 기록까지 본다).
+ */
+async function retrySection(): Promise<void> {
+  console.log('\n── 16. 시장 데이터 다시 시도 ──');
+  const rule = createRule(`__다시 시도 점검 ${Date.now()}`, (() => { const b = defaultRuleBody(); b.buy.minScore = 1; b.buy.gates = { above200: { on: false }, marketAbove200: { on: true } }; return b; })());
+  const exists = (id: number) => id === rule.id;
+  const acc = createAccount({ name: `__다시 시도 점검 ${Date.now()}`, initialBalance: 1_000_000, currency: 'USD' });
+  const SYMS = ['AAPL', 'MSFT'];
+  let calls = 0;
+  let fail = true;
+  resetMarketRefMissForTest();
+  resetPendingNotesForTest();
+  setMarketRefLoadForTest(async (m, n, limit) => {
+    calls += 1;
+    return fail ? null : loadMarketRef(m, n, limit);
+  });
+  try {
+    const st = normalizeStrategy(acc.id, { enabled: true, ruleId: rule.id, symbols: SYMS, positionSizePercent: 5, maxPositions: 10, earningsBlackoutDays: 0 });
+    saveStrategy(acc.id, st, exists);
+    const t0 = OPEN_US.getTime();
+    const day = marketDate(t0, 'AAPL');
+    const tick = (ms: number) => runSignalChecks(st, rule, { now: new Date(t0 + ms) });
+    const nodata = (r: Awaited<ReturnType<typeof tick>>) => r.notes.filter((n) => n.gateReason === 'market_nodata').length;
+
+    const r1 = await tick(0);
+    check('실패 → 「시장 데이터 없음」 · 그날 판단을 마친 것으로 두지 않음 · 받기 1번', nodata(r1) === 2 && calls === 1 && SYMS.every((s) => getJudgedDay(acc.id, s) !== day), `${r1.notes.map((n) => `${n.symbol}:${n.gateReason ?? n.code}`)} · 받기 ${calls}`);
+    const r2 = await tick(60_000);
+    check('1분 뒤 틱 — 다시 판단하지만 5분이 안 지나 받지 않음 · 「최근 판단」 중복 없음', calls === 1 && r2.evaluated === 2 && nodata(r2) === 0 && r2.notes.length === 0, `받기 ${calls} · 판단 ${r2.evaluated} · 줄 ${r2.notes.length}`);
+    fail = false;
+    const r3 = await tick(MARKET_REF_RETRY_MS - 60_000);
+    check('5분 전에는 받기 성공 기회가 있어도 받지 않음(간격 지킴)', calls === 1 && nodata(r3) === 0 && r3.notes.length === 0);
+    const r4 = await tick(MARKET_REF_RETRY_MS);
+    const judged = SYMS.every((s) => getJudgedDay(acc.id, s) === day);
+    check('5분 뒤 다시 받아 성공 → 정상 판단 · 그날 판단 마침 · 「최근 판단」 에 남음', calls === 2 && nodata(r4) === 0 && r4.notes.length === 2 && judged, `받기 ${calls} · ${r4.notes.map((n) => `${n.symbol}:${n.gateReason ?? n.code}`)}`);
+    const r5 = await tick(MARKET_REF_RETRY_MS + 60_000);
+    check('그 뒤 틱 — 이미 판단을 마쳐 다시 보지 않음(같은 날 판단은 한 번만 확정)', r5.evaluated === 0 && r5.notes.length === 0);
+
+    // 장 마감까지 실패 — 마감 뒤에는 판단하지 않는다(그날은 「시장 데이터 없음」 으로 끝, 오늘 판단 기록 없음)
+    const acc2 = createAccount({ name: `__다시 시도 점검 마감 ${Date.now()}`, initialBalance: 1_000_000, currency: 'USD' });
+    try {
+      resetMarketRefMissForTest();
+      fail = true;
+      calls = 0;
+      const st2 = { ...st, accountId: acc2.id };
+      saveStrategy(acc2.id, st2, exists);
+      await runSignalChecks(st2, rule, { now: new Date(t0) });
+      const afterClose = new Date('2026-10-14T20:30:00Z'); // 16:30 ET — 장 마감 뒤
+      const r6 = await runSignalChecks(st2, rule, { now: afterClose });
+      check('장 마감까지 못 받음 → 마감 뒤에는 판단하지 않고 그날 판단 기록도 없음', r6.evaluated === 0 && SYMS.every((s) => getJudgedDay(acc2.id, s) !== day));
+    } finally {
+      deleteStrategy(acc2.id);
+      deleteAccount(acc2.id);
+    }
+    // 일봉 부족(종목 200일선) · 시장 하락은 데이터가 늘지 않거나 판정이 끝난 것 — 지금처럼 그날 마침(판단 결과만 바꿔치기)
+    for (const reason of ['short', 'market'] as const) {
+      const acc3 = createAccount({ name: `__다시 시도 점검 ${reason} ${Date.now()}`, initialBalance: 1_000_000, currency: 'USD' });
+      try {
+        const st3 = { ...st, accountId: acc3.id, symbols: ['AAPL'] };
+        saveStrategy(acc3.id, st3, exists);
+        setJudgeForTest(async (symbol, r, state, now, candles, refs) => {
+          const j = await judgeOnClose(symbol, r, state, now, candles, refs);
+          return j.kind === 'ok' ? { ...j, ev: { ...j.ev, action: 'HOLD', code: 'gate_block', gateReason: reason } } : j;
+        });
+        await runSignalChecks(st3, rule, { now: new Date(t0) });
+        check(`「${reason === 'short' ? '일봉 부족' : '시장 하락'}」 은 그날 판단을 마친 것으로 기록(다시 시도 아님)`, getJudgedDay(acc3.id, 'AAPL') === day);
+      } finally {
+        setJudgeForTest(null);
+        deleteStrategy(acc3.id);
+        deleteAccount(acc3.id);
+      }
+    }
+  } finally {
+    setMarketRefLoadForTest(null);
+    resetMarketRefMissForTest();
+    deleteStrategy(acc.id);
+    deleteAccount(acc.id);
+    deleteRule(rule.id);
+    console.log(`임시 계좌 · 임시 규칙 #${rule.id} 삭제 완료`);
   }
 }

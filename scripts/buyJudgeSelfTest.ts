@@ -23,6 +23,10 @@ import { daySymbols, sortDayRows } from '../src/utils/buyJudgeOrder';
 import { VERDICT_LABEL, verdictOf } from '../src/types/buyJudge';
 import { gateBlockLabel } from '../src/types/autoTrading';
 import { loadMarketRef, setMarketRefLoadForTest } from '../server/rules/marketRef';
+import { judgeOnClose } from '../server/rules/judge';
+import { completedDaily } from '../server/rules/engine';
+import { loadCandles, saveCandles } from '../server/db';
+import { deleteStrategy, getJudgedDay } from '../server/autoTrading/store';
 
 let pass = 0;
 let fail = 0;
@@ -202,6 +206,59 @@ try {
   check('⑦-c 같은 종목이 규칙 둘로 두 줄이어도 제목 수는 한 번', daySymbols([R('AAPL', 'buy', 70), R('AAPL', 'below', 40), R('MSFT', 'below', 50)]).join(',') === 'AAPL,MSFT');
   const served = hd.days.every((d) => d.rows.map((r) => `${r.symbol}|${r.verdict}|${r.score}`).join() === sortDayRows(d.rows).map((r) => `${r.symbol}|${r.verdict}|${r.score}`).join());
   check('⑦-c 서버가 날짜마다 이 순서로 보낸다', served);
+
+  // ── ⑨ 끝나지 않은 일봉 (v2.51.1) — 장중에 저장된 봉 + 다음 날 받기 실패 → 판단하지 않음 · 받기 성공 → 끝난 값 · 국내 NXT · 미국 마감 · 시장 기준 ──
+  {
+    const realFetch = globalThis.fetch;
+    // 받기 실패 흉내 — 토스만 끊는다(지표 엔진은 그대로)
+    const offline = () => {
+      globalThis.fetch = (async (input: any, init?: any) => {
+        const u = typeof input === 'string' ? input : input.url ?? String(input);
+        if (u.includes('openapi.tossinvest.com')) throw new Error('offline(시험)');
+        return realFetch(input, init);
+      }) as typeof fetch;
+    };
+    const H = 3_600_000;
+    const last = loadCandles('AAPL', '1d', 1)[0];
+    const spyLast = loadCandles('SPY', '1d', 1)[0];
+    const D = last.timestamp;
+    const nextDay = D + 24 * H + 18 * H; // 다음 날 18:00(그 날 봉은 아직 없다 — 받기 실패라 캐시만)
+    const acc = createAccount({ name: '끝나지 않은 일봉 시험(지움)', initialBalance: 1_000_000, currency: 'USD' });
+    try {
+      offline();
+      saveCandles('AAPL', '1d', [{ ...last, close: +(last.close * 1.03).toFixed(2) }], D + 10 * H); // 장중(10:00 ET)에 저장된 값
+      const j1 = await judgeOnClose('AAPL', rule.body, { held: false }, nextDay);
+      check('⑨ 장중에 저장된 봉 + 다음 날 받기 실패 → 판단하지 않음(unconfirmed)', j1.kind === 'unconfirmed' && j1.dates.includes(marketDate(D, 'AAPL')), JSON.stringify(j1.kind === 'unconfirmed' ? j1.dates : j1.kind));
+      const { row: r1 } = await judgeSymbol('AAPL', rule.body, null, nextDay);
+      check('⑨ 매수 판단도 「일봉을 확정하지 못해 판단을 미룹니다」', (r1.error ?? '').includes('확정하지 못해') && r1.verdict === null, r1.error ?? '');
+      const st = { ...defaultStrategy(acc.id), ruleId: rule.id, symbols: ['AAPL'], maxPositions: 10 };
+      const a1 = await runSignalChecks(st, rule.body, { force: true, now: new Date(nextDay) });
+      const a2 = await runSignalChecks(st, rule.body, { force: true, now: new Date(nextDay + 60_000) });
+      check('⑨ 계좌 — 판단을 미루고(그날 판단을 마친 것으로 두지 않음) 「최근 판단」 은 한 번만', a1.notes.some((n) => n.code === 'bar_unconfirmed') && !a2.notes.some((n) => n.code === 'bar_unconfirmed') &&
+        getJudgedDay(acc.id, 'AAPL') !== marketDate(nextDay, 'AAPL') && a1.ordered === 0, `${a1.notes.map((n) => n.code)} / ${a2.notes.map((n) => n.code)}`);
+      // 받기가 성공하면(마감 뒤 받은 값으로 덮임) 끝난 값으로 판단
+      saveCandles('AAPL', '1d', [last], D + 17 * H);
+      const j2 = await judgeOnClose('AAPL', rule.body, { held: false }, nextDay);
+      check('⑨ 마감 뒤 받은 값으로 덮이면 → 끝난 값으로 판단', j2.kind === 'ok' && j2.completed.at(-1)!.close === last.close);
+      // 시장 기준(SPY)도 장중 저장 봉은 빼고 쓴다 → 그날은 시장 데이터 없음(다음 틱에 다시)
+      saveCandles('SPY', '1d', [{ ...spyLast, close: spyLast.close * 1.01 }], spyLast.timestamp + 10 * H);
+      const ref = await loadMarketRef('US', spyLast.timestamp + 24 * H + 18 * H);
+      check('⑨ 시장 기준 — 장중에 저장된 SPY 봉은 빼고 쓴다', !!ref && !ref.candles.some((c) => c.timestamp === spyLast.timestamp) && ref.candles.length > 0);
+    } finally {
+      globalThis.fetch = realFetch;
+      saveCandles('AAPL', '1d', [last]);
+      saveCandles('SPY', '1d', [spyLast]);
+      deleteStrategy(acc.id);
+      deleteAccount(acc.id);
+    }
+    // 끝나는 시각 — 국내 20:00 KST(NXT) · 미국 16:00 ET
+    const kr = loadCandles('005930', '1d', 50);
+    const k = kr.at(-1)!.timestamp;
+    const us = loadCandles('AAPL', '1d', 50);
+    const u = us.at(-1)!.timestamp;
+    check('⑨ 국내 — 17:00 KST(NXT 중)에는 그날 봉을 빼고, 20:30 KST 에는 넣는다', completedDaily(kr, '005930', k + 17 * H).length === kr.length - 1 && completedDaily(kr, '005930', k + 20.5 * H).length === kr.length);
+    check('⑨ 미국 — 15:00 ET 에는 빼고, 17:00 ET 에는 넣는다', completedDaily(us, 'AAPL', u + 15 * H).length === us.length - 1 && completedDaily(us, 'AAPL', u + 17 * H).length === us.length);
+  }
 
   // ── ⑧ 규칙 삭제 → 매수 판단 규칙 비움 ──
   const tr = createRule('매수판단 시험 규칙(지움)', defaultRuleBody());
