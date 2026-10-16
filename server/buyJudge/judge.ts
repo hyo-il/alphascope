@@ -8,6 +8,7 @@
  *   예전 매수 판단 카드의 경고와 같은 뜻. "손익비 1 미만" 은 이제 판단(「손익비 부족」) 자체다.
  */
 import { judgeOnClose } from '../rules/judge';
+import { sortDayRows } from '../../src/utils/buyJudgeOrder';
 import { completedDaily, scoreAt, type ConditionResult, type RuleEvaluation } from '../rules/engine';
 import { computeIndicators } from '../indicatorService';
 import { getRule } from '../rules/store';
@@ -323,13 +324,16 @@ export async function historyDays(offset = 0, limit = HISTORY_DAYS_PAGE, now = D
   const rows = store.listOnDates(dates);
   const read = await outcomeReader(rows.filter((r) => r.code === 'score_buy'), now);
   const days: HistoryDay[] = dates.map((d) => {
-    const list = rows
-      .filter((r) => r.market_date === d)
-      .map((r) => {
-        const verdict = verdictOf(r.code);
-        const o = verdict === 'buy' ? read(r) : null;
-        return { symbol: r.symbol, ruleName: r.rule_name, verdict, score: r.score, maxScore: r.max_score, r5: o?.[5] ?? null, r10: o?.[10] ?? null, r20: o?.[20] ?? null };
-      });
+    // 순서: 사도 됨 → 손익비 부족 → 기준 미달, 각각 총점 높은 순(`sortDayRows` — 화면의 날짜 줄 제목도 같은 파일)
+    const list = sortDayRows(
+      rows
+        .filter((r) => r.market_date === d)
+        .map((r) => {
+          const verdict = verdictOf(r.code);
+          const o = verdict === 'buy' ? read(r) : null;
+          return { symbol: r.symbol, ruleName: r.rule_name, verdict, score: r.score, maxScore: r.max_score, r5: o?.[5] ?? null, r10: o?.[10] ?? null, r20: o?.[20] ?? null };
+        }),
+    );
     const buys = list.filter((x) => x.verdict === 'buy').length;
     return { marketDate: d, rows: list, buys, nonBuys: list.length - buys };
   });

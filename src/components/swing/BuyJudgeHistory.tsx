@@ -7,6 +7,7 @@ import { ICON_SM } from '../ui/icon';
 import { LIST_TABLE_ROW, TABLE_NUM_COL } from '../ui/tokens';
 import { fetchJudgeDays, useBuyJudgeDays, useBuyJudgeHistory } from '../../hooks/useBuyJudge';
 import DateGroupList, { SymbolsTitle } from '../common/DateGroupList';
+import { daySymbols } from '../../utils/buyJudgeOrder';
 import DisclosureButton from '../ui/DisclosureButton';
 import { formatSigned } from '../../utils/formatters';
 import { modal, toast } from '../../store/uiStore';
@@ -102,7 +103,7 @@ export default function BuyJudgeHistory() {
             groups={dayList.days.map((d) => ({
               key: d.marketDate,
               date: d.marketDate,
-              title: <SymbolsTitle symbols={d.rows.map((r) => r.symbol)} />,
+              title: <SymbolsTitle symbols={daySymbols(d.rows)} />,
               summary: (
                 <>
                   <span className={d.buys ? 'text-bullish' : ''}>사도 됨 {d.buys}</span> · <span className={d.nonBuys ? 'text-danger' : ''}>안 됨 {d.nonBuys}</span>

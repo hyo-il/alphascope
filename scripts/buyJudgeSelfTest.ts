@@ -19,6 +19,7 @@ import { buyJudgeTick } from '../server/buyJudge/scheduler';
 import * as store from '../server/buyJudge/store';
 import { ROUND_TRIP_COST } from '../server/analysis/targetHit';
 import { marketDate } from '../src/utils/marketDate';
+import { daySymbols, sortDayRows } from '../src/utils/buyJudgeOrder';
 
 let pass = 0;
 let fail = 0;
@@ -144,6 +145,19 @@ try {
   const page1 = await historyDays(0, 2);
   const page2 = await historyDays(2, 2);
   check('⑦-b 날짜별 — 30일씩 [더 보기](여기선 2일씩) 겹치지 않음', page1.days.length === Math.min(2, hd.totalDays) && !page2.days.some((d) => page1.days.some((p) => p.marketDate === d.marketDate)) && page1.totalDays === hd.totalDays, `${page1.days.map((d) => d.marketDate)} / ${page2.days.map((d) => d.marketDate)}`);
+
+  // ── ⑦-c 날짜 하나의 순서 (v2.48.1) — 사도 됨 → 손익비 부족 → 기준 미달, 각각 총점 높은 순 → 티커 순 · 제목 = 사도 됨 첫 종목(없으면 티커 순 첫 종목) ──
+  const R = (symbol: string, verdict: 'buy' | 'below' | 'rr_block', score: number) => ({ symbol, verdict, score });
+  const mixed = [R('AAPL', 'below', 60), R('MSFT', 'rr_block', 70), R('NVDA', 'buy', 68), R('TSLA', 'buy', 72), R('AMZN', 'below', 45)];
+  check('⑦-c 순서 — 사도 됨 있음: 사도 됨(총점 높은 순) → 손익비 부족 → 기준 미달', sortDayRows(mixed).map((r) => r.symbol).join(',') === 'TSLA,NVDA,MSFT,AAPL,AMZN', sortDayRows(mixed).map((r) => r.symbol).join(','));
+  check('⑦-c 제목 — 사도 됨 있음: 그중 첫 종목(총점 높은 TSLA)', daySymbols(mixed)[0] === 'TSLA' && daySymbols(mixed).length === 5, daySymbols(mixed).join(','));
+  const noBuy = [R('MSFT', 'rr_block', 70), R('NVDA', 'below', 60), R('AAPL', 'below', 40)];
+  check('⑦-c 사도 됨 없음: 목록은 손익비 부족 → 기준 미달, 제목은 티커 순 첫 종목(AAPL)', sortDayRows(noBuy).map((r) => r.symbol).join(',') === 'MSFT,NVDA,AAPL' && daySymbols(noBuy)[0] === 'AAPL', `${sortDayRows(noBuy).map((r) => r.symbol)} / ${daySymbols(noBuy)}`);
+  const tie = [R('NVDA', 'buy', 70), R('AAPL', 'buy', 70), R('005930', 'buy', 70)];
+  check('⑦-c 총점 같음: 티커 순', sortDayRows(tie).map((r) => r.symbol).join(',') === '005930,AAPL,NVDA' && daySymbols(tie)[0] === '005930', sortDayRows(tie).map((r) => r.symbol).join(','));
+  check('⑦-c 같은 종목이 규칙 둘로 두 줄이어도 제목 수는 한 번', daySymbols([R('AAPL', 'buy', 70), R('AAPL', 'below', 40), R('MSFT', 'below', 50)]).join(',') === 'AAPL,MSFT');
+  const served = hd.days.every((d) => d.rows.map((r) => `${r.symbol}|${r.verdict}|${r.score}`).join() === sortDayRows(d.rows).map((r) => `${r.symbol}|${r.verdict}|${r.score}`).join());
+  check('⑦-c 서버가 날짜마다 이 순서로 보낸다', served);
 
   // ── ⑧ 규칙 삭제 → 매수 판단 규칙 비움 ──
   const tr = createRule('매수판단 시험 규칙(지움)', defaultRuleBody());
