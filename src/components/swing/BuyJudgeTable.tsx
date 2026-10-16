@@ -1,4 +1,4 @@
-import { gateBlockLabel, type GateReason } from '../../types/autoTrading';
+import { GATE_REASON_LABEL, gateBlockLabel, type GateReason } from '../../types/autoTrading';
 import { Fragment, useState } from 'react';
 import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react';
 import StockName from '../common/StockName';
@@ -25,12 +25,15 @@ export function VerdictText({
   score,
   maxScore,
   gateReason,
+  stackReason = false,
 }: {
   verdict: Verdict | null;
   score?: number | null;
   maxScore?: number | null;
   /** 「거름망에 걸림 (시장 하락)」 — 이유(v2.51.0). 모르는 옛 줄은 「거름망에 걸림」 */
   gateReason?: GateReason;
+  /** 이유를 둘째 줄에(칸이 좁은 매수 판단 표 — 1280 에서 「(시장 데이터 없음)」 이 한 줄이면 오른쪽 칸이 밀려났다) */
+  stackReason?: boolean;
 }) {
   if (!verdict) return <span className="text-text-muted">—</span>;
   const total = score != null && maxScore != null ? <span className="tabular-nums"> · {score}/{maxScore}</span> : null;
@@ -50,6 +53,16 @@ export function VerdictText({
       </span>
     );
   // 기준 미달 · 거름망에 걸림(v2.50.0) — 같은 빨강, 글자로 구분
+  if (verdict === 'gate_block' && stackReason && gateReason)
+    return (
+      <span className="text-danger">
+        <span className="whitespace-nowrap">
+          {VERDICT_LABEL.gate_block}
+          {total}
+        </span>
+        <span className="block whitespace-nowrap text-caption">({GATE_REASON_LABEL[gateReason]})</span>
+      </span>
+    );
   return (
     <span className="whitespace-nowrap text-danger">
       {verdict === 'gate_block' ? gateBlockLabel(gateReason) : VERDICT_LABEL[verdict]}
@@ -140,7 +153,7 @@ export default function BuyJudgeTable({
                       <StockName symbol={r.symbol} wrap />
                     </span>
                   </td>
-                  <td className={`${TABLE_NUM_COL} py-1 pr-1`}>{r.error ? <span className="text-text-muted">판단 못 함</span> : <VerdictText verdict={r.verdict} score={r.score} maxScore={r.maxScore} gateReason={r.gateReason} />}</td>
+                  <td className={`${TABLE_NUM_COL} py-1 pr-1`}>{r.error ? <span className="text-text-muted">판단 못 함</span> : <VerdictText verdict={r.verdict} score={r.score} maxScore={r.maxScore} gateReason={r.gateReason} stackReason />}</td>
                   <td className={`${NUM} py-1 tabular-nums text-text-secondary`}>
                     {r.refScore != null ? (
                       // 「(장 마감 가격)」 은 숫자 아래 줄 — 칸이 10개라 1280 에서 한 줄로 두면 표가 넘쳤다

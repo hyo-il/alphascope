@@ -443,8 +443,9 @@ function targets(): Target[] {
         await page.waitForTimeout(300);
       },
     },
-    {
-      name: 'account-최근판단-하루치',
+    // v2.51.0 — 「최근 판단」 묶음 접기(처음엔 가장 최근만 펼침) · 둘째 묶음도 펼침 · 「매수·매도만」
+    ...(['접힘', '펼침', '매수매도만'] as const).map((v) => ({
+      name: `account-최근판단-${v}`,
       hash: '#/portfolio/paper',
       before: async (page: Page) => {
         await page.route('**/api/auto-trading/status/*', async (r) => {
@@ -459,7 +460,8 @@ function targets(): Target[] {
             { symbol: 'MSFT', action: 'BUY', reason: '매수 점수 80점(기준 65점) → 35주 · 총점 순위 1위(3종목 중)', code: 'score_buy', rank: { n: 1, of: 3 }, ...U },
             { symbol: 'NVDA', action: 'HOLD', reason: '보유 종목 수가 가득 차 사지 않았습니다 (총점 순위 2위 / 3종목 중)', code: 'max_positions', rank: { n: 2, of: 3 }, ...U },
             { symbol: 'AAPL', action: 'HOLD', reason: '보유 종목 수가 가득 차 사지 않았습니다 (총점 순위 3위 / 3종목 중)', code: 'max_positions', rank: { n: 3, of: 3 }, ...U },
-            { symbol: '005930', action: 'HOLD', reason: '점수 72/100 — 주가가 200일선 아래라 사지 않습니다 (종가 ₩207,500 · 200일선 ₩231,957) (10-15 마감 기준)', code: 'gate_block', ...K },
+            { symbol: '005930', action: 'HOLD', reason: '점수 72/100 — 시장 기준 KODEX 200 가 200일선 아래라 사지 않습니다 (KODEX 200 ₩88,750 · 200일선 ₩99,193) (10-15 마감 기준)', code: 'gate_block', gateReason: 'market', ...K },
+            { symbol: '035420', action: 'SELL', reason: '점수 40점 — 50점 아래로 떨어져 매도 (10-15 마감 기준)', code: 'score_sell', ...K },
             { symbol: '000660', action: 'HOLD', reason: '점수 40/100 — 기준 65점 미만 (10-15 마감 기준)', code: 'no_signal_buy', ...K },
           ];
           const status = (body.status ?? body) as { lastNotes: unknown[]; lastNotesAt: string | null };
@@ -487,8 +489,11 @@ function targets(): Target[] {
         await click('조건 상세 보기')(page);
         await click(/최근 판단 보기/)(page);
         await page.waitForTimeout(400);
+        if (v === '펼침') await page.locator('[data-notes-group]').nth(1).getByRole('button').first().click();
+        if (v === '매수매도만') await page.getByRole('radio', { name: '매수·매도만' }).click();
+        await page.waitForTimeout(300);
       },
-    },
+    })),
     {
       // v2.48.1 — 보관 100개: 사본 DB 의 실제 기록으로 날짜 목록 [더 보기] 를 한 번 누른 모습(기록이 30일보다 많아야 버튼이 보인다)
       name: 'backtest-히스토리-더보기',
@@ -616,7 +621,9 @@ function targets(): Target[] {
         await page.route('**/api/buy-judge', async (r) => {
           const res = await r.fetch();
           const body = (await res.json()) as { rows: { verdict: string; score: number }[] };
-          if (body.rows[0]) Object.assign(body.rows[0], { verdict: 'gate_block', score: 70 });
+          // v2.51.0 — 이유 4가지를 앞 네 줄에(1280 에서 가장 긴 「(시장 데이터 없음)」 이 판단 칸에 들어가는지)
+          const reasons = ['market_nodata', 'market', 'below200', 'short'];
+          body.rows.slice(0, 4).forEach((row, k) => Object.assign(row, { verdict: 'gate_block', score: 70, gateReason: reasons[k] }));
           await r.fulfill({ response: res, json: body });
         });
       },
@@ -668,7 +675,7 @@ function targets(): Target[] {
         const row = (symbol: string, verdict: 'buy' | 'below' | 'rr_block' | 'gate_block', score: number, r5: number | null = null, r10: number | null = null, r20: number | null = null) =>
           ({ symbol, ruleName: '기본 규칙', verdict, score, maxScore: 100, r5, r10, r20 });
         const days = [
-          { marketDate: '2026-10-15', rows: [row('005930', 'below', 51), row('AAPL', 'buy', 72, 2.31, -1.4, 5.02), row('LLY', 'rr_block', 66), row('NVDA', 'buy', 68, -0.85, null, null), row('XOM', 'below', 45), row('MSFT', 'gate_block', 70)], buys: 2, nonBuys: 4 },
+          { marketDate: '2026-10-15', rows: [row('005930', 'below', 51), row('AAPL', 'buy', 72, 2.31, -1.4, 5.02), row('LLY', 'rr_block', 66), row('NVDA', 'buy', 68, -0.85, null, null), row('XOM', 'below', 45), { ...row('MSFT', 'gate_block', 70), gateReason: 'market' }], buys: 2, nonBuys: 4 },
           { marketDate: '2026-10-14', rows: [row('005930', 'below', 47), row('AAPL', 'below', 60), row('LLY', 'below', 41), row('NVDA', 'buy', 70, 1.2, 3.4, null), row('XOM', 'below', 44)], buys: 1, nonBuys: 4 },
           { marketDate: '2026-10-13', rows: [row('AAPL', 'below', 58), row('NVDA', 'below', 62)], buys: 0, nonBuys: 2 },
         ];
@@ -676,7 +683,7 @@ function targets(): Target[] {
         const served = days.map((d) => ({ ...d, rows: sortDayRows(d.rows) }));
         await page.route('**/api/buy-judge/days?**', (r) => r.fulfill({ json: { days: served, totalDays: 45 } }));
         const reasons = [
-          { symbol: 'AAPL', days: 20, below: 15, rrBlock: 2, gateBlock: 2, buy: 1, mostMissing: '추세' },
+          { symbol: 'AAPL', days: 20, below: 15, rrBlock: 2, gateBlock: 2, gateReasons: { market: 1, below200: 1 }, buy: 1, mostMissing: '추세' },
           { symbol: 'LLY', days: 20, below: 20, rrBlock: 0, gateBlock: 0, buy: 0, mostMissing: '타이밍' },
           { symbol: '005930', days: 18, below: 15, rrBlock: 2, gateBlock: 0, buy: 1, mostMissing: '거래량' },
         ];
