@@ -63,6 +63,24 @@ export function explainNote(note: DecisionNote, name: string, s: Pick<AccountStr
   }
 }
 
+/**
+ * 「최근 판단」 하루치(v2.50.0)를 판단 한 번씩 묶는다 — 저장 순서(최근이 위)대로, 같은 `at` 이 한 묶음.
+ * 묶음 안은 `sortNotes`(사거나 판 줄이 위). 머리 줄 = 시각 · 시장(국내/미국/국내·미국) · 종목 수.
+ */
+export function groupNotes<T extends DecisionNote>(notes: T[]): { at: string | null; market: string; symbols: number; notes: T[] }[] {
+  const groups: { at: string | null; notes: T[] }[] = [];
+  for (const n of notes) {
+    const last = groups.at(-1);
+    if (last && last.at === (n.at ?? null)) last.notes.push(n);
+    else groups.push({ at: n.at ?? null, notes: [n] });
+  }
+  return groups.map((g) => {
+    const markets = new Set(g.notes.map((n) => n.market));
+    const market = markets.has('KR') && markets.has('US') ? '국내·미국' : markets.has('KR') ? '국내' : '미국';
+    return { at: g.at, market, symbols: new Set(g.notes.map((n) => n.symbol)).size, notes: sortNotes(g.notes) };
+  });
+}
+
 /** 「최근 판단」 정렬 — 사거나 판 줄이 위, 기다림 줄이 아래 (같은 무리 안에서는 원래 순서) */
 export function sortNotes<T extends DecisionNote>(notes: T[]): T[] {
   const rank = (n: DecisionNote) => (n.action === 'HOLD' ? 1 : 0);

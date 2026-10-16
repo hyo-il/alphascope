@@ -1,4 +1,4 @@
-import { formatDateTime } from '../../utils/dateFormat';
+import { formatDateTime, formatTime } from '../../utils/dateFormat';
 import Button from '../ui/Button';
 import WarnIcon from '../ui/WarnIcon';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
@@ -12,7 +12,7 @@ import { NO_STOP_WARNING } from '../../utils/ruleText';
 import { toast } from '../../store/uiStore';
 import { useStockNames } from '../../hooks/useStockNames';
 import { autoTradeView } from '../../utils/autoTradeStatus';
-import { explainNote, nextJudgeText, nowSentence, sortNotes } from '../../utils/autoTradeExplain';
+import { explainNote, groupNotes, nextJudgeText, nowSentence } from '../../utils/autoTradeExplain';
 
 /**
  * 계좌 대시보드 상단의 자동매매 바.
@@ -72,7 +72,9 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
   /** 바 맨 위의 "지금 상태" 한 문장 (v2.32.0) — 분류는 `autoTradeView` 한 곳, 문장은 `autoTradeExplain` 한 곳 */
   const view = autoTradeView(strategy, status);
   const sentence = nowSentence(strategy, status, view);
-  const notes = status ? sortNotes(status.lastNotes) : [];
+  // 「최근 판단」 하루치(v2.50.0) — 판단 한 번씩 묶음(최근이 위). 줄 번호는 묶음을 이어 센다(AI 이유 펼침 상태)
+  const groups = groupNotes(status?.lastNotes ?? []);
+  const offsets = groups.reduce<number[]>((acc, _g, k) => [...acc, k === 0 ? 0 : acc[k - 1] + groups[k - 1].notes.length], []);
 
   return (
     <>
@@ -191,9 +193,16 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           {notesOpen && (
           // 최대 약 240px(6줄쯤) + 안에서 스크롤 (v2.41.0) — 높이 제한이 없으면 아래 보유 종목·거래내역 영역이 0까지 줄었다
           <div id={`autotrade-notes-${strategy.accountId}`} className="max-h-[240px] overflow-y-auto [scrollbar-gutter:stable]">
-          {/* 쉬운 문장이 먼저, 원래 문장은 작은 회색으로 아래 — 사거나 판 줄이 위, 기다림 줄이 아래 */}
+          {/* 판단 한 번마다 머리 줄(「22:31 미국 판단 · 6종목」) · 쉬운 문장이 먼저, 원래 문장은 작은 회색으로 아래 — 사거나 판 줄이 위, 기다림 줄이 아래 */}
+          <ul className="mt-1 space-y-2">
+            {groups.map((g, gi) => (
+            <li key={`${g.at}-${gi}`}>
+              <p className="font-medium text-text-secondary" data-notes-head>
+                {g.at ? formatTime(g.at) : '—'} {g.market} 판단 · {g.symbols}종목
+              </p>
           <ul className="mt-1 space-y-1">
-            {notes.map((n, i) => {
+            {g.notes.map((n, j) => {
+              const i = offsets[gi] + j;
               const easy = explainNote(n, nameOf(n.symbol) ?? n.symbol, strategy, rule);
               // AI 검증(v2.46.0) — 위험 · 못 함 줄은 경고 색 + 아이콘, 이유(detail)는 줄마다 펼친다
               const aiWarn = n.code === 'ai_risk' || n.code === 'ai_unavailable';
@@ -246,6 +255,9 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
                 </li>
               );
             })}
+          </ul>
+            </li>
+            ))}
           </ul>
           </div>
           )}

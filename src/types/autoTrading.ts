@@ -88,6 +88,9 @@ export interface DecisionNote {
   detail?: string[];
   /** 총점 순위(v2.49.0) — 같은 판단에서 「사도 됨」 이 2개 이상일 때 산 줄과 「보유 종목 수가 가득 참」 줄에만 붙는다 */
   rank?: { n: number; of: number };
+  /** 「최근 판단」 하루치(v2.50.0) — 판단한 시각(같은 판단 = 같은 값) · 종목의 시장. 저장할 때 붙는다 */
+  at?: string;
+  market?: 'KR' | 'US';
 }
 
 /**

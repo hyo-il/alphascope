@@ -12,6 +12,8 @@
 import { readSetting, writeSetting } from '../gemini/store';
 import { listAccounts } from '../paperTradingService';
 import { defaultStrategy, type AccountStrategy, type DecisionNote } from '../../src/types/autoTrading';
+import { marketDate } from '../../src/utils/marketDate';
+import { isKrSymbol } from '../../src/utils/market';
 
 export const STRATEGIES_KEY = 'autoTrading.strategies';
 export const PEAKS_KEY = 'autoTrading.trailingPeaks';
@@ -23,23 +25,49 @@ export const JUDGED_KEY = 'autoTrading.lastJudged';
 export const STOPS_KEY = 'autoTrading.lastStops';
 
 export type { DecisionNote };
-type NotesMap = Record<string, { at: string; notes: DecisionNote[] }>;
+/** `day` = 한국 시간 날짜(v2.50.0 — 옛 기록에는 없다: `at` 의 한국 날짜로 읽는다) */
+type NotesMap = Record<string, { at: string; day?: string; notes: DecisionNote[] }>;
 
-/** 마지막 바퀴의 판단을 기억한다 — 청산·매수·건너뜀 모두 (최대 30개). 빈 목록은 이전 기록을 지우지 않는다 */
-export function recordNotes(accountId: number, notes: DecisionNote[]): void {
+/** 「최근 판단」 한 계좌의 최대 줄 수 (v2.50.0) */
+export const NOTES_MAX = 200;
+/** 한국 시간 날짜 — 국내 종목 코드로 `marketDate` 를 부르면 Asia/Seoul 로 잰다 */
+const kstDay = (ms: number) => marketDate(ms, '005930');
+
+/**
+ * 「최근 판단」 을 **그날(한국 시간 날짜) 하루치** 남긴다 (v2.50.0 — 사용자 결정 A-4. 예전에는 마지막 바퀴 하나만).
+ * 새 판단은 앞에 덧붙이고(최근이 위), 날짜가 바뀐 첫 판단 때 예전 날을 비운다. 계좌마다 최대 `NOTES_MAX` 줄(넘으면 오래된 줄부터 버림).
+ * 줄마다 판단 시각 `at`(같은 바퀴 = 같은 값 — 화면이 이것으로 묶는다)과 시장을 붙인다. 빈 목록은 이전 기록을 지우지 않는다.
+ */
+export function recordNotes(accountId: number, notes: DecisionNote[], now = new Date()): void {
   if (!notes.length) return;
   const map = readSetting<NotesMap>(NOTES_KEY, {});
-  map[String(accountId)] = {
-    at: new Date().toISOString(),
-    // detail(AI 검증 이유)은 있을 때만 — AI 검증을 끈 계좌의 기록 모양은 예전과 같다
-    notes: notes.slice(0, 30).map((n) => ({ symbol: n.symbol, action: n.action, reason: n.reason, ...(n.code ? { code: n.code } : {}), ...(n.detail?.length ? { detail: n.detail } : {}), ...(n.rank ? { rank: n.rank } : {}) })),
-  };
+  const at = now.toISOString();
+  const day = kstDay(now.getTime());
+  const prev = map[String(accountId)];
+  const kept = prev && (prev.day ?? kstDay(Date.parse(prev.at))) === day ? readNotesOf(prev) : [];
+  // detail(AI 검증 이유)·rank 는 있을 때만
+  const stamped = notes.map((n) => ({
+    symbol: n.symbol,
+    action: n.action,
+    reason: n.reason,
+    ...(n.code ? { code: n.code } : {}),
+    ...(n.detail?.length ? { detail: n.detail } : {}),
+    ...(n.rank ? { rank: n.rank } : {}),
+    at,
+    market: isKrSymbol(n.symbol) ? ('KR' as const) : ('US' as const),
+  }));
+  map[String(accountId)] = { at, day, notes: [...stamped, ...kept].slice(0, NOTES_MAX) };
   writeSetting(NOTES_KEY, map);
+}
+
+/** 옛 기록(줄에 시각·시장이 없음)은 묶음 시각으로 채운다 */
+function readNotesOf(found: { at: string; notes: DecisionNote[] }): DecisionNote[] {
+  return found.notes.map((n) => ({ ...n, at: n.at ?? found.at, market: n.market ?? (isKrSymbol(n.symbol) ? 'KR' : 'US') }));
 }
 
 export function readNotes(accountId: number): { at: string | null; notes: DecisionNote[] } {
   const found = readSetting<NotesMap>(NOTES_KEY, {})[String(accountId)];
-  return { at: found?.at ?? null, notes: found?.notes ?? [] };
+  return { at: found?.at ?? null, notes: found ? readNotesOf(found) : [] };
 }
 
 type StrategyMap = Record<string, Partial<AccountStrategy> & Record<string, unknown>>;
