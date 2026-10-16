@@ -444,16 +444,23 @@ function targets(): Target[] {
       },
     },
     {
-      name: 'account-최근판단-총점순위',
+      name: 'account-최근판단-하루치',
       hash: '#/portfolio/paper',
       before: async (page: Page) => {
         await page.route('**/api/auto-trading/status/*', async (r) => {
           const res = await r.fetch();
           const body = await res.json();
+          // v2.50.0 — 하루치: 미국 판단(22:31) 묶음 + 국내 판단(09:05) 묶음, 최근이 위
+          const us = new Date(); us.setHours(22, 31, 0, 0);
+          const kr = new Date(); kr.setHours(9, 5, 0, 0);
+          const U = { at: us.toISOString(), market: 'US' };
+          const K = { at: kr.toISOString(), market: 'KR' };
           const notes = [
-            { symbol: 'MSFT', action: 'BUY', reason: '매수 점수 80점(기준 65점) → 35주 · 총점 순위 1위(3종목 중)', code: 'score_buy', rank: { n: 1, of: 3 } },
-            { symbol: 'NVDA', action: 'HOLD', reason: '보유 종목 수가 가득 차 사지 않았습니다 (총점 순위 2위 / 3종목 중)', code: 'max_positions', rank: { n: 2, of: 3 } },
-            { symbol: 'AAPL', action: 'HOLD', reason: '보유 종목 수가 가득 차 사지 않았습니다 (총점 순위 3위 / 3종목 중)', code: 'max_positions', rank: { n: 3, of: 3 } },
+            { symbol: 'MSFT', action: 'BUY', reason: '매수 점수 80점(기준 65점) → 35주 · 총점 순위 1위(3종목 중)', code: 'score_buy', rank: { n: 1, of: 3 }, ...U },
+            { symbol: 'NVDA', action: 'HOLD', reason: '보유 종목 수가 가득 차 사지 않았습니다 (총점 순위 2위 / 3종목 중)', code: 'max_positions', rank: { n: 2, of: 3 }, ...U },
+            { symbol: 'AAPL', action: 'HOLD', reason: '보유 종목 수가 가득 차 사지 않았습니다 (총점 순위 3위 / 3종목 중)', code: 'max_positions', rank: { n: 3, of: 3 }, ...U },
+            { symbol: '005930', action: 'HOLD', reason: '점수 72/100 — 주가가 200일선 아래라 사지 않습니다 (종가 207,500 · 200일선 231,957) (10-15 마감 기준)', code: 'gate_block', ...K },
+            { symbol: '000660', action: 'HOLD', reason: '점수 40/100 — 기준 65점 미만 (10-15 마감 기준)', code: 'no_signal_buy', ...K },
           ];
           const status = (body.status ?? body) as { lastNotes: unknown[]; lastNotesAt: string | null };
           status.lastNotes = notes;
@@ -601,16 +608,55 @@ function targets(): Target[] {
       },
       after: (page) => page.unroute('**/api/buy-judge'),
     },
+    {
+      // v2.50.0 — 「거름망에 걸림 · 70/100」(빨강). 실제 응답의 첫 줄을 바꾼다
+      name: 'swing-거름망',
+      hash: '#/swing/list',
+      before: async (page) => {
+        await page.route('**/api/buy-judge', async (r) => {
+          const res = await r.fetch();
+          const body = (await res.json()) as { rows: { verdict: string; score: number }[] };
+          if (body.rows[0]) Object.assign(body.rows[0], { verdict: 'gate_block', score: 70 });
+          await r.fulfill({ response: res, json: body });
+        });
+      },
+      after: (page) => page.unroute('**/api/buy-judge'),
+    },
+    // v2.50.0 — 매매 규칙 「거름망」 칸: 예시 규칙 보기(잠김 · 켜짐) · 수정에서 50/200 고르기(추천)
+    {
+      name: 'dialog-매매규칙-예시200',
+      hash: '#/rules',
+      open: async (page: Page) => {
+        await page.getByRole('row').filter({ hasText: '기본 규칙 + 200일선' }).getByRole('button', { name: '조건 보기' }).click();
+        await page.waitForTimeout(500);
+        await page.getByText('거름망', { exact: true }).first().scrollIntoViewIfNeeded();
+      },
+    },
+    {
+      name: 'dialog-매매규칙-50200',
+      hash: '#/rules',
+      open: async (page: Page) => {
+        await click('조건 보기')(page);
+        await click(/^수정$/)(page);
+        await expandAdvanced(page);
+        await page.getByRole('checkbox', { name: '이동평균 교차 사용' }).check();
+        await page.getByLabel('장기 이동평균').selectOption('200');
+        await page.getByLabel('단기 이동평균').selectOption('50');
+        await page.getByRole('checkbox', { name: '주가가 200일선 위일 때만 매수 사용' }).check();
+        await page.getByText('이동평균 교차', { exact: false }).nth(1).scrollIntoViewIfNeeded();
+        await page.waitForTimeout(300);
+      },
+    },
     { name: 'dialog-매수판단-조건보기', hash: '#/swing/list', before: async () => {}, open: click('조건 보기') },
     // v2.48.0 — 매수 판단 히스토리 = 날짜별 목록(펼침) · 아래 접힌 「종목별 사지 않은 이유」(펼침). 응답 바꿔치기 — DB 는 그대로
     ...(['날짜펼침', '사지않은이유'] as const).map((which) => ({
       name: `swing-history-${which}`,
       hash: '#/swing/history',
       before: async (page: Page) => {
-        const row = (symbol: string, verdict: 'buy' | 'below' | 'rr_block', score: number, r5: number | null = null, r10: number | null = null, r20: number | null = null) =>
+        const row = (symbol: string, verdict: 'buy' | 'below' | 'rr_block' | 'gate_block', score: number, r5: number | null = null, r10: number | null = null, r20: number | null = null) =>
           ({ symbol, ruleName: '기본 규칙', verdict, score, maxScore: 100, r5, r10, r20 });
         const days = [
-          { marketDate: '2026-10-15', rows: [row('005930', 'below', 51), row('AAPL', 'buy', 72, 2.31, -1.4, 5.02), row('LLY', 'rr_block', 66), row('NVDA', 'buy', 68, -0.85, null, null), row('XOM', 'below', 45)], buys: 2, nonBuys: 3 },
+          { marketDate: '2026-10-15', rows: [row('005930', 'below', 51), row('AAPL', 'buy', 72, 2.31, -1.4, 5.02), row('LLY', 'rr_block', 66), row('NVDA', 'buy', 68, -0.85, null, null), row('XOM', 'below', 45), row('MSFT', 'gate_block', 70)], buys: 2, nonBuys: 4 },
           { marketDate: '2026-10-14', rows: [row('005930', 'below', 47), row('AAPL', 'below', 60), row('LLY', 'below', 41), row('NVDA', 'buy', 70, 1.2, 3.4, null), row('XOM', 'below', 44)], buys: 1, nonBuys: 4 },
           { marketDate: '2026-10-13', rows: [row('AAPL', 'below', 58), row('NVDA', 'below', 62)], buys: 0, nonBuys: 2 },
         ];
@@ -618,9 +664,9 @@ function targets(): Target[] {
         const served = days.map((d) => ({ ...d, rows: sortDayRows(d.rows) }));
         await page.route('**/api/buy-judge/days?**', (r) => r.fulfill({ json: { days: served, totalDays: 45 } }));
         const reasons = [
-          { symbol: 'AAPL', days: 20, below: 17, rrBlock: 2, buy: 1, mostMissing: '추세' },
-          { symbol: 'LLY', days: 20, below: 20, rrBlock: 0, buy: 0, mostMissing: '타이밍' },
-          { symbol: '005930', days: 18, below: 15, rrBlock: 2, buy: 1, mostMissing: '거래량' },
+          { symbol: 'AAPL', days: 20, below: 15, rrBlock: 2, gateBlock: 2, buy: 1, mostMissing: '추세' },
+          { symbol: 'LLY', days: 20, below: 20, rrBlock: 0, gateBlock: 0, buy: 0, mostMissing: '타이밍' },
+          { symbol: '005930', days: 18, below: 15, rrBlock: 2, gateBlock: 0, buy: 1, mostMissing: '거래량' },
         ];
         await page.route('**/api/buy-judge/history', (r) =>
           r.fulfill({ json: { stats: { n5: 2, n10: 2, n20: 1, avg5: 0.73, avg10: -0.1, avg20: 5.02, smallSample: true }, reasons, counts: { all: 61, nonBuy: 58 } } }));
