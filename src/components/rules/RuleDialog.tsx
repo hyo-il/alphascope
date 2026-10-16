@@ -4,6 +4,7 @@ import {
   BUY_KEYS,
   GROUP_TABLES,
   cloneRuleBody,
+  gatesOf,
   emptyRuleBody,
   isUsed,
   maxScoreOf,
@@ -28,7 +29,10 @@ import { usageText } from './usage';
  * - 볼린저 밴드(20, 2) — John Bollinger, 『Bollinger on Bollinger Bands』(2001)
  * - 스토캐스틱(14, 3, 3) — George Lane 의 %K·%D (14기간 · 3기간 평활이 해설 자료의 흔한 기본값)
  * MACD·볼린저·스토캐스틱은 지표 엔진이 이 값으로만 계산한다(`python/indicators.py`) — 그래서 늘 붙는다.
- * 붙이지 않는 것: 5일·20일 교차(널리 알려진 교차는 50·200일) · RSI 35~45 · 점수 배분 · 65점(앱이 정한 값).
+ * - 50일·200일 이동평균 교차(골든·데드크로스) · 200일선 위에서만 매수(장기 추세 거름망) — 기술적 분석 해설서가 대표 예로 드는 값
+ *   (John J. Murphy, 『Technical Analysis of the Financial Markets』(1999) 의 이동평균 장 · 장기 이동평균 거름망은 Mebane Faber,
+ *   「A Quantitative Approach to Tactical Asset Allocation」(2007, 10개월 ≈ 200거래일) 이 흔히 인용된다). v2.50.0 — 교차는 50/200 일 때만 붙는다.
+ * 붙이지 않는 것: 5일·20일 교차 · RSI 35~45 · 점수 배분 · 65점(앱이 정한 값).
  * 처음 화면(매수 조건 표 이름 옆, v2.43.1): 「모멘텀」 = 늘(안의 MACD·스토캐스틱이 엔진 고정 표준값) · 「RSI 반등」 = 30 일 때만 ·
  * 「타이밍」 은 붙이지 않는다(RSI 35~45 라는 앱이 정한 값을 포함한다 — 볼린저 배지는 고급 설정 안에만). 매도 「반대 신호」 = 이름 옆, 70 일 때만.
  * 색은 파랑(accent) — CLAUDE.md 「예외로 남은 파랑」 에 적었다.
@@ -47,7 +51,13 @@ function Rec({ show = true }: { show?: boolean }) {
 function nameRecommended(key: BuyKey, b: RuleBody['buy']): boolean {
   if (key === 'momentum') return true;
   if (key === 'rsiRebound') return b.rsiRebound.below === RECOMMENDED.rsiBelow;
+  if (key === 'maCross') return isGoldenCross(b);
   return false;
+}
+
+/** 50일·200일 교차(v2.50.0) — 「추천」 */
+function isGoldenCross(b: RuleBody['buy']): boolean {
+  return b.maCross.short === 50 && b.maCross.long === 200;
 }
 
 const NAMES: Record<BuyKey, string> = {
@@ -381,7 +391,10 @@ export default function RuleDialog({
               </div>
 
               <div className="space-y-1.5">
-                <h4 className="text-xs font-medium text-text-primary">이동평균 교차</h4>
+                <h4 className="flex items-center gap-1.5 text-xs font-medium text-text-primary">
+                  이동평균 교차
+                  <Rec show={isGoldenCross(body.buy)} />
+                </h4>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
                   <span>단기선</span>
                   <Select
@@ -412,7 +425,9 @@ export default function RuleDialog({
                   <span>을 위로 넘는 날</span>
                   {err('buy.maCross.long') && <span className="text-caption text-danger">{err('buy.maCross.long')}</span>}
                 </div>
-                <p className="text-caption text-text-muted">지표 엔진이 계산하는 이동평균은 5·20·60·120일뿐이라 이 넷 중에서 고릅니다.</p>
+                <p className="text-caption text-text-muted">
+                  지표 엔진이 계산하는 이동평균은 {ENGINE_MA_PERIODS.join('·')}일뿐이라 이 중에서 고릅니다. 50일 · 200일을 고르면 널리 쓰이는 골든크로스입니다.
+                </p>
               </div>
 
               <div className="space-y-1.5">
@@ -436,6 +451,22 @@ export default function RuleDialog({
               </div>
             </div>
           )}
+        </section>
+
+        {/* ── 거름망 (v2.50.0) — 점수 표와 다른 칸: 통과하지 못하면 점수가 높아도 사지 않는다. 매도에는 쓰지 않는다 ── */}
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-text-primary">거름망</h3>
+          <p className="text-caption text-text-secondary">아래 조건을 통과하지 못하면 점수가 높아도 사지 않습니다.</p>
+          <div className="space-y-1">
+            <Toggle
+              label="주가가 200일선 위일 때만 매수"
+              checked={gatesOf(body.buy).above200.on}
+              disabled={locked}
+              onChange={(on) => setBody((b) => ({ ...b, buy: { ...b.buy, gates: { ...gatesOf(b.buy), above200: { on } } } }))}
+              badge={<Rec />}
+            />
+            <p className="pl-6 text-caption text-text-muted">전날 마감 종가 기준입니다. 200일선을 계산할 일봉(200개)이 모자라면 사지 않습니다.</p>
+          </div>
         </section>
 
         {/* ── 매도 조건 ───────────────────────────────── */}

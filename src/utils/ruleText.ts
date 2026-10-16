@@ -2,7 +2,7 @@
  * 매매 규칙을 **쉬운 한 줄**로 — 한 곳 (v2.44.0). 계좌 「지금 조건」·자동매매 바·백테스트 히스토리·AI 결과 설명이 같은 문장을 쓴다.
  * ⚠️ 숫자는 규칙 값에서만 넣는다. 서버도 컴파일한다(DOM 없음).
  */
-import { BUY_KEYS, maxScoreOf, type BuyKey, type RuleBody } from '../types/tradingRule';
+import { BUY_KEYS, gatesOf, maxScoreOf, type BuyKey, type RuleBody } from '../types/tradingRule';
 
 export const BUY_CONDITION_NAME: Record<BuyKey, string> = {
   trend: '추세',
@@ -27,7 +27,9 @@ export function ruleBuyText(rule: RuleBody, n: Num = plain): string {
       k === 'maCross' ? `(${n(rule.buy.maCross.short)}일·${n(rule.buy.maCross.long)}일)` : k === 'rsiRebound' ? `(RSI ${n(rule.buy.rsiRebound.below)} 이하)` : '';
     return `${BUY_CONDITION_NAME[k]}${extra} ${n(c.points)}`;
   });
-  return `${parts.join(' · ')} — 합계 ${n(rule.buy.minScore)}점 이상(최대 ${n(maxScoreOf(rule.buy))}점)`;
+  // 거름망(v2.50.0) — 켰을 때만 덧붙인다(끈 규칙·옛 규칙의 문장은 예전 그대로)
+  const gate = gatesOf(rule.buy).above200.on ? ' · 거름망: 200일선 위일 때만' : '';
+  return `${parts.join(' · ')} — 합계 ${n(rule.buy.minScore)}점 이상(최대 ${n(maxScoreOf(rule.buy))}점)${gate}`;
 }
 
 /** 매도 — "점수 50점 아래 · 반대 신호 · 손절 −7% · 익절 끔 · 트레일링 끔" (v2.45.0 — 손절·트레일링 −, 익절 + : `ruleSafetyText` 와 같은 표기) */
