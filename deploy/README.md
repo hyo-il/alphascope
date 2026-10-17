@@ -1,12 +1,33 @@
-# 오라클 서버 — 완성본으로 화면 보내기 (v2.36.1)
+# 오라클 서버 운영
 
-## 왜 바꾸나요?
+오라클 서버는 미리 만들어 둔 **완성본(dist)** 을 nginx 가 바로 보냅니다. API(4000)와 지표 엔진(5001)은 pm2 가 돌립니다.
+개발용 서버(Vite)는 인터넷에 열지 않습니다 — 자동 탐색 요청 하나로 열린 모든 화면에 「URI malformed」 오류 창이 뜨고, 소스 파일도 그대로 나갑니다.
 
-- 지금 오라클은 화면을 **개발용 서버(Vite)** 로 보냅니다. 공사 중인 작업장을 그대로 손님에게 열어 둔 셈입니다.
-- 그래서 인터넷의 자동 탐색 요청 하나가 들어오면, 열려 있는 모든 화면에 「URI malformed」 오류 창이 떴습니다.
-- 앞으로는 미리 만들어 둔 **완성본(dist)** 을 nginx 가 바로 보냅니다. 오류 창이 사라지고 첫 화면도 빨라집니다.
+## 배포
 
-## 오라클에서 할 일 (한 번만)
+맥에서 한 줄입니다(05:00~22:30 KST 사이, 05:30 전후는 피합니다).
+
+```bash
+ssh alphascope '~/deploy.sh'
+```
+
+받기 → 설치 → 빌드 → 화면을 `/var/www/alphascope` 로 복사 + nginx 다시 읽기 → pm2 재시작 → API·화면 확인 순서로 돕니다.
+빌드가 실패하면 복사하지 않으므로 예전 화면이 그대로 남습니다. 화면만 바뀌어도 이 배포가 필요합니다.
+
+## 로그인 비밀번호
+
+비밀번호는 서버에서만 정합니다. **정하기 전에는 앱이 잠겨 있습니다**(모든 API 503 — 의도된 동작).
+
+```bash
+ssh alphascope
+cd ~/alphascope && npm run auth:set-password
+```
+
+비밀번호를 잊었을 때도 같은 명령을 다시 돌립니다. 바꾸면 모든 기기의 로그인이 끊깁니다.
+기기 하나만 끊으려면 앱의 「설정 > 앱 기능 설정 > 로그인된 기기」 에서 [로그아웃] 을 누릅니다.
+
+
+## 처음 서버를 완성본 방식으로 바꿀 때 (한 번만 — 이미 했다면 필요 없음)
 
 아래 명령을 **순서대로 하나씩** 복사해 붙여 넣습니다.
 
@@ -30,20 +51,10 @@
 
    - 중간에 「⚠️ … 되돌립니다」 가 나오면 **자동으로 예전 상태로 돌아간 것**입니다. 화면은 그대로 쓸 수 있습니다. 나온 글을 그대로 알려 주세요.
 
-4. 브라우저에서 `http://161.33.153.189` 를 **새로고침**하고 세 가지를 봅니다.
+4. 브라우저에서 서버 주소를 **새로고침**하고 세 가지를 봅니다.
    1. 로그인 화면이 뜨고, 로그인하면 종목 지도·차트가 보인다.
    2. 글자 모양(글꼴)이 전과 같다.
    3. 서버에서 `pm2 list` 를 쳤을 때 `alphascope-web` 이 없고 `alphascope-api`·`alphascope-indicators` 가 `online` 이다.
-
-## 앞으로 배포
-
-지금처럼 맥에서 한 줄입니다.
-
-```bash
-ssh alphascope '~/deploy.sh'
-```
-
-바뀐 점: 빌드한 화면을 `/var/www/alphascope` 로 복사하는 단계가 자동으로 들어 있습니다. 빌드가 실패하면 복사하지 않으므로 예전 화면이 그대로 남습니다.
 
 ## 되돌리기 (문제가 생기면)
 
@@ -51,21 +62,24 @@ ssh alphascope '~/deploy.sh'
 bash ~/alphascope/deploy/rollback-to-vite.sh
 ```
 
-예전 설정 3개(nginx · pm2 · deploy.sh)를 백업에서 되돌리고 개발 서버를 다시 켭니다.
+전환 때 남긴 백업 3개(nginx · pm2 · deploy.sh)를 되돌리고 개발 서버를 다시 켭니다.
 
 ## 자주 생길 일
 
 | 보이는 것 | 뜻 | 할 일 |
 |---|---|---|
-| 403 Forbidden | nginx 가 화면 폴더를 못 읽는다 | `ls -ld /var/www/alphascope` 로 권한 확인 → `sudo chmod 755 /var/www/alphascope` |
+| 403 Forbidden | nginx 가 화면 폴더를 못 읽는다 | `ls -ld /var/www/alphascope` 로 권한 확인 → `sudo chmod 755 /var/www/alphascope`(화면 폴더를 홈 폴더 `~/alphascope/dist` 에 두지 않는다) |
 | 502 Bad Gateway (로그인·데이터가 안 뜸) | API 서버가 꺼져 있다 | `pm2 logs alphascope-api --lines 30` 으로 이유 확인 → `pm2 restart alphascope-api` |
-| 배포했는데 화면이 옛날 것 | 브라우저가 예전 화면을 들고 있다 | 새로고침(맥 `Cmd+Shift+R`, 윈도 `Ctrl+F5`) |
+| 모든 화면이 잠겨 있다(503) | 비밀번호를 아직 정하지 않았다 | 위 「로그인 비밀번호」 |
+| 배포했는데 화면이 옛날 것 | 브라우저가 예전 화면을 들고 있다 | 새로고침(맥 `Cmd+Shift+R`, 윈도 `Ctrl+F5`) — 앱 위에 「서버가 옛 버전」 띠가 보이면 반대로 서버 배포가 덜 된 것이다 |
+
+진단 리포트 파일은 서버의 `~/alphascope/reports/` 에 쌓입니다.
 
 ## 이 폴더의 파일
 
 | 파일 | 하는 일 |
 |---|---|
-| `nginx-alphascope.conf` | nginx 설정 — 화면은 `/var/www/alphascope`, `/api/` 는 4000 |
+| `nginx-alphascope.conf` | nginx 설정 — 화면은 `/var/www/alphascope`(`/assets/` 1년 캐시 · `index.html` 캐시 안 함), `/api/` 는 127.0.0.1:4000 |
 | `ecosystem.config.cjs` | pm2 설정 — api·indicators 두 개(개발 서버 없음) |
 | `deploy.sh` | 배포 스크립트 — `~/deploy.sh` 로 복사되어 쓰인다 |
 | `switch-to-static.sh` | 한 번만 쓰는 전환 스크립트(백업·자동 되돌리기 포함) |

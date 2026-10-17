@@ -1,139 +1,107 @@
 # AlphaScope
 
-해외주식(미국) 차트 분석 + 멀티 AI 에이전트 의견 데스크톱 웹앱.
+미국·국내 주식 차트 + 매매 규칙(퀀트) + 모의투자 자동매매 + AI(Gemini·Claude) 분석 웹앱. 혼자 쓰는 도구입니다(주인 계정 하나).
 
-토스증권 Open API로 시세를, pandas-ta로 기술적 지표를, yfinance로 기업 재무를 모읍니다.
-분석은 두 갈래입니다.
+토스증권 Open API 로 시세를, pandas-ta 로 기술적 지표를, yfinance 로 기업 재무·섹터·뉴스를 모읍니다.
 
-- **Claude (수동)** — 모은 데이터로 **붙여넣을 최적의 프롬프트**를 만들어 줍니다.
-  추론은 Claude 구독 대화에서 하므로 API 비용이 들지 않습니다.
-- **Gemini (자동)** — 관심 종목을 주기적으로 분석합니다. 4명의 에이전트가 독립 판단한 뒤
-  종합 의장이 결론을 내는 2라운드 구조이며, 신호를 **모의투자** 계좌에 자동 주문할 수 있습니다.
+⚠️ **실제 주문은 어디에서도 나가지 않습니다.** 토스 API 는 조회만 하고,
+모의투자의 주문·체결·잔고는 앱 안의 SQLite 에서만 움직입니다.
 
-⚠️ **실제 주문은 어디에서도 나가지 않습니다.** 시세만 실 API를 읽고,
-주문·체결·잔고는 앱 안의 SQLite에서만 움직입니다.
-
-> 상세 명세와 개발 이력은 상위 관리 폴더의 `CLAUDE.md` / `PROMPTS_INDEX.md` 를 참고하세요.
+⚠️ 이 앱이 제공하는 모든 분석은 참고용이며 **투자 조언이 아닙니다.** 어느 방법도 이 앱에서 돈을 번다고 확인된 적은 없습니다.
 
 ---
 
-## 브랜치 규칙
+## 메뉴
 
-**`main` 하나로만 작업합니다. 새 브랜치를 만들지 않습니다.**
-커밋 전에 `git branch --show-current` 로 main 인지 확인하세요.
-저장소가 public 이므로 푸시는 확인 후에 합니다.
+| 메뉴 | 하는 일 |
+|---|---|
+| 홈 | 종목 탐색(관심·최근·인기·보유 카드, 검색) |
+| 탐색 | 종목 지도(시총 크기·등락 색 트리맵, 섹터 강세 순위) · 실시간 순위 |
+| 차트·비교 | 차트(캔들 · 지표 · 드로잉 · 호가 · 빠른주문(모의) · 아래 탭: 지표 해석 · 기업정보 · 투자자 동향 · 뉴스 · AI 분석) · 기업 비교(최대 4종목) |
+| 증시 일정 | 실적 · FOMC · 옵션 만기 · 휴장일 |
+| 퀀트 | 매매 규칙 · 매수 판단 · 백테스트 · 검증 기록 |
+| 실험실 | 급등 탐지(검증 전 테스트 기능) |
+| 계좌 | 모의투자 계좌(자동매매) · 실제 계좌(토스 조회) |
+| 설정 | 계좌 설정 · 앱 기능 설정(로그인된 기기 등) · 업데이트 내역 |
+
+## 매매 규칙 · 자동매매
+
+- **매매 규칙** — 점수형 계산기 하나. 매수 조건(추세 · 타이밍 · 모멘텀 · 거래량 · 손익비 · 이동평균 교차 · RSI 반등)마다 사용 여부와 점수를 정하고, 합계가 기준 이상이면 매수합니다.
+  「거름망」(주가가 200일선 위일 때만 · 시장(SPY · KODEX 200)이 200일선 위일 때만)을 통과하지 못하면 점수가 높아도 사지 않습니다.
+  매도 = 점수 아래 · 반대 신호 · 손절 · 익절 · 트레일링. **손익비 1 미만이면 어떤 규칙이든 사지 않습니다(끌 수 없음).**
+- **판단은 끝난 일봉으로** 합니다(마감 기준). 끝나지 않았거나 새로 받지 못한 일봉으로는 판단하지 않고 미룹니다.
+- **매수 판단** — 고른 규칙 하나로 전용 목록을 판단하고, 매일 마감 뒤 자동으로 기록합니다. 주문은 내지 않습니다.
+- **계좌 자동매매** — 계좌마다 규칙 하나를 골라 켭니다. 신호는 종목마다 그 시장이 열린 뒤 하루 한 번, 손절·익절·트레일링은 1분마다 봅니다.
+  신규 매수 안전장치(실적 발표 전 · 하루 손실 한도)가 있고, 「사도 됨」 이 여럿이면 총점 높은 순으로 삽니다.
+- **AI 검증**(계좌마다 켬/끔) — 규칙이 「사도 됨」 이라 한 종목을 사기 직전 Gemini 가 위험만 한 번 확인합니다(통과 · 위험 · 검증 못 함). 매도에는 쓰지 않습니다.
+- **백테스트** — 고른 종목 × 규칙 1~3개 × 1~3년. 다음 날 시가 체결 · 같은 날 손절 먼저 · 비용 0.30%p · 기준선(들고 있기 · 아무 날이나 · SPY) · 미래 누설 검사. 「가장 좋음」 표시는 하지 않습니다.
+
+## AI 분석
+
+- **Claude (수동)** — 차트 캡처와 지표·재무를 모아 **붙여넣을 프롬프트**를 만들어 줍니다. 추론은 Claude 구독 대화에서 하므로 API 비용이 들지 않습니다(Claude API 를 쓰지 않습니다).
+- **Gemini (선택)** — 4명의 에이전트가 독립 판단한 뒤 종합 의장이 결론을 내는 2라운드 구조(종목당 5회 호출). 지정 종목 하루 한 번 · 바로 분석 · 목표 수익 가능성 · 뉴스 판정 · AI 검증 · 백테스트 설명에 씁니다.
+  키가 없으면 이 기능들만 꺼집니다. 결과는 「검증 기록」 에서 뒤에 실제로 어땠는지 채점합니다.
+
+---
 
 ## 요구 사항
 
 | 항목 | 버전 | 비고 |
 |---|---|---|
-| Node.js | **22 LTS** | 이 맥의 전역 `node`(v21)는 EOL이라 동작하지 않음 |
+| Node.js | **22** | `.nvmrc` |
 | Python | **3.12+** | pandas-ta 0.4.x 요구사항 |
-| 토스증권 Open API | Client ID/Secret | **필수** |
-| Google Gemini API | API Key | 선택 — 자동 분석에만 쓰입니다 |
+| 토스증권 Open API | Client ID/Secret | **필수**(없으면 모의 데이터 모드) |
+| Google Gemini API | API Key | 선택 |
 
-## 설치
+## 설치 · 실행
 
 ```bash
-export PATH=/opt/homebrew/opt/node@22/bin:$PATH
 npm install
 npm run py:setup          # python/.venv 가상환경 구성
-cp .env.example .env      # API 키 입력 (아래 표 참고)
-```
-
-### 환경 변수
-
-`.env` 는 **커밋되지 않습니다** (`.gitignore`). 키는 각자 로컬에 직접 넣어야 합니다.
-
-| 변수 | 필수 | 설명 |
-|---|:---:|---|
-| `TOSS_CLIENT_ID` | ✅ | 토스증권 Open API |
-| `TOSS_CLIENT_SECRET` | ✅ | 토스증권 Open API — **서버에서만 읽습니다** |
-| `GEMINI_API_KEY` | | Google Gemini. 없으면 자동 분석 기능만 꺼집니다 |
-| `GEMINI_MODEL` | | 기본값 `gemini-3.5-flash-lite` |
-| `API_PORT` · `INDICATORS_PORT` | | 기본값 4000 · 5001 |
-| `DB_PATH` | | 기본값 `./db/alphascope.db` |
-
-## 실행
-
-**가장 쉬운 방법** — Finder에서 `start.command` 를 더블클릭하면 세 서버가 뜨고 브라우저가 열립니다.
-
-터미널에서 직접 실행할 때는 **Node 22 경로 지정이 필수**입니다.
-전역 `node`(v21)는 실행 자체가 깨져 있어서, 이 줄이 없으면 `npm` 명령도 동작하지 않습니다.
-
-```bash
-export PATH=/opt/homebrew/opt/node@22/bin:$PATH
+cp .env.example .env      # API 키 입력 (아래 표)
+npm run auth:set-password # 로그인 비밀번호(터미널에서만 — 정하기 전에는 앱이 잠겨 있다)
 npm run dev               # 웹 5173 + API 4000 + 지표 엔진 5001
 ```
 
-브라우저에서 **http://localhost:5173** 으로 접속합니다. 종료는 터미널에서 `Control+C`.
+맥에서는 관리 폴더의 `start.command` 를 더블클릭해도 세 서버가 뜨고 브라우저가 열립니다.
 
 ```bash
 npm run build             # 타입 검사 + 프로덕션 빌드
-npm run dev:api           # API 서버만 / dev:web, dev:py 도 개별 실행 가능
-```
-
-### 점검 도구
-
-```bash
 npm run smoke             # 토큰 발급 → 캔들·현재가·호가 조회 검증
-npm run probe             # 토스 API 원본 응답 확인
-npm run probe -- /api/v1/holdings   # 임의 엔드포인트
-npm run db:init           # SQLite 스키마 확인
+npm run diagnose          # 종합 진단 리포트(지표 엔진 필요)
 ```
 
-키가 없거나 `your_`로 시작하면 서버가 **모의 데이터**를 반환하고 화면 상단에 경고 배너가 뜹니다.
+시험(`rules:test` · `autotrade:test` · `buyjudge:test` · `prevclose:test` · `auth:test` · `design:check`)은 **DB 사본으로만** 돕니다 — `DB_PATH=<사본>` 이 없거나 실제 DB 면 멈춥니다.
 
----
+### 환경 변수
 
-## 아키텍처
+`.env` 는 **커밋되지 않습니다** (`.gitignore`). 저장소가 public 이라 `.env.example` 에는 `your_` 자리표시자만 둡니다.
 
-```
-브라우저(React) ──/api/*──> Express(4000) ──> 토스 Open API (시세·호가·계좌)
-                                │
-                                ├──> Flask(5001) ──> pandas-ta (지표)
-                                │                └─> yfinance (기업 재무·지수)
-                                ├──> Gemini API   (자동 분석 — 키가 있을 때만)
-                                └──> SQLite (캔들·기업정보 캐시, 분석 기록,
-                                             모의투자 계좌·주문·체결)
-```
+| 변수 | 필수 | 설명 |
+|---|:---:|---|
+| `TOSS_CLIENT_ID` · `TOSS_CLIENT_SECRET` | ✅ | 토스증권 Open API — **서버에서만 읽습니다**. 비었거나 `your_` 로 시작하면 모의 데이터 모드 |
+| `GEMINI_API_KEY` · `GEMINI_MODEL` | | Google Gemini. 없으면 Gemini 기능만 꺼집니다 |
+| `API_PORT` · `INDICATORS_PORT` | | 기본값 4000 · 5001 |
+| `DB_PATH` | | 기본값 `./db/alphascope.db` |
+| `AUTO_TRADING_ENABLED` · `GEMINI_ENABLED` · `GEMINI_SCHEDULED_ENABLED` · `UNIVERSE_UPDATE_ENABLED` | | 스위치(기본 true) — 사본 DB 로 시험 서버를 띄울 때는 끈다 |
+| `API_HOST` | | 기본 루프백. ⚠️ `0.0.0.0` 으로 열지 않는다(서버에서는 nginx → 127.0.0.1:4000) |
 
-**API 키는 서버에만 존재합니다.** `src/services/toss/*`는 파일 위치만 `src/`일 뿐
-서버 전용 모듈이며, 프론트 컴포넌트에서 직접 import 하지 않습니다.
+## 배포 (오라클)
 
-## 주요 기능
+빌드한 화면(dist)을 nginx 가 보내고, API·지표 엔진은 pm2 가 돌립니다. 배포는 `ssh alphascope '~/deploy.sh'` 한 줄입니다 — 자세한 것은 [`deploy/README.md`](deploy/README.md).
 
-- **차트** — 캔들·거래량, 커서 기준 휠 확대/축소, 드래그 이동, 크로스헤어 레전드, 타임프레임 5종
-- **시황 카드** — 코스피·코스닥·S&P500·나스닥·다우·VIX·환율, 30 거래일 스파크라인
-- **드로잉** — 수평선·추세선·자(±% 측정)·피보나치·박스
-- **지표** — SMA/EMA/볼린저/VWAP 오버레이, RSI/MACD/Stochastic 패널, ATR·OBV
-- **기업정보** — 밸류에이션·재무제표·동종업계 비교
-- **보유주식** — 실 계좌 손익, 환율 원화 환산
-- **차트 캡처** — 팝업에서 범위·포함 지표·타임프레임을 고르고 미리 확인한 뒤 클립보드로
-- **AI 분석 (Claude 수동)** — 4가지 모드(빠른 / 멀티 에이전트 / 보유 주식 / 종목 비교),
-  투자 기간 선택, 프롬프트 편집, 단계별 복사
-- **AI 분석 (Gemini 자동)** — 대상 종목을 정해 두면 주기적으로 분석합니다.
-  4개 에이전트(기술·퀀트·펀더멘탈·리스크) 독립 판단 → 종합 의장이 결론.
-  1종목당 API 5회를 쓰며, 실행 주기와 정규장 여부를 설정할 수 있습니다
-- **자동매매** — 신호가 조건(신호 강도·신뢰도)을 넘으면 모의 계좌에 주문합니다.
-  매수·매도 조건을 따로 잡고, 최대 보유 종목 수로 분산을 제한합니다
-- **모의투자** — 계좌 생성, 시장가/지정가 주문, 체결·포지션·실현손익,
-  일별 스냅샷과 성과 차트. 차트 화면 우측에는 **빠른주문** 패널
-- **분석 결과·성적표** — Claude·Gemini 결과를 한 타임라인에서 보고,
-  5 거래일 뒤 종가로 적중 여부를 채점합니다
-
-## 디렉터리
+## 구조
 
 ```
-server/          Express API, 지표·기업정보 브릿지, 모의투자, SQLite
-server/gemini/   Gemini 자동 분석 (키가 없으면 폴더째 비활성)
-src/services/    toss(서버 전용) · analysis(프롬프트 조립)
-src/components/  chart · analysis · paper-trading · market · company · portfolio · common
-python/          indicators.py(Flask) · fundamentals.py(yfinance)
-db/              schema.sql
-scripts/         smokeTest · probeApi · initDb
+server/          Express API(모든 /api 라우트는 index.ts) · rules/(매매 규칙 엔진) · autoTrading/(자동매매 · 백테스트 — 주문을 내는 유일한 경로)
+                 buyJudge/ · aiCheck/ · gemini/(키가 없으면 폴더째 꺼짐) · diagnose/ · analysis/
+src/             React 화면(components/ · ui/ 공용 부품) · services/toss(⚠️ 서버 전용) · hooks · store · types · utils
+python/          indicators.py(Flask 지표 엔진) · fundamentals.py(yfinance)
+db/schema.sql    SQLite 표 정의
+scripts/         시험 · 운영 도구 (fixtures/ = 정답 파일)
+deploy/          오라클 nginx · pm2 · deploy.sh · 안내서
 ```
 
----
+**API 키는 서버에만 존재합니다.** `src/services/toss/*` 는 위치만 `src/` 일 뿐 서버 전용 모듈이며, 화면 코드에서 import 하지 않습니다.
 
-⚠️ 이 앱이 제공하는 모든 분석은 참고용이며 **투자 조언이 아닙니다.**
+> 개발 규칙과 버전별 작업 기록은 상위 관리 폴더의 `CLAUDE.md` · `docs/rules/` · `PROMPTS_INDEX.md` 에 있습니다.
