@@ -200,7 +200,8 @@ export default function AccountsOverview({
   /**
    * 목록 보기 — 계좌 하나에 한 줄, **핵심만**(사용자 결정). 동작은 카드와 같은 함수(`onOpen` · `toggle` · `moveAccount`)다.
    * 표라서 계좌마다 숫자 칸이 같은 x 에 선다. 순서는 끌기(세로 위치로 위/아래) + ↑↓.
-   * 좁을 때는 규칙 이름 칸을 숨긴다(목록 폭 48rem 미만 — 컨테이너 기준이라 오른쪽 패널을 접어도 맞는다). 이름은 넘치면 말줄임 + title.
+   * 좁을 때는 규칙 이름 칸을 숨긴다(목록 폭 56rem 미만 — 1280 창에서 두 패널을 편 폭 842px 이 여기 든다. 큰 금액 + 긴 규칙 이름이면 이름 칸이 말줄임 「…」 만 남았다).
+   * 컨테이너 기준이라 왼쪽 메뉴·오른쪽 패널을 접으면 보인다. 이름은 넘치면 말줄임 + title(최소 4rem 은 보인다).
    */
   const renderList = (list: AccountOverviewItem[]) => {
     const many = list.length > 1;
@@ -257,7 +258,7 @@ export default function AccountsOverview({
                     )}
                     <td className={`${TABLE_NAME_COL} max-w-0 ${many ? 'pl-1' : 'pl-3'}`}>
                       <div className="flex min-w-0 items-center gap-2">
-                        <span title={item.account.name} className="min-w-0 truncate text-sm font-medium text-text-primary">
+                        <span title={item.account.name} className="min-w-16 truncate text-sm font-medium text-text-primary">
                           {item.account.name}
                         </span>
                         <span className="shrink-0 text-caption text-text-muted">{currency}</span>
@@ -296,10 +297,11 @@ export default function AccountsOverview({
                         <span>{view.label}</span>
                       </span>
                     </td>
-                    <td className={`hidden max-w-48 pl-3 @3xl:table-cell`}>
+                    {/* 카드와 같은 「규칙 「…」」 — 이름표가 없으면 「없음」 이 무엇이 없다는 말인지 읽히지 않는다 */}
+                    <td className={`hidden max-w-40 ${TABLE_NUM_GAP} @4xl:table-cell`}>
                       {rule != null && (
-                        <span title={rule} className="block truncate text-caption text-text-muted">
-                          {rule}
+                        <span title={`규칙 「${rule}」`} className="block truncate text-caption text-text-muted">
+                          규칙 「{rule}」
                         </span>
                       )}
                     </td>

@@ -16,6 +16,8 @@ export function useAccountsView() {
   const [view, setView] = useState<AccountsView | null>(remembered);
   // 받는 사이에 사람이 바꿨으면 늦게 온 읽기 값으로 덮지 않는다
   const touched = useRef(false);
+  // 저장하는 동안은 다시 바꾸지 못하게 잠근다 — 저장이 겹치면 실패한 쪽이 엉뚱한 보기로 되돌린다(계좌 순서 저장과 같다)
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -37,8 +39,10 @@ export function useAccountsView() {
   }, []);
 
   const change = async (next: AccountsView) => {
+    if (saving) return;
     const before = view;
     touched.current = true;
+    setSaving(true);
     remembered = next;
     setView(next);
     try {
@@ -53,6 +57,8 @@ export function useAccountsView() {
       remembered = before;
       setView(before);
       toast.error('보기를 바꾸지 못했습니다', (e as Error).message);
+    } finally {
+      setSaving(false);
     }
   };
 

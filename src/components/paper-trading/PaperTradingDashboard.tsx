@@ -217,7 +217,9 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
             <span className="text-border">·</span>
             <span className="text-text-muted">꺼짐 {autoCounts.off}</span>
           </span>
-          <InfoTip label="모아보기 쓰는 법">카드를 누르면 그 계좌의 잔고·거래·자동매매 설정으로 들어갑니다.</InfoTip>
+          <InfoTip label="모아보기 쓰는 법">
+            계좌(카드 · 목록 줄)를 누르면 그 계좌의 잔고·거래·자동매매 설정으로 들어갑니다. 순서는 카드 보기에서는 끌어서, 목록 보기에서는 끌거나 ↑↓ 로 바꿉니다.
+          </InfoTip>
           {/*
             계좌를 만드는 자리는 **전 계좌를 보는 화면**에도 있어야 한다 — 전략별로 계좌를
             나눠 비교하는 앱이라, 새 계좌를 만들고 싶어지는 순간이 바로 이 화면이다.
