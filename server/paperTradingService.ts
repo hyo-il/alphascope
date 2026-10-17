@@ -1,13 +1,16 @@
-import type {
-  CreateOrderInput,
-  CreateOrderResult,
-  Currency,
-  PaperAccount,
-  PaperAccountDetail,
-  PaperOrder,
-  PaperPosition,
-  PaperPositionValued,
-  PaperTrade,
+import {
+  DEFAULT_ACCOUNTS_VIEW,
+  isAccountsView,
+  type AccountsView,
+  type CreateOrderInput,
+  type CreateOrderResult,
+  type Currency,
+  type PaperAccount,
+  type PaperAccountDetail,
+  type PaperOrder,
+  type PaperPosition,
+  type PaperPositionValued,
+  type PaperTrade,
 } from '../src/types/paper';
 import { getDb } from './db';
 import { fetchQuotes } from './quoteService';
@@ -193,6 +196,19 @@ export function reorderAccounts(ids: number[]): PaperAccount[] {
   const update = db.prepare(`UPDATE paper_accounts SET sort_order = ? WHERE id = ?`);
   db.transaction(() => ids.forEach((id, i) => update.run(i + 1, id)))();
   return listAccounts();
+}
+
+const KEY_ACCOUNTS_VIEW = 'paper.accountsView';
+
+/** 계좌 모아보기의 보기(카드 · 목록) — 없거나 모르는 값이면 카드 */
+export function getAccountsView(): AccountsView {
+  const row = getDb().prepare(`SELECT value FROM app_settings WHERE key = ?`).get(KEY_ACCOUNTS_VIEW) as { value: string } | undefined;
+  return isAccountsView(row?.value) ? row.value : DEFAULT_ACCOUNTS_VIEW;
+}
+export function setAccountsView(view: AccountsView): void {
+  getDb()
+    .prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`)
+    .run(KEY_ACCOUNTS_VIEW, view);
 }
 
 export function getAccount(id: number): PaperAccount {

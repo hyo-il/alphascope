@@ -140,6 +140,7 @@ import { copyAccount, copyName, CopyNameError } from './autoTrading/copy';
 import { deleteUsesOf as deleteAiCheckUses } from './aiCheck/store';
 import { startBuyJudgeScheduler } from './buyJudge/scheduler';
 import { isRetention } from '../src/types/buyJudge';
+import { isAccountsView } from '../src/types/paper';
 import {
   getSettings as getSurgeSettings,
   latestDetections,
@@ -164,6 +165,8 @@ import {
   settlePendingOrders,
   valuePositions,
   getAccount as getPaperAccount,
+  getAccountsView,
+  setAccountsView,
 } from './paperTradingService';
 import { computePerformance } from './paperPerformanceService';
 import { backfillSnapshots, startSnapshotScheduler } from './paperSnapshotScheduler';
@@ -670,6 +673,15 @@ function accountIdOf(req: express.Request): number {
   if (!Number.isInteger(id) || id <= 0) throw new PaperTradingError('accountId 가 필요합니다.');
   return id;
 }
+
+// 계좌 모아보기의 보기(카드 · 목록) — 계좌 주소(`/accounts/:id` 등)보다 먼저 둔다(Express 는 먼저 걸리는 쪽이 이긴다)
+app.get('/api/paper/accounts-view', (_req, res) => res.json({ view: getAccountsView() }));
+app.put('/api/paper/accounts-view', (req, res) => {
+  const view = req.body?.view;
+  if (!isAccountsView(view)) return res.status(400).json({ error: '보기는 card · list 중 하나입니다.' });
+  setAccountsView(view);
+  res.json({ view });
+});
 
 app.get('/api/paper/accounts', (_req, res) => {
   try {

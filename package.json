@@ -30,6 +30,7 @@
     "prevclose:test": "tsx scripts/prevCloseSelfTest.ts",
     "buyjudge:test": "tsx scripts/buyJudgeSelfTest.ts",
     "auth:test": "tsx scripts/authSessionsSelfTest.ts",
+    "accountsview:test": "tsx scripts/accountsViewSelfTest.ts",
     "design:lint": "tsx scripts/designLint.ts",
     "design:check": "tsx scripts/designCheck.ts",
     "ussample:run": "tsx scripts/usCloseSampler.ts",

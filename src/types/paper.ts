@@ -10,6 +10,11 @@ export type OrderType = 'MARKET' | 'LIMIT';
 export type OrderStatus = 'PENDING' | 'FILLED' | 'CANCELLED';
 export type Currency = 'KRW' | 'USD';
 
+/** 계좌 모아보기의 보기 — 서버(`app_settings` 'paper.accountsView')에 두어 모든 기기에서 같다. 없으면 카드 */
+export type AccountsView = 'card' | 'list';
+export const DEFAULT_ACCOUNTS_VIEW: AccountsView = 'card';
+export const isAccountsView = (v: unknown): v is AccountsView => v === 'card' || v === 'list';
+
 export interface PaperAccount {
   id: number;
   name: string;
