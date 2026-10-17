@@ -342,15 +342,25 @@ try {
       check('⑩ 직전 거래일 마감 직후(10분 안)에 받은 것뿐 → 미룸', (await kindOf(US, at(US, '2026-10-09', 10))) === 'unconfirmed:2026-10-08');
       saveCandles(US, '1d', [lastBar], at(US, '2026-10-08', 18)); // 목 18:00 ET 에 받기 성공 — 그런데 목요일 봉이 없다
       // 시장 기준(SPY · KODEX 200)에 그날 봉이 있는지로 거래정지와 토스 반영 지연을 가른다 — 받기를 바꿔치기해 그날 봉 유무를 정한다
+      // 시장 기준도 가짜 이름(캐시에만) — 사본 DB 의 진짜 SPY 줄(받은 시각)과 섞이지 않게
+      const REF_US = 'ZZREFUS';
+      const REF_KR = '9ZREFK';
       const refWith = (days: string[]) => async (m: 'US' | 'KR') =>
-        ({ market: m, symbol: m === 'US' ? 'SPY' : '069500', name: m, candles: days.map((d) => ({ timestamp: midnight(m === 'US' ? US : KR, d), open: 1, high: 1, low: 1, close: 1, volume: 1 })), series: {} as never });
+        ({ market: m, symbol: m === 'US' ? REF_US : REF_KR, name: m, candles: days.map((d) => ({ timestamp: midnight(m === 'US' ? US : KR, d), open: 1, high: 1, low: 1, close: 1, volume: 1 })), series: {} as never });
       setMarketRefLoadForTest(refWith(['2026-10-07', '2026-10-08']));
       check('⑩ 받기 성공인데 그 종목만 그날 봉 없음(시장 기준에는 있음) = 거래정지 → 미루지 않고 판단', (await kindOf(US, at(US, '2026-10-09', 10))) === 'ok');
       setMarketRefLoadForTest(refWith(['2026-10-07']));
       check('⑩ 시장 기준에도 그날 봉 없음 = 토스 반영 지연 → 미룸', (await kindOf(US, at(US, '2026-10-09', 10))) === 'unconfirmed:2026-10-08');
       setMarketRefLoadForTest(async () => null);
       check('⑩ 시장 기준을 받지 못함 → 거래정지로 단정하지 않고 미룸', (await kindOf(US, at(US, '2026-10-09', 10))) === 'unconfirmed:2026-10-08');
+      // 종목을 마지막으로 받은 것(목 18:00)이 시장 기준의 그날 봉을 받은 것보다 앞이면 — 이 종목은 지연 중에 받았고 이번 받기는 실패했을 수 있다 → 미룸
       setMarketRefLoadForTest(refWith(['2026-10-07', '2026-10-08']));
+      const refBar = { timestamp: midnight(US, '2026-10-08'), open: 1, high: 1, low: 1, close: 1, volume: 1 };
+      saveCandles(REF_US, '1d', [refBar], at(US, '2026-10-09', 9)); // 시장 기준 그날 봉은 금 09:00 ET 에 들어옴
+      check('⑩ 종목의 마지막 받기가 시장 기준 그날 봉이 들어온 것보다 앞 → 거래정지로 단정하지 않고 미룸', (await kindOf(US, at(US, '2026-10-09', 10))) === 'unconfirmed:2026-10-08');
+      saveCandles(REF_US, '1d', [refBar], at(US, '2026-10-08', 17)); // 목 17:00 ET 에 들어옴 — 종목 받기(18:00)가 뒤
+      check('⑩ 시장 기준 그날 봉이 들어온 뒤에 받았는데도 그 종목만 없음 → 거래정지로 판단', (await kindOf(US, at(US, '2026-10-09', 10))) === 'ok');
+      clear(REF_US);
       // 차트를 과거로 스크롤해 옛 봉만 지금 시각으로 저장된 경우는 「받기 성공」 이 아니다(최근 받기는 실패) → 미룸
       seed(US, '2026-10-07');
       saveCandles(US, '1d', [loadCandles(US, '1d', 30)[0]], at(US, '2026-10-08', 18));
@@ -408,6 +418,7 @@ try {
       setMarketRefLoadForTest(null);
       clear(US);
       clear(KR);
+      clear('ZZREFUS');
       resetPendingNotesForTest();
       deleteStrategy(acc.id);
       deleteAccount(acc.id);

@@ -4,7 +4,7 @@
  * 그래서 같은 종목·같은 날·같은 규칙·같은 상태(보유 없음 등)면 action · score · code 가 같다(`npm run buyjudge:test`).
  */
 import { getCandles } from '../candleService';
-import { CONFIRM_MARGIN_MS, lastDailyFetchedAt, unconfirmedDailyTimestamps } from '../db';
+import { CONFIRM_MARGIN_MS, dailyFetchedAt, lastDailyFetchedAt, unconfirmedDailyTimestamps } from '../db';
 import { dailyCloseOffsetMs } from '../../src/utils/marketBar';
 import { marketDate } from '../../src/utils/marketDate';
 import { computeIndicators } from '../indicatorService';
@@ -62,7 +62,12 @@ export async function judgeOnClose(
         const fetchedAfterClose = fetchedAt != null && fetchedAt >= marketDayTime(market, expected, offset) + CONFIRM_MARGIN_MS;
         if (!fetchedAfterClose) return { kind: 'unconfirmed', dates: [expected], candles: all };
         const ref = await (refs ?? marketRefLoader(now, undefined, undefined, false)).get(market);
-        if (!ref?.candles.some((c) => marketDate(c.timestamp, ref.symbol) === expected)) return { kind: 'unconfirmed', dates: [expected], candles: all };
+        const refBar = ref?.candles.find((c) => marketDate(c.timestamp, ref.symbol) === expected);
+        if (!ref || !refBar) return { kind: 'unconfirmed', dates: [expected], candles: all };
+        // 그 종목을 마지막으로 받은 것이 시장 기준의 그날 봉이 들어온 **뒤**여야 「토스에 이미 있었는데 이 종목만 없었다」 가 된다.
+        // 앞이면(이 종목은 지연 중에 받고, 이번 받기는 실패) 아직 지연일 수 있어 미룬다. 기준 봉을 받은 시각을 모르면(옛 줄) 그대로 진행
+        const refFetchedAt = dailyFetchedAt(ref.symbol, refBar.timestamp);
+        if (refFetchedAt != null && fetchedAt! < refFetchedAt) return { kind: 'unconfirmed', dates: [expected], candles: all };
       }
     }
   }

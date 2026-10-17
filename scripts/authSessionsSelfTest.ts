@@ -85,7 +85,8 @@ try {
   const ver = await fetch(`${BASE}/api/version`);
   const unauth = await get();
   const authed = await get(a);
-  check('/api 응답은 Cache-Control: no-store(열린 주소 · 401 · 로그인 응답 모두)', [ver, unauth, authed].every((r) => r.headers.get('cache-control') === 'no-store'), [ver, unauth, authed].map((r) => r.headers.get('cache-control')).join(' / '));
+  const foreign = await fetch(`${BASE}/api/auth/sessions/000000000000`, { method: 'DELETE', headers: { cookie: a, origin: 'http://evil.example' } });
+  check('/api 응답은 Cache-Control: no-store(열린 주소 · 401 · 403 · 로그인 응답 모두)', foreign.status === 403 && [ver, unauth, foreign, authed].every((r) => r.headers.get('cache-control') === 'no-store'), [ver, unauth, foreign, authed].map((r) => `${r.status}:${r.headers.get('cache-control')}`).join(' / '));
 
   const resA = await get(a);
   const raw = await resA.text();

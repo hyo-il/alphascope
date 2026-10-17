@@ -80,7 +80,7 @@ npm run diagnose          # 종합 진단 리포트(지표 엔진 필요)
 | 변수 | 필수 | 설명 |
 |---|:---:|---|
 | `TOSS_CLIENT_ID` · `TOSS_CLIENT_SECRET` | ✅ | 토스증권 Open API — **서버에서만 읽습니다**. 비었거나 `your_` 로 시작하면 모의 데이터 모드 |
-| `GEMINI_API_KEY` · `GEMINI_MODEL` | | Google Gemini. 없으면 Gemini 기능만 꺼집니다 |
+| `GEMINI_` 로 시작하는 키 · 모델 (이름은 `.env.example`) | | Google Gemini. 없으면 Gemini 기능만 꺼집니다 |
 | `API_PORT` · `INDICATORS_PORT` | | 기본값 4000 · 5001 |
 | `DB_PATH` | | 기본값 `./db/alphascope.db` |
 | `AUTO_TRADING_ENABLED` · `GEMINI_ENABLED` · `GEMINI_SCHEDULED_ENABLED` · `UNIVERSE_UPDATE_ENABLED` | | 스위치(기본 true) — 사본 DB 로 시험 서버를 띄울 때는 끈다 |

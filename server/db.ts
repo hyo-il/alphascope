@@ -110,6 +110,12 @@ export function lastDailyFetchedAt(symbol: string, fromTs: number): number | nul
   return row?.f ?? null;
 }
 
+/** 그 일봉 한 줄을 받은 시각(fetched_at) — 없거나 옛 줄(NULL)이면 null */
+export function dailyFetchedAt(symbol: string, timestamp: number): number | null {
+  const row = getDb().prepare(`SELECT fetched_at AS f FROM candles WHERE symbol = ? AND timeframe = '1d' AND timestamp = ?`).get(symbol, timestamp) as { f: number | null } | undefined;
+  return row?.f ?? null;
+}
+
 /** 마감 직후 받은 값에는 마지막 체결이 아직 덜 들어왔을 수 있다 — 마감 뒤 10분부터 받은 값을 끝난 값으로 본다 */
 export const CONFIRM_MARGIN_MS = 10 * 60_000;
 
