@@ -107,9 +107,14 @@ export async function runSampler(opts: SamplerOptions): Promise<SamplerResult> {
   return { status: 'recorded', ...base, symbols, ok: lines.length - failed, failed, dropped };
 }
 
-/** 받은 토큰을 파일에 둔다(권한 600) — 다음 실행이 다시 쓴다 */
+/**
+ * 받은 토큰을 파일에 둔다(권한 600) — 다음 실행이 다시 쓴다. **한 번 실행에 발급 시도는 1번까지**(실패 · 네트워크 오류 포함) —
+ * 401 이 나서 다시 받아야 하면 그 회차는 멈춘다(토스가 새 발급 때 예전 토큰을 끊는다면 서버와 서로 끊는 일이 5분에 한 번을 넘지 않게).
+ */
 export function fileTokenStore(file: string) {
+  let attempts = 0;
   return {
+    canIssue: () => attempts++ < 1,
     load(): CachedToken | null {
       try {
         const t = JSON.parse(fs.readFileSync(file, 'utf8')) as CachedToken;

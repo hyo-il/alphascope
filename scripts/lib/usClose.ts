@@ -12,8 +12,11 @@ import path from 'node:path';
 /** 기록하는 시간대(ET, 분) — 15:55 ~ 20:40. 애프터마켓은 20:00 ET 에 끝나므로 마지막 40분은 늦은 반영을 보려는 여유다 */
 export const WINDOW_START_MIN = 15 * 60 + 55;
 export const WINDOW_END_MIN = 20 * 60 + 40;
-/** 「16:30 ET 무렵」 — 매수 판단 매일 기록 시각(`server/buyJudge/judge.ts` RECORD_AT) 앞뒤 5분 */
-export const AROUND_1630 = { from: 16 * 60 + 25, to: 16 * 60 + 35, at: 16 * 60 + 30 };
+/**
+ * 「16:30 ET 무렵」 — 매수 판단 매일 기록 시각(`server/buyJudge/judge.ts` RECORD_AT)과 그 앞 5분만.
+ * 16:30 뒤 값을 쓰면 실제 기록보다 늦게 받은 값이라 결과가 좋게 나올 수 있다.
+ */
+export const AROUND_1630 = { from: 16 * 60 + 25, to: 16 * 60 + 30, at: 16 * 60 + 30 };
 /** 기록 파일 — 앱 폴더 밖(배포가 지우거나 덮지 않게) */
 export const SAMPLE_FILE = path.join(os.homedir(), 'alphascope-samples', 'us-close.jsonl');
 /** 한 번에 받는 종목 수 상한 */
@@ -119,7 +122,7 @@ export interface GroupResult {
   samples: number;
   finalEt: string;
   /** 16:30 무렵 표본(없으면 null) */
-  near: { et: string; cells: Record<Field, string>; same: Record<Field, boolean> } | null;
+  near: { et: string; cells: Record<Field, string>; same: Record<Field, boolean>; volumePct: number } | null;
   /** 이 시각부터 끝까지 가격 4칸이 최종값과 같다 */
   priceSettledEt: string;
   /** 이 시각부터 끝까지 다섯 칸이 최종값과 같다 */
@@ -163,6 +166,7 @@ export function compareGroups(lines: SampleLine[]): GroupResult[] {
             et: n.et,
             cells: Object.fromEntries(FIELDS.map((f) => [f, cell(f, n[f]!, final[f]!)])) as Record<Field, string>,
             same: Object.fromEntries(FIELDS.map((f) => [f, n[f] === final[f]])) as Record<Field, boolean>,
+            volumePct: final.volume ? ((n.volume! - final.volume) / final.volume) * 100 : 0,
           }
         : null,
       priceSettledEt: settled(['open', 'high', 'low', 'close']),
@@ -220,7 +224,13 @@ export function conclusion(groups: GroupResult[]): string {
   if (!judged.length) return '결론: 판단할 표본이 없다(16:30 무렵 기록과 20:30 ET 이후 마지막 기록이 함께 있는 종목·날짜가 없음).';
   const diff = FIELDS.map((f) => ({ f, n: judged.filter((g) => !g.near!.same[f]).length })).filter((x) => x.n > 0);
   const days = new Set(judged.map((g) => g.day)).size;
-  const base = `결론(${days}일 · ${judged.length}개 종목·날짜): 16:30 ET 무렵 값이 최종값과`;
+  const skipped = groups.length - judged.length;
+  const base = `결론(${days}일 · ${judged.length}개 종목·날짜${skipped ? ` · 제외 ${skipped}개 — 16:25~16:30 기록 없음 또는 마지막 기록이 20:30 전` : ''}): 16:30 ET 무렵 값이 최종값과`;
   if (!diff.length) return `${base} 다섯 칸 모두 같다.`;
-  return `${base} 다르다 — ${diff.map((x) => `${LABEL[x.f]} ${x.n}건`).join(' · ')}.`;
+  const priceSame = diff.every((x) => x.f === 'volume');
+  const volDiff = judged.filter((g) => !g.near!.same.volume);
+  const maxPct = Math.max(0, ...volDiff.map((g) => Math.abs(g.near!.volumePct)));
+  const lastSettled = judged.map((g) => g.allSettledEt).sort().at(-1);
+  const volText = volDiff.length ? ` 거래량 차이는 최대 ${maxPct.toFixed(2)}%, 다섯 칸이 최종값과 같아진 가장 늦은 시각 ${lastSettled} ET.` : '';
+  return `${base} 다르다 — ${diff.map((x) => `${LABEL[x.f]} ${x.n}건`).join(' · ')}${priceSame ? ' (가격 4칸은 모두 같음)' : ''}.${volText}`;
 }

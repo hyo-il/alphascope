@@ -96,7 +96,7 @@ ssh alphascope 'N=$(command -v node) || { echo "node 를 찾지 못했습니다"
 ssh alphascope 'cd ~/alphascope && npm run -s ussample:report; tail -n 3 ~/alphascope-samples/cron.log 2>/dev/null'
 ```
 
-지우기(마지막에 「남은 예약 줄 수: 0」 — 기록 파일은 남습니다):
+지우기(마지막에 「남은 예약 줄 수: 0」 — 기록 파일과 토큰 파일(`.toss-token.json`, 1시간 안에 만료)은 남습니다):
 
 ```bash
 ssh alphascope '(crontab -l 2>/dev/null | grep -v "# alphascope-ussample") | crontab - && echo "남은 예약 줄 수: $(crontab -l 2>/dev/null | grep -c "# alphascope-ussample")"'

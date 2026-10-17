@@ -48,6 +48,8 @@ export interface TokenStore {
   load(): CachedToken | null;
   save(token: CachedToken): void;
   clear(): void;
+  /** 발급하기 직전에 한 번 부른다. false 면 발급하지 않고 실패한다(발급 실패와 같게 — tossGet 이 다시 시도하지 않는다) */
+  canIssue?(): boolean;
 }
 let store: TokenStore | null = null;
 export function setTokenStore(next: TokenStore | null): void {
@@ -123,6 +125,9 @@ export async function getAccessToken(forceRefresh = false): Promise<string> {
     cached && !forceRefresh && cached.expiresAt - TOKEN_REFRESH_MARGIN_MS > Date.now();
   if (stillValid) return cached!.accessToken;
 
+  if (!inflight && store?.canIssue && !store.canIssue()) {
+    throw new TossAuthError('이 실행에서 더 발급하지 않습니다(점검 도구 발급 한도)', 0, '');
+  }
   inflight ??= requestToken()
     .then((token) => {
       cached = token;

@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { dbFilePath } from '../server/db';
 import { isMockMode } from '../server/mockData';
-import { setTokenStore, TossAuthError } from '../src/services/toss/auth';
+import { getAccessToken, setTokenStore, TossAuthError } from '../src/services/toss/auth';
 import { isKrSymbol } from '../src/utils/market';
 import type { Candle } from '../src/types/toss';
 import { compareGroups, conclusion, etParts, readLines, renderReport, type SampleLine, type SamplerConfig } from './lib/usClose';
@@ -202,7 +202,10 @@ async function run(nowIso: string, extra: Partial<Parameters<typeof runSampler>[
   check('가격은 같음, 거래량은 다름(차이)', spy.near?.cells.close === '같음' && spy.near?.cells.volume === '다름(-50)', JSON.stringify(spy.near?.cells));
   check('가격 4칸 같아진 시각 16:30 · 5칸 17:00', spy.priceSettledEt === '16:30' && spy.allSettledEt === '17:00', `${spy.priceSettledEt} ${spy.allSettledEt}`);
   check('최종값 = 마지막 받은 시각(20:40)', spy.finalEt === '20:40');
-  check('결론: 거래량 1건 다름', conclusion(groups).includes('다르다 — 거래량 1건'), conclusion(groups));
+  check('결론: 거래량 1건 다름 · 가격 4칸 같음 · 최대 %(950 vs 1000 = 5.00%) · 같아진 시각', conclusion(groups).includes('다르다 — 거래량 1건 (가격 4칸은 모두 같음). 거래량 차이는 최대 5.00%, 다섯 칸이 최종값과 같아진 가장 늦은 시각 17:00 ET.'), conclusion(groups));
+  const late = compareGroups([mk('16:35', '20:35:00', { volume: 1 }), mk('20:40', '00:40:00', { at: '2026-10-20T00:40:00Z' })]);
+  check('16:35 값은 「16:30 무렵」 으로 쓰지 않음(기록 시각보다 늦음) → 제외로 셈', late[0].near === null && conclusion(late).startsWith('결론: 판단할 표본이 없다'), conclusion(late));
+  check('결론에 제외 수', conclusion([...groups, ...late.map((g) => ({ ...g, symbol: 'X' }))]).includes('제외 1개'), conclusion([...groups, ...late]));
   check('같은 종목만이면 「다섯 칸 모두 같다」', conclusion(groups.filter((g) => g.symbol === 'QQQ')).includes('다섯 칸 모두 같다'));
   const text = renderReport(lines);
   check('결과 표에 실패 줄 수', text.includes('실패 1줄') && text.includes('| 2026-10-19 | SPY | 16:30 | 같음 | 같음 | 같음 | 같음 | 다름(-50) | 16:30 | 17:00 | 20:40 | 4 |'), text.split('\n')[5]);
@@ -220,8 +223,13 @@ async function run(nowIso: string, extra: Partial<Parameters<typeof runSampler>[
   store.save({ accessToken: 'x', expiresAt: 1 });
   check('토큰 파일 권한 600', (fs.statSync(tokenFile).mode & 0o777) === 0o600, (fs.statSync(tokenFile).mode & 0o777).toString(8));
   check('토큰 파일 다시 읽기', store.load()?.accessToken === 'x');
+  check('발급 시도는 한 실행에 1번(두 번째는 막음)', store.canIssue() && !store.canIssue() && !store.canIssue());
   store.clear();
   check('토큰 파일 지우기', !fs.existsSync(tokenFile) && store.load() === null);
+  setTokenStore({ load: () => null, save: () => {}, clear: () => {}, canIssue: () => false });
+  const refused = await getAccessToken().then(() => null, (e: unknown) => e);
+  check('발급이 막히면 getAccessToken 이 토큰 요청 없이 TossAuthError(4xx 취급 — tossGet 이 다시 시도하지 않음)', refused instanceof TossAuthError && refused.status < 500, String(refused));
+  setTokenStore(null);
 }
 
 // ── 8. 실제 토스 한 번(--real) — SPY · QQQ 의 10-16 봉 ──
