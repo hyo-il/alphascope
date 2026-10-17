@@ -335,20 +335,32 @@ try {
       check('⑩ 국내 — 마지막 봉이 수요일, 월 10:00 KST(목이 직전 거래일 — 금은 한글날) → 미룸', (await kindOf(KR, at(KR, '2026-10-12', 10))) === 'unconfirmed:2026-10-08');
       check('⑩ 국내 — 목 19:00 KST(NXT 중)에는 직전 거래일 = 수 → 정상', (await kindOf(KR, at(KR, '2026-10-08', 19))) === 'ok');
       check('⑩ 국내 — 목 20:30 KST(NXT 끝)에 목요일 봉 없음 → 미룸', (await kindOf(KR, at(KR, '2026-10-08', 20.5))) === 'unconfirmed:2026-10-08');
-      // 거래정지처럼 그날 봉이 원래 없는 종목 — 그 날 마감(+10분) 뒤에 받기가 성공했는데도 봉이 없으면 미루지 않는다(영영 판단 못 하게 되지 않게)
+      // 마감(+10분) 뒤 받기가 성공했는데 그날 봉이 없음 — 거래정지(진행)와 토스 반영 지연(미룸)을 시장 기준으로 가른다
       seed(US, '2026-10-07');
       const lastBar = loadCandles(US, '1d', 1)[0];
       saveCandles(US, '1d', [lastBar], at(US, '2026-10-08', 16.05)); // 목 마감 3분 뒤 — 아직 덜 들어왔을 수 있다
       check('⑩ 직전 거래일 마감 직후(10분 안)에 받은 것뿐 → 미룸', (await kindOf(US, at(US, '2026-10-09', 10))) === 'unconfirmed:2026-10-08');
       saveCandles(US, '1d', [lastBar], at(US, '2026-10-08', 18)); // 목 18:00 ET 에 받기 성공 — 그런데 목요일 봉이 없다
-      check('⑩ 직전 거래일 마감 뒤에 받기가 성공했는데 그 봉이 없음(거래정지 등) → 미루지 않고 판단', (await kindOf(US, at(US, '2026-10-09', 10))) === 'ok');
+      // 시장 기준(SPY · KODEX 200)에 그날 봉이 있는지로 거래정지와 토스 반영 지연을 가른다 — 받기를 바꿔치기해 그날 봉 유무를 정한다
+      const refWith = (days: string[]) => async (m: 'US' | 'KR') =>
+        ({ market: m, symbol: m === 'US' ? 'SPY' : '069500', name: m, candles: days.map((d) => ({ timestamp: midnight(m === 'US' ? US : KR, d), open: 1, high: 1, low: 1, close: 1, volume: 1 })), series: {} as never });
+      setMarketRefLoadForTest(refWith(['2026-10-07', '2026-10-08']));
+      check('⑩ 받기 성공인데 그 종목만 그날 봉 없음(시장 기준에는 있음) = 거래정지 → 미루지 않고 판단', (await kindOf(US, at(US, '2026-10-09', 10))) === 'ok');
+      setMarketRefLoadForTest(refWith(['2026-10-07']));
+      check('⑩ 시장 기준에도 그날 봉 없음 = 토스 반영 지연 → 미룸', (await kindOf(US, at(US, '2026-10-09', 10))) === 'unconfirmed:2026-10-08');
+      setMarketRefLoadForTest(async () => null);
+      check('⑩ 시장 기준을 받지 못함 → 거래정지로 단정하지 않고 미룸', (await kindOf(US, at(US, '2026-10-09', 10))) === 'unconfirmed:2026-10-08');
+      setMarketRefLoadForTest(refWith(['2026-10-07', '2026-10-08']));
       // 차트를 과거로 스크롤해 옛 봉만 지금 시각으로 저장된 경우는 「받기 성공」 이 아니다(최근 받기는 실패) → 미룸
       seed(US, '2026-10-07');
       saveCandles(US, '1d', [loadCandles(US, '1d', 30)[0]], at(US, '2026-10-08', 18));
       check('⑩ 옛 봉만 마감 뒤에 저장됨(차트 과거 스크롤) → 받기 성공으로 보지 않고 미룸', (await kindOf(US, at(US, '2026-10-09', 10))) === 'unconfirmed:2026-10-08');
       seed(KR, '2026-10-07');
       saveCandles(KR, '1d', [loadCandles(KR, '1d', 1)[0]], at(KR, '2026-10-12', 9.5)); // 월 09:30 KST 받기 성공(목 봉 없음)
-      check('⑩ 국내 — 월 09:30 받기 성공에 목 봉 없음 → 판단', (await kindOf(KR, at(KR, '2026-10-12', 10))) === 'ok');
+      check('⑩ 국내 — 월 09:30 받기 성공에 목 봉 없음 · KODEX 200 에는 있음 → 판단', (await kindOf(KR, at(KR, '2026-10-12', 10))) === 'ok');
+      setMarketRefLoadForTest(refWith(['2026-10-07']));
+      check('⑩ 국내 — KODEX 200 에도 목 봉 없음 → 미룸', (await kindOf(KR, at(KR, '2026-10-12', 10))) === 'unconfirmed:2026-10-08');
+      setMarketRefLoadForTest(null);
       check('⑩ 그 시장 날짜의 시각 — 미국 EDT · EST · 국내', marketDayTime('US', '2026-10-08', 16 * H) === Date.parse('2026-10-08T20:00:00Z') && marketDayTime('US', '2026-11-27', 16 * H) === Date.parse('2026-11-27T21:00:00Z') && marketDayTime('KR', '2026-10-08', 20 * H) === Date.parse('2026-10-08T11:00:00Z'));
       check('⑩ 직전 거래일 계산 = 시장 달력(주말 · 휴장 건너뜀)', lastClosedDay('KR', at(KR, '2026-10-12', 10), 20 * H) === '2026-10-08' && lastClosedDay('US', at(US, '2026-11-27', 10), 16 * H) === '2026-11-25' && lastClosedDay('US', at(US, '2026-10-12', 10), 16 * H) === '2026-10-09');
 
@@ -393,6 +405,7 @@ try {
       check('⑩ 계좌 — 직전 거래일 봉이 들어오면 판단하고 그날을 마침', a4.evaluated === 1 && !a4.notes.some((n) => n.code === 'bar_unconfirmed') && getJudgedDay(acc.id, US) === '2026-10-09', `${a4.notes.map((n) => n.code)}`);
     } finally {
       globalThis.fetch = realFetch;
+      setMarketRefLoadForTest(null);
       clear(US);
       clear(KR);
       resetPendingNotesForTest();

@@ -82,6 +82,10 @@ try {
 
   check('로그인하지 않은 요청 — 목록 401', (await get()).status === 401);
   check('로그인하지 않은 요청 — 지우기 401', (await del('0123456789ab')).status === 401);
+  const ver = await fetch(`${BASE}/api/version`);
+  const unauth = await get();
+  const authed = await get(a);
+  check('/api 응답은 Cache-Control: no-store(열린 주소 · 401 · 로그인 응답 모두)', [ver, unauth, authed].every((r) => r.headers.get('cache-control') === 'no-store'), [ver, unauth, authed].map((r) => r.headers.get('cache-control')).join(' / '));
 
   const resA = await get(a);
   const raw = await resA.text();

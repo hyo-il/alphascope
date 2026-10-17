@@ -10,7 +10,7 @@ import { marketDate } from '../../src/utils/marketDate';
 import { computeIndicators } from '../indicatorService';
 import { completedDaily, evaluateRule, type RuleEvaluation, type RuleState } from './engine';
 import { usesMarketFilter, type RuleBody } from '../../src/types/tradingRule';
-import { loadMarketRef, marketOfSymbol, type MarketRefLoader } from './marketRef';
+import { loadMarketRef, marketOfSymbol, marketRefLoader, type MarketRefLoader } from './marketRef';
 import { lastClosedDay, marketDayTime } from '../marketHours';
 import { isMockMode } from '../mockData';
 import type { Candle } from '../../src/types/toss';
@@ -50,7 +50,8 @@ export async function judgeOnClose(
     const bad = unconfirmedDailyTimestamps(symbol, completed[0].timestamp, dailyCloseOffsetMs(symbol)).filter((ts) => ts <= completed.at(-1)!.timestamp);
     if (bad.length) return { kind: 'unconfirmed', dates: bad.map((ts) => marketDate(ts, symbol)), candles: all };
     // 오래된 끝난 봉(v2.51.2) — 받기에 실패했고 장중 저장 봉도 없으면 마지막 끝난 봉이 직전 거래일보다 앞이다. 그 값으로 판단하고 그날을 마치지 않는다.
-    // 단, 그 날 마감(+10분) 뒤에 받기가 **성공**했는데도 그 봉이 없으면 그날 거래가 없던 종목(거래정지 등)이다 — 미루지 않는다(미루면 영영 판단하지 못한다).
+    // 단, 그 날 마감(+10분) 뒤에 받기가 **성공**했는데도 그 봉이 없으면 둘 중 하나다 — 그 시장 기준(SPY · KODEX 200)에 그날 봉이 있으면
+    // 그 종목만 거래가 없던 것(거래정지 등)이라 진행하고(미루면 영영 판단하지 못한다), 시장 기준에도 없으면(또는 받지 못하면) 토스 반영이 늦은 것이라 미룬다.
     // 모의 데이터 모드는 뺀다 — 모의 일봉은 받은 값이 아니라 지금 시각으로 매일(주말 포함) 만들어 시장 달력과 맞지 않는다
     if (!isMockMode()) {
       const market = marketOfSymbol(symbol);
@@ -60,6 +61,8 @@ export async function judgeOnClose(
         const fetchedAt = lastDailyFetchedAt(symbol, completed.at(-1)!.timestamp);
         const fetchedAfterClose = fetchedAt != null && fetchedAt >= marketDayTime(market, expected, offset) + CONFIRM_MARGIN_MS;
         if (!fetchedAfterClose) return { kind: 'unconfirmed', dates: [expected], candles: all };
+        const ref = await (refs ?? marketRefLoader(now, undefined, undefined, false)).get(market);
+        if (!ref?.candles.some((c) => marketDate(c.timestamp, ref.symbol) === expected)) return { kind: 'unconfirmed', dates: [expected], candles: all };
       }
     }
   }

@@ -18,6 +18,8 @@ export default function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
 
   useEffect(() => {
     inputRef.current?.focus();
+    // 탭 제목에 마지막으로 보던 종목 이름이 남지 않게 — 로그인 화면은 앱 이름만(`useDocumentTitle` 은 앱 본문과 함께 내려간다)
+    document.title = 'AlphaScope';
   }, []);
 
   const submit = async (e: React.FormEvent) => {

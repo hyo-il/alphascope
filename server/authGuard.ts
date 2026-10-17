@@ -109,6 +109,9 @@ function originMismatch(req: express.Request): boolean {
 
 export function authGuard(req: express.Request, res: express.Response, next: express.NextFunction) {
   if (!req.path.startsWith('/api')) return next();
+  // API 응답은 브라우저·중간 캐시에 남기지 않는다 — 공유 PC 에 로그인 기기 목록·계좌 같은 응답이 남지 않게. 한 곳(문지기)에서 모든 /api 에(401·403·503 포함).
+  // 정적 파일(화면 JS·CSS)은 /api 가 아니라 여기서 건드리지 않는다(운영은 nginx 가 따로 캐시한다)
+  res.setHeader('Cache-Control', 'no-store');
 
   if (originMismatch(req)) {
     return res.status(403).json({ error: '허용되지 않은 요청입니다.' });
