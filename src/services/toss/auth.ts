@@ -40,6 +40,21 @@ let cached: CachedToken | null = null;
 let inflight: Promise<CachedToken> | null = null;
 let refreshTimer: NodeJS.Timeout | null = null;
 
+/**
+ * 받은 토큰을 프로세스 밖에 두는 곳 — 5분마다 새 프로세스로 뜨는 점검 도구(`scripts/usCloseSampler.ts`)가
+ * 실행마다 토큰을 새로 발급받지 않게 한다. ⚠️ 서버는 부르지 않는다(서버 토큰은 이 프로세스 메모리에만 있다).
+ */
+export interface TokenStore {
+  load(): CachedToken | null;
+  save(token: CachedToken): void;
+  clear(): void;
+}
+let store: TokenStore | null = null;
+export function setTokenStore(next: TokenStore | null): void {
+  store = next;
+}
+export type { CachedToken };
+
 function config() {
   const clientId = process.env.TOSS_CLIENT_ID;
   const clientSecret = process.env.TOSS_CLIENT_SECRET;
@@ -103,6 +118,7 @@ function scheduleRefresh(token: CachedToken) {
 
 /** 유효한 access token 을 반환한다. 필요하면 발급/갱신한다. */
 export async function getAccessToken(forceRefresh = false): Promise<string> {
+  if (!cached && store && !forceRefresh) cached = store.load();
   const stillValid =
     cached && !forceRefresh && cached.expiresAt - TOKEN_REFRESH_MARGIN_MS > Date.now();
   if (stillValid) return cached!.accessToken;
@@ -110,6 +126,7 @@ export async function getAccessToken(forceRefresh = false): Promise<string> {
   inflight ??= requestToken()
     .then((token) => {
       cached = token;
+      store?.save(token);
       scheduleRefresh(token);
       return token;
     })
@@ -124,6 +141,7 @@ export async function getAccessToken(forceRefresh = false): Promise<string> {
 /** 401 응답을 받았을 때 캐시를 버리고 다음 요청에서 재발급하도록 한다. */
 export function invalidateToken() {
   cached = null;
+  store?.clear();
   if (refreshTimer) clearTimeout(refreshTimer);
   refreshTimer = null;
 }

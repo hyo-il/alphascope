@@ -71,7 +71,7 @@ npm run smoke             # 토큰 발급 → 캔들·현재가·호가 조회 �
 npm run diagnose          # 종합 진단 리포트(지표 엔진 필요)
 ```
 
-시험(`rules:test` · `autotrade:test` · `buyjudge:test` · `prevclose:test` · `auth:test` · `design:check`)은 **DB 사본으로만** 돕니다 — `DB_PATH=<사본>` 이 없거나 실제 DB 면 멈춥니다.
+시험(`rules:test` · `autotrade:test` · `buyjudge:test` · `prevclose:test` · `auth:test` · `ussample:test` · `design:check`)은 **DB 사본으로만** 돕니다 — `DB_PATH=<사본>` 이 없거나 실제 DB 면 멈춥니다.
 
 ### 환경 변수
 

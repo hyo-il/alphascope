@@ -75,6 +75,33 @@ bash ~/alphascope/deploy/rollback-to-vite.sh
 
 진단 리포트 파일은 서버의 `~/alphascope/reports/` 에 쌓입니다.
 
+## 점검 도구
+
+### 미국 마감 직후 값 기록 (`ussample:run` · `ussample:report`)
+
+매수 판단 매일 기록(16:30 ET)이 받는 미국 일봉이 애프터마켓이 끝난 뒤의 최종값과 같은지 보려고, 미국 거래일 15:55~20:40 ET 에
+5분마다 그날 일봉을 받아 `~/alphascope-samples/us-close.jsonl` 에 적습니다. 앱 DB 에는 쓰지 않습니다(읽기만).
+종목과 기간(`startDate` ~ `endDate`)은 `scripts/usCloseSampler.symbols.json` 에 있습니다 — 기간이 지나면 스스로 아무것도 하지 않으므로 예약을 늦게 지워도 해가 없습니다.
+배포(`~/deploy.sh`)를 먼저 한 뒤에 설치합니다. 맥 터미널에 한 줄씩 붙여 넣습니다.
+
+설치(두 번 실행해도 예약은 한 줄 — 마지막에 「예약 줄 수: 1」):
+
+```bash
+ssh alphascope 'N=$(command -v node) || { echo "node 를 찾지 못했습니다"; exit 1; }; mkdir -p ~/alphascope-samples && L="*/5 * * * * cd $HOME/alphascope && PATH=$(dirname "$N"):/usr/bin:/bin ./node_modules/.bin/tsx scripts/usCloseSampler.ts >> $HOME/alphascope-samples/cron.log 2>&1 # alphascope-ussample" && (crontab -l 2>/dev/null | grep -v "# alphascope-ussample"; echo "$L") | crontab - && echo "예약 줄 수: $(crontab -l | grep -c "# alphascope-ussample")"'
+```
+
+결과 보기(표 + 한 줄 결론, 끝에 기록 로그 마지막 3줄):
+
+```bash
+ssh alphascope 'cd ~/alphascope && npm run -s ussample:report; tail -n 3 ~/alphascope-samples/cron.log 2>/dev/null'
+```
+
+지우기(마지막에 「남은 예약 줄 수: 0」 — 기록 파일은 남습니다):
+
+```bash
+ssh alphascope '(crontab -l 2>/dev/null | grep -v "# alphascope-ussample") | crontab - && echo "남은 예약 줄 수: $(crontab -l 2>/dev/null | grep -c "# alphascope-ussample")"'
+```
+
 ## 이 폴더의 파일
 
 | 파일 | 하는 일 |

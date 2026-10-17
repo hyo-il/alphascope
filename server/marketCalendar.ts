@@ -113,11 +113,14 @@ export function listHolidays(market: CalendarMarket, from: string, to: string): 
   return [...days].sort();
 }
 
-/** 그날 장이 닫혀 있나 — 주말이거나, 토스가 확인한 휴장일이거나, (미국) NYSE 공식 휴장일 */
-export function isMarketClosed(market: CalendarMarket, day: string): boolean {
+/**
+ * 그날 장이 닫혀 있나 — 주말이거나, 토스가 확인한 휴장일이거나, (미국) NYSE 공식 휴장일.
+ * `database` 는 앱 DB 에 쓰면 안 되는 점검 도구(`scripts/usCloseSampler.ts` — 읽기 전용 연결)만 넘긴다. `getDb()` 는 열 때 표를 만든다.
+ */
+export function isMarketClosed(market: CalendarMarket, day: string, database?: Pick<ReturnType<typeof getDb>, 'prepare'>): boolean {
   if (isWeekend(day)) return true;
   if (market === 'US' && NYSE_SET.has(day)) return true;
-  return Boolean(getDb().prepare(`SELECT 1 FROM market_holidays WHERE market = ? AND date = ?`).get(market, day));
+  return Boolean((database ?? getDb()).prepare(`SELECT 1 FROM market_holidays WHERE market = ? AND date = ?`).get(market, day));
 }
 
 /**

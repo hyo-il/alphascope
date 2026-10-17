@@ -1,0 +1,42 @@
+{
+  "startDate": "2026-10-19",
+  "endDate": "2026-10-23",
+  "fixed": ["SPY", "QQQ"],
+  "earnings": [
+    {
+      "date": "2026-10-19",
+      "symbol": "WRB",
+      "name": "W. R. Berkley",
+      "when": "after the market closes on Monday, October 19, 2026",
+      "source": "https://s21.q4cdn.com/514440399/files/doc_news/W--R--Berkley-Corporation-to-Announce-Third-Quarter-2026-Earnings-on-October-19-2026-2026.pdf"
+    },
+    {
+      "date": "2026-10-20",
+      "symbol": "NFLX",
+      "name": "Netflix",
+      "when": "Tuesday October 20th, 2026, at approximately 1:01 p.m. Pacific Time",
+      "source": "https://ir.netflix.net/investor-news-and-events/financial-releases/press-release-details/2026/Netflix-to-Announce-Third-Quarter-2026-Financial-Results/default.aspx"
+    },
+    {
+      "date": "2026-10-21",
+      "symbol": "META",
+      "name": "Meta Platforms",
+      "when": "released after market close on Wednesday, October 21st, 2026",
+      "source": "https://investor.atmeta.com/investor-news/press-release-details/2026/Meta-to-Announce-Third-Quarter-2026-Results/default.aspx"
+    },
+    {
+      "date": "2026-10-22",
+      "symbol": "BE",
+      "name": "Bloom Energy",
+      "when": "on October 22, 2026, after market close",
+      "source": "https://www.bloomenergy.com/news/bloom-energy-to-announce-third-quarter-2026-financial-results-on-october-22-2026/"
+    },
+    {
+      "date": "2026-10-22",
+      "symbol": "NEM",
+      "name": "Newmont",
+      "when": "after North American markets close on Thursday, October 22, 2026",
+      "source": "https://www.newmont.com/investors/news-release/news-details/2026/Newmont-Announces-Third-Quarter-2026-Results-Conference-Call/default.aspx"
+    }
+  ]
+}
