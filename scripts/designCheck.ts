@@ -182,6 +182,8 @@ function targets(): Target[] {
     {
       name: 'account-순서-끄는중',
       hash: '#/portfolio/paper',
+      // 앞 대상이 목록 보기를 쟀어도 카드로 다시 그린다(홈을 거쳐 보기를 새로 받는다)
+      before: (page: Page) => setAccountsView(page, 'card'),
       open: async (page: Page) => {
         await page.waitForSelector('article[draggable=true]', { timeout: 8000 });
         await page.evaluate(() => {
