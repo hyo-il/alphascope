@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import InfoTip from './InfoTip';
 
 /**
- * 구역 제목 (v2.36.0) — 굵기 600 한 단계, 아이콘·이모지 없음. 옆에 짧은 꼬리 글자(`aside`, 회색)와 정보 아이콘(`info`), 오른쪽 끝 도구(`right`).
+ * 구역 제목 — 굵기 600 한 단계, 아이콘·이모지 없음. 옆에 짧은 꼬리 글자(`aside`, 회색)와 정보 아이콘(`info`), 오른쪽 끝 도구(`right`).
  * level 1 = 화면 제목(text-base), 2 = 구역 제목(text-sm).
  */
 export default function SectionTitle({

@@ -82,7 +82,7 @@ export function readHistoryCache(symbol: string, period: AnalysisPeriod): Histor
   if (Date.now() - Date.parse(row.updated_at) > HISTORY_TTL_MS) return null;
 
   /*
-   * 예전 캐시는 배열(Candle[])만 저장해 시가총액이 없다. 그대로 쓰면 급등 기준이
+   * 옛 캐시는 배열(Candle[])만 저장해 시가총액이 없다. 그대로 쓰면 급등 기준이
    * 시총 구간을 못 타고 24시간 동안 기본값으로 잘못 판정된다 — 한 번은 다시 받는다.
    */
   const parsed = safeParse<Candle[] | HistoryCache>(row.data, []);
@@ -300,7 +300,7 @@ export function updateOutcome(
 }
 
 /**
- * 탐지 이력 삭제 (v2.22.0) — **`surge_detections` 만** 지운다.
+ * 탐지 이력 삭제 — **`surge_detections` 만** 지운다.
  * 설정(`surge_settings`)·일봉 캐시(`surge_history_cache`)·랭킹 캐시(`surge_ranking_cache`)는 그대로다.
  *
  * 이 표는 급등 화면(탐지 결과·이력)·성과 채점·진단 리포트의 급등 성적만 읽는다 —

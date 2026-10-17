@@ -2,7 +2,7 @@
  * 종합 진단 — `npm run diagnose [--quick] [--symbols AAPL,NVDA]`
  *
  * 본체는 `server/diagnose/report.ts` 의 `runDiagnose()` 다 — 웹의 「진단 리포트」 실행과 같은
- * 함수를 부른다(v2.14.0 에 분리). 여기서는 인자를 읽고 콘솔 요약만 찍는다.
+ * 함수를 부른다. 여기서는 인자를 읽고 콘솔 요약만 찍는다.
  * 결과는 파일(맥 `docs/analysis/` · 오라클 `reports/`)과 DB(`diagnose_reports`)에 함께 남는다.
  */
 

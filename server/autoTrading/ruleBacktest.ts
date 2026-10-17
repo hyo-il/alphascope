@@ -1,9 +1,9 @@
 /**
- * 백테스트 재현 부품 (v2.44.0 — 매매 규칙 엔진). `simulateRule` · `leakCheck` 는 사용자 시험(`ruleResearch.ts`)이 쓴다.
+ * 백테스트 재현 부품 (매매 규칙 엔진). `simulateRule` · `leakCheck` 는 사용자 시험(`ruleResearch.ts`)이 쓴다.
  *
  * ⚠️ **주문을 전혀 내지 않는다.** 판단은 계좌와 **같은 함수** `evaluateRule`(`server/rules/engine.ts`) 하나다.
  *
- * ── 재현 규칙 (v2.31.0 구조 그대로, 판단만 새 엔진) ──────────────────────────────────────────
+ * ── 재현 규칙 (판단은 매매 규칙 엔진) ──────────────────────────────────────────
  * | 신호       | 끝난 봉 i 로 `evaluateRule` (state = 보유 · 매수가 · 최고가 · 손절한 날) — 손익비 1 미만 막음은 **항상**(시험 스크립트만 끈다) |
  * | 사는 값    | 신호가 난 **다음 거래일 시가** |
  * | 파는 값    | 매도 신호 → 다음 거래일 시가. 보유 중이면 그날 규칙의 매도 조건: 손절 = 저가 ≤ 손절가면 `min(시가, 손절가)` ·
@@ -67,7 +67,7 @@ export function simulateRule(
   rule: RuleBody,
   end?: number,
   opts: EvaluateOptions = {},
-  /** 시장 기준(v2.51.0 — 시장 필터를 켠 규칙). 날짜로 맞춰 쓴다 */
+  /** 시장 기준(시장 필터를 켠 규칙). 날짜로 맞춰 쓴다 */
   market?: MarketRefData | null,
 ): SimResult {
   const list: BacktestTrade[] = [];
@@ -190,7 +190,7 @@ export async function leakCheck(
   series: IndicatorSeries,
   start: number,
   rules: RuleBody[],
-  /** 시장 기준(v2.51.0) — 있으면 시장 기준도 그 날짜까지 잘라 지표를 다시 계산해 넣는다(시장 필터를 켠 규칙만) */
+  /** 시장 기준 — 있으면 시장 기준도 그 날짜까지 잘라 지표를 다시 계산해 넣는다(시장 필터를 켠 규칙만) */
   market?: MarketRefData | null,
 ): Promise<string | null> {
   const full = { symbol, candles, series, ...(market !== undefined ? { market } : {}) };

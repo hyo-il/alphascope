@@ -12,14 +12,14 @@
 import type { AgentRole } from '../../src/types/gemini';
 
 /**
- * 프롬프트 버전 — 분석마다 `gemini_analysis.prompt_version` 에 기록한다 (v2.15.0).
+ * 프롬프트 버전 — 분석마다 `gemini_analysis.prompt_version` 에 기록한다.
  * ⚠️ **이 파일(에이전트·의장 프롬프트·스키마)을 고치면 올린다.** 버전별로 적중률을 나눠 봐야
  * "프롬프트를 바꿔서 좋아졌나" 를 말할 수 있다. 칼럼이 생기기 전의 기록(NULL)은 'v1' 로 읽는다.
  */
 export const PROMPT_VERSION = 'v1';
 
 /**
- * 투자자 동향 블록이 들어간 분석의 버전 (v2.23.0).
+ * 투자자 동향 블록이 들어간 분석의 버전.
  * ⚠️ **국내 종목에서 동향 블록을 실제로 넣었을 때만** 이 값으로 저장한다 — 입력이 다른 분석은 다른 실험이라
  * v1 적중률에 섞이면 안 된다(`byPromptVersion` 이 버전별로 나눠 센다).
  * 미국 종목·동향을 못 받은 국내 종목은 그대로 `PROMPT_VERSION`(v1). 블록 문구(`src/utils/investorFlow.ts`)를 바꾸면 이 값도 올린다.

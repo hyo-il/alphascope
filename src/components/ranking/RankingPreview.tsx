@@ -10,7 +10,7 @@ import type { LiveRankingRow } from '../../types/ranking';
 import { changeColor, formatPercent, formatPrice } from '../../utils/formatters';
 
 /**
- * 실시간 순위 오른쪽 **고정** 미리보기 패널 (v2.20.0) — 행을 따라다니는 팝업이 아니다(덜 산만하다).
+ * 실시간 순위 오른쪽 **고정** 미리보기 패널 — 행을 따라다니는 팝업이 아니다(덜 산만하다).
  *
  * - 차트는 `LiteCandleChart` **하나**다. 종목·봉이 바뀌면 데이터만 갈아 끼운다(행마다 새 차트를 만들지 않는다).
  * - (종목, 봉) 단위 **메모리 캐시** — 같은 행을 다시 올리면 즉시 그린다.
@@ -30,7 +30,7 @@ export const PREVIEW_TIMEFRAMES: { id: PreviewTimeframe; label: string; limit: n
 const memo = new Map<string, Candle[]>();
 
 /**
- * 다음 실적 발표일 (v2.21.0) — `GET /api/earnings/next`(earnings_calendar 만 읽는다, yfinance 를 부르지 않는다).
+ * 다음 실적 발표일 — `GET /api/earnings/next`(earnings_calendar 만 읽는다, yfinance 를 부르지 않는다).
  * (종목) 단위 메모리 캐시 — 같은 종목을 다시 올리면 요청하지 않는다. 날짜는 하루 1회 갱신이라 화면에 있는 동안은 충분하다.
  */
 interface NextEarnings {
@@ -49,7 +49,7 @@ function EarningsLine({ info }: { info: NextEarnings | null | undefined }) {
   const soon = info.daysUntil <= EARNINGS_WARN_DAYS;
   return (
     <p className={`text-caption ${soon ? 'font-medium text-warning' : 'text-text-secondary'}`}>
-      {/* 날짜는 시장 날짜 문자열(YYYY-MM-DD) 그대로 — 앱 공통 표기(v2.42.3, 예전 「12/23」) */}
+      {/* 날짜는 시장 날짜 문자열(YYYY-MM-DD) 그대로 — 앱 공통 표기 */}
       실적 발표 {info.date} (예정·{info.isEstimate ? '추정' : when})
       {info.isEstimate && <span className="ml-1 text-text-muted">{when}</span>}
     </p>
@@ -63,7 +63,7 @@ export default function RankingPreview({
   pending = false,
 }: {
   row: LiveRankingRow | null;
-  /** 순위를 받는 중(처음·종류·시장을 바꿀 때) — 안내 대신 로딩 표시 (v2.42.3) */
+  /** 순위를 받는 중(처음·종류·시장을 바꿀 때) — 안내 대신 로딩 표시 */
   pending?: boolean;
   timeframe: PreviewTimeframe;
   onTimeframeChange: (tf: PreviewTimeframe) => void;
@@ -72,7 +72,7 @@ export default function RankingPreview({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const controller = useRef<AbortController | null>(null);
-  /** 과거 봉 이어 받기 (v2.41.0) — 메인 차트와 같은 API(before=)·같은 페이지 크기. 더 없으면 그 (종목, 봉)은 멈춘다 */
+  /** 과거 봉 이어 받기 — 메인 차트와 같은 API(before=)·같은 페이지 크기. 더 없으면 그 (종목, 봉)은 멈춘다 */
   const olderCtl = useRef<AbortController | null>(null);
   const olderBusy = useRef(false);
   const ended = useRef(new Set<string>());

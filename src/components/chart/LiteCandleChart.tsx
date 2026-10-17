@@ -22,7 +22,7 @@ import { MA_LINES } from '../../types/chart';
 import type { Candle } from '../../types/toss';
 
 /**
- * 가벼운 캔들 차트 — 캔들 + 거래량 + MA(5·20·60)뿐 (v2.20.0 에 `CompareChart` 에서 떼어 냈다).
+ * 가벼운 캔들 차트 — 캔들 + 거래량 + MA(5·20·60)뿐 — 기업 비교 · 실시간 순위 미리보기가 쓴다.
  * 기업 비교 칸과 실시간 순위의 미리보기가 함께 쓴다.
  *
  * - ⚠️ 차트 인스턴스는 **마운트 때 한 번만** 만들고, 종목·봉이 바뀌면 `setData` 로 데이터만 갈아 끼운다
@@ -63,11 +63,11 @@ export default function LiteCandleChart({
 }: {
   candles: Candle[];
   barSpacing?: number;
-  /** 가격 자릿수 — 원화는 소수점 없이 (v2.33.0) */
+  /** 가격 자릿수 — 원화는 소수점 없이 */
   currency?: 'KRW' | 'USD' | string | null;
   /**
-   * 과거 봉 이어 받기 (선택 — v2.41.0 실시간 순위 미리보기). 둘 다 주면: 사용자가 끌어서 왼쪽 끝에 닿으면 `onReachStart`,
-   * 같은 `datasetKey` 에서 앞에 봉이 붙으면 보던 위치를 유지한다(fitContent 하지 않는다). 주지 않으면 예전 그대로(기업 비교).
+   * 과거 봉 이어 받기 (선택 — 실시간 순위 미리보기). 둘 다 주면: 사용자가 끌어서 왼쪽 끝에 닿으면 `onReachStart`,
+   * 같은 `datasetKey` 에서 앞에 봉이 붙으면 보던 위치를 유지한다(fitContent 하지 않는다). 주지 않으면 이어 받지 않는다(기업 비교).
    */
   datasetKey?: string;
   onReachStart?: () => void;
@@ -150,7 +150,7 @@ export default function LiteCandleChart({
   }, []);
 
   // 데이터 갱신
-  // 가격 자릿수는 통화로 — 원화는 소수점 없이 (v2.33.0)
+  // 가격 자릿수는 통화로 — 원화는 소수점 없이
   useEffect(() => {
     candleSeriesRef.current?.applyOptions({ priceFormat: priceFormatOf(currency) });
   }, [currency]);

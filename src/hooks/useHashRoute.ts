@@ -3,28 +3,28 @@ import { useAppStore, type NavState, type NavSub } from '../store/appStore';
 import { normalizeTab, pageMeta, tabFromPath, tabPath, type NavPageId } from '../types/nav';
 
 /**
- * 화면 주소(해시) — 브라우저 뒤로·앞으로 가기와 새로고침 (v2.26.0).
+ * 화면 주소(해시) — 브라우저 뒤로·앞으로 가기와 새로고침.
  *
- * 형식: `#/{pageId}` (예: `#/chart`, `#/heatmap`), 탭이 있는 화면은 `#/{pageId}/{탭}` (v2.28.0 — `#/swing/history`·`#/portfolio/real`).
+ * 형식: `#/{pageId}` (예: `#/chart`, `#/heatmap`), 탭이 있는 화면은 `#/{pageId}/{탭}` (`#/swing/history`·`#/portfolio/real`).
  * 탭 목록은 `types/nav.ts` 의 `PAGE_TABS` 한 곳이다. 탭 없이 들어오면(`#/swing`) 첫 탭으로 열고 주소는 `replaceState` 로 고친다.
  * 모르는 탭 조각은 버리고 첫 탭. 탭을 누르면 한 칸 쌓이고(뒤로 가기 = 앞 탭), 같은 탭을 다시 누르면 쌓지 않는다.
  * - **해시 방식인 이유**: history 방식(`/chart`)은 서버가 모르는 주소에도 앱을 돌려주도록 nginx 설정까지 바꿔야 한다.
  *   해시는 서버 설정 없이 맥·오라클에서 똑같이 동작한다. 라우터 라이브러리는 들이지 않았다 — 위치는 이미 `appStore.nav` 한 곳이다.
  * - ⚠️ page id 는 `types/nav.ts` 의 `NavPageId` 그대로다 — page id 를 바꾸면 저장된 주소(즐겨찾기)가 깨진다.
- * - 종목(symbol)은 주소에 넣지 않는다(새로고침하면 종목이 비는 것은 예전과 같다).
+ * - 종목(symbol)은 주소에 넣지 않는다(새로고침하면 종목이 빈다).
  *
  * 두 방향:
  * - 상태 → 주소: 메뉴 등으로 `nav` 가 바뀌면 `pushState` 로 한 칸 쌓는다. **지금 주소와 같으면 쌓지 않는다** —
  *   (대메뉴를 눌러 지나간 첫 화면은 같은 대메뉴의 다른 소메뉴로 곧 옮기면 `replaceState` 로 덮어쓴다 — `viaGroup`)
  *   같은 화면을 다시 누르거나, 아래처럼 주소에서 온 이동이면 결과 주소가 이미 같아서 반복이 생기지 않는다.
  * - 주소 → 상태: 뒤로·앞으로 가기(popstate·hashchange)면 그 화면으로 간다(기록은 쌓지 않는다 — 위 비교 덕분).
- * - 처음 열기·새로고침: 주소의 화면으로 연다. 없앤 주소면 `LEGACY_ROUTES` 의 새 자리(v2.47.0), 없거나 모르는 값이면 `home` 으로 열고 `replaceState` 로 주소만 고친다.
+ * - 처음 열기·새로고침: 주소의 화면으로 연다. 없앤 주소면 `LEGACY_ROUTES` 의 새 자리, 없거나 모르는 값이면 `home` 으로 열고 `replaceState` 로 주소만 고친다.
  *
  * 로그인한 상태(`AppBody`)에서만 쓴다 — 로그인 화면에서는 주소를 건드리지 않는다.
  */
 
 /**
- * 없앤 주소 → 새 자리 (v2.47.0 — 「투자 분석 > AI 분석」 · 「실험실 > 진단 리포트」 를 없앴다). **보내기 표는 여기 한 곳**이다.
+ * 없앤 주소 → 새 자리 . **보내기 표는 여기 한 곳**이다.
  * 즐겨찾기·옛 링크가 홈으로 떨어지지 않게 한다. `chartAi` 면 차트로 가서 아래 「AI 분석」 탭을 연다(보던 종목이 없으면 종목 탐색).
  */
 const LEGACY_ROUTES: Record<string, { page: NavPageId; sub: NavSub | null; chartAi?: boolean }> = {
@@ -94,7 +94,7 @@ export function useHashRoute(): void {
         return;
       }
       // 대메뉴를 눌러 지나간 첫 화면에서 같은 대메뉴의 다른 소메뉴로 가면 그 칸을 덮어쓴다(지나가는 자리라 기록에 남기지 않는다)
-      // (같은 화면 안 탭 이동은 덮어쓰지 않는다 — 탭은 한 칸씩 쌓여 뒤로 가기로 돌아가야 한다, v2.28.0)
+      // (같은 화면 안 탭 이동은 덮어쓰지 않는다 — 탭은 한 칸씩 쌓여 뒤로 가기로 돌아가야 한다)
       const passing =
         prev.nav.viaGroup && !state.nav.viaGroup && prev.nav.group === state.nav.group && prev.nav.page !== state.nav.page;
       if (passing) history.replaceState(null, '', target);
@@ -115,7 +115,7 @@ export function useHashRoute(): void {
         return;
       }
       if (!parsed) {
-        // 모르는 주소 — 홈으로(v2.41.0), 주소만 고친다
+        // 모르는 주소 — 홈으로, 주소만 고친다
         history.replaceState(null, '', hashFor({ page: 'home' }));
         useAppStore.getState().setPage('home');
         return;

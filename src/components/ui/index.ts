@@ -1,4 +1,4 @@
-/** 공용 부품 (v2.36.0) — 새 화면은 이 부품으로 만든다. 규칙은 CLAUDE.md 「디자인 가이드라인」. */
+/** 공용 부품 — 새 화면은 이 부품으로 만든다. 규칙은 docs/rules/design.md. */
 export { default as Segmented, type SegmentedOption } from './Segmented';
 export { default as Tabs, type TabItem } from './Tabs';
 export { default as Button } from './Button';

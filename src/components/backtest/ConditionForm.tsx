@@ -6,10 +6,9 @@ import type { TradingRule } from '../../types/tradingRule';
 import { BACKTEST_YEARS, MAX_CONDITIONS, methodName, type ConditionLabel } from '../../types/backtest';
 
 /**
- * ② 방법 · ③ 기간 (v2.44.0 — 퀀트 다시 만들기 2단계). 방법 하나 = 「매매 규칙」 하나(최대 3개 비교).
+ * ② 방법 · ③ 기간 (퀀트 다시 만들기 2단계). 방법 하나 = 「매매 규칙」 하나(최대 3개 비교).
  * 규칙의 숫자는 여기서 고치지 않는다 — [조건 보기] 는 보기 전용이고, 고치기는 「퀀트 > 매매 규칙」 에서만.
  * 규칙이 하나도 없으면 막힌 이유와 가는 길을 같은 자리에 보인다(`RuleSelect`) — [시험 실행] 은 입력 검사가 막는다.
- * 예전의 쉬운 선택지 · 이동평균/RSI/손절 숫자 · 「AI에게 조건 물어보기」 는 v2.44.0 에 없앴다.
  */
 export default function ConditionForm({
   draft,

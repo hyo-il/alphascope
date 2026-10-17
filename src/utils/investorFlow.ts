@@ -1,12 +1,12 @@
 /**
- * 투자자 동향 (국내 종목) — 서버 라우트·Gemini 입력·Claude 수동 프롬프트가 **같은 계산**을 쓴다 (v2.23.0).
+ * 투자자 동향 (국내 종목) — 서버 라우트·Gemini 입력·Claude 수동 프롬프트가 **같은 계산**을 쓴다.
  *
  * 원천: 토스 `GET /api/v1/stocks/{symbol}/investor-trading` (명세 1.2.19, 2026-10-01 실측 대조).
  * - 단위는 **주(거래량)** 다 — 금액이 아니다. 순매수 = 매수 − 매도(음수 = 순매도).
  * - `foreigner` 는 **등록외국인** 기준이다(미등록 제외).
  * - ⚠️ 당일 기록은 장중 **잠정치**라 개인·기타법인이 null 이다(확정치는 그날 저녁). 그래서 합계·일수는
  *   **확정된 날(개인 값이 있는 날)만** 센다 — 잠정 날을 섞으면 외국인·기관만 하루 더 세진다.
- * - 외국인 보유(`foreignerHolding`, v2.30.0): 실측 모양 `{holdingQuantity, limitQuantity, holdingRate}`(문자열),
+ * - 외국인 보유(`foreignerHolding`): 실측 모양 `{holdingQuantity, limitQuantity, holdingRate}`(문자열),
  *   `holdingRate` = 보유 수량 ÷ 외국인 한도 수량, 소수(0.4641 = 46.41%). **화면에만** 쓴다 — AI 입력 블록(`investorFlowBlock`)에는
  *   넣지 않는다(국내 `v1-flow` 입력이 바뀌면 버전을 올려야 하고 채점이 갈라진다). 잠정 행은 '—'.
  * - 쓰지 않는 칸: 기관 세부(`breakdown`)·CFD 잔고(`cfd`).
@@ -30,7 +30,7 @@ export interface FlowRecord {
   institution: FlowSide | null;
   individual: FlowSide | null;
   otherCorporation: FlowSide | null;
-  /** 외국인 보유 (v2.30.0) — rate 는 소수(0.4641 = 46.41%). 없으면 null */
+  /** 외국인 보유 — rate 는 소수(0.4641 = 46.41%). 없으면 null */
   foreignerHolding?: { rate: number; quantity: number | null; limit: number | null } | null;
 }
 
@@ -81,7 +81,7 @@ export function flowPeriod(records: FlowRecord[]): InvestorFlow['period'] {
 }
 
 /**
- * 외국인 보유 비율 요약 (v2.30.0) — **확정일만**. 최신 확정일 값(%)과, 합계 구간(최대 20 확정일)의 가장 이른 날 대비 변화(%p).
+ * 외국인 보유 비율 요약 — **확정일만**. 최신 확정일 값(%)과, 합계 구간(최대 20 확정일)의 가장 이른 날 대비 변화(%p).
  * 해석은 붙이지 않는다(검증한 적 없음).
  */
 export function holdingSummary(records: FlowRecord[]): {

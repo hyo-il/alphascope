@@ -3,10 +3,10 @@ import html2canvas from 'html2canvas';
 /**
  * 차트 캡처 (수정 3).
  *
- * 캡처와 클립보드 복사를 떼어 놓는 것이 핵심이다. 예전에는 버튼 클릭 시점에
- * html2canvas 를 돌렸는데, 렌더가 끝날 때쯤엔 사용자 제스처가 만료돼
- * `clipboard.write()` 가 NotAllowedError 로 거부됐다("복사 거부").
- * 이제 캡처 팝업에서 미리 Blob 을 만들어 두고, 복사 버튼은 그 Blob 만 쓴다.
+ * 캡처와 클립보드 복사를 떼어 놓는 것이 핵심이다. 버튼 클릭 시점에
+ * html2canvas 를 돌리면 렌더가 끝날 때쯤엔 사용자 제스처가 만료돼
+ * `clipboard.write()` 가 NotAllowedError 로 거부된다("복사 거부").
+ * 그래서 캡처 팝업에서 미리 Blob 을 만들어 두고, 복사 버튼은 그 Blob 만 쓴다.
  */
 
 /**

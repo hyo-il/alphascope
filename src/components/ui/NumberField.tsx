@@ -1,7 +1,7 @@
 import { createContext, forwardRef, useContext, useLayoutEffect, useRef, type InputHTMLAttributes, type ReactNode } from 'react';
 import { CONTROL_H, FIELD_W, UNIT_W, type ControlSize, type FieldKind } from './tokens';
 
-/** 같은 묶음의 단위 열 폭 (v2.42.2 → v2.42.3) — 묶음을 이것으로 감싸면 안의 모든 단위 열(`FormRow` · `NumberField`)이 같은 폭이다 */
+/** 같은 묶음의 단위 열 폭 — 묶음을 이것으로 감싸면 안의 모든 단위 열(`FormRow` · `NumberField`)이 같은 폭이다 */
 const UnitWidth = createContext<keyof typeof UNIT_W | undefined>(undefined);
 export function NumberUnitGroup({ w, children }: { w: keyof typeof UNIT_W; children: ReactNode }) {
   return <UnitWidth.Provider value={w}>{children}</UnitWidth.Provider>;
@@ -11,7 +11,7 @@ export function useUnitWidth() {
   return useContext(UnitWidth);
 }
 /**
- * `FormRow` 값 칸 안 표시 (v2.42.3) — 그 안의 `NumberField` 는 **칸만** 그린다(단위 열은 FormRow 가 그린다).
+ * `FormRow` 값 칸 안 표시 — 그 안의 `NumberField` 는 **칸만** 그린다(단위 열은 FormRow 가 그린다).
  * 없으면 묶음 안의 칸이 제 단위 자리(빈 칸)를 한 번 더 비워, 같은 값 칸의 드롭박스·묶음 버튼보다 칸 오른쪽 끝이 그만큼 안쪽에 있었다(캡처 검토에서 찾음).
  */
 const InFormRow = createContext(false);
@@ -40,12 +40,12 @@ export function groupNumber(raw: string): string {
 }
 
 /**
- * 숫자 입력칸 (v2.42.0 → v2.42.2 → v2.42.3).
+ * 숫자 입력칸.
  * - **폭은 종류별**(`kind` — `ui/tokens` 의 `FIELD_W`: short 짧은 숫자 · long 금액). 값은 칸 안 오른쪽 정렬.
- * - **단위는 칸 밖 오른쪽**(v2.42.3 — 예전에는 칸 안). 묶음(`NumberUnitGroup`)이면 단위 열 폭이 같아 단위·설명 시작점이 한 줄이다.
+ * - **단위는 칸 밖 오른쪽**. 묶음(`NumberUnitGroup`)이면 단위 열 폭이 같아 단위·설명 시작점이 한 줄이다.
  *   `FormRow` 안에서는 FormRow 가 단위 열을 그린다(이 부품은 칸만).
- * - 위아래 화살표 없음(전역 CSS) · 키보드 ↑↓ · 휠로 값이 바뀌지 않는다(v2.42.2).
- * - **`thousands`**(v2.42.3, 금액 칸): 입력하는 동안에도 천 단위 쉼표(263,500 · 1,234.56). 텍스트 입력이라 숫자·소수점 외는 무시하고,
+ * - 위아래 화살표 없음(전역 CSS) · 키보드 ↑↓ · 휠로 값이 바뀌지 않는다.
+ * - **`thousands`**(금액 칸): 입력하는 동안에도 천 단위 쉼표(263,500 · 1,234.56). 텍스트 입력이라 숫자·소수점 외는 무시하고,
  *   쉼표가 끼어도 **커서는 숫자 개수 기준으로 제자리**. 붙여넣기(₩·쉼표 섞인 값)도 숫자만. 값은 `onValue` 로 **쉼표 없는 문자열**을 넘긴다.
  *   `decimals` — 원화 0(정수) · 달러 2.
  */
@@ -127,9 +127,9 @@ const NumberField = forwardRef<HTMLInputElement, Props>(function NumberField(
           onChange?.(e);
         }}
         onKeyDown={(e) => {
-          // ↑↓ 로 값이 바뀌지 않게 (v2.42.2)
+          // ↑↓ 로 값이 바뀌지 않게
           if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
-          // 쉼표 바로 옆에서 지우면 쉼표 너머의 숫자를 지운다 — 쉼표만 지우면 값이 그대로라 아무 일도 없고 커서가 끝으로 튀었다 (v2.42.3)
+          // 쉼표 바로 옆에서 지우면 쉼표 너머의 숫자를 지운다 — 쉼표만 지우면 값이 그대로라 아무 일도 없고 커서가 끝으로 튀었다
           if (thousands && (e.key === 'Backspace' || e.key === 'Delete')) {
             const el = e.currentTarget;
             const at = el.selectionStart ?? 0;

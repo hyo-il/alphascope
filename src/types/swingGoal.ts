@@ -1,8 +1,8 @@
 /**
- * 초보자 목표 수익률 설정 (v2.29.0) — 서버 `server/swingGoal.ts` 와 화면이 함께 쓴다.
+ * 초보자 목표 수익률 설정 — 서버 `server/swingGoal.ts` 와 화면이 함께 쓴다.
  *
  * ⚠️ **매수 판단을 바꾸지 않는다.** 이 값은 「목표 수익 가능성」(Gemini)의 조건(목표·손절·기간)일 뿐이다 —
- * 매수 판단은 「매매 규칙」 으로 한다(v2.45.0). "지금 사면 N일 안에 X%" 선별은 검증을 통과하지 못했다(CLAUDE.md 연구 기록).
+ * 매수 판단은 「매매 규칙」 으로 한다. "지금 사면 N일 안에 X%" 선별은 검증을 통과하지 못했다(docs/rules/quant.md 「후보 선별」).
  */
 export interface SwingGoal {
   targetPct: number;
@@ -13,7 +13,7 @@ export interface SwingGoal {
   stopAuto: boolean;
 }
 
-/** 기본값 — 목표 5%(예전 「목표 도달 분석」 탭의 기본값) · 손절 자동 · 1달 */
+/** 기본값 — 목표 5% · 손절 자동 · 1달 */
 export const DEFAULT_SWING_GOAL: SwingGoal = { targetPct: 5, stopPct: 2.5, days: 21, stopAuto: true };
 
 /** 1층 버튼 */

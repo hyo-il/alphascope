@@ -117,7 +117,7 @@ export default function AIAccuracyDashboard() {
 }
 
 /**
- * Gemini 프롬프트 버전별 한 줄씩 — 프롬프트를 바꾼 뒤 "좋아졌나" 를 여기서 비교한다 (v2.15.0).
+ * Gemini 프롬프트 버전별 한 줄씩 — 프롬프트를 바꾼 뒤 "좋아졌나" 를 여기서 비교한다.
  * 같은 종목·같은 날 1건 묶기는 버전별로 따로 한다.
  */
 function VersionLine({ report }: { report: Report }) {

@@ -36,7 +36,7 @@ export const AGGREGATION_MINUTES: Record<string, number> = {
 
 /**
  * 메인 차트가 처음 받는 봉 수 — **캔들과 지표가 같은 값**을 써야 지표가 화면과 어긋나지 않는다(한 곳에 둔다).
- * 주봉 104 ≈ 2년(일봉 약 520), 월봉 60 ≈ 5년(일봉 약 1,260) — v2.20.0.
+ * 주봉 104 ≈ 2년(일봉 약 520), 월봉 60 ≈ 5년(일봉 약 1,260)
  */
 export const CHART_CANDLE_LIMITS = {
   '1m': 500,

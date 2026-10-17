@@ -32,7 +32,7 @@ export function getDb(): Database.Database {
  * 나중에 추가된 컬럼은 여기서 채워 넣는다 (이미 있으면 조용히 넘어간다).
  */
 function migrate(database: Database.Database): void {
-  // 캔들을 받은 시각 (v2.51.1) — 장중에 받아 저장된 일봉을 끝난 봉으로 쓰지 않으려고. 옛 줄은 NULL(알 수 없음 — 끝난 것으로 본다)
+  // 캔들을 받은 시각 — 장중에 받아 저장된 일봉을 끝난 봉으로 쓰지 않으려고. 옛 줄은 NULL(알 수 없음 — 끝난 것으로 본다)
   const candleColumns = database.prepare(`PRAGMA table_info(candles)`).all() as { name: string }[];
   if (candleColumns.length && !candleColumns.some((c) => c.name === 'fetched_at')) {
     database.exec(`ALTER TABLE candles ADD COLUMN fetched_at INTEGER`);
@@ -46,20 +46,20 @@ function migrate(database: Database.Database): void {
   if (!names.has('mode')) database.exec(`ALTER TABLE analysis_history ADD COLUMN mode TEXT`);
   if (!names.has('prompt')) database.exec(`ALTER TABLE analysis_history ADD COLUMN prompt TEXT`);
 
-  // 계좌 화면 순서 (v2.48.0) — 옛 DB 는 지금 보이던 순서(id 순) 그대로 채운다
+  // 계좌 화면 순서 — 옛 DB 는 지금 보이던 순서(id 순) 그대로 채운다
   const accountColumns = database.prepare(`PRAGMA table_info(paper_accounts)`).all() as { name: string }[];
   if (accountColumns.length && !accountColumns.some((c) => c.name === 'sort_order')) {
     database.exec(`ALTER TABLE paper_accounts ADD COLUMN sort_order INTEGER`);
   }
   if (accountColumns.length) database.exec(`UPDATE paper_accounts SET sort_order = id WHERE sort_order IS NULL`);
 
-  // 매수 판단 「거름망에 걸림」 이유 (v2.51.0) — 옛 줄은 NULL(화면은 「거름망에 걸림」 만)
+  // 매수 판단 「거름망에 걸림」 이유 — 옛 줄은 NULL(화면은 「거름망에 걸림」 만)
   const judgmentColumns = database.prepare(`PRAGMA table_info(buy_judgments)`).all() as { name: string }[];
   if (judgmentColumns.length && !judgmentColumns.some((c) => c.name === 'gate_reason')) {
     database.exec(`ALTER TABLE buy_judgments ADD COLUMN gate_reason TEXT`);
   }
 
-  // 종목 프로필의 세부 업종 (v2.42.0) — 동종업계 자동 고르기. 실적일 하루 1회 갱신이 같은 yfinance info 로 채운다
+  // 종목 프로필의 세부 업종 — 동종업계 자동 고르기. 실적일 하루 1회 갱신이 같은 yfinance info 로 채운다
   const profileColumns = database.prepare(`PRAGMA table_info(stock_profiles)`).all() as { name: string }[];
   if (profileColumns.length && !profileColumns.some((c) => c.name === 'industry')) {
     database.exec(`ALTER TABLE stock_profiles ADD COLUMN industry TEXT`);
@@ -79,7 +79,7 @@ const upsertCandle = () =>
       fetched_at = excluded.fetched_at
   `);
 
-/** `fetchedAt` = 받은 시각(v2.51.1 — 끝나지 않은 일봉 판별). 시험이 장중 저장을 흉내 낼 때만 넘긴다 */
+/** `fetchedAt` = 받은 시각(끝나지 않은 일봉 판별). 시험이 장중 저장을 흉내 낼 때만 넘긴다 */
 export function saveCandles(symbol: string, timeframe: BaseTimeframe, candles: Candle[], fetchedAt = Date.now()): void {
   if (!candles.length) return;
   const stmt = upsertCandle();
@@ -90,7 +90,7 @@ export function saveCandles(symbol: string, timeframe: BaseTimeframe, candles: C
 }
 
 /**
- * 일봉 중 **그 시장 마감 전에 받은 값**(끝나지 않은 채 저장됨)의 timestamp 들 (v2.51.1).
+ * 일봉 중 **그 시장 마감 전에 받은 값**(끝나지 않은 채 저장됨)의 timestamp 들.
  * 받기가 성공하면 그 봉은 마감 뒤 값으로 덮인다 — 받기가 실패해 장중 값이 남았을 때만 걸린다.
  * `closeOffsetMs` = 봉 timestamp(그 시장 자정) → 그날 일봉이 끝나는 시각. fetched_at 이 NULL 인 옛 줄은 알 수 없어 끝난 것으로 본다.
  */
@@ -102,7 +102,7 @@ export function unconfirmedDailyTimestamps(symbol: string, fromTs: number, close
 }
 
 /**
- * 그 종목 **최근** 일봉을 마지막으로 받은(받기 성공) 시각 — 최근 받기는 겹치는 봉도 다시 저장하므로 `fromTs`(마지막 끝난 봉) 이후 줄의 가장 늦은 fetched_at 이다(v2.51.2).
+ * 그 종목 **최근** 일봉을 마지막으로 받은(받기 성공) 시각 — 최근 받기는 겹치는 봉도 다시 저장하므로 `fromTs`(마지막 끝난 봉) 이후 줄의 가장 늦은 fetched_at 이다.
  * ⚠️ `fromTs` 로 좁힌다 — 차트를 과거로 스크롤하면(`getCandlesBefore`) 옛 봉도 지금 시각으로 저장되어, 최근 받기가 실패했는데도 「받기 성공」 으로 보일 수 있다. 모르면 null
  */
 export function lastDailyFetchedAt(symbol: string, fromTs: number): number | null {
@@ -110,11 +110,11 @@ export function lastDailyFetchedAt(symbol: string, fromTs: number): number | nul
   return row?.f ?? null;
 }
 
-/** 마감 직후 받은 값에는 마지막 체결이 아직 덜 들어왔을 수 있다 — 마감 뒤 10분부터 받은 값을 끝난 값으로 본다(v2.51.1) */
+/** 마감 직후 받은 값에는 마지막 체결이 아직 덜 들어왔을 수 있다 — 마감 뒤 10분부터 받은 값을 끝난 값으로 본다 */
 export const CONFIRM_MARGIN_MS = 10 * 60_000;
 
 /**
- * 받기가 **성공한 뒤** — 받은 범위(첫 봉~마지막 봉) 안에 있는데 토스가 다시 주지 않은 「끝나지 않은 채 저장된」 일봉을 지운다(v2.51.1).
+ * 받기가 **성공한 뒤** — 받은 범위(첫 봉~마지막 봉) 안에 있는데 토스가 다시 주지 않은 「끝나지 않은 채 저장된」 일봉을 지운다.
  * 장중에만 잠깐 보였거나 날짜가 바뀐 봉이 남으면 영영 「확정 못 함」 이 되어 그 종목을 판단하지 못한다. 끝난 줄(fetched_at 이 마감 뒤 · NULL)은 건드리지 않는다.
  */
 export function pruneUnconfirmedMissing(symbol: string, page: Candle[], closeOffsetMs: number): number {

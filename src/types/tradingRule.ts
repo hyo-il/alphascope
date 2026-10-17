@@ -1,18 +1,16 @@
 /**
- * 「매매 규칙」 (v2.43.0 — 퀀트 다시 만들기 1단계). 매수·매도 조건을 담은 묶음 하나.
+ * 「매매 규칙」 — 매수·매도 조건을 담은 묶음 하나.
  *
  * 계산기는 **점수형 하나**다(사용자 결정 2026-10-13): 매수 조건마다 [사용] · [점수] → 합계가 기준 점수 이상이면 매수.
- * 예전 두 계산기 — 점수 계산기(`server/swingAnalyzer.ts`, v2.45.0 에 지움)와 교차 계산기(`server/autoTrading/ruleEngine.ts` 의 `decideRule`) —
- * 는 3단계까지 그대로 남고, 새 엔진(`server/rules/engine.ts`)이 같은 판단을 내는지 `npm run rules:test` 가 시험한다.
+ * 지운 두 계산기(점수 계산기 `swingAnalyzer` · 교차 계산기 `decideRule`)와 같은 판단을 내는지 `npm run rules:test` 가 정답 파일로 시험한다.
  *
- * ⚠️ 1단계에서는 **어디에도 연결하지 않는다** — 매수 판단 · 계좌 · 백테스트는 예전 계산기 그대로다(2·3단계).
  * ⚠️ 이 파일은 서버도 컴파일한다 — React·DOM 을 들이지 않는다.
  */
 
 /** 5그룹 점수 조건 — 그룹 안 작은 검사 3개(손익비는 비율 표)의 통과 수로 점수를 낸다 */
 export interface GroupCondition {
   on: boolean;
-  /** 이 그룹의 만점. 기본값이면 예전 점수표와 같고, 바꾸면 표를 비례로 늘리거나 줄인다(`scaledTable`) */
+  /** 이 그룹의 만점. 기본값이면 기본 점수표와 같고, 바꾸면 표를 비례로 늘리거나 줄인다(`scaledTable`) */
   points: number;
 }
 
@@ -34,13 +32,13 @@ export interface RsiReboundCondition extends GroupCondition {
 }
 
 /**
- * 「거름망」 (v2.50.0 — 사용자 결정 A-1) — 점수와 따로, **통과하지 못하면 점수가 높아도 사지 않는다.** 매도에는 쓰지 않는다.
+ * 「거름망」 (사용자 결정 A-1) — 점수와 따로, **통과하지 못하면 점수가 높아도 사지 않는다.** 매도에는 쓰지 않는다.
  * 첫 항목 = 주가(끝난 봉 종가)가 200일선 위일 때만 매수. 다음 묶음의 시장 필터가 같은 자리에 들어온다.
  */
 export interface RuleGates {
   above200: { on: boolean };
   /**
-   * 시장 필터 (v2.51.0 — 사용자 결정 A-1·A-2): 종목의 시장 기준(미국 SPY · 국내 KODEX 200 — `server/rules/marketRef.ts`)이
+   * 시장 필터 (사용자 결정 A-1·A-2): 종목의 시장 기준(미국 SPY · 국내 KODEX 200 — `server/rules/marketRef.ts`)이
    * 200일선 위일 때만 매수. 시장 기준 데이터를 못 받은 날은 사지 않는다(A-3).
    */
   marketAbove200: { on: boolean };
@@ -57,7 +55,7 @@ export interface RuleBuy {
   /** 켠 조건의 점수 합계가 이 값 이상이면 매수 */
   minScore: number;
   /**
-   * 거름망 (v2.50.0). ⚠️ v2.50.0 전에 저장한 규칙에는 없다 — 없으면 모두 꺼진 것으로 읽는다(`gatesOf`).
+   * 거름망. ⚠️ 옛 규칙에는 없다 — 없으면 모두 꺼진 것으로 읽는다(`gatesOf`).
    * 옛 규칙의 저장 내용을 바꾸지 않아야 백테스트 기록·판단이 바이트까지 같다.
    */
   gates?: Partial<RuleGates>;
@@ -68,7 +66,7 @@ export function gatesOf(buy: RuleBuy): RuleGates {
   return { above200: { on: Boolean(buy.gates?.above200?.on) }, marketAbove200: { on: Boolean(buy.gates?.marketAbove200?.on) } };
 }
 
-/** 시장 필터를 켰는가 — 켠 규칙만 시장 기준 일봉을 받는다(끈 규칙은 받지 않아 예전과 같다) */
+/** 시장 필터를 켰는가 — 켠 규칙만 시장 기준 일봉을 받는다(끈 규칙은 받지 않는다) */
 export const usesMarketFilter = (body: RuleBody): boolean => gatesOf(body.buy).marketAbove200.on;
 
 /** 이 규칙이 200일선을 쓰는가 — 거름망 또는 이동평균 교차에 200 (백테스트 준비 봉을 늘린다) */
@@ -81,7 +79,7 @@ export interface RuleSell {
   scoreBelow: { on: boolean; value: number };
   /**
    * 반대 신호 — **켠 순간 조건의 반대**만 본다: 교차를 켰으면 데드크로스(같은 단기·장기선),
-   * RSI 반등을 켰으면 RSI ≥ rsiAbove. 예전 교차 계산기(`decideRule`)와 같은 뜻이라 「교차만」·「RSI 만」 규칙도 그대로 옮겨진다.
+   * RSI 반등을 켰으면 RSI ≥ rsiAbove. 지운 교차 계산기(`decideRule`)와 같은 뜻이라 「교차만」·「RSI 만」 규칙도 그대로 옮겨진다.
    */
   opposite: { on: boolean; rsiAbove: number };
   stopLoss: { on: boolean; percent: number };
@@ -122,7 +120,7 @@ export const BUY_KEYS = ['trend', 'timing', 'momentum', 'volume', 'riskReward', 
 export type BuyKey = (typeof BUY_KEYS)[number];
 
 /**
- * 그룹 점수표 — **예전 점수 계산기(`swingAnalyzer.ts`, v2.45.0 에 지움) 그대로**: 작은 검사 0·1·2·3개 통과 → 점수.
+ * 그룹 점수표 — **지운 점수 계산기(`swingAnalyzer`) 그대로**: 작은 검사 0·1·2·3개 통과 → 점수.
  * 손익비는 비율 표다(<1 → 0 · ≥1 → 3 · ≥1.5 → 7 · ≥2 → 10).
  */
 export const GROUP_TABLES = {
@@ -135,7 +133,7 @@ export const GROUP_TABLES = {
 export type GroupKey = keyof typeof GROUP_TABLES;
 
 /**
- * 그룹 만점을 바꾸면 점수표를 **비례로** 늘리거나 줄인다(반올림). 기본 만점이면 예전 표와 같다.
+ * 그룹 만점을 바꾸면 점수표를 **비례로** 늘리거나 줄인다(반올림). 기본 만점이면 기본 표와 같다.
  * 예: 추세 만점 50 → [0, 17, 33, 50] · 타이밍 만점 10 → [0, 3, 6, 10].
  */
 export function scaledTable(key: GroupKey, points: number): number[] {
@@ -194,7 +192,7 @@ export function defaultRuleBody(): RuleBody {
 export const DEFAULT_RULE_NAME = '기본 규칙';
 
 /**
- * 예시 규칙 「기본 규칙 + 200일선」 (v2.50.0 — 사용자 결정 A-3) — 기본 규칙과 같고 거름망(200일선 위일 때만 매수)만 켬.
+ * 예시 규칙 「기본 규칙 + 200일선」 (사용자 결정 A-3) — 기본 규칙과 같고 거름망(200일선 위일 때만 매수)만 켬.
  * 처음 한 번만 만든다(`server/rules/store.ts`). 「기본 규칙」 은 바꾸지 않는다.
  */
 export const ABOVE200_RULE_NAME = '기본 규칙 + 200일선';

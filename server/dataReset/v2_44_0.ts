@@ -1,21 +1,21 @@
 /**
- * v2.44.0 데이터 정리 — **새 버전 서버가 처음 켜질 때 한 번만** (사용자 결정 A-9, 오라클·맥 같다).
+ * 데이터 정리(새 매매 규칙 구조로 바꿀 때) — **새 버전 서버가 처음 켜질 때 한 번만** (사용자 결정 A-9, 오라클·맥 같다).
  *
- * 퀀트 다시 만들기 2단계로 계좌·백테스트의 판단이 새 엔진으로 넘어가, 예전 계산기로 만든 기록을 지우고 계좌를 처음부터 시작한다.
+ * 계좌·백테스트의 판단이 매매 규칙 엔진으로 넘어갈 때, 그전 계산기로 만든 기록을 지우고 계좌를 처음부터 시작한다.
  *  1. `app_settings` 'dataReset.v2.44.0' 이 있으면 아무것도 하지 않는다.
  *  2. **백업**: `VACUUM INTO` → `<DB 폴더>/backup/alphascope-before-v2.44.0-<YYYYMMDD-HHmmss>.db`. 파일이 생겼고 크기 > 0 인지 확인한다.
  *     ⚠️ 확인에 실패하면 **정리하지 않고** 오류만 남긴다(표시도 남기지 않아 다음 시작 때 다시 시도한다).
- *  3. **진단 결과 파일 옮기기**(v2.44.1 보강 — 지우지 않는다): 진단이 쓰는 폴더(`diagnose/report.outputDir` 한 곳 — 맥 관리 루트 docs/analysis ·
+ *  3. **진단 결과 파일 옮기기**(지우지 않는다): 진단이 쓰는 폴더(`diagnose/report.outputDir` 한 곳 — 맥 관리 루트 docs/analysis ·
  *     오라클 ~/alphascope/reports)의 안 내용 전부 → `<DB 폴더>/backup/reports-before-v2.44.0-<같은 시각>/`. 폴더 자체는 빈 채로 남긴다.
  *     같은 디스크면 rename, 아니면 복사 → 크기 확인 → 원본 삭제. 실패해도 DB 정리는 계속한다(파일은 화면에 쓰이지 않는다) — 실패 수를 표시에 남긴다.
  *  4. 한 트랜잭션 안에서 지우기 · 바꾸기(아래 표).
  *  5. 표시 { at, backupPath, counts, reportsMoved, reportsFailed, reportsBackupPath } 를 남기고, 로그에 백업 경로와 표마다 지운 건수를 적는다.
  *
- * | 지움 | gemini_analysis(AI 분석 기록 — v2.44.1 보강, 있으면) · analysis_history(예전 Claude 수동 분석 기록) · swing_recommendations · backtest_reports ·
+ * | 지움 | gemini_analysis(AI 분석 기록, 있으면) · analysis_history(Claude 수동 분석 기록) · swing_recommendations · backtest_reports ·
  * |      | diagnose_reports · target_analysis(있으면) |
  * | 계좌 초기화 | paper_orders · paper_positions · paper_trades · paper_snapshots 전부, paper_accounts.current_cash = initial_balance |
  * | 설정 키(gemini_settings) | autoTrading.trailingPeaks · autoTrading.lastNotes · autoTrading.dailyLoss(초기화 전 평가액이 기준으로 남으면 하루 손실 한도가 거짓으로 걸린다) ·
- * |                         | autoAnalysis · autoTrading.migratedFromGlobal(쓰는 코드가 없는 옛 키 — v2.44.1 보강) |
+ * |                         | autoAnalysis · autoTrading.migratedFromGlobal(쓰는 코드가 없는 옛 키) |
  * | 바꿈 | autoTrading.strategies — 계좌마다 새 모양, ruleId = 「기본 규칙」(없으면 id 가 가장 작은 규칙, 하나도 없으면 null), enabled = false.
  * |      | 종목 · 비중 · 최대 보유 · 실적 발표 전 · 하루 손실 한도는 남긴다 |
  * | 남김 | 계좌 자체(이름·초기 자금·통화·수수료) · trading_rules · news_sentiment · user_data · 그 밖의 설정 · surge_* · 캐시 표 · auth_sessions |

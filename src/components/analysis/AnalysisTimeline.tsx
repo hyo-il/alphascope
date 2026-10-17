@@ -44,8 +44,8 @@ function directionOf(signal: string): 'up' | 'down' | 'flat' {
 }
 
 /**
- * 출처 필터 (v2.23.0 → v2.47.0) — 전체 / 지정 종목 / 바로 분석 / (있을 때만) 기타 / Claude 수동.
- * 배지와 같은 이름을 쓴다(`GEMINI_TRIGGER_LABEL`). 예전 「계좌 자동」(계좌별) 필터는 AI형 자동매매와 함께 없앴다.
+ * 출처 필터 — 전체 / 지정 종목 / 바로 분석 / (있을 때만) 기타 / Claude 수동.
+ * 배지와 같은 이름을 쓴다(`GEMINI_TRIGGER_LABEL`). 옛 「계좌 자동」 기록은 「기타」 로 읽는다.
  */
 type SourceFilter = 'all' | 'scheduled' | 'manual' | 'other' | 'claude';
 
@@ -122,7 +122,7 @@ export default function AnalysisTimeline({
       setGemini(Array.isArray(g) ? g : []);
       /*
         ⚠️ `/api/analysis` 는 `{ analyses: [...] }` 로 준다(`/api/gemini/analyses` 는 배열 그대로).
-        예전에는 배열만 받아서 Claude 기록이 **늘 0건**이었다 (v2.23.0 수정). 둘 다 받아 둔다.
+        배열로만 읽으면 Claude 기록이 **늘 0건**이 된다. 둘 다 받아 둔다.
       */
       const claudeRows = Array.isArray(c) ? c : (c as { analyses?: unknown }).analyses;
       setClaude(Array.isArray(claudeRows) ? (claudeRows as ClaudeRecord[]) : []);
@@ -155,7 +155,7 @@ export default function AnalysisTimeline({
       { value: 'all', label: `전체 (${items.length})` },
       { value: 'scheduled', label: `${GEMINI_TRIGGER_LABEL.scheduled} (${count('scheduled')})` },
       { value: 'manual', label: `${GEMINI_TRIGGER_LABEL.manual} (${count('manual')})` },
-      // 옛 기록(예전 「계좌 자동」 등)이 남아 있을 때만
+      // 옛 기록(「계좌 자동」 등)이 남아 있을 때만
       ...(count('other') ? [{ value: 'other' as SourceFilter, label: `${GEMINI_TRIGGER_LABEL.other} (${count('other')})` }] : []),
       { value: 'claude', label: `Claude 수동 (${count('claude')})` },
     ];
@@ -266,7 +266,7 @@ export default function AnalysisTimeline({
       {/* 일괄 삭제는 「전체」 에서만 — 출처로 걸러 둔 채 지우면 화면에 없는 기록까지 지워진다 */}
       {items.length > 0 && source === 'all' && (
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {/* 화면 안의 삭제 = 빨간 글자 버튼, 줄 오른쪽 끝 · 0개면 감춘다 (v2.42.0 · v2.42.2) */}
+          {/* 화면 안의 삭제 = 빨간 글자 버튼, 줄 오른쪽 끝 · 0개면 감춘다 */}
           <Button variant="danger-text" size="sm" onClick={() => removeMany('all')}>
             모두 삭제 ({items.length})
           </Button>

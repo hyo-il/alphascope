@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BacktestCustomReport, BacktestExplain, BacktestListItem, BacktestProgress, BacktestUniverse, ConditionLabel } from '../types/backtest';
 
 /**
- * 「퀀트 > 백테스트」 데이터 (v2.38.0) — 진단 리포트(`useDiagnose`)와 같은 방식:
+ * 「퀀트 > 백테스트」 데이터 — 진단 리포트(`useDiagnose`)와 같은 방식:
  * 실행은 시작만 하고 **실행 중일 때만** 진행률을 1초마다 본다. 화면을 떠났다 와도 서버 진행률을 읽어 이어 보인다.
  * 끝나면 목록을 다시 읽고 새 결과를 연다(`finished` 로 화면이 알림·스크롤).
  */
@@ -21,7 +21,7 @@ const post = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'cont
 
 export type BacktestDetail = BacktestListItem & { detail: BacktestCustomReport };
 
-/** 시험 요청 — 방법마다 규칙 id (v2.44.0) */
+/** 시험 요청 — 방법마다 규칙 id */
 export interface BacktestStart {
   symbols: string[];
   years: number;

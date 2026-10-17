@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 /**
- * 내가 지정한 종목 — 하루 1번 Gemini 분석 (v2.23.0, `server/gemini/scheduled.ts`).
+ * 내가 지정한 종목 — 하루 1번 Gemini 분석 (`server/gemini/scheduled.ts`).
  *
  * 폴링하지 않는다 — 상태는 하루 한 번 바뀐다. 화면을 열 때 한 번 받고, 저장·실행 뒤 다시 받는다.
  * 「지금 한 번 실행」 중에만 5초마다 끝났는지 본다.
@@ -11,7 +11,7 @@ export interface ScheduledRun {
   baseDate: string;
   startedAt: string;
   finishedAt: string | null;
-  /** catchup = 놓친 날 보충 실행(v2.24.0) */
+  /** catchup = 놓친 날 보충 실행 */
   trigger: 'schedule' | 'catchup' | 'manual';
   done: { symbol: string; signal: string; confidence: number }[];
   failed: { symbol: string; error: string }[];

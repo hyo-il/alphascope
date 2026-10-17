@@ -72,18 +72,18 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
     }
   };
 
-  /** 바 맨 위의 "지금 상태" 한 문장 (v2.32.0) — 분류는 `autoTradeView` 한 곳, 문장은 `autoTradeExplain` 한 곳 */
+  /** 바 맨 위의 "지금 상태" 한 문장 — 분류는 `autoTradeView` 한 곳, 문장은 `autoTradeExplain` 한 곳 */
   const view = autoTradeView(strategy, status);
   const sentence = nowSentence(strategy, status, view);
-  // 「최근 판단」 하루치(v2.50.0) — 판단 한 번씩 묶음(최근이 위). 줄 번호는 묶음을 이어 센다(AI 이유 펼침 상태)
+  // 「최근 판단」 하루치 — 판단 한 번씩 묶음(최근이 위). 줄 번호는 묶음을 이어 센다(AI 이유 펼침 상태)
   const groups = groupNotes(status?.lastNotes ?? []);
   const offsets = groups.reduce<number[]>((acc, _g, k) => [...acc, k === 0 ? 0 : acc[k - 1] + groups[k - 1].notes.length], []);
-  // 「매수·매도만 보기」(v2.51.0 — 화면에만 기억, 새로고침하면 「전체」) — 기다림(그대로) 줄을 숨기고, 남는 줄이 없는 묶음은 감춘다
+  // 「매수·매도만 보기」(화면에만 기억, 새로고침하면 「전체」) — 기다림(그대로) 줄을 숨기고, 남는 줄이 없는 묶음은 감춘다
   const shownGroups = groups
     .map((g, gi) => ({ g, gi, items: g.notes.map((n, j) => ({ n, i: offsets[gi] + j })).filter(({ n }) => noteFilter === 'all' || n.action !== 'HOLD') }))
     .filter((x) => x.items.length > 0)
     .map((x, si) => ({ ...x, si }));
-  // 묶음 접기(v2.51.0) — 처음엔 **보이는** 묶음 중 맨 위(가장 최근)만 펼친다(「매수·매도만」 으로 맨 위 묶음이 숨어도 다음 묶음이 펼쳐진다). 사용자가 누른 묶음만 기억(화면에만)
+  // 묶음 접기 — 처음엔 **보이는** 묶음 중 맨 위(가장 최근)만 펼친다(「매수·매도만」 으로 맨 위 묶음이 숨어도 다음 묶음이 펼쳐진다). 사용자가 누른 묶음만 기억(화면에만)
   const isGroupOpen = (key: string, si: number) => groupOpenMap.get(key) ?? si === 0;
   const toggleGroup = (key: string, si: number) =>
     setGroupOpenMap((prev) => new Map(prev).set(key, !(prev.get(key) ?? si === 0)));
@@ -91,7 +91,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
   return (
     <>
       {/*
-        켜 놓고 "지금 무엇을 하는지" 를 한 문장으로 (v2.32.0). 아이콘(`ui/AutoTradeIcon`)은 카드와 같다 — 색만으로 구분하지 않는다.
+        켜 놓고 "지금 무엇을 하는지" 를 한 문장으로. 아이콘(`ui/AutoTradeIcon`)은 카드와 같다 — 색만으로 구분하지 않는다.
       */}
       {sentence && (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-border bg-bg-tertiary/30 px-4 py-1.5 text-xs">
@@ -130,8 +130,8 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           </span>
         )}
         {/*
-          ⚠️ 대기(장 닫힘)는 정상 상태라 경고색을 쓰지 않는다 (v2.33.0) — 맨 위 "지금 상태" 문장이 이미 설명한다.
-          예전에는 대기에도 주황 ⚠️ 배지가 겹쳐 떠서 고장처럼 보였다. 멈춤(설정·하루 손실·서버 꺼짐)만 경고색.
+          ⚠️ 대기(장 닫힘)는 정상 상태라 경고색을 쓰지 않는다 — 맨 위 "지금 상태" 문장이 이미 설명한다.
+          대기에 경고색을 쓰면 고장처럼 보인다. 멈춤(설정·하루 손실·서버 꺼짐)만 경고색.
         */}
         {on && status?.blockedReason && status.blockedKind === 'market_closed' && (
           <span className="rounded bg-bg-tertiary px-2 py-0.5 text-caption text-text-secondary">대기 — 대상 종목의 시장이 닫혀 있습니다</span>
@@ -171,14 +171,14 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
 
       {/*
         마지막 한 바퀴의 판단 — 매수·매도와 **건너뛴 이유**(실적 발표 직전·하루 손실 한도·한도 초과 등).
-        거래내역은 체결만 보여서, 예전에는 "왜 안 샀나" 를 확인할 곳이 없었다 (v2.16.0).
+        거래내역은 체결만 보여서, 여기가 아니면 "왜 안 샀나" 를 확인할 곳이 없다.
       */}
       {/*
-        켰는데 아직 한 번도 판단하지 않았으면 그 자리를 비워 두지 않는다 (v2.35.0) — 비어 있으면 고장인지 모른다.
+        켰는데 아직 한 번도 판단하지 않았으면 그 자리를 비워 두지 않는다 — 비어 있으면 고장인지 모른다.
         시각은 「지금 상태」 문장과 같은 `nextJudgeText`(서버가 휴장일까지 보고 계산한 시장별 개장 시각). 꺼져 있으면 아무것도 그리지 않는다.
         멈춤(서버 꺼짐·설정·하루 손실)이면 그 시각에도 판단하지 않으므로 그리지 않는다 — 멈춤 이유는 위 줄이 말한다.
       */}
-      {/* 「지금 조건」 카드 (v2.40.0) — 예전 이 바의 회색 한 줄을 옮겼다(두 번 보이지 않게) */}
+      {/* 「지금 조건」 카드 — 같은 내용을 이 바에 두 번 보이지 않게 */}
       <ConditionCard strategy={strategy} rule={rule} rulesLoaded={rules != null} status={status} />
       {on && status && status.lastNotes.length === 0 && (!status.blockedKind || status.blockedKind === 'market_closed') && (
         <p className="border-b border-border px-4 py-1.5 text-caption text-text-muted">
@@ -215,7 +215,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
             )}
           </div>
           {notesOpen && (
-          // 최대 약 240px(6줄쯤) + 안에서 스크롤 (v2.41.0) — 높이 제한이 없으면 아래 보유 종목·거래내역 영역이 0까지 줄었다
+          // 최대 약 240px(6줄쯤) + 안에서 스크롤 — 높이 제한이 없으면 아래 보유 종목·거래내역 영역이 0까지 줄었다
           <div id={`autotrade-notes-${strategy.accountId}`} className="mt-1.5 max-h-[240px] overflow-y-auto border-t border-border/30 pt-1 [scrollbar-gutter:stable]">
           {/* 판단 한 번마다 머리 줄(「22:31 미국 판단 · 6종목」) · 쉬운 문장이 먼저, 원래 문장은 작은 회색으로 아래 — 사거나 판 줄이 위, 기다림 줄이 아래 */}
           <ul className="mt-1 space-y-2">
@@ -223,7 +223,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
             {shownGroups.map(({ g, gi, si, items }) => {
               const key = g.at ?? `g${gi}`;
               const groupOpen = isGroupOpen(key, si);
-              // 묶음 머리(v2.51.0) — 시각 · 시장 · 종목 수 · 매수 N · 매도 N · 그대로 N. 접기 버튼 글자 그대로(열고 닫아도 같은 글자)
+              // 묶음 머리 — 시각 · 시장 · 종목 수 · 매수 N · 매도 N · 그대로 N. 접기 버튼 글자 그대로(열고 닫아도 같은 글자)
               const head = `${g.at ? formatTime(g.at) : '—'} ${g.market} 판단 · ${g.symbols}종목 · 매수 ${g.buys} · 매도 ${g.sells} · 그대로 ${g.holds}`;
               return (
             <li key={`${key}-${gi}`} className={si > 0 ? 'border-t border-border/30 pt-2' : ''} data-notes-group>
@@ -238,7 +238,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           <ul id={`autotrade-group-${strategy.accountId}-${gi}`} className="mt-1 space-y-1">
             {items.map(({ n, i }) => {
               const easy = explainNote(n, nameOf(n.symbol) ?? n.symbol, strategy, rule);
-              // AI 검증(v2.46.0) — 위험 · 못 함 줄은 경고 색 + 아이콘, 이유(detail)는 줄마다 펼친다
+              // AI 검증 — 위험 · 못 함 줄은 경고 색 + 아이콘, 이유(detail)는 줄마다 펼친다
               const aiWarn = n.code === 'ai_risk' || n.code === 'ai_unavailable';
               const hasDetail = (n.code === 'ai_pass' || aiWarn) && (n.detail?.length ?? 0) > 0;
               const detailOpen = openDetails.has(i);

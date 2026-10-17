@@ -1,5 +1,5 @@
 /**
- * 매수 판단 매일 기록 (v2.45.0, 사용자 결정 A-7) — 화면을 열지 않은 날도 쌓인다.
+ * 매수 판단 매일 기록 (사용자 결정 A-7) — 화면을 열지 않은 날도 쌓인다.
  *
  * - 5분마다 시장(US·KR)마다: 「지금 기록할 수 있는 가장 최근 시장 날짜」(`latestRecordDay` — 마감 + 여유 뒤, 휴장일 건너뜀)가
  *   마지막으로 기록한 날짜와 다르면 **그 날짜 하나만** 기록한다(`recordMarket`). 그 시장 종목만, 고른 규칙으로.
@@ -30,7 +30,7 @@ export async function buyJudgeTick(now = Date.now()): Promise<{ recorded: Partia
       const day = latestRecordDay(market, now);
       if (last[market] && last[market]! >= day) continue;
       const r = await recordMarket(market, day, now);
-      // 일봉을 확정하지 못한 종목이 있으면(v2.51.1) 그 날짜를 「기록함」 으로 두지 않는다 — 다음 틱에 다시 기록(이미 쓴 종목은 같은 줄을 덮어쓴다)
+      // 일봉을 확정하지 못한 종목이 있으면 그 날짜를 「기록함」 으로 두지 않는다 — 다음 틱에 다시 기록(이미 쓴 종목은 같은 줄을 덮어쓴다)
       if (!r.unconfirmed.length) store.setLastRecorded(market, day);
       out.recorded[market] = { day, written: r.written, skipped: r.skipped };
       if (r.written || r.skipped.length) {

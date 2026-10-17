@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-/** 종목 이름·분야 (v2.44.0) — `GET /api/symbols/info`. 받은 것은 모듈에 기억한다(표를 다시 그릴 때 다시 묻지 않는다) */
+/** 종목 이름·분야 — `GET /api/symbols/info`. 받은 것은 모듈에 기억한다(표를 다시 그릴 때 다시 묻지 않는다) */
 export interface SymbolInfo {
   symbol: string;
   name: string | null;

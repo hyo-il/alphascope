@@ -68,7 +68,7 @@ export default function CreateAccountForm({ onCreate, onDone, onCancel }: Props)
           {(value / 10_000).toLocaleString('ko-KR')}만
         </button>
       ))}
-      {/* 금액 칸 — 입력하는 동안에도 천 단위 쉼표(v2.42.3 thousands). 값은 쉼표 없는 숫자로 */}
+      {/* 금액 칸 — 입력하는 동안에도 천 단위 쉼표(thousands). 값은 쉼표 없는 숫자로 */}
       <NumberField
         kind="long"
         thousands

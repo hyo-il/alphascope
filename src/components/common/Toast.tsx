@@ -7,7 +7,7 @@ import { ICON, ICON_SM } from '../ui/icon';
 const AUTO_DISMISS_MS = 3000;
 
 /**
- * v2.36.0: 이모지(✅❌⚠️ℹ️)·색 테두리 대신 모양이 다른 선 아이콘 + 색. 글은 흰색(색 글자는 아이콘만) — 차분하게.
+ * 이모지·색 테두리 대신 모양이 다른 선 아이콘 + 색. 글은 흰색(색 글자는 아이콘만) — 차분하게.
  */
 const STYLE: Record<ToastType, { icon: typeof Info; color: string }> = {
   success: { icon: CircleCheck, color: 'text-bullish' },

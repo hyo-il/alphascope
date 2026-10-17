@@ -1,5 +1,5 @@
 /**
- * 주기적 급등 종목 탐지 + 종목별 급등 가능성 평가 (Step 9).
+ * 주기적 급등 종목 탐지 + 종목별 급등 가능성 평가.
  *
  * ⚠️ 여기서는 어떤 주문도 내지 않는다 — 탐지와 평가만 한다.
  *
@@ -186,7 +186,7 @@ export function analyzePeriodicity(
     lastSurgeDate,
     nextEstimatedDate: toDate(nextMs),
     daysUntilNext,
-    // 지났어도 날짜를 밀지 않는다 — 경과 일수만 알린다 (v2.19.0). 점수(nearCycleDate)는 daysUntilNext 를 그대로 쓴다
+    // 지났어도 날짜를 밀지 않는다 — 경과 일수만 알린다. 점수(nearCycleDate)는 daysUntilNext 를 그대로 쓴다
     overdueDays: daysUntilNext < 0 ? -daysUntilNext : null,
     confidence,
   };

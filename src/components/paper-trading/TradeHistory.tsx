@@ -30,7 +30,7 @@ const FILTERS: { id: Filter; label: string }[] = [
  * 자동매매 쪽 문구는 엔진이 정해진 형태로 만든다 (`autoTrading/engine.ts`).
  * 손으로 낸 주문의 사유는 "차트 빠른주문 …" 이라 겹치지 않는다.
  */
-// v2.40.0 용어 통일로 사유 문장이 바뀌었다 — 옛 문장(하드 손절·트레일링 스톱)과 새 문장(손절 — 기준·트레일링 — 최고가·익절) 모두 잡는다
+// 사유 문장은 용어집 이름을 쓴다 — 옛 문장(하드 손절·트레일링 스톱)과 새 문장(손절 — 기준·트레일링 — 최고가·익절) 모두 잡는다
 const AUTO_MARKERS = ['AI 매수', 'AI 매도', '골든크로스', '데드크로스', 'RSI', '하드 손절', '트레일링 스톱', 'Gemini', '손절 ', '익절 ', '트레일링 — '];
 const isAuto = (reason: string | null): boolean =>
   Boolean(reason) && AUTO_MARKERS.some((m) => reason!.includes(m));
@@ -48,7 +48,7 @@ export default function TradeHistory({ trades, orders, onChanged }: Props) {
     return true;
   });
 
-  /** 대기 주문 취소 — 취소하는 동안 그 줄 버튼에 회전 아이콘, 실패하면 알린다 (v2.48.0 로딩 점검) */
+  /** 대기 주문 취소 — 취소하는 동안 그 줄 버튼에 회전 아이콘, 실패하면 알린다 */
   const [cancelling, setCancelling] = useState<number | null>(null);
   const cancel = async (id: number) => {
     setCancelling(id);

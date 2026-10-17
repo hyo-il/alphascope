@@ -1,21 +1,21 @@
 /**
- * 종목 지도(히트맵) 데이터 — `GET /api/heatmap?market=us|kr` (v2.18.0).
+ * 종목 지도(히트맵) 데이터 — `GET /api/heatmap?market=us|kr`.
  *
  * - 대상: `server/data/universe.json` 의 시장별 상위 100 + 그 시장의 관심 종목 — 앱 전체의 "대형주" 정의를 하나로 둔다.
  * - 크기: 유니버스의 시가총액, 없으면 `stock_profiles.market_cap`(실적일 하루 1회 갱신이 함께 채운다).
  * - 색: 당일 등락률 = 토스 `/prices` 현재가(30종목씩 묶어서) ÷ **전 거래일 종가**.
  *   전 거래일 종가는 `previousClose.ts`(관심 목록 시세와 공유 — 전 거래일 날짜의 봉, 종목·시장 날짜별 1회 새로 받는다).
  * - 섹터: `stock_profiles.sector`(yfinance). 없으면 '기타' — 처음 한 번은 빠진 종목의 프로필을 뒤에서 채운다.
- * - 응답 전체를 시장별로 캐시한다 — 1일 장중은 `HEATMAP_LIVE_MS`(10초)보다 1초 짧게, 장 마감 뒤와 그 밖 기간은 10분 (v2.44.2 — 예전 60초).
+ * - 응답 전체를 시장별로 캐시한다 — 1일 장중은 `HEATMAP_LIVE_MS`(10초)보다 1초 짧게, 장 마감 뒤와 그 밖 기간은 10분.
  *
- * 기간(v2.19.0): `period=1w|1m|3m` 은 색이 **마지막 완성 종가 ÷ N거래일 전 종가 − 1** 이 된다(5·21·63봉).
+ * 기간: `period=1w|1m|3m` 은 색이 **마지막 완성 종가 ÷ N거래일 전 종가 − 1** 이 된다(5·21·63봉).
  * 종가 기준이라 **종목·시장 날짜·마감 전후별 1회**만 계산한다(오늘 봉은 정규장 마감 뒤에만 완성으로 본다).
  * 응답에 `sectors[]`(섹터 강세 순위)를 붙인다 — ⚠️ **설명용 통계**다. 판정·자동매매에 쓰지 않는다(검증 전).
  *
- * 보기(v2.27.0):
+ * 보기:
  * - `view=market`(기본) — **유니버스 상위 100 을 그대로 만들어 캐시**하고, 응답할 때 `top`(30·50·100, 기본 50)만큼
  *   유니버스 시총 순으로 잘라 `sectorStats()` 를 다시 낸다. ⚠️ 토스 `/prices`·일봉 호출 수는 N 과 무관하다(언제나 100 기준).
- *   상위 N 밖의 관심 종목은 넣지 않는다(예전에는 100 밖 관심 종목을 더했다) — 그것은 「내 관심 종목」 지도가 맡는다.
+ *   상위 N 밖의 관심 종목은 넣지 않는다 — 그것은 「내 관심 종목」 지도가 맡는다.
  *   상위 N 안의 관심 종목 표시(`watch`)는 캐시가 아니라 응답 때 붙인다(별을 누르면 다음 응답부터 보인다).
  * - `view=watch` — 그 시장의 관심 종목만. `top` 은 무시. 크기 = 유니버스 시총 → `stock_profiles.market_cap`.
  *   크기를 모르는 종목은 `missingCap` 으로 돌려준다(화면이 지도 아래에 적는다). 캐시 키에 관심 종목 목록이 들어간다.
@@ -52,7 +52,7 @@ const CACHE_MS = HEATMAP_LIVE_MS - 1_000;
 const PERIOD_CACHE_MS = 10 * 60_000;
 const PRICE_CHUNK = 30;
 
-/** 섹터 한국어 표는 `src/data/sectors.ts` 한 곳(v2.42.0 — 기업정보도 쓴다). 섹터 연구(`npm run research:sector`)가 여기서 가져가던 이름은 그대로 다시 내보낸다 */
+/** 섹터 한국어 표는 `src/data/sectors.ts` 한 곳(기업정보도 쓴다). 섹터 연구(`npm run research:sector`)가 여기서 가져가던 이름은 그대로 다시 내보낸다 */
 import { sectorKo } from '../src/data/sectors';
 export { sectorKo };
 
@@ -246,7 +246,7 @@ async function build(list: Target[], period: HeatmapPeriod, now: number): Promis
   const bars = HEATMAP_PERIODS.find((p) => p.id === period)!.bars;
   // 1일만 실시간 시세를 부른다. 1주 이상은 종가 기준이라 토스 /prices 를 부르지 않는다
   const prices = period === '1d' ? await lastPrices(symbols) : new Map<string, number>();
-  // 전일 종가는 종목·날짜마다 하루 한 번 일봉을 새로 받는다(v2.44.3) — 한 종목씩 기다리지 않게 미리 함께 부른다(토스 한도는 rate limiter 가 지킨다)
+  // 전일 종가는 종목·날짜마다 하루 한 번 일봉을 새로 받는다 — 한 종목씩 기다리지 않게 미리 함께 부른다(토스 한도는 rate limiter 가 지킨다)
   const prevs =
     period === '1d'
       ? new Map(await Promise.all(symbols.map(async (s) => [s, prices.has(s) ? await previousClose(s, now) : null] as const)))

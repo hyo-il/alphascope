@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TargetAnalysisRecord, TargetProgress, TargetStats } from '../types/targetAnalysis';
 
 /**
- * 목표 수익 가능성 분석 (v2.24.0 — v2.35.0 부터 「매수 판단」 의 「목표 수익 가능성」 탭이 실행·기록, 다른 탭은 참고 줄만).
+ * 목표 수익 가능성 분석 (매수 판단 표의 줄마다 실행 · 기록은 「검증 기록」).
  *
  * 실행은 서버가 시작만 하고 돌려준다(5종목이면 1분 안팎). **실행 중일 때만** 진행률을 1.5초마다 보고,
  * 끝나면 기록을 다시 읽는다 — 급등 탐지·진단 리포트와 같은 방식이다. 평소에는 폴링하지 않는다.

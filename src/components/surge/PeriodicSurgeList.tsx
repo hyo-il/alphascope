@@ -42,7 +42,7 @@ export default function PeriodicSurgeList({
 }) {
   const running = progress?.running ?? false;
   /*
-   * 세 무리 (v2.19.0). 예전에는 `daysUntilNext <= 3` 이 임박이라 **40일 지난 종목도 '임박'** 에 들어갔다.
+   * 세 무리(`daysUntilNext <= 3` 만 보면 **40일 지난 종목도 '임박'** 에 들어간다).
    * - 임박: 예상일 ±3일 (점수의 근접 규칙과 같은 폭)
    * - 이후: 예상일이 3일 넘게 남음 / 예상일 없음
    * - 지남: 예상일이 3일 넘게 지남 — 주기가 깨졌을 수 있어 **맨 뒤**로 보낸다

@@ -50,10 +50,10 @@ export interface WatchlistPayload {
   /**
    * 형식이 틀려 **건너뛴** 항목의 원래 값 (최대 20개).
    *
-   * ⚠️ 예전에는 이런 값 하나에 요청 전체를 400 으로 돌려보냈다. 오래 쓴 localStorage 에는
+   * ⚠️ 이런 값 하나로 요청 전체를 400 으로 돌려보내지 않는다. 오래 쓴 localStorage 에는
    * 과거 버그로 들어간 값(한글 이름 등)이 남아 있을 수 있어서, 그 하나 때문에 **목록 전체가
-   * 저장되지 않았다** — 그러고도 화면은 "저장했습니다" 를 띄워 서버가 빈 채로 남았다
-   * (2026-09-24 신고). 이제는 나머지를 저장하고 무엇을 버렸는지 알린다.
+   * 저장되지 않는다** — 그러고도 화면이 "저장했습니다" 를 띄우면 서버가 빈 채로 남는다.
+   * 나머지를 저장하고 무엇을 버렸는지 알린다.
    */
   skipped?: string[];
 }
@@ -107,7 +107,7 @@ function cleanSymbol(raw: unknown): string | null {
  * 들어온 폴더 목록을 다듬는다.
  *
  * ⚠️ **기본 폴더(폴더 없는 종목)는 반드시 하나 남긴다.** 화면의 `normalize()` 와 같은 규칙이다 —
- * 여기서 빠뜨리면 그 안의 종목이 통째로 사라진다 (CLAUDE.md 사고 이력).
+ * 여기서 빠뜨리면 그 안의 종목이 통째로 사라진다 (docs/rules/ui.md 「관심 목록」).
  */
 function cleanFolders(raw: unknown, skipped: string[]): WatchFolder[] {
   if (!Array.isArray(raw)) throw new UserDataError('folders 는 배열이어야 합니다.');

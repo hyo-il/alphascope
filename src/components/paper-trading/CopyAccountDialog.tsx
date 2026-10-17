@@ -4,7 +4,7 @@ import { toast } from '../../store/uiStore';
 import type { PaperAccount } from '../../types/paper';
 
 /**
- * [계좌 복사] 확인 창 (v2.46.0, A-8) — 같은 초기 자금 · 통화 · 수수료 · 매매 규칙 · 대상 종목 · 계좌 운용 · 안전장치 · AI 검증 설정의 새 계좌.
+ * [계좌 복사] 확인 창 (A-8) — 같은 초기 자금 · 통화 · 수수료 · 매매 규칙 · 대상 종목 · 계좌 운용 · 안전장치 · AI 검증 설정의 새 계좌.
  * 보유 종목·거래 기록은 복사하지 않고 자동매매는 꺼진 채로 만든다(서버 `autoTrading/copy.ts`). 기본 이름은 서버가 정한다(「<이름> 복사본」, 겹치면 「복사본 2」…).
  */
 export default function CopyAccountDialog({

@@ -102,7 +102,7 @@ import {
   ScheduledError,
   scheduledTick,
 } from './gemini/scheduled';
-// 계좌별 자동매매 — 주문을 내는 유일한 경로다 (Step 12)
+// 계좌별 자동매매 — 주문을 내는 유일한 경로다
 import {
   getStrategy,
   listStrategies,
@@ -186,7 +186,7 @@ const app = express();
 /*
  * ⚠️ CORS 를 `*` 로 열지 않는다.
  *
- * 로그인이 생겼지만(v2.12.0) 방어를 한 겹만 두지 않는다 — 쿠키가 실린 요청이
+ * 로그인이 생겼지만 방어를 한 겹만 두지 않는다 — 쿠키가 실린 요청이
  * 아무 사이트에서나 날아오지 않게 오리진도 그대로 좁혀 둔다.
  * 브라우저는 평소 Vite 프록시(같은 오리진)를 지나므로 CORS 헤더 자체가 필요 없고,
  * 열어 두면 사용자가 방문한 **아무 웹사이트나** localhost:4000 으로 주문을 낼 수 있다.
@@ -261,7 +261,7 @@ app.post('/api/auth/logout-all', (req, res) => {
 });
 
 /**
- * 로그인된 기기 목록(v2.51.3) — 문지기 뒤(로그인 필요). 토큰·해시 전체·user_agent 원문은 보내지 않는다:
+ * 로그인된 기기 목록 — 문지기 뒤(로그인 필요). 토큰·해시 전체·user_agent 원문은 보내지 않는다:
  * 식별값(해시 앞 12자) · 기기 이름(`utils/deviceName`) · 처음 로그인 · 마지막 사용 · 이 기기인가.
  */
 app.get('/api/auth/sessions', (req, res) => {
@@ -275,7 +275,7 @@ app.get('/api/auth/sessions', (req, res) => {
   res.json({ sessions });
 });
 
-/** 기기 하나만 로그아웃(v2.51.3). 이 기기 세션이면 쿠키도 지운다 — 화면은 로그인 화면으로 간다 */
+/** 기기 하나만 로그아웃. 이 기기 세션이면 쿠키도 지운다 — 화면은 로그인 화면으로 간다 */
 app.delete('/api/auth/sessions/:id', (req, res) => {
   const { result, current } = deleteSessionById(String(req.params.id ?? ''), readSessionCookie(req));
   if (result === 'invalid') return res.status(400).json({ error: '세션 식별값이 올바르지 않습니다.' });
@@ -302,14 +302,14 @@ app.get('/api/auth/me', (req, res) => {
   res.json({ loggedIn: true });
 });
 
-/** 1w·1M(v2.20.0)은 일봉을 시장 달력으로 묶는다 — 지표도 그 묶인 봉으로 계산한다(주봉 RSI = 주봉 14개) */
+/** 1w·1M은 일봉을 시장 달력으로 묶는다 — 지표도 그 묶인 봉으로 계산한다(주봉 RSI = 주봉 14개) */
 const VALID_TIMEFRAMES: Timeframe[] = ['1m', '5m', '15m', '30m', '1d', '1w', '1M'];
 
 /**
  * 토스 `symbol` 의 허용 문자 — 영문·숫자·점·하이픈만이다.
  *
- * ⚠️ 규칙을 라우트마다 따로 적지 않는다. 예전에는 `/api/swing/analyze` 에만 있어서,
- * 나머지 라우트는 "삼성전자" 같은 값을 그대로 외부 API 로 넘기고 **500** 을 돌려줬다 —
+ * ⚠️ 규칙을 라우트마다 따로 적지 않는다. 한 라우트에만 두면
+ * 나머지 라우트는 "삼성전자" 같은 값을 그대로 외부 API 로 넘기고 **500** 을 돌려준다 —
  * 잘못된 입력은 400 으로, 우리 쪽 장애는 500 으로 구분돼야 화면이 안내를 고를 수 있다.
  */
 const SYMBOL_PATTERN = /^[A-Z0-9.\-]+$/;
@@ -332,7 +332,7 @@ function fail(res: express.Response, e: unknown) {
  * 현재가에 전일 대비 변동을 채워 준다.
  *
  * 토스 /prices 응답에는 변동 정보가 없어서 직접 계산한다. 전일 종가는 관심 목록·종목 지도와 같은 `previousClose`(전 거래일 날짜의 봉,
- * 종목·날짜마다 한 번 받고 기억) — v2.44.3 까지는 "캐시의 끝에서 두 번째 봉" 이라 어제 봉이 없으면 그저께와 비교했다.
+ * 종목·날짜마다 한 번 받고 기억). "캐시의 끝에서 두 번째 봉" 으로 잡으면 어제 봉이 없을 때 그저께와 비교한다.
  */
 async function withDailyChange(symbol: string) {
   const price = await fetchPrice(symbol);
@@ -679,7 +679,7 @@ app.get('/api/paper/accounts', (_req, res) => {
   }
 });
 
-// 계좌 순서 (v2.48.0) — /:id 보다 먼저 둔다(Express 는 먼저 걸리는 쪽이 이긴다)
+// 계좌 순서 — /:id 보다 먼저 둔다(Express 는 먼저 걸리는 쪽이 이긴다)
 app.put('/api/paper/accounts/order', (req, res) => {
   try {
     const ids = (req.body?.ids ?? null) as unknown;
@@ -710,8 +710,8 @@ app.post('/api/paper/accounts', (req, res) => {
  * 계좌 상세.
  *
  * `settle=1` 이면 대기 중인 지정가 주문을 먼저 체결시킨다.
- * 예전에는 프론트가 `/positions` → `/accounts/:id` 순으로 두 번 불렀는데,
- * 두 라우트가 각각 valuePositions() 를 돌려 **토스 시세·환율을 초당 4회** 때렸다.
+ * 프론트가 `/positions` → `/accounts/:id` 순으로 두 번 부르면
+ * 두 라우트가 각각 valuePositions() 를 돌려 **토스 시세·환율을 초당 4회** 때린다.
  * 한 번에 처리하면 절반으로 줄고, 체결과 평가가 같은 시점 값을 쓰게 된다.
  */
 /**
@@ -781,7 +781,7 @@ app.delete('/api/paper/accounts/:id', (req, res) => {
   }
 });
 
-// ── 계좌 복사 (v2.46.0) — 같은 설정의 새 계좌(보유·거래 없음 · 자동매매 꺼짐) ──
+// ── 계좌 복사 — 같은 설정의 새 계좌(보유·거래 없음 · 자동매매 꺼짐) ──
 app.get('/api/paper/accounts/:id/copy-name', (req, res) => {
   try {
     res.json({ name: copyName(getPaperAccount(accountIdOf(req)).name) });
@@ -800,10 +800,10 @@ app.post('/api/paper/accounts/:id/copy', (req, res) => {
   }
 });
 
-// ── AI 검증 기록 (v2.46.0) — 그 계좌가 쓴 검증 + 채점(읽을 때 캔들에서) ──
+// ── AI 검증 기록 — 그 계좌가 쓴 검증 + 채점(읽을 때 캔들에서) ──
 app.get('/api/ai-check/records', async (req, res) => {
   try {
-    // accountId 가 없으면 모든 계좌 (v2.47.0 「검증 기록 > AI 검증」)
+    // accountId 가 없으면 모든 계좌 (「검증 기록 > AI 검증」)
     const accountId = req.query.accountId == null || req.query.accountId === '' ? null : accountIdOf(req);
     if (accountId != null) getPaperAccount(accountId);
     const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
@@ -817,7 +817,7 @@ app.get('/api/ai-check/records', async (req, res) => {
 // ── 계좌별 자동매매 (1단계) ─────────────────────────────────
 //
 // ⚠️ 모의 계좌 전용이다. 실제 주문은 어떤 경로로도 나가지 않는다.
-// 자동매매 설정은 여기 한 곳뿐이다 — 전역 설정·스케줄러는 v2.4.0 에서 제거했다.
+// 자동매매 설정은 여기 한 곳뿐이다 — 전역 설정·스케줄러는 없다.
 
 /** 전 계좌의 자동매매 설정 (저장된 적 없는 계좌는 기본값) */
 app.get('/api/auto-trading/strategies', (_req, res) => {
@@ -857,7 +857,7 @@ app.get('/api/auto-trading/strategies/:id', (req, res) => {
 
 /**
  * 설정 저장 — 값 검증은 store.normalizeStrategy 가 한다.
- * ⚠️ 켜려면 매매 규칙이 있어야 한다(없거나 지워진 규칙이면 400 「매매 규칙을 고르세요.」 — v2.44.0).
+ * ⚠️ 켜려면 매매 규칙이 있어야 한다(없거나 지워진 규칙이면 400 「매매 규칙을 고르세요.」).
  */
 app.put('/api/auto-trading/strategies/:id', (req, res) => {
   try {
@@ -1034,14 +1034,12 @@ function requireGemini(res: express.Response): boolean {
 /**
  * Gemini 를 쓸 수 있는지 — **키 가용성만** 돌려준다.
  *
- * 예전에는 전역 자동 분석의 설정·실행 상태까지 함께 실려 있었다. 자동매매가 계좌별로
- * 일원화되면서(Step 12) 그 설정 자체가 없어졌다. 지금 이 값을 쓰는 곳은
- * "AI형을 고를 수 있는가"(계좌 자동매매 설정)와 "이 버튼을 켤 수 있는가"(차트 AI 탭)다.
+ * 이 값을 쓰는 곳은 계좌 자동매매 설정(AI 검증)과 "이 버튼을 켤 수 있는가"(차트 AI 탭)다.
  */
 app.get('/api/gemini/status', (_req, res) => {
   try {
     // 꺼져 있으면 이유도 함께 준다 — 키 없음과 서버 스위치(GEMINI_ENABLED=false)는 대처가 다르다
-    // usage — 「검증 기록 > AI 분석」 상태 판의 "오늘 Gemini 사용" — 기능별(v2.47.0, 예전 analysesToday = AI 분석만)
+    // usage — 「검증 기록 > AI 분석」 상태 판의 "오늘 Gemini 사용" — 기능별
     res.json({
       enabled: isGeminiEnabled(),
       model: DEFAULT_MODEL,
@@ -1053,7 +1051,7 @@ app.get('/api/gemini/status', (_req, res) => {
   }
 });
 
-// -- 목표 도달 가능성 분석 (v2.24.0) — 분석만, 주문 없음 ---------------------------------
+// -- 목표 도달 가능성 분석 — 분석만, 주문 없음 ---------------------------------
 // POST 는 검사 뒤 시작만 하고 진행률을 돌려준다(종목 순차, 429 면 남은 종목 중단). 채점은 GET 이 읽을 때 돈다.
 
 app.post('/api/target-analysis', (req, res) => {
@@ -1099,7 +1097,7 @@ app.delete('/api/target-analysis/:id', (req, res) => {
   }
 });
 
-// -- 투자자 동향 (국내 종목만, v2.23.0) -----------------------------------------------
+// -- 투자자 동향 (국내 종목만) -----------------------------------------------
 // 국내가 아니면 토스를 부르지 않고 { supported: false }. 캐시는 server/investorTrading.ts.
 app.get('/api/investor-trading', async (req, res) => {
   const symbol = parseSymbol(req.query.symbol);
@@ -1114,7 +1112,7 @@ app.get('/api/investor-trading', async (req, res) => {
   }
 });
 
-// -- 내가 지정한 종목 — 하루 1번 Gemini 분석 (v2.23.0) --------------------------------
+// -- 내가 지정한 종목 — 하루 1번 Gemini 분석 --------------------------------
 // ⚠️ 분석만 한다. 주문 경로는 계좌 스케줄러 하나뿐이다.
 
 app.get('/api/gemini/scheduled', (_req, res) => {
@@ -1154,9 +1152,8 @@ app.post('/api/gemini/analyze', async (req, res) => {
 
   try {
     /*
-     * ⚠️ 분석만 한다 — 주문은 계좌별 스케줄러가 맡는다 (Step 12).
-     * 기간을 주지 않으면 기본값을 쓴다. 예전에는 전역 자동 분석 설정에서 읽었는데
-     * 그 설정이 없어졌다.
+     * ⚠️ 분석만 한다 — 주문은 계좌별 스케줄러가 맡는다.
+     * 기간을 주지 않으면 기본값을 쓴다.
      */
     const analysis = await runAnalysis({
       symbol,
@@ -1229,10 +1226,10 @@ app.delete('/api/analyses', (req, res) => {
 /** Claude · Gemini 통합 정확도 */
 
 
-// -- 매수 판단 (v2.45.0 — 퀀트 다시 만들기 3단계) ---------------------------
+// -- 매수 판단 (퀀트 다시 만들기 3단계) ---------------------------
 //
 // 고른 「매매 규칙」 하나로 전용 목록을 판단한다(`server/buyJudge/*`). 마감 판단은 계좌 자동매매와 같은 함수(`rules/judge.ts`).
-// 주문을 내지 않는다. 서버가 각 시장 마감 뒤 매일 기록한다(`buyJudge/scheduler.ts`). 예전 `/api/swing/*` 판단·추천·이력·프로파일 라우트는 지웠다.
+// 주문을 내지 않는다. 서버가 각 시장 마감 뒤 매일 기록한다(`buyJudge/scheduler.ts`). `/api/swing/goal` 만 남은 swing 주소다.
 
 /** 표 — 지금 계산(쓰지 않는다) */
 app.get('/api/buy-judge', async (_req, res) => {
@@ -1294,7 +1291,7 @@ app.get('/api/buy-judge/history', async (_req, res) => {
   }
 });
 
-// 날짜별 히스토리 (v2.48.0) — ?offset=&limit=(기본 30일). /history/:symbol 보다 먼저 둔다(이름이 겹치지 않게 /days)
+// 날짜별 히스토리 — ?offset=&limit=(기본 30일). /history/:symbol 보다 먼저 둔다(이름이 겹치지 않게 /days)
 app.get('/api/buy-judge/days', async (req, res) => {
   try {
     const offset = Math.max(0, Number(req.query.offset) || 0);
@@ -1318,7 +1315,7 @@ app.delete('/api/buy-judge/history', (req, res) => {
   res.json({ deleted: clearBuyJudgments(scope) });
 });
 
-// 목표 수익 가능성의 조건(목표·손절·기간) — 매수 판단 화면의 [목표 수익 가능성] 이 쓴다(v2.29.0)
+// 목표 수익 가능성의 조건(목표·손절·기간) — 매수 판단 화면의 [목표 수익 가능성] 이 쓴다
 app.get('/api/swing/goal', (_req, res) => {
   try {
     res.json(getSwingGoal());
@@ -1337,7 +1334,7 @@ app.put('/api/swing/goal', (req, res) => {
 });
 
 
-// -- 급등 탐지 (Step 9) ------------------------------------------------------
+// -- 급등 탐지 ------------------------------------------------------
 //
 // 실제 매매는 하지 않는다. 주기적 급등 종목을 찾고, 종목별 급등 가능성을 점수로 낸다.
 
@@ -1396,7 +1393,7 @@ app.get('/api/surge/history', async (_req, res) => {
 });
 
 /**
- * 탐지 이력 삭제 (v2.22.0) — `?detectedAt=` 이면 그 회차, 없으면 전체. `surge_detections` 만 지운다.
+ * 탐지 이력 삭제 — `?detectedAt=` 이면 그 회차, 없으면 전체. `surge_detections` 만 지운다.
  * 탐지가 도는 중에는 막는다 — 지금 쓰고 있는 회차가 반쯤 지워진 채 남는다.
  */
 app.delete('/api/surge/history', (req, res) => {
@@ -1439,7 +1436,7 @@ app.get('/api/ai/accuracy', (_req, res) => {
   }
 });
 
-// -- 종목 뉴스 + AI 긍정/부정 (v2.18.0) ---------------------------------------------
+// -- 종목 뉴스 + AI 긍정/부정 ---------------------------------------------
 // 목록은 30분 캐시. AI 판정은 버튼(POST)으로만 — 자동 호출하지 않는다. 입력은 제목·발행처·시각·링크만.
 
 app.get('/api/news', async (req, res) => {
@@ -1465,7 +1462,7 @@ app.post('/api/news/analyze', async (req, res) => {
   }
 });
 
-// -- 다음 실적 발표일 (v2.21.0) ------------------------------------------------
+// -- 다음 실적 발표일 ------------------------------------------------
 // 실시간 순위 미리보기의 한 줄. ⚠️ earnings_calendar(하루 1회 갱신)만 읽는다 — 마우스를 올릴 때마다 yfinance 를 부르지 않는다.
 // 달력에 없거나 이미 지난 날짜면 date: null (화면이 "실적일 정보 없음").
 
@@ -1479,7 +1476,7 @@ app.get('/api/earnings/next', (req, res) => {
   res.json({ symbol, date: e.date, isEstimate: e.isEstimate, daysUntil: days });
 });
 
-// -- 실시간 순위 (v2.20.0) ------------------------------------------------------
+// -- 실시간 순위 ------------------------------------------------------
 // 토스 /rankings duration=realtime, 30초 캐시(키 live|…) — 급등 탐지의 8시간 랭킹 캐시와 따로다. 보기 전용.
 
 app.get('/api/rankings/live', async (req, res) => {
@@ -1493,7 +1490,7 @@ app.get('/api/rankings/live', async (req, res) => {
   }
 });
 
-// -- 종목 지도 (v2.18.0) --------------------------------------------------------
+// -- 종목 지도 --------------------------------------------------------
 // 유니버스(시장별 시총 상위 100 중 top N) 또는 관심 종목(view=watch). 크기 = 시총, 색 = 기간 수익률(1d 는 전 거래일 종가 대비). 1d 60초 · 그 밖 10분 캐시.
 // 응답의 sectors[] 는 설명용 섹터 강세 순위 — 판정·자동매매에 쓰지 않는다.
 
@@ -1503,7 +1500,7 @@ app.get('/api/heatmap', async (req, res) => {
   if (req.query.period !== undefined && period !== req.query.period) {
     return res.status(400).json({ error: 'period 는 1d · 1w · 1m · 3m 중 하나입니다.' });
   }
-  // v2.27.0 — view=market|watch, top=30|50|100(시장 보기만, 기본 50). 상위 100 캐시에서 잘라 내므로 토스 호출은 N 과 무관하다
+  // view=market|watch, top=30|50|100(시장 보기만, 기본 50). 상위 100 캐시에서 잘라 내므로 토스 호출은 N 과 무관하다
   const view = req.query.view === undefined ? 'market' : (['market', 'watch'] as const).find((v) => v === req.query.view);
   if (!view) return res.status(400).json({ error: 'view 는 market · watch 중 하나입니다.' });
   const top = req.query.top === undefined ? 50 : HEATMAP_TOPS.find((n) => String(n) === req.query.top);
@@ -1515,7 +1512,7 @@ app.get('/api/heatmap', async (req, res) => {
   }
 });
 
-// -- 주요 일정 달력 (v2.17.0) --------------------------------------------------
+// -- 주요 일정 달력 --------------------------------------------------
 // 실적(earnings_calendar) · FOMC(src/data/fomc.ts) · 옵션 만기(셋째 금요일) · 휴장일(market_holidays).
 
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -1538,7 +1535,7 @@ app.get('/api/calendar', (req, res) => {
   }
 });
 
-// -- 진단 리포트 (v2.14.0) ---------------------------------------------------
+// -- 진단 리포트 ---------------------------------------------------
 //
 // `npm run diagnose` 와 같은 함수(`server/diagnose/report.ts`)를 백그라운드로 돌린다.
 // 오라클에서 52초 걸려 시작만 하고 돌려준다 — 화면은 /progress 를 폴링한다.
@@ -1577,7 +1574,7 @@ app.get('/api/diagnose/reports/:id', (req, res) => {
   }
 });
 
-/** 리포트 한 건 삭제 — DB 행만. 서버의 파일 출력은 남는다 (v2.22.0) */
+/** 리포트 한 건 삭제 — DB 행만. 서버의 파일 출력은 남는다 */
 app.delete('/api/diagnose/reports/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'id 가 올바르지 않습니다.' });
@@ -1589,16 +1586,15 @@ app.delete('/api/diagnose/reports/:id', (req, res) => {
   }
 });
 
-// -- 백테스트 (v2.38.0 → v2.44.0, 「퀀트 > 백테스트」 — 내가 고른 종목 · 내가 고른 매매 규칙) ----------
+// -- 백테스트 (「퀀트 > 백테스트」 — 내가 고른 종목 · 내가 고른 매매 규칙) ----------
 //
 // 계산은 `autoTrading/ruleResearch.ts` 의 `runCustomBacktest`(구간·재현·기준선·누설 검사 — 판단은 계좌와 같은 `evaluateRule`)를 백그라운드로.
 // 주문을 내지 않는다. 같은 날 같은 입력(규칙 내용까지)이면 저장된 결과를 돌려준다(강제로 다시 계산은 ?force=1).
-// 예전 「미리 정한 시험」(`npm run research:rule`)과 「AI에게 조건 물어보기」 는 v2.44.0 에 지웠다.
 
 app.post('/api/backtest/run', async (req, res) => {
   const parsed = parseBacktestInput(req.body);
   if ('error' in parsed) return res.status(400).json({ error: parsed.error });
-  // 방법마다 규칙을 찾아 **그때의 이름·내용**을 입력에 넣는다(기록에 남는다 — 나중에 규칙을 고쳐도 그때 조건이 남는다, v2.44.0)
+  // 방법마다 규칙을 찾아 **그때의 이름·내용**을 입력에 넣는다(기록에 남는다 — 나중에 규칙을 고쳐도 그때 조건이 남는다)
   const conditions: BacktestCondition[] = [];
   for (const c of parsed.input.conditions) {
     const rule = getRule(c.ruleId);
@@ -1616,7 +1612,7 @@ app.post('/api/backtest/run', async (req, res) => {
 });
 
 /**
- * 종목 이름·분야 (v2.44.0, 종목 목록 표 `common/SymbolTable`) — 이름은 카탈로그(한글), 분야는 종목 지도와 같은 `stock_profiles` 의 한글 이름.
+ * 종목 이름·분야 (종목 목록 표 `common/SymbolTable`) — 이름은 카탈로그(한글), 분야는 종목 지도와 같은 `stock_profiles` 의 한글 이름.
  * 여기서 yfinance 를 부르지 않는다(없으면 null — 화면이 「기타」).
  */
 app.get('/api/symbols/info', (req, res) => {
@@ -1707,7 +1703,7 @@ app.delete('/api/backtest/reports/:id', (req, res) => {
   }
 });
 
-// -- 매매 규칙 (v2.43.0 — 퀀트 다시 만들기 1단계, 「퀀트 > 매매 규칙」) ------------------------------------------
+// -- 매매 규칙 (퀀트 다시 만들기 1단계, 「퀀트 > 매매 규칙」) ------------------------------------------
 //
 // 규칙 목록만 다룬다. `usedBy` = 이 규칙을 쓰는 곳(매수 판단 · 계좌 · 백테스트 히스토리) — 삭제·저장 확인 창 문장에 쓴다.
 // 입력 검사는 `src/utils/ruleInput.ts` 한 곳(화면 칸 오류와 같은 함수).
@@ -1802,13 +1798,13 @@ app.post('/api/rules/:id/copy', (req, res) => {
 
 const port = Number(process.env.API_PORT ?? 4000);
 getDb(); // 시작 시 스키마 생성
-// v2.44.0 데이터 정리 — 처음 켜질 때 한 번만(백업 확인 후). 이미 했으면 아무것도 하지 않는다. 스케줄러보다 먼저
+// 데이터 정리(v2_44_0) — 처음 켜질 때 한 번만(백업 확인 후). 이미 했으면 아무것도 하지 않는다. 스케줄러보다 먼저
 try {
   runDataResetV2440();
 } catch (e) {
   console.error('[data-reset v2.44.0] 실패 — 다음 시작 때 다시 시도합니다:', e);
 }
-// 기본 규칙 · 예시 규칙 「기본 규칙 + 200일선」(v2.50.0) — 표시가 없을 때 한 번만(데이터 정리 뒤)
+// 기본 규칙 · 예시 규칙 「기본 규칙 + 200일선」 — 표시가 없을 때 한 번만(데이터 정리 뒤)
 try {
   ensureSeeded();
 } catch (e) {
@@ -1859,19 +1855,19 @@ app.listen(port, host, () => {
       .catch((e) => console.error('[alphascope] 종목 카탈로그 준비 실패:', e));
   }
 
-  // 시총 유니버스 월별 스냅샷 — 하루 한 번 확인해 이번 달 것이 없으면 받는다 (v2.15.0, 생존 편향 보정용)
+  // 시총 유니버스 월별 스냅샷 — 하루 한 번 확인해 이번 달 것이 없으면 받는다 (생존 편향 보정용)
   if (!isMockMode()) startUniverseSnapshotScheduler();
 
-  // 실적 발표일 — 하루 1회 (v2.16.0). 스윙 실적 경고와 자동매매 실적 회피가 함께 쓴다
+  // 실적 발표일 — 하루 1회. 스윙 실적 경고와 자동매매 실적 회피가 함께 쓴다
   if (!isMockMode()) startEarningsScheduler();
-  // 매수 판단 매일 기록 (v2.45.0) — 주문을 내지 않으므로 자동매매 스위치와 무관하게 돈다
+  // 매수 판단 매일 기록 — 주문을 내지 않으므로 자동매매 스위치와 무관하게 돈다
   startBuyJudgeScheduler();
 
-  // 휴장일 — 하루 1회 (v2.17.0). 실적 회피 거래일 계산·옵션 만기·일정 달력이 쓴다
+  // 휴장일 — 하루 1회. 실적 회피 거래일 계산·옵션 만기·일정 달력이 쓴다
   startMarketCalendarScheduler();
 
   // 앱이 꺼져 있던 구간의 모의투자 스냅샷을 채우고, 이후 하루 한 번 기록한다.
-  // 지정 종목 Gemini 분석(하루 1번, 미국 마감+30분 뒤)도 같은 10분 확인에 얹는다 — 새 타이머 없음 (v2.23.0)
+  // 지정 종목 Gemini 분석(하루 1번, 미국 마감+30분 뒤)도 같은 10분 확인에 얹는다 — 새 타이머 없음
   void backfillSnapshots().then(() =>
     startSnapshotScheduler(() => {
       void scheduledTick().catch((e) => console.warn('[gemini] 지정 종목 분석 확인 실패:', (e as Error).message));
@@ -1879,7 +1875,7 @@ app.listen(port, host, () => {
   );
 
   // Gemini 자동 분석 — 키가 없으면 아무 일도 하지 않는다.
-  // 자동매매는 계좌별 스케줄러 하나가 맡는다 (Step 12 — 전역 경로는 v2.4.0 에서 제거).
+  // 자동매매는 계좌별 스케줄러 하나가 맡는다 (전역 경로는 없다).
   if (isAutoTradingEnabled()) {
     startAutoTradingScheduler();
     console.log('[alphascope] 계좌별 자동매매 스케줄러 준비됨 (모의 계좌 전용)');

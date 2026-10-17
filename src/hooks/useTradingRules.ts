@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { RuleBody, TradingRule } from '../types/tradingRule';
 
 /**
- * 매매 규칙 목록 (v2.43.0, 「퀀트 > 매매 규칙」). 서버 `/api/rules` 만 부른다 — 화면에 저장소를 두지 않는다.
+ * 매매 규칙 목록 (「퀀트 > 매매 규칙」). 서버 `/api/rules` 만 부른다 — 화면에 저장소를 두지 않는다.
  * 폴링하지 않는다(이 화면에서만 바뀐다). 실패는 던진다 — 호출한 쪽이 서버 문구 그대로 알린다.
  */
 async function call<T>(url: string, init?: RequestInit): Promise<T> {

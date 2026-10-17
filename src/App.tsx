@@ -55,7 +55,7 @@ import { useHashRoute } from './hooks/useHashRoute';
  * 앱 본체. **로그인한 뒤에만 마운트된다** (아래 `App` 참고).
  */
 function AppBody({ onLogout }: { onLogout: () => void }) {
-  // 화면 주소(#/pageId) ↔ appStore.nav — 뒤로·앞으로 가기·새로고침 (v2.26.0). 로그인한 상태에서만
+  // 화면 주소(#/pageId) ↔ appStore.nav — 뒤로·앞으로 가기·새로고침. 로그인한 상태에서만
   useHashRoute();
   /*
    * ⚠️ `useAppStore()` 를 인자 없이 부르면 **스토어의 모든 변화**를 구독한다.
@@ -69,7 +69,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   const setTimeframe = useAppStore((s) => s.setTimeframe);
   const clearSymbol = useAppStore((s) => s.clearSymbol);
   const openChartAi = useAppStore((s) => s.openChartAi);
-  /** 종목 고르기 — 홈에서 고르면 차트로 간다(v2.41.0). 다른 화면에서는 그 화면에 머문다(예전 그대로) */
+  /** 종목 고르기 — 홈에서 고르면 차트로 간다. 다른 화면에서는 그 화면에 머문다 */
   const selectSymbol = (next: string) => {
     setSymbol(next);
     if (useAppStore.getState().nav.page === 'home') useAppStore.getState().setPage('chart');
@@ -94,7 +94,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   );
   const chartRef = useRef<CandleChartHandle>(null);
   /*
-   * 지금 차트에 들어 있는 캔들이 어느 종목·봉의 것인지 (v2.30.0). 로딩 중에는 이전 키를 유지한다 —
+   * 지금 차트에 들어 있는 캔들이 어느 종목·봉의 것인지. 로딩 중에는 이전 키를 유지한다 —
    * useCandleData 는 새 데이터가 올 때까지 이전 캔들을 그대로 들고 있으므로, 키도 그때 함께 바뀌어야 차트가 초기화 시점을 안다.
    */
   const loadedKeyRef = useRef<string | undefined>(undefined);
@@ -189,17 +189,17 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
       )}
 
       {/*
-        본문 = [차트 + 아래 탭 + 바닥줄] | [오른쪽 열: 호가 + 빠른주문] (v2.42.1).
-        오른쪽 열은 **아래 탭 옆까지 세로로 쭉** 내려간다 — 예전에는 차트 높이만 써서, 아래 탭 기본 높이(창의 35%)에서
-        1280×1080 이면 열이 425px(시황 카드 펼침)·550px(접힘)뿐이라 호가 최소 241 + 빠른주문 379 = 620px 이 들어가지 않았다.
-        아래 탭은 그만큼 좁아진다(1280 에서 874 → 626px). 탭 높이 규칙은 그대로.
+        본문 = [차트 + 아래 탭 + 바닥줄] | [오른쪽 열: 호가 + 빠른주문].
+        오른쪽 열은 **아래 탭 옆까지 세로로 쭉** 내려간다 — 차트 높이만 쓰면 아래 탭 기본 높이(창의 35%)에서
+        1280×1080 이면 열이 425px(시황 카드 펼침)·550px(접힘)뿐이라 호가 최소 241 + 빠른주문 379 = 620px 이 들어가지 않는다.
+        아래 탭은 그만큼 좁아진다(1280 에서 626px). 탭 높이 규칙은 그대로.
       */}
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex min-h-0 flex-1">
             {/*
-              ⚠️ 차트는 종목·봉을 바꿀 때도 언마운트하지 않는다 (v2.30.0). 예전에는 로딩·오류 때 스피너·오류 카드가 차트 자리를
-              대신해 매번 차트를 새로 만들었다(깜빡임, v2.24.0 "Object is disposed" 의 재현 조건). 이제 로딩·오류는 차트 **위에 덮는 층**이다.
+              ⚠️ 차트는 종목·봉을 바꿀 때도 언마운트하지 않는다. 로딩·오류 때 스피너·오류 카드가 차트 자리를
+              대신하면 매번 차트를 새로 만든다(깜빡임, "Object is disposed"). 그래서 로딩·오류는 차트 **위에 덮는 층**이다.
               덮개는 이전 종목 캔들이 새 종목으로 보이지 않게 충분히 어둡고, 덮여 있는 동안 차트 조작(드로잉)을 받지 않는다.
             */}
             <main className="relative min-w-0 flex-1">
@@ -261,7 +261,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
               </>
             ) : (
               <>
-                {/* 조작법은 정보 아이콘으로 (v2.36.0 디자인 규칙 6) — 도구를 쥐었을 때의 안내는 지금 하는 일이라 글자로 둔다 */}
+                {/* 조작법은 정보 아이콘으로 (디자인 규칙 6) — 도구를 쥐었을 때의 안내는 지금 하는 일이라 글자로 둔다 */}
                 차트 조작
                 <InfoTip label="차트 조작법">휠: 커서 기준 확대/축소 · 드래그: 좌우 이동 · 드로잉 클릭 또는 우클릭: 삭제</InfoTip>
               </>
@@ -278,9 +278,9 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           호가·빠른주문이 아래 탭 위로 흘러넘쳐 겹친다.
         */}
         {/*
-          오른쪽 열 (v2.41.0) — 평소에는 호가 목록만 스크롤되고(OrderbookPanel 안), 빠른주문은 아래에 늘 보인다(shrink-0).
+          오른쪽 열 — 평소에는 호가 목록만 스크롤되고(OrderbookPanel 안), 빠른주문은 아래에 늘 보인다(shrink-0).
           호가는 최소 3칸 아래로 줄지 않는다 — 그보다 낮은 창에서만 열 전체가 스크롤된다(겹쳐 그리지 않게, 마지막 수단).
-          예전에는 열 전체와 호가 목록이 늘 두 겹으로 스크롤돼 Windows 에서 칸이 밀렸다.
+          열 전체와 호가 목록이 늘 두 겹으로 스크롤되면 Windows 에서 칸이 밀린다.
         */}
         <div className="flex min-h-0 w-[248px] shrink-0 flex-col overflow-y-auto overflow-x-hidden">
           <OrderbookPanel
@@ -312,8 +312,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   /**
    * 종목이 있어야 의미가 있는 화면들 — 미선택 상태에서 빈 화면을 보여 주지 않는다.
    *
-   * ⚠️ **차트로 보내지 않는다.** 예전에는 '🏠 홈에서 종목 고르기' 버튼으로 차트에 들렀다
-   * 오게 했는데, 바로 위에 같은 검색창이 떠 있는데도 다른 화면으로 가라고 하는 셈이었다.
+   * ⚠️ **차트로 보내지 않는다.** 차트에 들렀다
+   * 오게 하면 바로 위에 같은 검색창이 떠 있는데도 다른 화면으로 가라고 하는 셈이다.
    * 분석은 차트를 거치지 않고 바로 시작할 수 있다 — 종목만 정해지면 된다.
    */
   const needSymbol = (
@@ -347,7 +347,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
             }}
             onWatch={add}
             onAnalyze={(next) => {
-              // v2.47.0 — 「AI 분석」 화면을 없앴다. 차트로 가서 아래 「AI 분석」 탭을 연다
+              // 「AI 분석」 화면은 따로 없다 — 차트로 가서 아래 「AI 분석」 탭을 연다
               setSymbol(next);
               openChartAi();
             }}
@@ -435,7 +435,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         onSelectPage={setPage}
         onSelectGroup={setGroup}
         /*
-          로고 = 홈 메뉴 (v2.41.0). ⚠️ 보던 종목은 지우지 않는다 — 차트는 화면 밖에 그대로 있고(언마운트 금지 원칙),
+          로고 = 홈 메뉴. ⚠️ 보던 종목은 지우지 않는다 — 차트는 화면 밖에 그대로 있고(언마운트 금지 원칙),
           「차트」 메뉴를 누르면 보던 종목 차트로 돌아간다.
         */
         onGoHome={() => setPage('home')}
@@ -456,8 +456,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
             ⚠️ 키울 때는 **가로로** 키운다. 헤더 높이는 h-12(48px) 고정이라 세로에는 자리가 없고,
             정작 읽기 어려운 것은 긴 종목명이다. 안쪽 입력이 `min-w-0 flex-1` 이라
             래퍼 폭만 바꾸면 입력·버튼이 함께 늘어난다.
-            ⚠️ 글씨 +2px(v2.33.0) 뒤 1280 에서 긴 종목명이 두 줄(「삼성전 / 자」)로 꺾였다 — 높이를 늘리지 않고
-            종목명·가격·등락은 줄바꿈 금지, **검색칸이 대신 줄어든다**(최소 14rem). 넓은 화면에서는 예전처럼 w-96.
+            ⚠️ 글씨 +2px 뒤 1280 에서 긴 종목명이 두 줄(「삼성전 / 자」)로 꺾였다 — 높이를 늘리지 않고
+            종목명·가격·등락은 줄바꿈 금지, **검색칸이 대신 줄어든다**(최소 14rem). 넓은 화면에서는 w-96.
           */}
           <div className="w-96 min-w-56 shrink">
             <SymbolSearch symbol={symbol ?? ''} onSubmit={selectSymbol} />
@@ -570,7 +570,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         watch={watch}
         recent={recent}
         compareMode={compareMode}
-        /* ✓ 는 **보이는 칸**의 종목만(v2.41.1 — 2개 보기면 ①②). 클릭 동작(toggleCompareSymbol)도 같은 compareLayout 을 본다 */
+        /* ✓ 는 **보이는 칸**의 종목만(2개 보기면 ①②). 클릭 동작(toggleCompareSymbol)도 같은 compareLayout 을 본다 */
         compareSymbols={compareSlots.slice(0, compareLayout).filter((s): s is string => Boolean(s))}
         /*
           비교 화면에서는 클릭이 차트 전환이 아니라 '비교에 담기/빼기' 다.

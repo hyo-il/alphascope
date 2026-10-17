@@ -22,8 +22,8 @@ export function formatPrice(
 }
 
 /**
- * 부호가 붙는 금액(손익·변동액) — **화면 전용** (v2.42.1). `−₩12,180` · `+$18.19` · `₩0`.
- * 예전 화면은 `formatPrice` 앞에 '+' 만 붙여 손실이 `₩-12,180` 처럼 부호가 통화 기호 **뒤**에 붙었다(이익으로 잘못 읽힐 수 있다).
+ * 부호가 붙는 금액(손익·변동액) — **화면 전용**. `−₩12,180` · `+$18.19` · `₩0`.
+ * `formatPrice` 앞에 '+' 만 붙이면 손실이 `₩-12,180` 처럼 부호가 통화 기호 **뒤**에 붙는다(이익으로 잘못 읽힐 수 있다).
  * ⚠️ `formatPrice` 는 분석 프롬프트에도 쓰이므로 바꾸지 않는다 — 부호 금액을 그리는 화면만 이 함수를 쓴다.
  * 부호 = 마이너스 기호(U+2212 −) 또는 +, 0 은 부호 없음. 통화 규칙은 `formatPrice` 그대로(원화 소수점 없음).
  */
@@ -47,7 +47,7 @@ export function formatUsd(value: number | null | undefined): string {
 }
 
 /**
- * 화면의 음수 기호 (v2.42.2 — 기준표 「화면 음수 = −」). 하이픈(-)은 줄표·구분 기호와 헷갈려 마이너스 기호(U+2212)로 쓴다.
+ * 화면의 음수 기호 (기준표 「화면 음수 = −」). 하이픈(-)은 줄표·구분 기호와 헷갈려 마이너스 기호(U+2212)로 쓴다.
  * ⚠️ **화면 전용** — 이 파일(`utils/formatters.ts`)은 분석 프롬프트·서버가 쓰지 않는다. 프롬프트·서버 문장·CSV 로 나가는 숫자는 바꾸지 않는다.
  */
 export const MINUS = '−';
@@ -74,7 +74,7 @@ export function formatSigned(
   return `${value < 0 ? MINUS : plus ? '+' : ''}${body}${suffix}`;
 }
 
-/** 부호 없이(양수에 + 를 붙이지 않고) 숫자 — 천 단위 쉼표 · 음수는 마이너스 기호. 화면 전용 (v2.42.2) */
+/** 부호 없이(양수에 + 를 붙이지 않고) 숫자 — 천 단위 쉼표 · 음수는 마이너스 기호. 화면 전용 */
 export function formatNumber(value: number | null | undefined, digits = 2, suffix = ''): string {
   return formatSigned(value, digits, suffix, { plus: false });
 }
@@ -85,7 +85,7 @@ export function formatPercent(value: number | null | undefined): string {
 
 export function formatCompact(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—';
-  // 압축 표기에도 천 단위 쉼표(1,021억 · 4,035만, v2.42.2) — ko-KR compact 기본은 쉼표가 없다. 음수는 마이너스 기호
+  // 압축 표기에도 천 단위 쉼표(1,021억 · 4,035만) — ko-KR compact 기본은 쉼표가 없다. 음수는 마이너스 기호
   return displayMinus(Intl.NumberFormat('ko-KR', { notation: 'compact', useGrouping: 'always' } as unknown as Intl.NumberFormatOptions).format(value));
 }
 

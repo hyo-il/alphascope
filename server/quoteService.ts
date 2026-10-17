@@ -60,7 +60,7 @@ export async function fetchQuotes(symbols: string[]): Promise<Quote[]> {
       symbols.map(async (symbol): Promise<Quote> => {
         const last = loadCandles(symbol, '1d', 1).at(-1);
         if (!last) return { symbol, price: null, changeRate: null, error: message };
-        // 전일 종가는 previousClose.ts 한 곳 (v2.20.0). 기준은 **보여 주는 봉의 날짜** — 오늘로 재면 어제 봉을 보여 줄 때
+        // 전일 종가는 previousClose.ts 한 곳. 기준은 **보여 주는 봉의 날짜** — 오늘로 재면 어제 봉을 보여 줄 때
         // 등락이 늘 0% 가 된다. 그 봉보다 앞선 날짜의 마지막 봉 종가다("끝에서 두 번째 봉" 이 아니다 — 빈 날이 있으면 틀린다)
         const previous = await previousCloseForDay(symbol, marketDate(last.timestamp, symbol));
         return {

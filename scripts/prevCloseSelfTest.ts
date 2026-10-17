@@ -1,5 +1,5 @@
 /**
- * 전 거래일 종가 점검 (v2.44.3) — `npm run prevclose:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import).
+ * 전 거래일 종가 점검 — `npm run prevclose:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import).
  *
  * 등락률이 이틀치로 보이던 버그(어제 봉이 캐시에 없으면 그저께 종가를 전일 종가로 썼다 · 미국 「오늘」 을 뉴욕 달력으로 잡았다)를 재현하고,
  * 고친 규칙(토스 순위 기준가 우선 → 가격 날 바로 앞 영업일의 일봉)을 확인한다.
@@ -7,7 +7,7 @@
  * - 마지막 절만 실제 토스로: 사본 DB 에서 000660 의 전 거래일 봉을 지우고 다시 받아 오는지.
  * 넣은 합성 봉·휴장일은 끝에서 지운다(사본 DB 라도 남기지 않는다).
  */
-import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다(v2.44.2)
+import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import 'dotenv/config';
 import { getDb, loadCandles, saveCandles } from '../server/db';
 import { previousClose, previousTradingDay, priceDay, resetPreviousCloseForTest, setCandleRefreshForTest, setPriceLimitsForTest, setRankingBasesForTest, solveKrBase } from '../server/previousClose';
@@ -45,7 +45,7 @@ const db = getDb();
 const clear = () => db.prepare(`DELETE FROM candles WHERE symbol IN (?, ?)`).run(US, KR);
 const put = (symbol: string, rows: [string, number][]) => saveCandles(symbol, '1d', rows.map(([d, c]) => bar(symbol, d, c)));
 
-/** 예전 규칙(v2.44.2 까지) — "오늘보다 앞선 마지막 캐시 봉"(캐시가 5일 안이면 다시 받지 않았다). 재현용 */
+/** 고치기 전 규칙 — "오늘보다 앞선 마지막 캐시 봉"(캐시가 5일 안이면 다시 받지 않았다). 재현용 */
 const oldRule = (symbol: string, now: number) => {
   const today = marketDate(now, symbol);
   return loadCandles(symbol, '1d', 5).filter((c) => marketDate(c.timestamp, symbol) < today).at(-1)?.close ?? null;
@@ -148,7 +148,7 @@ try {
   pd(US, '2026-10-14T21:30:00-04:00', '2026-10-15', '미국 수 21:30 ET(= 한국 목 10:30)');
   pd(US, '2026-10-17T12:00:00-04:00', '2026-10-16', '미국 토요일');
   pd(US, '2026-10-18T21:00:00-04:00', '2026-10-19', '미국 일 21:00 ET(= 한국 월 아침)');
-  // 재현 2: 한국 목 10:30(= 미국 수 21:30 ET) — 예전에는 미국 「오늘」 = 수요일이라 화요일 종가와 비교했다(이틀치)
+  // 재현 2: 한국 목 10:30(= 미국 수 21:30 ET) — 미국 「오늘」 을 뉴욕 달력(수요일)으로 잡으면 화요일 종가와 비교해 이틀치가 된다
   resetPreviousCloseForTest();
   clear();
   put(US, [['2026-10-13', 100], ['2026-10-14', 90]]);

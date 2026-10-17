@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useStockNames } from './useStockNames';
 
 /**
- * 브라우저 탭 제목 — 보고 있는 종목이 있으면 **`AlphaScope · 애플`**(앱 이름 먼저 · 종목 **이름**, v2.51.3 사용자 결정).
+ * 브라우저 탭 제목 — 보고 있는 종목이 있으면 **`AlphaScope · 애플`**(앱 이름 먼저 · 종목 **이름**, 사용자 결정).
  * 종목이 없으면 `AlphaScope`.
  *
  * 여러 탭을 띄워 두었을 때 어느 탭이 어느 종목인지 구분하려는 것이다.
@@ -14,7 +14,7 @@ import { useStockNames } from './useStockNames';
 export function useDocumentTitle(symbol: string | null) {
   const nameOf = useStockNames([symbol]);
   const raw = symbol ? nameOf(symbol)?.trim() || null : null;
-  // 이름이 티커와 같으면(QQQ·SOXL 같은 ETF) 이름이 없는 것과 같다 — `StockName` 과 같은 규칙(v2.42.2). 제목에 코드를 보이지 않는다
+  // 이름이 티커와 같으면(QQQ·SOXL 같은 ETF) 이름이 없는 것과 같다 — `StockName` 과 같은 규칙. 제목에 코드를 보이지 않는다
   const name = raw && symbol && raw.toUpperCase() === symbol.toUpperCase() ? null : raw;
   useEffect(() => {
     document.title = name ? `AlphaScope · ${name}` : 'AlphaScope';

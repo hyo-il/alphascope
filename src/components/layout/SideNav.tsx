@@ -6,8 +6,7 @@ import { LOGOUT_ICON, NAV_ICON } from './navIcons';
 import { ICON, ICON_LG, ICON_SM } from '../ui/icon';
 
 /**
- * 펼친 메뉴의 아이콘 칸 — **폭 고정**(v2.25.0). 대메뉴와 로그아웃이 같은 칸을 쓴다 — 라벨 시작점이 한 줄에 선다.
- * v2.36.0 부터 아이콘은 lucide(`navIcons.ts`)라 폭이 같지만, 칸은 그대로 둔다.
+ * 펼친 메뉴의 아이콘 칸 — **폭 고정**. 대메뉴와 로그아웃이 같은 칸을 쓴다 — 라벨 시작점이 한 줄에 선다.
  */
 const ICON_SLOT = 'inline-flex w-5 shrink-0 justify-center';
 const LogoutIcon = LOGOUT_ICON;
@@ -55,7 +54,7 @@ export default function SideNav({
   /** 접힌 상태에서 아이콘에 올린 대메뉴 — 소메뉴를 옆에 띄운다 */
   const [hovered, setHovered] = useState<NavGroupId | null>(null);
   /**
-   * 보고 있는 대메뉴를 접었는지 (v2.43.1). **이 컴포넌트 안에만** 둔다 — 전역 상태·주소는 바꾸지 않는다(접기는 메뉴 표시일 뿐).
+   * 보고 있는 대메뉴를 접었는지. **이 컴포넌트 안에만** 둔다 — 전역 상태·주소는 바꾸지 않는다(접기는 메뉴 표시일 뿐).
    * 저장하지 않는다(새로고침하면 펼친 채 시작).
    */
   const [foldedGroup, setFoldedGroup] = useState<NavGroupId | null>(null);
@@ -84,11 +83,11 @@ export default function SideNav({
           const Icon = NAV_ICON[item.icon];
           return <Icon {...ICON_LG} />;
         })()}
-        {/* 접힌 폭(52px)에는 짧은 이름 — 「차트·비교」「증시 일정」 은 들어가지 않는다 (v2.26.0) */}
+        {/* 접힌 폭(52px)에는 짧은 이름 — 「차트·비교」「증시 일정」 은 들어가지 않는다 */}
         <span className="text-caption leading-tight">{item.shortLabel}</span>
       </button>
 
-      {/* 소메뉴가 하나뿐이면 플라이아웃을 띄우지 않는다 — 대메뉴를 누르면 바로 그 화면이다(`showSinglePage` 인 실험실은 예외, v2.48.0) */}
+      {/* 소메뉴가 하나뿐이면 플라이아웃을 띄우지 않는다 — 대메뉴를 누르면 바로 그 화면이다(`showSinglePage` 인 실험실은 예외) */}
       {hovered === item.id && (item.pages.length > 1 || item.showSinglePage) && (
         <div className="absolute left-full top-0 z-50 ml-px w-40 rounded-lg bg-bg-elevated py-1 shadow-xl">
           {item.pages.map((sub) => (
@@ -113,14 +112,14 @@ export default function SideNav({
   /** 펼친 상태의 대메뉴 한 칸 (아코디언) */
   const expandedGroup = (item: NavGroup) => {
     /*
-     * 보고 있는 대메뉴도 **접을 수 있다** (v2.43.1 — 2026-10-14 사용자 결정. 예전에는 늘 펼쳐 두었다).
+     * 보고 있는 대메뉴도 **접을 수 있다** (2026-10-14 사용자 결정).
      * 접어도 그 대메뉴가 선택된 소메뉴와 같은 「밝은 바탕 + 흰 글자」 라 지금 어디에 있는지가 보인다.
-     * 보고 있는 대메뉴를 누르면 이동하지 않고 접기 ↔ 펴기만 한다(예전에는 그 메뉴의 첫 화면으로 갔다). 다른 대메뉴는 예전처럼 이동 + 펼침.
+     * 보고 있는 대메뉴를 누르면 이동하지 않고 접기 ↔ 펴기만 한다. 다른 대메뉴는 이동 + 펼침.
      */
     const current = group === item.id;
     /**
-     * 소메뉴가 하나뿐인 대메뉴(홈·증시 일정·계좌) — 소메뉴 줄·화살표 없이 대메뉴가 곧 그 화면이다 (v2.26.0). 접기 대상이 아니다.
-     * `showSinglePage`(실험실, v2.48.0)는 예외 — 소메뉴 하나여도 줄을 보이고 접을 수 있다.
+     * 소메뉴가 하나뿐인 대메뉴(홈·증시 일정·계좌) — 소메뉴 줄·화살표 없이 대메뉴가 곧 그 화면이다. 접기 대상이 아니다.
+     * `showSinglePage`(실험실)는 예외 — 소메뉴 하나여도 줄을 보이고 접을 수 있다.
      */
     const single = item.pages.length === 1 && !item.showSinglePage;
     const folded = current && !single && foldedGroup === item.id;
@@ -149,7 +148,7 @@ export default function SideNav({
               return <Icon {...ICON} />;
             })()}
           </span>
-          {/* 대메뉴 배지 (v2.42.0 — 실험실 「테스트」, 예전에는 소메뉴 셋에). 라벨과 한 덩어리(간격 4px)로 두어야 156px 메뉴에 「실험실」 이 잘리지 않는다 */}
+          {/* 대메뉴 배지 (실험실 「테스트」). 라벨과 한 덩어리(간격 4px)로 두어야 156px 메뉴에 「실험실」 이 잘리지 않는다 */}
           <span className="flex min-w-0 items-center gap-1">
             <span className="min-w-0 truncate">{item.label}</span>
             {item.badge && <span className="shrink-0 rounded bg-warning/15 px-0.5 py-px text-caption text-warning">{item.badge}</span>}
@@ -217,7 +216,7 @@ export default function SideNav({
         {SETTINGS_GROUP && (
           <div className="mt-auto border-t border-border">
             {collapsedGroup(SETTINGS_GROUP)}
-            {/* 다른 대메뉴와 같은 틀 — 아이콘 + 아래 라벨 (v2.25.0) */}
+            {/* 다른 대메뉴와 같은 틀 — 아이콘 + 아래 라벨 */}
             <button
               type="button"
               onClick={onLogout}
@@ -260,13 +259,13 @@ export default function SideNav({
         </button>
       </div>
 
-      {/* 목록 줄 사이 4px (v2.42.0 디자인 기준표 A-4) */}
+      {/* 목록 줄 사이 4px (디자인 기준표 「여백·목록」) */}
       <div data-list className="flex-1 space-y-1 overflow-y-auto py-1">{MAIN_GROUPS.map(expandedGroup)}</div>
 
       {SETTINGS_GROUP && (
         <div data-list className="mt-auto space-y-1 border-t border-border py-1">
           {expandedGroup(SETTINGS_GROUP)}
-          {/* 대메뉴 줄과 같은 틀(투명 border-l-2 · px-2.5 · py-2 · 고정 아이콘 칸) — 라벨 시작점이 한 줄에 선다 (v2.25.0) */}
+          {/* 대메뉴 줄과 같은 틀(투명 border-l-2 · px-2.5 · py-2 · 고정 아이콘 칸) — 라벨 시작점이 한 줄에 선다 */}
           <button
             type="button"
             onClick={onLogout}

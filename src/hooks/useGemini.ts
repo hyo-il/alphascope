@@ -3,12 +3,11 @@ import { useCallback, useEffect, useState } from 'react';
 /**
  * Gemini 를 쓸 수 있는지 — **키 가용성만** 본다.
  *
- * ⚠️ 예전에는 전역 자동 분석의 설정·실행 상태까지 함께 들고 있었다. 자동매매가
- * **계좌별로 일원화**되면서(Step 12 · v2.4.0) 그 설정 자체가 사라졌다.
+ * ⚠️ 키 가용성만 든다(전역 자동 분석 설정은 없다).
  * 계좌별 설정·상태는 `useAutoTrading` 이 맡는다 — 여기에 다시 들이지 말 것.
  *
  * 지금 이 값을 쓰는 곳은 두 군데다:
- *   - 계좌 자동매매 설정: 「AI 검증」 을 켜도 AI 를 쓸 수 있는가(v2.46.0 — 꺼져 있으면 경고 한 줄)
+ *   - 계좌 자동매매 설정: 「AI 검증」 을 켜도 AI 를 쓸 수 있는가(꺼져 있으면 경고 한 줄)
  *   - 차트 AI 탭: "이 종목 분석 버튼을 켤 수 있는가"
  */
 interface GeminiAvailability {
@@ -38,7 +37,6 @@ export function useGeminiStatus(pollMs = 60_000) {
     void refresh();
     /*
      * 키 유무는 서버를 다시 띄워야 바뀐다 — 자주 물을 이유가 없다.
-     * (예전엔 실행 상태를 함께 받느라 15초였다.)
      */
     if (!pollMs) return;
     const timer = setInterval(() => void refresh(), pollMs);

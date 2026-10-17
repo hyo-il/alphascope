@@ -32,7 +32,7 @@ const HEADER_HEIGHT = 38;
 /** 펼친 상태의 최소 높이 — 이보다 작으면 기업정보 카드 한 줄도 못 보여 준다 */
 const MIN_EXPANDED = 200;
 /**
- * 기본 높이를 정할 때 위 차트 줄에 남기는 최소 높이 (v2.42.2) — **가격 칸 300px** 가 되는 차트 줄 높이.
+ * 기본 높이를 정할 때 위 차트 줄에 남기는 최소 높이 — **가격 칸 300px** 가 되는 차트 줄 높이.
  * 차트 줄 = 정보 줄(약 73px) + 가격 칸 + 거래량 칸(가격 칸의 약 27%) + 날짜 축(30px). 실측: 차트 줄 425px → 가격 칸 253px · 324 → 173.
  * 300 ÷ 0.787 + 73 + 31 ≈ 490.
  */
@@ -43,7 +43,7 @@ type TabId = 'indicators' | 'company' | 'flow' | 'news' | 'ai';
 const TABS: { id: TabId; label: string }[] = [
   { id: 'indicators', label: '차트 지표' },
   { id: 'company', label: '기업정보' },
-  // v2.23.0 — 국내 종목만 내용이 있다(미국은 안내만, 요청 0건)
+  // 국내 종목만 내용이 있다(미국은 안내만, 요청 0건)
   { id: 'flow', label: '투자자 동향' },
   { id: 'news', label: '뉴스' },
   { id: 'ai', label: 'AI 분석' },
@@ -58,7 +58,7 @@ function defaultHeight(): number {
   return Math.min(maxHeight(), Math.max(300, Math.round(window.innerHeight * 0.35)));
 }
 
-/** 사용자가 끌어서 정한 높이가 저장돼 있는가 — 있으면 그 값을 존중하고, 없으면 기본 높이를 화면에 맞춰 계산한다 (v2.42.2) */
+/** 사용자가 끌어서 정한 높이가 저장돼 있는가 — 있으면 그 값을 존중하고, 없으면 기본 높이를 화면에 맞춰 계산한다 */
 function hasSavedHeight(): boolean {
   try {
     const saved = Number(localStorage.getItem(STORAGE_KEY));
@@ -69,7 +69,7 @@ function hasSavedHeight(): boolean {
 }
 
 /**
- * 화면에 맞춘 기본 높이 (v2.42.2) — 기본(창의 35%, 최소 300px)에서 시작하되 **가격 칸이 300px 가 되도록(차트 줄 `CHART_MIN_HEIGHT`)** 줄인다
+ * 화면에 맞춘 기본 높이 — 기본(창의 35%, 최소 300px)에서 시작하되 **가격 칸이 300px 가 되도록(차트 줄 `CHART_MIN_HEIGHT`)** 줄인다
  * (아래 탭 펼친 최소 200px 까지). 1440×900 처럼 낮은 창에서 가격 차트가 약 170px 로 눌렸다.
  * `columnH` = 차트 + 아래 탭 + 바닥줄이 들어 있는 세로 열의 높이, `otherH` = 그 열의 바닥줄 등 나머지.
  */
@@ -95,7 +95,7 @@ export interface ChartBottomTabsProps {
   symbol: string;
   timeframe: Timeframe;
   candles: Candle[];
-  /** 캔들을 받는 중 — 차트 지표 탭이 "캔들이 없습니다" 대신 불러오는 중을 보인다 (v2.38.0) */
+  /** 캔들을 받는 중 — 차트 지표 탭이 "캔들이 없습니다" 대신 불러오는 중을 보인다 */
   candlesLoading?: boolean;
   currentPrice: number | null;
   indicators: IndicatorSeries | null;
@@ -128,7 +128,7 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
 
   const collapsed = height <= HEADER_HEIGHT + 8;
 
-  // 「AI 분석」 탭을 열어 달라는 요청(v2.47.0 — 옛 주소 #/analysis · 급등 탐지 [분석]). 처음 값(마운트 때 번호)은 무시한다
+  // 「AI 분석」 탭을 열어 달라는 요청(옛 주소 #/analysis · 급등 탐지 [분석]). 처음 값(마운트 때 번호)은 무시한다
   const chartAiRequest = useAppStore((s) => s.chartAiRequest);
   const seenAiRequest = useRef(chartAiRequest);
 
@@ -242,7 +242,7 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
         }`}
       />
 
-      {/* 탭 줄 — 탭 글자·내용의 왼쪽 끝이 같은 선(PANEL_X, v2.42.2). 접힌 상태에서는 고른 탭 밑줄을 그리지 않는다 */}
+      {/* 탭 줄 — 탭 글자·내용의 왼쪽 끝이 같은 선(PANEL_X). 접힌 상태에서는 고른 탭 밑줄을 그리지 않는다 */}
       <div className={`flex shrink-0 items-center border-b border-border/60 ${PANEL_X}`}>
         <Tabs
           label="차트 아래 탭"

@@ -16,7 +16,7 @@ import { copyText } from '../../services/clipboard';
 /**
  * AI 비교 평가 — 붙여넣기용 프롬프트를 만든다.
  *
- * 앱은 여기까지만 하고 추론은 Claude 구독 대화에서 한다 (비용 $0, Step 7 과 같은 방식).
+ * 앱은 여기까지만 하고 추론은 Claude 구독 대화에서 한다 (비용 $0, 수동 분석과 같은 방식).
  * **차트 이미지는 넣지 않는다** — 비교 차트는 캡처 대상이 아니고, 네 장을 붙이면
  * 프롬프트가 무거워지는 데 비해 표로 이미 들어간 수치보다 나은 게 없다.
  */
@@ -44,7 +44,7 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
   const prompt = edited ?? generated;
 
   /*
-   * 프롬프트 초기화 — 직접 고친 내용이 있을 때만 확인 창 (v2.34.1). 고친 것이 없거나 자동 생성본과 같으면 바로 되돌린다.
+   * 프롬프트 초기화 — 직접 고친 내용이 있을 때만 확인 창. 고친 것이 없거나 자동 생성본과 같으면 바로 되돌린다.
    */
   const resetPrompt = () => {
     if (edited === null || edited === generated) {

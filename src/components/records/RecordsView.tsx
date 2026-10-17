@@ -17,13 +17,13 @@ import AIAccuracyDashboard from '../analysis/AIAccuracyDashboard';
 import DiagnoseView from '../diagnose/DiagnoseView';
 
 /**
- * 「퀀트 > 검증 기록」 (v2.47.0 — 퀀트 다시 만들기 5단계, 사용자 결정 A-4~A-8).
+ * 「퀀트 > 검증 기록」 (퀀트 다시 만들기 5단계, 사용자 결정 A-4~A-8).
  *
  * 앱이 남긴 판단·분석이 그 뒤 어땠는지 보는 화면을 한 곳에 모았다. 탭 순서는 `types/nav.ts` 의 `PAGE_TABS.records` 한 곳:
- * - 목표 수익 가능성 — 예전 「매수 판단 > 히스토리」 ③(`TargetHistorySection` 그대로). 실행·결과 카드는 매수 판단 표에 남는다
+ * - 목표 수익 가능성 — `TargetHistorySection`. 실행·결과 카드는 매수 판단 표에 남는다
  * - AI 검증 — 계좌 화면과 **같은 부품·같은 채점**(`AiCheckHistoryPanel` · `server/aiCheck/history.ts`). 처음은 모든 계좌, 계좌를 고를 수 있다
- * - AI 분석 — 예전 「투자 분석 > AI 분석」 의 히스토리 · 성적표 (상태 판 · 지정 종목 · 기록 · 성적표)
- * - 진단 리포트 — 예전 「실험실 > 진단 리포트」 그대로
+ * - AI 분석 — 히스토리 · 성적표 (상태 판 · 지정 종목 · 기록 · 성적표)
+ * - 진단 리포트 — `DiagnoseView`
  */
 type RecordsTab = PageTab<'records'>;
 
@@ -50,7 +50,7 @@ export default function RecordsView({ currentPrice }: { currentPrice: number | n
   );
 }
 
-/** 목표 수익 가능성 기록·성적 — 탭을 열 때만 받는다(예전 매수 판단 화면은 열 때마다 받았다) */
+/** 목표 수익 가능성 기록·성적 — 탭을 열 때만 받는다 */
 function TargetTab() {
   const target = useTargetAnalysis();
   return (

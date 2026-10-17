@@ -10,12 +10,12 @@ import type { GeminiUsage } from '../../types/gemini';
 import { formatNumber } from '../../utils/formatters';
 
 /**
- * 「검증 기록 > AI 분석」 맨 위 상태 판 (v2.23.0 → v2.47.0) — "무엇이, 언제, 왜 Gemini 를 부르는가" 를 한눈에.
+ * 「검증 기록 > AI 분석」 맨 위 상태 판 — "무엇이, 언제, 왜 Gemini 를 부르는가" 를 한눈에.
  *
  * - 계좌 자동매매: **기존 자동매매 상태 묶음 라우트**(`/api/auto-trading/overview`)를 그대로 쓴다.
- *   새 라우트·새 폴링을 만들지 않는다 — 오른쪽 계좌 탭과 같은 15초 주기 훅이다. 판단은 매매 규칙이 하고, Gemini 는 「AI 검증」 을 켠 계좌만 부른다(v2.46.0).
+ *   새 라우트·새 폴링을 만들지 않는다 — 오른쪽 계좌 탭과 같은 15초 주기 훅이다. 판단은 매매 규칙이 하고, Gemini 는 「AI 검증」 을 켠 계좌만 부른다.
  * - 내가 지정한 종목: `scheduled` 로 받은 칸을 그대로 둔다(지정 종목 화면이 그린다).
- * - 오늘 Gemini 사용량: `/api/gemini/status` 의 usage — 기능별(v2.47.0, `server/gemini/usage.ts`).
+ * - 오늘 Gemini 사용량: `/api/gemini/status` 의 usage — 기능별(`server/gemini/usage.ts`).
  */
 
 /** 「최근 판단」 의 행동 — 화면에는 용어집 이름(매수·매도) */
@@ -91,7 +91,7 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
                     )}
                   </div>
                   {note && (
-                    // 긴 사유를 말줄임으로 숨기지 않는다 — 줄바꿈한다 (v2.34.0)
+                    // 긴 사유를 말줄임으로 숨기지 않는다 — 줄바꿈한다
                     <div className="break-keep text-text-muted" title={note.reason}>
                       최근 판단: {note.symbol} {ACTION_LABEL[note.action] ?? note.action} — {note.reason}
                     </div>
@@ -126,7 +126,7 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
             {!usage.enabled && ' · 이 서버에서는 Gemini 가 꺼져 있습니다'}
           </>
         ) : (
-          // 받기 전에 「—」(없음)으로 보이지 않게 (v2.48.0 로딩 점검)
+          // 받기 전에 「—」(없음)으로 보이지 않게
           '불러오는 중…'
         )}
       </p>

@@ -9,7 +9,7 @@ import type { TradingRule } from '../../types/tradingRule';
 import RuleDialog from './RuleDialog';
 
 /**
- * 매매 규칙 고르기 — 계좌 설정 「① 매매 규칙」 · 처음 켜기 안내 · 백테스트 방법마다 **같은 부품** (v2.44.0).
+ * 매매 규칙 고르기 — 계좌 설정 「① 매매 규칙」 · 처음 켜기 안내 · 백테스트 방법마다 **같은 부품**.
  * [조건 보기] = `RuleDialog` 보기 전용([수정] 없음 — 고치기는 「퀀트 > 매매 규칙」 에서만).
  * 규칙이 하나도 없으면 막힌 이유와 가는 길(링크)을 같은 자리에 보인다. 손절이 꺼진 규칙이면 경고 한 줄(`warnNoStop`).
  */
@@ -31,7 +31,7 @@ export default function RuleSelect({
   warnNoStop?: boolean;
   label?: string;
   size?: 'sm' | 'md';
-  /** 고르기 줄 **맨 오른쪽**에 붙이는 덧붙임(계좌 설정의 「AI 검증」 토글 — v2.46.0) */
+  /** 고르기 줄 **맨 오른쪽**에 붙이는 덧붙임(계좌 설정의 「AI 검증」 토글) */
   aside?: ReactNode;
 }) {
   const [viewing, setViewing] = useState(false);

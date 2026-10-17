@@ -32,12 +32,12 @@ import { usageText } from './usage';
  * MACD·볼린저·스토캐스틱은 지표 엔진이 이 값으로만 계산한다(`python/indicators.py`) — 그래서 늘 붙는다.
  * - 50일·200일 이동평균 교차(골든·데드크로스) · 200일선 위에서만 매수(장기 추세 거름망) — 기술적 분석 해설서가 대표 예로 드는 값
  *   (John J. Murphy, 『Technical Analysis of the Financial Markets』(1999) 의 이동평균 장 · 장기 이동평균 거름망은 Mebane Faber,
- *   「A Quantitative Approach to Tactical Asset Allocation」(2007, 10개월 ≈ 200거래일) 이 흔히 인용된다). v2.50.0 — 교차는 50/200 일 때만 붙는다.
- * - 시장이 200일선 위일 때만 매수(시장 필터, v2.51.0) — 같은 Faber(2007)의 장기 이동평균 거름망을 시장 전체 지수에 적용한 형태(지수를 따라가는 ETF 로 잰다).
+ *   「A Quantitative Approach to Tactical Asset Allocation」(2007, 10개월 ≈ 200거래일) 이 흔히 인용된다). 교차는 50/200 일 때만 붙는다.
+ * - 시장이 200일선 위일 때만 매수(시장 필터) — 같은 Faber(2007)의 장기 이동평균 거름망을 시장 전체 지수에 적용한 형태(지수를 따라가는 ETF 로 잰다).
  * 붙이지 않는 것: 5일·20일 교차 · RSI 35~45 · 점수 배분 · 65점(앱이 정한 값).
- * 처음 화면(매수 조건 표 이름 옆, v2.43.1): 「모멘텀」 = 늘(안의 MACD·스토캐스틱이 엔진 고정 표준값) · 「RSI 반등」 = 30 일 때만 ·
+ * 처음 화면(매수 조건 표 이름 옆): 「모멘텀」 = 늘(안의 MACD·스토캐스틱이 엔진 고정 표준값) · 「RSI 반등」 = 30 일 때만 ·
  * 「타이밍」 은 붙이지 않는다(RSI 35~45 라는 앱이 정한 값을 포함한다 — 볼린저 배지는 고급 설정 안에만). 매도 「반대 신호」 = 이름 옆, 70 일 때만.
- * 색은 파랑(accent) — CLAUDE.md 「예외로 남은 파랑」 에 적었다.
+ * 색은 파랑(accent) — docs/rules/design.md 「예외로 남은 파랑」.
  */
 const RECOMMENDED = { rsiBelow: 30, rsiAbove: 70 } as const;
 
@@ -57,7 +57,7 @@ function nameRecommended(key: BuyKey, b: RuleBody['buy']): boolean {
   return false;
 }
 
-/** 50일·200일 교차(v2.50.0) — 「추천」 */
+/** 50일·200일 교차 — 「추천」 */
 function isGoldenCross(b: RuleBody['buy']): boolean {
   return b.maCross.short === 50 && b.maCross.long === 200;
 }
@@ -123,7 +123,7 @@ export default function RuleDialog({
   onClose: () => void;
   onSave?: (name: string, body: RuleBody) => Promise<void>;
   accountName: (id: number) => string;
-  /** 보기 전용 (v2.44.0 — 계좌 설정·백테스트의 [조건 보기]) — [수정] 을 숨긴다. 고치기는 「퀀트 > 매매 규칙」 에서만 */
+  /** 보기 전용 (계좌 설정·백테스트의 [조건 보기]) — [수정] 을 숨긴다. 고치기는 「퀀트 > 매매 규칙」 에서만 */
   readOnly?: boolean;
 }) {
   const isNew = rule == null;
@@ -254,7 +254,7 @@ export default function RuleDialog({
                 const c = body.buy[key];
                 return (
                   <tr key={key} className="border-b border-border/30">
-                    {/* 체크 박스는 칸 가운데 — 머리 「사용」 글자와 가로 가운데가 같은 선 (v2.43.1). 브라우저 기본 여백(왼 4·오 3px)을 지워 정확히 가운데 */}
+                    {/* 체크 박스는 칸 가운데 — 머리 「사용」 글자와 가로 가운데가 같은 선. 브라우저 기본 여백(왼 4·오 3px)을 지워 정확히 가운데 */}
                     <td className="py-1.5 text-center">
                       <input
                         className="m-0 align-middle"
@@ -455,7 +455,7 @@ export default function RuleDialog({
           )}
         </section>
 
-        {/* ── 거름망 (v2.50.0) — 점수 표와 다른 칸: 통과하지 못하면 점수가 높아도 사지 않는다. 매도에는 쓰지 않는다 ── */}
+        {/* ── 거름망 — 점수 표와 다른 칸: 통과하지 못하면 점수가 높아도 사지 않는다. 매도에는 쓰지 않는다 ── */}
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-text-primary">거름망</h3>
           <p className="text-caption text-text-secondary">아래 조건을 통과하지 못하면 점수가 높아도 사지 않습니다.</p>
@@ -464,7 +464,7 @@ export default function RuleDialog({
             {(
               [
                 ['above200', '주가가 200일선 위일 때만 매수', '전날 마감 종가 기준입니다(200일선 = 최근 200거래일 종가 평균, 약 10개월). 일봉이 200개가 안 되면 사지 않습니다.'],
-                // 시장 필터(v2.51.0) — 시장 기준은 `server/rules/marketRef.ts`
+                // 시장 필터 — 시장 기준은 `server/rules/marketRef.ts`
                 [
                   'marketAbove200',
                   '시장이 200일선 위일 때만 매수',

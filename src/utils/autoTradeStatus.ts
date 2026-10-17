@@ -3,9 +3,9 @@ import type { AccountStrategy, AccountStrategyStatus } from '../types/autoTradin
 /**
  * 자동매매 카드 상태 — **네 가지**다.
  *
- * ⚠️ 예전에는 "가동 중 / 멈춤 / 꺼짐" 셋이었는데, 서버의 `blockedReason` 이 성격이 다른
- * 두 가지를 한 문자열에 섞고 있었다. 미국 정규장은 한국 시간으로 밤이라 **켜 둔 계좌가
- * 밤새 "멈춤: 정규장 시간이 아닙니다"** 로 보였고, 그걸 고장으로 읽게 된다.
+ * ⚠️ "가동 중 / 멈춤 / 꺼짐" 셋만 두지 않는다 — 서버의 `blockedReason` 은 성격이 다른
+ * 두 가지를 한 문자열에 담는다. 셋만 두면 미국 정규장은 한국 시간으로 밤이라 **켜 둔 계좌가
+ * 밤새 "멈춤: 정규장 시간이 아닙니다"** 로 보여 고장으로 읽게 된다.
  * 반대로 진짜 고장(키 없음·종목 0개)은 그 사이에 묻힌다.
  *
  * ⚠️ 판정은 **문구가 아니라 `blockedKind`** 로 한다. 문구를 다듬을 때마다 화면 분기가
@@ -18,7 +18,7 @@ export interface AutoTradeView {
   state: AutoTradeState;
   /**
    * 한 단어 상태(가동·대기·멈춤·꺼짐) — 아이콘을 그릴 수 없는 `<option>` 글자에 쓴다.
-   * 화면의 아이콘은 `ui/AutoTradeIcon`(상태마다 모양이 다르다 — 색만으로 구분하지 않는다, v2.36.0 예전 기호 ●◐⚠○).
+   * 화면의 아이콘은 `ui/AutoTradeIcon`(상태마다 모양이 다르다 — 색만으로 구분하지 않는다).
    */
   short: string;
   label: string;
@@ -61,7 +61,7 @@ export function autoTradeView(
     };
   }
 
-  // 하루 손실 한도(킬 스위치, v2.16.0) — 신규 매수만 멈춘 상태. 손절·청산은 계속 돈다
+  // 하루 손실 한도(킬 스위치) — 신규 매수만 멈춘 상태. 손절·청산은 계속 돈다
   if (status?.blockedKind === 'daily_loss') {
     return {
       state: 'blocked',
@@ -74,7 +74,7 @@ export function autoTradeView(
     };
   }
 
-  // 이 서버에서 자동매매 자체가 꺼져 있다 (AUTO_TRADING_ENABLED=false, v2.16.0) — 설정이 켜져 있어도 돌지 않는다
+  // 이 서버에서 자동매매 자체가 꺼져 있다 (AUTO_TRADING_ENABLED=false) — 설정이 켜져 있어도 돌지 않는다
   if (status?.blockedKind === 'server_off') {
     return {
       state: 'blocked',

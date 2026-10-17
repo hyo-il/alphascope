@@ -1,14 +1,12 @@
 /**
  * 종합 진단 본체 — `npm run diagnose` 스크립트와 웹의 「진단 리포트」(`POST /api/diagnose/run`)가
- * **같은 함수**(`runDiagnose`)를 부른다 (v2.14.0 에 스크립트에서 분리). 두 벌이면 웹과 리포트가
+ * **같은 함수**(`runDiagnose`)를 부른다 . 두 벌이면 웹과 리포트가
  * 다른 숫자를 낸다.
  *
  * 사용자가 물은 것에 **숫자로** 답하기 위한 도구다 (2026-09-25).
  *   1) 목표 수익률(3·5·10·15%)을 바꾸면 결과가 달라지는가
  *   2) 급등 탐지의 주기성 예측이 실제로 맞는가
  *   3) Gemini 분석이 정확한가  4) 뉴스 AI 판정이 맞았나
- * (예전 1번 「관심 종목이 스윙에서 전부 부적합인 이유」 는 v2.45.0 에 점수 계산기와 함께 지웠다 —
- *  매수 판단의 성적은 「매수 판단 > 히스토리」 가 매일 기록으로 본다.)
  *
  * ⚠️ **판정 엔진을 복사하지 않는다.** `findSurgeEvents`·`analyzePeriodicity`·
  * `scoredAnalyses` 를 그대로 부른다. 복사하면 진단과 실제 화면이 다른 말을 하게 된다.
@@ -130,7 +128,7 @@ interface PeriodicCase {
   /** 예상일이 기준일보다 과거인가 — "이미 지난 날짜" 사례 */
   stale: boolean;
   /**
-   * 기준일 기준 경과 일수 (지났을 때만, v2.20.0) — 화면·리포트가 "예상일 지남(N일 경과)" 으로 적는다.
+   * 기준일 기준 경과 일수 (지났을 때만) — 화면·리포트가 "예상일 지남(N일 경과)" 으로 적는다.
    * ⚠️ `analyzePeriodicity().overdueDays` 는 **오늘** 기준이라 워크포워드에는 쓰지 않는다 — 여기서는 기준일로 잰다.
    */
   overdueDays: number | null;
@@ -285,7 +283,7 @@ async function surgeWalkForward(symbols: string[]): Promise<SurgeVerdict> {
 /**
  * `surge_detections` 의 성과 칸이 비어 있던 이유를 확인하고 채운다.
  *
- * ⚠️ 채점은 `/api/surge/history` 를 **읽을 때만** 돈다(CLAUDE.md Step 9 — 별도 스케줄러를
+ * ⚠️ 채점은 `/api/surge/history` 를 **읽을 때만** 돈다(docs/rules/features.md 「급등 탐지」 — 별도 스케줄러를
  * 두지 않았다). 탐지 이력 화면을 열지 않으면 영영 비어 있는 **구조**이지 버그가 아니다.
  * 진단이 `refreshOutcomes()` 를 한 번 부르는 것은 원래 돌아야 하는 기능을 돌리는 것이라 허용된다.
  */
@@ -320,7 +318,7 @@ async function surgeOutcomes() {
       date: d.detectedAt.slice(0, 10),
       symbol: d.symbol,
       score: d.surgeScore,
-      // 탐지 당시 이미 지난 예상일은 경과로 적는다 (v2.19.0 overdueDays — 화면과 같은 말)
+      // 탐지 당시 이미 지난 예상일은 경과로 적는다 (overdueDays — 화면과 같은 말)
       expected: d.nextEstimatedDate
         ? d.overdueDays != null
           ? `${d.nextEstimatedDate} (탐지 시점에 예상일 지남, ${d.overdueDays}일 경과)`
@@ -338,9 +336,9 @@ async function surgeOutcomes() {
 /**
  * 기존 채점(`gemini/accuracy.ts`)을 그대로 부른다 — 새로 호출하지 않는다.
  * ⚠️ 같은 종목·같은 날은 1건으로 묶는다(`dailyScoredAnalyses`) — 「분석 성적표」와 같은 규칙.
- * ⚠️ **Gemini 만 센다** (v2.16.0). 채점 함수는 Claude 수동 분석(`analysis_history`)도 함께 돌려주는데,
- * v2.15.0 까지 여기서 둘을 합쳐 "Gemini 정확도" 로 적었다. Claude 는 사용자가 고른 종목만 분석하므로
- * 선택 편향이 있어 섞으면 안 된다(Step 8) — 별도 줄(`claude`)로만 둔다.
+ * ⚠️ **Gemini 만 센다**. 채점 함수는 Claude 수동 분석(`analysis_history`)도 함께 돌려주는데,
+ * Claude 는 사용자가 고른 종목만 분석하므로
+ * 선택 편향이 있어 섞으면 안 된다 — 별도 줄(`claude`)로만 둔다.
  */
 async function geminiAccuracy(symbols: string[]) {
   const allRaw = scoredAnalyses(500);
@@ -396,7 +394,7 @@ async function geminiAccuracy(symbols: string[]) {
 
   // 프롬프트 버전별 (Gemini 만) — 같은 종목·같은 날 묶기도 버전별로 한다
   const versions = byPromptVersion(scoredAnalyses(500));
-  // 출처별 (v2.30.0) — 묶기도 출처별로. 이름은 GEMINI_TRIGGER_LABEL 한 곳(src/types/gemini.ts)
+  // 출처별 — 묶기도 출처별로. 이름은 GEMINI_TRIGGER_LABEL 한 곳(src/types/gemini.ts)
   const sources = byTrigger(scoredAnalyses(500));
 
   return {
@@ -499,7 +497,7 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
 
   step(3, 'Gemini 정확도');
   const gemini = await geminiAccuracy(list);
-  // 뉴스 AI 판정 (v2.21.0) — 저장된 판정만 채점한다. Gemini 를 새로 부르지 않는다
+  // 뉴스 AI 판정 — 저장된 판정만 채점한다. Gemini 를 새로 부르지 않는다
   const news = newsAccuracy();
 
   const afterRows = {
@@ -569,7 +567,7 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
   md.push(`- 기준선(같은 종목을 아무 날 샀을 때 5일 뒤 상승 비율) **${gemini.baselineUp5}%** — AI 가 이보다 높아야 의미가 있습니다.`);
   md.push('');
 
-  // Q4 (v2.21.0)
+  // Q4
   md.push('### 4. 뉴스 AI 판정(긍정·부정)은 맞았나?');
   if (news.weak) {
     md.push(`- **표본 부족 — 결론 불가.** 5일 채점 ${news.d5.judged}건 — **${news.need}건 더** 쌓여야 판단할 수 있습니다(기준 ${NEWS_MIN_SAMPLE}건). 판정은 [AI 요약·판정] 버튼을 누를 때만 생깁니다.`);

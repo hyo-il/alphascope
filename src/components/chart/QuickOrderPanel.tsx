@@ -63,7 +63,7 @@ export default function QuickOrderPanel({
   const [positions, setPositions] = useState<PaperPositionValued[]>([]);
   const [orders, setOrders] = useState<PaperOrder[]>([]);
   const [cash, setCash] = useState(0);
-  /** 1달러 = N원 (서버가 계좌 상세와 함께 준다 — v2.45.1, 예전 「USD → 계좌 통화」 fxRate 는 달러 계좌에서 1 이라 국내 종목을 환산하지 못했다) */
+  /** 1달러 = N원 (서버가 계좌 상세와 함께 준다 — 「USD → 계좌 통화」 값은 달러 계좌에서 1 이라 국내 종목을 환산하지 못한다) */
   /** undefined = 아직 받기 전 · null = 끝내 못 받았다. 1 로 때우면 원화 계좌 수량이 1,000배가 된다. */
   const [usdKrw, setUsdKrw] = useState<number | null | undefined>(undefined);
   const [quantity, setQuantity] = useState(10);
@@ -72,7 +72,7 @@ export default function QuickOrderPanel({
   const [busy, setBusy] = useState(false);
   const [version, setVersion] = useState(0);
   /**
-   * 지정가 가격 칸 (v2.41.0). 처음 값 = 현재가, 종목이 바뀌면 현재가로. 사용자가 고친 뒤에는(`touched`)
+   * 지정가 가격 칸. 처음 값 = 현재가, 종목이 바뀌면 현재가로. 사용자가 고친 뒤에는(`touched`)
    * 시세가 바뀌어도 덮지 않는다. 호가 가격 칸을 누르면 그 가격으로 채운다.
    */
   const [limitText, setLimitText] = useState('');
@@ -346,7 +346,7 @@ export default function QuickOrderPanel({
           ))}
         </Select>
 
-        {/* 수량 — 「이름 | 입력칸 | 주·%」 (v2.42.2: 가격 줄과 같은 세 칸 폭이라 입력칸 양쪽 끝이 맞는다) */}
+        {/* 수량 — 「이름 | 입력칸 | 주·%」 (가격 줄과 같은 세 칸 폭이라 입력칸 양쪽 끝이 맞는다) */}
         <div className="space-y-1">
           <div className="flex items-center gap-1.5">
             <span className={`shrink-0 text-caption text-text-muted ${ORDER_LABEL_W}`}>수량</span>
@@ -424,8 +424,8 @@ export default function QuickOrderPanel({
         <div className="flex items-center gap-1.5">
           <span className={`shrink-0 text-caption text-text-muted ${ORDER_LABEL_W}`}>가격</span>
           {/*
-            금액 칸 — 입력하는 동안에도 천 단위 쉼표(v2.42.3 thousands · 263,500 · 1,234.56). 화면 글자만 쉼표이고
-            limitText 는 쉼표 없는 숫자 문자열 그대로라 주문 가격(parsePrice)은 예전과 같다. 원화 정수 · 달러 소수 둘째 자리.
+            금액 칸 — 입력하는 동안에도 천 단위 쉼표(thousands · 263,500 · 1,234.56). 화면 글자만 쉼표이고
+            limitText 는 쉼표 없는 숫자 문자열 그대로라 주문 가격(parsePrice)에 쉼표가 들어가지 않는다. 원화 정수 · 달러 소수 둘째 자리.
           */}
           <NumberField
             size="sm"
@@ -501,7 +501,7 @@ export default function QuickOrderPanel({
           </button>
         </div>
 
-        {/* 대기 주문이 있을 때만 — 없을 때 꺼진 버튼으로 자리를 차지하지 않는다(v2.41.0, 1280×1080 에서 빠른주문이 다 보이게) */}
+        {/* 대기 주문이 있을 때만 — 없을 때 꺼진 버튼으로 자리를 차지하지 않는다(1280×1080 에서 빠른주문이 다 보이게) */}
         {pending.length > 0 && (
         <button
           type="button"

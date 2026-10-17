@@ -32,7 +32,7 @@ function toCalendarBars(daily: Candle[], symbol: string, unit: CalendarUnit, tru
 }
 
 /**
- * 주·월 봉에 쓸 일봉 — **SQLite 캐시를 먼저** 보고 모자란 만큼만 받는다 (v2.20.0).
+ * 주·월 봉에 쓸 일봉 — **SQLite 캐시를 먼저** 보고 모자란 만큼만 받는다.
  * 캐시가 충분하고 구멍이 없으면 최근 한 페이지(200봉)만 갱신한다. 월봉 60개면 일봉 1,300여 개라
  * 매번 전부 받으면 7페이지씩 나간다(MARKET_DATA_CHART 20/s 는 httpClient 가 지킨다).
  */
@@ -88,7 +88,7 @@ async function refreshRecentDaily(symbol: string, cached: Candle[]): Promise<boo
 
 /**
  * 캔들 조회: SQLite 캐시 우선, 오래됐으면 토스 API 갱신.
- * 5m/15m/30m 은 1분봉을 받아 집계한다. 1w/1M 은 일봉을 **시장 달력**의 주·월로 묶는다(v2.20.0).
+ * 5m/15m/30m 은 1분봉을 받아 집계한다. 1w/1M 은 일봉을 **시장 달력**의 주·월로 묶는다.
  */
 export async function getCandles(
   symbol: string,
@@ -121,8 +121,8 @@ export async function getCandles(
     // 여기서 그냥 던지면 이미 받아 둔 수천 봉을 두고도 차트가 통째로 빈다.
     // 캐시가 아예 없을 때만 원래 에러를 올려 보낸다. (summaryService 와 같은 방침)
     try {
-      // 일봉은 **새 것만** 받는다 (v2.41.0) — 빈틈 없는 캐시가 충분하면 마지막 캐시 봉 이후(+겹치는 며칠)만.
-      // 일봉 timestamp 는 그날 자정이라 위 "1시간 안" 판정이 거의 늘 거짓이어서, 예전에는 부를 때마다 전부(800봉이면 5페이지) 다시 받았다.
+      // 일봉은 **새 것만** 받는다 — 빈틈 없는 캐시가 충분하면 마지막 캐시 봉 이후(+겹치는 며칠)만.
+      // 일봉 timestamp 는 그날 자정이라 위 "1시간 안" 판정이 거의 늘 거짓이다 — 그대로 두면 부를 때마다 전부(800봉이면 5페이지) 다시 받는다.
       const recentOnly = base === '1d' && latest !== null && dailyCacheComplete(cached, baseLimit) ? await refreshRecentDaily(symbol, cached) : false;
       if (!recentOnly) {
         const fresh = await fetchCandles(symbol, base, baseLimit);

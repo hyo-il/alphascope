@@ -1,10 +1,10 @@
 /**
- * 시험 스크립트는 **사본 DB 로만** 돈다 (v2.44.2) — 각 시험 스크립트의 **맨 첫 import** 로 둔다.
+ * 시험 스크립트는 **사본 DB 로만** 돈다 — 각 시험 스크립트의 **맨 첫 import** 로 둔다.
  *
  * - 명령 앞에 직접 준 `DB_PATH` 로 판정한다. ESM 의 import 는 순서대로 실행되므로, 이 파일이 `dotenv/config` 보다 먼저 돌면
  *   `.env` 의 값이 아직 들어오지 않았다(dotenv 는 이미 있는 값을 덮지 않는다 — 직접 준 값은 그대로 남는다).
  * - `DB_PATH` 가 없거나, 사용자 DB(`.env` 의 `DB_PATH` 또는 기본 `./db/alphascope.db`)와 같은 파일이면 멈춘다(종료 코드 1).
- * - 우회 옵션은 두지 않는다. v2.44.1 작업 중 `autotrade:test` 를 `DB_PATH` 없이 돌려 사용자 DB 에 임시 계좌·규칙을 만든 일이 있었다.
+ * - 우회 옵션은 두지 않는다. `DB_PATH` 없이 돌리면 사용자 DB 에 임시 계좌·규칙이 생긴다.
  * - 운영 도구(`auth:set-password` · `diagnose` · `db:init` · `universe:update` · `smoke` · `probe`)는 실제 DB 에서 도는 것이 목적이라 쓰지 않는다.
  */
 import fs from 'node:fs';

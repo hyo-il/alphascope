@@ -1,4 +1,4 @@
-/** 종목 뉴스 + AI 긍정/부정 (v2.18.0) — 서버 `server/news.ts` 와 차트 하단 「뉴스」 탭이 함께 쓴다 */
+/** 종목 뉴스 + AI 긍정/부정 — 서버 `server/news.ts` 와 차트 하단 「뉴스」 탭이 함께 쓴다 */
 
 export interface NewsItem {
   title: string;

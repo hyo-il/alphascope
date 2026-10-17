@@ -1,5 +1,5 @@
 /**
- * 계좌별 자동매매 자체 점검 (v2.44.0 — 매매 규칙 엔진).
+ * 계좌별 자동매매 자체 점검 (매매 규칙 엔진).
  * 실행: npm run autotrade:test
  *
  * 왜 필요한가 — 손절·트레일링은 **가격이 실제로 빠져야** 발동한다. 손실 난 포지션이 생기기를 기다릴 수 없으므로
@@ -9,7 +9,7 @@
  * ⚠️ 임시 계좌·임시 규칙은 끝나고 지운다. 사용자의 계좌·규칙은 건드리지 않는다.
  * ⚠️ 여기서도 주문은 모의 계좌(SQLite)에만 들어간다.
  */
-import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다(v2.44.2)
+import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import { getDb, loadCandles } from '../server/db';
 import { createAccount, createOrder, deleteAccount, getAccount, listAccounts, listPositions, listTrades, reorderAccounts, setUsdKrwForTest } from '../server/paperTradingService';
 import { planBuy } from '../server/autoTrading/sizing';
@@ -120,7 +120,7 @@ async function main(): Promise<void> {
     check('국내 수요일 15:40 KST 닫힘(마감 뒤)', !isMarketOpen('KR', new Date('2026-10-14T06:40:00Z')));
     check('국내 일요일 닫힘', !isMarketOpen('KR', new Date('2026-10-18T01:00:00Z')));
 
-    // ── 0-2. 다음 개장 시각 (v2.44.1 — 서버가 휴장일까지 본다). 휴장일은 시험 안에서 넣는다(실제 DB 달력은 건드리지 않는다) ──
+    // ── 0-2. 다음 개장 시각 (서버가 휴장일까지 본다). 휴장일은 시험 안에서 넣는다(실제 DB 달력은 건드리지 않는다) ──
     console.log('\n0-2) 다음 개장 시각 (휴장일 반영)');
     const fakeHolidays = new Set(['US:2026-11-26', 'KR:2026-10-09']);
     setClosedLookupForTest((market, day) => {
@@ -344,8 +344,8 @@ async function main(): Promise<void> {
 }
 
 /**
- * 10. 통화가 다른 계좌·종목 (v2.45.1) — 예전 수량 계산이 환율을 거꾸로 적용해 원화 계좌는 미국 종목을,
- * 달러 계좌는 국내 종목을 사지 못했다(시험에 통화가 다른 경우가 없어서 놓쳤다). 환율은 1,350 으로 고정한다.
+ * 10. 통화가 다른 계좌·종목 — 환율 방향이 뒤집히면 원화 계좌는 미국 종목을,
+ * 달러 계좌는 국내 종목을 사지 못한다(이 절이 그 경우를 지킨다). 환율은 1,350 으로 고정한다.
  */
 async function fxSection(): Promise<void> {
   console.log('\n10) 통화가 다른 계좌·종목 (환율 1,350 고정)');
@@ -410,7 +410,7 @@ async function fxSection(): Promise<void> {
 }
 
 /**
- * 11. AI 검증 (v2.46.0) — Gemini 는 부르지 않는다(가짜 답 · 실패 · 시간 초과 · 429 로 바꿔치기).
+ * 11. AI 검증 — Gemini 는 부르지 않는다(가짜 답 · 실패 · 시간 초과 · 429 로 바꿔치기).
  * 매수 경로(tryBuy)를 그대로 부르고, 검증 결과·주문·사용 기록을 본다. 시험 종목의 오늘 검증 줄은 경우마다 지운다(사본 DB).
  */
 async function aiSection(): Promise<void> {
@@ -517,7 +517,7 @@ async function aiSection(): Promise<void> {
     const uses = db.prepare(`SELECT COUNT(*) AS n FROM ai_check_uses WHERE check_id = ?`).get(checkId) as { n: number };
     check('두 계좌 동시 → Gemini 1번 · 사용 기록 2줄', fakeCalls - before === 1 && uses.n === 2 && na.code === 'ai_pass' && nb.code === 'ai_pass', `호출 ${fakeCalls - before} · 사용 ${uses.n}`);
 
-    // ── 끔 → AI 를 부르지 않음 · 예전과 같은 판단 ──
+    // ── 끔 → AI 를 부르지 않음 · 끈 계좌와 같은 판단 ──
     resetChecks();
     before = fakeCalls;
     const callsBefore = aiCheckCallsForTest();
@@ -571,7 +571,7 @@ async function aiSection(): Promise<void> {
 }
 
 /**
- * 12. 계좌 순서 (v2.48.0) — 순서 저장·읽기 · 새 계좌는 맨 뒤 · 계좌 삭제 뒤 나머지 순서 유지 · 잘못된 목록은 거절.
+ * 12. 계좌 순서 — 순서 저장·읽기 · 새 계좌는 맨 뒤 · 계좌 삭제 뒤 나머지 순서 유지 · 잘못된 목록은 거절.
  * 임시 계좌를 만들었다 지우고, 원래 계좌들의 순서는 끝에 되돌린다.
  */
 function orderSection(): void {
@@ -617,7 +617,7 @@ void main().catch((error) => {
 });
 
 /**
- * 13. 총점 순서로 사기 (v2.49.0) — 같은 판단에서 「사도 됨」 이 더 살 수 있는 종목 수보다 많으면 총점 높은 순(→ 60거래일 수익률 → 티커)으로 산다.
+ * 13. 총점 순서로 사기 — 같은 판단에서 「사도 됨」 이 더 살 수 있는 종목 수보다 많으면 총점 높은 순(→ 60거래일 수익률 → 티커)으로 산다.
  * 판단 함수를 바꿔치기해 점수만 정한다(끝난 봉·지표는 실제 `judgeOnClose` 결과 — 가격·AI 질문은 진짜 값). 임시 계좌·규칙은 끝에 지운다.
  */
 async function rankSection(): Promise<void> {
@@ -720,7 +720,7 @@ async function rankSection(): Promise<void> {
     check('매도 1 + 후보 2 · 자리 0 → 매도 먼저, 뒤에 1위(NVDA) 매수 · 2위 가득 참', noteOf(r5, 'AMZN')?.action === 'SELL' && bought(r5).join() === 'NVDA' && noteOf(r5, 'AAPL')?.code === 'max_positions',
       r5.notes.map((n) => `${n.symbol}:${n.action}:${n.code}`).join(' '));
 
-    // ⑥ 사도 됨 1개 → 예전과 같은 문장(순위 없음)
+    // ⑥ 사도 됨 1개 → 순위 없는 문장
     plan = { NVDA: ['BUY', 75] };
     const r6 = await run(account(1));
     const n6 = noteOf(r6, 'NVDA')!;
@@ -753,7 +753,7 @@ async function rankSection(): Promise<void> {
 }
 
 /**
- * 14. 거름망 문장 · 「최근 판단」 하루치 · 예시 규칙 (v2.50.0).
+ * 14. 거름망 문장 · 「최근 판단」 하루치 · 예시 규칙.
  * 최근 판단은 임시 계좌 번호(쓰지 않는 큰 수)로 기록했다 지운다. 예시 규칙은 사본 DB 에서 지우고 다시 넣어 본다.
  */
 function dailySection(): void {
@@ -819,7 +819,7 @@ function dailySection(): void {
 }
 
 /**
- * 15. 시장 필터 · 거름망 이유 (v2.51.0) — 이유 4가지 표시 · 쉬운 말 · 한 판단에서 시장 기준을 시장마다 한 번 · 받기 실패면 사지 않음.
+ * 15. 시장 필터 · 거름망 이유 — 이유 4가지 표시 · 쉬운 말 · 한 판단에서 시장 기준을 시장마다 한 번 · 받기 실패면 사지 않음.
  */
 async function marketSection(): Promise<void> {
   console.log('\n── 15. 시장 필터 · 거름망 이유 ──');
@@ -865,7 +865,7 @@ async function marketSection(): Promise<void> {
     const scored = r2.notes.filter((n) => n.code !== 'not_enough_candles');
     check('시장 데이터 받기 실패 → 「시장 데이터 없음」 으로 사지 않음 · 주문 0', r2.ordered === 0 && scored.length > 0 && scored.every((n) => n.code === 'gate_block' && n.gateReason === 'market_nodata'),
       r2.notes.map((n) => `${n.symbol}:${n.code}${n.gateReason ? `(${n.gateReason})` : ''}`).join(' '));
-    // 백테스트 — 시장 기준을 받지 못하면 결과에 알린다(조용히 거래 0 이 되지 않게). 시장 필터를 끈 방법이면 알림 칸이 없다(예전 결과 모양)
+    // 백테스트 — 시장 기준을 받지 못하면 결과에 알린다(조용히 거래 0 이 되지 않게). 시장 필터를 끈 방법이면 알림 칸이 없다(결과 모양이 그대로)
     const input = (r: typeof rule, ruleBody: typeof rule) => ({ symbols: ['AAPL', 'MSFT'], years: 1, conditions: [{ label: 'A' as const, ruleId: r.id, ruleName: r.name, rule: ruleBody }] });
     const failed = await runCustomBacktest(input(rule, rule) as never);
     const plainBody = (() => { const b = defaultRuleBody(); b.buy.minScore = 1; return b; })();
@@ -886,7 +886,7 @@ async function marketSection(): Promise<void> {
 }
 
 /**
- * 16. 시장 데이터를 잠깐 못 받은 날 (v2.51.1 — 사용자 결정: 그날 다시 시도).
+ * 16. 시장 데이터를 잠깐 못 받은 날 (사용자 결정: 그날 다시 시도).
  * 「시장 데이터 없음」 은 그날 판단을 마친 것으로 두지 않는다 → 다음 틱에 다시. 시장 기준 받기는 실패 뒤 5분 간격. 「최근 판단」 은 처음 한 번 + 성공했을 때.
  * 시장이 열린 시각(OPEN_US)부터 1분 · 5분 뒤로 틱을 흉내 낸다(force 없이 — 「오늘 판단함」 기록까지 본다).
  */

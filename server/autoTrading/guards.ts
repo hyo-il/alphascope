@@ -1,5 +1,5 @@
 /**
- * 자동매매 **신규 매수** 안전장치 (v2.16.0) — 실적 발표 직전 회피 · 하루 손실 한도(킬 스위치).
+ * 자동매매 **신규 매수** 안전장치 — 실적 발표 직전 회피 · 하루 손실 한도(킬 스위치).
  *
  * ⚠️ 둘 다 **새로 사는 것만** 막는다. 보유 종목의 하드 손절·트레일링·AI/규칙 매도는 그대로 돈다 —
  * "막혔으니 아무것도 안 한다" 가 되면 손실이 난 계좌의 손절까지 멈춘다.
@@ -24,7 +24,7 @@ const isWeekend = (day: string) => {
 
 /**
  * from(오늘) 다음 날부터 to(발표일)까지의 거래일 수 — 발표일이 오늘이면 0, 지났으면 음수.
- * 시장을 주면 토스 휴장 달력(`marketCalendar.ts`)의 휴장일도 뺀다 (v2.17.0 — 그전에는 주말만 뺐다).
+ * 시장을 주면 토스 휴장 달력(`marketCalendar.ts`)의 휴장일도 뺀다 (그전에는 주말만 뺐다).
  * 달력으로 확인한 범위 밖은 주말만 뺀다.
  */
 export function tradingDaysUntil(from: string, to: string, market?: CalendarMarket): number {
@@ -49,7 +49,7 @@ export function tradingDaysUntil(from: string, to: string, market?: CalendarMark
  * 실적 전후 변동성 확대를 피하는 관행 — 값 3은 앱의 출발값(검증 전).
  */
 /**
- * 실적일 조회 — 점검(`npm run autotrade:test`)이 날짜를 넣어 시험할 수 있게 한 자리 (v2.41.0).
+ * 실적일 조회 — 점검(`npm run autotrade:test`)이 날짜를 넣어 시험할 수 있게 한 자리.
  * ⚠️ 점검이 **실제 DB 의 실적 달력을 바꾸지 않게** 하려는 것이다. 서버는 이 함수를 부르지 않는다(늘 `getEarningsDate`).
  */
 let earningsLookup: typeof getEarningsDate = getEarningsDate;

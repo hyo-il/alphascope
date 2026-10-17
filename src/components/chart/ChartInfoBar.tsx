@@ -7,9 +7,9 @@ import { formatChartDateTime, isIntraday } from './chartTheme';
 /**
  * 차트 위쪽 정보 바 — OHLCV + 이동평균 범례.
  *
- * **차트 영역 밖에 둔다.** 예전에는 캔들 위에 absolute 오버레이로 띄우고 배경을 지운 뒤
- * text-shadow 로 읽히게 했는데, 배경을 없애도 **글자 자체가 캔들을 가린다** — 특히
- * 좌상단은 확대해서 보면 값이 가장 궁금한 자리다. 한 줄을 통째로 차트 밖으로 뺐다.
+ * **차트 영역 밖에 둔다.** 캔들 위에 absolute 오버레이로 띄우고 배경을 지운 뒤
+ * text-shadow 로 읽히게 해도 **글자 자체가 캔들을 가린다** — 특히
+ * 좌상단은 확대해서 보면 값이 가장 궁금한 자리다. 그래서 한 줄을 통째로 차트 밖에 둔다.
  *
  * 메인 차트와 캡처 팝업이 같은 컴포넌트를 쓴다. 캡처 그림에도 같은 줄이 찍혀야
  * 붙여넣은 쪽에서 "언제 어느 봉인지" 를 알 수 있다.
@@ -205,7 +205,7 @@ export default function ChartInfoBar({
             const value = legend?.ma?.[ma.label];
             return (
               /*
-                일반 글자 줄(inline-block · 고정 줄 높이) — flex 로 두면 캡처 PNG(html2canvas)에서 점이 글자보다 위로 떴다(v2.42.2, CLAUDE.md 「캡처」 규칙).
+                일반 글자 줄(inline-block · 고정 줄 높이) — flex 로 두면 캡처 PNG(html2canvas)에서 점이 글자보다 위로 뜬다(docs/rules/architecture.md 「캡처」).
                 점은 상자(inline-block 원)가 아니라 **글자 「●」** 다 — html2canvas 가 글자를 DOM 보다 아래 기준선에 그려, 상자로 그린 점만 위에 떠 보였다.
                 글자끼리는 같은 기준선이라 PNG 에서도 같은 높이다. 줄 높이는 정수(18px).
               */

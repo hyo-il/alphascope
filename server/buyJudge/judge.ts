@@ -1,11 +1,11 @@
 /**
- * 매수 판단 계산 (v2.45.0) — 한 곳. 화면(`GET /api/buy-judge`) · [다시 계산] · 매일 자동 기록(`scheduler.ts`)이 같은 함수를 쓴다.
+ * 매수 판단 계산 — 한 곳. 화면(`GET /api/buy-judge`) · [다시 계산] · 매일 자동 기록(`scheduler.ts`)이 같은 함수를 쓴다.
  *
  * - **마감 판단**: 계좌 자동매매와 같은 `rules/judge.judgeOnClose`(끝난 봉, `held: false`). 그래서 같은 종목·날·규칙이면 계좌와 같은 답.
  * - **참고 점수**: 진행 중인 봉이 있으면(장중 · 장 전 데이마켓 등) 그 봉의 종가를 지금 가격으로 바꿔 넣고 같은 엔진(`scoreAt`)을 한 번 더 —
  *   점수만 쓴다. 진행 중인 봉이 없으면(그날 봉이 끝난 뒤 · 다음 거래일 첫 봉이 생기기 전) 마감 점수와 같다. **확정 아님.**
- * - **경고**: 실적 발표 14일 안(실적 달력 → 없으면 캐시된 기업정보) · 변동성(ATR 4% 넘음) · 손익비 1~1.5 · RSI 60 넘음 · 1·2차 목표가 1% 안 —
- *   예전 매수 판단 카드의 경고와 같은 뜻. "손익비 1 미만" 은 이제 판단(「손익비 부족」) 자체다.
+ * - **경고**: 실적 발표 14일 안(실적 달력 → 없으면 캐시된 기업정보) · 변동성(ATR 4% 넘음) · 손익비 1~1.5 · RSI 60 넘음 · 1·2차 목표가 1% 안.
+ *   "손익비 1 미만" 은 판단(「손익비 부족」) 자체다.
  */
 import { judgeOnClose } from '../rules/judge';
 import type { GateReason } from '../../src/types/autoTrading';
@@ -64,7 +64,7 @@ export function currentRule(): CurrentRule | null {
 /**
  * 그 시장의 그날 판단을 기록하는 시각(현지 분). 마감 직후에는 일봉이 아직 바뀐다:
  * - 국내: 정규장 15:30 이후에도 NXT 애프터마켓이 20:00 까지 열려 토스 일봉 종가가 바뀐다(통합 종가) → **20:30 KST**
- * - 미국: 토스 일봉 종가는 정규장 종가(애프터마켓을 넣지 않는다 — v2.44.3 에서 확인) → 마감 16:00 + 30분 = **16:30 ET**
+ * - 미국: 토스 일봉 종가는 정규장 종가(애프터마켓을 넣지 않는다 — 2026-10-17 15종목 확인) → 마감 16:00 + 30분 = **16:30 ET**
  */
 export const RECORD_AT: Record<CalendarMarket, { tz: string; minutes: number }> = {
   KR: { tz: 'Asia/Seoul', minutes: 20 * 60 + 30 },
@@ -128,7 +128,7 @@ export async function judgeSymbol(
   rule: RuleBody,
   livePrice: number | null,
   now = Date.now(),
-  /** 이번 실행이 같이 쓰는 시장 기준 받기(v2.51.0 — 시장마다 한 번) */
+  /** 이번 실행이 같이 쓰는 시장 기준 받기(시장마다 한 번) */
   refs?: MarketRefLoader,
 ): Promise<{ row: BuyJudgeRow; record: { marketDate: string; ev: RuleEvaluation } | null; unconfirmed?: boolean }> {
   const empty: BuyJudgeRow = {
@@ -138,7 +138,7 @@ export async function judgeSymbol(
   try {
     const j = await judgeOnClose(symbol, rule, { held: false }, now, undefined, refs);
     if (j.kind === 'short') return { row: { ...empty, error: `가격 데이터가 ${j.count}개뿐이라 판단하지 않았습니다` }, record: null };
-    // 끝나지 않은 채 저장된 일봉(v2.51.1) — 끝나지 않은 값으로 판단하지 않는다. 다음 실행 · 다음 기록 때 다시 받는다
+    // 끝나지 않은 채 저장된 일봉 — 끝나지 않은 값으로 판단하지 않는다. 다음 실행 · 다음 기록 때 다시 받는다
     if (j.kind === 'unconfirmed') return { row: { ...empty, error: `일봉(${j.dates.join(', ')})을 확정하지 못해 판단을 미룹니다` }, record: null, unconfirmed: true };
     const { ev, completed, series, candles } = j;
     const lastBar = completed.at(-1)!;
@@ -241,7 +241,7 @@ export async function buildState(opts: { write?: boolean; now?: number } = {}): 
   const base = { ruleId: rule?.id ?? null, ruleName: rule?.name ?? null, symbols, retention: store.getRetention(), computedAt: new Date(now).toISOString() };
   if (!rule || !symbols.length) return { ...base, rows: [] };
   const prices = await livePrices(symbols);
-  // 매수 판단은 계좌의 「5분 기다림」 을 쓰지 않는다 — 기다림 중이라 받지 않은 「시장 데이터 없음」 으로 그날 줄을 덮지 않게(v2.51.1)
+  // 매수 판단은 계좌의 「5분 기다림」 을 쓰지 않는다 — 기다림 중이라 받지 않은 「시장 데이터 없음」 으로 그날 줄을 덮지 않게
   const refs = marketRefLoader(now, undefined, undefined, false);
   const results = await mapLimit(symbols, 4, (s) => judgeSymbol(s, rule.body, prices.get(s) ?? null, now, refs));
   if (opts.write) for (const r of results) if (r.record) save(rule, r.row.symbol, r.record.marketDate, r.record.ev);
@@ -265,7 +265,7 @@ export async function recordMarket(market: CalendarMarket, day: string, now = Da
     if (record && record.marketDate === day) {
       save(rule, s, day, record.ev);
       written++;
-      // 시장 기준(SPY · KODEX 200)을 받지 못했거나 그날 봉이 없다(v2.51.2 — 계좌와 같은 규칙) — 줄은 쓰되 그날을 「기록함」 으로 두지 않고 다시 시도한다(다시 쓰면 같은 줄을 덮는다)
+      // 시장 기준(SPY · KODEX 200)을 받지 못했거나 그날 봉이 없다(계좌와 같은 규칙) — 줄은 쓰되 그날을 「기록함」 으로 두지 않고 다시 시도한다(다시 쓰면 같은 줄을 덮는다)
       if (record.ev.gateReason === 'market_nodata') unconfirmed.push(s);
     } else {
       skipped.push(s);
@@ -335,7 +335,7 @@ export async function history(now = Date.now()): Promise<BuyJudgeHistory> {
   return { stats, reasons: reasonSummaries(), counts: store.countRows() };
 }
 
-/** 날짜별 히스토리 (v2.48.0 — 사용자 결정) — 최근 날짜부터 `limit` 일씩. 「사도 됨」 줄에는 5·10·20거래일 뒤 수익률 */
+/** 날짜별 히스토리 (사용자 결정) — 최근 날짜부터 `limit` 일씩. 「사도 됨」 줄에는 5·10·20거래일 뒤 수익률 */
 export async function historyDays(offset = 0, limit = HISTORY_DAYS_PAGE, now = Date.now()): Promise<BuyJudgeDays> {
   const dates = store.listDates(limit, offset);
   const rows = store.listOnDates(dates);

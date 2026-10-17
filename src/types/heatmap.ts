@@ -1,21 +1,21 @@
-/** 종목 지도(히트맵, v2.18.0) — 서버 `server/heatmap.ts` 와 화면 `components/heatmap` 이 함께 쓴다 */
+/** 종목 지도(히트맵) — 서버 `server/heatmap.ts` 와 화면 `components/heatmap` 이 함께 쓴다 */
 
 export type HeatmapMarket = 'us' | 'kr';
 
-/** 지도 보기 (v2.27.0) — market = 시총 상위 N(30·50·100) · watch = 그 시장의 관심 종목 */
+/** 지도 보기 — market = 시총 상위 N(30·50·100) · watch = 그 시장의 관심 종목 */
 export type HeatmapView = 'market' | 'watch';
 
 /**
- * 색으로 보는 기간 (v2.19.0). 1d = 실시간 시세 ÷ 전 거래일 종가(v2.18.0 그대로),
+ * 색으로 보는 기간. 1d = 실시간 시세 ÷ 전 거래일 종가,
  * 그 밖은 **마지막 완성 종가 ÷ N거래일 전 종가** — 1w = 5, 1m = 21, 3m = 63 거래일.
  */
 export type HeatmapPeriod = '1d' | '1w' | '1m' | '3m';
 
 /**
- * 「1일」 지도 새로고침 간격 — **화면 주기와 서버 캐시가 이 값 하나**를 쓴다 (v2.44.2, 예전 화면 60초 + 서버 60초 = 최대 약 2분 늦음).
+ * 「1일」 지도 새로고침 간격 — **화면 주기와 서버 캐시가 이 값 하나**를 쓴다.
  * 근거(테스트 서버 실측, 2026-10-14): 한 번 만들 때 토스 `/prices` 는 30종목씩 — 시장 상위 100 = 4회, 관심 종목 = 종목 수 ÷ 30 올림.
  * 10초면 지도 하나(상위 100)에 초당 약 0.4회 · 1시간 1,440회(MARKET_DATA 한도 15/s). 최악(1일 지도 네 개를 10초마다 + 차트 현재가·호가·관심 시세 약 3회/s)을
- * 3분 돌려 `/prices` 512회 · 429 0회 · `x-ratelimit-remaining` 최저 2/15(401 3회는 토큰 재발급) — 10초로 정했다(prompts/v2.44.2).
+ * 3분 돌려 `/prices` 512회 · 429 0회 · `x-ratelimit-remaining` 최저 2/15(401 3회는 토큰 재발급) — 10초로 정했다.
  */
 export const HEATMAP_LIVE_MS = 10_000;
 
@@ -27,7 +27,7 @@ export const HEATMAP_PERIODS: { id: HeatmapPeriod; label: string; bars: number }
 ];
 
 /**
- * 섹터 강세 한 줄 (v2.19.0) — **설명용 통계**다. 판정·자동매매에 쓰지 않는다(검증 전).
+ * 섹터 강세 한 줄 — **설명용 통계**다. 판정·자동매매에 쓰지 않는다(검증 전).
  * 수익률은 전부 % 단위.
  */
 export interface HeatmapSector {
@@ -58,7 +58,7 @@ export interface HeatmapCell {
   /** 고른 기간의 수익률(%) — 1d 는 전 거래일 종가 대비. 모르면 null(회색, 섹터 통계에서 제외) */
   changeRate: number | null;
   currency: 'KRW' | 'USD';
-  /** 관심 종목인가 — 시장 보기에서는 파란 테두리(v2.27.0 부터 상위 N 밖의 관심 종목은 넣지 않는다) */
+  /** 관심 종목인가 — 시장 보기에서는 파란 테두리(상위 N 밖의 관심 종목은 넣지 않는다) */
   watch: boolean;
 }
 
@@ -76,7 +76,7 @@ export interface HeatmapResponse {
   counted: number;
   excluded: number;
   asOf: string;
-  /** 그 시장 정규장이 지금 열려 있나(`server/marketHours.ts`) — 닫혀 있으면 화면은 「장 마감」 이고 다시 받지 않는다 (v2.44.2) */
+  /** 그 시장 정규장이 지금 열려 있나(`server/marketHours.ts`) — 닫혀 있으면 화면은 「장 마감」 이고 다시 받지 않는다 */
   marketOpen: boolean;
   /** 다음 정규장 시작(ISO, 휴장일 반영) — 장이 닫혀 있을 때 화면이 이 시각에 다시 받는다 */
   nextOpen: string;

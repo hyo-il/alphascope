@@ -18,17 +18,17 @@ import SectorRanking from './SectorRanking';
 import HeatmapViewMenu, { TOP_CHOICES, type TopChoice } from './HeatmapViewMenu';
 
 /**
- * 🗺 종목 지도 (v2.18.0) — 시장 온도를 한눈에. 네모 크기 = 시가총액, 색 = 기간 수익률, 섹터로 묶는다.
+ * 🗺 종목 지도 — 시장 온도를 한눈에. 네모 크기 = 시가총액, 색 = 기간 수익률, 섹터로 묶는다.
  *
- * - 데이터는 `GET /api/heatmap?market=&period=` 한 곳. 1일은 화면 주기·서버 캐시가 같은 값 `HEATMAP_LIVE_MS`(10초, v2.44.2 — 예전 60초 + 60초) —
+ * - 데이터는 `GET /api/heatmap?market=&period=` 한 곳. 1일은 화면 주기·서버 캐시가 같은 값 `HEATMAP_LIVE_MS`(10초) —
  *   화면이 보일 때만, 그 시장 장이 열려 있을 때만 다시 받는다(닫혀 있으면 「장 마감」, 다음 개장 시각에 한 번 다시 받는다). 숨은 탭 정지.
- *   1주 이상(v2.19.0)은 종가 기준이라 주기 새로고침을 하지 않는다(탭이 다시 보일 때만).
+ *   1주 이상은 종가 기준이라 주기 새로고침을 하지 않는다(탭이 다시 보일 때만).
  * - 배치는 직접 구현한 squarified treemap(`utils/treemap.ts`) — 섹터를 먼저 나누고, 섹터 안에서 종목을 나눈다.
- * - 색은 `index.css` 의 heat-* 불투명 단계색(v2.27.0 — bullish/bearish 를 회색에 섞은 4단계 + 회색) + 진하기 구간 —
+ * - 색은 `index.css` 의 heat-* 불투명 단계색(bullish/bearish 를 회색에 섞은 4단계 + 회색) + 진하기 구간 —
  *   기간이 길수록 구간을 넓힌다(`BINS`). 0% 근처는 회색.
- * - 탭(v2.27.0): 「시장 상위」(상위 30·50·100 — 서버가 100 캐시에서 자른다) / 「내 관심 종목」(그 시장의 관심 종목, 크기 = 시총).
+ * - 탭: 「시장 상위」(상위 30·50·100 — 서버가 100 캐시에서 자른다) / 「내 관심 종목」(그 시장의 관심 종목, 크기 = 시총).
  *   [보기 ▾] 의 분야 거르기는 화면에서만 한다. 마지막 보기는 localStorage `alphascope.heatmapView`.
- * - 오른쪽 「섹터 강세 순위」(v2.19.0)는 **설명용**이다 — 지난 기간의 결과이고 판정·자동매매에 쓰지 않는다.
+ * - 오른쪽 「섹터 강세 순위」는 **설명용**이다 — 지난 기간의 결과이고 판정·자동매매에 쓰지 않는다.
  * - ⚠️ 다른 사이트의 데이터·디자인을 가져오지 않았다 — 앱 다크 테마로 새로 그렸다.
  */
 
@@ -38,10 +38,10 @@ function updatedAgo(now: number, asOf: string): string {
   return sec < 60 ? `${sec}초 전 갱신` : `${Math.floor(sec / 60)}분 전 갱신`;
 }
 
-/** 분야 이름 줄 높이 = 글자 줄 + 위아래 여백(기준표 변수, v2.42.2 — 예전 16px 여백 없음) */
+/** 분야 이름 줄 높이 = 글자 줄 + 위아래 여백(기준표 변수) */
 const SECTOR_HEADER = HEATMAP_SECTOR_LINE + HEATMAP_SECTOR_PAD_Y * 2;
 
-// ── 마지막 보기 기억 (v2.27.0) ──────────────────────────────────────────────
+// ── 마지막 보기 기억 ──────────────────────────────────────────────
 // 이 기기·화면 크기에 딸린 설정이라 localStorage 다(서버 user_data 가 아니다).
 // 분야는 **끈 것**을 적는다 — 켠 것을 적으면 나중에 새 분야(섹터를 새로 채운 종목 등)가 생겼을 때 조용히 빠진다.
 
@@ -54,7 +54,7 @@ interface SavedView {
   top: TopChoice;
   /** 끈 분야 — 탭마다 따로(관심 종목 지도에서 끈 분야가 시장 지도에서도 꺼지면 헷갈린다) */
   off: Record<HeatmapViewId, string[]>;
-  /** 관심 종목 탭의 칸 크기 (v2.29.0) — cap = 시가총액 그대로(기본), sqrt = 시가총액의 제곱근(크기 차이 줄이기) */
+  /** 관심 종목 탭의 칸 크기 — cap = 시가총액 그대로(기본), sqrt = 시가총액의 제곱근(크기 차이 줄이기) */
   watchSize: WatchSize;
 }
 
@@ -90,8 +90,8 @@ function writeView(v: SavedView) {
   }
 }
 
-// ── 칸 글자 맞추기 (v2.27.0) ────────────────────────────────────────────────
-// 최소 13px(앱 글자 규칙, v2.34.0) · 최대 20px. 13px 로도 칸에 안 들어가면 글자를 **그리지 않는다** — 「AA…」 처럼 잘린 글자는
+// ── 칸 글자 맞추기 ────────────────────────────────────────────────
+// 최소 13px(앱 글자 규칙) · 최대 20px. 13px 로도 칸에 안 들어가면 글자를 **그리지 않는다** — 「AA…」 처럼 잘린 글자는
 // 다른 종목으로 읽힌다. 마우스를 올리면 툴팁이 이름을 보여 준다. 폭은 실제 글꼴로 잰다(canvas measureText).
 
 const LABEL_MIN = 13;
@@ -113,7 +113,7 @@ function textWidth(text: string, size: number, weight = 600): number {
   widthCache.set(key, width);
   return width;
 }
-// 글꼴 조각(본고딕)이 도착하면 그 전에 대체 글꼴로 잰 폭을 버린다 (v2.35.0) — 남겨 두면 칸 글자 크기가 계속 옛 폭으로 정해진다.
+// 글꼴 조각(본고딕)이 도착하면 그 전에 대체 글꼴로 잰 폭을 버린다 — 남겨 두면 칸 글자 크기가 계속 대체 글꼴 폭으로 정해진다.
 // 다음 그리기(새로고침·보기 변경)부터 새 폭을 쓴다.
 if (typeof document !== 'undefined' && document.fonts) {
   document.fonts.addEventListener('loadingdone', () => widthCache.clear());
@@ -138,9 +138,9 @@ interface LabelFit {
 const HANGUL = /[가-힣ㄱ-ㅎㅏ-ㅣ]/;
 
 /**
- * 두 줄로 나눌 자리 — 띄어쓰기 자리 + **한글 글자 사이**만 (v2.30.0).
- * 영문·숫자·`&`·`.` 가 이어진 덩어리(POSCO·SK·LG·HD·KB) 안에서는 끊지 않는다 — v2.29.0 은 글자 사이 아무 데서나 끊어
- * "POSC / O홀딩스" 처럼 다른 이름으로 읽혔다. 덩어리가 칸보다 길면 그 칸은 이름을 그리지 않는다(말줄임·넘침 금지).
+ * 두 줄로 나눌 자리 — 띄어쓰기 자리 + **한글 글자 사이**만.
+ * 영문·숫자·`&`·`.` 가 이어진 덩어리(POSCO·SK·LG·HD·KB) 안에서는 끊지 않는다 — 글자 사이 아무 데서나 끊으면
+ * "POSC / O홀딩스" 처럼 다른 이름으로 읽힌다. 덩어리가 칸보다 길면 그 칸은 이름을 그리지 않는다(말줄임·넘침 금지).
  * (화면은 나눈 두 줄을 따로 그린다 — `<wbr>`·`keep-all` 대신 자리를 직접 정해 폭 계산과 실제 줄이 어긋나지 않게)
  */
 function splitCandidates(label: string): [string, string][] {
@@ -154,12 +154,12 @@ function splitCandidates(label: string): [string, string][] {
 
 /**
  * 칸에 맞는 이름 글자 크기·줄과 등락률 줄을 그릴지 — 이름이 안 들어가면 null.
- * 국내(`twoLines`)는 한 줄에 안 들어가면 **두 줄**까지 나눠 본다(v2.29.0 — 1280 폭 국내 상위 50 에서 이름 보이는 칸이 21/50 이었다).
+ * 국내(`twoLines`)는 한 줄에 안 들어가면 **두 줄**까지 나눠 본다(1280 폭 국내 상위 50 에서 이름 보이는 칸이 21/50 이었다).
  * 12px 최소·말줄임 없음·칸 밖으로 나가지 않음은 그대로 — 두 줄로도 안 들어가면 그리지 않는다(툴팁).
  */
 function fitLabel(label: string, rate: string, w: number, h: number, twoLines = false): LabelFit | null {
-  // 이름 + 등락률이 함께 들어가는 가장 큰 글자를 먼저 고른다 (v2.44.2) — 예전에는 이름만 들어가는 가장 큰 글자를 골라 그 높이 때문에 등락률 줄이 빠졌다.
-  // 함께 들어가는 크기가 없으면 이름만이라도(예전과 같다)
+  // 이름 + 등락률이 함께 들어가는 가장 큰 글자를 먼저 고른다 — 이름만 들어가는 가장 큰 글자를 고르면 그 높이 때문에 등락률 줄이 빠진다.
+  // 함께 들어가는 크기가 없으면 이름만이라도
   const both = fitLabelOnce(label, rate, w, h, twoLines, true);
   return both ?? fitLabelOnce(label, rate, w, h, twoLines, false);
 }
@@ -200,7 +200,7 @@ const BINS: Record<HeatmapPeriod, [number, number, number, number]> = {
   '1m': [2, 5, 10, 15],
   '3m': [2, 5, 10, 15],
 };
-/** 불투명 단계색 — `index.css` 의 heat-* 토큰(앱 bullish/bearish 에서 섞은 값, v2.27.0) */
+/** 불투명 단계색 — `index.css` 의 heat-* 토큰(앱 bullish/bearish 에서 섞은 값) */
 const SHADES = {
   up: ['bg-heat-up-0', 'bg-heat-up-1', 'bg-heat-up-2', 'bg-heat-up-3', 'bg-heat-up-4'],
   down: ['bg-heat-down-0', 'bg-heat-down-1', 'bg-heat-down-2', 'bg-heat-down-3', 'bg-heat-down-4'],
@@ -213,8 +213,8 @@ const SHADES = {
 const TILE_TEXT_SHADOW = '0 0 2px rgb(0 0 0 / 0.9), 0 1px 1px rgb(0 0 0 / 0.7)';
 
 /**
- * 칸 색 (v2.39.0) — 회색은 **화면에 보이는 값이 0.00%(소수 둘째 자리 반올림 결과 0)일 때와 값이 없을 때만**.
- * 0 초과 ~ 첫 구간 미만은 옅은 0단계 색 — 예전에는 1일 ±0.5% 미만이 모두 회색이라 조금 오른 종목이 "변화 없음" 으로 보였다.
+ * 칸 색 — 회색은 **화면에 보이는 값이 0.00%(소수 둘째 자리 반올림 결과 0)일 때와 값이 없을 때만**.
+ * 0 초과 ~ 첫 구간 미만은 옅은 0단계 색 — 첫 구간 미만을 모두 회색으로 두면 조금 오른 종목이 "변화 없음" 으로 보인다.
  */
 function colorOf(change: number | null, period: HeatmapPeriod): string {
   if (change == null || Math.round(Math.abs(change) * 100) === 0) return 'bg-heat-flat';
@@ -243,7 +243,7 @@ interface SectorBox {
   name: string;
 }
 
-// ── 작은 칸 최소 크기 (v2.44.2, 사용자 결정 E) ──────────────────────────────
+// ── 작은 칸 최소 크기 (사용자 결정 E) ──────────────────────────────
 // 시가총액 그대로 나누면 작은 종목 칸에 이름(최소 13px)이 들어가지 않아 「무엇인지 모르는 칸」 이 됐다(국내 관심 종목의 두산에너빌리티 등).
 // squarify 하기 **전에** 칸 크기 값을 키운다 — 큰 칸이 그만큼 조금 줄어든다. 보기일 뿐이다(등락률·섹터 순위는 서버가 실제 시총으로 낸다).
 //  1) 바닥 — 모든 칸 = 이름이 **가장 긴** 종목이 13px 이름 + 등락률 줄로 들어가는 넓이 × 1.3 (국내는 두 줄로 나눈 쪽이 작으면 그쪽)
@@ -357,7 +357,7 @@ function layoutTiles(groups: [string, HeatmapCell[]][], W: number, H: number, si
     }
     // 이름이 안 들어간 칸 + **칸이 아예 생기지 않은 종목**(섹터 띠가 분야 이름 줄보다 얇으면 안쪽 높이가 0 이라 칸이 없다 — 실측)
     const placed = new Map(r.tiles.map((t) => [t.cell, t] as const));
-    // 이름과 등락률 둘 다 — 이름만 들어간 칸도 모자란 칸으로 본다 (v2.44.2)
+    // 이름과 등락률 둘 다 — 이름만 들어간 칸도 모자란 칸으로 본다
     const missing = all.filter((c) => !placed.get(c)?.fit?.rate);
     if (!missing.length) break;
     // 3) 모자란 만큼 키운다 — 칸이 띠 모양이면 높이(또는 폭) 부족분만큼 넓이를 늘려야 두께가 그만큼 는다
@@ -497,7 +497,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
     }
     // 칸 크기 — 관심 종목 탭의 「크기 차이 줄이기」 면 시가총액의 제곱근(보기일 뿐 — 섹터 강세 순위는 서버가 실제 시총으로 낸다)
     const sizeOf = (c: HeatmapCell) => (view === 'watch' && watchSize === 'sqrt' ? Math.sqrt(c.marketCap) : c.marketCap);
-    // 작은 칸에도 이름이 들어가게 최소 크기를 둔다 (v2.44.2 — `layoutTiles`)
+    // 작은 칸에도 이름이 들어가게 최소 크기를 둔다 (`layoutTiles`)
     return layoutTiles([...groups.entries()], size.w, size.h, sizeOf);
   }, [data, size, activeOff, view, watchSize]);
   const labeled = tiles.filter((t) => t.fit).length;
@@ -509,7 +509,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   const best = data?.sectors[0];
   const worst = data && data.sectors.length > 1 ? data.sectors[data.sectors.length - 1] : undefined;
   const bins = BINS[period];
-  /** 범례 — 회색 「0」 양옆에 0단계(0~±첫 구간)를 한 칸씩 (v2.39.0) */
+  /** 범례 — 회색 「0」 양옆에 0단계(0~±첫 구간)를 한 칸씩 */
   const legend: { key: string; text: string; cls: string; title: string }[] = [
     ...[...bins].reverse().map((b) => ({ key: `-${b}`, text: `${MINUS}${b}`, cls: colorOf(-b - 0.01, period), title: `−${b}% 이하 구간` })),
     { key: '-0', text: '−0~', cls: colorOf(-0.01, period), title: `0 ~ −${bins[0]}%` },
@@ -518,17 +518,17 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
     ...bins.map((b) => ({ key: `+${b}`, text: `+${b}`, cls: colorOf(b + 0.01, period), title: `+${b}% 이상 구간` })),
   ];
 
-  /** 지도 읽는 법 — 넓으면 지도 아래 줄 오른쪽에 글자로, 좁으면 ⓘ 툴팁 (v2.30.0). 고정 문구는 섹터 순위 아래에 늘 글자로 있다 */
+  /** 지도 읽는 법 — 넓으면 지도 아래 줄 오른쪽에 글자로, 좁으면 ⓘ 툴팁. 고정 문구는 섹터 순위 아래에 늘 글자로 있다 */
   const guide = `색은 ${period === '1d' ? '전 거래일 종가 대비 등락' : `최근 종가 ÷ ${periodInfo.bars}거래일 전 종가`}입니다.${
     watchView ? (watchSize === 'sqrt' ? ' 크기 = 시가총액의 제곱근(크기 차이 줄인 보기).' : ' 크기 = 시가총액.') : ' 파란 테두리는 관심 종목.'
   } 작은 종목도 이름이 보이도록 칸에 최소 크기를 두었습니다 — 작은 칸은 실제 시가총액 비율보다 조금 큽니다.${period === '1d' ? ` 장이 열려 있는 동안 ${HEATMAP_LIVE_MS / 1000}초마다 새로고침(화면을 보고 있을 때만). 장이 닫히면 「장 마감」 으로 보이고 다시 받지 않습니다.` : ''}`;
 
   return (
     <div className={`@container flex h-full flex-col ${PANEL_PAD}`}>
-      {/* 제목 줄 / 탭 줄을 나눈다 (v2.41.0 디자인 규칙 7) */}
+      {/* 제목 줄 / 탭 줄을 나눈다 (디자인 규칙 7) */}
       <h2 className="shrink-0 pb-2 text-base font-semibold text-text-primary">종목 지도</h2>
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60">
-        {/* 탭 (v2.27.0) — 시장·기간은 두 탭이 함께 쓴다. v2.36.0: 탭은 글자 + 밑줄, 시장·기간은 회색 묶음 버튼 */}
+        {/* 탭 — 시장·기간은 두 탭이 함께 쓴다. 탭은 글자 + 밑줄, 시장·기간은 회색 묶음 버튼 */}
         <Tabs
           label="지도 대상"
           size="sm"
@@ -690,7 +690,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
               섹터 강세 순위 · {periodInfo.label}
               {watchView && <span className="ml-1.5 font-normal text-text-secondary">관심 종목 기준</span>}
             </p>
-            {/* 읽는 법은 정보 아이콘으로 (v2.36.0 디자인 규칙 6) */}
+            {/* 읽는 법은 정보 아이콘으로 (디자인 규칙 6) */}
             <InfoTip>
               시총 가중(현재 시총) 수익률 높은 순입니다. 줄을 누르면 지도에서 그 섹터를 강조합니다.
               {activeOff.size > 0 && ' 흐린 줄은 지도에서 끈 분야입니다.'}
@@ -703,7 +703,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
               <p className="p-3 text-caption text-text-muted">불러오는 중…</p>
             )}
           </div>
-          {/* ⚠️ 고정 문구 — 지우지 않는다(CLAUDE.md). v2.30.0 에 지도 아래 줄에서 이 자리로 옮겼다(지도 아래를 한 줄로) */}
+          {/* ⚠️ 고정 문구 — 지우지 않는다(docs/rules/architecture.md 「종목 지도」) — 지도 아래를 한 줄로 두려고 이 자리에 둔다 */}
           <p className="shrink-0 border-t border-border/50 px-3 py-2 text-caption text-text-secondary">
             지난 기간의 결과입니다. 앞으로도 강할 것이라는 뜻이 아닙니다.
           </p>
@@ -714,9 +714,9 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
           )}
         </aside>
       </div>
-      {/* 지도 아래 한 줄 (v2.30.0 — 예전에는 범례 줄 + 안내 문구 줄 두 줄): 범례 · 대상·기준 시각 · (제곱근 안내) · 읽는 법 */}
+      {/* 지도 아래 한 줄: 범례 · 대상·기준 시각 · (제곱근 안내) · 읽는 법 */}
       <div className="mt-1 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
-  {/* 색 범례 — 기간마다 구간이 다르다. v2.29.0 에 머리줄에서 지도 아래로(1280 폭에서 머리줄이 두 줄이 됐다) */}
+  {/* 색 범례 — 기간마다 구간이 다르다. 머리줄이 아니라 지도 아래(1280 폭에서 머리줄이 두 줄이 되지 않게) */}
       <span className="flex items-center gap-0.5 text-caption text-text-muted" aria-label={`색 구간: 0% 회색, 0~±${bins[0]}% 옅은 색, ±${bins.join('·')}%`}>
         {legend.map((v) => (
           <span
@@ -730,7 +730,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         ))}
         <span className="ml-0.5">%</span>
       </span>
-        {/* 대상·기준 시각 — v2.29.0 에 머리줄에서 이 줄로(1280 폭에서 머리줄이 두 줄이 됐다) */}
+        {/* 대상·기준 시각 — 머리줄이 아니라 이 줄(1280 폭에서 머리줄이 두 줄이 되지 않게) */}
         {data && (
           <span className="text-caption text-text-muted">
             {watchView ? `${marketLabel} 관심 종목` : `시총 상위 ${data.top ?? top}`} · {tiles.length < data.cells.length ? `${tiles.length}/${data.cells.length}` : data.cells.length}
@@ -746,7 +746,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         {watchView && watchSize === 'sqrt' && (
           <span className="text-caption text-warning">칸 크기는 시가총액의 제곱근에 비례합니다(크기 차이를 줄인 보기)</span>
         )}
-        {/* 읽는 법 — v2.36.0 부터 화면 폭과 상관없이 정보 아이콘(문구는 그대로, 키보드 포커스로도 열린다) */}
+        {/* 읽는 법 — 화면 폭과 상관없이 정보 아이콘(문구는 그대로, 키보드 포커스로도 열린다) */}
         <span className="ml-auto flex items-center gap-1 text-caption text-text-muted">
           읽는 법
           <InfoTip label="지도 읽는 법">{guide}</InfoTip>

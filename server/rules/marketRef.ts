@@ -1,12 +1,12 @@
 /**
- * 시장 기준 (v2.51.0 — 사용자 결정 A-1) — **한 곳**. 거름망 「시장이 200일선 위일 때만 매수」(시장 필터)가 쓴다.
+ * 시장 기준 (사용자 결정 A-1) — **한 곳**. 거름망 「시장이 200일선 위일 때만 매수」(시장 필터)가 쓴다.
  * 미국 종목 → SPY · 국내 종목 → KODEX 200(069500). 지수를 따라가는 ETF 를 **토스로** 받는다(종목 일봉과 같은 `getCandles` · 캐시 · `completedDaily`).
  * 200일선은 종목과 같은 지표 엔진(`sma200`)으로 낸다.
  *
  * 확인(2026-10-16, 토스 실제 응답): SPY 일봉 8,487개(1993-01-29 부터) · 069500 일봉 5,924개(2002-10-14 부터) — 3년 + 준비 210봉에 충분하다.
  *
  * ⚠️ 한 번의 판단(계좌 한 바퀴 · 매수 판단 실행 · 백테스트)에서 시장 기준은 **시장마다 한 번만** 받는다 — `marketRefLoader()` 를 그 판단에 하나 만들어 같이 쓴다.
- * ⚠️ 시장 필터를 켜지 않은 규칙은 이 파일을 부르지 않는다(받지 않는다 → 예전과 같은 판단·같은 토스 호출).
+ * ⚠️ 시장 필터를 켜지 않은 규칙은 이 파일을 부르지 않는다(받지 않는다 → 시장 필터가 없는 판단·토스 호출과 같다).
  */
 import { getCandles } from '../candleService';
 import { computeIndicators } from '../indicatorService';
@@ -30,7 +30,7 @@ export async function loadMarketRef(market: CalendarMarket, now = Date.now(), li
   const { symbol, name } = MARKET_REF[market];
   try {
     const all = completedDaily(await getCandles(symbol, '1d', limit), symbol, now);
-    // 끝나지 않은 채 저장된 봉(v2.51.1)은 뺀다 — 그날은 「시장 데이터 없음」 이 되고 다음 틱에 다시 받는다(끝나지 않은 값으로 판정하지 않는다)
+    // 끝나지 않은 채 저장된 봉은 뺀다 — 그날은 「시장 데이터 없음」 이 되고 다음 틱에 다시 받는다(끝나지 않은 값으로 판정하지 않는다)
     const bad = all.length ? new Set(unconfirmedDailyTimestamps(symbol, all[0].timestamp, dailyCloseOffsetMs(symbol))) : new Set<number>();
     // 마지막이 아닌 봉이 비면 200일선이 이어지지 않은 봉으로 계산된다 — 그런 날은 통째로 「시장 데이터 없음」(다시 시도)
     if (bad.size && all.slice(0, -1).some((c) => bad.has(c.timestamp))) return null;
@@ -57,7 +57,7 @@ export function setMarketRefLoadForTest(fn: typeof loadMarketRef | null): void {
 }
 
 /**
- * 「시장 데이터 없음」 뒤 다시 받기 간격 (v2.51.1 — 사용자 결정: 그날 다시 시도, 토스 호출 한도 보호).
+ * 「시장 데이터 없음」 뒤 다시 받기 간격 (사용자 결정: 그날 다시 시도, 토스 호출 한도 보호).
  * 계좌 판단이 「시장 데이터 없음」 을 내면 `markMarketRefMiss` — 그 뒤 5분 동안은 그 시장 기준을 받지 않고 바로 null(다시 「시장 데이터 없음」).
  * 그 시장 종목이 시장 필터를 지나면(받은 데이터로 판정) `clearMarketRefMiss`. 서버를 다시 켜면 비워진다(곧바로 한 번 다시 받는다).
  */

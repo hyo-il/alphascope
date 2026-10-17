@@ -1,13 +1,13 @@
 import type { GateReason } from './autoTrading';
 /**
- * 매수 판단 (v2.45.0 — 퀀트 다시 만들기 3단계). 서버 `server/buyJudge/*` 와 화면 `components/swing/BuyJudge*` 가 함께 쓴다.
+ * 매수 판단 (퀀트 다시 만들기 3단계). 서버 `server/buyJudge/*` 와 화면 `components/swing/BuyJudge*` 가 함께 쓴다.
  *
  * 화면 위에서 고른 「매매 규칙」 하나로 전용 목록의 종목을 판단한다 — 엔진 `evaluateRule`, 보유 없음(`held: false`).
  * 마감 판단은 계좌 자동매매와 **같은 함수**(`server/rules/judge.ts`)라 같은 종목·날·규칙이면 같은 답이다.
- * ⚠️ 주문을 내지 않는다(예전 [모의 매수] 는 없앴다 — 손으로 사는 것은 차트의 빠른주문).
+ * ⚠️ 주문을 내지 않는다([모의 매수] 없음 — 손으로 사는 것은 차트의 빠른주문).
  */
 
-/** 진입 방식 — 참고만(엔진이 실행에 쓰지 않는다). 예전 `types/swing.ts` 에서 옮겼다 */
+/** 진입 방식 — 참고만(엔진이 실행에 쓰지 않는다). */
 export type EntryType = 'NOW' | 'PULLBACK' | 'BREAKOUT';
 export const ENTRY_LABEL: Record<EntryType, string> = { NOW: '지금 매수', PULLBACK: '눌림 대기', BREAKOUT: '돌파 대기' };
 
@@ -54,7 +54,7 @@ export interface BuyJudgeRow {
   basisDate: string | null;
   verdict: Verdict | null;
   code: string | null;
-  /** 「거름망에 걸림」 이유(v2.51.0) — gate_block 줄만 */
+  /** 「거름망에 걸림」 이유 — gate_block 줄만 */
   gateReason?: GateReason;
   score: number | null;
   maxScore: number | null;
@@ -112,9 +112,9 @@ export interface ReasonSummary {
   days: number;
   below: number;
   rrBlock: number;
-  /** 「거름망에 걸림」 날 수 (v2.50.0) */
+  /** 「거름망에 걸림」 날 수 */
   gateBlock: number;
-  /** 그중 이유별 날 수 (v2.51.0 — 이유를 모르는 옛 줄은 빠진다) */
+  /** 그중 이유별 날 수 (이유를 모르는 옛 줄은 빠진다) */
   gateReasons: Partial<Record<GateReason, number>>;
   buy: number;
   /** 기준 미달인 날 가장 자주 만점에 못 미친 조건 */
@@ -133,7 +133,7 @@ export interface JudgeDay {
 }
 
 /**
- * 히스토리 위 요약 한 줄 · 아래 「종목별 사지 않은 이유」 · 기록 수 (v2.48.0 — 예전 「사도 됨」 기록 표 `bought` 는 날짜별 목록 `BuyJudgeDays` 로 바뀌었다).
+ * 히스토리 위 요약 한 줄 · 아래 「종목별 사지 않은 이유」 · 기록 수 (날짜별 목록은 `BuyJudgeDays`).
  */
 export interface BuyJudgeHistory {
   stats: BoughtStats;
@@ -141,7 +141,7 @@ export interface BuyJudgeHistory {
   counts: { all: number; nonBuy: number };
 }
 
-/** 날짜별 히스토리 한 줄의 종목 하나 (v2.48.0) — 「사도 됨」 이면 5·10·20거래일 뒤 수익률(아니면 null) */
+/** 날짜별 히스토리 한 줄의 종목 하나 — 「사도 됨」 이면 5·10·20거래일 뒤 수익률(아니면 null) */
 export interface HistoryDayRow {
   symbol: string;
   ruleName: string;

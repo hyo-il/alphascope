@@ -16,7 +16,7 @@ import type { TargetAnalysisRecord } from '../../types/targetAnalysis';
 
 /** 판단 글자 — 색만으로 뜻을 전하지 않는다(글자가 있다). 손익비 부족은 경고 아이콘도 */
 /**
- * 판단 글자 (v2.48.0 — 사용자 결정): 「사도 됨」 = 초록(상승 토큰 `bullish`) · 「기준 미달」 · 「손익비 부족」 = 빨강(`danger`).
+ * 판단 글자 (사용자 결정): 「사도 됨」 = 초록(상승 토큰 `bullish`) · 「기준 미달」 · 「손익비 부족」 = 빨강(`danger`).
  * 총점이 있으면 함께 — `사도 됨 · 72/100`. 펼치기 전에도 판단과 점수가 한눈에 보이게. 색만으로 뜻을 전하지 않는다(글자가 있다).
  * 손익비 부족은 경고 아이콘을 그대로 둔다(같은 빨강이라 「기준 미달」 과 모양으로 구분).
  */
@@ -30,7 +30,7 @@ export function VerdictText({
   verdict: Verdict | null;
   score?: number | null;
   maxScore?: number | null;
-  /** 「거름망에 걸림 (시장 하락)」 — 이유(v2.51.0). 모르는 옛 줄은 「거름망에 걸림」 */
+  /** 「거름망에 걸림 (시장 하락)」 — 이유. 모르는 옛 줄은 「거름망에 걸림」 */
   gateReason?: GateReason;
   /** 이유를 둘째 줄에(칸이 좁은 매수 판단 표 — 1280 에서 「(시장 데이터 없음)」 이 한 줄이면 오른쪽 칸이 밀려났다) */
   stackReason?: boolean;
@@ -52,7 +52,7 @@ export function VerdictText({
         {total}
       </span>
     );
-  // 기준 미달 · 거름망에 걸림(v2.50.0) — 같은 빨강, 글자로 구분
+  // 기준 미달 · 거름망에 걸림 — 같은 빨강, 글자로 구분
   if (verdict === 'gate_block' && stackReason && gateReason)
     return (
       <span className="text-danger" title={GATE_REASON_HELP[gateReason]}>
@@ -74,7 +74,7 @@ export function VerdictText({
 const TARGET_ONE_AT_A_TIME = '목표 수익 가능성은 한 번에 한 종목만 분석합니다 — Gemini 무료 한도를 아끼기 위해서입니다(종목당 약 5회 호출).';
 
 /**
- * 매수 판단 표 (v2.45.0 — 사용자 결정 A-2). 종목 · 판단(총점 함께, v2.48.0 — 예전 「점수(마감)」 칸을 합쳤다) · 참고 점수 · 손절가 · 목표가 · 손익비 · 비중(참고) · [목표 수익 가능성] · ×.
+ * 매수 판단 표 (사용자 결정 A-2). 종목 · 판단(총점 함께) · 참고 점수 · 손절가 · 목표가 · 손익비 · 비중(참고) · [목표 수익 가능성] · ×.
  * 줄을 누르면 아래에 조건별 점수 · 진입 방식 · 가격 계획 · 경고 · 목표 수익 가능성 결과가 펼쳐진다.
  * 표 규칙(기준표 「표」): 숫자 칸 = 내용 폭 + 고정 여백, 남는 폭 = 종목 칸. 손절가~비중은 「사도 됨」 · 「손익비 부족」 줄에만.
  */
@@ -179,7 +179,7 @@ export default function BuyJudgeTable({
                       disabled={targetDisabled}
                       title={targetBlockedReason ?? TARGET_ONE_AT_A_TIME}
                     >
-                      {/* 한 종목 약 5회 호출 — 10초 넘게 걸릴 수 있어 진행 문구를 보인다 (v2.48.0) */}
+                      {/* 한 종목 약 5회 호출 — 10초 넘게 걸릴 수 있어 진행 문구를 보인다 */}
                       {running ? '분석 중…' : '목표 수익 가능성'}
                     </Button>
                   </td>

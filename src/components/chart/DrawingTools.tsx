@@ -83,7 +83,7 @@ export default function DrawingTools({
 
   return (
     <div className="flex items-center gap-1">
-      {/* 도구 = 회색 묶음 안에서 고른 칸만 밝게 (v2.36.0 — 예전 파란 칸). Segmented 와 같은 모양 */}
+      {/* 도구 = 회색 묶음 안에서 고른 칸만 밝게. Segmented 와 같은 모양 */}
       <div role="radiogroup" aria-label="그리기 도구" className="inline-flex gap-0.5 rounded-lg bg-bg-tertiary p-0.5">
         {DRAWING_TOOLS.map((tool) => (
           <button
@@ -104,7 +104,7 @@ export default function DrawingTools({
 
       <span className="mx-0.5 h-5 w-px bg-border" />
 
-      {/* 도구줄의 글자 버튼은 「초기화」 와 같은 모양(ghost · 좁은 여백) — 1280 에서 도구줄이 한 줄에 들어가야 빠른주문이 잘리지 않는다 (v2.41.0 K) */}
+      {/* 도구줄의 글자 버튼은 「초기화」 와 같은 모양(ghost · 좁은 여백) — 1280 에서 도구줄이 한 줄에 들어가야 빠른주문이 잘리지 않는다 */}
       <Button variant="ghost" size="sm" className="!px-2"
         onClick={onClearAll}
         disabled={!hasDrawings}

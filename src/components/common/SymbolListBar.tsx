@@ -4,7 +4,7 @@ import { PickerDialog, usePickerAdded, type SymbolPickerProps } from './SymbolPi
 import { Button, RemoveAllButton } from '../ui';
 
 /**
- * 종목 목록 **위 도구 줄** — [＋ 종목 추가] · N종목 · [모두 삭제] + 같은 「종목 추가」 창(`PickerDialog`) (v2.45.0 에 `SymbolTable` 에서 떼어 냈다).
+ * 종목 목록 **위 도구 줄** — [＋ 종목 추가] · N종목 · [모두 삭제] + 같은 「종목 추가」 창(`PickerDialog`).
  * 종목 표(`SymbolTable` — 계좌 ② · 백테스트 ①)와 매수 판단 표가 같은 줄을 쓴다 — 순서·모양이 화면마다 갈라지지 않게.
  */
 export default function SymbolListBar(props: Omit<SymbolPickerProps, 'title'> & { disabled?: boolean }) {

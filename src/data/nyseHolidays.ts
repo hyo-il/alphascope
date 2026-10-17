@@ -1,5 +1,5 @@
 /**
- * NYSE 휴장일 — 토스 시장 달력을 보완한다 (v2.18.0).
+ * NYSE 휴장일 — 토스 시장 달력을 보완한다.
  *
  * 출처: https://www.nyse.com/markets/hours-calendars (NYSE 공식 「Holidays & Trading Hours」 표)
  * 확인일: 2026-09-30 — 2026·2027 열을 페이지 원문에서 직접 대조했다.

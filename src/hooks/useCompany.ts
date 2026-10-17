@@ -7,7 +7,7 @@ interface Loadable<T> {
   loading: boolean;
   error: string | null;
   /**
-   * 이 url 의 응답(성공·실패)을 받았는가 (v2.29.0). 요청 effect 가 돌기 전 한 번의 렌더에서는 `loading` 이 아직 false 라,
+   * 이 url 의 응답(성공·실패)을 받았는가. 요청 effect 가 돌기 전 한 번의 렌더에서는 `loading` 이 아직 false 라,
    * "기다려야 하는가" 를 `loading` 만으로 판단하면 그 사이에 막힘이 풀린다(수동 분석의 동종업계).
    */
   settled: boolean;

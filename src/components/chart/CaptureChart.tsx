@@ -50,9 +50,9 @@ export interface CaptureChartHandle {
   /** '다시 캡처' 할 때 조정해 둔 범위를 잃지 않기 위해 읽어 간다 */
   getVisibleRange: () => { from: number; to: number } | null;
   /**
-   * 찍기 직전에 차트를 칸 크기에 **지금** 맞춘다 (v2.33.0 — 캡처 PNG 아래 날짜 축 잘림).
+   * 찍기 직전에 차트를 칸 크기에 **지금** 맞춘다 (캡처 PNG 아래 날짜 축 잘림).
    * `autoSize` 는 ResizeObserver·다음 프레임에 맞추므로, 정보 줄·제목 줄이 늦게 자라 칸이 줄어든 직후에 찍으면
-   * 차트가 옛 높이로 남아 맨 아래 날짜 축이 칸 밖으로 밀려 잘렸다(실측: 칸 583px · 차트 604px → 21px 잘림).
+   * 차트가 옛 높이로 남아 맨 아래 날짜 축이 칸 밖으로 밀려 잘린다(실측: 칸 583px · 차트 604px → 21px 잘림).
    */
   fitToHost: () => void;
 }
@@ -155,7 +155,7 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
     };
   }, []);
 
-  // 가격 자릿수는 통화로 — 원화는 소수점 없이 (v2.33.0, `priceFormatOf` 한 곳)
+  // 가격 자릿수는 통화로 — 원화는 소수점 없이 (`priceFormatOf` 한 곳)
   useEffect(() => {
     candleSeriesRef.current?.applyOptions({ priceFormat: priceFormatOf(currency) });
   }, [currency]);
@@ -286,7 +286,7 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
       currency,
       isIntraday(candles),
     );
-    // 차트가 이미 제거됐으면(언마운트 — 생성 effect 정리가 먼저 돈다) 떼지 않는다. CandleChart 와 같은 이유 (v2.24.0)
+    // 차트가 이미 제거됐으면(언마운트 — 생성 effect 정리가 먼저 돈다) 떼지 않는다. CandleChart 와 같은 이유
     return () => {
       if (chartRef.current) dispose();
     };
@@ -314,7 +314,7 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
   return (
     <div ref={wrapperRef} className="flex h-full w-full flex-col bg-bg-primary">
       {/*
-        제목 줄 — 미리보기 화면에만 있던 종목명을 그림 안에도 찍는다(v2.22.0).
+        제목 줄 — 미리보기 화면에만 있던 종목명을 그림 안에도 찍는다.
         배경은 캡처 배경(#141414 = bg-primary)과 같고, 글자는 붙여넣은 뒤에도 읽히도록 15px.
         ⚠️ StockName 컴포넌트를 쓰지 않는다 — 그 안의 inline-flex + items-baseline 을 html2canvas 가
         잘못 그려 글자가 아래로 밀리고 정보 바에 잘렸다. 규칙(이름 먼저·티커 뒤·이름 없으면 티커만)은 같다.

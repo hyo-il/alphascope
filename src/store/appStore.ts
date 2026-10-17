@@ -25,13 +25,13 @@ export interface NavState {
   group: NavGroupId;
   page: NavPageId;
   /**
-   * 화면 안 탭 (v2.28.0 — v2.26.0 에는 `records` 하나였다). 값은 `types/nav.ts` 의 `PAGE_TABS` 의 `id` 이고
+   * 화면 안 탭. 값은 `types/nav.ts` 의 `PAGE_TABS` 의 `id` 이고
    * 탭이 있는 화면은 **언제나 값이 있다**(`setPage` 가 첫 탭으로 채운다). 탭 상태의 출처는 여기 한 곳 —
    * 화면은 이 값을 읽고 `setPage(page, tab)` 으로 바꾼다(화면마다 useState 로 두면 주소와 어긋난다).
    */
   sub?: NavSub | null;
   /**
-   * 대메뉴 클릭으로 그 첫 화면에 온 것인지 (v2.26.0) — 주소 기록용.
+   * 대메뉴 클릭으로 그 첫 화면에 온 것인지 — 주소 기록용.
    * 대메뉴를 누르면 첫 소메뉴로 가는데, 곧이어 같은 대메뉴의 다른 소메뉴를 누르면 그 첫 화면은 지나가는 자리라
    * 브라우저 기록에서 **덮어쓴다**(뒤로 가기가 한 번 더 걸리지 않게) — `hooks/useHashRoute.ts`.
    */
@@ -58,7 +58,7 @@ interface AppState {
    */
   compareSlots: (string | null)[];
   /**
-   * 기업 비교 보기 — 2개(①② 한 줄) / 4개(2×2) (v2.41.0). 이 기기에 기억(`alphascope.compareLayout`).
+   * 기업 비교 보기 — 2개(①② 한 줄) / 4개(2×2). 이 기기에 기억(`alphascope.compareLayout`).
    * 2개 보기에서는 담기도 ①② 안에서만 — ③④ 에 담으면 보이지 않는 칸에 들어간다.
    */
   compareLayout: 2 | 4;
@@ -73,7 +73,7 @@ interface AppState {
   /** 대메뉴 클릭 — 목록을 펼치고 첫 소메뉴로 간다 */
   setGroup: (group: NavGroupId) => void;
   /**
-   * 차트 아래 「AI 분석」 탭을 열어 달라는 요청 번호 (v2.47.0) — 「AI 분석」 화면을 없애면서 옛 주소 `#/analysis`·급등 탐지 [분석] 이
+   * 차트 아래 「AI 분석」 탭을 열어 달라는 요청 번호 — 「AI 분석」 화면을 없애면서 옛 주소 `#/analysis`·급등 탐지 [분석] 이
    * 차트로 가며 그 탭을 연다. `ChartBottomTabs` 가 번호가 바뀌는 것을 보고 탭을 바꾼다(탭 상태는 그 컴포넌트 안에 있다).
    */
   chartAiRequest: number;
@@ -112,7 +112,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   nav: { group: 'home', page: 'home', sub: null },
   setPage: (page, sub) => {
-    // 탭을 말하지 않고 같은 화면을 다시 부르면(사이드 메뉴 재클릭) 보던 탭을 지킨다 — v2.27.0 까지 화면 state 가 그랬다
+    // 탭을 말하지 않고 같은 화면을 다시 부르면(사이드 메뉴 재클릭) 보던 탭을 지킨다 
     const keep = sub === undefined && get().nav.page === page ? get().nav.sub : sub;
     set({ nav: { group: groupOf(page), page, sub: normalizeTab(page, keep) } });
   },
@@ -153,8 +153,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const at = slots.indexOf(symbol);
 
     const visible = get().compareLayout;
-    // 2개 보기에서 숨긴 ③④ 의 종목을 누르면 → ①② 의 빈 칸으로 **옮긴다**(v2.41.1). 빈 칸이 없으면 바꾸지 않고 'full'
-    // (예전에는 토글이라 보이지 않는 칸에서 조용히 빠졌다 — 화면에는 아무 변화가 없었다)
+    // 2개 보기에서 숨긴 ③④ 의 종목을 누르면 → ①② 의 빈 칸으로 **옮긴다**. 빈 칸이 없으면 바꾸지 않고 'full'
+    // (토글이면 보이지 않는 칸에서 조용히 빠진다 — 화면에는 아무 변화가 없다)
     if (at >= visible) {
       const empty = slots.slice(0, visible).indexOf(null);
       if (empty === -1) return 'full';

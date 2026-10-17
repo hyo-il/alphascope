@@ -1,8 +1,7 @@
 import { modal } from '../../store/uiStore';
 
 /**
- * 최근 조회 「모두 삭제」 확인 — 관심 패널과 종목 탐색 홈이 **같은 함수**를 부른다 (v2.41.0).
- * 예전에는 패널만 묻고 탐색 홈은 바로 지웠다(같은 동작이 화면마다 달랐다).
+ * 최근 조회 「모두 삭제」 확인 — 관심 패널과 종목 탐색 홈이 **같은 함수**를 부른다.
  */
 export function confirmClearRecent(count: number, onClear: () => void): void {
   if (!count) return;

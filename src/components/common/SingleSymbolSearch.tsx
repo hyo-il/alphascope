@@ -4,7 +4,7 @@ import { InlineSpinner } from './LoadingOverlay';
 import { SkeletonCards } from './SkeletonLoader';
 
 /**
- * 한 종목 검색 화면의 틀 (v2.41.0) — 매수 판단 「종목 검색」 과 급등 탐지 「종목 검색」 이 같은 배치를 쓴다.
+ * 한 종목 검색 화면의 틀 — 매수 판단 「종목 검색」 과 급등 탐지 「종목 검색」 이 같은 배치를 쓴다.
  * 설명 한 줄 → 검색칸(폭 고정) + 처리 중 표시 → 빈 화면 문구 / 오류 / 결과. 평가 계산·저장 여부는 각 화면 그대로다.
  */
 export default function SingleSymbolSearch({

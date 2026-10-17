@@ -119,7 +119,7 @@ export function dateTimeOptions(intraday: boolean) {
 }
 
 /**
- * 차트 캔버스 글꼴 (v2.35.0) — 캔버스는 CSS 를 읽지 않아 따로 준다. `index.css` 의 `--font-sans` 와 같은 값이어야 한다.
+ * 차트 캔버스 글꼴 — 캔버스는 CSS 를 읽지 않아 따로 준다. `index.css` 의 `--font-sans` 와 같은 값이어야 한다.
  * 글꼴 조각이 오기 전에는 대체 글꼴로 그려지고, 다음 다시 그리기(시세 갱신·마우스 이동)부터 본고딕이다.
  */
 export const FONT_FAMILY = "'Noto Sans KR Variable', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif";
@@ -129,7 +129,7 @@ export const BASE_CHART_OPTIONS = {
   layout: {
     background: { color: COLORS.background },
     textColor: COLORS.text,
-    // 축·가격 라벨 글자 — 라이브러리 기본 12 → 13 (v2.25.0, 화면 글씨 한 단계 키우기).
+    // 축·가격 라벨 글자 — 라이브러리 기본 12 → 13 (화면 글씨 한 단계 키우기).
     // 메인·캡처·미리보기(Lite)·모의투자 성과 차트가 모두 이 테마를 펼쳐 쓴다 — 값은 여기 한 곳.
     fontSize: 13,
     fontFamily: FONT_FAMILY,
@@ -166,15 +166,15 @@ export const BASE_CHART_OPTIONS = {
 
 /** 캔들 시리즈 옵션 (상승/하락 색) */
 /**
- * 가격 축·가격 라벨의 자릿수 — **통화로 정한다** (v2.33.0). 원화는 소수점 없이(앱 규칙 — `formatPrice` 와 같다).
- * 예전에는 시리즈 기본값(소수 2자리)이라 국내 종목 가격 축이 "200000.00" 으로 보였다. 값은 그대로, 표시만 바뀐다.
+ * 가격 축·가격 라벨의 자릿수 — **통화로 정한다**. 원화는 소수점 없이(앱 규칙 — `formatPrice` 와 같다).
+ * 시리즈 기본값(소수 2자리)이면 국내 종목 가격 축이 "200000.00" 으로 보인다. 값은 그대로, 표시만 바뀐다.
  */
-/** 거래량 축 — 한글 압축 표기(4,035만 · 1.2억, v2.42.2). 라이브러리 기본 'volume' 은 100M·120M 영문 단위라 화면의 다른 거래량(3,035만)과 섞였다 */
+/** 거래량 축 — 한글 압축 표기(4,035만 · 1.2억). 라이브러리 기본 'volume' 은 100M·120M 영문 단위라 화면의 다른 거래량(3,035만)과 섞였다 */
 export const VOLUME_PRICE_FORMAT = { type: 'custom' as const, minMove: 1, formatter: (v: number) => formatCompact(v) };
 
 export function priceFormatOf(currency: 'KRW' | 'USD' | string | null | undefined) {
-  // 원화는 천 단위 쉼표(263,500 — v2.42.2, 예전 263500). 축 눈금·현재가 라벨·십자선 값이 모두 이 형식을 쓴다.
-  // 달러도 천 단위 쉼표 + 소수 둘째 자리(1,427.82 — v2.42.3, 예전 1427.82: 1,000달러 넘는 종목의 축에 쉼표가 없었다). 화면 표기만이다
+  // 원화는 천 단위 쉼표(263,500). 축 눈금·현재가 라벨·십자선 값이 모두 이 형식을 쓴다.
+  // 달러도 천 단위 쉼표 + 소수 둘째 자리(1,427.82 — 1,000달러 넘는 종목의 축에도 쉼표). 화면 표기만이다
   return currency === 'KRW'
     ? { type: 'custom' as const, minMove: 1, formatter: (p: number) => Math.round(p).toLocaleString('ko-KR') }
     : { type: 'custom' as const, minMove: 0.01, formatter: (p: number) => p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) };
@@ -227,8 +227,8 @@ export function drawExtremeMarkers(
   /** 봉이 보이는 구간의 어디쯤인가(0 = 왼쪽 끝, 1 = 오른쪽 끝) — 가장자리에서 가까운 쪽 거리 */
   const edgeDist = (index: number) => Math.min((index - extent.start) / span, (extent.end - index) / span);
   /*
-   * 가장자리 처리 (v2.42.2): 아주 끝(7% 안)이면 글자 없이 화살표만, 그다음(25% 안)은 **가격만** 짧게, 그 밖은 가격·등락률·날짜.
-   * 12% 에서 모두 숨기던 예전 방식은 1280 에서 긴 글자가 잘렸고, 20% 로 늘리니 고점·저점 중 한쪽 글자만 남아 짝이 안 맞았다.
+   * 가장자리 처리: 아주 끝(7% 안)이면 글자 없이 화살표만, 그다음(25% 안)은 **가격만** 짧게, 그 밖은 가격·등락률·날짜.
+   * 한 경계(12%)에서 모두 숨기면 1280 에서 긴 글자가 잘리고, 경계를 20% 로 늘리면 고점·저점 중 한쪽 글자만 남아 짝이 안 맞는다.
    */
   const textOf = (index: number, price: number, at: number) => {
     const d = edgeDist(index);
@@ -242,7 +242,7 @@ export function drawExtremeMarkers(
     const rate = gap == null ? '' : `${formatSigned(gap, 2)}%, `;
     const date = new Date(at);
     const when = intraday
-      // 차트 안 짧은 날짜는 축 눈금과 같은 「MM-DD」(v2.42.3 — 예전 「08.18」). 연도는 축·정보 줄에 있다
+      // 차트 안 짧은 날짜는 축 눈금과 같은 「MM-DD」. 연도는 축·정보 줄에 있다
       ? `${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`
       : `${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
     return `${formatPrice(price, currency)} (${rate}${when})`;
@@ -267,9 +267,9 @@ export function drawExtremeMarkers(
 
   const handle = createSeriesMarkers(series, markers);
   /*
-   * ⚠️ 차트를 `remove()` 한 **뒤에는 부르지 않는다**(호출부가 chartRef 로 막는다, v2.24.0).
+   * ⚠️ 차트를 `remove()` 한 **뒤에는 부르지 않는다**(호출부가 chartRef 로 막는다).
    * detach 는 시리즈 primitive 를 떼며 차트에 다시 그리기를 예약하는데, 이미 제거된 차트라면
-   * 다음 프레임에서 "Object is disposed" 가 난다(예전 try/catch 는 동기 예외만 덮어 이것을 막지 못했다).
+   * 다음 프레임에서 "Object is disposed" 가 난다(try/catch 는 동기 예외만 덮어 이것을 막지 못한다).
    */
   return () => handle.detach();
 }

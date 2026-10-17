@@ -18,9 +18,9 @@ import { formatPercent } from '../../utils/formatters';
 /**
  * 관심 종목 편집 팝업 — 토스증권 스타일 2단 레이아웃.
  *
- * 좌: 그룹 목록 / 우: 선택한 그룹의 종목. 예전에는 모든 폴더를 세로로 펼쳐 놓고
- * 행마다 [이름변경][삭제][▲][▼]와 폴더 드롭다운까지 붙어 있어서, 종목이 조금만 늘어도
- * 무엇이 어느 폴더인지 읽히지 않았다. 조작은 **선택 후 툴바**로 모은다 —
+ * 좌: 그룹 목록 / 우: 선택한 그룹의 종목. 모든 폴더를 세로로 펼쳐 놓고
+ * 행마다 [이름변경][삭제][▲][▼]와 폴더 드롭다운까지 붙이면 종목이 조금만 늘어도
+ * 무엇이 어느 폴더인지 읽히지 않는다. 조작은 **선택 후 툴바**로 모은다 —
  * 행에는 이름과 티커만 남는다.
  *
  * **저장/취소를 두지 않았다.** 모든 변경은 즉시 localStorage 에 반영된다.
@@ -36,10 +36,9 @@ const SORT_LABEL: Record<SortMode, string> = {
 const SORT_ORDER: SortMode[] = ['manual', 'name', 'change'];
 
 /**
- * 왼쪽 목록 맨 위는 **「폴더 없음」** (v2.42.3) — 저장 형식의 기본 폴더(`DEFAULT_FOLDER_ID`) 안의 종목만 보인다.
+ * 왼쪽 목록 맨 위는 **「폴더 없음」** — 저장 형식의 기본 폴더(`DEFAULT_FOLDER_ID`) 안의 종목만 보인다.
  * 사용자에게 그것은 폴더가 아니라 "폴더에 없음" 이라는 상태라 이름 바꾸기·삭제·순서 바꾸기가 없고, 모양도 그룹 행과 구분한다.
  * 종목을 여기에 놓으면 「폴더에서 빼기」 다. 저장 형식은 그대로다.
- * (v2.42.2 까지 이 자리는 모든 폴더를 이어 붙인 「전체 종목」 보기였다 — 폴더 밖 종목만 따로 볼 방법이 없었다.)
  */
 const LOOSE = DEFAULT_FOLDER_ID;
 
@@ -88,7 +87,7 @@ export default function WatchlistManager({
   }, [selectedFolderId]);
 
   // ESC 로 닫는다 — 팝업의 기본 기대다. 검색·이름 입력이 열려 있으면 그것부터 닫는다.
-  // 맨 위 창일 때만(공용 창 틀의 순서 규칙 — v2.41.0). 종목 추가·확인 창이 위에 떠 있으면 그 창이 먼저 닫힌다
+  // 맨 위 창일 때만(공용 창 틀의 순서 규칙). 종목 추가·확인 창이 위에 떠 있으면 그 창이 먼저 닫힌다
   useDialogEsc(() => {
     if (adding) setAdding(false);
     else if (moveOpen) setMoveOpen(false);
@@ -217,7 +216,7 @@ export default function WatchlistManager({
                     <span className="shrink-0 text-sm tabular-nums text-text-muted">
                       ({looseCount})
                     </span>
-                    {/* 그룹 줄의 연필·휴지통 자리만큼 비운다 — 개수 「(N)」 이 그룹 줄과 같은 x 에 서도록(v2.42.3) */}
+                    {/* 그룹 줄의 연필·휴지통 자리만큼 비운다 — 개수 「(N)」 이 그룹 줄과 같은 x 에 서도록 */}
                     <span aria-hidden className="w-11 shrink-0" />
                   </button>
                 </div>
@@ -280,9 +279,9 @@ export default function WatchlistManager({
                     ) : (
                       <div
                         /*
-                          ⚠️ **행 전체를 잡아 끈다** (2026-09-23 요청). 예전에는 손잡이(⠿)만
-                          draggable 이라 10×14px 를 정확히 집어야 했고 "순서가 안 바뀐다" 는
-                          신고가 났다. 짧은 클릭과 드래그는 브라우저가 이동 거리로 갈라 주므로
+                          ⚠️ **행 전체를 잡아 끈다** (2026-09-23 요청). 손잡이(⠿)만
+                          draggable 이면 10×14px 를 정확히 집어야 해서 "순서가 안 바뀐다" 로
+                          읽힌다. 짧은 클릭과 드래그는 브라우저가 이동 거리로 갈라 주므로
                           그룹을 눌러 여는 동작은 그대로 살아 있다.
                           손잡이는 "끌 수 있다" 는 **표시**로만 남긴다.
                         */
@@ -301,12 +300,12 @@ export default function WatchlistManager({
                         }}
                         className={`group flex h-12 cursor-grab items-center gap-1.5 border-l-2 pr-2 transition-colors active:cursor-grabbing ${
                           active
-                            ? // 고른 그룹 = 밝은 바탕 + 흰 글자(파란 세로줄 없음 — 디자인 규칙 2, v2.42.3 캡처 검토)
+                            ? // 고른 그룹 = 밝은 바탕 + 흰 글자(파란 세로줄 없음 — 디자인 규칙 2)
                               'border-transparent bg-bg-elevated'
                             : 'border-transparent hover:bg-bg-tertiary/50'
                         }`}
                       >
-                        {/* 손잡이 — 마우스를 올리면 끄는 법과 키보드 대체를 알린다 (v2.35.0, 예전 맨 아래 안내 줄 대신) */}
+                        {/* 손잡이 — 마우스를 올리면 끄는 법과 키보드 대체를 알린다 */}
                         <span className="pl-1 text-text-muted" title="끌어서 순서 바꾸기 (Alt + ↑/↓ 로도 이동)">
                           <GripVertical size={14} aria-hidden />
                         </span>
@@ -335,7 +334,7 @@ export default function WatchlistManager({
                         </button>
 
                         {/*
-                          이름 바꾸기 — 더블클릭과 같은 동작 (v2.35.0). 더블클릭은 알려 주지 않으면 모른다 — 연필을 늘 옅게 보인다.
+                          이름 바꾸기 — 더블클릭과 같은 동작. 더블클릭은 알려 주지 않으면 모른다 — 연필을 늘 옅게 보인다.
                           「폴더 없음」(기본 폴더)에는 없다(이름을 바꿀 수 없다).
                         */}
                         {!isDefault && (
@@ -470,7 +469,7 @@ export default function WatchlistManager({
                 삭제
               </button>
 
-              {/* 앱 전체 [종목 추가] 와 같은 모양(Button sm + Plus — v2.44.2) */}
+              {/* 앱 전체 [종목 추가] 와 같은 모양(Button sm + Plus) */}
               <Button size="sm" icon={Plus} onClick={() => setAdding((v) => !v)} className="ml-auto">
                 종목 추가
               </Button>

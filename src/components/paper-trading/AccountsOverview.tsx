@@ -34,7 +34,7 @@ import { ruleSafetyText } from '../../utils/ruleText';
  * 세기는 **대기 < 가동 중 ≤ 멈춤** 이다. 멈춤은 사람이 고쳐야 하는 유일한 상태라
  * 가동 중보다 약해 보이면 안 된다.
  * ⚠️ 대기를 옅게만 두지 말 것 — 이 앱은 한국 시간 **낮**에 주로 쓰는데 그때 미국 장은 닫혀 있어
- * **켜 둔 계좌가 대부분 대기**다. 예전 값(1px · 30%)은 사실상 보이지 않았다.
+ * **켜 둔 계좌가 대부분 대기**다(1px · 30% 는 사실상 보이지 않는다).
  */
 const BORDER: Record<string, string> = {
   running: 'border border-bullish ring-[3px] ring-bullish shadow-lg shadow-bullish/30',
@@ -75,12 +75,12 @@ export default function AccountsOverview({
   onOpen: (accountId: number) => void;
   /** 켜기/끄기 — 실패는 이 컴포넌트가 토스트로 알린다 */
   onToggleAuto: (accountId: number, enabled: boolean) => Promise<void>;
-  /** 계좌 순서 저장 (v2.48.0) — 새 순서(계좌 id 전부). 실패하면 던진다 → 이 컴포넌트가 원래 순서로 되돌리고 알린다 */
+  /** 계좌 순서 저장 — 새 순서(계좌 id 전부). 실패하면 던진다 → 이 컴포넌트가 원래 순서로 되돌리고 알린다 */
   onReorder: (ids: number[]) => Promise<void>;
 }) {
   const [busyId, setBusyId] = useState<number | null>(null);
   /*
-   * 계좌 순서 바꾸기 (v2.48.0 — 사용자 결정: 끌어 옮기기 + ↑↓ 둘 다). 관심 목록 편집 창과 같은 끌기 방식·피드백
+   * 계좌 순서 바꾸기 (사용자 결정: 끌어 옮기기 + ↑↓ 둘 다). 관심 목록 편집 창과 같은 끌기 방식·피드백
    * (끄는 원래 자리 = 점선 · 놓을 자리 = 파란 줄 · FLIP 미끄러짐). 바꾸는 즉시 서버에 저장하고, 저장하는 동안은 화면에 새 순서를 먼저 보인다.
    * 실패하면 원래 순서로 되돌리고 알린다. 순서의 출처는 서버(`listAccounts()` — sort_order) 하나다.
    */
@@ -246,8 +246,8 @@ export default function AccountsOverview({
                 if (e.key === 'Enter' || e.key === ' ') onOpen(item.account.id);
               }}
               /*
-                ⚠️ **테두리는 자동매매 상태 전용**이다. 예전에는 hover 가 테두리를 파랗게
-                덮어써서, 카드를 보려고 마우스를 올리는 순간 상태 표시가 사라졌다.
+                ⚠️ **테두리는 자동매매 상태 전용**이다. hover 가 테두리를 파랗게
+                덮어쓰면 카드를 보려고 마우스를 올리는 순간 상태 표시가 사라진다.
                 hover 는 배경으로만 알린다.
               */
               className={`relative rounded-lg bg-bg-secondary p-3 text-left transition-colors hover:bg-bg-tertiary/40 ${BORDER[view.state]} ${
@@ -307,7 +307,7 @@ export default function AccountsOverview({
 
               {/*
                 서버 스위치(AUTO_TRADING_ENABLED=false)로 꺼진 서버에서는 계좌 설정과 무관하게 알린다 —
-                "켜기" 를 눌러도 돌지 않는다는 것을 모르면 고장으로 읽는다 (v2.16.0).
+                "켜기" 를 눌러도 돌지 않는다는 것을 모르면 고장으로 읽는다.
               */}
               {status && status.serverEnabled === false && !on && (
                 <p className="mt-2 rounded bg-warning/10 px-2 py-1 text-caption text-warning">
@@ -360,7 +360,7 @@ export default function AccountsOverview({
                   </span>
                 )}
 
-                {/* 카드마다 파란 버튼이 생기지 않게 보조 버튼(켜기) · 빨간 글자(끄기) — 파랑은 화면의 주요 실행 하나만 (v2.42.0) */}
+                {/* 카드마다 파란 버튼이 생기지 않게 보조 버튼(켜기) · 빨간 글자(끄기) — 파랑은 화면의 주요 실행 하나만 */}
                 <Button
                   variant={on ? 'danger-text' : 'secondary'}
                   size="sm"

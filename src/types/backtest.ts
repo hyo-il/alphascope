@@ -2,9 +2,9 @@
  * 백테스트 (「퀀트 > 백테스트」) — 서버 `server/autoTrading/ruleResearch.ts` 와 화면이 같은 모양을 쓴다.
  * 숫자는 모두 % (수수료 왕복 0.30%p 반영). "1년 전체" = 그 구간에서 이 방법으로 거래를 이어 붙인 복리 수익률.
  *
- * v2.44.0 — 방법 하나 = 「매매 규칙」 하나(`ruleId`). 판단은 계좌와 같은 엔진(`evaluateRule`).
+ * 방법 하나 = 「매매 규칙」 하나(`ruleId`). 판단은 계좌와 같은 엔진(`evaluateRule`).
  * 시험할 때의 규칙 이름·내용을 기록에 함께 남긴다(나중에 규칙을 고쳐도 그때 조건이 남는다).
- * 예전 「미리 정한 시험」(교차 계산기 고정 3년)과 그 기록은 v2.44.0 에 지웠다. 판정 배지 없음(거래가 적으면 「결론 내기 어려움」 만).
+ * 판정 배지 없음(거래가 적으면 「결론 내기 어려움」 만).
  */
 import type { RuleBody } from './tradingRule';
 
@@ -49,7 +49,7 @@ export interface BacktestConditionRequest {
   ruleId: number;
 }
 
-/** 저장되는 방법 — 시험할 때의 규칙 이름·내용 (v2.44.0) */
+/** 저장되는 방법 — 시험할 때의 규칙 이름·내용 */
 export interface BacktestCondition {
   label: ConditionLabel;
   ruleId: number;
@@ -149,7 +149,7 @@ export interface BacktestCustomReport {
   computedAt: string;
   explain?: BacktestExplain;
   spy?: { hold: number; from: string; to: string } | { error: string };
-  /** 시장 필터(v2.51.0) — 시장 기준 데이터가 없어 「시장 데이터 없음」 으로 사지 않은 기간이 있으면 한 줄씩(없으면 칸이 없다) */
+  /** 시장 필터 — 시장 기준 데이터가 없어 「시장 데이터 없음」 으로 사지 않은 기간이 있으면 한 줄씩(없으면 칸이 없다) */
   marketWarnings?: string[];
 }
 
@@ -170,7 +170,7 @@ export interface BacktestProgress {
   error: string | null;
   engineDown: boolean;
   reportId: number | null;
-  /** 같은 날 같은 입력이라 계산하지 않고 저장된 결과를 돌려줬다 (v2.38.0) */
+  /** 같은 날 같은 입력이라 계산하지 않고 저장된 결과를 돌려줬다 */
   reused?: boolean;
 }
 

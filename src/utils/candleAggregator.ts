@@ -28,7 +28,7 @@ export function aggregateCandles(candles: Candle[], minutes: number): Candle[] {
   return out;
 }
 
-/** 달력 단위로 묶는 타임프레임 — 일봉을 받아 시장 시간대의 주·월로 집계한다 (v2.20.0) */
+/** 달력 단위로 묶는 타임프레임 — 일봉을 받아 시장 시간대의 주·월로 집계한다 */
 export type CalendarUnit = 'week' | 'month';
 
 /** 요청 타임프레임에 필요한 원본 주기와 집계 방식을 알려준다. */
@@ -60,10 +60,10 @@ export function calendarKey(timestamp: number, symbol: string, unit: CalendarUni
 }
 
 /**
- * 일봉을 주봉·월봉으로 묶는다 (v2.20.0).
+ * 일봉을 주봉·월봉으로 묶는다.
  *
  * ⚠️ 경계는 **그 시장의 달력**이다 — `marketDate()` 로 날짜를 만든 뒤 월요일·그달로 묶는다.
- * 예전 `aggregateWeekly` 는 UTC 요일로 나눠서, KST 자정(= 전날 15:00 UTC)인 **국내 월요일 봉이 앞 주로** 들어갔다.
+ * UTC 요일로 나누면 KST 자정(= 전날 15:00 UTC)인 **국내 월요일 봉이 앞 주로** 들어간다.
  * 시가 = 첫 봉 시가, 종가 = 마지막 봉 종가, 고·저 = 최대·최소, 거래량 = 합.
  * 봉의 timestamp 는 **그 주·달의 첫 거래일 봉** 것이다(월요일이 휴장이면 화요일).
  */

@@ -1,5 +1,5 @@
 /**
- * Squarified treemap (Bruls·Huizing·van Wijk, 2000) — 종목 지도(v2.18.0)가 쓴다.
+ * Squarified treemap (Bruls·Huizing·van Wijk, 2000) — 종목 지도가 쓴다.
  *
  * 라이브러리를 들이지 않고 직접 구현했다(40줄 남짓이라 의존성을 늘릴 이유가 없다).
  * 값이 큰 것부터 짧은 변을 따라 한 줄씩 채우며, 줄에 하나를 더했을 때 가장 나쁜 가로세로비가

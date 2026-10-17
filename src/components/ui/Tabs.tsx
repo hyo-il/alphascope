@@ -9,7 +9,7 @@ export interface TabItem<T extends string> {
 }
 
 /**
- * 탭 (v2.36.0 디자인 규칙 2) — 글자 + **고른 탭만 흰 글자 + 밑줄 2px**, 나머지는 회색 글자. 상자·테두리 없음.
+ * 탭 (디자인 규칙 2) — 글자 + **고른 탭만 흰 글자 + 밑줄 2px**, 나머지는 회색 글자. 상자·테두리 없음.
  * 바닥의 옅은 선 하나만 둔다(`line` 을 끄면 그것도 없다 — 패널 머리처럼 이미 선이 있는 자리).
  */
 export default function Tabs<T extends string>({

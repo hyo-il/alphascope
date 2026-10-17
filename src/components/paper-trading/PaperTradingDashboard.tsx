@@ -43,7 +43,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'trades', label: '거래내역' },
   { id: 'performance', label: '성과분석' },
 ];
-/** AI 검증 기록 탭(v2.46.0) — 그 계좌에 기록이 있거나 AI 검증이 켜져 있을 때만 */
+/** AI 검증 기록 탭 — 그 계좌에 기록이 있거나 AI 검증이 켜져 있을 때만 */
 const AI_TAB: { id: Tab; label: string } = { id: 'aiCheck', label: 'AI 검증 기록' };
 
 /**
@@ -69,7 +69,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   const [view, setView] = useState<View>('overview');
   /** 모아보기 헤더의 생성 폼 펼침 여부 */
   const [creatingInOverview, setCreatingInOverview] = useState(false);
-  /** 자동매매 처음 켜기 안내 (v2.32.0) */
+  /** 자동매매 처음 켜기 안내 */
   const [wizardOpen, setWizardOpen] = useState(false);
   // 모아보기가 보일 때만 폴링한다 — 상세로 들어가면 그쪽이 1초로 본다.
   const overview = usePaperAccountsOverview(view === 'overview');
@@ -92,7 +92,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
     setView('detail');
   };
 
-  /** 카드에서 바로 켜고 끈다 — 저장은 계좌별 설정 API 하나뿐이다 (Step 12) */
+  /** 카드에서 바로 켜고 끈다 — 저장은 계좌별 설정 API 하나뿐이다 */
   const toggleAuto = async (accountId: number, enabled: boolean) => {
     const res = await fetch(`/api/auto-trading/strategies/${accountId}`, {
       method: 'PUT',
@@ -123,7 +123,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   /** 처음 켜기 버튼 강조 — 켜진 계좌가 없을 때 (모아보기 조회 전에는 강조하지 않는다) */
   const wizardHighlight = autoOverview.items ? !autoOverview.items.some((s) => s.strategy.enabled) : false;
 
-  // 모의투자 안내는 계좌 화면 탭 줄의 배지 하나 + 정보 아이콘이다 (v2.41.1 — 예전 이 자리의 노란 띠·자동매매 바 배지와 세 번 겹쳤다)
+  // 모의투자 안내는 계좌 화면 탭 줄의 배지 하나 + 정보 아이콘이다 (여러 곳에 두면 소음이 된다)
 
   if (loading) {
     // 계좌 목록이 오기 전에도 **실제와 같은 배치**를 그려 둔다.
@@ -220,7 +220,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
             ⚠️ 모아보기 조회가 실패해도 이 버튼은 그대로 보인다 (헤더는 대시보드에 있다).
           */}
           {/*
-            자동매매 처음 켜기 (v2.32.0) — 켜진 계좌가 하나도 없으면 눈에 띄게, 그 밖에는 보통 버튼.
+            자동매매 처음 켜기 — 켜진 계좌가 하나도 없으면 눈에 띄게, 그 밖에는 보통 버튼.
           */}
           <Button size="sm" variant={wizardHighlight ? 'primary' : 'secondary'} onClick={() => setWizardOpen(true)} className="ml-auto">
             자동매매 처음 켜기
@@ -286,7 +286,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   }
 
   // 위(계좌 줄·자동매매 바·지금 조건·최근 판단)가 길어져도 아래 보유 종목·거래내역이 최소 320px 는 보이게 —
-  // 자리가 모자라면 화면 전체가 스크롤된다 (v2.41.0, 「최근 판단 보기」 를 펼치면 아래가 0까지 줄었다)
+  // 자리가 모자라면 화면 전체가 스크롤된다 (「최근 판단 보기」 를 펼치면 아래가 0까지 줄었다)
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto">
 
@@ -310,7 +310,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
         }}
       />
 
-      {/* 계좌마다 독립된 자동매매 — 설정·상태는 서버가 단일 출처다 (Step 12) */}
+      {/* 계좌마다 독립된 자동매매 — 설정·상태는 서버가 단일 출처다 */}
       <AutoTradeBar accountId={selectedId} />
 
       {error && (

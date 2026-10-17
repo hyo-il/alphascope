@@ -1,5 +1,5 @@
 /**
- * 실시간 순위 — `GET /api/rankings/live?market=us|kr&kind=amount|volume|gainers|losers` (v2.20.0).
+ * 실시간 순위 — `GET /api/rankings/live?market=us|kr&kind=amount|volume|gainers|losers`.
  *
  * 토스 `/api/v1/rankings`(`duration=realtime`)를 **30초 캐시**로 감싼다(RANKING 5/s — 화면도 30초마다 부른다).
  * ⚠️ 급등 탐지의 랭킹 캐시(`surge_ranking_cache`, 8시간, `duration=1d`)와 **다른 캐시**다 — 키가 `live|…` 라 서로 덮지 않는다.

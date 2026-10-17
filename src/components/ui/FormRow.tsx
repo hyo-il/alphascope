@@ -3,7 +3,7 @@ import { FORM_LABEL_W, FORM_VALUE_W, UNIT_W } from './tokens';
 import { FormRowValue, useUnitWidth } from './NumberField';
 
 /**
- * 폼 줄 (v2.42.0 → v2.42.3 — 기준표 「입력칸」, 사용자 결정 2026-10-13)
+ * 폼 줄 (기준표 「입력칸」, 사용자 결정 2026-10-13)
  * ```
  * 분석 주기      [    60] 분   설명…
  * 종목당 비중      [  10] %    설명…

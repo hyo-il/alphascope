@@ -8,7 +8,7 @@ interface Props {
 }
 
 /**
- * 분석 방식 — 작은 세그먼트 한 줄 (v2.28.0, 예전에는 아이콘·설명이 든 카드 3장).
+ * 분석 방식 — 작은 세그먼트 한 줄.
  * 복사될 내용을 정하는 첫 선택이라 남기되 버튼보다 앞에 나서지 않게 줄였다. 설명은 툴팁으로.
  */
 export default function ModeSelector({ mode, onChange, portfolioAvailable }: Props) {

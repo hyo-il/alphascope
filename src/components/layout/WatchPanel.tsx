@@ -103,7 +103,7 @@ export default function WatchPanel({
           <ChevronLeft {...ICON_SM} />
         </span>
 
-        {/* 접힌 패널의 세로 메뉴 — lucide 선 아이콘(회색) + 글자 (v2.36.0, 예전 직접 그린 SVG·노란 별) */}
+        {/* 접힌 패널의 세로 메뉴 — lucide 선 아이콘(회색) + 글자 */}
         <span className="flex flex-col items-center gap-0.5 text-text-secondary">
           <Star {...ICON_LG} />
           <span className="text-caption tabular-nums text-text-secondary">{watchlist.length}</span>
@@ -152,7 +152,7 @@ export default function WatchPanel({
         {(
           [
             /*
-             * 패널 폭은 280px 다(v2.33.0 — 글씨 +2px 로 250px 에서는 종목명이 두 줄로 접혔다).
+             * 패널 폭은 280px 다(글씨 +2px 로 250px 에서는 종목명이 두 줄로 접혔다).
              * ⚠️ 탭이 셋이 되면서 라벨을 줄였다. 250px 패널에서 ⚙️·접기 버튼을 빼면
              * 탭 하나에 70px 남짓인데, "관심 목록"(text-xs 5자)은 아이콘까지 78px 라
              * 줄바꿈이 났다. 아이콘이 이미 뜻을 나르므로 두 글자로 충분하다.
@@ -167,7 +167,7 @@ export default function WatchPanel({
             type="button"
             onClick={() => setTab(id)}
             title={id === 'watch' ? '관심 목록' : id === 'recent' ? '최근 조회' : '모의투자 계좌'}
-            /* 글자 탭 (v2.36.0 디자인 규칙 2) — 아이콘 없이, 고른 탭만 흰 글자 + 밑줄. 파란 밑줄을 쓰지 않는다 */
+            /* 글자 탭 (디자인 규칙 2) — 아이콘 없이, 고른 탭만 흰 글자 + 밑줄. 파란 밑줄을 쓰지 않는다 */
             className={`flex flex-1 items-center justify-center border-b-2 py-2.5 text-xs transition-colors ${
               tab === id
                 ? 'border-text-primary font-medium text-text-primary'
@@ -275,7 +275,7 @@ export default function WatchPanel({
                 >
                   <span className="flex min-w-0 flex-col">
                     <span
-                      // v2.25.0 — 글씨가 커져 「SK하이닉스 (0006…」 처럼 종목 코드가 잘렸다. 자르지 않고 단어 단위로 두 줄까지 감싼다
+                      // 「SK하이닉스 (0006…」 처럼 종목 코드가 잘리지 않게 자르지 않고 단어 단위로 두 줄까지 감싼다
                       className="line-clamp-2 break-keep text-xs font-medium text-text-primary"
                     >
                       {picked && <Check {...ICON_SM} className="mr-1 inline-block shrink-0 align-[-2px] text-text-primary" />}
@@ -328,7 +328,7 @@ export default function WatchPanel({
       ) : (
         recent.length > 0 && (
           /*
-            ⚠️ 되돌릴 수 없고 한 번에 여러 개를 삭제한다 — 확인 창 (v2.34.1). 0개면 이 버튼 자체가 없다.
+            ⚠️ 되돌릴 수 없고 한 번에 여러 개를 삭제한다 — 확인 창. 0개면 이 버튼 자체가 없다.
           */
           <div className="flex justify-center border-t border-border py-1.5">
             <RemoveAllButton
@@ -341,9 +341,9 @@ export default function WatchPanel({
       )}
 
       {/*
-        맨 아래 안내는 **기업 비교 화면에서만** 둔다 (v2.34.2 사용자 결정) — 평소 문구(「클릭: 종목 전환 · ⚙️ 에서 폴더·순서 관리」)는
-        「최근」·「계좌」 탭에서도 남아 그 탭에 없는 ⚙️ 를 가리켰다. 비교 화면은 클릭의 뜻이 "담기/빼기" 로 바뀌므로 그 안내만 남기고,
-        담기가 되는 「관심」·「최근」 탭에서만 그린다(「계좌」 탭에는 없다). 덩어리마다 줄바꿈 금지 — 단어 중간에서 끊기지 않는다(v2.34.0).
+        맨 아래 안내는 **기업 비교 화면에서만** 둔다 (사용자 결정) — 탭과 상관없는 평소 문구를 두면
+        「최근」·「계좌」 탭에서 그 탭에 없는 ⚙️ 를 가리킨다. 비교 화면은 클릭의 뜻이 "담기/빼기" 로 바뀌므로 그 안내만 남기고,
+        담기가 되는 「관심」·「최근」 탭에서만 그린다(「계좌」 탭에는 없다). 덩어리마다 줄바꿈 금지 — 단어 중간에서 끊기지 않는다.
       */}
       {compareMode && tab !== 'account' && (
         <p className="break-keep border-t border-border px-3 py-1.5 text-caption leading-relaxed text-text-muted">

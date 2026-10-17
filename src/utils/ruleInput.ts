@@ -1,10 +1,10 @@
 /**
- * 「매매 규칙」 입력 검사 — **한 곳** (v2.43.0). 서버 저장(400)과 화면의 칸 오류가 같은 함수를 쓴다.
+ * 「매매 규칙」 입력 검사 — **한 곳**. 서버 저장(400)과 화면의 칸 오류가 같은 함수를 쓴다.
  *
  * 범위는 새로 정하지 않는다 — 기존 두 곳을 합친다:
- * - RSI 눌림 구간 = 10~70(예전 판단 기준 편집의 범위 — v2.45.0 에 그 창을 지우며 여기로 옮겼다)
+ * - RSI 눌림 구간 = 10~70(지운 판단 기준 편집 창의 범위 그대로)
  * - RSI 반등·과열 · 손절 · 익절 · 트레일링 = 계좌 설정의 `RULE_LIMITS`
- * - 이동평균 = 지표 엔진이 계산하는 `ENGINE_MA_PERIODS`(5·20·50·60·120·200 — v2.50.0 에 50·200)만
+ * - 이동평균 = 지표 엔진이 계산하는 `ENGINE_MA_PERIODS`(5·20·50·60·120·200)만
  * ⚠️ 서버도 컴파일한다 — DOM·React 를 들이지 않는다.
  */
 import { ENGINE_MA_PERIODS, RULE_LIMITS } from '../types/autoTrading';
@@ -15,7 +15,7 @@ export const RULE_INPUT_LIMITS = {
   /** 기준 점수 — 조건 7개 × 만점 100 */
   minScore: { min: 1, max: 700 },
   scoreBelow: { min: 0, max: 700 },
-  // 예전 판단 기준 편집의 RSI 범위(10~70)를 그대로 옮겼다(v2.45.0 — 그 편집 창과 타입은 지웠다)
+  // RSI 눌림 범위 10~70
   rsiBand: { min: 10, max: 70 },
   rsiBelow: RULE_LIMITS.rsiBuyBelow,
   rsiAbove: RULE_LIMITS.rsiSellAbove,
@@ -103,8 +103,8 @@ export function parseRuleBody(raw: unknown): { body: RuleBody } | { error: strin
   const body = emptyRuleBody();
   const shapeError = (path: string) => ({ error: `규칙 모양이 올바르지 않습니다: ${path}` });
 
-  // v2.50.0 전에 만든 규칙(거름망 칸 없음)도 받는다 — 없으면 빈 규칙 값(꺼짐) 그대로
-  // v2.51.0 — 시장 필터 칸도(v2.50.0 규칙은 거름망에 above200 만 있다)
+  // 거름망 칸이 없는 옛 규칙도 받는다 — 없으면 빈 규칙 값(꺼짐) 그대로
+  // 시장 필터 칸이 없는 규칙(거름망에 above200 만)도 받는다
   const OPTIONAL = new Set(['buy.gates', 'buy.gates.marketAbove200']);
   const copy = (src: any, dst: any, tpl: any, path: string): string | null => {
     if (!src || typeof src !== 'object') return path;

@@ -65,7 +65,7 @@ export interface ScoredAnalysis {
   /** 프롬프트 버전 — Gemini 만 (Claude 는 사람이 붙여 넣은 답이라 null) */
   promptVersion: string | null;
   /**
-   * 출처(v2.30.0) — Gemini 만: auto(계좌 자동)·scheduled(지정 종목)·manual(바로 분석), 옛 값 해석은 `store.triggerOf` 그대로.
+   * 출처 — Gemini 만: auto(계좌 자동)·scheduled(지정 종목)·manual(바로 분석), 옛 값 해석은 `store.triggerOf` 그대로.
    * ⚠️ **채점은 이 값을 보지 않는다** — 출처별 표(`byTrigger`)를 나눌 때만 쓴다.
    */
   trigger?: GeminiTrigger;
@@ -75,13 +75,13 @@ export interface ScoredAnalysis {
 }
 
 /**
- * ⚠️ **채점 기준 거래일 D** — 이 함수 한 곳에서 정한다 (v2.15.0).
+ * ⚠️ **채점 기준 거래일 D** — 이 함수 한 곳에서 정한다.
  *
  * - 분석 시각이 그 시장의 **거래일 정규장 마감 전**(장전·장중)이면 D = 그날
  * - **마감 후**이거나 **휴장일**(그 날짜의 봉이 없음)이면 D = 다음 거래일
  *
- * 예전에는 "분석 시각 이후 첫 봉" 이었다. 일봉 timestamp 가 그날 0시라 장중 분석은 **다음 날 봉이 1번**이
- * 되어 실제로 6거래일 뒤로 채점됐다. 시장 날짜·마감 시각은 `marketDate.ts`(미국 16:00 ET · 국내 15:30 KST).
+ * "분석 시각 이후 첫 봉" 으로 세면 일봉 timestamp 가 그날 0시라 장중 분석은 **다음 날 봉이 1번**이
+ * 되어 실제로 6거래일 뒤로 채점된다. 시장 날짜·마감 시각은 `marketDate.ts`(미국 16:00 ET · 국내 15:30 KST).
  * D 의 봉이 아직 캐시에 없으면 -1 (대기).
  */
 export function scoringBaseIndex(candles: Candle[], analyzedAtMs: number, symbol: string, dates?: string[]): number {
@@ -124,7 +124,7 @@ function priceAfter(symbol: string, analyzedAt: string): number | null {
 
 /**
  * ⚠️ **같은 출처·같은 종목·같은 날(시장 날짜)의 반복 분석은 통계에서 1건으로 묶는다** —
- * 그날 **마지막** 분석만 남긴다 (v2.14.0).
+ * 그날 **마지막** 분석만 남긴다.
  *
  * 계좌별 AI형 자동매매는 주기마다 같은 종목을 다시 분석한다(오라클: 3일에 166건, 11종목).
  * 그대로 세면 한 종목·한 날의 결과가 적중률을 지배한다 — 같은 5일 뒤 종가로 여러 번 채점되기
@@ -380,7 +380,7 @@ export function byPromptVersion(items: ScoredAnalysis[]): Record<string, Accurac
 }
 
 /**
- * 출처별 (v2.30.0, Gemini 만) — 같은 종목·같은 날 묶기도 **출처별로** 한다(버전별과 같은 방식: 그 출처의 행만 모아 `summarize`).
+ * 출처별 (Gemini 만) — 같은 종목·같은 날 묶기도 **출처별로** 한다(버전별과 같은 방식: 그 출처의 행만 모아 `summarize`).
  * 한 출처의 하루 묶기가 다른 출처의 기록을 덮지 않게 하려는 것이다. 채점·전체·버전별 숫자는 바뀌지 않는다.
  */
 export function byTrigger(items: ScoredAnalysis[]): Partial<Record<GeminiTrigger, AccuracyStats>> {

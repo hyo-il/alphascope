@@ -10,7 +10,7 @@ import StockName from '../common/StockName';
 import type { CalendarEvent, CalendarEventType, CalendarResponse, CalendarScope } from '../../types/calendar';
 
 /**
- * 📅 주요 일정 달력 (v2.17.0) — 월 달력 + 고른 날의 목록.
+ * 📅 주요 일정 달력 — 월 달력 + 고른 날의 목록.
  *
  * 실적(관심 종목 · 시총 상위 100) · FOMC · 옵션 만기 · 휴장을 한 곳에서 본다. 데이터는 서버 `GET /api/calendar` 한 곳이고,
  * 이 화면은 거르고 그리기만 한다. 실적 종목을 누르면 그 종목 차트로 간다.
@@ -53,7 +53,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
   });
   const [data, setData] = useState<CalendarResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** 받는 중 — 처음에는 "일정이 없습니다" 대신 불러오는 중을, 달을 바꿀 때는 제목 옆 작은 스피너만 (v2.38.0 로딩 점검) */
+  /** 받는 중 — 처음에는 "일정이 없습니다" 대신 불러오는 중을, 달을 바꿀 때는 제목 옆 작은 스피너만 */
   const [loading, setLoading] = useState(true);
   const sequence = useRef(0);
 
@@ -112,12 +112,12 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
   return (
     <div className={`h-full overflow-auto ${PANEL_PAD}`}>
       <div className="space-y-3">
-        {/* 제목 줄 / 고르기 줄을 나눈다 (v2.41.0 디자인 규칙 7) */}
+        {/* 제목 줄 / 고르기 줄을 나눈다 (디자인 규칙 7) */}
         <h2 className="text-base font-semibold text-text-primary">증시 일정</h2>
         <header className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1">
             <IconButton icon={ChevronLeft} label="이전 달" size="sm" onClick={() => move(-1)} />
-            {/* 제목 = 날짜 고르기 창 버튼 (v2.41.0) */}
+            {/* 제목 = 날짜 고르기 창 버튼 */}
             <Button variant="secondary" size="sm"
               ref={titleRef}
               onClick={() => setPickerOpen((v) => !v)}
@@ -271,7 +271,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
           </div>
         </div>
 
-        {/* 데이터 출처 설명은 정보 아이콘으로 (v2.36.0 디자인 규칙 6) */}
+        {/* 데이터 출처 설명은 정보 아이콘으로 (디자인 규칙 6) */}
         <p className="flex items-center gap-1 text-caption text-text-muted">
           데이터 출처{data && ` · 실적 대상 ${data.meta.scopeSize}종목`}
           <InfoTip label="데이터 출처">

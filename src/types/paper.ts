@@ -106,7 +106,7 @@ export interface PaperAccountDetail {
   totalValue: number;
   totalPnl: number;
   totalReturn: number;
-  /** 1달러 = N원 (v2.45.1 — 예전 fxRate 「USD → 계좌 통화」). 환산은 `utils/fx.convertAmount`. 조회에 실패하면 null */
+  /** 1달러 = N원. 환산은 `utils/fx.convertAmount`. 조회에 실패하면 null */
   usdKrw: number | null;
   pendingOrders: number;
 }
@@ -134,7 +134,7 @@ export interface PaperPerformance {
   winRate: number | null;
   avgWin: number | null;
   avgLoss: number | null;
-  /** 손익비 = 평균 수익 ÷ 평균 손실 (v2.41.0 — 예전 필드 이름 profitFactor) */
+  /** 손익비 = 평균 수익 ÷ 평균 손실 */
   payoffRatio: number | null;
   /** Profit Factor = 청산 거래 실현손익 (+ 합) ÷ |− 합| (백테스트와 같은 함수) */
   profitFactor: number | null;

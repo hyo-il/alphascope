@@ -1,5 +1,5 @@
 /**
- * 디자인 규칙 검사 (v2.42.0, `npm run design:lint`) — 디자인 점검 세 겹의 첫째(CLAUDE.md 「디자인 점검」).
+ * 디자인 규칙 검사 (`npm run design:lint`) — 디자인 점검 세 겹의 첫째(docs/rules/design.md 「디자인 점검 세 겹」).
  * 컴포넌트에서 아래가 **0개**인지 본다. 예외는 그 줄 바로 위(또는 같은 줄)에 `design-lint-ignore: <이유>` 주석을 단다.
  *   1. px 숫자로 적은 글자 크기(`text-[NNpx]`) — 글자 크기는 `index.css` @theme 4단계(text-base·sm·xs·caption)만
  *   2. 직접 적은 색 — Tailwind 기본 팔레트(`text-blue-500` 등)·className 안의 `#hex`

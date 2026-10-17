@@ -36,12 +36,12 @@ interface Props {
   initialRange: { from: number; to: number } | null;
   onClose: () => void;
   /**
-   * 「지금 보고 있는 차트 캡처」 (v2.28.0) — 창을 띄우지 않고 화면 밖에서 **메인 차트 그대로**(보던 구간·켜진 지표·드로잉) 한 번 찍어
+   * 「지금 보고 있는 차트 캡처」 — 창을 띄우지 않고 화면 밖에서 **메인 차트 그대로**(보던 구간·켜진 지표·드로잉) 한 번 찍어
    * `captureStore` 에 넣고 닫는다. 범위·지표를 고르는 창과 **같은 차트·같은 캡처 함수**를 쓴다(두 벌로 두지 않는다).
    * 수동 분석 화면이 열릴 때 미리 찍어 두므로, 복사 버튼은 Blob 만 쓴다(클릭 때 html2canvas 를 돌리면 NotAllowedError).
    */
   auto?: boolean;
-  /** 자동 캡처가 실패했을 때 이유 (v2.34.0 — 미리보기 자리에 보인다. 예전에는 콘솔 경고뿐이었다) */
+  /** 자동 캡처가 실패했을 때 이유 (미리보기 자리에 보인다) */
   onAutoError?: (message: string) => void;
 }
 
@@ -163,7 +163,7 @@ export default function ChartCaptureModal({
       // 방금 바꾼 체크박스·범위가 캔버스에 반영될 때까지 두 프레임 기다린다.
       await nextFrame();
       await nextFrame();
-      chartRef.current?.fitToHost(); // 칸 크기에 지금 맞춘다 — 날짜 축이 잘리지 않게 (v2.33.0)
+      chartRef.current?.fitToHost(); // 칸 크기에 지금 맞춘다 — 날짜 축이 잘리지 않게
 
       const { blob, width, height } = await captureElementToBlob(element, quality);
       setShot({ blob, url: URL.createObjectURL(blob), width, height });
@@ -196,8 +196,8 @@ export default function ChartCaptureModal({
    */
   const autoDone = useRef(false);
   /*
-   * ⚠️ 취소는 **언마운트 때만** 한다. 처음에는 effect 정리에서 취소했는데, 찍는 도중 지표·캔들이 한 번 더 바뀌면(재조회)
-   * 정리가 돌아 취소되고 `autoDone` 은 남아 다시 찍지도 닫지도 못했다 — ① 버튼이 「캡처 준비 중…」 에 멈췄다(v2.28.0 점검 중 발견).
+   * ⚠️ 취소는 **언마운트 때만** 한다. effect 정리에서 취소하면 찍는 도중 지표·캔들이 한 번 더 바뀌면(재조회)
+   * 정리가 돌아 취소되고 `autoDone` 은 남아 다시 찍지도 닫지도 못한다 — ① 버튼이 「캡처 준비 중…」 에 멈춘다.
    */
   const unmounted = useRef(false);
   useEffect(() => {
@@ -222,7 +222,7 @@ export default function ChartCaptureModal({
           onAutoError?.('캡처할 차트를 찾지 못했습니다');
           return;
         }
-        chartRef.current?.fitToHost(); // 칸 크기에 지금 맞춘다 — 날짜 축이 잘리지 않게 (v2.33.0)
+        chartRef.current?.fitToHost(); // 칸 크기에 지금 맞춘다 — 날짜 축이 잘리지 않게
         const { blob, width, height } = await captureElementToBlob(element, 'low');
         if (unmounted.current) return;
         setCapture({

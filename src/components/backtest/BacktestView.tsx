@@ -23,14 +23,13 @@ import CustomResult from './CustomResult';
 import ApplyRuleButton from './ApplyRuleButton';
 
 /**
- * 「퀀트 > 백테스트」 (v2.38.0 → v2.44.0 매매 규칙) — **내가 고른 종목을 내가 고른 매매 규칙으로** 과거에 시험한다.
+ * 「퀀트 > 백테스트」 — **내가 고른 종목을 내가 고른 매매 규칙으로** 과거에 시험한다.
  * ① 종목(표) → ② 방법(규칙 1~3개) → ③ 기간 → [시험 실행] → 결과 → 백테스트 히스토리.
  *
  * - 계산은 서버(`runCustomBacktest` → 계좌와 같은 엔진 `evaluateRule`). 주문을 내지 않는다.
  * - 판정 배지 없음 — 거래가 적으면 「결론 내기 어려움」 만. 「가장 좋음」 강조 금지.
- * - 예전 「미리 정한 시험」(교차 계산기 고정 3년)은 v2.44.0 에 지웠다.
- * - 계좌 → 백테스트로 값을 넘기던 [백테스트에서 시험하기] 는 v2.44.2 에 없앴다(사용자 결정 C-2). 결과의 [계좌에 적용](백테스트 → 계좌)은 그대로.
- * - v2.36.0 디자인 규칙 — 이모지 없음, 파란 주요 버튼은 [시험 실행] 하나.
+ * - 계좌 → 백테스트로 값을 넘기는 경로는 없다(사용자 결정 C-2). 결과의 [계좌에 적용](백테스트 → 계좌)만 있다.
+ * - 디자인 규칙 — 이모지 없음, 파란 주요 버튼은 [시험 실행] 하나.
  */
 const when = (iso: string) => formatDateTime(iso);
 const pct = (v: number | null | undefined) => (v == null ? '—' : `${formatSigned(v, 2)}%`);
@@ -212,7 +211,7 @@ export default function BacktestView() {
           <p>과거 결과는 앞으로를 보장하지 않습니다.</p>
         </HelpBox>
 
-        {/* ① 종목 — 종목 목록 표(`common/SymbolTable`, v2.44.0 — 계좌 「② 대상 종목」 과 같은 부품) */}
+        {/* ① 종목 — 종목 목록 표(`common/SymbolTable` — 계좌 「② 대상 종목」 과 같은 부품) */}
         <Panel pad="sm" className="space-y-2">
           <SectionTitle>① 종목</SectionTitle>
           <SymbolTable
@@ -223,7 +222,7 @@ export default function BacktestView() {
             softLimit={draft.conditions.length >= 2 ? MAX_COMPARE_SYMBOLS : null}
             softLimitText={(n, limit) => `방법을 비교할 때는 종목을 ${limit}개까지 고를 수 있습니다 — 지금 ${n}개`}
             dialogTitle="백테스트 종목 추가"
-            // 종목이 많아도 아래 ② 방법이 밀리지 않게 접힌 한 줄로 연다 (v2.48.0)
+            // 종목이 많아도 아래 ② 방법이 밀리지 않게 접힌 한 줄로 연다
             collapsible
           />
         </Panel>
@@ -304,7 +303,7 @@ export default function BacktestView() {
         </div>
 
         {/*
-          ⑤ 백테스트 히스토리 (v2.48.0 — 매수 판단 히스토리와 같은 날짜별 목록 · 공용 DateGroupList).
+          ⑤ 백테스트 히스토리 (매수 판단 히스토리와 같은 날짜별 목록 · 공용 DateGroupList).
           날짜 줄 = 그날 시험한 종목(「애플 외 9개」) · 방법 수·기간(시험이 여럿이면 「시험 N건」). 펼치면 그날 시험들.
           서버는 최근 100개를 보관한다(`researchStore` KEEP) — 날짜는 30일씩 보이고 [더 보기].
         */}
@@ -354,7 +353,7 @@ export default function BacktestView() {
           )}
         </section>
 
-        {/* ⚠️ 고정 문구 5개 — 지우지 않는다, 정보 아이콘에 넣지 않는다 (CLAUDE.md) */}
+        {/* ⚠️ 고정 문구 5개 — 지우지 않는다, 정보 아이콘에 넣지 않는다 (docs/rules/quant.md 「백테스트」) */}
         <div className="space-y-0.5 pb-2 text-caption text-text-muted">
           <p>과거 결과이며 앞으로를 보장하지 않습니다.</p>
           <p>여러 조건을 바꿔 보며 가장 좋은 숫자를 고르면 우연에 속기 쉽습니다.</p>

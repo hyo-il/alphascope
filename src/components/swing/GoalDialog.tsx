@@ -5,7 +5,7 @@ import { GOAL_PERIOD_CHOICES, GOAL_TARGET_CHOICES, autoStop, goalPct, type Swing
 import { TARGET_INPUT_LIMITS } from '../../types/targetAnalysis';
 
 /**
- * 「목표 수익 가능성」 조건(목표 수익률 · 보유 기간 · 손절) — v2.45.0 에 「판단 기준 편집」 창을 없애면서 그 창의 목표 설정만 남겼다.
+ * 「목표 수익 가능성」 조건(목표 수익률 · 보유 기간 · 손절) — 목표 설정만 고치는 창.
  * 저장은 그대로 `PUT /api/swing/goal`(`useSwingGoal`). ⚠️ 매수 판단을 바꾸지 않는다 — 가능성 분석의 조건일 뿐이다(고정 안내 두 줄).
  */
 export default function GoalDialog({ goal, onSave, onClose }: { goal: SwingGoal; onSave: (g: SwingGoal) => Promise<SwingGoal>; onClose: () => void }) {

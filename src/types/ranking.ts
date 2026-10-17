@@ -1,4 +1,4 @@
-/** 실시간 순위 (v2.20.0) — 서버 `server/liveRanking.ts` 와 화면 `components/ranking` 이 함께 쓴다 */
+/** 실시간 순위 — 서버 `server/liveRanking.ts` 와 화면 `components/ranking` 이 함께 쓴다 */
 
 export type LiveRankingMarket = 'us' | 'kr';
 export type LiveRankingKind = 'amount' | 'volume' | 'gainers' | 'losers';

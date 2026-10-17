@@ -35,7 +35,7 @@ export class GeminiError extends Error {
 /**
  * Gemini 를 부를 수 없는 이유 (부를 수 있으면 null).
  *
- * - `GEMINI_ENABLED=false` — 키가 있어도 부르지 않는다 (v2.16.0). **복사본 DB 로 띄운 테스트 서버**가
+ * - `GEMINI_ENABLED=false` — 키가 있어도 부르지 않는다. **복사본 DB 로 띄운 테스트 서버**가
  *   실제 키로 AI 를 부르지 않게 하는 스위치다. 비용·한도가 실제 서버와 공유된다.
  * - 키가 없거나 예시값이면 Gemini 기능 전체가 꺼진다 — 기존 기능(토스·Claude 수동 분석)에는 영향이 없어야 한다.
  */

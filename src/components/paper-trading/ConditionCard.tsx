@@ -7,10 +7,10 @@ import { JUDGE_TIMING_TEXT, NO_STOP_WARNING, ruleBuyText, ruleSafetyText, ruleSe
 import { nextJudgeText } from '../../utils/autoTradeExplain';
 
 /**
- * 계좌 「지금 조건」 카드 (v2.40.0 → v2.44.0 매매 규칙) — 자동매매 바 바로 아래, 처음 접힘 + 한 줄 요약.
+ * 계좌 「지금 조건」 카드 — 자동매매 바 바로 아래, 처음 접힘 + 한 줄 요약.
  * 손절·익절·트레일링 값은 한 단계 굵게(500), **색은 쓰지 않는다**(상태색과 섞이지 않게). 문장은 `utils/ruleText.ts` 한 곳.
  * 규칙의 손절이 꺼져 있으면 경고 한 줄(B-3).
- * v2.44.2: [설정 열기] · [백테스트에서 시험하기] 를 없앴다(사용자 결정 C-1·C-2) — 설정은 자동매매 바의 [자동매매 설정] 하나, 펼치기 문구 「조건 상세 보기」.
+ * 설정은 자동매매 바의 [자동매매 설정] 하나, 펼치기 문구 「조건 상세 보기」.
  */
 function Line({ label, children, strong = false }: { label: string; children: ReactNode; strong?: boolean }) {
   return (
@@ -45,7 +45,7 @@ export default function ConditionCard({
           {rule ? (
             <>
               규칙 「{rule.name}」 · <span className="font-medium text-text-primary">{ruleSafetyText(rule)}</span>
-              {/* AI 검증(v2.46.0) — 켰을 때만 */}
+              {/* AI 검증 — 켰을 때만 */}
               {s.aiCheck && <> · <span className="font-medium text-text-primary">AI 검증 켬</span></>}
             </>
           ) : rulesLoaded ? (

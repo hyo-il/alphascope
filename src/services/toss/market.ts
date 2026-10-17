@@ -263,7 +263,7 @@ export async function fetchRanking(
   return { rankedAt: payload.result?.rankedAt ?? null, entries };
 }
 
-// ── 투자자별 매매동향 (국내만, v2.23.0) ─────────────────────────────────────
+// ── 투자자별 매매동향 (국내만) ─────────────────────────────────────
 
 interface InvestorSideRaw {
   buyVolume?: string;
@@ -287,7 +287,7 @@ interface InvestorTradingResponse {
   };
 }
 
-/** 외국인 보유 (v2.30.0) — 숫자로 못 읽으면 null */
+/** 외국인 보유 — 숫자로 못 읽으면 null */
 function holding(
   raw: { holdingQuantity?: string; limitQuantity?: string; holdingRate?: string } | null | undefined,
 ): FlowRecord['foreignerHolding'] {

@@ -39,13 +39,13 @@ export interface ModeratorVerdict {
 }
 
 /**
- * 분석 출처. v2.47.0 — 「계좌 자동」(AI형 자동매매, v2.44.0 에 없앴다)은 더 생기지 않는다. 옛 DB 값 'auto'·모르는 값은 'other' 로 읽는다
- * (v2.44.0 데이터 정리가 그 기록을 지웠으므로 보통 0건이다).
+ * 분석 출처. 옛 「계좌 자동」 은 더 생기지 않는다. 옛 DB 값 'auto'·모르는 값은 'other' 로 읽는다
+ * (데이터 정리가 그 기록을 지웠으므로 보통 0건이다).
  */
 export type GeminiTrigger = 'scheduled' | 'manual' | 'other';
 
 /**
- * Gemini 분석의 출처 이름 (v2.23.0, v2.30.0 에 화면 파일에서 여기로 — 진단 리포트(서버)도 같은 이름을 쓴다).
+ * Gemini 분석의 출처 이름 — 화면과 진단 리포트(서버)가 같은 이름을 쓴다.
  * 배지·「AI 분석 기록」 필터·진단 출처별 표가 **같은 이름**을 쓴다.
  * '자동 분석' 이라는 말은 쓰지 않는다 — 차트 탭의 버튼(바로 분석)을 자동으로 도는 것으로 오해하게 했다.
  */
@@ -55,7 +55,7 @@ export const GEMINI_TRIGGER_LABEL: Record<GeminiTrigger, string> = {
   other: '기타',
 };
 
-/** 오늘 Gemini 사용량 한 줄 (v2.47.0, `server/gemini/usage.ts`) */
+/** 오늘 Gemini 사용량 한 줄 (`server/gemini/usage.ts`) */
 export interface GeminiUsageItem {
   key: 'analysis' | 'aiCheck' | 'news' | 'target' | 'backtestExplain';
   label: string;
@@ -92,7 +92,7 @@ export interface GeminiAnalysis {
   tokens: number;
   elapsedMs: number;
   /**
-   * 분석 출처 (v2.23.0 → v2.47.0)
+   * 분석 출처
    * - 'scheduled' = 내가 지정한 종목(하루 1번)
    * - 'manual' = 사용자가 버튼으로 바로 실행
    * - 'other' = 옛 「계좌 자동」 등 지금은 생기지 않는 값

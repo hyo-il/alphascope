@@ -37,7 +37,7 @@ export default function MarketCard({
   return (
     <article className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-bg-secondary px-3 py-2">
       <div className="min-w-0">
-        {/* 말줄임으로 자르지 않는다 — 1280 에서 「VIX 공포지수」 가 4px 넘쳤다(v2.33.0). 넘치면 줄을 바꾼다 */}
+        {/* 말줄임으로 자르지 않는다 — 1280 에서 「VIX 공포지수」 가 4px 넘쳤다. 넘치면 줄을 바꾼다 */}
         <p className="break-keep text-caption leading-tight text-text-secondary">{name}</p>
         <p className="text-sm font-semibold tabular-nums text-text-primary">
           {value != null ? `${unit}${format(value)}` : '—'}
@@ -47,7 +47,7 @@ export default function MarketCard({
             '—'
           ) : (
             <>
-              {/* 방향은 부호로 (v2.36.0 — 예전 ▲▼ 기호). 색은 그대로 */}
+              {/* 방향은 부호로 (▲▼ 기호를 쓰지 않는다). 색은 그대로 */}
               {up ? '+' : down ? '−' : ''}
               {change != null ? format(Math.abs(change)) : ''} ({up ? '+' : down ? '−' : ''}
               {Math.abs(changePercent).toFixed(2)}%)

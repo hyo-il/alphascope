@@ -11,7 +11,7 @@ import { SkeletonText } from '../common/SkeletonLoader';
 import RuleDialog from './RuleDialog';
 
 /**
- * 「퀀트 > 매매 규칙」 (v2.43.0 — 퀀트 다시 만들기 1단계).
+ * 「퀀트 > 매매 규칙」 (퀀트 다시 만들기 1단계).
  * 규칙 목록 · 만들기/보기 팝업. ⚠️ 이 단계에서는 매수 판단·계좌·백테스트가 이 규칙을 쓰지 않는다(2·3단계에서 연결).
  */
 export default function RulesView() {
@@ -105,7 +105,7 @@ export default function RulesView() {
             <table className="w-full text-left text-xs">
               <thead className="text-caption text-text-muted">
                 <tr className="border-b border-border/50">
-                  {/* 규칙 이름 = 내용 폭(최대 16rem, 넘으면 말줄임) · 적용된 곳 = 남는 폭, 줄바꿈 · 버튼 = 줄바꿈 금지 (v2.46.0 — 계좌가 많으면 이름이 「기…」 로 잘리고 [삭제] 가 밀려났다) */}
+                  {/* 규칙 이름 = 내용 폭(최대 16rem, 넘으면 말줄임) · 적용된 곳 = 남는 폭, 줄바꿈 · 버튼 = 줄바꿈 금지 (계좌가 많으면 이름이 「기…」 로 잘리고 [삭제] 가 밀려났다) */}
                   <th className="whitespace-nowrap py-2 pr-6">규칙 이름</th>
                   <th className={`${TABLE_NAME_COL} py-2 pr-6`}>적용된 곳</th>
                   <th className="py-2" aria-label="동작" />

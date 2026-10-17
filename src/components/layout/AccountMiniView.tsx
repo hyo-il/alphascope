@@ -59,7 +59,7 @@ export default function AccountMiniView({
   const auto = selectedId ? viewOf(selectedId) : null;
 
   /*
-   * ⚠️ 여기서 고른 계좌는 **앱 전체의 현재 계좌**다 (v2.9.0 부터 공유 상태).
+   * ⚠️ 여기서 고른 계좌는 **앱 전체의 현재 계좌**다 (공유 상태).
    * 빠른주문·계좌 관리가 같은 계좌를 보게 되므로, 드롭다운이 실수로 바뀐 것을
    * 모르고 지나치지 않도록 바뀐 사실을 눈에 보이게 알린다.
    */
@@ -106,7 +106,7 @@ export default function AccountMiniView({
           <div className="flex items-center gap-1.5">
             <AutoDot auto={auto} />
             {/*
-              ⚠️ `<option>` 은 브라우저가 그려서 색·아이콘이 먹지 않는다 (CLAUDE.md 「폼 요소」).
+              ⚠️ `<option>` 은 브라우저가 그려서 색·아이콘이 먹지 않는다 (docs/rules/design.md 「폼 요소」).
               그래서 상태를 **글자 기호**로 앞에 붙인다 — 드롭다운을 펼치면 어느 계좌가
               돌고 있는지 한눈에 보인다. 모르는 계좌(조회 전)는 기호 없이 이름만 나온다.
             */}

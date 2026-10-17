@@ -88,7 +88,7 @@ export default function AnalysisHistory({
   prompt,
 }: Props) {
   const [records, setRecords] = useState<AnalysisRecord[]>([]);
-  /** 처음 받는 중 (v2.38.0 로딩 점검) — 받기 전에 "저장된 분석이 없습니다" 를 띄우지 않는다 */
+  /** 처음 받는 중 — 받기 전에 "저장된 분석이 없습니다" 를 띄우지 않는다 */
   const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState('');
   const [verdict, setVerdict] = useState('neutral');
@@ -100,7 +100,7 @@ export default function AnalysisHistory({
 
   const load = useCallback(async () => {
     const url = onlyThisSymbol ? `/api/analysis?symbol=${symbol}` : '/api/analysis';
-    // ⚠️ 불러오기 실패를 "기록 없음" 으로 보이지 않는다 (v2.34.1) — 목록은 그대로 두고 알린다
+    // ⚠️ 불러오기 실패를 "기록 없음" 으로 보이지 않는다 — 목록은 그대로 두고 알린다
     const res = await fetch(url).catch(() => null);
     const data = (await res?.json().catch(() => ({}))) as { analyses?: AnalysisRecord[]; error?: string } | undefined;
     setLoaded(true);
@@ -127,8 +127,8 @@ export default function AnalysisHistory({
   const handleSave = async () => {
     if (!draft.trim()) return;
     /*
-     * ⚠️ 저장이 실패하면 붙여넣은 글을 지우지 않는다 (v2.34.1) — 예전에는 응답을 보지 않고 입력칸을 비워,
-     * 실패해도 글이 사라지고 아무 표시가 없었다. 성공하면 목록에 바로 보이므로 따로 알리지 않는다.
+     * ⚠️ 저장이 실패하면 붙여넣은 글을 지우지 않는다 — 응답을 보지 않고 입력칸을 비우면
+     * 실패해도 글이 사라지고 아무 표시가 없다. 성공하면 목록에 바로 보이므로 따로 알리지 않는다.
      */
     const res = await fetch('/api/analysis', {
       method: 'POST',
@@ -154,7 +154,7 @@ export default function AnalysisHistory({
   };
 
   /*
-   * 사용자가 붙여넣어 저장한 글이라 확인 창 (v2.34.1). 예전에는 바로 지웠고, 실패해도 아무 표시가 없었다.
+   * 사용자가 붙여넣어 저장한 글이라 확인 창. 실패하면 알린다.
    * 지우면 「AI 분석 성적표」 집계에서도 빠진다 — 문구에 적는다.
    */
   const handleDelete = (record: AnalysisRecord) => {

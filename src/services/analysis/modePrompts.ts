@@ -52,7 +52,7 @@ export function buildQuickPrompt(
   timeframe: Timeframe,
   symbol: string,
   horizonId: InvestmentHorizon = DEFAULT_HORIZON,
-  /** 투자자 동향 블록 (v2.23.0, 국내 종목만). 없으면 이전과 같은 문자열이다 */
+  /** 투자자 동향 블록 (국내 종목만). 없으면 이전과 같은 문자열이다 */
   investorFlow?: string | null,
 ): string {
   if (!summary) return `${symbol} 데이터를 불러오는 중입니다.`;

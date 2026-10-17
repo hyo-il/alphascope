@@ -23,10 +23,10 @@ export const ACCOUNT_KEY = 'alphascope.paperAccountId';
  * ⚠️ API 서버가 아직 뜨지 않았을 때를 구분한다.
  *
  * 앱을 재실행하면 브라우저는 vite(5173)가 응답하는 즉시 열리지만 API(4000)는 몇 초 더
- * 걸린다. 그동안 vite 프록시는 **본문이 빈 500** 을 돌려주는데, 예전에는 `res.json()` 이
- * SyntaxError 를 던지고 그것이 "계좌 목록 없음" 과 같은 길로 흘러 들어가
- * **"아직 모의투자 계좌가 없습니다"** 화면이 떴다 — 데이터는 SQLite 에 멀쩡히 있는데
- * 초기화된 것처럼 보였다. (그 화면을 보고 계좌를 새로 만든 흔적이 DB 에 7개 남아 있었다.)
+ * 걸린다. 그동안 vite 프록시는 **본문이 빈 500** 을 돌려준다. 그대로 `res.json()` 하면
+ * SyntaxError 가 "계좌 목록 없음" 과 같은 길로 흘러 들어가
+ * **"아직 모의투자 계좌가 없습니다"** 화면이 뜬다 — 데이터는 SQLite 에 멀쩡히 있는데
+ * 초기화된 것처럼 보인다(그 화면을 보고 계좌를 새로 만들게 된다).
  */
 export class ApiUnreachableError extends Error {
   constructor() {
@@ -80,11 +80,11 @@ const RETRY_MS = 1500;
  * ──────────────────────────────────────────────────────────────────────────────
  * 계좌 목록 · 선택 — **앱 전체가 공유하는 하나의 상태**다.
  *
- * ⚠️ 예전에는 `usePaperAccounts()` 가 호출처마다 `useState` 로 제 상태를 들고 있었다.
- * 계좌 관리 화면과 오른쪽 계좌 탭이 각각 이 훅을 부르는데, 대시보드에서 계좌를 지워도
- * **대시보드 쪽 목록만** 다시 받았다. 패널은 앱을 열 때 받은 목록과 옛 selectedId 를
- * 그대로 들고 있다가 "계좌 2 을(를) 찾을 수 없습니다" 를 띄웠다 — 이미 지운 계좌
- * 이름을 제목으로 단 채로. 새로 만든 계좌도 패널에는 나타나지 않았다 (2026-09-23 신고).
+ * ⚠️ `usePaperAccounts()` 는 호출처마다 `useState` 로 제 상태를 들지 않는다 — 그러면
+ * 계좌 관리 화면과 오른쪽 계좌 탭이 각각 이 훅을 부를 때, 대시보드에서 계좌를 지워도
+ * **대시보드 쪽 목록만** 다시 받는다. 패널은 앱을 열 때 받은 목록과 옛 selectedId 를
+ * 그대로 들고 있다가 "계좌 2 을(를) 찾을 수 없습니다" 를 띄운다 — 이미 지운 계좌
+ * 이름을 제목으로 단 채로. 새로 만든 계좌도 패널에는 나타나지 않는다.
  *
  * 그래서 상태를 모듈 변수 한 곳에 두고 구독자에게 방송한다
  * (`useWatchlist.ts` 의 `recentListeners` 와 같은 방식 — 새 라이브러리를 들이지 않는다).
@@ -161,7 +161,7 @@ export async function reloadPaperAccounts(): Promise<boolean> {
 }
 
 /**
- * 계좌 순서 저장 (v2.48.0) — 서버(`PUT /api/paper/accounts/order`)가 순서를 정하고, 앱 전체가 공유하는 목록을 그 순서로 바꾼다.
+ * 계좌 순서 저장 — 서버(`PUT /api/paper/accounts/order`)가 순서를 정하고, 앱 전체가 공유하는 목록을 그 순서로 바꾼다.
  * 모아보기 · 오른쪽 계좌 탭 · 계좌를 고르는 모든 목록이 이 목록(=서버 `listAccounts()` 순서)을 그대로 쓴다. 실패하면 던진다(화면이 되돌린다).
  */
 export async function reorderPaperAccounts(ids: number[]): Promise<void> {
@@ -300,7 +300,7 @@ export function usePaperAccountDetail(accountId: number | null) {
       inFlight = true;
       try {
         // settle=1 이 대기 주문 체결과 계좌 평가를 한 번에 처리한다.
-        // 예전처럼 /positions 를 따로 부르면 두 라우트가 각각 시세·환율을 조회해
+        // /positions 를 따로 부르면 두 라우트가 각각 시세·환율을 조회해
         // 토스 호출이 초당 4회가 된다.
         const data = await request<PaperAccountDetail>(
           `/api/paper/accounts/${accountId}?settle=1`,

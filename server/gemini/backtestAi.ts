@@ -1,8 +1,7 @@
 /**
- * 백테스트 AI 도움 — 「AI에게 결과 설명 듣기」(`explainBacktest`, v2.38.0). **버튼 한 번에 Gemini 1회**, 버튼으로만 부른다.
+ * 백테스트 AI 도움 — 「AI에게 결과 설명 듣기」(`explainBacktest`). **버튼 한 번에 Gemini 1회**, 버튼으로만 부른다.
  * 그 결과의 숫자만 보낸다. 응답 문장 속 % 숫자가 입력 숫자(±0.05)에 없으면 그 문장을 뺀다(뉴스 판정의 인용 검증과 같은 생각).
  * 설명은 그 기록에 저장해 다시 열 때 Gemini 를 부르지 않는다.
- * v2.44.0 에 「AI에게 조건 물어보기」(조언)를 지웠다 — 방법이 「매매 규칙 고르기」 가 되어 채울 숫자 칸이 없어졌다.
  *
  * ⚠️ `gemini_analysis` 에 저장하지 않는다(매매 신호가 아니다). 주문·자동매매와 무관하다.
  * 프롬프트·스키마를 고치면 버전(`EXPLAIN_PROMPT_VERSION`)을 올린다.
@@ -12,12 +11,12 @@ import type { BacktestCondition, BacktestCustomReport, BacktestExplain, Conditio
 import { CONDITION_LABELS, methodName } from '../../src/types/backtest';
 import { ruleBuyText, ruleSellText } from '../../src/utils/ruleText';
 
-// v2 (v2.39.0): 조언에 익절 추가 · 설명은 조건 비교 모양(조건 1개도 같은 모양) + MDD·Profit Factor 숫자
-// v3 (v2.40.0): 초등학생도 아는 쉬운 말 규칙(전문용어 풀이·한 문장 40자 안팎·숫자 1~2개·용어집 이름·"방법 1·2·3")
-/** v4 (v2.44.0) — 방법 = 매매 규칙(이름·매수·매도 조건 문장). 프롬프트·스키마를 고치면 올린다 */
-export const EXPLAIN_PROMPT_VERSION = 'bt-explain-v5'; // v5(v2.45.0): 매도 문장 표기만 — 손절 −7% · 익절 +10% · 트레일링 −5%
+// v2: 조언에 익절 추가 · 설명은 조건 비교 모양(조건 1개도 같은 모양) + MDD·Profit Factor 숫자
+// v3: 초등학생도 아는 쉬운 말 규칙(전문용어 풀이·한 문장 40자 안팎·숫자 1~2개·용어집 이름·"방법 1·2·3")
+/** v4 — 방법 = 매매 규칙(이름·매수·매도 조건 문장). 프롬프트·스키마를 고치면 올린다 */
+export const EXPLAIN_PROMPT_VERSION = 'bt-explain-v5'; // v5: 매도 문장 표기만 — 손절 −7% · 익절 +10% · 트레일링 −5%
 
-/** 쉬운 말 규칙 (v2.40.0) */
+/** 쉬운 말 규칙 */
 const EASY_RULES = [
   '쉬운 말 규칙: 초등학생도 아는 말로 씁니다. MDD·Profit Factor·RSI·이동평균·트레일링 같은 전문용어를 쓰면 같은 문장에서 쉬운 말로 풀어 줍니다',
   '(예: "MDD(가장 크게 떨어졌던 폭)", "트레일링(최고가보다 정한 만큼 내려가면 매도)").',

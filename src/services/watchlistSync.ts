@@ -10,7 +10,7 @@ import { DEFAULT_FOLDER_ID } from '../types/watchlist';
  *
  * ⚠️ 이 파일은 **모듈 단위로 한 벌**이다. `useWatchlist()` 는 여러 화면에서 각각 불리는데
  * 인스턴스마다 서버를 읽고 쓰면 요청이 그 수만큼 늘고 revision 이 서로 어긋난다
- * (v2.9.0 의 계좌 공유 상태와 같은 이유).
+ * (계좌 공유 상태와 같은 이유).
  *
  * ⚠️ **폴링하지 않는다.** 앱 시작 시 한 번과 탭이 다시 보일 때 한 번만 받는다.
  */
@@ -34,9 +34,9 @@ export interface WatchlistPayload {
 /**
  * 화면에 보여 줄 저장 상태 — 조용히 두면 기기 간에 어긋난 걸 모른다.
  *
- * ⚠️ `failed` 를 조용히 `idle` 로 돌리지 않는다. 예전에는 400 을 받고도 아무 표시 없이
- * 끝내서, **서버는 비어 있는데 화면은 "저장했습니다"** 였다 — 다른 기기에서 목록이
- * 비어 보이는 원인이었다 (2026-09-24 신고).
+ * ⚠️ `failed` 를 조용히 `idle` 로 돌리지 않는다. 400 을 받고도 아무 표시 없이
+ * 끝내면 **서버는 비어 있는데 화면은 "저장했습니다"** 가 된다 — 다른 기기에서 목록이
+ * 비어 보이는 원인이다.
  */
 export type SyncState = 'idle' | 'saving' | 'offline' | 'failed';
 
@@ -196,8 +196,8 @@ export function queueSave(patch: { folders?: WatchFolder[]; recent?: string[] })
 /**
  * 대기 중인 변경을 지금 보낸다.
  *
- * ⚠️ **결과를 돌려준다.** 예전에는 `void` 였고 호출부가 디바운스 **예약**만 해 두고
- * 곧바로 "저장했습니다" 를 띄웠다 — 실제로는 실패해도 그랬다.
+ * ⚠️ **결과를 돌려준다.** `void` 면 호출부가 디바운스 **예약**만 해 두고
+ * 곧바로 "저장했습니다" 를 띄운다 — 실제로는 실패해도.
  */
 export async function flush(): Promise<SaveResult> {
   if (inFlight) return { ok: false, error: '저장 중입니다.' };

@@ -39,7 +39,7 @@ export default function ModalHost() {
     }
   };
 
-  // 공용 창 틀(v2.41.0) — 확인 창은 맨 위(z 100). ESC·바깥 클릭·닫기 X = 취소
+  // 공용 창 틀 — 확인 창은 맨 위(z 100). ESC·바깥 클릭·닫기 X = 취소
   return (
     <Dialog
       title={request.title}
@@ -54,7 +54,7 @@ export default function ModalHost() {
               {request.cancelText ?? '취소'}
             </Button>
           )}
-          {/* 확인 버튼 하나만 색을 준다 — 지우기는 빨강, 그 밖은 파랑 (v2.36.0 공용 Button) */}
+          {/* 확인 버튼 하나만 색을 준다 — 지우기는 빨강, 그 밖은 파랑 (공용 Button) */}
           <Button busy={busy} variant={request.danger ? 'danger' : 'primary'} onClick={() => void accept()} disabled={busy} autoFocus>
             {busy ? '처리 중…' : (request.confirmText ?? '확인')}
           </Button>

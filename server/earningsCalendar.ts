@@ -1,8 +1,8 @@
 /**
- * 실적 발표일 — **실적일 소스는 이 파일 한 곳이다** (v2.16.0).
+ * 실적 발표일 — **실적일 소스는 이 파일 한 곳이다**.
  *
- * 스윙의 "실적 발표 14일 이내" 경고와 자동매매의 "실적 전 신규 매수 회피" 가 모두 `getEarningsDate()` 를 부른다.
- * 예전에는 스윙이 기업정보 캐시(`cachedFundamentals`)에서만 읽어, 기업정보를 한 번도 안 연 종목은 경고가 없었다.
+ * 매수 판단의 "실적 발표 14일 이내" 경고와 자동매매의 "실적 전 신규 매수 회피" 가 모두 `getEarningsDate()` 를 부른다.
+ * 기업정보 캐시(`cachedFundamentals`)에서만 읽으면 기업정보를 한 번도 안 연 종목은 경고가 없다.
  *
  * - 출처: yfinance `earningsTimestamp`(지표 엔진 `/earnings` — 실적일만 받는 가벼운 라우트)
  * - `is_estimate`: 회사가 확정하기 전의 추정일이면 1 — 화면·사유에 "(예정)" 을 붙인다
@@ -71,10 +71,10 @@ type EarningsRowIn = {
   symbol: string;
   date: string | null;
   isEstimate: boolean | null;
-  /** v2.18.0 — 같은 yfinance info 에서 온 섹터·시총 (종목 지도가 쓴다) */
+  /** 같은 yfinance info 에서 온 섹터·시총 (종목 지도가 쓴다) */
   sector?: string | null;
   marketCap?: number | null;
-  /** v2.42.0 — 세부 업종(동종업계 자동 고르기) */
+  /** 세부 업종(동종업계 자동 고르기) */
   industry?: string | null;
 };
 

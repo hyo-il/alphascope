@@ -1,5 +1,5 @@
 /**
- * AI 검증 저장 (v2.46.0) — `ai_checks`(날짜·종목 한 줄) · `ai_check_uses`(계좌별 사용). 표는 `db/schema.sql`.
+ * AI 검증 저장 — `ai_checks`(날짜·종목 한 줄) · `ai_check_uses`(계좌별 사용). 표는 `db/schema.sql`.
  */
 import { getDb } from '../db';
 import type { AiUnavailableReason, AiVerdict } from '../../src/types/aiCheck';
@@ -72,7 +72,7 @@ export interface UseRow extends AiCheckRow {
   used_at: string;
 }
 
-/** 계좌가 쓴 검증 — 최근 것부터. `accountId` 가 null 이면 모든 계좌(v2.47.0 「검증 기록」) */
+/** 계좌가 쓴 검증 — 최근 것부터. `accountId` 가 null 이면 모든 계좌(「검증 기록」) */
 export function listUses(accountId: number | null, limit: number, offset = 0): UseRow[] {
   const where = accountId == null ? '' : 'WHERE u.account_id = ?';
   const args = accountId == null ? [limit, offset] : [accountId, limit, offset];

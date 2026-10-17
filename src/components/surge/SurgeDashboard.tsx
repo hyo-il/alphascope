@@ -19,7 +19,7 @@ import { modal, toast } from '../../store/uiStore';
 import TrashIcon from '../common/TrashIcon';
 import type { SurgeDetection } from '../../types/surge';
 
-/** 탭 목록은 `types/nav.ts` 의 `PAGE_TABS` 한 곳 — 주소 `#/surge/{탭}` (v2.28.0) */
+/** 탭 목록은 `types/nav.ts` 의 `PAGE_TABS` 한 곳 — 주소 `#/surge/{탭}` */
 type Tab = PageTab<'surge'>;
 
 const TABS: { id: Tab; label: string }[] = [
@@ -61,7 +61,7 @@ export default function SurgeDashboard({
       <p className={`shrink-0 border-b border-warning/40 bg-warning/10 ${PANEL_X} py-2 text-caption leading-relaxed text-warning`}>
         <b>테스트 기능</b> — 이미 많이 오른 종목(상승률·거래량 상위)에서 출발하고, 하루 단위
         데이터로 판단합니다. 매매 근거로 쓰기 전에 성과 검증이 필요합니다.
-        {/* 자동매매 후보에서 왜 빠졌는지 여기 남긴다 — "왜 없어졌지?" 를 막는다 (v2.15.0 · 발굴 창 자체는 v2.44.2 에 없앴다) */}
+        {/* 자동매매 후보에서 왜 빠졌는지 여기 남긴다 — "왜 없어졌지?" 를 막는다 */}
         <br />
         자동매매 후보에서는 제외됨(2026-09-29, 진단 근거 — 급등 다음 날 매수 시 −5% 먼저 62%).
       </p>
@@ -171,7 +171,7 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
           {judged.length ? ` (${Math.round((hits / judged.length) * 100)}%)` : ''} · 탐지 후 30일
           안에 같은 기준의 급등이 나왔는지로 판정합니다.
         </p>
-        {/* 탐지 중에는 감춘다(예전: 꺼진 버튼 + "탐지가 끝난 뒤에 지울 수 있습니다") */}
+        {/* 탐지 중에는 감춘다 */}
         {!running && <RemoveAllButton onClick={() => confirmDelete()} className="ml-auto" />}
       </div>
 
@@ -182,8 +182,8 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
               <th className="py-1.5 pr-2">탐지일</th>
               <th className="pr-2">종목</th>
               <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>점수</th>
-              {/* 남는 폭은 긴 글 칸(예상일 — 「탐지 시점에 이미 예상일 지남 … 주기가 깨졌을 수 있음」)이 가져간다(v2.42.1 — 종목 칸이 가져가면 이 칸이 3줄로 꺾였다) */}
-              {/* 최소 폭 160px(v2.42.3 — 224px 이면 1280 에서 표가 842px 칸보다 넓어(900px) 「실제 급등」 열이 잘렸다) */}
+              {/* 남는 폭은 긴 글 칸(예상일 — 「탐지 시점에 이미 예상일 지남 … 주기가 깨졌을 수 있음」)이 가져간다(종목 칸이 가져가면 이 칸이 3줄로 꺾였다) */}
+              {/* 최소 폭 160px(224px 이면 1280 에서 표가 842px 칸보다 넓어(900px) 「실제 급등」 열이 잘렸다) */}
               <th className={`${TABLE_NAME_COL} min-w-40 pr-4`}>예상일</th>
               <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>7일</th>
               <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-2 text-right`}>14일</th>
@@ -240,7 +240,7 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
                     </td>
                     {/*
                       날짜 줄 · 등락률 줄 두 줄(덩어리마다 줄바꿈 금지) — 한 줄(「급등 2026-09-21 (+5.3%)」)이면 1280 에서 표가 넘쳐
-                      이 열이 화면 밖으로 잘렸다(v2.42.3 캡처 검토). 괄호만 따로 꺾이지는 않는다.
+                      이 열이 화면 밖으로 잘린다. 괄호만 따로 꺾이지는 않는다.
                     */}
                     <td className="pl-4">
                       {row.actualSurged == null ? (

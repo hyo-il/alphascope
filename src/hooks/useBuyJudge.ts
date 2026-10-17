@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { HISTORY_DAYS_PAGE, type BuyJudgeDays, type BuyJudgeHistory, type BuyJudgeState, type HistoryDay, type JudgeDay, type Retention } from '../types/buyJudge';
 
 /**
- * 매수 판단 (v2.45.0) — 서버 `GET|POST|PUT /api/buy-judge*` 만 부른다(설정을 브라우저에 두지 않는다 — 기기가 달라도 같은 목록·규칙).
+ * 매수 판단 — 서버 `GET|POST|PUT /api/buy-judge*` 만 부른다(설정을 브라우저에 두지 않는다 — 기기가 달라도 같은 목록·규칙).
  * 폴링하지 않는다 — 처음 한 번, [실행], 목록·규칙을 바꿀 때 다시 받는다. 판단은 하루 한 번(마감) 바뀐다.
  * `recalc`·`setSymbols`·`setRule` 은 새 상태를 돌려준다(화면이 완료 알림에 종목 수를 적는다).
  */
@@ -94,7 +94,7 @@ export function useBuyJudgeHistory() {
   return { data, loading, error, reload, clear };
 }
 
-/** 날짜별 히스토리 (v2.48.0) — 30일씩, [더 보기] 로 이어 받는다. `reload` 는 처음 30일부터 다시 */
+/** 날짜별 히스토리 — 30일씩, [더 보기] 로 이어 받는다. `reload` 는 처음 30일부터 다시 */
 export function useBuyJudgeDays() {
   const [days, setDays] = useState<HistoryDay[] | null>(null);
   const [totalDays, setTotalDays] = useState(0);

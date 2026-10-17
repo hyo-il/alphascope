@@ -7,7 +7,7 @@ import { useGeminiStatus } from '../../../hooks/useGemini';
 import type { NewsAnalysis, NewsList, OverallSentiment } from '../../../types/news';
 
 /**
- * 차트 하단 「뉴스」 탭 (v2.18.0) — 이 종목의 최신 뉴스 10건 + 버튼을 눌렀을 때만 AI 긍정/부정.
+ * 차트 하단 「뉴스」 탭 — 이 종목의 최신 뉴스 10건 + 버튼을 눌렀을 때만 AI 긍정/부정.
  *
  * - 목록은 `GET /api/news?symbol=`(서버 30분 캐시). 제목을 누르면 원문이 새 탭으로 열린다.
  * - ⚠️ AI 판정은 **[AI 요약·판정] 버튼으로만** 부른다(무료 한도를 자동매매와 함께 쓴다).

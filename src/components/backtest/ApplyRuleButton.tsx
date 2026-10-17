@@ -10,7 +10,7 @@ import { methodName, type BacktestCondition, type ConditionLabel } from '../../t
 import { Button, Segmented } from '../ui';
 
 /**
- * [계좌에 적용] (v2.37.0 → v2.44.0 매매 규칙) — 시험한 방법의 **매매 규칙**을 계좌의 「① 매매 규칙」 으로 넣는다.
+ * [계좌에 적용] — 시험한 방법의 **매매 규칙**을 계좌의 「① 매매 규칙」 으로 넣는다.
  *
  * ⚠️ **규칙만 바꾼다. 대상 종목은 바꾸지 않고, 자동매매를 켜거나 끄지 않는다** — 켜기는 계좌 화면에서 사람이 한다.
  * 저장은 기존 `PUT /api/auto-trading/strategies/:id` 에 `{ ruleId }` 만 보낸다(서버가 지금 설정과 합친다).

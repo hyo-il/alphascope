@@ -72,7 +72,7 @@ export function cachedFundamentals(symbol: string): Fundamentals | null {
 }
 
 /**
- * 진행 중인 yfinance 조회 공유 (v2.41.0) — 기업 비교에 처음 보는 종목을 넣으면 `/api/company` 와 `/api/summary` 가
+ * 진행 중인 yfinance 조회 공유 — 기업 비교에 처음 보는 종목을 넣으면 `/api/company` 와 `/api/summary` 가
  * 같은 종목을 동시에 물어 yfinance 를 두 번 불렀다(각 2~3초). 같은 종목이 조회 중이면 그 결과를 함께 기다린다.
  */
 const inFlight = new Map<string, Promise<Fundamentals>>();
@@ -96,12 +96,12 @@ export async function getFundamentals(symbol: string, refresh = false): Promise<
 }
 
 /**
- * 동종업계 (v2.42.0 → v2.42.1) — 자기 자신 + 최대 `PEER_MAX`(5)개. 국내·미국 함께.
- *   - **직접 정한 짝 표(`src/data/peerPairs.ts`)에 있는 종목은 짝만** 보여 준다(5개보다 적어도 채우지 않는다 — v2.42.1 사용자 결정.
- *     v2.42.0 은 짝 뒤를 자동으로 채워 삼성전자에 LG전자·LG(지주회사)·애플이 붙었다 — yfinance 가 삼성전자를 「가전」 으로 분류).
+ * 동종업계 — 자기 자신 + 최대 `PEER_MAX`(5)개. 국내·미국 함께.
+ *   - **직접 정한 짝 표(`src/data/peerPairs.ts`)에 있는 종목은 짝만** 보여 준다(5개보다 적어도 채우지 않는다 — 사용자 결정.
+ *     짝 뒤를 자동으로 채우면 삼성전자에 LG전자·LG(지주회사)·애플이 붙었다 — yfinance 가 삼성전자를 「가전」 으로 분류).
  *   - 짝이 없는 종목만 자동: 유니버스(미국·국내 시총 상위) 중 **같은 세부 업종**, 시총이 가까운 순 → 모자라면 **같은 섹터**. 모자라면 있는 만큼.
  * 세부 업종·섹터는 `stock_profiles`(실적일 하루 1회 갱신이 같은 yfinance info 로 채운다 — 여기서 새로 부르지 않는다).
- * 예전에는 섹터별 **미국 종목 고정 표**(SECTOR_PEERS)라 국내 종목에 미국 대형주만 나왔다.
+ * 섹터별 고정 표를 두지 않는다 — 국내 종목에 미국 대형주만 나온다.
  */
 export async function getPeers(symbol: string, sector?: string): Promise<PeerSummary[]> {
   const me = symbol.toUpperCase();

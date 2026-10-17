@@ -14,7 +14,7 @@ export interface MarketIndex {
 /** 분석 모드 — 프롬프트 형태와 필요한 데이터가 달라진다. */
 /**
  * 새로 고를 수 있는 분석 모드.
- * ⚠️ `compare`(비교 분석)는 v2.22.0 에 뺐다 — 「차트 > 기업 비교」 의 AI 비교 평가와 같은 일이라 그쪽으로 모았다.
+ * ⚠️ `compare`(비교 분석)는 고를 수 없다 — 「차트·비교 > 기업 비교」 의 AI 비교 평가가 같은 일을 한다.
  * 옛 기록에는 남아 있으므로 **읽기 전용** 라벨(`LEGACY_MODES`)로만 둔다.
  */
 export type AnalysisMode = 'quick' | 'multi' | 'portfolio';

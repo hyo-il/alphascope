@@ -4,7 +4,7 @@ import type { RuleBody } from '../types/tradingRule';
 import type { AutoTradeView } from './autoTradeStatus';
 
 /**
- * 자동매매를 **쉬운 말로** 설명하는 곳 — 한 곳이다 (v2.32.0 → v2.44.0 매매 규칙).
+ * 자동매매를 **쉬운 말로** 설명하는 곳 — 한 곳이다.
  *
  * ⚠️ 분기는 사유 문장이 아니라 **`code`**(엔진이 판단할 때 붙인 종류)와 `blockedKind` 로 한다.
  * ⚠️ 숫자는 설정값·규칙 값에서만 넣는다 — 여기서 새로 지어내지 않는다.
@@ -13,7 +13,7 @@ import type { AutoTradeView } from './autoTradeStatus';
  */
 
 export function explainNote(note: DecisionNote, name: string, s: Pick<AccountStrategy, 'maxPositions' | 'dailyLossLimitPercent'>, rule: RuleBody | null): string | null {
-  // 총점 순위(v2.49.0) — 같은 판단에서 「사도 됨」 이 2개 이상일 때만 붙는다
+  // 총점 순위 — 같은 판단에서 「사도 됨」 이 2개 이상일 때만 붙는다
   const ranked = note.rank ? ` 같은 판단의 「사도 됨」 ${note.rank.of}종목 중 총점 순위 ${note.rank.n}위라 먼저 매수했습니다.` : '';
   switch (note.code) {
     case 'no_signal_buy':
@@ -26,7 +26,7 @@ export function explainNote(note: DecisionNote, name: string, s: Pick<AccountStr
       return `${name}: 점수가 매도 기준 아래로 떨어져 매도했습니다.`;
     case 'rr_block':
       return `${name}: 점수는 기준 이상이지만 잃을 돈이 벌 돈보다 커서(손익비 1 미만) 매수하지 않았습니다.`;
-    // 거름망(v2.50.0) — 이유별 문장(v2.51.0). 이유를 모르는 옛 기록은 예전 문장
+    // 거름망 — 이유별 문장. 이유를 모르는 옛 기록은 이유 없는 문장
     case 'gate_block':
       switch (note.gateReason) {
         case 'short':
@@ -66,7 +66,7 @@ export function explainNote(note: DecisionNote, name: string, s: Pick<AccountStr
       return `${name}: 가격 데이터가 아직 부족해 판단하지 않았습니다.`;
     case 'error':
       return `${name}: 주문하지 못했습니다(아래 자세한 이유).`;
-    // AI 검증(v2.46.0) — 이유는 줄을 펼치면(note.detail) 보인다
+    // AI 검증 — 이유는 줄을 펼치면(note.detail) 보인다
     case 'ai_pass':
       return `${name}: 규칙 사도 됨 · AI 검증 통과 — 매수했습니다.${ranked}`;
     case 'ai_risk':
@@ -79,7 +79,7 @@ export function explainNote(note: DecisionNote, name: string, s: Pick<AccountStr
 }
 
 /**
- * 「최근 판단」 하루치(v2.50.0)를 판단 한 번씩 묶는다 — 저장 순서(최근이 위)대로, 같은 `at` 이 한 묶음.
+ * 「최근 판단」 하루치를 판단 한 번씩 묶는다 — 저장 순서(최근이 위)대로, 같은 `at` 이 한 묶음.
  * 묶음 안은 `sortNotes`(사거나 판 줄이 위). 머리 줄 = 시각 · 시장(국내/미국/국내·미국) · 종목 수.
  */
 export function groupNotes<T extends DecisionNote>(
@@ -119,9 +119,9 @@ export function kstLabel(at: Date): string {
 }
 
 /**
- * 「다음 판단」 — 서버가 휴장일까지 보고 계산한 시장별 다음 개장 시각(`status.nextOpen`, v2.44.1)을 한국 시간으로 보이기만 한다.
+ * 「다음 판단」 — 서버가 휴장일까지 보고 계산한 시장별 다음 개장 시각(`status.nextOpen`)을 한국 시간으로 보이기만 한다.
  * 예: "시장이 열린 뒤 (미국 2026-10-14 22:30 · 국내 2026-10-15 09:00, 한국 시간)". 상태를 아직 못 받았으면 시각 없이.
- * ⚠️ 화면에서 개장 시각을 계산하지 않는다(v2.44.0 까지는 평일만 보고 계산해 휴장일에 틀렸다).
+ * ⚠️ 화면에서 개장 시각을 계산하지 않는다(평일만 보고 계산하면 휴장일에 틀린다).
  */
 export function nextJudgeText(status: Pick<AccountStrategyStatus, 'nextOpen'> | null, prefix = '시장이 열린 뒤'): string {
   const label = { US: '미국', KR: '국내' } as const;
@@ -129,7 +129,7 @@ export function nextJudgeText(status: Pick<AccountStrategyStatus, 'nextOpen'> | 
   return parts.length ? `${prefix} (${parts.join(' · ')}, 한국 시간)` : prefix;
 }
 
-/** 고칠 곳은 문장 끝에 「[자동매매 설정] 에서 고칩니다」 로 알린다 — 같은 화면에 설정 버튼을 두 개 두지 않는다(v2.44.2, 사용자 결정 C-1) */
+/** 고칠 곳은 문장 끝에 「[자동매매 설정] 에서 고칩니다」 로 알린다 — 같은 화면에 설정 버튼을 두 개 두지 않는다(사용자 결정 C-1) */
 export interface NowSentence {
   text: string;
   extra: string | null;

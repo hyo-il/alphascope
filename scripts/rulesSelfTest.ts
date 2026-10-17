@@ -1,9 +1,9 @@
 /**
- * `npm run rules:test` — 「매매 규칙」 엔진 시험 (v2.43.0, 퀀트 다시 만들기 1단계).
+ * `npm run rules:test` — 「매매 규칙」 엔진 시험 (퀀트 다시 만들기 1단계).
  *
  * ① 교차와 같은 판단 — 규칙 = 교차(1점) + RSI 반등(1점) · 기준 1점 · 반대 신호 켬 · 점수 매도 끔 · 대기 0 ·
  *    손익비 안전장치 끔(시험용 인자) → 예전 `decideRule` 의 **정답 파일**(`scripts/fixtures/crossRuleAnswers.json`, 5b16cc4 에서 만듦 —
- *    캔들까지 담았다)과 action 이 모두 같은지 (규칙형 4종 × 보유/미보유). 예전 코드는 v2.44.0 에 지웠다.
+ *    캔들까지 담았다)과 action 이 모두 같은지 (규칙형 4종 × 보유/미보유). 그 계산기는 지웠다(A-11).
  * ①-b 백테스트 — 같은 규칙 + 손절(·트레일링·익절) → 새 `simulateRule` 의 거래 목록 == 예전 `simulateRule` 정답(같은 파일)
  * ② 점수와 같은 점수 — 기본 규칙 → 미국 시총 상위 100 × 최근 120 거래일, 지운 예전 점수 계산기(`evaluateSwing`, 표준 기준)의 **정답 파일**
  *    (`scripts/fixtures/swingScoreAnswers.json`, 510b0e4 에서 만듦 — 캔들 포함)과 5그룹 점수·합계가 같은지, 손익비로 막힌 날 = 손익비 강등 날인지
@@ -14,7 +14,7 @@
  * ⚠️ **실제 DB 를 바꾸지 않는다** — DB 를 임시 파일로 복사해 그것만 연다. 토스를 부르지 않는다(캔들은 DB 캐시만 — 고정 캔들).
  * ⚠️ 지표 엔진이 떠 있어야 한다(①~④). 꺼져 있으면 ⑤만 돌고 실패로 끝난다.
  */
-import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다(v2.44.2)
+import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import 'dotenv/config';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -154,7 +154,7 @@ async function testCross(): Promise<void> {
 
 // ── ② ─────────────────────────────────────────────────────────────────────
 /**
- * 예전 점수 계산기(`evaluateSwing`, 표준 기준)의 **정답 파일**과 비교 — v2.45.0 에 그 계산기를 지웠다(A-11).
+ * 예전 점수 계산기(`evaluateSwing`, 표준 기준)의 **정답 파일**과 비교 — 그 계산기는 지웠다(A-11).
  * `scripts/fixtures/swingScoreAnswers.json`(510b0e4 에서 만듦): 미국 시총 상위 100 의 끝난 일봉(그때 쓴 그대로) + 최근 120 거래일마다
  * [i, 5그룹 점수, 합계, 매수(STRONG·BUY), 손익비 강등, 진입 종류, 매수가, 손절가, 1차, 2차, 손익비, 비중].
  */
@@ -396,7 +396,7 @@ function testUnits(): void {
   check('⑤ 올바른 규칙 → 그대로', JSON.stringify((parseRuleBody(JSON.parse(JSON.stringify(T.defaultRuleBody()))) as any).body) === JSON.stringify(T.defaultRuleBody()));
 }
 
-// ── ⑥ 거름망(200일선) · 50/200 교차 (v2.50.0) — 손으로 만든 시리즈 ─────────────────
+// ── ⑥ 거름망(200일선) · 50/200 교차 — 손으로 만든 시리즈 ─────────────────
 function testGates(): void {
   const { candles, series } = synth(30);
   const ctx = { symbol: 'TEST', candles, series };
@@ -432,7 +432,7 @@ function testGates(): void {
   s.sma200[20] = 99;
   check('⑥ 종가 > 200일선 → 통과 · 다음은 손익비 안전장치', evaluateRule(ctx, 20, gated, { held: false }).code === 'rr_block');
   check('⑥ 종가 > 200일선 · 손익비 막음 끔 → 매수', evaluateRule(ctx, 20, gated, { held: false }, { testOnlySkipRrGuard: true }).action === 'BUY');
-  // 점수 미달이면 거름망까지 가지 않는다(예전 문장 그대로)
+  // 점수 미달이면 거름망까지 가지 않는다(문장이 그대로)
   s.sma200[21] = 101;
   check('⑥ 점수 미달 → no_signal_buy (거름망 문장 아님)', evaluateRule(ctx, 21, gated, { held: false }).code === 'no_signal_buy');
   // 보유 중 매도에는 영향 없음 — 200일선 아래여도 반대 신호로 매도, 매도 조건 없으면 보유
@@ -468,7 +468,7 @@ function testGates(): void {
   check('⑥ 50/200 데드크로스(봉 25) → 반대 신호 매도 · MA50·MA200', dead.code === 'dead' && dead.reasons[0].includes('MA50·MA200'), dead.reasons[0]);
 }
 
-// ── ⑦ 시장 필터 (v2.51.0) — 손으로 만든 시장 기준 · 백테스트 날짜별 판정 · 실제 캐시(SPY)로 미래 누설 ──────────
+// ── ⑦ 시장 필터 — 손으로 만든 시장 기준 · 백테스트 날짜별 판정 · 실제 캐시(SPY)로 미래 누설 ──────────
 type MarketRef = import('../server/rules/engine').MarketRefData;
 async function testMarketFilter(): Promise<void> {
   const { candles, series } = synth(30);

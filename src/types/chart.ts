@@ -12,7 +12,7 @@ export interface IndicatorSeries {
   sma20: IndicatorLine;
   sma60: IndicatorLine;
   sma120: IndicatorLine;
-  /** v2.50.0 — 매매 규칙(50/200 교차 · 200일선 거름망)만 쓴다. 옛 엔진·시험 자료에는 없을 수 있다 */
+  /** 매매 규칙(50/200 교차 · 200일선 거름망)만 쓴다. 옛 엔진·시험 자료에는 없을 수 있다 */
   sma50?: IndicatorLine;
   sma200?: IndicatorLine;
   ema12: IndicatorLine;
@@ -119,8 +119,8 @@ export const PANEL_ITEMS: { key: PanelIndicator; label: string }[] = [
 ];
 
 /**
- * 봉 간격으로 본 단위 (v2.20.0) — 차트 컴포넌트는 타임프레임을 모르므로 봉 사이 간격(중앙값)으로 가른다.
- * 25일 이상 = 월봉, 5일 이상 = 주봉, 그 밖 = 일봉·분봉(이동평균 이름은 예전 그대로 둔다).
+ * 봉 간격으로 본 단위 — 차트 컴포넌트는 타임프레임을 모르므로 봉 사이 간격(중앙값)으로 가른다.
+ * 25일 이상 = 월봉, 5일 이상 = 주봉, 그 밖 = 일봉·분봉(이동평균 이름은 「일선」 그대로).
  */
 export type BarUnit = 'day' | 'week' | 'month';
 

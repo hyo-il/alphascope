@@ -23,7 +23,7 @@ export interface AnalysisContext {
   /** 분석 시점 가격 — 사후 채점의 기준 */
   price: number | null;
   summary: SymbolSummary;
-  /** 투자자 동향 블록을 넣었는지 — 넣었으면 프롬프트 버전이 v1-flow 다 (v2.23.0, 국내만) */
+  /** 투자자 동향 블록을 넣었는지 — 넣었으면 프롬프트 버전이 v1-flow 다 (국내만) */
   flowIncluded: boolean;
 }
 
@@ -102,7 +102,7 @@ export async function buildContext(symbol: string): Promise<AnalysisContext> {
     lines.push(`- 오늘(진행 중) 누적 거래량: ${Math.round(todayVolume).toLocaleString()}주`);
   }
   lines.push('');
-  // 투자자 동향 — 국내 종목만, 받았을 때만 (v2.23.0). 못 받으면 블록을 빼고 분석을 계속한다(버전은 v1).
+  // 투자자 동향 — 국내 종목만, 받았을 때만. 못 받으면 블록을 빼고 분석을 계속한다(버전은 v1).
   // ⚠️ 미국 종목은 이 줄이 아무것도 더하지 않는다 — 프롬프트가 한 글자도 바뀌지 않아야 한다.
   let flowIncluded = false;
   if (isKrSymbol(symbol)) {

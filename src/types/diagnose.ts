@@ -1,7 +1,7 @@
 import type { GeminiTrigger } from './gemini';
 /**
  * 진단 리포트 — 서버(`server/diagnose`)와 화면(`components/diagnose`)이 함께 쓰는 형태.
- * 요약(`summary`)은 카드 네 장(v2.45.0 에 「지금 살 만한가」 카드를 지웠다), 상세(`detail`)는 접이식 표로 그린다.
+ * 요약(`summary`)은 카드 네 장, 상세(`detail`)는 접이식 표로 그린다.
  * 화면은 **JSON 에서** 표를 그린다 — 마크다운을 HTML 로 바꾸지 않는다.
  */
 
@@ -32,7 +32,7 @@ export interface DiagnoseSummary {
     conclusion: string;
   };
   ai: {
-    /** Claude 수동 분석 — 별도 줄 (v2.16.0 이전 리포트에는 없다. 그때는 Gemini 숫자에 섞여 있었다) */
+    /** Claude 수동 분석 — 별도 줄 (옛 리포트에는 없다 — 그때는 Gemini 숫자에 섞여 있었다) */
     claude?: { total: number; judged: number; rate: number };
     /** 묶기 전 원본 분석 수 */
     raw: number;
@@ -44,7 +44,7 @@ export interface DiagnoseSummary {
     weak: boolean;
     conclusion: string;
   };
-  /** 뉴스 AI 판정 사후 검증 (v2.21.0) — 그 전 리포트에는 없다 */
+  /** 뉴스 AI 판정 사후 검증 — 그 전 리포트에는 없다 */
   news?: {
     raw: number;
     total: number;
@@ -102,7 +102,7 @@ export interface DiagnoseDetail {
       predicted: string;
       hit: boolean;
       stale: boolean;
-      /** 기준일 기준 경과 일수(지났을 때만, v2.20.0) — 그 전에 저장된 리포트에는 없다 */
+      /** 기준일 기준 경과 일수(지났을 때만) — 그 전에 저장된 리포트에는 없다 */
       overdueDays?: number | null;
     }[];
     hitRate: number;
@@ -113,13 +113,13 @@ export interface DiagnoseDetail {
     staleCount: number;
   };
   gemini: {
-    /** 채점 규칙 문구 — v2.15.0 이전 리포트에는 없다 */
+    /** 채점 규칙 문구 — 옛 리포트에는 없다 */
     rule?: string;
-    /** Claude 수동 분석 — 별도 줄 (v2.16.0 이전 리포트에는 없고, 그때는 위 숫자에 섞여 있었다) */
+    /** Claude 수동 분석 — 별도 줄 (옛 리포트에는 없고, 그때는 위 숫자에 섞여 있었다) */
     claude?: { raw: number; total: number; judged: number; correct: number; rate: number };
-    /** 프롬프트 버전별 (Gemini) — v2.15.0 이전 리포트에는 없다 */
+    /** 프롬프트 버전별 (Gemini) — 옛 리포트에는 없다 */
     byVersion?: { version: string; total: number; judged: number; rate: number | null }[];
-    /** 출처별 (Gemini) — v2.30.0 이전 리포트에는 없다. 같은 종목·같은 날 묶기는 출처별로 */
+    /** 출처별 (Gemini) — 옛 리포트에는 없다. 같은 종목·같은 날 묶기는 출처별로 */
     bySource?: { source: GeminiTrigger; total: number; judged: number; rate: number | null }[];
     raw: number;
     total: number;

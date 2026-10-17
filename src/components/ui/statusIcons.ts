@@ -1,8 +1,7 @@
 import { Circle, CircleCheck, CircleDashed, CircleDot, CircleMinus, CircleX, TriangleAlert } from 'lucide-react';
 
 /**
- * 상태 아이콘 한 곳 (v2.36.0) — **색만으로 구분하지 않는다**: 상태마다 모양이 다른 아이콘을 쓰고 글자와 함께 둔다.
- * 예전 글자 기호 ●◐⚠○ · 🟢🔴⚪ · ✅⬜ 를 대신한다.
+ * 상태 아이콘 한 곳 — **색만으로 구분하지 않는다**: 상태마다 모양이 다른 아이콘을 쓰고 글자와 함께 둔다.
  */
 /** 자동매매 네 상태 (`utils/autoTradeStatus.ts` 의 kind) */
 export const AUTO_TRADE_ICON = {

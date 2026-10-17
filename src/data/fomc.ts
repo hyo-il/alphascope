@@ -1,5 +1,5 @@
 /**
- * FOMC 회의 일정 — 일정 달력(v2.17.0)이 쓴다.
+ * FOMC 회의 일정 — 일정 달력이 쓴다.
  *
  * 출처: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm (연준 공식 일정표)
  * 확인일: 2026-09-29. `sep: true` = 경제전망(SEP, 점도표) 발표 회의.

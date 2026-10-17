@@ -1,5 +1,5 @@
 /**
- * AI 검증 (v2.46.0, 퀀트 다시 만들기 4단계) — 서버(`server/aiCheck/*`)와 화면이 같이 쓰는 모양.
+ * AI 검증 (퀀트 다시 만들기 4단계) — 서버(`server/aiCheck/*`)와 화면이 같이 쓰는 모양.
  * 규칙이 「사도 됨」 을 낸 종목을 사기 직전에 AI(Gemini)에게 한 번 묻고, 「위험」 이면 사지 않는다. 매도에는 쓰지 않는다.
  */
 
@@ -57,7 +57,7 @@ export interface AiCheckRecord {
   /** 검증 때 가격 → N거래일 뒤 종가(%). 아직 날이 안 지났으면 null. 비용은 빼지 않는다(두 묶음 비교용) */
   returns: Record<AiOutcomeDays, number | null>;
   createdAt: string;
-  /** 이 검증을 쓴 계좌와 각 계좌의 행동 (v2.47.0 — 모든 계좌 보기의 「계좌」 열). 계좌 하나 보기에서는 그 계좌 하나 */
+  /** 이 검증을 쓴 계좌와 각 계좌의 행동 (모든 계좌 보기의 「계좌」 열). 계좌 하나 보기에서는 그 계좌 하나 */
   accounts: { accountId: number; action: 'bought' | 'skipped' }[];
 }
 

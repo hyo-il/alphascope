@@ -21,7 +21,7 @@ export default function CriteriaPanel({
 
   return (
     <section className="rounded-lg bg-bg-tertiary/30">
-      {/* 접기는 앱 공통 버튼 하나(v2.42.0 — 예전 오른쪽 끝 회색 「펼치기」 글자) */}
+      {/* 접기는 앱 공통 버튼 하나 */}
       <div className="flex w-full items-center gap-2 px-3 py-2">
         <span className="text-xs font-medium text-text-secondary">{spec.title}</span>
         <DisclosureButton open={open} onToggle={() => setOpen((v) => !v)} label="기준 보기" controls={id} className="ml-auto" />

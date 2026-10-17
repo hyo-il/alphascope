@@ -1,4 +1,4 @@
-/** 목표 도달 가능성 분석 (v2.24.0) — 서버 `server/gemini/targetAnalysis.ts` 의 응답 모양 */
+/** 목표 도달 가능성 분석 — 서버 `server/gemini/targetAnalysis.ts` 의 응답 모양 */
 
 export type TargetOutcome = 'target' | 'stop' | 'neither';
 
@@ -36,7 +36,7 @@ export interface TargetStats {
   aiRate: number | null;
   baseRate: number | null;
   weak: boolean;
-  /** 묶기 전 채점된 원본 수 (v2.30.0 — 옛 서버면 없다) */
+  /** 묶기 전 채점된 원본 수 (옛 서버면 없다) */
   rawScored?: number;
 }
 

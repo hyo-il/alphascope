@@ -1,32 +1,32 @@
 /// <reference lib="dom" />
 /// <reference lib="dom.iterable" />
 /**
- * 디자인 숫자 측정 (v2.42.0, `npm run design:check`) — 디자인 점검 세 겹의 둘째(CLAUDE.md 「디자인 점검」).
+ * 디자인 숫자 측정 (`npm run design:check`) — 디자인 점검 세 겹의 둘째(docs/rules/design.md 「디자인 점검 세 겹」).
  *
  * 테스트 서버(기본 http://localhost:5180)의 **모든 화면 주소**(메뉴·탭 — `types/nav.ts` 의 NAV_GROUPS·PAGE_TABS 에서 읽는다) +
  * 주요 창(종목 추가 · 자동매매 설정 · 판단 기준 편집 · 날짜 고르기)을 **1280×1080 · 1440×900 · 1920×1080 · 2560×1440** 에서 열어 잰다:
  *   1. 같은 줄의 입력칸·드롭박스·버튼(높이 클래스 h-7/h-8 이 있는 것)·묶음 버튼 높이 같음
- *   2. 같은 묶음(창·구역)의 `FormRow` — 칸 오른쪽 끝 · 단위 열 왼쪽 끝 · 설명 시작점 차이 0px, 숫자 칸 폭 = 종류 변수, 이름 넘침 0 (v2.42.3)
+ *   2. 같은 묶음(창·구역)의 `FormRow` — 칸 오른쪽 끝 · 단위 열 왼쪽 끝 · 설명 시작점 차이 0px, 숫자 칸 폭 = 종류 변수, 이름 넘침 0
  *   3. 글자 넘침·잘림(overflow 가 숨김인데 scrollWidth > clientWidth) — 말줄임(truncate)은 「말줄임」 으로 따로 센다
  *   4. 요소 겹침(일반 흐름의 형제 요소 사각형이 2px 넘게 겹침)
  *   5. 목록(`data-list`) 줄 사이 간격 ≥ 4px
  *   6. 글자 크기 — 13px 미만 0, 기준표(13·14·16·18) 밖 0(로그인 앱 제목 22 · 인라인 style 로 크기를 정하는 종목 지도 칸 예외)
  *   7. 화면 내용이 화면 폭을 꽉 채움(가운데로 좁힌 넓은 상자 — 좌우 여백이 같고 max-width 가 걸린 것)
  *   8. 콘솔 오류 0
- *   9. 표 숫자 칸 벌어짐(v2.42.1) — 숫자 칸 폭이 내용보다 64px 넘게 넓으면(남는 폭은 이름 칸이 가져가야 한다)
- *  10. 탭 줄 첫 탭 ↔ 같은 영역 내용 첫 요소의 왼쪽 끝(v2.42.2)
+ *   9. 표 숫자 칸 벌어짐 — 숫자 칸 폭이 내용보다 64px 넘게 넓으면(남는 폭은 이름 칸이 가져가야 한다)
+ *  10. 탭 줄 첫 탭 ↔ 같은 영역 내용 첫 요소의 왼쪽 끝
  *  11. 숫자 입력칸 — 스피너 없음 · 같은 묶음 FormRow 숫자 오른쪽 끝 0px
  *  12. 4자리 이상 숫자에 쉼표 없음(날짜·시각·버전·연도·종목 코드·「포트 N」 제외) · 13. 하이픈 음수 · 14. 같은 표 열의 소수 자릿수 다름
- *  15. 날짜 표기 — 오전/오후 시각 · 「YYYY. M. D.」 형식 0 (v2.42.3, 형식 2026-10-08 14:30)
+ *  15. 날짜 표기 — 오전/오후 시각 · 「YYYY. M. D.」 형식 0 (형식 2026-10-08 14:30)
  *  `[data-measure-skip]` 안(업데이트 내역 같은 기록 글)은 12~14 를 재지 않는다
  * 결과: `<OUT>/report.md`(화면별 표) · `<OUT>/{1280,1920}/<이름>.png` · `<OUT>/result.json`.
  *
  * 쓰는 법(테스트 서버를 띄운 뒤):
  *   DB_PATH=<사본 DB> npm run design:check            — 사본 DB 에 점검용 로그인 세션을 만든다
- *   BASE=http://localhost:5180 OUT=../../docs/design-check/v2.42.0 …   (기본 OUT = 관리 루트 docs/design-check/<changelog 맨 앞 버전>)
+ *   BASE=http://localhost:5180 OUT=../../docs/design-check/<버전> …   (기본 OUT = 관리 루트 docs/design-check/<changelog 맨 앞 버전>)
  * ⚠️ 실제 Windows 크롬은 재지 못한다(맥 크롬 — 스크롤바는 앱이 꾸며서 자리를 차지하는 같은 조건).
  */
-import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다(v2.44.2)
+import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium, type Page } from 'playwright';
@@ -37,7 +37,7 @@ import { sortDayRows } from '../src/utils/buyJudgeOrder';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const BASE = process.env.BASE ?? 'http://localhost:5180';
 const OUT = path.resolve(ROOT, process.env.OUT ?? `../../docs/design-check/${CHANGELOG[0].version}`);
-/** v2.42.1 — 1280 이상 여러 크기를 쓴다(사용자). 1440×900 은 1080 보다 낮다(오른쪽 열 예비 스크롤). `SIZES=1920x1080,2560x1440` 로 일부만 */
+/** 1280 이상 여러 크기를 쓴다(사용자). 1440×900 은 1080 보다 낮다(오른쪽 열 예비 스크롤). `SIZES=1920x1080,2560x1440` 로 일부만 */
 const SIZES = (process.env.SIZES ?? '1280x1080,1440x900,1920x1080,2560x1440').split(',').map((x) => {
   const [w, h] = x.split('x').map(Number);
   return { w, h };
@@ -48,7 +48,7 @@ interface Target {
   hash: string;
   /** 창을 여는 동작(주소로 간 뒤) */
   open?: (page: Page) => Promise<void>;
-  /** 주소로 가기 전 (v2.44.0) — 응답 바꿔치기(`page.route`)로 「규칙 없음」 같은 상태를 DB 를 건드리지 않고 만든다 */
+  /** 주소로 가기 전 — 응답 바꿔치기(`page.route`)로 「규칙 없음」 같은 상태를 DB 를 건드리지 않고 만든다 */
   before?: (page: Page) => Promise<void>;
   /** 잰 뒤 되돌리기 */
   after?: (page: Page) => Promise<void>;
@@ -68,7 +68,7 @@ function targets(): Target[] {
     await page.getByRole('button', { name: text }).first().click();
     await page.waitForTimeout(900);
   };
-  /** 접힌 「고급 설정」 을 모두 펼친다(펼치면 안에 또 있을 수 있어 몇 번 돈다) — 접힌 폼 줄도 재기 위해 (v2.42.3) */
+  /** 접힌 「고급 설정」 을 모두 펼친다(펼치면 안에 또 있을 수 있어 몇 번 돈다) — 접힌 폼 줄도 재기 위해 */
   const expandAdvanced = async (page: Page) => {
     for (let i = 0; i < 4; i++) {
       const closed = page.locator('button[aria-expanded="false"]', { hasText: '고급 설정' });
@@ -87,7 +87,7 @@ function targets(): Target[] {
     { name: 'dialog-자동매매설정-고급', hash: '#/portfolio/paper', open: async (page) => { await openAccountSettings(page); await expandAdvanced(page); } },
     { name: 'backtest-고급', hash: '#/backtest', open: expandAdvanced },
     { name: 'form-새계좌', hash: '#/portfolio/paper', open: click(/새 계좌/) },
-    // v2.47.0 — 퀀트 5단계: 차트 아래 「AI 분석」 탭(간단 · 전체 모드), 검증 기록(AI 검증 계좌 하나 · 빈 화면 · AI 분석 성적표), 퀀트 메뉴 접힘
+    // 차트 아래 「AI 분석」 탭(간단 · 전체 모드), 검증 기록(AI 검증 계좌 하나 · 빈 화면 · AI 분석 성적표), 퀀트 메뉴 접힘
     ...(['간단', '전체'] as const).map((mode) => ({
       name: `chart-아래AI탭-${mode}`,
       hash: '#/home',
@@ -134,7 +134,7 @@ function targets(): Target[] {
     },
     { name: 'records-analysis-성적표', hash: '#/records/analysis', open: async (page) => { await page.waitForTimeout(1200); await page.getByRole('radio', { name: '성적표' }).click().catch(() => page.getByRole('button', { name: '성적표' }).click()); await page.waitForTimeout(1500); } },
     { name: 'nav-퀀트접힘', hash: '#/rules', open: click(/^퀀트/) },
-    // v2.48.0 — 실험실은 소메뉴 「급등 탐지」 를 보인다(펼친 메뉴 · 접힌 메뉴 플라이아웃)
+    // 실험실은 소메뉴 「급등 탐지」 를 보인다(펼친 메뉴 · 접힌 메뉴 플라이아웃)
     { name: 'nav-실험실-펼침', hash: '#/surge/list' },
     {
       name: 'nav-접힌메뉴-실험실',
@@ -146,7 +146,7 @@ function targets(): Target[] {
         await page.waitForTimeout(400);
       },
     },
-    // v2.48.0 — 계좌 모아보기 ↑↓ · 끄는 중(첫 카드를 둘째 카드 앞으로 끄는 순간 — 놓지 않는다)
+    // 계좌 모아보기 ↑↓ · 끄는 중(첫 카드를 둘째 카드 앞으로 끄는 순간 — 놓지 않는다)
     {
       name: 'account-순서-끄는중',
       hash: '#/portfolio/paper',
@@ -171,7 +171,7 @@ function targets(): Target[] {
         await page.waitForTimeout(400);
       },
     },
-    // v2.48.0 — 매수 판단 [실행] 중(서버 응답을 늦춘다) · 완료 알림
+    // 매수 판단 [실행] 중(서버 응답을 늦춘다) · 완료 알림
     {
       name: 'swing-실행중',
       hash: '#/swing/list',
@@ -202,7 +202,7 @@ function targets(): Target[] {
         await page.waitForTimeout(300);
       },
     },
-    // v2.48.0 — 백테스트 히스토리 날짜별 목록(펼침). 기록은 바꿔치기(규칙은 지금 목록의 첫 규칙)
+    // 백테스트 히스토리 날짜별 목록(펼침). 기록은 바꿔치기(규칙은 지금 목록의 첫 규칙)
     {
       name: 'backtest-히스토리-날짜펼침',
       hash: '#/backtest',
@@ -248,7 +248,7 @@ function targets(): Target[] {
         await page.waitForTimeout(500);
       },
     },
-    // v2.44.2 — 종목 지도(시장 상위 미국 100 · 내 관심 국내), 「N초 전 갱신」(장이 닫힌 시각에도 보이게 응답의 marketOpen 만 바꿔치기 — DB 는 그대로),
+    // 종목 지도(시장 상위 미국 100 · 내 관심 국내), 「N초 전 갱신」(장이 닫힌 시각에도 보이게 응답의 marketOpen 만 바꿔치기 — DB 는 그대로),
     // 처음 켜기 안내 종목 단계, 지정 종목 설정 창의 [종목 추가]
     ...(
       [
@@ -262,7 +262,7 @@ function targets(): Target[] {
         await page.evaluate((v) => localStorage.setItem('alphascope.heatmapView', JSON.stringify({ ...v, period: '1d', off: { market: [], watch: [] }, watchSize: 'cap' })), v);
       },
     })),
-    // v2.44.3 — 기준가를 확인하지 못한 종목은 등락률이 null → 「—」(지도 칸 · 관심 패널). 응답의 절반을 null 로 바꿔치기 — DB 는 그대로
+    // 기준가를 확인하지 못한 종목은 등락률이 null → 「—」(지도 칸 · 관심 패널). 응답의 절반을 null 로 바꿔치기 — DB 는 그대로
     {
       name: 'heatmap-등락률없음',
       hash: '#/heatmap',
@@ -316,7 +316,7 @@ function targets(): Target[] {
     {
       name: 'dialog-지정종목-설정',
       hash: '#/records/analysis',
-      // v2.48.0 — 종목이 있으면 접힌 한 줄로 연다(응답의 종목만 바꿔치기)
+      // 종목이 있으면 접힌 한 줄로 연다(응답의 종목만 바꿔치기)
       before: async (page) => {
         await page.route('**/api/gemini/scheduled', async (r) => {
           if (r.request().method() !== 'GET') return r.continue();
@@ -331,7 +331,7 @@ function targets(): Target[] {
         await page.waitForTimeout(800);
       },
     },
-    // v2.44.1 — 계좌 「지금 조건」 펼침(「다음 판단」 시장별 개장 시각 — 서버가 휴장일까지 보고 계산)
+    // 계좌 「지금 조건」 펼침(「다음 판단」 시장별 개장 시각 — 서버가 휴장일까지 보고 계산)
     {
       name: 'account-지금조건-다음판단',
       hash: '#/portfolio/paper',
@@ -351,7 +351,7 @@ function targets(): Target[] {
         await click('자동매매 설정')(page);
       },
     },
-    // 매매 규칙 (v2.43.0) — 보기(잠김) · 수정 + 고급 설정 펼침 · 새 규칙(빈 규칙)
+    // 매매 규칙 — 보기(잠김) · 수정 + 고급 설정 펼침 · 새 규칙(빈 규칙)
     { name: 'dialog-매매규칙-보기', hash: '#/rules', open: click('조건 보기') },
     {
       name: 'dialog-매매규칙-수정-고급',
@@ -363,7 +363,7 @@ function targets(): Target[] {
       },
     },
     { name: 'dialog-매매규칙-새규칙', hash: '#/rules', open: click('새 규칙 만들기') },
-    // v2.44.0 — 자동매매 설정 「규칙 없음」 · 「손절 끔 경고」(규칙 목록 응답을 바꿔치기 — DB 는 건드리지 않는다), 처음 켜기 2단계,
+    // 자동매매 설정 「규칙 없음」 · 「손절 끔 경고」(규칙 목록 응답을 바꿔치기 — DB 는 건드리지 않는다), 처음 켜기 2단계,
     // 백테스트 방법 3개 + 종목 표 12줄(이 기기 초안) · 규칙 없음 · [계좌에 적용] 확인 창
     {
       name: 'dialog-자동매매설정-규칙없음',
@@ -410,10 +410,10 @@ function targets(): Target[] {
         });
       },
       after: (page) => page.evaluate(() => localStorage.removeItem('alphascope.backtestDraft')),
-      // v2.48.0 — ① 종목은 접힌 채로 연다 → 표를 재려면 펼친다
+      // ① 종목은 접힌 채로 연다 → 표를 재려면 펼친다
       open: click('펼치기'),
     },
-    // v2.49.0 — 트레일링 기준 차이 안내(백테스트 안내 · 결과 위 한 줄) · 계좌 「지금 조건」 · 「최근 판단」 총점 순위 문장.
+    // 트레일링 기준 차이 안내(백테스트 안내 · 결과 위 한 줄) · 계좌 「지금 조건」 · 「최근 판단」 총점 순위 문장.
     // 응답을 받아 고쳐 보낸다: 규칙의 트레일링을 켜고, 최근 판단에 총점 순위 줄을 넣는다(엔진이 만드는 문장 그대로)
     { name: 'backtest-안내-트레일링', hash: '#/backtest', open: click('백테스트는 무엇인가요?') },
     {
@@ -443,7 +443,7 @@ function targets(): Target[] {
         await page.waitForTimeout(300);
       },
     },
-    // v2.51.0 — 「최근 판단」 묶음 접기(처음엔 가장 최근만 펼침) · 둘째 묶음도 펼침 · 「매수·매도만」
+    // 「최근 판단」 묶음 접기(처음엔 가장 최근만 펼침) · 둘째 묶음도 펼침 · 「매수·매도만」
     ...(['접힘', '펼침', '매수매도만'] as const).map((v) => ({
       name: `account-최근판단-${v}`,
       hash: '#/portfolio/paper',
@@ -451,7 +451,7 @@ function targets(): Target[] {
         await page.route('**/api/auto-trading/status/*', async (r) => {
           const res = await r.fetch();
           const body = await res.json();
-          // v2.50.0 — 하루치: 미국 판단(22:31) 묶음 + 국내 판단(09:05) 묶음, 최근이 위
+          // 하루치: 미국 판단(22:31) 묶음 + 국내 판단(09:05) 묶음, 최근이 위
           const us = new Date(); us.setHours(22, 31, 0, 0);
           const kr = new Date(); kr.setHours(9, 5, 0, 0);
           const U = { at: us.toISOString(), market: 'US' };
@@ -495,7 +495,7 @@ function targets(): Target[] {
       },
     })),
     {
-      // v2.48.1 — 보관 100개: 사본 DB 의 실제 기록으로 날짜 목록 [더 보기] 를 한 번 누른 모습(기록이 30일보다 많아야 버튼이 보인다)
+      // 보관 100개: 사본 DB 의 실제 기록으로 날짜 목록 [더 보기] 를 한 번 누른 모습(기록이 30일보다 많아야 버튼이 보인다)
       name: 'backtest-히스토리-더보기',
       hash: '#/backtest',
       open: async (page: Page) => {
@@ -510,7 +510,7 @@ function targets(): Target[] {
       },
     },
     {
-      // v2.48.0 — 종목 12개면 ① 이 「…외 N개」 한 줄로 접혀 있다(아래 ② 방법이 밀리지 않는다)
+      // 종목 12개면 ① 이 「…외 N개」 한 줄로 접혀 있다(아래 ② 방법이 밀리지 않는다)
       name: 'backtest-종목접힘',
       hash: '#/backtest',
       before: async (page) => {
@@ -539,7 +539,7 @@ function targets(): Target[] {
         await page.waitForTimeout(700);
       },
     },
-    // 매수 판단 (v2.45.0) — 상태는 응답 바꿔치기로 만든다(DB 를 건드리지 않는다)
+    // 매수 판단 — 상태는 응답 바꿔치기로 만든다(DB 를 건드리지 않는다)
     {
       name: 'swing-빈목록',
       hash: '#/swing/list',
@@ -614,14 +614,14 @@ function targets(): Target[] {
       after: (page) => page.unroute('**/api/buy-judge'),
     },
     {
-      // v2.50.0 — 「거름망에 걸림 · 70/100」(빨강). 실제 응답의 첫 줄을 바꾼다
+      // 「거름망에 걸림 · 70/100」(빨강). 실제 응답의 첫 줄을 바꾼다
       name: 'swing-거름망',
       hash: '#/swing/list',
       before: async (page) => {
         await page.route('**/api/buy-judge', async (r) => {
           const res = await r.fetch();
           const body = (await res.json()) as { rows: { verdict: string; score: number }[] };
-          // v2.51.0 — 이유 4가지를 앞 네 줄에(1280 에서 가장 긴 「(시장 데이터 없음)」 이 판단 칸에 들어가는지)
+          // 이유 4가지를 앞 네 줄에(1280 에서 가장 긴 「(시장 데이터 없음)」 이 판단 칸에 들어가는지)
           const reasons = ['market_nodata', 'market', 'below200', 'short'];
           body.rows.slice(0, 4).forEach((row, k) => Object.assign(row, { verdict: 'gate_block', score: 70, gateReason: reasons[k] }));
           await r.fulfill({ response: res, json: body });
@@ -629,7 +629,7 @@ function targets(): Target[] {
       },
       after: (page) => page.unroute('**/api/buy-judge'),
     },
-    // v2.50.0 — 매매 규칙 「거름망」 칸: 예시 규칙 보기(잠김 · 켜짐) · 수정에서 50/200 고르기(추천)
+    // 매매 규칙 「거름망」 칸: 예시 규칙 보기(잠김 · 켜짐) · 수정에서 50/200 고르기(추천)
     {
       name: 'dialog-매매규칙-예시200',
       hash: '#/rules',
@@ -667,7 +667,7 @@ function targets(): Target[] {
       },
     },
     { name: 'dialog-매수판단-조건보기', hash: '#/swing/list', before: async () => {}, open: click('조건 보기') },
-    // v2.48.0 — 매수 판단 히스토리 = 날짜별 목록(펼침) · 아래 접힌 「종목별 사지 않은 이유」(펼침). 응답 바꿔치기 — DB 는 그대로
+    // 매수 판단 히스토리 = 날짜별 목록(펼침) · 아래 접힌 「종목별 사지 않은 이유」(펼침). 응답 바꿔치기 — DB 는 그대로
     ...(['날짜펼침', '사지않은이유'] as const).map((which) => ({
       name: `swing-history-${which}`,
       hash: '#/swing/history',
@@ -679,7 +679,7 @@ function targets(): Target[] {
           { marketDate: '2026-10-14', rows: [row('005930', 'below', 47), row('AAPL', 'below', 60), row('LLY', 'below', 41), row('NVDA', 'buy', 70, 1.2, 3.4, null), row('XOM', 'below', 44)], buys: 1, nonBuys: 4 },
           { marketDate: '2026-10-13', rows: [row('AAPL', 'below', 58), row('NVDA', 'below', 62)], buys: 0, nonBuys: 2 },
         ];
-        // 서버(`historyDays`)와 같은 순서로 보낸다 — 사도 됨 → 손익비 부족 → 기준 미달(v2.48.1)
+        // 서버(`historyDays`)와 같은 순서로 보낸다 — 사도 됨 → 손익비 부족 → 기준 미달
         const served = days.map((d) => ({ ...d, rows: sortDayRows(d.rows) }));
         await page.route('**/api/buy-judge/days?**', (r) => r.fulfill({ json: { days: served, totalDays: 45 } }));
         const reasons = [
@@ -733,7 +733,7 @@ function targets(): Target[] {
         await page.waitForTimeout(600);
       },
     },
-    // AI 검증 · 계좌 복사 (v2.46.0) — 사본 DB 에 심은 계좌(「AI 검증 비교 A」 · 「AI 검증 빈 계좌」)를 골라 둔다(앱이 처음 읽는 선택 계좌라 새로 고침)
+    // AI 검증 · 계좌 복사 — 사본 DB 에 심은 계좌(「AI 검증 비교 A」 · 「AI 검증 빈 계좌」)를 골라 둔다(앱이 처음 읽는 선택 계좌라 새로 고침)
     ...((): Target[] => {
       const pickAccount = (name: string) => async (page: Page) => {
         await page.evaluate(async (name) => {
@@ -830,7 +830,7 @@ function targets(): Target[] {
         },
       ];
     })(),
-    // 사이드 메뉴 — 보고 있는 대메뉴를 접은 상태 (v2.43.1)
+    // 사이드 메뉴 — 보고 있는 대메뉴를 접은 상태
     {
       name: 'nav-보고있는대메뉴-접힘',
       hash: '#/compare',
@@ -908,7 +908,7 @@ export function measure() {
     }
   }
 
-  // 2. 폼 줄(FormRow) — 같은 묶음(창·구역) 안에서 (v2.42.3 기준표 「입력칸」)
+  // 2. 폼 줄(FormRow) — 같은 묶음(창·구역) 안에서 (기준표 「폼 줄 · 입력칸」)
   //    칸 오른쪽 끝 0px · 단위 열 왼쪽 끝 0px · 설명 시작점 0px · 숫자 칸 폭 = 종류 변수(short 64 · long 128) · 이름 넘침 0
   const groups = new Map<Element, Element[]>();
   for (const row of document.querySelectorAll('[data-formrow]')) {
@@ -923,7 +923,7 @@ export function measure() {
     const hintLeft: number[] = [];
     for (const row of rows) {
       const cell = row.querySelector('[data-formrow-value]');
-      // 감싼 요소가 아니라 **보이는 조작 요소 자체**의 오른쪽 끝(숫자 칸은 칸 상자) — 감싼 span 에 빈 단위 자리가 남아 있으면 그 폭이 끝으로 잡혀 어긋남을 놓쳤다(v2.42.3)
+      // 감싼 요소가 아니라 **보이는 조작 요소 자체**의 오른쪽 끝(숫자 칸은 칸 상자) — 감싼 span 에 빈 단위 자리가 남아 있으면 그 폭이 끝으로 잡혀 어긋남을 놓쳤다
       const ctrls = cell
         ? [...cell.querySelectorAll('input:not([type=checkbox]):not([type=radio]), select, [role=radiogroup], label, button')]
             .map((c) => (c.tagName === 'INPUT' ? c.parentElement! : c))
@@ -1017,7 +1017,7 @@ export function measure() {
     const w = el.getBoundingClientRect().width;
     if (w > 500 && ml > 24 && Math.abs(ml - mr) < 2) issues.push({ kind: '화면 폭 좁힘', detail: `${label(el)} 폭 ${Math.round(w)}px · 좌우 ${Math.round(ml)}px` });
   }
-  // 9. 표 숫자 칸 벌어짐 (v2.42.1) — 숫자 칸은 내용 폭 + 고정 여백. 칸 폭이 내용보다 64px 넘게 넓으면 남는 폭이 숫자 칸으로 간 것이다
+  // 9. 표 숫자 칸 벌어짐 — 숫자 칸은 내용 폭 + 고정 여백. 칸 폭이 내용보다 64px 넘게 넓으면 남는 폭이 숫자 칸으로 간 것이다
   const NUM = /^[−+\-]?[₩$]?[−+\-]?[\d,.]+(%|%p|억|조|만|주|일|회|R)?$|^—$/;
   for (const table of document.querySelectorAll('table')) {
     if (!visible(table) || offscreen(table) || table.getBoundingClientRect().width < 600) continue;
@@ -1043,7 +1043,7 @@ export function measure() {
       }
     }
   }
-  // 10. 탭 줄 · 내용 왼쪽 끝 (v2.42.2) — 탭 줄(role=tablist)의 첫 탭 왼쪽과, 같은 영역에서 그 다음에 오는 내용의 첫 요소 왼쪽이 같아야 한다
+  // 10. 탭 줄 · 내용 왼쪽 끝 — 탭 줄(role=tablist)의 첫 탭 왼쪽과, 같은 영역에서 그 다음에 오는 내용의 첫 요소 왼쪽이 같아야 한다
   const firstLeaf = (root: Element): Element | null => {
     let el: Element | null = root;
     for (let d = 0; el && d < 12; d++) {
@@ -1136,7 +1136,7 @@ export function measure() {
 
   // 14. 같은 표 열 안에서 소수 자릿수 다름
   for (const table of document.querySelectorAll('table')) {
-    // 줄마다 다른 값을 담는 설정표(`data-rows-differ` — 판단 기준 숫자표)는 열의 자릿수가 섞이는 게 맞다 (v2.42.3)
+    // 줄마다 다른 값을 담는 설정표(`data-rows-differ` — 판단 기준 숫자표)는 열의 자릿수가 섞이는 게 맞다
     if (!visible(table) || offscreen(table) || table.closest('[data-measure-skip]') || table.hasAttribute('data-rows-differ')) continue;
     const rows = [...table.querySelectorAll('tbody tr')].filter((r) => r.children.length > 1).slice(0, 40);
     const cols = rows.length ? Math.max(...rows.map((r) => r.children.length)) : 0;
@@ -1158,7 +1158,7 @@ export function measure() {
       }
     }
   }
-  // 15. 날짜 표기 (v2.42.3) — 오전/오후 시각 · 「2026. 9. 3.」 형식이 화면에 남아 있으면 안 된다(형식 `2026-10-08 14:30`)
+  // 15. 날짜 표기 — 오전/오후 시각 · 「2026. 9. 3.」 형식이 화면에 남아 있으면 안 된다(형식 `2026-10-08 14:30`)
   const dw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   const seenDate = new Set<string>();
   for (let n = dw.nextNode(); n; n = dw.nextNode()) {
@@ -1201,7 +1201,7 @@ async function main() {
     await page.waitForTimeout(1500);
     for (const t of targets().filter((x) => !process.env.ONLY || new RegExp(process.env.ONLY).test(x.name))) {
       consoleErrors = [];
-      // 마우스를 화면 구석으로 — 앞 화면에서 누른 자리에 남아 있으면 새 화면의 줄에 올라가 있는 상태(마우스 오버 미리보기 등)로 찍힌다(v2.42.3)
+      // 마우스를 화면 구석으로 — 앞 화면에서 누른 자리에 남아 있으면 새 화면의 줄에 올라가 있는 상태(마우스 오버 미리보기 등)로 찍힌다
       await page.mouse.move(0, 0);
       if (t.before) {
         // 같은 화면이 이미 떠 있으면 새로 받지 않으므로 홈을 거쳐 다시 그리게 한다

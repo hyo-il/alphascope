@@ -3,7 +3,7 @@ import { CONDITION_LABELS, MAX_CONDITIONS, type BacktestRequest, type BacktestYe
 
 /**
  * 백테스트 ①②③ 의 고른 값 — **이 기기 localStorage `alphascope.backtestDraft`** 에 남겨 화면을 나갔다 와도 그대로.
- * v2.44.0: 방법 = 매매 규칙 하나(`ruleId`). 예전 초안(규칙 숫자를 펼친 모양)의 방법은 읽지 않고 빈 방법 하나로 시작한다(종목·기간은 남긴다).
+ * 방법 = 매매 규칙 하나(`ruleId`). 옛 초안(규칙 숫자를 펼친 모양)의 방법은 읽지 않고 빈 방법 하나로 시작한다(종목·기간은 남긴다).
  */
 const KEY = 'alphascope.backtestDraft';
 

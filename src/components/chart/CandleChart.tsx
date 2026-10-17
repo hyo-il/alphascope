@@ -64,9 +64,9 @@ const MAX_VISIBLE_BARS = 5000;
 interface Props {
   candles: Candle[];
   /**
-   * 지금 `candles` 가 어느 종목·봉의 것인지 (v2.30.0) — 예: `AAPL|1d`.
+   * 지금 `candles` 가 어느 종목·봉의 것인지 — 예: `AAPL|1d`.
    * 종목·봉을 바꿔도 차트를 **다시 만들지 않고** 이 키가 바뀐 첫 데이터에서 초기화한다:
-   * 드로잉 지우기(드로잉은 종목별 — 예전에는 언마운트로 사라졌다) · 확대·위치를 기본으로 · 가격 축 자동 · 마우스 상태 비우기.
+   * 드로잉 지우기(드로잉은 종목별) · 확대·위치를 기본으로 · 가격 축 자동 · 마우스 상태 비우기.
    * 로딩 중에는 App 이 이전 키를 그대로 넘긴다(아직 이전 종목 캔들이 들어 있다).
    */
   datasetKey?: string;
@@ -96,7 +96,7 @@ export interface CandleChartHandle {
   getVisibleRange: () => { from: number; to: number } | null;
   /** 캡처 팝업 차트에 같은 드로잉을 복제하기 위한 스냅샷 */
   getDrawings: () => DrawingSnapshot[];
-  /** 확대·위치를 처음으로 — 종목을 바꿀 때와 같은 값(v2.41.0 [초기화]). 드로잉은 지우지 않는다 */
+  /** 확대·위치를 처음으로 — 종목을 바꿀 때와 같은 값([초기화]). 드로잉은 지우지 않는다 */
   resetView: () => void;
 }
 
@@ -155,7 +155,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
   candlesRef.current = candles;
   /** 직전에 그린 캔들 수 — 과거가 앞에 덧붙었는지 판단한다 */
   const renderedCountRef = useRef(0);
-  /** 직전에 그린 데이터 묶음(종목|봉) — 바뀌면 덧붙이기가 아니라 새 데이터다 (v2.30.0) */
+  /** 직전에 그린 데이터 묶음(종목|봉) — 바뀌면 덧붙이기가 아니라 새 데이터다 */
   const renderedKeyRef = useRef<string | undefined>(undefined);
 
   const [hover, setHover] = useState<HoverInfo | null>(null);
@@ -188,7 +188,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
   onToolConsumedRef.current = onToolConsumed;
 
   /*
-   * 드로잉 모두 지우기 — 도구줄 「전체 삭제」 와 우클릭 「모두 지우기」 가 같은 함수 (v2.34.1).
+   * 드로잉 모두 지우기 — 도구줄 「전체 삭제」 와 우클릭 「모두 지우기」 가 같은 함수.
    * 2개 이상이면 확인 창(되돌릴 수 없다), 1개면 바로(개별 삭제와 같다), 0개면 아무 일도 하지 않는다.
    */
   const clearAllDrawings = () => {
@@ -607,7 +607,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     };
   }, []);
 
-  // 가격 자릿수는 통화로 — 원화는 소수점 없이 (v2.33.0, `priceFormatOf` 한 곳)
+  // 가격 자릿수는 통화로 — 원화는 소수점 없이 (`priceFormatOf` 한 곳)
   useEffect(() => {
     candleSeriesRef.current?.applyOptions({ priceFormat: priceFormatOf(currency) });
   }, [currency]);
@@ -643,8 +643,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     chart?.applyOptions(dateTimeOptions(isIntraday(candles)));
 
     /*
-     * 종목·봉이 바뀐 첫 데이터 (v2.30.0) — 예전에는 App 이 로딩 때마다 차트를 언마운트해서 저절로 초기화됐다.
-     * 이제는 차트를 유지하므로 여기서 같은 상태로 되돌린다. (처음 그리는 데이터는 초기화할 것이 없다)
+     * 종목·봉이 바뀐 첫 데이터 — 차트를 언마운트하지 않으므로
+     * 여기서 처음 상태로 되돌린다. (처음 그리는 데이터는 초기화할 것이 없다)
      */
     if (renderedKeyRef.current !== undefined && datasetKey !== renderedKeyRef.current) {
       renderedCountRef.current = 0; // 덧붙이기로 오인하지 않게 — 새 종목 봉 수가 더 많아도
@@ -708,7 +708,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     );
     /*
      * ⚠️ 언마운트 때는 차트 생성 effect 의 정리(`chart.remove()`)가 **먼저** 돈다(effect 선언 순서).
-     * 그 뒤에 마커를 떼면 제거된 차트에 다시 그리기가 예약돼 "Object is disposed" 가 났다(v2.24.0) — 차트가 없으면 떼지 않는다.
+     * 그 뒤에 마커를 떼면 제거된 차트에 다시 그리기가 예약돼 "Object is disposed" 가 났다 — 차트가 없으면 떼지 않는다.
      */
     return () => {
       if (chartRef.current) dispose();

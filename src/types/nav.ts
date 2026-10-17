@@ -2,15 +2,15 @@
  * 사이드 메뉴 구조 (대메뉴 → 소메뉴 2단).
  *
  * 평면 메뉴는 항목이 여덟 개를 넘기면서 "어디에 뭐가 있는지" 를 아이콘으로만 기억해야 했다.
- * 대메뉴로 묶으면 새 화면을 넣을 자리가 분명해진다. 대메뉴 이름은 **하는 일**을 말한다(v2.26.0).
+ * 대메뉴로 묶으면 새 화면을 넣을 자리가 분명해진다. 대메뉴 이름은 **하는 일**을 말한다.
  *
  * ⚠️ 메뉴 정의는 여기 한 곳이다. `SideNav` 가 그리고 `appStore` 가 현재 위치를 들고 있는데,
  * 목록을 두 곳에 두면 한쪽에만 항목이 추가된다.
  */
 
 /**
- * 대메뉴 (v2.47.0 — 퀀트 다시 만들기 5단계, 사용자 결정 A-1): 홈 · 탐색 · 차트·비교 · 증시 일정 · 퀀트 · 실험실 · 계좌 · (맨 아래) 설정.
- * 「투자 분석」 대메뉴와 「AI 분석」 화면은 v2.47.0 에 없앴다 — 수동 분석·이 종목 Gemini 분석은 차트 아래 「AI 분석」 탭, 기록·성적표는 「퀀트 > 검증 기록」.
+ * 대메뉴 (퀀트 다시 만들기 5단계, 사용자 결정 A-1): 홈 · 탐색 · 차트·비교 · 증시 일정 · 퀀트 · 실험실 · 계좌 · (맨 아래) 설정.
+ * 수동 분석·이 종목 Gemini 분석은 차트 아래 「AI 분석」 탭, 기록·성적표는 「퀀트 > 검증 기록」.
  * ⚠️ page id 는 바꾸지 않는다 — 주소(#/pageId)·저장값·`needsSymbol` 이 page id 로 찾는다. 없앤 주소는 `hooks/useHashRoute.ts` 의 `LEGACY_ROUTES` 가 새 자리로 보낸다.
  */
 export type NavGroupId = 'home' | 'explore' | 'chart' | 'calendar' | 'quant' | 'lab' | 'account' | 'settings';
@@ -52,7 +52,7 @@ export type NavIconKey = 'home' | 'explore' | 'chart' | 'calendar' | 'quant' | '
 
 export interface NavGroup {
   id: NavGroupId;
-  /** 아이콘 이름 — `layout/navIcons.ts` 가 lucide 아이콘으로 바꾼다 (v2.36.0, 예전에는 이모지. 이 파일은 서버도 컴파일해 React 를 들이지 않는다) */
+  /** 아이콘 이름 — `layout/navIcons.ts` 가 lucide 아이콘으로 바꾼다 (이 파일은 서버도 컴파일해 React 를 들이지 않는다) */
   icon: NavIconKey;
   label: string;
   /**
@@ -61,12 +61,12 @@ export interface NavGroup {
    */
   shortLabel: string;
   /**
-   * 대메뉴 이름 옆 작은 배지 — 지금은 실험실의 `테스트` 하나 (v2.42.0 — 예전에는 소메뉴 셋에 각각 붙어 있었다).
+   * 대메뉴 이름 옆 작은 배지 — 지금은 실험실의 `테스트` 하나.
    * ⚠️ 라벨 문자열에 "(테스트)" 를 적어 넣지 않는다 — 뗄 때 문자열을 다시 찾아야 한다. 접힌 메뉴에서는 배지 대신 툴팁 「실험실 (테스트)」.
    */
   badge?: string;
   /**
-   * 소메뉴가 하나뿐이어도 소메뉴 줄(펼친 메뉴)·플라이아웃(접힌 메뉴)을 보인다 (v2.48.0 — 사용자 결정: 실험실만).
+   * 소메뉴가 하나뿐이어도 소메뉴 줄(펼친 메뉴)·플라이아웃(접힌 메뉴)을 보인다 (사용자 결정: 실험실만).
    * 이 표시가 있으면 보고 있을 때 이름을 눌러 접을 수도 있다(소메뉴 2개 이상인 대메뉴와 같다).
    */
   showSinglePage?: boolean;
@@ -77,7 +77,7 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   {
     /*
-      홈 (v2.41.0 사용자 결정) — 맨 위, 소메뉴 하나(누르면 바로 화면). 화면 = 종목 탐색(StockExplorer).
+      홈 (사용자 결정) — 맨 위, 소메뉴 하나(누르면 바로 화면). 화면 = 종목 탐색(StockExplorer).
       앱을 처음 열 때·주소 없음·모르는 주소 = 홈. 로고도 홈이다 — ⚠️ 보던 종목은 지우지 않는다(차트 언마운트 금지 원칙).
       상단 종목 헤더는 둔다 — 헤더 검색으로 종목을 고르면 차트로 간다.
     */
@@ -93,15 +93,15 @@ export const NAV_GROUPS: NavGroup[] = [
     label: '탐색',
     shortLabel: '탐색',
     pages: [
-      // 첫 소메뉴 = 대메뉴를 누르면 가는 곳 — 종목 지도가 먼저다 (v2.33.0 사용자 결정). page id·주소는 그대로
-      // 시총 상위 100 + 관심 종목의 등락 지도 (v2.18.0). 종목은 지도에서 눌러 고른다 — 상단 헤더를 숨긴다
+      // 첫 소메뉴 = 대메뉴를 누르면 가는 곳 — 종목 지도가 먼저다 (사용자 결정). page id·주소는 그대로
+      // 시총 상위 100 + 관심 종목의 등락 지도. 종목은 지도에서 눌러 고른다 — 상단 헤더를 숨긴다
       { id: 'heatmap', label: '종목 지도', hidesSymbolHeader: true },
-      // 토스 실시간 순위 + 마우스를 올리면 차트 미리보기 (v2.20.0). 위치는 이 줄만 옮기면 된다 — 화면은 page id 로만 찾는다
+      // 토스 실시간 순위 + 마우스를 올리면 차트 미리보기. 위치는 이 줄만 옮기면 된다 — 화면은 page id 로만 찾는다
       { id: 'ranking', label: '실시간 순위', hidesSymbolHeader: true },
     ],
   },
   {
-    // id 'chart' 를 바꾸지 않는다(주소 #/chart). v2.41.0 부터 처음 화면·로고는 홈이다
+    // id 'chart' 를 바꾸지 않는다(주소 #/chart). 처음 화면·로고는 홈이다
     id: 'chart',
     icon: 'chart',
     label: '차트·비교',
@@ -117,13 +117,13 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: 'calendar',
     label: '증시 일정',
     shortLabel: '일정',
-    // 실적·FOMC·옵션 만기·휴장 (v2.17.0). 종목은 달력 안에서 눌러 고른다 — 상단 헤더를 숨긴다. 소메뉴 하나 → 바로 이동
+    // 실적·FOMC·옵션 만기·휴장. 종목은 달력 안에서 눌러 고른다 — 상단 헤더를 숨긴다. 소메뉴 하나 → 바로 이동
     pages: [{ id: 'calendar', label: '일정', hidesSymbolHeader: true }],
   },
   {
     /*
-      퀀트 (v2.43.0 → v2.47.0 — 퀀트 다시 만들기 5단계 완료, 사용자 결정 A-1). 규칙 → 판단 → 시험 → 검증 순서.
-      소메뉴가 넷이라 보고 있는 대메뉴를 접을 수 있다(v2.43.1). 넷 다 종목과 무관한 화면이라 상단 종목 헤더를 감춘다.
+      퀀트 (퀀트 다시 만들기 5단계 완료, 사용자 결정 A-1). 규칙 → 판단 → 시험 → 검증 순서.
+      소메뉴가 넷이라 보고 있는 대메뉴를 접을 수 있다. 넷 다 종목과 무관한 화면이라 상단 종목 헤더를 감춘다.
     */
     id: 'quant',
     icon: 'quant',
@@ -131,11 +131,11 @@ export const NAV_GROUPS: NavGroup[] = [
     shortLabel: '퀀트',
     pages: [
       { id: 'rules', label: '매매 규칙', hidesSymbolHeader: true },
-      // v2.47.0 이름 「매수 판단 도우미」 → 「매수 판단」(A-3). page id 'swing' 은 그대로(주소·저장값) — 예전 「스윙 추천」 · 「매수 판단 도우미」
+      // 「매수 판단」(A-3). page id 'swing' 은 그대로(주소·저장값)
       { id: 'swing', label: '매수 판단', hidesSymbolHeader: true },
-      // 고른 종목을 고른 매매 규칙(방법 1~3개)으로 1~3년 시험한다 (v2.38.0 → v2.44.0). 주소 #/backtest, 탭 없음 — v2.47.0 에 실험실에서 옮겼다
+      // 고른 종목을 고른 매매 규칙(방법 1~3개)으로 1~3년 시험한다. 주소 #/backtest, 탭 없음
       { id: 'backtest', label: '백테스트', hidesSymbolHeader: true },
-      // 검증 기록 (v2.47.0, A-4) — 목표 수익 가능성 · AI 검증 · AI 분석 · 진단 리포트 탭 넷. 예전 「AI 분석」 의 기록·성적표와 「실험실 > 진단 리포트」 를 모았다
+      // 검증 기록 (A-4) — 목표 수익 가능성 · AI 검증 · AI 분석 · 진단 리포트 탭 넷
       { id: 'records', label: '검증 기록', hidesSymbolHeader: true },
     ],
   },
@@ -145,7 +145,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: '실험실',
     shortLabel: '실험실',
     badge: '테스트',
-    // 소메뉴 「급등 탐지」 를 보인다 — 실험실에 무엇이 있는지 펼쳐서 알 수 있게 (v2.48.0)
+    // 소메뉴 「급등 탐지」 를 보인다 — 실험실에 무엇이 있는지 펼쳐서 알 수 있게
     showSinglePage: true,
     pages: [
       /*
@@ -153,9 +153,9 @@ export const NAV_GROUPS: NavGroup[] = [
         실제로 써 보니 탐지된 종목이 이미 급등한 뒤였는데, 구조상 당연하다 —
         종목 풀이 토스 **상승률·거래량 상위 랭킹**이고 판정은 **일봉**의 과거 급등 간격
         평균이다. 장중 실시간 탐지가 아니다.
-        주기성 예측이 우연보다 나은지 검증되기 전까지 **실험실 + 테스트 배지**로 둔다(v2.26.0 에 실험실로 옮겼다).
+        주기성 예측이 우연보다 나은지 검증되기 전까지 **실험실 + 테스트 배지**로 둔다.
         기능은 지우지 않는다 — 검증 결과를 보고 사용자가 유지·격하·제거를 정한다.
-        v2.47.0 부터 실험실은 급등 탐지 하나 — 대메뉴를 누르면 급등 탐지로 가고, v2.48.0 부터 소메뉴 줄도 보인다(`showSinglePage`). 백테스트는 퀀트, 진단 리포트는 「검증 기록」 탭으로.
+        실험실은 급등 탐지 하나 — 대메뉴를 누르면 급등 탐지로 가고, 소메뉴 줄도 보인다(`showSinglePage`).
       */
       { id: 'surge', label: '급등 탐지', hidesSymbolHeader: true },
     ],
@@ -195,7 +195,7 @@ export function pageMeta(page: NavPageId): NavPage | undefined {
   return undefined;
 }
 
-// ── 화면 안 탭 (v2.28.0) ─────────────────────────────────────────────────────
+// ── 화면 안 탭 ─────────────────────────────────────────────────────
 /**
  * 주소에 넣는 화면 안 탭 — **이 표 한 곳**이 탭 목록이다. 화면(`RecordsView`·`BuyJudgeView`·`SurgeDashboard`·
  * `PortfolioView`)과 주소 해석(`hooks/useHashRoute.ts`)·스토어(`appStore.setPage`)가 모두 여기서 읽는다.
@@ -207,15 +207,14 @@ export function pageMeta(page: NavPageId): NavPage | undefined {
  *   주소가 바뀌면 뒤로 가기만 길어진다.
  */
 export const PAGE_TABS = {
-  // 검증 기록 (v2.47.0, A-4) — 목표 수익 가능성이 맨 앞(기본 탭). 예전 #/analysis/* · #/diagnose 는 useHashRoute 의 LEGACY_ROUTES 가 여기로 보낸다
+  // 검증 기록 (A-4) — 목표 수익 가능성이 맨 앞(기본 탭). 옛 주소 #/analysis/* · #/diagnose 는 useHashRoute 의 LEGACY_ROUTES 가 여기로 보낸다
   records: [
     { id: 'target', path: 'target' },
     { id: 'aicheck', path: 'aicheck' },
     { id: 'analysis', path: 'analysis' },
     { id: 'diagnose', path: 'diagnose' },
   ],
-  // v2.35.0: 지금 살 만한가(list) · 목표 수익 가능성(target — 다시 넣었다) · 종목 검색 · 지난 기록(history). 주소 조각은 예전 그대로
-  // v2.45.0 — 「매수 판단」 · 「히스토리」 둘. 예전 #/swing/target · #/swing/search 는 모르는 조각이라 첫 탭(#/swing/list)으로 간다
+  // 「매수 판단」 · 「히스토리」 둘. 옛 #/swing/target · #/swing/search 는 모르는 조각이라 첫 탭(#/swing/list)으로 간다
   swing: [
     { id: 'list', path: 'list' },
     { id: 'history', path: 'history' },

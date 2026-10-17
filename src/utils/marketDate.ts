@@ -4,7 +4,7 @@
  * ⚠️ `new Date(ts).toISOString().slice(0, 10)` 을 쓰지 않는다. 일봉 timestamp 는
  * **거래소 현지 자정**이다 — 미국은 ET 자정(04:00/05:00 UTC)이라 UTC 날짜와 우연히 같지만,
  * 한국은 KST 자정 = **전날 15:00 UTC** 라 UTC 로 자르면 하루 앞당겨진다.
- * 실제로 000660·005930 의 BUY 날짜가 일요일(2026-07-26·07-05)로 찍혔다 (v2.14.0).
+ * 실제로 000660·005930 의 BUY 날짜가 일요일(2026-07-26·07-05)로 찍혔다.
  *
  * 서버(진단·급등·Gemini 프롬프트)와 화면이 함께 쓴다 — 변환을 여러 곳에 두면 또 갈라진다.
  */
@@ -13,7 +13,7 @@ import { isKrSymbol } from './market';
 
 export type MarketTimeZone = 'Asia/Seoul' | 'America/New_York';
 
-// 국내 판별은 `utils/market.ts` 한 곳이다 (v2.15.0 에 여기서 옮겼다).
+// 국내 판별은 `utils/market.ts` 한 곳이다.
 export function marketTimeZone(symbol: string): MarketTimeZone {
   return isKrSymbol(symbol) ? 'Asia/Seoul' : 'America/New_York';
 }
@@ -45,7 +45,7 @@ export function marketMonth(timestamp: number, symbol: string): number {
   return Number(marketDate(timestamp, symbol).slice(5, 7)) - 1;
 }
 
-// ── 장 마감 판정 (AI 채점 기준일 — v2.15.0) ──────────────────────────────────
+// ── 장 마감 판정 (AI 채점 기준일) ──────────────────────────────────
 
 /** 정규장 마감 시각(현지, 자정부터 분) — 미국 16:00 ET · 국내 15:30 KST */
 export function marketCloseMinutes(symbol: string): number {

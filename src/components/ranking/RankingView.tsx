@@ -17,7 +17,7 @@ import { changeColor, formatCompact, formatCompactMoney, formatPercent, formatPr
 import RankingPreview, { type PreviewTimeframe } from './RankingPreview';
 
 /**
- * 📶 실시간 순위 (v2.20.0) — 토스 거래대금·거래량·상승률·하락률 상위 100(`/api/rankings/live`, 서버 30초 캐시).
+ * 📶 실시간 순위 — 토스 거래대금·거래량·상승률·하락률 상위 100(`/api/rankings/live`, 서버 30초 캐시).
  *
  * - 화면이 보일 때만 30초마다 다시 받는다(숨은 탭 정지, 돌아오면 즉시 한 번).
  * - 행에 마우스를 **150ms** 올리면 오른쪽 고정 패널에 미리보기. 마우스가 목록을 떠나도 마지막 종목을 둔다(깜빡임 방지).
@@ -85,7 +85,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
   const rows = data ? (showAll ? data.rows : data.rows.slice(0, FIRST_PAGE)) : [];
 
   /*
-    첫 미리보기 (v2.42.3) — 순위가 처음 오면·종류·시장을 바꾸면 1위를 바로 미리 본다(빈 미리보기로 두지 않는다).
+    첫 미리보기 — 순위가 처음 오면·종류·시장을 바꾸면 1위를 바로 미리 본다(빈 미리보기로 두지 않는다).
     30초 새로고침에는 보던 종목을 지킨다 — 순위가 바뀌어도 그 종목 줄을 다시 강조하고 값만 새것으로,
     목록(보이는 줄)에서 사라졌으면 1위로. 위 effect 가 종류·시장 변경 때 preview 를 비우므로 「비어 있음」 = 첫 도착이다.
   */
@@ -129,7 +129,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
 
   return (
     <div className={`flex h-full flex-col ${PANEL_PAD}`}>
-      {/* 제목 줄 / 고르기 줄을 나눈다 (v2.41.0 디자인 규칙 7) */}
+      {/* 제목 줄 / 고르기 줄을 나눈다 (디자인 규칙 7) */}
       <h2 className="shrink-0 pb-2 text-base font-semibold text-text-primary">실시간 순위</h2>
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
         <Segmented
@@ -148,7 +148,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
             {data.rankedAt
               ? `${formatTime(data.rankedAt)} 기준`
               : '기준 시각 없음'}
-            {/* 긴 설명은 정보 아이콘으로 (v2.36.0 디자인 규칙 6) */}
+            {/* 긴 설명은 정보 아이콘으로 (디자인 규칙 6) */}
             <InfoTip>
               {data.duration === 'realtime' ? '실시간 순위입니다.' : '오늘 등락 기준입니다(토스가 실시간 상승·하락률을 주지 않습니다).'} 30초마다 새로고침합니다(화면을 볼 때만).
               {data.rankedAt && ` 기준 시각 ${formatTime(data.rankedAt)}.`}
@@ -176,8 +176,8 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
                 <th className="w-8 min-w-8" />
                 <th className={`${TABLE_NAME_COL} px-2 text-left font-normal`}>종목</th>
                 {/*
-                  숫자 열 = 내용 폭 + 고정 여백, 남는 폭은 종목 칸(기준표 「표」, v2.42.2). 예전 고정 폭(104·84·92px)은 내용보다 넓어
-                  1280 에서 종목명이 더 많이 말줄임됐다. (v2.25.0 의 「자동 배분이면 종목명이 0 에 가깝게」 는 종목 칸이 w-full 이라 생기지 않는다)
+                  숫자 열 = 내용 폭 + 고정 여백, 남는 폭은 종목 칸(기준표 「표」). 고정 폭은 내용보다 넓어
+                  1280 에서 종목명이 더 많이 말줄임된다(종목 칸이 w-full 이라 이름 칸이 0 에 가깝게 줄지 않는다).
                 */}
                 <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right font-normal`}>현재가</th>
                 <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right font-normal`}>등락률</th>
@@ -228,7 +228,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
                       </button>
                     </td>
                     <td className="max-w-0 overflow-hidden whitespace-nowrap px-2">
-                      {/* v2.25.0 — 글씨가 커져 이름이 말줄임 없이 잘렸다. flex 상자로 폭을 묶어야 이름 쪽 truncate(…)가 먹는다 */}
+                      {/* flex 상자로 폭을 묶어야 이름 쪽 truncate(…)가 먹는다 */}
                       <div className="flex min-w-0">
                         <StockName symbol={row.symbol} name={row.name ?? undefined} size="sm" className="text-text-primary" />
                       </div>
@@ -264,7 +264,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
         </div>
       </div>
 
-      {/* ⚠️ 고정 문구 — 지우지 않는다(CLAUDE.md). 조작법만 정보 아이콘으로 (v2.36.0) */}
+      {/* ⚠️ 고정 문구 — 지우지 않는다. 조작법만 정보 아이콘으로 */}
       <p className="mt-2 flex shrink-0 items-center gap-1 text-caption text-text-secondary">
         순위는 둘러보기용입니다. 급등 다음 날 추격 매수는 이 앱의 과거 진단에서 불리했습니다.
         <InfoTip label="조작법">행을 누르거나 Enter 를 누르면 미리보기에서 고른 봉으로 차트를 엽니다. ↑↓ 로 행을 옮깁니다. 미리보기 차트를 왼쪽 끝까지 끌면 옛날 봉을 이어 받습니다.</InfoTip>

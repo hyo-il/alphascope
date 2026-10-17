@@ -1,16 +1,16 @@
 /**
- * 「매매 규칙」 엔진 — **한 곳** (v2.43.0, 퀀트 다시 만들기 1단계).
+ * 「매매 규칙」 엔진 — **한 곳** (퀀트 다시 만들기 1단계).
  *
  * 계산기는 점수형 하나다: 매수 조건마다 [사용] · [점수] → 켠 조건의 합계가 기준 이상이면 매수(사용자 결정 A-1).
  * - 신호는 **마감 기준** — 호출하는 쪽이 진행 중 봉을 뺀 끝난 일봉(`completedDaily`)을 넣는다(A-4).
- * - 지표는 **종목마다 한 번** 계산하고(`computeIndicators`), 날짜(봉 번호 i)마다 판단한다 — 예전 점수 계산기의
- *   「마지막 값」(`at(ind.x)`) 대신 **봉 i 의 값**을 읽는다. 20일 고점·120일 고점·거래량 평균도 i 까지만 본다(미래 정보 금지).
+ * - 지표는 **종목마다 한 번** 계산하고(`computeIndicators`), 날짜(봉 번호 i)마다 판단한다 — 「마지막 값」 이 아니라
+ *   **봉 i 의 값**을 읽는다. 20일 고점·120일 고점·거래량 평균도 i 까지만 본다(미래 정보 금지).
  * - 매수 = 보유 안 함 · 손절 뒤 대기 기간 아님 · **손익비 ≥ 1**(A-7, 끌 수 없다) · 점수 ≥ 기준 (상태 방식, A-5).
  * - 매도(보유 중) = 반대 신호 · 점수 N점 아래. **손절·익절·트레일링은 가격만 계산해 준다**(`exitLevels`) —
- *   실행 방식은 쓰는 곳이 정한다(계좌 = 장중 1분, 백테스트 = 일봉 고저). 2단계.
+ *   실행 방식은 쓰는 곳이 정한다(계좌 = 장중 1분, 백테스트 = 일봉 고저).
  *
- * 그룹 안 작은 검사와 점수표는 **예전 점수 계산기(`server/swingAnalyzer.ts`, v2.45.0 에 지웠다) 그대로** 옮겼다. 순간 조건(교차·RSI 반등)은
- * 예전 교차 계산기(`decideRule`, v2.44.0 에 지웠다)와 같은 정의다 — 같은 판단인지는 `npm run rules:test` ① 이 정답 파일과 비교한다.
+ * 그룹 안 작은 검사와 점수표는 **지운 점수 계산기(`swingAnalyzer`) 그대로** 옮겼다. 순간 조건(교차·RSI 반등)은
+ * 지운 교차 계산기(`decideRule`)와 같은 정의다 — 같은 판단인지는 `npm run rules:test` ① 이 정답 파일과 비교한다.
  * 같은 점수인지는 `npm run rules:test` ② 가 지운 점수 계산기의 정답 파일(`scripts/fixtures/swingScoreAnswers.json`)과 비교한다.
  * ⚠️ 주문을 내지 않는다. 모의투자·주문 모듈을 import 하지 않는다.
  */
@@ -25,16 +25,16 @@ import { dailyCloseOffsetMs } from '../../src/utils/marketBar';
 import { nearestEngineMa, type EngineMaPeriod, type GateReason } from '../../src/types/autoTrading';
 
 /**
- * 진행 중인 일봉을 뺀 끝난 봉 (v2.31.0 → v2.44.0 에 예전 `ruleEngine.ts` 에서 옮겼다) — 신호는 마감 기준이다.
- * v2.51.1: 끝나는 시각을 시장마다(`dailyCloseOffsetMs` — 국내 20:00 KST, NXT 애프터마켓까지 일봉이 바뀐다). 예전에는 모든 시장 16:00 이라
- * 국내 16:00~20:00 에 아직 바뀌는 그날 봉을 끝난 봉으로 썼다(같은 판단 안에서 두 번 받으면 점수가 달라졌다).
+ * 진행 중인 일봉을 뺀 끝난 봉 — 신호는 마감 기준이다.
+ * 끝나는 시각은 시장마다(`dailyCloseOffsetMs` — 국내 20:00 KST, NXT 애프터마켓까지 일봉이 바뀐다). 모든 시장 16:00 으로 보면
+ * 국내 16:00~20:00 에 아직 바뀌는 그날 봉을 끝난 봉으로 쓴다(같은 판단 안에서 두 번 받으면 점수가 달라진다).
  */
 export function completedDaily(candles: Candle[], symbol: string, now = Date.now()): Candle[] {
   const last = candles.at(-1);
   return last && now < last.timestamp + dailyCloseOffsetMs(symbol) ? candles.slice(0, -1) : candles;
 }
 
-/** 이동평균 일수 → 엔진 시리즈 (`ENGINE_MA_PERIODS` — 다른 값은 가장 가까운 값). 예전 `ruleEngine.pickMa` 그대로 옮겼다 · v2.50.0 50·200 */
+/** 이동평균 일수 → 엔진 시리즈 (`ENGINE_MA_PERIODS` — 다른 값은 가장 가까운 값). 50·200 포함 */
 export function pickMa(series: IndicatorSeries, period: number): { line: (number | null)[]; used: number } {
   const used = nearestEngineMa(period);
   const lines: Record<EngineMaPeriod, (number | null)[] | undefined> = {
@@ -51,7 +51,7 @@ export function pickMa(series: IndicatorSeries, period: number): { line: (number
 // ── 봉 i 기준 시리즈 도우미 ─────────────────────────────────────────────────
 
 /**
- * 봉 i 에서 거꾸로 offset 번째 **유효** 값 (0 = 봉 i 의 값). 예전 `at()` 을 i 까지 자른 시리즈에 쓴 것과 같다 —
+ * 봉 i 에서 거꾸로 offset 번째 **유효** 값 (0 = 봉 i 의 값). `at()` 을 i 까지 자른 시리즈에 쓴 것과 같다 —
  * null 을 건너뛰는 뜻까지 같아야 점수가 바이트 단위로 같다.
  */
 function atI(series: (number | null)[] | undefined, i: number, offset = 0): number | null {
@@ -66,7 +66,7 @@ function atI(series: (number | null)[] | undefined, i: number, offset = 0): numb
   return null;
 }
 
-/** 봉 i 까지의 마지막 n 개 — 예전 `candles.slice(-n)` 을 i 까지 자른 배열에 쓴 것과 같다 */
+/** 봉 i 까지의 마지막 n 개 — `candles.slice(-n)` 을 i 까지 자른 배열에 쓴 것과 같다 */
 function lastN(candles: Candle[], i: number, n: number): Candle[] {
   return candles.slice(Math.max(0, i + 1 - n), i + 1);
 }
@@ -120,11 +120,11 @@ export interface RuleEvaluation {
   rrBlocked: boolean;
   /** 매매 계획을 세울 수 없으면 null (손절 자리 없음) */
   reference: RuleReference | null;
-  /** 「거름망에 걸림」 이유(v2.51.0) — gate_block 일 때만 있다(다른 판단의 모양은 예전 그대로) */
+  /** 「거름망에 걸림」 이유 — gate_block 일 때만 있다(다른 판단의 모양은 그대로) */
   gateReason?: GateReason;
 }
 
-/** 시장 기준 일봉(끝난 봉) + 지표 — `rules/marketRef.ts` 가 받는다 (v2.51.0) */
+/** 시장 기준 일봉(끝난 봉) + 지표 — `rules/marketRef.ts` 가 받는다 */
 export interface MarketRefData {
   market: 'US' | 'KR';
   symbol: string;
@@ -159,7 +159,7 @@ export interface RuleContext {
   /** `candles` 전체로 한 번 계산한 지표 */
   series: IndicatorSeries;
   /**
-   * 시장 기준(v2.51.0 — 시장 필터를 켠 규칙만 쓴다). undefined · null(받기 실패) 이면 시장 필터는 「시장 데이터 없음」 으로 막는다.
+   * 시장 기준(시장 필터를 켠 규칙만 쓴다). undefined · null(받기 실패) 이면 시장 필터는 「시장 데이터 없음」 으로 막는다.
    * ⚠️ 날짜로 맞춘다 — 종목 봉 i 의 시장 날짜와 같은 날의 끝난 봉만 본다(미래 봉을 보지 않는다).
    */
   market?: MarketRefData | null;
@@ -167,13 +167,13 @@ export interface RuleContext {
 
 export interface EvaluateOptions {
   /**
-   * ⚠️ **시험 전용** — 손익비 안전장치(A-7)를 끈다. 예전 교차 계산기에는 이 안전장치가 없어 그와 비교할 때만 쓴다(`rules:test` ①).
+   * ⚠️ **시험 전용** — 손익비 안전장치(A-7)를 끈다. 지운 교차 계산기에는 이 안전장치가 없어 그와 비교할 때만 쓴다(`rules:test` ①).
    * 화면·API 어디서도 넘기지 않는다.
    */
   testOnlySkipRrGuard?: boolean;
 }
 
-// ── 그룹 검사 (예전 점수 계산기 그대로, 봉 i 기준) ─────────────────────────
+// ── 그룹 검사 (지운 점수 계산기 그대로, 봉 i 기준) ─────────────────────────
 
 function trendChecks(price: number, s: IndicatorSeries, i: number): CheckResult[] {
   const sma20 = atI(s.sma20, i);
@@ -236,10 +236,10 @@ function volumeChecks(candles: Candle[], s: IndicatorSeries, i: number): CheckRe
   ];
 }
 
-/** 손익비 → 점수표의 칸 (예전 `riskRewardCondition`: <1 → 0 · ≥1 → 3 · ≥1.5 → 7 · ≥2 → 10) */
+/** 손익비 → 점수표의 칸 ( <1 → 0 · ≥1 → 3 · ≥1.5 → 7 · ≥2 → 10) */
 const rrStep = (ratio: number): number => (ratio >= 2 ? 3 : ratio >= 1.5 ? 2 : ratio >= 1 ? 1 : 0);
 
-// ── 참고 계획 (예전 `buildPlan`·`stopLossOf`·`positionOf` 그대로, 봉 i 기준) ──
+// ── 참고 계획 (지운 점수 계산기의 계획 그대로, 봉 i 기준) ──
 
 function stopLossOf(price: number, candles: Candle[], i: number, atr: number | null, sma60: number | null): number | null {
   const support = Math.min(...lastN(candles, i, 20).map((c) => c.low));
@@ -252,7 +252,7 @@ function stopLossOf(price: number, candles: Candle[], i: number, atr: number | n
 }
 
 /**
- * 참고 계획. 돌파 판정은 예전처럼 「타이밍 점수 < 15」 — 기본 점수표에서 **통과 2개 미만**과 같아서
+ * 참고 계획. 돌파 판정은 「타이밍 점수 < 15」 와 같은 뜻 — 기본 점수표에서 **통과 2개 미만**과 같아서
  * 사용자가 타이밍 점수를 바꿔도(꺼도) 같은 뜻이 되도록 통과 수로 본다.
  */
 function planOf(candles: Candle[], s: IndicatorSeries, i: number, timingPassed: number): RuleReference | null {
@@ -284,8 +284,8 @@ function planOf(candles: Candle[], s: IndicatorSeries, i: number, timingPassed: 
   const target1 = resistances.length ? Math.min(...resistances) : entryPrice + fallback * 2;
   const target2 = Math.max(target1 * 1.005, longHigh > target1 ? longHigh : entryPrice + fallback * 3);
   /*
-    볼린저 상단이 아직 없으면(봉 20개 미만) 예전 코드는 목표를 무한대로 잡아 손익비가 무한대가 됐다 — 그러면 손익비 안전장치(A-7)를
-    지나간다. 그래서 목표가 유한하지 않으면 **계획 없음**(손익비 0 → 매수 안 함)으로 본다. 예전 점수 계산기는 봉 60개 미만을 받지 않아
+    볼린저 상단이 아직 없으면(봉 20개 미만) 목표가 무한대라 손익비가 무한대가 된다 — 그러면 손익비 안전장치(A-7)를
+    지나간다. 그래서 목표가 유한하지 않으면 **계획 없음**(손익비 0 → 매수 안 함)으로 본다. 지운 점수 계산기는 봉 60개 미만을 받지 않아
     봉 20개 이상에서는 결과가 같다.
   */
   if (!Number.isFinite(target1) || !Number.isFinite(target2)) return null;
@@ -294,7 +294,7 @@ function planOf(candles: Candle[], s: IndicatorSeries, i: number, timingPassed: 
   const ratio = round(risk > 0 ? reward / risk : 0, 2);
 
   // 비중: 1% 위험 룰 — 표준 리스크(변동성 높음 0.5 · 보통 1 · 낮음 1.5%), 상한 25%.
-  // 예전 `positionOf` 처럼 **반올림한** 매수가·손절가로 낸다(반올림 전 값이면 0.1%p 어긋난다)
+  // **반올림한** 매수가·손절가로 낸다(반올림 전 값이면 0.1%p 어긋난다)
   const entryR = round(entryPrice);
   const stopR = round(stop);
   const volatility = atr ? atr / entryR : 0.02;
@@ -313,7 +313,7 @@ function planOf(candles: Candle[], s: IndicatorSeries, i: number, timingPassed: 
   };
 }
 
-// ── 순간 조건 (예전 교차 계산기와 같은 정의) ────────────────────────────────
+// ── 순간 조건 (지운 교차 계산기와 같은 정의) ────────────────────────────────
 
 function pairAt(line: (number | null)[] | undefined, i: number): [number, number] | null {
   if (!Array.isArray(line) || i < 1 || i >= line.length) return null;
@@ -350,7 +350,7 @@ function instantSignals(s: IndicatorSeries, i: number, rule: RuleBody): Instant 
 
 // ── 판단 ────────────────────────────────────────────────────────────────────
 
-/** 문장 속 가격 — 국내 ₩ 원 정수 · 미국 $ 소수 둘째, 4자리 이상 쉼표 (거름망 문장, v2.50.0 — 「최근 판단」 에 그대로 보인다) */
+/** 문장 속 가격 — 국내 ₩ 원 정수 · 미국 $ 소수 둘째, 4자리 이상 쉼표 (거름망 문장 — 「최근 판단」 에 그대로 보인다) */
 const priceText = (symbol: string, v: number): string =>
   isKrSymbol(symbol)
     ? `₩${Math.round(v).toLocaleString('en-US')}`
@@ -468,8 +468,8 @@ export function evaluateRule(ctx: RuleContext, i: number, rule: RuleBody, state:
     }
   }
   if (score < rule.buy.minScore) return out('HOLD', 'no_signal_buy', `${scoreText} — 기준 ${rule.buy.minScore}점 미만`);
-  // 거름망(v2.50.0) — 손익비 안전장치보다 먼저. 끝난 봉 i 의 종가와 그 봉의 200일선. 200일선이 없으면(봉 < 200) 통과하지 못한 것으로 본다(안전 쪽)
-  // 순서(v2.51.0): 종목 200일선 → 시장 필터 → 손익비
+  // 거름망 — 손익비 안전장치보다 먼저. 끝난 봉 i 의 종가와 그 봉의 200일선. 200일선이 없으면(봉 < 200) 통과하지 못한 것으로 본다(안전 쪽)
+  // 순서: 종목 200일선 → 시장 필터 → 손익비
   const gates = gatesOf(rule.buy);
   if (gates.above200.on) {
     const ma200 = ctx.series.sma200?.[i] ?? null;
@@ -485,7 +485,7 @@ export function evaluateRule(ctx: RuleContext, i: number, rule: RuleBody, state:
       );
     }
   }
-  // 시장 필터(v2.51.0) — 종목의 끝난 봉 i 와 **같은 시장 날짜**의 시장 기준 끝난 봉. 없거나 200일선을 낼 수 없으면 사지 않는다(안전 쪽)
+  // 시장 필터 — 종목의 끝난 봉 i 와 **같은 시장 날짜**의 시장 기준 끝난 봉. 없거나 200일선을 낼 수 없으면 사지 않는다(안전 쪽)
   if (gates.marketAbove200.on) {
     const ref = ctx.market;
     const day = marketDate(ctx.candles[i].timestamp, ctx.symbol);

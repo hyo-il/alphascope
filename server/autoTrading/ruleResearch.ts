@@ -2,7 +2,6 @@
  * 백테스트 — 「퀀트 > 백테스트」 사용자 시험(`runCustomBacktest`). 사용자가 고른 종목 · 방법(매매 규칙 1~3개) · 기간(1~3년).
  * 판단은 계좌와 같은 엔진(`ruleBacktest.simulateRule` → `evaluateRule`). 판정 배지 없음.
  * 구간 나누기 · 아무 날이나 기준선(`randomBaseline`) · 미래 누설 검사 · MDD · Profit Factor · SPY 비교는 v2.37~v2.41 그대로다.
- * v2.44.0 에 예전 「미리 정한 시험」(교차 계산기 고정 3년 — `runRuleResearch` · 판정 · 보고서 md)을 지웠다.
  *
  * ⚠️ **주문을 전혀 내지 않는다.** 모의투자·주문 모듈을 import 하지 않는다.
  */
@@ -39,12 +38,12 @@ export const SEGMENT_DAYS = 252;
 const WARMUP = 140;
 /**
  * 지표 준비에 필요한 끝난 봉 — 120일선 · 120일 고점(참고 계획) · 60일선 기울기가 구간 첫날에 값을 가져야 한다.
- * 예전 교차 규칙은 장기 이동평균 + 1 이었다 — 규칙의 점수 조건이 더 긴 지표를 쓴다(v2.44.0).
+ * 규칙의 점수 조건이 장기 이동평균보다 긴 지표(120일 고점 등)를 쓴다.
  */
 const WARMUP_NEEDED = 130;
 /**
- * 200일선을 쓰는 규칙(거름망 · 교차에 200 — `usesMa200`, v2.50.0): 200일선이 구간 첫날 전 봉(교차는 전날 → 오늘 비교)에도 값을 가져야 한다 → 200 + 여유 10.
- * 받는 일봉도 같은 여유(+10)로 늘린다. 200일선을 안 쓰는 규칙은 130 · 140 그대로 — 상장이 짧은 종목이 괜히 빠지지 않고 결과도 예전과 같다.
+ * 200일선을 쓰는 규칙(거름망 · 교차에 200 — `usesMa200`): 200일선이 구간 첫날 전 봉(교차는 전날 → 오늘 비교)에도 값을 가져야 한다 → 200 + 여유 10.
+ * 받는 일봉도 같은 여유(+10)로 늘린다. 200일선을 안 쓰는 규칙은 130 · 140 그대로 — 상장이 짧은 종목이 괜히 빠지지 않고 결과도 그대로다.
  */
 const WARMUP_NEEDED_200 = 210;
 const WARMUP_200 = 220;
@@ -151,7 +150,7 @@ export interface ResearchProgress {
   (done: number, total: number, current: string): void;
 }
 
-// ── 내가 고른 종목 · 내가 정한 조건 (v2.38.0) · 조건 비교·MDD·Profit Factor·익절 (v2.39.0) ─────────────
+// ── 내가 고른 종목 · 내가 정한 조건 · 조건 비교·MDD·Profit Factor·익절 ─────────────
 
 /** 종목·기간·방법(규칙 내용까지) 전체가 같으면 같은 결과 — 같은 날 다시 계산하지 않는 비교 키(종목 순서는 무시) */
 export function customInputKey(input: BacktestInput): string {
@@ -183,7 +182,7 @@ export type Cell = {
   random: number | null;
   trades: number;
   list: { returnPct: number; exitKind: string }[];
-  /** 그 구간의 일별 자산 곡선(1 에서 시작) — MDD 용 (v2.39.0) */
+  /** 그 구간의 일별 자산 곡선(1 에서 시작) — MDD 용 */
   curve: number[];
 };
 
@@ -233,7 +232,7 @@ const toMdd = (curve: number[]) => {
   return v == null ? null : round2(v);
 };
 
-/** 셀 묶음 → 종목 평균 숫자 (요약·구간 표 공용). 20차 칸(앞 8개)은 계산이 그대로다 */
+/** 셀 묶음 → 종목 평균 숫자 (요약·구간 표 공용). 앞 8개 칸의 계산은 바꾸지 않는다(백테스트 바이트 비교 기준) */
 export function customStats(cells: Cell[], who: { symbol: string; name: string | null }[]): BacktestCustomStats {
   const per = cells.map((c) => {
     const n = c.list.length;
@@ -296,7 +295,7 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
   const warmup = uses200 ? WARMUP_NEEDED_200 : WARMUP_NEEDED;
   const fetchWarmup = uses200 ? WARMUP_200 : WARMUP;
   const info = namesAndSectors(input.symbols);
-  // 시장 필터(v2.51.0) — 켠 방법이 있으면 시장 기준 일봉을 시장마다 한 번(시험 기간 + 준비 220). 못 받으면 null → 그 시장 종목은 매수 날마다 「시장 데이터 없음」
+  // 시장 필터 — 켠 방법이 있으면 시장 기준 일봉을 시장마다 한 번(시험 기간 + 준비 220). 못 받으면 null → 그 시장 종목은 매수 날마다 「시장 데이터 없음」
   const useMarket = rules.some((r) => usesMarketFilter(r));
   const markets = new Map<string, MarketRefData | null>();
   const refs = marketRefLoader(Date.now(), undefined, days + WARMUP_200, false);
@@ -312,7 +311,7 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
   };
 
   const leakMarkets = new Set<string>();
-  // 시장 기준 데이터가 모자란 기간(v2.51.0) — 받지 못한 시장 · 시험 첫날보다 200일선이 늦게 시작한 시장을 결과에 알린다(조용히 「시장 데이터 없음」 이 되지 않게)
+  // 시장 기준 데이터가 모자란 기간 — 받지 못한 시장 · 시험 첫날보다 200일선이 늦게 시작한 시장을 결과에 알린다(조용히 「시장 데이터 없음」 이 되지 않게)
   const marketStart = new Map<string, string>(); // 시장 → 가장 이른 시험 첫날
   const noteMarketStart = (m: string, _ref: MarketRefData, firstBar: Candle) => {
     const d = marketDate(firstBar.timestamp, MARKET_REF[m as 'US' | 'KR'].symbol);
@@ -339,7 +338,7 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
       const first = candles.length - days;
       const market = await marketFor(symbol);
       // 누설 검사: 모든 방법의 판단(보유·미보유)을 봉마다 — 지표를 잘라 다시 계산해 같은지(시장 필터면 시장 기준도 잘라서).
-      // 첫 종목 한 번 + 시장 필터를 켰으면 시장마다 첫 종목 한 번(v2.51.0 — 국내·미국을 섞어도 두 시장 기준을 모두 검사)
+      // 첫 종목 한 번 + 시장 필터를 켰으면 시장마다 첫 종목 한 번(국내·미국을 섞어도 두 시장 기준을 모두 검사)
       const mkt = marketOfSymbol(symbol);
       if (!leak.symbol || (useMarket && !leakMarkets.has(mkt))) {
         const bad = await leakCheck(symbol, candles, series, first, rules, market);
@@ -358,7 +357,7 @@ export async function runCustomBacktest(input: BacktestInput, onProgress?: Resea
     }
     sample();
   }
-  // 같은 기간 SPY 그냥 들고 있기 (v2.41.0) — 종목의 「그냥 들고 있기」 와 **같은 함수**(simulateSegments 의 holdReturn)·같은 기간·
+  // 같은 기간 SPY 그냥 들고 있기 — 종목의 「그냥 들고 있기」 와 **같은 함수**(simulateSegments 의 holdReturn)·같은 기간·
   // 같은 구간 복리. 비교 기준일 뿐 판정·"좋음" 표시는 없다. 고른 종목에 SPY 가 있으면 그 계산을 그대로 쓴다.
   let spy: BacktestCustomReport['spy'];
   try {

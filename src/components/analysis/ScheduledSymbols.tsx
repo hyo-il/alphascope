@@ -9,7 +9,7 @@ import SymbolPicker from '../common/SymbolPicker';
 import { SIGNAL_LABEL } from './signalStyle';
 
 /**
- * 「AI 분석 기록」 상태 판의 「내가 지정한 종목」 칸 + 편집 팝업 (v2.23.0).
+ * 「AI 분석 기록」 상태 판의 「내가 지정한 종목」 칸 + 편집 팝업.
  *
  * 하루 1번(미국 장 마감 30분 뒤 첫 확인), 최대 10종목. ⚠️ 분석만 한다 — 주문은 내지 않는다.
  * 1종목 = Gemini 5호출(에이전트 4 + 의장 1) 이라 "하루 최대 약 N×5호출" 을 숫자로 보여 준다.
@@ -174,7 +174,7 @@ function ScheduledEditor({
         maxReason={`하루 최대 ${status.max * 5}호출 — 필요하면 나중에 늘립니다`}
         dialogTitle="지정 종목 추가"
         emptyText="[종목 추가] 에서 하루 1번 분석할 종목을 추가하세요."
-        // 접힌 한 줄로 연다 (v2.48.0 — 종목을 넣는 곳 모두)
+        // 접힌 한 줄로 연다 (종목을 넣는 곳 모두)
         collapsible
       />
       <p className="text-caption text-text-muted">

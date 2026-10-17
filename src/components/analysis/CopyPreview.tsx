@@ -6,7 +6,7 @@ import { TIMEFRAME_LABEL } from '../../types/toss';
 import { useStockNames } from '../../hooks/useStockNames';
 
 /**
- * 「복사될 차트」 미리보기 (v2.34.0) — 수동 분석 전체 모드의 ① 칸(v2.47.0 부터 차트 아래 AI 탭 안).
+ * 「복사될 차트」 미리보기 — 수동 분석 전체 모드의 ① 칸(차트 아래 AI 탭 안).
  *
  * 그 화면에는 차트가 보이지 않아 "어떤 그림이 복사되는지" 알 수 없었다. 그래서 **복사·저장에 쓰는 바로 그 Blob**(자동 캡처가
  * `captureStore` 에 넣어 둔 것)을 작게 보이고, 누르면 크게 본다. 새로 캡처하는 경로는 만들지 않는다 — [다시 캡처] 는 기존 자동 캡처를 한 번 더 돌린다.
@@ -58,7 +58,7 @@ export default function CopyPreview({
   if (!capture || !url) return null;
 
   const at = new Date(capture.capturedAt);
-  // 시각은 앱 공통 표기(24시간, 초 없음 — v2.42.3 「날짜 표기」)
+  // 시각은 앱 공통 표기(24시간, 초 없음 — 「날짜 표기」)
   const time = formatTime(at);
   return (
     <>
@@ -73,7 +73,7 @@ export default function CopyPreview({
       <p className="text-caption text-text-muted">
         {nameOf(capture.symbol) ?? ''} {capture.symbol} · {TIMEFRAME_LABEL[capture.timeframe]} · 캡처 {time}
       </p>
-      {/* 큰 미리보기 — 공용 창 틀(v2.41.0). ESC·바깥 클릭·닫기 X 로 닫는다 */}
+      {/* 큰 미리보기 — 공용 창 틀. ESC·바깥 클릭·닫기 X 로 닫는다 */}
       {open && (
         <Dialog
           title="복사될 차트"

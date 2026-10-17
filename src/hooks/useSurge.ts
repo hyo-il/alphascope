@@ -182,7 +182,7 @@ export function useSurgeHistory(enabled: boolean) {
   }, [enabled, version]);
 
   /**
-   * 이력 삭제 (v2.22.0) — `detectedAt` 이면 그 회차, 없으면 전체. 지운 건수를 돌려준다.
+   * 이력 삭제 — `detectedAt` 이면 그 회차, 없으면 전체. 지운 건수를 돌려준다.
    * 실패는 throw 한다 — 화면이 토스트로 알린다.
    */
   const remove = useCallback(async (detectedAt?: string) => {

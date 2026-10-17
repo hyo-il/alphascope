@@ -5,7 +5,7 @@ import { ICON, ICON_SM } from './icon';
 type IconType = LucideIcon;
 
 /**
- * 아이콘만 있는 버튼 (v2.36.0) — **`label` 이 필수**다(`aria-label` 과 툴팁에 함께 쓴다).
+ * 아이콘만 있는 버튼 — **`label` 이 필수**다(`aria-label` 과 툴팁에 함께 쓴다).
  * 글자 없는 버튼은 뜻을 아이콘에만 맡기므로, 이름이 없으면 화면 읽기·마우스 모두에서 무엇인지 모른다.
  * tone: 기본 회색 → hover 흰색 / danger 는 hover 때 빨강(지우기) / active 는 켜진 상태(흰색 + 옅은 바탕).
  */

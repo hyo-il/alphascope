@@ -32,11 +32,11 @@ const TABS: { id: Tab; label: string }[] = [
 const MAX_SYMBOLS = 50;
 
 /**
- * 매수 판단 (v2.47.0 이름 — 예전 「매수 판단 도우미」, v2.45.0 — 퀀트 다시 만들기 3단계). page id 는 예전 그대로 `swing`(주소·저장값).
+ * 매수 판단. page id 는 `swing` 그대로(주소·저장값).
  *
  * 위에서 고른 「매매 규칙」 하나로 전용 목록을 판단한다(서버 `buyJudge` — 마감 판단은 계좌 자동매매와 같은 함수).
  * 표 하나 + 장중 참고 점수 + 줄마다 [목표 수익 가능성](한 번에 한 종목) · 「히스토리」 탭.
- * ⚠️ 주문을 내지 않는다(예전 [모의 매수] 없음). 예전 카드 · 강력 추천/추천/관심 · 판단 기준 편집 · 종목 검색 · 목표 수익 가능성 탭은 없앴다.
+ * ⚠️ 주문을 내지 않는다([모의 매수] 없음).
  */
 export default function BuyJudgeView() {
   const [tab, setTab] = usePageTab('swing');
@@ -108,8 +108,8 @@ export default function BuyJudgeView() {
             <div className="flex flex-wrap items-start gap-3">
               <RuleSelect rules={rules} value={j.state?.ruleId ?? null} onChange={(id) => void act(j.setRule(id), '규칙을 바꾸지 못했습니다')} disabled={busy != null} label="매매 규칙" />
               {/*
-                [실행] (v2.48.0 — 예전 [다시 실행]). 같은 날 다시 실행하면 판단(끝난 봉)은 같고 걸리는 시간도 짧아 예전에는 바뀐 것이
-                하나도 보이지 않았다(진행 표시 0.2초 · 계산 시각은 분 단위 · 완료 알림 없음 — 40차에 재현). 그래서 끝나면 알림을 띄운다.
+                [실행]. 같은 날 다시 실행하면 판단(끝난 봉)은 같고 걸리는 시간도 짧아 알리지 않으면 바뀐 것이
+                하나도 보이지 않는다(진행 표시 0.2초 · 계산 시각은 분 단위). 그래서 끝나면 늘 알림을 띄운다.
               */}
               <Button className="ml-auto" icon={RefreshCw} busy={busy === '실행 중…'} onClick={() => void runAll()} disabled={busy != null || ruleMissing || !symbols.length}>
                 {busy === '실행 중…' ? '실행 중…' : '실행'}

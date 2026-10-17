@@ -54,7 +54,7 @@ export default function CompareChart({
         {slotLabel && <span className="shrink-0 text-xs text-text-muted">{slotLabel}</span>}
         {/*
           이름이 먼저, 티커가 괄호로 뒤에 — 티커만 단독으로 적지 않는다.
-          ⚠️ 줄일 때는 **이름만** 말줄임한다 — 티커(코드)는 자르지 않는다(v2.33.0, 1280 에서 「(00593…」 처럼 잘렸다).
+          ⚠️ 줄일 때는 **이름만** 말줄임한다 — 티커(코드)는 자르지 않는다(1280 에서 「(00593…」 처럼 잘렸다).
         */}
         <span className="flex min-w-0 items-baseline gap-1 text-sm font-semibold">
           {name ? (

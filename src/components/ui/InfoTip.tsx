@@ -4,11 +4,11 @@ import { Info } from 'lucide-react';
 import { ICON_SM } from './icon';
 
 /**
- * 정보 아이콘 + 툴팁 (v2.36.0 디자인 규칙 6) — 제목 줄·바닥 줄에 늘 떠 있던 긴 설명(기준 시각·새로고침 주기·조작법)을 여기로 옮긴다.
+ * 정보 아이콘 + 툴팁 (디자인 규칙 6) — 제목 줄·바닥 줄에 늘 떠 있던 긴 설명(기준 시각·새로고침 주기·조작법)을 여기로 옮긴다.
  *
  * - 마우스를 올리거나 **키보드로 포커스하면** 열린다(Tab → 열림, Esc·포커스 이동 → 닫힘). `aria-describedby` 로 내용을 읽힌다.
  * - 툴팁은 `document.body` 에 그린다 — 조상의 `overflow-hidden` 에 잘리지 않게.
- * - ⚠️ **"지우지 않는다" 고정 안내 문구는 여기에 넣지 않는다**(화면에 글자로 남긴다 — CLAUDE.md 디자인 가이드라인).
+ * - ⚠️ **"지우지 않는다" 고정 안내 문구는 여기에 넣지 않는다**(화면에 글자로 남긴다 — docs/rules/design.md 「디자인 규칙」).
  */
 export default function InfoTip({ children, label = '설명' }: { children: ReactNode; label?: string }) {
   const id = useId();

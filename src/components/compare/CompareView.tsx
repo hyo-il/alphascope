@@ -13,7 +13,7 @@ import { COMPARE_TIMEFRAMES } from '../../types/compare';
 import { useAppStore } from '../../store/appStore';
 
 /**
- * 기업 비교 — **보기 2개(①② 한 줄) / 4개(2×2)** (v2.41.0, 예전에는 항상 2×2). 종목 수가 아니라 사용자가 고른 보기로 칸 수가 정해진다.
+ * 기업 비교 — **보기 2개(①② 한 줄) / 4개(2×2)**. 종목 수가 아니라 사용자가 고른 보기로 칸 수가 정해진다.
  *
  * 종목 수에 따라 칸 수를 바꾸지 않는다. 빈 칸이 그대로 남아 있어야 "② 번 자리에 이 종목"
  * 처럼 자리를 고를 수 있고, 빈 칸 자체가 드롭 목표이자 검색 진입점이 된다.
@@ -26,7 +26,7 @@ import { useAppStore } from '../../store/appStore';
  * 캡처 대상이 아니라 살려 둘 이유가 없고, 넷을 화면 밖에 띄워 두는 비용이 크다.
  */
 interface Props {
-  /** 차트에서 보던 종목 — [보던 종목 추가] 로 넣는다(v2.41.0 부터 들어올 때 자동으로 넣지 않는다) */
+  /** 차트에서 보던 종목 — [보던 종목 추가] 로 넣는다(들어올 때 자동으로 넣지 않는다) */
   currentSymbol?: string | null;
 }
 
@@ -55,7 +55,7 @@ export default function CompareView({ currentSymbol }: Props) {
   );
   const names = useStockNames(symbols);
 
-  // 빈 칸에서 시작한다(v2.41.0 — 예전에는 보던 종목을 첫 칸에 넣었다). 화면을 나가면 선택을 비운다 (의도된 동작).
+  // 빈 칸에서 시작한다. 화면을 나가면 선택을 비운다 (의도된 동작).
   useEffect(() => {
     return () => clearSymbols();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -133,7 +133,7 @@ export default function CompareView({ currentSymbol }: Props) {
       <div
         className={`grid grid-cols-1 gap-2 lg:grid-cols-2 ${chartsVisible ? '' : 'hidden'}`}
       >
-        {/* 보기 4개 = 2×2 · 차트 380px / 2개 = ①② 한 줄 · 560px (v2.41.0, 예전 280px) */}
+        {/* 보기 4개 = 2×2 · 차트 380px / 2개 = ①② 한 줄 · 560px */}
         {visibleSlots.map((symbol, index) => (
           <div key={index} className={layout === 2 ? 'h-[560px]' : 'h-[380px]'}>
             <CompareSlot
@@ -148,7 +148,7 @@ export default function CompareView({ currentSymbol }: Props) {
               }
               onRemove={() => {
                 // 뺀 종목의 타임프레임 설정도 함께 버린다 — 남겨 두면 다시 담았을 때
-                // 예전에 고른 값이 되살아나, 나가면 선택을 비우는 이 화면의 규칙과 어긋난다.
+                // 지난번에 고른 값이 되살아나, 나가면 선택을 비우는 이 화면의 규칙과 어긋난다.
                 if (symbol) setTimeframes(({ [symbol]: _removed, ...rest }) => rest);
                 removeSlot(index);
               }}
@@ -172,7 +172,7 @@ export default function CompareView({ currentSymbol }: Props) {
             summaries={summaries}
             loading={summariesLoading}
           />
-          {/* AI 비교 프롬프트 — 처음엔 접혀 있다(기억하지 않음, v2.41.0) */}
+          {/* AI 비교 프롬프트 — 처음엔 접혀 있다(기억하지 않음) */}
           <div className="space-y-2">
             <DisclosureButton open={promptOpen} onToggle={() => setPromptOpen((v) => !v)} label="AI 비교 프롬프트 보기" controls="compare-ai-prompt" />
             {promptOpen && (

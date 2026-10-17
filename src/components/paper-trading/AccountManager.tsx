@@ -16,7 +16,7 @@ interface Props {
   onCreate: (input: { name: string; initialBalance: number }) => Promise<unknown>;
   onReset: (id: number) => Promise<unknown>;
   onDelete: (id: number) => Promise<unknown>;
-  /** [계좌 복사] 뒤 — 새 계좌 화면으로 (v2.46.0) */
+  /** [계좌 복사] 뒤 — 새 계좌 화면으로 */
   onCopied?: (account: PaperAccount) => Promise<void> | void;
 }
 
@@ -100,7 +100,7 @@ export default function AccountManager({
         </Button>
         {selected && (
           <>
-            {/* 같은 설정의 새 계좌 — AI 검증 켠 계좌와 끈 계좌를 같은 조건으로 비교하려고 (v2.46.0) */}
+            {/* 같은 설정의 새 계좌 — AI 검증 켠 계좌와 끈 계좌를 같은 조건으로 비교하려고 */}
             {onCopied && (
               <Button variant="secondary" size="sm" icon={Copy}
                 onClick={() => setCopying(true)}>
@@ -111,7 +111,7 @@ export default function AccountManager({
               onClick={confirmReset}>
               초기화
             </Button>
-            {/* 화면 안의 삭제 = 빨간 글자(기준표 「버튼」 — v2.44.2 캡처 검토에서 찾음) */}
+            {/* 화면 안의 삭제 = 빨간 글자(기준표 「버튼」) */}
             <Button variant="danger-text" size="sm"
               onClick={confirmDelete}>
               <TrashIcon className="h-3.5 w-3.5" />

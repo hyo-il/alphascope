@@ -41,11 +41,11 @@ interface Props {
   /** 히스토리 탭이 '방금 쓴 프롬프트'를 함께 저장할 수 있도록 알려 준다 */
   onPromptChange?: (value: { mode: string; text: string }) => void;
   /**
-   * 차트 하단 탭용 간단 모드 (v2.26.0) — 프롬프트 내용·모드·투자 기간을 그리지 않고 복사 단계만 보인다.
+   * 차트 하단 탭용 간단 모드 — 프롬프트 내용·모드·투자 기간을 그리지 않고 복사 단계만 보인다.
    * 프롬프트는 같은 조립 함수로 만든 **기본값**(전문가 분석 · DEFAULT_HORIZON, 편집 없음) — 두 벌로 두면 갈라진다.
    */
   compact?: boolean;
-  /** 간단 모드의 「분석 방식·프롬프트 수정 보기」 — 같은 자리(차트 아래 AI 탭)에서 전체 모드로 바꾼다 (v2.47.0) */
+  /** 간단 모드의 「분석 방식·프롬프트 수정 보기」 — 같은 자리(차트 아래 AI 탭)에서 전체 모드로 바꾼다 */
   onOpenFull?: () => void;
 }
 
@@ -79,25 +79,25 @@ export default function ManualAnalysis({
   );
   const capture = useCaptureStore((s) => s.capture);
   const clearCapture = useCaptureStore((s) => s.clearCapture);
-  /** 「프롬프트 수정」 펼침 (v2.28.0) — 기억하지 않는다(기본 접힘) */
+  /** 「프롬프트 수정」 펼침 — 기억하지 않는다(기본 접힘) */
   const [editorOpen, setEditorOpen] = useState(false);
   /**
-   * 「지금 보고 있는 차트 캡처」 를 위해 화면 밖에서 찍는 중인 스냅샷 (v2.28.0, 전체 모드만).
+   * 「지금 보고 있는 차트 캡처」 를 위해 화면 밖에서 찍는 중인 스냅샷 (전체 모드만).
    * 화면을 열 때·종목/봉이 바뀔 때 메인 차트 그대로 미리 찍어 둔다 — ① 버튼은 그 Blob 만 복사한다.
    */
   const [autoContext, setAutoContext] = useState<ReturnType<typeof getChartSnapshot> | null>(null);
 
-  /** 자동 캡처 실패 이유 — 전체 모드의 ① 미리보기 자리에 보인다 (v2.34.0) */
+  /** 자동 캡처 실패 이유 — 전체 모드의 ① 미리보기 자리에 보인다 */
   const [autoError, setAutoError] = useState<string | null>(null);
 
   const openCapture = () => setCaptureContext(getChartSnapshot());
   const startAutoCapture = () => {
-    clearCapture(); // 다른 종목·예전 구간의 캡처가 ① 로 복사되지 않게
+    clearCapture(); // 다른 종목·지난 구간의 캡처가 ① 로 복사되지 않게
     setAutoError(null);
     setAutoContext(getChartSnapshot());
   };
 
-  // 전체 모드·차트 하단 간단 모드 모두(v2.29.0 — 간단 모드에도 같은 코드로). 간단 모드는 차트 화면에서 그 탭을 열 때만 마운트된다
+  // 전체 모드·차트 하단 간단 모드 모두(간단 모드에도 같은 코드로). 간단 모드는 차트 화면에서 그 탭을 열 때만 마운트된다
   // (ChartBottomTabs 의 `active`) — 다른 화면에서는 돌지 않는다.
   useEffect(() => {
     startAutoCapture();
@@ -128,7 +128,7 @@ export default function ManualAnalysis({
   const holding = portfolio?.holdings.find((h) => h.symbol === symbol) ?? null;
 
   // 빠른 분석·포트폴리오는 종목 요약(지표 + 재무)이 필요하다.
-  // (비교 분석 모드는 v2.22.0 에 「차트 > 기업 비교」 로 모았다)
+  // (비교 분석은 「차트·비교 > 기업 비교」 가 맡는다)
   const summaryTargets = useMemo(() => {
     if (mode === 'quick') return [symbol];
     if (mode === 'portfolio') return portfolio?.holdings.map((h) => h.symbol) ?? [];
@@ -137,7 +137,7 @@ export default function ManualAnalysis({
 
   const { summaries, loading: summariesLoading } = useSymbolSummaries(summaryTargets);
 
-  // 투자자 동향 — 국내 종목의 간단·전문가 분석에만 넣는다(v2.23.0). 미국 종목은 요청도 하지 않는다.
+  // 투자자 동향 — 국내 종목의 간단·전문가 분석에만 넣는다. 미국 종목은 요청도 하지 않는다.
   const { flow, loading: flowLoading } = useInvestorFlow(symbol, mode === 'quick' || mode === 'multi');
   const flowBlock = investorFlowBlock(flow);
 
@@ -195,7 +195,7 @@ export default function ManualAnalysis({
   const prompt = edited ?? generated;
 
   /*
-   * 프롬프트 초기화 — 직접 고친 내용이 있을 때만 확인 창 (v2.34.1). 고친 것이 없거나 자동 생성본과 같으면 바로 되돌린다.
+   * 프롬프트 초기화 — 직접 고친 내용이 있을 때만 확인 창. 고친 것이 없거나 자동 생성본과 같으면 바로 되돌린다.
    */
   const resetPrompt = () => {
     if (edited === null || edited === generated) {
@@ -216,7 +216,7 @@ export default function ManualAnalysis({
     onPromptChange?.({ mode: `${mode}·${horizonLabel(horizon)}`, text: prompt });
   }, [mode, horizon, prompt, onPromptChange]);
   /*
-   * 동종업계도 기다린다 (v2.29.0) — 예전에는 빠져 있어 ② 를 일찍 누르면 동종업계 비교가 빠진 프롬프트가 복사됐다.
+   * 동종업계도 기다린다 — 기다리지 않으면 ② 를 일찍 누를 때 동종업계 비교가 빠진 프롬프트가 복사된다.
    * 요청을 실제로 보낼 때(전문가 분석 + 재무를 받았을 때)만, 응답(성공·실패·빈 목록)이 올 때까지. 실패·빈 응답은 막지 않는다("(없음)").
    */
   const peersWaiting = mode === 'multi' && Boolean(fundamentals) && !peersState.settled;
@@ -260,7 +260,7 @@ export default function ManualAnalysis({
   if (compact) {
     return (
       /*
-        가로 배치 (v2.33.0) — 예전에는 좁은 세로 칸 하나(max-w-md)에 쌓여 오른쪽이 비고 아래가 잘렸다.
+        가로 배치 — 좁은 세로 칸 하나(max-w-md)에 쌓으면 오른쪽이 비고 아래가 잘린다.
         위 한 줄(설명 + 오른쪽 끝 「분석 방식·프롬프트 수정 보기」) → ① ② ③ 가로 3칸. 탭 기본 높이에서 스크롤 없이 다 보인다.
       */
       <div className={`space-y-2 ${PANEL_PAD}`}>
@@ -289,7 +289,7 @@ export default function ManualAnalysis({
           horizontal
           hideIntro
         />
-        {/* 간단 모드에는 「상세 캡처」 를 두지 않는다(상세는 전체 모드에서 — v2.47.0 부터 같은 탭 안) */}
+        {/* 간단 모드에는 「상세 캡처」 를 두지 않는다(상세는 같은 탭 안 전체 모드에서) */}
         {autoCaptureModal}
       </div>
     );
@@ -297,16 +297,16 @@ export default function ManualAnalysis({
 
 
   /*
-   * 전체 모드 (v2.28.0 간소화) — 분석 방식 한 줄 + ① 캡처 ② 프롬프트 복사 ③ Claude 열기 + [상세 캡처…] [프롬프트 수정 ▾].
+   * 전체 모드 — 분석 방식 한 줄 + ① 캡처 ② 프롬프트 복사 ③ Claude 열기 + [상세 캡처…] [프롬프트 수정 ▾].
    * 프롬프트 글은 「프롬프트 수정」 을 펼칠 때만 보인다(투자 기간·교차 검증·편집창·글자 수·초기화도 그 안).
    * 프롬프트를 만드는 함수·내용은 바꾸지 않았다 — 위 `generated` 그대로.
    */
   /*
-   * ⚠️ 바깥 틀은 아래 기록 영역(`AnalysisHistory` — 가로 여백 없음, 화면 폭)과 **같다** (v2.34.0 · v2.42.2) — 예전에는 위만 가운데로 모인 좁은 폭(max-w-3xl)이라
-   * 위·아래 좌우 끝이 맞지 않았다. ①②③ 은 이 폭에서 3등분된다. 스크롤은 바깥(차트 아래 AI 탭)이 맡는다.
+   * ⚠️ 바깥 틀은 아래 기록 영역(`AnalysisHistory` — 가로 여백 없음, 화면 폭)과 **같다** — 위만 가운데로 모인 좁은 폭(max-w-3xl)이면
+   * 위·아래 좌우 끝이 맞지 않는다. ①②③ 은 이 폭에서 3등분된다. 스크롤은 바깥(차트 아래 AI 탭)이 맡는다.
    */
   return (
-    // 가로 여백은 바깥(차트 아래 AI 탭 전체 모드의 PANEL_PAD — v2.47.0 전에는 AI 분석 화면)이 맡는다 — 탭 글자와 왼쪽 끝이 같은 선 (v2.42.2, 예전 px-4 pt-4 가 한 번 더 들어가 +16px)
+    // 가로 여백은 바깥(차트 아래 AI 탭 전체 모드의 PANEL_PAD)이 맡는다 — 탭 글자와 왼쪽 끝이 같은 선(여기서 px-4 pt-4 를 또 주면 +16px 어긋난다)
     <div>
       <div className="flex flex-col gap-4">
         <section className="flex flex-wrap items-center gap-2">
@@ -325,7 +325,7 @@ export default function ManualAnalysis({
           promptLabel={edited !== null ? '수정한 프롬프트 복사' : '기본 프롬프트 복사'}
           promptReady={!loading}
           horizontal
-          // 전체 모드에는 차트가 보이지 않는다 — ① 칸에 복사될 그림을 미리 보인다 (v2.34.0). 간단 모드(차트 바로 아래)에는 두지 않는다
+          // 전체 모드에는 차트가 보이지 않는다 — ① 칸에 복사될 그림을 미리 보인다. 간단 모드(차트 바로 아래)에는 두지 않는다
           preview={{ symbol, error: autoError, onRecapture: startAutoCapture }}
         />
 

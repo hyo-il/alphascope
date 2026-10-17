@@ -1,5 +1,5 @@
 /**
- * 대형주 유니버스 — `npm run universe:update` 와 서버의 **월별 스냅샷**(v2.15.0)이 같은 함수를 쓴다.
+ * 대형주 유니버스 — `npm run universe:update` 와 서버의 **월별 스냅샷**이 같은 함수를 쓴다.
  *
  * 미국 시가총액 상위 100 + 국내 시가총액 상위 100 을 `server/data/universe.json` 에 저장한다.
  * `npm run research:target` 과 다음 화면 작업이 이 파일을 쓴다 — **파일로 고정**해 두어야
@@ -146,7 +146,7 @@ export function readUniverse(): Universe {
   return JSON.parse(fs.readFileSync(UNIVERSE_PATH, 'utf8')) as Universe;
 }
 
-// ── 월별 스냅샷 (v2.15.0) ────────────────────────────────────────────────────
+// ── 월별 스냅샷 ────────────────────────────────────────────────────
 //
 // 목적: 1년 뒤 "그 시점의 시총 상위" 로 과거를 시험해 **생존 편향을 줄이기** 위해서다.
 // 오늘의 상위 100 으로 과거를 보면 그사이 밀려난 회사가 빠져 결과가 좋아 보인다.
@@ -203,7 +203,7 @@ let running = false;
  * 실패하면 로그만 남기고 다음 날 다시 시도한다. 한 번에 하나만 돈다.
  */
 export function startUniverseSnapshotScheduler(): void {
-  // 테스트 서버 스위치 (v2.41.0) — false 면 유니버스 파일 쓰기·월별 스냅샷 받기를 하지 않는다(읽기는 그대로).
+  // 테스트 서버 스위치 — false 면 유니버스 파일 쓰기·월별 스냅샷 받기를 하지 않는다(읽기는 그대로).
   // 복사본 DB 로 띄운 테스트 서버가 저장소의 server/data/universe.json 을 덮어쓰던 일을 막는다. `npm run universe:update` 는 사람이 직접 부르는 것이라 그대로 동작한다.
   if (process.env.UNIVERSE_UPDATE_ENABLED === 'false') {
     console.log('[universe] 유니버스 갱신 꺼짐 (UNIVERSE_UPDATE_ENABLED=false) — 파일·스냅샷을 쓰지 않습니다');

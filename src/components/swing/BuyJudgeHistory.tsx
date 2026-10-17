@@ -23,11 +23,11 @@ const pct = (v: number | null) => (v == null ? '—' : `${formatSigned(v, 2)}%`)
 const tone = (v: number | null) => (v == null ? 'text-text-muted' : v > 0 ? 'text-bullish' : v < 0 ? 'text-bearish' : 'text-text-secondary');
 
 /**
- * 매수 판단 히스토리 (v2.45.0, 사용자 결정 A-8 → v2.48.0) — ① 날짜별 목록(위 한 줄 = 「사도 됨」 성과 요약, 펼치면 그날 종목 · 판단(색 + 총점) · 규칙 ·
+ * 매수 판단 히스토리 (사용자 결정 A-8) — ① 날짜별 목록(위 한 줄 = 「사도 됨」 성과 요약, 펼치면 그날 종목 · 판단(색 + 총점) · 규칙 ·
  * 「사도 됨」 의 5·10·20거래일 뒤 수익) ② 아래 접힌 칸 「종목별 사지 않은 이유」.
- * [기록 삭제] 는 판단 기록만. 목표 수익 가능성 기록·성적은 v2.47.0 에 「퀀트 > 검증 기록」 탭으로 옮겼다(A-5).
+ * [기록 삭제] 는 판단 기록만. 목표 수익 가능성 기록·성적은 「퀀트 > 검증 기록」 탭(A-5).
  */
-/** 「거름망에 걸림 N일 (시장 하락 2 · 200일선 아래 1)」 의 괄호 (v2.51.0) — 이유를 아는 날만. 괄호 덩어리는 한 번에 꺾인다(「1)」 만 남지 않게) */
+/** 「거름망에 걸림 N일 (시장 하락 2 · 200일선 아래 1)」 의 괄호 — 이유를 아는 날만. 괄호 덩어리는 한 번에 꺾인다(「1)」 만 남지 않게) */
 function gateBreakdown(reasons?: Partial<Record<GateReason, number>>): ReactNode {
   const parts = (Object.keys(GATE_REASON_LABEL) as GateReason[]).filter((k) => reasons?.[k]).map((k) => `${GATE_REASON_LABEL[k]} ${reasons![k]}`);
   return parts.length ? <> <span className="whitespace-nowrap">({parts.join(' · ')})</span></> : null;
@@ -86,7 +86,7 @@ export default function BuyJudgeHistory() {
   const s = h.data?.stats;
   return (
     <div className="space-y-6">
-      {/* ① 날짜별 목록 (v2.48.0 — 사용자 결정) — 위 한 줄 = 「사도 됨」 성과 요약, 날짜를 펼치면 그날 종목 전부. 백테스트 히스토리와 같은 부품(DateGroupList) */}
+      {/* ① 날짜별 목록 (사용자 결정) — 위 한 줄 = 「사도 됨」 성과 요약, 날짜를 펼치면 그날 종목 전부. 백테스트 히스토리와 같은 부품(DateGroupList) */}
       <section className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold text-text-primary">날짜별 판단</h3>
@@ -118,7 +118,7 @@ export default function BuyJudgeHistory() {
                 </>
               ),
               render: () => (
-                // 칸 폭 고정(table-fixed) — 날짜마다 내용 폭이 달라 두 날짜를 펼치면 열이 어긋났다(v2.48.0 캡처 검토)
+                // 칸 폭 고정(table-fixed) — 날짜마다 내용 폭이 달라 두 날짜를 펼치면 열이 어긋난다
                 <table className="w-full table-fixed text-left text-xs">
                   <colgroup>
                     <col />
@@ -164,7 +164,7 @@ export default function BuyJudgeHistory() {
         )}
       </section>
 
-      {/* ② 종목별 「사지 않은 이유」 — 목록 아래 접힌 칸 (v2.48.0) */}
+      {/* ② 종목별 「사지 않은 이유」 — 목록 아래 접힌 칸 */}
       <section className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <DisclosureButton open={reasonsOpen} onToggle={() => setReasonsOpen((v) => !v)} label="종목별 사지 않은 이유 보기" controls="buy-judge-reasons" />

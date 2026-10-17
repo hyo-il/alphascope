@@ -15,11 +15,11 @@ import { isChoseongOnly, toChoseong, toJamo } from '../../utils/hangul';
 import { stockNameOf } from '../../utils/stockNames';
 
 /**
- * 여러 종목 추가 — 앱에 하나 (v2.41.0). 자동매매 대상 종목 · 백테스트 · 목표 수익 가능성 · AI 지정 종목이 같은 부품을 쓴다.
- * (한 종목만 고르는 검색은 `SymbolSearch`, 기업 비교는 칸에 놓는 방식이라 예외 — CLAUDE.md 「공통 동작 규칙」)
+ * 여러 종목 추가 — 앱에 하나. 자동매매 대상 종목 · 백테스트 · 목표 수익 가능성 · AI 지정 종목이 같은 부품을 쓴다.
+ * (한 종목만 고르는 검색은 `SymbolSearch`, 기업 비교는 칸에 놓는 방식이라 예외 — docs/rules/design.md 「공통 동작 규칙」)
  *
  * 화면에 놓이는 부분: 목록 **위** 도구 줄 [종목 추가] · (N/최대) · [모두 삭제] + 고른 종목 칩(× = 목록에서 삭제, 2줄 넘으면 「+N개 더 보기」).
- * 이름은 용어집 「목록에 종목 넣기 = 종목 추가」(v2.44.2 — 예전 「종목 고르기」). 창 안의 탭 「목록에서 고르기」 는 창 안에서 고르는 동작이라 그대로 둔다.
+ * 이름은 용어집 「목록에 종목 넣기 = 종목 추가」. 창 안의 탭 「목록에서 고르기」 는 창 안에서 고르는 동작이라 그대로 둔다.
  * [종목 추가] 창: 왼쪽 = 목록 안 검색 · 「종목 추가」 · 관심 목록 전부 선택 · 묶음(관심 목록(폴더 밖 종목 → 폴더별) → 분야 7개 → 직접 추가한 종목),
  * 오른쪽 = 고른 종목. **누르는 즉시 반영**하고 [완료]·ESC·바깥 클릭은 닫기만 한다.
  *
@@ -48,7 +48,7 @@ export interface SymbolPickerProps {
   /** 창 제목 */
   dialogTitle?: string;
   /**
-   * 접힌 한 줄 요약으로 열기 (v2.48.0 — `common/SymbolCollapse`, 사용자 결정: 종목을 넣어 시험하는 곳 모두 — 자동매매 설정 · 백테스트 ① · 지정 종목).
+   * 접힌 한 줄 요약으로 열기 (`common/SymbolCollapse`, 사용자 결정: 종목을 넣어 시험하는 곳 모두 — 자동매매 설정 · 백테스트 ① · 지정 종목).
    * 종목이 1개 이상이면 접힌 채, 0개면 펼친 채. 매수 판단의 결과 표는 접지 않는다.
    */
   collapsible?: boolean;
@@ -227,7 +227,7 @@ export function PickerDialog({
       bodyClassName="flex"
       footer={<Button onClick={onClose}>완료</Button>}
     >
-      {/* 왼쪽 — 맨 위 탭 둘 (v2.42.0): [목록에서 고르기] 목록 안 찾기 + 묶음 목록 / [새 종목 검색] 목록 밖 종목 추가 */}
+      {/* 왼쪽 — 맨 위 탭 둘: [목록에서 고르기] 목록 안 찾기 + 묶음 목록 / [새 종목 검색] 목록 밖 종목 추가 */}
       <div className="flex min-w-0 flex-1 flex-col gap-2 border-r border-border/40 p-3">
         <Tabs
           label="종목 고르는 방법"
@@ -428,7 +428,7 @@ export function PickerDialog({
 
 /**
  * 「직접 추가한 종목」 — 화면이 넘긴 목록, 아니면 「종목 추가」 로 넣은 것 + 관심 목록·분야 어디에도 없는 고른 종목.
- * 칩 모양(`SymbolPicker`)과 표 모양(`SymbolTable`, v2.44.0)이 같은 함수를 쓴다.
+ * 칩 모양(`SymbolPicker`)과 표 모양(`SymbolTable`)이 같은 함수를 쓴다.
  */
 export function usePickerAdded(
   selected: string[],
@@ -484,13 +484,13 @@ export default function SymbolPicker(props: SymbolPickerProps) {
     <div className="space-y-2">
     <SymbolCollapse symbols={selected} collapsible={props.collapsible}>
     <div className="space-y-2">
-      {/* 제목은 따로 한 줄 — [종목 추가] 줄은 어느 화면에서나 같은 자리·모양(목록 바로 위, v2.44.2) */}
+      {/* 제목은 따로 한 줄 — [종목 추가] 줄은 어느 화면에서나 같은 자리·모양(목록 바로 위) */}
       {title != null && <h3 className="text-sm font-semibold text-text-primary">{title}</h3>}
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" icon={Plus} onClick={() => setOpen(true)} className="shrink-0 whitespace-nowrap">
           종목 추가
         </Button>
-        {/* 고른 개수 + 모두 삭제는 줄 오른쪽 끝에 한 묶음 「3개 · 모두 삭제」 — 버튼 묶음 사이에 끼지 않게(v2.42.2) */}
+        {/* 고른 개수 + 모두 삭제는 줄 오른쪽 끝에 한 묶음 「3개 · 모두 삭제」 — 버튼 묶음 사이에 끼지 않게 */}
         <span className="ml-auto flex shrink-0 items-center gap-2">
           <span className="text-caption text-text-muted tabular-nums">
             {selected.length}종목{max != null ? ` / 최대 ${max}종목` : ''}

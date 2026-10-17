@@ -7,7 +7,7 @@ import { CHANGELOG } from '../../data/changelog';
  * 설정 > 업데이트 내역.
  *
  * 어떤 패치가 적용됐는지 앱 안에서 확인하는 자리다. 데이터는 `src/data/changelog.ts` 에 있고,
- * 푸시할 때 맨 앞에 항목을 추가한다 (CLAUDE.md 「푸시 시 문서 정리」).
+ * 푸시할 때 맨 앞에 항목을 추가한다 (docs/rules/workflow.md 「푸시 전 문서 정리」).
  *
  * ⚠️ 항목을 **카드로 쌓지 않는다.** 버전이 늘수록 테두리가 반복돼 화면이 무거워지고,
  * 정작 읽어야 할 변경 내용보다 상자가 먼저 눈에 들어온다. 구분선으로만 나눈다.
@@ -28,7 +28,7 @@ export default function Changelog() {
         최신 버전이 맨 위입니다. 줄을 누르면 바뀐 내용이 펼쳐집니다.
       </p>
 
-      {/* 화면 폭을 꽉 채운다 (v2.42.0 사용자 결정 — 예전 max-w-2xl). 지난 버전 글은 기록이라 숫자 표기 측정에서 뺀다(data-measure-skip, v2.42.2) */}
+      {/* 화면 폭을 꽉 채운다 (사용자 결정). 지난 버전 글은 기록이라 숫자 표기 측정에서 뺀다(data-measure-skip) */}
       <div data-measure-skip>
         {CHANGELOG.map((entry, index) => {
           const isOpen = open.has(entry.version);
@@ -39,7 +39,7 @@ export default function Changelog() {
               /* 마지막 항목 아래에는 선을 긋지 않는다 (끝이 잘린 것처럼 보인다) */
               className={index === CHANGELOG.length - 1 ? '' : 'border-b border-border'}
             >
-              {/* 줄 전체가 버튼 — 버전 · 제목 · 날짜. 처음엔 모두 접혀 있고 펼침은 기억하지 않는다 (v2.41.0) */}
+              {/* 줄 전체가 버튼 — 버전 · 제목 · 날짜. 처음엔 모두 접혀 있고 펼침은 기억하지 않는다 */}
               <button
                 type="button"
                 onClick={() => toggle(entry.version)}
@@ -77,7 +77,7 @@ export default function Changelog() {
         })}
       </div>
 
-      {/* 앱에 넣은 글꼴의 라이선스 고지 (v2.35.0) — 라이선스 원문은 빌드에 넣지 않았다(패키지 @fontsource-variable/noto-sans-kr 의 LICENSE) */}
+      {/* 앱에 넣은 글꼴의 라이선스 고지 — 라이선스 원문은 빌드에 넣지 않았다(패키지 @fontsource-variable/noto-sans-kr 의 LICENSE) */}
       <p className="mt-6 border-t border-border pt-3 text-caption text-text-muted">
         글꼴: Noto Sans KR (SIL Open Font License 1.1)
       </p>

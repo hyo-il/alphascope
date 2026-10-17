@@ -7,7 +7,7 @@ import { useSymbolSummaries } from './useSymbolSummaries';
 
 /**
  * 비교 차트는 메인 차트만큼 길게 보지 않는다 — 화면이 작아 봉이 뭉개진다.
- * 주봉 60 ≈ 예전 "일봉 300개를 받아 주 단위로 묶기" 와 같은 기간이다(v2.20.0 부터 서버가 묶는다).
+ * 주봉 60 ≈ 일봉 300개(서버가 시장 달력으로 묶는다).
  */
 const LIMITS: Record<Timeframe, number> = {
   '1m': 300,
@@ -58,8 +58,8 @@ export function useCompareData(symbols: string[], timeframes: Record<string, Tim
   const timeframeKey = symbols.map((s) => timeframes[s] ?? '1d').join(',');
 
   /*
-   * 지표·재무 요약 — **아직 받지 않은 종목만** 묻는다 (v2.41.0). 예전에는 종목을 하나 담을 때마다
-   * 담겨 있던 종목까지 전부 다시 계산했다(종목마다 캔들 300봉 + 지표 엔진). 받은 것은 [새로고침] 전까지 다시 쓴다.
+   * 지표·재무 요약 — **아직 받지 않은 종목만** 묻는다. 종목을 하나 담을 때마다
+   * 담겨 있던 종목까지 전부 다시 계산하지 않는다(종목마다 캔들 300봉 + 지표 엔진). 받은 것은 [새로고침] 전까지 다시 쓴다.
    */
   const summaryCache = useRef(new Map<string, SymbolSummary>());
   const [summaryTick, setSummaryTick] = useState(0);

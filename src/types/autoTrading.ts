@@ -1,10 +1,9 @@
 /**
- * 계좌별 자동매매 (v2.44.0 — 퀀트 다시 만들기 2단계).
+ * 계좌별 자동매매 (퀀트 다시 만들기 2단계).
  *
  * 계좌는 「퀀트 > 매매 규칙」 에서 **규칙 하나를 골라** 쓴다(`ruleId`). 판단은 엔진 `server/rules/engine.ts` 의 `evaluateRule` 한 곳.
- * 손절 · 익절 · 트레일링은 **규칙의 매도 조건에만** 있다(예전 계좌의 「④ 청산」 은 없앴다).
+ * 손절 · 익절 · 트레일링은 **규칙의 매도 조건에만** 있다(계좌 설정에 청산 칸이 없다).
  * 매수·매도 신호는 종목마다 **그 시장이 열린 뒤 첫 판단에서 하루 한 번**(어제까지 끝난 봉 기준), 손절·익절·트레일링은 1분마다.
- * AI형 계좌·판단 방식·분석 주기·「미국 정규장만」 은 v2.44.0 에 없앴다.
  *
  * ⚠️ 모의 계좌(SQLite)만 건드린다. 실제 주문은 어떤 경로로도 나가지 않는다.
  */
@@ -24,7 +23,7 @@ export interface AccountStrategy {
   /** 동시에 보유할 최대 종목 수 (이미 보유한 종목의 추가 매수는 막지 않는다) */
   maxPositions: number;
 
-  // ── 신규 매수 안전장치 (v2.16.0) — 둘 다 새로 사는 것만 막는다. 손절·청산은 그대로 ──
+  // ── 신규 매수 안전장치 — 둘 다 새로 사는 것만 막는다. 손절·청산은 그대로 ──
   /**
    * 실적 발표 N 거래일 전부터 발표일까지 새로 사지 않는다. 0 = 끔. 기본 3 (앱의 출발값 — 검증 전).
    * 실적일은 `server/earningsCalendar.ts` 한 곳에서 읽는다.
@@ -36,25 +35,25 @@ export interface AccountStrategy {
    */
   dailyLossLimitPercent: number;
 
-  // ── AI 검증 (v2.46.0, 퀀트 4단계) ──────────────────
+  // ── AI 검증 (퀀트 4단계) ──────────────────
   /**
    * 규칙이 「사도 됨」 을 낸 종목을 사기 직전에 AI(Gemini)에게 한 번 묻고, 「위험」 이면 사지 않는다. 기본 끔.
-   * 매도(점수 매도 · 반대 신호 · 손절 · 익절 · 트레일링)에는 쓰지 않는다. 꺼진 계좌는 판단·주문이 예전과 같다(바이트 비교).
+   * 매도(점수 매도 · 반대 신호 · 손절 · 익절 · 트레일링)에는 쓰지 않는다. 꺼진 계좌는 판단·주문이 AI 검증이 없을 때와 같다(바이트 비교).
    */
   aiCheck: boolean;
 }
 
 /**
- * 판단 **종류 코드** (v2.32.0) — 엔진이 판단할 때 이미 아는 것만 담는다.
+ * 판단 **종류 코드** — 엔진이 판단할 때 이미 아는 것만 담는다.
  *
  * ⚠️ 화면은 사유 **문장**이 아니라 이 값으로 쉬운 말을 고른다(`utils/autoTradeExplain.ts` 한 곳).
- * - 매매 규칙 엔진(v2.43.0): score_buy · score_sell · rr_block · reentry_wait · dead · rsi_hot(반대 신호) · no_signal_buy · no_signal_hold
+ * - 매매 규칙 엔진: score_buy · score_sell · rr_block · reentry_wait · dead · rsi_hot(반대 신호) · no_signal_buy · no_signal_hold
  * - 공통: hard_stop · take_profit · trailing · earnings_blackout · max_positions · daily_loss · not_enough_candles · error
  * - other: 위에 없는 경로(예산·현금 부족 등)
- * v2.44.0 에 AI형(ai_*)과 예전 교차 계산기 전용 코드(golden · rsi_rebound)를 지웠다 — 그 기록(「최근 판단」)은 데이터 정리 때 지웠다.
+ * 옛 AI형(ai_*)·교차 계산기 전용 코드(golden · rsi_rebound)는 없다 — 그 기록(「최근 판단」)은 데이터 정리 때 지웠다.
  */
 /**
- * 「거름망에 걸림」 이유 (v2.51.0 — 사용자 결정 A-3). `gate_block` 판단에만 붙는다.
+ * 「거름망에 걸림」 이유 (사용자 결정 A-3). `gate_block` 판단에만 붙는다.
  * below200 = 종목 종가가 200일선 이하 · short = 종목 200일선을 계산할 일봉 부족 · market = 시장 기준이 200일선 이하 · market_nodata = 시장 기준 데이터 없음
  */
 export type GateReason = 'below200' | 'short' | 'market' | 'market_nodata';
@@ -78,9 +77,9 @@ export type DecisionCode =
   | 'score_buy'
   | 'score_sell'
   | 'rr_block'
-  /** v2.51.1 — 끝난 봉 가운데 장중에 저장된 값이 있고 다시 받지 못해 판단을 미룸(다음 틱에 다시) */
+  /** 끝난 봉 가운데 장중에 저장된 값이 있고 다시 받지 못해 판단을 미룸(다음 틱에 다시) */
   | 'bar_unconfirmed'
-  /** v2.50.0 — 점수는 기준 이상이지만 「거름망」(200일선 위일 때만 매수)을 통과하지 못해 사지 않음 */
+  /** 점수는 기준 이상이지만 「거름망」(200일선 위일 때만 매수)을 통과하지 못해 사지 않음 */
   | 'gate_block'
   | 'reentry_wait'
   | 'dead'
@@ -96,7 +95,7 @@ export type DecisionCode =
   | 'not_enough_candles'
   | 'error'
   | 'other'
-  // AI 검증(v2.46.0) — 규칙 「사도 됨」 → 안전장치·현금 통과 뒤 AI 에게 물은 결과
+  // AI 검증 — 규칙 「사도 됨」 → 안전장치·현금 통과 뒤 AI 에게 물은 결과
   | 'ai_pass'
   | 'ai_risk'
   | 'ai_unavailable';
@@ -107,13 +106,13 @@ export interface DecisionNote {
   action: 'BUY' | 'SELL' | 'HOLD';
   reason: string;
   code?: DecisionCode;
-  /** AI 검증 이유(최대 3줄) 또는 못 한 까닭 — 「최근 판단」 줄을 펼치면 보인다(v2.46.0). AI 검증 줄에만 붙는다 */
+  /** AI 검증 이유(최대 3줄) 또는 못 한 까닭 — 「최근 판단」 줄을 펼치면 보인다. AI 검증 줄에만 붙는다 */
   detail?: string[];
-  /** 총점 순위(v2.49.0) — 같은 판단에서 「사도 됨」 이 2개 이상일 때 산 줄과 「보유 종목 수가 가득 참」 줄에만 붙는다 */
+  /** 총점 순위 — 같은 판단에서 「사도 됨」 이 2개 이상일 때 산 줄과 「보유 종목 수가 가득 참」 줄에만 붙는다 */
   rank?: { n: number; of: number };
-  /** 「거름망에 걸림」 이유(v2.51.0) — gate_block 줄에만 */
+  /** 「거름망에 걸림」 이유 — gate_block 줄에만 */
   gateReason?: GateReason;
-  /** 「최근 판단」 하루치(v2.50.0) — 판단한 시각(같은 판단 = 같은 값) · 종목의 시장. 저장할 때 붙는다 */
+  /** 「최근 판단」 하루치 — 판단한 시각(같은 판단 = 같은 값) · 종목의 시장. 저장할 때 붙는다 */
   at?: string;
   market?: 'KR' | 'US';
 }
@@ -139,18 +138,18 @@ export interface AccountStrategyStatus {
   /** 멈춤의 종류 — 화면 분기는 문구가 아니라 **이 값**으로 한다 */
   blockedKind: BlockedKind;
   /**
-   * 이 서버에서 자동매매 스케줄러가 도는가 (`AUTO_TRADING_ENABLED`, v2.16.0).
+   * 이 서버에서 자동매매 스케줄러가 도는가 (`AUTO_TRADING_ENABLED`).
    * false 면 설정이 켜져 있어도 돌지 않는다 — 화면이 계좌 설정과 무관하게 알린다.
    */
   serverEnabled: boolean;
-  /** 대상 종목 중 오늘(그 종목 시장 날짜) 이미 신호를 본 수 (v2.44.0) */
+  /** 대상 종목 중 오늘(그 종목 시장 날짜) 이미 신호를 본 수 */
   judgedToday: number;
   /**
-   * 대상 종목 시장별 **다음 개장 시각**(ISO, v2.44.1) — 서버가 휴장일까지 보고 계산한다(`marketHours.nextMarketOpen`).
+   * 대상 종목 시장별 **다음 개장 시각**(ISO) — 서버가 휴장일까지 보고 계산한다(`marketHours.nextMarketOpen`).
    * 화면은 시각을 따로 계산하지 않고 이것을 한국 시간으로 보이기만 한다. 대상 종목의 시장만 들어 있다.
    */
   nextOpen: Partial<Record<'US' | 'KR', string>>;
-  /** 마지막 한 바퀴의 판단 — 매수·매도뿐 아니라 **건너뛴 이유**도 담는다 (v2.16.0) */
+  /** 마지막 한 바퀴의 판단 — 매수·매도뿐 아니라 **건너뛴 이유**도 담는다 */
   lastNotes: DecisionNote[];
   lastNotesAt: string | null;
 }
@@ -169,7 +168,7 @@ export interface AutoTradeRunResult {
 }
 
 /**
- * 지표 엔진(Python 5001)이 계산하는 이동평균 일수 — **이 목록뿐이다** (v2.38.0 에 한 곳으로 모았다 · v2.50.0 에 50 · 200 을 더했다).
+ * 지표 엔진(Python 5001)이 계산하는 이동평균 일수 — **이 목록뿐이다**.
  * 매매 규칙의 이동평균 교차는 이 중에서만 고른다(`utils/ruleInput.ts` · `rules/RuleDialog.tsx` · `rules/engine.pickMa` 가 이 목록 하나를 따른다).
  */
 export const ENGINE_MA_PERIODS = [5, 20, 50, 60, 120, 200] as const;

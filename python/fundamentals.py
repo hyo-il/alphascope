@@ -112,9 +112,9 @@ def get_earnings(symbols: list[str]) -> list[dict]:
             "date": earnings_date(info),
             "isEstimate": bool(estimate) if estimate is not None else None,
             "found": bool(info),
-            # 같은 info 에서 섹터·시총도 함께 준다 (v2.18.0 종목 지도) — 따로 받으면 하루에 같은 호출을 두 번 한다
+            # 같은 info 에서 섹터·시총도 함께 준다 (종목 지도) — 따로 받으면 하루에 같은 호출을 두 번 한다
             "sector": info.get("sector"),
-            # v2.42.0 — 동종업계 자동 고르기(같은 세부 업종). 같은 info 에서 함께 받는다(호출을 늘리지 않는다)
+            # 동종업계 자동 고르기(같은 세부 업종). 같은 info 에서 함께 받는다(호출을 늘리지 않는다)
             "industry": info.get("industry"),
             "marketCap": clean(info.get("marketCap")),
         })
@@ -423,7 +423,7 @@ def get_market_overview(force: bool = False) -> list[dict]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 급등 탐지용 과거 일봉 (Step 9)
+# 급등 탐지용 과거 일봉
 #
 # 토스 /candles 는 200봉씩 페이지네이션이라 50~100 종목 × 6개월을 받으려면 왕복이
 # 수백 번이다. yfinance 는 한 번에 6개월을 주므로 탐지의 주 데이터원으로 쓴다.

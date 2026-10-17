@@ -14,7 +14,7 @@ import AutoTradeSettings from './AutoTradeSettings';
 import { toast } from '../../store/uiStore';
 
 /**
- * 자동매매 **처음 켜기** 4단계 안내 (v2.32.0 → v2.44.0) — 계좌 → **매매 규칙** → 종목 → 확인.
+ * 자동매매 **처음 켜기** 4단계 안내 — 계좌 → **매매 규칙** → 종목 → 확인.
  *
  * ⚠️ 새 화면 부품을 만들지 않았다 — 계좌 생성 `CreateAccountForm`, 규칙 `RuleSelect`(설정 창 ①과 같다),
  * 종목 `TargetSymbolsEditor`, 숫자 `AutoTradeSettings` 를 그대로 쓴다(두 벌이면 갈라진다).
@@ -135,7 +135,7 @@ export default function AutoTradeWizard({
   };
 
   return (
-    // 바깥 클릭으로 닫지 않는다(예전과 같다) — 닫기 X·ESC 는 닫기 확인 줄을 거친다(requestClose)
+    // 바깥 클릭으로 닫지 않는다 — 닫기 X·ESC 는 닫기 확인 줄을 거친다(requestClose)
     <Dialog
       title="자동매매 처음 켜기"
       titleAside={

@@ -1,8 +1,8 @@
 /**
- * 주요 일정 — `GET /api/calendar?from=&to=&scope=watchlist|universe` 한 곳으로 모은다 (v2.17.0).
+ * 주요 일정 — `GET /api/calendar?from=&to=&scope=watchlist|universe` 한 곳으로 모은다.
  *
  * | 일정 | 출처 |
- * | 실적 발표 | `earnings_calendar`(v2.16.0) — 추정일은 isEstimate |
+ * | 실적 발표 | `earnings_calendar` — 추정일은 isEstimate |
  * | FOMC | `src/data/fomc.ts` 상수(연준 공식 일정표) |
  * | 월간 옵션 만기 | 매월 셋째 금요일 — 미국 휴장이면 그 전 거래일 |
  * | 분기 동시 만기 | 3·6·9·12월 셋째 금요일 |

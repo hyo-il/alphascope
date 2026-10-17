@@ -3,7 +3,6 @@
  * - **한 번에 하나** — 실행 중 다시 시작하면 409. 화면을 떠났다 와도 `getBacktestProgress()` 로 이어 본다.
  * - **같은 날·같은 입력(종목·규칙 내용·기간)은 다시 계산하지 않는다** — 저장된 결과를 돌려준다. 강제는 `force`.
  * - 지표 엔진이 꺼져 있으면 시작 전에 503(engineDown) — 꺼진 채 돌리면 결과처럼 보이는 빈 숫자가 나온다.
- * v2.44.0 에 명령어 `npm run research:rule`(미리 정한 시험)과 파일 보고서를 지웠다.
  */
 import { outputDir, requireEngine, EngineDownError } from '../diagnose/report';
 import { IndicatorEngineError } from '../indicatorService';

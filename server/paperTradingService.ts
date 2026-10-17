@@ -170,7 +170,7 @@ const toTrade = (r: Row): PaperTrade => ({
 
 // ── 계좌 ─────────────────────────────────────────────────────────────────────
 
-/** 화면 순서(v2.48.0 `sort_order`, 사용자가 바꾼다) — 모아보기 · 오른쪽 계좌 탭 · 계좌를 고르는 모든 목록이 이 순서를 그대로 쓴다 */
+/** 화면 순서(`sort_order`, 사용자가 바꾼다) — 모아보기 · 오른쪽 계좌 탭 · 계좌를 고르는 모든 목록이 이 순서를 그대로 쓴다 */
 export function listAccounts(): PaperAccount[] {
   return (
     getDb().prepare(`SELECT * FROM paper_accounts ORDER BY sort_order, id`).all() as Row[]
@@ -178,7 +178,7 @@ export function listAccounts(): PaperAccount[] {
 }
 
 /**
- * 계좌 순서 저장 (v2.48.0) — `ids` 는 **지금 있는 계좌 전부**의 새 순서여야 한다(빠지거나 겹치거나 없는 id 면 400).
+ * 계좌 순서 저장 — `ids` 는 **지금 있는 계좌 전부**의 새 순서여야 한다(빠지거나 겹치거나 없는 id 면 400).
  * 일부만 받으면 나머지 순서가 모호해진다.
  */
 export function reorderAccounts(ids: number[]): PaperAccount[] {
@@ -283,9 +283,9 @@ export async function valuePositions(
   /*
    * 환율은 포지션이 없어도 부른다.
    *
-   * 예전에는 "쓸 데가 없다" 며 여기서 바로 돌아갔는데, 빠른주문 패널이 이 값으로
+   * "쓸 데가 없다" 며 여기서 바로 돌아가면 안 된다 — 빠른주문 패널이 이 값으로
    * 원화 잔고를 달러로 환산해 매수 가능 수량을 낸다. 그래서 **첫 매수 전에는**
-   * 환율이 null 이라 "구매가능 0주" 가 됐다 (보유에서 역산하던 시절과 같은 증상).
+   * 환율이 null 이라 "구매가능 0주" 가 된다.
    * 실패는 여전히 삼킨다 — 평가는 읽기 전용이라 환율이 없으면 그 종목만 못 매기고
    * 지나가면 되고, 주문은 다르다(createOrder 는 환율 없이는 거부한다).
    * 조회는 60초 캐시라 포지션이 없을 때 매번 나가지도 않는다.
@@ -314,7 +314,7 @@ export async function valuePositions(
 
     const marketValue = price * position.quantity;
     const unrealizedPnl = marketValue - position.totalCost;
-    // 종목 통화 → 계좌 통화. 예전에는 「USD → 계좌」 값 하나를 모든 종목에 곱해, 달러 계좌의 국내 종목은 원화 금액이 그대로 달러로 더해졌다
+    // 종목 통화 → 계좌 통화. 「USD → 계좌」 값 하나를 모든 종목에 곱하면 달러 계좌의 국내 종목은 원화 금액이 그대로 달러로 더해진다
     const marketValueInAccount = convertAmount(marketValue, position.currency, accountCurrency, usdKrw);
     stockValue += marketValueInAccount;
 

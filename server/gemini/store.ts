@@ -41,14 +41,14 @@ function db() {
       );
     `);
     /*
-      v2.15.0 — 프롬프트 버전. CREATE TABLE IF NOT EXISTS 는 있는 테이블을 바꾸지 않으므로
+      프롬프트 버전. CREATE TABLE IF NOT EXISTS 는 있는 테이블을 바꾸지 않으므로
       칼럼이 없을 때만 더한다. 기존 행은 NULL 로 두고 읽을 때 'v1' 로 본다(원본을 고치지 않는다).
     */
     const columns = database.prepare(`PRAGMA table_info(gemini_analysis)`).all() as { name: string }[];
     if (!columns.some((c) => c.name === 'prompt_version')) {
       database.exec(`ALTER TABLE gemini_analysis ADD COLUMN prompt_version TEXT`);
     }
-    // v2.23.0 — 계좌 자동매매가 낸 분석의 계좌. 같은 방식(칼럼이 없을 때만). 옛 행은 NULL.
+    // 옛 계좌 자동매매가 낸 분석의 계좌(지금은 늘 NULL). 같은 방식(칼럼이 없을 때만).
     if (!columns.some((c) => c.name === 'account_id')) {
       database.exec(`ALTER TABLE gemini_analysis ADD COLUMN account_id INTEGER`);
     }
@@ -85,7 +85,7 @@ type Row = {
   account_id: number | null;
 };
 
-/** 옛 'auto'(계좌 자동, v2.44.0 에 없앴다)·모르는 값은 'other' 로 읽는다 (v2.47.0) */
+/** 옛 'auto'(계좌 자동 — 지금은 생기지 않는다)·모르는 값은 'other' 로 읽는다 */
 export function triggerOf(value: string): GeminiTrigger {
   return value === 'manual' || value === 'scheduled' ? value : 'other';
 }
@@ -130,7 +130,7 @@ export function insertAnalysis(record: Omit<GeminiAnalysis, 'id'>): number {
     )
     .run({
       ...record,
-      // account_id 칸은 옛 「계좌 자동」 기록용이다 — v2.47.0 부터 쓰지 않는다(칸은 옛 DB 와 맞추려고 남긴다)
+      // account_id 칸은 옛 「계좌 자동」 기록용이다 — 지금은 쓰지 않는다(칸은 옛 DB 와 맞추려고 남긴다)
       accountId: null,
       agents: JSON.stringify(record.agents),
       verdict: JSON.stringify(record.verdict),

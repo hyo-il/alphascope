@@ -4,7 +4,7 @@ import { fetchCandles, fetchOrderbook, fetchPrice } from '../src/services/toss/m
 import { getCandles } from '../server/candleService';
 
 /**
- * Step 1 검증 스크립트: `npm run smoke`
+ * 토스 연동 검증 스크립트: `npm run smoke`
  * 토큰 발급 → AAPL 캔들/현재가/호가 조회 → SQLite 캐시 경유 조회까지 확인한다.
  */
 const SYMBOL = process.argv[2]?.toUpperCase() ?? 'AAPL';

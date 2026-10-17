@@ -84,7 +84,7 @@ export default function StockExplorer({
   const { selectedId: accountId } = usePaperAccounts();
 
   // 모의투자 보유 종목 — 계좌가 없으면 그냥 비워 둔다.
-  /** 보유 종목을 받는 중 — 받기 전에는 섹션을 「불러오는 중…」 으로 둔다 (v2.48.0 로딩 점검) */
+  /** 보유 종목을 받는 중 — 받기 전에는 섹션을 「불러오는 중…」 으로 둔다 */
   const [holdingsLoading, setHoldingsLoading] = useState(false);
   useEffect(() => {
     if (!accountId) {
@@ -116,7 +116,7 @@ export default function StockExplorer({
    * ⚠️ 시세·이름은 **여기서 한 번만** 받는다.
    * 섹션마다 폴러를 두면 인기·관심·보유·최근이 각자 1초 간격으로 돌아, 섹션에 겹쳐 있는
    * 종목(AAPL 은 보통 셋에 동시에 있다)을 초당 여러 번 받는다 —
-   * CLAUDE.md 의 「같은 데이터를 두 번 받지 않는다」 원칙에 어긋난다.
+   * 「같은 데이터를 두 번 받지 않는다」 원칙(docs/rules/architecture.md)에 어긋난다.
    */
   /*
    * ⚠️ **접혀서 보이지 않는 카드의 시세는 받지 않는다.**
@@ -194,7 +194,7 @@ export default function StockExplorer({
   };
 
   return (
-    // 화면 폭을 꽉 채운다 (v2.42.0 — 예전 가운데 max-w-3xl). 가운데 검색칸 하나만 읽기 폭 상한(max-w-md)
+    // 화면 폭을 꽉 채운다. 가운데 검색칸 하나만 읽기 폭 상한(max-w-md)
     <div className="flex h-full min-h-0 flex-col overflow-y-auto p-4">
       <div className="w-full space-y-6">
         <div className="space-y-3 text-center">
@@ -245,7 +245,7 @@ function SymbolGrid({
   quotes: Record<string, Quote | undefined>;
   nameOf: (symbol: string) => string | null | undefined;
   onSelect: (s: string) => void;
-  /** 없으면 삭제 버튼 없이 예전과 똑같이 그린다 */
+  /** 없으면 삭제 버튼 없이 그린다 */
   onRemove?: (symbol: string) => void;
   removeLabel?: string;
 }) {
@@ -294,7 +294,7 @@ function SymbolGrid({
           </button>
 
           {onRemove && (
-            /* ⚠️ 항상 보인다 — 목록에서 삭제(×, 확인 창 없음, v2.40.0 공통 동작 규칙) */
+            /* ⚠️ 항상 보인다 — 목록에서 삭제(×, 확인 창 없음 — 공통 동작 규칙) */
             <ListRemoveButton
               onClick={() => onRemove(symbol)}
               name={nameOf(symbol) || symbol}

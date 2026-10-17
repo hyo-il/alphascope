@@ -14,10 +14,9 @@ import {
 import { sameCondition, type SwingGoal } from '../../types/swingGoal';
 
 /**
- * 목표 도달 가능성 분석 부품 (v2.29.0 — 예전 「목표 도달 분석」 탭 `TargetAnalysisTab.tsx`(v2.24.0)에서 떼어 냈다).
+ * 목표 도달 가능성 분석 부품.
  *
- * 쓰는 곳(v2.45.0): 매수 판단 표의 펼친 줄(결과 카드 `ResultCard` · `latestFor`) · 「히스토리」 탭(`TargetHistorySection`).
- * (예전 탭·참고 한 줄 `TargetRefLine`·진행 상자 `TargetProgressBox` 는 v2.45.0 에 지웠다 — 한 번에 한 종목, 진행은 그 줄에 보인다.)
+ * 쓰는 곳: 매수 판단 표의 펼친 줄(결과 카드 `ResultCard` · `latestFor`) · 「히스토리」 탭(`TargetHistorySection`).
  * 엔진·저장·채점·성적은 서버 그대로(`server/gemini/targetAnalysis.ts`, 프롬프트 `t1`). 조건은 초보자 목표 설정(`swing.goal`).
  * ⚠️ 분석만 한다 — 주문·판정·자동매매에 쓰지 않는다. 비교 문장("과거 평균보다 높게/낮게/비슷하게(±5%p)")과 안내 문구는 지우지 않는다.
  */
@@ -65,7 +64,7 @@ export function ResultCard({
   const word = record.base ? compareWord(record.pTarget, record.base.target) : null;
 
   return (
-    // 테두리 없이 바탕색만(기준표 8 — 표의 펼친 줄 안에 들어가 상자 안 상자가 되지 않게, v2.45.0). 새 결과만 accent 테두리
+    // 테두리 없이 바탕색만(기준표 8 — 표의 펼친 줄 안에 들어가 상자 안 상자가 되지 않게). 새 결과만 accent 테두리
     <div className={`space-y-2 text-caption ${flat ? '' : 'rounded-lg bg-bg-tertiary/40 p-3'} ${isNew ? 'border border-accent' : ''}`}>
       <div className="flex flex-wrap items-baseline gap-2">
         {isNew && <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-caption text-text-secondary">NEW</span>}

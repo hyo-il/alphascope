@@ -1,5 +1,5 @@
 /**
- * AI 검증 기록·채점 (v2.46.0) — 계좌 화면 「AI 검증 기록」 · (v2.47.0) 「퀀트 > 검증 기록 > AI 검증」(모든 계좌 또는 계좌 하나).
+ * AI 검증 기록·채점 — 계좌 화면 「AI 검증 기록」 · 「퀀트 > 검증 기록 > AI 검증」(모든 계좌 또는 계좌 하나).
  *
  * 채점은 **저장하지 않고 읽을 때** 캔들에서 구한다(Gemini 적중률 · 매수 판단 성과와 같은 방식 — 기준을 고쳐도 옛 기록까지 같은 기준으로).
  * 수익률 = 검증 때 가격(`price_at_check`) → 검증한 날(그 종목 시장 날짜) 뒤 N번째 거래일 **종가**. 끝난 봉만 쓴다.
@@ -64,7 +64,7 @@ function toRecord(r: UseRow, returns: AiCheckRecord['returns'], accounts?: AiChe
 }
 
 /**
- * 모든 계좌 보기(v2.47.0, A-6) — 같은 검증(check)을 여러 계좌가 썼으면 **한 줄**로 묶는다(AI 호출은 한 번이다).
+ * 모든 계좌 보기(A-6) — 같은 검증(check)을 여러 계좌가 썼으면 **한 줄**로 묶는다(AI 호출은 한 번이다).
  * 그 줄의 행동은 한 계좌라도 샀으면 「샀음」, 계좌별 행동은 `accounts` 에. 채점은 계좌 하나 보기와 **같은 함수**(`checkReturns`·`groupStats`).
  */
 function groupByCheck(rows: UseRow[]): { row: UseRow; accounts: AiCheckRecord['accounts'] }[] {

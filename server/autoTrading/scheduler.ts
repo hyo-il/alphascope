@@ -3,8 +3,8 @@
  *
  * ⚠️ **주문을 내는 경로는 이 파일 하나뿐이다.** 틱이 겹치지 않게 `running` 으로 잠근다.
  *
- * v2.44.0: 매 틱 ① 트레일링 고점 · ② 청산(규칙의 손절 → 익절 → 트레일링) · ③ 하루 손실 한도 · ④ 신호 판단(종목마다 그 시장이 열린 뒤
- * 하루 한 번 — `engine.runSignalChecks` 가 시장 날짜로 거른다). 예전의 계좌별 「분석 주기」·「미국 정규장만」 은 없앴다.
+ * 매 틱 ① 트레일링 고점 · ② 청산(규칙의 손절 → 익절 → 트레일링) · ③ 하루 손실 한도 · ④ 신호 판단(종목마다 그 시장이 열린 뒤
+ * 하루 한 번 — `engine.runSignalChecks` 가 시장 날짜로 거른다). 
  */
 
 import { isSymbolMarketOpen, marketOf, nextMarketOpen } from '../marketHours';
@@ -18,7 +18,7 @@ import type { RuleBody } from '../../src/types/tradingRule';
 
 /**
  * 이 서버에서 자동매매를 돌리는가 — `AUTO_TRADING_ENABLED=false` 면 스케줄러를 시작하지 않고
- * 수동 실행도 막는다 (v2.16.0). **복사본 DB 로 띄운 테스트 서버**가 모의 주문을 하지 않게 하는 스위치다.
+ * 수동 실행도 막는다. **복사본 DB 로 띄운 테스트 서버**가 모의 주문을 하지 않게 하는 스위치다.
  */
 export function isAutoTradingEnabled(): boolean {
   return process.env.AUTO_TRADING_ENABLED?.trim().toLowerCase() !== 'false';

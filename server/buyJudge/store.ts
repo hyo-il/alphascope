@@ -1,5 +1,5 @@
 /**
- * 매수 판단 저장 (v2.45.0) — 설정 3개(`app_settings`)와 판단 기록 표 `buy_judgments`(`db/schema.sql`).
+ * 매수 판단 저장 — 설정 3개(`app_settings`)와 판단 기록 표 `buy_judgments`(`db/schema.sql`).
  * - `buyJudge.symbols` 전용 목록(관심 목록과 따로, 처음 비어 있다) · `buyJudge.ruleId` 고른 규칙 · `buyJudge.retention` 보관 기간(기본 1년)
  * - 기록은 (시장 날짜, 종목, 규칙) 한 줄 — 다시 계산하면 덮어쓴다. 그날 쓴 규칙 이름·내용도 함께 남긴다.
  */
@@ -97,7 +97,7 @@ export interface JudgmentRow {
   reference_json: string | null;
   reason: string;
   created_at: string;
-  /** v2.51.0 — gate_block 줄의 이유 */
+  /** gate_block 줄의 이유 */
   gate_reason: string | null;
 }
 
@@ -140,7 +140,7 @@ export function listBought(limit = 500): JudgmentRow[] {
   return getDb().prepare(`SELECT * FROM buy_judgments WHERE code = 'score_buy' ORDER BY market_date DESC, symbol LIMIT ?`).all(limit) as JudgmentRow[];
 }
 
-/** 기록이 있는 날짜 — 최근이 먼저 (v2.48.0 날짜별 히스토리) */
+/** 기록이 있는 날짜 — 최근이 먼저 (날짜별 히스토리) */
 export function listDates(limit: number, offset: number): string[] {
   return (getDb().prepare(`SELECT DISTINCT market_date FROM buy_judgments ORDER BY market_date DESC LIMIT ? OFFSET ?`).all(limit, offset) as { market_date: string }[]).map(
     (r) => r.market_date,

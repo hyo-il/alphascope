@@ -134,7 +134,7 @@ export default function SymbolSearch({
     /*
      * 한글이 섞여 있으면 심볼일 수 없다 — 검색으로 심볼을 찾아야 한다.
      * ⚠️ 자동완성은 180ms 디바운스라, 치자마자 Enter(또는 [추가])를 누르면 results 가
-     * 아직 비어 있다. 예전에는 여기서 조용히 return 해서 "한글 검색이 안 된다" 로 보였다.
+     * 아직 비어 있다. 여기서 조용히 return 하면 "한글 검색이 안 된다" 로 보인다.
      * 확정 시점에는 직접 한 번 더 물어 **결과를 기다린다**.
      */
     if (hasHangul(query)) {
@@ -164,7 +164,7 @@ export default function SymbolSearch({
   const onKeyDown = (e: React.KeyboardEvent) => {
     /*
      * Esc 는 결과 유무와 무관하게 받는다 — "결과가 없습니다" 안내가 떠 있을 때도
-     * 닫을 수 있어야 한다. 예전에는 아래 가드에 먼저 걸려 마우스로 바깥을 눌러야 했다.
+     * 닫을 수 있어야 한다(아래 가드에 먼저 걸리면 마우스로 바깥을 눌러야 한다).
      */
     if (e.key === 'Escape') {
       setOpen(false);

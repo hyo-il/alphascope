@@ -120,7 +120,7 @@ export default function WatchFolderView({
                   >
                     <span className="flex min-w-0 flex-col">
                       <span
-                        // v2.25.0 — 글씨가 커져 「SK하이닉스 (0006…」 처럼 종목 코드가 잘렸다. 자르지 않고 단어 단위로 두 줄까지 감싼다
+                        // 「SK하이닉스 (0006…」 처럼 종목 코드가 잘리지 않게 자르지 않고 단어 단위로 두 줄까지 감싼다
                         className="line-clamp-2 break-keep text-xs font-medium text-text-primary"
                       >
                         {/* 담긴 종목은 ✓ 로 한눈에 구분한다 */}
@@ -146,7 +146,7 @@ export default function WatchFolderView({
                   </button>
 
                   {canRemove && (
-                    /* ⚠️ 항상 보인다 — 목록에서 삭제(×, 확인 창 없음, v2.40.0 공통 동작 규칙) */
+                    /* ⚠️ 항상 보인다 — 목록에서 삭제(×, 확인 창 없음 — 공통 동작 규칙) */
                     <ListRemoveButton onClick={() => onRemoveSymbol?.(symbol)} name={nameOf(symbol) || symbol} label="관심 목록에서 삭제" className="mr-2" />
                   )}
                 </div>

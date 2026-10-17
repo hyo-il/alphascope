@@ -4,7 +4,7 @@ import { ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * 종목 지도 [보기 ▾] (v2.27.0) — 상위 N(시장 보기만)과 분야(섹터) 체크.
+ * 종목 지도 [보기 ▾] — 상위 N(시장 보기만)과 분야(섹터) 체크.
  *
  * - 분야를 끄면 지도에서 빠진다(다시 배치). 섹터 강세 순위에서는 지우지 않고 흐리게만 둔다 — 그 처리는 부모가 한다.
  * - 마지막 하나는 끌 수 없다("분야를 하나 이상 골라 주세요"). [전체 해제] 도 가장 큰 분야 하나는 남긴다.
@@ -24,7 +24,7 @@ interface Props {
   sectors: { name: string; count: number }[];
   off: Set<string>;
   onOffChange: (off: Set<string>) => void;
-  /** 관심 종목 탭의 칸 크기 (v2.29.0) — null 이면 감춘다(시장 상위 탭) */
+  /** 관심 종목 탭의 칸 크기 — null 이면 감춘다(시장 상위 탭) */
   watchSize?: 'cap' | 'sqrt' | null;
   onWatchSizeChange?: (size: 'cap' | 'sqrt') => void;
 }

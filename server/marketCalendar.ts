@@ -1,5 +1,5 @@
 /**
- * 휴장일 — 토스 `GET /api/v1/market-calendar/{US|KR}?date=YYYY-MM-DD` (v2.17.0).
+ * 휴장일 — 토스 `GET /api/v1/market-calendar/{US|KR}?date=YYYY-MM-DD`.
  *
  * 응답은 그날·전 거래일·다음 거래일 셋뿐이다(범위 조회가 없다). 휴장일이면 그날의 세션이 전부 null
  * (미국 `regularMarket`, 국내 `integrated`) 이고, `nextBusinessDay` 가 다음 개장일을 준다.
@@ -10,7 +10,7 @@
  * - 저장: `market_holidays(market, date)` + 확인한 범위(`app_settings` 'marketCalendar.coverage').
  * - 쓰는 곳: 실적 회피의 거래일 계산(`autoTrading/guards.ts`), 옵션 만기 "휴장이면 그 전 거래일", 일정 달력의 휴장 표시.
  * ⚠️ 범위 밖 날짜는 **주말만** 휴장으로 본다(모른다). `isMarketClosed` 는 범위 안에서만 확실하다.
- * - 미국은 **NYSE 공식 표(`src/data/nyseHolidays.ts`, 2026~2027)와 합친다** (v2.18.0) — 어느 한쪽이라도 휴장이면 휴장.
+ * - 미국은 **NYSE 공식 표(`src/data/nyseHolidays.ts`, 2026~2027)와 합친다** — 어느 한쪽이라도 휴장이면 휴장.
  *   둘 다 확인한 기간에 서로 다르면 `usHolidayMismatches()` 가 그 날짜를 돌려주고, 갱신 때 로그에 남긴다.
  */
 

@@ -1,4 +1,4 @@
-/** 급등 탐지 (Step 9) — 서버와 화면이 함께 쓰는 타입 */
+/** 급등 탐지 — 서버와 화면이 함께 쓰는 타입 */
 
 /** 급등일 하나 */
 export interface SurgeEvent {
@@ -32,7 +32,7 @@ export interface PeriodicityResult {
   /** 다음 예상일까지 남은 일수 — 음수면 이미 지났다 */
   daysUntilNext: number | null;
   /**
-   * 예상일이 지났으면 경과 일수, 아니면 null (v2.19.0).
+   * 예상일이 지났으면 경과 일수, 아니면 null.
    * ⚠️ 지난 예상일을 평균 간격만큼 밀어 새 날짜를 만들지 않는다 — 근거 없는 새 예측이 된다. 화면은 "경과" 로 보여 준다.
    */
   overdueDays: number | null;
@@ -133,7 +133,7 @@ export interface SurgeDetection {
   nextEstimatedDate: string | null;
   /** 탐지 당시의 남은 일수 (음수 = 탐지 시점에 이미 지남) */
   daysUntilNext: number | null;
-  /** 탐지 당시 이미 지났으면 경과 일수, 아니면 null — `days_until_next` 에서 만든다 (v2.19.0) */
+  /** 탐지 당시 이미 지났으면 경과 일수, 아니면 null — `days_until_next` 에서 만든다 */
   overdueDays: number | null;
   surgeScore: number;
   grade: SurgeGrade;

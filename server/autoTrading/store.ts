@@ -4,7 +4,7 @@
  * 저장은 `gemini_settings` 테이블(key-value)을 재사용한다 — 이미 있는 읽기/쓰기 유틸을 그대로 쓴다.
  * ⚠️ **계좌마다 키를 나누지 않고 맵 하나에 담는다.** 스케줄러가 "활성화된 계좌 전부" 를 매 틱 훑기 때문이다.
  *
- * v2.44.0: 설정 모양이 「규칙 하나 + 종목 + 계좌 운용 + 신규 매수 안전장치」 로 줄었다. 예전 칸(mode · 분석 주기 · 청산 등)은
+ * 설정 모양은 「규칙 하나 + 종목 + 계좌 운용 + 신규 매수 안전장치」 다. 옛 칸(mode · 분석 주기 · 청산 등)은
  * 읽을 때 버린다(`normalizeStrategy`). 데이터 정리(`server/dataReset/v2_44_0.ts`)가 저장값도 한 번 새 모양으로 바꾼다.
  * 같은 테이블에 계좌 × 종목별로 「마지막 신호 판단 시장 날짜」·「마지막 손절 시장 날짜」·트레일링 최고가를 둔다.
  */
@@ -17,25 +17,25 @@ import { isKrSymbol } from '../../src/utils/market';
 
 export const STRATEGIES_KEY = 'autoTrading.strategies';
 export const PEAKS_KEY = 'autoTrading.trailingPeaks';
-/** 계좌별 마지막 바퀴의 판단 (건너뜀 사유 포함, v2.16.0) — 재시작해도 화면에서 볼 수 있게 저장한다 */
+/** 계좌별 마지막 바퀴의 판단 (건너뜀 사유 포함) — 재시작해도 화면에서 볼 수 있게 저장한다 */
 export const NOTES_KEY = 'autoTrading.lastNotes';
-/** 계좌 × 종목 → 마지막으로 신호를 본 그 종목 시장 날짜 (v2.44.0 — 하루 한 번 판단) */
+/** 계좌 × 종목 → 마지막으로 신호를 본 그 종목 시장 날짜 (하루 한 번 판단) */
 export const JUDGED_KEY = 'autoTrading.lastJudged';
-/** 계좌 × 종목 → 마지막 손절(hard_stop)로 판 그 종목 시장 날짜 (v2.44.0 — 손절 뒤 다시 매수 대기) */
+/** 계좌 × 종목 → 마지막 손절(hard_stop)로 판 그 종목 시장 날짜 (손절 뒤 다시 매수 대기) */
 export const STOPS_KEY = 'autoTrading.lastStops';
 
 export type { DecisionNote };
-/** `day` = 한국 시간 날짜(v2.50.0 — 옛 기록에는 없다: `at` 의 한국 날짜로 읽는다) */
+/** `day` = 한국 시간 날짜(옛 기록에는 없다: `at` 의 한국 날짜로 읽는다) */
 type NotesMap = Record<string, { at: string; day?: string; notes: DecisionNote[] }>;
 
-/** 「최근 판단」 한 계좌의 최대 줄 수 (v2.50.0) */
+/** 「최근 판단」 한 계좌의 최대 줄 수 */
 export const NOTES_MAX = 200;
 /** 한국 시간 날짜 — 국내 종목 코드로 `marketDate` 를 부르면 Asia/Seoul 로 잰다 */
 const kstDay = (ms: number) => marketDate(ms, '005930');
 
 /**
- * 「최근 판단」 을 **그날(한국 시간 날짜) 하루치** 남긴다 (v2.50.0 — 사용자 결정 A-4. 예전에는 마지막 바퀴 하나만).
- * 새 판단은 앞에 덧붙이고(최근이 위), 날짜가 바뀐 첫 판단 때 예전 날을 비운다. 계좌마다 최대 `NOTES_MAX` 줄(넘으면 오래된 줄부터 버림).
+ * 「최근 판단」 을 **그날(한국 시간 날짜) 하루치** 남긴다 (사용자 결정 A-4).
+ * 새 판단은 앞에 덧붙이고(최근이 위), 날짜가 바뀐 첫 판단 때 지난 날을 비운다. 계좌마다 최대 `NOTES_MAX` 줄(넘으면 오래된 줄부터 버림).
  * 줄마다 판단 시각 `at`(같은 바퀴 = 같은 값 — 화면이 이것으로 묶는다)과 시장을 붙인다. 빈 목록은 이전 기록을 지우지 않는다.
  */
 export function recordNotes(accountId: number, notes: DecisionNote[], now = new Date()): void {
@@ -83,7 +83,7 @@ function cleanSymbols(raw: unknown): string[] {
   return [...new Set(list.map((s) => String(s).trim().toUpperCase()).filter((s) => s && s.length <= 20 && SYMBOL_PATTERN.test(s)))];
 }
 
-/** 저장 전·읽을 때 값을 조이고 **새 모양 칸만** 남긴다 — 예전 칸(mode·intervalMinutes·청산·AI)은 여기서 버려진다 */
+/** 저장 전·읽을 때 값을 조이고 **새 모양 칸만** 남긴다 — 옛 칸(mode·intervalMinutes·청산·AI)은 여기서 버려진다 */
 export function normalizeStrategy(accountId: number, raw: Partial<AccountStrategy> & Record<string, unknown>): AccountStrategy {
   const base = defaultStrategy(accountId);
   const v = { ...base, ...raw };
@@ -98,7 +98,7 @@ export function normalizeStrategy(accountId: number, raw: Partial<AccountStrateg
     earningsBlackoutDays: clamp(Math.round(Number(v.earningsBlackoutDays)), 0, 10),
     // 0~20%, 0.5 단위
     dailyLossLimitPercent: Math.round(clamp(Number(v.dailyLossLimitPercent), 0, 20) * 2) / 2,
-    // AI 검증(v2.46.0) — 옛 계좌(칸 없음)는 끔
+    // AI 검증 — 옛 계좌(칸 없음)는 끔
     aiCheck: v.aiCheck === true,
   };
 }

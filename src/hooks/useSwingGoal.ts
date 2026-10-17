@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { DEFAULT_SWING_GOAL, type SwingGoal } from '../types/swingGoal';
 
 /**
- * 초보자 목표 설정 (v2.29.0) — 서버 `GET|PUT /api/swing/goal` 이 단일 출처다(기기 간에 같아야 하는 분석 조건).
+ * 초보자 목표 설정 — 서버 `GET|PUT /api/swing/goal` 이 단일 출처다(기기 간에 같아야 하는 분석 조건).
  * 스윙 화면 도구줄·기준 편집 창·추천 카드·종목 검색이 같은 값을 보므로 **모듈 변수 + 리스너**로 한 벌만 둔다
  * (`usePaperAccounts` 와 같은 패턴 — 화면마다 따로 들고 있으면 저장한 값이 다른 곳에 안 보인다).
  * 폴링하지 않는다 — 스윙 화면을 열 때 한 번 받는다.

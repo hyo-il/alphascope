@@ -10,9 +10,9 @@ import {
 } from '../../../utils/investorFlow';
 
 /**
- * 차트 하단 「투자자 동향」 탭 (v2.23.0) — 국내 종목만, 최근 20 확정 거래일.
+ * 차트 하단 「투자자 동향」 탭 — 국내 종목만, 최근 20 확정 거래일.
  *
- * 요약(5일·20일 순매수) → 표(최신이 위) 순서다(날짜별 막대 차트는 v2.42.0 에 지웠다 — 사용자 요청).
+ * 요약(5일·20일 순매수) → 표(최신이 위) 순서다(날짜별 막대 차트는 두지 않는다 — 사용자 요청).
  * - ⚠️ **미국 종목은 요청하지 않는다**(토스 API 가 국내만 준다) — 안내만 보인다.
  * - ⚠️ 당일 행은 장중 **잠정치**다(개인·기타법인 없음). 표에 「잠정」 을 붙이고 합계에는 넣지 않는다.
  * - 단위는 **주(거래량)** — 금액이 아니다. 해석(오른다/내린다)은 붙이지 않는다.
@@ -62,7 +62,7 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
             : '확정된 데이터가 아직 없습니다.'}
           {flow.records[0]?.provisional && <span className="text-text-muted"> · 오늘 잠정치는 합계에서 제외했습니다</span>}
         </p>
-        {/* 외국인 보유 비율 (v2.30.0) — 사실만. 막대(주 단위 순매수)와 섞지 않는다 */}
+        {/* 외국인 보유 비율 — 사실만. 막대(주 단위 순매수)와 섞지 않는다 */}
         {holding && (
           <p className="mb-1 text-text-secondary">
             외국인 보유 비율 <b className="text-text-primary">{holding.latest.toFixed(2)}%</b>
@@ -108,7 +108,7 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
         </table>
       </div>
 
-      {/* 막대 차트·범례는 v2.42.0 에 지웠다(사용자 요청) — 표·합계·외국인 보유 비율은 그대로 */}
+      {/* 막대 차트·범례는 두지 않는다(사용자 요청) — 표·합계·외국인 보유 비율만 */}
 
       <table className="w-full tabular-nums">
         <thead className="text-text-muted">

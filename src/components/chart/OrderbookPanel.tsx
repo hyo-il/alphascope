@@ -32,7 +32,7 @@ function Row({
   side: 'ask' | 'bid';
   previousClose: number | null;
   isBest: boolean;
-  /** 현재가와 같은 가격 칸 — 테두리 상자 (v2.41.0, 예전 가운데 현재가 줄 대신) */
+  /** 현재가와 같은 가격 칸 — 테두리 상자 */
   isCurrent: boolean;
   currency: 'KRW' | 'USD';
   onPick?: (price: number) => void;
@@ -166,8 +166,8 @@ export default function OrderbookPanel({
   }, [isEmpty, bookSymbol, symbol]);
 
   /*
-   * 목록 높이가 나중에 바뀌면(차트 화면이 보이게 될 때·빠른주문이 그려질 때·창 크기) 다시 가운데로 (v2.42.1).
-   * v2.42.1 에 오른쪽 열이 길어지면서, 처음 맞춘 뒤 목록이 자라 매수 호가가 화면 밖에 남았다(1920 에서 매수 0줄).
+   * 목록 높이가 나중에 바뀌면(차트 화면이 보이게 될 때·빠른주문이 그려질 때·창 크기) 다시 가운데로.
+   * 오른쪽 열이 길어 처음 맞춘 뒤 목록이 자라면 매수 호가가 화면 밖에 남는다(1920 에서 매수 0줄).
    * 사용자가 직접 스크롤한 뒤에는 맞추지 않는다 — 1초 폴링으로 다시 맞추지 않는 규칙도 그대로다.
    */
   useEffect(() => {
@@ -192,7 +192,7 @@ export default function OrderbookPanel({
   }, [isEmpty]);
 
   return (
-    // 최소 높이 241px = 머리 36 + 줄 이름 23 + 호가 3칸 120 + 총잔량 62 (v2.41.0) — 이보다 낮은 창에서만 열 전체가 스크롤된다
+    // 최소 높이 241px = 머리 36 + 줄 이름 23 + 호가 3칸 120 + 총잔량 62 — 이보다 낮은 창에서만 열 전체가 스크롤된다
     <aside className="flex min-h-[241px] w-[248px] flex-1 flex-col border-l border-border bg-bg-secondary">
       <header className="flex items-center justify-between border-b border-border px-3 py-2">
         <h2 className="text-xs font-medium">호가</h2>
@@ -215,7 +215,7 @@ export default function OrderbookPanel({
             <span>매수 잔량</span>
           </div>
 
-          {/* 호가 목록 — 이 열의 **유일한 스크롤**(v2.41.0). 최소 3칸, 스크롤바 자리는 미리 비워 둔다(Windows 칸 어긋남) */}
+          {/* 호가 목록 — 이 열의 **유일한 스크롤**. 최소 3칸, 스크롤바 자리는 미리 비워 둔다(Windows 칸 어긋남) */}
           <div ref={listRef} className="min-h-[120px] flex-1 overflow-y-auto [scrollbar-gutter:stable]">
             {asks.map((level, index) => (
               <Row

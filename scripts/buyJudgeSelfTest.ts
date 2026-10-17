@@ -1,12 +1,12 @@
 /**
- * 매수 판단 점검 (v2.45.0) — `npm run buyjudge:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import). 지표 엔진이 떠 있어야 한다.
+ * 매수 판단 점검 — `npm run buyjudge:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import). 지표 엔진이 떠 있어야 한다.
  *
  * ① 매수 판단 마감 판단 = 계좌 판단(같은 종목·날·규칙, 보유 없음 — action · score · code)
  * ② 매일 기록이 같은 날 두 번 돌아도 한 줄 ③ 휴장일 건너뜀 ④ 서버 재시작 — 가장 최근 날짜 하나만 ⑤ 보관 정리(「사도 됨」 은 남는다)
  * ⑥ 5·10·20거래일 수익률(비용 포함, 손 계산과 같음) ⑦ 「사지 않은 이유」 요약 ⑧ 규칙 삭제 → 매수 판단 규칙 비움
  * 넣은 계좌·규칙·기록·설정은 끝에서 되돌린다.
  */
-import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다(v2.44.2)
+import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import 'dotenv/config';
 import { getDb } from '../server/db';
 import { createAccount, deleteAccount } from '../server/paperTradingService';
@@ -59,13 +59,13 @@ try {
   // 계좌는 매수 신호에서 안전장치(실적 회피 · 최대 보유 등)로 사유가 바뀔 수 있다 — 엔진 사유가 남은 줄만 점수까지 비교하고,
   // 안전장치 줄은 「엔진이 매수였는지」 만 비교한다. 매수 기준 999점 규칙(늘 기준 미달)으로 한 번 더 — 모든 종목이 점수까지 비교된다.
   // ⚠️ 변형마다 **빈 새 계좌** — 매수 판단은 보유 없음(held=false)이라, 앞 변형에서 계좌가 실제로 산 종목이 남으면 다음 변형의 계좌는
-  // 「보유 중」 으로 판단한다(v2.45.1 — 환율 버그가 고쳐져 원화 계좌가 미국 종목을 실제로 사게 되며 드러났다).
+  // 「보유 중」 으로 판단한다(환율 버그가 고쳐져 원화 계좌가 미국 종목을 실제로 사게 되며 드러났다).
   const now = Date.now();
   const GUARD = new Set(['max_positions', 'earnings_blackout', 'daily_loss', 'other', 'error']);
-  // v2.50.0 — 거름망(200일선) 켬 · 기준 1점(점수는 늘 통과 → 거름망이 가른다)
+  // 거름망(200일선) 켬 · 기준 1점(점수는 늘 통과 → 거름망이 가른다)
   const gateBody = { ...rule.body, buy: { ...rule.body.buy, minScore: 1, gates: { above200: { on: true } } } };
   const gateCodes: string[] = [];
-  // v2.51.0 — 시장 필터 켬(기준 1점) — 시장 기준(SPY · KODEX 200)이 가른다. 이유(gateReason)까지 같아야 한다
+  // 시장 필터 켬(기준 1점) — 시장 기준(SPY · KODEX 200)이 가른다. 이유(gateReason)까지 같아야 한다
   const marketBody = { ...rule.body, buy: { ...rule.body.buy, minScore: 1, gates: { above200: { on: false }, marketAbove200: { on: true } } } };
   for (const [label, body] of [['기본 규칙', rule.body], ['기준 999점', { ...rule.body, buy: { ...rule.body.buy, minScore: 999 } }], ['거름망 켬', gateBody], ['시장 필터 켬', marketBody]] as const) {
     const acc = createAccount({ name: '매수판단 시험(지움)', initialBalance: 1_000_000_000, currency: 'KRW' });
@@ -184,7 +184,7 @@ try {
   const sum = reasonSummaries().find((x) => x.symbol === FAKE);
   check('⑦ 기준 미달 3 · 손익비 부족 1 · 사도 됨 1 · 가장 자주 모자란 조건 = 추세', !!sum && sum.days === 5 && sum.below === 3 && sum.rrBlock === 1 && sum.buy === 1 && sum.mostMissing === '추세', JSON.stringify(sum));
 
-  // ── ⑦-b 날짜별 히스토리 (v2.48.0) — 같은 기록을 날짜로 묶는다 · 최근 날짜가 위 · 「사도 됨」 만 수익률 칸 ──
+  // ── ⑦-b 날짜별 히스토리 — 같은 기록을 날짜로 묶는다 · 최근 날짜가 위 · 「사도 됨」 만 수익률 칸 ──
   const hd = await historyDays(0, 400);
   const dayOf = (d: string) => hd.days.find((x) => x.marketDate === d);
   const fakeOn = (d: string) => dayOf(d)?.rows.find((r) => r.symbol === FAKE);
@@ -196,7 +196,7 @@ try {
   const page2 = await historyDays(2, 2);
   check('⑦-b 날짜별 — 30일씩 [더 보기](여기선 2일씩) 겹치지 않음', page1.days.length === Math.min(2, hd.totalDays) && !page2.days.some((d) => page1.days.some((p) => p.marketDate === d.marketDate)) && page1.totalDays === hd.totalDays, `${page1.days.map((d) => d.marketDate)} / ${page2.days.map((d) => d.marketDate)}`);
 
-  // ── ⑦-c 날짜 하나의 순서 (v2.48.1) — 사도 됨 → 손익비 부족 → 기준 미달, 각각 총점 높은 순 → 티커 순 · 제목 = 사도 됨 첫 종목(없으면 티커 순 첫 종목) ──
+  // ── ⑦-c 날짜 하나의 순서 — 사도 됨 → 손익비 부족 → 기준 미달, 각각 총점 높은 순 → 티커 순 · 제목 = 사도 됨 첫 종목(없으면 티커 순 첫 종목) ──
   const R = (symbol: string, verdict: 'buy' | 'below' | 'rr_block', score: number) => ({ symbol, verdict, score });
   const mixed = [R('AAPL', 'below', 60), R('MSFT', 'rr_block', 70), R('NVDA', 'buy', 68), R('TSLA', 'buy', 72), R('AMZN', 'below', 45)];
   check('⑦-c 순서 — 사도 됨 있음: 사도 됨(총점 높은 순) → 손익비 부족 → 기준 미달', sortDayRows(mixed).map((r) => r.symbol).join(',') === 'TSLA,NVDA,MSFT,AAPL,AMZN', sortDayRows(mixed).map((r) => r.symbol).join(','));
@@ -209,7 +209,7 @@ try {
   const served = hd.days.every((d) => d.rows.map((r) => `${r.symbol}|${r.verdict}|${r.score}`).join() === sortDayRows(d.rows).map((r) => `${r.symbol}|${r.verdict}|${r.score}`).join());
   check('⑦-c 서버가 날짜마다 이 순서로 보낸다', served);
 
-  // ── ⑨ 끝나지 않은 일봉 (v2.51.1) — 장중에 저장된 봉 + 다음 날 받기 실패 → 판단하지 않음 · 받기 성공 → 끝난 값 · 국내 NXT · 미국 마감 · 시장 기준 ──
+  // ── ⑨ 끝나지 않은 일봉 — 장중에 저장된 봉 + 다음 날 받기 실패 → 판단하지 않음 · 받기 성공 → 끝난 값 · 국내 NXT · 미국 마감 · 시장 기준 ──
   {
     const realFetch = globalThis.fetch;
     // 받기 실패 흉내 — 토스만 끊는다(지표 엔진은 그대로)
@@ -224,7 +224,7 @@ try {
     const last = loadCandles('AAPL', '1d', 1)[0];
     const spyLast = loadCandles('SPY', '1d', 1)[0];
     const D = last.timestamp;
-    const nextDay = D + 17.5 * H; // 그날 17:30 ET(마감 뒤 — 다시 받기 실패라 캐시만). v2.51.2: 「다음 날」 로 두면 D 가 목요일 이하일 때 직전 거래일 봉이 없어 「오래된 봉」 이 먼저 걸린다
+    const nextDay = D + 17.5 * H; // 그날 17:30 ET(마감 뒤 — 다시 받기 실패라 캐시만). 「다음 날」 로 두면 D 가 목요일 이하일 때 직전 거래일 봉이 없어 「오래된 봉」 이 먼저 걸린다
     const acc = createAccount({ name: '끝나지 않은 일봉 시험(지움)', initialBalance: 1_000_000, currency: 'USD' });
     try {
       offline();
@@ -282,7 +282,7 @@ try {
     check('⑨ 미국 — 15:00 ET 에는 빼고, 17:00 ET 에는 넣는다', completedDaily(us, 'AAPL', u + 15 * H).length === us.length - 1 && completedDaily(us, 'AAPL', u + 17 * H).length === us.length);
   }
 
-  // ── ⑩ 오래된 끝난 봉 (v2.51.2) — 받기 실패 + 장중 저장 봉도 없음 → 마지막 끝난 봉이 직전 거래일보다 앞이면 판단을 미룬다 ──
+  // ── ⑩ 오래된 끝난 봉 — 받기 실패 + 장중 저장 봉도 없음 → 마지막 끝난 봉이 직전 거래일보다 앞이면 판단을 미룬다 ──
   //   가짜 종목(캐시에만 있음)에 날짜를 정한 일봉을 넣고 토스를 끊는다 — 월요일 · 휴장일 다음 날 · 국내 NXT · 미국
   {
     const realFetch = globalThis.fetch;
@@ -364,7 +364,7 @@ try {
       check('⑩ 그 시장 날짜의 시각 — 미국 EDT · EST · 국내', marketDayTime('US', '2026-10-08', 16 * H) === Date.parse('2026-10-08T20:00:00Z') && marketDayTime('US', '2026-11-27', 16 * H) === Date.parse('2026-11-27T21:00:00Z') && marketDayTime('KR', '2026-10-08', 20 * H) === Date.parse('2026-10-08T11:00:00Z'));
       check('⑩ 직전 거래일 계산 = 시장 달력(주말 · 휴장 건너뜀)', lastClosedDay('KR', at(KR, '2026-10-12', 10), 20 * H) === '2026-10-08' && lastClosedDay('US', at(US, '2026-11-27', 10), 16 * H) === '2026-11-25' && lastClosedDay('US', at(US, '2026-10-12', 10), 16 * H) === '2026-10-09');
 
-      // 매수 판단 · 매일 기록 · 계좌 — 45차 「확정 못 함」 과 같은 경로
+      // 매수 판단 · 매일 기록 · 계좌 — 「확정 못 함」 과 같은 경로
       seed(US, '2026-10-07');
       const now = at(US, '2026-10-09', 10);
       const { row } = await judgeSymbol(US, rule.body, null, now);
@@ -377,7 +377,7 @@ try {
       store.setSymbols(prevSyms);
       store.setRuleId(prevRule);
       check('⑩ 매일 기록 — 확정 못 한 종목은 unconfirmed(그날 다시 시도)', rec.unconfirmed.includes(US) && rec.written === 0, JSON.stringify(rec));
-      // 시장 기준도 같은 규칙 — 매일 기록에서 「시장 데이터 없음」 이면 줄은 쓰되 그날 다시 시도(계좌는 v2.51.1 부터 다시 시도)
+      // 시장 기준도 같은 규칙 — 매일 기록에서 「시장 데이터 없음」 이면 줄은 쓰되 그날 다시 시도(계좌도 다시 시도)
       seed(US, '2026-10-09');
       const mrule = createRule(`__시장 데이터 없음 기록 ${Date.now()}`, (() => { const b = defaultRuleBody(); b.buy.minScore = 1; b.buy.gates = { above200: { on: false }, marketAbove200: { on: true } }; return b; })());
       store.setSymbols([US]);

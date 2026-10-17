@@ -1,7 +1,7 @@
 import { profitFactor } from '../src/utils/profitFactor';
 import type { PaperPerformance, PaperSnapshot, PaperTrade } from '../src/types/paper';
 import { getDb } from './db';
-// 고점 대비 최대 낙폭 — 백테스트와 같은 함수 (v2.39.0 에 공용으로 옮겼다)
+// 고점 대비 최대 낙폭 — 백테스트와 같은 함수
 import { maxDrawdown } from '../src/utils/drawdown';
 import { getAccountDetail, listTrades } from './paperTradingService';
 
@@ -196,7 +196,7 @@ export async function computePerformance(accountId: number): Promise<{
     avgWin,
     avgLoss,
     // 손익비(평균 수익 ÷ 평균 손실) — 평균 손실이 0 이면 정의되지 않는다 (전부 이겼거나 청산이 없는 경우).
-    // v2.41.0: 예전 필드 이름 profitFactor 가 이 값이었다 → payoffRatio 로 이름만 바꿨다(값은 그대로).
+    // 평균 수익 ÷ 평균 손실(payoffRatio) — Profit Factor(번 돈 ÷ 잃은 돈)와 다른 값이다.
     payoffRatio: avgWin != null && avgLoss != null && avgLoss !== 0
       ? Math.abs(avgWin / avgLoss)
       : null,

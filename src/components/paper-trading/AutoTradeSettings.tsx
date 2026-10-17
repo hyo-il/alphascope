@@ -15,12 +15,12 @@ import { useGeminiStatus } from '../../hooks/useGemini';
 import { AI_CHECK_DAILY_LIMIT } from '../../types/aiCheck';
 
 /**
- * 계좌별 자동매매 설정 패널 (v2.44.0 — 퀀트 다시 만들기 2단계).
+ * 계좌별 자동매매 설정 패널 (퀀트 다시 만들기 2단계).
  *
  * 위에서 아래로 한 줄: **① 매매 규칙 → ② 대상 종목 → ③ 계좌 운용 → ④ 신규 매수 안전장치 → 저장**.
  * 매수·매도 조건과 손절·익절·트레일링은 **매매 규칙 안에만** 있다(「퀀트 > 매매 규칙」 에서 고친다). 판단 방식·성향·분석 주기·「미국 정규장만」·
- * ④ 청산은 v2.44.0 에 없앴다. 이 창에 「고급 설정」 은 없다(남는 숫자가 적다).
- * v2.46.0: ① 줄 맨 오른쪽 「AI 검증 [끔 | 켬]」(따로 번호 칸을 두지 않는다 — 규칙 고르기의 덧붙임) · ② 대상 종목은 종목이 있으면 접힌 한 줄 요약으로 연다.
+ * 청산(손절·익절·트레일링)은 매매 규칙에 있다. 이 창에 「고급 설정」 은 없다(남는 숫자가 적다).
+ * ① 줄 맨 오른쪽 「AI 검증 [끔 | 켬]」(따로 번호 칸을 두지 않는다 — 규칙 고르기의 덧붙임) · ② 대상 종목은 종목이 있으면 접힌 한 줄 요약으로 연다.
  *
  * ⚠️ 값 검증의 최종 권한은 **서버**다(`normalizeStrategy` · 켤 때 규칙 확인). 저장 응답으로 온 값을 그대로 화면에 되돌린다.
  */
@@ -89,7 +89,7 @@ export default function AutoTradeSettings({ strategy, onSave, onClose, doneMessa
                     onChange={(v) => patch({ aiCheck: v === 'on' })}
                     options={[
                       { value: 'off', label: '끔' },
-                      // 켬 = 주황(v2.48.0) — 켜 두면 매수 직전 AI 가 막을 수 있다는 것이 한눈에 보이게
+                      // 켬 = 주황 — 켜 두면 매수 직전 AI 가 막을 수 있다는 것이 한눈에 보이게
                       { value: 'on', label: '켬', activeTone: 'warning' },
                     ]}
                   />
@@ -129,7 +129,7 @@ export default function AutoTradeSettings({ strategy, onSave, onClose, doneMessa
           </section>
 
           {/*
-            ④ 신규 매수 안전장치 (v2.16.0) — 둘 다 **새로 사는 것만** 막는다. 손절·청산은 그대로 돈다.
+            ④ 신규 매수 안전장치 — 둘 다 **새로 사는 것만** 막는다. 손절·청산은 그대로 돈다.
             값은 앱의 출발값이지 검증된 권장값이 아니다 — 권장값을 적지 않는다.
           */}
           <section className="space-y-2">

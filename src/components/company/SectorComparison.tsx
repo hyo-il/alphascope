@@ -39,7 +39,7 @@ const BASIS_LABEL: Record<NonNullable<PeerSummary['basis']>, string> = {
 };
 
 /**
- * 동종업계 비교 (v2.42.0) — 이 종목 + 최대 `PEER_MAX` 개(국내·미국 함께, 고르는 규칙은 서버 `getPeers`).
+ * 동종업계 비교 — 이 종목 + 최대 `PEER_MAX` 개(국내·미국 함께, 고르는 규칙은 서버 `getPeers`).
  * 금액(시총)은 **기본 원화**로 맞춘다(토스 환율 — 서버 60초 캐시 `/api/exchange-rate`), [원화 | 달러] 로 바꾼다. PER·PBR·비율은 환산하지 않는다.
  * 국내 종목 이름은 카탈로그 한글 이름(`StockName`).
  */
@@ -80,7 +80,7 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
         <h3 className="text-xs font-medium text-text-secondary">
           동종업계 비교 {sector && <span className="text-text-muted">— {sectorKo(sector)}</span>}
         </h3>
-        {/* 어느 규칙으로 골랐는지 (v2.42.1) — 짝이 있으면 짝만, 없으면 자동 */}
+        {/* 어느 규칙으로 골랐는지 — 짝이 있으면 짝만, 없으면 자동 */}
         {peers && peers.length > 1 && (
           <span className="text-caption text-text-muted">{byPair ? '직접 정한 관련 종목' : '같은 업종 자동 선택'}</span>
         )}

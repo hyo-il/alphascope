@@ -6,7 +6,7 @@ export const MAX_COMPARE_SYMBOLS = 4;
 /** 비교 차트의 타임프레임 셀렉트 항목 */
 /**
  * 비교 차트의 타임프레임 셀렉트 항목.
- * v2.20.0 부터 메인 차트와 **같은 `Timeframe`** 이다(예전 `CompareTimeframe` 을 합쳤다 — 두 벌이면 주봉 규칙이 갈라진다).
+ * 메인 차트와 **같은 `Timeframe`** 이다(두 벌이면 주봉 규칙이 갈라진다).
  * 주봉·월봉은 서버가 일봉을 시장 달력으로 묶어 준다(`aggregateCalendar`).
  */
 export const COMPARE_TIMEFRAMES: { value: Timeframe; label: string }[] = [

@@ -16,9 +16,9 @@ import WarnIcon from '../ui/WarnIcon';
 import { fixMethodNames, methodName, type BacktestConditionResult, type BacktestCustomReport, type BacktestCustomSymbol, type ConditionLabel, type WorstDrawdown } from '../../types/backtest';
 
 /**
- * ④ 결과 (v2.38.0 → v2.39.0 조건 비교) — 사용자 시험. **판정 배지 없음**.
+ * ④ 결과 — 사용자 시험. **판정 배지 없음**.
  * - 비교 표: 열 = 방법 1·2·3(저장 라벨 A·B·C — 화면 이름만 숫자, `methodName`) · 들고 있기, 행 = 조건 · 기간 전체 · 아무 날이나 대비 · MDD · Profit Factor · 거래 · 10회 미만 · 매도한 이유.
- * - v2.40.0: 숫자 색은 **항상**(표본이 적어도 끄지 않는다) — 대신 결과 맨 위 **표본 경고 상자**. MDD 는 빨강, Profit Factor 는 1 이상 초록·미만 빨강.
+ * - 숫자 색은 **항상**(표본이 적어도 끄지 않는다) — 대신 결과 맨 위 **표본 경고 상자**. MDD 는 빨강, Profit Factor 는 1 이상 초록·미만 빨강.
  *   ⚠️ **「가장 좋음」 표시·굵게·강조를 하지 않는다**(숫자의 +/− 색은 앱 공통 그대로) — 여러 조건을 비교해 고르면 우연에 속기 쉽다.
  * - 거래 10회 미만 종목이 절반 이상인 조건은 「결론 내기 어려움」, 그 조건의 숫자는 색칠하지 않는다.
  * - 종목별 표는 조건 하나를 골라 본다. 숫자는 모두 종목 평균(동일 가중)·수수료 왕복 0.30%p 포함. "기간 전체" = 1년 구간 수익률을 복리로 이은 값.
@@ -29,7 +29,7 @@ const tone = (v: number | null | undefined) => (v == null ? '' : v > 0 ? 'text-b
 const mddTone = (v: number | null | undefined) => (v != null && v < 0 ? 'text-bearish' : '');
 const pfTone = (v: number | null | undefined) => (v == null ? '' : v >= 1 ? 'text-bullish' : 'text-bearish');
 const when = (iso: string) => formatDateTime(iso);
-/** 가장 나쁜 종목 — 이름은 줄바꿈될 수 있지만 숫자는 이름 끝에 붙어 다닌다(숫자만 다음 줄로 떨어지지 않게, v2.42.2) */
+/** 가장 나쁜 종목 — 이름은 줄바꿈될 수 있지만 숫자는 이름 끝에 붙어 다닌다(숫자만 다음 줄로 떨어지지 않게) */
 const worstText = (w: WorstDrawdown | null | undefined) =>
   w ? (
     <>
@@ -71,7 +71,7 @@ function Pieces({ parts }: { parts: string[] }) {
 function Row({ head, help, cells, hold }: { head: string; help?: string; cells: ReactNode[]; hold: ReactNode }) {
   return (
     <tr className="border-b border-border/30 align-top">
-      {/* 행 머리는 폭을 정하고 줄바꿈을 허용한다 — 1280 창에서 조건 3개 + 들고 있기 열이 들어가게. 넓은 창(1536px 이상)에서는 넓혀 한 줄로 (v2.42.1) */}
+      {/* 행 머리는 폭을 정하고 줄바꿈을 허용한다 — 1280 창에서 조건 3개 + 들고 있기 열이 들어가게. 넓은 창(1536px 이상)에서는 넓혀 한 줄로 */}
       <th scope="row" className="w-32 min-w-32 py-2 pr-3 text-left font-normal text-text-muted 2xl:w-52 2xl:min-w-52">
         {head}
         {help && (
@@ -217,7 +217,7 @@ export default function CustomResult({
           </div>
         </div>
       )}
-      {/* 시장 필터(v2.51.0) — 시장 기준 데이터가 없어 사지 않은 기간이 있으면 알린다(거래가 적은 것이 규칙 탓인지 데이터 탓인지 구분되게) */}
+      {/* 시장 필터 — 시장 기준 데이터가 없어 사지 않은 기간이 있으면 알린다(거래가 적은 것이 규칙 탓인지 데이터 탓인지 구분되게) */}
       {report.marketWarnings?.length ? (
         <div role="note" className="flex gap-2 rounded-xl bg-warning/10 px-3 py-2 text-caption text-warning">
           <WarnIcon />
@@ -228,7 +228,7 @@ export default function CustomResult({
           </div>
         </div>
       ) : null}
-      {/* 트레일링을 켠 방법이 있으면 기준 차이 한 줄(v2.49.0) — 계좌는 실시간 최고가, 백테스트는 종가 최고가 */}
+      {/* 트레일링을 켠 방법이 있으면 기준 차이 한 줄 — 계좌는 실시간 최고가, 백테스트는 종가 최고가 */}
       {report.input.conditions.some((c) => c.rule?.sell.trailing.on) && <p className="text-caption text-text-muted">{TRAILING_BASIS_TEXT}</p>}
       <Panel pad="sm" className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -242,7 +242,7 @@ export default function CustomResult({
             {applySlot}
           </span>
         </div>
-        {/* 같은 기간 SPY 한 줄 (v2.41.0) — 비교 기준일 뿐, 판정·강조 없음. 옛 기록에는 없다 */}
+        {/* 같은 기간 SPY 한 줄 — 비교 기준일 뿐, 판정·강조 없음. 옛 기록에는 없다 */}
         {report.spy &&
           ('error' in report.spy ? (
             <p className="text-caption text-text-muted">{report.spy.error}</p>

@@ -43,7 +43,7 @@ function Row({
   tone?: string;
 }) {
   return (
-    // 칸 셋은 바깥 격자의 열에 그대로 놓인다(display: contents) — 값 칸이 **가장 긴 값만큼만** 넓어져 문구 칸이 좁아지지 않는다 (v2.42.0)
+    // 칸 셋은 바깥 격자의 열에 그대로 놓인다(display: contents) — 값 칸이 **가장 긴 값만큼만** 넓어져 문구 칸이 좁아지지 않는다
     <div className="contents">
       <span className="whitespace-nowrap py-0.5 text-text-secondary">{label}</span>
       {/* 값은 줄바꿈하지 않는다 — 국내 7자리 가격 두 개(「1,234,000 / 1,200,000」)도 한 줄 */}
@@ -74,9 +74,9 @@ export default function IndicatorSummaryPanel({
   const price = currentPrice ?? summary.price;
   // 장중에는 마지막 봉이 미완성이라 거래량이 평균의 몇 % 로 찍힌다 — 완성 봉 기준으로 본다.
   const volume = completedVolumeRatio(candles, timeframe, 20, symbol);
-  /** 가격 숫자는 통화 규칙대로 — 원화는 소수점 없이(예전 toFixed(2) 라 「267550.00」), 달러는 소수 둘째 자리 (v2.42.0) */
+  /** 가격 숫자는 통화 규칙대로 — 원화는 소수점 없이, 달러는 소수 둘째 자리 */
   const px = (v: number) => (currencyOfSymbol(symbol) === 'KRW' ? Math.round(v).toLocaleString('ko-KR') : formatNumber(v, 2));
-  // 봉 단위를 문구에 드러낸다 — 주봉에서 "20일선" 이라 쓰면 20주 평균을 20일로 읽는다 (v2.20.0)
+  // 봉 단위를 문구에 드러낸다 — 주봉에서 "20일선" 이라 쓰면 20주 평균을 20일로 읽는다
   const unit = UNIT[timeframe] ?? { line: '봉선', range: '한 봉' };
 
   const bbLower = last(indicators?.bbLower);
@@ -130,7 +130,7 @@ export default function IndicatorSummaryPanel({
           {volume.forming && ` 마지막 봉(이번 ${timeframe === '1w' ? '주' : '달'})은 아직 진행 중입니다.`}
         </p>
       )}
-      {/* 탭 폭(컨테이너)이 넓을 때만 두 묶음 — 1280 에서 아래 탭이 오른쪽 열 옆으로 좁아져(626px) 한 묶음이 읽기 쉽다. 문구 칸은 최대 28rem — 넓은 화면에서 두 묶음이 수백 px 벌어지지 않게 (v2.42.1) */}
+      {/* 탭 폭(컨테이너)이 넓을 때만 두 묶음 — 1280 에서 아래 탭이 오른쪽 열 옆으로 좁아져(626px) 한 묶음이 읽기 쉽다. 문구 칸은 최대 28rem — 넓은 화면에서 두 묶음이 수백 px 벌어지지 않게 */}
       <div className="grid grid-cols-[auto_auto_minmax(0,28rem)] items-baseline gap-x-3 gap-y-0 @min-[760px]:grid-cols-[auto_auto_minmax(0,28rem)_auto_auto_minmax(0,28rem)]">
         <Row
           label="RSI(14)"
@@ -149,7 +149,7 @@ export default function IndicatorSummaryPanel({
         />
         <Row
           label="볼린저"
-          // 숫자는 지우고 해석 문구만 (v2.42.0 사용자 요청)
+          // 숫자는 지우고 해석 문구만 (사용자 요청)
           value={bbLower == null ? '—' : bbNote}
         />
         <Row

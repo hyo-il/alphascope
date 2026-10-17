@@ -18,8 +18,8 @@ import StockName from '../common/StockName';
 import TrashIcon from '../common/TrashIcon';
 
 /**
- * 진단 리포트 — 「퀀트 > 검증 기록 > 진단 리포트」 탭(v2.47.0, 예전 「실험실 > 진단 리포트」). 네 질문(목표 수익률·급등·Gemini·뉴스 AI)에 숫자로 답한다.
- * (예전 「지금 살 만한가」 카드는 v2.45.0 에 지웠다 — 매수 판단의 성적은 「매수 판단 > 히스토리」. 옛 리포트의 swing 필드는 읽지 않는다.)
+ * 진단 리포트 — 「퀀트 > 검증 기록 > 진단 리포트」 탭. 네 질문(목표 수익률·급등·Gemini·뉴스 AI)에 숫자로 답한다.
+ * (매수 판단의 성적은 「매수 판단 > 히스토리」. 옛 리포트의 swing 필드는 읽지 않는다.)
  *
  * `npm run diagnose` 와 **같은 함수**를 서버에서 돌린다. 요약 카드 네 장 → 상세 표(접이식).
  * 표는 JSON 에서 그린다 — 마크다운을 HTML 로 바꾸지 않는다.
@@ -36,13 +36,13 @@ const vsBase = (rate: number | null | undefined, base: number | null | undefined
   isNum(rate) && isNum(base) ? (rate > base ? 'text-bullish' : 'text-bearish') : '';
 
 /**
- * 카드 판정 (v2.22.0) — **리포트에 이미 있는 숫자와 기준선만** 비교한다. 새 기준을 만들지 않는다.
+ * 카드 판정 — **리포트에 이미 있는 숫자와 기준선만** 비교한다. 새 기준을 만들지 않는다.
  * 표본 부족(weak)이거나 값이 없으면(옛 리포트) 판단 보류.
  */
 type Verdict = 'good' | 'bad' | 'hold';
 
 /**
- * 판정 + 그 판정의 비교식 한 줄 (v2.30.0 — 배지 툴팁). **같은 값**으로 판정과 문구를 함께 만든다 —
+ * 판정 + 그 판정의 비교식 한 줄 (배지 툴팁). **같은 값**으로 판정과 문구를 함께 만든다 —
  * 문구를 따로 만들면 판정과 툴팁이 갈라진다.
  *   value / base: 비교한 두 숫자, valueLabel / baseLabel: 이름, unit: 단위, sample: 표본 설명("채점 12건" 등)
  */
@@ -73,7 +73,7 @@ function judge(o: {
 }
 
 /**
- * 배지 — 색만으로 구분하지 않는다(모양이 다른 아이콘 + 글자). v2.28.0 의 기호(🟢🔴⚪)를 v2.36.0 에 `ui/statusIcons` 의 VERDICT_ICON 으로 바꿨다.
+ * 배지 — 색만으로 구분하지 않는다(모양이 다른 아이콘 + 글자). 아이콘은 `ui/statusIcons` 의 VERDICT_ICON.
  * 위 「이 화면은 무엇인가요?」 의 설명도 이 값을 쓴다.
  */
 const VERDICT_STYLE: Record<Verdict, { label: string; badge: string }> = {
@@ -86,7 +86,7 @@ function VerdictMark({ v }: { v: Verdict }) {
   return <Icon {...ICON_SM} />;
 }
 
-// ── 쉬운 설명 (v2.28.0) ─────────────────────────────────────────────────────
+// ── 쉬운 설명 ─────────────────────────────────────────────────────
 // 숫자·판정·카드 구조는 바꾸지 않는다 — 읽는 법만 더한다. 접힘 상태는 이 기기의 화면 설정이라 localStorage.
 function DiagnoseHelp() {
   const badge = (v: Verdict) => (
@@ -94,7 +94,7 @@ function DiagnoseHelp() {
       <VerdictMark v={v} /> {VERDICT_STYLE[v].label}
     </span>
   );
-  // 공용 설명 상자(v2.41.0) — 처음엔 닫혀 있다. 기억 키는 새 키(옛 alphascope.diagnoseHelpCollapsed 는 읽지 않는다)
+  // 공용 설명 상자 — 처음엔 닫혀 있다. 기억 키는 새 키(옛 alphascope.diagnoseHelpCollapsed 는 읽지 않는다)
   return (
     <HelpBox id="diagnose" title="이 화면은 무엇인가요?" storageKey="alphascope.diagnoseHelp">
         <div className="space-y-2.5">
@@ -139,10 +139,10 @@ function Card({
   conclusion,
 }: {
   title: string;
-  /** 무엇을 묻나 · 어떻게 읽나 — 한 줄 (v2.28.0) */
+  /** 무엇을 묻나 · 어떻게 읽나 — 한 줄 */
   hint: string;
   weak: boolean;
-  /** 판정과 그 비교식 (v2.30.0) — 배지 툴팁이 `why` 를 보인다 */
+  /** 판정과 그 비교식 — 배지 툴팁이 `why` 를 보인다 */
   judgement: Judgement;
   numbers: { label: string; value: ReactNode }[];
   conclusion: string;
@@ -152,11 +152,11 @@ function Card({
   const whyId = useId();
   return (
     <div className="flex flex-col rounded-xl bg-bg-secondary p-3">
-      {/* 좁은 카드에서는 배지가 아래 줄로 내려간다 — 제목이 105px 폭에 세 줄로 접혔다 (v2.34.0) */}
+      {/* 좁은 카드에서는 배지가 아래 줄로 내려간다 — 제목이 105px 폭에 세 줄로 접혔다 */}
       <div className="mb-2 flex flex-wrap items-start gap-x-2 gap-y-1">
         <p className="min-w-[12rem] flex-1 text-xs font-semibold text-text-primary">{title}</p>
-        {/* 예전 "표본 부족" 배지와 합쳤다 — 표본이 모자라면 판정 없이 회색 */}
-        {/* 마우스를 올리면(키보드 포커스로도) 이 카드의 실제 비교식 — 판정과 같은 값에서 만든다 (v2.30.0) */}
+        {/* 표본이 모자라면 판정 없이 회색(「표본 부족」 을 따로 두지 않는다) */}
+        {/* 마우스를 올리면(키보드 포커스로도) 이 카드의 실제 비교식 — 판정과 같은 값에서 만든다 */}
         <span
           tabIndex={0}
           title={why}
@@ -282,7 +282,7 @@ function Cards({ s }: { s: DiagnoseSummary }) {
   );
 }
 
-/** 상세 섹션 — 접기는 DisclosureButton 「○○ 보기」 (v2.40.0 공통 동작 규칙, 펼침은 기억하지 않는다) */
+/** 상세 섹션 — 접기는 DisclosureButton 「○○ 보기」 (공통 동작 규칙, 펼침은 기억하지 않는다) */
 function Section({ title, children }: { title: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const id = useId();
@@ -390,7 +390,7 @@ function Details({ d }: { d: DiagnoseDetail }) {
             headers={['기준일', '종목', '급등횟수', '규칙성', '평균간격', '예상일', '적중']}
             rows={d.surge.cases.slice(0, 30).map((c) => [
               c.asOf, <Sym symbol={c.symbol} />, c.surgeCount, `${c.regularity}%`, `${c.avgInterval}일`,
-              // v2.20.0 부터 경과 일수를 적는다. 그 전에 저장된 리포트는 overdueDays 가 없어 ⚠️ 로 남긴다
+              // 경과 일수를 적는다. overdueDays 가 없는 옛 리포트는 ⚠️ 로 남긴다
               c.overdueDays != null
                 ? `${c.predicted} — 예상일 지남(${c.overdueDays}일 경과)`
                 : `${c.predicted}${c.stale ? ' (예상일 지남)' : ''}`,
@@ -424,7 +424,7 @@ function Details({ d }: { d: DiagnoseDetail }) {
             rows={d.gemini.byVersion.map((v) => [v.version, v.total, v.judged, v.rate == null ? '—' : `${v.rate}%`])}
           />
         )}
-        {/* 출처별 (v2.30.0) — 같은 종목·같은 날 묶기는 출처별로. 채점 30건 미만이면 「표본 부족」 */}
+        {/* 출처별 — 같은 종목·같은 날 묶기는 출처별로. 채점 30건 미만이면 「표본 부족」 */}
         {d.gemini.bySource && d.gemini.bySource.length > 0 && (
           <Table
             headers={['출처(Gemini)', '건수', '채점', '적중률']}
@@ -485,7 +485,7 @@ export default function DiagnoseView() {
   };
 
   return (
-    // v2.47.0 — 「검증 기록」 의 탭 안에 들어간다. 스크롤·여백·제목은 바깥(RecordsView)이 맡는다(탭 이름이 곧 제목)
+    // 「검증 기록」 의 탭 안에 들어간다. 스크롤·여백·제목은 바깥(RecordsView)이 맡는다(탭 이름이 곧 제목)
     <div>
       <div className="space-y-3">
         <header className="flex flex-wrap items-center gap-3">
@@ -552,7 +552,7 @@ export default function DiagnoseView() {
           </p>
         )}
 
-        {/* 목록을 받는 중 (v2.38.0 로딩 점검) — 예전에는 받을 때까지 이 자리가 비어 있었다 */}
+        {/* 목록을 받는 중 — 받을 때까지 비워 두지 않는다 */}
         {loading && !reports.length && <SkeletonCards count={4} />}
 
         {!loading && !reports.length && !running && (

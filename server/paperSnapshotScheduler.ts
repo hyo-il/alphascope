@@ -131,7 +131,7 @@ async function backfillAccount(accountId: number): Promise<number> {
     // 그날 가격을 모르는 종목이 있으면 건너뛴다. 추정값으로 곡선을 채우지 않는다.
     if (!native) continue;
 
-    // 통화별 합을 계좌 통화로(convertAmount 하나 — v2.45.1, 예전에는 통화가 섞이면 원화와 달러를 그냥 더했다)
+    // 통화별 합을 계좌 통화로(convertAmount 하나 — 통화가 섞여도 원화와 달러를 그냥 더하지 않게)
     const stockValue =
       convertAmount(native.KRW, 'KRW', account.currency, usdKrw) + convertAmount(native.USD, 'USD', account.currency, usdKrw);
     const totalValue = cash + stockValue;
@@ -174,7 +174,7 @@ function nativeValues(
  * 마지막 스냅샷에서 1달러 = N원을 역산한다(stock_value 는 계좌 통화).
  * 원화 계좌: stock_value = 원화 합 + 달러 합 × N → N = (stock_value − 원화 합) ÷ 달러 합.
  * 달러 계좌: stock_value = 달러 합 + 원화 합 ÷ N → N = 원화 합 ÷ (stock_value − 달러 합).
- * 예전에는 「stock_value ÷ 종목 통화 합」 하나라 통화가 섞이거나 달러 계좌가 국내 종목만 들고 있으면 틀렸다(v2.45.1).
+ * 「stock_value ÷ 종목 통화 합」 하나로 풀면 통화가 섞이거나 달러 계좌가 국내 종목만 들고 있을 때 틀린다.
  */
 function estimateUsdKrw(
   last: SnapshotRow,
@@ -227,7 +227,7 @@ let lastRecordedDate: string | null = null;
  */
 export function startSnapshotScheduler(
   /**
-   * 같은 10분 확인에 얹을 일 (v2.23.0 — 지정 종목 Gemini 분석). 타이머를 새로 늘리지 않으려고 여기 얹는다.
+   * 같은 10분 확인에 얹을 일 (지정 종목 Gemini 분석). 타이머를 새로 늘리지 않으려고 여기 얹는다.
    * 이 스케줄러는 AUTO_TRADING_ENABLED 와 무관하게 늘 돈다 — 얹는 쪽이 자기 스위치를 스스로 본다.
    */
   extra?: () => void,

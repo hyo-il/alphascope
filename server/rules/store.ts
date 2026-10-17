@@ -1,10 +1,10 @@
 /**
- * 매매 규칙 저장 — `trading_rules` (db/schema.sql, v2.43.0).
+ * 매매 규칙 저장 — `trading_rules` (db/schema.sql).
  *
- * - 예시 규칙 「기본 규칙 + 200일선」 도 처음 한 번만(v2.50.0, 표시 'tradingRules.seeded.above200').
+ * - 예시 규칙 「기본 규칙 + 200일선」 도 처음 한 번만(표시 'tradingRules.seeded.above200').
  * - 「기본 규칙」 은 **처음 한 번만** 넣는다: `app_settings` 'tradingRules.seeded' 가 없을 때만 넣고 표시를 남긴다.
  *   사용자가 모두 지워도 다시 만들지 않는다(사용자 결정 A-2).
- * - 「적용된 곳」(`usedBy`) — 계좌(`accounts`, v2.44.0) · 매수 판단(`buyJudge`, v2.45.0). 백테스트는 기록이라 「쓰는 곳」 이 아니다(늘 false).
+ * - 「적용된 곳」(`usedBy`) — 계좌(`accounts`) · 매수 판단(`buyJudge`). 백테스트는 기록이라 「쓰는 곳」 이 아니다(늘 false).
  *   삭제·저장 확인 창은 이 값으로 문장을 만든다. 쓰는 규칙을 지우면 그 계좌들은 자동매매가 꺼지고 규칙이 비워진다(`detachRule`).
  */
 import { getDb } from '../db';
@@ -23,7 +23,7 @@ import {
 } from '../../src/types/tradingRule';
 
 const SEEDED_KEY = 'tradingRules.seeded';
-/** 예시 규칙 「기본 규칙 + 200일선」 (v2.50.0 — 사용자 결정 A-3) 을 넣었다는 표시 — 지워도 다시 만들지 않는다 */
+/** 예시 규칙 「기본 규칙 + 200일선」 (사용자 결정 A-3) 을 넣었다는 표시 — 지워도 다시 만들지 않는다 */
 const SEEDED_ABOVE200_KEY = 'tradingRules.seeded.above200';
 
 interface Row {
@@ -36,7 +36,7 @@ interface Row {
 
 export class RuleNameTakenError extends Error {}
 
-/** 이 규칙을 쓰는 곳 — 계좌(v2.44.0) · 매수 판단(v2.45.0) */
+/** 이 규칙을 쓰는 곳 — 계좌 · 매수 판단 */
 function usageOf(id: number): RuleUsage {
   return { ...EMPTY_USAGE, buyJudge: getBuyJudgeRuleId() === id, accounts: accountsUsingRule(id) };
 }

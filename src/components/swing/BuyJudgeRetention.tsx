@@ -5,7 +5,7 @@ import { modal, toast } from '../../store/uiStore';
 import { RETENTIONS, type Retention } from '../../types/buyJudge';
 
 /**
- * 「설정 > 앱 기능 설정」 의 매수 판단 기록 보관 기간 (v2.45.0, 사용자 결정 A-9) — 6개월 · 1년 · 2년 · 계속 보관, 기본 1년.
+ * 「설정 > 앱 기능 설정」 의 매수 판단 기록 보관 기간 (사용자 결정 A-9) — 6개월 · 1년 · 2년 · 계속 보관, 기본 1년.
  * 「사도 됨」 기록과 성과는 기간과 상관없이 남는다. 기간을 줄여 지워질 줄이 있으면 확인 창을 띄우고, 확인하면 곧바로 정리한다.
  */
 export default function BuyJudgeRetention() {

@@ -43,7 +43,7 @@ import BuyJudgeRetention from '../swing/BuyJudgeRetention';
 export default function Settings({ isMock, engineDown, section }: Props) {
   const [health, setHealth] = useState<Health | null>(null);
   /**
-   * 상태 확인이 끝났는지 (v2.38.0 로딩 점검) — 응답 전에 "연결 실패·중지됨·응답 없음" 을 그리면
+   * 상태 확인이 끝났는지 — 응답 전에 "연결 실패·중지됨·응답 없음" 을 그리면
    * 멀쩡한 서버가 고장처럼 보인다. 확인 중에는 줄마다 「확인 중…」 만.
    */
   const [checking, setChecking] = useState(true);
@@ -207,7 +207,7 @@ interface LoginSession {
 }
 
 /**
- * 로그인 — 「로그인된 기기」 표(v2.51.3 — 기기마다 로그아웃) + 모든 기기에서 로그아웃.
+ * 로그인 — 「로그인된 기기」 표(기기마다 로그아웃) + 모든 기기에서 로그아웃.
  *
  * 비밀번호를 바꾸는 명령(`npm run auth:set-password`)도 세션을 전부 끊지만,
  * 서버에 들어가지 않고 끊고 싶을 때가 있다 (PC 방에서 쓴 것 같을 때 등). 한 대만 끊으려면 표의 [로그아웃].
@@ -275,7 +275,7 @@ function AuthSection() {
         setBusy(true);
         try {
           const res = await fetch('/api/auth/logout-all', { method: 'POST' }).catch(() => null);
-          // ⚠️ 실패하면 다른 기기의 세션은 그대로다 — 이 창만 로그인 화면으로 보내면 끊긴 것처럼 보인다 (v2.34.1)
+          // ⚠️ 실패하면 다른 기기의 세션은 그대로다 — 이 창만 로그인 화면으로 보내면 끊긴 것처럼 보인다
           if (!res?.ok) {
             const body = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
             toast.error('다른 기기를 로그아웃하지 못했습니다', body?.error ?? (res ? `요청 실패 (${res.status})` : '서버에 연결하지 못했습니다'));

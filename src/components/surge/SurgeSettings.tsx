@@ -56,7 +56,7 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
   };
 
   return (
-    // 숫자 칸 묶음 — 단위 열(%·회) 폭이 같아 설명 시작점이 한 줄 (v2.42.3). 폭은 이름+칸+단위+설명이 한 줄에 들어가는 읽기 폭
+    // 숫자 칸 묶음 — 단위 열(%·회) 폭이 같아 설명 시작점이 한 줄. 폭은 이름+칸+단위+설명이 한 줄에 들어가는 읽기 폭
     <NumberUnitGroup w="sm">
     <div className="max-w-2xl space-y-4 text-xs">
       <section className="space-y-2">
@@ -202,7 +202,7 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
   );
 }
 
-/** 이 화면의 폼 줄 — 공용 `FormRow`(이름 md · 값 md, 단위 열 sm) — 칸 오른쪽 끝 · 단위 · 설명 시작점이 한 줄 (v2.42.3) */
+/** 이 화면의 폼 줄 — 공용 `FormRow`(이름 md · 값 md, 단위 열 sm) — 칸 오른쪽 끝 · 단위 · 설명 시작점이 한 줄 */
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <FormRow label={label} hint={hint} labelW="md" valueW="md">

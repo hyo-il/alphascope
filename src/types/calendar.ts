@@ -1,4 +1,4 @@
-/** 주요 일정 달력 (v2.17.0) — 서버 `calendarService.ts` 와 화면 `components/calendar` 가 함께 쓴다 */
+/** 주요 일정 달력 — 서버 `calendarService.ts` 와 화면 `components/calendar` 가 함께 쓴다 */
 
 export type CalendarScope = 'watchlist' | 'universe';
 export type CalendarEventType = 'earnings' | 'fomc' | 'expiry' | 'holiday';
@@ -32,7 +32,7 @@ export interface CalendarResponse {
     fomcSource: string;
     /** 휴장일을 확인한 범위 — null 이면 아직 못 받았다(휴장 필터를 숨긴다) */
     holidays: { US: { from: string; to: string } | null; KR: { from: string; to: string } | null };
-    /** NYSE 공식 휴장 표(2026~2027) — 토스 달력을 보완한다 (v2.18.0) */
+    /** NYSE 공식 휴장 표(2026~2027) — 토스 달력을 보완한다 */
     nyse: {
       coverage: { from: string; to: string };
       source: string;

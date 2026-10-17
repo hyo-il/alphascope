@@ -2,10 +2,10 @@ import { formatSigned, formatPrice } from '../../utils/formatters';
 import type { JudgeReference } from '../../types/buyJudge';
 
 /**
- * 매수 · 목표 · 손절을 **표로** 적고, 왼쪽에 손익 막대를 함께 둔다 — 매수 판단 펼친 줄의 「가격 계획」(참고, v2.45.0 에 엔진 참고 계획으로 바꿨다).
+ * 매수 · 목표 · 손절을 **표로** 적고, 왼쪽에 손익 막대를 함께 둔다 — 매수 판단 펼친 줄의 「가격 계획」(참고 — 엔진의 참고 계획).
  *
- * 예전에는 가격 축 위에 라벨을 절대 위치로 얹었는데, 1·2차 목표가 0.1% 차이면
- * 라벨이 그대로 포개졌다. 표는 값이 아무리 가까워도 겹치지 않는다 —
+ * 가격 축 위에 라벨을 절대 위치로 얹으면 1·2차 목표가 0.1% 차이일 때
+ * 라벨이 그대로 포개진다. 표는 값이 아무리 가까워도 겹치지 않는다 —
  * 대신 "리워드가 리스크보다 넓다" 는 감각은 왼쪽 막대가 맡는다.
  */
 export default function TradePlan({ plan, currency = 'USD' }: { plan: JudgeReference; currency?: 'KRW' | 'USD' }) {
