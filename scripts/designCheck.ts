@@ -54,6 +54,11 @@ interface Target {
   after?: (page: Page) => Promise<void>;
 }
 
+/** 계좌 모아보기의 보기(서버 저장) — 목록 보기를 잰 뒤 카드로 되돌린다(사본 DB) */
+async function setAccountsView(page: Page, view: 'card' | 'list') {
+  await page.evaluate((v) => fetch('/api/paper/accounts-view', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ view: v }) }), view);
+}
+
 /** 화면 주소 — 메뉴(NAV_GROUPS)의 모든 page × 그 page 의 탭(PAGE_TABS) */
 function targets(): Target[] {
   const list: Target[] = [];
@@ -146,7 +151,34 @@ function targets(): Target[] {
         await page.waitForTimeout(400);
       },
     },
-    // 계좌 모아보기 ↑↓ · 끄는 중(첫 카드를 둘째 카드 앞으로 끄는 순간 — 놓지 않는다)
+    // 계좌 모아보기 목록 보기(서버 저장 값을 목록으로 바꿔 두고 재고, 끝나면 카드로 되돌린다) · 목록에서 끄는 중(첫 줄을 둘째 줄 아래 반으로 — 놓지 않는다)
+    ...(['account-목록', 'account-목록-끄는중'] as const).map((name) => ({
+      name,
+      hash: '#/portfolio/paper',
+      before: (page: Page) => setAccountsView(page, 'list'),
+      after: (page: Page) => setAccountsView(page, 'card'),
+      open: async (page: Page) => {
+        await page.waitForSelector('tr[draggable=true]', { timeout: 8000 });
+        if (name !== 'account-목록-끄는중') return;
+        await page.evaluate(() => {
+          const rows = [...document.querySelectorAll('tr[draggable=true]')] as HTMLElement[];
+          if (rows.length < 2) return;
+          const dt = new DataTransfer();
+          rows[0].dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
+          (window as unknown as { __dt: DataTransfer }).__dt = dt;
+        });
+        await page.waitForTimeout(200);
+        await page.evaluate(() => {
+          const rows = [...document.querySelectorAll('tr[draggable=true]')] as HTMLElement[];
+          const dt = (window as unknown as { __dt: DataTransfer }).__dt;
+          if (rows.length < 2 || !dt) return;
+          const r = rows[1].getBoundingClientRect();
+          rows[1].dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: r.left + 40, clientY: r.bottom - 4 }));
+        });
+        await page.waitForTimeout(400);
+      },
+    })),
+    // 계좌 모아보기 카드 끄는 중(첫 카드를 둘째 카드 앞으로 끄는 순간 — 놓지 않는다)
     {
       name: 'account-순서-끄는중',
       hash: '#/portfolio/paper',

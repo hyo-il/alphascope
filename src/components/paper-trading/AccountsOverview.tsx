@@ -1,11 +1,13 @@
-import { CARD_GRID } from '../ui/tokens';
+import { CARD_GRID, LIST_TABLE_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import Button from '../ui/Button';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type DragEvent, type KeyboardEvent } from 'react';
 import { ArrowDown, ArrowUp, GripVertical, LoaderCircle } from 'lucide-react';
 import IconButton from '../ui/IconButton';
 import { ICON_SM } from '../ui/icon';
 import { useFlipReorder } from '../../hooks/useFlipReorder';
+import { SkeletonCards } from '../common/SkeletonLoader';
+import type { AccountsView } from '../../types/paper';
 import type { AccountOverviewItem, StrategyOverviewItem } from '../../hooks/usePaperOverview';
 import { formatPrice, formatSignedMoney, formatSigned } from '../../utils/formatters';
 import { toast } from '../../store/uiStore';
@@ -56,6 +58,7 @@ export default function AccountsOverview({
   strategies,
   error,
   hasAccounts,
+  view: shownView,
   selectedId,
   onOpen,
   onToggleAuto,
@@ -70,6 +73,8 @@ export default function AccountsOverview({
    * (옛 서버에는 `/accounts/overview` 가 없어 `/:id` 에 걸리고 'accountId 가 필요합니다' 가 난다).
    */
   hasAccounts: boolean;
+  /** 보기 — 카드 · 목록(서버 저장, `useAccountsView`). `null` = 아직 받는 중(로딩을 보인다) */
+  view: AccountsView | null;
   /** 지금 다른 화면들이 보고 있는 계좌 — **테두리가 아니라 태그**로 표시한다 */
   selectedId: number | null;
   onOpen: (accountId: number) => void;
@@ -80,7 +85,7 @@ export default function AccountsOverview({
 }) {
   const [busyId, setBusyId] = useState<number | null>(null);
   /*
-   * 계좌 순서 바꾸기 (사용자 결정: 끌어 옮기기 + ↑↓ 둘 다). 관심 목록 편집 창과 같은 끌기 방식·피드백
+   * 계좌 순서 바꾸기 (사용자 결정: 카드 보기 = 끌어 옮기기 · 목록 보기 = 끌어 옮기기 + ↑↓). 두 보기가 같은 함수(`moveAccount`)를 쓴다. 관심 목록 편집 창과 같은 끌기 방식·피드백
    * (끄는 원래 자리 = 점선 · 놓을 자리 = 파란 줄 · FLIP 미끄러짐). 바꾸는 즉시 서버에 저장하고, 저장하는 동안은 화면에 새 순서를 먼저 보인다.
    * 실패하면 원래 순서로 되돌리고 알린다. 순서의 출처는 서버(`listAccounts()` — sort_order) 하나다.
    */
@@ -128,6 +133,44 @@ export default function AccountsOverview({
   const strategyOf = (accountId: number) =>
     strategies?.find((s) => s.strategy.accountId === accountId) ?? null;
 
+  /**
+   * 끌기 — 두 보기가 같이 쓴다. 놓을 자리는 카드 격자 = 가로 위치(한 줄에 여러 장) · 목록 = 세로 위치(줄 위 반 / 아래 반).
+   * 짧은 클릭은 브라우저가 끌기와 갈라 주므로 열기는 그대로다.
+   */
+  const dragProps = (item: AccountOverviewItem, index: number, count: number, axis: 'x' | 'y') => ({
+    draggable: count > 1 && !savingOrder,
+    onDragStart: (e: DragEvent) => {
+      e.dataTransfer.effectAllowed = 'move';
+      setDragId(item.account.id);
+    },
+    onDragEnd: () => {
+      setDragId(null);
+      setDropIndex(null);
+    },
+    onDragOver: (e: DragEvent) => {
+      if (dragId == null) return;
+      e.preventDefault();
+      const box = e.currentTarget.getBoundingClientRect();
+      const after = axis === 'x' ? e.clientX - box.left > box.width / 2 : e.clientY - box.top > box.height / 2;
+      setDropIndex(after ? index + 1 : index);
+    },
+    onDrop: (e: DragEvent) => {
+      if (dragId == null) return;
+      e.preventDefault();
+      const id = dragId;
+      setDragId(null);
+      setDropIndex(null);
+      void moveAccount(id, dropIndex ?? index);
+    },
+  });
+
+  /** 줄을 눌러 상세로 — 안의 버튼에서 누른 Enter · Space 는 그 버튼의 몫이다(열기와 겹치지 않게) */
+  const openOnKey = (e: KeyboardEvent, accountId: number) => {
+    if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+    e.preventDefault();
+    onOpen(accountId);
+  };
+
   const toggle = async (item: AccountOverviewItem, on: boolean) => {
     const found = strategyOf(item.account.id);
     if (on && found) {
@@ -152,6 +195,143 @@ export default function AccountsOverview({
     } finally {
       setBusyId(null);
     }
+  };
+
+  /**
+   * 목록 보기 — 계좌 하나에 한 줄, **핵심만**(사용자 결정). 동작은 카드와 같은 함수(`onOpen` · `toggle` · `moveAccount`)다.
+   * 표라서 계좌마다 숫자 칸이 같은 x 에 선다. 순서는 끌기(세로 위치로 위/아래) + ↑↓.
+   * 좁을 때는 규칙 이름 칸을 숨긴다(목록 폭 48rem 미만 — 컨테이너 기준이라 오른쪽 패널을 접어도 맞는다). 이름은 넘치면 말줄임 + title.
+   */
+  const renderList = (list: AccountOverviewItem[]) => {
+    const many = list.length > 1;
+    // 서버 스위치(AUTO_TRADING_ENABLED=false) 안내는 줄마다가 아니라 목록 위에 한 번만
+    const serverOff = (strategies ?? []).some((s) => s.status?.serverEnabled === false);
+    // 놓을 자리 — 파란 가로 줄(줄 위 · 맨 아래 줄은 아래도). 표 줄에는 위치를 줄 수 없어 칸마다 안쪽 그림자로 긋는다
+    const dropLine = (index: number) =>
+      dragId == null
+        ? ''
+        : dropIndex === index
+          ? '[&>td]:shadow-[inset_0_2px_0_0_var(--color-accent)]'
+          : dropIndex === index + 1 && index === list.length - 1
+            ? '[&>td]:shadow-[inset_0_-2px_0_0_var(--color-accent)]'
+            : '';
+    return (
+      <>
+        {serverOff && (
+          <p className="mb-2 rounded bg-warning/10 px-2 py-1 text-caption text-warning">
+            이 서버에서는 자동매매가 꺼져 있습니다(AUTO_TRADING_ENABLED=false)
+          </p>
+        )}
+        <div className="@container rounded-lg bg-bg-secondary">
+          <table className="w-full table-auto border-collapse text-xs">
+            <tbody>
+              {list.map((item, index) => {
+                const found = strategyOf(item.account.id);
+                const strategy = found?.strategy;
+                const on = Boolean(strategy?.enabled);
+                const view = autoTradeView(strategy, found?.status);
+                const currency = item.account.currency;
+                const pnl = item.totalPnl ?? 0;
+                const busy = busyId === item.account.id;
+                const rule = strategy ? ruleName(strategy.ruleId) : null;
+                return (
+                  <tr
+                    key={item.account.id}
+                    ref={flip(String(item.account.id))}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${item.account.name} 계좌 열기`}
+                    {...dragProps(item, index, list.length, 'y')}
+                    onClick={() => onOpen(item.account.id)}
+                    onKeyDown={(e) => openOnKey(e, item.account.id)}
+                    className={`border-b border-border/30 last:border-b-0 transition-colors hover:bg-bg-tertiary/40 ${LIST_TABLE_ROW} ${
+                      many ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+                    } ${dragId === item.account.id ? 'opacity-40' : ''} ${dropLine(index)}`}
+                  >
+                    {many && (
+                      <td className={`${TABLE_NUM_COL} pl-2 text-text-muted`}>
+                        <span aria-hidden title="끌어서 순서 바꾸기 (↑↓ 버튼으로도)" className="flex">
+                          <GripVertical {...ICON_SM} />
+                        </span>
+                      </td>
+                    )}
+                    <td className={`${TABLE_NAME_COL} max-w-0 ${many ? 'pl-1' : 'pl-3'}`}>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span title={item.account.name} className="min-w-0 truncate text-sm font-medium text-text-primary">
+                          {item.account.name}
+                        </span>
+                        <span className="shrink-0 text-caption text-text-muted">{currency}</span>
+                        {item.account.id === selectedId && (
+                          <span className="shrink-0 rounded bg-bg-tertiary px-1.5 py-0.5 text-caption font-medium text-text-secondary">
+                            현재 계좌
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    {item.error ? (
+                      <td colSpan={2} title={item.error} className={`whitespace-nowrap ${TABLE_NUM_GAP} text-right text-caption text-danger`}>
+                        평가 실패
+                      </td>
+                    ) : (
+                      <>
+                        <td className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right font-medium tabular-nums text-text-primary`}>
+                          {formatPrice(item.totalValue ?? 0, currency)}
+                        </td>
+                        <td
+                          className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right tabular-nums ${
+                            pnl > 0 ? 'text-bullish' : pnl < 0 ? 'text-bearish' : 'text-text-secondary'
+                          }`}
+                        >
+                          {formatSignedMoney(pnl, currency)} ({formatSigned(item.totalReturn ?? 0, 2, '%')})
+                        </td>
+                      </>
+                    )}
+                    <td className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP}`}>
+                      {/* 카드와 같은 배지 — 멈춤 이유는 줄이 길어지지 않게 title 로 */}
+                      <span
+                        title={view.reason ?? undefined}
+                        className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-caption font-medium ${BADGE[view.state]}`}
+                      >
+                        <AutoTradeIcon view={view} />
+                        <span>{view.label}</span>
+                      </span>
+                    </td>
+                    <td className={`hidden max-w-48 pl-3 @3xl:table-cell`}>
+                      {rule != null && (
+                        <span title={rule} className="block truncate text-caption text-text-muted">
+                          {rule}
+                        </span>
+                      )}
+                    </td>
+                    {/* 버튼 칸 — 누른 것이 줄 열기로 번지지 않게 막는다 */}
+                    <td className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} ${many ? '' : 'pr-3'}`} onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant={on ? 'danger-text' : 'secondary'}
+                        size="sm"
+                        busy={busy}
+                        disabled={busy || !strategy}
+                        onClick={() => void toggle(item, !on)}
+                      >
+                        {busy ? (on ? '끄는 중…' : '켜는 중…') : on ? '끄기' : '켜기'}
+                      </Button>
+                    </td>
+                    {many && (
+                      // ↑↓ — 끌기를 모르는 사람도 바꿀 수 있게(사용자 결정). 맨 위의 ↑ · 맨 아래의 ↓ 는 잠근다
+                      <td className={`${TABLE_NUM_COL} pl-2 pr-2`} onClick={(e) => e.stopPropagation()}>
+                        <span className="flex items-center">
+                          <IconButton icon={ArrowUp} size="sm" label="위로" disabled={index === 0 || savingOrder} onClick={() => void moveAccount(item.account.id, index - 1)} />
+                          <IconButton icon={ArrowDown} size="sm" label="아래로" disabled={index === list.length - 1 || savingOrder} onClick={() => void moveAccount(item.account.id, index + 2)} />
+                        </span>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </>
+    );
   };
 
   /*
@@ -200,6 +380,12 @@ export default function AccountsOverview({
           순서를 저장하는 중…
         </p>
       )}
+      {shownView === null && accounts.length > 0 ? (
+        // 보기를 받는 동안 — 카드로 그렸다가 목록으로 바뀌는 깜빡임을 막는다
+        <SkeletonCards count={accounts.length} className={CARD_GRID} />
+      ) : shownView === 'list' && accounts.length > 0 ? (
+        renderList(shown ?? [])
+      ) : (
       <div className={`grid gap-3 ${CARD_GRID}`}>
         {(shown ?? []).map((item, index, list) => {
           const found = strategyOf(item.account.id);
@@ -216,31 +402,8 @@ export default function AccountsOverview({
               ref={flip(String(item.account.id))}
               role="button"
               tabIndex={0}
-              // 카드 전체를 잡아 끈다(관심 목록 편집과 같은 방식). 짧은 클릭은 브라우저가 끌기와 갈라 주므로 열기는 그대로다
-              draggable={list.length > 1 && !savingOrder}
-              onDragStart={(e) => {
-                e.dataTransfer.effectAllowed = 'move';
-                setDragId(item.account.id);
-              }}
-              onDragEnd={() => {
-                setDragId(null);
-                setDropIndex(null);
-              }}
-              onDragOver={(e) => {
-                if (dragId == null) return;
-                e.preventDefault();
-                const box = e.currentTarget.getBoundingClientRect();
-                // 카드 격자라 가로 위치로 앞/뒤를 정한다(한 줄에 여러 장)
-                setDropIndex(e.clientX - box.left > box.width / 2 ? index + 1 : index);
-              }}
-              onDrop={(e) => {
-                if (dragId == null) return;
-                e.preventDefault();
-                const id = dragId;
-                setDragId(null);
-                setDropIndex(null);
-                void moveAccount(id, dropIndex ?? index);
-              }}
+              // 카드 전체를 잡아 끈다(관심 목록 편집과 같은 방식). 카드 격자라 가로 위치로 앞/뒤를 정한다
+              {...dragProps(item, index, list.length, 'x')}
               onClick={() => onOpen(item.account.id)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') onOpen(item.account.id);
@@ -261,7 +424,7 @@ export default function AccountsOverview({
               )}
               <header className="flex items-center gap-2">
                 {list.length > 1 && (
-                  <span aria-hidden title="끌어서 순서 바꾸기 (↑↓ 버튼으로도)" className="-ml-1 shrink-0 text-text-muted">
+                  <span aria-hidden title="끌어서 순서 바꾸기" className="-ml-1 shrink-0 text-text-muted">
                     <GripVertical {...ICON_SM} />
                   </span>
                 )}
@@ -272,13 +435,6 @@ export default function AccountsOverview({
                 {item.account.id === selectedId && (
                   <span className="ml-auto shrink-0 rounded bg-bg-tertiary px-1.5 py-0.5 text-caption font-medium text-text-secondary">
                     현재 계좌
-                  </span>
-                )}
-                {list.length > 1 && (
-                  // ↑↓ — 끌기를 모르는 사람도 바꿀 수 있게(사용자 결정). 맨 위의 ↑ · 맨 아래의 ↓ 는 잠근다. 카드 열기와 겹치지 않게 막는다
-                  <span className={`flex shrink-0 items-center ${item.account.id === selectedId ? '' : 'ml-auto'}`} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                    <IconButton icon={ArrowUp} size="sm" label="위로" disabled={index === 0 || savingOrder} onClick={() => void moveAccount(item.account.id, index - 1)} />
-                    <IconButton icon={ArrowDown} size="sm" label="아래로" disabled={index === list.length - 1 || savingOrder} onClick={() => void moveAccount(item.account.id, index + 2)} />
                   </span>
                 )}
               </header>
@@ -384,6 +540,7 @@ export default function AccountsOverview({
           );
         })}
       </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,7 @@
 import Button from '../ui/Button';
 import InfoTip from '../ui/InfoTip';
+import Segmented from '../ui/Segmented';
+import { useAccountsView } from '../../hooks/useAccountsView';
 import { useEffect, useState } from 'react';
 import { Skeleton, SkeletonCards, SkeletonTable } from '../common/SkeletonLoader';
 import {
@@ -74,6 +76,8 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   // 모아보기가 보일 때만 폴링한다 — 상세로 들어가면 그쪽이 1초로 본다.
   const overview = usePaperAccountsOverview(view === 'overview');
   const autoOverview = useAutoTradingOverview(view === 'overview');
+  /** 모아보기의 보기(카드 · 목록) — 서버 저장이라 모든 기기에서 같다 */
+  const accountsView = useAccountsView();
   /** 주문·취소 후 목록을 다시 읽기 위한 카운터 */
   const [version, setVersion] = useState(0);
 
@@ -229,6 +233,19 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
             onClick={() => setCreatingInOverview((v) => !v)}>
             + 새 계좌
           </Button>
+          {/* 보기 고르기 — 맨 위 오른쪽(사용자 결정). 계좌가 없거나 목록을 불러오지 못한 화면에서는 숨긴다 */}
+          {accountsView.view && (overview.items?.length ?? 0) > 0 && (
+            <Segmented
+              size="sm"
+              label="계좌 보기"
+              value={accountsView.view}
+              onChange={(v) => void accountsView.change(v)}
+              options={[
+                { value: 'card', label: '카드' },
+                { value: 'list', label: '목록' },
+              ]}
+            />
+          )}
           {creatingInOverview && (
             <CreateAccountForm
               onCreate={create}
@@ -253,6 +270,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
           strategies={autoOverview.items}
           error={overview.error ?? autoOverview.error}
           hasAccounts={accounts.length > 0}
+          view={accountsView.view}
           selectedId={selectedId}
           onOpen={openAccount}
           onToggleAuto={toggleAuto}
