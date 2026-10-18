@@ -112,6 +112,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
   };
 
+  // Enter(차트 열기)는 목록 자신에 초점이 있을 때만 — 안의 버튼(관심 별 · 더 보기)에서 누른 Enter 는 그 버튼의 몫이다(막지 않으면 차트까지 열린다)
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (!rows.length) return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -120,7 +121,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
       setActive(next);
       setPreview(rows[next]);
       listRef.current?.querySelector(`[data-index="${next}"]`)?.scrollIntoView({ block: 'nearest' });
-    } else if (e.key === 'Enter' && active >= 0 && rows[active]) {
+    } else if (e.key === 'Enter' && e.target === e.currentTarget && active >= 0 && rows[active]) {
       open(rows[active].symbol);
     }
   };
