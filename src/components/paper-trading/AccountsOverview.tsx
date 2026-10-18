@@ -164,7 +164,11 @@ export default function AccountsOverview({
     },
   });
 
-  /** 줄을 눌러 상세로 — 안의 버튼에서 누른 Enter · Space 는 그 버튼의 몫이다(열기와 겹치지 않게) */
+  /**
+   * 카드 · 목록 줄을 키로 열기 — 두 보기가 같이 쓴다. **카드·줄 자신에 초점이 있을 때만** 연다.
+   * 안의 버튼([켜기/끄기] · [설정 열기] · ↑↓)에서 누른 Enter · Space 는 위로 올라와도 그 버튼의 몫이다 —
+   * 막지 않으면 버튼 동작과 함께 상세까지 열린다.
+   */
   const openOnKey = (e: KeyboardEvent, accountId: number) => {
     if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
     e.preventDefault();
@@ -407,9 +411,7 @@ export default function AccountsOverview({
               // 카드 전체를 잡아 끈다(관심 목록 편집과 같은 방식). 카드 격자라 가로 위치로 앞/뒤를 정한다
               {...dragProps(item, index, list.length, 'x')}
               onClick={() => onOpen(item.account.id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') onOpen(item.account.id);
-              }}
+              onKeyDown={(e) => openOnKey(e, item.account.id)}
               /*
                 ⚠️ **테두리는 자동매매 상태 전용**이다. hover 가 테두리를 파랗게
                 덮어쓰면 카드를 보려고 마우스를 올리는 순간 상태 표시가 사라진다.
