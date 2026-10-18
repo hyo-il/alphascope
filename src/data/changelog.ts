@@ -23,6 +23,16 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.51.8',
+    date: '2026-10-18',
+    title: '카드 안 버튼의 Enter 로 계좌가 함께 열리던 문제 수정',
+    description: '계좌 카드 안의 버튼에서 Enter 를 누르면 계좌 상세까지 열리던 문제를 고쳤습니다.',
+    changes: [
+      '계좌 화면 카드 보기에서 키보드로 [켜기/끄기] 에 가서 Enter · Space 를 누르면 그 버튼만 동작합니다. 카드 자체에서 누른 Enter · Space 는 전처럼 계좌를 엽니다.',
+      '실시간 순위 목록에서 관심 별 · 「더 보기」 버튼에 키보드로 가서 Enter 를 누르면 그 버튼만 동작하고, 차트로 넘어가지 않습니다.',
+    ],
+  },
+  {
     version: 'v2.51.7',
     date: '2026-10-18',
     title: '계좌 화면 「카드 | 목록」 보기',
