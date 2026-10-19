@@ -72,7 +72,7 @@ interface SnapshotRow {
 }
 
 /** 계좌 하나의 빠진 날짜를 채운다. 채운 날짜 수를 돌려준다. */
-async function backfillAccount(accountId: number): Promise<number> {
+export async function backfillAccount(accountId: number): Promise<number> {
   const db = getDb();
   const last = db
     .prepare(`SELECT * FROM paper_snapshots WHERE account_id = ? ORDER BY date DESC LIMIT 1`)
@@ -203,19 +203,39 @@ function estimateUsdKrw(
   return rate != null && Number.isFinite(rate) && rate > 0 ? rate : null;
 }
 
-/** 모든 계좌의 빠진 날짜를 채운다 (서버 기동 시 1회). */
-export async function backfillSnapshots(): Promise<void> {
+/**
+ * 모든 계좌의 빠진 날짜를 채운다 (서버 기동 시 1회).
+ * **계좌마다 따로** 감싼다(`recordToday` 와 같은 방식) — 하나로 감싸면 한 계좌가 실패할 때 그 뒤 계좌를 모두 건너뛰었다.
+ * 실패한 계좌는 id 와 이유를 남기고 다음 계좌로. `fillOne` 은 시험이 실패를 만들 때만 넘긴다.
+ */
+export async function backfillSnapshots(
+  fillOne: (accountId: number) => Promise<number> = backfillAccount,
+): Promise<{ filledDays: number; filledAccounts: number; failed: number[] }> {
+  const result = { filledDays: 0, filledAccounts: 0, failed: [] as number[] };
+  let accounts: ReturnType<typeof listAccounts>;
   try {
-    const accounts = listAccounts();
-    let total = 0;
-    for (const account of accounts) {
-      total += await backfillAccount(account.id);
-    }
-    if (total) console.log(`[paper] 스냅샷 ${total}일치를 보정했습니다.`);
+    accounts = listAccounts();
   } catch (e) {
     // 보정 실패로 서버가 뜨지 않으면 안 된다.
-    console.error('[paper] 스냅샷 보정 실패:', e instanceof Error ? e.message : e);
+    console.error('[paper] 스냅샷 보정 실패(계좌 목록):', e instanceof Error ? e.message : e);
+    return result;
   }
+  for (const account of accounts) {
+    try {
+      const days = await fillOne(account.id);
+      if (days) {
+        result.filledDays += days;
+        result.filledAccounts += 1;
+      }
+    } catch (e) {
+      result.failed.push(account.id);
+      console.error(`[paper] 계좌 ${account.id} 스냅샷 보정 실패:`, e instanceof Error ? e.message : e);
+    }
+  }
+  if (result.filledDays || result.failed.length) {
+    console.log(`[paper] 스냅샷 보정 — ${result.filledAccounts}개 계좌 보정(${result.filledDays}일치) · ${result.failed.length}개 실패`);
+  }
+  return result;
 }
 
 /** 오늘 스냅샷을 모든 계좌에 기록한다 (computePerformance 가 UPSERT 한다). */

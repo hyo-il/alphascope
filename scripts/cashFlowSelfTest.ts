@@ -14,7 +14,7 @@ import { getDb } from '../server/db';
 import { setPassword } from '../server/auth';
 import { createAccount, deleteAccount, getAccount, listAccounts, listCashFlows } from '../server/paperTradingService';
 import { listSnapshots, recordSnapshot } from '../server/paperPerformanceService';
-import { backfillSnapshots } from '../server/paperSnapshotScheduler';
+import { backfillAccount, backfillSnapshots } from '../server/paperSnapshotScheduler';
 import { evaluateDailyLoss, readDailyLoss } from '../server/autoTrading/guards';
 import { copyAccount } from '../server/autoTrading/copy';
 import { flowNeutralValues } from '../src/utils/flowNeutral';
@@ -235,6 +235,34 @@ try {
     check('빈 날 채우기 — 입금 전 날 100만 · 입금 뒤 날 130만', filled.length >= 2 && filled.every((s) => (s.date >= depDay.slice(0, 10) ? near(s.totalValue, 1_300_000) : near(s.totalValue, 1_000_000))), filled.map((s) => `${s.date}:${s.totalValue}`).join(' '));
     check('빈 날 채우기 — 그날 손익 모두 0(입금이 손익으로 안 잡힘)', filled.every((s) => near(s.dailyPnl, 0)), filled.map((s) => `${s.date}:${s.dailyPnl}`).join(' '));
     check('빈 날 채우기 — 누적 수익률 모두 0%', filled.every((s) => near(s.cumulativeReturn, 0)), filled.map((s) => `${s.date}:${s.cumulativeReturn}`).join(' '));
+  }
+
+  // ── 빈 날 채우기 — 계좌마다 따로(가운데 계좌가 실패해도 앞뒤 계좌는 채운다) ──
+  {
+    const kst = (k: number) => new Date(Date.now() + 9 * 3_600_000 - k * 86_400_000).toISOString().slice(0, 10);
+    const wk = (d: string) => ![0, 6].includes(new Date(`${d}T00:00:00Z`).getUTCDay());
+    let start = kst(5);
+    for (let k = 5; k < 14; k++) {
+      start = kst(k);
+      const gap = Array.from({ length: k - 1 }, (_, i) => kst(k - 1 - i)).filter(wk);
+      if (wk(start) && gap.length >= 1) break;
+    }
+    const trio = ['bf-a', 'bf-b', 'bf-c'].map((n) => createAccount({ name: `${PREFIX} ${n}`, initialBalance: 1_000_000, currency: 'KRW' }));
+    for (const a of trio) {
+      getDb()
+        .prepare(`INSERT INTO paper_snapshots (account_id, date, total_value, cash, stock_value, daily_pnl, daily_return, cumulative_return) VALUES (?, ?, 1000000, 1000000, 0, 0, 0, 0)`)
+        .run(a.id, start);
+    }
+    const middle = trio[1].id;
+    const trioIds = new Set(trio.map((a) => a.id));
+    const res = await backfillSnapshots(async (id) => {
+      if (id === middle) throw new Error('시험용 실패');
+      return trioIds.has(id) ? backfillAccount(id) : 0; // 시험 계좌만 채운다(사본의 다른 계좌는 건드리지 않는다)
+    });
+    const after = (id: number) => listSnapshots(id).filter((x) => x.date > start).length;
+    check('빈 날 채우기 — 가운데 계좌가 실패해도 앞 계좌는 채움', after(trio[0].id) > 0, String(after(trio[0].id)));
+    check('… 뒤 계좌도 채움', after(trio[2].id) > 0, String(after(trio[2].id)));
+    check('… 실패한 계좌는 그대로 · 실패 목록에 그 계좌', after(middle) === 0 && res.failed.length === 1 && res.failed[0] === middle, JSON.stringify(res));
   }
 
   // ── 하루 손실 한도 — 입출금으로 걸리거나 풀리지 않는다 ──
