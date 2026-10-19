@@ -9,6 +9,7 @@ import {
 } from 'lightweight-charts';
 import type { PaperSnapshot } from '../../types/paper';
 import { BASE_CHART_OPTIONS, COLORS } from '../chart/chartTheme';
+import { flowNeutralValues } from '../../utils/flowNeutral';
 
 interface Props {
   snapshots: PaperSnapshot[];
@@ -24,19 +25,23 @@ const RANGES: { id: Range; label: string; days: number | null }[] = [
   { id: 'all', label: '전체', days: null },
 ];
 
-/** 구간 수익률 — 시작점 대비. 누적 수익률의 차이가 아니라 평가금액 비율로 낸다. */
-function rangeStats(points: { totalValue: number; cumulativeReturn: number | null }[]) {
+/**
+ * 구간 수익률 — 시작점 대비. 누적 수익률의 차이가 아니라 평가금액 비율로 낸다.
+ * 평가금액은 입출금을 뺀 곡선(`flowNeutralValues` — 입금한 날 오르고 출금한 날 떨어진 것으로 잡히지 않게, 입출금이 없으면 평가액 그대로).
+ */
+function rangeStats(points: PaperSnapshot[]) {
   if (points.length < 2) return { ret: null as number | null, mdd: null as number | null };
 
-  const first = points[0].totalValue;
-  const last = points[points.length - 1].totalValue;
+  const values = flowNeutralValues(points);
+  const first = values[0];
+  const last = values[values.length - 1];
   const ret = first ? (last / first - 1) * 100 : null;
 
   let peak = first;
   let worst = 0;
-  for (const p of points) {
-    if (p.totalValue > peak) peak = p.totalValue;
-    if (peak > 0) worst = Math.min(worst, (p.totalValue - peak) / peak);
+  for (const v of values) {
+    if (v > peak) peak = v;
+    if (peak > 0) worst = Math.min(worst, (v - peak) / peak);
   }
   return { ret, mdd: worst * 100 };
 }
@@ -103,11 +108,17 @@ export default function PerformanceChart({ snapshots }: Props) {
     const days = RANGES.find((r) => r.id === range)?.days ?? null;
     const cutoff = days ? Date.now() - days * 86_400_000 : 0;
 
+    // 입출금이 있는 계좌는 첫 점의 누적 수익률에서 입출금을 뺀 곡선으로 잇는다 — 저장된 누적 수익률(평가액 ÷ 그때 원금)은
+    // 손익이 있는 계좌에 입금하면 그날 꺾인다. 입출금이 없으면 저장된 값 그대로
+    const hasFlow = snapshots.some((s) => s.cashFlow);
+    const neutral = hasFlow ? flowNeutralValues(snapshots) : [];
+    const startFactor = 1 + (snapshots[0]?.cumulativeReturn ?? 0) / 100;
     const points = snapshots
-      .filter((s) => new Date(s.date).getTime() >= cutoff)
-      .map((s) => ({
+      .map((s, i) => ({ s, value: hasFlow && neutral[0] ? (startFactor * (neutral[i] / neutral[0]) - 1) * 100 : (s.cumulativeReturn ?? 0) }))
+      .filter(({ s }) => new Date(s.date).getTime() >= cutoff)
+      .map(({ s, value }) => ({
         time: (new Date(`${s.date}T00:00:00Z`).getTime() / 1000) as UTCTimestamp,
-        value: s.cumulativeReturn ?? 0,
+        value,
       }));
 
     series.setData(points);
