@@ -137,7 +137,15 @@ export default function AiCheckHistoryPanel({
                     <tr
                       className={`cursor-pointer border-b border-border/30 hover:bg-bg-tertiary/60 ${LIST_TABLE_ROW} ${isOpen ? 'bg-bg-tertiary/60' : ''}`}
                       onClick={() => toggle(r.useId)}
+                      // 키보드로도 펼치기 — 줄 자신에 초점이 있을 때만(안의 종목 이름에서 누른 키는 이름의 몫 · 계좌 목록 줄 `openOnKey` 와 같은 규칙)
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+                        e.preventDefault();
+                        toggle(r.useId);
+                      }}
                       aria-expanded={isOpen}
+                      aria-label={`${r.marketDate} ${r.symbol} AI 검증 ${isOpen ? '접기' : '펼치기'}`}
                     >
                       <td className={`${TABLE_NUM_COL} py-1 pl-3 pr-2 tabular-nums text-text-secondary`}>
                         <span className="flex items-center gap-1.5">
