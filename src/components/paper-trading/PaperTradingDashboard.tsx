@@ -406,10 +406,10 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
                 />
               )}
               {tab === 'trades' && (
-                <TradeHistory trades={trades} cashFlows={cashFlows} currency={currency} orders={orders} onChanged={bump} />
+                <TradeHistory trades={trades} cashFlows={cashFlows} currency={currency} orders={orders} onChanged={bump} onSelectSymbol={onSelectSymbol} />
               )}
               {tab === 'aiCheck' && (
-                <AiCheckHistoryPanel data={aiHistory.data} loading={aiHistory.loading} error={aiHistory.error} onMore={aiHistory.more} />
+                <AiCheckHistoryPanel data={aiHistory.data} loading={aiHistory.loading} error={aiHistory.error} onMore={aiHistory.more} onSelectSymbol={onSelectSymbol} />
               )}
               {tab === 'performance' && (
                 <div className="flex h-full min-h-0 flex-col gap-3 p-3">

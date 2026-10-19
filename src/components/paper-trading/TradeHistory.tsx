@@ -5,7 +5,7 @@ import { toast } from '../../store/uiStore';
 import type { Currency, PaperCashFlow, PaperOrder, PaperTrade } from '../../types/paper';
 import { cancelPaperOrder } from '../../hooks/usePaperTrading';
 import { formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
-import StockName from '../common/StockName';
+import SymbolChartLink from '../common/SymbolChartLink';
 import { TABLE_NAME_COL, TABLE_NUM_COL } from '../ui/tokens';
 
 interface Props {
@@ -16,6 +16,8 @@ interface Props {
   currency: Currency;
   orders: PaperOrder[];
   onChanged: () => void;
+  /** 종목 이름을 누르면 차트로 */
+  onSelectSymbol: (symbol: string) => void;
 }
 
 type Filter = 'all' | 'buy' | 'sell' | 'win' | 'loss';
@@ -43,7 +45,7 @@ const isAuto = (reason: string | null): boolean =>
 type Row = { kind: 'trade'; at: string; trade: PaperTrade } | { kind: 'flow'; at: string; flow: PaperCashFlow };
 
 /** 체결 내역 + 입출금 + 대기 중인 지정가 주문 */
-export default function TradeHistory({ trades, cashFlows, currency, orders, onChanged }: Props) {
+export default function TradeHistory({ trades, cashFlows, currency, orders, onChanged, onSelectSymbol }: Props) {
   const [filter, setFilter] = useState<Filter>('all');
   const pending = orders.filter((o) => o.status === 'PENDING');
 
@@ -87,7 +89,7 @@ export default function TradeHistory({ trades, cashFlows, currency, orders, onCh
                 <span className={o.side === 'BUY' ? 'text-bearish' : 'text-bullish'}>
                   {o.side === 'BUY' ? '매수' : '매도'}
                 </span>
-                <StockName symbol={o.symbol} name={o.name} className="text-text-primary" />
+                <SymbolChartLink symbol={o.symbol} name={o.name} onOpen={onSelectSymbol} />
                 <span className="tabular-nums">{o.quantity}주</span>
                 <span className="tabular-nums">@ {formatPrice(o.requestedPrice, o.currency)}</span>
                 {o.reason && <span className="text-text-muted">· {o.reason}</span>}
@@ -169,7 +171,7 @@ export default function TradeHistory({ trades, cashFlows, currency, orders, onCh
                       {formatDateTime(t.tradedAt)}
                     </td>
                     <td className="px-3 py-2 text-text-primary">
-                      <StockName symbol={t.symbol} name={t.name} />
+                      <SymbolChartLink symbol={t.symbol} name={t.name} onOpen={onSelectSymbol} />
                     </td>
                     <td className="px-3 py-2">
                       <span

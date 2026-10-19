@@ -1,4 +1,5 @@
 import { TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
+import SymbolChartLink from '../common/SymbolChartLink';
 import type { PaperPositionValued } from '../../types/paper';
 import { formatPrice, formatSignedMoney, formatSigned } from '../../utils/formatters';
 
@@ -51,14 +52,7 @@ export default function PositionList({ positions, onSelectSymbol }: Props) {
           {positions.map((p) => (
             <tr key={p.symbol} className="border-b border-border/60 hover:bg-bg-tertiary/40">
               <td className="px-3 py-2">
-                <button
-                  type="button"
-                  onClick={() => onSelectSymbol(p.symbol)}
-                  className="font-medium text-text-primary hover:underline"
-                >
-                  {p.name || p.symbol}
-                </button>
-                {p.name && <span className="ml-1.5 text-caption text-text-secondary">{p.symbol}</span>}
+                <SymbolChartLink symbol={p.symbol} name={p.name} onOpen={onSelectSymbol} />
               </td>
               <td className="px-3 py-2 text-right tabular-nums">{p.quantity}</td>
               <td className="px-3 py-2 text-right tabular-nums text-text-secondary">

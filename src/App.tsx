@@ -102,6 +102,11 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   /** 화면 위치는 스토어에 있다 — 사이드 메뉴가 대메뉴/소메뉴 두 값을 함께 쓴다 */
   const nav = useAppStore((s) => s.nav);
   const setPage = useAppStore((s) => s.setPage);
+  /** 종목을 바꾸고 차트 화면으로 — 다른 화면에서 종목을 누르면 모두 이것(종목만 바꾸고 화면이 그대로면 「눌러도 안 된다」 로 읽힌다) */
+  const openChart = (next: string) => {
+    setSymbol(next);
+    setPage('chart');
+  };
   const setGroup = useAppStore((s) => s.setGroup);
   const view = nav.page;
   /** 포트폴리오를 모의투자 계좌로 열지 (빠른주문의 '모의투자로 가기') */
@@ -341,10 +346,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         return (
           <SurgeDashboard
             watchlist={watchlist}
-            onSelectSymbol={(next) => {
-              setSymbol(next);
-              setPage('chart');
-            }}
+            onSelectSymbol={openChart}
             onWatch={add}
             onAnalyze={(next) => {
               // 「AI 분석」 화면은 따로 없다 — 차트로 가서 아래 「AI 분석」 탭을 연다
@@ -369,27 +371,20 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
             onOpen={(next, tf) => {
               // 미리보기에서 고른 봉 그대로 메인 차트를 연다 (일·주·월)
               setTimeframe(tf);
-              setSymbol(next);
-              setPage('chart');
+              openChart(next);
             }}
           />
         );
       case 'heatmap':
         return (
           <HeatmapView
-            onSelectSymbol={(next) => {
-              setSymbol(next);
-              setPage('chart');
-            }}
+            onSelectSymbol={openChart}
           />
         );
       case 'calendar':
         return (
           <CalendarView
-            onSelectSymbol={(next) => {
-              setSymbol(next);
-              setPage('chart');
-            }}
+            onSelectSymbol={openChart}
           />
         );
       /*
@@ -400,7 +395,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         return <CompareView currentSymbol={symbol} />;
       case 'portfolio':
         return (
-          <PortfolioView onSelectSymbol={setSymbol} />
+          <PortfolioView onSelectSymbol={openChart} />
         );
       case 'settings-account':
         return <Settings isMock={isMock} engineDown={engineDown} section="account" />;
@@ -546,10 +541,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         {(view === 'home' || (view === 'chart' && !symbol)) && (
           <div className="flex min-h-0 flex-1 flex-col">
             <StockExplorer
-              onSelect={(next) => {
-                setSymbol(next);
-                setPage('chart');
-              }}
+              onSelect={openChart}
               watchlist={watchlist}
               recent={recent}
               /* 패널과 **같은 함수**를 넘긴다 — 삭제 로직을 화면마다 만들면 갈라진다 */

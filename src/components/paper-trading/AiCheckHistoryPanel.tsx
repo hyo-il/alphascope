@@ -1,6 +1,7 @@
 import { Fragment, useState } from 'react';
 import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react';
 import StockName from '../common/StockName';
+import SymbolChartLink from '../common/SymbolChartLink';
 import { SkeletonTable } from '../common/SkeletonLoader';
 import { Badge, Button, InfoTip, Segmented } from '../ui';
 import { ICON_SM } from '../ui/icon';
@@ -50,6 +51,7 @@ export default function AiCheckHistoryPanel({
   onMore,
   accountName,
   flush = false,
+  onSelectSymbol,
   emptyText = '아직 AI 검증 기록이 없습니다. AI 검증을 켠 계좌는 규칙이 「사도 됨」 을 낸 날 사기 직전에 AI에게 묻고 여기에 남깁니다.',
 }: {
   data: AiCheckHistory | null;
@@ -58,6 +60,8 @@ export default function AiCheckHistoryPanel({
   onMore: () => void;
   accountName?: (accountId: number) => string;
   flush?: boolean;
+  /** 있으면 종목 이름을 누르면 차트로(계좌 화면) — 이름만, 줄의 다른 곳은 펼치기 */
+  onSelectSymbol?: (symbol: string) => void;
   emptyText?: string;
 }) {
   const [days, setDays] = useState<AiOutcomeDays>(20);
@@ -142,7 +146,11 @@ export default function AiCheckHistoryPanel({
                         </span>
                       </td>
                       <td className="max-w-0 py-1 pl-4 pr-3">
-                        <StockName symbol={r.symbol} className="max-w-full" />
+                        {onSelectSymbol ? (
+                          <SymbolChartLink symbol={r.symbol} onOpen={onSelectSymbol} />
+                        ) : (
+                          <StockName symbol={r.symbol} className="max-w-full" />
+                        )}
                       </td>
                       <td className={`${TABLE_NUM_COL} py-1 pr-2`}>
                         <AiVerdictText verdict={r.verdict} />
