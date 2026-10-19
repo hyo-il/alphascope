@@ -134,9 +134,22 @@ export default function AccountsOverview({
     strategies?.find((s) => s.strategy.accountId === accountId) ?? null;
 
   /**
-   * 끌기 — 두 보기가 같이 쓴다. 놓을 자리는 카드 격자 = 가로 위치(한 줄에 여러 장) · 목록 = 세로 위치(줄 위 반 / 아래 반).
-   * 짧은 클릭은 브라우저가 끌기와 갈라 주므로 열기는 그대로다.
+   * 끌기 — 두 보기가 같이 쓴다. 짧은 클릭은 브라우저가 끌기와 갈라 주므로 열기는 그대로다.
+   * 놓을 자리(새 순서의 끼울 위치 0…N):
+   * - 카드 격자 = 가로 위치(한 줄에 여러 장) — 카드 왼쪽 반이면 그 앞, 오른쪽 반이면 그 뒤.
+   * - 목록 = **끄는 줄보다 아래 줄에 올리면 그 줄 뒤 · 위 줄이면 그 줄 앞**(줄 어디에 놓아도). 마지막 줄 아래 빈 곳 = 맨 끝(`listEndDrop`).
+   *   줄 위 반 / 아래 반으로 가르면, 아래로 옮길 때 다음 줄의 위 반에 놓으면 「그 줄 앞」 = 원래 자리라 순서가 바뀌지 않았다(v2.52.0 재현).
+   * 놓는 순간의 자리는 그 drop 이벤트의 위치로 다시 낸다 — 마지막 dragover 의 상태(dropIndex)가 아직 그려지기 전이면 한 칸 앞 값을 읽는다.
    */
+  const slotOf = (e: DragEvent, index: number, axis: 'x' | 'y'): number | null => {
+    if (axis === 'x') {
+      const box = e.currentTarget.getBoundingClientRect();
+      return e.clientX - box.left > box.width / 2 ? index + 1 : index;
+    }
+    const from = (shown ?? []).findIndex((a) => a.account.id === dragId);
+    if (from < 0 || index === from) return null;
+    return index > from ? index + 1 : index;
+  };
   const dragProps = (item: AccountOverviewItem, index: number, count: number, axis: 'x' | 'y') => ({
     draggable: count > 1 && !savingOrder,
     onDragStart: (e: DragEvent) => {
@@ -150,19 +163,40 @@ export default function AccountsOverview({
     onDragOver: (e: DragEvent) => {
       if (dragId == null) return;
       e.preventDefault();
-      const box = e.currentTarget.getBoundingClientRect();
-      const after = axis === 'x' ? e.clientX - box.left > box.width / 2 : e.clientY - box.top > box.height / 2;
-      setDropIndex(after ? index + 1 : index);
+      setDropIndex(slotOf(e, index, axis));
     },
     onDrop: (e: DragEvent) => {
       if (dragId == null) return;
       e.preventDefault();
+      e.stopPropagation();
       const id = dragId;
+      const slot = slotOf(e, index, axis);
       setDragId(null);
       setDropIndex(null);
-      void moveAccount(id, dropIndex ?? index);
+      if (slot != null) void moveAccount(id, slot);
     },
   });
+  /** 목록 보기 — 마지막 줄 아래 빈 곳에 놓으면 맨 끝. 줄 위(`tr`)는 줄이 맡는다 */
+  const listEndDrop = (count: number) => {
+    const onEmpty = (e: DragEvent) => dragId != null && !(e.target as Element).closest('tr');
+    const lastIsDragged = () => (shown ?? []).at(-1)?.account.id === dragId;
+    return {
+      onDragOver: (e: DragEvent) => {
+        if (!onEmpty(e)) return;
+        e.preventDefault();
+        setDropIndex(lastIsDragged() ? null : count);
+      },
+      onDrop: (e: DragEvent) => {
+        if (!onEmpty(e)) return;
+        e.preventDefault();
+        const id = dragId!;
+        const skip = lastIsDragged();
+        setDragId(null);
+        setDropIndex(null);
+        if (!skip) void moveAccount(id, count);
+      },
+    };
+  };
 
   /**
    * 카드 · 목록 줄을 키로 열기 — 두 보기가 같이 쓴다. **카드·줄 자신에 초점이 있을 때만** 연다.
@@ -373,7 +407,7 @@ export default function AccountsOverview({
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto p-4">
+    <div className="min-h-0 flex-1 overflow-y-auto p-4" {...(shownView === 'list' ? listEndDrop(shown?.length ?? 0) : {})}>
       {error && (
         <p className="mb-2 rounded-lg bg-warning/10 px-3 py-1.5 text-caption text-warning">
           최신 값을 받지 못했습니다 ({error}) — 아래는 마지막으로 받은 값입니다.
