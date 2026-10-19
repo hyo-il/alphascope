@@ -168,7 +168,17 @@ export function PickerDialog({
   onAddedChange,
   dialogTitle,
   onClose,
-}: SymbolPickerProps & { added: string[]; onAddedChange: (next: string[]) => void; onClose: () => void }) {
+  disabled = false,
+}: SymbolPickerProps & {
+  added: string[];
+  onAddedChange: (next: string[]) => void;
+  onClose: () => void;
+  /**
+   * 바깥 화면이 바쁜 동안(매수 판단 [실행] 중) — 창은 열어 두고 고르는 중 목록도 그대로, **[추가] 만 잠근다**(저장이 실행과 겹치지 않게).
+   * 끝나면 다시 눌린다. [취소] 는 그대로. 넘기지 않는 화면은 지금과 같다.
+   */
+  disabled?: boolean;
+}) {
   const uni = useBacktestUniverse();
   const { folders } = useWatchlist();
   /** 고르는 중 — 열 때 지금 목록을 복사한다. [추가] 때만 밖으로 나간다 */
@@ -189,7 +199,7 @@ export function PickerDialog({
   const addedChanged = draftAdded.length !== added.length || draftAdded.some((s) => !added.includes(s));
   const changed = adding > 0 || dropping > 0 || addedChanged;
   const commit = () => {
-    if (!changed) return;
+    if (!changed || disabled) return;
     onAddedChange(draftAdded);
     onChange(draft);
     onClose();
@@ -251,10 +261,11 @@ export function PickerDialog({
       footer={
         <>
           <span className="mr-auto text-caption text-text-muted tabular-nums" aria-live="polite">
+            {disabled ? '실행이 끝나면 추가할 수 있습니다 · ' : ''}
             {changed ? [adding ? `${adding}종목 추가` : '', dropping ? `${dropping}종목 빼기` : '', !adding && !dropping ? '직접 추가한 종목 바뀜' : ''].filter(Boolean).join(' · ') : '바뀐 것이 없습니다'}
           </span>
           <Button onClick={onClose}>취소</Button>
-          <Button variant="primary" onClick={commit} disabled={!changed}>
+          <Button variant="primary" onClick={commit} disabled={!changed || disabled}>
             추가
           </Button>
         </>
