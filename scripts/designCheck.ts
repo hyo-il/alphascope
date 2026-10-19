@@ -91,6 +91,22 @@ function targets(): Target[] {
   list.push(
     { name: 'dialog-자동매매설정-고급', hash: '#/portfolio/paper', open: async (page) => { await openAccountSettings(page); await expandAdvanced(page); } },
     { name: 'backtest-고급', hash: '#/backtest', open: expandAdvanced },
+    // 계좌 상세 윗줄의 [입금] · [출금] 창(v2.52.0) — 금액을 넣은 모양으로 잰다. 출금은 출금할 수 있는 돈보다 많이 넣어 막힌 모양
+    ...(['입금', '출금'] as const).map((label) => ({
+      name: `dialog-${label}`,
+      hash: '#/portfolio/paper',
+      open: async (page: Page) => {
+        await page.getByText('현재 계좌').first().click();
+        await page.waitForTimeout(1500);
+        await click(label)(page);
+        await page.getByRole('textbox', { name: `${label}할 금액` }).fill(label === '입금' ? '1000000' : '999999999999');
+        await page.waitForTimeout(300);
+      },
+    })),
+    // 계좌 상세 「거래내역」 탭 — 입출금 줄이 체결과 섞인다(사본 DB 에 입출금이 있으면)
+    { name: 'account-거래내역', hash: '#/portfolio/paper', open: async (page) => { await page.getByText('현재 계좌').first().click(); await page.waitForTimeout(1500); await click('거래내역')(page); } },
+    // 오른쪽 패널 계좌 탭 — 맨 아래 고정 「총 평가 · 총 손익」(v2.52.0)
+    { name: 'panel-계좌탭', hash: '#/chart', open: async (page) => { await page.getByTitle('모의투자 계좌').click(); await page.waitForTimeout(1500); } },
     { name: 'form-새계좌', hash: '#/portfolio/paper', open: click(/새 계좌/) },
     // 차트 아래 「AI 분석」 탭(간단 · 전체 모드), 검증 기록(AI 검증 계좌 하나 · 빈 화면 · AI 분석 성적표), 퀀트 메뉴 접힘
     ...(['간단', '전체'] as const).map((mode) => ({

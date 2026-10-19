@@ -77,7 +77,7 @@ export default function CashFlowDialog({
         <FormRow
           label="금액"
           labelW="sm"
-          error={over ? `출금할 수 있는 돈(${formatPrice(withdrawable, currency)})보다 많습니다.` : undefined}
+          error={over ? '출금할 수 있는 돈보다 많습니다.' : undefined}
         >
           <NumberField
             kind="long"
@@ -99,7 +99,7 @@ export default function CashFlowDialog({
           </FormRow>
         )}
         <p className="leading-relaxed text-text-secondary">
-          {label}한 만큼 원금(초기 자금)도 {type === 'deposit' ? '늘어' : '줄어'} 총 손익(금액)은 그대로입니다. 거래 내역에 한 줄로 남습니다.
+          {label}한 만큼 원금(초기 자금)도 {type === 'deposit' ? '늘어' : '줄어'} 총 손익(금액)은 그대로입니다(수익률 = 총 손익 ÷ 새 원금). 거래 내역에 한 줄로 남습니다.
           {type === 'withdraw' && ' 미체결 매수 주문에 묶인 돈은 뺄 수 없습니다.'}
         </p>
         <p className="text-caption text-text-muted">비교 중인 계좌가 있으면 같은 금액을 넣어야 비교가 맞습니다</p>
