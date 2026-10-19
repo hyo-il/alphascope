@@ -167,6 +167,8 @@ export default function SymbolSearch({
      * 닫을 수 있어야 한다(아래 가드에 먼저 걸리면 마우스로 바깥을 눌러야 한다).
      */
     if (e.key === 'Escape') {
+      // 자동완성이 열려 있으면 ESC 는 그것만 닫는다 — 창 안(「종목 추가」 창)에서 위로 올라가면 창의 ESC(= 고른 것 버리기)까지 된다
+      if (open) e.stopPropagation();
       setOpen(false);
       return;
     }

@@ -185,7 +185,9 @@ export function PickerDialog({
   const before = useMemo(() => new Set(uniq(selected)), [selected]);
   const adding = draft.filter((s) => !before.has(s)).length;
   const dropping = [...before].filter((s) => !sel.has(s)).length;
-  const changed = adding > 0 || dropping > 0;
+  // 「직접 추가한 종목」 만 지운 것도 바뀐 것이다(그 목록을 화면이 기억하는 곳 — 백테스트 초안)
+  const addedChanged = draftAdded.length !== added.length || draftAdded.some((s) => !added.includes(s));
+  const changed = adding > 0 || dropping > 0 || addedChanged;
   const commit = () => {
     if (!changed) return;
     onAddedChange(draftAdded);
@@ -249,7 +251,7 @@ export function PickerDialog({
       footer={
         <>
           <span className="mr-auto text-caption text-text-muted tabular-nums" aria-live="polite">
-            {changed ? [adding ? `${adding}종목 추가` : '', dropping ? `${dropping}종목 빼기` : ''].filter(Boolean).join(' · ') : '바뀐 것이 없습니다'}
+            {changed ? [adding ? `${adding}종목 추가` : '', dropping ? `${dropping}종목 빼기` : '', !adding && !dropping ? '직접 추가한 종목 바뀜' : ''].filter(Boolean).join(' · ') : '바뀐 것이 없습니다'}
           </span>
           <Button onClick={onClose}>취소</Button>
           <Button variant="primary" onClick={commit} disabled={!changed}>

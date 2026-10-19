@@ -147,7 +147,8 @@ export default function AiCheckHistoryPanel({
                       </td>
                       <td className="max-w-0 py-1 pl-4 pr-3">
                         {onSelectSymbol ? (
-                          <SymbolChartLink symbol={r.symbol} onOpen={onSelectSymbol} />
+                          // 줄 전체가 펼치기라 이름은 늘 옅은 밑줄로 구분한다(누르면 다른 화면으로 간다)
+                          <SymbolChartLink symbol={r.symbol} onOpen={onSelectSymbol} className="underline decoration-text-muted underline-offset-2" />
                         ) : (
                           <StockName symbol={r.symbol} className="max-w-full" />
                         )}
