@@ -42,11 +42,18 @@ const AUTO_MARKERS = ['AI 매수', 'AI 매도', '골든크로스', '데드크로
 const isAuto = (reason: string | null): boolean =>
   Boolean(reason) && AUTO_MARKERS.some((m) => reason!.includes(m));
 
+/** 거르기 — 이 브라우저 탭이 열려 있는 동안 기억(차트에 다녀와도 그대로 · 계좌 화면 상태와 같은 방식) */
+let rememberedFilter: Filter = 'all';
+
 type Row = { kind: 'trade'; at: string; trade: PaperTrade } | { kind: 'flow'; at: string; flow: PaperCashFlow };
 
 /** 체결 내역 + 입출금 + 대기 중인 지정가 주문 */
 export default function TradeHistory({ trades, cashFlows, currency, orders, onChanged, onSelectSymbol }: Props) {
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilterState] = useState<Filter>(rememberedFilter);
+  const setFilter = (f: Filter) => {
+    rememberedFilter = f;
+    setFilterState(f);
+  };
   const pending = orders.filter((o) => o.status === 'PENDING');
 
   const filteredTrades = trades.filter((t) => {

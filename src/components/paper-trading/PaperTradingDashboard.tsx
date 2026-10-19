@@ -2,7 +2,7 @@ import Button from '../ui/Button';
 import InfoTip from '../ui/InfoTip';
 import Segmented from '../ui/Segmented';
 import { useAccountsView } from '../../hooks/useAccountsView';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Skeleton, SkeletonCards, SkeletonTable } from '../common/SkeletonLoader';
 import {
   usePaperAccountDetail,
@@ -45,6 +45,13 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'trades', label: '거래내역' },
   { id: 'performance', label: '성과분석' },
 ];
+/**
+ * 이 브라우저 탭이 열려 있는 동안 계좌 화면이 보던 자리(모아보기/상세 · 그 계좌 · 아래 탭) — 종목 이름으로 차트에 다녀와도 그대로 연다.
+ * 화면을 바꾸면 이 컴포넌트가 사라졌다 다시 만들어져 `useState` 가 처음으로 돌아가므로 모듈에 둔다(`useAccountsView` 와 같은 방식).
+ * 서버에는 두지 않는다 — 새로고침하면 처음(모아보기)이다. 기억한 계좌가 없어졌거나 현재 계좌가 바뀌었으면 모아보기로 연다.
+ */
+const remembered: { view: View; tab: Tab; accountId: number | null } = { view: 'overview', tab: 'positions', accountId: null };
+
 /** AI 검증 기록 탭 — 그 계좌에 기록이 있거나 AI 검증이 켜져 있을 때만 */
 const AI_TAB: { id: Tab; label: string } = { id: 'aiCheck', label: 'AI 검증 기록' };
 
@@ -67,8 +74,22 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
     reset,
   } = usePaperAccounts();
   const { detail, error, refresh } = usePaperAccountDetail(selectedId);
-  const [tab, setTab] = useState<Tab>('positions');
-  const [view, setView] = useState<View>('overview');
+  const [tab, setTab] = useState<Tab>(remembered.tab);
+  const [view, setView] = useState<View>(() =>
+    remembered.view === 'detail' && remembered.accountId != null && remembered.accountId === selectedId ? 'detail' : 'overview',
+  );
+  // 되살린 상세의 계좌가 목록을 받아 보니 없으면(다른 곳에서 지움) 모아보기로
+  const restoredId = useRef(view === 'detail' ? remembered.accountId : null);
+  useEffect(() => {
+    if (restoredId.current == null || loading) return;
+    if (!accounts.some((a) => a.id === restoredId.current)) setView('overview');
+    restoredId.current = null;
+  }, [accounts, loading]);
+  useEffect(() => {
+    remembered.view = view;
+    remembered.tab = tab;
+    remembered.accountId = selectedId;
+  }, [view, tab, selectedId]);
   /** 모아보기 헤더의 생성 폼 펼침 여부 */
   const [creatingInOverview, setCreatingInOverview] = useState(false);
   /** 자동매매 처음 켜기 안내 */
