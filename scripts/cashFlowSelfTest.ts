@@ -148,7 +148,7 @@ try {
   getDb().prepare(`DELETE FROM paper_orders WHERE account_id = ? AND reason = 'cashflow-test'`).run(krw.id);
 
   // ── 금액 검사 ──
-  for (const [bad, label] of [[0, '0'], [-1000, '음수'], ['abc', '숫자 아님'], [null, '없음'], [true, 'true'], [1000.5, '원화 소수'], [Number.NaN, 'NaN']] as const) {
+  for (const [bad, label] of [[0, '0'], [-1000, '음수'], ['abc', '숫자 아님'], [null, '없음'], [true, 'true'], [1000.5, '원화 소수'], [Number.NaN, 'NaN'], ['0x10', '16진 문자열'], ['1e3', '지수 문자열'], [1e307, '아주 큰 값']] as const) {
     const r = await move(krw.id, 'deposit', bad);
     check(`입금 ${label} → 400`, r.status === 400, `${r.status} ${await errorOf(r)}`);
   }

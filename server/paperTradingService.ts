@@ -443,7 +443,8 @@ const CASH_MAX: Record<Currency, number> = { KRW: 1_000_000_000_000, USD: 1_000_
 
 /** 금액 검사 — 숫자 · 0 초과 · 상한 이하 · 계좌 통화 소수 자리 이하. 틀리면 이유 문구로 던진다(400) */
 function parseCashAmount(raw: unknown, currency: Currency): number {
-  const amount = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN;
+  // 문자열은 십진 숫자 모양만(「0x10」 · 「1e3」 같은 것은 받지 않는다)
+  const amount = typeof raw === 'number' ? raw : typeof raw === 'string' && /^\d+(\.\d+)?$/.test(raw.trim()) ? Number(raw) : NaN;
   if (!Number.isFinite(amount)) throw new PaperTradingError('금액을 숫자로 입력하세요.');
   if (!(amount > 0)) throw new PaperTradingError('금액은 0보다 커야 합니다.');
   // 한 번에 넣고 뺄 수 있는 상한 — 소수 자리 정밀도가 깨지지 않는 범위(원화 1조 · 달러 10억)
