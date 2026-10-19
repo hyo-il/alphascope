@@ -348,18 +348,21 @@ export function usePaperAccountDetail(accountId: number | null) {
   return { detail, error, refresh };
 }
 
-/** 체결 내역 + 입출금 기록(한 번에 받는다 — 거래 내역 탭이 시간 순서로 섞어 보인다) */
+/**
+ * 체결 내역 + 입출금 기록(한 번에 받는다 — 거래 내역 탭이 시간 순서로 섞어 보인다).
+ * `loaded` = 이 계좌 것을 한 번이라도 받았나 — 받기 전에 「거래 내역이 없습니다」 를 그리지 않게(재조회 중에는 앞 값을 그대로 둔다).
+ */
 export function usePaperTrades(accountId: number | null, tick = 0) {
-  const [data, setData] = useState<{ trades: PaperTrade[]; cashFlows: PaperCashFlow[] }>({ trades: [], cashFlows: [] });
+  const [data, setData] = useState<{ trades: PaperTrade[]; cashFlows: PaperCashFlow[]; accountId: number | null }>({ trades: [], cashFlows: [], accountId: null });
 
   useEffect(() => {
     if (!accountId) {
-      setData({ trades: [], cashFlows: [] });
+      setData({ trades: [], cashFlows: [], accountId: null });
       return;
     }
     let cancelled = false;
     void request<{ trades: PaperTrade[]; cashFlows?: PaperCashFlow[] }>(`/api/paper/trades?accountId=${accountId}`)
-      .then((d) => !cancelled && setData({ trades: d.trades, cashFlows: d.cashFlows ?? [] }))
+      .then((d) => !cancelled && setData({ trades: d.trades, cashFlows: d.cashFlows ?? [], accountId }))
       // 조용히 빈 배열로 두면 "거래 내역이 없다" 로 오해한다.
       .catch((e) => !cancelled && toast.error('거래 내역을 불러오지 못했습니다', String(e.message ?? e)));
     return () => {
@@ -367,7 +370,7 @@ export function usePaperTrades(accountId: number | null, tick = 0) {
     };
   }, [accountId, tick]);
 
-  return data;
+  return { trades: data.trades, cashFlows: data.cashFlows, loaded: accountId != null && data.accountId === accountId };
 }
 
 export function usePaperOrders(accountId: number | null, tick = 0) {

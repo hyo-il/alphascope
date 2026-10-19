@@ -89,11 +89,12 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
     fetch('/api/paper/accounts')
       .then((res) => (res.ok ? (res.json() as Promise<{ accounts?: { id: number }[] }>) : null))
       .then((body) => {
-        if (!alive || !body?.accounts) return;
-        if (!body.accounts.some((a) => a.id === id)) setView('overview');
+        if (!alive) return;
+        // 확인하지 못했으면(받기 실패) 모아보기 — 지워진 계좌 상세에 남지 않게
+        if (!body?.accounts || !body.accounts.some((a) => a.id === id)) setView('overview');
         void reloadAccounts();
       })
-      .catch(() => undefined);
+      .catch(() => alive && setView('overview'));
     return () => {
       alive = false;
     };
@@ -117,7 +118,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   /** 주문·취소 후 목록을 다시 읽기 위한 카운터 */
   const [version, setVersion] = useState(0);
 
-  const { trades, cashFlows } = usePaperTrades(selectedId, version);
+  const { trades, cashFlows, loaded: tradesLoaded } = usePaperTrades(selectedId, version);
   const orders = usePaperOrders(selectedId, version);
   const perf = usePaperPerformance(selectedId, version);
   const aiHistory = useAiCheckHistory(view === 'detail' ? selectedId : null, version + (tab === 'aiCheck' ? 1 : 0));
@@ -441,7 +442,13 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
                   onSelectSymbol={onSelectSymbol}
                 />
               )}
-              {tab === 'trades' && (
+              {/* 받기 전에는 스켈레톤 — 「거래 내역이 없습니다」 를 먼저 그리지 않는다(거래내역 탭으로 되살아날 때 바로 보인다) */}
+              {tab === 'trades' && !tradesLoaded && (
+                <div className="p-3">
+                  <SkeletonTable rows={4} columns={6} />
+                </div>
+              )}
+              {tab === 'trades' && tradesLoaded && (
                 <TradeHistory trades={trades} cashFlows={cashFlows} currency={currency} orders={orders} onChanged={bump} onSelectSymbol={onSelectSymbol} />
               )}
               {tab === 'aiCheck' && (

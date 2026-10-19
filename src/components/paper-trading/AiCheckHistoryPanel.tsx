@@ -145,7 +145,6 @@ export default function AiCheckHistoryPanel({
                         toggle(r.useId);
                       }}
                       aria-expanded={isOpen}
-                      aria-label={`${r.marketDate} ${r.symbol} AI 검증 ${isOpen ? '접기' : '펼치기'}`}
                     >
                       <td className={`${TABLE_NUM_COL} py-1 pl-3 pr-2 tabular-nums text-text-secondary`}>
                         <span className="flex items-center gap-1.5">

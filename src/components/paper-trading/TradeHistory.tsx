@@ -131,7 +131,7 @@ export default function TradeHistory({ trades, cashFlows, currency, orders, onCh
       </div>
 
       {!filtered.length ? (
-        <p className="py-8 text-center text-xs text-text-muted">거래 내역이 없습니다.</p>
+        <p className="py-8 text-center text-xs text-text-muted">{filter === 'all' ? '거래 내역이 없습니다.' : '조건에 맞는 거래가 없습니다.'}</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
