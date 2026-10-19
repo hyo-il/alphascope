@@ -162,6 +162,7 @@ import {
   listTrades,
   listCashFlows,
   moveCash,
+  parseCashAmount,
   PaperTradingError,
   PaperNotFoundError,
   resetAccount,
@@ -707,11 +708,13 @@ app.put('/api/paper/accounts/order', (req, res) => {
 app.post('/api/paper/accounts', (req, res) => {
   const { name, initialBalance, currency, commissionRate, slippageRate } = req.body ?? {};
   try {
+    const cur = currency === 'USD' ? 'USD' : 'KRW';
     res.json({
       account: createAccount({
         name: String(name ?? ''),
-        initialBalance: Number(initialBalance),
-        currency: currency === 'USD' ? 'USD' : 'KRW',
+        // 입출금과 같은 금액 검사(0 초과 · 상한 · 통화 소수 자리)
+        initialBalance: parseCashAmount(initialBalance, cur, '초기 자금'),
+        currency: cur,
         commissionRate: commissionRate != null ? Number(commissionRate) : undefined,
         slippageRate: slippageRate != null ? Number(slippageRate) : undefined,
       }),
@@ -916,7 +919,10 @@ app.patch('/api/paper/accounts/:id/reset', (req, res) => {
   try {
     const initialBalance = req.body?.initialBalance;
     const id = accountIdOf(req);
-    const account = resetAccount(id, initialBalance != null ? Number(initialBalance) : undefined);
+    const account = resetAccount(
+      id,
+      initialBalance != null ? parseCashAmount(initialBalance, getPaperAccount(id).currency, '초기 자금') : undefined,
+    );
     // 초기화 = 처음 상태 — 하루 손실 기준(옛 평가액 · 옛 입출금 합)도 버린다
     clearDailyLoss(id);
     res.json({ account });

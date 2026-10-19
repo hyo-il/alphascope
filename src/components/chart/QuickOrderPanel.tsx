@@ -62,7 +62,8 @@ export default function QuickOrderPanel({
   const { accounts, selectedId: accountId, select: selectAccount } = usePaperAccounts();
   const [positions, setPositions] = useState<PaperPositionValued[]>([]);
   const [orders, setOrders] = useState<PaperOrder[]>([]);
-  const [cash, setCash] = useState(0);
+  /** 주문 가능 금액(계좌 통화) — 현금에서 걸려 있는 지정가 매수에 묶인 돈을 뺀 것(서버 `orderable`). 받기 전에는 null */
+  const [cash, setCash] = useState<number | null>(null);
   /** 1달러 = N원 (서버가 계좌 상세와 함께 준다 — 「USD → 계좌 통화」 값은 달러 계좌에서 1 이라 국내 종목을 환산하지 못한다) */
   /** undefined = 아직 받기 전 · null = 끝내 못 받았다. 1 로 때우면 원화 계좌 수량이 1,000배가 된다. */
   const [usdKrw, setUsdKrw] = useState<number | null | undefined>(undefined);
@@ -107,7 +108,7 @@ export default function QuickOrderPanel({
     if (!accountId) {
       setPositions([]);
       setOrders([]);
-      setCash(0);
+      setCash(null);
       return;
     }
     let cancelled = false;
@@ -121,7 +122,7 @@ export default function QuickOrderPanel({
         ]);
         if (cancelled) return;
         setPositions(detail.positions ?? []);
-        setCash(detail.account?.currentCash ?? 0);
+        setCash(typeof detail.orderable === 'number' ? detail.orderable : (detail.account?.currentCash ?? null));
         setUsdKrw(typeof detail.usdKrw === 'number' && detail.usdKrw > 0 ? detail.usdKrw : null);
         setOrders(orderList.orders ?? []);
       } catch {
@@ -156,11 +157,11 @@ export default function QuickOrderPanel({
    * 서버가 계좌 상세와 함께 주는 환율을 쓴다.
    */
   const cashInSymbolCurrency = useMemo(() => {
-    if (!account) return 0;
-    if (account.currency === currency) return cash;
+    if (!account || cash == null) return 0;
+    if (account.currency === currency) return Math.max(0, cash);
     // 환산은 convertAmount 하나(src/utils/fx.ts). 환율이 없으면 환산할 방법이 없다 — 0 으로 두어 수량이 부풀지 않게 한다.
     if (usdKrw == null) return 0;
-    return convertAmount(cash, account.currency, currency, usdKrw);
+    return convertAmount(Math.max(0, cash), account.currency, currency, usdKrw);
   }, [account, cash, currency, usdKrw]);
 
   /** 통화가 달라 환산이 필요한데 환율이 없는 상태 — 매수 수량을 낼 수 없다. */
@@ -460,6 +461,8 @@ export default function QuickOrderPanel({
           {info('매도 가능', `${held}주`)}
           {/* 환율을 못 받았으면 0 주라고 단언하지 않는다 — 잔고가 없다는 뜻으로 읽힌다. */}
           {info('매수 가능', fxMissing ? '환율 조회 실패' : fxPending ? '확인 중…' : `${maxBuyable}주`)}
+          {/* 주문 가능 = 현금 − 걸려 있는 지정가 매수에 묶인 돈(걸린 것이 없으면 현금과 같다) */}
+          {account && info('주문 가능', cash == null ? '확인 중…' : formatPrice(Math.max(0, cash), account.currency))}
           {/* 예상 금액은 가격 칸(지정가) 기준 — 시장가는 확인 창에서 현재가로 다시 낸다 */}
           {info(unit === 'percent' ? `매도 예상 (${percent}%, 지정가)` : '매도 예상 (지정가)', formatPrice(sellEstimate, currency))}
           {info(unit === 'percent' ? `매수 예상 (${percent}%, 지정가)` : '매수 예상 (지정가)', formatPrice(buyEstimate, currency))}

@@ -1,4 +1,5 @@
 import {
+  CASH_MAX,
   CURRENCY_DECIMALS,
   DEFAULT_ACCOUNTS_VIEW,
   isAccountsView,
@@ -374,34 +375,46 @@ export async function getAccountDetail(accountId: number): Promise<PaperAccountD
       : 0,
     usdKrw,
     pendingOrders,
+    orderable: availableCash(account),
     withdrawable: withdrawableCash(account),
   };
 }
 
 // ── 입금 · 출금 ──────────────────────────────────────────────────────────────
 
-/**
- * 미체결 매수 주문에 묶인 돈(계좌 통화) — 지정가 × 수량에 슬리피지 · 수수료를 얹고 주문 때 환율로 바꾼 합.
- * 체결은 지정가 이하에서만 일어나므로(`limitTriggered`) 실제로 나갈 돈은 이보다 많지 않다.
- */
-export function reservedCash(accountId: number): number {
-  const account = getAccount(accountId);
-  const rows = getDb()
-    .prepare(`SELECT requested_price, quantity, fx_rate FROM paper_orders WHERE account_id = ? AND status = 'PENDING' AND side = 'BUY'`)
-    .all(accountId) as { requested_price: number | null; quantity: number; fx_rate: number }[];
-  return rows.reduce(
-    (sum, r) => sum + (r.requested_price ?? 0) * r.quantity * (1 + account.slippageRate) * (1 + account.commissionRate) * r.fx_rate,
-    0,
-  );
+/** 지정가 매수 한 건이 묶는 돈(계좌 통화) = 지정가 × 수량 × (1 + 슬리피지) × (1 + 수수료) × 주문 때 환율 — 체결(fillOrder)이 빼는 식과 같다 */
+function limitBuyHold(price: number, quantity: number, account: PaperAccount, fxRate: number): number {
+  return price * quantity * (1 + account.slippageRate) * (1 + account.commissionRate) * fxRate;
 }
 
 /**
- * 출금할 수 있는 돈 = min(현금 − 미체결 매수에 묶인 돈, 원금 − 최소 단위). 계좌 통화 소수 자리에서 내림(보이는 값을 그대로 넣어도 넘지 않게), 0 아래면 0.
+ * 걸려 있는 지정가 매수 주문에 묶인 돈(계좌 통화)의 합. `excludeOrderId` = 지금 체결하는 그 주문(자기 몫은 빼고 센다).
+ * 체결은 지정가 이하에서만 일어나므로(`limitTriggered`) 실제로 나갈 돈은 이보다 많지 않다 — 남는 돈은 현금에 그대로 남는다.
+ * 미체결만 세므로 체결 · 취소 · 자동 취소되면 저절로 풀린다.
+ */
+export function reservedCash(accountId: number, excludeOrderId: number | null = null): number {
+  const account = getAccount(accountId);
+  const rows = getDb()
+    .prepare(`SELECT id, requested_price, quantity, fx_rate FROM paper_orders WHERE account_id = ? AND status = 'PENDING' AND side = 'BUY'`)
+    .all(accountId) as { id: number; requested_price: number | null; quantity: number; fx_rate: number }[];
+  return rows.reduce((sum, r) => (r.id === excludeOrderId ? sum : sum + limitBuyHold(r.requested_price ?? 0, r.quantity, account, r.fx_rate)), 0);
+}
+
+/**
+ * **쓸 수 있는 현금**(주문 가능 금액) = 현금 − 걸려 있는 지정가 매수에 묶인 돈. 매수(지정가 걸기 · 체결 · 시장가 · 자동매매 수량)와 출금이 **이 함수 하나**를 쓴다.
+ * 걸린 지정가 매수가 없으면 묶인 돈이 0 이라 현금과 같다(예전 결과와 같음).
+ */
+export function availableCash(account: PaperAccount, excludeOrderId: number | null = null): number {
+  return account.currentCash - reservedCash(account.id, excludeOrderId);
+}
+
+/**
+ * 출금할 수 있는 돈 = min(쓸 수 있는 현금, 원금 − 최소 단위). 계좌 통화 소수 자리에서 내림(보이는 값을 그대로 넣어도 넘지 않게), 0 아래면 0.
  * 원금 쪽도 넣는다 — 원금이 0 이하가 되는 출금은 거절하므로, 많이 번 계좌에서 창에 보인 돈 안쪽인데 거절되지 않게(창과 서버가 같은 숫자).
  */
 export function withdrawableCash(account: PaperAccount): number {
   const scale = 10 ** CURRENCY_DECIMALS[account.currency];
-  const byCash = Math.floor((account.currentCash - reservedCash(account.id)) * scale + 1e-6) / scale;
+  const byCash = Math.floor(availableCash(account) * scale + 1e-6) / scale;
   const byPrincipal = Math.ceil(account.initialBalance * scale - 1e-6) / scale - 1 / scale;
   return Math.max(0, Math.min(byCash, byPrincipal));
 }
@@ -439,16 +452,16 @@ export function netCashFlow(accountId: number): number {
   return row.n;
 }
 
-const CASH_MAX: Record<Currency, number> = { KRW: 1_000_000_000_000, USD: 1_000_000_000 };
-
-/** 금액 검사 — 숫자 · 0 초과 · 상한 이하 · 계좌 통화 소수 자리 이하. 틀리면 이유 문구로 던진다(400) */
-function parseCashAmount(raw: unknown, currency: Currency): number {
+/**
+ * 금액 검사 — 숫자 · 0 초과 · 상한(`CASH_MAX`) 이하 · 계좌 통화 소수 자리 이하. 틀리면 이유 문구로 던진다(400).
+ * 입금 · 출금 금액과 계좌 만들기 · 초기화의 초기 자금이 같은 함수를 쓴다(`label` 은 문구의 이름 — 받침 있는 말).
+ */
+export function parseCashAmount(raw: unknown, currency: Currency, label = '금액'): number {
   // 문자열은 십진 숫자 모양만(「0x10」 · 「1e3」 같은 것은 받지 않는다)
   const amount = typeof raw === 'number' ? raw : typeof raw === 'string' && /^\d+(\.\d+)?$/.test(raw.trim()) ? Number(raw) : NaN;
-  if (!Number.isFinite(amount)) throw new PaperTradingError('금액을 숫자로 입력하세요.');
-  if (!(amount > 0)) throw new PaperTradingError('금액은 0보다 커야 합니다.');
-  // 한 번에 넣고 뺄 수 있는 상한 — 소수 자리 정밀도가 깨지지 않는 범위(원화 1조 · 달러 10억)
-  if (amount > CASH_MAX[currency]) throw new PaperTradingError(`한 번에 ${formatPrice(CASH_MAX[currency], currency)} 까지 입력할 수 있습니다.`);
+  if (!Number.isFinite(amount)) throw new PaperTradingError(`${label}을 숫자로 입력하세요.`);
+  if (!(amount > 0)) throw new PaperTradingError(`${label}은 0보다 커야 합니다.`);
+  if (amount > CASH_MAX[currency]) throw new PaperTradingError(`${label}은 ${formatPrice(CASH_MAX[currency], currency)} 까지 입력할 수 있습니다.`);
   const decimals = CURRENCY_DECIMALS[currency];
   const scaled = amount * 10 ** decimals;
   if (Math.abs(scaled - Math.round(scaled)) > 1e-6) {
@@ -564,6 +577,18 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     }
   }
 
+  // 지정가 매수를 새로 걸 때 — 그 주문이 묶을 돈이 쓸 수 있는 현금(이미 걸린 지정가 매수 몫을 뺀 현금)보다 크면 거절.
+  // 걸어 두기만 하면 현금을 보지 않아, 현금 100만으로 80만짜리 지정가를 여럿 걸었다가 나중에 자동 취소됐다
+  if (input.side === 'BUY' && input.orderType === 'LIMIT') {
+    const need = limitBuyHold(Number(input.requestedPrice), quantity, account, fxRate);
+    const orderable = availableCash(account);
+    if (need > orderable) {
+      throw new PaperTradingError(
+        `주문 가능 금액이 부족합니다 (필요 ${formatPrice(need, account.currency)}, 주문 가능 ${formatPrice(Math.max(0, orderable), account.currency)}).`,
+      );
+    }
+  }
+
   const shouldFill =
     input.orderType === 'MARKET' ||
     limitTriggered(input.side, Number(input.requestedPrice), price);
@@ -647,9 +672,13 @@ function fillOrder(orderId: number, marketPrice: number, fxRate: number): PaperT
 
     if (order.side === 'BUY') {
       cashDelta = -(amount + commission) * fxRate;
-      if (account.currentCash + cashDelta < 0) {
+      // 쓸 수 있는 현금 — 다른 걸린 지정가 매수에 묶인 돈은 쓰지 않는다(이 주문 자기 몫은 뺀다). 걸린 것이 없으면 현금 그대로(문구도 예전 그대로)
+      const reserved = reservedCash(order.accountId, order.id);
+      if (account.currentCash - reserved + cashDelta < 0) {
         throw new PaperTradingError(
-          `현금이 부족합니다 (필요 ${Math.abs(cashDelta).toFixed(0)}, 보유 ${account.currentCash.toFixed(0)}).`,
+          reserved > 0
+            ? `주문 가능 금액이 부족합니다 (필요 ${Math.abs(cashDelta).toFixed(0)}, 주문 가능 ${Math.max(0, account.currentCash - reserved).toFixed(0)}).`
+            : `현금이 부족합니다 (필요 ${Math.abs(cashDelta).toFixed(0)}, 보유 ${account.currentCash.toFixed(0)}).`,
         );
       }
 

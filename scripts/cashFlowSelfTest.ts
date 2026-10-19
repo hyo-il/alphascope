@@ -17,6 +17,7 @@ import { listSnapshots, recordSnapshot } from '../server/paperPerformanceService
 import { backfillAccount, backfillSnapshots } from '../server/paperSnapshotScheduler';
 import { evaluateDailyLoss, readDailyLoss } from '../server/autoTrading/guards';
 import { copyAccount } from '../server/autoTrading/copy';
+import { planBuy } from '../server/autoTrading/sizing';
 import { flowNeutralValues } from '../src/utils/flowNeutral';
 import { maxDrawdown } from '../src/utils/drawdown';
 import { defaultStrategy } from '../src/types/autoTrading';
@@ -235,6 +236,83 @@ try {
     check('빈 날 채우기 — 입금 전 날 100만 · 입금 뒤 날 130만', filled.length >= 2 && filled.every((s) => (s.date >= depDay.slice(0, 10) ? near(s.totalValue, 1_300_000) : near(s.totalValue, 1_000_000))), filled.map((s) => `${s.date}:${s.totalValue}`).join(' '));
     check('빈 날 채우기 — 그날 손익 모두 0(입금이 손익으로 안 잡힘)', filled.every((s) => near(s.dailyPnl, 0)), filled.map((s) => `${s.date}:${s.dailyPnl}`).join(' '));
     check('빈 날 채우기 — 누적 수익률 모두 0%', filled.every((s) => near(s.cumulativeReturn, 0)), filled.map((s) => `${s.date}:${s.cumulativeReturn}`).join(' '));
+  }
+
+  // ── 초기 자금 — 입출금과 같은 금액 검사(0 초과 · 상한 · 통화 소수 자리) ──
+  {
+    const mk = (body: unknown) => fetch(`${BASE}/api/paper/accounts`, { method: 'POST', headers: { 'content-type': 'application/json', cookie }, body: JSON.stringify(body) });
+    const big = await mk({ name: `${PREFIX} big`, initialBalance: 1_000_000_000_001, currency: 'KRW' });
+    check('새 계좌 초기 자금 1조 초과 → 400', big.status === 400, await errorOf(big));
+    const frac = await mk({ name: `${PREFIX} frac`, initialBalance: 1000.5, currency: 'KRW' });
+    check('새 계좌 초기 자금 원화 소수 → 400', frac.status === 400, await errorOf(frac));
+    const usdBig = await mk({ name: `${PREFIX} usdbig`, initialBalance: 1_000_000_001, currency: 'USD' });
+    check('새 계좌 달러 10억 초과 → 400', usdBig.status === 400);
+    const ok = await mk({ name: `${PREFIX} okmax`, initialBalance: 1_000_000_000_000, currency: 'KRW' });
+    check('새 계좌 초기 자금 1조(상한) → 200', ok.status === 200);
+    const okId = ((await ok.json()) as { account: { id: number } }).account.id;
+    const rs = (body: unknown) => fetch(`${BASE}/api/paper/accounts/${okId}/reset`, { method: 'PATCH', headers: { 'content-type': 'application/json', cookie }, body: JSON.stringify(body) });
+    check('초기화 초기 자금 상한 초과 → 400', (await rs({ initialBalance: 2_000_000_000_000 })).status === 400);
+    check('초기화 초기 자금 0 → 400', (await rs({ initialBalance: 0 })).status === 400);
+    const rsOk = await rs({ initialBalance: 5_000_000 });
+    check('초기화 초기 자금 500만 → 200 · 원금 500만', rsOk.status === 200 && near(getAccount(okId).initialBalance, 5_000_000));
+  }
+
+  // ── 지정가 매수가 현금을 묶는다(주문 가능 금액) ──
+  {
+    const acct = createAccount({ name: `${PREFIX} hold`, initialBalance: 3_000_000, currency: 'KRW' });
+    const order = (body: Record<string, unknown>) =>
+      fetch(`${BASE}/api/paper/orders`, { method: 'POST', headers: { 'content-type': 'application/json', cookie }, body: JSON.stringify({ accountId: acct.id, ...body }) });
+    // 시장가보다 훨씬 낮은 지정가 → 걸어만 둔다(000660 · 2,000주 × 1,000원 ≈ 200만 + 슬리피지 · 수수료)
+    const first = await order({ symbol: '000660', side: 'BUY', orderType: 'LIMIT', quantity: 2000, requestedPrice: 1000 });
+    const firstBody = (await first.json()) as { order?: { id: number; status: string }; pending?: boolean; error?: string };
+    check('지정가 매수 200만 걸기 → 대기', first.status === 200 && firstBody.pending === true, firstBody.error ?? '');
+    const hold1 = 1000 * 2000 * (1 + acct.slippageRate) * (1 + acct.commissionRate);
+    const d1 = await detail(acct.id);
+    check('주문 가능 = 현금 − 묶인 돈', near((d1 as unknown as { orderable: number }).orderable, 3_000_000 - hold1, 1e-6), String((d1 as unknown as { orderable: number }).orderable));
+    const second = await order({ symbol: '000660', side: 'BUY', orderType: 'LIMIT', quantity: 2000, requestedPrice: 1000 });
+    const secondErr = await errorOf(second);
+    check('두 번째 지정가 200만 → 400 「주문 가능 금액이 부족합니다」', second.status === 400 && secondErr.includes('주문 가능 금액이 부족합니다') && secondErr.includes('주문 가능'), secondErr);
+    // 걸린 지정가가 있는 동안 시장가 매수도 묶인 돈을 쓰지 않는다(000660 1주 ≈ 100만 원대 > 주문 가능 약 100만)
+    const market = await order({ symbol: '000660', side: 'BUY', orderType: 'MARKET', quantity: 1 });
+    const marketErr = market.status === 200 ? '' : await errorOf(market);
+    const cashNow = getAccount(acct.id).currentCash;
+    check(
+      '지정가가 걸린 동안 시장가 매수 — 묶인 돈을 쓰지 않는다(체결됐다면 쓸 수 있는 현금 안에서만)',
+      (market.status === 400 && marketErr.includes('주문 가능 금액이 부족합니다')) || (market.status === 200 && cashNow >= hold1 - 1e-6),
+      `${market.status} ${marketErr} · 현금 ${cashNow.toFixed(0)}`,
+    );
+    // 자동매매 수량 계산도 같은 「쓸 수 있는 현금」
+    const plan = await planBuy(acct.id, '000660', 990_000, 100);
+    check('자동매매 planBuy — 주문 가능 금액으로 막음(묶인 돈 제외)', !plan.ok && plan.reason.includes('주문 가능 금액 부족'), plan.ok ? '샀음' : plan.reason);
+    // 첫 주문 취소 → 묶인 돈이 풀려 다시 걸 수 있다
+    const cancel = await fetch(`${BASE}/api/paper/orders/${firstBody.order!.id}/cancel`, { method: 'POST', headers: { 'content-type': 'application/json', cookie }, body: '{}' });
+    check('첫 지정가 취소 200', cancel.status === 200);
+    const again = await order({ symbol: '000660', side: 'BUY', orderType: 'LIMIT', quantity: 2000, requestedPrice: 1000 });
+    check('취소 뒤 다시 지정가 200만 → 대기', again.status === 200 && ((await again.json()) as { pending?: boolean }).pending === true);
+    // 걸린 것이 없는 계좌 — 주문 가능 = 현금(그대로)
+    const plain = createAccount({ name: `${PREFIX} plain`, initialBalance: 1_000_000, currency: 'KRW' });
+    const dp = (await detail(plain.id)) as unknown as { orderable: number; account: { currentCash: number } };
+    check('걸린 지정가 없음 — 주문 가능 = 현금 그대로', dp.orderable === dp.account.currentCash);
+    // 예산(총자산 기준)이 현금보다 크게 — 보유 종목(평가 약 수백만) + 현금 50만
+    getDb().prepare(`UPDATE paper_accounts SET current_cash = 500000 WHERE id = ?`).run(plain.id);
+    getDb()
+      .prepare(`INSERT INTO paper_positions (account_id, symbol, name, quantity, avg_price, total_cost, currency, opened_at, updated_at) VALUES (?, '000660', 'SK', 5, 1000000, 5000000, 'KRW', 'x', 'x')`)
+      .run(plain.id);
+    const planPlain = await planBuy(plain.id, '005930', 1_000_000, 100);
+    check('걸린 것 없을 때 planBuy 문구는 예전 그대로(현금 부족 — 보유)', !planPlain.ok && planPlain.reason.startsWith('현금 부족 — 필요'), planPlain.ok ? '' : planPlain.reason);
+    // 달러 종목 · 원화 계좌 — 묶인 돈은 주문 때 환율로
+    const fxAcct = createAccount({ name: `${PREFIX} fx`, initialBalance: 1_000_000, currency: 'KRW' });
+    const fxOrder = await fetch(`${BASE}/api/paper/orders`, { method: 'POST', headers: { 'content-type': 'application/json', cookie }, body: JSON.stringify({ accountId: fxAcct.id, symbol: 'AAPL', side: 'BUY', orderType: 'LIMIT', quantity: 300, requestedPrice: 1 }) });
+    const fxBody = (await fxOrder.json()) as { order?: { fxRate: number }; error?: string };
+    if (fxOrder.status === 200 && fxBody.order) {
+      const want = 1 * 300 * (1 + fxAcct.slippageRate) * (1 + fxAcct.commissionRate) * fxBody.order.fxRate;
+      const df = (await detail(fxAcct.id)) as unknown as { orderable: number };
+      check('달러 지정가 — 묶인 돈 = 지정가 × 수량 × 주문 때 환율(원화)', near(df.orderable, 1_000_000 - want, 1e-6) && fxBody.order.fxRate > 100, `환율 ${fxBody.order.fxRate} · 주문 가능 ${df.orderable.toFixed(0)}`);
+      const tooMuch = await fetch(`${BASE}/api/paper/orders`, { method: 'POST', headers: { 'content-type': 'application/json', cookie }, body: JSON.stringify({ accountId: fxAcct.id, symbol: 'AAPL', side: 'BUY', orderType: 'LIMIT', quantity: 1000, requestedPrice: 1 }) });
+      check('달러 지정가 — 주문 가능을 넘으면 400(원화로 비교)', tooMuch.status === 400, await errorOf(tooMuch));
+    } else {
+      console.log(`SKIP  달러 지정가 — 환율을 받지 못함(${fxBody.error ?? fxOrder.status})`);
+    }
   }
 
   // ── 빈 날 채우기 — 계좌마다 따로(가운데 계좌가 실패해도 앞뒤 계좌는 채운다) ──

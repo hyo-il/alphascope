@@ -63,10 +63,15 @@ export async function planBuy(
   // 예산 전체와 비교하면 수량을 내림한 실제 금액으로는 살 수 있는데도 막는다.
   const orderCost = quantity * price * (1 + account.slippageRate) * (1 + account.commissionRate);
   const needInAccount = convertAmount(orderCost, stockCurrency, accountCurrency, usdKrw);
-  if (needInAccount > account.currentCash) {
+  // 쓸 수 있는 현금(걸려 있는 지정가 매수에 묶인 돈을 뺀 현금 — `availableCash`). 걸린 것이 없으면 현금 그대로(문구도 예전 그대로)
+  const orderable = detail.orderable;
+  if (needInAccount > orderable) {
     return {
       ok: false,
-      reason: `현금 부족 — 필요 ${formatPrice(needInAccount, accountCurrency)}, 보유 ${formatPrice(account.currentCash, accountCurrency)}`,
+      reason:
+        orderable === account.currentCash
+          ? `현금 부족 — 필요 ${formatPrice(needInAccount, accountCurrency)}, 보유 ${formatPrice(account.currentCash, accountCurrency)}`
+          : `주문 가능 금액 부족 — 필요 ${formatPrice(needInAccount, accountCurrency)}, 주문 가능 ${formatPrice(orderable, accountCurrency)}`,
     };
   }
 

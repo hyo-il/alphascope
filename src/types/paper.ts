@@ -104,6 +104,12 @@ export interface PaperCashFlow {
 /** 계좌 통화의 소수 자리 — 원화 정수 · 달러 2자리(입출금 금액 검사 · 출금할 수 있는 돈 표시) */
 export const CURRENCY_DECIMALS: Record<Currency, number> = { KRW: 0, USD: 2 };
 
+/**
+ * 한 번에 넣을 수 있는 금액 상한 — 입금 · 출금 · 초기 자금(새 계좌 · 초기화). 서버 검사(`parseCashAmount`)와 화면 금액 칸(`NumberField max`)이 **이 값 하나**를 쓴다.
+ * 소수 자리 정밀도가 깨지지 않는 범위(원화 1조 · 달러 10억).
+ */
+export const CASH_MAX: Record<Currency, number> = { KRW: 1_000_000_000_000, USD: 1_000_000_000 };
+
 export interface PaperSnapshot {
   date: string;
   totalValue: number;
@@ -129,7 +135,9 @@ export interface PaperAccountDetail {
   /** 1달러 = N원. 환산은 `utils/fx.convertAmount`. 조회에 실패하면 null */
   usdKrw: number | null;
   pendingOrders: number;
-  /** 출금할 수 있는 돈 — 현금에서 미체결 매수 주문에 묶인 돈을 뺀 것(계좌 통화) */
+  /** 주문 가능 금액(쓸 수 있는 현금) — 현금에서 걸려 있는 지정가 매수에 묶인 돈을 뺀 것(계좌 통화, `availableCash`) */
+  orderable: number;
+  /** 출금할 수 있는 돈 — min(주문 가능 금액, 원금 − 최소 단위), 통화 소수 자리 내림(계좌 통화) */
   withdrawable: number;
 }
 
