@@ -395,10 +395,15 @@ export function reservedCash(accountId: number): number {
   );
 }
 
-/** 출금할 수 있는 돈 = 현금 − 미체결 매수에 묶인 돈. 계좌 통화 소수 자리에서 내림(보이는 값을 그대로 넣어도 넘지 않게), 0 아래면 0 */
+/**
+ * 출금할 수 있는 돈 = min(현금 − 미체결 매수에 묶인 돈, 원금 − 최소 단위). 계좌 통화 소수 자리에서 내림(보이는 값을 그대로 넣어도 넘지 않게), 0 아래면 0.
+ * 원금 쪽도 넣는다 — 원금이 0 이하가 되는 출금은 거절하므로, 많이 번 계좌에서 창에 보인 돈 안쪽인데 거절되지 않게(창과 서버가 같은 숫자).
+ */
 export function withdrawableCash(account: PaperAccount): number {
   const scale = 10 ** CURRENCY_DECIMALS[account.currency];
-  return Math.max(0, Math.floor((account.currentCash - reservedCash(account.id)) * scale + 1e-6) / scale);
+  const byCash = Math.floor((account.currentCash - reservedCash(account.id)) * scale + 1e-6) / scale;
+  const byPrincipal = Math.ceil(account.initialBalance * scale - 1e-6) / scale - 1 / scale;
+  return Math.max(0, Math.min(byCash, byPrincipal));
 }
 
 const toCashFlow = (r: Row): PaperCashFlow => ({
@@ -434,11 +439,15 @@ export function netCashFlow(accountId: number): number {
   return row.n;
 }
 
-/** 금액 검사 — 숫자 · 0 초과 · 계좌 통화 소수 자리 이하. 틀리면 이유 문구로 던진다(400) */
+const CASH_MAX: Record<Currency, number> = { KRW: 1_000_000_000_000, USD: 1_000_000_000 };
+
+/** 금액 검사 — 숫자 · 0 초과 · 상한 이하 · 계좌 통화 소수 자리 이하. 틀리면 이유 문구로 던진다(400) */
 function parseCashAmount(raw: unknown, currency: Currency): number {
   const amount = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN;
   if (!Number.isFinite(amount)) throw new PaperTradingError('금액을 숫자로 입력하세요.');
   if (!(amount > 0)) throw new PaperTradingError('금액은 0보다 커야 합니다.');
+  // 한 번에 넣고 뺄 수 있는 상한 — 소수 자리 정밀도가 깨지지 않는 범위(원화 1조 · 달러 10억)
+  if (amount > CASH_MAX[currency]) throw new PaperTradingError(`한 번에 ${formatPrice(CASH_MAX[currency], currency)} 까지 입력할 수 있습니다.`);
   const decimals = CURRENCY_DECIMALS[currency];
   const scaled = amount * 10 ** decimals;
   if (Math.abs(scaled - Math.round(scaled)) > 1e-6) {
@@ -460,13 +469,14 @@ export function moveCash(accountId: number, type: CashFlowType, rawAmount: unkno
     const amount = parseCashAmount(rawAmount, account.currency);
     const signed = type === 'deposit' ? amount : -amount;
     if (type === 'withdraw') {
+      // 원금이 0 이하가 되는 출금은 이유를 따로 알린다(출금할 수 있는 돈에도 원금 한도가 들어 있다)
+      if (!(account.initialBalance - amount > 0)) throw new PaperTradingError('원금(초기 자금)이 0 이하가 되는 출금은 할 수 없습니다.');
       const available = withdrawableCash(account);
       if (amount > available + 1e-9) {
         throw new PaperTradingError(
           `출금할 수 있는 돈(${formatPrice(available, account.currency)})보다 많습니다.${reservedCash(accountId) > 0 ? ' 미체결 매수 주문에 묶인 돈은 뺄 수 없습니다.' : ''}`,
         );
       }
-      if (!(account.initialBalance - amount > 0)) throw new PaperTradingError('원금(초기 자금)이 0 이하가 되는 출금은 할 수 없습니다.');
     }
     const createdAt = nowIso();
     db.prepare(`UPDATE paper_accounts SET current_cash = current_cash + ?, initial_balance = initial_balance + ? WHERE id = ?`).run(signed, signed, accountId);

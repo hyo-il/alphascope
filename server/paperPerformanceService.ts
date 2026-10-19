@@ -4,7 +4,7 @@ import { getDb } from './db';
 // 고점 대비 최대 낙폭 — 백테스트와 같은 함수
 import { maxDrawdown } from '../src/utils/drawdown';
 import { flowNeutralValues } from '../src/utils/flowNeutral';
-import { cashFlowDates, getAccountDetail, listTrades, type CashFlowDate } from './paperTradingService';
+import { cashFlowDates, getAccountDetail, listTrades, netCashFlow, type CashFlowDate } from './paperTradingService';
 
 /**
  * 모의투자 성과 분석.
@@ -141,14 +141,18 @@ export async function computePerformance(accountId: number): Promise<{
   performance: PaperPerformance;
   snapshots: PaperSnapshot[];
 }> {
+  // 평가(시세를 기다리는 동안)에 입출금이 끼면 평가액은 입출금 전 현금인데 그날 입출금 합에는 들어가 손익이 한 번 튄다 —
+  // 평가 전후 입출금 합의 차이만큼 평가액 · 현금 · 원금을 맞춘다(끼지 않으면 0 이라 그대로)
+  const flowBefore = netCashFlow(accountId);
   const detail = await getAccountDetail(accountId);
   const { account, positions } = detail;
+  const drift = netCashFlow(accountId) - flowBefore;
 
   const snapshots = recordSnapshot(accountId, {
-    totalValue: detail.totalValue,
-    cash: account.currentCash,
+    totalValue: detail.totalValue + drift,
+    cash: account.currentCash + drift,
     stockValue: detail.stockValue,
-    initialBalance: account.initialBalance,
+    initialBalance: account.initialBalance + drift,
   });
 
   const trades = listTrades(accountId, 5000);

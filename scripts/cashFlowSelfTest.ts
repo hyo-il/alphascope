@@ -47,7 +47,7 @@ cleanup();
 
 const server = spawn('node_modules/.bin/tsx', ['server/index.ts'], {
   detached: true,
-  env: { ...process.env, API_PORT: String(PORT), AUTO_TRADING_ENABLED: 'false', GEMINI_ENABLED: 'false', UNIVERSE_UPDATE_ENABLED: 'false' },
+  env: { ...process.env, INDICATORS_PORT: process.env.INDICATORS_PORT ?? '5002', API_PORT: String(PORT), AUTO_TRADING_ENABLED: 'false', GEMINI_ENABLED: 'false', UNIVERSE_UPDATE_ENABLED: 'false' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let serverLog = '';
@@ -152,6 +152,8 @@ try {
     const r = await move(krw.id, 'deposit', bad);
     check(`입금 ${label} → 400`, r.status === 400, `${r.status} ${await errorOf(r)}`);
   }
+  const huge = await move(krw.id, 'deposit', 1_000_000_000_001);
+  check('입금 상한(원화 1조) 초과 → 400', huge.status === 400, await errorOf(huge));
   const usd = createAccount({ name: `${PREFIX} USD`, initialBalance: 1000, currency: 'USD' });
   const usdBad = await move(usd.id, 'deposit', 1.234);
   check('달러 소수 3자리 → 400', usdBad.status === 400, await errorOf(usdBad));
@@ -162,6 +164,7 @@ try {
   // ── 원금이 0 이하가 되는 출금 ──
   const rich = createAccount({ name: `${PREFIX} rich`, initialBalance: 100_000, currency: 'KRW' });
   getDb().prepare(`UPDATE paper_accounts SET current_cash = 1000000 WHERE id = ?`).run(rich.id); // 많이 번 계좌
+  check('많이 번 계좌 — 출금할 수 있는 돈 = 원금 − 1원(창과 서버가 같은 숫자)', (await detail(rich.id)).withdrawable === 99_999, String((await detail(rich.id)).withdrawable));
   const zero = await move(rich.id, 'withdraw', 100_000);
   check('원금이 0 이 되는 출금 → 400', zero.status === 400 && (await errorOf(zero)).includes('원금'));
   check('원금이 남는 출금 → 200', (await move(rich.id, 'withdraw', 99_999)).status === 200 && near(getAccount(rich.id).initialBalance, 1));
@@ -254,12 +257,27 @@ try {
   check('같은 날 입금으로는 풀리지 않는다', still?.hit === true);
   const nextDay = await evaluateDailyLoss(kill, t0 + 86_400_000, v(237_000), f);
   check('다음 거래일은 지금 평가액이 새 기준(입출금 칸 = 지금 합)', nextDay?.hit === false && near(nextDay.base, 237_000));
+  // 평가를 기다리는 사이 입금이 끝나도 거짓 손실이 생기지 않는다 — 입출금 합은 평가 전에 읽는다
+  const race = { ...kill, accountId: usd.id };
+  let raceFlow = 0;
+  await evaluateDailyLoss(race, t0, v(100_000), () => raceFlow);
+  const slow = async () => {
+    raceFlow = 50_000; // 평가 도중 입금(평가액 = 입금 전 값)
+    return 100_000;
+  };
+  const raced = await evaluateDailyLoss(race, t0 + 60_000, slow, () => raceFlow);
+  check('평가 도중 입금 — 그 틱은 걸리지 않는다', raced?.hit === false, `${raced?.drawdownPercent.toFixed(2)}%`);
+  const next = await evaluateDailyLoss(race, t0 + 120_000, v(150_000), () => raceFlow);
+  check('… 다음 틱에 바로잡힘(0%)', next?.hit === false && near(next.drawdownPercent, 0), `${next?.drawdownPercent.toFixed(2)}%`);
+
   // 입출금 없는 계좌 — 저장 값에 baseFlow 칸이 생기지 않는다(예전과 같은 모양)
   flow = 0;
   const flatKill = { ...kill, accountId: flat.id };
   await evaluateDailyLoss(flatKill, t0, v(100_000), () => 0);
   check('입출금 없으면 저장 값에 baseFlow 칸 없음', !('baseFlow' in (readDailyLoss(flat.id) ?? {})));
-  writeSetting('autoTrading.dailyLoss', savedLoss);
+  // 초기화하면 그 계좌 하루 손실 기록도 지운다(옛 기준 · 옛 입출금 합이 남지 않게) — 아래 초기화 시험에서 확인
+  await evaluateDailyLoss(kill, Date.now(), v(100_000), () => -10_000);
+  const hadLoss = readDailyLoss(krw.id) != null;
 
   // ── 복사 · 초기화 · 삭제 ──
   const copy = copyAccount(krw.id, `${PREFIX} copy`, () => true);
@@ -269,6 +287,8 @@ try {
   const principal = getAccount(krw.id).initialBalance;
   const reset = await fetch(`${BASE}/api/paper/accounts/${krw.id}/reset`, { method: 'PATCH', headers: { 'content-type': 'application/json', cookie }, body: '{}' });
   check('초기화 200 → 입출금 기록 삭제', reset.status === 200 && listCashFlows(krw.id).length === 0);
+  check('초기화 → 그 계좌 하루 손실 기록 삭제', hadLoss && readDailyLoss(krw.id) == null);
+  writeSetting('autoTrading.dailyLoss', savedLoss);
   check('초기화 → 현금 = 지금 원금', near(getAccount(krw.id).currentCash, principal) && near(getAccount(krw.id).initialBalance, principal));
 
   const usdFlows = listCashFlows(usd.id).length;

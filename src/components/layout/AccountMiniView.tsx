@@ -203,11 +203,11 @@ export default function AccountMiniView({
           <div className="sticky bottom-0 mt-auto space-y-1 border-t border-border bg-bg-secondary px-3 py-2">
             <p className="flex items-center justify-between gap-2 text-xs">
               <span className="shrink-0 text-text-muted">총 평가</span>
-              <span className="font-semibold tabular-nums text-text-primary">{formatPrice(detail.totalValue, currency)}</span>
+              <span className="whitespace-nowrap font-semibold tabular-nums text-text-primary">{formatPrice(detail.totalValue, currency)}</span>
             </p>
             <p className="flex items-center justify-between gap-2 text-xs">
               <span className="shrink-0 text-text-muted">총 손익</span>
-              <span className={`font-semibold tabular-nums ${pnlTone(detail.totalPnl)}`}>
+              <span className={`whitespace-nowrap font-semibold tabular-nums ${pnlTone(detail.totalPnl)}`}>
                 {signed(detail.totalPnl, currency)} ({formatSigned(detail.totalReturn, 2, '%')})
               </span>
             </p>

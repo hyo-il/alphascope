@@ -151,10 +151,10 @@ export default function TradeHistory({ trades, cashFlows, currency, orders, onCh
                           {f.type === 'deposit' ? '입금' : '출금'}
                         </span>
                       </td>
-                      {/* 금액 — 수량 · 체결가 · 수수료 세 칸을 합쳐 오른쪽 끝(수수료 칸 끝)에 */}
-                      <td colSpan={3} className="px-3 py-2 text-right tabular-nums text-text-primary">
-                        {formatPrice(f.amount, currency)}
-                      </td>
+                      {/* 금액은 「체결가」 칸 — 세 칸을 합쳐 오른쪽 끝에 두면 「수수료」 머리 아래라 수수료로 읽혔다 */}
+                      <td className="px-3 py-2" />
+                      <td className="px-3 py-2 text-right tabular-nums text-text-primary">{formatPrice(f.amount, currency)}</td>
+                      <td className="px-3 py-2 text-right text-text-muted">—</td>
                       <td className="px-3 py-2 text-right text-text-muted">—</td>
                       <td className="px-3 py-2 text-text-muted">원금도 함께 {f.type === 'deposit' ? '늘림' : '줄임'}</td>
                     </tr>

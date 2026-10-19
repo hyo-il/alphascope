@@ -110,6 +110,7 @@ import {
   StrategyRuleError,
   deleteStrategy,
 } from './autoTrading/store';
+import { clearDailyLoss } from './autoTrading/guards';
 import { watchlistSymbols } from './analysis/targetHit';
 import {
   SERVER_OFF_REASON,
@@ -788,6 +789,7 @@ app.delete('/api/paper/accounts/:id', (req, res) => {
     deleteAccount(id);
     // 계좌가 사라지면 그 계좌의 자동매매 설정·트레일링 고점·AI 검증 사용 기록도 함께 버린다(검증 줄은 다른 계좌와 같이 쓰므로 남긴다).
     deleteStrategy(id);
+    clearDailyLoss(id);
     deleteAiCheckUses(id);
     res.json({ ok: true });
   } catch (e) {
@@ -913,12 +915,11 @@ app.post('/api/auto-trading/run/:id', async (req, res) => {
 app.patch('/api/paper/accounts/:id/reset', (req, res) => {
   try {
     const initialBalance = req.body?.initialBalance;
-    res.json({
-      account: resetAccount(
-        accountIdOf(req),
-        initialBalance != null ? Number(initialBalance) : undefined,
-      ),
-    });
+    const id = accountIdOf(req);
+    const account = resetAccount(id, initialBalance != null ? Number(initialBalance) : undefined);
+    // 초기화 = 처음 상태 — 하루 손실 기준(옛 평가액 · 옛 입출금 합)도 버린다
+    clearDailyLoss(id);
+    res.json({ account });
   } catch (e) {
     failPaper(res, e);
   }

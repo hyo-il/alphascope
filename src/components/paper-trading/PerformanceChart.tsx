@@ -108,17 +108,12 @@ export default function PerformanceChart({ snapshots }: Props) {
     const days = RANGES.find((r) => r.id === range)?.days ?? null;
     const cutoff = days ? Date.now() - days * 86_400_000 : 0;
 
-    // 입출금이 있는 계좌는 첫 점의 누적 수익률에서 입출금을 뺀 곡선으로 잇는다 — 저장된 누적 수익률(평가액 ÷ 그때 원금)은
-    // 손익이 있는 계좌에 입금하면 그날 꺾인다. 입출금이 없으면 저장된 값 그대로
-    const hasFlow = snapshots.some((s) => s.cashFlow);
-    const neutral = hasFlow ? flowNeutralValues(snapshots) : [];
-    const startFactor = 1 + (snapshots[0]?.cumulativeReturn ?? 0) / 100;
+    // 선은 저장된 누적 수익률(평가액 ÷ 그때 원금) — 화면의 「총 수익률」 과 같은 잣대. 입출금을 뺀 계산은 구간 수익률 · 낙폭(rangeStats)에만 쓴다
     const points = snapshots
-      .map((s, i) => ({ s, value: hasFlow && neutral[0] ? (startFactor * (neutral[i] / neutral[0]) - 1) * 100 : (s.cumulativeReturn ?? 0) }))
-      .filter(({ s }) => new Date(s.date).getTime() >= cutoff)
-      .map(({ s, value }) => ({
+      .filter((s) => new Date(s.date).getTime() >= cutoff)
+      .map((s) => ({
         time: (new Date(`${s.date}T00:00:00Z`).getTime() / 1000) as UTCTimestamp,
-        value,
+        value: s.cumulativeReturn ?? 0,
       }));
 
     series.setData(points);

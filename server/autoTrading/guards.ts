@@ -144,10 +144,11 @@ export async function evaluateDailyLoss(
     return null;
   }
   const day = strategyDay(strategy, now);
+  // 입출금 합은 평가액보다 **먼저** 읽는다 — 평가액의 현금은 시세를 기다리기 전에 읽히므로, 그 사이 입금이 끼면 기준에만 더해져 거짓 손실이 된다
+  const flow = flowOf(strategy.accountId);
   const current = await valueOf(strategy.accountId);
   const previous = readDailyLoss(strategy.accountId);
   // 같은 거래일이면 기준에 그 사이 입출금을 더한다(입금 = 기준도 오름 · 출금 = 기준도 내림). 새 거래일은 지금 평가액이 기준
-  const flow = flowOf(strategy.accountId);
   const base = previous && previous.day === day ? previous.base + (flow - (previous.baseFlow ?? 0)) : current;
   const drawdownPercent = base > 0 ? ((current - base) / base) * 100 : 0;
   const alreadyHit = Boolean(previous && previous.day === day && previous.hit);
@@ -163,6 +164,11 @@ export async function evaluateDailyLoss(
   };
   writeDailyLoss(strategy.accountId, state);
   return state;
+}
+
+/** 계좌 초기화 · 삭제 — 그 계좌의 하루 손실 기록을 버린다(옛 기준 · 옛 입출금 합이 남으면 다음 평가의 기준이 틀어진다) */
+export function clearDailyLoss(accountId: number): void {
+  if (readDailyLoss(accountId)) writeDailyLoss(accountId, null);
 }
 
 /** 지금 이 계좌의 신규 매수가 킬 스위치로 막혔나 — 막혔으면 사람이 읽는 사유 */

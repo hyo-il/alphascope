@@ -176,9 +176,14 @@ export default function AccountsOverview({
       if (slot != null) void moveAccount(id, slot);
     },
   });
-  /** 목록 보기 — 마지막 줄 아래 빈 곳에 놓으면 맨 끝. 줄 위(`tr`)는 줄이 맡는다 */
+  /** 목록 보기 — 마지막 줄 **아래** 빈 곳에 놓으면 맨 끝(목록 위쪽 띠 · 여백은 아무 일 없음). 줄 위(`tr`)는 줄이 맡는다 */
   const listEndDrop = (count: number) => {
-    const onEmpty = (e: DragEvent) => dragId != null && !(e.target as Element).closest('tr');
+    const onEmpty = (e: DragEvent) => {
+      if (dragId == null || (e.target as Element).closest('tr')) return false;
+      const rows = (e.currentTarget as HTMLElement).querySelectorAll('tr[draggable]');
+      const last = rows[rows.length - 1];
+      return Boolean(last) && e.clientY > last.getBoundingClientRect().bottom;
+    };
     const lastIsDragged = () => (shown ?? []).at(-1)?.account.id === dragId;
     return {
       onDragOver: (e: DragEvent) => {
