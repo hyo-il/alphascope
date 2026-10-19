@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { GATE_REASON_LABEL, type GateReason } from '../../types/autoTrading';
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import StockName from '../common/StockName';
 import { SkeletonCards } from '../common/SkeletonLoader';
@@ -33,29 +33,49 @@ function gateBreakdown(reasons?: Partial<Record<GateReason, number>>): ReactNode
   return parts.length ? <> <span className="whitespace-nowrap">({parts.join(' · ')})</span></> : null;
 }
 
+/**
+ * 이 브라우저 탭이 열린 동안 기억 — 「종목별 사지 않은 이유」 펼침 · 펼친 종목 · 지우기 범위(펼친 날짜는 `DateGroupList rememberKey`).
+ * 다른 화면에 다녀와도 그대로(계좌 화면과 같은 방식, 서버 저장 없음, 새로고침하면 처음).
+ */
+const remembered: { reasonsOpen: boolean; openSym: string | null; scope: 'nonBuy' | 'all' } = { reasonsOpen: false, openSym: null, scope: 'nonBuy' };
+
 export default function BuyJudgeHistory() {
   const h = useBuyJudgeHistory();
   const dayList = useBuyJudgeDays();
-  const [reasonsOpen, setReasonsOpen] = useState(false);
-  const [scope, setScope] = useState<'nonBuy' | 'all'>('nonBuy');
-  const [openSym, setOpenSym] = useState<string | null>(null);
+  const [reasonsOpen, setReasonsOpen] = useState(remembered.reasonsOpen);
+  const [scope, setScope] = useState<'nonBuy' | 'all'>(remembered.scope);
+  const [openSym, setOpenSym] = useState<string | null>(remembered.openSym);
+  useEffect(() => {
+    remembered.reasonsOpen = reasonsOpen;
+    remembered.scope = scope;
+    remembered.openSym = openSym;
+  }, [reasonsOpen, scope, openSym]);
   const [days, setDays] = useState<Record<string, JudgeDay[] | 'loading'>>({});
   const [clearing, setClearing] = useState(false);
 
+  const loadDays = async (s: string) => {
+    setDays((d) => ({ ...d, [s]: 'loading' }));
+    try {
+      const list = await fetchJudgeDays(s);
+      setDays((d) => ({ ...d, [s]: list }));
+    } catch (e) {
+      toast.error('날짜별 판단을 불러오지 못했습니다', (e as Error).message);
+      setDays((d) => ({ ...d, [s]: [] }));
+    }
+  };
   const toggle = async (s: string) => {
     if (openSym === s) return setOpenSym(null);
     setOpenSym(s);
-    if (!days[s] || days[s] === 'loading') {
-      setDays((d) => ({ ...d, [s]: 'loading' }));
-      try {
-        const list = await fetchJudgeDays(s);
-        setDays((d) => ({ ...d, [s]: list }));
-      } catch (e) {
-        toast.error('날짜별 판단을 불러오지 못했습니다', (e as Error).message);
-        setDays((d) => ({ ...d, [s]: [] }));
-      }
-    }
+    if (!days[s] || days[s] === 'loading') await loadDays(s);
   };
+  // 되살린 펼친 종목 — 이유 목록을 받은 뒤 그 종목이 없으면(기록이 지워짐) 버리고, 있으면 날짜별 판단을 다시 받는다
+  useEffect(() => {
+    if (!openSym || !h.data) return;
+    if (!h.data.reasons.some((r) => r.symbol === openSym)) setOpenSym(null);
+    else if (!days[openSym]) void loadDays(openSym);
+    // 목록을 받았을 때만 본다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [h.data]);
 
   const clear = () => {
     const n = scope === 'all' ? (h.data?.counts.all ?? 0) : (h.data?.counts.nonBuy ?? 0);
@@ -104,6 +124,7 @@ export default function BuyJudgeHistory() {
           <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">아직 판단 기록이 없습니다. 서버가 매일 각 시장 마감 뒤 기록하고, [실행] 을 눌러도 기록합니다.</p>
         ) : (
           <DateGroupList
+            rememberKey="buyJudge"
             label="날짜별 매수 판단"
             hasMore={dayList.days.length < dayList.totalDays}
             onMore={() => void dayList.more()}

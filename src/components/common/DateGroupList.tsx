@@ -1,4 +1,7 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+
+/** 펼친 날짜 — `rememberKey` 마다(이 브라우저 탭이 열린 동안) */
+const rememberedOpen = new Map<string, Set<string>>();
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import Button from '../ui/Button';
 import { ICON_SM } from '../ui/icon';
@@ -29,8 +32,14 @@ export default function DateGroupList({
   onMore,
   loadingMore = false,
   moreLabel = '더 보기',
+  rememberKey,
 }: {
   groups: DateGroup[];
+  /**
+   * 있으면 펼친 날짜를 이 브라우저 탭이 열린 동안 기억한다(다른 화면에 다녀와도 그대로 — 계좌 화면과 같은 방식, 서버 저장 없음).
+   * 목록을 받은 뒤 그 날짜가 없으면(지워짐) 그 날짜만 버린다.
+   */
+  rememberKey?: string;
   /** 화면 읽기용 목록 이름 */
   label: string;
   hasMore?: boolean;
@@ -38,14 +47,26 @@ export default function DateGroupList({
   loadingMore?: boolean;
   moreLabel?: string;
 }) {
-  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [open, setOpen] = useState<Set<string>>(() => new Set(rememberKey ? (rememberedOpen.get(rememberKey) ?? []) : []));
   const toggle = (key: string) =>
     setOpen((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      if (rememberKey) rememberedOpen.set(rememberKey, next);
       return next;
     });
+  // 받은 목록에 없는 날짜(지워짐)는 버린다 — 목록이 비어 있는 동안(받는 중) · 아직 더 받을 것이 있을 때(그 날짜가 뒤 쪽일 수 있다)는 건드리지 않는다
+  useEffect(() => {
+    if (!groups.length || hasMore) return;
+    const have = new Set(groups.map((g) => g.key));
+    setOpen((prev) => {
+      if ([...prev].every((k) => have.has(k))) return prev;
+      const next = new Set([...prev].filter((k) => have.has(k)));
+      if (rememberKey) rememberedOpen.set(rememberKey, next);
+      return next;
+    });
+  }, [groups, hasMore, rememberKey]);
 
   return (
     <div className="space-y-2">

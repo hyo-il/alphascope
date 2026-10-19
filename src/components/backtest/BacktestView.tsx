@@ -84,6 +84,9 @@ function HistoryRow({ item, selected, onOpen, onRetry, onRemove }: { item: Backt
   );
 }
 
+/** 백테스트 히스토리 「더 보기」 개수 — 이 브라우저 탭이 열린 동안 기억(다른 화면에 다녀와도 그대로, 새로고침하면 처음) */
+let rememberedHistoryDays = HISTORY_DAYS_PAGE;
+
 export default function BacktestView() {
   const bt = useBacktest();
   const uni = useBacktestUniverse();
@@ -98,7 +101,13 @@ export default function BacktestView() {
   const scrollTo = useRef<number | null>(null);
   const running = bt.progress?.running ?? false;
   /** 백테스트 히스토리 — 날짜(이 기기 날짜)별로 묶는다. 최근이 위 */
-  const [historyDays, setHistoryDays] = useState(HISTORY_DAYS_PAGE);
+  // 「더 보기」 로 늘린 날짜 수 — 이 브라우저 탭이 열린 동안 기억(펼친 날짜는 DateGroupList rememberKey)
+  const [historyDays, setHistoryDaysState] = useState(rememberedHistoryDays);
+  const setHistoryDays = (f: (n: number) => number) =>
+    setHistoryDaysState((n) => {
+      rememberedHistoryDays = f(n);
+      return rememberedHistoryDays;
+    });
   const historyGroups = (() => {
     const map = new Map<string, BacktestListItem[]>();
     for (const r of bt.reports ?? []) {
@@ -319,6 +328,7 @@ export default function BacktestView() {
             </Panel>
           ) : (
             <DateGroupList
+              rememberKey="backtest"
               label="날짜별 백테스트"
               hasMore={historyGroups.length > historyDays}
               onMore={() => setHistoryDays((n) => n + HISTORY_DAYS_PAGE)}
