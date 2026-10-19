@@ -1,4 +1,4 @@
-import { createContext, forwardRef, useContext, useLayoutEffect, useRef, type InputHTMLAttributes, type ReactNode } from 'react';
+import { createContext, forwardRef, useContext, useEffect, useLayoutEffect, useRef, useState, type InputHTMLAttributes, type ReactNode } from 'react';
 import { CONTROL_H, FIELD_W, UNIT_W, type ControlSize, type FieldKind } from './tokens';
 
 /** 같은 묶음의 단위 열 폭 — 묶음을 이것으로 감싸면 안의 모든 단위 열(`FormRow` · `NumberField`)이 같은 폭이다 */
@@ -68,10 +68,16 @@ type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'size' | 'type' | 'valu
     decimals?: number;
     /** thousands 모드의 값 전달 — 쉼표 없는 숫자 문자열 */
     onValue?: (raw: string) => void;
+    /**
+     * thousands 모드의 상한 — 이보다 큰 수가 되는 입력(타이핑 · 붙여넣기)은 받지 않고 앞 값을 그대로 둔다.
+     * 막히면 칸 아래에 `maxText`(예: 「최대 ₩1,000,000,000,000」)를 잠깐 보인다(막힌 이유 — 설명 문구가 아니다).
+     */
+    max?: number;
+    maxText?: string;
   };
 
 const NumberField = forwardRef<HTMLInputElement, Props>(function NumberField(
-  { size = 'md', kind = 'short', unit, invalid = false, changed = false, unitW, className = '', boxClassName = '', onKeyDown, onWheel, thousands = false, decimals = 0, onValue, value, onChange, ...rest },
+  { size = 'md', kind = 'short', unit, invalid = false, changed = false, unitW, className = '', boxClassName = '', onKeyDown, onWheel, thousands = false, decimals = 0, onValue, max, maxText, value, onChange, ...rest },
   ref,
 ) {
   const groupW = useContext(UnitWidth);
@@ -80,6 +86,12 @@ const NumberField = forwardRef<HTMLInputElement, Props>(function NumberField(
   const inner = useRef<HTMLInputElement | null>(null);
   /** thousands — 다음 렌더 뒤 커서를 둘 자리(커서 앞 숫자·소수점 개수) */
   const caretDigits = useRef<number | null>(null);
+  /** 상한에 막혀 안내를 보이는 중 */
+  const [blocked, setBlocked] = useState(false);
+  const blockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (blockTimer.current) clearTimeout(blockTimer.current);
+  }, []);
 
   const raw = value == null ? '' : String(value);
   const shown = thousands ? groupNumber(sanitizeNumber(raw, decimals)) : raw;
@@ -102,7 +114,7 @@ const NumberField = forwardRef<HTMLInputElement, Props>(function NumberField(
   const widthClass = /\b(w-|flex-1|min-w-)/.test(`${className} ${boxClassName}`) ? '' : FIELD_W[kind];
   const box = (
     <span
-      className={`flex min-w-0 items-center rounded-md border bg-bg-tertiary focus-within:border-accent ${CONTROL_H[size]} ${widthClass} ${
+      className={`relative flex min-w-0 items-center rounded-md border bg-bg-tertiary focus-within:border-accent ${CONTROL_H[size]} ${widthClass} ${
         invalid ? 'border-danger' : changed ? 'border-text-primary/70' : 'border-transparent'
       } ${className} ${boxClassName}`}
     >
@@ -119,9 +131,17 @@ const NumberField = forwardRef<HTMLInputElement, Props>(function NumberField(
         onChange={(e) => {
           if (thousands) {
             const el = e.target;
+            const next = sanitizeNumber(el.value, decimals);
+            // 상한보다 큰 수가 되는 입력은 받지 않는다 — onValue 를 부르지 않으면 제어 칸이 앞 값으로 돌아간다
+            if (max != null && next !== '' && Number(next) > max) {
+              setBlocked(true);
+              if (blockTimer.current) clearTimeout(blockTimer.current);
+              blockTimer.current = setTimeout(() => setBlocked(false), 2500);
+              return;
+            }
             const before = el.value.slice(0, el.selectionStart ?? el.value.length);
             caretDigits.current = (before.match(/[\d.]/g) ?? []).length;
-            onValue?.(sanitizeNumber(el.value, decimals));
+            onValue?.(next);
             return;
           }
           onChange?.(e);
@@ -148,6 +168,11 @@ const NumberField = forwardRef<HTMLInputElement, Props>(function NumberField(
         aria-invalid={invalid || undefined}
         className={`h-full w-full min-w-0 border-0 bg-transparent px-2 text-right text-xs tabular-nums text-text-primary focus:outline-none disabled:opacity-50 ${changed ? 'font-medium' : ''}`}
       />
+      {blocked && maxText && (
+        <span role="status" className="absolute right-0 top-full z-10 mt-0.5 whitespace-nowrap text-caption text-warning">
+          {maxText}
+        </span>
+      )}
     </span>
   );
   if (inFormRow || (!unit && !w)) return box;

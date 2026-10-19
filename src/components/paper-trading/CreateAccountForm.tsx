@@ -2,7 +2,8 @@ import NumberField from '../ui/NumberField';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
 import { useState } from 'react';
-import type { PaperAccount } from '../../types/paper';
+import { CASH_MAX, type PaperAccount } from '../../types/paper';
+import { formatPrice } from '../../utils/formatters';
 
 export interface CreateAccountInput {
   name: string;
@@ -73,6 +74,9 @@ export default function CreateAccountForm({ onCreate, onDone, onCancel }: Props)
         kind="long"
         thousands
         decimals={0}
+        // 입출금과 같은 상한(서버도 같은 값으로 막는다)
+        max={CASH_MAX.KRW}
+        maxText={`최대 ${formatPrice(CASH_MAX.KRW, 'KRW')}`}
         unit="원"
         aria-label="초기 자금"
         value={String(balance)}

@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Button, Dialog, FormRow, NumberField } from '../ui';
+import { Button, Dialog, NumberField } from '../ui';
 import { groupNumber } from '../ui/NumberField';
 import { toast } from '../../store/uiStore';
-import { CURRENCY_DECIMALS, type CashFlowType, type PaperAccount } from '../../types/paper';
+import { CASH_MAX, CURRENCY_DECIMALS, type CashFlowType, type PaperAccount } from '../../types/paper';
 import { formatPrice } from '../../utils/formatters';
 import { moveAccountCash } from '../../hooks/usePaperTrading';
 
@@ -10,7 +10,8 @@ const LABEL: Record<CashFlowType, string> = { deposit: '입금', withdraw: '출�
 
 /**
  * [입금] · [출금] 창 — 넣고 뺀 만큼 원금(초기 자금)도 함께 바뀐다(서버 `moveCash` — 기록 · 현금 · 원금 한 트랜잭션).
- * 출금할 수 있는 돈 = 현금 − 미체결 매수 주문에 묶인 돈(서버가 계좌 상세의 `withdrawable` 로 준다). 넘으면 버튼을 잠근다.
+ * 창은 금액 칸 하나(설명 문구 없음 — 사용자 결정) + 출금이면 「출금할 수 있는 돈」 한 줄. 금액은 `CASH_MAX` 보다 큰 수가 쳐지지 않는다.
+ * 출금할 수 있는 돈 = min(주문 가능 금액, 원금 − 최소 단위)(서버가 계좌 상세의 `withdrawable` 로 준다). 넘으면 버튼을 잠근다.
  * 그 밖의 거절(원금이 0 이하가 되는 출금 등)은 서버 이유 문구를 토스트로 보인다.
  */
 export default function CashFlowDialog({
@@ -76,36 +77,32 @@ export default function CashFlowDialog({
           void submit();
         }}
       >
-        <FormRow
-          label="금액"
-          labelW="sm"
-          error={over ? '출금할 수 있는 돈보다 많습니다.' : undefined}
-        >
+        {/* 간단한 입력 — 금액 칸 하나(창 너비에 꽉 차게, 사용자 결정). 상한(CASH_MAX)보다 큰 수는 쳐지지 않는다 */}
+        <div className="flex items-center gap-1.5">
           <NumberField
-            kind="long"
             thousands
             decimals={CURRENCY_DECIMALS[currency]}
-            unit={unit}
+            max={CASH_MAX[currency]}
+            maxText={`최대 ${formatPrice(CASH_MAX[currency], currency)}`}
+            className="flex-1"
             aria-label={`${label}할 금액`}
             autoFocus
             invalid={over}
             value={raw}
             onValue={setRaw}
           />
-        </FormRow>
+          <span className="shrink-0 text-caption text-text-muted">{unit}</span>
+        </div>
+        {over && <p className="text-caption text-danger">출금할 수 있는 돈보다 많습니다.</p>}
         {type === 'withdraw' && (
-          // 금액 칸과 같은 표기 — 쉼표 숫자 + 단위 열(원 · 달러)
-          <FormRow label="출금할 수 있는 돈" labelW="sm" unit={withdrawable == null ? undefined : unit}>
-            <span className="block text-right tabular-nums text-text-primary">
-              {withdrawable == null ? '확인 중…' : groupNumber(withdrawable.toFixed(CURRENCY_DECIMALS[currency]))}
+          // 숫자 정보라 남긴다 — 금액 칸과 같은 표기(쉼표 숫자 + 단위), 오른쪽 끝을 금액 칸 단위에 맞춘다
+          <p className="flex items-center justify-between gap-2">
+            <span className="text-text-secondary">출금할 수 있는 돈</span>
+            <span className="tabular-nums text-text-primary">
+              {withdrawable == null ? '확인 중…' : `${groupNumber(withdrawable.toFixed(CURRENCY_DECIMALS[currency]))} ${unit}`}
             </span>
-          </FormRow>
+          </p>
         )}
-        <p className="leading-relaxed text-text-secondary">
-          {label}한 만큼 원금(초기 자금)도 {type === 'deposit' ? '늘어' : '줄어'} 총 손익(금액)은 그대로입니다(수익률 = 총 손익 ÷ 새 원금). 거래 내역에 한 줄로 남습니다.
-          {type === 'withdraw' && ' 미체결 매수 주문에 묶인 돈은 뺄 수 없습니다.'}
-        </p>
-        <p className="text-caption text-text-muted">비교 중인 계좌가 있으면 같은 금액을 넣어야 비교가 맞습니다</p>
       </form>
     </Dialog>
   );
