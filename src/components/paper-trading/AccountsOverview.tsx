@@ -136,21 +136,17 @@ export default function AccountsOverview({
   /**
    * 끌기 — 두 보기가 같이 쓴다. 짧은 클릭은 브라우저가 끌기와 갈라 주므로 열기는 그대로다.
    * 놓을 자리(새 순서의 끼울 위치 0…N):
-   * - 카드 격자 = 가로 위치(한 줄에 여러 장) — 카드 왼쪽 반이면 그 앞, 오른쪽 반이면 그 뒤.
-   * - 목록 = **끄는 줄보다 아래 줄에 올리면 그 줄 뒤 · 위 줄이면 그 줄 앞**(줄 어디에 놓아도). 마지막 줄 아래 빈 곳 = 맨 끝(`listEndDrop`).
-   *   줄 위 반 / 아래 반으로 가르면, 아래로 옮길 때 다음 줄의 위 반에 놓으면 「그 줄 앞」 = 원래 자리라 순서가 바뀌지 않았다(v2.52.0 재현).
+   * - 카드 · 목록 같은 규칙 = **끄는 것보다 뒤(아래) 칸에 올리면 그 칸 뒤 · 앞(위) 칸이면 그 칸 앞**(칸 어디에 놓아도 — 한 줄 2장 카드의 다음 줄 카드도 같다).
+   *   반쪽(왼쪽/오른쪽 · 위/아래)으로 가르면, 바로 다음 칸의 앞 반에 놓으면 「그 칸 앞」 = 원래 자리라 순서가 바뀌지 않았다(목록 v2.52.0 · 카드 v2.52.3).
+   * - 목록은 마지막 줄 아래 빈 곳 = 맨 끝(`listEndDrop`).
    * 놓는 순간의 자리는 그 drop 이벤트의 위치로 다시 낸다 — 마지막 dragover 의 상태(dropIndex)가 아직 그려지기 전이면 한 칸 앞 값을 읽는다.
    */
-  const slotOf = (e: DragEvent, index: number, axis: 'x' | 'y'): number | null => {
-    if (axis === 'x') {
-      const box = e.currentTarget.getBoundingClientRect();
-      return e.clientX - box.left > box.width / 2 ? index + 1 : index;
-    }
+  const slotOf = (index: number): number | null => {
     const from = (shown ?? []).findIndex((a) => a.account.id === dragId);
     if (from < 0 || index === from) return null;
     return index > from ? index + 1 : index;
   };
-  const dragProps = (item: AccountOverviewItem, index: number, count: number, axis: 'x' | 'y') => ({
+  const dragProps = (item: AccountOverviewItem, index: number, count: number) => ({
     draggable: count > 1 && !savingOrder,
     onDragStart: (e: DragEvent) => {
       e.dataTransfer.effectAllowed = 'move';
@@ -163,14 +159,14 @@ export default function AccountsOverview({
     onDragOver: (e: DragEvent) => {
       if (dragId == null) return;
       e.preventDefault();
-      setDropIndex(slotOf(e, index, axis));
+      setDropIndex(slotOf(index));
     },
     onDrop: (e: DragEvent) => {
       if (dragId == null) return;
       e.preventDefault();
       e.stopPropagation();
       const id = dragId;
-      const slot = slotOf(e, index, axis);
+      const slot = slotOf(index);
       setDragId(null);
       setDropIndex(null);
       if (slot != null) void moveAccount(id, slot);
@@ -285,7 +281,7 @@ export default function AccountsOverview({
                     role="button"
                     tabIndex={0}
                     aria-label={`${item.account.name} 계좌 열기`}
-                    {...dragProps(item, index, list.length, 'y')}
+                    {...dragProps(item, index, list.length)}
                     onClick={() => onOpen(item.account.id)}
                     onKeyDown={(e) => openOnKey(e, item.account.id)}
                     className={`border-b border-border/30 last:border-b-0 transition-colors hover:bg-bg-tertiary/40 ${LIST_TABLE_ROW} ${
@@ -433,6 +429,7 @@ export default function AccountsOverview({
       ) : (
       <div className={`grid gap-3 ${CARD_GRID}`}>
         {(shown ?? []).map((item, index, list) => {
+          const dragFrom = list.findIndex((a) => a.account.id === dragId);
           const found = strategyOf(item.account.id);
           const strategy = found?.strategy;
           const status = found?.status;
@@ -447,8 +444,8 @@ export default function AccountsOverview({
               ref={flip(String(item.account.id))}
               role="button"
               tabIndex={0}
-              // 카드 전체를 잡아 끈다(관심 목록 편집과 같은 방식). 카드 격자라 가로 위치로 앞/뒤를 정한다
-              {...dragProps(item, index, list.length, 'x')}
+              // 카드 전체를 잡아 끈다(관심 목록 편집과 같은 방식). 놓을 자리 규칙은 목록과 같다(`slotOf`)
+              {...dragProps(item, index, list.length)}
               onClick={() => onOpen(item.account.id)}
               onKeyDown={(e) => openOnKey(e, item.account.id)}
               /*
@@ -460,9 +457,9 @@ export default function AccountsOverview({
                 list.length > 1 ? 'cursor-grab active:cursor-grabbing' : ''
               } ${dragId === item.account.id ? 'border-dashed !border-accent/60 opacity-40' : ''}`}
             >
-              {/* 놓을 자리 — 카드 앞(왼쪽)·뒤(오른쪽)에 파란 세로 줄 */}
-              {dragId != null && dropIndex === index && <span aria-hidden className="absolute inset-y-1 -left-1.5 w-1 -translate-x-1/2 rounded bg-accent" />}
-              {dragId != null && dropIndex === index + 1 && index === list.length - 1 && (
+              {/* 놓을 자리 — 놓는 카드에 긋는다: 끄는 카드보다 앞 카드면 그 앞(왼쪽) · 뒤 카드면 그 뒤(오른쪽) 파란 세로 줄 */}
+              {dragId != null && dropIndex === index && index < dragFrom && <span aria-hidden className="absolute inset-y-1 -left-1.5 w-1 -translate-x-1/2 rounded bg-accent" />}
+              {dragId != null && dropIndex === index + 1 && index > dragFrom && (
                 <span aria-hidden className="absolute inset-y-1 -right-1.5 w-1 translate-x-1/2 rounded bg-accent" />
               )}
               <header className="flex items-center gap-2">
