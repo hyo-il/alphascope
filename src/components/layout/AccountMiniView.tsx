@@ -12,7 +12,7 @@ import { toast } from '../../store/uiStore';
 /**
  * 관심 목록 패널의 **계좌 탭** — 모의투자 계좌 요약.
  *
- * 차트를 보면서 "지금 현금이 얼마고 이 종목을 들고 있나" 를 탭 한 번으로 확인하는 자리다.
+ * 차트를 보면서 "이 종목을 들고 있나 · 계좌가 지금 얼마인가" 를 탭 한 번으로 확인하는 자리다(총 평가 · 총 손익은 맨 아래 고정).
  * 매매는 하지 않는다 — 주문은 차트 옆 빠른주문, 계좌 관리는 계좌 화면이다.
  *
  * ⚠️ 폭이 250px 이라 카드가 아니라 **리스트**로 짠다. 열을 늘리는 대신 한 행을
@@ -96,7 +96,7 @@ export default function AccountMiniView({
   const signed = (value: number, currencyCode: typeof currency) => formatSignedMoney(value, currencyCode);
 
   return (
-    <div className="flex flex-col">
+    <div className="flex min-h-full flex-col">
       {/*
         계좌가 여럿이면 고르게 하고, 하나뿐이면 이름만 적는다.
         어느 쪽이든 **계좌명은 항상 보인다** — 어느 계좌를 보고 있는지 모르면 잔고도 의미가 없다.
@@ -126,9 +126,6 @@ export default function AccountMiniView({
               })}
             </Select>
           </div>
-          <p className="mt-1 text-caption leading-snug text-text-muted">
-            여기서 고른 계좌가 빠른주문·계좌 관리의 현재 계좌가 됩니다
-          </p>
         </div>
       ) : (
         <p className="flex items-center gap-1.5 border-b border-border px-3 py-2 text-xs font-medium text-text-primary">
@@ -143,22 +140,9 @@ export default function AccountMiniView({
 
       {detail && account && (
         <>
-          {/* 요약 — 총평가·총손익을 위에, 현금·주식을 아래에 둔다 */}
-          <div className="grid grid-cols-2 gap-1.5 px-3 py-2">
-            <Cell label="총 평가" value={formatPrice(detail.totalValue, currency)} />
-            <Cell
-              label="총 손익"
-              value={signed(detail.totalPnl, currency)}
-              sub={`${formatSigned(detail.totalReturn, 2)}%`}
-              tone={pnlTone(detail.totalPnl)}
-            />
-            <Cell label="현금" value={formatPrice(account.currentCash, currency)} muted />
-            <Cell label="주식" value={formatPrice(detail.stockValue, currency)} muted />
-          </div>
-
           {/* 미체결이 있으면 알린다 — 빠른주문으로 건 지정가가 어디 갔는지 보여야 한다 */}
           {detail.pendingOrders > 0 && (
-            <p className="px-3 pb-2 text-caption text-warning">
+            <p className="px-3 py-2 text-caption text-warning">
               미체결 주문 {detail.pendingOrders}건
             </p>
           )}
@@ -211,32 +195,25 @@ export default function AccountMiniView({
               })
             )}
           </div>
+
+          {/*
+            총 평가 · 총 손익 — 탭 **맨 아래에 고정**(사용자 결정). 보유 종목이 많아 스크롤해도 늘 보인다(sticky — 스크롤 상자는 WatchPanel 의 탭 내용).
+            내용이 짧으면 mt-auto 가 맨 아래로 민다(바깥 min-h-full). 이름 왼쪽 · 금액 오른쪽, 한 줄씩.
+          */}
+          <div className="sticky bottom-0 mt-auto space-y-1 border-t border-border bg-bg-secondary px-3 py-2">
+            <p className="flex items-center justify-between gap-2 text-xs">
+              <span className="shrink-0 text-text-muted">총 평가</span>
+              <span className="font-semibold tabular-nums text-text-primary">{formatPrice(detail.totalValue, currency)}</span>
+            </p>
+            <p className="flex items-center justify-between gap-2 text-xs">
+              <span className="shrink-0 text-text-muted">총 손익</span>
+              <span className={`font-semibold tabular-nums ${pnlTone(detail.totalPnl)}`}>
+                {signed(detail.totalPnl, currency)} ({formatSigned(detail.totalReturn, 2, '%')})
+              </span>
+            </p>
+          </div>
         </>
       )}
-    </div>
-  );
-}
-
-/** 요약 칸 하나 — 라벨 위, 값 아래 (250px 에서 가로로 늘어놓을 자리가 없다) */
-function Cell({
-  label,
-  value,
-  sub,
-  tone,
-  muted = false,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: string;
-  muted?: boolean;
-}) {
-  const valueTone = tone ?? (muted ? 'text-text-secondary' : 'text-text-primary');
-  return (
-    <div className="rounded-lg bg-bg-tertiary/40 px-2 py-1.5">
-      <p className="text-caption text-text-muted">{label}</p>
-      <p className={`text-xs font-semibold tabular-nums ${valueTone}`}>{value}</p>
-      {sub && <p className={`text-caption tabular-nums ${valueTone}`}>{sub}</p>}
     </div>
   );
 }
