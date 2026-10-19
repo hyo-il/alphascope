@@ -2,7 +2,7 @@ import Button from '../ui/Button';
 import InfoTip from '../ui/InfoTip';
 import Segmented from '../ui/Segmented';
 import { useAccountsView } from '../../hooks/useAccountsView';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Skeleton, SkeletonCards, SkeletonTable } from '../common/SkeletonLoader';
 import {
   usePaperAccountDetail,
@@ -78,13 +78,28 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   const [view, setView] = useState<View>(() =>
     remembered.view === 'detail' && remembered.accountId != null && remembered.accountId === selectedId ? 'detail' : 'overview',
   );
-  // 되살린 상세의 계좌가 목록을 받아 보니 없으면(다른 곳에서 지움) 모아보기로
-  const restoredId = useRef(view === 'detail' ? remembered.accountId : null);
+  /*
+   * 되살린 상세의 계좌가 그 사이 지워졌으면 모아보기로 — 들고 있던 목록은 옛 목록일 수 있어 서버 목록을 새로 받아 그 안에서 찾는다.
+   * (목록 복구가 현재 계좌를 첫 계좌로 바꾸는 것을 기다려 비교하면, 확인이 다시 그려지기 전에 끝나 놓친다)
+   */
   useEffect(() => {
-    if (restoredId.current == null || loading) return;
-    if (!accounts.some((a) => a.id === restoredId.current)) setView('overview');
-    restoredId.current = null;
-  }, [accounts, loading]);
+    const id = view === 'detail' ? remembered.accountId : null;
+    if (id == null) return;
+    let alive = true;
+    fetch('/api/paper/accounts')
+      .then((res) => (res.ok ? (res.json() as Promise<{ accounts?: { id: number }[] }>) : null))
+      .then((body) => {
+        if (!alive || !body?.accounts) return;
+        if (!body.accounts.some((a) => a.id === id)) setView('overview');
+        void reloadAccounts();
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+    // 처음 그릴 때 한 번만(되살린 경우)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     remembered.view = view;
     remembered.tab = tab;
