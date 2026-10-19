@@ -6,6 +6,7 @@ import type { Currency, PaperCashFlow, PaperOrder, PaperTrade } from '../../type
 import { cancelPaperOrder } from '../../hooks/usePaperTrading';
 import { formatPrice, formatSignedMoney } from '../../utils/formatters';
 import StockName from '../common/StockName';
+import { TABLE_NAME_COL, TABLE_NUM_COL } from '../ui/tokens';
 
 interface Props {
   trades: PaperTrade[];
@@ -126,15 +127,16 @@ export default function TradeHistory({ trades, cashFlows, currency, orders, onCh
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="text-text-muted">
+              {/* 숫자 · 짧은 칸은 내용 폭(TABLE_NUM_COL), 남는 폭은 사유 칸 — 넓은 창에서 숫자 칸이 벌어지지 않게 */}
               <tr className="border-b border-border/50">
-                <th className="px-3 py-2 text-left font-normal">시각</th>
-                <th className="px-3 py-2 text-left font-normal">종목</th>
-                <th className="px-3 py-2 text-left font-normal">구분</th>
-                <th className="px-3 py-2 text-right font-normal">수량</th>
-                <th className="px-3 py-2 text-right font-normal">체결가</th>
-                <th className="px-3 py-2 text-right font-normal">수수료</th>
-                <th className="px-3 py-2 text-right font-normal">실현손익</th>
-                <th className="px-3 py-2 text-left font-normal">사유</th>
+                <th className={`${TABLE_NUM_COL} px-3 py-2 text-left font-normal`}>시각</th>
+                <th className={`${TABLE_NUM_COL} px-3 py-2 text-left font-normal`}>종목</th>
+                <th className={`${TABLE_NUM_COL} px-3 py-2 text-left font-normal`}>구분</th>
+                <th className={`${TABLE_NUM_COL} px-3 py-2 text-right font-normal`}>수량</th>
+                <th className={`${TABLE_NUM_COL} px-3 py-2 text-right font-normal`}>체결가</th>
+                <th className={`${TABLE_NUM_COL} px-3 py-2 text-right font-normal`}>수수료</th>
+                <th className={`${TABLE_NUM_COL} px-3 py-2 text-right font-normal`}>실현손익</th>
+                <th className={`${TABLE_NAME_COL} px-3 py-2 text-left font-normal`}>사유</th>
               </tr>
             </thead>
             <tbody>
