@@ -139,7 +139,7 @@ export default function AccountsOverview({
    * - 카드 · 목록 같은 규칙 = **끄는 것보다 뒤(아래) 칸에 올리면 그 칸 뒤 · 앞(위) 칸이면 그 칸 앞**(칸 어디에 놓아도 — 한 줄 2장 카드의 다음 줄 카드도 같다).
    *   반쪽(왼쪽/오른쪽 · 위/아래)으로 가르면, 바로 다음 칸의 앞 반에 놓으면 「그 칸 앞」 = 원래 자리라 순서가 바뀌지 않았다(목록 v2.52.0 · 카드 v2.52.3).
    * - 목록은 마지막 줄 아래 빈 곳 = 맨 끝(`listEndDrop`).
-   * 놓는 순간의 자리는 그 drop 이벤트의 위치로 다시 낸다 — 마지막 dragover 의 상태(dropIndex)가 아직 그려지기 전이면 한 칸 앞 값을 읽는다.
+   * 놓는 순간의 자리는 drop 이 난 그 칸으로 다시 낸다(`slotOf`) — 마지막 dragover 의 상태(dropIndex)는 아직 그려지기 전이면 한 칸 앞 값일 수 있다.
    */
   const slotOf = (index: number): number | null => {
     const from = (shown ?? []).findIndex((a) => a.account.id === dragId);

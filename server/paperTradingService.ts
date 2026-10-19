@@ -580,8 +580,10 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
   // 지정가 매수를 새로 걸 때 — 그 주문이 묶을 돈이 쓸 수 있는 현금(이미 걸린 지정가 매수 몫을 뺀 현금)보다 크면 거절.
   // 걸어 두기만 하면 현금을 보지 않아, 현금 100만으로 80만짜리 지정가를 여럿 걸었다가 나중에 자동 취소됐다
   if (input.side === 'BUY' && input.orderType === 'LIMIT') {
-    const need = limitBuyHold(Number(input.requestedPrice), quantity, account, fxRate);
-    const orderable = availableCash(account);
+    // 시세 · 환율을 기다리는 사이 다른 체결이 현금을 바꿨을 수 있다 — 검사 직전에 계좌를 다시 읽는다
+    const fresh = getAccount(account.id);
+    const need = limitBuyHold(Number(input.requestedPrice), quantity, fresh, fxRate);
+    const orderable = availableCash(fresh);
     if (need > orderable) {
       throw new PaperTradingError(
         `주문 가능 금액이 부족합니다 (필요 ${formatPrice(need, account.currency)}, 주문 가능 ${formatPrice(Math.max(0, orderable), account.currency)}).`,

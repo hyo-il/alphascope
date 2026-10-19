@@ -82,7 +82,9 @@ function useFocusTrap() {
     const onFocusIn = (e: FocusEvent) => {
       if (!isTop()) return;
       const target = e.target as Node | null;
-      if (target && !panel.contains(target) && inAppRoot(target)) (focusablesIn(panel)[0] ?? panel).focus();
+      // 다른 창 안으로 가는 초점은 그대로 둔다 — 위에 새로 뜬 창의 autoFocus 는 그 창이 「맨 위」 로 등록되기(effect) 전에 일어난다
+      const inOtherDialog = target instanceof Element && target.closest('[role="dialog"]') != null;
+      if (target && !panel.contains(target) && inAppRoot(target) && !inOtherDialog) (focusablesIn(panel)[0] ?? panel).focus();
     };
     document.addEventListener('keydown', onKey);
     document.addEventListener('focusin', onFocusIn);
@@ -91,10 +93,14 @@ function useFocusTrap() {
       document.removeEventListener('focusin', onFocusIn);
       const i = trapStack.lastIndexOf(panel);
       if (i >= 0) trapStack.splice(i, 1);
-      // 연 요소로 초점을 돌려준다 — 그 요소가 남아 있고, 아래 창이 있으면 그 창 안일 때만
+      // 연 요소로 초점을 돌려준다 — 창이 정말 사라졌을 때만(개발 모드 StrictMode 는 effect 를 뗐다 다시 붙여, 그때 돌려주면 창 첫 요소로 초점이 튀었다),
+      // 그 요소가 남아 있고, 아래 창이 있으면 그 창 안일 때만
       const opener = openerRef.current as HTMLElement | null;
-      const below = trapStack[trapStack.length - 1];
-      if (opener && opener.isConnected && typeof opener.focus === 'function' && (!below || below.contains(opener))) opener.focus();
+      queueMicrotask(() => {
+        if (panel.isConnected) return;
+        const below = trapStack[trapStack.length - 1];
+        if (opener && opener.isConnected && typeof opener.focus === 'function' && (!below || below.contains(opener))) opener.focus();
+      });
     };
   }, []);
   return panelRef;

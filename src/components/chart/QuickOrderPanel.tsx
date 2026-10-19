@@ -103,6 +103,8 @@ export default function QuickOrderPanel({
    * **계좌 목록은 더 이상 여기서 받지 않는다** — 공유 상태가 들고 있고, 다른 화면의
    * 생성·삭제가 그쪽에서 방송돼 이 패널에도 바로 반영된다.
    */
+  // 계좌가 바뀌면 새 값을 받기 전까지 「확인 중…」 — 옛 계좌의 주문 가능 금액을 새 계좌 통화로 보이지 않게(주문 뒤 다시 읽기에는 비우지 않는다)
+  useEffect(() => setCash(null), [accountId]);
   useEffect(() => {
     if (!active) return;
     if (!accountId) {
@@ -170,10 +172,13 @@ export default function QuickOrderPanel({
   const fxPending = Boolean(account) && account!.currency !== currency && usdKrw === undefined;
 
   const commissionRate = account?.commissionRate ?? 0.001;
+  const slippageRate = account?.slippageRate ?? 0.0005;
+  /** 한 주를 살 때 실제로 드는 배수 — 서버가 묶고 빼는 식(가격 × (1 + 슬리피지) × (1 + 수수료))과 같다. 슬리피지를 빼면 「최대」 지정가가 서버 검사에 걸렸다 */
+  const buyCostFactor = (1 + slippageRate) * (1 + commissionRate);
   const held = position?.quantity ?? 0;
   /** 가능 수량·예상 금액은 지정가 칸 값으로 낸다(시장가 주문은 확인 창에서 현재가로 다시 낸다) */
   const basis = limitPrice;
-  const maxBuyableAt = (p: number | null) => (p && p > 0 ? Math.floor(cashInSymbolCurrency / (p * (1 + commissionRate))) : 0);
+  const maxBuyableAt = (p: number | null) => (p && p > 0 ? Math.floor(cashInSymbolCurrency / (p * buyCostFactor)) : 0);
   const maxBuyable = maxBuyableAt(basis);
 
   /*
@@ -188,12 +193,12 @@ export default function QuickOrderPanel({
     if (side === 'BUY') {
       if (!at || at <= 0) return 0;
       const budget = (cashInSymbolCurrency * percent) / 100;
-      return Math.max(0, Math.floor(budget / (at * (1 + commissionRate))));
+      return Math.max(0, Math.floor(budget / (at * buyCostFactor)));
     }
     return Math.max(0, Math.floor((held * percent) / 100));
   };
   const estimateFor = (side: OrderSide, qty: number, at: number | null) =>
-    at ? qty * at * (side === 'BUY' ? 1 + commissionRate : 1 - commissionRate) : 0;
+    at ? qty * at * (side === 'BUY' ? buyCostFactor : 1 - commissionRate) : 0;
 
   const buyQuantity = quantityFor('BUY');
   const sellQuantity = quantityFor('SELL');
@@ -460,7 +465,7 @@ export default function QuickOrderPanel({
         <div className="space-y-0.5">
           {info('매도 가능', `${held}주`)}
           {/* 환율을 못 받았으면 0 주라고 단언하지 않는다 — 잔고가 없다는 뜻으로 읽힌다. */}
-          {info('매수 가능', fxMissing ? '환율 조회 실패' : fxPending ? '확인 중…' : `${maxBuyable}주`)}
+          {info('매수 가능', fxMissing ? '환율 조회 실패' : fxPending || cash == null ? '확인 중…' : `${maxBuyable}주`)}
           {/* 주문 가능 = 현금 − 걸려 있는 지정가 매수에 묶인 돈(걸린 것이 없으면 현금과 같다) */}
           {account && info('주문 가능', cash == null ? '확인 중…' : formatPrice(Math.max(0, cash), account.currency))}
           {/* 예상 금액은 가격 칸(지정가) 기준 — 시장가는 확인 창에서 현재가로 다시 낸다 */}

@@ -71,7 +71,7 @@ export async function planBuy(
       reason:
         orderable === account.currentCash
           ? `현금 부족 — 필요 ${formatPrice(needInAccount, accountCurrency)}, 보유 ${formatPrice(account.currentCash, accountCurrency)}`
-          : `주문 가능 금액 부족 — 필요 ${formatPrice(needInAccount, accountCurrency)}, 주문 가능 ${formatPrice(orderable, accountCurrency)}`,
+          : `주문 가능 금액 부족 — 필요 ${formatPrice(needInAccount, accountCurrency)}, 주문 가능 ${formatPrice(Math.max(0, orderable), accountCurrency)}`,
     };
   }
 

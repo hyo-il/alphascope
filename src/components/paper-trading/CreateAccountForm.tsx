@@ -70,8 +70,10 @@ export default function CreateAccountForm({ onCreate, onDone, onCancel }: Props)
         </button>
       ))}
       {/* 금액 칸 — 입력하는 동안에도 천 단위 쉼표(thousands). 값은 쉼표 없는 숫자로 */}
+      {/* 상한 1조(쉼표 포함 17자)가 다 보이는 폭 — 기본 금액 칸(128px)은 앞이 잘렸다 */}
       <NumberField
         kind="long"
+        className="w-40"
         thousands
         decimals={0}
         // 입출금과 같은 상한(서버도 같은 값으로 막는다)

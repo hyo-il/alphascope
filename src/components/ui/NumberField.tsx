@@ -19,10 +19,10 @@ export function FormRowValue({ children }: { children: ReactNode }) {
   return <InFormRow.Provider value>{children}</InFormRow.Provider>;
 }
 
-/** 쉼표 입력(thousands) — 숫자·소수점만 남긴다. `decimals` 0 이면 정수 */
+/** 쉼표 입력(thousands) — 숫자·소수점만 남긴다. `decimals` 0 이면 정수(소수점 뒤는 버린다 — 점만 지우면 「1,000,000.00」 이 100배가 됐다) */
 export function sanitizeNumber(text: string, decimals: number): string {
   let s = text.replace(/[^\d.]/g, '');
-  if (decimals <= 0) s = s.replace(/\./g, '');
+  if (decimals <= 0) s = s.split('.')[0];
   else {
     const dot = s.indexOf('.');
     if (dot >= 0) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, '').slice(0, decimals);
