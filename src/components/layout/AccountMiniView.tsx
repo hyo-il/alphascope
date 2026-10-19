@@ -194,6 +194,8 @@ export default function AccountMiniView({
                 );
               })
             )}
+            {/* 탭 안내 한 줄 — 보유 종목 끝(탭 맨 아래는 고정 두 줄 자리) */}
+            <p className="px-3 py-2 text-caption text-text-muted">모의투자 계좌의 현재 상태입니다. 거래는 차트의 빠른주문에서 진행하세요.</p>
           </div>
 
           {/*

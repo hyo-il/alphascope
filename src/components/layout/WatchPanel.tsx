@@ -305,11 +305,8 @@ export default function WatchPanel({
         )}
       </div>
 
-      {tab === 'account' ? (
-        <p className="border-t border-border px-3 py-2 text-caption text-text-muted">
-          모의투자 계좌의 현재 상태입니다. 거래는 차트의 빠른주문에서 진행하세요.
-        </p>
-      ) : tab === 'watch' ? (
+      {/* 계좌 탭의 안내 한 줄은 AccountMiniView 보유 종목 끝에 둔다 — 탭 맨 아래는 「총 평가 · 총 손익」 고정 두 줄(사용자 결정) */}
+      {tab === 'watch' ? (
         <div className="border-t border-border p-2">
           {/*
             패널의 빠른 추가는 **폴더 없이** 넣는다. 폴더를 고르는 일까지 여기서 하면
@@ -326,7 +323,7 @@ export default function WatchPanel({
           />
         </div>
       ) : (
-        recent.length > 0 && (
+        tab === 'recent' && recent.length > 0 && (
           /*
             ⚠️ 되돌릴 수 없고 한 번에 여러 개를 삭제한다 — 확인 창. 0개면 이 버튼 자체가 없다.
           */

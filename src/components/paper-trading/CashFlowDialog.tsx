@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button, Dialog, FormRow, NumberField } from '../ui';
+import { groupNumber } from '../ui/NumberField';
 import { toast } from '../../store/uiStore';
 import { CURRENCY_DECIMALS, type CashFlowType, type PaperAccount } from '../../types/paper';
 import { formatPrice } from '../../utils/formatters';
@@ -31,6 +32,7 @@ export default function CashFlowDialog({
   const [saving, setSaving] = useState(false);
   const label = LABEL[type];
   const currency = account.currency;
+  const unit = currency === 'KRW' ? '원' : '달러';
   const amount = raw === '' ? 0 : Number(raw);
   const over = type === 'withdraw' && withdrawable != null && amount > withdrawable;
   const canSubmit = amount > 0 && !over && !(type === 'withdraw' && withdrawable == null);
@@ -83,7 +85,7 @@ export default function CashFlowDialog({
             kind="long"
             thousands
             decimals={CURRENCY_DECIMALS[currency]}
-            unit={currency === 'KRW' ? '원' : '달러'}
+            unit={unit}
             aria-label={`${label}할 금액`}
             autoFocus
             invalid={over}
@@ -92,9 +94,10 @@ export default function CashFlowDialog({
           />
         </FormRow>
         {type === 'withdraw' && (
-          <FormRow label="출금할 수 있는 돈" labelW="sm">
+          // 금액 칸과 같은 표기 — 쉼표 숫자 + 단위 열(원 · 달러)
+          <FormRow label="출금할 수 있는 돈" labelW="sm" unit={withdrawable == null ? undefined : unit}>
             <span className="block text-right tabular-nums text-text-primary">
-              {withdrawable == null ? '확인 중…' : formatPrice(withdrawable, currency)}
+              {withdrawable == null ? '확인 중…' : groupNumber(withdrawable.toFixed(CURRENCY_DECIMALS[currency]))}
             </span>
           </FormRow>
         )}

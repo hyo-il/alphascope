@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { toast } from '../../store/uiStore';
 import type { Currency, PaperCashFlow, PaperOrder, PaperTrade } from '../../types/paper';
 import { cancelPaperOrder } from '../../hooks/usePaperTrading';
-import { formatPrice, formatSignedMoney } from '../../utils/formatters';
+import { formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
 import StockName from '../common/StockName';
 import { TABLE_NAME_COL, TABLE_NUM_COL } from '../ui/tokens';
 
@@ -155,7 +155,7 @@ export default function TradeHistory({ trades, cashFlows, currency, orders, onCh
                       </td>
                       {/* 금액은 「체결가」 칸 — 세 칸을 합쳐 오른쪽 끝에 두면 「수수료」 머리 아래라 수수료로 읽혔다 */}
                       <td className="px-3 py-2" />
-                      <td className="px-3 py-2 text-right tabular-nums text-text-primary">{formatPrice(f.amount, currency)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-text-secondary">{formatPrice(f.amount, currency)}</td>
                       <td className="px-3 py-2 text-right text-text-muted">—</td>
                       <td className="px-3 py-2 text-right text-text-muted">—</td>
                       <td className="px-3 py-2 text-text-muted">원금도 함께 {f.type === 'deposit' ? '늘림' : '줄임'}</td>
@@ -194,7 +194,7 @@ export default function TradeHistory({ trades, cashFlows, currency, orders, onCh
                     >
                       {t.pnl == null
                         ? '—'
-                        : `${formatSignedMoney(t.pnl, t.currency)} (${t.pnlPercent?.toFixed(2)}%)`}
+                        : `${formatSignedMoney(t.pnl, t.currency)} (${formatSigned(t.pnlPercent, 2, '%')})`}
                     </td>
                     {/*
                       사유는 길다 ("하드 손절 -10.13% — 기준 -7% 도달로 전량 청산").

@@ -114,7 +114,8 @@ function targets(): Target[] {
     // 계좌 상세 「거래내역」 탭 — 입출금 줄이 체결과 섞인다(사본 DB 에 입출금이 있으면)
     { name: 'account-거래내역', hash: '#/portfolio/paper', open: async (page) => { await openAccountDetail(page); await click('거래내역')(page); } },
     // 오른쪽 패널 계좌 탭 — 맨 아래 고정 「총 평가 · 총 손익」(v2.52.0)
-    { name: 'panel-계좌탭', hash: '#/chart', open: async (page) => { await page.getByTitle('모의투자 계좌').click(); await page.waitForTimeout(1500); } },
+    // 끝나면 관심 탭으로 되돌린다 — 계좌 탭이 남으면 다음 대상의 「계좌」 고르기 상자가 둘로 잡힌다
+    { name: 'panel-계좌탭', hash: '#/chart', open: async (page) => { await page.getByTitle('모의투자 계좌').click(); await page.waitForTimeout(1500); }, after: async (page) => { await page.getByTitle('관심 목록').click().catch(() => undefined); } },
     { name: 'form-새계좌', hash: '#/portfolio/paper', open: click(/새 계좌/) },
     // 차트 아래 「AI 분석」 탭(간단 · 전체 모드), 검증 기록(AI 검증 계좌 하나 · 빈 화면 · AI 분석 성적표), 퀀트 메뉴 접힘
     ...(['간단', '전체'] as const).map((mode) => ({
@@ -134,7 +135,7 @@ function targets(): Target[] {
       hash: '#/records/aicheck',
       open: async (page) => {
         await page.waitForTimeout(1200);
-        const sel = page.getByRole('combobox', { name: '계좌' });
+        const sel = page.getByRole('combobox', { name: '계좌', exact: true }); // 오른쪽 계좌 탭의 「모의투자 계좌 선택」 과 갈리게
         // 기록이 있는 계좌(점검 DB 에 심은 「AI 검증 비교 A」)가 있으면 그것, 없으면 첫 계좌
         const named = sel.locator('option', { hasText: 'AI 검증 비교' });
         const v = await ((await named.count()) ? named.first() : sel.locator('option').nth(1)).getAttribute('value');
