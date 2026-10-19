@@ -91,7 +91,8 @@ export const HEATMAP_SECTOR_PAD_Y = 4;
 export const HEATMAP_SECTOR_LINE = 16;
 
 /**
- * 카드 격자 (계좌 모아보기). 카드 최소 폭 18rem 으로 **있는 카드가 가로를 나눠 채운다**(auto-fit).
- * 열 수를 고정(`xl:grid-cols-3`)하면 1280 에서 계좌 2개일 때 오른쪽 3분의 1이 빈다. 카드 높이는 내용이고 같은 줄은 같은 높이(격자 기본 stretch).
+ * 카드 격자 (계좌 모아보기 — 쓰는 곳은 `gap-3` 과 함께). **한 줄 최대 2장**, 2장이 안 들어가면(카드 최소 18rem × 2 + 간격) 1장(사용자 결정).
+ * 칸 최소 폭 = max(18rem, 절반) 이라 넓어도 2칸을 넘지 않는다. auto-fill 이라 계좌가 1개여도 빈 칸을 남겨 **절반 폭**이다
+ * (auto-fit 은 빈 칸을 접어 카드 한 장이 가로를 다 차지한다). 카드 높이는 내용이고 같은 줄은 같은 높이(격자 기본 stretch).
  */
-export const CARD_GRID = 'grid-cols-[repeat(auto-fit,minmax(18rem,1fr))]';
+export const CARD_GRID = 'grid-cols-[repeat(auto-fill,minmax(max(18rem,calc((100%_-_0.75rem)/2)),1fr))]';
