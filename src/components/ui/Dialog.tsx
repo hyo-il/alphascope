@@ -9,6 +9,10 @@ import IconButton from './IconButton';
  * - ⚠️ **겹침 순서(`z`)는 창마다 그대로 넘긴다** — 처음 켜기 85 · 설정 90 · 종목 추가 98 · 확인 창 100.
  * - ⚠️ **바깥 클릭으로 닫지 않는 창**이 있다(입력 중인 내용을 잃는 창) — `closeOnBackdrop={false}`.
  * - ESC 는 **맨 위 창 하나만** 닫는다(창 위에 창이 뜨면 둘 다 닫히지 않게 — 아래 스택).
+ * - **초점 가두기**(맨 위 창만): Tab · Shift+Tab 은 창 안에서만 돈다(끝 다음 → 처음, 처음 이전 → 끝). 초점이 뒤 화면(`#root` 안 · 창 밖)으로
+ *   나가면 창으로 되돌린다. 닫으면 창을 연 요소로 초점을 돌려준다(없어졌으면 그대로). 화면 읽기 프로그램은 `aria-modal` 로 뒤 화면을 읽지 않는다.
+ *   창은 `#root` 안에 그려져 뒤 화면에 `inert` 를 걸면 창도 막히므로 이 방식으로 같은 효과를 낸다.
+ *   `body` 로 따로 뜨는 것(`Popover` · `InfoTip` — 날짜 고르기 등)은 창 밖이어도 막지 않는다(그 안의 Tab 은 브라우저 그대로).
  */
 export type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
 
@@ -22,6 +26,79 @@ const SIZE: Record<DialogSize, string> = {
 
 /** 열린 창 순서 — ESC 는 마지막(맨 위) 창만 */
 const stack: string[] = [];
+/** 열린 창의 판(panel) 순서 — 초점은 마지막(맨 위) 창에만 가둔다(ESC 를 쓰지 않는 창도 들어간다) */
+const trapStack: HTMLElement[] = [];
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function focusablesIn(el: HTMLElement): HTMLElement[] {
+  return [...el.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((x) => x.getClientRects().length > 0);
+}
+/** 뒤 화면(앱 루트 안)인가 — `body` 로 따로 뜨는 목록은 뒤 화면이 아니다 */
+function inAppRoot(node: Node | null): boolean {
+  const root = document.getElementById('root');
+  return Boolean(root && node && root.contains(node));
+}
+
+/** 초점 가두기 — `Dialog` 가 쓴다. 판(panel) ref 를 돌려준다 */
+function useFocusTrap() {
+  const panelRef = useRef<HTMLDivElement>(null);
+  /** 창을 연 요소 — 첫 그리기(자식의 autoFocus 보다 먼저)에서 잡는다 */
+  const openerRef = useRef<Element | null | undefined>(undefined);
+  if (openerRef.current === undefined) openerRef.current = typeof document === 'undefined' ? null : document.activeElement;
+
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    trapStack.push(panel);
+    const isTop = () => trapStack[trapStack.length - 1] === panel;
+    // 자식이 이미 초점을 가져갔으면(autoFocus) 그대로, 아니면 창 안 첫 요소(없으면 판)로
+    if (!panel.contains(document.activeElement)) (focusablesIn(panel)[0] ?? panel).focus();
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !isTop()) return;
+      const active = document.activeElement;
+      // 창 밖 · 앱 루트 밖(body 로 뜬 목록) — 그 안의 Tab 은 브라우저 그대로
+      if (active && !panel.contains(active) && !inAppRoot(active)) return;
+      const list = focusablesIn(panel);
+      if (!list.length) {
+        e.preventDefault();
+        panel.focus();
+        return;
+      }
+      const first = list[0];
+      const last = list[list.length - 1];
+      if (!active || !panel.contains(active)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && (active === first || active === panel)) {
+        e.preventDefault();
+        last.focus();
+      }
+    };
+    // 초점이 뒤 화면으로 나가면(스크립트 · 화면 읽기 프로그램 이동 등) 창으로 되돌린다
+    const onFocusIn = (e: FocusEvent) => {
+      if (!isTop()) return;
+      const target = e.target as Node | null;
+      if (target && !panel.contains(target) && inAppRoot(target)) (focusablesIn(panel)[0] ?? panel).focus();
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('focusin', onFocusIn);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('focusin', onFocusIn);
+      const i = trapStack.lastIndexOf(panel);
+      if (i >= 0) trapStack.splice(i, 1);
+      // 연 요소로 초점을 돌려준다 — 그 요소가 남아 있고, 아래 창이 있으면 그 창 안일 때만
+      const opener = openerRef.current as HTMLElement | null;
+      const below = trapStack[trapStack.length - 1];
+      if (opener && opener.isConnected && typeof opener.focus === 'function' && (!below || below.contains(opener))) opener.focus();
+    };
+  }, []);
+  return panelRef;
+}
 
 export function isTopDialog(id: string): boolean {
   return stack[stack.length - 1] === id;
@@ -83,6 +160,7 @@ export default function Dialog({
 }) {
   const titleId = useId();
   useDialogEsc(closeOnEsc && onClose ? onClose : null);
+  const panelRef = useFocusTrap();
 
   return (
     <div
@@ -95,7 +173,7 @@ export default function Dialog({
         if (closeOnBackdrop && onClose && e.target === e.currentTarget) onClose();
       }}
     >
-      <div className={`flex flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl ${SIZE[size]}`}>
+      <div ref={panelRef} tabIndex={-1} className={`flex flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl outline-none ${SIZE[size]}`}>
         <div className="flex shrink-0 items-center gap-2 border-b border-border/40 px-4 py-3">
           <h2 id={titleId} className="min-w-0 text-sm font-semibold text-text-primary">
             {title}
