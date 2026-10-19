@@ -3,7 +3,8 @@ import type { PaperPerformance, PaperSnapshot, PaperTrade } from '../src/types/p
 import { getDb } from './db';
 // 고점 대비 최대 낙폭 — 백테스트와 같은 함수
 import { maxDrawdown } from '../src/utils/drawdown';
-import { getAccountDetail, listTrades } from './paperTradingService';
+import { flowNeutralValues } from '../src/utils/flowNeutral';
+import { cashFlowDates, getAccountDetail, listTrades, type CashFlowDate } from './paperTradingService';
 
 /**
  * 모의투자 성과 분석.
@@ -14,22 +15,36 @@ import { getAccountDetail, listTrades } from './paperTradingService';
 
 type Row = Record<string, unknown>;
 
-const toSnapshot = (r: Row): PaperSnapshot => ({
+const toSnapshot = (r: Row, cashFlow: number): PaperSnapshot => ({
   date: r.date as string,
   totalValue: r.total_value as number,
   cash: r.cash as number,
   stockValue: r.stock_value as number,
+  cashFlow,
   dailyPnl: (r.daily_pnl as number) ?? null,
   dailyReturn: (r.daily_return as number) ?? null,
   cumulativeReturn: (r.cumulative_return as number) ?? null,
 });
 
+/**
+ * 입출금 합(입금 +) — 날짜 `after`(제외) ~ `upTo`(포함). 날짜는 기록 시각의 UTC 날짜(`recordSnapshot` 의 점 날짜와 같은 잣대 —
+ * 잣대가 같아야 입출금 하나가 정확히 한 점에만 들어간다). `after` 가 null 이면 처음부터, `upTo` 가 null 이면 끝까지.
+ */
+export function cashFlowBetween(flows: CashFlowDate[], after: string | null, upTo: string | null): number {
+  let sum = 0;
+  for (const f of flows) {
+    if ((after == null || f.date > after) && (upTo == null || f.date <= upTo)) sum += f.signed;
+  }
+  return sum;
+}
+
 export function listSnapshots(accountId: number): PaperSnapshot[] {
-  return (
-    getDb()
-      .prepare(`SELECT * FROM paper_snapshots WHERE account_id = ? ORDER BY date`)
-      .all(accountId) as Row[]
-  ).map(toSnapshot);
+  const rows = getDb()
+    .prepare(`SELECT * FROM paper_snapshots WHERE account_id = ? ORDER BY date`)
+    .all(accountId) as Row[];
+  const flows = cashFlowDates(accountId);
+  // 점마다 앞 점 이후의 입출금 — 첫 점은 0
+  return rows.map((r, i) => toSnapshot(r, i === 0 ? 0 : cashFlowBetween(flows, rows[i - 1].date as string, r.date as string)));
 }
 
 /** 장이 열리지 않는 날 — 스냅샷을 남기지 않는다. */
@@ -57,9 +72,13 @@ export function recordSnapshot(
     .prepare(`SELECT * FROM paper_snapshots WHERE account_id = ? AND date < ? ORDER BY date DESC LIMIT 1`)
     .get(accountId, date) as Row | undefined;
 
+  // 앞 점이 없으면 원금과 비교한다 — 원금에는 입출금이 이미 들어 있다.
+  // 앞 점이 있으면 그 뒤 입출금을 그날 손익에서 뺀다(입금이 그날 수익으로 잡히지 않게). 수익률 기준도 「앞 점 + 입출금」
   const previousValue = previous ? (previous.total_value as number) : values.initialBalance;
-  const dailyPnl = values.totalValue - previousValue;
-  const dailyReturn = previousValue ? (dailyPnl / previousValue) * 100 : null;
+  const flow = previous ? cashFlowBetween(cashFlowDates(accountId), previous.date as string, date) : 0;
+  const dailyPnl = values.totalValue - previousValue - flow;
+  const base = previousValue + flow;
+  const dailyReturn = base ? (dailyPnl / base) * 100 : null;
   const cumulativeReturn = values.initialBalance
     ? (values.totalValue / values.initialBalance - 1) * 100
     : null;
@@ -144,7 +163,8 @@ export async function computePerformance(accountId: number): Promise<{
   const avgLoss = losses.length ? losses.reduce((a, t) => a + t.pnl, 0) / losses.length : null;
   const { win: maxWinStreak, loss: maxLossStreak } = streaks(closedAsc.map((t) => t.pnl > 0));
 
-  const values = snapshots.map((s) => s.totalValue);
+  // 입출금을 뺀 곡선 — 출금한 날이 낙폭으로 잡히지 않게(입출금이 없으면 평가액 그대로)
+  const values = flowNeutralValues(snapshots);
   const dailyReturns = snapshots
     .map((s) => s.dailyReturn)
     .filter((v): v is number => v != null);

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from '../store/uiStore';
 import type {
+  CashFlowType,
   CreateOrderInput,
   CreateOrderResult,
   PaperAccount,
   PaperAccountDetail,
+  PaperCashFlow,
   PaperOrder,
   PaperPerformance,
   PaperSnapshot,
@@ -346,17 +348,18 @@ export function usePaperAccountDetail(accountId: number | null) {
   return { detail, error, refresh };
 }
 
+/** 체결 내역 + 입출금 기록(한 번에 받는다 — 거래 내역 탭이 시간 순서로 섞어 보인다) */
 export function usePaperTrades(accountId: number | null, tick = 0) {
-  const [trades, setTrades] = useState<PaperTrade[]>([]);
+  const [data, setData] = useState<{ trades: PaperTrade[]; cashFlows: PaperCashFlow[] }>({ trades: [], cashFlows: [] });
 
   useEffect(() => {
     if (!accountId) {
-      setTrades([]);
+      setData({ trades: [], cashFlows: [] });
       return;
     }
     let cancelled = false;
-    void request<{ trades: PaperTrade[] }>(`/api/paper/trades?accountId=${accountId}`)
-      .then((d) => !cancelled && setTrades(d.trades))
+    void request<{ trades: PaperTrade[]; cashFlows?: PaperCashFlow[] }>(`/api/paper/trades?accountId=${accountId}`)
+      .then((d) => !cancelled && setData({ trades: d.trades, cashFlows: d.cashFlows ?? [] }))
       // 조용히 빈 배열로 두면 "거래 내역이 없다" 로 오해한다.
       .catch((e) => !cancelled && toast.error('거래 내역을 불러오지 못했습니다', String(e.message ?? e)));
     return () => {
@@ -364,7 +367,7 @@ export function usePaperTrades(accountId: number | null, tick = 0) {
     };
   }, [accountId, tick]);
 
-  return trades;
+  return data;
 }
 
 export function usePaperOrders(accountId: number | null, tick = 0) {
@@ -417,6 +420,15 @@ export async function submitOrder(input: CreateOrderInput): Promise<CreateOrderR
     method: 'POST',
     body: JSON.stringify(input),
   });
+}
+
+/** 입금 · 출금 — 실패하면 서버의 이유 문구로 던진다 */
+export async function moveAccountCash(accountId: number, type: CashFlowType, amount: number): Promise<PaperAccount> {
+  const { account } = await request<{ account: PaperAccount }>(`/api/paper/accounts/${accountId}/${type}`, {
+    method: 'POST',
+    body: JSON.stringify({ amount }),
+  });
+  return account;
 }
 
 export async function cancelPaperOrder(orderId: number): Promise<void> {

@@ -7,6 +7,8 @@ import { formatPrice } from '../../utils/formatters';
 import { modal, toast } from '../../store/uiStore';
 import CreateAccountForm from './CreateAccountForm';
 import CopyAccountDialog from './CopyAccountDialog';
+import CashFlowDialog from './CashFlowDialog';
+import type { CashFlowType } from '../../types/paper';
 import { Copy } from 'lucide-react';
 
 interface Props {
@@ -18,6 +20,10 @@ interface Props {
   onDelete: (id: number) => Promise<unknown>;
   /** [계좌 복사] 뒤 — 새 계좌 화면으로 */
   onCopied?: (account: PaperAccount) => Promise<void> | void;
+  /** 출금할 수 있는 돈(계좌 상세의 `withdrawable`) — 받기 전이면 null */
+  withdrawable?: number | null;
+  /** [입금] · [출금] 뒤 — 잔고 · 요약 · 거래 내역을 새로 읽는다. 없으면 두 버튼을 그리지 않는다 */
+  onCashMoved?: () => Promise<void> | void;
 }
 
 /** 계좌 선택 · 생성 · 초기화 — 대시보드 상단 줄 */
@@ -29,9 +35,12 @@ export default function AccountManager({
   onReset,
   onDelete,
   onCopied,
+  withdrawable = null,
+  onCashMoved,
 }: Props) {
   const [creating, setCreating] = useState(false);
   const [copying, setCopying] = useState(false);
+  const [cashFlow, setCashFlow] = useState<CashFlowType | null>(null);
 
   const selected = accounts.find((a) => a.id === selectedId) ?? null;
 
@@ -40,7 +49,7 @@ export default function AccountManager({
     if (!selected) return;
     modal.confirm({
       title: '계좌 초기화',
-      message: `"${selected.name}" 계좌를 초기화합니다.\n보유 종목·주문·거래 내역이 모두 삭제됩니다. 되돌릴 수 없습니다.`,
+      message: `"${selected.name}" 계좌를 초기화합니다.\n보유 종목·주문·거래 내역·입출금 기록이 모두 삭제됩니다. 되돌릴 수 없습니다.`,
       rows: [{ label: '잔고', value: formatPrice(selected.initialBalance, selected.currency) }],
       confirmText: '초기화',
       danger: true,
@@ -55,7 +64,7 @@ export default function AccountManager({
     if (!selected) return;
     modal.confirm({
       title: '계좌 삭제',
-      message: `"${selected.name}" 계좌를 삭제합니다. 보유 종목·주문·거래 내역이 함께 사라집니다.\n되돌릴 수 없습니다.`,
+      message: `"${selected.name}" 계좌를 삭제합니다. 보유 종목·주문·거래 내역·입출금 기록이 함께 사라집니다.\n되돌릴 수 없습니다.`,
       confirmText: '삭제',
       danger: true,
       onConfirm: async () => {
@@ -107,6 +116,17 @@ export default function AccountManager({
                 계좌 복사
               </Button>
             )}
+            {/* 넣고 뺀 만큼 원금도 함께 바뀐다(총 손익 그대로) — 「초기화」 옆(사용자 결정) */}
+            {onCashMoved && (
+              <>
+                <Button variant="secondary" size="sm" onClick={() => setCashFlow('deposit')}>
+                  입금
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => setCashFlow('withdraw')}>
+                  출금
+                </Button>
+              </>
+            )}
             <Button variant="secondary" size="sm"
               onClick={confirmReset}>
               초기화
@@ -122,6 +142,9 @@ export default function AccountManager({
       </div>
 
       {copying && selected && onCopied && <CopyAccountDialog account={selected} onClose={() => setCopying(false)} onCopied={onCopied} />}
+      {cashFlow && selected && onCashMoved && (
+        <CashFlowDialog account={selected} type={cashFlow} withdrawable={withdrawable} onClose={() => setCashFlow(null)} onDone={onCashMoved} />
+      )}
 
       {creating && (
         <CreateAccountForm

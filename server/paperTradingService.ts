@@ -1,12 +1,15 @@
 import {
+  CURRENCY_DECIMALS,
   DEFAULT_ACCOUNTS_VIEW,
   isAccountsView,
   type AccountsView,
+  type CashFlowType,
   type CreateOrderInput,
   type CreateOrderResult,
   type Currency,
   type PaperAccount,
   type PaperAccountDetail,
+  type PaperCashFlow,
   type PaperOrder,
   type PaperPosition,
   type PaperPositionValued,
@@ -19,6 +22,7 @@ import { currencyOfSymbol as currencyByRule } from '../src/utils/market';
 import { fetchExchangeRate } from '../src/services/toss/account';
 import { isMockMode } from './mockData';
 import { convertAmount } from '../src/utils/fx';
+import { formatPrice } from '../src/utils/formatters';
 
 /**
  * 모의투자 체결 엔진.
@@ -254,11 +258,12 @@ export function deleteAccount(id: number): void {
     db.prepare(`DELETE FROM paper_orders WHERE account_id = ?`).run(id);
     db.prepare(`DELETE FROM paper_positions WHERE account_id = ?`).run(id);
     db.prepare(`DELETE FROM paper_snapshots WHERE account_id = ?`).run(id);
+    db.prepare(`DELETE FROM paper_cash_flows WHERE account_id = ?`).run(id);
     db.prepare(`DELETE FROM paper_accounts WHERE id = ?`).run(id);
   })();
 }
 
-/** 잔고를 초기 자금으로 되돌리고 주문·포지션·체결을 모두 비운다. */
+/** 잔고를 초기 자금으로 되돌리고 주문·포지션·체결·입출금 기록을 모두 비운다(초기화 = 처음 상태 — 원금은 지금 원금 그대로). */
 export function resetAccount(id: number, initialBalance?: number): PaperAccount {
   const account = getAccount(id);
   const balance = initialBalance && initialBalance > 0 ? initialBalance : account.initialBalance;
@@ -269,6 +274,7 @@ export function resetAccount(id: number, initialBalance?: number): PaperAccount 
     db.prepare(`DELETE FROM paper_orders WHERE account_id = ?`).run(id);
     db.prepare(`DELETE FROM paper_positions WHERE account_id = ?`).run(id);
     db.prepare(`DELETE FROM paper_snapshots WHERE account_id = ?`).run(id);
+    db.prepare(`DELETE FROM paper_cash_flows WHERE account_id = ?`).run(id);
     db.prepare(`UPDATE paper_accounts SET initial_balance = ?, current_cash = ? WHERE id = ?`).run(
       balance,
       balance,
@@ -368,6 +374,123 @@ export async function getAccountDetail(accountId: number): Promise<PaperAccountD
       : 0,
     usdKrw,
     pendingOrders,
+    withdrawable: withdrawableCash(account),
+  };
+}
+
+// ── 입금 · 출금 ──────────────────────────────────────────────────────────────
+
+/**
+ * 미체결 매수 주문에 묶인 돈(계좌 통화) — 지정가 × 수량에 슬리피지 · 수수료를 얹고 주문 때 환율로 바꾼 합.
+ * 체결은 지정가 이하에서만 일어나므로(`limitTriggered`) 실제로 나갈 돈은 이보다 많지 않다.
+ */
+export function reservedCash(accountId: number): number {
+  const account = getAccount(accountId);
+  const rows = getDb()
+    .prepare(`SELECT requested_price, quantity, fx_rate FROM paper_orders WHERE account_id = ? AND status = 'PENDING' AND side = 'BUY'`)
+    .all(accountId) as { requested_price: number | null; quantity: number; fx_rate: number }[];
+  return rows.reduce(
+    (sum, r) => sum + (r.requested_price ?? 0) * r.quantity * (1 + account.slippageRate) * (1 + account.commissionRate) * r.fx_rate,
+    0,
+  );
+}
+
+/** 출금할 수 있는 돈 = 현금 − 미체결 매수에 묶인 돈. 계좌 통화 소수 자리에서 내림(보이는 값을 그대로 넣어도 넘지 않게), 0 아래면 0 */
+export function withdrawableCash(account: PaperAccount): number {
+  const scale = 10 ** CURRENCY_DECIMALS[account.currency];
+  return Math.max(0, Math.floor((account.currentCash - reservedCash(account.id)) * scale + 1e-6) / scale);
+}
+
+const toCashFlow = (r: Row): PaperCashFlow => ({
+  id: r.id as number,
+  accountId: r.account_id as number,
+  type: r.type as CashFlowType,
+  amount: r.amount as number,
+  createdAt: r.created_at as string,
+});
+
+export function listCashFlows(accountId: number): PaperCashFlow[] {
+  return (
+    getDb().prepare(`SELECT * FROM paper_cash_flows WHERE account_id = ? ORDER BY id DESC`).all(accountId) as Row[]
+  ).map(toCashFlow);
+}
+
+/** 입출금 하나 = 기록 시각의 UTC 날짜(스냅샷 점 날짜와 같은 잣대) + 부호 붙은 금액(입금 +) */
+export interface CashFlowDate {
+  date: string;
+  signed: number;
+}
+export function cashFlowDates(accountId: number): CashFlowDate[] {
+  return listCashFlows(accountId)
+    .reverse()
+    .map((f) => ({ date: f.createdAt.slice(0, 10), signed: f.type === 'deposit' ? f.amount : -f.amount }));
+}
+
+/** 입출금 합(입금 +, 출금 −) — 하루 손실 한도가 기준 평가액을 같은 만큼 옮기는 데 쓴다 */
+export function netCashFlow(accountId: number): number {
+  const row = getDb()
+    .prepare(`SELECT COALESCE(SUM(CASE type WHEN 'deposit' THEN amount ELSE -amount END), 0) AS n FROM paper_cash_flows WHERE account_id = ?`)
+    .get(accountId) as { n: number };
+  return row.n;
+}
+
+/** 금액 검사 — 숫자 · 0 초과 · 계좌 통화 소수 자리 이하. 틀리면 이유 문구로 던진다(400) */
+function parseCashAmount(raw: unknown, currency: Currency): number {
+  const amount = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN;
+  if (!Number.isFinite(amount)) throw new PaperTradingError('금액을 숫자로 입력하세요.');
+  if (!(amount > 0)) throw new PaperTradingError('금액은 0보다 커야 합니다.');
+  const decimals = CURRENCY_DECIMALS[currency];
+  const scaled = amount * 10 ** decimals;
+  if (Math.abs(scaled - Math.round(scaled)) > 1e-6) {
+    throw new PaperTradingError(decimals === 0 ? '원화 계좌는 1원 단위로 입력하세요(소수 없음).' : '달러 계좌는 소수 둘째 자리(센트)까지 입력하세요.');
+  }
+  return Math.round(scaled) / 10 ** decimals;
+}
+
+/**
+ * 입금 · 출금 — 기록 · 현금 · 원금(initial_balance)을 **한 트랜잭션**으로 바꾼다. 원금도 같은 만큼 바뀌어 총 손익 · 수익률은 그대로다.
+ * 출금은 출금할 수 있는 돈(현금 − 미체결 매수에 묶인 돈)까지만, 원금이 0 이하가 되는 출금도 거절한다.
+ * 그 날짜(UTC — `recordSnapshot` 과 같은 날짜) 스냅샷이 이미 있으면 그 점의 평가액 · 현금도 같은 만큼 옮긴다 —
+ * 안 옮기면 다음 점이 이 점(입출금 전 값)과 비교돼 입출금이 그날 손익으로 잡힌다.
+ */
+export function moveCash(accountId: number, type: CashFlowType, rawAmount: unknown): { account: PaperAccount; flow: PaperCashFlow } {
+  const db = getDb();
+  const run = db.transaction((): number => {
+    const account = getAccount(accountId);
+    const amount = parseCashAmount(rawAmount, account.currency);
+    const signed = type === 'deposit' ? amount : -amount;
+    if (type === 'withdraw') {
+      const available = withdrawableCash(account);
+      if (amount > available + 1e-9) {
+        throw new PaperTradingError(
+          `출금할 수 있는 돈(${formatPrice(available, account.currency)})보다 많습니다.${reservedCash(accountId) > 0 ? ' 미체결 매수 주문에 묶인 돈은 뺄 수 없습니다.' : ''}`,
+        );
+      }
+      if (!(account.initialBalance - amount > 0)) throw new PaperTradingError('원금(초기 자금)이 0 이하가 되는 출금은 할 수 없습니다.');
+    }
+    const createdAt = nowIso();
+    db.prepare(`UPDATE paper_accounts SET current_cash = current_cash + ?, initial_balance = initial_balance + ? WHERE id = ?`).run(signed, signed, accountId);
+    const after = getAccount(accountId);
+    // 그 날짜 점 — 평가액 · 현금을 옮기고, 그날 손익(daily_pnl)은 그대로 · 수익률은 새 값으로 다시 낸다(`recordSnapshot` 과 같은 식)
+    db.prepare(
+      `UPDATE paper_snapshots
+          SET total_value = total_value + @signed,
+              cash = cash + @signed,
+              daily_return = CASE WHEN daily_pnl IS NULL OR total_value + @signed - daily_pnl = 0 THEN daily_return
+                                  ELSE daily_pnl / (total_value + @signed - daily_pnl) * 100 END,
+              cumulative_return = CASE WHEN @initial > 0 THEN ((total_value + @signed) / @initial - 1) * 100 ELSE cumulative_return END
+        WHERE account_id = @accountId AND date = @date`,
+    ).run({ signed, initial: after.initialBalance, accountId, date: createdAt.slice(0, 10) });
+    return Number(
+      db
+        .prepare(`INSERT INTO paper_cash_flows (account_id, type, amount, created_at) VALUES (?, ?, ?, ?)`)
+        .run(accountId, type, amount, createdAt).lastInsertRowid,
+    );
+  });
+  const flowId = run();
+  return {
+    account: getAccount(accountId),
+    flow: toCashFlow(db.prepare(`SELECT * FROM paper_cash_flows WHERE id = ?`).get(flowId) as Row),
   };
 }
 

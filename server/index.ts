@@ -159,6 +159,8 @@ import {
   reorderAccounts,
   listOrders,
   listTrades,
+  listCashFlows,
+  moveCash,
   PaperTradingError,
   PaperNotFoundError,
   resetAccount,
@@ -922,6 +924,22 @@ app.patch('/api/paper/accounts/:id/reset', (req, res) => {
   }
 });
 
+// 입금 · 출금 — 원금도 같은 만큼 바뀐다(수익률 그대로). 금액 검사 · 출금할 수 있는 돈 · 원금 0 이하는 400(이유 문구)
+app.post('/api/paper/accounts/:id/deposit', (req, res) => {
+  try {
+    res.json(moveCash(accountIdOf(req), 'deposit', req.body?.amount));
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+app.post('/api/paper/accounts/:id/withdraw', (req, res) => {
+  try {
+    res.json(moveCash(accountIdOf(req), 'withdraw', req.body?.amount));
+  } catch (e) {
+    failPaper(res, e);
+  }
+});
+
 app.post('/api/paper/orders', async (req, res) => {
   const { accountId, symbol, side, orderType, quantity, requestedPrice, reason } = req.body ?? {};
   try {
@@ -975,7 +993,9 @@ app.get('/api/paper/positions', async (req, res) => {
 
 app.get('/api/paper/trades', (req, res) => {
   try {
-    res.json({ trades: listTrades(accountIdOf(req)) });
+    const accountId = accountIdOf(req);
+    // 거래 내역 탭은 체결과 입출금을 시간 순서로 섞어 보인다 — 한 번에 준다
+    res.json({ trades: listTrades(accountId), cashFlows: listCashFlows(accountId) });
   } catch (e) {
     failPaper(res, e);
   }

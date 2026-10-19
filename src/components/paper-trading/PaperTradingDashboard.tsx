@@ -81,7 +81,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   /** 주문·취소 후 목록을 다시 읽기 위한 카운터 */
   const [version, setVersion] = useState(0);
 
-  const trades = usePaperTrades(selectedId, version);
+  const { trades, cashFlows } = usePaperTrades(selectedId, version);
   const orders = usePaperOrders(selectedId, version);
   const perf = usePaperPerformance(selectedId, version);
   const aiHistory = useAiCheckHistory(view === 'detail' ? selectedId : null, version + (tab === 'aiCheck' ? 1 : 0));
@@ -328,6 +328,12 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
           await reloadAccounts();
           select(copy.id);
         }}
+        withdrawable={detail && detail.account.id === selectedId ? detail.withdrawable : null}
+        onCashMoved={async () => {
+          // 원금(계좌 목록) · 잔고 · 거래 내역 · 성과를 새로 — 오른쪽 계좌 탭은 1초 폴링이 따라온다
+          await reloadAccounts();
+          bump();
+        }}
       />
 
       {/* 계좌마다 독립된 자동매매 — 설정·상태는 서버가 단일 출처다 */}
@@ -400,7 +406,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
                 />
               )}
               {tab === 'trades' && (
-                <TradeHistory trades={trades} orders={orders} onChanged={bump} />
+                <TradeHistory trades={trades} cashFlows={cashFlows} currency={currency} orders={orders} onChanged={bump} />
               )}
               {tab === 'aiCheck' && (
                 <AiCheckHistoryPanel data={aiHistory.data} loading={aiHistory.loading} error={aiHistory.error} onMore={aiHistory.more} />

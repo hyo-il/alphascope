@@ -1,10 +1,10 @@
 import type { Candle } from '../src/types/toss';
 import { getCandles } from './candleService';
 import { getDb, loadCandles } from './db';
-import { listAccounts, listPositions, usdKrwRate } from './paperTradingService';
+import { cashFlowDates, listAccounts, listPositions, usdKrwRate } from './paperTradingService';
 import { convertAmount } from '../src/utils/fx';
 import type { Currency } from '../src/types/paper';
-import { computePerformance } from './paperPerformanceService';
+import { cashFlowBetween, computePerformance } from './paperPerformanceService';
 
 /**
  * 모의투자 일별 스냅샷 자동 기록.
@@ -116,7 +116,11 @@ async function backfillAccount(accountId: number): Promise<number> {
   );
 
   let previousValue = last.total_value;
+  let previousDate = last.date;
   let filled = 0;
+  // 입출금 — 빈 날의 현금은 마지막 점 현금 + 그날까지의 입출금, 그날 손익에서는 앞 점 이후 입출금을 뺀다(`recordSnapshot` 과 같은 식).
+  // 누적 수익률의 원금은 그날 원금(지금 원금 − 그 뒤 입출금). 입출금이 없으면 모두 0 이라 예전 값과 같다.
+  const flows = cashFlowDates(accountId);
 
   // 환율은 마지막 스냅샷에서 역산한 1달러 = N원 하나를 빈 날 모두에 쓴다 — 과거 환율을 다시 받아 오는 것은
   // 이 기능의 값어치에 비해 과하다. 역산이 안 되면 지금 환율, 그것도 없으면 통화가 섞인 계좌는 건너뛴다.
@@ -131,24 +135,31 @@ async function backfillAccount(accountId: number): Promise<number> {
     // 그날 가격을 모르는 종목이 있으면 건너뛴다. 추정값으로 곡선을 채우지 않는다.
     if (!native) continue;
 
-    // 통화별 합을 계좌 통화로(convertAmount 하나 — 통화가 섞여도 원화와 달러를 그냥 더하지 않게)
+    // 통화별 합을 계좌 통화로(convertAmount 하나 — 통화가 섞여도 원화와 달러를 그냥 더하지 않게).
+    // 합이 0 인 통화는 바꾸지 않는다 — 한 통화만 들고 있거나 보유가 없는 계좌는 환율이 null 이라 던져서, 그 뒤 계좌까지 채우지 못했다
     const stockValue =
-      convertAmount(native.KRW, 'KRW', account.currency, usdKrw) + convertAmount(native.USD, 'USD', account.currency, usdKrw);
-    const totalValue = cash + stockValue;
-    const dailyPnl = totalValue - previousValue;
+      (native.KRW ? convertAmount(native.KRW, 'KRW', account.currency, usdKrw) : 0) +
+      (native.USD ? convertAmount(native.USD, 'USD', account.currency, usdKrw) : 0);
+    const dayCash = cash + cashFlowBetween(flows, last.date, date);
+    const totalValue = dayCash + stockValue;
+    const flow = cashFlowBetween(flows, previousDate, date);
+    const dailyPnl = totalValue - previousValue - flow;
+    const base = previousValue + flow;
+    const initial = account.initialBalance - cashFlowBetween(flows, date, null);
 
     insert.run(
       accountId,
       date,
       totalValue,
-      cash,
+      dayCash,
       stockValue,
       dailyPnl,
-      previousValue ? (dailyPnl / previousValue) * 100 : null,
-      account.initialBalance ? (totalValue / account.initialBalance - 1) * 100 : null,
+      base ? (dailyPnl / base) * 100 : null,
+      initial ? (totalValue / initial - 1) * 100 : null,
     );
 
     previousValue = totalValue;
+    previousDate = date;
     filled += 1;
   }
 

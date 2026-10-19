@@ -150,6 +150,19 @@ CREATE TABLE IF NOT EXISTS paper_trades (
 
 CREATE INDEX IF NOT EXISTS idx_paper_trades_account ON paper_trades(account_id, traded_at);
 
+-- 모의투자 입금 · 출금 (v2.52.0) — 넣고 뺀 만큼 initial_balance(원금)도 함께 바꾼다(수익률이 그대로).
+-- paper_trades 는 order_id 가 필수(주문과 묶임)라 따로 둔다. 초기화 · 삭제하면 그 계좌 줄도 지운다.
+CREATE TABLE IF NOT EXISTS paper_cash_flows (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL,
+  type TEXT NOT NULL,                    -- 'deposit' | 'withdraw'
+  amount REAL NOT NULL,                  -- 계좌 통화, 양수
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (account_id) REFERENCES paper_accounts(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_paper_cash_flows_account ON paper_cash_flows(account_id, created_at);
+
 -- 모의투자 일별 스냅샷 (성과 추적용)
 CREATE TABLE IF NOT EXISTS paper_snapshots (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

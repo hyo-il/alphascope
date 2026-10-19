@@ -91,11 +91,26 @@ export interface PaperTrade {
   tradedAt: string;
 }
 
+/** 입금 · 출금 한 줄 — 금액은 계좌 통화 양수. 넣고 뺀 만큼 원금(initialBalance)도 함께 바뀐다 */
+export type CashFlowType = 'deposit' | 'withdraw';
+export interface PaperCashFlow {
+  id: number;
+  accountId: number;
+  type: CashFlowType;
+  amount: number;
+  createdAt: string;
+}
+
+/** 계좌 통화의 소수 자리 — 원화 정수 · 달러 2자리(입출금 금액 검사 · 출금할 수 있는 돈 표시) */
+export const CURRENCY_DECIMALS: Record<Currency, number> = { KRW: 0, USD: 2 };
+
 export interface PaperSnapshot {
   date: string;
   totalValue: number;
   cash: number;
   stockValue: number;
+  /** 앞 점 이후 이 점까지의 입출금 합(계좌 통화, 입금 +) — 손익이 아니다. 첫 점은 0 */
+  cashFlow: number;
   dailyPnl: number | null;
   dailyReturn: number | null;
   cumulativeReturn: number | null;
@@ -114,6 +129,8 @@ export interface PaperAccountDetail {
   /** 1달러 = N원. 환산은 `utils/fx.convertAmount`. 조회에 실패하면 null */
   usdKrw: number | null;
   pendingOrders: number;
+  /** 출금할 수 있는 돈 — 현금에서 미체결 매수 주문에 묶인 돈을 뺀 것(계좌 통화) */
+  withdrawable: number;
 }
 
 export interface PaperPerformance {

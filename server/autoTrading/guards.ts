@@ -6,7 +6,7 @@
  * ⚠️ 값(실적 3거래일, 손실 한도)은 **앱의 출발값이지 검증된 값이 아니다.**
  */
 
-import { getAccount, valuePositions } from '../paperTradingService';
+import { getAccount, netCashFlow, valuePositions } from '../paperTradingService';
 import { getEarningsDate } from '../earningsCalendar';
 import { readSetting, writeSetting } from '../gemini/store';
 import { isKrSymbol } from '../../src/utils/market';
@@ -81,8 +81,10 @@ const DAILY_LOSS_KEY = 'autoTrading.dailyLoss';
 export interface DailyLossState {
   /** 이 기록의 거래일 (시장 날짜) */
   day: string;
-  /** 그 거래일의 시작 평가액 */
+  /** 그 거래일의 시작 평가액 — 그 뒤 입출금만큼 옮긴 값(입금 · 출금이 손실 · 회복으로 잡히지 않게) */
   base: number;
+  /** `base` 를 맞춘 때의 입출금 합(`netCashFlow`) — 0 이면 칸을 두지 않는다(입출금 없는 계좌의 저장 값이 예전과 같게) */
+  baseFlow?: number;
   /** 마지막으로 잰 평가액 */
   current: number;
   /** (current − base) / base × 100 */
@@ -134,6 +136,7 @@ export async function evaluateDailyLoss(
   strategy: AccountStrategy,
   now = Date.now(),
   valueOf: (accountId: number) => Promise<number> = accountValue,
+  flowOf: (accountId: number) => number = netCashFlow,
 ): Promise<DailyLossState | null> {
   const limit = strategy.dailyLossLimitPercent;
   if (!limit) {
@@ -143,13 +146,16 @@ export async function evaluateDailyLoss(
   const day = strategyDay(strategy, now);
   const current = await valueOf(strategy.accountId);
   const previous = readDailyLoss(strategy.accountId);
-  const base = previous && previous.day === day ? previous.base : current;
+  // 같은 거래일이면 기준에 그 사이 입출금을 더한다(입금 = 기준도 오름 · 출금 = 기준도 내림). 새 거래일은 지금 평가액이 기준
+  const flow = flowOf(strategy.accountId);
+  const base = previous && previous.day === day ? previous.base + (flow - (previous.baseFlow ?? 0)) : current;
   const drawdownPercent = base > 0 ? ((current - base) / base) * 100 : 0;
   const alreadyHit = Boolean(previous && previous.day === day && previous.hit);
   const hit = alreadyHit || drawdownPercent <= -limit;
   const state: DailyLossState = {
     day,
     base,
+    ...(flow ? { baseFlow: flow } : {}),
     current,
     drawdownPercent,
     hit,
