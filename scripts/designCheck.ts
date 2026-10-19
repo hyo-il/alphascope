@@ -83,6 +83,15 @@ function targets(): Target[] {
       await page.waitForTimeout(400);
     }
   };
+  /** 계좌 상세로 — 앞 대상이 연 창은 닫고, 이미 상세(같은 주소라 화면이 남는다)면 그대로 */
+  const openAccountDetail = async (page: Page) => {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    if (!(await page.getByRole('button', { name: /계좌 모아보기/ }).count())) {
+      await page.getByText('현재 계좌').first().click();
+    }
+    await page.waitForTimeout(1500);
+  };
   const openAccountSettings = async (page: Page) => {
     await page.getByText('현재 계좌').first().click();
     await page.waitForTimeout(1200);
@@ -96,15 +105,14 @@ function targets(): Target[] {
       name: `dialog-${label}`,
       hash: '#/portfolio/paper',
       open: async (page: Page) => {
-        await page.getByText('현재 계좌').first().click();
-        await page.waitForTimeout(1500);
+        await openAccountDetail(page);
         await click(label)(page);
         await page.getByRole('textbox', { name: `${label}할 금액` }).fill(label === '입금' ? '1000000' : '999999999999');
         await page.waitForTimeout(300);
       },
     })),
     // 계좌 상세 「거래내역」 탭 — 입출금 줄이 체결과 섞인다(사본 DB 에 입출금이 있으면)
-    { name: 'account-거래내역', hash: '#/portfolio/paper', open: async (page) => { await page.getByText('현재 계좌').first().click(); await page.waitForTimeout(1500); await click('거래내역')(page); } },
+    { name: 'account-거래내역', hash: '#/portfolio/paper', open: async (page) => { await openAccountDetail(page); await click('거래내역')(page); } },
     // 오른쪽 패널 계좌 탭 — 맨 아래 고정 「총 평가 · 총 손익」(v2.52.0)
     { name: 'panel-계좌탭', hash: '#/chart', open: async (page) => { await page.getByTitle('모의투자 계좌').click(); await page.waitForTimeout(1500); } },
     { name: 'form-새계좌', hash: '#/portfolio/paper', open: click(/새 계좌/) },
@@ -318,17 +326,26 @@ function targets(): Target[] {
       hash: '#/heatmap',
       before: async (page) => {
         await page.evaluate(() => localStorage.setItem('alphascope.heatmapView', JSON.stringify({ view: 'watch', market: 'kr', top: 50, period: '1d', off: { market: [], watch: [] }, watchSize: 'cap' })));
+        // 다음 대상으로 넘어가며 unroute 하는 사이 도착한 응답은 이미 처리된 것으로 나온다 — 그 경우는 넘어간다(점검이 통째로 멈추지 않게)
         await page.route('**/api/heatmap**', async (r) => {
-          const res = await r.fetch();
-          const body = (await res.json()) as { cells: { changeRate: number | null }[] };
-          body.cells.forEach((c, i) => i % 2 === 0 && (c.changeRate = null));
-          await r.fulfill({ response: res, json: body });
+          try {
+            const res = await r.fetch();
+            const body = (await res.json()) as { cells: { changeRate: number | null }[] };
+            body.cells.forEach((c, i) => i % 2 === 0 && (c.changeRate = null));
+            await r.fulfill({ response: res, json: body });
+          } catch {
+            /* 이미 처리됨 · 페이지 닫힘 */
+          }
         });
         await page.route('**/api/quotes**', async (r) => {
-          const res = await r.fetch();
-          const body = (await res.json()) as { quotes: { changeRate: number | null }[] };
-          body.quotes?.forEach((q, i) => i % 2 === 0 && (q.changeRate = null));
-          await r.fulfill({ response: res, json: body });
+          try {
+            const res = await r.fetch();
+            const body = (await res.json()) as { quotes: { changeRate: number | null }[] };
+            body.quotes?.forEach((q, i) => i % 2 === 0 && (q.changeRate = null));
+            await r.fulfill({ response: res, json: body });
+          } catch {
+            /* 이미 처리됨 · 페이지 닫힘 */
+          }
         });
       },
       after: async (page) => {

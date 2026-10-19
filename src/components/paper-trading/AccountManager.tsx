@@ -1,5 +1,6 @@
 import Select from '../ui/Select';
 import Button from '../ui/Button';
+import InfoTip from '../ui/InfoTip';
 import TrashIcon from '../common/TrashIcon';
 import { useState } from 'react';
 import type { PaperAccount } from '../../types/paper';
@@ -95,11 +96,13 @@ export default function AccountManager({
           <span className="tabular-nums text-text-secondary">
             {formatPrice(selected.initialBalance, selected.currency)}
           </span>
-          <span className="mx-1.5 text-border">·</span>
-          수수료 {(selected.commissionRate * 100).toFixed(2)}%
-          <span className="mx-1.5 text-border">·</span>
-          슬리피지 {(selected.slippageRate * 100).toFixed(3)}%
         </span>
+      )}
+      {/* 수수료 · 슬리피지는 ⓘ 안 — [입금] · [출금] 이 늘어 1280 에서 줄이 두 줄로 꺾였다 */}
+      {selected && (
+        <InfoTip label="수수료 · 슬리피지">
+          수수료 {(selected.commissionRate * 100).toFixed(2)}% · 슬리피지 {(selected.slippageRate * 100).toFixed(3)}%
+        </InfoTip>
       )}
 
       <div className="ml-auto flex items-center gap-1.5">
