@@ -21,12 +21,15 @@ import { stockNameOf } from '../../utils/stockNames';
  * 화면에 놓이는 부분: 목록 **위** 도구 줄 [종목 추가] · (N/최대) · [모두 삭제] + 고른 종목 칩(× = 목록에서 삭제, 2줄 넘으면 「+N개 더 보기」).
  * 이름은 용어집 「목록에 종목 넣기 = 종목 추가」. 창 안의 탭 「목록에서 고르기」 는 창 안에서 고르는 동작이라 그대로 둔다.
  * [종목 추가] 창: 왼쪽 = 목록 안 검색 · 「종목 추가」 · 관심 목록 전부 선택 · 묶음(관심 목록(폴더 밖 종목 → 폴더별) → 분야 7개 → 직접 추가한 종목),
- * 오른쪽 = 고른 종목. **누르는 즉시 반영**하고 [완료]·ESC·바깥 클릭은 닫기만 한다.
+ * 오른쪽 = 고른 종목. 창을 열 때 지금 목록을 복사한 **「고르는 중」 목록**만 바꾸고, **[추가] 를 눌러야 `onChange` 를 한 번** 부른다
+ * (누를 때마다 반영하면 빠르게 누를 때 화면마다 저장이 겹쳐 종목이 빠졌다 — 매수 판단). [취소] · ESC · × 는 고른 것을 버리고 닫는다(확인 창 없음),
+ * 바깥(배경)을 눌러도 닫히지 않는다. 바뀐 것이 없으면 [추가] 를 잠그고, 옆에 「N종목 추가 · M종목 빼기」 를 보인다.
  *
  * 최대 개수는 화면마다 그대로 —
  * - `max`(목표 수익 가능성 5 · 지정 종목 10): 넘게 고를 수 없다(체크 꺼짐) + 창 안 한 줄 `maxReason`.
  * - `softLimit`(백테스트, 방법 2개 이상 20): 막지 않고 넘으면 빨간 글자 — 실행 버튼이 꺼지는 것은 화면 쪽 규칙.
- * 저장 흐름도 화면마다 그대로다 — 이 부품은 `selected` 를 받고 `onChange(next)` 로 돌려줄 뿐이다.
+ * 저장 흐름도 화면마다 그대로다 — 이 부품은 `selected` 를 받고 [추가] 때 `onChange(next)` 로 한 번 돌려줄 뿐이다(한도는 그 목록에 한 번에 적용).
+ * 「직접 추가한 종목」(`added`)도 고르는 중에는 창 안에만 두고 [추가] 때 함께 넘긴다.
  */
 export interface SymbolPickerProps {
   selected: string[];
@@ -168,13 +171,27 @@ export function PickerDialog({
 }: SymbolPickerProps & { added: string[]; onAddedChange: (next: string[]) => void; onClose: () => void }) {
   const uni = useBacktestUniverse();
   const { folders } = useWatchlist();
+  /** 고르는 중 — 열 때 지금 목록을 복사한다. [추가] 때만 밖으로 나간다 */
+  const [draft, setDraft] = useState<string[]>(() => uniq(selected));
+  const [draftAdded, setDraftAdded] = useState<string[]>(() => added);
   const [query, setQuery] = useState('');
   const [leftTab, setLeftTab] = useState<'list' | 'search'>('list');
   const [openMap, setOpenMap] = useState<Record<string, boolean>>({ watch: true, added: true });
-  const sel = useMemo(() => new Set(selected), [selected]);
+  const sel = useMemo(() => new Set(draft), [draft]);
   const q = query.trim();
-  const full = max != null && selected.length >= max;
-  const soft = softLimit != null && selected.length > softLimit;
+  const full = max != null && draft.length >= max;
+  const soft = softLimit != null && draft.length > softLimit;
+  // 바뀔 내용 — 처음 목록과 비교(순서만 바뀐 것은 바뀐 것으로 보지 않는다)
+  const before = useMemo(() => new Set(uniq(selected)), [selected]);
+  const adding = draft.filter((s) => !before.has(s)).length;
+  const dropping = [...before].filter((s) => !sel.has(s)).length;
+  const changed = adding > 0 || dropping > 0;
+  const commit = () => {
+    if (!changed) return;
+    onAddedChange(draftAdded);
+    onChange(draft);
+    onClose();
+  };
 
   const sectorOf = useMemo(() => {
     const m = new Map<string, string>();
@@ -193,21 +210,24 @@ export function PickerDialog({
     title: g.sector,
     rows: g.symbols.map((s) => ({ ...s, sector: g.sector })).filter((r) => matches(r, q)),
   }));
-  const addedRows = added.map(toRow).filter((r) => matches(r, q));
+  const addedRows = draftAdded.map(toRow).filter((r) => matches(r, q));
   const watchAll = folders.flatMap((f) => f.symbols);
   const watchCount = bare.length + folderGroups.reduce((n, g) => n + g.rows.length, 0);
   useStockNames(watchAll);
 
   /** 고르기 — 최대 개수가 있으면 남은 자리만큼만(순서대로) */
   const add = (list: string[]) => {
-    const fresh = uniq(list).filter((s) => !sel.has(s));
-    const room = max != null ? Math.max(0, max - selected.length) : fresh.length;
-    if (!fresh.length || !room) return;
-    onChange([...selected, ...fresh.slice(0, room)]);
+    // 함수형 갱신 — 빠르게 여러 번 눌러도 앞의 고름이 사라지지 않는다
+    setDraft((cur) => {
+      const has = new Set(cur);
+      const fresh = uniq(list).filter((s) => !has.has(s));
+      const room = max != null ? Math.max(0, max - cur.length) : fresh.length;
+      return fresh.length && room ? [...cur, ...fresh.slice(0, room)] : cur;
+    });
   };
   const remove = (list: string[]) => {
     const drop = new Set(uniq(list));
-    onChange(selected.filter((s) => !drop.has(s)));
+    setDraft((cur) => cur.filter((s) => !drop.has(s)));
   };
   const toggle = (s: string) => (sel.has(s) ? remove([s]) : add([s]));
   const all = (rows: Row[]) => rows.length > 0 && rows.every((r) => sel.has(r.symbol));
@@ -220,12 +240,23 @@ export function PickerDialog({
   return (
     <Dialog
       title={dialogTitle ?? '종목 추가'}
-      titleAside="누르는 즉시 반영됩니다"
+      titleAside="고른 뒤 [추가] 를 누르면 한 번에 반영됩니다"
       onClose={onClose}
+      closeOnBackdrop={false}
       size="xl"
       z={98}
       bodyClassName="flex"
-      footer={<Button onClick={onClose}>완료</Button>}
+      footer={
+        <>
+          <span className="mr-auto text-caption text-text-muted tabular-nums" aria-live="polite">
+            {changed ? [adding ? `${adding}종목 추가` : '', dropping ? `${dropping}종목 빼기` : ''].filter(Boolean).join(' · ') : '바뀐 것이 없습니다'}
+          </span>
+          <Button onClick={onClose}>취소</Button>
+          <Button variant="primary" onClick={commit} disabled={!changed}>
+            추가
+          </Button>
+        </>
+      }
     >
       {/* 왼쪽 — 맨 위 탭 둘: [목록에서 고르기] 목록 안 찾기 + 묶음 목록 / [새 종목 검색] 목록 밖 종목 추가 */}
       <div className="flex min-w-0 flex-1 flex-col gap-2 border-r border-border/40 p-3">
@@ -251,7 +282,7 @@ export function PickerDialog({
               isAdded={(s) => sel.has(s.toUpperCase())}
               onSubmit={(s) => {
                 const sym = s.toUpperCase();
-                if (!added.includes(sym)) onAddedChange([...added, sym]);
+                setDraftAdded((cur) => (cur.includes(sym) ? cur : [...cur, sym]));
                 add([sym]);
               }}
             />
@@ -365,8 +396,8 @@ export function PickerDialog({
               setOpen={setOpen('added')}
               all={all(addedRows)}
               onRemoveAll={() => {
-                remove(added);
-                onAddedChange([]);
+                remove(draftAdded);
+                setDraftAdded([]);
               }}
             />
             {(isOpen('added', addedRows) || (!q && openMap.added !== false)) && (
@@ -381,7 +412,7 @@ export function PickerDialog({
                     onToggle={toggle}
                     onRemove={(s) => {
                       remove([s]);
-                      onAddedChange(added.filter((x) => x !== s));
+                      setDraftAdded((cur) => cur.filter((x) => x !== s));
                     }}
                   />
                 ))}
@@ -399,18 +430,18 @@ export function PickerDialog({
       <div className="flex w-[300px] shrink-0 flex-col gap-2 p-3">
         <div className="flex items-center gap-2">
           <p className="text-xs font-semibold text-text-primary">
-            고른 종목 {selected.length}
+            고른 종목 {draft.length}
             {max != null ? `/${max}` : ''}개
           </p>
-          {selected.length > 0 && <RemoveAllButton onClick={() => onChange([])} className="ml-auto" />}
+          {draft.length > 0 && <RemoveAllButton onClick={() => setDraft([])} className="ml-auto" />}
         </div>
         {softLimit != null && (
           <p className={`text-caption ${soft ? 'text-danger' : 'text-text-muted'}`}>
-            {softLimitText ? softLimitText(selected.length, softLimit) : `${softLimit}개까지 — 지금 ${selected.length}개`}
+            {softLimitText ? softLimitText(draft.length, softLimit) : `${softLimit}개까지 — 지금 ${draft.length}개`}
           </p>
         )}
         <ul data-list className="-mx-1 min-h-0 flex-1 space-y-1 overflow-y-auto px-1 [scrollbar-gutter:stable]">
-          {selected.map((s) => (
+          {draft.map((s) => (
             <li key={s} className="flex min-h-9 items-center gap-2 rounded-md px-2 py-1 hover:bg-bg-tertiary/60">
               <span className="min-w-0 flex-1 truncate">
                 <StockName symbol={s} size="sm" />
@@ -419,7 +450,7 @@ export function PickerDialog({
               <ListRemoveButton onClick={() => remove([s])} name={s} label="고른 종목에서 삭제" />
             </li>
           ))}
-          {selected.length === 0 && <li className="px-2 py-1.5 text-caption text-text-muted">왼쪽에서 종목을 누르면 여기에 보입니다.</li>}
+          {draft.length === 0 && <li className="px-2 py-1.5 text-caption text-text-muted">왼쪽에서 종목을 누르면 여기에 보입니다.</li>}
         </ul>
       </div>
     </Dialog>
