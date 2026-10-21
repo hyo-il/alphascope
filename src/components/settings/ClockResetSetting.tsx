@@ -23,7 +23,7 @@ export default function ClockResetSetting() {
       <Button variant="secondary" size="md" busy={busy} onClick={() => void reset()}>
         시계 위치 초기화
       </Button>
-      <p className="text-caption text-text-muted">한국 시간 시계를 기본 자리(오른쪽 위 시황 줄)에 두고 고정을 풉니다.</p>
+      <p className="text-caption text-text-muted">한국 시간 시계를 기본 자리(화면 오른쪽 위)에 두고 고정을 풉니다.</p>
     </div>
   );
 }

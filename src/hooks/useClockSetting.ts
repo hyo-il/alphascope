@@ -40,7 +40,7 @@ export function saveClock(next: ClockSetting): Promise<boolean> {
     }).then(
       () => true,
       (e) => {
-        toast.error('시계 자리를 저장하지 못했습니다', `화면에서는 그 자리에 둡니다 — ${e instanceof Error ? e.message : String(e)}`);
+        toast.error('시계 자리를 저장하지 못했습니다', `화면에서는 그 자리에 두지만, 다시 열면 예전 자리로 돌아갑니다 — ${e instanceof Error ? e.message : String(e)}`);
         return false;
       },
     ),

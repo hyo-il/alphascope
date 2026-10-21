@@ -845,7 +845,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
         {/* 우클릭 컨텍스트 메뉴 (수정 3-A) */}
         {menu && (
           <div
-            className="absolute z-30 min-w-[110px] overflow-hidden rounded-lg bg-bg-elevated shadow-xl"
+            className="absolute z-40 min-w-[110px] overflow-hidden rounded-lg bg-bg-elevated shadow-xl"
             style={{ left: menu.x, top: menu.y }}
           >
             <button

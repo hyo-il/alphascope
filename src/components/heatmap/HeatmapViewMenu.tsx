@@ -112,7 +112,7 @@ export default function HeatmapViewMenu({ top, onTopChange, sectors, off, onOffC
         <div
           role="dialog"
           aria-label="지도 보기 설정"
-          className="absolute left-0 top-full z-20 mt-1 w-64 rounded-lg bg-bg-elevated p-2.5 text-caption shadow-xl"
+          className="absolute left-0 top-full z-40 mt-1 w-64 rounded-lg bg-bg-elevated p-2.5 text-caption shadow-xl"
         >
           {top !== null && (
             <fieldset className="mb-2.5">
