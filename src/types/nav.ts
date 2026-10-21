@@ -9,7 +9,7 @@
  */
 
 /**
- * 대메뉴 (퀀트 다시 만들기 5단계, 사용자 결정 A-1): 홈 · 탐색 · 차트·비교 · 증시 일정 · 퀀트 · 실험실 · 계좌 · (맨 아래) 설정.
+ * 대메뉴 (퀀트 다시 만들기 5단계, 사용자 결정 A-1): 홈(고른 화면) · 탐색 · 차트·비교(종목 탐색 · 차트 · 기업 비교) · 증시 일정 · 퀀트 · 실험실 · 계좌 · (맨 아래) 설정.
  * 수동 분석·이 종목 Gemini 분석은 차트 아래 「AI 분석」 탭, 기록·성적표는 「퀀트 > 검증 기록」.
  * ⚠️ page id 는 바꾸지 않는다 — 주소(#/pageId)·저장값·`needsSymbol` 이 page id 로 찾는다. 없앤 주소는 `hooks/useHashRoute.ts` 의 `LEGACY_ROUTES` 가 새 자리로 보낸다.
  */
@@ -70,6 +70,15 @@ export interface NavGroup {
    * 이 표시가 있으면 보고 있을 때 이름을 눌러 접을 수도 있다(소메뉴 2개 이상인 대메뉴와 같다).
    */
   showSinglePage?: boolean;
+  /**
+   * 대메뉴를 누르면 가는 소메뉴 — 없으면 첫 소메뉴. 「차트·비교」 는 맨 위가 종목 탐색이어도 누르면 차트로 간다(사용자 결정).
+   */
+  landingPage?: NavPageId;
+  /**
+   * 소메뉴 없이 **설정에서 고른 홈 화면**으로 가는 대메뉴(「홈」 하나). 누르면 로고와 같은 `goHome()` 을 부른다.
+   * 고른 화면은 제 대메뉴에 속하므로 이 대메뉴는 강조되지 않는다 — 메뉴 강조는 그 화면이 속한 대메뉴다.
+   */
+  home?: boolean;
   /** 소메뉴가 하나뿐이면 펼친 메뉴에 소메뉴 줄·화살표를, 접힌 메뉴에 플라이아웃을 그리지 않는다 — 대메뉴를 누르면 바로 그 화면이다 */
   pages: NavPage[];
 }
@@ -77,15 +86,15 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   {
     /*
-      홈 (사용자 결정) — 맨 위, 소메뉴 하나(누르면 바로 화면). 화면 = 종목 탐색(StockExplorer).
-      앱을 처음 열 때·주소 없음·모르는 주소 = 홈. 로고도 홈이다 — ⚠️ 보던 종목은 지우지 않는다(차트 언마운트 금지 원칙).
-      상단 종목 헤더는 둔다 — 헤더 검색으로 종목을 고르면 차트로 간다.
+      홈 (사용자 결정) — 맨 위, 소메뉴 없음. 누르면 **설정에서 고른 홈 화면**(`HOME_PAGES`)으로 간다 — 로고 · 처음 열기와 같은 `goHome()`.
+      ⚠️ 보던 종목은 지우지 않는다(차트 언마운트 금지 원칙).
     */
     id: 'home',
     icon: 'home',
     label: '홈',
     shortLabel: '홈',
-    pages: [{ id: 'home', label: '홈' }],
+    home: true,
+    pages: [],
   },
   {
     id: 'explore',
@@ -101,12 +110,19 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // id 'chart' 를 바꾸지 않는다(주소 #/chart). 처음 화면·로고는 홈이다
+    // id 'chart' 를 바꾸지 않는다(주소 #/chart). 처음 화면·로고는 홈(고른 화면)이다
     id: 'chart',
     icon: 'chart',
     label: '차트·비교',
     shortLabel: '차트',
+    // 맨 위 소메뉴가 종목 탐색이어도 대메뉴를 누르면 차트로 간다(사용자 결정)
+    landingPage: 'chart',
     pages: [
+      /*
+        종목 탐색(StockExplorer — 검색 · 인기 · 관심 · 보유 · 최근). ⚠️ page id 'home' 은 그대로다(주소 #/home · 저장값).
+        상단 종목 헤더는 둔다 — 헤더 검색으로 종목을 고르면 차트로 간다.
+      */
+      { id: 'home', label: '종목 탐색' },
       // 기업정보는 별도 메뉴가 아니라 차트 하단 탭에 있다 (같은 종목을 보며 읽는 자리다).
       { id: 'chart', label: '차트' },
       { id: 'compare', label: '기업 비교' },
@@ -181,6 +197,23 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
 ];
+
+/** 대메뉴를 누르면 가는 화면 — `landingPage`, 없으면 첫 소메뉴(소메뉴가 없는 「홈」 은 undefined) */
+export function landingOf(group: NavGroup): NavPageId | undefined {
+  return group.landingPage ?? group.pages[0]?.id;
+}
+
+// ── 홈 화면 (설정 > 앱 기능 설정 「홈 화면」) ─────────────────────────
+/**
+ * 홈으로 고를 수 있는 화면 — **이 목록 한 곳**을 서버(`server/homePage.ts` 입력 검사)와 설정 화면이 같이 쓴다.
+ * 이름은 메뉴 이름(`pageMeta(id).label`)을 그대로 쓴다 — 설정의 고르기 이름과 메뉴 이름이 갈라지지 않게.
+ * 홈 메뉴 · 로고 · 처음 열기(주소 없음 · 모르는 주소)가 고른 화면으로 간다. 계좌는 넣지 않는다(사용자 결정).
+ */
+export const HOME_PAGES = ['home', 'heatmap', 'ranking', 'chart'] as const satisfies readonly NavPageId[];
+export type HomePageId = (typeof HOME_PAGES)[number];
+/** 저장값이 없거나 목록 밖이면 종목 탐색 */
+export const DEFAULT_HOME_PAGE: HomePageId = 'home';
+export const isHomePage = (v: unknown): v is HomePageId => (HOME_PAGES as readonly unknown[]).includes(v);
 
 /** 페이지가 속한 대메뉴 — 소메뉴로 바로 이동해도 그 대메뉴가 펼쳐져 있어야 한다 */
 export function groupOf(page: NavPageId): NavGroupId {

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Timeframe } from '../types/toss';
 import { MAX_COMPARE_SYMBOLS } from '../types/compare';
-import { groupOf, NAV_GROUPS, normalizeTab, type NavGroupId, type NavPageId } from '../types/nav';
+import { groupOf, landingOf, NAV_GROUPS, normalizeTab, type HomePageId, type NavGroupId, type NavPageId } from '../types/nav';
 
 /** 관심 목록 클릭 한 번의 결과 — 호출부가 안내 문구를 고른다 */
 export type CompareToggleResult = 'added' | 'removed' | 'full';
@@ -36,6 +36,8 @@ export interface NavState {
    * 브라우저 기록에서 **덮어쓴다**(뒤로 가기가 한 번 더 걸리지 않게) — `hooks/useHashRoute.ts`.
    */
   viaGroup?: boolean;
+  /** 주소 기록을 쌓지 않는 이동 — 처음 열기 · 모르는 주소에서 홈으로 갈 때(`goHome({ replace: true })`, `hooks/useHashRoute.ts`) */
+  replace?: boolean;
 }
 
 export type NavSub = string;
@@ -70,8 +72,22 @@ interface AppState {
   nav: NavState;
   /** 소메뉴 이동 — 속한 대메뉴도 함께 펼친다. `sub` 는 화면 안 하위 위치(없으면 지운다) */
   setPage: (page: NavPageId, sub?: NavSub | null) => void;
-  /** 대메뉴 클릭 — 목록을 펼치고 첫 소메뉴로 간다 */
+  /** 대메뉴 클릭 — 목록을 펼치고 그 대메뉴의 `landingPage`(없으면 첫 소메뉴)로 간다. 「홈」 은 `goHome` */
   setGroup: (group: NavGroupId) => void;
+  /** 설정에서 고른 홈 화면(`GET /api/settings/home-page`). null = 서버에서 받는 중 */
+  homePage: HomePageId | null;
+  /**
+   * 홈으로 가려 했는데 설정을 받는 중 — 받으면 그 화면으로 간다(그동안 App 이 로딩 표시를 덮는다).
+   * 그 사이 다른 화면으로 옮기면(`setPage` · `setGroup`) 지운다.
+   */
+  homePending: { replace: boolean } | null;
+  /** 받았거나 저장한 홈 화면을 넣는다 — 기다리던 홈 이동이 있으면 이어서 간다 */
+  setHomePage: (page: HomePageId) => void;
+  /**
+   * 홈으로 — **홈 메뉴 · 로고 · 처음 열기(주소 없음 · 모르는 주소) 세 길이 이 함수 하나**를 부른다.
+   * 고른 화면의 주소 · 메뉴 강조로 간다. ⚠️ 보던 종목은 지우지 않는다(차트 언마운트 금지 원칙).
+   */
+  goHome: (opts?: { replace?: boolean }) => void;
   /**
    * 차트 아래 「AI 분석」 탭을 열어 달라는 요청 번호 — 「AI 분석」 화면을 없애면서 옛 주소 `#/analysis`·급등 탐지 [분석] 이
    * 차트로 가며 그 탭을 연다. `ChartBottomTabs` 가 번호가 바뀌는 것을 보고 탭을 바꾼다(탭 상태는 그 컴포넌트 안에 있다).
@@ -110,15 +126,31 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     set({ compareLayout });
   },
-  nav: { group: 'home', page: 'home', sub: null },
+  nav: { group: groupOf('home'), page: 'home', sub: null },
   setPage: (page, sub) => {
     // 탭을 말하지 않고 같은 화면을 다시 부르면(사이드 메뉴 재클릭) 보던 탭을 지킨다 
     const keep = sub === undefined && get().nav.page === page ? get().nav.sub : sub;
-    set({ nav: { group: groupOf(page), page, sub: normalizeTab(page, keep) } });
+    set({ nav: { group: groupOf(page), page, sub: normalizeTab(page, keep) }, homePending: null });
   },
   setGroup: (group) => {
-    const first = NAV_GROUPS.find((g) => g.id === group)?.pages[0];
-    if (first) set({ nav: { group, page: first.id, sub: normalizeTab(first.id, null), viaGroup: true } });
+    const item = NAV_GROUPS.find((g) => g.id === group);
+    if (item?.home) return get().goHome();
+    const landing = item && landingOf(item);
+    if (landing) set({ nav: { group, page: landing, sub: normalizeTab(landing, null), viaGroup: true }, homePending: null });
+  },
+  homePage: null,
+  homePending: null,
+  setHomePage: (homePage) => {
+    const pending = get().homePending;
+    set({ homePage });
+    if (pending) get().goHome(pending);
+  },
+  goHome: (opts) => {
+    const replace = opts?.replace ?? false;
+    const page = get().homePage;
+    if (!page) return set({ homePending: { replace } });
+    const keep = get().nav.page === page ? get().nav.sub : null;
+    set({ nav: { group: groupOf(page), page, sub: normalizeTab(page, keep), ...(replace ? { replace: true } : {}) }, homePending: null });
   },
   chartAiRequest: 0,
   openChartAi: () => {

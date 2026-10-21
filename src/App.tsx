@@ -50,12 +50,16 @@ import { changeColor, currencyOf, formatPercent, formatPrice, displayMinus, form
 import LoginScreen from './components/auth/LoginScreen';
 import { useAuth } from './hooks/useAuth';
 import { useHashRoute } from './hooks/useHashRoute';
+import { useLoadHomePage } from './hooks/useHomePage';
+import LoadingOverlay from './components/common/LoadingOverlay';
 
 /**
  * 앱 본체. **로그인한 뒤에만 마운트된다** (아래 `App` 참고).
  */
 function AppBody({ onLogout }: { onLogout: () => void }) {
   // 화면 주소(#/pageId) ↔ appStore.nav — 뒤로·앞으로 가기·새로고침. 로그인한 상태에서만
+  // 홈 화면 설정을 먼저 받기 시작한다 — 주소 없이 열면 useHashRoute 가 그 화면으로 간다(받는 중이면 받은 뒤에)
+  useLoadHomePage();
   useHashRoute();
   /*
    * ⚠️ `useAppStore()` 를 인자 없이 부르면 **스토어의 모든 변화**를 구독한다.
@@ -101,6 +105,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   if (!loading && !error && candles.length) loadedKeyRef.current = `${symbol}|${timeframe}`;
   /** 화면 위치는 스토어에 있다 — 사이드 메뉴가 대메뉴/소메뉴 두 값을 함께 쓴다 */
   const nav = useAppStore((s) => s.nav);
+  const goHome = useAppStore((s) => s.goHome);
+  const homePending = useAppStore((s) => s.homePending != null);
   const setPage = useAppStore((s) => s.setPage);
   /** 종목을 바꾸고 차트 화면으로 — 다른 화면에서 종목을 누르면 모두 이것(종목만 바꾸고 화면이 그대로면 「눌러도 안 된다」 로 읽힌다) */
   const openChart = (next: string) => {
@@ -430,14 +436,16 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         onSelectPage={setPage}
         onSelectGroup={setGroup}
         /*
-          로고 = 홈 메뉴. ⚠️ 보던 종목은 지우지 않는다 — 차트는 화면 밖에 그대로 있고(언마운트 금지 원칙),
+          로고 = 홈 메뉴 = 고른 홈 화면(`goHome` 한 함수). ⚠️ 보던 종목은 지우지 않는다 — 차트는 화면 밖에 그대로 있고(언마운트 금지 원칙),
           「차트」 메뉴를 누르면 보던 종목 차트로 돌아간다.
         */
-        onGoHome={() => setPage('home')}
+        onGoHome={() => goHome()}
         onLogout={onLogout}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="relative flex min-w-0 flex-1 flex-col">
+        {/* 홈으로 가려는데 홈 화면 설정을 받는 중 — 받으면 그 화면으로 간다 */}
+        {homePending && <LoadingOverlay contained label="홈 화면을 불러오는 중…" />}
         {/*
           종목 헤더 — 차트·AI 분석·비교에서는 늘 떠 있다.
           ⚠️ 계좌·설정·진단·급등·스윙·일정에서는 감춘다 — 계좌는 자체 헤더가 있어 겹치고,

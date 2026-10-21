@@ -39,6 +39,7 @@ interface Health {
 
 /** 설정 · 상태 확인 화면 — 무엇이 연결돼 있고 무엇이 저장돼 있는지 한눈에 보여 준다. */
 import BuyJudgeRetention from '../swing/BuyJudgeRetention';
+import HomePageSetting from '../settings/HomePageSetting';
 
 export default function Settings({ isMock, engineDown, section }: Props) {
   const [health, setHealth] = useState<Health | null>(null);
@@ -136,6 +137,11 @@ export default function Settings({ isMock, engineDown, section }: Props) {
         )}
         {row('API 서버', health?.ok ?? false, health?.ok ? '실행 중 · 포트 4000' : '응답 없음')}
         {updatedAt}
+      </section>
+
+      <section className="mb-6 max-w-2xl">
+        <h3 className="mb-1.5 text-xs font-medium text-text-secondary">홈 화면</h3>
+        <HomePageSetting />
       </section>
 
       <section className="mb-6 max-w-2xl">

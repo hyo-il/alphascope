@@ -179,6 +179,8 @@ import { getEarningsDate, startEarningsScheduler } from './earningsCalendar';
 import { startMarketCalendarScheduler } from './marketCalendar';
 import { calendarEvents } from './calendarService';
 import { getSwingGoal, saveSwingGoal, SwingGoalError } from './swingGoal';
+import { getHomePage, setHomePage } from './homePage';
+import { isHomePage } from '../src/types/nav';
 import { HEATMAP_TOPS, heatmap } from './heatmap';
 import { liveRanking } from './liveRanking';
 import { marketDate } from '../src/utils/marketDate';
@@ -1352,6 +1354,15 @@ app.delete('/api/buy-judge/history', (req, res) => {
   const scope = req.query.scope === 'all' ? 'all' : req.query.scope === 'nonBuy' ? 'nonBuy' : null;
   if (!scope) return res.status(400).json({ error: 'scope 는 all · nonBuy 중 하나입니다.' });
   res.json({ deleted: clearBuyJudgments(scope) });
+});
+
+// 홈 화면(설정 > 앱 기능 설정) — 홈 메뉴 · 로고 · 처음 열기가 가는 화면. 값은 `HOME_PAGES` 넷뿐
+app.get('/api/settings/home-page', (_req, res) => res.json({ homePage: getHomePage() }));
+app.put('/api/settings/home-page', (req, res) => {
+  const page = req.body?.homePage;
+  if (!isHomePage(page)) return res.status(400).json({ error: '홈 화면은 종목 탐색 · 종목 지도 · 실시간 순위 · 차트 중 하나입니다.' });
+  setHomePage(page);
+  res.json({ homePage: page });
 });
 
 // 목표 수익 가능성의 조건(목표·손절·기간) — 매수 판단 화면의 [목표 수익 가능성] 이 쓴다
