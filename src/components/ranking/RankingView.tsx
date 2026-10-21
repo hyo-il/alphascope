@@ -15,7 +15,7 @@ import {
 } from '../../types/ranking';
 import { changeColor, formatCompact, formatCompactMoney, formatPercent, formatPrice } from '../../utils/formatters';
 import RankingPreview, { type PreviewTimeframe } from './RankingPreview';
-import { marketByKstTime } from '../../utils/market';
+import { marketByKstTime } from '../../utils/marketDate';
 
 /**
  * 📶 실시간 순위 — 토스 거래대금·거래량·상승률·하락률 상위 100(`/api/rankings/live`, 서버 30초 캐시).

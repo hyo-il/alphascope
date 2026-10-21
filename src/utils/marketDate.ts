@@ -9,7 +9,7 @@
  * 서버(진단·급등·Gemini 프롬프트)와 화면이 함께 쓴다 — 변환을 여러 곳에 두면 또 갈라진다.
  */
 
-import { isKrSymbol } from './market';
+import { isKrSymbol, MARKET_REF } from './market';
 
 export type MarketTimeZone = 'Asia/Seoul' | 'America/New_York';
 
@@ -64,4 +64,15 @@ export function marketMinutes(timestamp: number, symbol: string): number {
   }
   const [h, m] = formatter.format(new Date(timestamp)).split(':').map(Number);
   return h * 60 + m;
+}
+
+/**
+ * 종목 지도 · 실시간 순위의 시작 시장 — **한국 시간** 08:00 이상 17:00 미만 = 국내, 나머지 = 미국 (사용자 결정 2026-10-21).
+ * - PC 시계의 시간대와 상관없이 한국 시간으로 본다(`marketMinutes` 한 곳 — 국내 종목의 현지 시각).
+ * - 시간만 본다 — 주말 · 휴장일은 따지지 않는다(사용자 결정). 장이 열렸는지는 `server/marketHours.ts` 가 따로 판단한다.
+ * - 화면을 열 때 한 번만 부른다 — 보는 동안 08:00 · 17:00 이 지나도 시장을 바꾸지 않는다.
+ */
+export function marketByKstTime(now: Date = new Date()): 'kr' | 'us' {
+  const minutes = marketMinutes(now.getTime(), MARKET_REF.KR.symbol);
+  return minutes >= 8 * 60 && minutes < 17 * 60 ? 'kr' : 'us';
 }

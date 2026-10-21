@@ -47,19 +47,3 @@ export const MARKET_REF = {
 
 /** 이 종목의 시장 기준 */
 export const marketRefOfSymbol = (symbol: string) => MARKET_REF[isKrSymbol(symbol) ? 'KR' : 'US'];
-
-/**
- * 종목 지도 · 실시간 순위의 시작 시장 — **한국 시간** 08:00 이상 17:00 미만 = 국내, 나머지 = 미국 (사용자 결정 2026-10-21).
- * - PC 시계의 시간대와 상관없이 Asia/Seoul 로 시 · 분을 구한다.
- * - 시간만 본다 — 주말 · 휴장일은 따지지 않는다(사용자 결정). 장이 열렸는지는 `server/marketHours.ts` 가 따로 판단한다.
- * - 화면을 열 때 한 번만 부른다 — 보는 동안 08:00 · 17:00 이 지나도 시장을 바꾸지 않는다.
- */
-const KST_HOUR_MINUTE = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-
-export function marketByKstTime(now: Date = new Date()): 'kr' | 'us' {
-  const parts = KST_HOUR_MINUTE.formatToParts(now);
-  const hour = Number(parts.find((p) => p.type === 'hour')?.value);
-  const minute = Number(parts.find((p) => p.type === 'minute')?.value);
-  const minutes = hour * 60 + minute;
-  return minutes >= 8 * 60 && minutes < 17 * 60 ? 'kr' : 'us';
-}

@@ -12,7 +12,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { getDb } from '../server/db';
 import { setPassword } from '../server/auth';
 import { HOME_PAGES } from '../src/types/nav';
-import { marketByKstTime } from '../src/utils/market';
+import { marketByKstTime } from '../src/utils/marketDate';
 
 const PORT = 4104;
 const BASE = `http://127.0.0.1:${PORT}`;

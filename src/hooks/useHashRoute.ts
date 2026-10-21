@@ -122,6 +122,8 @@ export function useHashRoute(): void {
         useAppStore.getState().goHome({ replace: true });
         return;
       }
+      // 주소에서 온 이동이 이긴다 — 홈 설정을 받는 중에 `#/home` 처럼 지금 화면과 같은 주소를 쳐도 기다리던 홈 이동을 지운다
+      if (useAppStore.getState().homePending) useAppStore.setState({ homePending: null });
       const { nav } = useAppStore.getState();
       if (nav.page !== parsed.page || (nav.sub ?? null) !== parsed.sub) {
         fromAddress = true;

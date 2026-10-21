@@ -15,7 +15,7 @@ import {
   type HeatmapView as HeatmapViewId,
 } from '../../types/heatmap';
 import SectorRanking from './SectorRanking';
-import { marketByKstTime } from '../../utils/market';
+import { marketByKstTime } from '../../utils/marketDate';
 import HeatmapViewMenu, { TOP_CHOICES, type TopChoice } from './HeatmapViewMenu';
 
 /**
@@ -29,7 +29,7 @@ import HeatmapViewMenu, { TOP_CHOICES, type TopChoice } from './HeatmapViewMenu'
  *   기간이 길수록 구간을 넓힌다(`BINS`). 0% 근처는 회색.
  * - 탭: 「시장 상위」(상위 30·50·100 — 서버가 100 캐시에서 자른다) / 「내 관심 종목」(그 시장의 관심 종목, 크기 = 시총).
  *   [보기 ▾] 의 분야 거르기는 화면에서만 한다. 마지막 보기(시장 빼고)는 localStorage `alphascope.heatmapView`.
- * - 시장(미국 · 국내)은 열 때마다 한국 시간으로 고른다(`utils/market.marketByKstTime` — 08:00~17:00 국내, 그 밖 미국).
+ * - 시장(미국 · 국내)은 열 때마다 한국 시간으로 고른다(`utils/marketDate.marketByKstTime` — 08:00~17:00 국내, 그 밖 미국).
  * - 오른쪽 「섹터 강세 순위」는 **설명용**이다 — 지난 기간의 결과이고 판정·자동매매에 쓰지 않는다.
  * - ⚠️ 다른 사이트의 데이터·디자인을 가져오지 않았다 — 앱 다크 테마로 새로 그렸다.
  */
