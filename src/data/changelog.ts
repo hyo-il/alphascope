@@ -23,6 +23,13 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.54.1',
+    date: '2026-10-21',
+    title: '시계 모서리를 각지게 바꿨습니다',
+    description: '한국 시간 시계의 모서리를 둥글지 않게 바꿨습니다. 색 · 크기 · 자리 · 동작은 그대로입니다.',
+    changes: ['시계 상자와 핀 버튼(마우스를 올렸을 때 · 키보드로 골랐을 때)의 모서리가 각집니다. 다른 화면의 버튼 모양은 그대로입니다.'],
+  },
+  {
     version: 'v2.54.0',
     date: '2026-10-21',
     title: '한국 시간 시계(끌어서 옮기고 핀으로 고정)',
