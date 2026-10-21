@@ -74,6 +74,13 @@ const SECTIONS: { id: string; label: string; rows: Row[] }[] = [
         better: 'low',
       },
       {
+        // 음수 PEG(이익이 줄어듦)는 숫자는 보이고 「더 좋음」 비교에서는 빠진다(positive)
+        label: 'PEG',
+        text: (c) => num(c.fundamentals?.valuation.peg),
+        raw: (c) => positive(c.fundamentals?.valuation.peg),
+        better: 'low',
+      },
+      {
         label: 'PBR',
         text: (c) => num(c.fundamentals?.valuation.pbr),
         raw: (c) => positive(c.fundamentals?.valuation.pbr),

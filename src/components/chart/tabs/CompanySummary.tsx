@@ -45,6 +45,8 @@ function median(values: (number | null)[]): number | null {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+const PEG_INFO = 'PER 을 이익 성장률로 나눈 값입니다. 1보다 낮으면 성장에 비해 싸다고 봅니다. 성장률이 예상값이라 틀릴 수 있습니다.';
+
 function Metric({ label, value, note, info }: { label: string; value: string; note?: string; info?: string }) {
   return (
     <div className="rounded-md bg-bg-tertiary/60 p-3">
@@ -173,11 +175,14 @@ export default function CompanySummary({
                       : NO_VALUE
                 }
               />
+              {/*
+                PEG — yfinance trailingPegRatio(없으면 pegRatio) 그대로. 화면에서 계산하지 않는다(성장률 기준이 정해지지 않았다).
+                음수(이익 감소)도 숫자 그대로 보인다.
+              */}
+              <Metric label="PEG" value={fixed(valuation.peg)} info={valuation.peg == null ? `${NO_VALUE} ${PEG_INFO}` : PEG_INFO} />
               <Metric label="EPS" value={fixed(valuation.eps)} info={valuation.eps == null ? `${NO_VALUE} 발행주식 수가 응답에 없어 계산하지 않습니다.` : undefined} />
+              {/* 칸이 9개라 4열 격자로 이어 흐른다(PEG 를 넣어 첫 줄이 넘쳤다 — 줄을 나누지 않고 한 격자) */}
               <Metric label="시가총액" value={formatCompactMoney(profile.marketCap, profile.currency)} />
-            </dl>
-
-            <dl className="grid grid-cols-2 gap-2 lg:grid-cols-4">
               <Metric
                 label="52주 고 / 저"
                 value={high52 == null ? '—' : `${px(high52)} / ${px(low52!)}`}
