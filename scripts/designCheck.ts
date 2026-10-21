@@ -59,6 +59,12 @@ async function setAccountsView(page: Page, view: 'card' | 'list') {
   await page.evaluate((v) => fetch('/api/paper/accounts-view', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ view: v }) }), view);
 }
 
+/** 종목 지도 시장 — 열 때마다 한국 시간으로 고르므로(localStorage 에 기억하지 않는다) 연 뒤에 직접 누른다 */
+async function pickMarket(page: Page, market: 'us' | 'kr') {
+  await page.getByRole('radiogroup', { name: '시장' }).getByRole('radio', { name: market === 'us' ? '미국' : '국내' }).click();
+  await page.waitForTimeout(1500);
+}
+
 /** 화면 주소 — 메뉴(NAV_GROUPS)의 모든 page × 그 page 의 탭(PAGE_TABS) */
 function targets(): Target[] {
   const list: Target[] = [];
@@ -314,19 +320,20 @@ function targets(): Target[] {
         ['heatmap-시장상위-미국100', { view: 'market', market: 'us', top: 100 }],
         ['heatmap-관심-국내', { view: 'watch', market: 'kr', top: 50 }],
       ] as const
-    ).map(([name, v]) => ({
+    ).map(([name, { market, ...v }]) => ({
       name,
       hash: '#/heatmap',
       before: async (page: Page) => {
         await page.evaluate((v) => localStorage.setItem('alphascope.heatmapView', JSON.stringify({ ...v, period: '1d', off: { market: [], watch: [] }, watchSize: 'cap' })), v);
       },
+      open: (page: Page) => pickMarket(page, market),
     })),
     // 기준가를 확인하지 못한 종목은 등락률이 null → 「—」(지도 칸 · 관심 패널). 응답의 절반을 null 로 바꿔치기 — DB 는 그대로
     {
       name: 'heatmap-등락률없음',
       hash: '#/heatmap',
       before: async (page) => {
-        await page.evaluate(() => localStorage.setItem('alphascope.heatmapView', JSON.stringify({ view: 'watch', market: 'kr', top: 50, period: '1d', off: { market: [], watch: [] }, watchSize: 'cap' })));
+        await page.evaluate(() => localStorage.setItem('alphascope.heatmapView', JSON.stringify({ view: 'watch', top: 50, period: '1d', off: { market: [], watch: [] }, watchSize: 'cap' })));
         // 다음 대상으로 넘어가며 unroute 하는 사이 도착한 응답은 이미 처리된 것으로 나온다 — 그 경우는 넘어간다(점검이 통째로 멈추지 않게)
         await page.route('**/api/heatmap**', async (r) => {
           try {
@@ -353,13 +360,13 @@ function targets(): Target[] {
         await page.unroute('**/api/heatmap**');
         await page.unroute('**/api/quotes**');
       },
-      open: async (page) => { await page.waitForTimeout(2500); },
+      open: async (page) => { await pickMarket(page, 'kr'); await page.waitForTimeout(2500); },
     },
     {
       name: 'heatmap-장중-N초전갱신',
       hash: '#/heatmap',
       before: async (page) => {
-        await page.evaluate(() => localStorage.setItem('alphascope.heatmapView', JSON.stringify({ view: 'market', market: 'us', top: 50, period: '1d', off: { market: [], watch: [] }, watchSize: 'cap' })));
+        await page.evaluate(() => localStorage.setItem('alphascope.heatmapView', JSON.stringify({ view: 'market', top: 50, period: '1d', off: { market: [], watch: [] }, watchSize: 'cap' })));
         await page.route('**/api/heatmap**', async (r) => {
           const res = await r.fetch();
           const body = (await res.json()) as Record<string, unknown>;
@@ -367,7 +374,7 @@ function targets(): Target[] {
         });
       },
       after: (page) => page.unroute('**/api/heatmap**'),
-      open: async (page) => { await page.waitForTimeout(3000); },
+      open: async (page) => { await pickMarket(page, 'us'); await page.waitForTimeout(3000); },
     },
     {
       name: 'dialog-처음켜기-종목단계',

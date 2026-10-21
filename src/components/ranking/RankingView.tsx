@@ -15,6 +15,7 @@ import {
 } from '../../types/ranking';
 import { changeColor, formatCompact, formatCompactMoney, formatPercent, formatPrice } from '../../utils/formatters';
 import RankingPreview, { type PreviewTimeframe } from './RankingPreview';
+import { marketByKstTime } from '../../utils/market';
 
 /**
  * 📶 실시간 순위 — 토스 거래대금·거래량·상승률·하락률 상위 100(`/api/rankings/live`, 서버 30초 캐시).
@@ -32,7 +33,8 @@ const FIRST_PAGE = 50;
 const isPreviewTf = (tf: string): tf is PreviewTimeframe => tf === '1d' || tf === '1w' || tf === '1M';
 
 export default function RankingView({ onOpen }: { onOpen: (symbol: string, timeframe: PreviewTimeframe) => void }) {
-  const [market, setMarket] = useState<LiveRankingMarket>('us');
+  // 열 때마다 한국 시간으로 고른다(08:00~17:00 국내, 그 밖 미국) — 직접 바꾸면 이 화면에 있는 동안만 유지
+  const [market, setMarket] = useState<LiveRankingMarket>(() => marketByKstTime());
   const [kind, setKind] = useState<LiveRankingKind>('amount');
   const [data, setData] = useState<LiveRankingResponse | null>(null);
   const [error, setError] = useState<string | null>(null);

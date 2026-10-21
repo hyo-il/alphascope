@@ -15,6 +15,7 @@ import {
   type HeatmapView as HeatmapViewId,
 } from '../../types/heatmap';
 import SectorRanking from './SectorRanking';
+import { marketByKstTime } from '../../utils/market';
 import HeatmapViewMenu, { TOP_CHOICES, type TopChoice } from './HeatmapViewMenu';
 
 /**
@@ -27,7 +28,8 @@ import HeatmapViewMenu, { TOP_CHOICES, type TopChoice } from './HeatmapViewMenu'
  * - 색은 `index.css` 의 heat-* 불투명 단계색(bullish/bearish 를 회색에 섞은 4단계 + 회색) + 진하기 구간 —
  *   기간이 길수록 구간을 넓힌다(`BINS`). 0% 근처는 회색.
  * - 탭: 「시장 상위」(상위 30·50·100 — 서버가 100 캐시에서 자른다) / 「내 관심 종목」(그 시장의 관심 종목, 크기 = 시총).
- *   [보기 ▾] 의 분야 거르기는 화면에서만 한다. 마지막 보기는 localStorage `alphascope.heatmapView`.
+ *   [보기 ▾] 의 분야 거르기는 화면에서만 한다. 마지막 보기(시장 빼고)는 localStorage `alphascope.heatmapView`.
+ * - 시장(미국 · 국내)은 열 때마다 한국 시간으로 고른다(`utils/market.marketByKstTime` — 08:00~17:00 국내, 그 밖 미국).
  * - 오른쪽 「섹터 강세 순위」는 **설명용**이다 — 지난 기간의 결과이고 판정·자동매매에 쓰지 않는다.
  * - ⚠️ 다른 사이트의 데이터·디자인을 가져오지 않았다 — 앱 다크 테마로 새로 그렸다.
  */
@@ -47,9 +49,12 @@ const SECTOR_HEADER = HEATMAP_SECTOR_LINE + HEATMAP_SECTOR_PAD_Y * 2;
 
 const VIEW_KEY = 'alphascope.heatmapView';
 
+/**
+ * ⚠️ 시장은 기억하지 않는다 — 화면을 열 때마다 한국 시간으로 고른다(`marketByKstTime`, 사용자 결정 2026-10-21).
+ * 예전 저장값에 남은 `market` 칸은 읽지 않고, 다음 저장 때 빠진다.
+ */
 interface SavedView {
   view: HeatmapViewId;
-  market: HeatmapMarket;
   period: HeatmapPeriod;
   top: TopChoice;
   /** 끈 분야 — 탭마다 따로(관심 종목 지도에서 끈 분야가 시장 지도에서도 꺼지면 헷갈린다) */
@@ -60,7 +65,7 @@ interface SavedView {
 
 export type WatchSize = 'cap' | 'sqrt';
 
-const DEFAULT_VIEW: SavedView = { view: 'market', market: 'us', period: '1d', top: 50, off: { market: [], watch: [] }, watchSize: 'cap' };
+const DEFAULT_VIEW: SavedView = { view: 'market', period: '1d', top: 50, off: { market: [], watch: [] }, watchSize: 'cap' };
 
 const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
 
@@ -71,7 +76,6 @@ function readView(): SavedView {
     const off = (raw.off ?? {}) as Partial<Record<HeatmapViewId, unknown>>;
     return {
       view: raw.view === 'watch' ? 'watch' : 'market',
-      market: raw.market === 'kr' ? 'kr' : 'us',
       period: HEATMAP_PERIODS.some((p) => p.id === raw.period) ? (raw.period as HeatmapPeriod) : '1d',
       top: TOP_CHOICES.find((n) => n === raw.top) ?? 50,
       off: { market: strings(off.market), watch: strings(off.watch) },
@@ -380,7 +384,8 @@ function layoutTiles(groups: [string, HeatmapCell[]][], W: number, H: number, si
 export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbol: string) => void }) {
   const [saved] = useState(readView);
   const [view, setView] = useState<HeatmapViewId>(saved.view);
-  const [market, setMarket] = useState<HeatmapMarket>(saved.market);
+  // 열 때마다 한국 시간으로 고른다 — 직접 바꾸면 이 화면에 있는 동안만 유지(다른 화면에 다녀오면 다시 시간 기준)
+  const [market, setMarket] = useState<HeatmapMarket>(() => marketByKstTime());
   const [period, setPeriod] = useState<HeatmapPeriod>(saved.period);
   const [top, setTop] = useState<TopChoice>(saved.top);
   const [watchSize, setWatchSize] = useState<WatchSize>(saved.watchSize);
@@ -419,8 +424,8 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   }, [market, period, top, view]);
 
   useEffect(() => {
-    writeView({ view, market, period, top, off: { market: [...offByView.market], watch: [...offByView.watch] }, watchSize });
-  }, [view, market, period, top, offByView, watchSize]);
+    writeView({ view, period, top, off: { market: [...offByView.market], watch: [...offByView.watch] }, watchSize });
+  }, [view, period, top, offByView, watchSize]);
 
   // 시장·기간·보기가 바뀌면 지도를 비운다
   // 상위 N 만 바꿀 때는 보던 지도를 남긴 채 다시 받는다(서버가 같은 100 캐시에서 자른다 — 금방 온다)
