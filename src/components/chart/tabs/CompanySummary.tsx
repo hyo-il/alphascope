@@ -8,7 +8,7 @@ import SectorComparison from '../../company/SectorComparison';
 import { formatCompactMoney, formatPrice, formatNumber } from '../../../utils/formatters';
 import { currencyOfSymbol, isKrSymbol } from '../../../utils/market';
 import { industryKo, sectorKo } from '../../../data/sectors';
-import { displayPeg } from '../../../types/company';
+import { displayPeg, hidesPeg } from '../../../types/company';
 import StockName from '../../common/StockName';
 import InfoTip from '../../ui/InfoTip';
 import Tabs from '../../ui/Tabs';
@@ -185,7 +185,7 @@ export default function CompanySummary({
               <Metric
                 label="PEG"
                 value={fixed(peg)}
-                info={kr ? `${PEG_KR} ${PEG_INFO}` : peg == null ? `${NO_VALUE} ${PEG_INFO}` : PEG_INFO}
+                info={hidesPeg(symbol) ? `${PEG_KR} ${PEG_INFO}` : peg == null ? `${NO_VALUE} ${PEG_INFO}` : PEG_INFO}
               />
               <Metric label="EPS" value={fixed(valuation.eps)} info={valuation.eps == null ? `${NO_VALUE} 발행주식 수가 응답에 없어 계산하지 않습니다.` : undefined} />
               {/* 칸이 9개라 4열 격자로 이어 흐른다(PEG 를 넣어 첫 줄이 넘쳤다 — 줄을 나누지 않고 한 격자) */}

@@ -36,9 +36,12 @@ export interface Valuation {
  * 미국 종목은 받은 값 그대로. 서버 · 파이썬이 받는 값은 그대로 둔다(표시 · 문장에서만 거른다).
  */
 export function displayPeg(symbol: string, valuation: Pick<Valuation, 'peg'> | null | undefined): number | null {
-  if (isKrSymbol(symbol)) return null;
+  if (hidesPeg(symbol)) return null;
   return valuation?.peg ?? null;
 }
+
+/** PEG 를 숨기는 종목인가(지금은 국내 종목) — `displayPeg` 와 기업정보의 국내 안내가 같은 규칙을 쓰게 한 곳에 둔다 */
+export const hidesPeg = (symbol: string): boolean => isKrSymbol(symbol);
 
 export interface Profitability {
   revenue: number | null;

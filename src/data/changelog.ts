@@ -23,6 +23,16 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.53.1',
+    date: '2026-10-21',
+    title: '국내 종목은 PEG 를 보이지 않습니다',
+    description: '국내 종목은 믿을 만한 PEG 값이 없어 「—」 로 둡니다.',
+    changes: [
+      '기업정보 탭 · 기업 비교 표에서 국내 종목의 PEG 는 「—」 입니다. 정보 아이콘에 「국내 종목은 믿을 만한 PEG 값이 없어 보이지 않습니다.」 가 보입니다. 미국 종목은 그대로입니다.',
+      '기업 비교에서 국내 종목 PEG 는 「더 좋음」 비교에서 빠집니다. AI 분석 문장에도 국내 종목 PEG 는 「—」 로 들어갑니다.',
+    ],
+  },
+  {
     version: 'v2.53.0',
     date: '2026-10-21',
     title: '홈 화면 고르기 · 시간에 맞춰 국내/미국 · PEG',
