@@ -23,6 +23,13 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.54.2',
+    date: '2026-10-21',
+    title: '시계 모양을 앱 화면에 맞췄습니다',
+    description: '시계 바탕을 시황 줄과 같은 색으로, 모서리를 살짝 둥글게, 「한국」 글자를 시각과 같게 바꿨습니다.',
+    changes: ['한국 시간 시계의 바탕이 둘레(시황 줄)와 같은 색입니다. 모서리는 살짝 둥글고(핀 버튼도 같게), 「한국」 글자는 시각과 같은 크기의 흰색 굵은 글자입니다. 자리와 동작은 그대로입니다.'],
+  },
+  {
     version: 'v2.54.1',
     date: '2026-10-21',
     title: '시계 모서리를 각지게 바꿨습니다',
