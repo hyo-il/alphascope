@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import type { SymbolSummary } from '../../types/analysis';
-import type { Fundamentals } from '../../types/company';
+import { displayPeg, type Fundamentals } from '../../types/company';
 import { changeColor, formatCompactMoney, formatPrice, formatSigned, formatNumber } from '../../utils/formatters';
 
 /**
@@ -74,10 +74,10 @@ const SECTIONS: { id: string; label: string; rows: Row[] }[] = [
         better: 'low',
       },
       {
-        // 음수 PEG(이익이 줄어듦)는 숫자는 보이고 「더 좋음」 비교에서는 빠진다(positive)
+        // 음수 PEG(이익이 줄어듦)는 숫자는 보이고 「더 좋음」 비교에서는 빠진다(positive). 국내 종목은 「—」 · 비교에서도 빠진다(displayPeg)
         label: 'PEG',
-        text: (c) => num(c.fundamentals?.valuation.peg),
-        raw: (c) => positive(c.fundamentals?.valuation.peg),
+        text: (c) => num(displayPeg(c.symbol, c.fundamentals?.valuation)),
+        raw: (c) => positive(displayPeg(c.symbol, c.fundamentals?.valuation)),
         better: 'low',
       },
       {

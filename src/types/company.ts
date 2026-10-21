@@ -4,6 +4,7 @@
  * 단위 주의: 비율 항목은 소수(0.2762 = 27.62%)로 오지만
  * **배당수익률(`dividend.yield`)만 이미 퍼센트 단위**다 (0.35 = 0.35%).
  */
+import { isKrSymbol } from '../utils/market';
 
 export interface CompanyProfile {
   name: string | null;
@@ -27,6 +28,16 @@ export interface Valuation {
   peg: number | null;
   priceToSales: number | null;
   evToEbitda: number | null;
+}
+
+/**
+ * 보여 줄 PEG — **이 함수 한 곳**을 기업정보 · 기업 비교 · AI 분석 문장이 같이 쓴다(따로 `isKrSymbol` 을 검사하지 않는다).
+ * 국내 종목은 null(「—」) — yfinance 가 국내 PER 은 주지 않으면서 PEG 만 주어(삼성전자 0.13 등) 같은 기준의 값인지 알 수 없다(사용자 결정 2026-10-21).
+ * 미국 종목은 받은 값 그대로. 서버 · 파이썬이 받는 값은 그대로 둔다(표시 · 문장에서만 거른다).
+ */
+export function displayPeg(symbol: string, valuation: Pick<Valuation, 'peg'> | null | undefined): number | null {
+  if (isKrSymbol(symbol)) return null;
+  return valuation?.peg ?? null;
 }
 
 export interface Profitability {

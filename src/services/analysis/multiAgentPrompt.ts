@@ -1,4 +1,4 @@
-import type { Fundamentals, PeerSummary } from '../../types/company';
+import { displayPeg, type Fundamentals, type PeerSummary } from '../../types/company';
 import { TIMEFRAME_LABEL, type Candle, type Holding, type Timeframe } from '../../types/toss';
 import { summarize } from '../../utils/indicators';
 import { completedVolumeRatio } from '../../utils/marketBar';
@@ -107,7 +107,7 @@ ${recent.join('\n')}`;
 }
 
 /** 재무 블록 — 펀더멘탈 애널리스트가 쓴다 */
-function fundamentalBlock(data: Fundamentals | null, peers: PeerSummary[] | null): string {
+function fundamentalBlock(symbol: string, data: Fundamentals | null, peers: PeerSummary[] | null): string {
   if (!data) {
     return `## 기업 재무 데이터
 (불러오지 못했습니다 — 펀더멘탈 분석은 공개 정보를 근거로 하되, 추정임을 명시해 주세요.)`;
@@ -135,7 +135,7 @@ function fundamentalBlock(data: Fundamentals | null, peers: PeerSummary[] | null
 - 기업명: ${profile.name ?? '—'} / 섹터: ${profile.sector ?? '—'} / 산업: ${profile.industry ?? '—'}
 - 시가총액: ${usd(profile.marketCap)}
 - PER ${fmt(valuation.per)} (업종 중앙값 ${fmt(peerPer)}) / 선행 PER ${fmt(valuation.forwardPer)}
-- PBR ${fmt(valuation.pbr)} (업종 중앙값 ${fmt(peerPbr)}) / EPS ${fmt(valuation.eps)} / PEG ${fmt(valuation.peg)}
+- PBR ${fmt(valuation.pbr)} (업종 중앙값 ${fmt(peerPbr)}) / EPS ${fmt(valuation.eps)} / PEG ${fmt(displayPeg(symbol, valuation))}
 - 매출 성장률 ${pct(profitability.revenueGrowth)} / 이익 성장률 ${pct(profitability.earningsGrowth)}
 - 영업이익률 ${pct(profitability.operatingMargin)} / 순이익률 ${pct(profitability.profitMargin)} / ROE ${pct(profitability.roe)}
 - 부채비율 ${fmt(stability.debtToEquity)} / 유동비율 ${fmt(stability.currentRatio)}
@@ -213,7 +213,7 @@ ${marketBlock(options.symbol, companyName, options.timeframe, options.candles, o
 
 ${options.investorFlow ? `${options.investorFlow}
 
-` : ''}${fundamentalBlock(options.fundamentals, options.peers)}
+` : ''}${fundamentalBlock(options.symbol, options.fundamentals, options.peers)}
 
 ${holdingBlock(options.holding)}
 
