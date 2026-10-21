@@ -155,12 +155,12 @@ export default function KstClock() {
       onPointerCancel={(e) => endDrag(e, true)}
       onLostPointerCapture={(e) => endDrag(e, true)}
       style={{ left: box?.left ?? 0, top: box?.top ?? 0, visibility: box ? 'visible' : 'hidden', touchAction: 'none' }}
-      className={`fixed z-30 flex ${CONTROL_H.md} select-none items-center gap-2 rounded-none bg-bg-elevated pl-3 pr-1 shadow-2xl ${
+      className={`fixed z-30 flex ${CONTROL_H.md} select-none items-center gap-2 rounded-md bg-bg-secondary pl-3 pr-1 shadow-2xl ${
         pinned ? '' : dragBox ? 'cursor-grabbing' : 'cursor-grab'
       }`}
     >
-      {/* 떠 있는 상자(bg-elevated) 위라 text-muted 는 대비가 모자란다 — InfoTip 과 같은 text-secondary */}
-      <span className="text-caption text-text-secondary">한국</span>
+      {/* 「한국」 은 시각과 같은 글자(크기 · 굵기 · 색 — 사용자 결정 2026-10-21) */}
+      <span className="text-sm font-semibold text-text-primary">한국</span>
       <time className="text-sm font-semibold tabular-nums text-text-primary">{time}</time>
       <IconButton
         icon={pinned ? PinFilled : Pin}
@@ -168,9 +168,9 @@ export default function KstClock() {
         size="sm"
         aria-pressed={pinned}
         onClick={togglePin}
-        // 모서리 없음(사용자 결정 2026-10-21) — 이 시계의 핀만. 공용 IconButton 의 rounded-md 는 그대로
-        // 고정 = 채운 핀 + 밝은 글자색, 풀림 = 빈 핀(text-secondary — muted 는 elevated 위에서 거의 안 보인다)
-        className={`cursor-pointer !rounded-none ${pinned ? '!text-text-primary' : '!text-text-secondary hover:!text-text-primary'}`}
+        // 모서리는 공용 IconButton 의 rounded-md(6px) 그대로 — 상자와 같은 값(사용자 결정 2026-10-21)
+        // 고정 = 채운 핀 + 밝은 글자색, 풀림 = 빈 핀(text-secondary — 바탕 bg-secondary 위 약 6:1)
+        className={`cursor-pointer ${pinned ? '!text-text-primary' : '!text-text-secondary hover:!text-text-primary'}`}
       />
     </div>
   );
