@@ -155,7 +155,7 @@ export default function KstClock() {
       onPointerCancel={(e) => endDrag(e, true)}
       onLostPointerCapture={(e) => endDrag(e, true)}
       style={{ left: box?.left ?? 0, top: box?.top ?? 0, visibility: box ? 'visible' : 'hidden', touchAction: 'none' }}
-      className={`fixed z-30 flex ${CONTROL_H.md} select-none items-center gap-2 rounded-xl bg-bg-elevated pl-3 pr-1 shadow-2xl ${
+      className={`fixed z-30 flex ${CONTROL_H.md} select-none items-center gap-2 rounded-none bg-bg-elevated pl-3 pr-1 shadow-2xl ${
         pinned ? '' : dragBox ? 'cursor-grabbing' : 'cursor-grab'
       }`}
     >
@@ -168,8 +168,9 @@ export default function KstClock() {
         size="sm"
         aria-pressed={pinned}
         onClick={togglePin}
+        // 모서리 없음(사용자 결정 2026-10-21) — 이 시계의 핀만. 공용 IconButton 의 rounded-md 는 그대로
         // 고정 = 채운 핀 + 밝은 글자색, 풀림 = 빈 핀(text-secondary — muted 는 elevated 위에서 거의 안 보인다)
-        className={`cursor-pointer ${pinned ? '!text-text-primary' : '!text-text-secondary hover:!text-text-primary'}`}
+        className={`cursor-pointer !rounded-none ${pinned ? '!text-text-primary' : '!text-text-secondary hover:!text-text-primary'}`}
       />
     </div>
   );
