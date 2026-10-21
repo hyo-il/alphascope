@@ -76,3 +76,17 @@ export function marketByKstTime(now: Date = new Date()): 'kr' | 'us' {
   const minutes = marketMinutes(now.getTime(), MARKET_REF.KR.symbol);
   return minutes >= 8 * 60 && minutes < 17 * 60 ? 'kr' : 'us';
 }
+
+let kstClockFormatter: Intl.DateTimeFormat | null = null;
+
+/** 한국 시각 `HH:MM:SS`(24시간제) — 떠 있는 시계(`common/KstClock`). PC 시계의 시간대와 상관없이 Asia/Seoul */
+export function kstClockText(timestamp: number): string {
+  kstClockFormatter ??= new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Seoul',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  });
+  return kstClockFormatter.format(new Date(timestamp));
+}

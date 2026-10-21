@@ -33,6 +33,7 @@
     "accountsview:test": "tsx scripts/accountsViewSelfTest.ts",
     "cashflow:test": "tsx scripts/cashFlowSelfTest.ts",
     "homepage:test": "tsx scripts/homePageSelfTest.ts",
+    "clock:test": "tsx scripts/clockSelfTest.ts",
     "design:lint": "tsx scripts/designLint.ts",
     "design:check": "tsx scripts/designCheck.ts",
     "ussample:run": "tsx scripts/usCloseSampler.ts",

@@ -40,6 +40,7 @@ interface Health {
 /** 설정 · 상태 확인 화면 — 무엇이 연결돼 있고 무엇이 저장돼 있는지 한눈에 보여 준다. */
 import BuyJudgeRetention from '../swing/BuyJudgeRetention';
 import HomePageSetting from '../settings/HomePageSetting';
+import ClockResetSetting from '../settings/ClockResetSetting';
 
 export default function Settings({ isMock, engineDown, section }: Props) {
   const [health, setHealth] = useState<Health | null>(null);
@@ -142,6 +143,11 @@ export default function Settings({ isMock, engineDown, section }: Props) {
       <section className="mb-6 max-w-2xl">
         <h3 className="mb-1.5 text-xs font-medium text-text-secondary">홈 화면</h3>
         <HomePageSetting />
+      </section>
+
+      <section className="mb-6 max-w-2xl">
+        <h3 className="mb-1.5 text-xs font-medium text-text-secondary">한국 시간 시계</h3>
+        <ClockResetSetting />
       </section>
 
       <section className="mb-6 max-w-2xl">

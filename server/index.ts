@@ -181,6 +181,8 @@ import { calendarEvents } from './calendarService';
 import { getSwingGoal, saveSwingGoal, SwingGoalError } from './swingGoal';
 import { getHomePage, setHomePage } from './homePage';
 import { isHomePage } from '../src/types/nav';
+import { getClockSetting, setClockSetting } from './clockSetting';
+import { CLOCK_MAX_OFFSET, parseClockSetting } from '../src/types/clock';
 import { HEATMAP_TOPS, heatmap } from './heatmap';
 import { liveRanking } from './liveRanking';
 import { marketDate } from '../src/utils/marketDate';
@@ -1363,6 +1365,19 @@ app.put('/api/settings/home-page', (req, res) => {
   if (!isHomePage(page)) return res.status(400).json({ error: '홈 화면은 종목 탐색 · 종목 지도 · 실시간 순위 · 차트 중 하나입니다.' });
   setHomePage(page);
   res.json({ homePage: page });
+});
+
+// 떠 있는 한국 시간 시계의 자리 · 고정 상태 — 끌기를 놓을 때 · 핀을 누를 때 · 설정의 「시계 위치 초기화」 가 저장한다
+app.get('/api/settings/clock', (_req, res) => res.json({ clock: getClockSetting() }));
+app.put('/api/settings/clock', (req, res) => {
+  const clock = parseClockSetting(req.body?.clock);
+  if (!clock) {
+    return res.status(400).json({
+      error: `시계 자리는 고정 여부(참·거짓) · 모서리(위·아래 × 왼쪽·오른쪽) · 거리(0 ~ ${CLOCK_MAX_OFFSET.toLocaleString('en-US')} 정수) 로 보냅니다.`,
+    });
+  }
+  setClockSetting(clock);
+  res.json({ clock });
 });
 
 // 목표 수익 가능성의 조건(목표·손절·기간) — 매수 판단 화면의 [목표 수익 가능성] 이 쓴다
