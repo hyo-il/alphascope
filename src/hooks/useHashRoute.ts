@@ -79,7 +79,9 @@ export function useHashRoute(): void {
       if (window.location.hash !== clean) history.replaceState(null, '', clean);
     } else {
       useAppStore.getState().goHome({ replace: true });
-      history.replaceState(null, '', hashFor(useAppStore.getState().nav));
+      // 홈 설정을 받는 중이면 주소를 아직 쓰지 않는다 — 받으면 아래 구독이 고른 화면 주소로 replaceState 한다.
+      // (먼저 `#/home` 을 써 두면 다시 마운트될 때(개발 StrictMode) 그 주소를 「주소 있는 열기」 로 읽어 홈 이동이 지워진다)
+      if (!useAppStore.getState().homePending) history.replaceState(null, '', hashFor(useAppStore.getState().nav));
     }
 
     // 주소에서 온 이동 중인지 — 그때 생기는 주소 정리(#/swing → #/swing/list)는 기록을 쌓지 않는다
