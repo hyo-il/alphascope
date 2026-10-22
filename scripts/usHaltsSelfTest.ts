@@ -497,7 +497,7 @@ check(
 );
 check(
   '화면 — 토스트는 지금 멈춘 정지만(isHaltOngoing) · 며칠째 칸도 매초 거르고 상태 모름(unlisted)은 남김(v2.56.3)',
-  /isHaltOngoing\(h, data\.serverNow\)/.test(viewSrc) && /split\(data\.ongoing, \(h\) => h\.unlisted\)/.test(viewSrc) && !/split\([^)]*, (true|false)\)/.test(viewSrc),
+  /isHaltOngoing\(h, data\.serverNow\)/.test(viewSrc) && /data\.ongoing\.filter\(\(h\) => h\.unlisted \|\| isHaltOngoing\(h, now\)\)/.test(viewSrc) && !/split\([^)]*, (true|false)\)/.test(viewSrc),
 );
 check('화면 — 「앞선 정지」 줄 · 「실제 재개」 · 「재개됨」 상태를 만들던 코드가 남지 않음', !/앞선 정지 [<{]|EarlierTimes|실제 재개|재개됨/.test(viewSrc));
 const grepNth = (dir: string): string[] =>

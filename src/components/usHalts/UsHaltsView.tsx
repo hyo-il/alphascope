@@ -153,15 +153,16 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
         {data &&
           (() => {
             const mine = (h: UsHaltRow) => watchlist.includes(h.rawIssueSymbol.trim()) || h.held;
-            // 두 칸 모두 가장 최근 정지가 안 풀린 묶음만 — 1초 시계로 다시 걸러 공지 재개 시각이 지나면 다음 갱신을 기다리지 않고 사라진다.
-            // keep: 그래도 남길 줄(며칠째 칸의 「목록에서 사라짐 — 상태 모름」 — 풀렸는지 몰라 시각으로 지우지 않는다). 오늘 표의 풀린 정지는 최대 거래대금 계산에만 쓴다
-            const split = <T extends UsHaltRow>(rows: T[], keep: (h: T) => boolean = () => false) => {
-              const groups = groupHalts(rows).filter((g) => keep(g.latest) || isHaltOngoing(g.latest, now));
+            // 두 칸 모두 안 풀린 정지만 — 1초 시계로 다시 걸러 공지 재개 시각이 지나면 다음 갱신을 기다리지 않고 사라진다
+            const split = <T extends UsHaltRow>(groups: HaltGroup<T>[]) => {
               const hidden = groups.filter((g) => isHiddenByTurnover(groupTurnover([g.latest, ...g.earlier]), minTurnover ?? null, mine(g.latest)));
               return { groups, shown: showHidden ? groups : groups.filter((g) => !hidden.includes(g)), hiddenCount: hidden.length };
             };
-            const today = split(data.halts);
-            const ongoing = split(data.ongoing, (h) => h.unlisted);
+            // 오늘 표: 묶은 뒤 가장 최근 정지로 거른다(풀린 정지는 최대 거래대금 계산에만 쓴다)
+            const today = split(groupHalts(data.halts).filter((g) => isHaltOngoing(g.latest, now)));
+            // 며칠째 칸: 줄을 먼저 거른 뒤 묶는다 — 「목록에서 사라짐 — 상태 모름」 줄은 풀렸는지 몰라 시각으로 지우지 않는다
+            // (묶은 뒤 거르면 같은 종목의 다른 줄의 공지 시각이 지날 때 상태 모름 줄까지 사라졌다가 다음 읽기에 다시 나타났다)
+            const ongoing = split(groupHalts(data.ongoing.filter((h) => h.unlisted || isHaltOngoing(h, now))));
             const notice = (n: number) =>
               n > 0 && <HiddenNotice count={n} showing={showHidden} onToggle={() => setShowHidden((v) => !v)} />;
             return (
