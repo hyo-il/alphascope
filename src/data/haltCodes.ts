@@ -7,7 +7,7 @@
  */
 export const HALT_CODES: Record<string, { label: string; en: string }> = {
   LUDP: { label: '변동성 정지(LULD)', en: 'Volatility Trading Pause' },
-  LUDS: { label: '변동성 정지(LULD · 경계 가격)', en: 'Volatility Trading Pause - Straddle Condition' },
+  LUDS: { label: '변동성 정지(LULD · 호가가 범위에 걸침)', en: 'Volatility Trading Pause - Straddle Condition' },
   M: { label: '변동성 정지(LULD)', en: 'Volatility Trading Pause' },
   T1: { label: '뉴스 대기 정지', en: 'Halt - News Pending' },
   T2: { label: '뉴스 발표 정지', en: 'Halt - News Released' },

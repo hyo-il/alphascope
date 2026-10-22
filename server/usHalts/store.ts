@@ -143,6 +143,12 @@ export function ingestHalts(items: RawHaltItem[], now: number): IngestResult {
         if (value !== prev[column] && value.trim() !== '') changes[column] = value;
       }
       const sets = Object.keys(changes).map((c) => `${c} = @${c}`);
+      // 사유 코드가 LULD 아님 → LULD 로 바뀌면 방향을 추정하고, LULD → 아님이면 추정하지 않음으로
+      if (changes.raw_reason_code) {
+        const luld = isLuldCode(changes.raw_reason_code.trim());
+        if (luld && prev.direction_est === 'none') sets.push(`direction_est = 'pending'`);
+        if (!luld && prev.direction_est !== 'none') sets.push(`direction_est = 'none'`);
+      }
       if (tradeFilled && !prev.resume_seen_at) sets.push(`resume_seen_at = @now`);
       if (!sets.length) continue;
       db.prepare(`UPDATE us_halts SET ${sets.join(', ')}, updated_at = @now WHERE id = @id`).run({ ...changes, now: nowIso, id: prev.id });
@@ -198,7 +204,7 @@ export function listHaltsOfDay(day: string): UsHaltRow[] {
       rawResumptionTradeTime: r.raw_resumption_trade_time,
       haltAtMs: r.halt_at_ms,
       // LULD(LUDP)의 ResumptionQuoteTime 은 처음부터 정지 시각과 같은 값이라 쓰지 않는다 — 재개는 Trade 칸
-      resumeAtMs: r.raw_resumption_trade_time.trim() ? etMsOf(r.raw_resumption_date || r.raw_halt_date, r.raw_resumption_trade_time) : null,
+      resumeAtMs: r.raw_resumption_trade_time.trim() ? etMsOf(r.raw_resumption_date.trim() || r.raw_halt_date, r.raw_resumption_trade_time) : null,
       firstSeenAt: r.first_seen_at,
       resumeSeenAt: r.resume_seen_at,
       directionEst: r.direction_est,

@@ -21,7 +21,7 @@ import { isMarketClosed } from '../server/marketCalendar';
 import { TossApiError } from '../src/services/toss/httpClient';
 import { fetchHaltsFeed, parseHaltsFeed, type RawHaltItem } from '../server/usHalts/feed';
 import { ingestHalts, listHaltsOfDay, purgeOldHalts } from '../server/usHalts/store';
-import { fetchStatus, isFetchWindow, resetFetchStatusForTest, usHaltsTick } from '../server/usHalts/scheduler';
+import { fetchStatus, isFetchWindow, markFetched, resetFetchStatusForTest, tooSoon, usHaltsTick } from '../server/usHalts/scheduler';
 import { judgeDirection } from '../server/usHalts/directionEstimate';
 import { expectedResume } from '../src/utils/usHalts';
 import type { Candle } from '../src/types/toss';
@@ -162,6 +162,7 @@ check('judge — 직전 봉 < 5분 전 봉 → down', judgeDirection([bar(m0 - 5
 check('judge — 같으면 unknown(flat)', judgeDirection([bar(m0 - 5 * MIN, 1), bar(m0, 1)], h0).detail.reason === 'flat');
 check('judge — 5분 전 봉 없음 → unknown(few_bars)', judgeDirection([bar(m0 - 2 * MIN, 1), bar(m0, 2)], h0).detail.reason === 'few_bars');
 check('judge — 직전 봉이 2분 넘게 앞섬 → unknown(stale)', judgeDirection([bar(m0 - 10 * MIN, 1), bar(m0 - 3 * MIN, 2)], h0).detail.reason === 'stale');
+check('judge — 5분 전 봉이 7분보다 멀면 쓰지 않음(few_bars)', judgeDirection([bar(m0 - 9 * MIN, 1), bar(m0, 2)], h0).detail.reason === 'few_bars');
 check('judge — 정지 뒤 봉은 쓰지 않음', judgeDirection([bar(m0 - 5 * MIN, 1), bar(m0, 1.2), bar(m0 + MIN, 0.1)], h0).est === 'up');
 
 // ── 3. 같은 키 갱신 · 지우지 않음 · 30일 ──────────────────────────
@@ -176,6 +177,11 @@ check('빈칸으로 돌아와도 채워 둔 재개 칸을 지우지 않음', one
 check('목록에서 빠진 항목도 지우지 않음', (db.prepare(`SELECT COUNT(*) AS n FROM us_halts`).get() as { n: number }).n === before);
 const changed = ingestHalts([{ ...lastItems[0], ReasonCode: 'LUDS' }], et(DAY, '11:03:40'));
 check('바뀐 칸만 갱신(사유 코드)', changed.updated === 1 && one(lastItems[0].IssueSymbol, lastItems[0].HaltTime)?.raw_reason_code === 'LUDS');
+const chow = lastItems.find((i) => i.IssueSymbol === 'CHOW')!;
+ingestHalts([{ ...chow, ReasonCode: 'LUDP' }], et(DAY, '11:04:40'));
+check('사유가 LULD 아님 → LULD 로 바뀌면 방향을 다시 추정(pending)', one('CHOW', chow.HaltTime)?.direction_est === 'pending');
+ingestHalts([{ ...chow, ReasonCode: 'T1' }], et(DAY, '11:05:40'));
+check('LULD → LULD 아님으로 바뀌면 none', one('CHOW', chow.HaltTime)?.direction_est === 'none');
 // 30일 — 10-21 기준으로 넣은 10/13 AZTR 은 11-13(미국)에 지워진다
 purgeOldHalts(et('2026-11-12', '12:00:00'));
 check('30일 지우기 — 11-12(미국)에는 10/13 AZTR 이 남음', rowsOf('AZTR').length === 1);
@@ -203,6 +209,13 @@ check('10-30 08:00Z = 04:00 EDT 받음 · 07:59Z 안 받음', isFetchWindow(Date
 check('11-02 09:00Z = 04:00 EST 받음 · 08:30Z 안 받음', isFetchWindow(Date.parse('2026-11-02T09:00:00Z'), real) && !isFetchWindow(Date.parse('2026-11-02T08:30:00Z'), real));
 check('11-03 00:59Z = 11-02 19:59 EST 받음 · 01:00Z 안 받음', isFetchWindow(Date.parse('2026-11-03T00:59:00Z'), real) && !isFetchWindow(Date.parse('2026-11-03T01:00:00Z'), real));
 check('받는 시간대 밖이면 받지 않음(load 를 부르지 않음)', (await usHaltsTick({ now: et(DAY, '21:00:00'), load: async () => { throw new Error('불렸음'); } })) === 'outside');
+
+// 서버를 다시 켜도(개발 서버 tsx watch) 1분에 1번 이하 — 마지막 실제 받기 시각을 DB 에 남긴다
+const T0 = et(DAY, '13:00:00');
+markFetched(T0);
+check('켤 때 — 마지막 받기 30초 뒤면 건너뜀 · 60초 뒤면 받음', tooSoon(T0 + 30_000) && !tooSoon(T0 + 60_000));
+db.prepare(`DELETE FROM app_settings WHERE key = 'usHalts.lastFetchAt'`).run();
+check('기록이 없으면 받음', !tooSoon(T0));
 
 // ── 5. 예상 재개 경계 ─────────────────────────────────────────────
 const H = et(DAY, '10:00:00');
@@ -232,6 +245,9 @@ for (const [i, [label, f]] of failures.entries()) {
   const s = fetchStatus();
   check(`받기 실패(${label}) → failed · 연속 ${i + 1}번 · 마지막 성공 그대로`, r === 'failed' && s.consecutiveFailures === i + 1 && s.lastSuccessAt === new Date(okAt).toISOString() && !!s.lastError, s.lastError ?? '');
 }
+const badShape = lastItems.slice(0, 2).map((i) => ({ ...i, HaltDate: '2026-10-21', HaltTime: '9:41' }));
+const rBad = await usHaltsTick({ now: okAt + 4 * MIN, load: async () => badShape, closed: () => false });
+check('항목을 하나도 못 읽으면(날짜 · 시각 모양 다름) 받기 실패로 셈', rBad === 'failed' && fetchStatus().consecutiveFailures === 4 && /모양/.test(fetchStatus().lastError ?? ''), fetchStatus().lastError ?? '');
 await usHaltsTick({ now: okAt + 5 * MIN, load: async () => lastItems, closed: () => false });
 check('다시 성공하면 연속 실패 0', fetchStatus().consecutiveFailures === 0 && fetchStatus().lastError === null);
 

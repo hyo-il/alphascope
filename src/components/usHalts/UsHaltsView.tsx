@@ -23,8 +23,13 @@ import type { HaltDirectionEstimate, UsHaltFetchStatus, UsHaltRow, UsHaltsRespon
 const REFRESH_MS = 30_000;
 /** 연속 이만큼 실패하면 경고 */
 const FAIL_WARN = 3;
+/** 새 정지 토스트는 화면을 연 때보다 이만큼 앞선 정지까지만(목록 지연 0.5~2분 + 여유) — 서버를 막 켠 뒤 처음 받은 목록이 「새 정지」 로 몰려 뜨지 않게 */
+const TOAST_LOOKBACK_MS = 3 * 60_000;
 
 const etTitle = (date: string, time: string) => `미국 동부 시간(원문) ${date} ${time}`;
+/** 판단에는 앞뒤 공백을 뺀 코드를 쓴다(화면 글자는 원문) */
+const codeOf = (h: UsHaltRow) => h.rawReasonCode.trim();
+const KST_DAY = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' });
 
 export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbol: string) => void }) {
   const [data, setData] = useState<UsHaltsResponse | null>(null);
@@ -33,6 +38,8 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
   const offset = useRef(0);
   const [now, setNow] = useState(() => Date.now());
   const seen = useRef<Set<number> | null>(null);
+  /** 화면을 처음 받은 서버 시각 */
+  const openedAt = useRef<number | null>(null);
   const { watchlist } = useWatchlist();
 
   const load = useCallback(async () => {
@@ -74,12 +81,15 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
     if (!data) return;
     if (!seen.current) {
       seen.current = new Set(data.halts.map((h) => h.id));
+      openedAt.current = data.serverNow;
       return;
     }
-    const fresh = data.halts.filter((h) => !seen.current!.has(h.id));
-    for (const h of fresh) seen.current.add(h.id);
+    const added = data.halts.filter((h) => !seen.current!.has(h.id));
+    for (const h of added) seen.current.add(h.id);
+    // 화면을 연 뒤에 생긴 정지만 — 서버가 막 켜져(또는 실패 뒤) 처음 받은 목록의 오늘 앞선 정지는 알리지 않는다
+    const fresh = added.filter((h) => h.haltAtMs >= openedAt.current! - TOAST_LOOKBACK_MS);
     if (!fresh.length) return;
-    const line = (h: UsHaltRow) => `${h.rawIssueSymbol} ${haltCodeLabel(h.rawReasonCode) ?? h.rawReasonCode} · ${kstClockText(h.haltAtMs)}`;
+    const line = (h: UsHaltRow) => `${h.rawIssueSymbol} ${haltCodeLabel(codeOf(h)) ?? h.rawReasonCode} · ${kstClockText(h.haltAtMs)}`;
     if (fresh.length === 1) toast.info(line(fresh[0]));
     // 토스트 설명은 한 문단이라 줄바꿈 대신 「 · 」 — 종목 · 정지 시각(한국)만, 5건까지
     else
@@ -102,7 +112,7 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
         {!data && !error && <SkeletonTable rows={5} columns={8} />}
         {data && !data.halts.length && (
           <p className="rounded-lg bg-bg-tertiary/40 px-3 py-6 text-center text-caption text-text-muted">
-            오늘(미국 날짜 {data.day}) 멈춘 미국 종목이 아직 없습니다.
+            <EmptyText day={data.day} status={data.status} />
           </p>
         )}
         {data && data.halts.length > 0 && (
@@ -118,9 +128,21 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
   );
 }
 
-/** 받기 상태 한 줄 */
+/**
+ * 빈 목록 문구 — 받은 적이 없거나 받기가 실패 중이면 「없음」 이라고 하지 않는다(정지가 있는지 모른다).
+ * 받는 시간대 밖이면 「아직」 을 빼고, 받는 중이면 다시 확인한다고 적는다.
+ */
+function EmptyText({ day, status }: { day: string; status: UsHaltFetchStatus }) {
+  if (status.enabled && (!status.lastSuccessAt || status.consecutiveFailures >= FAIL_WARN))
+    return <>아직 Nasdaq 목록을 받지 못해 오늘(미국 날짜 {day}) 정지를 알 수 없습니다.</>;
+  if (!status.enabled || !status.inWindow) return <>오늘(미국 날짜 {day}) 멈춘 미국 종목이 없습니다.</>;
+  return <>오늘(미국 날짜 {day}) 멈춘 미국 종목이 아직 없습니다 — 1분마다 다시 확인합니다.</>;
+}
+
+/** 받기 상태 한 줄 — 시각은 한국 시간. 받는 시간대 밖이면 날짜도(전날 값을 오늘로 읽지 않게) */
 function StatusLine({ status }: { status: UsHaltFetchStatus }) {
-  const last = status.lastSuccessAt ? kstClockText(Date.parse(status.lastSuccessAt)) : null;
+  const lastMs = status.lastSuccessAt ? Date.parse(status.lastSuccessAt) : null;
+  const last = lastMs != null ? kstClockText(lastMs) : null;
   if (!status.enabled) return <span>이 서버는 Nasdaq 목록을 받지 않습니다(받기 꺼짐)</span>;
   if (status.consecutiveFailures >= FAIL_WARN)
     return (
@@ -129,8 +151,9 @@ function StatusLine({ status }: { status: UsHaltFetchStatus }) {
       </span>
     );
   if (!status.inWindow)
-    return <span>미국 시간 04:00~20:00 ET 평일에만 받습니다{last ? ` · 마지막 확인 ${last}` : ''}</span>;
-  return <span>{last ? `마지막 확인 ${last} · 1분마다` : '처음 받는 중…'}</span>;
+    return <span>미국 시간 04:00~20:00 ET 평일에만 받습니다{lastMs != null ? ` · 마지막 확인 ${KST_DAY.format(new Date(lastMs))} ${last}` : ''}</span>;
+  if (!last) return <span>{status.consecutiveFailures ? `아직 받지 못했습니다(실패 ${status.consecutiveFailures}번 · 1분마다 다시)` : '처음 받는 중…'}</span>;
+  return <span>마지막 확인 {last} · 1분마다</span>;
 }
 
 function HaltTable({
@@ -168,7 +191,7 @@ function HaltTable({
               <span className="inline-flex items-center gap-1">
                 방향(추정)
                 <InfoTip label="방향 추정 설명">
-                  정지 직전 1분봉 종가를 그 5분 전 종가와 비교해 짐작한 것입니다(토스 1분봉). Nasdaq 목록에는 위로 멈췄는지 아래로 멈췄는지 칸이 없어 맞았는지 확인할 수 없습니다. 매수 · 매도 신호가 아닙니다.
+                  정지 직전 1분봉 종가를 그 5분 전 종가와 비교해 짐작한 것입니다(토스 1분봉). Nasdaq 목록에는 위로 멈췄는지 아래로 멈췄는지 칸이 없어 맞았는지 확인할 수 없습니다. 매수 · 매도 신호가 아닙니다 — 상승 중 정지는 급하게 오르다 멈춘 것이라 재개 직후 크게 흔들릴 수 있습니다. 1분봉이 모자라거나 · 값이 같거나 · 토스에 없는 종목이면 「판정 못 함」 입니다.
                 </InfoTip>
               </span>
             </th>
@@ -177,7 +200,7 @@ function HaltTable({
         <tbody>
           {halts.map((h) => {
             const symbol = h.rawIssueSymbol.trim();
-            const resume = expectedResume(h, now);
+            const resume = expectedResume({ ...h, rawReasonCode: codeOf(h) }, now);
             const resumed = resume.kind === 'resumed';
             const watched = watchlist.includes(symbol);
             return (
@@ -203,9 +226,9 @@ function HaltTable({
                 <td className={`${NUM} py-1.5 text-text-secondary`}>{h.rawMarket}</td>
                 {/* 쉬운 말 아래에 원문 코드 — 한 줄로 두면 1280 에서 종목 칸이 좁아져 이름이 두 줄로 꺾였다 */}
                 <td className={`${NUM} py-1.5`}>
-                  {haltCodeLabel(h.rawReasonCode) ? (
+                  {haltCodeLabel(codeOf(h)) ? (
                     <>
-                      <span className="block">{haltCodeLabel(h.rawReasonCode)}</span>
+                      <span className="block">{haltCodeLabel(codeOf(h))}</span>
                       <span className="block text-caption text-text-muted">{h.rawReasonCode}</span>
                     </>
                   ) : (
@@ -218,7 +241,8 @@ function HaltTable({
                   </span>
                   <span className="block text-caption text-text-muted">오늘 {h.nthToday}번째</span>
                 </td>
-                <td className={`${NUM} py-1.5`}>
+                {/* 최소 폭 — 「22:46:03 예상」 → 「조건이 맞으면 재개」 로 바뀔 때 칸 폭이 흔들려 표 전체가 움직이지 않게 */}
+                <td className={`${NUM} min-w-32 py-1.5`}>
                   <ResumeCell resume={resume} />
                 </td>
                 <td className={`${NUM} py-1.5 tabular-nums`}>
@@ -230,7 +254,7 @@ function HaltTable({
                 </td>
                 <td className={`${NUM} py-1.5`}>{resumed ? <span className="text-text-secondary">재개됨</span> : <span className="font-medium text-warning">정지 중</span>}</td>
                 <td className={`${NUM} py-1.5 pr-3`}>
-                  <DirectionText est={h.directionEst} luld={isLuldCode(h.rawReasonCode.trim())} />
+                  <DirectionText est={h.directionEst} luld={isLuldCode(codeOf(h))} />
                 </td>
               </tr>
             );

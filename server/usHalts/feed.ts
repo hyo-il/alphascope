@@ -47,7 +47,8 @@ function decodeEntities(text: string): string {
     if (e === 'quot') return '"';
     if (e === 'apos') return "'";
     const code = e.startsWith('#x') ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
-    return Number.isFinite(code) ? String.fromCodePoint(code) : whole;
+    // 범위 밖 값은 원문 그대로(던지면 그 회차 받기 전체가 실패한다)
+    return Number.isFinite(code) && code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole;
   });
 }
 

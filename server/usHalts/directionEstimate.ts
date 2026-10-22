@@ -2,7 +2,7 @@
  * LULD 정지 방향 **추정** — 위로 멈췄나(상승 중 정지) · 아래로 멈췄나(하락 중 정지).
  *
  * RSS 에는 상한 / 하한 칸이 없고 `PauseThresholdPrice` 는 늘 빈칸이다(62차 조사). 그래서 토스 1분봉으로 짐작한다:
- * - 정지 시각 직전 봉(정지가 들어 있는 1분 칸까지)의 종가 vs **그 5분 전 봉**의 종가 — LULD 가격 범위가 「직전 5분 평균가」 기준이라
+ * - 정지 시각 직전 봉(정지가 들어 있는 1분 칸까지)의 종가 vs **그 5분 전 봉**(5~7분 앞 — 그보다 멀면 쓰지 않는다)의 종가 — LULD 가격 범위가 「직전 5분 평균가」 기준이라
  *   5분 동안 어느 쪽으로 움직였는지가 어느 쪽 끝에 닿았는지와 가장 가깝다.
  * - 오르면 up · 내리면 down. 같거나 · 봉이 모자라거나 · 직전 봉이 정지보다 2분 넘게 앞서거나(거래가 뜸해 그 사이 값을 모름) ·
  *   토스에 없는 종목(카탈로그 밖 · 404)이면 unknown.
@@ -42,7 +42,8 @@ export function judgeDirection(bars: Candle[], haltAtMs: number): DirectionEstim
   const last = before.at(-1);
   if (!last) return { est: 'unknown', detail: { reason: 'few_bars' } };
   if (haltAtMs - last.timestamp > STALE_MS) return { est: 'unknown', detail: { reason: 'stale', lastBar: barOf(last) } };
-  const base = [...before].reverse().find((b) => b.timestamp <= last.timestamp - 5 * MINUTE);
+  // 5~7분 앞의 봉만 — 거래가 뜸해 더 먼 봉(장 전 봉 등)과 비교하면 「직전 5분」 근거에서 벗어난다
+  const base = [...before].reverse().find((b) => b.timestamp <= last.timestamp - 5 * MINUTE && b.timestamp >= last.timestamp - 7 * MINUTE);
   if (!base) return { est: 'unknown', detail: { reason: 'few_bars', lastBar: barOf(last) } };
   const detail = { lastBar: barOf(last), baseBar: barOf(base) };
   if (last.close > base.close) return { est: 'up', detail };

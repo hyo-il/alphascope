@@ -105,7 +105,14 @@ export async function usHaltsTick(deps: TickDeps = {}): Promise<'fetched' | 'fai
     console.warn(`[usHalts] 받기 실패(${status.consecutiveFailures}번 연속): ${status.lastError}`);
     return 'failed';
   }
-  ingestHalts(items, now);
+  const ingested = ingestHalts(items, now);
+  // Nasdaq 이 날짜 · 시각 모양을 바꾸면 줄이 조용히 빠진다 — 로그로 알리고, 하나도 못 읽었으면 받기 실패로 센다(화면이 「없음」 으로 읽지 않게)
+  if (ingested.skippedBad) console.warn(`[usHalts] 날짜 · 시각 모양이 달라 저장하지 않은 항목 ${ingested.skippedBad}개`);
+  if (items.length && ingested.skippedBad === items.length) {
+    status.consecutiveFailures++;
+    status.lastError = `항목 ${items.length}개 모두 날짜 · 시각 모양이 다릅니다`;
+    return 'failed';
+  }
   status.lastSuccessAt = new Date(now).toISOString();
   status.consecutiveFailures = 0;
   status.lastError = null;
@@ -115,6 +122,22 @@ export async function usHaltsTick(deps: TickDeps = {}): Promise<'fetched' | 'fai
 
 let timer: ReturnType<typeof setInterval> | null = null;
 let running = false;
+
+/*
+  실제로 Nasdaq 을 부른 마지막 시각 — DB(app_settings)에 남긴다. 개발 서버(tsx watch)는 파일을 저장할 때마다 다시 켜져
+  켤 때마다 곧바로 받으면 1분에 여러 번 부르게 된다 → 60초가 지나지 않았으면 이번 분은 건너뛴다.
+*/
+const LAST_FETCH_KEY = 'usHalts.lastFetchAt';
+export function tooSoon(now: number): boolean {
+  const row = getDb().prepare(`SELECT value FROM app_settings WHERE key = ?`).get(LAST_FETCH_KEY) as { value: string } | undefined;
+  const last = row ? Number(row.value) : NaN;
+  return Number.isFinite(last) && now - last < FETCH_INTERVAL_MS && now >= last;
+}
+export function markFetched(now: number): void {
+  getDb()
+    .prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`)
+    .run(LAST_FETCH_KEY, String(now));
+}
 
 /** 서버가 켜질 때 한 번 — 스위치가 꺼져 있으면 아무것도 하지 않는다 */
 export function startUsHaltsScheduler(): void {
@@ -126,8 +149,16 @@ export function startUsHaltsScheduler(): void {
   const run = () => {
     // 한 번이 1분을 넘기면(토스 대기 등) 겹치지 않게 건너뛴다 — Nasdaq 은 1분에 1번 이하
     if (running) return;
+    const now = Date.now();
+    if (isFetchWindow(now) && tooSoon(now)) return;
     running = true;
-    void usHaltsTick()
+    void usHaltsTick({
+      now,
+      load: () => {
+        markFetched(now);
+        return fetchHaltsFeed();
+      },
+    })
       .catch((e) => console.warn('[usHalts] 작업 실패:', (e as Error).message))
       .finally(() => {
         running = false;
