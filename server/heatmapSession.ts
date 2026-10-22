@@ -140,7 +140,7 @@ const FIXED: Record<CalendarMarket, [number, number, HeatmapSession, string][]> 
 };
 
 /** 고정표의 그 시각 세션 — 그 시장 날짜가 휴장(주말 포함)이면 null */
-export function fixedSpanAt(market: CalendarMarket, t: number): SessionSpan | null {
+function fixedSpanAt(market: CalendarMarket, t: number): SessionSpan | null {
   const { day, minutes } = localParts(market, t);
   if (isMarketClosed(market, day)) return null;
   const row = FIXED[market].find(([s, e]) => minutes >= s && minutes < e);

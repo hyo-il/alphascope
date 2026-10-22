@@ -22,7 +22,8 @@ import HeatmapViewMenu, { TOP_CHOICES, type TopChoice } from './HeatmapViewMenu'
  * 🗺 종목 지도 — 시장 온도를 한눈에. 네모 크기 = 시가총액, 색 = 기간 수익률, 섹터로 묶는다.
  *
  * - 데이터는 `GET /api/heatmap?market=&period=` 한 곳. 1일은 화면 주기·서버 캐시가 같은 값 `HEATMAP_LIVE_MS`(10초) —
- *   화면이 보일 때만, 그 시장 장이 열려 있을 때만 다시 받는다(닫혀 있으면 「장 마감」, 다음 개장 시각에 한 번 다시 받는다). 숨은 탭 정지.
+ *   화면이 보일 때만, 그 시장에 거래가 열려 있을 때만(프리 · 정규 · 애프터 · 주간거래 · NXT — 서버 `heatmapSession.ts`) 다시 받는다.
+ *   닫혀 있으면 「장 마감」 — 다음 세션 시작 5초 뒤 한 번 + 1분마다 다시 열렸는지 묻는다(서버 캐시 10분이라 토스는 거의 부르지 않는다). 숨은 탭 정지.
  *   1주 이상은 종가 기준이라 주기 새로고침을 하지 않는다(탭이 다시 보일 때만).
  * - 배치는 직접 구현한 squarified treemap(`utils/treemap.ts`) — 섹터를 먼저 나누고, 섹터 안에서 종목을 나눈다.
  * - 색은 `index.css` 의 heat-* 불투명 단계색(bullish/bearish 를 회색에 섞은 4단계 + 회색) + 진하기 구간 —
@@ -33,6 +34,9 @@ import HeatmapViewMenu, { TOP_CHOICES, type TopChoice } from './HeatmapViewMenu'
  * - 오른쪽 「섹터 강세 순위」는 **설명용**이다 — 지난 기간의 결과이고 판정·자동매매에 쓰지 않는다.
  * - ⚠️ 다른 사이트의 데이터·디자인을 가져오지 않았다 — 앱 다크 테마로 새로 그렸다.
  */
+
+/** 닫힌 1일 지도가 다시 열렸는지 묻는 간격 */
+const CLOSED_CHECK_MS = 60_000;
 
 /** 「N초 전 갱신」 — 1분이 넘으면 「N분 전 갱신」 */
 function updatedAgo(now: number, asOf: string): string {
@@ -444,7 +448,8 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [load]);
 
-  // 1일만: 장이 열려 있으면 `HEATMAP_LIVE_MS` 마다(서버 캐시와 같은 값), 닫혀 있으면 다음 개장(휴장일 반영, 서버 계산) 5초 뒤 한 번
+  // 1일만: 거래가 열려 있으면(어느 세션이든) `HEATMAP_LIVE_MS` 마다(서버 캐시와 같은 값),
+  // 닫혀 있으면 다음 세션 시작(휴장일 반영, 서버 계산) 5초 뒤 한 번 + 1분마다(시간표 밖 체결 — 서버 보조 판단 — 을 잡으려고)
   const liveOpen = period === '1d' && data != null ? data.marketOpen : null;
   const nextOpen = data?.nextOpen ?? null;
   useEffect(() => {
@@ -453,10 +458,13 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
       const t = setInterval(() => document.visibilityState === 'visible' && void load(), HEATMAP_LIVE_MS);
       return () => clearInterval(t);
     }
+    const check = setInterval(() => document.visibilityState === 'visible' && void load(), CLOSED_CHECK_MS);
     const wait = nextOpen ? Date.parse(nextOpen) - Date.now() + 5_000 : NaN;
-    if (!(wait > 0 && wait < 2 ** 31 - 1)) return;
-    const t = setTimeout(() => void load(), wait);
-    return () => clearTimeout(t);
+    const t = wait > 0 && wait < 2 ** 31 - 1 ? setTimeout(() => void load(), wait) : undefined;
+    return () => {
+      clearInterval(check);
+      clearTimeout(t);
+    };
   }, [liveOpen, nextOpen, load]);
 
   // 「N초 전 갱신」 — 장이 열려 있을 때만 1초마다 다시 그린다
@@ -524,9 +532,9 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   ];
 
   /** 지도 읽는 법 — 넓으면 지도 아래 줄 오른쪽에 글자로, 좁으면 ⓘ 툴팁. 고정 문구는 섹터 순위 아래에 늘 글자로 있다 */
-  const guide = `색은 ${period === '1d' ? '전 거래일 종가 대비 등락' : `최근 종가 ÷ ${periodInfo.bars}거래일 전 종가`}입니다.${
+  const guide = `색은 ${period === '1d' ? (market === 'us' ? '기준 종가 대비 등락(미국 애프터마켓은 오늘 정규장 종가, 그 밖은 전 거래일 정규장 종가)' : '전 거래일 종가(기준가) 대비 등락') : `최근 종가 ÷ ${periodInfo.bars}거래일 전 종가`}입니다.${
     watchView ? (watchSize === 'sqrt' ? ' 크기 = 시가총액의 제곱근(크기 차이 줄인 보기).' : ' 크기 = 시가총액.') : ' 파란 테두리는 관심 종목.'
-  } 작은 종목도 이름이 보이도록 칸에 최소 크기를 두었습니다 — 작은 칸은 실제 시가총액 비율보다 조금 큽니다.${period === '1d' ? ` 장이 열려 있는 동안 ${HEATMAP_LIVE_MS / 1000}초마다 새로고침(화면을 보고 있을 때만). 장이 닫히면 「장 마감」 으로 보이고 다시 받지 않습니다.` : ''}`;
+  } 작은 종목도 이름이 보이도록 칸에 최소 크기를 두었습니다 — 작은 칸은 실제 시가총액 비율보다 조금 큽니다.${period === '1d' ? ` 거래가 열려 있는 동안(${market === 'us' ? '주간거래 · 프리마켓 · 정규장 · 애프터마켓' : 'NXT 프리마켓 · 정규장 · NXT 애프터마켓'}) ${HEATMAP_LIVE_MS / 1000}초마다 새로고침(화면을 보고 있을 때만). 거래가 모두 닫히면 「장 마감」 으로 보이고 1분마다 다시 열렸는지만 확인합니다.` : ''}`;
 
   return (
     <div className={`@container flex h-full flex-col ${PANEL_PAD}`}>
@@ -738,11 +746,15 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         {/* 대상·기준 시각 — 머리줄이 아니라 이 줄(1280 폭에서 머리줄이 두 줄이 되지 않게) */}
         {data && (
           <span className="text-caption text-text-muted">
-            {watchView ? `${marketLabel} 관심 종목` : `시총 상위 ${data.top ?? top}`} · {tiles.length < data.cells.length ? `${tiles.length}/${data.cells.length}` : data.cells.length}
-            종목 ·{' '}
+            {/* 상위 N 이 다 보이면 「시총 상위 50종목」 한 번만(1280 에서 세션 문구와 읽는 법이 한 줄에 들어가게) */}
+            {!watchView && tiles.length === data.cells.length && data.cells.length === (data.top ?? top)
+              ? `시총 상위 ${data.cells.length}종목 · `
+              : `${watchView ? `${marketLabel} 관심 종목` : `시총 상위 ${data.top ?? top}`} · ${tiles.length < data.cells.length ? `${tiles.length}/${data.cells.length}` : data.cells.length}종목 · `}
             {period === '1d'
               ? data.marketOpen
-                ? `${updatedAgo(tick, data.asOf)} · ${formatTime(data.asOf)} 기준`
+                ? data.session && data.session !== 'regular'
+                  ? `${data.sessionLabel} · ${updatedAgo(tick, data.asOf)} · ${data.basisLabel}`
+                  : `${updatedAgo(tick, data.asOf)} · ${formatTime(data.asOf)} 기준`
                 : `장 마감 · ${formatTime(data.asOf)} 기준`
               : `최근 종가 기준 ${periodInfo.bars}거래일`}
             {loading && ' · 새로고침 중…'}

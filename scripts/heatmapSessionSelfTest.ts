@@ -8,7 +8,7 @@ import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니�
 import 'dotenv/config';
 import { readFileSync } from 'node:fs';
 import { getDb, saveCandles } from '../server/db';
-import { baseClose, basisOf, fixedSpanAt, heatmapSession, setSessionHooksForTest, type SessionInfo, type TossCalendarResponse } from '../server/heatmapSession';
+import { baseClose, basisOf, heatmapSession, setSessionHooksForTest, type SessionInfo, type TossCalendarResponse } from '../server/heatmapSession';
 import { priceDay, resetPreviousCloseForTest, setCandleRefreshForTest, setPriceLimitsForTest, setRankingBasesForTest } from '../server/previousClose';
 import type { CalendarMarket } from '../server/marketCalendar';
 import type { Candle } from '../src/types/toss';
