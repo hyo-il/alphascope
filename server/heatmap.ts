@@ -335,7 +335,7 @@ export async function heatmap(
 ): Promise<HeatmapResponse> {
   const view = options.view ?? 'market';
   const cal = market === 'us' ? 'US' : 'KR';
-  const info = await heatmapSession(cal, now);
+  const info = await heatmapSession(cal, now, { probe: period === '1d' });
   const ctx: DayContext = { info, basis: basisOf(cal, info, now) };
   const session = {
     marketOpen: info.span != null,

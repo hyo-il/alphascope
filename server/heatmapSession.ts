@@ -34,6 +34,8 @@ export interface SessionSpan {
   start: number;
   end: number;
   tradeDay: string | null;
+  /** 장외 거래(other)일 때 — 바로 앞에 끝난 시간표 세션(미국 애프터 뒤 틈이면 오늘 종가 기준을 이어 간다) */
+  follows?: SessionSpan;
 }
 
 export interface SessionInfo {
@@ -54,6 +56,8 @@ const KR_PRE_AUCTION_LABEL = '정규장 시작 전';
 
 /** 보조 판단 — 마지막 체결이 이만큼 안이면 거래 중으로 본다 */
 export const RECENT_TRADE_MS = 2 * 60_000;
+/** 체결 시각이 서버 시계보다 이만큼 넘게 앞이면 믿지 않는다(이상한 값으로 밤새 「열림」 이 되지 않게) */
+const FUTURE_TRADE_MS = 60_000;
 const PROBE_TTL_MS = 60_000;
 const PROBE_SYMBOLS = 5;
 const CALENDAR_RETRY_MS = 5 * 60_000;
@@ -229,18 +233,20 @@ function lastTradeAt(market: CalendarMarket): Promise<number | null> {
  * 종목 지도의 지금 세션 — **이 함수 한 곳**(지도 응답의 `marketOpen` · `session` · `nextOpen` · 캐시 길이 · 등락률 기준).
  * 시간표(토스 → 고정표)에 없으면 보조 판단(최근 2분 체결)으로 「장외 거래」 — 미국은 고정표일 때 20:00~04:00 ET 를 「주간거래」 로 부른다.
  */
-export async function heatmapSession(market: CalendarMarket, now = Date.now()): Promise<SessionInfo> {
+export async function heatmapSession(market: CalendarMarket, now = Date.now(), options: { probe?: boolean } = {}): Promise<SessionInfo> {
   const spans = await tossSpans(market, now);
   const source = spans ? 'toss' : 'fixed';
   let span = spans ? (spans.find((s) => s.start <= now && now < s.end) ?? null) : fixedSpanAt(market, now);
   const nextFromToss = spans?.find((s) => s.start > now)?.start;
   const nextStart = nextFromToss ?? fixedNextStart(market, now);
-  if (!span) {
+  // 보조 판단은 1일 지도만(1주 이상은 /prices 를 부르지 않는다)
+  if (!span && options.probe !== false) {
     const last = await lastTradeAt(market);
-    if (last != null && now - last <= RECENT_TRADE_MS) {
+    if (last != null && now - last <= RECENT_TRADE_MS && last - now <= FUTURE_TRADE_MS) {
       const m = localParts(market, now).minutes;
       const day = market === 'US' && source === 'fixed' && (m >= 20 * 60 || m < 4 * 60);
-      span = { session: day ? 'day' : 'other', label: day ? LABELS.US.day! : OTHER_LABEL, start: last, end: nextStart, tradeDay: null };
+      const follows = spans?.filter((s) => s.end <= now).at(-1);
+      span = { session: day ? 'day' : 'other', label: day ? LABELS.US.day! : OTHER_LABEL, start: last, end: nextStart, tradeDay: null, follows };
     }
   }
   return { span, nextStart, source };
@@ -256,15 +262,18 @@ export interface BasisInfo {
 
 const BASIS_LABEL: Record<HeatmapBasis, string> = { prev: '전일 종가 대비', today: '오늘 종가 대비', recent: '최근 종가 대비' };
 
+/** 기준을 정하는 세션 — 장외 거래가 미국 애프터 바로 뒤 틈(토스 19:50~20:00 ET)이면 그 애프터 */
+const basisSpan = (span: SessionSpan | null): SessionSpan | null => (span?.session === 'other' && span.follows?.session === 'after' ? span.follows : span);
+
 /**
- * 세션별 기준 — 미국 애프터마켓은 오늘 정규장 종가(정규장 끝 + 10분 뒤부터 — 그 전에는 오늘 봉이 확정 전이라 전일 종가 그대로),
- * 미국 주간거래 · 장외 거래는 「최근 종가」(= 가장 최근 정규장 종가), 그 밖은 전일 종가.
+ * 세션별 기준 — 미국 애프터마켓(과 그 바로 뒤 장외 거래)은 오늘 정규장 종가(정규장 끝 + 10분 뒤부터 — 그 전에는 오늘 봉이 확정 전이라 전일 종가 그대로),
+ * 미국 주간거래 · 그 밖 장외 거래는 「최근 종가」(= 가장 최근 정규장 종가 — 가격 날이 20:00 ET 에 넘어가 `previousClose` 가 그 값), 그 밖(국내 장외 거래 포함)은 전일 종가.
  */
 export function basisOf(market: CalendarMarket, info: SessionInfo, now: number): BasisInfo {
-  const s = info.span?.session;
+  const span = basisSpan(info.span);
   let basis: HeatmapBasis = 'prev';
-  if (market === 'US' && s === 'after' && now >= info.span!.start + CONFIRM_MARGIN_MS) basis = 'today';
-  else if (s === 'day' || s === 'other') basis = 'recent';
+  if (market === 'US' && span?.session === 'after' && now >= span.start + CONFIRM_MARGIN_MS) basis = 'today';
+  else if (market === 'US' && (span?.session === 'day' || span?.session === 'other')) basis = 'recent';
   return { basis, label: BASIS_LABEL[basis] };
 }
 
@@ -321,7 +330,7 @@ export async function regularCloseOn(symbol: string, day: string, confirmAt: num
  * 그 밖은 공용 `previousClose`(관심 목록 · 차트 머리와 같은 값).
  */
 export async function baseClose(symbol: string, now: number, info: SessionInfo, basis: BasisInfo): Promise<number | null> {
-  const span = info.span;
+  const span = basisSpan(info.span);
   if (basis.basis === 'today' && span?.tradeDay) return regularCloseOn(symbol, span.tradeDay, span.start + CONFIRM_MARGIN_MS);
   if (span?.tradeDay && span.session !== 'regular' && marketOf(symbol) === 'US') return previousCloseForDay(symbol, span.tradeDay);
   return previousClose(symbol, now);

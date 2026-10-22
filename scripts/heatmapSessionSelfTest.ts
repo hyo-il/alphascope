@@ -21,9 +21,13 @@ const check = (name: string, ok: boolean, detail = '') => {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
 };
 
-const fixture = (market: CalendarMarket) =>
-  JSON.parse(readFileSync(new URL(`./fixtures/heatmapSession/calendar-${market}-2026-10-22.json`, import.meta.url), 'utf8')) as TossCalendarResponse;
-const FIX = { US: fixture('US'), KR: fixture('KR') };
+const fixture = (market: CalendarMarket, day: string) =>
+  JSON.parse(readFileSync(new URL(`./fixtures/heatmapSession/calendar-${market}-${day}.json`, import.meta.url), 'utf8')) as TossCalendarResponse;
+/** 토스 달력 실제 응답 — 2026-10-22(목, 서머타임) · 10-24(토 — today 세션 null) · 11-02(월, 서머타임 끝난 뒤) */
+const FIX: Record<CalendarMarket, Record<string, TossCalendarResponse>> = {
+  US: { '2026-10-22': fixture('US', '2026-10-22'), '2026-10-24': fixture('US', '2026-10-24'), '2026-11-02': fixture('US', '2026-11-02') },
+  KR: { '2026-10-22': fixture('KR', '2026-10-22') },
+};
 
 /** 시각 — 'ET' 는 서머타임을 직접 적는다(EDT −04:00 · EST −05:00) */
 const et = (iso: string, offset = '-04:00') => Date.parse(`${iso}${offset}`);
@@ -33,9 +37,9 @@ const show = (info: SessionInfo) => (info.span ? `${info.span.session}·${info.s
 /** 고정표(토스 달력 못 받음) · 최근 체결 없음 */
 const useFixed = (lastTrade: number | null = null) =>
   setSessionHooksForTest({ calendar: async () => null, lastTrade: async () => lastTrade, refreshDaily: async () => {} });
-/** 토스 달력(2026-10-22 한국 날짜만 — 그 밖 날짜는 못 받음) */
-const useToss = (lastTrade: number | null = null) =>
-  setSessionHooksForTest({ calendar: async (m, day) => (day === '2026-10-22' ? FIX[m] : null), lastTrade: async () => lastTrade, refreshDaily: async () => {} });
+/** 토스 달력(fixture 가 있는 한국 날짜만 — 그 밖 날짜는 못 받음) */
+const useToss = (lastTrade: number | null = null, refreshDaily: (symbol: string) => Promise<unknown> = async () => {}) =>
+  setSessionHooksForTest({ calendar: async (m, day) => FIX[m][day] ?? null, lastTrade: async () => lastTrade, refreshDaily });
 
 const expectSession = async (market: CalendarMarket, name: string, now: number, want: string | null, label?: string) => {
   const info = await heatmapSession(market, now);
@@ -109,7 +113,14 @@ try {
   // ── 4. 보조 판단(시간표 닫힘 + 최근 체결) ──
   const n = kst('2026-10-22T21:00:00');
   useFixed(n - 90_000);
-  await expectSession('KR', '닫힘 + 90초 전 체결', n, 'other', '장외 거래');
+  const krOther = await expectSession('KR', '닫힘 + 90초 전 체결', n, 'other', '장외 거래');
+  const krOtherBasis = basisOf('KR', krOther, n);
+  check('KR 장외 거래 → 기준 prev(전일 종가 대비 — 국내는 늘 기준가)', krOtherBasis.basis === 'prev' && krOtherBasis.label === '전일 종가 대비', krOtherBasis.label);
+  useFixed(n + 5 * 60_000);
+  await expectSession('KR', '닫힘 + 체결 시각이 5분 뒤(이상한 값)', n, null);
+  useFixed(n - 30_000);
+  const noProbe = await heatmapSession('KR', n, { probe: false });
+  check('KR 1주 이상 지도(probe: false) → 체결을 묻지 않고 닫힘', noProbe.span === null, show(noProbe));
   useFixed(n - 180_000);
   await expectSession('KR', '닫힘 + 3분 전 체결', n, null);
   const u = et('2026-10-22T21:00:00');
@@ -186,6 +197,45 @@ try {
     const v = await baseClose(KR, now, info, basisOf('KR', info, now));
     check(`KR ${name} → 전일(10-21) 종가 1100`, v === 1100, `값 ${v}`);
   }
+
+  // ── 7. 토스 달력 — 주말 · 서머타임 끝 ──
+  useToss();
+  await expectSession('US', '토스 토 10-24 06:00 KST(금요일 애프터)', kst('2026-10-24T06:00:00'), 'after', '애프터마켓');
+  const sat = await expectSession('US', '토스 토 10-24 12:00 KST', kst('2026-10-24T12:00:00'), null);
+  check('US 토스 토요일 닫힘 → 다음 = 월 10-26 09:00 KST 주간거래', sat.nextStart === kst('2026-10-26T09:00:00') && sat.source === 'toss', new Date(sat.nextStart).toISOString());
+  await expectSession('US', '토스 월 11-02 09:30 KST(서머타임 끝 — 주간거래 10:00 부터)', kst('2026-11-02T09:30:00'), null);
+  for (const [name, now, want, day] of [
+    ['월 11-02 10:30 KST', kst('2026-11-02T10:30:00'), 'day', '2026-11-02'],
+    ['월 11-02 23:40 KST', kst('2026-11-02T23:40:00'), 'regular', '2026-11-02'],
+  ] as const) {
+    const info = await expectSession('US', `토스 ${name}`, now, want);
+    check(`US 토스 ${name} — 세션 거래일 ${day} = 가격 날`, info.span?.tradeDay === day && priceDay('AAPL', now) === day, `${info.span?.tradeDay} · priceDay ${priceDay('AAPL', now)}`);
+  }
+
+  // ── 8. 토스 달력 경로의 기준 종가 값 · 애프터 뒤 틈(19:50~20:00 ET) ──
+  resetPreviousCloseForTest();
+  clear();
+  saveCandles(US, '1d', [bar('2026-10-20', 100)], et('2026-10-20T18:00:00'));
+  saveCandles(US, '1d', [bar('2026-10-21', 110)], kst('2026-10-22T05:20:00')); // 10-21 정규장 마감 + 20분에 받은 값(확정)
+  saveCandles(US, '1d', [bar('2026-10-22', 118)], kst('2026-10-22T23:30:00')); // 10-22 장중 값(미확정)
+  const tossBase = async (now: number, lastTrade: number | null = null) => {
+    useToss(lastTrade);
+    const info = await heatmapSession('US', now);
+    const b = basisOf('US', info, now);
+    return { v: await baseClose(US, now, info, b), b: b.basis, s: info.span?.session ?? null };
+  };
+  for (const [name, now, wantV, wantB] of [
+    ['애프터 05:05 KST(10-21, 확정 전)', kst('2026-10-22T05:05:00'), 100, 'prev'],
+    ['애프터 05:11 KST(10-21)', kst('2026-10-22T05:11:00'), 110, 'today'],
+    ['주간거래 10:00 KST(10-22)', kst('2026-10-22T10:00:00'), 110, 'recent'],
+    ['프리마켓 18:00 KST(10-22)', kst('2026-10-22T18:00:00'), 110, 'prev'],
+  ] as const) {
+    const r = await tossBase(now);
+    check(`US 토스 ${name} → 기준 ${wantB} · 값 ${wantV}`, r.v === wantV && r.b === wantB, `${r.s} · ${r.b} · ${r.v}`);
+  }
+  const gapNow = kst('2026-10-22T08:51:00');
+  const g = await tossBase(gapNow, gapNow - 60_000);
+  check('US 토스 08:51 KST(애프터 끝 뒤 틈) + 1분 전 체결 → 장외 거래 · 오늘(10-21) 종가 기준 이어 감 110', g.s === 'other' && g.b === 'today' && g.v === 110, `${g.s} · ${g.b} · ${g.v}`);
 } finally {
   setSessionHooksForTest({ calendar: null, lastTrade: null, refreshDaily: null });
   setCandleRefreshForTest(null);

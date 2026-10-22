@@ -408,9 +408,10 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   const box = useRef<HTMLDivElement>(null);
   const sequence = useRef(0);
 
-  const load = useCallback(async () => {
+  /** `poll` = 주기 재조회 — 「새로고침 중…」 을 붙이지 않는다(폴링에는 표시를 더하지 않는다) */
+  const load = useCallback(async (poll = false) => {
     const mine = ++sequence.current;
-    setLoading(true);
+    if (!poll) setLoading(true);
     try {
       const q = view === 'watch' ? 'view=watch' : `view=market&top=${top}`;
       const r = await fetch(`/api/heatmap?market=${market}&period=${period}&${q}`);
@@ -455,12 +456,12 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   useEffect(() => {
     if (liveOpen == null) return;
     if (liveOpen) {
-      const t = setInterval(() => document.visibilityState === 'visible' && void load(), HEATMAP_LIVE_MS);
+      const t = setInterval(() => document.visibilityState === 'visible' && void load(true), HEATMAP_LIVE_MS);
       return () => clearInterval(t);
     }
-    const check = setInterval(() => document.visibilityState === 'visible' && void load(), CLOSED_CHECK_MS);
+    const check = setInterval(() => document.visibilityState === 'visible' && void load(true), CLOSED_CHECK_MS);
     const wait = nextOpen ? Date.parse(nextOpen) - Date.now() + 5_000 : NaN;
-    const t = wait > 0 && wait < 2 ** 31 - 1 ? setTimeout(() => void load(), wait) : undefined;
+    const t = wait > 0 && wait < 2 ** 31 - 1 ? setTimeout(() => void load(true), wait) : undefined;
     return () => {
       clearInterval(check);
       clearTimeout(t);
@@ -534,7 +535,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   /** 지도 읽는 법 — 넓으면 지도 아래 줄 오른쪽에 글자로, 좁으면 ⓘ 툴팁. 고정 문구는 섹터 순위 아래에 늘 글자로 있다 */
   const guide = `색은 ${period === '1d' ? (market === 'us' ? '기준 종가 대비 등락(미국 애프터마켓은 오늘 정규장 종가, 그 밖은 전 거래일 정규장 종가)' : '전 거래일 종가(기준가) 대비 등락') : `최근 종가 ÷ ${periodInfo.bars}거래일 전 종가`}입니다.${
     watchView ? (watchSize === 'sqrt' ? ' 크기 = 시가총액의 제곱근(크기 차이 줄인 보기).' : ' 크기 = 시가총액.') : ' 파란 테두리는 관심 종목.'
-  } 작은 종목도 이름이 보이도록 칸에 최소 크기를 두었습니다 — 작은 칸은 실제 시가총액 비율보다 조금 큽니다.${period === '1d' ? ` 거래가 열려 있는 동안(${market === 'us' ? '주간거래 · 프리마켓 · 정규장 · 애프터마켓' : 'NXT 프리마켓 · 정규장 · NXT 애프터마켓'}) ${HEATMAP_LIVE_MS / 1000}초마다 새로고침(화면을 보고 있을 때만). 거래가 모두 닫히면 「장 마감」 으로 보이고 1분마다 다시 열렸는지만 확인합니다.` : ''}`;
+  } 작은 종목도 이름이 보이도록 칸에 최소 크기를 두었습니다 — 작은 칸은 실제 시가총액 비율보다 조금 큽니다.${period === '1d' ? ` 거래가 열려 있는 동안(${market === 'us' ? '주간거래 · 프리마켓 · 정규장 · 애프터마켓' : 'NXT 프리마켓 · 정규장 · NXT 애프터마켓'}) ${HEATMAP_LIVE_MS / 1000}초마다 새로고침(화면을 보고 있을 때만). ${market === 'us' ? ' 애프터마켓 처음 10분은 오늘 종가가 확정되기 전이라 전일 종가 대비입니다.' : ''} 시간표 밖이라도 방금 체결이 있으면 「장외 거래」 로 이어 받습니다. 거래가 모두 닫히면 「장 마감」 으로 보이고 1분마다 다시 열렸는지만 확인합니다.` : ''}`;
 
   return (
     <div className={`@container flex h-full flex-col ${PANEL_PAD}`}>
@@ -746,8 +747,10 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         {/* 대상·기준 시각 — 머리줄이 아니라 이 줄(1280 폭에서 머리줄이 두 줄이 되지 않게) */}
         {data && (
           <span className="text-caption text-text-muted">
-            {/* 상위 N 이 다 보이면 「시총 상위 50종목」 한 번만(1280 에서 세션 문구와 읽는 법이 한 줄에 들어가게) */}
-            {!watchView && tiles.length === data.cells.length && data.cells.length === (data.top ?? top)
+            {/* 거른 것이 없으면 「시총 상위 50종목」 · 「국내 관심 2종목」 한 번만(1280 에서 세션 문구와 읽는 법이 한 줄에 들어가게) */}
+            {watchView && tiles.length === data.cells.length
+              ? `${marketLabel} 관심 ${data.cells.length}종목 · `
+              : !watchView && tiles.length === data.cells.length && data.cells.length === (data.top ?? top)
               ? `시총 상위 ${data.cells.length}종목 · `
               : `${watchView ? `${marketLabel} 관심 종목` : `시총 상위 ${data.top ?? top}`} · ${tiles.length < data.cells.length ? `${tiles.length}/${data.cells.length}` : data.cells.length}종목 · `}
             {period === '1d'
