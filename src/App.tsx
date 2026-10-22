@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import CompareView from './components/compare/CompareView';
 import PortfolioView from './components/portfolio/PortfolioView';
 import SurgeDashboard from './components/surge/SurgeDashboard';
+import UsHaltsView from './components/usHalts/UsHaltsView';
 import BuyJudgeView from './components/swing/BuyJudgeView';
 import RecordsView from './components/records/RecordsView';
 import BacktestView from './components/backtest/BacktestView';
@@ -365,6 +366,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
             }}
           />
         );
+      case 'ushalts':
+        return <UsHaltsView onSelectSymbol={openChart} />;
       case 'swing':
         return (
           <BuyJudgeView />
