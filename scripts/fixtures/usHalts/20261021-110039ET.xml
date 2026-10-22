@@ -1,0 +1,537 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:ndaq="http://www.nasdaqtrader.com/">
+  <channel>
+    <title>NASDAQTrader.com</title>
+    <link>http://www.nasdaqtrader.com</link>
+    <description>NASDAQ Trade Halts</description>
+    <copyright>Copyright 2026. All rights reserved.</copyright>
+    <pubDate>Wed, 21 Oct 2026 15:00:09 GMT</pubDate>
+    <ttl>1</ttl>
+    <ndaq:numItems>35</ndaq:numItems>
+    <item>
+      <title>WZRD</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>10:29:26.420</ndaq:HaltTime>
+      <ndaq:IssueSymbol>WZRD</ndaq:IssueSymbol>
+      <ndaq:IssueName>Opportunistic Trader ETF</ndaq:IssueName>
+      <ndaq:Market>Non NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>M</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>10:34:26</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>10:34:26</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>POM</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>10:25:35.826</ndaq:HaltTime>
+      <ndaq:IssueSymbol>POM</ndaq:IssueSymbol>
+      <ndaq:IssueName>POMDOCTOR LTD Cl A Ord Shs</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>10:25:35</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>10:30:35</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>RFAIU</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>10:22:12.050</ndaq:HaltTime>
+      <ndaq:IssueSymbol>RFAIU</ndaq:IssueSymbol>
+      <ndaq:IssueName>RF Acquisition Corp II</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>10:22:12</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>10:27:12</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>WHLRP</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>10:21:41.500</ndaq:HaltTime>
+      <ndaq:IssueSymbol>WHLRP</ndaq:IssueSymbol>
+      <ndaq:IssueName>Wheeler REIT Cl B Prfd Stk</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>10:21:41</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>10:26:41</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>REED</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>10:21:17.313</ndaq:HaltTime>
+      <ndaq:IssueSymbol>REED</ndaq:IssueSymbol>
+      <ndaq:IssueName>Reed&apos;s, Inc. Common Stock</ndaq:IssueName>
+      <ndaq:Market>AMEX</ndaq:Market>
+      <ndaq:ReasonCode>M</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>10:26:17</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>10:26:17</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>MPU</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>10:19:05.410</ndaq:HaltTime>
+      <ndaq:IssueSymbol>MPU</ndaq:IssueSymbol>
+      <ndaq:IssueName>Mega Matrix Inc. Class A Ordin</ndaq:IssueName>
+      <ndaq:Market>AMEX</ndaq:Market>
+      <ndaq:ReasonCode>M</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>10:24:05</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>10:24:05</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>POM</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>10:16:28.826</ndaq:HaltTime>
+      <ndaq:IssueSymbol>POM</ndaq:IssueSymbol>
+      <ndaq:IssueName>POMDOCTOR LTD Cl A Ord Shs</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>10:16:28</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>10:21:28</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>POM</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>10:03:57.283</ndaq:HaltTime>
+      <ndaq:IssueSymbol>POM</ndaq:IssueSymbol>
+      <ndaq:IssueName>POMDOCTOR LTD Cl A Ord Shs</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>10:03:57</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>10:08:57</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>REED</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>10:02:39.030</ndaq:HaltTime>
+      <ndaq:IssueSymbol>REED</ndaq:IssueSymbol>
+      <ndaq:IssueName>Reed&apos;s, Inc. Common Stock</ndaq:IssueName>
+      <ndaq:Market>AMEX</ndaq:Market>
+      <ndaq:ReasonCode>M</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>10:12:39</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>10:12:39</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>POM</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>09:58:07.186</ndaq:HaltTime>
+      <ndaq:IssueSymbol>POM</ndaq:IssueSymbol>
+      <ndaq:IssueName>POMDOCTOR LTD Cl A Ord Shs</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>09:58:07</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>10:03:07</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>PCTTU</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>09:55:43.343</ndaq:HaltTime>
+      <ndaq:IssueSymbol>PCTTU</ndaq:IssueSymbol>
+      <ndaq:IssueName>PureCycle Technologies, Inc Ut</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>09:55:43</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>10:00:43</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>POM</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>09:51:26.013</ndaq:HaltTime>
+      <ndaq:IssueSymbol>POM</ndaq:IssueSymbol>
+      <ndaq:IssueName>POMDOCTOR LTD Cl A Ord Shs</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>09:51:26</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>09:56:26</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>RBNE</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>09:43:03.750</ndaq:HaltTime>
+      <ndaq:IssueSymbol>RBNE</ndaq:IssueSymbol>
+      <ndaq:IssueName>Robin Energy Ltd Cmn</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>09:43:03</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>09:48:03</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>POM</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>09:41:03.826</ndaq:HaltTime>
+      <ndaq:IssueSymbol>POM</ndaq:IssueSymbol>
+      <ndaq:IssueName>POMDOCTOR LTD Cl A Ord Shs</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>09:41:03</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>09:51:10</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>AHT-F</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>09:39:53.916</ndaq:HaltTime>
+      <ndaq:IssueSymbol>AHT-F</ndaq:IssueSymbol>
+      <ndaq:IssueName />
+      <ndaq:Market>NYSE</ndaq:Market>
+      <ndaq:ReasonCode>M</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>09:44:57</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>09:44:57</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>POM</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>09:35:44.713</ndaq:HaltTime>
+      <ndaq:IssueSymbol>POM</ndaq:IssueSymbol>
+      <ndaq:IssueName>POMDOCTOR LTD Cl A Ord Shs</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>09:35:44</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>09:40:44</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>SPHL</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>09:33:42.523</ndaq:HaltTime>
+      <ndaq:IssueSymbol>SPHL</ndaq:IssueSymbol>
+      <ndaq:IssueName>Springview Holdings Lt Cl A OS</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>09:33:42</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>09:38:42</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>SMCC</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>09:33:33.003</ndaq:HaltTime>
+      <ndaq:IssueSymbol>SMCC</ndaq:IssueSymbol>
+      <ndaq:IssueName>Defiance Leveraged Long + Inco</ndaq:IssueName>
+      <ndaq:Market>Non NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>M</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>09:38:33</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>09:38:33</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>TMS</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>09:32:03.293</ndaq:HaltTime>
+      <ndaq:IssueSymbol>TMS</ndaq:IssueSymbol>
+      <ndaq:IssueName>Teamshares Inc. Common Stock</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>09:32:03</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>09:37:03</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>CHOW</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>09:29:33.347</ndaq:HaltTime>
+      <ndaq:IssueSymbol>CHOW</ndaq:IssueSymbol>
+      <ndaq:IssueName>ChowChow Cloud International H</ndaq:IssueName>
+      <ndaq:Market>AMEX</ndaq:Market>
+      <ndaq:ReasonCode>T1</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>POM</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/20/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>19:50:00.000</ndaq:HaltTime>
+      <ndaq:IssueSymbol>POM</ndaq:IssueSymbol>
+      <ndaq:IssueName>POMDOCTOR LIMITED ADS</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>T3</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>08:55:00</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>09:00:00</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>EHGO</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/20/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>19:50:00.000</ndaq:HaltTime>
+      <ndaq:IssueSymbol>EHGO</ndaq:IssueSymbol>
+      <ndaq:IssueName>Eshallgo Inc. Cl A Ord Shs</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>T3</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/21/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>08:55:00</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>09:00:00</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>ZONE</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/19/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>01:47:35.541</ndaq:HaltTime>
+      <ndaq:IssueSymbol>ZONE</ndaq:IssueSymbol>
+      <ndaq:IssueName>CleanCore Solutions</ndaq:IssueName>
+      <ndaq:Market>AMEX</ndaq:Market>
+      <ndaq:ReasonCode>H11</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>TJGC</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/14/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>19:50:00.000</ndaq:HaltTime>
+      <ndaq:IssueSymbol>TJGC</ndaq:IssueSymbol>
+      <ndaq:IssueName>TJGC Group</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>H10</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>AZTR</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/13/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>12:24:44.674</ndaq:HaltTime>
+      <ndaq:IssueSymbol>AZTR</ndaq:IssueSymbol>
+      <ndaq:IssueName>Azitra Inc</ndaq:IssueName>
+      <ndaq:Market>AMEX</ndaq:Market>
+      <ndaq:ReasonCode>H11</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>HCHL</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>06/11/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>19:50:00.000</ndaq:HaltTime>
+      <ndaq:IssueSymbol>HCHL</ndaq:IssueSymbol>
+      <ndaq:IssueName>HCHL Holdings</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>T12</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>MAGH</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>12/04/2025</ndaq:HaltDate>
+      <ndaq:HaltTime>19:50:00</ndaq:HaltTime>
+      <ndaq:IssueSymbol>MAGH</ndaq:IssueSymbol>
+      <ndaq:IssueName>Magnitude Holdings</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>T12</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>MCTA</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>11/11/2025</ndaq:HaltDate>
+      <ndaq:HaltTime>19:50:00</ndaq:HaltTime>
+      <ndaq:IssueSymbol>MCTA</ndaq:IssueSymbol>
+      <ndaq:IssueName>MCTA Corp</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>T12</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>LAWR</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/22/2025</ndaq:HaltDate>
+      <ndaq:HaltTime>19:50:00</ndaq:HaltTime>
+      <ndaq:IssueSymbol>LAWR</ndaq:IssueSymbol>
+      <ndaq:IssueName>Lawrence Inc</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>T12</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>PC</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/16/2025</ndaq:HaltDate>
+      <ndaq:HaltTime>19:50:00</ndaq:HaltTime>
+      <ndaq:IssueSymbol>PC</ndaq:IssueSymbol>
+      <ndaq:IssueName>PC Inc</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>T12</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>EFTY</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/03/2025</ndaq:HaltDate>
+      <ndaq:HaltTime>19:50:00</ndaq:HaltTime>
+      <ndaq:IssueSymbol>EFTY</ndaq:IssueSymbol>
+      <ndaq:IssueName>Efty Inc</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>T12</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>UCFIW</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/01/2025</ndaq:HaltDate>
+      <ndaq:HaltTime>11:28:10.000</ndaq:HaltTime>
+      <ndaq:IssueSymbol>UCFIW</ndaq:IssueSymbol>
+      <ndaq:IssueName>UCFI Warrant</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>T12</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>UCFI</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/01/2025</ndaq:HaltDate>
+      <ndaq:HaltTime>11:28:10.000</ndaq:HaltTime>
+      <ndaq:IssueSymbol>UCFI</ndaq:IssueSymbol>
+      <ndaq:IssueName>UCFI Inc</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>T12</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>OST</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>09/12/2025</ndaq:HaltDate>
+      <ndaq:HaltTime>12:24:23</ndaq:HaltTime>
+      <ndaq:IssueSymbol>OST</ndaq:IssueSymbol>
+      <ndaq:IssueName>Ostin Technology</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>T12</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>SVA</title>
+      <pubDate>Wed, 21 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>02/22/2019</ndaq:HaltDate>
+      <ndaq:HaltTime>16:02:01</ndaq:HaltTime>
+      <ndaq:IssueSymbol>SVA</ndaq:IssueSymbol>
+      <ndaq:IssueName>Sinovac Biotech Ltd</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>T12</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+  </channel>
+</rss>

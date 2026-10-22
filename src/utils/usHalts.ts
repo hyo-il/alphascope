@@ -1,0 +1,60 @@
+/**
+ * 미국 거래정지 (실험실) — 화면 · 서버 · 시험이 같이 쓰는 판단 **한 곳**.
+ *
+ * LULD 규칙(NYSE · Nasdaq LULD Plan Amendment 12 안내): 처음 5분 → 재개 경매가 안 되면 5분 더(합계 10분) →
+ * 그 뒤에는 조건이 맞으면 언제든 재개(시각이 정해지지 않음). 풀린 뒤 다시 멈추면 새 정지(다시 5분).
+ * 재개 칸은 **풀린 뒤에야** 채워진다(62차 조사) — 그래서 「예상 재개」 는 규칙으로 계산한 값이다.
+ */
+
+/** LULD(가격 제한 범위 이탈) 정지 코드 — Nasdaq 상장 LUDP · LUDS, 다른 거래소 상장 M */
+export const LULD_CODES = ['LUDP', 'LUDS', 'M'] as const;
+export const isLuldCode = (code: string): boolean => (LULD_CODES as readonly string[]).includes(code);
+
+export const LULD_FIRST_MS = 5 * 60_000;
+export const LULD_EXTENDED_MS = 10 * 60_000;
+
+/**
+ * 예상 재개 — `now` 는 서버 시각 기준(화면은 서버 시각 차를 더해 1초마다 다시 부른다).
+ * - resumed: 재개 시각이 채워졌고 지났다(「실제 재개」 만 보인다)
+ * - announced: 재개 시각이 채워졌지만 아직 오지 않았다(뉴스 정지 T3 처럼 미리 공지된 시각)
+ * - first: LULD · 정지 + 5분 전 → 정지 + 5분
+ * - extended: LULD · 정지 + 5분 ~ 10분 → 정지 + 10분(연장)
+ * - open: LULD · 정지 + 10분 이상 → 시각 정해지지 않음
+ * - none: LULD 가 아니고 재개 시각도 없음 → 정해진 시각 없음
+ */
+export type ExpectedResume =
+  | { kind: 'resumed'; at: number }
+  | { kind: 'announced'; at: number }
+  | { kind: 'first'; at: number }
+  | { kind: 'extended'; at: number }
+  | { kind: 'open' }
+  | { kind: 'none' };
+
+export function expectedResume(
+  halt: { rawReasonCode: string; haltAtMs: number; resumeAtMs: number | null },
+  now: number,
+): ExpectedResume {
+  if (halt.resumeAtMs != null) {
+    return halt.resumeAtMs <= now ? { kind: 'resumed', at: halt.resumeAtMs } : { kind: 'announced', at: halt.resumeAtMs };
+  }
+  if (!isLuldCode(halt.rawReasonCode)) return { kind: 'none' };
+  const elapsed = now - halt.haltAtMs;
+  if (elapsed < LULD_FIRST_MS) return { kind: 'first', at: halt.haltAtMs + LULD_FIRST_MS };
+  if (elapsed < LULD_EXTENDED_MS) return { kind: 'extended', at: halt.haltAtMs + LULD_EXTENDED_MS };
+  return { kind: 'open' };
+}
+
+/** 원문 날짜 `MM/DD/YYYY` → `YYYY-MM-DD`. 모양이 다르면 null */
+export function isoDayOfRaw(raw: string): string | null {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(raw.trim());
+  return m ? `${m[3]}-${m[1]}-${m[2]}` : null;
+}
+
+/** 원문 시각 `HH:MM:SS` · `HH:MM:SS.mmm` → 그날 자정부터 ms. 모양이 다르면 null */
+export function msOfRawTime(raw: string): number | null {
+  const m = /^(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?$/.exec(raw.trim());
+  if (!m) return null;
+  const [h, min, s] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  if (h > 23 || min > 59 || s > 59) return null;
+  return ((h * 60 + min) * 60 + s) * 1000 + (m[4] ? Number(m[4].padEnd(3, '0')) : 0);
+}

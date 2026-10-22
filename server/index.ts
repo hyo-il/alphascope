@@ -177,6 +177,8 @@ import { backfillSnapshots, startSnapshotScheduler } from './paperSnapshotSchedu
 import { startUniverseSnapshotScheduler } from './universe';
 import { getEarningsDate, startEarningsScheduler } from './earningsCalendar';
 import { startMarketCalendarScheduler } from './marketCalendar';
+import { fetchStatus, startUsHaltsScheduler } from './usHalts/scheduler';
+import { listHaltsOfDay, usDayOf } from './usHalts/store';
 import { calendarEvents } from './calendarService';
 import { getSwingGoal, saveSwingGoal, SwingGoalError } from './swingGoal';
 import { getHomePage, setHomePage } from './homePage';
@@ -1493,6 +1495,23 @@ app.put('/api/surge/settings', (req, res) => {
   }
 });
 
+/**
+ * 미국 거래정지(실험실) — 그날(미국 날짜, 기본 오늘) 정지 + 받기 상태. 서버가 1분마다 Nasdaq 을 받아 쌓은 것을 읽기만 한다(화면이 외부를 부르지 않는다).
+ */
+app.get('/api/us-halts', (req, res) => {
+  try {
+    const raw = req.query.day;
+    if (raw !== undefined && (typeof raw !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(raw))) {
+      return res.status(400).json({ error: 'day 는 YYYY-MM-DD 입니다.' });
+    }
+    const now = Date.now();
+    const day = typeof raw === 'string' ? raw : usDayOf(now);
+    res.json({ day, serverNow: now, halts: listHaltsOfDay(day), status: fetchStatus(now) });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
 app.get('/api/ai/accuracy', (_req, res) => {
   try {
     res.json(accuracyReport());
@@ -1930,6 +1949,9 @@ app.listen(port, host, () => {
 
   // 휴장일 — 하루 1회. 실적 회피 거래일 계산·옵션 만기·일정 달력이 쓴다
   startMarketCalendarScheduler();
+
+  // 미국 거래정지(실험실) — 평일 04:00~20:00 ET 1분마다 Nasdaq RSS. US_HALTS_ENABLED=false 면 받지 않는다
+  startUsHaltsScheduler();
 
   // 앱이 꺼져 있던 구간의 모의투자 스냅샷을 채우고, 이후 하루 한 번 기록한다.
   // 지정 종목 Gemini 분석(하루 1번, 미국 마감+30분 뒤)도 같은 10분 확인에 얹는다 — 새 타이머 없음

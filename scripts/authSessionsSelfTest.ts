@@ -44,7 +44,7 @@ getDb().prepare(`DELETE FROM auth_sessions`).run();
 // npx 를 거치지 않고 tsx 를 바로 띄우고 프로세스 그룹째 끈다 — npx 만 끄면 tsx 자식이 4101 에 남을 수 있다
 const server = spawn('node_modules/.bin/tsx', ['server/index.ts'], {
   detached: true,
-  env: { ...process.env, API_PORT: String(PORT), AUTO_TRADING_ENABLED: 'false', GEMINI_ENABLED: 'false', UNIVERSE_UPDATE_ENABLED: 'false' },
+  env: { ...process.env, API_PORT: String(PORT), AUTO_TRADING_ENABLED: 'false', GEMINI_ENABLED: 'false', UNIVERSE_UPDATE_ENABLED: 'false', US_HALTS_ENABLED: 'false' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let serverLog = '';

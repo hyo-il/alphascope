@@ -429,3 +429,31 @@ CREATE TABLE IF NOT EXISTS ai_check_uses (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ai_check_uses_account ON ai_check_uses(account_id, created_at DESC);
+
+-- 미국 거래정지 (v2.55.0, 실험실) — Nasdaq Trader 거래정지 RSS(`server/usHalts/`)를 1분마다 받아 쌓는다.
+-- 한 정지 = 한 줄(키 = 종목 + 정지 날짜 + 정지 시각 — 원문 문자열 그대로). 같은 종목이 다시 멈추면 새 줄.
+-- ⚠️ 원문 칸(raw_*)은 받은 문자열 그대로 둔다(약관 — 피드를 고치거나 왜곡하지 않는다). 계산한 값은 따로 칸을 둔다.
+-- 30일 보관(정지 날짜 기준, 하루 한 번 지움). 방향은 **추정**이다(토스 1분봉 — 정답 칸이 없어 맞았는지 확인할 수 없다).
+CREATE TABLE IF NOT EXISTS us_halts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  raw_issue_symbol TEXT NOT NULL,
+  raw_halt_date TEXT NOT NULL,          -- MM/DD/YYYY (ET)
+  raw_halt_time TEXT NOT NULL,          -- HH:MM:SS(.mmm) (ET)
+  raw_issue_name TEXT NOT NULL DEFAULT '',
+  raw_market TEXT NOT NULL DEFAULT '',
+  raw_reason_code TEXT NOT NULL DEFAULT '',
+  raw_pause_threshold_price TEXT NOT NULL DEFAULT '',
+  raw_resumption_date TEXT NOT NULL DEFAULT '',
+  raw_resumption_quote_time TEXT NOT NULL DEFAULT '',
+  raw_resumption_trade_time TEXT NOT NULL DEFAULT '',
+  halt_day TEXT NOT NULL,               -- 정지 날짜(미국, YYYY-MM-DD) — 원문 날짜를 바꿔 적은 것
+  halt_at_ms INTEGER NOT NULL,          -- 정지 시각(epoch ms) — 원문 날짜 · 시각(ET)으로 계산
+  first_seen_at TEXT NOT NULL,          -- 처음 본 시각(UTC ISO)
+  first_seen_kst TEXT NOT NULL,         -- 처음 본 시각(한국 시간 YYYY-MM-DD HH:MM:SS)
+  resume_seen_at TEXT,                  -- 재개 칸(ResumptionTradeTime)이 처음 채워진 것을 본 시각(UTC ISO)
+  direction_est TEXT NOT NULL,          -- 방향 추정: pending · up · down · unknown · none(LULD 아님)
+  direction_est_json TEXT,              -- 추정에 쓴 값(봉 시각 · 종가 · 판정 못 한 이유)
+  updated_at TEXT NOT NULL,
+  UNIQUE (raw_issue_symbol, raw_halt_date, raw_halt_time)
+);
+CREATE INDEX IF NOT EXISTS idx_us_halts_day ON us_halts (halt_day, halt_at_ms);
