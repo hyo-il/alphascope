@@ -40,11 +40,29 @@ export interface UsHaltRow {
   held: boolean;
 }
 
+/**
+ * 지난 날 정지 중(「며칠째 정지 중」) — 정지 날짜가 오늘(미국)보다 앞이고 30일 안 + 안 풀림(`utils/usHalts.isHaltOngoing`).
+ * `unlisted` = 마지막으로 성공한 받기의 목록에 더 이상 없다 → 풀렸는지 알 수 없다(「정지 중」 으로 단정하지 않는다).
+ */
+export interface UsOngoingHaltRow extends UsHaltRow {
+  /** 미국 날짜로 센 날 수(정지한 날 = 1일째) */
+  daysHalted: number;
+  unlisted: boolean;
+}
+
+/**
+ * 받는 때 — regular: 미국 평일 04:00~20:00 ET(휴장 제외) · extended: 20:00 ET 뒤 미국 자정 전, 오늘 안 풀린 정지가 있어 이어 받음 · outside: 받지 않음
+ */
+export type UsHaltFetchWindow = 'regular' | 'extended' | 'outside';
+
 export interface UsHaltFetchStatus {
   /** 서버 스위치(`US_HALTS_ENABLED`) */
   enabled: boolean;
-  /** 지금이 받는 시간대인가(미국 평일 04:00~20:00 ET, 휴장일 제외) */
+  /** 지금 받는가(regular · extended) */
   inWindow: boolean;
+  window: UsHaltFetchWindow;
+  /** extended 일 때 — 오늘 안 풀린 정지 수 */
+  openToday: number;
   lastSuccessAt: string | null;
   lastAttemptAt: string | null;
   consecutiveFailures: number;
@@ -58,5 +76,7 @@ export interface UsHaltsResponse {
   serverNow: number;
   /** 새 정지가 위(정지 시각 내림차순) */
   halts: UsHaltRow[];
+  /** 지난 날 정지 중 — 오래된 것부터(관심 · 보유를 위로 올리는 것은 화면) */
+  ongoing: UsOngoingHaltRow[];
   status: UsHaltFetchStatus;
 }

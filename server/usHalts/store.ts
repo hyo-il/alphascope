@@ -8,8 +8,8 @@ import { getDb } from '../db';
 import { marketDayTime } from '../marketHours';
 import { marketDate } from '../../src/utils/marketDate';
 import { MARKET_REF } from '../../src/utils/market';
-import { isLuldCode, isoDayOfRaw, msOfRawTime } from '../../src/utils/usHalts';
-import type { HaltDirectionEstimate, UsHaltRow } from '../../src/types/usHalts';
+import { haltDayCount, isHaltOngoing, isLuldCode, isoDayOfRaw, msOfRawTime } from '../../src/utils/usHalts';
+import type { HaltDirectionEstimate, UsHaltRow, UsOngoingHaltRow } from '../../src/types/usHalts';
 import type { RawHaltItem } from './feed';
 
 export const KEEP_DAYS = 30;
@@ -63,6 +63,7 @@ interface DbRow {
   resume_seen_at: string | null;
   direction_est: HaltDirectionEstimate;
   direction_est_json: string | null;
+  last_listed_at: string | null;
 }
 
 /** 원문 칸 → 표 칸 (갱신할 수 있는 칸만 — 키 셋은 빠진다) */
@@ -95,9 +96,11 @@ export function ingestHalts(items: RawHaltItem[], now: number): IngestResult {
   const insert = db.prepare(`
     INSERT INTO us_halts (raw_issue_symbol, raw_halt_date, raw_halt_time, raw_issue_name, raw_market, raw_reason_code,
       raw_pause_threshold_price, raw_resumption_date, raw_resumption_quote_time, raw_resumption_trade_time,
-      halt_day, halt_at_ms, first_seen_at, first_seen_kst, resume_seen_at, direction_est, updated_at)
+      halt_day, halt_at_ms, first_seen_at, first_seen_kst, resume_seen_at, direction_est, updated_at, last_listed_at)
     VALUES (@sym, @date, @time, @name, @market, @code, @pause, @rdate, @rquote, @rtrade,
-      @day, @haltAt, @now, @nowKst, @resumeSeen, @dir, @now)`);
+      @day, @haltAt, @now, @nowKst, @resumeSeen, @dir, @now, @now)`);
+  // 목록에서 본 시각 — 바뀐 칸이 없어도 받을 때마다 적는다(「목록에서 사라짐」 판단)
+  const listed = db.prepare(`UPDATE us_halts SET last_listed_at = ? WHERE id = ?`);
 
   db.transaction(() => {
     for (const it of items) {
@@ -136,6 +139,7 @@ export function ingestHalts(items: RawHaltItem[], now: number): IngestResult {
         result.inserted++;
         continue;
       }
+      listed.run(nowIso, prev.id);
       // 바뀐 칸만 — 빈칸으로 돌아온 칸은 채워 둔 값을 지우지 않는다
       const changes: Record<string, string> = {};
       for (const [field, column] of UPDATABLE) {
@@ -176,20 +180,19 @@ export function saveDirection(id: number, est: Exclude<HaltDirectionEstimate, 'p
     .run(est, JSON.stringify(detail), new Date().toISOString(), id);
 }
 
-/** 그날(미국 날짜) 정지 — 새 정지가 위. 순번 · 토스 목록 · 보유는 여기서 붙인다 */
-export function listHaltsOfDay(day: string): UsHaltRow[] {
+/** 표 줄 → 화면 줄. 순번은 주어진 줄 안에서(종목 · 정지 날짜별, 정지 시각 순) */
+function toHaltRows(rows: DbRow[]): UsHaltRow[] {
   const db = getDb();
-  const rows = db.prepare(`SELECT * FROM us_halts WHERE halt_day = ? ORDER BY halt_at_ms, id`).all(day) as DbRow[];
   const catalogCount = (db.prepare(`SELECT COUNT(*) AS n FROM stock_catalog`).get() as { n: number }).n;
   const catalog = db.prepare(`SELECT name FROM stock_catalog WHERE symbol = ?`);
   const held = new Set(
     (db.prepare(`SELECT DISTINCT symbol FROM paper_positions WHERE quantity > 0`).all() as { symbol: string }[]).map((r) => r.symbol),
   );
   const nth = new Map<string, number>();
-  const out = rows.map((r): UsHaltRow => {
+  return rows.map((r): UsHaltRow => {
     const symbol = r.raw_issue_symbol.trim();
-    const n = (nth.get(symbol) ?? 0) + 1;
-    nth.set(symbol, n);
+    const n = (nth.get(`${symbol}|${r.halt_day}`) ?? 0) + 1;
+    nth.set(`${symbol}|${r.halt_day}`, n);
     const cat = catalog.get(symbol) as { name: string } | undefined;
     return {
       id: r.id,
@@ -215,5 +218,38 @@ export function listHaltsOfDay(day: string): UsHaltRow[] {
       held: held.has(symbol),
     };
   });
-  return out.reverse();
+}
+
+/** 그날(미국 날짜) 정지 — 새 정지가 위. 순번 · 토스 목록 · 보유는 여기서 붙인다 */
+export function listHaltsOfDay(day: string): UsHaltRow[] {
+  const rows = getDb().prepare(`SELECT * FROM us_halts WHERE halt_day = ? ORDER BY halt_at_ms, id`).all(day) as DbRow[];
+  return toHaltRows(rows).reverse();
+}
+
+/** 그날 안 풀린 정지 수 — 20:00 ET 뒤 이어 받기(`scheduler.fetchWindowOf`)가 쓴다. 「안 풀림」 은 `isHaltOngoing` 한 곳 */
+export function countOngoingOfDay(day: string, now: number): number {
+  return listHaltsOfDay(day).filter((h) => isHaltOngoing(h, now)).length;
+}
+
+/**
+ * 「며칠째 정지 중」 — 정지 날짜가 오늘(미국)보다 앞이고 30일 안 + 안 풀림. 오래된 것부터.
+ * `lastSuccessAt`(마지막으로 성공한 받기)보다 그 줄을 목록에서 본 때가 앞이면 목록에서 사라진 것 — 풀렸는지 모른다(`unlisted`).
+ * 받은 적이 없으면(null) 판단하지 않는다(사라졌다고 하지 않는다).
+ */
+export function listOngoingBefore(today: string, now: number, lastSuccessAt: string | null): UsOngoingHaltRow[] {
+  const rows = getDb()
+    .prepare(`SELECT * FROM us_halts WHERE halt_day < ? AND halt_day >= ? ORDER BY halt_at_ms, id`)
+    .all(today, keepFromDay(now)) as DbRow[];
+  const listedAt = new Map(rows.map((r) => [r.id, r.last_listed_at]));
+  return toHaltRows(rows)
+    .filter((h) => isHaltOngoing(h, now))
+    .map((h) => {
+      const seen = listedAt.get(h.id);
+      return {
+        ...h,
+        nthToday: 0,
+        daysHalted: haltDayCount(rows.find((r) => r.id === h.id)!.halt_day, today),
+        unlisted: lastSuccessAt != null && (seen == null || seen < lastSuccessAt),
+      };
+    });
 }

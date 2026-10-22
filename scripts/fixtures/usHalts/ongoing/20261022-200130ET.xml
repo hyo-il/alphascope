@@ -1,0 +1,102 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:ndaq="http://www.nasdaqtrader.com/">
+  <channel>
+    <title>NASDAQTrader.com</title>
+    <link>http://www.nasdaqtrader.com</link>
+    <description>NASDAQ Trade Halts</description>
+    <copyright>Copyright 2026. All rights reserved.</copyright>
+    <pubDate>Fri, 23 Oct 2026 00:01:10 GMT</pubDate>
+    <ttl>1</ttl>
+    <ndaq:numItems>6</ndaq:numItems>
+    <item>
+      <title>FFFF</title>
+      <pubDate>Thu, 22 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/22/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>19:59:10.250</ndaq:HaltTime>
+      <ndaq:IssueSymbol>FFFF</ndaq:IssueSymbol>
+      <ndaq:IssueName>Foxtrot Test Inc</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/22/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>19:59:10</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>EEEE</title>
+      <pubDate>Thu, 22 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>19:30:00.000</ndaq:HaltTime>
+      <ndaq:IssueSymbol>EEEE</ndaq:IssueSymbol>
+      <ndaq:IssueName>Echo Test Ltd</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>T3</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>10/23/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>09:25:00</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>09:30:00</ndaq:ResumptionTradeTime>
+      <description>…</description>
+    </item>
+    <item>
+      <title>CCCC</title>
+      <pubDate>Thu, 22 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>15:00:00.000</ndaq:HaltTime>
+      <ndaq:IssueSymbol>CCCC</ndaq:IssueSymbol>
+      <ndaq:IssueName>Charlie Test Co</ndaq:IssueName>
+      <ndaq:Market>AMEX</ndaq:Market>
+      <ndaq:ReasonCode>T1</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>BBBB</title>
+      <pubDate>Thu, 22 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/21/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>12:00:00.000</ndaq:HaltTime>
+      <ndaq:IssueSymbol>BBBB</ndaq:IssueSymbol>
+      <ndaq:IssueName>Bravo Test Inc</ndaq:IssueName>
+      <ndaq:Market>NYSE</ndaq:Market>
+      <ndaq:ReasonCode>H10</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>AAAA</title>
+      <pubDate>Thu, 22 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>10/20/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>19:50:00.000</ndaq:HaltTime>
+      <ndaq:IssueSymbol>AAAA</ndaq:IssueSymbol>
+      <ndaq:IssueName>Alpha Test Holdings</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>T12</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+    <item>
+      <title>OLDT</title>
+      <pubDate>Thu, 22 Oct 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>09/22/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>19:50:00</ndaq:HaltTime>
+      <ndaq:IssueSymbol>OLDT</ndaq:IssueSymbol>
+      <ndaq:IssueName>Old Test Corp</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>T12</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate />
+      <ndaq:ResumptionQuoteTime />
+      <ndaq:ResumptionTradeTime />
+      <description>…</description>
+    </item>
+  </channel>
+</rss>

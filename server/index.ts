@@ -177,8 +177,8 @@ import { backfillSnapshots, startSnapshotScheduler } from './paperSnapshotSchedu
 import { startUniverseSnapshotScheduler } from './universe';
 import { getEarningsDate, startEarningsScheduler } from './earningsCalendar';
 import { startMarketCalendarScheduler } from './marketCalendar';
-import { fetchStatus, startUsHaltsScheduler } from './usHalts/scheduler';
-import { listHaltsOfDay, usDayOf } from './usHalts/store';
+import { fetchStatus, lastSuccessAt, startUsHaltsScheduler } from './usHalts/scheduler';
+import { listHaltsOfDay, listOngoingBefore, usDayOf } from './usHalts/store';
 import { calendarEvents } from './calendarService';
 import { getSwingGoal, saveSwingGoal, SwingGoalError } from './swingGoal';
 import { getHomePage, setHomePage } from './homePage';
@@ -1506,7 +1506,8 @@ app.get('/api/us-halts', (req, res) => {
     }
     const now = Date.now();
     const day = typeof raw === 'string' ? raw : usDayOf(now);
-    res.json({ day, serverNow: now, halts: listHaltsOfDay(day), status: fetchStatus(now) });
+    // 「며칠째 정지 중」 — 보는 날(기본 오늘)보다 앞 · 30일 안 · 안 풀림
+    res.json({ day, serverNow: now, halts: listHaltsOfDay(day), ongoing: listOngoingBefore(day, now, lastSuccessAt()), status: fetchStatus(now) });
   } catch (e) {
     fail(res, e);
   }

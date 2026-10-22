@@ -59,6 +59,12 @@ function migrate(database: Database.Database): void {
     database.exec(`ALTER TABLE buy_judgments ADD COLUMN gate_reason TEXT`);
   }
 
+  // 미국 거래정지 — 마지막으로 목록에서 본 시각(v2.55.1). 옛 줄은 NULL(다음 받기에서 목록에 있으면 채워진다)
+  const haltColumns = database.prepare(`PRAGMA table_info(us_halts)`).all() as { name: string }[];
+  if (haltColumns.length && !haltColumns.some((c) => c.name === 'last_listed_at')) {
+    database.exec(`ALTER TABLE us_halts ADD COLUMN last_listed_at TEXT`);
+  }
+
   // 종목 프로필의 세부 업종 — 동종업계 자동 고르기. 실적일 하루 1회 갱신이 같은 yfinance info 로 채운다
   const profileColumns = database.prepare(`PRAGMA table_info(stock_profiles)`).all() as { name: string }[];
   if (profileColumns.length && !profileColumns.some((c) => c.name === 'industry')) {

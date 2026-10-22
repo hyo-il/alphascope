@@ -1,7 +1,8 @@
 /**
  * 미국 거래정지 받기 작업 (실험실 「미국 거래정지」, v2.55.0) — **이 폴더 한 곳**에서 받고 · 쌓고 · 방향을 추정한다.
  *
- * - 미국 **평일 04:00~20:00 ET**, 휴장일 제외(`marketCalendar.isMarketClosed`)에만 1분마다 한 번 받는다. 그 밖에는 받지 않는다.
+ * - 미국 **평일 04:00~20:00 ET**, 휴장일 제외(`marketCalendar.isMarketClosed`)에 1분마다 한 번 받는다. 20:00 ET 뒤에는 **오늘(미국 날짜) 안 풀린
+ *   정지가 남아 있을 때만** 미국 자정(00:00 ET) 전까지 이어 받는다(사용자 결정 2026-10-22 — 「안 풀림」 = `utils/usHalts.isHaltOngoing`). 그 밖에는 받지 않는다.
  * - 스위치 `US_HALTS_ENABLED`(기본 켬). 시험 서버는 끈다.
  * - 받기 실패(네트워크 · 200 아님 · 시간 초과 · RSS 아님)는 로그 한 줄 + 연속 실패 수 — 다음 분에 다시. 앱의 다른 일을 막지 않는다.
  * - 처음 본 LULD 정지는 방향을 한 번 추정한다(토스 1분봉 1번 — `directionEstimate.ts`). 오늘(미국 날짜) 정지만 — 지난 정지는 「판정 못 함」.
@@ -13,39 +14,72 @@ import { isMockMode } from '../mockData';
 import { getDb } from '../db';
 import { marketMinutes } from '../../src/utils/marketDate';
 import { MARKET_REF } from '../../src/utils/market';
-import type { UsHaltFetchStatus } from '../../src/types/usHalts';
+import type { UsHaltFetchStatus, UsHaltFetchWindow } from '../../src/types/usHalts';
 import { fetchHaltsFeed, type RawHaltItem } from './feed';
-import { ingestHalts, pendingDirection, purgeOldHalts, saveDirection, usDayOf } from './store';
+import { countOngoingOfDay, ingestHalts, pendingDirection, purgeOldHalts, saveDirection, usDayOf } from './store';
 import { estimateDirection, type EstimateFetcher } from './directionEstimate';
 
 export const FETCH_INTERVAL_MS = 60_000;
-/** 받는 시간대 — 미국 현지 분 [04:00, 20:00) */
+/** 받는 시간대 — 미국 현지 분 [04:00, 20:00). 20:00 뒤 자정 전은 이어 받기(안 풀린 오늘 정지가 있을 때만) */
 export const WINDOW_START_MIN = 4 * 60;
 export const WINDOW_END_MIN = 20 * 60;
+/**
+ * 20:00 ET 뒤 3분은 안 풀린 정지가 없어도 받는다 — 목록은 정지 뒤 0.5~2분 늦게 올라와, 19:58~19:59 ET 정지는 20:00 전에 한 번도 보이지 않을 수 있다
+ * (보이지 않으면 「안 풀린 오늘 정지」 로 셀 수도 없어 이어 받기가 시작되지 않는다).
+ */
+export const GRACE_END_MIN = WINDOW_END_MIN + 3;
 
 export const isUsHaltsEnabled = (): boolean => process.env.US_HALTS_ENABLED !== 'false';
 
-/** 지금이 받는 시간대인가 — 미국 평일 04:00~20:00 ET, 휴장일 제외. 시험이 휴장 판단을 바꿔 넣는다 */
-export function isFetchWindow(now: number, closed: (day: string) => boolean = (day) => isMarketClosed('US', day)): boolean {
-  if (closed(usDayOf(now))) return false;
-  const minutes = marketMinutes(now, MARKET_REF.US.symbol);
-  return minutes >= WINDOW_START_MIN && minutes < WINDOW_END_MIN;
+export interface WindowDeps {
+  /** 휴장 판단 — 시험이 바꿔 넣는다 */
+  closed?: (day: string) => boolean;
+  /** 오늘 안 풀린 정지 수 — 시험이 바꿔 넣는다(기본 = DB) */
+  openToday?: (day: string, now: number) => number;
 }
 
-const status: Omit<UsHaltFetchStatus, 'enabled' | 'inWindow'> = {
+/**
+ * 지금 받는가 — regular: 미국 평일(휴장 제외) [04:00, 20:00) ET · extended: 같은 날 [20:00, 24:00) ET 이고 오늘 안 풀린 정지가 1건 이상 ·
+ * (20:00~20:02 ET 는 안 풀린 정지가 없어도 regular — `GRACE_END_MIN`) · outside: 그 밖(00:00 ET 가 되면 미국 날짜가 바뀌어 그날 것은 끝 — 다음 날 04:00 부터). 휴장일 · 주말은 이어 받기도 하지 않는다.
+ */
+export function fetchWindowOf(now: number, deps: WindowDeps = {}): { window: UsHaltFetchWindow; openToday: number } {
+  const day = usDayOf(now);
+  if ((deps.closed ?? ((d: string) => isMarketClosed('US', d)))(day)) return { window: 'outside', openToday: 0 };
+  const minutes = marketMinutes(now, MARKET_REF.US.symbol);
+  if (minutes >= WINDOW_START_MIN && minutes < WINDOW_END_MIN) return { window: 'regular', openToday: 0 };
+  if (minutes < WINDOW_END_MIN) return { window: 'outside', openToday: 0 };
+  const openToday = (deps.openToday ?? countOngoingOfDay)(day, now);
+  if (openToday > 0) return { window: 'extended', openToday };
+  return { window: minutes < GRACE_END_MIN ? 'regular' : 'outside', openToday };
+}
+
+const status: Omit<UsHaltFetchStatus, 'enabled' | 'inWindow' | 'window' | 'openToday'> = {
   lastSuccessAt: null,
   lastAttemptAt: null,
   consecutiveFailures: 0,
   lastError: null,
 };
 
-export function fetchStatus(now = Date.now()): UsHaltFetchStatus {
-  return { enabled: isUsHaltsEnabled(), inWindow: isFetchWindow(now), ...status };
+/*
+  마지막으로 성공한 받기 시각 — DB(app_settings)에도 남긴다. 「며칠째 정지 중」 의 「목록에서 사라짐」 판단이 이 시각과 줄의 마지막으로 본 시각을
+  비교하는데, 메모리에만 두면 서버를 다시 켠 뒤 첫 받기 전에는 판단을 못 한다.
+*/
+const LAST_SUCCESS_KEY = 'usHalts.lastSuccessAt';
+export function lastSuccessAt(): string | null {
+  if (status.lastSuccessAt) return status.lastSuccessAt;
+  const row = getDb().prepare(`SELECT value FROM app_settings WHERE key = ?`).get(LAST_SUCCESS_KEY) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
+export function fetchStatus(now = Date.now(), deps: WindowDeps = {}): UsHaltFetchStatus {
+  const w = fetchWindowOf(now, deps);
+  return { enabled: isUsHaltsEnabled(), inWindow: w.window !== 'outside', ...w, ...status, lastSuccessAt: lastSuccessAt() };
 }
 
 /** 시험용 — 상태를 처음으로 */
 export function resetFetchStatusForTest(): void {
   Object.assign(status, { lastSuccessAt: null, lastAttemptAt: null, consecutiveFailures: 0, lastError: null });
+  getDb().prepare(`DELETE FROM app_settings WHERE key = ?`).run(LAST_SUCCESS_KEY);
 }
 
 export interface TickDeps {
@@ -55,6 +89,7 @@ export interface TickDeps {
   /** 1분봉 받기 — 시험은 가짜 봉 */
   bars?: EstimateFetcher;
   closed?: (day: string) => boolean;
+  openToday?: (day: string, now: number) => number;
 }
 
 /** 방향 추정을 기다리는 줄을 처리한다 — 줄마다 토스 호출 많아야 1번 */
@@ -93,7 +128,7 @@ export async function usHaltsTick(deps: TickDeps = {}): Promise<'fetched' | 'fai
     lastPurgeDay = day;
     if (purged) console.log(`[usHalts] 30일 지난 정지 ${purged}줄 지움`);
   }
-  if (!isFetchWindow(now, deps.closed)) return 'outside';
+  if (fetchWindowOf(now, deps).window === 'outside') return 'outside';
 
   status.lastAttemptAt = new Date(now).toISOString();
   let items: RawHaltItem[];
@@ -114,6 +149,9 @@ export async function usHaltsTick(deps: TickDeps = {}): Promise<'fetched' | 'fai
     return 'failed';
   }
   status.lastSuccessAt = new Date(now).toISOString();
+  getDb()
+    .prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`)
+    .run(LAST_SUCCESS_KEY, status.lastSuccessAt);
   status.consecutiveFailures = 0;
   status.lastError = null;
   await estimatePending(now, deps.bars).catch((e) => console.warn('[usHalts] 방향 추정 실패:', (e as Error).message));
@@ -150,7 +188,7 @@ export function startUsHaltsScheduler(): void {
     // 한 번이 1분을 넘기면(토스 대기 등) 겹치지 않게 건너뛴다 — Nasdaq 은 1분에 1번 이하
     if (running) return;
     const now = Date.now();
-    if (isFetchWindow(now) && tooSoon(now)) return;
+    if (fetchWindowOf(now).window !== 'outside' && tooSoon(now)) return;
     running = true;
     void usHaltsTick({
       now,
@@ -166,5 +204,5 @@ export function startUsHaltsScheduler(): void {
   };
   run();
   timer = setInterval(run, FETCH_INTERVAL_MS);
-  console.log('[alphascope] 미국 거래정지 받기 준비됨 (평일 04:00~20:00 ET, 1분마다)');
+  console.log('[alphascope] 미국 거래정지 받기 준비됨 (평일 04:00~20:00 ET 1분마다 · 20:00 뒤는 안 풀린 오늘 정지가 있으면 미국 자정까지)');
 }

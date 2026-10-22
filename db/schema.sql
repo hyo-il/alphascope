@@ -454,6 +454,7 @@ CREATE TABLE IF NOT EXISTS us_halts (
   direction_est TEXT NOT NULL,          -- 방향 추정: pending · up · down · unknown · none(LULD 아님)
   direction_est_json TEXT,              -- 추정에 쓴 값(봉 시각 · 종가 · 판정 못 한 이유)
   updated_at TEXT NOT NULL,
+  last_listed_at TEXT,                  -- 마지막으로 Nasdaq 목록에서 본 시각(UTC ISO, v2.55.1) — 지난 정지가 목록에서 사라졌는지 판단
   UNIQUE (raw_issue_symbol, raw_halt_date, raw_halt_time)
 );
 CREATE INDEX IF NOT EXISTS idx_us_halts_day ON us_halts (halt_day, halt_at_ms);

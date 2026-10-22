@@ -20,10 +20,11 @@ import { marketDayTime } from '../server/marketHours';
 import { isMarketClosed } from '../server/marketCalendar';
 import { TossApiError } from '../src/services/toss/httpClient';
 import { fetchHaltsFeed, parseHaltsFeed, type RawHaltItem } from '../server/usHalts/feed';
-import { ingestHalts, listHaltsOfDay, purgeOldHalts } from '../server/usHalts/store';
-import { fetchStatus, isFetchWindow, markFetched, resetFetchStatusForTest, tooSoon, usHaltsTick } from '../server/usHalts/scheduler';
+import { ingestHalts, listHaltsOfDay, listOngoingBefore, purgeOldHalts } from '../server/usHalts/store';
+import { fetchStatus, fetchWindowOf, markFetched, resetFetchStatusForTest, tooSoon, usHaltsTick } from '../server/usHalts/scheduler';
+const isFetchWindow = (now: number, closed: (d: string) => boolean) => fetchWindowOf(now, { closed, openToday: () => 0 }).window !== 'outside';
 import { judgeDirection } from '../server/usHalts/directionEstimate';
-import { expectedResume } from '../src/utils/usHalts';
+import { expectedResume, haltDayCount, isHaltOngoing } from '../src/utils/usHalts';
 import type { Candle } from '../src/types/toss';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -194,21 +195,22 @@ const win: [string, string, boolean][] = [
   ['2026-10-21 수', '04:00:00', true],
   ['2026-10-21 수', '03:59:59', false],
   ['2026-10-21 수', '19:59:59', true],
-  ['2026-10-21 수', '20:00:00', false],
+  ['2026-10-21 수', '20:00:00', true], // 20:00~20:02 ET 는 유예(목록 지연) — 안 풀린 정지가 없어도 받음
+  ['2026-10-21 수', '20:03:00', false],
   ['2026-10-24 토', '10:00:00', false],
   ['2026-11-26 추수감사절(NYSE 휴장)', '10:00:00', false],
   ['2026-10-30 금(서머타임 끝 전)', '04:00:00', true],
   ['2026-10-30 금(서머타임 끝 전)', '19:59:00', true],
   ['2026-11-02 월(서머타임 끝 뒤)', '04:00:00', true],
   ['2026-11-02 월(서머타임 끝 뒤)', '03:30:00', false],
-  ['2026-11-02 월(서머타임 끝 뒤)', '20:00:00', false],
+  ['2026-11-02 월(서머타임 끝 뒤)', '20:03:00', false],
 ];
 for (const [label, hms, want] of win) check(`받는 시간대 ${label} ${hms} ET → ${want ? '받음' : '안 받음'}`, isFetchWindow(et(label.slice(0, 10), hms), real) === want);
 // UTC 로 확인 — 서머타임(EDT, UTC−4) 04:00 = 08:00Z · 표준시(EST, UTC−5) 04:00 = 09:00Z
 check('10-30 08:00Z = 04:00 EDT 받음 · 07:59Z 안 받음', isFetchWindow(Date.parse('2026-10-30T08:00:00Z'), real) && !isFetchWindow(Date.parse('2026-10-30T07:59:00Z'), real));
 check('11-02 09:00Z = 04:00 EST 받음 · 08:30Z 안 받음', isFetchWindow(Date.parse('2026-11-02T09:00:00Z'), real) && !isFetchWindow(Date.parse('2026-11-02T08:30:00Z'), real));
-check('11-03 00:59Z = 11-02 19:59 EST 받음 · 01:00Z 안 받음', isFetchWindow(Date.parse('2026-11-03T00:59:00Z'), real) && !isFetchWindow(Date.parse('2026-11-03T01:00:00Z'), real));
-check('받는 시간대 밖이면 받지 않음(load 를 부르지 않음)', (await usHaltsTick({ now: et(DAY, '21:00:00'), load: async () => { throw new Error('불렸음'); } })) === 'outside');
+check('11-03 00:59Z = 11-02 19:59 EST 받음 · 01:03Z(20:03 EST) 안 받음', isFetchWindow(Date.parse('2026-11-03T00:59:00Z'), real) && !isFetchWindow(Date.parse('2026-11-03T01:03:00Z'), real));
+check('받는 시간대 밖이면 받지 않음(load 를 부르지 않음)', (await usHaltsTick({ now: et(DAY, '21:00:00'), openToday: () => 0, load: async () => { throw new Error('불렸음'); } })) === 'outside');
 
 // 서버를 다시 켜도(개발 서버 tsx watch) 1분에 1번 이하 — 마지막 실제 받기 시각을 DB 에 남긴다
 const T0 = et(DAY, '13:00:00');
@@ -278,6 +280,7 @@ try {
   const r = await fetch(`${BASE}/api/us-halts?day=${DAY}`, { headers: { cookie } });
   const body = (await r.json()) as { day: string; halts: unknown[]; status: { enabled: boolean }; serverNow: number };
   check('로그인 뒤 200 · 그날 20줄 · 스위치 꺼짐이 보임', r.status === 200 && body.day === DAY && body.halts.length === 20 && body.status.enabled === false && typeof body.serverNow === 'number', `${r.status} ${body.halts?.length}`);
+  check('응답에 ongoing(며칠째 정지 중) 목록 · 받기 window', Array.isArray((body as unknown as { ongoing: unknown[] }).ongoing) && typeof (body.status as unknown as { window: string }).window === 'string');
   check('틀린 day → 400', (await fetch(`${BASE}/api/us-halts?day=10-21`, { headers: { cookie } })).status === 400);
   check('스위치를 끄면 받기를 시작하지 않는다(로그)', /US_HALTS_ENABLED=false/.test(serverLog));
 } catch (e) {
@@ -293,6 +296,48 @@ try {
   }
   db.prepare(`DELETE FROM auth_sessions`).run();
 }
+
+// ── 8. 20:00 ET 뒤 이어 받기 · 며칠째 정지 중 (v2.55.1) ───────────────────
+// 시험용 XML(scripts/fixtures/usHalts/ongoing — 가상의 종목): 10-22(목) 20:01:30 · 20:05:30 ET 에 받은 목록
+const D2 = '2026-10-22';
+const ongoingFeed = (f: string) => parseHaltsFeed(fs.readFileSync(path.join(FIXTURES, 'ongoing', f), 'utf8'));
+const e1 = ongoingFeed('20261022-200130ET.xml');
+const e2 = ongoingFeed('20261022-200530ET.xml');
+resetFetchStatusForTest();
+check('20:01:30 ET — 유예 3분 안이라 받음(19:59 정지를 처음 봄)', (await usHaltsTick({ now: et(D2, '20:01:30'), load: async () => e1, bars: fakeBars })) === 'fetched');
+const w1 = fetchWindowOf(et(D2, '20:04:00'));
+check('20:04 ET — 안 풀린 오늘 정지(FFFF) 1건 → 이어 받음(extended)', w1.window === 'extended' && w1.openToday === 1, JSON.stringify(w1));
+check('받기 상태에 window · openToday', fetchStatus(et(D2, '20:04:00')).window === 'extended' && fetchStatus(et(D2, '20:04:00')).openToday === 1);
+check('20:05:30 ET — 이어 받기로 받음', (await usHaltsTick({ now: et(D2, '20:05:30'), load: async () => e2, bars: fakeBars })) === 'fetched');
+check('모두 풀린 다음 분(20:06:30) → 받지 않음', fetchWindowOf(et(D2, '20:06:30')).window === 'outside' && (await usHaltsTick({ now: et(D2, '20:06:30'), load: async () => { throw new Error('불렸음'); } })) === 'outside');
+const open1 = () => 1;
+const W = (iso: string, closed?: (d: string) => boolean) => fetchWindowOf(Date.parse(iso), { openToday: open1, closed: closed ?? real }).window;
+check('안 풀린 정지 있음 — 20:30 이어 받음 / 없음 — 안 받음', W('2026-10-23T00:30:00Z') === 'extended' && fetchWindowOf(Date.parse('2026-10-23T00:30:00Z'), { openToday: () => 0, closed: real }).window === 'outside');
+check('23:59 EDT 이어 받음 · 00:00 안 받음(미국 날짜가 바뀜)', W('2026-10-23T03:59:00Z') === 'extended' && W('2026-10-23T04:00:00Z') === 'outside');
+check('토요일 20:30 · 추수감사절 20:30 → 안 받음', W('2026-10-25T00:30:00Z') === 'outside' && W('2026-11-27T01:30:00Z') === 'outside');
+check('서머타임 끝 전 10-30(금) 23:59 EDT 받음 · 10-31 00:00 안 받음', W('2026-10-31T03:59:00Z') === 'extended' && W('2026-10-31T04:00:00Z') === 'outside');
+check('서머타임 끝 뒤 11-02(월) 20:30 EST = 01:30Z 받음 · 23:59 EST 받음 · 00:00 EST 안 받음', W('2026-11-03T01:30:00Z') === 'extended' && W('2026-11-03T04:59:00Z') === 'extended' && W('2026-11-03T05:00:00Z') === 'outside');
+check('19:59 EST(11-02) 는 정규 · 20:00 EDT(10-30)는 이어 받기 판정', W('2026-11-03T00:59:00Z') === 'regular' && W('2026-10-31T00:30:00Z') === 'extended');
+check('공지된 재개 시각이 아직 안 온 정지 → 안 풀림 · 지나면 풀림', isHaltOngoing({ resumeAtMs: et(D2, '21:00:00') }, et(D2, '20:30:00')) && !isHaltOngoing({ resumeAtMs: et(D2, '21:00:00') }, et(D2, '21:00:00')));
+
+// 10-23(금) 09:00 ET 에 본다 — 마지막 성공 받기 = 20:05:30(전날)
+const D3 = '2026-10-23';
+const view = et(D3, '09:00:00');
+const ongoing = listOngoingBefore(D3, view, fetchStatus(view).lastSuccessAt);
+const og = (sym: string) => ongoing.find((h) => h.rawIssueSymbol === sym);
+check('목록에 남은 지난 정지(AAAA 10/20) → 며칠째 4일째 · 상태 정지 중', og('AAAA')?.daysHalted === 4 && og('AAAA')?.unlisted === false, JSON.stringify(og('AAAA') && { d: og('AAAA')!.daysHalted, u: og('AAAA')!.unlisted }));
+check('재개 칸이 채워진 지난 정지(BBBB) → 빠짐', !og('BBBB'));
+check('목록에서 사라진 지난 정지(CCCC) → 상태 모름(unlisted)', og('CCCC')?.unlisted === true && og('CCCC')?.daysHalted === 3);
+check('공지된 재개(EEEE 10/23 09:30)가 아직 → 며칠째에 남음', og('EEEE') != null && og('EEEE')!.resumeAtMs === et(D3, '09:30:00'));
+check('공지 시각이 지나면(09:31) 빠짐', !listOngoingBefore(D3, et(D3, '09:31:00'), fetchStatus(view).lastSuccessAt).some((h) => h.rawIssueSymbol === 'EEEE'));
+check('오늘 정지(FFFF)는 며칠째에 없음 · 31일 전 정지(OLDT 09/22)는 안 나옴', !og('FFFF') && !og('OLDT') && rowsOf('OLDT').length === 1);
+check('오래된 정지부터', ongoing.every((h, i) => i === 0 || h.haltAtMs >= ongoing[i - 1].haltAtMs));
+check('받은 적이 없으면 사라졌다고 하지 않음', listOngoingBefore(D3, view, null).every((h) => !h.unlisted));
+check('며칠째 — 주말 포함 미국 날짜(10-16 금 → 10-19 월 = 4일째 · 같은 날 = 1일째)', haltDayCount('2026-10-16', '2026-10-19') === 4 && haltDayCount('2026-10-19', '2026-10-19') === 1);
+// 「안 풀림」 은 한 함수 — 화면 · 서버 · 스케줄러에 재개 시각을 따로 비교하는 식이 없다
+const root = path.join(here, '..');
+const sources = ['src/components/usHalts/UsHaltsView.tsx', 'server/usHalts/store.ts', 'server/usHalts/scheduler.ts', 'server/index.ts'].map((f) => fs.readFileSync(path.join(root, f), 'utf8'));
+check('「안 풀림」 판단은 utils/usHalts.isHaltOngoing 한 곳(다른 곳에 resumeAtMs 비교 없음)', sources.every((src) => !/resumeAtMs\s*(<=|>=|<|>)/.test(src)) && /isHaltOngoing/.test(sources[1]));
 
 console.log(`\n결과: ${pass}개 통과 / ${fail}개 실패`);
 process.exit(fail ? 1 : 0);

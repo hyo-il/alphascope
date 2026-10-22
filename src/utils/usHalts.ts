@@ -30,13 +30,24 @@ export type ExpectedResume =
   | { kind: 'open' }
   | { kind: 'none' };
 
+/**
+ * 「안 풀림」 — **이 함수 한 곳**(화면 「정지 중」 · 서버 「며칠째 정지 중」 · 20:00 ET 뒤 이어 받기가 같이 쓴다).
+ * 재개 칸(ResumptionTradeTime)이 비었거나, 공지된 재개 시각이 아직 오지 않았으면 안 풀림.
+ */
+export const isHaltOngoing = (halt: { resumeAtMs: number | null }, now: number): boolean =>
+  halt.resumeAtMs == null || halt.resumeAtMs > now;
+
+/** 며칠째 — 미국 날짜(YYYY-MM-DD)로 센다. 정지한 날 = 1일째, 주말 · 휴장일도 센다 */
+export function haltDayCount(haltDay: string, today: string): number {
+  return Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${haltDay}T12:00:00Z`)) / 86_400_000) + 1;
+}
+
 export function expectedResume(
   halt: { rawReasonCode: string; haltAtMs: number; resumeAtMs: number | null },
   now: number,
 ): ExpectedResume {
-  if (halt.resumeAtMs != null) {
-    return halt.resumeAtMs <= now ? { kind: 'resumed', at: halt.resumeAtMs } : { kind: 'announced', at: halt.resumeAtMs };
-  }
+  if (!isHaltOngoing(halt, now)) return { kind: 'resumed', at: halt.resumeAtMs! };
+  if (halt.resumeAtMs != null) return { kind: 'announced', at: halt.resumeAtMs };
   if (!isLuldCode(halt.rawReasonCode)) return { kind: 'none' };
   const elapsed = now - halt.haltAtMs;
   if (elapsed < LULD_FIRST_MS) return { kind: 'first', at: halt.haltAtMs + LULD_FIRST_MS };
