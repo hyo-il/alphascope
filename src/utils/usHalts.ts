@@ -15,7 +15,7 @@ export const LULD_EXTENDED_MS = 10 * 60_000;
 
 /**
  * 예상 재개 — `now` 는 서버 시각 기준(화면은 서버 시각 차를 더해 1초마다 다시 부른다).
- * - resumed: 재개 시각이 채워졌고 지났다(「실제 재개」 만 보인다)
+ * - resumed: 재개 시각이 채워졌고 지났다(오늘 표에서는 그 정지가 보이지 않는다 — 지금 멈춘 것만)
  * - announced: 재개 시각이 채워졌지만 아직 오지 않았다(뉴스 정지 T3 처럼 미리 공지된 시각)
  * - first: LULD · 정지 + 5분 전 → 정지 + 5분
  * - extended: LULD · 정지 + 5분 ~ 10분 → 정지 + 10분(연장)
@@ -98,23 +98,24 @@ export function groupHalts<T extends { rawIssueSymbol: string; haltAtMs: number;
  * 묶음의 거래대금 — 그 묶음 정지들의 정지 전 5분 거래대금 가운데 **가장 큰 값**(이 함수 한 곳 — 표시 · 숨기기가 같은 숫자를 쓴다).
  * 풀린 지 몇십 초 만에 다시 멈춘 정지는 앞 5분 대부분이 앞선 정지 시간이라 0 에 가깝다 — 가장 최근 값만 쓰면 가장 활발한 종목이 숨었다.
  * - usd: 아는 값 가운데 최대(0 이면 「거래 없음」) · 모두 모르면 null
- * - partial: 아는 값이 있는데 모르는 정지(null · 아직)도 있다 → 화면이 「일부 정지는 거래량을 모릅니다」
- * - pending: 아는 값이 없고 아직 내지 않은 정지가 있다 → 「확인 중」
+ * - partial: 아는 값이 있는데 모르는 정지(null · 아직)도 있다 → 화면 정보 아이콘
+ * - checking: 아직 내지 않은 정지가 하나라도 있다(방금 다시 멈춤 등) — 아는 값이 없으면 화면 「확인 중」, 숨기기는 하지 않는다
  */
 export interface GroupTurnover {
   usd: number | null;
   partial: boolean;
-  pending: boolean;
+  checking: boolean;
 }
 export function groupTurnover(halts: { turnover5mUsd: number | null; turnoverPending: boolean }[]): GroupTurnover {
   const known = halts.map((h) => h.turnover5mUsd).filter((v): v is number => v != null);
   const usd = known.length ? Math.max(...known) : null;
-  return { usd, partial: usd != null && known.length < halts.length, pending: usd == null && halts.some((h) => h.turnoverPending) };
+  return { usd, partial: usd != null && known.length < halts.length, checking: halts.some((h) => h.turnoverPending) };
 }
 
 /**
  * 「거래대금 $N 미만 숨기기」 — 이 함수 한 곳. 묶음 거래대금(`groupTurnover` 의 최대값)이 기준보다 작으면 숨긴다.
- * 숨기지 않는 것: 기준 없음(null) · 관심 · 보유 종목(`mine`) · 거래대금 모름(null — 토스에 없음 · 받기 실패 · 아직).
+ * 숨기지 않는 것: 기준 없음(null) · 관심 · 보유 종목(`mine`) · 거래대금 모름(null) · **아직 확인 중인 정지가 있는 묶음**
+ * (방금 다시 멈춘 정지의 값이 기준을 넘을 수 있다 — 앞선 값만으로 숨기면 「다시 정지」 토스트만 뜨고 줄이 안 보였다).
  */
-export const isHiddenByTurnover = (turnoverUsd: number | null, minTurnoverUsd: number | null, mine: boolean): boolean =>
-  minTurnoverUsd != null && !mine && turnoverUsd != null && turnoverUsd < minTurnoverUsd;
+export const isHiddenByTurnover = (t: GroupTurnover, minTurnoverUsd: number | null, mine: boolean): boolean =>
+  minTurnoverUsd != null && !mine && !t.checking && t.usd != null && t.usd < minTurnoverUsd;

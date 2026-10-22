@@ -154,7 +154,7 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
             // live: 오늘 표는 가장 최근 정지가 안 풀린 묶음만(풀린 정지는 최대 거래대금 계산에만 쓴다)
             const split = <T extends UsHaltRow>(rows: T[], live: boolean) => {
               const groups = groupHalts(rows).filter((g) => !live || isHaltOngoing(g.latest, now));
-              const hidden = groups.filter((g) => isHiddenByTurnover(groupTurnover([g.latest, ...g.earlier]).usd, minTurnover ?? null, mine(g.latest)));
+              const hidden = groups.filter((g) => isHiddenByTurnover(groupTurnover([g.latest, ...g.earlier]), minTurnover ?? null, mine(g.latest)));
               return { groups, shown: showHidden ? groups : groups.filter((g) => !hidden.includes(g)), hiddenCount: hidden.length };
             };
             const today = split(data.halts, true);
@@ -173,7 +173,8 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
                   </div>
                 )}
                 <div className="mb-2">
-                  <SectionTitle>지금 정지 중 ({today.groups.length})</SectionTitle>
+                  {/* 받기 실패 중이면 개수를 적지 않는다 — 「(0)」 과 「알 수 없습니다」 가 엇갈리지 않게 */}
+                  <SectionTitle>{fetchBad(data.status) ? '지금 정지 중' : `지금 정지 중 (${today.groups.length})`}</SectionTitle>
                 </div>
                 {!today.groups.length && (
                   <p className="rounded-lg bg-bg-tertiary/40 px-3 py-6 text-center text-caption text-text-muted">
@@ -199,8 +200,11 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
  * 빈 목록 문구(지금 멈춘 종목 0) — 받은 적이 없거나 받기가 실패 중이면 「없음」 이라고 하지 않는다(정지가 있는지 모른다).
  * 받는 중이면 다시 확인한다고 적는다.
  */
+/** 받은 적이 없거나 받기가 실패 중 — 지금 멈춘 종목이 있는지 모른다 */
+const fetchBad = (status: UsHaltFetchStatus) => status.enabled && (!status.lastSuccessAt || status.consecutiveFailures >= FAIL_WARN);
+
 function EmptyText({ day, status }: { day: string; status: UsHaltFetchStatus }) {
-  if (status.enabled && (!status.lastSuccessAt || status.consecutiveFailures >= FAIL_WARN))
+  if (fetchBad(status))
     return <>아직 Nasdaq 목록을 받지 못해 오늘(미국 날짜 {day}) 정지를 알 수 없습니다.</>;
   if (!status.enabled || !status.inWindow) return <>지금 멈춰 있는 종목이 없습니다.</>;
   return <>지금 멈춰 있는 종목이 없습니다 — 1분마다 다시 확인합니다.</>;
@@ -319,13 +323,16 @@ function HiddenNotice({ count, showing, onToggle }: { count: number; showing: bo
  */
 function TurnoverText({ halts, prefix }: { halts: UsHaltRow[]; prefix: string }) {
   const t = groupTurnover(halts);
-  if (t.pending) return <span className="text-text-muted">거래대금 확인 중…</span>;
-  if (t.usd == null) return <span className="text-text-muted">거래량 모름</span>;
+  if (t.usd == null) return <span className="text-text-muted">{t.checking ? '거래대금 확인 중…' : '거래량 모름'}</span>;
+  // 일부만 모름 — 아직 내지 않은 정지가 있으면 「확인 중」(숨기지도 않는다), 아니면 「모릅니다」
+  const tip = t.partial && (
+    <InfoTip label="거래대금 일부 설명">{t.checking ? '일부 정지는 거래대금을 아직 확인 중입니다.' : '일부 정지는 거래량을 모릅니다.'}</InfoTip>
+  );
   if (t.usd === 0)
     return (
       <span className="inline-flex items-center gap-1 text-text-muted">
         5분 거래 없음
-        {t.partial && <InfoTip label="거래량 모름 설명">일부 정지는 거래량을 모릅니다.</InfoTip>}
+        {tip}
       </span>
     );
   return (
@@ -333,7 +340,7 @@ function TurnoverText({ halts, prefix }: { halts: UsHaltRow[]; prefix: string })
       <span className="tabular-nums">
         {prefix} {formatUsdShort(t.usd)}
       </span>
-      {t.partial && <InfoTip label="거래량 모름 설명">일부 정지는 거래량을 모릅니다.</InfoTip>}
+      {tip}
     </span>
   );
 }
@@ -399,7 +406,7 @@ function HaltTable({
                 </td>
                 {/* 쉬운 말 아래에 원문 코드 — 한 줄로 두면 1280 에서 종목 칸이 좁아져 이름이 두 줄로 꺾였다 */}
                 <td className={`${NUM} py-1.5`}>
-                  <ReasonText h={h} />
+                  <ReasonText h={h} oneLine />
                 </td>
                 {/* 지금 멈춘 정지의 시각만(이전 정지 시각은 보이지 않는다 — v2.56.2) */}
                 <td className={`${NUM} py-1.5 tabular-nums`}>
@@ -500,16 +507,16 @@ function HaltName({ h, watched, market, onSelectSymbol }: { h: UsHaltRow; watche
 }
 
 /** 사유 칸 — 쉬운 말 아래에 원문 코드(한 줄로 두면 1280 에서 종목 칸이 좁아져 이름이 꺾였다). 모르는 코드는 원문만 */
-function ReasonText({ h }: { h: UsHaltRow }) {
+function ReasonText({ h, oneLine = false }: { h: UsHaltRow; oneLine?: boolean }) {
   const label = haltCodeLabel(codeOf(h));
   if (!label) return <>{h.rawReasonCode}</>;
   return (
     <>
       {/*
-        긴 쉬운 말(「뉴스 발표 · 재개 시각 공지」 등)은 단어 단위로 꺾는다 — 한 줄로 두면 1280 에서 표가 상자를 19px 넘었다.
-        최소 폭 128px — 없으면 칸(w-px)이 한 단어씩 꺾였다. 「변동성 정지(LULD)」 는 한 줄
+        오늘 표(oneLine)는 칸이 5개라 한 줄로 둔다 — 꺾으면 폭이 남는데도 그 줄만 높아졌다.
+        며칠째 칸은 칸이 7개라 긴 쉬운 말(「뉴스 발표 · 재개 시각 공지」 등)을 단어 단위로 꺾는다(최소 폭 128px — 없으면 한 단어씩 꺾였다).
       */}
-      <span className="block min-w-32 whitespace-normal break-keep">{label}</span>
+      <span className={`block ${oneLine ? 'whitespace-nowrap' : 'min-w-32 whitespace-normal break-keep'}`}>{label}</span>
       <span className="block text-caption text-text-muted">{h.rawReasonCode}</span>
     </>
   );
