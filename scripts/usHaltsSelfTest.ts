@@ -333,6 +333,15 @@ check('공지 시각이 지나면(09:31) 빠짐', !listOngoingBefore(D3, et(D3, 
 check('오늘 정지(FFFF)는 며칠째에 없음 · 31일 전 정지(OLDT 09/22)는 안 나옴', !og('FFFF') && !og('OLDT') && rowsOf('OLDT').length === 1);
 check('오래된 정지부터', ongoing.every((h, i) => i === 0 || h.haltAtMs >= ongoing[i - 1].haltAtMs));
 check('받은 적이 없으면 사라졌다고 하지 않음', listOngoingBefore(D3, view, null).every((h) => !h.unlisted));
+// 경계 — 30일째(오늘 − 29일)는 나옴 · 31일째(오늘 − 30일)는 안 나옴. 배포 전 줄(last_listed_at NULL)은 마지막 성공이 있으면 「사라짐」
+const mk = (sym: string, date: string) => ({ HaltDate: date, HaltTime: '19:50:00', IssueSymbol: sym, IssueName: sym, Market: 'NASDAQ', ReasonCode: 'T12', PauseThresholdPrice: '', ResumptionDate: '', ResumptionQuoteTime: '', ResumptionTradeTime: '' });
+ingestHalts([mk('D30', '09/24/2026'), mk('D31', '09/23/2026'), mk('NULL', '10/21/2026')], et(D2, '20:05:30'));
+db.prepare(`UPDATE us_halts SET last_listed_at = NULL WHERE raw_issue_symbol = 'NULL'`).run();
+const edge = listOngoingBefore(D3, view, fetchStatus(view).lastSuccessAt);
+check('30일째(09-24)는 나옴 · 31일째(09-23)는 안 나옴', edge.find((h) => h.rawIssueSymbol === 'D30')?.daysHalted === 30 && !edge.some((h) => h.rawIssueSymbol === 'D31'));
+check('배포 전 줄(last_listed_at NULL) + 마지막 성공 있음 → 사라짐 · 받은 적 없음 → 판단 안 함', edge.find((h) => h.rawIssueSymbol === 'NULL')?.unlisted === true && listOngoingBefore(D3, view, null).find((h) => h.rawIssueSymbol === 'NULL')?.unlisted === false);
+const W0 = (iso: string) => fetchWindowOf(Date.parse(iso), { openToday: () => 0, closed: real }).window;
+check('유예 끝 — 20:02:59 EDT 받음 · 20:03:00 안 받음', W0('2026-10-23T00:02:59Z') === 'regular' && W0('2026-10-23T00:03:00Z') === 'outside');
 check('며칠째 — 주말 포함 미국 날짜(10-16 금 → 10-19 월 = 4일째 · 같은 날 = 1일째)', haltDayCount('2026-10-16', '2026-10-19') === 4 && haltDayCount('2026-10-19', '2026-10-19') === 1);
 // 「안 풀림」 은 한 함수 — 화면 · 서버 · 스케줄러에 재개 시각을 따로 비교하는 식이 없다
 const root = path.join(here, '..');

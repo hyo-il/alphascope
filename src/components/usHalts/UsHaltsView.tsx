@@ -6,7 +6,7 @@ import { SkeletonTable } from '../common/SkeletonLoader';
 import { useWatchlist } from '../../hooks/useWatchlist';
 import { toast } from '../../store/uiStore';
 import { haltCodeLabel } from '../../data/haltCodes';
-import { expectedResume, isHaltOngoing, isLuldCode } from '../../utils/usHalts';
+import { expectedResume, isLuldCode } from '../../utils/usHalts';
 import { kstClockText } from '../../utils/marketDate';
 import type { HaltDirectionEstimate, UsHaltFetchStatus, UsHaltRow, UsHaltsResponse, UsOngoingHaltRow } from '../../types/usHalts';
 
@@ -118,9 +118,9 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
         {!data && !error && <SkeletonTable rows={5} columns={8} />}
         {/* 며칠째 정지 중 — 0건이면 그리지 않는다. 오늘 표 위 */}
         {data && data.ongoing.length > 0 && (
-          <div className="mb-4 space-y-2">
+          <div className="mt-4 mb-6 space-y-2">
             <SectionTitle>며칠째 정지 중 ({data.ongoing.length})</SectionTitle>
-            <OngoingTable rows={data.ongoing} now={now} watchlist={watchlist} onSelectSymbol={onSelectSymbol} />
+            <OngoingTable rows={data.ongoing} watchlist={watchlist} onSelectSymbol={onSelectSymbol} />
             <p className="text-caption text-text-muted">최근 30일 안에 시작된 정지만 보입니다(그보다 오래된 정지는 저장하지 않습니다).</p>
           </div>
         )}
@@ -170,7 +170,7 @@ function StatusLine({ status }: { status: UsHaltFetchStatus }) {
       </span>
     );
   if (!status.inWindow)
-    return <span>미국 시간 04:00~20:00 ET 평일에만 받습니다{lastMs != null ? ` · 마지막 확인 ${KST_DAY.format(new Date(lastMs))} ${last}` : ''}</span>;
+    return <span>미국 시간 평일 04:00~20:00 ET 에 받습니다(20:00 뒤에는 안 풀린 오늘 정지가 있을 때만 자정까지){lastMs != null ? ` · 마지막 확인 ${KST_DAY.format(new Date(lastMs))} ${last}` : ''}</span>;
   if (!last) return <span>{status.consecutiveFailures ? `아직 받지 못했습니다(실패 ${status.consecutiveFailures}번 · 1분마다 다시)` : '처음 받는 중…'}</span>;
   if (status.window === 'extended')
     return <span>20:00 ET 뒤 — 아직 안 풀린 정지 {status.openToday}건 때문에 이어 받는 중(미국 자정까지) · 마지막 확인 {last}</span>;
@@ -275,7 +275,13 @@ function ResumeCell({ resume }: { resume: ReturnType<typeof expectedResume> }) {
     case 'extended':
       return <span className="tabular-nums">연장 · {kstClockText(resume.at)} 예상</span>;
     case 'announced':
-      return <span className="tabular-nums">{kstClockText(resume.at)} 재개 예정(공지)</span>;
+      // 두 줄 — 한 줄이면 1280 에서 칸이 넓어져 마지막 칸(방향)이 표 밖으로 밀렸다
+      return (
+        <>
+          <span className="block tabular-nums">{kstClockText(resume.at)}</span>
+          <span className="block text-caption text-text-muted">재개 예정(공지)</span>
+        </>
+      );
     case 'open':
       return (
         <span className="text-text-secondary">
@@ -327,7 +333,11 @@ function ReasonText({ h }: { h: UsHaltRow }) {
   if (!label) return <>{h.rawReasonCode}</>;
   return (
     <>
-      <span className="block">{label}</span>
+      {/*
+        긴 쉬운 말(「뉴스 발표 · 재개 시각 공지」 등)은 단어 단위로 꺾는다 — 한 줄로 두면 1280 에서 표가 상자를 19px 넘었다.
+        최소 폭 128px — 없으면 칸(w-px)이 한 단어씩 꺾였다. 「변동성 정지(LULD)」 는 한 줄
+      */}
+      <span className="block min-w-32 whitespace-normal break-keep">{label}</span>
       <span className="block text-caption text-text-muted">{h.rawReasonCode}</span>
     </>
   );
@@ -340,12 +350,10 @@ function ReasonText({ h }: { h: UsHaltRow }) {
  */
 function OngoingTable({
   rows,
-  now,
   watchlist,
   onSelectSymbol,
 }: {
   rows: UsOngoingHaltRow[];
-  now: number;
   watchlist: string[];
   onSelectSymbol: (symbol: string) => void;
 }) {
@@ -360,7 +368,7 @@ function OngoingTable({
             <th className={`${TABLE_NAME_COL} py-2 pl-3 pr-3 font-normal`}>종목</th>
             <th className={`${NUM} py-2 font-normal`}>사유</th>
             <th className={`${NUM} py-2 font-normal`}>정지 시작</th>
-            <th className={`${NUM} py-2 font-normal`}>며칠째</th>
+            <th className={`${NUM} py-2 text-right font-normal`}>며칠째</th>
             <th className={`${NUM} py-2 font-normal`}>재개</th>
             <th className={`${NUM} py-2 pr-3 font-normal`}>상태</th>
           </tr>
@@ -377,11 +385,13 @@ function OngoingTable({
               <td className={`${NUM} py-1.5 tabular-nums`}>
                 <span title={etTitle(h.rawHaltDate, h.rawHaltTime)}>{kstMonthDayTime(h.haltAtMs)}</span>
               </td>
-              <td className={`${NUM} py-1.5 tabular-nums`}>{h.daysHalted}일째</td>
+              <td className={`${NUM} py-1.5 text-right tabular-nums`}>{h.daysHalted}일째</td>
               <td className={`${NUM} py-1.5`}>
-                {h.resumeAtMs != null && isHaltOngoing(h, now) ? (
-                  <span className="tabular-nums" title={etTitle(h.rawResumptionDate || h.rawHaltDate, h.rawResumptionTradeTime)}>
-                    {kstMonthDayTime(h.resumeAtMs)} 재개 예정(공지)
+                {/* 서버가 안 풀린 줄만 보낸다 — 공지 시각이 지나도 다음 읽기(30초)까지는 그 시각을 그대로 둔다(「없음」 으로 바뀌지 않게) */}
+                {h.resumeAtMs != null ? (
+                  <span title={etTitle(h.rawResumptionDate || h.rawHaltDate, h.rawResumptionTradeTime)}>
+                    <span className="block tabular-nums">{kstMonthDayTime(h.resumeAtMs)}</span>
+                    <span className="block text-caption text-text-muted">재개 예정(공지)</span>
                   </span>
                 ) : (
                   <span className="text-text-muted">정해진 시각 없음</span>

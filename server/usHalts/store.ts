@@ -239,8 +239,8 @@ export function countOngoingOfDay(day: string, now: number): number {
 export function listOngoingBefore(today: string, now: number, lastSuccessAt: string | null): UsOngoingHaltRow[] {
   const rows = getDb()
     .prepare(`SELECT * FROM us_halts WHERE halt_day < ? AND halt_day >= ? ORDER BY halt_at_ms, id`)
-    // 30일 — 보관 규칙(`keepFromDay`)과 같은 잣대를 보는 날 기준으로(정지한 날 = 1일째라 가장 오래된 줄은 31일째)
-    .all(today, addDays(today, -KEEP_DAYS)) as DbRow[];
+    // 30일 안에 시작된 정지 = 30일째까지(정지한 날 = 1일째). 저장은 하루 더 남지만(`keepFromDay`) 화면 문구 「최근 30일 안」 과 숫자를 맞춘다
+    .all(today, addDays(today, -(KEEP_DAYS - 1))) as DbRow[];
   const listedAt = new Map(rows.map((r) => [r.id, r.last_listed_at]));
   return toHaltRows(rows)
     .filter((h) => isHaltOngoing(h, now))
