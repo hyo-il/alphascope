@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Badge, InfoTip, PageHeader } from '../ui';
+import { Badge, InfoTip, PageHeader, SectionTitle } from '../ui';
 import { LIST_TABLE_ROW, PANEL_PAD, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP_TIGHT } from '../ui/tokens';
 import StockName from '../common/StockName';
 import { SkeletonTable } from '../common/SkeletonLoader';
 import { useWatchlist } from '../../hooks/useWatchlist';
 import { toast } from '../../store/uiStore';
 import { haltCodeLabel } from '../../data/haltCodes';
-import { expectedResume, isLuldCode } from '../../utils/usHalts';
+import { expectedResume, isHaltOngoing, isLuldCode } from '../../utils/usHalts';
 import { kstClockText } from '../../utils/marketDate';
-import type { HaltDirectionEstimate, UsHaltFetchStatus, UsHaltRow, UsHaltsResponse } from '../../types/usHalts';
+import type { HaltDirectionEstimate, UsHaltFetchStatus, UsHaltRow, UsHaltsResponse, UsOngoingHaltRow } from '../../types/usHalts';
 
 /**
  * 실험실 > 미국 거래정지 (v2.55.0) — 오늘(미국 날짜) 멈춘 미국 종목 · 사유 · 정지 · 예상 재개 · 실제 재개(한국 시간) · 방향(추정).
@@ -30,6 +30,12 @@ const etTitle = (date: string, time: string) => `미국 동부 시간(원문) ${
 /** 판단에는 앞뒤 공백을 뺀 코드를 쓴다(화면 글자는 원문) */
 const codeOf = (h: UsHaltRow) => h.rawReasonCode.trim();
 const KST_DAY = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' });
+const KST_MD_HM = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+/** 한국 날짜 · 시각 「10-20 22:31」(지난 날 정지 — 날짜가 필요하다). 월 · 일만 고르면 sv-SE 도 「20/10」 로 적어 조각으로 맞춘다 */
+const kstMonthDayTime = (ms: number) => {
+  const p = Object.fromEntries(KST_MD_HM.formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+  return `${p.month}-${p.day} ${p.hour}:${p.minute}`;
+};
 
 export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbol: string) => void }) {
   const [data, setData] = useState<UsHaltsResponse | null>(null);
@@ -110,6 +116,19 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
         {error && <p className="mb-2 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">{error}</p>}
 
         {!data && !error && <SkeletonTable rows={5} columns={8} />}
+        {/* 며칠째 정지 중 — 0건이면 그리지 않는다. 오늘 표 위 */}
+        {data && data.ongoing.length > 0 && (
+          <div className="mb-4 space-y-2">
+            <SectionTitle>며칠째 정지 중 ({data.ongoing.length})</SectionTitle>
+            <OngoingTable rows={data.ongoing} now={now} watchlist={watchlist} onSelectSymbol={onSelectSymbol} />
+            <p className="text-caption text-text-muted">최근 30일 안에 시작된 정지만 보입니다(그보다 오래된 정지는 저장하지 않습니다).</p>
+          </div>
+        )}
+        {data && data.ongoing.length > 0 && (
+          <div className="mb-2">
+            <SectionTitle>오늘 정지 ({data.halts.length})</SectionTitle>
+          </div>
+        )}
         {data && !data.halts.length && (
           <p className="rounded-lg bg-bg-tertiary/40 px-3 py-6 text-center text-caption text-text-muted">
             <EmptyText day={data.day} status={data.status} />
@@ -153,6 +172,8 @@ function StatusLine({ status }: { status: UsHaltFetchStatus }) {
   if (!status.inWindow)
     return <span>미국 시간 04:00~20:00 ET 평일에만 받습니다{lastMs != null ? ` · 마지막 확인 ${KST_DAY.format(new Date(lastMs))} ${last}` : ''}</span>;
   if (!last) return <span>{status.consecutiveFailures ? `아직 받지 못했습니다(실패 ${status.consecutiveFailures}번 · 1분마다 다시)` : '처음 받는 중…'}</span>;
+  if (status.window === 'extended')
+    return <span>20:00 ET 뒤 — 아직 안 풀린 정지 {status.openToday}건 때문에 이어 받는 중(미국 자정까지) · 마지막 확인 {last}</span>;
   return <span>마지막 확인 {last} · 1분마다</span>;
 }
 
@@ -207,33 +228,12 @@ function HaltTable({
               <tr key={h.id} className={`border-b border-border/30 last:border-0 ${LIST_TABLE_ROW}`} data-halt-row={symbol}>
                 {/* 칸이 8개라 1280 에서 종목 칸이 좁다 — 말줄임 대신 단어 단위 줄바꿈(매수 판단 표와 같다 · 티커는 자르지 않는다) */}
                 <td className="py-1.5 pl-3 pr-3">
-                  {h.inToss ? (
-                    <button type="button" onClick={() => onSelectSymbol(symbol)} className="rounded text-left hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent">
-                      <StockName symbol={symbol} name={h.catalogName ?? (h.rawIssueName.trim() || null)} wrap />
-                    </button>
-                  ) : (
-                    <span title="토스에 없는 종목" aria-disabled="true" className="cursor-not-allowed text-text-secondary">
-                      <StockName symbol={symbol} name={h.rawIssueName.trim() || null} wrap />
-                    </span>
-                  )}
-                  {(watched || h.held) && (
-                    <span className="mt-0.5 flex gap-1">
-                      {watched && <Badge>관심</Badge>}
-                      {h.held && <Badge>보유</Badge>}
-                    </span>
-                  )}
+                  <HaltName h={h} watched={watched} onSelectSymbol={onSelectSymbol} />
                 </td>
                 <td className={`${NUM} py-1.5 text-text-secondary`}>{h.rawMarket}</td>
                 {/* 쉬운 말 아래에 원문 코드 — 한 줄로 두면 1280 에서 종목 칸이 좁아져 이름이 두 줄로 꺾였다 */}
                 <td className={`${NUM} py-1.5`}>
-                  {haltCodeLabel(codeOf(h)) ? (
-                    <>
-                      <span className="block">{haltCodeLabel(codeOf(h))}</span>
-                      <span className="block text-caption text-text-muted">{h.rawReasonCode}</span>
-                    </>
-                  ) : (
-                    h.rawReasonCode
-                  )}
+                  <ReasonText h={h} />
                 </td>
                 <td className={`${NUM} py-1.5`}>
                   <span className="block tabular-nums" title={etTitle(h.rawHaltDate, h.rawHaltTime)}>
@@ -295,4 +295,112 @@ function DirectionText({ est, luld }: { est: HaltDirectionEstimate; luld: boolea
   if (est === 'down') return <span className="text-bearish">▼ 하락 중 정지(추정)</span>;
   if (est === 'pending') return <span className="text-text-muted">추정 중…</span>;
   return <span className="text-text-muted">판정 못 함</span>;
+}
+
+/** 종목 칸 — 이름 · 티커(누르면 차트, 토스에 없으면 못 누름) + 둘째 줄 관심 · 보유 배지. 오늘 표 · 며칠째 표가 같이 쓴다 */
+function HaltName({ h, watched, onSelectSymbol }: { h: UsHaltRow; watched: boolean; onSelectSymbol: (symbol: string) => void }) {
+  const symbol = h.rawIssueSymbol.trim();
+  return (
+    <>
+      {h.inToss ? (
+        <button type="button" onClick={() => onSelectSymbol(symbol)} className="rounded text-left hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent">
+          <StockName symbol={symbol} name={h.catalogName ?? (h.rawIssueName.trim() || null)} wrap />
+        </button>
+      ) : (
+        <span title="토스에 없는 종목" aria-disabled="true" className="cursor-not-allowed text-text-secondary">
+          <StockName symbol={symbol} name={h.rawIssueName.trim() || null} wrap />
+        </span>
+      )}
+      {(watched || h.held) && (
+        <span className="mt-0.5 flex gap-1">
+          {watched && <Badge>관심</Badge>}
+          {h.held && <Badge>보유</Badge>}
+        </span>
+      )}
+    </>
+  );
+}
+
+/** 사유 칸 — 쉬운 말 아래에 원문 코드(한 줄로 두면 1280 에서 종목 칸이 좁아져 이름이 꺾였다). 모르는 코드는 원문만 */
+function ReasonText({ h }: { h: UsHaltRow }) {
+  const label = haltCodeLabel(codeOf(h));
+  if (!label) return <>{h.rawReasonCode}</>;
+  return (
+    <>
+      <span className="block">{label}</span>
+      <span className="block text-caption text-text-muted">{h.rawReasonCode}</span>
+    </>
+  );
+}
+
+/**
+ * 며칠째 정지 중 — 지난 날 정지 가운데 안 풀린 것(서버가 고름 · 「안 풀림」 = `isHaltOngoing`). 오늘 표와 같은 칸 모양.
+ * 관심 · 보유 종목이 맨 위, 그다음 오래된 정지부터. 방향(추정)은 두지 않는다(오늘 정지만 추정).
+ * 「목록에서 사라짐」 은 정지 중으로 단정하지 않는다(풀렸는지 모른다 — 옅은 색 + 설명).
+ */
+function OngoingTable({
+  rows,
+  now,
+  watchlist,
+  onSelectSymbol,
+}: {
+  rows: UsOngoingHaltRow[];
+  now: number;
+  watchlist: string[];
+  onSelectSymbol: (symbol: string) => void;
+}) {
+  const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP_TIGHT}`;
+  const mine = (h: UsHaltRow) => watchlist.includes(h.rawIssueSymbol.trim()) || h.held;
+  const sorted = [...rows].sort((a, b) => Number(mine(b)) - Number(mine(a)) || a.haltAtMs - b.haltAtMs);
+  return (
+    <div className="rounded-lg bg-bg-tertiary/40" data-ongoing-halts>
+      <table className="w-full text-left text-xs">
+        <thead className="text-caption text-text-muted">
+          <tr className="border-b border-border/50">
+            <th className={`${TABLE_NAME_COL} py-2 pl-3 pr-3 font-normal`}>종목</th>
+            <th className={`${NUM} py-2 font-normal`}>사유</th>
+            <th className={`${NUM} py-2 font-normal`}>정지 시작</th>
+            <th className={`${NUM} py-2 font-normal`}>며칠째</th>
+            <th className={`${NUM} py-2 font-normal`}>재개</th>
+            <th className={`${NUM} py-2 pr-3 font-normal`}>상태</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((h) => (
+            <tr key={h.id} className={`border-b border-border/30 last:border-0 ${LIST_TABLE_ROW}`} data-ongoing-row={h.rawIssueSymbol.trim()}>
+              <td className="py-1.5 pl-3 pr-3">
+                <HaltName h={h} watched={watchlist.includes(h.rawIssueSymbol.trim())} onSelectSymbol={onSelectSymbol} />
+              </td>
+              <td className={`${NUM} py-1.5`}>
+                <ReasonText h={h} />
+              </td>
+              <td className={`${NUM} py-1.5 tabular-nums`}>
+                <span title={etTitle(h.rawHaltDate, h.rawHaltTime)}>{kstMonthDayTime(h.haltAtMs)}</span>
+              </td>
+              <td className={`${NUM} py-1.5 tabular-nums`}>{h.daysHalted}일째</td>
+              <td className={`${NUM} py-1.5`}>
+                {h.resumeAtMs != null && isHaltOngoing(h, now) ? (
+                  <span className="tabular-nums" title={etTitle(h.rawResumptionDate || h.rawHaltDate, h.rawResumptionTradeTime)}>
+                    {kstMonthDayTime(h.resumeAtMs)} 재개 예정(공지)
+                  </span>
+                ) : (
+                  <span className="text-text-muted">정해진 시각 없음</span>
+                )}
+              </td>
+              <td className={`${NUM} py-1.5 pr-3`}>
+                {h.unlisted ? (
+                  <span className="inline-flex items-center gap-1 text-text-muted">
+                    목록에서 사라짐 — 상태 모름
+                    <InfoTip label="상태 모름 설명">Nasdaq 목록에서 빠져 풀렸는지 알 수 없습니다.</InfoTip>
+                  </span>
+                ) : (
+                  <span className="font-medium text-warning">정지 중</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
