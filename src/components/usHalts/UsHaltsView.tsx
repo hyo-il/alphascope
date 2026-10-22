@@ -1,17 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Badge, InfoTip, PageHeader, SectionTitle } from '../ui';
+import { Badge, InfoTip, NumberField, PageHeader, SectionTitle } from '../ui';
 import { LIST_TABLE_ROW, PANEL_PAD, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP_TIGHT } from '../ui/tokens';
 import StockName from '../common/StockName';
 import { SkeletonTable } from '../common/SkeletonLoader';
+import { InlineSpinner } from '../common/LoadingOverlay';
 import { useWatchlist } from '../../hooks/useWatchlist';
 import { toast } from '../../store/uiStore';
-import { haltCodeLabel } from '../../data/haltCodes';
-import { expectedResume, isLuldCode } from '../../utils/usHalts';
+import { directionUnknownText, haltCodeLabel } from '../../data/haltCodes';
+import { expectedResume, groupHalts, isHiddenByTurnover, isLuldCode, type HaltGroup } from '../../utils/usHalts';
 import { kstClockText } from '../../utils/marketDate';
-import type { HaltDirectionEstimate, UsHaltFetchStatus, UsHaltRow, UsHaltsResponse, UsOngoingHaltRow } from '../../types/usHalts';
+import { formatUsdShort } from '../../utils/formatters';
+import { MIN_TURNOVER_MAX, type UsHaltFetchStatus, type UsHaltRow, type UsHaltsResponse, type UsOngoingHaltRow } from '../../types/usHalts';
 
 /**
- * 실험실 > 미국 거래정지 (v2.55.0) — 오늘(미국 날짜) 멈춘 미국 종목 · 사유 · 정지 · 예상 재개 · 실제 재개(한국 시간) · 방향(추정).
+ * 실험실 > 미국 거래정지 (v2.55.0) — 오늘(미국 날짜) 멈춘 미국 종목 · 사유 · 정지 · 예상 재개 · 실제 재개(한국 시간) · 방향(추정) · 정지 전 5분 거래대금.
+ *
+ * - 같은 종목은 한 줄(`utils/usHalts.groupHalts` — 오늘 표 · 「며칠째 정지 중」 칸 각각). 줄 = 가장 최근 정지, 지난 정지는 시각만 작게(v2.56.1).
+ * - 「거래대금 $N 미만 숨기기」 기준은 서버 저장 · 숨기기는 여기서(`isHiddenByTurnover` — 관심 · 보유 · 거래대금 모름은 숨기지 않는다).
  *
  * - 서버가 1분마다 Nasdaq Trader 거래정지 RSS 를 받아 쌓는다(`server/usHalts/`) — 화면은 서버 값을 30초마다 읽기만 한다.
  * - 예상 재개는 **서버 시각** 기준으로 1초마다 다시 판단한다(`utils/usHalts.expectedResume`).
@@ -27,6 +32,10 @@ const FAIL_WARN = 3;
 const TOAST_LOOKBACK_MS = 3 * 60_000;
 
 const etTitle = (date: string, time: string) => `미국 동부 시간(원문) ${date} ${time}`;
+/** 「앞선 정지」 에 다 보이는 시각 수 — 더 많으면 마지막 하나만 + 앞의 것은 「외 N」(줄 길이가 늘지 않게 — 1280 에서 한 줄) */
+const EARLIER_SHOWN = 2;
+/** 한국 시각 「22:32」 */
+const kstHm = (ms: number) => kstClockText(ms).slice(0, 5);
 /** 판단에는 앞뒤 공백을 뺀 코드를 쓴다(화면 글자는 원문) */
 const codeOf = (h: UsHaltRow) => h.rawReasonCode.trim();
 const KST_DAY = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -47,6 +56,11 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
   /** 화면을 처음 받은 서버 시각 */
   const openedAt = useRef<number | null>(null);
   const { watchlist } = useWatchlist();
+  /** 숨긴 줄을 이 화면에서만 잠시 다 보임(저장하지 않음) */
+  const [showHidden, setShowHidden] = useState(false);
+  /** 숨기기 기준 — 저장에 성공한 값(처음은 서버 값). undefined = 아직 모름 */
+  const [minTurnover, setMinTurnover] = useState<number | null | undefined>(undefined);
+  const savingMin = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -56,6 +70,8 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
       offset.current = payload.serverNow - Date.now();
       setNow(payload.serverNow);
       setData(payload);
+      // 다른 기기에서 바꾼 기준도 따라간다 — 저장 중에는 덮지 않는다
+      if (!savingMin.current) setMinTurnover(payload.minTurnoverUsd ?? null);
       setError(null);
     } catch (e) {
       setError((e as Error).message);
@@ -95,13 +111,19 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
     // 화면을 연 뒤에 생긴 정지만 — 서버가 막 켜져(또는 실패 뒤) 처음 받은 목록의 오늘 앞선 정지는 알리지 않는다
     const fresh = added.filter((h) => h.haltAtMs >= openedAt.current! - TOAST_LOOKBACK_MS);
     if (!fresh.length) return;
-    const line = (h: UsHaltRow) => `${h.rawIssueSymbol} ${haltCodeLabel(codeOf(h)) ?? h.rawReasonCode} · ${kstClockText(h.haltAtMs)}`;
+    // 같은 종목이 오늘 앞서 멈춘 적이 있으면 「다시 정지」(풀렸다 다시 멈춘 새 정지 — 표에서는 한 줄로 묶인다)
+    const again = (h: UsHaltRow) => data.halts.some((o) => o.id !== h.id && o.rawIssueSymbol.trim() === h.rawIssueSymbol.trim() && o.haltAtMs < h.haltAtMs);
+    const line = (h: UsHaltRow) =>
+      again(h) ? `${h.rawIssueSymbol} 다시 정지 · ${kstClockText(h.haltAtMs)}` : `${h.rawIssueSymbol} ${haltCodeLabel(codeOf(h)) ?? h.rawReasonCode} · ${kstClockText(h.haltAtMs)}`;
     if (fresh.length === 1) toast.info(line(fresh[0]));
     // 토스트 설명은 한 문단이라 줄바꿈 대신 「 · 」 — 종목 · 정지 시각(한국)만, 5건까지
     else
       toast.info(
         `새 정지 ${fresh.length}건`,
-        fresh.slice(0, 5).map((h) => `${h.rawIssueSymbol} ${kstClockText(h.haltAtMs)}`).join(' · ') + (fresh.length > 5 ? ` 외 ${fresh.length - 5}건` : ''),
+        fresh
+          .slice(0, 5)
+          .map((h) => `${h.rawIssueSymbol}${again(h) ? ' 다시' : ''} ${kstClockText(h.haltAtMs)}`)
+          .join(' · ') + (fresh.length > 5 ? ` 외 ${fresh.length - 5}건` : ''),
       );
   }, [data]);
 
@@ -109,34 +131,63 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
     <div className="flex h-full flex-col" data-us-halts>
       <PageHeader title="미국 거래정지" />
       <div className={`min-h-0 flex-1 overflow-auto ${PANEL_PAD} pt-0`}>
-        <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-text-muted">
-          {data && <span>미국 날짜 {data.day}</span>}
-          {data && <StatusLine status={data.status} />}
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-text-muted">
+            {data && <span>미국 날짜 {data.day}</span>}
+            {data && <StatusLine status={data.status} />}
+          </div>
+          {minTurnover !== undefined && (
+            <MinTurnoverField
+              value={minTurnover}
+              onSaving={(on) => (savingMin.current = on)}
+              onSaved={(v) => {
+                setMinTurnover(v);
+                setShowHidden(false);
+              }}
+            />
+          )}
         </div>
         {error && <p className="mb-2 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">{error}</p>}
 
         {!data && !error && <SkeletonTable rows={5} columns={8} />}
-        {/* 며칠째 정지 중 — 0건이면 그리지 않는다. 오늘 표 위 */}
-        {data && data.ongoing.length > 0 && (
-          <div className="mt-4 mb-6 space-y-2">
-            <SectionTitle>며칠째 정지 중 ({data.ongoing.length})</SectionTitle>
-            <OngoingTable rows={data.ongoing} watchlist={watchlist} onSelectSymbol={onSelectSymbol} />
-            <p className="text-caption text-text-muted">최근 30일 안에 시작된 정지만 보입니다(그보다 오래된 정지는 저장하지 않습니다).</p>
-          </div>
-        )}
-        {data && data.ongoing.length > 0 && (
-          <div className="mb-2">
-            <SectionTitle>오늘 정지 ({data.halts.length})</SectionTitle>
-          </div>
-        )}
-        {data && !data.halts.length && (
-          <p className="rounded-lg bg-bg-tertiary/40 px-3 py-6 text-center text-caption text-text-muted">
-            <EmptyText day={data.day} status={data.status} />
-          </p>
-        )}
-        {data && data.halts.length > 0 && (
-          <HaltTable halts={data.halts} now={now} watchlist={watchlist} onSelectSymbol={onSelectSymbol} />
-        )}
+        {data &&
+          (() => {
+            const mine = (h: UsHaltRow) => watchlist.includes(h.rawIssueSymbol.trim()) || h.held;
+            const split = <T extends UsHaltRow>(rows: T[]) => {
+              const groups = groupHalts(rows);
+              const hidden = groups.filter((g) => isHiddenByTurnover(g.latest, minTurnover ?? null, mine(g.latest)));
+              return { groups, shown: showHidden ? groups : groups.filter((g) => !hidden.includes(g)), hiddenCount: hidden.length };
+            };
+            const today = split(data.halts);
+            const ongoing = split(data.ongoing);
+            const notice = (n: number) =>
+              n > 0 && <HiddenNotice count={n} showing={showHidden} onToggle={() => setShowHidden((v) => !v)} />;
+            return (
+              <>
+                {/* 며칠째 정지 중 — 0건이면 그리지 않는다. 오늘 표 위 */}
+                {ongoing.groups.length > 0 && (
+                  <div className="mt-4 mb-6 space-y-2">
+                    <SectionTitle>며칠째 정지 중 ({ongoing.groups.length})</SectionTitle>
+                    {notice(ongoing.hiddenCount)}
+                    {ongoing.shown.length > 0 && <OngoingTable groups={ongoing.shown} watchlist={watchlist} onSelectSymbol={onSelectSymbol} />}
+                    <p className="text-caption text-text-muted">최근 30일 안에 시작된 정지만 보입니다(그보다 오래된 정지는 저장하지 않습니다).</p>
+                  </div>
+                )}
+                {ongoing.groups.length > 0 && (
+                  <div className="mb-2">
+                    <SectionTitle>오늘 정지 ({today.groups.length})</SectionTitle>
+                  </div>
+                )}
+                {!data.halts.length && (
+                  <p className="rounded-lg bg-bg-tertiary/40 px-3 py-6 text-center text-caption text-text-muted">
+                    <EmptyText day={data.day} status={data.status} />
+                  </p>
+                )}
+                {today.hiddenCount > 0 && <div className="mb-2">{notice(today.hiddenCount)}</div>}
+                {today.shown.length > 0 && <HaltTable groups={today.shown} now={now} watchlist={watchlist} onSelectSymbol={onSelectSymbol} />}
+              </>
+            );
+          })()}
 
         {/* 출처 · 지연 · 추정 — 표 아래 고정 문구 */}
         <p className="mt-3 text-caption text-text-muted">
@@ -177,13 +228,128 @@ function StatusLine({ status }: { status: UsHaltFetchStatus }) {
   return <span>마지막 확인 {last} · 1분마다</span>;
 }
 
+/**
+ * 「거래대금 [$ ____] 미만 숨기기」 — 서버 저장(맥 · 윈도우 같게). 칸을 떠나거나 Enter 로 저장, 비우면 숨기지 않음.
+ * 저장 중 표시 · 실패하면 앞 값으로 되돌리고 오류 토스트.
+ */
+function MinTurnoverField({ value, onSaving, onSaved }: { value: number | null; onSaving: (on: boolean) => void; onSaved: (v: number | null) => void }) {
+  const [draft, setDraft] = useState(value == null ? '' : String(value));
+  const [saving, setSaving] = useState(false);
+  const focused = useRef(false);
+  // 서버 값이 바뀌면(다른 기기 · 저장 성공) 고치는 중이 아닐 때만 따라간다
+  useEffect(() => {
+    if (!focused.current) setDraft(value == null ? '' : String(value));
+  }, [value]);
+
+  const commit = async () => {
+    const next = draft === '' ? null : Number(draft);
+    if (next === value || saving) return;
+    if (next != null && !(next > 0)) {
+      toast.error('숨기기 기준은 0 보다 큰 금액입니다', '비우면 숨기지 않습니다.');
+      setDraft(value == null ? '' : String(value));
+      return;
+    }
+    setSaving(true);
+    onSaving(true);
+    try {
+      const r = await fetch('/api/settings/us-halts-min-turnover', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ minTurnoverUsd: next }),
+      });
+      const payload = (await r.json().catch(() => ({}))) as { minTurnoverUsd?: number | null; error?: string };
+      if (!r.ok) throw new Error(payload.error ?? `요청 실패 (${r.status})`);
+      onSaved(payload.minTurnoverUsd ?? null);
+    } catch (e) {
+      setDraft(value == null ? '' : String(value));
+      toast.error('숨기기 기준을 저장하지 못했습니다', (e as Error).message);
+    } finally {
+      setSaving(false);
+      onSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 text-caption text-text-secondary" data-min-turnover>
+      <span className="whitespace-nowrap">거래대금 $</span>
+      <NumberField
+        size="sm"
+        kind="long"
+        thousands
+        max={MIN_TURNOVER_MAX}
+        maxText={`최대 $${MIN_TURNOVER_MAX.toLocaleString('en-US')}`}
+        value={draft}
+        onValue={setDraft}
+        disabled={saving}
+        placeholder="비움"
+        aria-label="숨기기 기준 거래대금(달러)"
+        onFocus={() => (focused.current = true)}
+        onBlur={() => {
+          focused.current = false;
+          void commit();
+        }}
+        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+      />
+      <span className="whitespace-nowrap">미만 숨기기</span>
+      <InfoTip label="숨기기 설명">
+        가장 최근 정지 전 5분 거래대금이 이 금액보다 적은 종목을 숨깁니다. 관심 · 보유 종목과 거래량을 모르는 종목은 숨기지 않습니다. 비우면 숨기지 않습니다(이 기기와 다른 기기 모두).
+      </InfoTip>
+      {saving && (
+        <span className="flex items-center gap-1 text-text-muted">
+          <InlineSpinner /> 저장 중…
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** 숨긴 줄 안내 — 「보기」 는 이 화면에서만 잠시(저장하지 않음) */
+function HiddenNotice({ count, showing, onToggle }: { count: number; showing: boolean; onToggle: () => void }) {
+  return (
+    <p className="text-caption text-text-muted" data-hidden-notice>
+      {showing ? `거래대금이 적은 ${count}종목도 보이는 중입니다` : `거래대금이 적은 ${count}종목을 숨겼습니다`}
+      {' · '}
+      <button type="button" onClick={onToggle} className="rounded text-accent hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent">
+        {showing ? '다시 숨기기' : '보기'}
+      </button>
+    </p>
+  );
+}
+
+/** 지난 정지 시각만 — 「앞선 정지 22:32 · 22:37」(오래된 것부터, 많으면 앞의 것은 「외 N」). 원문 ET 는 툴팁 */
+function EarlierTimes({ earlier, fmt }: { earlier: UsHaltRow[]; fmt: (ms: number) => string }) {
+  if (!earlier.length) return null;
+  const shown = earlier.length > EARLIER_SHOWN ? earlier.slice(-1) : earlier;
+  const more = earlier.length - shown.length;
+  return (
+    <span
+      className="block whitespace-nowrap text-caption text-text-muted"
+      title={earlier.map((h) => etTitle(h.rawHaltDate, h.rawHaltTime)).join('\n')}
+      data-earlier-halts
+    >
+      앞선 정지 {more > 0 ? `외 ${more} · ` : ''}
+      <span className="tabular-nums">{shown.map((h) => fmt(h.haltAtMs)).join(' · ')}</span>
+    </span>
+  );
+}
+
+/** 정지 전 5분 거래대금 — 0 = 거래 없음 · null = 모름(아직이면 확인 중) */
+function TurnoverText({ h }: { h: UsHaltRow }) {
+  if (h.turnoverPending) return <span className="text-text-muted">거래대금 확인 중…</span>;
+  if (h.turnover5mUsd == null) return <span className="text-text-muted">거래량 모름</span>;
+  if (h.turnover5mUsd === 0) return <span className="text-text-muted">5분 거래 없음</span>;
+  return <span className="tabular-nums text-text-secondary">5분 {formatUsdShort(h.turnover5mUsd)}</span>;
+}
+
+const TURNOVER_TIP = '정지 전 5분 동안의 거래대금(종가 × 거래량 합, 토스 1분봉)';
+
 function HaltTable({
-  halts,
+  groups,
   now,
   watchlist,
   onSelectSymbol,
 }: {
-  halts: UsHaltRow[];
+  groups: HaltGroup<UsHaltRow>[];
   now: number;
   watchlist: string[];
   onSelectSymbol: (symbol: string) => void;
@@ -195,7 +361,6 @@ function HaltTable({
         <thead className="text-caption text-text-muted">
           <tr className="border-b border-border/50">
             <th className={`${TABLE_NAME_COL} py-2 pl-3 pr-3 font-normal`}>종목</th>
-            <th className={`${NUM} py-2 font-normal`}>시장</th>
             <th className={`${NUM} py-2 font-normal`}>사유</th>
             <th className={`${NUM} py-2 font-normal`}>정지 시각</th>
             <th className={`${NUM} py-2 font-normal`}>
@@ -209,28 +374,34 @@ function HaltTable({
             <th className={`${NUM} py-2 font-normal`}>실제 재개</th>
             <th className={`${NUM} py-2 font-normal`}>상태</th>
             <th className={`${NUM} py-2 pr-3 font-normal`}>
-              <span className="inline-flex items-center gap-1">
+              <span className="flex items-center gap-1">
                 방향(추정)
                 <InfoTip label="방향 추정 설명">
-                  정지 직전 1분봉 종가를 그 5분 전 종가와 비교해 짐작한 것입니다(토스 1분봉). Nasdaq 목록에는 위로 멈췄는지 아래로 멈췄는지 칸이 없어 맞았는지 확인할 수 없습니다. 매수 · 매도 신호가 아닙니다 — 상승 중 정지는 급하게 오르다 멈춘 것이라 재개 직후 크게 흔들릴 수 있습니다. 1분봉이 모자라거나 · 값이 같거나 · 토스에 없는 종목이면 「판정 못 함」 입니다.
+                  정지 직전 1분봉 종가를 그 5분 전 종가와 비교해 짐작한 것입니다(토스 1분봉). Nasdaq 목록에는 위로 멈췄는지 아래로 멈췄는지 칸이 없어 맞았는지 확인할 수 없습니다. 매수 · 매도 신호가 아닙니다 — 상승 중 정지는 급하게 오르다 멈춘 것이라 재개 직후 크게 흔들릴 수 있습니다. 판정하지 못하면 이유를 함께 적습니다(거래 적음 · 변화 없음 · 토스에 없음 · 받기 실패).
                 </InfoTip>
+              </span>
+              <span className="flex items-center gap-1">
+                거래대금
+                <InfoTip label="거래대금 설명">{TURNOVER_TIP}</InfoTip>
               </span>
             </th>
           </tr>
         </thead>
         <tbody>
-          {halts.map((h) => {
+          {groups.map(({ latest: h, earlier }) => {
             const symbol = h.rawIssueSymbol.trim();
             const resume = expectedResume({ ...h, rawReasonCode: codeOf(h) }, now);
             const resumed = resume.kind === 'resumed';
             const watched = watchlist.includes(symbol);
             return (
               <tr key={h.id} className={`border-b border-border/30 last:border-0 ${LIST_TABLE_ROW}`} data-halt-row={symbol}>
-                {/* 칸이 8개라 1280 에서 종목 칸이 좁다 — 말줄임 대신 단어 단위 줄바꿈(매수 판단 표와 같다 · 티커는 자르지 않는다) */}
+                {/*
+                  1280 에서 종목 칸이 좁다 — 말줄임 대신 단어 단위 줄바꿈(매수 판단 표와 같다 · 티커는 자르지 않는다).
+                  시장은 종목 칸 둘째 줄 — 칸으로 두면 「앞선 정지」 줄 때문에 1280 에서 표가 상자를 51px 넘었다
+                */}
                 <td className="py-1.5 pl-3 pr-3">
-                  <HaltName h={h} watched={watched} onSelectSymbol={onSelectSymbol} />
+                  <HaltName h={h} watched={watched} market={h.rawMarket} onSelectSymbol={onSelectSymbol} />
                 </td>
-                <td className={`${NUM} py-1.5 text-text-secondary`}>{h.rawMarket}</td>
                 {/* 쉬운 말 아래에 원문 코드 — 한 줄로 두면 1280 에서 종목 칸이 좁아져 이름이 두 줄로 꺾였다 */}
                 <td className={`${NUM} py-1.5`}>
                   <ReasonText h={h} />
@@ -239,7 +410,7 @@ function HaltTable({
                   <span className="block tabular-nums" title={etTitle(h.rawHaltDate, h.rawHaltTime)}>
                     {kstClockText(h.haltAtMs)}
                   </span>
-                  <span className="block text-caption text-text-muted">오늘 {h.nthToday}번째</span>
+                  <EarlierTimes earlier={earlier} fmt={kstHm} />
                 </td>
                 {/* 최소 폭 — 「22:46:03 예상」 → 「조건이 맞으면 재개」 로 바뀔 때 칸 폭이 흔들려 표 전체가 움직이지 않게 */}
                 <td className={`${NUM} min-w-32 py-1.5`}>
@@ -254,7 +425,12 @@ function HaltTable({
                 </td>
                 <td className={`${NUM} py-1.5`}>{resumed ? <span className="text-text-secondary">재개됨</span> : <span className="font-medium text-warning">정지 중</span>}</td>
                 <td className={`${NUM} py-1.5 pr-3`}>
-                  <DirectionText est={h.directionEst} luld={isLuldCode(codeOf(h))} />
+                  <span className="block">
+                    <DirectionText h={h} />
+                  </span>
+                  <span className="block text-caption">
+                    <TurnoverText h={h} />
+                  </span>
                 </td>
               </tr>
             );
@@ -294,17 +470,20 @@ function ResumeCell({ resume }: { resume: ReturnType<typeof expectedResume> }) {
   }
 }
 
-/** 방향(추정) — 색만으로 뜻을 전하지 않는다(글자 · ▲▼). LULD 가 아니면 「—」 */
-function DirectionText({ est, luld }: { est: HaltDirectionEstimate; luld: boolean }) {
-  if (est === 'none' || !luld) return <span className="text-text-muted">—</span>;
+/** 방향(추정) — 색만으로 뜻을 전하지 않는다(글자 · ▲▼). LULD 가 아니면 「—」 · 판정 못 하면 이유(`directionUnknownText`) */
+function DirectionText({ h }: { h: UsHaltRow }) {
+  const est = h.directionEst;
+  if (est === 'none' || !isLuldCode(codeOf(h))) return <span className="text-text-muted">—</span>;
   if (est === 'up') return <span className="text-bullish">▲ 상승 중 정지(추정)</span>;
   if (est === 'down') return <span className="text-bearish">▼ 하락 중 정지(추정)</span>;
   if (est === 'pending') return <span className="text-text-muted">추정 중…</span>;
-  return <span className="text-text-muted">판정 못 함</span>;
+  return <span className="whitespace-nowrap text-text-muted">{directionUnknownText(h.directionReason)}</span>;
 }
 
-/** 종목 칸 — 이름 · 티커(누르면 차트, 토스에 없으면 못 누름) + 둘째 줄 관심 · 보유 배지. 오늘 표 · 며칠째 표가 같이 쓴다 */
-function HaltName({ h, watched, onSelectSymbol }: { h: UsHaltRow; watched: boolean; onSelectSymbol: (symbol: string) => void }) {
+/**
+ * 종목 칸 — 이름 · 티커(누르면 차트, 토스에 없으면 못 누름) + 둘째 줄 시장(오늘 표만) · 관심 · 보유 배지. 오늘 표 · 며칠째 표가 같이 쓴다
+ */
+function HaltName({ h, watched, market, onSelectSymbol }: { h: UsHaltRow; watched: boolean; market?: string; onSelectSymbol: (symbol: string) => void }) {
   const symbol = h.rawIssueSymbol.trim();
   return (
     <>
@@ -317,8 +496,9 @@ function HaltName({ h, watched, onSelectSymbol }: { h: UsHaltRow; watched: boole
           <StockName symbol={symbol} name={h.rawIssueName.trim() || null} wrap />
         </span>
       )}
-      {(watched || h.held) && (
-        <span className="mt-0.5 flex gap-1">
+      {(market || watched || h.held) && (
+        <span className="mt-0.5 flex flex-wrap items-center gap-1">
+          {market && <span className="mr-1 text-caption text-text-muted">{market}</span>}
           {watched && <Badge>관심</Badge>}
           {h.held && <Badge>보유</Badge>}
         </span>
@@ -349,17 +529,18 @@ function ReasonText({ h }: { h: UsHaltRow }) {
  * 「목록에서 사라짐」 은 정지 중으로 단정하지 않는다(풀렸는지 모른다 — 옅은 색 + 설명).
  */
 function OngoingTable({
-  rows,
+  groups,
   watchlist,
   onSelectSymbol,
 }: {
-  rows: UsOngoingHaltRow[];
+  groups: HaltGroup<UsOngoingHaltRow>[];
   watchlist: string[];
   onSelectSymbol: (symbol: string) => void;
 }) {
   const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP_TIGHT}`;
   const mine = (h: UsHaltRow) => watchlist.includes(h.rawIssueSymbol.trim()) || h.held;
-  const sorted = [...rows].sort((a, b) => Number(mine(b)) - Number(mine(a)) || a.haltAtMs - b.haltAtMs);
+  // 묶인 줄은 그 종목의 가장 최근 정지로 — 관심 · 보유가 위, 그다음 오래된 것부터
+  const sorted = [...groups].sort((a, b) => Number(mine(b.latest)) - Number(mine(a.latest)) || a.latest.haltAtMs - b.latest.haltAtMs);
   return (
     <div className="rounded-lg bg-bg-tertiary/40" data-ongoing-halts>
       <table className="w-full text-left text-xs">
@@ -370,11 +551,17 @@ function OngoingTable({
             <th className={`${NUM} py-2 font-normal`}>정지 시작</th>
             <th className={`${NUM} py-2 text-right font-normal`}>며칠째</th>
             <th className={`${NUM} py-2 font-normal`}>재개</th>
-            <th className={`${NUM} py-2 pr-3 font-normal`}>상태</th>
+            <th className={`${NUM} py-2 font-normal`}>상태</th>
+            <th className={`${NUM} py-2 pr-3 font-normal`}>
+              <span className="inline-flex items-center gap-1">
+                거래대금
+                <InfoTip label="거래대금 설명">{TURNOVER_TIP}</InfoTip>
+              </span>
+            </th>
           </tr>
         </thead>
         <tbody>
-          {sorted.map((h) => (
+          {sorted.map(({ latest: h, earlier }) => (
             <tr key={h.id} className={`border-b border-border/30 last:border-0 ${LIST_TABLE_ROW}`} data-ongoing-row={h.rawIssueSymbol.trim()}>
               <td className="py-1.5 pl-3 pr-3">
                 <HaltName h={h} watched={watchlist.includes(h.rawIssueSymbol.trim())} onSelectSymbol={onSelectSymbol} />
@@ -383,7 +570,10 @@ function OngoingTable({
                 <ReasonText h={h} />
               </td>
               <td className={`${NUM} py-1.5 tabular-nums`}>
-                <span title={etTitle(h.rawHaltDate, h.rawHaltTime)}>{kstMonthDayTime(h.haltAtMs)}</span>
+                <span className="block" title={etTitle(h.rawHaltDate, h.rawHaltTime)}>
+                  {kstMonthDayTime(h.haltAtMs)}
+                </span>
+                <EarlierTimes earlier={earlier} fmt={kstMonthDayTime} />
               </td>
               <td className={`${NUM} py-1.5 text-right tabular-nums`}>{h.daysHalted}일째</td>
               <td className={`${NUM} py-1.5`}>
@@ -397,7 +587,7 @@ function OngoingTable({
                   <span className="text-text-muted">정해진 시각 없음</span>
                 )}
               </td>
-              <td className={`${NUM} py-1.5 pr-3`}>
+              <td className={`${NUM} py-1.5`}>
                 {h.unlisted ? (
                   <span className="inline-flex items-center gap-1 text-text-muted">
                     목록에서 사라짐 — 상태 모름
@@ -406,6 +596,9 @@ function OngoingTable({
                 ) : (
                   <span className="font-medium text-warning">정지 중</span>
                 )}
+              </td>
+              <td className={`${NUM} py-1.5 pr-3`}>
+                <TurnoverText h={h} />
               </td>
             </tr>
           ))}
