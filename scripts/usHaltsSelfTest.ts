@@ -173,7 +173,7 @@ if (catalogEmpty || catalog.get('CHOW'))
 const sphl = today.find((h) => h.rawIssueSymbol === 'SPHL')!;
 const sphlBars = await fakeBars('SPHL', sphl.haltAtMs);
 calls.set(`SPHL|${sphl.haltAtMs}`, 1); // 위 한 줄은 시험이 직접 부른 것 — 호출 수에서 뺀다
-check('거래대금 저장값 = 같은 1분봉으로 낸 값(SPHL)', sphl.turnover5mUsd != null && Math.abs(sphl.turnover5mUsd - turnoverBefore(sphlBars, sphl.haltAtMs)) < 1e-9, String(sphl.turnover5mUsd));
+check('거래대금 저장값 = 같은 1분봉으로 낸 값(SPHL)', sphl.turnover5mUsd != null && Math.abs(sphl.turnover5mUsd - (turnoverBefore(sphlBars, sphl.haltAtMs) ?? NaN)) < 1e-9, String(sphl.turnover5mUsd));
 check('404(MPU) → 거래대금 모름(null) · 방향 판정 못 함 · 토스에 없음', today.find((h) => h.rawIssueSymbol === 'MPU')?.turnover5mUsd === null && today.find((h) => h.rawIssueSymbol === 'MPU')?.directionReason === 'not_found');
 const zone = listHaltsOfDay('2026-10-19').find((h) => h.rawIssueSymbol === 'ZONE');
 check('지난 날 정지(10/19 ZONE)는 부르지 않음 · 거래대금 모름', zone != null && zone.turnover5mUsd === null && !zone.turnoverPending && ![...calls.keys()].some((k) => k.startsWith('ZONE|')));
@@ -198,7 +198,9 @@ check('거래대금 — 봉 여러 개 Σ(종가 × 거래량) = 10×100 + 11×2
 check('거래대금 경계 — 정확히 5분 전 칸(09:55) 포함 · 6분 전(09:54) 제외', turnoverBefore([vbar(m0 - 5 * MIN, 2, 10)], h0) === 20 && turnoverBefore([vbar(m0 - 6 * MIN, 2, 10)], h0) === 0);
 check('거래대금 경계 — 정지가 들어 있는 1분 칸(10:00) · 그 뒤 제외', turnoverBefore([vbar(m0, 2, 10), vbar(m0 + MIN, 2, 10)], h0) === 0);
 check('거래대금 경계 — 정지가 정각(10:00:00)이면 09:55~09:59', turnoverBefore([vbar(m0 - 5 * MIN, 1, 1), vbar(m0 - MIN, 1, 1), vbar(m0, 1, 1)], m0) === 2);
-check('거래대금 — 봉 없음 → 0(거래 없음)', turnoverBefore([], h0) === 0);
+check('거래대금 — 5칸에 봉 없음(앞 · 뒤 봉은 있음) → 0(거래 없음)', turnoverBefore([vbar(m0 - 8 * MIN, 1, 1), vbar(m0, 1, 1)], h0) === 0);
+check('거래대금 — 받은 봉이 아예 없음 → null(모름 — 토스 반영 지연과 구별 못 함)', turnoverBefore([], h0) === null);
+check('거래대금 — 5칸 안 봉의 거래량이 숫자가 아님 → null', turnoverBefore([vbar(m0 - 2 * MIN, 1, Number.NaN), vbar(m0 - MIN, 1, 5)], h0) === null);
 let analyzeCalls = 0;
 const counting = (impl: () => Promise<Candle[]>) => () => {
   analyzeCalls++;
@@ -211,7 +213,7 @@ check('404 → 거래대금 null · 1번만', a404.turnover5mUsd === null && a40
 const aFail = await analyzeHalt('ZZZZ', h0, { luld: false, inToss: true, mock: false, fetcher: counting(() => Promise.reject(new Error('네트워크'))) });
 check('받기 실패 → 거래대금 null · LULD 아니면 방향 없음(null)', aFail.turnover5mUsd === null && aFail.direction === null && analyzeCalls === 2);
 const aEmpty = await analyzeHalt('ZZZZ', h0, { luld: true, inToss: true, mock: false, fetcher: counting(async () => []) });
-check('봉 없음 → 거래대금 0 · 방향 판정 못 함 · 거래 적음 · 1번만', aEmpty.turnover5mUsd === 0 && directionUnknownText(aEmpty.direction!.detail.reason ?? null) === '판정 못 함 · 거래 적음' && analyzeCalls === 3);
+check('받은 봉 없음 → 거래대금 null · 방향 판정 못 함 · 거래 적음 · 1번만', aEmpty.turnover5mUsd === null && directionUnknownText(aEmpty.direction!.detail.reason ?? null) === '판정 못 함 · 거래 적음' && analyzeCalls === 3);
 check('모의 모드 → 부르지 않음 · null', (await analyzeHalt('ZZZZ', h0, { luld: false, inToss: true, mock: true, fetcher: counting(async () => tb) })).turnover5mUsd === null && analyzeCalls === 3);
 
 // ── 2-2. 「판정 못 함」 이유 쉬운 말 · 숨기기 판단 · 금액 표기 ───────────────
@@ -232,12 +234,14 @@ check('숨기기 — 거래 없음(0)은 숨김 · 거래량 모름(null)은 안
 check('숨기기 — 관심 · 보유 종목은 안 숨김', !isHiddenByTurnover({ turnover5mUsd: 1 }, 1000, true));
 const usd: [number, string][] = [
   [850, '$850'],
+  [999.6, '$1.0K'],
+  [0.3, '<$1'],
   [12_345, '$12.3K'],
   [999_960, '$1.0M'],
   [1_234_567, '$1.2M'],
   [3_400_000_000, '$3.4B'],
 ];
-check('금액 줄임 — $850 · $12.3K · $1.0M · $1.2M · $3.4B', usd.every(([v, t]) => formatUsdShort(v) === t), usd.map(([v]) => formatUsdShort(v)).join(' '));
+check('금액 줄임 — $850 · $1.0K(999.6) · <$1 · $12.3K · $1.0M · $1.2M · $3.4B', usd.every(([v, t]) => formatUsdShort(v) === t), usd.map(([v]) => formatUsdShort(v)).join(' '));
 
 // ── 3. 같은 키 갱신 · 지우지 않음 · 30일 ──────────────────────────
 const lastXml = fs.readFileSync(path.join(FIXTURES, files.at(-1)!), 'utf8');

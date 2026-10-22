@@ -10,7 +10,8 @@
  *
  * 정지 전 5분 거래대금(v2.56.1) — **같은 1분봉 한 번으로** 낸다(LULD 가 아닌 정지도 이것 때문에 한 번 부른다 · 방향은 LULD 만):
  * - 정지가 들어 있는 1분 칸 **앞의 1분 칸 5개**(봉 시각 ∈ [정지 칸 − 5분, 정지 칸)) 의 Σ(종가 × 거래량). 토스 거래량 = 주식 수 → 달러.
- * - 그 5칸에 봉이 하나도 없으면 0(거래 없음) · 토스에 없음 · 404 · 받기 실패 · 모의 모드 → null(모름).
+ * - 그 5칸에 봉이 하나도 없으면 0(거래 없음). 단 받은 봉이 아예 없거나(토스 반영 지연과 구별할 수 없다) 5칸 안 봉의 거래량이 숫자가 아니면 null(모름) —
+ *   0 은 숨기기 대상이라 「모름」 을 0 으로 적지 않는다. 토스에 없음 · 404 · 받기 실패 · 모의 모드도 null.
  * - ⚠️ **정지 1건당 토스 호출 1번**(`tossGet` 한 번 — 429 · 5xx 의 재시도는 `tossGet` 의 것). 실패해도 다시 부르지 않는다.
  */
 import { fetchCandlePage } from '../../src/services/toss/market';
@@ -60,12 +61,13 @@ export function judgeDirection(bars: Candle[], haltAtMs: number): DirectionEstim
 
 const barOf = (b: Candle) => ({ t: new Date(b.timestamp).toISOString(), close: b.close });
 
-/** 정지 전 5분 거래대금(달러) — 봉이 없으면 0. 시험이 가짜 봉으로 부른다 */
-export function turnoverBefore(bars: Candle[], haltAtMs: number): number {
+/** 정지 전 5분 거래대금(달러) — 5칸에 봉이 없으면 0, 받은 봉이 아예 없거나 거래량을 모르면 null. 시험이 가짜 봉으로 부른다 */
+export function turnoverBefore(bars: Candle[], haltAtMs: number): number | null {
+  if (!bars.length) return null;
   const haltMinute = Math.floor(haltAtMs / MINUTE) * MINUTE;
-  return bars
-    .filter((b) => b.timestamp >= haltMinute - TURNOVER_MS && b.timestamp < haltMinute)
-    .reduce((sum, b) => sum + (Number.isFinite(b.volume) ? b.close * b.volume : 0), 0);
+  const inWindow = bars.filter((b) => b.timestamp >= haltMinute - TURNOVER_MS && b.timestamp < haltMinute);
+  if (inWindow.some((b) => !Number.isFinite(b.volume) || !Number.isFinite(b.close))) return null;
+  return inWindow.reduce((sum, b) => sum + b.close * b.volume, 0);
 }
 
 export interface HaltAnalysis {

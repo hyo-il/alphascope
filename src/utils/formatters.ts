@@ -109,14 +109,16 @@ export function formatUsdShort(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—';
   const abs = Math.abs(value);
   const sign = value < 0 ? MINUS : '';
-  // 반올림해 다음 단위가 되는 값(999,950 → 「1,000.0K」)은 다음 단위로
-  const units: [number, string][] = [
-    [1e9, 'B'],
-    [1e6, 'M'],
-    [1e3, 'K'],
+  // 0 보다 크지만 반올림하면 $0 — 「거래 없음」(0)과 헷갈리지 않게
+  if (abs > 0 && abs < 0.5) return `${sign}<$1`;
+  // 반올림해 다음 단위가 되는 값은 다음 단위로(999.6 → 「$1.0K」 · 999,950 → 「$1.0M」 — 「$1,000」 · 「$1,000.0K」 로 적지 않는다)
+  const units: [number, string, number][] = [
+    [1e9, 'B', 1e9 - 5e4],
+    [1e6, 'M', 1e6 - 50],
+    [1e3, 'K', 999.5],
   ];
-  for (const [size, unit] of units) {
-    if (abs >= size * 0.99995) {
+  for (const [size, unit, from] of units) {
+    if (abs >= from) {
       return `${sign}$${(abs / size).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}${unit}`;
     }
   }

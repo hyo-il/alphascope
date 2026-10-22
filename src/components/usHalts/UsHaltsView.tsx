@@ -32,7 +32,7 @@ const FAIL_WARN = 3;
 const TOAST_LOOKBACK_MS = 3 * 60_000;
 
 const etTitle = (date: string, time: string) => `미국 동부 시간(원문) ${date} ${time}`;
-/** 「앞선 정지」 에 다 보이는 시각 수 — 더 많으면 마지막 하나만 + 앞의 것은 「외 N」(줄 길이가 늘지 않게 — 1280 에서 한 줄) */
+/** 「앞선 정지」 에 다 보이는 시각 수 — 더 많으면 마지막 하나 + 「외 N」(「앞선 정지 22:43 외 2」 — 줄 길이가 늘지 않게, 1280 에서 한 줄) */
 const EARLIER_SHOWN = 2;
 /** 한국 시각 「22:32」 */
 const kstHm = (ms: number) => kstClockText(ms).slice(0, 5);
@@ -281,7 +281,7 @@ function MinTurnoverField({ value, onSaving, onSaved }: { value: number | null; 
         value={draft}
         onValue={setDraft}
         disabled={saving}
-        placeholder="비움"
+        placeholder="없음"
         aria-label="숨기기 기준 거래대금(달러)"
         onFocus={() => (focused.current = true)}
         onBlur={() => {
@@ -316,7 +316,7 @@ function HiddenNotice({ count, showing, onToggle }: { count: number; showing: bo
   );
 }
 
-/** 지난 정지 시각만 — 「앞선 정지 22:32 · 22:37」(오래된 것부터, 많으면 앞의 것은 「외 N」). 원문 ET 는 툴팁 */
+/** 지난 정지 시각만 — 「앞선 정지 22:32 · 22:37」(오래된 것부터, 많으면 「앞선 정지 22:43 외 2」). 원문 ET 는 툴팁(전부) */
 function EarlierTimes({ earlier, fmt }: { earlier: UsHaltRow[]; fmt: (ms: number) => string }) {
   if (!earlier.length) return null;
   const shown = earlier.length > EARLIER_SHOWN ? earlier.slice(-1) : earlier;
@@ -327,8 +327,8 @@ function EarlierTimes({ earlier, fmt }: { earlier: UsHaltRow[]; fmt: (ms: number
       title={earlier.map((h) => etTitle(h.rawHaltDate, h.rawHaltTime)).join('\n')}
       data-earlier-halts
     >
-      앞선 정지 {more > 0 ? `외 ${more} · ` : ''}
-      <span className="tabular-nums">{shown.map((h) => fmt(h.haltAtMs)).join(' · ')}</span>
+      앞선 정지 <span className="tabular-nums">{shown.map((h) => fmt(h.haltAtMs)).join(' · ')}</span>
+      {more > 0 ? ` 외 ${more}` : ''}
     </span>
   );
 }
@@ -397,7 +397,7 @@ function HaltTable({
               <tr key={h.id} className={`border-b border-border/30 last:border-0 ${LIST_TABLE_ROW}`} data-halt-row={symbol}>
                 {/*
                   1280 에서 종목 칸이 좁다 — 말줄임 대신 단어 단위 줄바꿈(매수 판단 표와 같다 · 티커는 자르지 않는다).
-                  시장은 종목 칸 둘째 줄 — 칸으로 두면 「앞선 정지」 줄 때문에 1280 에서 표가 상자를 51px 넘었다
+                  시장은 종목 칸 티커 뒤 — 칸으로 두면 「앞선 정지」 줄 때문에 1280 에서 표가 상자를 51px 넘었다
                 */}
                 <td className="py-1.5 pl-3 pr-3">
                   <HaltName h={h} watched={watched} market={h.rawMarket} onSelectSymbol={onSelectSymbol} />
@@ -481,7 +481,7 @@ function DirectionText({ h }: { h: UsHaltRow }) {
 }
 
 /**
- * 종목 칸 — 이름 · 티커(누르면 차트, 토스에 없으면 못 누름) + 둘째 줄 시장(오늘 표만) · 관심 · 보유 배지. 오늘 표 · 며칠째 표가 같이 쓴다
+ * 종목 칸 — 이름 · 티커(누르면 차트, 토스에 없으면 못 누름) + 시장(오늘 표만, 티커 뒤) + 둘째 줄 관심 · 보유 배지. 오늘 표 · 며칠째 표가 같이 쓴다
  */
 function HaltName({ h, watched, market, onSelectSymbol }: { h: UsHaltRow; watched: boolean; market?: string; onSelectSymbol: (symbol: string) => void }) {
   const symbol = h.rawIssueSymbol.trim();
@@ -496,9 +496,16 @@ function HaltName({ h, watched, market, onSelectSymbol }: { h: UsHaltRow; watche
           <StockName symbol={symbol} name={h.rawIssueName.trim() || null} wrap />
         </span>
       )}
-      {(market || watched || h.held) && (
-        <span className="mt-0.5 flex flex-wrap items-center gap-1">
-          {market && <span className="mr-1 text-caption text-text-muted">{market}</span>}
+      {/* 시장은 이름 · 티커 뒤에 이어서(따로 줄을 두면 1280 에서 줄이 3줄로 늘었다) */}
+      {/* 앞에 공백 — 없으면 티커와 붙어 줄바꿈 자리가 없어져 종목 칸이 넓어졌다 */}
+      {market && (
+        <>
+          {' '}
+          <span className="whitespace-nowrap text-caption text-text-muted">{market}</span>
+        </>
+      )}
+      {(watched || h.held) && (
+        <span className="mt-0.5 flex gap-1 whitespace-nowrap">
           {watched && <Badge>관심</Badge>}
           {h.held && <Badge>보유</Badge>}
         </span>
