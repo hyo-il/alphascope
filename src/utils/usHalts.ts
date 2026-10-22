@@ -72,8 +72,9 @@ export function msOfRawTime(raw: string): number | null {
 
 /**
  * 같은 종목 묶기 — 화면의 오늘 표 · 「며칠째 정지 중」 칸이 같이 쓴다(그 칸 안의 줄끼리만 묶는다).
- * 줄의 기준 = **가장 최근 정지**(`latest`) · `earlier` = 지난 정지(오래된 것부터). 묶음은 가장 최근 정지 시각 내림차순.
- * 풀렸다 다시 멈춘 것은 Nasdaq 이 따로 적은 새 정지다 — 저장 · 「안 풀림」(`isHaltOngoing`) · 예상 재개(`expectedResume`)는 정지 한 건씩 그대로.
+ * 줄의 기준 = **가장 최근 정지**(`latest`) · `earlier` = 그 앞의 정지(오래된 것부터 — 화면에 시각을 보이지 않고 거래대금 최대값에만 쓴다).
+ * 묶음은 가장 최근 정지 시각 내림차순. 오늘 표는 이 가운데 `latest` 가 안 풀린(`isHaltOngoing`) 묶음만 보인다.
+ * 풀렸다 다시 멈춘 것은 Nasdaq 이 따로 적은 새 정지다 — 저장 · 「안 풀림」 · 예상 재개(`expectedResume`)는 정지 한 건씩 그대로.
  */
 export interface HaltGroup<T> {
   latest: T;
@@ -94,8 +95,26 @@ export function groupHalts<T extends { rawIssueSymbol: string; haltAtMs: number;
 }
 
 /**
- * 「거래대금 $N 미만 숨기기」 — 이 함수 한 곳. 가장 최근 정지의 거래대금이 기준보다 작으면 숨긴다.
+ * 묶음의 거래대금 — 그 묶음 정지들의 정지 전 5분 거래대금 가운데 **가장 큰 값**(이 함수 한 곳 — 표시 · 숨기기가 같은 숫자를 쓴다).
+ * 풀린 지 몇십 초 만에 다시 멈춘 정지는 앞 5분 대부분이 앞선 정지 시간이라 0 에 가깝다 — 가장 최근 값만 쓰면 가장 활발한 종목이 숨었다.
+ * - usd: 아는 값 가운데 최대(0 이면 「거래 없음」) · 모두 모르면 null
+ * - partial: 아는 값이 있는데 모르는 정지(null · 아직)도 있다 → 화면이 「일부 정지는 거래량을 모릅니다」
+ * - pending: 아는 값이 없고 아직 내지 않은 정지가 있다 → 「확인 중」
+ */
+export interface GroupTurnover {
+  usd: number | null;
+  partial: boolean;
+  pending: boolean;
+}
+export function groupTurnover(halts: { turnover5mUsd: number | null; turnoverPending: boolean }[]): GroupTurnover {
+  const known = halts.map((h) => h.turnover5mUsd).filter((v): v is number => v != null);
+  const usd = known.length ? Math.max(...known) : null;
+  return { usd, partial: usd != null && known.length < halts.length, pending: usd == null && halts.some((h) => h.turnoverPending) };
+}
+
+/**
+ * 「거래대금 $N 미만 숨기기」 — 이 함수 한 곳. 묶음 거래대금(`groupTurnover` 의 최대값)이 기준보다 작으면 숨긴다.
  * 숨기지 않는 것: 기준 없음(null) · 관심 · 보유 종목(`mine`) · 거래대금 모름(null — 토스에 없음 · 받기 실패 · 아직).
  */
-export const isHiddenByTurnover = (latest: { turnover5mUsd: number | null }, minTurnoverUsd: number | null, mine: boolean): boolean =>
-  minTurnoverUsd != null && !mine && latest.turnover5mUsd != null && latest.turnover5mUsd < minTurnoverUsd;
+export const isHiddenByTurnover = (turnoverUsd: number | null, minTurnoverUsd: number | null, mine: boolean): boolean =>
+  minTurnoverUsd != null && !mine && turnoverUsd != null && turnoverUsd < minTurnoverUsd;

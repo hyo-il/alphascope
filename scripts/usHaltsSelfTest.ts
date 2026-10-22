@@ -25,7 +25,7 @@ import { ingestHalts, listHaltsOfDay, listOngoingBefore, purgeOldHalts } from '.
 import { fetchStatus, fetchWindowOf, markFetched, resetFetchStatusForTest, tooSoon, usHaltsTick } from '../server/usHalts/scheduler';
 const isFetchWindow = (now: number, closed: (d: string) => boolean) => fetchWindowOf(now, { closed, openToday: () => 0 }).window !== 'outside';
 import { analyzeHalt, judgeDirection, turnoverBefore } from '../server/usHalts/directionEstimate';
-import { expectedResume, groupHalts, haltDayCount, isHaltOngoing, isHiddenByTurnover } from '../src/utils/usHalts';
+import { expectedResume, groupHalts, groupTurnover, haltDayCount, isHaltOngoing, isHiddenByTurnover } from '../src/utils/usHalts';
 import { formatUsdShort } from '../src/utils/formatters';
 import { directionUnknownText } from '../src/data/haltCodes';
 import type { Candle } from '../src/types/toss';
@@ -228,10 +228,20 @@ const reasonText: [Parameters<typeof directionUnknownText>[0], string][] = [
   [null, '판정 못 함'],
 ];
 check('판정 못 함 이유 — 6가지 + 그 밖 · 옛 줄', reasonText.every(([r, t]) => directionUnknownText(r) === t), reasonText.map(([r]) => directionUnknownText(r)).join(' / '));
-check('숨기기 — 기준 없음(null)이면 숨기지 않음', !isHiddenByTurnover({ turnover5mUsd: 10 }, null, false));
-check('숨기기 — 기준보다 작으면 숨김 · 같거나 크면 안 숨김', isHiddenByTurnover({ turnover5mUsd: 999 }, 1000, false) && !isHiddenByTurnover({ turnover5mUsd: 1000 }, 1000, false));
-check('숨기기 — 거래 없음(0)은 숨김 · 거래량 모름(null)은 안 숨김', isHiddenByTurnover({ turnover5mUsd: 0 }, 1000, false) && !isHiddenByTurnover({ turnover5mUsd: null }, 1000, false));
-check('숨기기 — 관심 · 보유 종목은 안 숨김', !isHiddenByTurnover({ turnover5mUsd: 1 }, 1000, true));
+check('숨기기 — 기준 없음(null)이면 숨기지 않음', !isHiddenByTurnover(10, null, false));
+check('숨기기 — 기준보다 작으면 숨김 · 같거나 크면 안 숨김', isHiddenByTurnover(999, 1000, false) && !isHiddenByTurnover(1000, 1000, false));
+check('숨기기 — 거래 없음(0)은 숨김 · 거래량 모름(null)은 안 숨김', isHiddenByTurnover(0, 1000, false) && !isHiddenByTurnover(null, 1000, false));
+check('숨기기 — 관심 · 보유 종목은 안 숨김', !isHiddenByTurnover(1, 1000, true));
+// 묶음 거래대금 = 정지들 가운데 최대(v2.56.2) — 표시 · 숨기기가 같은 숫자
+const tv = (turnover5mUsd: number | null, turnoverPending = false) => ({ turnover5mUsd, turnoverPending });
+const gt = (...h: ReturnType<typeof tv>[]) => JSON.stringify(groupTurnover(h));
+check('groupTurnover — 최대값(120000 · 80000 · 0 → 120000)', gt(tv(120_000), tv(80_000), tv(0)) === JSON.stringify({ usd: 120_000, partial: false, pending: false }));
+check('groupTurnover — 모두 null → null(모름)', gt(tv(null), tv(null)) === JSON.stringify({ usd: null, partial: false, pending: false }));
+check('groupTurnover — 0 과 null 섞임 → 0 · 일부 모름', gt(tv(0), tv(null)) === JSON.stringify({ usd: 0, partial: true, pending: false }));
+check('groupTurnover — 한 개 → 그 값', gt(tv(45_600)) === JSON.stringify({ usd: 45_600, partial: false, pending: false }));
+check('groupTurnover — 아는 값 없음 + 아직 → 확인 중', gt(tv(null, true), tv(null)) === JSON.stringify({ usd: null, partial: false, pending: true }));
+check('groupTurnover — 아는 값 + 아직 → 아는 값 · 일부 모름', gt(tv(500), tv(null, true)) === JSON.stringify({ usd: 500, partial: true, pending: false }));
+check('다시 멈춘 종목(마지막 정지 0 · 첫 정지 큼)은 최대값이 기준보다 커 숨지 않음', !isHiddenByTurnover(groupTurnover([tv(120_000), tv(0)]).usd, 5000, false));
 const usd: [number, string][] = [
   [850, '$850'],
   [999.6, '$1.0K'],
@@ -480,7 +490,11 @@ check('「안 풀림」 판단은 utils/usHalts.isHaltOngoing 한 곳(다른 곳
 
 // 묶기 · 숨기기 · 예상 재개는 한 곳 — 화면이 utils 의 함수를 쓰고, 같은 판단을 따로 두지 않는다
 const viewSrc = sources[0];
-check('화면 — 묶기 groupHalts · 숨기기 isHiddenByTurnover · 예상 재개 expectedResume 를 씀(따로 판단 없음)', /groupHalts\(/.test(viewSrc) && /isHiddenByTurnover\(/.test(viewSrc) && /expectedResume\(/.test(viewSrc) && !/turnover5mUsd\s*</.test(viewSrc));
+check(
+  '화면 — 묶기 groupHalts · 최대값 groupTurnover · 숨기기 isHiddenByTurnover · 안 풀림 isHaltOngoing · 예상 재개 expectedResume 를 씀(따로 판단 없음)',
+  /groupHalts\(/.test(viewSrc) && /groupTurnover\(/.test(viewSrc) && /isHiddenByTurnover\(/.test(viewSrc) && /isHaltOngoing\(/.test(viewSrc) && /expectedResume\(/.test(viewSrc) && !/turnover5mUsd\s*[<>]|Math\.max/.test(viewSrc),
+);
+check('화면 — 「앞선 정지」 줄 · 「실제 재개」 · 「재개됨」 상태를 만들던 코드가 남지 않음', !/앞선 정지 [<{]|EarlierTimes|실제 재개|재개됨/.test(viewSrc));
 const grepNth = (dir: string): string[] =>
   fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) => {
     const rel = path.join(dir, e.name);
