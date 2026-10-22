@@ -9,7 +9,7 @@ import { marketDayTime } from '../marketHours';
 import { marketDate } from '../../src/utils/marketDate';
 import { MARKET_REF } from '../../src/utils/market';
 import { haltDayCount, isHaltOngoing, isLuldCode, isoDayOfRaw, msOfRawTime } from '../../src/utils/usHalts';
-import type { HaltDirectionEstimate, UsHaltRow, UsOngoingHaltRow } from '../../src/types/usHalts';
+import type { DirectionUnknownReason, HaltDirectionEstimate, UsHaltRow, UsOngoingHaltRow } from '../../src/types/usHalts';
 import type { RawHaltItem } from './feed';
 
 export const KEEP_DAYS = 30;
@@ -64,6 +64,8 @@ interface DbRow {
   direction_est: HaltDirectionEstimate;
   direction_est_json: string | null;
   last_listed_at: string | null;
+  turnover_5m_usd: number | null;
+  turnover_checked_at: string | null;
 }
 
 /** 원문 칸 → 표 칸 (갱신할 수 있는 칸만 — 키 셋은 빠진다) */
@@ -167,20 +169,48 @@ export function purgeOldHalts(now: number): number {
   return getDb().prepare(`DELETE FROM us_halts WHERE halt_day < ?`).run(keepFromDay(now)).changes;
 }
 
-/** 방향 추정을 기다리는 줄(처음 본 LULD 정지) */
-export function pendingDirection(): { id: number; symbol: string; haltAtMs: number; haltDay: string }[] {
-  return getDb()
-    .prepare(`SELECT id, raw_issue_symbol AS symbol, halt_at_ms AS haltAtMs, halt_day AS haltDay FROM us_halts WHERE direction_est = 'pending' ORDER BY halt_at_ms`)
-    .all() as { id: number; symbol: string; haltAtMs: number; haltDay: string }[];
+/**
+ * 1분봉을 볼 차례인 줄 — 거래대금을 아직 내지 않음(처음 본 정지 전부) 또는 방향 추정을 기다림(LULD).
+ * `checked` = 이미 1분봉 차례를 지났다(그 뒤 사유가 LULD 로 바뀐 줄 — 다시 부르지 않는다).
+ */
+export function pendingAnalysis(): { id: number; symbol: string; haltAtMs: number; haltDay: string; luld: boolean; checked: boolean }[] {
+  return (
+    getDb()
+      .prepare(
+        `SELECT id, raw_issue_symbol AS symbol, halt_at_ms AS haltAtMs, halt_day AS haltDay, direction_est AS dir, turnover_checked_at AS checkedAt
+         FROM us_halts WHERE turnover_checked_at IS NULL OR direction_est = 'pending' ORDER BY halt_at_ms`,
+      )
+      .all() as { id: number; symbol: string; haltAtMs: number; haltDay: string; dir: HaltDirectionEstimate; checkedAt: string | null }[]
+  ).map((r) => ({ id: r.id, symbol: r.symbol, haltAtMs: r.haltAtMs, haltDay: r.haltDay, luld: r.dir === 'pending', checked: r.checkedAt != null }));
 }
 
-export function saveDirection(id: number, est: Exclude<HaltDirectionEstimate, 'pending' | 'none'>, detail: unknown): void {
-  getDb()
-    .prepare(`UPDATE us_halts SET direction_est = ?, direction_est_json = ?, updated_at = ? WHERE id = ?`)
-    .run(est, JSON.stringify(detail), new Date().toISOString(), id);
+/** 한 줄의 1분봉 결과 — 방향은 LULD 줄만(direction null 이면 방향 칸은 그대로), 거래대금은 처음 한 번만(checked 면 그대로) */
+export function saveAnalysis(
+  id: number,
+  r: { direction: { est: Exclude<HaltDirectionEstimate, 'pending' | 'none'>; detail: unknown } | null; turnover?: { usd: number | null } },
+): void {
+  const nowIso = new Date().toISOString();
+  const db = getDb();
+  db.transaction(() => {
+    if (r.direction)
+      db.prepare(`UPDATE us_halts SET direction_est = ?, direction_est_json = ?, updated_at = ? WHERE id = ?`).run(r.direction.est, JSON.stringify(r.direction.detail), nowIso, id);
+    if (r.turnover)
+      db.prepare(`UPDATE us_halts SET turnover_5m_usd = ?, turnover_checked_at = ?, updated_at = ? WHERE id = ?`).run(r.turnover.usd, nowIso, nowIso, id);
+  })();
 }
 
-/** 표 줄 → 화면 줄. 순번은 주어진 줄 안에서(종목 · 정지 날짜별, 정지 시각 순) */
+/** 저장한 추정 근거에서 「판정 못 함」 이유만 — 읽을 수 없으면 null */
+function reasonOf(json: string | null): DirectionUnknownReason | null {
+  if (!json) return null;
+  try {
+    const reason = (JSON.parse(json) as { reason?: unknown }).reason;
+    return typeof reason === 'string' ? (reason as DirectionUnknownReason) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 표 줄 → 화면 줄 */
 function toHaltRows(rows: DbRow[]): UsHaltRow[] {
   const db = getDb();
   const catalogCount = (db.prepare(`SELECT COUNT(*) AS n FROM stock_catalog`).get() as { n: number }).n;
@@ -188,11 +218,8 @@ function toHaltRows(rows: DbRow[]): UsHaltRow[] {
   const held = new Set(
     (db.prepare(`SELECT DISTINCT symbol FROM paper_positions WHERE quantity > 0`).all() as { symbol: string }[]).map((r) => r.symbol),
   );
-  const nth = new Map<string, number>();
   return rows.map((r): UsHaltRow => {
     const symbol = r.raw_issue_symbol.trim();
-    const n = (nth.get(`${symbol}|${r.halt_day}`) ?? 0) + 1;
-    nth.set(`${symbol}|${r.halt_day}`, n);
     const cat = catalog.get(symbol) as { name: string } | undefined;
     return {
       id: r.id,
@@ -211,7 +238,9 @@ function toHaltRows(rows: DbRow[]): UsHaltRow[] {
       firstSeenAt: r.first_seen_at,
       resumeSeenAt: r.resume_seen_at,
       directionEst: r.direction_est,
-      nthToday: n,
+      directionReason: r.direction_est === 'unknown' ? reasonOf(r.direction_est_json) : null,
+      turnover5mUsd: r.turnover_5m_usd,
+      turnoverPending: r.turnover_checked_at == null,
       // 카탈로그가 비어 있으면(처음 켠 서버) 모른다 — 누를 수 있게 둔다
       inToss: catalogCount === 0 || cat != null,
       catalogName: cat?.name ?? null,
@@ -220,7 +249,7 @@ function toHaltRows(rows: DbRow[]): UsHaltRow[] {
   });
 }
 
-/** 그날(미국 날짜) 정지 — 새 정지가 위. 순번 · 토스 목록 · 보유는 여기서 붙인다 */
+/** 그날(미국 날짜) 정지 — 새 정지가 위. 토스 목록 · 보유는 여기서 붙인다(같은 종목 묶기는 화면 `utils/usHalts.groupHalts`) */
 export function listHaltsOfDay(day: string): UsHaltRow[] {
   const rows = getDb().prepare(`SELECT * FROM us_halts WHERE halt_day = ? ORDER BY halt_at_ms, id`).all(day) as DbRow[];
   return toHaltRows(rows).reverse();
@@ -248,7 +277,6 @@ export function listOngoingBefore(today: string, now: number, lastSuccessAt: str
       const seen = listedAt.get(h.id);
       return {
         ...h,
-        nthToday: 0,
         daysHalted: haltDayCount(rows.find((r) => r.id === h.id)!.halt_day, today),
         unlisted: lastSuccessAt != null && (seen == null || seen < lastSuccessAt),
       };

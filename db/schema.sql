@@ -455,6 +455,8 @@ CREATE TABLE IF NOT EXISTS us_halts (
   direction_est_json TEXT,              -- 추정에 쓴 값(봉 시각 · 종가 · 판정 못 한 이유)
   updated_at TEXT NOT NULL,
   last_listed_at TEXT,                  -- 마지막으로 Nasdaq 목록에서 본 시각(UTC ISO, v2.55.1) — 지난 정지가 목록에서 사라졌는지 판단
+  turnover_5m_usd REAL,                 -- 정지 전 5분 거래대금(달러 — 1분봉 종가 × 거래량(주식 수) 합). NULL = 모름(토스에 없음 · 받기 실패 · 지난 정지)
+  turnover_checked_at TEXT,             -- 거래대금을 낸 시각(UTC ISO). NULL = 아직(1분봉을 한 번 부를 차례)
   UNIQUE (raw_issue_symbol, raw_halt_date, raw_halt_time)
 );
 CREATE INDEX IF NOT EXISTS idx_us_halts_day ON us_halts (halt_day, halt_at_ms);

@@ -5,7 +5,8 @@
  *   LUDP 재개 칸(Quote = 정지 시각 · Trade 는 재개 뒤) · M 재개 칸(둘 다 빈칸 → 함께 채움) · POM 반복 정지 · 09:41:03 → 09:51:10(10분 연장) ·
  *   전날 정지 · 30일 넘은 정지(2019 T12) · 항목이 쌓임.
  * - 받는 시간대(평일 04:00~20:00 ET · 휴장일 · 서머타임 11-01 앞뒤) · 예상 재개 경계 · 방향 추정(가짜 1분봉 · 정지 1건당 1번) ·
- *   30일 지우기 · 같은 키 갱신 · 받기 실패 → 상태 칸 · 로그인 없으면 401(사본 DB 로 시험 서버 4106).
+ *   정지 전 5분 거래대금(구간 경계 · 봉 없음 0 · 모름 null · LULD 아닌 정지도 1번) · 같은 종목 묶기 · 숨기기 판단 ·
+ *   30일 지우기 · 같은 키 갱신 · 받기 실패 → 상태 칸 · 로그인 없으면 401 · 숨기기 기준 API(저장 · 400 · 재시작 뒤 유지)(사본 DB 로 시험 서버 4106).
  * - 사본 DB 의 `us_halts` 를 비우고 시작한다 · 비밀번호를 시험용으로 바꾸고 세션을 지운다(사본만).
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
@@ -23,8 +24,10 @@ import { fetchHaltsFeed, parseHaltsFeed, type RawHaltItem } from '../server/usHa
 import { ingestHalts, listHaltsOfDay, listOngoingBefore, purgeOldHalts } from '../server/usHalts/store';
 import { fetchStatus, fetchWindowOf, markFetched, resetFetchStatusForTest, tooSoon, usHaltsTick } from '../server/usHalts/scheduler';
 const isFetchWindow = (now: number, closed: (d: string) => boolean) => fetchWindowOf(now, { closed, openToday: () => 0 }).window !== 'outside';
-import { judgeDirection } from '../server/usHalts/directionEstimate';
-import { expectedResume, haltDayCount, isHaltOngoing } from '../src/utils/usHalts';
+import { analyzeHalt, judgeDirection, turnoverBefore } from '../server/usHalts/directionEstimate';
+import { expectedResume, groupHalts, haltDayCount, isHaltOngoing, isHiddenByTurnover } from '../src/utils/usHalts';
+import { formatUsdShort } from '../src/utils/formatters';
+import { directionUnknownText } from '../src/data/haltCodes';
 import type { Candle } from '../src/types/toss';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -123,7 +126,17 @@ const byMarket = (m: string) => today.filter((h) => h.rawMarket === m).length;
 check('시장 — NASDAQ 13 · AMEX 4 · NYSE 1 · Non NASDAQ 2', byMarket('NASDAQ') === 13 && byMarket('AMEX') === 4 && byMarket('NYSE') === 1 && byMarket('Non NASDAQ') === 2);
 check('새 정지가 위(정지 시각 내림차순)', today.every((h, i) => i === 0 || h.haltAtMs <= today[i - 1].haltAtMs));
 const pomToday = today.filter((h) => h.rawIssueSymbol === 'POM').reverse();
-check('POM 10-21 LUDP 7줄(각각 새 줄) · 순번 1~7', pomToday.length === 7 && pomToday.every((h, i) => h.nthToday === i + 1), pomToday.map((h) => h.nthToday).join(','));
+check('POM 10-21 LUDP 7줄(각각 새 줄로 저장)', pomToday.length === 7);
+const groups = groupHalts(today);
+const pomGroup = groups.find((g) => g.latest.rawIssueSymbol === 'POM');
+check(
+  '묶기 — POM 은 한 묶음 · 줄 = 가장 최근 정지 · 앞선 정지 6건(오래된 것부터)',
+  groups.filter((g) => g.latest.rawIssueSymbol === 'POM').length === 1 &&
+    pomGroup?.latest.id === pomToday.at(-1)!.id &&
+    pomGroup.earlier.length === 6 &&
+    pomGroup.earlier.every((h, i) => h.id === pomToday[i].id),
+);
+check('묶기 — 종목 수만큼 · 가장 최근 정지 시각 내림차순', groups.length === new Set(today.map((h) => h.rawIssueSymbol.trim())).size && groups.every((g, i) => i === 0 || g.latest.haltAtMs <= groups[i - 1].latest.haltAtMs));
 check('POM 전체 8줄(전날 T3 포함)', rowsOf('POM').length === 8);
 const pom2 = pomToday.find((h) => h.rawHaltTime === '09:41:03.826');
 check(
@@ -147,12 +160,23 @@ check('404(MPU) → unknown · 봉 모자람(WZRD) → unknown', est('MPU', '10:
 const catalog = db.prepare(`SELECT 1 FROM stock_catalog WHERE symbol = ?`);
 const catalogEmpty = !(db.prepare(`SELECT COUNT(*) AS n FROM stock_catalog`).get() as { n: number }).n;
 const luldToday = today.filter((h) => ['LUDP', 'LUDS', 'M'].includes(h.rawReasonCode));
-const shouldCall = luldToday.filter((h) => catalogEmpty || catalog.get(h.rawIssueSymbol));
+// 거래대금 때문에 LULD 가 아닌 정지(T1 CHOW)도 1번 — 토스 목록에 있는 오늘 정지 전부
+const shouldCall = today.filter((h) => catalogEmpty || catalog.get(h.rawIssueSymbol));
 check(
-  '정지 1건당 토스 호출 1번(토스 목록에 있는 LULD 정지만) · 다시 받아도 다시 부르지 않음',
-  [...calls.values()].every((n) => n === 1) && calls.size === shouldCall.length && luldToday.every((h) => h.directionEst !== 'pending'),
+  '정지 1건당 토스 호출 1번(토스 목록에 있는 오늘 정지 전부 — LULD 아닌 정지도) · 다시 받아도 다시 부르지 않음',
+  [...calls.values()].every((n) => n === 1) && calls.size === shouldCall.length && luldToday.every((h) => h.directionEst !== 'pending') && today.every((h) => !h.turnoverPending),
   `호출 ${calls.size} / 대상 ${shouldCall.length}`,
 );
+const chowToday = today.find((h) => h.rawIssueSymbol === 'CHOW')!;
+if (catalogEmpty || catalog.get('CHOW'))
+  check('LULD 아닌 정지(T1 CHOW)도 거래대금을 냄 · 방향은 none 그대로', calls.get(`CHOW|${chowToday.haltAtMs}`) === 1 && (chowToday.turnover5mUsd ?? 0) > 0 && chowToday.directionEst === 'none');
+const sphl = today.find((h) => h.rawIssueSymbol === 'SPHL')!;
+const sphlBars = await fakeBars('SPHL', sphl.haltAtMs);
+calls.set(`SPHL|${sphl.haltAtMs}`, 1); // 위 한 줄은 시험이 직접 부른 것 — 호출 수에서 뺀다
+check('거래대금 저장값 = 같은 1분봉으로 낸 값(SPHL)', sphl.turnover5mUsd != null && Math.abs(sphl.turnover5mUsd - turnoverBefore(sphlBars, sphl.haltAtMs)) < 1e-9, String(sphl.turnover5mUsd));
+check('404(MPU) → 거래대금 모름(null) · 방향 판정 못 함 · 토스에 없음', today.find((h) => h.rawIssueSymbol === 'MPU')?.turnover5mUsd === null && today.find((h) => h.rawIssueSymbol === 'MPU')?.directionReason === 'not_found');
+const zone = listHaltsOfDay('2026-10-19').find((h) => h.rawIssueSymbol === 'ZONE');
+check('지난 날 정지(10/19 ZONE)는 부르지 않음 · 거래대금 모름', zone != null && zone.turnover5mUsd === null && !zone.turnoverPending && ![...calls.keys()].some((k) => k.startsWith('ZONE|')));
 if (!catalogEmpty && !catalog.get('POM')) check('토스 목록에 없는 종목(POM) → 부르지 않고 unknown', est('POM', '09:35:44.713') === 'unknown' && ![...calls.keys()].some((k) => k.startsWith('POM|')));
 
 const bar = (t: number, close: number): Candle => ({ timestamp: t, open: close, high: close, low: close, close, volume: 1 });
@@ -165,6 +189,55 @@ check('judge — 5분 전 봉 없음 → unknown(few_bars)', judgeDirection([bar
 check('judge — 직전 봉이 2분 넘게 앞섬 → unknown(stale)', judgeDirection([bar(m0 - 10 * MIN, 1), bar(m0 - 3 * MIN, 2)], h0).detail.reason === 'stale');
 check('judge — 5분 전 봉이 7분보다 멀면 쓰지 않음(few_bars)', judgeDirection([bar(m0 - 9 * MIN, 1), bar(m0, 2)], h0).detail.reason === 'few_bars');
 check('judge — 정지 뒤 봉은 쓰지 않음', judgeDirection([bar(m0 - 5 * MIN, 1), bar(m0, 1.2), bar(m0 + MIN, 0.1)], h0).est === 'up');
+
+// ── 2-1. 정지 전 5분 거래대금 ──────────────────────────────────────
+const vbar = (t: number, close: number, volume: number): Candle => ({ timestamp: t, open: close, high: close, low: close, close, volume });
+// 정지 10:00:30 → 정지 칸 10:00 · 더하는 칸 09:55 ~ 09:59
+const tb = [vbar(m0 - 6 * MIN, 9, 1000), vbar(m0 - 5 * MIN, 10, 100), vbar(m0 - 3 * MIN, 11, 200), vbar(m0 - MIN, 12, 300), vbar(m0, 50, 9999), vbar(m0 + MIN, 50, 9999)];
+check('거래대금 — 봉 여러 개 Σ(종가 × 거래량) = 10×100 + 11×200 + 12×300', turnoverBefore(tb, h0) === 1000 + 2200 + 3600, String(turnoverBefore(tb, h0)));
+check('거래대금 경계 — 정확히 5분 전 칸(09:55) 포함 · 6분 전(09:54) 제외', turnoverBefore([vbar(m0 - 5 * MIN, 2, 10)], h0) === 20 && turnoverBefore([vbar(m0 - 6 * MIN, 2, 10)], h0) === 0);
+check('거래대금 경계 — 정지가 들어 있는 1분 칸(10:00) · 그 뒤 제외', turnoverBefore([vbar(m0, 2, 10), vbar(m0 + MIN, 2, 10)], h0) === 0);
+check('거래대금 경계 — 정지가 정각(10:00:00)이면 09:55~09:59', turnoverBefore([vbar(m0 - 5 * MIN, 1, 1), vbar(m0 - MIN, 1, 1), vbar(m0, 1, 1)], m0) === 2);
+check('거래대금 — 봉 없음 → 0(거래 없음)', turnoverBefore([], h0) === 0);
+let analyzeCalls = 0;
+const counting = (impl: () => Promise<Candle[]>) => () => {
+  analyzeCalls++;
+  return impl();
+};
+const notInToss = await analyzeHalt('ZZZZ', h0, { luld: true, inToss: false, mock: false, fetcher: counting(async () => tb) });
+check('토스에 없음 → 거래대금 null · 부르지 않음 · 판정 못 함 · 토스에 없음', notInToss.turnover5mUsd === null && analyzeCalls === 0 && directionUnknownText(notInToss.direction!.detail.reason ?? null) === '판정 못 함 · 토스에 없음');
+const a404 = await analyzeHalt('ZZZZ', h0, { luld: true, inToss: true, mock: false, fetcher: counting(() => Promise.reject(new TossApiError('없음', 404, ''))) });
+check('404 → 거래대금 null · 1번만', a404.turnover5mUsd === null && a404.direction?.detail.reason === 'not_found' && analyzeCalls === 1);
+const aFail = await analyzeHalt('ZZZZ', h0, { luld: false, inToss: true, mock: false, fetcher: counting(() => Promise.reject(new Error('네트워크'))) });
+check('받기 실패 → 거래대금 null · LULD 아니면 방향 없음(null)', aFail.turnover5mUsd === null && aFail.direction === null && analyzeCalls === 2);
+const aEmpty = await analyzeHalt('ZZZZ', h0, { luld: true, inToss: true, mock: false, fetcher: counting(async () => []) });
+check('봉 없음 → 거래대금 0 · 방향 판정 못 함 · 거래 적음 · 1번만', aEmpty.turnover5mUsd === 0 && directionUnknownText(aEmpty.direction!.detail.reason ?? null) === '판정 못 함 · 거래 적음' && analyzeCalls === 3);
+check('모의 모드 → 부르지 않음 · null', (await analyzeHalt('ZZZZ', h0, { luld: false, inToss: true, mock: true, fetcher: counting(async () => tb) })).turnover5mUsd === null && analyzeCalls === 3);
+
+// ── 2-2. 「판정 못 함」 이유 쉬운 말 · 숨기기 판단 · 금액 표기 ───────────────
+const reasonText: [Parameters<typeof directionUnknownText>[0], string][] = [
+  ['stale', '판정 못 함 · 거래 적음'],
+  ['few_bars', '판정 못 함 · 거래 적음'],
+  ['flat', '판정 못 함 · 변화 없음'],
+  ['not_in_toss', '판정 못 함 · 토스에 없음'],
+  ['not_found', '판정 못 함 · 토스에 없음'],
+  ['fetch_failed', '판정 못 함 · 받기 실패'],
+  ['not_today', '판정 못 함'],
+  [null, '판정 못 함'],
+];
+check('판정 못 함 이유 — 6가지 + 그 밖 · 옛 줄', reasonText.every(([r, t]) => directionUnknownText(r) === t), reasonText.map(([r]) => directionUnknownText(r)).join(' / '));
+check('숨기기 — 기준 없음(null)이면 숨기지 않음', !isHiddenByTurnover({ turnover5mUsd: 10 }, null, false));
+check('숨기기 — 기준보다 작으면 숨김 · 같거나 크면 안 숨김', isHiddenByTurnover({ turnover5mUsd: 999 }, 1000, false) && !isHiddenByTurnover({ turnover5mUsd: 1000 }, 1000, false));
+check('숨기기 — 거래 없음(0)은 숨김 · 거래량 모름(null)은 안 숨김', isHiddenByTurnover({ turnover5mUsd: 0 }, 1000, false) && !isHiddenByTurnover({ turnover5mUsd: null }, 1000, false));
+check('숨기기 — 관심 · 보유 종목은 안 숨김', !isHiddenByTurnover({ turnover5mUsd: 1 }, 1000, true));
+const usd: [number, string][] = [
+  [850, '$850'],
+  [12_345, '$12.3K'],
+  [999_960, '$1.0M'],
+  [1_234_567, '$1.2M'],
+  [3_400_000_000, '$3.4B'],
+];
+check('금액 줄임 — $850 · $12.3K · $1.0M · $1.2M · $3.4B', usd.every(([v, t]) => formatUsdShort(v) === t), usd.map(([v]) => formatUsdShort(v)).join(' '));
 
 // ── 3. 같은 키 갱신 · 지우지 않음 · 30일 ──────────────────────────
 const lastXml = fs.readFileSync(path.join(FIXTURES, files.at(-1)!), 'utf8');
@@ -181,6 +254,13 @@ check('바뀐 칸만 갱신(사유 코드)', changed.updated === 1 && one(lastIt
 const chow = lastItems.find((i) => i.IssueSymbol === 'CHOW')!;
 ingestHalts([{ ...chow, ReasonCode: 'LUDP' }], et(DAY, '11:04:40'));
 check('사유가 LULD 아님 → LULD 로 바뀌면 방향을 다시 추정(pending)', one('CHOW', chow.HaltTime)?.direction_est === 'pending');
+// 1분봉을 이미 받은 줄 — 다시 부르지 않고 「판정 못 함」(정지 1건당 1번)
+const callsBefore = [...calls.values()].reduce((a, b) => a + b, 0);
+await usHaltsTick({ now: et(DAY, '11:04:50'), load: async () => [{ ...chow, ReasonCode: 'LUDP' }], bars: fakeBars, closed: () => false });
+check(
+  '1분봉을 받은 뒤 LULD 로 바뀐 줄 — 다시 부르지 않음(code_changed)',
+  one('CHOW', chow.HaltTime)?.direction_est === 'unknown' && /code_changed/.test(String(one('CHOW', chow.HaltTime)?.direction_est_json)) && [...calls.values()].reduce((a, b) => a + b, 0) === callsBefore,
+);
 ingestHalts([{ ...chow, ReasonCode: 'T1' }], et(DAY, '11:05:40'));
 check('LULD → LULD 아님으로 바뀌면 none', one('CHOW', chow.HaltTime)?.direction_est === 'none');
 // 30일 — 10-21 기준으로 넣은 10/13 AZTR 은 11-13(미국)에 지워진다
@@ -256,9 +336,10 @@ check('다시 성공하면 연속 실패 0', fetchStatus().consecutiveFailures =
 // ── 7. API — 로그인 없으면 401 ─────────────────────────────────────
 await setPassword(TEST_PW);
 db.prepare(`DELETE FROM auth_sessions`).run();
+db.prepare(`DELETE FROM app_settings WHERE key = 'usHalts.minTurnoverUsd'`).run();
 let server: ChildProcess | null = null;
 let serverLog = '';
-try {
+async function startServer(): Promise<void> {
   server = spawn('node_modules/.bin/tsx', ['server/index.ts'], {
     detached: true,
     env: { ...process.env, API_PORT: String(PORT), AUTO_TRADING_ENABLED: 'false', GEMINI_ENABLED: 'false', UNIVERSE_UPDATE_ENABLED: 'false', US_HALTS_ENABLED: 'false' },
@@ -268,33 +349,78 @@ try {
   server.stderr!.on('data', (d) => (serverLog += d));
   for (let i = 0; i < 120; i++) {
     try {
-      if ((await fetch(`${BASE}/api/version`)).ok) break;
+      if ((await fetch(`${BASE}/api/version`)).ok) return;
     } catch {
       /* 아직 */
     }
     await new Promise((r) => setTimeout(r, 500));
   }
+  throw new Error('시험 서버가 뜨지 않음');
+}
+async function stopServer(): Promise<void> {
+  if (!server) return;
+  const s = server;
+  server = null;
+  const exited = new Promise((r) => s.once('exit', r));
+  try {
+    process.kill(-s.pid!, 'SIGTERM');
+  } catch {
+    s.kill('SIGTERM');
+  }
+  await Promise.race([exited, new Promise((r) => setTimeout(r, 5000))]);
+  // 포트가 풀릴 때까지
+  for (let i = 0; i < 20; i++) {
+    try {
+      await fetch(`${BASE}/api/version`);
+      await new Promise((r) => setTimeout(r, 250));
+    } catch {
+      return;
+    }
+  }
+}
+const login = async () => {
+  const r = await fetch(`${BASE}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: TEST_PW }) });
+  return (r.headers.get('set-cookie') ?? '').split(';')[0];
+};
+const SETTING = `${BASE}/api/settings/us-halts-min-turnover`;
+const putMin = (cookie: string, body: unknown) =>
+  fetch(SETTING, { method: 'PUT', headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: JSON.stringify(body) });
+try {
+  await startServer();
   check('로그인 없이 /api/us-halts → 401', (await fetch(`${BASE}/api/us-halts?day=${DAY}`)).status === 401);
-  const login = await fetch(`${BASE}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: TEST_PW }) });
-  const cookie = (login.headers.get('set-cookie') ?? '').split(';')[0];
+  check('로그인 없이 숨기기 기준 GET · PUT → 401', (await fetch(SETTING)).status === 401 && (await putMin('', { minTurnoverUsd: 5000 })).status === 401);
+  const cookie = await login();
   const r = await fetch(`${BASE}/api/us-halts?day=${DAY}`, { headers: { cookie } });
-  const body = (await r.json()) as { day: string; halts: unknown[]; status: { enabled: boolean }; serverNow: number };
+  const body = (await r.json()) as { day: string; halts: unknown[]; status: { enabled: boolean }; serverNow: number; minTurnoverUsd: unknown };
   check('로그인 뒤 200 · 그날 20줄 · 스위치 꺼짐이 보임', r.status === 200 && body.day === DAY && body.halts.length === 20 && body.status.enabled === false && typeof body.serverNow === 'number', `${r.status} ${body.halts?.length}`);
   check('응답에 ongoing(며칠째 정지 중) 목록 · 받기 window', Array.isArray((body as unknown as { ongoing: unknown[] }).ongoing) && typeof (body.status as unknown as { window: string }).window === 'string');
+  check('응답 줄에 nthToday 없음 · 거래대금 칸 있음', (body.halts as Record<string, unknown>[]).every((h) => !('nthToday' in h) && 'turnover5mUsd' in h && 'directionReason' in h));
   check('틀린 day → 400', (await fetch(`${BASE}/api/us-halts?day=10-21`, { headers: { cookie } })).status === 400);
   check('스위치를 끄면 받기를 시작하지 않는다(로그)', /US_HALTS_ENABLED=false/.test(serverLog));
+
+  const getMin = async () => ((await (await fetch(SETTING, { headers: { cookie } })).json()) as { minTurnoverUsd: unknown }).minTurnoverUsd;
+  check('숨기기 기준 — 처음은 null(숨기지 않음) · 목록 응답에도 null', (await getMin()) === null && body.minTurnoverUsd === null);
+  const bad: unknown[] = [0, -1, 'abc', '5000', 100_000_001, Number.MAX_SAFE_INTEGER, true, {}, undefined];
+  const badStatus = await Promise.all(bad.map(async (v) => (await putMin(cookie, v === undefined ? {} : { minTurnoverUsd: v })).status));
+  check('숨기기 기준 — 틀린 값 400(0 · 음수 · 글자 · 문자열 숫자 · 1억 초과 · 참거짓 · 객체 · 빠짐)', badStatus.every((st) => st === 400), badStatus.join(','));
+  check('숨기기 기준 — 틀린 값은 저장하지 않음', (await getMin()) === null);
+  const saved = await putMin(cookie, { minTurnoverUsd: 5000 });
+  check('숨기기 기준 — 5000 저장 · 다시 읽어도 5000 · 상한 1억은 받음', saved.status === 200 && (await getMin()) === 5000 && (await putMin(cookie, { minTurnoverUsd: 100_000_000 })).status === 200);
+  await putMin(cookie, { minTurnoverUsd: 2500.5 });
+  await stopServer();
+  await startServer();
+  const cookie2 = await login();
+  const afterRestart = ((await (await fetch(SETTING, { headers: { cookie: cookie2 } })).json()) as { minTurnoverUsd: unknown }).minTurnoverUsd;
+  const listAfter = ((await (await fetch(`${BASE}/api/us-halts?day=${DAY}`, { headers: { cookie: cookie2 } })).json()) as { minTurnoverUsd: unknown }).minTurnoverUsd;
+  check('숨기기 기준 — 서버를 다시 켜도 유지(2500.5) · 목록 응답에도', afterRestart === 2500.5 && listAfter === 2500.5, `${afterRestart} / ${listAfter}`);
+  check('숨기기 기준 — 비우면(null) 숨기지 않음으로', (await putMin(cookie2, { minTurnoverUsd: null })).status === 200 && ((await (await fetch(SETTING, { headers: { cookie: cookie2 } })).json()) as { minTurnoverUsd: unknown }).minTurnoverUsd === null);
 } catch (e) {
   fail++;
   console.log('FAIL  시험 서버 —', (e as Error).message, serverLog.slice(-1500));
 } finally {
-  if (server) {
-    try {
-      process.kill(-server.pid!, 'SIGTERM');
-    } catch {
-      server.kill('SIGTERM');
-    }
-  }
+  await stopServer();
   db.prepare(`DELETE FROM auth_sessions`).run();
+  db.prepare(`DELETE FROM app_settings WHERE key = 'usHalts.minTurnoverUsd'`).run();
 }
 
 // ── 8. 20:00 ET 뒤 이어 받기 · 며칠째 정지 중 (v2.55.1) ───────────────────
@@ -347,6 +473,18 @@ check('며칠째 — 주말 포함 미국 날짜(10-16 금 → 10-19 월 = 4일�
 const root = path.join(here, '..');
 const sources = ['src/components/usHalts/UsHaltsView.tsx', 'server/usHalts/store.ts', 'server/usHalts/scheduler.ts', 'server/index.ts'].map((f) => fs.readFileSync(path.join(root, f), 'utf8'));
 check('「안 풀림」 판단은 utils/usHalts.isHaltOngoing 한 곳(다른 곳에 resumeAtMs 비교 없음)', sources.every((src) => !/resumeAtMs\s*(<=|>=|<|>)/.test(src)) && /isHaltOngoing/.test(sources[1]));
+
+// 묶기 · 숨기기 · 예상 재개는 한 곳 — 화면이 utils 의 함수를 쓰고, 같은 판단을 따로 두지 않는다
+const viewSrc = sources[0];
+check('화면 — 묶기 groupHalts · 숨기기 isHiddenByTurnover · 예상 재개 expectedResume 를 씀(따로 판단 없음)', /groupHalts\(/.test(viewSrc) && /isHiddenByTurnover\(/.test(viewSrc) && /expectedResume\(/.test(viewSrc) && !/turnover5mUsd\s*</.test(viewSrc));
+const grepNth = (dir: string): string[] =>
+  fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) => {
+    const rel = path.join(dir, e.name);
+    if (e.isDirectory()) return grepNth(rel);
+    return /\.(ts|tsx)$/.test(e.name) && rel !== 'scripts/usHaltsSelfTest.ts' && /nthToday/.test(fs.readFileSync(path.join(root, rel), 'utf8')) ? [rel] : [];
+  });
+const nthLeft = ['src', 'server', 'scripts'].flatMap(grepNth);
+check('「오늘 N번째」(nthToday) 를 쓰는 곳이 남지 않음', nthLeft.length === 0, nthLeft.join(', '));
 
 console.log(`\n결과: ${pass}개 통과 / ${fail}개 실패`);
 process.exit(fail ? 1 : 0);

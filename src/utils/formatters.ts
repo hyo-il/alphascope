@@ -101,6 +101,28 @@ export function formatCompactMoney(
   return `${currency === 'KRW' ? '₩' : '$'}${formatCompact(value)}`;
 }
 
+/**
+ * 달러 금액 K · M · B 줄임(미국 거래정지 거래대금) — `$850` · `$12.3K` · `$1.2M` · `$3.4B`. 1,000 미만은 정수. 화면 전용.
+ * (`formatCompactMoney` 는 억 · 만 단위라 미국 거래대금 기준(달러로 넣는 칸)과 맞추기 어렵다)
+ */
+export function formatUsdShort(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  const abs = Math.abs(value);
+  const sign = value < 0 ? MINUS : '';
+  // 반올림해 다음 단위가 되는 값(999,950 → 「1,000.0K」)은 다음 단위로
+  const units: [number, string][] = [
+    [1e9, 'B'],
+    [1e6, 'M'],
+    [1e3, 'K'],
+  ];
+  for (const [size, unit] of units) {
+    if (abs >= size * 0.99995) {
+      return `${sign}$${(abs / size).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}${unit}`;
+    }
+  }
+  return `${sign}$${Math.round(abs).toLocaleString('en-US')}`;
+}
+
 /** 상승/하락에 따른 Tailwind 텍스트 색 클래스 */
 export function changeColor(value: number): string {
   if (value > 0) return 'text-bullish';

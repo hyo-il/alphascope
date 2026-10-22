@@ -179,6 +179,8 @@ import { getEarningsDate, startEarningsScheduler } from './earningsCalendar';
 import { startMarketCalendarScheduler } from './marketCalendar';
 import { fetchStatus, lastSuccessAt, startUsHaltsScheduler } from './usHalts/scheduler';
 import { listHaltsOfDay, listOngoingBefore, usDayOf } from './usHalts/store';
+import { getMinTurnover, setMinTurnover } from './usHalts/minTurnover';
+import { MIN_TURNOVER_MAX, parseMinTurnover } from '../src/types/usHalts';
 import { calendarEvents } from './calendarService';
 import { getSwingGoal, saveSwingGoal, SwingGoalError } from './swingGoal';
 import { getHomePage, setHomePage } from './homePage';
@@ -1382,6 +1384,17 @@ app.put('/api/settings/clock', (req, res) => {
   res.json({ clock });
 });
 
+// 미국 거래정지 「거래대금 $N 미만 숨기기」 기준 — null = 숨기지 않음
+app.get('/api/settings/us-halts-min-turnover', (_req, res) => res.json({ minTurnoverUsd: getMinTurnover() }));
+app.put('/api/settings/us-halts-min-turnover', (req, res) => {
+  const value = parseMinTurnover(req.body?.minTurnoverUsd);
+  if (value === undefined) {
+    return res.status(400).json({ error: `숨기기 기준은 비우거나(null) 0 보다 크고 $${MIN_TURNOVER_MAX.toLocaleString('en-US')} 이하인 숫자로 보냅니다.` });
+  }
+  setMinTurnover(value);
+  res.json({ minTurnoverUsd: value });
+});
+
 // 목표 수익 가능성의 조건(목표·손절·기간) — 매수 판단 화면의 [목표 수익 가능성] 이 쓴다
 app.get('/api/swing/goal', (_req, res) => {
   try {
@@ -1507,7 +1520,15 @@ app.get('/api/us-halts', (req, res) => {
     const now = Date.now();
     const day = typeof raw === 'string' ? raw : usDayOf(now);
     // 「며칠째 정지 중」 — 보는 날(기본 오늘)보다 앞 · 30일 안 · 안 풀림
-    res.json({ day, serverNow: now, halts: listHaltsOfDay(day), ongoing: listOngoingBefore(day, now, lastSuccessAt()), status: fetchStatus(now) });
+    res.json({
+      day,
+      serverNow: now,
+      halts: listHaltsOfDay(day),
+      ongoing: listOngoingBefore(day, now, lastSuccessAt()),
+      status: fetchStatus(now),
+      // 숨기기는 화면이 한다(숨긴 수를 보이려고) — 서버는 기준값만 함께 준다
+      minTurnoverUsd: getMinTurnover(),
+    });
   } catch (e) {
     fail(res, e);
   }

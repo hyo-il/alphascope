@@ -6,18 +6,25 @@
  *   5분 동안 어느 쪽으로 움직였는지가 어느 쪽 끝에 닿았는지와 가장 가깝다.
  * - 오르면 up · 내리면 down. 같거나 · 봉이 모자라거나 · 직전 봉이 정지보다 2분 넘게 앞서거나(거래가 뜸해 그 사이 값을 모름) ·
  *   토스에 없는 종목(카탈로그 밖 · 404)이면 unknown.
- * - ⚠️ **정지 1건당 토스 호출 1번**(`tossGet` 한 번 — 429 · 5xx 의 재시도는 `tossGet` 의 것). 실패해도 다시 부르지 않는다.
  * - 결과는 추정이다 — 정답 칸이 없어 맞았는지 확인할 수 없다. 매매에 쓰지 않는다.
+ *
+ * 정지 전 5분 거래대금(v2.56.1) — **같은 1분봉 한 번으로** 낸다(LULD 가 아닌 정지도 이것 때문에 한 번 부른다 · 방향은 LULD 만):
+ * - 정지가 들어 있는 1분 칸 **앞의 1분 칸 5개**(봉 시각 ∈ [정지 칸 − 5분, 정지 칸)) 의 Σ(종가 × 거래량). 토스 거래량 = 주식 수 → 달러.
+ * - 그 5칸에 봉이 하나도 없으면 0(거래 없음) · 토스에 없음 · 404 · 받기 실패 · 모의 모드 → null(모름).
+ * - ⚠️ **정지 1건당 토스 호출 1번**(`tossGet` 한 번 — 429 · 5xx 의 재시도는 `tossGet` 의 것). 실패해도 다시 부르지 않는다.
  */
 import { fetchCandlePage } from '../../src/services/toss/market';
 import { TossApiError } from '../../src/services/toss/httpClient';
 import type { Candle } from '../../src/types/toss';
+import type { DirectionUnknownReason } from '../../src/types/usHalts';
 
 const MINUTE = 60_000;
 /** 한 번에 받는 1분봉 수 — 정지 앞 15분(5분 전 봉을 찾기에 넉넉하다) */
 export const ESTIMATE_BARS = 15;
 /** 직전 봉이 정지보다 이만큼 넘게 앞서면 판정하지 않는다 */
 const STALE_MS = 2 * MINUTE;
+/** 거래대금을 더하는 구간 — 정지 칸 앞 5분 */
+const TURNOVER_MS = 5 * MINUTE;
 
 export type EstimateFetcher = (symbol: string, haltAtMs: number) => Promise<Candle[]>;
 
@@ -28,7 +35,7 @@ export const tossMinuteBars: EstimateFetcher = async (symbol, haltAtMs) =>
 export interface DirectionEstimateResult {
   est: 'up' | 'down' | 'unknown';
   detail: {
-    reason?: 'not_in_toss' | 'not_found' | 'fetch_failed' | 'few_bars' | 'stale' | 'flat' | 'mock';
+    reason?: DirectionUnknownReason;
     lastBar?: { t: string; close: number };
     baseBar?: { t: string; close: number };
     error?: string;
@@ -53,20 +60,39 @@ export function judgeDirection(bars: Candle[], haltAtMs: number): DirectionEstim
 
 const barOf = (b: Candle) => ({ t: new Date(b.timestamp).toISOString(), close: b.close });
 
-/** 한 정지 추정 — 토스 호출은 많아야 한 번 */
-export async function estimateDirection(
+/** 정지 전 5분 거래대금(달러) — 봉이 없으면 0. 시험이 가짜 봉으로 부른다 */
+export function turnoverBefore(bars: Candle[], haltAtMs: number): number {
+  const haltMinute = Math.floor(haltAtMs / MINUTE) * MINUTE;
+  return bars
+    .filter((b) => b.timestamp >= haltMinute - TURNOVER_MS && b.timestamp < haltMinute)
+    .reduce((sum, b) => sum + (Number.isFinite(b.volume) ? b.close * b.volume : 0), 0);
+}
+
+export interface HaltAnalysis {
+  /** LULD 일 때만 */
+  direction: DirectionEstimateResult | null;
+  /** 정지 전 5분 거래대금(달러) — null = 모름 */
+  turnover5mUsd: number | null;
+}
+
+/** 한 정지 — 1분봉을 많아야 한 번 받아 방향(LULD 만)과 거래대금을 함께 낸다 */
+export async function analyzeHalt(
   symbol: string,
   haltAtMs: number,
-  opts: { inToss: boolean; mock: boolean; fetcher?: EstimateFetcher },
-): Promise<DirectionEstimateResult> {
-  if (opts.mock) return { est: 'unknown', detail: { reason: 'mock' } };
-  if (!opts.inToss) return { est: 'unknown', detail: { reason: 'not_in_toss' } };
+  opts: { luld: boolean; inToss: boolean; mock: boolean; fetcher?: EstimateFetcher },
+): Promise<HaltAnalysis> {
+  const unknown = (detail: DirectionEstimateResult['detail']): HaltAnalysis => ({
+    direction: opts.luld ? { est: 'unknown', detail } : null,
+    turnover5mUsd: null,
+  });
+  if (opts.mock) return unknown({ reason: 'mock' });
+  if (!opts.inToss) return unknown({ reason: 'not_in_toss' });
   let bars: Candle[];
   try {
     bars = await (opts.fetcher ?? tossMinuteBars)(symbol, haltAtMs);
   } catch (e) {
-    if (e instanceof TossApiError && e.status === 404) return { est: 'unknown', detail: { reason: 'not_found' } };
-    return { est: 'unknown', detail: { reason: 'fetch_failed', error: (e as Error).message.slice(0, 200) } };
+    if (e instanceof TossApiError && e.status === 404) return unknown({ reason: 'not_found' });
+    return unknown({ reason: 'fetch_failed', error: (e as Error).message.slice(0, 200) });
   }
-  return judgeDirection(bars, haltAtMs);
+  return { direction: opts.luld ? judgeDirection(bars, haltAtMs) : null, turnover5mUsd: turnoverBefore(bars, haltAtMs) };
 }

@@ -5,7 +5,8 @@
  *   정지가 남아 있을 때만** 미국 자정(00:00 ET) 전까지 이어 받는다(사용자 결정 2026-10-22 — 「안 풀림」 = `utils/usHalts.isHaltOngoing`). 그 밖에는 받지 않는다.
  * - 스위치 `US_HALTS_ENABLED`(기본 켬). 시험 서버는 끈다.
  * - 받기 실패(네트워크 · 200 아님 · 시간 초과 · RSS 아님)는 로그 한 줄 + 연속 실패 수 — 다음 분에 다시. 앱의 다른 일을 막지 않는다.
- * - 처음 본 LULD 정지는 방향을 한 번 추정한다(토스 1분봉 1번 — `directionEstimate.ts`). 오늘(미국 날짜) 정지만 — 지난 정지는 「판정 못 함」.
+ * - 처음 본 정지는 토스 1분봉을 **한 번** 받아 정지 전 5분 거래대금(전부)과 방향(LULD 만)을 낸다(`directionEstimate.ts`).
+ *   오늘(미국 날짜) 정지만 — 지난 정지는 부르지 않는다(거래대금 모름 · 방향 「판정 못 함」).
  * - 30일 지난 줄은 하루 한 번 지운다(받는 시간대와 상관없이).
  * ⚠️ 매매 판단 · 주문 · 자동매매와 닿지 않는다(이 폴더는 그쪽을 import 하지 않는다).
  */
@@ -16,8 +17,8 @@ import { marketMinutes } from '../../src/utils/marketDate';
 import { MARKET_REF } from '../../src/utils/market';
 import type { UsHaltFetchStatus, UsHaltFetchWindow } from '../../src/types/usHalts';
 import { fetchHaltsFeed, type RawHaltItem } from './feed';
-import { countOngoingOfDay, ingestHalts, pendingDirection, purgeOldHalts, saveDirection, usDayOf } from './store';
-import { estimateDirection, type EstimateFetcher } from './directionEstimate';
+import { countOngoingOfDay, ingestHalts, pendingAnalysis, purgeOldHalts, saveAnalysis, usDayOf } from './store';
+import { analyzeHalt, type EstimateFetcher } from './directionEstimate';
 
 export const FETCH_INTERVAL_MS = 60_000;
 /** 받는 시간대 — 미국 현지 분 [04:00, 20:00). 20:00 뒤 자정 전은 이어 받기(안 풀린 오늘 정지가 있을 때만) */
@@ -92,32 +93,38 @@ export interface TickDeps {
   openToday?: (day: string, now: number) => number;
 }
 
-/** 방향 추정을 기다리는 줄을 처리한다 — 줄마다 토스 호출 많아야 1번 */
-async function estimatePending(now: number, bars?: EstimateFetcher): Promise<void> {
+/** 1분봉 차례인 줄을 처리한다 — 줄마다 토스 호출 많아야 1번(그 줄 평생) */
+async function analyzePending(now: number, bars?: EstimateFetcher): Promise<void> {
   const today = usDayOf(now);
   const db = getDb();
   const catalogCount = (db.prepare(`SELECT COUNT(*) AS n FROM stock_catalog`).get() as { n: number }).n;
   const inCatalog = db.prepare(`SELECT 1 FROM stock_catalog WHERE symbol = ?`);
-  for (const p of pendingDirection()) {
+  for (const p of pendingAnalysis()) {
+    if (p.checked) {
+      // 1분봉을 이미 받은 줄의 사유가 뒤에 LULD 로 바뀌었다 — 다시 부르지 않는다(정지 1건당 1번)
+      saveAnalysis(p.id, { direction: { est: 'unknown', detail: { reason: 'code_changed' } } });
+      continue;
+    }
     if (p.haltDay !== today) {
       // 지난 정지(서버가 꺼져 있던 날 등)는 부르지 않는다
-      saveDirection(p.id, 'unknown', { reason: 'not_today' });
+      saveAnalysis(p.id, { direction: p.luld ? { est: 'unknown', detail: { reason: 'not_today' } } : null, turnover: { usd: null } });
       continue;
     }
     const symbol = p.symbol.trim();
-    const r = await estimateDirection(symbol, p.haltAtMs, {
+    const r = await analyzeHalt(symbol, p.haltAtMs, {
+      luld: p.luld,
       inToss: catalogCount === 0 || Boolean(inCatalog.get(symbol)),
       mock: bars ? false : isMockMode(),
       fetcher: bars,
     });
-    saveDirection(p.id, r.est, r.detail);
+    saveAnalysis(p.id, { direction: r.direction, turnover: { usd: r.turnover5mUsd } });
   }
 }
 
 let lastPurgeDay: string | null = null;
 
 /**
- * 한 번 — 받는 시간대면 받아 쌓고, 새 LULD 정지의 방향을 추정한다. 하루 한 번 30일 지난 줄을 지운다.
+ * 한 번 — 받는 시간대면 받아 쌓고, 새 정지의 거래대금 · 방향(LULD)을 낸다. 하루 한 번 30일 지난 줄을 지운다.
  * 받기가 실패해도 던지지 않는다(상태에만 남긴다).
  */
 export async function usHaltsTick(deps: TickDeps = {}): Promise<'fetched' | 'failed' | 'outside'> {
@@ -154,7 +161,7 @@ export async function usHaltsTick(deps: TickDeps = {}): Promise<'fetched' | 'fai
     .run(LAST_SUCCESS_KEY, status.lastSuccessAt);
   status.consecutiveFailures = 0;
   status.lastError = null;
-  await estimatePending(now, deps.bars).catch((e) => console.warn('[usHalts] 방향 추정 실패:', (e as Error).message));
+  await analyzePending(now, deps.bars).catch((e) => console.warn('[usHalts] 1분봉 처리 실패:', (e as Error).message));
   return 'fetched';
 }
 

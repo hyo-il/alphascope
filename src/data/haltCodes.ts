@@ -1,3 +1,5 @@
+import type { DirectionUnknownReason } from '../types/usHalts';
+
 /**
  * Nasdaq 거래정지 사유 코드 → 쉬운 말 — **이 표 한 곳**(실험실 「미국 거래정지」).
  *
@@ -45,3 +47,22 @@ export const HALT_CODES: Record<string, { label: string; en: string }> = {
 
 /** 쉬운 말 — 모르는 코드는 null(화면은 원문 코드만) */
 export const haltCodeLabel = (code: string): string | null => HALT_CODES[code]?.label ?? null;
+
+/**
+ * 방향 「판정 못 함」 이유 → 쉬운 말 — **이 표 한 곳**. 서버가 남긴 이유(`DirectionUnknownReason`)로 고른다.
+ * 표에 없는 이유(not_today · code_changed · mock)와 이유 없는 옛 줄은 「판정 못 함」 만.
+ */
+const DIRECTION_UNKNOWN_LABELS: Partial<Record<DirectionUnknownReason, string>> = {
+  stale: '거래 적음',
+  few_bars: '거래 적음',
+  flat: '변화 없음',
+  not_in_toss: '토스에 없음',
+  not_found: '토스에 없음',
+  fetch_failed: '받기 실패',
+};
+
+/** 「판정 못 함 · 거래 적음」 처럼 — 이유를 모르면 「판정 못 함」 */
+export const directionUnknownText = (reason: DirectionUnknownReason | null): string => {
+  const label = reason ? DIRECTION_UNKNOWN_LABELS[reason] : undefined;
+  return label ? `판정 못 함 · ${label}` : '판정 못 함';
+};

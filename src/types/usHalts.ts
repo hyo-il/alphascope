@@ -2,7 +2,7 @@
  * 미국 거래정지 (실험실, v2.55.0) — `GET /api/us-halts` 응답 모양. 서버 `server/usHalts/` 와 화면 `components/usHalts/` 가 같이 쓴다.
  *
  * 원문 칸(`raw*`)은 Nasdaq Trader 거래정지 RSS 의 문자열 그대로다(약관 — 피드를 고치거나 왜곡하지 않는다).
- * 시각(ms) · 순번 · 방향은 서버가 원문에서 **따로 계산한** 값이다.
+ * 시각(ms) · 방향 · 거래대금은 서버가 원문 · 토스 1분봉으로 **따로 계산한** 값이다.
  */
 
 /**
@@ -11,6 +11,21 @@
  * - pending: 아직 추정하지 않음(처음 본 직후) · none: LULD 정지가 아니라 추정하지 않음
  */
 export type HaltDirectionEstimate = 'pending' | 'up' | 'down' | 'unknown' | 'none';
+
+/**
+ * 「판정 못 함」 이유(서버가 `direction_est_json.reason` 에 남긴 값) — 쉬운 말은 `data/haltCodes.directionUnknownLabel` 한 곳.
+ * not_today = 서버가 꺼져 있던 날의 지난 정지 · code_changed = 1분봉을 이미 받은 뒤 사유가 LULD 로 바뀜(다시 부르지 않는다) · mock = 토스 키 없음
+ */
+export type DirectionUnknownReason =
+  | 'not_in_toss'
+  | 'not_found'
+  | 'fetch_failed'
+  | 'few_bars'
+  | 'stale'
+  | 'flat'
+  | 'mock'
+  | 'not_today'
+  | 'code_changed';
 
 export interface UsHaltRow {
   id: number;
@@ -30,8 +45,12 @@ export interface UsHaltRow {
   firstSeenAt: string;
   resumeSeenAt: string | null;
   directionEst: HaltDirectionEstimate;
-  /** 그 종목의 그날 정지 순번(1부터, 정지 시각 순) */
-  nthToday: number;
+  /** 「판정 못 함」(unknown) 의 이유 — 옛 줄 · 이유 없음은 null */
+  directionReason: DirectionUnknownReason | null;
+  /** 정지 전 5분 거래대금(달러, `server/usHalts/directionEstimate.turnoverBefore`) — null = 모름(토스에 없음 · 받기 실패 · 지난 정지 · 아직) */
+  turnover5mUsd: number | null;
+  /** 아직 거래대금을 내지 않음(처음 본 직후 — 다음 받기에서 낸다). 「모름」 과 따로 보인다 */
+  turnoverPending: boolean;
   /** 토스 종목 목록(카탈로그)에 있는 종목 — 없으면 차트를 열 수 없다 */
   inToss: boolean;
   /** 카탈로그의 한글 이름(없으면 null — 화면은 원문 이름) */
@@ -79,4 +98,18 @@ export interface UsHaltsResponse {
   /** 지난 날 정지 중 — 오래된 것부터(관심 · 보유를 위로 올리는 것은 화면) */
   ongoing: UsOngoingHaltRow[];
   status: UsHaltFetchStatus;
+  /** 「거래대금 $N 미만 숨기기」 기준(서버 저장 — `GET|PUT /api/settings/us-halts-min-turnover`). null = 숨기지 않음. 숨기기는 화면이 한다 */
+  minTurnoverUsd: number | null;
+}
+
+/** 숨기기 기준 상한(달러) — 서버 검사와 화면 `NumberField max` 가 같이 쓴다 */
+export const MIN_TURNOVER_MAX = 100_000_000;
+
+/**
+ * 숨기기 기준 검사 — null(숨기지 않음) 또는 0 초과 · 상한 이하의 유한한 수. 틀리면 undefined(서버는 400).
+ */
+export function parseMinTurnover(v: unknown): number | null | undefined {
+  if (v === null) return null;
+  if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0 || v > MIN_TURNOVER_MAX) return undefined;
+  return v;
 }

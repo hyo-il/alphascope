@@ -69,3 +69,33 @@ export function msOfRawTime(raw: string): number | null {
   if (h > 23 || min > 59 || s > 59) return null;
   return ((h * 60 + min) * 60 + s) * 1000 + (m[4] ? Number(m[4].padEnd(3, '0')) : 0);
 }
+
+/**
+ * 같은 종목 묶기 — 화면의 오늘 표 · 「며칠째 정지 중」 칸이 같이 쓴다(그 칸 안의 줄끼리만 묶는다).
+ * 줄의 기준 = **가장 최근 정지**(`latest`) · `earlier` = 지난 정지(오래된 것부터). 묶음은 가장 최근 정지 시각 내림차순.
+ * 풀렸다 다시 멈춘 것은 Nasdaq 이 따로 적은 새 정지다 — 저장 · 「안 풀림」(`isHaltOngoing`) · 예상 재개(`expectedResume`)는 정지 한 건씩 그대로.
+ */
+export interface HaltGroup<T> {
+  latest: T;
+  earlier: T[];
+}
+export function groupHalts<T extends { rawIssueSymbol: string; haltAtMs: number; id: number }>(rows: T[]): HaltGroup<T>[] {
+  const bySymbol = new Map<string, T[]>();
+  for (const r of rows) {
+    const key = r.rawIssueSymbol.trim();
+    bySymbol.set(key, [...(bySymbol.get(key) ?? []), r]);
+  }
+  return [...bySymbol.values()]
+    .map((list) => {
+      const sorted = [...list].sort((a, b) => a.haltAtMs - b.haltAtMs || a.id - b.id);
+      return { latest: sorted.at(-1)!, earlier: sorted.slice(0, -1) };
+    })
+    .sort((a, b) => b.latest.haltAtMs - a.latest.haltAtMs || b.latest.id - a.latest.id);
+}
+
+/**
+ * 「거래대금 $N 미만 숨기기」 — 이 함수 한 곳. 가장 최근 정지의 거래대금이 기준보다 작으면 숨긴다.
+ * 숨기지 않는 것: 기준 없음(null) · 관심 · 보유 종목(`mine`) · 거래대금 모름(null — 토스에 없음 · 받기 실패 · 아직).
+ */
+export const isHiddenByTurnover = (latest: { turnover5mUsd: number | null }, minTurnoverUsd: number | null, mine: boolean): boolean =>
+  minTurnoverUsd != null && !mine && latest.turnover5mUsd != null && latest.turnover5mUsd < minTurnoverUsd;

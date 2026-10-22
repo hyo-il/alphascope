@@ -64,6 +64,13 @@ function migrate(database: Database.Database): void {
   if (haltColumns.length && !haltColumns.some((c) => c.name === 'last_listed_at')) {
     database.exec(`ALTER TABLE us_halts ADD COLUMN last_listed_at TEXT`);
   }
+  // 미국 거래정지 — 정지 전 5분 거래대금(v2.56.1). 옛 줄은 「모름」(NULL) 그대로 · 다시 부르지 않게 확인 시각만 채운다
+  // (방향 추정을 아직 기다리는 줄은 빼 둔다 — 그 줄은 원래 부를 1번에서 거래대금도 함께 낸다)
+  if (haltColumns.length && !haltColumns.some((c) => c.name === 'turnover_5m_usd')) {
+    database.exec(`ALTER TABLE us_halts ADD COLUMN turnover_5m_usd REAL`);
+    database.exec(`ALTER TABLE us_halts ADD COLUMN turnover_checked_at TEXT`);
+    database.exec(`UPDATE us_halts SET turnover_checked_at = 'before_v2.56.1' WHERE direction_est != 'pending'`);
+  }
 
   // 종목 프로필의 세부 업종 — 동종업계 자동 고르기. 실적일 하루 1회 갱신이 같은 yfinance info 로 채운다
   const profileColumns = database.prepare(`PRAGMA table_info(stock_profiles)`).all() as { name: string }[];
