@@ -96,7 +96,7 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
     return () => clearInterval(timer);
   }, []);
 
-  // 새 정지 토스트 — 처음 받은 목록은 「본 것」 으로만 두고, 그 뒤 새로 생긴 줄만 알린다(여러 건이면 한 토스트)
+  // 새 정지 토스트 — 처음 받은 목록은 「본 것」 으로만 두고, 그 뒤 새로 생긴 줄 가운데 지금 멈춰 있는 것만 알린다(여러 건이면 한 토스트)
   useEffect(() => {
     if (!data) return;
     if (!seen.current) {
@@ -107,7 +107,9 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
     const added = data.halts.filter((h) => !seen.current!.has(h.id));
     for (const h of added) seen.current.add(h.id);
     // 화면을 연 뒤에 생긴 정지만 — 서버가 막 켜져(또는 실패 뒤) 처음 받은 목록의 오늘 앞선 정지는 알리지 않는다
-    const fresh = added.filter((h) => h.haltAtMs >= openedAt.current! - TOAST_LOOKBACK_MS);
+    // 지금 멈춘 것만(v2.56.3) — 처음 받을 때 이미 풀려 있던 짧은 정지는 표에 없으니 알리지 않는다(「본 것」 에는 위에서 넣어 다시 알리지 않는다).
+    // 기준 시각 = 이 응답의 서버 시각(오늘 표의 1초 시계도 같은 서버 시각 기준)
+    const fresh = added.filter((h) => h.haltAtMs >= openedAt.current! - TOAST_LOOKBACK_MS && isHaltOngoing(h, data.serverNow));
     if (!fresh.length) return;
     // 같은 종목이 오늘 앞서 멈춘 적이 있으면 「다시 정지」(풀렸다 다시 멈춘 새 정지 — 표에서는 한 줄로 묶인다)
     const again = (h: UsHaltRow) => data.halts.some((o) => o.id !== h.id && o.rawIssueSymbol.trim() === h.rawIssueSymbol.trim() && o.haltAtMs < h.haltAtMs);
@@ -151,14 +153,15 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
         {data &&
           (() => {
             const mine = (h: UsHaltRow) => watchlist.includes(h.rawIssueSymbol.trim()) || h.held;
-            // live: 오늘 표는 가장 최근 정지가 안 풀린 묶음만(풀린 정지는 최대 거래대금 계산에만 쓴다)
-            const split = <T extends UsHaltRow>(rows: T[], live: boolean) => {
-              const groups = groupHalts(rows).filter((g) => !live || isHaltOngoing(g.latest, now));
+            // 두 칸 모두 가장 최근 정지가 안 풀린 묶음만 — 1초 시계로 다시 걸러 공지 재개 시각이 지나면 다음 갱신을 기다리지 않고 사라진다.
+            // keep: 그래도 남길 줄(며칠째 칸의 「목록에서 사라짐 — 상태 모름」 — 풀렸는지 몰라 시각으로 지우지 않는다). 오늘 표의 풀린 정지는 최대 거래대금 계산에만 쓴다
+            const split = <T extends UsHaltRow>(rows: T[], keep: (h: T) => boolean = () => false) => {
+              const groups = groupHalts(rows).filter((g) => keep(g.latest) || isHaltOngoing(g.latest, now));
               const hidden = groups.filter((g) => isHiddenByTurnover(groupTurnover([g.latest, ...g.earlier]), minTurnover ?? null, mine(g.latest)));
               return { groups, shown: showHidden ? groups : groups.filter((g) => !hidden.includes(g)), hiddenCount: hidden.length };
             };
-            const today = split(data.halts, true);
-            const ongoing = split(data.ongoing, false);
+            const today = split(data.halts);
+            const ongoing = split(data.ongoing, (h) => h.unlisted);
             const notice = (n: number) =>
               n > 0 && <HiddenNotice count={n} showing={showHidden} onToggle={() => setShowHidden((v) => !v)} />;
             return (
@@ -573,7 +576,7 @@ function OngoingTable({
               </td>
               <td className={`${NUM} py-1.5 text-right tabular-nums`}>{h.daysHalted}일째</td>
               <td className={`${NUM} py-1.5`}>
-                {/* 서버가 안 풀린 줄만 보낸다 — 공지 시각이 지나도 다음 읽기(30초)까지는 그 시각을 그대로 둔다(「없음」 으로 바뀌지 않게) */}
+                {/* 공지 시각이 지나면 줄째 사라진다(위 1초 거르기) — 남는 것은 「상태 모름」 줄뿐이라 그 시각을 그대로 둔다 */}
                 {h.resumeAtMs != null ? (
                   <span title={etTitle(h.rawResumptionDate || h.rawHaltDate, h.rawResumptionTradeTime)}>
                     <span className="block tabular-nums">{kstMonthDayTime(h.resumeAtMs)}</span>
