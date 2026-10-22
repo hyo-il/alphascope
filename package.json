@@ -35,6 +35,7 @@
     "homepage:test": "tsx scripts/homePageSelfTest.ts",
     "clock:test": "tsx scripts/clockSelfTest.ts",
     "ushalts:test": "tsx scripts/usHaltsSelfTest.ts",
+    "heatmapsession:test": "tsx scripts/heatmapSessionSelfTest.ts",
     "design:lint": "tsx scripts/designLint.ts",
     "design:check": "tsx scripts/designCheck.ts",
     "ussample:run": "tsx scripts/usCloseSampler.ts",

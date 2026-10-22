@@ -6,7 +6,7 @@ export type HeatmapMarket = 'us' | 'kr';
 export type HeatmapView = 'market' | 'watch';
 
 /**
- * 색으로 보는 기간. 1d = 실시간 시세 ÷ 전 거래일 종가,
+ * 색으로 보는 기간. 1d = 실시간 시세 ÷ 기준 종가(전 거래일 종가 — 미국 애프터마켓만 오늘 정규장 종가),
  * 그 밖은 **마지막 완성 종가 ÷ N거래일 전 종가** — 1w = 5, 1m = 21, 3m = 63 거래일.
  */
 export type HeatmapPeriod = '1d' | '1w' | '1m' | '3m';
@@ -18,6 +18,15 @@ export type HeatmapPeriod = '1d' | '1w' | '1m' | '3m';
  * 3분 돌려 `/prices` 512회 · 429 0회 · `x-ratelimit-remaining` 최저 2/15(401 3회는 토큰 재발급) — 10초로 정했다.
  */
 export const HEATMAP_LIVE_MS = 10_000;
+
+/**
+ * 종목 지도 1일의 거래 시간대(`server/heatmapSession.ts`) — 정규장 밖도 거래가 열려 있으면 10초마다 다시 받는다.
+ * day = 미국 주간거래 · other = 시간표에는 없지만 최근 2분 안에 체결이 있음(장외 거래)
+ */
+export type HeatmapSession = 'pre' | 'regular' | 'after' | 'day' | 'other';
+
+/** 1일 등락률 기준 — prev: 전 거래일 종가 · today: 오늘 정규장 종가(미국 애프터마켓, 오늘 봉 확정 뒤) · recent: 가장 최근 정규장 종가 */
+export type HeatmapBasis = 'prev' | 'today' | 'recent';
 
 export const HEATMAP_PERIODS: { id: HeatmapPeriod; label: string; bars: number }[] = [
   { id: '1d', label: '1일', bars: 1 },
@@ -55,7 +64,7 @@ export interface HeatmapCell {
   /** 네모 크기 — 시가총액(통화 단위 그대로) */
   marketCap: number;
   price: number | null;
-  /** 고른 기간의 수익률(%) — 1d 는 전 거래일 종가 대비. 모르면 null(회색, 섹터 통계에서 제외) */
+  /** 고른 기간의 수익률(%) — 1d 는 기준 종가(`HeatmapResponse.basis`) 대비. 모르면 null(회색, 섹터 통계에서 제외) */
   changeRate: number | null;
   currency: 'KRW' | 'USD';
   /** 관심 종목인가 — 시장 보기에서는 파란 테두리(상위 N 밖의 관심 종목은 넣지 않는다) */
@@ -76,9 +85,18 @@ export interface HeatmapResponse {
   counted: number;
   excluded: number;
   asOf: string;
-  /** 그 시장 정규장이 지금 열려 있나(`server/marketHours.ts`) — 닫혀 있으면 화면은 「장 마감」 이고 다시 받지 않는다 */
+  /**
+   * 그 시장에 지금 거래가 열려 있나 — **어느 세션이든**(프리 · 정규 · 애프터 · 주간거래 · NXT · 장외 거래, `server/heatmapSession.ts`).
+   * 자동매매의 정규장 판단(`marketHours.isMarketOpen`)과 다르다. 닫혀 있으면 화면은 「장 마감」 이고 1분마다 다시 열렸는지만 묻는다
+   */
   marketOpen: boolean;
-  /** 다음 정규장 시작(ISO, 휴장일 반영) — 장이 닫혀 있을 때 화면이 이 시각에 다시 받는다 */
+  /** 지금 세션(닫혀 있으면 null) · 이름(「프리마켓」 등) */
+  session: HeatmapSession | null;
+  sessionLabel: string | null;
+  /** 1일 등락률 기준과 그 문구(「전일 종가 대비」 · 「오늘 종가 대비」 · 「최근 종가 대비」) */
+  basis: HeatmapBasis;
+  basisLabel: string;
+  /** 다음 세션 시작(ISO, 휴장일 반영) — 닫혀 있을 때 화면이 이 시각 5초 뒤 한 번 다시 받는다 */
   nextOpen: string;
   /** 섹터를 아직 모르는 종목 수 — 하루 1회 갱신 전이면 '기타' 로 묶인다 */
   missingSectors: number;

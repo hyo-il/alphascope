@@ -1,0 +1,64 @@
+{
+  "result": {
+    "today": {
+      "date": "2026-10-22",
+      "integrated": {
+        "preMarket": {
+          "startTime": "2026-10-22T08:00:00.000+09:00",
+          "singlePriceAuctionStartTime": "2026-10-22T08:50:00.000+09:00",
+          "endTime": "2026-10-22T09:00:00.000+09:00"
+        },
+        "regularMarket": {
+          "startTime": "2026-10-22T09:00:00.000+09:00",
+          "singlePriceAuctionStartTime": "2026-10-22T15:20:00.000+09:00",
+          "endTime": "2026-10-22T15:30:00.000+09:00"
+        },
+        "afterMarket": {
+          "startTime": "2026-10-22T15:30:00.000+09:00",
+          "singlePriceAuctionEndTime": "2026-10-22T15:40:00.000+09:00",
+          "endTime": "2026-10-22T20:00:00.000+09:00"
+        }
+      }
+    },
+    "previousBusinessDay": {
+      "date": "2026-10-21",
+      "integrated": {
+        "preMarket": {
+          "startTime": "2026-10-21T08:00:00.000+09:00",
+          "singlePriceAuctionStartTime": "2026-10-21T08:50:00.000+09:00",
+          "endTime": "2026-10-21T09:00:00.000+09:00"
+        },
+        "regularMarket": {
+          "startTime": "2026-10-21T09:00:00.000+09:00",
+          "singlePriceAuctionStartTime": "2026-10-21T15:20:00.000+09:00",
+          "endTime": "2026-10-21T15:30:00.000+09:00"
+        },
+        "afterMarket": {
+          "startTime": "2026-10-21T15:30:00.000+09:00",
+          "singlePriceAuctionEndTime": "2026-10-21T15:40:00.000+09:00",
+          "endTime": "2026-10-21T20:00:00.000+09:00"
+        }
+      }
+    },
+    "nextBusinessDay": {
+      "date": "2026-10-23",
+      "integrated": {
+        "preMarket": {
+          "startTime": "2026-10-23T08:00:00.000+09:00",
+          "singlePriceAuctionStartTime": "2026-10-23T08:50:00.000+09:00",
+          "endTime": "2026-10-23T09:00:00.000+09:00"
+        },
+        "regularMarket": {
+          "startTime": "2026-10-23T09:00:00.000+09:00",
+          "singlePriceAuctionStartTime": "2026-10-23T15:20:00.000+09:00",
+          "endTime": "2026-10-23T15:30:00.000+09:00"
+        },
+        "afterMarket": {
+          "startTime": "2026-10-23T15:30:00.000+09:00",
+          "singlePriceAuctionEndTime": "2026-10-23T15:40:00.000+09:00",
+          "endTime": "2026-10-23T20:00:00.000+09:00"
+        }
+      }
+    }
+  }
+}

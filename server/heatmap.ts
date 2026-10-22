@@ -3,10 +3,11 @@
  *
  * - 대상: `server/data/universe.json` 의 시장별 상위 100 + 그 시장의 관심 종목 — 앱 전체의 "대형주" 정의를 하나로 둔다.
  * - 크기: 유니버스의 시가총액, 없으면 `stock_profiles.market_cap`(실적일 하루 1회 갱신이 함께 채운다).
- * - 색: 당일 등락률 = 토스 `/prices` 현재가(30종목씩 묶어서) ÷ **전 거래일 종가**.
- *   전 거래일 종가는 `previousClose.ts`(관심 목록 시세와 공유 — 전 거래일 날짜의 봉, 종목·시장 날짜별 1회 새로 받는다).
+ * - 색: 당일 등락률 = 토스 `/prices` 현재가(30종목씩 묶어서) ÷ **기준 종가**(`heatmapSession.baseClose`).
+ *   기준은 전 거래일 종가(`previousClose.ts` — 관심 목록 시세와 공유), 미국 애프터마켓만 오늘 정규장 종가(지도에서만 — 관심 목록과 다를 수 있다).
+ * - 거래 시간대: `heatmapSession.ts` 한 곳 — 프리 · 정규 · 애프터 · 주간거래 · NXT 모두 「열림」(자동매매의 정규장 판단 `isMarketOpen` 과 다르다).
  * - 섹터: `stock_profiles.sector`(yfinance). 없으면 '기타' — 처음 한 번은 빠진 종목의 프로필을 뒤에서 채운다.
- * - 응답 전체를 시장별로 캐시한다 — 1일 장중은 `HEATMAP_LIVE_MS`(10초)보다 1초 짧게, 장 마감 뒤와 그 밖 기간은 10분.
+ * - 응답 전체를 시장별로 캐시한다 — 1일 거래 중(어느 세션이든)은 `HEATMAP_LIVE_MS`(10초)보다 1초 짧게, 닫힘과 그 밖 기간은 10분.
  *
  * 기간: `period=1w|1m|3m` 은 색이 **마지막 완성 종가 ÷ N거래일 전 종가 − 1** 이 된다(5·21·63봉).
  * 종가 기준이라 **종목·시장 날짜·마감 전후별 1회**만 계산한다(오늘 봉은 정규장 마감 뒤에만 완성으로 본다).
@@ -23,7 +24,6 @@
  */
 
 import { getDb } from './db';
-import { previousClose } from './previousClose';
 import { getCandles } from './candleService';
 import { loadCandles } from './db';
 import { marketCloseMinutes, marketDate, marketMinutes } from '../src/utils/marketDate';
@@ -34,7 +34,7 @@ import { refreshEarnings } from './earningsCalendar';
 import { isMockMode, mockPrice } from './mockData';
 import { tossGet } from '../src/services/toss/httpClient';
 import { currencyOfSymbol, isKrSymbol } from '../src/utils/market';
-import { isMarketOpen, nextMarketOpen } from './marketHours';
+import { baseClose, basisOf, heatmapSession, type BasisInfo, type SessionInfo } from './heatmapSession';
 import {
   HEATMAP_LIVE_MS,
   HEATMAP_PERIODS,
@@ -240,16 +240,22 @@ interface Built {
   asOf: string;
 }
 
-async function build(list: Target[], period: HeatmapPeriod, now: number): Promise<Built> {
+/** 1일 지도의 세션 · 기준 — 기준 종가를 고른다 */
+interface DayContext {
+  info: SessionInfo;
+  basis: BasisInfo;
+}
+
+async function build(list: Target[], period: HeatmapPeriod, now: number, ctx: DayContext): Promise<Built> {
   const symbols = list.map((t) => t.symbol);
   const prof = profiles(symbols);
   const bars = HEATMAP_PERIODS.find((p) => p.id === period)!.bars;
   // 1일만 실시간 시세를 부른다. 1주 이상은 종가 기준이라 토스 /prices 를 부르지 않는다
   const prices = period === '1d' ? await lastPrices(symbols) : new Map<string, number>();
-  // 전일 종가는 종목·날짜마다 하루 한 번 일봉을 새로 받는다 — 한 종목씩 기다리지 않게 미리 함께 부른다(토스 한도는 rate limiter 가 지킨다)
+  // 기준 종가는 종목·날짜마다 하루 한 번 일봉을 새로 받는다 — 한 종목씩 기다리지 않게 미리 함께 부른다(토스 한도는 rate limiter 가 지킨다)
   const prevs =
     period === '1d'
-      ? new Map(await Promise.all(symbols.map(async (s) => [s, prices.has(s) ? await previousClose(s, now) : null] as const)))
+      ? new Map(await Promise.all(symbols.map(async (s) => [s, prices.has(s) ? await baseClose(s, now, ctx.info, ctx.basis) : null] as const)))
       : new Map<string, number | null>();
 
   const cells: HeatmapCell[] = [];
@@ -294,11 +300,12 @@ async function build(list: Target[], period: HeatmapPeriod, now: number): Promis
 const cache = new Map<string, { at: number; data: Built }>();
 const inflight = new Map<string, Promise<Built>>();
 
-/** 같은 키는 한 번만 만든다(두 화면이 동시에 불러도) — 1d 장중 `CACHE_MS` · 장 마감 뒤와 그 밖 기간 10분 */
-async function cached(key: string, period: HeatmapPeriod, now: number, make: () => Promise<Built>, open: boolean): Promise<Built> {
-  const ttl = period === '1d' && open ? CACHE_MS : PERIOD_CACHE_MS;
-  // 장이 닫혀 있을 때 만든 1일 지도가 장이 열린 뒤까지 10분 남지 않게 — 열림 여부를 키에 넣는다
-  if (period === '1d') key = `${key}|${open ? 'open' : 'closed'}`;
+/** 같은 키는 한 번만 만든다(두 화면이 동시에 불러도) — 1d 거래 중 `CACHE_MS` · 닫힘과 그 밖 기간 10분 */
+async function cached(key: string, period: HeatmapPeriod, now: number, make: () => Promise<Built>, ctx: DayContext): Promise<Built> {
+  const span = ctx.info.span;
+  const ttl = period === '1d' && span ? CACHE_MS : PERIOD_CACHE_MS;
+  // 닫혀 있을 때 만든 1일 지도가 열린 뒤까지 10분 남지 않게, 세션 · 기준이 바뀌면(애프터마켓 오늘 종가 기준 등) 바로 다시 만들게 — 키에 넣는다
+  if (period === '1d') key = `${key}|${span ? `${span.session}|${span.tradeDay ?? ''}|${ctx.basis.basis}` : 'closed'}`;
   const hit = cache.get(key);
   if (hit && now - hit.at < ttl) return hit.data;
   let pending = inflight.get(key);
@@ -328,19 +335,27 @@ export async function heatmap(
 ): Promise<HeatmapResponse> {
   const view = options.view ?? 'market';
   const cal = market === 'us' ? 'US' : 'KR';
-  const marketOpen = isMarketOpen(cal, new Date(now));
-  const nextOpen = nextMarketOpen(cal, new Date(now)).toISOString();
+  const info = await heatmapSession(cal, now);
+  const ctx: DayContext = { info, basis: basisOf(cal, info, now) };
+  const session = {
+    marketOpen: info.span != null,
+    session: info.span?.session ?? null,
+    sessionLabel: info.span?.label ?? null,
+    basis: ctx.basis.basis,
+    basisLabel: ctx.basis.label,
+    nextOpen: new Date(info.nextStart).toISOString(),
+  };
   const watch = watchOf(market);
   const watchSet = new Set(watch);
 
   if (view === 'watch') {
     const caps = new Map(universeOf(market).map((t) => [t.symbol, t.cap]));
     const built = await cached(`watch|${market}|${period}|${watch.join(',')}`, period, now, () =>
-      build(watch.map((symbol) => ({ symbol, cap: caps.get(symbol) ?? null })), period, now),
-    marketOpen);
+      build(watch.map((symbol) => ({ symbol, cap: caps.get(symbol) ?? null })), period, now, ctx),
+    ctx);
     const cells = built.cells.map((c) => ({ ...c, watch: true }));
     return {
-      market, period, view, top: null, cells, ...sectorStats(cells), asOf: built.asOf, marketOpen, nextOpen,
+      market, period, view, top: null, cells, ...sectorStats(cells), asOf: built.asOf, ...session,
       missingSectors: cells.filter((c) => built.missing.has(c.symbol)).length,
       missingCap: built.missingCap,
     };
@@ -348,13 +363,13 @@ export async function heatmap(
 
   const top = options.top ?? 50;
   // 언제나 상위 100 전체를 만든다 — N 을 바꿔도 토스·yfinance 호출이 늘지 않는다
-  const built = await cached(`market|${market}|${period}`, period, now, () => build(universeOf(market), period, now), marketOpen);
+  const built = await cached(`market|${market}|${period}`, period, now, () => build(universeOf(market), period, now, ctx), ctx);
   const cells = [...built.cells]
     .sort((a, b) => b.marketCap - a.marketCap)
     .slice(0, top)
     .map((c) => ({ ...c, watch: watchSet.has(c.symbol) }));
   return {
-    market, period, view, top, cells, ...sectorStats(cells), asOf: built.asOf, marketOpen, nextOpen,
+    market, period, view, top, cells, ...sectorStats(cells), asOf: built.asOf, ...session,
     missingSectors: cells.filter((c) => built.missing.has(c.symbol)).length,
     missingCap: [],
   };
