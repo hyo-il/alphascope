@@ -28,6 +28,7 @@ export default function StockName({
   className = '',
   tickerClassName = 'text-text-secondary',
   wrap = false,
+  keepTicker = false,
 }: {
   symbol: string;
   name?: string | null;
@@ -37,6 +38,11 @@ export default function StockName({
   tickerClassName?: string;
   /** 카드 제목처럼 자리가 넉넉하지 않아도 이름 전체가 보여야 하는 곳 — 말줄임 대신 단어 단위로 줄바꿈 */
   wrap?: boolean;
+  /**
+   * 한 줄 표의 좁은 이름 칸 — 이름만 0 까지 줄어들고(말줄임) 전체 폭은 **티커 폭 밑으로 줄지 않는다**(flex 안에서 min-w-0 을 주지 않아도 된다).
+   * 기본(inline-flex + min-w-0)은 칸이 티커보다 좁아지면 티커가 옆 글자 위로 넘쳐 겹쳤다.
+   */
+  keepTicker?: boolean;
 }) {
   const raw = name ?? stockNameOf(symbol);
   // 이름이 티커와 같으면(QQQ·SOXL 같은 ETF) 같은 값을 두 번 적지 않는다 — 티커만
@@ -58,8 +64,10 @@ export default function StockName({
       </span>
     );
 
+  // 첫 칸 minmax(0, auto) — 최소 폭 계산에서 이름은 0, 티커만 남는다
+  const layout = keepTicker && label && showTicker ? 'inline-grid grid-cols-[minmax(0,auto)_auto]' : 'inline-flex min-w-0';
   return (
-    <span className={`inline-flex min-w-0 items-baseline gap-1.5 ${weight} ${className}`}>
+    <span className={`${layout} items-baseline gap-1.5 ${weight} ${className}`}>
       {/* 좁은 자리에서 이름이 말줄임되면 마우스로 전체 이름을 본다 — 티커는 자르지 않는다 */}
       <span className="truncate" title={label || symbol}>{label || symbol}</span>
       {label && showTicker && (

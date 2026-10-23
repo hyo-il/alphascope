@@ -6,7 +6,7 @@ import { SkeletonTable } from '../common/SkeletonLoader';
 import { InlineSpinner } from '../common/LoadingOverlay';
 import { useWatchlist } from '../../hooks/useWatchlist';
 import { toast } from '../../store/uiStore';
-import { directionUnknownText, haltCodeLabel } from '../../data/haltCodes';
+import { directionUnknownText, haltCodeLabel, haltCodeTitle } from '../../data/haltCodes';
 import {
   DEFAULT_HALT_RANK_TOP,
   HALT_RANK_TOPS,
@@ -502,7 +502,7 @@ function RankTag({ hit, view }: { hit: HaltRankHit; view: HaltRankView }) {
 
 /**
  * 묶음 거래대금(`groupTurnover` — 정지들 가운데 가장 큰 5분 거래대금) — 0 = 거래 없음 · null = 모름(아직이면 확인 중).
- * 일부 정지만 모르면 아는 값 가운데 최대 + 정보 아이콘. 「오늘 최대 5분」 · 「최대 5분」 은 칸 머리에 둔다(칸을 한 줄로).
+ * 일부 정지만 모르면 아는 값 가운데 최대 + 정보 아이콘. 「오늘 최대 · 최대」 는 칸 머리 설명에 둔다(칸을 한 줄로).
  */
 function TurnoverText({ halts }: { halts: UsHaltRow[] }) {
   const t = groupTurnover(halts);
@@ -519,8 +519,8 @@ function TurnoverText({ halts }: { halts: UsHaltRow[] }) {
   );
 }
 
-const TURNOVER_TIP = '이 종목이 오늘 멈췄던 정지들 가운데, 정지 전 5분 거래대금이 가장 컸던 값(종가 × 거래량, 토스 1분봉)';
-const ONGOING_TURNOVER_TIP = '이 칸에 묶인 정지들 가운데, 정지 전 5분 거래대금이 가장 컸던 값(종가 × 거래량, 토스 1분봉)';
+const TURNOVER_TIP = '오늘 최대 5분 거래대금 — 이 종목이 오늘 멈췄던 정지들 가운데, 정지 전 5분 거래대금이 가장 컸던 값(종가 × 거래량, 토스 1분봉)';
+const ONGOING_TURNOVER_TIP = '최대 5분 거래대금 — 이 칸에 묶인 정지들 가운데, 정지 전 5분 거래대금이 가장 컸던 값(종가 × 거래량, 토스 1분봉)';
 
 /** 거래대금 칸 머리 — 숫자 칸이라 오른쪽 끝 맞춤 */
 function TurnoverHead({ label, tip }: { label: string; tip: string }) {
@@ -554,7 +554,7 @@ function HaltTable({
       <table className="w-full text-left text-xs">
         <thead className="text-caption text-text-muted">
           <tr className="border-b border-border/50">
-            <th className={`${TABLE_NAME_COL} py-2 pl-3 pr-3 font-normal`}>종목</th>
+            <th className={`${TABLE_NAME_COL} py-2 pl-3 font-normal`}>종목</th>
             <th className={`${NUM} py-2 font-normal`}>사유</th>
             <th className={`${NUM} py-2 font-normal`}>정지 시각</th>
             <th className={`${NUM} py-2 font-normal`}>
@@ -574,7 +574,7 @@ function HaltTable({
               </span>
             </th>
             <th className={`${NUM} py-2 pr-3 text-right font-normal`}>
-              <TurnoverHead label="오늘 최대 5분 거래대금" tip={TURNOVER_TIP} />
+              <TurnoverHead label="거래대금" tip={TURNOVER_TIP} />
             </th>
           </tr>
         </thead>
@@ -586,8 +586,8 @@ function HaltTable({
             const hit = hits ? rankHitOf(hits, symbol) : null;
             return (
               <tr key={h.id} className={`border-b border-border/30 last:border-0 ${LIST_TABLE_ROW}`} data-halt-row={symbol}>
-                {/* 한 줄 — 이름 칸이 남는 폭을 가져가고(max-w-0), 긴 이름만 말줄임 + 툴팁. 시장 · 배지 · 순위는 이름 뒤에 이어서 자르지 않는다 */}
-                <td className="max-w-0 py-1.5 pl-3 pr-3">
+                {/* 한 줄 — 이름 칸이 남는 폭을 가져가고(max-w-0), 시장 → 긴 이름 순서로 말줄임 + 툴팁. 티커 · 배지 · 순위는 자르지 않는다 */}
+                <td className="max-w-0 py-1.5 pl-3">
                   <HaltName h={h} watched={watched} market={h.rawMarket} onSelectSymbol={onSelectSymbol}>
                     {hit && <RankTag hit={hit} view={rankView} />}
                   </HaltName>
@@ -630,7 +630,7 @@ function ResumeCell({ resume }: { resume: ReturnType<typeof expectedResume> }) {
     case 'announced':
       return (
         <span>
-          <span className="tabular-nums">{kstClockText(resume.at)}</span> <span className="text-caption text-text-muted">재개 예정(공지)</span>
+          <span className="tabular-nums">{kstClockText(resume.at)}</span> <span className="text-caption text-text-muted">재개(공지)</span>
         </span>
       );
     case 'open':
@@ -651,12 +651,19 @@ function DirectionText({ h }: { h: UsHaltRow }) {
   if (est === 'up') return <span className="text-bullish">▲ 상승 중 정지(추정)</span>;
   if (est === 'down') return <span className="text-bearish">▼ 하락 중 정지(추정)</span>;
   if (est === 'pending') return <span className="text-text-muted">추정 중…</span>;
-  return <span className="text-text-muted">{directionUnknownText(h.directionReason)}</span>;
+  // 「판정 못 함」 뒤 이유는 작은 글자 — 이 칸이 1280 에서 표 폭을 정하는 가장 긴 글자다
+  const [head, ...why] = directionUnknownText(h.directionReason).split(' · ');
+  return (
+    <span className="text-text-muted">
+      {head}
+      {why.length > 0 && <span className="text-caption"> · {why.join(' · ')}</span>}
+    </span>
+  );
 }
 
 /**
  * 종목 칸(한 줄) — 이름 · 티커(누르면 차트, 토스에 없으면 못 누름) + 시장(오늘 표만) + 관심 · 보유 배지 + children(순위). 오늘 표 · 며칠째 표가 같이 쓴다.
- * 이름만 줄어든다(말줄임 + 툴팁 — `StockName`) · 티커 · 시장 · 배지 · 순위는 자르지 않는다.
+ * 좁으면 시장 → 이름 순서로 말줄임 + 툴팁(`StockName` `keepTicker`) · 티커 · 배지 · 순위는 자르지 않는다.
  */
 function HaltName({
   h,
@@ -675,15 +682,20 @@ function HaltName({
   return (
     <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
       {h.inToss ? (
-        <button type="button" onClick={() => onSelectSymbol(symbol)} className="flex min-w-0 rounded text-left hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent">
-          <StockName symbol={symbol} name={h.catalogName ?? (h.rawIssueName.trim() || null)} />
+        <button type="button" onClick={() => onSelectSymbol(symbol)} className="flex rounded text-left hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent">
+          <StockName symbol={symbol} name={h.catalogName ?? (h.rawIssueName.trim() || null)} keepTicker />
         </button>
       ) : (
-        <span title="토스에 없는 종목" aria-disabled="true" className="flex min-w-0 cursor-not-allowed text-text-secondary">
-          <StockName symbol={symbol} name={h.rawIssueName.trim() || null} />
+        <span title="토스에 없는 종목" aria-disabled="true" className="flex cursor-not-allowed text-text-secondary">
+          <StockName symbol={symbol} name={h.rawIssueName.trim() || null} keepTicker />
         </span>
       )}
-      {market && <span className="shrink-0 text-caption text-text-muted">{market}</span>}
+      {/* 좁으면 시장이 먼저 줄어들고(shrink 100 : 1 — 말줄임 + 툴팁) 그다음 이름. 티커는 `keepTicker` 로 줄지 않는다 */}
+      {market && (
+        <span className="min-w-0 shrink-[100] truncate text-caption text-text-muted" title={market}>
+          {market}
+        </span>
+      )}
       {watched && <Badge>관심</Badge>}
       {h.held && <Badge>보유</Badge>}
       {children}
@@ -691,12 +703,12 @@ function HaltName({
   );
 }
 
-/** 사유 칸(한 줄) — 「뉴스 대기 정지 · T1」: 쉬운 말 + 원문 코드(작은 글자 · 흐린 색). 모르는 코드는 원문만 */
+/** 사유 칸(한 줄) — 「뉴스 대기 · T1」: 쉬운 말 + 원문 코드(작은 글자 · 흐린 색). 모르는 코드는 원문만 */
 function ReasonText({ h }: { h: UsHaltRow }) {
   const label = haltCodeLabel(codeOf(h));
   if (!label) return <>{h.rawReasonCode}</>;
   return (
-    <span className="whitespace-nowrap">
+    <span className="whitespace-nowrap" title={haltCodeTitle(codeOf(h)) ?? undefined}>
       {label}
       <span className="text-caption text-text-muted"> · {h.rawReasonCode}</span>
     </span>
@@ -726,21 +738,21 @@ function OngoingTable({
       <table className="w-full text-left text-xs">
         <thead className="text-caption text-text-muted">
           <tr className="border-b border-border/50">
-            <th className={`${TABLE_NAME_COL} py-2 pl-3 pr-3 font-normal`}>종목</th>
+            <th className={`${TABLE_NAME_COL} py-2 pl-3 font-normal`}>종목</th>
             <th className={`${NUM} py-2 font-normal`}>사유</th>
             <th className={`${NUM} py-2 font-normal`}>정지 시작</th>
             <th className={`${NUM} py-2 text-right font-normal`}>며칠째</th>
             <th className={`${NUM} py-2 font-normal`}>재개</th>
             <th className={`${NUM} py-2 font-normal`}>상태</th>
             <th className={`${NUM} py-2 pr-3 text-right font-normal`}>
-              <TurnoverHead label="최대 5분 거래대금" tip={ONGOING_TURNOVER_TIP} />
+              <TurnoverHead label="거래대금" tip={ONGOING_TURNOVER_TIP} />
             </th>
           </tr>
         </thead>
         <tbody>
           {sorted.map(({ latest: h, earlier }) => (
             <tr key={h.id} className={`border-b border-border/30 last:border-0 ${LIST_TABLE_ROW}`} data-ongoing-row={h.rawIssueSymbol.trim()}>
-              <td className="max-w-0 py-1.5 pl-3 pr-3">
+              <td className="max-w-0 py-1.5 pl-3">
                 <HaltName h={h} watched={watchlist.includes(h.rawIssueSymbol.trim())} onSelectSymbol={onSelectSymbol} />
               </td>
               <td className={`${NUM} py-1.5`}>
@@ -754,7 +766,7 @@ function OngoingTable({
                 {/* 공지 시각이 지나면 줄째 사라진다(위 1초 거르기) — 남는 것은 「상태 모름」 줄뿐이라 그 시각을 그대로 둔다 */}
                 {h.resumeAtMs != null ? (
                   <span title={etTitle(h.rawResumptionDate || h.rawHaltDate, h.rawResumptionTradeTime)}>
-                    <span className="tabular-nums">{kstMonthDayTime(h.resumeAtMs)}</span> <span className="text-caption text-text-muted">재개 예정(공지)</span>
+                    <span className="tabular-nums">{kstMonthDayTime(h.resumeAtMs)}</span> <span className="text-caption text-text-muted">재개(공지)</span>
                   </span>
                 ) : (
                   <span className="text-text-muted">정해진 시각 없음</span>
@@ -763,8 +775,8 @@ function OngoingTable({
               <td className={`${NUM} py-1.5`}>
                 {h.unlisted ? (
                   <span className="inline-flex items-center gap-1 text-text-muted">
-                    목록에서 사라짐 — 상태 모름
-                    <InfoTip label="상태 모름 설명">Nasdaq 목록에서 빠져 풀렸는지 알 수 없습니다.</InfoTip>
+                    상태 모름
+                    <InfoTip label="상태 모름 설명">Nasdaq 목록에서 사라져 풀렸는지 알 수 없습니다.</InfoTip>
                   </span>
                 ) : (
                   <span className="font-medium text-warning">정지 중</span>

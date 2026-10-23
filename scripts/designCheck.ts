@@ -31,6 +31,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { chromium, type Page } from 'playwright';
 import { NAV_GROUPS, PAGE_TABS } from '../src/types/nav';
+import { rankingSample, usHaltsSample } from './fixtures/usHalts/screenSample';
 import { CHANGELOG } from '../src/data/changelog';
 import { sortDayRows } from '../src/utils/buyJudgeOrder';
 
@@ -327,6 +328,21 @@ function targets(): Target[] {
         await page.evaluate((v) => localStorage.setItem('alphascope.heatmapView', JSON.stringify({ ...v, period: '1d', off: { market: [], watch: [] }, watchSize: 'cap' })), v);
       },
       open: (page: Page) => pickMarket(page, market),
+    })),
+    // 실시간 거래정지 — 긴 종목명 · 긴 사유 · 순위 표시까지 모든 칸 한 줄인지(가짜 응답 — DB · Nasdaq · 토스 그대로). 「전체」 와 「급상승」 둘
+    ...(['all', 'gainers'] as const).map((view) => ({
+      name: `ushalts-${view === 'all' ? '예시' : '급상승'}`,
+      hash: '#/ushalts',
+      before: async (page: Page) => {
+        await page.evaluate((v) => localStorage.setItem('alphascope.usHaltsView', JSON.stringify({ view: v, top: 10 })), view);
+        await page.route('**/api/us-halts', (r) => r.fulfill({ json: usHaltsSample(Date.now()) }).catch(() => {}));
+        await page.route('**/api/rankings/live**', (r) => r.fulfill({ json: rankingSample(new URL(r.request().url()).searchParams.get('kind') as 'gainers', Date.now()) }).catch(() => {}));
+      },
+      after: async (page: Page) => {
+        await page.unroute('**/api/us-halts');
+        await page.unroute('**/api/rankings/live**');
+        await page.evaluate(() => localStorage.removeItem('alphascope.usHaltsView'));
+      },
     })),
     // 기준가를 확인하지 못한 종목은 등락률이 null → 「—」(지도 칸 · 관심 패널). 응답의 절반을 null 로 바꿔치기 — DB 는 그대로
     {
