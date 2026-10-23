@@ -25,7 +25,7 @@ import { ingestHalts, listHaltsOfDay, listOngoingBefore, purgeOldHalts } from '.
 import { fetchStatus, fetchWindowOf, markFetched, resetFetchStatusForTest, tooSoon, usHaltsTick } from '../server/usHalts/scheduler';
 const isFetchWindow = (now: number, closed: (d: string) => boolean) => fetchWindowOf(now, { closed, openToday: () => 0 }).window !== 'outside';
 import { analyzeHalt, judgeDirection, turnoverBefore } from '../server/usHalts/directionEstimate';
-import { HALT_RANK_TOPS, expectedResume, filterGroupsByRank, groupHalts, groupTurnover, haltDayCount, isHaltOngoing, isHiddenByTurnover, rankHitOf, rankHits } from '../src/utils/usHalts';
+import { HALT_RANK_TOPS, expectedResume, filterGroupsByRank, rankSidesOf, groupHalts, groupTurnover, haltDayCount, isHaltOngoing, isHiddenByTurnover, rankHitOf, rankHits } from '../src/utils/usHalts';
 import { formatUsdShort } from '../src/utils/formatters';
 import { directionUnknownText } from '../src/data/haltCodes';
 import type { Candle } from '../src/types/toss';
@@ -245,22 +245,29 @@ check('groupTurnover — 아는 값 없음 + 아직 → 확인 중', gt(tv(null,
 check('groupTurnover — 아는 값 + 아직 → 아는 값 · 일부 모름 · 확인 중', gt(tv(500), tv(null, true)) === JSON.stringify({ usd: 500, partial: true, checking: true }));
 check('숨기기 — 방금 다시 멈춰 확인 중인 정지가 있으면 앞선 값이 작아도 안 숨김', !isHiddenByTurnover(groupTurnover([tv(500), tv(null, true)]), 5000, false));
 check('다시 멈춘 종목(마지막 정지 0 · 첫 정지 큼)은 최대값이 기준보다 커 숨지 않음', !isHiddenByTurnover(groupTurnover([tv(120_000), tv(0)]), 5000, false));
-// 급상승 · 급하락 보기(v2.57.0) — 토스 순위 상위 N 안의 종목만 · 경계 10/11 · 거래대금 숨기기와 함께(거르기 → 숨기기)
+// 보기(v2.57.1) — 토스 순위 상위 N 안의 종목만 · 「전체」 = 상승률 ∪ 하락률 · 경계 10/11 · 관심 · 보유는 늘 남김 · 거래대금 숨기기와 함께(거르기 → 숨기기)
 {
-  const ranking = Array.from({ length: 100 }, (_, i) => ({ rank: i + 1, symbol: `S${i + 1}`, changeRate: 50 - i * 0.4 }));
-  const top10 = rankHits(ranking, 10);
-  check('순위 거르기 — 상위 10: 10위 안 · 11위 밖', top10.size === 10 && top10.has('S10') && !top10.has('S11'));
-  check('순위 거르기 — 상위 100 = 응답 전부', rankHits(ranking, 100).size === 100 && HALT_RANK_TOPS.join(',') === '10,20,50,100');
-  check('순위 거르기 — 티커 앞뒤 공백 · 대소문자 무시 · 순위 · 등락률', JSON.stringify(rankHitOf(rankHits([{ rank: 3, symbol: 'abcd', changeRate: 45.2 }], 10), ' ABCD ')) === JSON.stringify({ rank: 3, changeRate: 45.2 }));
+  const list = (prefix: string, sign: number) => Array.from({ length: 100 }, (_, i) => ({ rank: i + 1, symbol: `${prefix}${i + 1}`, changeRate: sign * (50 - i * 0.4) }));
+  const up = { side: 'gainers' as const, rows: list('U', 1) };
+  const down = { side: 'losers' as const, rows: list('D', -1) };
+  const top10 = rankHits([up], 10);
+  check('순위 거르기 — 상위 10: 10위 안 · 11위 밖', top10.size === 10 && top10.has('U10') && !top10.has('U11'));
+  check('순위 거르기 — 상위 100 = 응답 전부', rankHits([up], 100).size === 100 && HALT_RANK_TOPS.join(',') === '10,20,50,100');
+  const all10 = rankHits([up, down], 10);
+  check('「전체」 = 합집합 — 상승 10위 · 하락 10위 안 · 각 11위 밖', all10.size === 20 && all10.has('U10') && all10.has('D10') && !all10.has('U11') && !all10.has('D11'));
+  check('「전체」 — 순위 쪽 · 순위 · 등락률을 함께 안다', JSON.stringify(rankHitOf(all10, 'D2')) === JSON.stringify({ side: 'losers', rank: 2, changeRate: -49.6 }));
+  check('「전체」 — 두 순위에 같은 종목이면 앞(상승률) 것', rankHitOf(rankHits([{ side: 'gainers', rows: [{ rank: 5, symbol: 'X', changeRate: 1 }] }, { side: 'losers', rows: [{ rank: 1, symbol: 'X', changeRate: -1 }] }], 10), 'X')?.side === 'gainers');
+  check('보기 → 읽는 순위', rankSidesOf('all').join(',') === 'gainers,losers' && rankSidesOf('gainers').join(',') === 'gainers' && rankSidesOf('losers').join(',') === 'losers');
+  check('순위 거르기 — 티커 앞뒤 공백 · 대소문자 무시', rankHitOf(rankHits([{ side: 'gainers', rows: [{ rank: 3, symbol: 'abcd', changeRate: 45.2 }] }], 10), ' ABCD ')?.rank === 3);
   const hg = (sym: string, id: number, turnover5mUsd: number | null) => ({ latest: { rawIssueSymbol: sym, haltAtMs: id, id, turnover5mUsd, turnoverPending: false }, earlier: [] });
-  const groups = [hg('S1', 1, 100), hg('S10 ', 2, 50_000), hg('S11', 3, 50_000), hg('ZZZ', 4, 50_000)];
-  check('순위 거르기 — 「전체」(null)면 그대로', filterGroupsByRank(groups, null).length === 4);
-  const inTop = filterGroupsByRank(groups, top10).map((g) => g.latest.rawIssueSymbol.trim());
-  check('순위 거르기 — 10위 · 1위만 남고 11위 · 순위 밖은 빠짐', inTop.join(',') === 'S1,S10', inTop.join(','));
-  const shown = filterGroupsByRank(groups, top10).filter((g) => !isHiddenByTurnover(groupTurnover([g.latest]), 1000, false));
-  check('순위 거르기 + 거래대금 숨기기 — 둘 다 적용(S1 은 $100 이라 숨김)', shown.map((g) => g.latest.rawIssueSymbol.trim()).join(',') === 'S10');
-  check('순위 거르기 — 관심 · 보유 예외 없음(순위 밖이면 빠짐) · 숨기기 예외는 그대로', !filterGroupsByRank([hg('MINE', 5, 1)], top10).length && !isHiddenByTurnover(groupTurnover([hg('S1', 1, 100).latest]), 1000, true));
-  check('순위 거르기 — 빈 순위면 전부 빠짐', !filterGroupsByRank(groups, rankHits([], 10)).length);
+  const groups = [hg('U1', 1, 100), hg('U10 ', 2, 50_000), hg('U11', 3, 50_000), hg('D3', 4, 50_000), hg('MINE', 5, 1), hg('ZZZ', 6, 50_000)];
+  const isMine = (r: { rawIssueSymbol: string }) => r.rawIssueSymbol === 'MINE';
+  const names = (gs: { latest: { rawIssueSymbol: string } }[]) => gs.map((g) => g.latest.rawIssueSymbol.trim()).join(',');
+  check('급상승 10 — 1위 · 10위 + 관심/보유(MINE) 남고 11위 · 하락 · 순위 밖 빠짐', names(filterGroupsByRank(groups, top10, isMine)) === 'U1,U10,MINE', names(filterGroupsByRank(groups, top10, isMine)));
+  check('전체 10 — 상승 · 하락 순위 안 + 관심/보유', names(filterGroupsByRank(groups, all10, isMine)) === 'U1,U10,D3,MINE');
+  const shown = filterGroupsByRank(groups, all10, isMine).filter((g) => !isHiddenByTurnover(groupTurnover([g.latest]), 1000, isMine(g.latest)));
+  check('거르기 + 거래대금 숨기기 — 둘 다(U1 $100 숨김 · MINE $1 은 관심/보유라 안 숨김)', names(shown) === 'U10,D3,MINE', names(shown));
+  check('순위를 못 받으면(빈 순위) 관심 · 보유만 남음', names(filterGroupsByRank(groups, rankHits([], 10), isMine)) === 'MINE');
 }
 // 정규장에만 목록(v2.57.1) — `usRegularStatus` = heatmapSession('US') 의 세션이 정규장인가. 고정표(토스 달력 못 받음) · 가짜 토스 달력(조기 마감)
 {
@@ -535,8 +542,8 @@ check(
   /groupHalts\(/.test(viewSrc) && /groupTurnover\(/.test(viewSrc) && /isHiddenByTurnover\(/.test(viewSrc) && /isHaltOngoing\(/.test(viewSrc) && /expectedResume\(/.test(viewSrc) && !/turnover5mUsd\s*[<>]|Math\.max/.test(viewSrc),
 );
 check(
-  '화면 — 토스트는 지금 멈춘 정지만(isHaltOngoing) · 며칠째 칸도 매초 거르고 상태 모름(unlisted)은 남김(v2.56.3)',
-  /isHaltOngoing\(h, data\.serverNow\)/.test(viewSrc) && /data\.ongoing\.filter\(\(h\) => h\.unlisted \|\| isHaltOngoing\(h, now\)\)/.test(viewSrc) && !/split\([^)]*, (true|false)\)/.test(viewSrc),
+  '화면 — 토스트는 지금 멈춘 정지만(isHaltOngoing) · 며칠째 칸은 관심 · 보유만 + 매초 거르고 상태 모름(unlisted)은 남김(v2.56.3 · v2.57.1)',
+  /isHaltOngoing\(h, data\.serverNow\)/.test(viewSrc) && /data\.ongoing\.filter\(\(h\) => mine\(h\) && \(h\.unlisted \|\| isHaltOngoing\(h, now\)\)\)/.test(viewSrc) && !/split\([^)]*, (true|false)\)/.test(viewSrc),
 );
 check('화면 — 「앞선 정지」 줄 · 「실제 재개」 · 「재개됨」 상태를 만들던 코드가 남지 않음', !/앞선 정지 [<{]|EarlierTimes|실제 재개|재개됨/.test(viewSrc));
 const grepNth = (dir: string): string[] =>

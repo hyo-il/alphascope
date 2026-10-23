@@ -121,18 +121,22 @@ export const isHiddenByTurnover = (t: GroupTurnover, minTurnoverUsd: number | nu
   minTurnoverUsd != null && !mine && !t.checking && t.usd != null && t.usd < minTurnoverUsd;
 
 /**
- * 급상승 / 급하락 보기 — 토스 오늘 상승률 · 하락률 순위(`GET /api/rankings/live?market=us&kind=gainers|losers`, 실시간 순위 화면과 같은 API · 30초 캐시)
- * 상위 N 안에 든 종목만 「지금 정지 중」 표에 남긴다. 「며칠째 정지 중」 칸은 오늘 거래가 없어 순위와 상관없다(화면이 그 칸을 숨긴다).
- * 순서 = 이 거르기 → 거래대금 숨기기(`isHiddenByTurnover`). 이 거르기에는 관심 · 보유 예외가 없다(사용자가 고른 보기).
+ * 보기 「전체 · 급상승 · 급하락」 — 토스 오늘 상승률 · 하락률 순위(`GET /api/rankings/live?market=us&kind=gainers|losers`, 실시간 순위 화면과 같은 API · 30초 캐시)
+ * 상위 N 안에 든 종목만 「지금 정지 중」 표에 남긴다. 「전체」 = 상승률 상위 N ∪ 하락률 상위 N(순위 밖 정지를 보는 보기는 없다).
+ * **관심 · 보유 종목은 순위와 상관없이 늘 남긴다**(`keep`). 순서 = 이 거르기 → 거래대금 숨기기(`isHiddenByTurnover`).
  */
 export type HaltRankView = 'all' | 'gainers' | 'losers';
+export type HaltRankSide = 'gainers' | 'losers';
 export const HALT_RANK_VIEWS: readonly HaltRankView[] = ['all', 'gainers', 'losers'];
+/** 보기가 읽는 순위 — 「전체」 는 둘 다 */
+export const rankSidesOf = (view: HaltRankView): HaltRankSide[] => (view === 'all' ? ['gainers', 'losers'] : [view]);
 /** 상위 N — 토스 순위가 100개까지라 100 이 최대 */
 export const HALT_RANK_TOPS = [10, 20, 50, 100] as const;
 export type HaltRankTop = (typeof HALT_RANK_TOPS)[number];
 export const DEFAULT_HALT_RANK_TOP: HaltRankTop = 10;
 
 export interface HaltRankHit {
+  side: HaltRankSide;
   rank: number;
   /** 등락률(%) — 서버가 토스 소수를 ×100 해 준다(`fetchRanking`). 모르면 null */
   changeRate: number | null;
@@ -141,15 +145,16 @@ export interface HaltRankHit {
 /** 종목 맞추기 — 앞뒤 공백 · 대소문자를 무시한다(Nasdaq 원문 티커 · 토스 티커) */
 const rankKey = (symbol: string) => symbol.trim().toUpperCase();
 
-/** 순위 `rank` 1~N 인 종목 → 순위 · 등락률 */
-export function rankHits(rows: { rank: number; symbol: string; changeRate: number | null }[], top: number): Map<string, HaltRankHit> {
+/** 순위 `rank` 1~N 인 종목 → 순위 · 등락률. 여러 순위를 넘기면 합친다(앞 순위가 먼저 — 같은 종목이 둘에 있으면 앞 것) */
+export function rankHits(lists: { side: HaltRankSide; rows: { rank: number; symbol: string; changeRate: number | null }[] }[], top: number): Map<string, HaltRankHit> {
   const hits = new Map<string, HaltRankHit>();
-  for (const r of rows) if (r.rank >= 1 && r.rank <= top && !hits.has(rankKey(r.symbol))) hits.set(rankKey(r.symbol), { rank: r.rank, changeRate: r.changeRate });
+  for (const { side, rows } of lists)
+    for (const r of rows) if (r.rank >= 1 && r.rank <= top && !hits.has(rankKey(r.symbol))) hits.set(rankKey(r.symbol), { side, rank: r.rank, changeRate: r.changeRate });
   return hits;
 }
 
 export const rankHitOf = (hits: Map<string, HaltRankHit>, symbol: string): HaltRankHit | null => hits.get(rankKey(symbol)) ?? null;
 
-/** 묶음 거르기 — hits 가 null(「전체」)이면 그대로 */
-export const filterGroupsByRank = <T extends { rawIssueSymbol: string }>(groups: HaltGroup<T>[], hits: Map<string, HaltRankHit> | null): HaltGroup<T>[] =>
-  hits ? groups.filter((g) => hits.has(rankKey(g.latest.rawIssueSymbol))) : groups;
+/** 묶음 거르기 — 순위 안이거나 `keep`(관심 · 보유)이면 남긴다 */
+export const filterGroupsByRank = <T extends { rawIssueSymbol: string }>(groups: HaltGroup<T>[], hits: Map<string, HaltRankHit>, keep: (row: T) => boolean): HaltGroup<T>[] =>
+  groups.filter((g) => hits.has(rankKey(g.latest.rawIssueSymbol)) || keep(g.latest));
