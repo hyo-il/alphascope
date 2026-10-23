@@ -31,7 +31,7 @@ import { MIN_TURNOVER_MAX, type UsHaltFetchStatus, type UsHaltRow, type UsHaltsR
 import type { LiveRankingResponse } from '../../types/ranking';
 
 /**
- * 실험실 > 실시간 거래정지 (v2.55.0) — **지금 멈춰 있는** 미국 종목(오늘 · 며칠째) · 사유 · 정지 시각 · 예상 재개(한국 시간) · 방향(추정) · 오늘 최대 5분 거래대금.
+ * 실험실 > 거래정지 (v2.55.0) — **지금 멈춰 있는** 미국 종목(오늘 · 며칠째) · 사유 · 정지 시각 · 예상 재개(한국 시간) · 방향(추정) · 오늘 최대 5분 거래대금.
  *
  * - 같은 종목은 한 줄(`utils/usHalts.groupHalts` — 오늘 표 · 「며칠째 정지 중」 칸 각각). 줄 = 가장 최근 정지 — 오늘 표는 그 정지가 안 풀린(`isHaltOngoing`)
  *   종목만 보인다(풀리면 사라지고, 다시 멈추면 나타난다 · v2.56.2). 풀린 정지 기록은 서버에 남지만 이 화면에는 보이지 않는다.
@@ -236,10 +236,10 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
 
   return (
     <div className="flex h-full flex-col" data-us-halts>
-      <PageHeader title="실시간 거래정지" />
+      <PageHeader title="거래정지" />
       <div className={`min-h-0 flex-1 overflow-auto ${PANEL_PAD} pt-0`}>
         <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-text-muted">
-          {/* 메뉴 이름에 「미국」 이 없어(실시간 거래정지) 받기 상태 줄 앞에 대상을 적는다 */}
+          {/* 메뉴 이름에 「미국」 이 없어(거래정지) 받기 상태 줄 앞에 대상을 적는다 */}
           {data && <span>미국 종목 · 미국 날짜 {data.day}</span>}
           {data && <StatusLine status={data.status} />}
         </div>

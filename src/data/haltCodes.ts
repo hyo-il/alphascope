@@ -1,7 +1,7 @@
 import type { DirectionUnknownReason } from '../types/usHalts';
 
 /**
- * Nasdaq 거래정지 사유 코드 → 쉬운 말 — **이 표 한 곳**(실험실 「실시간 거래정지」).
+ * Nasdaq 거래정지 사유 코드 → 쉬운 말 — **이 표 한 곳**(실험실 「거래정지」).
  *
  * 뜻은 Nasdaq 공식 코드표(https://www.nasdaqtrader.com/Trader.aspx?id=TradeHaltCodes)를 따른다. 영어 원문은 `en` 에 그대로 둔다.
  * 표에 없는 코드는 화면에 원문 코드만 보인다(뜻을 짐작해 적지 않는다).

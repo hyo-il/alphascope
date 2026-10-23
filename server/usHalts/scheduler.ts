@@ -1,5 +1,5 @@
 /**
- * 실시간 거래정지 받기 작업 (실험실 「실시간 거래정지」, v2.55.0) — **이 폴더 한 곳**에서 받고 · 쌓고 · 방향을 추정한다.
+ * 거래정지 받기 작업 (실험실 「거래정지」, v2.55.0) — **이 폴더 한 곳**에서 받고 · 쌓고 · 방향을 추정한다.
  *
  * - 미국 **평일 04:00~20:00 ET**, 휴장일 제외(`marketCalendar.isMarketClosed`)에 1분마다 한 번 받는다. 20:00 ET 뒤에는 **오늘(미국 날짜) 안 풀린
  *   정지가 남아 있을 때만** 미국 자정(00:00 ET) 전까지 이어 받는다(사용자 결정 2026-10-22 — 「안 풀림」 = `utils/usHalts.isHaltOngoing`). 그 밖에는 받지 않는다.
@@ -187,7 +187,7 @@ export function markFetched(now: number): void {
 /** 서버가 켜질 때 한 번 — 스위치가 꺼져 있으면 아무것도 하지 않는다 */
 export function startUsHaltsScheduler(): void {
   if (!isUsHaltsEnabled()) {
-    console.log('[alphascope] 실시간 거래정지 받기를 하지 않습니다 (US_HALTS_ENABLED=false)');
+    console.log('[alphascope] 거래정지 받기를 하지 않습니다 (US_HALTS_ENABLED=false)');
     return;
   }
   if (timer) return;
@@ -211,5 +211,5 @@ export function startUsHaltsScheduler(): void {
   };
   run();
   timer = setInterval(run, FETCH_INTERVAL_MS);
-  console.log('[alphascope] 실시간 거래정지 받기 준비됨 (평일 04:00~20:00 ET 1분마다 · 20:00 뒤는 안 풀린 오늘 정지가 있으면 미국 자정까지)');
+  console.log('[alphascope] 거래정지 받기 준비됨 (평일 04:00~20:00 ET 1분마다 · 20:00 뒤는 안 풀린 오늘 정지가 있으면 미국 자정까지)');
 }

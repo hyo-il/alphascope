@@ -1385,7 +1385,7 @@ app.put('/api/settings/clock', (req, res) => {
   res.json({ clock });
 });
 
-// 실시간 거래정지 「거래대금 $N 미만 숨기기」 기준 — null = 숨기지 않음
+// 거래정지 「거래대금 $N 미만 숨기기」 기준 — null = 숨기지 않음
 app.get('/api/settings/us-halts-min-turnover', (_req, res) => res.json({ minTurnoverUsd: getMinTurnover() }));
 app.put('/api/settings/us-halts-min-turnover', (req, res) => {
   const value = parseMinTurnover(req.body?.minTurnoverUsd);
@@ -1510,7 +1510,7 @@ app.put('/api/surge/settings', (req, res) => {
 });
 
 /**
- * 실시간 거래정지(실험실) — 그날(미국 날짜, 기본 오늘) 정지 + 받기 상태. 서버가 1분마다 Nasdaq 을 받아 쌓은 것을 읽기만 한다(화면이 외부를 부르지 않는다).
+ * 거래정지(실험실) — 그날(미국 날짜, 기본 오늘) 정지 + 받기 상태. 서버가 1분마다 Nasdaq 을 받아 쌓은 것을 읽기만 한다(화면이 외부를 부르지 않는다).
  */
 app.get('/api/us-halts', async (req, res) => {
   try {
@@ -1975,7 +1975,7 @@ app.listen(port, host, () => {
   // 휴장일 — 하루 1회. 실적 회피 거래일 계산·옵션 만기·일정 달력이 쓴다
   startMarketCalendarScheduler();
 
-  // 실시간 거래정지(실험실) — 평일 04:00~20:00 ET 1분마다 Nasdaq RSS. US_HALTS_ENABLED=false 면 받지 않는다
+  // 거래정지(실험실) — 평일 04:00~20:00 ET 1분마다 Nasdaq RSS. US_HALTS_ENABLED=false 면 받지 않는다
   startUsHaltsScheduler();
 
   // 앱이 꺼져 있던 구간의 모의투자 스냅샷을 채우고, 이후 하루 한 번 기록한다.

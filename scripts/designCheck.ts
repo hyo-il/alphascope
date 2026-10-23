@@ -329,7 +329,7 @@ function targets(): Target[] {
       },
       open: (page: Page) => pickMarket(page, market),
     })),
-    // 실시간 거래정지 — 긴 종목명 · 긴 사유 · 순위 표시까지 모든 칸 한 줄인지(가짜 응답 — DB · Nasdaq · 토스 그대로). 「전체」 와 「급상승」 둘
+    // 거래정지 — 긴 종목명 · 긴 사유 · 순위 표시까지 모든 칸 한 줄인지(가짜 응답 — DB · Nasdaq · 토스 그대로). 「전체」 와 「급상승」 둘
     ...(['all', 'gainers'] as const).map((view) => ({
       name: `ushalts-${view === 'all' ? '예시' : '급상승'}`,
       hash: '#/ushalts',

@@ -1,5 +1,5 @@
 /**
- * 실시간 거래정지 화면 점검용 가짜 응답 — `design:check` 의 `ushalts-*` 대상이 `page.route` 로 바꿔치기한다(DB · Nasdaq · 토스를 건드리지 않는다).
+ * 거래정지 화면 점검용 가짜 응답 — `design:check` 의 `ushalts-*` 대상이 `page.route` 로 바꿔치기한다(DB · Nasdaq · 토스를 건드리지 않는다).
  * 한 줄 배치를 재려고 긴 것을 일부러 넣는다: 긴 종목명 · 긴 사유(LUDS · T12 · T3) · 공지 재개 · 조건이 맞으면 재개 · 모르는 코드 · 관심/보유 배지 · 「상태 모름」.
  */
 import type { UsHaltRow, UsHaltsResponse, UsOngoingHaltRow } from '../../../src/types/usHalts';
