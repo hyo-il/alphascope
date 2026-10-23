@@ -252,6 +252,23 @@ export async function heatmapSession(market: CalendarMarket, now = Date.now(), o
   return { span, nextStart, source };
 }
 
+/**
+ * 다음 그 세션 한 칸(지금 진행 중인 것은 빼고) — `heatmapSession` 과 **같은 시간표**(토스 달력 캐시 → 못 받으면 고정표)를 읽기만 한다.
+ * 거래정지 화면 「다음 정규장 MM-DD HH:MM」 이 쓴다(판단은 `heatmapSession` 그대로 — 이 함수는 시각만 찾는다). 14일 안에 없으면 null.
+ */
+export async function nextSessionSpan(market: CalendarMarket, session: HeatmapSession, now = Date.now()): Promise<{ start: number; end: number } | null> {
+  const spans = await tossSpans(market, now);
+  const hit = spans?.find((s) => s.session === session && s.start > now);
+  if (hit) return { start: hit.start, end: hit.end };
+  const step = 5 * 60_000;
+  let t = Math.floor(now / step) * step + step;
+  for (let k = 0; k < 14 * 288; k++, t += step) {
+    const f = fixedSpanAt(market, t);
+    if (f?.session === session && f.start === t) return { start: f.start, end: f.end };
+  }
+  return null;
+}
+
 // ── 등락률 기준 ─────────────────────────────────────────────────────────────
 
 export interface BasisInfo {

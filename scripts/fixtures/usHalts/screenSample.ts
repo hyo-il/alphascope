@@ -33,7 +33,8 @@ function row(id: number, now: number, p: Partial<UsHaltRow> & { sym: string; cod
   };
 }
 
-export function usHaltsSample(now: number): UsHaltsResponse {
+/** regularOpen = false 면 「정규장에만 보입니다」 상태(다음 정규장은 now + 20시간 · 6시간 30분) */
+export function usHaltsSample(now: number, regularOpen = true): UsHaltsResponse {
   const halts: UsHaltRow[] = [
     row(1, now, { sym: 'LGNM', code: 'T12', agoMin: 40, rawIssueName: 'Very Long Company Name Holdings International Incorporated Class A Common Stock', inToss: false, held: true, turnover5mUsd: 1_234_567 }),
     row(2, now, { sym: 'LUDA', code: 'LUDS', agoMin: 2, directionEst: 'up', turnover5mUsd: 845_000 }),
@@ -55,6 +56,9 @@ export function usHaltsSample(now: number): UsHaltsResponse {
     ongoing,
     status: { enabled: true, inWindow: true, window: 'regular', openToday: 0, lastSuccessAt: new Date(now - 20_000).toISOString(), lastAttemptAt: new Date(now - 20_000).toISOString(), consecutiveFailures: 0, lastError: null },
     minTurnoverUsd: null,
+    regularOpen,
+    nextRegularOpen: now + 20 * 60 * MIN,
+    nextRegularClose: now + (20 * 60 + 390) * MIN,
   };
 }
 

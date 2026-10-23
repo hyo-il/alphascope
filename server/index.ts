@@ -177,6 +177,7 @@ import { backfillSnapshots, startSnapshotScheduler } from './paperSnapshotSchedu
 import { startUniverseSnapshotScheduler } from './universe';
 import { getEarningsDate, startEarningsScheduler } from './earningsCalendar';
 import { startMarketCalendarScheduler } from './marketCalendar';
+import { usRegularStatus } from './usHalts/regularSession';
 import { fetchStatus, lastSuccessAt, startUsHaltsScheduler } from './usHalts/scheduler';
 import { listHaltsOfDay, listOngoingBefore, usDayOf } from './usHalts/store';
 import { getMinTurnover, setMinTurnover } from './usHalts/minTurnover';
@@ -1511,7 +1512,7 @@ app.put('/api/surge/settings', (req, res) => {
 /**
  * 실시간 거래정지(실험실) — 그날(미국 날짜, 기본 오늘) 정지 + 받기 상태. 서버가 1분마다 Nasdaq 을 받아 쌓은 것을 읽기만 한다(화면이 외부를 부르지 않는다).
  */
-app.get('/api/us-halts', (req, res) => {
+app.get('/api/us-halts', async (req, res) => {
   try {
     const raw = req.query.day;
     if (raw !== undefined && (typeof raw !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(raw))) {
@@ -1528,6 +1529,8 @@ app.get('/api/us-halts', (req, res) => {
       status: fetchStatus(now),
       // 숨기기는 화면이 한다(숨긴 수를 보이려고) — 서버는 기준값만 함께 준다
       minTurnoverUsd: getMinTurnover(),
+      // 정규장에만 목록(화면) — 종목 지도와 같은 세션 판단
+      ...(await usRegularStatus(now)),
     });
   } catch (e) {
     fail(res, e);

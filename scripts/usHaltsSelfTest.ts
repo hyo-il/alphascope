@@ -29,6 +29,8 @@ import { HALT_RANK_TOPS, expectedResume, filterGroupsByRank, groupHalts, groupTu
 import { formatUsdShort } from '../src/utils/formatters';
 import { directionUnknownText } from '../src/data/haltCodes';
 import type { Candle } from '../src/types/toss';
+import { setSessionHooksForTest, type TossCalendarResponse } from '../server/heatmapSession';
+import { usRegularStatus } from '../server/usHalts/regularSession';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.join(here, 'fixtures/usHalts');
@@ -260,6 +262,25 @@ check('다시 멈춘 종목(마지막 정지 0 · 첫 정지 큼)은 최대값�
   check('순위 거르기 — 관심 · 보유 예외 없음(순위 밖이면 빠짐) · 숨기기 예외는 그대로', !filterGroupsByRank([hg('MINE', 5, 1)], top10).length && !isHiddenByTurnover(groupTurnover([hg('S1', 1, 100).latest]), 1000, true));
   check('순위 거르기 — 빈 순위면 전부 빠짐', !filterGroupsByRank(groups, rankHits([], 10)).length);
 }
+// 정규장에만 목록(v2.57.1) — `usRegularStatus` = heatmapSession('US') 의 세션이 정규장인가. 고정표(토스 달력 못 받음) · 가짜 토스 달력(조기 마감)
+{
+  setSessionHooksForTest({ calendar: async () => null, lastTrade: async () => null });
+  const open = async (day: string, hms: string) => (await usRegularStatus(et(day, hms))).regularOpen;
+  check('정규장 — 09:29 닫힘 · 09:30 열림 · 15:59 열림 · 16:00 닫힘(10-21 수)', !(await open('2026-10-21', '09:29:00')) && (await open('2026-10-21', '09:30:00')) && (await open('2026-10-21', '15:59:59')) && !(await open('2026-10-21', '16:00:00')));
+  check('정규장 — 토요일 · 추수감사절(11-26) 닫힘', !(await open('2026-10-24', '12:00:00')) && !(await open('2026-11-26', '12:00:00')));
+  const sat = await usRegularStatus(et('2026-10-24', '12:00:00'));
+  check('다음 정규장 — 토요일 → 월요일 09:30~16:00 ET', sat.nextRegularOpen === et('2026-10-26', '09:30:00') && sat.nextRegularClose === et('2026-10-26', '16:00:00'));
+  // 서머타임 끝(11-01 일) 앞뒤 — 09:30 ET 가 금 13:30Z · 월 14:30Z
+  check('서머타임 앞뒤 — 10-30 09:30 ET = 13:30Z · 11-02 09:30 ET = 14:30Z 에 열림', (await usRegularStatus(Date.parse('2026-10-30T13:30:00Z'))).regularOpen && !(await usRegularStatus(Date.parse('2026-11-02T13:30:00Z'))).regularOpen && (await usRegularStatus(Date.parse('2026-11-02T14:30:00Z'))).regularOpen);
+  const friNight = await usRegularStatus(et('2026-10-30', '20:00:00'));
+  check('다음 정규장 — 금 20:00 ET → 월 11-02 09:30 ET(14:30Z · 한국 23:30)', friNight.nextRegularOpen === Date.parse('2026-11-02T14:30:00Z'));
+  // 조기 마감(가짜 토스 달력 — 11-27 정규장 09:30~13:00 ET)
+  const early: TossCalendarResponse = { result: { today: { date: '2026-11-27', regularMarket: { startTime: '2026-11-27T09:30:00-05:00', endTime: '2026-11-27T13:00:00-05:00' }, afterMarket: { startTime: '2026-11-27T13:00:00-05:00', endTime: '2026-11-27T17:00:00-05:00' } } } };
+  setSessionHooksForTest({ calendar: async () => early, lastTrade: async () => null });
+  check('조기 마감(토스 달력) — 12:59 열림 · 13:00 닫힘', (await open('2026-11-27', '12:59:59')) && !(await open('2026-11-27', '13:00:00')));
+  check('조기 마감 뒤 다음 정규장 — 토스 칸에 없으면 고정표로 월 11-30 09:30 ET', (await usRegularStatus(et('2026-11-27', '13:00:00'))).nextRegularOpen === et('2026-11-30', '09:30:00'));
+  setSessionHooksForTest({ calendar: null, lastTrade: null });
+}
 const usd: [number, string][] = [
   [850, '$850'],
   [999.6, '$1.0K'],
@@ -425,6 +446,7 @@ try {
   const r = await fetch(`${BASE}/api/us-halts?day=${DAY}`, { headers: { cookie } });
   const body = (await r.json()) as { day: string; halts: unknown[]; status: { enabled: boolean }; serverNow: number; minTurnoverUsd: unknown };
   check('로그인 뒤 200 · 그날 20줄 · 스위치 꺼짐이 보임', r.status === 200 && body.day === DAY && body.halts.length === 20 && body.status.enabled === false && typeof body.serverNow === 'number', `${r.status} ${body.halts?.length}`);
+  check('응답에 정규장 칸(regularOpen · 다음 정규장)', typeof (body as unknown as { regularOpen: unknown }).regularOpen === 'boolean' && 'nextRegularOpen' in body && 'nextRegularClose' in body);
   check('응답에 ongoing(며칠째 정지 중) 목록 · 받기 window', Array.isArray((body as unknown as { ongoing: unknown[] }).ongoing) && typeof (body.status as unknown as { window: string }).window === 'string');
   check('응답 줄에 nthToday 없음 · 거래대금 칸 있음', (body.halts as Record<string, unknown>[]).every((h) => !('nthToday' in h) && 'turnover5mUsd' in h && 'directionReason' in h));
   check('틀린 day → 400', (await fetch(`${BASE}/api/us-halts?day=10-21`, { headers: { cookie } })).status === 400);

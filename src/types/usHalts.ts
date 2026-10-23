@@ -100,6 +100,14 @@ export interface UsHaltsResponse {
   status: UsHaltFetchStatus;
   /** 「거래대금 $N 미만 숨기기」 기준(서버 저장 — `GET|PUT /api/settings/us-halts-min-turnover`). null = 숨기지 않음. 숨기기는 화면이 한다 */
   minTurnoverUsd: number | null;
+  /**
+   * 지금 미국 정규장인가(`server/usHalts/regularSession.ts` — 종목 지도와 같은 `heatmapSession` 판단 · 토스 달력, 조기 마감 · 휴장 반영).
+   * false 면 화면은 두 표 · 토스트를 끄고 「정규장에만 보입니다」 한 줄(받기 · 저장은 그대로).
+   */
+  regularOpen: boolean;
+  /** 다음 정규장 시작 · 끝(epoch ms — 지금 열려 있으면 그다음 것). 모르면 null */
+  nextRegularOpen: number | null;
+  nextRegularClose: number | null;
 }
 
 /** 숨기기 기준 상한(달러) — 서버 검사와 화면 `NumberField max` 가 같이 쓴다 */
