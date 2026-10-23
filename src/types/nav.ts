@@ -162,7 +162,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: '실험실',
     shortLabel: '실험실',
     badge: '테스트',
-    // 소메뉴(급등 탐지 · 미국 거래정지)를 보인다 — 실험실에 무엇이 있는지 펼쳐서 알 수 있게(소메뉴가 하나여도 — showSinglePage)
+    // 소메뉴(급등 탐지 · 실시간 거래정지)를 보인다 — 실험실에 무엇이 있는지 펼쳐서 알 수 있게(소메뉴가 하나여도 — showSinglePage)
     showSinglePage: true,
     pages: [
       /*
@@ -176,10 +176,10 @@ export const NAV_GROUPS: NavGroup[] = [
       */
       { id: 'surge', label: '급등 탐지', hidesSymbolHeader: true },
       /*
-        미국 거래정지 (v2.55.0) — 오늘(미국 날짜) 멈춘 미국 종목 · 사유 · 한국 시간 정지 · 예상 재개 · 방향(추정).
+        실시간 거래정지 (v2.55.0) — 오늘(미국 날짜) 멈춘 미국 종목 · 사유 · 한국 시간 정지 · 예상 재개 · 방향(추정).
         서버가 Nasdaq Trader 거래정지 RSS 를 1분마다 받아 쌓은 것을 읽는다(`server/usHalts/`). 매매 판단과 닿지 않는다.
       */
-      { id: 'ushalts', label: '미국 거래정지', hidesSymbolHeader: true },
+      { id: 'ushalts', label: '실시간 거래정지', hidesSymbolHeader: true },
     ],
   },
   {

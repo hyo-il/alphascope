@@ -41,7 +41,7 @@ const MAX_COUNT_PER_REQUEST = 200;
 
 /**
  * 페이지 하나를 조회한다(토스 호출 한 번). `before` 를 주면 그 시각 **이전** 데이터를 돌려준다.
- * 미국 거래정지 방향 추정(`server/usHalts/directionEstimate.ts`)이 정지 1건당 이것 한 번만 부른다.
+ * 실시간 거래정지 방향 추정(`server/usHalts/directionEstimate.ts`)이 정지 1건당 이것 한 번만 부른다.
  */
 export async function fetchCandlePage(
   symbol: string,

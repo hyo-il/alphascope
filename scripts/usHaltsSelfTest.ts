@@ -1,5 +1,5 @@
 /**
- * 미국 거래정지(실험실) 점검 — `npm run ushalts:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import). 네트워크 없이 돈다(Nasdaq · 토스를 부르지 않는다).
+ * 실시간 거래정지(실험실) 점검 — `npm run ushalts:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import). 네트워크 없이 돈다(Nasdaq · 토스를 부르지 않는다).
  *
  * - 시험용 XML(`scripts/fixtures/usHalts/` — 62차 조사의 10-21 장중 기록 사실로 만든 작은 파일)을 시간 순서대로 받기 작업에 먹인다.
  *   LUDP 재개 칸(Quote = 정지 시각 · Trade 는 재개 뒤) · M 재개 칸(둘 다 빈칸 → 함께 채움) · POM 반복 정지 · 09:41:03 → 09:51:10(10분 연장) ·

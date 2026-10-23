@@ -102,7 +102,7 @@ export function formatCompactMoney(
 }
 
 /**
- * 달러 금액 K · M · B 줄임(미국 거래정지 거래대금) — `$850` · `$12.3K` · `$1.2M` · `$3.4B`. 1,000 미만은 정수. 화면 전용.
+ * 달러 금액 K · M · B 줄임(실시간 거래정지 거래대금) — `$850` · `$12.3K` · `$1.2M` · `$3.4B`. 1,000 미만은 정수. 화면 전용.
  * (`formatCompactMoney` 는 억 · 만 단위라 미국 거래대금 기준(달러로 넣는 칸)과 맞추기 어렵다)
  */
 export function formatUsdShort(value: number | null | undefined): string {

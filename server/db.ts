@@ -59,12 +59,12 @@ function migrate(database: Database.Database): void {
     database.exec(`ALTER TABLE buy_judgments ADD COLUMN gate_reason TEXT`);
   }
 
-  // 미국 거래정지 — 마지막으로 목록에서 본 시각(v2.55.1). 옛 줄은 NULL(다음 받기에서 목록에 있으면 채워진다)
+  // 실시간 거래정지 — 마지막으로 목록에서 본 시각(v2.55.1). 옛 줄은 NULL(다음 받기에서 목록에 있으면 채워진다)
   const haltColumns = database.prepare(`PRAGMA table_info(us_halts)`).all() as { name: string }[];
   if (haltColumns.length && !haltColumns.some((c) => c.name === 'last_listed_at')) {
     database.exec(`ALTER TABLE us_halts ADD COLUMN last_listed_at TEXT`);
   }
-  // 미국 거래정지 — 정지 전 5분 거래대금(v2.56.1). 옛 줄은 「모름」(NULL) 그대로 · 다시 부르지 않게 확인 시각만 채운다
+  // 실시간 거래정지 — 정지 전 5분 거래대금(v2.56.1). 옛 줄은 「모름」(NULL) 그대로 · 다시 부르지 않게 확인 시각만 채운다
   // (방향 추정을 아직 기다리는 줄은 빼 둔다 — 그 줄은 원래 부를 1번에서 거래대금도 함께 낸다)
   if (haltColumns.length && !haltColumns.some((c) => c.name === 'turnover_5m_usd')) {
     database.exec(`ALTER TABLE us_halts ADD COLUMN turnover_5m_usd REAL`);

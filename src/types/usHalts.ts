@@ -1,5 +1,5 @@
 /**
- * 미국 거래정지 (실험실, v2.55.0) — `GET /api/us-halts` 응답 모양. 서버 `server/usHalts/` 와 화면 `components/usHalts/` 가 같이 쓴다.
+ * 실시간 거래정지 (실험실, v2.55.0) — `GET /api/us-halts` 응답 모양. 서버 `server/usHalts/` 와 화면 `components/usHalts/` 가 같이 쓴다.
  *
  * 원문 칸(`raw*`)은 Nasdaq Trader 거래정지 RSS 의 문자열 그대로다(약관 — 피드를 고치거나 왜곡하지 않는다).
  * 시각(ms) · 방향 · 거래대금은 서버가 원문 · 토스 1분봉으로 **따로 계산한** 값이다.
