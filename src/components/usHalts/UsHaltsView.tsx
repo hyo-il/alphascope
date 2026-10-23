@@ -178,6 +178,8 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
   /** 숨기기 기준 — 저장에 성공한 값(처음은 서버 값). undefined = 아직 모름 */
   const [minTurnover, setMinTurnover] = useState<number | null | undefined>(undefined);
   const savingMin = useRef(false);
+  /** 토스트를 띄울 정지인가 — 표와 같은 거르기(순위 ∪ 관심 · 보유 · 거래대금 숨기기). null = 순위를 아직 모름(알리지 않는다) */
+  const toastShows = useRef<((h: UsHaltRow) => boolean) | null>(null);
   /** 보기(전체 · 급상승 · 급하락) + 상위 N — 이 브라우저에 기억(localStorage) */
   const [rankView, setRankView] = useState<SavedRankView>(readRankView);
   useEffect(() => writeRankView(rankView), [rankView]);
@@ -245,7 +247,9 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
     // 화면을 연 뒤에 생긴 정지만 — 서버가 막 켜져(또는 실패 뒤) 처음 받은 목록의 오늘 앞선 정지는 알리지 않는다
     // 지금 멈춘 것만(v2.56.3) — 처음 받을 때 이미 풀려 있던 짧은 정지는 표에 없으니 알리지 않는다(「본 것」 에는 위에서 넣어 다시 알리지 않는다).
     // 기준 시각 = 이 응답의 서버 시각(오늘 표의 1초 시계도 같은 서버 시각 기준)
-    const fresh = added.filter((h) => h.haltAtMs >= openedAt.current! - TOAST_LOOKBACK_MS && isHaltOngoing(h, data.serverNow));
+    // 표에 보일 정지만(v2.57.1 — 기본 보기 「전체」 도 순위로 거르므로, 거르지 않으면 표에 없는 종목이 자주 알려졌다)
+    const shows = toastShows.current;
+    const fresh = added.filter((h) => h.haltAtMs >= openedAt.current! - TOAST_LOOKBACK_MS && isHaltOngoing(h, data.serverNow) && !!shows?.(h));
     if (!fresh.length) return;
     // 같은 종목이 오늘 앞서 멈춘 적이 있으면 「다시 정지」(풀렸다 다시 멈춘 새 정지 — 표에서는 한 줄로 묶인다)
     const again = (h: UsHaltRow) => data.halts.some((o) => o.id !== h.id && o.rawIssueSymbol.trim() === h.rawIssueSymbol.trim() && o.haltAtMs < h.haltAtMs);
@@ -302,7 +306,10 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
             // 순위 — 받는 중(데이터도 실패도 없음)인 것이 하나라도 있으면 표도 「없음」 도 그리지 않는다. 실패한 순위는 빈 순위로(받은 쪽으로 거른다)
             const loading = sides.some((k) => !ranks[k].data && !ranks[k].error);
             const failed = sides.filter((k) => ranks[k].error);
-            const hits = loading ? undefined : rankHits(sides.map((k) => ({ side: k, rows: ranks[k].data?.rows ?? [] })), rankView.top);
+            /** 실제로 거른 순위(받았거나 앞서 받은 것) — 하나도 없으면 「없음」 · 개수를 말할 수 없다(관심 · 보유만 보인다) */
+            const received = sides.filter((k) => ranks[k].data);
+            const hits = loading ? undefined : rankHits(received.map((k) => ({ side: k, rows: ranks[k].data!.rows })), rankView.top);
+            const unknown = hits !== undefined && !received.length;
             // 오늘 표: 묶은 뒤 가장 최근 정지로 거른다(풀린 정지는 최대 거래대금 계산에만 쓴다) → 순위 거르기(관심 · 보유는 늘 남김) → 거래대금 숨기기
             const today = split(hits ? filterGroupsByRank(groupHalts(data.halts).filter((g) => isHaltOngoing(g.latest, now)), hits, mine) : []);
             // 며칠째 칸: 관심 · 보유 줄만(오늘 거래가 없어 순위와 상관없다). 줄을 먼저 거른 뒤 묶는다 — 「상태 모름」 줄은 풀렸는지 몰라 시각으로 지우지 않는다
@@ -311,6 +318,12 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
             const notice = (n: number) =>
               n > 0 && <HiddenNotice count={n} showing={showHidden} onToggle={() => setShowHidden((v) => !v)} />;
             const rankName = `${VIEW_RANK_NAME[rankView.view]} 상위 ${rankView.top}`;
+            // 빈 상태 문구는 실제로 거른 순위 이름으로(한쪽만 받았으면 그쪽만)
+            const receivedName = `${received.map((k) => SIDE_NAME[k]).join(' · ')} 상위 ${rankView.top}`;
+            // 토스트도 표와 같은 거르기 — 표에 없는 종목을 알리지 않는다(순위를 아직 모르면 알리지 않는다)
+            toastShows.current = hits
+              ? (h) => (rankHitOf(hits, h.rawIssueSymbol) != null || mine(h)) && !isHiddenByTurnover(groupTurnover([h]), minTurnover ?? null, mine(h))
+              : null;
             return (
               <>
                 {/* 며칠째 정지 중 — 관심 · 보유 줄이 없으면 그리지 않는다. 오늘 표 위 */}
@@ -324,7 +337,7 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
                 )}
                 <div className="mb-2">
                   {/* 받기 실패 중 · 순위를 아직 모르면 개수를 적지 않는다 — 「(0)」 과 「알 수 없습니다」 가 엇갈리지 않게 */}
-                  <SectionTitle>{fetchBad(data.status) || hits === undefined ? '지금 정지 중' : `지금 정지 중 (${today.groups.length})`}</SectionTitle>
+                  <SectionTitle>{fetchBad(data.status) || hits === undefined || unknown ? '지금 정지 중' : `지금 정지 중 (${today.groups.length})`}</SectionTitle>
                 </div>
                 {!loading && failed.length > 0 && (
                   <p className="mb-2 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger" data-rank-error title={failed.map((k) => ranks[k].error).join(' · ')}>
@@ -342,9 +355,9 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
                     <InlineSpinner /> 토스 {rankName} 순위를 받는 중…
                   </p>
                 )}
-                {hits && !today.groups.length && (
+                {hits && !unknown && !today.groups.length && (
                   <p className="rounded-lg bg-bg-tertiary/40 px-3 py-6 text-center text-caption text-text-muted" data-halts-empty>
-                    {fetchBad(data.status) ? `아직 Nasdaq 목록을 받지 못해 오늘(미국 날짜 ${data.day}) 정지를 알 수 없습니다.` : `${rankName} 안에 지금 멈춘 종목이 없습니다`}
+                    {fetchBad(data.status) ? `아직 Nasdaq 목록을 받지 못해 오늘(미국 날짜 ${data.day}) 정지를 알 수 없습니다.` : `${receivedName} 안에 지금 멈춘 종목이 없습니다`}
                   </p>
                 )}
                 {hits && today.hiddenCount > 0 && <div className="mb-2">{notice(today.hiddenCount)}</div>}
@@ -520,7 +533,7 @@ function RegularClosed({ open, close }: { open: number | null; close: number | n
   return (
     <p className="mt-4 flex items-center justify-center gap-1 rounded-lg bg-bg-tertiary/40 px-3 py-6 text-center text-caption text-text-muted" data-regular-closed>
       {open != null && close != null
-        ? `미국 정규장에만 보입니다 — 한국 ${kstClockText(open).slice(0, 5)}~${kstClockText(close).slice(0, 5)}(다음 정규장 ${kstMonthDayTime(open)})`
+        ? `미국 정규장에만 보입니다 — 다음 정규장 한국 ${kstMonthDayTime(open)}~${kstClockText(close).slice(0, 5)}`
         : '미국 정규장(09:30~16:00 ET)에만 보입니다'}
       <InfoTip label="정규장에만 보이는 이유">
         가격 제한 정지(LULD)는 정규장에만 걸립니다. 정규장 밖에는 장 마감 직전에 멈춰 재개 시각이 적히지 않은 정지가 「정지 중」 으로 남아 보여 목록을 숨깁니다. 기록은 서버가 계속 쌓습니다.
@@ -530,16 +543,18 @@ function RegularClosed({ open, close }: { open: number | null; close: number | n
 }
 
 /**
- * 순위 칸 「상승 3위 · +45.2%」 · 「하락 2위 · −38.1%」 — 종목 칸 바로 옆 따로 칸(줄마다 같은 x). 순위 밖(관심 · 보유라 보이는 줄)은 「—」.
+ * 순위 칸 「상승 3위 · +45.2%」 · 「하락 2위 · −38.1%」(「전체」) · 「3위 · +45.2%」(급상승 · 급하락 — 칸 머리가 방향을 말한다 · 1280 이름 폭) —
+ * 종목 칸 바로 옆 따로 칸(왼쪽 끝 맞춤 — 오른쪽 끝이면 왼쪽 끝 맞춤인 사유 칸과 붙어 한 말로 읽혔다). 순위 밖(관심 · 보유라 보이는 줄)은 「—」.
  * 색은 등락 부호(상승 초록 · 하락 빨강)
  */
-function RankCell({ hit }: { hit: HaltRankHit | null }) {
+function RankCell({ hit, showSide }: { hit: HaltRankHit | null; showSide: boolean }) {
   if (!hit) return <span className="text-text-muted">—</span>;
   const color = hit.changeRate != null ? changeColor(hit.changeRate) : hit.side === 'losers' ? 'text-bearish' : 'text-bullish';
   // 작은 글자 — 「전체」 는 「하락 10위 · −45.6%」 처럼 길어 1280 에서 이름 칸이 34px 까지 줄었다
   return (
     <span className={`text-caption tabular-nums ${color}`} data-rank-tag>
-      {hit.side === 'losers' ? '하락' : '상승'} {hit.rank}위{hit.changeRate != null ? ` · ${formatSigned(hit.changeRate, 1, '%')}` : ''}
+      {showSide ? `${hit.side === 'losers' ? '하락' : '상승'} ` : ''}
+      {hit.rank}위{hit.changeRate != null ? ` · ${formatSigned(hit.changeRate, 1, '%')}` : ''}
     </span>
   );
 }
@@ -599,7 +614,7 @@ function HaltTable({
         <thead className="text-caption text-text-muted">
           <tr className="border-b border-border/50">
             <th className={`${TABLE_NAME_COL} py-2 pl-3 font-normal`}>종목</th>
-            <th className={`${NUM} py-2 text-right font-normal`}>{rankView === 'all' ? '순위' : `${SIDE_NAME[rankView]} 순위`}</th>
+            <th className={`${NUM} py-2 font-normal`}>{rankView === 'all' ? '순위' : `${SIDE_NAME[rankView]} 순위`}</th>
             <th className={`${NUM} py-2 font-normal`}>사유</th>
             <th className={`${NUM} py-2 font-normal`}>정지 시각</th>
             <th className={`${NUM} py-2 font-normal`}>
@@ -634,8 +649,8 @@ function HaltTable({
                 <td className="max-w-0 py-1.5 pl-3">
                   <HaltName h={h} watched={watched} market={h.rawMarket} onSelectSymbol={onSelectSymbol} />
                 </td>
-                <td className={`${NUM} py-1.5 text-right`}>
-                  <RankCell hit={rankHitOf(hits, symbol)} />
+                <td className={`${NUM} py-1.5`}>
+                  <RankCell hit={rankHitOf(hits, symbol)} showSide={rankView === 'all'} />
                 </td>
                 <td className={`${NUM} py-1.5`}>
                   <ReasonText h={h} />

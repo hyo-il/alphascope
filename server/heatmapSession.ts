@@ -153,12 +153,20 @@ function fixedSpanAt(market: CalendarMarket, t: number): SessionSpan | null {
   return { session, label, start: marketDayTime(market, day, s * 60_000), end: marketDayTime(market, day, e * 60_000), tradeDay: day };
 }
 
-/** 고정표의 다음 세션 시작 — 경계는 모두 5분 단위라 5분씩 넘기며 찾는다(14일 안) */
+const FIXED_STEP_MS = 5 * 60_000;
+/** 고정표에서 now 뒤 처음 시작하는 세션(그 조건에 맞는 것) — 경계는 모두 5분 단위라 5분씩 넘기며 찾는다(14일 안 · 없으면 null) */
+function fixedNextSpan(market: CalendarMarket, now: number, match: (s: SessionSpan) => boolean = () => true): SessionSpan | null {
+  let t = Math.floor(now / FIXED_STEP_MS) * FIXED_STEP_MS + FIXED_STEP_MS;
+  for (let k = 0; k < 14 * 288; k++, t += FIXED_STEP_MS) {
+    const f = fixedSpanAt(market, t);
+    if (f?.start === t && match(f)) return f;
+  }
+  return null;
+}
+
+/** 고정표의 다음 세션 시작 — 14일 안에 없으면 찾기를 멈춘 시각 */
 function fixedNextStart(market: CalendarMarket, now: number): number {
-  const step = 5 * 60_000;
-  let t = Math.floor(now / step) * step + step;
-  for (let k = 0; k < 14 * 288; k++, t += step) if (fixedSpanAt(market, t)?.start === t) return t;
-  return t;
+  return fixedNextSpan(market, now)?.start ?? Math.floor(now / FIXED_STEP_MS) * FIXED_STEP_MS + FIXED_STEP_MS * (14 * 288 + 1);
 }
 
 // ── 토스 달력 캐시 ──────────────────────────────────────────────────────────
@@ -260,13 +268,9 @@ export async function nextSessionSpan(market: CalendarMarket, session: HeatmapSe
   const spans = await tossSpans(market, now);
   const hit = spans?.find((s) => s.session === session && s.start > now);
   if (hit) return { start: hit.start, end: hit.end };
-  const step = 5 * 60_000;
-  let t = Math.floor(now / step) * step + step;
-  for (let k = 0; k < 14 * 288; k++, t += step) {
-    const f = fixedSpanAt(market, t);
-    if (f?.session === session && f.start === t) return { start: f.start, end: f.end };
-  }
-  return null;
+  // 토스 칸에 없으면 고정표(조기 마감은 모른다 — 끝 시각이 16:00 ET 로 나올 수 있다. 판단 regularOpen 은 heatmapSession 그대로)
+  const f = fixedNextSpan(market, now, (x) => x.session === session);
+  return f ? { start: f.start, end: f.end } : null;
 }
 
 // ── 등락률 기준 ─────────────────────────────────────────────────────────────
