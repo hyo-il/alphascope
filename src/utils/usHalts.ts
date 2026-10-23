@@ -119,3 +119,37 @@ export function groupTurnover(halts: { turnover5mUsd: number | null; turnoverPen
  */
 export const isHiddenByTurnover = (t: GroupTurnover, minTurnoverUsd: number | null, mine: boolean): boolean =>
   minTurnoverUsd != null && !mine && !t.checking && t.usd != null && t.usd < minTurnoverUsd;
+
+/**
+ * 급상승 / 급하락 보기 — 토스 오늘 상승률 · 하락률 순위(`GET /api/rankings/live?market=us&kind=gainers|losers`, 실시간 순위 화면과 같은 API · 30초 캐시)
+ * 상위 N 안에 든 종목만 「지금 정지 중」 표에 남긴다. 「며칠째 정지 중」 칸은 오늘 거래가 없어 순위와 상관없다(화면이 그 칸을 숨긴다).
+ * 순서 = 이 거르기 → 거래대금 숨기기(`isHiddenByTurnover`). 이 거르기에는 관심 · 보유 예외가 없다(사용자가 고른 보기).
+ */
+export type HaltRankView = 'all' | 'gainers' | 'losers';
+export const HALT_RANK_VIEWS: readonly HaltRankView[] = ['all', 'gainers', 'losers'];
+/** 상위 N — 토스 순위가 100개까지라 100 이 최대 */
+export const HALT_RANK_TOPS = [10, 20, 50, 100] as const;
+export type HaltRankTop = (typeof HALT_RANK_TOPS)[number];
+export const DEFAULT_HALT_RANK_TOP: HaltRankTop = 10;
+
+export interface HaltRankHit {
+  rank: number;
+  /** 등락률(%) — 서버가 토스 소수를 ×100 해 준다(`fetchRanking`). 모르면 null */
+  changeRate: number | null;
+}
+
+/** 종목 맞추기 — 앞뒤 공백 · 대소문자를 무시한다(Nasdaq 원문 티커 · 토스 티커) */
+const rankKey = (symbol: string) => symbol.trim().toUpperCase();
+
+/** 순위 `rank` 1~N 인 종목 → 순위 · 등락률 */
+export function rankHits(rows: { rank: number; symbol: string; changeRate: number | null }[], top: number): Map<string, HaltRankHit> {
+  const hits = new Map<string, HaltRankHit>();
+  for (const r of rows) if (r.rank >= 1 && r.rank <= top && !hits.has(rankKey(r.symbol))) hits.set(rankKey(r.symbol), { rank: r.rank, changeRate: r.changeRate });
+  return hits;
+}
+
+export const rankHitOf = (hits: Map<string, HaltRankHit>, symbol: string): HaltRankHit | null => hits.get(rankKey(symbol)) ?? null;
+
+/** 묶음 거르기 — hits 가 null(「전체」)이면 그대로 */
+export const filterGroupsByRank = <T extends { rawIssueSymbol: string }>(groups: HaltGroup<T>[], hits: Map<string, HaltRankHit> | null): HaltGroup<T>[] =>
+  hits ? groups.filter((g) => hits.has(rankKey(g.latest.rawIssueSymbol))) : groups;
