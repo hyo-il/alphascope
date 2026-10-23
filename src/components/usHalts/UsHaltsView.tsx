@@ -536,8 +536,9 @@ function RegularClosed({ open, close }: { open: number | null; close: number | n
 function RankCell({ hit }: { hit: HaltRankHit | null }) {
   if (!hit) return <span className="text-text-muted">—</span>;
   const color = hit.changeRate != null ? changeColor(hit.changeRate) : hit.side === 'losers' ? 'text-bearish' : 'text-bullish';
+  // 작은 글자 — 「전체」 는 「하락 10위 · −45.6%」 처럼 길어 1280 에서 이름 칸이 34px 까지 줄었다
   return (
-    <span className={`tabular-nums ${color}`} data-rank-tag>
+    <span className={`text-caption tabular-nums ${color}`} data-rank-tag>
       {hit.side === 'losers' ? '하락' : '상승'} {hit.rank}위{hit.changeRate != null ? ` · ${formatSigned(hit.changeRate, 1, '%')}` : ''}
     </span>
   );

@@ -1,6 +1,7 @@
 /**
  * 거래정지 화면 점검용 가짜 응답 — `design:check` 의 `ushalts-*` 대상이 `page.route` 로 바꿔치기한다(DB · Nasdaq · 토스를 건드리지 않는다).
  * 한 줄 배치를 재려고 긴 것을 일부러 넣는다: 긴 종목명 · 긴 사유(LUDS · T12 · T3) · 공지 재개 · 조건이 맞으면 재개 · 모르는 코드 · 관심/보유 배지 · 「상태 모름」.
+ * 보기(v2.57.1): 순위 안 · 밖 경계(상승 10 · 11위, 하락 10 · 11위) · 순위 밖 보유 종목(MYHD) · 며칠째 칸의 보유 종목(OLDB)만 보임.
  */
 import type { UsHaltRow, UsHaltsResponse, UsOngoingHaltRow } from '../../../src/types/usHalts';
 import type { LiveRankingKind, LiveRankingResponse } from '../../../src/types/ranking';
@@ -42,11 +43,12 @@ export function usHaltsSample(now: number, regularOpen = true): UsHaltsResponse 
     row(4, now, { sym: 'OPNC', code: 'M', agoMin: 15, directionEst: 'unknown', directionReason: 'not_in_toss', turnover5mUsd: null, turnoverPending: true }),
     row(5, now, { sym: 'NWSD', code: 'T3', agoMin: 30, resumeAtMs: now + 30 * MIN, turnover5mUsd: 45_600 }),
     row(6, now, { sym: 'UNKE', code: 'XYZ9', agoMin: 25, turnover5mUsd: null }),
-    row(7, now, { sym: 'TSLA', code: 'T1', agoMin: 12, catalogName: '테슬라', held: true, turnover5mUsd: 98_700_000 }),
+    row(7, now, { sym: 'TSLA', code: 'T1', agoMin: 12, catalogName: '테슬라', turnover5mUsd: 98_700_000 }),
+    row(8, now, { sym: 'MYHD', code: 'T2', agoMin: 8, catalogName: '보유한 종목 홀딩스', held: true, turnover5mUsd: 5_400 }),
   ];
   const ongoing: UsOngoingHaltRow[] = [
     { ...row(11, now, { sym: 'OLDA', code: 'LUDS', agoMin: 3 * 24 * 60, resumeAtMs: now + 20 * 60 * MIN, rawIssueName: 'Another Very Long Biotechnology Therapeutics Name Corp' }), daysHalted: 3, unlisted: true },
-    { ...row(12, now, { sym: 'OLDB', code: 'H10', agoMin: 12 * 24 * 60, turnover5mUsd: null }), daysHalted: 12, unlisted: false },
+    { ...row(12, now, { sym: 'OLDB', code: 'H10', agoMin: 12 * 24 * 60, turnover5mUsd: null, held: true }), daysHalted: 12, unlisted: false },
   ];
   const day = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/New_York' }).format(new Date(now));
   return {
@@ -62,11 +64,11 @@ export function usHaltsSample(now: number, regularOpen = true): UsHaltsResponse 
   };
 }
 
-/** 순위 100개 — 상승: LUDA 3위 · LGNM 7위 · TSLA 10위 · NWSD 11위(상위 10 밖) / 하락: LUDB 2위 · OPNC 15위 */
+/** 순위 100개 — 상승: LUDA 3위 · LGNM 7위 · TSLA 10위 · NWSD 11위(상위 10 밖) / 하락: LUDB 2위 · UNKE 10위 · OPNC 11위(상위 10 밖) · MYHD 는 어디에도 없음 */
 export function rankingSample(kind: LiveRankingKind, now: number): LiveRankingResponse {
   const placed: Record<string, [string, number][]> = {
     gainers: [['LUDA', 3], ['LGNM', 7], ['TSLA', 10], ['NWSD', 11]],
-    losers: [['LUDB', 2], ['OPNC', 15]],
+    losers: [['LUDB', 2], ['UNKE', 10], ['OPNC', 11]],
   };
   const at = new Map((placed[kind] ?? []).map(([s, r]) => [r, s]));
   const sign = kind === 'losers' ? -1 : 1;
