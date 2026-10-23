@@ -1319,7 +1319,7 @@ async function main() {
     `# 디자인 숫자 측정 — ${CHANGELOG[0].version}`,
     '',
     `- 측정: ${new Date().toISOString()} · ${BASE} · 맥 크롬(Playwright) · ${SIZES.map((s) => `${s.w}×${s.h}`).join(' · ')}`,
-    `- 화면 ${all.length / SIZES.length}개 × 크기 ${SIZES.length} · 캡처는 같은 폴더의 1280/ · 1920/`,
+    `- 화면 ${all.length / SIZES.length}개 × 크기 ${SIZES.length} · 캡처는 같은 폴더의 ${SIZES.map((s) => `${s.w}/`).join(' · ')}`,
     '',
     `| 크기 | 화면 | ${KINDS.join(' | ')} | 콘솔 오류 |`,
     `|---|---|${KINDS.map(() => '---').join('|')}|---|`,

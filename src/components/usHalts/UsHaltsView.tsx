@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge, Button, InfoTip, NumberField, PageHeader, SectionTitle, Segmented, Select } from '../ui';
-import { LIST_TABLE_ROW, PANEL_PAD, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP_TIGHT } from '../ui/tokens';
+import { LIST_TABLE_ROW, PANEL_PAD, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP, TABLE_NUM_GAP_TIGHT } from '../ui/tokens';
 import StockName from '../common/StockName';
 import { SkeletonTable } from '../common/SkeletonLoader';
 import { InlineSpinner } from '../common/LoadingOverlay';
@@ -99,22 +99,30 @@ function writeRankView(v: SavedRankView) {
  * 토스 오늘 상승률 · 하락률 순위 — 「급상승 · 급하락」 을 고른 동안만, 처음 + 30초마다(숨은 탭에서는 쉼).
  * 실패해도 앞서 받은 순위는 그대로 둔다(error 만 채움). 보기를 바꾸면 비우고 다시 받는다(N 만 바꾸면 다시 받지 않는다 — 응답이 100개).
  */
-function useLiveRank(view: HaltRankView): { data: LiveRankingResponse | null; error: string | null } {
-  const [state, setState] = useState<{ data: LiveRankingResponse | null; error: string | null }>({ data: null, error: null });
+function useLiveRank(view: HaltRankView): { data: LiveRankingResponse | null; error: string | null; stopped: boolean } {
+  // 받은 보기(for)를 함께 둔다 — 보기를 바꾼 첫 화면에서 앞 보기의 순위로 거르지 않게(effect 의 비우기는 그린 뒤에 돈다)
+  const [state, setState] = useState<{ for: HaltRankView; data: LiveRankingResponse | null; error: string | null; stopped: boolean }>({ for: view, data: null, error: null, stopped: false });
   useEffect(() => {
-    setState({ data: null, error: null });
+    setState({ for: view, data: null, error: null, stopped: false });
     if (view === 'all') return;
     let alive = true;
+    /** 모의 데이터 모드 — 다시 받아도 같으니 멈춘다(화면은 「30초 뒤 다시」 라고 하지 않는다) */
+    let stopped = false;
     const load = async () => {
+      if (stopped) return;
       try {
         const r = await fetch(`/api/rankings/live?market=us&kind=${view}`);
         const payload = (await r.json().catch(() => ({}))) as LiveRankingResponse & { error?: string };
         if (!r.ok) throw new Error(payload.error ?? `요청 실패 (${r.status})`);
-        // 토스 키가 없는 서버(모의 데이터 모드)는 순위가 비어 온다 — 「없음」 이 아니라 못 받은 것
-        if (payload.mock) throw new Error('모의 데이터 모드라 토스 순위가 없습니다');
-        if (alive) setState({ data: payload, error: null });
+        // 토스 키가 없는 서버는 순위가 비어 온다 — 「없음」 이 아니라 못 받은 것
+        if (payload.mock) {
+          stopped = true;
+          if (alive) setState({ for: view, data: null, error: '이 서버는 토스 키가 없어(모의 데이터 모드) 순위가 없습니다', stopped: true });
+          return;
+        }
+        if (alive) setState({ for: view, data: payload, error: null, stopped: false });
       } catch (e) {
-        if (alive) setState((s) => ({ data: s.data, error: (e as Error).message }));
+        if (alive) setState((s) => ({ ...s, error: (e as Error).message }));
       }
     };
     void load();
@@ -129,7 +137,7 @@ function useLiveRank(view: HaltRankView): { data: LiveRankingResponse | null; er
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [view]);
-  return state;
+  return state.for === view ? state : { data: null, error: null, stopped: false };
 }
 
 /** 순위 시각(한국 시간) — 토스 기준 시각, 없으면 서버가 받아 온 시각 */
@@ -276,7 +284,7 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
                 {/* 며칠째 정지 중 — 0건이면 그리지 않는다. 오늘 표 위. 급상승 · 급하락 보기에서는 오늘 거래가 없어 순위와 상관없으므로 숨기고 한 줄만 */}
                 {ongoing.groups.length > 0 && filtering && (
                   <p className="mt-4 mb-4 text-caption text-text-muted" data-ongoing-excluded>
-                    며칠째 정지 중 {ongoing.groups.length}건은 이 보기에서 빠집니다
+                    며칠째 정지 중 {ongoing.groups.length}건은 이 보기에서 빠집니다(오늘 거래가 없어 순위와 상관없습니다 — 「전체」 에서 보입니다)
                   </p>
                 )}
                 {ongoing.groups.length > 0 && !filtering && (
@@ -293,9 +301,9 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
                 </div>
                 {filtering && rank.error && (
                   <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger" data-rank-error>
-                    <span>
+                    <span title={rank.error}>
                       순위를 받지 못했습니다
-                      {hits ? ` — 앞서 받은 순위로 거르는 중입니다(순위 시각 ${rankTimeText(rank.data)})` : ' — 30초 뒤 다시 받습니다'}
+                      {rank.stopped ? ` — ${rank.error}` : hits ? ` — 앞서 받은 순위로 거르는 중입니다(순위 시각 ${rankTimeText(rank.data)})` : ' — 30초 뒤 다시 받습니다'}
                     </span>
                     <Button size="sm" variant="secondary" onClick={() => setRankView((v) => ({ ...v, view: 'all' }))}>
                       전체 보기
@@ -490,12 +498,16 @@ function RankFilter({ value, onChange, rankedAt }: { value: SavedRankView; onCha
   );
 }
 
-/** 순위 표시 「상승 3위 · +45.2%」 — 급상승 · 급하락 보기에서만. 색은 등락 부호(상승 초록 · 하락 빨강) */
-function RankTag({ hit, view }: { hit: HaltRankHit; view: HaltRankView }) {
+/**
+ * 순위 칸 「3위 · +45.2%」 — 급상승 · 급하락 보기에서만, 종목 칸 바로 옆 따로 칸(칸 머리 「상승률 순위」 · 「하락률 순위」 가 방향을 말한다).
+ * 종목 칸 안에 「상승 3위 · …」 로 붙이면 1280 에서 이름이 1~2글자만 남고 줄마다 x 가 달랐다. 색은 등락 부호(상승 초록 · 하락 빨강)
+ */
+function RankCell({ hit, view }: { hit: HaltRankHit | null; view: HaltRankView }) {
+  if (!hit) return null;
   const color = hit.changeRate != null ? changeColor(hit.changeRate) : view === 'losers' ? 'text-bearish' : 'text-bullish';
   return (
-    <span className={`shrink-0 whitespace-nowrap text-caption tabular-nums ${color}`} data-rank-tag>
-      {view === 'losers' ? '하락' : '상승'} {hit.rank}위{hit.changeRate != null ? ` · ${formatSigned(hit.changeRate, 1, '%')}` : ''}
+    <span className={`tabular-nums ${color}`} data-rank-tag>
+      {hit.rank}위{hit.changeRate != null ? ` · ${formatSigned(hit.changeRate, 1, '%')}` : ''}
     </span>
   );
 }
@@ -543,7 +555,7 @@ function HaltTable({
   groups: HaltGroup<UsHaltRow>[];
   now: number;
   watchlist: string[];
-  /** 급상승 · 급하락 보기의 순위(「전체」 면 null) — 종목 칸에 「상승 3위 · +45.2%」 */
+  /** 급상승 · 급하락 보기의 순위(「전체」 면 null) — 종목 칸 옆 순위 칸 「3위 · +45.2%」 */
   hits: Map<string, HaltRankHit> | null;
   rankView: HaltRankView;
   onSelectSymbol: (symbol: string) => void;
@@ -555,6 +567,7 @@ function HaltTable({
         <thead className="text-caption text-text-muted">
           <tr className="border-b border-border/50">
             <th className={`${TABLE_NAME_COL} py-2 pl-3 font-normal`}>종목</th>
+            {hits && <th className={`${NUM} py-2 text-right font-normal`}>{rankView === 'losers' ? '하락률 순위' : '상승률 순위'}</th>}
             <th className={`${NUM} py-2 font-normal`}>사유</th>
             <th className={`${NUM} py-2 font-normal`}>정지 시각</th>
             <th className={`${NUM} py-2 font-normal`}>
@@ -586,12 +599,15 @@ function HaltTable({
             const hit = hits ? rankHitOf(hits, symbol) : null;
             return (
               <tr key={h.id} className={`border-b border-border/30 last:border-0 ${LIST_TABLE_ROW}`} data-halt-row={symbol}>
-                {/* 한 줄 — 이름 칸이 남는 폭을 가져가고(max-w-0), 시장 → 긴 이름 순서로 말줄임 + 툴팁. 티커 · 배지 · 순위는 자르지 않는다 */}
+                {/* 한 줄 — 이름 칸이 남는 폭을 가져가고(max-w-0), 시장 → 긴 이름 순서로 말줄임 + 툴팁. 티커 · 배지는 자르지 않는다 */}
                 <td className="max-w-0 py-1.5 pl-3">
-                  <HaltName h={h} watched={watched} market={h.rawMarket} onSelectSymbol={onSelectSymbol}>
-                    {hit && <RankTag hit={hit} view={rankView} />}
-                  </HaltName>
+                  <HaltName h={h} watched={watched} market={h.rawMarket} onSelectSymbol={onSelectSymbol} />
                 </td>
+                {hits && (
+                  <td className={`${NUM} py-1.5 text-right`}>
+                    <RankCell hit={hit} view={rankView} />
+                  </td>
+                )}
                 <td className={`${NUM} py-1.5`}>
                   <ReasonText h={h} />
                 </td>
@@ -624,9 +640,17 @@ function ResumeCell({ resume }: { resume: ReturnType<typeof expectedResume> }) {
     case 'resumed':
       return null;
     case 'first':
-      return <span className="tabular-nums">{kstClockText(resume.at)} 예상</span>;
+      return (
+        <span>
+          <span className="tabular-nums">{kstClockText(resume.at)}</span> <span className="text-caption text-text-muted">예상</span>
+        </span>
+      );
     case 'extended':
-      return <span className="tabular-nums">연장 · {kstClockText(resume.at)} 예상</span>;
+      return (
+        <span>
+          연장 · <span className="tabular-nums">{kstClockText(resume.at)}</span> <span className="text-caption text-text-muted">예상</span>
+        </span>
+      );
     case 'announced':
       return (
         <span>
@@ -648,8 +672,8 @@ function ResumeCell({ resume }: { resume: ReturnType<typeof expectedResume> }) {
 function DirectionText({ h }: { h: UsHaltRow }) {
   const est = h.directionEst;
   if (est === 'none' || !isLuldCode(codeOf(h))) return <span className="text-text-muted">—</span>;
-  if (est === 'up') return <span className="text-bullish">▲ 상승 중 정지(추정)</span>;
-  if (est === 'down') return <span className="text-bearish">▼ 하락 중 정지(추정)</span>;
+  if (est === 'up') return <span className="text-bullish">▲ 상승 중(추정)</span>;
+  if (est === 'down') return <span className="text-bearish">▼ 하락 중(추정)</span>;
   if (est === 'pending') return <span className="text-text-muted">추정 중…</span>;
   // 「판정 못 함」 뒤 이유는 작은 글자 — 이 칸이 1280 에서 표 폭을 정하는 가장 긴 글자다
   const [head, ...why] = directionUnknownText(h.directionReason).split(' · ');
@@ -662,21 +686,19 @@ function DirectionText({ h }: { h: UsHaltRow }) {
 }
 
 /**
- * 종목 칸(한 줄) — 이름 · 티커(누르면 차트, 토스에 없으면 못 누름) + 시장(오늘 표만) + 관심 · 보유 배지 + children(순위). 오늘 표 · 며칠째 표가 같이 쓴다.
- * 좁으면 시장 → 이름 순서로 말줄임 + 툴팁(`StockName` `keepTicker`) · 티커 · 배지 · 순위는 자르지 않는다.
+ * 종목 칸(한 줄) — 이름 · 티커(누르면 차트, 토스에 없으면 못 누름) + 시장(오늘 표만) + 관심 · 보유 배지. 오늘 표 · 며칠째 표가 같이 쓴다.
+ * 좁으면 시장 → 이름 순서로 말줄임 + 툴팁(`StockName` `keepTicker`) · 티커 · 배지는 자르지 않는다.
  */
 function HaltName({
   h,
   watched,
   market,
   onSelectSymbol,
-  children,
 }: {
   h: UsHaltRow;
   watched: boolean;
   market?: string;
   onSelectSymbol: (symbol: string) => void;
-  children?: ReactNode;
 }) {
   const symbol = h.rawIssueSymbol.trim();
   return (
@@ -690,15 +712,14 @@ function HaltName({
           <StockName symbol={symbol} name={h.rawIssueName.trim() || null} keepTicker />
         </span>
       )}
-      {/* 좁으면 시장이 먼저 줄어들고(shrink 100 : 1 — 말줄임 + 툴팁) 그다음 이름. 티커는 `keepTicker` 로 줄지 않는다 */}
+      {/* 좁으면 시장이 먼저 다 줄어들고(shrink 10000 : 1 — 말줄임 + 툴팁) 그다음 이름. 100 : 1 이면 짧은 이름(테슬라)이 1px 줄어 「테…」 가 됐다. 티커는 `keepTicker` 로 줄지 않는다 */}
       {market && (
-        <span className="min-w-0 shrink-[100] truncate text-caption text-text-muted" title={market}>
+        <span className="min-w-0 shrink-[10000] truncate text-caption text-text-muted" title={market}>
           {market}
         </span>
       )}
       {watched && <Badge>관심</Badge>}
       {h.held && <Badge>보유</Badge>}
-      {children}
     </div>
   );
 }
@@ -742,7 +763,8 @@ function OngoingTable({
             <th className={`${NUM} py-2 font-normal`}>사유</th>
             <th className={`${NUM} py-2 font-normal`}>정지 시작</th>
             <th className={`${NUM} py-2 text-right font-normal`}>며칠째</th>
-            <th className={`${NUM} py-2 font-normal`}>재개</th>
+            {/* 앞 칸(며칠째)이 오른쪽 끝 맞춤이라 넓은 여백 — 좁으면 「며칠째 재개」 가 한 말로 읽혔다 */}
+            <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} py-2 font-normal`}>재개</th>
             <th className={`${NUM} py-2 font-normal`}>상태</th>
             <th className={`${NUM} py-2 pr-3 text-right font-normal`}>
               <TurnoverHead label="거래대금" tip={ONGOING_TURNOVER_TIP} />
@@ -762,7 +784,7 @@ function OngoingTable({
                 <span title={etTitle(h.rawHaltDate, h.rawHaltTime)}>{kstMonthDayTime(h.haltAtMs)}</span>
               </td>
               <td className={`${NUM} py-1.5 text-right tabular-nums`}>{h.daysHalted}일째</td>
-              <td className={`${NUM} py-1.5`}>
+              <td className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} py-1.5`}>
                 {/* 공지 시각이 지나면 줄째 사라진다(위 1초 거르기) — 남는 것은 「상태 모름」 줄뿐이라 그 시각을 그대로 둔다 */}
                 {h.resumeAtMs != null ? (
                   <span title={etTitle(h.rawResumptionDate || h.rawHaltDate, h.rawResumptionTradeTime)}>
