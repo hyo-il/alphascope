@@ -48,7 +48,7 @@ export default function InfoTip({ children, label = '설명', trigger }: { child
         onBlur={hide}
         className={
           trigger
-            ? 'rounded text-left underline decoration-text-muted decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent'
+            ? 'cursor-help rounded text-left underline decoration-text-muted decoration-dotted underline-offset-4 transition-colors hover:text-text-primary hover:decoration-text-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent'
             : 'inline-flex shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:text-text-primary focus-visible:text-text-primary'
         }
       >

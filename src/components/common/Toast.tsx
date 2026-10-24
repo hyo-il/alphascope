@@ -61,6 +61,8 @@ function Toast({ item }: { item: ToastItem }) {
 const TOAST_EDGE = 16;
 const TOAST_GAP_BELOW_CLOCK = 8;
 const TOAST_MAX_W = 384;
+/** 한 번에 보이는 토스트 수 — 높이 900 창에서도 화면 안에 들어간다 */
+const TOAST_MAX_SHOWN = 5;
 
 /**
  * 토스트 묶음의 위 끝(px) — 시계(`useClockStore.box`)가 묶음 자리(오른쪽 끝에서 최대 폭만큼 · 화면 위쪽 절반)와 겹치면 **시계 아래 끝 + 8px**,
@@ -79,11 +81,18 @@ export default function ToastHost() {
   const clockBox = useClockStore((s) => s.box);
   if (!toasts.length) return null;
   const top = toastTop(clockBox, window.innerWidth, window.innerHeight);
+  // 최근 것만(새 토스트는 끝에 붙는다 — 넘치면 가장 새 것이 가려진 채 사라졌다)
+  const shown = toasts.slice(-TOAST_MAX_SHOWN);
 
   return (
-    // 화면 밖으로 나가지 않게 — 위 끝을 내린 만큼 높이를 줄이고 넘치는 토스트는 가린다(3초 뒤 사라진다)
-    <div className="pointer-events-none fixed right-4 z-[110] flex flex-col gap-2 overflow-hidden" style={{ top, maxHeight: `calc(100vh - ${top + TOAST_EDGE}px)` }} data-toast-host>
-      {toasts.map((item) => (
+    // 화면 밖으로 나가지 않게 — 위 끝을 내린 만큼 높이를 줄이고 넘치는 토스트는 가린다(3초 뒤 사라진다).
+    // 묶음 안쪽 여백 16px(p-4) 만큼 바깥 자리를 되돌린다 — 여백이 없으면 가리기(overflow-hidden)가 토스트 그림자까지 잘랐다
+    <div
+      className="pointer-events-none fixed right-0 z-[110] flex flex-col gap-2 overflow-hidden p-4"
+      style={{ top: top - TOAST_EDGE, maxHeight: `calc(100vh - ${top}px)` }}
+      data-toast-host
+    >
+      {shown.map((item) => (
         <Toast key={item.id} item={item} />
       ))}
     </div>

@@ -56,7 +56,7 @@ import type { LiveRankingResponse } from '../../types/ranking';
 const REFRESH_MS = 30_000;
 /**
  * 표가 놓인 칸의 안쪽 폭(px)이 이보다 좁으면 사유 칸의 원문 코드를 툴팁으로 옮긴다(`CompactReason`).
- * 오른쪽 관심 패널을 편 채로 1440 창 = 1002px(코드 보임) · 1280 창 = 842px(숨김). 패널을 접은 1280 은 약 1090px 이라 보인다.
+ * 오른쪽 관심 패널을 편 채로 1440 창 = 1002px(코드 보임) · 1280 창 = 842px(숨김). 패널을 접은 1280 은 1056px 이라 보인다.
  * 창 폭이 아니라 칸 폭으로 잰다 — 패널을 접고 펴도 따라간다.
  */
 const COMPACT_REASON_BELOW = 920;
@@ -324,7 +324,12 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
               n > 0 && <HiddenNotice count={n} showing={showHidden} onToggle={() => setShowHidden((v) => !v)} />;
             // 며칠째 칸: 관심 · 보유 줄만(오늘 거래가 없어 순위와 상관없다). 줄을 먼저 거른 뒤 묶는다 — 「상태 모름」 줄은 풀렸는지 몰라 시각으로 지우지 않는다
             // (묶은 뒤 거르면 같은 종목의 다른 줄의 공지 시각이 지날 때 상태 모름 줄까지 사라졌다가 다음 읽기에 다시 나타났다)
-            const ongoing = split(groupHalts(data.ongoing.filter((h) => mine(h) && (h.unlisted || isHaltOngoing(h, now)))));
+            // 정규장 밖에는 오늘 정지 가운데 관심 · 보유 · 안 풀림 · LULD 아님도 「1일째」 로 넣는다 — 「지금 정지 중」 이 꺼져 미국 자정까지 어디에도 안 보였다.
+            // LULD 는 넣지 않는다(마감 직전에 멈춰 재개가 안 적힌 채 「정지 중」 으로 남는 바로 그 경우 — 정규장에만 보이게 한 이유)
+            const todayMine: UsOngoingHaltRow[] = data.regularOpen
+              ? []
+              : data.halts.filter((h) => mine(h) && !isLuldCode(codeOf(h)) && isHaltOngoing(h, now)).map((h) => ({ ...h, daysHalted: 1, unlisted: false }));
+            const ongoing = split(groupHalts([...data.ongoing.filter((h) => mine(h) && (h.unlisted || isHaltOngoing(h, now))), ...todayMine]));
             // 정규장 밖에도 보인다(SEC 정지처럼 며칠 이어지는 정지는 정규장과 상관없다 — v2.57.2). 관심 · 보유 줄이 없으면 그리지 않는다
             const ongoingSection = ongoing.groups.length > 0 && (
               <div className="mt-4 mb-6 space-y-2" data-ongoing-section>
@@ -563,8 +568,8 @@ function RegularClosed({ open, close }: { open: number | null; close: number | n
   return (
     <p className="mt-4 flex items-center justify-center gap-1 rounded-lg bg-bg-tertiary/40 px-3 py-6 text-center text-caption text-text-muted" data-regular-closed>
       {open != null && close != null
-        ? `미국 정규장에만 보입니다 — 다음 정규장 한국 ${kstMonthDayTime(open)}~${kstClockText(close).slice(0, 5)}`
-        : '미국 정규장(09:30~16:00 ET)에만 보입니다'}
+        ? `「지금 정지 중」 은 미국 정규장에만 보입니다 — 다음 정규장 한국 ${kstMonthDayTime(open)}~${kstClockText(close).slice(0, 5)}`
+        : '「지금 정지 중」 은 미국 정규장(09:30~16:00 ET)에만 보입니다'}
       <InfoTip label="정규장에만 보이는 이유">
         가격 제한 정지(LULD)는 정규장에만 걸립니다. 정규장 밖에는 장 마감 직전에 멈춰 재개 시각이 적히지 않은 정지가 「정지 중」 으로 남아 보여 목록을 숨깁니다. 기록은 서버가 계속 쌓습니다.
       </InfoTip>
