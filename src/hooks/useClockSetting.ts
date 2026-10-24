@@ -15,9 +15,21 @@ interface ClockState {
   clock: ClockSetting;
   /** 사용자가 옮기거나 핀을 눌렀다 — 늦게 온 받기 결과로 덮지 않는다 */
   touched: boolean;
+  /**
+   * 시계가 지금 그려진 상자(화면 좌표 px — 끄는 중 · 창 크기 · 위치 초기화 모두 따라간다). 시계(`KstClock`)만 쓰고, 토스트 묶음(`ToastHost`)이 읽어
+   * 겹치면 시계 아래로 내린다 — 둘이 서로 부르지 않게 이 한 곳으로만 알린다. 그리기 전에는 null. 저장하지 않는다.
+   */
+  box: ClockBox | null;
 }
 
-export const useClockStore = create<ClockState>(() => ({ clock: DEFAULT_CLOCK, touched: false }));
+export interface ClockBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+export const useClockStore = create<ClockState>(() => ({ clock: DEFAULT_CLOCK, touched: false, box: null }));
 
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);

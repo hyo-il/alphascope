@@ -106,6 +106,11 @@ export default function KstClock() {
 
   const placed = size ? placeOf(clock, size.w, size.h, viewport.w, viewport.h) : null;
   const box = dragBox ?? placed;
+  // 지금 상자를 스토어에 알린다(토스트 묶음이 겹치지 않게 읽는다 — `useClockStore.box`)
+  useLayoutEffect(() => {
+    useClockStore.setState({ box: box && size ? { left: box.left, top: box.top, width: size.w, height: size.h } : null });
+  }, [box?.left, box?.top, size?.w, size?.h]);
+  useEffect(() => () => useClockStore.setState({ box: null }), []);
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     // 핀 버튼은 버튼으로만 동작한다 · 고정이면 끌지 않는다 · 왼쪽 버튼만
