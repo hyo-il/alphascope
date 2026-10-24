@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Badge, InfoTip, NumberField, PageHeader, SectionTitle, Select } from '../ui';
 import { LIST_TABLE_ROW, PANEL_PAD, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP, TABLE_NUM_GAP_TIGHT } from '../ui/tokens';
 import StockName from '../common/StockName';
@@ -6,7 +6,7 @@ import { SkeletonTable } from '../common/SkeletonLoader';
 import { InlineSpinner } from '../common/LoadingOverlay';
 import { useWatchlist } from '../../hooks/useWatchlist';
 import { toast } from '../../store/uiStore';
-import { directionUnknownText, haltCodeLabel, haltCodeTitle } from '../../data/haltCodes';
+import { HALT_CODES, directionUnknownText, haltCodeLabel, haltCodeTitle } from '../../data/haltCodes';
 import {
   DEFAULT_HALT_RANK_TOP,
   HALT_RANK_TOPS,
@@ -54,6 +54,14 @@ import type { LiveRankingResponse } from '../../types/ranking';
  */
 
 const REFRESH_MS = 30_000;
+/**
+ * 표가 놓인 칸의 안쪽 폭(px)이 이보다 좁으면 사유 칸의 원문 코드를 툴팁으로 옮긴다(`CompactReason`).
+ * 오른쪽 관심 패널을 편 채로 1440 창 = 1002px(코드 보임) · 1280 창 = 842px(숨김). 패널을 접은 1280 은 약 1090px 이라 보인다.
+ * 창 폭이 아니라 칸 폭으로 잰다 — 패널을 접고 펴도 따라간다.
+ */
+const COMPACT_REASON_BELOW = 920;
+/** 좁은 칸 — 두 표의 사유 칸(`ReasonText`)이 같이 읽는다 */
+const CompactReason = createContext(false);
 /** 연속 이만큼 실패하면 경고 */
 const FAIL_WARN = 3;
 /** 새 정지 토스트는 화면을 연 때보다 이만큼 앞선 정지까지만(목록 지연 0.5~2분 + 여유) — 서버를 막 켠 뒤 처음 받은 목록이 「새 정지」 로 몰려 뜨지 않게 */
@@ -178,6 +186,16 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
   /** 숨기기 기준 — 저장에 성공한 값(처음은 서버 값). undefined = 아직 모름 */
   const [minTurnover, setMinTurnover] = useState<number | null | undefined>(undefined);
   const savingMin = useRef(false);
+  /** 표가 놓인 칸 — 폭을 재서 좁으면 사유 원문 코드를 툴팁으로 */
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [compact, setCompact] = useState(false);
+  useLayoutEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setCompact(e.contentRect.width < COMPACT_REASON_BELOW));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   /** 토스트를 띄울 정지인가 — 표와 같은 거르기(순위 ∪ 관심 · 보유 · 거래대금 숨기기). null = 순위를 아직 모름(알리지 않는다) */
   const toastShows = useRef<((h: UsHaltRow) => boolean) | null>(null);
   /** 보기(전체 · 급상승 · 급하락) + 상위 N — 이 브라우저에 기억(localStorage) */
@@ -270,7 +288,8 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
   return (
     <div className="flex h-full flex-col" data-us-halts>
       <PageHeader title="거래정지" />
-      <div className={`min-h-0 flex-1 overflow-auto ${PANEL_PAD} pt-0`}>
+      <div ref={contentRef} className={`min-h-0 flex-1 overflow-auto ${PANEL_PAD} pt-0`} data-compact-reason={compact ? '' : undefined}>
+        <CompactReason.Provider value={compact}>
         <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-text-muted">
           {/* 메뉴 이름에 「미국」 이 없어(거래정지) 받기 상태 줄 앞에 대상을 적는다 */}
           {data && <span>미국 종목 · 미국 날짜 {data.day}</span>}
@@ -293,9 +312,7 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
         {error && <p className="mb-2 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">{error}</p>}
 
         {!data && !error && <SkeletonTable rows={5} columns={6} />}
-        {data && !data.regularOpen && <RegularClosed open={data.nextRegularOpen} close={data.nextRegularClose} />}
         {data &&
-          data.regularOpen &&
           (() => {
             const mine = (h: UsHaltRow) => watchlist.includes(h.rawIssueSymbol.trim()) || h.held;
             // 두 칸 모두 안 풀린 정지만 — 1초 시계로 다시 걸러 공지 재개 시각이 지나면 다음 갱신을 기다리지 않고 사라진다
@@ -303,6 +320,30 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
               const hidden = groups.filter((g) => isHiddenByTurnover(groupTurnover([g.latest, ...g.earlier]), minTurnover ?? null, mine(g.latest)));
               return { groups, shown: showHidden ? groups : groups.filter((g) => !hidden.includes(g)), hiddenCount: hidden.length };
             };
+            const notice = (n: number) =>
+              n > 0 && <HiddenNotice count={n} showing={showHidden} onToggle={() => setShowHidden((v) => !v)} />;
+            // 며칠째 칸: 관심 · 보유 줄만(오늘 거래가 없어 순위와 상관없다). 줄을 먼저 거른 뒤 묶는다 — 「상태 모름」 줄은 풀렸는지 몰라 시각으로 지우지 않는다
+            // (묶은 뒤 거르면 같은 종목의 다른 줄의 공지 시각이 지날 때 상태 모름 줄까지 사라졌다가 다음 읽기에 다시 나타났다)
+            const ongoing = split(groupHalts(data.ongoing.filter((h) => mine(h) && (h.unlisted || isHaltOngoing(h, now)))));
+            // 정규장 밖에도 보인다(SEC 정지처럼 며칠 이어지는 정지는 정규장과 상관없다 — v2.57.2). 관심 · 보유 줄이 없으면 그리지 않는다
+            const ongoingSection = ongoing.groups.length > 0 && (
+              <div className="mt-4 mb-6 space-y-2" data-ongoing-section>
+                <SectionTitle>며칠째 정지 중 — 관심 · 보유 ({ongoing.groups.length})</SectionTitle>
+                {notice(ongoing.hiddenCount)}
+                {ongoing.shown.length > 0 && <OngoingTable groups={ongoing.shown} watchlist={watchlist} onSelectSymbol={onSelectSymbol} />}
+                <p className="text-caption text-text-muted">최근 30일 안에 시작된 정지만 보입니다(그보다 오래된 정지는 저장하지 않습니다).</p>
+              </div>
+            );
+            // 정규장 밖 — 「지금 정지 중」 자리에 안내 한 줄, 그 아래 며칠째 칸(토스트는 위 effect 가 끈다)
+            if (!data.regularOpen) {
+              toastShows.current = null;
+              return (
+                <>
+                  <RegularClosed open={data.nextRegularOpen} close={data.nextRegularClose} />
+                  {ongoingSection}
+                </>
+              );
+            }
             // 순위 — 받는 중(데이터도 실패도 없음)인 것이 하나라도 있으면 표도 「없음」 도 그리지 않는다. 실패한 순위는 빈 순위로(받은 쪽으로 거른다)
             const loading = sides.some((k) => !ranks[k].data && !ranks[k].error);
             const failed = sides.filter((k) => ranks[k].error);
@@ -312,11 +353,6 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
             const unknown = hits !== undefined && !received.length;
             // 오늘 표: 묶은 뒤 가장 최근 정지로 거른다(풀린 정지는 최대 거래대금 계산에만 쓴다) → 순위 거르기(관심 · 보유는 늘 남김) → 거래대금 숨기기
             const today = split(hits ? filterGroupsByRank(groupHalts(data.halts).filter((g) => isHaltOngoing(g.latest, now)), hits, mine) : []);
-            // 며칠째 칸: 관심 · 보유 줄만(오늘 거래가 없어 순위와 상관없다). 줄을 먼저 거른 뒤 묶는다 — 「상태 모름」 줄은 풀렸는지 몰라 시각으로 지우지 않는다
-            // (묶은 뒤 거르면 같은 종목의 다른 줄의 공지 시각이 지날 때 상태 모름 줄까지 사라졌다가 다음 읽기에 다시 나타났다)
-            const ongoing = split(groupHalts(data.ongoing.filter((h) => mine(h) && (h.unlisted || isHaltOngoing(h, now)))));
-            const notice = (n: number) =>
-              n > 0 && <HiddenNotice count={n} showing={showHidden} onToggle={() => setShowHidden((v) => !v)} />;
             const rankName = `${VIEW_RANK_NAME[rankView.view]} 상위 ${rankView.top}`;
             // 빈 상태 문구는 실제로 거른 순위 이름으로(한쪽만 받았으면 그쪽만)
             const receivedName = `${received.map((k) => SIDE_NAME[k]).join(' · ')} 상위 ${rankView.top}`;
@@ -326,15 +362,8 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
               : null;
             return (
               <>
-                {/* 며칠째 정지 중 — 관심 · 보유 줄이 없으면 그리지 않는다. 오늘 표 위 */}
-                {ongoing.groups.length > 0 && (
-                  <div className="mt-4 mb-6 space-y-2">
-                    <SectionTitle>며칠째 정지 중 — 관심 · 보유 ({ongoing.groups.length})</SectionTitle>
-                    {notice(ongoing.hiddenCount)}
-                    {ongoing.shown.length > 0 && <OngoingTable groups={ongoing.shown} watchlist={watchlist} onSelectSymbol={onSelectSymbol} />}
-                    <p className="text-caption text-text-muted">최근 30일 안에 시작된 정지만 보입니다(그보다 오래된 정지는 저장하지 않습니다).</p>
-                  </div>
-                )}
+                {/* 며칠째 정지 중 — 오늘 표 위 */}
+                {ongoingSection}
                 <div className="mb-2">
                   {/* 받기 실패 중 · 순위를 아직 모르면 개수를 적지 않는다 — 「(0)」 과 「알 수 없습니다」 가 엇갈리지 않게 */}
                   <SectionTitle>{fetchBad(data.status) || hits === undefined || unknown ? '지금 정지 중' : `지금 정지 중 (${today.groups.length})`}</SectionTitle>
@@ -368,6 +397,7 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
             );
           })()}
 
+        </CompactReason.Provider>
         {/* 출처 · 지연 · 추정 — 표 아래 고정 문구 */}
         <p className="mt-3 text-caption text-text-muted">
           자료: Nasdaq Trader 거래정지 목록 · 정지 뒤 약 0.5~2분 늦게 보입니다 · 방향은 토스 1분봉으로 낸 추정입니다(매수 · 매도 신호가 아닙니다)
@@ -771,7 +801,19 @@ function HaltName({
 /** 사유 칸(한 줄) — 「뉴스 대기 · T1」: 쉬운 말 + 원문 코드(작은 글자 · 흐린 색). 모르는 코드는 원문만 */
 function ReasonText({ h }: { h: UsHaltRow }) {
   const label = haltCodeLabel(codeOf(h));
+  const compact = useContext(CompactReason);
+  // 모르는 코드는 좁아도 원문 그대로(숨기면 아무 글자도 없다)
   if (!label) return <>{h.rawReasonCode}</>;
+  // 좁은 칸 — 원문 코드를 툴팁으로(쉬운 말이 단추 · 마우스 · 키보드 초점으로 열린다)
+  if (compact)
+    return (
+      <span className="whitespace-nowrap">
+        <InfoTip label={`${label} — 원문 코드 보기`} trigger={label}>
+          원문 코드: {h.rawReasonCode} — {HALT_CODES[codeOf(h)]?.en}
+          {HALT_CODES[codeOf(h)]?.note ? ` (${HALT_CODES[codeOf(h)]!.note})` : ''}
+        </InfoTip>
+      </span>
+    );
   return (
     <span className="whitespace-nowrap" title={haltCodeTitle(codeOf(h)) ?? undefined}>
       {label}

@@ -9,8 +9,9 @@ import { ICON_SM } from './icon';
  * - 마우스를 올리거나 **키보드로 포커스하면** 열린다(Tab → 열림, Esc·포커스 이동 → 닫힘). `aria-describedby` 로 내용을 읽힌다.
  * - 툴팁은 `document.body` 에 그린다 — 조상의 `overflow-hidden` 에 잘리지 않게.
  * - ⚠️ **"지우지 않는다" 고정 안내 문구는 여기에 넣지 않는다**(화면에 글자로 남긴다 — docs/rules/design.md 「디자인 규칙」).
+ * - `trigger` 를 주면 아이콘 대신 그 글자가 단추가 된다(점선 밑줄 — 좁은 칸에서 덧붙임을 숨기고 글자에 툴팁을 달 때. 지금: 거래정지 사유 칸).
  */
-export default function InfoTip({ children, label = '설명' }: { children: ReactNode; label?: string }) {
+export default function InfoTip({ children, label = '설명', trigger }: { children: ReactNode; label?: string; trigger?: ReactNode }) {
   const id = useId();
   const ref = useRef<HTMLButtonElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; up: boolean } | null>(null);
@@ -45,9 +46,13 @@ export default function InfoTip({ children, label = '설명' }: { children: Reac
         onMouseLeave={hide}
         onFocus={show}
         onBlur={hide}
-        className="inline-flex shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:text-text-primary focus-visible:text-text-primary"
+        className={
+          trigger
+            ? 'rounded text-left underline decoration-text-muted decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent'
+            : 'inline-flex shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:text-text-primary focus-visible:text-text-primary'
+        }
       >
-        <Info {...ICON_SM} />
+        {trigger ?? <Info {...ICON_SM} />}
       </button>
       {pos &&
         createPortal(
