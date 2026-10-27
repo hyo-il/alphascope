@@ -8,8 +8,11 @@
  * - 규칙이 없거나 그 시장 종목이 없어도 그 날짜는 「기록함」 으로 둔다(같은 날 다시 돌지 않게 — 화면 [다시 계산] 이 그날 줄을 채운다).
  * - 하루 한 번(KST 날짜) 보관 기간이 지난 「사도 됨」 아닌 줄을 지운다(`pruneOld`).
  * - 주문을 내지 않는다. 자동매매 스위치(`AUTO_TRADING_ENABLED`)와 무관하게 돈다 — 기록만 한다.
+ * - 같은 틱에서 기록이 끝난 뒤 미국 다시 계산(`recheck.ts` — 20:45 ET 뒤 최종 일봉으로 한 번 더, 달라진 것만 기록 · 스위치 `BUYJUDGE_RECHECK_ENABLED`)을 부른다.
+ *   `buyJudgeTick` 자체는 그대로다(다시 계산은 판단 · 기록을 바꾸지 않는다).
  */
 import { latestRecordDay, recordMarket } from './judge';
+import { recheckTick } from './recheck';
 import * as store from './store';
 import type { CalendarMarket } from '../marketCalendar';
 
@@ -53,8 +56,11 @@ export async function buyJudgeTick(now = Date.now()): Promise<{ recorded: Partia
   return out;
 }
 
+/** 기록 → 다시 계산 순서(그날 16:30 기록이 끝난 뒤에만 다시 계산한다) */
+const tick = () => void buyJudgeTick().then(() => recheckTick());
+
 export function startBuyJudgeScheduler(): void {
   if (timer) return;
-  void buyJudgeTick();
-  timer = setInterval(() => void buyJudgeTick(), TICK_MS);
+  tick();
+  timer = setInterval(tick, TICK_MS);
 }

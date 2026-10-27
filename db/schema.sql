@@ -396,6 +396,44 @@ CREATE TABLE IF NOT EXISTS buy_judgments (
 );
 CREATE INDEX IF NOT EXISTS idx_buy_judgments_symbol ON buy_judgments (symbol, market_date);
 
+-- 미국 매수 판단 다시 계산(v2.58.0, `server/buyJudge/recheck.ts`) — 20:45 ET 뒤 최종 일봉으로 같은 `judgeOnClose` 를 한 번 더.
+-- **달라진 것만** 한 줄(source = judgment). 계좌(source = account)는 16:30 판단이 없어(계좌는 다음 정규장 시작에 판단) before_* 가 비고 최종값만.
+-- buy_judgments 줄은 바꾸지 않는다. 30일 보관.
+CREATE TABLE IF NOT EXISTS buy_judgment_rechecks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  market_date TEXT NOT NULL,          -- 미국 시장 날짜
+  symbol TEXT NOT NULL,
+  rule_id INTEGER NOT NULL,
+  source TEXT NOT NULL,               -- judgment(매수 판단 기록) · account(자동매매 계좌 — 16:30 값 없음)
+  account_ids TEXT,                   -- account 줄: 그 종목 · 규칙을 쓰는 계좌 id JSON 배열
+  before_action TEXT,                 -- 16:30 기록(buy_judgments 줄) — account 줄은 NULL
+  before_code TEXT,
+  before_score INTEGER,
+  before_breakdown_json TEXT,         -- [{key, score, max}] (켠 조건 — buy_judgments 와 같은 모양)
+  before_gate_reason TEXT,
+  after_action TEXT NOT NULL,         -- 최종 일봉으로 다시 계산한 값
+  after_code TEXT NOT NULL,
+  after_score INTEGER NOT NULL,
+  after_max_score INTEGER NOT NULL,
+  after_breakdown_json TEXT NOT NULL,
+  after_gate_reason TEXT,
+  bar_before_json TEXT,               -- 그날 봉 {open, high, low, close, volume} — 16:30 판단 때 쓴 값을 알 때만(모르면 NULL)
+  bar_after_json TEXT NOT NULL,       -- 최종 일봉
+  checked_at TEXT NOT NULL,           -- 계산 시각(UTC ISO)
+  UNIQUE (market_date, symbol, rule_id, source)
+);
+-- 그날 요약 한 줄 — 「N건 중 M건 달라짐」(같은 줄은 쓰지 않고 여기서만 센다)
+CREATE TABLE IF NOT EXISTS buy_judgment_recheck_days (
+  market_date TEXT PRIMARY KEY,
+  checked INTEGER NOT NULL,           -- 견준 매수 판단 기록 수(judgment)
+  same INTEGER NOT NULL,              -- 그 가운데 같음(줄 없음)
+  changed INTEGER NOT NULL,           -- 그 가운데 달라짐(줄 있음)
+  accounts INTEGER NOT NULL,          -- 계좌 쌍(16:30 값 없음 — 줄 있음)
+  failed INTEGER NOT NULL,            -- 최종 일봉을 받지 못함 · 그날 봉 없음 · 판단 못 함
+  symbols INTEGER NOT NULL,           -- 일봉을 받은 종목 수(토스 일봉 호출 수)
+  finished_at TEXT NOT NULL
+);
+
 -- AI 검증 (v2.46.0, 퀀트 4단계) — 규칙이 「사도 됨」 을 낸 종목을 사기 직전 AI(Gemini)에게 위험만 묻는다.
 -- (그 종목 시장 날짜, 종목) 한 줄 — 같은 날 같은 종목은 한 번만 묻고 여러 계좌가 같이 쓴다. 「못 함」 줄도 남긴다(그날 다시 묻지 않는다 — 한도를 지키려고).
 -- 하루 횟수(한국 시간 날짜, 최대 20번)는 따로 세지 않고 이 표에서 구한다 — 실제로 Gemini 를 부른 줄만(통과 · 위험 · 못 함 중 rate_limit/error/timeout/format).

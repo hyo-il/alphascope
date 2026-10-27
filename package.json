@@ -29,6 +29,8 @@
     "rules:test": "tsx scripts/rulesSelfTest.ts",
     "prevclose:test": "tsx scripts/prevCloseSelfTest.ts",
     "buyjudge:test": "tsx scripts/buyJudgeSelfTest.ts",
+    "recheck:test": "tsx scripts/recheckSelfTest.ts",
+    "recheck:report": "tsx scripts/recheckReport.ts",
     "auth:test": "tsx scripts/authSessionsSelfTest.ts",
     "accountsview:test": "tsx scripts/accountsViewSelfTest.ts",
     "cashflow:test": "tsx scripts/cashFlowSelfTest.ts",
