@@ -11,7 +11,7 @@
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import 'dotenv/config';
-import { getDb } from '../server/db';
+import { getDb, saveCandles } from '../server/db';
 import { createAccount, deleteAccount } from '../server/paperTradingService';
 import { createRule, deleteRule } from '../server/rules/store';
 import { deleteStrategy, saveStrategy } from '../server/autoTrading/store';
@@ -30,6 +30,7 @@ import {
   recheckTick,
   resetRecheckTriesForTest,
   setRecheckHooksForTest,
+  loadFinalForTest,
   type FinalCandles,
 } from '../server/buyJudge/recheck';
 import { renderRecheckReport, changeKind, volumeChangePct } from './lib/recheckReport';
@@ -92,9 +93,10 @@ const AT_1630 = et(DAY, '16:30');
 const NOW = et(DAY, '20:50');
 const noRefs = (): MarketRefLoader => ({ get: async () => null }) as unknown as MarketRefLoader;
 
-const SYMS = ['ZZRCKA', 'ZZRCKB', 'ZZRCKC', 'ZZRCKD', 'ZZRCKE', 'ZZRCKH'] as const;
+const SYMS = ['ZZRCKA', 'ZZRCKB', 'ZZRCKC', 'ZZRCKD', 'ZZRCKE', 'ZZRCKH', 'ZZRCKL', 'ZZRCKS', 'ZZRCKR'] as const;
 const cleanup = () => {
   db.prepare(`DELETE FROM buy_judgments WHERE symbol IN (${SYMS.map(() => '?').join(',')})`).run(...SYMS);
+  db.prepare(`DELETE FROM candles WHERE symbol = 'ZZRCKR'`).run();
   db.prepare(`DELETE FROM buy_judgment_rechecks WHERE market_date IN (?, '2026-09-01')`).run(DAY);
   db.prepare(`DELETE FROM buy_judgment_recheck_days WHERE market_date IN (?, '2026-09-01')`).run(DAY);
 };
@@ -133,6 +135,9 @@ try {
   await record('ZZRCKB', ruleA, body, FINAL); // 같음(16:30 에도 최종값이었다고 친다)
   await record('ZZRCKC', ruleA, body, PARTIAL); // 바뀜 · 16:30 봉 모름(기록 뒤에 다시 받음)
   const evD = await record('ZZRCKD', ruleB, tight, PARTIAL); // 기준 미달 → 넘음
+  await record('ZZRCKS', ruleA, body, PARTIAL); // 최종 받기에 일봉이 모자람 → 판단 못 함(다시 시도 안 함)
+  await record('ZZRCKL', ruleA, body, PARTIAL); // 늦은 기록(20:41 ET) → 견주지 않음
+  db.prepare(`UPDATE buy_judgments SET created_at = ? WHERE market_date = ? AND symbol = 'ZZRCKL'`).run(new Date(et(DAY, '20:41')).toISOString(), DAY);
   const recordedJson = JSON.stringify(db.prepare(`SELECT * FROM buy_judgments WHERE symbol IN (${SYMS.map(() => '?').join(',')}) ORDER BY id`).all(...SYMS));
 
   // 계좌(②) — ZZRCKE(①에 없음) · ZZRCKH(보유 — 뺀다) · ZZRCKA(①에 있음 — 뺀다)
@@ -151,19 +156,22 @@ try {
   const mine = new Set<string>(SYMS);
   const foreign = recheckPairs(DAY).filter((p) => !mine.has(p.symbol));
   const pairs = recheckPairs(DAY).filter((p) => mine.has(p.symbol));
-  check('쌍 — ① 매수 판단 4줄 + ② 계좌 ZZRCKE 하나(①에 있는 ZZRCKA · 보유 ZZRCKH 뺌)', pairs.map((p) => `${p.symbol}:${p.source}`).join(',') === 'ZZRCKA:judgment,ZZRCKB:judgment,ZZRCKC:judgment,ZZRCKD:judgment,ZZRCKE:account', pairs.map((p) => `${p.symbol}:${p.source}`).join(','));
+  check('쌍 — ① 매수 판단 6줄 + ② 계좌 ZZRCKE 하나(①에 있는 ZZRCKA · 보유 ZZRCKH 뺌)', pairs.map((p) => `${p.symbol}:${p.source}`).join(',') === 'ZZRCKA:judgment,ZZRCKB:judgment,ZZRCKC:judgment,ZZRCKD:judgment,ZZRCKL:judgment,ZZRCKS:judgment,ZZRCKE:account', pairs.map((p) => `${p.symbol}:${p.source}`).join(','));
 
-  // 가짜 받기 — 종목마다 몇 번 불렀는지(토스 일봉 호출 대신)
+  // 가짜 받기 — 종목마다 몇 번 불렀는지(토스 일봉 호출 대신). 실제 받기처럼 이번 창에서 이미 받은 종목은 캐시를 다시 쓴다(16:30 값 모름 · 호출 안 함)
   const calls = new Map<string, number>();
-  let failNext = false;
+  const got = new Set<string>();
+  let failSymbol: string | null = null;
   const load = async (symbol: string): Promise<FinalCandles> => {
+    if (got.has(symbol)) return { candles: symbol === 'ZZRCKS' ? FINAL.slice(-10) : FINAL, before: null, fetched: false };
     calls.set(symbol, (calls.get(symbol) ?? 0) + 1);
-    if (!mine.has(symbol)) return { candles: null, before: null };
-    if (failNext && symbol === 'ZZRCKA') return { candles: null, before: null };
+    if (!mine.has(symbol) || symbol === failSymbol) return { candles: null, before: null, fetched: true };
+    got.add(symbol);
     const closeAt = et(DAY, '16:00');
-    if (symbol === 'ZZRCKB') return { candles: FINAL, before: { bar: FINAL.at(-1)!, fetchedAt: closeAt + 30 * 60_000 } };
-    if (symbol === 'ZZRCKC') return { candles: FINAL, before: { bar: PARTIAL.at(-1)!, fetchedAt: AT_1630 + 2 * 3_600_000 } }; // 기록(16:31) 뒤에 다시 받은 캐시
-    return { candles: FINAL, before: { bar: PARTIAL.at(-1)!, fetchedAt: closeAt + 30 * 60_000 } };
+    if (symbol === 'ZZRCKB') return { candles: FINAL, before: { bar: FINAL.at(-1)!, fetchedAt: closeAt + 30 * 60_000 }, fetched: true };
+    if (symbol === 'ZZRCKC') return { candles: FINAL, before: { bar: PARTIAL.at(-1)!, fetchedAt: AT_1630 + 2 * 3_600_000 }, fetched: true }; // 기록(16:31) 뒤에 다시 받은 캐시
+    if (symbol === 'ZZRCKS') return { candles: FINAL.slice(-10), before: null, fetched: true };
+    return { candles: FINAL, before: { bar: PARTIAL.at(-1)!, fetchedAt: closeAt + 30 * 60_000 }, fetched: true };
   };
   setRecheckHooksForTest({ load, refs: noRefs, mock: false });
   resetRecheckTriesForTest();
@@ -178,31 +186,41 @@ try {
   store.setLastRecorded('US', DAY);
   check('20:44 ET — 돌지 않음', (await recheckTick(et(DAY, '20:44'))).skipped === 'not_time' && !calls.size);
 
-  // 받기 실패 — 그날을 마치지 않고 다음 틱에 다시(최대 3번)
-  failNext = true;
+  // 받기 실패(ZZRCKE) — 그날을 마치지 않고 다음 틱에 그 종목만 다시(최대 3번). 받은 종목은 다시 받지 않고, 알던 16:30 봉을 지킨다
+  failSymbol = 'ZZRCKE';
   const t1 = await recheckTick(NOW);
-  check('받기 실패 — 그 쌍은 「받지 못함」 · 그날을 마치지 않음', t1.result != null && (await recheckTick(NOW + 300_000)).result != null, JSON.stringify(t1.result));
+  const barA1 = listRecheckRows().find((x) => x.market_date === DAY && x.symbol === 'ZZRCKA')?.bar_before_json ?? null;
+  const t2 = await recheckTick(NOW + 300_000);
+  const barA2 = listRecheckRows().find((x) => x.market_date === DAY && x.symbol === 'ZZRCKA')?.bar_before_json ?? null;
+  check('받기 실패 — 「받지 못함」 · 그날을 마치지 않음 · 판단 못 함(ZZRCKS) · 늦은 기록(ZZRCKL)은 따로', t1.result != null && t2.result != null && t1.result.skipped === 1 && t1.result.late === 1, JSON.stringify(t1.result));
+  check('다시 시도 — 받은 종목은 다시 받지 않음(ZZRCKA 호출 1번 · 실패한 ZZRCKE 만 2번)', calls.get('ZZRCKA') === 1 && calls.get('ZZRCKE') === 2, JSON.stringify([...calls]));
+  check('다시 시도 — 알던 16:30 봉을 NULL 로 덮지 않음', barA1 != null && barA2 === barA1);
   const t3 = await recheckTick(NOW + 600_000);
   const t4 = await recheckTick(NOW + 900_000);
   check(`받기 실패가 남아도 ${RECHECK_MAX_TRIES}번째에 그날을 마침(토스 호출 상한)`, t3.result != null && t4.skipped === 'done');
+  const dayRow = listRecheckDays().find((x) => x.market_date === DAY)!;
+  check('토스 일봉 호출 수 — 시도마다 더함(= 실제 부른 수)', dayRow.symbols === [...calls.values()].reduce((a, n) => a + n, 0), `${dayRow.symbols} · ${JSON.stringify([...calls])}`);
 
   // 정상 — 처음부터 다시
-  failNext = false;
+  failSymbol = null;
   db.prepare(`DELETE FROM app_settings WHERE key = 'buyJudge.recheckLast'`).run();
   db.prepare(`DELETE FROM buy_judgment_rechecks WHERE market_date = ?`).run(DAY);
+  db.prepare(`DELETE FROM buy_judgment_recheck_days WHERE market_date = ?`).run(DAY);
   resetRecheckTriesForTest();
   calls.clear();
+  got.clear();
   // 30일 정리 확인용 옛 줄
-  db.prepare(`INSERT INTO buy_judgment_recheck_days (market_date, checked, same, changed, accounts, failed, symbols, finished_at) VALUES ('2026-09-01', 1, 1, 0, 0, 0, 1, 'x')`).run();
+  db.prepare(`INSERT INTO buy_judgment_recheck_days (market_date, checked, same, changed, accounts, failed, skipped, late, symbols, finished_at) VALUES ('2026-09-01', 1, 1, 0, 0, 0, 0, 0, 1, 'x')`).run();
   const ok = await recheckTick(NOW);
   const r = ok.result!;
   check(
-    '요약 — 매수 판단 4건 중 같음 1 · 달라짐 3 · 계좌 1쌍 · 받지 못함 = 사본 DB 의 다른 쌍만',
-    r.checked - foreign.filter((p) => p.source === 'judgment').length === 4 && r.same === 1 && r.changed === 3 && r.accounts === 1 && r.failed === foreign.length,
+    '요약 — 매수 판단 4건 중 같음 1 · 달라짐 3 · 계좌 1쌍 · 판단 못 함 1 · 늦은 기록 1 · 받지 못함 = 사본 DB 의 다른 쌍만',
+    r.checked === 4 && r.same === 1 && r.changed === 3 && r.accounts === 1 && r.skipped === 1 && r.late === 1 && r.failed === foreign.length,
     JSON.stringify(r),
   );
-  check('토스 일봉 — 종목마다 한 번(같은 종목 두 규칙이어도)', [...calls.entries()].filter(([s]) => mine.has(s)).every(([, n]) => n === 1) && r.symbols === new Set(recheckPairs(DAY).map((p) => p.symbol)).size, JSON.stringify([...calls]));
-  check('두 번째 틱 — 같은 날 다시 돌지 않음', (await recheckTick(NOW + 300_000)).skipped === 'done' && [...calls.values()].every((n) => n === 1));
+  check('토스 일봉 — 종목마다 한 번 · 판단 못 함(일봉 부족)이 있어도 그날을 마침(다시 시도 안 함)', [...calls.entries()].filter(([s]) => mine.has(s)).every(([, n]) => n === 1) && r.symbols === new Set(recheckPairs(DAY).map((p) => p.symbol)).size && (foreign.length > 0 || (await recheckTick(NOW + 60_000)).skipped === 'done'), JSON.stringify([...calls]));
+  check('판단 못 함 · 늦은 기록 — 줄 없음', !listRecheckRows().some((x) => x.market_date === DAY && (x.symbol === 'ZZRCKS' || x.symbol === 'ZZRCKL')));
+  check('두 번째 틱 — 같은 날 다시 돌지 않음', foreign.length > 0 || ((await recheckTick(NOW + 300_000)).skipped === 'done' && [...calls.values()].every((n) => n === 1)));
   check('30일 정리 — 09-01 요약 지움', !db.prepare(`SELECT 1 FROM buy_judgment_recheck_days WHERE market_date = '2026-09-01'`).get() && ok.pruned >= 1);
 
   const rows = listRecheckRows().filter((x) => x.market_date === DAY);
@@ -230,6 +248,11 @@ try {
   // 같은 날 다시 계산(수동) — 달랐다가 같아지면 줄을 지운다
   await recheckDay(DAY, NOW);
   check('다시 계산해도 줄 수 그대로(덮어씀)', listRecheckRows().filter((x) => x.market_date === DAY).length === rows.length);
+
+  // 실제 받기 함수 — 이번 창(20:45 ET 뒤)에 이미 받은 그날 봉이면 토스를 부르지 않고 캐시를 쓴다(16:30 값 모름)
+  saveCandles('ZZRCKR', '1d', FINAL, et(DAY, '20:46'));
+  const reuse = await loadFinalForTest('ZZRCKR', DAY, NOW);
+  check('실제 받기 — 이번 창에서 받은 캐시는 다시 받지 않음(호출 안 함 · 16:30 값 모름)', !reuse.fetched && reuse.before === null && reuse.candles?.length === FINAL.length && reuse.candles?.at(-1)?.volume === 3_000_000);
 
   // ⑧ 결과 글
   const text = renderRecheckReport(rows, listRecheckDays().filter((x) => x.market_date === DAY));

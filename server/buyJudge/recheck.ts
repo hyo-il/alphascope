@@ -87,6 +87,8 @@ export interface RecheckRow {
   before_score: number | null;
   before_breakdown_json: string | null;
   before_gate_reason: string | null;
+  /** 견준 매수 판단 줄을 쓴 시각(16:30 기록 · 화면 [다시 계산] 이 덮었으면 그 시각) */
+  before_at: string | null;
   after_action: string;
   after_code: string;
   after_score: number;
@@ -104,6 +106,8 @@ export interface RecheckDay {
   changed: number;
   accounts: number;
   failed: number;
+  skipped: number;
+  late: number;
   symbols: number;
   finished_at: string;
 }
@@ -123,24 +127,38 @@ export function pruneRechecks(today: string): number {
 export interface FinalCandles {
   /** 받은 캔들(받지 못했으면 null) */
   candles: Candle[] | null;
-  /** 받기 전 캐시의 그날 봉과 그 봉을 받은 시각 — 16:30 값을 알아내는 데 쓴다 */
+  /** 받기 전 캐시의 그날 봉과 그 봉을 받은 시각 — 16:30 값을 알아내는 데 쓴다(이번 창에서 이미 받았으면 null) */
   before: { bar: Bar; fetchedAt: number | null } | null;
+  /** 이번에 토스를 불렀는가(이번 창에서 이미 받은 종목은 캐시를 다시 쓴다) */
+  fetched: boolean;
 }
 
-/** 기본 받기 — 받기 전 캐시 줄을 읽어 두고 `getCandles` 로 새로 받은 뒤, 그날 봉이 이번에 받은 것인지(`fetched_at` ≥ 시작) 본다 */
+/** 그날 다시 계산 창이 열리는 시각(20:45 ET) — 이 뒤에 받은 그날 봉은 최종값이다 */
+const windowStartOf = (day: string) => marketDayTime('US', day, RECHECK_AT_MINUTES * 60_000);
+
+/**
+ * 기본 받기 — 받기 전 캐시 줄을 읽어 두고 `getCandles` 로 새로 받은 뒤, 그날 봉이 이번에 받은 것인지(`fetched_at` ≥ 시작) 본다.
+ * 다시 시도(받기 실패가 남은 날)에서는 이번 창(20:45 ET 뒤)에 이미 받은 종목을 다시 받지 않고 캐시를 쓴다 — 토스 호출을 늘리지 않고,
+ * 그 캐시는 이미 최종값이라 16:30 값을 알 수 없다(before = null — 앞 시도에서 적은 16:30 봉은 저장 쪽이 지킨다).
+ */
 async function loadFinalDefault(symbol: string, day: string, startedAt: number): Promise<FinalCandles> {
   const cachedBar = loadCandles(symbol, '1d', 5).find((c) => marketDate(c.timestamp, symbol) === day);
-  const before = cachedBar ? { bar: barOf(cachedBar), fetchedAt: dailyFetchedAt(symbol, cachedBar.timestamp) } : null;
+  const cachedAt = cachedBar ? dailyFetchedAt(symbol, cachedBar.timestamp) : null;
+  if (cachedAt != null && cachedAt >= windowStartOf(day)) return { candles: loadCandles(symbol, '1d', JUDGE_CANDLE_LIMIT), before: null, fetched: false };
+  const before = cachedBar ? { bar: barOf(cachedBar), fetchedAt: cachedAt } : null;
   try {
     const candles = await getCandles(symbol, '1d', JUDGE_CANDLE_LIMIT);
     const bar = candles.find((c) => marketDate(c.timestamp, symbol) === day);
-    // 그날 봉이 없으면(거래정지 등) 받은 것은 맞다 — 판단 쪽이 「그날 봉 없음」 으로 센다. 있는데 이번에 받은 값이 아니면 받기 실패(캐시)
-    if (bar && (dailyFetchedAt(symbol, bar.timestamp) ?? 0) < startedAt) return { candles: null, before };
-    return { candles, before };
+    // 그날 봉이 없으면(거래정지 등) 받은 것은 맞다 — 판단 쪽이 「판단 못 함」 으로 센다. 있는데 이번에 받은 값이 아니면 받기 실패(캐시)
+    if (bar && (dailyFetchedAt(symbol, bar.timestamp) ?? 0) < startedAt) return { candles: null, before, fetched: true };
+    return { candles, before, fetched: true };
   } catch {
-    return { candles: null, before };
+    return { candles: null, before, fetched: true };
   }
 }
+
+/** 시험 전용 — 실제 받기 함수(캐시를 다시 쓰는 가지는 네트워크 없이 확인할 수 있다) */
+export const loadFinalForTest = loadFinalDefault;
 
 let loadFinal: (symbol: string, day: string, startedAt: number) => Promise<FinalCandles> = loadFinalDefault;
 let refsFor: (now: number) => MarketRefLoader = (now) => marketRefLoader(now, undefined, undefined, false);
@@ -196,13 +214,24 @@ export function recheckPairs(day: string): Pair[] {
 
 export interface RecheckResult {
   day: string;
+  /** 견준 매수 판단 기록 수(= same + changed) */
   checked: number;
   same: number;
   changed: number;
+  /** 계좌 쌍(16:30 값 없음) */
   accounts: number;
+  /** 최종 일봉을 받지 못함 — 그날 창 안에서 다시 시도한다 */
   failed: number;
+  /** 받았지만 판단 못 함(일봉 부족 · 그날 봉 없음 · 판단 오류) — 다시 시도하지 않는다 */
+  skipped: number;
+  /** 매수 판단 기록이 이미 20:40 ET 뒤에 쓰였다(늦게 켠 서버 · 미룬 기록) — 최종값끼리라 견주지 않는다 */
+  late: number;
+  /** 이번에 토스 일봉을 부른 종목 수 */
   symbols: number;
 }
+
+/** 다섯 칸이 최종값과 같아진 가장 늦은 시각(2026-10-19~23 표본) — 판단 기록이 이 뒤면 이미 최종값으로 판단한 것 */
+const FINAL_BY_MINUTES = 20 * 60 + 40;
 
 /** 그 날짜를 지금 시각으로 다시 계산해 기록한다 — 시험이 시각을 넣어 부른다 */
 export async function recheckDay(day: string, now = Date.now()): Promise<RecheckResult> {
@@ -212,23 +241,33 @@ export async function recheckDay(day: string, now = Date.now()): Promise<Recheck
   for (const s of symbols) finals.set(s, await loadFinal(s, day, now));
   const refs = refsFor(now);
   const closeAt = marketDayTime('US', day, dailyCloseOffsetMs('AAPL'));
-  const out: RecheckResult = { day, checked: 0, same: 0, changed: 0, accounts: 0, failed: 0, symbols: symbols.length };
+  const finalBy = marketDayTime('US', day, FINAL_BY_MINUTES * 60_000);
+  const out: RecheckResult = { day, checked: 0, same: 0, changed: 0, accounts: 0, failed: 0, skipped: 0, late: 0, symbols: [...finals.values()].filter((f) => f.fetched).length };
   const db = getDb();
+  // 16:30 봉은 아는 값을 지킨다 — 다시 시도에서 캐시를 다시 쓰면 그 값을 알 수 없다(NULL 로 덮지 않는다)
   const upsert = db.prepare(
-    `INSERT INTO buy_judgment_rechecks (market_date, symbol, rule_id, source, account_ids, before_action, before_code, before_score, before_breakdown_json, before_gate_reason,
+    `INSERT INTO buy_judgment_rechecks (market_date, symbol, rule_id, source, account_ids, before_action, before_code, before_score, before_breakdown_json, before_gate_reason, before_at,
        after_action, after_code, after_score, after_max_score, after_breakdown_json, after_gate_reason, bar_before_json, bar_after_json, checked_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(market_date, symbol, rule_id, source) DO UPDATE SET
        account_ids = excluded.account_ids, before_action = excluded.before_action, before_code = excluded.before_code, before_score = excluded.before_score,
-       before_breakdown_json = excluded.before_breakdown_json, before_gate_reason = excluded.before_gate_reason, after_action = excluded.after_action,
+       before_breakdown_json = excluded.before_breakdown_json, before_gate_reason = excluded.before_gate_reason, before_at = excluded.before_at, after_action = excluded.after_action,
        after_code = excluded.after_code, after_score = excluded.after_score, after_max_score = excluded.after_max_score, after_breakdown_json = excluded.after_breakdown_json,
-       after_gate_reason = excluded.after_gate_reason, bar_before_json = excluded.bar_before_json, bar_after_json = excluded.bar_after_json, checked_at = excluded.checked_at`,
+       after_gate_reason = excluded.after_gate_reason, bar_before_json = COALESCE(excluded.bar_before_json, buy_judgment_rechecks.bar_before_json),
+       bar_after_json = excluded.bar_after_json, checked_at = excluded.checked_at`,
   );
-  const drop = db.prepare(`DELETE FROM buy_judgment_rechecks WHERE market_date = ? AND symbol = ? AND rule_id = ? AND source = ?`);
+  /** 이번에 줄을 쓴 쌍 — 나머지(같아짐 · 이번에 판단 못 함 · 쌍에서 빠짐)의 앞선 줄은 끝에서 지운다(줄과 요약이 같은 것을 센다) */
+  const kept = new Set<string>();
   for (const p of pairs) {
     const final = finals.get(p.symbol)!;
     if (!final.candles) {
       out.failed++;
+      continue;
+    }
+    const b = p.before;
+    const createdAt = b ? Date.parse(b.created_at) : NaN;
+    if (b && Number.isFinite(createdAt) && createdAt >= finalBy) {
+      out.late++;
       continue;
     }
     let ev: RuleEvaluation;
@@ -236,17 +275,16 @@ export async function recheckDay(day: string, now = Date.now()): Promise<Recheck
     try {
       const j = await judgeOnClose(p.symbol, p.rule, { held: false }, now, final.candles, refs);
       if (j.kind !== 'ok' || marketDate(j.completed.at(-1)!.timestamp, p.symbol) !== day) {
-        out.failed++;
+        out.skipped++;
         continue;
       }
       ev = j.ev;
       lastBar = j.completed.at(-1)!;
     } catch {
-      out.failed++;
+      out.skipped++;
       continue;
     }
     const after = breakdownOf(ev);
-    const b = p.before;
     const same =
       b != null &&
       b.action === ev.action &&
@@ -258,59 +296,69 @@ export async function recheckDay(day: string, now = Date.now()): Promise<Recheck
       out.checked++;
       if (same) {
         out.same++;
-        drop.run(day, p.symbol, p.ruleId, p.source); // 앞선 시도에서 달랐다가 같아졌으면 지운다
         continue;
       }
       out.changed++;
     } else out.accounts++;
     // 16:30 판단이 쓴 봉 — 받기 전 캐시 줄을 마감 뒤 · 그 판단 기록 전에 받았을 때만
-    const createdAt = b ? Date.parse(b.created_at) : NaN;
     const f = final.before?.fetchedAt ?? null;
     const barBefore = b && final.before && f != null && f >= closeAt && Number.isFinite(createdAt) && f <= createdAt ? final.before.bar : null;
     upsert.run(
       day, p.symbol, p.ruleId, p.source, p.source === 'account' ? JSON.stringify(p.accountIds) : null,
-      b?.action ?? null, b?.code ?? null, b?.score ?? null, b?.breakdown_json ?? null, b?.gate_reason ?? null,
+      b?.action ?? null, b?.code ?? null, b?.score ?? null, b?.breakdown_json ?? null, b?.gate_reason ?? null, b?.created_at ?? null,
       ev.action, ev.code, ev.score, ev.maxScore, JSON.stringify(after), ev.gateReason ?? null,
       barBefore ? JSON.stringify(barBefore) : null, JSON.stringify(barOf(lastBar)), new Date(now).toISOString(),
     );
+    kept.add(`${p.symbol}|${p.ruleId}|${p.source}`);
   }
+  const drop = db.prepare(`DELETE FROM buy_judgment_rechecks WHERE id = ?`);
+  for (const r of db.prepare(`SELECT id, symbol, rule_id, source FROM buy_judgment_rechecks WHERE market_date = ?`).all(day) as { id: number; symbol: string; rule_id: number; source: string }[])
+    if (!kept.has(`${r.symbol}|${r.rule_id}|${r.source}`)) drop.run(r.id);
+  // 토스 호출 수는 시도마다 더한다(다시 시도한 날의 실제 호출 수)
   db.prepare(
-    `INSERT INTO buy_judgment_recheck_days (market_date, checked, same, changed, accounts, failed, symbols, finished_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO buy_judgment_recheck_days (market_date, checked, same, changed, accounts, failed, skipped, late, symbols, finished_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(market_date) DO UPDATE SET checked = excluded.checked, same = excluded.same, changed = excluded.changed, accounts = excluded.accounts,
-       failed = excluded.failed, symbols = excluded.symbols, finished_at = excluded.finished_at`,
-  ).run(day, out.checked, out.same, out.changed, out.accounts, out.failed, out.symbols, new Date(now).toISOString());
+       failed = excluded.failed, skipped = excluded.skipped, late = excluded.late, symbols = buy_judgment_recheck_days.symbols + excluded.symbols, finished_at = excluded.finished_at`,
+  ).run(day, out.checked, out.same, out.changed, out.accounts, out.failed, out.skipped, out.late, out.symbols, new Date(now).toISOString());
   return out;
 }
 
 // ── 틱 ─────────────────────────────────────────────────────────────────────
 let running = false;
-/** 그날 해 본 횟수(메모리 — 서버를 다시 켜면 처음부터) */
+/** 그날 해 본 횟수(메모리 — 창 안에서 서버를 다시 켜면 처음부터 다시 센다) */
 const tries = new Map<string, number>();
+function countTry(day: string): number {
+  const n = (tries.get(day) ?? 0) + 1;
+  tries.set(day, n);
+  if (tries.size > 20) for (const k of [...tries.keys()].filter((k) => k < day)) tries.delete(k);
+  return n;
+}
 
-/** 한 바퀴 — 매수 판단 스케줄러가 5분마다 부른다(점검 `npm run recheck:test` 는 시각을 넣어 부른다). 돌지 않았으면 이유 */
+/** 한 바퀴 — 매수 판단 스케줄러가 5분마다 부른다(점검 `npm run recheck:test` 는 시각을 넣어 부른다). 돌지 않았으면 이유. 던지지 않는다 */
 export async function recheckTick(now = Date.now()): Promise<{ result: RecheckResult | null; skipped: string | null; pruned: number }> {
-  if (!isRecheckEnabled()) return { result: null, skipped: 'disabled', pruned: 0 };
-  if (mockOverride ?? isMockMode()) return { result: null, skipped: 'mock', pruned: 0 };
-  const day = recheckDayOf(now);
-  if (!day) return { result: null, skipped: 'not_time', pruned: 0 };
-  if ((getRecheckLast() ?? '') >= day) return { result: null, skipped: 'done', pruned: 0 };
-  const recorded = store.getLastRecorded().US;
-  if (!recorded || recorded < day) return { result: null, skipped: 'not_recorded', pruned: 0 };
   if (running) return { result: null, skipped: 'running', pruned: 0 };
   running = true;
+  let day: string | null = null;
   try {
+    if (!isRecheckEnabled()) return { result: null, skipped: 'disabled', pruned: 0 };
+    if (mockOverride ?? isMockMode()) return { result: null, skipped: 'mock', pruned: 0 };
+    day = recheckDayOf(now);
+    if (!day) return { result: null, skipped: 'not_time', pruned: 0 };
+    if ((getRecheckLast() ?? '') >= day) return { result: null, skipped: 'done', pruned: 0 };
+    const recorded = store.getLastRecorded().US;
+    if (!recorded || recorded < day) return { result: null, skipped: 'not_recorded', pruned: 0 };
     const pruned = pruneRechecks(day);
     const result = await recheckDay(day, now);
-    const n = (tries.get(day) ?? 0) + 1;
-    tries.set(day, n);
-    if (tries.size > 20) for (const k of [...tries.keys()].filter((k) => k < day)) tries.delete(k);
-    // 받지 못한 쌍이 남으면 그날 창 안에서 다시(최대 RECHECK_MAX_TRIES 번)
+    const n = countTry(day);
+    // 받지 못한 종목이 남으면 그날 창 안에서 다시(그 종목만 다시 받는다 · 최대 RECHECK_MAX_TRIES 번). 판단 못 함 · 늦은 기록은 다시 하지 않는다
     if (!result.failed || n >= RECHECK_MAX_TRIES) setRecheckLast(day);
     console.log(
-      `[buyJudge] US ${day} 최종값으로 다시 계산 — 매수 판단 ${result.checked}건 중 달라짐 ${result.changed}건 · 계좌 ${result.accounts}쌍 · 받지 못함 ${result.failed}건 · 일봉 ${result.symbols}종목`,
+      `[buyJudge] US ${day} 최종값으로 다시 계산 — 매수 판단 ${result.checked}건 중 달라짐 ${result.changed}건 · 계좌 ${result.accounts}쌍 · 받지 못함 ${result.failed} · 판단 못 함 ${result.skipped} · 늦은 기록 ${result.late} · 일봉 ${result.symbols}종목`,
     );
     return { result, skipped: null, pruned };
   } catch (e) {
+    // 예외도 한 번으로 센다 — 안 세면 그날 창 동안 5분마다 다시 돌아 호출 상한이 사라진다
+    if (day && countTry(day) >= RECHECK_MAX_TRIES) setRecheckLast(day);
     console.warn('[buyJudge] 다시 계산 실패:', e instanceof Error ? e.message : e);
     return { result: null, skipped: 'error', pruned: 0 };
   } finally {

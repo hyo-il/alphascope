@@ -1,12 +1,13 @@
 /**
- * 미국 매수 판단 다시 계산 결과 보기 — `npm run -s recheck:report` (오라클 안에서: `cd ~/alphascope && npm run -s recheck:report`).
+ * 미국 매수 판단 다시 계산 결과 보기 — `npm run -s recheck:report [-- --from YYYY-MM-DD --to YYYY-MM-DD]` (오라클 안에서: `cd ~/alphascope && npm run -s recheck:report`).
+ * 기간을 주지 않으면 기록이 있는 전체(30일 보관).
  * 앱 DB(`.env` 의 `DB_PATH`)를 **읽기 전용**으로 연다 — 표를 만들거나 바꾸지 않는다. 토스도 부르지 않는다.
  */
 import 'dotenv/config';
 import path from 'node:path';
 import fs from 'node:fs';
 import Database from 'better-sqlite3';
-import { renderRecheckReport } from './lib/recheckReport';
+import { filterPeriod, renderRecheckReport } from './lib/recheckReport';
 import type { RecheckDay, RecheckRow } from '../server/buyJudge/recheck';
 
 const file = path.resolve(process.env.DB_PATH ?? './db/alphascope.db');
@@ -21,6 +22,13 @@ if (!has('buy_judgment_rechecks') || !has('buy_judgment_recheck_days')) {
 } else {
   const rows = db.prepare(`SELECT * FROM buy_judgment_rechecks ORDER BY market_date, source DESC, symbol, rule_id`).all() as RecheckRow[];
   const days = db.prepare(`SELECT * FROM buy_judgment_recheck_days ORDER BY market_date`).all() as RecheckDay[];
-  console.log(renderRecheckReport(rows, days));
+  const arg = (name: string) => {
+    const i = process.argv.indexOf(name);
+    const v = i >= 0 ? process.argv[i + 1] : undefined;
+    return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined;
+  };
+  const from = arg('--from');
+  const to = arg('--to');
+  console.log(renderRecheckReport(filterPeriod(rows, from, to), filterPeriod(days, from, to)));
 }
 db.close();

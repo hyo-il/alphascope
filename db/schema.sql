@@ -411,6 +411,7 @@ CREATE TABLE IF NOT EXISTS buy_judgment_rechecks (
   before_score INTEGER,
   before_breakdown_json TEXT,         -- [{key, score, max}] (켠 조건 — buy_judgments 와 같은 모양)
   before_gate_reason TEXT,
+  before_at TEXT,                     -- 그 buy_judgments 줄을 쓴 시각(16:30 기록 · 화면 [다시 계산] 이 덮었으면 그 시각)
   after_action TEXT NOT NULL,         -- 최종 일봉으로 다시 계산한 값
   after_code TEXT NOT NULL,
   after_score INTEGER NOT NULL,
@@ -429,8 +430,10 @@ CREATE TABLE IF NOT EXISTS buy_judgment_recheck_days (
   same INTEGER NOT NULL,              -- 그 가운데 같음(줄 없음)
   changed INTEGER NOT NULL,           -- 그 가운데 달라짐(줄 있음)
   accounts INTEGER NOT NULL,          -- 계좌 쌍(16:30 값 없음 — 줄 있음)
-  failed INTEGER NOT NULL,            -- 최종 일봉을 받지 못함 · 그날 봉 없음 · 판단 못 함
-  symbols INTEGER NOT NULL,           -- 일봉을 받은 종목 수(토스 일봉 호출 수)
+  failed INTEGER NOT NULL,            -- 최종 일봉을 받지 못함(그날 창 안에서 다시 시도 — 마지막 시도 기준)
+  skipped INTEGER NOT NULL,           -- 받았지만 판단 못 함(일봉 부족 · 그날 봉 없음 · 판단 오류 — 다시 시도 안 함)
+  late INTEGER NOT NULL,              -- 매수 판단 기록이 이미 20:40 ET 뒤에 쓰여 견주지 않음
+  symbols INTEGER NOT NULL,           -- 토스 일봉을 부른 종목 수(다시 시도까지 더함 = 그날 일봉 호출 수)
   finished_at TEXT NOT NULL
 );
 
