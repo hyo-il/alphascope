@@ -564,7 +564,7 @@ function RankFilter({ value, onChange, rankedAt }: { value: SavedRankView; onCha
         ))}
       </Select>
       <InfoTip label="보기 설명">
-        「전체」 는 지금 멈춘 종목을 순위와 상관없이 모두 보입니다. 「상위」 · 「급상승」 · 「급하락」 은 토스 오늘 상승률 · 하락률 순위 상위 N 안에 든 종목 가운데 지금 멈춘 것만 — 「상위」 는 두 순위를 합친 것, 「급상승」 은 상승률, 「급하락」 은 하락률만. 관심 · 보유 종목은 순위와 상관없이 멈추면 보입니다. 「며칠째 정지 중」 칸은 보기와 상관없이 며칠째 멈춘 종목을 모두 보입니다. 순위는 30초마다 다시 읽고, 순위 시각은 토스 기준입니다.
+        「상위」 = 급상승 + 급하락 — 토스 오늘 상승률 · 하락률 순위 상위 N 안에 든 종목 가운데 지금 멈춘 것만(「급상승」 은 상승률, 「급하락」 은 하락률만). 「전체」 는 지금 멈춘 종목을 순위와 상관없이 모두 보입니다(상위 N 은 쓰지 않습니다). 관심 · 보유 종목은 순위와 상관없이 멈추면 보입니다. 「며칠째 정지 중」 칸은 보기와 상관없이 며칠째 멈춘 종목을 모두 보입니다(정규장 밖에는 오늘 멈춘 것도 「1일째」 로). 순위는 30초마다 다시 읽고, 순위 시각은 토스 기준입니다.
         {Number.isFinite(rankedMs) ? ` 지금 순위 시각 ${kstClockText(rankedMs)}(한국 시간).` : ''}
       </InfoTip>
     </div>
@@ -807,14 +807,34 @@ function HaltName({
       {/* 좁으면 시장이 먼저 줄어들고(shrink 10000 : 1 — 말줄임 + 툴팁) 그다음 이름. 100 : 1 이면 짧은 이름(테슬라)이 1px 줄어 「테…」 가 됐다. 티커는 `keepTicker` 로 줄지 않는다.
           좁은 칸(사유 코드를 툴팁으로 옮기는 폭 — `CompactReason`)에서는 시장을 그리지 않고 줄 툴팁으로 — 1~6px 까지 눌려 말줄임표도 없이 글자 조각만 남았다(「전체」 1280).
           최소 폭을 주면 그만큼 이름이 「보유…」 처럼 잘렸다 */}
-      {market && !compact && (
-        <span className="min-w-0 shrink-[10000] truncate text-caption text-text-muted" title={market}>
-          {market}
-        </span>
-      )}
+      {market && !compact && <MarketText market={market} />}
       {watched && <Badge>관심</Badge>}
       {h.held && <Badge>보유</Badge>}
     </div>
+  );
+}
+
+/** 시장이 이보다 좁게 눌리면 감춘다(말줄임표도 없이 글자 조각만 남는다 — 「N…」 이 겨우 들어가는 폭) */
+const MARKET_MIN_PX = 24;
+
+/**
+ * 종목 칸의 시장(작은 글자 · 말줄임 + 툴팁) — 자기 폭을 재서 `MARKET_MIN_PX` 보다 좁으면 감춘다(`invisible` — 폭은 그대로라 다시 재도 같다).
+ * 좁은 칸 기준(920px)만으로는 그 위 폭(1360~1600 창 · 「상위」 · 「전체」)에서 0~6px 로 눌리는 줄이 남았다.
+ */
+function MarketText({ market }: { market: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [tiny, setTiny] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setTiny(e.contentRect.width < MARKET_MIN_PX));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <span ref={ref} className={`min-w-0 shrink-[10000] truncate text-caption text-text-muted ${tiny ? 'invisible' : ''}`} title={market} data-market-tiny={tiny ? '' : undefined}>
+      {market}
+    </span>
   );
 }
 
