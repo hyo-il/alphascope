@@ -329,19 +329,19 @@ function targets(): Target[] {
       },
       open: (page: Page) => pickMarket(page, market),
     })),
-    // 거래정지 — 긴 종목명 · 긴 사유 · 순위 칸까지 모든 칸 한 줄인지(가짜 응답 — DB · Nasdaq · 토스 그대로). 「전체」 · 「급상승」 · 정규장 밖
-    ...([['예시', 'all', true], ['급상승', 'gainers', true], ['정규장밖', 'all', false]] as const).map(([label, view, regular]) => ({
+    // 거래정지 — 긴 종목명 · 긴 사유 · 순위 칸까지 모든 칸 한 줄인지(가짜 응답 — DB · Nasdaq · 토스 그대로). 「상위」(기본) · 「전체」(순위 칸 없음) · 「급상승」 · 정규장 밖
+    ...([['예시', 'top', true], ['전체', 'all', true], ['급상승', 'gainers', true], ['정규장밖', 'top', false]] as const).map(([label, view, regular]) => ({
       name: `ushalts-${label}`,
       hash: '#/ushalts',
       before: async (page: Page) => {
-        await page.evaluate((v) => localStorage.setItem('alphascope.usHaltsView', JSON.stringify({ view: v, top: 10 })), view);
+        await page.evaluate((v) => localStorage.setItem('alphascope.usHaltsView.v2', JSON.stringify({ view: v, top: 10 })), view);
         await page.route('**/api/us-halts', (r) => r.fulfill({ json: usHaltsSample(Date.now(), regular) }).catch(() => {}));
         await page.route('**/api/rankings/live**', (r) => r.fulfill({ json: rankingSample(new URL(r.request().url()).searchParams.get('kind') as 'gainers', Date.now()) }).catch(() => {}));
       },
       after: async (page: Page) => {
         await page.unroute('**/api/us-halts');
         await page.unroute('**/api/rankings/live**');
-        await page.evaluate(() => localStorage.removeItem('alphascope.usHaltsView'));
+        await page.evaluate(() => localStorage.removeItem('alphascope.usHaltsView.v2'));
       },
     })),
     // 기준가를 확인하지 못한 종목은 등락률이 null → 「—」(지도 칸 · 관심 패널). 응답의 절반을 null 로 바꿔치기 — DB 는 그대로

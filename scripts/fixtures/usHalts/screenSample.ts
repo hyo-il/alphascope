@@ -1,7 +1,8 @@
 /**
  * 거래정지 화면 점검용 가짜 응답 — `design:check` 의 `ushalts-*` 대상이 `page.route` 로 바꿔치기한다(DB · Nasdaq · 토스를 건드리지 않는다).
  * 한 줄 배치를 재려고 긴 것을 일부러 넣는다: 긴 종목명 · 긴 사유(LUDS · T12 · T3) · 공지 재개 · 조건이 맞으면 재개 · 모르는 코드 · 관심/보유 배지 · 「상태 모름」.
- * 보기(v2.57.1): 순위 안 · 밖 경계(상승 10 · 11위, 하락 10 · 11위) · 순위 밖 보유 종목(MYHD) · 며칠째 칸의 보유 종목(OLDB)만 보임.
+ * 보기(v2.57.1): 순위 안 · 밖 경계(상승 10 · 11위, 하락 10 · 11위) · 순위 밖 보유 종목(MYHD).
+ * 며칠째 칸(v2.57.3 — 보기와 상관없이 모든 장기 정지): 관심 · 보유 아닌 OLDA(상태 모름) · OLDC 와 보유 OLDB(맨 위).
  */
 import type { UsHaltRow, UsHaltsResponse, UsOngoingHaltRow } from '../../../src/types/usHalts';
 import type { LiveRankingKind, LiveRankingResponse } from '../../../src/types/ranking';
@@ -49,6 +50,7 @@ export function usHaltsSample(now: number, regularOpen = true): UsHaltsResponse 
   const ongoing: UsOngoingHaltRow[] = [
     { ...row(11, now, { sym: 'OLDA', code: 'LUDS', agoMin: 3 * 24 * 60, resumeAtMs: now + 20 * 60 * MIN, rawIssueName: 'Another Very Long Biotechnology Therapeutics Name Corp' }), daysHalted: 3, unlisted: true },
     { ...row(12, now, { sym: 'OLDB', code: 'H10', agoMin: 12 * 24 * 60, turnover5mUsd: null, held: true }), daysHalted: 12, unlisted: false },
+    { ...row(13, now, { sym: 'OLDC', code: 'T12', agoMin: 5 * 24 * 60, turnover5mUsd: 3_200 }), daysHalted: 5, unlisted: false },
   ];
   const day = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/New_York' }).format(new Date(now));
   return {

@@ -778,7 +778,7 @@ function DirectionText({ h }: { h: UsHaltRow }) {
 
 /**
  * 종목 칸(한 줄) — 이름 · 티커(누르면 차트, 토스에 없으면 못 누름) + 시장(오늘 표만) + 관심 · 보유 배지. 오늘 표 · 며칠째 표가 같이 쓴다.
- * 좁으면 시장 → 이름 순서로 말줄임 + 툴팁(`StockName` `keepTicker`) · 티커 · 배지는 자르지 않는다.
+ * 좁으면 시장 → 이름 순서로 말줄임 + 툴팁(`StockName` `keepTicker`) · 티커 · 배지는 자르지 않는다. 좁은 칸(`CompactReason`)에서는 시장을 줄 툴팁으로.
  */
 function HaltName({
   h,
@@ -792,8 +792,9 @@ function HaltName({
   onSelectSymbol: (symbol: string) => void;
 }) {
   const symbol = h.rawIssueSymbol.trim();
+  const compact = useContext(CompactReason);
   return (
-    <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
+    <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap" title={market && compact ? `시장 ${market}` : undefined}>
       {h.inToss ? (
         <button type="button" onClick={() => onSelectSymbol(symbol)} className="flex rounded text-left hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent">
           <StockName symbol={symbol} name={h.catalogName ?? (h.rawIssueName.trim() || null)} keepTicker />
@@ -803,8 +804,10 @@ function HaltName({
           <StockName symbol={symbol} name={h.rawIssueName.trim() || null} keepTicker />
         </span>
       )}
-      {/* 좁으면 시장이 먼저 다 줄어들고(shrink 10000 : 1 — 말줄임 + 툴팁) 그다음 이름. 100 : 1 이면 짧은 이름(테슬라)이 1px 줄어 「테…」 가 됐다. 티커는 `keepTicker` 로 줄지 않는다 */}
-      {market && (
+      {/* 좁으면 시장이 먼저 줄어들고(shrink 10000 : 1 — 말줄임 + 툴팁) 그다음 이름. 100 : 1 이면 짧은 이름(테슬라)이 1px 줄어 「테…」 가 됐다. 티커는 `keepTicker` 로 줄지 않는다.
+          좁은 칸(사유 코드를 툴팁으로 옮기는 폭 — `CompactReason`)에서는 시장을 그리지 않고 줄 툴팁으로 — 1~6px 까지 눌려 말줄임표도 없이 글자 조각만 남았다(「전체」 1280).
+          최소 폭을 주면 그만큼 이름이 「보유…」 처럼 잘렸다 */}
+      {market && !compact && (
         <span className="min-w-0 shrink-[10000] truncate text-caption text-text-muted" title={market}>
           {market}
         </span>
