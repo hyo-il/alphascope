@@ -35,8 +35,11 @@ function row(id: number, now: number, p: Partial<UsHaltRow> & { sym: string; cod
   };
 }
 
-/** regularOpen = false 면 「정규장에만 보입니다」 상태(다음 정규장은 now + 20시간 · 6시간 30분) */
-export function usHaltsSample(now: number, regularOpen = true): UsHaltsResponse {
+/**
+ * regularOpen = false 면 「정규장에만 보입니다」 상태(다음 정규장은 now + 20시간 · 6시간 30분).
+ * `ongoingTotal` — 「며칠째 정지 중」 줄 수(기본 3 · 늘리면 관심 · 보유 아닌 장기 정지를 더한다 — 5줄 칸 스크롤 시험, v2.58.1). 3 보다 작으면 앞에서부터 자른다
+ */
+export function usHaltsSample(now: number, regularOpen = true, ongoingTotal = 3): UsHaltsResponse {
   const halts: UsHaltRow[] = [
     row(1, now, { sym: 'LGNM', code: 'T12', agoMin: 40, rawIssueName: 'Very Long Company Name Holdings International Incorporated Class A Common Stock', inToss: false, held: true, turnover5mUsd: 1_234_567 }),
     row(2, now, { sym: 'LUDA', code: 'LUDS', agoMin: 2, directionEst: 'up', turnover5mUsd: 845_000 }),
@@ -51,7 +54,12 @@ export function usHaltsSample(now: number, regularOpen = true): UsHaltsResponse 
     { ...row(11, now, { sym: 'OLDA', code: 'LUDS', agoMin: 3 * 24 * 60, resumeAtMs: now + 20 * 60 * MIN, rawIssueName: 'Another Very Long Biotechnology Therapeutics Name Corp' }), daysHalted: 3, unlisted: true },
     { ...row(12, now, { sym: 'OLDB', code: 'H10', agoMin: 12 * 24 * 60, turnover5mUsd: null, held: true }), daysHalted: 12, unlisted: false },
     { ...row(13, now, { sym: 'OLDC', code: 'T12', agoMin: 5 * 24 * 60, turnover5mUsd: 3_200 }), daysHalted: 5, unlisted: false },
-  ];
+    ...Array.from({ length: Math.max(0, ongoingTotal - 3) }, (_, k): UsOngoingHaltRow => ({
+      ...row(20 + k, now, { sym: `LONG${k + 1}`, code: k % 2 ? 'H10' : 'T12', agoMin: (6 + k) * 24 * 60, turnover5mUsd: 1_000 * (k + 1) }),
+      daysHalted: 6 + k,
+      unlisted: false,
+    })),
+  ].slice(0, ongoingTotal);
   const day = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/New_York' }).format(new Date(now));
   return {
     day,

@@ -25,6 +25,11 @@ export const LIST_GAP = 'space-y-1';
  * 매매 규칙 목록(버튼 28px 줄)과 종목 목록 표(계좌 ② · 백테스트 ①)가 같은 높이가 된다.
  */
 export const LIST_TABLE_ROW = 'h-10';
+/** `LIST_TABLE_ROW`(h-10) 의 px — 줄 N개 높이를 계산할 때(거래정지 「며칠째 정지 중」 5줄 칸) */
+export const LIST_TABLE_ROW_PX = 40;
+/** 고정(sticky) 머리줄 높이 — 몸통 높이를 줄 수로 정하는 표에서 머리줄도 높이를 고정한다(13px 글자 + 위아래 8px 와 같은 36px) */
+export const TABLE_HEAD_ROW = 'h-9';
+export const TABLE_HEAD_ROW_PX = 36;
 
 /**
  * 표 (기준표 「표」 규칙) — **화면은 꽉 채우되 숫자 칸은 내용 폭 + 고정 여백**, 남는 폭은 이름(종목) 칸이 가져간다.

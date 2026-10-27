@@ -10,8 +10,9 @@ import { ICON_SM } from './icon';
  * - 툴팁은 `document.body` 에 그린다 — 조상의 `overflow-hidden` 에 잘리지 않게.
  * - ⚠️ **"지우지 않는다" 고정 안내 문구는 여기에 넣지 않는다**(화면에 글자로 남긴다 — docs/rules/design.md 「디자인 규칙」).
  * - `trigger` 를 주면 아이콘 대신 그 글자가 단추가 된다(점선 밑줄 — 좁은 칸에서 덧붙임을 숨기고 글자에 툴팁을 달 때. 지금: 거래정지 사유 칸).
+ * - `open` 을 주면 밖에서도 연다(true) — 흐린(disabled) 입력칸은 마우스 · 초점을 받지 않아, 그 칸 위에 마우스가 오면 옆 아이콘의 툴팁을 연다(지금: 거래정지 정규장 밖 보기).
  */
-export default function InfoTip({ children, label = '설명', trigger }: { children: ReactNode; label?: string; trigger?: ReactNode }) {
+export default function InfoTip({ children, label = '설명', trigger, open }: { children: ReactNode; label?: string; trigger?: ReactNode; open?: boolean }) {
   const id = useId();
   const ref = useRef<HTMLButtonElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; up: boolean } | null>(null);
@@ -23,6 +24,10 @@ export default function InfoTip({ children, label = '설명', trigger }: { child
     setPos({ left: Math.min(Math.max(8, r.left + r.width / 2 - 160), window.innerWidth - 328), top: up ? r.top - 6 : r.bottom + 6, up });
   };
   const hide = () => setPos(null);
+  useEffect(() => {
+    if (open === true) show();
+    else if (open === false) hide();
+  }, [open]);
 
   useEffect(() => {
     if (!pos) return;

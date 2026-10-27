@@ -330,12 +330,13 @@ function targets(): Target[] {
       open: (page: Page) => pickMarket(page, market),
     })),
     // 거래정지 — 긴 종목명 · 긴 사유 · 순위 칸까지 모든 칸 한 줄인지(가짜 응답 — DB · Nasdaq · 토스 그대로). 「상위」(기본) · 「전체」(순위 칸 없음) · 「급상승」 · 정규장 밖
-    ...([['예시', 'top', true], ['전체', 'all', true], ['급상승', 'gainers', true], ['정규장밖', 'top', false]] as const).map(([label, view, regular]) => ({
+    // 「며칠째9」 = 장기 정지 9줄(5줄 칸 + 칸 안 스크롤 · v2.58.1)
+    ...([['예시', 'top', true, 3], ['전체', 'all', true, 3], ['급상승', 'gainers', true, 3], ['정규장밖', 'top', false, 3], ['며칠째9', 'top', true, 9]] as const).map(([label, view, regular, ongoing]) => ({
       name: `ushalts-${label}`,
       hash: '#/ushalts',
       before: async (page: Page) => {
         await page.evaluate((v) => localStorage.setItem('alphascope.usHaltsView.v2', JSON.stringify({ view: v, top: 10 })), view);
-        await page.route('**/api/us-halts', (r) => r.fulfill({ json: usHaltsSample(Date.now(), regular) }).catch(() => {}));
+        await page.route('**/api/us-halts', (r) => r.fulfill({ json: usHaltsSample(Date.now(), regular, ongoing) }).catch(() => {}));
         await page.route('**/api/rankings/live**', (r) => r.fulfill({ json: rankingSample(new URL(r.request().url()).searchParams.get('kind') as 'gainers', Date.now()) }).catch(() => {}));
       },
       after: async (page: Page) => {
