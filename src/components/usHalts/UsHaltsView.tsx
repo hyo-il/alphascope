@@ -341,7 +341,11 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
                 <SectionTitle>며칠째 정지 중 ({ongoing.groups.length})</SectionTitle>
                 {notice(ongoing.hiddenCount)}
                 {ongoing.shown.length > 0 && <OngoingTable groups={ongoing.shown} watchlist={watchlist} onSelectSymbol={onSelectSymbol} />}
-                <p className="text-caption text-text-muted">최근 30일 안에 시작된 정지만 보입니다(그보다 오래된 정지는 저장하지 않습니다).</p>
+                <p className="text-caption text-text-muted">
+                  최근 30일 안에 시작된 정지만 보입니다(그보다 오래된 정지는 저장하지 않습니다).
+                  {/* 칸이 5줄에서 끝나 보여 — 숨은 줄이 있다고 글자로도 적는다(이 줄은 늘 있어 칸 아래 「지금 정지 중」 표 자리가 바뀌지 않는다) */}
+                  {ongoing.shown.length > ONGOING_ROWS && ` 5줄씩 보입니다 — 칸 안에서 스크롤하면 나머지 ${ongoing.shown.length - ONGOING_ROWS}줄이 보입니다.`}
+                </p>
               </div>
             );
             // 정규장 밖 — 「지금 정지 중」 자리에 안내 한 줄, 그 아래 며칠째 칸(토스트는 위 effect 가 끈다)
@@ -554,6 +558,10 @@ function RankFilter({
 }) {
   const rankedMs = rankedAt ? Date.parse(rankedAt) : NaN;
   const [hover, setHover] = useState(false);
+  // 마우스가 흐린 칸 위에 있는 채로 정규장이 열리면 툴팁을 닫는다(open=false 로 바뀐다)
+  useEffect(() => {
+    if (!closed) setHover(false);
+  }, [closed]);
   const session =
     closed?.open != null && closed.close != null ? `한국 ${kstClockText(closed.open).slice(0, 5)}~${kstClockText(closed.close).slice(0, 5)}` : '미국 09:30~16:00 ET';
   return (
@@ -588,10 +596,15 @@ function RankFilter({
         ))}
       </Select>
       </div>
-      <InfoTip label={closed ? '보기 설명 — 정규장에 쓰입니다' : '보기 설명'} open={closed ? hover : undefined}>
-        {closed ? `보기 · 상위 N 은 정규장(${session})에 쓰입니다 — 지금은 「지금 정지 중」 표가 없어 흐리게 두었습니다(고른 값은 그대로 기억합니다). ` : ''}
+      <InfoTip label={closed ? '보기 설명 — 정규장에 쓰입니다' : '보기 설명'} open={closed ? hover : false}>
+        {closed ? (
+          `보기 · 상위 N 은 정규장(${session})에 쓰입니다 — 지금은 「지금 정지 중」 표가 없어 흐리게 두었습니다. 고른 값은 그대로 기억하고, 「며칠째 정지 중」 칸은 보기와 상관없이 보입니다.`
+        ) : (
+          <>
         「상위」 = 급상승 + 급하락 — 토스 오늘 상승률 · 하락률 순위 상위 N 안에 든 종목 가운데 지금 멈춘 것만(「급상승」 은 상승률, 「급하락」 은 하락률만). 「전체」 는 지금 멈춘 종목을 순위와 상관없이 모두 보입니다(상위 N 은 쓰지 않습니다). 관심 · 보유 종목은 순위와 상관없이 멈추면 보입니다. 「며칠째 정지 중」 칸은 보기와 상관없이 며칠째 멈춘 종목을 모두 보입니다(정규장 밖에는 오늘 멈춘 것도 「1일째」 로). 순위는 30초마다 다시 읽고, 순위 시각은 토스 기준입니다.
         {Number.isFinite(rankedMs) ? ` 지금 순위 시각 ${kstClockText(rankedMs)}(한국 시간).` : ''}
+          </>
+        )}
       </InfoTip>
     </div>
   );
@@ -652,6 +665,8 @@ function TurnoverText({ halts }: { halts: UsHaltRow[] }) {
 const TURNOVER_TIP = '오늘 최대 5분 거래대금 — 이 종목이 오늘 멈췄던 정지들 가운데, 정지 전 5분 거래대금이 가장 컸던 값(종가 × 거래량, 토스 1분봉)';
 /** 「며칠째 정지 중」 칸 높이 — 줄 이만큼(넘치면 칸 안에서 스크롤 · 사용자 결정 2026-10-27). 정확히 5줄 — 5줄일 때와 9줄일 때 아래 「지금 정지 중」 표가 같은 자리 */
 const ONGOING_ROWS = 5;
+/** 표 마지막 칸 오른쪽 여백 — 두 표가 쓰는 `pr-3` 의 px(며칠째 칸은 여기서 막대 자리를 뺀다) */
+const ROW_END_PAD_PX = 12;
 const ONGOING_TURNOVER_TIP = '최대 5분 거래대금 — 이 칸에 묶인 정지들 가운데, 정지 전 5분 거래대금이 가장 컸던 값(종가 × 거래량, 토스 1분봉)';
 
 /** 거래대금 칸 머리 — 숫자 칸이라 오른쪽 끝 맞춤 */
@@ -685,7 +700,8 @@ function HaltTable({
     <div className="rounded-lg bg-bg-tertiary/40">
       <table className="w-full text-left text-xs">
         <thead className="text-caption text-text-muted">
-          <tr className="border-b border-border/50">
+          {/* 머리줄 높이는 위 「며칠째」 표(고정 머리줄)와 같게 */}
+          <tr className={`border-b border-border/50 ${TABLE_HEAD_ROW}`}>
             <th className={`${TABLE_NAME_COL} py-2 pl-3 font-normal`}>종목</th>
             {hits && <th className={`${NUM} py-2 font-normal`}>{rankView === 'gainers' || rankView === 'losers' ? `${SIDE_NAME[rankView]} 순위` : '순위'}</th>}
             <th className={`${NUM} py-2 font-normal`}>사유</th>
@@ -908,15 +924,21 @@ function OngoingTable({
   const mine = (h: UsHaltRow) => watchlist.includes(h.rawIssueSymbol.trim()) || h.held;
   // 묶인 줄은 그 종목의 가장 최근 정지로 — 관심 · 보유가 위, 그다음 오래된 것부터
   const sorted = [...groups].sort((a, b) => Number(mine(b.latest)) - Number(mine(a.latest)) || a.latest.haltAtMs - b.latest.haltAtMs);
-  // 5줄 높이 칸 — 넘치면 칸 안에서 스크롤(머리줄 고정). 아래에 더 있으면 옅은 그림자 · 넘칠 때만 키보드 초점(화살표로 스크롤)
+  // 5줄 높이 칸 — 넘치면 칸 안에서 스크롤(머리줄 고정). 아래에 더 있으면 그림자 · 넘칠 때만 키보드 초점(화살표로 스크롤).
+  // 스크롤 막대 자리는 늘 비워 둔다(`scrollbar-gutter: stable`) — 줄이 5 ↔ 6 을 오갈 때 막대가 생겼다 사라지며 칸 폭이 움직이지 않게
   const box = useRef<HTMLDivElement>(null);
-  const [scroll, setScroll] = useState({ over: false, more: false });
+  const [scroll, setScroll] = useState({ over: false, more: false, gutter: 0 });
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
     const measure = () => {
       const over = el.scrollHeight > el.clientHeight + 1;
-      setScroll({ over, more: over && el.scrollTop + el.clientHeight < el.scrollHeight - 1 });
+      // 비워 둔 막대 자리(운영체제 · 브라우저마다 0~15px) — 마지막 칸 오른쪽 여백에서 뺀다
+      const gutter = el.offsetWidth - el.clientWidth;
+      setScroll((p) => {
+        const next = { over, more: over && el.scrollTop + el.clientHeight < el.scrollHeight - 1, gutter };
+        return p.over === next.over && p.more === next.more && p.gutter === next.gutter ? p : next;
+      });
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -928,6 +950,8 @@ function OngoingTable({
       el.removeEventListener('scroll', measure);
     };
   }, []);
+  // 마지막 칸 오른쪽 여백 = 아래 「지금 정지 중」 표와 같은 `pr-3`(12px) − 막대 자리 — 두 표의 오른쪽 끝 숫자가 같은 x
+  const endPad = { paddingRight: scroll.gutter < ROW_END_PAD_PX ? ROW_END_PAD_PX - scroll.gutter : 0 };
   // 머리줄 아래 선 — 붙여 둔 머리줄(sticky)에서는 줄(tr)의 아래 선이 스크롤에 같이 밀려 그림자로 긋는다
   const HEAD = `sticky top-0 z-[1] bg-bg-box shadow-[inset_0_-1px_0_color-mix(in_srgb,var(--color-border)_50%,transparent)]`;
   return (
@@ -937,7 +961,7 @@ function OngoingTable({
         tabIndex={scroll.over ? 0 : undefined}
         aria-label={scroll.over ? '며칠째 정지 중 목록' : undefined}
         role={scroll.over ? 'region' : undefined}
-        className="overflow-y-auto rounded-lg bg-bg-tertiary/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+        className="overflow-y-auto rounded-lg bg-bg-tertiary/40 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
         style={{ maxHeight: TABLE_HEAD_ROW_PX + ONGOING_ROWS * LIST_TABLE_ROW_PX }}
         data-ongoing-scroll
       >
@@ -951,7 +975,7 @@ function OngoingTable({
             {/* 앞 칸(며칠째)이 오른쪽 끝 맞춤이라 넓은 여백 — 좁으면 「며칠째 재개」 가 한 말로 읽혔다 */}
             <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} ${HEAD} font-normal`}>재개</th>
             <th className={`${NUM} ${HEAD} font-normal`}>상태</th>
-            <th className={`${NUM} ${HEAD} pr-3 text-right font-normal`}>
+            <th className={`${NUM} ${HEAD} text-right font-normal`} style={endPad}>
               <TurnoverHead label="거래대금" tip={ONGOING_TURNOVER_TIP} />
             </th>
           </tr>
@@ -989,7 +1013,7 @@ function OngoingTable({
                   <span className="font-medium text-warning">정지 중</span>
                 )}
               </td>
-              <td className={`${NUM} py-1.5 pr-3 text-right`}>
+              <td className={`${NUM} py-1.5 text-right`} style={endPad}>
                 <TurnoverText halts={[h, ...earlier]} />
               </td>
             </tr>
@@ -997,8 +1021,10 @@ function OngoingTable({
         </tbody>
       </table>
       </div>
-      {/* 아래에 줄이 더 있으면 옅은 그림자(칸 바탕 → 투명) — 스크롤이 있다는 표시. 끝까지 내리면 사라진다 */}
-      {scroll.more && <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-lg bg-gradient-to-t from-bg-box to-transparent" data-ongoing-more />}
+      {/* 아래에 줄이 더 있으면 그림자(화면 바탕 → 투명, 칸보다 어두워 보인다) — 스크롤이 있다는 표시. 끝까지 내리면 사라진다. 오른쪽은 스크롤 막대(6px) 자리를 비운다 */}
+      {scroll.more && (
+        <div aria-hidden className="pointer-events-none absolute bottom-0 left-0 right-2 h-8 rounded-bl-lg bg-gradient-to-t from-bg-primary to-transparent" data-ongoing-more />
+      )}
     </div>
   );
 }
