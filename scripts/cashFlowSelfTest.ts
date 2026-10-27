@@ -48,7 +48,7 @@ cleanup();
 
 const server = spawn('node_modules/.bin/tsx', ['server/index.ts'], {
   detached: true,
-  env: { ...process.env, INDICATORS_PORT: process.env.INDICATORS_PORT ?? '5002', API_PORT: String(PORT), AUTO_TRADING_ENABLED: 'false', GEMINI_ENABLED: 'false', UNIVERSE_UPDATE_ENABLED: 'false', US_HALTS_ENABLED: 'false' },
+  env: { ...process.env, INDICATORS_PORT: process.env.INDICATORS_PORT ?? '5002', API_PORT: String(PORT), AUTO_TRADING_ENABLED: 'false', GEMINI_ENABLED: 'false', UNIVERSE_UPDATE_ENABLED: 'false', US_HALTS_ENABLED: 'false', BUYJUDGE_RECHECK_ENABLED: 'false' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let serverLog = '';

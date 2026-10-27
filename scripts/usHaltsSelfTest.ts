@@ -426,7 +426,7 @@ let serverLog = '';
 async function startServer(): Promise<void> {
   server = spawn('node_modules/.bin/tsx', ['server/index.ts'], {
     detached: true,
-    env: { ...process.env, API_PORT: String(PORT), AUTO_TRADING_ENABLED: 'false', GEMINI_ENABLED: 'false', UNIVERSE_UPDATE_ENABLED: 'false', US_HALTS_ENABLED: 'false' },
+    env: { ...process.env, API_PORT: String(PORT), AUTO_TRADING_ENABLED: 'false', GEMINI_ENABLED: 'false', UNIVERSE_UPDATE_ENABLED: 'false', US_HALTS_ENABLED: 'false', BUYJUDGE_RECHECK_ENABLED: 'false' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   server.stdout!.on('data', (d) => (serverLog += d));
