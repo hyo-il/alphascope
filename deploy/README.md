@@ -77,6 +77,17 @@ bash ~/alphascope/deploy/rollback-to-vite.sh
 
 ## 점검 도구
 
+### 미국 매수 판단 다시 계산 결과 (`recheck:report`)
+
+서버가 미국 거래일 20:45 ET 뒤(한국 다음 날 09:45 · 11-02 부터 10:45) 매수 판단을 최종 일봉으로 한 번 더 계산해 16:30 기록과 달라진 것만 남깁니다(v2.58.0).
+결과는 **오라클에 들어가서** 봅니다(앱 DB 를 읽기 전용으로 엽니다 — 쓰지 않고 토스도 부르지 않습니다):
+
+```bash
+cd ~/alphascope && npm run -s recheck:report
+```
+
+「다시 계산 N건 · 달라짐 M건(action 바뀜 a · code 바뀜 b · 점수만 바뀜 c)」 · 달라진 줄 표 · 한 줄 결론이 나옵니다. 기간만 보려면 `npm run -s recheck:report -- --from 2026-11-02 --to 2026-11-06`. 끄려면 `.env` 에 `BUYJUDGE_RECHECK_ENABLED=false` 를 넣고 pm2 를 다시 켭니다.
+
 ### 미국 마감 직후 값 기록 (`ussample:run` · `ussample:report`)
 
 매수 판단 매일 기록(16:30 ET)이 받는 미국 일봉이 애프터마켓이 끝난 뒤의 최종값과 같은지 보려고, 미국 거래일 15:55~20:40 ET 에
