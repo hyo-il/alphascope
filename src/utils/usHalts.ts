@@ -95,6 +95,23 @@ export function groupHalts<T extends { rawIssueSymbol: string; haltAtMs: number;
 }
 
 /**
+ * 「며칠째 정지 중」 칸의 줄 — **보기와 상관없이 모든 장기 정지**(관심 · 보유만이 아님 · 정규장 밖에도). 이 함수 한 곳(화면 · 시험).
+ * - 지난 날 정지(서버 `listOngoingBefore`) 가운데 안 풀린 것 + 「상태 모름」(`unlisted` — 풀렸는지 몰라 시각으로 지우지 않는다). 매초 다시 거른다.
+ * - 정규장 밖에는 오늘 정지 가운데 안 풀림 · **LULD 아님**도 「1일째」 로 넣는다(「지금 정지 중」 이 꺼져 미국 자정까지 어디에도 안 보였다).
+ *   LULD 는 넣지 않는다 — 마감 직전에 멈춰 재개가 안 적힌 채 「정지 중」 으로 남는 바로 그 경우(정규장에만 보이게 한 이유).
+ * 줄을 먼저 거른 뒤 묶는다(묶은 뒤 거르면 같은 종목의 다른 줄의 공지 시각이 지날 때 상태 모름 줄까지 사라졌다가 다음 읽기에 다시 나타났다).
+ */
+export function longHaltRows<T extends { rawReasonCode: string; resumeAtMs: number | null }, O extends T & { daysHalted: number; unlisted: boolean }>(
+  ongoing: O[],
+  today: T[],
+  regularOpen: boolean,
+  now: number,
+): (O | (T & { daysHalted: number; unlisted: boolean }))[] {
+  const todayRows = regularOpen ? [] : today.filter((h) => !isLuldCode(h.rawReasonCode.trim()) && isHaltOngoing(h, now)).map((h) => ({ ...h, daysHalted: 1, unlisted: false }));
+  return [...ongoing.filter((h) => h.unlisted || isHaltOngoing(h, now)), ...todayRows];
+}
+
+/**
  * 묶음의 거래대금 — 그 묶음 정지들의 정지 전 5분 거래대금 가운데 **가장 큰 값**(이 함수 한 곳 — 표시 · 숨기기가 같은 숫자를 쓴다).
  * 풀린 지 몇십 초 만에 다시 멈춘 정지는 앞 5분 대부분이 앞선 정지 시간이라 0 에 가깝다 — 가장 최근 값만 쓰면 가장 활발한 종목이 숨었다.
  * - usd: 아는 값 가운데 최대(0 이면 「거래 없음」) · 모두 모르면 null
@@ -121,15 +138,18 @@ export const isHiddenByTurnover = (t: GroupTurnover, minTurnoverUsd: number | nu
   minTurnoverUsd != null && !mine && !t.checking && t.usd != null && t.usd < minTurnoverUsd;
 
 /**
- * 보기 「전체 · 급상승 · 급하락」 — 토스 오늘 상승률 · 하락률 순위(`GET /api/rankings/live?market=us&kind=gainers|losers`, 실시간 순위 화면과 같은 API · 30초 캐시)
- * 상위 N 안에 든 종목만 「지금 정지 중」 표에 남긴다. 「전체」 = 상승률 상위 N ∪ 하락률 상위 N(순위 밖 정지를 보는 보기는 없다).
- * **관심 · 보유 종목은 순위와 상관없이 늘 남긴다**(`keep`). 순서 = 이 거르기 → 거래대금 숨기기(`isHiddenByTurnover`).
+ * 보기 「전체 · 상위 · 급상승 · 급하락」 — 「지금 정지 중」 표만 거른다(「며칠째 정지 중」 칸은 보기와 상관없이 모든 장기 정지).
+ * - 「전체」(all): 지금 멈춘 종목 **전부** — 순위로 거르지 않고 순위를 부르지 않는다(토스 호출 0 · 순위 칸 없음).
+ * - 「상위」(top) · 「급상승」(gainers) · 「급하락」(losers): 토스 오늘 상승률 · 하락률 순위(`GET /api/rankings/live?market=us&kind=gainers|losers`,
+ *   실시간 순위 화면과 같은 API · 30초 캐시) 상위 N 안에 든 종목만 남긴다. 「상위」 = 상승률 상위 N ∪ 하락률 상위 N.
+ *   **관심 · 보유 종목은 순위와 상관없이 늘 남긴다**(`keep`). 순서 = 이 거르기 → 거래대금 숨기기(`isHiddenByTurnover`).
  */
-export type HaltRankView = 'all' | 'gainers' | 'losers';
+export type HaltRankView = 'all' | 'top' | 'gainers' | 'losers';
 export type HaltRankSide = 'gainers' | 'losers';
-export const HALT_RANK_VIEWS: readonly HaltRankView[] = ['all', 'gainers', 'losers'];
-/** 보기가 읽는 순위 — 「전체」 는 둘 다 */
-export const rankSidesOf = (view: HaltRankView): HaltRankSide[] => (view === 'all' ? ['gainers', 'losers'] : [view]);
+export const HALT_RANK_VIEWS: readonly HaltRankView[] = ['all', 'top', 'gainers', 'losers'];
+export const DEFAULT_HALT_RANK_VIEW: HaltRankView = 'top';
+/** 보기가 읽는 순위 — 「전체」 는 없음(부르지 않는다) · 「상위」 는 둘 다 */
+export const rankSidesOf = (view: HaltRankView): HaltRankSide[] => (view === 'all' ? [] : view === 'top' ? ['gainers', 'losers'] : [view]);
 /** 상위 N — 토스 순위가 100개까지라 100 이 최대 */
 export const HALT_RANK_TOPS = [10, 20, 50, 100] as const;
 export type HaltRankTop = (typeof HALT_RANK_TOPS)[number];
@@ -151,6 +171,20 @@ export function rankHits(lists: { side: HaltRankSide; rows: { rank: number; symb
   for (const { side, rows } of lists)
     for (const r of rows) if (r.rank >= 1 && r.rank <= top && !hits.has(rankKey(r.symbol))) hits.set(rankKey(r.symbol), { side, rank: r.rank, changeRate: r.changeRate });
   return hits;
+}
+
+/**
+ * 기억된 보기 읽기 — 새 키(`next`)가 있으면 그것, 없으면 옛 키(`legacy`, v2.57.2 까지)를 옮겨 읽는다.
+ * 옛 「all」 은 합친 상위(지금의 「상위」)였다 → 'top'. 옛 키의 급상승 · 급하락 · 상위 N 은 그대로. 모양이 틀리면 기본값.
+ */
+export function readSavedHaltView(next: unknown, legacy: unknown): { view: HaltRankView; top: HaltRankTop } {
+  const pick = (raw: unknown, fromLegacy: boolean) => {
+    if (!raw || typeof raw !== 'object') return null;
+    const r = raw as { view?: unknown; top?: unknown };
+    const view = fromLegacy && r.view === 'all' ? 'top' : HALT_RANK_VIEWS.find((v) => v === r.view);
+    return { view: view ?? DEFAULT_HALT_RANK_VIEW, top: HALT_RANK_TOPS.find((n) => n === r.top) ?? DEFAULT_HALT_RANK_TOP };
+  };
+  return pick(next, false) ?? pick(legacy, true) ?? { view: DEFAULT_HALT_RANK_VIEW, top: DEFAULT_HALT_RANK_TOP };
 }
 
 export const rankHitOf = (hits: Map<string, HaltRankHit>, symbol: string): HaltRankHit | null => hits.get(rankKey(symbol)) ?? null;
