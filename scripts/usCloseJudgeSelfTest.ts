@@ -90,6 +90,7 @@ const LINES: SampleLine[] = [
   ok('ZZJQ', '16:15', 600_000), ok('ZZJQ', '16:35', 700_000), ok('ZZJQ', '20:40', 3_000_000), // 16:25~16:30 밖만 → 16:30 표본 없음
   { day: DAY, et: '16:30', at: etIso(DAY, '16:30'), symbol: 'ZZJE', error: '토스 500' }, // 실패 줄
   ok('ZZJE', '20:40', 3_000_000, { barDate: '2026-10-20', error: '그날 봉 없음' }), // 다른 날 봉
+  ok('ZZJV', '16:30', 600_000, { close: undefined }), ok('ZZJV', '20:40', 3_000_000), // 16:30 표본 종가 빠짐 → 기록 칸 빠짐
   ok('ZZJD', '16:30', 600_000, { barDate: '2026-10-20' }), ok('ZZJD', '20:40', 3_000_000, { barDate: '2026-10-20' }), // barDate ≠ day(오류 칸 없이도)
 ];
 fs.writeFileSync(sampleFile, LINES.map((l) => JSON.stringify(l)).join('\n') + '\n');
@@ -119,8 +120,8 @@ try {
   // ── ① 고르기 ──
   const picked = pickTargets(readLines(sampleFile));
   check(
-    '고르기 — 16:30 표본 + 최종 20:30 이상만(ZZJA·B·F·N·R·S) · 최종 20:25 따로(1) · 16:15/16:35 만 → 표본 없음(1) · 실패 줄 · 다른 날 봉 빠짐',
-    picked.targets.map((t) => t.symbol).sort().join(',') === 'ZZJA,ZZJB,ZZJF,ZZJN,ZZJR,ZZJS' && picked.lateFinal === 1 && picked.noNear === 1,
+    '고르기 — 16:30 표본 + 최종 20:30 이상만(ZZJA·B·F·N·R·S) · 최종 20:25 따로(1) · 16:15/16:35 만 → 표본 없음(1) · 종가 빠짐 따로(1) · 실패 줄 · 다른 날 봉 빠짐',
+    picked.targets.map((t) => t.symbol).sort().join(',') === 'ZZJA,ZZJB,ZZJF,ZZJN,ZZJR,ZZJS' && picked.lateFinal === 1 && picked.noNear === 1 && picked.incomplete === 1,
     `${picked.targets.map((t) => t.symbol).join(',')} · 늦음 ${picked.lateFinal} · 없음 ${picked.noNear}`,
   );
   const ta = picked.targets.find((t) => t.symbol === 'ZZJA')!;
@@ -189,6 +190,10 @@ try {
   const r4 = await judgeSamples({ lines: readLines(sampleFile), rules: [basic], fetchDaily: t4.fetchDaily });
   check('토큰 발급 실패 — 1번만 부르고 멈춤 · 모두 받지 못함', r4.calls === 1 && [...t4.calls.values()].reduce((a, n) => a + n, 0) === 1 && r4.notFetched === 6 && r4.compared === 0);
   check('한 줄 결론 — 견준 것 없음', conclusionOf(r4).includes('견준 매수 판단이 없음'));
+  // 견줄 것이 없으면(표본 없음만) 시장 기준도 받지 않는다
+  const t5 = fakeToss();
+  const r5 = await judgeSamples({ lines: LINES.filter((l) => l.symbol === 'ZZJQ'), rules, fetchDaily: t5.fetchDaily });
+  check('견줄 것 없음 — SPY 도 받지 않음(호출 0)', r5.calls === 0 && t5.calls.size === 0);
 
   // ── ⑥ 규칙 ──
   const mem = new Database(':memory:');
@@ -229,7 +234,7 @@ try {
       /\n2026-10-21 \| ZZJA \| 기본 규칙 \| .+ \| \+400\.0% \| 거래량/.test(text) && /\n한 줄 결론: 9건 중 사도 됨\/아님이 바뀐 것 /.test(text),
   );
   const none = { ...probe, changed: [], same: probe.compared };
-  check('한 줄 결론 — 모두 같으면 「거래량이 덜 모여도 판단은 같았다」 + 범위(일 · 종목·날짜 · 규칙)', /0건 — 거래량이 덜 모여도 판단은 같았다 \(1일 · 기록한 종목·날짜 1개 · 규칙 1개만 본 결과/.test(conclusionOf(none)));
+  check('한 줄 결론 — 모두 같으면 「16:30 값과 최종값의 판단이 같았다」(다른 표본 수) + 범위(일 · 종목·날짜 · 규칙) — 숫자 이상을 말하지 않음', /0건 — 16:30 값과 최종값의 판단이 같았다\(16:30 값이 최종값과 다른 종목·날짜 1개\) \(1일 · 기록한 종목·날짜 1개 · 규칙 1개만 본 결과/.test(conclusionOf(none)));
   check('한 줄 결론 — 점수만 바뀌면 「점수 · 판단 코드만 N건」', conclusionOf(probe).includes('바뀐 것 0건 — 점수 · 판단 코드만 1건 달라짐'));
 
   // ── ⑨ 명령 — 토스를 부르기 전에 끝나는 길 ──

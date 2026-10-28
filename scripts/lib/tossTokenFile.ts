@@ -29,8 +29,9 @@ export function fileTokenStore(file: string) {
     },
     save(token: CachedToken) {
       fs.mkdirSync(path.dirname(file), { recursive: true });
+      // 이미 있던 파일은 mode 가 적용되지 않는다 — 쓰기 전에 권한부터 좁힌다
+      if (fs.existsSync(file)) fs.chmodSync(file, 0o600);
       fs.writeFileSync(file, JSON.stringify(token), { mode: 0o600 });
-      fs.chmodSync(file, 0o600); // 이미 있던 파일은 mode 가 적용되지 않는다
     },
     clear() {
       fs.rmSync(file, { force: true });

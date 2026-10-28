@@ -81,11 +81,15 @@ export interface JudgeTarget {
   final: SampleLine;
 }
 
-/** 견줄 것 · 16:30 표본 없음 · 최종값 믿기 어려움(마지막 줄이 20:30 ET 전) — 고르기는 `compareGroups` 그대로 */
-export function pickTargets(lines: SampleLine[]): { targets: JudgeTarget[]; noNear: number; lateFinal: number } {
+/** 다섯 칸이 모두 유한한 숫자인가 — 아니면 토스 값을 빈 값으로 덮게 된다 */
+const complete = (l: SampleLine) => FIELDS.every((f) => typeof l[f] === 'number' && Number.isFinite(l[f]));
+
+/** 견줄 것 · 16:30 표본 없음 · 최종값 믿기 어려움(마지막 줄이 20:30 ET 전) · 기록 칸 빠짐 — 고르기는 `compareGroups` 그대로 */
+export function pickTargets(lines: SampleLine[]): { targets: JudgeTarget[]; noNear: number; lateFinal: number; incomplete: number } {
   const targets: JudgeTarget[] = [];
   let noNear = 0;
   let lateFinal = 0;
+  let incomplete = 0;
   for (const g of compareGroups(lines)) {
     if (!g.near) {
       noNear++;
@@ -97,9 +101,13 @@ export function pickTargets(lines: SampleLine[]): { targets: JudgeTarget[]; noNe
     }
     const final = g.rows[g.rows.length - 1];
     const near = g.rows.find((r) => r !== final && r.et === g.near!.et)!;
+    if (!complete(near) || !complete(final)) {
+      incomplete++;
+      continue;
+    }
     targets.push({ day: g.day, symbol: g.symbol, near, final });
   }
-  return { targets, noNear, lateFinal };
+  return { targets, noNear, lateFinal, incomplete };
 }
 
 // ── 두 벌 ──────────────────────────────────────────────────────────────────
@@ -149,6 +157,10 @@ export interface JudgeResult {
   notFetchedSymbols: string[];
   noNear: number;
   lateFinal: number;
+  /** 16:30 · 최종 표본의 다섯 칸 가운데 빈 칸이 있다(견주지 않음) */
+  incomplete: number;
+  /** 16:30 표본과 최종 표본의 다섯 칸이 하나라도 다른 종목·날짜 수 */
+  barsDiffer: number;
   /** 받은 최종 일봉의 D 봉이 기록 파일의 최종 표본과 다름(그 뒤 토스가 값을 고침) — 판단은 기록 파일 값으로 */
   tossDiffers: { day: string; symbol: string; fields: string[] }[];
   /** 토스 일봉 받기 횟수(종목마다 한 번 + 다시 시도) */
@@ -170,11 +182,12 @@ const REF = MARKET_REF.US.symbol;
 export const judgeTimeOf = (day: string) => marketDayTime('US', day, RECHECK_AT_MINUTES * 60_000);
 
 export async function judgeSamples(opts: JudgeOptions): Promise<JudgeResult> {
-  const { targets, noNear, lateFinal } = pickTargets(opts.lines.filter((l) => !isKrSymbol(l.symbol)));
+  const { targets, noNear, lateFinal, incomplete } = pickTargets(opts.lines.filter((l) => !isKrSymbol(l.symbol)));
   const usesRef = opts.rules.some((r) => usesMarketFilter(r.body));
   const symbols = [...new Set(targets.map((t) => t.symbol))].sort();
   const callLimit = symbols.length + (usesRef ? 1 : 0);
-  const fetchList = usesRef && !symbols.includes(REF) ? [...symbols, REF] : symbols;
+  // 견줄 것이 없으면 시장 기준도 받지 않는다
+  const fetchList = usesRef && symbols.length && !symbols.includes(REF) ? [...symbols, REF] : symbols;
 
   // 받기 — 종목마다 한 번(실패면 다시 시도 1번). 토큰 발급 실패면 남은 종목은 부르지 않는다
   const got = new Map<string, Candle[] | null>();
@@ -230,6 +243,8 @@ export async function judgeSamples(opts: JudgeOptions): Promise<JudgeResult> {
     notFetchedSymbols: symbols.filter((s) => !got.get(s)),
     noNear,
     lateFinal,
+    incomplete,
+    barsDiffer: targets.filter((t) => FIELDS.some((f) => t.near[f] !== t.final[f])).length,
     tossDiffers: [],
     calls,
     retries,
@@ -341,9 +356,11 @@ export function renderJudgeReport(r: JudgeResult): string {
     `견줌 ${r.compared}건 · 달라짐 ${r.changed.length}건(action 바뀜 ${kinds.action} · code 바뀜 ${kinds.code} · 점수만 바뀜 ${kinds.score}) · 같음 ${r.same}건 · ` +
       `판단 못 함(일봉 부족 등) ${r.skipped} · 최종값 믿기 어려움 ${r.lateFinal} · 토스 값이 기록과 다름 ${r.tossDiffers.length} · 토스 일봉 호출 ${r.calls}번`,
   );
+  const priceDiffers = r.tossDiffers.filter((d) => d.fields.some((f) => f !== FIELD_LABEL.volume)).length;
   out.push(
-    `(건 = 종목·날짜 × 규칙 · 최종값 믿기 어려움 · 토스 값이 기록과 다름 = 종목·날짜 수 · 16:30 표본 없음 ${r.noNear}개 · 받지 못함 ${r.notFetched}건` +
-      `${r.notFetchedSymbols.length ? `(${r.notFetchedSymbols.join(',')})` : ''} · 다시 시도 ${r.retries}번 · 호출 상한 ${r.callLimit}번 + 다시 시도)`,
+    `(건 = 종목·날짜 × 규칙 · 최종값 믿기 어려움 · 토스 값이 기록과 다름 = 종목·날짜 수${r.tossDiffers.length ? `(가격 칸이 다름 ${priceDiffers})` : ''} · ` +
+      `16:30 값이 최종값과 다른 종목·날짜 ${r.barsDiffer}개 · 16:30 표본 없음 ${r.noNear}개 · 기록 칸 빠짐 ${r.incomplete}개 · 받지 못함 ${r.notFetched}건` +
+      `${r.notFetchedSymbols.length ? `(${r.notFetchedSymbols.join(',')})` : ''} · 다시 시도 ${r.retries}번 · 호출 상한 ${r.callLimit}번 + 다시 시도 · 호출 1번 = 일봉 300개 · 토스 요청 2쪽)`,
   );
   if (r.changed.length) {
     out.push('');
@@ -359,7 +376,7 @@ export function renderJudgeReport(r: JudgeResult): string {
   }
   if (r.tossDiffers.length) {
     out.push('');
-    out.push('토스 값이 기록과 다름(판단은 기록 파일 값으로): ' + r.tossDiffers.slice(0, 10).map((d) => `${d.day} ${d.symbol}(${d.fields.join('·')})`).join(' · ') + (r.tossDiffers.length > 10 ? ` 외 ${r.tossDiffers.length - 10}개` : ''));
+    out.push((priceDiffers ? '⚠️ 가격 칸이 다른 줄은 따로 보세요(그 뒤 토스가 앞 봉을 고쳤을 수 있음 — 앞 봉은 지금 토스 값). ' : '') + '토스 값이 기록과 다름(판단은 기록 파일 값으로): ' + r.tossDiffers.slice(0, 10).map((d) => `${d.day} ${d.symbol}(${d.fields.join('·')})`).join(' · ') + (r.tossDiffers.length > 10 ? ` 외 ${r.tossDiffers.length - 10}개` : ''));
   }
   const reasons = Object.entries(r.skipReasons);
   if (reasons.length) {
@@ -380,5 +397,5 @@ export function conclusionOf(r: JudgeResult, actionChanged = r.changed.filter((c
     return `한 줄 결론: ${r.compared}건 중 사도 됨/아님이 바뀐 것 ${actionChanged}건(${days}일) — 16:30 값으로 판단하면 결과가 달라지는 경우가 있었다 ${scope}`;
   }
   if (r.changed.length) return `한 줄 결론: ${r.compared}건 중 사도 됨/아님이 바뀐 것 0건 — 점수 · 판단 코드만 ${r.changed.length}건 달라짐 ${scope}`;
-  return `한 줄 결론: ${r.compared}건 중 사도 됨/아님이 바뀐 것 0건 — 거래량이 덜 모여도 판단은 같았다 ${scope}`;
+  return `한 줄 결론: ${r.compared}건 중 사도 됨/아님이 바뀐 것 0건 — 16:30 값과 최종값의 판단이 같았다(16:30 값이 최종값과 다른 종목·날짜 ${r.barsDiffer}개) ${scope}`;
 }

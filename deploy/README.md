@@ -98,7 +98,8 @@ cd ~/alphascope && npm run -s ussample:judge
 ```
 
 - 읽기만 합니다 — 앱 DB 는 읽기 전용으로 열어 규칙 · 계좌 설정만 읽고, 캔들 캐시 · 매수 판단 기록 · 다시 계산 표에 쓰지 않습니다. 주문 없음.
-- 토스 일봉 호출: 기록에 있는 종목마다 한 번 + 시장 기준(SPY) 한 번(시장 필터 규칙이 있을 때) — 실패한 종목만 한 번 더. 토큰은 `ussample:run` 과 같은 토큰 파일(`~/alphascope-samples/.toss-token.json`, 권한 600)을 씁니다.
+- 토스 일봉 받기: 기록에 있는 종목마다 한 번 + 시장 기준(SPY) 한 번(시장 필터 규칙이 있을 때) — 실패한 종목만 한 번 더. 받기 한 번 = 일봉 300개 = 토스 요청 2쪽.
+- `ussample:run` 기록 시간대(15:55~20:40 ET) 밖에 돌립니다 — 같은 토큰 파일을 같이 고치지 않게. 토큰은 `ussample:run` 과 같은 토큰 파일(`~/alphascope-samples/.toss-token.json`, 권한 600)을 씁니다.
 - 지표 엔진(pm2 `alphascope-indicators`)이 떠 있어야 합니다 — 꺼져 있으면 안내만 하고 끝납니다.
 - 「견줌 N건 · 달라짐 M건(action 바뀜 a · code 바뀜 b · 점수만 바뀜 c) …」 · 달라진 줄 · 한 줄 결론이 나옵니다. 다른 기록 파일은 `USSAMPLE_OUT=<경로>` 로.
 
