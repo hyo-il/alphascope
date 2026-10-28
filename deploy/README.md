@@ -88,6 +88,20 @@ cd ~/alphascope && npm run -s recheck:report
 
 「다시 계산 N건 · 달라짐 M건(action 바뀜 a · code 바뀜 b · 점수만 바뀜 c)」 · 달라진 줄 표 · 한 줄 결론이 나옵니다. 기간만 보려면 `npm run -s recheck:report -- --from 2026-11-02 --to 2026-11-06`. 끄려면 `.env` 에 `BUYJUDGE_RECHECK_ENABLED=false` 를 넣고 pm2 를 다시 켭니다.
 
+### 16:30 값 vs 최종값 매수 판단 견주기 (`ussample:judge`)
+
+`~/alphascope-samples/us-close.jsonl`(아래 `ussample:run` 기록)의 16:30 ET 무렵 값과 최종값으로 같은 규칙(「기본 규칙」 + 자동매매를 켠 계좌의 규칙)을 두 번 판단해
+action · code · 점수가 바뀌는지 셉니다(v2.58.2). **오라클에 들어가서** 한 번 돌립니다:
+
+```bash
+cd ~/alphascope && npm run -s ussample:judge
+```
+
+- 읽기만 합니다 — 앱 DB 는 읽기 전용으로 열어 규칙 · 계좌 설정만 읽고, 캔들 캐시 · 매수 판단 기록 · 다시 계산 표에 쓰지 않습니다. 주문 없음.
+- 토스 일봉 호출: 기록에 있는 종목마다 한 번 + 시장 기준(SPY) 한 번(시장 필터 규칙이 있을 때) — 실패한 종목만 한 번 더. 토큰은 `ussample:run` 과 같은 토큰 파일(`~/alphascope-samples/.toss-token.json`, 권한 600)을 씁니다.
+- 지표 엔진(pm2 `alphascope-indicators`)이 떠 있어야 합니다 — 꺼져 있으면 안내만 하고 끝납니다.
+- 「견줌 N건 · 달라짐 M건(action 바뀜 a · code 바뀜 b · 점수만 바뀜 c) …」 · 달라진 줄 · 한 줄 결론이 나옵니다. 다른 기록 파일은 `USSAMPLE_OUT=<경로>` 로.
+
 ### 미국 마감 직후 값 기록 (`ussample:run` · `ussample:report`)
 
 매수 판단 매일 기록(16:30 ET)이 받는 미국 일봉이 애프터마켓이 끝난 뒤의 최종값과 같은지 보려고, 미국 거래일 15:55~20:40 ET 에

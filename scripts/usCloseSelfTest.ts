@@ -18,7 +18,8 @@ import { getAccessToken, setTokenStore, TossAuthError } from '../src/services/to
 import { isKrSymbol } from '../src/utils/market';
 import type { Candle } from '../src/types/toss';
 import { compareGroups, conclusion, etParts, readLines, renderReport, type SampleLine, type SamplerConfig } from './lib/usClose';
-import { fileTokenStore, heldUsSymbols, pickSymbols, runSampler } from './usCloseSampler';
+import { heldUsSymbols, pickSymbols, runSampler } from './usCloseSampler';
+import { fileTokenStore } from './lib/tossTokenFile';
 
 let pass = 0;
 let fail = 0;

@@ -42,7 +42,9 @@
     "design:check": "tsx scripts/designCheck.ts",
     "ussample:run": "tsx scripts/usCloseSampler.ts",
     "ussample:report": "tsx scripts/usCloseReport.ts",
-    "ussample:test": "tsx scripts/usCloseSelfTest.ts"
+    "ussample:test": "tsx scripts/usCloseSelfTest.ts",
+    "ussample:judge": "tsx scripts/usCloseJudge.ts",
+    "ussample:judge:test": "tsx scripts/usCloseJudgeSelfTest.ts"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-kr": "^5.3.0",

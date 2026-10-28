@@ -100,9 +100,9 @@ export function readLines(file: string): SampleLine[] {
 
 export const FIELDS = ['open', 'high', 'low', 'close', 'volume'] as const;
 export type Field = (typeof FIELDS)[number];
-const LABEL: Record<Field, string> = { open: '시가', high: '고가', low: '저가', close: '종가', volume: '거래량' };
+export const FIELD_LABEL: Record<Field, string> = { open: '시가', high: '고가', low: '저가', close: '종가', volume: '거래량' };
 
-const toMin = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+export const toMin = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 
 function fmtDiff(field: Field, d: number): string {
   const sign = d > 0 ? '+' : '-';
@@ -232,5 +232,5 @@ export function conclusion(groups: GroupResult[]): string {
   const maxPct = Math.max(0, ...volDiff.map((g) => Math.abs(g.near!.volumePct)));
   const lastSettled = judged.map((g) => g.allSettledEt).sort().at(-1);
   const volText = volDiff.length ? ` 거래량 차이는 최대 ${maxPct.toFixed(2)}%, 다섯 칸이 최종값과 같아진 가장 늦은 시각 ${lastSettled} ET.` : '';
-  return `${base} 다르다 — ${diff.map((x) => `${LABEL[x.f]} ${x.n}건`).join(' · ')}${priceSame ? ' (가격 4칸은 모두 같음)' : ''}.${volText}`;
+  return `${base} 다르다 — ${diff.map((x) => `${FIELD_LABEL[x.f]} ${x.n}건`).join(' · ')}${priceSame ? ' (가격 4칸은 모두 같음)' : ''}.${volText}`;
 }

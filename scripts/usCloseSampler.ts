@@ -7,8 +7,8 @@
  * - 종목마다 그날 일봉의 다섯 칸과 받은 시각을 `~/alphascope-samples/us-close.jsonl` 에 한 줄씩 덧붙인다. 실패는 error 를 적고 넘어간다.
  * - ⚠️ **앱 DB 에 쓰지 않는다** — 읽기 전용 연결로 휴장일 · 보유 종목만 읽는다(`getDb()` 는 열 때 표를 만들어서 쓰지 않는다). 캔들 캐시도 거치지 않는다
  *   (`fetchCandles` 는 토스만 부른다).
- * - 토큰: 서버 토큰은 서버 프로세스 메모리에만 있어 나눠 쓸 수 없다. 대신 받은 토큰을 기록 폴더의 파일(권한 600)에 두고 만료 10분 전까지
- *   다시 쓴다 — 발급은 1시간에 한 번쯤. 발급이 실패하면 남은 종목은 부르지 않고(발급을 다시 시도하지 않는다) 실패 줄만 적는다.
+ * - 토큰: 기록 폴더의 토큰 파일(`lib/tossTokenFile.ts` — `ussample:judge` 와 같이 쓴다). 발급이 실패하면 남은 종목은 부르지 않고
+ *   (발급을 다시 시도하지 않는다) 실패 줄만 적는다.
  */
 import 'dotenv/config';
 import Database from 'better-sqlite3';
@@ -18,12 +18,13 @@ import { fileURLToPath } from 'node:url';
 import { dbFilePath } from '../server/db';
 import { isMarketClosed } from '../server/marketCalendar';
 import { isMockMode } from '../server/mockData';
-import { setTokenStore, TossAuthError, type CachedToken } from '../src/services/toss/auth';
+import { TossAuthError } from '../src/services/toss/auth';
 import { fetchCandles } from '../src/services/toss/market';
 import { isKrSymbol } from '../src/utils/market';
 import { marketDate } from '../src/utils/marketDate';
 import type { Candle } from '../src/types/toss';
 import { etParts, inWindow, loadConfig, MAX_SYMBOLS, SAMPLE_FILE, type SampleLine, type SamplerConfig } from './lib/usClose';
+import { useTokenFile } from './lib/tossTokenFile';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const CONFIG_FILE = path.join(here, 'usCloseSampler.symbols.json');
@@ -107,32 +108,6 @@ export async function runSampler(opts: SamplerOptions): Promise<SamplerResult> {
   return { status: 'recorded', ...base, symbols, ok: lines.length - failed, failed, dropped };
 }
 
-/**
- * 받은 토큰을 파일에 둔다(권한 600) — 다음 실행이 다시 쓴다. **한 번 실행에 발급 시도는 1번까지**(실패 · 네트워크 오류 포함) —
- * 401 이 나서 다시 받아야 하면 그 회차는 멈춘다(토스가 새 발급 때 예전 토큰을 끊는다면 서버와 서로 끊는 일이 5분에 한 번을 넘지 않게).
- */
-export function fileTokenStore(file: string) {
-  let attempts = 0;
-  return {
-    canIssue: () => attempts++ < 1,
-    load(): CachedToken | null {
-      try {
-        const t = JSON.parse(fs.readFileSync(file, 'utf8')) as CachedToken;
-        return typeof t.accessToken === 'string' && typeof t.expiresAt === 'number' ? t : null;
-      } catch {
-        return null;
-      }
-    },
-    save(token: CachedToken) {
-      fs.mkdirSync(path.dirname(file), { recursive: true });
-      fs.writeFileSync(file, JSON.stringify(token), { mode: 0o600 });
-    },
-    clear() {
-      fs.rmSync(file, { force: true });
-    },
-  };
-}
-
 async function main() {
   // 시험용 고정 시각(`USSAMPLE_NOW`) — 운영 cron 은 넘기지 않는다
   const now = process.env.USSAMPLE_NOW ? new Date(process.env.USSAMPLE_NOW) : new Date();
@@ -147,7 +122,7 @@ async function main() {
       console.log(`${now.toISOString()} 토스 키가 없어 기록하지 않는다(모의 데이터 모드)`);
       return;
     }
-    setTokenStore(fileTokenStore(path.join(path.dirname(outFile), '.toss-token.json')));
+    useTokenFile(outFile);
     const result = await runSampler({ now, config, outFile, db });
     if (result.status === 'recorded') {
       console.log(
