@@ -46,7 +46,10 @@ const DISCLAIMER = '본 정보는 투자 권유가 아니며 투자 판단의 �
 const RAW_SCHEDULE_MAX = 8;
 
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
-const dayLabel = (day: string) => `${day.slice(5, 7)}/${day.slice(8, 10)}(${WEEKDAY[new Date(`${day}T12:00:00Z`).getUTCDay()]})`;
+/** 화면이 만드는 짧은 날짜 「10-28(수)」 (YYYY-MM-DD 의 월-일 · 요일) */
+const dayLabel = (day: string) => `${day.slice(5, 7)}-${day.slice(8, 10)}(${WEEKDAY[new Date(`${day}T12:00:00Z`).getUTCDay()]})`;
+/** AI 일정 날짜 「11/02(월)」 → 「11-02(월)」(화면 표기 — 문장 속 날짜는 AI 글 그대로) */
+const slotDate = (label: string) => label.slice(0, 9).replace(/^(\d{1,2})\/(\d{1,2})/, (_, m: string, d: string) => `${m.padStart(2, '0')}-${d.padStart(2, '0')}`);
 /** AI 글 정리 — 이모지를 빼고 하이픈 음수를 마이너스 기호로 · 금액 음수는 부호를 통화 기호 앞으로(`₩-1,214` → `−₩1,214`) */
 const clean = (text: string | null | undefined) =>
   displayMinus(
@@ -280,7 +283,9 @@ function RunControls({ status, starting, onRun }: { status: MarketBriefStatus; s
   return (
     <>
       <span className="text-caption text-text-muted">
-        지금 누르면 {EDITION_LABEL[status.nowEdition]}({status.nowEdition === 'morning' ? '미국 마감 기준' : '국내 마감 · VIX'})을 만듭니다
+        {status.running
+          ? '만드는 중 — 끝나면 이 화면에 보입니다'
+          : `지금 누르면 ${EDITION_LABEL[status.nowEdition]}(${status.nowEdition === 'morning' ? '미국 마감 기준' : '국내 마감 · VIX'})을 만듭니다`}
       </span>
       <InfoTip label="오전판 · 오후판">
         한국 시간 13시 전에 누르면 오전판(미국 증시 · 금리 · 달러 · 금 · 원유 등 13가지, 국내 · 해외 뉴스), 13시부터는 오후판(코스피 · 코스닥 마감 · VIX 공포지수, 국내 뉴스)을 만듭니다.
@@ -376,7 +381,7 @@ function BriefBody({ brief, onOpen }: { brief: MarketBrief; onOpen: (symbol: str
         <span className="tabular-nums">
           데이터 기준 {basis ? `${brief.edition === 'morning' ? '미국' : '국내'} ${dayLabel(basis)} ${isIntradayBar(basisKey, basis, collectedAt) ? '장중' : '종가'}` : '모름'}
         </span>
-        <span>AI 참고 글 · 투자 조언 아님</span>
+        {ai && <span>AI 참고 글 · 투자 조언 아님</span>}
       </div>
 
       {!ai && (
@@ -643,7 +648,7 @@ function ScheduleRow({ item, earning, onOpen }: { item: BriefScheduleItem; earni
   const symbol = earning?.symbol ?? (item.ticker ? item.ticker.toUpperCase().replace(/\.(KS|KQ)$/, '') : null);
   return (
     <li className="flex gap-2 text-xs">
-      <span className="w-20 shrink-0 tabular-nums text-text-secondary">{item.date.slice(0, 9)}</span>
+      <span className="w-20 shrink-0 tabular-nums text-text-secondary">{slotDate(item.date)}</span>
       <div className="min-w-0 flex-1">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="font-medium text-text-primary">{clean(item.event)}</span>
@@ -686,7 +691,7 @@ function RawSchedule({ earnings, onOpen }: { earnings: BriefEarning[]; onOpen: (
               {g.items.slice(0, RAW_SCHEDULE_MAX).map((e) => (
                 <ScheduleRow
                   key={e.symbol}
-                  item={{ date: dayLabel(e.date), event: `${e.name} 실적 발표${e.isEstimateDate ? '(날짜 미확정)' : ''}`, ticker: e.symbol, sector_kr: e.sector, detail: rawDetail(e), importance: 0 }}
+                  item={{ date: `${e.date.slice(5, 7)}/${e.date.slice(8, 10)}${dayLabel(e.date).slice(5)}`, event: `${e.name} 실적 발표${e.isEstimateDate ? '(날짜 미확정)' : ''}`, ticker: e.symbol, sector_kr: e.sector, detail: rawDetail(e), importance: 0 }}
                   earning={e}
                   onOpen={onOpen}
                 />
@@ -731,19 +736,13 @@ const prevOf = (a: BriefAsset) => a.current - a.change;
  * 오르내림이 좋고 나쁨과 상관없어 색을 칠하지 않는다(VIX 가 오르면 초록으로 보이던 것).
  */
 const Move = ({ value, digits, suffix = '' }: { value: number; digits: number; suffix?: string }) => (
-  <span className="ml-1.5 text-text-secondary">({formatSigned(value, digits, suffix)})</span>
+  <span className="text-text-secondary">({formatSigned(value, digits, suffix)})</span>
 );
 
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 text-xs">
-      <span className="shrink-0 text-text-secondary">{label}</span>
-      <span className="whitespace-nowrap text-right tabular-nums text-text-primary">{children}</span>
-    </div>
-  );
-}
-
-/** 묶음 — 상자 없이 제목 + 줄(카드 안에 상자를 두지 않는다). index: 지수 = 종가/장중 · 그 밖 = 기준 */
+/**
+ * 묶음 — 상자 없이 제목 + 줄(카드 안에 상자를 두지 않는다). index: 지수 = 종가/장중 · 그 밖 = 기준.
+ * 줄은 칸(이름 | 앞 값 | → | 뒤 값 | 바뀐 만큼)으로 나눠 묶음 안에서 세로로 맞춘다 — 한 덩어리로 오른쪽 맞춤하면 자릿수가 다른 줄마다 화살표가 어긋났다.
+ */
 function Group({ title, date, intraday = false, index = false, children }: { title: string; date?: string | null; intraday?: boolean; index?: boolean; children: ReactNode }) {
   return (
     <div className="space-y-1" data-brief-group={title}>
@@ -756,24 +755,33 @@ function Group({ title, date, intraday = false, index = false, children }: { tit
           </span>
         )}
       </div>
-      {children}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] items-baseline gap-x-1.5 gap-y-1 text-xs tabular-nums">{children}</div>
     </div>
+  );
+}
+
+/** 한 줄 = 다섯 칸(묶음 grid 의 열) */
+function Row({ label, first, second, move }: { label: string; first: ReactNode; second: ReactNode; move?: ReactNode }) {
+  return (
+    <>
+      <span className="min-w-0 truncate text-text-secondary" title={label}>
+        {label}
+      </span>
+      <span className="text-right">{first}</span>
+      <span className="text-text-muted">→</span>
+      <span className="text-right text-text-primary">{second}</span>
+      <span className="text-right">{move}</span>
+    </>
   );
 }
 
 /** 지수 — 원본처럼 「등락률% → 현재값」 */
 function IndexRow({ label, a }: { label: string; a?: BriefAsset }) {
   if (!a) return null;
-  return (
-    <Row label={label}>
-      <span className={changeColor(a.change_pct)}>{formatPercent(a.change_pct)}</span>
-      <span className="mx-1.5 text-text-muted">→</span>
-      {formatNumber(a.current, 2)}
-    </Row>
-  );
+  return <Row label={label} first={<span className={changeColor(a.change_pct)}>{formatPercent(a.change_pct)}</span>} second={formatNumber(a.current, 2)} />;
 }
 
-/** 금리 · 달러 · 금 · 에너지 — 원본처럼 「전일 → 현재」 + 바뀐 만큼(금리는 %p). 묶음 날짜와 다르면 줄에 날짜 */
+/** 금리 · 달러 · 금 · 에너지 · 환율 · VIX — 원본처럼 「전일 → 현재」 + 바뀐 만큼(금리는 %p). 묶음 날짜와 다르면 줄에 날짜 */
 function MoveRow({
   label,
   a,
@@ -781,6 +789,7 @@ function MoveRow({
   suffix = '',
   moveSuffix,
   groupDate,
+  pct = false,
 }: {
   label: string;
   a?: BriefAsset;
@@ -788,16 +797,18 @@ function MoveRow({
   suffix?: string;
   moveSuffix?: string;
   groupDate?: string | null;
+  /** 바뀐 만큼을 등락률로(원/달러 — 원본과 같음) */
+  pct?: boolean;
 }) {
   if (!a) return null;
   const ownDate = a.data_date && groupDate && a.data_date !== groupDate ? ` · ${dayLabel(a.data_date)}` : '';
   return (
-    <Row label={`${label}${ownDate}`}>
-      {formatNumber(prevOf(a), digits, suffix)}
-      <span className="mx-1.5 text-text-muted">→</span>
-      {formatNumber(a.current, digits, suffix)}
-      <Move value={a.change} digits={digits} suffix={moveSuffix ?? suffix} />
-    </Row>
+    <Row
+      label={`${label}${ownDate}`}
+      first={<span className="text-text-primary">{formatNumber(prevOf(a), digits, suffix)}</span>}
+      second={formatNumber(a.current, digits, suffix)}
+      move={pct ? <Move value={a.change_pct} digits={2} suffix="%" /> : <Move value={a.change} digits={digits} suffix={moveSuffix ?? suffix} />}
+    />
   );
 }
 
@@ -824,6 +835,7 @@ function MarketData({ brief }: { brief: MarketBrief }) {
     );
   }
   const lost = missing(['SP500', 'NASDAQ', 'DOW', 'RUSSELL2000', 'US2Y', 'US10Y', 'DXY', 'GOLD', 'WTI', 'NATGAS', 'USDKRW', 'KOSPI', 'KOSDAQ']);
+  const rateDate = a.US10Y?.data_date ?? a.US2Y?.data_date;
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-x-6 gap-y-4">
@@ -833,29 +845,25 @@ function MarketData({ brief }: { brief: MarketBrief }) {
           <IndexRow label="다우" a={a.DOW} />
           <IndexRow label="러셀2000" a={a.RUSSELL2000} />
         </Group>
-        <Group title="미국 국채 수익률" date={a.US10Y?.data_date ?? a.US2Y?.data_date}>
-          <MoveRow label="2년" a={a.US2Y} digits={3} suffix="%" moveSuffix="%p" groupDate={a.US10Y?.data_date ?? a.US2Y?.data_date} />
-          <MoveRow label="10년" a={a.US10Y} digits={3} suffix="%" moveSuffix="%p" groupDate={a.US10Y?.data_date ?? a.US2Y?.data_date} />
+        <Group title="미국 국채 수익률" date={rateDate}>
+          <MoveRow label="2년" a={a.US2Y} digits={3} suffix="%" moveSuffix="%p" groupDate={rateDate} />
+          <MoveRow label="10년" a={a.US10Y} digits={3} suffix="%" moveSuffix="%p" groupDate={rateDate} />
         </Group>
         <Group title="달러 인덱스" date={a.DXY?.data_date}>
           <MoveRow label="DXY" a={a.DXY} digits={3} />
         </Group>
-        <Group title="골드" date={a.GOLD?.data_date}>
-          <MoveRow label="금(달러/온스)" a={a.GOLD} digits={2} />
+        <Group title="골드(달러/온스)" date={a.GOLD?.data_date}>
+          <MoveRow label="금" a={a.GOLD} digits={2} />
         </Group>
-        <Group title="에너지" date={a.WTI?.data_date ?? a.NATGAS?.data_date}>
-          <MoveRow label="WTI(달러/배럴)" a={a.WTI} digits={2} groupDate={a.WTI?.data_date ?? a.NATGAS?.data_date} />
-          <MoveRow label="천연가스" a={a.NATGAS} digits={3} groupDate={a.WTI?.data_date ?? a.NATGAS?.data_date} />
+        {/* 원본 소수 자릿수(WTI 2 · 천연가스 3)를 지키려고 묶음을 나눈다 — 같은 열은 자릿수가 같아야 한다 */}
+        <Group title="원유(달러/배럴)" date={a.WTI?.data_date}>
+          <MoveRow label="WTI" a={a.WTI} digits={2} />
         </Group>
-        <Group title="원/달러" date={a.USDKRW?.data_date}>
-          {a.USDKRW && (
-            <Row label="환율">
-              {formatNumber(prevOf(a.USDKRW), 2)}
-              <span className="mx-1.5 text-text-muted">→</span>
-              {formatNumber(a.USDKRW.current, 2)}원
-              <Move value={a.USDKRW.change_pct} digits={2} suffix="%" />
-            </Row>
-          )}
+        <Group title="천연가스(달러/MMBtu)" date={a.NATGAS?.data_date}>
+          <MoveRow label="천연가스" a={a.NATGAS} digits={3} />
+        </Group>
+        <Group title="원/달러(원)" date={a.USDKRW?.data_date}>
+          <MoveRow label="환율" a={a.USDKRW} digits={2} pct />
         </Group>
         <Group title="국내 지수" date={a.KOSPI?.data_date} intraday={live('KOSPI')} index>
           <IndexRow label="코스피" a={a.KOSPI} />
