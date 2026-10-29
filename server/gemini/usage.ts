@@ -7,11 +7,13 @@
  * - 뉴스 AI 판정: `news_sentiment` 한 줄 = 1호출
  * - 목표 수익 가능성: `target_analysis` 한 줄 = 5호출(에이전트 4 + 의장 1)
  * - 백테스트 AI 설명: 기록(`backtest_reports`)에 붙은 설명 = 1호출. 기록은 최근 100개만 남아 지워진 기록의 설명은 빠진다
+ * - 오늘 시황: `market_briefs.ai_calls` 합(한 줄에 0~2호출 — 실패해 다시 부른 것도 센다)
  * 실패한 호출(한도 초과 · 오류로 저장되지 않은 것)은 AI 검증 말고는 세지 못한다 — 화면에 그렇게 적는다.
  */
 import { getDb } from '../db';
 import { countCallsOn } from '../aiCheck/store';
 import { kstDate } from '../aiCheck/check';
+import { countBriefAiCalls } from '../marketBrief/store';
 import type { GeminiUsage, GeminiUsageItem } from '../../src/types/gemini';
 
 /** 표가 아직 없으면(그 기능을 한 번도 안 썼으면) 0 */
@@ -39,6 +41,7 @@ export function geminiUsageToday(now = new Date()): GeminiUsage {
     { key: 'news', label: '뉴스 AI 판정', runs: news, calls: news },
     { key: 'target', label: '목표 수익 가능성', runs: target, calls: target * 5 },
     { key: 'backtestExplain', label: '백테스트 AI 설명', runs: explain, calls: explain },
+    { key: 'marketBrief', label: '오늘 시황', runs: null, calls: countBriefAiCalls(day) },
   ];
   return { date: day, items, totalCalls: items.reduce((s, i) => s + i.calls, 0) };
 }

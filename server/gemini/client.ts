@@ -111,6 +111,13 @@ export interface GeminiCallOptions {
   schema?: unknown;
   model?: string;
   temperature?: number;
+  /** 출력 토큰 상한 — 주지 않으면 모델 기본값(긴 JSON 을 내는 오늘 시황만 8192 를 준다) */
+  maxOutputTokens?: number;
+  /**
+   * 429 · 5xx · 네트워크 오류 때 다시 부르는 횟수(기본 3). 0 이면 한 번만 부르고 실패를 바로 던진다 —
+   * 오늘 시황은 다시 부르기를 스스로 정한다(429 는 다시 부르지 않는다 · 그 밖은 1번만).
+   */
+  retries?: number;
 }
 
 export interface GeminiCallResult<T> {
@@ -135,6 +142,7 @@ export async function callGemini<T>(options: GeminiCallOptions): Promise<GeminiC
     contents: [{ role: 'user', parts: options.parts }],
     generationConfig: {
       temperature: options.temperature ?? 0.4,
+      ...(options.maxOutputTokens ? { maxOutputTokens: options.maxOutputTokens } : {}),
       ...(options.schema
         ? { responseMimeType: 'application/json', responseSchema: options.schema }
         : {}),
@@ -144,8 +152,9 @@ export async function callGemini<T>(options: GeminiCallOptions): Promise<GeminiC
   const key = apiKey();
   const url = `${BASE_URL}/models/${model}:generateContent`;
   const startedAt = Date.now();
+  const maxRetries = options.retries ?? MAX_RETRIES;
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     await acquire();
     let response: Response;
     try {
@@ -157,7 +166,7 @@ export async function callGemini<T>(options: GeminiCallOptions): Promise<GeminiC
       });
     } catch (error) {
       release();
-      if (attempt === MAX_RETRIES) {
+      if (attempt === maxRetries) {
         throw new GeminiError(`Gemini 호출 실패: ${(error as Error).message}`);
       }
       await sleep(2 ** attempt * 1000);
@@ -166,7 +175,7 @@ export async function callGemini<T>(options: GeminiCallOptions): Promise<GeminiC
     release();
 
     if (response.status === 429 || response.status >= 500) {
-      if (attempt === MAX_RETRIES) {
+      if (attempt === maxRetries) {
         throw new GeminiError(
           response.status === 429
             ? 'Gemini 요청 한도를 초과했습니다. 분석 주기를 늘리거나 종목 수를 줄이세요.'

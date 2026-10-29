@@ -4,6 +4,9 @@
  *
  * - A 수집: 지표 엔진 계산(13종 + VIX · FRED 30일 · 실패 항목 빠짐 · 시간 제한 — `marketBriefPyTest.py` 를 부른다) ·
  *   RSS(한 곳 실패 · 국내 전부 실패 → 폴백 · 오후판 해외 안 받음) · 60일 실적(대상 · 전망치 묶음 · sanity ⚠️ · 노이즈 매출 숨김 · 원화 · [D+N])
+ * - B 만들기: 프롬프트([D+N] · 섹터 목록 · 판별 입력) · 스키마(섹터 enum) · 뒤처리 3단계(순서 · 국내 보존 · 상한 3/3/2 · 슬롯 다시 배치 · 해 경계) ·
+ *   Gemini 꺼짐/실패/429 → 데이터만 저장 · 1번만 다시 · 자동(평일 06:55 뒤 첫 틱 1번 · 주말 0 · 같은 날 0 · 13시 뒤 0 · 스위치 끔 0) ·
+ *   버튼(13시 경계 판 · 5번 뒤 막힘 · 자동은 안 셈 · 동시에 두 번 → 하나) · 30일 정리 · 같은 날 여러 줄
  * - 사본 DB 의 `market_briefs` 를 비우고, 시험용 실적일 · 섹터 줄(티커 ZZ…)을 넣었다가 지운다(사본만).
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
@@ -23,6 +26,16 @@ import {
   type EarningBase,
   type RawEstimate,
 } from '../server/marketBrief/earnings';
+import { buildPrompt, SCHEMA, REQUIRED_KEYS } from '../server/marketBrief/prompt';
+import { BRIEF_SECTORS } from '../server/marketBrief/earnings';
+import { capAndSortBySectorPriority, daysUntilLabel, filterByLeadingSectors, normalizeBrief, postprocess, reassignSlotsByDays } from '../server/marketBrief/postprocess';
+import { countBriefs, getBrief, insertBrief, listBriefDays, listBriefsOf, purgeOldBriefs } from '../server/marketBrief/store';
+import { autoDue, BriefLimitError, briefStatus, marketBriefTick, resetBriefStateForTest, resetPurgeForTest, startButtonRun, type BriefDeps } from '../server/marketBrief/service';
+import { geminiUsageToday } from '../server/gemini/usage';
+import { GeminiError, type GeminiCallOptions } from '../server/gemini/client';
+import { editionAt } from '../src/utils/marketBrief';
+import fs from 'node:fs';
+import type { BriefAi, BriefEarning, BriefScheduleItem } from '../src/types/marketBrief';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -173,6 +186,267 @@ const db = getDb();
   });
   check('전체 상한(4분) 넘으면 남은 종목은 실적일만', capped.earnings.length === 25 && capped.estimatesOk < 25 && /상한/.test(capped.error ?? ''), capped.error ?? '');
 }
+
+
+// ═════════════════════════ B. 만들기 · 저장 · 자동 · 버튼 ═════════════════════════
+
+const kst = (day: string, hm: string) => Date.parse(`${day}T${hm}:00+09:00`);
+const earningOf = (symbol: string, name: string, sector: string, daysUntil: number, flag = false): BriefEarning => ({
+  symbol, name, sector, date: '2026-11-01', daysUntil, isEstimateDate: false,
+  epsEstimate: '$1.00', lastQuarterEps: '$0.90', yoyEps: '$0.80', revenueEstimate: '$10.00B', recommendation: 'Buy (10/12)',
+  epsDispersion: '-', epsSanityFlag: flag, revenueSanityFlag: false, estimatesOk: true,
+});
+const assets = {
+  SP500: { current: 6031.8, change: 31.8, change_pct: 0.53, data_date: '2026-10-28' },
+  NASDAQ: { current: 20100.12, change: -50.5, change_pct: -0.25, data_date: '2026-10-28' },
+  US2Y: { current: 3.49, change: -0.02, change_pct: -0.57, data_date: '2026-10-28' },
+  KOSPI: { current: 2650.1, change: 10, change_pct: 0.38, data_date: '2026-10-29' },
+  KOSDAQ: { current: 850.2, change: -3, change_pct: -0.35, data_date: '2026-10-29' },
+  VIX: { current: 22.4, change: 1.2, change_pct: 5.66, data_date: '2026-10-28' },
+};
+const news = (n: number, foreign: boolean) => Array.from({ length: n }, (_, i) => ({ title: `${foreign ? 'US' : '국내'} 헤드라인 ${i}`, source: foreign ? 'CNBC Tech' : '연합뉴스', link: '', publishedAt: null, foreign }));
+
+// B-1 프롬프트 · 스키마
+{
+  const earnings = [earningOf('INTC', '인텔', '기술', 5, true), earningOf('005930', '삼성전자', '기술', 12)];
+  const morning = buildPrompt({ edition: 'morning', today: '2026-10-29', assets, earnings, domestic: news(50, false), foreign: news(60, true) });
+  check('오전판 — 날짜 · 지수 줄(원본 형식)', morning.startsWith('오늘 날짜는 2026년 10월 29일입니다.') && morning.includes('  S&P500: 6,031.8000 (+0.53%) [10/28(수) 종가]') && morning.includes('  나스닥: 20,100.1200 (-0.25%)'));
+  check('오전판 — 실적 [D+N] · ⚠️ · 국내 종목 포함', morning.includes('[D+5] [기술] 인텔(INTC)') && morning.includes('예상 EPS $1.00 ⚠️') && morning.includes('삼성전자(005930)'));
+  check('오전판 — 국내 30 · 해외 40 건까지', (morning.match(/\[국내\] /g) ?? []).length === 30 && (morning.match(/\[해외\] /g) ?? []).length === 40);
+  check('오전판 — 섹터 목록 = 종목 지도 한국어 섹터', BRIEF_SECTORS.every((s2) => morning.includes(`"${s2}"`)) && morning.includes('"기술"'));
+  check('오전판 — 원본 규칙(슬롯 · 숏 관점 · 80자 · 100자 · 실적 발표 형식)', ['this_week: **D+0 ~ D+7**', '"숏 관점"', '80자 이내', '100자 이내', '"<회사명> 실적 발표"', 'catalysts 는 upcoming_schedule (②) 와 절대 중복 금지'].every((t) => morning.includes(t)));
+  const afternoon = buildPrompt({ edition: 'afternoon', today: '2026-10-29', assets, earnings, domestic: news(5, false), foreign: news(5, true) });
+  check('오후판 — 국내 지수 · VIX 구간 · 해외 뉴스 없음', afternoon.includes('  코스피: 2,650.1000 (+0.38%) [10/29(목) 종가]') && afternoon.includes('  VIX: 22.40 — 주의 구간 (20~30)') && !afternoon.includes('[해외]') && afternoon.includes('VIX 수치(22.4)'));
+  const sch = SCHEMA.morning as { properties: Record<string, { items?: { properties: Record<string, { enum?: string[] }> } }>; required: string[] };
+  check('스키마 — 주도 섹터 이름 enum = 섹터 목록', JSON.stringify(sch.properties.leading_sectors.items?.properties.name.enum) === JSON.stringify(BRIEF_SECTORS));
+  check('스키마 — 슬롯 dict · key_themes · portfolio_adjustment', ['upcoming_schedule', 'key_themes', 'portfolio_adjustment'].every((k) => sch.required.includes(k)) && !('key_issues' in sch.properties));
+  check('필수 키 — 오전 market_regime · 오후 market_summary', REQUIRED_KEYS.morning.includes('market_regime') && REQUIRED_KEYS.afternoon.includes('market_summary'));
+
+  // 입력 길이 추정(실제 호출 없음) — 보고용: 실적 100종목 · 국내 80건(30 사용) · 해외 80건(40 사용)
+  const big = Array.from({ length: 100 }, (_, i) => earningOf(`S${i}`, `회사${i}`, BRIEF_SECTORS[i % BRIEF_SECTORS.length], i % 60));
+  const full13 = Object.fromEntries(['KOSPI', 'KOSDAQ', 'SP500', 'NASDAQ', 'DOW', 'RUSSELL2000', 'GOLD', 'DXY', 'US2Y', 'US10Y', 'USDKRW', 'WTI', 'NATGAS'].map((k) => [k, assets.SP500]));
+  const longTitle = (n: number, f: boolean) => news(n, f).map((x) => ({ ...x, title: f ? 'Stocks rally as investors weigh Fed rate path and megacap earnings outlook' : '코스피 외국인 순매수에 반도체 대형주 강세…환율 1,380원대 마감' }));
+  const est = buildPrompt({ edition: 'morning', today: '2026-10-29', assets: full13, earnings: big, domestic: longTitle(80, false), foreign: longTitle(80, true) });
+  console.log(`INFO  입력 길이 추정(오전판 · 실적 100종목): ${est.length.toLocaleString()}자 — 실적 ${big.length}줄 포함`);
+  const est20 = buildPrompt({ edition: 'morning', today: '2026-10-29', assets: full13, earnings: big.slice(0, 20), domestic: longTitle(80, false), foreign: longTitle(80, true) });
+  console.log(`INFO  입력 길이 추정(오전판 · 실적 20종목): ${est20.length.toLocaleString()}자`);
+}
+
+// B-1 뒤처리 3단계
+{
+  const item = (date: string, event: string, ticker = '', sector = ''): BriefScheduleItem => ({ date, event, ticker, sector_kr: sector, detail: '', importance: 1 });
+  const raw = (us: Partial<BriefAi['upcoming_schedule']>, leading: [string, string][]): Partial<BriefAi> => ({
+    market_regime: '혼조', regime_summary: '', portfolio_note: '', key_themes: [], swing_check: { phase: '', catalysts: [], risks: [] },
+    leading_sectors: leading.map(([name, stars]) => ({ emoji: '', name, stars, reason: '', stocks_kr: '', stocks_us: '' })),
+    upcoming_schedule: { this_week: [], this_month: [], next_2_months: [], ...us },
+    portfolio_adjustment: { passive_note: '', swing_candidates: [] },
+  });
+  const T = '2026-10-29';
+
+  // ① 주도 섹터 거르기 — 비주도 제거 · 빈 섹터 보존 · 국내 종목 보존
+  const f = filterByLeadingSectors(normalizeBrief(raw({ this_week: [item('10/30(금)', 'A 실적 발표', 'AAA', '기술'), item('10/30(금)', 'B 실적 발표', 'BBB', '에너지'), item('10/31(토)', 'FOMC'), item('11/02(월)', '삼성 실적 발표', '005930', '에너지'), item('11/02(월)', 'SK 실적 발표', '000660.KS', '에너지')] }, [['기술', '★★★']])));
+  check('① 비주도 섹터 실적 제거 · 경제지표 보존 · 국내 종목(6자리 · .KS) 보존', f.upcoming_schedule.this_week.map((i) => i.ticker || i.event).join(',') === 'AAA,FOMC,005930,000660.KS');
+  const noLead = filterByLeadingSectors(normalizeBrief(raw({ this_week: [item('10/30(금)', 'x', 'BBB', '에너지')] }, [])));
+  check('① 주도 섹터가 비면 거르지 않음', noLead.upcoming_schedule.this_week.length === 1);
+
+  // ② 날수로 다시 배치 — AI 오분류 보정 · 60일 초과 버림 · 못 읽으면 이번 달
+  const r = reassignSlotsByDays(normalizeBrief(raw({ this_week: [item('12/10(목)', 'd42'), item('11/05(목)', 'd7')], next_2_months: [item('11/06(금)', 'd8'), item('11/28(토)', 'd30'), item('11/29(일)', 'd31'), item('12/28(월)', 'd60'), item('12/29(화)', 'd61'), item('미정', 'bad')] }, [])), T);
+  const names = (xs: BriefScheduleItem[]) => xs.map((i) => i.event).join(',');
+  check('② 0~7 / 8~30 / 31~60 · 61 버림 · 못 읽음 → 이번 달', names(r.upcoming_schedule.this_week) === 'd7' && names(r.upcoming_schedule.this_month) === 'd8,d30,bad' && names(r.upcoming_schedule.next_2_months) === 'd42,d31,d60', JSON.stringify(r.upcoming_schedule));
+  check('② 해 경계 — 12/20 기준 01/05 = 16일', daysUntilLabel('01/05(화)', '2026-12-20') === 16 && daysUntilLabel('12/19(토)', '2026-12-20') === 364);
+
+  // ③ 섹터 상한 3/3/2 · 총 6/5/5 · 별점 순 → 날짜 순 · 경제지표는 섹터 상한 밖
+  const week = [
+    ...['10/30(금)', '10/31(토)', '11/01(일)', '11/02(월)'].map((d, i) => item(d, `기술${i}`, `T${i}`, '기술')),
+    item('10/30(금)', '금융0', 'F0', '금융'),
+    item('10/29(목)', 'CPI'),
+    item('10/29(목)', '에너지0', 'E0', '에너지'),
+  ];
+  const c = capAndSortBySectorPriority(normalizeBrief(raw({ this_week: week }, [['금융', '★★★'], ['기술', '★★☆']])), T);
+  check('③ 이번 주 — 별점 높은 섹터 먼저 · 섹터 3개 상한 · 총 6', names(c.upcoming_schedule.this_week) === '금융0,기술0,기술1,기술2,CPI,에너지0', names(c.upcoming_schedule.this_week));
+  const two = capAndSortBySectorPriority(normalizeBrief(raw({ next_2_months: ['12/01(화)', '12/02(수)', '12/03(목)'].map((d, i) => item(d, `n${i}`, `N${i}`, '기술')) }, [['기술', '★★★']])), T);
+  check('③ 다음 한 달 — 같은 섹터 2개 상한', names(two.upcoming_schedule.next_2_months) === 'n0,n1');
+  const yearEnd = capAndSortBySectorPriority(normalizeBrief(raw({ this_month: [item('01/05(화)', 'jan', 'J', '기술'), item('12/28(월)', 'dec', 'D', '기술')] }, [['기술', '★★★']])), '2026-12-20');
+  check('③ 해 경계 날짜 정렬(12/28 → 01/05)', names(yearEnd.upcoming_schedule.this_month) === 'dec,jan');
+
+  // 순서 — ① 다음 ② 다음 ③: 이번 주로 잘못 넣은 D+40 실적 3개가 ② 로 다음 한 달에 간 뒤 ③ 의 상한 2 를 받는다.
+  const order = postprocess(
+    raw({ this_week: ['12/08(화)', '12/09(수)', '12/10(목)'].map((d, i) => item(d, `x${i}`, `X${i}`, '기술')).concat([item('11/01(일)', 'oil', 'OIL', '에너지')]) }, [['기술', '★★★']]),
+    [earningOf('OIL', '오일', '에너지', 3)],
+    T,
+  );
+  check('순서 ①→②→③ — 비주도 제거 · 다시 배치 뒤 상한 2', names(order.upcoming_schedule.next_2_months) === 'x0,x1' && order.upcoming_schedule.this_week.length === 0);
+  const src = fs.readFileSync(path.join(root, 'server/marketBrief/postprocess.ts'), 'utf8');
+  const body = src.slice(src.indexOf('export function postprocess'));
+  check('순서 — postprocess 안 호출 순서(정렬 ⓪ → ① → ② → ③)', /alignEarningSectors[\s\S]*filterByLeadingSectors[\s\S]*reassignSlotsByDays[\s\S]*capAndSortBySectorPriority/.test(body));
+  // ⓪ AI 가 섹터를 바꿔 적어도 입력 섹터로 맞춘다
+  const aligned = postprocess(raw({ this_week: [item('10/30(금)', '엔비디아 실적 발표', 'NVDA', '반도체')] }, [['기술', '★★★']]), [earningOf('NVDA', '엔비디아', '기술', 1)], T);
+  check('⓪ 실적 섹터를 입력 데이터로 맞춤(반도체 → 기술) → 남음', aligned.upcoming_schedule.this_week[0]?.sector_kr === '기술');
+}
+
+// B-2~4 만들기 · 저장 · 자동 · 버튼 — 가짜 수집 · 가짜 Gemini
+db.prepare(`DELETE FROM market_briefs`).run();
+db.prepare(`DELETE FROM app_settings WHERE key = 'marketBrief.lastAutoDate'`).run();
+
+const okBrief = (edition: 'morning' | 'afternoon'): Partial<BriefAi> => ({
+  ...(edition === 'morning' ? { market_regime: 'Risk-On' as const, regime_summary: '요약' } : { market_summary: '마감', vix_comment: 'VIX' }),
+  portfolio_note: '현 비중 유지',
+  key_themes: [{ icon: '🟢', category: '실적사이클', title: 'AI 투자', why_important: '이유', duration: '1~2개월', swing_point: '반도체' }],
+  leading_sectors: [{ emoji: '💻', name: '기술', stars: '★★★', reason: '기준 A', stocks_kr: '삼성전자', stocks_us: '엔비디아' }],
+  swing_check: { phase: '반등', catalysts: ['11/05 FOMC'], risks: ['금리'] },
+  upcoming_schedule: { this_week: [{ date: '10/30(금)', event: '인텔 실적 발표', ticker: 'INTC', sector_kr: '기술', detail: 'd', importance: 3 }], this_month: [], next_2_months: [] },
+  portfolio_adjustment: { passive_note: '현 비중 유지', swing_candidates: ['인텔(INTC) — 근거, 조건', ''] },
+});
+
+let clock = kst('2026-10-29', '07:05'); // 목요일
+const geminiCalls: GeminiCallOptions[] = [];
+let geminiPlan: ('ok' | '500' | '429' | 'missing')[] = [];
+let geminiReason: string | null = null;
+const deps: BriefDeps = {
+  collect: {
+    market: async (edition) => ({ assets: edition === 'morning' ? { SP500: assets.SP500, US2Y: assets.US2Y } : { KOSPI: assets.KOSPI, VIX: assets.VIX }, failed: edition === 'morning' ? ['DXY'] : [] }),
+    rss: async () => `<rss><channel><item><title>뉴스</title></item></channel></rss>`,
+    earnings: async () => ({ earnings: [earningOf('INTC', '인텔', '기술', 1)], estimatesOk: 1, estimatesTried: 1, error: null }),
+  },
+  gemini: async (o) => {
+    geminiCalls.push(o);
+    const step = geminiPlan.shift() ?? 'ok';
+    if (step === '500') throw new GeminiError('Gemini 서버 오류 (500)', 500);
+    if (step === '429') throw new GeminiError('한도', 429, true);
+    const edition = (o.schema as { required: string[] }).required.includes('market_regime') ? 'morning' : 'afternoon';
+    const data = step === 'missing' ? { portfolio_note: 'x' } : okBrief(edition);
+    return { data, raw: '', model: o.model ?? 'm', tokens: 1234, elapsedMs: 1 };
+  },
+  geminiReason: () => geminiReason,
+  now: () => clock,
+};
+const runButton = async () => {
+  const r = startButtonRun(deps);
+  return { started: r.started, id: await r.done };
+};
+
+{
+  resetBriefStateForTest();
+  // 정상 — 호출 1번 · 옵션 · 저장 내용
+  const a = await runButton();
+  const b1 = getBrief(a.id!);
+  const o = geminiCalls[0];
+  check('정상 — 호출 1번 · retries 0 · 출력 8192 · temperature 0.1', geminiCalls.length === 1 && o.retries === 0 && o.maxOutputTokens === 8192 && o.temperature === 0.1);
+  check('모델 — GEMINI_BRIEF_MODEL 이 비면 기본 모델', o.model === (process.env.GEMINI_MODEL ?? 'gemini-3.5-flash-lite'), String(o.model));
+  check('저장 — 판 · 까닭 · 날짜 · 모델 · 토큰 · 데이터 기준 날짜', b1?.edition === 'morning' && b1.trigger === 'button' && b1.date === '2026-10-29' && b1.tokens === 1234 && b1.aiCalls === 1 && b1.data.assets.SP500?.data_date === '2026-10-28' && b1.brief?.market_regime === 'Risk-On');
+  check('저장 — 수집 상태(시장 · 뉴스 · 실적 · AI)', !!b1 && b1.sources.some((x) => x.group === 'market' && !x.ok && x.detail.includes('달러인덱스')) && b1.sources.some((x) => x.group === 'news') && b1.sources.some((x) => x.group === 'earnings' && x.ok) && b1.sources.some((x) => x.group === 'ai' && x.ok));
+  check('저장 — 빈 스윙 후보는 뺌', b1?.brief?.portfolio_adjustment.swing_candidates.length === 1);
+
+  // 실패 1번 → 다시 1번 → 성공
+  geminiCalls.length = 0;
+  geminiPlan = ['500', 'ok'];
+  const b2 = getBrief((await runButton()).id!);
+  check('실패 → 1번 다시 → 성공(호출 2번)', geminiCalls.length === 2 && b2?.aiCalls === 2 && !!b2.brief);
+
+  // 두 번 실패 → 데이터만
+  geminiCalls.length = 0;
+  geminiPlan = ['500', 'missing'];
+  const b3 = getBrief((await runButton()).id!);
+  check('두 번 실패(오류 · 빠진 키) → 다시 하지 않고 데이터만 저장', geminiCalls.length === 2 && b3?.brief === null && /AI 분석 실패 — 응답에 빠진 키/.test(b3?.aiError ?? '') && !!b3?.data.assets.SP500, b3?.aiError ?? '');
+
+  // 429 → 다시 하지 않음
+  geminiCalls.length = 0;
+  geminiPlan = ['429'];
+  const b4 = getBrief((await runButton()).id!);
+  check('429 → 다시 부르지 않음 · 「무료 한도 초과」', geminiCalls.length === 1 && b4?.brief === null && /무료 한도 초과/.test(b4?.aiError ?? '') && b4?.aiCalls === 1);
+
+  // Gemini 꺼짐 → 부르지 않고 데이터만
+  geminiCalls.length = 0;
+  geminiReason = '이 서버에서는 Gemini 가 꺼져 있습니다(GEMINI_ENABLED=false)';
+  const b5 = getBrief((await runButton()).id!);
+  check('Gemini 꺼짐 → 호출 0 · 데이터만 · 이유', geminiCalls.length === 0 && b5?.brief === null && b5?.aiCalls === 0 && /^AI 꺼짐/.test(b5?.aiError ?? '') && b5?.sources.find((x) => x.group === 'ai')?.ok === false);
+  geminiReason = null;
+
+  // 버튼 5번 → 6번째 막힘 · 자동은 안 셈
+  check('버튼 5번 저장됨', countBriefs('2026-10-29', 'button') === 5);
+  let blocked = false;
+  try {
+    startButtonRun(deps);
+  } catch (e) {
+    blocked = e instanceof BriefLimitError && /5번을 다 썼습니다/.test((e as Error).message);
+  }
+  check('6번째 버튼 → 막힘(「오늘 버튼 5번을 다 썼습니다」)', blocked);
+  check('사용량 — 오늘 시황 호출 수(1+2+2+1+0)', geminiUsageToday(new Date(clock)).items.find((i) => i.key === 'marketBrief')?.calls === 6);
+
+  // 판 경계
+  check('판 — 12:59 오전판 · 13:00 오후판', editionAt(kst('2026-10-30', '12:59')) === 'morning' && editionAt(kst('2026-10-30', '13:00')) === 'afternoon');
+  clock = kst('2026-10-30', '13:00');
+  const pm = getBrief((await runButton()).id!);
+  check('13:00 버튼 → 오후판(국내 지수 · VIX)', pm?.edition === 'afternoon' && !!pm.data.assets.VIX && pm.brief?.market_summary === '마감');
+
+  // 동시에 두 번 → 하나
+  clock = kst('2026-10-31', '10:00');
+  const before = listBriefsOf('2026-10-31').length;
+  const r1 = startButtonRun(deps);
+  const r2 = startButtonRun(deps);
+  check('진행 중 상태가 보임(단계)', briefStatus(clock).running && briefStatus(clock).stage !== null);
+  await r1.done;
+  check('동시에 두 번 → 하나만 시작 · 한 줄', r1.started && !r2.started && listBriefsOf('2026-10-31').length === before + 1);
+  check('끝나면 진행 상태 풀림 · 마지막 줄 id', !briefStatus(clock).running && briefStatus(clock).lastFinishedId === (await r1.done));
+}
+
+// 자동
+{
+  const ticks: [string, string, boolean][] = [
+    ['2026-11-02', '06:54', false], // 월 06:54
+    ['2026-11-02', '06:55', true],
+    ['2026-11-02', '12:59', true],
+    ['2026-11-02', '13:00', false],
+    ['2026-10-31', '07:05', false], // 토
+    ['2026-11-01', '07:05', false], // 일
+  ];
+  check('자동 시각 — 평일 06:55 ~ 12:59 · 주말 0', ticks.every(([d, t, want]) => autoDue(kst(d, t), null) === want));
+  check('자동 — 같은 날 이미 했으면 0', !autoDue(kst('2026-11-02', '07:05'), '2026-11-02'));
+
+  resetBriefStateForTest();
+  db.prepare(`DELETE FROM app_settings WHERE key = 'marketBrief.lastAutoDate'`).run();
+  clock = kst('2026-11-02', '06:50');
+  const early = await marketBriefTick(deps);
+  clock = kst('2026-11-02', '07:00');
+  const first = await marketBriefTick(deps);
+  clock = kst('2026-11-02', '07:10');
+  const second = await marketBriefTick(deps);
+  const auto = first ? getBrief(first) : null;
+  check('자동 — 06:55 뒤 첫 틱에 1번 · 오전판 · 다음 틱 0', early === null && auto?.trigger === 'auto' && auto.edition === 'morning' && second === null && countBriefs('2026-11-02', 'auto') === 1);
+  check('자동은 버튼 횟수에 안 셈', briefStatus(clock).buttonUsed === 0);
+  clock = kst('2026-11-03', '13:10'); // 화 — 오전에 서버가 꺼져 있었다
+  check('13시 뒤에는 놓친 오전판 보충 0', (await marketBriefTick(deps)) === null && countBriefs('2026-11-03', 'auto') === 0);
+  clock = kst('2026-11-04', '11:40'); // 수 — 오전에 꺼졌다가 11:40 에 켬
+  check('13시 전에는 보충 1', (await marketBriefTick(deps)) !== null && countBriefs('2026-11-04', 'auto') === 1);
+  clock = kst('2026-11-07', '07:05'); // 토
+  check('주말 틱 0', (await marketBriefTick(deps)) === null);
+  process.env.MARKET_BRIEF_ENABLED = 'false';
+  clock = kst('2026-11-05', '07:05');
+  check('스위치 끔(MARKET_BRIEF_ENABLED=false) → 0', (await marketBriefTick(deps)) === null && briefStatus(clock).autoDisabledReason !== null);
+  delete process.env.MARKET_BRIEF_ENABLED;
+  geminiReason = 'Gemini 키가 설정되지 않았습니다';
+  const noAi = await marketBriefTick(deps);
+  check('Gemini 꺼져도 자동은 데이터만으로 만든다', noAi !== null && getBrief(noAi)?.brief === null);
+  geminiReason = null;
+}
+
+// 30일 정리 · 같은 날 여러 줄
+{
+  const old = (date: string) => insertBrief({ date, edition: 'morning', trigger: 'auto', createdAt: `${date}T00:00:00.000Z`, model: null, tokens: null, aiCalls: 0, promptVersion: 't', sources: [], data: { assets: {}, earnings: [] }, brief: null, aiError: 'x' });
+  old('2026-09-01');
+  old('2026-10-04');
+  old('2026-10-05');
+  const removed = purgeOldBriefs('2026-11-04');
+  const days = listBriefDays().map((d) => d.date);
+  check('30일 정리 — 11-04 기준 10-05 남김 · 10-04 이전 지움', removed === 2 && days.includes('2026-10-05') && !days.includes('2026-10-04') && !days.includes('2026-09-01'));
+  resetPurgeForTest();
+  const list = listBriefsOf('2026-10-29');
+  check('같은 날 여러 줄 — 모두 남김 · 최근 것부터', list.length === 5 && list[0].createdAt >= list[4].createdAt && list.every((i, k) => k === 0 || list[k - 1].createdAt >= i.createdAt));
+  check('날짜 목록 — 최근 것부터 · 줄 수', days[0] === '2026-11-05' && days[1] === '2026-11-04' && listBriefDays().find((d) => d.date === '2026-10-29')?.count === 5);
+}
+
+db.prepare(`DELETE FROM market_briefs`).run();
+db.prepare(`DELETE FROM app_settings WHERE key = 'marketBrief.lastAutoDate'`).run();
 
 console.log(`\n결과: ${pass}개 통과 / ${fail}개 실패`);
 process.exit(fail ? 1 : 0);

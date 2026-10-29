@@ -192,6 +192,8 @@ import { HEATMAP_TOPS, heatmap } from './heatmap';
 import { liveRanking } from './liveRanking';
 import { marketDate } from '../src/utils/marketDate';
 import { analyzeNews, getNews } from './news';
+import { BriefLimitError, briefStatus, marketBriefTick, startButtonRun } from './marketBrief/service';
+import { getBrief, listBriefDays, listBriefsOf } from './marketBrief/store';
 
 /**
  * AlphaScope API 서버.
@@ -1512,6 +1514,58 @@ app.put('/api/surge/settings', (req, res) => {
 /**
  * 거래정지(실험실) — 그날(미국 날짜, 기본 오늘) 정지 + 받기 상태. 서버가 1분마다 Nasdaq 을 받아 쌓은 것을 읽기만 한다(화면이 외부를 부르지 않는다).
  */
+/*
+  오늘 시황(탐색 → 오늘 시황, v2.59.0) — 평일 아침 자동 오전판 + 「시황 분석」 버튼(지금 시각 판 · 하루 5번).
+  ⚠️ 판단 · 주문과 무관하다. 버튼은 시작만 하고 바로 돌려준다 — 화면은 진행 상태를 읽는다(진행 중에만).
+*/
+app.get('/api/market-brief/status', (_req, res) => {
+  try {
+    res.json(briefStatus());
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/market-brief/days', (_req, res) => {
+  try {
+    res.json({ days: listBriefDays() });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.get('/api/market-brief', (req, res) => {
+  try {
+    const rawDate = req.query.date;
+    const rawId = req.query.id;
+    if (rawDate !== undefined && (typeof rawDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(rawDate))) {
+      return res.status(400).json({ error: 'date 는 YYYY-MM-DD 입니다.' });
+    }
+    if (rawId !== undefined && (typeof rawId !== 'string' || !/^\d+$/.test(rawId))) {
+      return res.status(400).json({ error: 'id 는 숫자입니다.' });
+    }
+    const date = typeof rawDate === 'string' ? rawDate : briefStatus().today;
+    const items = listBriefsOf(date);
+    // 고른 줄이 그날 것이 아니면 그날 가장 최근 것
+    const wanted = typeof rawId === 'string' ? items.find((i) => i.id === Number(rawId)) : undefined;
+    const pick = wanted ?? items[0];
+    res.json({ date, items, selected: pick ? getBrief(pick.id) : null });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+app.post('/api/market-brief/run', (_req, res) => {
+  try {
+    const { started } = startButtonRun();
+    // 진행 중이면 새로 시작하지 않는다 — 진행 상태를 그대로 돌려준다
+    res.status(started ? 202 : 200).json({ started, status: briefStatus() });
+  } catch (e) {
+    if (e instanceof BriefLimitError) return res.status(429).json({ error: e.message, status: briefStatus() });
+    fail(res, e);
+  }
+});
+
 app.get('/api/us-halts', async (req, res) => {
   try {
     const raw = req.query.day;
@@ -1980,9 +2034,11 @@ app.listen(port, host, () => {
 
   // 앱이 꺼져 있던 구간의 모의투자 스냅샷을 채우고, 이후 하루 한 번 기록한다.
   // 지정 종목 Gemini 분석(하루 1번, 미국 마감+30분 뒤)도 같은 10분 확인에 얹는다 — 새 타이머 없음
+  // 오늘 시황 자동 오전판(평일 06:55 KST 뒤 첫 확인 · MARKET_BRIEF_ENABLED)과 30일 정리도 같은 확인에 얹는다
   void backfillSnapshots().then(() =>
     startSnapshotScheduler(() => {
       void scheduledTick().catch((e) => console.warn('[gemini] 지정 종목 분석 확인 실패:', (e as Error).message));
+      void marketBriefTick().catch((e) => console.warn('[market-brief] 자동 확인 실패:', (e as Error).message));
     }),
   );
 

@@ -57,7 +57,7 @@ export const GEMINI_TRIGGER_LABEL: Record<GeminiTrigger, string> = {
 
 /** 오늘 Gemini 사용량 한 줄 (`server/gemini/usage.ts`) */
 export interface GeminiUsageItem {
-  key: 'analysis' | 'aiCheck' | 'news' | 'target' | 'backtestExplain';
+  key: 'analysis' | 'aiCheck' | 'news' | 'target' | 'backtestExplain' | 'marketBrief';
   label: string;
   /** 실행 수(종목·버튼 수). AI 검증은 실행 = 호출이라 null */
   runs: number | null;
