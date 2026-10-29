@@ -12,6 +12,8 @@
 import { BRIEF_SECTORS, dateLabel, earningsLine } from './earnings';
 import type { BriefNewsItem } from './news';
 import { ASSET_LABEL, isIntradayBar, vixZone } from '../../src/utils/marketBrief';
+import { FOMC_MEETINGS } from '../../src/data/fomc';
+import { daysBetween } from './earnings';
 import type { BriefAsset, BriefAssetKey, BriefEarning, BriefEdition } from '../../src/types/marketBrief';
 
 export const MARKET_BRIEF_PROMPT_VERSION = 'brief-v1';
@@ -104,12 +106,40 @@ export const SCHEMA: Record<BriefEdition, unknown> = {
 
 const num4 = (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
-/** 원본 _fmt — 「  S&P500: 6,031.8000 (+0.53%) [10/28(수) 종가]」. 정규장 중에 받은 지수는 「장중」(끝나지 않은 봉을 종가라 적지 않는다) */
+/** 지수(정규장이 있는 것) — 「종가」 · 「장중」 을 가린다. 선물 · 환율 · 금리는 거의 하루 내내 움직여 「기준」 으로 적는다 */
+const INDEX_KEYS: BriefAssetKey[] = ['KOSPI', 'KOSDAQ', 'SP500', 'NASDAQ', 'DOW', 'RUSSELL2000', 'VIX'];
+const RATE_KEYS: BriefAssetKey[] = ['US2Y', 'US10Y'];
+
+/** 그 값의 기준 라벨 — 「10/28(수) 종가」 · 「10/29(목) 장중」 · 「10/28(수) 기준」 */
+export function basisLabel(key: BriefAssetKey, v: BriefAsset, at: number): string {
+  if (!v.data_date) return '';
+  const kind = INDEX_KEYS.includes(key) ? (isIntradayBar(key, v.data_date, at) ? '장중' : '종가') : '기준';
+  return `${dateLabel(v.data_date)} ${kind}`;
+}
+
+/**
+ * 원본 _fmt — 「  S&P500: 6,031.8000 (+0.53%) [10/28(수) 종가]」.
+ * 금리는 등락률(%) 대신 절대 변화(%p · bp)로 — 「금리 0.74% 상승」 처럼 읽히지 않게(원본은 등락률이었다).
+ */
 function assetLine(key: BriefAssetKey, v: BriefAsset, at: number): string {
   const sign = v.change >= 0 ? '+' : '';
-  const date = v.data_date ? ` [${dateLabel(v.data_date)} ${isIntradayBar(key, v.data_date, at) ? '장중' : '종가'}]` : '';
-  return `  ${ASSET_LABEL[key]}: ${num4(v.current)} (${sign}${v.change_pct.toFixed(2)}%)${date}`;
+  const label = basisLabel(key, v, at);
+  const date = label ? ` [${label}]` : '';
+  const move = RATE_KEYS.includes(key)
+    ? `전일 대비 ${sign}${v.change.toFixed(3)}%p, ${sign}${(v.change * 100).toFixed(1)}bp`
+    : `${sign}${v.change_pct.toFixed(2)}%`;
+  return `  ${ASSET_LABEL[key]}: ${num4(v.current)} (${move})${date}`;
 }
+
+/** 오늘부터 60일 안 FOMC 회의(연준 공식 일정 `data/fomc.ts`) — AI 가 경제 일정 날짜를 기억으로 쓰지 않게 */
+export function fomcText(today: string): string {
+  const rows = FOMC_MEETINGS.filter((m) => {
+    const d = daysBetween(today, m.end);
+    return d >= 0 && d <= 60;
+  }).map((m) => `- ${dateLabel(m.end)} [D+${daysBetween(today, m.end)}] FOMC 금리 결정(회의 ${dateLabel(m.start)}~${dateLabel(m.end)}${m.sep ? ' · 경제전망 · 점도표 발표' : ''})`);
+  return rows.length ? rows.join('\n') : '(60일 안 FOMC 회의 없음)';
+}
+
 
 const lines = (assets: Partial<Record<BriefAssetKey, BriefAsset>>, keys: BriefAssetKey[], at: number) =>
   keys.flatMap((k) => (assets[k] ? [assetLine(k, assets[k], at)] : [])).join('\n');
@@ -246,10 +276,12 @@ const COMMON_RULES = `- leading_sectors: 2~3개. 다음 두 기준 중 하나라
     예: "예상 EPS $0.12 ⚠️ (직전 $0.35, YoY $0.14, ±50%) | 컨센서스 Hold(21/38) | 매출 $11.51B, 신뢰도 주의"
   ★ 매출이 "-" 인 경우 매출 항목 생략.
   ★ 경제지표·FOMC 포함 가능, 공휴일·단순 연설 제외.
+  ★ FOMC 날짜는 [향후 60일 FOMC 회의] 의 날짜만 쓸 것. CPI·고용지표 등 그 밖의 경제지표는 날짜를 확실히 알 때만 넣고, 모르면 넣지 말 것(날짜를 지어내지 말 것).
   ★ ticker / sector_kr 은 실적인 경우에만 채움.
 - swing_check.catalysts:
   ★ catalysts 는 upcoming_schedule (②) 와 절대 중복 금지. 같은 실적 발표 일정을 반복 노출하지 말 것.
   ★ 포함 대상: FOMC 회의, CPI/PCE/고용지표 등 경제지표 발표일, 정책 이벤트, 지정학·규제 이벤트만.
+  ★ 날짜를 붙일 때 FOMC 는 [향후 60일 FOMC 회의] 의 날짜만, 다른 지표는 확실한 날짜만(모르면 날짜 없이).
   ★ 실적 발표 일정은 ② 에 이미 표시되므로 catalysts 에서 제외.
   ★ 최대 3개. 해당 없으면 빈 리스트 []. 억지로 채우지 말 것.
 - portfolio_adjustment:
@@ -289,8 +321,11 @@ ${PROFILE}
 [주요 지수 (전일 종가)]
 ${lines(assets, ['SP500', 'NASDAQ', 'DOW', 'RUSSELL2000'], at) || '  (데이터 없음)'}
 
-[매크로 자산 (전일 종가)]
+[매크로 자산 (최근 값 — 줄마다 기준 날짜, 금리는 전일 대비 %p)]
 ${lines(assets, ['GOLD', 'DXY', 'US2Y', 'US10Y', 'USDKRW', 'WTI', 'NATGAS'], at) || '  (데이터 없음)'}
+
+[향후 60일 FOMC 회의 (연준 공식 일정)]
+${fomcText(today)}
 
 ${EARNINGS_HEAD}
 ${earningsText(earnings)}
@@ -321,9 +356,13 @@ ${COMMON_RULES}`;
 
 function afternoonPrompt({ today, assets, earnings, domestic, at = Date.now() }: PromptInput): string {
   const vix = assets.VIX;
+  const vixBasis = vix ? basisLabel('VIX', vix, at) : '';
   const vixLevel = vix
-    ? `  VIX: ${vix.current.toFixed(2)} — ${vixZone(vix.current)} 구간 (${vix.current >= 30 ? '30 이상' : vix.current >= 20 ? '20~30' : '20 미만'})`
+    ? `  VIX: ${vix.current.toFixed(2)} — ${vixZone(vix.current)} 구간 (${vix.current >= 30 ? '30 이상' : vix.current >= 20 ? '20~30' : '20 미만'})${vixBasis ? ` [${vixBasis} — 미국 시장 값]` : ''}`
     : '';
+  // 국내 휴장일 · 데이터가 늦은 날 — 마지막 봉이 오늘이 아니면 오늘 일처럼 쓰지 않게
+  const krDate = assets.KOSPI?.data_date;
+  const krStale = krDate && krDate !== today ? `\n  ※ 오늘은 장이 열리지 않았거나 오늘 값이 아직 없습니다 — 위 값은 마지막 거래일 ${dateLabel(krDate)} 값입니다.` : '';
   return `오늘 날짜는 ${todayText(today)}입니다.
 
 ${SYSTEM}
@@ -332,10 +371,13 @@ ${SYSTEM}
 ${PROFILE}
 
 [오늘 국내 지수 (당일 마감 — 장 마감 전에 받았으면 라벨이 [장중])]
-${lines(assets, ['KOSPI', 'KOSDAQ'], at) || '  (데이터 없음)'}
+${lines(assets, ['KOSPI', 'KOSDAQ'], at) || '  (데이터 없음)'}${krStale}
 
 [시장 공포 지수]
 ${vixLevel || '  (데이터 없음)'}
+
+[향후 60일 FOMC 회의 (연준 공식 일정)]
+${fomcText(today)}
 
 ${EARNINGS_HEAD}
 ${earningsText(earnings)}
@@ -355,7 +397,7 @@ ${THEME_JSON(true)}
 ${REST_JSON('오늘 이 섹터가 주목받는 근거 (뉴스/실적 기반, 1~2문장)', '현재 국내 시장 국면 한줄')}
 
 [작성 규칙]
-- market_summary: 오늘 코스피·코스닥 등락과 주요 원인을 과거형으로 서술. 지수 라벨이 [장중]이면 아직 마감 전이므로 "장중" 흐름으로 서술.
+- market_summary: 오늘 코스피·코스닥 등락과 주요 원인을 과거형으로 서술. 지수 라벨이 [장중]이면 아직 마감 전이므로 "장중" 흐름으로 서술. 지수 날짜가 오늘이 아니면 마지막 거래일 값이라고 밝힐 것.
 - vix_comment: VIX 수치(${vix ? vix.current : 'N/A'})를 언급하며 안정/주의/공포 여부와 스윙 트레이딩 시사점 서술.
 ${THEME_RULE(true)}
 ${COMMON_RULES}`;

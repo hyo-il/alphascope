@@ -38,7 +38,7 @@ const common = {
   portfolio_note: '금 ETF 강세 유지 · 국고채 관망 — 달러 약세가 금값을 받치고 있습니다.',
   key_themes: [
     { icon: '🟢', category: '실적사이클', title: 'AI 데이터센터 투자 확대와 메모리 가격 반등', why_important: '빅테크가 서버 투자를 계속 늘려 반도체 회사 이익이 커질 수 있다는 뜻입니다.', duration: '1~2개월', swing_point: '메모리(마이크론 · SK하이닉스) 실적 발표 전후로 변동성이 커질 수 있어 발표 뒤 가이던스를 확인합니다.' },
-    { icon: '🟡', category: '통화정책', title: '연준 금리 인하 속도 논쟁', why_important: 'FOMC(미 연준 통화정책 회의)가 금리를 얼마나 빨리 내리느냐에 따라 성장주 값이 크게 흔들립니다.', duration: '분기 전반', swing_point: '금리 민감한 소프트웨어 · 리츠는 11/05 FOMC 뒤 방향을 보고 판단합니다.' },
+    { icon: '🟡', category: '통화정책', title: '연준 금리 인하 속도 논쟁', why_important: 'FOMC(미 연준 통화정책 회의)가 금리를 얼마나 빨리 내리느냐에 따라 성장주 값이 크게 흔들립니다.', duration: '분기 전반', swing_point: '금리 민감한 소프트웨어 · 리츠는 12/09 FOMC 뒤 방향을 보고 판단합니다.' },
     { icon: '🔴', category: '지정학', title: '중동 긴장과 유가 변동', why_important: '유가가 오르면 물가가 다시 올라 금리 인하가 늦어질 수 있습니다.', duration: '연말까지', swing_point: '에너지 섹터는 숏 관점 또는 관망 — 항공 · 운송은 비용 부담이 커집니다.' },
   ],
   leading_sectors: [
@@ -47,20 +47,19 @@ const common = {
   ],
   swing_check: {
     phase: '단기 과열 뒤 숨 고르기 — 대형 기술주 중심의 좁은 상승',
-    catalysts: ['11/05(목) FOMC 금리 결정', '11/07(토) 미국 10월 고용지표', '11/13(금) 미국 10월 CPI'],
+    catalysts: ['12/09(수) FOMC 금리 결정(점도표)', '11/06(금) 미국 10월 고용지표', '11/13(금) 미국 10월 CPI'],
     risks: ['장기 금리 재상승(10년물 4.3% 위)', '유가 급등에 따른 물가 재가속', '대형 기술주 실적 기대가 너무 높음'],
   },
   upcoming_schedule: {
     this_week: [
       { date: '11/02(월)', event: '마이크론 실적 발표', ticker: 'MU', sector_kr: '기술', detail: '예상 EPS $20.05 ⚠️ (직전 $7.90, YoY $1.91, ±46%) | 컨센서스 Buy(39/44), 신뢰도 주의', importance: 3 },
-      { date: '11/05(목)', event: 'FOMC 금리 결정', ticker: '', sector_kr: '', detail: '시장은 0.25%p 인하를 예상 — 점도표보다 기자회견 말투가 중요합니다.', importance: 3 },
       { date: '11/05(목)', event: '삼성전자 실적 발표', ticker: '005930', sector_kr: '기술', detail: '예상 EPS ₩1,235 (직전 ₩1,100, YoY ₩980) | 컨센서스 Buy(30/33) | 매출 ₩79.1조', importance: 3 },
     ],
     this_month: [
       { date: '11/19(목)', event: '엔비디아 실적 발표', ticker: 'NVDA', sector_kr: '기술', detail: '예상 EPS $1.25 (직전 $1.05, YoY $0.81) | 컨센서스 Buy(58/64) | 매출 $54.92B', importance: 2 },
     ],
     next_2_months: [
-      { date: '12/10(목)', event: 'FOMC 금리 결정', ticker: '', sector_kr: '', detail: '올해 마지막 회의 — 내년 점도표 공개', importance: 1 },
+      { date: '12/09(수)', event: 'FOMC 금리 결정', ticker: '', sector_kr: '', detail: '올해 마지막 회의 — 경제전망 · 점도표 공개', importance: 1 },
     ],
   },
   portfolio_adjustment: {
@@ -132,6 +131,11 @@ export function statusSample(o: { running?: boolean; used?: number; gemini?: boo
     autoDisabledReason: null,
     geminiDisabledReason: o.gemini === false ? '이 서버에서는 Gemini 가 꺼져 있습니다(GEMINI_ENABLED=false)' : null,
     lastFinishedId: null,
+    lastFinishedDate: null,
     lastError: null,
+    autoTriedToday: true,
+    autoDoneToday: true,
+    autoWindowNow: false,
+    bootAt: 0,
   };
 }

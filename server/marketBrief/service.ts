@@ -67,6 +67,9 @@ export const defaultBriefDeps: BriefDeps = {
 
 // ── 진행 상태 ──────────────────────────────────────────────────────────
 
+/** 서버가 켜진 시각 — 진행 중에 서버가 다시 켜지면 화면이 「끊겼습니다」 를 알린다 */
+const BOOT_AT = Date.now();
+
 interface RunState {
   running: boolean;
   stage: BriefStage | null;
@@ -74,14 +77,23 @@ interface RunState {
   trigger: BriefTrigger | null;
   startedAt: string | null;
   lastFinishedId: number | null;
+  lastFinishedDate: string | null;
   lastError: string | null;
 }
 
-const state: RunState = { running: false, stage: null, edition: null, trigger: null, startedAt: null, lastFinishedId: null, lastError: null };
+const state: RunState = { running: false, stage: null, edition: null, trigger: null, startedAt: null, lastFinishedId: null, lastFinishedDate: null, lastError: null };
+
+/**
+ * 줄을 남기지 못하고 실패한 버튼 실행(그날 한국 날짜) — 버튼 횟수에 함께 센다.
+ * Gemini 를 부른 뒤 저장이 실패해도 5번 제한을 넘지 않게(메모리 — 재시작하면 0).
+ */
+let failedButton = { day: '', n: 0 };
+const buttonUsedOn = (day: string) => countBriefs(day, 'button') + (failedButton.day === day ? failedButton.n : 0);
 
 /** 시험용 — 진행 상태를 처음으로 */
 export function resetBriefStateForTest(): void {
-  Object.assign(state, { running: false, stage: null, edition: null, trigger: null, startedAt: null, lastFinishedId: null, lastError: null });
+  Object.assign(state, { running: false, stage: null, edition: null, trigger: null, startedAt: null, lastFinishedId: null, lastFinishedDate: null, lastError: null });
+  failedButton = { day: '', n: 0 };
 }
 
 export function briefStatus(now = Date.now()): MarketBriefStatus {
@@ -93,13 +105,18 @@ export function briefStatus(now = Date.now()): MarketBriefStatus {
     trigger: state.trigger,
     startedAt: state.startedAt,
     today,
-    buttonUsed: countBriefs(today, 'button'),
+    buttonUsed: buttonUsedOn(today),
     buttonLimit: BRIEF_BUTTON_DAILY_LIMIT,
     nowEdition: editionAt(now),
     autoDisabledReason: autoDisabledReason(),
     geminiDisabledReason: geminiDisabledReason(),
     lastFinishedId: state.lastFinishedId,
+    lastFinishedDate: state.lastFinishedDate,
     lastError: state.lastError,
+    autoTriedToday: readLastAuto() === today,
+    autoDoneToday: countBriefs(today, 'auto') > 0,
+    autoWindowNow: autoDue(now, null),
+    bootAt: BOOT_AT,
   };
 }
 
@@ -159,6 +176,8 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
   const collected = await collectAll(edition, today, deps.collect);
 
   state.stage = 'ai';
+  // 장중/종가 판단 시각 = 지표 엔진이 실제로 받은 시각(엔진 10분 캐시면 그때) — 프롬프트 · 화면이 같은 값을 쓴다
+  const collectedAt = collected.market.fetchedAt ?? startedMs;
   const prompt = buildPrompt({
     edition,
     today,
@@ -166,9 +185,13 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
     earnings: collected.earnings.earnings,
     domestic: collected.domestic,
     foreign: collected.foreign,
-    at: startedMs,
+    at: collectedAt,
   });
-  const ai = await askGemini(edition, prompt, deps);
+  // 시장 데이터를 하나도 못 받았으면 AI 를 부르지 않는다 — 숫자 없이 시황을 지어낸다(한도도 아낀다)
+  const noMarket = Object.keys(collected.market.assets).length === 0;
+  const ai = noMarket
+    ? { brief: null, model: null, tokens: null, calls: 0, error: '시장 데이터를 받지 못해 AI 분석을 하지 않았습니다' }
+    : await askGemini(edition, prompt, deps);
   let brief: BriefAi | null = null;
   let aiError = ai.error;
   if (ai.brief) {
@@ -194,7 +217,7 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
     aiCalls: ai.calls,
     promptVersion: MARKET_BRIEF_PROMPT_VERSION,
     sources,
-    data: { assets: collected.market.assets, earnings: collected.earnings.earnings },
+    data: { assets: collected.market.assets, earnings: collected.earnings.earnings, collectedAt: new Date(collectedAt).toISOString() },
     brief,
     aiError: brief ? null : aiError,
   });
@@ -207,10 +230,15 @@ async function runOnce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
   try {
     const id = await produce(edition, trigger, deps);
     state.lastFinishedId = id;
+    state.lastFinishedDate = kstDay(Date.parse(state.startedAt!));
     console.log(`[market-brief] ${trigger === 'auto' ? '자동' : '버튼'} ${edition === 'morning' ? '오전판' : '오후판'} 저장 #${id}`);
     return id;
   } catch (error) {
     state.lastError = (error as Error).message;
+    if (trigger === 'button') {
+      const day = kstDay(Date.parse(state.startedAt!));
+      failedButton = { day, n: (failedButton.day === day ? failedButton.n : 0) + 1 };
+    }
     console.warn('[market-brief] 만들기 실패:', state.lastError);
     return null;
   } finally {
@@ -228,7 +256,7 @@ async function runOnce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
 export function startButtonRun(deps: BriefDeps = defaultBriefDeps): { started: boolean; done: Promise<number | null> } {
   if (state.running) return { started: false, done: Promise.resolve(null) };
   const now = deps.now();
-  if (countBriefs(kstDay(now), 'button') >= BRIEF_BUTTON_DAILY_LIMIT) {
+  if (buttonUsedOn(kstDay(now)) >= BRIEF_BUTTON_DAILY_LIMIT) {
     throw new BriefLimitError(`오늘 버튼 ${BRIEF_BUTTON_DAILY_LIMIT}번을 다 썼습니다 — 내일 다시 눌러 주세요`);
   }
   // runOnce 는 첫 await 전에 running 을 잡는다 — 같은 틱에 두 번 눌러도 두 번째는 위에서 걸린다
@@ -269,9 +297,13 @@ export async function marketBriefTick(deps: BriefDeps = defaultBriefDeps): Promi
   const now = deps.now();
   const today = kstDay(now);
   if (lastPurgeDay !== today) {
-    lastPurgeDay = today;
-    const removed = purgeOldBriefs(today);
-    if (removed) console.log(`[market-brief] 30일 지난 기록 ${removed}줄 지움`);
+    try {
+      const removed = purgeOldBriefs(today);
+      lastPurgeDay = today; // 지우기에 성공한 날만 — 실패하면 다음 확인 때 다시
+      if (removed) console.log(`[market-brief] 30일 지난 기록 ${removed}줄 지움`);
+    } catch (e) {
+      console.warn('[market-brief] 30일 정리 실패 — 다음 확인 때 다시:', (e as Error).message);
+    }
   }
   if (autoDisabledReason() || state.running) return null;
   if (!autoDue(now, readLastAuto()) || countBriefs(today, 'auto') > 0) return null;

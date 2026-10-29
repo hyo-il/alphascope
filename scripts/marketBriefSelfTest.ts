@@ -222,6 +222,13 @@ const news = (n: number, foreign: boolean) => Array.from({ length: n }, (_, i) =
   check('스키마 — 슬롯 dict · key_themes · portfolio_adjustment', ['upcoming_schedule', 'key_themes', 'portfolio_adjustment'].every((k) => sch.required.includes(k)) && !('key_issues' in sch.properties));
   check('필수 키 — 오전 market_regime · 오후 market_summary', REQUIRED_KEYS.morning.includes('market_regime') && REQUIRED_KEYS.afternoon.includes('market_summary'));
 
+  // 금리는 %p · bp, 선물 · 환율은 「기준」, FOMC 는 공식 일정
+  const macro = buildPrompt({ edition: 'morning', today: '2026-10-29', assets: { ...assets, GOLD: { current: 2745.3, change: 12.1, change_pct: 0.44, data_date: '2026-10-28' } }, earnings, domestic: [], foreign: [], at: kst('2026-10-29', '07:05') });
+  check('금리 — 등락률 대신 %p · bp', macro.includes('  미2년물금리(%): 3.4900 (전일 대비 -0.020%p, -2.0bp) [10/28(수) 기준]'), macro.split('\n').find((l) => l.includes('미2년물')) ?? '');
+  check('선물 · 환율은 「기준」 · 지수는 「종가」', macro.includes('[10/28(수) 기준]') && macro.includes('  S&P500: 6,031.8000 (+0.53%) [10/28(수) 종가]'));
+  check('FOMC — 60일 안 공식 회의(12/09 점도표) · D+N', macro.includes('[향후 60일 FOMC 회의 (연준 공식 일정)]') && /- 12\/09\(수\) \[D\+41\] FOMC 금리 결정\(회의 12\/08\(화\)~12\/09\(수\) · 경제전망 · 점도표 발표\)/.test(macro) && !macro.includes('10/28(수) [D'));
+  const holiday = buildPrompt({ edition: 'afternoon', today: '2026-10-30', assets, earnings, domestic: [], foreign: [], at: kst('2026-10-30', '16:00') });
+  check('오후판 — 오늘 국내 값이 없으면 마지막 거래일이라고 밝힘 · VIX 날짜', holiday.includes('위 값은 마지막 거래일 10/29(목) 값입니다') && holiday.includes('[10/28(수) 종가 — 미국 시장 값]'));
   // 장중에 받은 지수는 「종가」 가 아니라 「장중」
   check('장중 — 코스피 14:00 KST 같은 날 = 장중 · 15:30 = 종가 · 지난 날 = 종가', isIntradayBar('KOSPI', '2026-10-29', kst('2026-10-29', '14:00')) && !isIntradayBar('KOSPI', '2026-10-29', kst('2026-10-29', '15:30')) && !isIntradayBar('KOSPI', '2026-10-28', kst('2026-10-29', '14:00')));
   check('장중 — 미국 지수 23:40 KST(10:40 ET) = 장중 · 06:55 KST = 종가 · 금리는 늘 종가', isIntradayBar('SP500', '2026-10-29', kst('2026-10-29', '23:40')) && !isIntradayBar('SP500', '2026-10-28', kst('2026-10-29', '06:55')) && !isIntradayBar('US10Y', '2026-10-29', kst('2026-10-29', '23:40')));
@@ -258,6 +265,8 @@ const news = (n: number, foreign: boolean) => Array.from({ length: n }, (_, i) =
   const r = reassignSlotsByDays(normalizeBrief(raw({ this_week: [item('12/10(목)', 'd42'), item('11/05(목)', 'd7')], next_2_months: [item('11/06(금)', 'd8'), item('11/28(토)', 'd30'), item('11/29(일)', 'd31'), item('12/28(월)', 'd60'), item('12/29(화)', 'd61'), item('미정', 'bad')] }, [])), T);
   const names = (xs: BriefScheduleItem[]) => xs.map((i) => i.event).join(',');
   check('② 0~7 / 8~30 / 31~60 · 61 버림 · 못 읽음 → 이번 달', names(r.upcoming_schedule.this_week) === 'd7' && names(r.upcoming_schedule.this_month) === 'd8,d30,bad' && names(r.upcoming_schedule.next_2_months) === 'd42,d31,d60', JSON.stringify(r.upcoming_schedule));
+  const dup = reassignSlotsByDays(normalizeBrief(raw({ this_week: [item('11/02(월)', '마이크론 실적 발표', 'MU', '기술')], this_month: [item('11/02(월)', '마이크론 실적', 'mu', '기술')] }, [])), T);
+  check('② 같은 일정(날짜 · 티커)을 두 슬롯에 적으면 하나만', dup.upcoming_schedule.this_week.length === 1 && dup.upcoming_schedule.this_month.length === 0);
   check('② 해 경계 — 12/20 기준 01/05 = 16일', daysUntilLabel('01/05(화)', '2026-12-20') === 16 && daysUntilLabel('12/19(토)', '2026-12-20') === 364);
 
   // ③ 섹터 상한 3/3/2 · 총 6/5/5 · 별점 순 → 날짜 순 · 경제지표는 섹터 상한 밖
@@ -360,6 +369,18 @@ const runButton = async () => {
   const b4 = getBrief((await runButton()).id!);
   check('429 → 다시 부르지 않음 · 「무료 한도 초과」', geminiCalls.length === 1 && b4?.brief === null && /무료 한도 초과/.test(b4?.aiError ?? '') && b4?.aiCalls === 1);
 
+  // 시장 데이터를 하나도 못 받음 → AI 를 부르지 않는다(지어낸 시황 방지)
+  geminiCalls.length = 0;
+  const realMarket = deps.collect.market;
+  deps.collect.market = async () => {
+    throw new Error('지표 엔진 연결 실패');
+  };
+  const nm = getBrief((await runButton()).id!);
+  deps.collect.market = realMarket;
+  db.prepare(`DELETE FROM market_briefs WHERE id = ?`).run(nm!.id); // 아래 5번 세기를 위해 이 줄은 지운다
+  check('시장 데이터 0개 → AI 안 부름 · 데이터만 · 이유', geminiCalls.length === 0 && nm?.brief === null && /시장 데이터를 받지 못해/.test(nm?.aiError ?? '') && nm?.sources.find((x) => x.group === 'market')?.ok === false);
+  check('수집 시각 저장(장중/종가 판단)', !!b1?.data.collectedAt);
+
   // Gemini 꺼짐 → 부르지 않고 데이터만
   geminiCalls.length = 0;
   geminiReason = '이 서버에서는 Gemini 가 꺼져 있습니다(GEMINI_ENABLED=false)';
@@ -377,6 +398,27 @@ const runButton = async () => {
   }
   check('6번째 버튼 → 막힘(「오늘 버튼 5번을 다 썼습니다」)', blocked);
   check('사용량 — 오늘 시황 호출 수(1+2+2+1+0)', geminiUsageToday(new Date(clock)).items.find((i) => i.key === 'marketBrief')?.calls === 6);
+
+  // 저장에 실패한 버튼 실행도 횟수에 센다 · 자정을 넘겨 끝나면 시작 날짜 줄로
+  {
+    clock = kst('2026-11-09', '10:00');
+    resetBriefStateForTest();
+    const realEarn = deps.collect.earnings;
+    deps.collect.earnings = async () => {
+      throw new Error('x');
+    };
+    db.exec(`CREATE TEMP TRIGGER brief_fail BEFORE INSERT ON market_briefs BEGIN SELECT RAISE(ABORT, '디스크 가득'); END;`);
+    await runButton();
+    db.exec(`DROP TRIGGER brief_fail`);
+    deps.collect.earnings = realEarn;
+    check('저장 실패 → lastError · 진행 풀림 · 버튼 횟수 1', /디스크 가득/.test(briefStatus(clock).lastError ?? '') && !briefStatus(clock).running && briefStatus(clock).buttonUsed === 1);
+    clock = kst('2026-11-09', '23:59');
+    const late = startButtonRun({ ...deps, now: () => clock });
+    clock = kst('2026-11-10', '00:01');
+    const lateId = await late.done;
+    check('자정 넘겨 끝남 → 줄 날짜 = 시작 날짜 · 상태의 lastFinishedDate 같음', getBrief(lateId!)?.date === '2026-11-09' && briefStatus(clock).lastFinishedDate === '2026-11-09');
+    resetBriefStateForTest();
+  }
 
   // 판 경계
   check('판 — 12:59 오전판 · 13:00 오후판', editionAt(kst('2026-10-30', '12:59')) === 'morning' && editionAt(kst('2026-10-30', '13:00')) === 'afternoon');
@@ -439,15 +481,15 @@ const runButton = async () => {
 {
   const old = (date: string) => insertBrief({ date, edition: 'morning', trigger: 'auto', createdAt: `${date}T00:00:00.000Z`, model: null, tokens: null, aiCalls: 0, promptVersion: 't', sources: [], data: { assets: {}, earnings: [] }, brief: null, aiError: 'x' });
   old('2026-09-01');
-  old('2026-10-04');
   old('2026-10-05');
+  old('2026-10-06');
   const removed = purgeOldBriefs('2026-11-04');
   const days = listBriefDays().map((d) => d.date);
-  check('30일 정리 — 11-04 기준 10-05 남김 · 10-04 이전 지움', removed === 2 && days.includes('2026-10-05') && !days.includes('2026-10-04') && !days.includes('2026-09-01'));
+  check('30일 정리 — 오늘(11-04) 포함 30일: 10-06 남김 · 10-05 이전 지움', removed === 2 && days.includes('2026-10-06') && !days.includes('2026-10-05') && !days.includes('2026-09-01'));
   resetPurgeForTest();
   const list = listBriefsOf('2026-10-29');
   check('같은 날 여러 줄 — 모두 남김 · 최근 것부터', list.length === 5 && list[0].createdAt >= list[4].createdAt && list.every((i, k) => k === 0 || list[k - 1].createdAt >= i.createdAt));
-  check('날짜 목록 — 최근 것부터 · 줄 수', days[0] === '2026-11-05' && days[1] === '2026-11-04' && listBriefDays().find((d) => d.date === '2026-10-29')?.count === 5);
+  check('날짜 목록 — 최근 것부터 · 줄 수', days.every((d, k) => k === 0 || days[k - 1] > d) && days.includes('2026-11-05') && listBriefDays().find((d) => d.date === '2026-10-29')?.count === 5);
 }
 
 db.prepare(`DELETE FROM market_briefs`).run();

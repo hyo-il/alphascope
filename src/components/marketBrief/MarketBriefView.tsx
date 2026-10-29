@@ -7,11 +7,10 @@ import SymbolChartLink from '../common/SymbolChartLink';
 import { SkeletonCards } from '../common/SkeletonLoader';
 import LoadingOverlay, { InlineSpinner } from '../common/LoadingOverlay';
 import { toast } from '../../store/uiStore';
-import { changeColor, displayMinus, formatNumber, formatPercent } from '../../utils/formatters';
+import { changeColor, displayMinus, formatNumber, formatPercent, formatSigned } from '../../utils/formatters';
 import { formatDateTime, formatTime } from '../../utils/dateFormat';
 import { ASSET_LABEL, EDITION_LABEL, isIntradayBar, vixZone } from '../../utils/marketBrief';
 import {
-  BRIEF_AUTO_TIME,
   type BriefAsset,
   type BriefAssetKey,
   type BriefEarning,
@@ -35,6 +34,8 @@ import {
  */
 
 const POLL_MS = 2000;
+/** 빈 오늘 화면에서 자동 오전판을 기다릴 때 상태를 읽는 간격 */
+const AUTO_WATCH_MS = 30_000;
 const STAGES: { id: BriefStage; label: string }[] = [
   { id: 'collect', label: '시장 데이터 받는 중' },
   { id: 'ai', label: 'AI 분석 중' },
@@ -46,9 +47,18 @@ const RAW_SCHEDULE_MAX = 8;
 
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
 const dayLabel = (day: string) => `${day.slice(5, 7)}/${day.slice(8, 10)}(${WEEKDAY[new Date(`${day}T12:00:00Z`).getUTCDay()]})`;
-/** AI 글 정리 — 이모지를 빼고 하이픈 음수를 마이너스 기호로 */
+/** AI 글 정리 — 이모지를 빼고 하이픈 음수를 마이너스 기호로 · 금액 음수는 부호를 통화 기호 앞으로(`₩-1,214` → `−₩1,214`) */
 const clean = (text: string | null | undefined) =>
-  displayMinus(String(text ?? '').replace(/\p{Extended_Pictographic}️?/gu, '').replace(/\s{2,}/g, ' ').trim());
+  displayMinus(
+    String(text ?? '')
+      .replace(/\p{Extended_Pictographic}️?/gu, '')
+      .replace(/([$₩])[-−](?=\d)/g, '−$1')
+      .replace(/\s{2,}/g, ' ')
+      .trim(),
+  );
+/** 화면에 보일 AI 없음 이유 — 서버 설정 이름(괄호 안 `GEMINI_ENABLED=false` 등)은 수집 상태 칸에만 */
+const plainReason = (reason: string | null) =>
+  (reason ?? '이유 모름').replace(/\s*\([A-Z_]+=[^)]*\)/g, '').replace(/^AI 꺼짐 — /, '');
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; status: number; body: T & { error?: string } }> {
   const response = await fetch(url, init);
@@ -85,9 +95,12 @@ export default function MarketBriefView({ onSelectSymbol }: { onSelectSymbol: (s
       const r = await getJson<MarketBriefDayResponse>(`/api/market-brief?date=${d}${id ? `&id=${id}` : ''}`);
       if (!r.ok) throw new Error(r.body.error ?? `요청 실패 (${r.status})`);
       setDay(r.body);
+      setDate(r.body.date);
       setError(null);
+      return true;
     } catch (e) {
       setError((e as Error).message);
+      return false;
     } finally {
       setLoadingDay(false);
     }
@@ -114,24 +127,47 @@ export default function MarketBriefView({ onSelectSymbol }: { onSelectSymbol: (s
 
   // 진행 중에만 2초마다 상태 — 끝나면 날짜 목록과 오늘(방금 만든 것)을 다시 읽는다
   const running = status?.running ?? false;
+  /** 진행을 본 때의 서버 기동 시각 — 끝났을 때 다르면 서버가 다시 켜진 것 */
+  const bootAt = useRef<number | null>(null);
   useEffect(() => {
     if (!running) return;
+    if (bootAt.current === null) bootAt.current = status?.bootAt ?? null;
     const timer = setInterval(() => {
       void loadStatus()
         .then((s) => {
           if (s.running || !wasRunning.current) return;
           wasRunning.current = false;
           if (s.lastError) toast.error('시황을 만들지 못했습니다', s.lastError);
-          setDate(s.today);
+          // 진행 중에 서버가 다시 켜졌으면 결과도 오류도 없다 — 끊겼다고 알린다
+          else if (s.lastFinishedId == null || (bootAt.current !== null && s.bootAt !== bootAt.current)) {
+            toast.warning('진행 중이던 시황이 서버 재시작으로 끊겼습니다', '다시 눌러 주세요 — 끊긴 것은 횟수에 세지 않습니다');
+          }
+          bootAt.current = null;
           void loadDays();
-          void loadDay(s.today, s.lastFinishedId ?? undefined);
+          // 방금 만든 줄의 날짜로 간다(자정을 넘겨 끝나도)
+          void loadDay(s.lastFinishedDate ?? s.today, s.lastFinishedId ?? undefined);
         })
         .catch(() => {
           /* 다음 차례에 다시 */
         });
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [running, loadStatus, loadDays, loadDay]);
+  }, [running, status?.bootAt, loadStatus, loadDays, loadDay]);
+
+  // 오늘 화면이 비어 있고 자동 시간대면 30초마다 상태만 — 자동 오전판(또는 다른 기기의 버튼)이 시작되면 진행 표시로 넘어간다
+  const watchAuto = !running && !!status?.autoWindowNow && !status.autoDoneToday && day?.date === status.today && day.items.length === 0;
+  useEffect(() => {
+    if (!watchAuto) return;
+    const timer = setInterval(() => {
+      void loadStatus()
+        .then((s) => {
+          if (s.running) wasRunning.current = true;
+          else if (s.autoDoneToday) void Promise.all([loadDays(), loadDay(s.today)]);
+        })
+        .catch(() => {});
+    }, AUTO_WATCH_MS);
+    return () => clearInterval(timer);
+  }, [watchAuto, loadStatus, loadDays, loadDay]);
 
   const run = async () => {
     setStarting(true);
@@ -143,6 +179,7 @@ export default function MarketBriefView({ onSelectSymbol }: { onSelectSymbol: (s
         return;
       }
       if (!r.ok) throw new Error(r.body.error ?? `요청 실패 (${r.status})`);
+      if (!r.body.started) toast.info('이미 시황을 만드는 중입니다 — 끝나면 보여 드립니다', '이번 누름은 횟수에 세지 않습니다');
       wasRunning.current = true;
     } catch (e) {
       toast.error('시황 분석을 시작하지 못했습니다', (e as Error).message);
@@ -152,8 +189,11 @@ export default function MarketBriefView({ onSelectSymbol }: { onSelectSymbol: (s
   };
 
   const pickDate = (d: string) => {
+    const prev = date;
     setDate(d);
-    void loadDay(d);
+    void loadDay(d).then((ok) => {
+      if (!ok) setDate(prev); // 못 불러오면 고르기 칸을 보이는 본문 날짜로 되돌린다(오류 줄은 본문 위에)
+    });
   };
 
   const dateOptions = (() => {
@@ -182,7 +222,7 @@ export default function MarketBriefView({ onSelectSymbol }: { onSelectSymbol: (s
             {dateOptions.map((d) => (
               <option key={d.date} value={d.date}>
                 {d.date} {dayLabel(d.date).slice(5)}
-                {d.date === status?.today ? ' 오늘' : ''} · {d.count ? `${d.count}개` : '없음'}
+                {d.date === status?.today ? ' 오늘' : ''} · {d.count ? `${d.count}번 만듦` : '없음'}
               </option>
             ))}
           </Select>
@@ -196,22 +236,25 @@ export default function MarketBriefView({ onSelectSymbol }: { onSelectSymbol: (s
             >
               {day.items.map((i) => (
                 <option key={i.id} value={i.id}>
-                  {formatTime(i.createdAt)} {EDITION_LABEL[i.edition]} · {i.trigger === 'auto' ? '자동' : '버튼'}
+                  {formatTime(i.createdAt)} {EDITION_LABEL[i.edition]} · {i.trigger === 'auto' ? '자동' : '직접'}
                   {i.hasAi ? '' : ' · AI 없음'}
                 </option>
               ))}
             </Select>
           )}
           {loadingDay && day && <InlineSpinner />}
-          <span className="text-caption text-text-muted">30일 보관 · 자동은 평일 {BRIEF_AUTO_TIME} 뒤 첫 확인(07:05 무렵)에 오전판</span>
+          <span className="text-caption text-text-muted">
+            30일 보관 ·{' '}
+            {status?.autoDisabledReason ? '이 서버는 자동 만들기가 꺼져 있습니다' : '평일 아침 7시 무렵 자동으로 오전판(13시까지 못 만들면 그날은 없음)'}
+          </span>
         </div>
 
         {status?.running && <ProgressBanner stage={status.stage} edition={status.edition} trigger={status.trigger} />}
 
-        {error && !day && (
-          <Panel className="text-xs text-danger">
+        {error && (
+          <Panel pad="sm" className={`text-xs text-danger ${day ? 'mb-3' : ''}`}>
             <WarnIcon />
-            불러오지 못했습니다 — {error}
+            불러오지 못했습니다: {error}
           </Panel>
         )}
         {firstLoad && <SkeletonCards count={4} />}
@@ -221,7 +264,7 @@ export default function MarketBriefView({ onSelectSymbol }: { onSelectSymbol: (s
             {selected ? (
               <BriefBody brief={selected} onOpen={onSelectSymbol} />
             ) : (
-              <EmptyDay isToday={day.date === status?.today} running={status?.running ?? false} canRun={!!status && status.buttonUsed < status.buttonLimit} onRun={run} />
+              <EmptyDay isToday={day.date === status?.today} status={status} onRun={run} />
             )}
           </div>
         )}
@@ -237,11 +280,11 @@ function RunControls({ status, starting, onRun }: { status: MarketBriefStatus; s
   return (
     <>
       <span className="text-caption text-text-muted">
-        지금 시각 기준 — {EDITION_LABEL[status.nowEdition]}({status.nowEdition === 'morning' ? '미국 마감 기준' : '국내 마감 · VIX'})
+        지금 누르면 {EDITION_LABEL[status.nowEdition]}({status.nowEdition === 'morning' ? '미국 마감 기준' : '국내 마감 · VIX'})을 만듭니다
       </span>
       <InfoTip label="오전판 · 오후판">
         한국 시간 13시 전에 누르면 오전판(미국 증시 · 금리 · 달러 · 금 · 원유 등 13가지, 국내 · 해외 뉴스), 13시부터는 오후판(코스피 · 코스닥 마감 · VIX 공포지수, 국내 뉴스)을 만듭니다.
-        버튼은 하루 {status.buttonLimit}번까지이고, 평일 아침 자동으로 만드는 오전판은 횟수에 세지 않습니다.
+        버튼은 하루 {status.buttonLimit}번까지이고(AI 가 꺼져 데이터만 만들어도 1번 셉니다), 평일 아침 자동으로 만드는 오전판은 횟수에 세지 않습니다.
       </InfoTip>
       {status.geminiDisabledReason && (
         <span className="text-caption text-warning" title={status.geminiDisabledReason}>
@@ -250,7 +293,7 @@ function RunControls({ status, starting, onRun }: { status: MarketBriefStatus; s
         </span>
       )}
       <span className={`text-caption tabular-nums ${spent ? 'text-warning' : 'text-text-secondary'}`}>
-        {spent ? `오늘 버튼 ${status.buttonLimit}번을 다 썼습니다 — 내일 다시` : `오늘 남은 횟수 ${left}/${status.buttonLimit}`}
+        {spent ? `오늘 버튼 ${status.buttonLimit}번을 다 썼습니다 — 내일 다시` : `오늘 남은 횟수 ${left}번(하루 ${status.buttonLimit}번)`}
       </span>
       <Button variant="primary" busy={status.running || starting} disabled={spent} onClick={onRun}>
         {status.running ? '분석 중…' : '시황 분석'}
@@ -270,8 +313,7 @@ function ProgressBanner({ stage, edition, trigger }: { stage: BriefStage | null;
       <ol className="flex flex-wrap items-center gap-x-2 text-caption">
         {STAGES.map((s, i) => (
           <li key={s.id} className={i === at ? 'font-medium text-text-primary' : i < at ? 'text-text-secondary' : 'text-text-muted'}>
-            {i > 0 && <span className="mr-2 text-text-muted">→</span>}
-            {s.label}
+            {i + 1}. {s.label}
           </li>
         ))}
       </ol>
@@ -280,18 +322,27 @@ function ProgressBanner({ stage, edition, trigger }: { stage: BriefStage | null;
   );
 }
 
-function EmptyDay({ isToday, running, canRun, onRun }: { isToday: boolean; running: boolean; canRun: boolean; onRun: () => void }) {
+/** 빈 오늘 — 자동이 꺼짐 · 자동 시간대(아직) · 오늘 자동을 시도했는데 못 만듦 · 시간대 밖(13시 뒤 · 주말)을 나눠 말한다 */
+function emptyText(status: MarketBriefStatus | null): string {
+  if (!status) return '아직 오늘 시황이 없습니다.';
+  if (status.autoDisabledReason) return '아직 오늘 시황이 없습니다 — 이 서버는 자동 만들기가 꺼져 있습니다.';
+  if (status.autoWindowNow && !status.autoTriedToday) return '아직 오늘 시황이 없습니다 — 평일 아침 7시 무렵 자동으로 만들어집니다.';
+  if (status.autoTriedToday && !status.autoDoneToday) return '오늘 자동 시황을 만들지 못했습니다(서버가 다시 켜지는 등).';
+  return '아직 오늘 시황이 없습니다 — 오늘 자동 오전판은 없습니다(평일 아침에 13시 전까지만 만듭니다).';
+}
+
+function EmptyDay({ isToday, status, onRun }: { isToday: boolean; status: MarketBriefStatus | null; onRun: () => void }) {
+  const canRun = !!status && !status.running && status.buttonUsed < status.buttonLimit;
   return (
     <Panel className="flex flex-wrap items-center gap-3 text-xs text-text-secondary">
-      <span>
-        {isToday
-          ? `아직 오늘 시황이 없습니다 — 평일 07:05 무렵 자동으로 만들어집니다.`
-          : '이 날 만든 시황이 없습니다.'}
-      </span>
-      {isToday && !running && canRun && (
-        <Button size="sm" onClick={onRun}>
-          시황 분석
-        </Button>
+      <span>{isToday ? emptyText(status) : '이 날 만든 시황이 없습니다.'}</span>
+      {isToday && canRun && status && (
+        <>
+          <Button size="sm" onClick={onRun}>
+            시황 분석
+          </Button>
+          <span className="text-caption text-text-muted">지금 누르면 {EDITION_LABEL[status.nowEdition]}을 만듭니다</span>
+        </>
       )}
     </Panel>
   );
@@ -314,22 +365,24 @@ function BriefBody({ brief, onOpen }: { brief: MarketBrief; onOpen: (symbol: str
   const ai = brief.brief;
   const basisKey: BriefAssetKey = brief.edition === 'morning' ? 'SP500' : 'KOSPI';
   const basis = brief.data.assets[basisKey]?.data_date;
+  const collectedAt = Date.parse(brief.data.collectedAt ?? brief.createdAt);
   return (
     <div className="space-y-3">
       {/* 만든 시각 · 데이터 기준 */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-text-muted" data-brief-meta>
         <Badge>{EDITION_LABEL[brief.edition]}</Badge>
-        <span>{brief.trigger === 'auto' ? '자동으로 만듦' : '「시황 분석」 으로 만듦'}</span>
+        <span>{brief.trigger === 'auto' ? '자동으로 만듦' : '직접 만듦(시황 분석)'}</span>
         <span className="tabular-nums">만든 시각 {formatDateTime(brief.createdAt)}</span>
         <span className="tabular-nums">
-          데이터 기준 {basis ? `${brief.edition === 'morning' ? '미국' : '국내'} ${dayLabel(basis)} ${isIntradayBar(basisKey, basis, Date.parse(brief.createdAt)) ? '장중' : '종가'}` : '모름'}
+          데이터 기준 {basis ? `${brief.edition === 'morning' ? '미국' : '국내'} ${dayLabel(basis)} ${isIntradayBar(basisKey, basis, collectedAt) ? '장중' : '종가'}` : '모름'}
         </span>
+        <span>AI 참고 글 · 투자 조언 아님</span>
       </div>
 
       {!ai && (
         <Panel pad="sm" className="text-xs text-warning" data-brief-ai-error>
           <WarnIcon />
-          AI 분석이 없습니다 — {brief.aiError ?? '이유 모름'}. 시장 데이터와 실적 일정만 보입니다.
+          AI 분석이 없습니다: {plainReason(brief.aiError)}. 시장 데이터와 실적 일정만 보입니다.
         </Panel>
       )}
 
@@ -343,7 +396,7 @@ function BriefBody({ brief, onOpen }: { brief: MarketBrief; onOpen: (symbol: str
         id="schedule"
         title="향후 60일 주요 일정"
         aside={ai ? '주도 섹터의 실적 · 경제지표' : '수집한 실적 일정(AI 거르기 없음)'}
-        info="실적 발표일은 앱의 실적 일정(시총 상위 · 관심 · 자동매매 종목)에서, 예상 EPS · 매출 · 컨센서스는 yfinance 에서 가져옵니다. 이번 주는 섹터마다 3개 · 모두 6개, 이번 달은 3개 · 5개, 다음 한 달은 2개 · 5개까지 보입니다. 국내 종목은 섹터와 상관없이 남깁니다."
+        info="실적 발표일은 앱의 실적 일정(시총 상위 · 관심 · 자동매매 종목)에서, 예상 EPS · 매출 · 컨센서스는 yfinance 에서 가져옵니다. 이번 주는 섹터마다 3개 · 모두 6개, 이번 달은 3개 · 5개, 다음 한 달은 2개 · 5개까지 보입니다. 국내 종목은 섹터와 상관없이 남깁니다. 읽는 법: 예상 EPS = 주당순이익 예상치 · 직전 = 직전 분기 실제 · YoY = 1년 전 같은 분기 실제 · ±% = 애널리스트 예상이 갈린 정도 · 컨센서스 Buy(39/44) = 애널리스트 44명 중 39명이 매수 의견(앱의 판단이 아님) · B = 10억 달러."
       >
         {ai ? <ScheduleBody schedule={ai.upcoming_schedule} earnings={brief.data.earnings} onOpen={onOpen} /> : <RawSchedule earnings={brief.data.earnings} onOpen={onOpen} />}
       </Card>
@@ -354,7 +407,7 @@ function BriefBody({ brief, onOpen }: { brief: MarketBrief; onOpen: (symbol: str
           <Card
             id="sectors"
             title="현재 주도 섹터"
-            info="기준 A = 3개월 넘게 이어질 상승 근거, 기준 B = 방향과 상관없이 시장 관심이 몰린 섹터(하락 쪽이면 「숏 관점」 · 「관망」 으로 읽습니다). 별 셋이 가장 강합니다."
+            info="기준 A = 3개월 넘게 이어질 상승 근거, 기준 B = 방향과 상관없이 시장 관심이 몰린 섹터입니다. 별 = AI 가 본 관심의 크기(오를 가능성이나 매수 추천의 세기가 아닙니다). 숏 관점 = 값이 내릴 것으로 보는 쪽(이 앱은 공매도를 하지 않습니다) · 관망 = 사지 않고 지켜봄."
           >
             <ul className="space-y-3">
               {ai.leading_sectors.map((s, i) => (
@@ -401,7 +454,7 @@ function BriefBody({ brief, onOpen }: { brief: MarketBrief; onOpen: (symbol: str
       {ai && (
         <>
           {/* ⑥ 스윙 체크포인트 */}
-          <Card id="swing" title="스윙 체크포인트">
+          <Card id="swing" title="스윙 체크포인트" info="스윙 = 며칠~몇 달 들고 가는 매매. 촉매 = 값을 크게 움직일 수 있는 일정(금리 결정 · 물가 지표 등). FOMC 날짜는 연준 공식 일정으로 AI 에게 줍니다.">
             <div className="space-y-2 text-xs">
               {ai.swing_check.phase && <LabeledLine label="국면">{clean(ai.swing_check.phase)}</LabeledLine>}
               <BulletList label="주목 촉매" items={ai.swing_check.catalysts} empty="1~2주 안 경제지표 · 정책 일정 없음" />
@@ -410,13 +463,21 @@ function BriefBody({ brief, onOpen }: { brief: MarketBrief; onOpen: (symbol: str
           </Card>
 
           {/* ⑦ 액션 포인트 */}
-          <Card id="action" title="액션 포인트" info="AI 가 쓴 참고 의견입니다 — 매수 · 매도 신호가 아니고, 앱의 매매 규칙 · 자동매매에 쓰지 않습니다.">
+          <Card id="action" title="액션 포인트">
             <div className="space-y-2 text-xs">
-              {ai.portfolio_adjustment.passive_note && <LabeledLine label="패시브">{clean(ai.portfolio_adjustment.passive_note)}</LabeledLine>}
+              <p className="break-keep text-caption text-warning">
+                <WarnIcon />
+                AI 가 뉴스로 쓴 참고 의견입니다 — 매수 신호가 아니며, 앱의 매수 판단 · 자동매매와 상관없습니다.
+              </p>
+              {ai.portfolio_adjustment.passive_note && (
+                <LabeledLine label="패시브(가정)" tip={PASSIVE_TIP}>
+                  {clean(ai.portfolio_adjustment.passive_note)}
+                </LabeledLine>
+              )}
               {ai.portfolio_adjustment.swing_candidates.length > 0 && (
-                <div className="space-y-1">
-                  <div className="text-caption text-text-muted">스윙 진입 후보</div>
-                  <ul className="space-y-1">
+                <div className="flex gap-2">
+                  <span className={`${LABEL_W} shrink-0 text-caption text-text-muted`}>스윙 후보(참고)</span>
+                  <ul className="min-w-0 space-y-1">
                     {ai.portfolio_adjustment.swing_candidates.slice(0, 2).map((c, i) => (
                       <li key={i} className="flex gap-2 break-keep text-text-primary">
                         <span className="text-text-muted">•</span>
@@ -442,10 +503,18 @@ function BriefBody({ brief, onOpen }: { brief: MarketBrief; onOpen: (symbol: str
   );
 }
 
-function LabeledLine({ label, children }: { label: string; children: ReactNode }) {
+/** 이름 열 폭 — 이름표(「패시브(가정)」 · 「스윙 후보(참고)」)가 꺾이지 않는 폭 */
+const LABEL_W = 'w-24';
+const PASSIVE_TIP =
+  'AI 에게 준 가상 장기 보유 비중(S&P500 ETF 55% · 미국 배당 ETF 25% · 국고채 10년 ETF 10% · 금 ETF 10%) 기준의 의견입니다 — 내 계좌와 상관없습니다. %p = 비중의 퍼센트 차이(예: 10% → 12% 는 +2%p).';
+
+function LabeledLine({ label, tip, children }: { label: string; tip?: string; children: ReactNode }) {
   return (
     <div className="flex gap-2">
-      <span className="w-16 shrink-0 text-caption text-text-muted">{label}</span>
+      <span className={`${LABEL_W} inline-flex shrink-0 items-start gap-1 text-caption text-text-muted`}>
+        {label}
+        {tip && <InfoTip label={label}>{tip}</InfoTip>}
+      </span>
       <span className="min-w-0 break-keep text-text-primary">{children}</span>
     </div>
   );
@@ -454,7 +523,7 @@ function LabeledLine({ label, children }: { label: string; children: ReactNode }
 function BulletList({ label, items, empty }: { label: string; items: string[]; empty: string }) {
   return (
     <div className="flex gap-2">
-      <span className="w-16 shrink-0 text-caption text-text-muted">{label}</span>
+      <span className={`${LABEL_W} shrink-0 text-caption text-text-muted`}>{label}</span>
       {items.length ? (
         <ul className="min-w-0 space-y-1">
           {items.map((t, i) => (
@@ -499,11 +568,17 @@ function RegimeBody({ brief }: { brief: MarketBrief }) {
         <>
           {ai.market_summary && <p className="break-keep text-text-primary">{clean(ai.market_summary)}</p>}
           {ai.vix_comment && (
-            <LabeledLine label={vix ? `VIX ${vixZone(vix.current)}` : 'VIX'}>{clean(ai.vix_comment)}</LabeledLine>
+            <LabeledLine label={vix ? `VIX ${vixZone(vix.current)}` : 'VIX'} tip="VIX = 미국 주식이 앞으로 얼마나 출렁일지 시장이 예상하는 값(공포지수). 20 미만 안정 · 20~30 주의 · 30 이상 공포.">
+              {clean(ai.vix_comment)}
+            </LabeledLine>
           )}
         </>
       )}
-      {ai.portfolio_note && <LabeledLine label="포트폴리오">{clean(ai.portfolio_note)}</LabeledLine>}
+      {ai.portfolio_note && (
+        <LabeledLine label="패시브(가정)" tip={PASSIVE_TIP}>
+          {clean(ai.portfolio_note)}
+        </LabeledLine>
+      )}
     </div>
   );
 }
@@ -567,9 +642,10 @@ function ScheduleRow({ item, earning, onOpen }: { item: BriefScheduleItem; earni
   const detail = clean(item.detail.replace(/,?\s*신뢰도 주의\s*$/, ''));
   const symbol = earning?.symbol ?? (item.ticker ? item.ticker.toUpperCase().replace(/\.(KS|KQ)$/, '') : null);
   return (
-    <li className="text-xs">
+    <li className="flex gap-2 text-xs">
+      <span className="w-20 shrink-0 tabular-nums text-text-secondary">{item.date.slice(0, 9)}</span>
+      <div className="min-w-0 flex-1">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="w-[72px] shrink-0 tabular-nums text-text-secondary">{item.date.slice(0, 9)}</span>
         <span className="font-medium text-text-primary">{clean(item.event)}</span>
         {/* 회사 이름은 event(「마이크론 실적 발표」)에 이미 있다 — 링크는 티커만(이름 = 티커로 주면 StockName 이 티커만 적는다) */}
         {symbol && <SymbolChartLink symbol={symbol} name={symbol} onOpen={onOpen} className="text-caption" />}
@@ -582,7 +658,8 @@ function ScheduleRow({ item, earning, onOpen }: { item: BriefScheduleItem; earni
           </span>
         )}
       </div>
-      {detail && <p className="mt-0.5 break-keep pl-[80px] text-caption text-text-secondary tabular-nums">{detail}</p>}
+      {detail && <p className="mt-0.5 break-keep text-caption text-text-secondary tabular-nums">{detail}</p>}
+      </div>
     </li>
   );
 }
@@ -609,13 +686,15 @@ function RawSchedule({ earnings, onOpen }: { earnings: BriefEarning[]; onOpen: (
               {g.items.slice(0, RAW_SCHEDULE_MAX).map((e) => (
                 <ScheduleRow
                   key={e.symbol}
-                  item={{ date: dayLabel(e.date), event: `${e.name} 실적 발표${e.isEstimateDate ? '(예정)' : ''}`, ticker: e.symbol, sector_kr: e.sector, detail: rawDetail(e), importance: 0 }}
+                  item={{ date: dayLabel(e.date), event: `${e.name} 실적 발표${e.isEstimateDate ? '(날짜 미확정)' : ''}`, ticker: e.symbol, sector_kr: e.sector, detail: rawDetail(e), importance: 0 }}
                   earning={e}
                   onOpen={onOpen}
                 />
               ))}
             </ul>
-            {g.items.length > RAW_SCHEDULE_MAX && <p className="text-caption text-text-muted">외 {g.items.length - RAW_SCHEDULE_MAX}종목</p>}
+            {g.items.length > RAW_SCHEDULE_MAX && (
+              <p className="text-caption text-text-muted">외 {g.items.length - RAW_SCHEDULE_MAX}종목 — 전체 실적 일정은 「증시 일정」 화면에서 봅니다</p>
+            )}
           </div>
         ) : null,
       )}
@@ -647,10 +726,12 @@ function CandidateText({ text, onOpen }: { text: string; onOpen: (symbol: string
 // ── ⑤ 시장 데이터 ────────────────────────────────────────────────────────
 
 const prevOf = (a: BriefAsset) => a.current - a.change;
-const Arrow = ({ change }: { change: number }) => (
-  <span className={changeColor(change)} aria-label={change >= 0 ? '올랐음' : '내렸음'}>
-    {change >= 0 ? '▲' : '▼'}
-  </span>
+/**
+ * 바뀐 만큼 — 부호 숫자(▲▼ 대신 · 디자인 규칙 「시황 등락은 +/− 부호」). 주식 지수가 아닌 값(금리 · 달러 · 금 · 에너지 · 환율 · VIX)은
+ * 오르내림이 좋고 나쁨과 상관없어 색을 칠하지 않는다(VIX 가 오르면 초록으로 보이던 것).
+ */
+const Move = ({ value, digits, suffix = '' }: { value: number; digits: number; suffix?: string }) => (
+  <span className="ml-1.5 text-text-secondary">({formatSigned(value, digits, suffix)})</span>
 );
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -662,13 +743,18 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function Group({ title, date, intraday = false, children }: { title: string; date?: string | null; intraday?: boolean; children: ReactNode }) {
+/** 묶음 — 상자 없이 제목 + 줄(카드 안에 상자를 두지 않는다). index: 지수 = 종가/장중 · 그 밖 = 기준 */
+function Group({ title, date, intraday = false, index = false, children }: { title: string; date?: string | null; intraday?: boolean; index?: boolean; children: ReactNode }) {
   return (
-    <div className="space-y-1 rounded-lg bg-bg-tertiary/60 p-3" data-brief-group={title}>
-      <div className="flex items-baseline justify-between gap-2 text-caption">
+    <div className="space-y-1" data-brief-group={title}>
+      <div className="flex items-baseline justify-between gap-2 border-b border-border/60 pb-1 text-caption">
         <span className="font-medium text-text-secondary">{title}</span>
-        {/* 정규장 중에 받은 지수는 끝나지 않은 봉 — 「종가」 라 적지 않는다 */}
-        {date && <span className={`tabular-nums ${intraday ? 'text-warning' : 'text-text-muted'}`}>{dayLabel(date)} {intraday ? '장중(마감 전)' : '종가'}</span>}
+        {/* 정규장 중에 받은 지수는 끝나지 않은 봉 — 「종가」 라 적지 않는다. 선물 · 환율 · 금리는 거의 하루 내내 움직여 「기준」 */}
+        {date && (
+          <span className={`tabular-nums ${intraday ? 'text-warning' : 'text-text-muted'}`}>
+            {dayLabel(date)} {!index ? '기준' : intraday ? '장중(마감 전)' : '종가'}
+          </span>
+        )}
       </div>
       {children}
     </div>
@@ -687,33 +773,49 @@ function IndexRow({ label, a }: { label: string; a?: BriefAsset }) {
   );
 }
 
-/** 금리 · 달러 · 금 · 에너지 — 원본처럼 「전일 → 현재 ▲」 */
-function MoveRow({ label, a, digits, suffix = '' }: { label: string; a?: BriefAsset; digits: number; suffix?: string }) {
+/** 금리 · 달러 · 금 · 에너지 — 원본처럼 「전일 → 현재」 + 바뀐 만큼(금리는 %p). 묶음 날짜와 다르면 줄에 날짜 */
+function MoveRow({
+  label,
+  a,
+  digits,
+  suffix = '',
+  moveSuffix,
+  groupDate,
+}: {
+  label: string;
+  a?: BriefAsset;
+  digits: number;
+  suffix?: string;
+  moveSuffix?: string;
+  groupDate?: string | null;
+}) {
   if (!a) return null;
+  const ownDate = a.data_date && groupDate && a.data_date !== groupDate ? ` · ${dayLabel(a.data_date)}` : '';
   return (
-    <Row label={label}>
+    <Row label={`${label}${ownDate}`}>
       {formatNumber(prevOf(a), digits, suffix)}
       <span className="mx-1.5 text-text-muted">→</span>
-      {formatNumber(a.current, digits, suffix)} <Arrow change={a.change} />
+      {formatNumber(a.current, digits, suffix)}
+      <Move value={a.change} digits={digits} suffix={moveSuffix ?? suffix} />
     </Row>
   );
 }
 
 function MarketData({ brief }: { brief: MarketBrief }) {
   const a = brief.data.assets;
-  const at = Date.parse(brief.createdAt);
+  const at = Date.parse(brief.data.collectedAt ?? brief.createdAt);
   const live = (k: BriefAssetKey) => isIntradayBar(k, a[k]?.data_date ?? null, at);
   const missing = (keys: BriefAssetKey[]) => keys.filter((k) => !a[k]).map((k) => ASSET_LABEL[k]);
   if (brief.edition === 'afternoon') {
     const lost = missing(['KOSPI', 'KOSDAQ', 'VIX']);
     return (
       <div className="space-y-2">
-        <div className="grid grid-cols-2 gap-2">
-          <Group title="국내 지수" date={a.KOSPI?.data_date} intraday={live('KOSPI')}>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+          <Group title="국내 지수" date={a.KOSPI?.data_date} intraday={live('KOSPI')} index>
             <IndexRow label="코스피" a={a.KOSPI} />
             <IndexRow label="코스닥" a={a.KOSDAQ} />
           </Group>
-          <Group title="공포지수" date={a.VIX?.data_date} intraday={live('VIX')}>
+          <Group title="공포지수(미국)" date={a.VIX?.data_date} intraday={live('VIX')} index>
             {a.VIX && <MoveRow label={`VIX (${vixZone(a.VIX.current)} 구간)`} a={a.VIX} digits={2} />}
           </Group>
         </div>
@@ -724,16 +826,16 @@ function MarketData({ brief }: { brief: MarketBrief }) {
   const lost = missing(['SP500', 'NASDAQ', 'DOW', 'RUSSELL2000', 'US2Y', 'US10Y', 'DXY', 'GOLD', 'WTI', 'NATGAS', 'USDKRW', 'KOSPI', 'KOSDAQ']);
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-2 gap-2">
-        <Group title="미국 증시" date={a.SP500?.data_date} intraday={live('SP500')}>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+        <Group title="미국 증시" date={a.SP500?.data_date} intraday={live('SP500')} index>
           <IndexRow label="S&P500" a={a.SP500} />
           <IndexRow label="나스닥" a={a.NASDAQ} />
           <IndexRow label="다우" a={a.DOW} />
           <IndexRow label="러셀2000" a={a.RUSSELL2000} />
         </Group>
         <Group title="미국 국채 수익률" date={a.US10Y?.data_date ?? a.US2Y?.data_date}>
-          <MoveRow label="2년" a={a.US2Y} digits={3} suffix="%" />
-          <MoveRow label="10년" a={a.US10Y} digits={3} suffix="%" />
+          <MoveRow label="2년" a={a.US2Y} digits={3} suffix="%" moveSuffix="%p" groupDate={a.US10Y?.data_date ?? a.US2Y?.data_date} />
+          <MoveRow label="10년" a={a.US10Y} digits={3} suffix="%" moveSuffix="%p" groupDate={a.US10Y?.data_date ?? a.US2Y?.data_date} />
         </Group>
         <Group title="달러 인덱스" date={a.DXY?.data_date}>
           <MoveRow label="DXY" a={a.DXY} digits={3} />
@@ -742,20 +844,20 @@ function MarketData({ brief }: { brief: MarketBrief }) {
           <MoveRow label="금(달러/온스)" a={a.GOLD} digits={2} />
         </Group>
         <Group title="에너지" date={a.WTI?.data_date ?? a.NATGAS?.data_date}>
-          <MoveRow label="WTI(달러/배럴)" a={a.WTI} digits={2} />
-          <MoveRow label="천연가스" a={a.NATGAS} digits={3} />
+          <MoveRow label="WTI(달러/배럴)" a={a.WTI} digits={2} groupDate={a.WTI?.data_date ?? a.NATGAS?.data_date} />
+          <MoveRow label="천연가스" a={a.NATGAS} digits={3} groupDate={a.WTI?.data_date ?? a.NATGAS?.data_date} />
         </Group>
         <Group title="원/달러" date={a.USDKRW?.data_date}>
           {a.USDKRW && (
             <Row label="환율">
               {formatNumber(prevOf(a.USDKRW), 2)}
               <span className="mx-1.5 text-text-muted">→</span>
-              {formatNumber(a.USDKRW.current, 2)}원 <Arrow change={a.USDKRW.change} />{' '}
-              <span className={changeColor(a.USDKRW.change_pct)}>{formatPercent(a.USDKRW.change_pct)}</span>
+              {formatNumber(a.USDKRW.current, 2)}원
+              <Move value={a.USDKRW.change_pct} digits={2} suffix="%" />
             </Row>
           )}
         </Group>
-        <Group title="국내 지수" date={a.KOSPI?.data_date} intraday={live('KOSPI')}>
+        <Group title="국내 지수" date={a.KOSPI?.data_date} intraday={live('KOSPI')} index>
           <IndexRow label="코스피" a={a.KOSPI} />
           <IndexRow label="코스닥" a={a.KOSDAQ} />
         </Group>
@@ -786,7 +888,6 @@ function CollectStatus({ brief }: { brief: MarketBrief }) {
         <DisclosureButton open={open} onToggle={() => setOpen((v) => !v)} label="수집 상태 보기" controls="brief-sources" />
         <span className={`text-caption ${failed ? 'text-warning' : 'text-text-muted'}`}>
           {failed ? `${failed}곳 실패` : '모두 받음'}
-          {brief.model ? ` · 모델 ${brief.model}` : ''}
         </span>
       </div>
       {open && (
@@ -804,7 +905,7 @@ function CollectStatus({ brief }: { brief: MarketBrief }) {
             );
           })}
           <div className="pt-1 text-caption text-text-muted tabular-nums">
-            AI 호출 {brief.aiCalls}번{brief.tokens ? ` · 토큰 ${brief.tokens.toLocaleString('en-US')}` : ''} · 프롬프트 {brief.promptVersion}
+            AI 호출 {brief.aiCalls}번{brief.model ? ` · 모델 ${brief.model}` : ''}{brief.tokens ? ` · 토큰 ${formatNumber(brief.tokens, 0)}` : ''} · 프롬프트 {brief.promptVersion}
           </div>
         </Panel>
       )}

@@ -141,6 +141,8 @@ export interface MarketBrief {
   data: {
     assets: Partial<Record<BriefAssetKey, BriefAsset>>;
     earnings: BriefEarning[];
+    /** 시장 데이터를 실제로 받은 시각(UTC ISO) — 장중/종가 판단(프롬프트 · 화면 같은 값). 없으면 createdAt */
+    collectedAt?: string;
   };
   /** AI 결과 — 꺼짐 · 실패면 null(데이터만 저장) */
   brief: BriefAi | null;
@@ -185,8 +187,16 @@ export interface MarketBriefStatus {
   autoDisabledReason: string | null;
   /** Gemini 를 부를 수 없는 이유 — 있으면 데이터만 만든다 */
   geminiDisabledReason: string | null;
-  /** 마지막으로 끝난 실행의 줄 id — 진행이 끝나면 화면이 이 줄로 간다 */
+  /** 마지막으로 끝난 실행의 줄 id · 그 줄의 날짜 — 진행이 끝나면 화면이 이 줄로 간다(자정을 넘겨 끝나도) */
   lastFinishedId: number | null;
+  lastFinishedDate: string | null;
+  /** 오늘(한국 날짜) 자동 오전판을 시도했나 · 만들었나 — 빈 상태 안내가 쓴다 */
+  autoTriedToday: boolean;
+  autoDoneToday: boolean;
+  /** 자동 오전판을 만드는 시간(평일 06:55~13:00 KST)인가 */
+  autoWindowNow: boolean;
+  /** 서버가 켜진 시각(ms) — 진행 중 서버가 다시 켜졌는지 화면이 안다 */
+  bootAt: number;
   /** 마지막 실행이 줄을 남기지 못하고 실패한 이유 */
   lastError: string | null;
 }

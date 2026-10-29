@@ -95,9 +95,15 @@ export function daysUntilLabel(label: string, today: string): number | null {
   return Math.round((t - base) / 86_400_000);
 }
 
-/** ② 날수로 슬롯 다시 배치 (원본 _reassign_upcoming_slots_by_days) */
+/** ② 날수로 슬롯 다시 배치 (원본 _reassign_upcoming_slots_by_days) — AI 가 같은 일정(날짜 · 티커 · 이름)을 두 슬롯에 적었으면 하나만 */
 export function reassignSlotsByDays(brief: BriefAi, today: string): BriefAi {
-  const all = SLOTS.flatMap((s) => brief.upcoming_schedule[s]);
+  const seen = new Set<string>();
+  const all = SLOTS.flatMap((s) => brief.upcoming_schedule[s]).filter((item) => {
+    const key = `${item.date.slice(0, 5)}|${item.ticker.toUpperCase() || item.event}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   const next: BriefAi['upcoming_schedule'] = { this_week: [], this_month: [], next_2_months: [] };
   for (const item of all) {
     const days = daysUntilLabel(item.date, today);

@@ -156,13 +156,14 @@ def collect_market_data(edition: str, history=_from_history, fred=fetch_fred_csv
 
 
 def get_market_brief_data(edition: str) -> dict:
-    """라우트용 — 10분 캐시(판별로)"""
+    """라우트용 — 10분 캐시(판별로). fetchedAt = 실제로 받은 시각(ms) — 캐시 값이면 그때 시각(장중/종가 판단에 쓴다)"""
     now = time.time()
     hit = _data_cache.get(edition)
     if hit is not None and now - hit[0] < _DATA_TTL_SEC:
         return hit[1]
-    data = collect_market_data(edition)
-    if data["assets"]:
+    data = {**collect_market_data(edition), "fetchedAt": int(now * 1000)}
+    # 빠진 항목이 있으면 캐시하지 않는다 — 10분 안에 다시 눌러도 빠진 값을 다시 받아 본다
+    if data["assets"] and not data["failed"]:
         _data_cache[edition] = (now, data)
     return data
 
@@ -269,9 +270,6 @@ def _estimates_one(symbol: str, today: date) -> dict:
         result.update(revenue_from_estimate(_call_with_timeout(lambda: ticker.revenue_estimate)))
         result["recommendation"] = recommendation_counts(_call_with_timeout(lambda: ticker.recommendations))
         result.update(calendar_eps(_call_with_timeout(lambda: ticker.calendar)))
-        # 표에 다가오는 예상 EPS 가 없으면 calendar 평균으로 채운다
-        if result.get("epsEstimate") is None:
-            result["epsEstimate"] = result.get("epsAvg")
         result["ok"] = True
         break
     return result

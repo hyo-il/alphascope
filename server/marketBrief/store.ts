@@ -100,8 +100,8 @@ export function countBriefAiCalls(day: string): number {
   }
 }
 
-/** 보관 기간보다 오래된 날짜(한국 날짜 기준 `today − 30일` 앞)를 지운다. 지운 줄 수 */
+/** 오늘 포함 30일(한국 날짜 `today − 29일` 부터)만 남기고 지운다. 지운 줄 수 */
 export function purgeOldBriefs(today: string): number {
-  const cutoff = new Date(Date.parse(`${today}T00:00:00Z`) - BRIEF_KEEP_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const cutoff = new Date(Date.parse(`${today}T00:00:00Z`) - (BRIEF_KEEP_DAYS - 1) * 86_400_000).toISOString().slice(0, 10);
   return getDb().prepare(`DELETE FROM market_briefs WHERE brief_date < ?`).run(cutoff).changes;
 }
