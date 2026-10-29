@@ -10,7 +10,9 @@ import concurrent.futures
 import math
 import re
 import time
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import yfinance as yf
 
@@ -85,14 +87,31 @@ def statement_rows(frame, wanted: list[str], limit: int = 4) -> list[dict]:
     return rows
 
 
-def earnings_date(info: dict) -> str | None:
-    """다음 실적 발표일 (YYYY-MM-DD). yfinance 는 epoch 초로 준다."""
+_KST = ZoneInfo("Asia/Seoul")
+_ET = ZoneInfo("America/New_York")
+
+
+def market_timezone(symbol: str) -> ZoneInfo:
+    """
+    종목 시장의 시간대 — 국내(토스 6자리 `_KR_SYMBOL` · yfinance `.KS`/`.KQ`) = 한국, 그 밖 = 미국 동부.
+    가르기는 `to_yf_symbols` 와 같은 `_KR_SYMBOL`(= src/utils/market.ts `isKrSymbol`) — 두 곳을 함께 고친다.
+    """
+    s = (symbol or "").strip().upper()
+    return _KST if _KR_SYMBOL.match(s) or s.endswith((".KS", ".KQ")) else _ET
+
+
+def earnings_date(info: dict, symbol: str) -> str | None:
+    """
+    다음 실적 발표일 (YYYY-MM-DD) — **그 종목 시장의 현지 날짜**(v2.59.1).
+    yfinance 는 epoch 초로 준다. UTC 로 자르면 국내 09:00 전 발표(전날 UTC)가 하루 이르게,
+    미국 20:00 ET 뒤 시각은 하루 늦게 됐다. 서머타임 · 자정 경계는 zoneinfo 가 맡는다(고정 시차를 더하지 않는다).
+    """
     stamp = info.get("earningsTimestampStart") or info.get("earningsTimestamp")
     if not stamp:
         return None
     try:
-        return time.strftime("%Y-%m-%d", time.gmtime(float(stamp)))
-    except (TypeError, ValueError, OSError):
+        return datetime.fromtimestamp(float(stamp), tz=market_timezone(symbol)).strftime("%Y-%m-%d")
+    except (TypeError, ValueError, OSError, OverflowError):
         return None
 
 
@@ -110,7 +129,7 @@ def get_earnings(symbols: list[str]) -> list[dict]:
         estimate = info.get("isEarningsDateEstimate")
         out.append({
             "symbol": symbol,
-            "date": earnings_date(info),
+            "date": earnings_date(info, symbol),
             "isEstimate": bool(estimate) if estimate is not None else None,
             "found": bool(info),
             # 같은 info 에서 섹터·시총도 함께 준다 (종목 지도) — 따로 받으면 하루에 같은 호출을 두 번 한다
@@ -252,7 +271,7 @@ def get_fundamentals(symbol: str) -> dict:
             "currency": pick(info, "currency"),
             "summary": pick(info, "longBusinessSummary"),
             # 스윙 추천이 "실적 발표 임박" 경고에 쓴다. 없는 종목도 많아 항상 선택 값이다.
-            "earningsDate": earnings_date(info),
+            "earningsDate": earnings_date(info, symbol),
         },
         "valuation": {
             "per": pick(info, "trailingPE"),

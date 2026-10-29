@@ -1,5 +1,5 @@
 """
-오늘 시황 지표 엔진 계산 시험 — `npm run marketbrief:test` 가 부른다(혼자 돌리지 않는다).
+지표 엔진 계산 시험(오늘 시황 · 실적일 현지 날짜 v2.59.1) — `npm run marketbrief:test` 가 부른다(혼자 돌리지 않는다).
 네트워크 0: yfinance · FRED 받기는 모두 가짜로 바꿔 끼운다. 실패하면 종료 코드 1.
 """
 
@@ -148,6 +148,35 @@ check("매출 = +1q 줄", mb.revenue_from_estimate(rev) == {"revenueAvg": 11.51e
 rec = pd.DataFrame({"period": ["0m", "-1m"], "strongBuy": [10, 9], "buy": [18, 17], "hold": [5, 6], "sell": [1, 1], "strongSell": [1, 0]})
 check("컨센서스 = 0m 줄", mb.recommendation_counts(rec) == {"strongBuy": 10, "buy": 18, "hold": 5, "sell": 1, "strongSell": 1})
 check("calendar 평균 · 최고 · 최저", mb.calendar_eps({"Earnings Average": 1.5, "Earnings High": 2.0, "Earnings Low": 1.0}) == {"epsAvg": 1.5, "epsHigh": 2.0, "epsLow": 1.0})
+
+# 6) 실적일 — 종목 시장의 현지 날짜(v2.59.1 — UTC 로 자르면 국내 아침 발표가 하루 이르게 됐다)
+UTC = ZoneInfo("UTC")
+
+
+def ep(y, mo, d, h, mi, tz):
+    return datetime(y, mo, d, h, mi, tzinfo=ZoneInfo(tz)).timestamp()
+
+
+ed = fundamentals.earnings_date
+cases = [
+    ("국내 08:00 KST(전날 23:00 UTC) → 그날", "005930", ep(2026, 10, 30, 8, 0, "Asia/Seoul"), "2026-10-30"),
+    ("국내 16:00 KST → 그날", "005930", ep(2026, 10, 30, 16, 0, "Asia/Seoul"), "2026-10-30"),
+    ("국내 .KS 접미사도 한국 날짜", "000660.KS", ep(2026, 10, 30, 7, 30, "Asia/Seoul"), "2026-10-30"),
+    ("국내 영문 섞인 코드(0126Z0)도 한국", "0126Z0", ep(2026, 11, 2, 8, 0, "Asia/Seoul"), "2026-11-02"),
+    ("미국 장 전 07:00 ET → 그날", "AAPL", ep(2026, 10, 29, 7, 0, "America/New_York"), "2026-10-29"),
+    ("미국 장 뒤 16:05 ET → 그날", "AAPL", ep(2026, 10, 29, 16, 5, "America/New_York"), "2026-10-29"),
+    ("미국 21:00 ET(다음 날 UTC) → 그날", "AAPL", ep(2026, 10, 29, 21, 0, "America/New_York"), "2026-10-29"),
+    ("서머타임 끝 전날 23:30 EDT → 10-31", "MSFT", ep(2026, 10, 31, 23, 30, "America/New_York"), "2026-10-31"),
+    ("서머타임 끝나는 날 00:30 EDT → 11-01", "MSFT", ep(2026, 11, 1, 0, 30, "America/New_York"), "2026-11-01"),
+    ("서머타임 끝나는 날 23:30 EST(다음 날 04:30 UTC) → 11-01", "MSFT", ep(2026, 11, 1, 23, 30, "America/New_York"), "2026-11-01"),
+]
+for name, sym, stamp, want in cases:
+    got = ed({"earningsTimestamp": int(stamp)}, sym)
+    check(f"실적일 {name}", got == want, f"{got} != {want}")
+check("실적일 earningsTimestampStart 먼저", ed({"earningsTimestampStart": int(ep(2026, 11, 2, 8, 0, "Asia/Seoul")), "earningsTimestamp": 0}, "005930") == "2026-11-02")
+check("실적일 UTC 로 잘랐다면 하루 이른 경우였음(확인)", datetime.fromtimestamp(ep(2026, 10, 30, 8, 0, "Asia/Seoul"), tz=UTC).strftime("%Y-%m-%d") == "2026-10-29")
+for label, info in (("값 없음", {}), ("None", {"earningsTimestamp": None}), ("글자", {"earningsTimestamp": "abc"}), ("NaN", {"earningsTimestamp": float("nan")}), ("너무 큼", {"earningsTimestamp": 1e20})):
+    check(f"실적일 {label} → None", ed(info, "AAPL") is None)
 
 print(f"PY_RESULT {len(failures)} fail")
 sys.exit(1 if failures else 0)
