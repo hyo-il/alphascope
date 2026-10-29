@@ -450,7 +450,7 @@ try {
 // ── v2.59.2 날짜는 그 종목 · 그 일정의 시장 날짜로 ─────────────────────────────
 {
   const db = getDb();
-  const T = ['ZZUS1', 'ZZUS2', 'ZZUS3', 'ZZUS4', '0ZZ002'];
+  const T = ['ZZUS1', '0ZZ002'];
   const put = (sym: string, date: string) =>
     db.prepare(`INSERT INTO earnings_calendar (symbol, earnings_date, fetched_at, is_estimate) VALUES (?, ?, 'x', 0) ON CONFLICT(symbol) DO UPDATE SET earnings_date = excluded.earnings_date`).run(sym, date);
   const ev = { reference: null } as unknown as RuleEvaluation;
@@ -476,24 +476,33 @@ try {
   check('실적 임박 — 서머타임 끝 앞(10-31 16:30 EDT) → 2일 뒤', warn('ZZUS1', et('2026-10-31', '16:30')).includes('(2일 뒤)'));
   check('실적 임박 — 서머타임 끝 뒤(11-01 23:30 EST = UTC 다음 날) → 1일 뒤', warn('ZZUS1', et('2026-11-01', '23:30')).includes('(1일 뒤)'));
 
-  // B. 증시 일정 「지남」 — 한국 아침 08:00(10-30) = 미국 10-29 19:00
-  put('ZZUS2', '2026-10-29'); // 미국 오늘(장 뒤 발표) — 지나지 않음
-  put('ZZUS3', '2026-10-28'); // 미국 어제 — 지남
-  put('0ZZ002', '2026-10-29'); // 국내 어제 — 지남
-  put('ZZUS4', '2026-10-30'); // 미국 내일
-  const cal = calendarEvents('2026-10-01', '2026-12-31', 'universe', kst('2026-10-30', '08:00'));
-  // 시험 종목은 관심/유니버스 밖이라 거른다 — 범위 거르기 뒤 값을 직접 볼 수 없으니, 같은 판단을 그 날짜로 확인한다
-  const pastOf = (type: string, date: string, market?: string) => cal.events.find((e) => e.type === type && e.date === date && (!market || (e as { market?: string }).market === market))?.past;
-  check('증시 일정 — 화면 「오늘」 은 한국 날짜', cal.meta.today === '2026-10-30');
-  check('증시 일정 — 미국 휴장(대체 없음)·FOMC·만기는 미국 날짜로 「지남」', pastOf('fomc', '2026-10-28') === true && pastOf('expiry', '2026-10-16') === true);
-  const cal2 = calendarEvents('2026-10-01', '2026-12-31', 'universe', kst('2026-12-10', '08:00')); // 한국 12-10 08:00 = 미국 12-09 18:00 — FOMC 12-09 마지막 날
-  check('증시 일정 — FOMC 마지막 날(미국 12-09) 은 한국 12-10 아침에도 「지남」 아님', cal2.events.find((e) => e.type === 'fomc' && e.date === '2026-12-09')?.past === false);
-  const krHol = cal2.events.find((e) => e.type === 'holiday' && (e as { market?: string }).market === 'KR');
-  check('증시 일정 — 국내 휴장은 한국 날짜', !krHol || krHol.past === krHol.date < '2026-12-10');
-  // 실적은 종목마다 그 시장 날짜 — 관심/유니버스에 넣지 않고 판단 식만(같은 식) 확인
-  check('증시 일정 — 실적 「지남」 식이 종목 시장 날짜(미국 10-29 = 오늘 · 국내 10-29 = 어제)', '2026-10-29' < marketDate(kst('2026-10-30', '08:00'), 'ZZUS2') === false && '2026-10-29' < marketDate(kst('2026-10-30', '08:00'), '0ZZ002') === true);
-  const src = (await import('node:fs')).readFileSync(new URL('../server/calendarService.ts', import.meta.url), 'utf8');
-  check('증시 일정 — 실적 past 는 marketDate(now, r.symbol) · 미국 일정은 usToday', /past: r\.earnings_date < marketDate\(now, r\.symbol\)/.test(src) && /past: m\.end < usToday/.test(src) && /past: date < usToday/.test(src));
+  // B. 증시 일정 「지남」 — 한국 날짜와 미국 날짜가 갈리는 시각(한국 아침 = 미국 전날 저녁)으로만 본다(예전 코드면 틀리는 경우)
+  const pastAt = (at: number, pick: (e: ReturnType<typeof calendarEvents>['events'][number]) => boolean) =>
+    calendarEvents('2026-10-01', '2026-12-31', 'universe', at).events.find(pick)?.past;
+  // 실적 — 유니버스에 있는 실제 종목(AAPL · 005930)을 사본 실적 달력에 넣어 calendarEvents 결과로 본다(끝나면 원래 값으로)
+  const saved = db.prepare(`SELECT symbol, earnings_date, fetched_at, is_estimate FROM earnings_calendar WHERE symbol IN ('AAPL', '005930')`).all() as { symbol: string; earnings_date: string; fetched_at: string; is_estimate: number | null }[];
+  try {
+    put('AAPL', '2026-10-29');
+    put('005930', '2026-10-29');
+    const at = kst('2026-10-30', '08:00'); // 미국 10-29 19:00
+    check('증시 일정 — 미국 실적(미국 오늘 10-29)은 한국 10-30 아침에 「지남」 아님', pastAt(at, (e) => e.type === 'earnings' && e.symbol === 'AAPL') === false);
+    check('증시 일정 — 국내 실적(한국 어제 10-29)은 「지남」', pastAt(at, (e) => e.type === 'earnings' && e.symbol === '005930') === true);
+    check('증시 일정 — 화면 「오늘」 은 한국 날짜', calendarEvents('2026-10-01', '2026-12-31', 'universe', at).meta.today === '2026-10-30');
+  } finally {
+    db.prepare(`DELETE FROM earnings_calendar WHERE symbol IN ('AAPL', '005930')`).run();
+    for (const r of saved) db.prepare(`INSERT INTO earnings_calendar (symbol, earnings_date, fetched_at, is_estimate) VALUES (?, ?, ?, ?)`).run(r.symbol, r.earnings_date, r.fetched_at, r.is_estimate);
+  }
+  check('증시 일정 — FOMC 마지막 날(미국 12-09)은 한국 12-10 08:00 에 「지남」 아님', pastAt(kst('2026-12-10', '08:00'), (e) => e.type === 'fomc' && e.date === '2026-12-09') === false);
+  check('증시 일정 — 월간 옵션 만기(미국 11-20)는 한국 11-21 08:00 에 「지남」 아님', pastAt(kst('2026-11-21', '08:00'), (e) => e.type === 'expiry' && e.date === '2026-11-20') === false);
+  check('증시 일정 — 미국 휴장(추수감사절 11-26)은 한국 11-27 08:00 에 「지남」 아님', pastAt(kst('2026-11-27', '08:00'), (e) => e.type === 'holiday' && (e as { market?: string }).market === 'US' && e.date === '2026-11-26') === false);
+  // 국내 휴장은 한국 날짜 — 사본에 한글날(10-09)을 넣었다가 지운다. 한국 10-10 08:00(미국 10-09) 에 「지남」 이어야 한다(미국 날짜로 보면 아님)
+  const hadKr = db.prepare(`SELECT 1 FROM market_holidays WHERE market = 'KR' AND date = '2026-10-09'`).get();
+  db.prepare(`INSERT OR IGNORE INTO market_holidays (market, date) VALUES ('KR', '2026-10-09')`).run();
+  try {
+    check('증시 일정 — 국내 휴장(10-09)은 한국 10-10 08:00 에 「지남」(한국 날짜)', pastAt(kst('2026-10-10', '08:00'), (e) => e.type === 'holiday' && (e as { market?: string }).market === 'KR' && e.date === '2026-10-09') === true);
+  } finally {
+    if (!hadKr) db.prepare(`DELETE FROM market_holidays WHERE market = 'KR' AND date = '2026-10-09'`).run();
+  }
 
   db.prepare(`DELETE FROM earnings_calendar WHERE symbol IN (${T.map(() => '?').join(',')})`).run(...T);
 }
