@@ -78,8 +78,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   const setTimeframe = useAppStore((s) => s.setTimeframe);
   const clearSymbol = useAppStore((s) => s.clearSymbol);
   const openChartAi = useAppStore((s) => s.openChartAi);
-  /** 종목 고르기 — 홈에서 고르면 차트로 간다. 다른 화면에서는 그 화면에 머문다 */
-  const selectSymbol = (next: string) => {
+  /** 상단 종목 검색 — 종목 탐색(page id home)에서 고르면 차트로 간다. 다른 화면에서는 그 화면에 머문다(오른쪽 패널은 `openChart`) */
+  const searchSymbol = (next: string) => {
     setSymbol(next);
     if (useAppStore.getState().nav.page === 'home') useAppStore.getState().setPage('chart');
   };
@@ -472,7 +472,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
             종목명·가격·등락은 줄바꿈 금지, **검색칸이 대신 줄어든다**(최소 14rem). 넓은 화면에서는 w-96.
           */}
           <div className="w-96 min-w-56 shrink">
-            <SymbolSearch symbol={symbol ?? ''} onSubmit={selectSymbol} />
+            <SymbolSearch symbol={symbol ?? ''} onSubmit={searchSymbol} />
           </div>
 
           {symbol ? (
@@ -582,7 +582,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         /* ✓ 는 **보이는 칸**의 종목만(2개 보기면 ①②). 클릭 동작(toggleCompareSymbol)도 같은 compareLayout 을 본다 */
         compareSymbols={compareSlots.slice(0, compareLayout).filter((s): s is string => Boolean(s))}
         /*
-          비교 화면에서는 클릭이 차트 전환이 아니라 '비교에 담기/빼기' 다.
+          어느 화면에서든 종목을 누르면 차트 화면으로 간다(`openChart` · 사용자 결정 2026-10-29) — 모든 탭(관심 · 최근 · 계좌)이 이 하나.
+          예외: 비교 화면에서는 클릭이 '비교에 담기/빼기' 다.
           팝업으로 한 번 더 묻지 않는다 — 원클릭으로 담기는 것이 이 화면의 기본 동작이다.
         */
         onSelect={
@@ -594,7 +595,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
                   toast.warning(`최대 ${n}개까지 비교 가능합니다`, n === 2 ? '하나를 삭제하거나 4개 보기로 바꾸세요' : '하나를 삭제하고 추가하세요');
                 }
               }
-            : selectSymbol
+            : openChart
         }
         onRemoveRecent={removeRecent}
         onClearRecent={clearRecent}
