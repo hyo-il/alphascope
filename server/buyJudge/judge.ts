@@ -102,12 +102,15 @@ function conditionsOf(breakdown: ConditionResult[]): BuyJudgeRow['conditions'] {
     .map((c) => ({ key: c.key, name: BUY_CONDITION_NAME[c.key as BuyKey] ?? c.key, score: c.score, max: c.max, checks: c.checks }));
 }
 
-function warningsOf(symbol: string, ev: RuleEvaluation, price: number | null, atr: number | null, rsi: number | null, now: number): string[] {
+export function warningsOf(symbol: string, ev: RuleEvaluation, price: number | null, atr: number | null, rsi: number | null, now: number): string[] {
   const out: string[] = [];
   const earnings = getEarningsDate(symbol)?.date ?? cachedFundamentals(symbol)?.profile.earningsDate ?? null;
   if (earnings) {
-    const days = Math.round((Date.parse(earnings) - now) / 86_400_000);
-    if (days >= 0 && days <= 14) out.push(`${earnings} 실적 발표 예정(${days}일 뒤) — 발표 때 크게 움직일 수 있습니다`);
+    // 그 종목 시장의 오늘 날짜부터 실적일까지 달력 날수(날짜끼리 — 계좌 실적 회피 `guards.earningsGuard` 와 같은 「오늘」).
+    // 예전 식(실적일 UTC 자정 − 지금 시각)은 미국 16:30 ET 판단 때 오늘 장 뒤 실적을 빼고 내일 실적을 「0일 뒤」 로 셌다.
+    const today = marketDate(now, symbol);
+    const days = Math.round((Date.parse(`${earnings}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+    if (days >= 0 && days <= 14) out.push(`${earnings} 실적 발표 예정(${days === 0 ? '오늘' : `${days}일 뒤`}) — 발표 때 크게 움직일 수 있습니다`);
   }
   if (atr != null && price && atr / price > 0.04) out.push(`변동성이 높습니다(ATR ${((atr / price) * 100).toFixed(1)}%) — 비중을 줄이세요`);
   const r = ev.reference;
