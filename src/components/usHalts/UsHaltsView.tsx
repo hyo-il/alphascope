@@ -51,20 +51,25 @@ import type { LiveRankingResponse } from '../../types/ranking';
  *   (「상위」 = 두 순위 합집합 · `utils/usHalts.filterGroupsByRank` → 거래대금 숨기기). **관심 · 보유 종목은 순위와 상관없이 늘 보인다.**
  *   「며칠째 정지 중」 칸은 보기와 상관없이 모든 장기 정지(관심 · 보유가 위). 고른 보기 · N 은 이 브라우저에 기억한다(localStorage — 서버 저장 없음).
  * - 모든 칸은 한 줄(1280 · 1440) — 긴 종목명만 말줄임 + 툴팁(티커 · 시장 · 배지 · 순위는 자르지 않는다).
- * - 서버가 1분마다 Nasdaq Trader 거래정지 RSS 를 받아 쌓는다(`server/usHalts/`) — 화면은 서버 값을 30초마다 읽기만 한다.
+ * - 서버가 1분마다 Nasdaq Trader 거래정지 RSS 를 받아 쌓는다(`server/usHalts/`) — 화면은 서버 값을 10초마다 읽기만 한다(`HALTS_REFRESH_MS`).
  * - 예상 재개는 **서버 시각** 기준으로 1초마다 다시 판단한다(`utils/usHalts.expectedResume`).
  * - 원문(ET 날짜 · 시각 · 사유 코드)은 툴팁 · 작은 글자로 함께 보인다(약관 — 피드를 고치거나 왜곡하지 않는다).
  * - 새 정지 토스트는 이 화면을 보고 있을 때만(화면을 떠나면 언마운트) — 처음 열 때 이미 있던 정지는 알리지 않는다.
  * ⚠️ 방향은 토스 1분봉으로 낸 **추정**이다. 매수 · 매도 신호가 아니다.
  */
 
-const REFRESH_MS = 30_000;
+/** 정지 목록(`/api/us-halts`)을 다시 읽는 간격 — 서버는 1분마다 받지만, 받은 뒤 화면에 늦게 보이지 않게 짧게(사용자 결정 2026-10-29) */
+const HALTS_REFRESH_MS = 10_000;
+/** 토스 순위를 다시 읽는 간격 — 서버 순위 캐시가 30초라 더 자주 불러도 같은 값 */
+const RANK_REFRESH_MS = 30_000;
 /**
  * 표가 놓인 칸의 안쪽 폭(px)이 이보다 좁으면 사유 칸의 원문 코드를 툴팁으로 옮긴다(`CompactReason`).
  * 오른쪽 관심 패널을 편 채로 1440 창 = 1002px(코드 보임) · 1280 창 = 842px(숨김). 패널을 접은 1280 은 1056px 이라 보인다.
  * 창 폭이 아니라 칸 폭으로 잰다 — 패널을 접고 펴도 따라간다.
  */
 const COMPACT_REASON_BELOW = 920;
+/** 「지금 정지 중」 제목 옆 정보 — 새 정지가 보이기까지 늦는 까닭(간격 숫자는 위 상수 · 서버 `FETCH_INTERVAL_MS` 와 맞춘다) */
+const HALTS_DELAY_TIP = '나스닥 목록은 정지 뒤 0.5~2분 늦게 올라옵니다 · 서버는 1분마다, 화면은 10초마다 받습니다';
 /** 좁은 칸 — 두 표의 사유 칸(`ReasonText`)이 같이 읽는다 */
 const CompactReason = createContext(false);
 /** 연속 이만큼 실패하면 경고 */
@@ -155,7 +160,7 @@ function useLiveRank(kind: HaltRankSide, enabled: boolean): RankState {
     void load();
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') void load();
-    }, REFRESH_MS);
+    }, RANK_REFRESH_MS);
     const onVisible = () => document.visibilityState === 'visible' && void load();
     document.addEventListener('visibilitychange', onVisible);
     return () => {
@@ -231,12 +236,12 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
     }
   }, []);
 
-  // 처음 + 30초마다 — 숨은 탭에서는 쉬고, 다시 보이면 곧바로 한 번
+  // 처음 + 10초마다 — 숨은 탭에서는 쉬고, 다시 보이면 곧바로 한 번
   useEffect(() => {
     void load();
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') void load();
-    }, REFRESH_MS);
+    }, HALTS_REFRESH_MS);
     const onVisible = () => document.visibilityState === 'visible' && void load();
     document.addEventListener('visibilitychange', onVisible);
     return () => {
@@ -384,7 +389,7 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
                 {ongoingSection}
                 <div className="mb-2">
                   {/* 받기 실패 중 · 순위를 아직 모르면 개수를 적지 않는다 — 「(0)」 과 「알 수 없습니다」 가 엇갈리지 않게 */}
-                  <SectionTitle>{fetchBad(data.status) || hits === undefined || unknown ? '지금 정지 중' : `지금 정지 중 (${today.groups.length})`}</SectionTitle>
+                  <SectionTitle info={HALTS_DELAY_TIP}>{fetchBad(data.status) || hits === undefined || unknown ? '지금 정지 중' : `지금 정지 중 (${today.groups.length})`}</SectionTitle>
                 </div>
                 {!loading && failed.length > 0 && (
                   <p className="mb-2 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger" data-rank-error title={failed.map((k) => ranks[k].error).join(' · ')}>
