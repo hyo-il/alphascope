@@ -16,7 +16,7 @@ import { lastClosedDay, marketDayTime } from '../server/marketHours';
 import { defaultStrategy } from '../src/types/autoTrading';
 import { createRule, deleteRule, getRule, listRules } from '../server/rules/store';
 import { defaultRuleBody, DEFAULT_RULE_NAME } from '../src/types/tradingRule';
-import { judgeSymbol, latestRecordDay, outcomes, reasonSummaries, recordMarket, currentRule, historyDays, buildState } from '../server/buyJudge/judge';
+import { warningsOf, judgeSymbol, latestRecordDay, outcomes, reasonSummaries, recordMarket, currentRule, historyDays, buildState } from '../server/buyJudge/judge';
 import { buyJudgeTick } from '../server/buyJudge/scheduler';
 import * as store from '../server/buyJudge/store';
 import { ROUND_TRIP_COST } from '../server/analysis/targetHit';
@@ -29,6 +29,8 @@ import { judgeOnClose } from '../server/rules/judge';
 import { completedDaily } from '../server/rules/engine';
 import { loadCandles, pruneUnconfirmedMissing, saveCandles } from '../server/db';
 import { deleteStrategy, getJudgedDay } from '../server/autoTrading/store';
+import { calendarEvents } from '../server/calendarService';
+import type { RuleEvaluation } from '../server/rules/engine';
 
 let pass = 0;
 let fail = 0;
@@ -443,6 +445,57 @@ try {
   db.prepare(`DELETE FROM app_settings WHERE key = 'buyJudge.lastRecorded'`).run();
   for (const [m, d] of Object.entries(saved.recorded)) store.setLastRecorded(m as 'US' | 'KR', d!);
   if (addedHoliday) db.prepare(`DELETE FROM market_holidays WHERE market = 'KR' AND date = '2026-10-09'`).run();
+}
+
+// ── v2.59.2 날짜는 그 종목 · 그 일정의 시장 날짜로 ─────────────────────────────
+{
+  const db = getDb();
+  const T = ['ZZUS1', 'ZZUS2', 'ZZUS3', 'ZZUS4', '0ZZ002'];
+  const put = (sym: string, date: string) =>
+    db.prepare(`INSERT INTO earnings_calendar (symbol, earnings_date, fetched_at, is_estimate) VALUES (?, ?, 'x', 0) ON CONFLICT(symbol) DO UPDATE SET earnings_date = excluded.earnings_date`).run(sym, date);
+  const ev = { reference: null } as unknown as RuleEvaluation;
+  const warn = (sym: string, at: number) => warningsOf(sym, ev, null, null, null, at).find((w) => w.includes('실적')) ?? '';
+  const et = (d: string, hm: string) => marketDayTime('US', d, (Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3))) * 60_000);
+  const kst = (d: string, hm: string) => Date.parse(`${d}T${hm}:00+09:00`);
+
+  // A. 매수 판단 실적 임박 — 미국 16:30 ET(= 한국 다음 날 05:30) 판단
+  put('ZZUS1', '2026-10-29');
+  check('실적 임박 — 미국 16:30 ET · 실적 오늘 → 「오늘」', warn('ZZUS1', et('2026-10-29', '16:30')).includes('2026-10-29 실적 발표 예정(오늘)'), warn('ZZUS1', et('2026-10-29', '16:30')));
+  put('ZZUS1', '2026-10-30');
+  check('실적 임박 — 미국 16:30 ET · 실적 내일 → 「1일 뒤」', warn('ZZUS1', et('2026-10-29', '16:30')).includes('(1일 뒤)'));
+  put('ZZUS1', '2026-11-12');
+  check('실적 임박 — 14일 뒤는 경고', warn('ZZUS1', et('2026-10-29', '16:30')).includes('(14일 뒤)'));
+  put('ZZUS1', '2026-11-13');
+  check('실적 임박 — 15일 뒤는 없음', warn('ZZUS1', et('2026-10-29', '16:30')) === '');
+  put('ZZUS1', '2026-10-28');
+  check('실적 임박 — 지난 실적은 없음', warn('ZZUS1', et('2026-10-29', '16:30')) === '');
+  put('0ZZ002', '2026-10-30');
+  check('실적 임박 — 국내 종목은 한국 날짜(20:30 KST · 오늘)', warn('0ZZ002', kst('2026-10-30', '20:30')).includes('(오늘)'));
+  check('실적 임박 — 국내 종목 · 한국 다음 날 00:30 → 지남', warn('0ZZ002', kst('2026-10-31', '00:30')) === '');
+  put('ZZUS1', '2026-11-02');
+  check('실적 임박 — 서머타임 끝 앞(10-31 16:30 EDT) → 2일 뒤', warn('ZZUS1', et('2026-10-31', '16:30')).includes('(2일 뒤)'));
+  check('실적 임박 — 서머타임 끝 뒤(11-01 23:30 EST = UTC 다음 날) → 1일 뒤', warn('ZZUS1', et('2026-11-01', '23:30')).includes('(1일 뒤)'));
+
+  // B. 증시 일정 「지남」 — 한국 아침 08:00(10-30) = 미국 10-29 19:00
+  put('ZZUS2', '2026-10-29'); // 미국 오늘(장 뒤 발표) — 지나지 않음
+  put('ZZUS3', '2026-10-28'); // 미국 어제 — 지남
+  put('0ZZ002', '2026-10-29'); // 국내 어제 — 지남
+  put('ZZUS4', '2026-10-30'); // 미국 내일
+  const cal = calendarEvents('2026-10-01', '2026-12-31', 'universe', kst('2026-10-30', '08:00'));
+  // 시험 종목은 관심/유니버스 밖이라 거른다 — 범위 거르기 뒤 값을 직접 볼 수 없으니, 같은 판단을 그 날짜로 확인한다
+  const pastOf = (type: string, date: string, market?: string) => cal.events.find((e) => e.type === type && e.date === date && (!market || (e as { market?: string }).market === market))?.past;
+  check('증시 일정 — 화면 「오늘」 은 한국 날짜', cal.meta.today === '2026-10-30');
+  check('증시 일정 — 미국 휴장(대체 없음)·FOMC·만기는 미국 날짜로 「지남」', pastOf('fomc', '2026-10-28') === true && pastOf('expiry', '2026-10-16') === true);
+  const cal2 = calendarEvents('2026-10-01', '2026-12-31', 'universe', kst('2026-12-10', '08:00')); // 한국 12-10 08:00 = 미국 12-09 18:00 — FOMC 12-09 마지막 날
+  check('증시 일정 — FOMC 마지막 날(미국 12-09) 은 한국 12-10 아침에도 「지남」 아님', cal2.events.find((e) => e.type === 'fomc' && e.date === '2026-12-09')?.past === false);
+  const krHol = cal2.events.find((e) => e.type === 'holiday' && (e as { market?: string }).market === 'KR');
+  check('증시 일정 — 국내 휴장은 한국 날짜', !krHol || krHol.past === krHol.date < '2026-12-10');
+  // 실적은 종목마다 그 시장 날짜 — 관심/유니버스에 넣지 않고 판단 식만(같은 식) 확인
+  check('증시 일정 — 실적 「지남」 식이 종목 시장 날짜(미국 10-29 = 오늘 · 국내 10-29 = 어제)', '2026-10-29' < marketDate(kst('2026-10-30', '08:00'), 'ZZUS2') === false && '2026-10-29' < marketDate(kst('2026-10-30', '08:00'), '0ZZ002') === true);
+  const src = (await import('node:fs')).readFileSync(new URL('../server/calendarService.ts', import.meta.url), 'utf8');
+  check('증시 일정 — 실적 past 는 marketDate(now, r.symbol) · 미국 일정은 usToday', /past: r\.earnings_date < marketDate\(now, r\.symbol\)/.test(src) && /past: m\.end < usToday/.test(src) && /past: date < usToday/.test(src));
+
+  db.prepare(`DELETE FROM earnings_calendar WHERE symbol IN (${T.map(() => '?').join(',')})`).run(...T);
 }
 
 void marketDate;

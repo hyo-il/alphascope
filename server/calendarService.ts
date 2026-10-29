@@ -64,7 +64,10 @@ function scopeSymbols(scope: CalendarScope): Set<string> {
 }
 
 export function calendarEvents(from: string, to: string, scope: CalendarScope, now = Date.now()): CalendarResponse {
+  // 화면 달력의 「오늘」 · 갱신 경고는 사용자가 보는 한국 날짜.
+  // 일정마다 「지남」 은 **그 일정의 시장 날짜**로 — 미국 일정을 한국 날짜로 견주면 한국 아침에 하루 먼저 「지남」 이 됐다.
   const today = marketDate(now, '005930');
+  const usToday = marketDate(now, 'SPY');
   const events: CalendarEvent[] = [];
 
   // 실적 발표
@@ -81,7 +84,7 @@ export function calendarEvents(from: string, to: string, scope: CalendarScope, n
       name: findStock(r.symbol)?.name ?? null,
       label: r.is_estimate === 1 ? '실적 발표 예정(추정 가능)' : '실적 발표',
       isEstimate: r.is_estimate === 1,
-      past: r.earnings_date < today,
+      past: r.earnings_date < marketDate(now, r.symbol),
     });
   }
 
@@ -93,7 +96,7 @@ export function calendarEvents(from: string, to: string, scope: CalendarScope, n
       date: m.end,
       type: 'fomc',
       label: `FOMC 금리 결정 (${range} 회의)${m.sep ? ' · 경제전망 발표' : ''}`,
-      past: m.end < today,
+      past: m.end < usToday,
     });
   }
 
@@ -109,14 +112,14 @@ export function calendarEvents(from: string, to: string, scope: CalendarScope, n
       type: 'expiry',
       label: `${quarterly ? '분기 동시 만기' : '월간 옵션 만기'}${shifted ? ' (셋째 금요일 휴장 → 전 거래일)' : ''}`,
       quarterly,
-      past: date < today,
+      past: date < usToday,
     });
   }
 
   // 휴장일
   for (const market of ['US', 'KR'] as const) {
     for (const date of listHolidays(market, from, to)) {
-      events.push({ date, type: 'holiday', market, label: `${market === 'US' ? '미국' : '국내'} 휴장`, past: date < today });
+      events.push({ date, type: 'holiday', market, label: `${market === 'US' ? '미국' : '국내'} 휴장`, past: date < (market === 'US' ? usToday : today) });
     }
   }
 
