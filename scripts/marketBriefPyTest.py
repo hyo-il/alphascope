@@ -169,13 +169,25 @@ cases = [
     ("서머타임 끝 전날 23:30 EDT → 10-31", "MSFT", ep(2026, 10, 31, 23, 30, "America/New_York"), "2026-10-31"),
     ("서머타임 끝나는 날 00:30 EDT → 11-01", "MSFT", ep(2026, 11, 1, 0, 30, "America/New_York"), "2026-11-01"),
     ("서머타임 끝나는 날 23:30 EST(다음 날 04:30 UTC) → 11-01", "MSFT", ep(2026, 11, 1, 23, 30, "America/New_York"), "2026-11-01"),
+    ("서머타임 시작 전날 23:30 EST → 03-07", "MSFT", ep(2026, 3, 7, 23, 30, "America/New_York"), "2026-03-07"),
+    ("서머타임 시작 날 03:30 EDT → 03-08", "MSFT", ep(2026, 3, 8, 3, 30, "America/New_York"), "2026-03-08"),
+    ("국내 00:00 KST(전날 15:00 UTC) → 그날", "005930", ep(2026, 11, 2, 0, 0, "Asia/Seoul"), "2026-11-02"),
+    ("국내 08:59 KST → 그날", "005930", ep(2026, 11, 2, 8, 59, "Asia/Seoul"), "2026-11-02"),
+    ("국내 09:00 KST(00:00 UTC) → 그날", "005930", ep(2026, 11, 2, 9, 0, "Asia/Seoul"), "2026-11-02"),
+    ("미국 19:59 EDT → 그날", "AAPL", ep(2026, 10, 29, 19, 59, "America/New_York"), "2026-10-29"),
+    ("미국 20:00 EDT(UTC 날짜가 바뀌는 순간) → 그날", "AAPL", ep(2026, 10, 29, 20, 0, "America/New_York"), "2026-10-29"),
+    ("미국 23:59 ET → 그날", "AAPL", ep(2026, 10, 29, 23, 59, "America/New_York"), "2026-10-29"),
+    ("점 있는 미국 티커 BRK.B → 미국", "BRK.B", ep(2026, 11, 2, 21, 0, "America/New_York"), "2026-11-02"),
+    ("국내 .KQ 접미사 · 소문자", "005930.kq", ep(2026, 11, 2, 8, 0, "Asia/Seoul"), "2026-11-02"),
 ]
 for name, sym, stamp, want in cases:
     got = ed({"earningsTimestamp": int(stamp)}, sym)
     check(f"실적일 {name}", got == want, f"{got} != {want}")
+check("실적일 Start 가 없거나 0 이면 earningsTimestamp", ed({"earningsTimestampStart": None, "earningsTimestamp": int(ep(2026, 11, 2, 8, 0, "Asia/Seoul"))}, "005930") == "2026-11-02" and ed({"earningsTimestampStart": 0, "earningsTimestamp": int(ep(2026, 11, 2, 8, 0, "Asia/Seoul"))}, "005930") == "2026-11-02")
+check("실적일 숫자 문자열도 받음", ed({"earningsTimestamp": str(int(ep(2026, 11, 2, 8, 0, "Asia/Seoul")))}, "005930") == "2026-11-02")
 check("실적일 earningsTimestampStart 먼저", ed({"earningsTimestampStart": int(ep(2026, 11, 2, 8, 0, "Asia/Seoul")), "earningsTimestamp": 0}, "005930") == "2026-11-02")
 check("실적일 UTC 로 잘랐다면 하루 이른 경우였음(확인)", datetime.fromtimestamp(ep(2026, 10, 30, 8, 0, "Asia/Seoul"), tz=UTC).strftime("%Y-%m-%d") == "2026-10-29")
-for label, info in (("값 없음", {}), ("None", {"earningsTimestamp": None}), ("글자", {"earningsTimestamp": "abc"}), ("NaN", {"earningsTimestamp": float("nan")}), ("너무 큼", {"earningsTimestamp": 1e20})):
+for label, info in (("값 없음", {}), ("None", {"earningsTimestamp": None}), ("글자", {"earningsTimestamp": "abc"}), ("NaN", {"earningsTimestamp": float("nan")}), ("너무 큼", {"earningsTimestamp": 1e20}), ("0", {"earningsTimestamp": 0}), ("True", {"earningsTimestamp": True}), ("inf", {"earningsTimestamp": float("inf")})):
     check(f"실적일 {label} → None", ed(info, "AAPL") is None)
 
 print(f"PY_RESULT {len(failures)} fail")

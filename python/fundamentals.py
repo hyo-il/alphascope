@@ -107,7 +107,7 @@ def earnings_date(info: dict, symbol: str) -> str | None:
     미국 20:00 ET 뒤 시각은 하루 늦게 됐다. 서머타임 · 자정 경계는 zoneinfo 가 맡는다(고정 시차를 더하지 않는다).
     """
     stamp = info.get("earningsTimestampStart") or info.get("earningsTimestamp")
-    if not stamp:
+    if not stamp or isinstance(stamp, bool):
         return None
     try:
         return datetime.fromtimestamp(float(stamp), tz=market_timezone(symbol)).strftime("%Y-%m-%d")
