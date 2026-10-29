@@ -190,5 +190,32 @@ check("실적일 UTC 로 잘랐다면 하루 이른 경우였음(확인)", datet
 for label, info in (("값 없음", {}), ("None", {"earningsTimestamp": None}), ("글자", {"earningsTimestamp": "abc"}), ("NaN", {"earningsTimestamp": float("nan")}), ("너무 큼", {"earningsTimestamp": 1e20}), ("0", {"earningsTimestamp": 0}), ("True", {"earningsTimestamp": True}), ("inf", {"earningsTimestamp": float("inf")})):
     check(f"실적일 {label} → None", ed(info, "AAPL") is None)
 
+# 7) 오늘 시황 전망치 — 종목 시장 시간대로 날짜 · 오늘(v2.59.2). 한국 10-30 10:00 = 미국 10-29 21:00
+ET = ZoneInfo("America/New_York")
+inst = datetime(2026, 10, 30, 10, 0, tzinfo=ZoneInfo("Asia/Seoul"))
+us_frame = pd.DataFrame(
+    {"EPS Estimate": [2.1, 1.9], "Reported EPS": [None, 1.8]},
+    index=pd.DatetimeIndex([datetime(2026, 10, 29, 8, 0, tzinfo=ET), datetime(2026, 7, 29, 8, 0, tzinfo=ET)]),
+)
+check("전망치 — 미국 종목은 미국 날짜(10-29 장 전 발표 · 미국 오늘 10-29) → 예상 EPS 잡힘", mb.eps_from_earnings_dates(us_frame, date(2026, 10, 29), ET)["epsEstimate"] == 2.1)
+check("전망치 — (예전) 한국 시간으로 바꾸면 10-29 21:00 KST < 한국 오늘 10-30 → 빠졌던 경우", mb.eps_from_earnings_dates(us_frame, date(2026, 10, 30))["epsEstimate"] is None)
+real_call, real_ticker = mb._call_with_timeout, mb.yf.Ticker
+
+
+class _T:
+    def __init__(self, *_):
+        self.earnings_dates = us_frame
+
+
+mb.yf.Ticker = _T
+mb._call_with_timeout = lambda fn, timeout=None: fn() if fn.__code__.co_names[-1:] == ("earnings_dates",) else None
+us = mb._estimates_one("AAPL", inst)
+kr_frame = pd.DataFrame({"EPS Estimate": [1200.0], "Reported EPS": [None]}, index=pd.DatetimeIndex([datetime(2026, 10, 30, 8, 0, tzinfo=ZoneInfo("Asia/Seoul"))]))
+_T.__init__ = lambda self, *_: setattr(self, "earnings_dates", kr_frame)
+kr = mb._estimates_one("005930", inst)
+mb._call_with_timeout, mb.yf.Ticker = real_call, real_ticker
+check("전망치 — _estimates_one 이 같은 순간을 종목 시간대의 오늘로(미국 10-29 → 잡힘)", us.get("ok") and us.get("epsEstimate") == 2.1, str(us))
+check("전망치 — 국내 종목은 한국 날짜 그대로(10-30 08:00 KST · 한국 오늘 10-30 → 잡힘)", kr.get("ok") and kr.get("epsEstimate") == 1200.0, str(kr))
+
 print(f"PY_RESULT {len(failures)} fail")
 sys.exit(1 if failures else 0)

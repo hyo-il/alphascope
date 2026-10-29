@@ -24,7 +24,7 @@ from zoneinfo import ZoneInfo
 
 import yfinance as yf
 
-from fundamentals import INDEX_HISTORY_PERIOD, to_yf_symbols, yf_history_safe
+from fundamentals import INDEX_HISTORY_PERIOD, market_timezone, to_yf_symbols, yf_history_safe
 
 KST = ZoneInfo("Asia/Seoul")
 
@@ -201,10 +201,12 @@ def _num(value) -> float | None:
     return None if math.isnan(v) or math.isinf(v) else v
 
 
-def eps_from_earnings_dates(frame, today: date) -> dict:
+def eps_from_earnings_dates(frame, today: date, tz=KST) -> dict:
     """
     earnings_dates 표 → 다가오는 예상 EPS · 직전 분기 실제 EPS · 4분기 전(전년 동기) 실제 EPS.
-    - 날짜는 **한국 시간으로 바꾼 뒤** 잡는다(원본 주의사항 28 — 안 하면 국내 · 미국 저녁 발표가 하루 밀린다).
+    - 날짜는 **그 종목 시장 시간대(tz)로 바꾼 뒤** 잡는다(원본 주의사항 28 의 뜻 — 시간대를 바꾼 뒤 날짜). 원본은 모두 한국 시간이었다 —
+      미국 장 뒤 발표가 한국 다음 날로 넘어가 실적 달력(미국 날짜 · `fundamentals.earnings_date`)과 하루 어긋났다(v2.59.2).
+    - today 도 같은 시간대의 오늘이어야 한다(`_estimates_one` 이 종목마다 낸다).
     - 예상 EPS = 아직 발표 안 한 줄(Reported EPS 비어 있음) 가운데 오늘 이후 가장 가까운 줄.
     """
     out = {"epsEstimate": None, "lastQuarterEps": None, "yearAgoEps": None}
@@ -212,7 +214,7 @@ def eps_from_earnings_dates(frame, today: date) -> dict:
         return out
     frame = frame.copy()
     if getattr(frame.index, "tz", None) is not None:
-        frame.index = frame.index.tz_convert(KST).tz_localize(None)
+        frame.index = frame.index.tz_convert(tz).tz_localize(None)
     future = frame[frame["Reported EPS"].isna()]
     future = future[[d.date() >= today for d in future.index]].sort_index()
     if not future.empty and "EPS Estimate" in future:
@@ -259,14 +261,17 @@ def calendar_eps(cal) -> dict:
     return out
 
 
-def _estimates_one(symbol: str, today: date) -> dict:
+def _estimates_one(symbol: str, now: datetime | None = None) -> dict:
+    """한 종목 — 「오늘」 은 같은 순간(now)을 그 종목 시장 시간대로 바꾼 날짜(국내 한국 · 미국 동부 — 실적 달력과 같은 기준)"""
+    tz = market_timezone(symbol)
+    today = (now or datetime.now(tz)).astimezone(tz).date()
     result = {"symbol": symbol, "ok": False}
     for candidate in to_yf_symbols(symbol):
         dates = _call_with_timeout(lambda c=candidate: yf.Ticker(c).earnings_dates)
         if dates is None or getattr(dates, "empty", True):
             continue
         ticker = yf.Ticker(candidate)
-        result.update(eps_from_earnings_dates(dates, today))
+        result.update(eps_from_earnings_dates(dates, today, tz))
         result.update(revenue_from_estimate(_call_with_timeout(lambda: ticker.revenue_estimate)))
         result["recommendation"] = recommendation_counts(_call_with_timeout(lambda: ticker.recommendations))
         result.update(calendar_eps(_call_with_timeout(lambda: ticker.calendar)))
@@ -277,7 +282,7 @@ def _estimates_one(symbol: str, today: date) -> dict:
 
 def get_earnings_estimates(symbols: list[str]) -> list[dict]:
     """종목 묶음(최대 10)의 전망치 — 4개씩 나란히. 한 종목 실패는 ok=false 로 돌려준다"""
-    today = datetime.now(KST).date()
+    instant = datetime.now(KST)  # 같은 순간 — 종목마다 그 시장의 오늘로 바꾼다
     now = time.time()
     out: dict[str, dict] = {}
     todo = []
@@ -289,7 +294,7 @@ def get_earnings_estimates(symbols: list[str]) -> list[dict]:
             todo.append(symbol)
     if todo:
         with concurrent.futures.ThreadPoolExecutor(max_workers=_ESTIMATE_WORKERS) as pool:
-            for symbol, value in zip(todo, pool.map(lambda s: _estimates_one(s, today), todo)):
+            for symbol, value in zip(todo, pool.map(lambda s: _estimates_one(s, instant), todo)):
                 out[symbol] = value
                 if value.get("ok"):
                     _estimate_cache[symbol] = (now, value)
