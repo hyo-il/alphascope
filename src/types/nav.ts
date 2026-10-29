@@ -72,10 +72,6 @@ export interface NavGroup {
    */
   showSinglePage?: boolean;
   /**
-   * 대메뉴를 누르면 가는 소메뉴 — 없으면 첫 소메뉴. 「차트·비교」 는 맨 위가 종목 탐색이어도 누르면 차트로 간다(사용자 결정).
-   */
-  landingPage?: NavPageId;
-  /**
    * 소메뉴 없이 **설정에서 고른 홈 화면**으로 가는 대메뉴(「홈」 하나). 누르면 로고와 같은 `goHome()` 을 부른다.
    * 고른 화면은 제 대메뉴에 속하므로 이 대메뉴는 강조되지 않는다 — 메뉴 강조는 그 화면이 속한 대메뉴다.
    */
@@ -116,8 +112,6 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: 'chart',
     label: '차트·비교',
     shortLabel: '차트',
-    // 맨 위 소메뉴가 종목 탐색이어도 대메뉴를 누르면 차트로 간다(사용자 결정)
-    landingPage: 'chart',
     pages: [
       /*
         종목 탐색(StockExplorer — 검색 · 인기 · 관심 · 보유 · 최근). ⚠️ page id 'home' 은 그대로다(주소 #/home · 저장값).
@@ -203,11 +197,6 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
 ];
-
-/** 대메뉴를 누르면 가는 화면 — `landingPage`, 없으면 첫 소메뉴(소메뉴가 없는 「홈」 은 undefined) */
-export function landingOf(group: NavGroup): NavPageId | undefined {
-  return group.landingPage ?? group.pages[0]?.id;
-}
 
 // ── 홈 화면 (설정 > 앱 기능 설정 「홈 화면」) ─────────────────────────
 /**

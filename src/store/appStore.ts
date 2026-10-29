@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Timeframe } from '../types/toss';
 import { MAX_COMPARE_SYMBOLS } from '../types/compare';
-import { groupOf, landingOf, NAV_GROUPS, normalizeTab, type HomePageId, type NavGroupId, type NavPageId } from '../types/nav';
+import { groupOf, NAV_GROUPS, normalizeTab, type HomePageId, type NavGroupId, type NavPageId } from '../types/nav';
 
 /** 관심 목록 클릭 한 번의 결과 — 호출부가 안내 문구를 고른다 */
 export type CompareToggleResult = 'added' | 'removed' | 'full';
@@ -72,7 +72,7 @@ interface AppState {
   nav: NavState;
   /** 소메뉴 이동 — 속한 대메뉴도 함께 펼친다. `sub` 는 화면 안 하위 위치(없으면 지운다) */
   setPage: (page: NavPageId, sub?: NavSub | null) => void;
-  /** 대메뉴 클릭 — 목록을 펼치고 그 대메뉴의 `landingPage`(없으면 첫 소메뉴)로 간다. 「홈」 은 `goHome` */
+  /** 대메뉴 클릭 — 목록을 펼치고 그 대메뉴의 첫 소메뉴로 간다(모든 대메뉴 같음). 「홈」 은 `goHome` */
   setGroup: (group: NavGroupId) => void;
   /** 설정에서 고른 홈 화면(`GET /api/settings/home-page`). null = 서버에서 받는 중 */
   homePage: HomePageId | null;
@@ -135,7 +135,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   setGroup: (group) => {
     const item = NAV_GROUPS.find((g) => g.id === group);
     if (item?.home) return get().goHome();
-    const landing = item && landingOf(item);
+    // 모든 대메뉴는 늘 첫 소메뉴로 간다(사용자 결정 2026-10-29)
+    const landing = item?.pages[0]?.id;
     if (landing) set({ nav: { group, page: landing, sub: normalizeTab(landing, null), viaGroup: true }, homePending: null });
   },
   homePage: null,
