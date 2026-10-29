@@ -24,6 +24,7 @@ from fundamentals import (
     get_market_overview,
     get_peers,
 )
+from market_brief import get_earnings_estimates, get_market_brief_data
 
 app = Flask(__name__)
 
@@ -147,6 +148,31 @@ def earnings():
         return jsonify({"error": "symbols 파라미터가 필요합니다."}), 400
     try:
         return jsonify({"earnings": get_earnings(symbols)})
+    except Exception as error:  # noqa: BLE001
+        return jsonify({"error": f"{type(error).__name__}: {error}"}), 500
+
+
+@app.get("/market-brief-data")
+def market_brief_data():
+    """오늘 시황 시장 데이터 — edition=morning(13종) | afternoon(코스피 · 코스닥 · VIX). 10분 캐시 (v2.59.0)"""
+    edition = request.args.get("edition") or "morning"
+    if edition not in ("morning", "afternoon"):
+        return jsonify({"error": "edition 은 morning 또는 afternoon 입니다."}), 400
+    try:
+        return jsonify(get_market_brief_data(edition))
+    except Exception as error:  # noqa: BLE001
+        return jsonify({"error": f"{type(error).__name__}: {error}"}), 500
+
+
+@app.get("/earnings-estimates")
+def earnings_estimates():
+    """오늘 시황 실적 전망치 4종 — symbols=AAPL,005930 (최대 10). 60일 안에 실적이 있는 종목만 서버가 묶어 부른다 (v2.59.0)"""
+    raw = request.args.get("symbols") or ""
+    symbols = [s.strip().upper() for s in raw.split(",") if s.strip()][:10]
+    if not symbols:
+        return jsonify({"error": "symbols 파라미터가 필요합니다."}), 400
+    try:
+        return jsonify({"estimates": get_earnings_estimates(symbols)})
     except Exception as error:  # noqa: BLE001
         return jsonify({"error": f"{type(error).__name__}: {error}"}), 500
 

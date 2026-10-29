@@ -6,6 +6,7 @@ indicators.py 의 Flask 앱에 라우트로 등록된다 (프로세스는 하나
 
 from __future__ import annotations
 
+import concurrent.futures
 import math
 import re
 import time
@@ -341,6 +342,39 @@ MARKET_INDICES = [
 _overview_cache: dict = {"at": 0.0, "rows": []}
 _OVERVIEW_TTL_SEC = 60
 
+# 지수 일봉 받기 — 시황 바(`get_market_overview`)와 오늘 시황(`market_brief.py`)이 **이 함수 하나**로 받는다
+# (같은 지수를 두 방식으로 받지 않는다 · v2.59.0). 같은 (티커, 기간) 은 60초 안에 다시 받지 않는다.
+INDEX_HISTORY_PERIOD = "2mo"
+_history_cache: dict = {}
+_HISTORY_TTL_SEC = 60
+
+
+def yf_history_safe(ticker: str, period: str = INDEX_HISTORY_PERIOD, per_call_timeout: float = 10.0):
+    """
+    yfinance `Ticker.history` 를 스레드로 돌려 per_call_timeout 초 안에 끝나지 않으면 빈 표를 돌려준다
+    (yfinance 는 공개 API 에 시간 제한이 없다 — Stockproject `_yf_history_safe` 와 같은 방식).
+    ⚠️ `with ThreadPoolExecutor` 로 감싸면 빠져나갈 때 스레드를 기다려 시간 제한이 걸리지 않는다 — `shutdown(wait=False)` 로 놓아준다.
+    """
+    import pandas as pd
+
+    key = (ticker, period)
+    hit = _history_cache.get(key)
+    now = time.time()
+    if hit is not None and now - hit[0] < _HISTORY_TTL_SEC:
+        return hit[1]
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    try:
+        frame = pool.submit(lambda: yf.Ticker(ticker).history(period=period, interval="1d")).result(timeout=per_call_timeout)
+    except Exception:  # noqa: BLE001 - 시간 초과 · 받기 실패는 빈 표(그 항목만 빠진다)
+        return pd.DataFrame()
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+    if frame is None:
+        return pd.DataFrame()
+    if not frame.empty:
+        _history_cache[key] = (now, frame)
+    return frame
+
 
 # 환율 스파크라인 — 토스 /exchange-rate 는 현재가만 주고 과거 시계열이 없어서
 # yfinance "KRW=X"(USD/KRW) 의 최근 30 거래일 종가를 쓴다.
@@ -388,8 +422,8 @@ def get_market_overview(force: bool = False) -> list[dict]:
             price = clean(info.get("lastPrice"))
             previous = clean(info.get("previousClose"))
 
-            history = ticker.history(period="2mo", interval="1d")
-            if history is not None and not history.empty:
+            history = yf_history_safe(symbol)
+            if not history.empty:
                 closes = [clean(v) for v in history["Close"].tail(30)]
                 sparkline = [v for v in closes if v is not None]
                 # fast_info 가 비어 있으면 종가로 대신한다.
