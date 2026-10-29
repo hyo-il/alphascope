@@ -166,6 +166,7 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
     earnings: collected.earnings.earnings,
     domestic: collected.domestic,
     foreign: collected.foreign,
+    at: startedMs,
   });
   const ai = await askGemini(edition, prompt, deps);
   let brief: BriefAi | null = null;

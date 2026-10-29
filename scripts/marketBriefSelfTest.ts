@@ -33,7 +33,7 @@ import { countBriefs, getBrief, insertBrief, listBriefDays, listBriefsOf, purgeO
 import { autoDue, BriefLimitError, briefStatus, marketBriefTick, resetBriefStateForTest, resetPurgeForTest, startButtonRun, type BriefDeps } from '../server/marketBrief/service';
 import { geminiUsageToday } from '../server/gemini/usage';
 import { GeminiError, type GeminiCallOptions } from '../server/gemini/client';
-import { editionAt } from '../src/utils/marketBrief';
+import { editionAt, isIntradayBar } from '../src/utils/marketBrief';
 import fs from 'node:fs';
 import type { BriefAi, BriefEarning, BriefScheduleItem } from '../src/types/marketBrief';
 
@@ -209,19 +209,24 @@ const news = (n: number, foreign: boolean) => Array.from({ length: n }, (_, i) =
 // B-1 프롬프트 · 스키마
 {
   const earnings = [earningOf('INTC', '인텔', '기술', 5, true), earningOf('005930', '삼성전자', '기술', 12)];
-  const morning = buildPrompt({ edition: 'morning', today: '2026-10-29', assets, earnings, domestic: news(50, false), foreign: news(60, true) });
+  const morning = buildPrompt({ edition: 'morning', today: '2026-10-29', assets, earnings, domestic: news(50, false), foreign: news(60, true), at: kst('2026-10-29', '07:05') });
   check('오전판 — 날짜 · 지수 줄(원본 형식)', morning.startsWith('오늘 날짜는 2026년 10월 29일입니다.') && morning.includes('  S&P500: 6,031.8000 (+0.53%) [10/28(수) 종가]') && morning.includes('  나스닥: 20,100.1200 (-0.25%)'));
   check('오전판 — 실적 [D+N] · ⚠️ · 국내 종목 포함', morning.includes('[D+5] [기술] 인텔(INTC)') && morning.includes('예상 EPS $1.00 ⚠️') && morning.includes('삼성전자(005930)'));
   check('오전판 — 국내 30 · 해외 40 건까지', (morning.match(/\[국내\] /g) ?? []).length === 30 && (morning.match(/\[해외\] /g) ?? []).length === 40);
   check('오전판 — 섹터 목록 = 종목 지도 한국어 섹터', BRIEF_SECTORS.every((s2) => morning.includes(`"${s2}"`)) && morning.includes('"기술"'));
   check('오전판 — 원본 규칙(슬롯 · 숏 관점 · 80자 · 100자 · 실적 발표 형식)', ['this_week: **D+0 ~ D+7**', '"숏 관점"', '80자 이내', '100자 이내', '"<회사명> 실적 발표"', 'catalysts 는 upcoming_schedule (②) 와 절대 중복 금지'].every((t) => morning.includes(t)));
-  const afternoon = buildPrompt({ edition: 'afternoon', today: '2026-10-29', assets, earnings, domestic: news(5, false), foreign: news(5, true) });
+  const afternoon = buildPrompt({ edition: 'afternoon', today: '2026-10-29', assets, earnings, domestic: news(5, false), foreign: news(5, true), at: kst('2026-10-29', '16:00') });
   check('오후판 — 국내 지수 · VIX 구간 · 해외 뉴스 없음', afternoon.includes('  코스피: 2,650.1000 (+0.38%) [10/29(목) 종가]') && afternoon.includes('  VIX: 22.40 — 주의 구간 (20~30)') && !afternoon.includes('[해외]') && afternoon.includes('VIX 수치(22.4)'));
   const sch = SCHEMA.morning as { properties: Record<string, { items?: { properties: Record<string, { enum?: string[] }> } }>; required: string[] };
   check('스키마 — 주도 섹터 이름 enum = 섹터 목록', JSON.stringify(sch.properties.leading_sectors.items?.properties.name.enum) === JSON.stringify(BRIEF_SECTORS));
   check('스키마 — 슬롯 dict · key_themes · portfolio_adjustment', ['upcoming_schedule', 'key_themes', 'portfolio_adjustment'].every((k) => sch.required.includes(k)) && !('key_issues' in sch.properties));
   check('필수 키 — 오전 market_regime · 오후 market_summary', REQUIRED_KEYS.morning.includes('market_regime') && REQUIRED_KEYS.afternoon.includes('market_summary'));
 
+  // 장중에 받은 지수는 「종가」 가 아니라 「장중」
+  check('장중 — 코스피 14:00 KST 같은 날 = 장중 · 15:30 = 종가 · 지난 날 = 종가', isIntradayBar('KOSPI', '2026-10-29', kst('2026-10-29', '14:00')) && !isIntradayBar('KOSPI', '2026-10-29', kst('2026-10-29', '15:30')) && !isIntradayBar('KOSPI', '2026-10-28', kst('2026-10-29', '14:00')));
+  check('장중 — 미국 지수 23:40 KST(10:40 ET) = 장중 · 06:55 KST = 종가 · 금리는 늘 종가', isIntradayBar('SP500', '2026-10-29', kst('2026-10-29', '23:40')) && !isIntradayBar('SP500', '2026-10-28', kst('2026-10-29', '06:55')) && !isIntradayBar('US10Y', '2026-10-29', kst('2026-10-29', '23:40')));
+  const live = buildPrompt({ edition: 'afternoon', today: '2026-10-29', assets, earnings, domestic: [], foreign: [], at: kst('2026-10-29', '14:00') });
+  check('오후판 13~15:30 프롬프트 — 코스피 [장중]', live.includes('  코스피: 2,650.1000 (+0.38%) [10/29(목) 장중]'));
   // 입력 길이 추정(실제 호출 없음) — 보고용: 실적 100종목 · 국내 80건(30 사용) · 해외 80건(40 사용)
   const big = Array.from({ length: 100 }, (_, i) => earningOf(`S${i}`, `회사${i}`, BRIEF_SECTORS[i % BRIEF_SECTORS.length], i % 60));
   const full13 = Object.fromEntries(['KOSPI', 'KOSDAQ', 'SP500', 'NASDAQ', 'DOW', 'RUSSELL2000', 'GOLD', 'DXY', 'US2Y', 'US10Y', 'USDKRW', 'WTI', 'NATGAS'].map((k) => [k, assets.SP500]));

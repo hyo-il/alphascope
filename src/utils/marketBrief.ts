@@ -39,3 +39,26 @@ export const ASSET_LABEL: Record<BriefAssetKey, string> = {
 export function vixZone(value: number): '공포' | '주의' | '안정' {
   return value >= 30 ? '공포' : value >= 20 ? '주의' : '안정';
 }
+
+/** 정규장 시간에 거래되는 지수 — 장중에 받으면 마지막 일봉이 아직 끝나지 않았다(원본은 그래도 「종가」 로 적었다) */
+const SESSION_OF: Partial<Record<BriefAssetKey, { ref: string; open: number; close: number }>> = {
+  KOSPI: { ref: '005930', open: 9 * 60, close: 15 * 60 + 30 },
+  KOSDAQ: { ref: '005930', open: 9 * 60, close: 15 * 60 + 30 },
+  SP500: { ref: 'AAPL', open: 9 * 60 + 30, close: 16 * 60 },
+  NASDAQ: { ref: 'AAPL', open: 9 * 60 + 30, close: 16 * 60 },
+  DOW: { ref: 'AAPL', open: 9 * 60 + 30, close: 16 * 60 },
+  RUSSELL2000: { ref: 'AAPL', open: 9 * 60 + 30, close: 16 * 60 },
+  VIX: { ref: 'AAPL', open: 9 * 60 + 30, close: 16 * 60 },
+};
+
+/**
+ * 받은 시각(atMs)에 그 지수의 마지막 봉(dataDate)이 아직 장중이었나 — 그 시장 날짜가 같고 정규장 시간 안이면 true.
+ * 프롬프트(「[10/29(목) 장중]」)와 화면(「장중」)이 같이 쓴다. 지수가 아닌 값(금리 · 환율 · 선물)은 false.
+ */
+export function isIntradayBar(key: BriefAssetKey, dataDate: string | null, atMs: number): boolean {
+  const s = SESSION_OF[key];
+  if (!s || !dataDate) return false;
+  if (marketDate(atMs, s.ref) !== dataDate) return false;
+  const m = marketMinutes(atMs, s.ref);
+  return m >= s.open && m < s.close;
+}

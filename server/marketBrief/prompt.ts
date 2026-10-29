@@ -11,7 +11,7 @@
 
 import { BRIEF_SECTORS, dateLabel, earningsLine } from './earnings';
 import type { BriefNewsItem } from './news';
-import { ASSET_LABEL, vixZone } from '../../src/utils/marketBrief';
+import { ASSET_LABEL, isIntradayBar, vixZone } from '../../src/utils/marketBrief';
 import type { BriefAsset, BriefAssetKey, BriefEarning, BriefEdition } from '../../src/types/marketBrief';
 
 export const MARKET_BRIEF_PROMPT_VERSION = 'brief-v1';
@@ -104,15 +104,15 @@ export const SCHEMA: Record<BriefEdition, unknown> = {
 
 const num4 = (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
-/** 원본 _fmt — 「  S&P500: 6,031.8000 (+0.53%) [10/28(수) 종가]」 */
-function assetLine(key: BriefAssetKey, v: BriefAsset): string {
+/** 원본 _fmt — 「  S&P500: 6,031.8000 (+0.53%) [10/28(수) 종가]」. 정규장 중에 받은 지수는 「장중」(끝나지 않은 봉을 종가라 적지 않는다) */
+function assetLine(key: BriefAssetKey, v: BriefAsset, at: number): string {
   const sign = v.change >= 0 ? '+' : '';
-  const date = v.data_date ? ` [${dateLabel(v.data_date)} 종가]` : '';
+  const date = v.data_date ? ` [${dateLabel(v.data_date)} ${isIntradayBar(key, v.data_date, at) ? '장중' : '종가'}]` : '';
   return `  ${ASSET_LABEL[key]}: ${num4(v.current)} (${sign}${v.change_pct.toFixed(2)}%)${date}`;
 }
 
-const lines = (assets: Partial<Record<BriefAssetKey, BriefAsset>>, keys: BriefAssetKey[]) =>
-  keys.flatMap((k) => (assets[k] ? [assetLine(k, assets[k])] : [])).join('\n');
+const lines = (assets: Partial<Record<BriefAssetKey, BriefAsset>>, keys: BriefAssetKey[], at: number) =>
+  keys.flatMap((k) => (assets[k] ? [assetLine(k, assets[k], at)] : [])).join('\n');
 
 function earningsText(earnings: BriefEarning[]): string {
   return earnings.length ? earnings.map(earningsLine).join('\n') : '(실적 발표 예정 없음 또는 수집 실패)';
@@ -270,13 +270,15 @@ export interface PromptInput {
   earnings: BriefEarning[];
   domestic: BriefNewsItem[];
   foreign: BriefNewsItem[];
+  /** 받은 시각(ms) — 장중 판단. 주지 않으면 지금 */
+  at?: number;
 }
 
 export function buildPrompt(input: PromptInput): string {
   return input.edition === 'morning' ? morningPrompt(input) : afternoonPrompt(input);
 }
 
-function morningPrompt({ today, assets, earnings, domestic, foreign }: PromptInput): string {
+function morningPrompt({ today, assets, earnings, domestic, foreign, at = Date.now() }: PromptInput): string {
   return `오늘 날짜는 ${todayText(today)}입니다.
 
 ${SYSTEM}
@@ -285,10 +287,10 @@ ${SYSTEM}
 ${PROFILE}
 
 [주요 지수 (전일 종가)]
-${lines(assets, ['SP500', 'NASDAQ', 'DOW', 'RUSSELL2000']) || '  (데이터 없음)'}
+${lines(assets, ['SP500', 'NASDAQ', 'DOW', 'RUSSELL2000'], at) || '  (데이터 없음)'}
 
 [매크로 자산 (전일 종가)]
-${lines(assets, ['GOLD', 'DXY', 'US2Y', 'US10Y', 'USDKRW', 'WTI', 'NATGAS']) || '  (데이터 없음)'}
+${lines(assets, ['GOLD', 'DXY', 'US2Y', 'US10Y', 'USDKRW', 'WTI', 'NATGAS'], at) || '  (데이터 없음)'}
 
 ${EARNINGS_HEAD}
 ${earningsText(earnings)}
@@ -317,7 +319,7 @@ ${THEME_RULE(false)}
 ${COMMON_RULES}`;
 }
 
-function afternoonPrompt({ today, assets, earnings, domestic }: PromptInput): string {
+function afternoonPrompt({ today, assets, earnings, domestic, at = Date.now() }: PromptInput): string {
   const vix = assets.VIX;
   const vixLevel = vix
     ? `  VIX: ${vix.current.toFixed(2)} — ${vixZone(vix.current)} 구간 (${vix.current >= 30 ? '30 이상' : vix.current >= 20 ? '20~30' : '20 미만'})`
@@ -329,8 +331,8 @@ ${SYSTEM}
 
 ${PROFILE}
 
-[오늘 국내 지수 (당일 마감)]
-${lines(assets, ['KOSPI', 'KOSDAQ']) || '  (데이터 없음)'}
+[오늘 국내 지수 (당일 마감 — 장 마감 전에 받았으면 라벨이 [장중])]
+${lines(assets, ['KOSPI', 'KOSDAQ'], at) || '  (데이터 없음)'}
 
 [시장 공포 지수]
 ${vixLevel || '  (데이터 없음)'}
@@ -353,7 +355,7 @@ ${THEME_JSON(true)}
 ${REST_JSON('오늘 이 섹터가 주목받는 근거 (뉴스/실적 기반, 1~2문장)', '현재 국내 시장 국면 한줄')}
 
 [작성 규칙]
-- market_summary: 오늘 코스피·코스닥 등락과 주요 원인을 과거형으로 서술.
+- market_summary: 오늘 코스피·코스닥 등락과 주요 원인을 과거형으로 서술. 지수 라벨이 [장중]이면 아직 마감 전이므로 "장중" 흐름으로 서술.
 - vix_comment: VIX 수치(${vix ? vix.current : 'N/A'})를 언급하며 안정/주의/공포 여부와 스윙 트레이딩 시사점 서술.
 ${THEME_RULE(true)}
 ${COMMON_RULES}`;

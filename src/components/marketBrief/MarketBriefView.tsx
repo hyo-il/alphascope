@@ -9,7 +9,7 @@ import LoadingOverlay, { InlineSpinner } from '../common/LoadingOverlay';
 import { toast } from '../../store/uiStore';
 import { changeColor, displayMinus, formatNumber, formatPercent } from '../../utils/formatters';
 import { formatDateTime, formatTime } from '../../utils/dateFormat';
-import { ASSET_LABEL, EDITION_LABEL, vixZone } from '../../utils/marketBrief';
+import { ASSET_LABEL, EDITION_LABEL, isIntradayBar, vixZone } from '../../utils/marketBrief';
 import {
   BRIEF_AUTO_TIME,
   type BriefAsset,
@@ -322,7 +322,7 @@ function BriefBody({ brief, onOpen }: { brief: MarketBrief; onOpen: (symbol: str
         <span>{brief.trigger === 'auto' ? '자동으로 만듦' : '「시황 분석」 으로 만듦'}</span>
         <span className="tabular-nums">만든 시각 {formatDateTime(brief.createdAt)}</span>
         <span className="tabular-nums">
-          데이터 기준 {basis ? `${brief.edition === 'morning' ? '미국' : '국내'} ${dayLabel(basis)} 종가` : '모름'}
+          데이터 기준 {basis ? `${brief.edition === 'morning' ? '미국' : '국내'} ${dayLabel(basis)} ${isIntradayBar(basisKey, basis, Date.parse(brief.createdAt)) ? '장중' : '종가'}` : '모름'}
         </span>
       </div>
 
@@ -662,12 +662,13 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function Group({ title, date, children }: { title: string; date?: string | null; children: ReactNode }) {
+function Group({ title, date, intraday = false, children }: { title: string; date?: string | null; intraday?: boolean; children: ReactNode }) {
   return (
     <div className="space-y-1 rounded-lg bg-bg-tertiary/60 p-3" data-brief-group={title}>
       <div className="flex items-baseline justify-between gap-2 text-caption">
         <span className="font-medium text-text-secondary">{title}</span>
-        {date && <span className="tabular-nums text-text-muted">{dayLabel(date)} 종가</span>}
+        {/* 정규장 중에 받은 지수는 끝나지 않은 봉 — 「종가」 라 적지 않는다 */}
+        {date && <span className={`tabular-nums ${intraday ? 'text-warning' : 'text-text-muted'}`}>{dayLabel(date)} {intraday ? '장중(마감 전)' : '종가'}</span>}
       </div>
       {children}
     </div>
@@ -700,17 +701,19 @@ function MoveRow({ label, a, digits, suffix = '' }: { label: string; a?: BriefAs
 
 function MarketData({ brief }: { brief: MarketBrief }) {
   const a = brief.data.assets;
+  const at = Date.parse(brief.createdAt);
+  const live = (k: BriefAssetKey) => isIntradayBar(k, a[k]?.data_date ?? null, at);
   const missing = (keys: BriefAssetKey[]) => keys.filter((k) => !a[k]).map((k) => ASSET_LABEL[k]);
   if (brief.edition === 'afternoon') {
     const lost = missing(['KOSPI', 'KOSDAQ', 'VIX']);
     return (
       <div className="space-y-2">
         <div className="grid grid-cols-2 gap-2">
-          <Group title="국내 지수" date={a.KOSPI?.data_date}>
+          <Group title="국내 지수" date={a.KOSPI?.data_date} intraday={live('KOSPI')}>
             <IndexRow label="코스피" a={a.KOSPI} />
             <IndexRow label="코스닥" a={a.KOSDAQ} />
           </Group>
-          <Group title="공포지수" date={a.VIX?.data_date}>
+          <Group title="공포지수" date={a.VIX?.data_date} intraday={live('VIX')}>
             {a.VIX && <MoveRow label={`VIX (${vixZone(a.VIX.current)} 구간)`} a={a.VIX} digits={2} />}
           </Group>
         </div>
@@ -722,7 +725,7 @@ function MarketData({ brief }: { brief: MarketBrief }) {
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-2">
-        <Group title="미국 증시" date={a.SP500?.data_date}>
+        <Group title="미국 증시" date={a.SP500?.data_date} intraday={live('SP500')}>
           <IndexRow label="S&P500" a={a.SP500} />
           <IndexRow label="나스닥" a={a.NASDAQ} />
           <IndexRow label="다우" a={a.DOW} />
@@ -752,7 +755,7 @@ function MarketData({ brief }: { brief: MarketBrief }) {
             </Row>
           )}
         </Group>
-        <Group title="국내 지수" date={a.KOSPI?.data_date}>
+        <Group title="국내 지수" date={a.KOSPI?.data_date} intraday={live('KOSPI')}>
           <IndexRow label="코스피" a={a.KOSPI} />
           <IndexRow label="코스닥" a={a.KOSDAQ} />
         </Group>
