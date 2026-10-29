@@ -18,3 +18,9 @@ export const VERDICT_ICON = {
   hold: CircleMinus, // 판단 보류
 } as const;
 
+
+/** 오늘 시황 「수집 상태」 — 소스마다 받음 · 못 받음 */
+export const COLLECT_ICON = {
+  ok: CircleCheck,
+  fail: CircleX,
+} as const;

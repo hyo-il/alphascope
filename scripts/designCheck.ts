@@ -32,6 +32,7 @@ import path from 'node:path';
 import { chromium, type Page } from 'playwright';
 import { NAV_GROUPS, PAGE_TABS } from '../src/types/nav';
 import { rankingSample, usHaltsSample } from './fixtures/usHalts/screenSample';
+import { briefSample, daySample, daysSample, statusSample } from './fixtures/marketBrief/screenSample';
 import { CHANGELOG } from '../src/data/changelog';
 import { sortDayRows } from '../src/utils/buyJudgeOrder';
 
@@ -343,6 +344,34 @@ function targets(): Target[] {
         await page.unroute('**/api/us-halts');
         await page.unroute('**/api/rankings/live**');
         await page.evaluate(() => localStorage.removeItem('alphascope.usHaltsView.v2'));
+      },
+    })),
+    // 오늘 시황 — 채워진 브리핑(오전판 · 오후판) · AI 없음(데이터만) · 진행 중 · 버튼 5번 다 씀(가짜 응답 — DB · Gemini 그대로)
+    ...(
+      [
+        ['오전판', 'morning', true, {}],
+        ['오후판', 'afternoon', true, {}],
+        ['AI없음', 'morning', false, { gemini: false }],
+        ['진행중', 'afternoon', true, { running: true }],
+        ['5번다씀', 'morning', true, { used: 5 }],
+      ] as const
+    ).map(([label, edition, withAi, st]) => ({
+      name: `market-brief-${label}`,
+      hash: '#/market-brief',
+      before: async (page: Page) => {
+        const brief = briefSample(edition, withAi);
+        await page.route('**/api/market-brief/status', (r) => r.fulfill({ json: statusSample(st) }).catch(() => {}));
+        await page.route('**/api/market-brief/days', (r) => r.fulfill({ json: daysSample }).catch(() => {}));
+        await page.route(/\/api\/market-brief\?/, (r) => r.fulfill({ json: daySample(brief) }).catch(() => {}));
+      },
+      open: async (page: Page) => {
+        // 수집 상태를 펼쳐 함께 잰다
+        await page.getByRole('button', { name: '수집 상태 보기' }).click().catch(() => {});
+      },
+      after: async (page: Page) => {
+        await page.unroute('**/api/market-brief/status');
+        await page.unroute('**/api/market-brief/days');
+        await page.unroute(/\/api\/market-brief\?/);
       },
     })),
     // 기준가를 확인하지 못한 종목은 등락률이 null → 「—」(지도 칸 · 관심 패널). 응답의 절반을 null 로 바꿔치기 — DB 는 그대로

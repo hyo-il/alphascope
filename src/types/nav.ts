@@ -23,6 +23,7 @@ export type NavPageId =
   | 'rules'
   | 'heatmap'
   | 'ranking'
+  | 'market-brief'
   | 'surge'
   | 'ushalts'
   | 'swing'
@@ -104,6 +105,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: 'heatmap', label: '종목 지도', hidesSymbolHeader: true },
       // 토스 실시간 순위 + 마우스를 올리면 차트 미리보기. 위치는 이 줄만 옮기면 된다 — 화면은 page id 로만 찾는다
       { id: 'ranking', label: '실시간 순위', hidesSymbolHeader: true },
+      // 하루 1번 자동 시황 브리핑(평일 07:05 무렵 오전판) + 「시황 분석」 — 종목은 브리핑 안에서 눌러 고른다(사용자 결정 2026-10-29: 세 번째)
+      { id: 'market-brief', label: '오늘 시황', hidesSymbolHeader: true },
     ],
   },
   {

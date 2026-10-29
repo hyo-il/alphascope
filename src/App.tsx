@@ -15,6 +15,7 @@ import RulesView from './components/rules/RulesView';
 import CalendarView from './components/calendar/CalendarView';
 import HeatmapView from './components/heatmap/HeatmapView';
 import RankingView from './components/ranking/RankingView';
+import MarketBriefView from './components/marketBrief/MarketBriefView';
 import QuickOrderPanel from './components/chart/QuickOrderPanel';
 import StockExplorer from './components/common/StockExplorer';
 import { confirmClearRecent } from './components/common/confirmClearRecent';
@@ -388,6 +389,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
             }}
           />
         );
+      case 'market-brief':
+        return <MarketBriefView onSelectSymbol={openChart} />;
       case 'heatmap':
         return (
           <HeatmapView
