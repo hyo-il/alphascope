@@ -1,9 +1,22 @@
 /**
  * 오늘 시황 저장 — 표 `market_briefs`(정의 `db/schema.sql`). 한 번 만들 때마다 한 줄 · 30일 보관.
+ * 「오늘 예상 방향」 채점 `market_brief_scores` — 대상 · 거래일마다 한 줄 · 1년 보관(v2.60.0).
  */
 
 import { getDb } from '../db';
-import { BRIEF_KEEP_DAYS, type BriefAi, type BriefEdition, type BriefSourceStatus, type BriefTrigger, type MarketBrief, type MarketBriefListItem } from '../../src/types/marketBrief';
+import {
+  BRIEF_KEEP_DAYS,
+  type BriefAi,
+  type BriefEdition,
+  type BriefOutlook,
+  type BriefSourceStatus,
+  type BriefTrigger,
+  type MarketBrief,
+  type MarketBriefListItem,
+  type OutlookConfidence,
+  type OutlookDirection,
+  type OutlookTarget,
+} from '../../src/types/marketBrief';
 
 interface Row {
   id: number;
@@ -104,4 +117,81 @@ export function countBriefAiCalls(day: string): number {
 export function purgeOldBriefs(today: string): number {
   const cutoff = new Date(Date.parse(`${today}T00:00:00Z`) - (BRIEF_KEEP_DAYS - 1) * 86_400_000).toISOString().slice(0, 10);
   return getDb().prepare(`DELETE FROM market_briefs WHERE brief_date < ?`).run(cutoff).changes;
+}
+
+// ── 「오늘 예상 방향」 채점(v2.60.0) — 표 `market_brief_scores` ─────────────────────────
+
+/** 채점할 수 있는 브리핑 — AI 결과에 예상이 있는 것(만든 한국 날짜 sinceDay 부터). 오래된 것부터 */
+export function listOutlookBriefs(sinceDay: string): { id: number; createdAt: string; outlook: BriefOutlook[] }[] {
+  const rows = getDb()
+    .prepare(`SELECT id, created_at, brief_json FROM market_briefs WHERE brief_date >= ? AND brief_json IS NOT NULL ORDER BY created_at, id`)
+    .all(sinceDay) as { id: number; created_at: string; brief_json: string }[];
+  return rows.flatMap((r) => {
+    const outlook = (JSON.parse(r.brief_json) as BriefAi).today_outlook ?? [];
+    return outlook.length ? [{ id: r.id, createdAt: r.created_at, outlook }] : [];
+  });
+}
+
+export interface ScoreRow {
+  target: OutlookTarget;
+  tradeDay: string;
+  briefId: number;
+  direction: OutlookDirection;
+  confidence: OutlookConfidence;
+  actualPct: number;
+  actualDirection: OutlookDirection;
+  hit: boolean;
+  scoredAt: string;
+}
+
+interface ScoreDbRow {
+  target: OutlookTarget;
+  trade_day: string;
+  brief_id: number;
+  direction: OutlookDirection;
+  confidence: OutlookConfidence;
+  actual_pct: number;
+  actual_direction: OutlookDirection;
+  hit: number;
+  scored_at: string;
+}
+
+const toScore = (r: ScoreDbRow): ScoreRow => ({
+  target: r.target,
+  tradeDay: r.trade_day,
+  briefId: r.brief_id,
+  direction: r.direction,
+  confidence: r.confidence,
+  actualPct: r.actual_pct,
+  actualDirection: r.actual_direction,
+  hit: r.hit === 1,
+  scoredAt: r.scored_at,
+});
+
+/** 같은 대상 · 같은 거래일은 한 줄 — 다시 채점하면 덮는다 */
+export function upsertScore(s: ScoreRow): void {
+  getDb()
+    .prepare(
+      `INSERT INTO market_brief_scores (target, trade_day, brief_id, direction, confidence, actual_pct, actual_direction, hit, scored_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(target, trade_day) DO UPDATE SET brief_id = excluded.brief_id, direction = excluded.direction, confidence = excluded.confidence,
+         actual_pct = excluded.actual_pct, actual_direction = excluded.actual_direction, hit = excluded.hit, scored_at = excluded.scored_at`,
+    )
+    .run(s.target, s.tradeDay, s.briefId, s.direction, s.confidence, s.actualPct, s.actualDirection, s.hit ? 1 : 0, s.scoredAt);
+}
+
+export function getScore(target: OutlookTarget, tradeDay: string): ScoreRow | null {
+  const r = getDb().prepare(`SELECT * FROM market_brief_scores WHERE target = ? AND trade_day = ?`).get(target, tradeDay) as ScoreDbRow | undefined;
+  return r ? toScore(r) : null;
+}
+
+/** 최근 n번(거래일 최근 것부터) */
+export function recentScores(target: OutlookTarget, n: number): ScoreRow[] {
+  return (getDb().prepare(`SELECT * FROM market_brief_scores WHERE target = ? ORDER BY trade_day DESC LIMIT ?`).all(target, n) as ScoreDbRow[]).map(toScore);
+}
+
+/** 거래일이 keepDays 보다 오래된 채점 줄을 지운다. 지운 줄 수 */
+export function purgeOldScores(today: string, keepDays: number): number {
+  const cutoff = new Date(Date.parse(`${today}T00:00:00Z`) - keepDays * 86_400_000).toISOString().slice(0, 10);
+  return getDb().prepare(`DELETE FROM market_brief_scores WHERE trade_day < ?`).run(cutoff).changes;
 }

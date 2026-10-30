@@ -236,10 +236,44 @@ export interface MarketBriefListItem {
   hasAi: boolean;
 }
 
+/**
+ * 예상 한 줄의 채점 상태(v2.60.0) — scored 맞음/틀림 · pending 마감 뒤 채점 · after-open 장 시작 뒤 만든 예상(채점 안 함) ·
+ * superseded 같은 거래일 장 시작 전 더 나중 예상이 채점됨 · holiday 휴장 · waiting-data 마감 뒤인데 실제 값을 아직 못 받음
+ */
+export type OutlookScoreStatus = 'scored' | 'pending' | 'after-open' | 'superseded' | 'holiday' | 'waiting-data';
+
+export interface OutlookItemScore {
+  target: OutlookTarget;
+  status: OutlookScoreStatus;
+  /** 채점하는(한) 거래일 — 그 시장 날짜 */
+  tradeDay: string | null;
+  /** 그 거래일 정규장 끝(UTC ISO) — 채점 대기 문구 「한국 HH:MM 마감 뒤」 */
+  closeAt: string | null;
+  hit?: boolean;
+  actualPct?: number;
+  actualDirection?: OutlookDirection;
+}
+
+/** 대상별 최근 채점(최근 20번 · 확신별 나눔) */
+export interface OutlookStats {
+  total: number;
+  hits: number;
+  byConfidence: Record<OutlookConfidence, { total: number; hits: number }>;
+}
+
+export interface OutlookView {
+  items: OutlookItemScore[];
+  stats: Partial<Record<OutlookTarget, OutlookStats>>;
+  /** 최근 몇 번까지 세는가(20) */
+  recent: number;
+}
+
 export interface MarketBriefDayResponse {
   date: string;
   items: MarketBriefListItem[];
   selected: MarketBrief | null;
+  /** 고른 브리핑의 「오늘 예상 방향」 채점 상태 · 대상별 최근 성적(v2.60.0 — 예상이 없으면 없음) */
+  outlook?: OutlookView;
 }
 
 export interface MarketBriefDays {

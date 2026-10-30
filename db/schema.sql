@@ -523,3 +523,19 @@ CREATE TABLE IF NOT EXISTS market_briefs (
   ai_error TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_market_briefs_date ON market_briefs (brief_date, created_at);
+
+-- 오늘 시황 「오늘 예상 방향」 채점 (v2.60.0) — 대상(KOSPI · SP500) · 그 시장 거래일마다 한 줄(다시 채점하면 덮는다).
+-- 채점하는 예상 = 그 거래일 정규장 시작 전에 만든 마지막 브리핑의 그 대상 예상. 실제 = 그 거래일 정규장 종가 ÷ 전일 정규장 종가 − 1(지표 엔진 일봉).
+-- 1년 보관(브리핑은 30일 — 「최근 20번」 을 늘 셀 수 있게 채점 줄만 오래 둔다). ⚠️ 참고 통계 — 매수 판단 · 자동매매에 쓰지 않는다.
+CREATE TABLE IF NOT EXISTS market_brief_scores (
+  target TEXT NOT NULL,                 -- KOSPI · SP500
+  trade_day TEXT NOT NULL,              -- 그 시장 날짜 YYYY-MM-DD(코스피 = 한국 · S&P500 = 미국 동부)
+  brief_id INTEGER NOT NULL,            -- 채점한 브리핑(30일 뒤 브리핑이 지워져도 남는다)
+  direction TEXT NOT NULL,              -- 예상: 상승 · 보합 · 하락
+  confidence TEXT NOT NULL,             -- 높음 · 보통 · 낮음
+  actual_pct REAL NOT NULL,             -- 실제 등락률(%, 소수 2자리)
+  actual_direction TEXT NOT NULL,       -- 실제: |등락| < 0.3% 보합(문장 검사와 같은 상수)
+  hit INTEGER NOT NULL,                 -- 1 맞음 · 0 틀림
+  scored_at TEXT NOT NULL,              -- 채점 시각(UTC ISO)
+  PRIMARY KEY (target, trade_day)
+);

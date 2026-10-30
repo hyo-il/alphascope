@@ -295,6 +295,19 @@ export async function regularSessionEnd(market: CalendarMarket, tradeDay: string
   return row ? marketDayTime(market, tradeDay, row[1] * 60_000) : null;
 }
 
+/**
+ * 그 거래일의 정규장 시작 시각(epoch ms) — `regularSessionEnd` 와 같은 시간표를 읽기만 한다(토스 달력 캐시 → 못 받으면 고정표). 휴장일(주말 포함)이면 null.
+ * 오늘 시황 「오늘 예상 방향」 채점(장 시작 전에 만든 예상만 — v2.60.0)이 쓴다.
+ */
+export async function regularSessionStart(market: CalendarMarket, tradeDay: string, now = Date.now()): Promise<number | null> {
+  const spans = await tossSpans(market, now);
+  const hit = spans?.find((s) => s.session === 'regular' && s.tradeDay === tradeDay);
+  if (hit) return hit.start;
+  if (isMarketClosed(market, tradeDay)) return null;
+  const row = FIXED[market].find(([, , session]) => session === 'regular');
+  return row ? marketDayTime(market, tradeDay, row[0] * 60_000) : null;
+}
+
 // ── 등락률 기준 ─────────────────────────────────────────────────────────────
 
 export interface BasisInfo {

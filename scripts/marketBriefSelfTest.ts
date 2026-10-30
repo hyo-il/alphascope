@@ -19,6 +19,9 @@ import { collectNews, freshNews, parseFeed, DOMESTIC_FALLBACK, DOMESTIC_RSS, FOR
 import { collectAll, sectorMoves } from '../server/marketBrief/collect';
 import { checkDirections, checkText, DEFENSE_PCT, FLAT_PCT, FLAT_RATE_PP } from '../server/marketBrief/directionCheck';
 import { directionOfPct, normalizeOutlook } from '../server/marketBrief/outlook';
+import { actualPctOf, chooseCandidates, clearScoresForTest, outlookStats, outlookView, purgeScores, scoreOutlooks, SCORE_KEEP_DAYS, SETTLE_MARGIN_MS, targetDayOf, type DailyCloses, type ScoreDeps } from '../server/marketBrief/outlookScore';
+import { getScore, upsertScore } from '../server/marketBrief/store';
+import { marketDayTime } from '../server/marketHours';
 import { filterSectorStocks, poolText, sectorStockPool, type SectorStockPool } from '../server/marketBrief/sectorStocks';
 import { checkSources, sourceTable } from '../server/marketBrief/sourceCheck';
 import {
@@ -636,6 +639,7 @@ const deps: BriefDeps = {
   geminiReason: () => geminiReason,
   now: () => clock,
   usClose: async () => null,
+  score: { start: async () => null, end: async () => null, closes: async () => ({}) },
 };
 const runButton = async () => {
   const r = startButtonRun(deps);
@@ -1017,6 +1021,102 @@ const POOL: SectorStockPool = {
   const oldId = insertBrief({ date: '2026-10-20', edition: 'morning', trigger: 'auto', createdAt: '2026-10-19T22:05:00.000Z', model: 'm', tokens: 1, aiCalls: 1, promptVersion: 'brief-v3', sources: [], data: { assets: {}, earnings: [] }, brief: normalizeBrief(okBrief('morning')), aiError: null });
   const oldBrief = getBrief(oldId);
   check('옛 브리핑 읽기 — 대표 종목 글자 그대로 · mismatches 없음', oldBrief?.brief?.leading_sectors[0].stocks_kr === '삼성전자' && oldBrief.brief.mismatches === undefined && oldBrief.promptVersion === 'brief-v3');
+}
+
+// ═════════════════════════ D. 「오늘 예상 방향」 채점(v2.60.0) ═════════════════════════
+{
+  db.prepare(`DELETE FROM market_briefs`).run();
+  clearScoresForTest();
+  // 가짜 정규장 시간표 — 국내 09:00~15:30 KST · 미국 09:30~16:00 ET(서머타임은 marketDayTime 이 따른다) · 주말 · 아래 휴장일은 null
+  const holidays = new Set(['KR|2026-11-04', 'US|2026-11-26']);
+  const closed = (m: 'KR' | 'US', d: string) => holidays.has(`${m}|${d}`) || [0, 6].includes(new Date(`${d}T12:00:00Z`).getUTCDay());
+  let closes: DailyCloses = {};
+  let closeCalls = 0;
+  const sd: ScoreDeps = {
+    start: async (m, d) => (closed(m, d) ? null : marketDayTime(m, d, (m === 'KR' ? 9 * 60 : 9 * 60 + 30) * 60_000)),
+    end: async (m, d) => (closed(m, d) ? null : marketDayTime(m, d, (m === 'KR' ? 15 * 60 + 30 : 16 * 60) * 60_000)),
+    closes: async () => (closeCalls++, closes),
+  };
+  const o = (target: 'KOSPI' | 'SP500', direction: '상승' | '보합' | '하락', confidence: '높음' | '보통' | '낮음' = '보통') => ({ target, direction, confidence, reasons: ['r'], watch: 'w' });
+  const put = (createdKst: string, outlook: ReturnType<typeof o>[]) => {
+    const createdAt = new Date(Date.parse(`${createdKst}+09:00`)).toISOString();
+    return insertBrief({ date: createdKst.slice(0, 10), edition: Number(createdKst.slice(11, 13)) < 13 ? 'morning' : 'afternoon', trigger: 'auto', createdAt, model: 'm', tokens: 1, aiCalls: 1, promptVersion: 'brief-v5', sources: [], data: { assets: {}, earnings: [] }, brief: { ...normalizeBrief(okBrief('morning')), today_outlook: outlook }, aiError: null });
+  };
+  const at = (kstTime: string) => Date.parse(`${kstTime}+09:00`);
+
+  // 채점 대상 고르기
+  const kr = await targetDayOf('KOSPI', at('2026-11-02T07:05:00'), sd);
+  check('코스피 — 07:05 KST 오전판 → 그날(11-02) · 09:00 전', 'day' in kr && kr.day === '2026-11-02');
+  check('코스피 — 장 시작(09:00) 뒤 만든 예상 → 채점 안 함', JSON.stringify(await targetDayOf('KOSPI', at('2026-11-02T09:00:00'), sd)) === '{"skip":"after-open"}');
+  check('코스피 — 휴장일(11-04) · 토요일 → 채점 안 함', JSON.stringify(await targetDayOf('KOSPI', at('2026-11-04T07:05:00'), sd)) === '{"skip":"holiday"}' && JSON.stringify(await targetDayOf('KOSPI', at('2026-10-31T07:05:00'), sd)) === '{"skip":"holiday"}');
+  const usAm = await targetDayOf('SP500', at('2026-10-30T07:05:00'), sd); // 미국 10-29 18:05 ET — 그날 장 끝남 → 10-30
+  const usPm = await targetDayOf('SP500', at('2026-10-30T14:00:00'), sd); // 미국 10-30 01:00 ET
+  check('S&P500 — 한국 아침 · 오후 예상 → 그날 밤 미국 정규장(미국 10-30)', 'day' in usAm && usAm.day === '2026-10-30' && 'day' in usPm && usPm.day === '2026-10-30');
+  check('서머타임 앞 — 10-30 23:00 KST 는 미국 정규장(22:30 KST 시작) 중 → 채점 안 함', JSON.stringify(await targetDayOf('SP500', at('2026-10-30T23:00:00'), sd)) === '{"skip":"after-open"}');
+  const afterDst = await targetDayOf('SP500', at('2026-11-02T23:00:00'), sd);
+  check('서머타임 뒤 — 11-02 23:00 KST 는 시작(23:30 KST) 전 → 그날(미국 11-02)', 'day' in afterDst && afterDst.day === '2026-11-02' && afterDst.start === at('2026-11-02T23:30:00'));
+  check('S&P500 — 토요일 아침 예상(다음 정규장이 36시간 넘게 뒤) → 채점 안 함', JSON.stringify(await targetDayOf('SP500', at('2026-10-31T07:05:00'), sd)) === '{"skip":"holiday"}');
+  check('S&P500 — 미국 휴장 전날 예상 → 휴장 다음 정규장은 36시간 넘어 채점 안 함', JSON.stringify(await targetDayOf('SP500', at('2026-11-26T07:05:00'), sd)) === '{"skip":"holiday"}');
+
+  // 같은 날 여러 예상 — 장 시작 전 마지막 것
+  const b1 = put('2026-11-02T07:05:00', [o('KOSPI', '상승', '높음'), o('SP500', '하락')]);
+  const b2 = put('2026-11-02T08:30:00', [o('KOSPI', '보합', '낮음'), o('SP500', '하락', '낮음')]);
+  const b3 = put('2026-11-02T10:00:00', [o('KOSPI', '하락'), o('SP500', '상승', '높음')]); // 코스피는 장 중 → 제외 · S&P500 은 그날 밤 장 전 → 후보
+  const chosen = await chooseCandidates([b1, b2, b3].map((id) => { const b = getBrief(id)!; return { id, createdAt: b.createdAt, outlook: b.brief!.today_outlook! }; }), sd);
+  check('고르기 — 코스피 = 09:00 전 마지막(08:30 · b2) · 장중 만든 b3 제외 · S&P500 = 그날 밤 장 전 마지막(b3)', chosen.get('KOSPI|2026-11-02')?.briefId === b2 && chosen.get('SP500|2026-11-02')?.briefId === b3, JSON.stringify([...chosen.entries()].map(([k, v]) => [k, v.briefId])));
+
+  // 채점 — 마감 + 여유 전에는 하지 않음 · 뒤에 함
+  closes = { KOSPI: [{ date: '2026-10-30', close: 1000 }, { date: '2026-11-02', close: 1002.9 }], SP500: [{ date: '2026-10-30', close: 1000 }, { date: '2026-11-02', close: 1003.1 }] };
+  const krEnd = at('2026-11-02T15:30:00');
+  check('채점 — 국내 마감(15:30) + 여유 전에는 0 · 일봉을 받지 않음', (await scoreOutlooks(krEnd + SETTLE_MARGIN_MS - 60_000, sd)) === 0 && closeCalls === 0);
+  check('채점 — 마감 + 여유 뒤 코스피 1건(미국은 아직)', (await scoreOutlooks(krEnd + SETTLE_MARGIN_MS, sd)) === 1);
+  const sKr = getScore('KOSPI', '2026-11-02');
+  check('채점 — +0.29% → 보합 → b2 「보합」 맞음 · 확신 낮음 저장', sKr?.actualPct === 0.29 && sKr.actualDirection === '보합' && sKr.hit && sKr.briefId === b2 && sKr.confidence === '낮음', JSON.stringify(sKr));
+  check('채점 — 이미 채점한 것은 다시 받지 않음', (await scoreOutlooks(krEnd + 2 * SETTLE_MARGIN_MS, sd)) === 0);
+  const usEnd = at('2026-11-03T06:00:00'); // 미국 11-02 16:00 EST = 한국 11-03 06:00
+  check('채점 — 미국 마감(한국 06:00) + 여유 뒤 S&P500 +0.31% → 상승 · b3 「상승」 맞음', (await scoreOutlooks(usEnd + SETTLE_MARGIN_MS, sd)) === 1 && getScore('SP500', '2026-11-02')?.hit === true && getScore('SP500', '2026-11-02')?.actualDirection === '상승');
+  check('경계 — 0.29 보합 · 0.30 상승 · 0.31 상승 · 실제 등락률은 소수 2자리', actualPctOf([{ date: 'a', close: 1000 }, { date: 'b', close: 1003 }], 'b') === 0.3 && directionOfPct(actualPctOf([{ date: 'a', close: 1000 }, { date: 'b', close: 1003 }], 'b')!) === '상승' && actualPctOf([{ date: 'b', close: 1 }], 'b') === null && actualPctOf(undefined, 'b') === null);
+
+  // 놓친 날 보충 — 며칠 뒤 한 번에 · 일봉에 그 날이 없으면 다음 틱
+  const b4 = put('2026-11-03T07:05:00', [o('KOSPI', '하락', '높음')]);
+  const b5 = put('2026-11-05T07:05:00', [o('KOSPI', '상승', '보통')]);
+  closes = { KOSPI: [{ date: '2026-11-02', close: 1002.9 }, { date: '2026-11-03', close: 980 }, { date: '2026-11-05', close: 990 }] };
+  const later = at('2026-11-06T12:00:00');
+  check('놓친 날 보충 — 11-03 · 11-05 를 한 틱에(11-04 휴장은 예상 없음)', (await scoreOutlooks(later, sd)) === 2 && getScore('KOSPI', '2026-11-03')?.hit === true && getScore('KOSPI', '2026-11-05')?.hit === true);
+  check('놓친 날 보충 — 11-05 실제 = 11-03 종가 대비(바로 앞 봉 = 전 거래일)', getScore('KOSPI', '2026-11-05')?.actualPct === Math.round((990 / 980 - 1) * 10_000) / 100);
+  void b4;
+  void b5;
+  // 덮어쓰기 — 같은 거래일에 다른 브리핑으로 채점된 줄은 새 선택으로 덮는다
+  upsertScore({ target: 'KOSPI', tradeDay: '2026-11-03', briefId: 999, direction: '상승', confidence: '높음', actualPct: -2.28, actualDirection: '하락', hit: false, scoredAt: 'x' });
+  check('덮어쓰기 — 같은 대상 · 같은 거래일은 한 줄 · 고른 브리핑과 다르면 다시 채점', (await scoreOutlooks(later, sd)) === 1 && getScore('KOSPI', '2026-11-03')?.briefId === b4 && (db.prepare(`SELECT COUNT(*) AS n FROM market_brief_scores WHERE target = 'KOSPI' AND trade_day = '2026-11-03'`).get() as { n: number }).n === 1);
+
+  // 화면 상태
+  const view2 = await outlookView({ id: b2, createdAt: getBrief(b2)!.createdAt, outlook: getBrief(b2)!.brief!.today_outlook! }, later, sd);
+  check('화면 — b2: 코스피 채점됨(맞음 · +0.29%) · S&P500 은 더 나중 예상(b3)이 채점 → superseded', view2.items[0].status === 'scored' && view2.items[0].hit === true && view2.items[0].actualPct === 0.29 && view2.items[1].status === 'superseded', JSON.stringify(view2.items));
+  const view3 = await outlookView({ id: b3, createdAt: getBrief(b3)!.createdAt, outlook: getBrief(b3)!.brief!.today_outlook! }, later, sd);
+  check('화면 — b3: 코스피는 장 시작 뒤 만든 예상 · S&P500 채점됨', view3.items[0].status === 'after-open' && view3.items[1].status === 'scored');
+  const b6 = put('2026-11-06T07:05:00', [o('KOSPI', '상승')]);
+  const view6 = await outlookView({ id: b6, createdAt: getBrief(b6)!.createdAt, outlook: getBrief(b6)!.brief!.today_outlook! }, at('2026-11-06T12:00:00'), sd);
+  check('화면 — 채점 대기(마감 시각 = 한국 15:30)', view6.items[0].status === 'pending' && view6.items[0].closeAt === new Date(at('2026-11-06T15:30:00')).toISOString());
+  const view6b = await outlookView({ id: b6, createdAt: getBrief(b6)!.createdAt, outlook: getBrief(b6)!.brief!.today_outlook! }, at('2026-11-06T17:00:00'), sd);
+  check('화면 — 마감 + 여유가 지났는데 아직 없음 → waiting-data', view6b.items[0].status === 'waiting-data');
+
+  // 최근 20번 · 확신별
+  clearScoresForTest();
+  for (let i = 0; i < 25; i++) {
+    const day = new Date(Date.parse('2026-09-01T12:00:00Z') + i * 86_400_000).toISOString().slice(0, 10);
+    upsertScore({ target: 'SP500', tradeDay: day, briefId: i, direction: '상승', confidence: i % 3 === 0 ? '높음' : i % 3 === 1 ? '보통' : '낮음', actualPct: 0.5, actualDirection: '상승', hit: i % 2 === 0, scoredAt: 'x' });
+  }
+  const st = outlookStats('SP500');
+  // 최근 20번 = i 5..24 · 맞음(짝수) 10 · 높음(i%3==0: 6,9,12,15,18,21,24 = 7 · 맞음 6,12,18,24 = 4)
+  check('최근 20번 — 25번 중 최근 20번만 · 맞음 10 · 확신 높음 4/7', st.total === 20 && st.hits === 10 && st.byConfidence['높음'].total === 7 && st.byConfidence['높음'].hits === 4 && st.byConfidence['보통'].total + st.byConfidence['낮음'].total === 13, JSON.stringify(st));
+  check('20번이 안 되면 있는 만큼(코스피 0번)', outlookStats('KOSPI').total === 0);
+  // 1년 보관
+  upsertScore({ target: 'KOSPI', tradeDay: '2025-10-01', briefId: 1, direction: '상승', confidence: '높음', actualPct: 1, actualDirection: '상승', hit: true, scoredAt: 'x' });
+  upsertScore({ target: 'KOSPI', tradeDay: '2025-11-05', briefId: 2, direction: '상승', confidence: '높음', actualPct: 1, actualDirection: '상승', hit: true, scoredAt: 'x' });
+  const purged = purgeScores(at('2026-11-02T07:00:00'));
+  check(`1년 보관 — ${SCORE_KEEP_DAYS}일 넘은 줄만 지움(2025-10-01 지움 · 2025-11-05 남김)`, purged === 1 && !getScore('KOSPI', '2025-10-01') && !!getScore('KOSPI', '2025-11-05'));
+  clearScoresForTest();
 }
 
 db.prepare(`DELETE FROM market_briefs`).run();

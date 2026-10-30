@@ -7,6 +7,7 @@ import { Router } from 'express';
 import { fail } from '../apiError';
 import { BriefLimitError, briefStatus, startButtonRun } from './service';
 import { getBrief, listBriefDays, listBriefsOf } from './store';
+import { outlookView } from './outlookScore';
 
 export const marketBriefRouter = Router();
 
@@ -26,7 +27,7 @@ marketBriefRouter.get('/api/market-brief/days', (_req, res) => {
   }
 });
 
-marketBriefRouter.get('/api/market-brief', (req, res) => {
+marketBriefRouter.get('/api/market-brief', async (req, res) => {
   try {
     const rawDate = req.query.date;
     const rawId = req.query.id;
@@ -41,7 +42,15 @@ marketBriefRouter.get('/api/market-brief', (req, res) => {
     // 고른 줄이 그날 것이 아니면 그날 가장 최근 것
     const wanted = typeof rawId === 'string' ? items.find((i) => i.id === Number(rawId)) : undefined;
     const pick = wanted ?? items[0];
-    res.json({ date, items, selected: pick ? getBrief(pick.id) : null });
+    const selected = pick ? getBrief(pick.id) : null;
+    // 「오늘 예상 방향」 채점 상태 · 최근 성적(v2.60.0) — 예상이 있는 브리핑만. 채점 읽기가 실패해도 브리핑은 보인다
+    const outlook = selected?.brief?.today_outlook?.length
+      ? await outlookView({ id: selected.id, createdAt: selected.createdAt, outlook: selected.brief.today_outlook }, Date.now()).catch((e: Error) => {
+          console.warn('[market-brief] 예상 채점 상태 읽기 실패:', e.message);
+          return undefined;
+        })
+      : undefined;
+    res.json({ date, items, selected, ...(outlook ? { outlook } : {}) });
   } catch (e) {
     fail(res, e);
   }

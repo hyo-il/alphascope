@@ -20,6 +20,7 @@ import { buildPrompt, MARKET_BRIEF_PROMPT_VERSION, REQUIRED_KEYS, SCHEMA, SYSTEM
 import { markReleasedEarnings, postprocess } from './postprocess';
 import { checkDirections } from './directionCheck';
 import { normalizeOutlook } from './outlook';
+import { defaultScoreDeps, purgeScores, scoreOutlooks, type ScoreDeps } from './outlookScore';
 import { filterSectorStocks } from './sectorStocks';
 import { regularSessionEnd } from '../heatmapSession';
 import { marketDate } from '../../src/utils/marketDate';
@@ -63,6 +64,8 @@ export interface BriefDeps {
   now: () => number;
   /** 그 미국 거래일의 정규장 끝(ms) — `heatmapSession.regularSessionEnd`(시험은 바꿔 끼운다 — 토스 0) */
   usClose: (usDay: string, now: number) => Promise<number | null>;
+  /** 「오늘 예상 방향」 채점 — 정규장 시각표 · 지표 엔진 일봉(시험은 바꿔 끼운다) */
+  score: ScoreDeps;
 }
 
 export const defaultBriefDeps: BriefDeps = {
@@ -71,6 +74,7 @@ export const defaultBriefDeps: BriefDeps = {
   geminiReason: geminiDisabledReason,
   now: () => Date.now(),
   usClose: (usDay, now) => regularSessionEnd('US', usDay, now),
+  score: defaultScoreDeps,
 };
 
 // ── 진행 상태 ──────────────────────────────────────────────────────────
@@ -327,13 +331,23 @@ export async function marketBriefTick(deps: BriefDeps = defaultBriefDeps): Promi
   if (lastPurgeDay !== today) {
     try {
       const removed = purgeOldBriefs(today);
+      const removedScores = purgeScores(now); // 채점 줄은 1년(「최근 20번」 을 늘 셀 수 있게)
       lastPurgeDay = today; // 지우기에 성공한 날만 — 실패하면 다음 확인 때 다시
       if (removed) console.log(`[market-brief] 30일 지난 기록 ${removed}줄 지움`);
+      if (removedScores) console.log(`[market-brief] 1년 지난 예상 채점 ${removedScores}줄 지움`);
     } catch (e) {
       console.warn('[market-brief] 30일 정리 실패 — 다음 확인 때 다시:', (e as Error).message);
     }
   }
-  if (autoDisabledReason() || state.running) return null;
+  if (autoDisabledReason()) return null;
+  // 「오늘 예상 방향」 채점(v2.60.0) — 마감 + 여유 뒤 아직 채점 안 된 예상(놓친 날도 30일 안이면 보충). 참고 통계 — 판단 · 주문과 무관
+  try {
+    const scored = await scoreOutlooks(now, deps.score);
+    if (scored) console.log(`[market-brief] 오늘 예상 방향 ${scored}건 채점`);
+  } catch (e) {
+    console.warn('[market-brief] 예상 채점 실패 — 다음 확인 때 다시:', (e as Error).message);
+  }
+  if (state.running) return null;
   if (!autoDue(now, readLastAuto()) || countBriefs(today, 'auto') > 0) return null;
   // 시작할 때 먼저 날짜를 남긴다 — 도중에 서버가 내려가도 같은 날 다시 돌며 Gemini 를 두 번 쓰지 않는다
   writeLastAuto(today);
