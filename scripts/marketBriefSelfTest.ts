@@ -16,7 +16,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { getDb } from '../server/db';
 import { collectNews, freshNews, parseFeed, DOMESTIC_FALLBACK, DOMESTIC_RSS, FOREIGN_RSS, FOREIGN_SLOT_CANDIDATES, NEWS_MAX_AGE_MS } from '../server/marketBrief/news';
-import { collectAll } from '../server/marketBrief/collect';
+import { collectAll, sectorMoves } from '../server/marketBrief/collect';
 import { checkDirections, checkText, DEFENSE_PCT, FLAT_PCT, FLAT_RATE_PP } from '../server/marketBrief/directionCheck';
 import { filterSectorStocks, poolText, sectorStockPool, type SectorStockPool } from '../server/marketBrief/sectorStocks';
 import { checkSources, sourceTable } from '../server/marketBrief/sourceCheck';
@@ -30,7 +30,7 @@ import {
   type EarningBase,
   type RawEstimate,
 } from '../server/marketBrief/earnings';
-import { buildPrompt, SCHEMA, REQUIRED_KEYS, MARKET_BRIEF_PROMPT_VERSION } from '../server/marketBrief/prompt';
+import { buildPrompt, SCHEMA, REQUIRED_KEYS, MARKET_BRIEF_PROMPT_VERSION, sectorTrendText, trendText } from '../server/marketBrief/prompt';
 import { BRIEF_SECTORS } from '../server/marketBrief/earnings';
 import { capAndSortBySectorPriority, daysUntilLabel, filterByLeadingSectors, markReleased, markReleasedEarnings, normalizeBrief, postprocess, reassignSlotsByDays } from '../server/marketBrief/postprocess';
 import { regularSessionEnd, setSessionHooksForTest } from '../server/heatmapSession';
@@ -139,6 +139,7 @@ const db = getDb();
     rss: async (url) => (url === FOREIGN_SLOT_CANDIDATES[0].url ? Promise.reject(new Error('HTTP 404')) : feed(2)),
     earnings: async () => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: null }),
     sectorStocks: () => ({}),
+    sectorTrend: async () => ({ kr: null, us: null }),
   });
   const us2yRow = col.sources.find((x) => x.label === '시장 데이터 · 미2년물금리(%)');
   check('수집 상태 — 미2년물 「받음 · 미국 재무부」', us2yRow?.ok === true && us2yRow.detail === '미국 재무부', JSON.stringify(us2yRow));
@@ -150,6 +151,7 @@ const db = getDb();
     rss: async () => feed(2),
     earnings: async () => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: null }),
     sectorStocks: () => ({}),
+    sectorTrend: async () => ({ kr: null, us: null }),
   });
   const noneRow = colNone.sources.find((x) => x.label === '시장 데이터 · 미2년물금리(%)');
   check('수집 상태 — 재무부 실패 → 「받지 못함」 · 짧은 한국어 이유', noneRow?.ok === false && noneRow.detail === '받지 못함 — 미국 재무부 실패(시간 초과)' && colNone.sources.find((x) => x.label === '시장 데이터')?.ok === true, JSON.stringify(noneRow));
@@ -230,6 +232,7 @@ const db = getDb();
     rss: async (url) => (url === FOREIGN_RSS[2].url ? dated(old3) : url === DOMESTIC_RSS[0].url ? `<rss><channel><item><title>시각 없음</title></item>${dated(fresh2).slice(14, -16)}</channel></rss>` : dated([...fresh2, old3[0]])),
     earnings: async () => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: null }),
     sectorStocks: () => ({}),
+    sectorTrend: async () => ({ kr: null, us: null }),
   });
   const row = (label: string) => col2.sources.find((x) => x.label === label);
   check('수집 상태 — 묵은 소스 「받음 · 0건(모두 72시간 넘음 — 최신 10-21)」', row('해외 뉴스 · CNBC Finance')?.ok === true && row('해외 뉴스 · CNBC Finance')?.detail === '0건(모두 72시간 넘음 — 최신 10-21)', JSON.stringify(row('해외 뉴스 · CNBC Finance')));
@@ -242,6 +245,7 @@ const db = getDb();
     rss: async (url) => (url === FOREIGN_SLOT_CANDIDATES[0].url ? dated(old3) : dated(fresh2)),
     earnings: async () => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: null }),
     sectorStocks: () => ({}),
+    sectorTrend: async () => ({ kr: null, us: null }),
   });
   // 받은 글: 국내 4 × 2 + 해외 3 × 2 + 연준 2 + 건너뛴 MarketWatch 3 = 19 · 뺀 것 = MarketWatch 3
   check('대체 소스 — 건너뛴(모두 묵은) 후보의 수도 합계에', mwStale.sources.find((x) => x.label === '뉴스 72시간 거르기')?.detail === '뉴스 19건 중 3건 뺌(72시간 넘음)', JSON.stringify(mwStale.sources.find((x) => x.label === '뉴스 72시간 거르기')));
@@ -250,11 +254,60 @@ const db = getDb();
     rss: async (url) => (url === FOREIGN_SLOT_CANDIDATES[0].url ? dated(old3) : url === FOREIGN_SLOT_CANDIDATES[1].url ? dated(['2026-10-25T09:00:00.000Z']) : dated(fresh2)),
     earnings: async () => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: null }),
     sectorStocks: () => ({}),
+    sectorTrend: async () => ({ kr: null, us: null }),
   });
   const slotAllStale = allStale.sources.find((x) => x.label.includes('(대체 소스)'));
   check('대체 소스 — 후보가 모두 묵음 → 실패가 아니라 가장 최근 후보 「받음 · 0건(모두 72시간 넘음 — 최신 10-25)」', slotAllStale?.ok === true && slotAllStale.label === '해외 뉴스 · 미국 연준 보도자료(대체 소스)' && slotAllStale.detail.startsWith('0건(모두 72시간 넘음 — 최신 10-25)'), JSON.stringify(slotAllStale));
   check('대체 소스 — 모두 묵음일 때도 합계는 두 후보 다(4 × 2 + 3 × 2 + 3 + 1 = 18 · 뺀 것 4)', allStale.sources.find((x) => x.label === '뉴스 72시간 거르기')?.detail === '뉴스 18건 중 4건 뺌(72시간 넘음)', JSON.stringify(allStale.sources.find((x) => x.label === '뉴스 72시간 거르기')));
   check('수집 상태 한 줄 — 「뉴스 N건 중 M건 뺌(72시간 넘음)」 · 시각 모르는 글은 남김', sum?.ok === true && sum.detail === '뉴스 24건 중 9건 뺌(72시간 넘음) · 발행 시각 모르는 1건은 남김', JSON.stringify(sum));
+}
+
+// A-2c 최근 흐름 입력(v2.60.0) — 지수 5 · 20일 · 선물 · 섹터 1주(종목 지도 읽기만)
+{
+  const at = Date.parse('2026-10-30T07:05:00+09:00');
+  const k = { current: 2500, change: -50, change_pct: -1.96, data_date: '2026-10-29', trend: { d5: -3.2, d20: 1.1 } };
+  check('흐름 글 — 「 · 최근 흐름 5일 −3.20% · 20일 +1.10%」(프롬프트는 하이픈 음수 그대로)', trendText('KOSPI', k, at) === ' · 최근 흐름 5일 -3.20% · 20일 +1.10%', trendText('KOSPI', k, at));
+  check('흐름 글 — 20일 봉 모자람(null) → 5일만 · 흐름 없음 → 빈 글', trendText('KOSPI', { ...k, trend: { d5: 2, d20: null } }, at) === ' · 최근 흐름 5일 +2.00%' && trendText('KOSPI', { ...k, trend: undefined }, at) === '');
+  check('흐름 글 — 장중 값이면 「(장중 값 기준)」', trendText('KOSPI', { ...k, data_date: '2026-10-30' }, Date.parse('2026-10-30T14:00:00+09:00')).endsWith('(장중 값 기준)'));
+  const fut = { ES: { current: 7683.25, change: -71, change_pct: -0.92, data_date: '2026-10-30' }, NQ: { current: 28980.75, change: -581.25, change_pct: -1.97, data_date: '2026-10-30' } };
+  const am = buildPrompt({ edition: 'morning', today: '2026-10-30', assets: { ...fut, KOSPI: k, SP500: { current: 6800, change: 20, change_pct: 0.3, data_date: '2026-10-29', trend: { d5: 1.5, d20: 4.2 } } }, earnings: [], domestic: [], foreign: [], at, sectorTrend: { kr: { up: [{ sector: '기술', pct: 4.2 }], down: [{ sector: '에너지', pct: -2.1 }] }, us: null } });
+  check('오전판 프롬프트 — 선물(직전 세션 종가 대비 · 받은 시각) · 국내 지수 · 흐름 · 섹터 1주(못 받은 시장 표시)',
+    am.includes('[미국 지수 선물 (밤사이)]') && am.includes('  S&P500 선물: 7,683.2500 (직전 세션 종가 대비 -0.92%)') && am.includes('받은 시각 한국 07:05') &&
+      am.includes('[국내 지수 (전 거래일 종가)]') && am.includes('  코스피: 2,500.0000 (-1.96%) [10/29(목) 종가] · 최근 흐름 5일 -3.20% · 20일 +1.10%') &&
+      am.includes('- 국내 강세: 기술 +4.20%') && am.includes('- 국내 약세: 에너지 -2.10%') && am.includes('- 미국: 받지 못함'), am.split('\n').filter((l) => /선물|코스피|강세|약세|미국:/.test(l)).join(' / '));
+  const pm = buildPrompt({ edition: 'afternoon', today: '2026-10-30', assets: { ...fut, KOSPI: k, SP500: { current: 6800, change: 20, change_pct: 0.3, data_date: '2026-10-29' } }, earnings: [], domestic: [], foreign: [], at: Date.parse('2026-10-30T16:00:00+09:00'), sectorTrend: undefined });
+  check('오후판 프롬프트 — 미국 지수(마지막 정규장 종가) · 선물 · 섹터 1주 없으면 「받지 못함」', pm.includes('[미국 지수 (마지막 정규장 종가)]') && pm.includes('  S&P500: 6,800.0000 (+0.30%)') && pm.includes('[미국 지수 선물 (밤사이)]') && pm.includes('(받지 못함)'));
+  check('섹터 1주 글 — 둘 다', sectorTrendText({ kr: { up: [], down: [] }, us: { up: [{ sector: '기술', pct: 1 }], down: [] } }) === '- 국내 강세: 없음\n- 국내 약세: 없음\n- 미국 강세: 기술 +1.00%\n- 미국 약세: 없음');
+  // 섹터 1주 — 종목 지도 응답을 읽기만(바꾸지 않음) · 「기타」 뺌 · 위 3 · 아래 3 · 겹치지 않음
+  const sectors = [
+    { sector: '기술', capReturn: 4.2, counted: 20 }, { sector: '금융', capReturn: 1.0, counted: 10 }, { sector: '기타', capReturn: 9.9, counted: 3 },
+    { sector: '에너지', capReturn: -2.1, counted: 5 }, { sector: '헬스케어', capReturn: 0.5, counted: 8 }, { sector: '산업재', capReturn: -0.4, counted: 6 },
+    { sector: '유틸리티', capReturn: -1.0, counted: 0 },
+  ];
+  const before = JSON.stringify(sectors);
+  const mv = sectorMoves(sectors);
+  check('섹터 1주 — 강세 위 3 · 약세 아래 3(낮은 것부터) · 「기타」 · 셀 수 0 뺌', JSON.stringify(mv) === JSON.stringify({ up: [{ sector: '기술', pct: 4.2 }, { sector: '금융', pct: 1 }, { sector: '헬스케어', pct: 0.5 }], down: [{ sector: '에너지', pct: -2.1 }, { sector: '산업재', pct: -0.4 }] }), JSON.stringify(mv));
+  check('섹터 1주 — 종목 지도 응답을 바꾸지 않음(읽기만)', JSON.stringify(sectors) === before);
+  // 받기 실패 → 그 시장은 빼고 · 수집 상태 줄
+  const colT = await collectAll('morning', at, {
+    market: async () => ({ assets: {}, failed: [] }),
+    rss: async () => '<rss><channel></channel></rss>',
+    earnings: async () => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: null }),
+    sectorStocks: () => ({}),
+    sectorTrend: async () => ({ kr: { up: [], down: [] }, us: null }),
+  });
+  const tRow = colT.sources.find((x) => x.label === '섹터 1주 흐름(종목 지도)');
+  check('섹터 1주 — 미국 받기 실패 → 「못 받음: 미국(그 시장은 빼고 분석)」', tRow?.ok === false && tRow.detail === '못 받음: 미국(그 시장은 빼고 분석)' && colT.sectorTrend.us === null, JSON.stringify(tRow));
+  const colT2 = await collectAll('morning', at, {
+    market: async () => ({ assets: {}, failed: [] }),
+    rss: async () => '<rss><channel></channel></rss>',
+    earnings: async () => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: null }),
+    sectorStocks: () => ({}),
+    sectorTrend: async () => {
+      throw new Error('boom');
+    },
+  });
+  check('섹터 1주 — 읽기 자체가 던져도 수집은 계속(둘 다 null)', colT2.sectorTrend.kr === null && colT2.sectorTrend.us === null && colT2.sources.some((x) => x.label === '섹터 1주 흐름(종목 지도)' && !x.ok));
 }
 
 // A-3 실적 — 원본 예시 값으로 sanity · 표기
@@ -387,7 +440,7 @@ const news = (n: number, foreign: boolean) => Array.from({ length: n }, (_, i) =
   check('오후판 13~15:30 프롬프트 — 코스피 [장중(마감 전) — 14:00 기준](받은 시각을 밝힘)', live.includes('  코스피: 2,650.1000 (+0.38%) [10/29(목) 장중(마감 전) — 14:00 기준]'), live.split('\n').find((l) => l.includes('코스피:')) ?? '');
   const usLive = buildPrompt({ edition: 'morning', today: '2026-10-30', assets: { SP500: { ...assets.SP500, data_date: '2026-10-29' } }, earnings, domestic: [], foreign: [], at: kst('2026-10-29', '23:40') });
   check('미국 지수 장중 — 「한국 HH:MM 기준」', usLive.includes('[10/29(목) 장중(마감 전) — 한국 23:40 기준]'));
-  check('프롬프트(brief-v4) — 숫자와 반대인 방향 표현 금지 · 장중 기준 · 숫자 우선', live.includes('등락 방향과 반대인 표현 금지') && live.includes("'장중 기준'") && live.includes('뉴스 제목의 분위기보다 위 숫자를 우선') && MARKET_BRIEF_PROMPT_VERSION === 'brief-v4');
+  check('프롬프트(brief-v4) — 숫자와 반대인 방향 표현 금지 · 장중 기준 · 숫자 우선', live.includes('등락 방향과 반대인 표현 금지') && live.includes("'장중 기준'") && live.includes('뉴스 제목의 분위기보다 위 숫자를 우선') && MARKET_BRIEF_PROMPT_VERSION === 'brief-v5');
   // 입력 길이 추정(실제 호출 없음) — 보고용: 실적 100종목 · 국내 80건(30 사용) · 해외 80건(40 사용)
   const big = Array.from({ length: 100 }, (_, i) => earningOf(`S${i}`, `회사${i}`, BRIEF_SECTORS[i % BRIEF_SECTORS.length], i % 60));
   const full13 = Object.fromEntries(['KOSPI', 'KOSDAQ', 'SP500', 'NASDAQ', 'DOW', 'RUSSELL2000', 'GOLD', 'DXY', 'US2Y', 'US10Y', 'USDKRW', 'WTI', 'NATGAS'].map((k) => [k, assets.SP500]));
@@ -568,6 +621,7 @@ const deps: BriefDeps = {
     rss: async () => `<rss><channel><item><title>뉴스</title></item></channel></rss>`,
     earnings: async () => ({ earnings: [earningOf('INTC', '인텔', '기술', 1)], estimatesOk: 1, estimatesTried: 1, error: null }),
     sectorStocks: () => ({}),
+    sectorTrend: async () => ({ kr: null, us: null }),
   },
   gemini: async (o) => {
     geminiCalls.push(o);

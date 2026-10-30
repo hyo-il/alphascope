@@ -34,6 +34,8 @@ export const ASSET_LABEL: Record<BriefAssetKey, string> = {
   WTI: 'WTI 원유(달러/배럴)',
   NATGAS: '천연가스(달러/MMBtu)',
   VIX: 'VIX 공포지수',
+  ES: 'S&P500 선물',
+  NQ: '나스닥100 선물',
 };
 
 /** VIX 구간 — 원본 오후판(30 이상 공포 · 20~30 주의 · 20 미만 안정) */

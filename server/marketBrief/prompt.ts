@@ -16,11 +16,12 @@ import { ASSET_LABEL, isIntradayBar, vixZone } from '../../src/utils/marketBrief
 import { FOMC_MEETINGS } from '../../src/data/fomc';
 import { kstClockText, marketDate } from '../../src/utils/marketDate';
 import { daysBetween } from './earnings';
-import type { BriefAsset, BriefAssetKey, BriefEarning, BriefEdition } from '../../src/types/marketBrief';
+import type { BriefAsset, BriefAssetKey, BriefEarning, BriefEdition, BriefSectorMove, BriefSectorTrend } from '../../src/types/marketBrief';
 
 // v2: 날짜 · D+N 을 각 시장 현지 날짜로(v2.59.3) · v3: 장 마감 뒤 미국 D+0 은 [D+0 · 발표됨](v2.59.4) ·
 // v4: 숫자와 반대인 방향 표현 금지 · 장중 값은 「장중(마감 전) — HH:MM 기준」 · 대표 종목은 후보 목록에서 [{ticker, name}](v2.59.6)
-export const MARKET_BRIEF_PROMPT_VERSION = 'brief-v4';
+// v5: 지수 5 · 20일 흐름 · 미국 지수 선물 · 섹터 1주 흐름 입력 · 오후판 미국 지수 · 「오늘 예상 방향」(today_outlook)(v2.60.0)
+export const MARKET_BRIEF_PROMPT_VERSION = 'brief-v5';
 
 export const SYSTEM = '당신은 10년 이상 경력의 한국 주식 시장 전문 애널리스트입니다.';
 
@@ -144,8 +145,39 @@ function assetLine(key: BriefAssetKey, v: BriefAsset, at: number): string {
   const move = RATE_KEYS.includes(key)
     ? `전일 대비 ${sign}${v.change.toFixed(3)}%p, ${sign}${(v.change * 100).toFixed(1)}bp`
     : `${sign}${v.change_pct.toFixed(2)}%`;
-  return `  ${ASSET_LABEL[key]}: ${num4(v.current)} (${move})${date}`;
+  return `  ${ASSET_LABEL[key]}: ${num4(v.current)} (${move})${date}${trendText(key, v, at)}`;
 }
+
+const pct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
+
+/** 최근 흐름 — 「 · 최근 흐름 5일 −3.20% · 20일 +1.10%」(v2.60.0). 장중 값이면 「장중 값 기준」 · 봉이 모자란 칸은 빼고 · 둘 다 없으면 빈 글 */
+export function trendText(key: BriefAssetKey, v: BriefAsset, at: number): string {
+  const t = v.trend;
+  if (!t || (t.d5 == null && t.d20 == null)) return '';
+  const parts = [t.d5 != null ? `5일 ${pct(t.d5)}` : '', t.d20 != null ? `20일 ${pct(t.d20)}` : ''].filter(Boolean);
+  const live = v.data_date && isIntradayBar(key, v.data_date, at) ? '(장중 값 기준)' : '';
+  return ` · 최근 흐름 ${parts.join(' · ')}${live}`;
+}
+
+/** 미국 지수 선물(밤사이) — 받은 시각(한국)과 함께 · 직전 세션 종가 대비 */
+function futuresText(assets: Partial<Record<BriefAssetKey, BriefAsset>>, at: number): string {
+  const rows = (['ES', 'NQ'] as BriefAssetKey[]).flatMap((k) => {
+    const v = assets[k];
+    return v ? [`  ${ASSET_LABEL[k]}: ${num4(v.current)} (직전 세션 종가 대비 ${pct(v.change_pct)})`] : [];
+  });
+  return rows.length ? `${rows.join('\n')}\n  (받은 시각 한국 ${kstClockText(at).slice(0, 5)} — 선물은 정규장 밖에도 거래돼 밤사이 흐름을 보여 준다. 정규장 지수와 같은 값이 아니다)` : '  (데이터 없음)';
+}
+
+const sectorRow = (list: BriefSectorMove[]) => list.map((m) => `${m.sector} ${pct(m.pct)}`).join(' · ') || '없음';
+
+/** 섹터 1주 흐름(종목 지도) — 시장마다 강세 · 약세 한 줄씩. 받지 못한 시장은 「받지 못함」 */
+export function sectorTrendText(trend: BriefSectorTrend | undefined): string {
+  const one = (label: string, t: BriefSectorTrend['kr']) =>
+    t ? `- ${label} 강세: ${sectorRow(t.up)}\n- ${label} 약세: ${sectorRow(t.down)}` : `- ${label}: 받지 못함`;
+  return trend ? `${one('국내', trend.kr)}\n${one('미국', trend.us)}` : '(받지 못함)';
+}
+
+const TREND_HEAD = '[섹터 1주 흐름 (앱 종목 지도 · 시가총액 상위 100 · 섹터별 시총 가중 5거래일 수익률 — 강세 위 3 · 약세 아래 3)]';
 
 /** 오늘부터 60일 안 FOMC 회의(연준 공식 일정 `data/fomc.ts`) — AI 가 경제 일정 날짜를 기억으로 쓰지 않게 */
 export function fomcText(today: string, usReleased = false): string {
@@ -332,6 +364,8 @@ export interface PromptInput {
   usReleased?: boolean;
   /** ③ 대표 종목 후보(v2.59.6) — 없으면 빈 목록 */
   sectorStocks?: SectorStockPool;
+  /** 섹터 1주 흐름(v2.60.0) */
+  sectorTrend?: BriefSectorTrend;
 }
 
 const STOCKS_HEAD = '[주도 섹터 대표 종목 후보 (섹터별 시가총액 상위 — leading_sectors 의 stocks_kr · stocks_us 는 이 목록에서만)]';
@@ -340,7 +374,7 @@ export function buildPrompt(input: PromptInput): string {
   return input.edition === 'morning' ? morningPrompt(input) : afternoonPrompt(input);
 }
 
-function morningPrompt({ today, assets, earnings, domestic, foreign, at = Date.now(), usReleased = false, sectorStocks = {} }: PromptInput): string {
+function morningPrompt({ today, assets, earnings, domestic, foreign, at = Date.now(), usReleased = false, sectorStocks = {}, sectorTrend }: PromptInput): string {
   return `오늘 날짜는 ${todayText(today)}입니다(한국). 미국 동부 날짜는 ${todayText(marketDate(at, 'SPY'))}입니다.
 
 ${SYSTEM}
@@ -351,8 +385,17 @@ ${PROFILE}
 [주요 지수 (전일 종가)]
 ${lines(assets, ['SP500', 'NASDAQ', 'DOW', 'RUSSELL2000'], at) || '  (데이터 없음)'}
 
+[미국 지수 선물 (밤사이)]
+${futuresText(assets, at)}
+
+[국내 지수 (전 거래일 종가)]
+${lines(assets, ['KOSPI', 'KOSDAQ'], at) || '  (데이터 없음)'}
+
 [매크로 자산 (최근 값 — 줄마다 기준 날짜, 금리는 전일 대비 %p)]
 ${lines(assets, ['GOLD', 'DXY', 'US2Y', 'US10Y', 'USDKRW', 'WTI', 'NATGAS'], at) || '  (데이터 없음)'}
+
+${TREND_HEAD}
+${sectorTrendText(sectorTrend)}
 
 [향후 60일 FOMC 회의 (연준 공식 일정)]
 ${fomcText(marketDate(at, 'SPY'), usReleased)}
@@ -381,13 +424,14 @@ ${THEME_JSON(false)}
 ${REST_JSON('오늘 이 섹터가 주도하는 근거 (뉴스 기반, 1~2문장)', '현재 시장 국면 한줄 (예: 하락 추세 속 기술적 반등 시도)')}
 
 [작성 규칙]
+- 최근 흐름 · 선물 · 섹터 1주 흐름은 위에 적힌 숫자만 쓸 것(숫자를 지어내지 말 것). 「최근 흐름 5일 · 20일」 은 마지막 값 ÷ 5 · 20거래일 전 종가 − 1.
 - 데이터 기준일 인식: [주요 지수]·[매크로 자산]의 [MM/DD(요일) 종가] 라벨을 인식하고
   현재 시점이 해당 종가 이후임을 전제로 어조 조정.
 ${THEME_RULE(false)}
 ${COMMON_RULES}`;
 }
 
-function afternoonPrompt({ today, assets, earnings, domestic, at = Date.now(), usReleased = false, sectorStocks = {} }: PromptInput): string {
+function afternoonPrompt({ today, assets, earnings, domestic, at = Date.now(), usReleased = false, sectorStocks = {}, sectorTrend }: PromptInput): string {
   const vix = assets.VIX;
   const vixBasis = vix ? basisLabel('VIX', vix, at) : '';
   const vixLevel = vix
@@ -406,8 +450,17 @@ ${PROFILE}
 [오늘 국내 지수 (당일 마감 — 장 마감 전에 받았으면 라벨이 [장중(마감 전) — 받은 시각])]
 ${lines(assets, ['KOSPI', 'KOSDAQ'], at) || '  (데이터 없음)'}${krStale}
 
+[미국 지수 (마지막 정규장 종가)]
+${lines(assets, ['SP500', 'NASDAQ'], at) || '  (데이터 없음)'}
+
+[미국 지수 선물 (밤사이)]
+${futuresText(assets, at)}
+
 [시장 공포 지수]
 ${vixLevel || '  (데이터 없음)'}
+
+${TREND_HEAD}
+${sectorTrendText(sectorTrend)}
 
 [향후 60일 FOMC 회의 (연준 공식 일정)]
 ${fomcText(marketDate(at, 'SPY'), usReleased)}
@@ -433,6 +486,7 @@ ${THEME_JSON(true)}
 ${REST_JSON('오늘 이 섹터가 주목받는 근거 (뉴스/실적 기반, 1~2문장)', '현재 국내 시장 국면 한줄')}
 
 [작성 규칙]
+- 최근 흐름 · 선물 · 섹터 1주 흐름은 위에 적힌 숫자만 쓸 것(숫자를 지어내지 말 것). 「최근 흐름 5일 · 20일」 은 마지막 값 ÷ 5 · 20거래일 전 종가 − 1.
 - market_summary: 오늘 코스피·코스닥 등락과 주요 원인을 과거형으로 서술. 지수 라벨이 [장중(마감 전)]이면 아직 마감 전이므로 "장중 기준" 흐름으로 서술(오른 · 내린 방향은 숫자 그대로). 지수 날짜가 오늘이 아니면 마지막 거래일 값이라고 밝힐 것.
 - vix_comment: VIX 수치(${vix ? vix.current : 'N/A'})를 언급하며 안정/주의/공포 여부와 스윙 트레이딩 시사점 서술.
 ${THEME_RULE(true)}

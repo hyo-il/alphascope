@@ -31,7 +31,10 @@ export type BriefAssetKey =
   | 'USDKRW'
   | 'WTI'
   | 'NATGAS'
-  | 'VIX';
+  | 'VIX'
+  /** 미국 지수 선물(v2.60.0) — CME E-mini S&P 500 · E-mini Nasdaq-100 근월물(yfinance ES=F · NQ=F) */
+  | 'ES'
+  | 'NQ';
 
 /** 마지막 두 종가로 낸 값 — 원본 stock_analyzer 와 같은 계산 */
 export interface BriefAsset {
@@ -40,6 +43,20 @@ export interface BriefAsset {
   change_pct: number;
   /** 마지막 종가의 날짜(그 시장 날짜, YYYY-MM-DD) — 모르면 null */
   data_date: string | null;
+  /** 최근 흐름(%, v2.60.0) — 마지막 값 ÷ 5 · 20거래일 전 종가 − 1. 봉이 모자라면 그 칸 null · 지수만 */
+  trend?: { d5: number | null; d20: number | null };
+}
+
+/** 섹터 1주 흐름 한 줄(종목 지도 1주 · 시총 가중 수익률 %) */
+export interface BriefSectorMove {
+  sector: string;
+  pct: number;
+}
+
+/** 섹터 1주 흐름(v2.60.0) — 종목 지도(`heatmap(…, '1w')`) 섹터 통계를 읽기만 한 것. 시장마다 강세 위 3 · 약세 아래 3 · 받지 못하면 null */
+export interface BriefSectorTrend {
+  kr: { up: BriefSectorMove[]; down: BriefSectorMove[] } | null;
+  us: { up: BriefSectorMove[]; down: BriefSectorMove[] } | null;
 }
 
 /** 60일 안 실적 한 건 — 실적일은 `earningsCalendar.getEarningsDate` 하나에서, 전망치는 지표 엔진 */
@@ -180,6 +197,8 @@ export interface MarketBrief {
     earnings: BriefEarning[];
     /** 시장 데이터를 실제로 받은 시각(UTC ISO) — 장중/종가 판단(프롬프트 · 화면 같은 값). 없으면 createdAt */
     collectedAt?: string;
+    /** 섹터 1주 흐름(v2.60.0) — 없으면 그 전 브리핑 */
+    sectorTrend?: BriefSectorTrend;
   };
   /** AI 결과 — 꺼짐 · 실패면 null(데이터만 저장) */
   brief: BriefAi | null;

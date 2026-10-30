@@ -49,8 +49,8 @@ t_xml = ('<m:properties><d:NEW_DATE m:type="Edm.DateTime">2026-10-27T00:00:00</d
 us2y_ok = [("미국 재무부", lambda: t_xml, mb.parse_treasury_xml)]
 data = mb.collect_market_data("morning", history=fake_history, us2y=lambda: mb.fetch_us2y(us2y_ok))
 keys = set(data["assets"])
-want = {"KOSPI", "KOSDAQ", "SP500", "NASDAQ", "DOW", "RUSSELL2000", "GOLD", "US2Y", "US10Y", "USDKRW", "WTI", "NATGAS"}
-check("오전판 13종 중 실패 1(DXY) 빠짐", keys == want and data["failed"] == ["DXY"], f"{sorted(keys)} {data['failed']}")
+want = {"KOSPI", "KOSDAQ", "SP500", "NASDAQ", "DOW", "RUSSELL2000", "GOLD", "US2Y", "US10Y", "USDKRW", "WTI", "NATGAS", "ES", "NQ"}
+check("오전판 13종 + 선물 2 중 실패 1(DXY) 빠짐", keys == want and data["failed"] == ["DXY"], f"{sorted(keys)} {data['failed']}")
 tickers = dict(asked)
 check("원본 티커 그대로", tickers.get("CL=F") and tickers.get("NG=F") and tickers.get("^TNX") and tickers.get("^RUT") and tickers.get("USDKRW=X") and tickers.get("GC=F"))
 check("시황 바와 겹치는 지수는 같은 기간(공용 캐시)", tickers["^GSPC"] == fundamentals.INDEX_HISTORY_PERIOD and tickers["^KS11"] == fundamentals.INDEX_HISTORY_PERIOD)
@@ -59,7 +59,24 @@ check("오전판에 VIX 없음", "^VIX" not in tickers)
 asked.clear()
 us2y_called = []
 data = mb.collect_market_data("afternoon", history=fake_history, us2y=lambda: us2y_called.append(1) or mb.fetch_us2y(us2y_ok))
-check("오후판 = 코스피 · 코스닥 · VIX(미2년물 받지 않음)", set(data["assets"]) == {"KOSPI", "KOSDAQ", "VIX"} and not us2y_called and data["sources"] == {})
+check("오후판 = 코스피 · 코스닥 · S&P500 · 나스닥 · VIX + 선물 2(미2년물 받지 않음)", set(data["assets"]) == {"KOSPI", "KOSDAQ", "SP500", "NASDAQ", "VIX", "ES", "NQ"} and not us2y_called and data["sources"] == {})
+check("선물 티커 — ES=F(E-mini S&P 500) · NQ=F(E-mini Nasdaq-100) · 러셀도 지수와 같은 기간", dict(asked).get("ES=F") == "5d" and dict(asked).get("NQ=F") == "5d" and mb._INDEX_ASSETS[5][2] == fundamentals.INDEX_HISTORY_PERIOD)
+
+# 2-3) 최근 흐름(5 · 20거래일, v2.60.0)
+closes = [100.0 + i for i in range(21)]  # 100 … 120 (21개)
+t = mb.trend_from_closes(closes)
+check("흐름 — 마지막 ÷ 5거래일 전 − 1 · 20거래일 전", t == {"d5": round((120 / 115 - 1) * 100, 2), "d20": 20.0}, str(t))
+t6 = mb.trend_from_closes(closes[-6:])
+check("흐름 — 봉 6개면 5일만 · 20일은 None(일봉 모자람)", t6 == {"d5": round((120 / 115 - 1) * 100, 2), "d20": None}, str(t6))
+check("흐름 — 봉 5개 이하면 None(칸을 붙이지 않음)", mb.trend_from_closes(closes[-5:]) is None and "trend" not in mb.summarize_closes([100.0, 101.0], date(2026, 10, 28), 2))
+check("summarize_closes 에 trend 가 붙음(봉이 6개 넘으면)", mb.summarize_closes(closes, date(2026, 10, 28), 2)["trend"]["d20"] == 20.0)
+
+# 2-4) 채점용 일봉 — 그 시장 날짜 · 오래된 것부터 · 빈 값 줄 빼기
+import pandas as pd
+
+frame = pd.DataFrame({"Close": [2500.0, float("nan"), 2550.0]}, index=pd.DatetimeIndex(["2026-10-28", "2026-10-29", "2026-10-30"]).tz_localize("Asia/Seoul"))
+got = mb.index_closes(["KOSPI", "SP500", "XX"], history=lambda ticker, period: frame if ticker == "^KS11" else pd.DataFrame())
+check("채점 일봉 — 날짜 · 종가(빈 값 뺌) · 못 받으면 빈 목록 · 모르는 키 무시", got == {"KOSPI": [{"date": "2026-10-28", "close": 2500.0}, {"date": "2026-10-30", "close": 2550.0}], "SP500": []}, str(got))
 
 
 def boom():

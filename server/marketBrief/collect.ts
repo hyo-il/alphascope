@@ -11,15 +11,56 @@
 import { BRIEF_SECTORS, collectEarnings, type EarningsCollection } from './earnings';
 import { collectNews, fetchRss, kstMonthDay, NEWS_MAX_AGE_MS, shortReason, type BriefNewsItem, type RssFetcher, type RssResult } from './news';
 import { sectorStockPool, type SectorStockPool } from './sectorStocks';
+import { heatmap } from '../heatmap';
 import { ASSET_LABEL } from '../../src/utils/marketBrief';
-import type { BriefAsset, BriefAssetKey, BriefEdition, BriefSourceStatus } from '../../src/types/marketBrief';
+import type { BriefAsset, BriefAssetKey, BriefEdition, BriefSectorMove, BriefSectorTrend, BriefSourceStatus } from '../../src/types/marketBrief';
+import type { HeatmapMarket } from '../../src/types/heatmap';
 
 const ENGINE_URL = process.env.INDICATORS_URL ?? `http://127.0.0.1:${process.env.INDICATORS_PORT ?? 5001}`;
 /**
- * 지표 엔진 시장 데이터 전체 제한 — 오전판 yfinance 12항목(차례로 · 각 10초 = 120초) + 미2년물 재무부(이번 달 + 지난달 · 각 15초 = 30초) = 150초가
- * 모두 늦어도 들어오게 15초를 더한 값. 넘기면 시장 데이터가 통째로 실패해 AI 도 부르지 않는다.
+ * 지표 엔진 시장 데이터 전체 제한 — 오전판 yfinance 14항목(지수 6 · 매크로 6 · 선물 2, 차례로 · 각 10초 = 140초) + 미2년물 재무부(이번 달 + 지난달 · 각 15초 = 30초)
+ * = 170초가 모두 늦어도 들어오게 15초를 더한 값(v2.60.0 — 선물 2개만큼 늘림). 넘기면 시장 데이터가 통째로 실패해 AI 도 부르지 않는다.
  */
-const MARKET_DATA_TIMEOUT_MS = 165_000;
+const MARKET_DATA_TIMEOUT_MS = 185_000;
+/** 섹터 1주 흐름 — 종목 지도 1주 계산을 기다리는 한도(처음 만들 때 일봉을 받는다 · 넘기면 그 시장은 빼고 간다) */
+const SECTOR_TREND_TIMEOUT_MS = 60_000;
+/** 섹터 1주 흐름 — 시장마다 강세 위 · 약세 아래 몇 개 */
+export const SECTOR_TREND_EACH = 3;
+
+/**
+ * 섹터 통계(종목 지도 응답의 `sectors` — 시총 가중 1주 수익률 순) → 강세 위 3 · 약세 아래 3. 「기타」(섹터 모름)는 뺀다.
+ * ⚠️ 종목 지도 계산 · 캐시는 바꾸지 않는다 — 응답을 읽기만 한다. 설명용 통계라 판단 · 주문에 쓰지 않는다.
+ */
+export function sectorMoves(sectors: { sector: string; capReturn: number; counted: number }[]): { up: BriefSectorMove[]; down: BriefSectorMove[] } {
+  const list = sectors.filter((x) => x.counted > 0 && x.sector !== '기타').map((x) => ({ sector: x.sector, pct: x.capReturn }));
+  const sorted = [...list].sort((a, b) => b.pct - a.pct);
+  const up = sorted.slice(0, SECTOR_TREND_EACH);
+  const down = sorted.slice(-SECTOR_TREND_EACH).reverse().filter((d) => !up.some((u) => u.sector === d.sector));
+  return { up, down };
+}
+
+/** 기본 — 종목 지도 시장 보기(상위 100) 1주. 실패 · 시간 초과면 그 시장 null */
+async function readSectorTrend(now: number): Promise<BriefSectorTrend> {
+  const one = async (market: HeatmapMarket) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const res = await Promise.race([
+        heatmap(market, '1w', { top: 100 }, now),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error('시간 초과')), SECTOR_TREND_TIMEOUT_MS);
+        }),
+      ]);
+      return sectorMoves(res.sectors);
+    } catch (e) {
+      console.warn(`[market-brief] 섹터 1주 흐름(${market}) 읽기 실패 — 빼고 간다:`, (e as Error).message);
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  const [kr, us] = await Promise.all([one('kr'), one('us')]);
+  return { kr, us };
+}
 
 
 export interface MarketData {
@@ -54,6 +95,8 @@ export interface CollectDeps {
   earnings: (now: number) => Promise<EarningsCollection>;
   /** ③ 대표 종목 후보(DB · 유니버스 파일 — 네트워크 없음) */
   sectorStocks: () => SectorStockPool;
+  /** 섹터 1주 흐름(종목 지도 읽기만 — 시험은 바꿔 끼운다) */
+  sectorTrend: (now: number) => Promise<BriefSectorTrend>;
 }
 
 export const defaultCollectDeps: CollectDeps = {
@@ -61,6 +104,7 @@ export const defaultCollectDeps: CollectDeps = {
   rss: fetchRss,
   earnings: (now) => collectEarnings(now),
   sectorStocks: () => sectorStockPool(),
+  sectorTrend: readSectorTrend,
 };
 
 export interface Collected {
@@ -69,14 +113,16 @@ export interface Collected {
   foreign: BriefNewsItem[];
   earnings: EarningsCollection;
   sectorStocks: SectorStockPool;
+  sectorTrend: BriefSectorTrend;
   sources: BriefSourceStatus[];
 }
 
 export async function collectAll(edition: BriefEdition, now: number, deps: CollectDeps = defaultCollectDeps): Promise<Collected> {
-  const [market, news, earnings] = await Promise.all([
+  const [market, news, earnings, sectorTrend] = await Promise.all([
     deps.market(edition).catch((e: Error): MarketData & { error: string } => ({ assets: {}, failed: [], error: e.message })),
     collectNews(edition === 'morning', deps.rss, now),
     deps.earnings(now).catch((e: Error): EarningsCollection => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: e.message })),
+    deps.sectorTrend(now).catch((): BriefSectorTrend => ({ kr: null, us: null })),
   ]);
 
   const sources: BriefSourceStatus[] = [];
@@ -137,11 +183,18 @@ export async function collectAll(edition: BriefEdition, now: number, deps: Colle
       (unknownSector ? ` · 섹터 모름 ${unknownSector}종목(주도 섹터와 맞지 않아 일정에서 빠짐 — 국내 종목은 남음)` : '') +
       (earnings.error ? ` · ${earnings.error}` : ''),
   });
+  const trendMissing = [!sectorTrend.kr && '국내', !sectorTrend.us && '미국'].filter(Boolean);
+  sources.push({
+    group: 'market',
+    label: '섹터 1주 흐름(종목 지도)',
+    ok: trendMissing.length === 0,
+    detail: trendMissing.length ? `못 받음: ${trendMissing.join(' · ')}(그 시장은 빼고 분석)` : '국내 · 미국 받음',
+  });
   let sectorStocks: SectorStockPool = {};
   try {
     sectorStocks = deps.sectorStocks();
   } catch (e) {
     console.warn('[market-brief] 대표 종목 후보 읽기 실패 — 빈 목록:', (e as Error).message);
   }
-  return { market: { assets: market.assets, failed: market.failed, fetchedAt: market.fetchedAt }, domestic: news.domestic, foreign: news.foreign, earnings, sectorStocks, sources };
+  return { market: { assets: market.assets, failed: market.failed, fetchedAt: market.fetchedAt }, domestic: news.domestic, foreign: news.foreign, earnings, sectorStocks, sectorTrend, sources };
 }

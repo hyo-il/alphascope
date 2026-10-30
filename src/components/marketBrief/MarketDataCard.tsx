@@ -5,6 +5,7 @@ import { ASSET_LABEL, isIntradayBar, vixZone } from '../../utils/marketBrief';
 import type { BriefAsset, BriefAssetKey, MarketBrief } from '../../types/marketBrief';
 import { BriefCard } from './BriefCard';
 import { dayLabel } from './briefText';
+import { kstClockText } from '../../utils/marketDate';
 
 /** ⑤ 시장 데이터(참고) — AI 와 상관없이 늘 보인다(수집한 값 그대로) */
 export default function MarketDataCard({ brief }: { brief: MarketBrief }) {
@@ -28,16 +29,35 @@ const Move = ({ value, digits, suffix = '' }: { value: number; digits: number; s
  * 묶음 — 상자 없이 제목 + 줄(카드 안에 상자를 두지 않는다). index: 지수 = 종가/장중 · 그 밖 = 기준.
  * 줄은 칸(이름 | 앞 값 | → | 뒤 값 | 바뀐 만큼)으로 나눠 묶음 안에서 세로로 맞춘다 — 한 덩어리로 오른쪽 맞춤하면 자릿수가 다른 줄마다 화살표가 어긋났다.
  */
-function Group({ title, date, intraday = false, index = false, children }: { title: string; date?: string | null; intraday?: boolean; index?: boolean; children: ReactNode }) {
+function Group({
+  title,
+  date,
+  intraday = false,
+  index = false,
+  note,
+  children,
+}: {
+  title: string;
+  date?: string | null;
+  intraday?: boolean;
+  index?: boolean;
+  /** 날짜 대신 오른쪽 글(선물 — 받은 시각) */
+  note?: string;
+  children: ReactNode;
+}) {
   return (
     <div className="space-y-1" data-brief-group={title}>
       <div className="flex items-baseline justify-between gap-2 border-b border-border/60 pb-1 text-caption">
         <span className="font-medium text-text-secondary">{title}</span>
         {/* 정규장 중에 받은 지수는 끝나지 않은 봉 — 「종가」 라 적지 않는다. 선물 · 환율 · 금리는 거의 하루 내내 움직여 「기준」 */}
-        {date && (
-          <span className={`tabular-nums ${intraday ? 'text-warning' : 'text-text-muted'}`}>
-            {dayLabel(date)} {!index ? '기준' : intraday ? '장중(마감 전)' : '종가'}
-          </span>
+        {note ? (
+          <span className="tabular-nums text-text-muted">{note}</span>
+        ) : (
+          date && (
+            <span className={`tabular-nums ${intraday ? 'text-warning' : 'text-text-muted'}`}>
+              {dayLabel(date)} {!index ? '기준' : intraday ? '장중(마감 전)' : '종가'}
+            </span>
+          )
         )}
       </div>
       <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] items-baseline gap-x-1.5 gap-y-1 text-xs tabular-nums">{children}</div>
@@ -59,10 +79,34 @@ function Row({ label, first, second, move }: { label: string; first: ReactNode; 
   );
 }
 
-/** 지수 — 원본처럼 「등락률% → 현재값」 */
+/** 최근 흐름(5 · 20거래일, v2.60.0) — 지수 줄 끝 칸에 작은 글자. 봉이 모자란 칸은 「—」 */
+function Trend({ a }: { a: BriefAsset }) {
+  if (!a.trend) return null;
+  const v = (x: number | null) => (x == null ? '—' : formatPercent(x));
+  return (
+    <span className="whitespace-nowrap text-caption text-text-muted" data-brief-trend>
+      5일 {v(a.trend.d5)} · 20일 {v(a.trend.d20)}
+    </span>
+  );
+}
+
+/** 지수 — 원본처럼 「등락률% → 현재값」 + 최근 흐름 */
 function IndexRow({ label, a }: { label: string; a?: BriefAsset }) {
   if (!a) return null;
-  return <Row label={label} first={<span className={changeColor(a.change_pct)}>{formatPercent(a.change_pct)}</span>} second={formatNumber(a.current, 2)} />;
+  return <Row label={label} first={<span className={changeColor(a.change_pct)}>{formatPercent(a.change_pct)}</span>} second={formatNumber(a.current, 2)} move={<Trend a={a} />} />;
+}
+
+/** 미국 지수 선물(밤사이) — 「직전 세션 종가 대비% → 지금 값」. 지수 선물이라 지수처럼 색을 칠한다 */
+function FuturesGroup({ brief }: { brief: MarketBrief }) {
+  const a = brief.data.assets;
+  if (!a.ES && !a.NQ) return null;
+  const at = Date.parse(brief.data.collectedAt ?? brief.createdAt);
+  return (
+    <Group title="미국 지수 선물(밤사이)" note={`받은 시각 ${kstClockText(at).slice(0, 5)}`}>
+      <IndexRow label="S&P500 선물" a={a.ES ? { ...a.ES, trend: undefined } : undefined} />
+      <IndexRow label="나스닥100 선물" a={a.NQ ? { ...a.NQ, trend: undefined } : undefined} />
+    </Group>
+  );
 }
 
 /** 금리 · 달러 · 금 · 에너지 · 환율 · VIX — 원본처럼 「전일 → 현재」 + 바뀐 만큼(금리는 %p). 묶음 날짜와 다르면 줄에 날짜 */
@@ -102,7 +146,9 @@ function MarketData({ brief }: { brief: MarketBrief }) {
   const live = (k: BriefAssetKey) => isIntradayBar(k, a[k]?.data_date ?? null, at);
   const missing = (keys: BriefAssetKey[]) => keys.filter((k) => !a[k]).map((k) => ASSET_LABEL[k]);
   if (brief.edition === 'afternoon') {
-    const lost = missing(['KOSPI', 'KOSDAQ', 'VIX']);
+    // 그 전 브리핑(v2.60.0 전)은 오후판에 미국 지수 · 선물이 없다 — 받지 못한 값으로 적지 않는다
+    const newer = !!(a.SP500 || a.ES || a.NQ);
+    const lost = missing(newer ? ['KOSPI', 'KOSDAQ', 'SP500', 'NASDAQ', 'VIX', 'ES', 'NQ'] : ['KOSPI', 'KOSDAQ', 'VIX']);
     return (
       <div className="space-y-2">
         <div className="grid grid-cols-2 gap-x-6 gap-y-4">
@@ -113,12 +159,19 @@ function MarketData({ brief }: { brief: MarketBrief }) {
           <Group title="공포지수(미국)" date={a.VIX?.data_date} intraday={live('VIX')} index>
             {a.VIX && <MoveRow label={`VIX (${vixZone(a.VIX.current)} 구간)`} a={a.VIX} digits={2} />}
           </Group>
+          {(a.SP500 || a.NASDAQ) && (
+            <Group title="미국 증시" date={a.SP500?.data_date} intraday={live('SP500')} index>
+              <IndexRow label="S&P500" a={a.SP500} />
+              <IndexRow label="나스닥" a={a.NASDAQ} />
+            </Group>
+          )}
+          <FuturesGroup brief={brief} />
         </div>
         <Missing names={lost} />
       </div>
     );
   }
-  const lost = missing(['SP500', 'NASDAQ', 'DOW', 'RUSSELL2000', 'US2Y', 'US10Y', 'DXY', 'GOLD', 'WTI', 'NATGAS', 'USDKRW', 'KOSPI', 'KOSDAQ']);
+  const lost = missing(['SP500', 'NASDAQ', 'DOW', 'RUSSELL2000', 'US2Y', 'US10Y', 'DXY', 'GOLD', 'WTI', 'NATGAS', 'USDKRW', 'KOSPI', 'KOSDAQ', ...(a.ES || a.NQ || a.SP500?.trend ? (['ES', 'NQ'] as BriefAssetKey[]) : [])]);
   const rateDate = a.US10Y?.data_date ?? a.US2Y?.data_date;
   return (
     <div className="space-y-2">
@@ -153,6 +206,7 @@ function MarketData({ brief }: { brief: MarketBrief }) {
           <IndexRow label="코스피" a={a.KOSPI} />
           <IndexRow label="코스닥" a={a.KOSDAQ} />
         </Group>
+        <FuturesGroup brief={brief} />
       </div>
       <Missing names={lost} />
     </div>

@@ -38,7 +38,8 @@ _INDEX_ASSETS = [
     ("SP500", "^GSPC", INDEX_HISTORY_PERIOD, 2),
     ("NASDAQ", "^IXIC", INDEX_HISTORY_PERIOD, 2),
     ("DOW", "^DJI", INDEX_HISTORY_PERIOD, 2),
-    ("RUSSELL2000", "^RUT", "5d", 2),
+    # 러셀도 지수 흐름(5 · 20거래일)을 내려고 같은 기간으로 받는다(v2.60.0 — 시황 바에는 러셀이 없어 캐시 영향 없음)
+    ("RUSSELL2000", "^RUT", INDEX_HISTORY_PERIOD, 2),
 ]
 _MACRO_ASSETS = [
     ("GOLD", "GC=F", "5d", 4),       # 금 선물
@@ -49,6 +50,14 @@ _MACRO_ASSETS = [
     ("NATGAS", "NG=F", "5d", 4),     # 천연가스 선물
 ]
 _VIX = ("VIX", "^VIX", INDEX_HISTORY_PERIOD, 2)
+# 미국 지수 선물(v2.60.0) — 밤사이 흐름. CME E-mini S&P 500(ES) · E-mini Nasdaq-100(NQ) 근월물(yfinance 연속 티커).
+# 값 = 마지막 일봉(지금 거래 중인 세션이면 그 순간 값) · 바뀐 만큼 = 직전 세션 종가(정산 기준) 대비. 받은 시각은 응답 fetchedAt.
+_FUTURES = [
+    ("ES", "ES=F", "5d", 2),
+    ("NQ", "NQ=F", "5d", 2),
+]
+# 흐름(5 · 20거래일)을 붙이는 지수
+TREND_DAYS = (5, 20)
 
 TREASURY_TIMEOUT_SEC = 15
 # 미국 재무부 일별 국채 수익률(Par Yield Curve) XML — 공식 안내 https://home.treasury.gov/treasury-daily-interest-rate-xml-feed
@@ -73,12 +82,28 @@ def summarize_closes(closes: list[float], last_day: date | None, decimals: int) 
     current, previous = values[-1], values[-2]
     change = round(current - previous, decimals)
     change_pct = round((change / previous) * 100, 2) if previous != 0 else 0.0
-    return {
+    out = {
         "current": round(current, decimals),
         "change": change,
         "change_pct": change_pct,
         "data_date": last_day.isoformat() if last_day else None,
     }
+    trend = trend_from_closes(values)
+    if trend:
+        out["trend"] = trend
+    return out
+
+
+def trend_from_closes(values: list[float]) -> dict | None:
+    """
+    최근 흐름(%) — 마지막 값 ÷ N거래일 전 종가 − 1 (N = 5 · 20). 봉이 모자라면 그 칸은 None, 둘 다 모자라면 None(칸을 붙이지 않는다).
+    마지막 값은 등락률과 같은 값(장중이면 장중 값 — 서버 · 화면이 「장중」 을 붙인다).
+    """
+    out = {}
+    for n in TREND_DAYS:
+        base = values[-1 - n] if len(values) > n else None
+        out[f"d{n}"] = round((values[-1] / base - 1) * 100, 2) if base else None
+    return out if any(v is not None for v in out.values()) else None
 
 
 def _from_history(ticker: str, period: str, decimals: int) -> dict | None:
@@ -183,14 +208,16 @@ def check_us2y_sources(sources=None) -> list[dict]:
 
 def collect_market_data(edition: str, history=_from_history, us2y=fetch_us2y) -> dict:
     """
-    오전판(morning) = 13종 · 오후판(afternoon) = 코스피 · 코스닥 · VIX (원본 collect_morning_stocks · collect_afternoon_stocks).
+    오전판(morning) = 13종 + 미국 지수 선물 2 · 오후판(afternoon) = 코스피 · 코스닥 · S&P500 · 나스닥 · VIX + 선물 2
+    (원본 collect_morning_stocks · collect_afternoon_stocks 에 v2.60.0 이 선물 · 오후판 미국 지수를 더했다).
     돌려주는 값: {"assets": {키: 값}, "failed": [받지 못한 키], "sources": {"US2Y": 쓴 후보 · 시도}}. 시험이 history · us2y 를 바꿔 끼운다.
     """
     if edition == "afternoon":
-        plan = [_INDEX_ASSETS[0], _INDEX_ASSETS[1], _VIX]
+        # 오후판은 「오늘 밤 미국」 예상을 쓴다 — 미국 마지막 종가(S&P500 · 나스닥)와 선물도 받는다(v2.60.0)
+        plan = [_INDEX_ASSETS[0], _INDEX_ASSETS[1], _INDEX_ASSETS[2], _INDEX_ASSETS[3], _VIX, *_FUTURES]
         want_us2y = False
     else:
-        plan = [*_INDEX_ASSETS, *_MACRO_ASSETS]
+        plan = [*_INDEX_ASSETS, *_MACRO_ASSETS, *_FUTURES]
         want_us2y = True
 
     assets: dict = {}
@@ -212,6 +239,27 @@ def collect_market_data(edition: str, history=_from_history, us2y=fetch_us2y) ->
         else:
             failed.append("US2Y")
     return {"assets": assets, "failed": failed, "sources": sources}
+
+
+# 채점용 일봉(v2.60.0) — 오늘 시황 「오늘 예상 방향」 의 실제 결과(정규장 종가 ÷ 전일 정규장 종가 − 1). 시장 데이터와 같은 받기 · 같은 티커
+SCORE_TICKERS = {"KOSPI": "^KS11", "SP500": "^GSPC"}
+
+
+def index_closes(keys: list[str], history=None) -> dict:
+    """{키: [{date, close}, …]}(오래된 것부터 · 그 시장 날짜) — 받지 못하면 그 키는 빈 목록. 봉이 끝났는지는 서버가 시각으로 가린다"""
+    out: dict = {}
+    for key in keys:
+        ticker = SCORE_TICKERS.get(key)
+        if not ticker:
+            continue
+        frame = (history or yf_history_safe)(ticker, INDEX_HISTORY_PERIOD)
+        rows = []
+        if frame is not None and not frame.empty and "Close" in frame:
+            frame = frame[frame["Close"].notna()]
+            for idx, close in zip(frame.index, frame["Close"]):
+                rows.append({"date": idx.date().isoformat() if hasattr(idx, "date") else str(idx)[:10], "close": float(close)})
+        out[key] = rows
+    return out
 
 
 def get_market_brief_data(edition: str) -> dict:

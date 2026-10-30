@@ -200,6 +200,7 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
     at: collectedAt,
     usReleased,
     sectorStocks: collected.sectorStocks,
+    sectorTrend: collected.sectorTrend,
   });
   // 시장 데이터를 하나도 못 받았으면 AI 를 부르지 않는다 — 숫자 없이 시황을 지어낸다(한도도 아낀다)
   const noMarket = Object.keys(collected.market.assets).length === 0;
@@ -241,7 +242,7 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
     aiCalls: ai.calls,
     promptVersion: MARKET_BRIEF_PROMPT_VERSION,
     sources,
-    data: { assets: collected.market.assets, earnings: collected.earnings.earnings, collectedAt: new Date(collectedAt).toISOString() },
+    data: { assets: collected.market.assets, earnings: collected.earnings.earnings, collectedAt: new Date(collectedAt).toISOString(), sectorTrend: collected.sectorTrend },
     brief,
     aiError: brief ? null : aiError,
   });

@@ -24,7 +24,7 @@ from fundamentals import (
     get_market_overview,
     get_peers,
 )
-from market_brief import get_earnings_estimates, get_market_brief_data
+from market_brief import get_earnings_estimates, get_market_brief_data, index_closes
 
 app = Flask(__name__)
 
@@ -160,6 +160,18 @@ def market_brief_data():
         return jsonify({"error": "edition 은 morning 또는 afternoon 입니다."}), 400
     try:
         return jsonify(get_market_brief_data(edition))
+    except Exception as error:  # noqa: BLE001
+        return jsonify({"error": f"{type(error).__name__}: {error}"}), 500
+
+
+@app.get("/market-brief-closes")
+def market_brief_closes():
+    """오늘 시황 채점용 지수 일봉 — keys=KOSPI,SP500 (v2.60.0). 시장 데이터와 같은 받기(60초 캐시)"""
+    keys = [k.strip().upper() for k in (request.args.get("keys") or "").split(",") if k.strip()]
+    if not keys:
+        return jsonify({"error": "keys 파라미터가 필요합니다."}), 400
+    try:
+        return jsonify({"closes": index_closes(keys)})
     except Exception as error:  # noqa: BLE001
         return jsonify({"error": f"{type(error).__name__}: {error}"}), 500
 
