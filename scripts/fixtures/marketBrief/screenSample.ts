@@ -52,6 +52,8 @@ const common = {
   },
   upcoming_schedule: {
     this_week: [
+      // 만든 시각(한국 10-29 07:05 = 미국 10-28 18:05) 기준 미국 D+0 · 장 마감 뒤 → 「발표됨」(v2.59.4)
+      { date: '10/28(수)', event: '알파벳 실적 발표', ticker: 'GOOGL', sector_kr: '기술', detail: '예상 EPS $2.31 (직전 $2.17, YoY $2.12) | 컨센서스 Buy(52/60) | 매출 $99.80B', importance: 3, released: true, usCloseAt: '2026-10-28T20:00:00.000Z' },
       { date: '11/02(월)', event: '마이크론 실적 발표', ticker: 'MU', sector_kr: '기술', detail: '예상 EPS $20.05 ⚠️ (직전 $7.90, YoY $1.91, ±46%) | 컨센서스 Buy(39/44), 신뢰도 주의', importance: 3 },
       { date: '11/05(목)', event: '삼성전자 실적 발표', ticker: '005930', sector_kr: '기술', detail: '예상 EPS ₩1,235 (직전 ₩1,100, YoY ₩980) | 컨센서스 Buy(30/33) | 매출 ₩79.1조', importance: 3 },
     ],

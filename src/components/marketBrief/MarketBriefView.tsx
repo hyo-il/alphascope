@@ -10,6 +10,7 @@ import LoadingOverlay, { InlineSpinner } from '../common/LoadingOverlay';
 import { toast } from '../../store/uiStore';
 import { changeColor, displayMinus, formatNumber, formatPercent, formatSigned } from '../../utils/formatters';
 import { formatDateTime, formatTime } from '../../utils/dateFormat';
+import { kstClockText } from '../../utils/marketDate';
 import { ASSET_LABEL, EDITION_LABEL, isIntradayBar, scheduleItemMarket, vixZone } from '../../utils/marketBrief';
 import {
   type BriefAsset,
@@ -42,6 +43,8 @@ const STAGES: { id: BriefStage; label: string }[] = [
   { id: 'ai', label: 'AI 분석 중' },
   { id: 'save', label: '저장 중' },
 ];
+/** 용어집 「발표됨」 — 오늘 시황 ② 일정의 미국 D+0 · 장 마감 뒤 */
+const RELEASED_LABEL = '발표됨';
 const DISCLAIMER = '본 정보는 투자 권유가 아니며 투자 판단의 책임은 본인에게 있습니다.';
 /** AI 없이 만든 브리핑의 ② — 묶음마다 이만큼만 보이고 나머지는 수로 */
 const RAW_SCHEDULE_MAX = 8;
@@ -643,6 +646,17 @@ function ScheduleBody({
   );
 }
 
+/** 「발표됨」 배지 — 기존 배지 모양(`Badge`) · 키보드로도 열리는 툴팁(`InfoTip` trigger). 마감 시각은 한국 시간으로 */
+function ReleasedTag({ closeAt }: { closeAt?: string }) {
+  const ms = closeAt ? Date.parse(closeAt) : NaN;
+  const at = Number.isFinite(ms) ? kstClockText(ms).slice(0, 5) : null;
+  return (
+    <InfoTip label={RELEASED_LABEL} trigger={<Badge>{RELEASED_LABEL}</Badge>}>
+      미국 장 마감{at ? `(한국 ${at})` : ''} 뒤라 이미 발표됐을 수 있습니다 — 결과는 뉴스 · 차트로 확인하세요.
+    </InfoTip>
+  );
+}
+
 function ScheduleRow({ item, earning, onOpen }: { item: BriefScheduleItem; earning?: BriefEarning; onOpen: (symbol: string) => void }) {
   const flagged = earning?.epsSanityFlag || /신뢰도 주의|⚠/.test(item.detail);
   const detail = clean(item.detail.replace(/,?\s*신뢰도 주의\s*$/, ''));
@@ -651,8 +665,10 @@ function ScheduleRow({ item, earning, onOpen }: { item: BriefScheduleItem; earni
   const usDate = scheduleItemMarket({ ticker: symbol ?? item.ticker, event: item.event }) === 'US';
   return (
     <li className="flex gap-2 text-xs">
-      <span className="flex w-20 shrink-0 flex-col items-start tabular-nums text-text-secondary">
+      <span className="flex w-20 shrink-0 flex-col items-start gap-0.5 tabular-nums text-text-secondary">
         {slotDate(item.date)}
+        {/* 「발표됨」 — 만들 때 그 날 미국 장 마감이 지났다(서버가 정해 저장). 흐리게 하지 않는다(어젯밤 발표도 정보) */}
+        {item.released && <ReleasedTag closeAt={item.usCloseAt} />}
         {usDate && <UsDateTag />}
       </span>
       <div className="min-w-0 flex-1">
