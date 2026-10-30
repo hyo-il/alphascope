@@ -127,8 +127,12 @@ export function listOutlookBriefs(sinceDay: string): { id: number; createdAt: st
     .prepare(`SELECT id, created_at, brief_json FROM market_briefs WHERE brief_date >= ? AND brief_json IS NOT NULL ORDER BY created_at, id`)
     .all(sinceDay) as { id: number; created_at: string; brief_json: string }[];
   return rows.flatMap((r) => {
-    const outlook = (JSON.parse(r.brief_json) as BriefAi).today_outlook ?? [];
-    return outlook.length ? [{ id: r.id, createdAt: r.created_at, outlook }] : [];
+    try {
+      const outlook = (JSON.parse(r.brief_json) as BriefAi).today_outlook ?? [];
+      return outlook.length ? [{ id: r.id, createdAt: r.created_at, outlook }] : [];
+    } catch {
+      return []; // 깨진 한 줄 때문에 채점 전체가 멈추지 않게 그 줄만 건너뛴다
+    }
   });
 }
 

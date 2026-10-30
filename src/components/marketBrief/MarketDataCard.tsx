@@ -10,7 +10,12 @@ import { kstClockText } from '../../utils/marketDate';
 /** ⑤ 시장 데이터(참고) — AI 와 상관없이 늘 보인다(수집한 값 그대로) */
 export default function MarketDataCard({ brief }: { brief: MarketBrief }) {
   return (
-    <BriefCard id="market" title="시장 데이터" aside="참고">
+    <BriefCard
+      id="market"
+      title="시장 데이터"
+      aside="참고"
+      info="5일 · 20일 = 마지막 값 ÷ 5 · 20거래일 전 종가 − 1(평균이 아닙니다 · 장중이면 장중 값). 미국 지수 선물 = 정규장 밖에도 거래되는 S&P500 · 나스닥100 지수 계약 — 직전 세션 종가 대비. 한국 아침에 받은 선물은 미국 정규장 마감 직후 값이라 미국 지수 등락과 거의 같고, 오후에 받은 값이 밤사이 흐름입니다."
+    >
       <MarketData brief={brief} />
     </BriefCard>
   );
@@ -38,6 +43,7 @@ function Group({
   index = false,
   note,
   trendCols = false,
+  four = false,
   children,
 }: {
   title: string;
@@ -48,6 +54,8 @@ function Group({
   note?: string;
   /** 지수 흐름 칸(5일 · 20일)을 둘 더 둔다 — 줄마다 같은 열에 서게(v2.60.0) */
   trendCols?: boolean;
+  /** 「바뀐 만큼」 칸이 없는 네 칸 묶음 */
+  four?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -65,13 +73,14 @@ function Group({
           )
         )}
       </div>
-      <div className={`grid ${trendCols ? 'grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]'} items-baseline gap-x-1.5 gap-y-1 text-xs tabular-nums`}>{children}</div>
+      <div className={`grid ${trendCols ? 'grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto]' : four ? 'grid-cols-[minmax(0,1fr)_auto_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]'} items-baseline gap-x-1.5 gap-y-1 text-xs tabular-nums`}>{children}</div>
     </div>
   );
 }
 
 /** 한 줄 = 다섯 칸(묶음 grid 의 열) */
-function Row({ label, first, second, move }: { label: string; first: ReactNode; second: ReactNode; move?: ReactNode }) {
+/** 한 줄 = 다섯 칸(묶음 grid 의 열) · four = 「바뀐 만큼」 칸이 없는 네 칸 묶음(선물 — 빈 칸 간격만큼 안쪽으로 밀리지 않게) */
+function Row({ label, first, second, move, four = false }: { label: string; first: ReactNode; second: ReactNode; move?: ReactNode; four?: boolean }) {
   return (
     <>
       {/* 이름은 짧아 말줄임하지 않는다 — 브라우저 기본 툴팁(title)이 캡처에 찍혀 제목을 가리던 것(v2.59.6)을 없앴다 */}
@@ -79,24 +88,25 @@ function Row({ label, first, second, move }: { label: string; first: ReactNode; 
       <span className="text-right">{first}</span>
       <span className="text-text-muted">→</span>
       <span className="text-right text-text-primary">{second}</span>
-      <span className="text-right">{move}</span>
+      {!four && <span className="text-right">{move}</span>}
     </>
   );
 }
 
-/** 최근 흐름 한 칸(5 · 20거래일, v2.60.0) — 작은 글자 · 오른쪽 맞춤. 봉이 모자라면 「—」 */
+/** 최근 흐름 한 칸(5 · 20거래일, v2.60.0) — 작은 글자. 이름은 왼쪽 · 값은 오른쪽(값이 「—」 여도 이름이 같은 x) */
 const TrendCell = ({ n, v }: { n: number; v: number | null | undefined }) => (
-  <span className="whitespace-nowrap text-right text-caption text-text-muted" data-brief-trend>
-    {n}일 {v == null ? '—' : formatPercent(v)}
+  <span className="flex justify-between gap-1 whitespace-nowrap text-caption text-text-muted" data-brief-trend>
+    <span>{n}일</span>
+    <span>{v == null ? '—' : formatPercent(v)}</span>
   </span>
 );
 
 /** 지수 — 원본처럼 「등락률% → 현재값」 + (trend 묶음이면) 5일 · 20일 두 칸 */
-function IndexRow({ label, a, trend = false }: { label: string; a?: BriefAsset; trend?: boolean }) {
+function IndexRow({ label, a, trend = false, four = false }: { label: string; a?: BriefAsset; trend?: boolean; four?: boolean }) {
   if (!a) return null;
   return (
     <>
-      <Row label={label} first={<span className={changeColor(a.change_pct)}>{formatPercent(a.change_pct)}</span>} second={formatNumber(a.current, 2)} move={trend ? <TrendCell n={5} v={a.trend?.d5} /> : undefined} />
+      <Row label={label} first={<span className={changeColor(a.change_pct)}>{formatPercent(a.change_pct)}</span>} second={formatNumber(a.current, 2)} move={trend ? <TrendCell n={5} v={a.trend?.d5} /> : undefined} four={four} />
       {trend && <TrendCell n={20} v={a.trend?.d20} />}
     </>
   );
@@ -108,9 +118,10 @@ function FuturesGroup({ brief }: { brief: MarketBrief }) {
   if (!a.ES && !a.NQ) return null;
   const at = Date.parse(brief.data.collectedAt ?? brief.createdAt);
   return (
-    <Group title="미국 지수 선물(밤사이)" note={`받은 시각 ${kstClockText(at).slice(0, 5)}`}>
-      <IndexRow label="S&P500 선물" a={a.ES} />
-      <IndexRow label="나스닥100 선물" a={a.NQ} />
+    // 한국 아침(오전판)에 받은 선물은 미국 정규장 마감 직후 값이다 — 「밤사이」 라 적지 않는다(④ 경제 검토)
+    <Group title={brief.edition === 'morning' ? '미국 지수 선물(미국 마감 직후)' : '미국 지수 선물(밤사이)'} note={`받은 시각 한국 ${kstClockText(at).slice(0, 5)}`} four>
+      <IndexRow label="S&P500 선물" a={a.ES} four />
+      <IndexRow label="나스닥100 선물" a={a.NQ} four />
     </Group>
   );
 }

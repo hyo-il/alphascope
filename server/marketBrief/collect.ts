@@ -32,7 +32,7 @@ export const SECTOR_TREND_EACH = 3;
  * ⚠️ 종목 지도 계산 · 캐시는 바꾸지 않는다 — 응답을 읽기만 한다. 설명용 통계라 판단 · 주문에 쓰지 않는다.
  */
 export function sectorMoves(sectors: { sector: string; capReturn: number; counted: number }[]): { up: BriefSectorMove[]; down: BriefSectorMove[] } {
-  const list = sectors.filter((x) => x.counted > 0 && x.sector !== '기타').map((x) => ({ sector: x.sector, pct: x.capReturn }));
+  const list = sectors.filter((x) => x.counted > 0 && x.sector !== '기타').map((x) => ({ sector: x.sector, pct: x.capReturn, count: x.counted }));
   const sorted = [...list].sort((a, b) => b.pct - a.pct);
   const up = sorted.slice(0, SECTOR_TREND_EACH);
   const down = sorted.slice(-SECTOR_TREND_EACH).reverse().filter((d) => !up.some((u) => u.sector === d.sector));

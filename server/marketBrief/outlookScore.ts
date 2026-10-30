@@ -112,13 +112,25 @@ export async function chooseCandidates(briefs: { id: number; createdAt: string; 
   return chosen;
 }
 
-/** 그 거래일 실제 등락률(%) — 그 날 봉 ÷ 바로 앞 봉 − 1. 그 날 봉이나 앞 봉이 없으면 null */
-export function actualPctOf(rows: { date: string; close: number }[] | undefined, day: string): number | null {
-  if (!rows?.length) return null;
-  const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
-  const i = sorted.findIndex((r) => r.date === day);
-  if (i < 1 || !(sorted[i - 1].close > 0)) return null;
-  return Math.round((sorted[i].close / sorted[i - 1].close - 1) * 10_000) / 100;
+/**
+ * 그 거래일 실제 등락률(%) — 그 날 봉 ÷ 전 거래일 봉 − 1. **앞 봉 날짜가 전 거래일(prevDay)과 같을 때만**(일봉 하루가 빠지면
+ * 이틀치가 하루로 채점되지 않게 — 「끝에서 두 번째 봉」 으로 잡지 않는다). 그 날 봉 · 전 거래일 봉이 없으면 null(다음 틱에 다시)
+ */
+export function actualPctOf(rows: { date: string; close: number }[] | undefined, day: string, prevDay: string | null): number | null {
+  if (!rows?.length || !prevDay) return null;
+  const today = rows.find((r) => r.date === day);
+  const prev = rows.find((r) => r.date === prevDay);
+  if (!today || !prev || !(prev.close > 0)) return null;
+  return Math.round((today.close / prev.close - 1) * 10_000) / 100;
+}
+
+/** 그 시장에서 day 바로 앞 거래일 — 정규장 시각표(휴장 · 주말 null)로 거꾸로 찾는다(10일 안) */
+export async function previousTradeDay(market: Market, day: string, deps: Pick<ScoreDeps, 'start'>): Promise<string | null> {
+  for (let k = 1; k <= 10; k++) {
+    const d = shiftDay(day, -k);
+    if ((await deps.start(market, d)) != null) return d;
+  }
+  return null;
 }
 
 /**
@@ -133,7 +145,7 @@ export async function scoreOutlooks(now: number, deps: ScoreDeps = defaultScoreD
   const closes = await deps.closes([...new Set(due.map((c) => c.outlook.target))]);
   let n = 0;
   for (const c of due) {
-    const pct = actualPctOf(closes[c.outlook.target], c.day);
+    const pct = actualPctOf(closes[c.outlook.target], c.day, await previousTradeDay(MARKET_OF[c.outlook.target], c.day, deps));
     if (pct == null) continue;
     const actualDirection = directionOfPct(pct);
     upsertScore({

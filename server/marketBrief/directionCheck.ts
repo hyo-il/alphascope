@@ -13,11 +13,11 @@
  * - 단어 목록 · 임계값은 이 파일 상수 한 곳.
  */
 
-import { ASSET_LABEL, isIntradayBar } from '../../src/utils/marketBrief';
+import { ASSET_LABEL, BRIEF_FLAT_PCT, isIntradayBar } from '../../src/utils/marketBrief';
 import type { BriefAi, BriefAsset, BriefAssetKey, BriefEdition, BriefMismatch } from '../../src/types/marketBrief';
 
-/** 보합 — 등락률 절댓값이 이보다 작으면 방향을 따지지 않는다(%) */
-export const FLAT_PCT = 0.3;
+/** 보합 — 등락률 절댓값이 이보다 작으면 방향을 따지지 않는다(%) — 화면 · 예상 · 채점과 같은 값(`BRIEF_FLAT_PCT`) */
+export const FLAT_PCT = BRIEF_FLAT_PCT;
 /** 금리 보합 — 전일 대비 절대 변화가 이보다 작으면(%p = 3bp) */
 export const FLAT_RATE_PP = 0.03;
 /** 「방어 · 선방」 이 어긋남이 되는 등락률(%) — 이보다 나쁘면 */

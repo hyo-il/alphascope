@@ -176,25 +176,39 @@ export function trendText(key: BriefAssetKey, v: BriefAsset, at: number): string
   return ` · 최근 흐름 ${parts.join(' · ')}${live}`;
 }
 
-/** 미국 지수 선물(밤사이) — 받은 시각(한국)과 함께 · 직전 세션 종가 대비 */
-function futuresText(assets: Partial<Record<BriefAssetKey, BriefAsset>>, at: number): string {
+/**
+ * 미국 지수 선물 — 받은 시각(한국 · 미국 동부)과 함께 · 직전 세션 종가 대비.
+ * ⚠️ 오전판(한국 07시 무렵 = 미국 17~18시 ET)에는 막 끝난 세션이 미국 정규장과 거의 같은 시간이라 **밤사이 정보가 아니다** —
+ * 미국 지수 등락과 같은 움직임을 두 번 세지 않게 프롬프트에 밝힌다(④ 경제 검토). 오후판(미국 새벽)은 정규장 뒤 밤사이 흐름이다.
+ */
+function futuresText(assets: Partial<Record<BriefAssetKey, BriefAsset>>, at: number, edition: BriefEdition): string {
   const rows = (['ES', 'NQ'] as BriefAssetKey[]).flatMap((k) => {
     const v = assets[k];
     return v ? [`  ${ASSET_LABEL[k]}: ${num4(v.current)} (직전 세션 종가 대비 ${pct(v.change_pct)})`] : [];
   });
-  return rows.length ? `${rows.join('\n')}\n  (받은 시각 한국 ${kstClockText(at).slice(0, 5)} — 선물은 정규장 밖에도 거래돼 밤사이 흐름을 보여 준다. 정규장 지수와 같은 값이 아니다)` : '  (데이터 없음)';
+  if (!rows.length) return '  (데이터 없음)';
+  const when = `받은 시각 한국 ${kstClockText(at).slice(0, 5)} · 미국 동부 ${usClock(at)}`;
+  const note =
+    edition === 'morning'
+      ? '미국 정규장 마감 직후 값 — 위 [주요 지수] 의 미국 등락과 대부분 같은 움직임이다. 따로 세는 근거로 쓰지 말 것(밤사이 흐름이 아니다)'
+      : '미국 정규장이 닫힌 뒤 밤사이 거래된 값 — 정규장 지수와 같은 값이 아니다';
+  return `${rows.join('\n')}\n  (${when} — ${note})`;
 }
 
-const sectorRow = (list: BriefSectorMove[]) => list.map((m) => `${m.sector} ${pct(m.pct)}`).join(' · ') || '없음';
+/** 미국 동부 HH:MM */
+const usClock = (at: number) => new Intl.DateTimeFormat('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(at);
+
+const sectorRow = (list: BriefSectorMove[]) => list.map((m) => `${m.sector} ${pct(m.pct)}${m.count ? `(${m.count}종목)` : ''}`).join(' · ') || '없음';
 
 /** 섹터 1주 흐름(종목 지도) — 시장마다 강세 · 약세 한 줄씩. 받지 못한 시장은 「받지 못함」 */
 export function sectorTrendText(trend: BriefSectorTrend | undefined): string {
   const one = (label: string, t: BriefSectorTrend['kr']) =>
-    t ? `- ${label} 강세: ${sectorRow(t.up)}\n- ${label} 약세: ${sectorRow(t.down)}` : `- ${label}: 받지 못함`;
+    t ? `- ${label} 상위: ${sectorRow(t.up)}\n- ${label} 하위: ${sectorRow(t.down)}` : `- ${label}: 받지 못함`;
   return trend ? `${one('국내', trend.kr)}\n${one('미국', trend.us)}` : '(받지 못함)';
 }
 
-const TREND_HEAD = '[섹터 1주 흐름 (앱 종목 지도 · 시가총액 상위 100 · 섹터별 시총 가중 5거래일 수익률 — 강세 위 3 · 약세 아래 3)]';
+const TREND_HEAD =
+  '[섹터 1주 흐름 (앱 종목 지도 · 시가총액 상위 100 · 섹터별 시총 가중 5거래일 수익률(마지막 완성 종가 기준) — 상위 3 · 하위 3, 순위일 뿐 부호와 상관없다 · 괄호 = 센 종목 수, 적으면 한두 종목의 등락)]';
 
 /** 오늘부터 60일 안 FOMC 회의(연준 공식 일정 `data/fomc.ts`) — AI 가 경제 일정 날짜를 기억으로 쓰지 않게 */
 export function fomcText(today: string, usReleased = false): string {
@@ -289,8 +303,11 @@ const THEME_RULE = (beginner: boolean) => `- key_themes: 정확히 3개, 1~3개�
 
 const OUTLOOK_NAME: Record<string, string> = { KOSPI: '오늘 국내 정규장 코스피', SP500: '오늘 밤(미국 날짜로 다음 정규장) S&P500' };
 
-const OUTLOOK_JSON = (edition: BriefEdition) => `  "today_outlook": [
-${OUTLOOK_TARGETS[edition]
+/** 판의 예상 대상 — 오전판이라도 오늘 국내 휴장이면 코스피는 뺀다 */
+export const outlookTargets = (edition: BriefEdition, krClosed = false) => OUTLOOK_TARGETS[edition].filter((t) => !(krClosed && t === 'KOSPI'));
+
+const OUTLOOK_JSON = (edition: BriefEdition, krClosed = false) => `  "today_outlook": [
+${outlookTargets(edition, krClosed)
   .map(
     (t) =>
       `    { "target": "${t}", "direction": "상승 또는 보합 또는 하락", "confidence": "높음 또는 보통 또는 낮음", "reasons": ["근거 1 — 위 입력 숫자를 그대로 인용", "..."], "watch": "이 예상이 뒤집힐 수 있는 조건 한 줄" }`,
@@ -299,8 +316,8 @@ ${OUTLOOK_TARGETS[edition]
   ],`;
 
 /** 「오늘 예상 방향」 규칙 — 보합 범위는 문장 검사 · 채점과 같은 상수 */
-const OUTLOOK_RULE = (edition: BriefEdition) => `- today_outlook: ${OUTLOOK_TARGETS[edition].map((t) => `${t}(${OUTLOOK_NAME[t]})`).join(' · ')} — 정확히 ${OUTLOOK_TARGETS[edition].length}개, 이 대상만.
-  ★ direction: 「상승 · 보합 · 하락」 중 하나. 보합 = 전일 정규장 종가 대비 ±${FLAT_PCT}% 안으로 끝날 것으로 볼 때.
+const OUTLOOK_RULE = (edition: BriefEdition, krClosed = false) => `- today_outlook: ${outlookTargets(edition, krClosed).map((t) => `${t}(${OUTLOOK_NAME[t]})`).join(' · ')} — 정확히 ${outlookTargets(edition, krClosed).length}개, 이 대상만.${krClosed ? '\n  ★ 오늘은 국내 휴장이다 — KOSPI 예상은 쓰지 말 것.' : ''}
+  ★ direction: 「상승 · 보합 · 하락」 중 하나. 보합 = 전일 정규장 종가 대비 등락이 ±${FLAT_PCT}% 미만으로 끝날 것으로 볼 때(방향을 모른다는 뜻이 아니다).
   ★ confidence: 「높음 · 보통 · 낮음」 중 하나. 입력 근거(최근 흐름 · 선물 · 전일 등락 · 섹터 1주 · 뉴스)가 같은 방향으로 모일수록 높음, 엇갈리면 낮음. 확신이 낮으면 보합을 고를 수 있다.
   ★ reasons: 1~${OUTLOOK_REASONS_MAX}줄. 위 입력의 숫자를 그대로 근거로 쓸 것(예: "S&P500 선물 직전 세션 종가 대비 −0.92%"). 입력에 없는 숫자를 지어내지 말 것.
   ★ watch: 이 예상이 뒤집힐 수 있는 조건 한 줄(예: 발표 예정 지표 · 선물 반전).
@@ -402,6 +419,8 @@ export interface PromptInput {
   sectorStocks?: SectorStockPool;
   /** 섹터 1주 흐름(v2.60.0) */
   sectorTrend?: BriefSectorTrend;
+  /** 오늘 국내 휴장(오전판 코스피 예상을 받지 않는다 — 채점도 휴장이라 하지 않는다) */
+  krClosed?: boolean;
 }
 
 const STOCKS_HEAD = '[주도 섹터 대표 종목 후보 (섹터별 시가총액 상위 — leading_sectors 의 stocks_kr · stocks_us 는 이 목록에서만)]';
@@ -410,7 +429,7 @@ export function buildPrompt(input: PromptInput): string {
   return input.edition === 'morning' ? morningPrompt(input) : afternoonPrompt(input);
 }
 
-function morningPrompt({ today, assets, earnings, domestic, foreign, at = Date.now(), usReleased = false, sectorStocks = {}, sectorTrend }: PromptInput): string {
+function morningPrompt({ today, assets, earnings, domestic, foreign, at = Date.now(), usReleased = false, sectorStocks = {}, sectorTrend, krClosed = false }: PromptInput): string {
   return `오늘 날짜는 ${todayText(today)}입니다(한국). 미국 동부 날짜는 ${todayText(marketDate(at, 'SPY'))}입니다.
 
 ${SYSTEM}
@@ -421,8 +440,8 @@ ${PROFILE}
 [주요 지수 (전일 종가)]
 ${lines(assets, ['SP500', 'NASDAQ', 'DOW', 'RUSSELL2000'], at) || '  (데이터 없음)'}
 
-[미국 지수 선물 (밤사이)]
-${futuresText(assets, at)}
+[미국 지수 선물 (미국 정규장 마감 직후)]
+${futuresText(assets, at, 'morning')}
 
 [국내 지수 (전 거래일 종가)]
 ${lines(assets, ['KOSPI', 'KOSDAQ'], at) || '  (데이터 없음)'}
@@ -454,7 +473,7 @@ ${newsText(foreign, '해외', 40, '(해외 뉴스 없음)')}
   "market_regime": "Risk-On 또는 Risk-Off 또는 혼조",
   "regime_summary": "오늘 시장 기조를 1~2문장으로 요약",
   "portfolio_note": "패시브 포트폴리오 4개 자산 중 오늘 특이 동향 한줄 (예: 금 ETF 강세 유지 / 채권 관망)",
-${OUTLOOK_JSON('morning')}
+${OUTLOOK_JSON('morning', krClosed)}
   "key_themes": [
 ${THEME_JSON(false)}
   ],
@@ -464,7 +483,7 @@ ${REST_JSON('오늘 이 섹터가 주도하는 근거 (뉴스 기반, 1~2문장)
 - 최근 흐름 · 선물 · 섹터 1주 흐름은 위에 적힌 숫자만 쓸 것(숫자를 지어내지 말 것). 「최근 흐름 5일 · 20일」 은 마지막 값 ÷ 5 · 20거래일 전 종가 − 1.
 - 데이터 기준일 인식: [주요 지수]·[매크로 자산]의 [MM/DD(요일) 종가] 라벨을 인식하고
   현재 시점이 해당 종가 이후임을 전제로 어조 조정.
-${OUTLOOK_RULE('morning')}
+${OUTLOOK_RULE('morning', krClosed)}
 ${THEME_RULE(false)}
 ${COMMON_RULES}`;
 }
@@ -492,7 +511,7 @@ ${lines(assets, ['KOSPI', 'KOSDAQ'], at) || '  (데이터 없음)'}${krStale}
 ${lines(assets, ['SP500', 'NASDAQ'], at) || '  (데이터 없음)'}
 
 [미국 지수 선물 (밤사이)]
-${futuresText(assets, at)}
+${futuresText(assets, at, 'afternoon')}
 
 [시장 공포 지수]
 ${vixLevel || '  (데이터 없음)'}

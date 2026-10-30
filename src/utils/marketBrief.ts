@@ -5,6 +5,11 @@ import { marketDate, marketMinutes } from './marketDate';
 import { isKrSymbol } from './market';
 import { BRIEF_AFTERNOON_HOUR, type BriefAssetKey, type BriefEdition } from '../types/marketBrief';
 
+/**
+ * 보합 — 등락률 절댓값이 이보다 작으면 보합(%, 「±0.3% 미만」). 문장 검사 · 「오늘 예상 방향」 프롬프트 · 채점 · 화면 설명이 이 값 하나를 쓴다(v2.60.0 — A-11).
+ */
+export const BRIEF_FLAT_PCT = 0.3;
+
 /** 한국 날짜 YYYY-MM-DD */
 export const kstDay = (ms: number) => marketDate(ms, '005930');
 

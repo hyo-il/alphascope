@@ -23,6 +23,7 @@ import { normalizeOutlook } from './outlook';
 import { defaultScoreDeps, purgeScores, scoreOutlooks, type ScoreDeps } from './outlookScore';
 import { filterSectorStocks } from './sectorStocks';
 import { regularSessionEnd } from '../heatmapSession';
+import { isMarketClosed } from '../marketCalendar';
 import { marketDate } from '../../src/utils/marketDate';
 import { countBriefs, insertBrief, purgeOldBriefs } from './store';
 import { editionAt, kstDay, kstMinutes } from '../../src/utils/marketBrief';
@@ -193,6 +194,8 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
   // 「발표됨」 — 지금의 미국 날짜 그 날 정규장 끝(토스 달력 → 고정표, 조기 마감 반영 · 휴장이면 null). 프롬프트 · 뒤처리가 같은 값
   const usClose = await deps.usClose(marketDate(startedMs, 'SPY'), startedMs).catch(() => null);
   const usReleased = usClose != null && startedMs >= usClose;
+  // 오늘 국내 휴장이면 오전판도 코스피 예상을 받지 않는다(채점도 휴장이라 하지 않는다)
+  const krClosed = edition === 'morning' && isMarketClosed('KR', today);
   // AI 가 없어도 ② 실적 목록에 같은 「발표됨」(저장 데이터에 붙인다 — 화면은 그대로 읽는다)
   markReleasedEarnings(collected.earnings.earnings, startedMs, usClose);
   const prompt = buildPrompt({
@@ -206,6 +209,7 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
     usReleased,
     sectorStocks: collected.sectorStocks,
     sectorTrend: collected.sectorTrend,
+    krClosed,
   });
   // 시장 데이터를 하나도 못 받았으면 AI 를 부르지 않는다 — 숫자 없이 시황을 지어낸다(한도도 아낀다)
   const noMarket = Object.keys(collected.market.assets).length === 0;
@@ -219,7 +223,7 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
     try {
       brief = postprocess(ai.brief, collected.earnings.earnings, startedMs, usClose);
       // 「오늘 예상 방향」 — 판에 맞는 대상 · 정해진 말만(v2.60.0)
-      brief.today_outlook = normalizeOutlook(ai.brief.today_outlook, edition);
+      brief.today_outlook = normalizeOutlook(ai.brief.today_outlook, edition, krClosed);
       // ③ 대표 종목 — 후보 목록 밖 · 다른 섹터는 뺀다 / 문장 ↔ 숫자 — 어긋남만 남긴다(문장은 그대로)
       const dropped = filterSectorStocks(brief, collected.sectorStocks);
       brief.mismatches = checkDirections(brief, { edition, assets: collected.market.assets, at: collectedAt });

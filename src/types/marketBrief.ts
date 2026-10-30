@@ -51,6 +51,8 @@ export interface BriefAsset {
 export interface BriefSectorMove {
   sector: string;
   pct: number;
+  /** 그 섹터에서 센 종목 수(적으면 한두 종목의 등락) — 그 전 브리핑은 없음 */
+  count?: number;
 }
 
 /** 섹터 1주 흐름(v2.60.0) — 종목 지도(`heatmap(…, '1w')`) 섹터 통계를 읽기만 한 것. 시장마다 강세 위 3 · 약세 아래 3 · 받지 못하면 null */

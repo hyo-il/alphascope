@@ -25,8 +25,9 @@ export { FLAT_PCT };
 export const OUTLOOK_REASONS_MAX = 3;
 
 /** 응답 → 판에 맞는 예상만(대상 순서는 `OUTLOOK_TARGETS` 순서) */
-export function normalizeOutlook(raw: unknown, edition: BriefEdition): BriefOutlook[] {
-  const allowed = OUTLOOK_TARGETS[edition];
+export function normalizeOutlook(raw: unknown, edition: BriefEdition, krClosed = false): BriefOutlook[] {
+  // 오늘 국내 휴장이면 오전판도 코스피 예상을 받지 않는다(프롬프트 `outlookTargets` 와 같은 규칙)
+  const allowed = OUTLOOK_TARGETS[edition].filter((t) => !(krClosed && t === 'KOSPI'));
   const items = Array.isArray(raw) ? raw : [];
   const byTarget = new Map<OutlookTarget, BriefOutlook>();
   for (const r of items) {
@@ -46,7 +47,7 @@ export function normalizeOutlook(raw: unknown, edition: BriefEdition): BriefOutl
   return allowed.flatMap((t) => (byTarget.has(t) ? [byTarget.get(t)!] : []));
 }
 
-/** 등락률(%) → 방향 — |x| < FLAT_PCT 면 보합(문장 검사와 같은 경계: 0.29 보합 · 0.30 은 상승/하락) */
+/** 등락률(%) → 방향 — |x| < FLAT_PCT 면 보합(±0.3% 미만 — 문장 검사와 같은 경계: 0.29 보합 · 0.30 은 상승/하락) */
 export function directionOfPct(pct: number): OutlookDirection {
   if (Math.abs(pct) < FLAT_PCT) return '보합';
   return pct > 0 ? '상승' : '하락';

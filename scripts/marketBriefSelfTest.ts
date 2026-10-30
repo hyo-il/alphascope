@@ -19,7 +19,7 @@ import { collectNews, freshNews, parseFeed, DOMESTIC_FALLBACK, DOMESTIC_RSS, FOR
 import { collectAll, sectorMoves } from '../server/marketBrief/collect';
 import { checkDirections, checkText, DEFENSE_PCT, FLAT_PCT, FLAT_RATE_PP } from '../server/marketBrief/directionCheck';
 import { directionOfPct, normalizeOutlook } from '../server/marketBrief/outlook';
-import { actualPctOf, chooseCandidates, clearScoresForTest, outlookStats, outlookView, purgeScores, scoreOutlooks, SCORE_KEEP_DAYS, SETTLE_MARGIN_MS, targetDayOf, type DailyCloses, type ScoreDeps } from '../server/marketBrief/outlookScore';
+import { actualPctOf, chooseCandidates, previousTradeDay, clearScoresForTest, outlookStats, outlookView, purgeScores, scoreOutlooks, SCORE_KEEP_DAYS, SETTLE_MARGIN_MS, targetDayOf, type DailyCloses, type ScoreDeps } from '../server/marketBrief/outlookScore';
 import { getScore, upsertScore } from '../server/marketBrief/store';
 import { marketDayTime } from '../server/marketHours';
 import { filterSectorStocks, poolText, sectorStockPool, type SectorStockPool } from '../server/marketBrief/sectorStocks';
@@ -276,12 +276,12 @@ const db = getDb();
   const fut = { ES: { current: 7683.25, change: -71, change_pct: -0.92, data_date: '2026-10-30' }, NQ: { current: 28980.75, change: -581.25, change_pct: -1.97, data_date: '2026-10-30' } };
   const am = buildPrompt({ edition: 'morning', today: '2026-10-30', assets: { ...fut, KOSPI: k, SP500: { current: 6800, change: 20, change_pct: 0.3, data_date: '2026-10-29', trend: { d5: 1.5, d20: 4.2 } } }, earnings: [], domestic: [], foreign: [], at, sectorTrend: { kr: { up: [{ sector: '기술', pct: 4.2 }], down: [{ sector: '에너지', pct: -2.1 }] }, us: null } });
   check('오전판 프롬프트 — 선물(직전 세션 종가 대비 · 받은 시각) · 국내 지수 · 흐름 · 섹터 1주(못 받은 시장 표시)',
-    am.includes('[미국 지수 선물 (밤사이)]') && am.includes('  S&P500 선물: 7,683.2500 (직전 세션 종가 대비 -0.92%)') && am.includes('받은 시각 한국 07:05') &&
+    am.includes('[미국 지수 선물 (미국 정규장 마감 직후)]') && am.includes('  S&P500 선물: 7,683.2500 (직전 세션 종가 대비 -0.92%)') && am.includes('받은 시각 한국 07:05 · 미국 동부 18:05') && am.includes('따로 세는 근거로 쓰지 말 것(밤사이 흐름이 아니다)') &&
       am.includes('[국내 지수 (전 거래일 종가)]') && am.includes('  코스피: 2,500.0000 (-1.96%) [10/29(목) 종가] · 최근 흐름 5일 -3.20% · 20일 +1.10%') &&
-      am.includes('- 국내 강세: 기술 +4.20%') && am.includes('- 국내 약세: 에너지 -2.10%') && am.includes('- 미국: 받지 못함'), am.split('\n').filter((l) => /선물|코스피|강세|약세|미국:/.test(l)).join(' / '));
+      am.includes('- 국내 상위: 기술 +4.20%') && am.includes('- 국내 하위: 에너지 -2.10%') && am.includes('상위 3 · 하위 3, 순위일 뿐 부호와 상관없다') && am.includes('- 미국: 받지 못함'), am.split('\n').filter((l) => /선물|코스피|강세|약세|미국:/.test(l)).join(' / '));
   const pm = buildPrompt({ edition: 'afternoon', today: '2026-10-30', assets: { ...fut, KOSPI: k, SP500: { current: 6800, change: 20, change_pct: 0.3, data_date: '2026-10-29' } }, earnings: [], domestic: [], foreign: [], at: Date.parse('2026-10-30T16:00:00+09:00'), sectorTrend: undefined });
   check('오후판 프롬프트 — 미국 지수(마지막 정규장 종가) · 선물 · 섹터 1주 없으면 「받지 못함」', pm.includes('[미국 지수 (마지막 정규장 종가)]') && pm.includes('  S&P500: 6,800.0000 (+0.30%)') && pm.includes('[미국 지수 선물 (밤사이)]') && pm.includes('(받지 못함)'));
-  check('섹터 1주 글 — 둘 다', sectorTrendText({ kr: { up: [], down: [] }, us: { up: [{ sector: '기술', pct: 1 }], down: [] } }) === '- 국내 강세: 없음\n- 국내 약세: 없음\n- 미국 강세: 기술 +1.00%\n- 미국 약세: 없음');
+  check('섹터 1주 글 — 둘 다', sectorTrendText({ kr: { up: [], down: [] }, us: { up: [{ sector: '기술', pct: 1, count: 2 }], down: [] } }) === '- 국내 상위: 없음\n- 국내 하위: 없음\n- 미국 상위: 기술 +1.00%(2종목)\n- 미국 하위: 없음');
   // 섹터 1주 — 종목 지도 응답을 읽기만(바꾸지 않음) · 「기타」 뺌 · 위 3 · 아래 3 · 겹치지 않음
   const sectors = [
     { sector: '기술', capReturn: 4.2, counted: 20 }, { sector: '금융', capReturn: 1.0, counted: 10 }, { sector: '기타', capReturn: 9.9, counted: 3 },
@@ -290,7 +290,7 @@ const db = getDb();
   ];
   const before = JSON.stringify(sectors);
   const mv = sectorMoves(sectors);
-  check('섹터 1주 — 강세 위 3 · 약세 아래 3(낮은 것부터) · 「기타」 · 셀 수 0 뺌', JSON.stringify(mv) === JSON.stringify({ up: [{ sector: '기술', pct: 4.2 }, { sector: '금융', pct: 1 }, { sector: '헬스케어', pct: 0.5 }], down: [{ sector: '에너지', pct: -2.1 }, { sector: '산업재', pct: -0.4 }] }), JSON.stringify(mv));
+  check('섹터 1주 — 상위 3 · 하위 3(낮은 것부터) · 「기타」 · 셀 수 0 뺌 · 종목 수', JSON.stringify(mv) === JSON.stringify({ up: [{ sector: '기술', pct: 4.2, count: 20 }, { sector: '금융', pct: 1, count: 10 }, { sector: '헬스케어', pct: 0.5, count: 8 }], down: [{ sector: '에너지', pct: -2.1, count: 5 }, { sector: '산업재', pct: -0.4, count: 6 }] }), JSON.stringify(mv));
   check('섹터 1주 — 종목 지도 응답을 바꾸지 않음(읽기만)', JSON.stringify(sectors) === before);
   // 받기 실패 → 그 시장은 빼고 · 수집 상태 줄
   const colT = await collectAll('morning', at, {
@@ -785,7 +785,8 @@ const runButton = async () => {
   check('주말 틱 0', (await marketBriefTick(deps)) === null);
   process.env.MARKET_BRIEF_ENABLED = 'false';
   clock = kst('2026-11-05', '07:05');
-  check('스위치 끔(MARKET_BRIEF_ENABLED=false) → 0', (await marketBriefTick(deps)) === null && briefStatus(clock).autoDisabledReason !== null);
+  let offStarts = 0;
+  check('스위치 끔(MARKET_BRIEF_ENABLED=false) → 0 · 채점도 하지 않음(시각표 · 일봉을 읽지 않음)', (await marketBriefTick({ ...deps, score: { start: async () => (offStarts++, null), end: async () => null, closes: async () => (offStarts++, {}) } })) === null && briefStatus(clock).autoDisabledReason !== null && offStarts === 0);
   delete process.env.MARKET_BRIEF_ENABLED;
   geminiReason = 'Gemini 키가 설정되지 않았습니다';
   const noAi = await marketBriefTick(deps);
@@ -910,13 +911,14 @@ const runButton = async () => {
   check('오전판 — 코스피 · S&P500 만(순서 고정) · 코스닥 뺌 · 같은 대상 두 번째 뺌', am.map((o) => `${o.target}:${o.direction}`).join(',') === 'KOSPI:하락,SP500:상승', JSON.stringify(am));
   const pm = normalizeOutlook([row('KOSPI'), row('SP500', '보합', '낮음')], 'afternoon');
   check('오후판 — S&P500 만(코스피 예상은 서버가 뺌)', pm.length === 1 && pm[0].target === 'SP500' && pm[0].direction === '보합');
+  check('오늘 국내 휴장 — 오전판도 코스피 예상을 빼고 프롬프트에 알림', normalizeOutlook([row('KOSPI'), row('SP500')], 'morning', true).map((x) => x.target).join() === 'SP500' && buildPrompt({ edition: 'morning', today: '2026-10-09', assets: {}, earnings: [], domestic: [], foreign: [], at: Date.parse('2026-10-09T07:05:00+09:00'), krClosed: true }).includes('오늘은 국내 휴장이다 — KOSPI 예상은 쓰지 말 것'));
   check('정해진 말이 아니면 그 줄을 뺌(방향 「강세」 · 확신 「매우 높음」)', normalizeOutlook([row('KOSPI', '강세'), row('SP500', '상승', '매우 높음')], 'morning').length === 0);
   check('근거 1~3줄만 · 빈 줄 뺌 · 응답이 배열이 아니면 빈 목록', normalizeOutlook([row('KOSPI', '상승', '보통', ['a', '', 'b', 'c', 'd'])], 'morning')[0].reasons.join('') === 'abc' && normalizeOutlook(null, 'morning').length === 0 && normalizeOutlook({}, 'afternoon').length === 0);
   const sch = SCHEMA.morning as { required: string[]; properties: { today_outlook: { items: { properties: Record<string, { enum?: string[] }> } } } };
   const p = sch.properties.today_outlook.items.properties;
   check('스키마 — today_outlook 필수 · 대상 · 방향 · 확신 enum', sch.required.includes('today_outlook') && p.target.enum?.join() === 'KOSPI,SP500' && p.direction.enum?.join() === '상승,보합,하락' && p.confidence.enum?.join() === '높음,보통,낮음' && (SCHEMA.afternoon as typeof sch).properties.today_outlook.items.properties.target.enum?.join() === 'SP500');
   const pr = buildPrompt({ edition: 'morning', today: '2026-10-30', assets: {}, earnings: [], domestic: [], foreign: [], at: Date.parse('2026-10-30T07:05:00+09:00') });
-  check(`프롬프트 — 보합 = ±${FLAT_PCT}%(문장 검사와 같은 상수) · 확신 규칙 · 숫자 지어내지 말 것`, pr.includes(`보합 = 전일 정규장 종가 대비 ±${FLAT_PCT}% 안`) && pr.includes('엇갈리면 낮음') && pr.includes('확신이 낮으면 보합을 고를 수 있다') && pr.includes('입력에 없는 숫자를 지어내지 말 것') && pr.includes('"target": "KOSPI"') && pr.includes('"target": "SP500"'));
+  check(`프롬프트 — 보합 = ±${FLAT_PCT}%(문장 검사와 같은 상수) · 확신 규칙 · 숫자 지어내지 말 것`, pr.includes(`보합 = 전일 정규장 종가 대비 등락이 ±${FLAT_PCT}% 미만`) && pr.includes('엇갈리면 낮음') && pr.includes('확신이 낮으면 보합을 고를 수 있다') && pr.includes('입력에 없는 숫자를 지어내지 말 것') && pr.includes('"target": "KOSPI"') && pr.includes('"target": "SP500"'));
   check('프롬프트(오후판) — 대상은 SP500 하나', (() => { const t = buildPrompt({ edition: 'afternoon', today: '2026-10-30', assets: {}, earnings: [], domestic: [], foreign: [], at: Date.parse('2026-10-30T16:00:00+09:00') }); return t.includes('"target": "SP500"') && !t.includes('"target": "KOSPI"'); })());
   check('보합 경계 — 0.29 보합 · 0.30 상승 · 0.31 상승 · −0.30 하락(문장 검사와 같은 경계)', directionOfPct(0.29) === '보합' && directionOfPct(0.3) === '상승' && directionOfPct(0.31) === '상승' && directionOfPct(-0.3) === '하락' && directionOfPct(-0.29) === '보합' && directionOfPct(0) === '보합');
   // 근거 문장 검사 — 입력 숫자와 반대 표현이면 같은 표시
@@ -1075,8 +1077,10 @@ const POOL: SectorStockPool = {
   check('채점 — 이미 채점한 것은 다시 받지 않음', (await scoreOutlooks(krEnd + 2 * SETTLE_MARGIN_MS, sd)) === 0);
   const usEnd = at('2026-11-03T06:00:00'); // 미국 11-02 16:00 EST = 한국 11-03 06:00
   check('채점 — 미국 마감(한국 06:00) + 여유 뒤 S&P500 +0.31% → 상승 · b3 「상승」 맞음', (await scoreOutlooks(usEnd + SETTLE_MARGIN_MS, sd)) === 1 && getScore('SP500', '2026-11-02')?.hit === true && getScore('SP500', '2026-11-02')?.actualDirection === '상승');
-  check('경계 — 0.29 보합 · 0.30 상승 · 0.31 상승 · 실제 등락률은 소수 2자리', actualPctOf([{ date: 'a', close: 1000 }, { date: 'b', close: 1003 }], 'b') === 0.3 && directionOfPct(actualPctOf([{ date: 'a', close: 1000 }, { date: 'b', close: 1003 }], 'b')!) === '상승' && actualPctOf([{ date: 'b', close: 1 }], 'b') === null && actualPctOf(undefined, 'b') === null);
+  check('경계 — 0.29 보합 · 0.30 상승 · 0.31 상승 · 실제 등락률은 소수 2자리', actualPctOf([{ date: 'a', close: 1000 }, { date: 'b', close: 1003 }], 'b', 'a') === 0.3 && directionOfPct(actualPctOf([{ date: 'a', close: 1000 }, { date: 'b', close: 1003 }], 'b', 'a')!) === '상승' && actualPctOf([{ date: 'b', close: 1 }], 'b', 'a') === null && actualPctOf(undefined, 'b', 'a') === null);
 
+  check('실제 결과 — 앞 봉이 전 거래일이 아니면(일봉 하루 빠짐) 채점 보류(null)', actualPctOf([{ date: '2026-10-29', close: 1000 }, { date: '2026-11-02', close: 1010 }], '2026-11-02', '2026-10-30') === null);
+  check('전 거래일 — 정규장 시각표로(11-05 앞 = 11-03 · 11-04 휴장 건너뜀 · 11-02 앞 = 10-30 주말 건너뜀)', (await previousTradeDay('KR', '2026-11-05', sd)) === '2026-11-03' && (await previousTradeDay('KR', '2026-11-02', sd)) === '2026-10-30');
   // 놓친 날 보충 — 며칠 뒤 한 번에 · 일봉에 그 날이 없으면 다음 틱
   const b4 = put('2026-11-03T07:05:00', [o('KOSPI', '하락', '높음')]);
   const b5 = put('2026-11-05T07:05:00', [o('KOSPI', '상승', '보통')]);
