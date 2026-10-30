@@ -90,3 +90,10 @@ export function kstClockText(timestamp: number): string {
   });
   return kstClockFormatter.format(new Date(timestamp));
 }
+
+/**
+ * 「미국 날짜」 표시 — 미국 일정(실적 · FOMC · 옵션 만기 · 미국 휴장)의 날짜는 미국 동부 날짜다(계산 · 「지남」 도 그 날짜로).
+ * 화면은 그 날짜 옆에 이 글자를 붙인다(공용 부품 `common/UsDateTag` · 서버 문장(매수 판단 실적 경고)도 같은 글자 — 문구 한 곳).
+ */
+export const US_DATE_LABEL = '미국 날짜';
+export const US_DATE_TIP = '미국 동부 시간 기준 날짜입니다 — 한국 시간으로는 다음 날 새벽일 수 있습니다';

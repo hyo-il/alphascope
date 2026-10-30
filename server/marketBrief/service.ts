@@ -173,7 +173,7 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
   const today = kstDay(startedMs);
 
   state.stage = 'collect';
-  const collected = await collectAll(edition, today, deps.collect);
+  const collected = await collectAll(edition, startedMs, deps.collect);
 
   state.stage = 'ai';
   // 장중/종가 판단 시각 = 지표 엔진이 실제로 받은 시각(엔진 10분 캐시면 그때) — 프롬프트 · 화면이 같은 값을 쓴다
@@ -196,7 +196,7 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
   let aiError = ai.error;
   if (ai.brief) {
     try {
-      brief = postprocess(ai.brief, collected.earnings.earnings, today);
+      brief = postprocess(ai.brief, collected.earnings.earnings, startedMs);
     } catch (e) {
       aiError = `AI 응답 뒤처리 실패 — ${(e as Error).message}`;
     }

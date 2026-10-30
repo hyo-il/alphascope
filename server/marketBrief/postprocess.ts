@@ -10,6 +10,7 @@
  */
 
 import { isKrSymbol } from '../../src/utils/market';
+import { marketDate } from '../../src/utils/marketDate';
 import type { BriefAi, BriefEarning, BriefScheduleItem } from '../../src/types/marketBrief';
 
 type Slot = keyof BriefAi['upcoming_schedule'];
@@ -95,8 +96,17 @@ export function daysUntilLabel(label: string, today: string): number | null {
   return Math.round((t - base) / 86_400_000);
 }
 
+/**
+ * 그 일정의 「오늘」 — 종목이 있으면 그 종목 시장의 오늘, 종목이 없는 일정(FOMC · 경제지표)은 미국 날짜(v2.59.3 · 증시 일정과 같은 기준).
+ * 날짜 칸(MM/DD)도 그 시장 날짜라 같은 기준으로 날수를 센다.
+ */
+export function itemToday(item: Pick<BriefScheduleItem, 'ticker'>, now: number): string {
+  const t = bareTicker(item.ticker ?? '');
+  return t ? marketDate(now, t) : marketDate(now, 'SPY');
+}
+
 /** ② 날수로 슬롯 다시 배치 (원본 _reassign_upcoming_slots_by_days) — AI 가 같은 일정(날짜 · 티커 · 이름)을 두 슬롯에 적었으면 하나만 */
-export function reassignSlotsByDays(brief: BriefAi, today: string): BriefAi {
+export function reassignSlotsByDays(brief: BriefAi, now: number): BriefAi {
   const seen = new Set<string>();
   const all = SLOTS.flatMap((s) => brief.upcoming_schedule[s]).filter((item) => {
     const key = `${item.date.slice(0, 5)}|${item.ticker.toUpperCase() || item.event}`;
@@ -106,7 +116,7 @@ export function reassignSlotsByDays(brief: BriefAi, today: string): BriefAi {
   });
   const next: BriefAi['upcoming_schedule'] = { this_week: [], this_month: [], next_2_months: [] };
   for (const item of all) {
-    const days = daysUntilLabel(item.date, today);
+    const days = daysUntilLabel(item.date, itemToday(item, now));
     if (days === null) next.this_month.push(item);
     else if (days <= 7) next.this_week.push(item);
     else if (days <= 30) next.this_month.push(item);
@@ -125,7 +135,7 @@ export const SLOT_CAPS: Record<Slot, { sector: number; total: number }> = {
 };
 
 /** ③ 섹터 상한 + 주도 섹터 별점 순 (원본 _cap_and_sort_by_sector_priority) */
-export function capAndSortBySectorPriority(brief: BriefAi, today: string): BriefAi {
+export function capAndSortBySectorPriority(brief: BriefAi, now: number): BriefAi {
   const stars = new Map(brief.leading_sectors.map((s) => [s.name, (String(s.stars ?? '').match(/★/g) ?? []).length]));
   for (const slot of SLOTS) {
     const cap = SLOT_CAPS[slot];
@@ -133,7 +143,7 @@ export function capAndSortBySectorPriority(brief: BriefAi, today: string): Brief
       item,
       i,
       priority: stars.get(item.sector_kr) ?? 0,
-      days: daysUntilLabel(item.date, today) ?? Number.MAX_SAFE_INTEGER,
+      days: daysUntilLabel(item.date, itemToday(item, now)) ?? Number.MAX_SAFE_INTEGER,
     }));
     keyed.sort((a, b) => b.priority - a.priority || a.days - b.days || a.i - b.i);
     const perSector = new Map<string, number>();
@@ -156,10 +166,10 @@ export function capAndSortBySectorPriority(brief: BriefAi, today: string): Brief
 }
 
 /** 뒤처리 전부 — ⓪ → ① → ② → ③ */
-export function postprocess(raw: Partial<BriefAi>, earnings: BriefEarning[], today: string): BriefAi {
+export function postprocess(raw: Partial<BriefAi>, earnings: BriefEarning[], now: number): BriefAi {
   const brief = alignEarningSectors(normalizeBrief(raw), earnings);
   filterByLeadingSectors(brief);
-  reassignSlotsByDays(brief, today);
-  capAndSortBySectorPriority(brief, today);
+  reassignSlotsByDays(brief, now);
+  capAndSortBySectorPriority(brief, now);
   return brief;
 }

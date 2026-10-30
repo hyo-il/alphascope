@@ -34,13 +34,14 @@ export const fetchMarketData: MarketDataFetcher = async (edition) => {
 export interface CollectDeps {
   market: MarketDataFetcher;
   rss: RssFetcher;
-  earnings: (today: string) => Promise<EarningsCollection>;
+  /** now = 그 순간(ms) — 실적 날수는 종목마다 그 시장 날짜로 */
+  earnings: (now: number) => Promise<EarningsCollection>;
 }
 
 export const defaultCollectDeps: CollectDeps = {
   market: fetchMarketData,
   rss: fetchRss,
-  earnings: (today) => collectEarnings(today),
+  earnings: (now) => collectEarnings(now),
 };
 
 export interface Collected {
@@ -51,11 +52,11 @@ export interface Collected {
   sources: BriefSourceStatus[];
 }
 
-export async function collectAll(edition: BriefEdition, today: string, deps: CollectDeps = defaultCollectDeps): Promise<Collected> {
+export async function collectAll(edition: BriefEdition, now: number, deps: CollectDeps = defaultCollectDeps): Promise<Collected> {
   const [market, news, earnings] = await Promise.all([
     deps.market(edition).catch((e: Error): MarketData & { error: string } => ({ assets: {}, failed: [], error: e.message })),
     collectNews(edition === 'morning', deps.rss),
-    deps.earnings(today).catch((e: Error): EarningsCollection => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: e.message })),
+    deps.earnings(now).catch((e: Error): EarningsCollection => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: e.message })),
   ]);
 
   const sources: BriefSourceStatus[] = [];

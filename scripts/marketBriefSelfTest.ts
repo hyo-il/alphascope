@@ -155,7 +155,7 @@ const db = getDb();
   put.run('ZZD', '2026-10-28', 0); // 지난 날 (제외)
   put.run('0ZZ001', '2026-11-10', 0);
   db.prepare(`INSERT INTO stock_profiles (symbol, sector, fetched_at) VALUES ('ZZA', 'Technology', 'x'), ('0ZZ001', 'Financial Services', 'x')`).run();
-  const bases = upcomingEarningBases('2026-10-29', T);
+  const bases = upcomingEarningBases(Date.parse('2026-10-29T14:00:00+09:00'), T);
   check('60일 안(D+0 ~ D+60)만', bases.map((b) => `${b.symbol}:${b.daysUntil}`).join(',') === 'ZZA:0,0ZZ001:12,ZZB:60', JSON.stringify(bases));
   check('섹터 한국어(종목 지도와 같은 이름) · 모르면 기타', bases[0].sector === '기술' && bases[1].sector === '금융' && bases[2].sector === '기타');
   check('추정일 표시', bases[2].isEstimateDate && !bases[0].isEstimateDate);
@@ -166,7 +166,7 @@ const db = getDb();
   const many = Array.from({ length: 25 }, (_, i) => base(`S${i}`, i));
   const chunks: string[][] = [];
   const sleeps: number[] = [];
-  const got = await collectEarnings('2026-10-29', {
+  const got = await collectEarnings(Date.parse('2026-10-29T14:00:00+09:00'), {
     bases: many,
     fetcher: async (symbols) => {
       chunks.push(symbols);
@@ -178,7 +178,7 @@ const db = getDb();
   check('전망치 10종목씩 3묶음 · 사이 1초', chunks.map((c) => c.length).join(',') === '10,10,5' && sleeps.join(',') === '1000,1000');
   check('묶음 실패 → 그 종목만 전망치 없이 · 오류 남김', got.estimatesOk === 15 && got.estimatesTried === 25 && /일부 받기 실패/.test(got.error ?? ''));
   let t = 0;
-  const capped = await collectEarnings('2026-10-29', {
+  const capped = await collectEarnings(Date.parse('2026-10-29T14:00:00+09:00'), {
     bases: many,
     fetcher: async (symbols) => symbols.map((s) => ({ symbol: s, ok: true })),
     sleep: async () => {},
@@ -223,7 +223,7 @@ const news = (n: number, foreign: boolean) => Array.from({ length: n }, (_, i) =
   check('필수 키 — 오전 market_regime · 오후 market_summary', REQUIRED_KEYS.morning.includes('market_regime') && REQUIRED_KEYS.afternoon.includes('market_summary'));
 
   // 금리는 %p · bp, 선물 · 환율은 「기준」, FOMC 는 공식 일정
-  const macro = buildPrompt({ edition: 'morning', today: '2026-10-29', assets: { ...assets, GOLD: { current: 2745.3, change: 12.1, change_pct: 0.44, data_date: '2026-10-28' } }, earnings, domestic: [], foreign: [], at: kst('2026-10-29', '07:05') });
+  const macro = buildPrompt({ edition: 'morning', today: '2026-10-29', assets: { ...assets, GOLD: { current: 2745.3, change: 12.1, change_pct: 0.44, data_date: '2026-10-28' } }, earnings, domestic: [], foreign: [], at: kst('2026-10-29', '16:00') }); // 한국 16:00 = 미국 03:00 — 두 시장 날짜가 같다
   check('금리 — 등락률 대신 %p · bp', macro.includes('  미2년물금리(%): 3.4900 (전일 대비 -0.020%p, -2.0bp) [10/28(수) 기준]'), macro.split('\n').find((l) => l.includes('미2년물')) ?? '');
   check('선물 · 환율은 「기준」 · 지수는 「종가」', macro.includes('[10/28(수) 기준]') && macro.includes('  S&P500: 6,031.8000 (+0.53%) [10/28(수) 종가]'));
   check('FOMC — 60일 안 공식 회의(12/09 점도표) · D+N', macro.includes('[향후 60일 FOMC 회의 (연준 공식 일정)]') && /- 12\/09\(수\) \[D\+41\] FOMC 금리 결정\(회의 12\/08\(화\)~12\/09\(수\) · 경제전망 · 점도표 발표\)/.test(macro) && !macro.includes('10/28(수) [D'));
@@ -253,7 +253,8 @@ const news = (n: number, foreign: boolean) => Array.from({ length: n }, (_, i) =
     upcoming_schedule: { this_week: [], this_month: [], next_2_months: [], ...us },
     portfolio_adjustment: { passive_note: '', swing_candidates: [] },
   });
-  const T = '2026-10-29';
+  // 한국 10-29 14:00 = 미국 10-29 01:00 — 두 시장 날짜가 같은 시각
+  const T = Date.parse('2026-10-29T14:00:00+09:00');
 
   // ① 주도 섹터 거르기 — 비주도 제거 · 빈 섹터 보존 · 국내 종목 보존
   const f = filterByLeadingSectors(normalizeBrief(raw({ this_week: [item('10/30(금)', 'A 실적 발표', 'AAA', '기술'), item('10/30(금)', 'B 실적 발표', 'BBB', '에너지'), item('10/31(토)', 'FOMC'), item('11/02(월)', '삼성 실적 발표', '005930', '에너지'), item('11/02(월)', 'SK 실적 발표', '000660.KS', '에너지')] }, [['기술', '★★★']])));
@@ -280,7 +281,7 @@ const news = (n: number, foreign: boolean) => Array.from({ length: n }, (_, i) =
   check('③ 이번 주 — 별점 높은 섹터 먼저 · 섹터 3개 상한 · 총 6', names(c.upcoming_schedule.this_week) === '금융0,기술0,기술1,기술2,CPI,에너지0', names(c.upcoming_schedule.this_week));
   const two = capAndSortBySectorPriority(normalizeBrief(raw({ next_2_months: ['12/01(화)', '12/02(수)', '12/03(목)'].map((d, i) => item(d, `n${i}`, `N${i}`, '기술')) }, [['기술', '★★★']])), T);
   check('③ 다음 한 달 — 같은 섹터 2개 상한', names(two.upcoming_schedule.next_2_months) === 'n0,n1');
-  const yearEnd = capAndSortBySectorPriority(normalizeBrief(raw({ this_month: [item('01/05(화)', 'jan', 'J', '기술'), item('12/28(월)', 'dec', 'D', '기술')] }, [['기술', '★★★']])), '2026-12-20');
+  const yearEnd = capAndSortBySectorPriority(normalizeBrief(raw({ this_month: [item('01/05(화)', 'jan', 'J', '기술'), item('12/28(월)', 'dec', 'D', '기술')] }, [['기술', '★★★']])), Date.parse('2026-12-20T14:00:00+09:00'));
   check('③ 해 경계 날짜 정렬(12/28 → 01/05)', names(yearEnd.upcoming_schedule.this_month) === 'dec,jan');
 
   // 순서 — ① 다음 ② 다음 ③: 이번 주로 잘못 넣은 D+40 실적 3개가 ② 로 다음 한 달에 간 뒤 ③ 의 상한 2 를 받는다.
@@ -296,6 +297,41 @@ const news = (n: number, foreign: boolean) => Array.from({ length: n }, (_, i) =
   // ⓪ AI 가 섹터를 바꿔 적어도 입력 섹터로 맞춘다
   const aligned = postprocess(raw({ this_week: [item('10/30(금)', '엔비디아 실적 발표', 'NVDA', '반도체')] }, [['기술', '★★★']]), [earningOf('NVDA', '엔비디아', '기술', 1)], T);
   check('⓪ 실적 섹터를 입력 데이터로 맞춤(반도체 → 기술) → 남음', aligned.upcoming_schedule.this_week[0]?.sector_kr === '기술');
+}
+
+// v2.59.3 — 오늘 시황 날수도 종목마다 그 시장 날짜로(한국 10-30 08:00 = 미국 10-29 19:00)
+{
+  const AM = Date.parse('2026-10-30T08:00:00+09:00');
+  const T2 = ['ZZU1', 'ZZU2', 'ZZU3', 'ZZU4', '0ZZ003', '0ZZ004'];
+  db.prepare(`DELETE FROM earnings_calendar WHERE symbol IN (${T2.map(() => '?').join(',')})`).run(...T2);
+  const put2 = db.prepare(`INSERT INTO earnings_calendar (symbol, earnings_date, fetched_at, is_estimate) VALUES (?, ?, 'x', 0)`);
+  put2.run('ZZU1', '2026-10-29'); // 미국 오늘
+  put2.run('ZZU2', '2026-10-30'); // 미국 내일
+  put2.run('ZZU3', '2026-12-28'); // 미국 D+60
+  put2.run('ZZU4', '2026-12-29'); // 미국 D+61
+  put2.run('0ZZ003', '2026-10-30'); // 국내 오늘
+  put2.run('0ZZ004', '2026-10-29'); // 국내 어제
+  const b2 = upcomingEarningBases(AM, T2);
+  const dn = Object.fromEntries(b2.map((b) => [b.symbol, b.daysUntil]));
+  check('시황 실적 — 미국 「오늘」(10-29) 실적이 한국 아침에 D+0 으로 들어감', dn.ZZU1 === 0, JSON.stringify(dn));
+  check('시황 실적 — 미국 내일 D+1 · 국내 오늘 D+0 · 국내 어제 빠짐', dn.ZZU2 === 1 && dn['0ZZ003'] === 0 && !('0ZZ004' in dn));
+  check('시황 실적 — 60일 경계(미국 D+60 포함 · D+61 제외)', dn.ZZU3 === 60 && !('ZZU4' in dn));
+  check('시황 실적 — AI 입력 줄의 [D+0]', earningsLine(buildEarning(b2.find((b) => b.symbol === 'ZZU1')!, null)).includes('[D+0]'));
+  db.prepare(`DELETE FROM earnings_calendar WHERE symbol IN (${T2.map(() => '?').join(',')})`).run(...T2);
+
+  const it = (date: string, event: string, ticker = ''): BriefScheduleItem => ({ date, event, ticker, sector_kr: '', detail: '', importance: 1 });
+  const rb = (us: Partial<BriefAi['upcoming_schedule']>): Partial<BriefAi> => ({ portfolio_note: '', key_themes: [], leading_sectors: [], swing_check: { phase: '', catalysts: [], risks: [] }, upcoming_schedule: { this_week: [], this_month: [], next_2_months: [], ...us }, portfolio_adjustment: { passive_note: '', swing_candidates: [] } });
+  const slots = reassignSlotsByDays(
+    normalizeBrief(rb({ next_2_months: [it('10/29(목)', 'us-today', 'AAPL'), it('10/29(목)', 'FOMC-ish'), it('10/29(목)', 'kr-yday', '005930'), it('11/05(목)', 'us-d7', 'MSFT'), it('11/06(금)', 'us-d8', 'NVDA'), it('11/06(금)', 'kr-d7', '000660')] })),
+    AM,
+  );
+  const nm = (xs: BriefScheduleItem[]) => xs.map((x) => x.event).join(',');
+  check('슬롯 — 미국 종목 · 종목 없는 일정은 미국 날짜(10-29 = 오늘 → 이번 주)', nm(slots.upcoming_schedule.this_week).includes('us-today') && nm(slots.upcoming_schedule.this_week).includes('FOMC-ish'), JSON.stringify(slots.upcoming_schedule));
+  check('슬롯 — 국내 어제(10-29)는 지난 날(해 넘김 → 60일 밖 버림)', !JSON.stringify(slots.upcoming_schedule).includes('kr-yday'));
+  check('슬롯 경계 — 미국 D+7 이번 주 · D+8 이번 달 · 국내 11-06 = D+7 이번 주', nm(slots.upcoming_schedule.this_week).includes('us-d7') && nm(slots.upcoming_schedule.this_month).includes('us-d8') && nm(slots.upcoming_schedule.this_week).includes('kr-d7'));
+  const fomcPrompt = buildPrompt({ edition: 'morning', today: '2026-10-29', assets: {}, earnings: [], domestic: [], foreign: [], at: Date.parse('2026-10-29T06:00:00+09:00') });
+  check('프롬프트 — FOMC 는 미국 날짜(한국 10-29 06:00 = 미국 10-28 → 10-28 회의 D+0)', /- 10\/28\(수\) \[D\+0\] FOMC/.test(fomcPrompt));
+  check('프롬프트 — 「각 종목 시장의 현지 날짜 기준」 한 줄', fomcPrompt.includes('날짜와 D+N 은 각 종목 시장의 현지 날짜 기준'));
 }
 
 // B-2~4 만들기 · 저장 · 자동 · 버튼 — 가짜 수집 · 가짜 Gemini

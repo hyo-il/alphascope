@@ -13,6 +13,7 @@ import { BRIEF_SECTORS, dateLabel, earningsLine } from './earnings';
 import type { BriefNewsItem } from './news';
 import { ASSET_LABEL, isIntradayBar, vixZone } from '../../src/utils/marketBrief';
 import { FOMC_MEETINGS } from '../../src/data/fomc';
+import { marketDate } from '../../src/utils/marketDate';
 import { daysBetween } from './earnings';
 import type { BriefAsset, BriefAssetKey, BriefEarning, BriefEdition } from '../../src/types/marketBrief';
 
@@ -247,6 +248,7 @@ const COMMON_RULES = `- leading_sectors: 2~3개. 다음 두 기준 중 하나라
   ★ 명칭을 변형하지 말 것. 서버 사후 처리가 정확 매칭만 함.
   ★ 위 명칭에 해당하지 않는 새 섹터를 선정할 경우, upcoming_schedule 의 해당 섹터 항목이 사후 처리로 모두 제거됨.
 - upcoming_schedule: 향후 60일 주요 일정을 다음 3개 슬롯으로 분류.
+  ★ 날짜와 D+N 은 각 종목 시장의 현지 날짜 기준(미국 종목 = 미국 동부, 국내 종목 = 한국). FOMC 등 미국 일정도 미국 날짜.
   ★ 각 실적 항목 옆에 표시된 [D+N] 값을 그대로 사용해 슬롯 배치:
     · this_week: **D+0 ~ D+7** (오늘~7일 후), importance=3
     · this_month: **D+8 ~ D+30** (8~30일 후), importance=2
@@ -325,7 +327,7 @@ ${lines(assets, ['SP500', 'NASDAQ', 'DOW', 'RUSSELL2000'], at) || '  (데이터 
 ${lines(assets, ['GOLD', 'DXY', 'US2Y', 'US10Y', 'USDKRW', 'WTI', 'NATGAS'], at) || '  (데이터 없음)'}
 
 [향후 60일 FOMC 회의 (연준 공식 일정)]
-${fomcText(today)}
+${fomcText(marketDate(at, 'SPY'))}
 
 ${EARNINGS_HEAD}
 ${earningsText(earnings)}
@@ -377,7 +379,7 @@ ${lines(assets, ['KOSPI', 'KOSDAQ'], at) || '  (데이터 없음)'}${krStale}
 ${vixLevel || '  (데이터 없음)'}
 
 [향후 60일 FOMC 회의 (연준 공식 일정)]
-${fomcText(today)}
+${fomcText(marketDate(at, 'SPY'))}
 
 ${EARNINGS_HEAD}
 ${earningsText(earnings)}

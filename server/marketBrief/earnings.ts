@@ -15,6 +15,7 @@ import { earningsTargets, getEarningsDate } from '../earningsCalendar';
 import { findNames } from '../stockCatalog';
 import { SECTOR_KO, sectorKo } from '../../src/data/sectors';
 import { isKrSymbol } from '../../src/utils/market';
+import { marketDate } from '../../src/utils/marketDate';
 import type { BriefEarning } from '../../src/types/marketBrief';
 
 const ENGINE_URL = process.env.INDICATORS_URL ?? `http://127.0.0.1:${process.env.INDICATORS_PORT ?? 5001}`;
@@ -165,14 +166,17 @@ function sectorsOf(symbols: string[]): Record<string, string> {
   return Object.fromEntries(rows.map((r) => [r.symbol, sectorKo(r.sector)]));
 }
 
-/** 1단계 — 60일(오늘 포함) 안에 실적일이 있는 대상. 네트워크 없음(저장된 실적일만) */
-export function upcomingEarningBases(today: string, targets: string[] = earningsTargets()): EarningBase[] {
-  const hits: { symbol: string; date: string; isEstimate: boolean }[] = [];
+/**
+ * 1단계 — 60일(오늘 포함) 안에 실적일이 있는 대상. 네트워크 없음(저장된 실적일만).
+ * 「오늘」 은 **종목마다 그 시장의 오늘**(`marketDate(now, symbol)` — 실적일도 그 시장 날짜 · v2.59.3). 한국 아침판에 미국 「오늘」 실적이 빠지지 않는다.
+ */
+export function upcomingEarningBases(now: number, targets: string[] = earningsTargets()): EarningBase[] {
+  const hits: { symbol: string; date: string; isEstimate: boolean; days: number }[] = [];
   for (const symbol of targets) {
     const e = getEarningsDate(symbol);
     if (!e) continue;
-    const days = daysBetween(today, e.date);
-    if (days >= 0 && days <= EARNINGS_DAYS_AHEAD) hits.push({ symbol, date: e.date, isEstimate: e.isEstimate });
+    const days = daysBetween(marketDate(now, symbol), e.date);
+    if (days >= 0 && days <= EARNINGS_DAYS_AHEAD) hits.push({ symbol, date: e.date, isEstimate: e.isEstimate, days });
   }
   const names = findNames(hits.map((h) => h.symbol));
   const sectors = sectorsOf(hits.map((h) => h.symbol));
@@ -182,7 +186,7 @@ export function upcomingEarningBases(today: string, targets: string[] = earnings
       name: names[h.symbol] ?? h.symbol,
       sector: sectors[h.symbol] ?? '기타',
       date: h.date,
-      daysUntil: daysBetween(today, h.date),
+      daysUntil: h.days,
       isEstimateDate: h.isEstimate,
     }))
     .sort((a, b) => a.daysUntil - b.daysUntil || a.symbol.localeCompare(b.symbol));
@@ -209,10 +213,10 @@ export interface EarningsCollection {
 
 /** 2 · 3단계 — 전망치를 받아 조합. 묶음 하나가 실패해도 나머지는 계속(그 묶음은 전망치 없이) */
 export async function collectEarnings(
-  today: string,
+  at: number,
   deps: { bases?: EarningBase[]; fetcher?: EstimatesFetcher; sleep?: (ms: number) => Promise<void>; now?: () => number } = {},
 ): Promise<EarningsCollection> {
-  const bases = deps.bases ?? upcomingEarningBases(today);
+  const bases = deps.bases ?? upcomingEarningBases(at);
   const fetcher = deps.fetcher ?? fetchEstimates;
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const now = deps.now ?? Date.now;
