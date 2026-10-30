@@ -110,15 +110,16 @@ export async function collectAll(edition: BriefEdition, now: number, deps: Colle
       label: `${r.foreign ? '해외' : '국내'} 뉴스 · ${r.source}${r.fallback ? '(국내 0건 → 대신)' : ''}${r.slot && r.ok ? '(대체 소스)' : ''}`,
       ok: r.ok,
       // 대체 소스 줄의 error = 앞 후보(성공 때) · 모든 후보(실패 때)의 이유 — news.ts 가 이미 짧은 한국어로 만든다
-      detail: r.ok ? `${newsCount(r)}${r.slot && r.error ? ` · 앞 후보 실패: ${r.error}` : ''}` : r.slot ? (r.error ?? '받기 실패') : shortReason(r.error),
+      detail: r.ok ? `${newsCount(r)}${r.slot && r.error ? ` · 다른 후보: ${r.error}` : ''}` : r.slot ? (r.error ?? '받기 실패') : shortReason(r.error),
     });
   }
   // 72시간 거르기 한 줄 — 받은 글 전부(거르기 전) 중 뺀 수 · 발행 시각을 못 읽어 남긴 수
   const received = news.results.filter((r) => r.ok);
-  const total = received.reduce((n, r) => n + (r.total ?? r.count), 0);
+  // 대체 소스에서 받았지만 묵어서 건너뛴 후보의 수도 더한다(skipped*)
+  const total = received.reduce((n, r) => n + (r.total ?? r.count) + (r.skippedTotal ?? 0), 0);
   if (total) {
-    const stale = received.reduce((n, r) => n + (r.stale ?? 0), 0);
-    const noDate = received.reduce((n, r) => n + (r.noDate ?? 0), 0);
+    const stale = received.reduce((n, r) => n + (r.stale ?? 0) + (r.skippedStale ?? 0), 0);
+    const noDate = received.reduce((n, r) => n + (r.noDate ?? 0) + (r.skippedNoDate ?? 0), 0);
     sources.push({
       group: 'news',
       label: `뉴스 ${NEWS_MAX_AGE_MS / 3_600_000}시간 거르기`,

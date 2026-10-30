@@ -11,6 +11,8 @@
  * - 원본은 지표 엔진에 없는 `feedparser`(파이썬)를 썼다. 서버(Node)에서 받아 새 의존성을 두지 않는다.
  */
 
+import { kstDay } from '../../src/utils/marketBrief';
+
 export interface RssSource {
   url: string;
   source: string;
@@ -38,6 +40,10 @@ export interface RssResult {
   stale?: number;
   noDate?: number;
   newest?: string | null;
+  /** 대체 소스 자리에서 받았지만 72시간 안 글이 0건이라 건너뛴 후보들의 받은 수 · 뺀 수 · 시각 없는 수(합계 줄에 더한다) */
+  skippedTotal?: number;
+  skippedStale?: number;
+  skippedNoDate?: number;
 }
 
 /**
@@ -68,7 +74,7 @@ export function freshNews(items: BriefNewsItem[], now: number): { kept: BriefNew
 }
 
 /** 「MM-DD」(한국 날짜) — 수집 상태 · 점검 표의 「최신」 */
-export const kstMonthDay = (iso: string) => new Date(Date.parse(iso) + 9 * 3_600_000).toISOString().slice(5, 10);
+export const kstMonthDay = (iso: string) => kstDay(Date.parse(iso)).slice(5);
 
 export const DOMESTIC_RSS: RssSource[] = [
   { url: 'https://www.yonhapnewstv.co.kr/category/news/economy/feed/', source: '연합뉴스' },
@@ -95,7 +101,7 @@ export const FOREIGN_SLOT_CANDIDATES: RssSource[] = [
   { url: 'https://www.federalreserve.gov/feeds/press_all.xml', source: '미국 연준 보도자료', note: '미국 연방준비제도 공식 RSS · 공개 자료' },
 ];
 
-/** 국내 RSS 가 전부 실패했을 때만 */
+/** 72시간 거르기 뒤 국내 글이 0건일 때만(4곳 모두 실패 · 받았어도 모두 72시간 넘음) */
 export const DOMESTIC_FALLBACK: RssSource = { url: 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=02', source: 'SBS 경제' };
 
 export const PER_SOURCE = 20;
@@ -194,10 +200,23 @@ export function shortReason(raw: string | null | undefined): string {
  */
 async function fromCandidates(candidates: RssSource[], foreign: boolean, fetcher: RssFetcher, now: number): Promise<{ items: BriefNewsItem[]; result: RssResult & { slot: true } }> {
   const errors: string[] = [];
+  const skipped = { skippedTotal: 0, skippedStale: 0, skippedNoDate: 0 };
+  let stalest: RssResult | null = null; // 받았지만 모두 묵은 후보 가운데 가장 최근 글이 있는 것
   for (const c of candidates) {
     const got = await fromSource(c, foreign, fetcher, now);
-    if (got.result.ok && got.result.count > 0) return { items: got.items, result: { ...got.result, slot: true, error: errors.length ? errors.join(' · ') : null } };
+    if (got.result.ok && got.result.count > 0) return { items: got.items, result: { ...got.result, ...skipped, slot: true, error: errors.length ? errors.join(' · ') : null } };
+    if (got.result.ok) {
+      skipped.skippedTotal += got.result.total ?? 0;
+      skipped.skippedStale += got.result.stale ?? 0;
+      skipped.skippedNoDate += got.result.noDate ?? 0;
+      if (!stalest || (got.result.newest ?? '') > (stalest.newest ?? '')) stalest = got.result;
+    }
     errors.push(`${c.source}(${got.result.ok ? '모두 72시간 넘음' : shortReason(got.result.error)})`);
+  }
+  // 받은 후보가 있으면 실패가 아니다 — 묵은 소스와 같이 「0건(모두 72시간 넘음 — 최신)」(그 후보의 수는 자기 줄에 · 나머지는 skipped)
+  if (stalest) {
+    const own = { skippedTotal: skipped.skippedTotal - (stalest.total ?? 0), skippedStale: skipped.skippedStale - (stalest.stale ?? 0), skippedNoDate: skipped.skippedNoDate - (stalest.noDate ?? 0) };
+    return { items: [], result: { ...stalest, ...own, slot: true, error: errors.join(' · ') } };
   }
   return { items: [], result: { source: '대체 소스', ok: false, count: 0, error: `후보 모두 실패 — ${errors.join(' · ')}`, slot: true } };
 }

@@ -144,7 +144,7 @@ const db = getDb();
   check('수집 상태 — 미2년물 「받음 · 미국 재무부」', us2yRow?.ok === true && us2yRow.detail === '미국 재무부', JSON.stringify(us2yRow));
   const mainRow = col.sources.find((x) => x.label === '시장 데이터');
   check('수집 상태 — 시장 데이터 줄은 미2년물을 따로 세지 않음(못 받음: 달러인덱스만)', mainRow?.detail === '2개 받음 · 못 받음: 달러인덱스' && !mainRow.ok, mainRow?.detail);
-  check('수집 상태 — 해외 뉴스 대체 소스에 쓴 후보 이름', col.sources.some((x) => x.label === '해외 뉴스 · 미국 연준 보도자료(대체 소스)' && x.ok && x.detail === '2건 · 앞 후보 실패: MarketWatch(HTTP 404)'), JSON.stringify(col.sources.filter((x) => x.label.includes('대체'))));
+  check('수집 상태 — 해외 뉴스 대체 소스에 쓴 후보 이름', col.sources.some((x) => x.label === '해외 뉴스 · 미국 연준 보도자료(대체 소스)' && x.ok && x.detail === '2건 · 다른 후보: MarketWatch(HTTP 404)'), JSON.stringify(col.sources.filter((x) => x.label.includes('대체'))));
   const colNone = await collectAll('morning', Date.parse('2026-10-29T07:05:00+09:00'), {
     market: async () => ({ assets: { SP500: SP }, failed: ['US2Y'], sources: { US2Y: { used: null, tried: [{ source: '미국 재무부', ok: false, error: 'HTTPSConnectionPool(host=home.treasury.gov): Read timed out. (read timeout=15)' }] } } }),
     rss: async () => feed(2),
@@ -236,6 +236,24 @@ const db = getDb();
   check('수집 상태 — 일부 뺀 소스 「2건(72시간 넘은 1건 뺌)」', row('국내 뉴스 · 매일경제')?.detail === '2건(72시간 넘은 1건 뺌)', JSON.stringify(row('국내 뉴스 · 매일경제')));
   const sum = row('뉴스 72시간 거르기');
   // 국내: 연합 3(시각 없음 1 + 새 글 2) · 나머지 3곳 × 3 / 해외: CNBC 2곳 × 3 + Finance 3 / 대체: MarketWatch 3 → 3+9+6+3+3 = 24 · 뺀 것: 3 + 2 + 3 + 1 = 9
+  // 대체 소스 — 첫 후보가 모두 묵어 건너뛰어도 그 수를 합계에 넣는다 · 후보가 모두 묵으면 실패가 아니라 「0건(모두 72시간 넘음 — 최신)」
+  const mwStale = await collectAll('morning', NOW, {
+    market: async () => ({ assets: {}, failed: [] }),
+    rss: async (url) => (url === FOREIGN_SLOT_CANDIDATES[0].url ? dated(old3) : dated(fresh2)),
+    earnings: async () => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: null }),
+    sectorStocks: () => ({}),
+  });
+  // 받은 글: 국내 4 × 2 + 해외 3 × 2 + 연준 2 + 건너뛴 MarketWatch 3 = 19 · 뺀 것 = MarketWatch 3
+  check('대체 소스 — 건너뛴(모두 묵은) 후보의 수도 합계에', mwStale.sources.find((x) => x.label === '뉴스 72시간 거르기')?.detail === '뉴스 19건 중 3건 뺌(72시간 넘음)', JSON.stringify(mwStale.sources.find((x) => x.label === '뉴스 72시간 거르기')));
+  const allStale = await collectAll('morning', NOW, {
+    market: async () => ({ assets: {}, failed: [] }),
+    rss: async (url) => (url === FOREIGN_SLOT_CANDIDATES[0].url ? dated(old3) : url === FOREIGN_SLOT_CANDIDATES[1].url ? dated(['2026-10-25T09:00:00.000Z']) : dated(fresh2)),
+    earnings: async () => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: null }),
+    sectorStocks: () => ({}),
+  });
+  const slotAllStale = allStale.sources.find((x) => x.label.includes('(대체 소스)'));
+  check('대체 소스 — 후보가 모두 묵음 → 실패가 아니라 가장 최근 후보 「받음 · 0건(모두 72시간 넘음 — 최신 10-25)」', slotAllStale?.ok === true && slotAllStale.label === '해외 뉴스 · 미국 연준 보도자료(대체 소스)' && slotAllStale.detail.startsWith('0건(모두 72시간 넘음 — 최신 10-25)'), JSON.stringify(slotAllStale));
+  check('대체 소스 — 모두 묵음일 때도 합계는 두 후보 다(4 × 2 + 3 × 2 + 3 + 1 = 18 · 뺀 것 4)', allStale.sources.find((x) => x.label === '뉴스 72시간 거르기')?.detail === '뉴스 18건 중 4건 뺌(72시간 넘음)', JSON.stringify(allStale.sources.find((x) => x.label === '뉴스 72시간 거르기')));
   check('수집 상태 한 줄 — 「뉴스 N건 중 M건 뺌(72시간 넘음)」 · 시각 모르는 글은 남김', sum?.ok === true && sum.detail === '뉴스 24건 중 9건 뺌(72시간 넘음) · 발행 시각 모르는 1건은 남김', JSON.stringify(sum));
 }
 

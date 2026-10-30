@@ -6,7 +6,7 @@
  * - 열기는 바꿔 끼울 수 있다(시험은 네트워크 0).
  */
 
-import { DOMESTIC_FALLBACK, DOMESTIC_RSS, FOREIGN_RSS, FOREIGN_SLOT_CANDIDATES, fetchRssRaw, freshNews, NEWS_MAX_AGE_MS, parseFeed, type RssSource } from './news';
+import { DOMESTIC_FALLBACK, DOMESTIC_RSS, FOREIGN_RSS, FOREIGN_SLOT_CANDIDATES, fetchRssRaw, freshNews, kstMonthDay, NEWS_MAX_AGE_MS, parseFeed, type RssSource } from './news';
 
 export interface SourceRow {
   group: string;
@@ -56,7 +56,7 @@ async function rssRow(group: string, src: RssSource, deps: SourceCheckDeps): Pro
     // 오늘 시황과 같은 거르기 — 「72시간 안 N건」(발행 시각을 못 읽은 글도 센다)
     const f = freshNews(items, deps.now());
     const fresh = `${NEWS_MAX_AGE_MS / 3_600_000}시간 안 ${f.kept.length}건`;
-    return { group, source: src.source, status, ms, got: items.length ? `${items.length}건 · ${fresh}${f.newest ? ` · 최신 ${f.newest.slice(0, 10)}` : ''}` : '글 0개', ok: items.length > 0 };
+    return { group, source: src.source, status, ms, got: items.length ? `${items.length}건 · ${fresh}${f.newest ? ` · 최신 ${kstMonthDay(f.newest)}(한국)` : ''}` : '글 0개', ok: items.length > 0 };
   } catch (e) {
     return { group, source: src.source, status: null, ms: deps.now() - started, got: (e as Error).message || '받기 실패', ok: false };
   }
