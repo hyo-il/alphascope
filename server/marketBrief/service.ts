@@ -217,7 +217,8 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
       brief.mismatches = checkDirections(brief, { edition, assets: collected.market.assets, at: collectedAt });
       const n = brief.mismatches.length;
       checks.push({ group: 'check', label: 'AI 문장 검사', ok: n === 0, detail: n ? `${n}곳 숫자와 다름` : '시장 숫자와 반대인 문장 없음' });
-      if (dropped) checks.push({ group: 'check', label: '대표 종목 거르기', ok: false, detail: `대표 종목 ${dropped}개 뺌(목록 밖)` });
+      // 서버가 이미 뺀 것 — 사용자가 볼 일은 없어 회색 안내(ok)로 남긴다
+      if (dropped) checks.push({ group: 'check', label: 'AI 대표 종목 확인', ok: true, detail: `${dropped}개 뺌(후보 목록 밖 — 그 섹터 시총 상위 · 관심 · 자동매매 종목이 아님)` });
     } catch (e) {
       brief = null;
       aiError = `AI 응답 뒤처리 실패 — ${(e as Error).message}`;

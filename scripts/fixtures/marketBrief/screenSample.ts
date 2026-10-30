@@ -175,7 +175,7 @@ export function mismatchSample(): MarketBrief {
       ...base.sources.filter((s) => s.group !== 'ai'),
       { group: 'ai', label: 'AI 분석', ok: true, detail: 'gemini-3.5-flash-lite · 호출 1번' },
       { group: 'check', label: 'AI 문장 검사', ok: false, detail: '1곳 숫자와 다름' },
-      { group: 'check', label: '대표 종목 거르기', ok: false, detail: '대표 종목 2개 뺌(목록 밖)' },
+      { group: 'check', label: 'AI 대표 종목 확인', ok: true, detail: '2개 뺌(후보 목록 밖 — 그 섹터 시총 상위 · 관심 · 자동매매 종목이 아님)' },
     ],
   };
 }

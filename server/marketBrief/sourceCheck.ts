@@ -66,7 +66,7 @@ export async function checkSources(deps: SourceCheckDeps = defaultSourceCheckDep
     ['국내 뉴스', DOMESTIC_RSS],
     ['국내 뉴스(폴백)', [DOMESTIC_FALLBACK]],
     ['해외 뉴스', FOREIGN_RSS],
-    ['해외 4번째 자리 후보', FOREIGN_SLOT_CANDIDATES],
+    ['해외 대체 소스 후보', FOREIGN_SLOT_CANDIDATES],
   ];
   const [news, rates] = await Promise.all([
     Promise.all(groups.map(([g, list]) => Promise.all(list.map((s) => rssRow(g, s, deps))))),

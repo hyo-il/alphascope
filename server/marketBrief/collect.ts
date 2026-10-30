@@ -9,12 +9,18 @@
  */
 
 import { BRIEF_SECTORS, collectEarnings, type EarningsCollection } from './earnings';
-import { collectNews, fetchRss, type BriefNewsItem, type RssFetcher } from './news';
+import { collectNews, fetchRss, shortReason, type BriefNewsItem, type RssFetcher } from './news';
 import { sectorStockPool, type SectorStockPool } from './sectorStocks';
 import { ASSET_LABEL } from '../../src/utils/marketBrief';
 import type { BriefAsset, BriefAssetKey, BriefEdition, BriefSourceStatus } from '../../src/types/marketBrief';
 
 const ENGINE_URL = process.env.INDICATORS_URL ?? `http://127.0.0.1:${process.env.INDICATORS_PORT ?? 5001}`;
+/**
+ * 지표 엔진 시장 데이터 전체 제한 — 오전판 12항목(각 10초) + 미2년물 후보(FRED 15초 + 재무부 최대 30초)가 모두 늦어도 들어오게(v2.59.6 — 120초에서 늘림).
+ * 넘기면 시장 데이터가 통째로 실패해 AI 도 부르지 않는다.
+ */
+const MARKET_DATA_TIMEOUT_MS = 180_000;
+
 
 export interface MarketData {
   assets: Partial<Record<BriefAssetKey, BriefAsset>>;
@@ -28,7 +34,7 @@ export interface MarketData {
 export type MarketDataFetcher = (edition: BriefEdition) => Promise<MarketData>;
 
 export const fetchMarketData: MarketDataFetcher = async (edition) => {
-  const response = await fetch(`${ENGINE_URL}/market-brief-data?edition=${edition}`, { signal: AbortSignal.timeout(120_000) });
+  const response = await fetch(`${ENGINE_URL}/market-brief-data?edition=${edition}`, { signal: AbortSignal.timeout(MARKET_DATA_TIMEOUT_MS) });
   const payload = (await response.json().catch(() => ({}))) as Partial<MarketData> & { error?: string };
   if (!response.ok || !payload.assets) throw new Error(payload.error ?? `지표 엔진 응답 ${response.status}`);
   return { assets: payload.assets, failed: payload.failed ?? [], fetchedAt: payload.fetchedAt, sources: payload.sources };
@@ -83,20 +89,21 @@ export async function collectAll(edition: BriefEdition, now: number, deps: Colle
   });
   for (const [key, info] of tried) {
     if (!info) continue;
-    const misses = info.tried.filter((t) => !t.ok).map((t) => `${t.source} 실패(${t.error ?? '이유 모름'})`);
+    const misses = info.tried.filter((t) => !t.ok).map((t) => `${t.source} 실패(${shortReason(t.error)})`);
     sources.push({
       group: 'market',
       label: `시장 데이터 · ${ASSET_LABEL[key] ?? key}`,
       ok: Boolean(info.used),
-      detail: info.used ? `${info.used}에서 받음${misses.length ? ` · ${misses.join(' · ')}` : ''}` : `받지 못함 — ${misses.join(' · ') || '시도 없음'}`,
+      detail: info.used ? `${info.used} 값${misses.length ? ` · ${misses.join(' · ')}` : ''}` : `후보 모두 실패 — ${misses.join(' · ') || '시도 없음'}`,
     });
   }
   for (const r of news.results) {
     sources.push({
       group: 'news',
-      label: `${r.foreign ? '해외' : '국내'} 뉴스 · ${r.source}${r.fallback ? '(국내 전부 실패 → 대신)' : ''}${r.slot && r.ok ? '(4번째 자리 후보)' : ''}`,
+      label: `${r.foreign ? '해외' : '국내'} 뉴스 · ${r.source}${r.fallback ? '(국내 전부 실패 → 대신)' : ''}${r.slot && r.ok ? '(대체 소스)' : ''}`,
       ok: r.ok,
-      detail: r.ok ? `${r.count}건${r.slot && r.error ? ` · 앞 후보 실패: ${r.error}` : ''}` : (r.error ?? '받기 실패'),
+      // 대체 소스 줄의 error = 앞 후보(성공 때) · 모든 후보(실패 때)의 이유 — news.ts 가 이미 짧은 한국어로 만든다
+      detail: r.ok ? `${r.count}건${r.slot && r.error ? ` · 앞 후보 실패: ${r.error}` : ''}` : r.slot ? (r.error ?? '받기 실패') : shortReason(r.error),
     });
   }
   const unknownSector = earnings.earnings.filter((e) => !BRIEF_SECTORS.includes(e.sector)).length;

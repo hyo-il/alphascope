@@ -217,6 +217,11 @@ try {
   const noBase = await changeRateOf(US, 121);
   check('AI 요약 등락률 — 전 거래일 봉이 없으면 null(그저께 값으로 대신하지 않음)', noBase === null, `값 ${noBase}`);
   check('AI 요약 등락률 — 현재가가 없으면 null', (await changeRateOf(US, null)) === null);
+  resetPreviousCloseForTest();
+  clear();
+  put(US, [[previousTradingDay(US, prevUs), 100], [prevUs, 110], [pdUs, 121]]);
+  const cachedDay = await changeRateOf(US, 110, Date.now(), prevUs);
+  check('AI 요약 등락률 — 현재가 대신 캐시 봉(전 거래일 110)을 쓰면 그 봉 날짜의 전 거래일(100) 대비 +10%', cachedDay !== null && Math.abs(cachedDay - 10) < 1e-9, `값 ${cachedDay}`);
 
   // ── 10. 실제 토스 — 사본 DB 의 000660 전 거래일 봉을 지우고 다시 받아 오는지 ──
   setCandleRefreshForTest(null);

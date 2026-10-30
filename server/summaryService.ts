@@ -6,7 +6,8 @@ import { computeIndicators } from './indicatorService';
 import { isMockMode, mockPrice } from './mockData';
 import { completedVolumeRatio } from '../src/utils/marketBar';
 import { fetchPrice } from '../src/services/toss/market';
-import { previousClose } from './previousClose';
+import { previousClose, previousCloseForDay } from './previousClose';
+import { marketDate } from '../src/utils/marketDate';
 
 /**
  * 여러 종목의 "분석에 필요한 요약"을 한 번에 만든다.
@@ -29,9 +30,10 @@ function last(series: (number | null)[] | undefined): number | null {
  * 전일 종가 대비 등락률(%) — 기준가는 `previousClose.ts` 한 곳(날짜로 확인한 전 거래일 종가). 「끝에서 두 번째 봉」 으로 잡지 않는다 —
  * 장 마감 뒤 · 휴장 다음 날에는 그 봉이 전일이 아니다. 기준가를 모르면 null(AI 입력에 등락률을 빼고 보낸다).
  */
-export async function changeRateOf(symbol: string, price: number | null, now = Date.now()): Promise<number | null> {
+export async function changeRateOf(symbol: string, price: number | null, now = Date.now(), priceDay?: string): Promise<number | null> {
   if (!price) return null;
-  const previous = await previousClose(symbol, now).catch(() => null);
+  // 현재가 대신 캐시 봉 종가를 쓴 때는 그 봉 날짜의 전 거래일 종가(관심 목록과 같은 방식)
+  const previous = await (priceDay ? previousCloseForDay(symbol, priceDay) : previousClose(symbol, now)).catch(() => null);
   return previous ? ((price - previous) / previous) * 100 : null;
 }
 
@@ -59,10 +61,12 @@ async function summarizeOne(symbol: string): Promise<SymbolSummary> {
     const price = isMockMode()
       ? mockPrice(symbol)
       : await fetchPrice(symbol).catch(() => ({ close: NaN }) as Awaited<ReturnType<typeof fetchPrice>>);
-    summary.price = Number.isFinite(price.close) ? price.close : (candles.at(-1)?.close ?? null);
+    const live = Number.isFinite(price.close);
+    summary.price = live ? price.close : (candles.at(-1)?.close ?? null);
 
     // 전일 종가 대비 변동률
-    summary.changeRate = await changeRateOf(symbol, summary.price);
+    const lastBar = candles.at(-1);
+    summary.changeRate = await changeRateOf(symbol, summary.price, Date.now(), live || !lastBar ? undefined : marketDate(lastBar.timestamp, symbol));
 
     const indicators = await computeIndicators(candles);
     // 장중에는 마지막 봉이 미완성이라 거래량이 평균의 몇 % 수준으로 찍힌다.

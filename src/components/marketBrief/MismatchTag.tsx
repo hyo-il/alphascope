@@ -28,7 +28,7 @@ export default function MismatchTag({ ai, field }: { ai: BriefAi; field: string 
             글: {m.said} · 숫자: {m.actual}
           </span>
         ))}
-        <span className="mt-1 block">AI 글의 방향이 같은 브리핑의 시장 데이터와 반대입니다 — 아래 「시장 데이터」 칸의 숫자를 기준으로 보세요.</span>
+        <span className="mt-1 block">AI 글의 방향이 같은 브리핑의 시장 데이터와 반대입니다 — 「시장 데이터」 칸의 숫자를 기준으로 보세요.</span>
       </InfoTip>
     </span>
   );

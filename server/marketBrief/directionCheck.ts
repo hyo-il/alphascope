@@ -5,7 +5,10 @@
  * - 방법: 글을 마디(문장 · 쉼표 · 「지만 · 으나 · 반면」)로 나누고, 마디 안 시장 이름 뒤(다음 시장 이름 전까지)의 방향 말을
  *   **같은 브리핑의 시장 데이터 부호**와 맞춘다. 문장은 고치지 않는다 — 어긋남만 `brief.mismatches` 에 남기고 화면이 표시한다.
  * - **애매하면 검사하지 않는다**(틀린 경고보다 경고 없음): 오름 · 내림 말이 한 마디에 함께 · 방향 말 바로 뒤 전망 · 우려 · 부정(가능성 · 우려 · 않 …) ·
- *   보합(등락 절댓값 0.3% 미만, 금리는 3bp 미만) · 정책 금리 이야기(인하 · 인상 · 동결 · 연준 …) 속 「금리」 · 괄호 안 글.
+ *   보합(등락 절댓값 0.3% 미만, 금리는 3bp 미만) · 정책 금리 이야기(인하 · 인상 · 동결 · 연준 …) 속 「금리」 · 괄호 안 글 ·
+ *   방향 말 앞 장중 흐름 · 지난 일(장 초반 · 출발 · 한때 · 지난주) · 경제를 말하는 「호조 · 회복 · 부진」(수출 · 실적 · 경기 …) ·
+ *   시장 이름 바로 뒤 「대비 · 보다 · 에서 · 선물」(견준 대상 · 그 안의 업종 · 선물) · 「유가증권시장」 ·
+ *   미국 국채가 아닌 금리(국고채 · 일본 · 대출 …) · 원/달러가 아닌 환율(엔 · 위안 · 유로) · 채권의 「강세 · 약세 · 가격」(수익률과 반대) · 「S&P글로벌」(지표 이름).
  * - 「방어 · 선방 · 견조」 는 「덜 빠졌다」 일 수 있어 −1% 보다 나쁠 때만 어긋남(주식 지수만). 같은 마디에 오름 말이 있어도 방어 말로 판단한다.
  * - 단어 목록 · 임계값은 이 파일 상수 한 곳.
  */
@@ -38,7 +41,7 @@ export const MARKET_TERMS: MarketTerm[] = [
   { name: '코스닥', pattern: /코스닥|KOSDAQ/gi, keys: ['KOSDAQ'], kind: 'index' },
   { name: '코스피', pattern: /코스피|KOSPI/gi, keys: ['KOSPI'], kind: 'index' },
   { name: '미국 증시', pattern: /(?:미국|뉴욕)\s*(?:증시|주식\s*시장|주식시장|주식|지수)|미\s*증시|월가/g, keys: ['SP500', 'NASDAQ', 'DOW'], kind: 'index' },
-  { name: 'S&P500', pattern: /S&P\s*500|S&P|에스앤피/gi, keys: ['SP500'], kind: 'index' },
+  { name: 'S&P500', pattern: /S&P\s*500|S&P(?!\s*글로벌)|에스앤피/gi, keys: ['SP500'], kind: 'index' },
   { name: '나스닥', pattern: /나스닥|NASDAQ/gi, keys: ['NASDAQ'], kind: 'index' },
   // 「미국배당다우존스」 같은 이름 속 다우는 지수가 아니다
   { name: '다우', pattern: /(?<![가-힣A-Za-z])다우(?:존스)?(?!\s*(?:ETF|배당))/g, keys: ['DOW'], kind: 'index' },
@@ -50,21 +53,32 @@ export const MARKET_TERMS: MarketTerm[] = [
   { name: '미국 10년물 금리', pattern: /10년물|10년\s*(?:국채|금리)/g, keys: ['US10Y'], kind: 'rate' },
   { name: '미국 국채 금리', pattern: /국채\s*(?:금리|수익률)|채권\s*금리|시장\s*금리|금리/g, keys: ['US10Y', 'US2Y'], kind: 'rate' },
   { name: '금', pattern: /금값|금\s*가격|금\s*선물|골드|(?<![가-힣])금(?=은|이|도|과|·|,|\s)/g, keys: ['GOLD'], kind: 'other' },
-  { name: '유가', pattern: /유가|원유|WTI/gi, keys: ['WTI'], kind: 'other' },
+  { name: '유가', pattern: /유가(?!증권)|원유|WTI/gi, keys: ['WTI'], kind: 'other' },
   { name: '천연가스', pattern: /천연\s*가스/g, keys: ['NATGAS'], kind: 'other' },
 ];
 
 /** 방향 말 */
 export const UP_WORDS = /상승|반등|강세|올랐|오른|오르|올라|급등|랠리|호조|회복|신고가/g;
 export const DOWN_WORDS = /하락|급락|약세|내렸|내린|떨어|부진|폭락|반락|밀렸|밀려/g;
-/** 「덜 빠졌다」 일 수 있는 말 — 주식 지수에서만, −1% 보다 나쁠 때 어긋남 */
-export const DEFENSE_WORDS = /방어|선방|견조|버텼|버티|하방\s*경직/g;
+/** 「덜 빠졌다」 일 수 있는 말 — 주식 지수에서만, −1% 보다 나쁠 때 어긋남. 「방어적 대응 · 방어주 · 방어 업종」(자세 · 업종)은 아니다 */
+export const DEFENSE_WORDS = /방어(?=력|했|하|에\s*성공)|선방|견조|버텼|버티|하방\s*경직/g;
+/** 경제 · 실적을 말하는 「호조 · 회복 · 부진」 — 바로 앞(8자 안)에 이 말이 있으면 지수 방향이 아니다(「수출 호조」 · 「경기 회복」) */
+const ECONOMY_BEFORE = /수출|실적|지표|고용|소비|경기|경제|업황|수요|매출|이익/;
+const ECONOMY_WORDS = /^(?:호조|회복|부진|견조)$/;
+/** 그 말 바로 뒤(8자 안)가 경제 · 실적이면 같다(「견조한 고용지표」) */
+const ECONOMY_AFTER = /지표|실적|수출|고용|소비|경기|매출|이익|수요/;
+/** 시장 이름 바로 뒤가 이 말이면 그 뒤 방향은 지수가 아니라 견준 대상 · 그 안의 업종이다(「코스피 대비 강세」 · 「코스피에서 반도체주 상승」 · 「나스닥 선물」) */
+const NOT_INDEX_AFTER = /^\s*(?:대비|보다|에서|내에서|내\s|안에서|선물|200\s*선물)/;
 /** 방향 말 바로 뒤(10자 안)에 오면 그 말은 지금 일이 아니다 — 전망 · 우려 · 부정 · 가정 · 폭 이야기(상승폭 반납 · 하락폭 축소) */
-export const HEDGE_AFTER = /반납|꺾|둔화|축소|제한|가능|우려|리스크|위험|기대|전망|예상|경계|않|없|못|여부|압력|요인|시나리오|수\s*있|수도|대비|하면|되면|할\s*경우|것으로|할\s*것|일\s*것|듯/;
-/** 방향 말 바로 앞(6자 안) — 가정 · 부정 */
-export const HEDGE_BEFORE = /(?:^|\s)시\s|경우|면\s|않|만약/;
+export const HEDGE_AFTER = /출발|이후|반납|꺾|둔화|축소|제한|가능|우려|리스크|위험|기대|전망|예상|경계|않|없|못|여부|압력|요인|시나리오|수\s*있|수도|대비|하면|되면|할\s*경우|것으로|할\s*것|일\s*것|듯/;
+/** 방향 말 바로 앞(8자 안) — 가정 · 부정 · 장중 흐름 · 지난 일(「장 초반 상승」 · 「지난주 상승」 — 오늘 마감 방향이 아니다) */
+export const HEDGE_BEFORE = /(?:^|\s)시\s|경우|면\s|않|만약|초반|한때|지난\s*주|지난\s*달|지난해/;
 /** 「금리」 가 정책 금리 이야기인 마디 — 시장 금리(국채 수익률)와 다르다 */
 const POLICY_RATE = /인하|인상|동결|기준\s*금리|연준|Fed|FOMC|금통위|통화\s*정책|피벗/i;
+/** 미국 국채가 아닌 금리(국고채 · 일본 · 유럽 · 대출 …)가 나오는 마디 — 금리 이름을 미국 국채로 보지 않는다 */
+const OTHER_RATE = /국고채|한국\s*국채|일본|日|JGB|독일|분트|유럽|영국|길트|중국|대출|모기지|예금|실질\s*금리/;
+/** 원/달러가 아닌 환율(엔 · 위안 · 유로)이 나오는 마디 — 「환율」 을 원/달러로 보지 않는다 */
+const OTHER_FX = /엔화|엔\s*[/·]|[/·]\s*엔|엔\s*달러|달러\s*엔|엔캐리|위안|유로/;
 
 /** 마디 나누기 — 문장 끝 · 쉼표 · 세미콜론 · 줄바꿈 · 대조 이음말 */
 const CLAUSE_SPLIT = /[.!?;\n]|,\s*|(?<=[가-힣])(?:지만|으나|는데|반면|면서도)\s+|반면\s*/;
@@ -101,8 +115,9 @@ function directionOf(segment: string): { dir: Dir; word: string } | null {
     for (const m of segment.matchAll(re)) {
       const at = m.index ?? 0;
       const after = segment.slice(at + m[0].length, at + m[0].length + 10);
-      const before = segment.slice(Math.max(0, at - 6), at);
+      const before = segment.slice(Math.max(0, at - 8), at);
       if (HEDGE_AFTER.test(after) || HEDGE_BEFORE.test(before)) continue;
+      if (ECONOMY_WORDS.test(m[0]) && (ECONOMY_BEFORE.test(before) || ECONOMY_AFTER.test(after.slice(0, 8)))) continue;
       hits.push({ dir, word: m[0] });
     }
   };
@@ -151,7 +166,9 @@ export function checkText(field: string, text: string, input: CheckInput): Brief
     const policy = POLICY_RATE.test(clause);
     for (let i = 0; i < markets.length; i++) {
       const { term } = markets[i];
-      if (term.kind === 'rate' && policy) continue;
+      if (term.kind === 'rate' && (policy || OTHER_RATE.test(clause))) continue;
+      if (term.keys.includes('USDKRW') && OTHER_FX.test(clause)) continue;
+      if (NOT_INDEX_AFTER.test(clause.slice(markets[i].end))) continue;
       // 이 시장 이름 뒤 ~ 다음 시장 이름 전. 비어 있으면(「코스피와 코스닥 모두 하락」) 다음 토막의 방향을 함께 쓴다
       let segEnd = i + 1 < markets.length ? markets[i + 1].start : clause.length;
       let said = directionOf(clause.slice(markets[i].end, segEnd));
@@ -160,6 +177,8 @@ export function checkText(field: string, text: string, input: CheckInput): Brief
         said = directionOf(clause.slice(markets[j].end, segEnd));
       }
       if (!said) continue;
+      // 채권은 「강세 · 약세 · 가격」 이 값(가격) 방향이라 수익률과 반대 — 금리 시장은 「금리 · 수익률 + 상승 · 하락」 만 본다
+      if (term.kind === 'rate' && (/강세|약세/.test(said.word) || /가격/.test(clause))) continue;
       const values = term.keys.map((k) => [k, input.assets[k]] as const).filter((e): e is readonly [BriefAssetKey, BriefAsset] => Boolean(e[1]));
       if (!values.length) continue;
       // 여러 지수를 묶은 이름(국내 증시 · 미국 증시)은 받은 값 모두가 어긋날 때만

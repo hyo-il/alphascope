@@ -136,15 +136,26 @@ async function fromSource(src: RssSource, foreign: boolean, fetcher: RssFetcher)
   }
 }
 
-/** 후보를 차례로 — 첫 성공의 글 · 결과(이름은 「쓴 후보(4번째 자리)」). 모두 실패면 마지막 실패 이유를 모아 한 줄 */
+/** 수집 상태에 보일 실패 이유 — 받기 함수의 영어 원문 대신 짧은 한국어(원문은 점검 명령 표 · 서버 로그) */
+export function shortReason(raw: string | null | undefined): string {
+  const e = String(raw ?? '');
+  const http = /HTTP(?:\s*Error)?\s*(\d{3})/i.exec(e);
+  if (http) return `HTTP ${http[1]}`;
+  if (/timed?\s*out|timeout|시간\s*초과|TimeoutError|aborted due to timeout/i.test(e)) return '시간 초과';
+  if (/refused|reset|ECONN|EAI_AGAIN|ENOTFOUND|getaddrinfo|Remote end closed|EOF|connection|fetch failed|socket|끊/i.test(e)) return '연결 끊김';
+  if (/두 날|값 없음|글 0개/.test(e)) return e;
+  return e ? '받기 실패' : '이유 모름';
+}
+
+/** 후보를 차례로 — 첫 성공의 글 · 결과(이름 = 쓴 후보). 모두 실패면 이름 「대체 소스」 · 후보마다 짧은 이유를 모아 한 줄 */
 async function fromCandidates(candidates: RssSource[], foreign: boolean, fetcher: RssFetcher): Promise<{ items: BriefNewsItem[]; result: RssResult & { slot: true } }> {
   const errors: string[] = [];
   for (const c of candidates) {
     const got = await fromSource(c, foreign, fetcher);
     if (got.result.ok) return { items: got.items, result: { ...got.result, slot: true, error: errors.length ? errors.join(' · ') : null } };
-    errors.push(`${c.source} ${got.result.error ?? '실패'}`);
+    errors.push(`${c.source}(${shortReason(got.result.error)})`);
   }
-  return { items: [], result: { source: '4번째 자리', ok: false, count: 0, error: `후보 모두 실패 — ${errors.join(' · ')}`, slot: true } };
+  return { items: [], result: { source: '대체 소스', ok: false, count: 0, error: `후보 모두 실패 — ${errors.join(' · ')}`, slot: true } };
 }
 
 /** 소스들을 나란히 받는다 — 결과 순서는 소스 순서 그대로 */

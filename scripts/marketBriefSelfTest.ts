@@ -119,13 +119,13 @@ const db = getDb();
     return feed(2);
   });
   const slotRow = slot1Down.results.find((r) => r.slot);
-  check('후보 1 실패 → 후보 2 사용 · 앞 후보 실패 이유를 남김', slotRow?.ok === true && slotRow.source === '미국 연준 보도자료' && slotRow.error === 'MarketWatch HTTP 404' && slot1Down.foreign.length === 8 && asked.includes(FOREIGN_SLOT_CANDIDATES[1].url), JSON.stringify(slotRow));
+  check('후보 1 실패 → 후보 2 사용 · 앞 후보 실패 이유를 남김', slotRow?.ok === true && slotRow.source === '미국 연준 보도자료' && slotRow.error === 'MarketWatch(HTTP 404)' && slot1Down.foreign.length === 8 && asked.includes(FOREIGN_SLOT_CANDIDATES[1].url), JSON.stringify(slotRow));
   asked.length = 0;
   const slotFirst = await collectNews(true, async (url) => (asked.push(url), feed(2)));
   check('후보 1 성공 → 후보 2 는 부르지 않음', slotFirst.results.find((r) => r.slot)?.source === 'MarketWatch' && !asked.includes(FOREIGN_SLOT_CANDIDATES[1].url));
   const slotAll = await collectNews(true, async (url) => (FOREIGN_SLOT_CANDIDATES.some((c) => c.url === url) ? Promise.reject(new Error('시간 초과')) : feed(2)));
   const allRow = slotAll.results.find((r) => r.slot);
-  check('후보 모두 실패 → 「4번째 자리」 실패 한 줄 · 이유 모두', allRow?.ok === false && allRow.source === '4번째 자리' && /후보 모두 실패 — MarketWatch 시간 초과 · 미국 연준 보도자료 시간 초과/.test(allRow.error ?? ''), JSON.stringify(allRow));
+  check('후보 모두 실패 → 「대체 소스」 실패 한 줄 · 후보마다 짧은 한국어 이유', allRow?.ok === false && allRow.source === '대체 소스' && allRow.error === '후보 모두 실패 — MarketWatch(시간 초과) · 미국 연준 보도자료(시간 초과)', JSON.stringify(allRow));
 
   // 수집 상태 — 실제로 받은 후보 이름(뉴스 · 미2년물)
   const SP = { current: 6031.8, change: 31.8, change_pct: 0.53, data_date: '2026-10-28' };
@@ -141,18 +141,18 @@ const db = getDb();
     sectorStocks: () => ({}),
   });
   const us2yRow = col.sources.find((x) => x.label === '시장 데이터 · 미2년물금리(%)');
-  check('수집 상태 — 「미2년물 — 미국 재무부에서 받음」 · 앞 후보(FRED) 실패 이유', us2yRow?.ok === true && us2yRow.detail === '미국 재무부에서 받음 · FRED 실패(timed out)', JSON.stringify(us2yRow));
+  check('수집 상태 — 「미2년물 — 미국 재무부 값」 · 앞 후보(FRED) 실패 이유(영어 원문 대신 「시간 초과」)', us2yRow?.ok === true && us2yRow.detail === '미국 재무부 값 · FRED 실패(시간 초과)', JSON.stringify(us2yRow));
   const mainRow = col.sources.find((x) => x.label === '시장 데이터');
   check('수집 상태 — 시장 데이터 줄은 미2년물을 따로 세지 않음(못 받음: 달러인덱스만)', mainRow?.detail === '2개 받음 · 못 받음: 달러인덱스' && !mainRow.ok, mainRow?.detail);
-  check('수집 상태 — 해외 뉴스 4번째 자리에 쓴 후보 이름', col.sources.some((x) => x.label === '해외 뉴스 · 미국 연준 보도자료(4번째 자리 후보)' && x.ok && x.detail.includes('앞 후보 실패: MarketWatch HTTP 404')));
+  check('수집 상태 — 해외 뉴스 대체 소스에 쓴 후보 이름', col.sources.some((x) => x.label === '해외 뉴스 · 미국 연준 보도자료(대체 소스)' && x.ok && x.detail === '2건 · 앞 후보 실패: MarketWatch(HTTP 404)'), JSON.stringify(col.sources.filter((x) => x.label.includes('대체'))));
   const colNone = await collectAll('morning', Date.parse('2026-10-29T07:05:00+09:00'), {
-    market: async () => ({ assets: { SP500: SP }, failed: ['US2Y'], sources: { US2Y: { used: null, tried: [{ source: 'FRED', ok: false, error: 'timed out' }, { source: '미국 재무부', ok: false, error: 'HTTP 503' }] } } }),
+    market: async () => ({ assets: { SP500: SP }, failed: ['US2Y'], sources: { US2Y: { used: null, tried: [{ source: 'FRED', ok: false, error: 'HTTPSConnectionPool(host=fred.stlouisfed.org): Read timed out. (read timeout=15)' }, { source: '미국 재무부', ok: false, error: 'HTTP Error 503: Service Unavailable' }] } } }),
     rss: async () => feed(2),
     earnings: async () => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: null }),
     sectorStocks: () => ({}),
   });
   const noneRow = colNone.sources.find((x) => x.label === '시장 데이터 · 미2년물금리(%)');
-  check('수집 상태 — 후보 모두 실패 → 「받지 못함」 · 후보마다 이유', noneRow?.ok === false && noneRow.detail === '받지 못함 — FRED 실패(timed out) · 미국 재무부 실패(HTTP 503)' && colNone.sources.find((x) => x.label === '시장 데이터')?.ok === true, JSON.stringify(noneRow));
+  check('수집 상태 — 후보 모두 실패 → 「받지 못함」 · 후보마다 이유', noneRow?.ok === false && noneRow.detail === '후보 모두 실패 — FRED 실패(시간 초과) · 미국 재무부 실패(HTTP 503)' && colNone.sources.find((x) => x.label === '시장 데이터')?.ok === true, JSON.stringify(noneRow));
 
   // 점검 명령(`marketbrief:sources`) — 모든 후보 각 1번 · 표 모양(가짜 응답 · 네트워크 0)
   const opened: string[] = [];
@@ -176,9 +176,9 @@ const db = getDb();
   check(
     '점검 — 표 모양(묶음 | 후보 | HTTP | 걸린 시간 | 받은 건수/값) · 실패 표시 · 합계',
     table.startsWith('| 묶음 | 후보 | HTTP | 걸린 시간 | 받은 건수/값 |') &&
-      /\| 해외 4번째 자리 후보 \| MarketWatch \| 404 \| \d+\.\d초 \| 실패 · HTTP 404 \|/.test(table) &&
+      /\| 해외 대체 소스 후보 \| MarketWatch \| 404 \| \d+\.\d초 \| 실패 · HTTP 404 \|/.test(table) &&
       /\| 국내 뉴스 \| 연합뉴스 \| — \| \d+\.\d초 \| 실패 · fetch failed \|/.test(table) &&
-      /\| 해외 4번째 자리 후보 \| 미국 연준 보도자료 \| 200 \| \d+\.\d초 \| 3건 \|/.test(table) &&
+      /\| 해외 대체 소스 후보 \| 미국 연준 보도자료 \| 200 \| \d+\.\d초 \| 3건 \|/.test(table) &&
       table.includes('| 미2년물 금리 후보 | 미국 재무부 | 200 | 0.6초 | 4.61%(2026-10-29) |') &&
       table.includes('| 미2년물 금리 후보 | FRED | — | 15.0초 | 실패 · timed out |') &&
       table.endsWith(`${rows.length}곳 중 ${rows.length - 3}곳 받음 · 3곳 실패`),
@@ -712,6 +712,52 @@ const runButton = async () => {
   check(`금리는 %p 로 — 10년물 +0.05%p 에 「하락」 → 어긋남 · 2년물 +0.02%p(< ${FLAT_RATE_PP}%p) → 검사 안 함`, checkText('f', '10년물 국채 금리가 하락했다', rate)[0]?.actual === '미10년물금리(%) +0.050%p' && checkText('f', '2년물 금리가 하락했다', rate).length === 0, JSON.stringify(checkText('f', '10년물 국채 금리가 하락했다', rate)));
   check('괄호 안은 보지 않음 — 「원/달러 환율 하락(원화 강세)」', checkText('f', '원/달러 환율이 하락(원화 강세)했다', { edition: 'morning', assets: { USDKRW: { current: 1380, change: -12, change_pct: -0.86, data_date: '2026-10-29' } }, at }).length === 0);
   check('「미국배당다우존스」 의 다우는 지수가 아님', checkText('f', '미국배당다우존스 ETF 강세', { edition: 'morning', assets: { DOW: { current: 42000, change: -500, change_pct: -1.2, data_date: '2026-10-29' } }, at }).length === 0);
+  // 경제 검토(④)가 실측한 틀린 경고 — 모두 「경고 없음」 이어야 한다(애매하면 검사하지 않는다)
+  const econ = {
+    edition: 'morning' as const,
+    at,
+    assets: {
+      WTI: { current: 72, change: 1.4, change_pct: 2.0, data_date: '2026-10-29' },
+      KOSPI: { current: 2600, change: -53, change_pct: -2.0, data_date: '2026-10-29' },
+      KOSDAQ: { current: 830, change: -17, change_pct: -2.0, data_date: '2026-10-29' },
+      USDKRW: { current: 1392, change: 11, change_pct: 0.8, data_date: '2026-10-29' },
+      DXY: { current: 103.7, change: -0.6, change_pct: -0.6, data_date: '2026-10-29' },
+      US10Y: { current: 4.13, change: -0.08, change_pct: -1.9, data_date: '2026-10-29' },
+      US2Y: { current: 4.55, change: -0.06, change_pct: -1.3, data_date: '2026-10-29' },
+      SP500: { current: 5900, change: -60, change_pct: -1.0, data_date: '2026-10-29' },
+      NASDAQ: { current: 19800, change: -200, change_pct: -1.0, data_date: '2026-10-29' },
+      DOW: { current: 41900, change: -400, change_pct: -0.95, data_date: '2026-10-29' },
+    },
+  };
+  for (const text of [
+    '국고채 금리 상승으로 부담',
+    '일본 국채 금리 급등이 부담',
+    '엔/달러 환율 급락으로 엔캐리 청산 우려가 커졌다',
+    '미 10년물 국채 강세로 성장주에 우호적',
+    '국채 가격 하락',
+    '코스피는 장 초반 상승했으나 하락 마감',
+    '미국 증시는 지난주 상승 이후 숨 고르기',
+    '국내 증시는 방어적 대응이 필요한 국면',
+    '국내 증시는 방어주 중심으로 버텼다', // 버텼 = 방어 말 — −2% 는 어긋남이어야 한다(아래에서 따로)
+    '코스피는 수출 호조 소식에도',
+    'S&P글로벌 PMI 호조',
+    // ⑧ 데이터 품질 검토 실측
+    '반도체는 코스피 대비 강세를 보였다',
+    '코스피에서 반도체주가 상승을 주도했다',
+    '미국 증시에서 경기 방어주로 자금이 이동했다',
+    '미국 증시는 견조한 고용지표가 발표됐다',
+    '유가증권시장에서 외국인 순매도로 하락했다',
+    '국고채 금리가 하락했다',
+    '나스닥 선물이 반등하고 있다',
+  ]) {
+    if (text.includes('버텼')) continue;
+    const got = checkText('f', text, econ);
+    check(`틀린 경고 없음 — 「${text}」`, got.length === 0, JSON.stringify(got));
+  }
+  check('방어 말(버텼) 은 그대로 잡음 — 「국내 증시는 방어주 중심으로 버텼다」 + −2% → 어긋남', checkText('f', '국내 증시는 방어주 중심으로 버텼다', econ).length === 1);
+  check('금리 하락 날 「10년물 금리 상승」 → 어긋남(금리 · 수익률 + 상승/하락은 본다)', checkText('f', '10년물 금리가 상승했다', econ)[0]?.actual === '미10년물금리(%) −0.080%p');
+  check('「원/달러 환율 하락」 + 원/달러 +0.8% → 어긋남(엔 · 위안이 없으면 원/달러)', checkText('f', '원/달러 환율이 하락했다', econ).length === 1);
+
   // 브리핑 하나 — 보는 글 전부 · 기조 라벨
   const bad = normalizeBrief({
     ...(okBrief('morning') as BriefAi),
@@ -797,7 +843,7 @@ const POOL: SectorStockPool = {
   const mm = saved?.brief?.mismatches ?? [];
   check('저장 — 어긋남(market_summary · 방어 · 코스피 −5.53%(장중))', mm.length === 1 && mm[0].field === 'market_summary' && mm[0].said === '방어' && mm[0].actual.startsWith('코스피 −5.53%(장중)'), JSON.stringify(mm));
   check('저장 — 문장은 AI 글 그대로', saved?.brief?.market_summary === '국내 증시는 양호한 실적 기대감과 경제지표 호조로 방어력을 보이고 있습니다.');
-  check('저장 — 수집 상태 「AI 문장 검사: 1곳 숫자와 다름」 · 「대표 종목 2개 뺌(목록 밖)」', !!saved?.sources.some((x) => x.group === 'check' && x.label === 'AI 문장 검사' && !x.ok && x.detail === '1곳 숫자와 다름') && !!saved.sources.some((x) => x.label === '대표 종목 거르기' && x.detail === '대표 종목 2개 뺌(목록 밖)'), JSON.stringify(saved?.sources.filter((x) => x.group === 'check')));
+  check('저장 — 수집 상태 「AI 문장 검사: 1곳 숫자와 다름」(확인 필요) · 「AI 대표 종목 확인: 2개 뺌(후보 목록 밖 …)」(회색 안내)', !!saved?.sources.some((x) => x.group === 'check' && x.label === 'AI 문장 검사' && !x.ok && x.detail === '1곳 숫자와 다름') && !!saved.sources.some((x) => x.group === 'check' && x.label === 'AI 대표 종목 확인' && x.ok && x.detail.startsWith('2개 뺌(후보 목록 밖')), JSON.stringify(saved?.sources.filter((x) => x.group === 'check')));
   check('저장 — 대표 종목은 목록 안의 것만(삼성전자)', JSON.stringify(saved?.brief?.leading_sectors[0].stocks_kr) === '[{"symbol":"005930","name":"삼성전자"}]' && JSON.stringify(saved?.brief?.leading_sectors[0].stocks_us) === '[]');
   check('Gemini 입력 — 장중(마감 전) — 14:20 기준 · 후보 목록', String(geminiCalls.at(-1)?.parts[0]?.text ?? '').includes('[10/27(화) 장중(마감 전) — 14:20 기준]') && String(geminiCalls.at(-1)?.parts[0]?.text ?? '').includes('- [기술] 국내: 삼성전자(005930)'));
   check('Gemini 호출 — 브리핑 1번 = 1번(검사가 호출을 늘리지 않음)', geminiCalls.length >= 1 && saved?.aiCalls === 1);
