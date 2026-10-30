@@ -4,8 +4,9 @@
 Stockproject(`stock_analyzer.py` · `earnings_collector.py`)의 시황 브리핑을 **같은 티커 · 같은 계산**으로 옮겼다(코드를 부르지 않고 다시 지었다).
 - 값 하나 = {current, change, change_pct, data_date} — 마지막 두 종가로 낸다(원본과 같음). 받지 못한 항목은 빠진다.
 - yfinance 는 모두 스레드 시간 제한(`fundamentals.yf_history_safe` · `_call_with_timeout`)을 지난다.
-- 미국 2년물 금리는 yfinance 에 티커가 없어 후보를 차례로 시도한다(`US2Y_SOURCES` — ① FRED DGS2 ② 미국 재무부 일별 국채 수익률 곡선 BC_2YEAR · 각 15초 제한).
-  둘은 같은 값이다(DGS2 = 연준 H.15 의 2년 만기 고정 국채 수익률 · 재무부 수익률 곡선과 같은 숫자 · 단위 % · 날짜 = 미국 거래일).
+- 미국 2년물 금리는 yfinance 에 티커가 없어 미국 재무부 일별 국채 수익률 곡선(Par Yield Curve) XML 의 BC_2YEAR 에서 받는다(15초 제한 · 단위 % · 날짜 = 미국 거래일).
+  연준 H.15 의 2년 만기 고정 수익률과 같은 숫자다.
+  받기는 「후보 목록(`US2Y_SOURCES`) + 차례로 시도」 모양 그대로 둔다(지금 항목 1개) — 수집 상태 · 점검 명령이 쓴 출처 이름을 같은 모양으로 읽는다.
   yfinance `2YY=F`(2년 금리 선물)는 만기 · 거래소 · 값이 달라 후보에서 뺐다(v2.59.6 — 10-27~29 4.75 고정 · 재무부 4.61).
 - 코스피 · 코스닥 · S&P 500 · 나스닥 · 다우 · VIX 는 시황 바와 같은 받기(`yf_history_safe`, 같은 기간 · 60초 캐시)를 쓴다.
   원본은 코스피 · 코스닥을 FinanceDataReader 로 받았다 — 이 엔진에는 없어 시황 바와 같은 yfinance `^KS11` · `^KQ11` 로 받는다.
@@ -15,8 +16,6 @@ Stockproject(`stock_analyzer.py` · `earnings_collector.py`)의 시황 브리핑
 from __future__ import annotations
 
 import concurrent.futures
-import csv
-import io
 import math
 import re
 import time
@@ -51,8 +50,6 @@ _MACRO_ASSETS = [
 ]
 _VIX = ("VIX", "^VIX", INDEX_HISTORY_PERIOD, 2)
 
-FRED_TIMEOUT_SEC = 15
-_FRED_DAYS = 30
 TREASURY_TIMEOUT_SEC = 15
 # 미국 재무부 일별 국채 수익률(Par Yield Curve) XML — 공식 안내 https://home.treasury.gov/treasury-daily-interest-rate-xml-feed
 # 달(YYYYMM)마다 한 묶음. 값 칸 BC_2YEAR(%) · 날짜 칸 NEW_DATE(미국 날짜)
@@ -96,22 +93,6 @@ def _from_history(ticker: str, period: str, decimals: int) -> dict | None:
     return summarize_closes(list(frame["Close"]), last_day, decimals)
 
 
-def parse_fred_csv(text: str) -> dict | None:
-    """
-    FRED fredgraph.csv → US2Y 값. 날짜(YYYY-MM-DD) 줄 가운데 값이 숫자인 줄만(휴일 "." · 빈 값 · 머리글 제외).
-    머리글 이름(DATE · observation_date)에 기대지 않는다 — 머리글이 바뀌면 원본 거르기로는 머리글 줄이 값으로 들어갔다.
-    """
-    rows = []
-    for row in csv.reader(io.StringIO(text)):
-        if len(row) != 2 or not re.match(r"^\d{4}-\d{2}-\d{2}$", row[0].strip()):
-            continue
-        try:
-            rows.append((row[0].strip(), float(row[1].strip())))
-        except ValueError:
-            continue
-    return _rate_from_rows(rows)
-
-
 def _rate_from_rows(rows: list[tuple[str, float]]) -> dict | None:
     """(날짜, 값) 줄 → 마지막 두 날의 값(금리 — 소수 4자리). 같은 날짜가 겹치면 하나만. 두 날이 안 되면 None"""
     by_day = dict(sorted(rows, key=lambda r: r[0]))
@@ -126,15 +107,6 @@ def _rate_from_rows(rows: list[tuple[str, float]]) -> dict | None:
         "change_pct": round((change / previous) * 100, 2) if previous != 0 else 0.0,
         "data_date": days[-1],
     }
-
-
-def fetch_fred_csv(now: datetime | None = None) -> str:
-    """최근 30일만(cosd) — 전체 시계열(1976년~)을 받으면 시간 제한에 자주 걸렸다(원본 주의사항 33)."""
-    start = ((now or datetime.now(KST)) - timedelta(days=_FRED_DAYS)).strftime("%Y-%m-%d")
-    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS2&cosd={start}"
-    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(request, timeout=FRED_TIMEOUT_SEC) as response:  # noqa: S310 - 고정 주소
-        return response.read().decode("utf-8", errors="replace")
 
 
 def _http_get(url: str, timeout: float) -> str:
@@ -168,9 +140,9 @@ def fetch_treasury_xml(now: datetime | None = None, get=_http_get) -> str:
     return text
 
 
-# 미2년물 후보 — 앞에서부터 차례로(첫 성공을 쓴다). (화면 이름, 받기, 풀기). 오라클 확인: `npm run -s marketbrief:sources`
+# 미2년물 출처 — 앞에서부터 차례로(첫 성공을 쓴다). (화면 이름, 받기, 풀기). 오라클 확인: `npm run -s marketbrief:sources`
+# 지금은 재무부 하나(v2.59.7). 다른 출처가 생기면 이 목록에 한 줄 더한다.
 US2Y_SOURCES = [
-    ("FRED", lambda: fetch_fred_csv(), parse_fred_csv),
     ("미국 재무부", lambda: fetch_treasury_xml(), parse_treasury_xml),
 ]
 
