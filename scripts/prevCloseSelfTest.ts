@@ -11,6 +11,7 @@ import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니�
 import 'dotenv/config';
 import { getDb, loadCandles, saveCandles } from '../server/db';
 import { previousClose, previousTradingDay, priceDay, resetPreviousCloseForTest, setCandleRefreshForTest, setPriceLimitsForTest, setRankingBasesForTest, solveKrBase } from '../server/previousClose';
+import { changeRateOf } from '../server/summaryService';
 import { tossGet } from '../src/services/toss/httpClient';
 import { marketDate } from '../src/utils/marketDate';
 import { isMockMode } from '../server/mockData';
@@ -198,6 +199,24 @@ try {
   await limitCase('국내 상·하한가 답이 일봉과 5% 넘게 다름 → 일봉 종가', { upper: 1844000, lower: 994000 }, 1300000, 1300000);
   await limitCase('국내 상·하한가 받기 실패 → 일봉 종가', null, 50000, 50000);
   setPriceLimitsForTest(null);
+
+  // ── 9-2. AI 요약 등락률(`summaryService.changeRateOf`)도 이 기준가 — 끝에서 두 번째 봉이 아니다(v2.59.6) ──
+  resetPreviousCloseForTest();
+  clear();
+  // 끝에서 두 번째 봉 = 그저께(100) · 전 거래일 봉 = 110 · 마지막 = 오늘 장중(121). 옛 규칙이면 +21%, 맞으면 +10%
+  const pdUs = priceDay(US);
+  const prevUs = previousTradingDay(US, pdUs);
+  put(US, [[previousTradingDay(US, prevUs), 100], [prevUs, 110], [pdUs, 121]]);
+  setCandleRefreshForTest(async () => {});
+  setRankingBasesForTest(async () => new Map());
+  const rate = await changeRateOf(US, 121);
+  check('AI 요약 등락률 = 전 거래일 종가(110) 대비 +10%(끝에서 두 번째 봉이면 +21%)', rate !== null && Math.abs(rate - 10) < 1e-9, `값 ${rate}`);
+  resetPreviousCloseForTest();
+  clear();
+  put(US, [[previousTradingDay(US, prevUs), 100], [pdUs, 121]]); // 전 거래일 봉 없음
+  const noBase = await changeRateOf(US, 121);
+  check('AI 요약 등락률 — 전 거래일 봉이 없으면 null(그저께 값으로 대신하지 않음)', noBase === null, `값 ${noBase}`);
+  check('AI 요약 등락률 — 현재가가 없으면 null', (await changeRateOf(US, null)) === null);
 
   // ── 10. 실제 토스 — 사본 DB 의 000660 전 거래일 봉을 지우고 다시 받아 오는지 ──
   setCandleRefreshForTest(null);

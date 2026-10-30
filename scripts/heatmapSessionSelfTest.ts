@@ -8,7 +8,7 @@ import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니�
 import 'dotenv/config';
 import { readFileSync } from 'node:fs';
 import { getDb, saveCandles } from '../server/db';
-import { baseClose, basisOf, heatmapSession, setSessionHooksForTest, type SessionInfo, type TossCalendarResponse } from '../server/heatmapSession';
+import { baseClose, basisOf, CALENDAR_TIMEOUT_MS, heatmapSession, setSessionHooksForTest, type SessionInfo, type TossCalendarResponse } from '../server/heatmapSession';
 import { priceDay, resetPreviousCloseForTest, setCandleRefreshForTest, setPriceLimitsForTest, setRankingBasesForTest } from '../server/previousClose';
 import type { CalendarMarket } from '../server/marketCalendar';
 import type { Candle } from '../src/types/toss';
@@ -236,6 +236,26 @@ try {
   const gapNow = kst('2026-10-22T08:51:00');
   const g = await tossBase(gapNow, gapNow - 60_000);
   check('US 토스 08:51 KST(애프터 끝 뒤 틈) + 1분 전 체결 → 장외 거래 · 오늘(10-21) 종가 기준 이어 감 110', g.s === 'other' && g.b === 'today' && g.v === 110, `${g.s} · ${g.b} · ${g.v}`);
+
+  // ── 9. 토스 달력이 시간 제한 안에 답하지 않으면 고정표(v2.59.6 — 기본 10초, 여기서는 50ms 로 줄여 본다) ──
+  check('토스 달력 시간 제한 기본 = 10초', CALENDAR_TIMEOUT_MS === 10_000, String(CALENDAR_TIMEOUT_MS));
+  let hung = 0;
+  setSessionHooksForTest({
+    calendar: () => {
+      hung++;
+      return new Promise<never>(() => {}); // 끝나지 않는 응답
+    },
+    lastTrade: async () => null,
+    refreshDaily: async () => {},
+    calendarTimeoutMs: 50,
+  });
+  const slowAt = Date.now();
+  const slowUs = await heatmapSession('US', kst('2026-10-26T23:40:00'));
+  const slowMs = Date.now() - slowAt;
+  check('토스 달력 응답 없음 → 시간 제한 뒤 고정표로 세션을 낸다(US 월 23:40 KST = 정규장)', slowUs.source === 'fixed' && slowUs.span?.session === 'regular' && hung === 1 && slowMs < 2000, `${slowUs.source} · ${slowUs.span?.session} · ${slowMs}ms · 받기 ${hung}번`);
+  const slowAgain = await heatmapSession('US', kst('2026-10-26T23:45:00'));
+  check('시간 제한 뒤 5분 안에는 다시 부르지 않는다(받기 실패와 같은 재시도 간격)', slowAgain.source === 'fixed' && hung === 1, `받기 ${hung}번`);
+  setSessionHooksForTest({ calendarTimeoutMs: null });
 } finally {
   setSessionHooksForTest({ calendar: null, lastTrade: null, refreshDaily: null });
   setCandleRefreshForTest(null);

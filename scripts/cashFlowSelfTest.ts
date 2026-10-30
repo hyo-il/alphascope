@@ -8,6 +8,7 @@
  *   로그인 없이 401 · 초기화 · 삭제하면 기록 삭제 · 복사는 기록 없이 지금 원금 · 스냅샷 · 그래프 · 하루 손실 한도.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import { TEST_SERVER_SWITCHES } from './lib/testServerEnv';
 import 'dotenv/config';
 import { spawn } from 'node:child_process';
 import { getDb } from '../server/db';
@@ -48,7 +49,7 @@ cleanup();
 
 const server = spawn('node_modules/.bin/tsx', ['server/index.ts'], {
   detached: true,
-  env: { ...process.env, INDICATORS_PORT: process.env.INDICATORS_PORT ?? '5002', API_PORT: String(PORT), AUTO_TRADING_ENABLED: 'false', GEMINI_ENABLED: 'false', UNIVERSE_UPDATE_ENABLED: 'false', US_HALTS_ENABLED: 'false', BUYJUDGE_RECHECK_ENABLED: 'false' },
+  env: { ...process.env, INDICATORS_PORT: process.env.INDICATORS_PORT ?? '5002', API_PORT: String(PORT), ...TEST_SERVER_SWITCHES },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let serverLog = '';

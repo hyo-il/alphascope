@@ -6,6 +6,7 @@
  * - 없음 → card · list 저장 → 다시 읽으면 list · 잘못된 값 400 · 로그인 안 하면 401 · 계좌 주소(`/accounts/:id`)에 잡히지 않는다.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import { TEST_SERVER_SWITCHES } from './lib/testServerEnv';
 import 'dotenv/config';
 import { spawn } from 'node:child_process';
 import { getDb } from '../server/db';
@@ -32,7 +33,7 @@ getDb().prepare(`DELETE FROM app_settings WHERE key = 'paper.accountsView'`).run
 // npx 를 거치지 않고 tsx 를 바로 띄우고 프로세스 그룹째 끈다 — npx 만 끄면 tsx 자식이 포트에 남을 수 있다
 const server = spawn('node_modules/.bin/tsx', ['server/index.ts'], {
   detached: true,
-  env: { ...process.env, API_PORT: String(PORT), AUTO_TRADING_ENABLED: 'false', GEMINI_ENABLED: 'false', UNIVERSE_UPDATE_ENABLED: 'false', US_HALTS_ENABLED: 'false', BUYJUDGE_RECHECK_ENABLED: 'false' },
+  env: { ...process.env, API_PORT: String(PORT), ...TEST_SERVER_SWITCHES },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let serverLog = '';

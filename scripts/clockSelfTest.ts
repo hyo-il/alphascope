@@ -7,6 +7,7 @@
  * - 앞에 `kstClockText`(시계 글자)가 PC 시간대와 상관없이 한국 시각인지 본다 — `TZ=America/New_York` · `TZ=UTC` 로 다시 돌려 확인.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import { TEST_SERVER_SWITCHES } from './lib/testServerEnv';
 import 'dotenv/config';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { getDb } from '../server/db';
@@ -50,7 +51,7 @@ let serverLog = '';
 function start() {
   server = spawn('node_modules/.bin/tsx', ['server/index.ts'], {
     detached: true,
-    env: { ...process.env, API_PORT: String(PORT), AUTO_TRADING_ENABLED: 'false', GEMINI_ENABLED: 'false', UNIVERSE_UPDATE_ENABLED: 'false', US_HALTS_ENABLED: 'false', BUYJUDGE_RECHECK_ENABLED: 'false' },
+    env: { ...process.env, API_PORT: String(PORT), ...TEST_SERVER_SWITCHES },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   server.stdout!.on('data', (d) => (serverLog += d));

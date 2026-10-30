@@ -6,6 +6,7 @@ import { computeIndicators } from './indicatorService';
 import { isMockMode, mockPrice } from './mockData';
 import { completedVolumeRatio } from '../src/utils/marketBar';
 import { fetchPrice } from '../src/services/toss/market';
+import { previousClose } from './previousClose';
 
 /**
  * 여러 종목의 "분석에 필요한 요약"을 한 번에 만든다.
@@ -22,6 +23,16 @@ function last(series: (number | null)[] | undefined): number | null {
     if (value != null && Number.isFinite(value)) return value;
   }
   return null;
+}
+
+/**
+ * 전일 종가 대비 등락률(%) — 기준가는 `previousClose.ts` 한 곳(날짜로 확인한 전 거래일 종가). 「끝에서 두 번째 봉」 으로 잡지 않는다 —
+ * 장 마감 뒤 · 휴장 다음 날에는 그 봉이 전일이 아니다. 기준가를 모르면 null(AI 입력에 등락률을 빼고 보낸다).
+ */
+export async function changeRateOf(symbol: string, price: number | null, now = Date.now()): Promise<number | null> {
+  if (!price) return null;
+  const previous = await previousClose(symbol, now).catch(() => null);
+  return previous ? ((price - previous) / previous) * 100 : null;
 }
 
 async function summarizeOne(symbol: string): Promise<SymbolSummary> {
@@ -51,10 +62,7 @@ async function summarizeOne(symbol: string): Promise<SymbolSummary> {
     summary.price = Number.isFinite(price.close) ? price.close : (candles.at(-1)?.close ?? null);
 
     // 전일 종가 대비 변동률
-    if (candles.length >= 2 && summary.price) {
-      const previous = candles.at(-2)!.close;
-      if (previous) summary.changeRate = ((summary.price - previous) / previous) * 100;
-    }
+    summary.changeRate = await changeRateOf(symbol, summary.price);
 
     const indicators = await computeIndicators(candles);
     // 장중에는 마지막 봉이 미완성이라 거래량이 평균의 몇 % 수준으로 찍힌다.

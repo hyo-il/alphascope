@@ -61,6 +61,9 @@ const FUTURE_TRADE_MS = 60_000;
 const PROBE_TTL_MS = 60_000;
 const PROBE_SYMBOLS = 5;
 const CALENDAR_RETRY_MS = 5 * 60_000;
+/** 토스 달력 한 번 받기 시간 제한 — 넘기면 받기 실패와 같이 고정표(종목 지도 · 거래정지 · 오늘 시황 「발표됨」 이 이 캐시를 기다린다) */
+export const CALENDAR_TIMEOUT_MS = 10_000;
+let calendarTimeoutMs = CALENDAR_TIMEOUT_MS;
 const RETRY_MS = 5 * 60_000;
 
 // ── 토스 달력 → 세션 칸 ─────────────────────────────────────────────────────
@@ -183,7 +186,11 @@ async function tossSpans(market: CalendarMarket, now: number): Promise<SessionSp
   if (!c || c.day !== day || (c.spans == null && Date.now() >= c.retryAt)) {
     if (!c?.pending || c.day !== day) {
       const entry: { day: string; spans: SessionSpan[] | null; retryAt: number; pending?: Promise<void> } = c && c.day === day ? c : { day, spans: null, retryAt: 0 };
-      entry.pending = fetchCalendar(market, day)
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${calendarTimeoutMs / 1000}초 안에 응답 없음`)), calendarTimeoutMs);
+      });
+      entry.pending = Promise.race([fetchCalendar(market, day), timeout])
         .then((res) => {
           const spans = res ? spansFromToss(market, res) : [];
           entry.spans = spans.length ? spans : null;
@@ -194,6 +201,7 @@ async function tossSpans(market: CalendarMarket, now: number): Promise<SessionSp
           console.warn(`[heatmapSession] ${market} 토스 달력 받기 실패 — 고정표를 씁니다:`, e instanceof Error ? e.message : e);
         })
         .finally(() => {
+          clearTimeout(timer);
           entry.retryAt = Date.now() + CALENDAR_RETRY_MS;
           entry.pending = undefined;
         });
@@ -378,8 +386,11 @@ export function setSessionHooksForTest(hooks: {
   calendar?: ((market: CalendarMarket, day: string) => Promise<TossCalendarResponse | null>) | null;
   lastTrade?: ((market: CalendarMarket) => Promise<number | null>) | null;
   refreshDaily?: ((symbol: string) => Promise<unknown>) | null;
+  /** 달력 시간 제한(ms) — null 이면 기본 10초 */
+  calendarTimeoutMs?: number | null;
 }): void {
   if (hooks.calendar !== undefined) fetchCalendar = hooks.calendar ?? defaults.calendar;
+  if (hooks.calendarTimeoutMs !== undefined) calendarTimeoutMs = hooks.calendarTimeoutMs ?? CALENDAR_TIMEOUT_MS;
   if (hooks.lastTrade !== undefined) probeLastTrade = hooks.lastTrade ?? defaults.lastTrade;
   if (hooks.refreshDaily !== undefined) refreshDaily = hooks.refreshDaily ?? defaults.refreshDaily;
   resetHeatmapSessionForTest();

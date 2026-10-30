@@ -10,6 +10,7 @@
  * - 사본 DB 의 `us_halts` 를 비우고 시작한다 · 비밀번호를 시험용으로 바꾸고 세션을 지운다(사본만).
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import { TEST_SERVER_SWITCHES } from './lib/testServerEnv';
 import 'dotenv/config';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -426,7 +427,7 @@ let serverLog = '';
 async function startServer(): Promise<void> {
   server = spawn('node_modules/.bin/tsx', ['server/index.ts'], {
     detached: true,
-    env: { ...process.env, API_PORT: String(PORT), AUTO_TRADING_ENABLED: 'false', GEMINI_ENABLED: 'false', UNIVERSE_UPDATE_ENABLED: 'false', US_HALTS_ENABLED: 'false', BUYJUDGE_RECHECK_ENABLED: 'false' },
+    env: { ...process.env, API_PORT: String(PORT), ...TEST_SERVER_SWITCHES },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   server.stdout!.on('data', (d) => (serverLog += d));
