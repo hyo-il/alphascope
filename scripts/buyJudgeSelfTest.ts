@@ -460,21 +460,21 @@ try {
 
   // A. 매수 판단 실적 임박 — 미국 16:30 ET(= 한국 다음 날 05:30) 판단
   put('ZZUS1', '2026-10-29');
-  check('실적 임박 — 미국 16:30 ET · 실적 오늘 → 「오늘」', warn('ZZUS1', et('2026-10-29', '16:30')).includes('2026-10-29 실적 발표 예정(오늘)'), warn('ZZUS1', et('2026-10-29', '16:30')));
+  check('실적 임박 — 미국 16:30 ET · 실적 오늘 → 「오늘」', warn('ZZUS1', et('2026-10-29', '16:30')).includes('2026-10-29 실적 발표 예정(오늘 · 미국 날짜)'), warn('ZZUS1', et('2026-10-29', '16:30')));
   put('ZZUS1', '2026-10-30');
-  check('실적 임박 — 미국 16:30 ET · 실적 내일 → 「1일 뒤」', warn('ZZUS1', et('2026-10-29', '16:30')).includes('(1일 뒤)'));
+  check('실적 임박 — 미국 16:30 ET · 실적 내일 → 「1일 뒤」', warn('ZZUS1', et('2026-10-29', '16:30')).includes('(1일 뒤 · 미국 날짜)'));
   put('ZZUS1', '2026-11-12');
-  check('실적 임박 — 14일 뒤는 경고', warn('ZZUS1', et('2026-10-29', '16:30')).includes('(14일 뒤)'));
+  check('실적 임박 — 14일 뒤는 경고', warn('ZZUS1', et('2026-10-29', '16:30')).includes('(14일 뒤 · 미국 날짜)'));
   put('ZZUS1', '2026-11-13');
   check('실적 임박 — 15일 뒤는 없음', warn('ZZUS1', et('2026-10-29', '16:30')) === '');
   put('ZZUS1', '2026-10-28');
   check('실적 임박 — 지난 실적은 없음', warn('ZZUS1', et('2026-10-29', '16:30')) === '');
   put('0ZZ002', '2026-10-30');
-  check('실적 임박 — 국내 종목은 한국 날짜(20:30 KST · 오늘)', warn('0ZZ002', kst('2026-10-30', '20:30')).includes('(오늘)'));
+  check('실적 임박 — 국내 종목은 한국 날짜(20:30 KST · 오늘) · 「미국 날짜」 없음', warn('0ZZ002', kst('2026-10-30', '20:30')).includes('(오늘)') && !warn('0ZZ002', kst('2026-10-30', '20:30')).includes('미국 날짜'));
   check('실적 임박 — 국내 종목 · 한국 다음 날 00:30 → 지남', warn('0ZZ002', kst('2026-10-31', '00:30')) === '');
   put('ZZUS1', '2026-11-02');
-  check('실적 임박 — 서머타임 끝 앞(10-31 16:30 EDT) → 2일 뒤', warn('ZZUS1', et('2026-10-31', '16:30')).includes('(2일 뒤)'));
-  check('실적 임박 — 서머타임 끝 뒤(11-01 23:30 EST = UTC 다음 날) → 1일 뒤', warn('ZZUS1', et('2026-11-01', '23:30')).includes('(1일 뒤)'));
+  check('실적 임박 — 서머타임 끝 앞(10-31 16:30 EDT) → 2일 뒤', warn('ZZUS1', et('2026-10-31', '16:30')).includes('(2일 뒤 · 미국 날짜)'));
+  check('실적 임박 — 서머타임 끝 뒤(11-01 23:30 EST = UTC 다음 날) → 1일 뒤', warn('ZZUS1', et('2026-11-01', '23:30')).includes('(1일 뒤 · 미국 날짜)'));
 
   // B. 증시 일정 「지남」 — 한국 날짜와 미국 날짜가 갈리는 시각(한국 아침 = 미국 전날 저녁)으로만 본다(예전 코드면 틀리는 경우)
   const pastAt = (at: number, pick: (e: ReturnType<typeof calendarEvents>['events'][number]) => boolean) =>
@@ -488,6 +488,9 @@ try {
     check('증시 일정 — 미국 실적(미국 오늘 10-29)은 한국 10-30 아침에 「지남」 아님', pastAt(at, (e) => e.type === 'earnings' && e.symbol === 'AAPL') === false);
     check('증시 일정 — 국내 실적(한국 어제 10-29)은 「지남」', pastAt(at, (e) => e.type === 'earnings' && e.symbol === '005930') === true);
     check('증시 일정 — 화면 「오늘」 은 한국 날짜', calendarEvents('2026-10-01', '2026-12-31', 'universe', at).meta.today === '2026-10-30');
+    const evs = calendarEvents('2026-10-01', '2026-12-31', 'universe', at).events;
+    const mk = (pick: (e: (typeof evs)[number]) => boolean) => evs.filter(pick).map((e) => e.market);
+    check('증시 일정 — 모든 일정에 시장(「미국 날짜」 표시용): 미국 실적 · FOMC · 옵션 만기 = US · 국내 실적 = KR', mk((e) => e.symbol === 'AAPL').every((m) => m === 'US') && mk((e) => e.symbol === '005930').every((m) => m === 'KR') && mk((e) => e.type === 'fomc' || e.type === 'expiry').every((m) => m === 'US') && evs.every((e) => e.market === 'US' || e.market === 'KR'));
   } finally {
     db.prepare(`DELETE FROM earnings_calendar WHERE symbol IN ('AAPL', '005930')`).run();
     for (const r of saved) db.prepare(`INSERT INTO earnings_calendar (symbol, earnings_date, fetched_at, is_estimate) VALUES (?, ?, ?, ?)`).run(r.symbol, r.earnings_date, r.fetched_at, r.is_estimate);

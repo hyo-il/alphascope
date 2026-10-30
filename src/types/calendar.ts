@@ -16,7 +16,10 @@ export interface CalendarEvent {
   isEstimate?: boolean;
   /** 옵션 만기 — 3·6·9·12월 */
   quarterly?: boolean;
-  /** 휴장 */
+  /**
+   * 그 일정의 시장 — 날짜(`date`) · 「지남」 이 이 시장 날짜다(v2.59.3 — 모든 일정에 붙인다: 실적은 종목 시장 · FOMC · 옵션 만기는 US · 휴장은 그 시장).
+   * 화면은 US 일정 날짜 옆에 「미국 날짜」(`common/UsDateTag`)를 붙인다.
+   */
   market?: 'US' | 'KR';
 }
 

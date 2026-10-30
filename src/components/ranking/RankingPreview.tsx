@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import LiteCandleChart, { LITE_CHART_MAS } from '../chart/LiteCandleChart';
 import { InlineSpinner } from '../common/LoadingOverlay';
 import StockName from '../common/StockName';
+import UsDateTag from '../common/UsDateTag';
+import { isKrSymbol } from '../../utils/market';
 import { maLabel } from '../../types/chart';
 import type { Candle, Timeframe } from '../../types/toss';
 import { CHART_PAGE_SIZE } from '../../utils/constants';
@@ -42,7 +44,7 @@ const earningsMemo = new Map<string, NextEarnings>();
 /** 스윙 "실적 14일 이내" 경고와 같은 기준 */
 const EARNINGS_WARN_DAYS = 14;
 
-function EarningsLine({ info }: { info: NextEarnings | null | undefined }) {
+function EarningsLine({ info, symbol }: { info: NextEarnings | null | undefined; symbol: string }) {
   if (info === undefined) return <p className="text-caption text-text-muted">실적일 확인 중…</p>;
   if (!info || !info.date || info.daysUntil == null) return <p className="text-caption text-text-muted/70">실적일 정보 없음</p>;
   const when = info.daysUntil === 0 ? '오늘' : `D−${info.daysUntil}`;
@@ -50,7 +52,9 @@ function EarningsLine({ info }: { info: NextEarnings | null | undefined }) {
   return (
     <p className={`text-caption ${soon ? 'font-medium text-warning' : 'text-text-secondary'}`}>
       {/* 날짜는 시장 날짜 문자열(YYYY-MM-DD) 그대로 — 앱 공통 표기 */}
-      실적 발표 {info.date} (예정·{info.isEstimate ? '추정' : when})
+      실적 발표 {info.date}
+      {/* 미국 종목은 미국 날짜(D−N 도 미국 날짜로 센다 — 서버 /api/earnings/next) */}
+      {!isKrSymbol(symbol) && <UsDateTag className="mx-1 align-baseline" />} (예정·{info.isEstimate ? '추정' : when})
       {info.isEstimate && <span className="ml-1 text-text-muted">{when}</span>}
     </p>
   );
@@ -190,7 +194,7 @@ export default function RankingPreview({
               <span className="text-text-primary">{row.price != null ? formatPrice(row.price, row.currency) : '—'}</span>{' '}
               {row.changeRate != null && <span className={changeColor(row.changeRate)}>{formatPercent(row.changeRate)}</span>}
             </p>
-            <EarningsLine info={earnings} />
+            <EarningsLine info={earnings} symbol={row.symbol} />
           </div>
         ) : (
           <p className="flex flex-1 items-center gap-1.5 text-xs text-text-muted">

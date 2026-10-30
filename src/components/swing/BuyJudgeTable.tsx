@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react';
 import StockName from '../common/StockName';
 import { Button, ListRemoveButton } from '../ui';
 import { ICON_SM } from '../ui/icon';
+import { withUsDateTag } from '../common/UsDateTag';
 import WarnIcon from '../ui/WarnIcon';
 import { LIST_TABLE_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP_TIGHT } from '../ui/tokens';
 import TradePlan from './TradePlan';
@@ -259,7 +260,7 @@ function Detail({
           {r.warnings.map((w) => (
             <li key={w}>
               <WarnIcon />
-              {w}
+              {withUsDateTag(w)}
             </li>
           ))}
         </ul>

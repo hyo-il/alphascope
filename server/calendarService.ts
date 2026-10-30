@@ -18,6 +18,7 @@ import { readUniverse } from './universe';
 import { coverageOf, isMarketClosed, listHolidays, usHolidayMismatches } from './marketCalendar';
 import { NYSE_COVERAGE, NYSE_SOURCE, NYSE_STALE_AFTER } from '../src/data/nyseHolidays';
 import { FOMC_MEETINGS, FOMC_SOURCE, FOMC_STALE_AFTER } from '../src/data/fomc';
+import { isKrSymbol } from '../src/utils/market';
 import { marketDate } from '../src/utils/marketDate';
 import type { CalendarEvent, CalendarResponse, CalendarScope } from '../src/types/calendar';
 
@@ -85,6 +86,7 @@ export function calendarEvents(from: string, to: string, scope: CalendarScope, n
       label: r.is_estimate === 1 ? '실적 발표 예정(추정 가능)' : '실적 발표',
       isEstimate: r.is_estimate === 1,
       past: r.earnings_date < marketDate(now, r.symbol),
+      market: isKrSymbol(r.symbol) ? 'KR' : 'US',
     });
   }
 
@@ -97,6 +99,7 @@ export function calendarEvents(from: string, to: string, scope: CalendarScope, n
       type: 'fomc',
       label: `FOMC 금리 결정 (${range} 회의)${m.sep ? ' · 경제전망 발표' : ''}`,
       past: m.end < usToday,
+      market: 'US',
     });
   }
 
@@ -113,6 +116,7 @@ export function calendarEvents(from: string, to: string, scope: CalendarScope, n
       label: `${quarterly ? '분기 동시 만기' : '월간 옵션 만기'}${shifted ? ' (셋째 금요일 휴장 → 전 거래일)' : ''}`,
       quarterly,
       past: date < usToday,
+      market: 'US',
     });
   }
 

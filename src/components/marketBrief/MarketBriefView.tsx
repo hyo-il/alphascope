@@ -4,6 +4,8 @@ import { Badge, Button, COLLECT_ICON, DisclosureButton, ICON_SM, InfoTip, PageHe
 import { PANEL_PAD } from '../ui/tokens';
 import WarnIcon from '../ui/WarnIcon';
 import SymbolChartLink from '../common/SymbolChartLink';
+import UsDateTag from '../common/UsDateTag';
+import { isKrSymbol } from '../../utils/market';
 import { SkeletonCards } from '../common/SkeletonLoader';
 import LoadingOverlay, { InlineSpinner } from '../common/LoadingOverlay';
 import { toast } from '../../store/uiStore';
@@ -646,9 +648,14 @@ function ScheduleRow({ item, earning, onOpen }: { item: BriefScheduleItem; earni
   const flagged = earning?.epsSanityFlag || /신뢰도 주의|⚠/.test(item.detail);
   const detail = clean(item.detail.replace(/,?\s*신뢰도 주의\s*$/, ''));
   const symbol = earning?.symbol ?? (item.ticker ? item.ticker.toUpperCase().replace(/\.(KS|KQ)$/, '') : null);
+  // 날짜는 그 시장 날짜 — 미국 종목 · 종목 없는 일정(FOMC · 경제지표 — 서버가 미국 날짜로 센다)에 「미국 날짜」
+  const usDate = symbol ? !isKrSymbol(symbol) : true;
   return (
     <li className="flex gap-2 text-xs">
-      <span className="w-20 shrink-0 tabular-nums text-text-secondary">{slotDate(item.date)}</span>
+      <span className="flex w-20 shrink-0 flex-col items-start tabular-nums text-text-secondary">
+        {slotDate(item.date)}
+        {usDate && <UsDateTag />}
+      </span>
       <div className="min-w-0 flex-1">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="font-medium text-text-primary">{clean(item.event)}</span>

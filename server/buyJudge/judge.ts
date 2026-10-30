@@ -23,7 +23,8 @@ import { loadCandles } from '../db';
 import { ROUND_TRIP_COST } from '../analysis/targetHit';
 import { isMockMode, mockPrice } from '../mockData';
 import { tossGet } from '../../src/services/toss/httpClient';
-import { marketDate } from '../../src/utils/marketDate';
+import { marketDate, US_DATE_LABEL } from '../../src/utils/marketDate';
+import { isKrSymbol } from '../../src/utils/market';
 import { BUY_CONDITION_NAME } from '../../src/utils/ruleText';
 import type { BuyKey, RuleBody } from '../../src/types/tradingRule';
 import {
@@ -110,7 +111,9 @@ export function warningsOf(symbol: string, ev: RuleEvaluation, price: number | n
     // 예전 식(실적일 UTC 자정 − 지금 시각)은 미국 16:30 ET 판단 때 오늘 장 뒤 실적을 빼고 내일 실적을 「0일 뒤」 로 셌다.
     const today = marketDate(now, symbol);
     const days = Math.round((Date.parse(`${earnings}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
-    if (days >= 0 && days <= 14) out.push(`${earnings} 실적 발표 예정(${days === 0 ? '오늘' : `${days}일 뒤`}) — 발표 때 크게 움직일 수 있습니다`);
+    // 미국 종목은 「미국 날짜」 를 붙인다 — 한국 달력으로는 하루 다를 수 있다(화면이 이 글자를 `common/UsDateTag` 로 그린다)
+    const when = `${days === 0 ? '오늘' : `${days}일 뒤`}${isKrSymbol(symbol) ? '' : ` · ${US_DATE_LABEL}`}`;
+    if (days >= 0 && days <= 14) out.push(`${earnings} 실적 발표 예정(${when}) — 발표 때 크게 움직일 수 있습니다`);
   }
   if (atr != null && price && atr / price > 0.04) out.push(`변동성이 높습니다(ATR ${((atr / price) * 100).toFixed(1)}%) — 비중을 줄이세요`);
   const r = ev.reference;

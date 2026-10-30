@@ -7,6 +7,7 @@ import DatePicker from './DatePicker';
 import { InlineSpinner } from '../common/LoadingOverlay';
 import { SkeletonList } from '../common/SkeletonLoader';
 import StockName from '../common/StockName';
+import UsDateTag from '../common/UsDateTag';
 import type { CalendarEvent, CalendarEventType, CalendarResponse, CalendarScope } from '../../types/calendar';
 
 /**
@@ -264,6 +265,8 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
                     ) : (
                       <span className="text-text-secondary">{e.label}</span>
                     )}
+                    {/* 미국 일정 — 날짜 · 「지남」 이 미국 날짜라 한국 달력과 하루 다를 수 있다(종목 단추 밖에 — 단추 안에 단추를 두지 않는다) */}
+                    {e.market === 'US' && <UsDateTag className="ml-auto pl-2" />}
                   </li>
                 ))}
               </ul>
