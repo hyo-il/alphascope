@@ -2,7 +2,7 @@
  * 오늘 시황 화면 견본 — `design:check` 가 응답을 바꿔치기해 채워진 화면을 잰다(DB · Gemini · 네트워크를 쓰지 않는다).
  * 글은 길이 · 줄바꿈을 보려고 실제 브리핑만큼 길게 썼다(내용은 견본 — 사실이 아니다).
  */
-import type { BriefEdition, MarketBrief, MarketBriefDayResponse, MarketBriefDays, MarketBriefStatus } from '../../../src/types/marketBrief';
+import type { BriefEdition, BriefOutlook, MarketBrief, MarketBriefDayResponse, MarketBriefDays, MarketBriefStatus, OutlookTarget, OutlookView } from '../../../src/types/marketBrief';
 
 const earnings: MarketBrief['data']['earnings'] = [
   { symbol: 'NVDA', name: '엔비디아', sector: '기술', date: '2026-11-19', daysUntil: 21, isEstimateDate: false, epsEstimate: '$1.25', lastQuarterEps: '$1.05', yoyEps: '$0.81', revenueEstimate: '$54.92B', recommendation: 'Buy (58/64)', epsDispersion: '-', epsSanityFlag: false, revenueSanityFlag: false, estimatesOk: true },
@@ -13,12 +13,14 @@ const earnings: MarketBrief['data']['earnings'] = [
 ];
 
 const morningAssets: MarketBrief['data']['assets'] = {
-  KOSPI: { current: 2651.37, change: 12.4, change_pct: 0.47, data_date: '2026-10-28' },
-  KOSDAQ: { current: 851.02, change: -4.11, change_pct: -0.48, data_date: '2026-10-28' },
-  SP500: { current: 6031.8, change: 31.8, change_pct: 0.53, data_date: '2026-10-28' },
-  NASDAQ: { current: 20100.12, change: -50.5, change_pct: -0.25, data_date: '2026-10-28' },
-  DOW: { current: 44210.55, change: 120.3, change_pct: 0.27, data_date: '2026-10-28' },
-  RUSSELL2000: { current: 2310.4, change: -18.2, change_pct: -0.78, data_date: '2026-10-28' },
+  KOSPI: { current: 2651.37, change: 12.4, change_pct: 0.47, data_date: '2026-10-28', trend: { d5: -3.2, d20: 1.1 } },
+  KOSDAQ: { current: 851.02, change: -4.11, change_pct: -0.48, data_date: '2026-10-28', trend: { d5: -4.05, d20: -2.3 } },
+  SP500: { current: 6031.8, change: 31.8, change_pct: 0.53, data_date: '2026-10-28', trend: { d5: 1.42, d20: 3.87 } },
+  NASDAQ: { current: 20100.12, change: -50.5, change_pct: -0.25, data_date: '2026-10-28', trend: { d5: 0.85, d20: 5.12 } },
+  DOW: { current: 44210.55, change: 120.3, change_pct: 0.27, data_date: '2026-10-28', trend: { d5: 0.31, d20: 1.9 } },
+  RUSSELL2000: { current: 2310.4, change: -18.2, change_pct: -0.78, data_date: '2026-10-28', trend: { d5: -1.6, d20: null } },
+  ES: { current: 6052.25, change: 18.5, change_pct: 0.31, data_date: '2026-10-28' },
+  NQ: { current: 21480.5, change: -40.25, change_pct: -0.19, data_date: '2026-10-28' },
   GOLD: { current: 2745.3, change: 12.1, change_pct: 0.44, data_date: '2026-10-28' },
   DXY: { current: 104.321, change: -0.214, change_pct: -0.21, data_date: '2026-10-28' },
   US2Y: { current: 3.49, change: -0.02, change_pct: -0.57, data_date: '2026-10-27' },
@@ -29,9 +31,29 @@ const morningAssets: MarketBrief['data']['assets'] = {
 };
 
 const afternoonAssets: MarketBrief['data']['assets'] = {
-  KOSPI: { current: 2668.02, change: 16.65, change_pct: 0.63, data_date: '2026-10-29' },
-  KOSDAQ: { current: 848.7, change: -2.32, change_pct: -0.27, data_date: '2026-10-29' },
+  KOSPI: { current: 2668.02, change: 16.65, change_pct: 0.63, data_date: '2026-10-29', trend: { d5: -2.1, d20: 1.6 } },
+  KOSDAQ: { current: 848.7, change: -2.32, change_pct: -0.27, data_date: '2026-10-29', trend: { d5: -3.4, d20: -2.0 } },
+  SP500: { current: 6031.8, change: 31.8, change_pct: 0.53, data_date: '2026-10-28', trend: { d5: 1.42, d20: 3.87 } },
+  NASDAQ: { current: 20100.12, change: -50.5, change_pct: -0.25, data_date: '2026-10-28', trend: { d5: 0.85, d20: 5.12 } },
   VIX: { current: 22.4, change: 1.2, change_pct: 5.66, data_date: '2026-10-28' },
+  ES: { current: 6040.75, change: 7.0, change_pct: 0.12, data_date: '2026-10-29' },
+  NQ: { current: 21410.0, change: -110.75, change_pct: -0.51, data_date: '2026-10-29' },
+};
+
+/** 「오늘 예상 방향」 견본(v2.60.0) */
+const OUTLOOK_KOSPI: BriefOutlook = {
+  target: 'KOSPI',
+  direction: '상승',
+  confidence: '보통',
+  reasons: ['S&P500 이 전일 +0.53% 오르고 선물도 직전 세션 종가 대비 +0.31% 로 위쪽', '다만 코스피 최근 흐름 5일 −3.20% 로 약해 반등 폭은 작을 수 있음'],
+  watch: '장 초반 외국인 매도가 이어지면 보합 쪽으로 기울 수 있음',
+};
+const OUTLOOK_SP500: BriefOutlook = {
+  target: 'SP500',
+  direction: '보합',
+  confidence: '낮음',
+  reasons: ['S&P500 선물 직전 세션 종가 대비 +0.31% · 나스닥100 선물 −0.19% 로 엇갈림', '섹터 1주 흐름은 기술 강세 · 에너지 약세로 갈림'],
+  watch: '오늘 밤 발표되는 고용지표가 예상과 크게 다르면 방향이 정해질 수 있음',
 };
 
 const common = {
@@ -90,18 +112,44 @@ export function briefSample(edition: BriefEdition, withAi = true, id = edition =
       { group: 'earnings', label: '실적 일정(60일)', ok: true, detail: '5종목 · 전망치 4/5' },
       { group: 'ai', label: 'AI 분석', ok: withAi, detail: withAi ? 'gemini-3.5-flash-lite · 호출 1번' : 'Gemini 무료 한도 초과(429) — 다시 부르지 않았습니다' },
     ],
-    data: { assets: morning ? morningAssets : { KOSPI: afternoonAssets.KOSPI, KOSDAQ: afternoonAssets.KOSDAQ, VIX: afternoonAssets.VIX }, earnings },
+    data: {
+      assets: morning ? morningAssets : afternoonAssets,
+      earnings,
+      sectorTrend: { kr: { up: [{ sector: '기술', pct: 4.2 }], down: [{ sector: '에너지', pct: -2.1 }] }, us: { up: [{ sector: '기술', pct: 2.3 }], down: [{ sector: '부동산', pct: -1.4 }] } },
+    },
     brief: withAi
       ? morning
-        ? { market_regime: 'Risk-On', regime_summary: '미국 대형 기술주가 실적 기대로 올랐지만 소형주는 내려 상승 폭이 좁습니다. 금리 · 달러가 안정돼 위험 자산 선호가 이어집니다.', ...common }
-        : { market_summary: '코스피는 반도체 대형주 강세로 0.63% 올랐고, 코스닥은 2차전지 약세로 0.27% 내렸습니다.', vix_comment: 'VIX 22.4 는 주의 구간이라 스윙 진입 규모를 평소보다 줄이는 편이 안전합니다.', ...common }
+        ? { market_regime: 'Risk-On', regime_summary: '미국 대형 기술주가 실적 기대로 올랐지만 소형주는 내려 상승 폭이 좁습니다. 금리 · 달러가 안정돼 위험 자산 선호가 이어집니다.', today_outlook: [OUTLOOK_KOSPI, OUTLOOK_SP500], ...common }
+        : { market_summary: '코스피는 반도체 대형주 강세로 0.63% 올랐고, 코스닥은 2차전지 약세로 0.27% 내렸습니다.', vix_comment: 'VIX 22.4 는 주의 구간이라 스윙 진입 규모를 평소보다 줄이는 편이 안전합니다.', today_outlook: [OUTLOOK_SP500], ...common }
       : null,
     aiError: withAi ? null : 'Gemini 무료 한도 초과(429) — 다시 부르지 않았습니다',
   };
 }
 
-export function daySample(brief: MarketBrief): MarketBriefDayResponse {
+const stats = (total: number, hits: number): OutlookView['stats'][OutlookTarget] => ({
+  total,
+  hits,
+  byConfidence: { 높음: { total: Math.round(total / 4), hits: Math.round(hits / 3) }, 보통: { total: Math.round(total / 2), hits: Math.round(hits / 2) }, 낮음: { total: total - Math.round(total / 4) - Math.round(total / 2), hits: hits - Math.round(hits / 3) - Math.round(hits / 2) } },
+});
+
+/** 채점 상태 견본 — 오전판: 코스피 채점됨(맞음) · S&P500 채점 대기 / 오후판: S&P500 채점 대기 / 지난 날: 둘 다 채점됨 */
+export function outlookSample(edition: BriefEdition, kind: 'today' | 'past' = 'today'): OutlookView {
+  const kospi = kind === 'past' || edition === 'morning'
+    ? { target: 'KOSPI' as const, status: 'scored' as const, tradeDay: '2026-10-29', closeAt: '2026-10-29T06:30:00.000Z', hit: true, actualPct: 0.84, actualDirection: '상승' as const }
+    : null;
+  const sp = kind === 'past'
+    ? { target: 'SP500' as const, status: 'scored' as const, tradeDay: '2026-10-29', closeAt: '2026-10-29T20:00:00.000Z', hit: false, actualPct: -0.62, actualDirection: '하락' as const }
+    : { target: 'SP500' as const, status: 'pending' as const, tradeDay: '2026-10-29', closeAt: '2026-10-29T20:00:00.000Z' };
   return {
+    items: edition === 'morning' ? [kospi!, sp] : [sp],
+    stats: edition === 'morning' ? { KOSPI: stats(20, 12), SP500: stats(7, 3) } : { SP500: stats(7, 3) },
+    recent: 20,
+  };
+}
+
+export function daySample(brief: MarketBrief, outlook: OutlookView | undefined = brief.brief?.today_outlook?.length ? outlookSample(brief.edition) : undefined): MarketBriefDayResponse {
+  return {
+    ...(outlook ? { outlook } : {}),
     date: brief.date,
     items: [
       { id: 13, edition: 'afternoon', trigger: 'button', createdAt: '2026-10-29T06:40:03.000Z', hasAi: true },

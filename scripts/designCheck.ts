@@ -32,7 +32,7 @@ import path from 'node:path';
 import { chromium, type Page } from 'playwright';
 import { NAV_GROUPS, PAGE_TABS } from '../src/types/nav';
 import { rankingSample, usHaltsSample } from './fixtures/usHalts/screenSample';
-import { briefSample, daySample, daysSample, mismatchSample, statusSample } from './fixtures/marketBrief/screenSample';
+import { briefSample, daySample, daysSample, mismatchSample, outlookSample, statusSample } from './fixtures/marketBrief/screenSample';
 import { CHANGELOG } from '../src/data/changelog';
 import { sortDayRows } from '../src/utils/buyJudgeOrder';
 
@@ -374,6 +374,22 @@ function targets(): Target[] {
         await page.unroute(/\/api\/market-brief\?/);
       },
     })),
+    // 오늘 시황 — 지난 날 브리핑(「오늘 예상 방향」 채점됨 · 맞음/틀림 · 실제 등락률, v2.60.0)
+    {
+      name: 'market-brief-지난날채점',
+      hash: '#/market-brief',
+      before: async (page: Page) => {
+        const past = briefSample('morning', true, 11);
+        await page.route('**/api/market-brief/status', (r) => r.fulfill({ json: statusSample() }).catch(() => {}));
+        await page.route('**/api/market-brief/days', (r) => r.fulfill({ json: daysSample }).catch(() => {}));
+        await page.route(/\/api\/market-brief\?/, (r) => r.fulfill({ json: daySample(past, outlookSample('morning', 'past')) }).catch(() => {}));
+      },
+      after: async (page: Page) => {
+        await page.unroute('**/api/market-brief/status');
+        await page.unroute('**/api/market-brief/days');
+        await page.unroute(/\/api\/market-brief\?/);
+      },
+    },
     // 오늘 시황 — 문장 ↔ 숫자 어긋남 「숫자와 다름」 · 대표 종목 링크 · 검사 줄(v2.59.6)
     {
       name: 'market-brief-숫자와다름',

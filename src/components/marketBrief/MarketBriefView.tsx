@@ -197,7 +197,7 @@ export default function MarketBriefView({ onSelectSymbol }: { onSelectSymbol: (s
           <div className="relative">
             {loadingDay && <LoadingOverlay contained label="불러오는 중…" />}
             {selected ? (
-              <BriefBody brief={selected} onOpen={onSelectSymbol} />
+              <BriefBody brief={selected} outlook={day?.outlook} onOpen={onSelectSymbol} />
             ) : (
               <EmptyDay isToday={day.date === status?.today} status={status} onRun={run} />
             )}

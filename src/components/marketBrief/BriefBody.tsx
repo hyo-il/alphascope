@@ -2,9 +2,10 @@ import { Badge, Panel } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
 import { formatDateTime } from '../../utils/dateFormat';
 import { EDITION_LABEL, isIntradayBar } from '../../utils/marketBrief';
-import type { BriefAssetKey, MarketBrief } from '../../types/marketBrief';
+import type { BriefAssetKey, MarketBrief, OutlookView } from '../../types/marketBrief';
 import { dayLabel } from './briefText';
 import RegimeCard from './RegimeCard';
+import OutlookCard from './OutlookCard';
 import ScheduleCard from './ScheduleCard';
 import SectorsCard from './SectorsCard';
 import ThemesCard from './ThemesCard';
@@ -22,7 +23,7 @@ const plainReason = (reason: string | null) =>
  * 브리핑 한 개 — 만든 시각 · 데이터 기준 줄 + 칸 ① ~ ⑧(Stockproject 메시지 순서 그대로) + 수집 상태.
  * 칸은 각자 부품(`*Card.tsx`)이고 여기서는 순서와 「AI 가 있을 때만」 만 정한다 — 새 칸은 이 목록에 한 줄로 붙인다.
  */
-export default function BriefBody({ brief, onOpen }: { brief: MarketBrief; onOpen: (symbol: string) => void }) {
+export default function BriefBody({ brief, outlook, onOpen }: { brief: MarketBrief; outlook?: OutlookView; onOpen: (symbol: string) => void }) {
   const ai = brief.brief;
   const basisKey: BriefAssetKey = brief.edition === 'morning' ? 'SP500' : 'KOSPI';
   const basis = brief.data.assets[basisKey]?.data_date;
@@ -48,6 +49,7 @@ export default function BriefBody({ brief, onOpen }: { brief: MarketBrief; onOpe
       )}
 
       <RegimeCard brief={brief} />
+      <OutlookCard brief={brief} view={outlook} />
       <ScheduleCard brief={brief} onOpen={onOpen} />
       {ai && <SectorsCard ai={ai} onOpen={onOpen} />}
       {ai && <ThemesCard ai={ai} />}
