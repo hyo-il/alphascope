@@ -23,6 +23,13 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.59.5',
+    date: '2026-10-30',
+    title: '내부 정리(화면 · 동작 변화 없음)',
+    description: '오늘 시황 코드를 나누고 점검 시험을 바로잡았습니다 — 보이는 화면과 동작은 그대로입니다',
+    changes: ['내부 정리(화면 · 동작 변화 없음)'],
+  },
+  {
     version: 'v2.59.4',
     date: '2026-10-30',
     title: '오늘 시황: 미국 장 마감이 지난 오늘 일정은 「발표됨」 표시',
