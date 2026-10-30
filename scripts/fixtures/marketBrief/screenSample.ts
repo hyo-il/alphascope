@@ -141,3 +141,41 @@ export function statusSample(o: { running?: boolean; used?: number; gemini?: boo
     bootAt: 0,
   };
 }
+
+/**
+ * v2.59.6 견본 — 장중 오후판 · 코스피 −5.53% 인데 AI 글이 「방어」(실제 2026-10-30 화면 문장) → 서버 검사가 남긴 「숫자와 다름」 ·
+ * 후보 목록으로 거른 대표 종목(누르면 차트) · 수집 상태의 검사 줄 · 미2년물 후보 줄.
+ */
+export function mismatchSample(): MarketBrief {
+  const base = briefSample('afternoon', true, 14);
+  const ai = base.brief!;
+  return {
+    ...base,
+    createdAt: '2026-10-29T05:20:00.000Z', // 한국 14:20 — 장중
+    promptVersion: 'brief-v4',
+    data: {
+      ...base.data,
+      collectedAt: '2026-10-29T05:20:00.000Z',
+      assets: {
+        KOSPI: { current: 2500.1, change: -146.3, change_pct: -5.53, data_date: '2026-10-29' },
+        KOSDAQ: { current: 800.2, change: -39.8, change_pct: -4.74, data_date: '2026-10-29' },
+        VIX: afternoonAssets.VIX,
+      },
+    },
+    brief: {
+      ...ai,
+      market_summary: '국내 증시는 양호한 실적 기대감과 경제지표 호조로 방어력을 보이고 있습니다.',
+      leading_sectors: [
+        { ...ai.leading_sectors[0], stocks_kr: [{ symbol: '005930', name: '삼성전자' }, { symbol: '000660', name: 'SK하이닉스' }], stocks_us: [{ symbol: 'NVDA', name: '엔비디아' }] },
+        { ...ai.leading_sectors[1], stocks_kr: [{ symbol: '105560', name: 'KB금융' }], stocks_us: [] },
+      ],
+      mismatches: [{ field: 'market_summary', market: '국내 증시', said: '방어', actual: '코스피 −5.53%(장중) · 코스닥 −4.74%(장중)' }],
+    },
+    sources: [
+      ...base.sources.filter((s) => s.group !== 'ai'),
+      { group: 'ai', label: 'AI 분석', ok: true, detail: 'gemini-3.5-flash-lite · 호출 1번' },
+      { group: 'check', label: 'AI 문장 검사', ok: false, detail: '1곳 숫자와 다름' },
+      { group: 'check', label: '대표 종목 거르기', ok: false, detail: '대표 종목 2개 뺌(목록 밖)' },
+    ],
+  };
+}

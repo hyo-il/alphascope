@@ -3,6 +3,7 @@ import { vixZone } from '../../utils/marketBrief';
 import type { MarketBrief } from '../../types/marketBrief';
 import { BriefCard, LabeledLine } from './BriefCard';
 import { clean, PASSIVE_TIP } from './briefText';
+import MismatchTag from './MismatchTag';
 
 const REGIME_TONE = { 'Risk-On': 'bullish', 'Risk-Off': 'bearish', 혼조: 'warning' } as const;
 const REGIME_TIP = {
@@ -33,13 +34,24 @@ function RegimeBody({ brief }: { brief: MarketBrief }) {
                 {ai.market_regime}
               </Badge>
               <span className="text-caption text-text-muted">{REGIME_TIP[ai.market_regime]}</span>
+              <MismatchTag ai={ai} field="market_regime" />
             </div>
           )}
-          {ai.regime_summary && <p className="break-keep text-text-primary">{clean(ai.regime_summary)}</p>}
+          {ai.regime_summary && (
+            <p className="break-keep text-text-primary">
+              {clean(ai.regime_summary)}
+              <MismatchTag ai={ai} field="regime_summary" />
+            </p>
+          )}
         </>
       ) : (
         <>
-          {ai.market_summary && <p className="break-keep text-text-primary">{clean(ai.market_summary)}</p>}
+          {ai.market_summary && (
+            <p className="break-keep text-text-primary">
+              {clean(ai.market_summary)}
+              <MismatchTag ai={ai} field="market_summary" />
+            </p>
+          )}
           {ai.vix_comment && (
             <LabeledLine label={vix ? `VIX ${vixZone(vix.current)}` : 'VIX'} tip="VIX = 미국 주식이 앞으로 얼마나 출렁일지 시장이 예상하는 값(공포지수). 20 미만 안정 · 20~30 주의 · 30 이상 공포.">
               {clean(ai.vix_comment)}

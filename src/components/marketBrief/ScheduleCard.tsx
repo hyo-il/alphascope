@@ -132,7 +132,7 @@ function RawSchedule({ earnings, onOpen }: { earnings: BriefEarning[]; onOpen: (
               {g.items.slice(0, RAW_SCHEDULE_MAX).map((e) => (
                 <ScheduleRow
                   key={e.symbol}
-                  item={{ date: `${e.date.slice(5, 7)}/${e.date.slice(8, 10)}${dayLabel(e.date).slice(5)}`, event: `${e.name} 실적 발표${e.isEstimateDate ? '(날짜 미확정)' : ''}`, ticker: e.symbol, sector_kr: e.sector, detail: rawDetail(e), importance: 0 }}
+                  item={{ date: `${e.date.slice(5, 7)}/${e.date.slice(8, 10)}${dayLabel(e.date).slice(5)}`, event: `${e.name} 실적 발표${e.isEstimateDate ? '(날짜 미확정)' : ''}`, ticker: e.symbol, sector_kr: e.sector, detail: rawDetail(e), importance: 0, released: e.released, usCloseAt: e.usCloseAt }}
                   earning={e}
                   onOpen={onOpen}
                 />

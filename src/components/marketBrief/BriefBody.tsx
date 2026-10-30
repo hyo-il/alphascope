@@ -49,7 +49,7 @@ export default function BriefBody({ brief, onOpen }: { brief: MarketBrief; onOpe
 
       <RegimeCard brief={brief} />
       <ScheduleCard brief={brief} onOpen={onOpen} />
-      {ai && <SectorsCard ai={ai} />}
+      {ai && <SectorsCard ai={ai} onOpen={onOpen} />}
       {ai && <ThemesCard ai={ai} />}
       <MarketDataCard brief={brief} />
       {ai && <SwingCard ai={ai} />}

@@ -2,6 +2,7 @@ import { Badge } from '../ui';
 import type { BriefAi } from '../../types/marketBrief';
 import { BriefCard, LabeledLine } from './BriefCard';
 import { clean } from './briefText';
+import MismatchTag from './MismatchTag';
 
 const THEME_KIND: Record<string, { tone: 'bullish' | 'bearish' | 'neutral'; label: string }> = {
   '🟢': { tone: 'bullish', label: '상승 모멘텀' },
@@ -27,7 +28,12 @@ export default function ThemesCard({ ai }: { ai: BriefAi }) {
               <span className="font-semibold text-text-primary">{clean(t.title)}</span>
             </div>
             {t.duration && <LabeledLine label="지속">{clean(t.duration)}</LabeledLine>}
-            {t.why_important && <LabeledLine label="왜 중요">{clean(t.why_important)}</LabeledLine>}
+            {t.why_important && (
+              <LabeledLine label="왜 중요">
+                {clean(t.why_important)}
+                <MismatchTag ai={ai} field={`key_themes.${i}.why_important`} />
+              </LabeledLine>
+            )}
             {t.swing_point && <LabeledLine label="스윙 관점">{clean(t.swing_point)}</LabeledLine>}
           </li>
         ))}

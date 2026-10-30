@@ -11,13 +11,16 @@
 
 import { BRIEF_SECTORS, dateLabel, earningsLine } from './earnings';
 import type { BriefNewsItem } from './news';
+import { poolText, SECTOR_STOCKS_KEEP, type SectorStockPool } from './sectorStocks';
 import { ASSET_LABEL, isIntradayBar, vixZone } from '../../src/utils/marketBrief';
 import { FOMC_MEETINGS } from '../../src/data/fomc';
-import { marketDate } from '../../src/utils/marketDate';
+import { kstClockText, marketDate } from '../../src/utils/marketDate';
 import { daysBetween } from './earnings';
 import type { BriefAsset, BriefAssetKey, BriefEarning, BriefEdition } from '../../src/types/marketBrief';
 
-export const MARKET_BRIEF_PROMPT_VERSION = 'brief-v3'; // v2: 날짜 · D+N 을 각 시장 현지 날짜로(v2.59.3) · v3: 장 마감 뒤 미국 D+0 은 [D+0 · 발표됨](v2.59.4)
+// v2: 날짜 · D+N 을 각 시장 현지 날짜로(v2.59.3) · v3: 장 마감 뒤 미국 D+0 은 [D+0 · 발표됨](v2.59.4) ·
+// v4: 숫자와 반대인 방향 표현 금지 · 장중 값은 「장중(마감 전) — HH:MM 기준」 · 대표 종목은 후보 목록에서 [{ticker, name}](v2.59.6)
+export const MARKET_BRIEF_PROMPT_VERSION = 'brief-v4';
 
 export const SYSTEM = '당신은 10년 이상 경력의 한국 주식 시장 전문 애널리스트입니다.';
 
@@ -52,6 +55,12 @@ const THEME = {
   },
   required: ['icon', 'category', 'title', 'why_important', 'duration', 'swing_point'],
 };
+/** 대표 종목 — [주도 섹터 대표 종목 후보] 의 티커 · 이름 그대로(서버가 목록 밖을 뺀다 — `sectorStocks.ts`) */
+const STOCK = {
+  type: 'OBJECT',
+  properties: { ticker: STR, name: STR },
+  required: ['ticker', 'name'],
+};
 const SECTOR = {
   type: 'OBJECT',
   properties: {
@@ -59,8 +68,8 @@ const SECTOR = {
     name: { type: 'STRING', enum: BRIEF_SECTORS },
     stars: { type: 'STRING', enum: ['★★★', '★★☆', '★☆☆'] },
     reason: STR,
-    stocks_kr: STR,
-    stocks_us: STR,
+    stocks_kr: { type: 'ARRAY', items: STOCK },
+    stocks_us: { type: 'ARRAY', items: STOCK },
   },
   required: ['emoji', 'name', 'stars', 'reason', 'stocks_kr', 'stocks_us'],
 };
@@ -111,11 +120,17 @@ const num4 = (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 4
 const INDEX_KEYS: BriefAssetKey[] = ['KOSPI', 'KOSDAQ', 'SP500', 'NASDAQ', 'DOW', 'RUSSELL2000', 'VIX'];
 const RATE_KEYS: BriefAssetKey[] = ['US2Y', 'US10Y'];
 
-/** 그 값의 기준 라벨 — 「10/28(수) 종가」 · 「10/29(목) 장중」 · 「10/28(수) 기준」 */
+const KR_INDEX_KEYS: BriefAssetKey[] = ['KOSPI', 'KOSDAQ'];
+
+/**
+ * 그 값의 기준 라벨 — 「10/28(수) 종가」 · 「10/29(목) 장중(마감 전) — 14:20 기준」 · 「10/28(수) 기준」.
+ * 장중이면 받은 시각을 밝힌다(국내 지수는 한국 시각 · 미국 지수는 「한국 HH:MM」) — AI 가 장중 값을 마감처럼 쓰지 않게(v2.59.6).
+ */
 export function basisLabel(key: BriefAssetKey, v: BriefAsset, at: number): string {
   if (!v.data_date) return '';
-  const kind = INDEX_KEYS.includes(key) ? (isIntradayBar(key, v.data_date, at) ? '장중' : '종가') : '기준';
-  return `${dateLabel(v.data_date)} ${kind}`;
+  if (!INDEX_KEYS.includes(key)) return `${dateLabel(v.data_date)} 기준`;
+  if (!isIntradayBar(key, v.data_date, at)) return `${dateLabel(v.data_date)} 종가`;
+  return `${dateLabel(v.data_date)} 장중(마감 전) — ${KR_INDEX_KEYS.includes(key) ? '' : '한국 '}${kstClockText(at).slice(0, 5)} 기준`;
 }
 
 /**
@@ -180,8 +195,8 @@ const REST_JSON = (sectorReason: string, phase: string) => `  "leading_sectors":
       "name": "섹터명",
       "stars": "★★★ 또는 ★★☆ 또는 ★☆☆",
       "reason": "${sectorReason}",
-      "stocks_kr": "국내 주목 대형주 종목명 (없으면 빈 문자열)",
-      "stocks_us": "미국 주목 대형주 종목명 (없으면 빈 문자열)"
+      "stocks_kr": [{ "ticker": "[주도 섹터 대표 종목 후보] 의 이 섹터 국내 티커", "name": "그 줄의 종목명 그대로" }],
+      "stocks_us": [{ "ticker": "[주도 섹터 대표 종목 후보] 의 이 섹터 미국 티커", "name": "그 줄의 종목명 그대로" }]
     }
   ],
   "swing_check": {
@@ -223,7 +238,10 @@ const THEME_RULE = (beginner: boolean) => `- key_themes: 정확히 3개, 1~3개�
     beginner ? '\n  금융 전문용어 사용 시 괄호로 짧게 풀이 병기 (예: "FOMC(미 연준 통화정책 회의)", "EPS(주당순이익)").' : ''
   }`;
 
-const COMMON_RULES = `- leading_sectors: 2~3개. 다음 두 기준 중 하나라도 해당하면 선정 가능.
+const COMMON_RULES = `- 방향 표현(모든 문장): 위 시장 데이터의 등락 방향과 반대인 표현 금지 — 예: 코스피가 내렸는데 '방어' · '선방' · '강세' · '상승' 으로 쓰지 말 것.
+  ★ 라벨이 [장중(마감 전)] 인 값은 아직 마감 전이다 — 그 값을 말할 때는 '장중 기준' 이라고 밝힐 것.
+  ★ 뉴스 제목의 분위기보다 위 숫자를 우선할 것. 서버가 문장의 방향과 숫자를 맞춰 보고, 어긋나면 화면에 「숫자와 다름」 을 붙인다.
+- leading_sectors: 2~3개. 다음 두 기준 중 하나라도 해당하면 선정 가능.
 
   기준 A) 지속 가능한 상승 모멘텀
     실적 사이클, 정책 변화, 금리·환율 등 최소 3개월 이상 지속 가능한 펀더멘털 근거.
@@ -247,6 +265,8 @@ const COMMON_RULES = `- leading_sectors: 2~3개. 다음 두 기준 중 하나라
     ${SECTOR_LIST}
   ★ 명칭을 변형하지 말 것. 서버 사후 처리가 정확 매칭만 함.
   ★ 위 명칭에 해당하지 않는 새 섹터를 선정할 경우, upcoming_schedule 의 해당 섹터 항목이 사후 처리로 모두 제거됨.
+  ★ stocks_kr · stocks_us 는 [주도 섹터 대표 종목 후보] 에서 **그 섹터 줄의** 국내 · 미국 종목만, ticker · name 을 그대로 0~${SECTOR_STOCKS_KEEP}개.
+    목록에 없는 종목 · 다른 섹터 줄의 종목은 쓰지 말 것(서버가 빼고 화면에 남지 않는다). 해당 종목이 없으면 빈 배열 [].
 - upcoming_schedule: 향후 60일 주요 일정을 다음 3개 슬롯으로 분류.
   ★ 날짜와 D+N 은 각 종목 시장의 현지 날짜 기준(미국 종목 = 미국 동부, 국내 종목 = 한국). FOMC 등 미국 일정도 미국 날짜.
   ★ [D+0 · 발표됨] 표시가 붙은 미국 일정(실적 · FOMC)은 그 날 미국 장 마감이 지나 이미 발표됐을 수 있다 — 「앞둔 일정」 이 아니라 「발표 결과 확인」 관점으로 쓸 것(일정에는 남긴다). 결과 수치 · 평가(EPS 상회 · 금리 동결 등)는 입력 뉴스에 있을 때만 쓰고, 없으면 「결과 확인 필요」 로 쓸 것(지어내지 말 것).
@@ -310,13 +330,17 @@ export interface PromptInput {
   at?: number;
   /** 지금이 미국 날짜 그 날 정규장 끝 뒤인가 — 미국 D+0 일정에 「발표됨」(v2.59.4) */
   usReleased?: boolean;
+  /** ③ 대표 종목 후보(v2.59.6) — 없으면 빈 목록 */
+  sectorStocks?: SectorStockPool;
 }
+
+const STOCKS_HEAD = '[주도 섹터 대표 종목 후보 (섹터별 시가총액 상위 — leading_sectors 의 stocks_kr · stocks_us 는 이 목록에서만)]';
 
 export function buildPrompt(input: PromptInput): string {
   return input.edition === 'morning' ? morningPrompt(input) : afternoonPrompt(input);
 }
 
-function morningPrompt({ today, assets, earnings, domestic, foreign, at = Date.now(), usReleased = false }: PromptInput): string {
+function morningPrompt({ today, assets, earnings, domestic, foreign, at = Date.now(), usReleased = false, sectorStocks = {} }: PromptInput): string {
   return `오늘 날짜는 ${todayText(today)}입니다(한국). 미국 동부 날짜는 ${todayText(marketDate(at, 'SPY'))}입니다.
 
 ${SYSTEM}
@@ -335,6 +359,9 @@ ${fomcText(marketDate(at, 'SPY'), usReleased)}
 
 ${EARNINGS_HEAD}
 ${earningsText(earnings, usReleased)}
+
+${STOCKS_HEAD}
+${poolText(sectorStocks)}
 
 [오늘 국내 뉴스]
 ${newsText(domestic, '국내', 30, '(국내 뉴스 없음)')}
@@ -360,7 +387,7 @@ ${THEME_RULE(false)}
 ${COMMON_RULES}`;
 }
 
-function afternoonPrompt({ today, assets, earnings, domestic, at = Date.now(), usReleased = false }: PromptInput): string {
+function afternoonPrompt({ today, assets, earnings, domestic, at = Date.now(), usReleased = false, sectorStocks = {} }: PromptInput): string {
   const vix = assets.VIX;
   const vixBasis = vix ? basisLabel('VIX', vix, at) : '';
   const vixLevel = vix
@@ -376,7 +403,7 @@ ${SYSTEM}
 
 ${PROFILE}
 
-[오늘 국내 지수 (당일 마감 — 장 마감 전에 받았으면 라벨이 [장중])]
+[오늘 국내 지수 (당일 마감 — 장 마감 전에 받았으면 라벨이 [장중(마감 전) — 받은 시각])]
 ${lines(assets, ['KOSPI', 'KOSDAQ'], at) || '  (데이터 없음)'}${krStale}
 
 [시장 공포 지수]
@@ -387,6 +414,9 @@ ${fomcText(marketDate(at, 'SPY'), usReleased)}
 
 ${EARNINGS_HEAD}
 ${earningsText(earnings, usReleased)}
+
+${STOCKS_HEAD}
+${poolText(sectorStocks)}
 
 [오늘 국내 뉴스]
 ${newsText(domestic, '국내', 30, '(국내 뉴스 없음)')}
@@ -403,7 +433,7 @@ ${THEME_JSON(true)}
 ${REST_JSON('오늘 이 섹터가 주목받는 근거 (뉴스/실적 기반, 1~2문장)', '현재 국내 시장 국면 한줄')}
 
 [작성 규칙]
-- market_summary: 오늘 코스피·코스닥 등락과 주요 원인을 과거형으로 서술. 지수 라벨이 [장중]이면 아직 마감 전이므로 "장중" 흐름으로 서술. 지수 날짜가 오늘이 아니면 마지막 거래일 값이라고 밝힐 것.
+- market_summary: 오늘 코스피·코스닥 등락과 주요 원인을 과거형으로 서술. 지수 라벨이 [장중(마감 전)]이면 아직 마감 전이므로 "장중 기준" 흐름으로 서술(오른 · 내린 방향은 숫자 그대로). 지수 날짜가 오늘이 아니면 마지막 거래일 값이라고 밝힐 것.
 - vix_comment: VIX 수치(${vix ? vix.current : 'N/A'})를 언급하며 안정/주의/공포 여부와 스윙 트레이딩 시사점 서술.
 ${THEME_RULE(true)}
 ${COMMON_RULES}`;

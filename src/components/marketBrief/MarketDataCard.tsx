@@ -49,9 +49,8 @@ function Group({ title, date, intraday = false, index = false, children }: { tit
 function Row({ label, first, second, move }: { label: string; first: ReactNode; second: ReactNode; move?: ReactNode }) {
   return (
     <>
-      <span className="min-w-0 truncate text-text-secondary" title={label}>
-        {label}
-      </span>
+      {/* 이름은 짧아 말줄임하지 않는다 — 브라우저 기본 툴팁(title)이 캡처에 찍혀 제목을 가리던 것(v2.59.6)을 없앴다 */}
+      <span className="min-w-0 break-keep text-text-secondary">{label}</span>
       <span className="text-right">{first}</span>
       <span className="text-text-muted">→</span>
       <span className="text-right text-text-primary">{second}</span>

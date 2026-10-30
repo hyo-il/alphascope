@@ -32,7 +32,7 @@ import path from 'node:path';
 import { chromium, type Page } from 'playwright';
 import { NAV_GROUPS, PAGE_TABS } from '../src/types/nav';
 import { rankingSample, usHaltsSample } from './fixtures/usHalts/screenSample';
-import { briefSample, daySample, daysSample, statusSample } from './fixtures/marketBrief/screenSample';
+import { briefSample, daySample, daysSample, mismatchSample, statusSample } from './fixtures/marketBrief/screenSample';
 import { CHANGELOG } from '../src/data/changelog';
 import { sortDayRows } from '../src/utils/buyJudgeOrder';
 
@@ -374,6 +374,24 @@ function targets(): Target[] {
         await page.unroute(/\/api\/market-brief\?/);
       },
     })),
+    // 오늘 시황 — 문장 ↔ 숫자 어긋남 「숫자와 다름」 · 대표 종목 링크 · 검사 줄(v2.59.6)
+    {
+      name: 'market-brief-숫자와다름',
+      hash: '#/market-brief',
+      before: async (page: Page) => {
+        await page.route('**/api/market-brief/status', (r) => r.fulfill({ json: statusSample() }).catch(() => {}));
+        await page.route('**/api/market-brief/days', (r) => r.fulfill({ json: daysSample }).catch(() => {}));
+        await page.route(/\/api\/market-brief\?/, (r) => r.fulfill({ json: daySample(mismatchSample()) }).catch(() => {}));
+      },
+      open: async (page: Page) => {
+        await page.getByRole('button', { name: '수집 상태 보기' }).click().catch(() => {});
+      },
+      after: async (page: Page) => {
+        await page.unroute('**/api/market-brief/status');
+        await page.unroute('**/api/market-brief/days');
+        await page.unroute(/\/api\/market-brief\?/);
+      },
+    },
     // 기준가를 확인하지 못한 종목은 등락률이 null → 「—」(지도 칸 · 관심 패널). 응답의 절반을 null 로 바꿔치기 — DB 는 그대로
     {
       name: 'heatmap-등락률없음',

@@ -17,7 +17,9 @@ import { getDb } from '../db';
 import { callGemini, DEFAULT_MODEL, geminiDisabledReason, GeminiError, type GeminiCallOptions, type GeminiCallResult } from '../gemini/client';
 import { collectAll, defaultCollectDeps, type CollectDeps } from './collect';
 import { buildPrompt, MARKET_BRIEF_PROMPT_VERSION, REQUIRED_KEYS, SCHEMA, SYSTEM } from './prompt';
-import { postprocess } from './postprocess';
+import { markReleasedEarnings, postprocess } from './postprocess';
+import { checkDirections } from './directionCheck';
+import { filterSectorStocks } from './sectorStocks';
 import { regularSessionEnd } from '../heatmapSession';
 import { marketDate } from '../../src/utils/marketDate';
 import { countBriefs, insertBrief, purgeOldBriefs } from './store';
@@ -186,6 +188,8 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
   // 「발표됨」 — 지금의 미국 날짜 그 날 정규장 끝(토스 달력 → 고정표, 조기 마감 반영 · 휴장이면 null). 프롬프트 · 뒤처리가 같은 값
   const usClose = await deps.usClose(marketDate(startedMs, 'SPY'), startedMs).catch(() => null);
   const usReleased = usClose != null && startedMs >= usClose;
+  // AI 가 없어도 ② 실적 목록에 같은 「발표됨」(저장 데이터에 붙인다 — 화면은 그대로 읽는다)
+  markReleasedEarnings(collected.earnings.earnings, startedMs, usClose);
   const prompt = buildPrompt({
     edition,
     today,
@@ -195,6 +199,7 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
     foreign: collected.foreign,
     at: collectedAt,
     usReleased,
+    sectorStocks: collected.sectorStocks,
   });
   // 시장 데이터를 하나도 못 받았으면 AI 를 부르지 않는다 — 숫자 없이 시황을 지어낸다(한도도 아낀다)
   const noMarket = Object.keys(collected.market.assets).length === 0;
@@ -203,16 +208,25 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
     : await askGemini(edition, prompt, deps);
   let brief: BriefAi | null = null;
   let aiError = ai.error;
+  const checks: BriefSourceStatus[] = [];
   if (ai.brief) {
     try {
       brief = postprocess(ai.brief, collected.earnings.earnings, startedMs, usClose);
+      // ③ 대표 종목 — 후보 목록 밖 · 다른 섹터는 뺀다 / 문장 ↔ 숫자 — 어긋남만 남긴다(문장은 그대로)
+      const dropped = filterSectorStocks(brief, collected.sectorStocks);
+      brief.mismatches = checkDirections(brief, { edition, assets: collected.market.assets, at: collectedAt });
+      const n = brief.mismatches.length;
+      checks.push({ group: 'check', label: 'AI 문장 검사', ok: n === 0, detail: n ? `${n}곳 숫자와 다름` : '시장 숫자와 반대인 문장 없음' });
+      if (dropped) checks.push({ group: 'check', label: '대표 종목 거르기', ok: false, detail: `대표 종목 ${dropped}개 뺌(목록 밖)` });
     } catch (e) {
+      brief = null;
       aiError = `AI 응답 뒤처리 실패 — ${(e as Error).message}`;
     }
   }
   const sources: BriefSourceStatus[] = [
     ...collected.sources,
     { group: 'ai', label: 'AI 분석', ok: Boolean(brief), detail: brief ? `${ai.model} · 호출 ${ai.calls}번` : (aiError ?? '실패') },
+    ...(brief ? checks : []),
   ];
 
   state.stage = 'save';

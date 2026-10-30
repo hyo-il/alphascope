@@ -171,12 +171,22 @@ export function capAndSortBySectorPriority(brief: BriefAi, now: number): BriefAi
 /**
  * ④ (v2.59.4) 「발표됨」 표시 — 미국 일정 · 날짜가 그 일정의 오늘(미국 날짜) · 지금이 그 날 미국 정규장 끝(`usClose` — 조기 마감 반영) 뒤.
  * 슬롯 · 정렬 · 개수는 바꾸지 않는다(표시만). 국내 일정은 보지 않는다(사용자 결정 — 미국만).
+ * AI 없이 만든 브리핑의 실적 목록(`data.earnings`)에도 같은 판정을 붙인다(`markReleasedEarnings` — v2.59.6).
  */
 /**
  * 「발표됨」 을 붙일 수 있는 일정 — 미국 종목 실적 · FOMC · 미국 정규 경제지표(장중 · 장 전에 발표가 정해진 것)만.
  * 선거 · 연설 · 행사 · 콘퍼런스처럼 결과가 밤에 나오거나 「발표」 가 아닌 일정에 「이미 발표됐을 수 있음」 이 붙지 않게 좁힌다(④ 경제 검토).
  */
 const RELEASE_EVENT = /FOMC|금리\s*결정|CPI|PCE|PPI|고용|비농업|실업수당|GDP|소매\s*판매|ISM|소비자\s*물가|생산자\s*물가/i;
+
+/**
+ * 실적 한 건이 「발표됨」 인가 — 미국 종목 · 실적일 확정(추정일이면 그 날 발표하지 않았을 수 있다) · 실적일 = 지금의 미국 날짜 · 그 날 정규장 끝 뒤.
+ * AI 일정의 실적 항목과 AI 없는 실적 목록이 같은 판정을 쓴다.
+ */
+export function isReleasedEarning(e: BriefEarning, now: number, usClose: number | null): boolean {
+  if (usClose == null || now < usClose || isDomesticTicker(e.symbol) || e.isEstimateDate) return false;
+  return daysBetweenDates(marketDate(now, 'SPY'), e.date) === 0;
+}
 
 export function markReleased(brief: BriefAi, now: number, usClose: number | null, earnings: BriefEarning[] = []): BriefAi {
   const bySymbol = new Map(earnings.map((e) => [e.symbol.toUpperCase(), e]));
@@ -188,10 +198,8 @@ export function markReleased(brief: BriefAi, now: number, usClose: number | null
       const today = itemToday(item, now);
       const e = item.ticker ? bySymbol.get(bareTicker(item.ticker)) : undefined;
       if (item.ticker) {
-        // 실적 — 날짜는 AI 가 적은 글자 대신 입력 실적일로 · 날짜 미확정(추정)이면 붙이지 않는다(그 날 발표하지 않았을 수 있다)
-        if (e?.isEstimateDate) continue;
-        const days = e ? daysBetweenDates(today, e.date) : daysUntilLabel(item.date, today);
-        if (days !== 0) continue;
+        // 실적 — 날짜는 AI 가 적은 글자 대신 입력 실적일로(입력에 없는 티커만 AI 날짜 글자)
+        if (e ? !isReleasedEarning(e, now, usClose) : daysUntilLabel(item.date, today) !== 0) continue;
       } else {
         if (!RELEASE_EVENT.test(item.event)) continue;
         if (daysUntilLabel(item.date, today) !== 0) continue;
@@ -201,6 +209,18 @@ export function markReleased(brief: BriefAi, now: number, usClose: number | null
     }
   }
   return brief;
+}
+
+/** AI 없이 만든 브리핑의 ② (수집한 실적 목록) — 같은 판정으로 `released` · `usCloseAt` 을 붙인다(목록 · 순서는 그대로) */
+export function markReleasedEarnings(earnings: BriefEarning[], now: number, usClose: number | null): BriefEarning[] {
+  for (const e of earnings) {
+    delete e.released;
+    delete e.usCloseAt;
+    if (!isReleasedEarning(e, now, usClose)) continue;
+    e.released = true;
+    e.usCloseAt = new Date(usClose!).toISOString();
+  }
+  return earnings;
 }
 
 /** 뒤처리 전부 — ⓪ → ① → ② → ③ → ④ 「발표됨」. usClose = 지금의 미국 날짜 그 날 정규장 끝(모르거나 휴장이면 null) */

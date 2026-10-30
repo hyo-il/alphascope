@@ -15,7 +15,11 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { getDb } from '../server/db';
-import { collectNews, parseFeed, DOMESTIC_FALLBACK, DOMESTIC_RSS, FOREIGN_RSS } from '../server/marketBrief/news';
+import { collectNews, parseFeed, DOMESTIC_FALLBACK, DOMESTIC_RSS, FOREIGN_RSS, FOREIGN_SLOT_CANDIDATES } from '../server/marketBrief/news';
+import { collectAll } from '../server/marketBrief/collect';
+import { checkDirections, checkText, DEFENSE_PCT, FLAT_PCT, FLAT_RATE_PP } from '../server/marketBrief/directionCheck';
+import { filterSectorStocks, poolText, sectorStockPool, type SectorStockPool } from '../server/marketBrief/sectorStocks';
+import { checkSources, sourceTable } from '../server/marketBrief/sourceCheck';
 import {
   buildEarning,
   collectEarnings,
@@ -28,7 +32,7 @@ import {
 } from '../server/marketBrief/earnings';
 import { buildPrompt, SCHEMA, REQUIRED_KEYS, MARKET_BRIEF_PROMPT_VERSION } from '../server/marketBrief/prompt';
 import { BRIEF_SECTORS } from '../server/marketBrief/earnings';
-import { capAndSortBySectorPriority, daysUntilLabel, filterByLeadingSectors, markReleased, normalizeBrief, postprocess, reassignSlotsByDays } from '../server/marketBrief/postprocess';
+import { capAndSortBySectorPriority, daysUntilLabel, filterByLeadingSectors, markReleased, markReleasedEarnings, normalizeBrief, postprocess, reassignSlotsByDays } from '../server/marketBrief/postprocess';
 import { regularSessionEnd, setSessionHooksForTest } from '../server/heatmapSession';
 import { countBriefs, getBrief, insertBrief, listBriefDays, listBriefsOf, purgeOldBriefs } from '../server/marketBrief/store';
 import { autoDue, BriefLimitError, briefStatus, marketBriefTick, resetBriefStateForTest, resetPurgeForTest, startButtonRun, type BriefDeps } from '../server/marketBrief/service';
@@ -104,7 +108,82 @@ const db = getDb();
     asked.push(url);
     return feed(1);
   });
-  check('오후판 — 해외 뉴스는 받지 않음', !asked.some((u) => FOREIGN_RSS.some((s) => s.url === u)) && asked.length === DOMESTIC_RSS.length);
+  check('오후판 — 해외 뉴스는 받지 않음(4번째 자리 후보도)', !asked.some((u) => [...FOREIGN_RSS, ...FOREIGN_SLOT_CANDIDATES].some((s) => s.url === u)) && asked.length === DOMESTIC_RSS.length);
+
+  // 해외 4번째 자리 — 후보를 차례로(v2.59.6) · Yahoo 는 목록에서 뺐다
+  check('해외 — CNBC 3곳 + 4번째 자리 후보(MarketWatch → 연준) · Yahoo 없음', FOREIGN_RSS.length === 3 && FOREIGN_SLOT_CANDIDATES.map((c) => c.source).join(',') === 'MarketWatch,미국 연준 보도자료' && ![...FOREIGN_RSS, ...FOREIGN_SLOT_CANDIDATES].some((c) => /yahoo/i.test(c.url)));
+  asked.length = 0;
+  const slot1Down = await collectNews(true, async (url) => {
+    asked.push(url);
+    if (url === FOREIGN_SLOT_CANDIDATES[0].url) throw new Error('HTTP 404');
+    return feed(2);
+  });
+  const slotRow = slot1Down.results.find((r) => r.slot);
+  check('후보 1 실패 → 후보 2 사용 · 앞 후보 실패 이유를 남김', slotRow?.ok === true && slotRow.source === '미국 연준 보도자료' && slotRow.error === 'MarketWatch HTTP 404' && slot1Down.foreign.length === 8 && asked.includes(FOREIGN_SLOT_CANDIDATES[1].url), JSON.stringify(slotRow));
+  asked.length = 0;
+  const slotFirst = await collectNews(true, async (url) => (asked.push(url), feed(2)));
+  check('후보 1 성공 → 후보 2 는 부르지 않음', slotFirst.results.find((r) => r.slot)?.source === 'MarketWatch' && !asked.includes(FOREIGN_SLOT_CANDIDATES[1].url));
+  const slotAll = await collectNews(true, async (url) => (FOREIGN_SLOT_CANDIDATES.some((c) => c.url === url) ? Promise.reject(new Error('시간 초과')) : feed(2)));
+  const allRow = slotAll.results.find((r) => r.slot);
+  check('후보 모두 실패 → 「4번째 자리」 실패 한 줄 · 이유 모두', allRow?.ok === false && allRow.source === '4번째 자리' && /후보 모두 실패 — MarketWatch 시간 초과 · 미국 연준 보도자료 시간 초과/.test(allRow.error ?? ''), JSON.stringify(allRow));
+
+  // 수집 상태 — 실제로 받은 후보 이름(뉴스 · 미2년물)
+  const SP = { current: 6031.8, change: 31.8, change_pct: 0.53, data_date: '2026-10-28' };
+  const US2 = { current: 4.61, change: -0.06, change_pct: -1.28, data_date: '2026-10-29' };
+  const col = await collectAll('morning', Date.parse('2026-10-29T07:05:00+09:00'), {
+    market: async () => ({
+      assets: { SP500: SP, US2Y: US2 },
+      failed: ['DXY'],
+      sources: { US2Y: { used: '미국 재무부', tried: [{ source: 'FRED', ok: false, error: 'timed out' }, { source: '미국 재무부', ok: true, error: null }] } },
+    }),
+    rss: async (url) => (url === FOREIGN_SLOT_CANDIDATES[0].url ? Promise.reject(new Error('HTTP 404')) : feed(2)),
+    earnings: async () => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: null }),
+    sectorStocks: () => ({}),
+  });
+  const us2yRow = col.sources.find((x) => x.label === '시장 데이터 · 미2년물금리(%)');
+  check('수집 상태 — 「미2년물 — 미국 재무부에서 받음」 · 앞 후보(FRED) 실패 이유', us2yRow?.ok === true && us2yRow.detail === '미국 재무부에서 받음 · FRED 실패(timed out)', JSON.stringify(us2yRow));
+  const mainRow = col.sources.find((x) => x.label === '시장 데이터');
+  check('수집 상태 — 시장 데이터 줄은 미2년물을 따로 세지 않음(못 받음: 달러인덱스만)', mainRow?.detail === '2개 받음 · 못 받음: 달러인덱스' && !mainRow.ok, mainRow?.detail);
+  check('수집 상태 — 해외 뉴스 4번째 자리에 쓴 후보 이름', col.sources.some((x) => x.label === '해외 뉴스 · 미국 연준 보도자료(4번째 자리 후보)' && x.ok && x.detail.includes('앞 후보 실패: MarketWatch HTTP 404')));
+  const colNone = await collectAll('morning', Date.parse('2026-10-29T07:05:00+09:00'), {
+    market: async () => ({ assets: { SP500: SP }, failed: ['US2Y'], sources: { US2Y: { used: null, tried: [{ source: 'FRED', ok: false, error: 'timed out' }, { source: '미국 재무부', ok: false, error: 'HTTP 503' }] } } }),
+    rss: async () => feed(2),
+    earnings: async () => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: null }),
+    sectorStocks: () => ({}),
+  });
+  const noneRow = colNone.sources.find((x) => x.label === '시장 데이터 · 미2년물금리(%)');
+  check('수집 상태 — 후보 모두 실패 → 「받지 못함」 · 후보마다 이유', noneRow?.ok === false && noneRow.detail === '받지 못함 — FRED 실패(timed out) · 미국 재무부 실패(HTTP 503)' && colNone.sources.find((x) => x.label === '시장 데이터')?.ok === true, JSON.stringify(noneRow));
+
+  // 점검 명령(`marketbrief:sources`) — 모든 후보 각 1번 · 표 모양(가짜 응답 · 네트워크 0)
+  const opened: string[] = [];
+  let t = 0;
+  const rows = await checkSources({
+    rss: async (url) => {
+      opened.push(url);
+      if (url === FOREIGN_SLOT_CANDIDATES[0].url) return { status: 404, text: 'not found' };
+      if (url === DOMESTIC_RSS[0].url) throw new Error('fetch failed');
+      return { status: 200, text: feed(3) };
+    },
+    us2y: async () => [
+      { source: 'FRED', status: null, ms: 15000, value: null, error: 'timed out' },
+      { source: '미국 재무부', status: 200, ms: 640, value: { current: 4.61, data_date: '2026-10-29' }, error: null },
+    ],
+    now: () => (t += 250),
+  });
+  const allUrls = [...DOMESTIC_RSS, DOMESTIC_FALLBACK, ...FOREIGN_RSS, ...FOREIGN_SLOT_CANDIDATES].map((x) => x.url);
+  check('점검 — 뉴스 소스 · 후보 · 폴백을 각 1번(후보 1 실패여도 후보 2 까지 · 성공해도 모두)', opened.length === allUrls.length && allUrls.every((u) => opened.filter((o) => o === u).length === 1), `${opened.length}/${allUrls.length}`);
+  const table = sourceTable(rows);
+  check(
+    '점검 — 표 모양(묶음 | 후보 | HTTP | 걸린 시간 | 받은 건수/값) · 실패 표시 · 합계',
+    table.startsWith('| 묶음 | 후보 | HTTP | 걸린 시간 | 받은 건수/값 |') &&
+      /\| 해외 4번째 자리 후보 \| MarketWatch \| 404 \| \d+\.\d초 \| 실패 · HTTP 404 \|/.test(table) &&
+      /\| 국내 뉴스 \| 연합뉴스 \| — \| \d+\.\d초 \| 실패 · fetch failed \|/.test(table) &&
+      /\| 해외 4번째 자리 후보 \| 미국 연준 보도자료 \| 200 \| \d+\.\d초 \| 3건 \|/.test(table) &&
+      table.includes('| 미2년물 금리 후보 | 미국 재무부 | 200 | 0.6초 | 4.61%(2026-10-29) |') &&
+      table.includes('| 미2년물 금리 후보 | FRED | — | 15.0초 | 실패 · timed out |') &&
+      table.endsWith(`${rows.length}곳 중 ${rows.length - 3}곳 받음 · 3곳 실패`),
+    table,
+  );
 }
 
 // A-3 실적 — 원본 예시 값으로 sanity · 표기
@@ -234,7 +313,10 @@ const news = (n: number, foreign: boolean) => Array.from({ length: n }, (_, i) =
   check('장중 — 코스피 14:00 KST 같은 날 = 장중 · 15:30 = 종가 · 지난 날 = 종가', isIntradayBar('KOSPI', '2026-10-29', kst('2026-10-29', '14:00')) && !isIntradayBar('KOSPI', '2026-10-29', kst('2026-10-29', '15:30')) && !isIntradayBar('KOSPI', '2026-10-28', kst('2026-10-29', '14:00')));
   check('장중 — 미국 지수 23:40 KST(10:40 ET) = 장중 · 06:55 KST = 종가 · 금리는 늘 종가', isIntradayBar('SP500', '2026-10-29', kst('2026-10-29', '23:40')) && !isIntradayBar('SP500', '2026-10-28', kst('2026-10-29', '06:55')) && !isIntradayBar('US10Y', '2026-10-29', kst('2026-10-29', '23:40')));
   const live = buildPrompt({ edition: 'afternoon', today: '2026-10-29', assets, earnings, domestic: [], foreign: [], at: kst('2026-10-29', '14:00') });
-  check('오후판 13~15:30 프롬프트 — 코스피 [장중]', live.includes('  코스피: 2,650.1000 (+0.38%) [10/29(목) 장중]'));
+  check('오후판 13~15:30 프롬프트 — 코스피 [장중(마감 전) — 14:00 기준](받은 시각을 밝힘)', live.includes('  코스피: 2,650.1000 (+0.38%) [10/29(목) 장중(마감 전) — 14:00 기준]'), live.split('\n').find((l) => l.includes('코스피:')) ?? '');
+  const usLive = buildPrompt({ edition: 'morning', today: '2026-10-30', assets: { SP500: { ...assets.SP500, data_date: '2026-10-29' } }, earnings, domestic: [], foreign: [], at: kst('2026-10-29', '23:40') });
+  check('미국 지수 장중 — 「한국 HH:MM 기준」', usLive.includes('[10/29(목) 장중(마감 전) — 한국 23:40 기준]'));
+  check('프롬프트(brief-v4) — 숫자와 반대인 방향 표현 금지 · 장중 기준 · 숫자 우선', live.includes('등락 방향과 반대인 표현 금지') && live.includes("'장중 기준'") && live.includes('뉴스 제목의 분위기보다 위 숫자를 우선') && MARKET_BRIEF_PROMPT_VERSION === 'brief-v4');
   // 입력 길이 추정(실제 호출 없음) — 보고용: 실적 100종목 · 국내 80건(30 사용) · 해외 80건(40 사용)
   const big = Array.from({ length: 100 }, (_, i) => earningOf(`S${i}`, `회사${i}`, BRIEF_SECTORS[i % BRIEF_SECTORS.length], i % 60));
   const full13 = Object.fromEntries(['KOSPI', 'KOSDAQ', 'SP500', 'NASDAQ', 'DOW', 'RUSSELL2000', 'GOLD', 'DXY', 'US2Y', 'US10Y', 'USDKRW', 'WTI', 'NATGAS'].map((k) => [k, assets.SP500]));
@@ -333,7 +415,7 @@ const news = (n: number, foreign: boolean) => Array.from({ length: n }, (_, i) =
   const fomcPrompt = buildPrompt({ edition: 'morning', today: '2026-10-29', assets: {}, earnings: [], domestic: [], foreign: [], at: Date.parse('2026-10-29T06:00:00+09:00') });
   check('프롬프트 — FOMC 는 미국 날짜(한국 10-29 06:00 = 미국 10-28 → 10-28 회의 D+0)', /- 10\/28\(수\) \[D\+0\] FOMC/.test(fomcPrompt));
   check('프롬프트 — 「각 종목 시장의 현지 날짜 기준」 한 줄', fomcPrompt.includes('날짜와 D+N 은 각 종목 시장의 현지 날짜 기준'));
-  check('프롬프트 — 아침판 미국 D+0 은 「발표 결과 확인」 관점 · 국내 경제 일정은 한국 날짜 · 버전 brief-v3', fomcPrompt.includes('[D+0 · 발표됨] 표시가 붙은 미국 일정') && fomcPrompt.includes('국내 경제 일정') && MARKET_BRIEF_PROMPT_VERSION === 'brief-v3');
+  check('프롬프트 — 아침판 미국 D+0 은 「발표 결과 확인」 관점 · 국내 경제 일정은 한국 날짜', fomcPrompt.includes('[D+0 · 발표됨] 표시가 붙은 미국 일정') && fomcPrompt.includes('국내 경제 일정'));
   check('일정 시장 판정 — 종목 · .KS · 종목 없는 국내 단서 · 그 밖 미국', scheduleItemMarket({ ticker: 'AAPL' }) === 'US' && scheduleItemMarket({ ticker: '000660.KS' }) === 'KR' && scheduleItemMarket({ ticker: '', event: '한국 10월 수출입' }) === 'KR' && scheduleItemMarket({ ticker: '', event: '금통위 기준금리 결정' }) === 'KR' && scheduleItemMarket({ ticker: '', event: 'FOMC 금리 결정' }) === 'US' && scheduleItemMarket({ ticker: '', event: '미국 CPI' }) === 'US');
   const krEv = reassignSlotsByDays(normalizeBrief(rb({ this_month: [it('11/06(금)', '한국 10월 수출입'), it('11/06(금)', '미국 고용지표')] })), AM);
   check('슬롯 — 종목 없는 국내 일정은 한국 날짜(11-06 = D+7 이번 주) · 미국 지표는 미국 날짜(D+8 이번 달)', nm(krEv.upcoming_schedule.this_week) === '한국 10월 수출입' && nm(krEv.upcoming_schedule.this_month) === '미국 고용지표', JSON.stringify(krEv.upcoming_schedule));
@@ -414,6 +496,7 @@ const deps: BriefDeps = {
     market: async (edition) => ({ assets: edition === 'morning' ? { SP500: assets.SP500, US2Y: assets.US2Y } : { KOSPI: assets.KOSPI, VIX: assets.VIX }, failed: edition === 'morning' ? ['DXY'] : [] }),
     rss: async () => `<rss><channel><item><title>뉴스</title></item></channel></rss>`,
     earnings: async () => ({ earnings: [earningOf('INTC', '인텔', '기술', 1)], estimatesOk: 1, estimatesTried: 1, error: null }),
+    sectorStocks: () => ({}),
   },
   gemini: async (o) => {
     geminiCalls.push(o);
@@ -593,6 +676,144 @@ const runButton = async () => {
   const list = listBriefsOf('2026-10-29');
   check('같은 날 여러 줄 — 모두 남김 · 최근 것부터', list.length === 5 && list[0].createdAt >= list[4].createdAt && list.every((i, k) => k === 0 || list[k - 1].createdAt >= i.createdAt));
   check('날짜 목록 — 최근 것부터 · 줄 수', days.every((d, k) => k === 0 || days[k - 1] > d) && days.includes('2026-11-05') && listBriefDays().find((d) => d.date === '2026-10-29')?.count === 5);
+}
+
+// ═════════════════════════ C. 정확성(v2.59.6) — 문장 ↔ 숫자 · 대표 종목 · AI 없는 「발표됨」 ═════════════════════════
+
+// C-1 문장 ↔ 숫자 방향 검사
+{
+  const at = kst('2026-10-30', '14:20'); // 장중
+  const crash = {
+    KOSPI: { current: 2500.1, change: -146.3, change_pct: -5.53, data_date: '2026-10-30' },
+    KOSDAQ: { current: 800.2, change: -39.8, change_pct: -4.74, data_date: '2026-10-30' },
+    VIX: { current: 24.1, change: 2.1, change_pct: 9.5, data_date: '2026-10-29' },
+  };
+  const pm = { edition: 'afternoon' as const, assets: crash, at };
+  const real = checkText('market_summary', '국내 증시는 양호한 실적 기대감과 경제지표 호조로 방어력을 보이고 있습니다.', pm);
+  check('실제 화면 문장 「국내 증시 … 방어력」 + 코스피 −5.53% · 코스닥 −4.74%(장중) → 어긋남 1건', real.length === 1 && real[0].said === '방어' && real[0].market === '국내 증시' && real[0].actual === '코스피 −5.53%(장중) · 코스닥 −4.74%(장중)', JSON.stringify(real));
+  check('「방어」 + 코스피 −5.53% → 어긋남', checkText('f', '코스피는 방어에 성공했다', pm).length === 1);
+  check('「하락」 + −5.53% → 아님', checkText('f', '코스피가 5% 넘게 하락했다', pm).length === 0);
+  check('「상승」 + −5.53% → 어긋남 · 장중 표시', checkText('f', '코스피는 반도체 강세로 상승했다', pm)[0]?.actual === '코스피 −5.53%(장중)');
+  const flat = { ...pm, assets: { KOSPI: { ...crash.KOSPI, change_pct: 0.2 } } };
+  check(`보합(|등락| < ${FLAT_PCT}%) — 0.2% 에 「하락」 → 검사 안 함`, checkText('f', '코스피는 하락 마감했다', flat).length === 0);
+  check('보합 경계 — −0.3% 에 「상승」 → 어긋남 · −0.29% → 검사 안 함', checkText('f', '코스피 상승', { ...pm, assets: { KOSPI: { ...crash.KOSPI, change_pct: -0.3 } } }).length === 1 && checkText('f', '코스피 상승', { ...pm, assets: { KOSPI: { ...crash.KOSPI, change_pct: -0.29 } } }).length === 0);
+  check(`「방어」 는 ${DEFENSE_PCT}% 보다 나쁠 때만 — −0.8% → 아님 · −1.2% → 어긋남`, checkText('f', '코스피는 선방했다', { ...pm, assets: { KOSPI: { ...crash.KOSPI, change_pct: -0.8 } } }).length === 0 && checkText('f', '코스피는 선방했다', { ...pm, assets: { KOSPI: { ...crash.KOSPI, change_pct: -1.2 } } }).length === 1);
+  check('시장 이름 없는 문장 → 검사 안 함', checkText('f', '반도체 업종이 강세를 보이며 상승했다', pm).length === 0);
+  check('전망 · 우려 말이 붙은 방향 → 검사 안 함(「반등 가능성」 · 「상승 기대」 · 「하락하지 않」)', checkText('f', '코스피는 반등 가능성이 있다', pm).length === 0 && checkText('f', '코스피 상승 기대가 크다', pm).length === 0);
+  check('오름 · 내림 말이 한 마디에 섞임 → 검사 안 함', checkText('f', '코스피는 상승 출발 뒤 하락 전환', pm).length === 0);
+  const mixedAssets = { ...crash, SP500: { current: 6100, change: 60, change_pct: 1.0, data_date: '2026-10-29' } };
+  const mixed = checkText('f', '미국 증시는 상승했지만 국내 증시는 강세를 이어 갔다', { edition: 'morning', assets: mixedAssets, at });
+  check('미국/국내 문장 섞임 — 마디별로(미국 상승 맞음 · 국내 강세 어긋남)', mixed.length === 1 && mixed[0].market === '국내 증시', JSON.stringify(mixed));
+  const pair = checkText('f', '코스피와 코스닥 모두 반등했다', pm);
+  check('「코스피와 코스닥 모두 반등」 → 둘 다 어긋남', pair.length === 2 && pair.map((m) => m.market).join(',') === '코스피,코스닥', JSON.stringify(pair));
+  const policy = checkText('f', '연준의 금리 인하 기대에 금리가 하락했다', { edition: 'morning', assets: { US10Y: { current: 4.2, change: 0.05, change_pct: 1.2, data_date: '2026-10-29' } }, at });
+  check('정책 금리 이야기(인하 · 연준) 속 「금리」 → 검사 안 함', policy.length === 0);
+  const rate = { edition: 'morning' as const, assets: { US10Y: { current: 4.2, change: 0.05, change_pct: 1.2, data_date: '2026-10-29' }, US2Y: { current: 4.6, change: 0.02, change_pct: 0.4, data_date: '2026-10-29' } }, at };
+  check(`금리는 %p 로 — 10년물 +0.05%p 에 「하락」 → 어긋남 · 2년물 +0.02%p(< ${FLAT_RATE_PP}%p) → 검사 안 함`, checkText('f', '10년물 국채 금리가 하락했다', rate)[0]?.actual === '미10년물금리(%) +0.050%p' && checkText('f', '2년물 금리가 하락했다', rate).length === 0, JSON.stringify(checkText('f', '10년물 국채 금리가 하락했다', rate)));
+  check('괄호 안은 보지 않음 — 「원/달러 환율 하락(원화 강세)」', checkText('f', '원/달러 환율이 하락(원화 강세)했다', { edition: 'morning', assets: { USDKRW: { current: 1380, change: -12, change_pct: -0.86, data_date: '2026-10-29' } }, at }).length === 0);
+  check('「미국배당다우존스」 의 다우는 지수가 아님', checkText('f', '미국배당다우존스 ETF 강세', { edition: 'morning', assets: { DOW: { current: 42000, change: -500, change_pct: -1.2, data_date: '2026-10-29' } }, at }).length === 0);
+  // 브리핑 하나 — 보는 글 전부 · 기조 라벨
+  const bad = normalizeBrief({
+    ...(okBrief('morning') as BriefAi),
+    market_regime: 'Risk-On',
+    regime_summary: '미국 증시가 랠리를 이어 갔다.',
+    key_themes: [{ icon: '🟢', category: 'c', title: 't', why_important: '나스닥 강세가 이어진다', duration: 'd', swing_point: 's' }],
+    leading_sectors: [{ emoji: '', name: '기술', stars: '★★★', reason: 'S&P500 상승을 이끌었다', stocks_kr: [], stocks_us: [] }],
+    swing_check: { phase: '미국 증시 반등 국면', catalysts: [], risks: [] },
+  });
+  const usDown = { SP500: { current: 5900, change: -90, change_pct: -1.5, data_date: '2026-10-29' }, NASDAQ: { current: 19500, change: -400, change_pct: -2.0, data_date: '2026-10-29' }, DOW: { current: 41000, change: -400, change_pct: -0.97, data_date: '2026-10-29' } };
+  const all = checkDirections(bad, { edition: 'morning', assets: usDown, at: kst('2026-10-30', '07:05') });
+  check('브리핑 하나 — 기조 라벨 · 요약 · 주도 섹터 이유 · 테마 왜 중요 · 국면 (칸 순서)', all.map((m) => m.field).join(',') === 'market_regime,regime_summary,leading_sectors.0.reason,key_themes.0.why_important,swing_check.phase' && all[0].said === 'Risk-On' && all[0].actual === 'S&P500 −1.50% · 나스닥 −2.00%', JSON.stringify(all.map((m) => [m.field, m.said, m.actual])));
+  check('기조 라벨 — S&P500 −0.8% 면 Risk-On 이어도 검사 안 함(±1% 문턱)', checkDirections({ ...bad, regime_summary: '', leading_sectors: [], key_themes: [], swing_check: { phase: '', catalysts: [], risks: [] } }, { edition: 'morning', assets: { SP500: { ...usDown.SP500, change_pct: -0.8 }, NASDAQ: usDown.NASDAQ }, at }).length === 0);
+}
+
+// C-2 대표 종목 — 후보 목록 · 거르기 · 옛 글자 브리핑
+const POOL: SectorStockPool = {
+  기술: { kr: [{ symbol: '005930', name: '삼성전자' }, { symbol: '000660', name: 'SK하이닉스' }], us: [{ symbol: 'NVDA', name: '엔비디아' }, { symbol: 'AAPL', name: '애플' }] },
+  산업재: { kr: [{ symbol: '000720', name: '현대건설' }], us: [{ symbol: 'CAT', name: '캐터필러' }] },
+};
+{
+  const b = normalizeBrief({
+    ...(okBrief('morning') as BriefAi),
+    leading_sectors: [
+      // 실제 화면: 기술 섹터에 아마존(목록 밖) · 현대건설(다른 섹터) · 캐터필러(다른 섹터)
+      { emoji: '', name: '기술', stars: '★★★', reason: 'r', stocks_kr: [{ ticker: '000720', name: '현대건설' }, { ticker: '005930', name: '삼성전자' }] as never, stocks_us: [{ ticker: 'AMZN', name: '아마존' }, { ticker: 'CAT', name: '캐터필러' }, { ticker: '', name: '엔비디아' }] as never },
+      { emoji: '', name: '헬스케어', stars: '★☆☆', reason: 'r', stocks_kr: [{ ticker: '005930', name: '삼성전자' }] as never, stocks_us: [] },
+    ],
+  });
+  const dropped = filterSectorStocks(b, POOL);
+  const tech = b.leading_sectors[0];
+  check('목록 밖 이름(아마존) · 섹터 다른 종목(현대건설 · 캐터필러) 뺌 · 이름만 맞으면 목록 티커로(엔비디아 → NVDA)', JSON.stringify(tech.stocks_kr) === '[{"symbol":"005930","name":"삼성전자"}]' && JSON.stringify(tech.stocks_us) === '[{"symbol":"NVDA","name":"엔비디아"}]', JSON.stringify(tech));
+  check('후보가 없는 섹터(헬스케어)의 종목도 뺌 · 뺀 수 = 4(현대건설 · 아마존 · 캐터필러 · 헬스케어 삼성전자)', JSON.stringify(b.leading_sectors[1].stocks_kr) === '[]' && dropped === 4, String(dropped));
+  const legacy = normalizeBrief({ ...(okBrief('morning') as BriefAi), leading_sectors: [{ emoji: '', name: '기술', stars: '★★★', reason: 'r', stocks_kr: '삼성전자, 아마존', stocks_us: '' }] });
+  filterSectorStocks(legacy, POOL);
+  check('글자로 온 응답도 이름으로 걸러 목록으로(삼성전자만)', JSON.stringify(legacy.leading_sectors[0].stocks_kr) === '[{"symbol":"005930","name":"삼성전자"}]');
+  const text = poolText(POOL);
+  check('프롬프트 후보 줄 — 섹터마다 국내 | 미국 · 이름(티커)', text.includes('- [기술] 국내: 삼성전자(005930), SK하이닉스(000660) | 미국: 엔비디아(NVDA), 애플(AAPL)') && poolText({}).startsWith('(후보 없음'), text);
+  const schemaStocks = (SCHEMA.morning as { properties: { leading_sectors: { items: { properties: { stocks_kr: { type: string; items: { required: string[] } } } } } } }).properties.leading_sectors.items.properties.stocks_kr;
+  check('스키마 — stocks_kr 는 [{ticker, name}] 배열', schemaStocks.type === 'ARRAY' && schemaStocks.items.required.join(',') === 'ticker,name');
+  const withPool = buildPrompt({ edition: 'afternoon', today: '2026-10-30', assets, earnings: [], domestic: [], foreign: [], at: kst('2026-10-30', '16:00'), sectorStocks: POOL });
+  check('프롬프트 — 후보 목록 · 그 섹터 줄에서만 고르라는 규칙', withPool.includes('[주도 섹터 대표 종목 후보') && withPool.includes('- [산업재] 국내: 현대건설(000720) | 미국: 캐터필러(CAT)') && withPool.includes('**그 섹터 줄의** 국내 · 미국 종목만'));
+  // DB 에서 후보 만들기 — 섹터를 모르는 종목은 후보가 아니다 · 시총 큰 순
+  const ins = db.prepare(`INSERT OR REPLACE INTO stock_profiles (symbol, sector, market_cap, fetched_at) VALUES (?, ?, ?, '2026-10-30')`);
+  ins.run('ZZBIG', 'Technology', 3e12);
+  ins.run('ZZSMALL', 'Technology', 1e9);
+  ins.run('ZZNOSECT', null, 5e12);
+  const pool = sectorStockPool(['ZZSMALL', 'ZZBIG', 'ZZNOSECT']);
+  const techUs = (pool['기술']?.us ?? []).map((x) => x.symbol);
+  const small = techUs.indexOf('ZZSMALL');
+  check('후보 — DB 섹터(종목 지도와 같은 한국어 「기술」) · 시총 큰 순', techUs.includes('ZZBIG') && (small === -1 || techUs.indexOf('ZZBIG') < small), JSON.stringify(techUs));
+  check('후보 — 섹터 없는 종목은 어느 섹터에도 없음', !Object.values(pool).some((p) => [...p.kr, ...p.us].some((x) => x.symbol === 'ZZNOSECT')));
+  db.prepare(`DELETE FROM stock_profiles WHERE symbol IN ('ZZBIG', 'ZZSMALL', 'ZZNOSECT')`).run();
+}
+
+// C-3 AI 없이 만든 브리핑에도 「발표됨」(같은 판정)
+{
+  const close = Date.parse('2026-10-30T16:00:00-04:00');
+  const after = kst('2026-10-31', '07:05'); // 미국 10-30 18:05
+  const list = [
+    { ...earningOf('INTC', '인텔', '기술', 0), date: '2026-10-30' },
+    { ...earningOf('META', '메타', '기술', 0), date: '2026-10-30', isEstimateDate: true },
+    { ...earningOf('005930', '삼성전자', '기술', 0), date: '2026-10-31' },
+    { ...earningOf('AAPL', '애플', '기술', 1), date: '2026-10-31' },
+  ];
+  markReleasedEarnings(list, after, close);
+  check('AI 없는 실적 목록 — 미국 D+0 · 장 마감 뒤만 「발표됨」(추정일 · 국내 · 내일은 아님) · 마감 시각', list[0].released === true && list[0].usCloseAt === '2026-10-30T20:00:00.000Z' && !list[1].released && !list[2].released && !list[3].released, JSON.stringify(list.map((e) => [e.symbol, e.released])));
+  markReleasedEarnings(list, close - 60_000, close);
+  check('AI 없는 실적 목록 — 장 마감 전이면 없음(다시 정하면 지운다)', list.every((e) => !e.released && !e.usCloseAt));
+}
+
+// C-4 만들기 한 번 — 어긋남 저장 · 대표 종목 거르기 · 수집 상태 줄 · AI 없는 브리핑 「발표됨」 저장 · 옛 브리핑 읽기
+{
+  resetBriefStateForTest();
+  clock = kst('2026-10-27', '14:20'); // 화요일 오후판 · 장중
+  const crashMarket = async () => ({
+    assets: { KOSPI: { current: 2500.1, change: -146.3, change_pct: -5.53, data_date: '2026-10-27' }, KOSDAQ: { current: 800.2, change: -39.8, change_pct: -4.74, data_date: '2026-10-27' }, VIX: assets.VIX },
+    failed: [],
+  });
+  const lying = { ...okBrief('afternoon'), market_summary: '국내 증시는 양호한 실적 기대감과 경제지표 호조로 방어력을 보이고 있습니다.', leading_sectors: [{ emoji: '', name: '기술', stars: '★★★', reason: 'r', stocks_kr: [{ ticker: '000720', name: '현대건설' }, { ticker: '005930', name: '삼성전자' }], stocks_us: [{ ticker: 'AMZN', name: '아마존' }] }] } as unknown as Partial<BriefAi>;
+  const run = startButtonRun({ ...deps, collect: { ...deps.collect, market: crashMarket, sectorStocks: () => POOL }, gemini: async (o) => (geminiCalls.push(o), { data: lying, raw: '', model: 'm', tokens: 1, elapsedMs: 1 }) });
+  const saved = getBrief((await run.done)!);
+  const mm = saved?.brief?.mismatches ?? [];
+  check('저장 — 어긋남(market_summary · 방어 · 코스피 −5.53%(장중))', mm.length === 1 && mm[0].field === 'market_summary' && mm[0].said === '방어' && mm[0].actual.startsWith('코스피 −5.53%(장중)'), JSON.stringify(mm));
+  check('저장 — 문장은 AI 글 그대로', saved?.brief?.market_summary === '국내 증시는 양호한 실적 기대감과 경제지표 호조로 방어력을 보이고 있습니다.');
+  check('저장 — 수집 상태 「AI 문장 검사: 1곳 숫자와 다름」 · 「대표 종목 2개 뺌(목록 밖)」', !!saved?.sources.some((x) => x.group === 'check' && x.label === 'AI 문장 검사' && !x.ok && x.detail === '1곳 숫자와 다름') && !!saved.sources.some((x) => x.label === '대표 종목 거르기' && x.detail === '대표 종목 2개 뺌(목록 밖)'), JSON.stringify(saved?.sources.filter((x) => x.group === 'check')));
+  check('저장 — 대표 종목은 목록 안의 것만(삼성전자)', JSON.stringify(saved?.brief?.leading_sectors[0].stocks_kr) === '[{"symbol":"005930","name":"삼성전자"}]' && JSON.stringify(saved?.brief?.leading_sectors[0].stocks_us) === '[]');
+  check('Gemini 입력 — 장중(마감 전) — 14:20 기준 · 후보 목록', String(geminiCalls.at(-1)?.parts[0]?.text ?? '').includes('[10/27(화) 장중(마감 전) — 14:20 기준]') && String(geminiCalls.at(-1)?.parts[0]?.text ?? '').includes('- [기술] 국내: 삼성전자(005930)'));
+  check('Gemini 호출 — 브리핑 1번 = 1번(검사가 호출을 늘리지 않음)', geminiCalls.length >= 1 && saved?.aiCalls === 1);
+
+  // AI 없는 브리핑 — 실적 목록에 「발표됨」 저장
+  geminiReason = 'Gemini 키가 설정되지 않았습니다';
+  clock = kst('2026-10-31', '07:05');
+  const noAiRun = startButtonRun({ ...deps, collect: { ...deps.collect, earnings: async () => ({ earnings: [{ ...earningOf('INTC', '인텔', '기술', 0), date: '2026-10-30' }], estimatesOk: 1, estimatesTried: 1, error: null }) }, usClose: async () => Date.parse('2026-10-30T16:00:00-04:00') });
+  const noAi = getBrief((await noAiRun.done)!);
+  check('AI 없는 브리핑 — 실적 목록에 「발표됨」 · 마감 시각 저장 · 검사 줄 없음', noAi?.brief === null && noAi.data.earnings[0]?.released === true && noAi.data.earnings[0].usCloseAt === '2026-10-30T20:00:00.000Z' && !noAi.sources.some((x) => x.group === 'check'), JSON.stringify(noAi?.data.earnings[0]));
+  geminiReason = null;
+
+  // 옛 브리핑(대표 종목이 글자 · mismatches 없음)을 그대로 읽는다
+  const oldId = insertBrief({ date: '2026-10-20', edition: 'morning', trigger: 'auto', createdAt: '2026-10-19T22:05:00.000Z', model: 'm', tokens: 1, aiCalls: 1, promptVersion: 'brief-v3', sources: [], data: { assets: {}, earnings: [] }, brief: normalizeBrief(okBrief('morning')), aiError: null });
+  const oldBrief = getBrief(oldId);
+  check('옛 브리핑 읽기 — 대표 종목 글자 그대로 · mismatches 없음', oldBrief?.brief?.leading_sectors[0].stocks_kr === '삼성전자' && oldBrief.brief.mismatches === undefined && oldBrief.promptVersion === 'brief-v3');
 }
 
 db.prepare(`DELETE FROM market_briefs`).run();

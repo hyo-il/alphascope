@@ -68,9 +68,13 @@ export interface BriefEarning {
   revenueSanityFlag: boolean;
   /** 전망치를 받았나 — 못 받으면 실적일만 */
   estimatesOk: boolean;
+  /** 「발표됨」(v2.59.6 — AI 없는 브리핑의 ② 도) — `BriefScheduleItem.released` 와 같은 판정 · 만들 때 저장 */
+  released?: boolean;
+  usCloseAt?: string;
 }
 
-export type BriefSourceGroup = 'market' | 'news' | 'earnings' | 'ai';
+/** check = 서버 검사(AI 문장 검사 · 대표 종목 거르기 — v2.59.6) · 받기 실패 수에 세지 않는다 */
+export type BriefSourceGroup = 'market' | 'news' | 'earnings' | 'ai' | 'check';
 
 /** 수집 상태 한 줄 — 화면 「수집 상태」 */
 export interface BriefSourceStatus {
@@ -113,8 +117,32 @@ export interface BriefLeadingSector {
   name: string;
   stars: string;
   reason: string;
-  stocks_kr: string;
-  stocks_us: string;
+  /**
+   * 대표 종목 — 서버가 후보 목록(`server/marketBrief/sectorStocks.ts`)으로 거른 것(v2.59.6).
+   * 글자(string)는 그 전에 만든 브리핑(AI 자유 글 — 화면은 글자 그대로 보인다).
+   */
+  stocks_kr: BriefSectorStock[] | string;
+  stocks_us: BriefSectorStock[] | string;
+}
+
+/** 대표 종목 한 개 — 이름은 후보 목록의 이름(카탈로그 한글명) */
+export interface BriefSectorStock {
+  symbol: string;
+  name: string;
+}
+
+/**
+ * AI 문장 ↔ 시장 데이터 방향 어긋남 한 건(v2.59.6 — `server/marketBrief/directionCheck.ts`). 문장은 고치지 않고 표시만 한다.
+ */
+export interface BriefMismatch {
+  /** 어느 글 — 'market_regime' · 'regime_summary' · 'market_summary' · 'leading_sectors.0.reason' · 'key_themes.1.why_important' · 'swing_check.phase' */
+  field: string;
+  /** 시장 이름(화면 글자) — '국내 증시' · '코스피' */
+  market: string;
+  /** 글이 쓴 방향 말 — '방어' */
+  said: string;
+  /** 같은 브리핑의 숫자 — '코스피 −5.53%(장중) · 코스닥 −4.74%(장중)' */
+  actual: string;
 }
 
 /** AI 결과 — 오전판은 market_regime · regime_summary, 오후판은 market_summary · vix_comment */
@@ -129,6 +157,8 @@ export interface BriefAi {
   swing_check: { phase: string; catalysts: string[]; risks: string[] };
   upcoming_schedule: { this_week: BriefScheduleItem[]; this_month: BriefScheduleItem[]; next_2_months: BriefScheduleItem[] };
   portfolio_adjustment: { passive_note: string; swing_candidates: string[] };
+  /** 문장 ↔ 숫자 어긋남(v2.59.6) — 없으면 빈 배열 또는 없음(그 전 브리핑) */
+  mismatches?: BriefMismatch[];
 }
 
 export interface MarketBrief {
