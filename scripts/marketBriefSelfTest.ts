@@ -369,6 +369,13 @@ const news = (n: number, foreign: boolean) => Array.from({ length: n }, (_, i) =
   check('발표됨 — 15:59 ET 아님 · 16:00 ET 발표됨', rel(markReleased(items(), c15, close1029)) === '' && rel(markReleased(items(), Date.parse('2026-10-29T16:00:00-04:00'), close1029)) === '애플 실적 발표,FOMC 금리 결정');
   const early = normalizeBrief(rb({ this_week: [it('11/27(금)', '블프 실적', 'WMT')] }));
   check('발표됨 — 조기 마감일 13:01 ET → 발표됨', rel(markReleased(early, Date.parse('2026-11-27T13:01:00-05:00'), closeEarly)) === '블프 실적');
+  // 검토 반영 — 대상 좁히기 · 추정 실적 제외 · 실적은 입력 실적일로
+  const mixed = normalizeBrief(rb({ this_week: [it('10/29(목)', '미국 중간선거'), it('10/29(목)', '파월 의장 연설'), it('10/29(목)', '미국 9월 PCE'), it('10/29(목)', '메타 실적 발표', 'META'), it('10/30(금)', '아마존 실적 발표', 'AMZN')] }));
+  const est = { ...earningOf('META', '메타', '기술', 0), date: '2026-10-29', isEstimateDate: true };
+  const amzn = { ...earningOf('AMZN', '아마존', '기술', 0), date: '2026-10-29' }; // AI 는 10/30 으로 잘못 적었지만 입력 실적일은 10-29
+  check('발표됨 대상 — 선거 · 연설 아님 · 미국 지표(PCE) 발표됨 · 추정 실적(메타) 아님 · 입력 실적일 D+0(아마존) 발표됨', rel(markReleased(mixed, AM, close1029, [est, amzn])) === '미국 9월 PCE,아마존 실적 발표', rel(markReleased(mixed, AM, close1029, [est, amzn])));
+  const promptEst = buildPrompt({ edition: 'morning', today: '2026-10-30', assets: {}, earnings: [{ ...earningOf('META', '메타', '기술', 0), isEstimateDate: true }], domestic: [], foreign: [], at: AM, usReleased: true });
+  check('프롬프트 — 추정 실적에는 「발표됨」 없음 · 결과 수치는 입력 뉴스에 있을 때만', promptEst.includes('[D+0] [기술] 메타(META)') && promptEst.includes('없으면 「결과 확인 필요」'));
   // 서머타임 끝(11-01) 앞뒤 — 10-30(금) 16:00 EDT · 11-02(월) 16:00 EST
   const cFri = await regularSessionEnd('US', '2026-10-30', Date.parse('2026-10-31T06:00:00+09:00'));
   const cMon = await regularSessionEnd('US', '2026-11-02', Date.parse('2026-11-03T07:00:00+09:00'));
@@ -516,7 +523,7 @@ const runButton = async () => {
   // 「발표됨」 은 만들 때 저장 — 다시 읽어도 그대로(한국 10-31 07:05 = 미국 10-30 18:05 · 가짜 브리핑의 인텔 실적 10/30)
   clock = kst('2026-10-31', '07:05');
   const usCloseCalls: string[] = [];
-  const relRun = startButtonRun({ ...deps, collect: { ...deps.collect, earnings: async () => ({ earnings: [earningOf('INTC', '인텔', '기술', 0)], estimatesOk: 1, estimatesTried: 1, error: null }) }, usClose: async (day) => (usCloseCalls.push(day), Date.parse('2026-10-30T16:00:00-04:00')) });
+  const relRun = startButtonRun({ ...deps, collect: { ...deps.collect, earnings: async () => ({ earnings: [{ ...earningOf('INTC', '인텔', '기술', 0), date: '2026-10-30' }], estimatesOk: 1, estimatesTried: 1, error: null }) }, usClose: async (day) => (usCloseCalls.push(day), Date.parse('2026-10-30T16:00:00-04:00')) });
   const relBrief = getBrief((await relRun.done)!);
   const intc = relBrief?.brief?.upcoming_schedule.this_week.find((x) => x.ticker === 'INTC');
   check('저장 — 「발표됨」 · 마감 시각이 브리핑 JSON 에 남고 다시 읽어도 그대로 · 마감은 미국 날짜(10-30)로 물음', intc?.released === true && intc.usCloseAt === '2026-10-30T20:00:00.000Z' && usCloseCalls.join(',') === '2026-10-30', JSON.stringify(intc));

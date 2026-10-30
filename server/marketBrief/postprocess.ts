@@ -78,6 +78,9 @@ export function filterByLeadingSectors(brief: BriefAi): BriefAi {
   return brief;
 }
 
+/** YYYY-MM-DD 두 날짜의 날수(b − a) */
+const daysBetweenDates = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+
 /** 「MM/DD…」 → 오늘(YYYY-MM-DD)부터 며칠 뒤. 오늘보다 앞선 날이면 다음 해로 본다(해 경계). 못 읽으면 null */
 export function daysUntilLabel(label: string, today: string): number | null {
   const m = /^(\d{1,2})\/(\d{1,2})/.exec(label.trim());
@@ -169,13 +172,30 @@ export function capAndSortBySectorPriority(brief: BriefAi, now: number): BriefAi
  * ④ (v2.59.4) 「발표됨」 표시 — 미국 일정 · 날짜가 그 일정의 오늘(미국 날짜) · 지금이 그 날 미국 정규장 끝(`usClose` — 조기 마감 반영) 뒤.
  * 슬롯 · 정렬 · 개수는 바꾸지 않는다(표시만). 국내 일정은 보지 않는다(사용자 결정 — 미국만).
  */
-export function markReleased(brief: BriefAi, now: number, usClose: number | null): BriefAi {
+/**
+ * 「발표됨」 을 붙일 수 있는 일정 — 미국 종목 실적 · FOMC · 미국 정규 경제지표(장중 · 장 전에 발표가 정해진 것)만.
+ * 선거 · 연설 · 행사 · 콘퍼런스처럼 결과가 밤에 나오거나 「발표」 가 아닌 일정에 「이미 발표됐을 수 있음」 이 붙지 않게 좁힌다(④ 경제 검토).
+ */
+const RELEASE_EVENT = /FOMC|금리\s*결정|CPI|PCE|PPI|고용|비농업|실업수당|GDP|소매\s*판매|ISM|소비자\s*물가|생산자\s*물가/i;
+
+export function markReleased(brief: BriefAi, now: number, usClose: number | null, earnings: BriefEarning[] = []): BriefAi {
+  const bySymbol = new Map(earnings.map((e) => [e.symbol.toUpperCase(), e]));
   for (const slot of SLOTS) {
     for (const item of brief.upcoming_schedule[slot]) {
       delete item.released;
       delete item.usCloseAt;
       if (usClose == null || now < usClose || scheduleItemMarket(item) !== 'US') continue;
-      if (daysUntilLabel(item.date, itemToday(item, now)) !== 0) continue;
+      const today = itemToday(item, now);
+      const e = item.ticker ? bySymbol.get(bareTicker(item.ticker)) : undefined;
+      if (item.ticker) {
+        // 실적 — 날짜는 AI 가 적은 글자 대신 입력 실적일로 · 날짜 미확정(추정)이면 붙이지 않는다(그 날 발표하지 않았을 수 있다)
+        if (e?.isEstimateDate) continue;
+        const days = e ? daysBetweenDates(today, e.date) : daysUntilLabel(item.date, today);
+        if (days !== 0) continue;
+      } else {
+        if (!RELEASE_EVENT.test(item.event)) continue;
+        if (daysUntilLabel(item.date, today) !== 0) continue;
+      }
       item.released = true;
       item.usCloseAt = new Date(usClose).toISOString();
     }
@@ -189,6 +209,6 @@ export function postprocess(raw: Partial<BriefAi>, earnings: BriefEarning[], now
   filterByLeadingSectors(brief);
   reassignSlotsByDays(brief, now);
   capAndSortBySectorPriority(brief, now);
-  markReleased(brief, now, usClose);
+  markReleased(brief, now, usClose, earnings);
   return brief;
 }
