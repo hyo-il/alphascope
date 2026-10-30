@@ -17,7 +17,7 @@ import { marketDate } from '../../src/utils/marketDate';
 import { daysBetween } from './earnings';
 import type { BriefAsset, BriefAssetKey, BriefEarning, BriefEdition } from '../../src/types/marketBrief';
 
-export const MARKET_BRIEF_PROMPT_VERSION = 'brief-v2'; // v2: 날짜 · D+N 을 각 시장 현지 날짜로(v2.59.3)
+export const MARKET_BRIEF_PROMPT_VERSION = 'brief-v3'; // v2: 날짜 · D+N 을 각 시장 현지 날짜로(v2.59.3) · v3: 장 마감 뒤 미국 D+0 은 [D+0 · 발표됨](v2.59.4)
 
 export const SYSTEM = '당신은 10년 이상 경력의 한국 주식 시장 전문 애널리스트입니다.';
 
@@ -133,11 +133,11 @@ function assetLine(key: BriefAssetKey, v: BriefAsset, at: number): string {
 }
 
 /** 오늘부터 60일 안 FOMC 회의(연준 공식 일정 `data/fomc.ts`) — AI 가 경제 일정 날짜를 기억으로 쓰지 않게 */
-export function fomcText(today: string): string {
+export function fomcText(today: string, usReleased = false): string {
   const rows = FOMC_MEETINGS.filter((m) => {
     const d = daysBetween(today, m.end);
     return d >= 0 && d <= 60;
-  }).map((m) => `- ${dateLabel(m.end)} [D+${daysBetween(today, m.end)}] FOMC 금리 결정(회의 ${dateLabel(m.start)}~${dateLabel(m.end)}${m.sep ? ' · 경제전망 · 점도표 발표' : ''})`);
+  }).map((m) => `- ${dateLabel(m.end)} [D+${daysBetween(today, m.end)}${usReleased && daysBetween(today, m.end) === 0 ? ' · 발표됨' : ''}] FOMC 금리 결정(회의 ${dateLabel(m.start)}~${dateLabel(m.end)}${m.sep ? ' · 경제전망 · 점도표 발표' : ''})`);
   return rows.length ? rows.join('\n') : '(60일 안 FOMC 회의 없음)';
 }
 
@@ -145,8 +145,8 @@ export function fomcText(today: string): string {
 const lines = (assets: Partial<Record<BriefAssetKey, BriefAsset>>, keys: BriefAssetKey[], at: number) =>
   keys.flatMap((k) => (assets[k] ? [assetLine(k, assets[k], at)] : [])).join('\n');
 
-function earningsText(earnings: BriefEarning[]): string {
-  return earnings.length ? earnings.map(earningsLine).join('\n') : '(실적 발표 예정 없음 또는 수집 실패)';
+function earningsText(earnings: BriefEarning[], usReleased: boolean): string {
+  return earnings.length ? earnings.map((e) => earningsLine(e, usReleased)).join('\n') : '(실적 발표 예정 없음 또는 수집 실패)';
 }
 
 const newsText = (items: BriefNewsItem[], tag: string, max: number, empty: string) =>
@@ -249,7 +249,7 @@ const COMMON_RULES = `- leading_sectors: 2~3개. 다음 두 기준 중 하나라
   ★ 위 명칭에 해당하지 않는 새 섹터를 선정할 경우, upcoming_schedule 의 해당 섹터 항목이 사후 처리로 모두 제거됨.
 - upcoming_schedule: 향후 60일 주요 일정을 다음 3개 슬롯으로 분류.
   ★ 날짜와 D+N 은 각 종목 시장의 현지 날짜 기준(미국 종목 = 미국 동부, 국내 종목 = 한국). FOMC 등 미국 일정도 미국 날짜.
-  ★ 한국 아침(미국은 전날 저녁)에는 미국 D+0 일정(실적 · FOMC)이 이미 발표됐을 수 있다 — 「앞둔 일정」 이 아니라 「발표 결과 확인」 관점으로 쓸 것.
+  ★ [D+0 · 발표됨] 표시가 붙은 미국 일정(실적 · FOMC)은 그 날 미국 장 마감이 지나 이미 발표됐다 — 「앞둔 일정」 이 아니라 「발표 결과 확인」 관점으로 쓸 것(일정에는 남긴다).
   ★ 국내 경제 일정(금통위 · 한국 지표 등)의 날짜는 한국 날짜.
   ★ 각 실적 항목 옆에 표시된 [D+N] 값을 그대로 사용해 슬롯 배치:
     · this_week: **D+0 ~ D+7** (오늘~7일 후), importance=3
@@ -308,13 +308,15 @@ export interface PromptInput {
   foreign: BriefNewsItem[];
   /** 받은 시각(ms) — 장중 판단. 주지 않으면 지금 */
   at?: number;
+  /** 지금이 미국 날짜 그 날 정규장 끝 뒤인가 — 미국 D+0 일정에 「발표됨」(v2.59.4) */
+  usReleased?: boolean;
 }
 
 export function buildPrompt(input: PromptInput): string {
   return input.edition === 'morning' ? morningPrompt(input) : afternoonPrompt(input);
 }
 
-function morningPrompt({ today, assets, earnings, domestic, foreign, at = Date.now() }: PromptInput): string {
+function morningPrompt({ today, assets, earnings, domestic, foreign, at = Date.now(), usReleased = false }: PromptInput): string {
   return `오늘 날짜는 ${todayText(today)}입니다(한국). 미국 동부 날짜는 ${todayText(marketDate(at, 'SPY'))}입니다.
 
 ${SYSTEM}
@@ -329,10 +331,10 @@ ${lines(assets, ['SP500', 'NASDAQ', 'DOW', 'RUSSELL2000'], at) || '  (데이터 
 ${lines(assets, ['GOLD', 'DXY', 'US2Y', 'US10Y', 'USDKRW', 'WTI', 'NATGAS'], at) || '  (데이터 없음)'}
 
 [향후 60일 FOMC 회의 (연준 공식 일정)]
-${fomcText(marketDate(at, 'SPY'))}
+${fomcText(marketDate(at, 'SPY'), usReleased)}
 
 ${EARNINGS_HEAD}
-${earningsText(earnings)}
+${earningsText(earnings, usReleased)}
 
 [오늘 국내 뉴스]
 ${newsText(domestic, '국내', 30, '(국내 뉴스 없음)')}
@@ -358,7 +360,7 @@ ${THEME_RULE(false)}
 ${COMMON_RULES}`;
 }
 
-function afternoonPrompt({ today, assets, earnings, domestic, at = Date.now() }: PromptInput): string {
+function afternoonPrompt({ today, assets, earnings, domestic, at = Date.now(), usReleased = false }: PromptInput): string {
   const vix = assets.VIX;
   const vixBasis = vix ? basisLabel('VIX', vix, at) : '';
   const vixLevel = vix
@@ -381,10 +383,10 @@ ${lines(assets, ['KOSPI', 'KOSDAQ'], at) || '  (데이터 없음)'}${krStale}
 ${vixLevel || '  (데이터 없음)'}
 
 [향후 60일 FOMC 회의 (연준 공식 일정)]
-${fomcText(marketDate(at, 'SPY'))}
+${fomcText(marketDate(at, 'SPY'), usReleased)}
 
 ${EARNINGS_HEAD}
-${earningsText(earnings)}
+${earningsText(earnings, usReleased)}
 
 [오늘 국내 뉴스]
 ${newsText(domestic, '국내', 30, '(국내 뉴스 없음)')}

@@ -18,6 +18,8 @@ import { callGemini, DEFAULT_MODEL, geminiDisabledReason, GeminiError, type Gemi
 import { collectAll, defaultCollectDeps, type CollectDeps } from './collect';
 import { buildPrompt, MARKET_BRIEF_PROMPT_VERSION, REQUIRED_KEYS, SCHEMA, SYSTEM } from './prompt';
 import { postprocess } from './postprocess';
+import { regularSessionEnd } from '../heatmapSession';
+import { marketDate } from '../../src/utils/marketDate';
 import { countBriefs, insertBrief, purgeOldBriefs } from './store';
 import { editionAt, kstDay, kstMinutes } from '../../src/utils/marketBrief';
 import {
@@ -56,6 +58,8 @@ export interface BriefDeps {
   /** Gemini 를 부를 수 없는 이유 — 있으면 부르지 않고 데이터만 */
   geminiReason: () => string | null;
   now: () => number;
+  /** 그 미국 거래일의 정규장 끝(ms) — `heatmapSession.regularSessionEnd`(시험은 바꿔 끼운다 — 토스 0) */
+  usClose: (usDay: string, now: number) => Promise<number | null>;
 }
 
 export const defaultBriefDeps: BriefDeps = {
@@ -63,6 +67,7 @@ export const defaultBriefDeps: BriefDeps = {
   gemini: (o) => callGemini<Partial<BriefAi>>(o),
   geminiReason: geminiDisabledReason,
   now: () => Date.now(),
+  usClose: (usDay, now) => regularSessionEnd('US', usDay, now),
 };
 
 // ── 진행 상태 ──────────────────────────────────────────────────────────
@@ -178,6 +183,9 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
   state.stage = 'ai';
   // 장중/종가 판단 시각 = 지표 엔진이 실제로 받은 시각(엔진 10분 캐시면 그때) — 프롬프트 · 화면이 같은 값을 쓴다
   const collectedAt = collected.market.fetchedAt ?? startedMs;
+  // 「발표됨」 — 지금의 미국 날짜 그 날 정규장 끝(토스 달력 → 고정표, 조기 마감 반영 · 휴장이면 null). 프롬프트 · 뒤처리가 같은 값
+  const usClose = await deps.usClose(marketDate(startedMs, 'SPY'), startedMs).catch(() => null);
+  const usReleased = usClose != null && startedMs >= usClose;
   const prompt = buildPrompt({
     edition,
     today,
@@ -186,6 +194,7 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
     domestic: collected.domestic,
     foreign: collected.foreign,
     at: collectedAt,
+    usReleased,
   });
   // 시장 데이터를 하나도 못 받았으면 AI 를 부르지 않는다 — 숫자 없이 시황을 지어낸다(한도도 아낀다)
   const noMarket = Object.keys(collected.market.assets).length === 0;
@@ -196,7 +205,7 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
   let aiError = ai.error;
   if (ai.brief) {
     try {
-      brief = postprocess(ai.brief, collected.earnings.earnings, startedMs);
+      brief = postprocess(ai.brief, collected.earnings.earnings, startedMs, usClose);
     } catch (e) {
       aiError = `AI 응답 뒤처리 실패 — ${(e as Error).message}`;
     }

@@ -273,6 +273,20 @@ export async function nextSessionSpan(market: CalendarMarket, session: HeatmapSe
   return f ? { start: f.start, end: f.end } : null;
 }
 
+/**
+ * 그 거래일(tradeDay — 그 시장 날짜)의 정규장 끝 시각(epoch ms) — `heatmapSession` 과 **같은 시간표**(토스 달력 캐시 → 못 받으면 고정표)를 읽기만 한다.
+ * 토스 칸은 조기 마감(미국 13:00 ET 등)을 반영한다 · 고정표는 모른다. 휴장일(주말 포함)이면 null.
+ * 오늘 시황 「발표됨」(그 날 미국 정규장이 끝났나)이 쓴다(v2.59.4).
+ */
+export async function regularSessionEnd(market: CalendarMarket, tradeDay: string, now = Date.now()): Promise<number | null> {
+  const spans = await tossSpans(market, now);
+  const hit = spans?.find((s) => s.session === 'regular' && s.tradeDay === tradeDay);
+  if (hit) return hit.end;
+  if (isMarketClosed(market, tradeDay)) return null;
+  const row = FIXED[market].find(([, , session]) => session === 'regular');
+  return row ? marketDayTime(market, tradeDay, row[1] * 60_000) : null;
+}
+
 // ── 등락률 기준 ─────────────────────────────────────────────────────────────
 
 export interface BasisInfo {

@@ -88,6 +88,13 @@ export interface BriefScheduleItem {
   sector_kr: string;
   detail: string;
   importance: number;
+  /**
+   * 「발표됨」 — 미국 일정이고 날짜가 그 일정의 오늘(미국 날짜)이며, 만들 때 그 날 미국 정규장이 이미 끝났다(v2.59.4).
+   * 만들 때 서버가 정해 저장한다(지난 브리핑을 열어도 그때 표시 그대로). 일정에서 빼지 않는다.
+   */
+  released?: boolean;
+  /** 「발표됨」 의 기준 — 그 날 미국 정규장 끝 시각(UTC ISO, 조기 마감 반영). 화면 툴팁이 한국 시각으로 보인다 */
+  usCloseAt?: string;
 }
 
 export interface BriefTheme {

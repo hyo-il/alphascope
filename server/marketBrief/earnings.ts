@@ -145,12 +145,13 @@ export function buildEarning(base: EarningBase, est: RawEstimate | null): BriefE
 }
 
 /** 원본 earnings_text 한 줄 — `[D+N]` 을 붙여 AI 가 슬롯을 날짜로 고르게 한다(원본 주의사항 31) */
-export function earningsLine(e: BriefEarning): string {
+export function earningsLine(e: BriefEarning, usReleased = false): string {
   const flag = e.epsSanityFlag ? ' ⚠️' : '';
   const disp = e.epsDispersion !== '-' ? `, ${e.epsDispersion}` : '';
   const rev = e.revenueEstimate !== '-' ? ` / 매출 ${e.revenueEstimate}` : '';
   return (
-    `- ${dateLabel(e.date)} [D+${e.daysUntil}] [${e.sector}] ${e.name}(${e.symbol})\n` +
+    // 미국 종목 D+0 이고 그 날 미국 장이 끝났으면 「발표됨」(v2.59.4 — 서버 뒤처리 표시와 같은 판단)
+    `- ${dateLabel(e.date)} [D+${e.daysUntil}${usReleased && e.daysUntil === 0 && !isKrSymbol(e.symbol) ? ' · 발표됨' : ''}] [${e.sector}] ${e.name}(${e.symbol})\n` +
     `    예상 EPS ${e.epsEstimate}${flag} (직전분기 실제 ${e.lastQuarterEps}, 전년동기 실제 ${e.yoyEps}${disp})${rev}` +
     ` / 컨센서스 ${e.recommendation}`
   );

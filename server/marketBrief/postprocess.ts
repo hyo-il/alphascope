@@ -165,11 +165,30 @@ export function capAndSortBySectorPriority(brief: BriefAi, now: number): BriefAi
   return brief;
 }
 
-/** 뒤처리 전부 — ⓪ → ① → ② → ③ */
-export function postprocess(raw: Partial<BriefAi>, earnings: BriefEarning[], now: number): BriefAi {
+/**
+ * ④ (v2.59.4) 「발표됨」 표시 — 미국 일정 · 날짜가 그 일정의 오늘(미국 날짜) · 지금이 그 날 미국 정규장 끝(`usClose` — 조기 마감 반영) 뒤.
+ * 슬롯 · 정렬 · 개수는 바꾸지 않는다(표시만). 국내 일정은 보지 않는다(사용자 결정 — 미국만).
+ */
+export function markReleased(brief: BriefAi, now: number, usClose: number | null): BriefAi {
+  for (const slot of SLOTS) {
+    for (const item of brief.upcoming_schedule[slot]) {
+      delete item.released;
+      delete item.usCloseAt;
+      if (usClose == null || now < usClose || scheduleItemMarket(item) !== 'US') continue;
+      if (daysUntilLabel(item.date, itemToday(item, now)) !== 0) continue;
+      item.released = true;
+      item.usCloseAt = new Date(usClose).toISOString();
+    }
+  }
+  return brief;
+}
+
+/** 뒤처리 전부 — ⓪ → ① → ② → ③ → ④ 「발표됨」. usClose = 지금의 미국 날짜 그 날 정규장 끝(모르거나 휴장이면 null) */
+export function postprocess(raw: Partial<BriefAi>, earnings: BriefEarning[], now: number, usClose: number | null = null): BriefAi {
   const brief = alignEarningSectors(normalizeBrief(raw), earnings);
   filterByLeadingSectors(brief);
   reassignSlotsByDays(brief, now);
   capAndSortBySectorPriority(brief, now);
+  markReleased(brief, now, usClose);
   return brief;
 }

@@ -28,7 +28,8 @@ import {
 } from '../server/marketBrief/earnings';
 import { buildPrompt, SCHEMA, REQUIRED_KEYS, MARKET_BRIEF_PROMPT_VERSION } from '../server/marketBrief/prompt';
 import { BRIEF_SECTORS } from '../server/marketBrief/earnings';
-import { capAndSortBySectorPriority, daysUntilLabel, filterByLeadingSectors, normalizeBrief, postprocess, reassignSlotsByDays } from '../server/marketBrief/postprocess';
+import { capAndSortBySectorPriority, daysUntilLabel, filterByLeadingSectors, markReleased, normalizeBrief, postprocess, reassignSlotsByDays } from '../server/marketBrief/postprocess';
+import { regularSessionEnd, setSessionHooksForTest } from '../server/heatmapSession';
 import { countBriefs, getBrief, insertBrief, listBriefDays, listBriefsOf, purgeOldBriefs } from '../server/marketBrief/store';
 import { autoDue, BriefLimitError, briefStatus, marketBriefTick, resetBriefStateForTest, resetPurgeForTest, startButtonRun, type BriefDeps } from '../server/marketBrief/service';
 import { geminiUsageToday } from '../server/gemini/usage';
@@ -332,12 +333,55 @@ const news = (n: number, foreign: boolean) => Array.from({ length: n }, (_, i) =
   const fomcPrompt = buildPrompt({ edition: 'morning', today: '2026-10-29', assets: {}, earnings: [], domestic: [], foreign: [], at: Date.parse('2026-10-29T06:00:00+09:00') });
   check('프롬프트 — FOMC 는 미국 날짜(한국 10-29 06:00 = 미국 10-28 → 10-28 회의 D+0)', /- 10\/28\(수\) \[D\+0\] FOMC/.test(fomcPrompt));
   check('프롬프트 — 「각 종목 시장의 현지 날짜 기준」 한 줄', fomcPrompt.includes('날짜와 D+N 은 각 종목 시장의 현지 날짜 기준'));
-  check('프롬프트 — 아침판 미국 D+0 은 「발표 결과 확인」 관점 · 국내 경제 일정은 한국 날짜 · 버전 brief-v2', fomcPrompt.includes('이미 발표됐을 수 있다') && fomcPrompt.includes('국내 경제 일정') && MARKET_BRIEF_PROMPT_VERSION === 'brief-v2');
+  check('프롬프트 — 아침판 미국 D+0 은 「발표 결과 확인」 관점 · 국내 경제 일정은 한국 날짜 · 버전 brief-v3', fomcPrompt.includes('[D+0 · 발표됨] 표시가 붙은 미국 일정') && fomcPrompt.includes('국내 경제 일정') && MARKET_BRIEF_PROMPT_VERSION === 'brief-v3');
   check('일정 시장 판정 — 종목 · .KS · 종목 없는 국내 단서 · 그 밖 미국', scheduleItemMarket({ ticker: 'AAPL' }) === 'US' && scheduleItemMarket({ ticker: '000660.KS' }) === 'KR' && scheduleItemMarket({ ticker: '', event: '한국 10월 수출입' }) === 'KR' && scheduleItemMarket({ ticker: '', event: '금통위 기준금리 결정' }) === 'KR' && scheduleItemMarket({ ticker: '', event: 'FOMC 금리 결정' }) === 'US' && scheduleItemMarket({ ticker: '', event: '미국 CPI' }) === 'US');
   const krEv = reassignSlotsByDays(normalizeBrief(rb({ this_month: [it('11/06(금)', '한국 10월 수출입'), it('11/06(금)', '미국 고용지표')] })), AM);
   check('슬롯 — 종목 없는 국내 일정은 한국 날짜(11-06 = D+7 이번 주) · 미국 지표는 미국 날짜(D+8 이번 달)', nm(krEv.upcoming_schedule.this_week) === '한국 10월 수출입' && nm(krEv.upcoming_schedule.this_month) === '미국 고용지표', JSON.stringify(krEv.upcoming_schedule));
   const capAm = capAndSortBySectorPriority(normalizeBrief(rb({ this_week: [it('11/02(월)', 'kr-11-02', '005930'), it('10/30(금)', 'us-10-30', 'AAPL')] })), AM);
   check('정렬 — 아침 시각에 두 시장 섞여도 날수 순(미국 10-30 = D+1 · 국내 11-02 = D+3)', nm(capAm.upcoming_schedule.this_week) === 'us-10-30,kr-11-02');
+}
+
+// v2.59.4 — 미국 장 마감이 지난 미국 D+0 일정은 「발표됨」
+{
+  const it = (date: string, event: string, ticker = ''): BriefScheduleItem => ({ date, event, ticker, sector_kr: '', detail: '', importance: 1 });
+  const rb = (us: Partial<BriefAi['upcoming_schedule']>): Partial<BriefAi> => ({ portfolio_note: '', key_themes: [], leading_sectors: [], swing_check: { phase: '', catalysts: [], risks: [] }, upcoming_schedule: { this_week: [], this_month: [], next_2_months: [], ...us }, portfolio_adjustment: { passive_note: '', swing_candidates: [] } });
+  // 토스 달력은 시험 훅 — 기본 null(고정표), 조기 마감 날만 가짜 응답
+  setSessionHooksForTest({
+    calendar: async (market, day) =>
+      market === 'US' && day === '2026-11-28'
+        ? ({ result: { previousBusinessDay: { date: '2026-11-27', regularMarket: { startTime: '2026-11-27T23:30:00.000+09:00', endTime: '2026-11-28T03:00:00.000+09:00' } }, today: null, nextBusinessDay: null } } as unknown as Awaited<ReturnType<Parameters<typeof setSessionHooksForTest>[0]['calendar'] & object>>)
+        : null,
+  });
+  const close1029 = await regularSessionEnd('US', '2026-10-29', Date.parse('2026-10-30T07:05:00+09:00'));
+  check('마감 시각 — 고정표 10-29 16:00 EDT = 한국 10-30 05:00', close1029 === Date.parse('2026-10-30T05:00:00+09:00'), String(close1029));
+  const closeEarly = await regularSessionEnd('US', '2026-11-27', Date.parse('2026-11-28T03:01:00+09:00'));
+  check('마감 시각 — 조기 마감(11-27 13:00 EST) 은 토스 달력 값', closeEarly === Date.parse('2026-11-28T03:00:00+09:00'), String(closeEarly));
+  check('마감 시각 — 휴장일(추수감사절 11-26) 은 null', (await regularSessionEnd('US', '2026-11-26', Date.parse('2026-11-27T07:00:00+09:00'))) === null);
+  setSessionHooksForTest({ calendar: null });
+
+  const items = () => normalizeBrief(rb({ this_week: [it('10/29(목)', '애플 실적 발표', 'AAPL'), it('10/30(금)', '아마존 실적 발표', 'AMZN'), it('10/29(목)', 'FOMC 금리 결정'), it('10/30(금)', '삼성전자 실적 발표', '005930'), it('10/29(목)', '한국 수출입')] }));
+  const AM = Date.parse('2026-10-30T07:05:00+09:00'); // 미국 10-29 18:05 EDT
+  const r1 = markReleased(items(), AM, close1029);
+  const rel = (b: BriefAi) => b.upcoming_schedule.this_week.filter((x) => x.released).map((x) => x.event).join(',');
+  check('발표됨 — 한국 07:05 · 미국 D+0 실적 · FOMC D+0 → 발표됨 · 미국 D+1 아님 · 국내(D+0 · 경제 일정) 아님', rel(r1) === '애플 실적 발표,FOMC 금리 결정', rel(r1));
+  check('발표됨 — 마감 시각(한국 시각 툴팁용) 저장', r1.upcoming_schedule.this_week[0].usCloseAt === '2026-10-29T20:00:00.000Z');
+  const c15 = Date.parse('2026-10-29T15:59:00-04:00');
+  check('발표됨 — 15:59 ET 아님 · 16:00 ET 발표됨', rel(markReleased(items(), c15, close1029)) === '' && rel(markReleased(items(), Date.parse('2026-10-29T16:00:00-04:00'), close1029)) === '애플 실적 발표,FOMC 금리 결정');
+  const early = normalizeBrief(rb({ this_week: [it('11/27(금)', '블프 실적', 'WMT')] }));
+  check('발표됨 — 조기 마감일 13:01 ET → 발표됨', rel(markReleased(early, Date.parse('2026-11-27T13:01:00-05:00'), closeEarly)) === '블프 실적');
+  // 서머타임 끝(11-01) 앞뒤 — 10-30(금) 16:00 EDT · 11-02(월) 16:00 EST
+  const cFri = await regularSessionEnd('US', '2026-10-30', Date.parse('2026-10-31T06:00:00+09:00'));
+  const cMon = await regularSessionEnd('US', '2026-11-02', Date.parse('2026-11-03T07:00:00+09:00'));
+  check('서머타임 끝 앞뒤 — 마감 = 한국 05:00(EDT) · 06:00(EST)', cFri === Date.parse('2026-10-31T05:00:00+09:00') && cMon === Date.parse('2026-11-03T06:00:00+09:00'));
+  const mon = normalizeBrief(rb({ this_week: [it('11/02(월)', 'x', 'MSFT')] }));
+  check('서머타임 뒤 — 한국 05:30(= 15:30 EST) 아님 · 06:00 발표됨', rel(markReleased(mon, Date.parse('2026-11-03T05:30:00+09:00'), cMon)) === '' && rel(markReleased(mon, Date.parse('2026-11-03T06:00:00+09:00'), cMon)) === 'x');
+  // 슬롯 · 개수 그대로 · 저장 뒤 그대로 · 프롬프트 표시
+  const pp = postprocess(rb({ this_week: [it('10/29(목)', '애플 실적 발표', 'AAPL'), it('10/30(금)', '아마존 실적 발표', 'AMZN')] }), [], AM, close1029);
+  check('뒤처리 — 발표됨이어도 이번 주에 남음 · 개수 그대로', pp.upcoming_schedule.this_week.length === 2 && pp.upcoming_schedule.this_week[0].released === true);
+  const usEarn = earningOf('AAPL', '애플', '기술', 0);
+  const promptRel = buildPrompt({ edition: 'morning', today: '2026-10-30', assets: {}, earnings: [usEarn, earningOf('005930', '삼성전자', '기술', 0)], domestic: [], foreign: [], at: AM, usReleased: true });
+  check('프롬프트 — 미국 D+0 실적 [D+0 · 발표됨] · 국내 D+0 은 그대로', promptRel.includes('[D+0 · 발표됨] [기술] 애플(AAPL)') && promptRel.includes('[D+0] [기술] 삼성전자(005930)'));
+  check('프롬프트 — 「발표 결과 확인」 규칙이 [D+0 · 발표됨] 표시에 맞춤', promptRel.includes('[D+0 · 발표됨] 표시가 붙은 미국 일정'));
 }
 
 // B-2~4 만들기 · 저장 · 자동 · 버튼 — 가짜 수집 · 가짜 Gemini
@@ -375,6 +419,7 @@ const deps: BriefDeps = {
   },
   geminiReason: () => geminiReason,
   now: () => clock,
+  usClose: async () => null,
 };
 const runButton = async () => {
   const r = startButtonRun(deps);
@@ -467,6 +512,15 @@ const runButton = async () => {
   clock = kst('2026-10-30', '13:00');
   const pm = getBrief((await runButton()).id!);
   check('13:00 버튼 → 오후판(국내 지수 · VIX)', pm?.edition === 'afternoon' && !!pm.data.assets.VIX && pm.brief?.market_summary === '마감');
+
+  // 「발표됨」 은 만들 때 저장 — 다시 읽어도 그대로(한국 10-31 07:05 = 미국 10-30 18:05 · 가짜 브리핑의 인텔 실적 10/30)
+  clock = kst('2026-10-31', '07:05');
+  const usCloseCalls: string[] = [];
+  const relRun = startButtonRun({ ...deps, collect: { ...deps.collect, earnings: async () => ({ earnings: [earningOf('INTC', '인텔', '기술', 0)], estimatesOk: 1, estimatesTried: 1, error: null }) }, usClose: async (day) => (usCloseCalls.push(day), Date.parse('2026-10-30T16:00:00-04:00')) });
+  const relBrief = getBrief((await relRun.done)!);
+  const intc = relBrief?.brief?.upcoming_schedule.this_week.find((x) => x.ticker === 'INTC');
+  check('저장 — 「발표됨」 · 마감 시각이 브리핑 JSON 에 남고 다시 읽어도 그대로 · 마감은 미국 날짜(10-30)로 물음', intc?.released === true && intc.usCloseAt === '2026-10-30T20:00:00.000Z' && usCloseCalls.join(',') === '2026-10-30', JSON.stringify(intc));
+  check('저장 — 「발표됨」 프롬프트 표시가 Gemini 입력에 들어감', String(geminiCalls.at(-1)?.parts[0]?.text ?? '').includes('[D+0 · 발표됨] [기술] 인텔(INTC)'));
 
   // 동시에 두 번 → 하나
   clock = kst('2026-10-31', '10:00');
