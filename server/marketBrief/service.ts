@@ -19,6 +19,7 @@ import { collectAll, defaultCollectDeps, type CollectDeps } from './collect';
 import { buildPrompt, MARKET_BRIEF_PROMPT_VERSION, REQUIRED_KEYS, SCHEMA, SYSTEM } from './prompt';
 import { markReleasedEarnings, postprocess } from './postprocess';
 import { checkDirections } from './directionCheck';
+import { normalizeOutlook } from './outlook';
 import { filterSectorStocks } from './sectorStocks';
 import { regularSessionEnd } from '../heatmapSession';
 import { marketDate } from '../../src/utils/marketDate';
@@ -213,6 +214,8 @@ async function produce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
   if (ai.brief) {
     try {
       brief = postprocess(ai.brief, collected.earnings.earnings, startedMs, usClose);
+      // 「오늘 예상 방향」 — 판에 맞는 대상 · 정해진 말만(v2.60.0)
+      brief.today_outlook = normalizeOutlook(ai.brief.today_outlook, edition);
       // ③ 대표 종목 — 후보 목록 밖 · 다른 섹터는 뺀다 / 문장 ↔ 숫자 — 어긋남만 남긴다(문장은 그대로)
       const dropped = filterSectorStocks(brief, collected.sectorStocks);
       brief.mismatches = checkDirections(brief, { edition, assets: collected.market.assets, at: collectedAt });

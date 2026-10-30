@@ -16,7 +16,8 @@ import { ASSET_LABEL, isIntradayBar, vixZone } from '../../src/utils/marketBrief
 import { FOMC_MEETINGS } from '../../src/data/fomc';
 import { kstClockText, marketDate } from '../../src/utils/marketDate';
 import { daysBetween } from './earnings';
-import type { BriefAsset, BriefAssetKey, BriefEarning, BriefEdition, BriefSectorMove, BriefSectorTrend } from '../../src/types/marketBrief';
+import { OUTLOOK_CONFIDENCES, OUTLOOK_DIRECTIONS, OUTLOOK_TARGETS, type BriefAsset, type BriefAssetKey, type BriefEarning, type BriefEdition, type BriefSectorMove, type BriefSectorTrend } from '../../src/types/marketBrief';
+import { FLAT_PCT, OUTLOOK_REASONS_MAX } from './outlook';
 
 // v2: 날짜 · D+N 을 각 시장 현지 날짜로(v2.59.3) · v3: 장 마감 뒤 미국 D+0 은 [D+0 · 발표됨](v2.59.4) ·
 // v4: 숫자와 반대인 방향 표현 금지 · 장중 값은 「장중(마감 전) — HH:MM 기준」 · 대표 종목은 후보 목록에서 [{ticker, name}](v2.59.6)
@@ -100,16 +101,32 @@ const COMMON_PROPS = {
 };
 const COMMON_REQUIRED = ['portfolio_note', 'key_themes', 'leading_sectors', 'swing_check', 'upcoming_schedule', 'portfolio_adjustment'];
 
+/** 「오늘 예상 방향」(v2.60.0) — 대상 · 방향 · 확신은 정해진 말만(서버도 다시 거른다 — `outlook.normalizeOutlook`) */
+const OUTLOOK = (edition: BriefEdition) => ({
+  type: 'ARRAY',
+  items: {
+    type: 'OBJECT',
+    properties: {
+      target: { type: 'STRING', enum: OUTLOOK_TARGETS[edition] },
+      direction: { type: 'STRING', enum: OUTLOOK_DIRECTIONS },
+      confidence: { type: 'STRING', enum: OUTLOOK_CONFIDENCES },
+      reasons: { type: 'ARRAY', items: STR },
+      watch: STR,
+    },
+    required: ['target', 'direction', 'confidence', 'reasons', 'watch'],
+  },
+});
+
 export const SCHEMA: Record<BriefEdition, unknown> = {
   morning: {
     type: 'OBJECT',
-    properties: { market_regime: { type: 'STRING', enum: ['Risk-On', 'Risk-Off', '혼조'] }, regime_summary: STR, ...COMMON_PROPS },
-    required: ['market_regime', 'regime_summary', ...COMMON_REQUIRED],
+    properties: { market_regime: { type: 'STRING', enum: ['Risk-On', 'Risk-Off', '혼조'] }, regime_summary: STR, today_outlook: OUTLOOK('morning'), ...COMMON_PROPS },
+    required: ['market_regime', 'regime_summary', 'today_outlook', ...COMMON_REQUIRED],
   },
   afternoon: {
     type: 'OBJECT',
-    properties: { market_summary: STR, vix_comment: STR, ...COMMON_PROPS },
-    required: ['market_summary', 'vix_comment', ...COMMON_REQUIRED],
+    properties: { market_summary: STR, vix_comment: STR, today_outlook: OUTLOOK('afternoon'), ...COMMON_PROPS },
+    required: ['market_summary', 'vix_comment', 'today_outlook', ...COMMON_REQUIRED],
   },
 };
 
@@ -270,6 +287,25 @@ const THEME_RULE = (beginner: boolean) => `- key_themes: 정확히 3개, 1~3개�
     beginner ? '\n  금융 전문용어 사용 시 괄호로 짧게 풀이 병기 (예: "FOMC(미 연준 통화정책 회의)", "EPS(주당순이익)").' : ''
   }`;
 
+const OUTLOOK_NAME: Record<string, string> = { KOSPI: '오늘 국내 정규장 코스피', SP500: '오늘 밤(미국 날짜로 다음 정규장) S&P500' };
+
+const OUTLOOK_JSON = (edition: BriefEdition) => `  "today_outlook": [
+${OUTLOOK_TARGETS[edition]
+  .map(
+    (t) =>
+      `    { "target": "${t}", "direction": "상승 또는 보합 또는 하락", "confidence": "높음 또는 보통 또는 낮음", "reasons": ["근거 1 — 위 입력 숫자를 그대로 인용", "..."], "watch": "이 예상이 뒤집힐 수 있는 조건 한 줄" }`,
+  )
+  .join(',\n')}
+  ],`;
+
+/** 「오늘 예상 방향」 규칙 — 보합 범위는 문장 검사 · 채점과 같은 상수 */
+const OUTLOOK_RULE = (edition: BriefEdition) => `- today_outlook: ${OUTLOOK_TARGETS[edition].map((t) => `${t}(${OUTLOOK_NAME[t]})`).join(' · ')} — 정확히 ${OUTLOOK_TARGETS[edition].length}개, 이 대상만.
+  ★ direction: 「상승 · 보합 · 하락」 중 하나. 보합 = 전일 정규장 종가 대비 ±${FLAT_PCT}% 안으로 끝날 것으로 볼 때.
+  ★ confidence: 「높음 · 보통 · 낮음」 중 하나. 입력 근거(최근 흐름 · 선물 · 전일 등락 · 섹터 1주 · 뉴스)가 같은 방향으로 모일수록 높음, 엇갈리면 낮음. 확신이 낮으면 보합을 고를 수 있다.
+  ★ reasons: 1~${OUTLOOK_REASONS_MAX}줄. 위 입력의 숫자를 그대로 근거로 쓸 것(예: "S&P500 선물 직전 세션 종가 대비 −0.92%"). 입력에 없는 숫자를 지어내지 말 것.
+  ★ watch: 이 예상이 뒤집힐 수 있는 조건 한 줄(예: 발표 예정 지표 · 선물 반전).
+  ★ 투자 권유 표현 금지 — 참고 예상이며 매수 · 매도 권유가 아니다.`;
+
 const COMMON_RULES = `- 방향 표현(모든 문장): 위 시장 데이터의 등락 방향과 반대인 표현 금지 — 예: 코스피가 내렸는데 '방어' · '선방' · '강세' · '상승' 으로 쓰지 말 것.
   ★ 라벨이 [장중(마감 전)] 인 값은 아직 마감 전이다 — 그 값을 말할 때는 '장중 기준' 이라고 밝힐 것.
   ★ 뉴스 제목의 분위기보다 위 숫자를 우선할 것. 서버가 문장의 방향과 숫자를 맞춰 보고, 어긋나면 화면에 「숫자와 다름」 을 붙인다.
@@ -418,6 +454,7 @@ ${newsText(foreign, '해외', 40, '(해외 뉴스 없음)')}
   "market_regime": "Risk-On 또는 Risk-Off 또는 혼조",
   "regime_summary": "오늘 시장 기조를 1~2문장으로 요약",
   "portfolio_note": "패시브 포트폴리오 4개 자산 중 오늘 특이 동향 한줄 (예: 금 ETF 강세 유지 / 채권 관망)",
+${OUTLOOK_JSON('morning')}
   "key_themes": [
 ${THEME_JSON(false)}
   ],
@@ -427,6 +464,7 @@ ${REST_JSON('오늘 이 섹터가 주도하는 근거 (뉴스 기반, 1~2문장)
 - 최근 흐름 · 선물 · 섹터 1주 흐름은 위에 적힌 숫자만 쓸 것(숫자를 지어내지 말 것). 「최근 흐름 5일 · 20일」 은 마지막 값 ÷ 5 · 20거래일 전 종가 − 1.
 - 데이터 기준일 인식: [주요 지수]·[매크로 자산]의 [MM/DD(요일) 종가] 라벨을 인식하고
   현재 시점이 해당 종가 이후임을 전제로 어조 조정.
+${OUTLOOK_RULE('morning')}
 ${THEME_RULE(false)}
 ${COMMON_RULES}`;
 }
@@ -480,6 +518,7 @@ ${newsText(domestic, '국내', 30, '(국내 뉴스 없음)')}
   "market_summary": "오늘 국내 시장(코스피·코스닥) 마감 총평 1~2문장",
   "vix_comment": "현재 VIX 수준이 스윙 트레이딩에 갖는 의미 1문장",
   "portfolio_note": "패시브 포트폴리오 4개 자산 중 오늘 주목할 동향 한줄",
+${OUTLOOK_JSON('afternoon')}
   "key_themes": [
 ${THEME_JSON(true)}
   ],
@@ -489,6 +528,7 @@ ${REST_JSON('오늘 이 섹터가 주목받는 근거 (뉴스/실적 기반, 1~2
 - 최근 흐름 · 선물 · 섹터 1주 흐름은 위에 적힌 숫자만 쓸 것(숫자를 지어내지 말 것). 「최근 흐름 5일 · 20일」 은 마지막 값 ÷ 5 · 20거래일 전 종가 − 1.
 - market_summary: 오늘 코스피·코스닥 등락과 주요 원인을 과거형으로 서술. 지수 라벨이 [장중(마감 전)]이면 아직 마감 전이므로 "장중 기준" 흐름으로 서술(오른 · 내린 방향은 숫자 그대로). 지수 날짜가 오늘이 아니면 마지막 거래일 값이라고 밝힐 것.
 - vix_comment: VIX 수치(${vix ? vix.current : 'N/A'})를 언급하며 안정/주의/공포 여부와 스윙 트레이딩 시사점 서술.
+${OUTLOOK_RULE('afternoon')}
 ${THEME_RULE(true)}
 ${COMMON_RULES}`;
 }

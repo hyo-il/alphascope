@@ -18,6 +18,7 @@ import { getDb } from '../server/db';
 import { collectNews, freshNews, parseFeed, DOMESTIC_FALLBACK, DOMESTIC_RSS, FOREIGN_RSS, FOREIGN_SLOT_CANDIDATES, NEWS_MAX_AGE_MS } from '../server/marketBrief/news';
 import { collectAll, sectorMoves } from '../server/marketBrief/collect';
 import { checkDirections, checkText, DEFENSE_PCT, FLAT_PCT, FLAT_RATE_PP } from '../server/marketBrief/directionCheck';
+import { directionOfPct, normalizeOutlook } from '../server/marketBrief/outlook';
 import { filterSectorStocks, poolText, sectorStockPool, type SectorStockPool } from '../server/marketBrief/sectorStocks';
 import { checkSources, sourceTable } from '../server/marketBrief/sourceCheck';
 import {
@@ -898,6 +899,29 @@ const runButton = async () => {
   check('기조 라벨 — S&P500 −0.8% 면 Risk-On 이어도 검사 안 함(±1% 문턱)', checkDirections({ ...bad, regime_summary: '', leading_sectors: [], key_themes: [], swing_check: { phase: '', catalysts: [], risks: [] } }, { edition: 'morning', assets: { SP500: { ...usDown.SP500, change_pct: -0.8 }, NASDAQ: usDown.NASDAQ }, at }).length === 0);
 }
 
+// C-1b 「오늘 예상 방향」(v2.60.0) — 판별 대상 · 정해진 말 · 근거 문장 검사
+{
+  const row = (target: string, direction = '상승', confidence = '보통', reasons: unknown = ['코스피 5일 +2.10%'], watch = 'w') => ({ target, direction, confidence, reasons, watch });
+  const am = normalizeOutlook([row('SP500'), row('KOSPI', '하락', '높음'), row('KOSDAQ'), row('KOSPI', '상승')], 'morning');
+  check('오전판 — 코스피 · S&P500 만(순서 고정) · 코스닥 뺌 · 같은 대상 두 번째 뺌', am.map((o) => `${o.target}:${o.direction}`).join(',') === 'KOSPI:하락,SP500:상승', JSON.stringify(am));
+  const pm = normalizeOutlook([row('KOSPI'), row('SP500', '보합', '낮음')], 'afternoon');
+  check('오후판 — S&P500 만(코스피 예상은 서버가 뺌)', pm.length === 1 && pm[0].target === 'SP500' && pm[0].direction === '보합');
+  check('정해진 말이 아니면 그 줄을 뺌(방향 「강세」 · 확신 「매우 높음」)', normalizeOutlook([row('KOSPI', '강세'), row('SP500', '상승', '매우 높음')], 'morning').length === 0);
+  check('근거 1~3줄만 · 빈 줄 뺌 · 응답이 배열이 아니면 빈 목록', normalizeOutlook([row('KOSPI', '상승', '보통', ['a', '', 'b', 'c', 'd'])], 'morning')[0].reasons.join('') === 'abc' && normalizeOutlook(null, 'morning').length === 0 && normalizeOutlook({}, 'afternoon').length === 0);
+  const sch = SCHEMA.morning as { required: string[]; properties: { today_outlook: { items: { properties: Record<string, { enum?: string[] }> } } } };
+  const p = sch.properties.today_outlook.items.properties;
+  check('스키마 — today_outlook 필수 · 대상 · 방향 · 확신 enum', sch.required.includes('today_outlook') && p.target.enum?.join() === 'KOSPI,SP500' && p.direction.enum?.join() === '상승,보합,하락' && p.confidence.enum?.join() === '높음,보통,낮음' && (SCHEMA.afternoon as typeof sch).properties.today_outlook.items.properties.target.enum?.join() === 'SP500');
+  const pr = buildPrompt({ edition: 'morning', today: '2026-10-30', assets: {}, earnings: [], domestic: [], foreign: [], at: Date.parse('2026-10-30T07:05:00+09:00') });
+  check(`프롬프트 — 보합 = ±${FLAT_PCT}%(문장 검사와 같은 상수) · 확신 규칙 · 숫자 지어내지 말 것`, pr.includes(`보합 = 전일 정규장 종가 대비 ±${FLAT_PCT}% 안`) && pr.includes('엇갈리면 낮음') && pr.includes('확신이 낮으면 보합을 고를 수 있다') && pr.includes('입력에 없는 숫자를 지어내지 말 것') && pr.includes('"target": "KOSPI"') && pr.includes('"target": "SP500"'));
+  check('프롬프트(오후판) — 대상은 SP500 하나', (() => { const t = buildPrompt({ edition: 'afternoon', today: '2026-10-30', assets: {}, earnings: [], domestic: [], foreign: [], at: Date.parse('2026-10-30T16:00:00+09:00') }); return t.includes('"target": "SP500"') && !t.includes('"target": "KOSPI"'); })());
+  check('보합 경계 — 0.29 보합 · 0.30 상승 · 0.31 상승 · −0.30 하락(문장 검사와 같은 경계)', directionOfPct(0.29) === '보합' && directionOfPct(0.3) === '상승' && directionOfPct(0.31) === '상승' && directionOfPct(-0.3) === '하락' && directionOfPct(-0.29) === '보합' && directionOfPct(0) === '보합');
+  // 근거 문장 검사 — 입력 숫자와 반대 표현이면 같은 표시
+  const b = normalizeBrief({ ...(okBrief('morning') as BriefAi), key_themes: [], leading_sectors: [], swing_check: { phase: '', catalysts: [], risks: [] }, regime_summary: '' });
+  b.today_outlook = normalizeOutlook([row('KOSPI', '하락', '보통', ['코스피는 전일 반등했다', '코스피 하락 가능성'])], 'morning');
+  const mm = checkDirections(b, { edition: 'morning', assets: { KOSPI: { current: 2500, change: -50, change_pct: -1.96, data_date: '2026-10-29' } }, at: Date.parse('2026-10-30T07:05:00+09:00') }).filter((m) => m.field.startsWith('today_outlook'));
+  check('근거 문장 검사 — 「반등」 + −1.96% → 어긋남 · 「하락 가능성」(예상 말)은 검사 안 함', mm.length === 1 && mm[0].field === 'today_outlook.0.reasons.0' && mm[0].said === '반등', JSON.stringify(mm));
+}
+
 // C-2 대표 종목 — 후보 목록 · 거르기 · 옛 글자 브리핑
 const POOL: SectorStockPool = {
   기술: { kr: [{ symbol: '005930', name: '삼성전자' }, { symbol: '000660', name: 'SK하이닉스' }], us: [{ symbol: 'NVDA', name: '엔비디아' }, { symbol: 'AAPL', name: '애플' }] },
@@ -980,6 +1004,14 @@ const POOL: SectorStockPool = {
   const noAi = getBrief((await noAiRun.done)!);
   check('AI 없는 브리핑 — 실적 목록에 「발표됨」 · 마감 시각 저장 · 검사 줄 없음', noAi?.brief === null && noAi.data.earnings[0]?.released === true && noAi.data.earnings[0].usCloseAt === '2026-10-30T20:00:00.000Z' && !noAi.sources.some((x) => x.group === 'check'), JSON.stringify(noAi?.data.earnings[0]));
   geminiReason = null;
+
+  // 「오늘 예상 방향」 저장 — 판에 맞게 거른 것 · AI 없는 브리핑은 없음(데이터로 예상을 만들지 않는다)
+  clock = kst('2026-10-28', '07:05');
+  const withOutlook = { ...okBrief('morning'), today_outlook: [{ target: 'KOSPI', direction: '상승', confidence: '높음', reasons: ['S&P500 선물 +0.50%'], watch: 'w' }, { target: 'NASDAQ', direction: '상승', confidence: '높음', reasons: [], watch: '' }] } as unknown as Partial<BriefAi>;
+  const oRun = startButtonRun({ ...deps, gemini: async (o) => (geminiCalls.push(o), { data: withOutlook, raw: '', model: 'm', tokens: 1, elapsedMs: 1 }) });
+  const oSaved = getBrief((await oRun.done)!);
+  check('저장 — 오늘 예상 방향(코스피만 · 나스닥은 대상 밖이라 뺌)', JSON.stringify(oSaved?.brief?.today_outlook?.map((o) => o.target)) === '["KOSPI"]', JSON.stringify(oSaved?.brief?.today_outlook));
+  check('저장 — AI 없는 브리핑에는 예상이 없음', noAi?.brief === null);
 
   // 옛 브리핑(대표 종목이 글자 · mismatches 없음)을 그대로 읽는다
   const oldId = insertBrief({ date: '2026-10-20', edition: 'morning', trigger: 'auto', createdAt: '2026-10-19T22:05:00.000Z', model: 'm', tokens: 1, aiCalls: 1, promptVersion: 'brief-v3', sources: [], data: { assets: {}, earnings: [] }, brief: normalizeBrief(okBrief('morning')), aiError: null });

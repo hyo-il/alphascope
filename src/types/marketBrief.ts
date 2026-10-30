@@ -162,6 +162,26 @@ export interface BriefMismatch {
   actual: string;
 }
 
+/** 「오늘 예상 방향」(v2.60.0) 대상 — 코스피(오늘 국내 정규장) · S&P500(오늘 밤 미국 정규장) */
+export type OutlookTarget = 'KOSPI' | 'SP500';
+export type OutlookDirection = '상승' | '보합' | '하락';
+export type OutlookConfidence = '높음' | '보통' | '낮음';
+/** 판마다 예상 대상 — 오전판 = 오늘 코스피 + 오늘 밤 미국 · 오후판 = 오늘 밤 미국(사용자 결정 2026-10-30) */
+export const OUTLOOK_TARGETS: Record<BriefEdition, OutlookTarget[]> = { morning: ['KOSPI', 'SP500'], afternoon: ['SP500'] };
+export const OUTLOOK_DIRECTIONS: OutlookDirection[] = ['상승', '보합', '하락'];
+export const OUTLOOK_CONFIDENCES: OutlookConfidence[] = ['높음', '보통', '낮음'];
+
+/** 예상 한 줄 — AI 가 입력 숫자로 쓴 참고 예상(투자 조언 아님 · 매수 판단 · 자동매매에 쓰지 않는다) */
+export interface BriefOutlook {
+  target: OutlookTarget;
+  direction: OutlookDirection;
+  confidence: OutlookConfidence;
+  /** 근거 1~3줄(입력 숫자) */
+  reasons: string[];
+  /** 뒤집힐 수 있는 조건 한 줄 */
+  watch: string;
+}
+
 /** AI 결과 — 오전판은 market_regime · regime_summary, 오후판은 market_summary · vix_comment */
 export interface BriefAi {
   market_regime?: 'Risk-On' | 'Risk-Off' | '혼조';
@@ -174,6 +194,8 @@ export interface BriefAi {
   swing_check: { phase: string; catalysts: string[]; risks: string[] };
   upcoming_schedule: { this_week: BriefScheduleItem[]; this_month: BriefScheduleItem[]; next_2_months: BriefScheduleItem[] };
   portfolio_adjustment: { passive_note: string; swing_candidates: string[] };
+  /** 「오늘 예상 방향」(v2.60.0) — 판에 맞는 대상만(서버가 거른다) · 그 전 브리핑은 없음 */
+  today_outlook?: BriefOutlook[];
   /** 문장 ↔ 숫자 어긋남(v2.59.6) — 없으면 빈 배열 또는 없음(그 전 브리핑) */
   mismatches?: BriefMismatch[];
 }

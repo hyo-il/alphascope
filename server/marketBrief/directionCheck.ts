@@ -1,7 +1,7 @@
 /**
  * 오늘 시황 — AI 문장 ↔ 시장 데이터 방향 검사(v2.59.6, 사용자 결정 2026-10-30). Gemini 를 더 부르지 않는다(서버 글자 검사).
  *
- * - 보는 글: ① 시장 기조 라벨(`market_regime`) · 요약(`regime_summary`) · 총평(`market_summary`) · ③ 주도 섹터 이유 · ④ 테마 「왜 중요」 · ⑥ 국면.
+ * - 보는 글: ① 시장 기조 라벨(`market_regime`) · 요약(`regime_summary`) · 총평(`market_summary`) · 「오늘 예상 방향」 근거 · ③ 주도 섹터 이유 · ④ 테마 「왜 중요」 · ⑥ 국면.
  * - 방법: 글을 마디(문장 · 쉼표 · 「지만 · 으나 · 반면」)로 나누고, 마디 안 시장 이름 뒤(다음 시장 이름 전까지)의 방향 말을
  *   **같은 브리핑의 시장 데이터 부호**와 맞춘다. 문장은 고치지 않는다 — 어긋남만 `brief.mismatches` 에 남기고 화면이 표시한다.
  * - **애매하면 검사하지 않는다**(틀린 경고보다 경고 없음): 오름 · 내림 말이 한 마디에 함께 · 방향 말 바로 뒤 전망 · 우려 · 부정(가능성 · 우려 · 않 …) ·
@@ -212,5 +212,7 @@ export function checkDirections(brief: BriefAi, input: CheckInput): BriefMismatc
   brief.leading_sectors.forEach((s, i) => s.reason && out.push(...checkText(`leading_sectors.${i}.reason`, s.reason, input)));
   brief.key_themes.forEach((t, i) => t.why_important && out.push(...checkText(`key_themes.${i}.why_important`, t.why_important, input)));
   if (brief.swing_check.phase) out.push(...checkText('swing_check.phase', brief.swing_check.phase, input));
+  // 「오늘 예상 방향」 근거(v2.60.0) — 입력 숫자와 반대 표현이면 같은 표시(예상 말 「~ 전망 · 예상」 이 붙은 방향은 HEDGE 로 검사 안 함)
+  (brief.today_outlook ?? []).forEach((o, i) => o.reasons.forEach((r, j) => out.push(...checkText(`today_outlook.${i}.reasons.${j}`, r, input))));
   return out;
 }
