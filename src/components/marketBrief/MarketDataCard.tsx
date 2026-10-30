@@ -17,6 +17,8 @@ export default function MarketDataCard({ brief }: { brief: MarketBrief }) {
 }
 
 const prevOf = (a: BriefAsset) => a.current - a.change;
+/** 묶음 안 지수 가운데 하나라도 흐름이 있으면 흐름 두 칸을 둔다(그 전 브리핑은 칸 없이 예전 모양) */
+const hasTrend = (...list: (BriefAsset | undefined)[]) => list.some((a) => a?.trend);
 /**
  * 바뀐 만큼 — 부호 숫자(▲▼ 대신 · 디자인 규칙 「시황 등락은 +/− 부호」). 주식 지수가 아닌 값(금리 · 달러 · 금 · 에너지 · 환율 · VIX)은
  * 오르내림이 좋고 나쁨과 상관없어 색을 칠하지 않는다(VIX 가 오르면 초록으로 보이던 것).
@@ -35,6 +37,7 @@ function Group({
   intraday = false,
   index = false,
   note,
+  trendCols = false,
   children,
 }: {
   title: string;
@@ -43,6 +46,8 @@ function Group({
   index?: boolean;
   /** 날짜 대신 오른쪽 글(선물 — 받은 시각) */
   note?: string;
+  /** 지수 흐름 칸(5일 · 20일)을 둘 더 둔다 — 줄마다 같은 열에 서게(v2.60.0) */
+  trendCols?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -60,7 +65,7 @@ function Group({
           )
         )}
       </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] items-baseline gap-x-1.5 gap-y-1 text-xs tabular-nums">{children}</div>
+      <div className={`grid ${trendCols ? 'grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]'} items-baseline gap-x-1.5 gap-y-1 text-xs tabular-nums`}>{children}</div>
     </div>
   );
 }
@@ -79,21 +84,22 @@ function Row({ label, first, second, move }: { label: string; first: ReactNode; 
   );
 }
 
-/** 최근 흐름(5 · 20거래일, v2.60.0) — 지수 줄 끝 칸에 작은 글자. 봉이 모자란 칸은 「—」 */
-function Trend({ a }: { a: BriefAsset }) {
-  if (!a.trend) return null;
-  const v = (x: number | null) => (x == null ? '—' : formatPercent(x));
-  return (
-    <span className="whitespace-nowrap text-caption text-text-muted" data-brief-trend>
-      5일 {v(a.trend.d5)} · 20일 {v(a.trend.d20)}
-    </span>
-  );
-}
+/** 최근 흐름 한 칸(5 · 20거래일, v2.60.0) — 작은 글자 · 오른쪽 맞춤. 봉이 모자라면 「—」 */
+const TrendCell = ({ n, v }: { n: number; v: number | null | undefined }) => (
+  <span className="whitespace-nowrap text-right text-caption text-text-muted" data-brief-trend>
+    {n}일 {v == null ? '—' : formatPercent(v)}
+  </span>
+);
 
-/** 지수 — 원본처럼 「등락률% → 현재값」 + 최근 흐름 */
-function IndexRow({ label, a }: { label: string; a?: BriefAsset }) {
+/** 지수 — 원본처럼 「등락률% → 현재값」 + (trend 묶음이면) 5일 · 20일 두 칸 */
+function IndexRow({ label, a, trend = false }: { label: string; a?: BriefAsset; trend?: boolean }) {
   if (!a) return null;
-  return <Row label={label} first={<span className={changeColor(a.change_pct)}>{formatPercent(a.change_pct)}</span>} second={formatNumber(a.current, 2)} move={<Trend a={a} />} />;
+  return (
+    <>
+      <Row label={label} first={<span className={changeColor(a.change_pct)}>{formatPercent(a.change_pct)}</span>} second={formatNumber(a.current, 2)} move={trend ? <TrendCell n={5} v={a.trend?.d5} /> : undefined} />
+      {trend && <TrendCell n={20} v={a.trend?.d20} />}
+    </>
+  );
 }
 
 /** 미국 지수 선물(밤사이) — 「직전 세션 종가 대비% → 지금 값」. 지수 선물이라 지수처럼 색을 칠한다 */
@@ -103,8 +109,8 @@ function FuturesGroup({ brief }: { brief: MarketBrief }) {
   const at = Date.parse(brief.data.collectedAt ?? brief.createdAt);
   return (
     <Group title="미국 지수 선물(밤사이)" note={`받은 시각 ${kstClockText(at).slice(0, 5)}`}>
-      <IndexRow label="S&P500 선물" a={a.ES ? { ...a.ES, trend: undefined } : undefined} />
-      <IndexRow label="나스닥100 선물" a={a.NQ ? { ...a.NQ, trend: undefined } : undefined} />
+      <IndexRow label="S&P500 선물" a={a.ES} />
+      <IndexRow label="나스닥100 선물" a={a.NQ} />
     </Group>
   );
 }
@@ -152,17 +158,17 @@ function MarketData({ brief }: { brief: MarketBrief }) {
     return (
       <div className="space-y-2">
         <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-          <Group title="국내 지수" date={a.KOSPI?.data_date} intraday={live('KOSPI')} index>
-            <IndexRow label="코스피" a={a.KOSPI} />
-            <IndexRow label="코스닥" a={a.KOSDAQ} />
+          <Group title="국내 지수" date={a.KOSPI?.data_date} intraday={live('KOSPI')} index trendCols={hasTrend(a.KOSPI, a.KOSDAQ)}>
+            <IndexRow label="코스피" a={a.KOSPI} trend={hasTrend(a.KOSPI, a.KOSDAQ)} />
+            <IndexRow label="코스닥" a={a.KOSDAQ} trend={hasTrend(a.KOSPI, a.KOSDAQ)} />
           </Group>
           <Group title="공포지수(미국)" date={a.VIX?.data_date} intraday={live('VIX')} index>
             {a.VIX && <MoveRow label={`VIX (${vixZone(a.VIX.current)} 구간)`} a={a.VIX} digits={2} />}
           </Group>
           {(a.SP500 || a.NASDAQ) && (
-            <Group title="미국 증시" date={a.SP500?.data_date} intraday={live('SP500')} index>
-              <IndexRow label="S&P500" a={a.SP500} />
-              <IndexRow label="나스닥" a={a.NASDAQ} />
+            <Group title="미국 증시" date={a.SP500?.data_date} intraday={live('SP500')} index trendCols={hasTrend(a.SP500, a.NASDAQ)}>
+              <IndexRow label="S&P500" a={a.SP500} trend={hasTrend(a.SP500, a.NASDAQ)} />
+              <IndexRow label="나스닥" a={a.NASDAQ} trend={hasTrend(a.SP500, a.NASDAQ)} />
             </Group>
           )}
           <FuturesGroup brief={brief} />
@@ -176,11 +182,11 @@ function MarketData({ brief }: { brief: MarketBrief }) {
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-        <Group title="미국 증시" date={a.SP500?.data_date} intraday={live('SP500')} index>
-          <IndexRow label="S&P500" a={a.SP500} />
-          <IndexRow label="나스닥" a={a.NASDAQ} />
-          <IndexRow label="다우" a={a.DOW} />
-          <IndexRow label="러셀2000" a={a.RUSSELL2000} />
+        <Group title="미국 증시" date={a.SP500?.data_date} intraday={live('SP500')} index trendCols={hasTrend(a.SP500, a.NASDAQ, a.DOW, a.RUSSELL2000)}>
+          <IndexRow label="S&P500" a={a.SP500} trend={hasTrend(a.SP500, a.NASDAQ, a.DOW, a.RUSSELL2000)} />
+          <IndexRow label="나스닥" a={a.NASDAQ} trend={hasTrend(a.SP500, a.NASDAQ, a.DOW, a.RUSSELL2000)} />
+          <IndexRow label="다우" a={a.DOW} trend={hasTrend(a.SP500, a.NASDAQ, a.DOW, a.RUSSELL2000)} />
+          <IndexRow label="러셀2000" a={a.RUSSELL2000} trend={hasTrend(a.SP500, a.NASDAQ, a.DOW, a.RUSSELL2000)} />
         </Group>
         <Group title="미국 국채 수익률" date={rateDate}>
           <MoveRow label="2년" a={a.US2Y} digits={3} suffix="%" moveSuffix="%p" groupDate={rateDate} />
@@ -202,9 +208,9 @@ function MarketData({ brief }: { brief: MarketBrief }) {
         <Group title="원/달러(원)" date={a.USDKRW?.data_date}>
           <MoveRow label="환율" a={a.USDKRW} digits={2} pct />
         </Group>
-        <Group title="국내 지수" date={a.KOSPI?.data_date} intraday={live('KOSPI')} index>
-          <IndexRow label="코스피" a={a.KOSPI} />
-          <IndexRow label="코스닥" a={a.KOSDAQ} />
+        <Group title="국내 지수" date={a.KOSPI?.data_date} intraday={live('KOSPI')} index trendCols={hasTrend(a.KOSPI, a.KOSDAQ)}>
+          <IndexRow label="코스피" a={a.KOSPI} trend={hasTrend(a.KOSPI, a.KOSDAQ)} />
+          <IndexRow label="코스닥" a={a.KOSDAQ} trend={hasTrend(a.KOSPI, a.KOSDAQ)} />
         </Group>
         <FuturesGroup brief={brief} />
       </div>
