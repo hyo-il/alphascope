@@ -79,7 +79,8 @@ def fake_history(ticker, period, decimals):
     return mb.summarize_closes([100.0, 101.0], date(2026, 10, 28), decimals)
 
 
-data = mb.collect_market_data("morning", history=fake_history, fred=lambda: csv_new)
+fred_ok = [("FRED", lambda: csv_new, mb.parse_fred_csv)]
+data = mb.collect_market_data("morning", history=fake_history, us2y=lambda: mb.fetch_us2y(fred_ok))
 keys = set(data["assets"])
 want = {"KOSPI", "KOSDAQ", "SP500", "NASDAQ", "DOW", "RUSSELL2000", "GOLD", "US2Y", "US10Y", "USDKRW", "WTI", "NATGAS"}
 check("오전판 13종 중 실패 1(DXY) 빠짐", keys == want and data["failed"] == ["DXY"], f"{sorted(keys)} {data['failed']}")
@@ -90,16 +91,41 @@ check("오전판에 VIX 없음", "^VIX" not in tickers)
 
 asked.clear()
 fred_called = []
-data = mb.collect_market_data("afternoon", history=fake_history, fred=lambda: fred_called.append(1) or csv_new)
-check("오후판 = 코스피 · 코스닥 · VIX", set(data["assets"]) == {"KOSPI", "KOSDAQ", "VIX"} and not fred_called)
+data = mb.collect_market_data("afternoon", history=fake_history, us2y=lambda: fred_called.append(1) or mb.fetch_us2y(fred_ok))
+check("오후판 = 코스피 · 코스닥 · VIX(미2년물 받지 않음)", set(data["assets"]) == {"KOSPI", "KOSDAQ", "VIX"} and not fred_called and data["sources"] == {})
 
 
 def boom():
     raise TimeoutError("timed out")
 
 
-data = mb.collect_market_data("morning", history=fake_history, fred=boom)
-check("FRED 실패 → US2Y 빠짐", "US2Y" not in data["assets"] and "US2Y" in data["failed"])
+# 2-2) 미2년물 후보(v2.59.6) — 재무부 XML · 후보 차례 · 모두 실패
+treasury_xml = """<feed><entry><content><m:properties><d:NEW_DATE m:type="Edm.DateTime">2026-10-28T00:00:00</d:NEW_DATE>
+<d:BC_1MONTH m:type="Edm.Double">4.06</d:BC_1MONTH><d:BC_2YEAR m:type="Edm.Double">4.67</d:BC_2YEAR></m:properties></content></entry>
+<entry><content><m:properties><d:NEW_DATE m:type="Edm.DateTime">2026-10-29T00:00:00</d:NEW_DATE>
+<d:BC_2YEAR m:type="Edm.Double">4.61</d:BC_2YEAR></m:properties></content></entry>
+<entry><content><m:properties><d:NEW_DATE m:type="Edm.DateTime">2026-10-30T00:00:00</d:NEW_DATE>
+<d:BC_2YEAR m:type="Edm.Double" m:null="true" /></m:properties></content></entry></feed>"""
+tv = mb.parse_treasury_xml(treasury_xml)
+check("재무부 XML — 날짜마다 BC_2YEAR · 빈 값 줄 빼고 마지막 두 날", tv == {"current": 4.61, "change": -0.06, "change_pct": -1.28, "data_date": "2026-10-29"}, str(tv))
+check("재무부 XML — 한 날이면 빠짐", mb.parse_treasury_xml(treasury_xml.split("<entry>")[0] + "<entry>" + treasury_xml.split("<entry>")[1]) is None)
+urls = []
+mb.fetch_treasury_xml(datetime(2026, 11, 2, 7, 0, tzinfo=ZoneInfo("Asia/Seoul")), get=lambda u, t: (urls.append((u, t)), "")[1])
+check("재무부 — 미국 날짜의 달(11-01 ET → 202611) · 두 날이 안 되면 지난달(202610)도 · 15초 제한",
+      [u.split("month=")[1] for u, _ in urls] == ["202611", "202610"] and all(t == 15 for _, t in urls), str(urls))
+check("재무부 주소 = 공식 XML 피드(daily_treasury_yield_curve)", mb.TREASURY_URL.startswith("https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value_month="))
+check("미2년물 후보 순서 = FRED → 미국 재무부", [x[0] for x in mb.US2Y_SOURCES] == ["FRED", "미국 재무부"])
+two = [("FRED", boom, mb.parse_fred_csv), ("미국 재무부", lambda: treasury_xml, mb.parse_treasury_xml)]
+v, info = mb.fetch_us2y(two)
+check("후보 1(FRED) 실패 → 후보 2(재무부) 값", v == tv and info["used"] == "미국 재무부" and [t["ok"] for t in info["tried"]] == [False, True] and "timed out" in info["tried"][0]["error"], str(info))
+v, info = mb.fetch_us2y([("FRED", boom, mb.parse_fred_csv), ("미국 재무부", lambda: "", mb.parse_treasury_xml)])
+check("후보 모두 실패 → 값 없음 · used=None · 둘 다 시도", v is None and info["used"] is None and len(info["tried"]) == 2, str(info))
+data = mb.collect_market_data("morning", history=fake_history, us2y=lambda: mb.fetch_us2y(two))
+check("모으기 — 쓴 후보 이름이 sources.US2Y.used", data["assets"].get("US2Y") == tv and data["sources"]["US2Y"]["used"] == "미국 재무부")
+data = mb.collect_market_data("morning", history=fake_history, us2y=lambda: mb.fetch_us2y([("FRED", boom, mb.parse_fred_csv)]))
+check("FRED 실패(후보 모두 실패) → US2Y 빠짐", "US2Y" not in data["assets"] and "US2Y" in data["failed"])
+rows = mb.check_us2y_sources(two)
+check("점검 — 후보마다 1번(성공한 뒤에도 다음 후보까지) · 코드 · 시간 · 값", [r["source"] for r in rows] == ["FRED", "미국 재무부"] and rows[0]["status"] is None and rows[1]["status"] == 200 and rows[1]["value"] == tv and all(isinstance(r["ms"], int) for r in rows), str(rows))
 
 # 4) 시간 제한 — 느린 yfinance 를 기다리지 않는다(원본 헬퍼는 with 블록이 스레드를 기다렸다)
 real_ticker = fundamentals.yf.Ticker

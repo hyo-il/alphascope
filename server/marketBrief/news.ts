@@ -2,6 +2,8 @@
  * 오늘 시황 — 경제 뉴스 RSS (Stockproject `news_collector.py` 의 주소 · 개수 · 거르기 그대로).
  *
  * - 국내 4 + 해외 4. **국내가 한 건도 없을 때만** 국내 폴백 1(SBS 경제)을 부른다.
+ * - 해외 4번째 자리는 후보를 차례로(`FOREIGN_SLOT_CANDIDATES` — 첫 성공을 쓴다). 원본의 Yahoo Finance(`/news/rssindex`)는 HTTP 404 라
+ *   후보에서 뺐다(v2.59.6 — 죽은 소스를 매번 부르지 않는다). 오라클에서 열리는지는 `npm run -s marketbrief:sources` 로 본다.
  * - 소스마다 최대 20건 · 제목 · 출처 · 링크 · 시각만(본문을 긁지 않는다 — `server/news.ts` 와 같은 원칙).
  * - 한 곳이 죽어도 나머지로 간다. 소스마다 성공 · 실패를 돌려준다(화면 「수집 상태」 — RSS 는 예고 없이 죽는다).
  * - 파서를 들이지 않는다 — 거래정지 RSS(`usHalts/feed.ts`)처럼 정규식으로 `<item>`(RSS) · `<entry>`(Atom)만 읽는다.
@@ -11,6 +13,8 @@
 export interface RssSource {
   url: string;
   source: string;
+  /** 출처 · 이용 조건 한 줄(점검 표 · 문서) */
+  note?: string;
 }
 
 export interface BriefNewsItem {
@@ -41,7 +45,17 @@ export const FOREIGN_RSS: RssSource[] = [
   { url: 'https://www.cnbc.com/id/19854910/device/rss/rss.html', source: 'CNBC Tech' },
   { url: 'https://www.cnbc.com/id/20910258/device/rss/rss.html', source: 'CNBC Economy' },
   { url: 'https://www.cnbc.com/id/10000664/device/rss/rss.html', source: 'CNBC Finance' },
-  { url: 'https://finance.yahoo.com/news/rssindex', source: 'Yahoo Finance' },
+];
+
+/**
+ * 해외 4번째 자리 — 앞에서부터 차례로 시도해 첫 성공 하나만 쓴다(맥 2026-10-30 각 1번 열어 봄: 둘 다 200).
+ * WSJ Markets(feeds.a.dj.com)는 열리지만 마지막 글이 2025-01 이라 넣지 않았다.
+ */
+export const FOREIGN_SLOT_CANDIDATES: RssSource[] = [
+  // Dow Jones 공개 RSS(MarketWatch Top Stories) — Dow Jones 이용 조건: 개인 · 비상업 이용(제목 · 링크만 쓴다)
+  { url: 'https://feeds.content.dowjones.io/public/rss/mw_topstories', source: 'MarketWatch', note: 'Dow Jones 공개 RSS · 개인 · 비상업 이용' },
+  // 미국 연준 보도자료 RSS — 미국 정부 공개 자료
+  { url: 'https://www.federalreserve.gov/feeds/press_all.xml', source: '미국 연준 보도자료', note: '미국 연방준비제도 공식 RSS · 공개 자료' },
 ];
 
 /** 국내 RSS 가 전부 실패했을 때만 */
@@ -53,21 +67,29 @@ const TIMEOUT_MS = 15_000;
 /** RSS 본문 받기 — 시험은 바꿔 끼운다(네트워크 0) */
 export type RssFetcher = (url: string) => Promise<string>;
 
-export const fetchRss: RssFetcher = async (url) => {
+/** RSS 한 번 열기 — HTTP 코드와 본문(점검 명령 `marketbrief:sources` 도 이것으로 연다 — 같은 머리말 · 시간 제한 · 글자 인코딩) */
+export async function fetchRssRaw(url: string): Promise<{ status: number; text: string }> {
   const response = await fetch(url, {
     headers: { Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml', 'User-Agent': 'Mozilla/5.0 (AlphaScope personal use)' },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const bytes = new Uint8Array(await response.arrayBuffer());
   // 국내 피드 일부는 EUC-KR — XML 선언의 encoding 을 따른다
   const head = new TextDecoder('ascii').decode(bytes.slice(0, 200));
   const encoding = /encoding=["']([\w-]+)["']/i.exec(head)?.[1]?.toLowerCase() ?? 'utf-8';
+  let text: string;
   try {
-    return new TextDecoder(encoding).decode(bytes);
+    text = new TextDecoder(encoding).decode(bytes);
   } catch {
-    return new TextDecoder('utf-8').decode(bytes);
+    text = new TextDecoder('utf-8').decode(bytes);
   }
+  return { status: response.status, text };
+}
+
+export const fetchRss: RssFetcher = async (url) => {
+  const { status, text } = await fetchRssRaw(url);
+  if (status < 200 || status >= 300) throw new Error(`HTTP ${status}`);
+  return text;
 };
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
@@ -114,6 +136,17 @@ async function fromSource(src: RssSource, foreign: boolean, fetcher: RssFetcher)
   }
 }
 
+/** 후보를 차례로 — 첫 성공의 글 · 결과(이름은 「쓴 후보(4번째 자리)」). 모두 실패면 마지막 실패 이유를 모아 한 줄 */
+async function fromCandidates(candidates: RssSource[], foreign: boolean, fetcher: RssFetcher): Promise<{ items: BriefNewsItem[]; result: RssResult & { slot: true } }> {
+  const errors: string[] = [];
+  for (const c of candidates) {
+    const got = await fromSource(c, foreign, fetcher);
+    if (got.result.ok) return { items: got.items, result: { ...got.result, slot: true, error: errors.length ? errors.join(' · ') : null } };
+    errors.push(`${c.source} ${got.result.error ?? '실패'}`);
+  }
+  return { items: [], result: { source: '4번째 자리', ok: false, count: 0, error: `후보 모두 실패 — ${errors.join(' · ')}`, slot: true } };
+}
+
 /** 소스들을 나란히 받는다 — 결과 순서는 소스 순서 그대로 */
 async function collect(sources: RssSource[], foreign: boolean, fetcher: RssFetcher) {
   const all = await Promise.all(sources.map((s) => fromSource(s, foreign, fetcher)));
@@ -123,18 +156,21 @@ async function collect(sources: RssSource[], foreign: boolean, fetcher: RssFetch
 export interface NewsCollection {
   domestic: BriefNewsItem[];
   foreign: BriefNewsItem[];
-  results: (RssResult & { foreign: boolean; fallback: boolean })[];
+  /** slot = 후보 자리(해외 4번째) — 성공이면 error 에 앞 후보들의 실패 이유 */
+  results: (RssResult & { foreign: boolean; fallback: boolean; slot?: boolean })[];
 }
 
 /** 오전판 = 국내 + 해외 · 오후판 = 국내만(원본 오후 프롬프트는 국내 뉴스만 쓴다 — 쓰지 않는 해외는 받지 않는다) */
 export async function collectNews(withForeign: boolean, fetcher: RssFetcher = fetchRss): Promise<NewsCollection> {
-  const [dom, fgn] = await Promise.all([
+  const [dom, fgn, slot] = await Promise.all([
     collect(DOMESTIC_RSS, false, fetcher),
     withForeign ? collect(FOREIGN_RSS, true, fetcher) : Promise.resolve({ items: [], results: [] as RssResult[] }),
+    withForeign ? fromCandidates(FOREIGN_SLOT_CANDIDATES, true, fetcher) : Promise.resolve(null),
   ]);
   const results: NewsCollection['results'] = [
     ...dom.results.map((r) => ({ ...r, foreign: false, fallback: false })),
     ...fgn.results.map((r) => ({ ...r, foreign: true, fallback: false })),
+    ...(slot ? [{ ...slot.result, foreign: true, fallback: false }] : []),
   ];
   let domestic = dom.items;
   if (!domestic.length) {
@@ -142,5 +178,5 @@ export async function collectNews(withForeign: boolean, fetcher: RssFetcher = fe
     domestic = fb.items;
     results.push({ ...fb.result, foreign: false, fallback: true });
   }
-  return { domestic, foreign: fgn.items, results };
+  return { domestic, foreign: [...fgn.items, ...(slot?.items ?? [])], results };
 }

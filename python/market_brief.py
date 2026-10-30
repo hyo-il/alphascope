@@ -4,7 +4,9 @@
 Stockproject(`stock_analyzer.py` · `earnings_collector.py`)의 시황 브리핑을 **같은 티커 · 같은 계산**으로 옮겼다(코드를 부르지 않고 다시 지었다).
 - 값 하나 = {current, change, change_pct, data_date} — 마지막 두 종가로 낸다(원본과 같음). 받지 못한 항목은 빠진다.
 - yfinance 는 모두 스레드 시간 제한(`fundamentals.yf_history_safe` · `_call_with_timeout`)을 지난다.
-- 미국 2년물 금리는 yfinance 에 티커가 없어 FRED(DGS2, 최근 30일만 · 15초 제한)에서 받는다.
+- 미국 2년물 금리는 yfinance 에 티커가 없어 후보를 차례로 시도한다(`US2Y_SOURCES` — ① FRED DGS2 ② 미국 재무부 일별 국채 수익률 곡선 BC_2YEAR · 각 15초 제한).
+  둘은 같은 값이다(DGS2 = 연준 H.15 의 2년 만기 고정 국채 수익률 · 재무부 수익률 곡선과 같은 숫자 · 단위 % · 날짜 = 미국 거래일).
+  yfinance `2YY=F`(2년 금리 선물)는 만기 · 거래소 · 값이 달라 후보에서 뺐다(v2.59.6 — 10-27~29 4.75 고정 · 재무부 4.61).
 - 코스피 · 코스닥 · S&P 500 · 나스닥 · 다우 · VIX 는 시황 바와 같은 받기(`yf_history_safe`, 같은 기간 · 60초 캐시)를 쓴다.
   원본은 코스피 · 코스닥을 FinanceDataReader 로 받았다 — 이 엔진에는 없어 시황 바와 같은 yfinance `^KS11` · `^KQ11` 로 받는다.
 - 판단 · 주문에 쓰지 않는다. 서버(`server/marketBrief/`)가 받아 Gemini 입력과 화면에 쓴다.
@@ -18,6 +20,7 @@ import io
 import math
 import re
 import time
+import urllib.error
 import urllib.request
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -50,6 +53,14 @@ _VIX = ("VIX", "^VIX", INDEX_HISTORY_PERIOD, 2)
 
 FRED_TIMEOUT_SEC = 15
 _FRED_DAYS = 30
+TREASURY_TIMEOUT_SEC = 15
+# 미국 재무부 일별 국채 수익률(Par Yield Curve) XML — 공식 안내 https://home.treasury.gov/treasury-daily-interest-rate-xml-feed
+# 달(YYYYMM)마다 한 묶음. 값 칸 BC_2YEAR(%) · 날짜 칸 NEW_DATE(미국 날짜)
+TREASURY_URL = (
+    "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml"
+    "?data=daily_treasury_yield_curve&field_tdr_date_value_month={month}"
+)
+NY = ZoneInfo("America/New_York")
 
 # 브리핑 한 번에 한 번 받으면 된다 — 버튼을 잇달아 눌러도(하루 5번) 10분 안이면 다시 받지 않는다.
 # 장중(오후판 코스피)은 10분 사이 값이 바뀌지만, 브리핑은 그 시각의 사진이라 10분 차이는 문제가 아니다.
@@ -98,16 +109,22 @@ def parse_fred_csv(text: str) -> dict | None:
             rows.append((row[0].strip(), float(row[1].strip())))
         except ValueError:
             continue
-    rows.sort(key=lambda r: r[0])
-    if len(rows) < 2:
+    return _rate_from_rows(rows)
+
+
+def _rate_from_rows(rows: list[tuple[str, float]]) -> dict | None:
+    """(날짜, 값) 줄 → 마지막 두 날의 값(금리 — 소수 4자리). 같은 날짜가 겹치면 하나만. 두 날이 안 되면 None"""
+    by_day = dict(sorted(rows, key=lambda r: r[0]))
+    days = sorted(by_day)
+    if len(days) < 2:
         return None
-    current, previous = rows[-1][1], rows[-2][1]
+    current, previous = by_day[days[-1]], by_day[days[-2]]
     change = round(current - previous, 4)
     return {
         "current": round(current, 4),
         "change": change,
         "change_pct": round((change / previous) * 100, 2) if previous != 0 else 0.0,
-        "data_date": rows[-1][0],
+        "data_date": days[-1],
     }
 
 
@@ -120,17 +137,89 @@ def fetch_fred_csv(now: datetime | None = None) -> str:
         return response.read().decode("utf-8", errors="replace")
 
 
-def collect_market_data(edition: str, history=_from_history, fred=fetch_fred_csv) -> dict:
+def _http_get(url: str, timeout: float) -> str:
+    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (AlphaScope personal use)"})
+    with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 - 고정 주소
+        return response.read().decode("utf-8", errors="replace")
+
+
+def parse_treasury_xml(text: str) -> dict | None:
+    """재무부 XML → US2Y 값. 줄(m:properties)마다 NEW_DATE · BC_2YEAR 를 짝지어 읽는다(값이 빈 줄은 뺀다)"""
+    rows = []
+    for block in re.findall(r"<m:properties>(.*?)</m:properties>", text, re.S):
+        day = re.search(r"<d:NEW_DATE[^>]*>(\d{4}-\d{2}-\d{2})", block)
+        value = re.search(r"<d:BC_2YEAR[^>]*>([^<]+)</d:BC_2YEAR>", block)
+        if not day or not value:
+            continue
+        try:
+            rows.append((day.group(1), float(value.group(1))))
+        except ValueError:
+            continue
+    return _rate_from_rows(rows)
+
+
+def fetch_treasury_xml(now: datetime | None = None, get=_http_get) -> str:
+    """이번 달(미국 날짜) — 달 초라 두 날이 안 되면 지난달도 붙인다"""
+    today = (now or datetime.now(NY)).astimezone(NY).date()
+    text = get(TREASURY_URL.format(month=today.strftime("%Y%m")), TREASURY_TIMEOUT_SEC)
+    if parse_treasury_xml(text) is None:
+        prev = today.replace(day=1) - timedelta(days=1)
+        text = get(TREASURY_URL.format(month=prev.strftime("%Y%m")), TREASURY_TIMEOUT_SEC) + text
+    return text
+
+
+# 미2년물 후보 — 앞에서부터 차례로(첫 성공을 쓴다). (화면 이름, 받기, 풀기). 오라클 확인: `npm run -s marketbrief:sources`
+US2Y_SOURCES = [
+    ("FRED", lambda: fetch_fred_csv(), parse_fred_csv),
+    ("미국 재무부", lambda: fetch_treasury_xml(), parse_treasury_xml),
+]
+
+
+def fetch_us2y(sources=None) -> tuple[dict | None, dict]:
+    """후보를 차례로 — (값, {"used": 쓴 후보 이름 | None, "tried": [{source, ok, error}]})"""
+    tried = []
+    for label, fetch, parse in sources if sources is not None else US2Y_SOURCES:
+        try:
+            value = parse(fetch())
+            error = None if value else "값 두 날이 안 됨"
+        except Exception as e:  # noqa: BLE001 - 시간 초과 · 막힘 — 다음 후보로
+            value, error = None, (str(e) or type(e).__name__)[:120]
+        tried.append({"source": label, "ok": bool(value), "error": error})
+        if value:
+            return value, {"used": label, "tried": tried}
+    return None, {"used": None, "tried": tried}
+
+
+def check_us2y_sources(sources=None) -> list[dict]:
+    """점검 명령용 — 후보마다 1번씩(성공해도 다음 후보까지). HTTP 코드 · 걸린 시간 · 값"""
+    out = []
+    for label, fetch, parse in sources if sources is not None else US2Y_SOURCES:
+        started = time.time()
+        code, value, error = None, None, None
+        try:
+            value = parse(fetch())
+            code = 200
+            if not value:
+                error = "값 두 날이 안 됨"
+        except urllib.error.HTTPError as e:
+            code, error = e.code, str(e)
+        except Exception as e:  # noqa: BLE001
+            error = (str(e) or type(e).__name__)[:120]
+        out.append({"source": label, "status": code, "ms": int((time.time() - started) * 1000), "value": value, "error": error})
+    return out
+
+
+def collect_market_data(edition: str, history=_from_history, us2y=fetch_us2y) -> dict:
     """
     오전판(morning) = 13종 · 오후판(afternoon) = 코스피 · 코스닥 · VIX (원본 collect_morning_stocks · collect_afternoon_stocks).
-    돌려주는 값: {"assets": {키: 값}, "failed": [받지 못한 키]}. 시험이 history · fred 를 바꿔 끼운다.
+    돌려주는 값: {"assets": {키: 값}, "failed": [받지 못한 키], "sources": {"US2Y": 쓴 후보 · 시도}}. 시험이 history · us2y 를 바꿔 끼운다.
     """
     if edition == "afternoon":
         plan = [_INDEX_ASSETS[0], _INDEX_ASSETS[1], _VIX]
-        want_fred = False
+        want_us2y = False
     else:
         plan = [*_INDEX_ASSETS, *_MACRO_ASSETS]
-        want_fred = True
+        want_us2y = True
 
     assets: dict = {}
     failed: list[str] = []
@@ -143,16 +232,14 @@ def collect_market_data(edition: str, history=_from_history, fred=fetch_fred_csv
             assets[key] = value
         else:
             failed.append(key)
-    if want_fred:
-        try:
-            value = parse_fred_csv(fred())
-        except Exception:  # noqa: BLE001 - 시간 초과 · 막힘 — 그 항목만 빠진다
-            value = None
+    sources: dict = {}
+    if want_us2y:
+        value, sources["US2Y"] = us2y()
         if value:
             assets["US2Y"] = value
         else:
             failed.append("US2Y")
-    return {"assets": assets, "failed": failed}
+    return {"assets": assets, "failed": failed, "sources": sources}
 
 
 def get_market_brief_data(edition: str) -> dict:
@@ -299,3 +386,12 @@ def get_earnings_estimates(symbols: list[str]) -> list[dict]:
                 if value.get("ok"):
                     _estimate_cache[symbol] = (now, value)
     return [out[s] for s in symbols]
+
+
+if __name__ == "__main__":
+    # 점검 명령(`npm run -s marketbrief:sources`)이 부른다 — 미2년물 후보를 1번씩 열어 JSON 한 줄. DB · Gemini 없음
+    import json
+    import sys
+
+    if sys.argv[1:] == ["--check-us2y"]:
+        print(json.dumps(check_us2y_sources(), ensure_ascii=False))

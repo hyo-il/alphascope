@@ -38,6 +38,7 @@
     "clock:test": "tsx scripts/clockSelfTest.ts",
     "ushalts:test": "tsx scripts/usHaltsSelfTest.ts",
     "marketbrief:test": "tsx scripts/marketBriefSelfTest.ts",
+    "marketbrief:sources": "tsx scripts/marketBriefSources.ts",
     "heatmapsession:test": "tsx scripts/heatmapSessionSelfTest.ts",
     "design:lint": "tsx scripts/designLint.ts",
     "design:check": "tsx scripts/designCheck.ts",
