@@ -1,8 +1,8 @@
 /**
  * 오늘 시황(탐색 → 오늘 시황) 점검 — `npm run marketbrief:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import).
- * **네트워크 0 · Gemini 0** — 지표 엔진 · RSS · FRED · yfinance · Gemini 는 모두 가짜를 끼운다.
+ * **네트워크 0 · Gemini 0** — 지표 엔진 · RSS · 미국 재무부 · yfinance · Gemini 는 모두 가짜를 끼운다.
  *
- * - A 수집: 지표 엔진 계산(13종 + VIX · FRED 30일 · 실패 항목 빠짐 · 시간 제한 — `marketBriefPyTest.py` 를 부른다) ·
+ * - A 수집: 지표 엔진 계산(13종 + VIX · 미2년물 재무부 · 실패 항목 빠짐 · 시간 제한 — `marketBriefPyTest.py` 를 부른다) ·
  *   RSS(한 곳 실패 · 국내 전부 실패 → 폴백 · 오후판 해외 안 받음) · 60일 실적(대상 · 전망치 묶음 · sanity ⚠️ · 노이즈 매출 숨김 · 원화 · [D+N])
  * - B 만들기: 프롬프트([D+N] · 섹터 목록 · 판별 입력) · 스키마(섹터 enum) · 뒤처리 3단계(순서 · 국내 보존 · 상한 3/3/2 · 슬롯 다시 배치 · 해 경계) ·
  *   Gemini 꺼짐/실패/429 → 데이터만 저장 · 1번만 다시 · 자동(평일 06:55 뒤 첫 틱 1번 · 주말 0 · 같은 날 0 · 13시 뒤 0 · 스위치 끔 0) ·
@@ -15,7 +15,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { getDb } from '../server/db';
-import { collectNews, parseFeed, DOMESTIC_FALLBACK, DOMESTIC_RSS, FOREIGN_RSS, FOREIGN_SLOT_CANDIDATES } from '../server/marketBrief/news';
+import { collectNews, freshNews, parseFeed, DOMESTIC_FALLBACK, DOMESTIC_RSS, FOREIGN_RSS, FOREIGN_SLOT_CANDIDATES, NEWS_MAX_AGE_MS } from '../server/marketBrief/news';
 import { collectAll } from '../server/marketBrief/collect';
 import { checkDirections, checkText, DEFENSE_PCT, FLAT_PCT, FLAT_RATE_PP } from '../server/marketBrief/directionCheck';
 import { filterSectorStocks, poolText, sectorStockPool, type SectorStockPool } from '../server/marketBrief/sectorStocks';
@@ -57,7 +57,7 @@ const db = getDb();
 
 // ═════════════════════════ A. 수집 ═════════════════════════
 
-// A-1 지표 엔진 계산 — 파이썬 시험(가짜 yfinance · FRED)
+// A-1 지표 엔진 계산 — 파이썬 시험(가짜 yfinance · 재무부)
 {
   const py = spawnSync(path.join(root, 'python/.venv/bin/python'), ['-I', path.join(here, 'marketBriefPyTest.py')], { encoding: 'utf8' });
   const out = `${py.stdout}${py.stderr}`;
@@ -134,25 +134,25 @@ const db = getDb();
     market: async () => ({
       assets: { SP500: SP, US2Y: US2 },
       failed: ['DXY'],
-      sources: { US2Y: { used: '미국 재무부', tried: [{ source: 'FRED', ok: false, error: 'timed out' }, { source: '미국 재무부', ok: true, error: null }] } },
+      sources: { US2Y: { used: '미국 재무부', tried: [{ source: '미국 재무부', ok: true, error: null }] } },
     }),
     rss: async (url) => (url === FOREIGN_SLOT_CANDIDATES[0].url ? Promise.reject(new Error('HTTP 404')) : feed(2)),
     earnings: async () => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: null }),
     sectorStocks: () => ({}),
   });
   const us2yRow = col.sources.find((x) => x.label === '시장 데이터 · 미2년물금리(%)');
-  check('수집 상태 — 「미2년물 — 미국 재무부 값」 · 앞 후보(FRED) 실패 이유(영어 원문 대신 「시간 초과」)', us2yRow?.ok === true && us2yRow.detail === '미국 재무부 값 · FRED 실패(시간 초과)', JSON.stringify(us2yRow));
+  check('수집 상태 — 미2년물 「받음 · 미국 재무부」', us2yRow?.ok === true && us2yRow.detail === '미국 재무부', JSON.stringify(us2yRow));
   const mainRow = col.sources.find((x) => x.label === '시장 데이터');
   check('수집 상태 — 시장 데이터 줄은 미2년물을 따로 세지 않음(못 받음: 달러인덱스만)', mainRow?.detail === '2개 받음 · 못 받음: 달러인덱스' && !mainRow.ok, mainRow?.detail);
   check('수집 상태 — 해외 뉴스 대체 소스에 쓴 후보 이름', col.sources.some((x) => x.label === '해외 뉴스 · 미국 연준 보도자료(대체 소스)' && x.ok && x.detail === '2건 · 앞 후보 실패: MarketWatch(HTTP 404)'), JSON.stringify(col.sources.filter((x) => x.label.includes('대체'))));
   const colNone = await collectAll('morning', Date.parse('2026-10-29T07:05:00+09:00'), {
-    market: async () => ({ assets: { SP500: SP }, failed: ['US2Y'], sources: { US2Y: { used: null, tried: [{ source: 'FRED', ok: false, error: 'HTTPSConnectionPool(host=fred.stlouisfed.org): Read timed out. (read timeout=15)' }, { source: '미국 재무부', ok: false, error: 'HTTP Error 503: Service Unavailable' }] } } }),
+    market: async () => ({ assets: { SP500: SP }, failed: ['US2Y'], sources: { US2Y: { used: null, tried: [{ source: '미국 재무부', ok: false, error: 'HTTPSConnectionPool(host=home.treasury.gov): Read timed out. (read timeout=15)' }] } } }),
     rss: async () => feed(2),
     earnings: async () => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: null }),
     sectorStocks: () => ({}),
   });
   const noneRow = colNone.sources.find((x) => x.label === '시장 데이터 · 미2년물금리(%)');
-  check('수집 상태 — 후보 모두 실패 → 「받지 못함」 · 후보마다 이유', noneRow?.ok === false && noneRow.detail === '후보 모두 실패 — FRED 실패(시간 초과) · 미국 재무부 실패(HTTP 503)' && colNone.sources.find((x) => x.label === '시장 데이터')?.ok === true, JSON.stringify(noneRow));
+  check('수집 상태 — 재무부 실패 → 「받지 못함」 · 짧은 한국어 이유', noneRow?.ok === false && noneRow.detail === '받지 못함 — 미국 재무부 실패(시간 초과)' && colNone.sources.find((x) => x.label === '시장 데이터')?.ok === true, JSON.stringify(noneRow));
 
   // 점검 명령(`marketbrief:sources`) — 모든 후보 각 1번 · 표 모양(가짜 응답 · 네트워크 0)
   const opened: string[] = [];
@@ -165,7 +165,6 @@ const db = getDb();
       return { status: 200, text: feed(3) };
     },
     us2y: async () => [
-      { source: 'FRED', status: null, ms: 15000, value: null, error: 'timed out' },
       { source: '미국 재무부', status: 200, ms: 640, value: { current: 4.61, data_date: '2026-10-29' }, error: null },
     ],
     now: () => (t += 250),
@@ -178,12 +177,66 @@ const db = getDb();
     table.startsWith('| 묶음 | 후보 | HTTP | 걸린 시간 | 받은 건수/값 |') &&
       /\| 해외 대체 소스 후보 \| MarketWatch \| 404 \| \d+\.\d초 \| 실패 · HTTP 404 \|/.test(table) &&
       /\| 국내 뉴스 \| 연합뉴스 \| — \| \d+\.\d초 \| 실패 · fetch failed \|/.test(table) &&
-      /\| 해외 대체 소스 후보 \| 미국 연준 보도자료 \| 200 \| \d+\.\d초 \| 3건 \|/.test(table) &&
-      table.includes('| 미2년물 금리 후보 | 미국 재무부 | 200 | 0.6초 | 4.61%(2026-10-29) |') &&
-      table.includes('| 미2년물 금리 후보 | FRED | — | 15.0초 | 실패 · timed out |') &&
-      table.endsWith(`${rows.length}곳 중 ${rows.length - 3}곳 받음 · 3곳 실패`),
+      /\| 해외 대체 소스 후보 \| 미국 연준 보도자료 \| 200 \| \d+\.\d초 \| 3건 · 72시간 안 3건 \|/.test(table) &&
+      table.includes('| 미2년물 금리 | 미국 재무부 | 200 | 0.6초 | 4.61%(2026-10-29) |') &&
+      !/FRED/.test(table) &&
+      table.endsWith(`${rows.length}곳 중 ${rows.length - 2}곳 받음 · 2곳 실패`),
     table,
   );
+}
+
+// A-2b 72시간 넘은 뉴스 거르기(v2.59.7) — 브리핑 만드는 시각 기준
+{
+  const NOW = Date.parse('2026-11-02T07:05:00+09:00'); // 월요일 아침판
+  const ago = (ms: number) => new Date(NOW - ms).toISOString();
+  const H = 3_600_000;
+  const item = (publishedAt: string | null) => ({ title: 't', source: 's', link: '', publishedAt, foreign: false });
+  check('나이 한도 = 72시간', NEWS_MAX_AGE_MS === 72 * H);
+  const f = freshNews([item(ago(72 * H - 60_000)), item(ago(72 * H + 60_000)), item(null), item(ago(H))], NOW);
+  check('71시간 59분 → 남음 · 72시간 1분 → 뺌 · 발행 시각 없음 → 남음(센다)', f.kept.length === 3 && f.stale === 1 && f.noDate === 1 && f.kept[0].publishedAt === ago(72 * H - 60_000), JSON.stringify({ kept: f.kept.length, stale: f.stale, noDate: f.noDate }));
+  check('정확히 72시간 → 남음(넘은 것만 뺀다)', freshNews([item(ago(72 * H))], NOW).kept.length === 1);
+  check('월요일 07:05 아침판 — 금요일 미국 장 뉴스(미국 금 15:00 ET = 한국 토 05:00)는 남음', freshNews([item('2026-10-30T19:00:00.000Z')], NOW).kept.length === 1);
+
+  // 피드 — 발행 시각이 있는 RSS
+  const dated = (dates: string[]) => `<rss><channel>${dates.map((d, i) => `<item><title>글 ${i}</title><pubDate>${new Date(d).toUTCString()}</pubDate></item>`).join('')}</channel></rss>`;
+  const fresh2 = [ago(2 * H), ago(5 * H)];
+  const old3 = ['2026-10-21T09:00:00.000Z', '2026-10-20T09:00:00.000Z', '2026-10-19T09:00:00.000Z'];
+  const asked2: string[] = [];
+  const news1 = await collectNews(
+    true,
+    async (url) => {
+      asked2.push(url);
+      if (url === FOREIGN_RSS[2].url) return dated(old3); // CNBC Finance — 9일 묵음(오라클 실제)
+      if (url === FOREIGN_SLOT_CANDIDATES[0].url) return dated(old3); // MarketWatch 도 묵으면 다음 후보(연준)
+      return dated([...fresh2, old3[0]]);
+    },
+    NOW,
+  );
+  const cnbcF = news1.results.find((r) => r.source === 'CNBC Finance');
+  check('소스가 모두 72시간 넘음 → 실패가 아님(받음 · 0건 · 최신 날짜)', cnbcF?.ok === true && cnbcF.count === 0 && cnbcF.stale === 3 && cnbcF.newest === '2026-10-21T09:00:00.000Z', JSON.stringify(cnbcF));
+  check('남긴 글만 AI 입력으로(국내 4곳 × 2 · 해외 2곳 × 2 + 대체 2)', news1.domestic.length === 8 && news1.foreign.length === 6, `${news1.domestic.length} · ${news1.foreign.length}`);
+  const slot = news1.results.find((r) => r.slot);
+  check('대체 소스 — 첫 후보가 모두 72시간 넘으면 다음 후보', slot?.source === '미국 연준 보도자료' && slot.error === 'MarketWatch(모두 72시간 넘음)', JSON.stringify(slot));
+  check('국내에 72시간 안 글이 있으면 폴백을 부르지 않음', !asked2.includes(DOMESTIC_FALLBACK.url));
+
+  // 폴백 — 국내 4곳이 받았어도 모두 72시간 넘으면(거르기 뒤 0건) 폴백을 부른다
+  const asked3: string[] = [];
+  const news2 = await collectNews(false, async (url) => (asked3.push(url), url === DOMESTIC_FALLBACK.url ? dated(fresh2) : dated(old3)), NOW);
+  check('국내 거르기 뒤 0건 → 폴백(SBS) 부름 · 폴백 글도 거른 뒤', asked3.includes(DOMESTIC_FALLBACK.url) && news2.domestic.length === 2 && news2.results.some((r) => r.fallback && r.ok && r.count === 2));
+
+  // 수집 상태 문구
+  const col2 = await collectAll('morning', NOW, {
+    market: async () => ({ assets: {}, failed: [] }),
+    rss: async (url) => (url === FOREIGN_RSS[2].url ? dated(old3) : url === DOMESTIC_RSS[0].url ? `<rss><channel><item><title>시각 없음</title></item>${dated(fresh2).slice(14, -16)}</channel></rss>` : dated([...fresh2, old3[0]])),
+    earnings: async () => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: null }),
+    sectorStocks: () => ({}),
+  });
+  const row = (label: string) => col2.sources.find((x) => x.label === label);
+  check('수집 상태 — 묵은 소스 「받음 · 0건(모두 72시간 넘음 — 최신 10-21)」', row('해외 뉴스 · CNBC Finance')?.ok === true && row('해외 뉴스 · CNBC Finance')?.detail === '0건(모두 72시간 넘음 — 최신 10-21)', JSON.stringify(row('해외 뉴스 · CNBC Finance')));
+  check('수집 상태 — 일부 뺀 소스 「2건(72시간 넘은 1건 뺌)」', row('국내 뉴스 · 매일경제')?.detail === '2건(72시간 넘은 1건 뺌)', JSON.stringify(row('국내 뉴스 · 매일경제')));
+  const sum = row('뉴스 72시간 거르기');
+  // 국내: 연합 3(시각 없음 1 + 새 글 2) · 나머지 3곳 × 3 / 해외: CNBC 2곳 × 3 + Finance 3 / 대체: MarketWatch 3 → 3+9+6+3+3 = 24 · 뺀 것: 3 + 2 + 3 + 1 = 9
+  check('수집 상태 한 줄 — 「뉴스 N건 중 M건 뺌(72시간 넘음)」 · 시각 모르는 글은 남김', sum?.ok === true && sum.detail === '뉴스 24건 중 9건 뺌(72시간 넘음) · 발행 시각 모르는 1건은 남김', JSON.stringify(sum));
 }
 
 // A-3 실적 — 원본 예시 값으로 sanity · 표기

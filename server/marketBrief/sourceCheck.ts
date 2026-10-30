@@ -1,12 +1,12 @@
 /**
  * 오늘 시황 — 소스 점검(`npm run -s marketbrief:sources`, v2.59.6). 오라클에서 어느 소스 · 후보가 열리는지 본다.
  *
- * - 모든 소스 · 후보(국내 · 해외 뉴스 · 해외 4번째 자리 후보 · 국내 폴백 · 미2년물 후보)를 **각 1번** 연다 — 후보가 성공해도 다음 후보까지.
+ * - 모든 소스 · 후보(국내 · 해외 뉴스 · 해외 대체 소스 후보 · 국내 폴백 · 미2년물 출처)를 **각 1번** 연다 — 후보가 성공해도 다음 후보까지.
  * - 앱 DB 를 열지 않는다 · Gemini 0 · 토스 0. 미2년물은 지표 엔진 파이썬(`market_brief.py --check-us2y`)이 같은 받기 함수로 연다.
  * - 열기는 바꿔 끼울 수 있다(시험은 네트워크 0).
  */
 
-import { DOMESTIC_FALLBACK, DOMESTIC_RSS, FOREIGN_RSS, FOREIGN_SLOT_CANDIDATES, fetchRssRaw, parseFeed, type RssSource } from './news';
+import { DOMESTIC_FALLBACK, DOMESTIC_RSS, FOREIGN_RSS, FOREIGN_SLOT_CANDIDATES, fetchRssRaw, freshNews, NEWS_MAX_AGE_MS, parseFeed, type RssSource } from './news';
 
 export interface SourceRow {
   group: string;
@@ -53,8 +53,10 @@ async function rssRow(group: string, src: RssSource, deps: SourceCheckDeps): Pro
     const ms = deps.now() - started;
     if (status < 200 || status >= 300) return { group, source: src.source, status, ms, got: `HTTP ${status}`, ok: false };
     const items = parseFeed(text, src.source, false);
-    const newest = items.map((i) => i.publishedAt).filter(Boolean).sort().at(-1);
-    return { group, source: src.source, status, ms, got: items.length ? `${items.length}건${newest ? ` · 최신 ${newest.slice(0, 10)}` : ''}` : '글 0개', ok: items.length > 0 };
+    // 오늘 시황과 같은 거르기 — 「72시간 안 N건」(발행 시각을 못 읽은 글도 센다)
+    const f = freshNews(items, deps.now());
+    const fresh = `${NEWS_MAX_AGE_MS / 3_600_000}시간 안 ${f.kept.length}건`;
+    return { group, source: src.source, status, ms, got: items.length ? `${items.length}건 · ${fresh}${f.newest ? ` · 최신 ${f.newest.slice(0, 10)}` : ''}` : '글 0개', ok: items.length > 0 };
   } catch (e) {
     return { group, source: src.source, status: null, ms: deps.now() - started, got: (e as Error).message || '받기 실패', ok: false };
   }
@@ -73,7 +75,7 @@ export async function checkSources(deps: SourceCheckDeps = defaultSourceCheckDep
     deps.us2y().catch((e: Error): Us2yCheck[] => [{ source: '지표 엔진 파이썬', status: null, ms: 0, value: null, error: e.message }]),
   ]);
   const rateRows: SourceRow[] = rates.map((r) => ({
-    group: '미2년물 금리 후보',
+    group: '미2년물 금리',
     source: r.source,
     status: r.status,
     ms: r.ms,

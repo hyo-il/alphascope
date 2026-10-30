@@ -1,7 +1,8 @@
 /**
  * 오늘 시황 — 경제 뉴스 RSS (Stockproject `news_collector.py` 의 주소 · 개수 · 거르기 그대로).
  *
- * - 국내 4 + 해외 4. **국내가 한 건도 없을 때만** 국내 폴백 1(SBS 경제)을 부른다.
+ * - 국내 4 + 해외 4. **(72시간 거르기 뒤) 국내가 한 건도 없을 때만** 국내 폴백 1(SBS 경제)을 부른다.
+ * - 브리핑 만드는 시각 기준 72시간보다 오래된 글은 뺀다(`NEWS_MAX_AGE_MS` · 발행 시각을 못 읽은 글은 남긴다).
  * - 해외 4번째 자리는 후보를 차례로(`FOREIGN_SLOT_CANDIDATES` — 첫 성공을 쓴다). 원본의 Yahoo Finance(`/news/rssindex`)는 HTTP 404 라
  *   후보에서 뺐다(v2.59.6 — 죽은 소스를 매번 부르지 않는다). 오라클에서 열리는지는 `npm run -s marketbrief:sources` 로 본다.
  * - 소스마다 최대 20건 · 제목 · 출처 · 링크 · 시각만(본문을 긁지 않는다 — `server/news.ts` 와 같은 원칙).
@@ -29,9 +30,45 @@ export interface BriefNewsItem {
 export interface RssResult {
   source: string;
   ok: boolean;
+  /** 남긴 글 수(72시간 거르기 뒤) */
   count: number;
   error: string | null;
+  /** 받은 글 수(거르기 전) · 72시간 넘어 뺀 수 · 발행 시각을 못 읽어 남긴 수 · 가장 최근 발행 시각(ISO) */
+  total?: number;
+  stale?: number;
+  noDate?: number;
+  newest?: string | null;
 }
+
+/**
+ * 뉴스 나이 한도 — 브리핑 만드는 시각 기준 72시간보다 오래된 글은 AI 입력에서 뺀다(v2.59.7 · 사용자 결정).
+ * 72시간 = 월요일 아침판에도 금요일 미국 뉴스(미국 금요일 장 = 한국 토요일 새벽)는 남는 길이. 묵은 피드(CNBC Finance 최신 9일 전)가
+ * 「오늘 뉴스」 로 들어가지 않게 한다. 발행 시각을 못 읽은 글은 빼지 않는다(나이를 모른다 — 수를 센다).
+ */
+export const NEWS_MAX_AGE_MS = 72 * 3_600_000;
+
+/** 거르기 — 남길 글 · 뺀 수 · 시각 없는 수 · 가장 최근 발행 시각 */
+export function freshNews(items: BriefNewsItem[], now: number): { kept: BriefNewsItem[]; stale: number; noDate: number; newest: string | null } {
+  const kept: BriefNewsItem[] = [];
+  let stale = 0;
+  let noDate = 0;
+  let newest: string | null = null;
+  for (const it of items) {
+    const ms = it.publishedAt ? Date.parse(it.publishedAt) : NaN;
+    if (!Number.isFinite(ms)) {
+      noDate++;
+      kept.push(it);
+      continue;
+    }
+    if (!newest || it.publishedAt! > newest) newest = it.publishedAt;
+    if (now - ms > NEWS_MAX_AGE_MS) stale++;
+    else kept.push(it);
+  }
+  return { kept, stale, noDate, newest };
+}
+
+/** 「MM-DD」(한국 날짜) — 수집 상태 · 점검 표의 「최신」 */
+export const kstMonthDay = (iso: string) => new Date(Date.parse(iso) + 9 * 3_600_000).toISOString().slice(5, 10);
 
 export const DOMESTIC_RSS: RssSource[] = [
   { url: 'https://www.yonhapnewstv.co.kr/category/news/economy/feed/', source: '연합뉴스' },
@@ -126,11 +163,15 @@ export function parseFeed(xml: string, source: string, foreign: boolean, limit =
   return items;
 }
 
-async function fromSource(src: RssSource, foreign: boolean, fetcher: RssFetcher): Promise<{ items: BriefNewsItem[]; result: RssResult }> {
+async function fromSource(src: RssSource, foreign: boolean, fetcher: RssFetcher, now: number): Promise<{ items: BriefNewsItem[]; result: RssResult }> {
   try {
     const items = parseFeed(await fetcher(src.url), src.source, foreign);
-    // 원본: 글이 0개인 피드는 죽은 것으로 본다(빈 응답으로 조용히 죽은 이력)
-    return { items, result: { source: src.source, ok: items.length > 0, count: items.length, error: items.length ? null : '글 0개' } };
+    // 원본: 글이 0개인 피드는 죽은 것으로 본다(빈 응답으로 조용히 죽은 이력). 글은 있는데 모두 72시간 넘은 것은 실패가 아니다(소스가 묵었다는 신호)
+    const f = freshNews(items, now);
+    return {
+      items: f.kept,
+      result: { source: src.source, ok: items.length > 0, count: f.kept.length, error: items.length ? null : '글 0개', total: items.length, stale: f.stale, noDate: f.noDate, newest: f.newest },
+    };
   } catch (error) {
     return { items: [], result: { source: src.source, ok: false, count: 0, error: (error as Error).message || '받기 실패' } };
   }
@@ -147,20 +188,23 @@ export function shortReason(raw: string | null | undefined): string {
   return e ? '받기 실패' : '이유 모름';
 }
 
-/** 후보를 차례로 — 첫 성공의 글 · 결과(이름 = 쓴 후보). 모두 실패면 이름 「대체 소스」 · 후보마다 짧은 이유를 모아 한 줄 */
-async function fromCandidates(candidates: RssSource[], foreign: boolean, fetcher: RssFetcher): Promise<{ items: BriefNewsItem[]; result: RssResult & { slot: true } }> {
+/**
+ * 후보를 차례로 — 첫 성공의 글 · 결과(이름 = 쓴 후보). 모두 실패면 이름 「대체 소스」 · 후보마다 짧은 이유를 모아 한 줄.
+ * 받았어도 72시간 안 글이 0건이면 다음 후보로 간다(대체 자리는 오늘 글을 채우려고 있다).
+ */
+async function fromCandidates(candidates: RssSource[], foreign: boolean, fetcher: RssFetcher, now: number): Promise<{ items: BriefNewsItem[]; result: RssResult & { slot: true } }> {
   const errors: string[] = [];
   for (const c of candidates) {
-    const got = await fromSource(c, foreign, fetcher);
-    if (got.result.ok) return { items: got.items, result: { ...got.result, slot: true, error: errors.length ? errors.join(' · ') : null } };
-    errors.push(`${c.source}(${shortReason(got.result.error)})`);
+    const got = await fromSource(c, foreign, fetcher, now);
+    if (got.result.ok && got.result.count > 0) return { items: got.items, result: { ...got.result, slot: true, error: errors.length ? errors.join(' · ') : null } };
+    errors.push(`${c.source}(${got.result.ok ? '모두 72시간 넘음' : shortReason(got.result.error)})`);
   }
   return { items: [], result: { source: '대체 소스', ok: false, count: 0, error: `후보 모두 실패 — ${errors.join(' · ')}`, slot: true } };
 }
 
 /** 소스들을 나란히 받는다 — 결과 순서는 소스 순서 그대로 */
-async function collect(sources: RssSource[], foreign: boolean, fetcher: RssFetcher) {
-  const all = await Promise.all(sources.map((s) => fromSource(s, foreign, fetcher)));
+async function collect(sources: RssSource[], foreign: boolean, fetcher: RssFetcher, now: number) {
+  const all = await Promise.all(sources.map((s) => fromSource(s, foreign, fetcher, now)));
   return { items: all.flatMap((a) => a.items), results: all.map((a) => a.result) };
 }
 
@@ -171,12 +215,15 @@ export interface NewsCollection {
   results: (RssResult & { foreign: boolean; fallback: boolean; slot?: boolean })[];
 }
 
-/** 오전판 = 국내 + 해외 · 오후판 = 국내만(원본 오후 프롬프트는 국내 뉴스만 쓴다 — 쓰지 않는 해외는 받지 않는다) */
-export async function collectNews(withForeign: boolean, fetcher: RssFetcher = fetchRss): Promise<NewsCollection> {
+/**
+ * 오전판 = 국내 + 해외 · 오후판 = 국내만(원본 오후 프롬프트는 국내 뉴스만 쓴다 — 쓰지 않는 해외는 받지 않는다).
+ * now = 브리핑 만드는 시각(72시간 거르기 기준).
+ */
+export async function collectNews(withForeign: boolean, fetcher: RssFetcher = fetchRss, now = Date.now()): Promise<NewsCollection> {
   const [dom, fgn, slot] = await Promise.all([
-    collect(DOMESTIC_RSS, false, fetcher),
-    withForeign ? collect(FOREIGN_RSS, true, fetcher) : Promise.resolve({ items: [], results: [] as RssResult[] }),
-    withForeign ? fromCandidates(FOREIGN_SLOT_CANDIDATES, true, fetcher) : Promise.resolve(null),
+    collect(DOMESTIC_RSS, false, fetcher, now),
+    withForeign ? collect(FOREIGN_RSS, true, fetcher, now) : Promise.resolve({ items: [], results: [] as RssResult[] }),
+    withForeign ? fromCandidates(FOREIGN_SLOT_CANDIDATES, true, fetcher, now) : Promise.resolve(null),
   ]);
   const results: NewsCollection['results'] = [
     ...dom.results.map((r) => ({ ...r, foreign: false, fallback: false })),
@@ -184,8 +231,9 @@ export async function collectNews(withForeign: boolean, fetcher: RssFetcher = fe
     ...(slot ? [{ ...slot.result, foreign: true, fallback: false }] : []),
   ];
   let domestic = dom.items;
+  // 폴백은 거르기 뒤 국내 글이 0건일 때 — 4곳이 모두 실패했거나, 받았어도 모두 72시간 넘었을 때(AI 에게 줄 국내 뉴스가 없다는 같은 뜻)
   if (!domestic.length) {
-    const fb = await fromSource(DOMESTIC_FALLBACK, false, fetcher);
+    const fb = await fromSource(DOMESTIC_FALLBACK, false, fetcher, now);
     domestic = fb.items;
     results.push({ ...fb.result, foreign: false, fallback: true });
   }

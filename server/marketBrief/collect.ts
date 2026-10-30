@@ -9,17 +9,17 @@
  */
 
 import { BRIEF_SECTORS, collectEarnings, type EarningsCollection } from './earnings';
-import { collectNews, fetchRss, shortReason, type BriefNewsItem, type RssFetcher } from './news';
+import { collectNews, fetchRss, kstMonthDay, NEWS_MAX_AGE_MS, shortReason, type BriefNewsItem, type RssFetcher, type RssResult } from './news';
 import { sectorStockPool, type SectorStockPool } from './sectorStocks';
 import { ASSET_LABEL } from '../../src/utils/marketBrief';
 import type { BriefAsset, BriefAssetKey, BriefEdition, BriefSourceStatus } from '../../src/types/marketBrief';
 
 const ENGINE_URL = process.env.INDICATORS_URL ?? `http://127.0.0.1:${process.env.INDICATORS_PORT ?? 5001}`;
 /**
- * 지표 엔진 시장 데이터 전체 제한 — 오전판 12항목(각 10초) + 미2년물 후보(FRED 15초 + 재무부 최대 30초)가 모두 늦어도 들어오게(v2.59.6 — 120초에서 늘림).
- * 넘기면 시장 데이터가 통째로 실패해 AI 도 부르지 않는다.
+ * 지표 엔진 시장 데이터 전체 제한 — 오전판 yfinance 12항목(차례로 · 각 10초 = 120초) + 미2년물 재무부(이번 달 + 지난달 · 각 15초 = 30초) = 150초가
+ * 모두 늦어도 들어오게 15초를 더한 값. 넘기면 시장 데이터가 통째로 실패해 AI 도 부르지 않는다.
  */
-const MARKET_DATA_TIMEOUT_MS = 180_000;
+const MARKET_DATA_TIMEOUT_MS = 165_000;
 
 
 export interface MarketData {
@@ -39,6 +39,13 @@ export const fetchMarketData: MarketDataFetcher = async (edition) => {
   if (!response.ok || !payload.assets) throw new Error(payload.error ?? `지표 엔진 응답 ${response.status}`);
   return { assets: payload.assets, failed: payload.failed ?? [], fetchedAt: payload.fetchedAt, sources: payload.sources };
 };
+
+/** 받은 소스 한 줄의 건수 — 「12건」 · 「8건(72시간 넘은 4건 뺌)」 · 「0건(모두 72시간 넘음 — 최신 10-21)」 */
+function newsCount(r: RssResult): string {
+  const hours = NEWS_MAX_AGE_MS / 3_600_000;
+  if (r.count === 0 && (r.stale ?? 0) > 0) return `0건(모두 ${hours}시간 넘음${r.newest ? ` — 최신 ${kstMonthDay(r.newest)}` : ''})`;
+  return `${r.count}건${r.stale ? `(${hours}시간 넘은 ${r.stale}건 뺌)` : ''}`;
+}
 
 export interface CollectDeps {
   market: MarketDataFetcher;
@@ -68,7 +75,7 @@ export interface Collected {
 export async function collectAll(edition: BriefEdition, now: number, deps: CollectDeps = defaultCollectDeps): Promise<Collected> {
   const [market, news, earnings] = await Promise.all([
     deps.market(edition).catch((e: Error): MarketData & { error: string } => ({ assets: {}, failed: [], error: e.message })),
-    collectNews(edition === 'morning', deps.rss),
+    collectNews(edition === 'morning', deps.rss, now),
     deps.earnings(now).catch((e: Error): EarningsCollection => ({ earnings: [], estimatesOk: 0, estimatesTried: 0, error: e.message })),
   ]);
 
@@ -94,16 +101,29 @@ export async function collectAll(edition: BriefEdition, now: number, deps: Colle
       group: 'market',
       label: `시장 데이터 · ${ASSET_LABEL[key] ?? key}`,
       ok: Boolean(info.used),
-      detail: info.used ? `${info.used} 값${misses.length ? ` · ${misses.join(' · ')}` : ''}` : `후보 모두 실패 — ${misses.join(' · ') || '시도 없음'}`,
+      detail: info.used ? `${info.used}${misses.length ? ` · ${misses.join(' · ')}` : ''}` : `받지 못함 — ${misses.join(' · ') || '시도 없음'}`,
     });
   }
   for (const r of news.results) {
     sources.push({
       group: 'news',
-      label: `${r.foreign ? '해외' : '국내'} 뉴스 · ${r.source}${r.fallback ? '(국내 전부 실패 → 대신)' : ''}${r.slot && r.ok ? '(대체 소스)' : ''}`,
+      label: `${r.foreign ? '해외' : '국내'} 뉴스 · ${r.source}${r.fallback ? '(국내 0건 → 대신)' : ''}${r.slot && r.ok ? '(대체 소스)' : ''}`,
       ok: r.ok,
       // 대체 소스 줄의 error = 앞 후보(성공 때) · 모든 후보(실패 때)의 이유 — news.ts 가 이미 짧은 한국어로 만든다
-      detail: r.ok ? `${r.count}건${r.slot && r.error ? ` · 앞 후보 실패: ${r.error}` : ''}` : r.slot ? (r.error ?? '받기 실패') : shortReason(r.error),
+      detail: r.ok ? `${newsCount(r)}${r.slot && r.error ? ` · 앞 후보 실패: ${r.error}` : ''}` : r.slot ? (r.error ?? '받기 실패') : shortReason(r.error),
+    });
+  }
+  // 72시간 거르기 한 줄 — 받은 글 전부(거르기 전) 중 뺀 수 · 발행 시각을 못 읽어 남긴 수
+  const received = news.results.filter((r) => r.ok);
+  const total = received.reduce((n, r) => n + (r.total ?? r.count), 0);
+  if (total) {
+    const stale = received.reduce((n, r) => n + (r.stale ?? 0), 0);
+    const noDate = received.reduce((n, r) => n + (r.noDate ?? 0), 0);
+    sources.push({
+      group: 'news',
+      label: `뉴스 ${NEWS_MAX_AGE_MS / 3_600_000}시간 거르기`,
+      ok: true,
+      detail: `뉴스 ${total}건 중 ${stale}건 뺌(${NEWS_MAX_AGE_MS / 3_600_000}시간 넘음)${noDate ? ` · 발행 시각 모르는 ${noDate}건은 남김` : ''}`,
     });
   }
   const unknownSector = earnings.earnings.filter((e) => !BRIEF_SECTORS.includes(e.sector)).length;
