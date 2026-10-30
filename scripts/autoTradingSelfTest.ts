@@ -17,7 +17,7 @@ import { aiCheckCallsForTest, kstDate, setAiCheckForTest } from '../server/aiChe
 import { countCallsOn, findCheck, insertCheck } from '../server/aiCheck/store';
 import { checkReturns } from '../server/aiCheck/history';
 import { copyAccount } from '../server/autoTrading/copy';
-import { judgeOnClose } from '../server/rules/judge';
+import { JUDGE_CANDLE_LIMIT, judgeOnClose } from '../server/rules/judge';
 import { GeminiError } from '../server/gemini/client';
 import { fetchQuotes } from '../server/quoteService';
 import { runExitChecks, runSignalChecks, setJudgeForTest, tryBuy } from '../server/autoTrading/engine';
@@ -163,7 +163,18 @@ async function main(): Promise<void> {
 
     // ── 1-2. 손절 뒤 다시 매수 대기 (엔진에 lastStopDate 가 넘어가는지) ──
     console.log('\n1-2) 손절 뒤 다시 매수 대기 (5거래일)');
-    const waitRun = await runSignalChecks(base, defaultRuleBody(), { now: OPEN_US, force: true });
+    // 판단 시각(OPEN_US)에 맞춘 고정 일봉(평일 300개 · 마지막 = 10-14, 아직 안 끝남 → 10-13 마감 기준)을 넘긴다 — 캐시에는 실제 오늘까지
+    // 봉이 있어, 그대로 두면 판단이 오늘 봉 기준이 되어 손절일(OPEN_US)에서 5거래일이 지난 뒤로는 늘 실패한다(시험이 실제 날짜에 기댐).
+    // 판단 함수(judgeOnClose) · 엔진에 lastStopDate 가 넘어가는 경로는 그대로다
+    const fixedBars: Candle[] = [];
+    for (let t = Date.parse('2026-10-14T04:00:00Z'); fixedBars.length < JUDGE_CANDLE_LIMIT; t -= 86_400_000) {
+      const wd = new Date(t).getUTCDay();
+      if (wd === 0 || wd === 6) continue;
+      const c = 200 + 0.1 * (JUDGE_CANDLE_LIMIT - fixedBars.length);
+      fixedBars.unshift({ timestamp: t, open: c, high: c + 1, low: c - 1, close: c, volume: 1_000_000 });
+    }
+    setJudgeForTest((symbol, rule, state, now, _candles, refs) => judgeOnClose(symbol, rule, state, now, fixedBars, refs));
+    const waitRun = await runSignalChecks(base, defaultRuleBody(), { now: OPEN_US, force: true }).finally(() => setJudgeForTest(null));
     const waitNote = waitRun.notes.find((n) => n.symbol === SYMBOL);
     check('손절 당일 판단은 reentry_wait', waitNote?.code === 'reentry_wait', waitNote ? `${waitNote.code} · ${waitNote.reason}` : waitRun.errors.join(' / '));
 

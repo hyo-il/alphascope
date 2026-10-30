@@ -45,8 +45,9 @@ const saved = { symbols: store.getSymbols(), ruleRaw: db.prepare(`SELECT value F
 const FAKE = 'ZZJUDGE';
 const cleanupRows = () => db.prepare(`DELETE FROM buy_judgments WHERE symbol IN (?, ?, ?, ?, ?)`).run(FAKE, 'AAPL', 'NVDA', 'MSFT', '005930');
 cleanupRows();
-const addedHoliday = !db.prepare(`SELECT 1 FROM market_holidays WHERE market = 'KR' AND date = '2026-10-09'`).get();
-if (addedHoliday) db.prepare(`INSERT INTO market_holidays (market, date) VALUES ('KR', '2026-10-09')`).run();
+// 시험이 쓰는 국내 휴장일(10-05 개천절 대체 · 10-09 한글날)은 시험이 넣는다 — 사본 DB 에 토스 달력이 받아져 있는지(서버 기동 2분 뒤 · 토스 연결)에 기대지 않는다
+const addedHolidays = ['2026-10-05', '2026-10-09'].filter((d) => !db.prepare(`SELECT 1 FROM market_holidays WHERE market = 'KR' AND date = ?`).get(d));
+for (const d of addedHolidays) db.prepare(`INSERT INTO market_holidays (market, date) VALUES ('KR', ?)`).run(d);
 let tempAccount: number | null = null;
 let tempRule: number | null = null;
 
@@ -332,7 +333,7 @@ try {
       check('⑩ 미국 — 그 금요일 17:00 ET 에 금요일 봉 없음 → 미룸', (await kindOf(US, at(US, '2026-11-27', 17))) === 'unconfirmed:2026-11-27');
       // 국내 — 2026-10-05(월, 개천절 대체) · 10-09(금, 한글날) 휴장
       seed(KR, '2026-10-02');
-      check('⑩ 국내 — 주말 + 대체 휴일(월) 다음 날 화 10:00 KST · 직전 거래일 = 금 → 정상', (await kindOf(KR, at(KR, '2026-10-06', 10))) === 'ok');
+      check('⑩ 국내 — 주말 + 대체 휴일(월) 다음 날 화 10:00 KST · 직전 거래일 = 금 → 정상', (await kindOf(KR, at(KR, '2026-10-06', 10))) === 'ok', await kindOf(KR, at(KR, '2026-10-06', 10)));
       seed(KR, '2026-10-07');
       check('⑩ 국내 — 마지막 봉이 수요일, 월 10:00 KST(목이 직전 거래일 — 금은 한글날) → 미룸', (await kindOf(KR, at(KR, '2026-10-12', 10))) === 'unconfirmed:2026-10-08');
       check('⑩ 국내 — 목 19:00 KST(NXT 중)에는 직전 거래일 = 수 → 정상', (await kindOf(KR, at(KR, '2026-10-08', 19))) === 'ok');
@@ -444,7 +445,7 @@ try {
   else db.prepare(`DELETE FROM app_settings WHERE key = 'buyJudge.ruleId'`).run();
   db.prepare(`DELETE FROM app_settings WHERE key = 'buyJudge.lastRecorded'`).run();
   for (const [m, d] of Object.entries(saved.recorded)) store.setLastRecorded(m as 'US' | 'KR', d!);
-  if (addedHoliday) db.prepare(`DELETE FROM market_holidays WHERE market = 'KR' AND date = '2026-10-09'`).run();
+  for (const d of addedHolidays) db.prepare(`DELETE FROM market_holidays WHERE market = 'KR' AND date = ?`).run(d);
 }
 
 // ── v2.59.2 날짜는 그 종목 · 그 일정의 시장 날짜로 ─────────────────────────────
