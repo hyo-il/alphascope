@@ -17,7 +17,7 @@ import { marketDate } from '../../src/utils/marketDate';
 import { daysBetween } from './earnings';
 import type { BriefAsset, BriefAssetKey, BriefEarning, BriefEdition } from '../../src/types/marketBrief';
 
-export const MARKET_BRIEF_PROMPT_VERSION = 'brief-v1';
+export const MARKET_BRIEF_PROMPT_VERSION = 'brief-v2'; // v2: 날짜 · D+N 을 각 시장 현지 날짜로(v2.59.3)
 
 export const SYSTEM = '당신은 10년 이상 경력의 한국 주식 시장 전문 애널리스트입니다.';
 
@@ -249,6 +249,8 @@ const COMMON_RULES = `- leading_sectors: 2~3개. 다음 두 기준 중 하나라
   ★ 위 명칭에 해당하지 않는 새 섹터를 선정할 경우, upcoming_schedule 의 해당 섹터 항목이 사후 처리로 모두 제거됨.
 - upcoming_schedule: 향후 60일 주요 일정을 다음 3개 슬롯으로 분류.
   ★ 날짜와 D+N 은 각 종목 시장의 현지 날짜 기준(미국 종목 = 미국 동부, 국내 종목 = 한국). FOMC 등 미국 일정도 미국 날짜.
+  ★ 한국 아침(미국은 전날 저녁)에는 미국 D+0 일정(실적 · FOMC)이 이미 발표됐을 수 있다 — 「앞둔 일정」 이 아니라 「발표 결과 확인」 관점으로 쓸 것.
+  ★ 국내 경제 일정(금통위 · 한국 지표 등)의 날짜는 한국 날짜.
   ★ 각 실적 항목 옆에 표시된 [D+N] 값을 그대로 사용해 슬롯 배치:
     · this_week: **D+0 ~ D+7** (오늘~7일 후), importance=3
     · this_month: **D+8 ~ D+30** (8~30일 후), importance=2
@@ -313,7 +315,7 @@ export function buildPrompt(input: PromptInput): string {
 }
 
 function morningPrompt({ today, assets, earnings, domestic, foreign, at = Date.now() }: PromptInput): string {
-  return `오늘 날짜는 ${todayText(today)}입니다.
+  return `오늘 날짜는 ${todayText(today)}입니다(한국). 미국 동부 날짜는 ${todayText(marketDate(at, 'SPY'))}입니다.
 
 ${SYSTEM}
 아래 시장 데이터와 뉴스를 종합하여 오전 투자 브리핑을 작성하세요.
@@ -365,7 +367,7 @@ function afternoonPrompt({ today, assets, earnings, domestic, at = Date.now() }:
   // 국내 휴장일 · 데이터가 늦은 날 — 마지막 봉이 오늘이 아니면 오늘 일처럼 쓰지 않게
   const krDate = assets.KOSPI?.data_date;
   const krStale = krDate && krDate !== today ? `\n  ※ 오늘은 장이 열리지 않았거나 오늘 값이 아직 없습니다 — 위 값은 마지막 거래일 ${dateLabel(krDate)} 값입니다.` : '';
-  return `오늘 날짜는 ${todayText(today)}입니다.
+  return `오늘 날짜는 ${todayText(today)}입니다(한국). 미국 동부 날짜는 ${todayText(marketDate(at, 'SPY'))}입니다.
 
 ${SYSTEM}
 오늘 국내 장 마감 데이터와 뉴스를 분석하여 오후 투자 브리핑을 작성하세요.

@@ -26,14 +26,14 @@ import {
   type EarningBase,
   type RawEstimate,
 } from '../server/marketBrief/earnings';
-import { buildPrompt, SCHEMA, REQUIRED_KEYS } from '../server/marketBrief/prompt';
+import { buildPrompt, SCHEMA, REQUIRED_KEYS, MARKET_BRIEF_PROMPT_VERSION } from '../server/marketBrief/prompt';
 import { BRIEF_SECTORS } from '../server/marketBrief/earnings';
 import { capAndSortBySectorPriority, daysUntilLabel, filterByLeadingSectors, normalizeBrief, postprocess, reassignSlotsByDays } from '../server/marketBrief/postprocess';
 import { countBriefs, getBrief, insertBrief, listBriefDays, listBriefsOf, purgeOldBriefs } from '../server/marketBrief/store';
 import { autoDue, BriefLimitError, briefStatus, marketBriefTick, resetBriefStateForTest, resetPurgeForTest, startButtonRun, type BriefDeps } from '../server/marketBrief/service';
 import { geminiUsageToday } from '../server/gemini/usage';
 import { GeminiError, type GeminiCallOptions } from '../server/gemini/client';
-import { editionAt, isIntradayBar } from '../src/utils/marketBrief';
+import { editionAt, isIntradayBar, scheduleItemMarket } from '../src/utils/marketBrief';
 import fs from 'node:fs';
 import type { BriefAi, BriefEarning, BriefScheduleItem } from '../src/types/marketBrief';
 
@@ -210,7 +210,7 @@ const news = (n: number, foreign: boolean) => Array.from({ length: n }, (_, i) =
 {
   const earnings = [earningOf('INTC', '인텔', '기술', 5, true), earningOf('005930', '삼성전자', '기술', 12)];
   const morning = buildPrompt({ edition: 'morning', today: '2026-10-29', assets, earnings, domestic: news(50, false), foreign: news(60, true), at: kst('2026-10-29', '07:05') });
-  check('오전판 — 날짜 · 지수 줄(원본 형식)', morning.startsWith('오늘 날짜는 2026년 10월 29일입니다.') && morning.includes('  S&P500: 6,031.8000 (+0.53%) [10/28(수) 종가]') && morning.includes('  나스닥: 20,100.1200 (-0.25%)'));
+  check('오전판 — 날짜 · 지수 줄(원본 형식)', morning.startsWith('오늘 날짜는 2026년 10월 29일입니다(한국). 미국 동부 날짜는 2026년 10월 28일입니다.') && morning.includes('  S&P500: 6,031.8000 (+0.53%) [10/28(수) 종가]') && morning.includes('  나스닥: 20,100.1200 (-0.25%)'));
   check('오전판 — 실적 [D+N] · ⚠️ · 국내 종목 포함', morning.includes('[D+5] [기술] 인텔(INTC)') && morning.includes('예상 EPS $1.00 ⚠️') && morning.includes('삼성전자(005930)'));
   check('오전판 — 국내 30 · 해외 40 건까지', (morning.match(/\[국내\] /g) ?? []).length === 30 && (morning.match(/\[해외\] /g) ?? []).length === 40);
   check('오전판 — 섹터 목록 = 종목 지도 한국어 섹터', BRIEF_SECTORS.every((s2) => morning.includes(`"${s2}"`)) && morning.includes('"기술"'));
@@ -332,6 +332,12 @@ const news = (n: number, foreign: boolean) => Array.from({ length: n }, (_, i) =
   const fomcPrompt = buildPrompt({ edition: 'morning', today: '2026-10-29', assets: {}, earnings: [], domestic: [], foreign: [], at: Date.parse('2026-10-29T06:00:00+09:00') });
   check('프롬프트 — FOMC 는 미국 날짜(한국 10-29 06:00 = 미국 10-28 → 10-28 회의 D+0)', /- 10\/28\(수\) \[D\+0\] FOMC/.test(fomcPrompt));
   check('프롬프트 — 「각 종목 시장의 현지 날짜 기준」 한 줄', fomcPrompt.includes('날짜와 D+N 은 각 종목 시장의 현지 날짜 기준'));
+  check('프롬프트 — 아침판 미국 D+0 은 「발표 결과 확인」 관점 · 국내 경제 일정은 한국 날짜 · 버전 brief-v2', fomcPrompt.includes('이미 발표됐을 수 있다') && fomcPrompt.includes('국내 경제 일정') && MARKET_BRIEF_PROMPT_VERSION === 'brief-v2');
+  check('일정 시장 판정 — 종목 · .KS · 종목 없는 국내 단서 · 그 밖 미국', scheduleItemMarket({ ticker: 'AAPL' }) === 'US' && scheduleItemMarket({ ticker: '000660.KS' }) === 'KR' && scheduleItemMarket({ ticker: '', event: '한국 10월 수출입' }) === 'KR' && scheduleItemMarket({ ticker: '', event: '금통위 기준금리 결정' }) === 'KR' && scheduleItemMarket({ ticker: '', event: 'FOMC 금리 결정' }) === 'US' && scheduleItemMarket({ ticker: '', event: '미국 CPI' }) === 'US');
+  const krEv = reassignSlotsByDays(normalizeBrief(rb({ this_month: [it('11/06(금)', '한국 10월 수출입'), it('11/06(금)', '미국 고용지표')] })), AM);
+  check('슬롯 — 종목 없는 국내 일정은 한국 날짜(11-06 = D+7 이번 주) · 미국 지표는 미국 날짜(D+8 이번 달)', nm(krEv.upcoming_schedule.this_week) === '한국 10월 수출입' && nm(krEv.upcoming_schedule.this_month) === '미국 고용지표', JSON.stringify(krEv.upcoming_schedule));
+  const capAm = capAndSortBySectorPriority(normalizeBrief(rb({ this_week: [it('11/02(월)', 'kr-11-02', '005930'), it('10/30(금)', 'us-10-30', 'AAPL')] })), AM);
+  check('정렬 — 아침 시각에 두 시장 섞여도 날수 순(미국 10-30 = D+1 · 국내 11-02 = D+3)', nm(capAm.upcoming_schedule.this_week) === 'us-10-30,kr-11-02');
 }
 
 // B-2~4 만들기 · 저장 · 자동 · 버튼 — 가짜 수집 · 가짜 Gemini

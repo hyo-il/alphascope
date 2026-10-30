@@ -7,10 +7,12 @@ import { US_DATE_LABEL, US_DATE_TIP } from '../../utils/marketDate';
  * 날짜 계산 · 「지남」 은 미국 동부 날짜 그대로이고, 이 표시가 한국 달력과 하루 차이 나는 까닭을 툴팁으로 알린다(마우스 · 키보드 포커스).
  * 국내 일정에는 붙이지 않는다. 글자 · 툴팁 문구는 `utils/marketDate` 의 상수 하나(서버 문장도 같은 글자).
  */
-export default function UsDateTag({ className = '' }: { className?: string }) {
+export default function UsDateTag({ className = '', inline = false }: { className?: string; inline?: boolean }) {
+  // inline = 문장 안(매수 판단 경고 · 순위 미리보기 실적 줄) — 문장의 글자 크기 · 색 · 굵기를 그대로 물려받고 점선 밑줄만(문장이 끊겨 보이지 않게)
+  const look = inline ? '' : 'text-caption font-normal text-text-muted';
   return (
-    <span className={`inline-flex shrink-0 whitespace-nowrap text-caption font-normal text-text-muted ${className}`} data-us-date>
-      <InfoTip label={US_DATE_TIP} trigger={US_DATE_LABEL}>
+    <span className={`inline-flex shrink-0 whitespace-nowrap ${look} ${className}`} data-us-date>
+      <InfoTip label={US_DATE_LABEL} trigger={US_DATE_LABEL}>
         {US_DATE_TIP}
       </InfoTip>
     </span>
@@ -24,7 +26,7 @@ export function withUsDateTag(text: string): ReactNode {
   return parts.map((part, i) => (
     <Fragment key={i}>
       {part}
-      {i < parts.length - 1 && <UsDateTag />}
+      {i < parts.length - 1 && <UsDateTag inline />}
     </Fragment>
   ));
 }

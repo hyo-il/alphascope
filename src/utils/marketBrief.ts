@@ -2,6 +2,7 @@
  * 오늘 시황 — 서버와 화면이 같이 쓰는 작은 규칙(판 경계 · 한국 날짜 · 자산 이름). 서버도 컴파일한다(DOM 금지).
  */
 import { marketDate, marketMinutes } from './marketDate';
+import { isKrSymbol } from './market';
 import { BRIEF_AFTERNOON_HOUR, type BriefAssetKey, type BriefEdition } from '../types/marketBrief';
 
 /** 한국 날짜 YYYY-MM-DD */
@@ -61,4 +62,14 @@ export function isIntradayBar(key: BriefAssetKey, dataDate: string | null, atMs:
   if (marketDate(atMs, s.ref) !== dataDate) return false;
   const m = marketMinutes(atMs, s.ref);
   return m >= s.open && m < s.close;
+}
+
+/**
+ * 오늘 시황 일정 한 줄의 시장 — 날짜(MM/DD) · D+N · 「미국 날짜」 표시가 이 시장 날짜다(서버 뒤처리 · 화면이 같이 쓴다 — v2.59.3).
+ * 종목이 있으면 그 종목 시장(.KS/.KQ 접미사 포함), 없으면 이름에 국내 단서(한국 · 국내 · 한은 · 금통위 · 코스피 · 코스닥 · KRX)가 있으면 국내, 그 밖(FOMC · 미국 지표)은 미국.
+ */
+export function scheduleItemMarket(item: { ticker?: string | null; event?: string | null }): 'KR' | 'US' {
+  const t = (item.ticker ?? '').trim().toUpperCase().replace(/\.(KS|KQ)$/, '');
+  if (t) return isKrSymbol(t) ? 'KR' : 'US';
+  return /한국|국내|한은|한국은행|금통위|코스피|코스닥|KRX/i.test(item.event ?? '') ? 'KR' : 'US';
 }

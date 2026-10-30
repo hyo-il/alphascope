@@ -11,6 +11,7 @@
 
 import { isKrSymbol } from '../../src/utils/market';
 import { marketDate } from '../../src/utils/marketDate';
+import { scheduleItemMarket } from '../../src/utils/marketBrief';
 import type { BriefAi, BriefEarning, BriefScheduleItem } from '../../src/types/marketBrief';
 
 type Slot = keyof BriefAi['upcoming_schedule'];
@@ -97,12 +98,11 @@ export function daysUntilLabel(label: string, today: string): number | null {
 }
 
 /**
- * 그 일정의 「오늘」 — 종목이 있으면 그 종목 시장의 오늘, 종목이 없는 일정(FOMC · 경제지표)은 미국 날짜(v2.59.3 · 증시 일정과 같은 기준).
+ * 그 일정의 「오늘」 — 그 일정의 시장(`scheduleItemMarket` — 종목 시장, 종목 없으면 국내 단서가 있을 때만 국내 · 그 밖(FOMC 등) 미국)의 오늘(v2.59.3).
  * 날짜 칸(MM/DD)도 그 시장 날짜라 같은 기준으로 날수를 센다.
  */
-export function itemToday(item: Pick<BriefScheduleItem, 'ticker'>, now: number): string {
-  const t = bareTicker(item.ticker ?? '');
-  return t ? marketDate(now, t) : marketDate(now, 'SPY');
+export function itemToday(item: Pick<BriefScheduleItem, 'ticker' | 'event'>, now: number): string {
+  return marketDate(now, scheduleItemMarket(item) === 'KR' ? '005930' : 'SPY');
 }
 
 /** ② 날수로 슬롯 다시 배치 (원본 _reassign_upcoming_slots_by_days) — AI 가 같은 일정(날짜 · 티커 · 이름)을 두 슬롯에 적었으면 하나만 */

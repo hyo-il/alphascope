@@ -5,13 +5,12 @@ import { PANEL_PAD } from '../ui/tokens';
 import WarnIcon from '../ui/WarnIcon';
 import SymbolChartLink from '../common/SymbolChartLink';
 import UsDateTag from '../common/UsDateTag';
-import { isKrSymbol } from '../../utils/market';
 import { SkeletonCards } from '../common/SkeletonLoader';
 import LoadingOverlay, { InlineSpinner } from '../common/LoadingOverlay';
 import { toast } from '../../store/uiStore';
 import { changeColor, displayMinus, formatNumber, formatPercent, formatSigned } from '../../utils/formatters';
 import { formatDateTime, formatTime } from '../../utils/dateFormat';
-import { ASSET_LABEL, EDITION_LABEL, isIntradayBar, vixZone } from '../../utils/marketBrief';
+import { ASSET_LABEL, EDITION_LABEL, isIntradayBar, scheduleItemMarket, vixZone } from '../../utils/marketBrief';
 import {
   type BriefAsset,
   type BriefAssetKey,
@@ -648,8 +647,8 @@ function ScheduleRow({ item, earning, onOpen }: { item: BriefScheduleItem; earni
   const flagged = earning?.epsSanityFlag || /신뢰도 주의|⚠/.test(item.detail);
   const detail = clean(item.detail.replace(/,?\s*신뢰도 주의\s*$/, ''));
   const symbol = earning?.symbol ?? (item.ticker ? item.ticker.toUpperCase().replace(/\.(KS|KQ)$/, '') : null);
-  // 날짜는 그 시장 날짜 — 미국 종목 · 종목 없는 일정(FOMC · 경제지표 — 서버가 미국 날짜로 센다)에 「미국 날짜」
-  const usDate = symbol ? !isKrSymbol(symbol) : true;
+  // 날짜는 그 시장 날짜 — 서버 뒤처리와 같은 판정(`scheduleItemMarket`)으로 미국 일정에만 「미국 날짜」
+  const usDate = scheduleItemMarket({ ticker: symbol ?? item.ticker, event: item.event }) === 'US';
   return (
     <li className="flex gap-2 text-xs">
       <span className="flex w-20 shrink-0 flex-col items-start tabular-nums text-text-secondary">

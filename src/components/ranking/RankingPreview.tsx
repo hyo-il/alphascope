@@ -53,8 +53,14 @@ function EarningsLine({ info, symbol }: { info: NextEarnings | null | undefined;
     <p className={`text-caption ${soon ? 'font-medium text-warning' : 'text-text-secondary'}`}>
       {/* 날짜는 시장 날짜 문자열(YYYY-MM-DD) 그대로 — 앱 공통 표기 */}
       실적 발표 {info.date}
-      {/* 미국 종목은 미국 날짜(D−N 도 미국 날짜로 센다 — 서버 /api/earnings/next) */}
-      {!isKrSymbol(symbol) && <UsDateTag className="mx-1 align-baseline" />} (예정·{info.isEstimate ? '추정' : when})
+      {/* 미국 종목은 미국 날짜(D−N 도 미국 날짜로 센다 — 서버 /api/earnings/next) · 문장 안 모양 · 양쪽 공백 한 칸 */}
+      {!isKrSymbol(symbol) && (
+        <>
+          {' '}
+          <UsDateTag inline />
+        </>
+      )}{' '}
+      (예정·{info.isEstimate ? '추정' : when})
       {info.isEstimate && <span className="ml-1 text-text-muted">{when}</span>}
     </p>
   );
