@@ -45,7 +45,7 @@ const OUTLOOK_KOSPI: BriefOutlook = {
   target: 'KOSPI',
   direction: '상승',
   confidence: '보통',
-  reasons: ['S&P500 이 전일 +0.53% 오르고 선물도 직전 세션 종가 대비 +0.31% 로 위쪽', '다만 코스피 최근 흐름 5일 −3.20% 로 약해 반등 폭은 작을 수 있음'],
+  reasons: ['S&P500 이 전일 +0.53% 오르고 섹터 1주 흐름도 기술 +4.20% 로 상위', '다만 코스피 최근 흐름 5일 −3.20% 로 약해 반등 폭은 작을 수 있음'],
   watch: '장 초반 외국인 매도가 이어지면 보합 쪽으로 기울 수 있음',
 };
 const OUTLOOK_SP500: BriefOutlook = {
