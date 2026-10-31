@@ -76,6 +76,11 @@ export function marketDayTime(market: CalendarMarket, day: string, offsetMs: num
   return Date.parse(`${day}T00:00:00Z`) - shift * 60_000 + offsetMs;
 }
 
+/** 그 시장 날짜(day)의 정규장 마감 시각(ms) — 전일 종가(`previousClose`)가 국내 상·하한가를 그날 것으로 믿을 수 있는 끝 */
+export function sessionCloseAt(market: CalendarMarket, day: string): number {
+  return marketDayTime(market, day, SESSION[market].close * 60_000);
+}
+
 /**
  * 다음 정규장 시작 시각 — `now` 보다 뒤의 첫 개장. **휴장일을 본다**(확인 범위 밖은 주말만).
  * 개장 시각은 UTC 로 늘 15분 경계라(시간대 차가 정수 시간) 15분씩 넘기며 찾는다. 계좌 자동매매 상태의 「다음 판단」 이 쓴다 — 화면은 계산하지 않는다.

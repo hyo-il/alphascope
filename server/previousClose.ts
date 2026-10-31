@@ -15,6 +15,8 @@
  *     상한가는 그 가격의 호가단위로 내림·하한가는 올림이라, 호가단위 표(`krTick`)로 두 값을 모두 만드는 기준가를 찾는다. 답이 하나면 그 값,
  *     인접 호가 둘 이상이면 일봉 종가에 가장 가까운 것, 답이 없으면(ETF·레버리지 등 다른 규칙) ③ 으로. 일봉 종가와 5% 넘게 다르면 쓰지 않는다.
  *     검증(2026-10-15, 국내 순위 199종목의 기준가와 비교): 답 하나 135 — 모두 일치(틀림 0) · 여럿 3 · 해 없음 61(ETF 등).
+ *     ⚠️ 가격 날의 정규장 마감(`sessionCloseAt`) 뒤에는 쓰지 않는다 — 토스 상·하한가는 장 마감 뒤 **다음 거래일** 것이라 풀면 오늘 종가가 된다
+ *     (2026-10-31 토 21:45 000660: 상 1,843,000 · 하 993,000 → 1,418,000 = 10-30 KRX 종가 · 순위 기준가는 10-29 종가 1,526,000. 응답에 날짜 칸 없음).
  *  ③ 「가격 날」 바로 앞 영업일의 일봉 종가. 가격 날 = 그 시장의 토스 거래일(국내 08:00 KST · 미국 20:00 ET 에 넘어간다),
  *     휴장일·주말이면 그 앞의 마지막 영업일. 영업일은 주말 + `marketCalendar.isMarketClosed`(확인 범위 밖은 주말만).
  *     종목·날마다 **한 번 일봉을 새로 받는다**(`getCandles` — 마지막 캐시 봉부터 겹쳐 받으므로 장중에 캐시된 봉도 마감 값이 된다).
@@ -28,7 +30,7 @@
 import { getCandles } from './candleService';
 import { loadCandles } from './db';
 import { isMarketClosed } from './marketCalendar';
-import { marketOf } from './marketHours';
+import { marketOf, sessionCloseAt } from './marketHours';
 import { marketDate } from '../src/utils/marketDate';
 import { tossGet } from '../src/services/toss/httpClient';
 import { isMockMode } from './mockData';
@@ -195,14 +197,19 @@ function closeOn(symbol: string, day: string): number | null {
 
 /** 지금 시세의 기준가 */
 export async function previousClose(symbol: string, now = Date.now()): Promise<number | null> {
-  return previousCloseForDay(symbol, priceDay(symbol, now));
+  return previousCloseForDay(symbol, priceDay(symbol, now), now);
+}
+
+/** 국내 상·하한가가 `day` 의 것인가 — 그날 정규장 마감 전까지만(마감 뒤에는 다음 거래일 상·하한가) */
+export function krLimitsAreFor(day: string, now: number): boolean {
+  return now < sessionCloseAt('KR', day);
 }
 
 /**
  * `day` 의 시세에 대한 기준가 — 그 날 바로 앞 영업일. 관심 목록이 토스에 닿지 않을 때(캐시 봉을 보여 줄 때)는 그 봉의 날짜로 부른다.
- * 순위 기준가(①)는 「지금」 의 가격 날일 때만 쓴다(지난 날의 기준가는 순위에 없다).
+ * 순위 기준가(①)는 「지금」 의 가격 날일 때만 쓴다(지난 날의 기준가는 순위에 없다). `now` 는 상·하한가가 그날 것인지만 본다(`krLimitsAreFor`).
  */
-export async function previousCloseForDay(symbol: string, day: string): Promise<number | null> {
+export async function previousCloseForDay(symbol: string, day: string, now = Date.now()): Promise<number | null> {
   const key = `${symbol}|${day}`;
   const hit = memo.get(key);
   if (hit !== undefined) return hit;
@@ -235,8 +242,8 @@ export async function previousCloseForDay(symbol: string, day: string): Promise<
         console.warn(`[previousClose] ${symbol} 일봉 다시 받기 실패:`, e instanceof Error ? e.message : e);
       }
       const candle = closeOn(symbol, expected);
-      // 국내 — 지금의 가격 날이면 상·하한가로 거래소 기준가를 푼다(일봉은 NXT 포함 종가라 기준가와 다를 수 있다)
-      const solved = marketOf(symbol) === 'KR' && day === priceDay(symbol) ? await limitBase(symbol, candle) : null;
+      // 국내 — 지금의 가격 날이고 그날 정규장 마감 전이면 상·하한가로 거래소 기준가를 푼다(일봉은 NXT 포함 종가라 기준가와 다를 수 있다)
+      const solved = marketOf(symbol) === 'KR' && day === priceDay(symbol) && krLimitsAreFor(day, now) ? await limitBase(symbol, candle) : null;
       const value = solved ?? candle;
       if (value !== null && (refreshed || solved !== null)) {
         tried.delete(key);

@@ -10,7 +10,7 @@
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import 'dotenv/config';
 import { getDb, loadCandles, saveCandles } from '../server/db';
-import { previousClose, previousTradingDay, priceDay, resetPreviousCloseForTest, setCandleRefreshForTest, setPriceLimitsForTest, setRankingBasesForTest, solveKrBase } from '../server/previousClose';
+import { krLimitsAreFor, previousClose, previousTradingDay, priceDay, resetPreviousCloseForTest, setCandleRefreshForTest, setPriceLimitsForTest, setRankingBasesForTest, solveKrBase } from '../server/previousClose';
 import { changeRateOf } from '../server/summaryService';
 import { tossGet } from '../src/services/toss/httpClient';
 import { marketDate } from '../src/utils/marketDate';
@@ -183,14 +183,16 @@ try {
   check('풀기: ETF(호가 5원) 상 123,245 · 하 66,365 → 답 없음', solveKrBase(123245, 66365).length === 0);
   const krPd = priceDay(KR);
   const krExp = previousTradingDay(KR, krPd);
-  const limitCase = async (label: string, lim: { upper: number; lower: number } | null, candle: number, want: number | null) => {
+  /** 가격 날(krPd)의 한국 시각 — 상·하한가를 쓰는지는 이 시각으로 본다(시험이 도는 시각과 무관) */
+  const krAt = (day: string, hm: string) => Date.parse(`${day}T${hm}:00+09:00`);
+  const limitCase = async (label: string, lim: { upper: number; lower: number } | null, candle: number, want: number | null, now = krAt(krPd, '12:00')) => {
     resetPreviousCloseForTest();
     clear();
     put(KR, [[krExp, candle]]);
     setCandleRefreshForTest(async () => {});
     setRankingBasesForTest(async () => new Map());
     setPriceLimitsForTest(async () => lim);
-    const v = await previousClose(KR);
+    const v = await previousClose(KR, now);
     check(label, v === want, `값 ${v}`);
   };
   await limitCase('국내 순위에 없음 · 상·하한가 답 하나 → 그 기준가(일봉 1,425,000 이 아니라 1,419,000)', { upper: 1844000, lower: 994000 }, 1425000, 1419000);
@@ -198,6 +200,17 @@ try {
   await limitCase('국내 상·하한가 답 없음(ETF 등) → 일봉 종가', { upper: 123245, lower: 66365 }, 94800, 94800);
   await limitCase('국내 상·하한가 답이 일봉과 5% 넘게 다름 → 일봉 종가', { upper: 1844000, lower: 994000 }, 1300000, 1300000);
   await limitCase('국내 상·하한가 받기 실패 → 일봉 종가', null, 50000, 50000);
+  // 장 마감 뒤 토스 상·하한가는 다음 거래일 것(풀면 오늘 종가) — 가격 날의 정규장 마감 전까지만 쓴다(v2.60.1)
+  const nextDay = new Date(Date.parse(`${krPd}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+  await limitCase('국내 장 중 15:29 → 상·하한가 씀(1,419,000)', { upper: 1844000, lower: 994000 }, 1425000, 1419000, krAt(krPd, '15:29'));
+  await limitCase('국내 장 마감 15:30 → 상·하한가 쓰지 않고 일봉 종가(1,425,000)', { upper: 1844000, lower: 994000 }, 1425000, 1425000, krAt(krPd, '15:30'));
+  await limitCase('국내 저녁 21:45 → 일봉 종가', { upper: 1844000, lower: 994000 }, 1425000, 1425000, krAt(krPd, '21:45'));
+  await limitCase('국내 다음 날 07:59(가격 날이 아직 그날) → 일봉 종가', { upper: 1844000, lower: 994000 }, 1425000, 1425000, krAt(nextDay, '07:59'));
+  const lf = (iso: string, want: boolean, label: string) => check(`상·하한가가 10-30(금) 것인가 — ${label} → ${want}`, krLimitsAreFor('2026-10-30', Date.parse(iso)) === want);
+  lf('2026-10-30T08:30:00+09:00', true, '금 08:30(장 전)');
+  lf('2026-10-30T15:29:59+09:00', true, '금 15:29:59');
+  lf('2026-10-30T15:30:00+09:00', false, '금 15:30(마감)');
+  lf('2026-10-31T21:45:00+09:00', false, '토 21:45');
   setPriceLimitsForTest(null);
 
   // ── 9-2. AI 요약 등락률(`summaryService.changeRateOf`)도 이 기준가 — 끝에서 두 번째 봉이 아니다(v2.59.6) ──
@@ -240,11 +253,14 @@ try {
     const tossBase = Number(r.result?.rankings?.find((x: any) => x.symbol === sym)?.price?.basePrice);
     const viaRank = await previousClose(sym);
     check(`실제 토스 ①: ${sym} 기준가 = 토스 순위 basePrice ${tossBase}`, viaRank === tossBase, `값 ${viaRank} · 예전 규칙이면 ${oldVal}(${oldDay ? marketDate(oldDay.timestamp, sym) : '—'} 봉)`);
-    // ② 순위를 빼면 상·하한가로 푼 기준가 — 토스 기준가와 같아야 한다
+    // ② 순위를 빼면 — 장 마감 전: 상·하한가로 푼 기준가 = 토스 기준가 · 장 마감 뒤: 상·하한가는 다음 거래일 것이라 쓰지 않고 일봉 종가
     resetPreviousCloseForTest();
     setRankingBasesForTest(async () => new Map());
+    const limitsToday = krLimitsAreFor(priceDay(sym), Date.now());
     const viaLimits = await previousClose(sym);
-    check(`실제 토스 ②: 순위 없이 상·하한가로 푼 기준가 = ${tossBase}`, viaLimits === tossBase, `값 ${viaLimits}`);
+    const barClose = loadCandles(sym, '1d', 10).find((c) => marketDate(c.timestamp, sym) === prevDay)?.close ?? null;
+    if (limitsToday) check(`실제 토스 ②(장 마감 전): 순위 없이 상·하한가로 푼 기준가 = ${tossBase}`, viaLimits === tossBase, `값 ${viaLimits}`);
+    else check(`실제 토스 ②(장 마감 뒤): 순위 없이 — 상·하한가를 쓰지 않고 ${prevDay} 일봉 종가 ${barClose}`, barClose !== null && viaLimits === barClose, `값 ${viaLimits}`);
     // ③ 순위·상하한가를 빼면 일봉 — 지운 봉을 다시 받아 그 날짜 종가
     resetPreviousCloseForTest();
     setPriceLimitsForTest(async () => null);
