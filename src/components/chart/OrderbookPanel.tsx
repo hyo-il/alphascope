@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { Orderbook, OrderbookLevel } from '../../types/toss';
 import { formatCompact, formatSigned, formatNumber } from '../../utils/formatters';
+import { usRegularSessionKstText } from '../../utils/marketDate';
 
 interface Props {
   orderbook: Orderbook | null;
@@ -204,7 +205,7 @@ export default function OrderbookPanel({
           <p className="text-caption leading-relaxed text-text-muted">
             {currency === 'KRW'
               ? '국내장 정규 시간(09:00~15:30)에 호가가 들어옵니다.'
-              : '미국장 정규 시간(한국시간 22:30~05:00)에 호가가 들어옵니다.'}
+              : `미국장 정규 시간(한국시간 ${usRegularSessionKstText()})에 호가가 들어옵니다.`}
           </p>
         </div>
       ) : (

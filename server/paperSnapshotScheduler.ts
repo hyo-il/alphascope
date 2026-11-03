@@ -18,7 +18,7 @@ import { cashFlowBetween, computePerformance } from './paperPerformanceService';
  */
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-/** 미국장 마감(한국시간 06:00) 이후로 잡는다 — 그날의 종가가 확정된 뒤여야 한다. */
+/** 미국장 마감(한국시간 05:00 · 서머타임이 아니면 06:00) 이후로 잡는다 — 그날의 종가가 확정된 뒤여야 한다. */
 const SNAPSHOT_HOUR_KST = 7;
 const CHECK_INTERVAL_MS = 10 * 60 * 1000;
 

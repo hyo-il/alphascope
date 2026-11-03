@@ -3,7 +3,7 @@
  * ⚠️ 자동매매가 쓰는 정규장 판단(`marketHours.isMarketOpen` · `nextMarketOpen`)과 **다른 것**이다 — 그쪽은 바꾸지 않는다.
  *
  * 시간표 = 토스 `/market-calendar/{US|KR}?date=<한국 날짜>` 의 세션 칸(2026-10-22 실제 응답 — 시각은 한국 시간, 서머타임 중):
- * - 미국(토스 날짜 D 하나에 넷): dayMarket 주간거래 09:00~17:00 · preMarket 17:00~22:30 · regularMarket 22:30~05:00 · afterMarket 05:00~08:50.
+ * - 미국(토스 날짜 D 하나에 넷): dayMarket 주간거래 09:00~17:00 · preMarket 17:00~22:30 · regularMarket 22:30~05:00 · afterMarket 05:00~08:50(서머타임이 아니면 모두 1시간씩 늦다).
  *   주간거래는 전날 20:00 ET 에 시작해 토스 날짜 D 에 속한다(가격 날 `previousClose.priceDay` 가 20:00 ET 에 넘어가는 것과 같다).
  * - 국내 integrated: preMarket 08:00~09:00(08:50 부터 단일가 — 「정규장 시작 전」) · regularMarket 09:00~15:30 · afterMarket 15:30~20:00.
  * - 응답은 전 · 오늘 · 다음 거래일 셋이라 한국 날짜로 하루 한 번(시장마다 MARKET_INFO 1번) 받으면 지금과 다음 세션이 다 들어 있다.

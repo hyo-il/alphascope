@@ -4,7 +4,7 @@
  * `accountsview:test` 와 같은 방식 — 사본 DB 로 **시험 서버를 따로 띄워**(포트 4104 · 스케줄러 스위치 셋 끔) 실제 HTTP 로 확인한다.
  * - 사본 DB 의 비밀번호를 시험용으로 바꾸고 세션을 모두 지운다 · 'ui.homePage' 를 지우고 시작한다(사본만).
  * - 없음 → home · 4개 값 저장 → 다시 읽으면 같음 · 목록 밖 값 400 · 서버를 다시 켜도 유지 · 로그인 안 하면 401.
- * - 끝에 `marketByKstTime`(종목 지도 · 실시간 순위의 시작 시장) 경계도 본다 — `TZ=America/New_York` · `TZ=UTC` 로 다시 돌려 PC 시간대와 상관없는지 확인.
+ * - 앞에 `marketByKstTime`(종목 지도 · 실시간 순위의 시작 시장 — 저녁 경계는 서머타임에 따라 17:00 · 18:00) · `usRegularSessionKstText` 경계도 본다 — `TZ=America/New_York` · `TZ=UTC` 로 다시 돌려 PC 시간대와 상관없는지 확인.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import { TEST_SERVER_SWITCHES } from './lib/testServerEnv';
@@ -13,7 +13,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { getDb } from '../server/db';
 import { setPassword } from '../server/auth';
 import { HOME_PAGES } from '../src/types/nav';
-import { marketByKstTime } from '../src/utils/marketDate';
+import { marketByKstTime, usRegularSessionKstText } from '../src/utils/marketDate';
 
 const PORT = 4104;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -31,16 +31,37 @@ function check(name: string, ok: boolean, detail = '') {
 
 // ── marketByKstTime (서버 없이) ─────────────────────────────────────
 console.log(`TZ=${process.env.TZ ?? '(기본)'} · PC 시간대 ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
-for (const [kst, want] of [
-  ['07:59', 'us'],
-  ['08:00', 'kr'],
-  ['16:59', 'kr'],
-  ['17:00', 'us'],
-  ['23:30', 'us'],
-  ['00:00', 'us'],
+// 저녁 경계 = 그날 미국 프리장 시작(04:00 ET) — 서머타임 17:00 · 아니면 18:00 KST. 아침 08:00 은 그대로.
+// 서머타임: 2026-11-01(일) 02:00 EDT 에 끝남 = 한국 11-01 15:00 · 2027-03-14(일) 02:00 EST 에 시작 = 한국 03-14 16:00
+for (const [day, kst, want, note] of [
+  ['2026-10-21', '07:59', 'us', ''],
+  ['2026-10-21', '08:00', 'kr', ''],
+  ['2026-10-21', '16:59', 'kr', '여름'],
+  ['2026-10-21', '17:00', 'us', '여름'],
+  ['2026-10-21', '23:30', 'us', ''],
+  ['2026-10-21', '00:00', 'us', ''],
+  ['2026-10-30', '17:30', 'us', '여름(서머타임 끝 전 금)'],
+  ['2026-10-31', '17:30', 'us', '서머타임 끝 전날(토)'],
+  ['2026-11-01', '17:30', 'kr', '서머타임 끝난 날(일) — 이미 표준시'],
+  ['2026-11-01', '18:00', 'us', '서머타임 끝난 날(일)'],
+  ['2026-11-03', '07:59', 'us', '겨울'],
+  ['2026-11-03', '08:00', 'kr', '겨울'],
+  ['2026-11-03', '17:30', 'kr', '겨울'],
+  ['2026-11-03', '17:59', 'kr', '겨울'],
+  ['2026-11-03', '18:00', 'us', '겨울'],
+  ['2027-03-13', '17:30', 'kr', '서머타임 시작 전날(토)'],
+  ['2027-03-14', '17:00', 'us', '서머타임 시작한 날(일)'],
+  ['2027-03-14', '16:59', 'kr', '서머타임 시작한 날(일)'],
 ] as const) {
-  const got = marketByKstTime(new Date(`2026-10-21T${kst}:00+09:00`));
-  check(`marketByKstTime ${kst} KST → ${want}`, got === want, got);
+  const got = marketByKstTime(new Date(`${day}T${kst}:00+09:00`));
+  check(`marketByKstTime ${day} ${kst} KST${note ? `(${note})` : ''} → ${want}`, got === want, got);
+}
+for (const [day, want] of [
+  ['2026-10-30', '22:30~05:00'],
+  ['2026-11-03', '23:30~06:00'],
+] as const) {
+  const got = usRegularSessionKstText(new Date(`${day}T12:00:00+09:00`));
+  check(`usRegularSessionKstText ${day} → ${want}`, got === want, got);
 }
 
 await setPassword(TEST_PW);

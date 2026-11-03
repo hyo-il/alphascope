@@ -33,7 +33,7 @@ const FIRST_PAGE = 50;
 const isPreviewTf = (tf: string): tf is PreviewTimeframe => tf === '1d' || tf === '1w' || tf === '1M';
 
 export default function RankingView({ onOpen }: { onOpen: (symbol: string, timeframe: PreviewTimeframe) => void }) {
-  // 열 때마다 한국 시간으로 고른다(08:00~17:00 국내, 그 밖 미국) — 직접 바꾸면 이 화면에 있는 동안만 유지
+  // 열 때마다 한국 시간으로 고른다(08:00 ~ 미국 프리장 시작(서머타임 17:00 · 아니면 18:00) 국내, 그 밖 미국) — 직접 바꾸면 이 화면에 있는 동안만 유지
   const [market, setMarket] = useState<LiveRankingMarket>(() => marketByKstTime());
   const [kind, setKind] = useState<LiveRankingKind>('amount');
   const [data, setData] = useState<LiveRankingResponse | null>(null);

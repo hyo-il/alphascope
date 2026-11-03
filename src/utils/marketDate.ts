@@ -66,15 +66,46 @@ export function marketMinutes(timestamp: number, symbol: string): number {
   return h * 60 + m;
 }
 
+/** 국내 프리장 시작 — 한국 시각(자정부터 분) */
+const KR_PREMARKET_OPEN_KST_MINUTES = 8 * 60;
+/** 미국 프리장 시작 · 정규장 시작 · 정규장 마감 — 미국 동부 시각(자정부터 분) */
+const US_PREMARKET_OPEN_ET_MINUTES = 4 * 60;
+const US_REGULAR_OPEN_ET_MINUTES = 9 * 60 + 30;
+const US_REGULAR_CLOSE_ET_MINUTES = 16 * 60;
+
 /**
- * 종목 지도 · 실시간 순위의 시작 시장 — **한국 시간** 08:00 이상 17:00 미만 = 국내, 나머지 = 미국 (사용자 결정 2026-10-21).
+ * 한국 날짜(`now` 의 한국 날짜)와 **같은 날짜의 미국 동부 시각** `etMinutes` 를 한국 시각(자정부터 분, 0~1439)으로.
+ * 시차를 숫자로 더하지 않고 `Intl` 로 그날 미국 동부의 UTC 차를 읽는다 — 서머타임 전환은 미국 동부 02:00 이라 그 뒤 시각(04:00 · 09:30 · 16:00)은 그날 시차가 맞다.
+ */
+function usEtToKstMinutes(etMinutes: number, now: Date): number {
+  const day = marketDate(now.getTime(), MARKET_REF.KR.symbol);
+  // 같은 날 12:00 UTC 의 미국 동부 시각 − 12:00 = 그날 미국 동부의 UTC 차(분) — 12:00 UTC 는 미국 동부로도 같은 날
+  const etOffset = marketMinutes(Date.parse(`${day}T12:00:00Z`), MARKET_REF.US.symbol) - 12 * 60;
+  return marketMinutes(Date.parse(`${day}T00:00:00Z`) + (etMinutes - etOffset) * 60_000, MARKET_REF.KR.symbol);
+}
+
+/** 그 한국 날짜의 미국 프리장 시작(미국 동부 04:00)을 한국 시각(자정부터 분)으로 — 서머타임이면 17:00, 아니면 18:00 */
+export function usPremarketOpenKstMinutes(now: Date = new Date()): number {
+  return usEtToKstMinutes(US_PREMARKET_OPEN_ET_MINUTES, now);
+}
+
+const hhmm = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+
+/** 미국 정규장(09:30~16:00 ET)을 한국 시각 글자로 — 서머타임 「22:30~05:00」 · 아니면 「23:30~06:00」 */
+export function usRegularSessionKstText(now: Date = new Date()): string {
+  return `${hhmm(usEtToKstMinutes(US_REGULAR_OPEN_ET_MINUTES, now))}~${hhmm(usEtToKstMinutes(US_REGULAR_CLOSE_ET_MINUTES, now))}`;
+}
+
+/**
+ * 종목 지도 · 실시간 순위의 시작 시장 — **한국 시간** 08:00(국내 프리장 시작) 이상 그날 미국 프리장 시작(서머타임 17:00 · 아니면 18:00) 미만 = 국내,
+ * 나머지 = 미국 (사용자 결정 2026-10-21 · 저녁 경계는 미국 프리장에 맞춰 자동 2026-11-03).
  * - PC 시계의 시간대와 상관없이 한국 시간으로 본다(`marketMinutes` 한 곳 — 국내 종목의 현지 시각).
  * - 시간만 본다 — 주말 · 휴장일은 따지지 않는다(사용자 결정). 장이 열렸는지는 `server/marketHours.ts` 가 따로 판단한다.
- * - 화면을 열 때 한 번만 부른다 — 보는 동안 08:00 · 17:00 이 지나도 시장을 바꾸지 않는다.
+ * - 화면을 열 때 한 번만 부른다 — 보는 동안 경계 시각이 지나도 시장을 바꾸지 않는다.
  */
 export function marketByKstTime(now: Date = new Date()): 'kr' | 'us' {
   const minutes = marketMinutes(now.getTime(), MARKET_REF.KR.symbol);
-  return minutes >= 8 * 60 && minutes < 17 * 60 ? 'kr' : 'us';
+  return minutes >= KR_PREMARKET_OPEN_KST_MINUTES && minutes < usPremarketOpenKstMinutes(now) ? 'kr' : 'us';
 }
 
 let kstClockFormatter: Intl.DateTimeFormat | null = null;
