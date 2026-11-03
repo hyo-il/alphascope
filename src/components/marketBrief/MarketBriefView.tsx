@@ -15,7 +15,7 @@ import { EmptyDay, LoadError } from './BriefStates';
  * 탐색 → 오늘 시황 (v2.59.0) — Stockproject 시황 브리핑을 화면으로 옮긴 것. 칸 순서는 원본 메시지 그대로
  * ① 시장 기조 · ② 60일 주요 일정 · ③ 주도 섹터 · ④ 핵심 테마 · ⑤ 시장 데이터(참고) · ⑥ 스윙 체크포인트 · ⑦ 액션 포인트 · ⑧ 면책.
  *
- * - 서버가 평일 06:55 KST 뒤 첫 10분 확인(07:05 무렵)에 오전판을 만든다. 「시황 분석」 은 지금 시각의 판(13시 전 오전판 · 뒤 오후판)을 하루 5번까지.
+ * - 서버가 평일 06:55 KST 뒤 첫 10분 확인(07:05 무렵)에 오전판을 만든다. 「시황 분석」 은 지금 시각의 판(13시 전 오전판 · 뒤 오후판)을 만든다(횟수 제한 없음 · 진행 중이면 새로 돌지 않음).
  * - 진행 상태는 서버 것(`/api/market-brief/status`)을 읽는다 — 다른 화면에 갔다 와도 진행 중이면 그대로 보인다. 진행 중에만 2초마다 읽는다.
  * - AI 글의 이모지(⚠️ 🔴 등)는 화면에 그리지 않는다 — 아이콘 · 배지로 바꾼다. 하이픈 음수는 마이너스 기호로(`displayMinus`).
  * - 날짜별 30일 · 그날 여러 번 만든 것은 판/시각으로 고른다.
@@ -108,7 +108,7 @@ export default function MarketBriefView({ onSelectSymbol }: { onSelectSymbol: (s
           if (s.lastError) toast.error('시황을 만들지 못했습니다', s.lastError);
           // 진행 중에 서버가 다시 켜졌으면 결과도 오류도 없다 — 끊겼다고 알린다
           else if (s.lastFinishedId == null || (bootAt.current !== null && s.bootAt !== bootAt.current)) {
-            toast.warning('진행 중이던 시황이 서버 재시작으로 끊겼습니다', '다시 눌러 주세요 — 끊긴 것은 횟수에 세지 않습니다');
+            toast.warning('진행 중이던 시황이 서버 재시작으로 끊겼습니다', '다시 눌러 주세요');
           }
           bootAt.current = null;
           void loadDays();
@@ -142,12 +142,8 @@ export default function MarketBriefView({ onSelectSymbol }: { onSelectSymbol: (s
     try {
       const r = await getJson<{ started: boolean; status: MarketBriefStatus }>('/api/market-brief/run', { method: 'POST' });
       if (r.body.status) setStatus(r.body.status);
-      if (r.status === 429) {
-        toast.warning(r.body.error ?? '오늘 버튼을 다 썼습니다');
-        return;
-      }
       if (!r.ok) throw new Error(r.body.error ?? `요청 실패 (${r.status})`);
-      if (!r.body.started) toast.info('이미 시황을 만드는 중입니다 — 끝나면 보여 드립니다', '이번 누름은 횟수에 세지 않습니다');
+      if (!r.body.started) toast.info('이미 시황을 만드는 중입니다 — 끝나면 보여 드립니다');
       wasRunning.current = true;
     } catch (e) {
       toast.error('시황 분석을 시작하지 못했습니다', (e as Error).message);

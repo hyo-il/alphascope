@@ -22,9 +22,9 @@ function emptyText(status: MarketBriefStatus | null): string {
   return '아직 오늘 시황이 없습니다 — 오늘 자동 오전판은 없습니다(평일 아침에 13시 전까지만 만듭니다).';
 }
 
-/** 그날 만든 시황이 없음 — 오늘이고 버튼이 남았으면 「시황 분석」 */
+/** 그날 만든 시황이 없음 — 오늘이고 진행 중이 아니면 「시황 분석」 */
 export function EmptyDay({ isToday, status, onRun }: { isToday: boolean; status: MarketBriefStatus | null; onRun: () => void }) {
-  const canRun = !!status && !status.running && status.buttonUsed < status.buttonLimit;
+  const canRun = !!status && !status.running;
   return (
     <Panel className="flex flex-wrap items-center gap-3 text-xs text-text-secondary">
       <span>{isToday ? emptyText(status) : '이 날 만든 시황이 없습니다.'}</span>

@@ -2,7 +2,7 @@ import { Badge, Panel } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
 import { formatDateTime } from '../../utils/dateFormat';
 import { EDITION_LABEL, isIntradayBar } from '../../utils/marketBrief';
-import type { BriefAssetKey, MarketBrief, OutlookView } from '../../types/marketBrief';
+import { BRIEF_AI_RATE_LIMITED, type BriefAssetKey, type MarketBrief, type OutlookView } from '../../types/marketBrief';
 import { dayLabel } from './briefText';
 import RegimeCard from './RegimeCard';
 import OutlookCard from './OutlookCard';
@@ -44,7 +44,9 @@ export default function BriefBody({ brief, outlook, onOpen }: { brief: MarketBri
       {!ai && (
         <Panel pad="sm" className="text-xs text-warning" data-brief-ai-error>
           <WarnIcon />
-          AI 분석이 없습니다: {plainReason(brief.aiError)}. 시장 데이터와 실적 일정만 보입니다.
+          {brief.aiError === BRIEF_AI_RATE_LIMITED
+            ? 'AI 분석 실패 — Gemini 무료 사용 한도에 닿았습니다. 시장 데이터만 보여 줍니다.'
+            : `AI 분석이 없습니다: ${plainReason(brief.aiError)}. 시장 데이터와 실적 일정만 보입니다.`}
         </Panel>
       )}
 

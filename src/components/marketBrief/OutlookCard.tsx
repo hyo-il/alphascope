@@ -117,7 +117,7 @@ function OutlookRow({ o, index, ai, score, stats, recent }: { o: BriefOutlook; i
 
 /**
  * 「오늘 예상 방향」(v2.60.0) — 「시장 기조」 바로 아래. AI 가 입력 숫자로 쓴 참고 예상 + 채점 · 최근 성적.
- * AI 가 없으면(꺼짐 · 실패 · 횟수) 예상을 만들지 않는다(데이터로 대신 만들지 않는다). 그 전 브리핑(예상 없음)은 한 줄 안내.
+ * AI 가 없으면(꺼짐 · 실패 · 한도) 예상을 만들지 않는다(데이터로 대신 만들지 않는다). 그 전 브리핑(예상 없음)은 한 줄 안내.
  */
 export default function OutlookCard({ brief, view }: { brief: MarketBrief; view?: OutlookView }) {
   const ai = brief.brief;

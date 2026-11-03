@@ -502,7 +502,7 @@ CREATE TABLE IF NOT EXISTS us_halts (
 );
 CREATE INDEX IF NOT EXISTS idx_us_halts_day ON us_halts (halt_day, halt_at_ms);
 
--- 오늘 시황 (v2.59.0, 탐색 → 오늘 시황) — 평일 06:55 KST 뒤 첫 10분 확인에 오전판 1번(auto) + 「시황 분석」 버튼(button, 하루 5번).
+-- 오늘 시황 (v2.59.0, 탐색 → 오늘 시황) — 평일 06:55 KST 뒤 첫 10분 확인에 오전판 1번(auto) + 「시황 분석」 버튼(button, 횟수 제한 없음).
 -- 한 번 만들 때마다 한 줄(같은 날 여러 번이면 모두 남긴다). brief_date = 만든 한국 날짜. 30일 보관(하루 한 번 지움).
 -- data_json = 수집한 값({assets: 자산별 current · change · change_pct · data_date(데이터 기준 날짜), earnings: 60일 실적 + 전망치})
 -- sources_json = 수집 상태(소스별 성공/실패) · brief_json = AI 결과(뒤처리 뒤) — Gemini 꺼짐 · 실패면 NULL 이고 ai_error 에 이유.

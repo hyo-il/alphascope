@@ -8,8 +8,11 @@ export type BriefEdition = 'morning' | 'afternoon';
 /** auto = 평일 아침 자동 · button = 「시황 분석」 버튼 */
 export type BriefTrigger = 'auto' | 'button';
 
-/** 버튼 하루(KST) 횟수 — 자동은 세지 않는다 */
-export const BRIEF_BUTTON_DAILY_LIMIT = 5;
+/**
+ * Gemini 무료 한도(429)로 AI 를 부르지 못한 이유 — 서버가 `aiError` 에 이 글을 그대로 저장하고, 화면은 이 글이면 쉬운 한 줄로 바꿔 보인다.
+ * ⚠️ 이미 저장된 줄도 같은 글이라 바꾸지 않는다.
+ */
+export const BRIEF_AI_RATE_LIMITED = 'Gemini 무료 한도 초과(429) — 다시 부르지 않았습니다';
 /** 보관 기간(일) */
 export const BRIEF_KEEP_DAYS = 30;
 /** 판 경계 — 한국 시간 이 시(時)부터 오후판 (Stockproject 와 같음) */
@@ -293,8 +296,6 @@ export interface MarketBriefStatus {
   startedAt: string | null;
   /** 한국 날짜 */
   today: string;
-  buttonUsed: number;
-  buttonLimit: number;
   /** 지금 버튼을 누르면 만들 판 */
   nowEdition: BriefEdition;
   /** 자동이 꺼진 이유(MARKET_BRIEF_ENABLED=false) — 켜져 있으면 null */

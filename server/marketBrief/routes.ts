@@ -1,11 +1,11 @@
 /*
-  오늘 시황(탐색 → 오늘 시황, v2.59.0) 주소 — 평일 아침 자동 오전판 + 「시황 분석」 버튼(지금 시각 판 · 하루 5번).
+  오늘 시황(탐색 → 오늘 시황, v2.59.0) 주소 — 평일 아침 자동 오전판 + 「시황 분석」 버튼(지금 시각 판 · 횟수 제한 없음).
   ⚠️ 판단 · 주문과 무관하다. 버튼은 시작만 하고 바로 돌려준다 — 화면은 진행 상태를 읽는다(진행 중에만).
   `server/index.ts` 가 문지기(authGuard) 뒤에서 `app.use(marketBriefRouter)` 로 붙인다 — 주소는 전체 경로 그대로 적는다.
 */
 import { Router } from 'express';
 import { fail } from '../apiError';
-import { BriefLimitError, briefStatus, startButtonRun } from './service';
+import { briefStatus, startButtonRun } from './service';
 import { getBrief, listBriefDays, listBriefsOf } from './store';
 import { outlookView } from './outlookScore';
 
@@ -62,7 +62,6 @@ marketBriefRouter.post('/api/market-brief/run', (_req, res) => {
     // 진행 중이면 새로 시작하지 않는다 — 진행 상태를 그대로 돌려준다
     res.status(started ? 202 : 200).json({ started, status: briefStatus() });
   } catch (e) {
-    if (e instanceof BriefLimitError) return res.status(429).json({ error: e.message, status: briefStatus() });
     fail(res, e);
   }
 });

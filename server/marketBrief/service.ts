@@ -1,5 +1,5 @@
 /**
- * 오늘 시황 — 만들기(수집 → AI → 저장) · 자동(평일 아침 1번) · 버튼(하루 5번) · 진행 상태.
+ * 오늘 시황 — 만들기(수집 → AI → 저장) · 자동(평일 아침 1번) · 버튼(횟수 제한 없음) · 진행 상태.
  *
  * - **한 번에 하나만** 돈다(자동 · 버튼 함께). 진행 중에 버튼을 누르면 새로 돌지 않고 진행 상태를 돌려준다.
  * - Gemini: 브리핑 1번 = 호출 1번. 실패하면 1번까지 다시 — **429(한도 초과)면 다시 하지 않는다**.
@@ -29,7 +29,7 @@ import { countBriefs, insertBrief, purgeOldBriefs } from './store';
 import { editionAt, kstDay, kstMinutes } from '../../src/utils/marketBrief';
 import {
   BRIEF_AFTERNOON_HOUR,
-  BRIEF_BUTTON_DAILY_LIMIT,
+  BRIEF_AI_RATE_LIMITED,
   type BriefAi,
   type BriefEdition,
   type BriefSourceStatus,
@@ -50,8 +50,6 @@ export function autoDisabledReason(): string | null {
     ? '이 서버에서는 오늘 시황 자동 만들기가 꺼져 있습니다(MARKET_BRIEF_ENABLED=false)'
     : null;
 }
-
-export class BriefLimitError extends Error {}
 
 // ── 바꿔 끼우기(시험) ─────────────────────────────────────────────────────
 
@@ -96,17 +94,9 @@ interface RunState {
 
 const state: RunState = { running: false, stage: null, edition: null, trigger: null, startedAt: null, lastFinishedId: null, lastFinishedDate: null, lastError: null };
 
-/**
- * 줄을 남기지 못하고 실패한 버튼 실행(그날 한국 날짜) — 버튼 횟수에 함께 센다.
- * Gemini 를 부른 뒤 저장이 실패해도 5번 제한을 넘지 않게(메모리 — 재시작하면 0).
- */
-let failedButton = { day: '', n: 0 };
-const buttonUsedOn = (day: string) => countBriefs(day, 'button') + (failedButton.day === day ? failedButton.n : 0);
-
 /** 시험용 — 진행 상태를 처음으로 */
 export function resetBriefStateForTest(): void {
   Object.assign(state, { running: false, stage: null, edition: null, trigger: null, startedAt: null, lastFinishedId: null, lastFinishedDate: null, lastError: null });
-  failedButton = { day: '', n: 0 };
 }
 
 export function briefStatus(now = Date.now()): MarketBriefStatus {
@@ -118,8 +108,6 @@ export function briefStatus(now = Date.now()): MarketBriefStatus {
     trigger: state.trigger,
     startedAt: state.startedAt,
     today,
-    buttonUsed: buttonUsedOn(today),
-    buttonLimit: BRIEF_BUTTON_DAILY_LIMIT,
     nowEdition: editionAt(now),
     autoDisabledReason: autoDisabledReason(),
     geminiDisabledReason: geminiDisabledReason(),
@@ -170,7 +158,7 @@ async function askGemini(edition: BriefEdition, prompt: string, deps: BriefDeps)
       lastError = `응답에 빠진 키: ${missing.join(', ')}`;
     } catch (error) {
       if (error instanceof GeminiError && error.rateLimited) {
-        return { brief: null, model, tokens: null, calls: attempt, error: 'Gemini 무료 한도 초과(429) — 다시 부르지 않았습니다' };
+        return { brief: null, model, tokens: null, calls: attempt, error: BRIEF_AI_RATE_LIMITED };
       }
       lastError = (error as Error).message;
     }
@@ -271,10 +259,6 @@ async function runOnce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
     return id;
   } catch (error) {
     state.lastError = (error as Error).message;
-    if (trigger === 'button') {
-      const day = kstDay(Date.parse(state.startedAt!));
-      failedButton = { day, n: (failedButton.day === day ? failedButton.n : 0) + 1 };
-    }
     console.warn('[market-brief] 만들기 실패:', state.lastError);
     return null;
   } finally {
@@ -286,15 +270,11 @@ async function runOnce(edition: BriefEdition, trigger: BriefTrigger, deps: Brief
 
 /**
  * 「시황 분석」 — 지금 시각의 판(13시 전 오전판 · 뒤 오후판). 끝까지 기다리지 않고 시작만 한다.
- * - 진행 중이면 새로 시작하지 않는다(started=false — 진행 상태를 그대로 보면 된다).
- * - 그날(한국 날짜) 버튼 기록이 5번이면 `BriefLimitError`(자동은 세지 않는다).
+ * - 진행 중이면 새로 시작하지 않는다(started=false — 진행 상태를 그대로 보면 된다). 횟수 제한은 없다(Gemini 한도에 닿으면 데이터만 저장).
  */
 export function startButtonRun(deps: BriefDeps = defaultBriefDeps): { started: boolean; done: Promise<number | null> } {
   if (state.running) return { started: false, done: Promise.resolve(null) };
   const now = deps.now();
-  if (buttonUsedOn(kstDay(now)) >= BRIEF_BUTTON_DAILY_LIMIT) {
-    throw new BriefLimitError(`오늘 버튼 ${BRIEF_BUTTON_DAILY_LIMIT}번을 다 썼습니다 — 내일 다시 눌러 주세요`);
-  }
   // runOnce 는 첫 await 전에 running 을 잡는다 — 같은 틱에 두 번 눌러도 두 번째는 위에서 걸린다
   const done = runOnce(editionAt(now), 'button', deps);
   return { started: true, done };

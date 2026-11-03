@@ -167,7 +167,7 @@ export const daysSample: MarketBriefDays = {
   ],
 };
 
-export function statusSample(o: { running?: boolean; used?: number; gemini?: boolean } = {}): MarketBriefStatus {
+export function statusSample(o: { running?: boolean; gemini?: boolean } = {}): MarketBriefStatus {
   return {
     running: o.running ?? false,
     stage: o.running ? 'ai' : null,
@@ -175,8 +175,6 @@ export function statusSample(o: { running?: boolean; used?: number; gemini?: boo
     trigger: o.running ? 'button' : null,
     startedAt: o.running ? new Date().toISOString() : null,
     today: '2026-10-29',
-    buttonUsed: o.used ?? 2,
-    buttonLimit: 5,
     nowEdition: 'afternoon',
     autoDisabledReason: null,
     geminiDisabledReason: o.gemini === false ? '이 서버에서는 Gemini 가 꺼져 있습니다(GEMINI_ENABLED=false)' : null,

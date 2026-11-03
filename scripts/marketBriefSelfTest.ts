@@ -6,7 +6,7 @@
  *   RSS(한 곳 실패 · 국내 전부 실패 → 폴백 · 오후판 해외 안 받음) · 60일 실적(대상 · 전망치 묶음 · sanity ⚠️ · 노이즈 매출 숨김 · 원화 · [D+N])
  * - B 만들기: 프롬프트([D+N] · 섹터 목록 · 판별 입력) · 스키마(섹터 enum) · 뒤처리 3단계(순서 · 국내 보존 · 상한 3/3/2 · 슬롯 다시 배치 · 해 경계) ·
  *   Gemini 꺼짐/실패/429 → 데이터만 저장 · 1번만 다시 · 자동(평일 06:55 뒤 첫 틱 1번 · 주말 0 · 같은 날 0 · 13시 뒤 0 · 스위치 끔 0) ·
- *   버튼(13시 경계 판 · 5번 뒤 막힘 · 자동은 안 셈 · 동시에 두 번 → 하나) · 30일 정리 · 같은 날 여러 줄
+ *   버튼(13시 경계 판 · 횟수 제한 없음 · 동시에 두 번 → 하나) · 30일 정리 · 같은 날 여러 줄
  * - 사본 DB 의 `market_briefs` 를 비우고, 시험용 실적일 · 섹터 줄(티커 ZZ…)을 넣었다가 지운다(사본만).
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
@@ -39,12 +39,12 @@ import { BRIEF_SECTORS } from '../server/marketBrief/earnings';
 import { capAndSortBySectorPriority, daysUntilLabel, filterByLeadingSectors, markReleased, markReleasedEarnings, normalizeBrief, postprocess, reassignSlotsByDays } from '../server/marketBrief/postprocess';
 import { regularSessionEnd, setSessionHooksForTest } from '../server/heatmapSession';
 import { countBriefs, getBrief, insertBrief, listBriefDays, listBriefsOf, purgeOldBriefs } from '../server/marketBrief/store';
-import { autoDue, BriefLimitError, briefStatus, marketBriefTick, resetBriefStateForTest, resetPurgeForTest, startButtonRun, type BriefDeps } from '../server/marketBrief/service';
+import { autoDue, briefStatus, marketBriefTick, resetBriefStateForTest, resetPurgeForTest, startButtonRun, type BriefDeps } from '../server/marketBrief/service';
 import { geminiUsageToday } from '../server/gemini/usage';
 import { GeminiError, type GeminiCallOptions } from '../server/gemini/client';
 import { editionAt, isIntradayBar, scheduleItemMarket } from '../src/utils/marketBrief';
 import fs from 'node:fs';
-import type { BriefAi, BriefEarning, BriefScheduleItem } from '../src/types/marketBrief';
+import { BRIEF_AI_RATE_LIMITED, type BriefAi, type BriefEarning, type BriefScheduleItem } from '../src/types/marketBrief';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -674,7 +674,7 @@ const runButton = async () => {
   geminiCalls.length = 0;
   geminiPlan = ['429'];
   const b4 = getBrief((await runButton()).id!);
-  check('429 → 다시 부르지 않음 · 「무료 한도 초과」', geminiCalls.length === 1 && b4?.brief === null && /무료 한도 초과/.test(b4?.aiError ?? '') && b4?.aiCalls === 1);
+  check('429 → 다시 부르지 않음 · 이유 = 무료 한도(화면이 쉬운 한 줄로 바꾸는 글 BRIEF_AI_RATE_LIMITED 그대로)', geminiCalls.length === 1 && b4?.brief === null && b4?.aiError === BRIEF_AI_RATE_LIMITED && b4?.aiCalls === 1);
 
   // 시장 데이터를 하나도 못 받음 → AI 를 부르지 않는다(지어낸 시황 방지)
   geminiCalls.length = 0;
@@ -684,7 +684,7 @@ const runButton = async () => {
   };
   const nm = getBrief((await runButton()).id!);
   deps.collect.market = realMarket;
-  db.prepare(`DELETE FROM market_briefs WHERE id = ?`).run(nm!.id); // 아래 5번 세기를 위해 이 줄은 지운다
+  db.prepare(`DELETE FROM market_briefs WHERE id = ?`).run(nm!.id); // 아래 버튼 줄 세기를 위해 이 줄은 지운다
   check('시장 데이터 0개 → AI 안 부름 · 데이터만 · 이유', geminiCalls.length === 0 && nm?.brief === null && /시장 데이터를 받지 못해/.test(nm?.aiError ?? '') && nm?.sources.find((x) => x.group === 'market')?.ok === false);
   check('수집 시각 저장(장중/종가 판단)', !!b1?.data.collectedAt);
 
@@ -695,18 +695,17 @@ const runButton = async () => {
   check('Gemini 꺼짐 → 호출 0 · 데이터만 · 이유', geminiCalls.length === 0 && b5?.brief === null && b5?.aiCalls === 0 && /^AI 꺼짐/.test(b5?.aiError ?? '') && b5?.sources.find((x) => x.group === 'ai')?.ok === false);
   geminiReason = null;
 
-  // 버튼 5번 → 6번째 막힘 · 자동은 안 셈
+  // 횟수 제한 없음 — 같은 날 버튼 5번 뒤에도 6번째 · 7번째가 돈다(상태에 횟수 칸도 없다)
   check('버튼 5번 저장됨', countBriefs('2026-10-29', 'button') === 5);
-  let blocked = false;
-  try {
-    startButtonRun(deps);
-  } catch (e) {
-    blocked = e instanceof BriefLimitError && /5번을 다 썼습니다/.test((e as Error).message);
-  }
-  check('6번째 버튼 → 막힘(「오늘 버튼 5번을 다 썼습니다」)', blocked);
-  check('사용량 — 오늘 시황 호출 수(1+2+2+1+0)', geminiUsageToday(new Date(clock)).items.find((i) => i.key === 'marketBrief')?.calls === 6);
+  const sixth = startButtonRun(deps);
+  await sixth.done;
+  const seventh = startButtonRun(deps);
+  await seventh.done;
+  check('6번째 · 7번째 버튼 → 막히지 않고 돎 · 줄 7개', sixth.started && seventh.started && countBriefs('2026-10-29', 'button') === 7);
+  check('상태에 버튼 횟수 칸 없음', !('buttonUsed' in briefStatus(clock)) && !('buttonLimit' in briefStatus(clock)));
+  check('사용량 — 오늘 시황 호출 수(1+2+2+1+0+1+1)', geminiUsageToday(new Date(clock)).items.find((i) => i.key === 'marketBrief')?.calls === 8);
 
-  // 저장에 실패한 버튼 실행도 횟수에 센다 · 자정을 넘겨 끝나면 시작 날짜 줄로
+  // 저장에 실패한 버튼 실행 → 오류만 남고 진행이 풀린다 · 자정을 넘겨 끝나면 시작 날짜 줄로
   {
     clock = kst('2026-11-09', '10:00');
     resetBriefStateForTest();
@@ -718,7 +717,7 @@ const runButton = async () => {
     await runButton();
     db.exec(`DROP TRIGGER brief_fail`);
     deps.collect.earnings = realEarn;
-    check('저장 실패 → lastError · 진행 풀림 · 버튼 횟수 1', /디스크 가득/.test(briefStatus(clock).lastError ?? '') && !briefStatus(clock).running && briefStatus(clock).buttonUsed === 1);
+    check('저장 실패 → lastError · 진행 풀림', /디스크 가득/.test(briefStatus(clock).lastError ?? '') && !briefStatus(clock).running);
     clock = kst('2026-11-09', '23:59');
     const late = startButtonRun({ ...deps, now: () => clock });
     clock = kst('2026-11-10', '00:01');
@@ -776,7 +775,6 @@ const runButton = async () => {
   const second = await marketBriefTick(deps);
   const auto = first ? getBrief(first) : null;
   check('자동 — 06:55 뒤 첫 틱에 1번 · 오전판 · 다음 틱 0', early === null && auto?.trigger === 'auto' && auto.edition === 'morning' && second === null && countBriefs('2026-11-02', 'auto') === 1);
-  check('자동은 버튼 횟수에 안 셈', briefStatus(clock).buttonUsed === 0);
   clock = kst('2026-11-03', '13:10'); // 화 — 오전에 서버가 꺼져 있었다
   check('13시 뒤에는 놓친 오전판 보충 0', (await marketBriefTick(deps)) === null && countBriefs('2026-11-03', 'auto') === 0);
   clock = kst('2026-11-04', '11:40'); // 수 — 오전에 꺼졌다가 11:40 에 켬
@@ -805,8 +803,8 @@ const runButton = async () => {
   check('30일 정리 — 오늘(11-04) 포함 30일: 10-06 남김 · 10-05 이전 지움', removed === 2 && days.includes('2026-10-06') && !days.includes('2026-10-05') && !days.includes('2026-09-01'));
   resetPurgeForTest();
   const list = listBriefsOf('2026-10-29');
-  check('같은 날 여러 줄 — 모두 남김 · 최근 것부터', list.length === 5 && list[0].createdAt >= list[4].createdAt && list.every((i, k) => k === 0 || list[k - 1].createdAt >= i.createdAt));
-  check('날짜 목록 — 최근 것부터 · 줄 수', days.every((d, k) => k === 0 || days[k - 1] > d) && days.includes('2026-11-05') && listBriefDays().find((d) => d.date === '2026-10-29')?.count === 5);
+  check('같은 날 여러 줄 — 모두 남김(버튼 7) · 최근 것부터', list.length === 7 && list[0].createdAt >= list[6].createdAt && list.every((i, k) => k === 0 || list[k - 1].createdAt >= i.createdAt));
+  check('날짜 목록 — 최근 것부터 · 줄 수', days.every((d, k) => k === 0 || days[k - 1] > d) && days.includes('2026-11-05') && listBriefDays().find((d) => d.date === '2026-10-29')?.count === 7);
 }
 
 // ═════════════════════════ C. 정확성(v2.59.6) — 문장 ↔ 숫자 · 대표 종목 · AI 없는 「발표됨」 ═════════════════════════

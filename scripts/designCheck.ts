@@ -346,14 +346,13 @@ function targets(): Target[] {
         await page.evaluate(() => localStorage.removeItem('alphascope.usHaltsView.v2'));
       },
     })),
-    // 오늘 시황 — 채워진 브리핑(오전판 · 오후판) · AI 없음(데이터만) · 진행 중 · 버튼 5번 다 씀(가짜 응답 — DB · Gemini 그대로)
+    // 오늘 시황 — 채워진 브리핑(오전판 · 오후판) · AI 없음(데이터만) · 진행 중(가짜 응답 — DB · Gemini 그대로)
     ...(
       [
         ['오전판', 'morning', true, {}],
         ['오후판', 'afternoon', true, {}],
         ['AI없음', 'morning', false, { gemini: false }],
         ['진행중', 'afternoon', true, { running: true }],
-        ['5번다씀', 'morning', true, { used: 5 }],
       ] as const
     ).map(([label, edition, withAi, st]) => ({
       name: `market-brief-${label}`,
