@@ -23,6 +23,15 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.60.3',
+    date: '2026-11-03',
+    title: '내부 정리(배포 스크립트 — 화면 변화 없음)',
+    description: '서버 배포 때 AlphaScope 프로그램만 다시 켭니다. 화면에서 달라지는 것은 없습니다',
+    changes: [
+      '배포가 같은 서버의 다른 프로그램은 건드리지 않고 AlphaScope 두 프로그램만 다시 켭니다',
+    ],
+  },
+  {
     version: 'v2.60.2',
     date: '2026-11-03',
     title: '서머타임에 맞춰 저녁 미국 시장 전환 시각 자동 · 시황 분석 횟수 제한 없앰 · 접힌 시황 줄 스크롤 막대 없앰 · 데이터 받는 동안 모든 화면 로딩 표시',
