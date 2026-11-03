@@ -23,6 +23,16 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.60.5',
+    date: '2026-11-03',
+    title: '오라클 접속 주소가 http://161.33.153.189:8080 으로 바뀜(80번 문 닫음)',
+    description: '서버 주소 끝에 :8080 을 붙여 접속합니다. 예전 주소(http://161.33.153.189)는 열리지 않습니다',
+    changes: [
+      '오라클 접속 주소가 http://161.33.153.189:8080 으로 바뀌었습니다(80번 문은 닫음) — 북마크를 새 주소로 바꿔 주세요',
+      '새 주소에서도 로그인 · 설정 저장이 그대로 됩니다',
+    ],
+  },
+  {
     version: 'v2.60.4',
     date: '2026-11-03',
     title: '버전 안내 배너의 오라클 업데이트 방법을 ~/deploy.sh 로',

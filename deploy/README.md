@@ -1,6 +1,7 @@
 # 오라클 서버 운영
 
 오라클 서버는 미리 만들어 둔 **완성본(dist)** 을 nginx 가 바로 보냅니다. API(4000)와 지표 엔진(5001)은 pm2 가 돌립니다.
+**AlphaScope 주소: `http://161.33.153.189:8080`** — 80번 문은 닫혀 있습니다(`http://161.33.153.189` 는 열리지 않음). 같은 서버의 다른 프로젝트는 8081 입니다.
 개발용 서버(Vite)는 인터넷에 열지 않습니다 — 자동 탐색 요청 하나로 열린 모든 화면에 「URI malformed」 오류 창이 뜨고, 소스 파일도 그대로 나갑니다.
 
 ## 배포
@@ -19,9 +20,19 @@ ssh alphascope '~/deploy.sh'
 cp ~/alphascope/deploy/deploy.sh ~/deploy.sh
 ```
 
+### nginx 설정이 바뀌었을 때
+
+배포는 nginx 설정 파일(`deploy/nginx-alphascope.conf`)을 서버에 넣지 않습니다. 설정이 바뀐 코드를 받았으면 서버에서 한 번 돌립니다.
+
+```bash
+cd ~/alphascope && git pull --ff-only origin main && bash deploy/apply-nginx.sh
+```
+
+지금 설정을 날짜 붙은 이름으로 백업(`/etc/nginx/sites-available/alphascope.backup-…`) → 새 설정 넣기 → `nginx -t` → 적용 → 8080 화면 · `/api/version` 확인 순서로 돌고, 끝에 「AlphaScope 주소: http://161.33.153.189:8080」 이 나옵니다. 검사나 확인이 실패하면 **자동으로 백업으로 되돌리고 멈춥니다**(주소는 예전 그대로).
+
 ### 같은 서버에 다른 프로젝트가 있을 때
 
-배포는 **AlphaScope 두 프로그램(`alphascope-api` · `alphascope-indicators`)만** 다시 켭니다 — `pm2 restart all` 같은 「모두」 명령은 쓰지 않으므로 다른 프로젝트의 pm2 프로그램은 그대로 돕니다. 둘 가운데 하나가 pm2 에 없으면 `ecosystem.config.cjs` 로 그 이름만 켜고 알립니다. 끝의 pm2 상태도 AlphaScope 두 줄만 보입니다. 다른 프로젝트의 pm2 설정 · nginx 설정 파일은 AlphaScope 것(`ecosystem.config.cjs` · `/etc/nginx/sites-available/alphascope`)과 **따로** 둡니다. `sudo nginx -t` · `reload` 는 모든 사이트에 함께 걸리므로, 다른 사이트 설정이 틀려 있으면 AlphaScope 배포도 `nginx -t` 에서 멈춥니다(화면 복사는 이미 끝난 뒤 — pm2 는 다시 켜지지 않음).
+배포는 **AlphaScope 두 프로그램(`alphascope-api` · `alphascope-indicators`)만** 다시 켭니다 — `pm2 restart all` 같은 「모두」 명령은 쓰지 않으므로 다른 프로젝트의 pm2 프로그램은 그대로 돕니다. 둘 가운데 하나가 pm2 에 없으면 `ecosystem.config.cjs` 로 그 이름만 켜고 알립니다. 끝의 pm2 상태도 AlphaScope 두 줄만 보입니다. 다른 프로젝트의 pm2 설정 · nginx 설정 파일은 AlphaScope 것(`ecosystem.config.cjs` · `/etc/nginx/sites-available/alphascope`)과 **따로** 두고, 문은 AlphaScope 8080 · 다른 프로젝트 8081 로 나눕니다(80은 비워 둠). `sudo nginx -t` · `reload` 는 모든 사이트에 함께 걸리므로, 다른 사이트 설정이 틀려 있으면 AlphaScope 배포도 `nginx -t` 에서 멈춥니다(화면 복사는 이미 끝난 뒤 — pm2 는 다시 켜지지 않음).
 
 ## 로그인 비밀번호
 
@@ -65,13 +76,15 @@ cd ~/alphascope && npm run auth:set-password
    2. 글자 모양(글꼴)이 전과 같다.
    3. 서버에서 `pm2 list` 를 쳤을 때 `alphascope-web` 이 없고 `alphascope-api`·`alphascope-indicators` 가 `online` 이다.
 
-## 되돌리기 (문제가 생기면)
+## 되돌리기
 
-```bash
-bash ~/alphascope/deploy/rollback-to-vite.sh
-```
+- **nginx 설정을 바꾼 뒤 문제가 생기면**: `apply-nginx.sh` 는 검사 · 확인이 실패하면 스스로 되돌립니다. 적용된 뒤에 되돌리려면 그때 남긴 백업을 넣습니다(이름은 `ls /etc/nginx/sites-available/` 로 확인).
 
-전환 때 남긴 백업 3개(nginx · pm2 · deploy.sh)를 되돌리고 개발 서버를 다시 켭니다.
+  ```bash
+  sudo cp /etc/nginx/sites-available/alphascope.backup-<날짜> /etc/nginx/sites-available/alphascope && sudo nginx -t && sudo systemctl reload nginx
+  ```
+
+- ⚠️ `rollback-to-vite.sh` 는 **옛 Vite 시절(80번) 설정**으로 돌아갑니다 — 지금은 쓰지 않습니다.
 
 ## 자주 생길 일
 
@@ -165,8 +178,9 @@ ssh alphascope '(crontab -l 2>/dev/null | grep -v "# alphascope-ussample") | cro
 
 | 파일 | 하는 일 |
 |---|---|
-| `nginx-alphascope.conf` | nginx 설정 — 화면은 `/var/www/alphascope`(`/assets/` 1년 캐시 · `index.html` 캐시 안 함), `/api/` 는 127.0.0.1:4000 |
+| `nginx-alphascope.conf` | nginx 설정 — **8080** 만 듣는다 · 화면은 `/var/www/alphascope`(`/assets/` 1년 캐시 · `index.html` 캐시 안 함), `/api/` 는 127.0.0.1:4000(`Host $http_host` — 문 번호까지 넘겨야 로그인 · 저장이 403 이 아니다) |
+| `apply-nginx.sh` | nginx 설정이 바뀌었을 때 손으로 한 번 — 백업 · 넣기 · 검사 · 적용 · 8080 확인 · 실패하면 되돌림 |
 | `ecosystem.config.cjs` | pm2 설정 — api·indicators 두 개(개발 서버 없음) |
 | `deploy.sh` | 배포 스크립트 — `~/deploy.sh` 로 복사되어 쓰인다 · pm2 는 AlphaScope 두 이름만(`PM2_APPS` — `ecosystem.config.cjs` 와 같게 · `npm run deploy:test`) |
 | `switch-to-static.sh` | 한 번만 쓰는 전환 스크립트(백업·자동 되돌리기 포함) |
-| `rollback-to-vite.sh` | 예전 방식으로 되돌리기 |
+| `rollback-to-vite.sh` | 옛 Vite 시절(80번)로 되돌리기 — 지금은 쓰지 않는다 |
