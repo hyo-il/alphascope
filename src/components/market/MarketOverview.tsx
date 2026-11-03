@@ -48,31 +48,32 @@ export default function MarketOverview() {
   };
 
   // 접힌 상태 — 한 줄 요약만 남긴다.
+  // ⚠️ 스크롤 막대가 생기지 않게: 버튼은 줄(h-8 − 아래 테두리 1px = 안쪽 31px)에 들어가는 sm(28px) · 지수가 넘치면 말줄임으로 자른다(스크롤 없음).
   if (collapsed) {
     return (
-      <div className="flex h-8 shrink-0 items-center gap-4 overflow-x-auto border-b border-border bg-bg-secondary px-3 text-caption whitespace-nowrap">
-        {indices.slice(0, 4).map((index) => {
-          const up = index.changeRate != null && index.changeRate > 0;
-          const down = index.changeRate != null && index.changeRate < 0;
-          return (
-            <span key={index.symbol} className="flex shrink-0 items-baseline gap-1.5">
-              <span className="text-text-muted">{index.label}</span>
-              <span className="tabular-nums text-text-primary">
-                {index.price?.toLocaleString('ko-KR', { maximumFractionDigits: 2 }) ?? '—'}
+      <div className="flex h-8 shrink-0 items-center gap-4 overflow-hidden border-b border-border bg-bg-secondary px-3 text-caption whitespace-nowrap">
+        <div className="min-w-0 flex-1 truncate">
+          {indices.slice(0, 4).map((index) => {
+            const up = index.changeRate != null && index.changeRate > 0;
+            const down = index.changeRate != null && index.changeRate < 0;
+            return (
+              <span key={index.symbol} className="mr-4 inline-flex items-baseline gap-1.5 last:mr-0">
+                <span className="text-text-muted">{index.label}</span>
+                <span className="tabular-nums text-text-primary">
+                  {index.price?.toLocaleString('ko-KR', { maximumFractionDigits: 2 }) ?? '—'}
+                </span>
+                <span
+                  className={`tabular-nums ${up ? 'text-bullish' : down ? 'text-bearish' : 'text-text-muted'}`}
+                >
+                  {index.changeRate != null &&
+                    `${up ? '+' : down ? '−' : ''}${Math.abs(index.changeRate).toFixed(2)}%`}
+                </span>
               </span>
-              <span
-                className={`tabular-nums ${up ? 'text-bullish' : down ? 'text-bearish' : 'text-text-muted'}`}
-              >
-                {index.changeRate != null &&
-                  `${up ? '+' : down ? '−' : ''}${Math.abs(index.changeRate).toFixed(2)}%`}
-              </span>
-            </span>
-          );
-        })}
+            );
+          })}
+        </div>
 
-        <Button variant="ghost" size="md"
-          onClick={toggle}
-          className="ml-auto">
+        <Button variant="ghost" size="sm" onClick={toggle}>
           <ChevronDown {...ICON_SM} />
           시황 펼치기
         </Button>
