@@ -11,8 +11,17 @@
 ssh alphascope '~/deploy.sh'
 ```
 
-받기 → 설치 → 빌드 → 화면을 `/var/www/alphascope` 로 복사 + nginx 다시 읽기 → pm2 재시작 → API·화면 확인 순서로 돕니다.
+받기 → 설치 → 빌드 → 화면을 `/var/www/alphascope` 로 복사 + nginx 다시 읽기 → pm2 `alphascope-api` · `alphascope-indicators` 재시작 → API·화면 확인 순서로 돕니다.
 빌드가 실패하면 복사하지 않으므로 예전 화면이 그대로 남습니다. 화면만 바뀌어도 이 배포가 필요합니다.
+`~/deploy.sh` 는 저장소 `deploy/deploy.sh` 의 **복사본**입니다. 받은 코드에서 배포 스크립트가 바뀌었으면 끝에 「배포 스크립트가 바뀌었습니다」 가 나옵니다(돌고 있는 스크립트는 덮어쓰지 않습니다) — 그때 아래 한 줄로 바꿉니다.
+
+```bash
+cp ~/alphascope/deploy/deploy.sh ~/deploy.sh
+```
+
+### 같은 서버에 다른 프로젝트가 있을 때
+
+배포는 **AlphaScope 두 프로그램(`alphascope-api` · `alphascope-indicators`)만** 다시 켭니다 — `pm2 restart all` 같은 「모두」 명령은 쓰지 않으므로 다른 프로젝트의 pm2 프로그램은 그대로 돕니다. 둘 가운데 하나가 pm2 에 없으면 `ecosystem.config.cjs` 로 그 이름만 켜고 알립니다. 끝의 pm2 상태도 AlphaScope 두 줄만 보입니다. 다른 프로젝트의 pm2 설정 · nginx 설정 파일은 AlphaScope 것(`ecosystem.config.cjs` · `/etc/nginx/sites-available/alphascope`)과 **따로** 둡니다. `sudo nginx -t` · `reload` 는 모든 사이트에 함께 걸리므로, 다른 사이트 설정이 틀려 있으면 AlphaScope 배포도 `nginx -t` 에서 멈춥니다(화면 복사는 이미 끝난 뒤 — pm2 는 다시 켜지지 않음).
 
 ## 로그인 비밀번호
 
@@ -158,6 +167,6 @@ ssh alphascope '(crontab -l 2>/dev/null | grep -v "# alphascope-ussample") | cro
 |---|---|
 | `nginx-alphascope.conf` | nginx 설정 — 화면은 `/var/www/alphascope`(`/assets/` 1년 캐시 · `index.html` 캐시 안 함), `/api/` 는 127.0.0.1:4000 |
 | `ecosystem.config.cjs` | pm2 설정 — api·indicators 두 개(개발 서버 없음) |
-| `deploy.sh` | 배포 스크립트 — `~/deploy.sh` 로 복사되어 쓰인다 |
+| `deploy.sh` | 배포 스크립트 — `~/deploy.sh` 로 복사되어 쓰인다 · pm2 는 AlphaScope 두 이름만(`PM2_APPS` — `ecosystem.config.cjs` 와 같게 · `npm run deploy:test`) |
 | `switch-to-static.sh` | 한 번만 쓰는 전환 스크립트(백업·자동 되돌리기 포함) |
 | `rollback-to-vite.sh` | 예전 방식으로 되돌리기 |
