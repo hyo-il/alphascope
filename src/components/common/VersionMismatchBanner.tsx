@@ -46,9 +46,7 @@ export default function VersionMismatchBanner() {
           </p>
           <p>
             오라클:{' '}
-            <code className="rounded bg-warning/15 px-1">
-              git pull &amp;&amp; npm install &amp;&amp; npm run build &amp;&amp; pm2 restart all
-            </code>
+            <code className="rounded bg-warning/15 px-1">~/deploy.sh</code> (오라클에 접속한 뒤 · AlphaScope 만 다시 켬)
           </p>
         </div>
       )}

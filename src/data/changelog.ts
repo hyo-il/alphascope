@@ -23,6 +23,15 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.60.4',
+    date: '2026-11-03',
+    title: '버전 안내 배너의 오라클 업데이트 방법을 ~/deploy.sh 로',
+    description: '서버가 옛 버전일 때 뜨는 배너의 「상세 보기」 가 오라클에서는 ~/deploy.sh 한 줄을 안내합니다',
+    changes: [
+      '버전 안내 배너 「상세 보기」 의 오라클 안내가 ~/deploy.sh 한 줄로 바뀌었습니다(AlphaScope 만 다시 켬 — 같은 서버의 다른 프로그램은 그대로)',
+    ],
+  },
+  {
     version: 'v2.60.3',
     date: '2026-11-03',
     title: '내부 정리(배포 스크립트 — 화면 변화 없음)',
