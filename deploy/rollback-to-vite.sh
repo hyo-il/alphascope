@@ -1,4 +1,5 @@
 #!/bin/bash
+# ⚠️ 옛 Vite 시절(80번) 설정으로 돌아간다 — 지금은 쓰지 않는다.
 # AlphaScope — 완성본(dist)+nginx 에서 예전 개발 서버(Vite) 방식으로 되돌리기 (v2.36.1).
 # switch-to-static.sh 가 남긴 백업 3개(nginx · pm2 · deploy.sh)를 원래 자리로 돌려놓고 개발 서버를 다시 켠다.
 #   쓰는 법(오라클 안에서):  bash ~/alphascope/deploy/rollback-to-vite.sh

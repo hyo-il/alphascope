@@ -6,6 +6,7 @@ set -e
 APP_DIR="$HOME/alphascope"
 WEB_DIR="/var/www/alphascope"
 SERVER_NAME="161.33.153.189"   # nginx 설정의 server_name 과 같아야 한다(확인 요청에 쓴다)
+PUBLIC_PORT=8080               # nginx 설정의 listen 과 같아야 한다 — AlphaScope 주소 http://161.33.153.189:8080 (80번 문은 닫음)
 # AlphaScope pm2 프로그램 이름 — 이 둘만 다시 켠다(같은 서버의 다른 프로젝트 pm2 프로그램은 건드리지 않는다).
 # deploy/ecosystem.config.cjs 의 name 과 같아야 한다(npm run deploy:test 가 확인).
 PM2_APPS="alphascope-api alphascope-indicators"
@@ -77,11 +78,11 @@ if VERSION=$(curl -sf http://127.0.0.1:4000/api/version); then
 else
   echo "  ⚠️ API 가 아직 응답하지 않습니다. 'pm2 logs alphascope-api --lines 30' 으로 확인하세요."
 fi
-CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $SERVER_NAME" http://127.0.0.1/ || true)
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $SERVER_NAME:$PUBLIC_PORT" "http://127.0.0.1:$PUBLIC_PORT/" || true)
 if [ "$CODE" = "200" ]; then
   echo "  화면 응답: 200"
 else
-  echo "  ⚠️ 화면이 응답하지 않습니다(코드 $CODE). 'sudo nginx -t' 와 '$WEB_DIR' 폴더를 확인하세요."
+  echo "  ⚠️ 화면이 응답하지 않습니다(코드 $CODE · 문 $PUBLIC_PORT). 'sudo nginx -t' 와 '$WEB_DIR' 폴더를 확인하세요. nginx 설정이 바뀌었으면 'bash ~/alphascope/deploy/apply-nginx.sh'."
 fi
 if [ "$SCRIPT_CHANGED" = "1" ]; then
   echo "  ⚠️ 배포 스크립트가 바뀌었습니다 — cp ~/alphascope/deploy/deploy.sh ~/deploy.sh"
