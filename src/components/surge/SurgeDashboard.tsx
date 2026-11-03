@@ -1,6 +1,6 @@
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
 import { TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
-import { RemoveAllButton, PANEL_PAD, PANEL_X } from '../ui';
+import { Button, RemoveAllButton, PANEL_PAD, PANEL_X } from '../ui';
 import { Fragment } from 'react';
 import { usePageTab } from '../../hooks/usePageTab';
 import PageHeader from '../ui/PageHeader';
@@ -121,7 +121,7 @@ const roundLabel = (iso: string) => {
 };
 
 function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted: () => void }) {
-  const { detections, loading, remove } = useSurgeHistory(true);
+  const { detections, loading, loaded, error, reload, remove } = useSurgeHistory(true);
 
   const confirmDelete = (detectedAt?: string, count?: number) => {
     modal.confirm({
@@ -144,6 +144,16 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
     });
   };
 
+  if (error && !loaded) {
+    return (
+      <div className="flex items-center gap-3 text-xs text-danger">
+        <span>히스토리를 불러오지 못했습니다: {error}</span>
+        <Button size="sm" busy={loading} onClick={reload}>
+          다시 시도
+        </Button>
+      </div>
+    );
+  }
   if (loading && !detections.length) return <p className="text-xs text-text-muted">히스토리를 불러오는 중…</p>;
   if (!detections.length) {
     return <p className="text-xs text-text-muted">아직 탐지 히스토리가 없습니다.</p>;

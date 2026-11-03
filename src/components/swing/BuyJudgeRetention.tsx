@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Segmented } from '../ui';
+import { Button, Segmented } from '../ui';
 import { applyRetention, fetchRetention, retentionPreview } from '../../hooks/useBuyJudge';
 import { modal, toast } from '../../store/uiStore';
 import { RETENTIONS, type Retention } from '../../types/buyJudge';
@@ -11,11 +11,15 @@ import { RETENTIONS, type Retention } from '../../types/buyJudge';
 export default function BuyJudgeRetention() {
   const [value, setValue] = useState<Retention | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => {
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const load = () => {
+    setLoadError(null);
     void fetchRetention()
       .then(setValue)
-      .catch((e) => toast.error('보관 기간을 불러오지 못했습니다', (e as Error).message));
-  }, []);
+      // 실패를 「불러오는 중…」 으로 남겨 두지 않는다 — 오류 + 다시 시도
+      .catch((e) => setLoadError((e as Error).message));
+  };
+  useEffect(load, []);
 
   const apply = async (next: Retention) => {
     setBusy(true);
@@ -53,7 +57,14 @@ export default function BuyJudgeRetention() {
 
   return (
     <div className="space-y-1.5">
-      {value == null ? (
+      {value == null && loadError ? (
+        <p className="flex items-center gap-2 text-caption text-danger">
+          보관 기간을 불러오지 못했습니다: {loadError}
+          <Button size="sm" onClick={load}>
+            다시 시도
+          </Button>
+        </p>
+      ) : value == null ? (
         <p className="text-caption text-text-muted">불러오는 중…</p>
       ) : (
         <Segmented label="매수 판단 기록 보관 기간" value={value} onChange={(v) => void change(v)} options={RETENTIONS.map((r) => ({ value: r.id, label: r.label, disabled: busy }))} />

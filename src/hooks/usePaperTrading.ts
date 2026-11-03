@@ -345,7 +345,8 @@ export function usePaperAccountDetail(accountId: number | null) {
     };
   }, [accountId, tick]);
 
-  return { detail, error, refresh };
+  // 다른 계좌의 상세는 돌려주지 않는다 — 계좌를 바꾼 직후 옛 계좌 값이 표시 없이 남지 않게(화면은 받는 중 스켈레톤)
+  return { detail: detail && detail.account.id === accountId ? detail : null, error, refresh };
 }
 
 /**
@@ -374,7 +375,8 @@ export function usePaperTrades(accountId: number | null, tick = 0) {
 }
 
 export function usePaperOrders(accountId: number | null, tick = 0) {
-  const [orders, setOrders] = useState<PaperOrder[]>([]);
+  const [state, setState] = useState<{ accountId: number | null; orders: PaperOrder[] }>({ accountId: null, orders: [] });
+  const setOrders = (orders: PaperOrder[]) => setState({ accountId, orders });
 
   useEffect(() => {
     if (!accountId) {
@@ -388,13 +390,16 @@ export function usePaperOrders(accountId: number | null, tick = 0) {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId, tick]);
 
-  return orders;
+  // 다른 계좌의 주문은 돌려주지 않는다
+  return state.accountId === accountId ? state.orders : [];
 }
 
 export function usePaperPerformance(accountId: number | null, tick = 0) {
   const [data, setData] = useState<{
+    accountId?: number;
     performance: PaperPerformance;
     snapshots: PaperSnapshot[];
   } | null>(null);
@@ -408,14 +413,15 @@ export function usePaperPerformance(accountId: number | null, tick = 0) {
     void request<{ performance: PaperPerformance; snapshots: PaperSnapshot[] }>(
       `/api/paper/performance?accountId=${accountId}`,
     )
-      .then((d) => !cancelled && setData(d))
+      .then((d) => !cancelled && setData({ ...d, accountId }))
       .catch((e) => !cancelled && toast.error('성과를 계산하지 못했습니다', String(e.message ?? e)));
     return () => {
       cancelled = true;
     };
   }, [accountId, tick]);
 
-  return data;
+  // 다른 계좌의 성과는 돌려주지 않는다(화면은 받는 중 스켈레톤)
+  return data && data.accountId === accountId ? data : null;
 }
 
 export async function submitOrder(input: CreateOrderInput): Promise<CreateOrderResult> {

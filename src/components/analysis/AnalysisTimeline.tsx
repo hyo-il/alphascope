@@ -12,6 +12,7 @@ import { useStockNames } from '../../hooks/useStockNames';
 import GeminiAnalysisCard from './GeminiAnalysisCard';
 import { GEMINI_TRIGGER_LABEL } from './AISourceBadge';
 import { SkeletonList } from '../common/SkeletonLoader';
+import { InlineSpinner } from '../common/LoadingOverlay';
 
 /** Claude 기록 (analysis_history) — 저장·편집은 '수동 분석' 탭이 담당하고 여기서는 읽기만 한다 */
 interface ClaudeRecord {
@@ -80,6 +81,9 @@ export default function AnalysisTimeline({
   const [gemini, setGemini] = useState<GeminiAnalysis[]>([]);
   const [claude, setClaude] = useState<ClaudeRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  // 한 번이라도 받았나 — 처음만 스켈레톤, 그 뒤 다시 받을 때는 내용을 두고 작은 스피너
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [onlyThisSymbol, setOnlyThisSymbol] = useState(true);
   const [expanded, setExpanded] = useState<number | null>(null);
   /** NEW 뱃지를 보여 줄 기준 시각 — 3초 뒤에 스스로 꺼진다 */
@@ -113,9 +117,14 @@ export default function AnalysisTimeline({
     setLoading(true);
     const query = onlyThisSymbol && symbol ? `?symbol=${encodeURIComponent(symbol)}` : '';
     try {
+      // 실패를 빈 목록으로 바꾸지 않는다 — 「아직 없습니다」 로 보이면 안 된다
+      const json = async (r: Response) => {
+        if (!r.ok) throw new Error(`요청 실패 (${r.status})`);
+        return r.json();
+      };
       const [g, c] = await Promise.all([
-        fetch(`/api/gemini/analyses${query || '?limit=100'}`).then((r) => (r.ok ? r.json() : [])),
-        fetch(`/api/analysis${query}`).then((r) => (r.ok ? r.json() : {})),
+        fetch(`/api/gemini/analyses${query || '?limit=100'}`).then(json),
+        fetch(`/api/analysis${query}`).then(json),
       ]);
       // 내가 마지막 요청이 아니면 결과를 버린다.
       if (ticket !== requestId.current) return;
@@ -126,6 +135,10 @@ export default function AnalysisTimeline({
       */
       const claudeRows = Array.isArray(c) ? c : (c as { analyses?: unknown }).analyses;
       setClaude(Array.isArray(claudeRows) ? (claudeRows as ClaudeRecord[]) : []);
+      setLoadError(null);
+      setLoaded(true);
+    } catch (e) {
+      if (ticket === requestId.current) setLoadError((e as Error).message);
     } finally {
       if (ticket === requestId.current) setLoading(false);
     }
@@ -223,7 +236,7 @@ export default function AnalysisTimeline({
     }
   };
 
-  if (loading) return <SkeletonList count={4} />;
+  if (!loaded && !loadError) return <SkeletonList count={4} />;
 
   return (
     <div className="space-y-3">
@@ -247,21 +260,32 @@ export default function AnalysisTimeline({
             </option>
           ))}
         </Select>
-        <span className="text-xs text-text-muted">
-          {source === 'all' ? '총' : '표시'} {shown.length}건 (Gemini {gemini.length} · Claude {claude.length})
-        </span>
+        {loaded && (
+          <span className="text-xs text-text-muted">
+            {source === 'all' ? '총' : '표시'} {shown.length}건 (Gemini {gemini.length} · Claude {claude.length})
+          </span>
+        )}
         {highlightSince && (
           <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-caption text-text-secondary">
             방금 분석한 결과를 표시하고 있습니다
           </span>
         )}
-        <button
-          onClick={() => void load()}
-          className="ml-auto text-xs text-accent hover:underline"
-        >
-          새로고침
-        </button>
+        <span className="ml-auto inline-flex items-center gap-2">
+          {loading && <InlineSpinner />}
+          <button onClick={() => void load()} className="text-xs text-accent hover:underline">
+            새로고침
+          </button>
+        </span>
       </div>
+
+      {loadError && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl bg-bg-secondary px-3 py-3 text-xs text-danger">
+          <span>분석 히스토리를 불러오지 못했습니다: {loadError}</span>
+          <Button size="sm" onClick={() => void load()} busy={loading}>
+            다시 시도
+          </Button>
+        </div>
+      )}
 
       {/* 일괄 삭제는 「전체」 에서만 — 출처로 걸러 둔 채 지우면 화면에 없는 기록까지 지워진다 */}
       {items.length > 0 && source === 'all' && (
@@ -302,7 +326,7 @@ export default function AnalysisTimeline({
         </div>
       )}
 
-      {shown.length === 0 && (
+      {shown.length === 0 && loaded && !loadError && (
         <p className="rounded-xl bg-bg-secondary px-3 py-3 text-xs text-text-muted">
           {items.length === 0
             ? '아직 분석 히스토리가 없습니다. 차트 아래 「AI 분석」 탭의 「자동 분석」 으로 실행하거나, 「수동 분석」 의 [분석 방식·프롬프트 수정 보기] 에서 Claude 답변을 저장하세요.'

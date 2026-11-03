@@ -66,6 +66,8 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
   // 처음 + 30초마다 — 숨은 탭에서는 쉬고, 다시 보이면 곧바로 한 번
   useEffect(() => {
     setData(null);
+    // 이전 오류도 지운다 — 남아 있으면 새 순위를 받는 동안 「불러오는 중…」 대신 옛 오류만 보인다
+    setError(null);
     setActive(-1);
     setPreview(null);
     void load();
@@ -160,7 +162,14 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
         )}
       </header>
 
-      {error && <p className="mb-2 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">{error}</p>}
+      {error && (
+        <p className="mb-2 flex items-center gap-3 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">
+          {error}
+          <Button size="sm" onClick={() => void load()}>
+            다시 시도
+          </Button>
+        </p>
+      )}
 
       <div className="flex min-h-0 flex-1 gap-2">
         {/* 목록 ≈ 55% */}

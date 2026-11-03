@@ -1,3 +1,4 @@
+import { Button } from '../ui';
 import { Fragment, useState } from 'react';
 import type { SymbolSummary } from '../../types/analysis';
 import { displayPeg, type Fundamentals } from '../../types/company';
@@ -247,9 +248,12 @@ interface Props {
   fundamentals: Record<string, Fundamentals | null>;
   summaries: SymbolSummary[];
   loading: boolean;
+  /** 지표 요약을 받지 못했을 때 — 칸이 「—」 로만 남지 않게 알리고 다시 시도 */
+  error?: string | null;
+  onRetry?: () => void;
 }
 
-export default function CompareTable({ symbols, names, fundamentals, summaries, loading }: Props) {
+export default function CompareTable({ symbols, names, fundamentals, summaries, loading, error = null, onRetry }: Props) {
   const [section, setSection] = useState<string>('all');
 
   const cells: Cell[] = symbols.map((symbol) => {
@@ -297,6 +301,16 @@ export default function CompareTable({ symbols, names, fundamentals, summaries, 
           </button>
         ))}
         {loading && <span className="ml-auto text-caption text-text-muted">불러오는 중…</span>}
+        {!loading && error && (
+          <span className="ml-auto flex items-center gap-2 text-caption text-danger">
+            지표를 불러오지 못했습니다: {error}
+            {onRetry && (
+              <Button size="sm" onClick={onRetry}>
+                다시 시도
+              </Button>
+            )}
+          </span>
+        )}
       </div>
 
       <div className="overflow-x-auto">

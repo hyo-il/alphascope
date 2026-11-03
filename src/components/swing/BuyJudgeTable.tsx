@@ -193,7 +193,7 @@ export default function BuyJudgeTable({
                     <td colSpan={9} className="px-4 py-3">
                       {/* w-0 min-w-full — 펼친 내용의 폭이 위 표의 열 폭을 바꾸지 않게(펼칠 때 「판단」 열이 옮겨 갔다) */}
                       <div className="w-0 min-w-full">
-                      <Detail row={r} currency={cur} record={record} running={running} goal={goal} onDeleteTarget={onDeleteTarget} onEditGoal={onEditGoal} />
+                      <Detail row={r} currency={cur} record={record} recordsLoaded={targetRecords !== null} running={running} goal={goal} onDeleteTarget={onDeleteTarget} onEditGoal={onEditGoal} />
                       </div>
                     </td>
                   </tr>
@@ -212,6 +212,7 @@ function Detail({
   row: r,
   currency,
   record,
+  recordsLoaded,
   running,
   goal,
   onDeleteTarget,
@@ -220,6 +221,8 @@ function Detail({
   row: BuyJudgeRow;
   currency: 'KRW' | 'USD';
   record: TargetAnalysisRecord | null;
+  /** 목표 수익 가능성 기록을 받았나 — 받기 전에는 「결과가 없습니다」 를 그리지 않는다 */
+  recordsLoaded: boolean;
   running: boolean;
   goal: SwingGoal;
   onDeleteTarget: (record: TargetAnalysisRecord) => void;
@@ -283,6 +286,8 @@ function Detail({
           </p>
         ) : record ? (
           <ResultCard record={record} isNew={false} onDelete={onDeleteTarget} flat />
+        ) : !recordsLoaded ? (
+          <p className="text-text-muted">분석 기록을 불러오는 중…</p>
         ) : (
           <p className="text-text-muted">이 조건으로 분석한 결과가 없습니다. 줄의 [목표 수익 가능성] 을 누르면 이 종목 하나를 분석합니다.</p>
         )}

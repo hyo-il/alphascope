@@ -39,16 +39,21 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
   const { items, error } = useAutoTradingOverview(true, SIDE_POLL_MS);
   const { accounts } = usePaperAccounts();
   const [usage, setUsage] = useState<{ usage: GeminiUsage | null; enabled: boolean } | null>(null);
+  const [usageError, setUsageError] = useState(false);
 
   // 사용량은 화면을 열 때 한 번 — 폴링할 값이 아니다(분석은 길게는 한 시간에 한 바퀴다)
   useEffect(() => {
     let alive = true;
     void fetch('/api/gemini/status')
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
       .then((data: { enabled?: boolean; usage?: GeminiUsage }) => {
         if (alive) setUsage({ usage: data.usage ?? null, enabled: Boolean(data.enabled) });
       })
-      .catch(() => undefined);
+      // 실패를 「불러오는 중…」 으로 남겨 두지 않는다
+      .catch(() => alive && setUsageError(true));
     return () => {
       alive = false;
     };
@@ -127,7 +132,7 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
           </>
         ) : (
           // 받기 전에 「—」(없음)으로 보이지 않게
-          '불러오는 중…'
+          usageError ? <span className="text-danger">불러오지 못했습니다 — 화면을 다시 열어 주세요</span> : '불러오는 중…'
         )}
       </p>
     </div>

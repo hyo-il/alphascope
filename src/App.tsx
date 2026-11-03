@@ -25,6 +25,7 @@ import ChartBottomTabs from './components/chart/ChartBottomTabs';
 import { guideFor, type DrawingToolType } from './components/chart/DrawingTools';
 import OrderbookPanel from './components/chart/OrderbookPanel';
 import LoadingSpinner from './components/common/LoadingSpinner';
+import Button from './components/ui/Button';
 import ModalHost from './components/common/Modal';
 import ToastHost from './components/common/Toast';
 import SymbolSearch from './components/common/SymbolSearch';
@@ -97,7 +98,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
    * 빈 심볼로 API 를 때리면 서버 로그가 오류로 뒤덮인다.
    */
   const hasSymbol = Boolean(symbol);
-  const { candles, loading, error, loadingMore, reachedEnd, loadMore } = useCandleData(
+  const { candles, loading, error, loadingMore, reachedEnd, loadMore, reload: reloadCandles } = useCandleData(
     symbol ?? '',
     timeframe,
     hasSymbol,
@@ -239,6 +240,9 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
                   <div className="max-w-lg rounded-lg border border-danger/40 bg-bg-secondary p-5">
                     <p className="font-medium text-danger">데이터를 불러오지 못했습니다</p>
                     <p className="mt-2 text-sm text-text-secondary">{error}</p>
+                    <Button size="sm" className="mt-3" onClick={reloadCandles}>
+                      다시 시도
+                    </Button>
                   </div>
                 </div>
               ) : loading ? (
@@ -563,6 +567,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
             <StockExplorer
               onSelect={openChart}
               watchlist={watchlist}
+              watchlistPending={watch.pending}
               recent={recent}
               /* 패널과 **같은 함수**를 넘긴다 — 삭제 로직을 화면마다 만들면 갈라진다 */
               onRemoveWatch={watch.remove}

@@ -11,6 +11,8 @@ import { formatPercent, formatPrice } from '../../utils/formatters';
 interface Props {
   onSelect: (symbol: string) => void;
   watchlist: string[];
+  /** 관심 목록을 서버에서 받기 전(이 기기 목록이 빔) — 「비어 있습니다」 대신 「불러오는 중…」 */
+  watchlistPending?: boolean;
   recent: string[];
   /*
     ⚠️ 삭제 로직을 여기서 만들지 않는다 — `useWatchlist().remove` ·
@@ -55,6 +57,7 @@ function readExpanded(): string[] {
 export default function StockExplorer({
   onSelect,
   watchlist,
+  watchlistPending = false,
   recent,
   onRemoveWatch,
   onRemoveRecent,
@@ -210,7 +213,7 @@ export default function StockExplorer({
 
         {section('인기 종목', POPULAR)}
         {section('관심 종목', watchlist, {
-          empty: '관심 목록이 비어 있습니다. 종목 화면의 별 아이콘으로 추가해 보세요.',
+          empty: watchlistPending ? '불러오는 중…' : '관심 목록이 비어 있습니다. 종목 화면의 별 아이콘으로 추가해 보세요.',
           onRemove: onRemoveWatch,
           removeLabel: '관심 목록에서 삭제 (모든 그룹)',
           limited: true,

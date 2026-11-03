@@ -1,7 +1,7 @@
 import { formatTime } from '../../utils/dateFormat';
 import { PANEL_PAD } from '../ui/tokens';
 import { HEATMAP_SECTOR_LINE, HEATMAP_SECTOR_PAD_Y } from '../ui/tokens';
-import { InfoTip, Segmented, Tabs } from '../ui';
+import { Button, InfoTip, Segmented, Tabs } from '../ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { squarify, type Rect } from '../../utils/treemap';
 import { formatCompactMoney, formatPrice, formatSigned, MINUS } from '../../utils/formatters';
@@ -436,6 +436,8 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   // 상위 N 만 바꿀 때는 보던 지도를 남긴 채 다시 받는다(서버가 같은 100 캐시에서 자른다 — 금방 온다)
   useEffect(() => {
     setData(null);
+    // 이전 오류도 지운다 — 남아 있으면 새 지도를 받는 동안 「그리는 중…」 대신 옛 오류만 보인다
+    setError(null);
     setFocusSector(null);
   }, [market, period, view]);
 
@@ -591,7 +593,14 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         </p>
       )}
 
-      {error && <p className="mb-2 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">{error}</p>}
+      {error && (
+        <p className="mb-2 flex items-center gap-3 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">
+          {error}
+          <Button size="sm" busy={loading} onClick={() => void load()}>
+            다시 시도
+          </Button>
+        </p>
+      )}
       {data && data.missingSectors > 0 && (
         <p className="mb-1 flex items-center gap-1 text-caption text-text-muted">
           섹터 정보 없음 {data.missingSectors}종목 → 「기타」

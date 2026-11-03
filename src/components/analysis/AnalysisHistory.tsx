@@ -4,6 +4,7 @@ import Button from '../ui/Button';
 import TrashIcon from '../common/TrashIcon';
 import { useCallback, useEffect, useState } from 'react';
 import { SkeletonList } from '../common/SkeletonLoader';
+import { InlineSpinner } from '../common/LoadingOverlay';
 import { analysisModeLabel } from '../../types/analysis';
 import type { Timeframe } from '../../types/toss';
 import { formatPrice, formatSigned } from '../../utils/formatters';
@@ -90,6 +91,11 @@ export default function AnalysisHistory({
   const [records, setRecords] = useState<AnalysisRecord[]>([]);
   /** 처음 받는 중 — 받기 전에 "저장된 분석이 없습니다" 를 띄우지 않는다 */
   const [loaded, setLoaded] = useState(false);
+  // 한 번이라도 목록을 받았나(실패만 했으면 false — 「없습니다」 를 그리지 않는다) · 다시 받는 중 · 마지막 실패 · 저장 중
+  const [received, setReceived] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState('');
   const [verdict, setVerdict] = useState('neutral');
   const [confidence, setConfidence] = useState('medium');
@@ -101,13 +107,19 @@ export default function AnalysisHistory({
   const load = useCallback(async () => {
     const url = onlyThisSymbol ? `/api/analysis?symbol=${symbol}` : '/api/analysis';
     // ⚠️ 불러오기 실패를 "기록 없음" 으로 보이지 않는다 — 목록은 그대로 두고 알린다
+    setBusy(true);
     const res = await fetch(url).catch(() => null);
     const data = (await res?.json().catch(() => ({}))) as { analyses?: AnalysisRecord[]; error?: string } | undefined;
     setLoaded(true);
+    setBusy(false);
     if (!res?.ok) {
-      toast.error('분석 히스토리를 불러오지 못했습니다', data?.error ?? (res ? `요청 실패 (${res.status})` : '서버에 연결하지 못했습니다'));
+      const reason = data?.error ?? (res ? `요청 실패 (${res.status})` : '서버에 연결하지 못했습니다');
+      setLoadError(reason);
+      toast.error('분석 히스토리를 불러오지 못했습니다', reason);
       return;
     }
+    setLoadError(null);
+    setReceived(true);
     setRecords(data?.analyses ?? []);
   }, [symbol, onlyThisSymbol]);
 
@@ -125,7 +137,8 @@ export default function AnalysisHistory({
   };
 
   const handleSave = async () => {
-    if (!draft.trim()) return;
+    if (!draft.trim() || saving) return;
+    setSaving(true);
     /*
      * ⚠️ 저장이 실패하면 붙여넣은 글을 지우지 않는다 — 응답을 보지 않고 입력칸을 비우면
      * 실패해도 글이 사라지고 아무 표시가 없다. 성공하면 목록에 바로 보이므로 따로 알리지 않는다.
@@ -144,6 +157,7 @@ export default function AnalysisHistory({
         prompt,
       }),
     }).catch(() => null);
+    setSaving(false);
     if (!res?.ok) {
       const body = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
       toast.error('저장하지 못했습니다 — 붙여넣은 글은 그대로 있습니다', body?.error ?? (res ? `요청 실패 (${res.status})` : '서버에 연결하지 못했습니다'));
@@ -215,6 +229,7 @@ export default function AnalysisHistory({
 
         <Button variant="primary" size="md"
           onClick={() => void handleSave()}
+          busy={saving}
           disabled={!draft.trim()}>
           저장 (현재가 {formatPrice(currentPrice, currencyOfSymbol(symbol))})
         </Button>
@@ -222,7 +237,10 @@ export default function AnalysisHistory({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="mb-1.5 flex items-center justify-between">
-          <p className="text-xs text-text-muted">저장된 분석 {records.length}건</p>
+          <p className="inline-flex items-center gap-2 text-xs text-text-muted">
+            {received ? `저장된 분석 ${records.length}건` : '저장된 분석'}
+            {busy && loaded && <InlineSpinner />}
+          </p>
           <label className="inline-flex w-fit items-center gap-1.5 text-xs text-text-secondary">
             <input
               type="checkbox"
@@ -236,7 +254,15 @@ export default function AnalysisHistory({
 
         <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
           {!loaded && <SkeletonList count={3} />}
-          {loaded && records.length === 0 && (
+          {loaded && loadError && (
+            <div className="flex items-center justify-center gap-3 py-4 text-xs text-danger">
+              <span>불러오지 못했습니다: {loadError}</span>
+              <Button size="sm" busy={busy} onClick={() => void load()}>
+                다시 시도
+              </Button>
+            </div>
+          )}
+          {received && !loadError && records.length === 0 && (
             <p className="py-6 text-center text-xs text-text-muted">저장된 분석이 없습니다.</p>
           )}
 

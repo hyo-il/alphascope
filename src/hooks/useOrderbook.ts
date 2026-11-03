@@ -13,7 +13,10 @@ const POLL_INTERVAL_MS = 1000;
 export function useOrderbook(symbol: string | null, enabled = true): Orderbook | null {
   return usePolling<Orderbook>(
     `/api/orderbook?symbol=${symbol ?? ''}`,
-    (payload) => payload.orderbook as Orderbook | undefined,
+    // 오류 응답은 빈 호가로 — 받기 전(null)과 구분해야 화면이 스켈레톤에 머물지 않는다
+    (payload) =>
+      (payload.orderbook as Orderbook | undefined) ??
+      (typeof payload.error === 'string' ? { symbol: symbol ?? '', asks: [], bids: [], fetchedAt: Date.now() } : undefined),
     POLL_INTERVAL_MS,
     Boolean(symbol) && enabled,
   );

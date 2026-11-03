@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import type { Orderbook, OrderbookLevel } from '../../types/toss';
 import { formatCompact, formatSigned, formatNumber } from '../../utils/formatters';
 import { usRegularSessionKstText } from '../../utils/marketDate';
+import { Skeleton } from '../common/SkeletonLoader';
 
 interface Props {
   orderbook: Orderbook | null;
@@ -199,7 +200,14 @@ export default function OrderbookPanel({
         <h2 className="text-xs font-medium">호가</h2>
       </header>
 
-      {isEmpty ? (
+      {orderbook == null ? (
+        // 받기 전 — 「비어 있습니다」 를 그리지 않고 호가 줄 자리를 잡는다
+        <div className="flex-1 space-y-2 px-3 py-3" aria-hidden>
+          {Array.from({ length: 10 }).map((_, i) => (
+            <Skeleton key={i} className="h-5 w-full" />
+          ))}
+        </div>
+      ) : isEmpty ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-1 px-4 text-center">
           <p className="text-xs text-text-secondary">호가가 비어 있습니다</p>
           <p className="text-caption leading-relaxed text-text-muted">

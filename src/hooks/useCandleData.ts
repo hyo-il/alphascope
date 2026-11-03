@@ -32,6 +32,9 @@ export function useCandleData(symbol: string, timeframe: Timeframe, enabled = tr
   const setMock = useAppStore((s) => s.setMock);
   /** 과거 로딩이 겹치지 않도록 */
   const loadingMoreRef = useRef(false);
+  /** 오류 카드의 [다시 시도] — 같은 종목 · 봉을 한 번 더 받는다 */
+  const [retry, setRetry] = useState(0);
+  const reload = useCallback(() => setRetry((n) => n + 1), []);
 
   useEffect(() => {
     if (!enabled) {
@@ -76,7 +79,7 @@ export function useCandleData(symbol: string, timeframe: Timeframe, enabled = tr
       });
 
     return () => controller.abort();
-  }, [symbol, timeframe, enabled, setMock]);
+  }, [symbol, timeframe, enabled, setMock, retry]);
 
   /**
    * 차트를 과거로 스크롤했을 때 이어 받는다.
@@ -119,5 +122,5 @@ export function useCandleData(symbol: string, timeframe: Timeframe, enabled = tr
     }
   }, [symbol, timeframe, state.candles, state.reachedEnd, state.loading]);
 
-  return { ...state, loadMore };
+  return { ...state, loadMore, reload };
 }

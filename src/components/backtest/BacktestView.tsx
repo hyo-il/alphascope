@@ -9,6 +9,7 @@ import { useTradingRules } from '../../hooks/useTradingRules';
 import HelpBox from '../common/HelpBox';
 import TrashIcon from '../common/TrashIcon';
 import { SkeletonList } from '../common/SkeletonLoader';
+import LoadingOverlay from '../common/LoadingOverlay';
 import { Button, Panel, SectionTitle } from '../ui';
 import { ICON } from '../ui/icon';
 import { modal, toast } from '../../store/uiStore';
@@ -292,6 +293,9 @@ export default function BacktestView() {
               <SkeletonList count={4} />
             </Panel>
           ) : d ? (
+            // 히스토리에서 다른 결과를 고르면 받는 동안 지금 결과 위에 작은 덮개(내용은 그대로)
+            <div className="relative">
+            {bt.detailLoading && <LoadingOverlay contained label="결과를 불러오는 중…" />}
             <CustomResult
               id={d.id}
               report={d.detail}
@@ -304,6 +308,7 @@ export default function BacktestView() {
               rerunBusy={running || starting}
               applySlot={<ApplyRuleButton key={d.id} options={d.detail.input.conditions} rules={rules} />}
             />
+            </div>
           ) : (
             <Panel pad="sm" className="text-caption text-text-muted">
               {bt.reports == null ? '불러오는 중…' : '아직 결과가 없습니다. 종목과 방법(매매 규칙)을 고르고 [시험 실행] 을 누르세요.'}

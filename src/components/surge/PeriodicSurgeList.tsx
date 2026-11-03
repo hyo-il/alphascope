@@ -71,10 +71,11 @@ export default function PeriodicSurgeList({
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center gap-3 rounded-xl bg-bg-secondary px-3 py-2 text-caption text-text-secondary">
+        {/* 받기 전에는 「없음 · 0개」 를 그리지 않는다 */}
         <span>
           마지막 분석:{' '}
           <span className="text-text-primary">
-            {detectedAt ? formatDateTime(detectedAt) : '없음'}
+            {detectedAt ? formatDateTime(detectedAt) : loading ? '확인 중…' : '없음'}
           </span>
         </span>
         {progress && progress.total > 0 && (
@@ -83,7 +84,7 @@ export default function PeriodicSurgeList({
           </span>
         )}
         <span>
-          발견: <span className="text-text-primary">{results.length}개</span>
+          발견: <span className="text-text-primary">{loading ? '확인 중…' : `${results.length}개`}</span>
         </span>
 
         <Button busy={running} variant="primary" size="sm"

@@ -246,6 +246,11 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
           */}
           <span className="flex items-center gap-1 text-caption text-text-muted">
             자동매매
+            {/* 현황을 받기 전에는 0 으로 그리지 않는다 */}
+            {!autoOverview.items ? (
+              <Skeleton className="h-3.5 w-40" />
+            ) : (
+            <>
             <span className="text-bullish">가동 {autoCounts.running}</span>
             <span className="text-border">·</span>
             <span className="text-text-secondary">대기 {autoCounts.waiting}</span>
@@ -253,6 +258,8 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
             <span className="text-warning">멈춤 {autoCounts.blocked}</span>
             <span className="text-border">·</span>
             <span className="text-text-muted">꺼짐 {autoCounts.off}</span>
+            </>
+            )}
           </span>
           <InfoTip label="모아보기 쓰는 법">
             계좌(카드 · 목록 줄)를 누르면 그 계좌의 잔고·거래·자동매매 설정으로 들어갑니다. 순서는 카드 보기에서는 끌어서, 목록 보기에서는 끌거나 ↑↓ 로 바꿉니다.

@@ -10,6 +10,7 @@ import { cancelPaperOrder, submitOrder, usePaperAccounts } from '../../hooks/use
 import { modal, toast } from '../../store/uiStore';
 import { formatPrice, formatSignedMoney, formatSigned } from '../../utils/formatters';
 import StockName from '../common/StockName';
+import { Skeleton } from '../common/SkeletonLoader';
 import { useStockNames } from '../../hooks/useStockNames';
 import { stockNameOf } from '../../utils/stockNames';
 
@@ -59,8 +60,10 @@ export default function QuickOrderPanel({
   onGoToPaperTrading,
   pickedPrice = null,
 }: Props) {
-  const { accounts, selectedId: accountId, select: selectAccount } = usePaperAccounts();
+  const { accounts, selectedId: accountId, select: selectAccount, loading: accountsLoading, error: accountsError, reload: reloadAccounts } = usePaperAccounts();
   const [positions, setPositions] = useState<PaperPositionValued[]>([]);
+  /** 보유 목록을 받은 계좌 — 지금 계좌와 다르면(받기 전 · 계좌 바꾼 직후) 「보유하지 않은 종목」 대신 「확인 중…」 */
+  const [positionsFor, setPositionsFor] = useState<number | null>(null);
   const [orders, setOrders] = useState<PaperOrder[]>([]);
   /** 주문 가능 금액(계좌 통화) — 현금에서 걸려 있는 지정가 매수에 묶인 돈을 뺀 것(서버 `orderable`). 받기 전에는 null */
   const [cash, setCash] = useState<number | null>(null);
@@ -124,6 +127,7 @@ export default function QuickOrderPanel({
         ]);
         if (cancelled) return;
         setPositions(detail.positions ?? []);
+        if (Array.isArray(detail.positions)) setPositionsFor(accountId);
         setCash(typeof detail.orderable === 'number' ? detail.orderable : (detail.account?.currentCash ?? null));
         setUsdKrw(typeof detail.usdKrw === 'number' && detail.usdKrw > 0 ? detail.usdKrw : null);
         setOrders(orderList.orders ?? []);
@@ -308,6 +312,29 @@ export default function QuickOrderPanel({
       />
     </div>
   );
+
+  if (!accounts.length && (accountsLoading || accountsError)) {
+    // 계좌 목록을 받기 전에는 「계좌를 먼저 만드세요」 를 그리지 않는다 · 실패는 오류 + 다시 시도
+    return (
+      <div className="shrink-0 border-t border-border">
+        {header}
+        {accountsError ? (
+          <div className="space-y-2 px-2.5 py-3">
+            <p className="text-caption leading-relaxed text-danger">계좌를 불러오지 못했습니다: {accountsError}</p>
+            <Button size="sm" className="w-full" onClick={() => void reloadAccounts()}>
+              다시 시도
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-2 px-2.5 py-3" aria-hidden>
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-7 w-full" />
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (!accounts.length) {
     return (
@@ -538,6 +565,8 @@ export default function QuickOrderPanel({
                     : 'text-bearish',
               )}
             </>
+          ) : positionsFor !== accountId ? (
+            <p className="text-caption text-text-muted">확인 중…</p>
           ) : (
             <p className="text-caption text-text-muted">보유하지 않은 종목입니다</p>
           )}

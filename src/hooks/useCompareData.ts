@@ -103,7 +103,8 @@ export function useCompareData(symbols: string[], timeframes: Record<string, Tim
         next[symbol] = cached
           ? { symbol, timeframe, candles: cached, loading: false, error: null }
           : (prev[symbol]?.timeframe === timeframe
-              ? prev[symbol]
+              // [새로고침] — 보던 차트는 남기고 칸 위에 받는 중 표시
+              ? { ...prev[symbol], loading: true, error: null }
               : { symbol, timeframe, candles: [], loading: true, error: null });
       }
       return next;

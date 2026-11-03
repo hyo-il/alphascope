@@ -49,7 +49,7 @@ export default function CompareView({ currentSymbol }: Props) {
   /** 데이터 조회는 **보이는 칸에** 실제로 담긴 종목만 (빈 칸·숨긴 칸은 부르지 않는다) */
   const symbols = visibleSlots.filter((s): s is string => Boolean(s));
 
-  const { charts, fundamentals, summaries, summariesLoading, refresh } = useCompareData(
+  const { charts, fundamentals, summaries, summariesLoading, summariesError, refresh } = useCompareData(
     symbols,
     timeframes,
   );
@@ -171,6 +171,8 @@ export default function CompareView({ currentSymbol }: Props) {
             fundamentals={fundamentals}
             summaries={summaries}
             loading={summariesLoading}
+            error={summariesError}
+            onRetry={refresh}
           />
           {/* AI 비교 프롬프트 — 처음엔 접혀 있다(기억하지 않음) */}
           <div className="space-y-2">

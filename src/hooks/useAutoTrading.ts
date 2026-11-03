@@ -52,6 +52,13 @@ export function useAutoTrading(accountId: number | null) {
     }
   }, [accountId]);
 
+  // 계좌가 바뀌면 옛 계좌 값을 비운다 — 받는 동안 다른 계좌의 설정 · 상태가 새 계좌 이름 아래 보이지 않게(화면은 받는 중 표시)
+  useEffect(() => {
+    setStrategy(null);
+    setStatus(null);
+    setError(null);
+  }, [accountId]);
+
   useEffect(() => {
     void load();
   }, [load]);

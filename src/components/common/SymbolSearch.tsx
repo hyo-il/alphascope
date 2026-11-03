@@ -59,6 +59,8 @@ export default function SymbolSearch({
   const [highlight, setHighlight] = useState(0);
   /** 검색 요청이 도는 중 — "결과 없음" 과 "아직 안 옴" 을 구분하기 위해 필요하다 */
   const [searching, setSearching] = useState(false);
+  /** 마지막 검색이 실패했나 — 실패를 「검색 결과가 없습니다」 로 보이지 않는다 */
+  const [searchFailed, setSearchFailed] = useState(false);
   /**
    * 한글 IME 가 글자를 조합하는 중.
    *
@@ -85,16 +87,24 @@ export default function SymbolSearch({
     const controller = new AbortController();
     const timer = setTimeout(() => {
       fetch(`/api/stocks/search?q=${encodeURIComponent(query)}`, { signal: controller.signal })
-        .then((res) => res.json())
+        .then((res) => {
+          if (!res.ok) throw new Error(String(res.status));
+          return res.json();
+        })
         .then((data) => {
           setResults(Array.isArray(data.results) ? data.results : []);
           setHighlight(0);
+          setSearchFailed(false);
           setSearching(false);
         })
         .catch((error) => {
           /* 검색 실패는 조용히 넘긴다 — 직접 입력으로도 조회할 수 있다.
              단, 취소(abort)는 다음 요청이 이어받으므로 스피너를 끄지 않는다. */
-          if ((error as Error).name !== 'AbortError') setSearching(false);
+          if ((error as Error).name !== 'AbortError') {
+            setResults([]);
+            setSearchFailed(true);
+            setSearching(false);
+          }
         });
     }, 180);
 
@@ -306,7 +316,7 @@ export default function SymbolSearch({
           }`}
         >
           <p className="break-keep text-text-secondary">
-            '{value.trim()}'에 대한 검색 결과가 없습니다.
+            {searchFailed ? '검색하지 못했습니다(서버 응답 없음).' : `'${value.trim()}'에 대한 검색 결과가 없습니다.`}
           </p>
           {/* 한글로 찾지 못했다면 영문 티커가 가장 빠른 길이다 */}
           <p className="break-keep text-text-muted">

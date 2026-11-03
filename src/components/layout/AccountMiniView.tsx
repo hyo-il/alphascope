@@ -138,6 +138,9 @@ export default function AccountMiniView({
         <p className="px-3 py-3 text-caption text-danger">계좌를 불러오지 못했습니다. {error}</p>
       )}
 
+      {/* 상세를 받는 중(처음 · 계좌를 바꾼 직후) — 계좌 이름 아래를 빈칸으로 두지 않는다 */}
+      {!error && !detail && <p className="px-3 py-6 text-center text-xs text-text-muted">불러오는 중…</p>}
+
       {detail && account && (
         <>
           {/* 미체결이 있으면 알린다 — 빠른주문으로 건 지정가가 어디 갔는지 보여야 한다 */}

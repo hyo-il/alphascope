@@ -1,5 +1,6 @@
 import { formatDateTime, formatTime } from '../../utils/dateFormat';
 import Button from '../ui/Button';
+import { Skeleton } from '../common/SkeletonLoader';
 import WarnIcon from '../ui/WarnIcon';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
 import { useState } from 'react';
@@ -42,7 +43,15 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
   const [toggling, setToggling] = useState(false);
   const nameOf = useStockNames(status?.lastNotes.map((n) => n.symbol) ?? []);
 
-  if (!accountId || !strategy) return null;
+  if (!accountId) return null;
+  // 설정을 받기 전 — 빈칸으로 두지 않는다 · 첫 조회 실패는 오류 줄
+  if (!strategy) {
+    return (
+      <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+        {error ? <span className="text-caption text-danger">자동매매 설정을 불러오지 못했습니다: {error}</span> : <Skeleton className="h-7 w-72" />}
+      </div>
+    );
+  }
 
   const on = strategy.enabled;
   const rule = strategy.ruleId != null ? (rules?.find((r) => r.id === strategy.ruleId) ?? null) : null;

@@ -5,7 +5,7 @@ import Button from '../ui/Button';
 import HelpBox from '../common/HelpBox';
 import DisclosureButton from '../ui/DisclosureButton';
 import WarnIcon from '../ui/WarnIcon';
-import { SkeletonCards } from '../common/SkeletonLoader';
+import { SkeletonCards, SkeletonList } from '../common/SkeletonLoader';
 import { VERDICT_ICON } from '../ui/statusIcons';
 import { ICON_SM } from '../ui/icon';
 import { useId, useState, type ReactNode } from 'react';
@@ -555,7 +555,7 @@ export default function DiagnoseView() {
         {/* 목록을 받는 중 — 받을 때까지 비워 두지 않는다 */}
         {loading && !reports.length && <SkeletonCards count={4} />}
 
-        {!loading && !reports.length && !running && (
+        {!loading && !reports.length && !running && !listError && (
           <p className="rounded-xl bg-bg-secondary px-3 py-3 text-xs text-text-muted">
             아직 진단 리포트가 없습니다. [진단 실행] 을 누르면 관심 목록으로 진단합니다.
           </p>
@@ -569,7 +569,12 @@ export default function DiagnoseView() {
             </p>
             <Cards s={s} />
             {detailError && <p className="text-caption text-danger">상세를 불러오지 못했습니다: {detailError}</p>}
-            {detail && <Details d={detail} />}
+            {detail ? (
+              <Details d={detail} />
+            ) : (
+              // 상세(100KB 안팎)를 받는 중 — 처음 · 리포트를 바꿀 때
+              !detailError && <SkeletonList count={4} />
+            )}
           </>
         )}
 

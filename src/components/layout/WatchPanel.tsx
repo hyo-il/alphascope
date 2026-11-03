@@ -220,7 +220,9 @@ export default function WatchPanel({
             '미분류' 라는 이름의 폴더로 보이면 폴더를 하나 만든 것처럼 읽힌다.
             저장 형식은 그대로다(기본 폴더에 담긴다) — `types/watchlist.ts` 참고.
           */
-          folders.map((folder) => (
+          watch.pending ? (
+            <p className="px-3 py-6 text-center text-xs text-text-muted">불러오는 중…</p>
+          ) : folders.map((folder) => (
             <WatchFolderView
               key={folder.id}
               folder={folder}

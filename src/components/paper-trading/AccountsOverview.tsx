@@ -6,7 +6,7 @@ import { ArrowDown, ArrowUp, GripVertical, LoaderCircle } from 'lucide-react';
 import IconButton from '../ui/IconButton';
 import { ICON_SM } from '../ui/icon';
 import { useFlipReorder } from '../../hooks/useFlipReorder';
-import { SkeletonCards } from '../common/SkeletonLoader';
+import { Skeleton, SkeletonCards } from '../common/SkeletonLoader';
 import type { AccountsView } from '../../types/paper';
 import type { AccountOverviewItem, StrategyOverviewItem } from '../../hooks/usePaperOverview';
 import { formatPrice, formatSignedMoney, formatSigned } from '../../utils/formatters';
@@ -327,14 +327,18 @@ export default function AccountsOverview({
                       </>
                     )}
                     <td className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP}`}>
-                      {/* 카드와 같은 배지 — 멈춤 이유는 줄이 길어지지 않게 title 로 */}
-                      <span
-                        title={view.reason ?? undefined}
-                        className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-caption font-medium ${BADGE[view.state]}`}
-                      >
-                        <AutoTradeIcon view={view} />
-                        <span>{view.label}</span>
-                      </span>
+                      {/* 카드와 같은 배지 — 멈춤 이유는 줄이 길어지지 않게 title 로 · 자동매매 현황을 받기 전에는 「꺼짐」 으로 그리지 않는다 */}
+                      {strategies === null ? (
+                        <Skeleton className="h-5 w-14" />
+                      ) : (
+                        <span
+                          title={view.reason ?? undefined}
+                          className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-caption font-medium ${BADGE[view.state]}`}
+                        >
+                          <AutoTradeIcon view={view} />
+                          <span>{view.label}</span>
+                        </span>
+                      )}
                     </td>
                     {/* 카드와 같은 「규칙 「…」」 — 이름표가 없으면 「없음」 이 무엇이 없다는 말인지 읽히지 않는다 */}
                     <td className={`hidden max-w-40 ${TABLE_NUM_GAP} @4xl:table-cell`}>
@@ -513,6 +517,10 @@ export default function AccountsOverview({
 
               {/* 자동매매는 네 가지 상태다 — 가동 중 / 대기 / 멈춤 / 꺼짐 (utils/autoTradeStatus) */}
               <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border pt-2">
+                {/* 자동매매 현황을 받기 전에는 「꺼짐」 으로 그리지 않는다 */}
+                {strategies === null ? (
+                  <Skeleton className="h-5 w-24" />
+                ) : (
                 <span
                   title={view.reason ?? undefined}
                   className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-caption font-medium ${BADGE[view.state]}`}
@@ -526,6 +534,7 @@ export default function AccountsOverview({
                     {view.state === 'blocked' ? `멈춤: ${view.reason}` : view.label}
                   </span>
                 </span>
+                )}
 
                 {view.hint && <span className="text-caption text-text-muted">{view.hint}</span>}
 

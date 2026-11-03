@@ -192,7 +192,14 @@ export default function BuyJudgeHistory() {
           <span className="text-caption text-text-muted">종목마다 최근 {REASON_DAYS}거래일 판단 — 누르면 날짜별 판단</span>
         </div>
         <div id="buy-judge-reasons" hidden={!reasonsOpen} className="space-y-2">
-        {h.loading && !h.data ? (
+        {h.error && !h.data ? (
+          <div className="flex items-center gap-3 rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-danger">
+            <span>판단 기록을 불러오지 못했습니다: {h.error}</span>
+            <Button size="sm" busy={h.loading} onClick={() => void h.reload()}>
+              다시 시도
+            </Button>
+          </div>
+        ) : h.loading && !h.data ? (
           <SkeletonCards count={2} className="grid-cols-1" />
         ) : !h.data?.reasons.length ? (
           <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">아직 판단 기록이 없습니다. 「매수 판단」 탭에 종목을 추가하면 서버가 매일 각 시장 마감 뒤 기록합니다.</p>
@@ -249,7 +256,7 @@ export default function BuyJudgeHistory() {
 
       {/* [기록 삭제] — 판단 기록만. 0줄이면 삭제 칸을 감추고(공통 동작 규칙) 삭제 버튼은 줄 오른쪽 끝(기준표 9) */}
       <section className="flex flex-wrap items-center gap-2 rounded-lg bg-bg-tertiary/30 px-3 py-2">
-        <span className="text-xs text-text-secondary">판단 기록 {h.data?.counts.all ?? 0}줄</span>
+        <span className="text-xs text-text-secondary">판단 기록 {h.data ? `${h.data.counts.all}줄` : h.error ? '—' : '확인 중…'}</span>
         <span className="min-w-0 text-caption text-text-muted">보관 기간은 「설정 &gt; 앱 기능 설정」 에서 고릅니다(「사도 됨」 은 늘 남습니다).</span>
         {(h.data?.counts.all ?? 0) > 0 && (
           <span className="ml-auto flex shrink-0 items-center gap-2">

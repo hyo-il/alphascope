@@ -311,12 +311,23 @@ export function resyncWatchlist(): void {
 /** visibilitychange·online 리스너는 앱 전체에서 한 번만 붙인다 */
 let listenersBound = false;
 
+/**
+ * 앱을 연 뒤 서버 목록을 한 번이라도 물어봤나(성공 · 실패 모두) — 이 기기 목록이 비어 있는데 아직 물어보기 전이면
+ * 화면은 「비어 있습니다」 대신 「불러오는 중…」(받기 전에 없음을 그리지 않는다).
+ */
+let remoteChecked = false;
+const checkedListeners = new Set<(v: boolean) => void>();
+
 function ensureSynced() {
   if (booted) return;
   booted = true;
 
   void (async () => {
     const remote = await fetchRemote();
+    if (!remoteChecked) {
+      remoteChecked = true;
+      for (const listener of checkedListeners) listener(true);
+    }
     if (!remote) return; // 서버가 안 됨 — localStorage 값으로 계속 돈다.
 
     const localFolders = readFolders();
@@ -425,6 +436,14 @@ export function useWatchlist() {
   const [lastFolderId, setLastFolderId] = useState<string>(
     () => localStorage.getItem(LAST_FOLDER_KEY) ?? DEFAULT_FOLDER_ID,
   );
+  const [checked, setChecked] = useState(remoteChecked);
+  useEffect(() => {
+    checkedListeners.add(setChecked);
+    setChecked(remoteChecked);
+    return () => {
+      checkedListeners.delete(setChecked);
+    };
+  }, []);
 
   // 다른 인스턴스가 목록을 바꾸면 이쪽도 따라 바뀐다.
   useEffect(() => {
@@ -606,6 +625,8 @@ export function useWatchlist() {
   return {
     folders,
     watchlist,
+    /** 이 기기 목록이 비어 있고 서버 목록을 아직 받기 전 — 「비어 있습니다」 대신 받는 중 표시 */
+    pending: !checked && watchlist.length === 0,
     visibleSymbols,
     lastFolderId,
     add,

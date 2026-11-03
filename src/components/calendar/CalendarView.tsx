@@ -65,6 +65,8 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
     return { from: addDays(first, -7), to: addDays(last, 7), first, last };
   }, [month]);
 
+  // [다시 시도] — 같은 범위를 한 번 더 받는다
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
     const mine = ++sequence.current;
     setError(null);
@@ -78,8 +80,10 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
       .then((d) => mine === sequence.current && setData(d))
       .catch((e: Error) => mine === sequence.current && setError(e.message))
       .finally(() => mine === sequence.current && setLoading(false));
-  }, [range, scope]);
+  }, [range, scope, retry]);
   const firstLoad = loading && !data;
+  /** 처음 받기가 실패해 내용이 없음 — 「일정이 없습니다」 를 그리지 않는다 */
+  const failedEmpty = !data && !!error;
 
   const holidaysAvailable = Boolean(data?.meta.holidays.US || data?.meta.holidays.KR);
   const visible = (data?.events ?? []).filter((e) => filters[e.type] && (e.type !== 'holiday' || holidaysAvailable));
@@ -172,6 +176,8 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
               <InlineSpinner className="mr-1 align-[-2px]" />
               일정을 불러오는 중…
             </>
+          ) : failedEmpty ? (
+            '—'
           ) : thisWeek.length ? (
             thisWeek.map((e) => `${eventText(e)} ${shortDate(e.date)}`).join(' · ')
           ) : (
@@ -190,7 +196,14 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
             휴장 상수 갱신 필요 — NYSE 휴장 표는 2027년까지만 들어 있습니다 (src/data/nyseHolidays.ts)
           </p>
         )}
-        {error && <p className="rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">{error}</p>}
+        {error && (
+          <p className="flex items-center gap-3 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">
+            {error}
+            <Button size="sm" busy={loading} onClick={() => setRetry((n) => n + 1)}>
+              다시 시도
+            </Button>
+          </p>
+        )}
 
         <div className="grid gap-3 [grid-template-columns:minmax(0,1fr)_300px]">
           {/* 월 달력 */}
@@ -245,7 +258,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
             </p>
             {firstLoad ? (
               <SkeletonList count={3} />
-            ) : dayEvents.length === 0 ? (
+            ) : failedEmpty ? null : dayEvents.length === 0 ? (
               <p className="text-caption text-text-muted">이날 일정이 없습니다.</p>
             ) : (
               <ul className="space-y-1.5">

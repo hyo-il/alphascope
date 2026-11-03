@@ -161,7 +161,11 @@ export function useSurgeEvaluation() {
 
 export function useSurgeHistory(enabled: boolean) {
   const [detections, setDetections] = useState<SurgeDetection[]>([]);
-  const [loading, setLoading] = useState(false);
+  // 처음부터 받는 중 — 첫 그리기에 「아직 없습니다」 가 한 번 보이지 않게
+  const [loading, setLoading] = useState(true);
+  /** 한 번이라도 받았나 · 마지막 실패 — 실패를 「없습니다」 로 보이지 않는다 */
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
@@ -170,9 +174,14 @@ export function useSurgeHistory(enabled: boolean) {
     setLoading(true);
     void json<{ detections: SurgeDetection[] }>('/api/surge/history')
       .then((data) => {
-        if (!cancelled) setDetections(data.detections);
+        if (cancelled) return;
+        setDetections(data.detections);
+        setLoaded(true);
+        setError(null);
       })
-      .catch(() => undefined)
+      .catch((e: Error) => {
+        if (!cancelled) setError(e.message);
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
@@ -192,5 +201,7 @@ export function useSurgeHistory(enabled: boolean) {
     return data.deleted;
   }, []);
 
-  return { detections, loading, remove };
+  const reload = useCallback(() => setVersion((v) => v + 1), []);
+
+  return { detections, loading, loaded, error, reload, remove };
 }
