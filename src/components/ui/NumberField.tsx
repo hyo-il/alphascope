@@ -74,10 +74,16 @@ type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'size' | 'type' | 'valu
      */
     max?: number;
     maxText?: string;
+    /**
+     * (선택) 숫자 대신 칸에 보일 글(예: 빠른주문 「최대」). 주면 글자 칸으로 이 글을 보이고, 입력이 들어오면
+     * 이 글은 버리고 **숫자만** `onValue` 로 넘긴다(「최대」 뒤에 숫자가 붙지 않는다) — 부모가 이 값을 거두면 원래 칸으로 돌아온다.
+     * 없으면(기본) 지금 동작 그대로.
+     */
+    text?: string;
   };
 
 const NumberField = forwardRef<HTMLInputElement, Props>(function NumberField(
-  { size = 'md', kind = 'short', unit, invalid = false, changed = false, unitW, className = '', boxClassName = '', onKeyDown, onWheel, thousands = false, decimals = 0, onValue, max, maxText, value, onChange, ...rest },
+  { size = 'md', kind = 'short', unit, invalid = false, changed = false, unitW, className = '', boxClassName = '', onKeyDown, onWheel, thousands = false, decimals = 0, onValue, max, maxText, text, value, onChange, ...rest },
   ref,
 ) {
   const groupW = useContext(UnitWidth);
@@ -95,6 +101,7 @@ const NumberField = forwardRef<HTMLInputElement, Props>(function NumberField(
 
   const raw = value == null ? '' : String(value);
   const shown = thousands ? groupNumber(sanitizeNumber(raw, decimals)) : raw;
+  const textMode = text != null;
 
   useLayoutEffect(() => {
     const el = inner.current;
@@ -124,11 +131,15 @@ const NumberField = forwardRef<HTMLInputElement, Props>(function NumberField(
           if (typeof ref === 'function') ref(el);
           else if (ref) ref.current = el;
         }}
-        type={thousands ? 'text' : 'number'}
-        inputMode={thousands ? 'decimal' : undefined}
+        type={thousands || textMode ? 'text' : 'number'}
+        inputMode={thousands || textMode ? 'decimal' : undefined}
         {...rest}
-        value={shown}
+        value={textMode ? text : shown}
         onChange={(e) => {
+          if (textMode) {
+            onValue?.(sanitizeNumber(e.target.value, decimals));
+            return;
+          }
           if (thousands) {
             const el = e.target;
             const next = sanitizeNumber(el.value, decimals);

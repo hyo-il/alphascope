@@ -13,6 +13,7 @@ import StockName from '../common/StockName';
 import { Skeleton } from '../common/SkeletonLoader';
 import { useStockNames } from '../../hooks/useStockNames';
 import { stockNameOf } from '../../utils/stockNames';
+import { maxBuyableAt as maxBuyableFor, quickOrderHint, quickOrderQuantity } from '../../utils/quickOrderQuantity';
 
 interface Props {
   symbol: string;
@@ -73,6 +74,12 @@ export default function QuickOrderPanel({
   const [quantity, setQuantity] = useState(10);
   const [unit, setUnit] = useState<'shares' | 'percent'>('shares');
   const [percent, setPercent] = useState(30);
+  /**
+   * 「주」 단위의 「최대」 상태 — 수량 칸에 「최대」 · 매수는 그 주문 가격 기준 최대 · 매도는 보유 전부.
+   * 숫자 입력 · 1/10/100주 · 단위 바꿈 · 종목 바뀜에 풀린다(종목이 바뀌어도 숫자 수량은 지금처럼 그대로 둔다).
+   */
+  const [maxMode, setMaxMode] = useState(false);
+  useEffect(() => setMaxMode(false), [symbol]);
   const [busy, setBusy] = useState(false);
   const [version, setVersion] = useState(0);
   /**
@@ -182,57 +189,41 @@ export default function QuickOrderPanel({
   const held = position?.quantity ?? 0;
   /** 가능 수량·예상 금액은 지정가 칸 값으로 낸다(시장가 주문은 확인 창에서 현재가로 다시 낸다) */
   const basis = limitPrice;
-  const maxBuyableAt = (p: number | null) => (p && p > 0 ? Math.floor(cashInSymbolCurrency / (p * buyCostFactor)) : 0);
-  const maxBuyable = maxBuyableAt(basis);
+  const maxBuyable = maxBuyableFor(cashInSymbolCurrency, basis, buyCostFactor);
 
-  /*
-   * % 는 매수·매도에서 기준이 다르다.
-   *   매수 — 현금 잔고의 N% 로 살 수 있는 수량
-   *   매도 — 보유 수량의 N%
-   * 하나의 값으로 뭉뚱그리면 "50% 매도" 가 잔고 기준으로 계산돼 엉뚱한 수량이 된다.
-   * 매수 환산에는 수수료를 포함한다 — 그러지 않으면 100% 가 잔고를 넘겨 거부된다.
-   */
-  const quantityFor = (side: OrderSide, at: number | null = basis): number => {
-    if (unit === 'shares') return quantity;
-    if (side === 'BUY') {
-      if (!at || at <= 0) return 0;
-      const budget = (cashInSymbolCurrency * percent) / 100;
-      return Math.max(0, Math.floor(budget / (at * buyCostFactor)));
-    }
-    return Math.max(0, Math.floor((held * percent) / 100));
-  };
+  /** 주문 수량 — 계산은 `utils/quickOrderQuantity` 한 곳(매도는 보유 수량까지 · 「최대」 · % 기준) */
+  const quantityFor = (side: OrderSide, at: number | null = basis) =>
+    quickOrderQuantity({ unit, quantity, percent, max: maxMode, side, price: at, cash: cashInSymbolCurrency, buyCostFactor, held });
   const estimateFor = (side: OrderSide, qty: number, at: number | null) =>
     at ? qty * at * (side === 'BUY' ? buyCostFactor : 1 - commissionRate) : 0;
 
-  const buyQuantity = quantityFor('BUY');
-  const sellQuantity = quantityFor('SELL');
-  const marketBuyQuantity = quantityFor('BUY', price);
-  const marketSellQuantity = quantityFor('SELL', price);
+  const buy = quantityFor('BUY');
+  const sell = quantityFor('SELL');
+  const buyQuantity = buy.quantity;
+  const sellQuantity = sell.quantity;
+  const marketBuyQuantity = quantityFor('BUY', price).quantity;
+  const marketSellQuantity = quantityFor('SELL', price).quantity;
 
   const buyEstimate = estimateFor('BUY', buyQuantity, basis);
   const sellEstimate = estimateFor('SELL', sellQuantity, basis);
 
-  /** 입력한 %가 몇 주가 되는지 — 방향이 다르면 둘 다 보여 준다. */
-  const percentHint = (() => {
-    if (unit !== 'percent') return null;
-    if (percent >= 100 && held > 0) return `매수 ${buyQuantity}주 · 매도 전량 (${held}주)`;
-    if (buyQuantity === sellQuantity) return `= 약 ${buyQuantity}주`;
-    return `매수 약 ${buyQuantity}주 · 매도 약 ${sellQuantity}주`;
-  })();
+  /** 입력이 매수·매도에서 몇 주가 되는지 — 다르면 둘 다. 「주」 단위는 보유 목록을 받기 전에는 그리지 않는다(「보유 없음」 을 미리 그리지 않게) */
+  const quantityHint =
+    unit === 'shares' && positionsFor !== accountId ? null : quickOrderHint(unit, percent, held, buy, sell);
 
   const refresh = () => setVersion((n) => n + 1);
 
   const order = (side: OrderSide, orderType: OrderType) => {
     // 지정가 = 가격 칸 값, 시장가 = 지금 현재가
     const at = orderType === 'LIMIT' ? limitPrice : price;
-    const orderQuantity = quantityFor(side, at);
+    const { quantity: orderQuantity, allHeld } = quantityFor(side, at);
     if (!account || !price || !at || orderQuantity <= 0) return;
 
     const label = side === 'BUY' ? '매수' : '매도';
     const typeLabel = orderType === 'MARKET' ? '시장가' : '지정가';
 
     modal.confirm({
-      title: `${symbol}${stockNameOf(symbol) ? ` ${stockNameOf(symbol)}` : ''} ${orderQuantity}주 ${typeLabel} ${label}`,
+      title: `${symbol}${stockNameOf(symbol) ? ` ${stockNameOf(symbol)}` : ''} ${orderQuantity}주 ${typeLabel} ${label}${side === 'SELL' && allHeld ? ' (보유 전부)' : ''}`,
       message:
         orderType === 'LIMIT'
           ? `모의투자 주문입니다. 증권사로 주문이 전송되지 않습니다.\n지정가 — ${side === 'BUY' ? '현재가가 이 가격 이하' : '현재가가 이 가격 이상'}이면 체결되고, 아니면 대기합니다.`
@@ -387,11 +378,18 @@ export default function QuickOrderPanel({
               min={0}
               max={unit === 'percent' ? 100 : undefined}
               value={unit === 'shares' ? quantity : percent}
-              onChange={(e) =>
-                unit === 'shares'
-                  ? setQuantity(Math.max(0, Number(e.target.value)))
-                  : setPercent(Math.min(100, Math.max(0, Number(e.target.value))))
-              }
+              text={unit === 'shares' && maxMode ? '최대' : undefined}
+              onValue={(raw) => {
+                // 「최대」 상태에서 숫자를 치면 그 숫자만 남기고 숫자 입력으로 돌아온다
+                setMaxMode(false);
+                setQuantity(Math.max(0, Number(raw || 0)));
+              }}
+              onChange={(e) => {
+                if (unit === 'shares') {
+                  setMaxMode(false);
+                  setQuantity(Math.max(0, Number(e.target.value)));
+                } else setPercent(Math.min(100, Math.max(0, Number(e.target.value))));
+              }}
               aria-label={unit === 'shares' ? '수량(주)' : '수량(현금의 %)'}
               className="min-w-0 flex-1" />
             <div className={`shrink-0 ${ORDER_TRAIL_W} [&>div]:w-full [&_button]:flex-1`}>
@@ -399,7 +397,10 @@ export default function QuickOrderPanel({
                 label="수량 단위"
                 size="sm"
                 value={unit}
-                onChange={setUnit}
+                onChange={(v) => {
+                  setUnit(v);
+                  setMaxMode(false);
+                }}
                 options={[
                   { value: 'shares', label: '주' },
                   { value: 'percent', label: '%' },
@@ -416,16 +417,28 @@ export default function QuickOrderPanel({
                   <button
                     key={n}
                     type="button"
-                    onClick={() => setQuantity(n)}
+                    onClick={() => {
+                      setQuantity(n);
+                      setMaxMode(false);
+                    }}
                     className="flex-1 rounded-md bg-bg-tertiary py-0.5 text-caption text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
                   >
                     {n}주
                   </button>
                 ))}
+                {/* 「최대」 — 매수는 그 주문 가격 기준 최대 · 매도는 보유 전부(숫자 수량은 풀릴 때를 위해 지금 매수 최대로 둔다) */}
                 <button
                   type="button"
-                  onClick={() => setQuantity(maxBuyable)}
-                  className="flex-1 rounded-md bg-bg-tertiary py-0.5 text-caption text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-accent"
+                  aria-pressed={maxMode}
+                  onClick={() => {
+                    setQuantity(maxBuyable);
+                    setMaxMode(true);
+                  }}
+                  className={`flex-1 rounded-md py-0.5 text-caption transition-colors ${
+                    maxMode
+                      ? 'bg-bg-elevated text-text-primary'
+                      : 'bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary hover:text-accent'
+                  }`}
                 >
                   최대
                 </button>
@@ -448,8 +461,8 @@ export default function QuickOrderPanel({
             )}
           </div>
 
-          {percentHint && (
-            <p className="text-right text-caption text-text-muted">{percentHint}</p>
+          {quantityHint && (
+            <p className="text-right text-caption text-text-muted">{quantityHint}</p>
           )}
         </div>
 
