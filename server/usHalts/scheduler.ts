@@ -2,7 +2,7 @@
  * 거래정지 받기 작업 (실험실 「거래정지」, v2.55.0) — **이 폴더 한 곳**에서 받고 · 쌓고 · 방향을 추정한다.
  *
  * - 미국 **평일 04:00~20:00 ET**, 휴장일 제외(`marketCalendar.isMarketClosed`)에 1분마다 한 번 받는다 — **피드가 새로 만들어지는 때에 맞춰**
- *   (`planNextFetch`: 만든 시각 + `ALIGN_SLACK_MS`). 두 받기 사이는 늘 60초 이상(피드 `ttl` 1) · 맞출 근거가 없거나 흔들리면 60초 고정. 20:00 ET 뒤에는 **오늘(미국 날짜) 안 풀린
+ *   (`planNextFetch`: 만든 시각 + `ALIGN_SLACK_MS`). 두 받기 사이는 늘 60초 이상(피드 `ttl` 1) · 실패가 아니면 60초 + `ALIGN_MAX_EXTRA_MS` 이하 · 맞출 근거가 없거나 흔들리면 60초 고정. 20:00 ET 뒤에는 **오늘(미국 날짜) 안 풀린
  *   정지가 남아 있을 때만** 미국 자정(00:00 ET) 전까지 이어 받는다(사용자 결정 2026-10-22 — 「안 풀림」 = `utils/usHalts.isHaltOngoing`). 그 밖에는 받지 않는다.
  * - 스위치 `US_HALTS_ENABLED`(기본 켬). 시험 서버는 끈다.
  * - 받기 실패(네트워크 · 200 아님 · 시간 초과 · RSS 아님)는 로그 한 줄 + 연속 실패 수 — 다음 분에 다시, 연속 `US_HALTS_FAIL_WARN` 번부터는
@@ -40,6 +40,12 @@ export const ALIGN_MAX_PHASES = 2;
  * 관찰 순서로 견줘 5개가 받을 때 목록 나이가 가장 짧았다(평균 12.6초 · 10개 14.5초 · 60초 고정은 켠 자리에 따라 0~59초 · 평균 약 30초).
  */
 export const ALIGN_HISTORY = 5;
+/**
+ * 「마지막 받기 + 60초」 뒤로 더 기다리는 시간의 상한 — 두 받기 사이는 60초 ~ 60초 + 이 값(연속 실패 늘리기만 예외 · 사용자 결정 2026-11-05).
+ * 맞출 자리가 60초 바로 앞이면 다음 분 자리까지 약 2분을 기다렸다(오라클 로그 120초 · 118초 · 114초) — 한 번을 건너뛰지 않게.
+ * 값: 관찰한 맞춤 받기의 더 기다림은 1~3초 · 2분이 된 경우는 54~60초 — 그 사이에서 「1분 남짓」(≤ 75초)으로 둔다.
+ */
+export const ALIGN_MAX_EXTRA_MS = 15_000;
 /** 받는 시간대 — 미국 현지 분 [04:00, 20:00). 20:00 뒤 자정 전은 이어 받기(안 풀린 오늘 정지가 있을 때만) */
 export const WINDOW_START_MIN = 4 * 60;
 export const WINDOW_END_MIN = 20 * 60;
@@ -84,7 +90,13 @@ const status: Omit<UsHaltFetchStatus, 'enabled' | 'inWindow' | 'window' | 'openT
 /** 성공한 받기의 피드 만든 시각(서버 시계 · 최근 `ALIGN_HISTORY` 개 · 최신이 끝) — 다음 받기를 맞추는 근거 */
 const builtAts: number[] = [];
 
-export type NextFetchMode = 'first' | 'aligned' | 'fixed' | 'backoff';
+export type NextFetchMode = 'first' | 'aligned' | 'fixed' | 'fixed-far' | 'approach' | 'backoff';
+/** 로그에 쓰는 방식 이름 — fixed-far · approach 는 fixed 와 구별되게 */
+export function nextFetchModeLabel(mode: NextFetchMode, waitSec: number): string {
+  if (mode === 'fixed-far') return `fixed(자리 너무 멀어 ${waitSec}초)`;
+  if (mode === 'approach') return `approach(자리로 ${ALIGN_MAX_EXTRA_MS / 1000}초 다가감 · ${waitSec}초 뒤)`;
+  return `${mode}(${waitSec}초 뒤)`;
+}
 
 /**
  * 다음 받기 시각 — 순수 함수(시험이 시계를 빠르게 돌려 본다).
@@ -92,6 +104,10 @@ export type NextFetchMode = 'first' | 'aligned' | 'fixed' | 'backoff';
  * - 연속 실패 `US_HALTS_FAIL_WARN` 번 이상 → 마지막 받기 + 2분 · 5분 · 10분(`backoff`).
  * - 최근 만든 시각이 2개 이상이고 만든 자리(분 안의 초)가 `ALIGN_MAX_PHASES` 곳 이하면 → 그 자리 가운데
  *   **어느 서버의 목록을 받아도 나이 합이 가장 작은 자리** + `ALIGN_SLACK_MS` 에 받는다(`aligned` — 자리가 하나면 그 자리 + 여유).
+ *   그 자리까지 `ALIGN_MAX_EXTRA_MS` 넘게 더 기다려야 하면 기다리지 않는다 —
+ *   · 자리를 방금(`ALIGN_TOLERANCE_MS` 안 — 같은 자리로 봄) 지났으면 마지막 받기 + 60초(`fixed-far` — 목록 나이 ≤ 여유 + 2초 · 다음에도 같은 자리).
+ *   · 그 밖(자리가 멂)이면 마지막 받기 + 60초 + `ALIGN_MAX_EXTRA_MS`(`approach` — 받는 자리를 그만큼 옮겨 많아야 4번 안에 맞춘다.
+ *     60초에만 받으면 받는 자리가 옮겨 가지 않아 영영 맞추지 못한다).
  * - 그 밖(만든 시각 없음 · 하나뿐 · 자리가 흩어짐) → 마지막 받기 + 60초(`fixed` — 지금까지와 같음).
  * - ⚠️ 어느 경우든 **마지막 받기 + 60초보다 빠르지 않다**(피드 `ttl` 1 · Nasdaq 1분 1번 이하).
  */
@@ -128,7 +144,14 @@ export function planNextFetch(input: { now: number; lastFetchAt: number | null; 
   if (target != null) {
     const base = Math.max(floor, now);
     const k = Math.ceil((base - target) / FETCH_INTERVAL_MS);
-    return { at: Math.max(target + k * FETCH_INTERVAL_MS, floor), mode: 'aligned' };
+    const at = Math.max(target + k * FETCH_INTERVAL_MS, floor);
+    const extra = at - base;
+    if (extra > ALIGN_MAX_EXTRA_MS) {
+      // 자리를 지난 지 (60초 − extra) — 같은 자리로 볼 만큼 방금 지났으면 지금 받아도 맞춘 것과 같다
+      if (FETCH_INTERVAL_MS - extra <= ALIGN_TOLERANCE_MS) return { at: base, mode: 'fixed-far' };
+      return { at: base + ALIGN_MAX_EXTRA_MS, mode: 'approach' };
+    }
+    return { at, mode: 'aligned' };
   }
   return { at: Math.max(floor, now), mode: 'fixed' };
 }
@@ -249,6 +272,13 @@ export async function usHaltsTick(deps: TickDeps = {}): Promise<'fetched' | 'fai
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 
+/** 받을 때마다 한 줄 — 받은 목록의 나이(받은 시각 − 피드 만든 시각) · 직전 받기와의 간격(초). 오라클 로그로 실제로 빨라졌는지 본다 */
+export function fetchLogLine(received: { at: number; builtAt: number | null }, gapMs: number | null): string {
+  const age = received.builtAt == null ? '모름' : `${Math.round((received.at - received.builtAt) / 1000)}초`;
+  const gap = gapMs == null ? '—' : `${Math.round(gapMs / 1000)}초`;
+  return `[usHalts] 받음 · 목록 나이 ${age} · 직전과 ${gap}`;
+}
+
 /*
   실제로 Nasdaq 을 부른 마지막 시각 — DB(app_settings)에 남긴다. 개발 서버(tsx watch)는 파일을 저장할 때마다 다시 켜져
   켤 때마다 곧바로 받으면 1분에 여러 번 부르게 된다 → 60초가 지나지 않았으면 이번 분은 건너뛴다.
@@ -277,6 +307,7 @@ export function startUsHaltsScheduler(): void {
   }
   if (timer) return;
   let lastMode: NextFetchMode | null = null;
+  let prevFetchedAt: number | null = null;
   const schedule = (at: number) => {
     timer = setTimeout(() => void run(), Math.max(0, at - Date.now()));
   };
@@ -290,20 +321,29 @@ export function startUsHaltsScheduler(): void {
       return;
     }
     let fetchedAt: number | null = null;
-    await usHaltsTick({
+    let received: { at: number; builtAt: number | null } | null = null;
+    const result = await usHaltsTick({
       now,
-      load: () => {
+      load: async () => {
         fetchedAt = now;
         markFetched(now);
-        return fetchHaltsFeed();
+        const feed = await fetchHaltsFeed();
+        received = { at: Date.now(), builtAt: feed.builtAt };
+        return feed;
       },
-    }).catch((e) => console.warn('[usHalts] 작업 실패:', (e as Error).message));
+    }).catch((e) => {
+      console.warn('[usHalts] 작업 실패:', (e as Error).message);
+      return 'failed' as const;
+    });
     if (fetchedAt == null) {
       schedule(now + FETCH_INTERVAL_MS);
       return;
     }
+    const gap = prevFetchedAt == null ? null : fetchedAt - prevFetchedAt;
+    prevFetchedAt = fetchedAt;
+    if (result === 'fetched' && received) console.log(fetchLogLine(received, gap));
     const plan = planNextFetch({ now: Date.now(), lastFetchAt: fetchedAt, builtAts, failures: status.consecutiveFailures });
-    if (plan.mode !== lastMode) console.log(`[usHalts] 다음 받기 방식: ${plan.mode}(${Math.round((plan.at - fetchedAt) / 1000)}초 뒤)`);
+    if (plan.mode !== lastMode) console.log(`[usHalts] 다음 받기 방식: ${nextFetchModeLabel(plan.mode, Math.round((plan.at - fetchedAt) / 1000))}`);
     lastMode = plan.mode;
     schedule(plan.at);
   };

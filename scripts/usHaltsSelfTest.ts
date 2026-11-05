@@ -23,7 +23,7 @@ import { isMarketClosed } from '../server/marketCalendar';
 import { TossApiError } from '../src/services/toss/httpClient';
 import { feedBuiltAt, fetchHaltsFeed, parseHaltsFeed, type RawHaltItem } from '../server/usHalts/feed';
 import { ingestHalts, listHaltsOfDay, listOngoingBefore, purgeOldHalts } from '../server/usHalts/store';
-import { ALIGN_HISTORY, ALIGN_SLACK_MS, FETCH_INTERVAL_MS, fetchStatus, fetchWindowOf, markFetched, planNextFetch, resetFetchStatusForTest, tooSoon, usHaltsTick } from '../server/usHalts/scheduler';
+import { ALIGN_HISTORY, ALIGN_MAX_EXTRA_MS, ALIGN_SLACK_MS, ALIGN_TOLERANCE_MS, FETCH_INTERVAL_MS, fetchLogLine, fetchStatus, fetchWindowOf, markFetched, nextFetchModeLabel, planNextFetch, resetFetchStatusForTest, tooSoon, usHaltsTick } from '../server/usHalts/scheduler';
 import { US_HALTS_BACKOFF_MS, US_HALTS_FAIL_WARN, US_HALTS_FETCH_INTERVAL_MS } from '../src/types/usHalts';
 const isFetchWindow = (now: number, closed: (d: string) => boolean) => fetchWindowOf(now, { closed, openToday: () => 0 }).window !== 'outside';
 import { analyzeHalt, judgeDirection, turnoverBefore } from '../server/usHalts/directionEstimate';
@@ -418,13 +418,19 @@ function simulate(model: FeedModel, steps: number, start = T0 + 17_000) {
   return { gaps, ages, modes };
 }
 const minGap = (g: number[]) => Math.min(...g);
+const maxGap = (g: number[]) => Math.max(...g);
+/** 실패가 아닐 때 두 받기 사이 상한(v2.60.10) */
+const GAP_CAP = FETCH_INTERVAL_MS + ALIGN_MAX_EXTRA_MS;
 const avg = (a: number[]) => Math.round(a.reduce((x, y) => x + y, 0) / Math.max(1, a.length));
 check('받기 간격 상수 = 60초(피드 ttl 1) · 화면 안내 · 서버가 같은 값', FETCH_INTERVAL_MS === 60_000 && US_HALTS_FETCH_INTERVAL_MS === FETCH_INTERVAL_MS);
 check('처음 받기는 바로(first)', planNextFetch({ now: T0, lastFetchAt: null, builtAts: [], failures: 0 }).mode === 'first');
 
 const steady = simulate({ phase: 4_000 }, 120);
-check('맞추기 — 늘 만든 뒤 여유만큼(aligned) · 간격 ≥ 60초', steady.modes.slice(3).every((m) => m === 'aligned') && minGap(steady.gaps) >= 60_000, `최소 ${minGap(steady.gaps)}ms · 받을 때 목록 나이 평균 ${avg(steady.ages.slice(3))}ms`);
-check('맞추기 — 자리를 잡은 뒤 받을 때 목록 나이 = 여유(ALIGN_SLACK_MS)', steady.ages.slice(3).every((a) => a === ALIGN_SLACK_MS), `${[...new Set(steady.ages.slice(3))].join(',')}ms`);
+// 켠 자리(:17)가 맞출 자리(:07)보다 50초 앞 — 15초씩 다가가(approach) 몇 번 안에 맞춘다(v2.60.10 — 예전에는 한 번에 110초를 기다렸다)
+const settled = steady.modes.indexOf('aligned');
+check('맞추기 — 자리를 잡은 뒤 늘 만든 뒤 여유만큼(aligned) · 간격 ≥ 60초', settled > 0 && settled <= 6 && steady.modes.slice(settled).every((m) => m === 'aligned') && minGap(steady.gaps) >= 60_000, `${settled}번째부터 · 최소 ${minGap(steady.gaps)}ms · 받을 때 목록 나이 평균 ${avg(steady.ages.slice(settled))}ms · 방식 ${steady.modes.slice(0, settled + 1).join(',')}`);
+check('맞추기 — 자리를 잡은 뒤 받을 때 목록 나이 = 여유(ALIGN_SLACK_MS)', steady.ages.slice(settled).every((a) => a === ALIGN_SLACK_MS), `${[...new Set(steady.ages.slice(settled))].join(',')}ms`);
+check('맞추기 — 실패가 아니면 간격 ≤ 60초 + 상한(맞추는 동안도)', maxGap(steady.gaps) <= GAP_CAP, `최대 ${maxGap(steady.gaps)}ms · 간격 ${steady.gaps.slice(0, settled + 1).map((g) => g / 1000).join(',')}초`);
 const fixedOnly = simulate({ phase: null }, 120);
 check('근거 없음(만든 시각 없음) → 지금처럼 60초 고정', fixedOnly.modes.slice(1).every((m) => m === 'fixed') && fixedOnly.gaps.every((g) => g === 60_000), `${[...new Set(fixedOnly.gaps)].join(',')}ms`);
 const jitter = simulate({ phase: 4_000, jitter: true }, 120);
@@ -447,8 +453,8 @@ check(
     return p.at - T0 >= 60_000 && p.at === T0 - 59_000 + 2 * 60_000 + ALIGN_SLACK_MS;
   })(),
 );
-// 실패 늘리기 — 3~8번째 받기가 실패하고 9번째부터 성공
-const back = simulate({ phase: 4_000, fail: (i) => i >= 3 && i <= 8 }, 20);
+// 실패 늘리기 — 3~8번째 받기가 실패하고 9번째부터 성공 · 켠 자리 = 맞출 자리(:07 — 다가가는 동안의 75초가 섞이지 않게, v2.60.10)
+const back = simulate({ phase: 4_000, fail: (i) => i >= 3 && i <= 8 }, 20, T0 + 4_000 + ALIGN_SLACK_MS);
 const backGaps = back.gaps.slice(3, 10);
 const wantBack = [60_000, 60_000, US_HALTS_BACKOFF_MS[0], US_HALTS_BACKOFF_MS[1], US_HALTS_BACKOFF_MS[2], US_HALTS_BACKOFF_MS[2]];
 check(
@@ -460,6 +466,61 @@ check('성공하면 1분 간격으로 돌아옴(늘 ≥ 60초)', back.gaps.slice
 // 여러 경우를 섞어 1000번 — 두 받기 사이 늘 ≥ 60초
 const mixed = simulate({ phase: 9_000, jitter: false, fail: (i) => i % 97 < 5 || (i > 500 && i < 520) }, 1000);
 check('여러 경우 섞어 1000번 — 두 받기 사이 늘 ≥ 60초', minGap(mixed.gaps) >= 60_000, `최소 ${minGap(mixed.gaps)}ms`);
+// ── v2.60.10 — 맞춰 받기가 2분을 기다리지 않게(더 기다림 상한 ALIGN_MAX_EXTRA_MS) ──
+{
+  const at = (extraMs: number) => {
+    // 마지막 받기 T0 · 맞출 자리 = T0 + 60초 + extraMs(분 안의 자리) — 만든 시각 둘을 같은 자리에 둔다
+    const built = T0 + extraMs - ALIGN_SLACK_MS;
+    return planNextFetch({ now: T0 + 500, lastFetchAt: T0, builtAts: [built - 60_000, built], failures: 0 });
+  };
+  const near = at(-2_000); // 자리 = 직전 받기 + 58초(오라클 로그 「aligned(120초 뒤)」 와 같은 모양)
+  check('상한 — 자리가 60초 바로 앞(직전 + 58초) → 120초가 아니라 60초(fixed-far)', near.mode === 'fixed-far' && near.at - T0 === 60_000, `${near.mode} ${(near.at - T0) / 1000}초`);
+  const within = [1_000, 5_000, ALIGN_MAX_EXTRA_MS].map(at);
+  check(
+    `상한 — 자리가 60초 뒤 ${ALIGN_MAX_EXTRA_MS / 1000}초 안이면 그 자리에(aligned — 맞춰 받기 그대로)`,
+    within.every((p, i) => p.mode === 'aligned' && p.at - T0 === 60_000 + [1_000, 5_000, ALIGN_MAX_EXTRA_MS][i]),
+    within.map((p) => `${p.mode} ${(p.at - T0) / 1000}초`).join(' · '),
+  );
+  const far = [ALIGN_MAX_EXTRA_MS + 1, 30_000, 60_000 - ALIGN_TOLERANCE_MS - 1].map(at);
+  check(
+    '상한 — 자리가 멀면 기다리지 않고 60초 + 상한(approach)',
+    far.every((p) => p.mode === 'approach' && p.at - T0 === GAP_CAP),
+    far.map((p) => `${p.mode} ${(p.at - T0) / 1000}초`).join(' · '),
+  );
+  // 모든 자리(1초마다) · 모든 켠 자리 — 실패가 아니면 두 받기 사이 60초 ~ 60초 + 상한 · 자리가 바뀌지 않으면 많아야 5번째에 맞춤
+  let worstGap = 0;
+  let bestGap = Infinity;
+  let worstSettle = 0;
+  for (let phase = 0; phase < 60_000; phase += 1_000) {
+    for (let startSec = 0; startSec < 60; startSec += 7) {
+      const r = simulate({ phase }, 12, T0 + startSec * 1000);
+      worstGap = Math.max(worstGap, maxGap(r.gaps));
+      bestGap = Math.min(bestGap, minGap(r.gaps));
+      const settleAt = r.modes.findIndex((m, i) => i >= 2 && (m === 'aligned' || m === 'fixed-far') && r.modes.slice(i).every((x) => x === m));
+      worstSettle = Math.max(worstSettle, settleAt < 0 ? 99 : settleAt);
+    }
+  }
+  check('상한 — 자리 60곳 × 켠 자리 9곳: 간격 60초 ~ 60초 + 상한 · 많아야 6번째부터 같은 방식', bestGap >= 60_000 && worstGap <= GAP_CAP && worstSettle <= 6, `최소 ${bestGap}ms · 최대 ${worstGap}ms · 늦어도 ${worstSettle}번째`);
+  const dual2 = simulate({ phase: 4_000, nodes: [4_000, 49_000] }, 500);
+  check('상한 — 만든 자리 두 곳(:04 · :49) 섞임도 간격 ≤ 60초 + 상한', maxGap(dual2.gaps) <= GAP_CAP, `최대 ${maxGap(dual2.gaps)}ms`);
+  check('상한 — 실패 늘리기(2 · 5 · 10분)는 상한의 예외 그대로', back.gaps.some((g) => g > GAP_CAP) && JSON.stringify(backGaps.slice(0, 6)) === JSON.stringify(wantBack));
+  check(
+    '로그 이름 — fixed-far · approach 는 fixed 와 구별',
+    nextFetchModeLabel('fixed-far', 60) === 'fixed(자리 너무 멀어 60초)' && nextFetchModeLabel('approach', 75) === `approach(자리로 ${ALIGN_MAX_EXTRA_MS / 1000}초 다가감 · 75초 뒤)` && nextFetchModeLabel('aligned', 62) === 'aligned(62초 뒤)',
+  );
+  check(
+    '받을 때마다 한 줄 — 목록 나이(받은 시각 − 만든 시각) · 직전 간격',
+    fetchLogLine({ at: T0 + 3_400, builtAt: T0 }, 61_200) === '[usHalts] 받음 · 목록 나이 3초 · 직전과 61초' &&
+      fetchLogLine({ at: T0, builtAt: null }, null) === '[usHalts] 받음 · 목록 나이 모름 · 직전과 —',
+    fetchLogLine({ at: T0 + 3_400, builtAt: T0 }, 61_200),
+  );
+  // 오라클 로그(2026-11-05 · v2.60.9) 「다음 받기 방식」 20줄을 새 계산으로 — 방식이 바뀔 때만 찍히는 줄이라 받기 전부는 아니다(보고용)
+  const logged = [120, 60, 63, 60, 62, 60, 62, 60, 63, 60, 118, 60, 63, 60, 61, 60, 120, 60, 114, 60];
+  const redo = logged.map((sec, i) => (i % 2 === 1 ? 60_000 : at(sec * 1000 - 400 - 60_000).at - T0));
+  const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length / 1000;
+  console.log(`  (오라클 로그 20줄) 예전 평균 ${mean(logged.map((s) => s * 1000)).toFixed(1)}초 · 가장 길게 ${Math.max(...logged)}초 → 새 계산 평균 ${mean(redo).toFixed(1)}초 · 가장 길게 ${Math.max(...redo) / 1000}초 (${redo.map((g) => Math.round(g / 1000)).join(',')})`);
+  check('오라클 로그 20줄 — 새 계산은 늘 60초 ~ 60초 + 상한', redo.every((g) => g >= 60_000 && g <= GAP_CAP));
+}
 // 맞추기 전(60초 고정)은 서버를 켠 자리에 따라 받을 때 목록 나이가 0~59초 — 켠 자리 60가지 평균과 맞춘 뒤를 견준다(보고용)
 const dual = simulate({ phase: 4_000, nodes: [4_000, 49_000] }, 500);
 check('만든 자리 두 곳(:04 · :49 — 관찰) 섞임 → 간격 늘 ≥ 60초', minGap(dual.gaps) >= 60_000, `최소 ${minGap(dual.gaps)}ms · 받을 때 목록 나이 평균 ${(avg(dual.ages) / 1000).toFixed(1)}초 · 맞춤 ${dual.modes.filter((m) => m === 'aligned').length}/고정 ${dual.modes.filter((m) => m === 'fixed').length}`);
@@ -481,7 +542,7 @@ check('만든 자리 두 곳(:04 · :49 — 관찰) 섞임 → 간격 늘 ≥ 60
     built.push(b);
     if (built.length > ALIGN_HISTORY) built.shift();
   }
-  check('관찰한 자리 순서 — 간격 늘 ≥ 60초 · 맞춘 받기 목록 나이 평균 < 30초', minGap(gaps) >= 60_000 && avg(ages) < 30_000, `최소 ${minGap(gaps)}ms · 맞춘 ${ages.length}/${seen.length}번 · 나이 ${ages.map((a) => a / 1000).join(',')}초`);
+  check('관찰한 자리 순서 — 간격 늘 60초 ~ 60초 + 상한 · 맞춘 받기 목록 나이 평균 < 30초', minGap(gaps) >= 60_000 && maxGap(gaps) <= GAP_CAP && avg(ages) < 30_000, `최소 ${minGap(gaps)}ms · 맞춘 ${ages.length}/${seen.length}번 · 나이 ${ages.map((a) => a / 1000).join(',')}초`);
 }
 const fixedAges = Array.from({ length: 60 }, (_, sec) => (sec * 1000 - 4_000 + 60_000) % 60_000);
 console.log(`  (모형 · 만든 자리 :04) 받을 때 목록 나이 평균 — 60초 고정 ${(avg(fixedAges) / 1000).toFixed(1)}초 · 맞춘 뒤 ${(avg(steady.ages.slice(3)) / 1000).toFixed(1)}초`);
