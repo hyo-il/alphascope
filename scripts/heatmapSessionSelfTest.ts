@@ -5,6 +5,7 @@
  * 최근 체결 · 일봉 다시 받기 · 순위 기준가 · 상하한가는 바꿔 끼운다. 합성 종목(`ZZTESTUS` · `999990`)의 봉과 넣은 휴장일은 끝에서 지운다.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import './lib/requireTossKeys'; // ⚠️ 둘째 import — 모의 모드(토스 키 없음)면 여기서 멈춘다
 import 'dotenv/config';
 import { readFileSync } from 'node:fs';
 import { getDb, saveCandles } from '../server/db';

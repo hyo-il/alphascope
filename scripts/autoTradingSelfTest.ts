@@ -10,6 +10,7 @@
  * ⚠️ 여기서도 주문은 모의 계좌(SQLite)에만 들어간다.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import './lib/requireTossKeys'; // ⚠️ 둘째 import — 모의 모드(토스 키 없음)면 여기서 멈춘다
 import { getDb, loadCandles } from '../server/db';
 import { createAccount, createOrder, deleteAccount, getAccount, listAccounts, listPositions, listTrades, reorderAccounts, setUsdKrwForTest } from '../server/paperTradingService';
 import { planBuy } from '../server/autoTrading/sizing';

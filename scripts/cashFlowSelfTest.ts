@@ -8,6 +8,7 @@
  *   로그인 없이 401 · 초기화 · 삭제하면 기록 삭제 · 복사는 기록 없이 지금 원금 · 스냅샷 · 그래프 · 하루 손실 한도.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import './lib/requireTossKeys'; // ⚠️ 둘째 import — 모의 모드(토스 키 없음)면 여기서 멈춘다
 import { TEST_SERVER_SWITCHES } from './lib/testServerEnv';
 import 'dotenv/config';
 import { spawn } from 'node:child_process';

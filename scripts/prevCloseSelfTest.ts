@@ -8,13 +8,13 @@
  * 넣은 합성 봉·휴장일은 끝에서 지운다(사본 DB 라도 남기지 않는다).
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import './lib/requireTossKeys'; // ⚠️ 둘째 import — 모의 모드(토스 키 없음)면 여기서 멈춘다
 import 'dotenv/config';
 import { getDb, loadCandles, saveCandles } from '../server/db';
 import { krLimitsAreFor, previousClose, previousTradingDay, priceDay, resetPreviousCloseForTest, setCandleRefreshForTest, setPriceLimitsForTest, setRankingBasesForTest, solveKrBase } from '../server/previousClose';
 import { changeRateOf } from '../server/summaryService';
 import { tossGet } from '../src/services/toss/httpClient';
 import { marketDate } from '../src/utils/marketDate';
-import { isMockMode } from '../server/mockData';
 import type { Candle } from '../src/types/toss';
 
 let pass = 0;
@@ -240,36 +240,33 @@ try {
   setCandleRefreshForTest(null);
   setRankingBasesForTest(null);
   resetPreviousCloseForTest();
-  if (isMockMode()) {
-    console.log('SKIP  실제 토스 절 — 키 없음(모의 모드)');
-  } else {
-    const sym = '000660';
-    const prevDay = previousTradingDay(sym, priceDay(sym));
-    db.prepare(`DELETE FROM candles WHERE symbol = ? AND timeframe = '1d' AND timestamp >= ?`).run(sym, krMidnight(prevDay));
-    const oldVal = oldRule(sym, Date.now());
-    const oldDay = loadCandles(sym, '1d', 5).at(-1);
-    // ① 순위 기준가 — 토스 순위 응답의 basePrice 와 같아야 한다
-    const r = await tossGet<any>('/api/v1/rankings', { type: 'MARKET_TRADING_AMOUNT', marketCountry: 'KR', duration: '1d' }, 'RANKING');
-    const tossBase = Number(r.result?.rankings?.find((x: any) => x.symbol === sym)?.price?.basePrice);
-    const viaRank = await previousClose(sym);
-    check(`실제 토스 ①: ${sym} 기준가 = 토스 순위 basePrice ${tossBase}`, viaRank === tossBase, `값 ${viaRank} · 예전 규칙이면 ${oldVal}(${oldDay ? marketDate(oldDay.timestamp, sym) : '—'} 봉)`);
-    // ② 순위를 빼면 — 장 마감 전: 상·하한가로 푼 기준가 = 토스 기준가 · 장 마감 뒤: 상·하한가는 다음 거래일 것이라 쓰지 않고 일봉 종가
-    resetPreviousCloseForTest();
-    setRankingBasesForTest(async () => new Map());
-    const limitsToday = krLimitsAreFor(priceDay(sym), Date.now());
-    const viaLimits = await previousClose(sym);
-    const barClose = loadCandles(sym, '1d', 10).find((c) => marketDate(c.timestamp, sym) === prevDay)?.close ?? null;
-    if (limitsToday) check(`실제 토스 ②(장 마감 전): 순위 없이 상·하한가로 푼 기준가 = ${tossBase}`, viaLimits === tossBase, `값 ${viaLimits}`);
-    else check(`실제 토스 ②(장 마감 뒤): 순위 없이 — 상·하한가를 쓰지 않고 ${prevDay} 일봉 종가 ${barClose}`, barClose !== null && viaLimits === barClose, `값 ${viaLimits}`);
-    // ③ 순위·상하한가를 빼면 일봉 — 지운 봉을 다시 받아 그 날짜 종가
-    resetPreviousCloseForTest();
-    setPriceLimitsForTest(async () => null);
-    const viaCandle = await previousClose(sym);
-    const realBar = loadCandles(sym, '1d', 10).find((c) => marketDate(c.timestamp, sym) === prevDay);
-    check(`실제 토스 ③: 순위·상하한가 없이 — ${prevDay} 봉을 지운 뒤 다시 받아 그 종가`, viaCandle !== null && realBar != null && viaCandle === realBar.close,
-      `값 ${viaCandle} (일봉은 KRX+NXT 통합 종가라 기준가와 ${tossBase ? (((viaCandle ?? 0) / tossBase - 1) * 100).toFixed(2) : '—'}% 차이)`);
-    setPriceLimitsForTest(null);
-  }
+  // 모의 모드(토스 키 없음)는 맨 앞 `lib/requireTossKeys` 가 멈춘다 — 여기서는 늘 실제 토스
+  const sym = '000660';
+  const prevDay = previousTradingDay(sym, priceDay(sym));
+  db.prepare(`DELETE FROM candles WHERE symbol = ? AND timeframe = '1d' AND timestamp >= ?`).run(sym, krMidnight(prevDay));
+  const oldVal = oldRule(sym, Date.now());
+  const oldDay = loadCandles(sym, '1d', 5).at(-1);
+  // ① 순위 기준가 — 토스 순위 응답의 basePrice 와 같아야 한다
+  const r = await tossGet<any>('/api/v1/rankings', { type: 'MARKET_TRADING_AMOUNT', marketCountry: 'KR', duration: '1d' }, 'RANKING');
+  const tossBase = Number(r.result?.rankings?.find((x: any) => x.symbol === sym)?.price?.basePrice);
+  const viaRank = await previousClose(sym);
+  check(`실제 토스 ①: ${sym} 기준가 = 토스 순위 basePrice ${tossBase}`, viaRank === tossBase, `값 ${viaRank} · 예전 규칙이면 ${oldVal}(${oldDay ? marketDate(oldDay.timestamp, sym) : '—'} 봉)`);
+  // ② 순위를 빼면 — 장 마감 전: 상·하한가로 푼 기준가 = 토스 기준가 · 장 마감 뒤: 상·하한가는 다음 거래일 것이라 쓰지 않고 일봉 종가
+  resetPreviousCloseForTest();
+  setRankingBasesForTest(async () => new Map());
+  const limitsToday = krLimitsAreFor(priceDay(sym), Date.now());
+  const viaLimits = await previousClose(sym);
+  const barClose = loadCandles(sym, '1d', 10).find((c) => marketDate(c.timestamp, sym) === prevDay)?.close ?? null;
+  if (limitsToday) check(`실제 토스 ②(장 마감 전): 순위 없이 상·하한가로 푼 기준가 = ${tossBase}`, viaLimits === tossBase, `값 ${viaLimits}`);
+  else check(`실제 토스 ②(장 마감 뒤): 순위 없이 — 상·하한가를 쓰지 않고 ${prevDay} 일봉 종가 ${barClose}`, barClose !== null && viaLimits === barClose, `값 ${viaLimits}`);
+  // ③ 순위·상하한가를 빼면 일봉 — 지운 봉을 다시 받아 그 날짜 종가
+  resetPreviousCloseForTest();
+  setPriceLimitsForTest(async () => null);
+  const viaCandle = await previousClose(sym);
+  const realBar = loadCandles(sym, '1d', 10).find((c) => marketDate(c.timestamp, sym) === prevDay);
+  check(`실제 토스 ③: 순위·상하한가 없이 — ${prevDay} 봉을 지운 뒤 다시 받아 그 종가`, viaCandle !== null && realBar != null && viaCandle === realBar.close,
+    `값 ${viaCandle} (일봉은 KRX+NXT 통합 종가라 기준가와 ${tossBase ? (((viaCandle ?? 0) / tossBase - 1) * 100).toFixed(2) : '—'}% 차이)`);
+  setPriceLimitsForTest(null);
 } finally {
   setCandleRefreshForTest(null);
   setRankingBasesForTest(null);

@@ -7,6 +7,7 @@
  * 넣은 계좌·규칙·기록·설정은 끝에서 되돌린다.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import './lib/requireTossKeys'; // ⚠️ 둘째 import — 모의 모드(토스 키 없음)면 여기서 멈춘다
 import 'dotenv/config';
 import { getDb } from '../server/db';
 import { createAccount, deleteAccount } from '../server/paperTradingService';
