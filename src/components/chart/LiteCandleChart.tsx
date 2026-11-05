@@ -34,13 +34,9 @@ import { liveCandle } from '../../utils/liveCandle';
  * - 색은 `chartTheme.ts` 한 곳.
  * - `livePrice`(선택 — 실시간 순위 미리보기)를 주면 마지막 봉을 현재가로 고친다(메인 차트와 같은 규칙 `liveCandle`).
  * - 분봉이면 시간축 · 십자선 시각을 메인 차트와 같은 모양으로(`dateTimeOptions`). 일 · 주 · 월은 라이브러리 기본 그대로.
+ *   ⚠️ 십자선 시각(`timeFormatter`)은 한 번 넣으면 라이브러리 기본으로 되돌릴 수 없다(옵션 합치기가 undefined 를 건너뜀) —
+ *   그래서 분봉 ↔ 일·주·월이 **바뀔 때만** 차트를 새로 만든다(봉 버튼을 누를 때뿐 · 종목을 훑을 때는 그대로 하나).
  */
-
-/** 일 · 주 · 월로 돌아올 때 되돌릴 라이브러리 기본값 — 분봉 모양을 지운다(일봉 모양은 분봉을 넣기 전과 같다) */
-const LIBRARY_DATE_OPTIONS = {
-  localization: { dateFormat: "dd MMM 'yy", timeFormatter: undefined },
-  timeScale: { tickMarkFormatter: undefined },
-};
 
 /** 이동평균은 비교용이라 프런트에서 낸다 — 지표 엔진(5001)을 네 번 부르지 않는다. */
 function maPoints(candles: Candle[], period: number) {
@@ -97,10 +93,12 @@ export default function LiteCandleChart({
   const drawnRef = useRef<{ key: string | undefined; count: number; first: number | null }>({ key: undefined, count: 0, first: null });
   /** 사용자가 차트를 움직였는가 — fitContent 로 왼쪽 끝이 보이는 것만으로는 받지 않는다(종목마다 자동으로 받지 않게) */
   const interactedRef = useRef(false);
-  /** 지금 분봉 시간축 모양인가 — 바뀔 때만 옵션을 고친다 */
+  /** 분봉 모양인가 — 봉이 2개 미만(빈 차트 등)이면 앞 모양을 그대로 둔다(빈 차트로 바뀔 때마다 새로 만들지 않게) */
   const intradayRef = useRef(false);
+  const intraday = candles.length >= 2 ? isIntraday(candles) : intradayRef.current;
+  intradayRef.current = intraday;
 
-  // 차트 생성 (한 번만)
+  // 차트 생성 (한 번만 — 분봉 ↔ 일·주·월이 바뀔 때만 다시)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -110,6 +108,9 @@ export default function LiteCandleChart({
       timeScale: { ...BASE_CHART_OPTIONS.timeScale, barSpacing, rightOffset: 2 },
       autoSize: true,
     });
+    if (intraday) chart.applyOptions(dateTimeOptions(true));
+    drawnRef.current = { key: undefined, count: 0, first: null };
+    interactedRef.current = false;
 
     const candleSeries = chart.addSeries(CandlestickSeries, CANDLE_SERIES_OPTIONS);
     candleSeries.priceScale().applyOptions({ scaleMargins: PRICE_SCALE_MARGINS });
@@ -163,13 +164,14 @@ export default function LiteCandleChart({
       volumeSeriesRef.current = null;
       maSeriesRef.current = [];
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- barSpacing 은 처음 값만 쓴다
+  }, [intraday]);
 
   // 데이터 갱신
   // 가격 자릿수는 통화로 — 원화는 소수점 없이
   useEffect(() => {
     candleSeriesRef.current?.applyOptions({ priceFormat: priceFormatOf(currency) });
-  }, [currency]);
+  }, [currency, intraday]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -193,11 +195,6 @@ export default function LiteCandleChart({
     const refreshed = !prepended && datasetKey != null && drawn.key === datasetKey && drawn.count > 0 && interactedRef.current;
     const view = refreshed ? chart.timeScale().getVisibleLogicalRange() : null;
     if (datasetKey !== drawn.key) interactedRef.current = false;
-    const intraday = isIntraday(candles);
-    if (candles.length && intraday !== intradayRef.current) {
-      chart.applyOptions(intraday ? dateTimeOptions(true) : LIBRARY_DATE_OPTIONS);
-      intradayRef.current = intraday;
-    }
     drawnRef.current = { key: datasetKey, count: candles.length, first: candles[0]?.timestamp ?? null };
 
     candleSeriesRef.current.setData(
@@ -226,7 +223,7 @@ export default function LiteCandleChart({
       chart.timeScale().setVisibleLogicalRange({ from: view.from + follow, to: view.to + follow });
     } else if (candles.length) chart.timeScale().fitContent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candles]);
+  }, [candles, intraday]);
 
   // 현재가로 마지막 봉 — 데이터 effect 뒤에 둔다(setData 로 되돌아간 마지막 봉을 곧바로 다시 고친다)
   useEffect(() => {
@@ -234,7 +231,7 @@ export default function LiteCandleChart({
     const next = series ? liveCandle(candles.at(-1), livePrice) : null;
     if (!series || !next) return;
     series.update({ time: toChartTime(next.timestamp), open: next.open, high: next.high, low: next.low, close: next.close });
-  }, [livePrice, candles]);
+  }, [livePrice, candles, intraday]);
 
   return <div ref={containerRef} className="h-full w-full" />;
 }
