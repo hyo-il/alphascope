@@ -127,12 +127,14 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
    * 차트는 캡처 대상이라 다른 화면에서도 언마운트하지 않고 화면 밖으로 보낸다.
    * 하지만 보이지 않는 호가·주문 패널까지 계속 폴링할 이유는 없다.
    * 현재가는 헤더에 늘 표시되므로 화면과 무관하게 계속 받는다.
+   * ⚠️ 실시간 순위만 예외 — 그 화면은 종목 헤더를 감추고 미리보기 종목의 현재가를 따로 1초마다 받는다.
+   *    여기까지 돌면 보이지 않는 종목 하나를 더 받는다(토스 요청 수). 돌아오면 곧바로 다시 받는다.
    */
   const chartVisible = view === 'chart';
   /** 비교 화면에서는 관심 목록이 종목을 고르는 자리다 — 접혀 있으면 아무것도 고를 수 없다 */
   const compareMode = view === 'compare';
 
-  const livePrice = useRealtimePrice(symbol);
+  const livePrice = useRealtimePrice(symbol, view !== 'ranking');
   /** 52주 고저 — 차트 정보 바의 "고점 대비" 에 쓴다 */
   const week52 = useRangeStats(symbol);
   const orderbook = useOrderbook(symbol, chartVisible);
@@ -387,7 +389,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         return (
           <RankingView
             onOpen={(next, tf) => {
-              // 미리보기에서 고른 봉 그대로 메인 차트를 연다 (일·주·월)
+              // 미리보기에서 고른 봉 그대로 메인 차트를 연다 (5분·15분·일·주·월)
               setTimeframe(tf);
               openChart(next);
             }}

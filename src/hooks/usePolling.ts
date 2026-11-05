@@ -90,7 +90,8 @@ export function usePolling<T>(
   /** false 면 아무것도 부르지 않는다 (종목 미선택 등) */
   enabled = true,
 ): T | null {
-  const [data, setData] = useState<T | null>(null);
+  /** 받은 값과 그 URL — URL(종목)이 바뀐 첫 렌더에 이전 종목 값을 내주지 않는다(정리 effect 가 돌기 전 한 번) */
+  const [data, setData] = useState<{ url: string; value: T } | null>(null);
 
   // pick 은 매 렌더 새 함수라 의존성에 넣을 수 없다 — 호출 시점의 최신 정의를 쓴다.
   const pickRef = useRef(pick);
@@ -102,9 +103,9 @@ export function usePolling<T>(
 
     return subscribe(url, intervalMs, (payload) => {
       const value = pickRef.current(payload);
-      if (value !== undefined) setData(value);
+      if (value !== undefined) setData({ url, value });
     });
   }, [url, intervalMs, enabled]);
 
-  return data;
+  return enabled && data?.url === url ? data.value : null;
 }

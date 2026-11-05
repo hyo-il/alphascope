@@ -14,7 +14,7 @@ import {
   type LiveRankingRow,
 } from '../../types/ranking';
 import { changeColor, formatCompact, formatCompactMoney, formatPercent, formatPrice } from '../../utils/formatters';
-import RankingPreview, { type PreviewTimeframe } from './RankingPreview';
+import RankingPreview, { isPreviewTimeframe, type PreviewTimeframe } from './RankingPreview';
 import { marketByKstTime } from '../../utils/marketDate';
 
 /**
@@ -30,8 +30,6 @@ const REFRESH_MS = 30_000;
 const HOVER_MS = 150;
 const FIRST_PAGE = 50;
 
-const isPreviewTf = (tf: string): tf is PreviewTimeframe => tf === '1d' || tf === '1w' || tf === '1M';
-
 export default function RankingView({ onOpen }: { onOpen: (symbol: string, timeframe: PreviewTimeframe) => void }) {
   // 열 때마다 한국 시간으로 고른다(08:00 ~ 미국 프리장 시작(서머타임 17:00 · 아니면 18:00) 국내, 그 밖 미국) — 직접 바꾸면 이 화면에 있는 동안만 유지
   const [market, setMarket] = useState<LiveRankingMarket>(() => marketByKstTime());
@@ -42,7 +40,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
   const [preview, setPreview] = useState<LiveRankingRow | null>(null);
   const [active, setActive] = useState(-1);
   const chartTf = useAppStore((s) => s.timeframe);
-  const [previewTf, setPreviewTf] = useState<PreviewTimeframe>(() => (isPreviewTf(chartTf) ? chartTf : '1d'));
+  const [previewTf, setPreviewTf] = useState<PreviewTimeframe>(() => (isPreviewTimeframe(chartTf) ? chartTf : '1d'));
   const { watchlist, add } = useWatchlist();
   const sequence = useRef(0);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

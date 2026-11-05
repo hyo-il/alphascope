@@ -11,6 +11,8 @@ import {
 import {
   BASE_CHART_OPTIONS,
   CANDLE_SERIES_OPTIONS,
+  dateTimeOptions,
+  isIntraday,
   priceFormatOf,
   COLORS,
   PRICE_SCALE_MARGINS,
@@ -20,6 +22,7 @@ import {
 } from './chartTheme';
 import { MA_LINES } from '../../types/chart';
 import type { Candle } from '../../types/toss';
+import { liveCandle } from '../../utils/liveCandle';
 
 /**
  * 가벼운 캔들 차트 — 캔들 + 거래량 + MA(5·20·60)뿐 — 기업 비교 · 실시간 순위 미리보기가 쓴다.
@@ -29,7 +32,15 @@ import type { Candle } from '../../types/toss';
  *   (미리보기에서 행을 훑을 때마다 차트를 새로 만들지 않는다).
  * - 메인 `CandleChart.tsx` 는 드로잉·지표 패널·실시간 폴링·캡처가 붙어 있어 여기서 쓰지 않는다.
  * - 색은 `chartTheme.ts` 한 곳.
+ * - `livePrice`(선택 — 실시간 순위 미리보기)를 주면 마지막 봉을 현재가로 고친다(메인 차트와 같은 규칙 `liveCandle`).
+ * - 분봉이면 시간축 · 십자선 시각을 메인 차트와 같은 모양으로(`dateTimeOptions`). 일 · 주 · 월은 라이브러리 기본 그대로.
  */
+
+/** 일 · 주 · 월로 돌아올 때 되돌릴 라이브러리 기본값 — 분봉 모양을 지운다(일봉 모양은 분봉을 넣기 전과 같다) */
+const LIBRARY_DATE_OPTIONS = {
+  localization: { dateFormat: "dd MMM 'yy", timeFormatter: undefined },
+  timeScale: { tickMarkFormatter: undefined },
+};
 
 /** 이동평균은 비교용이라 프런트에서 낸다 — 지표 엔진(5001)을 네 번 부르지 않는다. */
 function maPoints(candles: Candle[], period: number) {
@@ -60,6 +71,7 @@ export default function LiteCandleChart({
   currency,
   datasetKey,
   onReachStart,
+  livePrice,
 }: {
   candles: Candle[];
   barSpacing?: number;
@@ -71,6 +83,8 @@ export default function LiteCandleChart({
    */
   datasetKey?: string;
   onReachStart?: () => void;
+  /** 현재가 — 마지막 봉 종가 · 고가 · 저가를 고친다(20% 넘게 다르면 무시). 이 `candles` 와 같은 종목 값만 넘긴다 */
+  livePrice?: number | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -83,6 +97,8 @@ export default function LiteCandleChart({
   const drawnRef = useRef<{ key: string | undefined; count: number; first: number | null }>({ key: undefined, count: 0, first: null });
   /** 사용자가 차트를 움직였는가 — fitContent 로 왼쪽 끝이 보이는 것만으로는 받지 않는다(종목마다 자동으로 받지 않게) */
   const interactedRef = useRef(false);
+  /** 지금 분봉 시간축 모양인가 — 바뀔 때만 옵션을 고친다 */
+  const intradayRef = useRef(false);
 
   // 차트 생성 (한 번만)
   useEffect(() => {
@@ -170,7 +186,18 @@ export default function LiteCandleChart({
       drawn.first != null &&
       candles[added]?.timestamp === drawn.first;
     const keep = prepended ? chart.timeScale().getVisibleLogicalRange() : null;
+    /*
+      같은 데이터 묶음을 다시 받아 뒤에 봉이 붙거나 마지막 봉이 바뀐 것(분봉 1분 다시 받기) — 사용자가 움직여 둔 위치 · 확대를 지킨다.
+      맨 오른쪽(마지막 봉)을 보고 있었으면 붙은 만큼 따라간다. 움직이지 않았으면 지금처럼 전부 맞춘다(fitContent).
+    */
+    const refreshed = !prepended && datasetKey != null && drawn.key === datasetKey && drawn.count > 0 && interactedRef.current;
+    const view = refreshed ? chart.timeScale().getVisibleLogicalRange() : null;
     if (datasetKey !== drawn.key) interactedRef.current = false;
+    const intraday = isIntraday(candles);
+    if (candles.length && intraday !== intradayRef.current) {
+      chart.applyOptions(intraday ? dateTimeOptions(true) : LIBRARY_DATE_OPTIONS);
+      intradayRef.current = intraday;
+    }
     drawnRef.current = { key: datasetKey, count: candles.length, first: candles[0]?.timestamp ?? null };
 
     candleSeriesRef.current.setData(
@@ -194,9 +221,20 @@ export default function LiteCandleChart({
     });
 
     if (keep) chart.timeScale().setVisibleLogicalRange({ from: keep.from + added, to: keep.to + added });
-    else if (candles.length) chart.timeScale().fitContent();
+    else if (view) {
+      const follow = view.to >= drawn.count - 1 ? Math.max(0, added) : 0;
+      chart.timeScale().setVisibleLogicalRange({ from: view.from + follow, to: view.to + follow });
+    } else if (candles.length) chart.timeScale().fitContent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candles]);
+
+  // 현재가로 마지막 봉 — 데이터 effect 뒤에 둔다(setData 로 되돌아간 마지막 봉을 곧바로 다시 고친다)
+  useEffect(() => {
+    const series = candleSeriesRef.current;
+    const next = series ? liveCandle(candles.at(-1), livePrice) : null;
+    if (!series || !next) return;
+    series.update({ time: toChartTime(next.timestamp), open: next.open, high: next.high, low: next.low, close: next.close });
+  }, [livePrice, candles]);
 
   return <div ref={containerRef} className="h-full w-full" />;
 }

@@ -20,6 +20,7 @@ import type { Candle, Price } from '../../types/toss';
 import type { IndicatorSeries, IndicatorToggles } from '../../types/chart';
 import ChartInfoBar, { lastAsHover, type HoverInfo, type VisibleExtent } from './ChartInfoBar';
 import type { RangeStats } from '../../hooks/useRangeStats';
+import { liveCandle } from '../../utils/liveCandle';
 import { cursorFor, type DrawingToolType } from './DrawingTools';
 import {
   BASE_CHART_OPTIONS,
@@ -718,16 +719,16 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
   // ── 현재가로 마지막 캔들 갱신 ──
   useEffect(() => {
     const candleSeries = candleSeriesRef.current;
-    const last = candles.at(-1);
-    if (!candleSeries || !last || !livePrice || !Number.isFinite(livePrice.close)) return;
-    if (Math.abs(livePrice.close - last.close) / last.close > 0.2) return;
+    // 규칙(20% 넘게 다르면 무시)은 `liveCandle` 한 곳 — 실시간 순위 미리보기와 같다
+    const next = candleSeries ? liveCandle(candles.at(-1), livePrice?.close) : null;
+    if (!candleSeries || !next) return;
 
     candleSeries.update({
-      time: toChartTime(last.timestamp),
-      open: last.open,
-      high: Math.max(last.high, livePrice.close),
-      low: Math.min(last.low, livePrice.close),
-      close: livePrice.close,
+      time: toChartTime(next.timestamp),
+      open: next.open,
+      high: next.high,
+      low: next.low,
+      close: next.close,
     });
   }, [livePrice, candles]);
 

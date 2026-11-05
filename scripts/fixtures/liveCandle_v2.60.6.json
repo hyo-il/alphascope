@@ -1,0 +1,225 @@
+[
+  {
+    "name": "위로 넓힘",
+    "last": {
+      "timestamp": 1762300800000,
+      "open": 100,
+      "high": 105,
+      "low": 95,
+      "close": 102,
+      "volume": 1000
+    },
+    "price": 110,
+    "result": {
+      "time": 1762300800000,
+      "open": 100,
+      "high": 110,
+      "low": 95,
+      "close": 110
+    }
+  },
+  {
+    "name": "아래로 넓힘",
+    "last": {
+      "timestamp": 1762300800000,
+      "open": 100,
+      "high": 105,
+      "low": 95,
+      "close": 102,
+      "volume": 1000
+    },
+    "price": 90,
+    "result": {
+      "time": 1762300800000,
+      "open": 100,
+      "high": 105,
+      "low": 90,
+      "close": 90
+    }
+  },
+  {
+    "name": "범위 안",
+    "last": {
+      "timestamp": 1762300800000,
+      "open": 100,
+      "high": 105,
+      "low": 95,
+      "close": 102,
+      "volume": 1000
+    },
+    "price": 101,
+    "result": {
+      "time": 1762300800000,
+      "open": 100,
+      "high": 105,
+      "low": 95,
+      "close": 101
+    }
+  },
+  {
+    "name": "같은 값",
+    "last": {
+      "timestamp": 1762300800000,
+      "open": 100,
+      "high": 105,
+      "low": 95,
+      "close": 102,
+      "volume": 1000
+    },
+    "price": 102,
+    "result": {
+      "time": 1762300800000,
+      "open": 100,
+      "high": 105,
+      "low": 95,
+      "close": 102
+    }
+  },
+  {
+    "name": "정확히 20%",
+    "last": {
+      "timestamp": 1762300800000,
+      "open": 100,
+      "high": 100,
+      "low": 100,
+      "close": 100,
+      "volume": 1000
+    },
+    "price": 120,
+    "result": {
+      "time": 1762300800000,
+      "open": 100,
+      "high": 120,
+      "low": 100,
+      "close": 120
+    }
+  },
+  {
+    "name": "20% 넘음(위)",
+    "last": {
+      "timestamp": 1762300800000,
+      "open": 100,
+      "high": 105,
+      "low": 95,
+      "close": 102,
+      "volume": 1000
+    },
+    "price": 123,
+    "result": null
+  },
+  {
+    "name": "20% 넘음(아래)",
+    "last": {
+      "timestamp": 1762300800000,
+      "open": 100,
+      "high": 105,
+      "low": 95,
+      "close": 102,
+      "volume": 1000
+    },
+    "price": 81,
+    "result": null
+  },
+  {
+    "name": "현재가 없음",
+    "last": {
+      "timestamp": 1762300800000,
+      "open": 100,
+      "high": 105,
+      "low": 95,
+      "close": 102,
+      "volume": 1000
+    },
+    "price": null,
+    "result": null
+  },
+  {
+    "name": "NaN",
+    "last": {
+      "timestamp": 1762300800000,
+      "open": 100,
+      "high": 105,
+      "low": 95,
+      "close": 102,
+      "volume": 1000
+    },
+    "price": "NaN",
+    "result": null
+  },
+  {
+    "name": "Infinity",
+    "last": {
+      "timestamp": 1762300800000,
+      "open": 100,
+      "high": 105,
+      "low": 95,
+      "close": 102,
+      "volume": 1000
+    },
+    "price": "Infinity",
+    "result": null
+  },
+  {
+    "name": "봉 없음",
+    "last": null,
+    "price": 100,
+    "result": null
+  },
+  {
+    "name": "원화 큰 값",
+    "last": {
+      "timestamp": 1762300800000,
+      "open": 201000,
+      "high": 205500,
+      "low": 199000,
+      "close": 204000,
+      "volume": 5
+    },
+    "price": 206000,
+    "result": {
+      "time": 1762300800000,
+      "open": 201000,
+      "high": 206000,
+      "low": 199000,
+      "close": 206000
+    }
+  },
+  {
+    "name": "달러 소수",
+    "last": {
+      "timestamp": 1762300800000,
+      "open": 12.34,
+      "high": 12.5,
+      "low": 12.1,
+      "close": 12.4,
+      "volume": 5
+    },
+    "price": 12.05,
+    "result": {
+      "time": 1762300800000,
+      "open": 12.34,
+      "high": 12.5,
+      "low": 12.05,
+      "close": 12.05
+    }
+  },
+  {
+    "name": "종가 0",
+    "last": {
+      "timestamp": 1762300800000,
+      "open": 100,
+      "high": 105,
+      "low": 95,
+      "close": 0,
+      "volume": 1000
+    },
+    "price": 0,
+    "result": {
+      "time": 1762300800000,
+      "open": 100,
+      "high": 105,
+      "low": 0,
+      "close": 0
+    }
+  }
+]
