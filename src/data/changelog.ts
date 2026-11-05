@@ -23,6 +23,16 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.60.10',
+    date: '2026-11-05',
+    title: '거래정지: 목록에 맞춰 받다가 2분을 기다리는 일이 없게',
+    description: '거래정지 목록을 늘 1분~1분 15초 사이마다 받습니다(1분에 1번 넘게 받지 않는 것은 그대로)',
+    changes: [
+      '거래정지: 목록이 새로 만들어지는 때에 맞춰 받다가 한 번을 건너뛰어 2분을 기다리던 일이 없어졌습니다(늘 1~1분 남짓)',
+      '거래정지: 받는 연속 실패 때 간격을 2분 → 5분 → 10분으로 늘리는 것은 그대로입니다',
+    ],
+  },
+  {
     version: 'v2.60.9',
     date: '2026-11-05',
     title: '서버 실행 환경 Node 24',
