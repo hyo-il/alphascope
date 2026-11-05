@@ -23,7 +23,7 @@ import { isMarketClosed } from '../server/marketCalendar';
 import { TossApiError } from '../src/services/toss/httpClient';
 import { feedBuiltAt, fetchHaltsFeed, parseHaltsFeed, type RawHaltItem } from '../server/usHalts/feed';
 import { ingestHalts, listHaltsOfDay, listOngoingBefore, purgeOldHalts } from '../server/usHalts/store';
-import { ALIGN_SLACK_MS, FETCH_INTERVAL_MS, fetchStatus, fetchWindowOf, markFetched, planNextFetch, resetFetchStatusForTest, tooSoon, usHaltsTick } from '../server/usHalts/scheduler';
+import { ALIGN_HISTORY, ALIGN_SLACK_MS, FETCH_INTERVAL_MS, fetchStatus, fetchWindowOf, markFetched, planNextFetch, resetFetchStatusForTest, tooSoon, usHaltsTick } from '../server/usHalts/scheduler';
 import { US_HALTS_BACKOFF_MS, US_HALTS_FAIL_WARN, US_HALTS_FETCH_INTERVAL_MS } from '../src/types/usHalts';
 const isFetchWindow = (now: number, closed: (d: string) => boolean) => fetchWindowOf(now, { closed, openToday: () => 0 }).window !== 'outside';
 import { analyzeHalt, judgeDirection, turnoverBefore } from '../server/usHalts/directionEstimate';
@@ -413,7 +413,7 @@ function simulate(model: FeedModel, steps: number, start = T0 + 17_000) {
     const latest = Math.floor((now - phase) / 60_000) * 60_000 + phase; // 지금보다 앞선 마지막 만든 시각
     ages.push(now - latest);
     built.push(latest);
-    if (built.length > 10) built.shift();
+    if (built.length > ALIGN_HISTORY) built.shift();
   }
   return { gaps, ages, modes };
 }
@@ -463,6 +463,26 @@ check('여러 경우 섞어 1000번 — 두 받기 사이 늘 ≥ 60초', minGap
 // 맞추기 전(60초 고정)은 서버를 켠 자리에 따라 받을 때 목록 나이가 0~59초 — 켠 자리 60가지 평균과 맞춘 뒤를 견준다(보고용)
 const dual = simulate({ phase: 4_000, nodes: [4_000, 49_000] }, 500);
 check('만든 자리 두 곳(:04 · :49 — 관찰) 섞임 → 간격 늘 ≥ 60초', minGap(dual.gaps) >= 60_000, `최소 ${minGap(dual.gaps)}ms · 받을 때 목록 나이 평균 ${(avg(dual.ages) / 1000).toFixed(1)}초 · 맞춤 ${dual.modes.filter((m) => m === 'aligned').length}/고정 ${dual.modes.filter((m) => m === 'fixed').length}`);
+// 관찰한 만든 자리 순서(2026-11-05 05:42~05:56 UTC · 12번) — 자리가 옮겨 가도 간격 ≥ 60초 · 맞춘 받기의 목록 나이가 60초 고정 평균(30초)보다 짧음
+{
+  const seen = [4, 49, 4, 4, 49, 49, 4, 49, 50, 31, 31, 31].map((sec) => sec * 1000);
+  let now = T0;
+  let last: number | null = null;
+  const built: number[] = [];
+  const gaps: number[] = [];
+  const ages: number[] = [];
+  for (let i = 0; i < seen.length; i++) {
+    const plan = planNextFetch({ now, lastFetchAt: last, builtAts: built, failures: 0 });
+    if (last != null) gaps.push(plan.at - last);
+    now = plan.at;
+    last = now;
+    const b = Math.floor((now - seen[i]) / 60_000) * 60_000 + seen[i];
+    if (plan.mode === 'aligned') ages.push(now - b);
+    built.push(b);
+    if (built.length > ALIGN_HISTORY) built.shift();
+  }
+  check('관찰한 자리 순서 — 간격 늘 ≥ 60초 · 맞춘 받기 목록 나이 평균 < 30초', minGap(gaps) >= 60_000 && avg(ages) < 30_000, `최소 ${minGap(gaps)}ms · 맞춘 ${ages.length}/${seen.length}번 · 나이 ${ages.map((a) => a / 1000).join(',')}초`);
+}
 const fixedAges = Array.from({ length: 60 }, (_, sec) => (sec * 1000 - 4_000 + 60_000) % 60_000);
 console.log(`  (모형 · 만든 자리 :04) 받을 때 목록 나이 평균 — 60초 고정 ${(avg(fixedAges) / 1000).toFixed(1)}초 · 맞춘 뒤 ${(avg(steady.ages.slice(3)) / 1000).toFixed(1)}초`);
 
