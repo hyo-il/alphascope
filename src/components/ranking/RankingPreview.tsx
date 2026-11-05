@@ -5,7 +5,7 @@ import { InlineSpinner } from '../common/LoadingOverlay';
 import StockName from '../common/StockName';
 import UsDateTag from '../common/UsDateTag';
 import { isKrSymbol } from '../../utils/market';
-import { maLabel } from '../../types/chart';
+import { barUnitOf, maLabel } from '../../types/chart';
 import { useRealtimePrice } from '../../hooks/useRealtimePrice';
 import type { Candle, Timeframe } from '../../types/toss';
 import { CHART_PAGE_SIZE } from '../../utils/constants';
@@ -292,10 +292,11 @@ export default function RankingPreview({
         )}
         <Segmented label="봉" size="sm" value={timeframe} onChange={onTimeframeChange} options={PREVIEW_TIMEFRAMES.map((t) => ({ value: t.id, label: t.label }))} />
       </header>
-      <div className="flex shrink-0 gap-2 px-3 pt-1 text-caption">
+      {/* 범례 — 위아래 같은 간격(차트에 붙지 않게). 이름은 그리는 봉 간격으로(분봉 = 5봉선) — 메인 차트 · 기업 비교와 같은 함수 */}
+      <div className="flex shrink-0 gap-2 px-3 py-1 text-caption">
         {LITE_CHART_MAS.map((ma) => (
           <span key={ma.key} style={{ color: ma.color }}>
-            {maLabel(ma, timeframe === '1w' ? 'week' : timeframe === '1M' ? 'month' : 'day')}
+            {maLabel(ma, barUnitOf(candles))}
           </span>
         ))}
       </div>
