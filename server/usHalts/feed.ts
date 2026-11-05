@@ -2,6 +2,8 @@
  * Nasdaq Trader 거래정지 RSS — 받기 · 해석.
  *
  * - 주소 `https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts`. 피드는 약 1분마다 새로 만들어진다(`ttl` 1) → 1분에 1번 이하로 받는다.
+ * - 새로 만든 시각: HTTP `Last-Modified` = 채널 `pubDate`(초 단위 · `Cache-Control: max-age` = 남은 초 · 2026-11-05 관찰). 받는 쪽이 이 시각에 맞춰 다음 받기를 잡는다
+ *   (`scheduler.ts` `planNextFetch`) — 서버 시계와 Nasdaq 시계가 달라도 되게 `Date` 머리글과의 차이(만든 뒤 지난 초)로 서버 시계에 옮긴다.
  * - 항목 칸은 `ndaq:` 이름공간: HaltDate · HaltTime(ET) · IssueSymbol · IssueName · Market · ReasonCode · PauseThresholdPrice ·
  *   ResumptionDate · ResumptionQuoteTime · ResumptionTradeTime. 항목 안 `pubDate` 는 04:00 GMT 고정이라 읽지 않는다.
  * - 의존성을 더하지 않는다 — 모양이 단순해(한 단계 `<item>` 안의 글자 칸) 정규식으로 읽는다. 표준 엔티티만 푼다.
@@ -78,12 +80,43 @@ export function parseHaltsFeed(xml: string): RawHaltItem[] {
   return items;
 }
 
+/** 받은 피드 — 항목 + 새로 만든 시각(서버 시계 epoch ms · 모르면 null) */
+export interface HaltsFeed {
+  items: RawHaltItem[];
+  builtAt: number | null;
+}
+
+/** 200 이 아닌 응답 — 403 · 429 는 차단으로 보고 따로 적는다(`isBlockedStatus`) */
+export class FeedHttpError extends Error {
+  constructor(readonly status: number) {
+    super(`Nasdaq 응답 ${status}`);
+  }
+}
+export const isBlockedStatus = (status: number): boolean => status === 403 || status === 429;
+
+/**
+ * 새로 만든 시각을 서버 시계로 — `Date`(Nasdaq 의 지금) − `Last-Modified`(만든 때) = 만든 뒤 지난 시간 → 받은 시각에서 뺀다.
+ * `Last-Modified` 가 없으면 채널 `pubDate`. 시각을 못 읽거나 만든 때가 응답 시각보다 뒤 · 10분보다 앞이면 null(맞출 근거 없음).
+ */
+export function feedBuiltAt(receivedAt: number, headers: { date: string | null; lastModified: string | null }, xml: string): number | null {
+  const channelPub = /<channel[\s>][\s\S]*?<pubDate>([^<]+)<\/pubDate>/.exec(xml.split('<item>')[0] ?? '')?.[1] ?? null;
+  const built = Date.parse(headers.lastModified ?? channelPub ?? '');
+  if (!Number.isFinite(built)) return null;
+  const serverNow = Date.parse(headers.date ?? '');
+  const age = Number.isFinite(serverNow) ? serverNow - built : receivedAt - built;
+  if (age < 0 || age > 10 * 60_000) return null;
+  return receivedAt - age;
+}
+
 /** 한 번 받기 — 200 이 아니거나 시간 초과 · RSS 가 아니면 던진다(부르는 쪽이 실패 수를 센다) */
-export async function fetchHaltsFeed(fetchImpl: typeof fetch = fetch): Promise<RawHaltItem[]> {
+export async function fetchHaltsFeed(fetchImpl: typeof fetch = fetch, clock: () => number = Date.now): Promise<HaltsFeed> {
   const res = await fetchImpl(HALTS_FEED_URL, {
     signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
     headers: { Accept: 'application/rss+xml, application/xml, text/xml', 'User-Agent': 'AlphaScope/1.0 (personal use)' },
   });
-  if (!res.ok) throw new Error(`Nasdaq 응답 ${res.status}`);
-  return parseHaltsFeed(await res.text());
+  const receivedAt = clock();
+  if (!res.ok) throw new FeedHttpError(res.status);
+  const xml = await res.text();
+  const items = parseHaltsFeed(xml);
+  return { items, builtAt: feedBuiltAt(receivedAt, { date: res.headers.get('date'), lastModified: res.headers.get('last-modified') }, xml) };
 }

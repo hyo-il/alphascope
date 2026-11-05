@@ -6,6 +6,20 @@
  * 재개 칸은 **풀린 뒤에야** 채워진다(62차 조사) — 그래서 「예상 재개」 는 규칙으로 계산한 값이다.
  */
 
+import { US_HALTS_FETCH_INTERVAL_MS } from '../types/usHalts';
+
+/**
+ * 거래정지 화면이 정지 목록(`/api/us-halts`) · 토스 순위를 다시 읽는 간격(사용자 결정 2026-11-05 — 10초 → 5초).
+ * 서버 순위 캐시(30초)는 그대로라 토스 호출 수는 늘지 않는다.
+ */
+export const HALTS_SCREEN_REFRESH_MS = 5_000;
+
+/** 「지금 정지 중」 제목 옆 정보 — 새 정지가 보이기까지 늦는 까닭. 간격 숫자는 상수에서 읽는다(서버 받기 · 화면 다시 읽기) */
+export function haltsDelayTip(serverMs = US_HALTS_FETCH_INTERVAL_MS, screenMs = HALTS_SCREEN_REFRESH_MS): string {
+  const span = (ms: number) => (ms % 60_000 === 0 ? `${ms / 60_000}분` : `${Math.round(ms / 1000)}초`);
+  return `나스닥 목록은 정지 뒤 0.5~2분 늦게 올라옵니다 · 서버는 목록이 바뀌는 때에 맞춰 ${span(serverMs)}마다, 화면은 ${span(screenMs)}마다 받습니다`;
+}
+
 /** LULD(가격 제한 범위 이탈) 정지 코드 — Nasdaq 상장 LUDP · LUDS, 다른 거래소 상장 M */
 export const LULD_CODES = ['LUDP', 'LUDS', 'M'] as const;
 export const isLuldCode = (code: string): boolean => (LULD_CODES as readonly string[]).includes(code);

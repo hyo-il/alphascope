@@ -66,7 +66,7 @@ export function usHaltsSample(now: number, regularOpen = true, ongoingTotal = 3)
     serverNow: now,
     halts,
     ongoing,
-    status: { enabled: true, inWindow: true, window: 'regular', openToday: 0, lastSuccessAt: new Date(now - 20_000).toISOString(), lastAttemptAt: new Date(now - 20_000).toISOString(), consecutiveFailures: 0, lastError: null },
+    status: { enabled: true, inWindow: true, window: 'regular', openToday: 0, lastSuccessAt: new Date(now - 20_000).toISOString(), lastAttemptAt: new Date(now - 20_000).toISOString(), consecutiveFailures: 0, lastError: null, blockedStatus: null },
     minTurnoverUsd: null,
     regularOpen,
     nextRegularOpen: now + 20 * 60 * MIN,

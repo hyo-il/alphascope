@@ -7,7 +7,7 @@ import { InlineSpinner } from '../common/LoadingOverlay';
 import { useWatchlist } from '../../hooks/useWatchlist';
 import { toast } from '../../store/uiStore';
 import { HALT_CODES, directionUnknownText, haltCodeLabel, haltCodeTitle } from '../../data/haltCodes';
-import {
+import { HALTS_SCREEN_REFRESH_MS, haltsDelayTip,
   DEFAULT_HALT_RANK_TOP,
   DEFAULT_HALT_RANK_VIEW,
   HALT_RANK_TOPS,
@@ -32,7 +32,7 @@ import {
 } from '../../utils/usHalts';
 import { kstClockText } from '../../utils/marketDate';
 import { changeColor, formatSigned, formatUsdShort } from '../../utils/formatters';
-import { MIN_TURNOVER_MAX, type UsHaltFetchStatus, type UsHaltRow, type UsHaltsResponse, type UsOngoingHaltRow } from '../../types/usHalts';
+import { MIN_TURNOVER_MAX, US_HALTS_FAIL_WARN, type UsHaltFetchStatus, type UsHaltRow, type UsHaltsResponse, type UsOngoingHaltRow } from '../../types/usHalts';
 import type { LiveRankingResponse } from '../../types/ranking';
 
 /**
@@ -51,7 +51,7 @@ import type { LiveRankingResponse } from '../../types/ranking';
  *   (「상위」 = 두 순위 합집합 · `utils/usHalts.filterGroupsByRank` → 거래대금 숨기기). **관심 · 보유 종목은 순위와 상관없이 늘 보인다.**
  *   「며칠째 정지 중」 칸은 보기와 상관없이 모든 장기 정지(관심 · 보유가 위). 고른 보기 · N 은 이 브라우저에 기억한다(localStorage — 서버 저장 없음).
  * - 모든 칸은 한 줄(1280 · 1440) — 긴 종목명만 말줄임 + 툴팁(티커 · 시장 · 배지 · 순위는 자르지 않는다).
- * - 서버가 1분마다 Nasdaq Trader 거래정지 RSS 를 받아 쌓는다(`server/usHalts/`) — 화면은 서버 값(정지 목록 · 순위)을 10초마다 읽기만 한다(`REFRESH_MS`).
+ * - 서버가 1분마다(목록이 새로 만들어지는 때에 맞춰) Nasdaq Trader 거래정지 RSS 를 받아 쌓는다(`server/usHalts/`) — 화면은 서버 값(정지 목록 · 순위)을 5초마다 읽기만 한다(`REFRESH_MS`).
  * - 예상 재개는 **서버 시각** 기준으로 1초마다 다시 판단한다(`utils/usHalts.expectedResume`).
  * - 원문(ET 날짜 · 시각 · 사유 코드)은 툴팁 · 작은 글자로 함께 보인다(약관 — 피드를 고치거나 왜곡하지 않는다).
  * - 새 정지 토스트는 이 화면을 보고 있을 때만(화면을 떠나면 언마운트) — 처음 열 때 이미 있던 정지는 알리지 않는다.
@@ -59,23 +59,22 @@ import type { LiveRankingResponse } from '../../types/ranking';
  */
 
 /**
- * 정지 목록(`/api/us-halts`) · 토스 순위를 다시 읽는 간격(사용자 결정 2026-10-29 — 빠를수록 좋다).
+ * 정지 목록(`/api/us-halts`) · 토스 순위를 다시 읽는 간격 — `utils/usHalts` `HALTS_SCREEN_REFRESH_MS`(5초 · 사용자 결정 2026-11-05).
  * 10-28 POM 정지를 서버는 40초 만에 받았는데(22:34:06 정지 · 22:34:46 받음) 화면에는 1~2분 늦게 보였다 — 「상위」 보기는 순위에 들어와야 보여 순위 30초 + 서버 순위 캐시 30초가 겹쳤다.
- * 서버 순위 캐시(30초)는 그대로라 토스 호출 수는 늘지 않는다.
  */
-const REFRESH_MS = 10_000;
+const REFRESH_MS = HALTS_SCREEN_REFRESH_MS;
 /**
  * 표가 놓인 칸의 안쪽 폭(px)이 이보다 좁으면 사유 칸의 원문 코드를 툴팁으로 옮긴다(`CompactReason`).
  * 오른쪽 관심 패널을 편 채로 1440 창 = 1002px(코드 보임) · 1280 창 = 842px(숨김). 패널을 접은 1280 은 1056px 이라 보인다.
  * 창 폭이 아니라 칸 폭으로 잰다 — 패널을 접고 펴도 따라간다.
  */
 const COMPACT_REASON_BELOW = 920;
-/** 「지금 정지 중」 제목 옆 정보 — 새 정지가 보이기까지 늦는 까닭(간격 숫자는 위 상수 · 서버 `FETCH_INTERVAL_MS` 와 맞춘다) */
-const HALTS_DELAY_TIP = '나스닥 목록은 정지 뒤 0.5~2분 늦게 올라옵니다 · 서버는 1분마다, 화면은 10초마다 받습니다';
+/** 「지금 정지 중」 제목 옆 정보 — 간격 숫자는 상수에서(`haltsDelayTip`) */
+const HALTS_DELAY_TIP = haltsDelayTip();
 /** 좁은 칸 — 두 표의 사유 칸(`ReasonText`)이 같이 읽는다 */
 const CompactReason = createContext(false);
-/** 연속 이만큼 실패하면 경고 */
-const FAIL_WARN = 3;
+/** 연속 이만큼 실패하면 경고(서버가 받는 간격을 늘리는 기준과 같은 값) */
+const FAIL_WARN = US_HALTS_FAIL_WARN;
 /** 새 정지 토스트는 화면을 연 때보다 이만큼 앞선 정지까지만(목록 지연 0.5~2분 + 여유) — 서버를 막 켠 뒤 처음 받은 목록이 「새 정지」 로 몰려 뜨지 않게 */
 const TOAST_LOOKBACK_MS = 3 * 60_000;
 
@@ -238,7 +237,7 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
     }
   }, []);
 
-  // 처음 + 10초마다 — 숨은 탭에서는 쉬고, 다시 보이면 곧바로 한 번
+  // 처음 + 5초마다(REFRESH_MS) — 숨은 탭에서는 쉬고, 다시 보이면 곧바로 한 번
   useEffect(() => {
     void load();
     const timer = setInterval(() => {
@@ -444,18 +443,23 @@ function StatusLine({ status }: { status: UsHaltFetchStatus }) {
   const lastMs = status.lastSuccessAt ? Date.parse(status.lastSuccessAt) : null;
   const last = lastMs != null ? kstClockText(lastMs) : null;
   if (!status.enabled) return <span>이 서버는 Nasdaq 목록을 받지 않습니다(받기 꺼짐)</span>;
+  const blocked = status.blockedStatus != null ? ` · 차단으로 보이는 응답 ${status.blockedStatus}` : '';
   if (status.consecutiveFailures >= FAIL_WARN)
     return (
       <span className="text-warning" title={status.lastError ?? undefined}>
-        Nasdaq 목록을 받지 못하고 있습니다(마지막 성공 {last ?? '없음'})
+        Nasdaq 목록을 받지 못하고 있습니다(마지막 성공 {last ?? '없음'} · 연속 실패 {status.consecutiveFailures}번{blocked} · 받는 간격을 늘렸습니다)
       </span>
     );
   if (!status.inWindow)
     return <span>미국 시간 평일 04:00~20:00 ET 에 받습니다(20:00 뒤에는 안 풀린 오늘 정지가 있을 때만 자정까지){lastMs != null ? ` · 마지막 확인 ${KST_DAY.format(new Date(lastMs))} ${last}` : ''}</span>;
-  if (!last) return <span>{status.consecutiveFailures ? `아직 받지 못했습니다(실패 ${status.consecutiveFailures}번 · 1분마다 다시)` : '처음 받는 중…'}</span>;
+  if (!last) return <span>{status.consecutiveFailures ? `아직 받지 못했습니다(실패 ${status.consecutiveFailures}번${blocked} · 1분마다 다시)` : '처음 받는 중…'}</span>;
   if (status.window === 'extended')
     return <span>20:00 ET 뒤 — 아직 안 풀린 정지 {status.openToday}건 때문에 이어 받는 중(미국 자정까지) · 마지막 확인 {last}</span>;
-  return <span>마지막 확인 {last} · 1분마다</span>;
+  return (
+    <span>
+      마지막 확인 {last} · 1분마다{status.consecutiveFailures ? ` · 연속 실패 ${status.consecutiveFailures}번${blocked}` : ''}
+    </span>
+  );
 }
 
 /**

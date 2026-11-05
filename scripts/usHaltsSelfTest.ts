@@ -21,12 +21,13 @@ import { setPassword } from '../server/auth';
 import { marketDayTime } from '../server/marketHours';
 import { isMarketClosed } from '../server/marketCalendar';
 import { TossApiError } from '../src/services/toss/httpClient';
-import { fetchHaltsFeed, parseHaltsFeed, type RawHaltItem } from '../server/usHalts/feed';
+import { feedBuiltAt, fetchHaltsFeed, parseHaltsFeed, type RawHaltItem } from '../server/usHalts/feed';
 import { ingestHalts, listHaltsOfDay, listOngoingBefore, purgeOldHalts } from '../server/usHalts/store';
-import { fetchStatus, fetchWindowOf, markFetched, resetFetchStatusForTest, tooSoon, usHaltsTick } from '../server/usHalts/scheduler';
+import { ALIGN_SLACK_MS, FETCH_INTERVAL_MS, fetchStatus, fetchWindowOf, markFetched, planNextFetch, resetFetchStatusForTest, tooSoon, usHaltsTick } from '../server/usHalts/scheduler';
+import { US_HALTS_BACKOFF_MS, US_HALTS_FAIL_WARN, US_HALTS_FETCH_INTERVAL_MS } from '../src/types/usHalts';
 const isFetchWindow = (now: number, closed: (d: string) => boolean) => fetchWindowOf(now, { closed, openToday: () => 0 }).window !== 'outside';
 import { analyzeHalt, judgeDirection, turnoverBefore } from '../server/usHalts/directionEstimate';
-import { HALT_RANK_TOPS, HALT_RANK_VIEWS, expectedResume, readSavedHaltView, longHaltRows, filterGroupsByRank, rankSidesOf, groupHalts, groupTurnover, haltDayCount, isHaltOngoing, isHiddenByTurnover, rankHitOf, rankHits } from '../src/utils/usHalts';
+import { HALTS_SCREEN_REFRESH_MS, haltsDelayTip, HALT_RANK_TOPS, HALT_RANK_VIEWS, expectedResume, readSavedHaltView, longHaltRows, filterGroupsByRank, rankSidesOf, groupHalts, groupTurnover, haltDayCount, isHaltOngoing, isHiddenByTurnover, rankHitOf, rankHits } from '../src/utils/usHalts';
 import { formatUsdShort } from '../src/utils/formatters';
 import { directionUnknownText } from '../src/data/haltCodes';
 import type { Candle } from '../src/types/toss';
@@ -94,7 +95,7 @@ for (const f of files) {
   const items = parseHaltsFeed(xml);
   counts.push(items.length);
   const at = timeOf(f);
-  const r = await usHaltsTick({ now: et(DAY, at), load: async () => items, bars: fakeBars, closed: () => false });
+  const r = await usHaltsTick({ now: et(DAY, at), load: async () => ({ items, builtAt: null }), bars: fakeBars, closed: () => false });
   if (r !== 'fetched') check(`${f} 받기`, false, r);
   const snap = (sym: string, time: string) => one(sym, time);
   if (at === '09:33:31') {
@@ -341,7 +342,7 @@ ingestHalts([{ ...chow, ReasonCode: 'LUDP' }], et(DAY, '11:04:40'));
 check('사유가 LULD 아님 → LULD 로 바뀌면 방향을 다시 추정(pending)', one('CHOW', chow.HaltTime)?.direction_est === 'pending');
 // 1분봉을 이미 받은 줄 — 다시 부르지 않고 「판정 못 함」(정지 1건당 1번)
 const callsBefore = [...calls.values()].reduce((a, b) => a + b, 0);
-await usHaltsTick({ now: et(DAY, '11:04:50'), load: async () => [{ ...chow, ReasonCode: 'LUDP' }], bars: fakeBars, closed: () => false });
+await usHaltsTick({ now: et(DAY, '11:04:50'), load: async () => ({ items: [{ ...chow, ReasonCode: 'LUDP' }], builtAt: null }), bars: fakeBars, closed: () => false });
 check(
   '1분봉을 받은 뒤 LULD 로 바뀐 줄 — 다시 부르지 않음(code_changed)',
   one('CHOW', chow.HaltTime)?.direction_est === 'unknown' && /code_changed/.test(String(one('CHOW', chow.HaltTime)?.direction_est_json)) && [...calls.values()].reduce((a, b) => a + b, 0) === callsBefore,
@@ -384,6 +385,98 @@ check('켤 때 — 마지막 받기 30초 뒤면 건너뜀 · 60초 뒤면 받�
 db.prepare(`DELETE FROM app_settings WHERE key = 'usHalts.lastFetchAt'`).run();
 check('기록이 없으면 받음', !tooSoon(T0));
 
+// ── 4-1. 다음 받기 시각(피드가 만들어지는 때에 맞춤 · v2.60.8) — 시계를 빠르게 돌려 본다 ──────────
+// 피드 모형: phase 초마다(분 안의 자리) 새로 만든다 · jitter 면 만들 때마다 자리가 바뀐다 · fail(i) 면 i 번째 받기가 실패
+type FeedModel = { phase: number | null; jitter?: boolean; nodes?: number[]; fail?: (i: number) => boolean };
+function simulate(model: FeedModel, steps: number, start = T0 + 17_000) {
+  let now = start;
+  let lastFetchAt: number | null = null;
+  let failures = 0;
+  const built: number[] = [];
+  const gaps: number[] = [];
+  const ages: number[] = [];
+  const modes: string[] = [];
+  for (let i = 0; i < steps; i++) {
+    const plan = planNextFetch({ now, lastFetchAt, builtAts: built, failures });
+    modes.push(plan.mode);
+    if (lastFetchAt != null) gaps.push(plan.at - lastFetchAt);
+    now = plan.at;
+    lastFetchAt = now;
+    if (model.fail?.(i)) {
+      failures++;
+      continue;
+    }
+    failures = 0;
+    if (model.phase == null) continue; // 만든 시각 없음
+    // nodes = 캐시 서버가 여럿이라 받을 때마다 만든 자리가 다름(2026-11-05 관찰 :04 · :49)
+    const phase = model.nodes ? model.nodes[(i * 7 + (i >> 2)) % model.nodes.length] : model.jitter ? model.phase + ((i * 37_000) % 50_000) : model.phase;
+    const latest = Math.floor((now - phase) / 60_000) * 60_000 + phase; // 지금보다 앞선 마지막 만든 시각
+    ages.push(now - latest);
+    built.push(latest);
+    if (built.length > 10) built.shift();
+  }
+  return { gaps, ages, modes };
+}
+const minGap = (g: number[]) => Math.min(...g);
+const avg = (a: number[]) => Math.round(a.reduce((x, y) => x + y, 0) / Math.max(1, a.length));
+check('받기 간격 상수 = 60초(피드 ttl 1) · 화면 안내 · 서버가 같은 값', FETCH_INTERVAL_MS === 60_000 && US_HALTS_FETCH_INTERVAL_MS === FETCH_INTERVAL_MS);
+check('처음 받기는 바로(first)', planNextFetch({ now: T0, lastFetchAt: null, builtAts: [], failures: 0 }).mode === 'first');
+
+const steady = simulate({ phase: 4_000 }, 120);
+check('맞추기 — 늘 만든 뒤 여유만큼(aligned) · 간격 ≥ 60초', steady.modes.slice(3).every((m) => m === 'aligned') && minGap(steady.gaps) >= 60_000, `최소 ${minGap(steady.gaps)}ms · 받을 때 목록 나이 평균 ${avg(steady.ages.slice(3))}ms`);
+check('맞추기 — 자리를 잡은 뒤 받을 때 목록 나이 = 여유(ALIGN_SLACK_MS)', steady.ages.slice(3).every((a) => a === ALIGN_SLACK_MS), `${[...new Set(steady.ages.slice(3))].join(',')}ms`);
+const fixedOnly = simulate({ phase: null }, 120);
+check('근거 없음(만든 시각 없음) → 지금처럼 60초 고정', fixedOnly.modes.slice(1).every((m) => m === 'fixed') && fixedOnly.gaps.every((g) => g === 60_000), `${[...new Set(fixedOnly.gaps)].join(',')}ms`);
+const jitter = simulate({ phase: 4_000, jitter: true }, 120);
+check('흔들림(만든 자리가 분마다 다름) → 60초 고정 · 간격 ≥ 60초', jitter.modes.slice(3).every((m) => m === 'fixed') && minGap(jitter.gaps) >= 60_000, `최소 ${minGap(jitter.gaps)}ms`);
+check(
+  '한 번 만든 시각만 앎 → 60초 고정(근거 부족)',
+  planNextFetch({ now: T0 + 1000, lastFetchAt: T0, builtAts: [T0 - 2000], failures: 0 }).at === T0 + 60_000,
+);
+check(
+  '만든 시각이 받기 직전(여유 안) → 다음 만든 때 + 여유(60초보다 빠르지 않음)',
+  (() => {
+    const p = planNextFetch({ now: T0 + 500, lastFetchAt: T0, builtAts: [T0 - 60_000 - 1_000, T0 - 1_000], failures: 0 });
+    return p.mode === 'aligned' && p.at === T0 - 1_000 + 60_000 + ALIGN_SLACK_MS && p.at - T0 >= 60_000;
+  })(),
+);
+check(
+  '만든 시각 + 여유가 60초 안에 오면 그다음 분으로(60초보다 빠르지 않음)',
+  (() => {
+    const p = planNextFetch({ now: T0 + 500, lastFetchAt: T0, builtAts: [T0 - 60_000 - 59_000, T0 - 59_000], failures: 0 });
+    return p.at - T0 >= 60_000 && p.at === T0 - 59_000 + 2 * 60_000 + ALIGN_SLACK_MS;
+  })(),
+);
+// 실패 늘리기 — 3~8번째 받기가 실패하고 9번째부터 성공
+const back = simulate({ phase: 4_000, fail: (i) => i >= 3 && i <= 8 }, 20);
+const backGaps = back.gaps.slice(3, 10);
+const wantBack = [60_000, 60_000, US_HALTS_BACKOFF_MS[0], US_HALTS_BACKOFF_MS[1], US_HALTS_BACKOFF_MS[2], US_HALTS_BACKOFF_MS[2]];
+check(
+  `연속 ${US_HALTS_FAIL_WARN}번 실패부터 간격을 늘림(2 → 5 → 10분 · 끝 칸에서 멈춤)`,
+  JSON.stringify(backGaps.slice(0, 6)) === JSON.stringify(wantBack),
+  backGaps.map((g) => g / 1000).join(',') + '초',
+);
+check('성공하면 1분 간격으로 돌아옴(늘 ≥ 60초)', back.gaps.slice(10).every((g) => g >= 60_000 && g < 2 * 60_000) && minGap(back.gaps) >= 60_000, back.gaps.slice(9).map((g) => g / 1000).join(',') + '초');
+// 여러 경우를 섞어 1000번 — 두 받기 사이 늘 ≥ 60초
+const mixed = simulate({ phase: 9_000, jitter: false, fail: (i) => i % 97 < 5 || (i > 500 && i < 520) }, 1000);
+check('여러 경우 섞어 1000번 — 두 받기 사이 늘 ≥ 60초', minGap(mixed.gaps) >= 60_000, `최소 ${minGap(mixed.gaps)}ms`);
+// 맞추기 전(60초 고정)은 서버를 켠 자리에 따라 받을 때 목록 나이가 0~59초 — 켠 자리 60가지 평균과 맞춘 뒤를 견준다(보고용)
+const dual = simulate({ phase: 4_000, nodes: [4_000, 49_000] }, 500);
+check('만든 자리 두 곳(:04 · :49 — 관찰) 섞임 → 간격 늘 ≥ 60초', minGap(dual.gaps) >= 60_000, `최소 ${minGap(dual.gaps)}ms · 받을 때 목록 나이 평균 ${(avg(dual.ages) / 1000).toFixed(1)}초 · 맞춤 ${dual.modes.filter((m) => m === 'aligned').length}/고정 ${dual.modes.filter((m) => m === 'fixed').length}`);
+const fixedAges = Array.from({ length: 60 }, (_, sec) => (sec * 1000 - 4_000 + 60_000) % 60_000);
+console.log(`  (모형 · 만든 자리 :04) 받을 때 목록 나이 평균 — 60초 고정 ${(avg(fixedAges) / 1000).toFixed(1)}초 · 맞춘 뒤 ${(avg(steady.ages.slice(3)) / 1000).toFixed(1)}초`);
+
+// 만든 시각 읽기 — Date − Last-Modified(지난 시간)를 받은 시각에서 뺌 · 시계가 달라도 같음
+const recv = Date.parse('2026-11-05T05:42:10Z');
+const hdr = { date: 'Thu, 05 Nov 2026 05:42:06 GMT', lastModified: 'Thu, 05 Nov 2026 05:42:04 GMT' };
+check('만든 시각 = 받은 시각 − (Date − Last-Modified)', feedBuiltAt(recv, hdr, '') === recv - 2_000);
+check('Last-Modified 가 없으면 채널 pubDate', feedBuiltAt(recv, { date: hdr.date, lastModified: null }, '<rss><channel><title>x</title><pubDate>Thu, 05 Nov 2026 05:42:04 GMT</pubDate><item><pubDate>Wed, 04 Nov 2026 05:00:00 GMT</pubDate></item></channel>') === recv - 2_000);
+check('시각을 못 읽음 · 미래 · 10분 넘음 → null(맞출 근거 없음)', feedBuiltAt(recv, { date: null, lastModified: null }, '<rss><channel></channel>') === null && feedBuiltAt(recv, { date: hdr.date, lastModified: 'Thu, 05 Nov 2026 05:43:00 GMT' }, '') === null && feedBuiltAt(recv, { date: hdr.date, lastModified: 'Thu, 05 Nov 2026 05:30:00 GMT' }, '') === null);
+
+// 화면 — 5초 · 안내 문구가 상수와 맞음
+check('화면 다시 읽기 5초', HALTS_SCREEN_REFRESH_MS === 5_000);
+check('안내 문구 = 상수(서버 1분 · 화면 5초)', haltsDelayTip() === '나스닥 목록은 정지 뒤 0.5~2분 늦게 올라옵니다 · 서버는 목록이 바뀌는 때에 맞춰 1분마다, 화면은 5초마다 받습니다' && haltsDelayTip(60_000, 10_000).endsWith('화면은 10초마다 받습니다'), haltsDelayTip());
+
 // ── 5. 예상 재개 경계 ─────────────────────────────────────────────
 const H = et(DAY, '10:00:00');
 const luld = { rawReasonCode: 'LUDP', haltAtMs: H, resumeAtMs: null };
@@ -406,17 +499,25 @@ const failures: [string, typeof fetch][] = [
   ['시간 초과', fakeFetch(async () => Promise.reject(new DOMException('The operation was aborted due to timeout', 'TimeoutError')))],
 ];
 const okAt = et(DAY, '12:00:00');
-await usHaltsTick({ now: okAt, load: async () => lastItems, bars: fakeBars, closed: () => false });
+await usHaltsTick({ now: okAt, load: async () => ({ items: lastItems, builtAt: null }), bars: fakeBars, closed: () => false });
 for (const [i, [label, f]] of failures.entries()) {
   const r = await usHaltsTick({ now: okAt + (i + 1) * MIN, load: () => fetchHaltsFeed(f), closed: () => false });
   const s = fetchStatus();
   check(`받기 실패(${label}) → failed · 연속 ${i + 1}번 · 마지막 성공 그대로`, r === 'failed' && s.consecutiveFailures === i + 1 && s.lastSuccessAt === new Date(okAt).toISOString() && !!s.lastError, s.lastError ?? '');
 }
 const badShape = lastItems.slice(0, 2).map((i) => ({ ...i, HaltDate: '2026-10-21', HaltTime: '9:41' }));
-const rBad = await usHaltsTick({ now: okAt + 4 * MIN, load: async () => badShape, closed: () => false });
+const rBad = await usHaltsTick({ now: okAt + 4 * MIN, load: async () => ({ items: badShape, builtAt: null }), closed: () => false });
 check('항목을 하나도 못 읽으면(날짜 · 시각 모양 다름) 받기 실패로 셈', rBad === 'failed' && fetchStatus().consecutiveFailures === 4 && /모양/.test(fetchStatus().lastError ?? ''), fetchStatus().lastError ?? '');
-await usHaltsTick({ now: okAt + 5 * MIN, load: async () => lastItems, closed: () => false });
+await usHaltsTick({ now: okAt + 5 * MIN, load: async () => ({ items: lastItems, builtAt: null }), closed: () => false });
 check('다시 성공하면 연속 실패 0', fetchStatus().consecutiveFailures === 0 && fetchStatus().lastError === null);
+for (const [i, code] of [403, 429, 500].entries()) {
+  await usHaltsTick({ now: okAt + (6 + i) * MIN, load: () => fetchHaltsFeed(fakeFetch(async () => new Response('no', { status: code }))), closed: () => false });
+  const s = fetchStatus();
+  const want = code === 500 ? null : code;
+  check(`응답 ${code} → 차단 표시 ${want ?? '없음'} · 연속 실패 ${i + 1}`, s.blockedStatus === want && s.consecutiveFailures === i + 1, `${s.blockedStatus}`);
+}
+await usHaltsTick({ now: okAt + 9 * MIN, load: async () => ({ items: lastItems, builtAt: null }), closed: () => false });
+check('성공하면 차단 표시 지움', fetchStatus().blockedStatus === null && fetchStatus().consecutiveFailures === 0);
 
 // ── 7. API — 로그인 없으면 401 ─────────────────────────────────────
 await setPassword(TEST_PW);
@@ -516,11 +617,11 @@ const ongoingFeed = (f: string) => parseHaltsFeed(fs.readFileSync(path.join(FIXT
 const e1 = ongoingFeed('20261022-200130ET.xml');
 const e2 = ongoingFeed('20261022-200530ET.xml');
 resetFetchStatusForTest();
-check('20:01:30 ET — 유예 3분 안이라 받음(19:59 정지를 처음 봄)', (await usHaltsTick({ now: et(D2, '20:01:30'), load: async () => e1, bars: fakeBars })) === 'fetched');
+check('20:01:30 ET — 유예 3분 안이라 받음(19:59 정지를 처음 봄)', (await usHaltsTick({ now: et(D2, '20:01:30'), load: async () => ({ items: e1, builtAt: null }), bars: fakeBars })) === 'fetched');
 const w1 = fetchWindowOf(et(D2, '20:04:00'));
 check('20:04 ET — 안 풀린 오늘 정지(FFFF) 1건 → 이어 받음(extended)', w1.window === 'extended' && w1.openToday === 1, JSON.stringify(w1));
 check('받기 상태에 window · openToday', fetchStatus(et(D2, '20:04:00')).window === 'extended' && fetchStatus(et(D2, '20:04:00')).openToday === 1);
-check('20:05:30 ET — 이어 받기로 받음', (await usHaltsTick({ now: et(D2, '20:05:30'), load: async () => e2, bars: fakeBars })) === 'fetched');
+check('20:05:30 ET — 이어 받기로 받음', (await usHaltsTick({ now: et(D2, '20:05:30'), load: async () => ({ items: e2, builtAt: null }), bars: fakeBars })) === 'fetched');
 check('모두 풀린 다음 분(20:06:30) → 받지 않음', fetchWindowOf(et(D2, '20:06:30')).window === 'outside' && (await usHaltsTick({ now: et(D2, '20:06:30'), load: async () => { throw new Error('불렸음'); } })) === 'outside');
 const open1 = () => 1;
 const W = (iso: string, closed?: (d: string) => boolean) => fetchWindowOf(Date.parse(iso), { openToday: open1, closed: closed ?? real }).window;

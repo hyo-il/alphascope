@@ -74,6 +74,13 @@ export interface UsOngoingHaltRow extends UsHaltRow {
  */
 export type UsHaltFetchWindow = 'regular' | 'extended' | 'outside';
 
+/** 서버가 Nasdaq 목록을 받는 간격 — 피드 `ttl` 1(1분)이라 두 받기 사이는 늘 이 값 이상(`server/usHalts/scheduler.ts`) · 화면 안내도 이 값을 읽는다 */
+export const US_HALTS_FETCH_INTERVAL_MS = 60_000;
+/** 연속 이만큼 실패하면 화면은 경고 · 서버는 받는 간격을 늘린다(`US_HALTS_BACKOFF_MS`) */
+export const US_HALTS_FAIL_WARN = 3;
+/** 연속 실패가 `US_HALTS_FAIL_WARN` 에 닿은 뒤 받는 간격 — 실패가 이어질 때마다 다음 칸(끝 칸에서 멈춤) · 성공하면 1분으로 */
+export const US_HALTS_BACKOFF_MS = [2 * 60_000, 5 * 60_000, 10 * 60_000] as const;
+
 export interface UsHaltFetchStatus {
   /** 서버 스위치(`US_HALTS_ENABLED`) */
   enabled: boolean;
@@ -86,6 +93,8 @@ export interface UsHaltFetchStatus {
   lastAttemptAt: string | null;
   consecutiveFailures: number;
   lastError: string | null;
+  /** 마지막 실패가 차단으로 보이는 응답이면 그 HTTP 코드(403 · 429) — 성공하면 null */
+  blockedStatus: number | null;
 }
 
 export interface UsHaltsResponse {
