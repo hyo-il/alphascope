@@ -30,6 +30,75 @@ cd ~/alphascope && git pull --ff-only origin main && bash deploy/apply-nginx.sh
 
 지금 설정을 날짜 붙은 이름으로 백업(`/etc/nginx/sites-available/alphascope.backup-…`) → 새 설정 넣기 → `nginx -t` → 적용 → 8080 화면 · `/api/version` 확인 순서로 돌고, 끝에 「AlphaScope 주소: http://161.33.153.189:8080」 이 나옵니다. 검사나 확인이 실패하면 **자동으로 백업으로 되돌리고 멈춥니다**(주소는 예전 그대로).
 
+### Node 24 올리기 (v2.60.9 · 한 번만)
+
+맥과 같은 **Node 24.22.1**(nodesource 패키지 `24.22.1-1nodesource1`)로 올립니다. `deploy/upgrade-node24.sh` 가 **설치 · 빌드 · 화면 복사까지** 하므로 푸시한 뒤 `~/deploy.sh` 를 **먼저 돌리지 않습니다**.
+
+**언제** — 서버 스케줄러가 모두 쉬는 때(KST, 11월 · 미국 서머타임이 끝난 뒤 기준):
+
+| 때(KST) | 도는 것 | 올려도 되나 |
+|---|---|---|
+| **토 15:00 ~ 일 17:00** | 6시간 · 24시간마다 「오늘 받았나」 확인만(실적일 · 휴장일 · 종목 목록 · 세션 정리 — 켜지면 따라잡음) | ✅ **추천** |
+| 토 06:00 ~ 14:00 | 미국 금요일 장 뒤 일 — 매수 판단 기록(06:30) · 지정 종목 Gemini 분석 · 거래정지 받기(~10:00, 안 풀린 정지가 있으면 ~14:00) · 다시 계산(10:45~14:00) | ⚠️ 피함 |
+| 일 18:00 ~ | 미국 월요일 04:00 ET 부터 거래정지 받기 | ⚠️ 피함 |
+| 평일 06:30 ~ 07:20 | 매수 판단(미국) · Gemini 지정 종목 · 성과 스냅샷(07:00) · 오늘 시황(07:05) | ❌ |
+| 평일 09:00 ~ 15:30 · 23:30 ~ 06:00 | 국내 장 · 미국 장 — 계좌 자동매매(60초마다 손절 · 익절 검사) | ❌ |
+| 05:30 앞뒤 | (배포 시간대 규칙) | ❌ |
+
+미국 서머타임 중(3월~11월 첫 주)에는 미국 쪽 시각이 모두 1시간 앞당겨집니다(추천은 토 14:00 ~ 일 16:00).
+
+**멈추는 시간** — AlphaScope 두 프로그램이 꺼져 있는 것은 ⑤단계(멈춤 → DB 복사 → node_modules 바꿔 끼움 → 다시 켬 → API 응답)뿐으로, **약 10~30초**입니다(맥: 서버가 켜져 응답까지 0.9초 · 오라클 2 OCPU 는 몇 배 느림 · DB 크기만큼 복사 시간이 더해짐). Node 24 설치(apt)와 `npm ci`(맥에서 캐시 없이 7초 — 오라클은 1~2분 예상)는 **서버를 켠 채로** 옆 폴더에서 먼저 합니다. 스크립트 전체는 3~5분쯤 걸립니다.
+
+**순서** — 맥 터미널에서 한 줄씩:
+
+1. 들어가기 전에 지금 상태만 봅니다(아무것도 바꾸지 않음 — `v22.x` · `…nodesource…` · `/usr/bin/node` 가 나와야 합니다).
+
+   ```bash
+   ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189 'node -v; dpkg-query -W -f="\${Version}\n" nodejs; command -v node; readlink -f "$(command -v pm2)"; df -h ~ | tail -1'
+   ```
+
+2. 서버에 들어가 코드를 받고 스크립트를 돌립니다.
+
+   ```bash
+   ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189
+   ```
+
+   ```bash
+   cd ~/alphascope && git pull --ff-only origin main && bash deploy/upgrade-node24.sh
+   ```
+
+   - 「━━━ 1/7 … 7/7」 을 차례로 지나 끝에 **「완료 — Node 24 (v24.22.1) · 서버 켜짐 · 오류 없음」** 이 나오면 성공입니다.
+   - 「아무것도 바꾸지 않고 멈춥니다」 — 설치 방식이 예상과 다릅니다(nodesource 가 아님 · nvm · node 가 22 가 아님 등). 서버는 그대로 돕니다. 나온 글을 개발 대화에 붙여 주세요.
+   - 「되돌렸습니다」 — 중간에 실패해 **스스로 Node 22 · 옛 node_modules · 옛 화면으로 되돌리고 서버를 다시 켠 것**입니다. ⚠️ 줄을 개발 대화에 붙여 주세요.
+   - 이미 Node 24 면 「할 일이 없습니다」 로 끝납니다(두 번 돌려도 해가 없음).
+
+**끝난 뒤 확인할 것**
+
+1. 브라우저에서 `http://161.33.153.189:8080` 새로고침 → 로그인 · 차트 · 계좌가 열린다.
+2. 서버에서 `node -v` = `v24.22.1` · `pm2 list` 에서 `alphascope-api` · `alphascope-indicators` 가 `online`(다른 프로젝트 줄은 그대로).
+3. 다음 장에서 자동매매 · 매수 판단 기록이 평소처럼 돈다(계좌 「최근 판단」 · 매수 판단 화면의 그날 기록).
+4. 며칠 문제가 없으면 백업 폴더를 지웁니다(옛 node_modules 가 있어 수백 MB): `rm -rf ~/alphascope-node24-backup-<날짜>`
+
+**알아 둘 것**
+
+- 백업 폴더 `~/alphascope-node24-backup-<날짜>/` — `info.txt`(옛 버전들) · Node 22 패키지(`nodejs_22…arm64.deb`) · apt 저장소 설정 · `db/`(멈춘 뒤 복사한 DB · `-wal` · `-shm`) · `node_modules.node22` · `web/`(옛 화면) · `dump.pm2` · 단계별 로그.
+- 같은 서버의 **다른 프로젝트**는 멈추거나 다시 켜지 않습니다. 다만 서버의 `node` 가 24 로 바뀌므로 그 프로젝트도 **다음에 다시 켜질 때(재부팅 포함)부터 Node 24** 로 돕니다. pm2 자체(데몬)도 재부팅 전까지는 옛 Node 로 돌지만 AlphaScope 는 영향이 없습니다 — `pm2 update` 는 모든 프로그램을 다시 켜므로 쓰지 않습니다.
+- DB 는 되돌릴 때도 **덮어쓰지 않습니다**(better-sqlite3 11.10 → 12.1 은 같은 SQLite 3.49.2 라 파일 형식이 같고, 되돌리기 전까지 새 서버가 쓴 기록을 잃지 않게). 사본은 백업 폴더 `db/` 에 있습니다.
+
+**손으로 되돌리기**(스크립트가 성공한 뒤 며칠 지나 문제가 보일 때 — 서버 안에서, `<날짜>` 는 `ls ~ | grep node24-backup` 로 확인):
+
+```bash
+B=~/alphascope-node24-backup-<날짜>
+sudo rm -f /etc/apt/sources.list.d/nodesource.sources /etc/apt/sources.list.d/nodesource.list /etc/apt/preferences.d/nodejs /etc/apt/preferences.d/nsolid
+while IFS='|' read -r NAME DEST; do sudo cp "$B/apt/$NAME" "$DEST"; done < "$B/apt-paths.txt"
+sudo dpkg -i "$B"/nodejs_*.deb && node -v
+pm2 stop alphascope-api alphascope-indicators
+mv ~/alphascope/node_modules "$B/node_modules.node24" && mv "$B/node_modules.node22" ~/alphascope/node_modules
+pm2 restart alphascope-api && pm2 restart alphascope-indicators && curl -s http://127.0.0.1:4000/api/version
+```
+
+되돌린 뒤 `~/deploy.sh` 를 돌리면 Node 22 로 다시 설치 · 빌드합니다(`package.json` 의 `engines` 가 24 라 npm 이 경고만 냅니다).
+
 ### 같은 서버에 다른 프로젝트가 있을 때
 
 배포는 **AlphaScope 두 프로그램(`alphascope-api` · `alphascope-indicators`)만** 다시 켭니다 — `pm2 restart all` 같은 「모두」 명령은 쓰지 않으므로 다른 프로젝트의 pm2 프로그램은 그대로 돕니다. 둘 가운데 하나가 pm2 에 없으면 `ecosystem.config.cjs` 로 그 이름만 켜고 알립니다. 끝의 pm2 상태도 AlphaScope 두 줄만 보입니다. 다른 프로젝트의 pm2 설정 · nginx 설정 파일은 AlphaScope 것(`ecosystem.config.cjs` · `/etc/nginx/sites-available/alphascope`)과 **따로** 두고, 문은 AlphaScope 8080 · 다른 프로젝트 8081 로 나눕니다(80은 비워 둠). `sudo nginx -t` · `reload` 는 모든 사이트에 함께 걸리므로, 다른 사이트 설정이 틀려 있으면 AlphaScope 배포도 `nginx -t` 에서 멈춥니다(화면 복사는 이미 끝난 뒤 — pm2 는 다시 켜지지 않음).
@@ -180,6 +249,7 @@ ssh alphascope '(crontab -l 2>/dev/null | grep -v "# alphascope-ussample") | cro
 |---|---|
 | `nginx-alphascope.conf` | nginx 설정 — **8080** 만 듣는다 · 화면은 `/var/www/alphascope`(`/assets/` 1년 캐시 · `index.html` 캐시 안 함), `/api/` 는 127.0.0.1:4000(`Host $http_host` — 문 번호까지 넘겨야 로그인 · 저장이 403 이 아니다) |
 | `apply-nginx.sh` | nginx 설정이 바뀌었을 때 손으로 한 번 — 백업 · 넣기 · 검사 · 적용 · 8080 확인 · 실패하면 되돌림 |
+| `upgrade-node24.sh` | Node 22 → 24 올리기(손으로 한 번 · 위 「Node 24 올리기」) — 설치 방식이 예상과 다르면 아무것도 바꾸지 않고 멈춤 · 실패하면 Node 22 · 옛 node_modules · 옛 화면으로 되돌림 · pm2 는 AlphaScope 두 이름만 |
 | `ecosystem.config.cjs` | pm2 설정 — api·indicators 두 개(개발 서버 없음) |
 | `deploy.sh` | 배포 스크립트 — `~/deploy.sh` 로 복사되어 쓰인다 · pm2 는 AlphaScope 두 이름만(`PM2_APPS` — `ecosystem.config.cjs` 와 같게 · `npm run deploy:test`) |
 | `switch-to-static.sh` | 한 번만 쓰는 전환 스크립트(백업·자동 되돌리기 포함) |
