@@ -694,6 +694,7 @@ check(
     !/data\.ongoing\.filter/.test(viewSrc) &&
     !/split\([^)]*, (true|false)\)/.test(viewSrc),
 );
+check('화면 — 간격 글은 상수에서(「10초」 박힌 글 없음 · 도움말 순위 간격 = REFRESH_MS)', !/10초/.test(viewSrc) && /\{REFRESH_MS \/ 1000\}초마다 다시 읽고/.test(viewSrc));
 check('화면 — 「며칠째 … 이 보기에서 빠집니다」 · 「— 관심 · 보유」 제목이 남지 않음', !/이 보기에서 빠집니다|며칠째 정지 중 — 관심/.test(viewSrc));
 check('화면 — 「앞선 정지」 줄 · 「실제 재개」 · 「재개됨」 상태를 만들던 코드가 남지 않음', !/앞선 정지 [<{]|EarlierTimes|실제 재개|재개됨/.test(viewSrc));
 const grepNth = (dir: string): string[] =>

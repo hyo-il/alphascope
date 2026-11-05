@@ -129,7 +129,7 @@ interface RankState {
 const EMPTY_RANK: RankState = { data: null, error: null, stopped: false };
 
 /**
- * 토스 오늘 상승률 또는 하락률 순위 하나 — 켠 동안만(보기가 그 순위를 쓰고 · 정규장일 때), 처음 + 10초마다(숨은 탭에서는 쉼).
+ * 토스 오늘 상승률 또는 하락률 순위 하나 — 켠 동안만(보기가 그 순위를 쓰고 · 정규장일 때), 처음 + 5초마다(`REFRESH_MS` · 숨은 탭에서는 쉼).
  * 실패해도 앞서 받은 순위는 그대로 둔다(error 만 채움). 끄면 비운다(N 만 바꾸면 다시 받지 않는다 — 응답이 100개).
  */
 function useLiveRank(kind: HaltRankSide, enabled: boolean): RankState {
@@ -139,7 +139,7 @@ function useLiveRank(kind: HaltRankSide, enabled: boolean): RankState {
     setState({ ...EMPTY_RANK, for: enabled });
     if (!enabled) return;
     let alive = true;
-    /** 모의 데이터 모드 — 다시 받아도 같으니 멈춘다(화면은 「10초 뒤 다시」 라고 하지 않는다) */
+    /** 모의 데이터 모드 — 다시 받아도 같으니 멈춘다(화면은 「N초 뒤 다시」 라고 하지 않는다) */
     let stopped = false;
     const load = async () => {
       if (stopped) return;
@@ -399,7 +399,7 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
                       ? ` — ${ranks[failed[0]].error}`
                       : failed.every((k) => ranks[k].data)
                         ? ` — 앞서 받은 순위로 거르는 중입니다(순위 시각 ${rankTimeText(ranks[failed[0]].data)})`
-                        : ' — 10초 뒤 다시 받습니다'}
+                        : ` — ${REFRESH_MS / 1000}초 뒤 다시 받습니다`}
                     {' · 관심 · 보유 종목은 그대로 보입니다'}
                   </p>
                 )}
@@ -612,7 +612,7 @@ function RankFilter({
           `보기 · 상위 N 은 정규장(${session})에 쓰입니다 — 지금은 「지금 정지 중」 표가 없어 흐리게 두었습니다. 고른 값은 그대로 기억하고, 「며칠째 정지 중」 칸은 보기와 상관없이 보입니다.`
         ) : (
           <>
-        「상위」 = 급상승 + 급하락 — 토스 오늘 상승률 · 하락률 순위 상위 N 안에 든 종목 가운데 지금 멈춘 것만(「급상승」 은 상승률, 「급하락」 은 하락률만). 「전체」 는 지금 멈춘 종목을 순위와 상관없이 모두 보입니다(상위 N 은 쓰지 않습니다). 관심 · 보유 종목은 순위와 상관없이 멈추면 보입니다. 「며칠째 정지 중」 칸은 보기와 상관없이 며칠째 멈춘 종목을 모두 보입니다(정규장 밖에는 오늘 멈춘 것도 「1일째」 로). 순위는 10초마다 다시 읽고(서버는 토스 순위를 30초마다 새로 받습니다), 순위 시각은 토스 기준입니다.
+        「상위」 = 급상승 + 급하락 — 토스 오늘 상승률 · 하락률 순위 상위 N 안에 든 종목 가운데 지금 멈춘 것만(「급상승」 은 상승률, 「급하락」 은 하락률만). 「전체」 는 지금 멈춘 종목을 순위와 상관없이 모두 보입니다(상위 N 은 쓰지 않습니다). 관심 · 보유 종목은 순위와 상관없이 멈추면 보입니다. 「며칠째 정지 중」 칸은 보기와 상관없이 며칠째 멈춘 종목을 모두 보입니다(정규장 밖에는 오늘 멈춘 것도 「1일째」 로). 순위는 {REFRESH_MS / 1000}초마다 다시 읽고(서버는 토스 순위를 30초마다 새로 받습니다), 순위 시각은 토스 기준입니다.
         {Number.isFinite(rankedMs) ? ` 지금 순위 시각 ${kstClockText(rankedMs)}(한국 시간).` : ''}
           </>
         )}
