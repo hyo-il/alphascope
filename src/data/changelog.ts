@@ -23,6 +23,16 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.60.9',
+    date: '2026-11-05',
+    title: '서버 실행 환경 Node 24',
+    description: '서버가 Node 24 로 돕니다. 화면 · 매매 규칙 · 매수 판단 · 계좌 계산은 그대로입니다',
+    changes: [
+      '서버(오라클)와 맥이 같은 Node 24 를 씁니다 — 올리는 동안 서버가 몇십 초 멈출 수 있습니다',
+      '매수 판단 · 계좌 · 주문 · 백테스트 결과는 Node 22 때와 같습니다',
+    ],
+  },
+  {
     version: 'v2.60.8',
     date: '2026-11-05',
     title: '투자자 동향 1분마다 갱신(토스 기준 시각 표시) · 거래정지 목록이 바뀌는 때에 맞춰 받기 · 거래정지 화면 5초 · 미리보기 범례 여백',
