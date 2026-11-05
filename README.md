@@ -48,7 +48,7 @@
 
 | 항목 | 버전 | 비고 |
 |---|---|---|
-| Node.js | **22** | `.nvmrc` |
+| Node.js | **24** | `.nvmrc` · 맥 · 오라클 같은 버전 |
 | Python | **3.12+** | pandas-ta 0.4.x 요구사항 |
 | 토스증권 Open API | Client ID/Secret | **필수**(없으면 모의 데이터 모드) |
 | Google Gemini API | API Key | 선택 |

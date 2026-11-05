@@ -1,10 +1,16 @@
 #!/bin/bash
 # AlphaScope 실행 스크립트 — Finder 에서 더블클릭하거나 터미널에서 ./start.command
 #
-# 전역 node 는 v21(EOL)이라 실행되지 않는다. 여기서 Node 22 경로를 앞에 붙여 준다.
+# Node 24 로 돈다(.nvmrc · 오라클 서버와 같은 버전). PATH 의 node 가 24 가 아니면 시작하지 않고 안내한다.
 
 cd "$(dirname "$0")" || exit 1
-export PATH=/opt/homebrew/opt/node@22/bin:$PATH
+
+NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null)
+if [ "$NODE_MAJOR" != "24" ]; then
+  echo "⚠️  Node 24 가 필요합니다. 지금 node: $(node -v 2>/dev/null || echo '찾지 못함') ($(command -v node 2>/dev/null || echo 'PATH 에 없음'))"
+  echo "    Node 24 를 설치하거나 PATH 앞에 두고 다시 실행하세요. 노드를 바꿨다면 node_modules 를 지우고 다시 설치합니다(npm ci)."
+  exit 1
+fi
 
 echo "AlphaScope 시작 중…"
 echo "  Node: $(node -v)"

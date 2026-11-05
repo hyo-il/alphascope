@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "dev": "concurrently -n web,api,py -c cyan,magenta,yellow \"npm:dev:web\" \"npm:dev:api\" \"npm:dev:py\"",
@@ -55,7 +55,7 @@
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-kr": "^5.3.0",
-    "better-sqlite3": "^11.7.0",
+    "better-sqlite3": "^12.1.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
