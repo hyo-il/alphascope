@@ -38,6 +38,9 @@ const isMinuteTf = (tf: PreviewTimeframe) => tf === '5m' || tf === '15m';
 
 /** 분봉 다시 받기 주기 */
 const MINUTE_REFRESH_MS = 60_000;
+
+/** 미리보기 위 · 아래 끝 여백 — 헤더(종목 이름 위) · 범례 아래 · 바닥줄이 같은 값(한 곳에서 같이 바꾼다) */
+const EDGE_Y = { both: 'py-2.5', bottom: 'pb-2.5' } as const;
 /**
  * 일·주·월 캐시가 이만큼 오래됐으면 다시 올렸을 때 한 번 조용히 다시 받는다(즉시 그리기는 그대로).
  * 날짜가 바뀌거나 장이 열려 새 봉이 생겼는데 옛 마지막 봉에 현재가를 덮어쓰지 않게.
@@ -269,7 +272,7 @@ export default function RankingPreview({
 
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl bg-bg-secondary" aria-label="종목 미리보기">
-      <header className="flex shrink-0 items-center gap-2 px-3 py-2.5">
+      <header className={`flex shrink-0 items-center gap-2 px-3 ${EDGE_Y.both}`}>
         {row ? (
           <div className="min-w-0 flex-1">
             <StockName symbol={row.symbol} name={row.name ?? undefined} className="text-sm font-semibold text-text-primary" />
@@ -292,8 +295,8 @@ export default function RankingPreview({
         )}
         <Segmented label="봉" size="sm" value={timeframe} onChange={onTimeframeChange} options={PREVIEW_TIMEFRAMES.map((t) => ({ value: t.id, label: t.label }))} />
       </header>
-      {/* 범례 — 위아래 같은 간격(차트에 붙지 않게). 이름은 그리는 봉 간격으로(분봉 = 5봉선) — 메인 차트 · 기업 비교와 같은 함수 */}
-      <div className="flex shrink-0 gap-2 px-3 py-1 text-caption">
+      {/* 범례 — 아래 여백 = 헤더 위 여백(EDGE_Y · 차트에 붙지 않게). 이름은 그리는 봉 간격으로(분봉 = 5봉선) — 메인 차트 · 기업 비교와 같은 함수 */}
+      <div className={`flex shrink-0 gap-2 px-3 pt-1 ${EDGE_Y.bottom} text-caption`}>
         {LITE_CHART_MAS.map((ma) => (
           <span key={ma.key} style={{ color: ma.color }}>
             {maLabel(ma, barUnitOf(candles))}
@@ -324,7 +327,7 @@ export default function RankingPreview({
           <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-caption text-danger">{error}</div>
         )}
       </div>
-      <footer className="flex shrink-0 items-center px-3 py-2.5">
+      <footer className={`flex shrink-0 items-center px-3 ${EDGE_Y.both}`}>
         <span className="min-w-0 text-caption text-text-muted">
           {PREVIEW_TIMEFRAMES.find((t) => t.id === timeframe)!.label}봉 · 캔들 + 거래량 + 이동평균(5·20·60) · 왼쪽으로 끌면 과거 봉
         </span>
