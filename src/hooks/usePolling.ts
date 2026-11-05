@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
  * - 다시 보이는 순간 즉시 한 번 갱신한다. 그러지 않으면 숨겨진 채로 열린 탭은
  *   데이터가 영영 채워지지 않는다.
  * - 이전 요청이 끝나기 전에는 다음 요청을 보내지 않는다.
+ * - 받지 못하면(네트워크 · JSON 아님) 구독자에게 `{ pollError }` 를 넘긴다 — 오류를 보이고 싶은 훅만 pick 에서 읽는다.
  * - **같은 URL 을 여러 컴포넌트가 구독하면 요청은 한 번만 나간다.**
  *   App 헤더와 모의투자 주문 패널이 같은 종목의 현재가를 각각 1초마다
  *   따로 받으면 같은 데이터를 두 번 받으면서 토스 Rate Limit 만 갉아먹는다.
@@ -51,8 +52,11 @@ function subscribe(
         const payload = (await response.json()) as Record<string, unknown>;
         created.last = payload;
         for (const subscriber of created.subscribers) subscriber(payload);
-      } catch {
-        // 폴링 실패는 조용히 넘긴다 — 다음 tick 에서 자연스럽게 재시도된다.
+      } catch (e) {
+        // 받지 못함(네트워크 · JSON 아님) — 다음 tick 에서 다시 받는다. 구독자에게는 `pollError` 칸만 넘긴다
+        // (last 는 그대로 · 이 칸을 보지 않는 pick 은 undefined 를 돌려 무시된다 — 오류를 보이는 훅만 쓴다).
+        const failed = { pollError: e instanceof Error ? e.message : String(e) };
+        for (const subscriber of created.subscribers) subscriber(failed);
       } finally {
         created.inflight = false;
       }

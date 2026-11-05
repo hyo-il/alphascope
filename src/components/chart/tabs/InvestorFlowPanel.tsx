@@ -1,4 +1,4 @@
-import { formatDateTime } from '../../../utils/dateFormat';
+import { formatDate, formatTime } from '../../../utils/dateFormat';
 import { displayMinus, formatSigned } from '../../../utils/formatters';
 import { PANEL_PAD } from '../../ui/tokens';
 import { useInvestorFlow } from '../../../hooks/useInvestorFlow';
@@ -30,6 +30,12 @@ const SIDES: FlowSideKey[] = ['foreigner', 'institution', 'individual'];
 const signed = (n: number) => displayMinus(`${n > 0 ? '+' : ''}${Math.round(n).toLocaleString('ko-KR')}`);
 const tone = (n: number) => (n > 0 ? 'text-bullish' : n < 0 ? 'text-bearish' : 'text-text-secondary');
 const mmdd = (date: string) => date.slice(5);
+/** `14:30` — 오늘(브라우저 날짜)이 아니면 `11-04 14:30`. 값이 없으면 '—' */
+const tossStamp = (at: string | null) => {
+  if (!at) return '—';
+  const day = formatDate(at);
+  return day === formatDate(Date.now()) ? formatTime(at) : `${mmdd(day)} ${formatTime(at)}`;
+};
 
 function Net({ side }: { side: FlowSide | null }) {
   if (!side) return <span className="text-text-muted">—</span>;
@@ -47,7 +53,8 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
       </p>
     );
   }
-  if (error) return <p className={`${PANEL_PAD} text-caption text-danger`}>투자자 동향을 불러오지 못했습니다: {error}</p>;
+  // 처음 받기 실패만 오류 화면 — 다시 받기 실패는 보던 값을 두고 위쪽 줄에 작게(1분 뒤 다시 받는다)
+  if (error && !flow) return <p className={`${PANEL_PAD} text-caption text-danger`}>투자자 동향을 불러오지 못했습니다: {error}</p>;
   if (!flow) return <p className={`${PANEL_PAD} text-caption text-text-muted`}>불러오는 중…</p>;
 
   const period = flow.period;
@@ -55,6 +62,11 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
 
   return (
     <div className={`space-y-3 ${PANEL_PAD} text-caption`}>
+      {/* 토스가 값을 만든 시각(`updatedAt`) — 1분마다 다시 받는다. 오늘이 아니면 날짜도 붙인다 */}
+      <p className="text-text-muted tabular-nums">
+        토스 기준 {tossStamp(flow.updatedAt)} 갱신
+        {error && <span className="text-danger"> · 다시 받지 못했습니다(1분 뒤 다시): {error}</span>}
+      </p>
       <div>
         <p className="mb-1 text-text-secondary">
           {period
@@ -146,8 +158,7 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
       </table>
 
       <p className="text-text-muted">
-        출처: 토스증권 Open API · 단위: 주(금액 아님) · 외국인 = 등록외국인 · 외국인 보유 비율 = 토스 투자자 동향의 외국인 보유 수량 ÷ 외국인 한도 수량 · 기준{' '}
-        {flow.updatedAt ? formatDateTime(flow.updatedAt) : '—'}
+        출처: 토스증권 Open API · 단위: 주(금액 아님) · 외국인 = 등록외국인 · 외국인 보유 비율 = 토스 투자자 동향의 외국인 보유 수량 ÷ 외국인 한도 수량
       </p>
     </div>
   );

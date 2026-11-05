@@ -3,9 +3,10 @@
  *
  * - **국내 종목이 아니면 토스를 부르지 않는다**(`isKrSymbol`) — 미국 종목은 API 가 400 이고, 요청 자체가 낭비다.
  * - 캐시(종목별, 메모리 + 진행 중 요청 공유): 일별 데이터라 짧게 둔다.
- *   KST 09:00~21:00 은 **5분** — 장중 잠정치가 갱신되고, 확정치(개인·기타법인)는 **그날 저녁**에 들어온다.
+ *   KST 09:00~21:00 은 **1분** — 장중 잠정치가 갱신되고, 확정치(개인·기타법인)는 **그날 저녁**에 들어온다.
+ *   화면(`useInvestorFlow`)이 1분마다 다시 받으므로 여러 화면 · 여러 창이 같은 종목을 봐도 토스는 종목당 1분 1번 이하다.
  *   ⚠️ 지시서의 "장 마감 뒤에는 다음 장 시작까지" 를 그대로 따르면 15:30 에 받은 잠정치(개인 없음)를
- *   밤새 들고 있게 된다 — 그래서 21:00 까지는 5분을 유지하고, 그 뒤 받은 값만 다음 09:00 까지 둔다.
+ *   밤새 들고 있게 된다 — 그래서 21:00 까지는 1분을 유지하고, 그 뒤 받은 값만 다음 09:00 까지 둔다.
  * - 20 **확정일**을 채우려고 21건을 받는다(당일 잠정 1건이 섞일 수 있다).
  */
 
@@ -13,7 +14,8 @@ import { fetchInvestorTrading } from '../src/services/toss/market';
 import { isKrSymbol } from '../src/utils/market';
 import { FLOW_DAYS, flowPeriod, sumFlow, type InvestorFlow } from '../src/utils/investorFlow';
 
-const SHORT_TTL_MS = 5 * 60_000;
+/** 장중(KST 09~21시) 캐시 — 화면의 다시 받기 주기(`FLOW_REFRESH_MS`)와 같다 */
+export const SHORT_TTL_MS = 60_000;
 const KST_OFFSET_MS = 9 * 3_600_000;
 
 const cache = new Map<string, { at: number; expires: number; flow: InvestorFlow }>();
@@ -33,8 +35,12 @@ export function flowExpiry(now: number): number {
 
 export class FlowUnsupportedError extends Error {}
 
-/** 국내 종목의 최근 동향 — 국내가 아니면 FlowUnsupportedError(토스 호출 없음) */
-export async function getInvestorFlow(symbol: string, now = Date.now()): Promise<InvestorFlow> {
+/** 국내 종목의 최근 동향 — 국내가 아니면 FlowUnsupportedError(토스 호출 없음). `fetcher` 는 시험이 바꿔 끼운다 */
+export async function getInvestorFlow(
+  symbol: string,
+  now = Date.now(),
+  fetcher: typeof fetchInvestorTrading = fetchInvestorTrading,
+): Promise<InvestorFlow> {
   const key = symbol.toUpperCase();
   if (!isKrSymbol(key)) throw new FlowUnsupportedError('투자자 동향은 국내 종목만 제공됩니다(토스 API 제공 범위)');
 
@@ -44,7 +50,7 @@ export async function getInvestorFlow(symbol: string, now = Date.now()): Promise
   if (pending) return pending;
 
   const request = (async () => {
-    const records = await fetchInvestorTrading(key, FLOW_DAYS + 1);
+    const records = await fetcher(key, FLOW_DAYS + 1);
     const flow: InvestorFlow = {
       symbol: key,
       records,
