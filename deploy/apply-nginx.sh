@@ -1,17 +1,21 @@
 #!/bin/bash
-# AlphaScope — 저장소의 nginx 설정(deploy/nginx-alphascope.conf)을 오라클 nginx 에 넣는다 (v2.60.5).
+# AlphaScope — 저장소의 nginx 설정(deploy/nginx-alphascope.conf)을 오라클 nginx 에 넣는다 (v2.60.5 · v2.61.1 https).
 # 배포(~/deploy.sh)는 nginx 설정 파일을 넣지 않는다 — 설정이 바뀌었을 때만 이 스크립트를 **손으로 한 번** 돌린다.
 #
 #   쓰는 법(오라클 안에서):  cd ~/alphascope && git pull --ff-only origin main && bash deploy/apply-nginx.sh
 #
-# 순서: ① 지금 설정 백업(sites-enabled 밖 · 이름에 날짜) → ② 새 설정 복사 → ③ nginx -t(실패하면 되돌리고 멈춤)
-#       → ④ reload → ⑤ 화면 · /api/version 확인(200 이 아니면 되돌리고 멈춤) → ⑥ 주소 알림
+# 순서: ⓪ 인증서가 있는지(없으면 아무것도 바꾸지 않고 멈춤 — 처음은 deploy/setup-https.sh)
+#       → ① 지금 설정 백업(sites-enabled 밖 · 이름에 날짜) → ② 새 설정 복사 → ③ nginx -t(실패하면 되돌리고 멈춤)
+#       → ④ reload → ⑤ https 화면 · /api/version 200 + 8080 → https 넘김 확인(아니면 되돌리고 멈춤) → ⑥ 주소 알림
+# deploy/setup-https.sh 도 이 스크립트를 부른다(실패하면 종료 코드 1 — 그 스크립트가 나머지를 되돌린다).
 set -e
 
 APP_DIR="$HOME/alphascope"
 SERVER_NAME="161.33.153.189"   # nginx 설정의 server_name 과 같아야 한다
-PUBLIC_PORT=8080               # nginx 설정의 listen 과 같아야 한다(npm run deploy:test 가 확인)
+PUBLIC_PORT=443                # nginx 설정의 listen … ssl 과 같아야 한다(npm run deploy:test 가 확인)
+OLD_PORT=8080                  # 옛 주소 — nginx 가 https 로 넘긴다
 NGINX_DIR="${NGINX_DIR:-/etc/nginx}"   # 시험(deploy:test)만 임시 폴더로 바꾼다
+LE_DIR="${LE_DIR:-/etc/letsencrypt}"   # 시험만 임시 폴더로 바꾼다
 NGINX_AVAIL="$NGINX_DIR/sites-available/alphascope"
 NGINX_ENABLED="$NGINX_DIR/sites-enabled/alphascope"
 STAMP=$(date +%Y%m%d-%H%M%S)
@@ -29,6 +33,12 @@ restore() {
   sudo nginx -t && sudo systemctl reload nginx
   echo "  되돌렸습니다. 주소는 예전 그대로입니다. 위의 오류 내용을 알려 주세요."
 }
+
+# 인증서가 없으면 새 설정(443 ssl)은 nginx -t 를 통과하지 못한다 — 바꾸기 전에 멈춘다
+if ! sudo test -f "$LE_DIR/live/$SERVER_NAME/fullchain.pem"; then
+  echo "  ⚠️ https 인증서($LE_DIR/live/$SERVER_NAME/)가 아직 없습니다 — 처음이면 bash deploy/setup-https.sh 를 돌리세요. 아무것도 바꾸지 않고 멈춥니다."
+  exit 1
+fi
 
 echo "━━━ 1/5 지금 설정 백업"
 if [ ! -f "$NGINX_AVAIL" ]; then
@@ -58,16 +68,18 @@ echo "━━━ 4/5 적용"
 sudo systemctl reload nginx
 sleep 1
 
-echo "━━━ 5/5 화면 · API 확인 (Host: $SERVER_NAME:$PUBLIC_PORT)"
-CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $SERVER_NAME:$PUBLIC_PORT" "http://127.0.0.1:$PUBLIC_PORT/" || true)
-API=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $SERVER_NAME:$PUBLIC_PORT" "http://127.0.0.1:$PUBLIC_PORT/api/version" || true)
-echo "  화면 응답 $CODE · API(/api/version) 응답 $API"
-if [ "$CODE" != "200" ] || [ "$API" != "200" ]; then
-  echo "  ⚠️ 화면 또는 API 확인에 실패했습니다."
+echo "━━━ 5/5 화면 · API 확인 (https://$SERVER_NAME · 옛 주소 $OLD_PORT → https)"
+# --resolve: 이름은 $SERVER_NAME 그대로(인증서 확인 · Host) 두고 이 서버(127.0.0.1)로 묻는다 — 인증서가 틀리거나 만료면 000
+CODE=$(curl -s -o /dev/null -w '%{http_code}' --resolve "$SERVER_NAME:$PUBLIC_PORT:127.0.0.1" "https://$SERVER_NAME/" || true)
+API=$(curl -s -o /dev/null -w '%{http_code}' --resolve "$SERVER_NAME:$PUBLIC_PORT:127.0.0.1" "https://$SERVER_NAME/api/version" || true)
+MOVE=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -H "Host: $SERVER_NAME:$OLD_PORT" "http://127.0.0.1:$OLD_PORT/alphascope-check?x=1" || true)
+echo "  화면 응답 $CODE · API(/api/version) 응답 $API · 옛 주소 $OLD_PORT → $MOVE"
+if [ "$CODE" != "200" ] || [ "$API" != "200" ] || [ "$MOVE" != "301 https://$SERVER_NAME/alphascope-check?x=1" ]; then
+  echo "  ⚠️ 화면 · API 또는 옛 주소 넘김 확인에 실패했습니다."
   restore
   exit 1
 fi
 
 echo ""
-echo "적용 완료 — AlphaScope 주소: http://$SERVER_NAME:$PUBLIC_PORT"
+echo "적용 완료 — AlphaScope 주소: https://$SERVER_NAME (옛 주소 http://$SERVER_NAME:$OLD_PORT 는 https 로 넘어감)"
 echo "(백업: $BACKUP — 문제가 없으면 그대로 두어도 됩니다)"

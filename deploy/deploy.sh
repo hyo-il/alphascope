@@ -6,7 +6,7 @@ set -e
 APP_DIR="$HOME/alphascope"
 WEB_DIR="/var/www/alphascope"
 SERVER_NAME="161.33.153.189"   # nginx 설정의 server_name 과 같아야 한다(확인 요청에 쓴다)
-PUBLIC_PORT=8080               # nginx 설정의 listen 과 같아야 한다 — AlphaScope 주소 http://161.33.153.189:8080 (80번 문은 닫음)
+PUBLIC_PORT=443                # nginx 설정의 listen … ssl 과 같아야 한다 — AlphaScope 주소 https://161.33.153.189 (v2.61.1 · 옛 8080 은 https 로 넘김)
 # AlphaScope pm2 프로그램 이름 — 이 둘만 다시 켠다(같은 서버의 다른 프로젝트 pm2 프로그램은 건드리지 않는다).
 # deploy/ecosystem.config.cjs 의 name 과 같아야 한다(npm run deploy:test 가 확인).
 PM2_APPS="alphascope-api alphascope-indicators"
@@ -78,12 +78,15 @@ if VERSION=$(curl -sf http://127.0.0.1:4000/api/version); then
 else
   echo "  ⚠️ API 가 아직 응답하지 않습니다. 'pm2 logs alphascope-api --lines 30' 으로 확인하세요."
 fi
-CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $SERVER_NAME:$PUBLIC_PORT" "http://127.0.0.1:$PUBLIC_PORT/" || true)
+# --resolve: 이름은 $SERVER_NAME 그대로(인증서 확인) 두고 이 서버(127.0.0.1)로 묻는다
+CODE=$(curl -s -o /dev/null -w '%{http_code}' --resolve "$SERVER_NAME:$PUBLIC_PORT:127.0.0.1" "https://$SERVER_NAME/" || true)
 if [ "$CODE" = "200" ]; then
   echo "  화면 응답: 200"
 else
-  echo "  ⚠️ 화면이 응답하지 않습니다(코드 $CODE · 문 $PUBLIC_PORT). 'sudo nginx -t' 와 '$WEB_DIR' 폴더를 확인하세요. nginx 설정이 바뀌었으면 'bash ~/alphascope/deploy/apply-nginx.sh'."
+  echo "  ⚠️ 화면이 응답하지 않습니다(코드 $CODE · https://$SERVER_NAME). 'sudo nginx -t' 와 '$WEB_DIR' 폴더 · 'bash ~/alphascope/deploy/check-https.sh'(인증서)를 확인하세요. nginx 설정이 바뀌었으면 'bash ~/alphascope/deploy/apply-nginx.sh'."
 fi
+# 인증서 남은 기간 한 줄(48시간 안에 끝나면 ⚠️ — 자동 갱신이 멈췄다는 뜻)
+bash "$APP_DIR/deploy/check-https.sh" --short || true
 if [ "$SCRIPT_CHANGED" = "1" ]; then
   echo "  ⚠️ 배포 스크립트가 바뀌었습니다 — cp ~/alphascope/deploy/deploy.sh ~/deploy.sh"
 fi

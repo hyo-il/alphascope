@@ -1,7 +1,7 @@
 # 오라클 서버 운영
 
 오라클 서버는 미리 만들어 둔 **완성본(dist)** 을 nginx 가 바로 보냅니다. API(4000)와 지표 엔진(5001)은 pm2 가 돌립니다.
-**AlphaScope 주소: `http://161.33.153.189:8080`** — 80번 문은 닫혀 있습니다(`http://161.33.153.189` 는 열리지 않음). 같은 서버의 다른 프로젝트는 8081 입니다.
+**AlphaScope 주소: `https://161.33.153.189`**(v2.61.1 — Let's Encrypt IP 인증서 · 아래 「https 로 바꾸기」). 옛 주소 `http://161.33.153.189:8080` 은 같은 경로로 https 로 넘어갑니다. 80번 문은 인증서 확인 경로만 보내고 나머지는 https 로 넘깁니다. 같은 서버의 다른 프로젝트는 8081 입니다.
 개발용 서버(Vite)는 인터넷에 열지 않습니다 — 자동 탐색 요청 하나로 열린 모든 화면에 「URI malformed」 오류 창이 뜨고, 소스 파일도 그대로 나갑니다.
 
 ## 배포
@@ -28,7 +28,7 @@ cp ~/alphascope/deploy/deploy.sh ~/deploy.sh
 cd ~/alphascope && git pull --ff-only origin main && bash deploy/apply-nginx.sh
 ```
 
-지금 설정을 날짜 붙은 이름으로 백업(`/etc/nginx/sites-available/alphascope.backup-…`) → 새 설정 넣기 → `nginx -t` → 적용 → 8080 화면 · `/api/version` 확인 순서로 돌고, 끝에 「AlphaScope 주소: http://161.33.153.189:8080」 이 나옵니다. 검사나 확인이 실패하면 **자동으로 백업으로 되돌리고 멈춥니다**(주소는 예전 그대로).
+지금 설정을 날짜 붙은 이름으로 백업(`/etc/nginx/sites-available/alphascope.backup-…`) → 새 설정 넣기 → `nginx -t` → 적용 → https 화면 · `/api/version` 200 · 옛 주소 8080 → https 넘김 확인 순서로 돌고, 끝에 「AlphaScope 주소: https://161.33.153.189」 가 나옵니다. 인증서가 아직 없으면(https 로 바꾸기 전) 아무것도 바꾸지 않고 멈춥니다. 검사나 확인이 실패하면 **자동으로 백업으로 되돌리고 멈춥니다**(주소는 예전 그대로).
 
 ### Node 24 올리기 (v2.60.9 · 한 번만)
 
@@ -74,7 +74,7 @@ cd ~/alphascope && git pull --ff-only origin main && bash deploy/apply-nginx.sh
 
 **끝난 뒤 확인할 것**
 
-1. 브라우저에서 `http://161.33.153.189:8080` 새로고침 → 로그인 · 차트 · 계좌가 열린다.
+1. 브라우저에서 `https://161.33.153.189` 새로고침 → 로그인 · 차트 · 계좌가 열린다.
 2. 서버에서 `node -v` = `v24.22.1` · `pm2 list` 에서 `alphascope-api` · `alphascope-indicators` 가 `online`(다른 프로젝트 줄은 그대로).
 3. 다음 장에서 자동매매 · 매수 판단 기록이 평소처럼 돈다(계좌 「최근 판단」 · 매수 판단 화면의 그날 기록).
 4. 며칠 문제가 없으면 백업 폴더를 지웁니다(옛 node_modules 가 있어 수백 MB): `rm -rf ~/alphascope-node24-backup-<날짜>`
@@ -99,9 +99,69 @@ pm2 restart alphascope-api && pm2 restart alphascope-indicators && curl -s http:
 
 되돌린 뒤 `~/deploy.sh` 를 돌리면 Node 22 로 다시 설치 · 빌드합니다(`package.json` 의 `engines` 가 24 라 npm 이 경고만 냅니다).
 
+### https 로 바꾸기 (v2.61.1 · 한 번만)
+
+`http://161.33.153.189:8080` → **`https://161.33.153.189`**(Let's Encrypt IP 인증서 · 무료). 옛 주소는 같은 경로로 https 로 넘어가므로 즐겨찾기 · 맥 아이콘이 깨지지 않습니다. 근거 · 출처는 아래 「HTTPS 조사」.
+
+**언제** — 앱 서버(pm2)는 다시 켜지 않고 nginx 만 다시 읽으므로 **멈추는 시간이 거의 없습니다**(자동매매 · 스케줄러는 그대로 돕니다). 그래도 장 밖(위 「Node 24 올리기」 표의 토 15:00 ~ 일 17:00 추천)에, 배포 시간대(05:00~22:30 KST · 05:30 전후 피함) 안에 합니다. 5~10분.
+
+**① 오라클 웹 콘솔** — 보안 목록에 문 두 개를 더합니다(서버 안에서는 이것을 볼 수 없어 스크립트가 물어봅니다).
+☰ → 네트워킹 → 가상 클라우드 네트워크 → VCN → 서브넷 → 공용 서브넷 → 보안 목록 → Default Security List → 수신 규칙 추가:
+
+| 소스 CIDR | IP 프로토콜 | 대상 포트 | 설명 |
+|---|---|---|---|
+| `0.0.0.0/0` | TCP | `80` | 인증서 확인(약 3일마다 갱신 — 늘 열어 둠) |
+| `0.0.0.0/0` | TCP | `443` | https |
+
+8080 · 8081 규칙은 그대로 둡니다(8080 은 https 로 넘기는 데 씀 · 8081 은 다른 프로젝트).
+
+**② 서버에서** — 맥 터미널:
+
+```bash
+ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189
+```
+
+```bash
+cd ~/alphascope && git pull --ff-only origin main && ~/deploy.sh && bash deploy/setup-https.sh
+```
+
+- `~/deploy.sh` 는 지금 복사본(8080 확인)으로 v2.61.1 을 먼저 올립니다(끝에 「배포 스크립트가 바뀌었습니다」 가 나오면 정상 — https 가 된 뒤에 바꿉니다).
+- `setup-https.sh` 가 중간에 「보안 목록에 … 더했습니까?」 를 물으면 `yes` 를 칩니다.
+- 「━━━ 1/6 … 6/6」 을 지나 끝에 **「완료 — https://161.33.153.189 · 인증서 만료 … · 다음 갱신 예정 …」** 이 나오면 성공입니다. 이어서:
+
+```bash
+cp ~/alphascope/deploy/deploy.sh ~/deploy.sh
+```
+
+- 「아무것도 바꾸지 않고 멈춥니다」 — 서버 모양이 예상과 다릅니다(443 을 이미 쓰는 것이 있음 · apt 로 깐 certbot · 이전 시도가 남음 · 콘솔에서 안 열었다고 답함 등). 주소는 8080 그대로입니다. 나온 글을 개발 대화에 붙여 주세요.
+- 「되돌리기 … 되돌렸습니다 — http://161.33.153.189:8080 가 그대로 됩니다」 — 중간(Certbot 설치 · 80번 문 시험 · 인증서 받기 · 새 nginx 설정 · 갱신 연습)에 실패해 **nginx 설정 · iptables · 받은 인증서 · 이 스크립트가 깐 Certbot 을 전으로 돌린 것**입니다. ⚠️ 줄을 붙여 주세요. 보안 목록 규칙은 그대로 남습니다(지우려면 콘솔에서).
+- 이미 https 면 「할 일이 없습니다」 로 끝납니다(두 번 돌려도 해가 없음).
+
+**③ 끝난 뒤 확인**
+
+1. 브라우저에서 `https://161.33.153.189` — 주소창에 자물쇠 · 경고 없음 → 로그인 · 차트 · 계좌.
+2. `http://161.33.153.189:8080` 과 맥 아이콘(`launcher/AlphaScope.app` — 이미 https 를 엶)이 https 로 열린다.
+3. (원하면) 브라우저 개발자 도구 → 응용 프로그램(Application) → 쿠키 `as_session` 의 **Secure** 칸이 체크(다시 로그인한 뒤 — 옛 쿠키는 그대로 쓰이다가 다음 로그인 때 바뀝니다).
+4. 서버에서 `bash ~/alphascope/deploy/check-https.sh` → 「결과: 괜찮음」. **일주일 뒤에도** 한 번 더(자동 갱신을 두 번 넘게 지난 뒤 — 만료 날짜가 뒤로 밀려 있어야 함).
+
+**갱신이 멈춘 것을 알아채는 법** — Let's Encrypt 만료 알림 메일은 끝났습니다. ① 배포(`~/deploy.sh`) 끝에 「인증서: 만료 … · 48시간 넘게 남음」 한 줄(48시간 안이면 ⚠️) ② 아무 때나 `bash ~/alphascope/deploy/check-https.sh`(인증서 · 타이머 · 마지막 갱신 기록) ③ 마지막 안전망은 브라우저의 「안전하지 않음」 경고(HSTS 를 넣지 않아 경고를 넘겨 들어가 고칠 수 있음). 손으로 갱신: `sudo certbot renew --cert-name 161.33.153.189`.
+
+**④ 되돌리기**(https 가 된 뒤 며칠 지나 문제가 보일 때 — 서버 안에서. `<날짜>` 는 `ls ~ | grep https-backup`):
+
+```bash
+B=~/alphascope-https-backup-<날짜>
+sudo cp "$B/alphascope.conf" /etc/nginx/sites-available/alphascope
+sudo rm -f /etc/nginx/sites-enabled/alphascope-acme /etc/nginx/sites-available/alphascope-acme
+sudo nginx -t && sudo systemctl reload nginx
+cd ~/alphascope && git show fe034fe:deploy/deploy.sh > ~/deploy.sh && chmod +x ~/deploy.sh   # 8080 을 확인하는 옛 배포 스크립트
+```
+
+- 이것으로 `http://161.33.153.189:8080` 이 예전처럼 열립니다(멈춤 없음). 인증서 · Certbot · 80 · 443 문은 남아도 해가 없습니다 — 다 지우려면 이어서 `sudo certbot delete --cert-name 161.33.153.189 && sudo snap remove certbot && sudo rm -f /usr/local/bin/certbot` · `sudo iptables -D INPUT -p tcp --dport 80 -m state --state NEW -j ACCEPT && sudo iptables -D INPUT -p tcp --dport 443 -m state --state NEW -j ACCEPT && sudo netfilter-persistent save` · 콘솔 보안 목록의 80 · 443 규칙 삭제.
+- 맥 아이콘은 관리 루트 `launcher/_backup/AlphaScope.app.20261106`(8080 을 여는 옛것)을 `launcher/AlphaScope.app` 자리에 되돌립니다.
+
 ### 같은 서버에 다른 프로젝트가 있을 때
 
-배포는 **AlphaScope 두 프로그램(`alphascope-api` · `alphascope-indicators`)만** 다시 켭니다 — `pm2 restart all` 같은 「모두」 명령은 쓰지 않으므로 다른 프로젝트의 pm2 프로그램은 그대로 돕니다. 둘 가운데 하나가 pm2 에 없으면 `ecosystem.config.cjs` 로 그 이름만 켜고 알립니다. 끝의 pm2 상태도 AlphaScope 두 줄만 보입니다. 다른 프로젝트의 pm2 설정 · nginx 설정 파일은 AlphaScope 것(`ecosystem.config.cjs` · `/etc/nginx/sites-available/alphascope`)과 **따로** 두고, 문은 AlphaScope 8080 · 다른 프로젝트 8081 로 나눕니다(80은 비워 둠). `sudo nginx -t` · `reload` 는 모든 사이트에 함께 걸리므로, 다른 사이트 설정이 틀려 있으면 AlphaScope 배포도 `nginx -t` 에서 멈춥니다(화면 복사는 이미 끝난 뒤 — pm2 는 다시 켜지지 않음).
+배포는 **AlphaScope 두 프로그램(`alphascope-api` · `alphascope-indicators`)만** 다시 켭니다 — `pm2 restart all` 같은 「모두」 명령은 쓰지 않으므로 다른 프로젝트의 pm2 프로그램은 그대로 돕니다. 둘 가운데 하나가 pm2 에 없으면 `ecosystem.config.cjs` 로 그 이름만 켜고 알립니다. 끝의 pm2 상태도 AlphaScope 두 줄만 보입니다. 다른 프로젝트의 pm2 설정 · nginx 설정 파일은 AlphaScope 것(`ecosystem.config.cjs` · `/etc/nginx/sites-available/alphascope`)과 **따로** 두고, 문은 AlphaScope 443(https) · 8080(https 로 넘김) · 80(인증서 확인 — `sites-available/alphascope-acme`) · 다른 프로젝트 8081 로 나눕니다. `sudo nginx -t` · `reload` 는 모든 사이트에 함께 걸리므로, 다른 사이트 설정이 틀려 있으면 AlphaScope 배포도 `nginx -t` 에서 멈춥니다(화면 복사는 이미 끝난 뒤 — pm2 는 다시 켜지지 않음).
 
 ## 로그인 비밀번호
 
@@ -274,8 +334,11 @@ IP 주소(`161.33.153.189`)에 Let's Encrypt 인증서를 받아 `https://161.33
 
 | 파일 | 하는 일 |
 |---|---|
-| `nginx-alphascope.conf` | nginx 설정 — **8080** 만 듣는다 · 화면은 `/var/www/alphascope`(`/assets/` 1년 캐시 · `index.html` 캐시 안 함), `/api/` 는 127.0.0.1:4000(`Host $http_host` — 문 번호까지 넘겨야 로그인 · 저장이 403 이 아니다) |
-| `apply-nginx.sh` | nginx 설정이 바뀌었을 때 손으로 한 번 — 백업 · 넣기 · 검사 · 적용 · 8080 확인 · 실패하면 되돌림 |
+| `nginx-alphascope.conf` | nginx 설정 — **443 https**(Let's Encrypt IP 인증서 · TLS Mozilla intermediate · HSTS 없음) + **8080 → https 넘김** · 화면은 `/var/www/alphascope`(`/assets/` 1년 캐시 · `index.html` 캐시 안 함), `/api/` 는 127.0.0.1:4000(`Host $http_host` — 문 번호까지 넘겨야 로그인 · 저장이 403 이 아니다 · `X-Forwarded-Proto` — 로그인 쿠키 Secure) |
+| `nginx-alphascope-acme.conf` | 80번 문 — 인증서 확인 경로(`/var/www/letsencrypt`)만 보내고 나머지는 https 로 넘김(`setup-https.sh` 가 `sites-available/alphascope-acme` 로 넣음) |
+| `setup-https.sh` | https 로 바꾸기(손으로 한 번 · 위 「https 로 바꾸기」) — 상태가 예상과 다르면 아무것도 바꾸지 않고 멈춤 · Certbot(snap) · iptables 80 · 443 · 인증서 · 새 nginx · 자동 갱신 확인 · 실패하면 nginx · iptables · 인증서 · Certbot 을 전으로 |
+| `check-https.sh` | 인증서 상태 보기(바꾸지 않음) — 만료 · 48시간 경고 · 갱신 타이머 · 마지막 갱신 기록. `--short` 한 줄은 배포 끝에서 |
+| `apply-nginx.sh` | nginx 설정이 바뀌었을 때 손으로 한 번 — (인증서 없으면 멈춤) 백업 · 넣기 · 검사 · 적용 · https 확인 · 8080 넘김 확인 · 실패하면 되돌림 |
 | `upgrade-node24.sh` | Node 22 → 24 올리기(손으로 한 번 · 위 「Node 24 올리기」) — 설치 방식이 예상과 다르면 아무것도 바꾸지 않고 멈춤 · 실패하면 Node 22 · 옛 node_modules · 옛 화면으로 되돌림 · pm2 는 AlphaScope 두 이름만 |
 | `ecosystem.config.cjs` | pm2 설정 — api·indicators 두 개(개발 서버 없음) |
 | `deploy.sh` | 배포 스크립트 — `~/deploy.sh` 로 복사되어 쓰인다 · pm2 는 AlphaScope 두 이름만(`PM2_APPS` — `ecosystem.config.cjs` 와 같게 · `npm run deploy:test`) |
