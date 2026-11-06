@@ -8,7 +8,9 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { readSessionCookie } from '../auth';
 import { assetLimiter, isAssetPasswordSet, isUnlocked, lockSession, unlockSession, verifyAssetPassword } from './lock';
 import { isSheetConfigured } from './config';
-import type { AssetStatus } from '../../src/types/asset';
+import { AssetSheetError } from './google';
+import { readAssetSheet } from './sheet';
+import type { AssetSheetFailure, AssetStatus } from '../../src/types/asset';
 
 export const assetRouter = Router();
 
@@ -62,4 +64,24 @@ assetRouter.post('/api/asset/unlock', async (req, res) => {
 assetRouter.post('/api/asset/lock', (req, res) => {
   lockSession(readSessionCookie(req));
   res.json({ ok: true });
+});
+
+/**
+ * 시트에서 읽은 값(1단계 확인 표) — 화면을 열 때 · 「다시 읽기」 때만. 30초 캐시(`sheet.ts`).
+ * 실패는 쉬운 말 + 이유 종류 — 연결 정보 · 열쇠 파일은 503(이 서버 설정), 구글 쪽은 502.
+ */
+assetRouter.get('/api/asset/sheet', async (_req, res) => {
+  try {
+    res.json(await readAssetSheet());
+  } catch (e) {
+    if (e instanceof AssetSheetError) {
+      // ⚠️ 이유 종류만 남긴다(시트 값 · 응답 본문 · 경로를 찍지 않는다)
+      console.warn(`[asset] 시트 읽기 실패: ${e.kind}`);
+      const body: AssetSheetFailure = { error: e.message, kind: e.kind };
+      return res.status(e.kind === 'not-configured' || e.kind === 'key-file' ? 503 : 502).json(body);
+    }
+    console.warn('[asset] 시트 읽기 실패: 알 수 없는 오류');
+    const body: AssetSheetFailure = { error: '시트를 읽지 못했습니다.', kind: 'network' };
+    res.status(502).json(body);
+  }
 });

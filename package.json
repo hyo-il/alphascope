@@ -52,7 +52,8 @@
     "quickorder:test": "tsx scripts/quickOrderSelfTest.ts",
     "chart:test": "tsx scripts/chartLabelSelfTest.ts",
     "investorflow:test": "tsx scripts/investorFlowSelfTest.ts",
-    "testguard:test": "tsx scripts/testGuardSelfTest.ts"
+    "testguard:test": "tsx scripts/testGuardSelfTest.ts",
+    "asset:test": "tsx scripts/assetSelfTest.ts"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-kr": "^5.3.0",

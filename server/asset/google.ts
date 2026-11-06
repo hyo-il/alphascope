@@ -1,0 +1,134 @@
+/**
+ * 구글 시트 읽기 — **새 의존성 없이** Node 내장 `crypto` 로 서비스 계정 JWT(RS256)를 서명해 접근 토큰을 받고,
+ * Sheets API v4 `values:batchGet` 을 `fetch` 로 부른다(v2.61.0 · 자산 관리 1단계).
+ *
+ * - 범위(scope)는 **읽기 전용**(`spreadsheets.readonly`) — 1단계는 시트에 쓰지 않는다. 쓰는 주소는 이 앱 코드에 없다.
+ * - 토큰은 만료 1분 전까지 메모리에 둔다(열쇠 파일이 바뀌면 새로 받는다).
+ * - 실패는 쉬운 말 이유(`AssetSheetError.kind`)로 바꾼다. ⚠️ 구글 응답 본문 · 열쇠 내용 · 시트 ID 는 로그 · 오류 문구에 싣지 않는다.
+ */
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import type { AssetSheetErrorKind } from '../../src/types/asset';
+import type { AssetSheetConfig } from './config';
+
+const TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const SHEETS_URL = 'https://sheets.googleapis.com/v4/spreadsheets';
+const SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+const TOKEN_LIFETIME_S = 3600;
+const TIMEOUT_MS = 15_000;
+
+export class AssetSheetError extends Error {
+  constructor(
+    readonly kind: AssetSheetErrorKind,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+interface ServiceAccountKey {
+  client_email: string;
+  private_key: string;
+}
+
+function readKey(keyFile: string): ServiceAccountKey {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(keyFile, 'utf8');
+  } catch {
+    throw new AssetSheetError('key-file', '서비스 계정 열쇠 파일이 없습니다(`.env` 의 GOOGLE_SA_KEY_FILE 경로를 확인하세요).');
+  }
+  try {
+    const key = JSON.parse(raw) as Partial<ServiceAccountKey>;
+    if (typeof key.client_email === 'string' && typeof key.private_key === 'string') return { client_email: key.client_email, private_key: key.private_key };
+  } catch {
+    /* 아래 오류 */
+  }
+  throw new AssetSheetError('key-file', '서비스 계정 열쇠 파일의 모양이 맞지 않습니다(구글에서 받은 JSON 그대로여야 합니다).');
+}
+
+const b64url = (v: Buffer | string) => Buffer.from(v).toString('base64url');
+
+/** 서비스 계정 JWT — 시험이 서명을 확인하려고 내보낸다 */
+export function signJwt(key: ServiceAccountKey, nowS: number): string {
+  const header = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const claims = b64url(JSON.stringify({ iss: key.client_email, scope: SCOPE, aud: TOKEN_URL, iat: nowS, exp: nowS + TOKEN_LIFETIME_S }));
+  const signature = crypto.createSign('RSA-SHA256').update(`${header}.${claims}`).sign(key.private_key);
+  return `${header}.${claims}.${b64url(signature)}`;
+}
+
+/** 네트워크 실패를 쉬운 말로 */
+async function send(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+  } catch {
+    throw new AssetSheetError('network', '구글에 연결하지 못했습니다(네트워크).');
+  }
+}
+
+let cachedToken: { keyFile: string; mtimeMs: number; token: string; expiresAt: number } | null = null;
+
+/** 시험이 토큰 캐시를 비운다 */
+export function resetTokenCache(): void {
+  cachedToken = null;
+}
+
+async function accessToken(keyFile: string): Promise<string> {
+  let mtimeMs = 0;
+  try {
+    mtimeMs = fs.statSync(keyFile).mtimeMs;
+  } catch {
+    /* readKey 가 「열쇠 파일 없음」 으로 알린다 */
+  }
+  if (cachedToken && cachedToken.keyFile === keyFile && cachedToken.mtimeMs === mtimeMs && cachedToken.expiresAt > Date.now() + 60_000) return cachedToken.token;
+  const key = readKey(keyFile);
+  let assertion: string;
+  try {
+    assertion = signJwt(key, Math.floor(Date.now() / 1000));
+  } catch {
+    throw new AssetSheetError('key-file', '서비스 계정 열쇠로 서명하지 못했습니다(열쇠 파일을 확인하세요).');
+  }
+  const res = await send(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion }).toString(),
+  });
+  const body = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number };
+  if (!res.ok || typeof body.access_token !== 'string') {
+    throw new AssetSheetError('auth', `구글 인증에 실패했습니다(${res.status} — 서비스 계정 열쇠가 지워졌거나 바뀌었는지 확인하세요).`);
+  }
+  cachedToken = { keyFile, mtimeMs, token: body.access_token, expiresAt: Date.now() + (body.expires_in ?? TOKEN_LIFETIME_S) * 1000 };
+  return body.access_token;
+}
+
+export type ValueRender = 'UNFORMATTED_VALUE' | 'FORMULA';
+/** 범위 하나의 값 — 줄 → 칸. 빈 칸은 구글이 줄 끝을 잘라 보낸다(없는 칸 = 빈 칸) */
+export type CellRows = (string | number | boolean)[][];
+
+/**
+ * 여러 범위를 한 번에 읽는다(`values:batchGet` · 줄 단위). 돌려주는 배열은 `ranges` 순서 그대로.
+ * 403 = 시트를 서비스 계정에 공유하지 않음 · 404 = 시트 ID 가 틀림 · 400 = 탭 이름이 없음(시트 모양이 바뀜).
+ */
+export async function batchGet(config: AssetSheetConfig, ranges: string[], render: ValueRender): Promise<CellRows[]> {
+  const token = await accessToken(config.keyFile);
+  const params = new URLSearchParams({ valueRenderOption: render, majorDimension: 'ROWS' });
+  for (const r of ranges) params.append('ranges', r);
+  const res = await send(`${SHEETS_URL}/${encodeURIComponent(config.sheetId)}/values:batchGet?${params.toString()}`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) resetTokenCache();
+  if (res.status === 403) {
+    // 403 은 둘 — 구글 클라우드 프로젝트에서 Sheets API 를 켜지 않음(SERVICE_DISABLED) · 시트를 공유하지 않음. 이유 칸만 본다(본문을 남기지 않는다)
+    const err = (await res.json().catch(() => null)) as { error?: { details?: { reason?: string }[] } } | null;
+    if (err?.error?.details?.some((d) => d.reason === 'SERVICE_DISABLED' || d.reason === 'API_DISABLED')) {
+      throw new AssetSheetError('api-disabled', '구글 클라우드 프로젝트에서 Google Sheets API 가 켜져 있지 않습니다(서비스 계정이 속한 프로젝트에서 「사용」 을 누르세요).');
+    }
+    throw new AssetSheetError('not-shared', '시트를 읽을 권한이 없습니다(시트를 서비스 계정 이메일에 「뷰어」 로 공유했는지 확인하세요).');
+  }
+  if (res.status === 404) throw new AssetSheetError('not-found', '시트를 찾지 못했습니다(`.env` 의 ASSET_SHEET_ID 를 확인하세요).');
+  if (res.status === 400) throw new AssetSheetError('shape', '시트 모양이 바뀌었어요(읽을 탭 이름이 시트에 없습니다).');
+  if (!res.ok) throw new AssetSheetError('network', `구글 시트 응답이 올바르지 않습니다(${res.status}).`);
+  const body = (await res.json().catch(() => null)) as { valueRanges?: { values?: CellRows }[] } | null;
+  if (!body?.valueRanges || body.valueRanges.length !== ranges.length) throw new AssetSheetError('network', '구글 시트 응답의 모양이 올바르지 않습니다.');
+  return body.valueRanges.map((v) => v.values ?? []);
+}
