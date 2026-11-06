@@ -1234,7 +1234,8 @@ function runBackup(home: string, env: Record<string, string>) {
 }
 
 console.log('━━━ 15. move-to-projects.sh — 멈춤 · 순서 · 짧은 멈춤 · 실패하면 되돌림 · 비밀 출력 0 · 다른 사이트 그대로');
-const SECRET_MARKS = ['SECRETVALUE-TOSS', 'SECRETVALUE-GEMINI', 'SECRETVALUE-SHEET', 'SECRETKEY-CONTENT', 'SETPW-SECRET-CONTENT'];
+// 가짜 값은 프로젝트 약속대로 your_ 로 시작한다(비밀값 스캔이 가짜로 알아봄 · 토스는 모의 모드로 봄)
+const SECRET_MARKS = ['your_secret_toss_VALUE', 'your_secret_gemini_VALUE', 'your_secret_sheet_VALUE', 'SECRETKEY-CONTENT', 'SETPW-SECRET-CONTENT'];
 const NGX_BACKUP_NAMES = ['alphascope.backup-20261103-041637', 'alphascope.backup-20261106-112039', 'alphascope.backup-20261106-120406', 'alphascope-acme.backup-20261106-120406'];
 /** 가짜 pm2 — 이름마다 $FAKE_STATE/pm2/<이름> 에 「상태|cwd」 · start 는 ecosystem 을 node 로 읽어 cwd 를 정하고, api 는 기동 로그를 남긴다 */
 const MV_FAKE_PM2 = `#!/bin/bash
@@ -1369,7 +1370,7 @@ function runMove(opts: { env?: Record<string, string>; dbPath?: string; envExtra
     seed.exec('CREATE TABLE t (x INTEGER); INSERT INTO t VALUES (1), (2), (3);');
     seed.close();
     const dbLine = opts.dbPath === undefined ? '' : `DB_PATH=${opts.dbPath.replace('$HOME', home)}\n`;
-    fs.writeFileSync(path.join(old, '.env'), `TOSS_CLIENT_ID=fake\nTOSS_CLIENT_SECRET=SECRETVALUE-TOSS\nAPI_PORT=4000\nINDICATORS_PORT=5001\n${dbLine}GEMINI_API_KEY=SECRETVALUE-GEMINI\nALLOWED_ORIGINS=https://161.33.153.189:8080\nASSET_SHEET_ID=SECRETVALUE-SHEET\nGOOGLE_SA_KEY_FILE=${home}/secrets/sa-key.json\nAUTO_TRADING_ENABLED=true\n${(opts.envExtra ?? '').replace('$HOME', home)}`, { mode: 0o600 });
+    fs.writeFileSync(path.join(old, '.env'), `TOSS_CLIENT_ID=fake\nTOSS_CLIENT_SECRET=your_secret_toss_VALUE\nAPI_PORT=4000\nINDICATORS_PORT=5001\n${dbLine}GEMINI_API_KEY=your_secret_gemini_VALUE\nALLOWED_ORIGINS=https://161.33.153.189:8080\nASSET_SHEET_ID=your_secret_sheet_VALUE\nGOOGLE_SA_KEY_FILE=${home}/secrets/sa-key.json\nAUTO_TRADING_ENABLED=true\n${(opts.envExtra ?? '').replace('$HOME', home)}`, { mode: 0o600 });
     // 옛 pm2 설정 사본(앱 폴더 맨 위 — 옛 절대 경로)
     fs.writeFileSync(path.join(old, 'ecosystem.config.cjs'), `module.exports = { apps: [ { name: 'alphascope-api', cwd: '${old}', script: 'npx', args: 'tsx server/index.ts' }, { name: 'alphascope-indicators', cwd: '${old}/python', script: '${old}/python/.venv/bin/python', args: 'indicators.py', interpreter: 'none' } ] };\n`);
     fs.writeFileSync(path.join(old, 'ecosystem.config.cjs.vite-backup'), 'vite eco\n');
