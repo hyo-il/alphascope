@@ -1,6 +1,6 @@
 /**
  * 미국 마감 직후 값 결과 보기 — `npm run ussample:report` (`--all` = 종목·날짜마다 모든 시각).
- * `~/alphascope-samples/us-close.jsonl`(`ussample:run` 이 쌓은 것)을 읽어 각 시각 값을 그날 마지막(20:40 ET 무렵) 값과 비교한다.
+ * `~/projects/alphascope/data/us-close.jsonl`(`ussample:run` 이 쌓은 것)을 읽어 각 시각 값을 그날 마지막(20:40 ET 무렵) 값과 비교한다.
  * 읽기만 한다 — 앱 DB 도 토스도 부르지 않는다.
  */
 import { readLines, renderReport, SAMPLE_FILE } from './lib/usClose';

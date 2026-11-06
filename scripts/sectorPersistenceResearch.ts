@@ -21,7 +21,7 @@
  *
  * ⚠️ 미래 누설 금지: 시점 t 의 순위에는 **t 까지의 종가만** 쓴다(과거 기간 = t−back → t). 실행마다 위반 수를 세고
  * 한 시점의 증명 로그를 리포트에 남긴다. 진행 중인 봉(미확정 종가)은 뺀다.
- * 결과는 맥 `docs/analysis/sector_persistence_{날짜}.md/.json` · 오라클 `~/alphascope/reports/`.
+ * 결과는 맥 `docs/analysis/sector_persistence_{날짜}.md/.json` · 오라클 `~/projects/alphascope/app/reports/`.
  */
 import 'dotenv/config';
 import fs from 'node:fs';

@@ -1,8 +1,8 @@
 #!/bin/bash
 # AlphaScope — 오라클 서버의 Node 를 22 → 24 로 올린다 (v2.60.9). **오라클 안에서 손으로 한 번** 돌린다.
 #
-#   쓰는 법(오라클 안에서):  cd ~/alphascope && git pull --ff-only origin main && bash deploy/upgrade-node24.sh
-#   ⚠️ 이 스크립트가 설치 · 빌드 · 화면 복사까지 한다 — 먼저 ~/deploy.sh 를 돌리지 않는다.
+#   쓰는 법(오라클 안에서):  cd ~/projects/alphascope/app && git pull --ff-only origin main && bash deploy/upgrade-node24.sh
+#   ⚠️ 이 스크립트가 설치 · 빌드 · 화면 복사까지 한다 — 먼저 배포(scripts/deploy.sh)를 돌리지 않는다.
 #
 # 언제(KST): 토 15:00 ~ 일 17:00 이 가장 안전하다(자동매매 · 매수 판단 · 다시 계산 · 거래정지 받기 · 오늘 시황 · 스냅샷이 모두 쉬는 때).
 #            평일 06:30~07:20 · 국내 장(09:00~15:30) · 미국 장(23:30~06:00, 서머타임이면 22:30~05:00) · 05:30 앞뒤는 피한다.
@@ -15,7 +15,7 @@
 # pm2 는 AlphaScope 두 이름만 멈추고 켠다 — 같은 서버의 다른 프로젝트 pm2 · nginx 설정 파일은 건드리지 않는다(「모두」 명령 없음).
 set -u
 
-APP_DIR="${APP_DIR:-$HOME/alphascope}"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/paths.sh"   # 자리(APP_DIR · SCRIPTS_DIR · BACKUP_DIR …)는 deploy/paths.sh 한 곳
 WEB_DIR="${WEB_DIR:-/var/www/alphascope}"
 SERVER_NAME="161.33.153.189"   # nginx 설정의 server_name 과 같아야 한다
 PUBLIC_PORT=8080               # nginx 설정의 listen … ssl 과 같아야 한다(npm run deploy:test 가 확인 · v2.61.2 https://161.33.153.189:8080)
@@ -33,7 +33,7 @@ PM2_LOG_DIR="${PM2_LOG_DIR:-$HOME/.pm2/logs}"   # pm2 기본 로그 자리(alpha
 NODE_BIN_EXPECTED="${NODE_BIN_EXPECTED:-/usr/bin/node}"
 
 STAMP=$(date +%Y%m%d-%H%M%S)
-BK="$HOME/alphascope-node24-backup-$STAMP"
+BK="$BACKUP_DIR/node24/alphascope-node24-backup-$STAMP"
 STAGE="$BK/stage"
 
 # 되돌릴 때 쓰는 표시 — 어디까지 바꿨나

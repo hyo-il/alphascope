@@ -4,7 +4,7 @@
  * - 미국 거래일 15:55~20:40 ET 가 아니면 아무것도 하지 않고 끝난다(시간대 판단은 이 스크립트가 한다 — cron 은 5분마다 부르기만).
  *   `usCloseSampler.symbols.json` 의 startDate~endDate 밖이어도 끝난다.
  * - 받는 종목: fixed(SPY · QQQ) + 그날 장 마감 뒤 실적 발표 종목 + 모의투자 계좌가 들고 있는 미국 종목 + 다른 날 실적 종목(최대 20개).
- * - 종목마다 그날 일봉의 다섯 칸과 받은 시각을 `~/alphascope-samples/us-close.jsonl` 에 한 줄씩 덧붙인다. 실패는 error 를 적고 넘어간다.
+ * - 종목마다 그날 일봉의 다섯 칸과 받은 시각을 `~/projects/alphascope/data/us-close.jsonl` 에 한 줄씩 덧붙인다. 실패는 error 를 적고 넘어간다.
  * - ⚠️ **앱 DB 에 쓰지 않는다** — 읽기 전용 연결로 휴장일 · 보유 종목만 읽는다(`getDb()` 는 열 때 표를 만들어서 쓰지 않는다). 캔들 캐시도 거치지 않는다
  *   (`fetchCandles` 는 토스만 부른다).
  * - 토큰: 기록 폴더의 토큰 파일(`lib/tossTokenFile.ts` — `ussample:judge` 와 같이 쓴다). 발급이 실패하면 남은 종목은 부르지 않고

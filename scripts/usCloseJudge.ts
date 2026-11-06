@@ -1,7 +1,7 @@
 /**
  * 미국 마감 30분 뒤(16:30 ET) 값과 최종값으로 매수 판단 견주기 — `npm run -s ussample:judge` (오라클 안에서 한 번. `deploy/README.md` 「점검 도구」).
  *
- * `~/alphascope-samples/us-close.jsonl`(`ussample:run` 이 쌓은 것 · `USSAMPLE_OUT` 으로 바꿀 수 있다)의 16:30 표본과 최종 표본으로
+ * `~/projects/alphascope/data/us-close.jsonl`(`ussample:run` 이 쌓은 것 · `USSAMPLE_OUT` 으로 바꿀 수 있다)의 16:30 표본과 최종 표본으로
  * 같은 규칙 · 같은 함수(`judgeOnClose`)로 두 번 판단해 action · code · 점수가 바뀌는지 센다. 판단 방법은 `lib/usCloseJudge.ts`.
  * - **읽기만 한다**: 앱 DB 는 읽기 전용 연결로 규칙 · 계좌 설정만(`getDb()` 를 쓰지 않는다). 캔들 캐시 · 판단 기록 · 다시 계산 표에 쓰지 않는다. 주문 없음.
  * - 토스: 종목마다 일봉을 한 번(`fetchCandles` — 캐시를 거치지 않는다) + 시장 기준(SPY) 한 번. 토큰은 `ussample:run` 과 같은 토큰 파일.

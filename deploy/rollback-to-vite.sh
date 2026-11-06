@@ -2,16 +2,17 @@
 # ⚠️ 옛 Vite 시절(80번) 설정으로 돌아간다 — 지금은 쓰지 않는다.
 # AlphaScope — 완성본(dist)+nginx 에서 예전 개발 서버(Vite) 방식으로 되돌리기 (v2.36.1).
 # switch-to-static.sh 가 남긴 백업 3개(nginx · pm2 · deploy.sh)를 원래 자리로 돌려놓고 개발 서버를 다시 켠다.
-#   쓰는 법(오라클 안에서):  bash ~/alphascope/deploy/rollback-to-vite.sh
+#   쓰는 법(오라클 안에서):  bash ~/projects/alphascope/app/deploy/rollback-to-vite.sh
+#   (v2.61.3 폴더 정리 때 Vite 백업 3개를 지웠다 — 이제는 1/4 에서 「백업이 없어 되돌릴 수 없습니다」 로 멈춘다)
 set -e
 
-APP_DIR="$HOME/alphascope"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/paths.sh"   # 자리(APP_DIR · SCRIPTS_DIR · BACKUP_DIR …)는 deploy/paths.sh 한 곳
 NGINX_AVAIL="/etc/nginx/sites-available/alphascope"
 NGINX_ENABLED="/etc/nginx/sites-enabled/alphascope"
 NGINX_BACKUP="$NGINX_AVAIL.vite-backup"
 ENABLED_BACKUP="/etc/nginx/sites-available/alphascope-enabled-file.vite-backup"
 ECO="$APP_DIR/ecosystem.config.cjs"
-DEPLOY="$HOME/deploy.sh"
+DEPLOY="$SCRIPTS_DIR/deploy.sh"
 
 echo "━━━ 1/4 백업 확인"
 MISSING=0

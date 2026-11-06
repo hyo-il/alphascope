@@ -1,12 +1,15 @@
-// AlphaScope — 오라클 pm2 설정 (v2.36.1)
-// 예전 설정에서 alphascope-web(Vite 개발 서버 `npx vite --host 0.0.0.0`)만 뺐다 — 화면은 nginx 가 완성본(dist)으로 보낸다.
-// api·indicators 두 항목은 예전 설정(docs/oracle-setup-guide.html Phase 8)과 같다.
-// deploy/switch-to-static.sh 가 ~/alphascope/ecosystem.config.cjs 로 복사한다(바꾸기 전 파일과의 차이를 화면에 보여 준다).
+// AlphaScope — 오라클 pm2 설정 (v2.36.1 · v2.61.3 자리를 이 파일 위치에서 계산)
+// 화면은 nginx 가 완성본(dist)으로 보낸다(개발 서버 alphascope-web 없음).
+// 앱 폴더 = 이 파일(app/deploy/)의 한 단계 위 — 폴더를 옮겨도 고칠 일이 없다. 배포(deploy.sh)는 이 파일을 그대로 쓴다(사본을 두지 않음).
+const path = require('node:path');
+
+const APP_DIR = path.resolve(__dirname, '..');
+
 module.exports = {
   apps: [
     {
       name: 'alphascope-api',
-      cwd: '/home/ubuntu/alphascope',
+      cwd: APP_DIR,
       script: 'npx',
       args: 'tsx server/index.ts',
       env: { NODE_ENV: 'production' },
@@ -14,8 +17,8 @@ module.exports = {
     },
     {
       name: 'alphascope-indicators',
-      cwd: '/home/ubuntu/alphascope/python',
-      script: '/home/ubuntu/alphascope/python/.venv/bin/python',
+      cwd: path.join(APP_DIR, 'python'),
+      script: path.join(APP_DIR, 'python', '.venv', 'bin', 'python'),
       args: 'indicators.py',
       interpreter: 'none'
     }

@@ -6,8 +6,8 @@
  * 마지막(20:40 ET 무렵) 값과 비교한다.
  */
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /** 기록하는 시간대(ET, 분) — 15:55 ~ 20:40. 애프터마켓은 20:00 ET 에 끝나므로 마지막 40분은 늦은 반영을 보려는 여유다 */
 export const WINDOW_START_MIN = 15 * 60 + 55;
@@ -17,8 +17,11 @@ export const WINDOW_END_MIN = 20 * 60 + 40;
  * 16:30 뒤 값을 쓰면 실제 기록보다 늦게 받은 값이라 결과가 좋게 나올 수 있다.
  */
 export const AROUND_1630 = { from: 16 * 60 + 25, to: 16 * 60 + 30, at: 16 * 60 + 30 };
-/** 기록 파일 — 앱 폴더 밖(배포가 지우거나 덮지 않게) */
-export const SAMPLE_FILE = path.join(os.homedir(), 'alphascope-samples', 'us-close.jsonl');
+/**
+ * 기록 파일 — 앱 폴더 밖(배포가 지우거나 덮지 않게) · 앱 폴더 옆 `data/`(오라클 `~/projects/alphascope/data/` — `deploy/paths.sh` 의 DATA_DIR).
+ * 이 파일 자리(app/scripts/lib)에서 계산한다 — 폴더를 옮겨도 고칠 일이 없다(v2.61.3).
+ */
+export const SAMPLE_FILE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../data/us-close.jsonl');
 /** 한 번에 받는 종목 수 상한 */
 export const MAX_SYMBOLS = 20;
 

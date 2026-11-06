@@ -1,17 +1,17 @@
 #!/bin/bash
 # AlphaScope — 오라클을 「개발 서버(Vite)」 에서 「완성본(dist) + nginx」 로 바꾸는 스크립트 (v2.36.1). **한 번만** 실행한다.
 #
-#   쓰는 법(오라클 안에서):  cd ~/alphascope && git pull --ff-only origin main && bash deploy/switch-to-static.sh
+#   쓰는 법(오라클 안에서):  cd ~/projects/alphascope/app && git pull --ff-only origin main && bash deploy/switch-to-static.sh
 #
 # 안전장치:
 #   - 바꾸기 전에 지금 설정 3개(nginx · pm2 · deploy.sh)를 백업한다. 백업이 이미 있으면 덮어쓰지 않는다(처음 상태를 지킨다).
 #   - 새 nginx 설정이 틀리거나 화면 확인이 실패하면 **예전 nginx 설정으로 되돌리고 멈춘다.**
 #     이때 개발 서버(alphascope-web)는 아직 켜져 있으므로 화면은 예전 그대로 보인다.
 #   - 개발 서버는 **확인이 통과한 뒤에야** 끈다.
-#   - 문제가 생기면 언제든: bash ~/alphascope/deploy/rollback-to-vite.sh
+#   - 문제가 생기면 언제든: bash ~/projects/alphascope/app/deploy/rollback-to-vite.sh
 set -e
 
-APP_DIR="$HOME/alphascope"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/paths.sh"   # 자리(APP_DIR · SCRIPTS_DIR · BACKUP_DIR …)는 deploy/paths.sh 한 곳
 WEB_DIR="/var/www/alphascope"
 SERVER_NAME="161.33.153.189"   # nginx 설정의 server_name 과 같아야 한다
 PUBLIC_PORT=8080               # nginx 설정의 listen … ssl 과 같아야 한다(v2.61.2 — https://161.33.153.189:8080 · 인증서는 deploy/setup-https.sh 가 먼저 받아 둬야 한다)
@@ -22,7 +22,7 @@ NGINX_ENABLED="/etc/nginx/sites-enabled/alphascope"
 NGINX_BACKUP="$NGINX_AVAIL.vite-backup"
 ENABLED_BACKUP="/etc/nginx/sites-available/alphascope-enabled-file.vite-backup"
 ECO="$APP_DIR/ecosystem.config.cjs"
-DEPLOY="$HOME/deploy.sh"
+DEPLOY="$SCRIPTS_DIR/deploy.sh"
 
 cd "$APP_DIR"
 
@@ -87,7 +87,7 @@ echo "━━━ 6/7 개발 서버 끄기 (확인이 통과했으므로)"
 pm2 delete alphascope-web || echo "  (alphascope-web 이 이미 없습니다)"
 echo "  pm2 설정을 새 것으로 바꿉니다. 예전 파일과의 차이(alphascope-web 항목만 빠져야 정상):"
 diff "$ECO.vite-backup" deploy/ecosystem.config.cjs || true
-cp deploy/ecosystem.config.cjs "$ECO"
+# v2.61.3 — 새 설정은 자리를 deploy/ 위치에서 계산하므로 앱 폴더 맨 위로 복사하지 않는다(배포는 deploy/ecosystem.config.cjs 를 그대로 씀)
 pm2 save
 
 echo "━━━ 7/7 배포 스크립트 바꾸기"
@@ -97,4 +97,4 @@ pm2 list
 
 echo ""
 echo "전환 완료 — 브라우저에서 $PUBLIC_URL 를 새로고침하세요."
-echo "되돌리려면: bash ~/alphascope/deploy/rollback-to-vite.sh"
+echo "되돌리려면: bash $APP_DIR/deploy/rollback-to-vite.sh"

@@ -1,9 +1,11 @@
 #!/bin/bash
 # AlphaScope 오라클 서버 배포 — GitHub 최신 코드 받기 → 설치 → 빌드 → 화면 복사 → 재시작
 # (v2.36.1) 화면은 nginx 가 /var/www/alphascope 의 완성본을 보낸다. 빌드한 dist 를 거기로 복사하는 단계가 더해졌다.
-# 이 파일은 deploy/switch-to-static.sh 가 ~/deploy.sh 로 복사한다. 쓰는 법: ssh alphascope '~/deploy.sh'
+# 오라클에서는 관리 루트의 사본 ~/projects/alphascope/scripts/deploy.sh 로 돈다(v2.61.3). 쓰는 법: ssh alphascope '~/projects/alphascope/scripts/deploy.sh'
 set -e
-APP_DIR="$HOME/alphascope"
+# 자리는 deploy/paths.sh 한 곳 — 저장소 안(app/deploy/)에서 돌면 옆 파일, 관리 루트 사본(scripts/)이면 ../app/deploy/ 의 것
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$HERE/paths.sh" ]; then . "$HERE/paths.sh"; else . "$HERE/../app/deploy/paths.sh"; fi
 WEB_DIR="/var/www/alphascope"
 SERVER_NAME="161.33.153.189"   # nginx 설정의 server_name 과 같아야 한다(확인 요청에 쓴다)
 PUBLIC_PORT=8080               # nginx 설정의 listen … ssl 과 같아야 한다 — AlphaScope 주소 https://161.33.153.189:8080 (v2.61.2 · 같은 문 http 는 https 로 넘김 · 443 은 닫음)
@@ -26,15 +28,16 @@ else
   echo "  받은 커밋:"
   git log --format='    %h  %s' "$OLD..$NEW"
 fi
-# 실행 중인 ~/deploy.sh 는 덮어쓰지 않는다(bash 는 스크립트를 읽으면서 돌린다) — 다르면 끝에 안내만 한다.
+# 실행 중인 사본(scripts/deploy.sh)은 덮어쓰지 않는다(bash 는 스크립트를 읽으면서 돌린다) — 다르면 끝에 안내만 한다.
 SCRIPT_CHANGED=0
-if ! cmp -s "$APP_DIR/deploy/deploy.sh" "$HOME/deploy.sh"; then SCRIPT_CHANGED=1; fi
+if ! cmp -s "$APP_DIR/deploy/deploy.sh" "$SCRIPTS_DIR/deploy.sh"; then SCRIPT_CHANGED=1; fi
 
 echo "━━━ 3/6 설치"
 npm install --no-audit --no-fund
 if [ "$OLD" != "$NEW" ] && git diff --name-only "$OLD" "$NEW" | grep -q '^python/requirements.txt$'; then
   echo "  파이썬 패키지 목록이 바뀌어 다시 설치합니다."
-  python/.venv/bin/pip install -r python/requirements.txt
+  # pip 실행 파일 대신 python -m pip — 폴더를 옮긴 venv 는 bin/pip 의 첫 줄(옛 경로)이 깨질 수 있다(python 자체는 그대로 돈다)
+  python/.venv/bin/python -m pip install -r python/requirements.txt
 fi
 
 echo "━━━ 4/6 빌드"
@@ -49,8 +52,7 @@ sudo systemctl reload nginx
 
 echo "━━━ 6/6 재시작 (AlphaScope 두 프로그램만)"
 # 화면용 개발 서버(alphascope-web)는 없다. 「모두」 명령(restart all 등)은 쓰지 않는다 — 같은 서버의 다른 프로젝트까지 다시 켜진다.
-ECO="$APP_DIR/ecosystem.config.cjs"
-[ -f "$ECO" ] || ECO="$APP_DIR/deploy/ecosystem.config.cjs"
+ECO="$APP_DIR/deploy/ecosystem.config.cjs"   # 자리를 이 파일 위치에서 계산한다(사본을 두지 않음)
 for APP in $PM2_APPS; do
   if pm2 describe "$APP" >/dev/null 2>&1; then
     pm2 restart "$APP"
@@ -84,11 +86,11 @@ CODE=$(curl -s -o /dev/null -w '%{http_code}' --resolve "$SERVER_NAME:$PUBLIC_PO
 if [ "$CODE" = "200" ]; then
   echo "  화면 응답: 200"
 else
-  echo "  ⚠️ 화면이 응답하지 않습니다(코드 $CODE · $PUBLIC_URL). 'sudo nginx -t' 와 '$WEB_DIR' 폴더 · 'bash ~/alphascope/deploy/check-https.sh'(인증서)를 확인하세요. nginx 설정이 바뀌었으면 'bash ~/alphascope/deploy/apply-nginx.sh'."
+  echo "  ⚠️ 화면이 응답하지 않습니다(코드 $CODE · $PUBLIC_URL). 'sudo nginx -t' 와 '$WEB_DIR' 폴더 · 'bash $APP_DIR/deploy/check-https.sh'(인증서)를 확인하세요. nginx 설정이 바뀌었으면 'bash $APP_DIR/deploy/apply-nginx.sh'."
 fi
 # 인증서 남은 기간 한 줄(48시간 안에 끝나면 ⚠️ — 자동 갱신이 멈췄다는 뜻)
 bash "$APP_DIR/deploy/check-https.sh" --short || true
 if [ "$SCRIPT_CHANGED" = "1" ]; then
-  echo "  ⚠️ 배포 스크립트가 바뀌었습니다 — cp ~/alphascope/deploy/deploy.sh ~/deploy.sh"
+  echo "  ⚠️ 배포 스크립트가 바뀌었습니다 — cp $APP_DIR/deploy/deploy.sh $SCRIPTS_DIR/deploy.sh"
 fi
 echo "완료: $OLD → $NEW"

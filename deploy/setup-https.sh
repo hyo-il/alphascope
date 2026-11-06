@@ -1,7 +1,7 @@
 #!/bin/bash
 # AlphaScope — 오라클을 https(Let's Encrypt IP 인증서)로 바꾼다 (v2.61.1 · v2.61.2 주소 https://161.33.153.189:8080). **손으로 한 번** 돌린다.
 #
-#   쓰는 법(오라클 안에서):  cd ~/alphascope && git pull --ff-only origin main && bash deploy/setup-https.sh
+#   쓰는 법(오라클 안에서):  cd ~/projects/alphascope/app && git pull --ff-only origin main && bash deploy/setup-https.sh
 #   그 전에: 오라클 웹 콘솔 보안 목록에 80 수신 규칙을 더한다(8080 은 이미 열림 · deploy/README.md 「https 로 바꾸기」 — 서버 안에서는 열렸는지 알 수 없어 물어본다).
 #
 # 순서(근거 · 출처: deploy/README.md 「HTTPS 조사」):
@@ -15,7 +15,7 @@
 # 같은 서버의 다른 프로젝트(8081 · sites-available/project2)는 읽기만 하고 건드리지 않는다. pm2 · 앱 서버는 다시 켜지 않는다.
 set -u
 
-APP_DIR="$HOME/alphascope"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/paths.sh"   # 자리(APP_DIR · SCRIPTS_DIR · BACKUP_DIR …)는 deploy/paths.sh 한 곳
 SERVER_NAME="161.33.153.189"   # nginx 설정의 server_name 과 같아야 한다
 PUBLIC_PORT=8080               # nginx 설정의 listen … ssl 과 같아야 한다(npm run deploy:test 가 확인)
 PUBLIC_URL="https://$SERVER_NAME:$PUBLIC_PORT"
@@ -33,7 +33,7 @@ ACME_AVAIL="$NGINX_DIR/sites-available/alphascope-acme"
 ACME_ENABLED="$NGINX_DIR/sites-enabled/alphascope-acme"
 CERT_DIR="$LE_DIR/live/$SERVER_NAME"
 STAMP=$(date +%Y%m%d-%H%M%S)
-BK="$HOME/alphascope-https-backup-$STAMP"
+BK="$BACKUP_DIR/https/alphascope-https-backup-$STAMP"
 IPT_RULE=(-m state --state NEW -j ACCEPT)   # 11-03 과 같은 규칙(-p tcp --dport <문> 은 따로 붙인다)
 
 # 되돌릴 것 — 바꾼 것만 표시해 두고, 되돌릴 때 그것만 되돌린다
@@ -208,6 +208,6 @@ echo ""
 echo "완료 — $PUBLIC_URL"
 echo "  · 인증서 만료: $END (6일짜리 — 남은 기간이 절반(약 80시간) 아래가 되면 타이머가 갱신 · 하루 2번 확인)"
 echo "  · 다음 갱신 예정: 만료 약 80시간 전부터 · 다음 타이머 실행 $(echo "$TIMER" | head -1 | awk '{print $1, $2, $3}')"
-echo "  · http://$SERVER_NAME:$PUBLIC_PORT 로 들어와도 같은 문의 https 로 넘어갑니다. 상태 보기: bash ~/alphascope/deploy/check-https.sh"
-echo "  · 배포 스크립트도 새 것으로: cp ~/alphascope/deploy/deploy.sh ~/deploy.sh"
+echo "  · http://$SERVER_NAME:$PUBLIC_PORT 로 들어와도 같은 문의 https 로 넘어갑니다. 상태 보기: bash $APP_DIR/deploy/check-https.sh"
+echo "  · 배포 스크립트도 새 것으로: cp $APP_DIR/deploy/deploy.sh $SCRIPTS_DIR/deploy.sh"
 echo "  · 백업: $BK"

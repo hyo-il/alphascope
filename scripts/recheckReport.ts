@@ -1,5 +1,5 @@
 /**
- * 미국 매수 판단 다시 계산 결과 보기 — `npm run -s recheck:report [-- --from YYYY-MM-DD --to YYYY-MM-DD]` (오라클 안에서: `cd ~/alphascope && npm run -s recheck:report`).
+ * 미국 매수 판단 다시 계산 결과 보기 — `npm run -s recheck:report [-- --from YYYY-MM-DD --to YYYY-MM-DD]` (오라클 안에서: `cd ~/projects/alphascope/app && npm run -s recheck:report`).
  * 기간을 주지 않으면 기록이 있는 전체(30일 보관).
  * 앱 DB(`.env` 의 `DB_PATH`)를 **읽기 전용**으로 연다 — 표를 만들거나 바꾸지 않는다. 토스도 부르지 않는다.
  */

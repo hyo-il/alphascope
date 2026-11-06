@@ -2,9 +2,9 @@
 # AlphaScope — 저장소의 nginx 설정 두 개를 오라클 nginx 에 넣는다 (v2.60.5 · v2.61.1 https · v2.61.2 주소 8080 · 443 닫음).
 #   deploy/nginx-alphascope.conf      → sites-available/alphascope       (https://161.33.153.189:8080 · 같은 문 http → https)
 #   deploy/nginx-alphascope-acme.conf → sites-available/alphascope-acme  (80 — 인증서 확인 경로만 · 나머지 끊음)
-# 배포(~/deploy.sh)는 nginx 설정 파일을 넣지 않는다 — 설정이 바뀌었을 때만 이 스크립트를 **손으로 한 번** 돌린다.
+# 배포(scripts/deploy.sh)는 nginx 설정 파일을 넣지 않는다 — 설정이 바뀌었을 때만 이 스크립트를 **손으로 한 번** 돌린다.
 #
-#   쓰는 법(오라클 안에서):  cd ~/alphascope && git pull --ff-only origin main && bash deploy/apply-nginx.sh
+#   쓰는 법(오라클 안에서):  cd ~/projects/alphascope/app && git pull --ff-only origin main && bash deploy/apply-nginx.sh
 #
 # 순서: ⓪ 확인 — 인증서 · 80 확인 경로 설정이 있는지 · 다른 설정 · 프로그램이 443 을 듣지 않는지(하나라도 다르면 **아무것도 바꾸지 않고 멈춤**)
 #       → ① 지금 설정 두 개 백업(sites-enabled 밖 · 이름에 날짜) → ② 새 설정 복사 → ③ nginx -t(실패하면 되돌리고 멈춤) → ④ reload
@@ -15,7 +15,7 @@
 # 같은 서버의 다른 프로젝트(8081 · sites-available/project2) · default 설정은 읽기만 하고 건드리지 않는다.
 set -e
 
-APP_DIR="$HOME/alphascope"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/paths.sh"   # 자리(APP_DIR · SCRIPTS_DIR · BACKUP_DIR …)는 deploy/paths.sh 한 곳
 SERVER_NAME="161.33.153.189"   # nginx 설정의 server_name 과 같아야 한다
 PUBLIC_PORT=8080               # nginx 설정의 listen … ssl 과 같아야 한다(npm run deploy:test 가 확인)
 PUBLIC_URL="https://$SERVER_NAME:$PUBLIC_PORT"
@@ -30,10 +30,12 @@ ACME_AVAIL="$NGINX_DIR/sites-available/alphascope-acme"
 ACME_ENABLED="$NGINX_DIR/sites-enabled/alphascope-acme"
 STAMP=$(date +%Y%m%d-%H%M%S)
 # ⚠️ 백업은 sites-enabled 안에 두지 않는다 — nginx 는 그 폴더의 파일을 전부 읽어 설정이 두 벌이 된다.
-BACKUP="$NGINX_AVAIL.backup-$STAMP"
-ENABLED_BACKUP="$NGINX_DIR/sites-available/alphascope-enabled-file.backup-$STAMP"
-ACME_BACKUP="$ACME_AVAIL.backup-$STAMP"
-ACME_ENABLED_BACKUP="$NGINX_DIR/sites-available/alphascope-acme-enabled-file.backup-$STAMP"
+# v2.61.3 — 백업은 nginx 폴더가 아니라 관리 루트 backups/nginx/ 에 둔다(이름은 그대로)
+NGINX_BK_DIR="$BACKUP_DIR/nginx"
+BACKUP="$NGINX_BK_DIR/alphascope.backup-$STAMP"
+ENABLED_BACKUP="$NGINX_BK_DIR/alphascope-enabled-file.backup-$STAMP"
+ACME_BACKUP="$NGINX_BK_DIR/alphascope-acme.backup-$STAMP"
+ACME_ENABLED_BACKUP="$NGINX_BK_DIR/alphascope-acme-enabled-file.backup-$STAMP"
 IPT_RULE=(-p tcp --dport "$RETIRED_PORT" -m state --state NEW -j ACCEPT)   # 102차(setup-https.sh)가 더한 규칙과 같은 꼴
 
 cd "$APP_DIR"
@@ -100,6 +102,7 @@ command -v certbot >/dev/null || stop_unchanged "certbot 이 없습니다(갱신
 echo "  인증서 있음 · 80 확인 경로 설정 있음 · 다른 설정 · 프로그램이 $RETIRED_PORT 을 듣지 않음"
 
 echo "━━━ 1/7 지금 설정 백업"
+mkdir -p "$NGINX_BK_DIR"
 sudo cp "$NGINX_AVAIL" "$BACKUP"
 sudo cp "$ACME_AVAIL" "$ACME_BACKUP"
 echo "  nginx → $BACKUP · $ACME_BACKUP"
@@ -153,7 +156,8 @@ sudo certbot renew --dry-run --cert-name "$SERVER_NAME" || fail "갱신 연습(c
 echo "  갱신 연습 통과"
 
 echo "━━━ 7/7 iptables $RETIRED_PORT 닫기 (이제 안 쓰는 문)"
-IPT_BACKUP="$HOME/alphascope-iptables-INPUT.backup-$STAMP.txt"
+mkdir -p "$BACKUP_DIR/https"
+IPT_BACKUP="$BACKUP_DIR/https/alphascope-iptables-INPUT.backup-$STAMP.txt"
 if sudo iptables -C INPUT "${IPT_RULE[@]}" >/dev/null 2>&1; then
   sudo iptables -S INPUT > "$IPT_BACKUP" 2>/dev/null || true
   while sudo iptables -C INPUT "${IPT_RULE[@]}" >/dev/null 2>&1; do
@@ -171,7 +175,7 @@ fi
 echo ""
 echo "적용 완료 — AlphaScope 주소: $PUBLIC_URL (http://$SERVER_NAME:$PUBLIC_PORT 로 들어와도 같은 문의 https 로 넘어감 · https://$SERVER_NAME 는 접속 거절)"
 echo "  · 오라클 웹 콘솔 보안 목록의 $RETIRED_PORT 수신 규칙도 지우세요(80 · 8080 · 8081 · 22 는 그대로) — deploy/README.md 「주소 8080 · 443 닫기」"
-echo "  · 배포 스크립트도 새 것으로: cp ~/alphascope/deploy/deploy.sh ~/deploy.sh"
+echo "  · 배포 스크립트도 새 것으로: cp $APP_DIR/deploy/deploy.sh $SCRIPTS_DIR/deploy.sh"
 echo "  · 되돌리기(예전 설정으로):"
 echo "      sudo cp $BACKUP $NGINX_AVAIL && sudo cp $ACME_BACKUP $ACME_AVAIL && sudo nginx -t && sudo systemctl reload nginx"
 echo "      (예전 설정이 443 이었다면) sudo iptables -I INPUT 6 ${IPT_RULE[*]} && sudo netfilter-persistent save  — 콘솔 보안 목록에도 443 을 다시 더함"
