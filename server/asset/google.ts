@@ -1,8 +1,9 @@
 /**
- * 구글 시트 읽기 — **새 의존성 없이** Node 내장 `crypto` 로 서비스 계정 JWT(RS256)를 서명해 접근 토큰을 받고,
- * Sheets API v4 `values:batchGet` 을 `fetch` 로 부른다(v2.61.0 · 자산 관리 1단계).
+ * 구글 시트 읽기 · 쓰기 — **새 의존성 없이** Node 내장 `crypto` 로 서비스 계정 JWT(RS256)를 서명해 접근 토큰을 받고,
+ * Sheets API v4 `values:batchGet`(읽기) · `values.update`(쓰기 — 한 칸)를 `fetch` 로 부른다(v2.61.0 · v2.62.0 쓰기).
  *
- * - 범위(scope)는 **읽기 전용**(`spreadsheets.readonly`) — 1단계는 시트에 쓰지 않는다. 쓰는 주소는 이 앱 코드에 없다.
+ * - 범위(scope)는 `spreadsheets`(읽기 · 쓰기 — v2.62.0). 쓰기 함수는 `valuesUpdate` 하나 · 부르는 곳은 `sheet.ts` `writeAssetClass` 한 곳뿐
+ *   (「티커」 D14~D42 자산 분류 — `asset:test` 가 검색으로 확인). 시트 쓰기는 서비스 계정이 시트의 「편집자」 여야 된다.
  * - 토큰은 만료 1분 전까지 메모리에 둔다(열쇠 파일이 바뀌면 새로 받는다).
  * - 실패는 쉬운 말 이유(`AssetSheetError.kind`)로 바꾼다. ⚠️ 구글 응답 본문 · 열쇠 내용 · 시트 ID 는 로그 · 오류 문구에 싣지 않는다.
  */
@@ -13,7 +14,7 @@ import type { AssetSheetConfig } from './config';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const SHEETS_URL = 'https://sheets.googleapis.com/v4/spreadsheets';
-const SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const TOKEN_LIFETIME_S = 3600;
 const TIMEOUT_MS = 15_000;
 
@@ -116,19 +117,47 @@ export async function batchGet(config: AssetSheetConfig, ranges: string[], rende
   const res = await send(`${SHEETS_URL}/${encodeURIComponent(config.sheetId)}/values:batchGet?${params.toString()}`, {
     headers: { authorization: `Bearer ${token}` },
   });
+  await throwIfFailed(res, 'read');
+  const body = (await res.json().catch(() => null)) as { valueRanges?: { values?: CellRows }[] } | null;
+  if (!body?.valueRanges || body.valueRanges.length !== ranges.length) throw new AssetSheetError('network', '구글 시트 응답의 모양이 올바르지 않습니다.');
+  return body.valueRanges.map((v) => v.values ?? []);
+}
+
+/**
+ * 구글 응답 실패 → 쉬운 말(읽기 · 쓰기 공용). 403 은 둘 — 구글 클라우드 프로젝트에서 Sheets API 를 켜지 않음(SERVICE_DISABLED) ·
+ * 시트를 공유하지 않음(쓰기는 「편집자」 여야 한다). 이유 칸만 본다(본문을 남기지 않는다).
+ */
+async function throwIfFailed(res: Response, action: 'read' | 'write'): Promise<void> {
+  if (res.ok) return;
   if (res.status === 401) resetTokenCache();
   if (res.status === 403) {
-    // 403 은 둘 — 구글 클라우드 프로젝트에서 Sheets API 를 켜지 않음(SERVICE_DISABLED) · 시트를 공유하지 않음. 이유 칸만 본다(본문을 남기지 않는다)
     const err = (await res.json().catch(() => null)) as { error?: { details?: { reason?: string }[] } } | null;
     if (err?.error?.details?.some((d) => d.reason === 'SERVICE_DISABLED' || d.reason === 'API_DISABLED')) {
       throw new AssetSheetError('api-disabled', '구글 클라우드 프로젝트에서 Google Sheets API 가 켜져 있지 않습니다(서비스 계정이 속한 프로젝트에서 「사용」 을 누르세요).');
     }
-    throw new AssetSheetError('not-shared', '시트를 읽을 권한이 없습니다(시트를 서비스 계정 이메일에 「뷰어」 로 공유했는지 확인하세요).');
+    throw new AssetSheetError(
+      'not-shared',
+      action === 'read'
+        ? '시트를 읽을 권한이 없습니다(시트를 서비스 계정 이메일에 「뷰어」 로 공유했는지 확인하세요).'
+        : '시트에 쓸 권한이 없습니다(시트를 서비스 계정 이메일에 「편집자」 로 공유했는지 확인하세요).',
+    );
   }
   if (res.status === 404) throw new AssetSheetError('not-found', '시트를 찾지 못했습니다(`.env` 의 ASSET_SHEET_ID 를 확인하세요).');
-  if (res.status === 400) throw new AssetSheetError('shape', '시트 모양이 바뀌었어요(읽을 탭 이름이 시트에 없습니다).');
-  if (!res.ok) throw new AssetSheetError('network', `구글 시트 응답이 올바르지 않습니다(${res.status}).`);
-  const body = (await res.json().catch(() => null)) as { valueRanges?: { values?: CellRows }[] } | null;
-  if (!body?.valueRanges || body.valueRanges.length !== ranges.length) throw new AssetSheetError('network', '구글 시트 응답의 모양이 올바르지 않습니다.');
-  return body.valueRanges.map((v) => v.values ?? []);
+  if (res.status === 400) throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(${action === 'read' ? '읽을' : '쓸'} 탭 이름이 시트에 없습니다).`);
+  throw new AssetSheetError('network', `구글 시트 응답이 올바르지 않습니다(${res.status}).`);
+}
+
+/**
+ * **시트 쓰기 — 이 앱의 유일한 쓰기 함수**(`values.update` · 한 칸 · `valueInputOption=RAW` — 글자 그대로, 수식 · 숫자로 바꾸지 않는다).
+ * 부르는 곳은 `sheet.ts` `writeAssetClass` 한 곳(칸 · 값 확인 · 수식 칸 거절을 거친 뒤)뿐이다.
+ */
+export async function valuesUpdate(config: AssetSheetConfig, range: string, value: string): Promise<void> {
+  const token = await accessToken(config.keyFile);
+  const params = new URLSearchParams({ valueInputOption: 'RAW' });
+  const res = await send(`${SHEETS_URL}/${encodeURIComponent(config.sheetId)}/values/${encodeURIComponent(range)}?${params.toString()}`, {
+    method: 'PUT',
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ range, majorDimension: 'ROWS', values: [[value]] }),
+  });
+  await throwIfFailed(res, 'write');
 }

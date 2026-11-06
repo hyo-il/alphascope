@@ -2,6 +2,7 @@
  * 자산 관리 점검 — `npm run asset:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import).
  *
  * 101차 지시서 「꼭 지킬 동작」 1~15 를 줄마다 확인한다(시험 이름 앞의 [n] 이 그 줄 번호).
+ * 106차(v2.62.0) 「꼭 지킬 동작」 1~13(4-1 포함)은 [106-n] — 「티커」 D열 자산 분류 · 쓰기 · 총 자산 계산 · 하루 기록.
  * - 잠금(1~6 · 11): 사본 DB 로 **시험 서버를 따로 띄워**(포트 4107 · 스위치 끔 · 시트 연결 정보 없음) 실제 HTTP 로 확인한다.
  * - 시트 읽기(7~10 · 13): **만든 가짜 값**만 쓴다 — 구글 주소를 부르는 `fetch` 를 이 프로세스 안에서 바꿔치기하고, 열쇠는 그때 만든 시험용 RSA 키.
  *   실제 구글 호출 0번.
@@ -24,7 +25,7 @@ import { setAssetPassword, unlockSession } from '../server/asset/lock';
 import { authGuard } from '../server/authGuard';
 import { assetRouter } from '../server/asset/routes';
 import { AssetSheetError, resetTokenCache } from '../server/asset/google';
-import { avgPriceOf, parseAssetSheet, readAssetSheet, resetSheetCache, sheetRanges, splitCode } from '../server/asset/sheet';
+import { avgPriceOf, linkedTickerRow, parseAssetSheet, readAssetSheet, resetSheetCache, sheetRanges, splitCode, writeAssetClass } from '../server/asset/sheet';
 import type { AssetSheetData } from '../src/types/asset';
 import { NAV_GROUPS, pageMeta } from '../src/types/nav';
 
@@ -120,6 +121,12 @@ try {
   // [3] 로그인 안 함 → 로그인 문지기 401
   const no = await Promise.all([call('GET', '/api/asset/status'), call('POST', '/api/asset/unlock', undefined, { password: ASSET_PW }), call('POST', '/api/asset/lock'), sheet()]);
   check('[3] 로그인 안 함 → status · unlock · lock · sheet 모두 401(authRequired)', (await Promise.all(no.map(async (r) => r.status === 401 && (await codeOf(r)).authRequired === true))).every(Boolean), no.map((r) => r.status).join(','));
+  // [106-10] 106차 새 주소도 같은 두 문지기 뒤(로그인 안 함 401 · 잠김 403)
+  const newApis: [string, string, unknown?][] = [['GET', '/api/asset/summary?pension=0'], ['GET', '/api/asset/history?range=1m&pension=0'], ['PUT', '/api/asset/class', { row: 15, assetClass: '금' }], ['PUT', '/api/asset/settings', { pensionSections: [] }]];
+  const anon = await Promise.all(newApis.map(([m, p, b]) => call(m, p, undefined, b)));
+  check('[106-10] 로그인 안 함 → summary · history · class · settings 모두 401(authRequired)', (await Promise.all(anon.map(async (r) => r.status === 401 && (await codeOf(r)).authRequired === true))).every(Boolean), anon.map((r) => r.status).join(','));
+  const lockedNew = await Promise.all(newApis.map(([m, p, b]) => call(m, p, a, b)));
+  check('[106-10] 로그인한 채 잠김 → summary · history · class · settings 모두 403 asset-locked', (await Promise.all(lockedNew.map(async (r) => r.status === 403 && (await codeOf(r)).code === 'asset-locked'))).every(Boolean), lockedNew.map((r) => r.status).join(','));
 
   // [4] 맞는 비밀번호 → 풀림
   const okUnlock = await unlock(a, ASSET_PW);
@@ -127,6 +134,9 @@ try {
   check('[4] 맞는 자산 비밀번호 → 200 · unlocked:true', okUnlock.status === 200 && s2.unlocked === true);
   const opened = await sheet(a);
   check('[4] 풀린 뒤 sheet 는 자산 문지기를 지난다(연결 정보 없음 → 503 not-configured)', opened.status === 503 && ((await opened.json()) as { kind?: string }).kind === 'not-configured', String(opened.status));
+  // [106-7] 시험 서버는 스위치 7개를 끈 채 떴다 — 쓰기 API 는 시트를 보기 전에 「꺼짐」
+  const offWrite = await call('PUT', '/api/asset/class', a, { row: 15, assetClass: '금' });
+  check('[106-7] ASSET_SYNC_ENABLED=false(시험 서버) → PUT /api/asset/class 503 · kind disabled', offWrite.status === 503 && ((await offWrite.json()) as { kind?: string }).kind === 'disabled', String(offWrite.status));
   const b = (await login()).cookie;
   check('[4] 풀림은 그 로그인 세션만 — 다른 세션은 여전히 잠김', (await sheet(b)).status === 403 && (await status(b)).unlocked === false);
   // 틀리는 시도는 다른 IP(X-Forwarded-For — trust proxy 는 루프백만 믿는다)로 — 127.0.0.1 은 아래 [5] 에서 다시 푼다
@@ -202,12 +212,15 @@ type Cell = string | number;
 function fakeSheet(): { values: Record<string, Cell>; formulas: Record<string, Cell> } {
   const v: Record<string, Cell> = {
     '티커!B12': '구분',
-    '티커!F9': FAKE.fx,
+    '티커!D12': '자산 분류',
+    '티커!G9': FAKE.fx,
     '티커!B14': '개별 투자', // 구분 줄(코드 없음)
-    '티커!B15': '가짜 미국주', '티커!C15': 'NASDAQ:NVDA',
-    '티커!B16': '가짜 국내주', '티커!C16': '005930',
-    '티커!B17': 'KODEX 미국S&P500', '티커!C17': '0072R0', // 이름 띄어쓰기가 보유 줄과 다르다
+    '티커!B15': '가짜 미국주', '티커!C15': 'NASDAQ:NVDA', '티커!D15': '주식',
+    '티커!B16': '가짜 국내주', '티커!C16': '005930', '티커!D16': '채권',
+    '티커!B17': 'KODEX 미국S&P500', '티커!C17': '0072R0', '티커!D17': '부동산', // 이름 띄어쓰기가 보유 줄과 다르다 · 알 수 없는 분류
     '티커!B19': '적립식 투자',
+    // 넣기 전 자리(E · F)에 엉뚱한 값 — 옛 주소로 읽으면 틀린다
+    '티커!F9': 1.11,
     '주식 투자 정리!B3': '내 계좌 정보',
     '주식 투자 정리!B38': '내  계좌 정보', // 공백만 다름 — 같은 모양
     '주식 투자 정리!B4': '개별 투자 ( 2026.07 )',
@@ -228,9 +241,9 @@ function fakeSheet(): { values: Record<string, Cell>; formulas: Record<string, C
     '현금!B30': '퇴직 연금 총액', '현금!C30': FAKE.retirement,
   };
   const f: Record<string, Cell> = { ...v,
-    '주식 투자 정리!C5': `=(${FAKE.usd})*('티커'!$F$9)`, '주식 투자 정리!F5': "=D5*'티커'!$E$15",
-    '주식 투자 정리!F6': "=D6*'티커'!$E$17",
-    '주식 투자 정리!F39': "=D39*'티커'!$E$16",
+    '주식 투자 정리!C5': `=(${FAKE.usd})*('티커'!$G$9)`, '주식 투자 정리!F5': "=D5*'티커'!$F$15",
+    '주식 투자 정리!F6': "=D6*'티커'!$F$17",
+    '주식 투자 정리!F39': "=D39*'티커'!$F$16",
   };
   return { values: v, formulas: f };
 }
@@ -257,23 +270,48 @@ function cut(model: Record<string, Cell>, range: string): Cell[][] {
 
 let sheetModel = fakeSheet();
 let google = { token: 0, values: 0, formulas: 0, writes: 0 };
-/** 다음 시트 응답을 바꾼다 — 'ok' · 403 · 403 API 꺼짐 · 400 · 네트워크 */
-let mode: 'ok' | '403' | '403-disabled' | '400' | 'down' = 'ok';
+/** 가짜 구글이 받은 쓰기(범위 · 값 · valueInputOption) — [106-7] [106-8] */
+let writesSeen: { range: string; value: unknown; input: string | null }[] = [];
+/** 다음 시트 응답을 바꾼다 — 'ok' · 403 · 403 API 꺼짐 · 400 · 네트워크 · 쓰기만 403 */
+let mode: 'ok' | '403' | '403-disabled' | '400' | 'down' | 'write-403' = 'ok';
 const realFetch = globalThis.fetch;
+/** [106-8] 실제 구글로 나간 요청 — 늘 0 이어야 한다(가짜가 모두 받는다) */
+let realGoogleCalls = 0;
 let jwtOk = true;
 globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-  if (!/googleapis\.com/.test(url)) return realFetch(input, init);
+  if (!/googleapis\.com/.test(url)) {
+    if (/google/.test(url)) realGoogleCalls++;
+    return realFetch(input, init);
+  }
   if (mode === 'down') throw new TypeError('fetch failed');
   if (url.startsWith('https://oauth2.googleapis.com/token')) {
     google.token++;
     const assertion = new URLSearchParams(String(init?.body ?? '')).get('assertion') ?? '';
     const [h, c, sig] = assertion.split('.');
     const claims = JSON.parse(Buffer.from(c ?? '', 'base64url').toString()) as { scope?: string; aud?: string; iss?: string };
-    jwtOk = crypto.createVerify('RSA-SHA256').update(`${h}.${c}`).verify(publicKey, Buffer.from(sig ?? '', 'base64url')) && claims.scope === 'https://www.googleapis.com/auth/spreadsheets.readonly' && claims.aud === 'https://oauth2.googleapis.com/token' && claims.iss === 'selftest@example.invalid';
+    jwtOk = crypto.createVerify('RSA-SHA256').update(`${h}.${c}`).verify(publicKey, Buffer.from(sig ?? '', 'base64url')) && claims.scope === 'https://www.googleapis.com/auth/spreadsheets' && claims.aud === 'https://oauth2.googleapis.com/token' && claims.iss === 'selftest@example.invalid';
     return new Response(JSON.stringify({ access_token: 'fake-token', expires_in: 3600 }), { status: 200 });
   }
-  if ((init?.method ?? 'GET') !== 'GET' || !url.includes('/values:batchGet?')) {
+  const method = init?.method ?? 'GET';
+  // 쓰기(values.update) — 가짜 시트에 그대로 적는다(실제 구글에 가지 않는다)
+  if (method === 'PUT' && /\/values\/[^:?]+\?/.test(url)) {
+    google.writes++;
+    const u = new URL(url);
+    const range = decodeURIComponent(u.pathname.split('/values/')[1] ?? '');
+    const body = JSON.parse(String(init?.body ?? '{}')) as { values?: unknown[][] };
+    const value = body.values?.[0]?.[0];
+    writesSeen.push({ range, value, input: u.searchParams.get('valueInputOption') });
+    if (mode === 'write-403') return new Response(JSON.stringify({ error: { code: 403, status: 'PERMISSION_DENIED' } }), { status: 403 });
+    const m = range.match(/^'((?:[^']|'')+)'!([A-Z]\d+)$/);
+    if (m) {
+      const key = `${m[1].replace(/''/g, "'")}!${m[2]}`;
+      sheetModel.values[key] = String(value ?? '');
+      sheetModel.formulas[key] = String(value ?? '');
+    }
+    return new Response(JSON.stringify({ updatedCells: 1 }), { status: 200 });
+  }
+  if (method !== 'GET' || !url.includes('/values:batchGet?')) {
     google.writes++;
     return new Response('{}', { status: 400 });
   }
@@ -293,13 +331,13 @@ const captured: string[] = [];
 const origLog = { log: console.log, warn: console.warn, error: console.error };
 for (const k of ['warn', 'error'] as const) console[k] = (...args: unknown[]) => { captured.push(args.map(String).join(' ')); origLog[k](...args); };
 
-const fresh = () => { resetSheetCache(); resetTokenCache(); google = { token: 0, values: 0, formulas: 0, writes: 0 }; mode = 'ok'; sheetModel = fakeSheet(); };
+const fresh = () => { resetSheetCache(); resetTokenCache(); google = { token: 0, values: 0, formulas: 0, writes: 0 }; writesSeen = []; mode = 'ok'; sheetModel = fakeSheet(); };
 const kindOf = async (p: Promise<unknown>) => p.then(() => 'ok', (e) => (e instanceof AssetSheetError ? e.kind : `other:${(e as Error).message}`));
 
 try {
   fresh();
   const data = await readAssetSheet();
-  check('[B] 가짜 구글 — JWT RS256 서명이 맞고 scope 는 spreadsheets.readonly · aud 는 토큰 주소', jwtOk && google.token === 1);
+  check('[B] 가짜 구글 — JWT RS256 서명이 맞고 scope 는 spreadsheets(106차 — 쓰기 포함) · aud 는 토큰 주소', jwtOk && google.token === 1);
   check('[B] 한 번 읽기 = 값 batchGet 1번 + 수식 batchGet 1번 · 쓰기 호출 0', google.values === 1 && google.formulas === 1 && google.writes === 0);
   await readAssetSheet();
   check('[B] 30초 안에 다시 읽으면 캐시(구글 호출 늘지 않음)', google.values === 1 && google.formulas === 1 && google.token === 1);
@@ -309,21 +347,25 @@ try {
   const kodex = all.find((h) => h.row === 6);
   const nolink = all.find((h) => h.row === 8);
   // [8] 잇기
-  check('[8] 보유 줄 ↔ 종목 줄 — F열 `\'티커\'!$E$NN` 으로 잇는다(5행 → 티커 15행 NASDAQ:NVDA)', us?.code === 'NASDAQ:NVDA');
+  check('[8] [106-2] 보유 줄 ↔ 종목 줄 — F열 `\'티커\'!$F$NN`(넣은 뒤 주소)으로 잇는다(5행 → 티커 15행 NASDAQ:NVDA)', us?.code === 'NASDAQ:NVDA' && us?.tickerRow === 15);
+  check('[106-2] 옛 주소 `\'티커\'!$E$NN` 은 잇지 않는다(넣기 전 수식 = 「티커」 E열 = 가격 칸)', linkedTickerRow("=D5*'티커'!$E$15") === null && linkedTickerRow("=D5*'티커'!$F$15") === 15);
+  check('[106-2] 자산 분류는 「티커」 D열 — 주식 · 채권 그대로 · 네 글자가 아니면 null + 「알 수 없는 분류」 글자', us?.assetClass === '주식' && all.find((h) => h.row === 39)?.assetClass === '채권' && kodex?.assetClass === null && kodex?.assetClassUnknown === '부동산' && us?.assetClassUnknown === null);
+  check('[106-2] 이을 수 없는 줄은 「티커」 줄 · 분류 없음(null)', nolink?.tickerRow === null && nolink?.assetClass === null);
   check('[8] 이름 띄어쓰기가 달라도(「KODEX 미국 S&P500」 ↔ 「KODEX 미국S&P500」) 줄 번호로 바르게 이어진다', kodex?.code === '0072R0' && kodex?.name === 'KODEX 미국 S&P500');
   check('[8] 이을 수식이 없는 줄은 코드 없음(이름으로 짐작하지 않는다) · 빈 줄은 건너뜀', nolink?.code === null && nolink?.market === null && !all.some((h) => h.row === 7));
   // [9] 평균 매입가
-  check('[9] `=(달러값)*(\'티커\'!$F$9)` → 달러 원래 값 · USD(환율을 곱한 값이 아니다)', us?.currency === 'USD' && us?.avgPrice === Number(FAKE.usd));
-  const example = avgPriceOf("=(119.2338)*('티커'!$F$9)", 165000);
-  check('[9] 지시서 예시 수식 그대로(괄호 · 따옴표 · $) → USD · 괄호 안 값', example.currency === 'USD' && example.avgPrice === 119.2338);
+  check('[9] [106-2] `=(달러값)*(\'티커\'!$G$9)` → 달러 원래 값 · USD(환율을 곱한 값이 아니다)', us?.currency === 'USD' && us?.avgPrice === Number(FAKE.usd));
+  const example = avgPriceOf("=(119.2338)*('티커'!$G$9)", 165000);
+  check('[9] [106-2] 지시서 예시 수식(넣은 뒤 주소 G9 · 괄호 · 따옴표 · $) → USD · 괄호 안 값', example.currency === 'USD' && example.avgPrice === 119.2338);
+  check('[106-2] 옛 주소 `…*(\'티커\'!$F$9)` 는 달러로 보지 않는다(원화 값 그대로)', avgPriceOf("=(119.2338)*('티커'!$F$9)", 165000).currency === 'KRW');
   check('[9] 숫자 칸 → 원화 KRW 그대로', kodex?.currency === 'KRW' && kodex?.avgPrice === FAKE.krw);
   // [10] 코드 나누기
   const nv = splitCode('NASDAQ:NVDA');
   check('[10] NASDAQ:NVDA → 미국 · 거래소 NASDAQ · 종목 NVDA', nv.market === 'US' && nv.exchange === 'NASDAQ' && nv.symbol === 'NVDA' && us?.market === 'US' && us?.symbol === 'NVDA');
   check('[10] 005930 · 0072R0 → 국내 · 코드 그대로', splitCode('005930').symbol === '005930' && splitCode('005930').market === 'KR' && splitCode('0072R0').symbol === '0072R0' && splitCode('0072R0').market === 'KR' && kodex?.market === 'KR');
   // 그 밖의 값 — 숫자는 찍지 않고 맞는지만
-  check('[B] 구간 다섯 — 이름은 시트 글자 그대로 · 마지막은 합계 표', data.sections.length === 5 && data.sections[0].name === '개별 투자 ( 2026.07 )' && data.sections[4].combined && !data.sections[0].combined && data.sections[4].holdings[0]?.code === '005930');
-  check('[B] 현금 합계 · 퇴직 연금 · 월급 · 구매 평균 환율', data.cashTotal === FAKE.cash && data.retirement === FAKE.retirement && data.salary === FAKE.salary && data.avgFxRate === FAKE.fx);
+  check('[B] 구간 다섯 — 이름은 시트 글자 그대로 · 마지막은 합계 표 · 설정 key(합계 표는 null)', data.sections.length === 5 && data.sections[0].name === '개별 투자 ( 2026.07 )' && data.sections[4].combined && !data.sections[0].combined && data.sections[4].holdings[0]?.code === '005930' && JSON.stringify(data.sections.map((x) => x.key)) === JSON.stringify(['개별 투자', '적립식 계좌', 'ISA 계좌', '연금 저축 계좌', null]));
+  check('[B] [106-2] 현금 합계 · 퇴직 연금 · 월급 · 구매 평균 환율(「티커」 G9 — 옛 F9 가 아님)', data.cashTotal === FAKE.cash && data.retirement === FAKE.retirement && data.salary === FAKE.salary && data.avgFxRate === FAKE.fx);
   const t = data.targetRatio;
   check('[B] 목표 비율 — 비율(0.2)로 적힌 묶음은 백분율로 · 이미 백분율(70)인 묶음은 그대로', t.cash === 20 && t.gold === 10 && t.bond === 10 && t.invest === 60 && t.core === 70 && t.satellite === 30);
   check('[B] readAt 은 ISO 시각', !Number.isNaN(Date.parse(data.readAt)));
@@ -351,6 +393,19 @@ try {
   fresh();
   sheetModel.values['주식 투자 정리!B12'] = '다른 표';
   check('[7] 구간 이름 머리(앞부분 비교)가 다르면 shape', (await kindOf(readAssetSheet())) === 'shape');
+  // [106-1] 「티커」 D12 ≠ 「자산 분류」(열을 아직 안 넣은 시트 — D12 는 옛 가격 칸 머리) → 값 없이 「모양 바뀜(티커 · D12)」
+  fresh();
+  sheetModel.values['티커!D12'] = '현재가';
+  let d12Err: AssetSheetError | null = null;
+  try {
+    await readAssetSheet();
+  } catch (e) {
+    d12Err = e instanceof AssetSheetError ? e : null;
+  }
+  check('[106-1] 「티커」 D12 ≠ 자산 분류 → kind shape · 「티커」 탭 D12 를 말한다 · 수식은 읽지 않음', d12Err?.kind === 'shape' && /「티커」 탭 D12/.test(d12Err.message) && google.formulas === 0);
+  fresh();
+  delete sheetModel.values['티커!D12'];
+  check('[106-1] 「티커」 D12 가 비어 있어도 shape', (await kindOf(readAssetSheet())) === 'shape');
 
   // 실패 이유
   fresh();
@@ -372,6 +427,46 @@ try {
   check('[11] 연결 정보 없음 → not-configured(구글을 부르지 않음)', (await kindOf(readAssetSheet())) === 'not-configured' && google.token === 0);
   process.env.GOOGLE_SA_KEY_FILE = keyFile;
 
+  // [106-7] 자산 분류 쓰기 — 가짜 구글로만(실제 시트 쓰기 0)
+  process.env.ASSET_SYNC_ENABLED = 'true';
+  fresh();
+  const wrote = await writeAssetClass(15, '금');
+  const w0 = writesSeen[0];
+  check('[106-7] 「티커」 D15(종목 줄)에 「금」 → values.update 1번 · 범위 \'티커\'!D15 · RAW · 값 그대로', google.writes === 1 && w0?.range === "'티커'!D15" && w0?.value === '금' && w0?.input === 'RAW');
+  check('[106-7] 쓴 뒤 캐시를 비우고 다시 읽은 값을 돌려준다(5행 분류 = 금)', wrote.sections[0].holdings.find((h) => h.row === 5)?.assetClass === '금' && google.values === 1 && google.formulas === 2);
+  fresh();
+  await writeAssetClass(16, '');
+  check('[106-7] 빈칸(지우기)도 쓴다', google.writes === 1 && writesSeen[0]?.value === '' && sheetModel.values['티커!D16'] === '');
+  const refused = async (row: unknown, v: unknown) => {
+    fresh();
+    const k = await kindOf(writeAssetClass(row, v));
+    return { k, writes: google.writes };
+  };
+  const r14 = await refused(14, '금'); // 구분 줄(「개별 투자」)
+  const r18 = await refused(18, '금'); // 빈 줄
+  check('[106-7] 구분 줄(D14) · 빈 줄(D18) → not-editable · 쓰기 0', r14.k === 'not-editable' && r18.k === 'not-editable' && r14.writes === 0 && r18.writes === 0, `${r14.k} ${r18.k}`);
+  const outside = [];
+  for (const row of [13, 43, 12, 15.5, '15', null]) outside.push(await refused(row, '금'));
+  check('[106-7] D14~D42 밖(13 · 43 · 12) · 정수가 아닌 줄 번호 → not-editable · 구글 호출 0', outside.every((x) => x.k === 'not-editable' && x.writes === 0) && google.token === 0, outside.map((x) => x.k).join(','));
+  const badValues = [];
+  for (const v of ['부동산', ' 금', 1, null, '=A1']) badValues.push(await refused(15, v));
+  check('[106-7] 네 글자 · 빈칸이 아닌 값(부동산 · 공백 섞임 · 숫자 · null · 수식) → not-editable · 쓰기 0', badValues.every((x) => x.k === 'not-editable' && x.writes === 0), badValues.map((x) => x.k).join(','));
+  fresh();
+  sheetModel.formulas['티커!D16'] = '=IF(A1,"주식","채권")';
+  check('[106-7] 그 칸이 `=` 로 시작(수식) → formula-cell · 쓰지 않음', (await kindOf(writeAssetClass(16, '금'))) === 'formula-cell' && google.writes === 0);
+  fresh();
+  sheetModel.values['티커!D12'] = '현재가';
+  sheetModel.formulas['티커!D12'] = '현재가';
+  check('[106-7] 쓰기 직전 머리 D12 가 다르면 shape · 쓰지 않음', (await kindOf(writeAssetClass(15, '금'))) === 'shape' && google.writes === 0);
+  fresh();
+  mode = 'write-403'; // 읽기는 되고(뷰어) 쓰기만 403
+  const deny = await writeAssetClass(15, '금').catch((e: unknown) => e);
+  check('[106-7] 구글 403(쓰기 권한 없음) → not-shared · 「편집자」 안내', deny instanceof AssetSheetError && deny.kind === 'not-shared' && /편집자/.test(deny.message));
+  fresh();
+  process.env.ASSET_SYNC_ENABLED = 'false';
+  check('[106-7] ASSET_SYNC_ENABLED=false → disabled · 구글 호출 0(토큰도 받지 않음)', (await kindOf(writeAssetClass(15, '금'))) === 'disabled' && google.token === 0 && google.writes === 0);
+  process.env.ASSET_SYNC_ENABLED = 'true';
+
   // 주소 그대로 — 로그인 문지기 + 자산 문지기 + 라우트(이 프로세스 안)
   fresh();
   const app = express();
@@ -385,10 +480,18 @@ try {
   const ck = { cookie: `as_session=${encodeURIComponent(token)}` };
   const lockedRes = await fetch(`${base}/api/asset/sheet`, { headers: ck });
   check('[2] (안쪽 서버) 풀기 전 sheet → 403 asset-locked · 구글 호출 0', lockedRes.status === 403 && google.token === 0);
+  const putClass = (body: unknown) => fetch(`${base}/api/asset/class`, { method: 'PUT', headers: { ...ck, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  check('[106-7] (안쪽 서버) 잠김 → PUT /api/asset/class 403 asset-locked · 쓰기 0', (await putClass({ row: 15, assetClass: '금' })).status === 403 && google.writes === 0);
   unlockSession(token);
   const okRes = await fetch(`${base}/api/asset/sheet`, { headers: ck });
   const okBody = (await okRes.json()) as AssetSheetData;
   check('[B] (안쪽 서버) 풀린 뒤 sheet → 200 · 구간 다섯', okRes.status === 200 && okBody.sections.length === 5);
+  const putOk = await putClass({ row: 15, assetClass: '금' });
+  const putBody = (await putOk.json()) as AssetSheetData;
+  check('[106-7] (안쪽 서버) 풀린 뒤 PUT /api/asset/class → 200 · 다시 읽은 시트 값', putOk.status === 200 && putBody.sections[0].holdings.find((h) => h.row === 5)?.assetClass === '금' && google.writes === 1);
+  const putBad = await putClass({ row: 14, assetClass: '금' });
+  const putFormula = (sheetModel.formulas['티커!D16'] = '=X1', await putClass({ row: 16, assetClass: '금' }));
+  check('[106-7] (안쪽 서버) 구분 줄 400 not-editable · 수식 칸 409 formula-cell · 쓰기 늘지 않음', putBad.status === 400 && ((await putBad.json()) as { kind?: string }).kind === 'not-editable' && putFormula.status === 409 && google.writes === 1);
   resetSheetCache();
   sheetModel.values['티커!B12'] = '바뀐 머리';
   const shapeRes = await fetch(`${base}/api/asset/sheet`, { headers: ck });
@@ -412,8 +515,18 @@ function walk(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walk(path.join(dir, d.name)) : /\.(ts|tsx)$/.test(d.name) ? [path.join(dir, d.name)] : []));
 }
 const appCode = [...walk(path.join(root, 'server')), ...walk(path.join(root, 'src'))].map((f) => fs.readFileSync(f, 'utf8')).join('\n');
-check('[12] 구글 쓰기 주소 문자열 0(values:update · batchUpdate · values:append · values:clear) — server · src', !/values:update|batchUpdate|values:append|values:clear|values:batchClear/.test(appCode));
-check('[12] 구글 scope 는 spreadsheets.readonly 뿐(쓰기 scope 없음)', /auth\/spreadsheets\.readonly/.test(appCode) && !/auth\/spreadsheets(?!\.readonly)/.test(appCode) && !/auth\/drive/.test(appCode));
+// [106-8] 쓰기는 한 곳 — 106차부터 시트 쓰기(「티커」 D열 자산 분류)가 생겼다(101차 [12] 「쓰기 주소 0」 을 대신한다)
+const codeFiles = [...walk(path.join(root, 'server')), ...walk(path.join(root, 'src'))].map((f) => ({ f: path.relative(root, f), src: fs.readFileSync(f, 'utf8') }));
+const callers = codeFiles.flatMap(({ f, src }) => [...src.matchAll(/\bvaluesUpdate\(/g)].map(() => f));
+const writeFnBody = (() => {
+  const src = fs.readFileSync(path.join(root, 'server/asset/sheet.ts'), 'utf8');
+  const i = src.indexOf('export async function writeAssetClass(');
+  return i < 0 ? '' : src.slice(i, src.indexOf('\n}\n', i));
+})();
+check('[106-8] 시트 쓰기 함수 valuesUpdate — 정의(google.ts) 1 + 부르는 곳 1(sheet.ts writeAssetClass)뿐', JSON.stringify(callers.sort()) === JSON.stringify(['server/asset/google.ts', 'server/asset/sheet.ts']) && /valuesUpdate\(/.test(writeFnBody), callers.join(','));
+check('[106-8] 그 밖의 구글 쓰기 주소(batchUpdate · values:append · values:clear) 0 · PUT 은 google.ts 한 곳', !/batchUpdate|values:append|values:clear|values:batchClear/.test(appCode) && codeFiles.filter(({ src }) => /sheets\.googleapis\.com/.test(src)).map((x) => x.f).join(',') === 'server/asset/google.ts');
+check('[106-8] 구글 scope 는 spreadsheets 하나(drive 등 다른 scope 없음)', /auth\/spreadsheets'/.test(appCode) && !/auth\/spreadsheets\.readonly/.test(appCode) && !/auth\/drive/.test(appCode));
+check('[106-8] 실제 구글 호출 0 — 이 시험의 googleapis 요청은 모두 가짜가 받았다(쓰기는 가짜 응답으로만)', realGoogleCalls === 0);
 
 const leaked = (textAll: string) => SECRET_STRINGS.filter((x) => textAll.includes(x));
 check('[13] 서버 로그(시험 서버) · 안쪽 경고 출력에 가짜 금액 · 수량이 없다', leaked(serverLog + captured.join('\n')).length === 0 && captured.some((l) => l.includes('[asset] 시트 읽기 실패: shape')));
@@ -421,6 +534,8 @@ check('[13] 이 시험의 출력에 가짜 금액 · 수량이 없다', leaked(p
 
 const changed = spawnSync('git', ['diff', '--name-only', '0a2dc10', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
 check('[14] 매매 · 시황 · 자동매매 코드 바뀐 파일 0(0a2dc10 와 지금 작업 트리)', changed.status === 0 && changed.stdout.trim() === '', changed.stdout.trim() || changed.stderr.trim());
+const changed106 = spawnSync('git', ['diff', '--name-only', 'c166ecd', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
+check('[106-12] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(c166ecd 와 지금 작업 트리)', changed106.status === 0 && changed106.stdout.trim() === '', changed106.stdout.trim() || changed106.stderr.trim());
 
 
 // [15] 메뉴 — 계좌 대메뉴의 소메뉴는 「계좌 관리」 · 「자산 관리」 순서 · 대메뉴를 누르면 첫 소메뉴(appStore.setGroup 이 pages[0] 으로 간다 — 화면 클릭은 Playwright 로도 확인)

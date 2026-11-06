@@ -17,3 +17,9 @@ export function assetSheetConfig(): AssetSheetConfig | null {
 }
 
 export const isSheetConfigured = () => assetSheetConfig() !== null;
+
+/**
+ * 7번째 시험 서버 스위치 `ASSET_SYNC_ENABLED`(기본 켬 · v2.62.0) — `false` 면 시트 쓰기(자산 분류)와 하루 기록 예약을 하지 않는다
+ * (쓰기 API 는 「꺼짐」 오류). 사본 DB 로 띄운 시험 서버는 끈다(`scripts/lib/testServerEnv.ts`).
+ */
+export const isAssetSyncEnabled = (): boolean => process.env.ASSET_SYNC_ENABLED?.trim().toLowerCase() !== 'false';
