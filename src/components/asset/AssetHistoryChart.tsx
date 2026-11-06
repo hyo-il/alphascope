@@ -32,6 +32,13 @@ export default function AssetHistoryChart({ points }: { points: AssetHistoryPoin
       pointMarkersVisible: true,
       pointMarkersRadius: 4,
       priceFormat: { type: 'custom', minMove: 1, formatter: axisMoney },
+      // 값이 하나뿐이거나 모두 같으면 축 눈금이 모두 같은 숫자가 된다 — 위아래 1% 를 넓혀 서로 다른 눈금이 나오게
+      autoscaleInfoProvider: (original: () => { priceRange: { minValue: number; maxValue: number } } | null) => {
+        const r = original();
+        if (!r || r.priceRange.maxValue - r.priceRange.minValue > Math.abs(r.priceRange.maxValue) * 0.001) return r;
+        const v = r.priceRange.maxValue;
+        return { ...r, priceRange: { minValue: v - Math.abs(v) * 0.01, maxValue: v + Math.abs(v) * 0.01 } };
+      },
     });
     chartRef.current = chart;
     return () => {
