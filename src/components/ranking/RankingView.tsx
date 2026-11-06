@@ -21,7 +21,7 @@ import { marketByKstTime } from '../../utils/marketDate';
  * 📶 실시간 순위 — 토스 거래대금·거래량·상승률·하락률 상위 100(`/api/rankings/live`, 서버 30초 캐시).
  *
  * - 화면이 보일 때만 30초마다 다시 받는다(숨은 탭 정지, 돌아오면 즉시 한 번).
- * - 위 = 미리보기(본문 칸 높이의 `PREVIEW_HEIGHT` 40%) · 아래 = 목록(나머지, 자기 칸 안에서 스크롤 — 차트는 위에 그대로).
+ * - 위 = 미리보기(본문 칸 높이의 `PREVIEW_HEIGHT` 40% — 낮은 화면에서는 차트 칸 최소 200px `PREVIEW_CHART_MIN_H` 까지 커짐) · 아래 = 목록(나머지, 자기 칸 안에서 스크롤 — 차트는 위에 그대로).
  * - 행에 마우스를 **150ms** 올리면 위 고정 패널에 미리보기. 마우스가 목록을 떠나도 마지막 종목을 둔다(깜빡임 방지).
  *   키보드 ↑↓ 로 옮겨도 바뀌고, Enter·행 클릭·[차트로 열기]는 **미리보기에서 고른 봉 그대로** 메인 차트를 연다.
  * - ⚠️ 보기 전용이다. 순위는 매수 신호가 아니다 — 급등 다음 날 추격은 이 앱의 진단에서 불리했다(하단 고정 문구).
@@ -173,9 +173,12 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
       )}
 
       <div className="flex min-h-0 flex-1 flex-col gap-2">
-        {/* 위 = 미리보기(머리 · 범례 · 차트 · 아래 안내 통째로) — 목록을 스크롤해도 그대로 */}
-        <div className={`flex min-h-0 min-w-0 shrink-0 grow-0 ${PREVIEW_HEIGHT}`}>
-          <div className="flex min-h-0 w-full flex-col">
+        {/*
+          위 = 미리보기(머리 · 범례 · 차트 · 아래 안내 통째로) — 목록을 스크롤해도 그대로.
+          높이 = 40% 와 「차트 칸 최소 높이(PREVIEW_CHART_MIN_H) + 머리 · 범례 · 안내」 중 큰 쪽 — min-h-0 을 두지 않아야 안쪽 최소 높이가 올라온다
+        */}
+        <div className={`flex min-w-0 shrink-0 grow-0 ${PREVIEW_HEIGHT}`}>
+          <div className="flex w-full flex-col">
             <RankingPreview row={preview} pending={!data && !error} timeframe={previewTf} onTimeframeChange={setPreviewTf} />
           </div>
         </div>

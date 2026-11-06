@@ -1,4 +1,5 @@
 import { Segmented } from '../ui';
+import { PREVIEW_CHART_MIN_H } from '../ui/tokens';
 import { useEffect, useRef, useState } from 'react';
 import LiteCandleChart, { LITE_CHART_MAS } from '../chart/LiteCandleChart';
 import { InlineSpinner } from '../common/LoadingOverlay';
@@ -271,7 +272,7 @@ export default function RankingPreview({
   const changeRate = live && Number.isFinite(live.changeRate) && live.change !== 0 ? live.changeRate : (row?.changeRate ?? null);
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl bg-bg-secondary" aria-label="종목 미리보기">
+    <section className="flex min-w-0 flex-1 flex-col rounded-xl bg-bg-secondary" aria-label="종목 미리보기">
       <header className={`flex shrink-0 items-center gap-2 px-3 ${EDGE_Y.both}`}>
         {row ? (
           <div className="min-w-0 flex-1">
@@ -303,16 +304,22 @@ export default function RankingPreview({
           </span>
         ))}
       </div>
-      <div className="relative min-h-0 flex-1">
-        {/* 차트는 종목이 없어도 마운트해 둔다 — 인스턴스 하나를 계속 쓴다 */}
-        <LiteCandleChart
-          candles={row ? candles : []}
-          barSpacing={4}
-          currency={row?.currency}
-          datasetKey={key}
-          onReachStart={loadOlder}
-          livePrice={shown.key === key ? live?.close : null}
-        />
+      {/* 캔들 + 거래량 칸 — 최소 높이(`PREVIEW_CHART_MIN_H`). 바깥 칸들이 min-h-0 이 아니어서 이 최소 높이가 미리보기 높이를 밀어 올린다 */}
+      <div className={`relative ${PREVIEW_CHART_MIN_H} flex-1`}>
+        {/*
+          차트는 종목이 없어도 마운트해 둔다 — 인스턴스 하나를 계속 쓴다.
+          absolute 로 띄운다 — 캔버스 높이가 칸의 최소 높이(내용 크기)로 올라가면 한번 커진 차트가 줄지 않는다(40% 가 깨짐)
+        */}
+        <div className="absolute inset-0">
+          <LiteCandleChart
+            candles={row ? candles : []}
+            barSpacing={4}
+            currency={row?.currency}
+            datasetKey={key}
+            onReachStart={loadOlder}
+            livePrice={shown.key === key ? live?.close : null}
+          />
+        </div>
         {loadingOlder && (
           <div className="pointer-events-none absolute left-2 top-2 flex items-center gap-1 rounded bg-bg-elevated/90 px-2 py-0.5 text-caption text-text-secondary">
             <InlineSpinner /> 과거 봉 불러오는 중…
