@@ -201,11 +201,11 @@ grep -q 'alphascope/db/alphascope.db' "$HOME/backup.sh" || stop_unchanged "~/bac
 # crontab — 주간 백업 한 줄뿐이어야 한다(주석 · 빈 줄 빼고)
 CRON_NOW=$(crontab -l 2>/dev/null || true)
 CRON_LINES=$(echo "$CRON_NOW" | grep -vE '^[[:space:]]*(#|$)' || true)
-[ "$CRON_LINES" = "$CRON_OLD" ] || stop_unchanged "crontab 이 예상(「$CRON_OLD」 한 줄)과 다릅니다."
+[ "$CRON_LINES" = "$CRON_OLD" ] || stop_unchanged "crontab 이 예상(「${CRON_OLD}」 한 줄)과 다릅니다."
 # pm2 — 두 이름이 옛 자리에서 online
 ROWS=$(pm2_rows)
 [ "$(echo "$ROWS" | grep -c '|online|')" = "2" ] || stop_unchanged "pm2 의 AlphaScope 두 프로그램이 online 이 아닙니다: $(echo $ROWS)"
-echo "$ROWS" | grep -qx "alphascope-api|online|$OLD_APP" && echo "$ROWS" | grep -qx "alphascope-indicators|online|$OLD_APP/python" \
+echo "$ROWS" | grep -Fqx "alphascope-api|online|$OLD_APP" && echo "$ROWS" | grep -Fqx "alphascope-indicators|online|$OLD_APP/python" \
   || stop_unchanged "pm2 의 cwd 가 예상($OLD_APP · $OLD_APP/python)과 다릅니다."
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$API_URL" || true)" = "200" ] || stop_unchanged "지금 API($API_URL)가 200 이 아닙니다 — 옮기기 전 서버가 정상이어야 합니다."
 # .env — 값은 출력하지 않는다
@@ -322,7 +322,7 @@ fi
 
 echo "━━━ 4/6 서버 멈춤 구간 — AlphaScope 두 프로그램만 멈춤 → 앱 폴더 옮김 → 새 설정으로 켬"
 LOG_OUT="$PM2_LOG_DIR/alphascope-api-out.log"; LOG_ERR="$PM2_LOG_DIR/alphascope-api-error.log"; LOG_IND="$PM2_LOG_DIR/alphascope-indicators-error.log"
-OUT0=$(wc -c < "$LOG_OUT" 2>/dev/null || echo 0); ERR0=$(wc -c < "$LOG_ERR" 2>/dev/null || echo 0); IND0=$(wc -c < "$LOG_IND" 2>/dev/null || echo 0)
+OUT0=$(wc -c 2>/dev/null < "$LOG_OUT" || echo 0); ERR0=$(wc -c 2>/dev/null < "$LOG_ERR" || echo 0); IND0=$(wc -c 2>/dev/null < "$LOG_IND" || echo 0)
 OUT0=$(echo $OUT0); ERR0=$(echo $ERR0); IND0=$(echo $IND0)
 SCHED_BEFORE=$(head -c "$OUT0" "$LOG_OUT" 2>/dev/null | grep -oE '자동매매 스케줄러 준비됨|자동매매 스케줄러를 시작하지 않습니다' | tail -1)
 T_STOP=$(date +%s)
@@ -357,8 +357,9 @@ else
   say "venv: 다시 만듦 — 옛것은 $APP_DIR/python/.venv.moved (확인 뒤 지움)"
 fi
 ECO_NEW="$APP_DIR/deploy/ecosystem.config.cjs"
+APP_REAL=$(cd "$APP_DIR" && pwd -P)   # pm2 설정은 자리를 이 파일 위치(링크를 푼 실제 경로)에서 계산한다
 ECO_CWD=$(node -e 'const e = require(process.argv[1]); console.log(e.apps.map((a) => `${a.name}|${a.cwd}`).join(" "))' "$ECO_NEW" 2>/dev/null)
-[ "$ECO_CWD" = "alphascope-api|$APP_DIR alphascope-indicators|$APP_DIR/python" ] || fail "새 pm2 설정의 cwd 가 새 자리가 아닙니다($ECO_CWD)."
+[ "$ECO_CWD" = "alphascope-api|$APP_REAL alphascope-indicators|$APP_REAL/python" ] || fail "새 pm2 설정의 cwd 가 새 자리가 아닙니다($ECO_CWD)."
 PM2_DELETED=1
 for APP in $PM2_APPS; do
   pm2 delete "$APP" >/dev/null || fail "pm2 delete $APP 실패."
@@ -390,7 +391,7 @@ done
 say "지표 엔진 /health 200"
 sleep 5
 ROWS=$(pm2_rows)
-echo "$ROWS" | grep -qx "alphascope-api|online|$APP_DIR" && echo "$ROWS" | grep -qx "alphascope-indicators|online|$APP_DIR/python" \
+echo "$ROWS" | grep -Fqx "alphascope-api|online|$APP_REAL" && echo "$ROWS" | grep -Fqx "alphascope-indicators|online|$APP_REAL/python" \
   || fail "pm2 두 프로그램이 새 자리에서 online 이 아닙니다: $(echo $ROWS)"
 say "pm2: $(echo $ROWS)"
 NEW_LOG=$( { tail -c +$((OUT0 + 1)) "$LOG_OUT"; tail -c +$((ERR0 + 1)) "$LOG_ERR"; tail -c +$((IND0 + 1)) "$LOG_IND"; } 2>/dev/null )
@@ -407,7 +408,7 @@ if [ "$KEY_EXISTED" = "1" ]; then
 fi
 # .env 는 경로 두 줄 말고는 그대로여야 한다(스위치 등)
 DIFF_LINES=$(diff "$MB/.env.before" "$ENV_NEW" | grep -E '^[<>]' | grep -vE '^[<>] (DB_PATH|GOOGLE_SA_KEY_FILE)=' | wc -l | tr -d ' ')
-[ "$DIFF_LINES" = "0" ] || fail ".env 가 경로 줄 말고도 바뀌었습니다($DIFF_LINES줄)."
+[ "$DIFF_LINES" = "0" ] || fail ".env 가 경로 줄 말고도 바뀌었습니다(${DIFF_LINES}줄)."
 pm2 save >/dev/null || fail "pm2 save 실패."
 PM2_SAVED=1
 # 재부팅 뒤 켜짐 — pm2 save 가 쓴 목록(dump)에 두 이름이 새 자리로 있어야 한다
@@ -415,7 +416,7 @@ DUMP_ROWS=$(node -e '
 const fs = require("fs"); const want = process.argv[2].split(" ");
 let list = []; try { list = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); } catch {}
 console.log(want.map((n) => { const p = list.find((x) => x.name === n); return `${n}|${p ? p.pm_cwd : "없음"}`; }).join(" "));' "$PM2_HOME_DIR/dump.pm2" "$PM2_APPS")
-[ "$DUMP_ROWS" = "alphascope-api|$APP_DIR alphascope-indicators|$APP_DIR/python" ] || fail "pm2 save 목록(dump.pm2)이 새 자리가 아닙니다($DUMP_ROWS)."
+[ "$DUMP_ROWS" = "alphascope-api|$APP_REAL alphascope-indicators|$APP_REAL/python" ] || fail "pm2 save 목록(dump.pm2)이 새 자리가 아닙니다($DUMP_ROWS)."
 say "pm2 save · 재부팅 목록(dump.pm2)도 새 자리 · 시작 서비스(pm2 startup): $(systemctl is-enabled "pm2-$(id -un)" 2>/dev/null || echo 모름)"
 
 echo "━━━ 5/6 crontab — 주간 백업 줄을 새 자리로(일요일 03:00 그대로)"

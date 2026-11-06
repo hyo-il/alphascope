@@ -19,6 +19,12 @@
  *     · 어느 단계에서 실패해도 nginx · iptables · 인증서 · Certbot 을 전으로 되돌리고 8080 확인 · 8081(project2)은 건드리지 않음
  *     (가짜 snap · certbot · iptables · netfilter-persistent · ss · nginx · systemctl · curl · openssl — 실제 apt · certbot · nginx · iptables 를 부르지 않는다)
  * 11. check-https.sh — 남은 기간 한 줄 · 48시간 경고 · https 문(8080) 응답 없음
+ * 12. 자리 한 곳(v2.61.3 deploy/paths.sh) — 모든 배포 스크립트가 같은 APP_DIR · 박힌 옛 경로(~/alphascope · /home/ubuntu) 없음
+ * 13. ecosystem.config.cjs — 다른 자리에 두어도 cwd · venv 경로가 그 자리를 따라감
+ * 14. backup-db.sh — 서버가 연 WAL DB 에서도 온전한 사본(실제 SQLite) · integrity_check · 실패하면 사본 지움 · 성공했을 때만 30일 넘은 것 지움
+ * 15. move-to-projects.sh — 상태가 예상과 다르면 멈춤 · 순서 · 멈춤 구간은 pm2 두 이름 멈춤 ~ 다시 켬 사이뿐 · 어느 단계에서 실패해도
+ *     자리 · pm2 · crontab · .env 를 되돌리고 옛 자리에서 다시 켬 · 비밀 출력 0 · nginx 사이트 설정 · 다른 프로젝트 그대로
+ *     (가짜 pm2 · crontab · curl · mv · sudo · venv python — 실제 pm2 · crontab 을 부르지 않고 mv 는 임시 폴더 안에서만)
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import fs from 'node:fs';
@@ -27,10 +33,15 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import BetterSqlite from 'better-sqlite3';
+import { SAMPLE_FILE } from './lib/usClose';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DEPLOY_DIR = path.join(root, 'deploy');
 const APPS = ['alphascope-api', 'alphascope-indicators'];
+/** 가짜 HOME 안의 새 자리(deploy/paths.sh 와 같은 모양 — v2.61.3) */
+const projIn = (home: string) => path.join(home, 'projects', 'alphascope');
+const appIn = (home: string) => path.join(projIn(home), 'app');
 const OTHER = 'other-project';
 
 let pass = 0;
@@ -187,23 +198,25 @@ interface RunResult {
 }
 
 /** deploy.sh 를 임시 HOME 에서 돌린다 */
-function runDeploy(opts: { existing: string[]; homeDeploy: 'same' | 'old' }): RunResult {
+function runDeploy(opts: { existing: string[]; homeDeploy: 'same' | 'old'; from?: 'app' | 'scripts' }): RunResult {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'alphascope-deploytest-'));
   try {
     const bin = path.join(tmp, 'bin');
-    const app = path.join(tmp, 'alphascope');
+    const app = appIn(tmp);
     fs.mkdirSync(bin);
-    fs.mkdirSync(app);
+    fs.mkdirSync(app, { recursive: true });
+    fs.mkdirSync(path.join(projIn(tmp), 'scripts'));
     fs.cpSync(DEPLOY_DIR, path.join(app, 'deploy'), { recursive: true });
     writeFakes(bin);
     const repoScript = fs.readFileSync(path.join(DEPLOY_DIR, 'deploy.sh'), 'utf8');
     const homeDeployBefore = opts.homeDeploy === 'same' ? repoScript : '#!/bin/bash\n# 옛 배포 스크립트\npm2 restart all\n';
-    const homeDeployPath = path.join(tmp, 'deploy.sh');
+    const homeDeployPath = path.join(projIn(tmp), 'scripts', 'deploy.sh');
     fs.writeFileSync(homeDeployPath, homeDeployBefore, { mode: 0o755 });
     const logPath = path.join(tmp, 'calls.log');
     fs.writeFileSync(logPath, '');
 
-    const r = spawnSync('/bin/bash', [path.join(app, 'deploy', 'deploy.sh')], {
+    // from 'scripts' = 오라클처럼 관리 루트 사본(scripts/deploy.sh)으로 돌림 — paths.sh 를 ../app/deploy/ 에서 찾아야 한다
+    const r = spawnSync('/bin/bash', [opts.from === 'scripts' ? homeDeployPath : path.join(app, 'deploy', 'deploy.sh')], {
       cwd: tmp,
       encoding: 'utf8',
       env: {
@@ -245,7 +258,7 @@ console.log('━━━ 0. 문법 · 이름 한 곳');
   }
 }
 
-console.log('━━━ 1. 「모두」 pm2 명령 없음 · 두 이름만 다시 켬 (두 프로그램 다 있음 · ~/deploy.sh 같음)');
+console.log('━━━ 1. 「모두」 pm2 명령 없음 · 두 이름만 다시 켬 (두 프로그램 다 있음 · scripts/deploy.sh 같음)');
 const a = runDeploy({ existing: APPS, homeDeploy: 'same' });
 {
   check('끝까지 성공(종료 코드 0)', a.code === 0, a.out);
@@ -287,15 +300,20 @@ console.log('━━━ 3. 끝 확인 · pm2 상태는 AlphaScope 두 줄만');
   check('표 전체를 그리는 pm2 status · list 를 부르지 않음', !pm2Calls(a).some((l) => /^pm2 (status|list|ls)\b/.test(l)));
 }
 
-console.log('━━━ 4. 저장소 deploy.sh 가 ~/deploy.sh 와 다르면 안내만');
+console.log('━━━ 4. 저장소 deploy.sh 가 관리 루트 사본(scripts/deploy.sh)과 다르면 안내만');
 {
-  const NOTICE = '배포 스크립트가 바뀌었습니다 — cp ~/alphascope/deploy/deploy.sh ~/deploy.sh';
+  const NOTICE = /배포 스크립트가 바뀌었습니다 — cp \S+\/projects\/alphascope\/app\/deploy\/deploy\.sh \S+\/projects\/alphascope\/scripts\/deploy\.sh\n/;
   const d = runDeploy({ existing: APPS, homeDeploy: 'old' });
   check('끝까지 성공(종료 코드 0)', d.code === 0, d.out);
-  check('안내 한 줄이 보임', d.out.includes(NOTICE), d.out);
+  check('안내 한 줄이 보임(새 자리 app/deploy → scripts)', NOTICE.test(d.out), d.out);
   check('안내는 끝(「완료」 바로 앞)', /배포 스크립트가 바뀌었습니다[^\n]*\n완료: /.test(d.out));
-  check('~/deploy.sh 는 덮어쓰지 않음', d.homeDeploy === d.homeDeployBefore);
+  check('scripts/deploy.sh 는 덮어쓰지 않음', d.homeDeploy === d.homeDeployBefore);
   check('같으면 안내 없음', !a.out.includes('배포 스크립트가 바뀌었습니다'));
+  // 오라클에서 실제로 도는 모양 — 관리 루트 사본(scripts/deploy.sh)이 ../app/deploy/paths.sh 를 찾아 같은 일을 한다
+  const s = runDeploy({ existing: APPS, homeDeploy: 'same', from: 'scripts' });
+  check('관리 루트 사본(scripts/deploy.sh)으로 돌려도 성공 · 같은 pm2 명령 · 안내 없음', s.code === 0 && pm2Changes(s).join(',') === pm2Changes(a).join(',') && !s.out.includes('배포 스크립트가 바뀌었습니다'), s.out);
+  const pipLine = fs.readFileSync(path.join(DEPLOY_DIR, 'deploy.sh'), 'utf8').split('\n').filter((l) => /pip install/.test(l));
+  check('파이썬 패키지 설치는 python -m pip(옮긴 venv 의 bin/pip 첫 줄이 깨져도 됨)', pipLine.length === 1 && /python\/\.venv\/bin\/python -m pip install -r python\/requirements\.txt/.test(pipLine[0]), pipLine.join(' | '));
 }
 
 console.log('━━━ 5. 나머지 단계 그대로');
@@ -450,7 +468,7 @@ function runApply(opts: { enabled?: 'link' | 'file'; env?: Record<string, string
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'alphascope-deploytest-'));
   try {
     const bin = path.join(tmp, 'bin');
-    const app = path.join(tmp, 'alphascope');
+    const app = appIn(tmp);
     const ngx = path.join(tmp, 'nginx');
     const state = path.join(tmp, 'state');
     const acmeRoot = path.join(tmp, 'www-letsencrypt');
@@ -517,12 +535,13 @@ function runApply(opts: { enabled?: 'link' | 'file'; env?: Record<string, string
       acmeEnabledIsLink: (() => { try { return fs.lstatSync(acmeEnabled).isSymbolicLink(); } catch { return false; } })(),
       availFiles: fs.readdirSync(path.join(ngx, 'sites-available')).sort(),
       enabledFiles: fs.readdirSync(path.join(ngx, 'sites-enabled')).sort(),
-      backups: Object.fromEntries(fs.readdirSync(path.join(ngx, 'sites-available')).filter((f) => f.includes('.backup-')).map((f) => [f, fs.readFileSync(path.join(ngx, 'sites-available', f), 'utf8')])),
+      // v2.61.3 — 백업은 관리 루트 backups/nginx/ 에(sites-available 에는 백업이 없어야 한다 — availFiles 로 확인)
+      backups: (() => { const d = path.join(projIn(tmp), 'backups', 'nginx'); return fs.existsSync(d) ? Object.fromEntries(fs.readdirSync(d).filter((f) => f.includes('.backup-')).map((f) => [f, fs.readFileSync(path.join(d, f), 'utf8')])) : {}; })(),
       project2: read(path.join(ngx, 'sites-available', 'project2')),
       extra: Object.fromEntries([...Object.keys(opts.extraEnabled ?? {}).map((n) => [n, read(path.join(ngx, 'sites-available', n))]), ...Object.keys(opts.confD ?? {}).map((n) => [`conf.d/${n}`, read(path.join(ngx, 'conf.d', n))])]),
       ipt: lines(path.join(state, 'ipt')),
       iptSaved: lines(path.join(state, 'ipt.saved')),
-      iptBackups: fs.readdirSync(tmp).filter((f) => /^alphascope-iptables-INPUT\.backup-\d{8}-\d{6}\.txt$/.test(f)),
+      iptBackups: (() => { const d = path.join(projIn(tmp), 'backups', 'https'); return fs.existsSync(d) ? fs.readdirSync(d).filter((f) => /^alphascope-iptables-INPUT\.backup-\d{8}-\d{6}\.txt$/.test(f)) : []; })(),
     };
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -541,8 +560,8 @@ function runApply(opts: { enabled?: 'link' | 'file'; env?: Record<string, string
   // 성공(sites-enabled 가 링크)
   const ok = runApply();
   check('[성공] 종료 코드 0 · 「AlphaScope 주소: https://161.33.153.189:8080 (http://…:8080 은 https 로 · https://161.33.153.189 는 접속 거절)」', ok.code === 0 && ok.out.includes('AlphaScope 주소: https://161.33.153.189:8080 (http://161.33.153.189:8080 로 들어와도 같은 문의 https 로 넘어감 · https://161.33.153.189 는 접속 거절)'), ok.out);
-  check('[성공] ① 백업 두 개(alphascope · alphascope-acme) — sites-available 안 · 이름에 날짜 · 지금 설정 그대로 · sites-enabled 에 백업 없음',
-    Object.entries(ok.backups).some(([f, c]) => /^alphascope\.backup-\d{8}-\d{6}$/.test(f) && c === CONF_443) && Object.entries(ok.backups).some(([f, c]) => /^alphascope-acme\.backup-\d{8}-\d{6}$/.test(f) && c === ACME_301) && ok.enabledFiles.join(',') === 'alphascope,alphascope-acme,default,project2', `${ok.availFiles.join(',')} / ${ok.enabledFiles.join(',')}`);
+  check('[성공] ① 백업 두 개(alphascope · alphascope-acme) — 관리 루트 backups/nginx/ 안 · 이름에 날짜 · 지금 설정 그대로 · sites-available · sites-enabled 에 백업 없음',
+    Object.entries(ok.backups).some(([f, c]) => /^alphascope\.backup-\d{8}-\d{6}$/.test(f) && c === CONF_443) && Object.entries(ok.backups).some(([f, c]) => /^alphascope-acme\.backup-\d{8}-\d{6}$/.test(f) && c === ACME_301) && ok.enabledFiles.join(',') === 'alphascope,alphascope-acme,default,project2' && ok.availFiles.join(',') === 'alphascope,alphascope-acme,default,project2', `${ok.availFiles.join(',')} / ${ok.enabledFiles.join(',')}`);
   check('[성공] ② 새 설정 두 개가 들어감 · 링크는 링크 그대로', ok.avail === NGINX_CONF && ok.acmeAvail === ACME_CONF && ok.enabledIsLink && ok.acmeEnabledIsLink);
   const order: [string, RegExp][] = [
     ['인증서 있음', /^sudo test -f .*\/live\/161\.33\.153\.189\/fullchain\.pem$/],
@@ -564,13 +583,13 @@ function runApply(opts: { enabled?: 'link' | 'file'; env?: Record<string, string
   ];
   const pos = order.map(([, re]) => idx(ok, re));
   check('[성공] 순서 — 확인 → 백업 → 넣기(두 설정) → nginx -t → reload → https 8080 · /api/ · http → https · 443 · 80 확인 파일 · 80 그 밖 → 갱신 연습 → iptables 443 지움 → 저장', pos.every((p, i) => p >= 0 && (i === 0 || p > pos[i - 1])), order.map(([n], i) => `${n}=${pos[i]}`).join(' · '));
-  check('[성공] iptables — 443 만 지움(22 · 80 · 8080 · 8081 그대로) · 저장 · 지우기 전 목록 백업(~/alphascope-iptables-INPUT.backup-<날짜>.txt)', ok.ipt.join(',') === IPT_AFTER.join(',') && ok.iptSaved.join(',') === IPT_AFTER.join(',') && ok.iptBackups.length === 1, `${ok.ipt.join(',')} · ${ok.iptBackups.join(',')}`);
+  check('[성공] iptables — 443 만 지움(22 · 80 · 8080 · 8081 그대로) · 저장 · 지우기 전 목록 백업(backups/https/alphascope-iptables-INPUT.backup-<날짜>.txt)', ok.ipt.join(',') === IPT_AFTER.join(',') && ok.iptSaved.join(',') === IPT_AFTER.join(',') && ok.iptBackups.length === 1, `${ok.ipt.join(',')} · ${ok.iptBackups.join(',')}`);
   check('[성공] 8081 · project2 · default 는 읽기만(cp · rm · ln 없음 · 내용 그대로) · pm2 · npm 명령 0', othersUntouched(ok) && !ok.log.some((l) => /^(pm2|npm) /.test(l)));
   check('[성공] 확인 파일은 쓰고 나서 지움 · 끝에 되돌리는 명령(백업 두 개 · iptables 443 다시 더하기) 안내', ok.log.some((l) => /^sudo rm -f .*acme-challenge\/alphascope-check-/.test(l)) && /sudo cp \S*alphascope\.backup-\S+ \S*sites-available\/alphascope && sudo cp \S*alphascope-acme\.backup-\S+ \S*sites-available\/alphascope-acme && sudo nginx -t && sudo systemctl reload nginx/.test(ok.out) && ok.out.includes('sudo iptables -I INPUT 6 -p tcp --dport 443 -m state --state NEW -j ACCEPT && sudo netfilter-persistent save'), ok.out.slice(-800));
   check('[성공] 콘솔 보안 목록 443 지우기 안내(80 · 8080 · 8081 · 22 그대로)', ok.out.includes('오라클 웹 콘솔 보안 목록의 443 수신 규칙도 지우세요(80 · 8080 · 8081 · 22 는 그대로)'));
   // 성공(sites-enabled 가 따로 복사된 파일)
   const okFile = runApply({ enabled: 'file' });
-  check('[성공 · sites-enabled 가 파일] 거기도 새 설정 두 개 · 그 백업도 sites-available 안',
+  check('[성공 · sites-enabled 가 파일] 거기도 새 설정 두 개 · 그 백업도 backups/nginx/ 안',
     okFile.code === 0 && okFile.enabled === NGINX_CONF && okFile.acmeEnabled === ACME_CONF && !okFile.enabledIsLink
     && Object.entries(okFile.backups).some(([f, c]) => /^alphascope-enabled-file\.backup-\d{8}-\d{6}$/.test(f) && c === CONF_443)
     && Object.entries(okFile.backups).some(([f, c]) => /^alphascope-acme-enabled-file\.backup-\d{8}-\d{6}$/.test(f) && c === ACME_301),
@@ -688,7 +707,7 @@ case "$*" in
     printf '#!/bin/bash\\nrm -f "$APT_DIR/sources.list.d/nodesource.list" "$APT_DIR/sources.list.d/nodesource.sources"\\nprintf "URIs: https://deb.nodesource.com/node_24.x\\\\n" > "$APT_DIR/sources.list.d/nodesource.sources"\\nprintf "new pref\\\\n" > "$APT_DIR/preferences.d/nodejs"\\n' > "$OUT"
     exit 0 ;;
   *http_code*127.0.0.1:4000*)
-    if [ -n "\${FAKE_API_FAIL_WITH:-}" ] && grep -q "$FAKE_API_FAIL_WITH" "$HOME/alphascope/node_modules/MARK" 2>/dev/null; then echo -n 000; else echo -n 200; fi ;;
+    if [ -n "\${FAKE_API_FAIL_WITH:-}" ] && grep -q "$FAKE_API_FAIL_WITH" "$HOME/projects/alphascope/app/node_modules/MARK" 2>/dev/null; then echo -n 000; else echo -n 200; fi ;;
   *http_code*) echo -n "\${FAKE_CODE_WEB:-200}" ;;
 esac
 exit 0
@@ -714,7 +733,7 @@ function runUpgrade(env: Record<string, string> = {}, setup: { pkg?: string; nod
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'alphascope-deploytest-'));
   try {
     const bin = path.join(tmp, 'bin');
-    const app = path.join(tmp, 'alphascope');
+    const app = appIn(tmp);
     const state = path.join(tmp, 'state');
     const apt = path.join(tmp, 'apt');
     const keyrings = path.join(tmp, 'keyrings');
@@ -765,8 +784,9 @@ function runUpgrade(env: Record<string, string> = {}, setup: { pkg?: string; nod
       },
       timeout: 60_000,
     });
-    const backups = fs.readdirSync(tmp).filter((f) => f.startsWith('alphascope-node24-backup-'));
-    const walk = (d: string): string[] => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() && e.name !== 'node_modules.node22' && e.name !== 'node_modules.node24-failed' && e.name !== 'stage' ? walk(path.join(d, e.name)) : [path.relative(path.join(tmp, backups[0] ?? ''), path.join(d, e.name))]));
+    const bkRoot = path.join(projIn(tmp), 'backups', 'node24');   // v2.61.3 — 관리 루트 backups/node24/
+    const backups = fs.existsSync(bkRoot) ? fs.readdirSync(bkRoot).filter((f) => f.startsWith('alphascope-node24-backup-')) : [];
+    const walk = (d: string): string[] => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() && e.name !== 'node_modules.node22' && e.name !== 'node_modules.node24-failed' && e.name !== 'stage' ? walk(path.join(d, e.name)) : [path.relative(path.join(bkRoot, backups[0] ?? ''), path.join(d, e.name))]));
     return {
       code: r.status,
       out: `${r.stdout}${r.stderr}`,
@@ -777,7 +797,7 @@ function runUpgrade(env: Record<string, string> = {}, setup: { pkg?: string; nod
       src: fs.readFileSync(path.join(apt, 'sources.list.d', 'nodesource.sources'), 'utf8'),
       pref: fs.readFileSync(path.join(apt, 'preferences.d', 'nodejs'), 'utf8'),
       backups,
-      backupFiles: backups[0] ? walk(path.join(tmp, backups[0])) : [],
+      backupFiles: backups[0] ? walk(path.join(bkRoot, backups[0])) : [],
     };
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -915,7 +935,7 @@ function runHttps(env: Record<string, string> = {}, setup: { conf?: string; ipt?
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'alphascope-deploytest-'));
   try {
     const bin = path.join(tmp, 'bin');
-    const app = path.join(tmp, 'alphascope');
+    const app = appIn(tmp);
     const state = path.join(tmp, 'state');
     const ngx = path.join(tmp, 'nginx');
     const le = path.join(tmp, 'letsencrypt');
@@ -976,7 +996,7 @@ function runHttps(env: Record<string, string> = {}, setup: { conf?: string; ipt?
       link: fs.existsSync(link) || (() => { try { fs.lstatSync(link); return true; } catch { return false; } })(),
       cert: fs.existsSync(path.join(le, 'live', IP)),
       acmeRoot: fs.existsSync(acmeRoot),
-      backups: fs.readdirSync(tmp).filter((f) => f.startsWith('alphascope-https-backup-')),
+      backups: (() => { const d = path.join(projIn(tmp), 'backups', 'https'); return fs.existsSync(d) ? fs.readdirSync(d).filter((f) => f.startsWith('alphascope-https-backup-')) : []; })(),
     };
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -1017,7 +1037,7 @@ function runHttps(env: Record<string, string> = {}, setup: { conf?: string; ipt?
   check('[성공] 순서 — 확인 → Certbot → iptables 80 → 저장 → 80 확인 경로 → 확인 파일 시험 → 연습 → 인증서 → 새 nginx → https 8080 확인 → 갱신 연습 → 타이머', pos.every((p, i) => p >= 0 && (i === 0 || p > pos[i - 1])), order.map(([n], i) => `${n}=${pos[i]}`).join(' · '));
   check('[성공] 8081 · project2 · default 사이트는 읽기만(cp · rm · ln 없음 · 내용 그대로)', !touchesP2(ok) && ok.project2 === PROJECT2 && !ok.log.some((l) => /sites-[a-z]+\/default/.test(l) && /^(sudo )?(cp|rm|ln)/.test(l)));
   check('[성공] pm2 · 앱 서버는 건드리지 않음(pm2 · npm 명령 0)', !ok.log.some((l) => /^(pm2|npm) /.test(l)));
-  check('[성공] 백업 폴더 하나(~/alphascope-https-backup-<날짜>)', ok.backups.length === 1 && /^alphascope-https-backup-\d{8}-\d{6}$/.test(ok.backups[0]));
+  check('[성공] 백업 폴더 하나(backups/https/alphascope-https-backup-<날짜>)', ok.backups.length === 1 && /^alphascope-https-backup-\d{8}-\d{6}$/.test(ok.backups[0]));
 
   // 이미 https · 상태가 예상과 다르면 아무것도 바꾸지 않고 멈춤
   for (const [name, conf] of [['8080 https(v2.61.2)', NGINX_CONF], ['443 https(v2.61.1)', CONF_443]]) {
@@ -1095,6 +1115,454 @@ console.log('━━━ 11. check-https.sh — 남은 기간 · 48시간 경고 �
   const none = runCheck({ FAKE_NO_TLS: '1' });
   check('8080 응답 없음 — 종료 코드 1 · ⚠️ 한 줄', none.code === 1 && /⚠️ 인증서: 8080 번 문에서 인증서를 받지 못했습니다/.test(none.out), none.out);
   check('바꾸는 명령 0(sudo · certbot · systemctl 없음 — --short)', [fine, soon, none].every((r) => !r.log.some((l) => /^(sudo|certbot|systemctl|nginx)/.test(l))));
+}
+
+console.log('━━━ 12. 자리 한 곳(deploy/paths.sh) — 모든 배포 스크립트가 같은 APP_DIR · 박힌 옛 경로 없음');
+{
+  const shs = fs.readdirSync(DEPLOY_DIR).filter((f) => f.endsWith('.sh') && f !== 'paths.sh');
+  const r = spawnSync('/bin/bash', ['-c', `. "${path.join(DEPLOY_DIR, 'paths.sh')}"; echo "$PROJECT_DIR|$APP_DIR|$SECRETS_DIR|$SCRIPTS_DIR|$BACKUP_DIR|$DATA_DIR"`], { encoding: 'utf8', env: { HOME: '/h', PATH: '/usr/bin:/bin' } });
+  check('paths.sh — HOME=/h 이면 /h/projects/alphascope 아래 app · secrets · scripts · backups · data',
+    r.stdout.trim() === '/h/projects/alphascope|/h/projects/alphascope/app|/h/projects/alphascope/secrets|/h/projects/alphascope/scripts|/h/projects/alphascope/backups|/h/projects/alphascope/data', r.stdout + r.stderr);
+  for (const f of shs) {
+    const text = fs.readFileSync(path.join(DEPLOY_DIR, f), 'utf8');
+    const code = text.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
+    const sources = /^\s*\. "\$\(cd "\$\(dirname "\$\{BASH_SOURCE\[0\]\}"\)" && pwd\)\/paths\.sh"/m.test(text) || /^\s*\. "\$HERE\/paths\.sh"/m.test(text) || /if \[ -f "\$HERE\/paths\.sh" \]; then \. "\$HERE\/paths\.sh"; else \. "\$HERE\/\.\.\/app\/deploy\/paths\.sh"; fi/.test(text);
+    const needsPaths = f !== 'check-https.sh';
+    check(`${f} — ${needsPaths ? 'paths.sh 를 읽음 · ' : ''}APP_DIR · 홈 경로를 스스로 정하지 않음 · /home/ubuntu 없음`,
+      (!needsPaths || sources) && !/^\s*APP_DIR=/m.test(code) && !/\/home\/ubuntu/.test(text)
+      && (f === 'move-to-projects.sh' || !/\$HOME\/alphascope|~\/alphascope(?!-)|\$HOME\/(deploy|backup)\.sh|\$HOME\/(backups|secrets)\b/.test(code)),
+      f);
+  }
+  check('move-to-projects.sh 만 옛 자리(OLD_APP=$HOME/alphascope)를 안다', /^OLD_APP="\$HOME\/alphascope"$/m.test(fs.readFileSync(path.join(DEPLOY_DIR, 'move-to-projects.sh'), 'utf8')));
+  const tsHits = fs.readdirSync(path.join(root, 'scripts')).filter((f) => f.endsWith('.ts') && f !== path.basename(fileURLToPath(import.meta.url)))
+    .concat(fs.readdirSync(path.join(root, 'scripts', 'lib')).map((f) => `lib/${f}`))
+    .filter((f) => /~\/alphascope(?!-)|alphascope-samples|\/home\/ubuntu|os\.homedir\(\), 'alphascope/.test(fs.readFileSync(path.join(root, 'scripts', f), 'utf8')));
+  check('scripts/*.ts 에 옛 오라클 경로(~/alphascope · alphascope-samples · /home/ubuntu) 없음', tsHits.length === 0, tsHits.join(', '));
+  check('미국 마감 표본 기본 자리 = 앱 폴더 옆 data/us-close.jsonl(파일 자리에서 계산)', SAMPLE_FILE === path.resolve(root, '..', 'data', 'us-close.jsonl'), SAMPLE_FILE);
+}
+
+console.log('━━━ 13. ecosystem.config.cjs — 다른 자리에 두어도 cwd · venv 가 그 자리를 따라감');
+{
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'alphascope-deploytest-'));
+  try {
+    const require = createRequire(import.meta.url);
+    for (const at of [path.join(tmp, 'projects', 'alphascope', 'app'), path.join(tmp, 'somewhere', 'else', 'app2')]) {
+      fs.mkdirSync(path.join(at, 'deploy'), { recursive: true });
+      const where = fs.realpathSync(at);   // __dirname 은 링크를 푼 실제 경로(맥 /var → /private/var)
+      fs.copyFileSync(path.join(DEPLOY_DIR, 'ecosystem.config.cjs'), path.join(where, 'deploy', 'ecosystem.config.cjs'));
+      const eco = require(path.join(where, 'deploy', 'ecosystem.config.cjs')) as { apps: { name: string; cwd: string; script: string; args: string }[] };
+      const api = eco.apps.find((a) => a.name === 'alphascope-api');
+      const ind = eco.apps.find((a) => a.name === 'alphascope-indicators');
+      check(`${path.relative(tmp, where)} — api cwd = 그 앱 폴더 · indicators cwd = python · script = python/.venv/bin/python`,
+        api?.cwd === where && api.script === 'npx' && api.args === 'tsx server/index.ts' && ind?.cwd === path.join(where, 'python') && ind.script === path.join(where, 'python', '.venv', 'bin', 'python') && ind.args === 'indicators.py',
+        JSON.stringify(eco.apps));
+    }
+    const dep = fs.readFileSync(path.join(DEPLOY_DIR, 'deploy.sh'), 'utf8');
+    check('deploy.sh 는 deploy/ecosystem.config.cjs 를 그대로 씀(앱 폴더 맨 위 사본 안 씀)', /^ECO="\$APP_DIR\/deploy\/ecosystem\.config\.cjs"/m.test(dep) && !/\$APP_DIR\/ecosystem\.config\.cjs/.test(dep));
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+console.log('━━━ 14. backup-db.sh — WAL 에서도 온전한 사본 · integrity_check · 실패하면 사본 지움 · 30일');
+const TODAY = (() => { const d = new Date(); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`; })();
+/** 서버처럼 연결을 연 채로 WAL 에만 줄을 쌓은 DB — 연결(닫기 함수)을 돌려준다 */
+function walDb(file: string, rows: number): { close: () => void } {
+  const db = new BetterSqlite(file);
+  db.pragma('journal_mode = WAL');
+  db.pragma('wal_autocheckpoint = 0');
+  db.exec('CREATE TABLE IF NOT EXISTS t (x INTEGER)');
+  const ins = db.prepare('INSERT INTO t VALUES (?)');
+  db.transaction(() => { for (let i = 0; i < rows; i++) ins.run(i); })();
+  return { close: () => db.close() };
+}
+const countRows = (file: string) => { const d = new BetterSqlite(file, { readonly: true }); try { return (d.prepare('SELECT count(*) AS c FROM t').get() as { c: number }).c; } finally { d.close(); } };
+function runBackup(home: string, env: Record<string, string>) {
+  const r = spawnSync('/bin/bash', [path.join(DEPLOY_DIR, 'backup-db.sh')], { encoding: 'utf8', env: { PATH: [path.dirname(process.execPath), '/usr/bin', '/bin'].join(':'), HOME: home, LANG: 'en_US.UTF-8', ...env }, timeout: 60_000 });
+  const dir = path.join(projIn(home), 'backups', 'db');
+  return { code: r.status, out: `${r.stdout}${r.stderr}`, dir, files: fs.existsSync(dir) ? fs.readdirSync(dir).sort() : [], log: fs.existsSync(path.join(dir, 'backup.log')) ? fs.readFileSync(path.join(dir, 'backup.log'), 'utf8') : '' };
+}
+{
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'alphascope-deploytest-'));
+  try {
+    const home = path.join(tmp, 'home');
+    const dbFile = path.join(tmp, 'live', 'alphascope.db');
+    fs.mkdirSync(path.dirname(dbFile), { recursive: true });
+    const bkDir = path.join(projIn(home), 'backups', 'db');
+    fs.mkdirSync(bkDir, { recursive: true });
+    const old31 = path.join(bkDir, 'alphascope_20200101.db');
+    const old29 = path.join(bkDir, 'alphascope_20200201.db');
+    const note = path.join(bkDir, 'note.txt');
+    for (const [f, days] of [[old31, 31], [old29, 29], [note, 60]] as const) {
+      fs.writeFileSync(f, 'old');
+      const t = new Date(Date.now() - days * 86_400_000 - 3_600_000);
+      fs.utimesSync(f, t, t);
+    }
+    const live = walDb(dbFile, 500);
+    try {
+      check('준비 — 서버가 연 채로 WAL 에만 500줄(.db 파일만 복사하면 표조차 없음)', fs.statSync(`${dbFile}-wal`).size > 0 && (() => { fs.copyFileSync(dbFile, path.join(tmp, 'cp.db')); try { countRows(path.join(tmp, 'cp.db')); return false; } catch { return true; } })());
+      const ok = runBackup(home, { DB_FILE: dbFile });
+      const dest = path.join(bkDir, `alphascope_${TODAY}.db`);
+      check('[성공] 종료 코드 0 · backups/db/alphascope_YYYYMMDD.db · 로그 「완료 … integrity_check ok」', ok.code === 0 && fs.existsSync(dest) && /완료 — \S+alphascope_\d{8}\.db .* integrity_check ok/.test(ok.log), ok.out);
+      check('[성공] 사본에 WAL 의 500줄이 모두 있음 · integrity_check = ok · 한 파일(journal_mode delete · -wal · -shm · .part 없음)', countRows(dest) === 500
+        && (() => { const d = new BetterSqlite(dest, { readonly: true }); try { return d.pragma('integrity_check', { simple: true }) === 'ok' && d.pragma('journal_mode', { simple: true }) === 'delete'; } finally { d.close(); } })()
+        && !ok.files.some((f) => /\.(part|db-wal|db-shm)$|-journal$/.test(f)), ok.files.join(','));
+      check('[성공] 원본은 그대로(서버 연결이 쓴 500줄 · WAL 그대로)', countRows(dbFile) === 500 && fs.existsSync(`${dbFile}-wal`));
+      check('[성공] 30일 넘은 *.db 만 지움(29일 · .db 아닌 파일은 남김) · 로그에 지운 이름', !fs.existsSync(old31) && fs.existsSync(old29) && fs.existsSync(note) && /30일 넘어 지움 — alphascope_20200101\.db/.test(ok.log), ok.files.join(','));
+    } finally {
+      live.close();
+    }
+    // 실패 — DB 가 아닌 파일 · 없는 파일 : 사본을 지우고 · 예전 백업은 지우지 않음
+    for (const [name, prep] of [['DB 가 아닌 파일', (f: string) => fs.writeFileSync(f, 'this is not a sqlite database at all, just text'.repeat(200))], ['DB 파일 없음', () => undefined]] as const) {
+      const h2 = path.join(tmp, `home-${name.length}`);
+      const d2 = path.join(projIn(h2), 'backups', 'db');
+      fs.mkdirSync(d2, { recursive: true });
+      const keep = path.join(d2, 'alphascope_20200101.db');
+      fs.writeFileSync(keep, 'old');
+      const t = new Date(Date.now() - 40 * 86_400_000);
+      fs.utimesSync(keep, t, t);
+      const bad = path.join(tmp, `bad-${name.length}.db`);
+      prep(bad);
+      const r = runBackup(h2, { DB_FILE: bad });
+      check(`[실패 · ${name}] 종료 코드 1 · 사본 없음(.part 도) · 로그 「실패」 · 예전 백업은 지우지 않음`, r.code === 1 && r.files.join(',') === 'alphascope_20200101.db,backup.log' && /실패 — /.test(r.log), `${r.code} · ${r.files.join(',')} · ${r.log}`);
+    }
+    const src = fs.readFileSync(path.join(DEPLOY_DIR, 'backup-db.cjs'), 'utf8');
+    check('backup-db.cjs — 온라인 백업(db.backup) · integrity_check · 공식 문서 출처 · 원본에 쓰는 문장 없음', /await db\.backup\(dest\)/.test(src) && /integrity_check/.test(src) && src.includes('https://www.sqlite.org/backup.html') && src.includes('better-sqlite3/blob/master/docs/api.md#backupdestination-options---promise') && !/db\.(exec|prepare|pragma)\(/.test(src.replace(/copy\.pragma/g, '')));
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+console.log('━━━ 15. move-to-projects.sh — 멈춤 · 순서 · 짧은 멈춤 · 실패하면 되돌림 · 비밀 출력 0 · 다른 사이트 그대로');
+const SECRET_MARKS = ['SECRETVALUE-TOSS', 'SECRETVALUE-GEMINI', 'SECRETVALUE-SHEET', 'SECRETKEY-CONTENT', 'SETPW-SECRET-CONTENT'];
+const NGX_BACKUP_NAMES = ['alphascope.backup-20261103-041637', 'alphascope.backup-20261106-112039', 'alphascope.backup-20261106-120406', 'alphascope-acme.backup-20261106-120406'];
+/** 가짜 pm2 — 이름마다 $FAKE_STATE/pm2/<이름> 에 「상태|cwd」 · start 는 ecosystem 을 node 로 읽어 cwd 를 정하고, api 는 기동 로그를 남긴다 */
+const MV_FAKE_PM2 = `#!/bin/bash
+echo "pm2 $*" >> "$FAKE_LOG"
+S="$FAKE_STATE/pm2"; L="$HOME/.pm2/logs"
+startlog() {  # api 기동 로그 — 그 cwd 의 .env DB_PATH 로 DB 를 찾는다(없으면 서버처럼 빈 DB 를 만든다)
+  local cwd="$1" v db
+  v=$(grep -E '^DB_PATH=' "$cwd/.env" 2>/dev/null | tail -1 | cut -d= -f2-)
+  case "$v" in "") db="$cwd/db/alphascope.db" ;; /*) db="$v" ;; *) db="$cwd/\${v#./}" ;; esac
+  echo "[alphascope] API 서버 http://127.0.0.1:4000" >> "$L/alphascope-api-out.log"
+  if [ -f "$db" ] && [ "\${FAKE_NO_LOGIN:-0}" != "1" ]; then echo "[alphascope] 로그인 사용 중 (세션 1개)" >> "$L/alphascope-api-out.log"
+  else [ -f "$db" ] || { mkdir -p "$(dirname "$db")"; : > "$db"; }; echo "[alphascope] ⚠️ 비밀번호가 설정되지 않아 API 가 모두 잠겨 있습니다" >> "$L/alphascope-api-out.log"; fi
+  if grep -q '^AUTO_TRADING_ENABLED=false' "$cwd/.env" 2>/dev/null; then echo "[alphascope] ⚠️ 자동매매 스케줄러를 시작하지 않습니다 (AUTO_TRADING_ENABLED=false)" >> "$L/alphascope-api-out.log"
+  else echo "[alphascope] 계좌별 자동매매 스케줄러 준비됨 (모의 계좌 전용)" >> "$L/alphascope-api-out.log"; fi
+  [ "\${FAKE_API_LOG_OLD_PATH:-0}" = "1" ] && case "$cwd" in *"/projects/"*) echo "Error: ENOENT: no such file or directory, open '$HOME/alphascope/x'" >> "$L/alphascope-api-error.log" ;; esac
+  return 0
+}
+case "$1" in
+  jlist)
+    out="["; sep=""
+    for f in "$S"/*; do n=$(basename "$f"); st=$(cut -d'|' -f1 "$f"); cwd=$(cut -d'|' -f2 "$f"); out="$out$sep{\\"name\\":\\"$n\\",\\"pm2_env\\":{\\"status\\":\\"$st\\",\\"pm_cwd\\":\\"$cwd\\",\\"restart_time\\":0}}"; sep=","; done
+    echo "$out]" ;;
+  stop)
+    [ "$2" = "\${FAKE_PM2_STOP_FAIL:-}" ] && exit 1
+    [ -f "$S/$2" ] && echo "stopped|$(cut -d'|' -f2 "$S/$2")" > "$S/$2" ;;
+  restart)
+    [ -f "$S/$2" ] || exit 1
+    cwd=$(cut -d'|' -f2 "$S/$2"); echo "online|$cwd" > "$S/$2"; [ "$2" = "alphascope-api" ] && startlog "$cwd" ;;
+  delete) rm -f "$S/$2" ;;
+  start)
+    n="$4"; cwd=$(node -e 'const e = require(process.argv[1]); const a = e.apps.find((x) => x.name === process.argv[2]); console.log(a ? a.cwd : "")' "$2" "$n")
+    case "$cwd" in *"/projects/"*) [ "\${FAKE_PM2_START_FAIL:-0}" = "1" ] && exit 1 ;; esac
+    [ -n "$cwd" ] || exit 1
+    echo "online|$cwd" > "$S/$n"; [ "$n" = "alphascope-api" ] && startlog "$cwd" ;;
+  save)
+    [ "\${FAKE_PM2_SAVE_FAIL:-0}" = "1" ] && grep -q '/projects/' "$S"/* && exit 1
+    out="["; sep=""
+    for f in "$S"/*; do out="$out$sep{\\"name\\":\\"$(basename "$f")\\",\\"pm_cwd\\":\\"$(cut -d'|' -f2 "$f")\\"}"; sep=","; done
+    echo "$out]" > "$HOME/.pm2/dump.pm2" ;;
+esac
+exit 0
+`;
+/** curl — API · 지표 엔진은 pm2 상태대로(그 cwd 가 있어야 200) */
+const MV_FAKE_CURL = `#!/bin/bash
+echo "curl $*" >> "$FAKE_LOG"
+S="$FAKE_STATE/pm2"
+up() { [ -f "$S/$1" ] && [ "$(cut -d'|' -f1 "$S/$1")" = "online" ] && [ -d "$(cut -d'|' -f2 "$S/$1")" ]; }
+case "$*" in
+  *127.0.0.1:4000/api/version*)
+    if up alphascope-api; then case "$(cut -d'|' -f2 "$S/alphascope-api")" in *"/projects/"*) ;; *) [ "\${FAKE_API_DOWN_OLD:-0}" = "1" ] && { echo -n 000; exit 7; } ;; esac; case "$(cut -d'|' -f2 "$S/alphascope-api")" in *"/projects/"*) [ "\${FAKE_API_DOWN_NEW:-0}" = "1" ] && { echo -n 000; exit 7; } ;; esac; echo -n 200; exit 0; else echo -n 000; exit 7; fi ;;
+  *127.0.0.1:5001/health*)
+    if up alphascope-indicators && "$(cut -d'|' -f2 "$S/alphascope-indicators")/.venv/bin/python" -c "import pandas" >/dev/null 2>&1; then echo -n 200; exit 0; else echo -n 000; exit 7; fi ;;
+esac
+echo -n 000; exit 7
+`;
+/** crontab — $FAKE_STATE/crontab · 새 자리 줄을 넣을 때만 FAKE_CRONTAB_FAIL 로 실패 */
+const MV_FAKE_CRONTAB = `#!/bin/bash
+echo "crontab $*" >> "$FAKE_LOG"
+if [ "$1" = "-l" ]; then [ -f "$FAKE_STATE/crontab" ] || { echo "no crontab for user" >&2; exit 1; }; cat "$FAKE_STATE/crontab"; exit 0; fi
+[ "\${FAKE_CRONTAB_FAIL:-0}" = "1" ] && grep -q '/projects/' "$1" && exit 1
+cp "$1" "$FAKE_STATE/crontab"
+# 넣기는 됐는데 다른 줄이 섞임(확인에서 걸려야 하고, 되돌릴 때 옛 crontab 으로)
+[ "\${FAKE_CRONTAB_WRONG:-0}" = "1" ] && grep -q '/projects/' "$1" && echo "0 0 * * * echo 섞인 줄" >> "$FAKE_STATE/crontab"
+exit 0
+`;
+/** mv — 인자에 FAKE_MV_FAIL 글자가 들어 있으면 실패(그 밖은 진짜 mv) */
+const MV_FAKE_MV = `#!/bin/bash
+echo "mv $*" >> "$FAKE_LOG"
+if [ -n "\${FAKE_MV_FAIL:-}" ]; then case "$*" in *"$FAKE_MV_FAIL"*) echo "mv: 시험용 실패" >&2; exit 1 ;; esac; fi
+exec /bin/mv "$@"
+`;
+/** venv 의 python(옮기기 전) — 옮긴 뒤(경로에 /projects/) FAKE_VENV_BROKEN=1 이면 깨짐 · -m venv 는 새 venv(건강한 python)를 만든다 */
+const venvPython = (healthy: boolean) => `#!/bin/bash
+echo "python $*" >> "$FAKE_LOG"
+${healthy ? '' : 'case "$0" in *"/projects/"*) [ "${FAKE_VENV_BROKEN:-0}" = "1" ] && exit 1 ;; esac'}
+if [ "$1" = "-m" ] && [ "$2" = "venv" ]; then mkdir -p "$3/bin" && cp "$FAKE_STATE/healthy-python" "$3/bin/python" && chmod 755 "$3/bin/python" && echo "home = /usr/bin" > "$3/pyvenv.cfg"; exit $?; fi
+if [ "$1" = "-m" ] && [ "$2" = "pip" ] && [ "$3" = "install" ]; then exit "\${FAKE_PIP_FAIL:-0}"; fi
+exit 0
+`;
+interface MoveResult {
+  code: number | null;
+  out: string;
+  log: string[];
+  home: string;
+  tree: Record<string, string>;
+  before: Record<string, string>;
+  pm2: Record<string, string>;
+  crontab: string;
+  dump: string;
+  envNew: string;
+  envBefore: string;
+  backupRun?: { code: number | null; files: string[]; rows: number };
+}
+/** 가짜 HOME 의 파일 · 폴더 · 권한 · 내용(해시) 목록 — 시험이 쓰는 기록 · pm2 로그 · 되돌리기 준비 폴더는 뺀다 */
+function snapshot(base: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const walk = (d: string) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      const rel = path.relative(base, p);
+      if (/^home\/projects\/\.move-backup-/.test(rel) || /^home\/\.pm2\//.test(rel) || /^(bin|state|calls\.log)/.test(rel) || /node_modules/.test(rel)) continue;
+      const st = fs.lstatSync(p);
+      const mode = (st.mode & 0o777).toString(8);
+      if (st.isSymbolicLink()) out[rel] = `link ${fs.readlinkSync(p)}`;
+      else if (st.isDirectory()) { out[rel] = `dir ${mode}`; walk(p); }
+      else out[rel] = `file ${mode} ${fs.readFileSync(p).toString('base64').slice(0, 200)} ${st.size}`;
+    }
+  };
+  walk(base);
+  // 되돌린 뒤 남는 것: ~/projects(안에 .move-backup-* 만) — 비어 있으면 같은 것으로 본다
+  if (out['home/projects'] && !Object.keys(out).some((k) => k.startsWith('home/projects/'))) delete out['home/projects'];
+  return out;
+}
+function runMove(opts: { env?: Record<string, string>; dbPath?: string; envExtra?: string; homeExtra?: string[]; crontab?: string; pm2Cwd?: string; noSamples?: boolean; projectsExtra?: boolean; runBackupAfter?: boolean } = {}): MoveResult {
+  const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'alphascope-movetest-')));   // 링크를 푼 경로(맥 /var → /private/var — pm2 설정의 __dirname 과 같게)
+  try {
+    const home = path.join(tmp, 'home');
+    const bin = path.join(tmp, 'bin');
+    const state = path.join(tmp, 'state');
+    const ngx = path.join(tmp, 'nginx');
+    const old = path.join(home, 'alphascope');
+    for (const d of [bin, path.join(state, 'pm2'), path.join(ngx, 'sites-available'), path.join(ngx, 'sites-enabled'), path.join(old, '.git'), path.join(old, 'db'), path.join(old, 'python', '.venv', 'bin'), path.join(home, '.pm2', 'logs'), path.join(home, 'backups'), path.join(home, 'secrets'), path.join(home, 'snap', 'certbot'), path.join(home, 'alphascope-https-backup-20261106-111036'), path.join(home, 'alphascope-https-backup-20261106-112014'), path.join(home, 'alphascope-node24-backup-20261105-141716', 'db')]) fs.mkdirSync(d, { recursive: true });
+    fs.cpSync(DEPLOY_DIR, path.join(old, 'deploy'), { recursive: true });
+    fs.symlinkSync(path.join(root, 'node_modules'), path.join(old, 'node_modules'));
+    fs.writeFileSync(path.join(old, 'python', 'requirements.txt'), 'pandas\n');
+    fs.writeFileSync(path.join(state, 'healthy-python'), venvPython(true), { mode: 0o755 });
+    fs.writeFileSync(path.join(old, 'python', '.venv', 'bin', 'python'), venvPython(false), { mode: 0o755 });
+    fs.writeFileSync(path.join(bin, 'python3.12'), venvPython(true), { mode: 0o755 });
+    fs.writeFileSync(path.join(old, 'python', '.venv', 'pyvenv.cfg'), `home = ${bin}\nexecutable = ${path.join(bin, 'python3.12')}\n`);
+    // 실제 SQLite DB(나중에 새 자리에서 주간 백업을 돌려 본다)
+    const seed = new BetterSqlite(path.join(old, 'db', 'alphascope.db'));
+    seed.exec('CREATE TABLE t (x INTEGER); INSERT INTO t VALUES (1), (2), (3);');
+    seed.close();
+    const dbLine = opts.dbPath === undefined ? '' : `DB_PATH=${opts.dbPath.replace('$HOME', home)}\n`;
+    fs.writeFileSync(path.join(old, '.env'), `TOSS_CLIENT_ID=fake\nTOSS_CLIENT_SECRET=SECRETVALUE-TOSS\nAPI_PORT=4000\nINDICATORS_PORT=5001\n${dbLine}GEMINI_API_KEY=SECRETVALUE-GEMINI\nALLOWED_ORIGINS=https://161.33.153.189:8080\nASSET_SHEET_ID=SECRETVALUE-SHEET\nGOOGLE_SA_KEY_FILE=${home}/secrets/sa-key.json\nAUTO_TRADING_ENABLED=true\n${(opts.envExtra ?? '').replace('$HOME', home)}`, { mode: 0o600 });
+    // 옛 pm2 설정 사본(앱 폴더 맨 위 — 옛 절대 경로)
+    fs.writeFileSync(path.join(old, 'ecosystem.config.cjs'), `module.exports = { apps: [ { name: 'alphascope-api', cwd: '${old}', script: 'npx', args: 'tsx server/index.ts' }, { name: 'alphascope-indicators', cwd: '${old}/python', script: '${old}/python/.venv/bin/python', args: 'indicators.py', interpreter: 'none' } ] };\n`);
+    fs.writeFileSync(path.join(old, 'ecosystem.config.cjs.vite-backup'), 'vite eco\n');
+    fs.writeFileSync(path.join(home, 'secrets', 'sa-key.json'), '{"private_key":"SECRETKEY-CONTENT"}', { mode: 0o600 });
+    fs.chmodSync(path.join(home, 'secrets'), 0o700);
+    fs.writeFileSync(path.join(home, 'setpw.sh'), '#!/bin/bash\necho SETPW-SECRET-CONTENT\n', { mode: 0o700 });
+    fs.writeFileSync(path.join(home, 'deploy.sh'), '#!/bin/bash\n# 옛 배포 스크립트(~/alphascope)\n', { mode: 0o755 });
+    fs.writeFileSync(path.join(home, 'deploy.sh.vite-backup'), 'vite deploy\n');
+    fs.writeFileSync(path.join(home, 'backup.sh'), '#!/bin/bash\nDATE=$(date +%Y%m%d)\ncp ~/alphascope/db/alphascope.db ~/backups/alphascope_$DATE.db\nfind ~/backups -name "*.db" -mtime +30 -delete\n', { mode: 0o755 });
+    for (const n of ['alphascope_20261004.db', 'alphascope_20261101.db']) fs.writeFileSync(path.join(home, 'backups', n), n);
+    fs.writeFileSync(path.join(home, 'alphascope-https-backup-20261106-111036', 'alphascope.conf'), 'https bk\n');
+    fs.writeFileSync(path.join(home, 'alphascope-node24-backup-20261105-141716', 'db', 'alphascope.db'), 'node24 bk\n');
+    if (!opts.noSamples) { fs.mkdirSync(path.join(home, 'alphascope-samples')); fs.writeFileSync(path.join(home, 'alphascope-samples', 'us-close.jsonl'), '{"s":1}\n'); fs.writeFileSync(path.join(home, 'alphascope-samples', '.toss-token.json'), '{}', { mode: 0o600 }); }
+    for (const n of opts.homeExtra ?? []) fs.writeFileSync(path.join(home, n), 'x');
+    if (opts.projectsExtra) { fs.mkdirSync(path.join(home, 'projects', 'other'), { recursive: true }); }
+    // nginx — 지금 오라클 모양(103차 뒤)
+    const sites: Record<string, string> = { alphascope: NGINX_CONF, 'alphascope-acme': ACME_CONF, project2: PROJECT2, default: DEFAULT_SITE, 'alphascope.vite-backup': 'vite nginx\n' };
+    for (const n of NGX_BACKUP_NAMES) sites[n] = `backup ${n}\n`;
+    for (const [n, body] of Object.entries(sites)) fs.writeFileSync(path.join(ngx, 'sites-available', n), body);
+    for (const n of ['alphascope', 'alphascope-acme', 'project2']) fs.symlinkSync(path.join(ngx, 'sites-available', n), path.join(ngx, 'sites-enabled', n));
+    // pm2 · crontab · 로그
+    fs.writeFileSync(path.join(state, 'pm2', 'alphascope-api'), `online|${opts.pm2Cwd ?? old}`);
+    fs.writeFileSync(path.join(state, 'pm2', 'alphascope-indicators'), `online|${old}/python`);
+    fs.writeFileSync(path.join(state, 'pm2', OTHER), 'online|/srv/other-project');
+    fs.writeFileSync(path.join(state, 'crontab'), opts.crontab ?? `# m h dom mon dow command\n0 3 * * 0 ${home}/backup.sh\n`);
+    fs.writeFileSync(path.join(home, '.pm2', 'dump.pm2'), '[]');
+    fs.writeFileSync(path.join(home, '.pm2', 'logs', 'alphascope-api-out.log'), '[alphascope] 계좌별 자동매매 스케줄러 준비됨 (모의 계좌 전용)\n');
+    fs.writeFileSync(path.join(home, '.pm2', 'logs', 'alphascope-api-error.log'), `Error: Cannot find module (지난달 옛 줄) ${old}/x\n`);
+    for (const [n, body] of Object.entries({ pm2: MV_FAKE_PM2, curl: MV_FAKE_CURL, crontab: MV_FAKE_CRONTAB, mv: MV_FAKE_MV, sudo: FAKE_SUDO, git: FAKE_GIT, sleep: fakeLogOnly('sleep'), systemctl: `#!/bin/bash\necho "systemctl $*" >> "$FAKE_LOG"\n[ "$1" = "is-enabled" ] && echo enabled\nexit 0\n` })) fs.writeFileSync(path.join(bin, n), body, { mode: 0o755 });
+    const logPath = path.join(tmp, 'calls.log');
+    fs.writeFileSync(logPath, '');
+    const before = snapshot(tmp);
+    const envBefore = fs.readFileSync(path.join(old, '.env'), 'utf8');
+    // /usr/sbin — chown(맥) · 진짜 pm2 · crontab 은 가짜가 앞에 있어 부르지 않는다
+    const env = { PATH: `${testPath(bin)}:/usr/sbin`, HOME: home, NGINX_DIR: ngx, FAKE_LOG: logPath, FAKE_STATE: state, LANG: 'en_US.UTF-8', ...(opts.env ?? {}) };
+    const r = spawnSync('/bin/bash', [path.join(old, 'deploy', 'move-to-projects.sh')], { cwd: old, encoding: 'utf8', env, timeout: 120_000 });
+    const pm2: Record<string, string> = {};
+    for (const n of fs.readdirSync(path.join(state, 'pm2'))) pm2[n] = fs.readFileSync(path.join(state, 'pm2', n), 'utf8').trim();
+    const appNow = fs.existsSync(path.join(appIn(home), '.env')) ? appIn(home) : old;
+    const result: MoveResult = {
+      code: r.status,
+      out: `${r.stdout}${r.stderr}`,
+      log: fs.readFileSync(logPath, 'utf8').split('\n').filter(Boolean),
+      home,
+      tree: snapshot(tmp),
+      before,
+      pm2,
+      crontab: fs.readFileSync(path.join(state, 'crontab'), 'utf8'),
+      dump: fs.readFileSync(path.join(home, '.pm2', 'dump.pm2'), 'utf8'),
+      envNew: fs.existsSync(path.join(appNow, '.env')) ? fs.readFileSync(path.join(appNow, '.env'), 'utf8') : '',
+      envBefore,
+    };
+    if (opts.runBackupAfter && r.status === 0) {
+      // crontab 이 부르는 그대로 — 새 scripts/backup.sh 를 돌린다
+      const b = spawnSync('/bin/bash', [path.join(projIn(home), 'scripts', 'backup.sh')], { encoding: 'utf8', env: { ...env, PATH: [path.dirname(process.execPath), '/usr/bin', '/bin'].join(':') }, timeout: 60_000 });
+      const dir = path.join(projIn(home), 'backups', 'db');
+      const files = fs.readdirSync(dir).sort();
+      const today = path.join(dir, `alphascope_${TODAY}.db`);
+      result.backupRun = { code: b.status, files, rows: fs.existsSync(today) ? countRows(today) : -1 };
+    }
+    return result;
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+const mvPm2Changes = (r: MoveResult) => r.log.filter((l) => /^pm2 (stop|restart|start|delete|reload|kill|save|update|resurrect)\b/.test(l));
+const secretFree = (r: MoveResult) => SECRET_MARKS.every((m) => !r.out.includes(m));
+/** 되돌린 뒤 — 파일 · 폴더 · 권한 · 내용이 처음과 같고 pm2 두 이름은 옛 자리에서 online · crontab · .env 그대로 */
+function rolledBack(r: MoveResult): { ok: boolean; why: string } {
+  const old = path.join(r.home, 'alphascope');
+  const diff = [...new Set([...Object.keys(r.before), ...Object.keys(r.tree)])].filter((k) => r.before[k] !== r.tree[k]);
+  const why: string[] = [];
+  if (r.code !== 1) why.push(`종료 코드 ${r.code}`);
+  if (diff.length) why.push(`다른 곳: ${diff.slice(0, 6).join(', ')}`);
+  if (r.pm2['alphascope-api'] !== `online|${old}` || r.pm2['alphascope-indicators'] !== `online|${old}/python`) why.push(`pm2 ${JSON.stringify(r.pm2)}`);
+  if (r.pm2[OTHER] !== 'online|/srv/other-project') why.push('다른 프로젝트 pm2 가 바뀜');
+  if (r.crontab !== `# m h dom mon dow command\n0 3 * * 0 ${r.home}/backup.sh\n`) why.push(`crontab ${r.crontab}`);
+  if (r.envNew !== r.envBefore) why.push('.env 가 다름');
+  if (r.dump.includes('/projects/')) why.push('dump.pm2 에 새 자리');
+  if (!/되돌렸습니다 — 옛 자리\(\S+\)로 돌아갔습니다/.test(r.out)) why.push('「되돌렸습니다」 없음');
+  if (!secretFree(r)) why.push('비밀 값이 출력됨');
+  return { ok: why.length === 0, why: `${why.join(' · ')}\n      ${r.out.slice(-600)}` };
+}
+/** 멈춤 — 아무것도 바꾸지 않음 */
+function unchanged(r: MoveResult): { ok: boolean; why: string } {
+  const diff = [...new Set([...Object.keys(r.before), ...Object.keys(r.tree)])].filter((k) => r.before[k] !== r.tree[k]);
+  const ok = r.code === 1 && diff.length === 0 && mvPm2Changes(r).length === 0 && !r.log.some((l) => /^(crontab [^-]|mv |sudo )/.test(l)) && /아무것도 바꾸지 않고 멈춥니다/.test(r.out) && secretFree(r);
+  return { ok, why: `${r.code} · ${diff.join(',')} · ${mvPm2Changes(r).join(' | ')}\n      ${r.out.slice(-400)}` };
+}
+{
+  check('bash -n deploy/move-to-projects.sh 통과', spawnSync('/bin/bash', ['-n', path.join(DEPLOY_DIR, 'move-to-projects.sh')]).status === 0);
+  const m = fs.readFileSync(path.join(DEPLOY_DIR, 'move-to-projects.sh'), 'utf8').match(/^PM2_APPS="([^"]*)"/m);
+  check('move-to-projects.sh 의 PM2_APPS = deploy.sh 와 같은 두 이름', m?.[1] === 'alphascope-api alphascope-indicators');
+  const mtext = fs.readFileSync(path.join(DEPLOY_DIR, 'move-to-projects.sh'), 'utf8');
+  const setpwLines = mtext.split('\n').filter((l) => l.includes('setpw') && !l.trim().startsWith('#'));
+  check('[꼭 6] setpw.sh 는 옮기기만 — 그 줄에 cat · grep · head · tail · awk · sed · cp · diff · source 없음', setpwLines.length > 0 && setpwLines.every((l) => !/\b(cat|grep|head|tail|awk|sed|cp|diff|cksum|source|less|more)\b|^\s*\. /.test(l.replace(/echo "[^"]*"/g, '').replace(/say "[^"]*"/g, '').replace(/stop_unchanged "[^"]*"/g, '').replace(/fail "[^"]*"/g, ''))), setpwLines.join('\n'));
+
+  // 성공 — DB_PATH 없음(기본 상대 경로)
+  const ok = runMove({ runBackupAfter: true });
+  const P = projIn(ok.home);
+  const A = appIn(ok.home);
+  check('[성공] 종료 코드 0 · 끝에 「완료 — 새 자리 … 서버가 멈춘 시간 약 N초」', ok.code === 0 && /완료 — 새 자리 \S+\/projects\/alphascope · 서버가 멈춘 시간 약 \d+초/.test(ok.out), ok.out.slice(-1500));
+  const homeNow = Object.keys(ok.tree).filter((k) => /^home\/[^/.][^/]*$/.test(k)).map((k) => k.slice(5)).sort();
+  check('[성공] 홈 폴더에 projects 와 시스템 폴더(snap)만', homeNow.join(',') === 'projects,snap', homeNow.join(','));
+  const has = (rel: string) => ok.tree[path.relative(path.dirname(ok.home), path.join(P, rel))];
+  check('[성공] 새 구조 — _common(빈) · app(.git · db · .env) · secrets · scripts(deploy · backup · setpw) · backups(db · node24 · https · nginx) · data',
+    !!has('../_common') && !Object.keys(ok.tree).some((k) => k.startsWith('home/projects/_common/')) && !!has('app/.git') && !!has('app/db/alphascope.db') && !!has('app/.env')
+    && !!has('secrets/sa-key.json') && !!has('scripts/deploy.sh') && !!has('scripts/backup.sh') && !!has('scripts/setpw.sh')
+    && !!has('backups/db/alphascope_20261004.db') && !!has('backups/db/alphascope_20261101.db') && !!has('backups/node24/alphascope-node24-backup-20261105-141716/db/alphascope.db')
+    && !!has('backups/https/alphascope-https-backup-20261106-111036/alphascope.conf') && !!has('backups/https/alphascope-https-backup-20261106-112014')
+    && NGX_BACKUP_NAMES.every((n) => !!has(`backups/nginx/${n}`)) && !!has('data/us-close.jsonl') && !!has('data/.toss-token.json'),
+    Object.keys(ok.tree).filter((k) => k.startsWith('home/projects/')).join('\n'));
+  check('[성공] secrets 700 · 열쇠 파일 600 · setpw.sh 내용 · 권한 그대로', has('secrets')?.startsWith('dir 700') === true && has('secrets/sa-key.json')?.startsWith('file 600') === true && has('scripts/setpw.sh') === ok.before['home/setpw.sh'], `${has('secrets')} · ${has('secrets/sa-key.json')}`);
+  const repoDeploy = fs.readFileSync(path.join(DEPLOY_DIR, 'deploy.sh'));
+  check('[성공] scripts/deploy.sh = 저장소 deploy/deploy.sh(755) · scripts/backup.sh(755) 는 새 자리에서 crontab 시험(아래 꼭 5)', has('scripts/deploy.sh') === `file 755 ${repoDeploy.toString('base64').slice(0, 200)} ${repoDeploy.length}` && /^file 755 /.test(has('scripts/backup.sh') ?? ''), has('scripts/deploy.sh'));
+  check('[성공] Vite 옛 파일 3개 지움 · nginx 옛 백업은 sites-available 밖으로', !Object.keys(ok.tree).some((k) => /vite-backup/.test(k)) && !Object.keys(ok.tree).some((k) => /^nginx\/sites-available\/.*\.backup-/.test(k)), Object.keys(ok.tree).filter((k) => /vite|backup-/.test(k)).join(','));
+  const ngxSame = ['nginx/sites-available/alphascope', 'nginx/sites-available/alphascope-acme', 'nginx/sites-available/project2', 'nginx/sites-available/default', 'nginx/sites-enabled/alphascope', 'nginx/sites-enabled/alphascope-acme', 'nginx/sites-enabled/project2'].every((k) => ok.tree[k] === ok.before[k]);
+  check('[꼭 7] nginx 사이트 설정(alphascope · alphascope-acme) · project2 · default · sites-enabled 링크 그대로 · nginx -t · reload · certbot 명령 0', ngxSame && !ok.log.some((l) => /^(sudo )?(nginx|certbot|systemctl (reload|restart))\b|letsencrypt|project2|8081/.test(l)), ok.log.filter((l) => /nginx|certbot|systemctl/.test(l)).join(' | '));
+  const envLines = (s: string) => s.split('\n');
+  const changedEnv = envLines(ok.envNew).filter((l, i) => l !== envLines(ok.envBefore)[i]);
+  check('[성공] .env — GOOGLE_SA_KEY_FILE 만 새 secrets 경로로(다른 줄 · 스위치 그대로)', changedEnv.length === 1 && changedEnv[0] === `GOOGLE_SA_KEY_FILE=${P}/secrets/sa-key.json` && envLines(ok.envNew).length === envLines(ok.envBefore).length, changedEnv.join(' | '));
+  const changes = mvPm2Changes(ok);
+  const ECO_NEW_RE = (n: string) => new RegExp(`^pm2 start \\S+/projects/alphascope/app/deploy/ecosystem\\.config\\.cjs --only ${n}$`);
+  check('[꼭 3] pm2 = 두 이름 stop → (delete → 새 설정 start) × 2 → save 뿐 · all · 다른 프로젝트 없음',
+    changes.length === 7 && changes[0] === 'pm2 stop alphascope-api' && changes[1] === 'pm2 stop alphascope-indicators' && changes[2] === 'pm2 delete alphascope-api' && ECO_NEW_RE('alphascope-api').test(changes[3]) && changes[4] === 'pm2 delete alphascope-indicators' && ECO_NEW_RE('alphascope-indicators').test(changes[5]) && changes[6] === 'pm2 save'
+    && !ok.log.some((l) => l.startsWith('pm2 ') && (/\ball\b/.test(l) || l.includes(OTHER))), changes.join(' | '));
+  check('[꼭 4] pm2 두 이름 새 자리에서 online · 다른 프로젝트 그대로 · 재부팅 목록(dump.pm2)도 새 자리', ok.pm2['alphascope-api'] === `online|${A}` && ok.pm2['alphascope-indicators'] === `online|${A}/python` && ok.pm2[OTHER] === 'online|/srv/other-project' && ok.dump.includes(`"pm_cwd":"${A}"`) && ok.dump.includes(`"pm_cwd":"${A}/python"`), JSON.stringify(ok.pm2));
+  // 서버 멈춤 구간 — 첫 pm2 stop 과 다시 켠 뒤 첫 API 200 확인 사이에는 앱 폴더 옮기기 · venv 확인 · pm2 만
+  const firstStop = ok.log.findIndex((l) => /^pm2 stop/.test(l));
+  const lastStart = ok.log.map((l, i) => (/^pm2 start/.test(l) ? i : -1)).filter((i) => i >= 0).pop() ?? -1;
+  const inside = ok.log.slice(firstStop + 1, lastStart).filter((l) => !/^(pm2 (stop|delete|start)|python )/.test(l));
+  const movesBefore = ok.log.slice(0, firstStop).filter((l) => /^mv /.test(l));
+  check('[꼭 3] 멈춤 구간에는 앱 폴더 옮기기 하나 · venv 확인 · pm2 만(백업 · 데이터 · nginx · secrets · 스크립트 옮기기는 모두 그 전 — 서버 켠 채로)',
+    firstStop > 0 && inside.length === 1 && inside[0] === `mv ${ok.home}/alphascope ${A}` && movesBefore.length >= 12 && movesBefore.some((l) => l.includes(`${ok.home}/secrets`)) && movesBefore.some((l) => /sites-available\/alphascope\.backup-/.test(l)), `${inside.join(' | ')} :: 전 ${movesBefore.length}개`);
+  check('[꼭 4] 확인 — API 200 · 「로그인 사용 중」(새 자리 DB) · 자동매매 스케줄러 · 지표 엔진 /health 200 · 열쇠 새 경로', /API 응답 200 · 서버가 멈춘 시간 약 \d+초/.test(ok.out) && ok.out.includes('로그인 사용 중(DB 열림) · 자동매매 스케줄러 준비됨') && ok.out.includes('지표 엔진 /health 200') && ok.out.includes('자산 관리 열쇠: 새 경로에 있음'), ok.out.slice(-1500));
+  check('[꼭 5] crontab — 주간 백업 줄만 새 자리로 · 시각 그대로(일요일 03:00) · 주석 그대로', ok.crontab === `# m h dom mon dow command\n0 3 * * 0 ${P}/scripts/backup.sh\n`, ok.crontab);
+  check('[꼭 5] 새 scripts/backup.sh(crontab 이 부르는 것) → backups/db/alphascope_<오늘>.db · 실제 DB 3줄 · integrity ok', ok.backupRun?.code === 0 && ok.backupRun.rows === 3 && ok.backupRun.files.includes(`alphascope_${TODAY}.db`), JSON.stringify(ok.backupRun));
+  check('[꼭 6] .env 값 · 열쇠 · setpw.sh 내용이 출력에 없음', secretFree(ok), SECRET_MARKS.filter((s) => ok.out.includes(s)).join(','));
+  check('[성공] 되돌리기 준비 — .move-backup-<날짜>/ 에 .env 사본(600) · crontab · pm2 이름과 cwd · 목록 · 옛 deploy.sh · backup.sh', /되돌리기 준비 → \S+\/projects\/\.move-backup-\d{8}-\d{6}/.test(ok.out) && ok.out.includes('옮길 것 목록 · crontab · pm2 이름과 cwd · .env 사본(600)'));
+  check('[성공] 끝 알림 — 지우지 않은 것 · 사용자가 지울 것(Node 24 백업 · 1주) · setpw.sh 경로는 직접 확인', /지우지 않은 것: /.test(ok.out) && /사용자가 지울 것\(1주쯤 문제없으면\): rm -rf \S+\/backups\/node24\/alphascope-node24-backup-\*/.test(ok.out) && /setpw\.sh .*직접 새 자리/.test(ok.out));
+
+  // 성공 — DB_PATH 가 옛 절대 경로 → 새 경로로 · 상대 경로는 그대로
+  const abs = runMove({ dbPath: '$HOME/alphascope/db/alphascope.db' });
+  const absChanged = envLines(abs.envNew).filter((l, i) => l !== envLines(abs.envBefore)[i]);
+  check('[성공 · DB_PATH 옛 절대 경로] 새 자리로 바뀜(두 줄만 바뀜) · 로그인 사용 중(빈 새 DB 아님) · 옛 자리 다시 안 생김', abs.code === 0 && absChanged.join('|') === `DB_PATH=${appIn(abs.home)}/db/alphascope.db|GOOGLE_SA_KEY_FILE=${projIn(abs.home)}/secrets/sa-key.json` && abs.out.includes('.env DB_PATH 1줄 바꿈') && !Object.keys(abs.tree).includes('home/alphascope'), `${absChanged.join(' | ')} :: ${abs.out.slice(-600)}`);
+  const rel = runMove({ dbPath: './db/alphascope.db', noSamples: true });
+  check('[성공 · DB_PATH 상대 경로 · 표본 폴더 없음] DB_PATH 그대로 · data/ 는 빈 폴더로 만듦', rel.code === 0 && rel.envNew.includes('DB_PATH=./db/alphascope.db\n') && rel.out.includes('.env DB_PATH 그대로') && rel.tree[`home/projects/alphascope/data`]?.startsWith('dir') === true, rel.out.slice(-600));
+  const venv = runMove({ env: { FAKE_VENV_BROKEN: '1' } });
+  check('[성공 · 옮긴 venv 가 깨짐] 새 자리에서 python -m venv + pip install -r requirements.txt 로 다시 만들고 성공 · 옛것은 .venv.moved', venv.code === 0 && venv.out.includes('venv: 옮긴 뒤 열리지 않아 새 자리에서 다시 만듭니다') && venv.log.some((l) => new RegExp(`^python -m venv ${appIn(venv.home)}/python/\\.venv$`).test(l)) && venv.log.some((l) => /^python -m pip install -r \S+\/requirements\.txt$/.test(l)) && !!venv.tree['home/projects/alphascope/app/python/.venv.moved'], venv.out.slice(-800));
+
+  // [꼭 1] 상태가 예상과 다르면 아무것도 바꾸지 않고 멈춤
+  const stops: [string, Parameters<typeof runMove>[0]][] = [
+    ['홈에 예상 밖 파일(notes.txt)', { homeExtra: ['notes.txt'] }],
+    ['~/projects 가 이미 있고 안에 다른 것', { projectsExtra: true }],
+    ['crontab 에 다른 줄', { crontab: '0 3 * * 0 /home/x/backup.sh\n*/5 * * * * echo hi\n' }],
+    ['pm2 api 의 cwd 가 다름', { pm2Cwd: '/srv/elsewhere' }],
+    ['.env 의 다른 줄에 홈 경로(USSAMPLE_OUT)', { envExtra: 'USSAMPLE_OUT=$HOME/alphascope-samples/x.jsonl\n' }],
+    ['DB_PATH 가 앱 밖 홈 경로', { dbPath: '$HOME/elsewhere/alphascope.db' }],
+    ['지금 API 가 200 아님', { env: { FAKE_API_DOWN_OLD: '1' } }],
+  ];
+  for (const [name, o] of stops) {
+    const r = runMove(o);
+    const u = unchanged(r);
+    check(`[꼭 1 · 멈춤] ${name} — 종료 코드 1 · 파일 · pm2 · crontab · nginx 바뀐 것 0`, u.ok, u.why);
+  }
+
+  // [꼭 2] 어느 단계에서 실패해도 되돌리고 옛 자리에서 다시 돈다
+  const fails: [string, Record<string, string>][] = [
+    ['3/6 백업 폴더 옮기기 실패', { FAKE_MV_FAIL: '/home/backups' }],
+    ['3/6 nginx 옛 백업 옮기기 실패(sudo mv)', { FAKE_MV_FAIL: 'alphascope.backup-20261106-120406' }],
+    ['3/6 secrets 옮기기 실패', { FAKE_MV_FAIL: '/home/secrets' }],
+    ['4/6 pm2 stop 실패', { FAKE_PM2_STOP_FAIL: 'alphascope-indicators' }],
+    ['4/6 앱 폴더 옮기기 실패', { FAKE_MV_FAIL: '/home/alphascope /' }],
+    ['4/6 venv 다시 만들기 실패', { FAKE_VENV_BROKEN: '1', FAKE_PIP_FAIL: '1' }],
+    ['4/6 새 설정 pm2 start 실패', { FAKE_PM2_START_FAIL: '1' }],
+    ['4/6 새 자리 API 응답 없음', { FAKE_API_DOWN_NEW: '1' }],
+    ['4/6 기동 로그에 「로그인 사용 중」 없음(DB)', { FAKE_NO_LOGIN: '1' }],
+    ['4/6 다시 켠 뒤 로그에 옛 경로 오류', { FAKE_API_LOG_OLD_PATH: '1' }],
+    ['4/6 pm2 save 실패', { FAKE_PM2_SAVE_FAIL: '1' }],
+    ['5/6 crontab 바꾸기 실패', { FAKE_CRONTAB_FAIL: '1' }],
+    ['5/6 crontab 을 바꿨지만 확인에서 다름', { FAKE_CRONTAB_WRONG: '1' }],
+  ];
+  for (const [name, env] of fails) {
+    const r = runMove({ env });
+    const rb = rolledBack(r);
+    check(`[꼭 2 · 되돌림] ${name} — 종료 코드 1 · 파일 · 권한 · .env · pm2(옛 자리 online) · crontab 처음 그대로 · 비밀 출력 0`, rb.ok, rb.why);
+  }
+  // DB_PATH 를 새 자리로 바꾼 뒤 실패 — 옛 pm2 가 옛 .env(옛 DB_PATH)로 켜져야 한다(새 경로로 켜면 빈 DB 를 새로 만든다)
+  for (const [name, env] of [['DB_PATH 바꾼 뒤 새 자리 API 응답 없음', { FAKE_API_DOWN_NEW: '1' }], ['DB_PATH 바꾼 뒤 crontab 바꾸기 실패', { FAKE_CRONTAB_FAIL: '1' }]] as const) {
+    const r = runMove({ dbPath: '$HOME/alphascope/db/alphascope.db', env });
+    const rb = rolledBack(r);
+    check(`[꼭 2 · 되돌림] ${name} — .env(DB_PATH) 먼저 되돌린 뒤 옛 자리에서 켬 · 빈 DB 안 생김 · 처음 그대로`, rb.ok && r.out.includes('.env DB_PATH 1줄 바꿈') && !r.out.includes('비밀번호가 설정되지 않아'), rb.why);
+  }
 }
 
 console.log(`\n결과: 통과 ${pass} · 실패 ${fail}`);
