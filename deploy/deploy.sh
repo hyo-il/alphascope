@@ -1,7 +1,7 @@
 #!/bin/bash
 # AlphaScope 오라클 서버 배포 — GitHub 최신 코드 받기 → 설치 → 빌드 → 화면 복사 → 재시작
 # (v2.36.1) 화면은 nginx 가 /var/www/alphascope 의 완성본을 보낸다. 빌드한 dist 를 거기로 복사하는 단계가 더해졌다.
-# 오라클에서는 관리 루트의 사본 ~/projects/alphascope/scripts/deploy.sh 로 돈다(v2.61.3). 쓰는 법: ssh alphascope '~/projects/alphascope/scripts/deploy.sh'
+# 오라클에서는 관리 루트의 사본 ~/projects/alphascope/scripts/deploy.sh 로 돈다(v2.61.3). 쓰는 법: ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189 '~/projects/alphascope/scripts/deploy.sh'
 set -e
 # 자리는 deploy/paths.sh 한 곳 — 저장소 안(app/deploy/)에서 돌면 옆 파일, 관리 루트 사본(scripts/)이면 ../app/deploy/ 의 것
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

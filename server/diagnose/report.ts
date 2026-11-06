@@ -428,7 +428,7 @@ async function geminiAccuracy(symbols: string[]) {
 // ── 리포트 ───────────────────────────────────────────────────────────────────
 
 /**
- * 출력 위치 — 맥은 관리 루트(`docs/analysis/`), 오라클은 `~/alphascope/reports/`.
+ * 출력 위치 — 맥은 관리 루트(`docs/analysis/`), 오라클은 앱 폴더 안 `~/projects/alphascope/app/reports/`.
  * 오라클에는 관리 루트가 없다.
  */
 export function outputDir(): { dir: string; server: string } {

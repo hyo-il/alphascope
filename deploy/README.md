@@ -9,7 +9,7 @@
 맥에서 한 줄입니다(05:00~22:30 KST 사이, 05:30 전후는 피합니다).
 
 ```bash
-ssh alphascope '~/projects/alphascope/scripts/deploy.sh'
+ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189 '~/projects/alphascope/scripts/deploy.sh'
 ```
 
 받기 → 설치 → 빌드 → 화면을 `/var/www/alphascope` 로 복사 + nginx 다시 읽기 → pm2 `alphascope-api` · `alphascope-indicators` 재시작 → API·화면 확인 순서로 돕니다.
@@ -77,7 +77,7 @@ cd ~/alphascope && git pull --ff-only origin main && bash deploy/move-to-project
 5. 다음 일요일 03:00 뒤 `ls ~/projects/alphascope/backups/db/` 에 새 백업이 있다.
 6. 1주쯤 문제없으면 지웁니다: `rm -rf ~/projects/alphascope/backups/node24/alphascope-node24-backup-* ~/projects/.move-backup-*`
 
-맥에서 배포하는 한 줄도 바뀝니다: `ssh alphascope '~/projects/alphascope/scripts/deploy.sh'`.
+맥에서 배포하는 한 줄도 바뀝니다: `ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189 '~/projects/alphascope/scripts/deploy.sh'`.
 
 **④ 손으로 되돌리기**(성공한 뒤 며칠 지나 문제가 보일 때 — 서버 안에서. 그 사이 `.env` 를 고쳤다면 그 줄은 다시 고칩니다):
 
@@ -268,7 +268,7 @@ sudo nginx -t && sudo systemctl reload nginx
 비밀번호는 서버에서만 정합니다. **정하기 전에는 앱이 잠겨 있습니다**(모든 API 503 — 의도된 동작).
 
 ```bash
-ssh alphascope
+ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189
 cd ~/projects/alphascope/app && npm run auth:set-password
 ```
 
@@ -283,7 +283,7 @@ cd ~/projects/alphascope/app && npm run auth:set-password
 1. 맥의 터미널에서 서버에 들어갑니다. (줄 앞이 `ubuntu@alphascope-server` 로 시작하면 이미 서버 안이니 건너뜁니다.)
 
    ```bash
-   ssh alphascope
+   ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189
    ```
 
 2. 최신 코드를 받습니다.
@@ -388,19 +388,19 @@ cd ~/projects/alphascope/app && npm run -s ussample:judge
 설치(두 번 실행해도 예약은 한 줄 — 마지막에 「예약 줄 수: 1」):
 
 ```bash
-ssh alphascope 'N=$(command -v node) || { echo "node 를 찾지 못했습니다"; exit 1; }; mkdir -p ~/projects/alphascope/data && L="*/5 * * * * cd $HOME/projects/alphascope/app && PATH=$(dirname "$N"):/usr/bin:/bin ./node_modules/.bin/tsx scripts/usCloseSampler.ts >> $HOME/projects/alphascope/data/cron.log 2>&1 # alphascope-ussample" && (crontab -l 2>/dev/null | grep -v "# alphascope-ussample"; echo "$L") | crontab - && echo "예약 줄 수: $(crontab -l | grep -c "# alphascope-ussample")"'
+ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189 'N=$(command -v node) || { echo "node 를 찾지 못했습니다"; exit 1; }; mkdir -p ~/projects/alphascope/data && L="*/5 * * * * cd $HOME/projects/alphascope/app && PATH=$(dirname "$N"):/usr/bin:/bin ./node_modules/.bin/tsx scripts/usCloseSampler.ts >> $HOME/projects/alphascope/data/cron.log 2>&1 # alphascope-ussample" && (crontab -l 2>/dev/null | grep -v "# alphascope-ussample"; echo "$L") | crontab - && echo "예약 줄 수: $(crontab -l | grep -c "# alphascope-ussample")"'
 ```
 
 결과 보기(표 + 한 줄 결론, 끝에 기록 로그 마지막 3줄):
 
 ```bash
-ssh alphascope 'cd ~/projects/alphascope/app && npm run -s ussample:report; tail -n 3 ~/projects/alphascope/data/cron.log 2>/dev/null'
+ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189 'cd ~/projects/alphascope/app && npm run -s ussample:report; tail -n 3 ~/projects/alphascope/data/cron.log 2>/dev/null'
 ```
 
 지우기(마지막에 「남은 예약 줄 수: 0」 — 기록 파일과 토큰 파일(`.toss-token.json`, 1시간 안에 만료)은 남습니다):
 
 ```bash
-ssh alphascope '(crontab -l 2>/dev/null | grep -v "# alphascope-ussample") | crontab - && echo "남은 예약 줄 수: $(crontab -l 2>/dev/null | grep -c "# alphascope-ussample")"'
+ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189 '(crontab -l 2>/dev/null | grep -v "# alphascope-ussample") | crontab - && echo "남은 예약 줄 수: $(crontab -l 2>/dev/null | grep -c "# alphascope-ussample")"'
 ```
 
 ## HTTPS 조사 (v2.61.1 · 2026-11-06 · 공식 자료만)

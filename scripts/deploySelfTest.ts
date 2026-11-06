@@ -357,9 +357,20 @@ console.log('━━━ 6. 사람에게 보여 주는 안내에도 「모두」 p
   const bad = hits.filter((f) => path.relative(root, f) !== path.join('deploy', 'README.md'));
   check(`src · server · scripts · deploy 에 pm2 「모두」 명령 글 없음(${files.length}개 파일)`, bad.length === 0, bad.map((f) => path.relative(root, f)).join(', '));
   const banner = fs.readFileSync(path.join(root, 'src/components/common/VersionMismatchBanner.tsx'), 'utf8');
-  check('버전 배너 오라클 안내 = ~/deploy.sh 한 줄(git pull · npm run build 글 없음)',
-    /오라클:[\s\S]*?<code[^>]*>~\/deploy\.sh<\/code>/.test(banner) && !/git pull|npm run build|npm install/.test(banner));
-  check('버전 배너 맥 안내(start.command 다시 실행)는 그대로', /맥: 실행 창을 닫고 <code[^>]*>start\.command<\/code> 를\s*다시 실행/.test(banner));
+  // 배포 자리 = deploy/paths.sh 의 SCRIPTS_DIR(~/projects/alphascope/scripts) + deploy.sh — 맥 안내 줄은 두지 않는다(맥에서 앱을 켜지 않음 · v2.61.4)
+  const bannerCodes = [...banner.matchAll(/<code[^>]*>([^<]*)<\/code>/g)].map((m) => m[1]);
+  check('버전 배너 안내 = 오라클 ~/projects/alphascope/scripts/deploy.sh 한 줄(git pull · npm run build 글 없음)',
+    bannerCodes.length === 1 && bannerCodes[0] === '~/projects/alphascope/scripts/deploy.sh' && /오라클:[\s\S]*?<code[^>]*>~\/projects\/alphascope\/scripts\/deploy\.sh<\/code>/.test(banner) && !/git pull|npm run build|npm install/.test(banner),
+    bannerCodes.join(' | '));
+  check('버전 배너 맥 안내 줄 없음(맥: · start.command 글 없음)', !/맥:|start\.command/.test(banner));
+  // 맥에는 `alphascope` 접속 이름(~/.ssh/config Host)이 없다 — 안내 명령은 열쇠 파일을 직접 적는다(v2.61.4)
+  const SSH_ALIAS_RE = /\bssh(\s+-[a-zA-Z]+)*\s+alphascope\b/;
+  const filesBeforeDocs = files.length;
+  walk(path.join(root, 'docs'));
+  const aliasHits = [...files, path.join(root, 'README.md')].filter((f) => fs.existsSync(f) && SSH_ALIAS_RE.test(fs.readFileSync(f, 'utf8')));
+  check('src · server · scripts · deploy · docs · README 에 맥에 없는 접속 이름(ssh 뒤 alphascope) 0곳', aliasHits.length === 0, aliasHits.map((f) => path.relative(root, f)).join(', ') || `${files.length - filesBeforeDocs}개 docs 파일 포함`);
+  const pathsSh = fs.readFileSync(path.join(DEPLOY_DIR, 'paths.sh'), 'utf8');
+  check('배너 경로 = deploy/paths.sh 의 SCRIPTS_DIR 자리', /^PROJECTS_ROOT="\$HOME\/projects"$/m.test(pathsSh) && /^PROJECT_DIR="\$PROJECTS_ROOT\/alphascope"$/m.test(pathsSh) && /^SCRIPTS_DIR="\$PROJECT_DIR\/scripts"$/m.test(pathsSh));
 }
 
 console.log('━━━ 7. nginx 설정 — 8080 https 하나 · 같은 문 http → https · 443 없음 · 80 은 확인 경로만 · 문 번호 · 주소 한 곳');

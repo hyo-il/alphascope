@@ -41,12 +41,8 @@ export default function VersionMismatchBanner() {
       {open && (
         <div id="version-mismatch-detail" className="mt-1.5 space-y-0.5 pl-7 text-caption text-warning/90">
           <p>
-            맥: 실행 창을 닫고 <code className="rounded bg-warning/15 px-1">start.command</code> 를
-            다시 실행
-          </p>
-          <p>
             오라클:{' '}
-            <code className="rounded bg-warning/15 px-1">~/deploy.sh</code> (오라클에 접속한 뒤 · AlphaScope 만 다시 켬)
+            <code className="rounded bg-warning/15 px-1">~/projects/alphascope/scripts/deploy.sh</code> (오라클에 접속한 뒤 · AlphaScope 만 다시 켬)
           </p>
         </div>
       )}

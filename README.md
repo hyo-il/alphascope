@@ -88,7 +88,7 @@ npm run diagnose          # 종합 진단 리포트(지표 엔진 필요)
 
 ## 배포 (오라클)
 
-빌드한 화면(dist)을 nginx 가 보내고, API·지표 엔진은 pm2 가 돌립니다. 배포는 `ssh alphascope '~/deploy.sh'` 한 줄입니다 — 자세한 것은 [`deploy/README.md`](deploy/README.md).
+빌드한 화면(dist)을 nginx 가 보내고, API·지표 엔진은 pm2 가 돌립니다. 배포는 `ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189 '~/projects/alphascope/scripts/deploy.sh'` 한 줄입니다 — 자세한 것은 [`deploy/README.md`](deploy/README.md).
 
 ## 구조
 

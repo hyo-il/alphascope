@@ -435,7 +435,7 @@ say "Vite 옛 파일 지움"
 
 echo ""
 echo "완료 — 새 자리 $PROJECT_DIR · 서버가 멈춘 시간 약 ${DOWN}초 · 주소 https://161.33.153.189:8080"
-echo "  · 배포: ~/projects/alphascope/scripts/deploy.sh   (맥에서: ssh alphascope '~/projects/alphascope/scripts/deploy.sh')"
+echo "  · 배포: ~/projects/alphascope/scripts/deploy.sh   (맥에서: ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189 '~/projects/alphascope/scripts/deploy.sh')"
 echo "  · 지우지 않은 것: $BACKUP_DIR (db · node24 · https · nginx) · $MB (되돌리기 준비 — .env 사본 · 옛 deploy.sh · backup.sh)"
 echo "  · 사용자가 지울 것(1주쯤 문제없으면): rm -rf $BACKUP_DIR/node24/alphascope-node24-backup-* $MB"
 echo "  · ~/setpw.sh 는 $SCRIPTS_DIR/setpw.sh 로 옮기기만 했습니다 — 안에 ~/alphascope 경로가 있으면 직접 새 자리($APP_DIR)로 고칩니다."
