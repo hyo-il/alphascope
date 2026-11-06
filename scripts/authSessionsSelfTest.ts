@@ -7,6 +7,8 @@
  *   · 식별값이 여러 세션에 맞으면 지우지 않는다(400) · 형식이 틀리면 400 · 없으면 404 · 기기 이름 판별.
  * - 오라클 8080(v2.60.5): nginx 가 `Host $http_host`(문 번호 포함)로 넘기는 요청 — Origin `http://161.33.153.189:8080` 의 로그인 · 지우기가 403 이 아니다 ·
  *   다른 주소(evil.example)는 403 · 문 번호를 뺀 Host(옛 `$host`)면 403 인 것도 확인(설정을 바꾼 이유).
+ * - 오라클 https(v2.61.1): nginx 443 이 `Host $http_host`(문 번호 없음) + `X-Forwarded-Proto https` 로 넘기는 요청 — Origin `https://161.33.153.189` 로그인 200 ·
+ *   쿠키에 `Secure` · 그 머리가 없으면(http) `Secure` 없음 · 다른 주소는 403.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import { TEST_SERVER_SWITCHES } from './lib/testServerEnv';
@@ -79,11 +81,12 @@ type Row = { id: string; device: string; createdAt: string; lastSeenAt: string; 
 const list = async (cookie: string) => ((await (await get(cookie)).json()) as { sessions: Row[] }).sessions;
 
 /** Host 머리를 직접 넣어 보낸다(fetch 는 Host 를 바꾸지 못한다) — nginx 뒤에서 서버가 받는 요청을 흉내 낸다 */
-function sendRaw(method: string, urlPath: string, headers: Record<string, string>, body?: string): Promise<{ status: number; setCookie: string }> {
+function sendRaw(method: string, urlPath: string, headers: Record<string, string>, body?: string): Promise<{ status: number; setCookie: string; cookieAttrs: string }> {
   return new Promise((resolve, reject) => {
     const req = http.request({ host: '127.0.0.1', port: PORT, method, path: urlPath, headers: { ...headers, ...(body ? { 'content-length': String(Buffer.byteLength(body)) } : {}) } }, (res) => {
       res.resume();
-      res.on('end', () => resolve({ status: res.statusCode ?? 0, setCookie: String(res.headers['set-cookie']?.[0] ?? '').split(';')[0] }));
+      const raw = String(res.headers['set-cookie']?.[0] ?? '');
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, setCookie: raw.split(';')[0], cookieAttrs: raw }));
     });
     req.on('error', reject);
     if (body) req.write(body);
@@ -119,6 +122,18 @@ try {
   const noPort = await sendRaw('POST', '/api/auth/login', { ...json, host: '161.33.153.189', origin: `http://${ORACLE}` }, loginBody);
   check('8080 — Host 에 문 번호가 없으면(옛 $host) 403 — 그래서 $http_host', noPort.status === 403, String(noPort.status));
   await sendRaw('DELETE', '/api/auth/sessions/' + ((await list(okLogin.setCookie)).find((r) => r.current)?.id ?? 'x'), { cookie: okLogin.setCookie });
+  check('8080(http) — 쿠키에 Secure 없음', okLogin.cookieAttrs.startsWith('as_session=') && !/;\s*Secure/i.test(okLogin.cookieAttrs), okLogin.cookieAttrs.replace(/as_session=[^;]+/, 'as_session=…'));
+
+  // ── 오라클 https(443) — nginx `Host $http_host` · `X-Forwarded-Proto $scheme` 가 넘기는 모양(브라우저는 443 에서 Host 에 문 번호를 넣지 않는다) ──
+  const HTTPS_HOST = '161.33.153.189';
+  const sLogin = await sendRaw('POST', '/api/auth/login', { ...json, host: HTTPS_HOST, origin: `https://${HTTPS_HOST}`, 'x-forwarded-proto': 'https' }, loginBody);
+  check('https — Origin https://161.33.153.189 + Host 161.33.153.189 로그인 → 200(403 아님)', sLogin.status === 200 && sLogin.setCookie.startsWith('as_session='), String(sLogin.status));
+  check('https — X-Forwarded-Proto https 면 쿠키에 Secure · HttpOnly · SameSite=Lax', /;\s*Secure(;|$)/.test(sLogin.cookieAttrs) && /HttpOnly/.test(sLogin.cookieAttrs) && /SameSite=Lax/.test(sLogin.cookieAttrs), sLogin.cookieAttrs.replace(/as_session=[^;]+/, 'as_session=…'));
+  const sDel = await sendRaw('DELETE', '/api/auth/sessions/000000000000', { cookie: sLogin.setCookie, host: HTTPS_HOST, origin: `https://${HTTPS_HOST}`, 'x-forwarded-proto': 'https' });
+  check('https — 로그인한 뒤 바꾸는 요청(DELETE)도 통과(없는 식별값 → 404, 403 아님)', sDel.status === 404, String(sDel.status));
+  const sEvil = await sendRaw('POST', '/api/auth/login', { ...json, host: HTTPS_HOST, origin: 'https://evil.example', 'x-forwarded-proto': 'https' }, loginBody);
+  check('https — 다른 주소(https://evil.example)에서 온 로그인은 403', sEvil.status === 403, String(sEvil.status));
+  await sendRaw('DELETE', '/api/auth/sessions/' + ((await list(sLogin.setCookie)).find((r) => r.current)?.id ?? 'x'), { cookie: sLogin.setCookie });
 
   const resA = await get(a);
   const raw = await resA.text();
