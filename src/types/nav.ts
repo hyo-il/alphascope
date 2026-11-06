@@ -30,6 +30,7 @@ export type NavPageId =
   | 'backtest'
   | 'records'
   | 'portfolio'
+  | 'asset'
   | 'settings-account'
   | 'settings-app'
   | 'settings-changelog';
@@ -184,8 +185,15 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: 'account',
     label: '계좌',
     shortLabel: '계좌',
-    // 모의투자는 별도 메뉴가 아니라 포트폴리오의 **계좌 선택**으로 들어갔다. 소메뉴 하나 → 바로 이동
-    pages: [{ id: 'portfolio', label: '계좌 관리', hidesSymbolHeader: true }],
+    /*
+      소메뉴 둘 — 대메뉴를 누르면 첫 소메뉴 「계좌 관리」 로 간다(대메뉴는 늘 첫 소메뉴 · `appStore.setGroup`). 펼침 모양은 다른 대메뉴(탐색 등)와 같다.
+      모의투자는 별도 메뉴가 아니라 계좌 관리의 **계좌 선택**으로 들어갔다.
+    */
+    pages: [
+      { id: 'portfolio', label: '계좌 관리', hidesSymbolHeader: true },
+      // 자산 관리(v2.61.0) — 자산 비밀번호로 잠근 화면 · 구글 시트에서 읽은 값(1단계 확인 표). 종목을 쓰지 않는다
+      { id: 'asset', label: '자산 관리', hidesSymbolHeader: true },
+    ],
   },
   {
     id: 'settings',

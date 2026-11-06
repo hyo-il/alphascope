@@ -37,6 +37,7 @@ import SideNav from './components/layout/SideNav';
 import WatchPanel from './components/layout/WatchPanel';
 import Settings from './components/layout/Settings';
 import Changelog from './components/settings/Changelog';
+import AssetView from './components/asset/AssetView';
 import { useCandleData } from './hooks/useCandleData';
 import { useOrderbook } from './hooks/useOrderbook';
 import { useIndicators } from './hooks/useIndicators';
@@ -419,6 +420,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         return (
           <PortfolioView onSelectSymbol={openChart} />
         );
+      case 'asset':
+        return <AssetView />;
       case 'settings-account':
         return <Settings isMock={isMock} engineDown={engineDown} section="account" />;
       case 'settings-app':

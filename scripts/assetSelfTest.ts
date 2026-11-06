@@ -26,6 +26,7 @@ import { assetRouter } from '../server/asset/routes';
 import { AssetSheetError, resetTokenCache } from '../server/asset/google';
 import { avgPriceOf, parseAssetSheet, readAssetSheet, resetSheetCache, sheetRanges, splitCode } from '../server/asset/sheet';
 import type { AssetSheetData } from '../src/types/asset';
+import { NAV_GROUPS, pageMeta } from '../src/types/nav';
 
 const PORT = 4107;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -420,6 +421,14 @@ check('[13] 이 시험의 출력에 가짜 금액 · 수량이 없다', leaked(p
 
 const changed = spawnSync('git', ['diff', '--name-only', '0a2dc10', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
 check('[14] 매매 · 시황 · 자동매매 코드 바뀐 파일 0(0a2dc10 와 지금 작업 트리)', changed.status === 0 && changed.stdout.trim() === '', changed.stdout.trim() || changed.stderr.trim());
+
+
+// [15] 메뉴 — 계좌 대메뉴의 소메뉴는 「계좌 관리」 · 「자산 관리」 순서 · 대메뉴를 누르면 첫 소메뉴(appStore.setGroup 이 pages[0] 으로 간다 — 화면 클릭은 Playwright 로도 확인)
+const accountGroup = NAV_GROUPS.find((g) => g.id === 'account');
+check('[15] 계좌 소메뉴 = 계좌 관리(portfolio) · 자산 관리(asset) 순서', JSON.stringify(accountGroup?.pages.map((p) => [p.id, p.label])) === JSON.stringify([['portfolio', '계좌 관리'], ['asset', '자산 관리']]));
+check('[15] 자산 관리는 상단 종목 헤더를 감춘다 · 종목이 없어도 열린다', pageMeta('asset')?.hidesSymbolHeader === true && !pageMeta('asset')?.needsSymbol);
+const storeSrc = fs.readFileSync(path.join(root, 'src/store/appStore.ts'), 'utf8');
+check('[15] 대메뉴를 누르면 첫 소메뉴로 간다(appStore.setGroup 이 pages[0]) → 「계좌」 = 「계좌 관리」', /setGroup: \(group\) => \{[\s\S]{0,400}?const landing = item\?\.pages\[0\]\?\.id;/.test(storeSrc) && accountGroup?.pages[0]?.id === 'portfolio');
 
 console.log(`\n결과: ${pass}개 통과 / ${fail}개 실패`);
 process.exit(fail ? 1 : 0);

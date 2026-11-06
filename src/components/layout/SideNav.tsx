@@ -118,7 +118,7 @@ export default function SideNav({
      */
     const current = group === item.id;
     /**
-     * 소메뉴가 하나뿐인 대메뉴(증시 일정·계좌)와 소메뉴가 없는 「홈」(누르면 고른 홈 화면 — `setGroup` → `goHome`) —
+     * 소메뉴가 하나뿐인 대메뉴(증시 일정)와 소메뉴가 없는 「홈」(누르면 고른 홈 화면 — `setGroup` → `goHome`) —
      * 소메뉴 줄·화살표 없이 대메뉴가 곧 그 화면이다. 접기 대상이 아니다.
      * `showSinglePage`(실험실)는 예외 — 소메뉴 하나여도 줄을 보이고 접을 수 있다.
      */
