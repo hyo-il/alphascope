@@ -23,6 +23,15 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.61.3',
+    date: '2026-11-06',
+    title: '내부 정리(오라클 서버 폴더 정리 · 주간 백업 — 화면 변화 없음)',
+    description: '서버 안의 폴더를 한 곳으로 정리했습니다. 화면에서 달라지는 것은 없습니다',
+    changes: [
+      '주간 DB 백업이 서버가 도는 중에도 빠짐없는 사본을 만들고, 사본이 온전한지 확인합니다',
+    ],
+  },
+  {
     version: 'v2.61.2',
     date: '2026-11-06',
     title: '주소가 https://161.33.153.189:8080 으로',
