@@ -23,6 +23,17 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.61.1',
+    date: '2026-11-06',
+    title: '주소가 https 로(암호화) — https://161.33.153.189',
+    description: '오라클 주소가 https(자물쇠)로 바뀌어 로그인 비밀번호 · 로그인 쿠키 · 화면 내용이 암호화되어 오갑니다',
+    changes: [
+      '새 주소: https://161.33.153.189 — 주소창에 자물쇠가 보입니다(무료 Let\'s Encrypt 인증서 · 약 3일마다 자동 갱신)',
+      '옛 주소 http://161.33.153.189:8080 은 같은 화면으로 https 로 넘어갑니다 — 즐겨찾기를 바꾸지 않아도 됩니다',
+      '로그인 쿠키에 Secure 가 붙어 https 에서만 오갑니다',
+    ],
+  },
+  {
     version: 'v2.61.0',
     date: '2026-11-06',
     title: '자산 관리(1단계): 자산 비밀번호로 잠그고, 구글시트에서 읽은 값을 확인',
