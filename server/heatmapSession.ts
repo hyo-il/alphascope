@@ -308,6 +308,16 @@ export async function regularSessionStart(market: CalendarMarket, tradeDay: stri
   return row ? marketDayTime(market, tradeDay, row[0] * 60_000) : null;
 }
 
+/**
+ * 토스 달력의 세션 칸 전부(전 · 오늘 · 다음 거래일 — 시작 순) — `heatmapSession` 과 **같은 캐시**를 읽기만 한다(v2.62.0).
+ * 토스 달력을 받지 못했으면(모의 · 실패) null — 고정표로 대신하지 않는다(부르는 쪽이 다음 확인에 다시 묻는다).
+ * 자산 관리 하루 기록(미국 애프터 끝 시각 · 다음 정규장 시작 — `server/asset/daily.ts`)이 쓴다.
+ */
+export async function sessionSpans(market: CalendarMarket, now = Date.now()): Promise<SessionSpan[] | null> {
+  const spans = await tossSpans(market, now);
+  return spans ? spans.map((s) => ({ ...s })) : null;
+}
+
 // ── 등락률 기준 ─────────────────────────────────────────────────────────────
 
 export interface BasisInfo {

@@ -26,7 +26,12 @@ import { authGuard } from '../server/authGuard';
 import { assetRouter } from '../server/asset/routes';
 import { AssetSheetError, resetTokenCache } from '../server/asset/google';
 import { avgPriceOf, linkedTickerRow, parseAssetSheet, readAssetSheet, resetSheetCache, sheetRanges, splitCode, writeAssetClass } from '../server/asset/sheet';
-import type { AssetSheetData } from '../src/types/asset';
+import type { AssetSheetData, AssetSummary, AssetTotals } from '../src/types/asset';
+import { computeAssetTotals, setAssetPriceSourceForTest, assetSummary, type PriceBook } from '../server/asset/summary';
+import { readSectionSettings, writeSectionSettings } from '../server/asset/settings';
+import { clearRecordsForTest, historyPoints, latestRecord } from '../server/asset/store';
+import { dailyTick } from '../server/asset/daily';
+import { setSessionHooksForTest, type TossCalendarResponse } from '../server/heatmapSession';
 import { NAV_GROUPS, pageMeta } from '../src/types/nav';
 
 const PORT = 4107;
@@ -219,6 +224,9 @@ function fakeSheet(): { values: Record<string, Cell>; formulas: Record<string, C
     '티커!B16': '가짜 국내주', '티커!C16': '005930', '티커!D16': '채권',
     '티커!B17': 'KODEX 미국S&P500', '티커!C17': '0072R0', '티커!D17': '부동산', // 이름 띄어쓰기가 보유 줄과 다르다 · 알 수 없는 분류
     '티커!B19': '적립식 투자',
+    '티커!B20': '가짜 금 ETF', '티커!C20': '411060', '티커!D20': '금',
+    '티커!B21': '가짜 연금 주식', '티커!C21': '360750', '티커!D21': '주식',
+    '티커!B22': '가짜 MMF', '티커!C22': '455890', '티커!D22': '현금',
     // 넣기 전 자리(E · F)에 엉뚱한 값 — 옛 주소로 읽으면 틀린다
     '티커!F9': 1.11,
     '주식 투자 정리!B3': '내 계좌 정보',
@@ -231,6 +239,11 @@ function fakeSheet(): { values: Record<string, Cell>; formulas: Record<string, C
     '주식 투자 정리!B5': '가짜 미국주', '주식 투자 정리!C5': Number(FAKE.usd) * FAKE.fx, '주식 투자 정리!D5': FAKE.qtyA,
     '주식 투자 정리!B6': 'KODEX 미국 S&P500', '주식 투자 정리!C6': FAKE.krw, '주식 투자 정리!D6': FAKE.qtyB,
     '주식 투자 정리!B8': '이을 수식 없는 줄', '주식 투자 정리!C8': 1000, '주식 투자 정리!D8': 1,
+    '주식 투자 정리!B9': '가짜 MMF', '주식 투자 정리!C9': 99000, '주식 투자 정리!D9': 1,
+    // 적립식 · ISA · 연금 저축 — 106차 계산 시험
+    '주식 투자 정리!B13': '가짜 국내주', '주식 투자 정리!C13': 60000, '주식 투자 정리!D13': 10,
+    '주식 투자 정리!B22': '가짜 금 ETF', '주식 투자 정리!C22': 14000, '주식 투자 정리!D22': 4,
+    '주식 투자 정리!B30': '가짜 연금 주식', '주식 투자 정리!C30': 25000, '주식 투자 정리!D30': 5,
     // 합계 표
     '주식 투자 정리!B39': '가짜 국내주', '주식 투자 정리!C39': 70000, '주식 투자 정리!D39': 2,
     '자산 투자 비율 관리!B18': '자산 배분 비율',
@@ -243,6 +256,10 @@ function fakeSheet(): { values: Record<string, Cell>; formulas: Record<string, C
   const f: Record<string, Cell> = { ...v,
     '주식 투자 정리!C5': `=(${FAKE.usd})*('티커'!$G$9)`, '주식 투자 정리!F5': "=D5*'티커'!$F$15",
     '주식 투자 정리!F6': "=D6*'티커'!$F$17",
+    '주식 투자 정리!F9': "=D9*'티커'!$F$22",
+    '주식 투자 정리!F13': "=D13*'티커'!$F$16",
+    '주식 투자 정리!F22': "=D22*'티커'!$F$20",
+    '주식 투자 정리!F30': "=D30*'티커'!$F$21",
     '주식 투자 정리!F39': "=D39*'티커'!$F$16",
   };
   return { values: v, formulas: f };
@@ -329,6 +346,10 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
 /** 이 블록에서 찍힌 console 출력(서버 코드의 경고 포함) — 13 */
 const captured: string[] = [];
 const origLog = { log: console.log, warn: console.warn, error: console.error };
+// [106-11] 하루 기록 로그(console.log)도 검사한다 — 아래 하루 기록 블록에서만 바꿔 끼운다
+const logged: string[] = [];
+/** [106-11] 계산한 총 자산 · 분류 금액(가짜 값) — 출력 · 로그에 나오면 안 된다 */
+const totalsSecret: string[] = [];
 for (const k of ['warn', 'error'] as const) console[k] = (...args: unknown[]) => { captured.push(args.map(String).join(' ')); origLog[k](...args); };
 
 const fresh = () => { resetSheetCache(); resetTokenCache(); google = { token: 0, values: 0, formulas: 0, writes: 0 }; writesSeen = []; mode = 'ok'; sheetModel = fakeSheet(); };
@@ -467,6 +488,148 @@ try {
   check('[106-7] ASSET_SYNC_ENABLED=false → disabled · 구글 호출 0(토큰도 받지 않음)', (await kindOf(writeAssetClass(15, '금'))) === 'disabled' && google.token === 0 && google.writes === 0);
   process.env.ASSET_SYNC_ENABLED = 'true';
 
+  // ── 106차 B — 총 자산 계산(가짜 시트 · 가짜 가격) ─────────────────────
+  fresh();
+  const sheetData = await readAssetSheet();
+  const PRICE: Record<string, number> = { NVDA: 200, '0072R0': 20000, '005930': 70000, '411060': 15000, '360750': 30000, '455890': 100000 };
+  const FX_NOW = 1400;
+  const book = (over: Partial<Record<string, number | null>> = {}, fx: number | null = FX_NOW): PriceBook => {
+    const prices = new Map<string, number>();
+    for (const [k, v] of Object.entries({ ...PRICE, ...over })) if (v != null) prices.set(k, v);
+    return { prices, usdKrw: fx };
+  };
+  const DEF = { pensionSections: ['연금 저축 계좌'], satelliteSections: ['개별 투자'] };
+  // 줄마다 평가(원) — 시험 안에서만 쓴다(출력하지 않는다)
+  const v5 = 3.5 * 200 * FX_NOW; // 개별 · 미국 · 주식 → 위성
+  const v6 = 12 * 20000; // 개별 · 알 수 없는 분류 → 분류 없음
+  const v9 = 1 * 100000; // 개별 · 현금 분류 → 현금(위성 아님)
+  const v13 = 10 * 70000; // 적립식 · 채권
+  const v22 = 4 * 15000; // ISA · 금
+  const v30 = 5 * 30000; // 연금 저축 · 주식 → 코어(연금 포함일 때만)
+  const v39 = 2 * 70000; // 합친 표 — 더하지 않는다
+  const near = (a: number | null | undefined, b: number) => a != null && Math.abs(a - b) < 1e-6;
+  const grp = (t: AssetTotals, k: string) => t.groups.find((g) => g.key === k)?.amount;
+  const off = computeAssetTotals(sheetData, book(), DEF, false);
+  const on = computeAssetTotals(sheetData, book(), DEF, true);
+  const plainTotal = FAKE.cash + v5 + v6 + v9 + v13 + v22;
+  for (const n of [plainTotal, plainTotal + v30 + FAKE.retirement, FAKE.cash + v9]) totalsSecret.push(String(Math.round(n)), Math.round(n).toLocaleString('en-US'));
+  check('[106-3] 총 자산 = 현금 C25 + 계좌 구간 평가 — 39~44행 합친 표는 더하지 않는다(이중 계산 없음)', near(off.totals.total, plainTotal) && !near(off.totals.total, plainTotal + v39));
+  check('[106-3] 분류별 합 = 총 자산(합친 표 줄이 어느 분류에도 없다)', near(off.totals.groups.reduce((a, g) => a + g.amount, 0), off.totals.total));
+  check('[106-4] 연금 꺼짐 → 연금 구간 보유 · 퇴직 연금(C30) 빠짐 · 퇴직 연금 칸 없음', near(off.totals.total, plainTotal) && !off.totals.groups.some((g) => g.key === 'retirement'));
+  check('[106-4] 연금 켜짐 → 연금 구간 보유 + 퇴직 연금을 더함(퇴직 연금은 따로 한 칸)', near(on.totals.total, plainTotal + v30 + FAKE.retirement) && near(grp(on.totals, 'retirement'), FAKE.retirement));
+  const isaPension = { ...DEF, pensionSections: ['ISA 계좌'] };
+  const offIsa = computeAssetTotals(sheetData, book(), isaPension, false);
+  check('[106-4] 연금 구간 설정을 ISA 로 바꾸면 그대로 따라감(꺼짐 → ISA 빠지고 연금 저축은 더함)', near(offIsa.totals.total, FAKE.cash + v5 + v6 + v9 + v13 + v30));
+  check('[106-4-1] 분류 주식 + 개별 투자 = 위성 · 그 밖 구간 주식 = 코어(연금 포함일 때 연금 저축 주식)', near(on.totals.satellite, v5) && near(on.totals.core, v30) && near(off.totals.core, 0) && near(off.totals.satellite, v5));
+  check('[106-4-1] 채권 · 금 · 현금 분류는 어느 구간이든 코어/위성에 안 들어감(개별 투자의 현금 분류 줄도)', near(grp(on.totals, 'stock'), v5 + v30) && near(on.totals.core + on.totals.satellite, v5 + v30) && near(grp(on.totals, 'cash'), FAKE.cash + v9) && near(grp(on.totals, 'bond'), v13) && near(grp(on.totals, 'gold'), v22));
+  const sat2 = computeAssetTotals(sheetData, book(), { ...DEF, satelliteSections: ['개별 투자', '연금 저축 계좌'] }, true);
+  check('[106-4-1] 위성 구간 설정을 바꾸면 따라감(연금 저축 → 위성)', near(sat2.totals.satellite, v5 + v30) && near(sat2.totals.core, 0));
+  check('[106-4] [106-2] 알 수 없는 분류(부동산)는 계산에서 분류 없음 · 개수 1', near(grp(off.totals, 'none'), v6) && off.unknownClassCount === 1);
+  // [106-5] 미국 — 평가 × 토스 환율 · 매입 × G9
+  const onlyUs = { ...sheetData, sections: sheetData.sections.map((x, i) => ({ ...x, holdings: i === 0 ? x.holdings.filter((h) => h.row === 5) : [] })) };
+  const us1 = computeAssetTotals(onlyUs, book(), DEF, false);
+  check('[106-5] 미국 평가 = 수량 × 토스 가격 × 토스 환율', near(us1.totals.total - FAKE.cash, 3.5 * 200 * FX_NOW));
+  check('[106-5] 미국 매입 = 수량 × 달러 평균가 × G9(구매 평균 환율) — 평가 손익 · 비율', near(us1.profit?.amount, 3.5 * 200 * FX_NOW - 3.5 * Number(FAKE.usd) * FAKE.fx) && near(us1.profit?.ratio, (3.5 * 200 * FX_NOW) / (3.5 * Number(FAKE.usd) * FAKE.fx) - 1));
+  const usNoFx = computeAssetTotals(onlyUs, book({}, null), DEF, false);
+  check('[106-5] [106-6] 토스 환율이 없으면 미국 줄은 가격 못 받음(원화로 짐작하지 않는다)', usNoFx.totals.missing === 1 && near(usNoFx.totals.total, FAKE.cash));
+  // [106-6] 가격 못 받은 줄
+  const miss = computeAssetTotals(sheetData, book({ '411060': null }), DEF, false);
+  check('[106-6] 가격 못 받은 줄은 총 자산에서 빠지고 개수 · 이름이 보인다(이을 수식 없는 줄 포함)', near(miss.totals.total, plainTotal - v22) && miss.totals.missing === 2 && miss.missingNames.includes('가짜 금 ETF') && miss.missingNames.includes('이을 수식 없는 줄'));
+  check('[106-6] 가격을 다 받으면 못 받은 줄은 이을 수식 없는 줄 1개뿐', off.totals.missing === 1);
+
+  // 설정 저장(app_settings) — 기본 · 바꾸기 · 모르는 구간 거절
+  getDb().prepare(`DELETE FROM app_settings WHERE key IN ('asset.pensionSections', 'asset.satelliteSections')`).run();
+  check('[106-4] 설정 기본값 = 연금 [연금 저축 계좌] · 위성 [개별 투자]', JSON.stringify(readSectionSettings()) === JSON.stringify(DEF));
+  check('[106-4] 설정 바꾸기 — 시트 순서로 저장 · 모르는 구간 · 배열 아님은 거절', JSON.stringify(writeSectionSettings({ pensionSections: ['연금 저축 계좌', 'ISA 계좌'] })?.pensionSections) === JSON.stringify(['ISA 계좌', '연금 저축 계좌']) && writeSectionSettings({ satelliteSections: ['없는 구간'] }) === null && writeSectionSettings({ pensionSections: '연금 저축 계좌' }) === null && writeSectionSettings({}) === null);
+  writeSectionSettings(DEF);
+
+  // ── [106-9] 하루 기록 — 가짜 시계 · 가짜 달력 · 가짜 가격 ─────────────
+  const savedToss = { id: process.env.TOSS_CLIENT_ID, secret: process.env.TOSS_CLIENT_SECRET };
+  process.env.TOSS_CLIENT_ID = 'selftest-not-real';
+  process.env.TOSS_CLIENT_SECRET = 'selftest-not-real';
+  setAssetPriceSourceForTest(async () => book());
+  console.log = (...args: unknown[]) => { logged.push(args.map(String).join(' ')); origLog.log(...args); };
+  type Range2 = [string, string];
+  const range = ([s0, e0]: Range2) => ({ startTime: s0, endTime: e0 });
+  /** 가짜 토스 달력 — 날마다 [미국 정규 · 애프터] · [국내 정규] (시각은 한국 시간 +09:00) */
+  const calendar = (us: { date: string; reg: Range2; after: Range2 }[], kr: { date: string; reg: Range2 }[]) => async (market: string): Promise<TossCalendarResponse> => {
+    const days = market === 'US' ? us.map((d) => ({ date: d.date, regularMarket: range(d.reg), afterMarket: range(d.after) })) : kr.map((d) => ({ date: d.date, integrated: { regularMarket: range(d.reg) } }));
+    return { result: { previousBusinessDay: days[0] ?? null, today: days[1] ?? null, nextBusinessDay: days[2] ?? null } };
+  };
+  const at = (iso: string) => Date.parse(iso);
+  const k = (d: string, hm: string) => `${d}T${hm}:00+09:00`;
+  const usDay = (date: string, regS: string, regE: string, aftE: string, nextDate: string) => ({ date, reg: [k(date, regS), k(nextDate, regE)] as Range2, after: [k(nextDate, regE), k(nextDate, aftE)] as Range2 });
+  const krDay = (date: string) => ({ date, reg: [k(date, '09:00'), k(date, '15:30')] as Range2 });
+  const count = () => (getDb().prepare(`SELECT COUNT(*) AS n FROM asset_daily`).get() as { n: number }).n;
+  clearRecordsForTest();
+
+  // 서머타임(EDT) — 애프터 끝 08:50 KST(국내 정규장 전) → 그 시각에 기록
+  setSessionHooksForTest({ calendar: calendar([usDay('2026-10-22', '22:30', '05:00', '08:50', '2026-10-23'), usDay('2026-10-23', '22:30', '05:00', '08:50', '2026-10-24'), usDay('2026-10-26', '22:30', '05:00', '08:50', '2026-10-27')], [krDay('2026-10-22'), krDay('2026-10-23'), krDay('2026-10-26')]) });
+  const t1 = await dailyTick(at(k('2026-10-23', '08:40')));
+  const t2 = await dailyTick(at(k('2026-10-23', '08:55')));
+  const t3 = await dailyTick(at(k('2026-10-23', '09:30')));
+  check('[106-9] 서머타임 — 애프터 끝(08:50 KST) 전에는 쓰지 않고 · 끝난 뒤 1번 · 그날 거래일(10-22)로', t1 !== 'recorded' && t2 === 'recorded' && latestRecord()?.day === '2026-10-22' && count() === 1, `${t1} ${t2}`);
+  check('[106-9] 같은 날 두 번 쓰지 않는다', t3 === 'done-already' && count() === 1, t3);
+  const rec = latestRecord();
+  check('[106-9] 기록 = 총 자산(연금 뺌) · 연금 포함 · 분류별 · 코어 · 위성 · 가격 못 받은 줄 수', rec != null && near(rec.total, off.totals.total) && near(rec.totalPension, on.totals.total) && near(rec.pension.core, v30) && near(rec.plain.satellite, v5) && rec.missing === 1 && rec.plain.groups.length === 5);
+
+  // 서머타임 아님(EST) — 애프터 끝 09:50 KST 가 국내 정규장 안 → 국내 정규장 끝(15:30)까지 미룸
+  setSessionHooksForTest({ calendar: calendar([usDay('2026-11-04', '23:30', '06:00', '09:50', '2026-11-05'), usDay('2026-11-05', '23:30', '06:00', '09:50', '2026-11-06'), usDay('2026-11-06', '23:30', '06:00', '09:50', '2026-11-07')], [krDay('2026-11-05'), krDay('2026-11-06'), krDay('2026-11-09')]) });
+  const w1 = await dailyTick(at(k('2026-11-06', '10:00')));
+  const w2 = await dailyTick(at(k('2026-11-06', '15:35')));
+  check('[106-9] 서머타임 아님 — 애프터 끝(09:50 KST)이 국내 정규장 안이면 쓰지 않고 국내 정규장 끝(15:30) 뒤 1번', w1 === 'not-yet' && w2 === 'recorded' && latestRecord()?.day === '2026-11-05', `${w1} ${w2}`);
+
+  // 서버 재시작 — 꺼져 있던 동안의 그날 것은 켜진 뒤 한 번(토요일 — 국내 휴장 → 애프터 끝 그대로) · 다음 정규장 시작 뒤에는 쓰지 않음
+  setSessionHooksForTest({ calendar: calendar([usDay('2026-11-05', '23:30', '06:00', '09:50', '2026-11-06'), usDay('2026-11-06', '23:30', '06:00', '09:50', '2026-11-07'), usDay('2026-11-09', '23:30', '06:00', '09:50', '2026-11-10')], [krDay('2026-11-05'), krDay('2026-11-06'), krDay('2026-11-09')]) });
+  const before = count();
+  const late = await dailyTick(at(k('2026-11-10', '00:10'))); // 11-09 정규장(23:30)이 이미 시작 — 11-06 은 지난 날
+  check('[106-9] 서버 재시작 — 다음 미국 정규장이 시작한 뒤에는 지난 날(11-06)을 채우지 않는다', late === 'expired' && count() === before, late);
+  const r1 = await dailyTick(at(k('2026-11-07', '20:00'))); // 토요일 저녁에 켜짐 — 11-06 애프터는 09:50 에 끝났다
+  check('[106-9] 서버 재시작 — 켜진 뒤 그날 것(11-06)을 한 번(국내 휴장일이라 미루지 않음)', r1 === 'recorded' && latestRecord()?.day === '2026-11-06' && count() === before + 1, r1);
+  check('[106-9] 다시 켜도(같은 날) 또 쓰지 않는다', (await dailyTick(at(k('2026-11-08', '12:00')))) === 'done-already' && count() === before + 1);
+
+  // 휴장(미국 추수감사절 11-26 — 달력에 그 날 칸이 없다) → 11-25 기록 뒤 11-26 것은 없다
+  setSessionHooksForTest({ calendar: calendar([usDay('2026-11-24', '23:30', '06:00', '09:50', '2026-11-25'), usDay('2026-11-25', '23:30', '06:00', '09:50', '2026-11-26'), usDay('2026-11-27', '23:30', '03:00', '06:50', '2026-11-28')], [krDay('2026-11-25'), krDay('2026-11-26'), krDay('2026-11-27')]) });
+  const h1 = await dailyTick(at(k('2026-11-26', '15:40')));
+  const h2 = await dailyTick(at(k('2026-11-27', '15:40')));
+  check('[106-9] 휴장 — 11-25 기록 뒤 미국 휴장일(11-26)은 기록하지 않는다(같은 11-25 로 두 번 쓰지 않음)', h1 === 'recorded' && latestRecord()?.day === '2026-11-25' && h2 === 'done-already', `${h1} ${h2}`);
+
+  // 스위치 꺼짐 · 모의 모드 · 가격 하나도 못 받음
+  clearRecordsForTest();
+  setSessionHooksForTest({ calendar: calendar([usDay('2026-10-22', '22:30', '05:00', '08:50', '2026-10-23'), usDay('2026-10-23', '22:30', '05:00', '08:50', '2026-10-24'), usDay('2026-10-26', '22:30', '05:00', '08:50', '2026-10-27')], [krDay('2026-10-22'), krDay('2026-10-23'), krDay('2026-10-26')]) });
+  process.env.ASSET_SYNC_ENABLED = 'false';
+  resetSheetCache();
+  google = { token: 0, values: 0, formulas: 0, writes: 0 };
+  const s1 = await dailyTick(at(k('2026-10-23', '09:00')));
+  check('[106-9] ASSET_SYNC_ENABLED=false → 하루 기록 안 함 · 시트도 읽지 않음', s1 === 'off' && count() === 0 && google.values === 0, s1);
+  process.env.ASSET_SYNC_ENABLED = 'true';
+  process.env.TOSS_CLIENT_ID = '';
+  check('[106-9] 모의 데이터 모드(토스 키 없음) → 하루 기록 안 함', (await dailyTick(at(k('2026-10-23', '09:00')))) === 'off' && count() === 0);
+  process.env.TOSS_CLIENT_ID = 'selftest-not-real';
+  setAssetPriceSourceForTest(async () => ({ prices: new Map(), usdKrw: null }));
+  const np = await dailyTick(at(k('2026-10-23', '09:00')));
+  check('[106-9] 가격을 하나도 못 받으면 쓰지 않고 다음 확인에 다시', np === 'no-prices' && count() === 0, np);
+  setAssetPriceSourceForTest(async () => book());
+  check('[106-9] 다음 확인에 가격을 받으면 그때 쓴다', (await dailyTick(at(k('2026-10-23', '09:05')))) === 'recorded' && count() === 1);
+  check('[106-11] 하루 기록 로그 = 「하루 기록 완료 · 가격 못 받음 N줄」 뿐(금액 없음)', logged.filter((l) => l.startsWith('[asset]')).every((l) => /^\[asset\] 하루 기록 완료 · 가격 못 받음 \d+줄$/.test(l)) && logged.some((l) => l.startsWith('[asset] 하루 기록 완료')));
+
+  // 어제보다 · 하루 기록 차트
+  setAssetPriceSourceForTest(async () => book({ NVDA: 210 }));
+  const sumNow = await assetSummary(false);
+  check('[106-9] 어제보다 = 지금 총 자산 − 가장 최근 하루 기록(같은 연금 갈래) · 그 날짜', sumNow.vsLast?.day === '2026-10-22' && near(sumNow.vsLast?.amount, 3.5 * 10 * FX_NOW) && sumNow.includePension === false);
+  const sumPension = await assetSummary(true);
+  check('[106-4] summary — 연금 포함이면 퇴직 연금 칸 · 연금 포함 기록과 견줌', sumPension.totals.groups.some((g) => g.key === 'retirement') && near(sumPension.vsLast?.amount, 3.5 * 10 * FX_NOW));
+  getDb().prepare(`INSERT INTO asset_daily (day, total, total_pension, totals_json, missing, recorded_at) VALUES ('2025-01-02', 1, 2, ?, 0, '2025-01-03T00:00:00Z')`).run(JSON.stringify({ plain: off.totals, pension: on.totals }));
+  const nowRef = at(k('2026-10-24', '12:00'));
+  check('[106-13] 하루 기록 기간 — 1m 은 최근 것만 · all 은 모두 · 날짜 순 · 연금 갈래', historyPoints('1m', false, nowRef).length === 1 && historyPoints('all', false, nowRef).map((p) => p.day).join(',') === '2025-01-02,2026-10-22' && historyPoints('all', true, nowRef)[0].total === 2);
+  setSessionHooksForTest({ calendar: null });
+  setAssetPriceSourceForTest(async () => book());
+  console.log = origLog.log;
+  process.env.TOSS_CLIENT_ID = savedToss.id;
+  process.env.TOSS_CLIENT_SECRET = savedToss.secret;
+  if (savedToss.id === undefined) delete process.env.TOSS_CLIENT_ID;
+  if (savedToss.secret === undefined) delete process.env.TOSS_CLIENT_SECRET;
+
   // 주소 그대로 — 로그인 문지기 + 자산 문지기 + 라우트(이 프로세스 안)
   fresh();
   const app = express();
@@ -491,6 +654,14 @@ try {
   check('[106-7] (안쪽 서버) 풀린 뒤 PUT /api/asset/class → 200 · 다시 읽은 시트 값', putOk.status === 200 && putBody.sections[0].holdings.find((h) => h.row === 5)?.assetClass === '금' && google.writes === 1);
   const putBad = await putClass({ row: 14, assetClass: '금' });
   const putFormula = (sheetModel.formulas['티커!D16'] = '=X1', await putClass({ row: 16, assetClass: '금' }));
+  const sumRes = await fetch(`${base}/api/asset/summary?pension=1`, { headers: ck });
+  const sumBody = (await sumRes.json()) as AssetSummary;
+  const histRes = await fetch(`${base}/api/asset/history?range=all&pension=0`, { headers: ck });
+  const badRange = await fetch(`${base}/api/asset/history?range=2y`, { headers: ck });
+  const putSettings = (body: unknown) => fetch(`${base}/api/asset/settings`, { method: 'PUT', headers: { ...ck, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const setOk = await putSettings({ satelliteSections: ['개별 투자'] });
+  const setBad = await putSettings({ satelliteSections: ['없는 구간'] });
+  check('[106-10] (안쪽 서버) 풀린 뒤 summary 200(연금 포함) · history 200 · 기간 틀림 400 · settings 200 / 모르는 구간 400', sumRes.status === 200 && sumBody.includePension === true && Array.isArray(sumBody.sectionKeys) && histRes.status === 200 && badRange.status === 400 && setOk.status === 200 && setBad.status === 400);
   check('[106-7] (안쪽 서버) 구분 줄 400 not-editable · 수식 칸 409 formula-cell · 쓰기 늘지 않음', putBad.status === 400 && ((await putBad.json()) as { kind?: string }).kind === 'not-editable' && putFormula.status === 409 && google.writes === 1);
   resetSheetCache();
   sheetModel.values['티커!B12'] = '바뀐 머리';
@@ -504,7 +675,10 @@ try {
 } finally {
   console.warn = origLog.warn;
   console.error = origLog.error;
+  console.log = origLog.log;
   globalThis.fetch = realFetch;
+  setSessionHooksForTest({ calendar: null });
+  setAssetPriceSourceForTest(null);
   fs.rmSync(tmp, { recursive: true, force: true });
   getDb().prepare(`DELETE FROM auth_sessions`).run();
 }
@@ -531,6 +705,8 @@ check('[106-8] 실제 구글 호출 0 — 이 시험의 googleapis 요청은 모
 const leaked = (textAll: string) => SECRET_STRINGS.filter((x) => textAll.includes(x));
 check('[13] 서버 로그(시험 서버) · 안쪽 경고 출력에 가짜 금액 · 수량이 없다', leaked(serverLog + captured.join('\n')).length === 0 && captured.some((l) => l.includes('[asset] 시트 읽기 실패: shape')));
 check('[13] 이 시험의 출력에 가짜 금액 · 수량이 없다', leaked(printed.join('\n')).length === 0);
+const allOut = [serverLog, captured.join('\n'), logged.join('\n'), printed.join('\n')].join('\n');
+check('[106-11] 로그 · 시험 출력에 계산한 총 자산 · 분류 금액이 없다(출력 문자열 검사)', totalsSecret.length > 0 && totalsSecret.every((x) => !allOut.includes(x)) && leaked(allOut).length === 0);
 
 const changed = spawnSync('git', ['diff', '--name-only', '0a2dc10', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
 check('[14] 매매 · 시황 · 자동매매 코드 바뀐 파일 0(0a2dc10 와 지금 작업 트리)', changed.status === 0 && changed.stdout.trim() === '', changed.stdout.trim() || changed.stderr.trim());

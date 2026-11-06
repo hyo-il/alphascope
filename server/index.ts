@@ -193,6 +193,7 @@ import { analyzeNews, getNews } from './news';
 import { marketBriefTick } from './marketBrief/service';
 import { marketBriefRouter } from './marketBrief/routes';
 import { assetRouter } from './asset/routes';
+import { startAssetDailyScheduler } from './asset/daily';
 import { fail } from './apiError';
 
 /**
@@ -1979,6 +1980,9 @@ app.listen(port, host, () => {
 
   // 거래정지(실험실) — 평일 04:00~20:00 ET 1분마다 Nasdaq RSS. US_HALTS_ENABLED=false 면 받지 않는다
   startUsHaltsScheduler();
+
+  // 자산 하루 기록 — 미국 애프터 끝난 뒤(두 시장 모두 닫힌 때) 1번. ASSET_SYNC_ENABLED=false · 시트 연결 정보 없음이면 하지 않는다
+  startAssetDailyScheduler();
 
   // 앱이 꺼져 있던 구간의 모의투자 스냅샷을 채우고, 이후 하루 한 번 기록한다.
   // 지정 종목 Gemini 분석(하루 1번, 미국 마감+30분 뒤)도 같은 10분 확인에 얹는다 — 새 타이머 없음

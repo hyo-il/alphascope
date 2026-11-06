@@ -10,6 +10,9 @@ import { assetLimiter, isAssetPasswordSet, isUnlocked, lockSession, unlockSessio
 import { isSheetConfigured } from './config';
 import { AssetSheetError } from './google';
 import { readAssetSheet, writeAssetClass } from './sheet';
+import { assetSummary } from './summary';
+import { historyPoints, isHistoryRange } from './store';
+import { writeSectionSettings } from './settings';
 import type { AssetSheetErrorKind, AssetSheetFailure, AssetStatus } from '../../src/types/asset';
 
 export const assetRouter = Router();
@@ -88,6 +91,29 @@ assetRouter.put('/api/asset/class', async (req, res) => {
   } catch (e) {
     sendSheetError(res, e, '쓰기');
   }
+});
+
+/** 총 자산 · 분류별 · 코어/위성 · 어제보다 — 화면이 열린 동안 10초마다(시트는 30초 캐시 · 가격은 토스 /prices 한 번 + 환율 60초 캐시) */
+assetRouter.get('/api/asset/summary', async (req, res) => {
+  try {
+    res.json(await assetSummary(req.query.pension === '1'));
+  } catch (e) {
+    sendSheetError(res, e, '읽기');
+  }
+});
+
+/** 하루 기록 — 총 자산 선 차트(기간 1m · 3m · 1y · all) */
+assetRouter.get('/api/asset/history', (req, res) => {
+  const range = req.query.range ?? '1m';
+  if (!isHistoryRange(range)) return res.status(400).json({ error: '기간은 1m · 3m · 1y · all 중 하나입니다.' });
+  res.json({ range, points: historyPoints(range, req.query.pension === '1') });
+});
+
+/** 연금 구간 · 위성 구간 설정 — `{ pensionSections?, satelliteSections? }`(구간 key 목록) */
+assetRouter.put('/api/asset/settings', (req, res) => {
+  const saved = writeSectionSettings(req.body);
+  if (!saved) return res.status(400).json({ error: '구간 설정이 올바르지 않습니다.' });
+  res.json(saved);
 });
 
 /** 이유 종류 → HTTP — 이 서버 설정(연결 정보 · 열쇠 · 스위치)은 503, 요청이 틀림은 400, 수식 칸은 409, 구글 쪽은 502 */
