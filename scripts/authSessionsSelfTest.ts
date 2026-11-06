@@ -5,10 +5,9 @@
  * - 사본 DB 의 비밀번호를 시험용으로 바꾸고 세션을 모두 지운다(사본만 — 사용자 DB 는 건드리지 않는다).
  * - 목록에 토큰 · 해시 전체 · user_agent 원문이 없다 · 다른 세션 하나만 지워진다 · 이 기기를 지우면 다음 요청이 401 · 로그인하지 않은 요청은 401
  *   · 식별값이 여러 세션에 맞으면 지우지 않는다(400) · 형식이 틀리면 400 · 없으면 404 · 기기 이름 판별.
- * - 오라클 8080(v2.60.5): nginx 가 `Host $http_host`(문 번호 포함)로 넘기는 요청 — Origin `http://161.33.153.189:8080` 의 로그인 · 지우기가 403 이 아니다 ·
- *   다른 주소(evil.example)는 403 · 문 번호를 뺀 Host(옛 `$host`)면 403 인 것도 확인(설정을 바꾼 이유).
- * - 오라클 https(v2.61.1): nginx 443 이 `Host $http_host`(문 번호 없음) + `X-Forwarded-Proto https` 로 넘기는 요청 — Origin `https://161.33.153.189` 로그인 200 ·
- *   쿠키에 `Secure` · 그 머리가 없으면(http) `Secure` 없음 · 다른 주소는 403.
+ * - 오라클 https 8080(v2.61.2 — 주소 `https://161.33.153.189:8080`): nginx 가 `Host $http_host`(문 번호 포함) + `X-Forwarded-Proto https` 로 넘기는 요청 —
+ *   Origin `https://161.33.153.189:8080` 의 로그인 · 지우기가 403 이 아니다 · 쿠키에 `Secure` · 다른 주소(evil.example)는 403 ·
+ *   문 번호를 뺀 Host(옛 `$host`)면 403 인 것도 확인(설정을 바꾼 이유) · `X-Forwarded-Proto` 가 없으면(http) `Secure` 없음.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import { TEST_SERVER_SWITCHES } from './lib/testServerEnv';
@@ -109,31 +108,26 @@ try {
   const foreign = await fetch(`${BASE}/api/auth/sessions/000000000000`, { method: 'DELETE', headers: { cookie: a, origin: 'http://evil.example' } });
   check('/api 응답은 Cache-Control: no-store(열린 주소 · 401 · 403 · 로그인 응답 모두)', foreign.status === 403 && [ver, unauth, foreign, authed].every((r) => r.headers.get('cache-control') === 'no-store'), [ver, unauth, foreign, authed].map((r) => `${r.status}:${r.headers.get('cache-control')}`).join(' / '));
 
-  // ── 오라클 8080 — nginx `proxy_set_header Host $http_host` 가 넘기는 모양 ──
+  // ── 오라클 https 8080 — nginx `proxy_set_header Host $http_host` · `X-Forwarded-Proto $scheme` 가 넘기는 모양(브라우저는 8080 에서 Host 에 문 번호를 넣는다) ──
   const loginBody = JSON.stringify({ password: TEST_PW });
   const json = { 'content-type': 'application/json', 'user-agent': UA.mac };
-  const okLogin = await sendRaw('POST', '/api/auth/login', { ...json, host: ORACLE, origin: `http://${ORACLE}` }, loginBody);
-  check('8080 — Origin http://161.33.153.189:8080 + Host 161.33.153.189:8080 로그인 → 200(403 아님)', okLogin.status === 200 && okLogin.setCookie.startsWith('as_session='), String(okLogin.status));
-  const okDel = await sendRaw('DELETE', '/api/auth/sessions/000000000000', { cookie: okLogin.setCookie, host: ORACLE, origin: `http://${ORACLE}` });
-  check('8080 — 로그인한 뒤 바꾸는 요청(DELETE)도 통과(없는 식별값 → 404, 403 아님)', okDel.status === 404, String(okDel.status));
-  const evil = await sendRaw('POST', '/api/auth/login', { ...json, host: ORACLE, origin: 'http://evil.example' }, loginBody);
-  const evilDel = await sendRaw('DELETE', '/api/auth/sessions/000000000000', { cookie: okLogin.setCookie, host: ORACLE, origin: 'http://evil.example' });
-  check('8080 — 다른 주소(http://evil.example)에서 온 로그인 · 지우기는 403', evil.status === 403 && evilDel.status === 403, `${evil.status} / ${evilDel.status}`);
-  const noPort = await sendRaw('POST', '/api/auth/login', { ...json, host: '161.33.153.189', origin: `http://${ORACLE}` }, loginBody);
-  check('8080 — Host 에 문 번호가 없으면(옛 $host) 403 — 그래서 $http_host', noPort.status === 403, String(noPort.status));
-  await sendRaw('DELETE', '/api/auth/sessions/' + ((await list(okLogin.setCookie)).find((r) => r.current)?.id ?? 'x'), { cookie: okLogin.setCookie });
-  check('8080(http) — 쿠키에 Secure 없음', okLogin.cookieAttrs.startsWith('as_session=') && !/;\s*Secure/i.test(okLogin.cookieAttrs), okLogin.cookieAttrs.replace(/as_session=[^;]+/, 'as_session=…'));
-
-  // ── 오라클 https(443) — nginx `Host $http_host` · `X-Forwarded-Proto $scheme` 가 넘기는 모양(브라우저는 443 에서 Host 에 문 번호를 넣지 않는다) ──
-  const HTTPS_HOST = '161.33.153.189';
-  const sLogin = await sendRaw('POST', '/api/auth/login', { ...json, host: HTTPS_HOST, origin: `https://${HTTPS_HOST}`, 'x-forwarded-proto': 'https' }, loginBody);
-  check('https — Origin https://161.33.153.189 + Host 161.33.153.189 로그인 → 200(403 아님)', sLogin.status === 200 && sLogin.setCookie.startsWith('as_session='), String(sLogin.status));
-  check('https — X-Forwarded-Proto https 면 쿠키에 Secure · HttpOnly · SameSite=Lax', /;\s*Secure(;|$)/.test(sLogin.cookieAttrs) && /HttpOnly/.test(sLogin.cookieAttrs) && /SameSite=Lax/.test(sLogin.cookieAttrs), sLogin.cookieAttrs.replace(/as_session=[^;]+/, 'as_session=…'));
-  const sDel = await sendRaw('DELETE', '/api/auth/sessions/000000000000', { cookie: sLogin.setCookie, host: HTTPS_HOST, origin: `https://${HTTPS_HOST}`, 'x-forwarded-proto': 'https' });
-  check('https — 로그인한 뒤 바꾸는 요청(DELETE)도 통과(없는 식별값 → 404, 403 아님)', sDel.status === 404, String(sDel.status));
-  const sEvil = await sendRaw('POST', '/api/auth/login', { ...json, host: HTTPS_HOST, origin: 'https://evil.example', 'x-forwarded-proto': 'https' }, loginBody);
-  check('https — 다른 주소(https://evil.example)에서 온 로그인은 403', sEvil.status === 403, String(sEvil.status));
+  const tls = { host: ORACLE, 'x-forwarded-proto': 'https' };
+  const sLogin = await sendRaw('POST', '/api/auth/login', { ...json, ...tls, origin: `https://${ORACLE}` }, loginBody);
+  check('https 8080 — Origin https://161.33.153.189:8080 + Host 161.33.153.189:8080 로그인 → 200(403 아님)', sLogin.status === 200 && sLogin.setCookie.startsWith('as_session='), String(sLogin.status));
+  check('https 8080 — X-Forwarded-Proto https 면 쿠키에 Secure · HttpOnly · SameSite=Lax', /;\s*Secure(;|$)/.test(sLogin.cookieAttrs) && /HttpOnly/.test(sLogin.cookieAttrs) && /SameSite=Lax/.test(sLogin.cookieAttrs), sLogin.cookieAttrs.replace(/as_session=[^;]+/, 'as_session=…'));
+  const sDel = await sendRaw('DELETE', '/api/auth/sessions/000000000000', { ...tls, cookie: sLogin.setCookie, origin: `https://${ORACLE}` });
+  check('https 8080 — 로그인한 뒤 바꾸는 요청(DELETE)도 통과(없는 식별값 → 404, 403 아님)', sDel.status === 404, String(sDel.status));
+  const sEvil = await sendRaw('POST', '/api/auth/login', { ...json, ...tls, origin: 'https://evil.example' }, loginBody);
+  const sEvilDel = await sendRaw('DELETE', '/api/auth/sessions/000000000000', { ...tls, cookie: sLogin.setCookie, origin: 'https://evil.example' });
+  check('https 8080 — 다른 주소(https://evil.example)에서 온 로그인 · 지우기는 403', sEvil.status === 403 && sEvilDel.status === 403, `${sEvil.status} / ${sEvilDel.status}`);
+  const noPort = await sendRaw('POST', '/api/auth/login', { ...json, host: '161.33.153.189', 'x-forwarded-proto': 'https', origin: `https://${ORACLE}` }, loginBody);
+  check('https 8080 — Host 에 문 번호가 없으면(옛 $host) 403 — 그래서 $http_host', noPort.status === 403, String(noPort.status));
   await sendRaw('DELETE', '/api/auth/sessions/' + ((await list(sLogin.setCookie)).find((r) => r.current)?.id ?? 'x'), { cookie: sLogin.setCookie });
+
+  // ── X-Forwarded-Proto 가 없는 요청(평문 http 모양) — 쿠키에 Secure 를 붙이지 않는다(nginx 는 8080 평문을 https 로 넘겨 서버까지 오지 않음) ──
+  const hLogin = await sendRaw('POST', '/api/auth/login', { ...json, host: ORACLE, origin: `http://${ORACLE}` }, loginBody);
+  check('X-Forwarded-Proto 없음(http) — 로그인 200 · 쿠키에 Secure 없음', hLogin.status === 200 && hLogin.cookieAttrs.startsWith('as_session=') && !/;\s*Secure/i.test(hLogin.cookieAttrs), `${hLogin.status} ${hLogin.cookieAttrs.replace(/as_session=[^;]+/, 'as_session=…')}`);
+  await sendRaw('DELETE', '/api/auth/sessions/' + ((await list(hLogin.setCookie)).find((r) => r.current)?.id ?? 'x'), { cookie: hLogin.setCookie });
 
   const resA = await get(a);
   const raw = await resA.text();
