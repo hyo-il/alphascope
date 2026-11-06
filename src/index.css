@@ -52,6 +52,16 @@
    * 대비: bg-primary 11.36 · bg-secondary 10.28 · bg-tertiary 8.85 · bg-elevated 7.23 (모두 3:1 이상 — 아이콘 기준).
    */
   --color-star: #f5c542;
+  /*
+   * 자산 관리 구성 원형 차트 · 분류별 표 점(v2.62.0) — 분류마다 고정 색(순서로 돌려 쓰지 않는다).
+   * 어두운 바탕(#1e1e1e)에서 색약 구분 · 밝기 · 대비를 검사해 통과한 다섯 색 + 분류 없음은 회색. 상승/하락 · 관심 별 · 파랑(accent)과 다른 이름.
+   */
+  --color-asset-cash: #199e70;
+  --color-asset-bond: #9085e9;
+  --color-asset-gold: #c98500;
+  --color-asset-stock: #3987e5;
+  --color-asset-retirement: #d55181;
+  --color-asset-none: var(--color-text-muted);
   --color-border: #333333;
   --color-chart-grid: #222222;
 

@@ -34,7 +34,7 @@ import { chromium, type Page } from 'playwright';
 import { NAV_GROUPS, PAGE_TABS } from '../src/types/nav';
 import { rankingSample, usHaltsSample } from './fixtures/usHalts/screenSample';
 import { briefSample, daySample, daysSample, mismatchSample, outlookSample, statusSample } from './fixtures/marketBrief/screenSample';
-import { assetSheetFailureSample, assetSheetSample, assetStatusSample } from './fixtures/asset/screenSample';
+import { assetHistorySample, assetSheetFailureSample, assetSheetSample, assetStatusSample, assetSummaryFailureSample, assetSummarySample } from './fixtures/asset/screenSample';
 import { CHANGELOG } from '../src/data/changelog';
 import { sortDayRows } from '../src/utils/buyJudgeOrder';
 
@@ -375,25 +375,42 @@ function targets(): Target[] {
         await page.unroute(/\/api\/market-brief\?/);
       },
     })),
-    // 자산 관리(v2.61.0) — 잠김 · 풀림(가짜 시트 — 긴 이름 · 큰 금액 · 빈 구간 · 합계 표) · 시트 읽기 실패. 가짜 응답만(구글 · DB 그대로)
+    // 자산 관리(v2.61.0 · v2.62.0) — 잠김 · 풀림(하루 기록 0 · 1 · 여러 개 · 「분류 없음」 + 가격 못 받음 · 연금 포함 · 「시트에서 읽은 값」 펼침) · 읽기 실패.
+    // 가짜 응답만(구글 · DB 그대로 — 쓰기 주소는 막는다)
     ...(
       [
-        ['잠김', false, null],
-        ['풀림', true, 'ok'],
-        ['읽기실패', true, 'fail'],
+        ['잠김', false, 'ok', 0, {}, false],
+        ['기록0', true, 'ok', 0, { vsLast: false }, false],
+        ['기록1', true, 'ok', 1, {}, false],
+        ['기록여러개-분류없음', true, 'ok', 30, { none: true }, false],
+        ['연금포함-시트펼침', true, 'ok', 30, { pension: true }, true],
+        ['읽기실패', true, 'fail', 0, {}, false],
       ] as const
-    ).map(([label, unlocked, sheet]) => ({
+    ).map(([label, unlocked, sheet, records, sum, openSheet]) => ({
       name: `asset-${label}`,
       hash: '#/asset',
       before: async (page: Page) => {
+        await page.evaluate((on) => localStorage.setItem('alphascope.asset.includePension', on ? '1' : '0'), 'pension' in sum && sum.pension === true);
         await page.route('**/api/asset/status', (r) => r.fulfill({ json: assetStatusSample(unlocked) }).catch(() => {}));
         await page.route('**/api/asset/sheet', (r) =>
           (sheet === 'fail' ? r.fulfill({ status: 502, json: assetSheetFailureSample }) : r.fulfill({ json: assetSheetSample() })).catch(() => {}),
         );
+        await page.route('**/api/asset/summary**', (r) =>
+          (sheet === 'fail' ? r.fulfill({ status: 502, json: assetSummaryFailureSample }) : r.fulfill({ json: assetSummarySample(sum) })).catch(() => {}),
+        );
+        await page.route('**/api/asset/history**', (r) => r.fulfill({ json: assetHistorySample(records) }).catch(() => {}));
+        await page.route('**/api/asset/class', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
+      },
+      open: async (page: Page) => {
+        await page.waitForTimeout(800);
+        if (openSheet) {
+          await page.getByRole('button', { name: '시트에서 읽은 값 보기' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+        }
       },
       after: async (page: Page) => {
-        await page.unroute('**/api/asset/status');
-        await page.unroute('**/api/asset/sheet');
+        for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/class']) await page.unroute(p);
+        await page.evaluate(() => localStorage.removeItem('alphascope.asset.includePension'));
       },
     })),
     // 오늘 시황 — 지난 날 브리핑(「오늘 예상 방향」 채점됨 · 맞음/틀림 · 실제 등락률, v2.60.0)
