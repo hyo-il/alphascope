@@ -33,6 +33,7 @@ import { chromium, type Page } from 'playwright';
 import { NAV_GROUPS, PAGE_TABS } from '../src/types/nav';
 import { rankingSample, usHaltsSample } from './fixtures/usHalts/screenSample';
 import { briefSample, daySample, daysSample, mismatchSample, outlookSample, statusSample } from './fixtures/marketBrief/screenSample';
+import { assetSheetFailureSample, assetSheetSample, assetStatusSample } from './fixtures/asset/screenSample';
 import { CHANGELOG } from '../src/data/changelog';
 import { sortDayRows } from '../src/utils/buyJudgeOrder';
 
@@ -371,6 +372,27 @@ function targets(): Target[] {
         await page.unroute('**/api/market-brief/status');
         await page.unroute('**/api/market-brief/days');
         await page.unroute(/\/api\/market-brief\?/);
+      },
+    })),
+    // 자산 관리(v2.61.0) — 잠김 · 풀림(가짜 시트 — 긴 이름 · 큰 금액 · 빈 구간 · 합계 표) · 시트 읽기 실패. 가짜 응답만(구글 · DB 그대로)
+    ...(
+      [
+        ['잠김', false, null],
+        ['풀림', true, 'ok'],
+        ['읽기실패', true, 'fail'],
+      ] as const
+    ).map(([label, unlocked, sheet]) => ({
+      name: `asset-${label}`,
+      hash: '#/asset',
+      before: async (page: Page) => {
+        await page.route('**/api/asset/status', (r) => r.fulfill({ json: assetStatusSample(unlocked) }).catch(() => {}));
+        await page.route('**/api/asset/sheet', (r) =>
+          (sheet === 'fail' ? r.fulfill({ status: 502, json: assetSheetFailureSample }) : r.fulfill({ json: assetSheetSample() })).catch(() => {}),
+        );
+      },
+      after: async (page: Page) => {
+        await page.unroute('**/api/asset/status');
+        await page.unroute('**/api/asset/sheet');
       },
     })),
     // 오늘 시황 — 지난 날 브리핑(「오늘 예상 방향」 채점됨 · 맞음/틀림 · 실제 등락률, v2.60.0)

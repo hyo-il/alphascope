@@ -77,13 +77,15 @@ export default function AssetView() {
 }
 
 /** 실패 한 줄 + [다시 시도] — 빈 화면으로 바꾸지 않는다 */
-function ErrorLine({ message, onRetry, busy = false }: { message: string; onRetry: () => void; busy?: boolean }) {
+function ErrorLine({ message, onRetry, busy = false }: { message: string; onRetry?: () => void; busy?: boolean }) {
   return (
     <p role="alert" className="flex items-center gap-3 rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger">
       <span className="min-w-0 keep-all">{message}</span>
-      <Button size="sm" busy={busy} onClick={onRetry} className="ml-auto">
-        다시 시도
-      </Button>
+      {onRetry && (
+        <Button size="sm" busy={busy} onClick={onRetry} className="ml-auto">
+          다시 시도
+        </Button>
+      )}
     </p>
   );
 }
@@ -206,15 +208,19 @@ function SheetValues({ onLocked }: { onLocked: () => void }) {
         aside={sheet.kind === 'ok' ? `읽은 시각 ${formatDateTime(sheet.data.readAt)}` : undefined}
         info="이 화면을 열 때와 「다시 읽기」 를 누를 때만 시트를 읽습니다(30초 안에 다시 누르면 같은 결과). 시트에 쓰지 않습니다."
         right={
+          // 처음 읽기가 실패하면 아래 오류 줄의 [다시 시도] 하나만 둔다(같은 일을 하는 버튼 두 개가 되지 않게)
+          sheet.kind !== 'error' && (
           <Button size="sm" icon={RefreshCw} busy={reloading} disabled={sheet.kind === 'loading'} onClick={() => void load(sheet.kind === 'ok')}>
             다시 읽기
           </Button>
+          )
         }
       >
         시트에서 읽은 값
       </SectionTitle>
 
-      {reloadError && <ErrorLine message={reloadError} busy={reloading} onRetry={() => void load(true)} />}
+      {/* 다시 읽기 실패 — 값은 그대로 두고 실패 줄만(다시 하려면 위 [다시 읽기]) */}
+      {reloadError && <ErrorLine message={reloadError} />}
       {sheet.kind === 'loading' && <SkeletonTable rows={6} columns={5} />}
       {sheet.kind === 'error' && <ErrorLine message={sheet.message} onRetry={() => void load(false)} />}
       {sheet.kind === 'ok' && (
@@ -249,16 +255,26 @@ function Summary({ data }: { data: AssetSheetData }) {
         <Field label="현금 합계" value={formatPrice(data.cashTotal, 'KRW')} />
         <Field label="퇴직 연금" value={formatPrice(data.retirement, 'KRW')} />
         <Field label="월급" value={formatPrice(data.salary, 'KRW')} />
-        <Field label="구매 평균 환율" value={data.avgFxRate == null ? '—' : `${formatNumber(data.avgFxRate, 2)}원`} />
+        <Field label="구매 평균 환율(원/$)" value={data.avgFxRate == null ? '—' : `₩${formatNumber(data.avgFxRate, 2)}`} />
       </div>
-      <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
-        <span className="w-full text-caption text-text-secondary">목표 비율</span>
-        <Field label="현금" value={pct(t.cash)} />
-        <Field label="금" value={pct(t.gold)} />
-        <Field label="채권" value={pct(t.bond)} />
-        <Field label="투자" value={pct(t.invest)} />
-        <Field label="코어" value={pct(t.core)} />
-        <Field label="위성" value={pct(t.satellite)} />
+      {/* 목표 비율 두 묶음 — 자산 배분(합 100%)과 투자 안의 코어 · 위성(합 100%)을 나눠 보인다(한 줄이면 합이 200% 로 읽힌다) */}
+      <div className="flex flex-wrap gap-x-12 gap-y-3">
+        <div className="space-y-1">
+          <div className="text-caption text-text-secondary">목표 비율 — 자산 배분</div>
+          <div className="flex gap-x-8">
+            <Field label="현금" value={pct(t.cash)} />
+            <Field label="금" value={pct(t.gold)} />
+            <Field label="채권" value={pct(t.bond)} />
+            <Field label="투자" value={pct(t.invest)} />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <div className="text-caption text-text-secondary">목표 비율 — 투자 안의 코어 · 위성</div>
+          <div className="flex gap-x-8">
+            <Field label="코어" value={pct(t.core)} />
+            <Field label="위성" value={pct(t.satellite)} />
+          </div>
+        </div>
       </div>
     </Panel>
   );
@@ -295,7 +311,8 @@ function HoldingsTable({ sections }: { sections: AssetSection[] }) {
   const usdDigits = decimalsOf(all.filter((h) => h.currency === 'USD').map((h) => h.avgPrice));
   return (
     <Panel pad="none" className="pb-1">
-      <table className="w-full text-left text-xs">
+      {/* 평균 매입가는 줄마다 통화가 다르다(원화는 소수 없음 · 달러는 시트 원래 값 소수 4자리까지) — design:check 의 「같은 열 소수 자릿수」 는 이 표에서 재지 않는다(`data-rows-differ`). 수량 열은 위 `qtyDigits` 로 맞춘다 */}
+      <table className="w-full text-left text-xs" data-rows-differ>
         <thead className="text-caption text-text-muted">
           <tr className={`border-b border-border/50 ${TABLE_HEAD_ROW}`}>
             <th className={`${TABLE_NAME_COL} py-2 pl-4 font-normal`}>종목</th>
