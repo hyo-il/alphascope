@@ -21,7 +21,8 @@ import { marketByKstTime } from '../../utils/marketDate';
  * 📶 실시간 순위 — 토스 거래대금·거래량·상승률·하락률 상위 100(`/api/rankings/live`, 서버 30초 캐시).
  *
  * - 화면이 보일 때만 30초마다 다시 받는다(숨은 탭 정지, 돌아오면 즉시 한 번).
- * - 행에 마우스를 **150ms** 올리면 오른쪽 고정 패널에 미리보기. 마우스가 목록을 떠나도 마지막 종목을 둔다(깜빡임 방지).
+ * - 위 = 미리보기(본문 칸 높이의 `PREVIEW_HEIGHT` 40%) · 아래 = 목록(나머지, 자기 칸 안에서 스크롤 — 차트는 위에 그대로).
+ * - 행에 마우스를 **150ms** 올리면 위 고정 패널에 미리보기. 마우스가 목록을 떠나도 마지막 종목을 둔다(깜빡임 방지).
  *   키보드 ↑↓ 로 옮겨도 바뀌고, Enter·행 클릭·[차트로 열기]는 **미리보기에서 고른 봉 그대로** 메인 차트를 연다.
  * - ⚠️ 보기 전용이다. 순위는 매수 신호가 아니다 — 급등 다음 날 추격은 이 앱의 진단에서 불리했다(하단 고정 문구).
  */
@@ -29,6 +30,8 @@ import { marketByKstTime } from '../../utils/marketDate';
 const REFRESH_MS = 30_000;
 const HOVER_MS = 150;
 const FIRST_PAGE = 50;
+/** 위 미리보기 높이 = 본문 칸(목록 + 미리보기) 높이의 40% — 목록은 나머지(flex-1). 비율은 여기 한 곳 */
+const PREVIEW_HEIGHT = 'basis-[40%]';
 
 export default function RankingView({ onOpen }: { onOpen: (symbol: string, timeframe: PreviewTimeframe) => void }) {
   // 열 때마다 한국 시간으로 고른다(08:00 ~ 미국 프리장 시작(서머타임 17:00 · 아니면 18:00) 국내, 그 밖 미국) — 직접 바꾸면 이 화면에 있는 동안만 유지
@@ -169,14 +172,21 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
         </p>
       )}
 
-      <div className="flex min-h-0 flex-1 gap-2">
-        {/* 목록 ≈ 55% */}
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
+        {/* 위 = 미리보기(머리 · 범례 · 차트 · 아래 안내 통째로) — 목록을 스크롤해도 그대로 */}
+        <div className={`flex min-h-0 min-w-0 shrink-0 grow-0 ${PREVIEW_HEIGHT}`}>
+          <div className="flex min-h-0 w-full flex-col">
+            <RankingPreview row={preview} pending={!data && !error} timeframe={previewTf} onTimeframeChange={setPreviewTf} />
+          </div>
+        </div>
+
+        {/* 아래 = 목록(나머지 높이) */}
         <div
           ref={listRef}
           tabIndex={0}
           onKeyDown={onKeyDown}
           onMouseLeave={leave}
-          className="min-h-0 min-w-0 basis-[60%] overflow-y-auto rounded-xl bg-bg-secondary outline-none focus-visible:ring-1 focus-visible:ring-accent"
+          className="min-h-0 min-w-0 flex-1 basis-0 overflow-y-auto rounded-xl bg-bg-secondary outline-none focus-visible:ring-1 focus-visible:ring-accent"
           aria-label="순위 목록 — ↑↓ 로 옮기고 Enter 로 차트 열기"
         >
           <table className="w-full text-xs">
@@ -264,13 +274,6 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
               {showAll ? '50위까지만 보기' : `더 보기 (+${data.rows.length - FIRST_PAGE})`}
             </Button>
           )}
-        </div>
-
-        {/* 미리보기 ≈ 45% */}
-        <div className="flex min-h-0 min-w-0 basis-[40%]">
-          <div className="flex min-h-0 w-full flex-col">
-            <RankingPreview row={preview} pending={!data && !error} timeframe={previewTf} onTimeframeChange={setPreviewTf} />
-          </div>
         </div>
       </div>
 

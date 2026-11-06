@@ -13,7 +13,7 @@ import type { LiveRankingRow } from '../../types/ranking';
 import { changeColor, formatPercent, formatPrice } from '../../utils/formatters';
 
 /**
- * 실시간 순위 오른쪽 **고정** 미리보기 패널 — 행을 따라다니는 팝업이 아니다(덜 산만하다).
+ * 실시간 순위 위쪽 **고정** 미리보기 패널(목록은 아래) — 행을 따라다니는 팝업이 아니다(덜 산만하다).
  *
  * - 차트는 `LiteCandleChart` **하나**다. 종목·봉이 바뀌면 데이터만 갈아 끼운다(행마다 새 차트를 만들지 않는다).
  * - (종목, 봉) 단위 **메모리 캐시** — 같은 행을 다시 올리면 즉시 그린다.
