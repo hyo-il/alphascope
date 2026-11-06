@@ -68,6 +68,17 @@ export const PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.12 };
  */
 export const VOLUME_SCALE_MARGINS = { top: 0.12, bottom: 0 };
 
+/**
+ * 칸(pane)이 여럿인 차트(가격 · 거래량 · 지표)의 오른쪽 축 — **칸 끝에서 잘리는 눈금 숫자는 그리지 않는다.**
+ *
+ * 라이브러리 기본(false)은 칸 위아래 끝에 걸친 눈금 숫자도 반쯤 잘린 채 그린다 — 가격 칸 맨 아래 숫자와
+ * 거래량 칸 맨 위 숫자가 칸 경계에서 맞붙어 겹쳐 보였다. 그리는 눈금만 줄고 캔들 · 거래량 · 여백 · 칸 크기는 그대로다.
+ * 여백을 늘리면 차트 모양이 바뀌고, 데이터에 따라 끝에 걸리는 숫자는 여백과 상관없이 생긴다.
+ * 출처: https://tradingview.github.io/lightweight-charts/docs/api/interfaces/PriceScaleOptions#entiretextonly
+ * (「Show top and bottom corner labels only if entire text is visible」 — 칸 끝에서 글자 높이 절반 안의 눈금을 뺀다)
+ */
+export const PANE_EDGE_LABELS = { entireTextOnly: true };
+
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
 /** yyyy-MM-dd */
@@ -343,7 +354,7 @@ export function renderIndicators(
         .filter((p): p is { time: UTCTimestamp; value: number } => p.value != null),
     );
     // 지표 pane 도 가격 차트와 같은 여백을 준다 — 선이 pane 경계에 붙으면 읽기 어렵다.
-    if (options.paneIndex) series.priceScale().applyOptions({ scaleMargins: PRICE_SCALE_MARGINS });
+    if (options.paneIndex) series.priceScale().applyOptions({ scaleMargins: PRICE_SCALE_MARGINS, ...PANE_EDGE_LABELS });
 
     result.series.push(series);
     if (options.maKey) result.maSeries.set(options.maKey, series);
@@ -380,7 +391,7 @@ export function renderIndicators(
       { priceFormat: VOLUME_PRICE_FORMAT, priceLineVisible: false, lastValueVisible: false },
       pane,
     );
-    volume.priceScale().applyOptions({ scaleMargins: VOLUME_SCALE_MARGINS });
+    volume.priceScale().applyOptions({ scaleMargins: VOLUME_SCALE_MARGINS, ...PANE_EDGE_LABELS });
     volume.setData(
       candles.map((c) => ({
         time: toChartTime(c.timestamp),

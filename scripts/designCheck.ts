@@ -18,6 +18,7 @@
  *  11. 숫자 입력칸 — 스피너 없음 · 같은 묶음 FormRow 숫자 오른쪽 끝 0px
  *  12. 4자리 이상 숫자에 쉼표 없음(날짜·시각·버전·연도·종목 코드·「포트 N」 제외) · 13. 하이픈 음수 · 14. 같은 표 열의 소수 자릿수 다름
  *  15. 날짜 표기 — 오전/오후 시각 · 「YYYY. M. D.」 형식 0 (형식 2026-10-08 14:30)
+ *  16. 차트 축 숫자 잘림 — 칸이 여럿인 차트의 오른쪽 축 글자가 칸 위아래 끝에 닿음 0(가격 칸 맨 아래 · 거래량 칸 맨 위 숫자가 경계에서 맞붙지 않게)
  *  `[data-measure-skip]` 안(업데이트 내역 같은 기록 글)은 12~14 를 재지 않는다
  * 결과: `<OUT>/report.md`(화면별 표) · `<OUT>/{1280,1920}/<이름>.png` · `<OUT>/result.json`.
  *
@@ -1346,6 +1347,34 @@ export function measure() {
       issues.push({ kind: '날짜 표기', detail: `「${text.trim().slice(0, 40)}」` });
     }
   }
+  // 16. 차트 축 숫자 잘림 — 칸(pane)이 여럿인 차트(가격 · 거래량 · 지표)의 오른쪽 축 글자가 칸 위아래 끝에 닿으면(잘려서 옆 칸 숫자와 맞붙음).
+  //     축 글자는 캔버스라 글자 상자가 없다 — 오른쪽 축 캔버스에서 축 글자색(회색) 점이 있는 줄을 찾아 첫 줄 · 끝 줄이 칸 끝에 닿는지 본다.
+  //     현재가 상자(초록 · 빨강 바탕 · 흰 글자)는 회색이 아니라 빠진다. 마지막 줄(tr)은 시간 축이라 뺀다.
+  document.querySelectorAll('.tv-lightweight-charts').forEach((root) => {
+    if (!visible(root) || offscreen(root)) return;
+    const paneRows = [...root.querySelectorAll('tr')].filter((tr) => tr.children.length >= 3).slice(0, -1);
+    if (paneRows.length < 2) return;
+    paneRows.forEach((tr, pi) => {
+      const cv = tr.children[tr.children.length - 1].querySelector('canvas');
+      const h = cv?.height ?? 0;
+      const w = cv?.width ?? 0;
+      if (!cv || h < 2 || w < 2) return;
+      const data = cv.getContext('2d')?.getImageData(0, 0, w, h).data;
+      if (!data) return;
+      const scale = h / Math.max(1, cv.getBoundingClientRect().height);
+      const inkRow = (y: number) => {
+        for (let x = Math.ceil(4 * scale); x < w; x++) {
+          const i = (y * w + x) * 4;
+          if (Math.abs(data[i] - data[i + 1]) < 12 && Math.abs(data[i + 1] - data[i + 2]) < 12 && data[i] > 60 && data[i] < 200) return true;
+        }
+        return false;
+      };
+      const edge = Math.max(1, Math.round(scale));
+      const top = [...Array(edge).keys()].some((y) => inkRow(y));
+      const bottom = [...Array(edge).keys()].some((y) => inkRow(h - 1 - y));
+      if (top || bottom) issues.push({ kind: '차트 축 숫자 잘림', detail: `${label(root.closest('section, main') ?? root)} · ${pi + 1}번째 칸 ${top ? '위' : ''}${top && bottom ? ' · ' : ''}${bottom ? '아래' : ''} 끝(칸 높이 ${Math.round(h / scale)}px)` });
+    });
+  });
   return issues;
 }
 

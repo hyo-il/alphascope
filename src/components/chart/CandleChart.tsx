@@ -26,6 +26,7 @@ import {
   BASE_CHART_OPTIONS,
   drawExtremeMarkers,
   extentOf,
+  PANE_EDGE_LABELS,
   PRICE_SCALE_MARGINS,
   dateTimeOptions,
   isIntraday,
@@ -251,7 +252,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     });
 
     const candleSeries = chart.addSeries(CandlestickSeries, CANDLE_SERIES_OPTIONS);
-    candleSeries.priceScale().applyOptions({ scaleMargins: PRICE_SCALE_MARGINS });
+    candleSeries.priceScale().applyOptions({ scaleMargins: PRICE_SCALE_MARGINS, ...PANE_EDGE_LABELS });
 
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;

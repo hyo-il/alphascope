@@ -18,6 +18,7 @@ import {
   BASE_CHART_OPTIONS,
   drawExtremeMarkers,
   extentOf,
+  PANE_EDGE_LABELS,
   PRICE_SCALE_MARGINS,
   dateTimeOptions,
   isIntraday,
@@ -135,7 +136,7 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
 
     const chart = createChart(container, { ...BASE_CHART_OPTIONS, autoSize: true });
     const candleSeries = chart.addSeries(CandlestickSeries, CANDLE_SERIES_OPTIONS);
-    candleSeries.priceScale().applyOptions({ scaleMargins: PRICE_SCALE_MARGINS });
+    candleSeries.priceScale().applyOptions({ scaleMargins: PRICE_SCALE_MARGINS, ...PANE_EDGE_LABELS });
 
     const manager = new DrawingManager();
     manager.attach(chart, candleSeries, container);

@@ -15,6 +15,7 @@ import {
   isIntraday,
   priceFormatOf,
   COLORS,
+  PANE_EDGE_LABELS,
   PRICE_SCALE_MARGINS,
   VOLUME_SCALE_MARGINS,
   toChartTime,
@@ -113,14 +114,14 @@ export default function LiteCandleChart({
     interactedRef.current = false;
 
     const candleSeries = chart.addSeries(CandlestickSeries, CANDLE_SERIES_OPTIONS);
-    candleSeries.priceScale().applyOptions({ scaleMargins: PRICE_SCALE_MARGINS });
+    candleSeries.priceScale().applyOptions({ scaleMargins: PRICE_SCALE_MARGINS, ...PANE_EDGE_LABELS });
 
     const volumeSeries = chart.addSeries(
       HistogramSeries,
       { priceFormat: VOLUME_PRICE_FORMAT, priceLineVisible: false, lastValueVisible: false },
       1,
     );
-    volumeSeries.priceScale().applyOptions({ scaleMargins: VOLUME_SCALE_MARGINS });
+    volumeSeries.priceScale().applyOptions({ scaleMargins: VOLUME_SCALE_MARGINS, ...PANE_EDGE_LABELS });
 
     maSeriesRef.current = COMPARE_MAS.map((ma) =>
       chart.addSeries(LineSeries, {
