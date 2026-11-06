@@ -243,6 +243,33 @@ ssh alphascope 'cd ~/alphascope && npm run -s ussample:report; tail -n 3 ~/alpha
 ssh alphascope '(crontab -l 2>/dev/null | grep -v "# alphascope-ussample") | crontab - && echo "남은 예약 줄 수: $(crontab -l 2>/dev/null | grep -c "# alphascope-ussample")"'
 ```
 
+## HTTPS 조사 (v2.61.1 · 2026-11-06 · 공식 자료만)
+
+IP 주소(`161.33.153.189`)에 Let's Encrypt 인증서를 받아 `https://161.33.153.189` 로 여는 방법을 공식 자료로 확인한 결과입니다. 「모름」 은 공식 자료에서 확인하지 못한 것입니다.
+
+| 물음 | 결과 | 출처 |
+|---|---|---|
+| IP 인증서를 받을 수 있나 | 됩니다(IPv4 · IPv6). **`shortlived` 프로필만** — 수명 160시간(약 6일). `classic` · `tlsserver` 프로필은 도메인만 | [6일 · IP 인증서 정식 제공(2026-01-15)](https://letsencrypt.org/2026/01/15/6day-and-ip-general-availability) · [프로필 문서](https://letsencrypt.org/docs/profiles/)(shortlived 「Identifier Types: DNS, IP」 · Validity 160 hours) |
+| 확인 방식 | **HTTP-01**(80번 문에서만) · **TLS-ALPN-01**(443번 문) 이 IP 에 됩니다. **DNS-01 은 IP 에 안 됩니다** | [Challenge Types](https://letsencrypt.org/docs/challenge-types/) — 「HTTP-01 … can only be done on port 80 … can be used to validate IP Addresses」 · 「DNS-01 … cannot be used to validate IP Addresses」 · 「TLS-ALPN-01 … on port 443 … can be used to validate IP Addresses」 |
+| 클라이언트 | **Certbot 5.4 이상**(`--ip-address` 는 5.3 · webroot 로 IP 는 5.4 · `--preferred-profile` 는 4.0). nginx · apache 설치 기능(`--nginx`)은 IP 를 아직 못 함 → **`certonly --webroot` 로 받기만** 하고 nginx 설정은 `/etc/letsencrypt/live/<IP>/fullchain.pem` · `privkey.pem` 을 직접 가리키고, 갱신 뒤 다시 읽게 `--deploy-hook` | [Certbot 의 6일 · IP 인증서(2026-03-11)](https://letsencrypt.org/2026/03/11/shorter-certs-certbot) |
+| `--required-profile` | 「프로필을 못 주면 기본 프로필로 넘어가지 않고 실패」 — IP 인증서는 shortlived 밖에 안 되므로 이것을 씁니다 | [Certbot 사용 설명](https://eff-certbot.readthedocs.io/en/stable/using.html)(CLI 도움말) |
+| Certbot 이 TLS-ALPN-01 을 하나 | Certbot 문서에는 http-01 · dns-01 만 나옵니다 → **이 서버에서는 HTTP-01(80번 문)** | 위 Certbot 사용 설명 |
+| 설치 | Certbot 공식 안내 = **snap**(`sudo snap install --classic certbot` · `ln -s /snap/bin/certbot /usr/local/bin/certbot`) · apt 로 깐 certbot 이 있으면 먼저 지우라고 함. 우분투 apt 의 certbot 은 24.04 = 2.9.0 · 26.04 = 4.0.0 으로 **5.4 미만이라 쓸 수 없음**. snap 지금 판 = 5.9.0(2026-10-29) | [Certbot 설치 안내(nginx · snap)](https://certbot.eff.org/instructions?ws=nginx&os=snap) · [Ubuntu 패키지](https://packages.ubuntu.com/search?keywords=certbot&searchon=names&exact=1) · [snapcraft certbot](https://snapcraft.io/certbot) |
+| snap 이 ARM(arm64)에 있나 | **모름**(snapcraft 페이지가 아키텍처를 보여 주지 않음) → 스크립트가 설치에 실패하면 아무것도 바꾸지 않은 채 멈춥니다 | — |
+| nginx 를 멈추나 | 멈추지 않습니다 — webroot 방식은 돌고 있는 웹 서버가 `/.well-known/acme-challenge/` 파일을 보내게 함(standalone 은 80 을 쓰는 서버를 멈춰야 해서 쓰지 않음). webroot 는 숨은 폴더를 보낼 수 있어야 함 | 위 Certbot 글 · 사용 설명 |
+| 자동 갱신 주기 | snap 은 **systemd 타이머**를 함께 깜(`systemctl list-timers` 로 확인). Certbot 은 하루 2번 `certbot renew` 를 돌리는 방식 · **수명 10일 이하 인증서는 수명의 1/2 이 남으면 갱신**(6일 인증서 = 받은 지 약 3.3일 뒤) | 위 설치 안내 · 사용 설명 「As of Certbot 4.0.0 … For certificates with a lifetime of 10 days or less, that threshold is 1/2」 |
+| 실패하면 몇 번 다시 하나 | 따로 「다시 시도」 는 없고 **다음 타이머(약 12시간 뒤)에 또 함** → 만료까지 남은 약 80시간 동안 6번쯤 기회. ARI(서버가 갱신 시각을 알려 주는 것)를 Certbot 이 쓰는지는 **모름** | 위 사용 설명(타이머 · 1/2) — 횟수는 그 둘로 셈 |
+| 갱신 뒤 nginx | `--deploy-hook "systemctl reload nginx"` — **갱신에 성공했을 때만** 돎(설정은 갱신 설정 파일에 남음) | 위 Certbot 글 · 사용 설명 「--deploy-hook … only after a successful renewal」 |
+| 갱신 연습 | `certbot renew --dry-run`(스테이징 서버 · 저장 안 함) · 처음 받기 전에 `--staging` / `--dry-run` 으로 시험 | 위 설치 안내 · Certbot 글 |
+| 만료 알림 메일 | Let's Encrypt 만료 알림 메일은 **2025-06-04 에 끝남** → 메일로 알 수 없음 | [만료 알림 종료](https://letsencrypt.org/2025/06/26/expiration-notification-service-has-ended) |
+| 열어 둘 문 | HTTP-01 은 **80** 이 늘 열려 있어야 함(6일 인증서를 약 3일마다 갱신 — 잠깐 여는 것은 맞지 않음). 확인 요청이 넘김(리다이렉트)을 따라가긴 하지만 **80 · 443 으로만** 감 → 80 은 확인 경로만 보내고 나머지는 https 로 넘깁니다. 443 은 https 자체 | Challenge Types(「only to ports 80 or 443」) |
+| TLS 설정 | Mozilla 권장 **intermediate**(지침 6.0): TLSv1.2 · TLSv1.3 · ECDHE + AES-GCM / CHACHA20 6개 · 서버 순서 우선 안 함. 곡선 목록의 `X25519MLKEM768` 은 OpenSSL 3.5 가 있어야 해서 넣지 않음(우분투 nginx 가 그보다 옛 OpenSSL 이면 `nginx -t` 실패). OCSP 스테이플링은 하지 않음 — shortlived 인증서는 폐기 정보가 없음(프로필 문서). **HSTS 는 넣지 않음** — 6일 인증서 갱신이 한 번 늦으면 브라우저가 「그래도 계속」 을 막음 | [Mozilla 지침 latest.json](https://ssl-config.mozilla.org/guidelines/latest.json) · 프로필 문서 |
+| 서버 방화벽(iptables) | 11-03 과 같은 방식: `sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport <문> -j ACCEPT` → `sudo netfilter-persistent save` | 관리 루트 `docs/reference/oracle-setup-guide.html` Phase 4 ④ |
+| 오라클 보안 목록 | 웹 콘솔에서 사용자가 **80 · 443** 수신 규칙을 더함(서버 안에서는 열렸는지 알 수 없음 → 스크립트가 물어봄) | 같은 가이드 Phase 4 ①~③ |
+
+결정: **Certbot(snap) + webroot(HTTP-01, 80번 문) + `--required-profile shortlived` + `--ip-address 161.33.153.189`** · 80 · 443 을 늘 엶 · 8080 은 https 로 넘김. 유료 · 도메인 · 다른 웹 서버는 필요 없음.
+갱신 실패 알아채기(이 앱에서 할 수 있는 가장 간단한 것): `deploy/check-https.sh` 한 줄(남은 시간 · 타이머 · 마지막 갱신 기록) · 배포(`~/deploy.sh`) 끝에 남은 시간 한 줄(48시간 미만이면 ⚠️) · 마지막 안전망은 브라우저 경고. 앱 화면에 띄우는 것은 앱 코드를 바꿔야 해서 넣지 않음.
+
 ## 이 폴더의 파일
 
 | 파일 | 하는 일 |
