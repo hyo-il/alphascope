@@ -1,18 +1,28 @@
 /**
- * 주인 계정 비밀번호 설정 — `npm run auth:set-password`
+ * 비밀번호 설정 — 주인 계정 `npm run auth:set-password` · 자산 관리 잠금 `npm run asset:set-password`(인자 `asset`, v2.61.0)
  *
- * 이 앱에는 회원가입도, 비밀번호 찾기 화면도 없다. 비밀번호를 정하고 바꾸는 길은 **여기 하나**다.
+ * 이 앱에는 회원가입도, 비밀번호 찾기 화면도 없다. 비밀번호를 정하고 바꾸는 길은 **여기 하나**다(둘 다 — 화면에서 정하는 길은 없다).
  * 비밀번호를 잊었으면 서버에 들어와 이 명령을 다시 돌리면 된다.
+ * 두 비밀번호는 다른 설정 키(`auth.owner` · `asset.password`)다 — 하나를 바꿔도 다른 하나는 그대로다.
  *
  * ⚠️ **평문은 어디에도 남기지 않는다** — 화면에 찍지 않고(에코 끔), 로그·DB 에도 남기지 않는다.
  * ⚠️ 명령줄 인자로 받지 않는다. 셸 히스토리에 그대로 남기 때문이다.
- * ⚠️ 저장하면 **기존 로그인 세션이 모두 끊긴다** (바꾸는 이유가 대개 유출 의심이라서).
+ * ⚠️ 로그인 비밀번호를 저장하면 **기존 로그인 세션이 모두 끊긴다** (바꾸는 이유가 대개 유출 의심이라서).
+ *    자산 비밀번호는 세션을 끊지 않는다 — 새 값은 바로 쓰이고, 이미 띄운 서버에서 풀려 있던 세션은 서버를 다시 켜면 잠긴다.
  */
 
 import 'dotenv/config';
 import readline from 'node:readline';
 import { setPassword } from '../server/auth';
+import { setAssetPassword } from '../server/asset/lock';
 import { getDb } from '../server/db';
+
+/** 무엇의 비밀번호인가 — 인자 `asset` 이면 자산 관리 잠금, 없으면 주인 계정 */
+const TARGET = process.argv[2] === 'asset' ? 'asset' : 'auth';
+const TEXT = {
+  auth: { title: 'AlphaScope 주인 계정 비밀번호를 정합니다.', command: 'npm run auth:set-password', after: '   기존 로그인 세션은 모두 끊겼습니다 — 브라우저에서 다시 로그인하세요.' },
+  asset: { title: 'AlphaScope 자산 관리 비밀번호를 정합니다(로그인 비밀번호와 다른 값).', command: 'npm run asset:set-password', after: '   로그인 비밀번호 · 로그인 세션은 그대로입니다. 새 비밀번호는 바로 쓰입니다(이미 풀려 있던 화면은 서버를 다시 켜면 잠깁니다).' },
+}[TARGET];
 
 /**
  * 앱 규칙이다 — 어떤 표준을 따른 값이 아니라, 혼자 쓰는 도구에 맞춰 정한 최소선이다.
@@ -84,7 +94,7 @@ async function main() {
    */
   if (!process.stdin.isTTY) {
     console.error(
-      '❌ 이 명령은 터미널에서 직접 실행해야 합니다(입력을 화면에 숨겨 받기 때문). 터미널을 열고 cd workspace/alphascope 후 npm run auth:set-password 를 실행하세요.',
+      `❌ 이 명령은 터미널에서 직접 실행해야 합니다(입력을 화면에 숨겨 받기 때문). 터미널을 열고 cd workspace/alphascope 후 ${TEXT.command} 를 실행하세요.`,
     );
     process.exit(1);
   }
@@ -92,7 +102,7 @@ async function main() {
   // DB 를 먼저 연다 — 스키마(app_settings·auth_sessions)가 없으면 여기서 만들어진다.
   getDb();
 
-  console.log('AlphaScope 주인 계정 비밀번호를 정합니다.');
+  console.log(TEXT.title);
   console.log(`(최소 ${MIN_LENGTH}자 · 입력은 화면에 보이지 않습니다)`);
   // 길이가 짧아진 만큼 "추측하기 쉬운 값" 을 피하는 것이 실제 방어가 된다.
   console.log('이름·생일처럼 추측하기 쉬운 조합은 피하세요.\n');
@@ -115,9 +125,10 @@ async function main() {
     process.exit(1);
   }
 
-  await setPassword(first);
+  if (TARGET === 'asset') await setAssetPassword(first);
+  else await setPassword(first);
   console.log('\n✅ 비밀번호를 저장했습니다.');
-  console.log('   기존 로그인 세션은 모두 끊겼습니다 — 브라우저에서 다시 로그인하세요.');
+  console.log(TEXT.after);
   process.exit(0);
 }
 

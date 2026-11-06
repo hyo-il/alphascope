@@ -34,12 +34,18 @@ interface OwnerRecord {
   updatedAt: string;
 }
 
-// ── 비밀번호 ─────────────────────────────────────────────────────────────────
+// ── 비밀번호 (로그인 · 자산 공용) ─────────────────────────────────────────────
 
-function readOwner(): OwnerRecord | null {
+/**
+ * 비밀번호 기록은 `app_settings` 의 **키 하나**에 둔다 — 로그인은 `auth.owner`, 자산 잠금은 `asset.password`(`server/asset/lock.ts`).
+ * 해시 · 비교 코드는 아래 한 벌을 둘이 같이 쓴다(설정 키만 다르다 — 두 벌이면 한쪽만 강해진다).
+ */
+export type PasswordKey = typeof OWNER_KEY | 'asset.password';
+
+function readPasswordRecord(key: PasswordKey): OwnerRecord | null {
   const row = getDb()
     .prepare(`SELECT value FROM app_settings WHERE key = ?`)
-    .get(OWNER_KEY) as { value: string } | undefined;
+    .get(key) as { value: string } | undefined;
   if (!row) return null;
   try {
     return JSON.parse(row.value) as OwnerRecord;
@@ -48,9 +54,14 @@ function readOwner(): OwnerRecord | null {
   }
 }
 
-/** 비밀번호가 정해져 있는가 — 아니면 앱 전체가 잠긴다 (열어 두지 않는다) */
+/** 그 키의 비밀번호가 정해져 있는가 */
+export function isPasswordSetFor(key: PasswordKey): boolean {
+  return readPasswordRecord(key) !== null;
+}
+
+/** 로그인 비밀번호가 정해져 있는가 — 아니면 앱 전체가 잠긴다 (열어 두지 않는다) */
 export function isPasswordSet(): boolean {
-  return readOwner() !== null;
+  return isPasswordSetFor(OWNER_KEY);
 }
 
 function derive(password: string, salt: Buffer, params: OwnerRecord['params']): Promise<Buffer> {
@@ -65,11 +76,8 @@ function derive(password: string, salt: Buffer, params: OwnerRecord['params']): 
   });
 }
 
-/**
- * 비밀번호를 정한다(바꾼다). **기존 세션은 모두 끊는다** —
- * 비밀번호를 바꾸는 이유는 대개 유출 의심이라, 남아 있는 세션을 살려 두면 의미가 없다.
- */
-export async function setPassword(password: string): Promise<void> {
+/** 해시를 만들어 그 키에 저장한다 — 다른 키는 건드리지 않는다. `alsoRun` 은 같은 트랜잭션 안에서 돈다 */
+export async function storePassword(key: PasswordKey, password: string, alsoRun?: () => void): Promise<void> {
   const salt = crypto.randomBytes(16);
   const hash = await derive(password, salt, SCRYPT);
   const record: OwnerRecord = {
@@ -84,14 +92,24 @@ export async function setPassword(password: string): Promise<void> {
     db.prepare(
       `INSERT INTO app_settings (key, value) VALUES (?, ?)
        ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-    ).run(OWNER_KEY, JSON.stringify(record));
-    db.prepare(`DELETE FROM auth_sessions`).run();
+    ).run(key, JSON.stringify(record));
+    alsoRun?.();
   })();
 }
 
-/** 비밀번호 확인. 맞으면 true — **무엇이 틀렸는지 구분해 알리지 않는다.** */
-export async function verifyPassword(password: string): Promise<boolean> {
-  const owner = readOwner();
+/**
+ * 로그인 비밀번호를 정한다(바꾼다). **기존 세션은 모두 끊는다** —
+ * 비밀번호를 바꾸는 이유는 대개 유출 의심이라, 남아 있는 세션을 살려 두면 의미가 없다.
+ */
+export async function setPassword(password: string): Promise<void> {
+  await storePassword(OWNER_KEY, password, () => {
+    getDb().prepare(`DELETE FROM auth_sessions`).run();
+  });
+}
+
+/** 그 키의 비밀번호 확인. 맞으면 true — **무엇이 틀렸는지 구분해 알리지 않는다.** */
+export async function checkPassword(key: PasswordKey, password: string): Promise<boolean> {
+  const owner = readPasswordRecord(key);
   if (!owner) return false;
   try {
     const expected = Buffer.from(owner.hash, 'base64');
@@ -104,9 +122,16 @@ export async function verifyPassword(password: string): Promise<boolean> {
   }
 }
 
+/** 로그인 비밀번호 확인 */
+export function verifyPassword(password: string): Promise<boolean> {
+  return checkPassword(OWNER_KEY, password);
+}
+
 // ── 세션 ─────────────────────────────────────────────────────────────────────
 
 const sha256 = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
+/** 세션을 가리키는 값(토큰 해시) — 토큰 원문을 메모리에 들고 있지 않으려고 쓴다(자산 잠금 풀림 표 `server/asset/lock.ts`) */
+export const sessionKeyOf = (token: string) => sha256(token);
 const addDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
 
 export function createSession(userAgent: string | undefined): string {

@@ -44,9 +44,7 @@ import {
 import {
   authGuard,
   isOwnOrigin,
-  loginBlockedMinutes,
-  recordLoginFailure,
-  recordLoginSuccess,
+  loginLimiter,
 } from './authGuard';
 // 버전의 단일 출처. package.json 은 0.1.0 그대로라 쓸 수 없다.
 import { CHANGELOG } from '../src/data/changelog';
@@ -194,6 +192,7 @@ import { marketDate } from '../src/utils/marketDate';
 import { analyzeNews, getNews } from './news';
 import { marketBriefTick } from './marketBrief/service';
 import { marketBriefRouter } from './marketBrief/routes';
+import { assetRouter } from './asset/routes';
 import { fail } from './apiError';
 
 /**
@@ -249,18 +248,18 @@ app.use(authGuard);
 /** 로그인 — 실패는 무엇이 틀렸는지 구분해 알리지 않는다 */
 app.post('/api/auth/login', async (req, res) => {
   const ip = req.ip ?? 'unknown';
-  const blocked = loginBlockedMinutes(ip);
+  const blocked = loginLimiter.blockedMinutes(ip);
   if (blocked > 0) {
     return res.status(429).json({ error: `잠시 후 다시 시도하세요 — ${blocked}분` });
   }
 
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
   if (!password || !(await verifyPassword(password))) {
-    recordLoginFailure(ip);
+    loginLimiter.recordFailure(ip);
     return res.status(401).json({ error: '비밀번호가 맞지 않습니다.' });
   }
 
-  recordLoginSuccess(ip);
+  loginLimiter.recordSuccess(ip);
   const token = createSession(req.headers['user-agent']);
   setSessionCookie(req, res, token);
   res.json({ ok: true });
@@ -1508,6 +1507,9 @@ app.put('/api/surge/settings', (req, res) => {
 
 // 오늘 시황 주소 4개(status · days · 그날 목록 · 버튼) — `marketBrief/routes.ts`
 app.use(marketBriefRouter);
+
+// 자산 관리(v2.61.0) — 잠금(status · unlock · lock) · 시트 읽기. 자산 문지기가 라우터 맨 앞 한 곳 — `asset/routes.ts`
+app.use(assetRouter);
 
 /**
  * 거래정지(실험실) — 그날(미국 날짜, 기본 오늘) 정지 + 받기 상태. 서버가 1분마다 Nasdaq 을 받아 쌓은 것을 읽기만 한다(화면이 외부를 부르지 않는다).

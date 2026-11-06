@@ -21,11 +21,12 @@ const OPEN: { method: string; path: string }[] = [
 const isOpen = (req: express.Request) =>
   OPEN.some((o) => o.method === req.method && o.path === req.path);
 
-// ── 무차별 대입 막기 ─────────────────────────────────────────────────────────
+// ── 무차별 대입 막기 (로그인 · 자산 잠금 공용) ─────────────────────────────────
 
 /*
  * 메모리에만 둔다 — 서버를 다시 시작하면 초기화된다(허용).
  * IP 별로 막고, **전체 합계로도** 한 번 더 막는다. IP 를 바꿔 가며 시도하는 경우 대비다.
+ * 수치는 한 벌이고, 세는 통(버킷)은 쓰는 곳마다 따로다 — 로그인 실패가 자산 잠금 풀기를 막지 않고, 그 반대도 같다.
  */
 const WINDOW_MS = 15 * 60_000;
 const PER_IP_LIMIT = 5;
@@ -35,8 +36,6 @@ interface Bucket {
   count: number;
   firstAt: number;
 }
-const perIp = new Map<string, Bucket>();
-let global: Bucket = { count: 0, firstAt: Date.now() };
 
 function bump(bucket: Bucket): Bucket {
   const now = Date.now();
@@ -52,21 +51,33 @@ function blockedFor(bucket: Bucket | undefined, limit: number): number {
   return Math.ceil((WINDOW_MS - (now - bucket.firstAt)) / 60_000);
 }
 
-/** 지금 이 IP 가 로그인 시도를 할 수 있는가 — 막혀 있으면 남은 분 */
-export function loginBlockedMinutes(ip: string): number {
-  return Math.max(blockedFor(perIp.get(ip), PER_IP_LIMIT), blockedFor(global, GLOBAL_LIMIT));
+export interface AttemptLimiter {
+  /** 지금 이 IP 가 시도할 수 있는가 — 막혀 있으면 남은 분(0 = 시도 가능) */
+  blockedMinutes(ip: string): number;
+  recordFailure(ip: string): void;
+  recordSuccess(ip: string): void;
 }
 
-export function recordLoginFailure(ip: string): void {
-  perIp.set(ip, bump(perIp.get(ip) ?? { count: 0, firstAt: Date.now() }));
-  global = bump(global);
-  // ⚠️ 시각·IP 만 남긴다. 입력한 비밀번호는 절대 남기지 않는다.
-  console.warn(`[auth] 로그인 실패 ${new Date().toISOString()} ip=${ip}`);
+/** 비밀번호 시도 막기 하나 — `label` 은 실패 로그 머리말(시각 · IP 만 남긴다) */
+export function createAttemptLimiter(label: string): AttemptLimiter {
+  const perIp = new Map<string, Bucket>();
+  let global: Bucket = { count: 0, firstAt: Date.now() };
+  return {
+    blockedMinutes: (ip) => Math.max(blockedFor(perIp.get(ip), PER_IP_LIMIT), blockedFor(global, GLOBAL_LIMIT)),
+    recordFailure: (ip) => {
+      perIp.set(ip, bump(perIp.get(ip) ?? { count: 0, firstAt: Date.now() }));
+      global = bump(global);
+      // ⚠️ 시각·IP 만 남긴다. 입력한 비밀번호는 절대 남기지 않는다.
+      console.warn(`${label} 실패 ${new Date().toISOString()} ip=${ip}`);
+    },
+    recordSuccess: (ip) => {
+      perIp.delete(ip);
+    },
+  };
 }
 
-export function recordLoginSuccess(ip: string): void {
-  perIp.delete(ip);
-}
+/** 로그인 시도 막기 */
+export const loginLimiter = createAttemptLimiter('[auth] 로그인');
 
 // ── 미들웨어 ─────────────────────────────────────────────────────────────────
 
