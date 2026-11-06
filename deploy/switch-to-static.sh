@@ -14,7 +14,8 @@ set -e
 APP_DIR="$HOME/alphascope"
 WEB_DIR="/var/www/alphascope"
 SERVER_NAME="161.33.153.189"   # nginx 설정의 server_name 과 같아야 한다
-PUBLIC_PORT=443                # nginx 설정의 listen … ssl 과 같아야 한다(v2.61.1 — https · 인증서는 deploy/setup-https.sh 가 먼저 받아 둬야 한다)
+PUBLIC_PORT=8080               # nginx 설정의 listen … ssl 과 같아야 한다(v2.61.2 — https://161.33.153.189:8080 · 인증서는 deploy/setup-https.sh 가 먼저 받아 둬야 한다)
+PUBLIC_URL="https://$SERVER_NAME:$PUBLIC_PORT"
 NGINX_AVAIL="/etc/nginx/sites-available/alphascope"
 NGINX_ENABLED="/etc/nginx/sites-enabled/alphascope"
 # ⚠️ 백업은 sites-enabled 안에 두지 않는다 — nginx 는 그 폴더의 파일을 전부 읽어 설정이 두 벌이 된다.
@@ -70,7 +71,7 @@ echo "━━━ 5/7 적용하고 화면 확인"
 sudo systemctl reload nginx
 sleep 1
 # --resolve: 이름은 server_name 그대로(인증서 확인 · Host) 두고 이 서버(127.0.0.1)로 묻는다
-CODE=$(curl -s -o /tmp/alphascope-index.html -w '%{http_code}' --resolve "$SERVER_NAME:$PUBLIC_PORT:127.0.0.1" "https://$SERVER_NAME/" || true)
+CODE=$(curl -s -o /tmp/alphascope-index.html -w '%{http_code}' --resolve "$SERVER_NAME:$PUBLIC_PORT:127.0.0.1" "$PUBLIC_URL/" || true)
 # 완성본이면 /assets/ 파일을 부르고, 개발 서버 화면이면 /@vite/client 가 들어 있다
 if [ "$CODE" = "200" ] && grep -q '/assets/' /tmp/alphascope-index.html && ! grep -q '/@vite/client' /tmp/alphascope-index.html; then
   echo "  화면 응답 200 · 완성본(/assets/) 확인"
@@ -79,7 +80,7 @@ else
   restore_nginx
   exit 1
 fi
-API=$(curl -s -o /dev/null -w '%{http_code}' --resolve "$SERVER_NAME:$PUBLIC_PORT:127.0.0.1" "https://$SERVER_NAME/api/version" || true)
+API=$(curl -s -o /dev/null -w '%{http_code}' --resolve "$SERVER_NAME:$PUBLIC_PORT:127.0.0.1" "$PUBLIC_URL/api/version" || true)
 echo "  API(/api/version) 응답 $API"
 
 echo "━━━ 6/7 개발 서버 끄기 (확인이 통과했으므로)"
@@ -95,5 +96,5 @@ chmod +x "$DEPLOY"
 pm2 list
 
 echo ""
-echo "전환 완료 — 브라우저에서 https://$SERVER_NAME 를 새로고침하세요."
+echo "전환 완료 — 브라우저에서 $PUBLIC_URL 를 새로고침하세요."
 echo "되돌리려면: bash ~/alphascope/deploy/rollback-to-vite.sh"

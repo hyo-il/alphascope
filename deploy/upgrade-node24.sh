@@ -18,7 +18,8 @@ set -u
 APP_DIR="${APP_DIR:-$HOME/alphascope}"
 WEB_DIR="${WEB_DIR:-/var/www/alphascope}"
 SERVER_NAME="161.33.153.189"   # nginx 설정의 server_name 과 같아야 한다
-PUBLIC_PORT=443                # nginx 설정의 listen … ssl 과 같아야 한다(npm run deploy:test 가 확인 · v2.61.1 https)
+PUBLIC_PORT=8080               # nginx 설정의 listen … ssl 과 같아야 한다(npm run deploy:test 가 확인 · v2.61.2 https://161.33.153.189:8080)
+PUBLIC_URL="https://$SERVER_NAME:$PUBLIC_PORT"
 # AlphaScope pm2 프로그램 이름 — deploy.sh · ecosystem.config.cjs 와 같아야 한다(npm run deploy:test 가 확인)
 PM2_APPS="alphascope-api alphascope-indicators"
 # 올릴 Node — 맥 시험과 같은 버전(nodesource 패키지 버전)
@@ -247,14 +248,14 @@ rsync -a --delete dist/ "$WEB_DIR/" || fail "화면 복사에 실패했습니다
 sudo nginx -t > "$BK/nginx-t.log" 2>&1 || fail "nginx -t 실패($BK/nginx-t.log)."
 sudo systemctl reload nginx || fail "nginx reload 실패."
 sleep 1
-CODE=$(curl -s -o /dev/null -w '%{http_code}' --resolve "$SERVER_NAME:$PUBLIC_PORT:127.0.0.1" "https://$SERVER_NAME/" || true)
-API=$(curl -s -o /dev/null -w '%{http_code}' --resolve "$SERVER_NAME:$PUBLIC_PORT:127.0.0.1" "https://$SERVER_NAME/api/version" || true)
+CODE=$(curl -s -o /dev/null -w '%{http_code}' --resolve "$SERVER_NAME:$PUBLIC_PORT:127.0.0.1" "$PUBLIC_URL/" || true)
+API=$(curl -s -o /dev/null -w '%{http_code}' --resolve "$SERVER_NAME:$PUBLIC_PORT:127.0.0.1" "$PUBLIC_URL/api/version" || true)
 say "화면 응답 $CODE · API(/api/version) 응답 $API"
 [ "$CODE" = "200" ] && [ "$API" = "200" ] || fail "화면 또는 API 확인에 실패했습니다."
 pm2 save >/dev/null
 trap - INT TERM
 
 echo ""
-echo "완료 — Node 24 ($NODE24_V) · 서버 켜짐 · 오류 없음 · 주소 https://$SERVER_NAME"
+echo "완료 — Node 24 ($NODE24_V) · 서버 켜짐 · 오류 없음 · 주소 $PUBLIC_URL"
 echo "  · 백업: $BK (DB 사본 · Node 22 패키지 · 옛 node_modules) — 며칠 써 보고 문제가 없으면 지웁니다: rm -rf $BK"
 echo "  · 같은 서버의 다른 프로젝트는 건드리지 않았습니다 — 그 프로그램은 다음에 다시 켜질 때부터 Node 24 로 돕니다."
