@@ -23,6 +23,16 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.61.4',
+    date: '2026-11-06',
+    title: '차트 축 숫자가 겹치지 않게(실시간 순위 · 기업 비교) · 버전 안내를 새 배포 자리로',
+    description: '차트 오른쪽 축에서 가격 칸 맨 아래 숫자와 거래량 칸 맨 위 숫자가 경계에서 맞붙지 않습니다',
+    changes: [
+      '실시간 순위 미리보기 · 기업 비교 · 메인 차트: 칸 끝에 걸려 반쯤 잘리던 축 숫자를 그리지 않습니다 — 차트 모양 · 크기는 그대로입니다',
+      '버전 안내 띠 「상세 보기」 가 오라클 안내 한 줄(~/projects/alphascope/scripts/deploy.sh)만 보여 줍니다',
+    ],
+  },
+  {
     version: 'v2.61.3',
     date: '2026-11-06',
     title: '내부 정리(오라클 서버 폴더 정리 · 주간 백업 — 화면 변화 없음)',
