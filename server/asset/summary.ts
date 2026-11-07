@@ -6,7 +6,7 @@
  * - 평가 = 수량 × 토스 가격(미국은 × 토스 환율). 매입 = 수량 × 평균 매입가(달러 평균가는 × 「티커」 G9 구매 평균 환율 — 시트와 같은 방식).
  * - 「연금 포함」 이 꺼지면 「연금으로 볼 계좌」(설정 — 기본 연금 저축 계좌) 보유와 퇴직 연금(「현금」 C30)을 뺀다.
  *   퇴직 연금은 자산 분류가 없어 따로 한 칸(「퇴직 연금」)으로 둔다 — 분류별 합이 총 자산과 같게.
- * - 분류별: 현금(C25 + 분류 「현금」 종목) · 채권 · 금 · 주식 · 미지정(빈칸 · 네 글자가 아닌 글자 · 이을 수 없는 줄 — 하나의 값).
+ * - 분류별: 현금(「현금」 탭 C25 금액만 — v2.65.2 부터 종목 분류에 「현금」 이 없다) · 채권 · 금 · 주식 · 미지정(빈칸 · 세 글자가 아닌 글자(옛 「현금」 포함) · 이을 수 없는 줄 — 하나의 값).
  * - 코어 · 위성: 분류 「주식」 종목만 — 종목 코드가 「위성으로 선택한 종목」(설정 — 처음 값은 개별 투자의 주식)에 있으면 위성, 그 밖은 코어.
  *   같은 코드는 어느 계좌에 있든 같은 쪽(계좌로 나누지 않는다).
  * - 가격을 못 받은 줄(코드 없음 · 토스 가격 없음 · 캐시된 지난 종가(stale) · 미국인데 환율 없음 · 수량 없음)은 총 자산에서 빼고 개수를 센다.
@@ -15,7 +15,7 @@
 import { fetchQuotes } from '../quoteService';
 import { isMockMode } from '../mockData';
 import { fetchExchangeRate } from '../../src/services/toss/account';
-import { ASSET_GROUP_LABEL, type AssetSymbolRow, type AssetAccount, type AssetGroup, type AssetGroupKey, type AssetHolding, type AssetSettings, type AssetSheetData, type AssetSummary, type AssetTotals } from '../../src/types/asset';
+import { ASSET_GROUP_LABEL, type AssetClass, type AssetSymbolRow, type AssetAccount, type AssetGroup, type AssetGroupKey, type AssetHolding, type AssetSettings, type AssetSheetData, type AssetSummary, type AssetTotals } from '../../src/types/asset';
 import { accountDateTexts, readAssetSheet } from './sheet';
 import { readAssetSettings, stockChoices } from './settings';
 import { latestRecord } from './store';
@@ -30,7 +30,8 @@ export interface PriceBook {
   usdKrw: number | null;
 }
 
-const CLASS_GROUP: Record<string, AssetGroupKey> = { 현금: 'cash', 채권: 'bond', 금: 'gold', 주식: 'stock' };
+/** 종목 분류 → 묶음 — 「현금」 묶음은 종목 분류에서 오지 않는다(「현금」 탭 금액만) */
+const CLASS_GROUP: Record<AssetClass, AssetGroupKey> = { 채권: 'bond', 금: 'gold', 주식: 'stock' };
 
 const valuedRow = (h: AssetHolding, book: PriceBook): number | null => {
   if (!h.symbol || h.quantity == null) return null;

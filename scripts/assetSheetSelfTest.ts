@@ -3,6 +3,7 @@
  *
  * 114차 지시서 「꼭 지킬 동작」 3(점검 스크립트 `asset:check-sheet`) · 4 · 5(시트 바뀜 처리 — `server/asset/sheetSwitch.ts`) · 6(시트 ID 전체 없음) ·
  * 8(매매 · 시황 … 코드 바뀐 파일 0)을 줄마다 확인한다(시험 이름 앞의 [114-n] 이 그 줄 번호).
+ * 115차(v2.65.2) 「꼭 지킬 동작」 8(점검 명령 — 현금 칸 없음 · 옛 「현금」 글자는 미지정 줄로 따로 셈)은 [115-8].
  * - 구글: 이 프로세스의 `fetch` 를 바꿔치기한 **가짜 시트**(만든 값 · 시험용 RSA 열쇠) · 종료 코드는 자식 프로세스에
  *   `scripts/fixtures/asset/fakeGoogle.mjs` 를 미리 불러 같은 가짜 시트로 — 실제 구글 호출 0.
  * ⚠️ 출력에 가짜 금액 · 코드 · 이름 · 시트 ID 전체 · 열쇠 값을 찍지 않는다(끝에서 검사).
@@ -160,7 +161,16 @@ try {
   check('[114-3] 가짜 구글로 맞는 시트 → ✅ 연결해도 됩니다 · ❌ 0', ok.ok && ok.problems === 0 && ok.last === '✅ 연결해도 됩니다', ok.text.split('\n').filter((l) => /❌|다름/.test(l)).join(' / '));
   check('[114-3] 구글 읽기 = 값 1번 · 수식 1번(쓰기 0)', ok.reads === 2 && g.reads === 2 && JSON.stringify(g.renders) === JSON.stringify(['UNFORMATTED_VALUE', 'FORMULA']) && g.writes === 0);
   check('[114-3] 줄 수 · 모양 보고 — 종목 3줄(국내 2 · 미국 1) · 빈칸 1 · GOOGLEFINANCE 2줄 · 이미 토스 1줄 · 이어진 줄 5 / 5 · 서비스 계정 이메일',
-    /3줄 · 국내 2 · 미국 1/.test(ok.text) && /빈칸 1 · 그 밖 0/.test(ok.text) && /GOOGLEFINANCE 2줄 · 이미 토스 1줄 · 다른 모양 0줄/.test(ok.text) && /이어진 줄 5 \/ 5/.test(ok.text) && ok.text.includes(EMAIL) && /####\.##/.test(ok.text), ok.text);
+    /3줄 · 국내 2 · 미국 1/.test(ok.text) && /빈칸 1 · 미지정\(현금 — 고르기 목록에 없음\) 0줄 · 그 밖 0/.test(ok.text) && /GOOGLEFINANCE 2줄 · 이미 토스 1줄 · 다른 모양 0줄/.test(ok.text) && /이어진 줄 5 \/ 5/.test(ok.text) && ok.text.includes(EMAIL) && /####\.##/.test(ok.text), ok.text);
+
+  // ═══ [115-8] 분류 값에서 「현금」 을 뺐다(v2.65.2) — 3번 셈에 「현금」 칸 없음 · 옛 「현금」 글자는 「미지정(현금 — 고르기 목록에 없음) n줄」 로 따로 ═══
+  const cashCls = await run('현금글자', (m) => {
+    m.values['티커!D17'] = '현금';
+    m.formulas['티커!D17'] = '현금';
+  });
+  check('[115-8] 점검 명령 3번 — 분류 셈은 채권 · 금 · 주식만(「현금 n」 칸 없음) · 옛 「현금」 글자 1줄은 미지정 줄로 따로 · 그 밖 0 · 빈칸 0',
+    cashCls.ok && /자산 분류 채권 1 · 금 0 · 주식 1 · 빈칸 0 · 미지정\(현금 — 고르기 목록에 없음\) 1줄 · 그 밖 0/.test(cashCls.text) && !/현금 \d/.test(cashCls.text.split('\n').find((l) => l.startsWith('3.')) ?? 'x'), cashCls.text);
+  check('[115-8] 맞는 시트(현금 글자 없음) — 미지정(현금) 0줄', /미지정\(현금 — 고르기 목록에 없음\) 0줄 · 그 밖 0/.test(ok.text), ok.text);
 
   const noD = await run('D12없음', (m) => {
     delete m.values['티커!D12'];

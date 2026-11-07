@@ -153,7 +153,7 @@ export function parseAssetSheet(values: CellRows[], formulas: CellRows[], readAt
         quantity: num(r[2]),
         ...avgPriceOf(f[1], r[1]),
         tickerRow: ticker ? linked : null,
-        assetClass: isAssetClass(cls) ? cls : null, // 빈칸 · 네 글자가 아닌 글자 → 「미지정」(null)
+        assetClass: isAssetClass(cls) ? cls : null, // 빈칸 · 세 글자가 아닌 글자(옛 「현금」 포함) → 「미지정」(null)
       });
     }
     const name = (s.nameCell ? headerText(s.nameCell) : '') || s.label || '';
@@ -211,7 +211,7 @@ const refuse = (kind: 'disabled' | 'not-editable' | 'formula-cell', message: str
 
 /**
  * 자산 분류 한 칸 쓰기 — **이 앱에서 시트에 쓰는 유일한 곳**(v2.62.0). 순서:
- * ① 스위치(`ASSET_SYNC_ENABLED=false` → 「꺼짐」) ② 줄 번호 · 값 확인(「티커」 D14~D42 · 네 글자 또는 빈칸)
+ * ① 스위치(`ASSET_SYNC_ENABLED=false` → 「꺼짐」) ② 줄 번호 · 값 확인(「티커」 D14~D42 · 세 글자(채권 · 금 · 주식) 또는 빈칸 — 「현금」 은 거절)
  * ③ 쓰기 직전에 그 줄과 머리 D12 를 **수식 그대로** 다시 읽는다 — 머리가 다르면 「모양 바뀜」, 종목 줄이 아니면(구분 줄 · 빈 줄) 거절,
  *    그 칸이 `=` 로 시작하면 쓰지 않고 멈춤(수식을 덮어쓰지 않는다)
  * ④ `values.update` 한 칸(RAW) ⑤ 30초 캐시를 비우고 다시 읽은 값을 돌려준다.

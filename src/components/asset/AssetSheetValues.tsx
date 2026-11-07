@@ -134,7 +134,7 @@ const CARD_BG = 'bg-bg-secondary';
 
 /**
  * 자산 분류 고르기 한 칸 — 이을 수 없는 줄은 고를 수 없다(「티커」 줄이 없다). 선택 글자 · 목록 모두 가운데 정렬.
- * 첫 항목 「-」 = 미지정(빈칸 · 네 글자가 아닌 글자 모두) — 고르면 시트 칸을 비운다. 모르는 글자가 있던 줄도 「-」 로 보이고 다른 값을 고르면 덮어쓴다.
+ * 첫 항목 「-」 = 미지정(빈칸 · 세 글자가 아닌 글자 모두 — 옛 「현금」 포함 · v2.65.2) — 고르면 시트 칸을 비운다. 모르는 글자가 있던 줄도 「-」 로 보이고 다른 값을 고르면 덮어쓴다.
  */
 function ClassPicker({ h, saving, onPick }: { h: AssetHolding; saving: boolean; onPick: (row: number, value: AssetClass | '') => void }) {
   if (h.tickerRow == null)

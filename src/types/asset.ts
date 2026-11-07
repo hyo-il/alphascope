@@ -37,10 +37,13 @@ export type AssetSheetErrorKind =
   | 'no-backup'; // 되돌릴 원래 수식이 앱 DB 에 없음
 
 /**
- * 자산 분류 — 「티커」 D열에 적는 글자 넷(사용자 결정 2026-11-07).
- * 빈칸 · 네 글자가 아닌 글자 · 이을 수 없는 줄은 모두 하나의 값 「미지정」(v2.62.2 — 사용자 결정 2026-11-07) — 계산에서 `none` 묶음.
+ * 자산 분류 — 「티커」 D열에 적는 글자 셋(v2.65.2 — 사용자 결정 2026-11-08: 「현금」 을 뺐다).
+ * 빈칸 · 세 글자가 아닌 글자(옛 글자 「현금」 포함) · 이을 수 없는 줄은 모두 하나의 값 「미지정」(v2.62.2) — 계산에서 `none` 묶음.
+ * ⚠️ 분류 값 목록과 「현금」 묶음(`AssetGroupKey` 'cash' — 「현금」 탭 C25 금액만)은 다른 것이다 — 섞지 않는다.
  */
-export const ASSET_CLASSES = ['현금', '채권', '금', '주식'] as const;
+export const ASSET_CLASSES = ['채권', '금', '주식'] as const;
+/** 시트에 남아 있을 수 있는 옛 분류 글자 — 읽으면 「미지정」 · 쓰기는 거절(점검 명령 `asset:check-sheet` 가 따로 센다) */
+export const LEGACY_CASH_CLASS = '현금';
 export type AssetClass = (typeof ASSET_CLASSES)[number];
 export const isAssetClass = (v: unknown): v is AssetClass => typeof v === 'string' && (ASSET_CLASSES as readonly string[]).includes(v);
 
@@ -65,7 +68,7 @@ export interface AssetHolding {
   currency: AssetCurrency;
   /** 이어진 「티커」 줄 번호 — 자산 분류를 쓸 칸(D열)의 줄. 이을 수 없으면 null(분류를 고를 수 없다) */
   tickerRow: number | null;
-  /** 「티커」 D열 자산 분류 — 빈칸 · 네 글자가 아닌 글자 · 이을 수 없음은 null(「미지정」 — 좁은 칸에서는 「-」) */
+  /** 「티커」 D열 자산 분류 — 빈칸 · 세 글자가 아닌 글자(옛 「현금」 포함) · 이을 수 없음은 null(「미지정」 — 좁은 칸에서는 「-」) */
   assetClass: AssetClass | null;
 }
 
@@ -165,7 +168,7 @@ export interface AssetStockChoice {
   isStock: boolean;
 }
 
-/** 분류별 묶음 — 네 분류 + 퇴직 연금(연금 포함일 때만 · 분류가 없는 한 칸) + 미지정(`none`) */
+/** 분류별 묶음 — 현금(「현금」 탭 금액만 · 분류 값이 아니다) + 세 분류 + 퇴직 연금(연금 포함일 때만 · 분류가 없는 한 칸) + 미지정(`none`) */
 export type AssetGroupKey = 'cash' | 'bond' | 'gold' | 'stock' | 'retirement' | 'none';
 /** 분류별 묶음 이름 — 서버 계산 · 옛 하루 기록 읽기가 이 표 하나를 쓴다(옛 기록에 저장된 옛 이름도 읽을 때 「미지정」) */
 export const ASSET_GROUP_LABEL: Record<AssetGroupKey, string> = { cash: '현금', bond: '채권', gold: '금', stock: '주식', retirement: '퇴직 연금', none: '미지정' };

@@ -91,7 +91,7 @@ assetRouter.get('/api/asset/sheet', async (_req, res) => {
 });
 
 /**
- * 자산 분류 한 칸 쓰기 — `{ row, assetClass }`(「티커」 줄 번호 · 네 글자 또는 빈칸). 성공하면 다시 읽은 시트 값.
+ * 자산 분류 한 칸 쓰기 — `{ row, assetClass }`(「티커」 줄 번호 · 채권 · 금 · 주식 또는 빈칸). 성공하면 다시 읽은 시트 값.
  * 칸 · 값 · 수식 칸 · 스위치 확인은 `writeAssetClass` 한 곳.
  */
 assetRouter.put('/api/asset/class', async (req, res) => {

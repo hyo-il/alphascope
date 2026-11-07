@@ -19,7 +19,7 @@ import { AssetSheetError, batchGet, type CellRows } from '../server/asset/google
 import { NAME_DATE, headerOk, linkedTickerRow, one, splitCode, tickerRowCode } from '../server/asset/sheet';
 import { HOLDINGS_TAB, SHEET_LAYOUT, TICKER_TAB, type HeaderCheck, type HoldingSection } from '../server/asset/sheetLayout';
 import { classifyLine, tickerLines } from '../server/asset/priceSheet';
-import { ASSET_CLASSES } from '../src/types/asset';
+import { ASSET_CLASSES, LEGACY_CASH_CLASS } from '../src/types/asset';
 import type { AssetSheetConfig } from '../server/asset/config';
 
 type Cell = string | number | boolean | undefined;
@@ -128,9 +128,11 @@ export async function runSheetCheck(config: AssetSheetConfig, say: (line: string
   const us = lines.filter((l) => splitCode(l.code).market === 'US').length;
   const cls = Object.fromEntries(ASSET_CLASSES.map((c) => [c, lines.filter((l) => l.cls === c).length]));
   const clsBlank = lines.filter((l) => blank(l.cls)).length;
-  const clsOther = lines.filter((l) => !blank(l.cls) && !(ASSET_CLASSES as readonly Cell[]).includes(l.cls));
+  // 옛 글자 「현금」(v2.65.2 에 고르기 목록에서 뺐다) — 앱은 미지정으로 본다 · 「그 밖」 과 따로 센다
+  const clsCash = lines.filter((l) => l.cls === LEGACY_CASH_CLASS).length;
+  const clsOther = lines.filter((l) => !blank(l.cls) && l.cls !== LEGACY_CASH_CLASS && !(ASSET_CLASSES as readonly Cell[]).includes(l.cls));
   say(
-    `3. 「${TICKER_TAB}」 종목 줄 — ${lines.length ? '맞음' : '다름'} (${lines.length}줄 · 국내 ${lines.length - us} · 미국 ${us} · 자산 분류 ${ASSET_CLASSES.map((c) => `${c} ${cls[c]}`).join(' · ')} · 빈칸 ${clsBlank} · 그 밖 ${clsOther.length})`,
+    `3. 「${TICKER_TAB}」 종목 줄 — ${lines.length ? '맞음' : '다름'} (${lines.length}줄 · 국내 ${lines.length - us} · 미국 ${us} · 자산 분류 ${ASSET_CLASSES.map((c) => `${c} ${cls[c]}`).join(' · ')} · 빈칸 ${clsBlank} · 미지정(${LEGACY_CASH_CLASS} — 고르기 목록에 없음) ${clsCash}줄 · 그 밖 ${clsOther.length})`,
   );
   if (!lines.length) bad(`「${TICKER_TAB}」 ${T.firstRow}~${T.lastRow}행에 종목 줄이 없습니다(B 이름 · C 코드)`);
   if (clsOther.length) warn(`${L.assetClass.column}열에 ${ASSET_CLASSES.join(' · ')} · 빈칸이 아닌 값 ${clsOther.length}줄(${clsOther.map((l) => `${l.row}행`).join(' · ')}) — 앱은 「미지정」 으로 봅니다`);

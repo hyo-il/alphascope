@@ -34,7 +34,7 @@ import { AssetSheetError, resetTokenCache } from '../server/asset/google';
 import { avgPriceOf, checkTargetRatio, linkedTickerRow, parseAssetSheet, readAssetSheet, replaceNameDate, resetSheetCache, sheetRanges, splitCode, writeAccountDates, writeAssetClass, writeTargetRatio } from '../server/asset/sheet';
 import { computeMonthlyBuy, purchaseCycle, purchaseDayOf, setPurchaseClockForTest, type PurchaseCalendar } from '../server/asset/purchase';
 import { clearPurchasesForTest, purchaseCountForTest, purchaseStartDayStoredForTest, recordPurchase } from '../server/asset/store';
-import { ASSET_COLOR_IDS, ASSET_GROUP_LABEL, DEFAULT_CLASS_COLORS, UNASSIGNED_SHORT, type AssetSheetData, type AssetSummary, type AssetTotals } from '../src/types/asset';
+import { ASSET_CLASSES, ASSET_COLOR_IDS, ASSET_GROUP_LABEL, COLORED_GROUP_KEYS, DEFAULT_CLASS_COLORS, UNASSIGNED_SHORT, isAssetClass, type AssetSheetData, type AssetSummary, type AssetTotals } from '../src/types/asset';
 import { accountValues, computeAssetTotals, holdingsBySymbol, setAssetPriceSourceForTest, assetSummary, type PriceBook } from '../server/asset/summary';
 import { readAssetSettings, stockChoices, writeAssetSettings } from '../server/asset/settings';
 import { computeRebalance } from '../server/asset/rebalance';
@@ -389,6 +389,13 @@ try {
   check('[106-2] [108-1] 자산 분류는 「티커」 D열 — 주식 · 채권 그대로 · 네 글자가 아니면(부동산) 미지정(null) 하나 · 옛 「알 수 없는 분류」 칸 없음', us?.assetClass === '주식' && all.find((h) => h.row === 39)?.assetClass === '채권' && kodex?.assetClass === null && !('assetClassUnknown' in (kodex ?? {})));
   check('[106-2] [108-1] 이을 수 없는 줄은 「티커」 줄 없음 · 미지정(null)', nolink?.tickerRow === null && nolink?.assetClass === null);
   {
+    // [115-1] 분류 값에서 「현금」 을 뺐다(v2.65.2) — 고르기 목록 = 채권 · 금 · 주식 · 시트에 「현금」 으로 적힌 줄(가짜 MMF · 「티커」 22행)은 미지정(null) · 시트 글자는 그대로
+    const mmf = all.find((h) => h.row === 9);
+    check('[115-1] 분류 값 = 채권 · 금 · 주식(「현금」 없음) · 시트 「현금」 글자 → 미지정(null) · 시트 글자는 읽기만(쓰기 0)',
+      JSON.stringify(ASSET_CLASSES) === JSON.stringify(['채권', '금', '주식']) && !isAssetClass('현금') && mmf?.tickerRow === 22 && mmf?.assetClass === null && sheetModel.values['티커!D22'] === '현금' && google.writes === 0);
+    check('[115-1] 분류 색 「현금」 설정은 그대로(색 고르는 묶음에 cash · 기본 주황)', COLORED_GROUP_KEYS.includes('cash') && DEFAULT_CLASS_COLORS.cash === 'orange' && ASSET_GROUP_LABEL.cash === '현금');
+  }
+  {
     // [108-1] 빈칸 · 네 글자가 아닌 글자(공백 · 영문 · 비슷한 글자) → 모두 미지정(null) 하나
     resetSheetCache();
     const saved = sheetModel;
@@ -500,8 +507,8 @@ try {
   for (const row of [13, 43, 12, 15.5, '15', null]) outside.push(await refused(row, '금'));
   check('[106-7] D14~D42 밖(13 · 43 · 12) · 정수가 아닌 줄 번호 → not-editable · 구글 호출 0', outside.every((x) => x.k === 'not-editable' && x.writes === 0) && google.token === 0, outside.map((x) => x.k).join(','));
   const badValues = [];
-  for (const v of ['부동산', ' 금', 1, null, '=A1']) badValues.push(await refused(15, v));
-  check('[106-7] 네 글자 · 빈칸이 아닌 값(부동산 · 공백 섞임 · 숫자 · null · 수식) → not-editable · 쓰기 0', badValues.every((x) => x.k === 'not-editable' && x.writes === 0), badValues.map((x) => x.k).join(','));
+  for (const v of ['부동산', '현금', ' 금', 1, null, '=A1']) badValues.push(await refused(15, v));
+  check('[106-7] [115-1] 세 글자 · 빈칸이 아닌 값(부동산 · 옛 「현금」 · 공백 섞임 · 숫자 · null · 수식) → not-editable · 쓰기 0', badValues.every((x) => x.k === 'not-editable' && x.writes === 0), badValues.map((x) => x.k).join(','));
   fresh();
   sheetModel.formulas['티커!D16'] = '=IF(A1,"주식","채권")';
   check('[106-7] 그 칸이 `=` 로 시작(수식) → formula-cell · 쓰지 않음', (await kindOf(writeAssetClass(16, '금'))) === 'formula-cell' && google.writes === 0);
@@ -593,7 +600,7 @@ try {
   // 줄마다 평가(원) — 시험 안에서만 쓴다(출력하지 않는다)
   const v5 = 3.5 * 200 * FX_NOW; // 개별 · 미국 · 주식 → 위성
   const v6 = 12 * 20000; // 개별 · 네 글자가 아닌 분류(부동산) → 미지정
-  const v9 = 1 * 100000; // 개별 · 현금 분류 → 현금(위성 아님)
+  const v9 = 1 * 100000; // 개별 · 시트 글자 「현금」 → v2.65.2 부터 미지정(현금 묶음은 「현금」 탭 금액만)
   const v13 = 10 * 70000; // 적립식 · 채권
   const v22 = 4 * 15000; // ISA · 금
   const v30 = 5 * 30000; // 연금 저축 · 주식 → 코어(연금 포함일 때만)
@@ -612,10 +619,10 @@ try {
   const offIsa = computeAssetTotals(sheetData, book(), isaPension, false);
   check('[106-4] 연금 구간 설정을 ISA 로 바꾸면 그대로 따라감(꺼짐 → ISA 빠지고 연금 저축은 더함)', near(offIsa.totals.total, FAKE.cash + v5 + v6 + v9 + v13 + v30));
   check('[106-4-1] 분류 주식 + 개별 투자 = 위성 · 그 밖 구간 주식 = 코어(연금 포함일 때 연금 저축 주식)', near(on.totals.satellite, v5) && near(on.totals.core, v30) && near(off.totals.core, 0) && near(off.totals.satellite, v5));
-  check('[106-4-1] 채권 · 금 · 현금 분류는 어느 구간이든 코어/위성에 안 들어감(개별 투자의 현금 분류 줄도)', near(grp(on.totals, 'stock'), v5 + v30) && near(on.totals.core + on.totals.satellite, v5 + v30) && near(grp(on.totals, 'cash'), FAKE.cash + v9) && near(grp(on.totals, 'bond'), v13) && near(grp(on.totals, 'gold'), v22));
+  check('[106-4-1] [115-1] 채권 · 금 · 미지정(옛 「현금」 글자) 분류는 어느 구간이든 코어/위성에 안 들어감 · 현금 묶음 = 「현금」 탭 C25 만', near(grp(on.totals, 'stock'), v5 + v30) && near(on.totals.core + on.totals.satellite, v5 + v30) && near(grp(on.totals, 'cash'), FAKE.cash) && near(grp(on.totals, 'bond'), v13) && near(grp(on.totals, 'gold'), v22));
   const sat2 = computeAssetTotals(sheetData, book(), { ...DEF, satelliteSymbols: ['NVDA', '360750'] }, true);
   check('[106-4-1] [107-1] 위성 종목을 바꾸면 따라감(연금 저축의 주식 360750 → 위성)', near(sat2.totals.satellite, v5 + v30) && near(sat2.totals.core, 0));
-  check('[106-4] [108-1] 네 글자가 아닌 분류(부동산)는 계산에서 미지정 묶음(이름 「미지정」) · 옛 「알 수 없는 분류」 개수 칸 없음', near(grp(off.totals, 'none'), v6) && off.totals.groups.find((g) => g.key === 'none')?.label === '미지정' && !('unknownClassCount' in off));
+  check('[106-4] [108-1] [115-1] 세 글자가 아닌 분류(부동산 · 옛 「현금」)는 계산에서 미지정 묶음(이름 「미지정」) · 옛 「알 수 없는 분류」 개수 칸 없음', near(grp(off.totals, 'none'), v6 + v9) && off.totals.groups.find((g) => g.key === 'none')?.label === '미지정' && !('unknownClassCount' in off));
   // ── 109차 B — 비율 조정(순수 함수 · computeAssetTotals 결과 그대로) ─────────────────────
   {
     const TGT = { cash: 20, gold: 10, bond: 10, invest: 60, core: 70, satellite: 30 };
@@ -624,7 +631,7 @@ try {
     const ex = (r: ReturnType<typeof computeRebalance>, k: string) => r.excluded.find((e) => e.key === k);
     const nowOf = (r: ReturnType<typeof computeRebalance>, k: string) => [...r.assets.rows, ...r.stocks.rows].find((x) => x.key === k)?.nowAmount;
     check('[109-3] 기준 금액 = 현금 + 채권 + 금 + 주식 — 미지정 · 가격 못 받은 종목은 빠지고 「빠짐」 줄(미지정 금액 · 가격 못 받음 줄 수)',
-      near(rOff.assets.base, FAKE.cash + v9 + v13 + v22 + v5) && near(ex(rOff, 'none')?.amount ?? NaN, v6) && ex(rOff, 'missing')?.count === off.totals.missing && off.totals.missing > 0 && ex(rOff, 'missing')?.amount === null);
+      near(rOff.assets.base, FAKE.cash + v13 + v22 + v5) && near(ex(rOff, 'none')?.amount ?? NaN, v6 + v9) && ex(rOff, 'missing')?.count === off.totals.missing && off.totals.missing > 0 && ex(rOff, 'missing')?.amount === null);
     check('[109-3] 「연금 포함」 켜면 기준에 연금 계좌가 더해지고 퇴직 연금은 빠짐 줄 · 끄면 퇴직 연금 줄 없음',
       near(rOn.assets.base, rOff.assets.base + v30) && near(ex(rOn, 'retirement')?.amount ?? NaN, FAKE.retirement) && ex(rOff, 'retirement') === undefined);
     check('[109-4] 비율 조정의 분류별 지금 금액 = computeAssetTotals(총 자산 탭)와 같은 값 · 코어 / 위성도',
@@ -646,7 +653,9 @@ try {
     const zero: AssetTotals = { ...synth, missing: 0, groups: synth.groups.map((g) => ({ ...g, amount: 0 })), core: 0, satellite: 0 };
     const rz = computeRebalance(zero, TGT, 5);
     check('[109-3] 0원 · 0줄이면 빠짐 줄 없음 · 기준 0 이면 지금 % · 상태 없음', rz.excluded.length === 0 && rz.assets.rows.every((x) => x.nowPct === null && x.status === null));
-    for (const r of [rOff, rOn]) totalsSecret.push(String(Math.round(r.assets.base)), Math.round(r.assets.base).toLocaleString('en-US'));
+    for (const r of [rOff, rOn]) totalsSecret.push(String(Math.round(r.assets.base)), Math.round(r.assets.base).toLocaleString('en-US'));    const cashRow = (r: ReturnType<typeof computeRebalance>) => r.assets.rows.find((x) => x.key === 'cash');
+    check('[115-1] 비율 조정 현금 줄 지금 금액 = 「현금」 탭 C25 금액 = 총 자산 탭 현금 묶음(옛 「현금」 글자 종목은 미지정 빠짐 줄)',
+      [rOff, rOn].every((r, n) => cashRow(r)?.nowAmount === FAKE.cash && grp([off, on][n].totals, 'cash') === FAKE.cash && (ex(r, 'none')?.amount ?? 0) >= v9));
   }
   // ── 109차 D — 종목별(같은 코드 여러 계좌 → 한 줄 · valuedRow 그대로 · 코어 / 위성 합 = 비율 조정 금액) ─────────────────────
   {
@@ -704,7 +713,7 @@ try {
   const same = computeAssetTotals(withIsaNvda, book(), DEF, true);
   check('[107-1] 같은 코드(NVDA)가 ISA 계좌에도 있으면 그 줄도 위성(계좌로 나누지 않음)', near(same.totals.satellite, 2 * v5) && near(same.totals.core, v30));
   const cashSat = computeAssetTotals(sheetData, book(), { ...DEF, satelliteSymbols: ['NVDA', '455890', '005930'] }, true);
-  check('[107-1] 위성 목록에 있어도 분류가 주식이 아니면(현금 455890 · 채권 005930) 코어/위성 밖', near(cashSat.totals.satellite, v5) && near(cashSat.totals.core, v30) && near(grp(cashSat.totals, 'cash'), FAKE.cash + v9) && near(grp(cashSat.totals, 'bond'), v13));
+  check('[107-1] 위성 목록에 있어도 분류가 주식이 아니면(옛 「현금」 글자 → 미지정 455890 · 채권 005930) 코어/위성 밖 [115-1]', near(cashSat.totals.satellite, v5) && near(cashSat.totals.core, v30) && near(grp(cashSat.totals, 'cash'), FAKE.cash) && near(grp(cashSat.totals, 'bond'), v13));
   const noSat = computeAssetTotals(sheetData, book(), { ...DEF, satelliteSymbols: [] }, true);
   check('[107-1] 위성 목록이 비면 주식은 모두 코어', near(noSat.totals.satellite, 0) && near(noSat.totals.core, v5 + v30));
 
@@ -913,7 +922,7 @@ try {
   for (const n of [wClose.rec?.total, wClose.rec?.totalPension]) if (n != null) totalsSecret.push(String(Math.round(n)), Math.round(n).toLocaleString('en-US'));
   const satAt = (p: number) => 3.5 * p * FX_NOW;
   check('[107-6] 겨울 15:35 KST 기록 — 미국 종목은 11-05 정규장 종가(190)로 · 토스 지금 가격(주간거래 260)이 섞이지 않음', wClose.r === 'recorded' && wClose.rec?.day === '2026-11-05' && near(wClose.rec?.plain.satellite, satAt(190)) && !near(wClose.rec?.plain.satellite, satAt(260)) && wClose.refreshed === 1, `${wClose.r} ${wClose.refreshed}`);
-  check('[107-6] 국내 종목 · 현금 · 환율은 지금처럼(토스 지금 가격 — 채권 · 금 · 현금 칸이 106차 계산과 같음)', near(grp(wClose.rec!.plain, 'bond'), v13) && near(grp(wClose.rec!.plain, 'gold'), v22) && near(grp(wClose.rec!.plain, 'cash'), FAKE.cash + v9) && near(wClose.rec?.total, plainTotal - v5 + satAt(190)));
+  check('[107-6] 국내 종목 · 현금 · 환율은 지금처럼(토스 지금 가격 — 채권 · 금 칸이 106차 계산과 같음 · 현금 칸 = 「현금」 탭 금액만 [115-1])', near(grp(wClose.rec!.plain, 'bond'), v13) && near(grp(wClose.rec!.plain, 'gold'), v22) && near(grp(wClose.rec!.plain, 'cash'), FAKE.cash) && near(wClose.rec?.total, plainTotal - v5 + satAt(190)));
   const wMiss = await recordWinter(null, 260);
   check('[107-6] 그날 정규장 종가 봉이 없으면 그 미국 종목은 「가격 못 받음」(지금 가격으로 대신하지 않음 · 줄 수 +1)', wMiss.r === 'recorded' && wMiss.rec?.missing === 2 && near(wMiss.rec?.plain.satellite, 0) && near(wMiss.rec?.total, plainTotal - v5), `${wMiss.r} ${wMiss.rec?.missing}`);
   closeFetchedAt = at(k('2026-11-06', '06:05')); // 정규장 끝(06:00 KST) + 5분 — 아직 확정 값이 아님
