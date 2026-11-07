@@ -19,7 +19,7 @@ import { MonthlyBuySection, PurchaseDayDialog, sheetDateText } from './AssetMont
 /**
  * 계좌 > 자산 관리 — 풀린 화면(v2.62.0 · 자산 관리 3단계 · v2.62.2 탭 · v2.63.0 비율 조정).
  * 머리: 제목 줄 오른쪽 「연금 포함」(이 기기에 기억) · 읽은 시각 · 「설정」 · 「다시 읽기」 · 「잠그기」 — 세 탭 공통.
- *    「설정」 = 창 하나(연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색 · 목표 비율 · 괜찮음 범위 — `AssetSettingsDialog`)
+ *    「설정」 = 창 하나(연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색 · 목표 비율 · 괜찮음 범위 · 시트 가격 — `AssetSettingsDialog`)
  * 제목 아래 탭 「총 자산 | 자산 현황 | 비율 조정」 — 처음 = 총 자산 · 마지막 탭을 이 기기에 기억(`alphascope.asset.tab` · 읽기 실패 · 모르는 값이면 총 자산).
  * 주소에는 넣지 않는다(소메뉴 안 탭).
  * - 비율 조정: 보기만(`AssetRebalanceView` — summary 의 `rebalance` 그대로) · [목표 비율 바꾸기] = 설정 창을 목표 비율 칸으로 연다.
@@ -225,6 +225,22 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
     }
   };
 
+  /** 시트 가격 바꾸기 · 되돌리기(v2.65.0) — 성공이면 다시 받아 설정 창 상태를 새로 · 실패면 이유 한 줄 */
+  const priceSheetAction = async (kind: 'convert' | 'restore'): Promise<string | null> => {
+    try {
+      const res = await fetch(`/api/asset/price-source/${kind}`, { method: 'POST', headers: { 'content-type': 'application/json' } });
+      const body = await readJson(res);
+      if (body.code === 'asset-locked') {
+        onLocked();
+        return '자산 관리가 잠겼습니다.';
+      }
+      await reload();
+      return res.ok ? null : typeof body.error === 'string' ? body.error : `요청 실패 (${res.status})`;
+    } catch {
+      return '서버에 연결하지 못했습니다.';
+    }
+  };
+
   /** [구매 완료] — 확인 창(저장 중 「처리 중…」) → 서버 → 성공이면 팝업 닫고 다시 받기 · 실패면 이유 한 줄 */
   const askPurchaseDone = (sheetDates: string[]) => {
     modal.confirm({
@@ -334,6 +350,7 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
           summary={summary}
           onSave={saveSettings}
           onSaveTarget={saveTarget}
+          onPriceSheet={priceSheetAction}
           focus={settingsOpen === 'targetRatio' ? 'targetRatio' : undefined}
           onClose={() => setSettingsOpen(null)}
         />

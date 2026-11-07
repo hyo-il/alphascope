@@ -486,6 +486,23 @@ function targets(): Target[] {
           await page.getByRole('dialog').locator('[data-purchase-done]').click().catch(() => {});
           await page.waitForTimeout(300);
         }],
+        // v2.65.0 — 설정 창 「시트 가격」(Google · 토스 + 토스 가격 없음 목록 · 스위치 꺼진 서버 · 바꾸기 / 되돌리기 확인 창)
+        ...([
+          ['Google', 'google', null],
+          ['토스', 'toss', null],
+          ['꺼짐', 'off', null],
+          ['바꾸기확인창', 'google', '[data-price-convert]'],
+          ['되돌리기확인창', 'toss', '[data-price-restore]'],
+        ] as const).map(([label, price, button]) => [`설정창-시트가격-${label}`, { price }, async (page: Page) => {
+          await page.locator('[data-asset-settings]').click().catch(() => {});
+          await page.waitForTimeout(400);
+          await page.locator('[data-setting="price-sheet"]').scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+          if (button) {
+            await page.locator(button).click().catch(() => {});
+            await page.waitForTimeout(300);
+          }
+        }] as const),
         ['자산현황-요약목표비율', {}, async (page: Page) => {
           await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
           await page.waitForTimeout(500);
@@ -516,13 +533,14 @@ function targets(): Target[] {
         await page.route('**/api/asset/settings', (r) => r.fulfill({ status: 400, json: { error: '시험 — 저장하지 않음' } }).catch(() => {}));
         await page.route('**/api/asset/target-ratio', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
         await page.route('**/api/asset/purchase-done', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
+        await page.route('**/api/asset/price-source/**', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
       },
       open: async (page: Page) => {
         await page.waitForTimeout(800);
         await act(page);
       },
       after: async (page: Page) => {
-        for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/class', '**/api/asset/settings', '**/api/asset/target-ratio', '**/api/asset/purchase-done']) await page.unroute(p);
+        for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/class', '**/api/asset/settings', '**/api/asset/target-ratio', '**/api/asset/purchase-done', '**/api/asset/price-source/**']) await page.unroute(p);
         await page.keyboard.press('Escape').catch(() => {});
         await page.keyboard.press('Escape').catch(() => {});
         await page.evaluate(() => {

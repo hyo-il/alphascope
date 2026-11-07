@@ -18,6 +18,7 @@ import SymbolTable from '../common/SymbolTable';
 import { swatchBg } from './assetColors';
 import AssetAccountTable from './AssetAccountTable';
 import AssetTargetRatioForm from './AssetTargetRatioForm';
+import AssetPriceSheetSection from './AssetPriceSheetSection';
 
 /**
  * 자산 관리 「설정」 창(v2.62.1) — 오른쪽 위 「설정」 버튼이 연다. 세 칸:
@@ -28,6 +29,7 @@ import AssetTargetRatioForm from './AssetTargetRatioForm';
  * 3. 자산 분류 색 — 분류마다 팔레트 색 동그라미(원형 · 분류별 표가 같은 색)
  * 4. 목표 비율(v2.63.0) — 정수 % 여섯 칸 · 두 합이 100 일 때만 [저장] · **시트에 쓴다**(`AssetTargetRatioForm`). 「비율 조정」 [목표 비율 바꾸기] 는 이 칸으로 연다.
  * 5. 괜찮음 범위(v2.63.0) — ±1~20 %p 고르기 · 바로 저장(앱 DB — 다른 설정과 같이)
+ * 6. 시트 가격(v2.65.0) — 「티커」 가격 · 환율을 토스로 바꾸기 · 되돌리기(확인 창 · **시트에 쓴다** — `AssetPriceSheetSection`)
  * 1~3 · 5 는 추가 · 삭제 · 색 바꿈 · 고르기마다 바로 저장(그 칸만 로딩 · 저장 중에는 그 칸을 다시 바꾸지 않음) — 실패하면 원래 값으로 되돌리고 그 칸에 이유 한 줄.
  * 저장 뒤 화면을 다시 받아 원형 · 표에 반영.
  */
@@ -58,6 +60,7 @@ export default function AssetSettingsDialog({
   summary,
   onSave,
   onSaveTarget,
+  onPriceSheet,
   focus,
   onClose,
 }: {
@@ -66,6 +69,8 @@ export default function AssetSettingsDialog({
   onSave: (patch: Partial<AssetSettings>) => Promise<string | null>;
   /** 목표 비율 저장(시트에 씀) */
   onSaveTarget: (ratio: Record<keyof AssetTargetRatio, number>) => Promise<{ ok: true; ratio: AssetTargetRatio } | { ok: false; error: string }>;
+  /** 시트 가격 바꾸기 · 되돌리기 — 실패면 이유 문구 */
+  onPriceSheet: (kind: 'convert' | 'restore') => Promise<string | null>;
   /** 「비율 조정」 [목표 비율 바꾸기] 로 열면 목표 비율 칸으로 */
   focus?: 'targetRatio';
   onClose: () => void;
@@ -74,6 +79,7 @@ export default function AssetSettingsDialog({
   const [shown, setShown] = useState<AssetSettings>(summary.settings);
   const [busy, setBusy] = useState<Partial<Record<Field, boolean>>>({});
   const [errors, setErrors] = useState<Partial<Record<Field, string | null>>>({});
+  const [priceBusy, setPriceBusy] = useState(false);
 
   const save = async <K extends Field>(field: K, value: AssetSettings[K]) => {
     if (busy[field]) return; // 저장 중에 또 바꾸면 앞의 저장과 겹친다 — 끝난 뒤 다시
@@ -165,6 +171,10 @@ export default function AssetSettingsDialog({
             ))}
           </Select>
         </div>
+      </Block>
+
+      <Block title="시트 가격" desc="시트 「티커」 의 가격 · 환율을 어디서 받는지입니다. 토스로 바꾸면 장이 열린 동안 10초마다 바뀐 값만 시트에 씁니다." busy={priceBusy} error={null}>
+        <AssetPriceSheetSection status={summary.priceSheet} onAction={onPriceSheet} onBusy={setPriceBusy} />
       </Block>
     </Dialog>
   );
