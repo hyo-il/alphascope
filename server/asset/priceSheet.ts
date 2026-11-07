@@ -16,7 +16,7 @@ import { isPriceWriteAllowed, assetSheetConfig } from './config';
 import { AssetSheetError, batchGet, valuesWrite, type CellRows } from './google';
 import { headerOk, one, resetSheetCache, splitCode, tickerRowCode } from './sheet';
 import { SHEET_LAYOUT, TICKER_TAB } from './sheetLayout';
-import { clearSheetBackup, deleteSheetBackupCells, saveSheetBackup, sheetBackup } from './store';
+import { archivedBackup, clearSheetBackup, deleteSheetBackupCells, saveSheetBackup, sheetBackup } from './store';
 import { isMockPrices, priceMoved, priceRows, priceSkipped, priceSource, priceTools, runOperation, savePriceState, type PriceRow } from './priceState';
 import { priceWriterStatus, seedPriceWriter, syncPriceWriter } from './priceWriter';
 import type { AssetPriceMoved, AssetPriceSheetStatus, AssetPriceSkip, AssetPriceSkipReason } from '../../src/types/asset';
@@ -282,5 +282,9 @@ export function priceSheetStatus(): AssetPriceSheetStatus {
     hasBackup: sheetBackup().length > 0,
     skipped,
     moved: priceMoved(),
+    archived: (() => {
+      const a = archivedBackup();
+      return a.cells > 0 ? a : null;
+    })(),
   };
 }

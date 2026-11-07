@@ -1,7 +1,8 @@
 /**
  * 자산 시트 점검 · 시트 바뀜(v2.65.1 · 114차) — `npm run assetsheet:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import).
  *
- * 114차 지시서 「꼭 지킬 동작」 3(점검 스크립트 `asset:check-sheet`)을 줄마다 확인한다(시험 이름 앞의 [114-n] 이 그 줄 번호).
+ * 114차 지시서 「꼭 지킬 동작」 3(점검 스크립트 `asset:check-sheet`) · 4 · 5(시트 바뀜 처리 — `server/asset/sheetSwitch.ts`) · 6(시트 ID 전체 없음) ·
+ * 8(매매 · 시황 … 코드 바뀐 파일 0)을 줄마다 확인한다(시험 이름 앞의 [114-n] 이 그 줄 번호).
  * - 구글: 이 프로세스의 `fetch` 를 바꿔치기한 **가짜 시트**(만든 값 · 시험용 RSA 열쇠) · 종료 코드는 자식 프로세스에
  *   `scripts/fixtures/asset/fakeGoogle.mjs` 를 미리 불러 같은 가짜 시트로 — 실제 구글 호출 0.
  * ⚠️ 출력에 가짜 금액 · 코드 · 이름 · 시트 ID 전체 · 열쇠 값을 찍지 않는다(끝에서 검사).
@@ -13,7 +14,18 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { resetTokenCache } from '../server/asset/google';
+import express from 'express';
+import type { AddressInfo } from 'node:net';
+import { getDb } from '../server/db';
+import { resetTokenCache, AssetSheetError } from '../server/asset/google';
+import { assetRouter } from '../server/asset/routes';
+import { priceSheetStatus, restoreSheetPrices } from '../server/asset/priceSheet';
+import { clearPriceStateForTest, priceMoved, priceRows, priceSkipped, priceSource, savePriceState } from '../server/asset/priceState';
+import { checkSheetSwitch, clearSheetKeyForTest, sheetKeyOf, sheetSwitchedAt, storedSheetKeyForTest } from '../server/asset/sheetSwitch';
+import {
+  archiveCountsForTest, clearArchivesForTest, clearPurchasesForTest, clearRecordsForTest, clearSheetBackup, insertRecord, purchaseStartDay, recordPurchase, saveSheetBackup, sheetBackup,
+} from '../server/asset/store';
+import type { AssetTotals } from '../src/types/asset';
 import { runSheetCheck, sheetArg } from './assetCheckSheet';
 
 let pass = 0;
@@ -198,9 +210,125 @@ try {
   const childOut = [e0, e1, e403, eEnv, eNone].map((x) => x.out).join('\n');
   const leakedChild = SECRET.filter((x) => childOut.includes(x));
   check('[114-3] 출력에 시트 ID 전체 · 금액 · 코드 · 이름 · 열쇠 값 없음(앞 4글자 + … 만)', leakedChild.length === 0 && childOut.includes(`${SHEET_ID.slice(0, 4)}…`) && !childOut.includes(SHEET_ID.slice(0, 5)), leakedChild.join(','));
+
+  // ═══ [114-4] · [114-5] · [114-6] 시트 바뀜 처리 ═══
+  {
+    const ids = { a: 'AaaaSELFTESTfirstSheetIdMustNotBeStored000000', b: 'BbbbSELFTESTsecondSheetIdMustNotBeStored11111', c: 'CcccSELFTESTthirdSheetIdMustNotBeStored222222' };
+    process.env.GOOGLE_SA_KEY_FILE = keyFile;
+    process.env.ASSET_PRICE_WRITE_ENABLED = 'true';
+    process.env.ASSET_SYNC_ENABLED = 'true';
+    const db = getDb();
+    const count = (t: string) => (db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n;
+    const KEEP = ['asset.pensionSections', 'asset.satelliteSymbols', 'asset.classColors', 'asset.rebalanceBand', 'asset.purchaseStartDay'];
+    const snapshot = () =>
+      JSON.stringify({
+        settings: db.prepare(`SELECT key, value FROM app_settings WHERE key IN (${KEEP.map(() => '?').join(',')}) ORDER BY key`).all(...KEEP),
+        purchase: db.prepare(`SELECT * FROM asset_purchase ORDER BY cycle_date`).all(),
+      });
+    // 처음 상태(사본 DB) — 비우고 시작
+    clearSheetKeyForTest();
+    clearArchivesForTest();
+    clearRecordsForTest();
+    clearSheetBackup();
+    clearPriceStateForTest();
+    clearPurchasesForTest();
+    const totals = (t: number): AssetTotals => ({ total: t, groups: [], core: 0, satellite: 0, missing: 0 } as unknown as AssetTotals);
+    const captured: string[] = [];
+    const origLog = console.log;
+    console.log = (...a: unknown[]) => {
+      const line = a.map(String).join(' ');
+      if (!/^(PASS|FAIL) /.test(line)) captured.push(line);
+      origLog(...a);
+    };
+    g.reads = 0;
+    g.writes = 0;
+
+    process.env.ASSET_SHEET_ID = ids.a;
+    const first = checkSheetSwitch();
+    const s1 = storedSheetKeyForTest();
+    check('[114-4] 처음(저장값 없음)이면 지금 해시만 저장 · 정리하지 않음', first === 'saved' && s1.key === sheetKeyOf(ids.a) && s1.key.length === 12 && s1.hint === ids.a.slice(0, 4) && s1.at === null);
+    check('[114-4] 같은 해시면 아무것도 하지 않음', checkSheetSwitch() === 'same');
+
+    // 시험용 시트(A) 위에서 쌓인 것 — 하루 기록 3줄 · 시트 가격 백업 3칸 · 토스 상태 · 설정 · 구매 기록
+    for (const [d, t] of [['2026-11-03', 101], ['2026-11-04', 102], ['2026-11-05', 103]] as const) insertRecord(d, totals(t), totals(t + 1), `${d}T23:00:00.000Z`);
+    saveSheetBackup([{ cell: 'C9', formula: '=GOOGLEFINANCE("CURRENCY:USDKRW")' }, { cell: 'E15', formula: '=GOOGLEFINANCE(C15,"price")' }, { cell: 'F15', formula: '=GOOGLEFINANCE($C15,"price")*$C$9' }], '2026-11-05T01:00:00.000Z');
+    savePriceState({ source: 'toss', rows: [{ row: 15, code: 'NASDAQ:NVDA', market: 'US' }], skipped: [{ row: 17, name: '가짜 토스주', code: '0072R0', reason: 'no-toss-price' }], moved: [{ row: 21, wasName: '', wasCode: '005930', nowName: null, nowCode: null }] });
+    const put = db.prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`);
+    put.run('asset.pensionSections', JSON.stringify(['연금 저축 계좌', 'ISA 계좌']));
+    put.run('asset.satelliteSymbols', JSON.stringify(['NVDA']));
+    put.run('asset.classColors', JSON.stringify({ cash: 'red', bond: 'purple', gold: 'yellow', stock: 'teal', retirement: 'pink' }));
+    put.run('asset.rebalanceBand', '7');
+    purchaseStartDay('2026-10-01');
+    recordPurchase('2026-10-30', '2026-10-30');
+    const before = snapshot();
+    const dailyBefore = db.prepare(`SELECT day, total, total_pension, totals_json, missing, recorded_at FROM asset_daily ORDER BY day`).all();
+
+    // 원본(B)으로 바꿈
+    process.env.ASSET_SHEET_ID = ids.b;
+    const sw = checkSheetSwitch(new Date('2026-11-07T23:10:00.000Z'));
+    const after = archiveCountsForTest();
+    const archived = db.prepare(`SELECT day, total, total_pension, totals_json, missing, recorded_at FROM asset_daily_archive WHERE sheet_key = ? ORDER BY day`).all(sheetKeyOf(ids.a));
+    check('[114-4] 해시가 다르면 한 번 정리 — asset_daily → asset_daily_archive(줄 수 같음 · 값 그대로 · 옛 시트 해시) · asset_daily 비움 · 지운 줄 0',
+      sw === 'switched' && count('asset_daily') === 0 && after.daily === 3 && JSON.stringify(archived) === JSON.stringify(dailyBefore));
+    const st = priceSheetStatus();
+    check('[114-4] 시트 가격 상태 처음으로(google · 바꾼 줄 · 바꾸지 않은 줄 · 옮겨진 줄 비움)',
+      priceSource() === 'google' && priceRows().length === 0 && priceSkipped().length === 0 && priceMoved().length === 0 && st.source === 'google' && !st.hasBackup);
+    check('[114-4] 옛 시트 백업은 지우지 않고 따로 보관(칸 3 · 옛 시트 앞 4글자) · 되돌리기용 백업 0 · 화면 「옛 시트 백업 n칸 보관 중」',
+      sheetBackup().length === 0 && after.backup === 3 && JSON.stringify(st.archived) === JSON.stringify({ cells: 3, sheets: [ids.a.slice(0, 4)] }));
+    const restoreKind = await restoreSheetPrices().then(() => 'ok', (e: unknown) => (e instanceof AssetSheetError ? e.kind : 'other'));
+    check('[114-4] 새 시트에는 쓰지 않음 — 바뀜 처리 · 되돌리기(no-backup) 모두 구글 호출 0', restoreKind === 'no-backup' && g.reads === 0 && g.writes === 0, `${restoreKind} r${g.reads} w${g.writes}`);
+    check('[114-4] 서버 로그 한 줄 「[asset] 시트가 바뀜 — 하루 기록 3줄 보관 · 옛 시트 백업 3칸 보관」(ID 없음)', captured.some((l) => l === '[asset] 시트가 바뀜 — 하루 기록 3줄 보관 · 옛 시트 백업 3칸 보관'), captured.join(' / '));
+    check('[114-4] 바뀐 시각 저장(빈 차트 「원본 시트 연결 뒤 ○부터」)', sheetSwitchedAt() === '2026-11-07T23:10:00.000Z');
+    check('[114-5] 그대로 두는 것 — 위성 · 연금 · 색 · 범위 · purchaseStartDay · asset_purchase 값이 처리 전후 같음', snapshot() === before && before.includes('ISA 계좌') && before.includes('2026-10-30'));
+
+    // 서버를 다시 켜도(같은 해시) 다시 하지 않음 — 다른 프로세스로 확인
+    insertRecord('2026-11-06', totals(201), totals(202), '2026-11-06T23:00:00.000Z');
+    const child = spawnSync(path.join(root, 'node_modules/.bin/tsx'), ['-e', "import('./server/asset/sheetSwitch.ts').then((m) => console.log('RESULT=' + m.checkSheetSwitch()))"], {
+      cwd: root, encoding: 'utf8', env: { ...process.env, ASSET_SHEET_ID: ids.b }, timeout: 120_000,
+    });
+    check('[114-4] 서버를 다시 켜도 다시 하지 않음(다른 프로세스 · 같은 해시 → same · 하루 기록 그대로)', /RESULT=same/.test(child.stdout) && count('asset_daily') === 1 && archiveCountsForTest().daily === 3, `${child.stdout.slice(-200)} ${child.stderr.slice(-200)}`);
+
+    // 시험용(A)으로 되돌려도 자동 복원 없음(보관만) — 처리는 그 해시로 한 번 더
+    process.env.ASSET_SHEET_ID = ids.a;
+    const back = checkSheetSwitch(new Date('2026-11-08T01:00:00.000Z'));
+    check('[114-4] 같은 해시(A)로 돌아와도 자동으로 되돌리지 않음 — B 의 기록 1줄도 보관 · asset_daily 비어 있음',
+      back === 'switched' && count('asset_daily') === 0 && archiveCountsForTest().daily === 4 && (db.prepare(`SELECT COUNT(*) AS n FROM asset_daily_archive WHERE sheet_key = ?`).get(sheetKeyOf(ids.b)) as { n: number }).n === 1);
+    check('[114-5] 두 번 바꾼 뒤에도 그대로 두는 것 같음', snapshot() === before);
+
+    // 자산 요청 처음 때(C) — 라우터 맨 앞
+    process.env.ASSET_SHEET_ID = ids.c;
+    const app = express();
+    app.use(express.json());
+    app.use(assetRouter);
+    const srv = app.listen(0, '127.0.0.1');
+    await new Promise((ok) => srv.once('listening', ok));
+    const res = await fetch(`http://127.0.0.1:${(srv.address() as AddressInfo).port}/api/asset/status`);
+    srv.close();
+    check('[114-4] 자산 요청 처음 때도 확인 — GET /api/asset/status 뒤 저장값 = 지금 해시', res.status === 200 && storedSheetKeyForTest().key === sheetKeyOf(ids.c));
+
+    // [114-6] 시트 ID 전체가 app_settings · 보관표 · 로그 어디에도 없음
+    const allSettings = JSON.stringify(db.prepare(`SELECT key, value FROM app_settings`).all());
+    const allArchive = JSON.stringify([...db.prepare(`SELECT * FROM asset_daily_archive`).all(), ...db.prepare(`SELECT * FROM asset_sheet_backup_archive`).all()]);
+    const idLeak = Object.values(ids).filter((id) => allSettings.includes(id) || allArchive.includes(id) || captured.join('\n').includes(id) || allSettings.includes(id.slice(0, 8)));
+    check('[114-6] app_settings · 보관표 · 서버 로그에 시트 ID 전체 없음(해시 12자 · 앞 4글자만)', idLeak.length === 0 && allSettings.includes(sheetKeyOf(ids.c)), idLeak.map((x) => x.slice(0, 4)).join(','));
+
+    console.log = origLog;
+    // 사본 DB 정리
+    clearSheetKeyForTest();
+    clearArchivesForTest();
+    clearRecordsForTest();
+    clearSheetBackup();
+    clearPriceStateForTest();
+    clearPurchasesForTest();
+    for (const k of KEEP) db.prepare(`DELETE FROM app_settings WHERE key = ?`).run(k);
+  }
 } finally {
   globalThis.fetch = realFetch;
 }
+
+// ═══ [114-8] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0 ═══
+const diff = spawnSync('git', ['diff', '--name-only', 'c68fab2', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python'], { cwd: root, encoding: 'utf8' });
+check('[114-8] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(c68fab2 와 지금 작업 트리)', diff.status === 0 && diff.stdout.trim() === '', diff.stdout.trim() || diff.stderr.trim());
 
 const leaked = SECRET.filter((x) => printed.join('\n').includes(x));
 check('[114-6] 이 시험 · 점검 스크립트 출력에 시트 ID 전체 · 금액 · 코드 · 이름 · 열쇠 값 없음', leaked.length === 0, leaked.join(','));

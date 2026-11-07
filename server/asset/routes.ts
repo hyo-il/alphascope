@@ -12,6 +12,7 @@ import { AssetSheetError } from './google';
 import { readAssetSheet, writeAccountDates, writeAssetClass, writeTargetRatio } from './sheet';
 import { currentCycle } from './purchase';
 import { assetSummary } from './summary';
+import { checkSheetSwitchSafe, sheetSwitchedAt } from './sheetSwitch';
 import { convertSheetPrices, restoreSheetPrices } from './priceSheet';
 import { historyPoints, isHistoryRange, recordPurchase } from './store';
 import { writeAssetSettings } from './settings';
@@ -31,6 +32,12 @@ export function assetGuard(req: Request, res: Response, next: NextFunction) {
   }
   return next();
 }
+
+/** 시트가 바뀌었나(v2.65.1) — 자산 요청마다 해시를 견준다(같으면 설정 한 줄 읽기뿐 · 다르면 한 번 정리 — `sheetSwitch.ts`) */
+assetRouter.use((req, _res, next) => {
+  if (isAssetPath(req.path)) checkSheetSwitchSafe();
+  next();
+});
 
 assetRouter.use(assetGuard);
 
@@ -166,7 +173,7 @@ assetRouter.get('/api/asset/summary', async (req, res) => {
 assetRouter.get('/api/asset/history', (req, res) => {
   const range = req.query.range ?? '1m';
   if (!isHistoryRange(range)) return res.status(400).json({ error: '기간은 1m · 3m · 1y · all 중 하나입니다.' });
-  res.json({ range, points: historyPoints(range, req.query.pension === '1') });
+  res.json({ range, points: historyPoints(range, req.query.pension === '1'), since: sheetSwitchedAt() });
 });
 
 /**

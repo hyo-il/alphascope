@@ -322,6 +322,8 @@ export interface AssetPriceSheetStatus {
   skipped: AssetPriceSkip[];
   /** [되돌리기] 때 줄이 옮겨져 쓰지 않은 줄(v2.65.1) — 비어 있으면 숨김 */
   moved: AssetPriceMoved[];
+  /** 이전 시트를 되돌리지 않고 바꿔 보관 중인 옛 시트 백업(v2.65.1) — 칸 수 · 시트 ID 앞 4글자. 없으면 null */
+  archived: { cells: number; sheets: string[] } | null;
 }
 
 export interface AssetSummary {
@@ -430,3 +432,11 @@ export interface AssetHistoryPoint {
 }
 
 export type AssetHistoryRange = '1m' | '3m' | '1y' | 'all';
+
+/** `GET /api/asset/history` 응답 */
+export interface AssetHistoryResponse {
+  range: AssetHistoryRange;
+  points: AssetHistoryPoint[];
+  /** 마지막으로 시트가 바뀐 시각(ISO · v2.65.1) — 빈 차트 「원본 시트 연결 뒤 ○부터 쌓입니다」. 바뀐 적 없으면 null */
+  since: string | null;
+}

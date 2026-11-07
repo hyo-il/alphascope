@@ -5,8 +5,8 @@ import { LIST_TABLE_ROW, PANEL_PAD, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_CO
 import { Skeleton, SkeletonTable } from '../common/SkeletonLoader';
 import { usePolling } from '../../hooks/usePolling';
 import { changeColor, formatNumber, formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
-import { formatDateTime } from '../../utils/dateFormat';
-import type { AssetClass, AssetHistoryPoint, AssetHistoryRange, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio } from '../../types/asset';
+import { formatDate, formatDateTime } from '../../utils/dateFormat';
+import type { AssetClass, AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio } from '../../types/asset';
 import { modal } from '../../store/uiStore';
 import AssetDonut from './AssetDonut';
 import { groupDot } from './assetColors';
@@ -441,15 +441,15 @@ const RANGES: { value: AssetHistoryRange; label: string }[] = [
 /** 총 자산 선 차트 — 기간 · 연금 포함이 바뀔 때만 받는다(하루 한 번 쌓이는 값이라 폴링하지 않는다) */
 function HistoryPanel({ pension }: { pension: boolean }) {
   const [range, setRange] = useState<AssetHistoryRange>('1m');
-  const [state, setState] = useState<{ points: AssetHistoryPoint[] } | { error: string } | null>(null);
+  const [state, setState] = useState<{ points: AssetHistoryPoint[]; since: string | null } | { error: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     setBusy(true);
     try {
       const res = await fetch(`/api/asset/history?range=${range}&pension=${pension ? 1 : 0}`);
-      const body = (await readJson(res)) as { points?: AssetHistoryPoint[]; error?: string };
-      setState(res.ok && body.points ? { points: body.points } : { error: body.error ?? '하루 기록을 받지 못했습니다.' });
+      const body = (await readJson(res)) as Partial<AssetHistoryResponse> & { error?: string };
+      setState(res.ok && body.points ? { points: body.points, since: body.since ?? null } : { error: body.error ?? '하루 기록을 받지 못했습니다.' });
     } catch {
       setState({ error: '서버에 연결하지 못했습니다.' });
     } finally {
@@ -462,6 +462,7 @@ function HistoryPanel({ pension }: { pension: boolean }) {
   }, [load]);
 
   const points = state && 'points' in state ? state.points : null;
+  const since = state && 'points' in state ? state.since : null;
   return (
     <Panel className="flex h-64 flex-col gap-2">
       <SectionTitle
@@ -475,7 +476,9 @@ function HistoryPanel({ pension }: { pension: boolean }) {
         {state == null && <Skeleton className="h-full rounded-lg" />}
         {state && 'error' in state && <ErrorLine message={state.error} busy={busy} onRetry={() => void load()} />}
         {points && points.length === 0 && (
-          <p className="flex h-full items-center justify-center text-xs text-text-muted keep-all">아직 하루 기록이 없습니다 — 미국 애프터마켓이 끝난 뒤 하루 한 번 쌓입니다.</p>
+          <p className="flex h-full items-center justify-center text-xs text-text-muted keep-all" data-history-empty>
+            아직 하루 기록이 없습니다 — {since ? `원본 시트 연결 뒤 ${formatDate(since)}부터 ` : ''}미국 애프터마켓이 끝난 뒤 하루 한 번 쌓입니다.
+          </p>
         )}
         {points && points.length > 0 && (
           <>

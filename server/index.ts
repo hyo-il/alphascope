@@ -195,6 +195,7 @@ import { marketBriefRouter } from './marketBrief/routes';
 import { assetRouter } from './asset/routes';
 import { startAssetDailyScheduler } from './asset/daily';
 import { startAssetPriceWriter } from './asset/priceWriter';
+import { checkSheetSwitchSafe } from './asset/sheetSwitch';
 import { fail } from './apiError';
 
 /**
@@ -1983,6 +1984,8 @@ app.listen(port, host, () => {
   startUsHaltsScheduler();
 
   // 자산 하루 기록 — 미국 애프터 끝난 뒤(두 시장 모두 닫힌 때) 1번. ASSET_SYNC_ENABLED=false · 시트 연결 정보 없음이면 하지 않는다
+  // 시트가 바뀌었으면(ASSET_SHEET_ID 해시가 저장값과 다름) 예약보다 먼저 한 번 정리 — 하루 기록 · 옛 시트 백업 보관(v2.65.1)
+  checkSheetSwitchSafe();
   startAssetDailyScheduler();
   startAssetPriceWriter();
 

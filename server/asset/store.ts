@@ -179,3 +179,83 @@ export function deleteSheetBackupCells(cells: string[]): void {
     for (const c of cells) del.run(c);
   })();
 }
+
+// ── 시트가 바뀌었을 때 보관(v2.65.1 · `sheetSwitch.ts`) — 지우지 않고 옮긴다 ──
+/*
+  - `asset_daily_archive` — `asset_daily` 와 같은 칸 + `sheet_key`(그 기록을 쌓은 시트 ID 의 sha256 앞 12자) · `archived_at`(옮긴 시각 ISO).
+    같은 시트로 다시 돌아와도 자동으로 되돌리지 않는다(보관만).
+  - `asset_sheet_backup_archive` — `asset_sheet_backup` 과 같은 칸 + `sheet_key` · `sheet_hint`(그 시트 ID 앞 4글자) · `archived_at`.
+    옛 시트의 원래 수식 — 새 시트에는 절대 쓰지 않는다(되돌리기는 `asset_sheet_backup` 만 읽는다).
+*/
+let archiveReady = false;
+function archiveDb() {
+  const database = getDb();
+  db();
+  backupDb();
+  if (!archiveReady) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS asset_daily_archive (
+        day TEXT NOT NULL,              -- asset_daily 와 같은 칸
+        total REAL NOT NULL,
+        total_pension REAL NOT NULL,
+        totals_json TEXT NOT NULL,
+        missing INTEGER NOT NULL,
+        recorded_at TEXT NOT NULL,
+        sheet_key TEXT NOT NULL,        -- 그 기록을 쌓은 시트 ID 의 sha256 앞 12자(ID 자체는 저장하지 않음)
+        archived_at TEXT NOT NULL       -- 옮긴 시각(ISO)
+      );
+      CREATE TABLE IF NOT EXISTS asset_sheet_backup_archive (
+        cell TEXT NOT NULL,             -- asset_sheet_backup 과 같은 칸
+        formula TEXT NOT NULL,
+        saved_at TEXT NOT NULL,
+        sheet_key TEXT NOT NULL,        -- 옛 시트 ID 의 sha256 앞 12자
+        sheet_hint TEXT NOT NULL,       -- 옛 시트 ID 앞 4글자(화면 「○… 시트」)
+        archived_at TEXT NOT NULL
+      );
+    `);
+    archiveReady = true;
+  }
+  return database;
+}
+
+/**
+ * 하루 기록 · 시트 가격 백업을 보관표로 옮긴다(한 트랜잭션 — 부르는 쪽이 감싼다). 옮긴 줄 수가 원래 줄 수와 다르면 throw(아무것도 바뀌지 않음).
+ * 돌려주는 값 = 옮긴 하루 기록 줄 수 · 백업 칸 수.
+ */
+export function archiveForSheetSwitch(oldKey: string, oldHint: string, at: string): { daily: number; backup: number } {
+  const database = archiveDb();
+  const count = (table: string) => (database.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+  const daily = count('asset_daily');
+  const backup = count('asset_sheet_backup');
+  const movedDaily = database
+    .prepare(`INSERT INTO asset_daily_archive (day, total, total_pension, totals_json, missing, recorded_at, sheet_key, archived_at)
+              SELECT day, total, total_pension, totals_json, missing, recorded_at, ?, ? FROM asset_daily`)
+    .run(oldKey, at).changes;
+  const movedBackup = database
+    .prepare(`INSERT INTO asset_sheet_backup_archive (cell, formula, saved_at, sheet_key, sheet_hint, archived_at)
+              SELECT cell, formula, saved_at, ?, ?, ? FROM asset_sheet_backup`)
+    .run(oldKey, oldHint, at).changes;
+  if (movedDaily !== daily || movedBackup !== backup) throw new Error('보관표로 옮긴 줄 수가 다릅니다');
+  database.prepare(`DELETE FROM asset_daily`).run();
+  database.prepare(`DELETE FROM asset_sheet_backup`).run();
+  return { daily, backup };
+}
+
+/** 보관 중인 옛 시트 백업 — 칸 수 · 시트 앞 4글자(옮긴 순) */
+export function archivedBackup(): { cells: number; sheets: string[] } {
+  const database = archiveDb();
+  const rows = database.prepare(`SELECT sheet_hint AS hint, COUNT(*) AS n, MIN(archived_at) AS at FROM asset_sheet_backup_archive GROUP BY sheet_key, sheet_hint ORDER BY at`).all() as { hint: string; n: number }[];
+  return { cells: rows.reduce((a, r) => a + r.n, 0), sheets: rows.map((r) => r.hint) };
+}
+
+/** 시험이 보관표 줄 수를 센다 · 비운다(사본 DB) */
+export const archiveCountsForTest = (): { daily: number; backup: number } => {
+  const database = archiveDb();
+  const n = (t: string) => (database.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n;
+  return { daily: n('asset_daily_archive'), backup: n('asset_sheet_backup_archive') };
+};
+export function clearArchivesForTest(): void {
+  const database = archiveDb();
+  database.prepare(`DELETE FROM asset_daily_archive`).run();
+  database.prepare(`DELETE FROM asset_sheet_backup_archive`).run();
+}

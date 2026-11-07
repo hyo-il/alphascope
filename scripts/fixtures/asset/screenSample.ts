@@ -134,15 +134,15 @@ export function assetSummarySample(
 /**
  * 시트 가격(v2.65.0) 가짜 상태 — google: 처음(Google) · toss: 토스로 바꾼 뒤(쓰는 중 · 토스 가격 없음 목록 · 남은 종목 1) ·
  * off: 스위치 꺼진 서버(맥 기본) · google-backup: Google 인데 되돌리기 확인이 틀려 백업이 남음 ·
- * google-moved(v2.65.1): 되돌리기 때 줄이 옮겨져 쓰지 않은 줄 셋(긴 이름 · 이름 모름 · 빈 줄) — 백업 남음. 긴 종목명 · 영문 섞인 코드로 칸 넘침을 잰다.
+ * google-archived(v2.65.1): 시트를 바꿔 옛 시트 백업 보관 중 · google-moved(v2.65.1): 되돌리기 때 줄이 옮겨져 쓰지 않은 줄 셋(긴 이름 · 이름 모름 · 빈 줄) — 백업 남음. 긴 종목명 · 영문 섞인 코드로 칸 넘침을 잰다.
  */
-export function priceSheetSample(kind: 'google' | 'toss' | 'off' | 'google-backup' | 'google-moved'): AssetPriceSheetStatus {
+export function priceSheetSample(kind: 'google' | 'toss' | 'off' | 'google-backup' | 'google-moved' | 'google-archived'): AssetPriceSheetStatus {
   const skipped: AssetPriceSheetStatus['skipped'] = [
     { row: 17, name: 'KODEX 예시 S&P500 이름이 아주 긴 종목 Vanguard Total World Stock Market Index Fund ETF Shares', code: '0072R0', reason: 'no-toss-price' },
     { row: 21, name: '예시 미국 채권 ETF', code: 'NYSEARCA:BBBB', reason: 'won-shape' },
     { row: 24, name: '', code: '000009', reason: 'code-changed' },
   ];
-  const base = { lastWrittenAt: null, rows: 0, remaining: 0, skipped: [], moved: [] };
+  const base = { lastWrittenAt: null, rows: 0, remaining: 0, skipped: [], moved: [], archived: null };
   if (kind === 'toss') return { ...base, enabled: true, source: 'toss', lastWrittenAt: '2026-11-07T13:05:20.000Z', state: 'writing', rows: 19, remaining: 1, hasBackup: true, skipped };
   if (kind === 'off') return { ...base, enabled: false, source: 'google', state: 'off', hasBackup: false };
   if (kind === 'google-backup') return { ...base, enabled: true, source: 'google', state: 'idle', hasBackup: true };
@@ -160,11 +160,13 @@ export function priceSheetSample(kind: 'google' | 'toss' | 'off' | 'google-backu
       ],
     };
   }
+  // v2.65.1 — 시트를 바꿔 옛 시트 백업을 보관 중(둘 — 시험용 시트 · 그 전 시트)
+  if (kind === 'google-archived') return { ...base, enabled: true, source: 'google', state: 'idle', hasBackup: false, archived: { cells: 1234, sheets: ['1aBc', 'Xy9Z'] } };
   return { ...base, enabled: true, source: 'google', state: 'idle', hasBackup: false };
 }
 
-/** 하루 기록 가짜 응답 — n 개(평일만 · 오늘 쪽으로 끝남) */
-export function assetHistorySample(n: number): { range: string; points: AssetHistoryPoint[] } {
+/** 하루 기록 가짜 응답 — n 개(평일만 · 오늘 쪽으로 끝남) · since = 시트가 바뀐 시각(v2.65.1 — 빈 차트 문구) */
+export function assetHistorySample(n: number, since: string | null = null): { range: string; points: AssetHistoryPoint[]; since: string | null } {
   const points: AssetHistoryPoint[] = [];
   let t = Date.now() - 86_400_000;
   let v = 5_100_000_000;
@@ -176,7 +178,7 @@ export function assetHistorySample(n: number): { range: string; points: AssetHis
     }
     t -= 86_400_000;
   }
-  return { range: '1m', points };
+  return { range: '1m', points, since };
 }
 
 export const assetSummaryFailureSample: AssetSheetFailure = {

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '../ui';
 import { LIST_TABLE_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatDateTime } from '../../utils/dateFormat';
+import { formatNumber } from '../../utils/formatters';
 import { modal } from '../../store/uiStore';
 import { PRICE_SKIP_LABEL, type AssetPriceSheetStatus } from '../../types/asset';
 
@@ -12,6 +13,7 @@ import { PRICE_SKIP_LABEL, type AssetPriceSheetStatus } from '../../types/asset'
  *   둘 다 확인 창(`modal.confirm` — 누르면 「처리 중」)을 거친다. 실패는 이유 한 줄.
  * - 스위치가 꺼진 서버(맥 기본)는 안내 한 줄 + 버튼 막음.
  * - 「토스 가격 없음 — 시트 값 그대로」 목록(종목 · 코드 · 이유) — 이름 · 코드는 화면에만.
+ * - 「이전 시트를 되돌리지 않고 바꿨습니다 — 옛 시트 백업 n칸 보관 중」 한 줄(v2.65.1 — 시트가 바뀌었을 때 옛 시트의 원래 수식 · 새 시트에는 쓰지 않음).
  * - 「줄이 옮겨짐 — 직접 확인」 목록(v2.65.1 — 줄 · 그때 종목 · 지금 종목) — [되돌리기] 가 코드가 달라 쓰지 않은 줄. 같은 표 모양.
  */
 export default function AssetPriceSheetSection({
@@ -72,6 +74,11 @@ export default function AssetPriceSheetSection({
         )}
       </p>
       {!status.enabled && <p className="text-caption text-warning keep-all">이 서버에서는 시트 가격 쓰기가 꺼져 있습니다(오라클에서만 켬)</p>}
+      {status.archived && (
+        <p className="text-caption text-text-muted keep-all" data-price-archived>
+          이전 시트를 되돌리지 않고 바꿨습니다 — 옛 시트 백업 {formatNumber(status.archived.cells)}칸 보관 중({status.archived.sheets.map((h) => `${h}…`).join(' · ')} 시트)
+        </p>
+      )}
       {(showConvert || showRestore) && (
         <div className="flex flex-wrap items-center gap-2">
           {showConvert && (

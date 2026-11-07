@@ -382,6 +382,8 @@ function targets(): Target[] {
       [
         ['잠김', false, 'ok', 0, {}, false, false, null],
         ['기록0', true, 'ok', 0, { vsLast: false }, false, false, null],
+        // v2.65.1 — 시트를 바꾼 뒤 빈 차트(「원본 시트 연결 뒤 ○부터 쌓입니다」)
+        ['기록0-시트바뀜', true, 'ok', 0, { vsLast: false }, false, false, null],
         ['기록1', true, 'ok', 1, {}, false, false, null],
         ['기록여러개-미지정', true, 'ok', 30, { none: true }, false, false, null],
         ['연금포함-자산현황', true, 'ok', 30, { pension: true }, true, false, null],
@@ -403,7 +405,7 @@ function targets(): Target[] {
         await page.route('**/api/asset/summary**', (r) =>
           (sheet === 'fail' ? r.fulfill({ status: 502, json: assetSummaryFailureSample }) : r.fulfill({ json: assetSummarySample(sum) })).catch(() => {}),
         );
-        await page.route('**/api/asset/history**', (r) => r.fulfill({ json: assetHistorySample(records) }).catch(() => {}));
+        await page.route('**/api/asset/history**', (r) => r.fulfill({ json: assetHistorySample(records, label.includes('시트바뀜') ? '2026-11-07T23:10:00.000Z' : null) }).catch(() => {}));
         await page.route('**/api/asset/class', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
         await page.route('**/api/asset/settings', (r) => r.fulfill({ status: 400, json: { error: '시험 — 저장하지 않음' } }).catch(() => {}));
       },
@@ -491,6 +493,7 @@ function targets(): Target[] {
         ...([
           ['Google', 'google', null],
           ['줄이옮겨짐', 'google-moved', null],
+          ['옛시트백업', 'google-archived', null],
           ['토스', 'toss', null],
           ['꺼짐', 'off', null],
           ['바꾸기확인창', 'google', '[data-price-convert]'],
