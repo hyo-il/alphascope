@@ -13,6 +13,7 @@
     "dev:py": "python/.venv/bin/python python/indicators.py",
     "py:setup": "/opt/homebrew/opt/python@3.12/bin/python3.12 -m venv python/.venv && python/.venv/bin/pip install -r python/requirements.txt",
     "build": "tsc -b && vite build",
+    "check:all": "tsx scripts/machineCheck.ts",
     "preview": "vite preview",
     "db:init": "tsx scripts/initDb.ts",
     "smoke": "tsx scripts/smokeTest.ts",
