@@ -9,7 +9,7 @@ import { readSessionCookie } from '../auth';
 import { assetLimiter, isAssetPasswordSet, isUnlocked, lockSession, unlockSession, verifyAssetPassword } from './lock';
 import { isAssetSyncEnabled, isSheetConfigured } from './config';
 import { AssetSheetError } from './google';
-import { readAssetSheet, writeAccountDates, writeAssetClass, writeTargetRatio } from './sheet';
+import { readAssetSheet, writeAccountDates, writeAssetClasses, writeTargetRatio } from './sheet';
 import { currentCycle } from './purchase';
 import { assetSummary } from './summary';
 import { checkSheetSwitchSafe, sheetSwitchedAt } from './sheetSwitch';
@@ -91,12 +91,12 @@ assetRouter.get('/api/asset/sheet', async (_req, res) => {
 });
 
 /**
- * 자산 분류 한 칸 쓰기 — `{ row, assetClass }`(「티커」 줄 번호 · 채권 · 금 · 주식 또는 빈칸). 성공하면 다시 읽은 시트 값.
- * 칸 · 값 · 수식 칸 · 스위치 확인은 `writeAssetClass` 한 곳.
+ * 자산 분류 쓰기(v2.65.2 — 여러 줄 한 요청) — `{ rows: number[], assetClass }`(「티커」 줄 번호들 · 채권 · 금 · 주식 또는 빈칸). 성공하면 다시 읽은 시트 값.
+ * 한 줄 고르기도 `rows: [n]`. 옛 모양 `{ row }` 는 받지 않는다(400 not-editable). 칸 · 값 · 수식 칸 · 스위치 확인은 `writeAssetClasses` 한 곳.
  */
 assetRouter.put('/api/asset/class', async (req, res) => {
   try {
-    res.json(await writeAssetClass(req.body?.row, req.body?.assetClass));
+    res.json(await writeAssetClasses(req.body?.rows, req.body?.assetClass));
   } catch (e) {
     sendSheetError(res, e, '쓰기');
   }

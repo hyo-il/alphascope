@@ -2,7 +2,7 @@
  * 자산 시트 읽기 · 자산 분류 쓰기 · 목표 비율 쓰기 · 계좌 이름 날짜 쓰기(v2.61.0 · v2.62.0 · v2.63.0 · v2.64.0) — 칸 목록은 `sheetLayout.ts` 한 곳, 구글 호출은 `google.ts`.
  *
  * - 화면을 열 때 · 「다시 읽기」 · 총 자산 계산(화면이 열린 동안 · 하루 기록 1번)에 읽는다. 같은 결과는 30초 캐시(동시에 온 요청은 한 번만 읽는다).
- * - 쓰기는 세 곳 — `writeAssetClass`(「티커」 D14~D42 종목 줄의 자산 분류 한 칸) · `writeTargetRatio`(목표 비율 여섯 칸) ·
+ * - 쓰기는 세 곳 — `writeAssetClasses`(「티커」 D14~D42 종목 줄의 자산 분류 — 여러 줄 한 요청 · v2.65.2) · `writeTargetRatio`(목표 비율 여섯 칸) ·
  *   `writeAccountDates`(「구매 완료」 — 「주식 투자 정리」 계좌 이름 칸의 「( 날짜 )」).
  *   셋 다 쓰기 직전에 수식 그대로 다시 읽어 머리 글자 · 수식 칸을 확인한다(구글에 쓰는 함수는 `google.ts` `valuesWrite` 하나).
  * - 한 번 읽기 = `values:batchGet` 두 번: ① 값(UNFORMATTED_VALUE) — 머리 글자 · 종목 · 보유 · 값 칸 ② 수식(FORMULA) — 보유 줄의 C(평균 매입가) · F(이을 줄).
@@ -209,37 +209,56 @@ export const headerOk = (h: HeaderCheck, got: Cell) => (h.prefix ? squash(got).s
 /** 쓰기 실패 중 시트와 상관없는 것(칸 · 값 · 스위치) — 화면에는 문구 그대로 */
 const refuse = (kind: 'disabled' | 'not-editable' | 'formula-cell', message: string) => new AssetSheetError(kind, message);
 
+/** 한 번에 쓸 수 있는 「티커」 줄 수 — 종목 줄 범위(D14~D42) 전체 */
+export const ASSET_CLASS_MAX_ROWS = SHEET_LAYOUT.tickers.lastRow - SHEET_LAYOUT.tickers.firstRow + 1;
+
 /**
- * 자산 분류 한 칸 쓰기 — **이 앱에서 시트에 쓰는 유일한 곳**(v2.62.0). 순서:
- * ① 스위치(`ASSET_SYNC_ENABLED=false` → 「꺼짐」) ② 줄 번호 · 값 확인(「티커」 D14~D42 · 세 글자(채권 · 금 · 주식) 또는 빈칸 — 「현금」 은 거절)
- * ③ 쓰기 직전에 그 줄과 머리 D12 를 **수식 그대로** 다시 읽는다 — 머리가 다르면 「모양 바뀜」, 종목 줄이 아니면(구분 줄 · 빈 줄) 거절,
- *    그 칸이 `=` 로 시작하면 쓰지 않고 멈춤(수식을 덮어쓰지 않는다)
- * ④ `values.update` 한 칸(RAW) ⑤ 30초 캐시를 비우고 다시 읽은 값을 돌려준다.
+ * 자산 분류 쓰기(v2.65.2 — 여러 줄 한 번에 · 한 줄 고르기도 `rows: [n]`) — 「티커」 D열에 쓰는 **유일한 곳**. 검사는 모두 여기 한 곳. 순서:
+ * ① 스위치(`ASSET_SYNC_ENABLED=false` → 「꺼짐」) ② 줄 번호 목록 · 값 확인(「티커」 D14~D42 정수 · 중복은 한 번 · 1~29줄 · 채권 · 금 · 주식 또는 빈칸 — 「현금」 은 거절)
+ * ③ 쓰기 직전에 머리 D12 와 종목 줄 범위를 **수식 그대로** 한 번 다시 읽는다 — 머리가 다르면 「모양 바뀜」 · 종목 줄이 아닌 줄(구분 줄 · 빈 줄)이 하나라도 있으면 거절 ·
+ *    그 칸 중 하나라도 `=` 로 시작하면(수식) **하나도 쓰지 않고** 409 `formula-cell`
+ * ④ `valuesWrite` **한 요청**(RAW — 칸 여럿) ⑤ 쓴 칸을 다시 읽어 보낸 값과 같은지 확인(다르면 `mismatch`) ⑥ 30초 캐시를 비우고 다시 읽은 시트 값을 돌려준다.
  * ⚠️ 쓴 값 · 읽은 값을 로그에 찍지 않는다.
  */
-export async function writeAssetClass(row: unknown, value: unknown): Promise<AssetSheetData> {
+export async function writeAssetClasses(rows: unknown, value: unknown): Promise<AssetSheetData> {
   if (!isAssetSyncEnabled()) throw refuse('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다(ASSET_SYNC_ENABLED=false).');
   const L = SHEET_LAYOUT;
   const { firstRow, lastRow } = L.tickers;
-  if (typeof row !== 'number' || !Number.isInteger(row) || row < firstRow || row > lastRow) {
-    throw refuse('not-editable', `자산 분류는 「${TICKER_TAB}」 탭 ${L.assetClass.column}${firstRow}~${L.assetClass.column}${lastRow} 의 종목 줄에만 쓸 수 있습니다.`);
+  const col = L.assetClass.column;
+  const okRow = (r: unknown): r is number => typeof r === 'number' && Number.isInteger(r) && r >= firstRow && r <= lastRow;
+  if (!Array.isArray(rows) || rows.length === 0 || !rows.every(okRow)) {
+    throw refuse('not-editable', `자산 분류는 「${TICKER_TAB}」 탭 ${col}${firstRow}~${col}${lastRow} 의 종목 줄에만 쓸 수 있습니다(요청 모양 { rows: [줄 번호…], assetClass }).`);
   }
+  const unique = [...new Set(rows)].sort((a, b) => a - b);
+  if (unique.length > ASSET_CLASS_MAX_ROWS) throw refuse('not-editable', `한 번에 ${ASSET_CLASS_MAX_ROWS}줄까지 쓸 수 있습니다.`);
   if (value !== '' && !isAssetClass(value)) throw refuse('not-editable', `자산 분류는 ${L.assetClass.values.join(' · ')} 중 하나이거나 빈칸이어야 합니다.`);
   const config = assetSheetConfig();
   if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
 
-  const header = L.headers.find((h) => h.tab === TICKER_TAB && h.cell === `${L.assetClass.column}12`)!;
-  const [headRows, lineRows] = await batchGet(config, [one(TICKER_TAB, header.cell), `${q(TICKER_TAB)}!B${row}:${L.assetClass.column}${row}`], 'FORMULA');
+  const header = L.headers.find((h) => h.tab === TICKER_TAB && h.cell === `${col}12`)!;
+  const [headRows, lineRows] = await batchGet(config, [one(TICKER_TAB, header.cell), `${q(TICKER_TAB)}!B${firstRow}:${col}${lastRow}`], 'FORMULA');
   if (!headerOk(header, first(headRows))) {
     throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(「${header.tab}」 탭 ${header.cell} — 「${header.expect}」 이어야 합니다).`);
   }
-  const line = lineRows[0];
-  if (!tickerRowCode(line)) throw refuse('not-editable', `「${TICKER_TAB}」 ${row}행은 종목 줄이 아닙니다(구분 줄 · 빈 줄에는 쓰지 않습니다).`);
-  if (typeof line?.[2] === 'string' && line[2].trim().startsWith('=')) {
-    throw refuse('formula-cell', `「${TICKER_TAB}」 ${L.assetClass.column}${row} 칸에 수식이 있어 쓰지 않았습니다(수식을 덮어쓰지 않습니다).`);
+  const lineOf = (row: number) => lineRows[row - firstRow];
+  const notLine = unique.filter((row) => !tickerRowCode(lineOf(row)));
+  if (notLine.length > 0) {
+    throw refuse('not-editable', `「${TICKER_TAB}」 ${notLine.map((r) => `${r}행`).join(' · ')}은 종목 줄이 아닙니다(구분 줄 · 빈 줄에는 쓰지 않습니다 — 하나도 쓰지 않았습니다).`);
   }
-  await valuesWrite(config, [{ range: one(L.assetClass.tab, `${L.assetClass.column}${row}`), value: value as AssetClass | '' }]);
+  const formulaAt = unique.filter((row) => {
+    const v = lineOf(row)?.[2];
+    return typeof v === 'string' && v.trim().startsWith('=');
+  });
+  if (formulaAt.length > 0) {
+    throw refuse('formula-cell', `「${TICKER_TAB}」 ${formulaAt.map((r) => `${col}${r}`).join(' · ')} 칸에 수식이 있어 하나도 쓰지 않았습니다(수식을 덮어쓰지 않습니다).`);
+  }
+  const ranges = unique.map((row) => one(L.assetClass.tab, `${col}${row}`));
+  await valuesWrite(config, ranges.map((range) => ({ range, value: value as AssetClass | '' })));
   resetSheetCache();
+  const back = await batchGet(config, ranges, 'FORMULA');
+  if (!ranges.every((_, i) => (first(back[i]) ?? '') === value)) {
+    throw new AssetSheetError('mismatch', `시트에 쓴 자산 분류가 다르게 읽혔습니다(시트를 열어 「${TICKER_TAB}」 ${col}열을 확인하세요).`);
+  }
   return readAssetSheet();
 }
 
@@ -360,7 +379,7 @@ export function accountDateTexts(data: AssetSheetData, day: string): string[] {
 /**
  * 「구매 완료」 — 「주식 투자 정리」 계좌 이름 칸(B4 · B12 · B21 · B29 — `sections` 의 `nameCell`) 중 **「( 날짜 )」 가 든 칸 전부**의 날짜를
  * `day`(**구매 차례 날짜** · 한국 날짜 — 모양이 `YYYY.MM` 이면 그 달 · 일이 있으면 그 구매일 · v2.64.1)로 바꾼다. 순서:
- * ① 스위치(`ASSET_SYNC_ENABLED=false` → 「꺼짐」) ② 머리 글자(B3 · 네 이름 칸의 앞부분 — `writeAssetClass` 와 같은 확인)와 네 칸을 **수식 그대로** 다시 읽는다
+ * ① 스위치(`ASSET_SYNC_ENABLED=false` → 「꺼짐」) ② 머리 글자(B3 · 네 이름 칸의 앞부분 — `writeAssetClasses` 와 같은 확인)와 네 칸을 **수식 그대로** 다시 읽는다
  * ③ 네 칸 중 하나라도 수식이면 **하나도 쓰지 않고** 409 `formula-cell` · 날짜가 든 칸이 없으면 409 `no-date`
  * ④ 날짜 부분만 같은 모양으로 바꾼 글자를 `valuesWrite` **한 요청**으로(RAW — 글자 그대로)
  * ⑤ 그 칸들을 다시 읽어 보낸 글자와 같은지 확인 — 다르면 `mismatch` ⑥ 30초 캐시를 비운다.

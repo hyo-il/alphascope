@@ -31,7 +31,7 @@ import { lockSession, setAssetPassword, unlockSession } from '../server/asset/lo
 import { authGuard } from '../server/authGuard';
 import { assetRouter } from '../server/asset/routes';
 import { AssetSheetError, resetTokenCache } from '../server/asset/google';
-import { avgPriceOf, checkTargetRatio, linkedTickerRow, parseAssetSheet, readAssetSheet, replaceNameDate, resetSheetCache, sheetRanges, splitCode, writeAccountDates, writeAssetClass, writeTargetRatio } from '../server/asset/sheet';
+import { avgPriceOf, checkTargetRatio, linkedTickerRow, parseAssetSheet, readAssetSheet, replaceNameDate, resetSheetCache, sheetRanges, splitCode, writeAccountDates, writeAssetClasses, writeTargetRatio, ASSET_CLASS_MAX_ROWS } from '../server/asset/sheet';
 import { computeMonthlyBuy, purchaseCycle, purchaseDayOf, setPurchaseClockForTest, type PurchaseCalendar } from '../server/asset/purchase';
 import { clearPurchasesForTest, purchaseCountForTest, purchaseStartDayStoredForTest, recordPurchase } from '../server/asset/store';
 import { ASSET_CLASSES, ASSET_COLOR_IDS, ASSET_GROUP_LABEL, COLORED_GROUP_KEYS, DEFAULT_CLASS_COLORS, UNASSIGNED_SHORT, isAssetClass, type AssetSheetData, type AssetSummary, type AssetTotals } from '../src/types/asset';
@@ -136,7 +136,7 @@ try {
   const no = await Promise.all([call('GET', '/api/asset/status'), call('POST', '/api/asset/unlock', undefined, { password: ASSET_PW }), call('POST', '/api/asset/lock'), sheet()]);
   check('[3] 로그인 안 함 → status · unlock · lock · sheet 모두 401(authRequired)', (await Promise.all(no.map(async (r) => r.status === 401 && (await codeOf(r)).authRequired === true))).every(Boolean), no.map((r) => r.status).join(','));
   // [106-10] 106차 새 주소도 같은 두 문지기 뒤(로그인 안 함 401 · 잠김 403)
-  const newApis: [string, string, unknown?][] = [['GET', '/api/asset/summary?pension=0'], ['GET', '/api/asset/history?range=1m&pension=0'], ['PUT', '/api/asset/class', { row: 15, assetClass: '금' }], ['PUT', '/api/asset/settings', { pensionSections: [] }]];
+  const newApis: [string, string, unknown?][] = [['GET', '/api/asset/summary?pension=0'], ['GET', '/api/asset/history?range=1m&pension=0'], ['PUT', '/api/asset/class', { rows: [15], assetClass: '금' }], ['PUT', '/api/asset/settings', { pensionSections: [] }]];
   const anon = await Promise.all(newApis.map(([m, p, b]) => call(m, p, undefined, b)));
   check('[106-10] 로그인 안 함 → summary · history · class · settings 모두 401(authRequired)', (await Promise.all(anon.map(async (r) => r.status === 401 && (await codeOf(r)).authRequired === true))).every(Boolean), anon.map((r) => r.status).join(','));
   const lockedNew = await Promise.all(newApis.map(([m, p, b]) => call(m, p, a, b)));
@@ -149,7 +149,7 @@ try {
   const opened = await sheet(a);
   check('[4] 풀린 뒤 sheet 는 자산 문지기를 지난다(연결 정보 없음 → 503 not-configured)', opened.status === 503 && ((await opened.json()) as { kind?: string }).kind === 'not-configured', String(opened.status));
   // [106-7] 시험 서버는 스위치 7개를 끈 채 떴다 — 쓰기 API 는 시트를 보기 전에 「꺼짐」
-  const offWrite = await call('PUT', '/api/asset/class', a, { row: 15, assetClass: '금' });
+  const offWrite = await call('PUT', '/api/asset/class', a, { rows: [15], assetClass: '금' });
   check('[106-7] ASSET_SYNC_ENABLED=false(시험 서버) → PUT /api/asset/class 503 · kind disabled', offWrite.status === 503 && ((await offWrite.json()) as { kind?: string }).kind === 'disabled', String(offWrite.status));
   const b = (await login()).cookie;
   check('[4] 풀림은 그 로그인 세션만 — 다른 세션은 여전히 잠김', (await sheet(b)).status === 403 && (await status(b)).unlocked === false);
@@ -488,16 +488,16 @@ try {
   // [106-7] 자산 분류 쓰기 — 가짜 구글로만(실제 시트 쓰기 0)
   process.env.ASSET_SYNC_ENABLED = 'true';
   fresh();
-  const wrote = await writeAssetClass(15, '금');
+  const wrote = await writeAssetClasses([15], '금');
   const w0 = writesSeen[0];
-  check('[106-7] 「티커」 D15(종목 줄)에 「금」 → 쓰기 요청 1번(칸 1) · 범위 \'티커\'!D15 · RAW · 값 그대로', google.writes === 1 && writesSeen.length === 1 && w0?.range === "'티커'!D15" && w0?.value === '금' && w0?.input === 'RAW');
-  check('[106-7] 쓴 뒤 캐시를 비우고 다시 읽은 값을 돌려준다(5행 분류 = 금)', wrote.sections[0].holdings.find((h) => h.row === 5)?.assetClass === '금' && google.values === 1 && google.formulas === 2);
+  check('[106-7] [115-3] 한 줄 고르기도 일괄 함수 rows: [15] — 「티커」 D15(종목 줄)에 「금」 → 쓰기 요청 1번(칸 1) · 범위 \'티커\'!D15 · RAW · 값 그대로', google.writes === 1 && writesSeen.length === 1 && w0?.range === "'티커'!D15" && w0?.value === '금' && w0?.input === 'RAW');
+  check('[106-7] [115-2] 쓴 뒤 쓴 칸을 다시 읽어 확인(수식 읽기 +1) · 캐시를 비우고 다시 읽은 값을 돌려준다(5행 분류 = 금)', wrote.sections[0].holdings.find((h) => h.row === 5)?.assetClass === '금' && google.values === 1 && google.formulas === 3);
   fresh();
-  await writeAssetClass(16, '');
+  await writeAssetClasses([16], '');
   check('[106-7] 빈칸(지우기)도 쓴다', google.writes === 1 && writesSeen[0]?.value === '' && sheetModel.values['티커!D16'] === '');
   const refused = async (row: unknown, v: unknown) => {
     fresh();
-    const k = await kindOf(writeAssetClass(row, v));
+    const k = await kindOf(writeAssetClasses([row], v));
     return { k, writes: google.writes };
   };
   const r14 = await refused(14, '금'); // 구분 줄(「개별 투자」)
@@ -511,19 +511,55 @@ try {
   check('[106-7] [115-1] 세 글자 · 빈칸이 아닌 값(부동산 · 옛 「현금」 · 공백 섞임 · 숫자 · null · 수식) → not-editable · 쓰기 0', badValues.every((x) => x.k === 'not-editable' && x.writes === 0), badValues.map((x) => x.k).join(','));
   fresh();
   sheetModel.formulas['티커!D16'] = '=IF(A1,"주식","채권")';
-  check('[106-7] 그 칸이 `=` 로 시작(수식) → formula-cell · 쓰지 않음', (await kindOf(writeAssetClass(16, '금'))) === 'formula-cell' && google.writes === 0);
+  check('[106-7] 그 칸이 `=` 로 시작(수식) → formula-cell · 쓰지 않음', (await kindOf(writeAssetClasses([16], '금'))) === 'formula-cell' && google.writes === 0);
   fresh();
   sheetModel.values['티커!D12'] = '현재가';
   sheetModel.formulas['티커!D12'] = '현재가';
-  check('[106-7] 쓰기 직전 머리 D12 가 다르면 shape · 쓰지 않음', (await kindOf(writeAssetClass(15, '금'))) === 'shape' && google.writes === 0);
+  check('[106-7] 쓰기 직전 머리 D12 가 다르면 shape · 쓰지 않음', (await kindOf(writeAssetClasses([15], '금'))) === 'shape' && google.writes === 0);
   fresh();
   mode = 'write-403'; // 읽기는 되고(뷰어) 쓰기만 403
-  const deny = await writeAssetClass(15, '금').catch((e: unknown) => e);
+  const deny = await writeAssetClasses([15], '금').catch((e: unknown) => e);
   check('[106-7] 구글 403(쓰기 권한 없음) → not-shared · 「편집자」 안내', deny instanceof AssetSheetError && deny.kind === 'not-shared' && /편집자/.test(deny.message));
   fresh();
   process.env.ASSET_SYNC_ENABLED = 'false';
-  check('[106-7] ASSET_SYNC_ENABLED=false → disabled · 구글 호출 0(토큰도 받지 않음)', (await kindOf(writeAssetClass(15, '금'))) === 'disabled' && google.token === 0 && google.writes === 0);
+  check('[106-7] ASSET_SYNC_ENABLED=false → disabled · 구글 호출 0(토큰도 받지 않음)', (await kindOf(writeAssetClasses([15], '금'))) === 'disabled' && google.token === 0 && google.writes === 0);
   process.env.ASSET_SYNC_ENABLED = 'true';
+  // ── 115차 B — 자산 분류 일괄 쓰기 writeAssetClasses(가짜 구글로만 · 실제 시트 쓰기 0) ─────────────────────
+  {
+    fresh();
+    const many = await writeAssetClasses([15, 20, 16, 15, 20], '주식');
+    const ranges = writesSeen.map((w) => w.range);
+    check('[115-2] 여러 줄 → 쓰기 요청 1번 · 같은 줄 중복은 한 번(15 · 16 · 20 세 칸) · RAW · 값 그대로',
+      google.writes === 1 && JSON.stringify(ranges) === JSON.stringify(["'티커'!D15", "'티커'!D16", "'티커'!D20"]) && writesSeen.every((w) => w.value === '주식' && w.input === 'RAW'), ranges.join(','));
+    check('[115-2] 쓴 뒤 다시 읽기 — 쓴 칸 확인 읽기(수식) + 시트 다시 읽기 · 돌려준 값에 세 줄 모두 주식',
+      google.formulas === 3 && google.values === 1 && [5, 13, 22].every((r) => many.sections.flatMap((x) => x.holdings).find((h) => h.row === r)?.assetClass === '주식'));
+    fresh();
+    sheetModel.formulas['티커!D20'] = '=IF(A1,"금","채권")';
+    const fk = await kindOf(writeAssetClasses([15, 16, 20], '금'));
+    check('[115-2] 고른 줄 중 하나라도 수식 칸 → formula-cell(409) · 하나도 쓰지 않음', fk === 'formula-cell' && google.writes === 0 && sheetModel.values['티커!D15'] === '주식');
+    fresh();
+    const nk = await kindOf(writeAssetClasses([15, 14], '금'));
+    const nk2 = await kindOf(writeAssetClasses([15, 18], '금'));
+    check('[115-2] 종목 줄이 아닌 줄(구분 줄 14 · 빈 줄 18)이 섞이면 not-editable · 하나도 쓰지 않음', nk === 'not-editable' && nk2 === 'not-editable' && google.writes === 0);
+    fresh();
+    const shapes = [];
+    for (const rows of [[], 15, null, [15, 43], [15, '16'], Array.from({ length: ASSET_CLASS_MAX_ROWS + 1 }, (_, i) => [15, 16, 20, 21, 22][i % 5])]) shapes.push(await kindOf(writeAssetClasses(rows, '금')));
+    check('[115-2] 줄 목록 모양 — 빈 목록 · 배열 아님 · 범위 밖 · 글자 줄 → not-editable · 구글 호출 0 · 중복을 빼면 29줄 이하는 받음(30개 = 다섯 줄)',
+      shapes.slice(0, 5).every((k) => k === 'not-editable') && shapes[5] !== 'not-editable' && ASSET_CLASS_MAX_ROWS === 29, shapes.join(','));
+    fresh();
+    const big = await kindOf(writeAssetClasses(Array.from({ length: 30 }, (_, i) => i + 13), '금'));
+    check('[115-2] 서른 줄(13~42 — 13 은 범위 밖) → not-editable · 쓰기 0', big === 'not-editable' && google.writes === 0);
+    fresh();
+    afterWrite = () => { sheetModel.formulas['티커!D16'] = '채권'; };
+    const mk = await kindOf(writeAssetClasses([15, 16], '금'));
+    check('[115-2] 쓴 뒤 다시 읽은 값이 다르면 mismatch', mk === 'mismatch' && google.writes === 1);
+    fresh();
+    process.env.ASSET_SYNC_ENABLED = 'false';
+    check('[115-2] 스위치 꺼짐 → disabled · 구글 호출 0', (await kindOf(writeAssetClasses([15, 16], '금'))) === 'disabled' && google.token === 0 && google.writes === 0);
+    process.env.ASSET_SYNC_ENABLED = 'true';
+    fresh();
+    check('[115-1] 옛 「현금」 쓰기 → not-editable(400) · 구글 호출 0', (await kindOf(writeAssetClasses([15, 16], '현금'))) === 'not-editable' && google.token === 0);
+  }
 
   // ── 109차 A — 목표 비율 쓰기(가짜 구글로만 · 실제 시트 쓰기 0) ─────────────────────
   {
@@ -1066,7 +1102,7 @@ try {
   const lockedRes = await fetch(`${base}/api/asset/sheet`, { headers: ck });
   check('[2] (안쪽 서버) 풀기 전 sheet → 403 asset-locked · 구글 호출 0', lockedRes.status === 403 && google.token === 0);
   const putClass = (body: unknown) => fetch(`${base}/api/asset/class`, { method: 'PUT', headers: { ...ck, 'content-type': 'application/json' }, body: JSON.stringify(body) });
-  check('[106-7] (안쪽 서버) 잠김 → PUT /api/asset/class 403 asset-locked · 쓰기 0', (await putClass({ row: 15, assetClass: '금' })).status === 403 && google.writes === 0);
+  check('[106-7] (안쪽 서버) 잠김 → PUT /api/asset/class 403 asset-locked · 쓰기 0', (await putClass({ rows: [15], assetClass: '금' })).status === 403 && google.writes === 0);
   const putRatio = (body: unknown) => fetch(`${base}/api/asset/target-ratio`, { method: 'PUT', headers: { ...ck, 'content-type': 'application/json' }, body: JSON.stringify(body) });
   const RATIO_OK = { cash: 10, bond: 20, gold: 30, invest: 40, core: 60, satellite: 40 };
   check('[109-1] (안쪽 서버) 잠김 → PUT /api/asset/target-ratio 403 asset-locked · 구글 호출 0', (await putRatio(RATIO_OK)).status === 403 && google.token === 0);
@@ -1074,11 +1110,11 @@ try {
   const okRes = await fetch(`${base}/api/asset/sheet`, { headers: ck });
   const okBody = (await okRes.json()) as AssetSheetData;
   check('[B] (안쪽 서버) 풀린 뒤 sheet → 200 · 구간 다섯', okRes.status === 200 && okBody.sections.length === 5);
-  const putOk = await putClass({ row: 15, assetClass: '금' });
+  const putOk = await putClass({ rows: [15], assetClass: '금' });
   const putBody = (await putOk.json()) as AssetSheetData;
   check('[106-7] (안쪽 서버) 풀린 뒤 PUT /api/asset/class → 200 · 다시 읽은 시트 값', putOk.status === 200 && putBody.sections[0].holdings.find((h) => h.row === 5)?.assetClass === '금' && google.writes === 1);
-  const putBad = await putClass({ row: 14, assetClass: '금' });
-  const putFormula = (sheetModel.formulas['티커!D16'] = '=X1', await putClass({ row: 16, assetClass: '금' }));
+  const putBad = await putClass({ rows: [14], assetClass: '금' });
+  const putFormula = (sheetModel.formulas['티커!D16'] = '=X1', await putClass({ rows: [16], assetClass: '금' }));
   const sumRes = await fetch(`${base}/api/asset/summary?pension=1`, { headers: ck });
   const sumBody = (await sumRes.json()) as AssetSummary;
   const histRes = await fetch(`${base}/api/asset/history?range=all&pension=0`, { headers: ck });
@@ -1098,6 +1134,19 @@ try {
     sumBody.rebalance != null && sumBody.rebalance.assets.rows.every((r) => r.nowAmount === sumBody.totals.groups.find((g) => g.key === r.key)?.amount) && sumBody.rebalance.stocks.rows[0].nowAmount === sumBody.totals.core && sumBody.rebalance.stocks.rows[1].nowAmount === sumBody.totals.satellite && sumBody.rebalance.band === sumBody.settings.rebalanceBand && sumBody.targetRatio.invest === sumBody.rebalance.assets.rows[3].targetPct);
   check('[106-10] (안쪽 서버) 풀린 뒤 summary 200(연금 포함) · history 200 · 기간 틀림 400 · settings 200 / 옛 키 400', sumRes.status === 200 && sumBody.includePension === true && JSON.stringify(sumBody.accounts?.map((a) => a.key)) === JSON.stringify(['개별 투자', '적립식 계좌', 'ISA 계좌', '연금 저축 계좌']) && sumBody.accounts[0].name === '개별 투자 ( 2026.07 )' && Array.isArray(sumBody.stockChoices) && sumBody.settings.classColors.gold === 'yellow' && histRes.status === 200 && badRange.status === 400 && setOk.status === 200 && setBad.status === 400);
   check('[106-7] (안쪽 서버) 구분 줄 400 not-editable · 수식 칸 409 formula-cell · 쓰기 늘지 않음', putBad.status === 400 && ((await putBad.json()) as { kind?: string }).kind === 'not-editable' && putFormula.status === 409 && google.writes === 1);
+  {
+    // [115-2] 옛 모양 { row } · 「현금」 · 여러 줄 한 요청(HTTP)
+    sheetModel.formulas['티커!D16'] = sheetModel.values['티커!D16'];
+    const before = google.writes;
+    const oldShape = await putClass({ row: 15, assetClass: '금' });
+    const cashPut = await putClass({ rows: [15], assetClass: '현금' });
+    check('[115-2] [115-1] (안쪽 서버) 옛 모양 { row } → 400 not-editable · 「현금」 → 400 not-editable · 쓰기 늘지 않음',
+      oldShape.status === 400 && ((await oldShape.json()) as { kind?: string }).kind === 'not-editable' && cashPut.status === 400 && ((await cashPut.json()) as { kind?: string }).kind === 'not-editable' && google.writes === before);
+    const multi = await putClass({ rows: [15, 16, 20], assetClass: '채권' });
+    const multiBody = (await multi.json()) as AssetSheetData;
+    check('[115-2] (안쪽 서버) PUT { rows: [15, 16, 20] } → 200 · 쓰기 요청 1번 · 다시 읽은 값',
+      multi.status === 200 && google.writes === before + 1 && [5, 13, 22].every((r) => multiBody.sections.flatMap((x) => x.holdings).find((h) => h.row === r)?.assetClass === '채권'));
+  }
   {
     const w0 = google.writes;
     const rOk = await putRatio(RATIO_OK);
@@ -1256,10 +1305,18 @@ const fnBody = (name: string) => {
 // 111차: 부르는 곳이 셋(+ writeAccountDates 계좌 이름 날짜)
 // 113차: 시트 가격(priceSheet.ts 바꾸기 · 되돌리기 · priceWriter.ts 10초 쓰기)이 같은 함수를 부른다(쓰는 방식은 인자 — `assetprice:test` [113-7])
 const WRITE_CALLERS = JSON.stringify(['server/asset/google.ts', 'server/asset/priceSheet.ts', 'server/asset/priceSheet.ts', 'server/asset/priceWriter.ts', 'server/asset/sheet.ts', 'server/asset/sheet.ts', 'server/asset/sheet.ts']);
-check('[106-8] [109-1] [111-8] 시트 쓰기 함수 valuesWrite — 정의(google.ts) 1 + 부르는 곳 sheet.ts 3(writeAssetClass · writeTargetRatio · writeAccountDates) + 113차 시트 가격 3(priceSheet.ts 2 · priceWriter.ts 1)뿐 · 옛 valuesUpdate 0', JSON.stringify(callers.sort()) === WRITE_CALLERS && /valuesWrite\(/.test(fnBody('writeAssetClass')) && /valuesWrite\(/.test(fnBody('writeTargetRatio')) && /valuesWrite\(/.test(fnBody('writeAccountDates')) && !/\bvaluesUpdate\b/.test(appCode), callers.join(','));
+check('[106-8] [109-1] [111-8] 시트 쓰기 함수 valuesWrite — 정의(google.ts) 1 + 부르는 곳 sheet.ts 3(writeAssetClasses · writeTargetRatio · writeAccountDates) + 113차 시트 가격 3(priceSheet.ts 2 · priceWriter.ts 1)뿐 · 옛 valuesUpdate 0', JSON.stringify(callers.sort()) === WRITE_CALLERS && /valuesWrite\(/.test(fnBody('writeAssetClasses')) && /valuesWrite\(/.test(fnBody('writeTargetRatio')) && /valuesWrite\(/.test(fnBody('writeAccountDates')) && !/\bvaluesUpdate\b/.test(appCode), callers.join(','));
 check('[106-8] [109-1] 그 밖의 구글 쓰기 주소(서식 spreadsheets:batchUpdate · values:append · values:clear) 0 · values:batchUpdate 는 google.ts 한 곳 · googleapis 는 google.ts 한 곳', !/(?<!values):batchUpdate|values:append|values:clear|values:batchClear/.test(appCode) && codeFiles.filter(({ src }) => /values:batchUpdate/.test(src)).map((x) => x.f).join(',') === 'server/asset/google.ts' && codeFiles.filter(({ src }) => /sheets\.googleapis\.com/.test(src)).map((x) => x.f).join(',') === 'server/asset/google.ts');
 check('[106-8] 구글 scope 는 spreadsheets 하나(drive 등 다른 scope 없음)', /auth\/spreadsheets'/.test(appCode) && !/auth\/spreadsheets\.readonly/.test(appCode) && !/auth\/drive/.test(appCode));
 check('[106-8] 실제 구글 호출 0 — 이 시험의 googleapis 요청은 모두 가짜가 받았다(쓰기는 가짜 응답으로만)', realGoogleCalls === 0);
+{
+  // [115-3] 옛 한 칸 함수는 지웠다(A-11) — 소스에 writeAssetClass 없음 · 화면은 rows 로 부른다 · 구글 쓰는 함수는 valuesWrite 하나
+  const dash = fs.readFileSync(path.join(root, 'src/components/asset/AssetDashboard.tsx'), 'utf8');
+  const googleSrc = fs.readFileSync(path.join(root, 'server/asset/google.ts'), 'utf8');
+  check('[115-3] writeAssetClass(한 칸 함수) 소스에 없음 · 한 칸 고르기도 일괄 함수(화면이 rows 배열로 부름) · 구글 쓰는 export 함수는 valuesWrite 하나',
+    !/\bwriteAssetClass\b/.test(appCode) && /\bwriteAssetClasses\(/.test(fs.readFileSync(path.join(root, 'server/asset/routes.ts'), 'utf8')) && /JSON\.stringify\(\{ rows/.test(dash) && !/JSON\.stringify\(\{ row,/.test(dash) &&
+      [...googleSrc.matchAll(/export async function (\w+)/g)].map((m) => m[1]).filter((n) => /write|update|append|clear/i.test(n)).join(',') === 'valuesWrite');
+}
 
 // [107-5] 분류 색 — 옛 토큰 남는 곳 0 · 원형 · 표 점 · 설정 창이 같은 이름 → 클래스 표(assetColors.ts) 하나를 쓴다
 const cssSrc = fs.readFileSync(path.join(root, 'src/index.css'), 'utf8');

@@ -177,9 +177,10 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
     savePension(on);
   };
 
-  const pickClass = async (row: number, value: AssetClass | ''): Promise<string | null> => {
+  /** 자산 분류 쓰기 — 한 줄 고르기 · 여러 줄 [적용] 모두 같은 주소(`rows` — 「티커」 줄 번호들 · 서버가 한 요청으로 씀 · v2.65.2) */
+  const pickClass = async (rows: number[], value: AssetClass | ''): Promise<string | null> => {
     try {
-      const res = await fetch('/api/asset/class', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ row, assetClass: value }) });
+      const res = await fetch('/api/asset/class', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rows, assetClass: value }) });
       const body = await readJson(res);
       if (body.code === 'asset-locked') {
         onLocked();

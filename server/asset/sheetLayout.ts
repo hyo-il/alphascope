@@ -7,7 +7,7 @@
  *   비교는 공백을 모두 빼고 한다(띄어쓰기만 다른 것은 같은 모양) · `prefix` 는 앞부분만(구간 이름 뒤의 「( 2026.07 )」 같은 날짜는 바뀐다).
  * - 보유 줄 ↔ 종목 줄은 이름 글자가 아니라 F열 수식 `'티커'!$F$NN` 의 NN(「티커」 줄 번호)으로 잇는다(`linkFormula`).
  * - 평균 매입가: C열 수식이 `=(달러값)*('티커'!$G$9)` 이면 달러 원래 값 · USD, 숫자면 원화 KRW(`usdFormula`).
- * - **쓰는 칸은 셋뿐**: 「티커」 D14~D42 자산 분류(`assetClass` — `server/asset/sheet.ts` `writeAssetClass`) ·
+ * - **쓰는 칸은 셋뿐**: 「티커」 D14~D42 자산 분류(`assetClass` — `server/asset/sheet.ts` `writeAssetClasses` — 여러 줄 한 요청) ·
  *   「자산 투자 비율 관리」 목표 비율 여섯 칸(`targetRatio` — 설정 창에서 저장할 때만 · `writeTargetRatio` · v2.63.0) ·
  *   「주식 투자 정리」 계좌 이름 칸(`sections` 의 `nameCell`)의 「( 날짜 )」 — 「구매 완료」 때만 · `writeAccountDates` · v2.64.0 ·
  *   「티커」 시트 가격(`prices` — C9 환율 · 종목 줄 E 가격 · F 원화 표기 수식 · v2.65.0 · `priceSheet.ts` · `priceWriter.ts`).
