@@ -23,6 +23,15 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.63.1',
+    date: '2026-11-07',
+    title: '개발: 기계 검사를 한 명령(check:all)으로 · 시험마다 걸린 시간 기록',
+    description: '개발 도구만 바뀌었습니다. 화면 · 매매 규칙 · 매수 판단 · 계좌 계산은 그대로입니다',
+    changes: [
+      '타입 검사 · 디자인 규칙 검사 · 시험 전부를 한 명령으로 돌리고, 시험마다 걸린 시간을 남깁니다(화면 변화 없음)',
+    ],
+  },
+  {
     version: 'v2.63.0',
     date: '2026-11-07',
     title: '자산 관리: 「비율 조정」 탭 · 설정에서 목표 비율 바꾸기(시트에도 씀) · 자산 현황 「계좌별 | 종목별」 · 코어/위성만 보기',
