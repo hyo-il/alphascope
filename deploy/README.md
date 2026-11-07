@@ -366,7 +366,8 @@ F=~/projects/alphascope/app/.env; if grep -q '^ASSET_PRICE_WRITE_ENABLED=' "$F";
 cd ~/projects/alphascope/app && npm run -s asset:check-sheet -- --sheet <원본 ID>
 ```
 
-6. (오라클) `.env` 의 `ASSET_SHEET_ID` 를 원본 ID 로 바꾸고(있으면 그 줄만 바꾸고 없으면 끝에 더함 · 값은 출력하지 않고 맞는 줄 개수만 — `1` 이면 됨) AlphaScope 두 이름만 다시 켠다:
+6. (오라클) `.env` 의 `ASSET_SHEET_ID` 를 원본 ID 로 바꾸고(있으면 그 줄만 바꾸고 없으면 끝에 더함 · 값은 출력하지 않고 맞는 줄 개수만 — `1` 이면 됨) AlphaScope 두 이름만 다시 켠다.
+   ⚠️ **v2.65.1 이상을 배포해 서버가 시험용 시트로 한 번 켜진 뒤에** 한다 — 그 전에 바꾸면 새 코드가 처음 켜질 때 원본을 「처음 연결」 로 보고 저장만 해, 시험용 하루 기록이 보관되지 않고 원본 기록과 섞인다.
 
 ```bash
 ID='<원본 ID>'; F=~/projects/alphascope/app/.env; if grep -q '^ASSET_SHEET_ID=' "$F"; then sed -i "s|^ASSET_SHEET_ID=.*|ASSET_SHEET_ID=$ID|" "$F"; else [ -n "$(tail -c1 "$F")" ] && echo >> "$F"; echo "ASSET_SHEET_ID=$ID" >> "$F"; fi; grep -c "^ASSET_SHEET_ID=$ID\$" "$F"; pm2 restart alphascope-api && pm2 restart alphascope-indicators
