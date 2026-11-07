@@ -437,7 +437,7 @@ function targets(): Target[] {
         });
       },
     })),
-    // 자산 관리 v2.63.0 — 「비율 조정」 탭(괜찮음 · 조정 필요 섞임 · 빠진 금액 줄 · 목표 합 ≠ 100 · 목표 빈칸) ·
+    // 자산 관리 v2.63.0 · v2.64.0 — 「비율 조정」 탭(괜찮음 · 조정 필요 섞임 · 빠진 금액 줄 · 목표 합 ≠ 100 · 목표 빈칸) ·
     // 설정 창 「목표 비율」(합 맞음 · 틀림 · 쓰기 꺼짐) · 「괜찮음 범위」 · 「자산 현황」 종목별(전체 · 코어 · 위성). 가짜 응답만(쓰기 주소는 막는다)
     ...(
       [
@@ -456,6 +456,33 @@ function targets(): Target[] {
         }],
         ['설정창-쓰기꺼짐', { writeEnabled: false }, async (page: Page) => {
           await page.locator('[data-edit-target]').click().catch(() => {});
+          await page.waitForTimeout(500);
+        }],
+        // v2.64.0 — 「이번 달 구매」 구역(완료 · 미완료 + 휴장일 확인 못 함 · 월급 없음 + 목표 합 틀림) · 구매일 팝업 · [구매 완료] 확인 창 · 자산 현황 요약 목표 비율 순서
+        ['이번달구매', { pension: true }, async (page: Page) => {
+          await page.locator('#as-asset-monthly-buy').scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+        }],
+        ['이번달구매-미완료', { purchaseDone: false, calendarUnchecked: true }, async (page: Page) => {
+          await page.locator('[data-purchase-later]').click().catch(() => {});
+          await page.waitForTimeout(200);
+          await page.locator('#as-asset-monthly-buy').scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+        }],
+        ['이번달구매-월급없음-합틀림', { purchaseDone: false, salary: null, target: { cash: 25, gold: 5, bond: 10, invest: 65, core: 70, satellite: null } }, async (page: Page) => {
+          await page.locator('[data-purchase-later]').click().catch(() => {});
+          await page.waitForTimeout(200);
+          await page.locator('#as-asset-monthly-buy').scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+        }],
+        ['구매일팝업', { purchaseDone: false }, async () => {}],
+        ['구매일팝업-확인창', { purchaseDone: false }, async (page: Page) => {
+          await page.locator('[data-purchase-dialog]').waitFor({ timeout: 3000 }).catch(() => {});
+          await page.getByRole('dialog').locator('[data-purchase-done]').click().catch(() => {});
+          await page.waitForTimeout(300);
+        }],
+        ['자산현황-요약목표비율', {}, async (page: Page) => {
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
           await page.waitForTimeout(500);
         }],
         ...(['전체', '코어', '위성'] as const).map((f) => [`자산현황-종목별-${f}`, { none: true }, async (page: Page) => {
@@ -483,13 +510,14 @@ function targets(): Target[] {
         await page.route('**/api/asset/class', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
         await page.route('**/api/asset/settings', (r) => r.fulfill({ status: 400, json: { error: '시험 — 저장하지 않음' } }).catch(() => {}));
         await page.route('**/api/asset/target-ratio', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
+        await page.route('**/api/asset/purchase-done', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
       },
       open: async (page: Page) => {
         await page.waitForTimeout(800);
         await act(page);
       },
       after: async (page: Page) => {
-        for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/class', '**/api/asset/settings', '**/api/asset/target-ratio']) await page.unroute(p);
+        for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/class', '**/api/asset/settings', '**/api/asset/target-ratio', '**/api/asset/purchase-done']) await page.unroute(p);
         await page.keyboard.press('Escape').catch(() => {});
         await page.keyboard.press('Escape').catch(() => {});
         await page.evaluate(() => {

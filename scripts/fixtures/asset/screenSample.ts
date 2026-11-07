@@ -63,7 +63,7 @@ export const assetSheetFailureSample: AssetSheetFailure = {
  * 총 자산 요약(v2.62.0) 가짜 응답 — 만든 값. `none` = 미지정 금액 · 가격 못 받은 줄을 넣는다(긴 금액 · 경고 줄 넘침을 잰다).
  */
 export function assetSummarySample(
-  opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number; writeEnabled?: boolean; purchaseDone?: boolean; calendarUnchecked?: boolean } = {},
+  opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number; writeEnabled?: boolean; purchaseDone?: boolean; calendarUnchecked?: boolean; salary?: number | null } = {},
 ): AssetSummary {
   const pension = opts.pension ?? false;
   const amounts: [AssetGroupKey, string, number][] = [
@@ -115,14 +115,15 @@ export function assetSummarySample(
     rebalance: computeRebalance(totals, target, band),
     targetRatio: target,
     writeEnabled: opts.writeEnabled ?? true,
-    // 이번 달 구매(v2.64.0) — 서버와 같은 순수 함수 · 긴 월급(9자리)으로 칸 넘침을 잰다
+    // 이번 달 구매(v2.64.0) — 서버와 같은 순수 함수 · 긴 월급(9자리)으로 칸 넘침을 잰다.
+    // 처음 값은 「완료」(구매일 팝업이 뜨지 않게 — 다른 장면 사진을 가리지 않는다) · 팝업 장면은 `purchaseDone: false`
     monthlyBuy: {
-      ...computeMonthlyBuy(123456789, target),
+      ...computeMonthlyBuy(opts.salary === undefined ? 123456789 : opts.salary, target),
       today: '2026-11-27',
       cycleDay: '2026-11-27',
       nextDay: '2026-12-24',
-      done: opts.purchaseDone ?? false,
-      doneDay: opts.purchaseDone ? '2026-11-27' : null,
+      done: opts.purchaseDone ?? true,
+      doneDay: opts.purchaseDone ?? true ? '2026-11-27' : null,
       calendarUnchecked: opts.calendarUnchecked ?? false,
     },
   };

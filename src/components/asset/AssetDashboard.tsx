@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { LoaderCircle, Lock, RefreshCw, Settings } from 'lucide-react';
 import { Button, ICON_SM, PageHeader, Panel, Segmented, SectionTitle } from '../ui';
 import { LIST_TABLE_ROW, PANEL_PAD, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
@@ -7,12 +7,14 @@ import { usePolling } from '../../hooks/usePolling';
 import { changeColor, formatNumber, formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
 import { formatDateTime } from '../../utils/dateFormat';
 import type { AssetClass, AssetHistoryPoint, AssetHistoryRange, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio } from '../../types/asset';
+import { modal } from '../../store/uiStore';
 import AssetDonut from './AssetDonut';
 import { groupDot } from './assetColors';
 import AssetHistoryChart from './AssetHistoryChart';
 import AssetSheetValues from './AssetSheetValues';
 import AssetSettingsDialog from './AssetSettingsDialog';
 import AssetRebalanceView from './AssetRebalanceView';
+import { MonthlyBuySection, PurchaseDayDialog } from './AssetMonthlyBuy';
 
 /**
  * 계좌 > 자산 관리 — 풀린 화면(v2.62.0 · 자산 관리 3단계 · v2.62.2 탭 · v2.63.0 비율 조정).
@@ -21,6 +23,10 @@ import AssetRebalanceView from './AssetRebalanceView';
  * 제목 아래 탭 「총 자산 | 자산 현황 | 비율 조정」 — 처음 = 총 자산 · 마지막 탭을 이 기기에 기억(`alphascope.asset.tab` · 읽기 실패 · 모르는 값이면 총 자산).
  * 주소에는 넣지 않는다(소메뉴 안 탭).
  * - 비율 조정: 보기만(`AssetRebalanceView` — summary 의 `rebalance` 그대로) · [목표 비율 바꾸기] = 설정 창을 목표 비율 칸으로 연다.
+ *   그 아래 「이번 달 구매」(v2.64.0 — `MonthlyBuySection` · summary 의 `monthlyBuy` 그대로).
+ * - 구매일 팝업(v2.64.0): 이 화면이 열릴 때마다(잠금을 푼 뒤 자산 관리에 들어올 때) 처음 받은 summary 에서 이번 차례가 미완료면 한 번 뜬다
+ *   (10초 갱신으로 다시 뜨지 않음 · [나중에] = 닫기 → 다음에 들어올 때 다시). [구매 완료] → 확인 창 → 서버(시트 계좌 이름 날짜 · 기록) →
+ *   성공하면 팝업 닫힘 + 다시 받아 구역이 「완료 ○」 · 실패하면 이유 한 줄(팝업 · 구역 그대로).
  * - 총 자산: 숫자 카드 셋(총 자산 · 어제보다 · 평가 손익) · 총 자산 선 차트(하루 기록 · 1개월 · 3개월 · 1년 · 전체) ·
  *   구성 원형 차트 / 분류별 표(주식 아래 코어 · 위성 · 미지정은 흐리게) — 분류 색은 설정의 「자산 분류 색」
  * - 자산 현황: 요약 + 계좌 카드(자산 분류 고르기 — 시트에 바로 씀). 이 탭을 처음 열 때 시트를 읽는다.
@@ -113,6 +119,11 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
   /** 설정 창 — null 이면 닫힘 · 'targetRatio' 면 목표 비율 칸으로 연다 */
   const [settingsOpen, setSettingsOpen] = useState<null | 'top' | 'targetRatio'>(null);
   const [sheet, setSheet] = useState<{ data: AssetSheetData } | { error: string } | null>(null);
+  /** 구매일 팝업 — 이 화면이 열린 뒤 처음 받은 summary 로 한 번만 정한다 */
+  const [purchasePopup, setPurchasePopup] = useState(false);
+  const popupDecided = useRef(false);
+  /** 「구매 완료」 실패 이유(팝업 · 구역에 한 줄) */
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!polled) return;
@@ -125,6 +136,12 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
   useEffect(() => {
     if (latest && !latest.result.ok && latest.result.fail.locked) onLocked();
   }, [latest, onLocked]);
+
+  useEffect(() => {
+    if (popupDecided.current || !latest?.result.ok) return;
+    popupDecided.current = true;
+    if (!latest.result.summary.monthlyBuy.done) setPurchasePopup(true);
+  }, [latest]);
 
   const loadSheet = useCallback(async () => {
     try {
@@ -207,6 +224,31 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
     }
   };
 
+  /** [구매 완료] — 확인 창(저장 중 「처리 중…」) → 서버 → 성공이면 팝업 닫고 다시 받기 · 실패면 이유 한 줄 */
+  const askPurchaseDone = (today: string) => {
+    modal.confirm({
+      title: '구매 완료',
+      message: `구매 완료로 기록하고, 시트의 계좌 이름 날짜를 오늘(${today})로 바꿉니다. 되돌릴 수 없습니다.`,
+      confirmText: '구매 완료',
+      onConfirm: async () => {
+        setPurchaseError(null);
+        try {
+          const res = await fetch('/api/asset/purchase-done', { method: 'POST', headers: { 'content-type': 'application/json' } });
+          const body = await readJson(res);
+          if (body.code === 'asset-locked') return onLocked();
+          if (!res.ok) {
+            setPurchaseError(typeof body.error === 'string' ? body.error : `요청 실패 (${res.status})`);
+            return;
+          }
+          setPurchasePopup(false);
+          await reload();
+        } catch {
+          setPurchaseError('서버에 연결하지 못했습니다.');
+        }
+      },
+    });
+  };
+
   const result = latest?.result ?? null;
   const summary = result?.ok ? result.summary : null;
   /** 지금 고른 「연금 포함」 과 그린 값이 다르면(다시 받는 중) 작은 스피너 */
@@ -261,7 +303,12 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
         )}
         {/* 비율 조정 탭 — 보기만(처음 받기는 스켈레톤) */}
         {tab === 'rebalance' && latest == null && <RebalanceSkeleton />}
-        {tab === 'rebalance' && summary && <AssetRebalanceView summary={summary} onEditTarget={() => setSettingsOpen('targetRatio')} />}
+        {tab === 'rebalance' && summary && (
+          <>
+            <AssetRebalanceView summary={summary} onEditTarget={() => setSettingsOpen('targetRatio')} />
+            <MonthlyBuySection mb={summary.monthlyBuy} writeEnabled={summary.writeEnabled} error={purchaseError} onDone={() => askPurchaseDone(summary.monthlyBuy.today)} />
+          </>
+        )}
         {/* 자산 현황 탭 — 요약 · 계좌 카드 · 자산 분류 고르기 */}
         {tab === 'status' && (
           <div id="as-asset-status" className="space-y-3">
@@ -271,6 +318,15 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
           </div>
         )}
       </div>
+      {purchasePopup && summary && !summary.monthlyBuy.done && (
+        <PurchaseDayDialog
+          mb={summary.monthlyBuy}
+          writeEnabled={summary.writeEnabled}
+          error={purchaseError}
+          onLater={() => setPurchasePopup(false)}
+          onDone={() => askPurchaseDone(summary.monthlyBuy.today)}
+        />
+      )}
       {settingsOpen && summary && (
         <AssetSettingsDialog
           summary={summary}
@@ -307,6 +363,7 @@ function RebalanceSkeleton() {
       <Skeleton className="h-16 rounded-xl" />
       <SkeletonTable rows={4} columns={8} />
       <SkeletonTable rows={2} columns={8} />
+      <SkeletonTable rows={7} columns={3} />
     </div>
   );
 }
