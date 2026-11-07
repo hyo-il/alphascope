@@ -18,15 +18,15 @@ const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
 export const dayText = (day: string) => `${day}(${WEEKDAY[new Date(`${day}T00:00:00Z`).getUTCDay()] ?? ''})`;
 
 const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right tabular-nums`;
-const pct = (v: number | null) => (v == null ? '-' : formatNumber(v, Number.isInteger(v) ? 0 : 1, '%'));
-const won = (v: number | null) => (v == null ? '-' : formatPrice(v, 'KRW'));
+const pct = (v: number | null) => (v == null ? '—' : formatNumber(v, Number.isInteger(v) ? 0 : 1, '%'));
+const won = (v: number | null) => (v == null ? '—' : formatPrice(v, 'KRW'));
 const off100 = (v: number | null) => v != null && Math.abs(v - 100) > 1e-6;
 
 /** 표 위 안내 — 월급 없음 · 목표 빈칸 · 목표 합 ≠ 100(비율 조정과 같은 문구) */
 function notesOf(mb: MonthlyBuy): string[] {
   return [
     mb.noSalary ? '시트에 월급이 없습니다 — 「월 고정지출」 C5 를 확인하세요.' : null,
-    mb.targetMissing ? '시트에 목표 비율이 비어 있는 칸이 있습니다 — 그 줄은 「-」 로 보입니다.' : null,
+    mb.targetMissing ? '시트에 목표 비율이 비어 있는 칸이 있습니다 — 그 줄은 「—」 로 보입니다.' : null,
     off100(mb.assetTargetSum) ? `목표 비율 합이 ${formatNumber(mb.assetTargetSum, 1, '%')}입니다 — 설정에서 바로잡아 주세요.` : null,
     off100(mb.stockTargetSum) ? `코어 · 위성 목표 합이 ${formatNumber(mb.stockTargetSum, 1, '%')}입니다 — 설정에서 바로잡아 주세요.` : null,
   ].filter((x): x is string => x != null);

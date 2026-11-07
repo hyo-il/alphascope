@@ -288,7 +288,7 @@ export interface AssetSummary {
   monthlyBuy: MonthlyBuy;
 }
 
-/** 이번 달 구매 한 줄(v2.64.0) — 금액은 원(반올림 정수) · 목표나 월급이 없으면 null(「-」) */
+/** 이번 달 구매 한 줄(v2.64.0) — 금액은 원(반올림 정수) · 목표나 월급이 없으면 null(「—」) */
 export interface MonthlyBuyRow {
   key: 'cash' | 'bond' | 'gold' | 'stock' | 'core' | 'satellite';
   label: string;

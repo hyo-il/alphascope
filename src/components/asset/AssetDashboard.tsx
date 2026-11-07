@@ -228,7 +228,8 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
   const askPurchaseDone = (today: string) => {
     modal.confirm({
       title: '구매 완료',
-      message: `구매 완료로 기록하고, 시트의 계좌 이름 날짜를 오늘(${today})로 바꿉니다. 되돌릴 수 없습니다.`,
+      // 「오늘(날짜)로」 를 한 덩어리로 — 「오늘」 과 여는 괄호 · 날짜 안 하이픈 뒤 · 닫는 괄호와 「로」 사이에 단어 이음표(U+2060)를 넣어 중간에서 줄이 꺾이지 않게
+      message: `구매 완료로 기록하고, 시트의 계좌 이름 날짜를 오늘\u2060(${today.replace(/-/g, '-\u2060')})\u2060로 바꿉니다. 되돌릴 수 없습니다.`,
       confirmText: '구매 완료',
       onConfirm: async () => {
         setPurchaseError(null);
