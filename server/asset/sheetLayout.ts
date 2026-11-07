@@ -21,7 +21,7 @@ export interface HeaderCheck {
 }
 
 export interface HoldingSection {
-  /** 설정(연금 구간 · 위성 구간)이 가리키는 이름 — 머리 글자 확인의 앞부분과 같다. 합친 표는 없음(설정 대상이 아니다) */
+  /** 계좌 key(「연금으로 볼 계좌」 가 가리키는 이름) — 머리 글자 확인의 앞부분과 같다. 합친 표는 없음(설정 대상이 아니다) */
   key?: string;
   /** 구간 이름이 적힌 칸(같은 탭) — 화면에 그 글자 그대로 보인다. 없으면 `label` */
   nameCell?: string;

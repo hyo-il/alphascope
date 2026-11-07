@@ -1,7 +1,7 @@
 /**
  * 총 자산 계산(v2.62.0 · 자산 관리 3단계) — 금액은 **토스 가격 × 시트 수량**(시트의 가격 칸은 읽지 않는다).
  *
- * - 더하는 것: 「현금」 C25 + **계좌 구간(개별 · 적립식 · ISA · 연금 저축)** 의 보유 평가 금액.
+ * - 더하는 것: 「현금」 C25 + **계좌(개별 · 적립식 · ISA · 연금 저축)** 의 보유 평가 금액.
  *   ⚠️ 39~44행 「적립식 주식」(계좌를 합친 표 — `combined`)은 **더하지 않는다**(위 구간과 같은 종목 — 이중 계산).
  * - 평가 = 수량 × 토스 가격(미국은 × 토스 환율). 매입 = 수량 × 평균 매입가(달러 평균가는 × 「티커」 G9 구매 평균 환율 — 시트와 같은 방식).
  * - 「연금 포함」 이 꺼지면 「연금으로 볼 계좌」(설정 — 기본 연금 저축 계좌) 보유와 퇴직 연금(「현금」 C30)을 뺀다.
@@ -15,9 +15,9 @@
 import { fetchQuotes } from '../quoteService';
 import { isMockMode } from '../mockData';
 import { fetchExchangeRate } from '../../src/services/toss/account';
-import type { AssetGroup, AssetGroupKey, AssetHolding, AssetSettings, AssetSheetData, AssetSummary, AssetTotals } from '../../src/types/asset';
+import type { AssetAccount, AssetGroup, AssetGroupKey, AssetHolding, AssetSettings, AssetSheetData, AssetSummary, AssetTotals } from '../../src/types/asset';
 import { readAssetSheet } from './sheet';
-import { readAssetSettings, SECTION_KEYS, stockChoices } from './settings';
+import { readAssetSettings, stockChoices } from './settings';
 import { latestRecord } from './store';
 
 /** 토스 가격(종목 → 원래 통화 값) · 환율(1달러 = N원) */
@@ -101,6 +101,21 @@ export function computeAssetTotals(data: AssetSheetData, book: PriceBook, settin
   };
 }
 
+/** 계좌마다 평가 금액 합 · 가격 못 받은 줄 수 — 「상세 보기」 카드 머리(연금 포함과 상관없이 모든 계좌 · 합친 표 제외) */
+export function accountValues(data: AssetSheetData, book: PriceBook): AssetAccount[] {
+  return data.sections.flatMap((s) => {
+    if (s.combined || !s.key) return [];
+    let value = 0;
+    let missing = 0;
+    for (const h of s.holdings) {
+      const v = valuedRow(h, book);
+      if (v == null) missing++;
+      else value += v;
+    }
+    return [{ key: s.key, name: s.name || s.key, holdings: s.holdings.length, value, missing }];
+  });
+}
+
 // ── 가격 받기 (지금 있는 함수 그대로 — 관심 목록과 같은 토스 /prices 묶음 · 환율 60초 캐시) ──
 
 type PriceSource = (data: AssetSheetData) => Promise<PriceBook>;
@@ -154,7 +169,7 @@ export async function assetSummary(includePension: boolean): Promise<AssetSummar
     missingNames: c.missingNames,
     unknownClassCount: c.unknownClassCount,
     settings,
-    sectionKeys: SECTION_KEYS,
+    accounts: accountValues(data, book),
     stockChoices: stockChoices(data, settings),
   };
 }

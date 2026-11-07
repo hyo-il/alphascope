@@ -83,7 +83,12 @@ export function assetSummarySample(opts: { pension?: boolean; none?: boolean; vs
     missingNames: opts.none ? ['이을 수식 없는 줄', '예시 미국 ETF 이름이 아주 긴 종목'] : [],
     unknownClassCount: opts.none ? 1 : 0,
     settings: { pensionSections: ['연금 저축 계좌'], satelliteSymbols: ['AAAA', '000001', '000003'], classColors: { ...DEFAULT_CLASS_COLORS, ...opts.colors } },
-    sectionKeys: ['개별 투자', '적립식 계좌', 'ISA 계좌', '연금 저축 계좌'],
+    accounts: [
+      { key: '개별 투자', name: '개별 투자 ( 2026.07 )', holdings: 4, value: 1876543210, missing: 0 },
+      { key: '적립식 계좌', name: '적립식 계좌 ( 2026.07 )', holdings: 2, value: 18000000, missing: 1 },
+      { key: 'ISA 계좌', name: 'ISA 계좌 ( 2026.07 )', holdings: 1, value: 635250, missing: 0 },
+      { key: '연금 저축 계좌', name: '연금 저축 계좌 ( 2026.07 )', holdings: 0, value: 0, missing: 0 },
+    ],
     // 위성으로 선택한 종목 고르기 — 주식 종목 셋 + 위성 목록에 남았지만 분류가 주식이 아닌 종목(흐리게) · 계좌 둘에 있는 종목
     stockChoices: [
       { symbol: 'AAAA', name: '예시 미국 기술주', sections: ['개별 투자'], isStock: true },

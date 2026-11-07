@@ -375,18 +375,20 @@ function targets(): Target[] {
         await page.unroute(/\/api\/market-brief\?/);
       },
     })),
-    // 자산 관리(v2.61.0 · v2.62.0) — 잠김 · 풀림(하루 기록 0 · 1 · 여러 개 · 「분류 없음」 + 가격 못 받음 · 연금 포함 · 「시트에서 읽은 값」 펼침) · 읽기 실패.
+    // 자산 관리(v2.61.0 · v2.62.0 · v2.62.1) — 잠김 · 풀림(하루 기록 0 · 1 · 여러 개 · 「분류 없음」 + 가격 못 받음 · 연금 포함 · 「상세 보기」 계좌 카드 · 「설정」 창 · 분류 색 바꾼 뒤) · 읽기 실패.
     // 가짜 응답만(구글 · DB 그대로 — 쓰기 주소는 막는다)
     ...(
       [
-        ['잠김', false, 'ok', 0, {}, false],
-        ['기록0', true, 'ok', 0, { vsLast: false }, false],
-        ['기록1', true, 'ok', 1, {}, false],
-        ['기록여러개-분류없음', true, 'ok', 30, { none: true }, false],
-        ['연금포함-시트펼침', true, 'ok', 30, { pension: true }, true],
-        ['읽기실패', true, 'fail', 0, {}, false],
+        ['잠김', false, 'ok', 0, {}, false, false],
+        ['기록0', true, 'ok', 0, { vsLast: false }, false, false],
+        ['기록1', true, 'ok', 1, {}, false, false],
+        ['기록여러개-분류없음', true, 'ok', 30, { none: true }, false, false],
+        ['연금포함-상세보기', true, 'ok', 30, { pension: true }, true, false],
+        ['설정창', true, 'ok', 30, { pension: true }, false, true],
+        ['색바꿈-상세보기', true, 'ok', 30, { pension: true, none: true, colors: { gold: 'green', cash: 'red', stock: 'teal', retirement: 'brown' } }, true, false],
+        ['읽기실패', true, 'fail', 0, {}, false, false],
       ] as const
-    ).map(([label, unlocked, sheet, records, sum, openSheet]) => ({
+    ).map(([label, unlocked, sheet, records, sum, openSheet, openSettings]) => ({
       name: `asset-${label}`,
       hash: '#/asset',
       before: async (page: Page) => {
@@ -400,17 +402,29 @@ function targets(): Target[] {
         );
         await page.route('**/api/asset/history**', (r) => r.fulfill({ json: assetHistorySample(records) }).catch(() => {}));
         await page.route('**/api/asset/class', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
+        await page.route('**/api/asset/settings', (r) => r.fulfill({ status: 400, json: { error: '시험 — 저장하지 않음' } }).catch(() => {}));
       },
       open: async (page: Page) => {
         await page.waitForTimeout(800);
         if (openSheet) {
-          await page.getByRole('button', { name: '시트에서 읽은 값 보기' }).click().catch(() => {});
+          await page.getByRole('button', { name: '상세 보기' }).click().catch(() => {});
           await page.waitForTimeout(500);
+          // 계좌 카드가 보이게(사진은 화면 크기만 찍는다)
+          await page.locator('[data-account-cards]').scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+        }
+        if (openSettings) {
+          await page.locator('[data-asset-settings]').click().catch(() => {});
+          await page.waitForTimeout(400);
         }
       },
       after: async (page: Page) => {
-        for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/class']) await page.unroute(p);
-        await page.evaluate(() => localStorage.removeItem('alphascope.asset.includePension'));
+        for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/class', '**/api/asset/settings']) await page.unroute(p);
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.evaluate(() => {
+          localStorage.removeItem('alphascope.asset.includePension');
+          localStorage.removeItem('alphascope.asset.closedAccounts');
+        });
       },
     })),
     // 오늘 시황 — 지난 날 브리핑(「오늘 예상 방향」 채점됨 · 맞음/틀림 · 실제 등락률, v2.60.0)

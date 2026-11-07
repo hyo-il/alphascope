@@ -27,7 +27,7 @@ import { assetRouter } from '../server/asset/routes';
 import { AssetSheetError, resetTokenCache } from '../server/asset/google';
 import { avgPriceOf, linkedTickerRow, parseAssetSheet, readAssetSheet, resetSheetCache, sheetRanges, splitCode, writeAssetClass } from '../server/asset/sheet';
 import { ASSET_COLOR_IDS, DEFAULT_CLASS_COLORS, type AssetSheetData, type AssetSummary, type AssetTotals } from '../src/types/asset';
-import { computeAssetTotals, setAssetPriceSourceForTest, assetSummary, type PriceBook } from '../server/asset/summary';
+import { accountValues, computeAssetTotals, setAssetPriceSourceForTest, assetSummary, type PriceBook } from '../server/asset/summary';
 import { readAssetSettings, stockChoices, writeAssetSettings } from '../server/asset/settings';
 import { clearRecordsForTest, historyPoints, latestRecord } from '../server/asset/store';
 import { dailyTick } from '../server/asset/daily';
@@ -547,6 +547,10 @@ try {
   const noSat = computeAssetTotals(sheetData, book(), { ...DEF, satelliteSymbols: [] }, true);
   check('[107-1] 위성 목록이 비면 주식은 모두 코어', near(noSat.totals.satellite, 0) && near(noSat.totals.core, v5 + v30));
 
+  // [107-8] 「상세 보기」 카드 머리 — 계좌마다 종목 수 · 평가 금액 합(가격 못 받은 줄은 빼고 개수) · 합친 표 없음 · 연금 포함과 상관없음
+  const acc = accountValues(sheetData, book());
+  check('[107-8] 계좌 카드 4개(시트 순서 · 합친 표 없음) · 종목 수 · 평가 금액 합 · 가격 못 받은 줄 수', JSON.stringify(acc.map((a) => [a.key, a.holdings, a.missing])) === JSON.stringify([['개별 투자', 4, 1], ['적립식 계좌', 1, 0], ['ISA 계좌', 1, 0], ['연금 저축 계좌', 1, 0]]) && near(acc[0].value, v5 + v6 + v9) && near(acc[1].value, v13) && near(acc[2].value, v22) && near(acc[3].value, v30) && acc[0].name === '개별 투자 ( 2026.07 )');
+
   // ── [107-2] 처음(저장값 없음) — 위성 = 개별 투자의 「주식」 종목 → 106차 계산(계좌로 나눔)과 같은 코어 · 위성 금액 ──
   /** 106차(v2.62.0) 코어/위성 계산 그대로 — 위성 계좌의 「주식」 = 위성 · 그 밖 계좌 「주식」 = 코어(비교 기준) */
   const legacy106 = (d: AssetSheetData, satelliteSections: string[], pensionSections: string[], includePension: boolean) => {
@@ -798,7 +802,7 @@ try {
   const setColorBody = (await setColor.json()) as { classColors?: { gold?: string } };
   check('[107-4] (안쪽 서버) PUT /api/asset/settings — 옛 키 · 시트에 없는 코드 · 팔레트에 없는 색 400 · 팔레트 색 200', setBad.status === 400 && setBadCode.status === 400 && setBadColor.status === 400 && setColor.status === 200 && setColorBody.classColors?.gold === 'red');
   await putSettings({ classColors: { gold: 'yellow' } });
-  check('[106-10] (안쪽 서버) 풀린 뒤 summary 200(연금 포함) · history 200 · 기간 틀림 400 · settings 200 / 옛 키 400', sumRes.status === 200 && sumBody.includePension === true && Array.isArray(sumBody.sectionKeys) && Array.isArray(sumBody.stockChoices) && sumBody.settings.classColors.gold === 'yellow' && histRes.status === 200 && badRange.status === 400 && setOk.status === 200 && setBad.status === 400);
+  check('[106-10] (안쪽 서버) 풀린 뒤 summary 200(연금 포함) · history 200 · 기간 틀림 400 · settings 200 / 옛 키 400', sumRes.status === 200 && sumBody.includePension === true && JSON.stringify(sumBody.accounts?.map((a) => a.key)) === JSON.stringify(['개별 투자', '적립식 계좌', 'ISA 계좌', '연금 저축 계좌']) && sumBody.accounts[0].name === '개별 투자 ( 2026.07 )' && Array.isArray(sumBody.stockChoices) && sumBody.settings.classColors.gold === 'yellow' && histRes.status === 200 && badRange.status === 400 && setOk.status === 200 && setBad.status === 400);
   check('[106-7] (안쪽 서버) 구분 줄 400 not-editable · 수식 칸 409 formula-cell · 쓰기 늘지 않음', putBad.status === 400 && ((await putBad.json()) as { kind?: string }).kind === 'not-editable' && putFormula.status === 409 && google.writes === 1);
   resetSheetCache();
   sheetModel.values['티커!B12'] = '바뀐 머리';

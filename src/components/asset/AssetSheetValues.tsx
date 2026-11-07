@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
-import { Badge, ICON_SM, Panel, Select } from '../ui';
+import { DisclosureButton, ICON_SM, Panel, Select } from '../ui';
 import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice } from '../../utils/formatters';
-import { ASSET_CLASSES, type AssetClass, type AssetHolding, type AssetSection, type AssetSettings, type AssetSheetData } from '../../types/asset';
+import { ASSET_CLASSES, type AssetAccount, type AssetClass, type AssetHolding, type AssetSection, type AssetSheetData } from '../../types/asset';
 
 /**
- * 자산 관리 맨 아래 접기 「시트에서 읽은 값」 (v2.61.0 1단계 확인 표 → v2.62.0 접기 안으로).
- * - 요약(현금 · 퇴직 연금 · 월급 · 구매 평균 환율 · 목표 비율) + 계좌 구간별 보유 한 표.
+ * 자산 관리 맨 아래 접기 「상세 보기」 (v2.61.0 1단계 확인 표 → v2.62.0 접기 안 → v2.62.1 계좌 카드).
+ * - 요약(현금 · 퇴직 연금 · 월급 · 구매 평균 환율 · 목표 비율) 아래 **계좌마다 카드**(시트 순서) — 머리 = 계좌 이름 · 종목 수 · 평가 금액 합
+ *   (가격 못 받은 줄은 빼고 「N줄 빠짐」) · 접기(처음 모두 펼침 · 접은 계좌는 이 기기에 기억).
+ * - 시트의 합계 표(「적립식 주식」 — 계좌를 합친 표)는 보이지 않는다(총 자산에도 더하지 않는다 — 서버 계산).
  * - 줄마다 「자산 분류」 고르기 → 시트 「티커」 D열에 바로 쓴다(그 칸만 로딩 · 실패하면 원래 값으로 되돌리고 이유 한 줄).
- *   같은 「티커」 줄에 이어진 줄(합계 표 등)은 함께 바뀐다(분류는 종목마다 하나).
- * - 연금 구간 · 위성 구간 설정(작은 체크 칸).
- * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다.
+ *   같은 「티커」 줄에 이어진 줄은 함께 바뀐다(분류는 종목마다 하나).
+ * - 연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색은 오른쪽 위 「설정」 창(`AssetSettingsDialog`).
+ * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 접은 계좌 이름만).
  */
 
 /** 값 한 칸 — 이름(13px 회색) 위 · 숫자 아래 */
@@ -79,13 +81,38 @@ function avgText(h: AssetHolding, usdDigits: number): string {
   return `$${formatNumber(h.avgPrice, Math.max(2, usdDigits))}`;
 }
 
-const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right`;
+/** 접은 계좌(key) — 이 기기에 기억. 처음은 모두 펼침 */
+const CLOSED_KEY = 'alphascope.asset.closedAccounts';
+function readClosed(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(CLOSED_KEY) ?? '[]') as unknown;
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+function saveClosed(keys: string[]) {
+  try {
+    localStorage.setItem(CLOSED_KEY, JSON.stringify(keys));
+  } catch {
+    /* 기억하지 못해도 화면은 그대로 */
+  }
+}
+
+const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right tabular-nums`;
 const TEXT = `${TABLE_NUM_COL} ${TABLE_NUM_GAP}`;
 const COLS = 6;
+/** 카드 바탕(`Panel` 과 같은 바탕) — 표 칸마다 칠해 카드처럼 보인다 */
+const CARD_BG = 'bg-bg-secondary';
 
-/** 자산 분류 고르기 한 칸 — 이을 수 없는 줄은 고를 수 없다(「티커」 줄이 없다) */
+/** 자산 분류 고르기 한 칸 — 이을 수 없는 줄은 고를 수 없다(「티커」 줄이 없다). 선택 글자 · 목록 모두 가운데 정렬 */
 function ClassPicker({ h, saving, onPick }: { h: AssetHolding; saving: boolean; onPick: (row: number, value: AssetClass | '') => void }) {
-  if (h.tickerRow == null) return <span className="text-text-muted" title="「티커」 탭과 이을 수식이 없어 고를 수 없습니다">—</span>;
+  if (h.tickerRow == null)
+    return (
+      <span className="inline-block w-28 text-center text-text-muted" title="「티커」 탭과 이을 수식이 없어 고를 수 없습니다">
+        —
+      </span>
+    );
   const value = h.assetClass ?? (h.assetClassUnknown ? '?' : '');
   return (
     <span className="inline-flex items-center gap-1.5">
@@ -95,16 +122,18 @@ function ClassPicker({ h, saving, onPick }: { h: AssetHolding; saving: boolean; 
         value={value}
         disabled={saving}
         onChange={(e) => onPick(h.tickerRow!, e.target.value as AssetClass | '')}
-        className="w-28"
+        className="w-28 text-center [text-align-last:center]"
       >
-        <option value="">분류 없음</option>
+        <option value="" className="text-center">
+          분류 없음
+        </option>
         {ASSET_CLASSES.map((c) => (
-          <option key={c} value={c}>
+          <option key={c} value={c} className="text-center">
             {c}
           </option>
         ))}
         {h.assetClassUnknown && (
-          <option value="?" disabled>
+          <option value="?" disabled className="text-center">
             알 수 없음 · {h.assetClassUnknown}
           </option>
         )}
@@ -118,123 +147,153 @@ function ClassPicker({ h, saving, onPick }: { h: AssetHolding; saving: boolean; 
 }
 
 /**
- * 계좌 구간별 보유 — **표 하나**에 구간 머리 줄을 넣는다(구간마다 표를 따로 두면 열 위치가 구간마다 달라진다).
- * 합계 표(계좌를 합친 표)는 배지로 따로 표시한다.
+ * 계좌 카드 하나 = 표의 `tbody` 하나 — 머리 줄(이름 · 종목 수 · 평가 금액 합 · 접기) + 칸 이름 줄 + 보유 줄.
+ * 카드들을 **표 하나**로 그려 숫자 칸은 내용 폭 그대로 두고 카드끼리 열 자리가 같다(카드마다 표를 따로 두면 열 자리가 어긋난다).
+ * 카드 모양 = 칸마다 바탕을 칠하고 머리 · 마지막 줄 끝 칸만 둥글게 · 카드 사이는 빈 줄(바탕 없음 12px).
  */
-function HoldingsTable({ sections, savingRows, onPick }: { sections: AssetSection[]; savingRows: Set<number>; onPick: (row: number, value: AssetClass | '') => void }) {
-  const all = sections.flatMap((s) => s.holdings);
+function AccountCard({
+  section,
+  account,
+  first,
+  qtyDigits,
+  usdDigits,
+  open,
+  onToggle,
+  savingRows,
+  onPick,
+}: {
+  section: AssetSection;
+  account: AssetAccount | undefined;
+  first: boolean;
+  qtyDigits: number;
+  usdDigits: number;
+  open: boolean;
+  onToggle: () => void;
+  savingRows: Set<number>;
+  onPick: (row: number, value: AssetClass | '') => void;
+}) {
+  const id = `as-asset-account-${section.key}`;
+  const rows = section.holdings;
+  /** 마지막 줄의 왼쪽 · 오른쪽 끝 칸 둥글게 */
+  const lastL = (last: boolean) => (last ? 'rounded-bl-xl' : '');
+  const lastR = (last: boolean) => (last ? 'rounded-br-xl' : '');
+  return (
+    <tbody data-account={section.key ?? ''}>
+      {!first && (
+        <tr aria-hidden className="h-3">
+          <td colSpan={COLS} />
+        </tr>
+      )}
+      <tr className={LIST_TABLE_ROW}>
+        <th colSpan={COLS} scope="colgroup" className={`${CARD_BG} px-4 text-left font-normal ${open ? 'rounded-t-xl border-b border-border/50' : 'rounded-xl'}`}>
+          <span className="flex items-center gap-3">
+            <span className="min-w-0 truncate text-sm font-semibold text-text-primary" title={section.name}>
+              {section.name || '이름 없는 계좌'}
+            </span>
+            <span className="shrink-0 whitespace-nowrap text-caption text-text-muted" data-count>
+              {rows.length}종목
+            </span>
+            <span className="ml-auto shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums text-text-primary" data-value>
+              {account ? formatPrice(account.value, 'KRW') : '—'}
+            </span>
+            {account != null && account.missing > 0 && (
+              <span className="shrink-0 whitespace-nowrap text-caption text-warning" title="가격을 받지 못한 줄은 평가 금액 합에서 빠졌습니다">
+                {account.missing}줄 빠짐
+              </span>
+            )}
+            <DisclosureButton open={open} onToggle={onToggle} label="종목 보기" controls={id} className="shrink-0" />
+          </span>
+        </th>
+      </tr>
+      {open && rows.length === 0 && (
+        <tr id={id} className={LIST_TABLE_ROW}>
+          <td colSpan={COLS} className={`${CARD_BG} rounded-b-xl px-4 text-text-muted`}>
+            이 계좌에 보유 종목이 없습니다.
+          </td>
+        </tr>
+      )}
+      {open && rows.length > 0 && (
+        <tr id={id} className={`text-caption text-text-muted ${TABLE_HEAD_ROW}`}>
+          <th className={`${CARD_BG} ${TABLE_NAME_COL} pl-4 text-left font-normal`}>종목</th>
+          <th className={`${CARD_BG} ${TEXT} text-left font-normal`}>코드</th>
+          <th className={`${CARD_BG} ${TEXT} text-left font-normal`}>시장</th>
+          <th className={`${CARD_BG} ${NUM} font-normal`}>수량</th>
+          <th className={`${CARD_BG} ${NUM} font-normal`}>평균 매입가</th>
+          <th className={`${CARD_BG} ${TEXT} pr-4 text-center font-normal`}>자산 분류</th>
+        </tr>
+      )}
+      {open &&
+        rows.map((h, i) => {
+          const last = i === rows.length - 1;
+          return (
+            <tr key={h.row} className={LIST_TABLE_ROW}>
+              <td className={`${CARD_BG} ${lastL(last)} max-w-0 border-t border-border/30 pl-4`}>
+                <span className="block truncate text-text-primary" title={h.name}>
+                  {h.name}
+                </span>
+              </td>
+              <td className={`${CARD_BG} ${TEXT} border-t border-border/30 text-text-secondary`} title={h.code ?? '「티커」 탭과 이을 수식이 없습니다'}>
+                {h.symbol ?? '—'}
+                {h.exchange && <span className="ml-1 text-caption text-text-muted">{h.exchange}</span>}
+              </td>
+              <td className={`${CARD_BG} ${TEXT} border-t border-border/30 text-text-secondary`}>{h.market === 'US' ? '미국' : h.market === 'KR' ? '국내' : '—'}</td>
+              <td className={`${CARD_BG} ${NUM} border-t border-border/30 text-text-primary`}>{h.quantity == null ? '—' : formatNumber(h.quantity, qtyDigits)}</td>
+              <td className={`${CARD_BG} ${NUM} border-t border-border/30 text-text-primary`}>{avgText(h, usdDigits)}</td>
+              <td className={`${CARD_BG} ${lastR(last)} ${TEXT} border-t border-border/30 pr-4 text-center`}>
+                <ClassPicker h={h} saving={h.tickerRow != null && savingRows.has(h.tickerRow)} onPick={onPick} />
+              </td>
+            </tr>
+          );
+        })}
+    </tbody>
+  );
+}
+
+/** 계좌 카드들 — 합계 표(계좌를 합친 표)는 그리지 않는다 · 수량 · 달러 소수 자릿수는 모든 카드가 같다 */
+function AccountCards({ sections, accounts, savingRows, onPick }: { sections: AssetSection[]; accounts: AssetAccount[]; savingRows: Set<number>; onPick: (row: number, value: AssetClass | '') => void }) {
+  const shown = sections.filter((s) => !s.combined);
+  const all = shown.flatMap((s) => s.holdings);
   const qtyDigits = decimalsOf(all.map((h) => h.quantity));
   const usdDigits = decimalsOf(all.filter((h) => h.currency === 'USD').map((h) => h.avgPrice));
-  return (
-    <Panel pad="none" className="pb-1">
-      {/* 평균 매입가는 줄마다 통화가 다르다(원화는 소수 없음 · 달러는 시트 원래 값 소수 4자리까지) — design:check 의 「같은 열 소수 자릿수」 는 이 표에서 재지 않는다(`data-rows-differ`). 수량 열은 위 `qtyDigits` 로 맞춘다 */}
-      <table className="w-full text-left text-xs" data-rows-differ>
-        <thead className="text-caption text-text-muted">
-          <tr className={`border-b border-border/50 ${TABLE_HEAD_ROW}`}>
-            <th className={`${TABLE_NAME_COL} py-2 pl-4 font-normal`}>종목</th>
-            <th className={`${TEXT} py-2 font-normal`}>코드</th>
-            <th className={`${TEXT} py-2 font-normal`}>시장</th>
-            <th className={`${NUM} py-2 font-normal`}>수량</th>
-            <th className={`${NUM} py-2 font-normal`}>평균 매입가</th>
-            <th className={`${TEXT} py-2 pr-4 font-normal`}>자산 분류</th>
-          </tr>
-        </thead>
-        {sections.map((s, i) => (
-          <tbody key={`${i}-${s.name}`}>
-            <tr className={LIST_TABLE_ROW}>
-              <th colSpan={COLS} scope="colgroup" className="px-4 pt-3 pb-1 text-left font-normal">
-                <span className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-text-primary">{s.name || '이름 없는 구간'}</span>
-                  {s.combined && <Badge title="계좌를 합친 표입니다 — 위 계좌 구간과 같은 종목이 겹칩니다. 총 자산에는 더하지 않습니다.">합계 표</Badge>}
-                  <span className="text-caption text-text-muted">{s.holdings.length}종목</span>
-                </span>
-              </th>
-            </tr>
-            {s.holdings.length === 0 && (
-              <tr className={LIST_TABLE_ROW}>
-                <td colSpan={COLS} className="px-4 text-text-muted">
-                  이 구간에 보유 종목이 없습니다.
-                </td>
-              </tr>
-            )}
-            {s.holdings.map((h) => (
-              <tr key={h.row} className={`border-t border-border/30 ${LIST_TABLE_ROW}`}>
-                <td className="max-w-0 py-1.5 pl-4">
-                  <span className="block truncate text-text-primary" title={h.name}>
-                    {h.name}
-                  </span>
-                </td>
-                <td className={`${TEXT} py-1.5 text-text-secondary`} title={h.code ?? '「티커」 탭과 이을 수식이 없습니다'}>
-                  {h.symbol ?? '—'}
-                  {h.exchange && <span className="ml-1 text-caption text-text-muted">{h.exchange}</span>}
-                </td>
-                <td className={`${TEXT} py-1.5 text-text-secondary`}>{h.market === 'US' ? '미국' : h.market === 'KR' ? '국내' : '—'}</td>
-                <td className={`${NUM} py-1.5 tabular-nums text-text-primary`}>{h.quantity == null ? '—' : formatNumber(h.quantity, qtyDigits)}</td>
-                <td className={`${NUM} py-1.5 tabular-nums text-text-primary`}>{avgText(h, usdDigits)}</td>
-                <td className={`${TEXT} py-1 pr-4`}>
-                  <ClassPicker h={h} saving={h.tickerRow != null && savingRows.has(h.tickerRow)} onPick={onPick} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        ))}
-      </table>
-    </Panel>
-  );
-}
-
-/** 구간 고르기 한 줄 — 작은 체크 칸(구간 key) */
-function SectionChecks({ label, keys, value, busy, onChange }: { label: string; keys: string[]; value: string[]; busy: boolean; onChange: (next: string[]) => void }) {
-  return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-      <span className="w-24 shrink-0 text-xs text-text-secondary">{label}</span>
-      {keys.map((k) => (
-        <label key={k} className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-text-primary">
-          <input
-            type="checkbox"
-            checked={value.includes(k)}
-            disabled={busy}
-            onChange={(e) => onChange(e.target.checked ? [...value, k] : value.filter((x) => x !== k))}
-          />
-          {k}
-        </label>
-      ))}
-      {busy && <LoaderCircle {...ICON_SM} className="animate-spin text-text-muted" aria-label="저장하는 중" />}
-    </div>
-  );
-}
-
-/** 연금 구간 · 위성 구간 설정 */
-export function SectionSettings({ settings, keys, onSave }: { settings: AssetSettings; keys: string[]; onSave: (patch: Partial<AssetSettings>) => Promise<string | null> }) {
-  const [busy, setBusy] = useState<'pensionSections' | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const save = async (field: 'pensionSections', next: string[]) => {
-    setBusy(field);
-    setError(await onSave({ [field]: next }));
-    setBusy(null);
+  const [closed, setClosed] = useState<string[]>(readClosed);
+  const toggle = (key: string) => {
+    const next = closed.includes(key) ? closed.filter((k) => k !== key) : [...closed, key];
+    setClosed(next);
+    saveClosed(next);
   };
   return (
-    <Panel className="space-y-2">
-      <div className="text-xs font-semibold text-text-primary">계좌 구간 설정</div>
-      <SectionChecks label="연금 구간" keys={keys} value={settings.pensionSections} busy={busy === 'pensionSections'} onChange={(v) => void save('pensionSections', v)} />
-      <p className="text-caption leading-relaxed text-text-muted keep-all">
-        「연금 포함」 을 끄면 연금 구간 보유와 퇴직 연금이 빠집니다. 위성 구간의 「주식」 종목은 위성, 그 밖 구간의 「주식」 종목은 코어입니다.
-      </p>
-      {error && (
-        <p role="alert" className="text-xs text-danger keep-all">
-          {error}
-        </p>
-      )}
-    </Panel>
+    /* 평균 매입가는 줄마다 통화가 다르다(원화는 소수 없음 · 달러는 시트 원래 값 소수 4자리까지) — design:check 의 「같은 열 소수 자릿수」 는 이 표에서 재지 않는다(`data-rows-differ`). 수량 열은 `qtyDigits` 로 모든 카드가 같다 */
+    <table className="w-full border-separate border-spacing-0 text-left text-xs" data-rows-differ data-account-cards>
+      {shown.map((s, i) => {
+        const key = s.key ?? `#${i}`;
+        return (
+          <AccountCard
+            key={key}
+            section={s}
+            account={accounts.find((a) => a.key === s.key)}
+            first={i === 0}
+            qtyDigits={qtyDigits}
+            usdDigits={usdDigits}
+            open={!closed.includes(key)}
+            onToggle={() => toggle(key)}
+            savingRows={savingRows}
+            onPick={onPick}
+          />
+        );
+      })}
+    </table>
   );
 }
 
-/** 접기 안 전체 — 요약 · 보유 표(자산 분류 고르기) */
+/** 접기 안 전체 — 요약 · 계좌 카드(자산 분류 고르기) */
 export default function AssetSheetValues({
   data,
+  accounts,
   onPickClass,
 }: {
   data: AssetSheetData;
+  /** 카드 머리 평가 금액 합 · 가격 못 받은 줄 수(총 자산 요약 응답) */
+  accounts: AssetAccount[];
   /** 시트에 쓴다 — 실패면 이유 문구 */
   onPickClass: (row: number, value: AssetClass | '') => Promise<string | null>;
 }) {
@@ -280,7 +339,7 @@ export default function AssetSheetValues({
           {error}
         </p>
       )}
-      <HoldingsTable sections={shown.sections} savingRows={savingRows} onPick={(r, v) => void pick(r, v)} />
+      <AccountCards sections={shown.sections} accounts={accounts} savingRows={savingRows} onPick={(r, v) => void pick(r, v)} />
     </div>
   );
 }

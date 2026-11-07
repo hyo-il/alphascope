@@ -188,10 +188,24 @@ export interface AssetSummary {
   /** 자산 분류가 「알 수 없는 분류」 인 줄 수 */
   unknownClassCount: number;
   settings: AssetSettings;
-  /** 「연금으로 볼 계좌」 에서 고를 수 있는 계좌(구간 key — 합친 표 제외) */
-  sectionKeys: string[];
+  /** 계좌(시트 순서 · 합친 표 제외) — 「연금으로 볼 계좌」 고르기 · 「상세 보기」 카드 머리 */
+  accounts: AssetAccount[];
   /** 「위성으로 선택한 종목」 에서 고를 수 있는 종목 */
   stockChoices: AssetStockChoice[];
+}
+
+/** 계좌 하나 — 「연금 포함」 과 상관없이 늘 그 계좌 전체 */
+export interface AssetAccount {
+  /** 계좌 key(`개별 투자` 등) */
+  key: string;
+  /** 시트의 이름 그대로(「( 날짜 )」 포함) */
+  name: string;
+  /** 보유 줄 수 */
+  holdings: number;
+  /** 평가 금액 합(원) — 가격 못 받은 줄은 빠진 값 */
+  value: number;
+  /** 가격 못 받은 줄 수 */
+  missing: number;
 }
 
 /** 하루 기록 한 점 — `GET /api/asset/history?range=1m|3m|1y|all&pension=0|1` */

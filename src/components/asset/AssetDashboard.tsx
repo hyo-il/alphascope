@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
-import { LoaderCircle, Lock, RefreshCw } from 'lucide-react';
+import { LoaderCircle, Lock, RefreshCw, Settings } from 'lucide-react';
 import { Button, DisclosureButton, ICON_SM, PageHeader, Panel, Segmented, SectionTitle } from '../ui';
 import { LIST_TABLE_ROW, PANEL_PAD, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { Skeleton, SkeletonTable } from '../common/SkeletonLoader';
@@ -10,14 +10,16 @@ import type { AssetClass, AssetHistoryPoint, AssetHistoryRange, AssetSettings, A
 import AssetDonut from './AssetDonut';
 import { groupDot } from './assetColors';
 import AssetHistoryChart from './AssetHistoryChart';
-import AssetSheetValues, { SectionSettings } from './AssetSheetValues';
+import AssetSheetValues from './AssetSheetValues';
+import AssetSettingsDialog from './AssetSettingsDialog';
 
 /**
  * 계좌 > 자산 관리 — 풀린 화면(v2.62.0 · 자산 관리 3단계 · 사용자 결정 배치 (가)).
- * 1. 위: 숫자 카드 셋(총 자산 · 어제보다 · 평가 손익) / 머리 오른쪽: 「연금 포함」(이 기기에 기억) · 읽은 시각 · 「다시 읽기」 · 「잠그기」
+ * 1. 위: 숫자 카드 셋(총 자산 · 어제보다 · 평가 손익) / 머리 오른쪽: 「연금 포함」(이 기기에 기억) · 읽은 시각 · 「설정」 · 「다시 읽기」 · 「잠그기」
+ *    「설정」 = 창 하나(연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색 — `AssetSettingsDialog`)
  * 2. 가운데: 총 자산 선 차트(하루 기록 · 1개월 · 3개월 · 1년 · 전체)
- * 3. 아래: 구성 원형 차트 / 분류별 표(주식 아래 코어 · 위성 · 분류 없음은 흐리게)
- * 4. 맨 아래 접기 「시트에서 읽은 값」 — 1단계 확인 표 + 자산 분류 고르기(시트에 바로 씀) + 연금 · 위성 구간 설정
+ * 3. 아래: 구성 원형 차트 / 분류별 표(주식 아래 코어 · 위성 · 분류 없음은 흐리게) — 분류 색은 설정의 「자산 분류 색」
+ * 4. 맨 아래 접기 「상세 보기」 — 요약 + 계좌 카드(자산 분류 고르기 — 시트에 바로 씀)
  * 받기: 처음 = 스켈레톤 · 다시 읽기 · 연금 포함 바꾸기 = 내용을 두고 작은 스피너 · 10초 가격 갱신(`usePolling` — 숨은 탭에서 쉼)은 표시 없음.
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 「연금 포함」 켬/끔만).
  */
@@ -79,6 +81,7 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
   const [latest, setLatest] = useState<{ pension: boolean; result: SummaryResult } | null>(null);
   const [reloading, setReloading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [sheet, setSheet] = useState<{ data: AssetSheetData } | { error: string } | null>(null);
 
   useEffect(() => {
@@ -172,6 +175,9 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
               <span className="inline-flex w-4 justify-center">{switching && <LoaderCircle {...ICON_SM} className="animate-spin text-text-muted" aria-label="다시 계산하는 중" />}</span>
             </label>
             {summary && <span className="whitespace-nowrap text-caption text-text-muted tabular-nums">읽은 시각 {formatDateTime(summary.readAt)}</span>}
+            <Button size="md" icon={Settings} disabled={summary == null} onClick={() => setSettingsOpen(true)} data-asset-settings>
+              설정
+            </Button>
             <Button size="md" icon={RefreshCw} busy={reloading} disabled={latest == null} onClick={() => void reload()}>
               다시 읽기
             </Button>
@@ -197,19 +203,19 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
             </div>
           </>
         )}
-        {/* 맨 아래 접기 — 시트에서 읽은 값 · 자산 분류 고르기 · 구간 설정 */}
+        {/* 맨 아래 접기 — 상세 보기(요약 · 계좌 카드 · 자산 분류 고르기) */}
         <div className="space-y-3 pt-1">
-          <DisclosureButton open={open} onToggle={() => setOpen((v) => !v)} label="시트에서 읽은 값 보기" controls="as-asset-sheet" />
+          <DisclosureButton open={open} onToggle={() => setOpen((v) => !v)} label="상세 보기" controls="as-asset-sheet" />
           {open && (
             <div id="as-asset-sheet" className="space-y-3">
-              {summary && <SectionSettings settings={summary.settings} keys={summary.sectionKeys} onSave={saveSettings} />}
               {sheet == null && <SkeletonTable rows={6} columns={6} />}
               {sheet && 'error' in sheet && <ErrorLine message={sheet.error} onRetry={() => void loadSheet()} />}
-              {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} onPickClass={pickClass} />}
+              {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} accounts={summary?.accounts ?? []} onPickClass={pickClass} />}
             </div>
           )}
         </div>
       </div>
+      {settingsOpen && summary && <AssetSettingsDialog summary={summary} onSave={saveSettings} onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }
@@ -336,7 +342,7 @@ function HistoryPanel({ pension }: { pension: boolean }) {
 
 const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right tabular-nums`;
 
-/** 분류별 표 — 분류 · 금액 · 비율(총 자산 대비) · 주식 아래 코어 · 위성(주식 안 비율) */
+/** 분류별 표 — 분류 · 금액 · 비율(총 자산 대비) · 주식 아래 들여 쓴 코어 · 위성(비율은 주식 금액 대비) */
 function GroupTable({ summary }: { summary: AssetSummary }) {
   const { totals } = summary;
   const stock = totals.groups.find((g) => g.key === 'stock')?.amount ?? 0;
@@ -373,10 +379,7 @@ function GroupTable({ summary }: { summary: AssetSummary }) {
                     ['위성', totals.satellite],
                   ] as const).map(([label, v]) => (
                     <tr key={label} className={`${LIST_TABLE_ROW} text-text-secondary`} data-group={`stock-${label}`}>
-                      <td className="pl-10">
-                        {label}
-                        <span className="ml-1.5 text-caption text-text-muted">주식 안</span>
-                      </td>
+                      <td className="pl-10">{label}</td>
                       <td className={NUM}>{formatPrice(v, 'KRW')}</td>
                       <td className={`${NUM} pr-4`}>{ratioText(inStock(v))}</td>
                     </tr>
