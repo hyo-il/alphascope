@@ -437,6 +437,59 @@ function targets(): Target[] {
         });
       },
     })),
+    // 자산 관리 v2.63.0 — 「비율 조정」 탭(괜찮음 · 조정 필요 섞임 · 빠진 금액 줄 · 목표 합 ≠ 100 · 목표 빈칸) ·
+    // 설정 창 「목표 비율」(합 맞음 · 틀림 · 쓰기 꺼짐) · 「괜찮음 범위」 · 「자산 현황」 종목별(전체 · 코어 · 위성). 가짜 응답만(쓰기 주소는 막는다)
+    ...(
+      [
+        ['비율조정', { pension: true, none: true }, async () => {}],
+        ['비율조정-합틀림', { target: { cash: 20, gold: 5, bond: 10, invest: 60, core: null, satellite: 30 }, band: 3 }, async () => {}],
+        ['설정창-목표비율', { pension: true }, async (page: Page) => {
+          await page.locator('[data-edit-target]').click().catch(() => {});
+          await page.waitForTimeout(500);
+        }],
+        ['설정창-목표비율-합틀림', {}, async (page: Page) => {
+          await page.locator('[data-edit-target]').click().catch(() => {});
+          await page.waitForTimeout(400);
+          await page.locator('[data-ratio="cash"]').fill('15').catch(() => {});
+          await page.locator('[data-ratio="satellite"]').fill('35').catch(() => {});
+          await page.waitForTimeout(200);
+        }],
+        ['설정창-쓰기꺼짐', { writeEnabled: false }, async (page: Page) => {
+          await page.locator('[data-edit-target]').click().catch(() => {});
+          await page.waitForTimeout(500);
+        }],
+      ] as const
+    ).map(([label, sum, act]) => ({
+      name: `asset-${label}`,
+      hash: '#/asset',
+      before: async (page: Page) => {
+        await page.evaluate((on) => {
+          localStorage.setItem('alphascope.asset.includePension', on ? '1' : '0');
+          localStorage.setItem('alphascope.asset.tab', 'rebalance');
+        }, 'pension' in sum && sum.pension === true);
+        await page.route('**/api/asset/status', (r) => r.fulfill({ json: assetStatusSample(true) }).catch(() => {}));
+        await page.route('**/api/asset/sheet', (r) => r.fulfill({ json: assetSheetSample() }).catch(() => {}));
+        await page.route('**/api/asset/summary**', (r) => r.fulfill({ json: assetSummarySample(sum as Parameters<typeof assetSummarySample>[0]) }).catch(() => {}));
+        await page.route('**/api/asset/history**', (r) => r.fulfill({ json: assetHistorySample(30) }).catch(() => {}));
+        await page.route('**/api/asset/class', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
+        await page.route('**/api/asset/settings', (r) => r.fulfill({ status: 400, json: { error: '시험 — 저장하지 않음' } }).catch(() => {}));
+        await page.route('**/api/asset/target-ratio', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
+      },
+      open: async (page: Page) => {
+        await page.waitForTimeout(800);
+        await act(page);
+      },
+      after: async (page: Page) => {
+        for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/class', '**/api/asset/settings', '**/api/asset/target-ratio']) await page.unroute(p);
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.evaluate(() => {
+          localStorage.removeItem('alphascope.asset.includePension');
+          localStorage.removeItem('alphascope.asset.tab');
+          localStorage.removeItem('alphascope.asset.statusView');
+        });
+      },
+    })),
     // 오늘 시황 — 지난 날 브리핑(「오늘 예상 방향」 채점됨 · 맞음/틀림 · 실제 등락률, v2.60.0)
     {
       name: 'market-brief-지난날채점',

@@ -6,18 +6,21 @@ import { Skeleton, SkeletonTable } from '../common/SkeletonLoader';
 import { usePolling } from '../../hooks/usePolling';
 import { changeColor, formatNumber, formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
 import { formatDateTime } from '../../utils/dateFormat';
-import type { AssetClass, AssetHistoryPoint, AssetHistoryRange, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary } from '../../types/asset';
+import type { AssetClass, AssetHistoryPoint, AssetHistoryRange, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio } from '../../types/asset';
 import AssetDonut from './AssetDonut';
 import { groupDot } from './assetColors';
 import AssetHistoryChart from './AssetHistoryChart';
 import AssetSheetValues from './AssetSheetValues';
 import AssetSettingsDialog from './AssetSettingsDialog';
+import AssetRebalanceView from './AssetRebalanceView';
 
 /**
- * 계좌 > 자산 관리 — 풀린 화면(v2.62.0 · 자산 관리 3단계 · v2.62.2 탭).
- * 머리: 제목 줄 오른쪽 「연금 포함」(이 기기에 기억) · 읽은 시각 · 「설정」 · 「다시 읽기」 · 「잠그기」 — 두 탭 공통.
- *    「설정」 = 창 하나(연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색 — `AssetSettingsDialog`)
- * 제목 아래 탭 「총 자산 | 자산 현황」 — 처음 = 총 자산 · 마지막 탭을 이 기기에 기억(`alphascope.asset.tab` · 읽기 실패면 총 자산). 주소에는 넣지 않는다(소메뉴 안 탭).
+ * 계좌 > 자산 관리 — 풀린 화면(v2.62.0 · 자산 관리 3단계 · v2.62.2 탭 · v2.63.0 비율 조정).
+ * 머리: 제목 줄 오른쪽 「연금 포함」(이 기기에 기억) · 읽은 시각 · 「설정」 · 「다시 읽기」 · 「잠그기」 — 세 탭 공통.
+ *    「설정」 = 창 하나(연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색 · 목표 비율 · 괜찮음 범위 — `AssetSettingsDialog`)
+ * 제목 아래 탭 「총 자산 | 자산 현황 | 비율 조정」 — 처음 = 총 자산 · 마지막 탭을 이 기기에 기억(`alphascope.asset.tab` · 읽기 실패 · 모르는 값이면 총 자산).
+ * 주소에는 넣지 않는다(소메뉴 안 탭).
+ * - 비율 조정: 보기만(`AssetRebalanceView` — summary 의 `rebalance` 그대로) · [목표 비율 바꾸기] = 설정 창을 목표 비율 칸으로 연다.
  * - 총 자산: 숫자 카드 셋(총 자산 · 어제보다 · 평가 손익) · 총 자산 선 차트(하루 기록 · 1개월 · 3개월 · 1년 · 전체) ·
  *   구성 원형 차트 / 분류별 표(주식 아래 코어 · 위성 · 미지정은 흐리게) — 분류 색은 설정의 「자산 분류 색」
  * - 자산 현황: 요약 + 계좌 카드(자산 분류 고르기 — 시트에 바로 씀). 이 탭을 처음 열 때 시트를 읽는다.
@@ -27,16 +30,18 @@ import AssetSettingsDialog from './AssetSettingsDialog';
 
 const PENSION_KEY = 'alphascope.asset.includePension';
 const TAB_KEY = 'alphascope.asset.tab';
-type AssetTab = 'total' | 'status';
+type AssetTab = 'total' | 'status' | 'rebalance';
 const TABS: { id: AssetTab; label: string }[] = [
   { id: 'total', label: '총 자산' },
   { id: 'status', label: '자산 현황' },
+  { id: 'rebalance', label: '비율 조정' },
 ];
 
 /** 마지막에 본 탭 — 읽지 못하거나 모르는 값이면 총 자산 */
 function readTab(): AssetTab {
   try {
-    return localStorage.getItem(TAB_KEY) === 'status' ? 'status' : 'total';
+    const v = localStorage.getItem(TAB_KEY);
+    return v === 'status' || v === 'rebalance' ? v : 'total';
   } catch {
     return 'total';
   }
@@ -105,7 +110,8 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
   const [reloading, setReloading] = useState(false);
   const [tab, setTab] = useState<AssetTab>(readTab);
   const open = tab === 'status';
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  /** 설정 창 — null 이면 닫힘 · 'targetRatio' 면 목표 비율 칸으로 연다 */
+  const [settingsOpen, setSettingsOpen] = useState<null | 'top' | 'targetRatio'>(null);
   const [sheet, setSheet] = useState<{ data: AssetSheetData } | { error: string } | null>(null);
 
   useEffect(() => {
@@ -182,6 +188,25 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
     }
   };
 
+  /** 목표 비율 저장(시트에 씀) — 성공이면 시트에서 다시 읽은 값, 그 뒤 비율 조정을 다시 받는다 */
+  const saveTarget = async (ratio: Record<keyof AssetTargetRatio, number>): Promise<{ ok: true; ratio: AssetTargetRatio } | { ok: false; error: string }> => {
+    try {
+      const res = await fetch('/api/asset/target-ratio', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(ratio) });
+      const body = await readJson(res);
+      if (body.code === 'asset-locked') {
+        onLocked();
+        return { ok: false, error: '자산 관리가 잠겼습니다.' };
+      }
+      if (!res.ok) return { ok: false, error: typeof body.error === 'string' ? body.error : `요청 실패 (${res.status})` };
+      const data = body as unknown as AssetSheetData;
+      if (sheet && 'data' in sheet) setSheet({ data });
+      await reload();
+      return { ok: true, ratio: data.targetRatio };
+    } catch {
+      return { ok: false, error: '서버에 연결하지 못했습니다.' };
+    }
+  };
+
   const result = latest?.result ?? null;
   const summary = result?.ok ? result.summary : null;
   /** 지금 고른 「연금 포함」 과 그린 값이 다르면(다시 받는 중) 작은 스피너 */
@@ -199,7 +224,7 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
               <span className="inline-flex w-4 justify-center">{switching && <LoaderCircle {...ICON_SM} className="animate-spin text-text-muted" aria-label="다시 계산하는 중" />}</span>
             </label>
             {summary && <span className="whitespace-nowrap text-caption text-text-muted tabular-nums">읽은 시각 {formatDateTime(summary.readAt)}</span>}
-            <Button size="md" icon={Settings} disabled={summary == null} onClick={() => setSettingsOpen(true)} data-asset-settings>
+            <Button size="md" icon={Settings} disabled={summary == null} onClick={() => setSettingsOpen('top')} data-asset-settings>
               설정
             </Button>
             <Button size="md" icon={RefreshCw} busy={reloading} disabled={latest == null} onClick={() => void reload()}>
@@ -221,7 +246,7 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
       <div className={`min-h-0 flex-1 space-y-3 overflow-y-auto [scrollbar-gutter:stable] ${PANEL_PAD}`}>
         {/* 총 자산 탭 — 처음 받기는 스켈레톤(받기 전에 0 · 빈 값을 그리지 않는다) */}
         {tab === 'total' && latest == null && <DashboardSkeleton />}
-        {tab === 'total' && result && !result.ok && !result.fail.locked && <ErrorLine message={result.fail.error} busy={reloading} onRetry={() => void reload()} />}
+        {(tab === 'total' || tab === 'rebalance') && result && !result.ok && !result.fail.locked && <ErrorLine message={result.fail.error} busy={reloading} onRetry={() => void reload()} />}
         {tab === 'total' && summary && (
           <>
             <Cards summary={summary} />
@@ -234,6 +259,9 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
             </div>
           </>
         )}
+        {/* 비율 조정 탭 — 보기만(처음 받기는 스켈레톤) */}
+        {tab === 'rebalance' && latest == null && <RebalanceSkeleton />}
+        {tab === 'rebalance' && summary && <AssetRebalanceView summary={summary} onEditTarget={() => setSettingsOpen('targetRatio')} />}
         {/* 자산 현황 탭 — 요약 · 계좌 카드 · 자산 분류 고르기 */}
         {tab === 'status' && (
           <div id="as-asset-status" className="space-y-3">
@@ -243,7 +271,15 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
           </div>
         )}
       </div>
-      {settingsOpen && summary && <AssetSettingsDialog summary={summary} onSave={saveSettings} onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && summary && (
+        <AssetSettingsDialog
+          summary={summary}
+          onSave={saveSettings}
+          onSaveTarget={saveTarget}
+          focus={settingsOpen === 'targetRatio' ? 'targetRatio' : undefined}
+          onClose={() => setSettingsOpen(null)}
+        />
+      )}
     </div>
   );
 }
@@ -261,6 +297,16 @@ function DashboardSkeleton() {
         <Skeleton className="h-56 rounded-xl" />
         <Skeleton className="h-56 rounded-xl" />
       </div>
+    </div>
+  );
+}
+
+function RebalanceSkeleton() {
+  return (
+    <div className="space-y-3" aria-busy="true">
+      <Skeleton className="h-16 rounded-xl" />
+      <SkeletonTable rows={4} columns={8} />
+      <SkeletonTable rows={2} columns={8} />
     </div>
   );
 }

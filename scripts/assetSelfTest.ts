@@ -1045,7 +1045,7 @@ check('[108-1] 「분류 없음」 · 「알 수 없는 분류」 · 「알 수 
 
 // [108-3] 탭 — 「총 자산 | 자산 현황」 · 처음 총 자산 · 마지막 탭 기억(읽기 실패 → 총 자산) · 「상세 보기」 접기 글자 0(화면 동작은 Playwright 로도 확인)
 const dashSrc = fs.readFileSync(path.join(root, 'src/components/asset/AssetDashboard.tsx'), 'utf8');
-check('[108-3] 자산 관리 탭 = 총 자산 · 자산 현황(이 순서) · 기억 키 alphascope.asset.tab · 모르는 값 · 읽기 실패면 총 자산', /\{ id: 'total', label: '총 자산' \},\s*\{ id: 'status', label: '자산 현황' \}/.test(dashSrc) && /localStorage\.getItem\(TAB_KEY\) === 'status' \? 'status' : 'total';\s*\} catch \{\s*return 'total';/.test(dashSrc));
+check('[108-3] [109-7] 자산 관리 탭 = 총 자산 · 자산 현황 · 비율 조정(이 순서) · 기억 키 alphascope.asset.tab · 모르는 값 · 읽기 실패면 총 자산', /\{ id: 'total', label: '총 자산' \},\s*\{ id: 'status', label: '자산 현황' \},\s*\{ id: 'rebalance', label: '비율 조정' \}/.test(dashSrc) && /const v = localStorage\.getItem\(TAB_KEY\);\s*return v === 'status' \|\| v === 'rebalance' \? v : 'total';\s*\} catch \{\s*return 'total';/.test(dashSrc));
 check('[108-3] 자산 관리 화면 · 서버에 「상세 보기」 글자 0(접기 지움)', !assetUi.join('\n').includes('상세 보기') && !codeFiles.filter(({ f }) => f.startsWith('server/asset/') || f === 'src/types/asset.ts').some(({ src }) => src.includes('상세 보기')));
 
 // [108-6] 공용 부품 — 새 옵션(source · columns · nameOf · rowNote)은 자산 설정 창만 쓴다 · 기본(옵션 없음)은 지금 창 · 지금 칸 그대로

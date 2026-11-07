@@ -1,10 +1,23 @@
 import { useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
-import { Dialog, ICON_SM } from '../ui';
-import { ASSET_COLOR_IDS, ASSET_COLOR_LABEL, COLORED_GROUP_KEYS, type AssetClassColors, type AssetColorId, type AssetSettings, type AssetSummary, type ColoredGroupKey } from '../../types/asset';
+import { Dialog, ICON_SM, Select } from '../ui';
+import {
+  ASSET_COLOR_IDS,
+  ASSET_COLOR_LABEL,
+  COLORED_GROUP_KEYS,
+  REBALANCE_BAND_MAX,
+  REBALANCE_BAND_MIN,
+  type AssetClassColors,
+  type AssetColorId,
+  type AssetSettings,
+  type AssetSummary,
+  type AssetTargetRatio,
+  type ColoredGroupKey,
+} from '../../types/asset';
 import SymbolTable from '../common/SymbolTable';
 import { swatchBg } from './assetColors';
 import AssetAccountTable from './AssetAccountTable';
+import AssetTargetRatioForm from './AssetTargetRatioForm';
 
 /**
  * 자산 관리 「설정」 창(v2.62.1) — 오른쪽 위 「설정」 버튼이 연다. 세 칸:
@@ -13,7 +26,9 @@ import AssetAccountTable from './AssetAccountTable';
  *    [종목 추가] 창 = 시트의 분류 「주식」 종목 중 아직 위성이 아닌 것만(`source` — 관심 목록 · 검색 없음). 표의 종목 = 위성 · 나머지 주식 = 코어.
  *    분류가 주식이 아니게 된 위성 종목은 흐리게 + 「분류가 주식이 아니라 계산에서 빠짐」(삭제할 수 있음).
  * 3. 자산 분류 색 — 분류마다 팔레트 색 동그라미(원형 · 분류별 표가 같은 색)
- * 추가 · 삭제 · 색 바꿈마다 바로 저장(그 칸만 로딩 · 저장 중에는 그 칸을 다시 바꾸지 않음) — 실패하면 원래 값으로 되돌리고 그 칸에 이유 한 줄.
+ * 4. 목표 비율(v2.63.0) — 정수 % 여섯 칸 · 두 합이 100 일 때만 [저장] · **시트에 쓴다**(`AssetTargetRatioForm`). 「비율 조정」 [목표 비율 바꾸기] 는 이 칸으로 연다.
+ * 5. 괜찮음 범위(v2.63.0) — ±1~20 %p 고르기 · 바로 저장(앱 DB — 다른 설정과 같이)
+ * 1~3 · 5 는 추가 · 삭제 · 색 바꿈 · 고르기마다 바로 저장(그 칸만 로딩 · 저장 중에는 그 칸을 다시 바꾸지 않음) — 실패하면 원래 값으로 되돌리고 그 칸에 이유 한 줄.
  * 저장 뒤 화면을 다시 받아 원형 · 표에 반영.
  */
 
@@ -42,11 +57,17 @@ function Block({ title, desc, busy, error, children }: { title: string; desc?: s
 export default function AssetSettingsDialog({
   summary,
   onSave,
+  onSaveTarget,
+  focus,
   onClose,
 }: {
   summary: AssetSummary;
   /** 고칠 칸만 저장 — 실패면 이유 문구 */
   onSave: (patch: Partial<AssetSettings>) => Promise<string | null>;
+  /** 목표 비율 저장(시트에 씀) */
+  onSaveTarget: (ratio: Record<keyof AssetTargetRatio, number>) => Promise<{ ok: true; ratio: AssetTargetRatio } | { ok: false; error: string }>;
+  /** 「비율 조정」 [목표 비율 바꾸기] 로 열면 목표 비율 칸으로 */
+  focus?: 'targetRatio';
   onClose: () => void;
 }) {
   // 바꾼 값을 바로 보이고(저장 중에도), 실패하면 원래 값으로 되돌린다
@@ -127,6 +148,22 @@ export default function AssetSettingsDialog({
               onPick={(id) => void save('classColors', { ...shown.classColors, [g]: id } as AssetClassColors)}
             />
           ))}
+        </div>
+      </Block>
+
+      <Block title="목표 비율" desc="정수 %. 현금 · 채권 · 금 · 주식 합과 코어 + 위성 합이 각각 100일 때 저장할 수 있습니다. 저장하면 시트 「자산 투자 비율 관리」 에도 씁니다." busy={false} error={null}>
+        <AssetTargetRatioForm initial={summary.targetRatio} writeEnabled={summary.writeEnabled} onSave={onSaveTarget} autoFocus={focus === 'targetRatio'} />
+      </Block>
+
+      <Block title="괜찮음 범위" desc="「비율 조정」 에서 목표와의 차이가 이 범위 안이면 「괜찮음」 입니다." busy={!!busy.rebalanceBand} error={errors.rebalanceBand ?? null}>
+        <div className="flex items-center gap-2" data-setting="band">
+          <Select size="sm" className="w-24" aria-label="괜찮음 범위" value={shown.rebalanceBand} disabled={!!busy.rebalanceBand} onChange={(e) => void save('rebalanceBand', Number(e.target.value))}>
+            {Array.from({ length: REBALANCE_BAND_MAX - REBALANCE_BAND_MIN + 1 }, (_, i) => REBALANCE_BAND_MIN + i).map((n) => (
+              <option key={n} value={n}>
+                ±{n}%p
+              </option>
+            ))}
+          </Select>
         </div>
       </Block>
     </Dialog>

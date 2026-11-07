@@ -69,6 +69,12 @@
   --color-swatch-lime: #7f9c1c; /* 연두 5.30 */
   --color-swatch-brown: #a8642a; /* 갈색 3.59 */
   --color-swatch-gray: var(--color-text-muted); /* 미지정 — 고정 */
+  /*
+   * 비율 조정 차이 글자(v2.63.0) — 「○원 더 사야 함」 파랑 계열 · 「○원 줄여야 함」 빨강 계열(사용자 결정 2026-11-07).
+   * 주요 실행 버튼 파랑(accent)과 이름을 나눈다 · 값은 이미 검사한 색을 가리키기만 한다(파랑 = 팔레트 파랑 4.58 · 빨강 = 하락 빨강).
+   */
+  --color-rebalance-add: var(--color-swatch-blue);
+  --color-rebalance-cut: var(--color-bearish);
   --color-border: #333333;
   --color-chart-grid: #222222;
 

@@ -255,6 +255,8 @@ export interface AssetSummary {
   rebalance: AssetRebalance;
   /** 시트의 목표 비율(설정 창 「목표 비율」 처음 값 — 백분율) */
   targetRatio: AssetTargetRatio;
+  /** 이 서버에서 시트 쓰기가 켜져 있나(`ASSET_SYNC_ENABLED`) — 꺼져 있으면 설정 창 목표 비율 [저장] 을 막는다 */
+  writeEnabled: boolean;
 }
 
 /** 계좌 하나 — 「연금 포함」 과 상관없이 늘 그 계좌 전체 */

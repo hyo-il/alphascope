@@ -61,7 +61,7 @@ export const assetSheetFailureSample: AssetSheetFailure = {
 /**
  * 총 자산 요약(v2.62.0) 가짜 응답 — 만든 값. `none` = 미지정 금액 · 가격 못 받은 줄을 넣는다(긴 금액 · 경고 줄 넘침을 잰다).
  */
-export function assetSummarySample(opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number } = {}): AssetSummary {
+export function assetSummarySample(opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number; writeEnabled?: boolean } = {}): AssetSummary {
   const pension = opts.pension ?? false;
   const amounts: [AssetGroupKey, string, number][] = [
     ['cash', '현금', 1234567890],
@@ -102,6 +102,7 @@ export function assetSummarySample(opts: { pension?: boolean; none?: boolean; vs
     ],
     rebalance: computeRebalance(totals, target, band),
     targetRatio: target,
+    writeEnabled: opts.writeEnabled ?? true,
   };
 }
 

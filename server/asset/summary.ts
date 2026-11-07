@@ -19,6 +19,7 @@ import { ASSET_GROUP_LABEL, type AssetAccount, type AssetGroup, type AssetGroupK
 import { readAssetSheet } from './sheet';
 import { readAssetSettings, stockChoices } from './settings';
 import { latestRecord } from './store';
+import { isAssetSyncEnabled } from './config';
 import { computeRebalance } from './rebalance';
 
 /** 토스 가격(종목 → 원래 통화 값) · 환율(1달러 = N원) */
@@ -168,5 +169,6 @@ export async function assetSummary(includePension: boolean): Promise<AssetSummar
     stockChoices: stockChoices(data, settings),
     rebalance: computeRebalance(c.totals, data.targetRatio, settings.rebalanceBand),
     targetRatio: data.targetRatio,
+    writeEnabled: isAssetSyncEnabled(),
   };
 }
