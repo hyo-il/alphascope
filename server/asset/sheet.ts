@@ -151,8 +151,7 @@ export function parseAssetSheet(values: CellRows[], formulas: CellRows[], readAt
         quantity: num(r[2]),
         ...avgPriceOf(f[1], r[1]),
         tickerRow: ticker ? linked : null,
-        assetClass: isAssetClass(cls) ? cls : null,
-        assetClassUnknown: cls && !isAssetClass(cls) ? cls : null,
+        assetClass: isAssetClass(cls) ? cls : null, // 빈칸 · 네 글자가 아닌 글자 → 「미지정」(null)
       });
     }
     const name = (s.nameCell ? headerText(s.nameCell) : '') || s.label || '';

@@ -6,7 +6,7 @@
  * - 평가 = 수량 × 토스 가격(미국은 × 토스 환율). 매입 = 수량 × 평균 매입가(달러 평균가는 × 「티커」 G9 구매 평균 환율 — 시트와 같은 방식).
  * - 「연금 포함」 이 꺼지면 「연금으로 볼 계좌」(설정 — 기본 연금 저축 계좌) 보유와 퇴직 연금(「현금」 C30)을 뺀다.
  *   퇴직 연금은 자산 분류가 없어 따로 한 칸(「퇴직 연금」)으로 둔다 — 분류별 합이 총 자산과 같게.
- * - 분류별: 현금(C25 + 분류 「현금」 종목) · 채권 · 금 · 주식 · 분류 없음(빈칸 · 알 수 없는 분류 · 이을 수 없는 줄).
+ * - 분류별: 현금(C25 + 분류 「현금」 종목) · 채권 · 금 · 주식 · 미지정(빈칸 · 네 글자가 아닌 글자 · 이을 수 없는 줄 — 하나의 값).
  * - 코어 · 위성: 분류 「주식」 종목만 — 종목 코드가 「위성으로 선택한 종목」(설정 — 처음 값은 개별 투자의 주식)에 있으면 위성, 그 밖은 코어.
  *   같은 코드는 어느 계좌에 있든 같은 쪽(계좌로 나누지 않는다).
  * - 가격을 못 받은 줄(코드 없음 · 토스 가격 없음 · 캐시된 지난 종가(stale) · 미국인데 환율 없음 · 수량 없음)은 총 자산에서 빼고 개수를 센다.
@@ -15,7 +15,7 @@
 import { fetchQuotes } from '../quoteService';
 import { isMockMode } from '../mockData';
 import { fetchExchangeRate } from '../../src/services/toss/account';
-import type { AssetAccount, AssetGroup, AssetGroupKey, AssetHolding, AssetSettings, AssetSheetData, AssetSummary, AssetTotals } from '../../src/types/asset';
+import { ASSET_GROUP_LABEL, type AssetAccount, type AssetGroup, type AssetGroupKey, type AssetHolding, type AssetSettings, type AssetSheetData, type AssetSummary, type AssetTotals } from '../../src/types/asset';
 import { readAssetSheet } from './sheet';
 import { readAssetSettings, stockChoices } from './settings';
 import { latestRecord } from './store';
@@ -26,7 +26,6 @@ export interface PriceBook {
   usdKrw: number | null;
 }
 
-const GROUP_LABEL: Record<AssetGroupKey, string> = { cash: '현금', bond: '채권', gold: '금', stock: '주식', retirement: '퇴직 연금', none: '분류 없음' };
 const CLASS_GROUP: Record<string, AssetGroupKey> = { 현금: 'cash', 채권: 'bond', 금: 'gold', 주식: 'stock' };
 
 const valuedRow = (h: AssetHolding, book: PriceBook): number | null => {
@@ -47,7 +46,6 @@ export interface ComputedTotals {
   totals: AssetTotals;
   profit: AssetSummary['profit'];
   missingNames: string[];
-  unknownClassCount: number;
 }
 
 /** 순수 계산 — 시험이 가짜 시트 · 가짜 가격으로 부른다 */
@@ -58,7 +56,6 @@ export function computeAssetTotals(data: AssetSheetData, book: PriceBook, settin
   let satellite = 0;
   let missing = 0;
   const missingNames: string[] = [];
-  let unknownClassCount = 0;
   let value = 0;
   let cost = 0;
   let costRows = 0;
@@ -68,7 +65,6 @@ export function computeAssetTotals(data: AssetSheetData, book: PriceBook, settin
     const pension = settings.pensionSections.includes(section.key);
     if (pension && !includePension) continue;
     for (const h of section.holdings) {
-      if (h.assetClassUnknown) unknownClassCount++;
       const v = valuedRow(h, book);
       if (v == null) {
         missing++;
@@ -92,12 +88,11 @@ export function computeAssetTotals(data: AssetSheetData, book: PriceBook, settin
 
   const total = Object.values(amounts).reduce((a, b) => a + b, 0);
   const keys: AssetGroupKey[] = includePension ? ['cash', 'bond', 'gold', 'stock', 'retirement', 'none'] : ['cash', 'bond', 'gold', 'stock', 'none'];
-  const groups: AssetGroup[] = keys.map((key) => ({ key, label: GROUP_LABEL[key], amount: amounts[key], ratio: total > 0 ? amounts[key] / total : null }));
+  const groups: AssetGroup[] = keys.map((key) => ({ key, label: ASSET_GROUP_LABEL[key], amount: amounts[key], ratio: total > 0 ? amounts[key] / total : null }));
   return {
     totals: { total, groups, core, satellite, missing },
     profit: costRows > 0 ? { amount: value - cost, ratio: cost > 0 ? (value - cost) / cost : null } : null,
     missingNames,
-    unknownClassCount,
   };
 }
 
@@ -167,7 +162,6 @@ export async function assetSummary(includePension: boolean): Promise<AssetSummar
     profit: c.profit,
     vsLast: last && lastTotal != null ? { day: last.day, amount: c.totals.total - lastTotal, ratio: lastTotal > 0 ? (c.totals.total - lastTotal) / lastTotal : null } : null,
     missingNames: c.missingNames,
-    unknownClassCount: c.unknownClassCount,
     settings,
     accounts: accountValues(data, book),
     stockChoices: stockChoices(data, settings),

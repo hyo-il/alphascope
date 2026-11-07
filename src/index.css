@@ -56,7 +56,7 @@
    * 자산 분류 색 팔레트(v2.62.1) — 자산 관리 원형 차트 · 분류별 표 점. 사용자가 분류마다 이름으로 고른다(`src/types/asset.ts` ASSET_COLOR_IDS · 저장은 이름만).
    * 색마다 어두운 바탕(#1e1e1e)에서 검사 통과: OKLCH 밝기 0.48~0.67 · 채도 0.1 이상 · 대비 3:1 이상(괄호 안 = 대비).
    * 기본 다섯(현금 주황 · 채권 보라 · 금 노랑 · 주식 파랑 · 퇴직 연금 분홍)은 원형 이웃 조각끼리 색약 구분(ΔE 8 이상)까지 통과.
-   * 「분류 없음」 은 회색 고정(고를 수 없다). 상승/하락 · 관심 별 · 파랑(accent)과 다른 이름.
+   * 「미지정」 은 회색 고정(고를 수 없다). 상승/하락 · 관심 별 · 파랑(accent)과 다른 이름.
    */
   --color-swatch-yellow: #b38f00; /* 노랑 5.43 */
   --color-swatch-orange: #d06a1a; /* 주황 4.57 */
@@ -68,7 +68,7 @@
   --color-swatch-green: #199e70; /* 초록 4.90 */
   --color-swatch-lime: #7f9c1c; /* 연두 5.30 */
   --color-swatch-brown: #a8642a; /* 갈색 3.59 */
-  --color-swatch-gray: var(--color-text-muted); /* 분류 없음 — 고정 */
+  --color-swatch-gray: var(--color-text-muted); /* 미지정 — 고정 */
   --color-border: #333333;
   --color-chart-grid: #222222;
 

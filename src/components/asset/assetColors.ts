@@ -32,7 +32,7 @@ const BG: Record<AssetColorId | 'gray', string> = {
   gray: 'bg-swatch-gray',
 };
 
-/** 그 분류의 색 이름 — 「분류 없음」 은 회색 고정 */
+/** 그 분류의 색 이름 — 「미지정」 은 회색 고정 */
 const colorOf = (key: AssetGroupKey, colors: AssetClassColors): AssetColorId | 'gray' => (key === 'none' ? 'gray' : colors[key]);
 
 /** 원형 조각(SVG stroke) */

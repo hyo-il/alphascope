@@ -8,7 +8,7 @@ import type { AssetClass, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHol
 
 export const assetStatusSample = (unlocked: boolean, sheetConfigured = true): AssetStatus => ({ passwordSet: true, unlocked, sheetConfigured });
 
-function holding(row: number, name: string, code: string | null, quantity: number, avgPrice: number, currency: 'USD' | 'KRW', tickerRow: number | null = null, assetClass: AssetClass | null = null, unknown: string | null = null): AssetHolding {
+function holding(row: number, name: string, code: string | null, quantity: number, avgPrice: number, currency: 'USD' | 'KRW', tickerRow: number | null = null, assetClass: AssetClass | null = null): AssetHolding {
   const us = code?.includes(':') ?? false;
   return {
     row,
@@ -22,7 +22,6 @@ function holding(row: number, name: string, code: string | null, quantity: numbe
     currency,
     tickerRow: code ? tickerRow : null,
     assetClass,
-    assetClassUnknown: unknown,
   };
 }
 
@@ -37,7 +36,7 @@ export function assetSheetSample(): AssetSheetData {
           holding(5, '예시 미국 기술주', 'NASDAQ:AAAA', 12.5, 101.2345, 'USD', 15, '주식'),
           holding(6, '예시 국내 대형주', '000001', 30, 71000, 'KRW', 16, '주식'),
           holding(7, '예시 미국 ETF 이름이 아주 긴 종목 Vanguard Total World Stock Market Index Fund ETF Shares', 'NYSEARCA:BBBB', 4, 1250.5, 'USD', 17, '채권'),
-          holding(8, '예시 고가 국내주', '000003', 1, 1234567, 'KRW', 18, null, '부동산'),
+          holding(8, '예시 고가 국내주', '000003', 1, 1234567, 'KRW', 18, null), // 시트 글자가 네 가지가 아님(미지정 — 「-」)
         ],
       },
       { key: '적립식 계좌', name: '적립식 계좌 ( 2026.07 )', combined: false, holdings: [holding(13, 'KODEX 예시 S&P500', '0072R0', 1200, 15000, 'KRW', 21, '주식'), holding(14, '이을 수식 없는 줄', null, 1, 1000, 'KRW')] },
@@ -59,7 +58,7 @@ export const assetSheetFailureSample: AssetSheetFailure = {
 };
 
 /**
- * 총 자산 요약(v2.62.0) 가짜 응답 — 만든 값. `none` = 분류 없음 금액 · 알 수 없는 분류 · 가격 못 받은 줄을 넣는다(긴 금액 · 경고 줄 넘침을 잰다).
+ * 총 자산 요약(v2.62.0) 가짜 응답 — 만든 값. `none` = 미지정 금액 · 가격 못 받은 줄을 넣는다(긴 금액 · 경고 줄 넘침을 잰다).
  */
 export function assetSummarySample(opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors> } = {}): AssetSummary {
   const pension = opts.pension ?? false;
@@ -69,7 +68,7 @@ export function assetSummarySample(opts: { pension?: boolean; none?: boolean; vs
     ['gold', '금', 234567890],
     ['stock', '주식', 3456789012],
     ...(pension ? ([['retirement', '퇴직 연금', 234567890]] as [AssetGroupKey, string, number][]) : []),
-    ['none', '분류 없음', opts.none ? 98765432 : 0],
+    ['none', '미지정', opts.none ? 98765432 : 0],
   ];
   const total = amounts.reduce((a, [, , v]) => a + v, 0);
   const groups: AssetGroup[] = amounts.map(([key, label, amount]) => ({ key, label, amount, ratio: amount / total }));
@@ -81,7 +80,6 @@ export function assetSummarySample(opts: { pension?: boolean; none?: boolean; vs
     profit: { amount: -12345678, ratio: -0.0234 },
     vsLast: opts.vsLast === false ? null : { day: '2026-11-05', amount: 23456789, ratio: 0.0043 },
     missingNames: opts.none ? ['이을 수식 없는 줄', '예시 미국 ETF 이름이 아주 긴 종목'] : [],
-    unknownClassCount: opts.none ? 1 : 0,
     settings: { pensionSections: ['연금 저축 계좌'], satelliteSymbols: ['AAAA', '000001', '000003'], classColors: { ...DEFAULT_CLASS_COLORS, ...opts.colors } },
     accounts: [
       { key: '개별 투자', name: '개별 투자 ( 2026.07 )', holdings: 4, value: 1876543210, missing: 0 },

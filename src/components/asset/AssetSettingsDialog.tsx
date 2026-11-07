@@ -110,7 +110,7 @@ export default function AssetSettingsDialog({
         )}
       </Block>
 
-      <Block title="자산 분류 색" desc="원형 차트와 분류별 표에 같은 색으로 보입니다. 분류 없음은 회색입니다." busy={!!busy.classColors} error={errors.classColors ?? null}>
+      <Block title="자산 분류 색" desc="원형 차트와 분류별 표에 같은 색으로 보입니다. 미지정은 회색입니다." busy={!!busy.classColors} error={errors.classColors ?? null}>
         <div className="space-y-2" data-setting="colors">
           {COLORED_GROUP_KEYS.map((g) => (
             <ColorRow

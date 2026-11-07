@@ -18,7 +18,7 @@ import AssetSettingsDialog from './AssetSettingsDialog';
  * 1. 위: 숫자 카드 셋(총 자산 · 어제보다 · 평가 손익) / 머리 오른쪽: 「연금 포함」(이 기기에 기억) · 읽은 시각 · 「설정」 · 「다시 읽기」 · 「잠그기」
  *    「설정」 = 창 하나(연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색 — `AssetSettingsDialog`)
  * 2. 가운데: 총 자산 선 차트(하루 기록 · 1개월 · 3개월 · 1년 · 전체)
- * 3. 아래: 구성 원형 차트 / 분류별 표(주식 아래 코어 · 위성 · 분류 없음은 흐리게) — 분류 색은 설정의 「자산 분류 색」
+ * 3. 아래: 구성 원형 차트 / 분류별 표(주식 아래 코어 · 위성 · 미지정은 흐리게) — 분류 색은 설정의 「자산 분류 색」
  * 4. 맨 아래 접기 「상세 보기」 — 요약 + 계좌 카드(자산 분류 고르기 — 시트에 바로 씀)
  * 받기: 처음 = 스켈레톤 · 다시 읽기 · 연금 포함 바꾸기 = 내용을 두고 작은 스피너 · 10초 가격 갱신(`usePolling` — 숨은 탭에서 쉼)은 표시 없음.
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 「연금 포함」 켬/끔만).
@@ -389,9 +389,6 @@ function GroupTable({ summary }: { summary: AssetSummary }) {
           })}
         </tbody>
       </table>
-      {summary.unknownClassCount > 0 && (
-        <p className="px-4 pt-1 text-caption text-warning keep-all">알 수 없는 자산 분류 {summary.unknownClassCount}줄 — 분류 없음으로 셉니다.</p>
-      )}
     </Panel>
   );
 }

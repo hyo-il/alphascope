@@ -28,7 +28,10 @@ export type AssetSheetErrorKind =
   | 'not-editable' // 쓸 수 없는 칸(「티커」 D14~D42 의 종목 줄이 아님) · 허용하지 않는 값
   | 'formula-cell'; // 그 칸이 수식(`=` 로 시작) — 덮어쓰지 않는다
 
-/** 자산 분류 — 「티커」 D열에 적는 글자 넷(사용자 결정 2026-11-07). 빈칸 = 「분류 없음」 */
+/**
+ * 자산 분류 — 「티커」 D열에 적는 글자 넷(사용자 결정 2026-11-07).
+ * 빈칸 · 네 글자가 아닌 글자 · 이을 수 없는 줄은 모두 하나의 값 「미지정」(v2.62.2 — 사용자 결정 2026-11-07) — 계산에서 `none` 묶음.
+ */
 export const ASSET_CLASSES = ['현금', '채권', '금', '주식'] as const;
 export type AssetClass = (typeof ASSET_CLASSES)[number];
 export const isAssetClass = (v: unknown): v is AssetClass => typeof v === 'string' && (ASSET_CLASSES as readonly string[]).includes(v);
@@ -54,10 +57,8 @@ export interface AssetHolding {
   currency: AssetCurrency;
   /** 이어진 「티커」 줄 번호 — 자산 분류를 쓸 칸(D열)의 줄. 이을 수 없으면 null(분류를 고를 수 없다) */
   tickerRow: number | null;
-  /** 「티커」 D열 자산 분류 — 빈칸 · 알 수 없는 글자 · 이을 수 없음은 null(계산에서 「분류 없음」) */
+  /** 「티커」 D열 자산 분류 — 빈칸 · 네 글자가 아닌 글자 · 이을 수 없음은 null(「미지정」 — 좁은 칸에서는 「-」) */
   assetClass: AssetClass | null;
-  /** D열에 네 글자가 아닌 글자가 있다(「알 수 없는 분류」 — 화면에 그 글자를 보인다) */
-  assetClassUnknown: string | null;
 }
 
 export interface AssetSection {
@@ -103,7 +104,7 @@ export interface AssetSheetFailure {
 
 /**
  * 자산 분류 색 팔레트(v2.62.1) — 색 이름(id)만 저장한다(값은 `src/index.css` `--color-swatch-*` 한 곳 · 화면은 `assetColors.ts` 가 이름 → 클래스).
- * 어두운 바탕(#1e1e1e)에서 밝기 · 채도 · 대비 3:1 을 통과한 열 색. 회색은 「분류 없음」 고정이라 고를 수 없다.
+ * 어두운 바탕(#1e1e1e)에서 밝기 · 채도 · 대비 3:1 을 통과한 열 색. 회색은 「미지정」 고정이라 고를 수 없다.
  */
 export const ASSET_COLOR_IDS = ['yellow', 'orange', 'red', 'pink', 'purple', 'blue', 'teal', 'green', 'lime', 'brown'] as const;
 export type AssetColorId = (typeof ASSET_COLOR_IDS)[number];
@@ -121,7 +122,7 @@ export const ASSET_COLOR_LABEL: Record<AssetColorId, string> = {
 };
 export const isAssetColorId = (v: unknown): v is AssetColorId => typeof v === 'string' && (ASSET_COLOR_IDS as readonly string[]).includes(v);
 
-/** 색을 고르는 분류 — 「분류 없음」 은 회색 고정 */
+/** 색을 고르는 분류 — 「미지정」 은 회색 고정 */
 export type ColoredGroupKey = 'cash' | 'bond' | 'gold' | 'stock' | 'retirement';
 export const COLORED_GROUP_KEYS: readonly ColoredGroupKey[] = ['cash', 'bond', 'gold', 'stock', 'retirement'];
 export type AssetClassColors = Record<ColoredGroupKey, AssetColorId>;
@@ -148,8 +149,12 @@ export interface AssetStockChoice {
   isStock: boolean;
 }
 
-/** 분류별 묶음 — 네 분류 + 퇴직 연금(연금 포함일 때만 · 분류가 없는 한 칸) + 분류 없음 */
+/** 분류별 묶음 — 네 분류 + 퇴직 연금(연금 포함일 때만 · 분류가 없는 한 칸) + 미지정(`none`) */
 export type AssetGroupKey = 'cash' | 'bond' | 'gold' | 'stock' | 'retirement' | 'none';
+/** 분류별 묶음 이름 — 서버 계산 · 옛 하루 기록 읽기가 이 표 하나를 쓴다(옛 기록에 저장된 옛 이름도 읽을 때 「미지정」) */
+export const ASSET_GROUP_LABEL: Record<AssetGroupKey, string> = { cash: '현금', bond: '채권', gold: '금', stock: '주식', retirement: '퇴직 연금', none: '미지정' };
+/** 좁은 칸(표의 자산 분류 고르기 · 드롭다운)에서 「미지정」 을 보이는 글자 — 글자가 잘리지 않게 */
+export const UNASSIGNED_SHORT = '-';
 
 export interface AssetGroup {
   key: AssetGroupKey;
@@ -185,8 +190,6 @@ export interface AssetSummary {
   vsLast: { day: string; amount: number; ratio: number | null } | null;
   /** 가격 못 받은 줄의 이름(화면에 「가격 못 받음」 표시) */
   missingNames: string[];
-  /** 자산 분류가 「알 수 없는 분류」 인 줄 수 */
-  unknownClassCount: number;
   settings: AssetSettings;
   /** 계좌(시트 순서 · 합친 표 제외) — 「연금으로 볼 계좌」 고르기 · 「상세 보기」 카드 머리 */
   accounts: AssetAccount[];

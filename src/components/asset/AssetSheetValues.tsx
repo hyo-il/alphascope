@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
 import { DisclosureButton, ICON_SM, Panel, Select } from '../ui';
-import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
+import { ASSET_CLASS_W, LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice } from '../../utils/formatters';
-import { ASSET_CLASSES, type AssetAccount, type AssetClass, type AssetHolding, type AssetSection, type AssetSheetData } from '../../types/asset';
+import { ASSET_CLASSES, UNASSIGNED_SHORT, type AssetAccount, type AssetClass, type AssetHolding, type AssetSection, type AssetSheetData } from '../../types/asset';
 
 /**
  * 자산 관리 맨 아래 접기 「상세 보기」 (v2.61.0 1단계 확인 표 → v2.62.0 접기 안 → v2.62.1 계좌 카드).
@@ -105,15 +105,18 @@ const COLS = 6;
 /** 카드 바탕(`Panel` 과 같은 바탕) — 표 칸마다 칠해 카드처럼 보인다 */
 const CARD_BG = 'bg-bg-secondary';
 
-/** 자산 분류 고르기 한 칸 — 이을 수 없는 줄은 고를 수 없다(「티커」 줄이 없다). 선택 글자 · 목록 모두 가운데 정렬 */
+/**
+ * 자산 분류 고르기 한 칸 — 이을 수 없는 줄은 고를 수 없다(「티커」 줄이 없다). 선택 글자 · 목록 모두 가운데 정렬.
+ * 첫 항목 「-」 = 미지정(빈칸 · 네 글자가 아닌 글자 모두) — 고르면 시트 칸을 비운다. 모르는 글자가 있던 줄도 「-」 로 보이고 다른 값을 고르면 덮어쓴다.
+ */
 function ClassPicker({ h, saving, onPick }: { h: AssetHolding; saving: boolean; onPick: (row: number, value: AssetClass | '') => void }) {
   if (h.tickerRow == null)
     return (
-      <span className="inline-block w-28 text-center text-text-muted" title="「티커」 탭과 이을 수식이 없어 고를 수 없습니다">
+      <span className={`inline-block ${ASSET_CLASS_W} text-center text-text-muted`} title="「티커」 탭과 이을 수식이 없어 고를 수 없습니다">
         —
       </span>
     );
-  const value = h.assetClass ?? (h.assetClassUnknown ? '?' : '');
+  const value = h.assetClass ?? '';
   return (
     <span className="inline-flex items-center gap-1.5">
       <Select
@@ -122,21 +125,16 @@ function ClassPicker({ h, saving, onPick }: { h: AssetHolding; saving: boolean; 
         value={value}
         disabled={saving}
         onChange={(e) => onPick(h.tickerRow!, e.target.value as AssetClass | '')}
-        className="w-28 text-center [text-align-last:center]"
+        className={`${ASSET_CLASS_W} text-center [text-align-last:center]`}
       >
-        <option value="" className="text-center">
-          분류 없음
+        <option value="" className="text-center" title="미지정">
+          {UNASSIGNED_SHORT}
         </option>
         {ASSET_CLASSES.map((c) => (
           <option key={c} value={c} className="text-center">
             {c}
           </option>
         ))}
-        {h.assetClassUnknown && (
-          <option value="?" disabled className="text-center">
-            알 수 없음 · {h.assetClassUnknown}
-          </option>
-        )}
       </Select>
       {/* 쓰는 동안 그 칸만 — 자리를 늘 잡아 두어 줄 폭이 흔들리지 않게 */}
       <span className="inline-flex w-4 justify-center" aria-hidden={!saving}>
@@ -315,7 +313,7 @@ export default function AssetSheetValues({
       ...shown,
       sections: shown.sections.map((s) => ({
         ...s,
-        holdings: s.holdings.map((h) => (h.tickerRow === row ? { ...h, assetClass: value || null, assetClassUnknown: null } : h)),
+        holdings: s.holdings.map((h) => (h.tickerRow === row ? { ...h, assetClass: value || null } : h)),
       })),
     });
     setSavingRows((prev) => new Set(prev).add(row));

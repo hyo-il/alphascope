@@ -375,14 +375,14 @@ function targets(): Target[] {
         await page.unroute(/\/api\/market-brief\?/);
       },
     })),
-    // 자산 관리(v2.61.0 · v2.62.0 · v2.62.1) — 잠김 · 풀림(하루 기록 0 · 1 · 여러 개 · 「분류 없음」 + 가격 못 받음 · 연금 포함 · 「상세 보기」 계좌 카드 · 「설정」 창 · 분류 색 바꾼 뒤) · 읽기 실패.
+    // 자산 관리(v2.61.0 · v2.62.0 · v2.62.1) — 잠김 · 풀림(하루 기록 0 · 1 · 여러 개 · 「미지정」 + 가격 못 받음 · 연금 포함 · 「상세 보기」 계좌 카드 · 「설정」 창 · 분류 색 바꾼 뒤) · 읽기 실패.
     // 가짜 응답만(구글 · DB 그대로 — 쓰기 주소는 막는다)
     ...(
       [
         ['잠김', false, 'ok', 0, {}, false, false],
         ['기록0', true, 'ok', 0, { vsLast: false }, false, false],
         ['기록1', true, 'ok', 1, {}, false, false],
-        ['기록여러개-분류없음', true, 'ok', 30, { none: true }, false, false],
+        ['기록여러개-미지정', true, 'ok', 30, { none: true }, false, false],
         ['연금포함-상세보기', true, 'ok', 30, { pension: true }, true, false],
         ['설정창', true, 'ok', 30, { pension: true }, false, true],
         ['색바꿈-상세보기', true, 'ok', 30, { pension: true, none: true, colors: { gold: 'green', cash: 'red', stock: 'teal', retirement: 'brown' } }, true, false],

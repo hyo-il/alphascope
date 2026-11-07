@@ -28,10 +28,10 @@ import { authGuard } from '../server/authGuard';
 import { assetRouter } from '../server/asset/routes';
 import { AssetSheetError, resetTokenCache } from '../server/asset/google';
 import { avgPriceOf, linkedTickerRow, parseAssetSheet, readAssetSheet, resetSheetCache, sheetRanges, splitCode, writeAssetClass } from '../server/asset/sheet';
-import { ASSET_COLOR_IDS, DEFAULT_CLASS_COLORS, type AssetSheetData, type AssetSummary, type AssetTotals } from '../src/types/asset';
+import { ASSET_COLOR_IDS, ASSET_GROUP_LABEL, DEFAULT_CLASS_COLORS, UNASSIGNED_SHORT, type AssetSheetData, type AssetSummary, type AssetTotals } from '../src/types/asset';
 import { accountValues, computeAssetTotals, setAssetPriceSourceForTest, assetSummary, type PriceBook } from '../server/asset/summary';
 import { readAssetSettings, stockChoices, writeAssetSettings } from '../server/asset/settings';
-import { clearRecordsForTest, historyPoints, latestRecord } from '../server/asset/store';
+import { clearRecordsForTest, historyPoints, insertRecord, latestRecord } from '../server/asset/store';
 import { dailyTick } from '../server/asset/daily';
 import { setSessionHooksForTest, type TossCalendarResponse } from '../server/heatmapSession';
 import { NAV_GROUPS, pageMeta } from '../src/types/nav';
@@ -372,8 +372,22 @@ try {
   // [8] 잇기
   check('[8] [106-2] 보유 줄 ↔ 종목 줄 — F열 `\'티커\'!$F$NN`(넣은 뒤 주소)으로 잇는다(5행 → 티커 15행 NASDAQ:NVDA)', us?.code === 'NASDAQ:NVDA' && us?.tickerRow === 15);
   check('[106-2] 옛 주소 `\'티커\'!$E$NN` 은 잇지 않는다(넣기 전 수식 = 「티커」 E열 = 가격 칸)', linkedTickerRow("=D5*'티커'!$E$15") === null && linkedTickerRow("=D5*'티커'!$F$15") === 15);
-  check('[106-2] 자산 분류는 「티커」 D열 — 주식 · 채권 그대로 · 네 글자가 아니면 null + 「알 수 없는 분류」 글자', us?.assetClass === '주식' && all.find((h) => h.row === 39)?.assetClass === '채권' && kodex?.assetClass === null && kodex?.assetClassUnknown === '부동산' && us?.assetClassUnknown === null);
-  check('[106-2] 이을 수 없는 줄은 「티커」 줄 · 분류 없음(null)', nolink?.tickerRow === null && nolink?.assetClass === null);
+  check('[106-2] [108-1] 자산 분류는 「티커」 D열 — 주식 · 채권 그대로 · 네 글자가 아니면(부동산) 미지정(null) 하나 · 옛 「알 수 없는 분류」 칸 없음', us?.assetClass === '주식' && all.find((h) => h.row === 39)?.assetClass === '채권' && kodex?.assetClass === null && !('assetClassUnknown' in (kodex ?? {})));
+  check('[106-2] [108-1] 이을 수 없는 줄은 「티커」 줄 없음 · 미지정(null)', nolink?.tickerRow === null && nolink?.assetClass === null);
+  {
+    // [108-1] 빈칸 · 네 글자가 아닌 글자(공백 · 영문 · 비슷한 글자) → 모두 미지정(null) 하나
+    resetSheetCache();
+    const saved = sheetModel;
+    sheetModel = fakeSheet();
+    for (const [cell, v] of [['D15', ''], ['D16', 'stock'], ['D20', '금 ETF'], ['D21', ' '], ['D22', '현금성']] as const) {
+      sheetModel.values[`티커!${cell}`] = v;
+      sheetModel.formulas[`티커!${cell}`] = v;
+    }
+    const odd = (await readAssetSheet()).sections.flatMap((x) => x.holdings).filter((h) => h.tickerRow != null && [15, 16, 20, 21, 22].includes(h.tickerRow));
+    check('[108-1] 빈칸 · 「stock」 · 「금 ETF」 · 공백 · 「현금성」 → 모두 미지정(null) · 계산 묶음 이름 「미지정」 하나', odd.length >= 5 && odd.every((h) => h.assetClass === null) && ASSET_GROUP_LABEL.none === '미지정' && UNASSIGNED_SHORT === '-');
+    sheetModel = saved;
+    resetSheetCache();
+  }
   check('[8] 이름 띄어쓰기가 달라도(「KODEX 미국 S&P500」 ↔ 「KODEX 미국S&P500」) 줄 번호로 바르게 이어진다', kodex?.code === '0072R0' && kodex?.name === 'KODEX 미국 S&P500');
   check('[8] 이을 수식이 없는 줄은 코드 없음(이름으로 짐작하지 않는다) · 빈 줄은 건너뜀', nolink?.code === null && nolink?.market === null && !all.some((h) => h.row === 7));
   // [9] 평균 매입가
@@ -503,7 +517,7 @@ try {
   const DEF = { pensionSections: ['연금 저축 계좌'], satelliteSymbols: ['NVDA'] };
   // 줄마다 평가(원) — 시험 안에서만 쓴다(출력하지 않는다)
   const v5 = 3.5 * 200 * FX_NOW; // 개별 · 미국 · 주식 → 위성
-  const v6 = 12 * 20000; // 개별 · 알 수 없는 분류 → 분류 없음
+  const v6 = 12 * 20000; // 개별 · 네 글자가 아닌 분류(부동산) → 미지정
   const v9 = 1 * 100000; // 개별 · 현금 분류 → 현금(위성 아님)
   const v13 = 10 * 70000; // 적립식 · 채권
   const v22 = 4 * 15000; // ISA · 금
@@ -526,7 +540,7 @@ try {
   check('[106-4-1] 채권 · 금 · 현금 분류는 어느 구간이든 코어/위성에 안 들어감(개별 투자의 현금 분류 줄도)', near(grp(on.totals, 'stock'), v5 + v30) && near(on.totals.core + on.totals.satellite, v5 + v30) && near(grp(on.totals, 'cash'), FAKE.cash + v9) && near(grp(on.totals, 'bond'), v13) && near(grp(on.totals, 'gold'), v22));
   const sat2 = computeAssetTotals(sheetData, book(), { ...DEF, satelliteSymbols: ['NVDA', '360750'] }, true);
   check('[106-4-1] [107-1] 위성 종목을 바꾸면 따라감(연금 저축의 주식 360750 → 위성)', near(sat2.totals.satellite, v5 + v30) && near(sat2.totals.core, 0));
-  check('[106-4] [106-2] 알 수 없는 분류(부동산)는 계산에서 분류 없음 · 개수 1', near(grp(off.totals, 'none'), v6) && off.unknownClassCount === 1);
+  check('[106-4] [108-1] 네 글자가 아닌 분류(부동산)는 계산에서 미지정 묶음(이름 「미지정」) · 옛 「알 수 없는 분류」 개수 칸 없음', near(grp(off.totals, 'none'), v6) && off.totals.groups.find((g) => g.key === 'none')?.label === '미지정' && !('unknownClassCount' in off));
   // [106-5] 미국 — 평가 × 토스 환율 · 매입 × G9
   const onlyUs = { ...sheetData, sections: sheetData.sections.map((x, i) => ({ ...x, holdings: i === 0 ? x.holdings.filter((h) => h.row === 5) : [] })) };
   const us1 = computeAssetTotals(onlyUs, book(), DEF, false);
@@ -616,7 +630,7 @@ try {
     [],
   ];
   const before4 = JSON.stringify(readAssetSettings(sheetData));
-  check('[107-4] 시트에 없는 계좌 · 종목 코드 · 팔레트에 없는 색(이름 · 색 값) · 분류 없음 색 · 빈 요청 → 거절 · 저장값 그대로', rejects.every((r) => writeAssetSettings(r, sheetData) === null) && JSON.stringify(readAssetSettings(sheetData)) === before4);
+  check('[107-4] 시트에 없는 계좌 · 종목 코드 · 팔레트에 없는 색(이름 · 색 값) · 미지정 색 · 빈 요청 → 거절 · 저장값 그대로', rejects.every((r) => writeAssetSettings(r, sheetData) === null) && JSON.stringify(readAssetSettings(sheetData)) === before4);
   check('[107-4] 위성 종목 · 색 저장 — 시트의 코드 · 팔레트 이름만', JSON.stringify(writeAssetSettings({ satelliteSymbols: ['360750', 'NVDA'], classColors: { gold: 'green' } }, sheetData)?.satelliteSymbols) === JSON.stringify(['360750', 'NVDA']) && readAssetSettings(sheetData).classColors.gold === 'green' && readAssetSettings(sheetData).classColors.cash === 'orange');
   const goneSheet = { ...sheetData, sections: sheetData.sections.map((x) => (x.key === '연금 저축 계좌' ? { ...x, holdings: [] } : x)) };
   check('[107-4] 시트에서 빠진 종목이 이미 위성 목록에 있으면 그대로 다시 저장할 수 있다', writeAssetSettings({ satelliteSymbols: ['360750', 'NVDA'] }, goneSheet) !== null);
@@ -653,6 +667,15 @@ try {
   const krDay = (date: string) => ({ date, reg: [k(date, '09:00'), k(date, '15:30')] as Range2 });
   const count = () => (getDb().prepare(`SELECT COUNT(*) AS n FROM asset_daily`).get() as { n: number }).n;
   clearRecordsForTest();
+  {
+    // [108-1] 옛 하루 기록(v2.62.0 · v2.62.1 — 묶음 이름 「분류 없음」)은 읽을 때 「미지정」 · 저장값은 그대로
+    const oldTotals = (t: AssetTotals): AssetTotals => ({ ...t, groups: t.groups.map((g) => (g.key === 'none' ? { ...g, label: '분류 없음' } : g)) });
+    insertRecord('2020-01-02', oldTotals(off.totals), oldTotals(on.totals), new Date(0).toISOString());
+    const rec = latestRecord();
+    const raw = (getDb().prepare(`SELECT totals_json FROM asset_daily WHERE day = '2020-01-02'`).get() as { totals_json: string }).totals_json;
+    check('[108-1] 옛 하루 기록의 「분류 없음」 → 읽을 때 「미지정」(연금 뺌 · 포함 둘 다) · 저장값은 고치지 않음', rec?.plain.groups.find((g) => g.key === 'none')?.label === '미지정' && rec?.pension.groups.find((g) => g.key === 'none')?.label === '미지정' && raw.includes('분류 없음'));
+    clearRecordsForTest();
+  }
   // [107-6] 미국 정규장 종가 — 가짜 일봉(사본 DB 의 NVDA 일봉을 비우고 「다시 받기」 가 가짜 봉을 쓴다 · 토스 호출 0)
   /** 날짜 → 가짜 정규장 종가(없으면 200 = book() 의 NVDA · null = 그날 봉 없음) */
   const usCloses = new Map<string, number | null>();
@@ -851,9 +874,13 @@ check('[106-8] 실제 구글 호출 0 — 이 시험의 googleapis 요청은 모
 const cssSrc = fs.readFileSync(path.join(root, 'src/index.css'), 'utf8');
 check('[107-5] 옛 색 토큰 --color-asset-* 와 그 클래스(bg · stroke -asset-cash 등) 남는 곳 0(src · server · index.css)', !/--color-asset-|-asset-(?:cash|bond|gold|stock|retirement|none)\b/.test(appCode + cssSrc));
 const colorsSrc = fs.readFileSync(path.join(root, 'src/components/asset/assetColors.ts'), 'utf8');
-check('[107-5] 팔레트 이름마다 --color-swatch-* 토큰 · 클래스가 있다(+ 분류 없음 회색)', ASSET_COLOR_IDS.every((id) => cssSrc.includes(`--color-swatch-${id}:`) && colorsSrc.includes(`'bg-swatch-${id}'`) && colorsSrc.includes(`'stroke-swatch-${id}'`)) && cssSrc.includes('--color-swatch-gray:'));
+check('[107-5] 팔레트 이름마다 --color-swatch-* 토큰 · 클래스가 있다(+ 미지정 회색)', ASSET_COLOR_IDS.every((id) => cssSrc.includes(`--color-swatch-${id}:`) && colorsSrc.includes(`'bg-swatch-${id}'`) && colorsSrc.includes(`'stroke-swatch-${id}'`)) && cssSrc.includes('--color-swatch-gray:'));
 const assetUi = fs.readdirSync(path.join(root, 'src/components/asset')).map((f) => fs.readFileSync(path.join(root, 'src/components/asset', f), 'utf8'));
 check('[107-5] 원형(groupStroke) · 분류별 표 점(groupDot)이 같은 표를 쓰고, 그 밖에 swatch 클래스를 직접 쓰는 화면 0', /groupStroke\(/.test(assetUi.join('\n')) && /groupDot\(/.test(assetUi.join('\n')) && codeFiles.filter(({ f, src }) => /\b(?:bg|stroke|text|fill|border)-swatch-/.test(src) && f !== 'src/components/asset/assetColors.ts').length === 0);
+
+// [108-1] 「분류 없음」 · 「알 수 없는 분류」 두 갈래 코드 · 문구 0(src · server · 화면 가짜 값)
+const assetFixtures = fs.readdirSync(path.join(root, 'scripts/fixtures/asset')).map((f) => fs.readFileSync(path.join(root, 'scripts/fixtures/asset', f), 'utf8')).join('\n');
+check('[108-1] 「분류 없음」 · 「알 수 없는 분류」 · 「알 수 없음 ·」 글자와 assetClassUnknown · unknownClassCount 남는 곳 0(src · server · fixtures/asset)', !/분류 없음|알 수 없는 분류|알 수 없음 ·|assetClassUnknown|unknownClassCount/.test(appCode + cssSrc + assetFixtures));
 
 const leaked = (textAll: string) => SECRET_STRINGS.filter((x) => textAll.includes(x));
 check('[13] 서버 로그(시험 서버) · 안쪽 경고 출력에 가짜 금액 · 수량이 없다', leaked(serverLog + captured.join('\n')).length === 0 && captured.some((l) => l.includes('[asset] 시트 읽기 실패: shape')));

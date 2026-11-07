@@ -56,7 +56,7 @@ export const SHEET_LAYOUT = {
   tickers: { firstRow: 14, lastRow: 42, skipNames: ['개별 투자', '적립식 투자', 'ISA 계좌', '연금 저축 계좌'] },
 
   /**
-   * 자산 분류 — 「티커」 D열(종목 줄 14~42). 읽기 · 쓰기 모두 이 칸. 값은 `values` 넷 중 하나 또는 빈칸(분류 없음).
+   * 자산 분류 — 「티커」 D열(종목 줄 14~42). 읽기 · 쓰기 모두 이 칸. 값은 `values` 넷 중 하나 또는 빈칸(미지정 — 네 글자가 아닌 글자도 읽을 때 미지정).
    * 쓰기는 이 열의 종목 줄만(구분 줄 · 빈 줄 · 그 밖 모든 칸 거절) · 그 칸이 `=` 로 시작하면(수식) 쓰지 않는다.
    */
   assetClass: { tab: TICKER_TAB, column: 'D', values: ASSET_CLASSES },

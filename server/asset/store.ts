@@ -4,7 +4,7 @@
  * ⚠️ 금액은 이 표에만 — 로그 · 응답 밖으로 내보내지 않는다(화면 응답은 자산 문지기 뒤).
  */
 import { getDb } from '../db';
-import type { AssetHistoryPoint, AssetHistoryRange, AssetTotals } from '../../src/types/asset';
+import { ASSET_GROUP_LABEL, type AssetHistoryPoint, type AssetHistoryRange, type AssetTotals } from '../../src/types/asset';
 
 let ready = false;
 function db() {
@@ -46,6 +46,9 @@ export function insertRecord(day: string, plain: AssetTotals, pension: AssetTota
   return r.changes === 1;
 }
 
+/** 저장된 묶음 이름을 지금 이름으로 — 옛 기록(v2.62.0 · v2.62.1)에 저장된 옛 이름도 「미지정」(저장값은 고치지 않는다) */
+const relabel = (t: AssetTotals): AssetTotals => ({ ...t, groups: t.groups.map((g) => ({ ...g, label: ASSET_GROUP_LABEL[g.key] ?? g.label })) });
+
 /** 가장 최근 기록 — 「어제보다」 의 기준 */
 export function latestRecord(): DailyRecord | null {
   const row = db().prepare(`SELECT * FROM asset_daily ORDER BY day DESC LIMIT 1`).get() as
@@ -53,7 +56,7 @@ export function latestRecord(): DailyRecord | null {
     | undefined;
   if (!row) return null;
   const t = JSON.parse(row.totals_json) as { plain: AssetTotals; pension: AssetTotals };
-  return { day: row.day, total: row.total, totalPension: row.total_pension, plain: t.plain, pension: t.pension, missing: row.missing, recordedAt: row.recorded_at };
+  return { day: row.day, total: row.total, totalPension: row.total_pension, plain: relabel(t.plain), pension: relabel(t.pension), missing: row.missing, recordedAt: row.recorded_at };
 }
 
 const RANGE_DAYS: Record<Exclude<AssetHistoryRange, 'all'>, number> = { '1m': 31, '3m': 92, '1y': 366 };
