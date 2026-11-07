@@ -2,8 +2,9 @@
  * 구글 시트 읽기 · 쓰기 — **새 의존성 없이** Node 내장 `crypto` 로 서비스 계정 JWT(RS256)를 서명해 접근 토큰을 받고,
  * Sheets API v4 `values:batchGet`(읽기) · `values:batchUpdate`(쓰기 — 값 칸만 · 한 요청)를 `fetch` 로 부른다(v2.61.0 · v2.62.0 · v2.63.0 쓰기).
  *
- * - 범위(scope)는 `spreadsheets`(읽기 · 쓰기 — v2.62.0). **쓰기 함수는 `valuesWrite` 하나** · 부르는 곳은 `sheet.ts` 의 세 곳뿐
- *   (`writeAssetClass` 「티커」 D14~D42 자산 분류 · `writeTargetRatio` 목표 비율 여섯 칸 · `writeAccountDates` 계좌 이름 날짜(v2.64.0) — `asset:test` 가 검색으로 확인).
+ * - 범위(scope)는 `spreadsheets`(읽기 · 쓰기 — v2.62.0). **쓰기 함수는 `valuesWrite` 하나**(쓰는 방식 RAW / USER_ENTERED 는 인자) · 부르는 곳은
+ *   `sheet.ts` 세 곳(`writeAssetClass` 「티커」 D14~D42 자산 분류 · `writeTargetRatio` 목표 비율 여섯 칸 · `writeAccountDates` 계좌 이름 날짜(v2.64.0) — RAW)과
+ *   시트 가격(v2.65.0 — `priceSheet.ts` 바꾸기 · 되돌리기 USER_ENTERED · `priceWriter.ts` 10초 쓰기 RAW)뿐(`asset:test` · `assetprice:test` 가 검색으로 확인).
  *   서식 쓰기(스프레드시트 단위 batchUpdate)는 쓰지 않는다. 시트 쓰기는 서비스 계정이 시트의 「편집자」 여야 된다.
  * - 토큰은 만료 1분 전까지 메모리에 둔다(열쇠 파일이 바뀌면 새로 받는다).
  * - 실패는 쉬운 말 이유(`AssetSheetError.kind`)로 바꾼다. ⚠️ 구글 응답 본문 · 열쇠 내용 · 시트 ID 는 로그 · 오류 문구에 싣지 않는다.
@@ -23,6 +24,8 @@ export class AssetSheetError extends Error {
   constructor(
     readonly kind: AssetSheetErrorKind,
     message: string,
+    /** 구글이 돌려준 HTTP 상태(그 밖 응답 실패만 — 시트 가격 10초 쓰기가 429 · 5xx 를 보고 쉰다 · v2.65.0) */
+    readonly status?: number,
   ) {
     super(message);
   }
@@ -145,26 +148,33 @@ async function throwIfFailed(res: Response, action: 'read' | 'write'): Promise<v
   }
   if (res.status === 404) throw new AssetSheetError('not-found', '시트를 찾지 못했습니다(`.env` 의 ASSET_SHEET_ID 를 확인하세요).');
   if (res.status === 400) throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(${action === 'read' ? '읽을' : '쓸'} 탭 이름이 시트에 없습니다).`);
-  throw new AssetSheetError('network', `구글 시트 응답이 올바르지 않습니다(${res.status}).`);
+  throw new AssetSheetError('network', `구글 시트 응답이 올바르지 않습니다(${res.status}).`, res.status);
 }
 
-/** 쓸 칸 하나 — 범위(한 칸) · 값(글자는 글자로, 숫자는 숫자로 — `RAW` 라 수식 · 숫자로 바꾸지 않는다) */
+/** 쓸 칸 하나 — 범위(한 칸) · 값(숫자는 JSON 숫자로 — 시트에 숫자로 들어간다) */
 export interface CellWrite {
   range: string;
   value: string | number;
 }
 
 /**
- * **시트 쓰기 — 이 앱의 유일한 쓰기 함수**(`values:batchUpdate` · `valueInputOption=RAW` · 여러 칸을 **한 요청**으로).
- * 숫자는 JSON 숫자로 보내 시트에 숫자로 들어간다(글자 「10」 이 아니다 — 시트 수식이 깨지지 않게).
- * 부르는 곳은 `sheet.ts` `writeAssetClass` · `writeTargetRatio` · `writeAccountDates`(칸 · 값 확인 · 수식 칸 거절을 거친 뒤)뿐이다.
+ * 쓰는 방식(구글 `valueInputOption`) — `RAW`: 글자는 글자 그대로(「=E14」 도 글자로 들어간다) ·
+ * `USER_ENTERED`: 사람이 친 것처럼(「=」 로 시작하면 수식) — **수식 칸을 쓸 때만**(시트 가격 [바꾸기] · [되돌리기] · v2.65.0).
  */
-export async function valuesWrite(config: AssetSheetConfig, cells: CellWrite[]): Promise<void> {
+export type ValueInput = 'RAW' | 'USER_ENTERED';
+
+/**
+ * **시트 쓰기 — 이 앱의 유일한 쓰기 함수**(`values:batchUpdate` · 여러 칸을 **한 요청**으로). 쓰는 방식은 인자로 고른다(기본 `RAW`).
+ * 숫자는 JSON 숫자로 보내 시트에 숫자로 들어간다(글자 「10」 이 아니다 — 시트 수식이 깨지지 않게).
+ * 부르는 곳: `sheet.ts` `writeAssetClass` · `writeTargetRatio` · `writeAccountDates`(RAW) · `priceSheet.ts` `convertSheetPrices` · `restoreSheetPrices`(USER_ENTERED) ·
+ * `priceWriter.ts` `priceTick`(가격 · 환율 숫자 — RAW) — 모두 칸 · 값 확인을 거친 뒤.
+ */
+export async function valuesWrite(config: AssetSheetConfig, cells: CellWrite[], input: ValueInput = 'RAW'): Promise<void> {
   const token = await accessToken(config.keyFile);
   const res = await send(`${SHEETS_URL}/${encodeURIComponent(config.sheetId)}/values:batchUpdate`, {
     method: 'POST',
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ valueInputOption: 'RAW', data: cells.map((c) => ({ range: c.range, majorDimension: 'ROWS', values: [[c.value]] })) }),
+    body: JSON.stringify({ valueInputOption: input, data: cells.map((c) => ({ range: c.range, majorDimension: 'ROWS', values: [[c.value]] })) }),
   });
   await throwIfFailed(res, 'write');
 }

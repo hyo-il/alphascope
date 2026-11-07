@@ -127,3 +127,46 @@ export function clearPurchasesForTest(): void {
 export const purchaseStartDayStoredForTest = (): string | null =>
   (purchaseDb().prepare(`SELECT value FROM app_settings WHERE key = ?`).get(START_KEY) as { value: string } | undefined)?.value ?? null;
 export const purchaseCountForTest = (): number => (purchaseDb().prepare(`SELECT COUNT(*) AS n FROM asset_purchase`).get() as { n: number }).n;
+
+// ── 시트 가격(v2.65.0) — 바꾸기 전 원래 수식 `asset_sheet_backup` · 출처 · 바꾼 줄(`app_settings`) ──
+/*
+  - `asset_sheet_backup(cell, formula, saved_at)` — 「티커」 탭의 칸 주소(C9 · E14 · F14 …) → 바꾸기 전 수식 글자 그대로.
+    [바꾸기] 가 시트에 쓰기 **전에** 저장한다(저장 실패면 쓰지 않음). 같은 칸은 처음 것을 지킨다(INSERT OR IGNORE — 남은 종목 바꾸기가 원래 수식을 덮지 않게).
+    [되돌리기] 가 다시 읽어 같음을 확인한 뒤에만 지운다.
+  - `app_settings` 'asset.priceSource'(`google` | `toss` — 없으면 google) · 'asset.priceRows'(바꾼 줄 `[{ row, code, market }]`) ·
+    'asset.priceSkipped'(바꾸지 않은 줄과 이유 — 설정 창 목록).
+  ⚠️ 수식 · 코드 · 이름을 로그에 찍지 않는다.
+*/
+let backupReady = false;
+function backupDb() {
+  const database = getDb();
+  if (!backupReady) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS asset_sheet_backup (
+        cell TEXT PRIMARY KEY,          -- 「티커」 탭 칸 주소(C9 · E14 · F14 …)
+        formula TEXT NOT NULL,          -- 바꾸기 전 수식 글자 그대로([되돌리기] 가 이 글자를 다시 넣는다)
+        saved_at TEXT NOT NULL          -- 저장 시각(ISO)
+      );
+    `);
+    backupReady = true;
+  }
+  return database;
+}
+
+/** 원래 수식 저장 — 한 트랜잭션(하나라도 실패하면 아무것도 저장하지 않고 throw) · 이미 있는 칸은 그대로 */
+export function saveSheetBackup(cells: { cell: string; formula: string }[], savedAt: string): void {
+  const database = backupDb();
+  const ins = database.prepare(`INSERT OR IGNORE INTO asset_sheet_backup (cell, formula, saved_at) VALUES (?, ?, ?)`);
+  database.transaction(() => {
+    for (const c of cells) ins.run(c.cell, c.formula, savedAt);
+  })();
+}
+
+/** 저장된 원래 수식 전부(칸 주소 순) */
+export const sheetBackup = (): { cell: string; formula: string }[] =>
+  backupDb().prepare(`SELECT cell, formula FROM asset_sheet_backup ORDER BY cell`).all() as { cell: string; formula: string }[];
+
+/** 되돌리기를 확인한 뒤 백업 지우기 */
+export function clearSheetBackup(): void {
+  backupDb().prepare(`DELETE FROM asset_sheet_backup`).run();
+}

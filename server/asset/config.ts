@@ -23,3 +23,13 @@ export const isSheetConfigured = () => assetSheetConfig() !== null;
  * (쓰기 API 는 「꺼짐」 오류). 사본 DB 로 띄운 시험 서버는 끈다(`scripts/lib/testServerEnv.ts`).
  */
 export const isAssetSyncEnabled = (): boolean => process.env.ASSET_SYNC_ENABLED?.trim().toLowerCase() !== 'false';
+
+/**
+ * 8번째 시험 서버 스위치 `ASSET_PRICE_WRITE_ENABLED`(**기본 꺼짐** · v2.65.0) — 값이 정확히 `true` 일 때만 켬.
+ * 켜면 「시트 가격」(「티커」 가격 · 환율 칸을 토스 값으로 — `priceSheet.ts` · `priceWriter.ts`)의 [바꾸기] · [되돌리기] · 10초 쓰기를 한다.
+ * 오라클 `.env` 에서만 켠다(맥 서버가 같은 시트에 함께 써서 겹치지 않게 — 사용자 결정 2026-11-07).
+ */
+export const isAssetPriceWriteEnabled = (): boolean => process.env.ASSET_PRICE_WRITE_ENABLED?.trim() === 'true';
+
+/** 시트 가격 쓰기를 해도 되나 — 이 스위치 **그리고** `ASSET_SYNC_ENABLED` 둘 다 켜졌을 때만 */
+export const isPriceWriteAllowed = (): boolean => isAssetPriceWriteEnabled() && isAssetSyncEnabled();

@@ -30,7 +30,11 @@ export type AssetSheetErrorKind =
   | 'mismatch' // 쓴 뒤 다시 읽은 값이 보낸 값과 다름(목표 비율 — v2.63.0 · 계좌 이름 날짜 — v2.64.0)
   | 'no-date' // 「( 날짜 )」 가 든 계좌 이름 칸이 없음(구매 완료 — v2.64.0)
   | 'already-done' // 이번 구매 차례는 이미 「구매 완료」 를 눌렀음(v2.64.0)
-  | 'before-start'; // 이 기능을 쓰기 시작한 날보다 앞선 구매 차례 — 기록하지 않음(v2.64.1)
+  | 'before-start' // 이 기능을 쓰기 시작한 날보다 앞선 구매 차례 — 기록하지 않음(v2.64.1)
+  // ── 시트 가격(v2.65.0) ──
+  | 'busy' // 시트 가격 바꾸기 · 되돌리기가 이미 도는 중
+  | 'no-rows' // 바꿀 줄이 없음(모두 이미 토스 · 토스 가격 없음 · 모양이 다름)
+  | 'no-backup'; // 되돌릴 원래 수식이 앱 DB 에 없음
 
 /**
  * 자산 분류 — 「티커」 D열에 적는 글자 넷(사용자 결정 2026-11-07).
@@ -260,6 +264,49 @@ export interface AssetSymbolRow {
 }
 
 /** `GET /api/asset/summary?pension=0|1` */
+/** 시트 가격 출처(v2.65.0) — google: 시트의 GOOGLEFINANCE 수식 · toss: 앱이 토스 가격 · 환율 숫자를 씀 */
+export type AssetPriceSource = 'google' | 'toss';
+
+/** 바꾸지 않은 줄의 이유 — 화면 「토스 가격 없음 — 시트 값 그대로」 목록 */
+export type AssetPriceSkipReason =
+  | 'no-toss-price' // 토스가 가격을 주지 않음
+  | 'price-shape' // 가격 칸(E)이 GOOGLEFINANCE 가격 수식이 아님
+  | 'won-shape' // 원화 표기 칸(F)이 E행 · E행 × 환율로 읽히지 않음
+  | 'code-changed'; // 바꾼 뒤 그 줄의 종목 코드가 바뀜(줄을 옮김) — 쓰지 않음 · 되돌린 뒤 다시 바꾸기 필요
+
+export const PRICE_SKIP_LABEL: Record<AssetPriceSkipReason, string> = {
+  'no-toss-price': '토스 가격 없음',
+  'price-shape': '가격 칸이 GOOGLEFINANCE 가 아님',
+  'won-shape': '원화 표기 칸 모양이 다름',
+  'code-changed': '줄 코드가 바뀜 — 되돌린 뒤 다시 바꾸기 필요',
+};
+
+export interface AssetPriceSkip {
+  /** 「티커」 줄 번호 */
+  row: number;
+  name: string;
+  code: string;
+  reason: AssetPriceSkipReason;
+}
+
+/** 설정 창 「시트 가격」(v2.65.0) — summary 응답에 같이 온다 */
+export interface AssetPriceSheetStatus {
+  /** 이 서버에서 시트 가격 쓰기가 켜져 있나(`ASSET_PRICE_WRITE_ENABLED` 와 `ASSET_SYNC_ENABLED` 둘 다) */
+  enabled: boolean;
+  source: AssetPriceSource;
+  /** 마지막으로 시트에 가격을 쓴 시각(ISO) — 이 서버가 켜진 뒤 */
+  lastWrittenAt: string | null;
+  /** off: 스위치 꺼짐 · idle: Google(쓰지 않음) · writing: 장이 열려 쓰는 중 · closed: 두 시장 닫힘 */
+  state: 'off' | 'idle' | 'writing' | 'closed';
+  /** 토스로 바꾼 줄 수 */
+  rows: number;
+  /** 지금 토스 가격이 생겨 더 바꿀 수 있는 줄 수(「남은 종목도 토스로 바꾸기」 — 0 이면 숨김) */
+  remaining: number;
+  /** 되돌릴 원래 수식이 앱 DB 에 남아 있나 */
+  hasBackup: boolean;
+  skipped: AssetPriceSkip[];
+}
+
 export interface AssetSummary {
   /** 시트를 읽은 시각(ISO) · 가격을 계산한 시각(ISO) */
   readAt: string;
@@ -287,6 +334,8 @@ export interface AssetSummary {
   writeEnabled: boolean;
   /** 이번 달 구매(v2.64.0) — 월급 × 목표 비율 · 구매일 · 이번 차례 완료 여부 */
   monthlyBuy: MonthlyBuy;
+  /** 시트 가격(v2.65.0) — 설정 창 「시트 가격」 */
+  priceSheet: AssetPriceSheetStatus;
 }
 
 /** 이번 달 구매 한 줄(v2.64.0) — 금액은 원(반올림 정수) · 목표나 월급이 없으면 null(「—」) */

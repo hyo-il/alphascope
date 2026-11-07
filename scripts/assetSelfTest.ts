@@ -1245,8 +1245,9 @@ const fnBody = (name: string) => {
   return i < 0 ? '' : src.slice(i, src.indexOf('\n}\n', i));
 };
 // 111차: 부르는 곳이 셋(+ writeAccountDates 계좌 이름 날짜)
-const WRITE_CALLERS = JSON.stringify(['server/asset/google.ts', 'server/asset/sheet.ts', 'server/asset/sheet.ts', 'server/asset/sheet.ts']);
-check('[106-8] [109-1] [111-8] 시트 쓰기 함수 valuesWrite — 정의(google.ts) 1 + 부르는 곳 3(sheet.ts writeAssetClass · writeTargetRatio · writeAccountDates)뿐 · 옛 valuesUpdate 0', JSON.stringify(callers.sort()) === WRITE_CALLERS && /valuesWrite\(/.test(fnBody('writeAssetClass')) && /valuesWrite\(/.test(fnBody('writeTargetRatio')) && /valuesWrite\(/.test(fnBody('writeAccountDates')) && !/\bvaluesUpdate\b/.test(appCode), callers.join(','));
+// 113차: 시트 가격(priceSheet.ts 바꾸기 · 되돌리기 · priceWriter.ts 10초 쓰기)이 같은 함수를 부른다(쓰는 방식은 인자 — `assetprice:test` [113-7])
+const WRITE_CALLERS = JSON.stringify(['server/asset/google.ts', 'server/asset/priceSheet.ts', 'server/asset/priceSheet.ts', 'server/asset/priceWriter.ts', 'server/asset/sheet.ts', 'server/asset/sheet.ts', 'server/asset/sheet.ts']);
+check('[106-8] [109-1] [111-8] 시트 쓰기 함수 valuesWrite — 정의(google.ts) 1 + 부르는 곳 sheet.ts 3(writeAssetClass · writeTargetRatio · writeAccountDates) + 113차 시트 가격 3(priceSheet.ts 2 · priceWriter.ts 1)뿐 · 옛 valuesUpdate 0', JSON.stringify(callers.sort()) === WRITE_CALLERS && /valuesWrite\(/.test(fnBody('writeAssetClass')) && /valuesWrite\(/.test(fnBody('writeTargetRatio')) && /valuesWrite\(/.test(fnBody('writeAccountDates')) && !/\bvaluesUpdate\b/.test(appCode), callers.join(','));
 check('[106-8] [109-1] 그 밖의 구글 쓰기 주소(서식 spreadsheets:batchUpdate · values:append · values:clear) 0 · values:batchUpdate 는 google.ts 한 곳 · googleapis 는 google.ts 한 곳', !/(?<!values):batchUpdate|values:append|values:clear|values:batchClear/.test(appCode) && codeFiles.filter(({ src }) => /values:batchUpdate/.test(src)).map((x) => x.f).join(',') === 'server/asset/google.ts' && codeFiles.filter(({ src }) => /sheets\.googleapis\.com/.test(src)).map((x) => x.f).join(',') === 'server/asset/google.ts');
 check('[106-8] 구글 scope 는 spreadsheets 하나(drive 등 다른 scope 없음)', /auth\/spreadsheets'/.test(appCode) && !/auth\/spreadsheets\.readonly/.test(appCode) && !/auth\/drive/.test(appCode));
 check('[106-8] 실제 구글 호출 0 — 이 시험의 googleapis 요청은 모두 가짜가 받았다(쓰기는 가짜 응답으로만)', realGoogleCalls === 0);
@@ -1310,7 +1311,7 @@ const changed106 = spawnSync('git', ['diff', '--name-only', 'c166ecd', '--', 'se
 check('[106-12] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(c166ecd 와 지금 작업 트리)', changed106.status === 0 && changed106.stdout.trim() === '', changed106.stdout.trim() || changed106.stderr.trim());
 
 // [107-9] 시트 쓰기는 지금처럼 「티커」 D14~D42 자산 분류 한 곳뿐 · 서식 쓰기(batchUpdate — repeatCell · 정렬 등) 0 — 이번 설정 저장은 앱 DB(app_settings)에만
-check('[107-9] 시트 쓰기 = sheet.ts 세 곳(자산 분류 · 109차 목표 비율 · 111차 계좌 이름 날짜) · 서식 쓰기(spreadsheets:batchUpdate · repeatCell · horizontalAlignment) 0 · settings.ts 는 시트를 쓰지 않음', JSON.stringify(callers.sort()) === WRITE_CALLERS && !/(?<!values):batchUpdate|repeatCell|horizontalAlignment|userEnteredFormat/.test(appCode) && !/valuesWrite|googleapis/.test(fs.readFileSync(path.join(root, 'server/asset/settings.ts'), 'utf8')));
+check('[107-9] 시트 쓰기 = sheet.ts 세 곳(자산 분류 · 109차 목표 비율 · 111차 계좌 이름 날짜) + 113차 시트 가격(priceSheet.ts · priceWriter.ts) · 서식 쓰기(spreadsheets:batchUpdate · repeatCell · horizontalAlignment) 0 · settings.ts 는 시트를 쓰지 않음', JSON.stringify(callers.sort()) === WRITE_CALLERS && !/(?<!values):batchUpdate|repeatCell|horizontalAlignment|userEnteredFormat/.test(appCode) && !/valuesWrite|googleapis/.test(fs.readFileSync(path.join(root, 'server/asset/settings.ts'), 'utf8')));
 // [107-10] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(106차 끝 428db88 와 지금 작업 트리)
 const changed107 = spawnSync('git', ['diff', '--name-only', '428db88', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
 check('[107-10] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(428db88 와 지금 작업 트리)', changed107.status === 0 && changed107.stdout.trim() === '', changed107.stdout.trim() || changed107.stderr.trim());

@@ -19,7 +19,7 @@ const CACHE_MS = 30_000;
 type Cell = string | number | boolean | undefined;
 
 const q = (tab: string) => `'${tab.replace(/'/g, "''")}'`;
-const one = (tab: string, cell: string) => `${q(tab)}!${cell}`;
+export const one = (tab: string, cell: string) => `${q(tab)}!${cell}`;
 const holdingRange = (s: HoldingSection) => `${q(HOLDINGS_TAB)}!B${s.firstRow}:F${s.lastRow}`;
 /** 「티커」 이름(B) · 코드(C) · 자산 분류(D) */
 const tickerRange = () => `${q(TICKER_TAB)}!B${SHEET_LAYOUT.tickers.firstRow}:${SHEET_LAYOUT.assetClass.column}${SHEET_LAYOUT.tickers.lastRow}`;
@@ -63,7 +63,7 @@ function num(v: Cell): number | null {
 const text = (v: Cell) => (v == null ? '' : String(v).trim());
 
 /** 「티커」 한 줄(B · C …)이 종목 줄이면 그 코드 — 빈 줄 · 이름 없음 · 코드 없음 · 구분 줄(「개별 투자」 등)은 null */
-function tickerRowCode(r: Cell[] | undefined): string | null {
+export function tickerRowCode(r: Cell[] | undefined): string | null {
   const name = text(r?.[0]);
   const code = text(r?.[1]);
   if (!name || !code) return null;
@@ -204,7 +204,7 @@ export async function readAssetSheet(): Promise<AssetSheetData> {
 }
 
 /** 머리 글자 하나가 맞는가 — 공백을 모두 빼고 비교 · `prefix` 는 앞부분만 */
-const headerOk = (h: HeaderCheck, got: Cell) => (h.prefix ? squash(got).startsWith(squash(h.expect)) : squash(got) === squash(h.expect));
+export const headerOk = (h: HeaderCheck, got: Cell) => (h.prefix ? squash(got).startsWith(squash(h.expect)) : squash(got) === squash(h.expect));
 
 /** 쓰기 실패 중 시트와 상관없는 것(칸 · 값 · 스위치) — 화면에는 문구 그대로 */
 const refuse = (kind: 'disabled' | 'not-editable' | 'formula-cell', message: string) => new AssetSheetError(kind, message);

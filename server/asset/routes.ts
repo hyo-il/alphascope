@@ -1,5 +1,5 @@
 /*
-  자산 관리(v2.61.0 · v2.62.0 · v2.64.0 구매 완료) 주소 — 모두 로그인 문지기(`authGuard`) 뒤다. `server/index.ts` 가 `app.use(assetRouter)` 로 붙인다(주소는 전체 경로 그대로).
+  자산 관리(v2.61.0 · v2.62.0 · v2.64.0 구매 완료 · v2.65.0 시트 가격) 주소 — 모두 로그인 문지기(`authGuard`) 뒤다. `server/index.ts` 가 `app.use(assetRouter)` 로 붙인다(주소는 전체 경로 그대로).
   - 자산 문지기(`assetGuard`)는 이 라우터 맨 앞 **한 곳**에서 모든 `/api/asset/*` 를 막는다 — 잠겨 있으면 403 `asset-locked`.
     빠지는 것은 `status` · `unlock` · `lock` 셋뿐이다(라우트마다 따로 검사하지 않는다).
   - ⚠️ 응답 · 로그에 자산 값(금액 · 수량 · 종목)을 찍지 않는다. 실패 로그는 이유 종류만.
@@ -12,6 +12,7 @@ import { AssetSheetError } from './google';
 import { readAssetSheet, writeAccountDates, writeAssetClass, writeTargetRatio } from './sheet';
 import { currentCycle } from './purchase';
 import { assetSummary } from './summary';
+import { convertSheetPrices, restoreSheetPrices } from './priceSheet';
 import { historyPoints, isHistoryRange, recordPurchase } from './store';
 import { writeAssetSettings } from './settings';
 import type { AssetSheetErrorKind, AssetSheetFailure, AssetStatus, PurchaseDoneResult } from '../../src/types/asset';
@@ -133,6 +134,25 @@ assetRouter.post('/api/asset/purchase-done', async (_req, res) => {
   }
 });
 
+/**
+ * 시트 가격(v2.65.0) — [시트 가격을 토스로 바꾸기](이미 토스면 남은 종목) · [되돌리기]. 성공하면 「시트 가격」 상태(summary 의 `priceSheet` 와 같은 모양).
+ * 스위치(`ASSET_PRICE_WRITE_ENABLED` · `ASSET_SYNC_ENABLED`) · 머리 글자 · 칸 모양 · 백업 · 한 요청 · 다시 읽기 확인은 `priceSheet.ts` 한 곳.
+ */
+assetRouter.post('/api/asset/price-source/convert', async (_req, res) => {
+  try {
+    res.json(await convertSheetPrices());
+  } catch (e) {
+    sendSheetError(res, e, '쓰기');
+  }
+});
+assetRouter.post('/api/asset/price-source/restore', async (_req, res) => {
+  try {
+    res.json(await restoreSheetPrices());
+  } catch (e) {
+    sendSheetError(res, e, '쓰기');
+  }
+});
+
 /** 총 자산 · 분류별 · 코어/위성 · 어제보다 — 화면이 열린 동안 10초마다(시트는 30초 캐시 · 가격은 토스 /prices 한 번 + 환율 60초 캐시) */
 assetRouter.get('/api/asset/summary', async (req, res) => {
   try {
@@ -163,8 +183,8 @@ assetRouter.put('/api/asset/settings', async (req, res) => {
   }
 });
 
-/** 이유 종류 → HTTP — 이 서버 설정(연결 정보 · 열쇠 · 스위치)은 503, 요청이 틀림은 400, 수식 칸 · 날짜 없음 · 이미 구매 완료 · 시작 전 차례는 409, 구글 쪽은 502 */
-const STATUS: Partial<Record<AssetSheetErrorKind, number>> = { 'not-configured': 503, 'key-file': 503, disabled: 503, 'not-editable': 400, 'formula-cell': 409, 'no-date': 409, 'already-done': 409, 'before-start': 409 };
+/** 이유 종류 → HTTP — 이 서버 설정(연결 정보 · 열쇠 · 스위치)은 503, 요청이 틀림은 400, 수식 칸 · 날짜 없음 · 이미 구매 완료 · 시작 전 차례 · 시트 가격(도는 중 · 바꿀 줄 없음 · 백업 없음)은 409, 구글 쪽은 502 */
+const STATUS: Partial<Record<AssetSheetErrorKind, number>> = { 'not-configured': 503, 'key-file': 503, disabled: 503, 'not-editable': 400, 'formula-cell': 409, 'no-date': 409, 'already-done': 409, 'before-start': 409, busy: 409, 'no-rows': 409, 'no-backup': 409 };
 
 /** 실패 응답 — 쉬운 말 + 이유 종류. ⚠️ 로그에는 이유 종류만(시트 값 · 응답 본문 · 경로를 찍지 않는다) */
 export function sendSheetError(res: Response, e: unknown, action: string): void {

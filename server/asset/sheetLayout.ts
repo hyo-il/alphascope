@@ -9,7 +9,8 @@
  * - 평균 매입가: C열 수식이 `=(달러값)*('티커'!$G$9)` 이면 달러 원래 값 · USD, 숫자면 원화 KRW(`usdFormula`).
  * - **쓰는 칸은 셋뿐**: 「티커」 D14~D42 자산 분류(`assetClass` — `server/asset/sheet.ts` `writeAssetClass`) ·
  *   「자산 투자 비율 관리」 목표 비율 여섯 칸(`targetRatio` — 설정 창에서 저장할 때만 · `writeTargetRatio` · v2.63.0) ·
- *   「주식 투자 정리」 계좌 이름 칸(`sections` 의 `nameCell`)의 「( 날짜 )」 — 「구매 완료」 때만 · `writeAccountDates` · v2.64.0.
+ *   「주식 투자 정리」 계좌 이름 칸(`sections` 의 `nameCell`)의 「( 날짜 )」 — 「구매 완료」 때만 · `writeAccountDates` · v2.64.0 ·
+ *   「티커」 시트 가격(`prices` — C9 환율 · 종목 줄 E 가격 · F 원화 표기 수식 · v2.65.0 · `priceSheet.ts` · `priceWriter.ts`).
  */
 
 import { ASSET_CLASSES } from '../../src/types/asset';
@@ -103,6 +104,25 @@ export const SHEET_LAYOUT = {
       { tab: '자산 투자 비율 관리', cell: 'F23', expect: '코어' },
       { tab: '자산 투자 비율 관리', cell: 'F24', expect: '위성' },
     ] satisfies HeaderCheck[],
+  },
+
+  /**
+   * 시트 가격(v2.65.0) — 「티커」 환율 칸 · 종목 줄(`tickers` 14~42)의 가격 칸(E) · 원화 표기 칸(F). 종목 코드는 C열(`tickers` 와 같은 줄).
+   * - 바꾸기 전 모양(2026-11-07 시험용 시트 A-0 확인): C9 `=GOOGLEFINANCE("…USDKRW")` · E `=GOOGLEFINANCE(C행,"price")` ·
+   *   F 국내 `=GOOGLEFINANCE(C행,"price")` / 미국 `=GOOGLEFINANCE($C행,"price")*$C$9` (E 와 같은 값 — `=E행` · `=E행*$C$9` 도 받는다).
+   * - 바꾼 뒤: C9 = 토스 환율 숫자 · E = 토스 가격 숫자 · F = 국내 `=E행` / 미국 `=E행*$C$9`(다른 탭 「주식 투자 정리」 F열이 `'티커'!$F$NN` 으로 읽는다).
+   * - G · H · I열(등락 · 백분율 · 거래량)과 그 밖 칸은 쓰지 않는다.
+   */
+  prices: {
+    tab: TICKER_TAB,
+    fxCell: 'C9',
+    codeColumn: 'C',
+    priceColumn: 'E',
+    wonColumn: 'F',
+    /** C9 바꾸기 전 모양 */
+    fxFormula: /^=\s*GOOGLEFINANCE\s*\(\s*"(?:CURRENCY:)?USDKRW"/i,
+    /** E 바꾸기 전 모양 — 첫 인자(코드 칸 또는 글자)를 꺼낸다 */
+    priceFormula: /^=\s*GOOGLEFINANCE\s*\(\s*([^,()]+?)\s*,\s*"price"\s*\)\s*$/i,
   },
 
   /** F열 수식에서 「티커」 줄 번호 NN — `'티커'!$F$NN`(「티커」 F열 = 원화 표기) */

@@ -22,6 +22,7 @@ import { latestRecord } from './store';
 import { isAssetSyncEnabled } from './config';
 import { computeRebalance } from './rebalance';
 import { monthlyBuyOf } from './purchase';
+import { priceSheetStatus } from './priceSheet';
 
 /** 토스 가격(종목 → 원래 통화 값) · 환율(1달러 = N원) */
 export interface PriceBook {
@@ -212,5 +213,6 @@ export async function assetSummary(includePension: boolean): Promise<AssetSummar
     targetRatio: data.targetRatio,
     writeEnabled: isAssetSyncEnabled(),
     monthlyBuy: monthlyBuyOf(data.salary, data.targetRatio, (day) => accountDateTexts(data, day)),
+    priceSheet: priceSheetStatus(),
   };
 }

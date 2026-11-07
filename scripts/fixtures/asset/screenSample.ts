@@ -4,7 +4,7 @@
  * 긴 종목명 · 긴 구간 이름 · 달러 소수 4자리 · 빈 구간 · 이을 수식 없는 줄 · 합계 표를 모두 넣어 칸 넘침을 잰다.
  */
 import { DEFAULT_CLASS_COLORS, type AssetClassColors } from '../../../src/types/asset';
-import type { AssetClass, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHolding, AssetSheetData, AssetSheetFailure, AssetStatus, AssetSummary, AssetTargetRatio } from '../../../src/types/asset';
+import type { AssetClass, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHolding, AssetPriceSheetStatus, AssetSheetData, AssetSheetFailure, AssetStatus, AssetSummary, AssetTargetRatio } from '../../../src/types/asset';
 import { computeRebalance } from '../../../server/asset/rebalance';
 import { computeMonthlyBuy } from '../../../server/asset/purchase';
 
@@ -63,7 +63,7 @@ export const assetSheetFailureSample: AssetSheetFailure = {
  * 총 자산 요약(v2.62.0) 가짜 응답 — 만든 값. `none` = 미지정 금액 · 가격 못 받은 줄을 넣는다(긴 금액 · 경고 줄 넘침을 잰다).
  */
 export function assetSummarySample(
-  opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number; writeEnabled?: boolean; purchaseDone?: boolean; calendarUnchecked?: boolean; skipped?: boolean; salary?: number | null } = {},
+  opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number; writeEnabled?: boolean; purchaseDone?: boolean; calendarUnchecked?: boolean; skipped?: boolean; salary?: number | null; price?: 'google' | 'toss' | 'off' | 'google-backup' } = {},
 ): AssetSummary {
   const pension = opts.pension ?? false;
   const amounts: [AssetGroupKey, string, number][] = [
@@ -127,7 +127,24 @@ export function assetSummarySample(
       // 시트에 쓸 날짜 글자 — 위 가짜 계좌 이름(「( 2026.07 )」 모양)에 차례 날짜를 넣은 값
       sheetDates: [opts.skipped ? '2026.10' : '2026.11'],
     },
+    priceSheet: priceSheetSample(opts.price ?? 'google'),
   };
+}
+
+/**
+ * 시트 가격(v2.65.0) 가짜 상태 — google: 처음(Google) · toss: 토스로 바꾼 뒤(쓰는 중 · 토스 가격 없음 목록 · 남은 종목 1) ·
+ * off: 스위치 꺼진 서버(맥 기본) · google-backup: Google 인데 되돌리기 확인이 틀려 백업이 남음. 긴 종목명 · 영문 섞인 코드로 칸 넘침을 잰다.
+ */
+export function priceSheetSample(kind: 'google' | 'toss' | 'off' | 'google-backup'): AssetPriceSheetStatus {
+  const skipped: AssetPriceSheetStatus['skipped'] = [
+    { row: 17, name: 'KODEX 예시 S&P500 이름이 아주 긴 종목 Vanguard Total World Stock Market Index Fund ETF Shares', code: '0072R0', reason: 'no-toss-price' },
+    { row: 21, name: '예시 미국 채권 ETF', code: 'NYSEARCA:BBBB', reason: 'won-shape' },
+    { row: 24, name: '', code: '000009', reason: 'code-changed' },
+  ];
+  if (kind === 'toss') return { enabled: true, source: 'toss', lastWrittenAt: '2026-11-07T13:05:20.000Z', state: 'writing', rows: 19, remaining: 1, hasBackup: true, skipped };
+  if (kind === 'off') return { enabled: false, source: 'google', lastWrittenAt: null, state: 'off', rows: 0, remaining: 0, hasBackup: false, skipped: [] };
+  if (kind === 'google-backup') return { enabled: true, source: 'google', lastWrittenAt: null, state: 'idle', rows: 0, remaining: 0, hasBackup: true, skipped: [] };
+  return { enabled: true, source: 'google', lastWrittenAt: null, state: 'idle', rows: 0, remaining: 0, hasBackup: false, skipped: [] };
 }
 
 /** 하루 기록 가짜 응답 — n 개(평일만 · 오늘 쪽으로 끝남) */
