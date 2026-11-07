@@ -151,7 +151,7 @@ export default function AssetSettingsDialog({
         </div>
       </Block>
 
-      <Block title="목표 비율" desc="정수 %. 현금 · 채권 · 금 · 주식 합과 코어 + 위성 합이 각각 100일 때 저장할 수 있습니다. 저장하면 시트 「자산 투자 비율 관리」 에도 씁니다." busy={false} error={null}>
+      <Block title="목표 비율" desc="정수 %. 두 합이 각각 100일 때 저장할 수 있고, 저장하면 시트에도 씁니다." busy={false} error={null}>
         <AssetTargetRatioForm initial={summary.targetRatio} writeEnabled={summary.writeEnabled} onSave={onSaveTarget} autoFocus={focus === 'targetRatio'} />
       </Block>
 

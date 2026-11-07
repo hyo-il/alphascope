@@ -36,7 +36,8 @@ function qtyDigits(rows: AssetSymbolRow[]): number {
 
 export default function AssetSymbolTable({ rows, filter }: { rows: AssetSymbolRow[]; filter: Filter }) {
   const shown = filter === 'all' ? rows : rows.filter((r) => r.assetClass === '주식' && r.side === filter);
-  const digits = qtyDigits(shown);
+  // 수량 자릿수는 거르기 전 모든 줄로 — 거르기를 바꿔도 같은 종목의 자릿수가 같다
+  const digits = qtyDigits(rows);
   const sum = shown.reduce((a, r) => a + (r.value ?? 0), 0);
   const label = FILTERS.find((f) => f.value === filter)?.label ?? '전체';
 
@@ -79,7 +80,14 @@ export default function AssetSymbolTable({ rows, filter }: { rows: AssetSymbolRo
                   </td>
                   <td className={`${TEXT} text-center`}>{r.assetClass ?? UNASSIGNED_SHORT}</td>
                   <td className={`${TEXT} text-center`}>{r.side ? SIDE_LABEL[r.side] : UNASSIGNED_SHORT}</td>
-                  <td className={`${TABLE_NUM_GAP} py-1 text-caption keep-all ${dim ? '' : 'text-text-secondary'}`}>{r.sections.join(' · ')}</td>
+                  <td className={`${TABLE_NUM_GAP} py-1 text-caption ${dim ? '' : 'text-text-secondary'}`}>
+                    {r.sections.map((k, i) => (
+                      <span key={k} className="whitespace-nowrap">
+                        {i > 0 && ' · '}
+                        {k}
+                      </span>
+                    ))}
+                  </td>
                   <td className={NUM}>{r.quantity == null ? '—' : formatNumber(r.quantity, digits)}</td>
                   <td className={NUM} title={r.missing > 0 ? `가격을 받지 못한 줄 ${r.missing}개는 빠졌습니다` : undefined}>
                     {r.value == null ? '—' : formatPrice(r.value, 'KRW')}
@@ -91,7 +99,7 @@ export default function AssetSymbolTable({ rows, filter }: { rows: AssetSymbolRo
           </tbody>
         </table>
       </Panel>
-      <p className="px-1 text-xs text-text-secondary tabular-nums" data-symbol-sum>
+      <p className="pl-4 text-xs text-text-secondary tabular-nums" data-symbol-sum>
         {label} {formatPrice(sum, 'KRW')} · {shown.length}종목
       </p>
     </div>

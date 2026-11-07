@@ -30,57 +30,75 @@ function StatusBadge({ status }: { status: RebalanceRow['status'] }) {
 const excludedText = (e: RebalanceExcluded) =>
   e.key === 'missing' ? `${e.label} ${e.count ?? 0}줄은 계산에서 빠짐` : `${e.label} ${formatPrice(e.amount, 'KRW')}은 계산에서 빠짐`;
 
-/** 표 위 안내 — 목표 칸이 비었음 · 목표 합이 100 이 아님 */
+const COLS = 8;
+
+/** 표 위 안내 — 목표 칸이 비었음 · 목표 합이 100 이 아님(구역 안 한 줄씩) */
 function TargetNotes({ table }: { table: RebalanceTable }) {
   const sumOff = table.targetSum != null && !table.targetMissing && Math.abs(table.targetSum - 100) > 1e-6;
-  if (!table.targetMissing && !sumOff) return null;
+  const notes = [
+    table.targetMissing ? '시트에 목표 비율이 비어 있는 칸이 있습니다 — 그 줄은 목표 「—」 · 상태 없음으로 보입니다.' : null,
+    sumOff ? `목표 비율 합이 ${formatNumber(table.targetSum, 1, '%')}입니다 — 설정에서 바로잡아 주세요.` : null,
+  ].filter((x): x is string => x != null);
   return (
-    <div className="space-y-1 px-4 pb-2 text-xs text-warning keep-all" role="status">
-      {table.targetMissing && <p>시트에 목표 비율이 없습니다 — 비어 있는 줄은 목표 「—」 로 보입니다.</p>}
-      {sumOff && <p>목표 비율 합이 {formatNumber(table.targetSum, 1, '%')}입니다 — 설정에서 바로잡아 주세요.</p>}
-    </div>
+    <>
+      {notes.map((n) => (
+        <tr key={n} role="status">
+          <td colSpan={COLS} className="px-4 pb-2 text-xs text-warning keep-all">
+            {n}
+          </td>
+        </tr>
+      ))}
+    </>
   );
 }
 
-/** 비율 조정 표 하나 — 자산 · 주식 안이 같은 모양(열 자리가 같다) */
-export function RebalanceTableView({ title, aside, table, testId }: { title: string; aside: string; table: RebalanceTable; testId: string }) {
+/** 구역 하나 = `tbody` 하나 — 제목 줄 · 안내 · 칸 이름 줄 · 줄들. 두 구역이 **표 하나**라 열 자리가 같다 */
+function RebalanceSection({ title, aside, table, testId, first }: { title: string; aside: string; table: RebalanceTable; testId: string; first: boolean }) {
   return (
-    <Panel pad="none" className="pb-1" data-rebalance-table={testId}>
-      <div className="px-4 pb-2 pt-3">
-        <SectionTitle aside={aside}>{title}</SectionTitle>
-      </div>
+    <tbody data-rebalance-table={testId}>
+      <tr>
+        <td colSpan={COLS} className={`px-4 pb-2 ${first ? 'pt-3' : 'pt-6'}`}>
+          <SectionTitle aside={aside}>{title}</SectionTitle>
+        </td>
+      </tr>
       <TargetNotes table={table} />
-      <table className="w-full text-left text-xs">
-        <thead className="text-caption text-text-muted">
-          <tr className={`border-b border-border/50 ${TABLE_HEAD_ROW}`}>
-            <th className={`${TABLE_NAME_COL} pl-4 font-normal`}>분류</th>
-            <th className={`${NUM} font-normal`}>목표</th>
-            <th className={`${NUM} font-normal`}>지금</th>
-            <th className={`${NUM} font-normal`}>목표 금액</th>
-            <th className={`${NUM} font-normal`}>지금 금액</th>
-            <th className={`${NUM} font-normal`}>차이</th>
-            <th className={`${NUM} font-normal`}>차이(%p)</th>
-            <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-4 text-center font-normal`}>상태</th>
-          </tr>
-        </thead>
-        <tbody>
-          {table.rows.map((r) => (
-            <tr key={r.key} className={`border-t border-border/30 ${LIST_TABLE_ROW} text-text-primary`} data-rebalance-row={r.key}>
-              <td className="pl-4">{r.label}</td>
-              <td className={NUM}>{pct(r.targetPct)}</td>
-              <td className={NUM}>{pct(r.nowPct)}</td>
-              <td className={NUM}>{formatPrice(r.targetAmount, 'KRW')}</td>
-              <td className={NUM}>{formatPrice(r.nowAmount, 'KRW')}</td>
-              <td className={NUM} data-rebalance-diff>
-                <DiffText amount={r.diffAmount} />
-              </td>
-              <td className={NUM}>{r.diffPp == null ? '—' : formatSigned(r.diffPp, 1, '%p')}</td>
-              <td className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-4 text-center`}>
-                <StatusBadge status={r.status} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
+      <tr className={`border-b border-border/50 text-caption text-text-muted ${TABLE_HEAD_ROW}`}>
+        <th className={`${TABLE_NAME_COL} pl-4 font-normal`}>분류</th>
+        <th className={`${NUM} font-normal`}>목표</th>
+        <th className={`${NUM} font-normal`}>지금</th>
+        <th className={`${NUM} font-normal`}>목표 금액</th>
+        <th className={`${NUM} font-normal`}>지금 금액</th>
+        <th className={`${NUM} font-normal`}>차이</th>
+        <th className={`${NUM} font-normal`}>차이(%p)</th>
+        <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-4 text-center font-normal`}>상태</th>
+      </tr>
+      {table.rows.map((r) => (
+        <tr key={r.key} className={`border-t border-border/30 ${LIST_TABLE_ROW} text-text-primary`} data-rebalance-row={r.key}>
+          <td className="pl-4">{r.label}</td>
+          <td className={NUM}>{pct(r.targetPct)}</td>
+          <td className={NUM}>{pct(r.nowPct)}</td>
+          <td className={NUM}>{formatPrice(r.targetAmount, 'KRW')}</td>
+          <td className={NUM}>{formatPrice(r.nowAmount, 'KRW')}</td>
+          <td className={NUM} data-rebalance-diff>
+            <DiffText amount={r.diffAmount} />
+          </td>
+          <td className={NUM}>{r.diffPp == null ? '—' : formatSigned(r.diffPp, 1, '%p')}</td>
+          <td className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} pr-4 text-center`}>
+            <StatusBadge status={r.status} />
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  );
+}
+
+/** 비율 조정 표 — 자산 · 주식 안 두 구역을 표 하나로(열 자리가 같다) */
+export function RebalanceTables({ rebalance }: { rebalance: AssetRebalance }) {
+  return (
+    <Panel pad="none" className="pb-1">
+      <table className="w-full text-left text-xs" data-rebalance-tables>
+        <RebalanceSection first title="자산" aside="목표 = 시트 「자산 투자 비율 관리」" table={rebalance.assets} testId="assets" />
+        <RebalanceSection first={false} title="주식 안" aside={`코어 · 위성 — 기준 = 주식 ${formatPrice(rebalance.stocks.base, 'KRW')}`} table={rebalance.stocks} testId="stocks" />
       </table>
     </Panel>
   );
@@ -118,8 +136,7 @@ export default function AssetRebalanceView({ summary, onEditTarget }: { summary:
   return (
     <div className="space-y-3" id="as-asset-rebalance">
       <BaseLine rebalance={rebalance} includePension={summary.includePension} onEditTarget={onEditTarget} />
-      <RebalanceTableView title="자산" aside="목표 = 시트 「자산 투자 비율 관리」" table={rebalance.assets} testId="assets" />
-      <RebalanceTableView title="주식 안" aside={`코어 · 위성 — 기준 = 주식 ${formatPrice(rebalance.stocks.base, 'KRW')}`} table={rebalance.stocks} testId="stocks" />
+      <RebalanceTables rebalance={rebalance} />
     </div>
   );
 }
