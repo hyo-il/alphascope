@@ -267,7 +267,7 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
           <div id="as-asset-status" className="space-y-3">
             {sheet == null && <SkeletonTable rows={6} columns={6} />}
             {sheet && 'error' in sheet && <ErrorLine message={sheet.error} onRetry={() => void loadSheet()} />}
-            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} accounts={summary?.accounts ?? []} onPickClass={pickClass} />}
+            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} onPickClass={pickClass} />}
           </div>
         )}
       </div>

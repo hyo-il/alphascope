@@ -233,6 +233,29 @@ export interface AssetRebalance {
   excluded: RebalanceExcluded[];
 }
 
+/** 「자산 현황」 종목별 한 줄(v2.63.0) — 같은 종목 코드를 계좌와 상관없이 합친 것(합친 표 제외 · 「연금 포함」 을 따름) */
+export interface AssetSymbolRow {
+  /** 합치는 열쇠 — 종목 코드(`symbol`), 이을 수 없는 줄은 `name:이름` */
+  id: string;
+  name: string;
+  /** 종목 코드(`NVDA` · `005930`) — 이을 수 없으면 null */
+  symbol: string | null;
+  exchange: string | null;
+  assetClass: AssetClass | null;
+  /** 분류 「주식」 만 코어 / 위성 — 그 밖 null(「-」) */
+  side: 'core' | 'satellite' | null;
+  /** 있는 계좌(계좌 key — 시트 순서) */
+  sections: string[];
+  /** 수량 합 — 아는 줄만(하나도 모르면 null) */
+  quantity: number | null;
+  /** 평가 금액 합(원) — 총 자산과 같은 값 계산 · 가격 못 받은 줄은 빠짐 · 하나도 못 받으면 null(「-」 흐리게) */
+  value: number | null;
+  /** 가격 못 받은 줄 수 */
+  missing: number;
+  /** 비중(0~1) — 기준 = 「연금 포함」 을 따른 총 자산 · 금액 없음이나 총 자산 0 이면 null */
+  ratio: number | null;
+}
+
 /** `GET /api/asset/summary?pension=0|1` */
 export interface AssetSummary {
   /** 시트를 읽은 시각(ISO) · 가격을 계산한 시각(ISO) */
@@ -255,6 +278,8 @@ export interface AssetSummary {
   rebalance: AssetRebalance;
   /** 시트의 목표 비율(설정 창 「목표 비율」 처음 값 — 백분율) */
   targetRatio: AssetTargetRatio;
+  /** 「자산 현황」 종목별(v2.63.0) — 평가 금액 큰 순 */
+  bySymbol: AssetSymbolRow[];
   /** 이 서버에서 시트 쓰기가 켜져 있나(`ASSET_SYNC_ENABLED`) — 꺼져 있으면 설정 창 목표 비율 [저장] 을 막는다 */
   writeEnabled: boolean;
 }

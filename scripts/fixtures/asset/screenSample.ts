@@ -100,6 +100,15 @@ export function assetSummarySample(opts: { pension?: boolean; none?: boolean; vs
       { symbol: 'CCCC', name: '예시 미국 반도체주', sections: ['ISA 계좌'], isStock: true },
       { symbol: '0072R0', name: 'KODEX 예시 S&P500 이름이 아주 긴 종목 Vanguard Total World Stock Market Index Fund ETF Shares', sections: ['적립식 계좌', 'ISA 계좌'], isStock: true },
     ],
+    // 종목별(가짜 — 같은 종목 두 계좌 · 미국 · 가격 못 받음 · 코어 / 위성 · 분류가 주식이 아닌 것)
+    bySymbol: [
+      { id: 'AAAA', name: '예시 미국 기술주', symbol: 'AAAA', exchange: 'NASDAQ', assetClass: '주식', side: 'satellite', sections: ['개별 투자'], quantity: 12.5, value: 691357803, missing: 0, ratio: 691357803 / total },
+      { id: '0072R0', name: 'KODEX 예시 S&P500 이름이 아주 긴 종목 Vanguard Total World Stock Market Index Fund ETF Shares', symbol: '0072R0', exchange: null, assetClass: '주식', side: 'core', sections: ['적립식 계좌', 'ISA 계좌'], quantity: 1500.25, value: 2765431209, missing: 0, ratio: 2765431209 / total },
+      { id: 'BBBB', name: '예시 미국 채권 ETF', symbol: 'BBBB', exchange: 'NYSEARCA', assetClass: '채권', side: null, sections: ['개별 투자'], quantity: 4, value: 345678901, missing: 0, ratio: 345678901 / total },
+      { id: '000002', name: '예시 국내 금 ETF', symbol: '000002', exchange: null, assetClass: '금', side: null, sections: ['ISA 계좌'], quantity: 15, value: 234567890, missing: 0, ratio: 234567890 / total },
+      { id: '000003', name: '예시 고가 국내주', symbol: '000003', exchange: null, assetClass: null, side: null, sections: ['개별 투자'], quantity: 1, value: opts.none ? null : 98765432, missing: opts.none ? 1 : 0, ratio: opts.none ? null : 98765432 / total },
+      { id: 'name:이을 수식 없는 줄', name: '이을 수식 없는 줄', symbol: null, exchange: null, assetClass: null, side: null, sections: ['적립식 계좌'], quantity: 1, value: null, missing: 1, ratio: null },
+    ],
     rebalance: computeRebalance(totals, target, band),
     targetRatio: target,
     writeEnabled: opts.writeEnabled ?? true,

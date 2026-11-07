@@ -458,6 +458,15 @@ function targets(): Target[] {
           await page.locator('[data-edit-target]').click().catch(() => {});
           await page.waitForTimeout(500);
         }],
+        ...(['전체', '코어', '위성'] as const).map((f) => [`자산현황-종목별-${f}`, { none: true }, async (page: Page) => {
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+          await page.getByRole('radio', { name: '종목별' }).click().catch(() => {});
+          await page.waitForTimeout(200);
+          if (f !== '전체') await page.getByRole('radio', { name: f, exact: true }).click().catch(() => {});
+          await page.locator('[data-symbol-view]').scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+        }] as const),
       ] as const
     ).map(([label, sum, act]) => ({
       name: `asset-${label}`,

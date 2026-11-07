@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
-import { DisclosureButton, ICON_SM, Panel, Select } from '../ui';
+import { DisclosureButton, ICON_SM, Panel, Segmented, Select } from '../ui';
+import { SkeletonTable } from '../common/SkeletonLoader';
+import AssetSymbolTable, { SYMBOL_FILTERS, type SymbolFilter } from './AssetSymbolTable';
 import { ASSET_CLASS_W, LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice } from '../../utils/formatters';
-import { ASSET_CLASSES, UNASSIGNED_SHORT, type AssetAccount, type AssetClass, type AssetHolding, type AssetSection, type AssetSheetData } from '../../types/asset';
+import { ASSET_CLASSES, UNASSIGNED_SHORT, type AssetAccount, type AssetClass, type AssetHolding, type AssetSection, type AssetSheetData, type AssetSymbolRow } from '../../types/asset';
 
 /**
  * 자산 관리 「자산 현황」 탭 (v2.61.0 1단계 확인 표 → v2.62.1 계좌 카드 → v2.62.2 탭).
@@ -13,7 +15,9 @@ import { ASSET_CLASSES, UNASSIGNED_SHORT, type AssetAccount, type AssetClass, ty
  * - 줄마다 「자산 분류」 고르기 → 시트 「티커」 D열에 바로 쓴다(그 칸만 로딩 · 실패하면 원래 값으로 되돌리고 이유 한 줄).
  *   같은 「티커」 줄에 이어진 줄은 함께 바뀐다(분류는 종목마다 하나).
  * - 연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색은 오른쪽 위 「설정」 창(`AssetSettingsDialog`).
- * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 접은 계좌 이름만).
+ * - 계좌 카드 위 「계좌별 | 종목별」(v2.63.0 — 이 기기에 기억 `alphascope.asset.statusView` · 읽기 실패면 계좌별).
+ *   종목별 = 같은 종목을 한 줄로(`AssetSymbolTable` · 「전체 / 코어 / 위성」 거르기) — 자산 분류 고르기는 계좌별에서.
+ * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 접은 계좌 이름 · 보기 이름만).
  */
 
 /** 값 한 칸 — 이름(13px 회색) 위 · 숫자 아래 */
@@ -79,6 +83,28 @@ function avgText(h: AssetHolding, usdDigits: number): string {
   if (h.avgPrice == null) return '—';
   if (h.currency === 'KRW') return formatPrice(h.avgPrice, 'KRW');
   return `$${formatNumber(h.avgPrice, Math.max(2, usdDigits))}`;
+}
+
+/** 「계좌별 | 종목별」 — 이 기기에 기억(읽기 실패 · 모르는 값이면 계좌별) */
+type StatusView = 'account' | 'symbol';
+const VIEW_KEY = 'alphascope.asset.statusView';
+const VIEWS: { value: StatusView; label: string }[] = [
+  { value: 'account', label: '계좌별' },
+  { value: 'symbol', label: '종목별' },
+];
+function readView(): StatusView {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'symbol' ? 'symbol' : 'account';
+  } catch {
+    return 'account';
+  }
+}
+function saveView(v: StatusView) {
+  try {
+    localStorage.setItem(VIEW_KEY, v);
+  } catch {
+    /* 기억하지 못해도 화면은 그대로 */
+  }
 }
 
 /** 접은 계좌(key) — 이 기기에 기억. 처음은 모두 펼침 */
@@ -287,11 +313,14 @@ function AccountCards({ sections, accounts, savingRows, onPick }: { sections: As
 export default function AssetSheetValues({
   data,
   accounts,
+  bySymbol,
   onPickClass,
 }: {
   data: AssetSheetData;
   /** 카드 머리 평가 금액 합 · 가격 못 받은 줄 수(총 자산 요약 응답) */
   accounts: AssetAccount[];
+  /** 종목별 줄(총 자산 요약 응답) — 아직 받지 못했으면 null(뼈대) */
+  bySymbol: AssetSymbolRow[] | null;
   /** 시트에 쓴다 — 실패면 이유 문구 */
   onPickClass: (row: number, value: AssetClass | '') => Promise<string | null>;
 }) {
@@ -299,6 +328,8 @@ export default function AssetSheetValues({
   const [base, setBase] = useState(data);
   const [savingRows, setSavingRows] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<StatusView>(readView);
+  const [filter, setFilter] = useState<SymbolFilter>('all');
   // 바깥에서 새로 읽은 값이 오면 그것을 보인다(쓰는 중인 칸이 없을 때)
   if (data !== base && savingRows.size === 0) {
     setBase(data);
@@ -337,7 +368,20 @@ export default function AssetSheetValues({
           {error}
         </p>
       )}
-      <AccountCards sections={shown.sections} accounts={accounts} savingRows={savingRows} onPick={(r, v) => void pick(r, v)} />
+      <div className="flex items-center gap-3">
+        <Segmented
+          label="자산 현황 보기"
+          options={VIEWS}
+          value={view}
+          onChange={(v) => {
+            setView(v);
+            saveView(v);
+          }}
+        />
+        {view === 'symbol' && <Segmented label="코어 · 위성 거르기" options={SYMBOL_FILTERS} value={filter} onChange={setFilter} />}
+      </div>
+      {view === 'account' && <AccountCards sections={shown.sections} accounts={accounts} savingRows={savingRows} onPick={(r, v) => void pick(r, v)} />}
+      {view === 'symbol' && (bySymbol == null ? <SkeletonTable rows={6} columns={8} /> : <AssetSymbolTable rows={bySymbol} filter={filter} />)}
     </div>
   );
 }

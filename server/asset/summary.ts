@@ -15,7 +15,7 @@
 import { fetchQuotes } from '../quoteService';
 import { isMockMode } from '../mockData';
 import { fetchExchangeRate } from '../../src/services/toss/account';
-import { ASSET_GROUP_LABEL, type AssetAccount, type AssetGroup, type AssetGroupKey, type AssetHolding, type AssetSettings, type AssetSheetData, type AssetSummary, type AssetTotals } from '../../src/types/asset';
+import { ASSET_GROUP_LABEL, type AssetSymbolRow, type AssetAccount, type AssetGroup, type AssetGroupKey, type AssetHolding, type AssetSettings, type AssetSheetData, type AssetSummary, type AssetTotals } from '../../src/types/asset';
 import { readAssetSheet } from './sheet';
 import { readAssetSettings, stockChoices } from './settings';
 import { latestRecord } from './store';
@@ -113,6 +113,45 @@ export function accountValues(data: AssetSheetData, book: PriceBook): AssetAccou
   });
 }
 
+/**
+ * 「자산 현황」 종목별(v2.63.0) — 같은 종목 코드를 계좌와 상관없이 한 줄로. **금액은 `valuedRow`(총 자산과 같은 값 계산)** — 새 가격 계산 없음.
+ * 합친 표(39~44행)는 더하지 않는다 · 「연금 포함」 이 꺼지면 연금으로 볼 계좌 종목은 빠진다(`computeAssetTotals` 와 같은 규칙).
+ * 코어 / 위성은 분류 「주식」 만(위성 = `satelliteSymbols`) — 코어 줄 금액 합 = `totals.core`, 위성 = `totals.satellite`.
+ * 비중 기준 = 같은 계산의 총 자산(`total`). 평가 금액 큰 순(금액 없음은 맨 뒤).
+ */
+export function holdingsBySymbol(data: AssetSheetData, book: PriceBook, settings: Pick<AssetSettings, 'pensionSections' | 'satelliteSymbols'>, includePension: boolean, total: number): AssetSymbolRow[] {
+  const satellites = new Set(settings.satelliteSymbols);
+  const map = new Map<string, AssetSymbolRow>();
+  for (const section of data.sections) {
+    if (section.combined || !section.key) continue; // ⚠️ 합친 표 — 더하지 않는다
+    if (settings.pensionSections.includes(section.key) && !includePension) continue;
+    for (const h of section.holdings) {
+      const id = h.symbol ?? `name:${h.name}`;
+      const row = map.get(id) ?? {
+        id,
+        name: h.name,
+        symbol: h.symbol,
+        exchange: h.exchange,
+        assetClass: h.assetClass,
+        side: h.assetClass === '주식' ? (h.symbol && satellites.has(h.symbol) ? 'satellite' : 'core') : null,
+        sections: [],
+        quantity: null,
+        value: null,
+        missing: 0,
+        ratio: null,
+      };
+      if (!row.sections.includes(section.key)) row.sections.push(section.key);
+      if (h.quantity != null) row.quantity = (row.quantity ?? 0) + h.quantity;
+      const v = valuedRow(h, book);
+      if (v == null) row.missing++;
+      else row.value = (row.value ?? 0) + v;
+      map.set(id, row);
+    }
+  }
+  const rows = [...map.values()].map((r) => ({ ...r, ratio: r.value != null && total > 0 ? r.value / total : null }));
+  return rows.sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity));
+}
+
 // ── 가격 받기 (지금 있는 함수 그대로 — 관심 목록과 같은 토스 /prices 묶음 · 환율 60초 캐시) ──
 
 type PriceSource = (data: AssetSheetData) => Promise<PriceBook>;
@@ -166,6 +205,7 @@ export async function assetSummary(includePension: boolean): Promise<AssetSummar
     missingNames: c.missingNames,
     settings,
     accounts: accountValues(data, book),
+    bySymbol: holdingsBySymbol(data, book, settings, includePension, c.totals.total),
     stockChoices: stockChoices(data, settings),
     rebalance: computeRebalance(c.totals, data.targetRatio, settings.rebalanceBand),
     targetRatio: data.targetRatio,

@@ -31,7 +31,7 @@ import { assetRouter } from '../server/asset/routes';
 import { AssetSheetError, resetTokenCache } from '../server/asset/google';
 import { avgPriceOf, checkTargetRatio, linkedTickerRow, parseAssetSheet, readAssetSheet, resetSheetCache, sheetRanges, splitCode, writeAssetClass, writeTargetRatio } from '../server/asset/sheet';
 import { ASSET_COLOR_IDS, ASSET_GROUP_LABEL, DEFAULT_CLASS_COLORS, UNASSIGNED_SHORT, type AssetSheetData, type AssetSummary, type AssetTotals } from '../src/types/asset';
-import { accountValues, computeAssetTotals, setAssetPriceSourceForTest, assetSummary, type PriceBook } from '../server/asset/summary';
+import { accountValues, computeAssetTotals, holdingsBySymbol, setAssetPriceSourceForTest, assetSummary, type PriceBook } from '../server/asset/summary';
 import { readAssetSettings, stockChoices, writeAssetSettings } from '../server/asset/settings';
 import { computeRebalance } from '../server/asset/rebalance';
 import { clearRecordsForTest, historyPoints, insertRecord, latestRecord } from '../server/asset/store';
@@ -644,6 +644,31 @@ try {
     check('[109-3] 0원 · 0줄이면 빠짐 줄 없음 · 기준 0 이면 지금 % · 상태 없음', rz.excluded.length === 0 && rz.assets.rows.every((x) => x.nowPct === null && x.status === null));
     for (const r of [rOff, rOn]) totalsSecret.push(String(Math.round(r.assets.base)), Math.round(r.assets.base).toLocaleString('en-US'));
   }
+  // ── 109차 D — 종목별(같은 코드 여러 계좌 → 한 줄 · valuedRow 그대로 · 코어 / 위성 합 = 비율 조정 금액) ─────────────────────
+  {
+    // 가짜 시트 복사본에 ISA 계좌로 같은 종목(005930 · 적립식에도 있음)을 3주 더 넣는다
+    const dup: AssetSheetData = structuredClone(sheetData);
+    const src = dup.sections[1].holdings.find((h) => h.symbol === '005930')!;
+    dup.sections[2].holdings.push({ ...src, row: 23, quantity: 3 });
+    const satBoth = { ...DEF, satelliteSymbols: ['NVDA'] };
+    const res = [false, true].map((pension) => {
+      const t = computeAssetTotals(dup, book(), satBoth, pension);
+      return { t, rows: holdingsBySymbol(dup, book(), satBoth, pension, t.totals.total), r: computeRebalance(t.totals, { cash: 25, gold: 25, bond: 25, invest: 25, core: 50, satellite: 50 }, 5) };
+    });
+    const [offR, onR] = res;
+    const sam = offR.rows.filter((x) => x.symbol === '005930');
+    check('[109-5] 같은 코드 여러 계좌 → 한 줄 · 있는 계좌 둘 · 수량 합 13(합친 표 39행 2주는 더하지 않음) · 금액 합 = 13 × 가격',
+      sam.length === 1 && JSON.stringify(sam[0].sections) === JSON.stringify(['적립식 계좌', 'ISA 계좌']) && sam[0].quantity === 13 && near(sam[0].value, 13 * 70000) && sam[0].missing === 0);
+    const sumSide = (rows: typeof offR.rows, side: 'core' | 'satellite') => rows.filter((x) => x.assetClass === '주식' && x.side === side).reduce((a, x) => a + (x.value ?? 0), 0);
+    check('[109-5] 「코어 / 위성」 거르기 합 = 비율 조정 코어 / 위성 금액(연금 켬 · 끔)',
+      res.every(({ rows, r }) => near(sumSide(rows, 'core'), r.stocks.rows[0].nowAmount) && near(sumSide(rows, 'satellite'), r.stocks.rows[1].nowAmount)) && sumSide(onR.rows, 'core') > 0 && sumSide(offR.rows, 'satellite') > 0);
+    check('[109-5] 연금 끄면 연금 계좌 종목(360750) 빠짐 · 켜면 있음 · 분류가 주식이 아니면 코어/위성 없음',
+      !offR.rows.some((x) => x.symbol === '360750') && onR.rows.some((x) => x.symbol === '360750' && x.side === 'core') && offR.rows.filter((x) => x.assetClass !== '주식').every((x) => x.side === null));
+    const vals = offR.rows.map((x) => x.value);
+    check('[109-5] 평가 금액 큰 순(금액 없음 맨 뒤) · 가격 못 받은 줄 금액 null · 비중 = 금액 ÷ 총 자산',
+      vals.every((v, i) => i === 0 || v == null || (vals[i - 1] != null && (vals[i - 1] as number) >= v)) && offR.rows.some((x) => x.value === null && x.missing > 0) && offR.rows.every((x) => x.value == null ? x.ratio === null : near(x.ratio, x.value / offR.t.totals.total)));
+    check('[109-5] 종목별 금액 합 + 현금 C25 + 퇴직 연금 = 총 자산(같은 값 계산)', res.every(({ t, rows }, n) => near(rows.reduce((a, x) => a + (x.value ?? 0), 0) + FAKE.cash + (n === 1 ? FAKE.retirement : 0), t.totals.total)));
+  }
   // ── 109차 B — 괜찮음 범위 설정(asset.rebalanceBand · 정수 1~20 · 처음 값 5) ─────────────────────
   {
     getDb().prepare(`DELETE FROM app_settings WHERE key = 'asset.rebalanceBand'`).run();
@@ -972,6 +997,8 @@ try {
   const setColorBody = (await setColor.json()) as { classColors?: { gold?: string } };
   check('[107-4] (안쪽 서버) PUT /api/asset/settings — 옛 키 · 시트에 없는 코드 · 팔레트에 없는 색 400 · 팔레트 색 200', setBad.status === 400 && setBadCode.status === 400 && setBadColor.status === 400 && setColor.status === 200 && setColorBody.classColors?.gold === 'red');
   await putSettings({ classColors: { gold: 'yellow' } });
+  check('[109-5] (안쪽 서버) summary 에 bySymbol — 코어 줄 금액 합 = totals.core',
+    Array.isArray(sumBody.bySymbol) && sumBody.bySymbol.length > 0 && near(sumBody.bySymbol.filter((x) => x.side === 'core').reduce((a, x) => a + (x.value ?? 0), 0), sumBody.totals.core));
   check('[109-4] (안쪽 서버) summary 에 rebalance — 지금 금액 = 같은 응답의 분류별 금액 · 코어 / 위성 · 괜찮음 범위 · 시트 목표 비율',
     sumBody.rebalance != null && sumBody.rebalance.assets.rows.every((r) => r.nowAmount === sumBody.totals.groups.find((g) => g.key === r.key)?.amount) && sumBody.rebalance.stocks.rows[0].nowAmount === sumBody.totals.core && sumBody.rebalance.stocks.rows[1].nowAmount === sumBody.totals.satellite && sumBody.rebalance.band === sumBody.settings.rebalanceBand && sumBody.targetRatio.invest === sumBody.rebalance.assets.rows[3].targetPct);
   check('[106-10] (안쪽 서버) 풀린 뒤 summary 200(연금 포함) · history 200 · 기간 틀림 400 · settings 200 / 옛 키 400', sumRes.status === 200 && sumBody.includePension === true && JSON.stringify(sumBody.accounts?.map((a) => a.key)) === JSON.stringify(['개별 투자', '적립식 계좌', 'ISA 계좌', '연금 저축 계좌']) && sumBody.accounts[0].name === '개별 투자 ( 2026.07 )' && Array.isArray(sumBody.stockChoices) && sumBody.settings.classColors.gold === 'yellow' && histRes.status === 200 && badRange.status === 400 && setOk.status === 200 && setBad.status === 400);
