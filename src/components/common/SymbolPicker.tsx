@@ -69,6 +69,31 @@ export interface PickerSource {
   title: string;
   /** 고를 것이 없을 때 */
   emptyText: string;
+  /** 목록 밖 종목(이미 고른 것)의 이름 — 오른쪽 「고른 종목」 에 이름을 보인다 */
+  nameOf?: (symbol: string) => string | null;
+}
+
+/** 정해 준 목록 한 줄 — 이름(말줄임) · 코드 · 작은 안내. 이름은 줄 폭에 맞춰 「…」 로 줄고 코드 · 안내는 자르지 않는다 */
+function SourceRow({ symbol, name, note, on, onToggle }: { symbol: string; name: string; note?: string | null; on: boolean; onToggle: (s: string) => void }) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onToggle(symbol)}
+        aria-pressed={on}
+        className={`flex min-h-9 w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${on ? 'bg-bg-elevated text-text-primary' : 'hover:bg-bg-tertiary'}`}
+      >
+        <span className={`flex h-4 w-4 shrink-0 items-center justify-center ${on ? 'text-text-primary' : 'text-transparent'}`}>
+          <Check {...ICON_SM} aria-hidden />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-xs font-medium" title={name}>
+          {name}
+        </span>
+        <span className="shrink-0 text-caption text-text-secondary">{symbol}</span>
+        {note && <span className="shrink-0 whitespace-nowrap text-caption text-text-muted">{note}</span>}
+      </button>
+    </li>
+  );
 }
 
 interface Row {
@@ -204,6 +229,7 @@ function SourcePickerDialog({ selected, onChange, dialogTitle, onClose, disabled
   const dropping = [...before].filter((s) => !sel.has(s)).length;
   const changed = adding > 0 || dropping > 0;
   const info = useMemo(() => new Map(source.rows.map((r) => [r.symbol.toUpperCase(), r])), [source.rows]);
+  const nameOf = (s: string) => info.get(s)?.name ?? source.nameOf?.(s) ?? s;
   const q = query.trim();
   const rows: Row[] = source.rows.map((r) => ({ symbol: r.symbol.toUpperCase(), name: r.name, sector: r.note ?? null })).filter((r) => matches(r, q));
   const toggle = (s: string) => setDraft((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
@@ -251,7 +277,7 @@ function SourcePickerDialog({ selected, onChange, dialogTitle, onClose, disabled
           </p>
           <ul data-list className="space-y-1">
             {rows.map((r) => (
-              <RowButton key={r.symbol} row={r} on={sel.has(r.symbol)} disabled={false} showSector={r.sector != null} onToggle={toggle} />
+              <SourceRow key={r.symbol} symbol={r.symbol} name={r.name ?? r.symbol} note={r.sector} on={sel.has(r.symbol)} onToggle={toggle} />
             ))}
           </ul>
           {rows.length === 0 && <p className="px-2 py-1.5 text-caption text-text-muted keep-all">{q ? '맞는 종목이 없습니다.' : source.emptyText}</p>}
@@ -265,10 +291,11 @@ function SourcePickerDialog({ selected, onChange, dialogTitle, onClose, disabled
         <ul data-list className="-mx-1 min-h-0 flex-1 space-y-1 overflow-y-auto px-1 [scrollbar-gutter:stable]">
           {draft.map((s) => (
             <li key={s} className="flex min-h-9 items-center gap-2 rounded-md px-2 py-1 hover:bg-bg-tertiary/60">
-              <span className="min-w-0 flex-1 truncate">
-                <StockName symbol={s} name={info.get(s)?.name ?? null} size="sm" />
+              <span className="min-w-0 flex-1 truncate text-xs font-medium" title={nameOf(s)}>
+                {nameOf(s)}
               </span>
-              <ListRemoveButton onClick={() => setDraft((cur) => cur.filter((x) => x !== s))} name={s} label="고른 종목에서 삭제" />
+              <span className="shrink-0 text-caption text-text-secondary">{s}</span>
+              <ListRemoveButton onClick={() => setDraft((cur) => cur.filter((x) => x !== s))} name={nameOf(s)} label="고른 종목에서 삭제" />
             </li>
           ))}
           {draft.length === 0 && <li className="px-2 py-1.5 text-caption text-text-muted">왼쪽에서 종목을 누르면 여기에 보입니다.</li>}

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, Plus } from 'lucide-react';
+import { Check, Plus, Search } from 'lucide-react';
 import { Button, Dialog, ListRemoveButton, RemoveAllButton } from '../ui';
 import { ICON_SM } from '../ui/icon';
 import { LIST_TABLE_ROW, TABLE_NAME_COL } from '../ui/tokens';
@@ -86,10 +86,17 @@ export default function AssetAccountTable({
   );
 }
 
-/** [계좌 추가] 창 — 아직 없는 계좌만 · 누르면 고름(체크) · [추가] 때 한 번 */
+/**
+ * [계좌 추가] 창 — 종목 [종목 추가] 창과 같은 틀(왼쪽 목록 + 목록 안 찾기 · 오른쪽 「고른 계좌」 · 아래 [취소] [추가]).
+ * 왼쪽 = 아직 없는 계좌만 · 누르면 고름(체크) · [추가] 때 한 번.
+ */
 function AccountPickerDialog({ title, choices, onAdd, onClose }: { title: string; choices: AccountChoice[]; onAdd: (keys: string[]) => void; onClose: () => void }) {
   const [picked, setPicked] = useState<string[]>([]);
+  const [query, setQuery] = useState('');
   const sel = useMemo(() => new Set(picked), [picked]);
+  const q = query.trim().replace(/\s/g, '');
+  const shown = choices.filter((a) => !q || a.name.replace(/\s/g, '').includes(q));
+  const nameOf = (k: string) => choices.find((a) => a.key === k)?.name ?? k;
   const toggle = (k: string) => setPicked((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
   return (
     <Dialog
@@ -97,9 +104,9 @@ function AccountPickerDialog({ title, choices, onAdd, onClose }: { title: string
       titleAside="고른 뒤 [추가] 를 누르면 한 번에 반영됩니다"
       onClose={onClose}
       closeOnBackdrop={false}
-      size="md"
+      size="xl"
       z={98}
-      bodyClassName="p-3"
+      bodyClassName="flex"
       footer={
         <>
           <span className="mr-auto text-caption text-text-muted tabular-nums" aria-live="polite">
@@ -120,15 +127,24 @@ function AccountPickerDialog({ title, choices, onAdd, onClose }: { title: string
         </>
       }
     >
-      <div data-account-picker>
-        <p className="px-1 py-1 text-xs font-medium text-text-secondary">
-          시트 계좌 <span className="text-text-muted">{choices.length}</span>
-        </p>
-        {choices.length === 0 ? (
-          <p className="px-2 py-1.5 text-caption text-text-muted keep-all">더 넣을 수 있는 계좌가 없습니다 — 시트의 계좌가 모두 표에 있습니다.</p>
-        ) : (
+      <div className="flex min-w-0 flex-1 flex-col gap-2 border-r border-border/40 p-3" data-account-picker>
+        <label className="flex h-8 items-center gap-2 rounded-md bg-bg-tertiary px-2">
+          <Search {...ICON_SM} className="shrink-0 text-text-muted" aria-hidden />
+          {/* design-lint-ignore: 아이콘과 한 상자인 검색칸 — 바깥 상자가 입력칸 모양(높이·바탕)을 맡는다 */}
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="목록 안에서 찾기 (계좌 이름)"
+            aria-label="목록 안에서 찾기"
+            className="h-full min-w-0 flex-1 bg-transparent text-xs outline-none"
+          />
+        </label>
+        <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-gutter:stable]">
+          <p className="px-1 py-1 text-xs font-medium text-text-secondary">
+            시트 계좌 <span className="text-text-muted">{shown.length}</span>
+          </p>
           <ul data-list className="space-y-1">
-            {choices.map((a) => {
+            {shown.map((a) => {
               const on = sel.has(a.key);
               return (
                 <li key={a.key}>
@@ -149,7 +165,27 @@ function AccountPickerDialog({ title, choices, onAdd, onClose }: { title: string
               );
             })}
           </ul>
-        )}
+          {shown.length === 0 && (
+            <p className="px-2 py-1.5 text-caption text-text-muted keep-all">{q ? '맞는 계좌가 없습니다.' : '더 넣을 수 있는 계좌가 없습니다 — 시트의 계좌가 모두 표에 있습니다.'}</p>
+          )}
+        </div>
+      </div>
+      <div className="flex w-[300px] shrink-0 flex-col gap-2 p-3">
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-semibold text-text-primary">고른 계좌 {picked.length}개</p>
+          {picked.length > 0 && <RemoveAllButton onClick={() => setPicked([])} className="ml-auto" />}
+        </div>
+        <ul data-list className="-mx-1 min-h-0 flex-1 space-y-1 overflow-y-auto px-1 [scrollbar-gutter:stable]">
+          {picked.map((k) => (
+            <li key={k} className="flex min-h-9 items-center gap-2 rounded-md px-2 py-1 hover:bg-bg-tertiary/60">
+              <span className="min-w-0 flex-1 truncate text-xs font-medium" title={nameOf(k)}>
+                {nameOf(k)}
+              </span>
+              <ListRemoveButton onClick={() => setPicked((cur) => cur.filter((x) => x !== k))} name={nameOf(k)} label="고른 계좌에서 삭제" />
+            </li>
+          ))}
+          {picked.length === 0 && <li className="px-2 py-1.5 text-caption text-text-muted">왼쪽에서 계좌를 누르면 여기에 보입니다.</li>}
+        </ul>
       </div>
     </Dialog>
   );

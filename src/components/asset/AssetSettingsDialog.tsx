@@ -104,6 +104,7 @@ export default function AssetSettingsDialog({
                 .filter((c) => c.isStock && !shown.satelliteSymbols.includes(c.symbol))
                 .map((c) => ({ symbol: c.symbol, name: c.name, note: c.sections.map(accountName).join(' · ') })),
               emptyText: '더 넣을 수 있는 주식 종목이 없습니다 — 「자산 현황」 에서 자산 분류를 「주식」 으로 고르면 여기에 보입니다.',
+              nameOf: (s) => choiceOf(s)?.name ?? null,
             }}
             nameOf={(s) => choiceOf(s)?.name ?? null}
             rowNote={satelliteNote}
