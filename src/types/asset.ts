@@ -130,7 +130,13 @@ export type AssetClassColors = Record<ColoredGroupKey, AssetColorId>;
 /** 기본 색 — 금 노랑 · 현금 주황(사용자 결정 2026-11-07) · 나머지는 106차 색에 가장 가까운 팔레트 색 */
 export const DEFAULT_CLASS_COLORS: AssetClassColors = { cash: 'orange', bond: 'purple', gold: 'yellow', stock: 'blue', retirement: 'pink' };
 
-/** 자산 관리 설정 — `app_settings` 'asset.pensionSections' · 'asset.satelliteSymbols' · 'asset.classColors' */
+/** 「괜찮음 범위」 — 목표와의 차이가 ±이 %p 안이면 「괜찮음」(정수 · v2.63.0 · 사용자 결정 2026-11-07 처음 값 5) */
+export const REBALANCE_BAND_MIN = 1;
+export const REBALANCE_BAND_MAX = 20;
+export const DEFAULT_REBALANCE_BAND = 5;
+export const isRebalanceBand = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= REBALANCE_BAND_MIN && v <= REBALANCE_BAND_MAX;
+
+/** 자산 관리 설정 — `app_settings` 'asset.pensionSections' · 'asset.satelliteSymbols' · 'asset.classColors' · 'asset.rebalanceBand' */
 export interface AssetSettings {
   /** 연금으로 볼 계좌(구간 key — 기본 `['연금 저축 계좌']`) — 「연금 포함」 이 꺼지면 빠진다. 퇴직 연금(「현금」 C30)도 함께 빠진다 */
   pensionSections: string[];
@@ -138,6 +144,8 @@ export interface AssetSettings {
   satelliteSymbols: string[];
   /** 분류마다 팔레트 색 이름 */
   classColors: AssetClassColors;
+  /** 「괜찮음 범위」 ±%p(정수 1~20 · 처음 값 5) */
+  rebalanceBand: number;
 }
 
 /** 설정 창 「위성으로 선택한 종목」 의 한 줄 — 분류 「주식」 종목 + 위성 목록에 남아 있는 종목(합친 표 제외) */
@@ -178,6 +186,53 @@ export interface AssetTotals {
   missing: number;
 }
 
+/** 비율 조정 한 줄 — 금액은 원 · %는 백분율(30 = 30%) */
+export interface RebalanceRow {
+  key: 'cash' | 'bond' | 'gold' | 'stock' | 'core' | 'satellite';
+  label: string;
+  /** 목표 % — 시트 칸이 비면 null(목표 「-」 · 상태 없음) */
+  targetPct: number | null;
+  /** 지금 %(기준 금액 대비) — 기준이 0 이면 null */
+  nowPct: number | null;
+  targetAmount: number | null;
+  nowAmount: number;
+  /** 목표 − 지금(원 · 반올림 정수) — +면 더 사야 함, −면 줄여야 함, 0 이면 맞음 */
+  diffAmount: number | null;
+  /** 목표 − 지금(%p) */
+  diffPp: number | null;
+  /** |차이 %p| ≤ 괜찮음 범위 → ok(경계값 포함) · 아니면 adjust · 목표나 기준이 없으면 null */
+  status: 'ok' | 'adjust' | null;
+}
+
+/** 비율 조정 표 하나(자산 · 주식 안) */
+export interface RebalanceTable {
+  /** 기준 금액(원) — 자산 표 = 현금 + 채권 + 금 + 주식 · 주식 안 표 = 주식 */
+  base: number;
+  rows: RebalanceRow[];
+  /** 아는 목표의 합(%) — 하나도 없으면 null. 100 이 아니면 화면이 「목표 비율 합이 ○%입니다」 */
+  targetSum: number | null;
+  /** 목표가 빈 칸이 있다(「시트에 목표 비율이 없습니다」) */
+  targetMissing: boolean;
+}
+
+/** 기준 금액에서 빠진 것 — 0원 · 0줄이면 없음 */
+export interface RebalanceExcluded {
+  key: 'none' | 'retirement' | 'missing';
+  label: string;
+  /** 원 — 가격 못 받은 종목은 금액을 모른다(null) */
+  amount: number | null;
+  /** 가격 못 받은 종목 줄 수 */
+  count: number | null;
+}
+
+/** `GET /api/asset/summary` 의 비율 조정(v2.63.0) — 금액은 `computeAssetTotals` 결과 그대로(총 자산 탭과 같은 숫자) */
+export interface AssetRebalance {
+  band: number;
+  assets: RebalanceTable;
+  stocks: RebalanceTable;
+  excluded: RebalanceExcluded[];
+}
+
 /** `GET /api/asset/summary?pension=0|1` */
 export interface AssetSummary {
   /** 시트를 읽은 시각(ISO) · 가격을 계산한 시각(ISO) */
@@ -196,6 +251,10 @@ export interface AssetSummary {
   accounts: AssetAccount[];
   /** 「위성으로 선택한 종목」 에서 고를 수 있는 종목 */
   stockChoices: AssetStockChoice[];
+  /** 비율 조정(v2.63.0) */
+  rebalance: AssetRebalance;
+  /** 시트의 목표 비율(설정 창 「목표 비율」 처음 값 — 백분율) */
+  targetRatio: AssetTargetRatio;
 }
 
 /** 계좌 하나 — 「연금 포함」 과 상관없이 늘 그 계좌 전체 */

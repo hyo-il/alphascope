@@ -4,7 +4,8 @@
  * 긴 종목명 · 긴 구간 이름 · 달러 소수 4자리 · 빈 구간 · 이을 수식 없는 줄 · 합계 표를 모두 넣어 칸 넘침을 잰다.
  */
 import { DEFAULT_CLASS_COLORS, type AssetClassColors } from '../../../src/types/asset';
-import type { AssetClass, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHolding, AssetSheetData, AssetSheetFailure, AssetStatus, AssetSummary } from '../../../src/types/asset';
+import type { AssetClass, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHolding, AssetSheetData, AssetSheetFailure, AssetStatus, AssetSummary, AssetTargetRatio } from '../../../src/types/asset';
+import { computeRebalance } from '../../../server/asset/rebalance';
 
 export const assetStatusSample = (unlocked: boolean, sheetConfigured = true): AssetStatus => ({ passwordSet: true, unlocked, sheetConfigured });
 
@@ -60,7 +61,7 @@ export const assetSheetFailureSample: AssetSheetFailure = {
 /**
  * 총 자산 요약(v2.62.0) 가짜 응답 — 만든 값. `none` = 미지정 금액 · 가격 못 받은 줄을 넣는다(긴 금액 · 경고 줄 넘침을 잰다).
  */
-export function assetSummarySample(opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors> } = {}): AssetSummary {
+export function assetSummarySample(opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number } = {}): AssetSummary {
   const pension = opts.pension ?? false;
   const amounts: [AssetGroupKey, string, number][] = [
     ['cash', '현금', 1234567890],
@@ -72,15 +73,19 @@ export function assetSummarySample(opts: { pension?: boolean; none?: boolean; vs
   ];
   const total = amounts.reduce((a, [, , v]) => a + v, 0);
   const groups: AssetGroup[] = amounts.map(([key, label, amount]) => ({ key, label, amount, ratio: amount / total }));
+  const totals = { total, groups, core: 2765431209, satellite: 691357803, missing: opts.none ? 2 : 0 };
+  // 비율 조정 — 서버와 같은 순수 함수로(괜찮음 · 조정 필요가 섞이는 목표)
+  const target = opts.target ?? { cash: 20, gold: 5, bond: 10, invest: 65, core: 70, satellite: 30 };
+  const band = opts.band ?? 5;
   return {
     readAt: new Date().toISOString(),
     pricedAt: new Date().toISOString(),
     includePension: pension,
-    totals: { total, groups, core: 2765431209, satellite: 691357803, missing: opts.none ? 2 : 0 },
+    totals,
     profit: { amount: -12345678, ratio: -0.0234 },
     vsLast: opts.vsLast === false ? null : { day: '2026-11-05', amount: 23456789, ratio: 0.0043 },
     missingNames: opts.none ? ['이을 수식 없는 줄', '예시 미국 ETF 이름이 아주 긴 종목'] : [],
-    settings: { pensionSections: ['연금 저축 계좌'], satelliteSymbols: ['AAAA', '000001', '000003'], classColors: { ...DEFAULT_CLASS_COLORS, ...opts.colors } },
+    settings: { pensionSections: ['연금 저축 계좌'], satelliteSymbols: ['AAAA', '000001', '000003'], classColors: { ...DEFAULT_CLASS_COLORS, ...opts.colors }, rebalanceBand: band },
     accounts: [
       { key: '개별 투자', name: '개별 투자 ( 2026.07 )', holdings: 4, value: 1876543210, missing: 0 },
       { key: '적립식 계좌', name: '적립식 계좌 ( 2026.07 )', holdings: 2, value: 18000000, missing: 1 },
@@ -95,6 +100,8 @@ export function assetSummarySample(opts: { pension?: boolean; none?: boolean; vs
       { symbol: 'CCCC', name: '예시 미국 반도체주', sections: ['ISA 계좌'], isStock: true },
       { symbol: '0072R0', name: 'KODEX 예시 S&P500 이름이 아주 긴 종목 Vanguard Total World Stock Market Index Fund ETF Shares', sections: ['적립식 계좌', 'ISA 계좌'], isStock: true },
     ],
+    rebalance: computeRebalance(totals, target, band),
+    targetRatio: target,
   };
 }
 

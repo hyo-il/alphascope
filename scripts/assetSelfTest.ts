@@ -33,6 +33,7 @@ import { avgPriceOf, checkTargetRatio, linkedTickerRow, parseAssetSheet, readAss
 import { ASSET_COLOR_IDS, ASSET_GROUP_LABEL, DEFAULT_CLASS_COLORS, UNASSIGNED_SHORT, type AssetSheetData, type AssetSummary, type AssetTotals } from '../src/types/asset';
 import { accountValues, computeAssetTotals, setAssetPriceSourceForTest, assetSummary, type PriceBook } from '../server/asset/summary';
 import { readAssetSettings, stockChoices, writeAssetSettings } from '../server/asset/settings';
+import { computeRebalance } from '../server/asset/rebalance';
 import { clearRecordsForTest, historyPoints, insertRecord, latestRecord } from '../server/asset/store';
 import { dailyTick } from '../server/asset/daily';
 import { setSessionHooksForTest, type TossCalendarResponse } from '../server/heatmapSession';
@@ -611,6 +612,51 @@ try {
   const sat2 = computeAssetTotals(sheetData, book(), { ...DEF, satelliteSymbols: ['NVDA', '360750'] }, true);
   check('[106-4-1] [107-1] 위성 종목을 바꾸면 따라감(연금 저축의 주식 360750 → 위성)', near(sat2.totals.satellite, v5 + v30) && near(sat2.totals.core, 0));
   check('[106-4] [108-1] 네 글자가 아닌 분류(부동산)는 계산에서 미지정 묶음(이름 「미지정」) · 옛 「알 수 없는 분류」 개수 칸 없음', near(grp(off.totals, 'none'), v6) && off.totals.groups.find((g) => g.key === 'none')?.label === '미지정' && !('unknownClassCount' in off));
+  // ── 109차 B — 비율 조정(순수 함수 · computeAssetTotals 결과 그대로) ─────────────────────
+  {
+    const TGT = { cash: 20, gold: 10, bond: 10, invest: 60, core: 70, satellite: 30 };
+    const rOff = computeRebalance(off.totals, TGT, 5);
+    const rOn = computeRebalance(on.totals, TGT, 5);
+    const ex = (r: ReturnType<typeof computeRebalance>, k: string) => r.excluded.find((e) => e.key === k);
+    const nowOf = (r: ReturnType<typeof computeRebalance>, k: string) => [...r.assets.rows, ...r.stocks.rows].find((x) => x.key === k)?.nowAmount;
+    check('[109-3] 기준 금액 = 현금 + 채권 + 금 + 주식 — 미지정 · 가격 못 받은 종목은 빠지고 「빠짐」 줄(미지정 금액 · 가격 못 받음 줄 수)',
+      near(rOff.assets.base, FAKE.cash + v9 + v13 + v22 + v5) && near(ex(rOff, 'none')?.amount ?? NaN, v6) && ex(rOff, 'missing')?.count === off.totals.missing && off.totals.missing > 0 && ex(rOff, 'missing')?.amount === null);
+    check('[109-3] 「연금 포함」 켜면 기준에 연금 계좌가 더해지고 퇴직 연금은 빠짐 줄 · 끄면 퇴직 연금 줄 없음',
+      near(rOn.assets.base, rOff.assets.base + v30) && near(ex(rOn, 'retirement')?.amount ?? NaN, FAKE.retirement) && ex(rOff, 'retirement') === undefined);
+    check('[109-4] 비율 조정의 분류별 지금 금액 = computeAssetTotals(총 자산 탭)와 같은 값 · 코어 / 위성도',
+      [rOff, rOn].every((r, n) => { const t = [off, on][n].totals; return (['cash', 'bond', 'gold', 'stock'] as const).every((k) => nowOf(r, k) === grp(t, k)) && nowOf(r, 'core') === t.core && nowOf(r, 'satellite') === t.satellite && r.stocks.base === grp(t, 'stock'); }));
+    // 띠 경계 — 0.3 · 0.1 처럼 부동소수 오차가 나는 금액으로 정확히 5%p
+    const synth: AssetTotals = { total: 1, core: 0.35, satellite: 0.15, missing: 0, groups: [
+      { key: 'cash', label: '현금', amount: 0.3, ratio: null }, { key: 'bond', label: '채권', amount: 0.1, ratio: null },
+      { key: 'gold', label: '금', amount: 0.1, ratio: null }, { key: 'stock', label: '주식', amount: 0.5, ratio: null }, { key: 'none', label: '미지정', amount: 0, ratio: null }] };
+    const rb = computeRebalance(synth, { cash: 25, bond: 10, gold: 4, invest: 61, core: 75, satellite: 25 }, 5);
+    const st = (k: string) => [...rb.assets.rows, ...rb.stocks.rows].find((x) => x.key === k);
+    check('[109-3] 띠 안 = 괜찮음 · 경계값(정확히 5%p — 현금 −5 · 코어 +5)도 괜찮음 · 6%p · 11%p 는 조정 필요',
+      st('cash')?.status === 'ok' && st('core')?.status === 'ok' && st('bond')?.status === 'ok' && st('gold')?.status === 'adjust' && st('stock')?.status === 'adjust' && st('satellite')?.status === 'ok');
+    check('[109-3] 차이 금액 = 목표 − 지금(+ 더 사야 함 · − 줄여야 함 · 반올림 정수) · 차이 %p', (st('stock')?.diffAmount ?? 0) >= 0 && (st('cash')?.diffAmount ?? 0) <= 0 && Math.abs((st('gold')?.diffPp ?? 0) + 6) < 1e-9 && Number.isInteger(st('cash')?.diffAmount));
+    const rb3 = computeRebalance(synth, { cash: 25, bond: 10, gold: 4, invest: 61, core: 75, satellite: 25 }, 3);
+    check('[109-3] 괜찮음 범위를 바꾸면 상태가 따라감(5 → 3 이면 현금 5%p 는 조정 필요)', rb3.band === 3 && rb3.assets.rows[0].status === 'adjust');
+    const rMiss = computeRebalance(synth, { cash: null, bond: 10, gold: 4, invest: 61, core: null, satellite: null }, 5);
+    check('[109-3] 목표 칸이 비면 그 줄 목표 null · 상태 없음 · targetMissing · 아는 목표 합 75(≠ 100)',
+      rMiss.assets.rows[0].targetPct === null && rMiss.assets.rows[0].status === null && rMiss.assets.rows[0].diffAmount === null && rMiss.assets.targetMissing && rMiss.assets.targetSum === 75 && rMiss.stocks.targetSum === null && !rb.assets.targetMissing && rb.assets.targetSum === 100);
+    const zero: AssetTotals = { ...synth, missing: 0, groups: synth.groups.map((g) => ({ ...g, amount: 0 })), core: 0, satellite: 0 };
+    const rz = computeRebalance(zero, TGT, 5);
+    check('[109-3] 0원 · 0줄이면 빠짐 줄 없음 · 기준 0 이면 지금 % · 상태 없음', rz.excluded.length === 0 && rz.assets.rows.every((x) => x.nowPct === null && x.status === null));
+    for (const r of [rOff, rOn]) totalsSecret.push(String(Math.round(r.assets.base)), Math.round(r.assets.base).toLocaleString('en-US'));
+  }
+  // ── 109차 B — 괜찮음 범위 설정(asset.rebalanceBand · 정수 1~20 · 처음 값 5) ─────────────────────
+  {
+    getDb().prepare(`DELETE FROM app_settings WHERE key = 'asset.rebalanceBand'`).run();
+    const first = readAssetSettings(sheetData).rebalanceBand;
+    const rejects = [0, 21, 5.5, '5', null, -1].map((v) => writeAssetSettings({ rebalanceBand: v }, sheetData));
+    const saved = writeAssetSettings({ rebalanceBand: 7 }, sheetData);
+    const edge = [writeAssetSettings({ rebalanceBand: 1 }, sheetData)?.rebalanceBand, writeAssetSettings({ rebalanceBand: 20 }, sheetData)?.rebalanceBand];
+    check('[109-6] asset.rebalanceBand — 처음 값 5 · 0 · 21 · 5.5 · 글자 · null · 음수 거절 · 7 · 1 · 20 저장',
+      first === 5 && rejects.every((x) => x === null) && saved?.rebalanceBand === 7 && JSON.stringify(edge) === '[1,20]');
+    getDb().prepare(`INSERT INTO app_settings (key, value) VALUES ('asset.rebalanceBand', '"abc"') ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run();
+    check('[109-6] 저장값이 틀린 모양이면 5 로 읽음', readAssetSettings(sheetData).rebalanceBand === 5);
+    getDb().prepare(`DELETE FROM app_settings WHERE key = 'asset.rebalanceBand'`).run();
+  }
   // [106-5] 미국 — 평가 × 토스 환율 · 매입 × G9
   const onlyUs = { ...sheetData, sections: sheetData.sections.map((x, i) => ({ ...x, holdings: i === 0 ? x.holdings.filter((h) => h.row === 5) : [] })) };
   const us1 = computeAssetTotals(onlyUs, book(), DEF, false);
@@ -926,6 +972,8 @@ try {
   const setColorBody = (await setColor.json()) as { classColors?: { gold?: string } };
   check('[107-4] (안쪽 서버) PUT /api/asset/settings — 옛 키 · 시트에 없는 코드 · 팔레트에 없는 색 400 · 팔레트 색 200', setBad.status === 400 && setBadCode.status === 400 && setBadColor.status === 400 && setColor.status === 200 && setColorBody.classColors?.gold === 'red');
   await putSettings({ classColors: { gold: 'yellow' } });
+  check('[109-4] (안쪽 서버) summary 에 rebalance — 지금 금액 = 같은 응답의 분류별 금액 · 코어 / 위성 · 괜찮음 범위 · 시트 목표 비율',
+    sumBody.rebalance != null && sumBody.rebalance.assets.rows.every((r) => r.nowAmount === sumBody.totals.groups.find((g) => g.key === r.key)?.amount) && sumBody.rebalance.stocks.rows[0].nowAmount === sumBody.totals.core && sumBody.rebalance.stocks.rows[1].nowAmount === sumBody.totals.satellite && sumBody.rebalance.band === sumBody.settings.rebalanceBand && sumBody.targetRatio.invest === sumBody.rebalance.assets.rows[3].targetPct);
   check('[106-10] (안쪽 서버) 풀린 뒤 summary 200(연금 포함) · history 200 · 기간 틀림 400 · settings 200 / 옛 키 400', sumRes.status === 200 && sumBody.includePension === true && JSON.stringify(sumBody.accounts?.map((a) => a.key)) === JSON.stringify(['개별 투자', '적립식 계좌', 'ISA 계좌', '연금 저축 계좌']) && sumBody.accounts[0].name === '개별 투자 ( 2026.07 )' && Array.isArray(sumBody.stockChoices) && sumBody.settings.classColors.gold === 'yellow' && histRes.status === 200 && badRange.status === 400 && setOk.status === 200 && setBad.status === 400);
   check('[106-7] (안쪽 서버) 구분 줄 400 not-editable · 수식 칸 409 formula-cell · 쓰기 늘지 않음', putBad.status === 400 && ((await putBad.json()) as { kind?: string }).kind === 'not-editable' && putFormula.status === 409 && google.writes === 1);
   {
