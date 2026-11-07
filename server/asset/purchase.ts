@@ -7,13 +7,14 @@
  * - 구매 차례(`purchaseCycle`): 오늘(한국 날짜) 기준 가장 최근에 지난(오늘 포함) 구매일 · 다음 구매일.
  * - 살 금액(`computeMonthlyBuy` — 순수 함수): 월급 × 목표 %(현금 · 채권 · 금 · 주식) · 주식 = 코어 + 위성. 원 단위 반올림 ·
  *   목표 합이 100 이면 반올림 차이를 주식(코어)에 더해 합 = 월급 · 코어 + 위성 합이 100 이면 코어 = 주식 − 위성.
- * - 구매 완료: `routes.ts` `POST /api/asset/purchase-done` → `sheet.ts` `writeAccountDates`(시트 계좌 이름 날짜) 성공 뒤에만 `store.ts` `asset_purchase` 에 기록.
+ * - 구매 완료: `routes.ts` `POST /api/asset/purchase-done` → `sheet.ts` `writeAccountDates`(시트 계좌 이름 날짜 = **구매 차례의 날짜** — v2.64.1) 성공 뒤에만 `store.ts` `asset_purchase` 에 기록.
+ * - 시작 전 차례(v2.64.1): 이 기능을 쓰기 시작한 날(`purchaseStartDay`)보다 앞선 차례는 묻지 않는다(`skipped` — 팝업 · [구매 완료] 없음 · POST 409).
  * ⚠️ 월급 · 금액을 로그에 찍지 않는다.
  */
 import { marketDate } from '../../src/utils/marketDate';
 import { coverageOf, isMarketClosed } from '../marketCalendar';
 import type { AssetTargetRatio, MonthlyBuy, MonthlyBuyRow } from '../../src/types/asset';
-import { purchaseDoneDay } from './store';
+import { purchaseDoneDay, purchaseStartDay } from './store';
 
 const DAY_MS = 86_400_000;
 const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
@@ -154,15 +155,18 @@ export function setPurchaseClockForTest(now: (() => number) | null, cal: (() => 
   calendarOf = cal ?? krPurchaseCalendar;
 }
 
-/** 지금 구매 차례(오늘 · 이번 차례 · 다음 구매일 · 완료 여부) */
-export function currentCycle(): Pick<MonthlyBuy, 'today' | 'cycleDay' | 'nextDay' | 'done' | 'doneDay' | 'calendarUnchecked'> {
+/** 지금 구매 차례(오늘 · 이번 차례 · 다음 구매일 · 완료 여부 · 시작한 날 · 시작 전 차례인가) */
+export function currentCycle(): Pick<MonthlyBuy, 'today' | 'cycleDay' | 'nextDay' | 'done' | 'doneDay' | 'calendarUnchecked' | 'startDay' | 'skipped'> {
   const today = todayKst(clock());
   const c = purchaseCycle(today, calendarOf());
-  const doneDay = purchaseDoneDay(c.cycleDay);
-  return { today, ...c, done: doneDay != null, doneDay };
+  const startDay = purchaseStartDay(today);
+  const skipped = c.cycleDay < startDay;
+  const doneDay = skipped ? null : purchaseDoneDay(c.cycleDay);
+  return { today, ...c, done: doneDay != null, doneDay, startDay, skipped };
 }
 
-/** `GET /api/asset/summary` 의 `monthlyBuy` */
-export function monthlyBuyOf(salary: number | null, target: AssetTargetRatio): MonthlyBuy {
-  return { ...computeMonthlyBuy(salary, target), ...currentCycle() };
+/** `GET /api/asset/summary` 의 `monthlyBuy` — `sheetDates` 는 [구매 완료] 때 시트에 쓸 날짜 글자(`sheet.ts` `accountDateTexts`) */
+export function monthlyBuyOf(salary: number | null, target: AssetTargetRatio, sheetDates: (day: string) => string[]): MonthlyBuy {
+  const cycle = currentCycle();
+  return { ...computeMonthlyBuy(salary, target), ...cycle, sheetDates: sheetDates(cycle.cycleDay) };
 }

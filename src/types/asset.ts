@@ -29,7 +29,8 @@ export type AssetSheetErrorKind =
   | 'formula-cell' // 그 칸이 수식(`=` 로 시작) — 덮어쓰지 않는다
   | 'mismatch' // 쓴 뒤 다시 읽은 값이 보낸 값과 다름(목표 비율 — v2.63.0 · 계좌 이름 날짜 — v2.64.0)
   | 'no-date' // 「( 날짜 )」 가 든 계좌 이름 칸이 없음(구매 완료 — v2.64.0)
-  | 'already-done'; // 이번 구매 차례는 이미 「구매 완료」 를 눌렀음(v2.64.0)
+  | 'already-done' // 이번 구매 차례는 이미 「구매 완료」 를 눌렀음(v2.64.0)
+  | 'before-start'; // 이 기능을 쓰기 시작한 날보다 앞선 구매 차례 — 기록하지 않음(v2.64.1)
 
 /**
  * 자산 분류 — 「티커」 D열에 적는 글자 넷(사용자 결정 2026-11-07).
@@ -325,6 +326,12 @@ export interface MonthlyBuy {
   doneDay: string | null;
   /** 구매일 계산에 한국 휴장일 달력 범위 밖 날짜가 있었다(그 날짜들은 평일이면 거래일로 셈) */
   calendarUnchecked: boolean;
+  /** 이 기능을 쓰기 시작한 날(v2.64.1 — `app_settings` 'asset.purchaseStartDay') */
+  startDay: string;
+  /** 이번 차례가 시작한 날보다 앞선 「시작 전 차례」 — 묻지 않음(팝업 · [구매 완료] 없음) */
+  skipped: boolean;
+  /** [구매 완료] 때 시트 계좌 이름에 쓸 날짜 글자(이번 차례 기준 · 칸마다 모양이 다르면 여럿 · 날짜가 든 칸이 없으면 빈 배열) */
+  sheetDates: string[];
 }
 
 /** `POST /api/asset/purchase-done` 성공 */

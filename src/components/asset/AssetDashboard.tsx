@@ -14,7 +14,7 @@ import AssetHistoryChart from './AssetHistoryChart';
 import AssetSheetValues from './AssetSheetValues';
 import AssetSettingsDialog from './AssetSettingsDialog';
 import AssetRebalanceView from './AssetRebalanceView';
-import { MonthlyBuySection, PurchaseDayDialog } from './AssetMonthlyBuy';
+import { MonthlyBuySection, PurchaseDayDialog, sheetDateText } from './AssetMonthlyBuy';
 
 /**
  * 계좌 > 자산 관리 — 풀린 화면(v2.62.0 · 자산 관리 3단계 · v2.62.2 탭 · v2.63.0 비율 조정).
@@ -140,7 +140,8 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
   useEffect(() => {
     if (popupDecided.current || !latest?.result.ok) return;
     popupDecided.current = true;
-    if (!latest.result.summary.monthlyBuy.done) setPurchasePopup(true);
+    const mb = latest.result.summary.monthlyBuy;
+    if (!mb.done && !mb.skipped) setPurchasePopup(true);
   }, [latest]);
 
   const loadSheet = useCallback(async () => {
@@ -225,11 +226,11 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
   };
 
   /** [구매 완료] — 확인 창(저장 중 「처리 중…」) → 서버 → 성공이면 팝업 닫고 다시 받기 · 실패면 이유 한 줄 */
-  const askPurchaseDone = (today: string) => {
+  const askPurchaseDone = (sheetDates: string[]) => {
     modal.confirm({
       title: '구매 완료',
-      // 「오늘(날짜)로」 를 한 덩어리로 — 「오늘」 과 여는 괄호 · 날짜 안 하이픈 뒤 · 닫는 괄호와 「로」 사이에 단어 이음표(U+2060)를 넣어 중간에서 줄이 꺾이지 않게
-      message: `구매 완료로 기록하고, 시트의 계좌 이름 날짜를 오늘\u2060(${today.replace(/-/g, '-\u2060')})\u2060로 바꿉니다. 되돌릴 수 없습니다.`,
+      // 날짜 글자는 서버가 실제로 쓸 값(`monthlyBuy.sheetDates` — v2.64.1)
+      message: `구매 완료로 기록하고, 시트의 계좌 이름 날짜를 ${sheetDateText(sheetDates)} 바꿉니다. 되돌릴 수 없습니다.`,
       confirmText: '구매 완료',
       onConfirm: async () => {
         setPurchaseError(null);
@@ -307,7 +308,7 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
         {tab === 'rebalance' && summary && (
           <>
             <AssetRebalanceView summary={summary} onEditTarget={() => setSettingsOpen('targetRatio')} />
-            <MonthlyBuySection mb={summary.monthlyBuy} writeEnabled={summary.writeEnabled} error={purchaseError} onDone={() => askPurchaseDone(summary.monthlyBuy.today)} />
+            <MonthlyBuySection mb={summary.monthlyBuy} writeEnabled={summary.writeEnabled} error={purchaseError} onDone={() => askPurchaseDone(summary.monthlyBuy.sheetDates)} />
           </>
         )}
         {/* 자산 현황 탭 — 요약 · 계좌 카드 · 자산 분류 고르기 */}
@@ -319,13 +320,13 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
           </div>
         )}
       </div>
-      {purchasePopup && summary && !summary.monthlyBuy.done && (
+      {purchasePopup && summary && !summary.monthlyBuy.done && !summary.monthlyBuy.skipped && (
         <PurchaseDayDialog
           mb={summary.monthlyBuy}
           writeEnabled={summary.writeEnabled}
           error={purchaseError}
           onLater={() => setPurchasePopup(false)}
-          onDone={() => askPurchaseDone(summary.monthlyBuy.today)}
+          onDone={() => askPurchaseDone(summary.monthlyBuy.sheetDates)}
         />
       )}
       {settingsOpen && summary && (

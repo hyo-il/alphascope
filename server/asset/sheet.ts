@@ -329,18 +329,37 @@ const NAME_DATE = /([(（]\s*)(\d{4})([.\-/])(\d{1,2})(?:\3(\d{1,2}))?(\s*[)）]
  * 모양은 원래 그대로: 구분 글자 · 일이 있는지 · 월 · 일 자릿수(「07」 이면 두 자리, 「7」 이면 한 자리 그대로).
  */
 export function replaceNameDate(name: string, day: string): string | null {
+  const r = nameDate(name, day);
+  return r && r.name;
+}
+
+/** 이름 속 날짜를 `day` 로 바꾼 새 이름과 그 날짜 글자(모양 그대로 — 「2026.11」 · 「2026.11.27」) */
+function nameDate(name: string, day: string): { name: string; date: string } | null {
   const m = name.match(NAME_DATE);
   if (!m) return null;
   const [, open, , sep, mm, dd, close] = m;
   const pad = (v: string, like: string) => (like.length >= 2 ? v.padStart(2, '0') : String(Number(v)));
   const [y, mo, d] = day.split('-');
   const date = `${y}${sep}${pad(mo, mm)}${dd != null ? `${sep}${pad(d, dd)}` : ''}`;
-  return name.slice(0, m.index) + open + date + close + name.slice((m.index ?? 0) + m[0].length);
+  return { name: name.slice(0, m.index) + open + date + close + name.slice((m.index ?? 0) + m[0].length), date };
+}
+
+/**
+ * [구매 완료] 때 시트에 쓸 날짜 글자(v2.64.1 — 확인 창이 그대로 보인다) — 읽은 시트의 계좌 이름 칸(`nameCell`) 중 날짜가 든 칸마다
+ * `writeAccountDates` 와 같은 함수(`nameDate`)로 만든 글자, 겹치지 않게. 순수 함수(시험이 부른다).
+ */
+export function accountDateTexts(data: AssetSheetData, day: string): string[] {
+  const texts = SHEET_LAYOUT.sections.flatMap((s: HoldingSection, i) => {
+    const name = s.nameCell ? data.sections[i]?.name : undefined;
+    const r = name ? nameDate(name, day) : null;
+    return r ? [r.date] : [];
+  });
+  return [...new Set(texts)];
 }
 
 /**
  * 「구매 완료」 — 「주식 투자 정리」 계좌 이름 칸(B4 · B12 · B21 · B29 — `sections` 의 `nameCell`) 중 **「( 날짜 )」 가 든 칸 전부**의 날짜를
- * `day`(누른 날 · 한국 날짜)로 바꾼다(v2.64.0). 순서:
+ * `day`(**구매 차례 날짜** · 한국 날짜 — 모양이 `YYYY.MM` 이면 그 달 · 일이 있으면 그 구매일 · v2.64.1)로 바꾼다. 순서:
  * ① 스위치(`ASSET_SYNC_ENABLED=false` → 「꺼짐」) ② 머리 글자(B3 · 네 이름 칸의 앞부분 — `writeAssetClass` 와 같은 확인)와 네 칸을 **수식 그대로** 다시 읽는다
  * ③ 네 칸 중 하나라도 수식이면 **하나도 쓰지 않고** 409 `formula-cell` · 날짜가 든 칸이 없으면 409 `no-date`
  * ④ 날짜 부분만 같은 모양으로 바꾼 글자를 `valuesWrite` **한 요청**으로(RAW — 글자 그대로)

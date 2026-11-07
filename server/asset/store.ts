@@ -84,7 +84,7 @@ function purchaseDb() {
     database.exec(`
       CREATE TABLE IF NOT EXISTS asset_purchase (
         cycle_date TEXT PRIMARY KEY,    -- 구매 차례 = 그 달 구매일(한국 날짜 YYYY-MM-DD)
-        done_at TEXT                    -- 「구매 완료」 를 누른 날(한국 날짜 YYYY-MM-DD — 시트 계좌 이름에 쓴 날짜)
+        done_at TEXT                    -- 「구매 완료」 를 누른 날(한국 날짜 YYYY-MM-DD — 시트에는 차례의 날짜를 쓴다 · v2.64.1)
       );
     `);
     purchaseReady = true;
@@ -103,8 +103,27 @@ export function recordPurchase(cycleDay: string, doneDay: string): boolean {
   return purchaseDb().prepare(`INSERT OR IGNORE INTO asset_purchase (cycle_date, done_at) VALUES (?, ?)`).run(cycleDay, doneDay).changes === 1;
 }
 
-/** 시험이 표를 비운다(사본 DB) · 줄 수를 센다 */
+/**
+ * 이 기능을 쓰기 시작한 날(v2.64.1) — `app_settings` 'asset.purchaseStartDay'(YYYY-MM-DD). 이 날보다 앞선 구매 차례는 묻지 않는다.
+ * 처음 부를 때 값이 없으면 한 번 저장한다: `asset_purchase` 에 기록이 있으면 가장 이른 기록의 차례 날짜(지금까지의 기록을 「시작 전」 으로 바꾸지 않게),
+ * 없으면 `today`(한국 날짜). 그 뒤로는 바꾸지 않는다.
+ */
+const START_KEY = 'asset.purchaseStartDay';
+export function purchaseStartDay(today: string): string {
+  const database = purchaseDb();
+  const row = database.prepare(`SELECT value FROM app_settings WHERE key = ?`).get(START_KEY) as { value: string } | undefined;
+  if (row && /^\d{4}-\d{2}-\d{2}$/.test(row.value)) return row.value;
+  const first = database.prepare(`SELECT MIN(cycle_date) AS d FROM asset_purchase`).get() as { d: string | null };
+  const day = first.d ?? today;
+  database.prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(START_KEY, day);
+  return day;
+}
+
+/** 시험이 표 · 시작한 날을 비운다(사본 DB) · 줄 수를 센다 */
 export function clearPurchasesForTest(): void {
   purchaseDb().prepare(`DELETE FROM asset_purchase`).run();
+  purchaseDb().prepare(`DELETE FROM app_settings WHERE key = ?`).run(START_KEY);
 }
+export const purchaseStartDayStoredForTest = (): string | null =>
+  (purchaseDb().prepare(`SELECT value FROM app_settings WHERE key = ?`).get(START_KEY) as { value: string } | undefined)?.value ?? null;
 export const purchaseCountForTest = (): number => (purchaseDb().prepare(`SELECT COUNT(*) AS n FROM asset_purchase`).get() as { n: number }).n;

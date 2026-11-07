@@ -475,6 +475,11 @@ function targets(): Target[] {
           await page.locator('#as-asset-monthly-buy').scrollIntoViewIfNeeded().catch(() => {});
           await page.waitForTimeout(200);
         }],
+        // v2.64.1 — 시작 전 차례(팝업 · [구매 완료] 없음 · 「시작 전 차례 — 묻지 않음」)
+        ['이번달구매-시작전차례', { skipped: true }, async (page: Page) => {
+          await page.locator('#as-asset-monthly-buy').scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+        }],
         ['구매일팝업', { purchaseDone: false }, async () => {}],
         ['구매일팝업-확인창', { purchaseDone: false }, async (page: Page) => {
           await page.locator('[data-purchase-dialog]').waitFor({ timeout: 3000 }).catch(() => {});
