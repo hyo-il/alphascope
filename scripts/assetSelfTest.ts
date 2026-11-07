@@ -19,7 +19,7 @@ import os from 'node:os';
 import path from 'node:path';
 import express from 'express';
 import type { AddressInfo } from 'node:net';
-import { getDb } from '../server/db';
+import { getDb, saveCandles } from '../server/db';
 import { checkPassword, createSession, setPassword } from '../server/auth';
 import { setAssetPassword, unlockSession } from '../server/asset/lock';
 import { authGuard } from '../server/authGuard';
@@ -646,6 +646,25 @@ try {
   const krDay = (date: string) => ({ date, reg: [k(date, '09:00'), k(date, '15:30')] as Range2 });
   const count = () => (getDb().prepare(`SELECT COUNT(*) AS n FROM asset_daily`).get() as { n: number }).n;
   clearRecordsForTest();
+  // [107-6] 미국 정규장 종가 — 가짜 일봉(사본 DB 의 NVDA 일봉을 비우고 「다시 받기」 가 가짜 봉을 쓴다 · 토스 호출 0)
+  /** 날짜 → 가짜 정규장 종가(없으면 200 = book() 의 NVDA · null = 그날 봉 없음) */
+  const usCloses = new Map<string, number | null>();
+  const CLOSE_DAYS = ['2026-10-22', '2026-10-23', '2026-11-05', '2026-11-06', '2026-11-25'];
+  /** 가짜 봉을 받은 시각 — 정규장 끝 + 10분보다 앞이면 확정 값이 아니다 */
+  let closeFetchedAt = Date.parse('2030-01-01T00:00:00Z');
+  let refreshCalls = 0;
+  getDb().prepare(`DELETE FROM candles WHERE symbol = 'NVDA' AND timeframe = '1d'`).run();
+  setSessionHooksForTest({
+    refreshDaily: async (symbol: string) => {
+      refreshCalls++;
+      getDb().prepare(`DELETE FROM candles WHERE symbol = ? AND timeframe = '1d'`).run(symbol);
+      const bars = CLOSE_DAYS.flatMap((d) => {
+        const c = usCloses.has(d) ? usCloses.get(d) : 200;
+        return c == null ? [] : [{ timestamp: Date.parse(`${d}T12:00:00Z`), open: c, high: c, low: c, close: c, volume: 1000 }];
+      });
+      saveCandles(symbol, '1d', bars, closeFetchedAt);
+    },
+  });
 
   // 서머타임(EDT) — 애프터 끝 08:50 KST(국내 정규장 전) → 그 시각에 기록
   setSessionHooksForTest({ calendar: calendar([usDay('2026-10-22', '22:30', '05:00', '08:50', '2026-10-23'), usDay('2026-10-23', '22:30', '05:00', '08:50', '2026-10-24'), usDay('2026-10-26', '22:30', '05:00', '08:50', '2026-10-27')], [krDay('2026-10-22'), krDay('2026-10-23'), krDay('2026-10-26')]) });
@@ -678,6 +697,34 @@ try {
   const h2 = await dailyTick(at(k('2026-11-27', '15:40')));
   check('[106-9] 휴장 — 11-25 기록 뒤 미국 휴장일(11-26)은 기록하지 않는다(같은 11-25 로 두 번 쓰지 않음)', h1 === 'recorded' && latestRecord()?.day === '2026-11-25' && h2 === 'done-already', `${h1} ${h2}`);
 
+  // ── [107-6] 하루 기록의 미국 종목 = 그 거래일 미국 정규장 종가(겨울 · 기록 시각 15:30 KST = 미국 주간거래 중) ──
+  const winterCal = calendar([usDay('2026-11-04', '23:30', '06:00', '09:50', '2026-11-05'), usDay('2026-11-05', '23:30', '06:00', '09:50', '2026-11-06'), usDay('2026-11-06', '23:30', '06:00', '09:50', '2026-11-07')], [krDay('2026-11-05'), krDay('2026-11-06'), krDay('2026-11-09')]);
+  const recordWinter = async (closeFor11_05: number | null, nowNvda: number) => {
+    clearRecordsForTest();
+    getDb().prepare(`DELETE FROM candles WHERE symbol = 'NVDA' AND timeframe = '1d'`).run(); // 앞 시험이 남긴 가짜 봉
+    usCloses.clear();
+    usCloses.set('2026-11-05', closeFor11_05);
+    setSessionHooksForTest({ calendar: winterCal });
+    setAssetPriceSourceForTest(async () => book({ NVDA: nowNvda })); // 토스 지금 가격 = 주간거래 체결이 섞인 값
+    refreshCalls = 0;
+    const r = await dailyTick(at(k('2026-11-06', '15:35')));
+    return { r, rec: latestRecord(), refreshed: refreshCalls };
+  };
+  const wClose = await recordWinter(190, 260);
+  const satAt = (p: number) => 3.5 * p * FX_NOW;
+  check('[107-6] 겨울 15:35 KST 기록 — 미국 종목은 11-05 정규장 종가(190)로 · 토스 지금 가격(주간거래 260)이 섞이지 않음', wClose.r === 'recorded' && wClose.rec?.day === '2026-11-05' && near(wClose.rec?.plain.satellite, satAt(190)) && !near(wClose.rec?.plain.satellite, satAt(260)) && wClose.refreshed === 1, `${wClose.r} ${wClose.refreshed}`);
+  check('[107-6] 국내 종목 · 현금 · 환율은 지금처럼(토스 지금 가격 — 채권 · 금 · 현금 칸이 106차 계산과 같음)', near(grp(wClose.rec!.plain, 'bond'), v13) && near(grp(wClose.rec!.plain, 'gold'), v22) && near(grp(wClose.rec!.plain, 'cash'), FAKE.cash + v9) && near(wClose.rec?.total, plainTotal - v5 + satAt(190)));
+  const wMiss = await recordWinter(null, 260);
+  check('[107-6] 그날 정규장 종가 봉이 없으면 그 미국 종목은 「가격 못 받음」(지금 가격으로 대신하지 않음 · 줄 수 +1)', wMiss.r === 'recorded' && wMiss.rec?.missing === 2 && near(wMiss.rec?.plain.satellite, 0) && near(wMiss.rec?.total, plainTotal - v5), `${wMiss.r} ${wMiss.rec?.missing}`);
+  closeFetchedAt = at(k('2026-11-06', '06:05')); // 정규장 끝(06:00 KST) + 5분 — 아직 확정 값이 아님
+  const wEarly = await recordWinter(190, 260);
+  check('[107-6] 정규장 끝 + 10분 전에 받은 봉은 종가로 쓰지 않음 → 「가격 못 받음」', wEarly.r === 'recorded' && wEarly.rec?.missing === 2 && near(wEarly.rec?.plain.satellite, 0), `${wEarly.r} ${wEarly.rec?.missing}`);
+  closeFetchedAt = Date.parse('2030-01-01T00:00:00Z');
+  usCloses.clear();
+  setAssetPriceSourceForTest(async () => book());
+  const sumAfter = await assetSummary(false);
+  check('[107-7] 화면의 지금 총 자산은 토스 지금 가격 그대로(하루 기록 종가와 상관없음)', near(sumAfter.totals.satellite, v5) && near(sumAfter.totals.total, plainTotal));
+
   // 스위치 꺼짐 · 모의 모드 · 가격 하나도 못 받음
   clearRecordsForTest();
   setSessionHooksForTest({ calendar: calendar([usDay('2026-10-22', '22:30', '05:00', '08:50', '2026-10-23'), usDay('2026-10-23', '22:30', '05:00', '08:50', '2026-10-24'), usDay('2026-10-26', '22:30', '05:00', '08:50', '2026-10-27')], [krDay('2026-10-22'), krDay('2026-10-23'), krDay('2026-10-26')]) });
@@ -706,7 +753,7 @@ try {
   getDb().prepare(`INSERT INTO asset_daily (day, total, total_pension, totals_json, missing, recorded_at) VALUES ('2025-01-02', 1, 2, ?, 0, '2025-01-03T00:00:00Z')`).run(JSON.stringify({ plain: off.totals, pension: on.totals }));
   const nowRef = at(k('2026-10-24', '12:00'));
   check('[106-13] 하루 기록 기간 — 1m 은 최근 것만 · all 은 모두 · 날짜 순 · 연금 갈래', historyPoints('1m', false, nowRef).length === 1 && historyPoints('all', false, nowRef).map((p) => p.day).join(',') === '2025-01-02,2026-10-22' && historyPoints('all', true, nowRef)[0].total === 2);
-  setSessionHooksForTest({ calendar: null });
+  setSessionHooksForTest({ calendar: null, refreshDaily: null });
   setAssetPriceSourceForTest(async () => book());
   console.log = origLog.log;
   process.env.TOSS_CLIENT_ID = savedToss.id;
@@ -767,7 +814,7 @@ try {
   console.error = origLog.error;
   console.log = origLog.log;
   globalThis.fetch = realFetch;
-  setSessionHooksForTest({ calendar: null });
+  setSessionHooksForTest({ calendar: null, refreshDaily: null });
   setAssetPriceSourceForTest(null);
   fs.rmSync(tmp, { recursive: true, force: true });
   getDb().prepare(`DELETE FROM auth_sessions`).run();

@@ -7,17 +7,23 @@
  * - 기록할 수 있는 동안: 그 시각부터 **다음 미국 정규장 시작 전까지**. 서버가 꺼져 있었으면 켜진 뒤 이 안에서 한 번.
  *   다음 정규장이 시작한 뒤에는 D 를 쓰지 않는다(지난 날은 채우지 않는다 — 그날 가격을 모른다).
  * - 토스 달력을 받지 못하면(모의 · 실패) 그 확인은 건너뛴다(다음 확인에 다시 — 고정표로 짐작하지 않는다).
+ * 가격(v2.62.1): **미국 종목 = 그 거래일 D 의 미국 정규장 종가** — `heatmapSession.regularCloseOn`(종목 지도 「오늘 종가」 와 같은 함수 · 캐시 ·
+ *   정규장 끝 + 10분 뒤에 받은 일봉만 — 토스 미국 일봉 종가 = 정규장 종가). 겨울에는 기록 시각(국내 정규장 끝 15:30 KST)이 미국 주간거래 중이라
+ *   토스 지금 가격에 주간거래 체결이 섞인다 — 그래서 지금 가격을 쓰지 않는다. 종가를 못 받으면 그 종목은 「가격 못 받음」.
+ *   국내 종목 · 환율은 지금처럼 토스 지금 가격(기록 시각이 국내 정규장 끝 뒤). 화면의 지금 총 자산(10초 갱신)은 지금 가격 그대로.
  * 같은 날 두 번 쓰지 않는다(`day` 기본 키). 모든 보유 줄의 가격을 못 받았으면 쓰지 않고 다음 확인에 다시(총 자산이 현금만으로 남지 않게).
  * 예약은 `ASSET_SYNC_ENABLED`(기본 켬) · 시트 연결 정보가 있을 때만 · 모의 데이터 모드는 하지 않는다(받은 가격이 아니다).
  * ⚠️ 로그에는 「하루 기록 완료 · 가격 못 받음 N줄」 과 실패 이유 종류만(금액 · 수량 없음).
  */
-import { regularSessionEnd, regularSessionStart, sessionSpans } from '../heatmapSession';
+import { CONFIRM_MARGIN_MS } from '../db';
+import { regularCloseOn, regularSessionEnd, regularSessionStart, sessionSpans } from '../heatmapSession';
 import { isMockMode } from '../mockData';
 import { marketDate } from '../../src/utils/marketDate';
 import { isAssetSyncEnabled, isSheetConfigured } from './config';
 import { AssetSheetError } from './google';
 import { hasRecord, insertRecord } from './store';
-import { computeAssetTotals, loadInputs } from './summary';
+import type { AssetSheetData } from '../../src/types/asset';
+import { computeAssetTotals, loadInputs, type PriceBook } from './summary';
 
 /** 확인 간격 — 기록할 수 있는 동안(몇 시간)보다 훨씬 짧으면 된다 */
 const CHECK_MS = 5 * 60_000;
@@ -45,6 +51,24 @@ export async function recordWindow(now: number): Promise<RecordWindow | null> {
   return { day: after.tradeDay, at, until };
 }
 
+/**
+ * 하루 기록 가격 — 미국 종목은 지금 가격을 버리고 D 의 정규장 종가로 바꾼다(못 받으면 빠짐 → 「가격 못 받음」). 국내 · 환율은 그대로.
+ * 종가는 정규장 끝 + 10분 뒤에 받은 일봉만(`regularCloseOn` 의 `confirmAt`) — 달력에 정규장 끝이 없으면 기록 시각 뒤에 받은 것만.
+ */
+export async function closingBook(data: AssetSheetData, book: PriceBook, w: RecordWindow, now: number): Promise<PriceBook> {
+  const prices = new Map(book.prices);
+  const usSymbols = [...new Set(data.sections.filter((s) => !s.combined).flatMap((s) => s.holdings.flatMap((h) => (h.market === 'US' && h.symbol ? [h.symbol] : []))))];
+  if (usSymbols.length === 0) return book;
+  const end = await regularSessionEnd('US', w.day, now);
+  const confirmAt = end != null ? end + CONFIRM_MARGIN_MS : w.at;
+  for (const symbol of usSymbols) {
+    prices.delete(symbol);
+    const close = await regularCloseOn(symbol, w.day, confirmAt);
+    if (close != null && Number.isFinite(close) && close > 0) prices.set(symbol, close);
+  }
+  return { prices, usdKrw: book.usdKrw };
+}
+
 export type TickResult = 'off' | 'no-window' | 'not-yet' | 'expired' | 'done-already' | 'no-prices' | 'failed' | 'recorded';
 
 let running = false;
@@ -60,7 +84,9 @@ export async function dailyTick(now = Date.now()): Promise<TickResult> {
     if (now < w.at) return 'not-yet';
     if (w.until != null && now >= w.until) return 'expired';
     if (hasRecord(w.day)) return 'done-already';
-    const { data, book, settings } = await loadInputs();
+    const inputs = await loadInputs();
+    const { data, settings } = inputs;
+    const book = await closingBook(data, inputs.book, w, now);
     const plain = computeAssetTotals(data, book, settings, false).totals;
     const pension = computeAssetTotals(data, book, settings, true).totals;
     const rows = data.sections.filter((s) => !s.combined).reduce((n, s) => n + s.holdings.length, 0);
