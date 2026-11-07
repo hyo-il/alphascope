@@ -648,6 +648,30 @@ try {
   getDb().prepare(`DELETE FROM app_settings WHERE key IN ${SETTING_KEYS}`).run();
   writeAssetSettings(DEF, sheetData);
 
+  // ── [108-4] 위성 [종목 추가] · 삭제 → 저장 → 코어/위성 금액이 바로 따라감(화면은 저장 뒤 요약을 다시 받는다) ──
+  const sat0 = computeAssetTotals(sheetData, book(), readAssetSettings(sheetData), true).totals;
+  const added = writeAssetSettings({ satelliteSymbols: [...readAssetSettings(sheetData).satelliteSymbols, '360750'] }, sheetData);
+  const sat1 = computeAssetTotals(sheetData, book(), readAssetSettings(sheetData), true).totals;
+  const removed = writeAssetSettings({ satelliteSymbols: (added?.satelliteSymbols ?? []).filter((x) => x !== 'NVDA') }, sheetData);
+  const sat2b = computeAssetTotals(sheetData, book(), readAssetSettings(sheetData), true).totals;
+  check('[108-4] 위성 추가(360750) → 위성 += 그 종목 · 코어 −= 그 종목 / 삭제(NVDA) → 위성 −= · 코어 += (합은 그대로)', near(sat0.satellite, v5) && near(sat1.satellite, v5 + v30) && near(sat1.core, sat0.core - v30) && JSON.stringify(removed?.satelliteSymbols) === JSON.stringify(['360750']) && near(sat2b.satellite, v30) && near(sat2b.core, v5) && near(sat2b.core + sat2b.satellite, sat0.core + sat0.satellite));
+  // [108-4] [종목 추가] 창 목록 = 시트의 분류 「주식」 종목 중 아직 위성이 아닌 것(설정 창이 stockChoices 를 이렇게 거른다 · 관심 목록 · 검색 없음 = source)
+  const dlgSrc = fs.readFileSync(new URL('../src/components/asset/AssetSettingsDialog.tsx', import.meta.url), 'utf8');
+  const pickRows = stockChoices(withIsaNvda, { ...readAssetSettings(sheetData), satelliteSymbols: ['360750', '455890'] }).filter((c) => c.isStock && !['360750', '455890'].includes(c.symbol)).map((c) => c.symbol);
+  check('[108-4] 창 목록 = 주식 종목 중 위성 아닌 것(NVDA) — 위성(360750) · 주식 아님(455890) 빠짐 · 설정 창이 같은 거르기 · source 로 넘김', JSON.stringify(pickRows) === JSON.stringify(['NVDA']) && /<SymbolTable[\s\S]*?source=\{\{[\s\S]*?\.filter\(\(c\) => c\.isStock && !shown\.satelliteSymbols\.includes\(c\.symbol\)\)/.test(dlgSrc));
+  writeAssetSettings(DEF, sheetData);
+
+  // ── [108-5] 연금 [계좌 추가] · 삭제 → 「연금 포함」 끔 계산이 따라감 ──
+  const pen0 = computeAssetTotals(sheetData, book(), readAssetSettings(sheetData), false).totals.total;
+  writeAssetSettings({ pensionSections: ['연금 저축 계좌', 'ISA 계좌'] }, sheetData);
+  const pen1 = computeAssetTotals(sheetData, book(), readAssetSettings(sheetData), false).totals.total;
+  writeAssetSettings({ pensionSections: ['ISA 계좌'] }, sheetData);
+  const pen2 = computeAssetTotals(sheetData, book(), readAssetSettings(sheetData), false).totals.total;
+  writeAssetSettings({ pensionSections: [] }, sheetData);
+  const pen3 = computeAssetTotals(sheetData, book(), readAssetSettings(sheetData), false);
+  check('[108-5] 연금 계좌 추가(ISA) → 연금 뺌 총 자산 −= ISA · 삭제(연금 저축) → += 연금 저축 · 모두 삭제 → 퇴직 연금만 빠짐', near(pen1, pen0 - v22) && near(pen2, pen0 - v22 + v30) && near(pen3.totals.total, plainTotal + v30) && JSON.stringify(readAssetSettings(sheetData).pensionSections) === '[]' && !pen3.totals.groups.some((g) => g.key === 'retirement'));
+  writeAssetSettings(DEF, sheetData);
+
   // ── [106-9] 하루 기록 — 가짜 시계 · 가짜 달력 · 가짜 가격 ─────────────
   const savedToss = { id: process.env.TOSS_CLIENT_ID, secret: process.env.TOSS_CLIENT_SECRET };
   process.env.TOSS_CLIENT_ID = 'selftest-not-real';
@@ -886,6 +910,16 @@ check('[108-1] 「분류 없음」 · 「알 수 없는 분류」 · 「알 수 
 const dashSrc = fs.readFileSync(path.join(root, 'src/components/asset/AssetDashboard.tsx'), 'utf8');
 check('[108-3] 자산 관리 탭 = 총 자산 · 자산 현황(이 순서) · 기억 키 alphascope.asset.tab · 모르는 값 · 읽기 실패면 총 자산', /\{ id: 'total', label: '총 자산' \},\s*\{ id: 'status', label: '자산 현황' \}/.test(dashSrc) && /localStorage\.getItem\(TAB_KEY\) === 'status' \? 'status' : 'total';\s*\} catch \{\s*return 'total';/.test(dashSrc));
 check('[108-3] 자산 관리 화면 · 서버에 「상세 보기」 글자 0(접기 지움)', !assetUi.join('\n').includes('상세 보기') && !codeFiles.filter(({ f }) => f.startsWith('server/asset/') || f === 'src/types/asset.ts').some(({ src }) => src.includes('상세 보기')));
+
+// [108-6] 공용 부품 — 새 옵션(source · columns · nameOf · rowNote)은 자산 설정 창만 쓴다 · 기본(옵션 없음)은 지금 창 · 지금 칸 그대로
+const pickerSrc = fs.readFileSync(path.join(root, 'src/components/common/SymbolPicker.tsx'), 'utf8');
+const tableSrc = fs.readFileSync(path.join(root, 'src/components/common/SymbolTable.tsx'), 'utf8');
+const optionUsers = codeFiles.filter(({ f, src }) => f.startsWith('src/') && !f.startsWith('src/components/common/') && /\b(source=\{\{|nameOf=\{|rowNote=\{|columns=\{\[)/.test(src) && /SymbolTable|SymbolPicker|SymbolListBar/.test(src)).map((x) => x.f);
+check('[108-6] 새 옵션을 쓰는 곳 = 자산 설정 창 하나 · 기본은 옛 창(CatalogPickerDialog) · 옛 칸(시장 · 분야)', JSON.stringify(optionUsers) === JSON.stringify(['src/components/asset/AssetSettingsDialog.tsx']) && /props\.source \? <SourcePickerDialog [^>]*\/> : <CatalogPickerDialog \{\.\.\.props\} \/>/.test(pickerSrc) && /<th className="whitespace-nowrap py-2 pr-6">시장<\/th>\s*<th className="whitespace-nowrap py-2 pr-6">분야<\/th>/.test(tableSrc), optionUsers.join(','));
+
+// [108-7] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(107차 끝 af69935 와 지금 작업 트리)
+const changed108 = spawnSync('git', ['diff', '--name-only', 'af69935', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
+check('[108-7] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(af69935 와 지금 작업 트리)', changed108.status === 0 && changed108.stdout.trim() === '', changed108.stdout.trim() || changed108.stderr.trim());
 
 const leaked = (textAll: string) => SECRET_STRINGS.filter((x) => textAll.includes(x));
 check('[13] 서버 로그(시험 서버) · 안쪽 경고 출력에 가짜 금액 · 수량이 없다', leaked(serverLog + captured.join('\n')).length === 0 && captured.some((l) => l.includes('[asset] 시트 읽기 실패: shape')));

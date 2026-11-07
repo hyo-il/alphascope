@@ -380,16 +380,18 @@ function targets(): Target[] {
     // 가짜 응답만(구글 · DB 그대로 — 쓰기 주소는 막는다)
     ...(
       [
-        ['잠김', false, 'ok', 0, {}, false, false],
-        ['기록0', true, 'ok', 0, { vsLast: false }, false, false],
-        ['기록1', true, 'ok', 1, {}, false, false],
-        ['기록여러개-미지정', true, 'ok', 30, { none: true }, false, false],
-        ['연금포함-자산현황', true, 'ok', 30, { pension: true }, true, false],
-        ['설정창', true, 'ok', 30, { pension: true }, false, true],
-        ['색바꿈-자산현황', true, 'ok', 30, { pension: true, none: true, colors: { gold: 'green', cash: 'red', stock: 'teal', retirement: 'brown' } }, true, false],
-        ['읽기실패', true, 'fail', 0, {}, false, false],
+        ['잠김', false, 'ok', 0, {}, false, false, null],
+        ['기록0', true, 'ok', 0, { vsLast: false }, false, false, null],
+        ['기록1', true, 'ok', 1, {}, false, false, null],
+        ['기록여러개-미지정', true, 'ok', 30, { none: true }, false, false, null],
+        ['연금포함-자산현황', true, 'ok', 30, { pension: true }, true, false, null],
+        ['설정창', true, 'ok', 30, { pension: true }, false, true, null],
+        ['설정창-종목추가', true, 'ok', 30, { pension: true }, false, true, '종목 추가'],
+        ['설정창-계좌추가', true, 'ok', 30, { pension: true }, false, true, '계좌 추가'],
+        ['색바꿈-자산현황', true, 'ok', 30, { pension: true, none: true, colors: { gold: 'green', cash: 'red', stock: 'teal', retirement: 'brown' } }, true, false, null],
+        ['읽기실패', true, 'fail', 0, {}, false, false, null],
       ] as const
-    ).map(([label, unlocked, sheet, records, sum, openSheet, openSettings]) => ({
+    ).map(([label, unlocked, sheet, records, sum, openSheet, openSettings, addButton]) => ({
       name: `asset-${label}`,
       hash: '#/asset',
       before: async (page: Page) => {
@@ -418,9 +420,15 @@ function targets(): Target[] {
           await page.locator('[data-asset-settings]').click().catch(() => {});
           await page.waitForTimeout(400);
         }
+        if (addButton) {
+          // 설정 창 안의 [종목 추가] · [계좌 추가] 창(시트 종목 · 시트 계좌만)
+          await page.getByRole('button', { name: addButton, exact: true }).click().catch(() => {});
+          await page.waitForTimeout(400);
+        }
       },
       after: async (page: Page) => {
         for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/class', '**/api/asset/settings']) await page.unroute(p);
+        await page.keyboard.press('Escape').catch(() => {});
         await page.keyboard.press('Escape').catch(() => {});
         await page.evaluate(() => {
           localStorage.removeItem('alphascope.asset.includePension');

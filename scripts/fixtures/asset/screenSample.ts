@@ -92,6 +92,7 @@ export function assetSummarySample(opts: { pension?: boolean; none?: boolean; vs
       { symbol: 'AAAA', name: '예시 미국 기술주', sections: ['개별 투자'], isStock: true },
       { symbol: '000001', name: '예시 국내 대형주', sections: ['개별 투자'], isStock: true },
       { symbol: '000003', name: '예시 고가 국내주', sections: ['개별 투자'], isStock: false },
+      { symbol: 'CCCC', name: '예시 미국 반도체주', sections: ['ISA 계좌'], isStock: true },
       { symbol: '0072R0', name: 'KODEX 예시 S&P500 이름이 아주 긴 종목 Vanguard Total World Stock Market Index Fund ETF Shares', sections: ['적립식 계좌', 'ISA 계좌'], isStock: true },
     ],
   };

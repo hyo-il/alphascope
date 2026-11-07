@@ -55,6 +55,20 @@ export interface SymbolPickerProps {
    * 종목이 1개 이상이면 접힌 채, 0개면 펼친 채. 매수 판단의 결과 표는 접지 않는다.
    */
   collapsible?: boolean;
+  /**
+   * 고르는 창의 목록 출처(v2.62.2 · 선택 — 자산 관리 위성 종목). 주면 창 왼쪽은 **이 목록 하나**(+ 목록 안 찾기)만 보인다 —
+   * 관심 목록 · 분야 · 새 종목 검색 · 직접 추가한 종목은 없다. 줄 오른쪽 작은 글자는 `note`. 주지 않으면 지금 그대로(관심 목록 · 분야 · 검색).
+   */
+  source?: PickerSource;
+}
+
+/** 정해 준 고르기 목록 — 이름은 이 값을 그대로 쓴다(카탈로그에서 찾지 않는다) */
+export interface PickerSource {
+  rows: { symbol: string; name: string; note?: string }[];
+  /** 목록 묶음 이름(창 왼쪽 머리) */
+  title: string;
+  /** 고를 것이 없을 때 */
+  emptyText: string;
 }
 
 interface Row {
@@ -157,7 +171,114 @@ function GroupHead({
   );
 }
 
-export function PickerDialog({
+type PickerDialogProps = SymbolPickerProps & {
+  added: string[];
+  onAddedChange: (next: string[]) => void;
+  onClose: () => void;
+  /**
+   * 바깥 화면이 바쁜 동안(매수 판단 [실행] 중) — 창은 열어 두고 고르는 중 목록도 그대로, **[추가] 만 잠근다**(저장이 실행과 겹치지 않게).
+   * 끝나면 다시 눌린다. [취소] 는 그대로. 넘기지 않는 화면은 지금과 같다.
+   */
+  disabled?: boolean;
+};
+
+/** [종목 추가] 창 — `source` 를 주면 정해 준 목록 창, 아니면 지금 그대로(관심 목록 · 분야 · 검색) */
+export function PickerDialog(props: PickerDialogProps) {
+  return props.source ? <SourcePickerDialog {...props} source={props.source} /> : <CatalogPickerDialog {...props} />;
+}
+
+/** 바뀔 내용 한 줄 — 두 창이 같은 문구를 쓴다 */
+const changeText = (adding: number, dropping: number, addedOnly: boolean) =>
+  [adding ? `${adding}종목 추가` : '', dropping ? `${dropping}종목 빼기` : '', addedOnly && !adding && !dropping ? '직접 추가한 종목 바뀜' : ''].filter(Boolean).join(' · ');
+
+/**
+ * 정해 준 목록에서 고르는 창(`source` — v2.62.2) — 모양 · 흐름은 기본 창과 같다(왼쪽 목록 + 목록 안 찾기 · 오른쪽 고른 종목 · [추가] 때 `onChange` 한 번 ·
+ * [취소] · ESC 는 버림 · 바깥을 눌러도 닫히지 않음). 관심 목록 · 분야 · 새 종목 검색 · 직접 추가한 종목은 없다.
+ */
+function SourcePickerDialog({ selected, onChange, dialogTitle, onClose, disabled = false, source }: PickerDialogProps & { source: PickerSource }) {
+  const [draft, setDraft] = useState<string[]>(() => uniq(selected));
+  const [query, setQuery] = useState('');
+  const sel = useMemo(() => new Set(draft), [draft]);
+  const before = useMemo(() => new Set(uniq(selected)), [selected]);
+  const adding = draft.filter((s) => !before.has(s)).length;
+  const dropping = [...before].filter((s) => !sel.has(s)).length;
+  const changed = adding > 0 || dropping > 0;
+  const info = useMemo(() => new Map(source.rows.map((r) => [r.symbol.toUpperCase(), r])), [source.rows]);
+  const q = query.trim();
+  const rows: Row[] = source.rows.map((r) => ({ symbol: r.symbol.toUpperCase(), name: r.name, sector: r.note ?? null })).filter((r) => matches(r, q));
+  const toggle = (s: string) => setDraft((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
+  const commit = () => {
+    if (!changed || disabled) return;
+    onChange(draft);
+    onClose();
+  };
+  return (
+    <Dialog
+      title={dialogTitle ?? '종목 추가'}
+      titleAside="고른 뒤 [추가] 를 누르면 한 번에 반영됩니다"
+      onClose={onClose}
+      closeOnBackdrop={false}
+      size="xl"
+      z={98}
+      bodyClassName="flex"
+      footer={
+        <>
+          <span className="mr-auto text-caption text-text-muted tabular-nums" aria-live="polite">
+            {changed ? changeText(adding, dropping, false) : '바뀐 것이 없습니다'}
+          </span>
+          <Button onClick={onClose}>취소</Button>
+          <Button variant="primary" onClick={commit} disabled={!changed || disabled}>
+            추가
+          </Button>
+        </>
+      }
+    >
+      <div className="flex min-w-0 flex-1 flex-col gap-2 border-r border-border/40 p-3" data-picker-source>
+        <label className="flex h-8 items-center gap-2 rounded-md bg-bg-tertiary px-2">
+          <Search {...ICON_SM} className="shrink-0 text-text-muted" aria-hidden />
+          {/* design-lint-ignore: 아이콘과 한 상자인 검색칸 — 바깥 상자가 입력칸 모양(높이·바탕)을 맡는다 */}
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="목록 안에서 찾기 (이름·코드·초성)"
+            aria-label="목록 안에서 찾기"
+            className="h-full min-w-0 flex-1 bg-transparent text-xs outline-none"
+          />
+        </label>
+        <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-gutter:stable]">
+          <p className="px-1 py-1 text-xs font-medium text-text-secondary">
+            {source.title} <span className="text-text-muted">{rows.length}</span>
+          </p>
+          <ul data-list className="space-y-1">
+            {rows.map((r) => (
+              <RowButton key={r.symbol} row={r} on={sel.has(r.symbol)} disabled={false} showSector={r.sector != null} onToggle={toggle} />
+            ))}
+          </ul>
+          {rows.length === 0 && <p className="px-2 py-1.5 text-caption text-text-muted keep-all">{q ? '맞는 종목이 없습니다.' : source.emptyText}</p>}
+        </div>
+      </div>
+      <div className="flex w-[300px] shrink-0 flex-col gap-2 p-3">
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-semibold text-text-primary">고른 종목 {draft.length}개</p>
+          {draft.length > 0 && <RemoveAllButton onClick={() => setDraft([])} className="ml-auto" />}
+        </div>
+        <ul data-list className="-mx-1 min-h-0 flex-1 space-y-1 overflow-y-auto px-1 [scrollbar-gutter:stable]">
+          {draft.map((s) => (
+            <li key={s} className="flex min-h-9 items-center gap-2 rounded-md px-2 py-1 hover:bg-bg-tertiary/60">
+              <span className="min-w-0 flex-1 truncate">
+                <StockName symbol={s} name={info.get(s)?.name ?? null} size="sm" />
+              </span>
+              <ListRemoveButton onClick={() => setDraft((cur) => cur.filter((x) => x !== s))} name={s} label="고른 종목에서 삭제" />
+            </li>
+          ))}
+          {draft.length === 0 && <li className="px-2 py-1.5 text-caption text-text-muted">왼쪽에서 종목을 누르면 여기에 보입니다.</li>}
+        </ul>
+      </div>
+    </Dialog>
+  );
+}
+
+function CatalogPickerDialog({
   selected,
   onChange,
   max,
@@ -169,16 +290,7 @@ export function PickerDialog({
   dialogTitle,
   onClose,
   disabled = false,
-}: SymbolPickerProps & {
-  added: string[];
-  onAddedChange: (next: string[]) => void;
-  onClose: () => void;
-  /**
-   * 바깥 화면이 바쁜 동안(매수 판단 [실행] 중) — 창은 열어 두고 고르는 중 목록도 그대로, **[추가] 만 잠근다**(저장이 실행과 겹치지 않게).
-   * 끝나면 다시 눌린다. [취소] 는 그대로. 넘기지 않는 화면은 지금과 같다.
-   */
-  disabled?: boolean;
-}) {
+}: PickerDialogProps) {
   const uni = useBacktestUniverse();
   const { folders } = useWatchlist();
   /** 고르는 중 — 열 때 지금 목록을 복사한다. [추가] 때만 밖으로 나간다 */
@@ -262,7 +374,7 @@ export function PickerDialog({
         <>
           <span className="mr-auto text-caption text-text-muted tabular-nums" aria-live="polite">
             {disabled ? '실행이 끝나면 추가할 수 있습니다 · ' : ''}
-            {changed ? [adding ? `${adding}종목 추가` : '', dropping ? `${dropping}종목 빼기` : '', !adding && !dropping ? '직접 추가한 종목 바뀜' : ''].filter(Boolean).join(' · ') : '바뀐 것이 없습니다'}
+            {changed ? changeText(adding, dropping, true) : '바뀐 것이 없습니다'}
           </span>
           <Button onClick={onClose}>취소</Button>
           <Button variant="primary" onClick={commit} disabled={!changed || disabled}>

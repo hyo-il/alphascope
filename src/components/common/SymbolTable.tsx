@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import StockName from './StockName';
 import type { SymbolPickerProps } from './SymbolPicker';
 import SymbolListBar from './SymbolListBar';
@@ -16,11 +17,22 @@ import { isKrSymbol } from '../../utils/market';
  * 표 **위** 도구 줄 [종목 추가] · N종목 · [모두 삭제] — 칩 모양 `SymbolPicker` 와 **같은 줄 모양·같은 창**(`PickerDialog`).
  * 줄 높이는 매매 규칙 목록과 같다(`LIST_TABLE_ROW` 40px). 10줄이 넘으면 표 안에서 스크롤(머리 줄 고정).
  * ⚠️ 줄 삭제는 × 아이콘(「목록에서 삭제」 — 용어집 「삭제」, 확인 창 없음). 지시서의 「빼기」 는 용어집이 쓰지 않는 이름이라 쓰지 않았다.
+ *
+ * 선택 옵션(v2.62.2 · 자산 관리 위성 종목 — 주지 않으면 지금 그대로): `columns` = 「시장 · 분야」 대신 그릴 칸(분야를 받지 않는다) ·
+ * `nameOf` = 종목 이름(카탈로그에서 찾지 않는다 · 이름 칸에 티커를 붙이지 않는다) · `rowNote` = 그 줄을 흐리게 + 이름 옆 작은 안내.
+ * 창의 목록 출처는 `source`(`SymbolPicker` 의 같은 옵션).
  */
-export default function SymbolTable(props: Omit<SymbolPickerProps, 'title'>) {
-  const { selected, onChange, softLimit, softLimitText, emptyText } = props;
-  useStockNames(selected);
-  const info = useSymbolInfo(selected);
+export interface SymbolTableColumn {
+  head: string;
+  cell: (symbol: string) => ReactNode;
+}
+
+export default function SymbolTable(
+  props: Omit<SymbolPickerProps, 'title'> & { columns?: SymbolTableColumn[]; nameOf?: (symbol: string) => string | null; rowNote?: (symbol: string) => string | null },
+) {
+  const { selected, onChange, softLimit, softLimitText, emptyText, columns, nameOf, rowNote } = props;
+  useStockNames(nameOf ? [] : selected);
+  const info = useSymbolInfo(columns ? [] : selected);
   const soft = softLimit != null && selected.length > softLimit;
   const scrolls = selected.length > 10;
 
@@ -40,26 +52,58 @@ export default function SymbolTable(props: Omit<SymbolPickerProps, 'title'>) {
             <thead className="sticky top-0 z-10 bg-bg-secondary text-caption text-text-muted">
               <tr className="border-b border-border/50">
                 <th className={`${TABLE_NAME_COL} py-2 pl-3 pr-4`}>종목</th>
-                <th className="whitespace-nowrap py-2 pr-6">시장</th>
-                <th className="whitespace-nowrap py-2 pr-6">분야</th>
+                {columns ? (
+                  columns.map((c) => (
+                    <th key={c.head} className="whitespace-nowrap py-2 pr-6">
+                      {c.head}
+                    </th>
+                  ))
+                ) : (
+                  <>
+                    <th className="whitespace-nowrap py-2 pr-6">시장</th>
+                    <th className="whitespace-nowrap py-2 pr-6">분야</th>
+                  </>
+                )}
                 <th className="py-2 pr-2" aria-label="목록에서 삭제" />
               </tr>
             </thead>
             <tbody>
-              {selected.map((s) => (
-                <tr key={s} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW}`}>
-                  <td className="max-w-0 py-1.5 pl-3 pr-4">
-                    <span className="block truncate">
-                      <StockName symbol={s} />
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap py-1.5 pr-6 text-text-secondary">{isKrSymbol(s) ? '국내' : '미국'}</td>
-                  <td className="whitespace-nowrap py-1.5 pr-6 text-text-secondary">{info.get(s) ? (info.get(s)!.sector ?? '기타') : '…'}</td>
-                  <td className="py-1.5 pr-2 text-right">
-                    <ListRemoveButton onClick={() => onChange(selected.filter((x) => x !== s))} name={s} label="목록에서 삭제" />
-                  </td>
-                </tr>
-              ))}
+              {selected.map((s) => {
+                const note = rowNote?.(s) ?? null;
+                return (
+                  <tr key={s} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW} ${note ? 'text-text-muted' : ''}`} data-row-note={note ? '' : undefined}>
+                    <td className="max-w-0 py-1.5 pl-3 pr-4">
+                      {nameOf ? (
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className={`min-w-0 truncate font-medium ${note ? '' : 'text-text-primary'}`} title={nameOf(s) ?? s}>
+                            {nameOf(s) ?? s}
+                          </span>
+                          {note && <span className="shrink-0 whitespace-nowrap text-caption">{note}</span>}
+                        </span>
+                      ) : (
+                        <span className="block truncate">
+                          <StockName symbol={s} />
+                        </span>
+                      )}
+                    </td>
+                    {columns ? (
+                      columns.map((c) => (
+                        <td key={c.head} className="whitespace-nowrap py-1.5 pr-6 text-text-secondary">
+                          {c.cell(s)}
+                        </td>
+                      ))
+                    ) : (
+                      <>
+                        <td className="whitespace-nowrap py-1.5 pr-6 text-text-secondary">{isKrSymbol(s) ? '국내' : '미국'}</td>
+                        <td className="whitespace-nowrap py-1.5 pr-6 text-text-secondary">{info.get(s) ? (info.get(s)!.sector ?? '기타') : '…'}</td>
+                      </>
+                    )}
+                    <td className="py-1.5 pr-2 text-right">
+                      <ListRemoveButton onClick={() => onChange(selected.filter((x) => x !== s))} name={nameOf?.(s) ?? s} label="목록에서 삭제" />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
