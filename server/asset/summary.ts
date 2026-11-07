@@ -96,7 +96,7 @@ export function computeAssetTotals(data: AssetSheetData, book: PriceBook, settin
   };
 }
 
-/** 계좌마다 평가 금액 합 · 가격 못 받은 줄 수 — 「상세 보기」 카드 머리(연금 포함과 상관없이 모든 계좌 · 합친 표 제외) */
+/** 계좌마다 평가 금액 합 · 가격 못 받은 줄 수 — 「자산 현황」 계좌 카드 머리(연금 포함과 상관없이 모든 계좌 · 합친 표 제외) */
 export function accountValues(data: AssetSheetData, book: PriceBook): AssetAccount[] {
   return data.sections.flatMap((s) => {
     if (s.combined || !s.key) return [];

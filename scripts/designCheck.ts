@@ -375,7 +375,8 @@ function targets(): Target[] {
         await page.unroute(/\/api\/market-brief\?/);
       },
     })),
-    // 자산 관리(v2.61.0 · v2.62.0 · v2.62.1) — 잠김 · 풀림(하루 기록 0 · 1 · 여러 개 · 「미지정」 + 가격 못 받음 · 연금 포함 · 「상세 보기」 계좌 카드 · 「설정」 창 · 분류 색 바꾼 뒤) · 읽기 실패.
+    // 자산 관리(v2.61.0 · v2.62.0 · v2.62.1 · v2.62.2 탭) — 잠김 · 풀림(총 자산 탭: 하루 기록 0 · 1 · 여러 개 · 「미지정」 + 가격 못 받음 · 연금 포함 /
+    // 「자산 현황」 탭 계좌 카드(미지정 「-」) · 「설정」 창 · 분류 색 바꾼 뒤) · 읽기 실패.
     // 가짜 응답만(구글 · DB 그대로 — 쓰기 주소는 막는다)
     ...(
       [
@@ -383,9 +384,9 @@ function targets(): Target[] {
         ['기록0', true, 'ok', 0, { vsLast: false }, false, false],
         ['기록1', true, 'ok', 1, {}, false, false],
         ['기록여러개-미지정', true, 'ok', 30, { none: true }, false, false],
-        ['연금포함-상세보기', true, 'ok', 30, { pension: true }, true, false],
+        ['연금포함-자산현황', true, 'ok', 30, { pension: true }, true, false],
         ['설정창', true, 'ok', 30, { pension: true }, false, true],
-        ['색바꿈-상세보기', true, 'ok', 30, { pension: true, none: true, colors: { gold: 'green', cash: 'red', stock: 'teal', retirement: 'brown' } }, true, false],
+        ['색바꿈-자산현황', true, 'ok', 30, { pension: true, none: true, colors: { gold: 'green', cash: 'red', stock: 'teal', retirement: 'brown' } }, true, false],
         ['읽기실패', true, 'fail', 0, {}, false, false],
       ] as const
     ).map(([label, unlocked, sheet, records, sum, openSheet, openSettings]) => ({
@@ -407,7 +408,7 @@ function targets(): Target[] {
       open: async (page: Page) => {
         await page.waitForTimeout(800);
         if (openSheet) {
-          await page.locator('[aria-controls="as-asset-sheet"]').click().catch(() => {}); // 버전 안내 띠의 「상세 보기」 와 겹치지 않게
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
           await page.waitForTimeout(500);
           // 계좌 카드가 보이게(사진은 화면 크기만 찍는다)
           await page.locator('[data-account-cards]').scrollIntoViewIfNeeded().catch(() => {});
@@ -424,6 +425,7 @@ function targets(): Target[] {
         await page.evaluate(() => {
           localStorage.removeItem('alphascope.asset.includePension');
           localStorage.removeItem('alphascope.asset.closedAccounts');
+          localStorage.removeItem('alphascope.asset.tab');
         });
       },
     })),

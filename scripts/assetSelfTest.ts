@@ -563,7 +563,7 @@ try {
   const noSat = computeAssetTotals(sheetData, book(), { ...DEF, satelliteSymbols: [] }, true);
   check('[107-1] 위성 목록이 비면 주식은 모두 코어', near(noSat.totals.satellite, 0) && near(noSat.totals.core, v5 + v30));
 
-  // [107-8] 「상세 보기」 카드 머리 — 계좌마다 종목 수 · 평가 금액 합(가격 못 받은 줄은 빼고 개수) · 합친 표 없음 · 연금 포함과 상관없음
+  // [107-8] 「자산 현황」 계좌 카드 머리 — 계좌마다 종목 수 · 평가 금액 합(가격 못 받은 줄은 빼고 개수) · 합친 표 없음 · 연금 포함과 상관없음
   const acc = accountValues(sheetData, book());
   for (const a of acc) if (a.value > 0) totalsSecret.push(String(Math.round(a.value)), Math.round(a.value).toLocaleString('en-US'));
   check('[107-8] 계좌 카드 4개(시트 순서 · 합친 표 없음) · 종목 수 · 평가 금액 합 · 가격 못 받은 줄 수', JSON.stringify(acc.map((a) => [a.key, a.holdings, a.missing])) === JSON.stringify([['개별 투자', 4, 1], ['적립식 계좌', 1, 0], ['ISA 계좌', 1, 0], ['연금 저축 계좌', 1, 0]]) && near(acc[0].value, v5 + v6 + v9) && near(acc[1].value, v13) && near(acc[2].value, v22) && near(acc[3].value, v30) && acc[0].name === '개별 투자 ( 2026.07 )');
@@ -881,6 +881,11 @@ check('[107-5] 원형(groupStroke) · 분류별 표 점(groupDot)이 같은 표�
 // [108-1] 「분류 없음」 · 「알 수 없는 분류」 두 갈래 코드 · 문구 0(src · server · 화면 가짜 값)
 const assetFixtures = fs.readdirSync(path.join(root, 'scripts/fixtures/asset')).map((f) => fs.readFileSync(path.join(root, 'scripts/fixtures/asset', f), 'utf8')).join('\n');
 check('[108-1] 「분류 없음」 · 「알 수 없는 분류」 · 「알 수 없음 ·」 글자와 assetClassUnknown · unknownClassCount 남는 곳 0(src · server · fixtures/asset)', !/분류 없음|알 수 없는 분류|알 수 없음 ·|assetClassUnknown|unknownClassCount/.test(appCode + cssSrc + assetFixtures));
+
+// [108-3] 탭 — 「총 자산 | 자산 현황」 · 처음 총 자산 · 마지막 탭 기억(읽기 실패 → 총 자산) · 「상세 보기」 접기 글자 0(화면 동작은 Playwright 로도 확인)
+const dashSrc = fs.readFileSync(path.join(root, 'src/components/asset/AssetDashboard.tsx'), 'utf8');
+check('[108-3] 자산 관리 탭 = 총 자산 · 자산 현황(이 순서) · 기억 키 alphascope.asset.tab · 모르는 값 · 읽기 실패면 총 자산', /\{ id: 'total', label: '총 자산' \},\s*\{ id: 'status', label: '자산 현황' \}/.test(dashSrc) && /localStorage\.getItem\(TAB_KEY\) === 'status' \? 'status' : 'total';\s*\} catch \{\s*return 'total';/.test(dashSrc));
+check('[108-3] 자산 관리 화면 · 서버에 「상세 보기」 글자 0(접기 지움)', !assetUi.join('\n').includes('상세 보기') && !codeFiles.filter(({ f }) => f.startsWith('server/asset/') || f === 'src/types/asset.ts').some(({ src }) => src.includes('상세 보기')));
 
 const leaked = (textAll: string) => SECRET_STRINGS.filter((x) => textAll.includes(x));
 check('[13] 서버 로그(시험 서버) · 안쪽 경고 출력에 가짜 금액 · 수량이 없다', leaked(serverLog + captured.join('\n')).length === 0 && captured.some((l) => l.includes('[asset] 시트 읽기 실패: shape')));

@@ -6,7 +6,7 @@ import { formatNumber, formatPrice } from '../../utils/formatters';
 import { ASSET_CLASSES, UNASSIGNED_SHORT, type AssetAccount, type AssetClass, type AssetHolding, type AssetSection, type AssetSheetData } from '../../types/asset';
 
 /**
- * 자산 관리 맨 아래 접기 「상세 보기」 (v2.61.0 1단계 확인 표 → v2.62.0 접기 안 → v2.62.1 계좌 카드).
+ * 자산 관리 「자산 현황」 탭 (v2.61.0 1단계 확인 표 → v2.62.1 계좌 카드 → v2.62.2 탭).
  * - 요약(현금 · 퇴직 연금 · 월급 · 구매 평균 환율 · 목표 비율) 아래 **계좌마다 카드**(시트 순서) — 머리 = 계좌 이름 · 종목 수 · 평가 금액 합
  *   (가격 못 받은 줄은 빼고 「N줄 빠짐」) · 접기(처음 모두 펼침 · 접은 계좌는 이 기기에 기억).
  * - 시트의 합계 표(「적립식 주식」 — 계좌를 합친 표)는 보이지 않는다(총 자산에도 더하지 않는다 — 서버 계산).

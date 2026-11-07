@@ -85,7 +85,7 @@ export default function AssetSettingsDialog({
 
       <Block title="위성으로 선택한 종목" desc="체크한 종목 = 위성, 나머지 주식 = 코어. 같은 종목은 어느 계좌에 있든 같은 쪽입니다." busy={!!busy.satelliteSymbols} error={errors.satelliteSymbols ?? null}>
         {summary.stockChoices.length === 0 ? (
-          <p className="text-xs text-text-muted keep-all">자산 분류가 「주식」 인 종목이 없습니다 — 「상세 보기」 에서 자산 분류를 골라 주세요.</p>
+          <p className="text-xs text-text-muted keep-all">자산 분류가 「주식」 인 종목이 없습니다 — 「자산 현황」 에서 자산 분류를 골라 주세요.</p>
         ) : (
           <ul className="space-y-1" data-setting="satellite">
             {summary.stockChoices.map((c) => (

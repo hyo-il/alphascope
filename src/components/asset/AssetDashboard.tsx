@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { LoaderCircle, Lock, RefreshCw, Settings } from 'lucide-react';
-import { Button, DisclosureButton, ICON_SM, PageHeader, Panel, Segmented, SectionTitle } from '../ui';
+import { Button, ICON_SM, PageHeader, Panel, Segmented, SectionTitle } from '../ui';
 import { LIST_TABLE_ROW, PANEL_PAD, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { Skeleton, SkeletonTable } from '../common/SkeletonLoader';
 import { usePolling } from '../../hooks/usePolling';
@@ -14,17 +14,40 @@ import AssetSheetValues from './AssetSheetValues';
 import AssetSettingsDialog from './AssetSettingsDialog';
 
 /**
- * 계좌 > 자산 관리 — 풀린 화면(v2.62.0 · 자산 관리 3단계 · 사용자 결정 배치 (가)).
- * 1. 위: 숫자 카드 셋(총 자산 · 어제보다 · 평가 손익) / 머리 오른쪽: 「연금 포함」(이 기기에 기억) · 읽은 시각 · 「설정」 · 「다시 읽기」 · 「잠그기」
+ * 계좌 > 자산 관리 — 풀린 화면(v2.62.0 · 자산 관리 3단계 · v2.62.2 탭).
+ * 머리: 제목 줄 오른쪽 「연금 포함」(이 기기에 기억) · 읽은 시각 · 「설정」 · 「다시 읽기」 · 「잠그기」 — 두 탭 공통.
  *    「설정」 = 창 하나(연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색 — `AssetSettingsDialog`)
- * 2. 가운데: 총 자산 선 차트(하루 기록 · 1개월 · 3개월 · 1년 · 전체)
- * 3. 아래: 구성 원형 차트 / 분류별 표(주식 아래 코어 · 위성 · 미지정은 흐리게) — 분류 색은 설정의 「자산 분류 색」
- * 4. 맨 아래 접기 「상세 보기」 — 요약 + 계좌 카드(자산 분류 고르기 — 시트에 바로 씀)
+ * 제목 아래 탭 「총 자산 | 자산 현황」 — 처음 = 총 자산 · 마지막 탭을 이 기기에 기억(`alphascope.asset.tab` · 읽기 실패면 총 자산). 주소에는 넣지 않는다(소메뉴 안 탭).
+ * - 총 자산: 숫자 카드 셋(총 자산 · 어제보다 · 평가 손익) · 총 자산 선 차트(하루 기록 · 1개월 · 3개월 · 1년 · 전체) ·
+ *   구성 원형 차트 / 분류별 표(주식 아래 코어 · 위성 · 미지정은 흐리게) — 분류 색은 설정의 「자산 분류 색」
+ * - 자산 현황: 요약 + 계좌 카드(자산 분류 고르기 — 시트에 바로 씀). 이 탭을 처음 열 때 시트를 읽는다.
  * 받기: 처음 = 스켈레톤 · 다시 읽기 · 연금 포함 바꾸기 = 내용을 두고 작은 스피너 · 10초 가격 갱신(`usePolling` — 숨은 탭에서 쉼)은 표시 없음.
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 「연금 포함」 켬/끔만).
  */
 
 const PENSION_KEY = 'alphascope.asset.includePension';
+const TAB_KEY = 'alphascope.asset.tab';
+type AssetTab = 'total' | 'status';
+const TABS: { id: AssetTab; label: string }[] = [
+  { id: 'total', label: '총 자산' },
+  { id: 'status', label: '자산 현황' },
+];
+
+/** 마지막에 본 탭 — 읽지 못하거나 모르는 값이면 총 자산 */
+function readTab(): AssetTab {
+  try {
+    return localStorage.getItem(TAB_KEY) === 'status' ? 'status' : 'total';
+  } catch {
+    return 'total';
+  }
+}
+function saveTab(tab: AssetTab) {
+  try {
+    localStorage.setItem(TAB_KEY, tab);
+  } catch {
+    /* 기억하지 못해도 화면은 그대로 */
+  }
+}
 const POLL_MS = 10_000;
 
 function readPension(): boolean {
@@ -80,7 +103,8 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
   /** 마지막으로 그린 결과(연금 포함을 바꿔 다시 받는 동안에도 내용을 둔다) */
   const [latest, setLatest] = useState<{ pension: boolean; result: SummaryResult } | null>(null);
   const [reloading, setReloading] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<AssetTab>(readTab);
+  const open = tab === 'status';
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sheet, setSheet] = useState<{ data: AssetSheetData } | { error: string } | null>(null);
 
@@ -186,12 +210,19 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
             </Button>
           </>
         }
+        tabs={TABS}
+        value={tab}
+        onChange={(t) => {
+          setTab(t);
+          saveTab(t);
+        }}
+        tabsLabel="자산 관리 보기"
       />
       <div className={`min-h-0 flex-1 space-y-3 overflow-y-auto [scrollbar-gutter:stable] ${PANEL_PAD}`}>
-        {/* 처음 받기 — 스켈레톤(받기 전에 0 · 빈 값을 그리지 않는다) */}
-        {latest == null && <DashboardSkeleton />}
-        {result && !result.ok && !result.fail.locked && <ErrorLine message={result.fail.error} busy={reloading} onRetry={() => void reload()} />}
-        {summary && (
+        {/* 총 자산 탭 — 처음 받기는 스켈레톤(받기 전에 0 · 빈 값을 그리지 않는다) */}
+        {tab === 'total' && latest == null && <DashboardSkeleton />}
+        {tab === 'total' && result && !result.ok && !result.fail.locked && <ErrorLine message={result.fail.error} busy={reloading} onRetry={() => void reload()} />}
+        {tab === 'total' && summary && (
           <>
             <Cards summary={summary} />
             <HistoryPanel pension={pension} />
@@ -203,17 +234,14 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
             </div>
           </>
         )}
-        {/* 맨 아래 접기 — 상세 보기(요약 · 계좌 카드 · 자산 분류 고르기) */}
-        <div className="space-y-3 pt-1">
-          <DisclosureButton open={open} onToggle={() => setOpen((v) => !v)} label="상세 보기" controls="as-asset-sheet" />
-          {open && (
-            <div id="as-asset-sheet" className="space-y-3">
-              {sheet == null && <SkeletonTable rows={6} columns={6} />}
-              {sheet && 'error' in sheet && <ErrorLine message={sheet.error} onRetry={() => void loadSheet()} />}
-              {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} accounts={summary?.accounts ?? []} onPickClass={pickClass} />}
-            </div>
-          )}
-        </div>
+        {/* 자산 현황 탭 — 요약 · 계좌 카드 · 자산 분류 고르기 */}
+        {tab === 'status' && (
+          <div id="as-asset-status" className="space-y-3">
+            {sheet == null && <SkeletonTable rows={6} columns={6} />}
+            {sheet && 'error' in sheet && <ErrorLine message={sheet.error} onRetry={() => void loadSheet()} />}
+            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} accounts={summary?.accounts ?? []} onPickClass={pickClass} />}
+          </div>
+        )}
       </div>
       {settingsOpen && summary && <AssetSettingsDialog summary={summary} onSave={saveSettings} onClose={() => setSettingsOpen(false)} />}
     </div>
@@ -367,7 +395,7 @@ function GroupTable({ summary }: { summary: AssetSummary }) {
                     <span className="flex min-w-0 items-center gap-2">
                       <span className={`h-2 w-2 shrink-0 rounded-full ${groupDot(g.key, summary.settings.classColors)}`} aria-hidden />
                       <span className="shrink-0">{g.label}</span>
-                      {none && g.amount > 0 && <span className="truncate text-caption">아래에서 자산 분류를 골라 주세요</span>}
+                      {none && g.amount > 0 && <span className="truncate text-caption">자산 현황에서 자산 분류를 골라 주세요</span>}
                     </span>
                   </td>
                   <td className={NUM}>{formatPrice(g.amount, 'KRW')}</td>

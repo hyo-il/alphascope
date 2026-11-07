@@ -191,7 +191,7 @@ export interface AssetSummary {
   /** 가격 못 받은 줄의 이름(화면에 「가격 못 받음」 표시) */
   missingNames: string[];
   settings: AssetSettings;
-  /** 계좌(시트 순서 · 합친 표 제외) — 「연금으로 볼 계좌」 고르기 · 「상세 보기」 카드 머리 */
+  /** 계좌(시트 순서 · 합친 표 제외) — 「연금으로 볼 계좌」 고르기 · 「자산 현황」 계좌 카드 머리 */
   accounts: AssetAccount[];
   /** 「위성으로 선택한 종목」 에서 고를 수 있는 종목 */
   stockChoices: AssetStockChoice[];
