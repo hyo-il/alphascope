@@ -6,8 +6,9 @@ import { Skeleton, SkeletonTable } from '../common/SkeletonLoader';
 import { usePolling } from '../../hooks/usePolling';
 import { changeColor, formatNumber, formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
 import { formatDateTime } from '../../utils/dateFormat';
-import type { AssetClass, AssetHistoryPoint, AssetHistoryRange, AssetSectionSettings, AssetSheetData, AssetSheetFailure, AssetSummary } from '../../types/asset';
-import AssetDonut, { GROUP_DOT } from './AssetDonut';
+import type { AssetClass, AssetHistoryPoint, AssetHistoryRange, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary } from '../../types/asset';
+import AssetDonut from './AssetDonut';
+import { groupDot } from './assetColors';
 import AssetHistoryChart from './AssetHistoryChart';
 import AssetSheetValues, { SectionSettings } from './AssetSheetValues';
 
@@ -142,7 +143,7 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
     }
   };
 
-  const saveSettings = async (patch: Partial<AssetSectionSettings>): Promise<string | null> => {
+  const saveSettings = async (patch: Partial<AssetSettings>): Promise<string | null> => {
     try {
       const res = await fetch('/api/asset/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(patch) });
       const body = await readJson(res);
@@ -190,7 +191,7 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
             <HistoryPanel pension={pension} />
             <div className="grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-3">
               <Panel className="flex items-center justify-center">
-                <AssetDonut groups={summary.totals.groups} total={summary.totals.total} />
+                <AssetDonut groups={summary.totals.groups} total={summary.totals.total} colors={summary.settings.classColors} />
               </Panel>
               <GroupTable summary={summary} />
             </div>
@@ -358,7 +359,7 @@ function GroupTable({ summary }: { summary: AssetSummary }) {
                 <tr className={`border-t border-border/30 ${LIST_TABLE_ROW} ${none ? 'text-text-muted' : 'text-text-primary'}`} data-group={g.key}>
                   <td className="pl-4">
                     <span className="flex min-w-0 items-center gap-2">
-                      <span className={`h-2 w-2 shrink-0 rounded-full ${GROUP_DOT[g.key]}`} aria-hidden />
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${groupDot(g.key, summary.settings.classColors)}`} aria-hidden />
                       <span className="shrink-0">{g.label}</span>
                       {none && g.amount > 0 && <span className="truncate text-caption">아래에서 자산 분류를 골라 주세요</span>}
                     </span>

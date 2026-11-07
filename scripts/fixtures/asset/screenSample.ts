@@ -3,6 +3,7 @@
  * `design:check` 가 `page.route` 로 `/api/asset/status` · `sheet` · `summary` · `history` 를 바꿔치기한다 — 구글 · DB 를 건드리지 않는다.
  * 긴 종목명 · 긴 구간 이름 · 달러 소수 4자리 · 빈 구간 · 이을 수식 없는 줄 · 합계 표를 모두 넣어 칸 넘침을 잰다.
  */
+import { DEFAULT_CLASS_COLORS, type AssetClassColors } from '../../../src/types/asset';
 import type { AssetClass, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHolding, AssetSheetData, AssetSheetFailure, AssetStatus, AssetSummary } from '../../../src/types/asset';
 
 export const assetStatusSample = (unlocked: boolean, sheetConfigured = true): AssetStatus => ({ passwordSet: true, unlocked, sheetConfigured });
@@ -60,7 +61,7 @@ export const assetSheetFailureSample: AssetSheetFailure = {
 /**
  * 총 자산 요약(v2.62.0) 가짜 응답 — 만든 값. `none` = 분류 없음 금액 · 알 수 없는 분류 · 가격 못 받은 줄을 넣는다(긴 금액 · 경고 줄 넘침을 잰다).
  */
-export function assetSummarySample(opts: { pension?: boolean; none?: boolean; vsLast?: boolean } = {}): AssetSummary {
+export function assetSummarySample(opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors> } = {}): AssetSummary {
   const pension = opts.pension ?? false;
   const amounts: [AssetGroupKey, string, number][] = [
     ['cash', '현금', 1234567890],
@@ -81,8 +82,15 @@ export function assetSummarySample(opts: { pension?: boolean; none?: boolean; vs
     vsLast: opts.vsLast === false ? null : { day: '2026-11-05', amount: 23456789, ratio: 0.0043 },
     missingNames: opts.none ? ['이을 수식 없는 줄', '예시 미국 ETF 이름이 아주 긴 종목'] : [],
     unknownClassCount: opts.none ? 1 : 0,
-    settings: { pensionSections: ['연금 저축 계좌'], satelliteSections: ['개별 투자'] },
+    settings: { pensionSections: ['연금 저축 계좌'], satelliteSymbols: ['AAAA', '000001', '000003'], classColors: { ...DEFAULT_CLASS_COLORS, ...opts.colors } },
     sectionKeys: ['개별 투자', '적립식 계좌', 'ISA 계좌', '연금 저축 계좌'],
+    // 위성으로 선택한 종목 고르기 — 주식 종목 셋 + 위성 목록에 남았지만 분류가 주식이 아닌 종목(흐리게) · 계좌 둘에 있는 종목
+    stockChoices: [
+      { symbol: 'AAAA', name: '예시 미국 기술주', sections: ['개별 투자'], isStock: true },
+      { symbol: '000001', name: '예시 국내 대형주', sections: ['개별 투자'], isStock: true },
+      { symbol: '000003', name: '예시 고가 국내주', sections: ['개별 투자'], isStock: false },
+      { symbol: '0072R0', name: 'KODEX 예시 S&P500 이름이 아주 긴 종목 Vanguard Total World Stock Market Index Fund ETF Shares', sections: ['적립식 계좌', 'ISA 계좌'], isStock: true },
+    ],
   };
 }
 

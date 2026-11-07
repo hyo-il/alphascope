@@ -61,7 +61,7 @@ export interface AssetHolding {
 }
 
 export interface AssetSection {
-  /** 설정(연금 · 위성 구간)이 가리키는 이름(`개별 투자` 등) — 합친 표는 null */
+  /** 계좌 이름 key(`개별 투자` 등 — 「연금으로 볼 계좌」 가 가리킨다) — 합친 표는 null */
   key: string | null;
   name: string;
   /** 계좌를 합친 표(위 구간과 종목이 겹친다) */
@@ -101,12 +101,51 @@ export interface AssetSheetFailure {
   kind: AssetSheetErrorKind;
 }
 
-/** 계좌 구간 설정 — `app_settings` 'asset.pensionSections' · 'asset.satelliteSections'(구간 key 목록) */
-export interface AssetSectionSettings {
-  /** 「연금 포함」 이 꺼지면 빼는 구간(기본 `['연금 저축 계좌']`) — 퇴직 연금(「현금」 C30)도 함께 빠진다 */
+/**
+ * 자산 분류 색 팔레트(v2.62.1) — 색 이름(id)만 저장한다(값은 `src/index.css` `--color-swatch-*` 한 곳 · 화면은 `assetColors.ts` 가 이름 → 클래스).
+ * 어두운 바탕(#1e1e1e)에서 밝기 · 채도 · 대비 3:1 을 통과한 열 색. 회색은 「분류 없음」 고정이라 고를 수 없다.
+ */
+export const ASSET_COLOR_IDS = ['yellow', 'orange', 'red', 'pink', 'purple', 'blue', 'teal', 'green', 'lime', 'brown'] as const;
+export type AssetColorId = (typeof ASSET_COLOR_IDS)[number];
+export const ASSET_COLOR_LABEL: Record<AssetColorId, string> = {
+  yellow: '노랑',
+  orange: '주황',
+  red: '빨강',
+  pink: '분홍',
+  purple: '보라',
+  blue: '파랑',
+  teal: '청록',
+  green: '초록',
+  lime: '연두',
+  brown: '갈색',
+};
+export const isAssetColorId = (v: unknown): v is AssetColorId => typeof v === 'string' && (ASSET_COLOR_IDS as readonly string[]).includes(v);
+
+/** 색을 고르는 분류 — 「분류 없음」 은 회색 고정 */
+export type ColoredGroupKey = 'cash' | 'bond' | 'gold' | 'stock' | 'retirement';
+export const COLORED_GROUP_KEYS: readonly ColoredGroupKey[] = ['cash', 'bond', 'gold', 'stock', 'retirement'];
+export type AssetClassColors = Record<ColoredGroupKey, AssetColorId>;
+/** 기본 색 — 금 노랑 · 현금 주황(사용자 결정 2026-11-07) · 나머지는 106차 색에 가장 가까운 팔레트 색 */
+export const DEFAULT_CLASS_COLORS: AssetClassColors = { cash: 'orange', bond: 'purple', gold: 'yellow', stock: 'blue', retirement: 'pink' };
+
+/** 자산 관리 설정 — `app_settings` 'asset.pensionSections' · 'asset.satelliteSymbols' · 'asset.classColors' */
+export interface AssetSettings {
+  /** 연금으로 볼 계좌(구간 key — 기본 `['연금 저축 계좌']`) — 「연금 포함」 이 꺼지면 빠진다. 퇴직 연금(「현금」 C30)도 함께 빠진다 */
   pensionSections: string[];
-  /** 분류 「주식」 종목 중 위성으로 보는 구간(기본 `['개별 투자']`) — 그 밖 구간의 「주식」 은 코어 */
-  satelliteSections: string[];
+  /** 위성으로 선택한 종목(종목 코드 `symbol`) — 분류 「주식」 이면서 여기 있으면 위성 · 그 밖 「주식」 은 코어(계좌와 상관없이 같은 코드는 같은 쪽) */
+  satelliteSymbols: string[];
+  /** 분류마다 팔레트 색 이름 */
+  classColors: AssetClassColors;
+}
+
+/** 설정 창 「위성으로 선택한 종목」 의 한 줄 — 분류 「주식」 종목 + 위성 목록에 남아 있는 종목(합친 표 제외) */
+export interface AssetStockChoice {
+  symbol: string;
+  name: string;
+  /** 그 종목이 있는 계좌(구간 key — 시트 순서) */
+  sections: string[];
+  /** 지금 분류가 「주식」 인가 — 아니면 계산에서 빠진다(목록에는 남는다) */
+  isStock: boolean;
 }
 
 /** 분류별 묶음 — 네 분류 + 퇴직 연금(연금 포함일 때만 · 분류가 없는 한 칸) + 분류 없음 */
@@ -148,9 +187,11 @@ export interface AssetSummary {
   missingNames: string[];
   /** 자산 분류가 「알 수 없는 분류」 인 줄 수 */
   unknownClassCount: number;
-  settings: AssetSectionSettings;
-  /** 설정에서 고를 수 있는 구간 key(합친 표 제외) */
+  settings: AssetSettings;
+  /** 「연금으로 볼 계좌」 에서 고를 수 있는 계좌(구간 key — 합친 표 제외) */
   sectionKeys: string[];
+  /** 「위성으로 선택한 종목」 에서 고를 수 있는 종목 */
+  stockChoices: AssetStockChoice[];
 }
 
 /** 하루 기록 한 점 — `GET /api/asset/history?range=1m|3m|1y|all&pension=0|1` */

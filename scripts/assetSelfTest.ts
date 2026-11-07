@@ -26,9 +26,9 @@ import { authGuard } from '../server/authGuard';
 import { assetRouter } from '../server/asset/routes';
 import { AssetSheetError, resetTokenCache } from '../server/asset/google';
 import { avgPriceOf, linkedTickerRow, parseAssetSheet, readAssetSheet, resetSheetCache, sheetRanges, splitCode, writeAssetClass } from '../server/asset/sheet';
-import type { AssetSheetData, AssetSummary, AssetTotals } from '../src/types/asset';
+import { ASSET_COLOR_IDS, DEFAULT_CLASS_COLORS, type AssetSheetData, type AssetSummary, type AssetTotals } from '../src/types/asset';
 import { computeAssetTotals, setAssetPriceSourceForTest, assetSummary, type PriceBook } from '../server/asset/summary';
-import { readSectionSettings, writeSectionSettings } from '../server/asset/settings';
+import { readAssetSettings, stockChoices, writeAssetSettings } from '../server/asset/settings';
 import { clearRecordsForTest, historyPoints, latestRecord } from '../server/asset/store';
 import { dailyTick } from '../server/asset/daily';
 import { setSessionHooksForTest, type TossCalendarResponse } from '../server/heatmapSession';
@@ -498,7 +498,7 @@ try {
     for (const [k, v] of Object.entries({ ...PRICE, ...over })) if (v != null) prices.set(k, v);
     return { prices, usdKrw: fx };
   };
-  const DEF = { pensionSections: ['연금 저축 계좌'], satelliteSections: ['개별 투자'] };
+  const DEF = { pensionSections: ['연금 저축 계좌'], satelliteSymbols: ['NVDA'] };
   // 줄마다 평가(원) — 시험 안에서만 쓴다(출력하지 않는다)
   const v5 = 3.5 * 200 * FX_NOW; // 개별 · 미국 · 주식 → 위성
   const v6 = 12 * 20000; // 개별 · 알 수 없는 분류 → 분류 없음
@@ -522,8 +522,8 @@ try {
   check('[106-4] 연금 구간 설정을 ISA 로 바꾸면 그대로 따라감(꺼짐 → ISA 빠지고 연금 저축은 더함)', near(offIsa.totals.total, FAKE.cash + v5 + v6 + v9 + v13 + v30));
   check('[106-4-1] 분류 주식 + 개별 투자 = 위성 · 그 밖 구간 주식 = 코어(연금 포함일 때 연금 저축 주식)', near(on.totals.satellite, v5) && near(on.totals.core, v30) && near(off.totals.core, 0) && near(off.totals.satellite, v5));
   check('[106-4-1] 채권 · 금 · 현금 분류는 어느 구간이든 코어/위성에 안 들어감(개별 투자의 현금 분류 줄도)', near(grp(on.totals, 'stock'), v5 + v30) && near(on.totals.core + on.totals.satellite, v5 + v30) && near(grp(on.totals, 'cash'), FAKE.cash + v9) && near(grp(on.totals, 'bond'), v13) && near(grp(on.totals, 'gold'), v22));
-  const sat2 = computeAssetTotals(sheetData, book(), { ...DEF, satelliteSections: ['개별 투자', '연금 저축 계좌'] }, true);
-  check('[106-4-1] 위성 구간 설정을 바꾸면 따라감(연금 저축 → 위성)', near(sat2.totals.satellite, v5 + v30) && near(sat2.totals.core, 0));
+  const sat2 = computeAssetTotals(sheetData, book(), { ...DEF, satelliteSymbols: ['NVDA', '360750'] }, true);
+  check('[106-4-1] [107-1] 위성 종목을 바꾸면 따라감(연금 저축의 주식 360750 → 위성)', near(sat2.totals.satellite, v5 + v30) && near(sat2.totals.core, 0));
   check('[106-4] [106-2] 알 수 없는 분류(부동산)는 계산에서 분류 없음 · 개수 1', near(grp(off.totals, 'none'), v6) && off.unknownClassCount === 1);
   // [106-5] 미국 — 평가 × 토스 환율 · 매입 × G9
   const onlyUs = { ...sheetData, sections: sheetData.sections.map((x, i) => ({ ...x, holdings: i === 0 ? x.holdings.filter((h) => h.row === 5) : [] })) };
@@ -537,11 +537,95 @@ try {
   check('[106-6] 가격 못 받은 줄은 총 자산에서 빠지고 개수 · 이름이 보인다(이을 수식 없는 줄 포함)', near(miss.totals.total, plainTotal - v22) && miss.totals.missing === 2 && miss.missingNames.includes('가짜 금 ETF') && miss.missingNames.includes('이을 수식 없는 줄'));
   check('[106-6] 가격을 다 받으면 못 받은 줄은 이을 수식 없는 줄 1개뿐', off.totals.missing === 1);
 
-  // 설정 저장(app_settings) — 기본 · 바꾸기 · 모르는 구간 거절
-  getDb().prepare(`DELETE FROM app_settings WHERE key IN ('asset.pensionSections', 'asset.satelliteSections')`).run();
-  check('[106-4] 설정 기본값 = 연금 [연금 저축 계좌] · 위성 [개별 투자]', JSON.stringify(readSectionSettings()) === JSON.stringify(DEF));
-  check('[106-4] 설정 바꾸기 — 시트 순서로 저장 · 모르는 구간 · 배열 아님은 거절', JSON.stringify(writeSectionSettings({ pensionSections: ['연금 저축 계좌', 'ISA 계좌'] })?.pensionSections) === JSON.stringify(['ISA 계좌', '연금 저축 계좌']) && writeSectionSettings({ satelliteSections: ['없는 구간'] }) === null && writeSectionSettings({ pensionSections: '연금 저축 계좌' }) === null && writeSectionSettings({}) === null);
-  writeSectionSettings(DEF);
+  // ── [107-1] 위성 = 분류 「주식」 + 위성 종목 코드 · 같은 코드는 계좌가 달라도 같은 쪽 · 주식 아님은 밖 ──
+  const isaNvda = { ...sheetData.sections[0].holdings.find((h) => h.row === 5)!, row: 23 };
+  const withIsaNvda = { ...sheetData, sections: sheetData.sections.map((x) => (x.key === 'ISA 계좌' ? { ...x, holdings: [...x.holdings, isaNvda] } : x)) };
+  const same = computeAssetTotals(withIsaNvda, book(), DEF, true);
+  check('[107-1] 같은 코드(NVDA)가 ISA 계좌에도 있으면 그 줄도 위성(계좌로 나누지 않음)', near(same.totals.satellite, 2 * v5) && near(same.totals.core, v30));
+  const cashSat = computeAssetTotals(sheetData, book(), { ...DEF, satelliteSymbols: ['NVDA', '455890', '005930'] }, true);
+  check('[107-1] 위성 목록에 있어도 분류가 주식이 아니면(현금 455890 · 채권 005930) 코어/위성 밖', near(cashSat.totals.satellite, v5) && near(cashSat.totals.core, v30) && near(grp(cashSat.totals, 'cash'), FAKE.cash + v9) && near(grp(cashSat.totals, 'bond'), v13));
+  const noSat = computeAssetTotals(sheetData, book(), { ...DEF, satelliteSymbols: [] }, true);
+  check('[107-1] 위성 목록이 비면 주식은 모두 코어', near(noSat.totals.satellite, 0) && near(noSat.totals.core, v5 + v30));
+
+  // ── [107-2] 처음(저장값 없음) — 위성 = 개별 투자의 「주식」 종목 → 106차 계산(계좌로 나눔)과 같은 코어 · 위성 금액 ──
+  /** 106차(v2.62.0) 코어/위성 계산 그대로 — 위성 계좌의 「주식」 = 위성 · 그 밖 계좌 「주식」 = 코어(비교 기준) */
+  const legacy106 = (d: AssetSheetData, satelliteSections: string[], pensionSections: string[], includePension: boolean) => {
+    let core = 0;
+    let satellite = 0;
+    for (const sec of d.sections) {
+      if (sec.combined || !sec.key) continue;
+      if (pensionSections.includes(sec.key) && !includePension) continue;
+      for (const h of sec.holdings) {
+        if (h.assetClass !== '주식' || !h.symbol || h.quantity == null) continue;
+        const price = book().prices.get(h.symbol);
+        if (price == null) continue;
+        const v = h.market === 'US' ? h.quantity * price * FX_NOW : h.quantity * price;
+        if (satelliteSections.includes(sec.key)) satellite += v;
+        else core += v;
+      }
+    }
+    return { core, satellite };
+  };
+  const SETTING_KEYS = `('asset.pensionSections', 'asset.satelliteSections', 'asset.satelliteSymbols', 'asset.classColors')`;
+  const settingRow = (key: string) => (getDb().prepare(`SELECT value FROM app_settings WHERE key = ?`).get(key) as { value: string } | undefined)?.value;
+  getDb().prepare(`DELETE FROM app_settings WHERE key IN ${SETTING_KEYS}`).run();
+  const first = readAssetSettings(sheetData);
+  check('[107-2] 처음 — 위성 종목 = 개별 투자의 분류 「주식」 종목(NVDA)만 · 저장됨', JSON.stringify(first.satelliteSymbols) === JSON.stringify(['NVDA']) && settingRow('asset.satelliteSymbols') === JSON.stringify(['NVDA']));
+  for (const inc of [false, true]) {
+    const nowCalc = computeAssetTotals(sheetData, book(), first, inc).totals;
+    const old = legacy106(sheetData, ['개별 투자'], ['연금 저축 계좌'], inc);
+    check(`[107-2] 처음 값의 코어 · 위성 = 106차 계산과 같음(연금 ${inc ? '포함' : '뺌'})`, near(nowCalc.core, old.core) && near(nowCalc.satellite, old.satellite) && old.satellite > 0);
+  }
+  writeAssetSettings({ satelliteSymbols: [] }, sheetData);
+  check('[107-2] 한 번 정한 뒤로는 사용자 값(빈 목록도 그대로 — 다시 채우지 않음)', readAssetSettings(sheetData).satelliteSymbols.length === 0);
+
+  // ── [107-3] 옛 위성 계좌 저장값 → 그 계좌들의 「주식」 종목으로 한 번 옮기고 옛 키를 지움 ──
+  getDb().prepare(`DELETE FROM app_settings WHERE key IN ${SETTING_KEYS}`).run();
+  getDb().prepare(`INSERT INTO app_settings (key, value) VALUES ('asset.satelliteSections', ?)`).run(JSON.stringify(['개별 투자', '연금 저축 계좌']));
+  const moved = readAssetSettings(sheetData);
+  check('[107-3] 옛 asset.satelliteSections(개별 투자 · 연금 저축) → 위성 종목 NVDA · 360750 · 옛 키 지워짐', JSON.stringify(moved.satelliteSymbols) === JSON.stringify(['NVDA', '360750']) && settingRow('asset.satelliteSections') === undefined && settingRow('asset.satelliteSymbols') === JSON.stringify(['NVDA', '360750']));
+  const movedOld = legacy106(sheetData, ['개별 투자', '연금 저축 계좌'], ['연금 저축 계좌'], true);
+  const movedNow = computeAssetTotals(sheetData, book(), moved, true).totals;
+  check('[107-3] 옮긴 뒤 코어 · 위성 = 옛 설정의 106차 계산과 같음', near(movedNow.core, movedOld.core) && near(movedNow.satellite, movedOld.satellite));
+  getDb().prepare(`INSERT INTO app_settings (key, value) VALUES ('asset.satelliteSections', ?)`).run(JSON.stringify(['ISA 계좌']));
+  check('[107-3] 이미 옮긴 뒤 옛 키가 다시 생겨도 위성 종목은 그대로(한 번만 옮김)', JSON.stringify(readAssetSettings(sheetData).satelliteSymbols) === JSON.stringify(['NVDA', '360750']));
+  getDb().prepare(`DELETE FROM app_settings WHERE key = 'asset.satelliteSections'`).run();
+
+  // ── [107-4] 설정 저장 — 시트에 없는 계좌 · 코드 · 팔레트에 없는 색은 요청 전체를 거절 ──
+  getDb().prepare(`DELETE FROM app_settings WHERE key IN ${SETTING_KEYS}`).run();
+  const d0 = readAssetSettings(sheetData);
+  check('[106-4] 설정 기본값 = 연금으로 볼 계좌 [연금 저축 계좌]', JSON.stringify(d0.pensionSections) === JSON.stringify(['연금 저축 계좌']));
+  check('[106-4] 연금 계좌 바꾸기 — 시트 순서로 저장', JSON.stringify(writeAssetSettings({ pensionSections: ['연금 저축 계좌', 'ISA 계좌'] }, sheetData)?.pensionSections) === JSON.stringify(['ISA 계좌', '연금 저축 계좌']));
+  const rejects = [
+    { pensionSections: ['없는 계좌'] },
+    { pensionSections: '연금 저축 계좌' },
+    { satelliteSymbols: ['NVDA', 'NOPE'] },
+    { satelliteSymbols: 'NVDA' },
+    { classColors: { gold: 'gold-ish' } },
+    { classColors: { none: 'red' } },
+    { classColors: { gold: '#ffcc00' } },
+    { pensionSections: ['ISA 계좌'], classColors: { gold: '없는 색' } },
+    {},
+    [],
+  ];
+  const before4 = JSON.stringify(readAssetSettings(sheetData));
+  check('[107-4] 시트에 없는 계좌 · 종목 코드 · 팔레트에 없는 색(이름 · 색 값) · 분류 없음 색 · 빈 요청 → 거절 · 저장값 그대로', rejects.every((r) => writeAssetSettings(r, sheetData) === null) && JSON.stringify(readAssetSettings(sheetData)) === before4);
+  check('[107-4] 위성 종목 · 색 저장 — 시트의 코드 · 팔레트 이름만', JSON.stringify(writeAssetSettings({ satelliteSymbols: ['360750', 'NVDA'], classColors: { gold: 'green' } }, sheetData)?.satelliteSymbols) === JSON.stringify(['360750', 'NVDA']) && readAssetSettings(sheetData).classColors.gold === 'green' && readAssetSettings(sheetData).classColors.cash === 'orange');
+  const goneSheet = { ...sheetData, sections: sheetData.sections.map((x) => (x.key === '연금 저축 계좌' ? { ...x, holdings: [] } : x)) };
+  check('[107-4] 시트에서 빠진 종목이 이미 위성 목록에 있으면 그대로 다시 저장할 수 있다', writeAssetSettings({ satelliteSymbols: ['360750', 'NVDA'] }, goneSheet) !== null);
+
+  // ── [107-5] 분류 색 — 기본 금 노랑 · 현금 주황 · 저장값이 팔레트에 없으면 기본색 ──
+  getDb().prepare(`DELETE FROM app_settings WHERE key IN ${SETTING_KEYS}`).run();
+  const c0 = readAssetSettings(sheetData).classColors;
+  check('[107-5] 분류 색 기본 = 금 노랑(yellow) · 현금 주황(orange) · 채권 보라 · 주식 파랑 · 퇴직 연금 분홍', c0.gold === 'yellow' && c0.cash === 'orange' && JSON.stringify(c0) === JSON.stringify(DEFAULT_CLASS_COLORS) && c0.bond === 'purple' && c0.stock === 'blue' && c0.retirement === 'pink');
+  getDb().prepare(`INSERT INTO app_settings (key, value) VALUES ('asset.classColors', ?)`).run(JSON.stringify({ gold: 'neon', cash: 'teal' }));
+  const c1 = readAssetSettings(sheetData).classColors;
+  check('[107-5] 저장값의 팔레트에 없는 이름은 기본색 · 있는 이름은 그대로', c1.gold === 'yellow' && c1.cash === 'teal');
+  // 고르기 목록 — 분류 「주식」 + 목록에 남은 주식 아닌 종목(흐리게) · 어느 계좌인지
+  const choices = stockChoices(withIsaNvda, { ...readAssetSettings(sheetData), satelliteSymbols: ['NVDA', '455890'] });
+  check('[107-1] 고르기 목록 = 주식 종목(NVDA · 360750) + 목록에 남은 현금 종목(455890 · 주식 아님) · NVDA 계좌 둘', JSON.stringify(choices.map((c) => [c.symbol, c.isStock])) === JSON.stringify([['NVDA', true], ['455890', false], ['360750', true]]) && JSON.stringify(choices[0].sections) === JSON.stringify(['개별 투자', 'ISA 계좌']));
+  getDb().prepare(`DELETE FROM app_settings WHERE key IN ${SETTING_KEYS}`).run();
+  writeAssetSettings(DEF, sheetData);
 
   // ── [106-9] 하루 기록 — 가짜 시계 · 가짜 달력 · 가짜 가격 ─────────────
   const savedToss = { id: process.env.TOSS_CLIENT_ID, secret: process.env.TOSS_CLIENT_SECRET };
@@ -659,9 +743,15 @@ try {
   const histRes = await fetch(`${base}/api/asset/history?range=all&pension=0`, { headers: ck });
   const badRange = await fetch(`${base}/api/asset/history?range=2y`, { headers: ck });
   const putSettings = (body: unknown) => fetch(`${base}/api/asset/settings`, { method: 'PUT', headers: { ...ck, 'content-type': 'application/json' }, body: JSON.stringify(body) });
-  const setOk = await putSettings({ satelliteSections: ['개별 투자'] });
-  const setBad = await putSettings({ satelliteSections: ['없는 구간'] });
-  check('[106-10] (안쪽 서버) 풀린 뒤 summary 200(연금 포함) · history 200 · 기간 틀림 400 · settings 200 / 모르는 구간 400', sumRes.status === 200 && sumBody.includePension === true && Array.isArray(sumBody.sectionKeys) && histRes.status === 200 && badRange.status === 400 && setOk.status === 200 && setBad.status === 400);
+  const setOk = await putSettings({ satelliteSymbols: ['NVDA'] });
+  const setBad = await putSettings({ satelliteSections: ['개별 투자'] });
+  const setBadCode = await putSettings({ satelliteSymbols: ['NOPE'] });
+  const setBadColor = await putSettings({ classColors: { gold: 'gold' } });
+  const setColor = await putSettings({ classColors: { gold: 'red' } });
+  const setColorBody = (await setColor.json()) as { classColors?: { gold?: string } };
+  check('[107-4] (안쪽 서버) PUT /api/asset/settings — 옛 키 · 시트에 없는 코드 · 팔레트에 없는 색 400 · 팔레트 색 200', setBad.status === 400 && setBadCode.status === 400 && setBadColor.status === 400 && setColor.status === 200 && setColorBody.classColors?.gold === 'red');
+  await putSettings({ classColors: { gold: 'yellow' } });
+  check('[106-10] (안쪽 서버) 풀린 뒤 summary 200(연금 포함) · history 200 · 기간 틀림 400 · settings 200 / 옛 키 400', sumRes.status === 200 && sumBody.includePension === true && Array.isArray(sumBody.sectionKeys) && Array.isArray(sumBody.stockChoices) && sumBody.settings.classColors.gold === 'yellow' && histRes.status === 200 && badRange.status === 400 && setOk.status === 200 && setBad.status === 400);
   check('[106-7] (안쪽 서버) 구분 줄 400 not-editable · 수식 칸 409 formula-cell · 쓰기 늘지 않음', putBad.status === 400 && ((await putBad.json()) as { kind?: string }).kind === 'not-editable' && putFormula.status === 409 && google.writes === 1);
   resetSheetCache();
   sheetModel.values['티커!B12'] = '바뀐 머리';
@@ -701,6 +791,14 @@ check('[106-8] 시트 쓰기 함수 valuesUpdate — 정의(google.ts) 1 + 부�
 check('[106-8] 그 밖의 구글 쓰기 주소(batchUpdate · values:append · values:clear) 0 · PUT 은 google.ts 한 곳', !/batchUpdate|values:append|values:clear|values:batchClear/.test(appCode) && codeFiles.filter(({ src }) => /sheets\.googleapis\.com/.test(src)).map((x) => x.f).join(',') === 'server/asset/google.ts');
 check('[106-8] 구글 scope 는 spreadsheets 하나(drive 등 다른 scope 없음)', /auth\/spreadsheets'/.test(appCode) && !/auth\/spreadsheets\.readonly/.test(appCode) && !/auth\/drive/.test(appCode));
 check('[106-8] 실제 구글 호출 0 — 이 시험의 googleapis 요청은 모두 가짜가 받았다(쓰기는 가짜 응답으로만)', realGoogleCalls === 0);
+
+// [107-5] 분류 색 — 옛 토큰 남는 곳 0 · 원형 · 표 점 · 설정 창이 같은 이름 → 클래스 표(assetColors.ts) 하나를 쓴다
+const cssSrc = fs.readFileSync(path.join(root, 'src/index.css'), 'utf8');
+check('[107-5] 옛 색 토큰 --color-asset-* 와 그 클래스(bg · stroke -asset-cash 등) 남는 곳 0(src · server · index.css)', !/--color-asset-|-asset-(?:cash|bond|gold|stock|retirement|none)\b/.test(appCode + cssSrc));
+const colorsSrc = fs.readFileSync(path.join(root, 'src/components/asset/assetColors.ts'), 'utf8');
+check('[107-5] 팔레트 이름마다 --color-swatch-* 토큰 · 클래스가 있다(+ 분류 없음 회색)', ASSET_COLOR_IDS.every((id) => cssSrc.includes(`--color-swatch-${id}:`) && colorsSrc.includes(`'bg-swatch-${id}'`) && colorsSrc.includes(`'stroke-swatch-${id}'`)) && cssSrc.includes('--color-swatch-gray:'));
+const assetUi = fs.readdirSync(path.join(root, 'src/components/asset')).map((f) => fs.readFileSync(path.join(root, 'src/components/asset', f), 'utf8'));
+check('[107-5] 원형(groupStroke) · 분류별 표 점(groupDot)이 같은 표를 쓰고, 그 밖에 swatch 클래스를 직접 쓰는 화면 0', /groupStroke\(/.test(assetUi.join('\n')) && /groupDot\(/.test(assetUi.join('\n')) && codeFiles.filter(({ f, src }) => /\b(?:bg|stroke|text|fill|border)-swatch-/.test(src) && f !== 'src/components/asset/assetColors.ts').length === 0);
 
 const leaked = (textAll: string) => SECRET_STRINGS.filter((x) => textAll.includes(x));
 check('[13] 서버 로그(시험 서버) · 안쪽 경고 출력에 가짜 금액 · 수량이 없다', leaked(serverLog + captured.join('\n')).length === 0 && captured.some((l) => l.includes('[asset] 시트 읽기 실패: shape')));

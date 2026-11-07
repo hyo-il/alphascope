@@ -3,7 +3,7 @@ import { LoaderCircle } from 'lucide-react';
 import { Badge, ICON_SM, Panel, Select } from '../ui';
 import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice } from '../../utils/formatters';
-import { ASSET_CLASSES, type AssetClass, type AssetHolding, type AssetSection, type AssetSectionSettings, type AssetSheetData } from '../../types/asset';
+import { ASSET_CLASSES, type AssetClass, type AssetHolding, type AssetSection, type AssetSettings, type AssetSheetData } from '../../types/asset';
 
 /**
  * 자산 관리 맨 아래 접기 「시트에서 읽은 값」 (v2.61.0 1단계 확인 표 → v2.62.0 접기 안으로).
@@ -205,10 +205,10 @@ function SectionChecks({ label, keys, value, busy, onChange }: { label: string; 
 }
 
 /** 연금 구간 · 위성 구간 설정 */
-export function SectionSettings({ settings, keys, onSave }: { settings: AssetSectionSettings; keys: string[]; onSave: (patch: Partial<AssetSectionSettings>) => Promise<string | null> }) {
-  const [busy, setBusy] = useState<keyof AssetSectionSettings | null>(null);
+export function SectionSettings({ settings, keys, onSave }: { settings: AssetSettings; keys: string[]; onSave: (patch: Partial<AssetSettings>) => Promise<string | null> }) {
+  const [busy, setBusy] = useState<'pensionSections' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const save = async (field: keyof AssetSectionSettings, next: string[]) => {
+  const save = async (field: 'pensionSections', next: string[]) => {
     setBusy(field);
     setError(await onSave({ [field]: next }));
     setBusy(null);
@@ -217,7 +217,6 @@ export function SectionSettings({ settings, keys, onSave }: { settings: AssetSec
     <Panel className="space-y-2">
       <div className="text-xs font-semibold text-text-primary">계좌 구간 설정</div>
       <SectionChecks label="연금 구간" keys={keys} value={settings.pensionSections} busy={busy === 'pensionSections'} onChange={(v) => void save('pensionSections', v)} />
-      <SectionChecks label="위성 구간" keys={keys} value={settings.satelliteSections} busy={busy === 'satelliteSections'} onChange={(v) => void save('satelliteSections', v)} />
       <p className="text-caption leading-relaxed text-text-muted keep-all">
         「연금 포함」 을 끄면 연금 구간 보유와 퇴직 연금이 빠집니다. 위성 구간의 「주식」 종목은 위성, 그 밖 구간의 「주식」 종목은 코어입니다.
       </p>

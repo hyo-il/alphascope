@@ -12,7 +12,7 @@ import { AssetSheetError } from './google';
 import { readAssetSheet, writeAssetClass } from './sheet';
 import { assetSummary } from './summary';
 import { historyPoints, isHistoryRange } from './store';
-import { writeSectionSettings } from './settings';
+import { writeAssetSettings } from './settings';
 import type { AssetSheetErrorKind, AssetSheetFailure, AssetStatus } from '../../src/types/asset';
 
 export const assetRouter = Router();
@@ -109,11 +109,18 @@ assetRouter.get('/api/asset/history', (req, res) => {
   res.json({ range, points: historyPoints(range, req.query.pension === '1') });
 });
 
-/** 연금 구간 · 위성 구간 설정 — `{ pensionSections?, satelliteSections? }`(구간 key 목록) */
-assetRouter.put('/api/asset/settings', (req, res) => {
-  const saved = writeSectionSettings(req.body);
-  if (!saved) return res.status(400).json({ error: '구간 설정이 올바르지 않습니다.' });
-  res.json(saved);
+/**
+ * 설정 창 — `{ pensionSections?, satelliteSymbols?, classColors? }`(연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색).
+ * 계좌 · 종목 코드는 지금 시트에 있는 것만이라 시트를 먼저 읽는다(30초 캐시). 검사는 `writeAssetSettings` 한 곳.
+ */
+assetRouter.put('/api/asset/settings', async (req, res) => {
+  try {
+    const saved = writeAssetSettings(req.body, await readAssetSheet());
+    if (!saved) return res.status(400).json({ error: '설정 값이 올바르지 않습니다 — 시트에 없는 계좌 · 종목이거나 고를 수 없는 색입니다.' });
+    res.json(saved);
+  } catch (e) {
+    sendSheetError(res, e, '읽기');
+  }
 });
 
 /** 이유 종류 → HTTP — 이 서버 설정(연결 정보 · 열쇠 · 스위치)은 503, 요청이 틀림은 400, 수식 칸은 409, 구글 쪽은 502 */

@@ -1,28 +1,11 @@
 import { formatCompactMoney, formatNumber, formatPrice } from '../../utils/formatters';
-import type { AssetGroup, AssetGroupKey } from '../../types/asset';
+import type { AssetClassColors, AssetGroup } from '../../types/asset';
+import { groupStroke } from './assetColors';
 
 /**
- * 자산 구성 원형 차트(v2.62.0) — 새 의존성 없이 SVG 고리. 분류마다 고정 색(`index.css` `--color-asset-*` 한 곳 — 이 표가 이름만 쓴다).
+ * 자산 구성 원형 차트(v2.62.0) — 새 의존성 없이 SVG 고리. 분류 색은 설정(「자산 분류 색」 — 팔레트 이름)을 `assetColors.ts` 한 표로 칠한다.
  * 조각 사이 2px 바탕 틈 · 가운데 총 자산. 조각에 마우스를 올리면 분류 · 금액 · 비율(옆 분류별 표가 범례 · 표 보기를 겸한다).
  */
-export const GROUP_FILL: Record<AssetGroupKey, string> = {
-  cash: 'stroke-asset-cash',
-  bond: 'stroke-asset-bond',
-  gold: 'stroke-asset-gold',
-  stock: 'stroke-asset-stock',
-  retirement: 'stroke-asset-retirement',
-  none: 'stroke-asset-none',
-};
-/** 표 · 범례의 색 점 */
-export const GROUP_DOT: Record<AssetGroupKey, string> = {
-  cash: 'bg-asset-cash',
-  bond: 'bg-asset-bond',
-  gold: 'bg-asset-gold',
-  stock: 'bg-asset-stock',
-  retirement: 'bg-asset-retirement',
-  none: 'bg-asset-none',
-};
-
 const SIZE = 180;
 const STROKE = 26;
 const R = (SIZE - STROKE) / 2;
@@ -30,7 +13,7 @@ const C = 2 * Math.PI * R;
 /** 조각 사이 틈(둘레 길이) */
 const GAP = 2;
 
-export default function AssetDonut({ groups, total }: { groups: AssetGroup[]; total: number }) {
+export default function AssetDonut({ groups, total, colors }: { groups: AssetGroup[]; total: number; colors: AssetClassColors }) {
   // 음수(빚 등)는 원에 그릴 수 없다 — 0 으로(표에는 그대로 보인다)
   const parts = groups.filter((g) => g.amount > 0);
   const sum = parts.reduce((a, g) => a + g.amount, 0);
@@ -53,8 +36,9 @@ export default function AssetDonut({ groups, total }: { groups: AssetGroup[]; to
                 strokeWidth={STROKE}
                 strokeDasharray={`${drawn} ${C - drawn}`}
                 strokeDashoffset={-offset}
-                className={`${GROUP_FILL[g.key]} transition-opacity hover:opacity-80`}
+                className={`${groupStroke(g.key, colors)} transition-opacity hover:opacity-80`}
                 data-group={g.key}
+                data-color={g.key === 'none' ? 'gray' : colors[g.key]}
               >
                 <title>{`${g.label} ${formatPrice(g.amount, 'KRW')} · ${g.ratio == null ? '—' : formatNumber(g.ratio * 100, 1, '%')}`}</title>
               </circle>
