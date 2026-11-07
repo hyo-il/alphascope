@@ -339,6 +339,18 @@ cd ~/projects/alphascope/app && npm run auth:set-password
 - `GEMINI_BRIEF_MODEL`(기본 비움 = `GEMINI_MODEL`) — 오늘 시황만 다른 Gemini 모델로. 브리핑 1번 = Gemini 1번(실패하면 1번만 다시 · 429 면 다시 하지 않음).
 - 자동 한 번에 RSS 8곳(대체 소스는 첫 후보가 안 되면 다음 후보) · 미국 재무부 1~2번 · 지표 엔진(yfinance 지수 13종 + 60일 안 실적 종목의 전망치 — 종목당 4번, 엔진이 6시간 캐시).
 
+### 자산 관리 시트 가격 스위치 (v2.65.0)
+
+- `ASSET_PRICE_WRITE_ENABLED`(**기본 꺼짐** — 값이 정확히 `true` 일 때만 켬) — 설정 창 「시트 가격」 의 [시트 가격을 토스로 바꾸기] · [되돌리기] 와, 토스로 바꾼 뒤 장이 열린 동안 10초마다 바뀐 가격 · 환율만 시트 「티커」 에 쓰는 일. `ASSET_SYNC_ENABLED` 도 켜져 있어야 한다.
+- **오라클에서만 켠다**(맥 사용자 서버가 같은 시트에 함께 쓰면 겹친다). 오라클에 **접속한 상태에서** 한 줄(이미 있으면 그 줄만 `true` 로 고치고, 없으면 끝에 더함 → AlphaScope 두 이름만 다시 켬):
+
+```bash
+F=~/projects/alphascope/app/.env; if grep -q '^ASSET_PRICE_WRITE_ENABLED=' "$F"; then sed -i 's/^ASSET_PRICE_WRITE_ENABLED=.*/ASSET_PRICE_WRITE_ENABLED=true/' "$F"; else [ -n "$(tail -c1 "$F")" ] && echo >> "$F"; echo 'ASSET_PRICE_WRITE_ENABLED=true' >> "$F"; fi; grep -c '^ASSET_PRICE_WRITE_ENABLED=true$' "$F"; pm2 restart alphascope-api && pm2 restart alphascope-indicators
+```
+
+- 확인: `pm2 logs alphascope-api --lines 50 --nostream | grep '시트 가격'` 에 「시트 가격 쓰기를 하지 않습니다」 가 **없어야** 한다(꺼져 있으면 서버가 켜질 때 이 줄을 남긴다). 끄려면 그 줄을 `false` 로 고치고 같은 두 이름을 다시 켠다(시트는 그때 모양 그대로 — 먼저 [되돌리기] 를 누른다).
+- 부담: 토스 시세 10초에 1번 · 환율 60초에 1번 · 구글 쓰기 10초에 1번 이하(바뀐 칸이 없거나 두 시장이 닫히면 0) · 쓰기 전 줄 코드 확인 읽기 1번.
+
 ## 점검 도구
 
 ### 오늘 시황 소스 점검 (`marketbrief:sources`)
