@@ -76,7 +76,7 @@ export default function AssetPriceSheetSection({
       {!status.enabled && <p className="text-caption text-warning keep-all">이 서버에서는 시트 가격 쓰기가 꺼져 있습니다(오라클에서만 켬)</p>}
       {status.archived && (
         <p className="text-caption text-text-muted keep-all" data-price-archived>
-          이전 시트를 되돌리지 않고 바꿨습니다 — 옛 시트 백업 {formatNumber(status.archived.cells)}칸 보관 중({status.archived.sheets.map((h) => `${h}…`).join(' · ')} 시트)
+          이전 시트를 되돌리지 않고 바꿨습니다 — 옛 시트 백업 {formatNumber(status.archived.cells, 0)}칸 보관 중({status.archived.sheets.map((h) => `${h}…`).join(' · ')} 시트)
         </p>
       )}
       {(showConvert || showRestore) && (
@@ -106,8 +106,9 @@ export default function AssetPriceSheetSection({
               <thead className="bg-bg-secondary text-caption text-text-muted">
                 <tr className="border-b border-border/50">
                   <th className={`${TABLE_NUM_COL} py-2 pl-3 pr-4`}>줄</th>
-                  <th className={`${TABLE_NAME_COL} py-2 pr-4`}>그때 종목</th>
-                  <th className={`${TABLE_NAME_COL} py-2 pr-3`}>지금 종목</th>
+                  {/* 이름 칸 둘 — 남는 폭을 반씩(한 칸이 다 가져가면 다른 칸이 눌린다 · design:check) */}
+                  <th className="w-1/2 py-2 pr-4">그때 종목</th>
+                  <th className="w-1/2 py-2 pr-3">지금 종목</th>
                 </tr>
               </thead>
               <tbody>

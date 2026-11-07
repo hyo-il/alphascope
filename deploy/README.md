@@ -351,7 +351,35 @@ F=~/projects/alphascope/app/.env; if grep -q '^ASSET_PRICE_WRITE_ENABLED=' "$F";
 - 확인: `pm2 logs alphascope-api --lines 50 --nostream | grep '시트 가격'` 에 「시트 가격 쓰기를 하지 않습니다」 가 **없어야** 한다(꺼져 있으면 서버가 켜질 때 이 줄을 남긴다). 끄려면 그 줄을 `false` 로 고치고 같은 두 이름을 다시 켠다(시트는 그때 모양 그대로 — 먼저 [되돌리기] 를 누른다).
 - 부담: 토스 시세 10초에 1번 · 환율 60초에 1번 · 구글 쓰기 10초에 1번 이하(바뀐 칸이 없거나 두 시장이 닫히면 0) · 쓰기 전 줄 코드 확인 읽기 1번.
 
+### 자산 원본 시트로 바꾸기 (v2.65.1 · 한 번만)
+
+앱이 읽는 시트는 오라클 `.env` 의 `ASSET_SHEET_ID` 하나로 정해진다. 아래 순서대로 한다(오라클 명령은 **오라클에 접속한 상태에서** 친다).
+시트 ID 는 구글 시트 주소 `https://docs.google.com/spreadsheets/d/<여기>/edit` 의 `<여기>` 부분이다.
+
+1. (앱) 자산 관리 → 설정 → 「시트 가격」 [되돌리기] — 시험용 시트의 가격 칸을 GOOGLEFINANCE 로 되돌린다. 「줄이 옮겨짐 — 직접 확인」 목록이 보이면 시트 줄을 원래대로 돌린 뒤 [되돌리기] 를 다시 눌러 목록을 먼저 비운다.
+2. (구글 시트) 원본에서 「파일 → 버전 기록 → 현재 버전 이름 지정」.
+3. (구글 시트) 원본 「티커」 탭에 D열을 넣고 D12 에 `자산 분류` — 시험용 시트와 같은 자리.
+4. (구글 시트) 원본을 서비스 계정 이메일에 **편집자**로 공유한다. 이메일은 5번 점검이 「1. 열기」 줄(또는 실패 문구)에 알려 준다.
+5. (오라클) 점검 — 읽기만 한다(쓰기 0). 마지막 줄이 「✅ 연결해도 됩니다」 인지 본다. 「❌」 이면 그 위의 칸을 고치고 다시 친다.
+
+```bash
+cd ~/projects/alphascope/app && npm run -s asset:check-sheet -- --sheet <원본 ID>
+```
+
+6. (오라클) `.env` 의 `ASSET_SHEET_ID` 를 원본 ID 로 바꾸고(있으면 그 줄만 바꾸고 없으면 끝에 더함 · 값은 출력하지 않고 맞는 줄 개수만 — `1` 이면 됨) AlphaScope 두 이름만 다시 켠다:
+
+```bash
+ID='<원본 ID>'; F=~/projects/alphascope/app/.env; if grep -q '^ASSET_SHEET_ID=' "$F"; then sed -i "s|^ASSET_SHEET_ID=.*|ASSET_SHEET_ID=$ID|" "$F"; else [ -n "$(tail -c1 "$F")" ] && echo >> "$F"; echo "ASSET_SHEET_ID=$ID" >> "$F"; fi; grep -c "^ASSET_SHEET_ID=$ID\$" "$F"; pm2 restart alphascope-api && pm2 restart alphascope-indicators
+```
+
+   - 서버가 켜질 때 시트가 바뀐 것을 알아채고 **한 번만** 정리한다: 하루 기록(총 자산 차트)을 보관표 `asset_daily_archive` 로 옮기고 새로 쌓기 시작 · 시트 가격 상태를 처음(Google)으로 · 옛 시트 백업이 남아 있으면 지우지 않고 보관(새 시트에는 쓰지 않음). 위성 종목 · 연금 계좌 · 분류 색 · 괜찮음 범위 · 구매 기록은 그대로.
+   - 확인: `pm2 logs alphascope-api --lines 80 --nostream | grep '시트가 바뀜'` 에 「[asset] 시트가 바뀜 — 하루 기록 n줄 보관 · 옛 시트 백업 n칸 보관」 한 줄.
+7. (앱) 자산 관리 화면 확인 → 「자산 현황」 에서 D열 자산 분류 고르기 → 설정 「시트 가격」 [시트 가격을 토스로 바꾸기].
+8. 되돌리고 싶을 때: 6번 명령의 ID 를 시험용 시트 ID 로 바꿔 다시 친다(두 이름 다시 켜기 포함). 그때 쌓인 하루 기록도 보관표로 옮겨지고 **자동으로 복원되지 않는다**(필요하면 따로 요청). 원본에서 [시트 가격을 토스로 바꾸기] 를 했다면 먼저 [되돌리기] 를 누른다.
+
 ## 점검 도구
+
+- 자산 시트 점검(`asset:check-sheet`) — 위 「자산 원본 시트로 바꾸기」 5번(읽기만 · `--sheet` 가 없으면 `.env` 의 `ASSET_SHEET_ID`).
 
 ### 오늘 시황 소스 점검 (`marketbrief:sources`)
 
