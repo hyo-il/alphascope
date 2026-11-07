@@ -26,6 +26,8 @@ export class AssetSheetError extends Error {
     message: string,
     /** 구글이 돌려준 HTTP 상태(그 밖 응답 실패만 — 시트 가격 10초 쓰기가 429 · 5xx 를 보고 쉰다 · v2.65.0) */
     readonly status?: number,
+    /** 400(탭 이름 없음)일 때 구글이 알려 준 범위의 탭 이름 — 점검 스크립트(`asset:check-sheet` · v2.65.1)가 「어디인지」 에 쓴다 · 문구는 그대로 */
+    readonly tab?: string,
   ) {
     super(message);
   }
@@ -147,7 +149,12 @@ async function throwIfFailed(res: Response, action: 'read' | 'write'): Promise<v
     );
   }
   if (res.status === 404) throw new AssetSheetError('not-found', '시트를 찾지 못했습니다(`.env` 의 ASSET_SHEET_ID 를 확인하세요).');
-  if (res.status === 400) throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(${action === 'read' ? '읽을' : '쓸'} 탭 이름이 시트에 없습니다).`);
+  if (res.status === 400) {
+    // 구글 오류 글 「Unable to parse range: '탭'!B12」 에서 탭 이름만(본문은 남기지 않는다)
+    const err = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+    const tab = err?.error?.message?.match(/Unable to parse range:\s*'?((?:[^'!]|'')+?)'?!/)?.[1]?.replace(/''/g, "'");
+    throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(${action === 'read' ? '읽을' : '쓸'} 탭 이름이 시트에 없습니다).`, 400, tab);
+  }
   throw new AssetSheetError('network', `구글 시트 응답이 올바르지 않습니다(${res.status}).`, res.status);
 }
 

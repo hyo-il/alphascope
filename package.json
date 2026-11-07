@@ -24,6 +24,7 @@
     "autotrade:test": "tsx scripts/autoTradingSelfTest.ts",
     "auth:set-password": "tsx scripts/setPassword.ts",
     "asset:set-password": "tsx scripts/setPassword.ts asset",
+    "asset:check-sheet": "tsx scripts/assetCheckSheet.ts",
     "diagnose": "tsx scripts/diagnose.ts",
     "universe:update": "tsx scripts/universeUpdate.ts",
     "research:target": "tsx scripts/targetScreenResearch.ts",
@@ -55,6 +56,7 @@
     "investorflow:test": "tsx scripts/investorFlowSelfTest.ts",
     "testguard:test": "tsx scripts/testGuardSelfTest.ts",
     "asset:test": "tsx scripts/assetSelfTest.ts",
+    "assetsheet:test": "tsx scripts/assetSheetSelfTest.ts",
     "assetprice:test": "tsx scripts/assetPriceSelfTest.ts"
   },
   "dependencies": {
