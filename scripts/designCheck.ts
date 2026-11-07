@@ -407,7 +407,7 @@ function targets(): Target[] {
       open: async (page: Page) => {
         await page.waitForTimeout(800);
         if (openSheet) {
-          await page.getByRole('button', { name: '상세 보기' }).click().catch(() => {});
+          await page.locator('[aria-controls="as-asset-sheet"]').click().catch(() => {}); // 버전 안내 띠의 「상세 보기」 와 겹치지 않게
           await page.waitForTimeout(500);
           // 계좌 카드가 보이게(사진은 화면 크기만 찍는다)
           await page.locator('[data-account-cards]').scrollIntoViewIfNeeded().catch(() => {});

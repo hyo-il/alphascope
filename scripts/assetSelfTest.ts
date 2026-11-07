@@ -3,6 +3,8 @@
  *
  * 101차 지시서 「꼭 지킬 동작」 1~15 를 줄마다 확인한다(시험 이름 앞의 [n] 이 그 줄 번호).
  * 106차(v2.62.0) 「꼭 지킬 동작」 1~13(4-1 포함)은 [106-n] — 「티커」 D열 자산 분류 · 쓰기 · 총 자산 계산 · 하루 기록.
+ * 107차(v2.62.1) 「꼭 지킬 동작」 1~11 은 [107-n] — 위성 종목 · 처음 값 · 옛 키 옮김 · 설정 검사 · 분류 색 · 하루 기록 미국 정규장 종가 · 계좌 카드 · 시트 쓰기 한 곳 · 매매 코드 0 · 출력에 금액 없음([106-11] · [13] 이 같은 검사).
+ *   화면(8 의 카드 · 접기 · 글자 0 · 드롭다운 가운데 정렬 · 5 의 원형 · 표 같은 색)은 Playwright 로 따로 확인했다(보고서).
  * - 잠금(1~6 · 11): 사본 DB 로 **시험 서버를 따로 띄워**(포트 4107 · 스위치 끔 · 시트 연결 정보 없음) 실제 HTTP 로 확인한다.
  * - 시트 읽기(7~10 · 13): **만든 가짜 값**만 쓴다 — 구글 주소를 부르는 `fetch` 를 이 프로세스 안에서 바꿔치기하고, 열쇠는 그때 만든 시험용 RSA 키.
  *   실제 구글 호출 0번.
@@ -549,6 +551,7 @@ try {
 
   // [107-8] 「상세 보기」 카드 머리 — 계좌마다 종목 수 · 평가 금액 합(가격 못 받은 줄은 빼고 개수) · 합친 표 없음 · 연금 포함과 상관없음
   const acc = accountValues(sheetData, book());
+  for (const a of acc) if (a.value > 0) totalsSecret.push(String(Math.round(a.value)), Math.round(a.value).toLocaleString('en-US'));
   check('[107-8] 계좌 카드 4개(시트 순서 · 합친 표 없음) · 종목 수 · 평가 금액 합 · 가격 못 받은 줄 수', JSON.stringify(acc.map((a) => [a.key, a.holdings, a.missing])) === JSON.stringify([['개별 투자', 4, 1], ['적립식 계좌', 1, 0], ['ISA 계좌', 1, 0], ['연금 저축 계좌', 1, 0]]) && near(acc[0].value, v5 + v6 + v9) && near(acc[1].value, v13) && near(acc[2].value, v22) && near(acc[3].value, v30) && acc[0].name === '개별 투자 ( 2026.07 )');
 
   // ── [107-2] 처음(저장값 없음) — 위성 = 개별 투자의 「주식」 종목 → 106차 계산(계좌로 나눔)과 같은 코어 · 위성 금액 ──
@@ -715,6 +718,7 @@ try {
     return { r, rec: latestRecord(), refreshed: refreshCalls };
   };
   const wClose = await recordWinter(190, 260);
+  for (const n of [wClose.rec?.total, wClose.rec?.totalPension]) if (n != null) totalsSecret.push(String(Math.round(n)), Math.round(n).toLocaleString('en-US'));
   const satAt = (p: number) => 3.5 * p * FX_NOW;
   check('[107-6] 겨울 15:35 KST 기록 — 미국 종목은 11-05 정규장 종가(190)로 · 토스 지금 가격(주간거래 260)이 섞이지 않음', wClose.r === 'recorded' && wClose.rec?.day === '2026-11-05' && near(wClose.rec?.plain.satellite, satAt(190)) && !near(wClose.rec?.plain.satellite, satAt(260)) && wClose.refreshed === 1, `${wClose.r} ${wClose.refreshed}`);
   check('[107-6] 국내 종목 · 현금 · 환율은 지금처럼(토스 지금 가격 — 채권 · 금 · 현금 칸이 106차 계산과 같음)', near(grp(wClose.rec!.plain, 'bond'), v13) && near(grp(wClose.rec!.plain, 'gold'), v22) && near(grp(wClose.rec!.plain, 'cash'), FAKE.cash + v9) && near(wClose.rec?.total, plainTotal - v5 + satAt(190)));
@@ -855,13 +859,18 @@ const leaked = (textAll: string) => SECRET_STRINGS.filter((x) => textAll.include
 check('[13] 서버 로그(시험 서버) · 안쪽 경고 출력에 가짜 금액 · 수량이 없다', leaked(serverLog + captured.join('\n')).length === 0 && captured.some((l) => l.includes('[asset] 시트 읽기 실패: shape')));
 check('[13] 이 시험의 출력에 가짜 금액 · 수량이 없다', leaked(printed.join('\n')).length === 0);
 const allOut = [serverLog, captured.join('\n'), logged.join('\n'), printed.join('\n')].join('\n');
-check('[106-11] 로그 · 시험 출력에 계산한 총 자산 · 분류 금액이 없다(출력 문자열 검사)', totalsSecret.length > 0 && totalsSecret.every((x) => !allOut.includes(x)) && leaked(allOut).length === 0);
+check('[106-11] [107-11] 로그 · 시험 출력에 계산한 총 자산 · 분류 금액 · 계좌 평가 합 · 종가 기록 금액이 없다(출력 문자열 검사)', totalsSecret.length > 0 && totalsSecret.every((x) => !allOut.includes(x)) && leaked(allOut).length === 0);
 
 const changed = spawnSync('git', ['diff', '--name-only', '0a2dc10', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
 check('[14] 매매 · 시황 · 자동매매 코드 바뀐 파일 0(0a2dc10 와 지금 작업 트리)', changed.status === 0 && changed.stdout.trim() === '', changed.stdout.trim() || changed.stderr.trim());
 const changed106 = spawnSync('git', ['diff', '--name-only', 'c166ecd', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
 check('[106-12] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(c166ecd 와 지금 작업 트리)', changed106.status === 0 && changed106.stdout.trim() === '', changed106.stdout.trim() || changed106.stderr.trim());
 
+// [107-9] 시트 쓰기는 지금처럼 「티커」 D14~D42 자산 분류 한 곳뿐 · 서식 쓰기(batchUpdate — repeatCell · 정렬 등) 0 — 이번 설정 저장은 앱 DB(app_settings)에만
+check('[107-9] 시트 쓰기 = writeAssetClass 한 곳(valuesUpdate 부르는 곳 sheet.ts 하나) · 서식 쓰기(batchUpdate · repeatCell · horizontalAlignment) 0 · settings.ts 는 시트를 쓰지 않음', JSON.stringify(callers.sort()) === JSON.stringify(['server/asset/google.ts', 'server/asset/sheet.ts']) && !/batchUpdate|repeatCell|horizontalAlignment|userEnteredFormat/.test(appCode) && !/valuesUpdate|googleapis/.test(fs.readFileSync(path.join(root, 'server/asset/settings.ts'), 'utf8')));
+// [107-10] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(106차 끝 428db88 와 지금 작업 트리)
+const changed107 = spawnSync('git', ['diff', '--name-only', '428db88', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
+check('[107-10] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(428db88 와 지금 작업 트리)', changed107.status === 0 && changed107.stdout.trim() === '', changed107.stdout.trim() || changed107.stderr.trim());
 
 // [15] 메뉴 — 계좌 대메뉴의 소메뉴는 「계좌 관리」 · 「자산 관리」 순서 · 대메뉴를 누르면 첫 소메뉴(appStore.setGroup 이 pages[0] 으로 간다 — 화면 클릭은 Playwright 로도 확인)
 const accountGroup = NAV_GROUPS.find((g) => g.id === 'account');
