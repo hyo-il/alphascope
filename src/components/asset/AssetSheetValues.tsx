@@ -248,9 +248,6 @@ function AccountCard({
             <span className="shrink-0 whitespace-nowrap text-caption text-text-muted" data-count>
               {rows.length}종목
             </span>
-            <span className="ml-auto shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums text-text-primary" data-value>
-              {account ? formatPrice(account.value, 'KRW') : '—'}
-            </span>
             <label
               className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-caption text-text-secondary"
               onClick={(e) => e.stopPropagation()}
@@ -269,6 +266,9 @@ function AccountCard({
               />
               모두 선택
             </label>
+            <span className="ml-auto shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums text-text-primary" data-value>
+              {account ? formatPrice(account.value, 'KRW') : '—'}
+            </span>
             {account != null && account.missing > 0 && (
               <span className="shrink-0 whitespace-nowrap text-caption text-warning" title="가격을 받지 못한 줄은 평가 금액 합에서 빠졌습니다">
                 {account.missing}줄 빠짐
@@ -289,9 +289,7 @@ function AccountCard({
       )}
       {open && rows.length > 0 && (
         <tr id={id} className={`text-caption text-text-muted ${TABLE_HEAD_ROW}`}>
-          <th className={`${CARD_BG} ${TABLE_NUM_COL} pl-4 pr-2 text-left font-normal`}>
-            <span className="sr-only">선택</span>
-          </th>
+          <th className={`${CARD_BG} ${TABLE_NUM_COL} pl-4 pr-2 text-left font-normal`} aria-label="선택" />
           <th className={`${CARD_BG} ${TABLE_NAME_COL} text-left font-normal`}>종목</th>
           <th className={`${CARD_BG} ${TEXT} text-left font-normal`}>코드</th>
           <th className={`${CARD_BG} ${TEXT} text-left font-normal`}>시장</th>
