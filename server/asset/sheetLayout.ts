@@ -7,7 +7,8 @@
  *   비교는 공백을 모두 빼고 한다(띄어쓰기만 다른 것은 같은 모양) · `prefix` 는 앞부분만(구간 이름 뒤의 「( 2026.07 )」 같은 날짜는 바뀐다).
  * - 보유 줄 ↔ 종목 줄은 이름 글자가 아니라 F열 수식 `'티커'!$F$NN` 의 NN(「티커」 줄 번호)으로 잇는다(`linkFormula`).
  * - 평균 매입가: C열 수식이 `=(달러값)*('티커'!$G$9)` 이면 달러 원래 값 · USD, 숫자면 원화 KRW(`usdFormula`).
- * - **쓰는 칸은 「티커」 D14~D42 자산 분류 하나뿐**(`assetClass` — 웹에서 고를 때만 · `server/asset/sheet.ts` `writeAssetClass`).
+ * - **쓰는 칸은 둘뿐**: 「티커」 D14~D42 자산 분류(`assetClass` — `server/asset/sheet.ts` `writeAssetClass`) ·
+ *   「자산 투자 비율 관리」 목표 비율 여섯 칸(`targetRatio` — 설정 창에서 저장할 때만 · `writeTargetRatio` · v2.63.0).
  */
 
 import { ASSET_CLASSES } from '../../src/types/asset';
@@ -81,13 +82,26 @@ export const SHEET_LAYOUT = {
     avgFxRate: { tab: TICKER_TAB, cell: 'G9' },
   },
 
-  /** 목표 비율 — 「자산 투자 비율 관리」 */
+  /**
+   * 목표 비율 — 「자산 투자 비율 관리」. 읽기 · 쓰기(v2.63.0) 모두 이 여섯 칸.
+   * ⚠️ 시트 칸 순서는 **현금 · 금 · 채권 · 투자**(금이 채권보다 앞) — 화면 순서(현금 · 채권 · 금 · 주식)와 다르다. 칸을 섞지 않는다.
+   * `headers` 는 쓰기 직전에만 확인하는 머리 글자(열 순서가 바뀌었으면 쓰지 않는다 — 2026-11-07 시험용 시트로 확인한 글자).
+   */
   targetRatio: {
     tab: '자산 투자 비율 관리',
     /** 현금 · 금 · 채권 · 투자 */
     assets: ['C18', 'D18', 'E18', 'F18'],
     /** 코어 · 위성 */
     coreSatellite: ['G23', 'G24'],
+    headers: [
+      { tab: '자산 투자 비율 관리', cell: 'B18', expect: '자산 배분 비율' },
+      { tab: '자산 투자 비율 관리', cell: 'C17', expect: '현금', prefix: true },
+      { tab: '자산 투자 비율 관리', cell: 'D17', expect: '금' },
+      { tab: '자산 투자 비율 관리', cell: 'E17', expect: '채권' },
+      { tab: '자산 투자 비율 관리', cell: 'F17', expect: '투자', prefix: true },
+      { tab: '자산 투자 비율 관리', cell: 'F23', expect: '코어' },
+      { tab: '자산 투자 비율 관리', cell: 'F24', expect: '위성' },
+    ] satisfies HeaderCheck[],
   },
 
   /** F열 수식에서 「티커」 줄 번호 NN — `'티커'!$F$NN`(「티커」 F열 = 원화 표기) */

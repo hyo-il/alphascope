@@ -23,10 +23,11 @@ export type AssetSheetErrorKind =
   | 'not-found' // 404 — 시트 ID 가 틀림
   | 'shape' // 머리 글자가 다름 · 탭이 없음 — 값을 쓰지 않는다
   | 'network'
-  // ── 쓰기(자산 분류)만 ──
+  // ── 쓰기(자산 분류 · 목표 비율)만 ──
   | 'disabled' // 이 서버에서 시트 쓰기 · 하루 기록이 꺼짐(ASSET_SYNC_ENABLED=false)
   | 'not-editable' // 쓸 수 없는 칸(「티커」 D14~D42 의 종목 줄이 아님) · 허용하지 않는 값
-  | 'formula-cell'; // 그 칸이 수식(`=` 로 시작) — 덮어쓰지 않는다
+  | 'formula-cell' // 그 칸이 수식(`=` 로 시작) — 덮어쓰지 않는다
+  | 'mismatch'; // 쓴 뒤 다시 읽은 값이 보낸 값과 다름(목표 비율 — v2.63.0)
 
 /**
  * 자산 분류 — 「티커」 D열에 적는 글자 넷(사용자 결정 2026-11-07).
@@ -70,7 +71,7 @@ export interface AssetSection {
   holdings: AssetHolding[];
 }
 
-/** 목표 비율 — 백분율(30 = 30%) */
+/** 목표 비율 — 백분율(30 = 30%) · 저장(`PUT /api/asset/target-ratio`)은 여섯 칸 모두 정수 0~100 · 네 칸 합 100 · 코어 + 위성 100 */
 export interface AssetTargetRatio {
   cash: number | null;
   gold: number | null;

@@ -9,7 +9,7 @@ import { readSessionCookie } from '../auth';
 import { assetLimiter, isAssetPasswordSet, isUnlocked, lockSession, unlockSession, verifyAssetPassword } from './lock';
 import { isSheetConfigured } from './config';
 import { AssetSheetError } from './google';
-import { readAssetSheet, writeAssetClass } from './sheet';
+import { readAssetSheet, writeAssetClass, writeTargetRatio } from './sheet';
 import { assetSummary } from './summary';
 import { historyPoints, isHistoryRange } from './store';
 import { writeAssetSettings } from './settings';
@@ -88,6 +88,18 @@ assetRouter.get('/api/asset/sheet', async (_req, res) => {
 assetRouter.put('/api/asset/class', async (req, res) => {
   try {
     res.json(await writeAssetClass(req.body?.row, req.body?.assetClass));
+  } catch (e) {
+    sendSheetError(res, e, '쓰기');
+  }
+});
+
+/**
+ * 목표 비율 여섯 칸 쓰기(v2.63.0) — `{ cash, bond, gold, invest, core, satellite }`(정수 %). 성공하면 다시 읽은 시트 값.
+ * 스위치 · 값 · 합 · 머리 글자 · 수식 칸 · 다시 읽어 같은지 확인은 `writeTargetRatio` 한 곳.
+ */
+assetRouter.put('/api/asset/target-ratio', async (req, res) => {
+  try {
+    res.json(await writeTargetRatio(req.body));
   } catch (e) {
     sendSheetError(res, e, '쓰기');
   }

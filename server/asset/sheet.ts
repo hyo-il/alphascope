@@ -1,16 +1,17 @@
 /**
- * 자산 시트 읽기 · 자산 분류 쓰기(v2.61.0 · v2.62.0) — 칸 목록은 `sheetLayout.ts` 한 곳, 구글 호출은 `google.ts`.
+ * 자산 시트 읽기 · 자산 분류 쓰기 · 목표 비율 쓰기(v2.61.0 · v2.62.0 · v2.63.0) — 칸 목록은 `sheetLayout.ts` 한 곳, 구글 호출은 `google.ts`.
  *
  * - 화면을 열 때 · 「다시 읽기」 · 총 자산 계산(화면이 열린 동안 · 하루 기록 1번)에 읽는다. 같은 결과는 30초 캐시(동시에 온 요청은 한 번만 읽는다).
- * - 쓰기는 `writeAssetClass` 한 곳 — 「티커」 D14~D42 종목 줄의 자산 분류 한 칸만(쓰기 직전에 다시 읽어 수식 칸이면 멈춘다).
+ * - 쓰기는 두 곳 — `writeAssetClass`(「티커」 D14~D42 종목 줄의 자산 분류 한 칸) · `writeTargetRatio`(목표 비율 여섯 칸).
+ *   둘 다 쓰기 직전에 수식 그대로 다시 읽어 머리 글자 · 수식 칸을 확인한다(구글에 쓰는 함수는 `google.ts` `valuesWrite` 하나).
  * - 한 번 읽기 = `values:batchGet` 두 번: ① 값(UNFORMATTED_VALUE) — 머리 글자 · 종목 · 보유 · 값 칸 ② 수식(FORMULA) — 보유 줄의 C(평균 매입가) · F(이을 줄).
  * - 머리 글자가 하나라도 다르면 값을 쓰지 않고 「시트 모양이 바뀌었어요(탭 · 칸)」.
  * ⚠️ 읽은 값은 로그에 찍지 않는다(실패 이유 종류만).
  */
 import { isAssetClass, type AssetClass, type AssetHolding, type AssetSection, type AssetSheetData, type AssetTargetRatio } from '../../src/types/asset';
 import { assetSheetConfig, isAssetSyncEnabled } from './config';
-import { AssetSheetError, batchGet, valuesUpdate, type CellRows } from './google';
-import { HOLDINGS_TAB, SHEET_LAYOUT, TICKER_TAB, type HoldingSection } from './sheetLayout';
+import { AssetSheetError, batchGet, valuesWrite, type CellRows } from './google';
+import { HOLDINGS_TAB, SHEET_LAYOUT, TICKER_TAB, type HeaderCheck, type HoldingSection } from './sheetLayout';
 
 const CACHE_MS = 30_000;
 
@@ -201,6 +202,9 @@ export async function readAssetSheet(): Promise<AssetSheetData> {
   }
 }
 
+/** 머리 글자 하나가 맞는가 — 공백을 모두 빼고 비교 · `prefix` 는 앞부분만 */
+const headerOk = (h: HeaderCheck, got: Cell) => (h.prefix ? squash(got).startsWith(squash(h.expect)) : squash(got) === squash(h.expect));
+
 /** 쓰기 실패 중 시트와 상관없는 것(칸 · 값 · 스위치) — 화면에는 문구 그대로 */
 const refuse = (kind: 'disabled' | 'not-editable' | 'formula-cell', message: string) => new AssetSheetError(kind, message);
 
@@ -225,7 +229,7 @@ export async function writeAssetClass(row: unknown, value: unknown): Promise<Ass
 
   const header = L.headers.find((h) => h.tab === TICKER_TAB && h.cell === `${L.assetClass.column}12`)!;
   const [headRows, lineRows] = await batchGet(config, [one(TICKER_TAB, header.cell), `${q(TICKER_TAB)}!B${row}:${L.assetClass.column}${row}`], 'FORMULA');
-  if (squash(first(headRows)) !== squash(header.expect)) {
+  if (!headerOk(header, first(headRows))) {
     throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(「${header.tab}」 탭 ${header.cell} — 「${header.expect}」 이어야 합니다).`);
   }
   const line = lineRows[0];
@@ -233,7 +237,82 @@ export async function writeAssetClass(row: unknown, value: unknown): Promise<Ass
   if (typeof line?.[2] === 'string' && line[2].trim().startsWith('=')) {
     throw refuse('formula-cell', `「${TICKER_TAB}」 ${L.assetClass.column}${row} 칸에 수식이 있어 쓰지 않았습니다(수식을 덮어쓰지 않습니다).`);
   }
-  await valuesUpdate(config, one(L.assetClass.tab, `${L.assetClass.column}${row}`), value as AssetClass | '');
+  await valuesWrite(config, [{ range: one(L.assetClass.tab, `${L.assetClass.column}${row}`), value: value as AssetClass | '' }]);
   resetSheetCache();
   return readAssetSheet();
+}
+
+/** 저장할 목표 비율 — 여섯 칸 모두 정수 % */
+export type TargetRatioInput = Record<keyof AssetTargetRatio, number>;
+/** 시트 칸 순서 그대로(현금 · 금 · 채권 · 투자 / 코어 · 위성) — `SHEET_LAYOUT.targetRatio.assets` · `coreSatellite` 와 짝 */
+const RATIO_ASSET_KEYS = ['cash', 'gold', 'bond', 'invest'] as const;
+const RATIO_STOCK_KEYS = ['core', 'satellite'] as const;
+
+/** 목표 비율 검사 — 여섯 칸 정수 0~100 · 네 칸 합 100 · 코어 + 위성 100. 틀리면 null */
+export function checkTargetRatio(input: unknown): TargetRatioInput | null {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const o = input as Record<string, unknown>;
+  const keys = [...RATIO_ASSET_KEYS, ...RATIO_STOCK_KEYS];
+  if (!keys.every((k) => typeof o[k] === 'number' && Number.isInteger(o[k]) && (o[k] as number) >= 0 && (o[k] as number) <= 100)) return null;
+  const r = Object.fromEntries(keys.map((k) => [k, o[k] as number])) as TargetRatioInput;
+  if (RATIO_ASSET_KEYS.reduce((a, k) => a + r[k], 0) !== 100) return null;
+  if (RATIO_STOCK_KEYS.reduce((a, k) => a + r[k], 0) !== 100) return null;
+  return r;
+}
+
+/**
+ * 한 묶음(네 칸 · 두 칸)이 시트에 어떤 모양으로 적혀 있나 — 숫자 합이 1 이하면 비율(0.1), 아니면 %(10).
+ * 읽기의 `asPercent` 와 같은 기준. 숫자가 하나도 없으면(빈칸뿐) 비율(시트 칸이 % 서식 — 2026-11-07 시험용 시트로 확인).
+ */
+function ratioForm(cells: Cell[]): 'fraction' | 'percent' {
+  const known = cells.map(num).filter((v): v is number => v != null);
+  if (known.length === 0) return 'fraction';
+  return known.reduce((a, b) => a + b, 0) <= 1.0001 ? 'fraction' : 'percent';
+}
+
+/**
+ * 목표 비율 여섯 칸 쓰기(v2.63.0 · 설정 창 「목표 비율」 저장). **검사는 이 함수 한 곳**. 순서:
+ * ① 스위치(`ASSET_SYNC_ENABLED=false` → 「꺼짐」) ② 값 확인(정수 0~100 · 네 칸 합 100 · 코어 + 위성 100 — `checkTargetRatio`)
+ * ③ 쓰기 직전에 머리 글자(`targetRatio.headers`)와 여섯 칸을 **수식 그대로** 다시 읽는다 — 머리가 다르면 「모양 바뀜」,
+ *    여섯 칸 중 하나라도 수식이면 **하나도 쓰지 않고** 거절(409 `formula-cell`) · 숫자가 아닌 글자가 있으면 거절
+ * ④ 원래 모양 그대로(비율 0.1 / % 10 — 묶음마다) **숫자로** `valuesWrite` 한 요청
+ * ⑤ 캐시를 비우고 다시 읽어 여섯 값이 보낸 값과 같은지 확인 — 다르면 `mismatch` 오류.
+ * ⚠️ 칸 순서는 시트 그대로(현금 · 금 · 채권 · 투자 = C · D · E · F) — 화면 순서와 섞지 않는다. 쓴 값 · 읽은 값을 로그에 찍지 않는다.
+ */
+export async function writeTargetRatio(input: unknown): Promise<AssetSheetData> {
+  if (!isAssetSyncEnabled()) throw refuse('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다(ASSET_SYNC_ENABLED=false).');
+  const ratio = checkTargetRatio(input);
+  if (!ratio) throw refuse('not-editable', '목표 비율은 0~100 정수이고, 현금 · 채권 · 금 · 주식 합과 코어 + 위성 합이 각각 100이어야 합니다.');
+  const config = assetSheetConfig();
+  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
+
+  const T = SHEET_LAYOUT.targetRatio;
+  const cells = [...T.assets, ...T.coreSatellite];
+  const got = await batchGet(config, [...T.headers.map((h) => one(h.tab, h.cell)), ...cells.map((c) => one(T.tab, c))], 'FORMULA');
+  T.headers.forEach((h, i) => {
+    if (!headerOk(h, first(got[i]))) throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(「${h.tab}」 탭 ${h.cell} — 「${h.expect}」 이어야 합니다).`);
+  });
+  const now = cells.map((_, i) => first(got[T.headers.length + i]));
+  const formulaAt = cells.filter((_, i) => typeof now[i] === 'string' && (now[i] as string).trim().startsWith('='));
+  if (formulaAt.length > 0) {
+    throw refuse('formula-cell', `「${T.tab}」 ${formulaAt.join(' · ')} 칸에 수식이 있어 하나도 쓰지 않았습니다(수식을 덮어쓰지 않습니다).`);
+  }
+  const textAt = cells.filter((_, i) => now[i] != null && text(now[i]) !== '' && num(now[i]) == null);
+  if (textAt.length > 0) throw refuse('not-editable', `「${T.tab}」 ${textAt.join(' · ')} 칸이 숫자가 아니라 쓰지 않았습니다.`);
+
+  const assetForm = ratioForm(now.slice(0, T.assets.length));
+  const stockForm = ratioForm(now.slice(T.assets.length));
+  const asCell = (v: number, form: 'fraction' | 'percent') => (form === 'fraction' ? Math.round(v * 100) / 10_000 : v);
+  await valuesWrite(config, [
+    ...T.assets.map((c, i) => ({ range: one(T.tab, c), value: asCell(ratio[RATIO_ASSET_KEYS[i]], assetForm) })),
+    ...T.coreSatellite.map((c, i) => ({ range: one(T.tab, c), value: asCell(ratio[RATIO_STOCK_KEYS[i]], stockForm) })),
+  ]);
+  resetSheetCache();
+  const data = await readAssetSheet();
+  const same = [...RATIO_ASSET_KEYS, ...RATIO_STOCK_KEYS].every((k) => {
+    const v = data.targetRatio[k];
+    return v != null && Math.abs(v - ratio[k]) < 1e-6;
+  });
+  if (!same) throw new AssetSheetError('mismatch', '시트에 쓴 값이 다르게 읽혔습니다(시트를 열어 목표 비율 칸을 확인하세요).');
+  return data;
 }
