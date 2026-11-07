@@ -436,11 +436,12 @@ function targets(): Target[] {
           localStorage.removeItem('alphascope.asset.includePension');
           localStorage.removeItem('alphascope.asset.closedAccounts');
           localStorage.removeItem('alphascope.asset.tab');
+          localStorage.removeItem('alphascope.asset.settingsMenu');
         });
       },
     })),
     // 자산 관리 v2.63.0 · v2.64.0 — 「비율 조정」 탭(괜찮음 · 조정 필요 섞임 · 빠진 금액 줄 · 목표 합 ≠ 100 · 목표 빈칸) ·
-    // 설정 창 「목표 비율」(합 맞음 · 틀림 · 쓰기 꺼짐) · 「괜찮음 범위」 · 「자산 현황」 종목별(전체 · 코어 · 위성). 가짜 응답만(쓰기 주소는 막는다)
+    // 설정 창 「목표 비율」(합 맞음 · 틀림 · 쓰기 꺼짐) · 「비율 조정 범위」 · 「자산 현황」 종목별(전체 · 코어 · 위성). 가짜 응답만(쓰기 주소는 막는다)
     ...(
       [
         ['비율조정', { pension: true, none: true }, async () => {}],
@@ -501,6 +502,9 @@ function targets(): Target[] {
         ] as const).map(([label, price, button]) => [`설정창-시트가격-${label}`, { price }, async (page: Page) => {
           await page.locator('[data-asset-settings]').click().catch(() => {});
           await page.waitForTimeout(400);
+          // v2.65.2 — 설정 창 왼쪽 메뉴 「시트 가격」
+          await page.getByRole('dialog').getByRole('tab', { name: '시트 가격', exact: true }).click().catch(() => {});
+          await page.waitForTimeout(200);
           await page.locator('[data-setting="price-sheet"]').scrollIntoViewIfNeeded().catch(() => {});
           await page.waitForTimeout(200);
           if (button) {
@@ -508,6 +512,20 @@ function targets(): Target[] {
             await page.waitForTimeout(300);
           }
         }] as const),
+        // v2.65.2 — 설정 창 왼쪽 메뉴 다섯(목표 비율 · 코어 · 위성 · 연금 · 자산 분류 색 · 시트 가격) · 자산 현황 계좌별 일괄 띠(같은 종목 두 계좌 체크)
+        ...(['목표 비율', '코어 · 위성', '연금', '자산 분류 색', '시트 가격'] as const).map((m) => [`설정창-메뉴-${m.replace(/ · /g, '').replace(/ /g, '')}`, { pension: true }, async (page: Page) => {
+          await page.locator('[data-asset-settings]').click().catch(() => {});
+          await page.waitForTimeout(400);
+          await page.getByRole('dialog').getByRole('tab', { name: m, exact: true }).click().catch(() => {});
+          await page.waitForTimeout(300);
+        }] as const),
+        ['자산현황-일괄띠', {}, async (page: Page) => {
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+          await page.locator('tbody[data-account="개별 투자"] [data-select-row="16"]').check().catch(() => {});
+          await page.locator('tbody[data-account="ISA 계좌"] [data-select-all]').check().catch(() => {});
+          await page.waitForTimeout(200);
+        }],
         ['자산현황-요약목표비율', {}, async (page: Page) => {
           await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
           await page.waitForTimeout(500);
@@ -552,6 +570,7 @@ function targets(): Target[] {
           localStorage.removeItem('alphascope.asset.includePension');
           localStorage.removeItem('alphascope.asset.tab');
           localStorage.removeItem('alphascope.asset.statusView');
+          localStorage.removeItem('alphascope.asset.settingsMenu');
         });
       },
     })),

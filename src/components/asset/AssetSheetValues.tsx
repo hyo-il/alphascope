@@ -176,7 +176,7 @@ function ClassPicker({ h, saving, onPick }: { h: AssetHolding; saving: boolean; 
 }
 
 /**
- * 계좌 카드 하나 = 표의 `tbody` 하나 — 머리 줄(이름 · 종목 수 · 평가 금액 합 · 접기) + 칸 이름 줄 + 보유 줄.
+ * 계좌 카드 하나 = 표의 `tbody` 하나 — 머리 줄(이름 · 종목 수 · 「모두 선택」 · 평가 금액 합 · [상세 보기] — 머리 줄 아무 곳을 눌러도 펴고 접음) + 칸 이름 줄 + 보유 줄.
  * 카드들을 **표 하나**로 그려 숫자 칸은 내용 폭 그대로 두고 카드끼리 열 자리가 같다(카드마다 표를 따로 두면 열 자리가 어긋난다).
  * 카드 모양 = 칸마다 바탕을 칠하고 머리 · 마지막 줄 끝 칸만 둥글게 · 카드 사이는 빈 줄(바탕 없음 12px).
  */
@@ -223,7 +223,24 @@ function AccountCard({
         </tr>
       )}
       <tr className={LIST_TABLE_ROW}>
-        <th colSpan={COLS} scope="colgroup" className={`${CARD_BG} px-4 text-left font-normal ${open ? 'rounded-t-xl border-b border-border/50' : 'rounded-xl'}`}>
+        {/* 머리 줄 전체가 누르는 곳(v2.65.2) — 마우스 · Enter/Space 로 펴고 접는다. 안의 「모두 선택」 · [상세 보기] 는 이벤트를 막아 두 번 접히지 않게 */}
+        <th
+          colSpan={COLS}
+          scope="colgroup"
+          role="button"
+          tabIndex={0}
+          aria-expanded={open}
+          aria-controls={id}
+          aria-label={`${section.name || '이름 없는 계좌'} 상세 보기`}
+          data-account-head
+          onClick={onToggle}
+          onKeyDown={(e) => {
+            if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+            e.preventDefault();
+            onToggle();
+          }}
+          className={`${CARD_BG} px-4 text-left font-normal ${open ? 'rounded-t-xl border-b border-border/50' : 'rounded-xl'}`}
+        >
           <span className="flex items-center gap-3">
             <span className="min-w-0 truncate text-sm font-semibold text-text-primary" title={section.name}>
               {section.name || '이름 없는 계좌'}
@@ -257,7 +274,9 @@ function AccountCard({
                 {account.missing}줄 빠짐
               </span>
             )}
-            <DisclosureButton open={open} onToggle={onToggle} label="종목 보기" controls={id} className="shrink-0" />
+            <span className="shrink-0" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+              <DisclosureButton open={open} onToggle={onToggle} label="상세 보기" controls={id} />
+            </span>
           </span>
         </th>
       </tr>

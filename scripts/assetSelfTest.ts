@@ -4,8 +4,9 @@
  * 101차 지시서 「꼭 지킬 동작」 1~15 를 줄마다 확인한다(시험 이름 앞의 [n] 이 그 줄 번호).
  * 106차(v2.62.0) 「꼭 지킬 동작」 1~13(4-1 포함)은 [106-n] — 「티커」 D열 자산 분류 · 쓰기 · 총 자산 계산 · 하루 기록.
  * 108차(v2.62.2) 「꼭 지킬 동작」 1~8 은 [108-n](미지정 하나 · 탭 · 위성 · 연금 · 공용 부품 옵션 · 매매 코드 0 — 화면 쪽은 Playwright 로도).
- * 109차(v2.63.0) 「꼭 지킬 동작」 1~10 은 [109-n] — 목표 비율 쓰기 · 비율 조정 계산 · 종목별 합치기 · 괜찮음 범위 설정(화면 7 은 Playwright).
+ * 109차(v2.63.0) 「꼭 지킬 동작」 1~10 은 [109-n] — 목표 비율 쓰기 · 비율 조정 계산 · 종목별 합치기 · 비율 조정 범위 설정(화면 7 은 Playwright).
  * 112차(v2.64.1) 「꼭 지킬 동작」 1~8 은 [112-n] — 시작 전 차례(묻지 않음 · 409) · 시작한 날 · 시트에 구매 차례의 달 · 확인 창 날짜 = 서버가 쓴 글자.
+ * 115차(v2.65.2) 「꼭 지킬 동작」 은 [115-n] — 1 분류에서 현금 뺌 · 2 일괄 쓰기 · 3 한 칸 함수 지움 · 5 상세 보기 · 6 「비율 조정 범위」 · 7 설정 창 · 10 매매 코드 0(화면 4 · 5 · 7 은 Playwright 로도).
  * 111차(v2.64.0) 「꼭 지킬 동작」 1~10 은 [111-n] — 구매일 · 구매 차례 · 이번 달 구매 · 구매 완료(계좌 이름 날짜 쓰기 · 기록) · 요약 목표 비율 순서(화면 6 은 Playwright).
  * 107차(v2.62.1) 「꼭 지킬 동작」 1~11 은 [107-n] — 위성 종목 · 처음 값 · 옛 키 옮김 · 설정 검사 · 분류 색 · 하루 기록 미국 정규장 종가 · 계좌 카드 · 시트 쓰기 한 곳 · 매매 코드 0 · 출력에 금액 없음([106-11] · [13] 이 같은 검사).
  *   화면(8 의 카드 · 접기 · 글자 0 · 드롭다운 가운데 정렬 · 5 의 원형 · 표 같은 색)은 Playwright 로 따로 확인했다(보고서).
@@ -682,7 +683,7 @@ try {
       st('cash')?.status === 'ok' && st('core')?.status === 'ok' && st('bond')?.status === 'ok' && st('gold')?.status === 'adjust' && st('stock')?.status === 'adjust' && st('satellite')?.status === 'ok');
     check('[109-3] 차이 금액 = 목표 − 지금(+ 더 사야 함 · − 줄여야 함 · 반올림 정수) · 차이 %p', (st('stock')?.diffAmount ?? 0) >= 0 && (st('cash')?.diffAmount ?? 0) <= 0 && Math.abs((st('gold')?.diffPp ?? 0) + 6) < 1e-9 && Number.isInteger(st('cash')?.diffAmount));
     const rb3 = computeRebalance(synth, { cash: 25, bond: 10, gold: 4, invest: 61, core: 75, satellite: 25 }, 3);
-    check('[109-3] 괜찮음 범위를 바꾸면 상태가 따라감(5 → 3 이면 현금 5%p 는 조정 필요)', rb3.band === 3 && rb3.assets.rows[0].status === 'adjust');
+    check('[109-3] 비율 조정 범위를 바꾸면 상태가 따라감(5 → 3 이면 현금 5%p 는 조정 필요)', rb3.band === 3 && rb3.assets.rows[0].status === 'adjust');
     const rMiss = computeRebalance(synth, { cash: null, bond: 10, gold: 4, invest: 61, core: null, satellite: null }, 5);
     check('[109-3] 목표 칸이 비면 그 줄 목표 null · 상태 없음 · targetMissing · 아는 목표 합 75(≠ 100)',
       rMiss.assets.rows[0].targetPct === null && rMiss.assets.rows[0].status === null && rMiss.assets.rows[0].diffAmount === null && rMiss.assets.targetMissing && rMiss.assets.targetSum === 75 && rMiss.stocks.targetSum === null && !rb.assets.targetMissing && rb.assets.targetSum === 100);
@@ -718,7 +719,7 @@ try {
       vals.every((v, i) => i === 0 || v == null || (vals[i - 1] != null && (vals[i - 1] as number) >= v)) && offR.rows.some((x) => x.value === null && x.missing > 0) && offR.rows.every((x) => x.value == null ? x.ratio === null : near(x.ratio, x.value / offR.t.totals.total)));
     check('[109-5] 종목별 금액 합 + 현금 C25 + 퇴직 연금 = 총 자산(같은 값 계산)', res.every(({ t, rows }, n) => near(rows.reduce((a, x) => a + (x.value ?? 0), 0) + FAKE.cash + (n === 1 ? FAKE.retirement : 0), t.totals.total)));
   }
-  // ── 109차 B — 괜찮음 범위 설정(asset.rebalanceBand · 정수 1~20 · 처음 값 5) ─────────────────────
+  // ── 109차 B — 비율 조정 범위 설정(asset.rebalanceBand · 정수 1~20 · 처음 값 5) ─────────────────────
   {
     getDb().prepare(`DELETE FROM app_settings WHERE key = 'asset.rebalanceBand'`).run();
     const first = readAssetSettings(sheetData).rebalanceBand;
@@ -1130,7 +1131,7 @@ try {
   await putSettings({ classColors: { gold: 'yellow' } });
   check('[109-5] (안쪽 서버) summary 에 bySymbol — 코어 줄 금액 합 = totals.core',
     Array.isArray(sumBody.bySymbol) && sumBody.bySymbol.length > 0 && near(sumBody.bySymbol.filter((x) => x.side === 'core').reduce((a, x) => a + (x.value ?? 0), 0), sumBody.totals.core));
-  check('[109-4] (안쪽 서버) summary 에 rebalance — 지금 금액 = 같은 응답의 분류별 금액 · 코어 / 위성 · 괜찮음 범위 · 시트 목표 비율',
+  check('[109-4] (안쪽 서버) summary 에 rebalance — 지금 금액 = 같은 응답의 분류별 금액 · 코어 / 위성 · 비율 조정 범위 · 시트 목표 비율',
     sumBody.rebalance != null && sumBody.rebalance.assets.rows.every((r) => r.nowAmount === sumBody.totals.groups.find((g) => g.key === r.key)?.amount) && sumBody.rebalance.stocks.rows[0].nowAmount === sumBody.totals.core && sumBody.rebalance.stocks.rows[1].nowAmount === sumBody.totals.satellite && sumBody.rebalance.band === sumBody.settings.rebalanceBand && sumBody.targetRatio.invest === sumBody.rebalance.assets.rows[3].targetPct);
   check('[106-10] (안쪽 서버) 풀린 뒤 summary 200(연금 포함) · history 200 · 기간 틀림 400 · settings 200 / 옛 키 400', sumRes.status === 200 && sumBody.includePension === true && JSON.stringify(sumBody.accounts?.map((a) => a.key)) === JSON.stringify(['개별 투자', '적립식 계좌', 'ISA 계좌', '연금 저축 계좌']) && sumBody.accounts[0].name === '개별 투자 ( 2026.07 )' && Array.isArray(sumBody.stockChoices) && sumBody.settings.classColors.gold === 'yellow' && histRes.status === 200 && badRange.status === 400 && setOk.status === 200 && setBad.status === 400);
   check('[106-7] (안쪽 서버) 구분 줄 400 not-editable · 수식 칸 409 formula-cell · 쓰기 늘지 않음', putBad.status === 400 && ((await putBad.json()) as { kind?: string }).kind === 'not-editable' && putFormula.status === 409 && google.writes === 1);
@@ -1292,6 +1293,10 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 function walk(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walk(path.join(dir, d.name)) : /\.(ts|tsx)$/.test(d.name) ? [path.join(dir, d.name)] : []));
 }
+/** 모든 파일(확장자 상관없이) — 관리 루트 docs 검사용 */
+function walkAll(dir: string): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walkAll(path.join(dir, d.name)) : [path.join(dir, d.name)]));
+}
 const appCode = [...walk(path.join(root, 'server')), ...walk(path.join(root, 'src'))].map((f) => fs.readFileSync(f, 'utf8')).join('\n');
 // [106-8] 쓰기는 한 곳 — 106차부터 시트 쓰기(「티커」 D열 자산 분류)가 생겼다(101차 [12] 「쓰기 주소 0」 을 대신한다).
 // 109차: 쓰기 함수가 `valuesUpdate`(한 칸 · 글자) → `valuesWrite`(values:batchUpdate · 여러 칸 · 숫자 그대로)로 바뀌고 부르는 곳이 sheet.ts 두 곳(자산 분류 · 목표 비율)이 됐다
@@ -1333,7 +1338,7 @@ check('[108-1] 「분류 없음」 · 「알 수 없는 분류」 · 「알 수 
 // [108-3] 탭 — 「총 자산 | 자산 현황」 · 처음 총 자산 · 마지막 탭 기억(읽기 실패 → 총 자산) · 「상세 보기」 접기 글자 0(화면 동작은 Playwright 로도 확인)
 const dashSrc = fs.readFileSync(path.join(root, 'src/components/asset/AssetDashboard.tsx'), 'utf8');
 check('[108-3] [109-7] 자산 관리 탭 = 총 자산 · 자산 현황 · 비율 조정(이 순서) · 기억 키 alphascope.asset.tab · 모르는 값 · 읽기 실패면 총 자산', /\{ id: 'total', label: '총 자산' \},\s*\{ id: 'status', label: '자산 현황' \},\s*\{ id: 'rebalance', label: '비율 조정' \}/.test(dashSrc) && /const v = localStorage\.getItem\(TAB_KEY\);\s*return v === 'status' \|\| v === 'rebalance' \? v : 'total';\s*\} catch \{\s*return 'total';/.test(dashSrc));
-check('[108-3] 자산 관리 화면 · 서버에 「상세 보기」 글자 0(접기 지움)', !assetUi.join('\n').includes('상세 보기') && !codeFiles.filter(({ f }) => f.startsWith('server/asset/') || f === 'src/types/asset.ts').some(({ src }) => src.includes('상세 보기')));
+check('[108-3] [115-5] 자산 관리 화면 · 서버에 옛 「상세 보기」 접기 없음 — 115차부터 「상세 보기」 는 계좌 카드 버튼(AssetSheetValues) 한 곳뿐', assetUi.filter((src) => src.includes('상세 보기')).length === 1 && /label="상세 보기"/.test(fs.readFileSync(path.join(root, 'src/components/asset/AssetSheetValues.tsx'), 'utf8')) && !codeFiles.filter(({ f }) => f.startsWith('server/asset/') || f === 'src/types/asset.ts').some(({ src }) => src.includes('상세 보기')));
 
 // [108-6] 공용 부품 — 새 옵션(source · columns · nameOf · rowNote)은 자산 설정 창만 쓴다 · 기본(옵션 없음)은 지금 창 · 지금 칸 그대로
 const pickerSrc = fs.readFileSync(path.join(root, 'src/components/common/SymbolPicker.tsx'), 'utf8');
@@ -1364,6 +1369,33 @@ check('[112-5] 확인 창 문구 — 서버가 준 sheetDates 로 만들고 「�
 // [112-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 코드 바뀐 파일 0(111차 끝 1117cba 와 지금 작업 트리)
 const changed112 = spawnSync('git', ['diff', '--name-only', '1117cba', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'python'], { cwd: root, encoding: 'utf8' });
 check('[112-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 코드 바뀐 파일 0(1117cba 와 지금 작업 트리)', changed112.status === 0 && changed112.stdout.trim() === '', changed112.stdout.trim() || changed112.stderr.trim());
+// ── 115차(v2.65.2) 화면 정리 — 소스 검사(화면 동작은 Playwright 로도: 체크 · 띠 · 상세 보기 · 설정 창 메뉴) ──
+{
+  const sv = fs.readFileSync(path.join(root, 'src/components/asset/AssetSheetValues.tsx'), 'utf8');
+  check('[115-5] 계좌 카드 버튼 「상세 보기」(「종목 보기」 0) · 머리 줄 전체가 누르는 곳(role=button · Enter/Space · aria-expanded) · 「모두 선택」 · 버튼은 이벤트를 막음',
+    /<DisclosureButton open=\{open\} onToggle=\{onToggle\} label="상세 보기"/.test(sv) && !/종목 보기/.test(sv) && /role="button"[\s\S]{0,80}tabIndex=\{0\}[\s\S]{0,40}aria-expanded=\{open\}/.test(sv) &&
+      /e\.key !== 'Enter' && e\.key !== ' '/.test(sv) && (sv.match(/onClick=\{\(e\) => e\.stopPropagation\(\)\}/g) ?? []).length === 2 && /모두 선택/.test(sv));
+  const mgmtDocs = path.resolve(root, '../../docs');
+  const docFiles = fs.existsSync(mgmtDocs) ? walkAll(mgmtDocs).filter((f) => /\.md$/.test(f) && !/\/docs\/(design-check|history|archive)\//.test(f)) : [];
+  const docHits = docFiles.filter((f) => fs.readFileSync(f, 'utf8').includes('괜찮음 범위')).map((f) => path.relative(mgmtDocs, f));
+  const codeHits = codeFiles.filter(({ src }) => src.includes('괜찮음 범위')).map((x) => x.f);
+  check('[115-6] 「괜찮음 범위」 글자 0 — src · server(관리 루트 docs 가 있으면 docs/rules · 일지도) · 「비율 조정 범위」 있음 · 배지 「괜찮음」 남음 · 설정 키 asset.rebalanceBand 그대로',
+    codeHits.length === 0 && docHits.length === 0 && codeFiles.some(({ src }) => src.includes('비율 조정 범위')) && />괜찮음</.test(fs.readFileSync(path.join(root, 'src/components/asset/AssetRebalanceView.tsx'), 'utf8')) && /asset\.rebalanceBand/.test(appCode),
+    [...codeHits, ...docHits].join(','));
+  const sd = fs.readFileSync(path.join(root, 'src/components/asset/AssetSettingsDialog.tsx'), 'utf8');
+  const nav = fs.readFileSync(path.join(root, 'src/components/ui/SideNavDialog.tsx'), 'utf8');
+  const labels = [...sd.matchAll(/\{ id: '(\w+)', label: '([^']+)'/g)].map((m) => m[2]);
+  const labelsMulti = [...sd.matchAll(/id: '(\w+)',\s*label: '([^']+)'/g)].map((m) => m[2]);
+  check('[115-7] 설정 창 = 공용 SideNavDialog · 제목 「자산 관리 설정」 · titleAside 없음 · 메뉴 순서 목표 비율 · 코어 · 위성 · 연금 · 자산 분류 색 · 시트 가격 · 기억 키 try/catch · [목표 비율 바꾸기] → target',
+    /<SideNavDialog\s+title="자산 관리 설정"/.test(sd) && !/titleAside/.test(sd) && JSON.stringify(labelsMulti) === JSON.stringify(['목표 비율', '코어 · 위성', '연금', '자산 분류 색', '시트 가격']) &&
+      /const MENUS = \['target', 'core', 'pension', 'colors', 'price'\] as const/.test(sd) && /focus === 'targetRatio' \? 'target' : readMenu\(\)/.test(sd) && /catch \{\s*return 'target';/.test(sd), labels.join('|') + ' / ' + labelsMulti.join('|'));
+  check('[115-7] 새 부품 SideNavDialog — ui 에서 내보냄 · role tablist/tab/tabpanel · 위/아래 키 · 768px(md) 밑 가로 줄 · 고정 크기만(lg · xl · full) · 자산 글자 없음 · 색은 토큰 클래스만(# · rgb 0)',
+    /export \{ default as SideNavDialog/.test(fs.readFileSync(path.join(root, 'src/components/ui/index.ts'), 'utf8')) && /role="tablist"/.test(nav) && /role="tab"/.test(nav) && /role="tabpanel"/.test(nav) &&
+      /ArrowDown/.test(nav) && /ArrowUp/.test(nav) && /md:flex-row/.test(nav) && /Extract<DialogSize, 'lg' \| 'xl' \| 'full'>/.test(nav) && !/자산/.test(nav) && !/#[0-9a-fA-F]{3,6}\b|rgb\(/.test(nav));
+}
+// [115-10] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(114차 끝 43a0b33 와 지금 작업 트리)
+const changed115 = spawnSync('git', ['diff', '--name-only', '43a0b33', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python'], { cwd: root, encoding: 'utf8' });
+check('[115-10] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(43a0b33 와 지금 작업 트리)', changed115.status === 0 && changed115.stdout.trim() === '', changed115.stdout.trim() || changed115.stderr.trim());
 const leaked = (textAll: string) => SECRET_STRINGS.filter((x) => textAll.includes(x));
 check('[13] 서버 로그(시험 서버) · 안쪽 경고 출력에 가짜 금액 · 수량이 없다', leaked(serverLog + captured.join('\n')).length === 0 && captured.some((l) => l.includes('[asset] 시트 읽기 실패: shape')));
 check('[13] 이 시험의 출력에 가짜 금액 · 수량이 없다', leaked(printed.join('\n')).length === 0);

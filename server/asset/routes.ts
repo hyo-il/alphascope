@@ -177,7 +177,7 @@ assetRouter.get('/api/asset/history', (req, res) => {
 });
 
 /**
- * 설정 창 — `{ pensionSections?, satelliteSymbols?, classColors?, rebalanceBand? }`(연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색 · 괜찮음 범위).
+ * 설정 창 — `{ pensionSections?, satelliteSymbols?, classColors?, rebalanceBand? }`(연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색 · 비율 조정 범위).
  * 계좌 · 종목 코드는 지금 시트에 있는 것만이라 시트를 먼저 읽는다(30초 캐시). 검사는 `writeAssetSettings` 한 곳.
  */
 assetRouter.put('/api/asset/settings', async (req, res) => {

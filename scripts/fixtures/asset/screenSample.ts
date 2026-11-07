@@ -38,11 +38,12 @@ export function assetSheetSample(): AssetSheetData {
           holding(5, '예시 미국 기술주', 'NASDAQ:AAAA', 12.5, 101.2345, 'USD', 15, '주식'),
           holding(6, '예시 국내 대형주', '000001', 30, 71000, 'KRW', 16, '주식'),
           holding(7, '예시 미국 ETF 이름이 아주 긴 종목 Vanguard Total World Stock Market Index Fund ETF Shares', 'NYSEARCA:BBBB', 4, 1250.5, 'USD', 17, '채권'),
-          holding(8, '예시 고가 국내주', '000003', 1, 1234567, 'KRW', 18, null), // 시트 글자가 네 가지가 아님(미지정 — 「-」)
+          holding(8, '예시 고가 국내주', '000003', 1, 1234567, 'KRW', 18, null), // 시트 글자가 세 가지가 아님(미지정 — 「-」)
         ],
       },
       { key: '적립식 계좌', name: '적립식 계좌 ( 2026.07 )', combined: false, holdings: [holding(13, 'KODEX 예시 S&P500', '0072R0', 1200, 15000, 'KRW', 21, '주식'), holding(14, '이을 수식 없는 줄', null, 1, 1000, 'KRW')] },
-      { key: 'ISA 계좌', name: 'ISA 계좌 ( 2026.07 )', combined: false, holdings: [holding(22, '예시 국내 배당주', '000002', 15, 42350, 'KRW', 25, '금')] },
+      // v2.65.2 — 같은 종목(「티커」 16행)이 개별 투자에도 있다: 일괄 적용 체크가 두 계좌에 함께 보인다
+      { key: 'ISA 계좌', name: 'ISA 계좌 ( 2026.07 )', combined: false, holdings: [holding(22, '예시 국내 배당주', '000002', 15, 42350, 'KRW', 25, '금'), holding(23, '예시 국내 대형주', '000001', 5, 70000, 'KRW', 16, '주식')] },
       { key: '연금 저축 계좌', name: '연금 저축 계좌 ( 2026.07 )', combined: false, holdings: [] },
       { key: null, name: '적립식 주식', combined: true, holdings: [holding(39, 'KODEX 예시 S&P500', '0072R0', 1200, 15000, 'KRW', 21, '주식'), holding(40, '예시 국내 배당주', '000002', 15, 42350, 'KRW', 25, '금')] },
     ],
@@ -92,7 +93,7 @@ export function assetSummarySample(
     accounts: [
       { key: '개별 투자', name: '개별 투자 ( 2026.07 )', holdings: 4, value: 1876543210, missing: 0 },
       { key: '적립식 계좌', name: '적립식 계좌 ( 2026.07 )', holdings: 2, value: 18000000, missing: 1 },
-      { key: 'ISA 계좌', name: 'ISA 계좌 ( 2026.07 )', holdings: 1, value: 635250, missing: 0 },
+      { key: 'ISA 계좌', name: 'ISA 계좌 ( 2026.07 )', holdings: 2, value: 985250, missing: 0 },
       { key: '연금 저축 계좌', name: '연금 저축 계좌 ( 2026.07 )', holdings: 0, value: 0, missing: 0 },
     ],
     // 위성으로 선택한 종목 고르기 — 주식 종목 셋 + 위성 목록에 남았지만 분류가 주식이 아닌 종목(흐리게) · 계좌 둘에 있는 종목

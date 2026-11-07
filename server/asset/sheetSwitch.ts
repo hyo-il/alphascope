@@ -8,7 +8,7 @@
  *   ① 하루 기록 `asset_daily` → `asset_daily_archive`(지우지 않고 옮김 · 줄 수 확인) ② 옛 시트 백업 `asset_sheet_backup` → `asset_sheet_backup_archive`
  *   ③ 시트 가격 상태를 처음으로(`google` · 바꾼 줄 · 바꾸지 않은 줄 · 옮겨진 줄 비움) ④ 새 해시 저장. 그 뒤 10초 쓰기를 멈추고 시트 캐시를 비운다.
  *   **새 시트에는 쓰지 않는다**(구글 호출 0).
- * - 그대로 두는 것: 위성 종목 · 연금 계좌 · 분류 색 · 괜찮음 범위 · 'asset.purchaseStartDay' · `asset_purchase`(손대지 않음).
+ * - 그대로 두는 것: 위성 종목 · 연금 계좌 · 분류 색 · 비율 조정 범위 · 'asset.purchaseStartDay' · `asset_purchase`(손대지 않음).
  * ⚠️ 시트 ID 전체를 저장 · 로그 · 응답에 싣지 않는다(해시 · 앞 4글자만).
  */
 import crypto from 'node:crypto';

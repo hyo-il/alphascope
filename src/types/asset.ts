@@ -140,7 +140,7 @@ export type AssetClassColors = Record<ColoredGroupKey, AssetColorId>;
 /** 기본 색 — 금 노랑 · 현금 주황(사용자 결정 2026-11-07) · 나머지는 106차 색에 가장 가까운 팔레트 색 */
 export const DEFAULT_CLASS_COLORS: AssetClassColors = { cash: 'orange', bond: 'purple', gold: 'yellow', stock: 'blue', retirement: 'pink' };
 
-/** 「괜찮음 범위」 — 목표와의 차이가 ±이 %p 안이면 「괜찮음」(정수 · v2.63.0 · 사용자 결정 2026-11-07 처음 값 5) */
+/** 「비율 조정 범위」 — 목표와의 차이가 ±이 %p 안이면 「괜찮음」(정수 · v2.63.0 · 사용자 결정 2026-11-07 처음 값 5) */
 export const REBALANCE_BAND_MIN = 1;
 export const REBALANCE_BAND_MAX = 20;
 export const DEFAULT_REBALANCE_BAND = 5;
@@ -154,7 +154,7 @@ export interface AssetSettings {
   satelliteSymbols: string[];
   /** 분류마다 팔레트 색 이름 */
   classColors: AssetClassColors;
-  /** 「괜찮음 범위」 ±%p(정수 1~20 · 처음 값 5) */
+  /** 「비율 조정 범위」 ±%p(정수 1~20 · 처음 값 5) */
   rebalanceBand: number;
 }
 
@@ -210,7 +210,7 @@ export interface RebalanceRow {
   diffAmount: number | null;
   /** 목표 − 지금(%p) */
   diffPp: number | null;
-  /** |차이 %p| ≤ 괜찮음 범위 → ok(경계값 포함) · 아니면 adjust · 목표나 기준이 없으면 null */
+  /** |차이 %p| ≤ 비율 조정 범위 → ok(경계값 포함) · 아니면 adjust · 목표나 기준이 없으면 null */
   status: 'ok' | 'adjust' | null;
 }
 

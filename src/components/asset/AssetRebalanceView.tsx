@@ -113,7 +113,7 @@ function BaseLine({ rebalance, includePension, onEditTarget }: { rebalance: Asse
         <span className="text-sm font-semibold tabular-nums text-text-primary" data-rebalance-base>
           {formatPrice(rebalance.assets.base, 'KRW')}
         </span>
-        <span className="text-caption text-text-muted">{includePension ? '연금 포함' : '연금 뺌'} · 현금 + 채권 + 금 + 주식 · 괜찮음 범위 ±{rebalance.band}%p</span>
+        <span className="text-caption text-text-muted">{includePension ? '연금 포함' : '연금 뺌'} · 현금 + 채권 + 금 + 주식 · 비율 조정 범위 ±{rebalance.band}%p</span>
         <Button size="sm" icon={Pencil} className="ml-auto" onClick={onEditTarget} data-edit-target>
           목표 비율 바꾸기
         </Button>
