@@ -5,6 +5,7 @@
  * 106차(v2.62.0) 「꼭 지킬 동작」 1~13(4-1 포함)은 [106-n] — 「티커」 D열 자산 분류 · 쓰기 · 총 자산 계산 · 하루 기록.
  * 108차(v2.62.2) 「꼭 지킬 동작」 1~8 은 [108-n](미지정 하나 · 탭 · 위성 · 연금 · 공용 부품 옵션 · 매매 코드 0 — 화면 쪽은 Playwright 로도).
  * 109차(v2.63.0) 「꼭 지킬 동작」 1~10 은 [109-n] — 목표 비율 쓰기 · 비율 조정 계산 · 종목별 합치기 · 괜찮음 범위 설정(화면 7 은 Playwright).
+ * 111차(v2.64.0) 「꼭 지킬 동작」 1~10 은 [111-n] — 구매일 · 구매 차례 · 이번 달 구매 · 구매 완료(계좌 이름 날짜 쓰기 · 기록) · 요약 목표 비율 순서(화면 6 은 Playwright).
  * 107차(v2.62.1) 「꼭 지킬 동작」 1~11 은 [107-n] — 위성 종목 · 처음 값 · 옛 키 옮김 · 설정 검사 · 분류 색 · 하루 기록 미국 정규장 종가 · 계좌 카드 · 시트 쓰기 한 곳 · 매매 코드 0 · 출력에 금액 없음([106-11] · [13] 이 같은 검사).
  *   화면(8 의 카드 · 접기 · 글자 0 · 드롭다운 가운데 정렬 · 5 의 원형 · 표 같은 색)은 Playwright 로 따로 확인했다(보고서).
  * - 잠금(1~6 · 11): 사본 DB 로 **시험 서버를 따로 띄워**(포트 4107 · 스위치 끔 · 시트 연결 정보 없음) 실제 HTTP 로 확인한다.
@@ -25,11 +26,13 @@ import express from 'express';
 import type { AddressInfo } from 'node:net';
 import { getDb, saveCandles } from '../server/db';
 import { checkPassword, createSession, setPassword } from '../server/auth';
-import { setAssetPassword, unlockSession } from '../server/asset/lock';
+import { lockSession, setAssetPassword, unlockSession } from '../server/asset/lock';
 import { authGuard } from '../server/authGuard';
 import { assetRouter } from '../server/asset/routes';
 import { AssetSheetError, resetTokenCache } from '../server/asset/google';
-import { avgPriceOf, checkTargetRatio, linkedTickerRow, parseAssetSheet, readAssetSheet, resetSheetCache, sheetRanges, splitCode, writeAssetClass, writeTargetRatio } from '../server/asset/sheet';
+import { avgPriceOf, checkTargetRatio, linkedTickerRow, parseAssetSheet, readAssetSheet, replaceNameDate, resetSheetCache, sheetRanges, splitCode, writeAccountDates, writeAssetClass, writeTargetRatio } from '../server/asset/sheet';
+import { computeMonthlyBuy, purchaseCycle, purchaseDayOf, setPurchaseClockForTest, type PurchaseCalendar } from '../server/asset/purchase';
+import { clearPurchasesForTest, purchaseCountForTest } from '../server/asset/store';
 import { ASSET_COLOR_IDS, ASSET_GROUP_LABEL, DEFAULT_CLASS_COLORS, UNASSIGNED_SHORT, type AssetSheetData, type AssetSummary, type AssetTotals } from '../src/types/asset';
 import { accountValues, computeAssetTotals, holdingsBySymbol, setAssetPriceSourceForTest, assetSummary, type PriceBook } from '../server/asset/summary';
 import { readAssetSettings, stockChoices, writeAssetSettings } from '../server/asset/settings';
@@ -957,6 +960,88 @@ try {
   if (savedToss.id === undefined) delete process.env.TOSS_CLIENT_ID;
   if (savedToss.secret === undefined) delete process.env.TOSS_CLIENT_SECRET;
 
+
+  // ── 111차 — 구매일 · 구매 차례 · 이번 달 구매 · 계좌 이름 날짜 쓰기(가짜 구글로만 · 실제 시트 쓰기 0) ─────────────────────
+  {
+    const calOf = (holidays: string[], checked = true): PurchaseCalendar => ({ isClosed: (d) => holidays.includes(d), isChecked: () => checked });
+    const none = calOf([]);
+    check('[111-1] 구매일 2026-11 → 11-27(26일 목 → 그 주 금)', purchaseDayOf(2026, 11, none.isClosed) === '2026-11-27');
+    check('[111-1] 구매일 2026-12(가짜 달력 12-25 휴장) → 12-24(26일 토 → 25일 금 휴장 → 그 전 거래일)', purchaseDayOf(2026, 12, calOf(['2026-12-25']).isClosed) === '2026-12-24');
+    check('[111-1] 구매일 2027-01 → 01-29(26일 화 → 그 주 금)', purchaseDayOf(2027, 1, none.isClosed) === '2027-01-29');
+    check('[111-1] 26일이 일요일인 달(2026-07) → 24일(금) · 토요일인 달(2026-09) → 25일(금)', purchaseDayOf(2026, 7, none.isClosed) === '2026-07-24' && purchaseDayOf(2026, 9, none.isClosed) === '2026-09-25');
+    check('[111-1] 금요일 휴장 · 그 전날도 휴장 → 이틀 앞(2027-01 → 01-27 수)', purchaseDayOf(2027, 1, calOf(['2027-01-29', '2027-01-28']).isClosed) === '2027-01-27');
+    check('[111-1] 금요일 휴장이고 앞이 주말이면 주말을 건너뜀(2026-07-24 · 23 · 22 · 21 · 20 휴장 → 07-17)', purchaseDayOf(2026, 7, calOf(['2026-07-24', '2026-07-23', '2026-07-22', '2026-07-21', '2026-07-20']).isClosed) === '2026-07-17');
+    const inRange = purchaseCycle('2026-11-27', none);
+    const outRange = purchaseCycle('2026-11-27', { isClosed: () => false, isChecked: (d) => d < '2026-12-01' });
+    check('[111-1] 달력 범위 밖 날짜가 있으면 「휴장일 확인 못 함」(calendarUnchecked) · 범위 안이면 없음', inRange.calendarUnchecked === false && outRange.calendarUnchecked === true);
+    const realCal = purchaseCycle('2026-11-27', { isClosed: () => false, isChecked: () => false });
+    check('[111-1] 달력 범위 밖(주말만 휴장으로 봄)이어도 날짜는 평일로 셈', realCal.cycleDay === '2026-11-27' && realCal.nextDay === '2026-12-25' && realCal.calendarUnchecked);
+
+    const xmas = calOf(['2026-12-25']);
+    const c1 = purchaseCycle('2026-11-26', xmas);
+    const c2 = purchaseCycle('2026-11-27', xmas);
+    const c3 = purchaseCycle('2026-12-23', xmas);
+    const c4 = purchaseCycle('2026-12-24', xmas);
+    check('[111-2] 구매일 전날(11-26) → 지난달 차례(10-30) · 다음 구매일 11-27', c1.cycleDay === '2026-10-30' && c1.nextDay === '2026-11-27');
+    check('[111-2] 구매일 당일(11-27) → 이번 달 차례 · 다음 12-24', c2.cycleDay === '2026-11-27' && c2.nextDay === '2026-12-24');
+    check('[111-2] 다음 달 구매일 전날(12-23)까지 같은 차례(11-27) · 그날(12-24)부터 새 차례', c3.cycleDay === '2026-11-27' && c4.cycleDay === '2026-12-24' && c4.nextDay === '2027-01-29');
+    const febMon = purchaseCycle('2027-03-01', { isClosed: (d) => d === '2027-03-01', isChecked: () => true });
+    check('[111-2] 차례는 늘 오늘 이하 · 다음은 오늘 뒤(달이 넘어가는 구매일도)', febMon.cycleDay <= '2027-03-01' && febMon.nextDay > '2027-03-01');
+
+    const T = { cash: 20, gold: 10, bond: 10, invest: 60, core: 70, satellite: 30 };
+    const odd = 1_000_003; // 반올림 차이가 생기는 월급(가짜)
+    const mb = computeMonthlyBuy(odd, T);
+    const amt = (k: string) => mb.rows.find((r) => r.key === k)?.amount ?? NaN;
+    check('[111-3] 이번 달 구매 — 현금 · 채권 · 금 · 주식 합 = 월급(반올림 차이는 주식 · 코어에)', amt('cash') + amt('bond') + amt('gold') + amt('stock') === odd && mb.total === odd);
+    check('[111-3] 코어 + 위성 = 주식 · 위성 = 주식 × 위성 % 반올림', amt('core') + amt('satellite') === amt('stock') && amt('satellite') === Math.round((amt('stock') * 30) / 100));
+    check('[111-3] 줄 순서 = 현금 · 채권 · 금 · 주식 · 코어 · 위성 · 금액은 원 단위 정수', mb.rows.map((r) => r.key).join(',') === 'cash,bond,gold,stock,core,satellite' && mb.rows.every((r) => Number.isInteger(r.amount)));
+    const noPay = [computeMonthlyBuy(null, T), computeMonthlyBuy(0, T)];
+    check('[111-3] 월급 없음(빈칸 · 0) → noSalary · 금액 모두 null', noPay.every((x) => x.noSalary && x.total === null && x.rows.every((r) => r.amount === null)));
+    const off = computeMonthlyBuy(odd, { ...T, cash: 25 });
+    check('[111-3] 목표 합 ≠ 100 → 합 105 를 돌려줌(화면 경고 줄) · 각 줄은 월급 × % 그대로(맞추지 않음)', off.assetTargetSum === 105 && off.rows.find((r) => r.key === 'stock')?.amount === Math.round(odd * 0.6));
+    const blank = computeMonthlyBuy(odd, { ...T, gold: null, satellite: null });
+    check('[111-3] 목표 빈칸 → 그 줄 null(「-」) · targetMissing · 코어는 주식 × 코어 %', blank.targetMissing && blank.rows.find((r) => r.key === 'gold')?.amount === null && blank.rows.find((r) => r.key === 'satellite')?.amount === null && blank.rows.find((r) => r.key === 'core')?.amount === Math.round((Math.round(odd * 0.6) * 70) / 100));
+
+    // 이름 글자 — 날짜 부분만 같은 모양으로
+    check('[111-4] 날짜 부분만 바뀜 — 「( YYYY.MM )」 · 「( YYYY.MM)」(빈칸 모양 그대로) · 「(YYYY.M.D)」 자릿수 그대로 · 「YYYY-MM-DD」 구분 글자 그대로 · 날짜 없음 null',
+      replaceNameDate('개별 투자 ( 2026.07 )', '2026-11-07') === '개별 투자 ( 2026.11 )' &&
+      replaceNameDate('연금 저축 계좌 ( 2026.07)', '2026-11-07') === '연금 저축 계좌 ( 2026.11)' &&
+      replaceNameDate('ISA 계좌 (2026.7.5) 메모', '2026-11-07') === 'ISA 계좌 (2026.11.7) 메모' &&
+      replaceNameDate('적립식 계좌 ( 2026.10.24 )', '2026-11-07') === '적립식 계좌 ( 2026.11.07 )' &&
+      replaceNameDate('X ( 2026-10-24 )', '2026-11-07') === 'X ( 2026-11-07 )' &&
+      replaceNameDate('적립식 계좌', '2026-11-07') === null && replaceNameDate('적립식 계좌 ( 메모 )', '2026-11-07') === null);
+
+    const H = '주식 투자 정리';
+    const setName = (cell: string, v: string) => { sheetModel.values[`${H}!${cell}`] = v; sheetModel.formulas[`${H}!${cell}`] = v; };
+    fresh();
+    setName('B21', 'ISA 계좌'); // 날짜 없는 칸 — 쓰지 않는다
+    setName('B29', '연금 저축 계좌 ( 2026.07)');
+    const r1 = await writeAccountDates('2026-11-27');
+    const at = (cell: string) => writesSeen.find((w) => w.range === `'${H}'!${cell}`)?.value;
+    check('[111-4] 「( 날짜 )」 가 있는 칸만(B4 · B12 · B29 — 날짜 없는 B21 은 안 씀) · 날짜 부분만 바뀜 · 나머지 글자 · 빈칸 그대로',
+      r1.cells === 3 && writesSeen.length === 3 && at('B21') === undefined && at('B4') === '개별 투자 ( 2026.11 )' && at('B12') === '적립식 계좌 ( 2026.11 )' && at('B29') === '연금 저축 계좌 ( 2026.11)');
+    check('[111-4] 한 요청(쓰기 1번) · RAW · 글자 그대로(문자열)', google.writes === 1 && writesSeen.every((w) => w.input === 'RAW' && typeof w.value === 'string'));
+    fresh();
+    sheetModel.formulas[`${H}!B12`] = '="적립식 계좌 ( "&TEXT(TODAY(),"yyyy.mm")&" )"';
+    check('[111-4] 네 칸 중 하나라도 수식 → formula-cell · 하나도 안 씀', (await kindOf(writeAccountDates('2026-11-27'))) === 'formula-cell' && google.writes === 0);
+    fresh();
+    for (const c of ['B4', 'B12', 'B21', 'B29']) setName(c, sheetModel.values[`${H}!${c}`].toString().replace(/\s*\(.*\)\s*$/, ''));
+    check('[111-4] 날짜가 든 칸이 하나도 없으면 no-date · 안 씀', (await kindOf(writeAccountDates('2026-11-27'))) === 'no-date' && google.writes === 0);
+    fresh();
+    sheetModel.values[`${H}!B3`] = '바뀐 머리';
+    sheetModel.formulas[`${H}!B3`] = '바뀐 머리';
+    check('[111-4] 머리 글자(B3)가 다르면 shape · 안 씀', (await kindOf(writeAccountDates('2026-11-27'))) === 'shape' && google.writes === 0);
+    fresh();
+    process.env.ASSET_SYNC_ENABLED = 'false';
+    check('[111-4] 스위치 꺼짐(ASSET_SYNC_ENABLED=false) → disabled · 구글 호출 0(토큰도 받지 않음)', (await kindOf(writeAccountDates('2026-11-27'))) === 'disabled' && google.token === 0 && google.writes === 0);
+    process.env.ASSET_SYNC_ENABLED = 'true';
+    fresh();
+    afterWrite = () => { sheetModel.formulas[`${H}!B4`] = '개별 투자 ( 바뀜 )'; };
+    const mm = await writeAccountDates('2026-11-27').catch((e: unknown) => e);
+    check('[111-4] 다시 읽은 값이 다르면 mismatch 오류', mm instanceof AssetSheetError && mm.kind === 'mismatch');
+    fresh();
+  }
+
   // 주소 그대로 — 로그인 문지기 + 자산 문지기 + 라우트(이 프로세스 안)
   fresh();
   const app = express();
@@ -1022,6 +1107,48 @@ try {
   const shapeRes = await fetch(`${base}/api/asset/sheet`, { headers: ck });
   const shapeBody = (await shapeRes.json()) as { kind?: string; error?: string; sections?: unknown };
   check('[7] (안쪽 서버) 모양 바뀜 → 502 · kind shape · 값 칸 없음', shapeRes.status === 502 && shapeBody.kind === 'shape' && shapeBody.sections === undefined);
+
+  {
+    // [111-5] POST /api/asset/purchase-done — 가짜 오늘 · 가짜 달력 · 가짜 구글
+    fresh();
+    clearPurchasesForTest();
+    setPurchaseClockForTest(() => Date.parse('2026-11-27T03:00:00Z'), () => ({ isClosed: (d) => d === '2026-12-25', isChecked: () => true }));
+    const done = () => fetch(`${base}/api/asset/purchase-done`, { method: 'POST', headers: { ...ck, 'content-type': 'application/json' } });
+    const sumMb = async () => ((await (await fetch(`${base}/api/asset/summary?pension=0`, { headers: ck })).json()) as AssetSummary).monthlyBuy;
+    const mb0 = await sumMb();
+    check('[111-3] (안쪽 서버) summary 에 monthlyBuy — 오늘 · 이번 차례 11-27 · 다음 12-24 · 미완료 · 합 = 시트 월급(새 요청 없음)',
+      mb0.today === '2026-11-27' && mb0.cycleDay === '2026-11-27' && mb0.nextDay === '2026-12-24' && !mb0.done && mb0.doneDay === null && mb0.total === FAKE.salary && !mb0.noSalary);
+    mode = 'write-403';
+    const f1 = await done();
+    const f1Body = (await f1.json()) as { kind?: string };
+    check('[111-5] 시트 쓰기 실패(403) → 502 not-shared · asset_purchase 기록 없음', f1.status === 502 && f1Body.kind === 'not-shared' && purchaseCountForTest() === 0);
+    mode = 'ok';
+    sheetModel.formulas['주식 투자 정리!B4'] = '=B3';
+    const f2 = await done();
+    check('[111-5] 수식 칸 → 409 formula-cell · 기록 없음 · 쓰기 0', f2.status === 409 && ((await f2.json()) as { kind?: string }).kind === 'formula-cell' && purchaseCountForTest() === 0);
+    fresh();
+    process.env.ASSET_SYNC_ENABLED = 'false';
+    const f3 = await done();
+    check('[111-5] 스위치 꺼짐 → 503 disabled 「시트 쓰기가 꺼져 있습니다」 · 기록 없음 · 구글 호출 0', f3.status === 503 && /시트 쓰기가 꺼져 있습니다/.test(((await f3.json()) as { error?: string }).error ?? '') && purchaseCountForTest() === 0 && google.token === 0);
+    process.env.ASSET_SYNC_ENABLED = 'true';
+    const ok = await done();
+    const okBody = (await ok.json()) as { cycleDay?: string; doneDay?: string; cells?: number };
+    check('[111-5] 성공 → 200 · 기록 1줄(차례 11-27 · 누른 날 11-27) · 쓰기 1번', ok.status === 200 && okBody.cycleDay === '2026-11-27' && okBody.doneDay === '2026-11-27' && okBody.cells === 4 && purchaseCountForTest() === 1 && google.writes === 1);
+    const again = await done();
+    const againBody = (await again.json()) as { kind?: string; error?: string };
+    check('[111-5] 이미 완료한 차례 → 409 already-done 「이미 구매 완료를 눌렀습니다(2026-11-27)」 · 쓰기 늘지 않음 · 기록 1줄', again.status === 409 && againBody.kind === 'already-done' && againBody.error === '이미 구매 완료를 눌렀습니다(2026-11-27).' && google.writes === 1 && purchaseCountForTest() === 1);
+    const mb1 = await sumMb();
+    check('[111-5] (안쪽 서버) 완료 뒤 summary — done · doneDay 11-27', mb1.done && mb1.doneDay === '2026-11-27');
+    setPurchaseClockForTest(() => Date.parse('2026-12-24T03:00:00Z'), () => ({ isClosed: (d) => d === '2026-12-25', isChecked: () => true }));
+    const mb2 = await sumMb();
+    check('[111-2] (안쪽 서버) 다음 구매일(12-24)이 오면 새 차례 · 미완료(옛 차례는 더 묻지 않음)', mb2.cycleDay === '2026-12-24' && !mb2.done && mb2.nextDay === '2027-01-29');
+    lockSession(token);
+    const lockedDone = await done();
+    check('[111-5] 잠김 → POST /api/asset/purchase-done 403 asset-locked · 쓰기 늘지 않음', lockedDone.status === 403 && ((await lockedDone.json()) as { code?: string }).code === 'asset-locked' && google.writes === 1);
+    unlockSession(token);
+    setPurchaseClockForTest(null);
+    clearPurchasesForTest();
+  }
   srv.close();
 } catch (e) {
   fail++;
@@ -1033,6 +1160,8 @@ try {
   globalThis.fetch = realFetch;
   setSessionHooksForTest({ calendar: null, refreshDaily: null });
   setAssetPriceSourceForTest(null);
+  setPurchaseClockForTest(null);
+  clearPurchasesForTest();
   fs.rmSync(tmp, { recursive: true, force: true });
   getDb().prepare(`DELETE FROM auth_sessions`).run();
 }
@@ -1052,8 +1181,9 @@ const fnBody = (name: string) => {
   const i = src.indexOf(`export async function ${name}(`);
   return i < 0 ? '' : src.slice(i, src.indexOf('\n}\n', i));
 };
-const WRITE_CALLERS = JSON.stringify(['server/asset/google.ts', 'server/asset/sheet.ts', 'server/asset/sheet.ts']);
-check('[106-8] [109-1] 시트 쓰기 함수 valuesWrite — 정의(google.ts) 1 + 부르는 곳 2(sheet.ts writeAssetClass · writeTargetRatio)뿐 · 옛 valuesUpdate 0', JSON.stringify(callers.sort()) === WRITE_CALLERS && /valuesWrite\(/.test(fnBody('writeAssetClass')) && /valuesWrite\(/.test(fnBody('writeTargetRatio')) && !/\bvaluesUpdate\b/.test(appCode), callers.join(','));
+// 111차: 부르는 곳이 셋(+ writeAccountDates 계좌 이름 날짜)
+const WRITE_CALLERS = JSON.stringify(['server/asset/google.ts', 'server/asset/sheet.ts', 'server/asset/sheet.ts', 'server/asset/sheet.ts']);
+check('[106-8] [109-1] [111-8] 시트 쓰기 함수 valuesWrite — 정의(google.ts) 1 + 부르는 곳 3(sheet.ts writeAssetClass · writeTargetRatio · writeAccountDates)뿐 · 옛 valuesUpdate 0', JSON.stringify(callers.sort()) === WRITE_CALLERS && /valuesWrite\(/.test(fnBody('writeAssetClass')) && /valuesWrite\(/.test(fnBody('writeTargetRatio')) && /valuesWrite\(/.test(fnBody('writeAccountDates')) && !/\bvaluesUpdate\b/.test(appCode), callers.join(','));
 check('[106-8] [109-1] 그 밖의 구글 쓰기 주소(서식 spreadsheets:batchUpdate · values:append · values:clear) 0 · values:batchUpdate 는 google.ts 한 곳 · googleapis 는 google.ts 한 곳', !/(?<!values):batchUpdate|values:append|values:clear|values:batchClear/.test(appCode) && codeFiles.filter(({ src }) => /values:batchUpdate/.test(src)).map((x) => x.f).join(',') === 'server/asset/google.ts' && codeFiles.filter(({ src }) => /sheets\.googleapis\.com/.test(src)).map((x) => x.f).join(',') === 'server/asset/google.ts');
 check('[106-8] 구글 scope 는 spreadsheets 하나(drive 등 다른 scope 없음)', /auth\/spreadsheets'/.test(appCode) && !/auth\/spreadsheets\.readonly/.test(appCode) && !/auth\/drive/.test(appCode));
 check('[106-8] 실제 구글 호출 0 — 이 시험의 googleapis 요청은 모두 가짜가 받았다(쓰기는 가짜 응답으로만)', realGoogleCalls === 0);
@@ -1085,11 +1215,21 @@ check('[108-6] 새 옵션을 쓰는 곳 = 자산 설정 창 하나 · 기본은 
 const changed108 = spawnSync('git', ['diff', '--name-only', 'af69935', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
 check('[108-7] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(af69935 와 지금 작업 트리)', changed108.status === 0 && changed108.stdout.trim() === '', changed108.stdout.trim() || changed108.stderr.trim());
 
+
+// [111-7] 자산 현황 요약 목표 비율 — 현금 · 채권 · 금 · 주식 순서 · 「투자」 → 「주식」(화면만 — 시트 칸은 그대로 invest)
+const sheetValuesSrc = fs.readFileSync(path.join(root, 'src/components/asset/AssetSheetValues.tsx'), 'utf8');
+check('[111-7] 자산 현황 요약 목표 비율 순서 = 현금 · 채권 · 금 · 주식(「투자」 글자 없음)', /<Field label="현금" value=\{pct\(t\.cash\)\} \/>\s*<Field label="채권" value=\{pct\(t\.bond\)\} \/>\s*<Field label="금" value=\{pct\(t\.gold\)\} \/>\s*<Field label="주식" value=\{pct\(t\.invest\)\} \/>/.test(sheetValuesSrc) && !/label="투자"/.test(sheetValuesSrc));
+// [111-9] 매매 · 시황 · 자동매매 · 거래정지 · 시장 달력 코드 바뀐 파일 0(110차 끝 2b548e5 와 지금 작업 트리)
+const changed111 = spawnSync('git', ['diff', '--name-only', '2b548e5', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'python'], { cwd: root, encoding: 'utf8' });
+check('[111-9] 매매 · 시황 · 자동매매 · 거래정지 · 시장 달력 코드 바뀐 파일 0(2b548e5 와 지금 작업 트리)', changed111.status === 0 && changed111.stdout.trim() === '', changed111.stdout.trim() || changed111.stderr.trim());
+// [111-10] 구매 완료 경로가 로그에 계좌 이름 · 날짜 · 금액을 찍지 않는다(이유 종류만) — 소스 검사 + 아래 출력 검사
+const purchaseSrc = ['server/asset/purchase.ts', 'server/asset/routes.ts'].map((f) => fs.readFileSync(path.join(root, f), 'utf8')).join('\n') + fnBody('writeAccountDates');
+check('[111-10] 구매 완료 · 이번 달 구매 코드에 console 출력 없음(실패 로그는 sendSheetError 의 이유 종류 한 줄뿐)', !/console\.(log|info|debug)/.test(purchaseSrc) && (purchaseSrc.match(/console\.warn/g) ?? []).length === 2);
 const leaked = (textAll: string) => SECRET_STRINGS.filter((x) => textAll.includes(x));
 check('[13] 서버 로그(시험 서버) · 안쪽 경고 출력에 가짜 금액 · 수량이 없다', leaked(serverLog + captured.join('\n')).length === 0 && captured.some((l) => l.includes('[asset] 시트 읽기 실패: shape')));
 check('[13] 이 시험의 출력에 가짜 금액 · 수량이 없다', leaked(printed.join('\n')).length === 0);
 const allOut = [serverLog, captured.join('\n'), logged.join('\n'), printed.join('\n')].join('\n');
-check('[106-11] [107-11] 로그 · 시험 출력에 계산한 총 자산 · 분류 금액 · 계좌 평가 합 · 종가 기록 금액이 없다(출력 문자열 검사)', totalsSecret.length > 0 && totalsSecret.every((x) => !allOut.includes(x)) && leaked(allOut).length === 0);
+check('[106-11] [107-11] [111-10] 로그 · 시험 출력에 계산한 총 자산 · 분류 금액 · 계좌 평가 합 · 종가 기록 금액이 없다(출력 문자열 검사)', totalsSecret.length > 0 && totalsSecret.every((x) => !allOut.includes(x)) && leaked(allOut).length === 0);
 
 const changed = spawnSync('git', ['diff', '--name-only', '0a2dc10', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
 check('[14] 매매 · 시황 · 자동매매 코드 바뀐 파일 0(0a2dc10 와 지금 작업 트리)', changed.status === 0 && changed.stdout.trim() === '', changed.stdout.trim() || changed.stderr.trim());
@@ -1097,7 +1237,7 @@ const changed106 = spawnSync('git', ['diff', '--name-only', 'c166ecd', '--', 'se
 check('[106-12] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(c166ecd 와 지금 작업 트리)', changed106.status === 0 && changed106.stdout.trim() === '', changed106.stdout.trim() || changed106.stderr.trim());
 
 // [107-9] 시트 쓰기는 지금처럼 「티커」 D14~D42 자산 분류 한 곳뿐 · 서식 쓰기(batchUpdate — repeatCell · 정렬 등) 0 — 이번 설정 저장은 앱 DB(app_settings)에만
-check('[107-9] 시트 쓰기 = sheet.ts 두 곳(자산 분류 · 109차 목표 비율) · 서식 쓰기(spreadsheets:batchUpdate · repeatCell · horizontalAlignment) 0 · settings.ts 는 시트를 쓰지 않음', JSON.stringify(callers.sort()) === WRITE_CALLERS && !/(?<!values):batchUpdate|repeatCell|horizontalAlignment|userEnteredFormat/.test(appCode) && !/valuesWrite|googleapis/.test(fs.readFileSync(path.join(root, 'server/asset/settings.ts'), 'utf8')));
+check('[107-9] 시트 쓰기 = sheet.ts 세 곳(자산 분류 · 109차 목표 비율 · 111차 계좌 이름 날짜) · 서식 쓰기(spreadsheets:batchUpdate · repeatCell · horizontalAlignment) 0 · settings.ts 는 시트를 쓰지 않음', JSON.stringify(callers.sort()) === WRITE_CALLERS && !/(?<!values):batchUpdate|repeatCell|horizontalAlignment|userEnteredFormat/.test(appCode) && !/valuesWrite|googleapis/.test(fs.readFileSync(path.join(root, 'server/asset/settings.ts'), 'utf8')));
 // [107-10] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(106차 끝 428db88 와 지금 작업 트리)
 const changed107 = spawnSync('git', ['diff', '--name-only', '428db88', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
 check('[107-10] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(428db88 와 지금 작업 트리)', changed107.status === 0 && changed107.stdout.trim() === '', changed107.stdout.trim() || changed107.stderr.trim());

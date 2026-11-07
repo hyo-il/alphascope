@@ -1,9 +1,10 @@
 /**
- * 자산 시트 읽기 · 자산 분류 쓰기 · 목표 비율 쓰기(v2.61.0 · v2.62.0 · v2.63.0) — 칸 목록은 `sheetLayout.ts` 한 곳, 구글 호출은 `google.ts`.
+ * 자산 시트 읽기 · 자산 분류 쓰기 · 목표 비율 쓰기 · 계좌 이름 날짜 쓰기(v2.61.0 · v2.62.0 · v2.63.0 · v2.64.0) — 칸 목록은 `sheetLayout.ts` 한 곳, 구글 호출은 `google.ts`.
  *
  * - 화면을 열 때 · 「다시 읽기」 · 총 자산 계산(화면이 열린 동안 · 하루 기록 1번)에 읽는다. 같은 결과는 30초 캐시(동시에 온 요청은 한 번만 읽는다).
- * - 쓰기는 두 곳 — `writeAssetClass`(「티커」 D14~D42 종목 줄의 자산 분류 한 칸) · `writeTargetRatio`(목표 비율 여섯 칸).
- *   둘 다 쓰기 직전에 수식 그대로 다시 읽어 머리 글자 · 수식 칸을 확인한다(구글에 쓰는 함수는 `google.ts` `valuesWrite` 하나).
+ * - 쓰기는 세 곳 — `writeAssetClass`(「티커」 D14~D42 종목 줄의 자산 분류 한 칸) · `writeTargetRatio`(목표 비율 여섯 칸) ·
+ *   `writeAccountDates`(「구매 완료」 — 「주식 투자 정리」 계좌 이름 칸의 「( 날짜 )」).
+ *   셋 다 쓰기 직전에 수식 그대로 다시 읽어 머리 글자 · 수식 칸을 확인한다(구글에 쓰는 함수는 `google.ts` `valuesWrite` 하나).
  * - 한 번 읽기 = `values:batchGet` 두 번: ① 값(UNFORMATTED_VALUE) — 머리 글자 · 종목 · 보유 · 값 칸 ② 수식(FORMULA) — 보유 줄의 C(평균 매입가) · F(이을 줄).
  * - 머리 글자가 하나라도 다르면 값을 쓰지 않고 「시트 모양이 바뀌었어요(탭 · 칸)」.
  * ⚠️ 읽은 값은 로그에 찍지 않는다(실패 이유 종류만).
@@ -315,4 +316,67 @@ export async function writeTargetRatio(input: unknown): Promise<AssetSheetData> 
   });
   if (!same) throw new AssetSheetError('mismatch', '시트에 쓴 값이 다르게 읽혔습니다(시트를 열어 목표 비율 칸을 확인하세요).');
   return data;
+}
+
+/**
+ * 계좌 이름 속 날짜 — 「개별 투자 ( 2026.07 )」 의 괄호 안. 연 4자리 + 구분 글자(. - /) + 월 1~2자리 + (같은 구분 글자 + 일 1~2자리).
+ * 괄호 안팎 빈칸은 그대로 둔다(칸마다 다를 수 있다 — 2026-11-07 시험용 시트).
+ */
+const NAME_DATE = /([(（]\s*)(\d{4})([.\-/])(\d{1,2})(?:\3(\d{1,2}))?(\s*[)）])/;
+
+/**
+ * 이름의 날짜 부분만 `day`(YYYY-MM-DD)로 바꾼 새 글자 — 날짜가 없으면 null. 순수 함수(시험이 부른다).
+ * 모양은 원래 그대로: 구분 글자 · 일이 있는지 · 월 · 일 자릿수(「07」 이면 두 자리, 「7」 이면 한 자리 그대로).
+ */
+export function replaceNameDate(name: string, day: string): string | null {
+  const m = name.match(NAME_DATE);
+  if (!m) return null;
+  const [, open, , sep, mm, dd, close] = m;
+  const pad = (v: string, like: string) => (like.length >= 2 ? v.padStart(2, '0') : String(Number(v)));
+  const [y, mo, d] = day.split('-');
+  const date = `${y}${sep}${pad(mo, mm)}${dd != null ? `${sep}${pad(d, dd)}` : ''}`;
+  return name.slice(0, m.index) + open + date + close + name.slice((m.index ?? 0) + m[0].length);
+}
+
+/**
+ * 「구매 완료」 — 「주식 투자 정리」 계좌 이름 칸(B4 · B12 · B21 · B29 — `sections` 의 `nameCell`) 중 **「( 날짜 )」 가 든 칸 전부**의 날짜를
+ * `day`(누른 날 · 한국 날짜)로 바꾼다(v2.64.0). 순서:
+ * ① 스위치(`ASSET_SYNC_ENABLED=false` → 「꺼짐」) ② 머리 글자(B3 · 네 이름 칸의 앞부분 — `writeAssetClass` 와 같은 확인)와 네 칸을 **수식 그대로** 다시 읽는다
+ * ③ 네 칸 중 하나라도 수식이면 **하나도 쓰지 않고** 409 `formula-cell` · 날짜가 든 칸이 없으면 409 `no-date`
+ * ④ 날짜 부분만 같은 모양으로 바꾼 글자를 `valuesWrite` **한 요청**으로(RAW — 글자 그대로)
+ * ⑤ 그 칸들을 다시 읽어 보낸 글자와 같은지 확인 — 다르면 `mismatch` ⑥ 30초 캐시를 비운다.
+ * 돌려주는 값은 바꾼 칸 수뿐. ⚠️ 계좌 이름 · 날짜를 로그에 찍지 않는다.
+ */
+export async function writeAccountDates(day: string): Promise<{ cells: number }> {
+  if (!isAssetSyncEnabled()) throw refuse('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다(ASSET_SYNC_ENABLED=false).');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw refuse('not-editable', '날짜 모양이 올바르지 않습니다.');
+  const config = assetSheetConfig();
+  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
+
+  const L = SHEET_LAYOUT;
+  const nameCells = L.sections.flatMap((s: HoldingSection) => (s.nameCell ? [s.nameCell] : []));
+  const headers = L.headers.filter((h) => h.tab === HOLDINGS_TAB && (h.cell === 'B3' || nameCells.includes(h.cell)));
+  const got = await batchGet(config, [...headers.map((h) => one(h.tab, h.cell)), ...nameCells.map((c) => one(HOLDINGS_TAB, c))], 'FORMULA');
+  const now = nameCells.map((_, i) => first(got[headers.length + i]));
+  const isFormula = (v: Cell) => typeof v === 'string' && v.trim().startsWith('=');
+  // 수식 칸을 먼저 본다 — 수식 그대로 읽으면 이름 칸 머리(앞부분) 확인이 수식 글자로 틀려 「모양 바뀜」 으로 보이기 때문
+  const formulaAt = nameCells.filter((_, i) => isFormula(now[i]));
+  if (formulaAt.length > 0) {
+    throw refuse('formula-cell', `「${HOLDINGS_TAB}」 ${formulaAt.join(' · ')} 칸에 수식이 있어 하나도 쓰지 않았습니다(수식을 덮어쓰지 않습니다).`);
+  }
+  headers.forEach((h, i) => {
+    if (!headerOk(h, first(got[i]))) throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(「${h.tab}」 탭 ${h.cell} — 「${h.expect}」 이어야 합니다).`);
+  });
+  const writes = nameCells.flatMap((cell, i) => {
+    const next = typeof now[i] === 'string' ? replaceNameDate(now[i] as string, day) : null;
+    return next == null ? [] : [{ cell, value: next }];
+  });
+  if (writes.length === 0) throw new AssetSheetError('no-date', `「${HOLDINGS_TAB}」 계좌 이름 칸(${nameCells.join(' · ')})에 「( 날짜 )」 가 없어 쓰지 않았습니다.`);
+
+  await valuesWrite(config, writes.map((w) => ({ range: one(HOLDINGS_TAB, w.cell), value: w.value })));
+  resetSheetCache();
+  const back = await batchGet(config, writes.map((w) => one(HOLDINGS_TAB, w.cell)), 'FORMULA');
+  const same = writes.every((w, i) => first(back[i]) === w.value);
+  if (!same) throw new AssetSheetError('mismatch', '시트에 쓴 계좌 이름이 다르게 읽혔습니다(시트를 열어 「주식 투자 정리」 계좌 이름 칸을 확인하세요).');
+  return { cells: writes.length };
 }

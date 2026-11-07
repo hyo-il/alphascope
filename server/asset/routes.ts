@@ -1,5 +1,5 @@
 /*
-  자산 관리(v2.61.0 · v2.62.0) 주소 — 모두 로그인 문지기(`authGuard`) 뒤다. `server/index.ts` 가 `app.use(assetRouter)` 로 붙인다(주소는 전체 경로 그대로).
+  자산 관리(v2.61.0 · v2.62.0 · v2.64.0 구매 완료) 주소 — 모두 로그인 문지기(`authGuard`) 뒤다. `server/index.ts` 가 `app.use(assetRouter)` 로 붙인다(주소는 전체 경로 그대로).
   - 자산 문지기(`assetGuard`)는 이 라우터 맨 앞 **한 곳**에서 모든 `/api/asset/*` 를 막는다 — 잠겨 있으면 403 `asset-locked`.
     빠지는 것은 `status` · `unlock` · `lock` 셋뿐이다(라우트마다 따로 검사하지 않는다).
   - ⚠️ 응답 · 로그에 자산 값(금액 · 수량 · 종목)을 찍지 않는다. 실패 로그는 이유 종류만.
@@ -7,13 +7,14 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { readSessionCookie } from '../auth';
 import { assetLimiter, isAssetPasswordSet, isUnlocked, lockSession, unlockSession, verifyAssetPassword } from './lock';
-import { isSheetConfigured } from './config';
+import { isAssetSyncEnabled, isSheetConfigured } from './config';
 import { AssetSheetError } from './google';
-import { readAssetSheet, writeAssetClass, writeTargetRatio } from './sheet';
+import { readAssetSheet, writeAccountDates, writeAssetClass, writeTargetRatio } from './sheet';
+import { currentCycle } from './purchase';
 import { assetSummary } from './summary';
-import { historyPoints, isHistoryRange } from './store';
+import { historyPoints, isHistoryRange, recordPurchase } from './store';
 import { writeAssetSettings } from './settings';
-import type { AssetSheetErrorKind, AssetSheetFailure, AssetStatus } from '../../src/types/asset';
+import type { AssetSheetErrorKind, AssetSheetFailure, AssetStatus, PurchaseDoneResult } from '../../src/types/asset';
 
 export const assetRouter = Router();
 
@@ -105,6 +106,32 @@ assetRouter.put('/api/asset/target-ratio', async (req, res) => {
   }
 });
 
+/**
+ * 「구매 완료」(v2.64.0) — 이번 구매 차례(오늘 기준 가장 최근에 지난 구매일)를 완료로 기록하고, 시트 「주식 투자 정리」 계좌 이름의
+ * 「( 날짜 )」 를 오늘(한국 날짜)로 바꾼다. 되돌리기 없음(날짜는 사용자가 시트에서 직접 고친다). 순서:
+ * ① 스위치 꺼짐 → 503 `disabled` ② 이번 차례가 이미 완료 → 409 `already-done` ③ 시트 쓰기(`writeAccountDates`)
+ * ④ **시트 쓰기가 성공했을 때만** `asset_purchase` 에 한 줄. 같은 서버에서 동시에 두 번 누르면 뒤의 것은 409(쓰기 한 번).
+ */
+let purchaseBusy = false;
+assetRouter.post('/api/asset/purchase-done', async (_req, res) => {
+  try {
+    if (!isAssetSyncEnabled()) throw new AssetSheetError('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다(ASSET_SYNC_ENABLED=false).');
+    const before = currentCycle();
+    if (before.done || purchaseBusy) throw new AssetSheetError('already-done', `이미 구매 완료를 눌렀습니다(${before.doneDay ?? '저장 중'}).`);
+    purchaseBusy = true;
+    try {
+      const { cells } = await writeAccountDates(before.today);
+      recordPurchase(before.cycleDay, before.today);
+      const body: PurchaseDoneResult = { cycleDay: before.cycleDay, doneDay: before.today, cells };
+      res.json(body);
+    } finally {
+      purchaseBusy = false;
+    }
+  } catch (e) {
+    sendSheetError(res, e, '쓰기');
+  }
+});
+
 /** 총 자산 · 분류별 · 코어/위성 · 어제보다 — 화면이 열린 동안 10초마다(시트는 30초 캐시 · 가격은 토스 /prices 한 번 + 환율 60초 캐시) */
 assetRouter.get('/api/asset/summary', async (req, res) => {
   try {
@@ -135,8 +162,8 @@ assetRouter.put('/api/asset/settings', async (req, res) => {
   }
 });
 
-/** 이유 종류 → HTTP — 이 서버 설정(연결 정보 · 열쇠 · 스위치)은 503, 요청이 틀림은 400, 수식 칸은 409, 구글 쪽은 502 */
-const STATUS: Partial<Record<AssetSheetErrorKind, number>> = { 'not-configured': 503, 'key-file': 503, disabled: 503, 'not-editable': 400, 'formula-cell': 409 };
+/** 이유 종류 → HTTP — 이 서버 설정(연결 정보 · 열쇠 · 스위치)은 503, 요청이 틀림은 400, 수식 칸 · 날짜 없음 · 이미 구매 완료는 409, 구글 쪽은 502 */
+const STATUS: Partial<Record<AssetSheetErrorKind, number>> = { 'not-configured': 503, 'key-file': 503, disabled: 503, 'not-editable': 400, 'formula-cell': 409, 'no-date': 409, 'already-done': 409 };
 
 /** 실패 응답 — 쉬운 말 + 이유 종류. ⚠️ 로그에는 이유 종류만(시트 값 · 응답 본문 · 경로를 찍지 않는다) */
 export function sendSheetError(res: Response, e: unknown, action: string): void {

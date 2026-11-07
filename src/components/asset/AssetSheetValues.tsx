@@ -44,19 +44,20 @@ function Summary({ data }: { data: AssetSheetData }) {
         <Field label="월급" value={formatPrice(data.salary, 'KRW')} />
         <Field label="구매 평균 환율(원/$)" value={data.avgFxRate == null ? '—' : `₩${formatNumber(data.avgFxRate, 2)}`} />
       </div>
-      {/* 목표 비율 두 묶음 — 자산 배분(합 100%)과 투자 안의 코어 · 위성(합 100%)을 나눠 보인다(한 줄이면 합이 200% 로 읽힌다) */}
+      {/* 목표 비율 두 묶음 — 자산 배분(합 100%)과 주식 안의 코어 · 위성(합 100%)을 나눠 보인다(한 줄이면 합이 200% 로 읽힌다).
+          순서 · 이름은 비율 조정 탭과 같게 현금 · 채권 · 금 · 주식(v2.64.0 — 시트 칸 「투자」 = 화면 「주식」 · 시트 칸 순서는 그대로) */}
       <div className="flex flex-wrap gap-x-12 gap-y-3">
         <div className="space-y-1">
           <div className="text-caption text-text-secondary">목표 비율 — 자산 배분</div>
           <div className="flex gap-x-8">
             <Field label="현금" value={pct(t.cash)} />
-            <Field label="금" value={pct(t.gold)} />
             <Field label="채권" value={pct(t.bond)} />
-            <Field label="투자" value={pct(t.invest)} />
+            <Field label="금" value={pct(t.gold)} />
+            <Field label="주식" value={pct(t.invest)} />
           </div>
         </div>
         <div className="space-y-1">
-          <div className="text-caption text-text-secondary">목표 비율 — 투자 안의 코어 · 위성</div>
+          <div className="text-caption text-text-secondary">목표 비율 — 주식 안의 코어 · 위성</div>
           <div className="flex gap-x-8">
             <Field label="코어" value={pct(t.core)} />
             <Field label="위성" value={pct(t.satellite)} />

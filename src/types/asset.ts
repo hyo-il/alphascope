@@ -27,7 +27,9 @@ export type AssetSheetErrorKind =
   | 'disabled' // 이 서버에서 시트 쓰기 · 하루 기록이 꺼짐(ASSET_SYNC_ENABLED=false)
   | 'not-editable' // 쓸 수 없는 칸(「티커」 D14~D42 의 종목 줄이 아님) · 허용하지 않는 값
   | 'formula-cell' // 그 칸이 수식(`=` 로 시작) — 덮어쓰지 않는다
-  | 'mismatch'; // 쓴 뒤 다시 읽은 값이 보낸 값과 다름(목표 비율 — v2.63.0)
+  | 'mismatch' // 쓴 뒤 다시 읽은 값이 보낸 값과 다름(목표 비율 — v2.63.0 · 계좌 이름 날짜 — v2.64.0)
+  | 'no-date' // 「( 날짜 )」 가 든 계좌 이름 칸이 없음(구매 완료 — v2.64.0)
+  | 'already-done'; // 이번 구매 차례는 이미 「구매 완료」 를 눌렀음(v2.64.0)
 
 /**
  * 자산 분류 — 「티커」 D열에 적는 글자 넷(사용자 결정 2026-11-07).
@@ -282,6 +284,55 @@ export interface AssetSummary {
   bySymbol: AssetSymbolRow[];
   /** 이 서버에서 시트 쓰기가 켜져 있나(`ASSET_SYNC_ENABLED`) — 꺼져 있으면 설정 창 목표 비율 [저장] 을 막는다 */
   writeEnabled: boolean;
+  /** 이번 달 구매(v2.64.0) — 월급 × 목표 비율 · 구매일 · 이번 차례 완료 여부 */
+  monthlyBuy: MonthlyBuy;
+}
+
+/** 이번 달 구매 한 줄(v2.64.0) — 금액은 원(반올림 정수) · 목표나 월급이 없으면 null(「-」) */
+export interface MonthlyBuyRow {
+  key: 'cash' | 'bond' | 'gold' | 'stock' | 'core' | 'satellite';
+  label: string;
+  /** 목표 %(코어 · 위성은 주식 안의 %) — 시트 칸이 비면 null */
+  targetPct: number | null;
+  amount: number | null;
+}
+
+/**
+ * `GET /api/asset/summary` 의 이번 달 구매(v2.64.0 · 보여 주기만 — 주문 없음).
+ * 살 금액 = 월급(「월 고정지출」 C5) × 목표 비율 · 주식은 코어 · 위성으로 한 번 더 나눔 · 반올림 차이는 코어에(합 = 월급).
+ * 구매일 = 26일이 든 주의 금요일(26일이 토 · 일이면 바로 앞 금요일) · 그날이 한국 휴장일이면 그 전 거래일.
+ */
+export interface MonthlyBuy {
+  /** 현금 · 채권 · 금 · 주식 · 코어 · 위성(이 순서) */
+  rows: MonthlyBuyRow[];
+  /** 살 금액 합(원) — 월급이 없으면 null */
+  total: number | null;
+  /** 시트에 월급이 없음(빈칸 · 0 · 글자) */
+  noSalary: boolean;
+  /** 아는 목표의 합(%) — 현금 · 채권 · 금 · 주식 / 코어 · 위성. 하나도 없으면 null */
+  assetTargetSum: number | null;
+  stockTargetSum: number | null;
+  /** 목표가 빈 칸이 있다 */
+  targetMissing: boolean;
+  /** 오늘(한국 날짜 YYYY-MM-DD) */
+  today: string;
+  /** 이번 구매 차례 = 오늘 기준 가장 최근에 지난(오늘 포함) 구매일 */
+  cycleDay: string;
+  /** 다음 구매일 */
+  nextDay: string;
+  /** 이번 차례에 「구매 완료」 를 눌렀나 · 누른 날(한국 날짜) */
+  done: boolean;
+  doneDay: string | null;
+  /** 구매일 계산에 한국 휴장일 달력 범위 밖 날짜가 있었다(그 날짜들은 평일이면 거래일로 셈) */
+  calendarUnchecked: boolean;
+}
+
+/** `POST /api/asset/purchase-done` 성공 */
+export interface PurchaseDoneResult {
+  cycleDay: string;
+  doneDay: string;
+  /** 날짜를 바꾼 계좌 이름 칸 수 */
+  cells: number;
 }
 
 /** 계좌 하나 — 「연금 포함」 과 상관없이 늘 그 계좌 전체 */

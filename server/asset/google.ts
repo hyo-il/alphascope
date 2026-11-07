@@ -2,8 +2,8 @@
  * 구글 시트 읽기 · 쓰기 — **새 의존성 없이** Node 내장 `crypto` 로 서비스 계정 JWT(RS256)를 서명해 접근 토큰을 받고,
  * Sheets API v4 `values:batchGet`(읽기) · `values:batchUpdate`(쓰기 — 값 칸만 · 한 요청)를 `fetch` 로 부른다(v2.61.0 · v2.62.0 · v2.63.0 쓰기).
  *
- * - 범위(scope)는 `spreadsheets`(읽기 · 쓰기 — v2.62.0). **쓰기 함수는 `valuesWrite` 하나** · 부르는 곳은 `sheet.ts` 의 두 곳뿐
- *   (`writeAssetClass` 「티커」 D14~D42 자산 분류 · `writeTargetRatio` 목표 비율 여섯 칸 — `asset:test` 가 검색으로 확인).
+ * - 범위(scope)는 `spreadsheets`(읽기 · 쓰기 — v2.62.0). **쓰기 함수는 `valuesWrite` 하나** · 부르는 곳은 `sheet.ts` 의 세 곳뿐
+ *   (`writeAssetClass` 「티커」 D14~D42 자산 분류 · `writeTargetRatio` 목표 비율 여섯 칸 · `writeAccountDates` 계좌 이름 날짜(v2.64.0) — `asset:test` 가 검색으로 확인).
  *   서식 쓰기(스프레드시트 단위 batchUpdate)는 쓰지 않는다. 시트 쓰기는 서비스 계정이 시트의 「편집자」 여야 된다.
  * - 토큰은 만료 1분 전까지 메모리에 둔다(열쇠 파일이 바뀌면 새로 받는다).
  * - 실패는 쉬운 말 이유(`AssetSheetError.kind`)로 바꾼다. ⚠️ 구글 응답 본문 · 열쇠 내용 · 시트 ID 는 로그 · 오류 문구에 싣지 않는다.
@@ -157,7 +157,7 @@ export interface CellWrite {
 /**
  * **시트 쓰기 — 이 앱의 유일한 쓰기 함수**(`values:batchUpdate` · `valueInputOption=RAW` · 여러 칸을 **한 요청**으로).
  * 숫자는 JSON 숫자로 보내 시트에 숫자로 들어간다(글자 「10」 이 아니다 — 시트 수식이 깨지지 않게).
- * 부르는 곳은 `sheet.ts` `writeAssetClass` · `writeTargetRatio`(칸 · 값 확인 · 수식 칸 거절을 거친 뒤)뿐이다.
+ * 부르는 곳은 `sheet.ts` `writeAssetClass` · `writeTargetRatio` · `writeAccountDates`(칸 · 값 확인 · 수식 칸 거절을 거친 뒤)뿐이다.
  */
 export async function valuesWrite(config: AssetSheetConfig, cells: CellWrite[]): Promise<void> {
   const token = await accessToken(config.keyFile);

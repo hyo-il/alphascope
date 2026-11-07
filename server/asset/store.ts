@@ -75,3 +75,36 @@ export function historyPoints(range: AssetHistoryRange, includePension: boolean,
 export function clearRecordsForTest(): void {
   db().prepare(`DELETE FROM asset_daily`).run();
 }
+
+// ── 구매 완료 기록 `asset_purchase`(v2.64.0) — 구매 차례(구매일)마다 한 줄 · 시트 계좌 이름 날짜를 바꾼 뒤에만 쓴다 ──
+let purchaseReady = false;
+function purchaseDb() {
+  const database = getDb();
+  if (!purchaseReady) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS asset_purchase (
+        cycle_date TEXT PRIMARY KEY,    -- 구매 차례 = 그 달 구매일(한국 날짜 YYYY-MM-DD)
+        done_at TEXT                    -- 「구매 완료」 를 누른 날(한국 날짜 YYYY-MM-DD — 시트 계좌 이름에 쓴 날짜)
+      );
+    `);
+    purchaseReady = true;
+  }
+  return database;
+}
+
+/** 그 차례에 「구매 완료」 를 누른 날 — 없으면 null */
+export function purchaseDoneDay(cycleDay: string): string | null {
+  const row = purchaseDb().prepare(`SELECT done_at FROM asset_purchase WHERE cycle_date = ?`).get(cycleDay) as { done_at: string | null } | undefined;
+  return row ? (row.done_at ?? cycleDay) : null;
+}
+
+/** 한 줄 쓰기 — 이미 있으면 쓰지 않고 false */
+export function recordPurchase(cycleDay: string, doneDay: string): boolean {
+  return purchaseDb().prepare(`INSERT OR IGNORE INTO asset_purchase (cycle_date, done_at) VALUES (?, ?)`).run(cycleDay, doneDay).changes === 1;
+}
+
+/** 시험이 표를 비운다(사본 DB) · 줄 수를 센다 */
+export function clearPurchasesForTest(): void {
+  purchaseDb().prepare(`DELETE FROM asset_purchase`).run();
+}
+export const purchaseCountForTest = (): number => (purchaseDb().prepare(`SELECT COUNT(*) AS n FROM asset_purchase`).get() as { n: number }).n;
