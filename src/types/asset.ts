@@ -289,6 +289,21 @@ export interface AssetPriceSkip {
   reason: AssetPriceSkipReason;
 }
 
+/**
+ * [되돌리기] 때 줄이 옮겨져 쓰지 않은 줄(v2.65.1) — 「줄이 옮겨짐 — 직접 확인」 목록. 원래 수식 백업은 앱 DB 에 남는다.
+ * 시트 줄을 원래대로 돌린 뒤 [되돌리기] 를 다시 누르면 그 줄만 되돌린다.
+ */
+export interface AssetPriceMoved {
+  /** 「티커」 줄 번호 */
+  row: number;
+  /** 토스로 바꿀 때 그 줄의 종목 이름 · 코드(이름은 v2.65.1 부터 바꾼 줄만 — 없으면 빈 글자) */
+  wasName: string;
+  wasCode: string;
+  /** 지금 그 줄의 종목 이름 · 코드 — 빈 줄 · 구분 줄이면 null */
+  nowName: string | null;
+  nowCode: string | null;
+}
+
 /** 설정 창 「시트 가격」(v2.65.0) — summary 응답에 같이 온다 */
 export interface AssetPriceSheetStatus {
   /** 이 서버에서 시트 가격 쓰기가 켜져 있나(`ASSET_PRICE_WRITE_ENABLED` 와 `ASSET_SYNC_ENABLED` 둘 다) */
@@ -305,6 +320,8 @@ export interface AssetPriceSheetStatus {
   /** 되돌릴 원래 수식이 앱 DB 에 남아 있나 */
   hasBackup: boolean;
   skipped: AssetPriceSkip[];
+  /** [되돌리기] 때 줄이 옮겨져 쓰지 않은 줄(v2.65.1) — 비어 있으면 숨김 */
+  moved: AssetPriceMoved[];
 }
 
 export interface AssetSummary {

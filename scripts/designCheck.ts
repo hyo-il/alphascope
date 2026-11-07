@@ -487,8 +487,10 @@ function targets(): Target[] {
           await page.waitForTimeout(300);
         }],
         // v2.65.0 — 설정 창 「시트 가격」(Google · 토스 + 토스 가격 없음 목록 · 스위치 꺼진 서버 · 바꾸기 / 되돌리기 확인 창)
+        // v2.65.1 — 줄이 옮겨짐(되돌리기 때 쓰지 않은 줄 목록)
         ...([
           ['Google', 'google', null],
+          ['줄이옮겨짐', 'google-moved', null],
           ['토스', 'toss', null],
           ['꺼짐', 'off', null],
           ['바꾸기확인창', 'google', '[data-price-convert]'],

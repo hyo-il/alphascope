@@ -11,15 +11,19 @@ import { getDb } from '../db';
 import { fetchQuotes } from '../quoteService';
 import { isMockMode } from '../mockData';
 import { fetchExchangeRate } from '../../src/services/toss/account';
-import type { AssetPriceSkip, AssetPriceSource } from '../../src/types/asset';
+import type { AssetPriceMoved, AssetPriceSkip, AssetPriceSource } from '../../src/types/asset';
 
-const KEYS = { source: 'asset.priceSource', rows: 'asset.priceRows', skipped: 'asset.priceSkipped' } as const;
+const KEYS = { source: 'asset.priceSource', rows: 'asset.priceRows', skipped: 'asset.priceSkipped', moved: 'asset.priceMoved' } as const;
 
-/** 토스로 바꾼 줄 — 「티커」 줄 번호 · 바꿀 때 그 줄의 코드(쓰기 전에 같은지 본다) · 시장 */
+/**
+ * 토스로 바꾼 줄 — 「티커」 줄 번호 · 바꿀 때 그 줄의 코드(쓰기 · 되돌리기 전에 같은지 본다) · 시장 · 그때 이름(v2.65.1 — 「줄이 옮겨짐」 목록에만).
+ * [되돌리기] 가 줄이 옮겨져 쓰지 않은 줄은 출처가 google 이 되어도 여기에 남는다(다시 누를 때 견줄 코드).
+ */
 export interface PriceRow {
   row: number;
   code: string;
   market: 'US' | 'KR';
+  name?: string;
 }
 
 function read(key: string): unknown {
@@ -50,17 +54,24 @@ export function priceSkipped(): AssetPriceSkip[] {
   return Array.isArray(v) ? (v as AssetPriceSkip[]).filter((s) => s && Number.isInteger(s.row) && typeof s.reason === 'string') : [];
 }
 
-/** 출처 · 바꾼 줄 · 바꾸지 않은 줄을 한 트랜잭션으로 */
-export function savePriceState(next: { source?: AssetPriceSource; rows?: PriceRow[]; skipped?: AssetPriceSkip[] }): void {
+/** [되돌리기] 가 쓰지 않은 「줄이 옮겨짐 — 직접 확인」 목록(v2.65.1 · 'asset.priceMoved') */
+export function priceMoved(): AssetPriceMoved[] {
+  const v = read(KEYS.moved);
+  return Array.isArray(v) ? (v as AssetPriceMoved[]).filter((m) => m && Number.isInteger(m.row) && typeof m.wasCode === 'string') : [];
+}
+
+/** 출처 · 바꾼 줄 · 바꾸지 않은 줄 · 옮겨진 줄을 한 트랜잭션으로 */
+export function savePriceState(next: { source?: AssetPriceSource; rows?: PriceRow[]; skipped?: AssetPriceSkip[]; moved?: AssetPriceMoved[] }): void {
   const db = getDb();
   db.transaction(() => {
     if (next.source) put(KEYS.source, next.source);
     if (next.rows) put(KEYS.rows, [...next.rows].sort((a, b) => a.row - b.row));
     if (next.skipped) put(KEYS.skipped, [...next.skipped].sort((a, b) => a.row - b.row));
+    if (next.moved) put(KEYS.moved, [...next.moved].sort((a, b) => a.row - b.row));
   })();
 }
 
-/** 시험이 세 키를 지운다(사본 DB) */
+/** 시험이 네 키를 지운다(사본 DB) */
 export function clearPriceStateForTest(): void {
   for (const k of Object.values(KEYS)) getDb().prepare(`DELETE FROM app_settings WHERE key = ?`).run(k);
 }

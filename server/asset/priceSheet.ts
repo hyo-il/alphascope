@@ -7,7 +7,8 @@
  *   (E 가 GOOGLEFINANCE 가격 수식 · F 가 E행 / E행 × 환율로 읽힘 · 토스 가격 있음) → **원래 수식을 `asset_sheet_backup` 에 먼저 저장**(실패면 쓰지 않음)
  *   → C9 · 바꿀 줄 E · F 를 **한 요청**(`USER_ENTERED`) → 다시 읽어 확인. 바꾸지 않은 줄은 이유와 함께 목록(화면에만 이름 · 코드).
  *   이미 토스면 GOOGLEFINANCE 로 남은 줄 중 토스 가격이 생긴 줄만 더 바꾼다(「남은 종목도 토스로 바꾸기」).
- * - [되돌리기](`restoreSheetPrices`): 백업의 칸마다 **원래 수식 글자 그대로** 한 요청(`USER_ENTERED`) → 다시 읽어 같으면 백업을 지움 · 다르면 백업을 남기고 오류.
+ * - [되돌리기](`restoreSheetPrices`): 백업의 칸마다 **지금 그 줄 코드 = 바꿀 때 코드** 인 줄(+ C9)만 원래 수식 글자 그대로 한 요청(`USER_ENTERED`)
+ *   → 다시 읽어 같으면 그 칸 백업을 지움 · 다르면 백업을 남기고 오류. 줄이 옮겨진 줄은 쓰지 않고 백업 · 「줄이 옮겨짐 — 직접 확인」 목록으로 남긴다(v2.65.1).
  * - G · H · I열과 그 밖 칸은 쓰지 않는다. 구글에 쓰는 함수는 `google.ts` `valuesWrite` 하나.
  * ⚠️ 로그에는 줄 번호 · 이유 종류만(가격 · 코드 · 이름 · 수식 없음).
  */
@@ -15,10 +16,10 @@ import { isPriceWriteAllowed, assetSheetConfig } from './config';
 import { AssetSheetError, batchGet, valuesWrite, type CellRows } from './google';
 import { headerOk, one, resetSheetCache, splitCode, tickerRowCode } from './sheet';
 import { SHEET_LAYOUT, TICKER_TAB } from './sheetLayout';
-import { clearSheetBackup, saveSheetBackup, sheetBackup } from './store';
-import { isMockPrices, priceRows, priceSkipped, priceSource, priceTools, runOperation, savePriceState, type PriceRow } from './priceState';
+import { clearSheetBackup, deleteSheetBackupCells, saveSheetBackup, sheetBackup } from './store';
+import { isMockPrices, priceMoved, priceRows, priceSkipped, priceSource, priceTools, runOperation, savePriceState, type PriceRow } from './priceState';
 import { priceWriterStatus, seedPriceWriter, syncPriceWriter } from './priceWriter';
-import type { AssetPriceSheetStatus, AssetPriceSkip, AssetPriceSkipReason } from '../../src/types/asset';
+import type { AssetPriceMoved, AssetPriceSheetStatus, AssetPriceSkip, AssetPriceSkipReason } from '../../src/types/asset';
 
 type Cell = string | number | boolean | undefined;
 const P = SHEET_LAYOUT.prices;
@@ -135,7 +136,7 @@ export async function convertSheetPrices(): Promise<AssetPriceSheetStatus> {
         if (was && was.code !== l.code) {
           rows.push(was); // 바꾼 그 줄 그대로 두고 쓰지 않는다(10초 쓰기가 코드를 다시 본다)
           skipped.push({ row: l.row, name: l.name, code: l.code, reason: 'code-changed' });
-        } else rows.push({ row: l.row, code: l.code, market });
+        } else rows.push({ ...was, row: l.row, code: l.code, market });
       } else skipped.push({ row: l.row, name: l.name, code: l.code, reason: kind });
     }
     if (convert.length === 0) throw new AssetSheetError('no-rows', '토스로 바꿀 줄이 없습니다(이미 토스 · 토스 가격 없음 · 칸 모양이 다름).');
@@ -165,8 +166,10 @@ export async function convertSheetPrices(): Promise<AssetPriceSheetStatus> {
       ]),
     ];
     await valuesWrite(config, writes.map((w) => ({ range: one(TICKER_TAB, w.cell), value: w.value })), 'USER_ENTERED');
-    for (const l of convert) rows.push({ row: l.row, code: l.code, market: marketOf(l.code) });
-    savePriceState({ source: 'toss', rows, skipped });
+    for (const l of convert) rows.push({ row: l.row, code: l.code, market: marketOf(l.code), name: l.name });
+    // 「줄이 옮겨짐」 목록은 이번에 다시 바꾼 줄을 뺀다(남은 줄은 백업과 함께 그대로)
+    const converted = new Set(convert.map((l) => l.row));
+    savePriceState({ source: 'toss', rows, skipped, moved: priceMoved().filter((m) => !converted.has(m.row)) });
     seedPriceWriter(new Map(writes.filter((w) => typeof w.value === 'number').map((w) => [w.cell, w.value as number])));
     resetSheetCache();
     syncPriceWriter();
@@ -183,27 +186,78 @@ export async function convertSheetPrices(): Promise<AssetPriceSheetStatus> {
   });
 }
 
-/** [되돌리기] — 저장해 둔 원래 GOOGLEFINANCE 수식을 다시 넣는다 */
+/** 백업 칸 주소 → 「티커」 줄 번호(가격 · 원화 표기 칸) — 환율 칸(C9)과 그 밖은 null */
+function backupRow(cell: string): number | null {
+  const m = cell.match(/^([A-Z]+)(\d+)$/);
+  if (!m || (m[1] !== P.priceColumn && m[1] !== P.wonColumn)) return null;
+  return Number(m[2]);
+}
+
+/**
+ * [되돌리기] 에서 쓸 칸 · 옮겨진 줄 나누기(v2.65.1) — 순수 함수(시험이 부른다).
+ * 백업 칸마다: 환율 칸(C9)은 줄과 상관없으니 늘 쓴다 · 가격 · 원화 칸은 **지금 그 줄 코드 = 바꿀 때 코드(`asset.priceRows`)** 일 때만 쓴다.
+ * 다른 줄(옮겨짐 · 지워짐 · 빈 줄 · 바꾼 줄 기록이 없음)은 쓰지 않고 `moved` 로.
+ */
+export function planRestore(
+  backup: { cell: string; formula: string }[],
+  stored: PriceRow[],
+  lines: TickerLine[],
+): { write: { cell: string; formula: string }[]; moved: AssetPriceMoved[]; movedRows: PriceRow[] } {
+  const was = new Map(stored.map((r) => [r.row, r]));
+  const now = new Map(lines.map((l) => [l.row, l]));
+  const write: { cell: string; formula: string }[] = [];
+  const moved = new Map<number, AssetPriceMoved>();
+  for (const b of backup) {
+    const row = backupRow(b.cell);
+    if (row == null) {
+      write.push(b); // C9
+      continue;
+    }
+    const w = was.get(row);
+    const n = now.get(row);
+    if (w && n && n.code === w.code) write.push(b);
+    else if (!moved.has(row)) moved.set(row, { row, wasName: w?.name ?? '', wasCode: w?.code ?? '', nowName: n?.name ?? null, nowCode: n?.code ?? null });
+  }
+  const movedRows = stored.filter((r) => moved.has(r.row));
+  return { write, moved: [...moved.values()].sort((a, b) => a.row - b.row), movedRows };
+}
+
+/**
+ * [되돌리기] — 저장해 둔 원래 GOOGLEFINANCE 수식을 다시 넣는다(v2.65.1 줄마다 코드 확인).
+ * ① 머리 글자 · 「티커」 종목 줄 B~F 를 수식 그대로 읽기 ② `planRestore` — 코드가 같은 줄 · C9 만 쓴다 · 옮겨진 줄은 쓰지 않고 백업을 남긴다
+ * ③ 쓴 뒤 출처 google(10초 쓰기 멈춤) — 바꾼 줄 기록은 옮겨진 줄만 남긴다(다시 누를 때 견줄 코드)
+ * ④ 다시 읽어 쓴 칸이 모두 같으면 그 칸 백업만 지운다(남은 백업이 없으면 모두 지움) · 다르면 백업을 모두 남기고 오류.
+ * ⚠️ 로그에는 줄 번호 · 개수만.
+ */
 export async function restoreSheetPrices(): Promise<AssetPriceSheetStatus> {
   const config = guard();
   return exclusive(async () => {
     const backup = sheetBackup();
     if (backup.length === 0) throw new AssetSheetError('no-backup', '되돌릴 원래 수식이 앱 DB 에 없습니다.');
     const heads = tickerHeaders();
-    checkHeaders(await batchGet(config, heads.map((h) => one(h.tab, h.cell)), 'FORMULA'));
-    await valuesWrite(config, backup.map((b) => ({ range: one(TICKER_TAB, b.cell), value: b.formula })), 'USER_ENTERED');
-    // 쓴 뒤에는 10초 쓰기를 멈춘다(되돌린 칸에 숫자를 다시 쓰지 않게) — 확인이 틀려도 백업은 남아 다시 [되돌리기] 할 수 있다
-    savePriceState({ source: 'google', rows: [], skipped: [] });
+    const got = await batchGet(config, [...heads.map((h) => one(h.tab, h.cell)), linesRange()], 'FORMULA');
+    checkHeaders(got);
+    const stored = priceRows();
+    const { write, moved, movedRows } = planRestore(backup, stored, tickerLines(got[heads.length] ?? []));
+    if (write.length > 0) await valuesWrite(config, write.map((b) => ({ range: one(TICKER_TAB, b.cell), value: b.formula })), 'USER_ENTERED');
+    // 쓴 뒤에는 10초 쓰기를 멈춘다(되돌린 칸에 숫자를 다시 쓰지 않게) — 확인이 틀려도 백업은 남아 다시 [되돌리기] 할 수 있다.
+    // 확인 전에는 쓴 줄의 기록도 남긴다(다시 누를 때 견줄 코드) — 확인이 끝나면 옮겨진 줄만
+    const writtenRows = new Set(write.map((b) => backupRow(b.cell)).filter((r): r is number => r != null));
+    savePriceState({ source: 'google', rows: stored.filter((r) => writtenRows.has(r.row) || movedRows.includes(r)), skipped: [], moved });
     syncPriceWriter();
     resetSheetCache();
-    const back = await batchGet(config, backup.map((b) => one(TICKER_TAB, b.cell)), 'FORMULA');
-    const same = backup.every((b, i) => {
+    if (moved.length > 0) console.warn(`[asset] 시트 가격 되돌리지 않음 · 줄이 옮겨짐 ${moved.length}줄(${moved.map((m) => `${m.row}행`).join(' · ')})`);
+    if (write.length === 0) return priceSheetStatus();
+    const back = await batchGet(config, write.map((b) => one(TICKER_TAB, b.cell)), 'FORMULA');
+    const same = write.every((b, i) => {
       const v = back[i]?.[0]?.[0];
       return v === b.formula || (isFormula(v) && norm(v) === norm(b.formula));
     });
     if (!same) throw new AssetSheetError('mismatch', '되돌린 수식이 다르게 읽혔습니다 — 원래 수식은 앱에 남겨 두었습니다(시트 「티커」 를 확인하고 [되돌리기] 를 다시 누르세요).');
-    clearSheetBackup();
-    console.log(`[asset] 시트 가격 되돌림 · ${backup.length}칸`);
+    if (moved.length === 0) clearSheetBackup();
+    else deleteSheetBackupCells(write.map((b) => b.cell));
+    savePriceState({ rows: movedRows });
+    console.log(`[asset] 시트 가격 되돌림 · ${write.length}칸${moved.length ? ` · 남은 백업 ${sheetBackup().length}칸` : ''}`);
     return priceSheetStatus();
   });
 }
@@ -216,16 +270,17 @@ export function priceSheetStatus(): AssetPriceSheetStatus {
   const rows = priceRows();
   const stored = priceSkipped();
   // 10초 쓰기가 찾은 「줄 코드가 바뀜」 — 저장된 목록에 없으면 더한다(이름은 모름 — 화면은 줄 번호 · 코드)
-  const changed = rows.filter((r) => w.codeChanged.includes(r.row) && !stored.some((s) => s.row === r.row && s.reason === 'code-changed'));
+  const changed = source !== 'toss' ? [] : rows.filter((r) => w.codeChanged.includes(r.row) && !stored.some((s) => s.row === r.row && s.reason === 'code-changed'));
   const skipped = [...stored, ...changed.map((r) => ({ row: r.row, name: '', code: r.code, reason: 'code-changed' as const }))].sort((a, b) => a.row - b.row);
   return {
     enabled,
     source,
     lastWrittenAt: w.lastWrittenAt,
     state: !enabled ? 'off' : source === 'google' ? 'idle' : w.open ? 'writing' : 'closed',
-    rows: rows.length,
+    rows: source === 'toss' ? rows.length : 0,
     remaining: source === 'toss' ? w.remaining : 0,
     hasBackup: sheetBackup().length > 0,
     skipped,
+    moved: priceMoved(),
   };
 }

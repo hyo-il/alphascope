@@ -170,3 +170,12 @@ export const sheetBackup = (): { cell: string; formula: string }[] =>
 export function clearSheetBackup(): void {
   backupDb().prepare(`DELETE FROM asset_sheet_backup`).run();
 }
+
+/** 되돌린 칸만 백업에서 지우기(v2.65.1 — 줄이 옮겨져 쓰지 않은 칸의 백업은 남긴다) */
+export function deleteSheetBackupCells(cells: string[]): void {
+  const database = backupDb();
+  const del = database.prepare(`DELETE FROM asset_sheet_backup WHERE cell = ?`);
+  database.transaction(() => {
+    for (const c of cells) del.run(c);
+  })();
+}

@@ -12,6 +12,7 @@ import { PRICE_SKIP_LABEL, type AssetPriceSheetStatus } from '../../types/asset'
  *   둘 다 확인 창(`modal.confirm` — 누르면 「처리 중」)을 거친다. 실패는 이유 한 줄.
  * - 스위치가 꺼진 서버(맥 기본)는 안내 한 줄 + 버튼 막음.
  * - 「토스 가격 없음 — 시트 값 그대로」 목록(종목 · 코드 · 이유) — 이름 · 코드는 화면에만.
+ * - 「줄이 옮겨짐 — 직접 확인」 목록(v2.65.1 — 줄 · 그때 종목 · 지금 종목) — [되돌리기] 가 코드가 달라 쓰지 않은 줄. 같은 표 모양.
  */
 export default function AssetPriceSheetSection({
   status,
@@ -89,6 +90,43 @@ export default function AssetPriceSheetSection({
         <p role="alert" className="text-xs text-danger keep-all">
           {error}
         </p>
+      )}
+      {status.moved.length > 0 && (
+        <div className="space-y-1" data-price-moved>
+          <p className="text-caption text-text-muted keep-all">줄이 옮겨짐 — 직접 확인(시트 줄을 원래대로 돌린 뒤 [되돌리기] 를 다시 누르면 그 줄만 되돌립니다)</p>
+          <div className="rounded-lg bg-bg-tertiary/40">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-bg-secondary text-caption text-text-muted">
+                <tr className="border-b border-border/50">
+                  <th className={`${TABLE_NUM_COL} py-2 pl-3 pr-4`}>줄</th>
+                  <th className={`${TABLE_NAME_COL} py-2 pr-4`}>그때 종목</th>
+                  <th className={`${TABLE_NAME_COL} py-2 pr-3`}>지금 종목</th>
+                </tr>
+              </thead>
+              <tbody>
+                {status.moved.map((m) => {
+                  const was = m.wasName || m.wasCode || '—';
+                  const now = m.nowCode == null ? '빈 줄' : m.nowName || m.nowCode;
+                  return (
+                    <tr key={m.row} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW}`}>
+                      <td className={`${TABLE_NUM_COL} py-1.5 pl-3 pr-4 tabular-nums text-text-secondary`}>티커 {m.row}행</td>
+                      <td className="max-w-0 py-1.5 pr-4">
+                        <span className="block truncate font-medium text-text-primary" title={m.wasCode ? `${was} (${m.wasCode})` : was}>
+                          {was}
+                        </span>
+                      </td>
+                      <td className="max-w-0 py-1.5 pr-3">
+                        <span className="block truncate text-text-secondary" title={m.nowCode ? `${now} (${m.nowCode})` : now}>
+                          {now}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
       {status.skipped.length > 0 && (
         <div className="space-y-1" data-price-skipped>

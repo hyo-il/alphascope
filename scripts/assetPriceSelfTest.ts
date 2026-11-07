@@ -2,6 +2,7 @@
  * 시트 가격 점검(v2.65.0 · 113차) — `npm run assetprice:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import).
  *
  * 113차 지시서 「꼭 지킬 동작」 1~10 을 줄마다 확인한다(시험 이름 앞의 [113-n] 이 그 줄 번호).
+ * 114차(v2.65.1) 「꼭 지킬 동작」 1 — [되돌리기] 줄마다 코드 확인([114-1]).
  * - 구글: 이 프로세스의 `fetch` 를 바꿔치기한 **가짜 시트**(만든 값 · 시험용 RSA 열쇠) — 실제 구글 호출 0.
  * - 토스: `setPriceToolsForTest` 로 **가짜 시세 · 환율** — 실제 토스 호출 0.
  * - 시계 · 장 달력: `priceTick(now)` 의 가짜 시각 · `setSessionHooksForTest` 의 **가짜 토스 달력**(서머타임 · 휴장일 모양).
@@ -25,7 +26,7 @@ import { assetRouter } from '../server/asset/routes';
 import { AssetSheetError, resetTokenCache } from '../server/asset/google';
 import { resetSheetCache } from '../server/asset/sheet';
 import { sheetBackup, clearSheetBackup } from '../server/asset/store';
-import { classifyLine, convertSheetPrices, priceSheetStatus, restoreSheetPrices } from '../server/asset/priceSheet';
+import { classifyLine, convertSheetPrices, planRestore, priceSheetStatus, restoreSheetPrices } from '../server/asset/priceSheet';
 import { clearPriceStateForTest, priceRows, priceSource, setPriceToolsForTest } from '../server/asset/priceState';
 import { priceTick, resetPriceWriterForTest, setPriceTimerForTest } from '../server/asset/priceWriter';
 import { setSessionHooksForTest, type TossCalendarResponse } from '../server/heatmapSession';
@@ -279,6 +280,51 @@ try {
   const st4 = priceSheetStatus();
   check('[113-3] 다시 읽은 값이 다르면 오류(mismatch) · 백업 남음(다시 되돌리기 가능)', mm === 'mismatch' && sheetBackup().length > 0 && st4.hasBackup);
   afterWrite = null;
+
+  // ═══ [114-1] 되돌리기 — 줄마다 코드 확인(v2.65.1) ═══
+  {
+    fresh();
+    useCalendar(WINTER_US, KR3);
+    await convertSheetPrices();
+    const swap = (a: number, b: number) => {
+      for (const c of ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']) {
+        const [x, y] = [sheet[`${K}!${c}${a}`], sheet[`${K}!${c}${b}`]];
+        if (y === undefined) delete sheet[`${K}!${c}${a}`];
+        else sheet[`${K}!${c}${a}`] = y;
+        if (x === undefined) delete sheet[`${K}!${c}${b}`];
+        else sheet[`${K}!${c}${b}`] = x;
+      }
+    };
+    // 사용자가 15 ↔ 21 줄을 바꾸고 16 줄을 비움(23 빈 줄과 바꿈)
+    swap(15, 21);
+    swap(16, 23);
+    const movedSheet = { ...sheet };
+    requests = [];
+    const r1 = await restoreSheetPrices();
+    const left = sheetBackup().map((b) => b.cell).sort();
+    check('[114-1] 되돌리기 — 코드가 같은 줄(18)과 C9 만 씀 · 옮겨진 줄(15 · 21) · 빈 줄(16)은 쓰지 않음(한 요청)',
+      requests.length === 1 && JSON.stringify(wroteCells(0)) === JSON.stringify(['C9', 'E18', 'F18']) && ['E15', 'F15', 'E16', 'F16', 'E21', 'F21', 'E23', 'F23'].every((c) => sheet[`${K}!${c}`] === movedSheet[`${K}!${c}`]),
+      wroteCells(0).join(','));
+    check('[114-1] 옮겨진 줄의 백업은 남음 · 쓴 칸(C9 · E18 · F18) 백업만 지움', JSON.stringify(left) === JSON.stringify(['E15', 'E16', 'E21', 'F15', 'F16', 'F21']), left.join(','));
+    check('[114-1] 「줄이 옮겨짐 — 직접 확인」 목록 = 15 · 16 · 21(그때 코드 · 지금 코드 · 빈 줄은 null)',
+      JSON.stringify(r1.moved.map((m) => [m.row, m.wasCode === ORIGINAL[`${K}!C${m.row}`], m.nowCode === (movedSheet[`${K}!C${m.row}`] ?? null)])) === JSON.stringify([[15, true, true], [16, true, true], [21, true, true]]) &&
+      r1.moved.find((m) => m.row === 16)?.nowCode === null && r1.moved.find((m) => m.row === 15)?.wasName === ORIGINAL[`${K}!B15`]);
+    check('[114-1] C9 은 줄과 상관없이 늘 되돌림(원래 GOOGLEFINANCE)', sheet[`${K}!C9`] === ORIGINAL[`${K}!C9`]);
+    const tk = await priceTick(at('2026-11-09', '12:00'));
+    check('[114-1] 남은 백업이 있어도 출처 google · [되돌리기] 보임(hasBackup) · 10초 쓰기 멈춤(쓰기 0)',
+      priceSource() === 'google' && r1.source === 'google' && r1.hasBackup && tk === 'off' && requests.length === 1 && priceSheetStatus().moved.length === 3, `${tk}`);
+    // 사용자가 줄을 원래대로 돌린 뒤 다시 누름 — 그 줄만 씀
+    swap(15, 21);
+    swap(16, 23);
+    requests = [];
+    const r2 = await restoreSheetPrices();
+    check('[114-1] 줄을 원래대로 돌린 뒤 다시 누르면 그 줄(15 · 16 · 21)만 씀 · C9 · 18 은 다시 쓰지 않음',
+      requests.length === 1 && JSON.stringify(wroteCells(0)) === JSON.stringify(['E15', 'E16', 'E21', 'F15', 'F16', 'F21']), wroteCells(0).join(','));
+    check('[114-1] 모두 되돌리면 백업 0 · 목록 비움 · 시트가 처음 모양', sheetBackup().length === 0 && r2.moved.length === 0 && !r2.hasBackup && Object.keys(ORIGINAL).every((c) => sheet[c] === ORIGINAL[c]));
+    // 바꾼 줄 기록이 없는 백업 줄(옛 상태)은 쓰지 않고 목록에
+    const plan = planRestore([{ cell: 'C9', formula: 'x' }, { cell: 'E30', formula: 'y' }], [], [{ row: 30, name: 'n', code: 'c', e: 1, f: '=E30' }]);
+    check('[114-1] 바꾼 줄 기록이 없는 백업 줄은 쓰지 않음(목록 · 그때 코드 빈 글자) · C9 은 씀', JSON.stringify(plan.write.map((w) => w.cell)) === JSON.stringify(['C9']) && plan.moved.length === 1 && plan.moved[0].wasCode === '');
+  }
 
   // ═══ [113-4] 10초 쓰기 ═══
   fresh();
