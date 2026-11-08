@@ -7,6 +7,8 @@
  * 109차(v2.63.0) 「꼭 지킬 동작」 1~10 은 [109-n] — 목표 비율 쓰기 · 비율 조정 계산 · 종목별 합치기 · 비율 조정 범위 설정(화면 7 은 Playwright).
  * 112차(v2.64.1) 「꼭 지킬 동작」 1~8 은 [112-n] — 시작 전 차례(묻지 않음 · 409) · 시작한 날 · 시트에 구매 차례의 달 · 확인 창 날짜 = 서버가 쓴 글자.
  * 115차(v2.65.2) 「꼭 지킬 동작」 은 [115-n] — 1 분류에서 현금 뺌 · 2 일괄 쓰기 · 3 한 칸 함수 지움 · 5 상세 보기 · 6 「비율 조정 범위」 · 7 설정 창 · 10 매매 코드 0(화면 4 · 5 · 7 은 Playwright 로도).
+ * 117차(v2.65.4) 「꼭 지킬 동작」 은 [117-n] — 1 분류 창 종목 코드로 묶기 · 2 미리 구매 완료(가짜 시계 · 달력 · 구글) · 5 로그인 바뀐 줄 0 · 7 매매 코드 0
+ *   (3 잠금 시간 서버 · 4 화면은 `assetlock:test` · 6 은 assetprice [113-7] 개수).
  * 116차(v2.65.3) 「꼭 지킬 동작」 은 [116-n] — 1 「미지정」 글자 · 2 계좌 카드(글자만 · 일괄 띠 지움 · 화살표 · 안내) · 3 · 4 「자산 분류 정하기」 창 목록 · 저장 묶음(가짜 구글 끝까지) · 5 닫기 확인 · 스위치 · 6 총 자산 링크 · 7 서버 쓰기 바뀐 줄 0 · 9 매매 코드 0(화면 동작은 Playwright 로도).
  * 111차(v2.64.0) 「꼭 지킬 동작」 1~10 은 [111-n] — 구매일 · 구매 차례 · 이번 달 구매 · 구매 완료(계좌 이름 날짜 쓰기 · 기록) · 요약 목표 비율 순서(화면 6 은 Playwright).
  * 107차(v2.62.1) 「꼭 지킬 동작」 1~11 은 [107-n] — 위성 종목 · 처음 값 · 옛 키 옮김 · 설정 검사 · 분류 색 · 하루 기록 미국 정규장 종가 · 계좌 카드 · 시트 쓰기 한 곳 · 매매 코드 0 · 출력에 금액 없음([106-11] · [13] 이 같은 검사).
@@ -1583,9 +1585,10 @@ check('[112-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력
   const nav = fs.readFileSync(path.join(root, 'src/components/ui/SideNavDialog.tsx'), 'utf8');
   const labels = [...sd.matchAll(/\{ id: '(\w+)', label: '([^']+)'/g)].map((m) => m[2]);
   const labelsMulti = [...sd.matchAll(/id: '(\w+)',\s*label: '([^']+)'/g)].map((m) => m[2]);
-  check('[115-7] 설정 창 = 공용 SideNavDialog · 제목 「자산 관리 설정」 · titleAside 없음 · 메뉴 순서 목표 비율 · 코어 · 위성 · 연금 · 자산 분류 색 · 시트 가격 · 기억 키 try/catch · [목표 비율 바꾸기] → target',
-    /<SideNavDialog\s+title="자산 관리 설정"/.test(sd) && !/titleAside/.test(sd) && JSON.stringify(labelsMulti) === JSON.stringify(['목표 비율', '코어 · 위성', '연금', '자산 분류 색', '시트 가격']) &&
-      /const MENUS = \['target', 'core', 'pension', 'colors', 'price'\] as const/.test(sd) && /focus === 'targetRatio' \? 'target' : readMenu\(\)/.test(sd) && /catch \{\s*return 'target';/.test(sd), labels.join('|') + ' / ' + labelsMulti.join('|'));
+  // v2.65.4 — 6번째 메뉴 「잠금」(맨 아래)을 더해 기대 목록을 고침
+  check('[115-7] [117-4] 설정 창 = 공용 SideNavDialog · 제목 「자산 관리 설정」 · titleAside 없음 · 메뉴 순서 목표 비율 · 코어 · 위성 · 연금 · 자산 분류 색 · 시트 가격 · 잠금(6개) · 기억 키 try/catch · [목표 비율 바꾸기] → target',
+    /<SideNavDialog\s+title="자산 관리 설정"/.test(sd) && !/titleAside/.test(sd) && JSON.stringify(labelsMulti) === JSON.stringify(['목표 비율', '코어 · 위성', '연금', '자산 분류 색', '시트 가격', '잠금']) &&
+      /const MENUS = \['target', 'core', 'pension', 'colors', 'price', 'lock'\] as const/.test(sd) && /focus === 'targetRatio' \? 'target' : readMenu\(\)/.test(sd) && /catch \{\s*return 'target';/.test(sd), labels.join('|') + ' / ' + labelsMulti.join('|'));
   check('[115-7] 새 부품 SideNavDialog — ui 에서 내보냄 · role tablist/tab/tabpanel · 위/아래 키 · 768px(md) 밑 가로 줄 · 고정 크기만(lg · xl · full) · 자산 글자 없음 · 색은 토큰 클래스만(# · rgb 0)',
     /export \{ default as SideNavDialog/.test(fs.readFileSync(path.join(root, 'src/components/ui/index.ts'), 'utf8')) && /role="tablist"/.test(nav) && /role="tab"/.test(nav) && /role="tabpanel"/.test(nav) &&
       /ArrowDown/.test(nav) && /ArrowUp/.test(nav) && /md:flex-row/.test(nav) && /Extract<DialogSize, 'lg' \| 'xl' \| 'full'>/.test(nav) && !/자산/.test(nav) && !/#[0-9a-fA-F]{3,6}\b|rgb\(/.test(nav));
@@ -1652,12 +1655,17 @@ const OPTIONS_HAS_MIXED = (src: string) => /value: MIXED|'mixed'/.test(src);
   const oldRoutes = spawnSync('git', ['show', '04a202d:server/asset/routes.ts'], { cwd: root, encoding: 'utf8' }).stdout;
   const classRoute = (src: string) => { const i = src.indexOf("assetRouter.put('/api/asset/class'"); return i < 0 ? '' : src.slice(i, src.indexOf('\n});\n', i)); };
   const nowRoutes = fs.readFileSync(path.join(root, 'server/asset/routes.ts'), 'utf8');
-  check('[116-7] [117-7] writeAssetClasses 본문 · /api/asset/class 라우트 글자 · google.ts 파일 바뀐 줄 0(04a202d 와 지금)',
+  check('[116-7] writeAssetClasses 본문 · /api/asset/class 라우트 글자 · google.ts 파일 바뀐 줄 0(04a202d 와 지금)',
     fnAt(oldSheet).length > 500 && fnAt(oldSheet) === fnBody('writeAssetClasses') && routesDiff.status === 0 && routesDiff.stdout.trim() === '' && classRoute(oldRoutes).length > 50 && classRoute(oldRoutes) === classRoute(nowRoutes), routesDiff.stdout.trim());
 }
 // [116-9] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(115차 끝 04a202d 와 지금 작업 트리)
 const changed116 = spawnSync('git', ['diff', '--name-only', '04a202d', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python'], { cwd: root, encoding: 'utf8' });
 check('[116-9] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(04a202d 와 지금 작업 트리)', changed116.status === 0 && changed116.stdout.trim() === '', changed116.stdout.trim() || changed116.stderr.trim());
+// [117-5] 로그인 코드 바뀐 줄 0 · [117-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 · 로그인 코드 바뀐 파일 0(116차 끝 4bbc1e5 와 지금 작업 트리)
+const changed117auth = spawnSync('git', ['diff', '4bbc1e5', '--', 'server/auth.ts', 'server/authGuard.ts'], { cwd: root, encoding: 'utf8' });
+check('[117-5] 로그인(server/auth.ts · server/authGuard.ts) 바뀐 줄 0(4bbc1e5 와 지금 작업 트리)', changed117auth.status === 0 && changed117auth.stdout.trim() === '', changed117auth.stdout.slice(0, 200) || changed117auth.stderr.trim());
+const changed117 = spawnSync('git', ['diff', '--name-only', '4bbc1e5', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'server/auth.ts', 'server/authGuard.ts', 'python'], { cwd: root, encoding: 'utf8' });
+check('[117-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 · 로그인 코드 바뀐 파일 0(4bbc1e5 와 지금 작업 트리)', changed117.status === 0 && changed117.stdout.trim() === '', changed117.stdout.trim() || changed117.stderr.trim());
 const leaked = (textAll: string) => SECRET_STRINGS.filter((x) => textAll.includes(x));
 check('[13] 서버 로그(시험 서버) · 안쪽 경고 출력에 가짜 금액 · 수량이 없다', leaked(serverLog + captured.join('\n')).length === 0 && captured.some((l) => l.includes('[asset] 시트 읽기 실패: shape')));
 check('[13] 이 시험의 출력에 가짜 금액 · 수량이 없다', leaked(printed.join('\n')).length === 0);

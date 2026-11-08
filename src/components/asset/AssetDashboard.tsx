@@ -4,6 +4,7 @@ import { Button, ICON_SM, PageHeader, Panel, Segmented, SectionTitle } from '../
 import { LIST_TABLE_ROW, PANEL_PAD, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { Skeleton, SkeletonTable } from '../common/SkeletonLoader';
 import { usePolling } from '../../hooks/usePolling';
+import { useAssetIdleLock } from '../../hooks/useAssetIdleLock';
 import { changeColor, formatNumber, formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
 import type { AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio, MonthlyBuy } from '../../types/asset';
@@ -33,6 +34,8 @@ import { MonthlyBuySection, PurchaseDayDialog, dayText, isEarlyDone, sheetDateTe
  *   구성 원형 차트 / 분류별 표(주식 아래 코어 · 위성 · 미지정은 흐리게) — 분류 색은 설정의 「자산 분류 색」
  * - 자산 현황: 요약 + 계좌 카드(자산 분류 고르기 — 시트에 바로 씀). 이 탭을 처음 열 때 시트를 읽는다.
  * 받기: 처음 = 스켈레톤 · 다시 읽기 · 연금 포함 바꾸기 = 내용을 두고 작은 스피너 · 10초 가격 갱신(`usePolling` — 숨은 탭에서 쉼)은 표시 없음.
+ * 잠금 시간(v2.65.4): 이 화면(창 포함)의 클릭 · 키 · 스크롤 · 터치를 `useAssetIdleLock` 에 알린다(touch 1분에 한 번 이하 · 화면 타이머 → `onIdle`).
+ *   시간은 설정(`summary.settings.lockMinutes` — 받기 전에는 잠금 상태가 준 값).
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 「연금 포함」 켬/끔만).
  */
 
@@ -109,7 +112,21 @@ export function ErrorLine({ message, onRetry, busy = false }: { message: string;
 
 const ratioText = (r: number | null | undefined, digits = 1) => (r == null ? '—' : formatNumber(r * 100, digits, '%'));
 
-export default function AssetDashboard({ onLock, onLocked }: { onLock: () => void; onLocked: () => void }) {
+export default function AssetDashboard({
+  onLock,
+  onLocked,
+  onIdle,
+  lockMinutes,
+  remainingMs,
+}: {
+  onLock: () => void;
+  onLocked: () => void;
+  /** 잠금 시간이 지남(화면 타이머 · 그 시간 분) — 서버 응답을 기다리지 않고 잠금 화면 */
+  onIdle: (minutes: number) => void;
+  /** 잠금 상태가 준 잠금 시간 · 남은 ms(서버 시각 기준) */
+  lockMinutes: number;
+  remainingMs: number | null;
+}) {
   const [pension, setPension] = useState(readPension);
   const url = `/api/asset/summary?pension=${pension ? 1 : 0}`;
   const polled = usePolling<SummaryResult>(url, toResult, POLL_MS);
@@ -275,11 +292,20 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
 
   const result = latest?.result ?? null;
   const summary = result?.ok ? result.summary : null;
+  const onInput = useAssetIdleLock({ lockMinutes: summary?.settings.lockMinutes ?? lockMinutes, remainingMs, onIdle, onLocked });
   /** 지금 고른 「연금 포함」 과 그린 값이 다르면(다시 받는 중) 작은 스피너 */
   const switching = latest != null && latest.pension !== pension;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div
+      className="flex h-full min-h-0 flex-col"
+      onPointerDownCapture={onInput}
+      onKeyDownCapture={onInput}
+      onWheelCapture={onInput}
+      onScrollCapture={onInput}
+      onTouchStartCapture={onInput}
+      data-asset-dashboard
+    >
       <PageHeader
         title="자산 관리"
         right={

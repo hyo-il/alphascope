@@ -381,6 +381,8 @@ function targets(): Target[] {
     ...(
       [
         ['잠김', false, 'ok', 0, {}, false, false, null],
+        // v2.65.4 — 쓰지 않아 저절로 잠김(잠금 화면 위 「30분 동안 쓰지 않아 잠갔어요」)
+        ['잠김-쓰지않음', false, 'ok', 0, {}, false, false, null],
         ['기록0', true, 'ok', 0, { vsLast: false }, false, false, null],
         // v2.65.1 — 시트를 바꾼 뒤 빈 차트(「원본 시트 연결 뒤 ○부터 쌓입니다」)
         ['기록0-시트바뀜', true, 'ok', 0, { vsLast: false }, false, false, null],
@@ -398,7 +400,9 @@ function targets(): Target[] {
       hash: '#/asset',
       before: async (page: Page) => {
         await page.evaluate((on) => localStorage.setItem('alphascope.asset.includePension', on ? '1' : '0'), 'pension' in sum && sum.pension === true);
-        await page.route('**/api/asset/status', (r) => r.fulfill({ json: assetStatusSample(unlocked) }).catch(() => {}));
+        await page.route('**/api/asset/status', (r) => r.fulfill({ json: assetStatusSample(unlocked, true, label === '잠김-쓰지않음') }).catch(() => {}));
+        // v2.65.4 — 화면을 누르면 touch(1분에 한 번) — 가짜로 답한다(시험 서버로 가면 잠김 응답에 화면이 다시 그려진다)
+        await page.route('**/api/asset/touch', (r) => r.fulfill({ json: { ok: true, lockMinutes: 30, remainingMs: 30 * 60_000 } }).catch(() => {}));
         await page.route('**/api/asset/sheet', (r) =>
           (sheet === 'fail' ? r.fulfill({ status: 502, json: assetSheetFailureSample }) : r.fulfill({ json: assetSheetSample() })).catch(() => {}),
         );
@@ -438,6 +442,8 @@ function targets(): Target[] {
           localStorage.removeItem('alphascope.asset.tab');
           localStorage.removeItem('alphascope.asset.settingsMenu');
         });
+        // touch 는 ESC(키 입력)까지 가짜로 받은 뒤 푼다
+        await page.unroute('**/api/asset/touch');
       },
     })),
     // 자산 관리 v2.63.0 · v2.64.0 — 「비율 조정」 탭(괜찮음 · 조정 필요 섞임 · 빠진 금액 줄 · 목표 합 ≠ 100 · 목표 빈칸) ·
@@ -525,8 +531,8 @@ function targets(): Target[] {
             await page.waitForTimeout(300);
           }
         }] as const),
-        // v2.65.2 — 설정 창 왼쪽 메뉴 다섯(목표 비율 · 코어 · 위성 · 연금 · 자산 분류 색 · 시트 가격)
-        ...(['목표 비율', '코어 · 위성', '연금', '자산 분류 색', '시트 가격'] as const).map((m) => [`설정창-메뉴-${m.replace(/ · /g, '').replace(/ /g, '')}`, { pension: true }, async (page: Page) => {
+        // v2.65.2 — 설정 창 왼쪽 메뉴(목표 비율 · 코어 · 위성 · 연금 · 자산 분류 색 · 시트 가격 · v2.65.4 잠금)
+        ...(['목표 비율', '코어 · 위성', '연금', '자산 분류 색', '시트 가격', '잠금'] as const).map((m) => [`설정창-메뉴-${m.replace(/ · /g, '').replace(/ /g, '')}`, { pension: true }, async (page: Page) => {
           await page.locator('[data-asset-settings]').click().catch(() => {});
           await page.waitForTimeout(400);
           await page.getByRole('dialog').getByRole('tab', { name: m, exact: true }).click().catch(() => {});
@@ -609,6 +615,7 @@ function targets(): Target[] {
           localStorage.setItem('alphascope.asset.tab', 'rebalance');
         }, 'pension' in sum && sum.pension === true);
         await page.route('**/api/asset/status', (r) => r.fulfill({ json: assetStatusSample(true) }).catch(() => {}));
+        await page.route('**/api/asset/touch', (r) => r.fulfill({ json: { ok: true, lockMinutes: 30, remainingMs: 30 * 60_000 } }).catch(() => {}));
         await page.route('**/api/asset/sheet', (r) => r.fulfill({ json: assetSheetSample() }).catch(() => {}));
         await page.route('**/api/asset/summary**', (r) => r.fulfill({ json: assetSummarySample(sum as Parameters<typeof assetSummarySample>[0]) }).catch(() => {}));
         await page.route('**/api/asset/history**', (r) => r.fulfill({ json: assetHistorySample(30) }).catch(() => {}));
@@ -641,6 +648,7 @@ function targets(): Target[] {
           localStorage.removeItem('alphascope.asset.closedAccounts');
           localStorage.removeItem('alphascope.asset.classOnlyUnassigned');
         });
+        await page.unroute('**/api/asset/touch');
       },
     })),
     // 오늘 시황 — 지난 날 브리핑(「오늘 예상 방향」 채점됨 · 맞음/틀림 · 실제 등락률, v2.60.0)

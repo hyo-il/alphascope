@@ -7,8 +7,9 @@
  *   옛 'asset.satelliteSections'(계좌 목록 — v2.62.0) 저장값이 있으면 그 계좌들로 같은 방식으로 한 번 옮기고 옛 키를 지운다.
  * - 'asset.classColors' — 「자산 분류 색」 `{ cash, bond, gold, stock, retirement }` → 팔레트 색 이름. 없거나 팔레트에 없는 이름이면 기본색.
  * - 'asset.rebalanceBand' — 「비율 조정 범위」 ±%p(v2.63.0 · 정수 1~20 · 처음 값 5). 없거나 틀린 값이면 5.
+ * - 'asset.lockMinutes' — 「잠금 시간」 분(v2.65.4 · 10 · 30 · 60 · 0 = 끄기 · 처음 값 30). 없거나 틀린 값이면 30. 잠금(`lock.ts`)이 요청마다 읽는다(`readLockMinutes`).
  * 저장 검사: 계좌는 시트 계좌 key 만 · 종목 코드는 지금 시트에 있는 코드(또는 이미 목록에 있는 코드) 만 · 색은 팔레트 이름만 ·
- *   비율 조정 범위는 정수 1~20 만 — 하나라도 틀리면 요청 전체를 거절.
+ *   비율 조정 범위는 정수 1~20 만 · 잠금 시간은 10 · 30 · 60 · 0(숫자)만 — 하나라도 틀리면 요청 전체를 거절.
  * ⚠️ 목표 비율은 여기(앱 DB)가 아니라 시트에 있다(`sheet.ts` `writeTargetRatio`).
  * ⚠️ 종목 코드 목록 · 개수를 로그에 찍지 않는다.
  */
@@ -16,8 +17,10 @@ import { getDb } from '../db';
 import {
   COLORED_GROUP_KEYS,
   DEFAULT_CLASS_COLORS,
+  DEFAULT_LOCK_MINUTES,
   DEFAULT_REBALANCE_BAND,
   isAssetColorId,
+  isLockMinutes,
   isRebalanceBand,
   type AssetClassColors,
   type AssetSettings,
@@ -26,7 +29,7 @@ import {
 } from '../../src/types/asset';
 import { SHEET_LAYOUT } from './sheetLayout';
 
-const KEYS = { pensionSections: 'asset.pensionSections', satelliteSymbols: 'asset.satelliteSymbols', classColors: 'asset.classColors', rebalanceBand: 'asset.rebalanceBand' } as const;
+const KEYS = { pensionSections: 'asset.pensionSections', satelliteSymbols: 'asset.satelliteSymbols', classColors: 'asset.classColors', rebalanceBand: 'asset.rebalanceBand', lockMinutes: 'asset.lockMinutes' } as const;
 /** v2.62.0 위성 계좌 목록 — 처음 한 번 `satelliteSymbols` 로 옮기고 지운다 */
 const LEGACY_SATELLITE_SECTIONS = 'asset.satelliteSections';
 const DEFAULT_PENSION = ['연금 저축 계좌'];
@@ -75,6 +78,12 @@ function readBand(): number {
   return isRebalanceBand(v) ? v : DEFAULT_REBALANCE_BAND;
 }
 
+/** 잠금 시간(분 · 0 = 끄기) — 시트 없이 읽는다(잠금이 자산 요청마다 부른다 · 설정 한 줄 읽기) */
+export function readLockMinutes(): number {
+  const v = readJson(KEYS.lockMinutes);
+  return isLockMinutes(v) ? v : DEFAULT_LOCK_MINUTES;
+}
+
 /** 시트의 계좌(합친 표 제외) 보유 — 위성 계산 · 고르기 목록 · 검사가 같이 쓴다 */
 const accountHoldings = (data: AssetSheetData) => data.sections.filter((s) => !s.combined && s.key).flatMap((s) => s.holdings.map((h) => ({ h, key: s.key as string })));
 
@@ -105,9 +114,9 @@ function readSatellite(data: AssetSheetData): string[] {
   return symbols;
 }
 
-/** 설정 네 가지 — 시트 값이 있어야 위성 처음 값을 정할 수 있다 */
+/** 설정 다섯 가지 — 시트 값이 있어야 위성 처음 값을 정할 수 있다 */
 export function readAssetSettings(data: AssetSheetData): AssetSettings {
-  return { pensionSections: readPension(), satelliteSymbols: readSatellite(data), classColors: readColors(), rebalanceBand: readBand() };
+  return { pensionSections: readPension(), satelliteSymbols: readSatellite(data), classColors: readColors(), rebalanceBand: readBand(), lockMinutes: readLockMinutes() };
 }
 
 /** 「위성으로 선택한 종목」 고르기 목록 — 분류 「주식」 종목 + 위성 목록에 남은 종목(분류가 바뀐 것) · 시트 순서 */
@@ -126,7 +135,7 @@ export function stockChoices(data: AssetSheetData, settings: AssetSettings): Ass
 }
 
 /**
- * 고칠 칸만 — `{ pensionSections?, satelliteSymbols?, classColors?, rebalanceBand? }`. 틀린 값이 하나라도 있으면 요청 전체를 거절(null).
+ * 고칠 칸만 — `{ pensionSections?, satelliteSymbols?, classColors?, rebalanceBand?, lockMinutes? }`. 틀린 값이 하나라도 있으면 요청 전체를 거절(null).
  * 종목 코드는 지금 시트 계좌에 있는 코드 · 이미 위성 목록에 있는 코드만(시트에서 빠진 종목을 체크 해제 없이 다시 저장할 수 있게).
  */
 export function writeAssetSettings(patch: unknown, data: AssetSheetData): AssetSettings | null {
@@ -158,6 +167,10 @@ export function writeAssetSettings(patch: unknown, data: AssetSheetData): AssetS
   if (p.rebalanceBand !== undefined) {
     if (!isRebalanceBand(p.rebalanceBand)) return null;
     next.rebalanceBand = p.rebalanceBand;
+  }
+  if (p.lockMinutes !== undefined) {
+    if (!isLockMinutes(p.lockMinutes)) return null;
+    next.lockMinutes = p.lockMinutes;
   }
 
   const db = getDb();

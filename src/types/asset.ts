@@ -3,7 +3,7 @@
  * ⚠️ 자산 값(금액 · 수량 · 종목)은 이 앱 밖으로 내보내지 않는다 — 로그 · 시험 출력에 찍지 않는다.
  */
 
-/** `GET /api/asset/status` — 값 없이 참/거짓만 */
+/** `GET /api/asset/status` — 값 없이 참/거짓 · 잠금 시간만 */
 export interface AssetStatus {
   /** 자산 비밀번호가 정해져 있는가(`npm run asset:set-password`) */
   passwordSet: boolean;
@@ -11,6 +11,19 @@ export interface AssetStatus {
   unlocked: boolean;
   /** `.env` 에 시트 연결 정보(`ASSET_SHEET_ID` · `GOOGLE_SA_KEY_FILE`)가 둘 다 있는가 */
   sheetConfigured: boolean;
+  /** 잠금 시간(분 — 10 · 30 · 60 · 0 = 끄기 · v2.65.4) */
+  lockMinutes: number;
+  /** 풀려 있고 잠금 시간이 켜져 있으면 저절로 잠길 때까지 남은 ms(서버 시각 기준) · 아니면 null */
+  remainingMs: number | null;
+  /** 이 세션이 「쓰지 않아」 저절로 잠겼고 아직 다시 풀지 않았다(잠금 화면 안내 한 줄) */
+  idleLocked: boolean;
+}
+
+/** `POST /api/asset/touch` — 화면을 쓴 것으로 셈(v2.65.4) */
+export interface AssetTouchResult {
+  ok: true;
+  lockMinutes: number;
+  remainingMs: number | null;
 }
 
 /** 시트 읽기 실패 이유 — 화면에는 서버가 준 쉬운 말 문구를 그대로 보인다 */
@@ -159,7 +172,12 @@ export const REBALANCE_BAND_MAX = 20;
 export const DEFAULT_REBALANCE_BAND = 5;
 export const isRebalanceBand = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= REBALANCE_BAND_MIN && v <= REBALANCE_BAND_MAX;
 
-/** 자산 관리 설정 — `app_settings` 'asset.pensionSections' · 'asset.satelliteSymbols' · 'asset.classColors' · 'asset.rebalanceBand' */
+/** 「잠금 시간」(v2.65.4 · 사용자 결정 2026-11-08) — 마지막으로 화면을 쓴 뒤 이 분 동안 아무것도 안 하면 저절로 잠김 · 0 = 끄기 · 처음 값 30 */
+export const LOCK_MINUTES_CHOICES = [10, 30, 60, 0] as const;
+export const DEFAULT_LOCK_MINUTES = 30;
+export const isLockMinutes = (v: unknown): v is number => typeof v === 'number' && (LOCK_MINUTES_CHOICES as readonly number[]).includes(v);
+
+/** 자산 관리 설정 — `app_settings` 'asset.pensionSections' · 'asset.satelliteSymbols' · 'asset.classColors' · 'asset.rebalanceBand' · 'asset.lockMinutes' */
 export interface AssetSettings {
   /** 연금으로 볼 계좌(구간 key — 기본 `['연금 저축 계좌']`) — 「연금 포함」 이 꺼지면 빠진다. 퇴직 연금(「현금」 C30)도 함께 빠진다 */
   pensionSections: string[];
@@ -169,6 +187,8 @@ export interface AssetSettings {
   classColors: AssetClassColors;
   /** 「비율 조정 범위」 ±%p(정수 1~20 · 처음 값 5) */
   rebalanceBand: number;
+  /** 「잠금 시간」 분(10 · 30 · 60 · 0 = 끄기 · 처음 값 30) */
+  lockMinutes: number;
 }
 
 /** 설정 창 「위성으로 선택한 종목」 의 한 줄 — 분류 「주식」 종목 + 위성 목록에 남아 있는 종목(합친 표 제외) */

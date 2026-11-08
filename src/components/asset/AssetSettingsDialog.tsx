@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
-import { ICON_SM, Select, SideNavDialog } from '../ui';
+import { ICON_SM, Segmented, Select, SideNavDialog } from '../ui';
 import {
   ASSET_COLOR_IDS,
   ASSET_COLOR_LABEL,
   COLORED_GROUP_KEYS,
+  LOCK_MINUTES_CHOICES,
   REBALANCE_BAND_MAX,
   REBALANCE_BAND_MIN,
   type AssetClassColors,
@@ -21,7 +22,7 @@ import AssetTargetRatioForm from './AssetTargetRatioForm';
 import AssetPriceSheetSection from './AssetPriceSheetSection';
 
 /**
- * 「자산 관리 설정」 창(v2.62.1 · v2.65.2 왼쪽 메뉴 — 공용 `SideNavDialog`) — 오른쪽 위 「설정」 버튼이 연다. 메뉴 다섯(이 순서):
+ * 「자산 관리 설정」 창(v2.62.1 · v2.65.2 왼쪽 메뉴 — 공용 `SideNavDialog`) — 오른쪽 위 「설정」 버튼이 연다. 메뉴 여섯(이 순서):
  * 1. 목표 비율 — 정수 % 여섯 칸 · 두 합이 100 일 때만 [저장] · **시트에 쓴다**(`AssetTargetRatioForm`) + 비율 조정 범위(±1~20 %p 고르기 · 바로 저장 — 앱 DB).
  *    「비율 조정」 [목표 비율 바꾸기] 는 이 메뉴로 연다.
  * 2. 코어 · 위성 — 위성으로 선택한 종목: 매매 설정 대상 종목과 같은 부품(`common/SymbolTable`): 표(종목 · 코드 · 있는 계좌) + [종목 추가] + 줄마다 삭제.
@@ -30,13 +31,14 @@ import AssetPriceSheetSection from './AssetPriceSheetSection';
  * 3. 연금 — 연금으로 볼 계좌: 표(계좌 이름 「( 날짜 )」 그대로) + [계좌 추가](창 = 시트 계좌 중 아직 없는 것) + 줄마다 삭제(`AssetAccountTable`)
  * 4. 자산 분류 색 — 분류마다 팔레트 색 동그라미(원형 · 분류별 표가 같은 색)
  * 5. 시트 가격(v2.65.0) — 「티커」 가격 · 환율을 토스로 바꾸기 · 되돌리기(확인 창 · **시트에 쓴다** — `AssetPriceSheetSection`)
+ * 6. 잠금(v2.65.4) — 「쓰지 않으면 잠그는 시간」 [10분 | 30분 | 60분 | 끄기](`Segmented` · 바로 저장 — 앱 DB `asset.lockMinutes`)
  * 처음 열면 「목표 비율」 · 마지막에 본 메뉴는 이 기기에 기억(`alphascope.asset.settingsMenu` · 읽기 실패면 목표 비율).
  * 추가 · 삭제 · 색 바꿈 · 고르기마다 바로 저장(그 칸만 로딩 + 메뉴 이름 옆 로딩 · 저장 중에는 그 칸을 다시 바꾸지 않음) — 실패하면 원래 값으로 되돌리고 그 칸에 이유 한 줄.
  * 저장 뒤 화면을 다시 받아 원형 · 표에 반영.
  */
 
 /** 메뉴 — 순서가 곧 화면 순서 */
-const MENUS = ['target', 'core', 'pension', 'colors', 'price'] as const;
+const MENUS = ['target', 'core', 'pension', 'colors', 'price', 'lock'] as const;
 type Menu = (typeof MENUS)[number];
 const MENU_KEY = 'alphascope.asset.settingsMenu';
 function readMenu(): Menu {
@@ -58,6 +60,10 @@ function saveMenu(m: Menu) {
 type Field = keyof AssetSettings;
 
 const GROUP_LABEL: Record<ColoredGroupKey, string> = { cash: '현금', bond: '채권', gold: '금', stock: '주식', retirement: '퇴직 연금' };
+
+/** 잠금 시간 고르기 — 10분 | 30분 | 60분 | 끄기(0) */
+const LOCK_OPTIONS = LOCK_MINUTES_CHOICES.map((m) => ({ value: m as number, label: m === 0 ? '끄기' : `${m}분` }));
+const LOCK_OPTIONS_BUSY = LOCK_OPTIONS.map((o) => ({ ...o, disabled: true }));
 
 /** 메뉴 안 구역 하나 — 제목이 메뉴 이름과 같으면 제목 · 설명은 메뉴 머리(오른쪽 위)가 보이고 여기서는 뺀다 */
 function Block({ title, desc, busy, error, children }: { title?: string; desc?: string; busy: boolean; error: string | null; children: React.ReactNode }) {
@@ -208,6 +214,20 @@ export default function AssetSettingsDialog({
     </div>
   );
 
+  const lock = (
+    <Block title="쓰지 않으면 잠그는 시간" busy={!!busy.lockMinutes} error={errors.lockMinutes ?? null}>
+      <div data-setting="lock">
+        <Segmented<number>
+          size="sm"
+          label="쓰지 않으면 잠그는 시간"
+          options={busy.lockMinutes ? LOCK_OPTIONS_BUSY : LOCK_OPTIONS}
+          value={shown.lockMinutes}
+          onChange={(m) => void save('lockMinutes', m)}
+        />
+      </div>
+    </Block>
+  );
+
   const price = (
     <Block busy={priceBusy} error={null}>
       <AssetPriceSheetSection status={summary.priceSheet} onAction={onPriceSheet} onBusy={setPriceBusy} />
@@ -232,6 +252,13 @@ export default function AssetSettingsDialog({
           desc: '시트 「티커」 의 가격 · 환율을 어디서 받는지입니다. 토스로 바꾸면 장이 열린 동안 10초마다 바뀐 값만 시트에 씁니다.',
           busy: priceBusy,
           content: price,
+        },
+        {
+          id: 'lock',
+          label: '잠금',
+          desc: '마지막으로 자산 화면을 쓴 뒤 이 시간 동안 아무것도 하지 않으면 저절로 잠급니다. 가격이 저절로 바뀌는 것은 쓴 것으로 세지 않습니다.',
+          busy: !!busy.lockMinutes,
+          content: lock,
         },
       ]}
     />

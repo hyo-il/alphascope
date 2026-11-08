@@ -8,7 +8,15 @@ import type { AssetClass, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHol
 import { computeRebalance } from '../../../server/asset/rebalance';
 import { computeMonthlyBuy } from '../../../server/asset/purchase';
 
-export const assetStatusSample = (unlocked: boolean, sheetConfigured = true): AssetStatus => ({ passwordSet: true, unlocked, sheetConfigured });
+/** `idleLocked`(v2.65.4) — 쓰지 않아 저절로 잠긴 잠금 화면(「○분 동안 쓰지 않아 잠갔어요」) · `lockMinutes` 처음 값 30 */
+export const assetStatusSample = (unlocked: boolean, sheetConfigured = true, idleLocked = false, lockMinutes = 30): AssetStatus => ({
+  passwordSet: true,
+  unlocked,
+  sheetConfigured,
+  lockMinutes,
+  remainingMs: unlocked && lockMinutes > 0 ? lockMinutes * 60_000 : null,
+  idleLocked: !unlocked && idleLocked,
+});
 
 function holding(row: number, name: string, code: string | null, quantity: number, avgPrice: number, currency: 'USD' | 'KRW', tickerRow: number | null = null, assetClass: AssetClass | null = null, classFormula = false): AssetHolding {
   const us = code?.includes(':') ?? false;
@@ -69,7 +77,7 @@ export const assetSheetFailureSample: AssetSheetFailure = {
  * 총 자산 요약(v2.62.0) 가짜 응답 — 만든 값. `none` = 미지정 금액 · 가격 못 받은 줄을 넣는다(긴 금액 · 경고 줄 넘침을 잰다).
  */
 export function assetSummarySample(
-  opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number; writeEnabled?: boolean; purchaseDone?: boolean; calendarUnchecked?: boolean; skipped?: boolean; early?: 'can' | 'done'; salary?: number | null; price?: Parameters<typeof priceSheetSample>[0] } = {},
+  opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number; writeEnabled?: boolean; purchaseDone?: boolean; calendarUnchecked?: boolean; skipped?: boolean; early?: 'can' | 'done'; lockMinutes?: number; salary?: number | null; price?: Parameters<typeof priceSheetSample>[0] } = {},
 ): AssetSummary {
   const pension = opts.pension ?? false;
   const amounts: [AssetGroupKey, string, number][] = [
@@ -94,7 +102,7 @@ export function assetSummarySample(
     profit: { amount: -12345678, ratio: -0.0234 },
     vsLast: opts.vsLast === false ? null : { day: '2026-11-05', amount: 23456789, ratio: 0.0043 },
     missingNames: opts.none ? ['이을 수식 없는 줄', '예시 미국 ETF 이름이 아주 긴 종목'] : [],
-    settings: { pensionSections: ['연금 저축 계좌'], satelliteSymbols: ['AAAA', '000001', '000003'], classColors: { ...DEFAULT_CLASS_COLORS, ...opts.colors }, rebalanceBand: band },
+    settings: { pensionSections: ['연금 저축 계좌'], satelliteSymbols: ['AAAA', '000001', '000003'], classColors: { ...DEFAULT_CLASS_COLORS, ...opts.colors }, rebalanceBand: band, lockMinutes: opts.lockMinutes ?? 30 },
     accounts: [
       { key: '개별 투자', name: '개별 투자 ( 2026.07 )', holdings: 4, value: 1876543210, missing: 0 },
       { key: '적립식 계좌', name: '적립식 계좌 ( 2026.07 )', holdings: 2, value: 18000000, missing: 1 },

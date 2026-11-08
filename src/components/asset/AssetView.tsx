@@ -12,6 +12,8 @@ import AssetDashboard, { ErrorLine } from './AssetDashboard';
  * - 잠김: 비밀번호 칸 + 「잠금 풀기」. 틀림 · 막힘(남은 N분) 문구. 비밀번호가 없으면 서버 명령 안내(화면에서 정하는 길은 없다).
  * - 풀림: `AssetDashboard`(탭 「총 자산」 = 카드 · 선 차트 · 원형 차트 · 분류별 표 / 「자산 현황」 = 요약 · 계좌 카드 · 「설정」 창).
  * - 풀린 상태는 서버가 로그인 세션마다 메모리에 둔다(`server/asset/lock.ts`) — 화면은 상태를 묻기만 한다.
+ * - 잠금 시간(v2.65.4): 대시보드의 화면 타이머가 지나면(`onIdle`) 서버를 기다리지 않고 잠금 화면 · 서버가 쓰지 않아 잠갔으면(`idleLocked`) 같은 잠금 화면.
+ *   잠금 화면 위에 한 줄 「○분 동안 쓰지 않아 잠갔어요」(시간은 설정 값). 다른 메뉴에 갔다가 와도 서버 시각 기준(`status.remainingMs`).
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다.
  */
 
@@ -46,8 +48,16 @@ export default function AssetView() {
     void loadStatus();
   };
 
+  /** 화면 타이머가 지남 — 서버 응답을 기다리지 않고 잠금 화면(안내 한 줄) */
+  const idle = useCallback((minutes: number) => {
+    setState((s) => (s.kind === 'ok' && s.status.unlocked ? { kind: 'ok', status: { ...s.status, unlocked: false, lockMinutes: minutes, remainingMs: null, idleLocked: true } } : s));
+  }, []);
+  const locked = useCallback(() => void loadStatus(), [loadStatus]);
+
   // 풀림 — 머리 줄(연금 포함 · 읽은 시각 · 다시 읽기 · 잠그기)까지 대시보드가 그린다
-  if (state.kind === 'ok' && state.status.unlocked) return <AssetDashboard onLock={() => void lock()} onLocked={() => void loadStatus()} />;
+  if (state.kind === 'ok' && state.status.unlocked) {
+    return <AssetDashboard onLock={() => void lock()} onLocked={locked} onIdle={idle} lockMinutes={state.status.lockMinutes} remainingMs={state.status.remainingMs} />;
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -57,7 +67,11 @@ export default function AssetView() {
         {state.kind === 'error' && <ErrorLine message={state.message} onRetry={() => void loadStatus()} />}
         {state.kind === 'ok' && !state.status.passwordSet && <NoPassword />}
         {state.kind === 'ok' && state.status.passwordSet && !state.status.unlocked && (
-          <UnlockForm sheetConfigured={state.status.sheetConfigured} onUnlocked={() => void loadStatus()} />
+          <UnlockForm
+            sheetConfigured={state.status.sheetConfigured}
+            idleNote={state.status.idleLocked && state.status.lockMinutes > 0 ? `${state.status.lockMinutes}분 동안 쓰지 않아 잠갔어요` : null}
+            onUnlocked={() => void loadStatus()}
+          />
         )}
       </div>
     </div>
@@ -74,7 +88,7 @@ function NoPassword() {
   );
 }
 
-function UnlockForm({ sheetConfigured, onUnlocked }: { sheetConfigured: boolean; onUnlocked: () => void }) {
+function UnlockForm({ sheetConfigured, idleNote, onUnlocked }: { sheetConfigured: boolean; idleNote: string | null; onUnlocked: () => void }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +123,11 @@ function UnlockForm({ sheetConfigured, onUnlocked }: { sheetConfigured: boolean;
 
   return (
     <form onSubmit={submit} className="max-w-sm">
+      {idleNote && (
+        <p role="status" className="mb-2 text-xs text-text-secondary keep-all" data-asset-idle-note>
+          {idleNote}
+        </p>
+      )}
       <Panel>
         <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-primary">
           <Lock {...ICON} className="text-text-muted" />

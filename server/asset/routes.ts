@@ -2,11 +2,13 @@
   자산 관리(v2.61.0 · v2.62.0 · v2.64.0 구매 완료 · v2.65.0 시트 가격) 주소 — 모두 로그인 문지기(`authGuard`) 뒤다. `server/index.ts` 가 `app.use(assetRouter)` 로 붙인다(주소는 전체 경로 그대로).
   - 자산 문지기(`assetGuard`)는 이 라우터 맨 앞 **한 곳**에서 모든 `/api/asset/*` 를 막는다 — 잠겨 있으면 403 `asset-locked`.
     빠지는 것은 `status` · `unlock` · `lock` 셋뿐이다(라우트마다 따로 검사하지 않는다).
+  - 잠금 시간(v2.65.4): 잠겼는지 볼 때 잠금 시간이 지났으면 그 세션을 잠근다(`lock.ts` `lockStateOf`). 통과한 요청 중 `ACTIVE`(touch · 쓰기)만
+    「화면을 쓴 것」 으로 `lastActiveAt` 을 늘린다 — 10초 폴링(summary) · 읽기는 늘리지 않는다.
   - ⚠️ 응답 · 로그에 자산 값(금액 · 수량 · 종목)을 찍지 않는다. 실패 로그는 이유 종류만.
 */
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { readSessionCookie } from '../auth';
-import { assetLimiter, isAssetPasswordSet, isUnlocked, lockSession, unlockSession, verifyAssetPassword } from './lock';
+import { assetLimiter, isAssetPasswordSet, isUnlocked, lockSession, lockStateOf, touchSession, unlockSession, verifyAssetPassword } from './lock';
 import { isAssetSyncEnabled, isSheetConfigured } from './config';
 import { AssetSheetError } from './google';
 import { readAssetSheet, writeAccountDates, writeAssetClasses, writeTargetRatio } from './sheet';
@@ -16,20 +18,33 @@ import { checkSheetSwitchSafe, sheetSwitchedAt } from './sheetSwitch';
 import { convertSheetPrices, restoreSheetPrices } from './priceSheet';
 import { historyPoints, isHistoryRange, recordPurchase } from './store';
 import { writeAssetSettings } from './settings';
-import type { AssetSheetErrorKind, AssetSheetFailure, AssetStatus, PurchaseDoneResult } from '../../src/types/asset';
+import type { AssetSheetErrorKind, AssetSheetFailure, AssetStatus, AssetTouchResult, PurchaseDoneResult } from '../../src/types/asset';
 
 export const assetRouter = Router();
 
 const OPEN = new Set(['GET /api/asset/status', 'POST /api/asset/unlock', 'POST /api/asset/lock']);
+/** 「화면을 쓴 것」 — `lastActiveAt` 을 늘리는 요청(풀기는 `unlockSession`). ⚠️ summary 폴링 · 읽기는 넣지 않는다 */
+export const ACTIVE = new Set([
+  'POST /api/asset/touch',
+  'PUT /api/asset/class',
+  'PUT /api/asset/settings',
+  'PUT /api/asset/target-ratio',
+  'POST /api/asset/purchase-done',
+  'POST /api/asset/price-source/convert',
+  'POST /api/asset/price-source/restore',
+]);
 const isAssetPath = (p: string) => p === '/api/asset' || p.startsWith('/api/asset/');
 
-/** 자산 문지기 — 자산 비밀번호가 없거나 이 로그인 세션이 풀지 않았으면 403 `asset-locked` */
+/** 자산 문지기 — 자산 비밀번호가 없거나 이 로그인 세션이 풀지 않았거나 잠금 시간이 지났으면 403 `asset-locked` · 통과한 `ACTIVE` 요청은 시간을 늘린다 */
 export function assetGuard(req: Request, res: Response, next: NextFunction) {
   if (!isAssetPath(req.path)) return next();
-  if (OPEN.has(`${req.method} ${req.path}`)) return next();
-  if (!isUnlocked(readSessionCookie(req))) {
+  const route = `${req.method} ${req.path}`;
+  if (OPEN.has(route)) return next();
+  const token = readSessionCookie(req);
+  if (!isUnlocked(token)) {
     return res.status(403).json({ error: '자산 관리가 잠겨 있습니다.', code: 'asset-locked' });
   }
+  if (ACTIVE.has(route)) touchSession(token);
   return next();
 }
 
@@ -42,11 +57,23 @@ assetRouter.use((req, _res, next) => {
 assetRouter.use(assetGuard);
 
 assetRouter.get('/api/asset/status', (req, res) => {
+  // 묻기만 — 시간을 늘리지 않는다(잠금 시간이 지났으면 여기서 잠긴다)
+  const lock = lockStateOf(readSessionCookie(req));
   const body: AssetStatus = {
     passwordSet: isAssetPasswordSet(),
-    unlocked: isUnlocked(readSessionCookie(req)),
+    unlocked: lock.unlocked,
     sheetConfigured: isSheetConfigured(),
+    lockMinutes: lock.lockMinutes,
+    remainingMs: lock.remainingMs,
+    idleLocked: lock.idleLocked,
   };
+  res.json(body);
+});
+
+/** 화면을 쓴 것으로 셈(v2.65.4) — 화면이 사용자 입력이 있을 때 1분에 한 번 이하로 보낸다. 시간은 문지기가 늘린다(`ACTIVE`) */
+assetRouter.post('/api/asset/touch', (req, res) => {
+  const lock = lockStateOf(readSessionCookie(req));
+  const body: AssetTouchResult = { ok: true, lockMinutes: lock.lockMinutes, remainingMs: lock.remainingMs };
   res.json(body);
 });
 
@@ -180,13 +207,13 @@ assetRouter.get('/api/asset/history', (req, res) => {
 });
 
 /**
- * 설정 창 — `{ pensionSections?, satelliteSymbols?, classColors?, rebalanceBand? }`(연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색 · 비율 조정 범위).
+ * 설정 창 — `{ pensionSections?, satelliteSymbols?, classColors?, rebalanceBand?, lockMinutes? }`(연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색 · 비율 조정 범위 · 잠금 시간).
  * 계좌 · 종목 코드는 지금 시트에 있는 것만이라 시트를 먼저 읽는다(30초 캐시). 검사는 `writeAssetSettings` 한 곳.
  */
 assetRouter.put('/api/asset/settings', async (req, res) => {
   try {
     const saved = writeAssetSettings(req.body, await readAssetSheet());
-    if (!saved) return res.status(400).json({ error: '설정 값이 올바르지 않습니다 — 시트에 없는 계좌 · 종목이거나 고를 수 없는 색 · 범위(1~20 정수 밖)입니다.' });
+    if (!saved) return res.status(400).json({ error: '설정 값이 올바르지 않습니다 — 시트에 없는 계좌 · 종목이거나 고를 수 없는 색 · 범위(1~20 정수 밖) · 잠금 시간(10 · 30 · 60분 · 끄기 밖)입니다.' });
     res.json(saved);
   } catch (e) {
     sendSheetError(res, e, '읽기');
