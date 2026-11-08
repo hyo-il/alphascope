@@ -15,7 +15,7 @@
 import { fetchQuotes } from '../quoteService';
 import { isMockMode } from '../mockData';
 import { fetchExchangeRate } from '../../src/services/toss/account';
-import { ASSET_GROUP_LABEL, type AssetClass, type AssetSymbolRow, type AssetAccount, type AssetGroup, type AssetGroupKey, type AssetHolding, type AssetSettings, type AssetSheetData, type AssetSummary, type AssetTotals } from '../../src/types/asset';
+import { ASSET_GROUP_LABEL, holdingGroupKey, type AssetClass, type AssetSymbolRow, type AssetAccount, type AssetGroup, type AssetGroupKey, type AssetHolding, type AssetSettings, type AssetSheetData, type AssetSummary, type AssetTotals } from '../../src/types/asset';
 import { accountDateTexts, readAssetSheet } from './sheet';
 import { readAssetSettings, stockChoices } from './settings';
 import { latestRecord } from './store';
@@ -129,7 +129,7 @@ export function holdingsBySymbol(data: AssetSheetData, book: PriceBook, settings
     if (section.combined || !section.key) continue; // ⚠️ 합친 표 — 더하지 않는다
     if (settings.pensionSections.includes(section.key) && !includePension) continue;
     for (const h of section.holdings) {
-      const id = h.symbol ?? `name:${h.name}`;
+      const id = holdingGroupKey(h, `name:${h.name}`);
       const row = map.get(id) ?? {
         id,
         name: h.name,

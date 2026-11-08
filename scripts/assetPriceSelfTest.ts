@@ -502,7 +502,7 @@ check('[113-7] 옛 세 곳(sheet.ts 자산 분류 · 목표 비율 · 계좌 이
 check('[113-7] USER_ENTERED 는 priceSheet.ts 바꾸기 · 되돌리기 두 곳뿐 · 10초 쓰기(priceWriter.ts)는 RAW', JSON.stringify(calls.filter((c) => /USER_ENTERED/.test(c.args)).map((c) => c.f)) === JSON.stringify(['server/asset/priceSheet.ts', 'server/asset/priceSheet.ts']) && calls.filter((c) => c.f === 'server/asset/priceWriter.ts').length === 1);
 const assetTest = spawnSync(path.join(root, 'node_modules/.bin/tsx'), [path.join(root, 'scripts/assetSelfTest.ts')], { cwd: root, encoding: 'utf8', env: process.env, timeout: 300_000 });
 const res = assetTest.stdout.match(/결과: (\d+)개 통과 \/ (\d+)개 실패/);
-check('[113-7] [115-9] [116-8] asset:test 280개 그대로 통과(115차에 20개 · 116차에 20개 더함)', assetTest.status === 0 && res?.[1] === '280' && res?.[2] === '0', res?.[0] ?? assetTest.stderr.slice(-300));
+check('[113-7] [115-9] [116-8] [117-6] asset:test 288개 그대로 통과(115차에 20개 · 116차에 20개 · 117차 A 에 8개 더함)', assetTest.status === 0 && res?.[1] === '288' && res?.[2] === '0', res?.[0] ?? assetTest.stderr.slice(-300));
 
 // ═══ [113-9] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0 ═══
 const diff = spawnSync('git', ['diff', '--name-only', '9597bae', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python'], { cwd: root, encoding: 'utf8' });

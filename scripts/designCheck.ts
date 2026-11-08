@@ -548,7 +548,13 @@ function targets(): Target[] {
           ['일부실패', {}, 'partial'],
           ['닫기확인', {}, 'close'],
           ['쓰기꺼짐', { writeEnabled: false }, 'pick'],
+          // v2.65.4 — 같은 코드가 「티커」 2줄 · 줄마다 값이 다름(「「티커」 2줄」 · 「줄마다 다름」)
+          ['티커2줄', {}, 'dup'],
         ] as const).map(([label, sum, step]) => [`분류창-${label}`, sum, async (page: Page) => {
+          if (step === 'dup') {
+            await page.unroute('**/api/asset/sheet');
+            await page.route('**/api/asset/sheet', (r) => r.fulfill({ json: assetSheetSample({ dupCode: true }) }).catch(() => {}));
+          }
           await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
           await page.waitForTimeout(500);
           await page.locator('[data-open-class-dialog]').first().click().catch(() => {});

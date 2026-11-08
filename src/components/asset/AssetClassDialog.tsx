@@ -3,13 +3,14 @@ import { Button, Dialog, Segmented } from '../ui';
 import { Skeleton } from '../common/SkeletonLoader';
 import { modal } from '../../store/uiStore';
 import { UNASSIGNED_LABEL, type AssetSheetData } from '../../types/asset';
-import { CLASS_VALUES, changedRows, classRowsOf, planClassSave, runClassSave, type ClassSendResult, type ClassValue } from '../../utils/assetClassPlan';
+import { CLASS_VALUES, MIXED, changedKeys, classRowsOf, planClassSave, runClassSave, type ClassSendResult, type ClassValue, type GroupValue } from '../../utils/assetClassPlan';
 
 /**
- * 「자산 분류 정하기」 창(v2.65.3) — 여러 종목의 자산 분류를 한 곳에서 고르고 [저장] 으로 한 번에 시트 「티커」 D열에 쓴다.
+ * 「자산 분류 정하기」 창(v2.65.3 · v2.65.4 종목 코드로 묶기) — 여러 종목의 자산 분류를 한 곳에서 고르고 [저장] 으로 한 번에 시트 「티커」 D열에 쓴다.
  * - 열기: 「자산 현황」 탭 [자산 분류 정하기] · 총 자산 탭 분류별 표 「미지정」 줄의 링크.
- * - 목록: 「티커」 줄 하나 = 한 줄(같은 종목이 여러 계좌에 있어도 한 줄 — `classRowsOf`) · 이름 · 코드 · 있는 계좌 · [미지정 | 채권 | 금 | 주식].
- *   「티커」 D칸이 수식인 줄은 버튼 대신 「시트에 수식이 있어 여기서 바꿀 수 없음」.
+ * - 목록: 종목 코드 하나 = 한 줄(같은 코드가 여러 계좌 · 「티커」 여러 줄에 있어도 한 줄 — `classRowsOf`) · 이름 · 「「티커」 n줄」(2줄 이상) · 코드 · 있는 계좌 · [미지정 | 채권 | 금 | 주식].
+ *   줄마다 값이 다르면 「줄마다 다름」 + 아무 버튼도 눌리지 않음 · 하나를 누르면 그 코드의 줄 전부 그 값.
+ *   「티커」 D칸이 한 줄이라도 수식이면 버튼 대신 「시트에 수식이 있어 여기서 바꿀 수 없음」.
  * - 위: 「미지정만 보기」(이 기기에 기억 · 창을 연 때 미지정이던 줄 — 고르는 중에 줄이 사라지지 않게) · 「미지정 n개 · 바꾼 것 n개」.
  * - [저장]: 바꾼 줄만 값마다 한 요청(`planClassSave` · `runClassSave` — 많아야 4번). 저장 전에는 시트에 쓰지 않는다. 추천(이름으로 짐작)은 없다.
  *   모두 성공 → 창 닫힘 + 다시 읽기 · 일부 실패 → 창 그대로 · 성공한 줄 「저장됨」 · 실패한 줄은 바꾼 상태 그대로 + 이유 한 줄 · 다시 [저장] = 남은 것만.
@@ -34,7 +35,7 @@ function saveOnly(on: boolean) {
   }
 }
 
-const OPTIONS = CLASS_VALUES.map((v) => ({ value: v, label: v || UNASSIGNED_LABEL }));
+const OPTIONS = CLASS_VALUES.map((v) => ({ value: v as GroupValue, label: v || UNASSIGNED_LABEL }));
 /** 저장 중에는 고르지 못하게 */
 const OPTIONS_BUSY = OPTIONS.map((o) => ({ ...o, disabled: true }));
 
@@ -65,33 +66,32 @@ export default function AssetClassDialog({
 }) {
   const rows = useMemo(() => (data ? classRowsOf(data) : []), [data]);
   /** 창을 연 뒤 처음 받은 값 — 「미지정만 보기」 기준 · 저장 기준(성공한 줄은 바꾼 값으로 옮긴다) */
-  const [base, setBase] = useState<Record<number, ClassValue> | null>(null);
-  const [initialUnassigned, setInitialUnassigned] = useState<Set<number> | null>(null);
+  const [base, setBase] = useState<Record<string, GroupValue> | null>(null);
+  const [initialUnassigned, setInitialUnassigned] = useState<Set<string> | null>(null);
   if (data && base == null) {
-    setBase(Object.fromEntries(rows.map((r) => [r.row, r.value])));
-    setInitialUnassigned(new Set(rows.filter((r) => r.value === '').map((r) => r.row)));
+    setBase(Object.fromEntries(rows.map((r) => [r.key, r.value])));
+    setInitialUnassigned(new Set(rows.filter((r) => r.value === '').map((r) => r.key)));
   }
-  const [draft, setDraft] = useState<Record<number, ClassValue>>({});
+  const [draft, setDraft] = useState<Record<string, ClassValue>>({});
   const [only, setOnly] = useState(readOnly);
   const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState<Set<number>>(new Set());
-  const [failedRows, setFailedRows] = useState<Set<number>>(new Set());
+  const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [failedKeys, setFailedKeys] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   const b = base ?? {};
-  const locked = useMemo(() => new Set(rows.filter((r) => r.locked).map((r) => r.row)), [rows]);
-  const valueOf = (row: number): ClassValue => draft[row] ?? b[row] ?? '';
-  const changed = changedRows(b, draft, locked);
-  const unassigned = rows.filter((r) => valueOf(r.row) === '').length;
-  const shown = only ? rows.filter((r) => initialUnassigned?.has(r.row)) : rows;
+  const valueOf = (key: string): GroupValue => draft[key] ?? b[key] ?? '';
+  const changed = changedKeys(rows, b, draft);
+  const unassigned = rows.filter((r) => valueOf(r.key) === '').length;
+  const shown = only ? rows.filter((r) => initialUnassigned?.has(r.key)) : rows;
   const canSave = writeEnabled === true && changed.length > 0 && !busy;
 
-  const pick = (row: number, v: ClassValue) => {
-    setDraft((d) => ({ ...d, [row]: v }));
+  const pick = (key: string, v: ClassValue) => {
+    setDraft((d) => ({ ...d, [key]: v }));
     setSaved((s) => {
-      if (!s.has(row)) return s;
+      if (!s.has(key)) return s;
       const n = new Set(s);
-      n.delete(row);
+      n.delete(key);
       return n;
     });
   };
@@ -100,21 +100,21 @@ export default function AssetClassDialog({
     if (!canSave || base == null) return;
     setBusy(true);
     setError(null);
-    setFailedRows(new Set());
-    const out = await runClassSave(planClassSave(base, draft, locked), onSend);
+    setFailedKeys(new Set());
+    const out = await runClassSave(planClassSave(rows, base, draft), onSend);
     setBusy(false);
     if (out.failed.length === 0) {
       onSaved(out.data);
       return;
     }
     // 성공한 줄은 기준을 옮겨 「저장됨」 · 실패한 줄은 바꾼 상태 그대로(다시 [저장] = 남은 것만)
-    if (out.saved.length > 0) {
-      setBase((prev) => ({ ...(prev ?? {}), ...Object.fromEntries(out.saved.map((r) => [r, draft[r] ?? ''])) }));
-      setSaved((s) => new Set([...s, ...out.saved]));
+    if (out.savedKeys.length > 0) {
+      setBase((prev) => ({ ...(prev ?? {}), ...Object.fromEntries(out.savedKeys.map((k) => [k, draft[k] ?? ''])) }));
+      setSaved((s) => new Set([...s, ...out.savedKeys]));
       if (out.data) onPartial(out.data);
     }
-    const failed = out.failed.flatMap((g) => g.rows);
-    setFailedRows(new Set(failed));
+    const failed = out.failed.flatMap((g) => g.keys);
+    setFailedKeys(new Set(failed));
     setError(`${failed.length}개를 시트에 쓰지 못했습니다 — ${out.failed[0].error}`);
   };
 
@@ -203,15 +203,20 @@ export default function AssetClassDialog({
         {data != null && shown.length > 0 && (
           <ul className="divide-y divide-border/30">
             {shown.map((r) => {
-              const v = valueOf(r.row);
-              const isChanged = changed.includes(r.row);
+              const v = valueOf(r.key);
+              const isChanged = changed.includes(r.key);
               return (
-                <li key={r.row} className="flex flex-col gap-2 px-4 py-2.5 md:flex-row md:items-center md:gap-4" data-class-row={r.row}>
+                <li key={r.key} className="flex flex-col gap-2 px-4 py-2.5 md:flex-row md:items-center md:gap-4" data-class-row={r.rows.join(',')}>
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-baseline gap-2">
                       <span className="min-w-0 truncate text-xs text-text-primary" title={r.name}>
                         {r.name}
                       </span>
+                      {r.rows.length > 1 && (
+                        <span className="shrink-0 whitespace-nowrap text-caption text-text-muted" data-class-row-count>
+                          「티커」 {r.rows.length}줄
+                        </span>
+                      )}
                       <span className="shrink-0 whitespace-nowrap text-caption text-text-secondary">
                         {r.symbol ?? '—'}
                         {r.exchange && <span className="ml-1 text-text-muted">{r.exchange}</span>}
@@ -222,14 +227,19 @@ export default function AssetClassDialog({
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    {saved.has(r.row) && !isChanged && (
+                    {saved.has(r.key) && !isChanged && (
                       <span className="whitespace-nowrap text-caption text-text-muted" data-class-saved>
                         저장됨
                       </span>
                     )}
-                    {failedRows.has(r.row) && isChanged && (
+                    {failedKeys.has(r.key) && isChanged && (
                       <span className="whitespace-nowrap text-caption text-danger" data-class-failed>
                         저장 안 됨
+                      </span>
+                    )}
+                    {!r.locked && v === MIXED && (
+                      <span className="whitespace-nowrap text-caption text-text-muted" data-class-mixed>
+                        줄마다 다름
                       </span>
                     )}
                     {r.locked ? (
@@ -237,7 +247,7 @@ export default function AssetClassDialog({
                         시트에 수식이 있어 여기서 바꿀 수 없음
                       </span>
                     ) : (
-                      <Segmented size="sm" label={`${r.name} 자산 분류`} options={busy ? OPTIONS_BUSY : OPTIONS} value={v} onChange={(nv) => pick(r.row, nv)} />
+                      <Segmented<GroupValue> size="sm" label={`${r.name} 자산 분류`} options={busy ? OPTIONS_BUSY : OPTIONS} value={v} onChange={(nv) => nv !== MIXED && pick(r.key, nv)} />
                     )}
                   </div>
                 </li>

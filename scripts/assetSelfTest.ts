@@ -36,7 +36,7 @@ import { AssetSheetError, resetTokenCache } from '../server/asset/google';
 import { avgPriceOf, checkTargetRatio, linkedTickerRow, parseAssetSheet, readAssetSheet, replaceNameDate, resetSheetCache, sheetRanges, splitCode, writeAccountDates, writeAssetClasses, writeTargetRatio, ASSET_CLASS_MAX_ROWS } from '../server/asset/sheet';
 import { computeMonthlyBuy, purchaseCycle, purchaseDayOf, setPurchaseClockForTest, type PurchaseCalendar } from '../server/asset/purchase';
 import { clearPurchasesForTest, purchaseCountForTest, purchaseStartDayStoredForTest, recordPurchase } from '../server/asset/store';
-import { CLASS_VALUES, changedRows, classRowsOf, planClassSave, runClassSave, type ClassValue } from '../src/utils/assetClassPlan';
+import { CLASS_VALUES, MIXED, changedKeys, classRowsOf, planClassSave, runClassSave, type ClassRow, type ClassValue, type GroupValue } from '../src/utils/assetClassPlan';
 import { assetSheetSample } from './fixtures/asset/screenSample';
 import { ASSET_CLASSES, ASSET_COLOR_IDS, ASSET_GROUP_LABEL, COLORED_GROUP_KEYS, DEFAULT_CLASS_COLORS, UNASSIGNED_LABEL, isAssetClass, type AssetSheetData, type AssetSummary, type AssetTotals } from '../src/types/asset';
 import { accountValues, computeAssetTotals, holdingsBySymbol, setAssetPriceSourceForTest, assetSummary, type PriceBook } from '../server/asset/summary';
@@ -567,51 +567,105 @@ try {
   // ── 116차 B — 「자산 분류 정하기」 창 계산(classRowsOf · planClassSave · runClassSave) · 시트 읽기의 분류 칸 수식 여부(가짜 구글로만) ─────────────────────
   {
     // [116-3] 목록 — 화면 가짜 값: 같은 종목(「티커」 16행)이 개별 투자 · ISA 계좌에 → 한 줄 · 합친 표는 계좌로 세지 않음 · 이을 수 없는 줄 빠짐 · 줄 번호 순 · 수식 줄
+    // (v2.65.4 — 묶음 열쇠가 종목 코드로 바뀌어 `row` → `rows` · `key` 로 고침. 기본 가짜 값은 코드마다 「티커」 한 줄이라 결과는 그대로)
     const list = classRowsOf(assetSheetSample());
-    const r16 = list.find((r) => r.row === 16);
+    const keyOf = (l: ClassRow[], row: number) => l.find((r) => r.rows.includes(row))?.key ?? `?${row}`;
+    const r16 = list.find((r) => r.rows.includes(16));
     check('[116-3] 같은 종목 여러 계좌 → 한 줄(「티커」 16행 · 있는 계좌 개별 투자 · ISA 계좌) · 「티커」 줄 순서 · 이을 수 없는 줄 · 합친 표 계좌 없음',
-      list.length === 8 && list.filter((r) => r.row === 16).length === 1 && JSON.stringify(r16?.sections) === JSON.stringify(['개별 투자', 'ISA 계좌']) &&
-        JSON.stringify(list.map((r) => r.row)) === JSON.stringify([15, 16, 17, 18, 21, 23, 24, 25]) && list.every((r) => !r.sections.includes('적립식 주식')), list.map((r) => r.row).join(','));
+      list.length === 8 && list.filter((r) => r.rows.includes(16)).length === 1 && JSON.stringify(r16?.sections) === JSON.stringify(['개별 투자', 'ISA 계좌']) &&
+        JSON.stringify(list.map((r) => r.rows.join('+'))) === JSON.stringify(['15', '16', '17', '18', '21', '23', '24', '25']) && list.every((r) => !r.sections.includes('적립식 주식')), list.map((r) => r.rows.join('+')).join(','));
     check('[116-3] 미지정 개수(시트 값 기준 2개 — 18 · 24) · 수식 칸 줄(23)만 locked · 버튼 순서 미지정 | 채권 | 금 | 주식(미지정 = 빈 글자)',
-      list.filter((r) => r.value === '').map((r) => r.row).join(',') === '18,24' && list.filter((r) => r.locked).map((r) => r.row).join(',') === '23' && JSON.stringify(CLASS_VALUES) === JSON.stringify(['', '채권', '금', '주식']));
-    const base0: Record<number, ClassValue> = Object.fromEntries(list.map((r) => [r.row, r.value]));
-    const lock0 = new Set(list.filter((r) => r.locked).map((r) => r.row));
+      list.filter((r) => r.value === '').map((r) => r.rows.join('+')).join(',') === '18,24' && list.filter((r) => r.locked).map((r) => r.rows.join('+')).join(',') === '23' && JSON.stringify(CLASS_VALUES) === JSON.stringify(['', '채권', '금', '주식']));
+    const base0: Record<string, GroupValue> = Object.fromEntries(list.map((r) => [r.key, r.value]));
     check('[116-3] 바꾼 것 없음 → 바꾼 줄 0 · 묶음 0(같은 값을 다시 고른 줄 · 수식 줄은 바꾼 것이 아님)',
-      changedRows(base0, {}, lock0).length === 0 && planClassSave(base0, { 15: '주식', 16: '주식', 23: '금' }, lock0).length === 0);
+      changedKeys(list, base0, {}).length === 0 && planClassSave(list, base0, { [keyOf(list, 15)]: '주식', [keyOf(list, 16)]: '주식', [keyOf(list, 23)]: '금' }).length === 0);
 
     // [116-4] 묶기 — 채권 3줄 · 주식 10줄 → 요청 2번 · 값 넷이면 4번 · 바꾼 줄만 · 미지정은 ''
-    const b13: Record<number, ClassValue> = {};
-    const d13: Record<number, ClassValue> = {};
-    for (let r = 15; r <= 27; r++) { b13[r] = ''; d13[r] = r < 18 ? '채권' : '주식'; }
-    const p13 = planClassSave(b13, d13, new Set());
+    const fakeList = (rows: number[]): ClassRow[] => rows.map((r) => ({ key: `row:${r}`, rows: [r], name: `x${r}`, symbol: null, exchange: null, sections: [], value: '', locked: false }));
+    const l13 = fakeList([15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]);
+    const b13: Record<string, GroupValue> = {};
+    const d13: Record<string, ClassValue> = {};
+    for (let r = 15; r <= 27; r++) { b13[`row:${r}`] = ''; d13[`row:${r}`] = r < 18 ? '채권' : '주식'; }
+    const p13 = planClassSave(l13, b13, d13);
     check('[116-4] 채권 3줄 · 주식 10줄 → 묶음 2개(채권 [15~17] · 주식 [18~27])', p13.length === 2 && p13[0].assetClass === '채권' && p13[0].rows.join(',') === '15,16,17' && p13[1].assetClass === '주식' && p13[1].rows.length === 10);
-    const p4 = planClassSave({ 1: '주식', 2: '주식', 3: '주식', 4: '주식', 5: '금' }, { 1: '', 2: '채권', 3: '금', 4: '주식', 5: '주식' }, new Set());
+    const l5 = fakeList([1, 2, 3, 4, 5]);
+    const p4 = planClassSave(l5, { 'row:1': '주식', 'row:2': '주식', 'row:3': '주식', 'row:4': '주식', 'row:5': '금' }, { 'row:1': '', 'row:2': '채권', 'row:3': '금', 'row:4': '주식', 'row:5': '주식' });
     check('[116-4] 네 값이 섞이면 묶음 4개(미지정 · 채권 · 금 · 주식 순 · 미지정은 빈 글자) · 그대로인 줄(4) 빠짐',
-      JSON.stringify(p4) === JSON.stringify([{ assetClass: '', rows: [1] }, { assetClass: '채권', rows: [2] }, { assetClass: '금', rows: [3] }, { assetClass: '주식', rows: [5] }]));
+      JSON.stringify(p4.map((g) => ({ assetClass: g.assetClass, rows: g.rows }))) === JSON.stringify([{ assetClass: '', rows: [1] }, { assetClass: '채권', rows: [2] }, { assetClass: '금', rows: [3] }, { assetClass: '주식', rows: [5] }]));
 
     // [116-4] 가짜 구글 끝까지 — 시트에서 읽은 값 → 창 계산 → 서버 함수(writeAssetClasses 그대로) · 값마다 쓰기 요청 1번
     fresh();
     const read = await readAssetSheet();
     const rowsR = classRowsOf(read);
-    const baseR: Record<number, ClassValue> = Object.fromEntries(rowsR.map((r) => [r.row, r.value]));
-    const lockR = new Set(rowsR.filter((r) => r.locked).map((r) => r.row));
-    const draftR: Record<number, ClassValue> = { 15: '채권', 16: '채권', 17: '주식', 20: '', 21: '주식', 22: '금' };
-    const planR = planClassSave(baseR, draftR, lockR);
+    const baseR: Record<string, GroupValue> = Object.fromEntries(rowsR.map((r) => [r.key, r.value]));
+    const kR = (row: number) => keyOf(rowsR, row);
+    const draftR: Record<string, ClassValue> = { [kR(15)]: '채권', [kR(16)]: '채권', [kR(17)]: '주식', [kR(20)]: '', [kR(21)]: '주식', [kR(22)]: '금' };
+    const planR = planClassSave(rowsR, baseR, draftR);
     const realSend = (rows: number[], v: ClassValue) => writeAssetClasses(rows, v).then((data) => ({ ok: true as const, data }), (e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'x' }));
     const sent: string[] = [];
     // 일부 실패(가짜 응답) — 「금」 묶음만 실패 · 나머지는 그대로 보낸다
     const outR = await runClassSave(planR, (rows, v) => { sent.push(`${v || '미지정'}:${rows.join('+')}`); return v === '금' ? Promise.resolve({ ok: false as const, error: '시험 — 실패' }) : realSend(rows, v); });
     check('[116-4] 시트 값 기준 바꾼 줄만(16 채권 · 21 주식은 그대로라 빠짐) · 값마다 한 묶음 4개 · 보낸 순서 미지정 · 채권 · 금 · 주식',
-      JSON.stringify(sent) === JSON.stringify(['미지정:20', '채권:15', '금:22', '주식:17']) && baseR[16] === '채권' && baseR[21] === '주식', sent.join(' '));
+      JSON.stringify(sent) === JSON.stringify(['미지정:20', '채권:15', '금:22', '주식:17']) && baseR[kR(16)] === '채권' && baseR[kR(21)] === '주식', sent.join(' '));
     check('[116-4] 일부 실패 → 성공 3묶음은 시트에 씀(쓰기 요청 3번 · 미지정은 빈 칸) · 실패 묶음은 이유와 함께 돌려줌 · 다시 읽은 값',
-      google.writes === 3 && outR.saved.join(',') === '20,15,17' && outR.failed.length === 1 && outR.failed[0].assetClass === '금' && outR.failed[0].rows.join(',') === '22' && outR.failed[0].error === '시험 — 실패' &&
-        writesSeen.some((w) => w.range === "'티커'!D20" && w.value === '') && outR.data != null && classRowsOf(outR.data).find((r) => r.row === 17)?.value === '주식');
-    const base2 = { ...baseR, ...Object.fromEntries(outR.saved.map((r) => [r, draftR[r]])) };
-    const plan2 = planClassSave(base2, draftR, lockR);
+      google.writes === 3 && outR.saved.join(',') === '20,15,17' && outR.savedKeys.join(',') === [kR(20), kR(15), kR(17)].join(',') && outR.failed.length === 1 && outR.failed[0].assetClass === '금' && outR.failed[0].rows.join(',') === '22' && outR.failed[0].error === '시험 — 실패' &&
+        writesSeen.some((w) => w.range === "'티커'!D20" && w.value === '') && outR.data != null && classRowsOf(outR.data).find((r) => r.rows.includes(17))?.value === '주식');
+    const base2 = { ...baseR, ...Object.fromEntries(outR.savedKeys.map((k) => [k, draftR[k]])) };
+    const plan2 = planClassSave(rowsR, base2, draftR);
     const w0 = google.writes;
     const out2 = await runClassSave(plan2, realSend);
     check('[116-4] 다시 [저장] = 남은 것만(금 [22] 한 묶음 · 쓰기 요청 1번 더) · 모두 성공',
       plan2.length === 1 && plan2[0].assetClass === '금' && plan2[0].rows.join(',') === '22' && google.writes === w0 + 1 && out2.failed.length === 0 && out2.saved.join(',') === '22');
+
+    // ── 117차(v2.65.4) [117-1] 분류 창 — 종목 코드로 묶기 ──
+    {
+      const dup = assetSheetSample({ dupCode: true });
+      const l = classRowsOf(dup);
+      const g = l.find((r) => r.symbol === '000001');
+      check('[117-1] 같은 코드 「티커」 2줄(16 · 19) → 창 1줄 · rows [16, 19](「「티커」 2줄」) · 있는 계좌 개별 투자 · ISA 계좌',
+        l.filter((r) => r.symbol === '000001').length === 1 && g?.rows.join(',') === '16,19' && g.key === '000001' && JSON.stringify(g.sections) === JSON.stringify(['개별 투자', 'ISA 계좌']) && l.length === 8, l.map((r) => r.rows.join('+')).join(','));
+      check('[117-1] 줄마다 값이 다르면(주식 · 금) → mixed(「줄마다 다름」) · 같으면 그 값',
+        g?.value === MIXED && classRowsOf(assetSheetSample()).find((r) => r.symbol === '000001')?.value === '주식');
+      const bD: Record<string, GroupValue> = Object.fromEntries(l.map((r) => [r.key, r.value]));
+      const pD = planClassSave(l, bD, { '000001': '채권' });
+      check('[117-1] mixed 묶음에서 「채권」 을 누르면 → 저장 한 요청 · rows 에 두 줄 모두(16 · 19)',
+        pD.length === 1 && pD[0].assetClass === '채권' && pD[0].rows.join(',') === '16,19' && pD[0].keys.join(',') === '000001' && changedKeys(l, bD, { '000001': '채권' }).join(',') === '000001');
+      // 한 줄이라도 수식 → 묶음 전체 locked · 저장에 안 들어감
+      const dupF = assetSheetSample({ dupCode: true });
+      const isa = dupF.sections.find((x) => x.key === 'ISA 계좌');
+      const h19 = isa?.holdings.find((h) => h.tickerRow === 19);
+      if (h19) h19.classFormula = true;
+      const lF = classRowsOf(dupF);
+      const gF = lF.find((r) => r.symbol === '000001');
+      const bF: Record<string, GroupValue> = Object.fromEntries(lF.map((r) => [r.key, r.value]));
+      check('[117-1] 같은 코드의 한 줄이라도 수식 칸 → 그 묶음 locked(버튼 없음) · 골라도 저장 묶음 0',
+        gF?.locked === true && gF.rows.join(',') === '16,19' && planClassSave(lF, bF, { '000001': '주식' }).length === 0);
+      // 코드 없는 줄 — 그 줄 하나(row:<줄 번호>)
+      const noCode = assetSheetSample();
+      const s0 = noCode.sections[0];
+      s0.holdings.push({ ...s0.holdings[0], row: 9, name: '코드 없는 줄 A', code: null, symbol: null, exchange: null, tickerRow: 30, assetClass: null });
+      s0.holdings.push({ ...s0.holdings[0], row: 10, name: '코드 없는 줄 B', code: null, symbol: null, exchange: null, tickerRow: 31, assetClass: null });
+      const lN = classRowsOf(noCode);
+      check('[117-1] 코드 없는 줄은 줄 하나씩(row:30 · row:31 — 서로 묶이지 않음)',
+        lN.filter((r) => r.symbol == null).map((r) => `${r.key}=${r.rows.join('+')}`).join(',') === 'row:30=30,row:31=31');
+      // 가짜 구글 끝까지 — 「티커」 21행 코드를 16행과 같게(005930 · 채권 / 주식) → 시트에서 읽은 값으로 묶음 · 저장이 실제 서버 함수에 두 줄을 한 요청으로
+      fresh();
+      sheetModel.values['티커!C21'] = '005930';
+      sheetModel.formulas['티커!C21'] = '005930';
+      resetSheetCache();
+      const lG = classRowsOf(await readAssetSheet());
+      const gG = lG.find((r) => r.symbol === '005930');
+      const bG: Record<string, GroupValue> = Object.fromEntries(lG.map((r) => [r.key, r.value]));
+      const pG = planClassSave(lG, bG, { '005930': '금' });
+      const w1 = google.writes;
+      const n1 = writesSeen.length;
+      const outD = await runClassSave(pG, realSend);
+      const wrote = writesSeen.slice(n1).map((w) => w.range).sort().join(',');
+      check('[117-1] (가짜 구글) 시트의 같은 코드 「티커」 16 · 21행 → 창 1줄 mixed · 「금」 저장 → 쓰기 요청 1번 · D16 · D21 두 칸 · 다시 읽은 값은 「금」 하나',
+        gG?.rows.join(',') === '16,21' && gG.value === MIXED && outD.failed.length === 0 && google.writes === w1 + 1 && wrote === "'티커'!D16,'티커'!D21" &&
+          outD.data != null && classRowsOf(outD.data).find((r) => r.symbol === '005930')?.value === '금', `${gG?.rows.join(',')} ${String(gG?.value)} ${wrote}`);
+      fresh();
+    }
 
     // [116-3] 시트 읽기 — 「티커」 D칸이 수식이면 그 줄 classFormula(창은 버튼 대신 안내) · 수식 읽기는 그대로 한 번(범위 하나 더)
     fresh();
@@ -620,7 +674,7 @@ try {
     const hs = withF.sections.flatMap((x) => x.holdings);
     check('[116-3] 「티커」 D20 수식 → 이어진 보유 줄 classFormula true · 다른 줄 false · 수식 batchGet 1번 · 범위 맨 끝이 「티커」 종목 줄',
       hs.filter((h) => h.tickerRow === 20).length > 0 && hs.filter((h) => h.tickerRow === 20).every((h) => h.classFormula) && hs.filter((h) => h.tickerRow !== 20).every((h) => !h.classFormula) &&
-        google.formulas === 1 && /'티커'!B14:D42$/.test(sheetRanges().formulas.at(-1) ?? '') && classRowsOf(withF).filter((r) => r.locked).map((r) => r.row).join(',') === '20');
+        google.formulas === 1 && /'티커'!B14:D42$/.test(sheetRanges().formulas.at(-1) ?? '') && classRowsOf(withF).filter((r) => r.locked).map((r) => r.rows.join('+')).join(',') === '20');
   }
 
   // ── 109차 A — 목표 비율 쓰기(가짜 구글로만 · 실제 시트 쓰기 0) ─────────────────────
@@ -1476,19 +1530,21 @@ check('[115-10] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달�
     /const Arrow = open \? ChevronDown : ChevronRight/.test(sv) && /aria-label=\{open \? '접기' : '펼치기'\}/.test(sv) && !/DisclosureButton/.test(sv) &&
       uiFiles.reduce((n, { src }) => n + (src.match(/>\s*계좌를 누르면 종목이 펼쳐져요\s*</g) ?? []).length, 0) === 1);
 }
+/** 창 버튼에 mixed 칸이 없다(버튼은 CLASS_VALUES 넷뿐) */
+const OPTIONS_HAS_MIXED = (src: string) => /value: MIXED|'mixed'/.test(src);
 // ── 116차 B 화면 — 소스 검사(동작은 Playwright 로도: 열기 · 고르기 · 일부 실패 · 닫기 확인 · 스위치 꺼짐) ──
 {
   const dlg = fs.readFileSync(path.join(root, 'src/components/asset/AssetClassDialog.tsx'), 'utf8');
   const dash = fs.readFileSync(path.join(root, 'src/components/asset/AssetDashboard.tsx'), 'utf8');
   const sv = fs.readFileSync(path.join(root, 'src/components/asset/AssetSheetValues.tsx'), 'utf8');
   check('[116-3] 창 = 공용 Dialog · 제목 「자산 분류 정하기」 · 줄마다 Segmented(미지정 | 채권 | 금 | 주식 — CLASS_VALUES) · 목록은 classRowsOf · 추천(짐작) 없음',
-    /<Dialog\s+title="자산 분류 정하기"/.test(dlg) && /<Segmented size="sm"/.test(dlg) && /CLASS_VALUES\.map\(\(v\) => \(\{ value: v, label: v \|\| UNASSIGNED_LABEL \}\)\)/.test(dlg) && /classRowsOf\(data\)/.test(dlg) && !/추천|짐작/.test(dlg.replace(/\/\*\*[\s\S]*?\*\//g, '')));
+    /<Dialog\s+title="자산 분류 정하기"/.test(dlg) && /<Segmented<GroupValue> size="sm"/.test(dlg) && /CLASS_VALUES\.map\(\(v\) => \(\{ value: v as GroupValue, label: v \|\| UNASSIGNED_LABEL \}\)\)/.test(dlg) && /classRowsOf\(data\)/.test(dlg) && !/추천|짐작/.test(dlg.replace(/\/\*\*[\s\S]*?\*\//g, '')));
   check('[116-3] 「미지정만 보기」(기억 키 try/catch · 창을 연 때 미지정이던 줄) · 「미지정 n개 · 바꾼 것 n개」 · 바꾼 것 없으면 [저장] 막힘 · 수식 줄은 버튼 대신 안내',
-    /const ONLY_KEY = 'alphascope\.asset\.classOnlyUnassigned'/.test(dlg) && (dlg.match(/\} catch \{/g) ?? []).length === 2 && /only \? rows\.filter\(\(r\) => initialUnassigned\?\.has\(r\.row\)\) : rows/.test(dlg) &&
+    /const ONLY_KEY = 'alphascope\.asset\.classOnlyUnassigned'/.test(dlg) && (dlg.match(/\} catch \{/g) ?? []).length === 2 && /only \? rows\.filter\(\(r\) => initialUnassigned\?\.has\(r\.key\)\) : rows/.test(dlg) &&
       /미지정 \{unassigned\}개 · 바꾼 것 \{changed\.length\}개/.test(dlg) && /const canSave = writeEnabled === true && changed\.length > 0 && !busy/.test(dlg) && /disabled=\{!canSave\}/.test(dlg) &&
       /r\.locked \? \([\s\S]{0,200}시트에 수식이 있어 여기서 바꿀 수 없음/.test(dlg));
   check('[116-4] [저장] = planClassSave → runClassSave(값마다 한 요청) · 모두 성공 → onSaved(닫고 다시 읽기) · 일부 실패 → 창 그대로 · 「저장됨」 · 이유 한 줄 · 저장 중 버튼 막음',
-    /runClassSave\(planClassSave\(base, draft, locked\), onSend\)/.test(dlg) && /if \(out\.failed\.length === 0\) \{\s*onSaved\(out\.data\);/.test(dlg) && /저장됨/.test(dlg) && /개를 시트에 쓰지 못했습니다 — /.test(dlg) && /OPTIONS_BUSY/.test(dlg) &&
+    /runClassSave\(planClassSave\(rows, base, draft\), onSend\)/.test(dlg) && /if \(out\.failed\.length === 0\) \{\s*onSaved\(out\.data\);/.test(dlg) && /저장됨/.test(dlg) && /개를 시트에 쓰지 못했습니다 — /.test(dlg) && /OPTIONS_BUSY/.test(dlg) &&
       /onSaved=\{\(data\) => \{\s*if \(data\) setSheet\(\{ data \}\);\s*setClassOpen\(false\);\s*void reload\(\);/.test(dash) && /onPartial=\{\(data\) => setSheet\(\{ data \}\)\}/.test(dash));
   check('[116-5] 바꾼 채 닫기([취소] · × · ESC) → 확인 창 「바꾼 n개를 저장하지 않고 닫을까요?」 · 바깥 클릭으로 닫지 않음 · 스위치 꺼짐 → 안내 · [저장] 막힘 · 모르면 글 없이 막음',
     /onClose=\{requestClose\}/.test(dlg) && /onClick=\{requestClose\}/.test(dlg) && /closeOnBackdrop=\{false\}/.test(dlg) && /바꾼 \$\{changed\.length\}개를 저장하지 않고 닫을까요\?/.test(dlg) && /modal\.confirm\(/.test(dlg) &&
@@ -1496,6 +1552,16 @@ check('[115-10] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달�
   check('[116-6] 총 자산 분류별 표 「미지정」 줄 링크 → 창 열림 · 자산 현황 [자산 분류 정하기] 버튼 → 창 열림 · 창이 열리면 시트를 읽음(총 자산 탭에서도)',
     /onClick=\{onOpenClassDialog\} className="truncate text-caption text-accent hover:underline" data-open-class-dialog/.test(dash) && /<GroupTable summary=\{summary\} onOpenClassDialog=\{\(\) => setClassOpen\(true\)\} \/>/.test(dash) &&
       /onOpenClassDialog=\{\(\) => setClassOpen\(true\)\}/.test(dash) && /onClick=\{onOpenClassDialog\} data-open-class-dialog>\s*자산 분류 정하기/.test(sv) && /if \(\(open \|\| classOpen\) && sheet == null\) void loadSheet\(\)/.test(dash));
+  // [117-1] 117차(v2.65.4) — 묶음 열쇠는 종목별 보기와 같은 함수 · 창의 「줄마다 다름」 · 「「티커」 n줄」
+  const plan117 = fs.readFileSync(path.join(root, 'src/utils/assetClassPlan.ts'), 'utf8');
+  const sum117 = fs.readFileSync(path.join(root, 'server/asset/summary.ts'), 'utf8');
+  const types117 = fs.readFileSync(path.join(root, 'src/types/asset.ts'), 'utf8');
+  check('[117-1] 묶음 열쇠 함수가 종목별 보기와 같음 — holdingGroupKey 하나(types/asset.ts) · 종목별 보기 `name:` · 분류 창 `row:` 만 다름 · 두 파일에 `h.symbol ??` 직접 묶기 없음',
+    /export function holdingGroupKey\(h: Pick<AssetHolding, 'symbol'>, fallback: string\): string \{\s*return h\.symbol \?\? fallback;/.test(types117) &&
+      /const id = holdingGroupKey\(h, `name:\$\{h\.name\}`\);/.test(sum117) && /const key = holdingGroupKey\(h, `row:\$\{h\.tickerRow\}`\);/.test(plan117) &&
+      !/h\.symbol \?\?/.test(sum117) && !/h\.symbol \?\?/.test(plan117) && !/byRow/.test(plan117));
+  check('[117-1] 창 — mixed 이면 「줄마다 다름」(버튼 넷 중 눌린 것 없음 — value 가 mixed) · 2줄 이상이면 「「티커」 n줄」 · 누르면 그 묶음 열쇠(rows 전부)',
+    /v === MIXED && \([\s\S]{0,200}줄마다 다름/.test(dlg) && /r\.rows\.length > 1 && \([\s\S]{0,200}「티커」 \{r\.rows\.length\}줄/.test(dlg) && /value=\{v\} onChange=\{\(nv\) => nv !== MIXED && pick\(r\.key, nv\)\}/.test(dlg) && !OPTIONS_HAS_MIXED(dlg));
   // [116-7] 서버 쓰기 함수 · 주소 바뀐 줄 0(04a202d 와 지금 작업 트리)
   const fnAt = (src: string) => { const i = src.indexOf('export async function writeAssetClasses('); return i < 0 ? '' : src.slice(i, src.indexOf('\n}\n', i)); };
   const oldSheet = spawnSync('git', ['show', '04a202d:server/asset/sheet.ts'], { cwd: root, encoding: 'utf8' }).stdout;

@@ -76,6 +76,15 @@ export interface AssetHolding {
   classFormula: boolean;
 }
 
+/**
+ * 종목 묶음 열쇠(v2.65.4) — **같은 종목 코드 = 한 종목**. 「자산 현황」 종목별 보기(`server/asset/summary.ts` `holdingsBySymbol`)와
+ * 「자산 분류 정하기」 창(`src/utils/assetClassPlan.ts` `classRowsOf`)이 같은 함수를 쓴다(묶는 규칙을 따로 만들지 않는다).
+ * 코드가 없는 줄은 부르는 곳이 준 열쇠(종목별 보기 `name:<이름>` · 분류 창 `row:<「티커」 줄 번호>`).
+ */
+export function holdingGroupKey(h: Pick<AssetHolding, 'symbol'>, fallback: string): string {
+  return h.symbol ?? fallback;
+}
+
 export interface AssetSection {
   /** 계좌 이름 key(`개별 투자` 등 — 「연금으로 볼 계좌」 가 가리킨다) — 합친 표는 null */
   key: string | null;

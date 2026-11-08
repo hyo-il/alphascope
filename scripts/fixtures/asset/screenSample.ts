@@ -28,7 +28,11 @@ function holding(row: number, name: string, code: string | null, quantity: numbe
   };
 }
 
-export function assetSheetSample(): AssetSheetData {
+/**
+ * `dupCode`(v2.65.4): ISA 계좌의 「예시 국내 대형주」(000001)를 「티커」 **다른 줄(19행)** · 다른 분류(금)로 — 같은 코드가 「티커」 2줄 ·
+ * 줄마다 값이 다름(「자산 분류 정하기」 창 「「티커」 2줄」 · 「줄마다 다름」 장면 · 시험).
+ */
+export function assetSheetSample(opts: { dupCode?: boolean } = {}): AssetSheetData {
   return {
     readAt: new Date().toISOString(),
     sections: [
@@ -44,7 +48,7 @@ export function assetSheetSample(): AssetSheetData {
       },
       { key: '적립식 계좌', name: '적립식 계좌 ( 2026.07 )', combined: false, holdings: [holding(13, 'KODEX 예시 S&P500', '0072R0', 1200, 15000, 'KRW', 21, '주식'), holding(14, '이을 수식 없는 줄', null, 1, 1000, 'KRW'), holding(15, '예시 분류 칸이 수식인 종목', '000004', 3, 50000, 'KRW', 23, '채권', true), holding(16, '예시 미국 소형주', 'NYSE:CCCC', 7, 12.5, 'USD', 24, null)] },
       // 같은 종목(「티커」 16행)이 개별 투자에도 있다: 「자산 분류 정하기」 창에서 한 줄(v2.65.3)
-      { key: 'ISA 계좌', name: 'ISA 계좌 ( 2026.07 )', combined: false, holdings: [holding(22, '예시 국내 배당주', '000002', 15, 42350, 'KRW', 25, '금'), holding(23, '예시 국내 대형주', '000001', 5, 70000, 'KRW', 16, '주식')] },
+      { key: 'ISA 계좌', name: 'ISA 계좌 ( 2026.07 )', combined: false, holdings: [holding(22, '예시 국내 배당주', '000002', 15, 42350, 'KRW', 25, '금'), opts.dupCode ? holding(23, '예시 국내 대형주', '000001', 5, 70000, 'KRW', 19, '금') : holding(23, '예시 국내 대형주', '000001', 5, 70000, 'KRW', 16, '주식')] },
       { key: '연금 저축 계좌', name: '연금 저축 계좌 ( 2026.07 )', combined: false, holdings: [] },
       { key: null, name: '적립식 주식', combined: true, holdings: [holding(39, 'KODEX 예시 S&P500', '0072R0', 1200, 15000, 'KRW', 21, '주식'), holding(40, '예시 국내 배당주', '000002', 15, 42350, 'KRW', 25, '금')] },
     ],
