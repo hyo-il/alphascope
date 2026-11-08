@@ -1,7 +1,7 @@
 import { Panel } from '../ui';
 import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice } from '../../utils/formatters';
-import { UNASSIGNED_SHORT, type AssetSymbolRow } from '../../types/asset';
+import { UNASSIGNED_LABEL, type AssetSymbolRow } from '../../types/asset';
 
 /**
  * 「자산 현황」 종목별 표(v2.63.0) — 같은 종목을 계좌와 상관없이 한 줄로(서버 `holdingsBySymbol` — 총 자산과 같은 값 계산 · 화면에서 다시 계산하지 않는다).
@@ -78,8 +78,8 @@ export default function AssetSymbolTable({ rows, filter }: { rows: AssetSymbolRo
                     {r.symbol ?? '—'}
                     {r.exchange && <span className="ml-1 text-caption text-text-muted">{r.exchange}</span>}
                   </td>
-                  <td className={`${TEXT} text-center`}>{r.assetClass ?? UNASSIGNED_SHORT}</td>
-                  <td className={`${TEXT} text-center`}>{r.side ? SIDE_LABEL[r.side] : UNASSIGNED_SHORT}</td>
+                  <td className={`${TEXT} text-center`}>{r.assetClass ?? UNASSIGNED_LABEL}</td>
+                  <td className={`${TEXT} text-center`}>{r.side ? SIDE_LABEL[r.side] : '—'}</td>
                   <td className={`${TABLE_NUM_GAP} py-1 text-caption ${dim ? '' : 'text-text-secondary'}`}>
                     {r.sections.map((k, i) => (
                       <span key={k} className="whitespace-nowrap">

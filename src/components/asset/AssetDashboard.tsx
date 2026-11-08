@@ -6,7 +6,7 @@ import { Skeleton, SkeletonTable } from '../common/SkeletonLoader';
 import { usePolling } from '../../hooks/usePolling';
 import { changeColor, formatNumber, formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
-import type { AssetClass, AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio } from '../../types/asset';
+import type { AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio } from '../../types/asset';
 import { modal } from '../../store/uiStore';
 import AssetDonut from './AssetDonut';
 import { groupDot } from './assetColors';
@@ -177,24 +177,6 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
     savePension(on);
   };
 
-  /** 자산 분류 쓰기 — 한 줄 고르기 · 여러 줄 [적용] 모두 같은 주소(`rows` — 「티커」 줄 번호들 · 서버가 한 요청으로 씀 · v2.65.2) */
-  const pickClass = async (rows: number[], value: AssetClass | ''): Promise<string | null> => {
-    try {
-      const res = await fetch('/api/asset/class', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rows, assetClass: value }) });
-      const body = await readJson(res);
-      if (body.code === 'asset-locked') {
-        onLocked();
-        return '자산 관리가 잠겼습니다.';
-      }
-      if (!res.ok) return typeof body.error === 'string' ? body.error : `요청 실패 (${res.status})`;
-      setSheet({ data: body as unknown as AssetSheetData });
-      void reload();
-      return null;
-    } catch {
-      return '서버에 연결하지 못했습니다.';
-    }
-  };
-
   const saveSettings = async (patch: Partial<AssetSettings>): Promise<string | null> => {
     try {
       const res = await fetch('/api/asset/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(patch) });
@@ -333,7 +315,7 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
           <div id="as-asset-status" className="space-y-3">
             {sheet == null && <SkeletonTable rows={6} columns={6} />}
             {sheet && 'error' in sheet && <ErrorLine message={sheet.error} onRetry={() => void loadSheet()} />}
-            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} onPickClass={pickClass} />}
+            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} />}
           </div>
         )}
       </div>

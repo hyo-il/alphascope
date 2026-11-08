@@ -75,8 +75,8 @@ export const PANEL_PAD = 'px-4 py-3';
  * - `select` 드롭박스 — 그 드롭박스의 **가장 긴 항목**에 맞춘다(브라우저가 정하는 자연 폭, 폭 클래스를 주지 않는다)
  * 값 칸을 꽉 채우면 짧은 숫자 칸도 불필요하게 커진다.
  */
-/** 자산 관리 계좌 카드의 자산 분류 고르기 칸 — 「현금 · 채권 · 금 · 주식 · -」(미지정) 가 잘리지 않는 폭 · 고를 수 없는 줄의 자리도 같은 폭 */
-export const ASSET_CLASS_W = 'w-24';
+/** 자산 관리 계좌 카드의 자산 분류 글자 칸(v2.65.3 — 고르기 없이 글자만) — 가장 긴 글자 「미지정」 이 잘리지 않는 폭 · 이을 수 없는 줄의 「—」 도 같은 폭 */
+export const ASSET_CLASS_W = 'w-16';
 export const FIELD_W = { short: 'w-16', long: 'w-32', select: 'w-auto' } as const;
 export type FieldKind = keyof typeof FIELD_W;
 

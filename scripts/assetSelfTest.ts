@@ -35,7 +35,7 @@ import { AssetSheetError, resetTokenCache } from '../server/asset/google';
 import { avgPriceOf, checkTargetRatio, linkedTickerRow, parseAssetSheet, readAssetSheet, replaceNameDate, resetSheetCache, sheetRanges, splitCode, writeAccountDates, writeAssetClasses, writeTargetRatio, ASSET_CLASS_MAX_ROWS } from '../server/asset/sheet';
 import { computeMonthlyBuy, purchaseCycle, purchaseDayOf, setPurchaseClockForTest, type PurchaseCalendar } from '../server/asset/purchase';
 import { clearPurchasesForTest, purchaseCountForTest, purchaseStartDayStoredForTest, recordPurchase } from '../server/asset/store';
-import { ASSET_CLASSES, ASSET_COLOR_IDS, ASSET_GROUP_LABEL, COLORED_GROUP_KEYS, DEFAULT_CLASS_COLORS, UNASSIGNED_SHORT, isAssetClass, type AssetSheetData, type AssetSummary, type AssetTotals } from '../src/types/asset';
+import { ASSET_CLASSES, ASSET_COLOR_IDS, ASSET_GROUP_LABEL, COLORED_GROUP_KEYS, DEFAULT_CLASS_COLORS, UNASSIGNED_LABEL, isAssetClass, type AssetSheetData, type AssetSummary, type AssetTotals } from '../src/types/asset';
 import { accountValues, computeAssetTotals, holdingsBySymbol, setAssetPriceSourceForTest, assetSummary, type PriceBook } from '../server/asset/summary';
 import { readAssetSettings, stockChoices, writeAssetSettings } from '../server/asset/settings';
 import { computeRebalance } from '../server/asset/rebalance';
@@ -406,7 +406,7 @@ try {
       sheetModel.formulas[`티커!${cell}`] = v;
     }
     const odd = (await readAssetSheet()).sections.flatMap((x) => x.holdings).filter((h) => h.tickerRow != null && [15, 16, 20, 21, 22].includes(h.tickerRow));
-    check('[108-1] 빈칸 · 「stock」 · 「금 ETF」 · 공백 · 「현금성」 → 모두 미지정(null) · 계산 묶음 이름 「미지정」 하나', odd.length >= 5 && odd.every((h) => h.assetClass === null) && ASSET_GROUP_LABEL.none === '미지정' && UNASSIGNED_SHORT === '-');
+    check('[108-1] [116-1] 빈칸 · 「stock」 · 「금 ETF」 · 공백 · 「현금성」 → 모두 미지정(null) · 계산 묶음 이름 「미지정」 하나(좁은 칸 「-」 없음 — 글자 상수 UNASSIGNED_LABEL 하나)', odd.length >= 5 && odd.every((h) => h.assetClass === null) && ASSET_GROUP_LABEL.none === '미지정' && UNASSIGNED_LABEL === '미지정');
     sheetModel = saved;
     resetSheetCache();
   }
@@ -1318,8 +1318,8 @@ check('[106-8] 실제 구글 호출 0 — 이 시험의 googleapis 요청은 모
   // [115-3] 옛 한 칸 함수는 지웠다(A-11) — 소스에 writeAssetClass 없음 · 화면은 rows 로 부른다 · 구글 쓰는 함수는 valuesWrite 하나
   const dash = fs.readFileSync(path.join(root, 'src/components/asset/AssetDashboard.tsx'), 'utf8');
   const googleSrc = fs.readFileSync(path.join(root, 'server/asset/google.ts'), 'utf8');
-  check('[115-3] writeAssetClass(한 칸 함수) 소스에 없음 · 한 칸 고르기도 일괄 함수(화면이 rows 배열로 부름) · 구글 쓰는 export 함수는 valuesWrite 하나',
-    !/\bwriteAssetClass\b/.test(appCode) && /\bwriteAssetClasses\(/.test(fs.readFileSync(path.join(root, 'server/asset/routes.ts'), 'utf8')) && /JSON\.stringify\(\{ rows/.test(dash) && !/JSON\.stringify\(\{ row,/.test(dash) &&
+  check('[115-3] writeAssetClass(한 칸 함수) 소스에 없음 · 화면은 rows 배열로 부름(116차부터 「자산 분류 정하기」 창 저장만) · 구글 쓰는 export 함수는 valuesWrite 하나',
+    !/\bwriteAssetClass\b/.test(appCode) && /\bwriteAssetClasses\(/.test(fs.readFileSync(path.join(root, 'server/asset/routes.ts'), 'utf8')) && !/JSON\.stringify\(\{ row,/.test(dash) &&
       [...googleSrc.matchAll(/export async function (\w+)/g)].map((m) => m[1]).filter((n) => /write|update|append|clear/i.test(n)).join(',') === 'valuesWrite');
 }
 
@@ -1338,7 +1338,7 @@ check('[108-1] 「분류 없음」 · 「알 수 없는 분류」 · 「알 수 
 // [108-3] 탭 — 「총 자산 | 자산 현황」 · 처음 총 자산 · 마지막 탭 기억(읽기 실패 → 총 자산) · 「상세 보기」 접기 글자 0(화면 동작은 Playwright 로도 확인)
 const dashSrc = fs.readFileSync(path.join(root, 'src/components/asset/AssetDashboard.tsx'), 'utf8');
 check('[108-3] [109-7] 자산 관리 탭 = 총 자산 · 자산 현황 · 비율 조정(이 순서) · 기억 키 alphascope.asset.tab · 모르는 값 · 읽기 실패면 총 자산', /\{ id: 'total', label: '총 자산' \},\s*\{ id: 'status', label: '자산 현황' \},\s*\{ id: 'rebalance', label: '비율 조정' \}/.test(dashSrc) && /const v = localStorage\.getItem\(TAB_KEY\);\s*return v === 'status' \|\| v === 'rebalance' \? v : 'total';\s*\} catch \{\s*return 'total';/.test(dashSrc));
-check('[108-3] [115-5] 자산 관리 화면 · 서버에 옛 「상세 보기」 접기 없음 — 115차부터 「상세 보기」 는 계좌 카드 버튼(AssetSheetValues) 한 곳뿐', assetUi.filter((src) => src.includes('상세 보기')).length === 1 && /label="상세 보기"/.test(fs.readFileSync(path.join(root, 'src/components/asset/AssetSheetValues.tsx'), 'utf8')) && !codeFiles.filter(({ f }) => f.startsWith('server/asset/') || f === 'src/types/asset.ts').some(({ src }) => src.includes('상세 보기')));
+check('[108-3] [116-2] 자산 관리 화면 · 서버에 「상세 보기」 글자 0(116차 — 계좌 카드 버튼 글자를 지우고 화살표만)', assetUi.every((src) => !src.includes('상세 보기')) && !codeFiles.filter(({ f }) => f.startsWith('server/asset/') || f === 'src/types/asset.ts').some(({ src }) => src.includes('상세 보기')));
 
 // [108-6] 공용 부품 — 새 옵션(source · columns · nameOf · rowNote)은 자산 설정 창만 쓴다 · 기본(옵션 없음)은 지금 창 · 지금 칸 그대로
 const pickerSrc = fs.readFileSync(path.join(root, 'src/components/common/SymbolPicker.tsx'), 'utf8');
@@ -1372,9 +1372,9 @@ check('[112-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력
 // ── 115차(v2.65.2) 화면 정리 — 소스 검사(화면 동작은 Playwright 로도: 체크 · 띠 · 상세 보기 · 설정 창 메뉴) ──
 {
   const sv = fs.readFileSync(path.join(root, 'src/components/asset/AssetSheetValues.tsx'), 'utf8');
-  check('[115-5] 계좌 카드 버튼 「상세 보기」(「종목 보기」 0) · 머리 줄 전체가 누르는 곳(role=button · Enter/Space · aria-expanded) · 「모두 선택」 · 버튼은 이벤트를 막음',
-    /<DisclosureButton open=\{open\} onToggle=\{onToggle\} label="상세 보기"/.test(sv) && !/종목 보기/.test(sv) && /role="button"[\s\S]{0,80}tabIndex=\{0\}[\s\S]{0,40}aria-expanded=\{open\}/.test(sv) &&
-      /e\.key !== 'Enter' && e\.key !== ' '/.test(sv) && (sv.match(/onClick=\{\(e\) => e\.stopPropagation\(\)\}/g) ?? []).length === 2 && /모두 선택/.test(sv));
+  check('[115-5] [116-2] 계좌 카드 머리 줄 전체가 누르는 곳 그대로(role=button · tabIndex 0 · aria-expanded · Enter/Space 는 자기 키만 · 접은 계좌 기억 키) · 「종목 보기」 0',
+    !/종목 보기/.test(sv) && /role="button"[\s\S]{0,80}tabIndex=\{0\}[\s\S]{0,40}aria-expanded=\{open\}/.test(sv) && /e\.target !== e\.currentTarget \|\| \(e\.key !== 'Enter' && e\.key !== ' '\)/.test(sv) &&
+      /onClick=\{onToggle\}/.test(sv) && /const CLOSED_KEY = 'alphascope\.asset\.closedAccounts'/.test(sv));
   const mgmtDocs = path.resolve(root, '../../docs');
   const docFiles = fs.existsSync(mgmtDocs) ? walkAll(mgmtDocs).filter((f) => /\.md$/.test(f) && !/\/docs\/(design-check|history|archive)\//.test(f)) : [];
   const docHits = docFiles.filter((f) => fs.readFileSync(f, 'utf8').includes('괜찮음 범위')).map((f) => path.relative(mgmtDocs, f));
@@ -1396,6 +1396,25 @@ check('[112-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력
 // [115-10] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(114차 끝 43a0b33 와 지금 작업 트리)
 const changed115 = spawnSync('git', ['diff', '--name-only', '43a0b33', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python'], { cwd: root, encoding: 'utf8' });
 check('[115-10] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(43a0b33 와 지금 작업 트리)', changed115.status === 0 && changed115.stdout.trim() === '', changed115.stdout.trim() || changed115.stderr.trim());
+// ── 116차(v2.65.3) 「꼭 지킬 동작」 [116-n] — 1 「-」 대신 「미지정」 · 2 계좌 카드(글자만 · 일괄 띠 지움 · 화살표 · 안내) (화면은 Playwright · design:check 로도) ──
+{
+  const sv = fs.readFileSync(path.join(root, 'src/components/asset/AssetSheetValues.tsx'), 'utf8');
+  const uiFiles = fs.readdirSync(path.join(root, 'src/components/asset')).map((f) => ({ f, src: fs.readFileSync(path.join(root, 'src/components/asset', f), 'utf8') }));
+  const dashLike = [...uiFiles.map((x) => x.src), fs.readFileSync(path.join(root, 'src/types/asset.ts'), 'utf8'), fs.readFileSync(path.join(root, 'scripts/assetCheckSheet.ts'), 'utf8')];
+  const hyphenHits = uiFiles.filter(({ src }) => /(['"`])-\1|>\s*-\s*</.test(src)).map((x) => x.f);
+  check('[116-1] 「-」 글자 0 — 자산 화면 · 타입 · 점검 명령에 「-」 글자(문자열 \'-\' · 태그 사이 -) · UNASSIGNED_SHORT 없음 · 「미지정」 은 UNASSIGNED_LABEL 하나(묶음 이름도 같은 상수)',
+    hyphenHits.length === 0 && !dashLike.some((src) => src.includes('UNASSIGNED_SHORT')) && !appCode.includes('UNASSIGNED_SHORT') &&
+      /none: UNASSIGNED_LABEL/.test(dashLike[dashLike.length - 2]) && (appCode.match(/export const UNASSIGNED_LABEL = '미지정'/g) ?? []).length === 1, hyphenHits.join(','));
+  check('[116-1] 계좌 카드 · 종목별 표의 미지정 = UNASSIGNED_LABEL(카드는 흐린 글자) · 칸 폭 ASSET_CLASS_W 는 글자 칸(w-16)',
+    /h\.assetClass \? 'text-text-primary' : 'text-text-muted'/.test(sv) && /\{h\.assetClass \?\? UNASSIGNED_LABEL\}/.test(sv) &&
+      /\{r\.assetClass \?\? UNASSIGNED_LABEL\}/.test(fs.readFileSync(path.join(root, 'src/components/asset/AssetSymbolTable.tsx'), 'utf8')) &&
+      /export const ASSET_CLASS_W = 'w-16'/.test(fs.readFileSync(path.join(root, 'src/components/ui/tokens.ts'), 'utf8')));
+  check('[116-2] 계좌 카드 — 분류 드롭다운(Select) 0 · 체크 칸 · 「모두 선택」 · 일괄 띠(BulkBar · data-bulk · data-select · 「선택 해제」) 0',
+    !/<Select\b|\bSelect\b.*from '\.\.\/ui'/.test(sv) && !/type="checkbox"/.test(sv) && uiFiles.every(({ src }) => !/모두 선택|BulkBar|data-bulk|data-select-|선택 해제|선택한 \{count\}종목/.test(src)));
+  check('[116-2] 머리 줄 끝 화살표 ▸/▾(ChevronRight 접힘 · ChevronDown 펼침 · aria-label 펼치기/접기) · DisclosureButton 없음 · 안내 「계좌를 누르면 종목이 펼쳐져요」 자산 화면 1곳',
+    /const Arrow = open \? ChevronDown : ChevronRight/.test(sv) && /aria-label=\{open \? '접기' : '펼치기'\}/.test(sv) && !/DisclosureButton/.test(sv) &&
+      uiFiles.reduce((n, { src }) => n + (src.match(/>\s*계좌를 누르면 종목이 펼쳐져요\s*</g) ?? []).length, 0) === 1);
+}
 const leaked = (textAll: string) => SECRET_STRINGS.filter((x) => textAll.includes(x));
 check('[13] 서버 로그(시험 서버) · 안쪽 경고 출력에 가짜 금액 · 수량이 없다', leaked(serverLog + captured.join('\n')).length === 0 && captured.some((l) => l.includes('[asset] 시트 읽기 실패: shape')));
 check('[13] 이 시험의 출력에 가짜 금액 · 수량이 없다', leaked(printed.join('\n')).length === 0);

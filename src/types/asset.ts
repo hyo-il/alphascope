@@ -46,6 +46,8 @@ export const ASSET_CLASSES = ['채권', '금', '주식'] as const;
 export const LEGACY_CASH_CLASS = '현금';
 export type AssetClass = (typeof ASSET_CLASSES)[number];
 export const isAssetClass = (v: unknown): v is AssetClass => typeof v === 'string' && (ASSET_CLASSES as readonly string[]).includes(v);
+/** 「미지정」 글자 — 모든 칸(계좌 카드 · 종목별 표 · 분류별 표 · 원형 범례 · 「자산 분류 정하기」 창)이 이 하나를 쓴다(v2.65.3 — 좁은 칸의 「-」 를 없앴다) */
+export const UNASSIGNED_LABEL = '미지정';
 
 export type AssetCurrency = 'USD' | 'KRW';
 
@@ -68,7 +70,7 @@ export interface AssetHolding {
   currency: AssetCurrency;
   /** 이어진 「티커」 줄 번호 — 자산 분류를 쓸 칸(D열)의 줄. 이을 수 없으면 null(분류를 고를 수 없다) */
   tickerRow: number | null;
-  /** 「티커」 D열 자산 분류 — 빈칸 · 세 글자가 아닌 글자(옛 「현금」 포함) · 이을 수 없음은 null(「미지정」 — 좁은 칸에서는 「-」) */
+  /** 「티커」 D열 자산 분류 — 빈칸 · 세 글자가 아닌 글자(옛 「현금」 포함) · 이을 수 없음은 null(「미지정」) */
   assetClass: AssetClass | null;
 }
 
@@ -171,9 +173,7 @@ export interface AssetStockChoice {
 /** 분류별 묶음 — 현금(「현금」 탭 금액만 · 분류 값이 아니다) + 세 분류 + 퇴직 연금(연금 포함일 때만 · 분류가 없는 한 칸) + 미지정(`none`) */
 export type AssetGroupKey = 'cash' | 'bond' | 'gold' | 'stock' | 'retirement' | 'none';
 /** 분류별 묶음 이름 — 서버 계산 · 옛 하루 기록 읽기가 이 표 하나를 쓴다(옛 기록에 저장된 옛 이름도 읽을 때 「미지정」) */
-export const ASSET_GROUP_LABEL: Record<AssetGroupKey, string> = { cash: '현금', bond: '채권', gold: '금', stock: '주식', retirement: '퇴직 연금', none: '미지정' };
-/** 좁은 칸(표의 자산 분류 고르기 · 드롭다운)에서 「미지정」 을 보이는 글자 — 글자가 잘리지 않게 */
-export const UNASSIGNED_SHORT = '-';
+export const ASSET_GROUP_LABEL: Record<AssetGroupKey, string> = { cash: '현금', bond: '채권', gold: '금', stock: '주식', retirement: '퇴직 연금', none: UNASSIGNED_LABEL };
 
 export interface AssetGroup {
   key: AssetGroupKey;
@@ -200,7 +200,7 @@ export interface AssetTotals {
 export interface RebalanceRow {
   key: 'cash' | 'bond' | 'gold' | 'stock' | 'core' | 'satellite';
   label: string;
-  /** 목표 % — 시트 칸이 비면 null(목표 「-」 · 상태 없음) */
+  /** 목표 % — 시트 칸이 비면 null(목표 「—」 · 상태 없음) */
   targetPct: number | null;
   /** 지금 %(기준 금액 대비) — 기준이 0 이면 null */
   nowPct: number | null;
@@ -252,13 +252,13 @@ export interface AssetSymbolRow {
   symbol: string | null;
   exchange: string | null;
   assetClass: AssetClass | null;
-  /** 분류 「주식」 만 코어 / 위성 — 그 밖 null(「-」) */
+  /** 분류 「주식」 만 코어 / 위성 — 그 밖 null(「—」) */
   side: 'core' | 'satellite' | null;
   /** 있는 계좌(계좌 key — 시트 순서) */
   sections: string[];
   /** 수량 합 — 아는 줄만(하나도 모르면 null) */
   quantity: number | null;
-  /** 평가 금액 합(원) — 총 자산과 같은 값 계산 · 가격 못 받은 줄은 빠짐 · 하나도 못 받으면 null(「-」 흐리게) */
+  /** 평가 금액 합(원) — 총 자산과 같은 값 계산 · 가격 못 받은 줄은 빠짐 · 하나도 못 받으면 null(「—」 흐리게) */
   value: number | null;
   /** 가격 못 받은 줄 수 */
   missing: number;

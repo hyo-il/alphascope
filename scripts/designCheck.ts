@@ -512,18 +512,19 @@ function targets(): Target[] {
             await page.waitForTimeout(300);
           }
         }] as const),
-        // v2.65.2 — 설정 창 왼쪽 메뉴 다섯(목표 비율 · 코어 · 위성 · 연금 · 자산 분류 색 · 시트 가격) · 자산 현황 계좌별 일괄 띠(같은 종목 두 계좌 체크)
+        // v2.65.2 — 설정 창 왼쪽 메뉴 다섯(목표 비율 · 코어 · 위성 · 연금 · 자산 분류 색 · 시트 가격)
         ...(['목표 비율', '코어 · 위성', '연금', '자산 분류 색', '시트 가격'] as const).map((m) => [`설정창-메뉴-${m.replace(/ · /g, '').replace(/ /g, '')}`, { pension: true }, async (page: Page) => {
           await page.locator('[data-asset-settings]').click().catch(() => {});
           await page.waitForTimeout(400);
           await page.getByRole('dialog').getByRole('tab', { name: m, exact: true }).click().catch(() => {});
           await page.waitForTimeout(300);
         }] as const),
-        ['자산현황-일괄띠', {}, async (page: Page) => {
+        // v2.65.3 — 계좌 카드(분류는 글자만 · 「미지정」 · 머리 줄 끝 화살표 ▸/▾ — ISA 계좌를 접음 · 위 안내 한 줄)
+        ['자산현황-계좌카드', {}, async (page: Page) => {
           await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
           await page.waitForTimeout(500);
-          await page.locator('tbody[data-account="개별 투자"] [data-select-row="16"]').check().catch(() => {});
-          await page.locator('tbody[data-account="ISA 계좌"] [data-select-all]').check().catch(() => {});
+          await page.locator('tbody[data-account="ISA 계좌"] [data-account-head]').click().catch(() => {});
+          await page.locator('[data-account-hint]').scrollIntoViewIfNeeded().catch(() => {});
           await page.waitForTimeout(200);
         }],
         ['자산현황-요약목표비율', {}, async (page: Page) => {
@@ -571,6 +572,7 @@ function targets(): Target[] {
           localStorage.removeItem('alphascope.asset.tab');
           localStorage.removeItem('alphascope.asset.statusView');
           localStorage.removeItem('alphascope.asset.settingsMenu');
+          localStorage.removeItem('alphascope.asset.closedAccounts');
         });
       },
     })),
