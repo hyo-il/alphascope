@@ -540,6 +540,46 @@ function targets(): Target[] {
           await page.locator('[data-symbol-view]').scrollIntoViewIfNeeded().catch(() => {});
           await page.waitForTimeout(200);
         }] as const),
+        // v2.65.3 — 「자산 분류 정하기」 창(처음 · 미지정만 보기 · 바꾼 것 있음 · 일부 실패 · 닫기 확인 · 쓰기 꺼짐) · 총 자산 「미지정」 줄 링크로 열기
+        ...([
+          ['처음', {}, null],
+          ['미지정만', {}, 'only'],
+          ['바꾼것있음', {}, 'pick'],
+          ['일부실패', {}, 'partial'],
+          ['닫기확인', {}, 'close'],
+          ['쓰기꺼짐', { writeEnabled: false }, 'pick'],
+        ] as const).map(([label, sum, step]) => [`분류창-${label}`, sum, async (page: Page) => {
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+          await page.locator('[data-open-class-dialog]').first().click().catch(() => {});
+          await page.locator('[data-class-dialog]').waitFor({ timeout: 3000 }).catch(() => {});
+          const pick = async (row: number, name: string) => page.locator(`[data-class-row="${row}"]`).getByRole('radio', { name, exact: true }).click().catch(() => {});
+          if (step === 'only') await page.locator('[data-class-only]').check().catch(() => {});
+          if (step === 'pick' || step === 'partial' || step === 'close') {
+            await pick(18, '채권');
+            await pick(24, '금');
+            await pick(15, '주식');
+            await pick(16, '미지정');
+          }
+          if (step === 'partial') {
+            // 「금」 묶음만 실패(가짜 응답) — 나머지는 다시 읽은 시트 값(가짜)
+            await page.unroute('**/api/asset/class');
+            await page.route('**/api/asset/class', (r) => {
+              const body = JSON.parse(r.request().postData() ?? '{}') as { assetClass?: string };
+              return (body.assetClass === '금' ? r.fulfill({ status: 409, json: { error: '「티커」 D24 칸에 수식이 있어 하나도 쓰지 않았습니다(수식을 덮어쓰지 않습니다).', kind: 'formula-cell' } }) : r.fulfill({ json: assetSheetSample() })).catch(() => {});
+            });
+            await page.locator('[data-class-save]').click().catch(() => {});
+          }
+          if (step === 'close') await page.keyboard.press('Escape').catch(() => {});
+          await page.waitForTimeout(400);
+        }] as const),
+        ['분류창-총자산링크', { none: true }, async (page: Page) => {
+          await page.getByRole('tab', { name: '총 자산' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+          await page.locator('[data-group="none"] [data-open-class-dialog]').click().catch(() => {});
+          await page.locator('[data-class-dialog]').waitFor({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(300);
+        }],
       ] as const
     ).map(([label, sum, act]) => ({
       name: `asset-${label}`,
@@ -567,12 +607,20 @@ function targets(): Target[] {
         for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/class', '**/api/asset/settings', '**/api/asset/target-ratio', '**/api/asset/purchase-done', '**/api/asset/price-source/**']) await page.unroute(p);
         await page.keyboard.press('Escape').catch(() => {});
         await page.keyboard.press('Escape').catch(() => {});
+        // v2.65.3 — 「자산 분류 정하기」 창은 바꾼 것이 있으면 ESC 가 확인 창을 연다 → 확인 창의 [닫기] 로 끝낸다
+        for (let i = 0; i < 4 && (await page.locator('[data-class-dialog]').count()) > 0; i++) {
+          const confirm = page.getByRole('dialog').filter({ hasText: '저장하지 않고 닫을까요' });
+          if ((await confirm.count()) > 0) await confirm.getByRole('button', { name: '닫기', exact: true }).last().click().catch(() => {});
+          else await page.keyboard.press('Escape').catch(() => {});
+          await page.waitForTimeout(150);
+        }
         await page.evaluate(() => {
           localStorage.removeItem('alphascope.asset.includePension');
           localStorage.removeItem('alphascope.asset.tab');
           localStorage.removeItem('alphascope.asset.statusView');
           localStorage.removeItem('alphascope.asset.settingsMenu');
           localStorage.removeItem('alphascope.asset.closedAccounts');
+          localStorage.removeItem('alphascope.asset.classOnlyUnassigned');
         });
       },
     })),

@@ -5,7 +5,8 @@
  * - 쓰기는 세 곳 — `writeAssetClasses`(「티커」 D14~D42 종목 줄의 자산 분류 — 여러 줄 한 요청 · v2.65.2) · `writeTargetRatio`(목표 비율 여섯 칸) ·
  *   `writeAccountDates`(「구매 완료」 — 「주식 투자 정리」 계좌 이름 칸의 「( 날짜 )」).
  *   셋 다 쓰기 직전에 수식 그대로 다시 읽어 머리 글자 · 수식 칸을 확인한다(구글에 쓰는 함수는 `google.ts` `valuesWrite` 하나).
- * - 한 번 읽기 = `values:batchGet` 두 번: ① 값(UNFORMATTED_VALUE) — 머리 글자 · 종목 · 보유 · 값 칸 ② 수식(FORMULA) — 보유 줄의 C(평균 매입가) · F(이을 줄).
+ * - 한 번 읽기 = `values:batchGet` 두 번: ① 값(UNFORMATTED_VALUE) — 머리 글자 · 종목 · 보유 · 값 칸 ② 수식(FORMULA) — 보유 줄의 C(평균 매입가) · F(이을 줄)
+ *   + 「티커」 종목 줄 B~D(자산 분류 칸이 수식인지 — 「자산 분류 정하기」 창이 그 줄의 버튼을 감춘다 · v2.65.3 · 같은 요청 안의 범위 하나).
  * - 머리 글자가 하나라도 다르면 값을 쓰지 않고 「시트 모양이 바뀌었어요(탭 · 칸)」.
  * ⚠️ 읽은 값은 로그에 찍지 않는다(실패 이유 종류만).
  */
@@ -43,7 +44,8 @@ export function sheetRanges(): { values: string[]; formulas: string[] } {
       ...ratio.assets.map((c) => one(ratio.tab, c)),
       ...ratio.coreSatellite.map((c) => one(ratio.tab, c)),
     ],
-    formulas: L.sections.map(holdingRange),
+    // 맨 끝 = 「티커」 종목 줄(자산 분류 칸 수식 여부 — v2.65.3). 보유 구간 순서는 그대로(앞에서부터 구간 번호)
+    formulas: [...L.sections.map(holdingRange), tickerRange()],
   };
 }
 
@@ -126,10 +128,13 @@ export function parseAssetSheet(values: CellRows[], formulas: CellRows[], readAt
 
   // 「티커」 줄 번호 → 코드 · 자산 분류(D)
   const tickerRows = next();
-  const codeByRow = new Map<number, { code: string; cls: string }>();
+  /** 「티커」 종목 줄 수식(맨 끝 범위) — 없으면(모양 확인 단계 · 옛 호출) 수식 아님 */
+  const tickerFormulas = formulas[L.sections.length] ?? [];
+  const codeByRow = new Map<number, { code: string; cls: string; clsFormula: boolean }>();
   tickerRows.forEach((r, k) => {
     const code = tickerRowCode(r);
-    if (code) codeByRow.set(L.tickers.firstRow + k, { code, cls: text(r?.[2]) });
+    const f = tickerFormulas[k]?.[2];
+    if (code) codeByRow.set(L.tickers.firstRow + k, { code, cls: text(r?.[2]), clsFormula: typeof f === 'string' && f.trim().startsWith('=') });
   });
 
   const sections: AssetSection[] = L.sections.map((s: HoldingSection, si) => {
@@ -154,6 +159,7 @@ export function parseAssetSheet(values: CellRows[], formulas: CellRows[], readAt
         ...avgPriceOf(f[1], r[1]),
         tickerRow: ticker ? linked : null,
         assetClass: isAssetClass(cls) ? cls : null, // 빈칸 · 세 글자가 아닌 글자(옛 「현금」 포함) → 「미지정」(null)
+        classFormula: ticker?.clsFormula ?? false,
       });
     }
     const name = (s.nameCell ? headerText(s.nameCell) : '') || s.label || '';

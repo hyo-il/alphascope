@@ -13,6 +13,8 @@ import { groupDot } from './assetColors';
 import AssetHistoryChart from './AssetHistoryChart';
 import AssetSheetValues from './AssetSheetValues';
 import AssetSettingsDialog from './AssetSettingsDialog';
+import AssetClassDialog from './AssetClassDialog';
+import type { ClassSendResult, ClassValue } from '../../utils/assetClassPlan';
 import AssetRebalanceView from './AssetRebalanceView';
 import { MonthlyBuySection, PurchaseDayDialog, sheetDateText } from './AssetMonthlyBuy';
 
@@ -119,6 +121,8 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
   /** 설정 창 — null 이면 닫힘 · 'targetRatio' 면 목표 비율 칸으로 연다 */
   const [settingsOpen, setSettingsOpen] = useState<null | 'top' | 'targetRatio'>(null);
   const [sheet, setSheet] = useState<{ data: AssetSheetData } | { error: string } | null>(null);
+  /** 「자산 분류 정하기」 창(v2.65.3) — 자산 현황 버튼 · 총 자산 「미지정」 줄 링크 */
+  const [classOpen, setClassOpen] = useState(false);
   /** 구매일 팝업 — 이 화면이 열린 뒤 처음 받은 summary 로 한 번만 정한다 */
   const [purchasePopup, setPurchasePopup] = useState(false);
   const popupDecided = useRef(false);
@@ -169,12 +173,28 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
   }, [url, pension, open, loadSheet]);
 
   useEffect(() => {
-    if (open && sheet == null) void loadSheet();
-  }, [open, sheet, loadSheet]);
+    if ((open || classOpen) && sheet == null) void loadSheet();
+  }, [open, classOpen, sheet, loadSheet]);
 
   const togglePension = (on: boolean) => {
     setPension(on);
     savePension(on);
+  };
+
+  /** 자산 분류 한 묶음 쓰기(「자산 분류 정하기」 창 [저장] — 값마다 한 번 · `rows` 는 「티커」 줄 번호들 · 서버가 한 요청으로 씀) */
+  const sendClass = async (rows: number[], value: ClassValue): Promise<ClassSendResult> => {
+    try {
+      const res = await fetch('/api/asset/class', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rows, assetClass: value }) });
+      const body = await readJson(res);
+      if (body.code === 'asset-locked') {
+        onLocked();
+        return { ok: false, error: '자산 관리가 잠겼습니다.' };
+      }
+      if (!res.ok) return { ok: false, error: typeof body.error === 'string' ? body.error : `요청 실패 (${res.status})` };
+      return { ok: true, data: body as unknown as AssetSheetData };
+    } catch {
+      return { ok: false, error: '서버에 연결하지 못했습니다.' };
+    }
   };
 
   const saveSettings = async (patch: Partial<AssetSettings>): Promise<string | null> => {
@@ -298,7 +318,7 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
               <Panel className="flex items-center justify-center">
                 <AssetDonut groups={summary.totals.groups} total={summary.totals.total} colors={summary.settings.classColors} />
               </Panel>
-              <GroupTable summary={summary} />
+              <GroupTable summary={summary} onOpenClassDialog={() => setClassOpen(true)} />
             </div>
           </>
         )}
@@ -315,7 +335,7 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
           <div id="as-asset-status" className="space-y-3">
             {sheet == null && <SkeletonTable rows={6} columns={6} />}
             {sheet && 'error' in sheet && <ErrorLine message={sheet.error} onRetry={() => void loadSheet()} />}
-            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} />}
+            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} onOpenClassDialog={() => setClassOpen(true)} />}
           </div>
         )}
       </div>
@@ -326,6 +346,22 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
           error={purchaseError}
           onLater={() => setPurchasePopup(false)}
           onDone={() => askPurchaseDone(summary.monthlyBuy.sheetDates)}
+        />
+      )}
+      {classOpen && (
+        <AssetClassDialog
+          data={sheet && 'data' in sheet ? sheet.data : null}
+          loadError={sheet && 'error' in sheet ? sheet.error : null}
+          onRetryLoad={() => void loadSheet()}
+          writeEnabled={summary ? summary.writeEnabled : null}
+          onSend={sendClass}
+          onPartial={(data) => setSheet({ data })}
+          onSaved={(data) => {
+            if (data) setSheet({ data });
+            setClassOpen(false);
+            void reload();
+          }}
+          onClose={() => setClassOpen(false)}
         />
       )}
       {settingsOpen && summary && (
@@ -479,7 +515,7 @@ function HistoryPanel({ pension }: { pension: boolean }) {
 const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right tabular-nums`;
 
 /** 분류별 표 — 분류 · 금액 · 비율(총 자산 대비) · 주식 아래 들여 쓴 코어 · 위성(비율은 주식 금액 대비) */
-function GroupTable({ summary }: { summary: AssetSummary }) {
+function GroupTable({ summary, onOpenClassDialog }: { summary: AssetSummary; onOpenClassDialog: () => void }) {
   const { totals } = summary;
   const stock = totals.groups.find((g) => g.key === 'stock')?.amount ?? 0;
   const inStock = (v: number) => (stock > 0 ? v / stock : null);
@@ -503,7 +539,12 @@ function GroupTable({ summary }: { summary: AssetSummary }) {
                     <span className="flex min-w-0 items-center gap-2">
                       <span className={`h-2 w-2 shrink-0 rounded-full ${groupDot(g.key, summary.settings.classColors)}`} aria-hidden />
                       <span className="shrink-0">{g.label}</span>
-                      {none && g.amount > 0 && <span className="truncate text-caption">자산 현황에서 자산 분류를 골라 주세요</span>}
+                      {/* v2.65.3 — 「자산 분류 정하기」 창을 여는 링크 */}
+                      {none && g.amount > 0 && (
+                        <button type="button" onClick={onOpenClassDialog} className="truncate text-caption text-accent hover:underline" data-open-class-dialog>
+                          자산 분류를 골라 주세요
+                        </button>
+                      )}
                     </span>
                   </td>
                   <td className={NUM}>{formatPrice(g.amount, 'KRW')}</td>

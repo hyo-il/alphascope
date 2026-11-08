@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
-import { ICON_SM, Panel, Segmented } from '../ui';
+import { ChevronDown, ChevronRight, Tags } from 'lucide-react';
+import { Button, ICON_SM, Panel, Segmented } from '../ui';
 import { SkeletonTable } from '../common/SkeletonLoader';
 import AssetSymbolTable, { SYMBOL_FILTERS, type SymbolFilter } from './AssetSymbolTable';
 import { ASSET_CLASS_W, LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
@@ -13,7 +13,7 @@ import { UNASSIGNED_LABEL, type AssetAccount, type AssetHolding, type AssetSecti
  *   (가격 못 받은 줄은 빼고 「N줄 빠짐」) · 머리 줄 끝 작은 화살표(▸ 접힘 / ▾ 펼침) · 접기(처음 모두 펼침 · 접은 계좌는 이 기기에 기억).
  *   카드들 위 안내 한 줄 「계좌를 누르면 종목이 펼쳐져요」(v2.65.3).
  * - 시트의 합계 표(「적립식 주식」 — 계좌를 합친 표)는 보이지 않는다(총 자산에도 더하지 않는다 — 서버 계산).
- * - 줄마다 「자산 분류」 는 **글자로만**(미지정은 흐린 「미지정」 · v2.65.3). 바꾸기는 「자산 분류 정하기」 창에서만.
+ * - 줄마다 「자산 분류」 는 **글자로만**(미지정은 흐린 「미지정」 · v2.65.3). 바꾸기는 「자산 분류 정하기」 창에서만 — 「계좌별 | 종목별」 줄 끝 버튼(창은 부모 `AssetDashboard`).
  * - 연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색은 오른쪽 위 「설정」 창(`AssetSettingsDialog`).
  * - 계좌 카드 위 「계좌별 | 종목별」(v2.63.0 — 이 기기에 기억 `alphascope.asset.statusView` · 읽기 실패면 계좌별).
  *   종목별 = 같은 종목을 한 줄로(`AssetSymbolTable` · 「전체 / 코어 / 위성」 거르기) — 자산 분류 고르기는 계좌별에서.
@@ -302,12 +302,15 @@ export default function AssetSheetValues({
   data,
   accounts,
   bySymbol,
+  onOpenClassDialog,
 }: {
   data: AssetSheetData;
   /** 카드 머리 평가 금액 합 · 가격 못 받은 줄 수(총 자산 요약 응답) */
   accounts: AssetAccount[];
   /** 종목별 줄(총 자산 요약 응답) — 아직 받지 못했으면 null(뼈대) */
   bySymbol: AssetSymbolRow[] | null;
+  /** [자산 분류 정하기] — 창 열기 */
+  onOpenClassDialog: () => void;
 }) {
   const [view, setView] = useState<StatusView>(readView);
   const [filter, setFilter] = useState<SymbolFilter>('all');
@@ -326,6 +329,9 @@ export default function AssetSheetValues({
           }}
         />
         {view === 'symbol' && <Segmented label="코어 · 위성 거르기" options={SYMBOL_FILTERS} value={filter} onChange={setFilter} />}
+        <Button size="md" icon={Tags} onClick={onOpenClassDialog} data-open-class-dialog>
+          자산 분류 정하기
+        </Button>
       </div>
       {view === 'account' && (
         <>

@@ -10,7 +10,7 @@ import { computeMonthlyBuy } from '../../../server/asset/purchase';
 
 export const assetStatusSample = (unlocked: boolean, sheetConfigured = true): AssetStatus => ({ passwordSet: true, unlocked, sheetConfigured });
 
-function holding(row: number, name: string, code: string | null, quantity: number, avgPrice: number, currency: 'USD' | 'KRW', tickerRow: number | null = null, assetClass: AssetClass | null = null): AssetHolding {
+function holding(row: number, name: string, code: string | null, quantity: number, avgPrice: number, currency: 'USD' | 'KRW', tickerRow: number | null = null, assetClass: AssetClass | null = null, classFormula = false): AssetHolding {
   const us = code?.includes(':') ?? false;
   return {
     row,
@@ -24,6 +24,7 @@ function holding(row: number, name: string, code: string | null, quantity: numbe
     currency,
     tickerRow: code ? tickerRow : null,
     assetClass,
+    classFormula: code ? classFormula : false,
   };
 }
 
@@ -41,7 +42,7 @@ export function assetSheetSample(): AssetSheetData {
           holding(8, '예시 고가 국내주', '000003', 1, 1234567, 'KRW', 18, null), // 시트 글자가 세 가지가 아님(미지정)
         ],
       },
-      { key: '적립식 계좌', name: '적립식 계좌 ( 2026.07 )', combined: false, holdings: [holding(13, 'KODEX 예시 S&P500', '0072R0', 1200, 15000, 'KRW', 21, '주식'), holding(14, '이을 수식 없는 줄', null, 1, 1000, 'KRW')] },
+      { key: '적립식 계좌', name: '적립식 계좌 ( 2026.07 )', combined: false, holdings: [holding(13, 'KODEX 예시 S&P500', '0072R0', 1200, 15000, 'KRW', 21, '주식'), holding(14, '이을 수식 없는 줄', null, 1, 1000, 'KRW'), holding(15, '예시 분류 칸이 수식인 종목', '000004', 3, 50000, 'KRW', 23, '채권', true), holding(16, '예시 미국 소형주', 'NYSE:CCCC', 7, 12.5, 'USD', 24, null)] },
       // 같은 종목(「티커」 16행)이 개별 투자에도 있다: 「자산 분류 정하기」 창에서 한 줄(v2.65.3)
       { key: 'ISA 계좌', name: 'ISA 계좌 ( 2026.07 )', combined: false, holdings: [holding(22, '예시 국내 배당주', '000002', 15, 42350, 'KRW', 25, '금'), holding(23, '예시 국내 대형주', '000001', 5, 70000, 'KRW', 16, '주식')] },
       { key: '연금 저축 계좌', name: '연금 저축 계좌 ( 2026.07 )', combined: false, holdings: [] },

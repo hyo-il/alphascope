@@ -72,6 +72,8 @@ export interface AssetHolding {
   tickerRow: number | null;
   /** 「티커」 D열 자산 분류 — 빈칸 · 세 글자가 아닌 글자(옛 「현금」 포함) · 이을 수 없음은 null(「미지정」) */
   assetClass: AssetClass | null;
+  /** 「티커」 D칸(자산 분류)이 수식(`=`)인가 — 앱은 수식을 덮어쓰지 않는다(「자산 분류 정하기」 창은 그 줄에 버튼 대신 안내 · v2.65.3). 이을 수 없는 줄은 false */
+  classFormula: boolean;
 }
 
 export interface AssetSection {
