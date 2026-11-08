@@ -1563,7 +1563,7 @@ check('[112-5] [117-2] 확인 창 문구 — 서버가 준 sheetDates 로 만들
   (dashSrc.match(/askPurchaseDone\(summary\.monthlyBuy\)/g) ?? []).length === 2 && /sheetDateText\(mb\.sheetDates\)/.test(dashSrc) && /다음 구매 차례\(\$\{dayText\(early\)\}\)를 미리 완료로 기록하고, 시트의 계좌 이름 날짜를 \$\{sheetDateText\(mb\.sheetDates, '다음'\)\} 바꿉니다/.test(dashSrc) && !/날짜를 오늘/.test(dashSrc));
 // [117-2] 화면 — 미리 완료할 수 있으면 「미리 구매 완료할 수 있어요」 + [구매 완료] · 미리 완료한 뒤 「완료 ○(미리)」 · 팝업 조건은 그대로(이번 차례 미완료 · 시작 전 아님)
 check('[117-2] 화면 — 「다음 구매일 ○ · 미리 구매 완료할 수 있어요」(isEarlyDone) · 「완료 {nextDoneDay}(미리)」 · isEarlyDone = (done || skipped) && earlyCycle · 팝업 조건 그대로',
-  /export const isEarlyDone = \(mb: MonthlyBuy\) => \(mb\.done \|\| mb\.skipped\) && mb\.earlyCycle != null;/.test(buySrc) && /isEarlyDone\(mb\) && \([\s\S]{0,120}미리 구매 완료할 수 있어요/.test(buySrc) &&
+  /export const isEarlyDone = \(mb: MonthlyBuy\) => \(mb\.done \|\| mb\.skipped\) && mb\.earlyCycle != null;/.test(buySrc) && /isEarlyDone\(mb\) && \([\s\S]{0,400}미리 구매 완료할 수 있어요/.test(buySrc) &&
     /완료 \{mb\.nextDoneDay\}\(미리\)/.test(buySrc) && /if \(!mb\.done && !mb\.skipped\) setPurchasePopup\(true\)/.test(dashSrc) && /purchasePopup && summary && !summary\.monthlyBuy\.done && !summary\.monthlyBuy\.skipped &&/.test(dashSrc));
 // [112-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 코드 바뀐 파일 0(111차 끝 1117cba 와 지금 작업 트리)
 const changed112 = spawnSync('git', ['diff', '--name-only', '1117cba', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'python'], { cwd: root, encoding: 'utf8' });

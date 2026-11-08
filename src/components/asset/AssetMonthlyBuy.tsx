@@ -132,15 +132,26 @@ function CycleLine({ mb }: { mb: MonthlyBuy }) {
         다음 구매일 <span className="text-text-primary">{dayText(mb.nextDay)}</span>
       </span>
       {mb.nextDoneDay ? (
-        <Badge tone="bullish" data-monthly-early-done>
-          <CircleCheck {...ICON_SM} aria-hidden />
-          완료 {mb.nextDoneDay}(미리)
-        </Badge>
+        <>
+          <span className="text-text-muted" aria-hidden>
+            ·
+          </span>
+          <Badge tone="bullish" data-monthly-early-done>
+            <CircleCheck {...ICON_SM} aria-hidden />
+            완료 {mb.nextDoneDay}(미리)
+          </Badge>
+        </>
       ) : (
         isEarlyDone(mb) && (
-          <span className="text-text-primary" data-monthly-early>
-            미리 구매 완료할 수 있어요
-          </span>
+          <>
+            <span className="text-text-muted" aria-hidden>
+              ·
+            </span>
+            {/* 날짜 값(흰 글자)과 섞여 읽히지 않게 흐린 글자 · 앞 칸과 같은 「·」 구분(캡처 검토) */}
+            <span className="text-text-secondary" data-monthly-early>
+              미리 구매 완료할 수 있어요
+            </span>
+          </>
         )
       )}
       {mb.calendarUnchecked && <span className="text-caption text-warning keep-all">휴장일 확인 못 함 — 평일로만 셈</span>}

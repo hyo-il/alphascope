@@ -212,15 +212,16 @@ export default function AssetClassDialog({
                       <span className="min-w-0 truncate text-xs text-text-primary" title={r.name}>
                         {r.name}
                       </span>
+                      <span className="shrink-0 whitespace-nowrap text-caption text-text-secondary">
+                        {r.symbol ?? '—'}
+                        {r.exchange && <span className="ml-1 text-text-muted">{r.exchange}</span>}
+                      </span>
+                      {/* 코드 뒤 — 이름 바로 뒤에 두면 이 줄만 코드가 밀린다(캡처 검토) */}
                       {r.rows.length > 1 && (
                         <span className="shrink-0 whitespace-nowrap text-caption text-text-muted" data-class-row-count>
                           「티커」 {r.rows.length}줄
                         </span>
                       )}
-                      <span className="shrink-0 whitespace-nowrap text-caption text-text-secondary">
-                        {r.symbol ?? '—'}
-                        {r.exchange && <span className="ml-1 text-text-muted">{r.exchange}</span>}
-                      </span>
                     </div>
                     <div className="truncate text-caption text-text-muted" title={r.sections.join(' · ')}>
                       {r.sections.join(' · ')}
