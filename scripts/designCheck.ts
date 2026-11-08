@@ -483,6 +483,19 @@ function targets(): Target[] {
           await page.locator('#as-asset-monthly-buy').scrollIntoViewIfNeeded().catch(() => {});
           await page.waitForTimeout(200);
         }],
+        // v2.65.4 — 미리 구매 완료(「미리 구매 완료할 수 있어요」 + [구매 완료] · 확인 창 · 「완료 ○(미리)」)
+        ['이번달구매-미리완료가능', { early: 'can' }, async (page: Page) => {
+          await page.locator('#as-asset-monthly-buy').scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+        }],
+        ['이번달구매-미리완료확인창', { early: 'can' }, async (page: Page) => {
+          await page.locator('#as-asset-monthly-buy [data-purchase-done]').click().catch(() => {});
+          await page.waitForTimeout(300);
+        }],
+        ['이번달구매-미리완료함', { early: 'done' }, async (page: Page) => {
+          await page.locator('#as-asset-monthly-buy').scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+        }],
         ['구매일팝업', { purchaseDone: false }, async () => {}],
         ['구매일팝업-확인창', { purchaseDone: false }, async (page: Page) => {
           await page.locator('[data-purchase-dialog]').waitFor({ timeout: 3000 }).catch(() => {});

@@ -1311,7 +1311,8 @@ try {
     check('[111-5] 성공 → 200 · 기록 1줄(차례 11-27 · 누른 날 11-27) · 쓰기 1번', ok.status === 200 && okBody.cycleDay === '2026-11-27' && okBody.doneDay === '2026-11-27' && okBody.cells === 4 && purchaseCountForTest() === 1 && google.writes === 1);
     const again = await done();
     const againBody = (await again.json()) as { kind?: string; error?: string };
-    check('[111-5] 이미 완료한 차례 → 409 already-done 「이미 구매 완료를 눌렀습니다(2026-11-27)」 · 쓰기 늘지 않음 · 기록 1줄', again.status === 409 && againBody.kind === 'already-done' && againBody.error === '이미 구매 완료를 눌렀습니다(2026-11-27).' && google.writes === 1 && purchaseCountForTest() === 1);
+    // v2.65.4 — 이번 차례가 완료면 누를 차례는 다음 차례(7일 전부터)뿐 → 아직이면 409 not-yet(옛 already-done 에서 바뀜 · 다음 차례도 완료면 already-done 은 [117-2])
+    check('[111-5] [117-2] 이미 완료한 차례 → 409 not-yet 「다음 구매일 2026-12-24 7일 전부터 누를 수 있습니다.」 · 쓰기 늘지 않음 · 기록 1줄', again.status === 409 && againBody.kind === 'not-yet' && againBody.error === '다음 구매일 2026-12-24 7일 전부터 누를 수 있습니다.' && google.writes === 1 && purchaseCountForTest() === 1);
     const mb1 = await sumMb();
     check('[111-5] (안쪽 서버) 완료 뒤 summary — done · doneDay 11-27', mb1.done && mb1.doneDay === '2026-11-27');
     setPurchaseClockForTest(() => Date.parse('2026-12-24T03:00:00Z'), () => ({ isClosed: (d) => d === '2026-12-25', isChecked: () => true }));
@@ -1343,8 +1344,9 @@ try {
       purchaseStartDayStoredForTest() === '2026-11-07' && s1.startDay === '2026-11-07' && s1.cycleDay === '2026-10-30' && s1.skipped && !s1.done && s1.doneDay === null && s1.nextDay === '2026-11-27');
     const r1 = await done();
     const b1 = (await r1.json()) as { kind?: string; error?: string };
-    check('[112-1] 시작 전 차례 [구매 완료] → 409 before-start 「…쓰기 전 구매 차례라 기록하지 않습니다 — 다음 구매일 2026-11-27」 · 시트 쓰기 0번 · 기록 0줄',
-      r1.status === 409 && b1.kind === 'before-start' && b1.error === '이 기능을 쓰기 전 구매 차례라 기록하지 않습니다 — 다음 구매일 2026-11-27' && google.writes === 0 && writesSeen.length === 0 && purchaseCountForTest() === 0);
+    // v2.65.4 — 시작 전 차례는 그대로 기록하지 않고, 다음 차례 7일 전이 아직이라 409 not-yet(옛 before-start 에서 바뀜 — 7일 전부터는 [117-2])
+    check('[112-1] [117-2] 시작 전 차례 [구매 완료] → 409 not-yet 「다음 구매일 2026-11-27 7일 전부터 누를 수 있습니다.」 · 시트 쓰기 0번 · 기록 0줄',
+      r1.status === 409 && b1.kind === 'not-yet' && b1.error === '다음 구매일 2026-11-27 7일 전부터 누를 수 있습니다.' && google.writes === 0 && writesSeen.length === 0 && purchaseCountForTest() === 0);
 
     // 2. 같은 DB · 11-27
     at('2026-11-27');
@@ -1382,6 +1384,81 @@ try {
     at('2026-11-27');
     const s3b = await sumMb();
     check('[112-3] 그 뒤 차례(11-27)는 지금처럼 묻는다(시작 전 아님 · 미완료)', s3b.cycleDay === '2026-11-27' && !s3b.skipped && !s3b.done);
+    setPurchaseClockForTest(null);
+    clearPurchasesForTest();
+    fresh();
+  }
+
+  {
+    // ── 117차(v2.65.4) [117-2] 미리 구매 완료 — 가짜 시계 · 가짜 달력(12-25 휴장 → 12월 구매일 12-24) · 가짜 구글 ──
+    const cal = () => ({ isClosed: (d: string) => d === '2026-12-25', isChecked: () => true });
+    const at = (day: string) => setPurchaseClockForTest(() => Date.parse(`${day}T03:00:00Z`), cal);
+    const done = () => fetch(`${base}/api/asset/purchase-done`, { method: 'POST', headers: { ...ck, 'content-type': 'application/json' } });
+    const sumMb = async () => ((await (await fetch(`${base}/api/asset/summary?pension=0`, { headers: ck })).json()) as AssetSummary).monthlyBuy;
+    const kindMsg = async (r: Response) => (await r.json()) as { kind?: string; error?: string; cycleDay?: string; doneDay?: string };
+    const doneAtOf = (cycle: string) => (getDb().prepare(`SELECT done_at FROM asset_purchase WHERE cycle_date = ?`).get(cycle) as { done_at: string } | undefined)?.done_at ?? null;
+
+    // 1. 이번 차례(11-27) 완료 · 구매일 8일 전(12-16) → 409 not-yet · 7일 전(12-17) → 됨
+    fresh();
+    clearPurchasesForTest();
+    recordPurchase('2026-11-27', '2026-11-27');
+    at('2026-12-16');
+    const m8 = await sumMb();
+    const r8 = await done();
+    const b8 = await kindMsg(r8);
+    check('[117-2] 구매일(12-24) 8일 전(12-16) → summary earlyCycle 없음 · earlyFrom 12-17 · POST 409 not-yet 「다음 구매일 2026-12-24 7일 전부터 누를 수 있습니다.」 · 쓰기 0 · 기록 그대로',
+      m8.cycleDay === '2026-11-27' && m8.done && m8.nextDay === '2026-12-24' && m8.earlyCycle === null && m8.earlyFrom === '2026-12-17' && m8.nextDoneDay === null &&
+        r8.status === 409 && b8.kind === 'not-yet' && b8.error === '다음 구매일 2026-12-24 7일 전부터 누를 수 있습니다.' && google.writes === 0 && purchaseCountForTest() === 1);
+    at('2026-12-17');
+    const m7 = await sumMb();
+    const r7 = await done();
+    const b7 = await kindMsg(r7);
+    const written7 = writesSeen.map((w) => String(w.value));
+    check('[117-2] 7일 전(12-17) → summary earlyCycle 12-24 · sheetDates 그 차례의 달 2026.12 · POST 200 차례 12-24 · 누른 날 12-17 · 쓰기 1번',
+      m7.earlyCycle === '2026-12-24' && JSON.stringify(m7.sheetDates) === JSON.stringify(['2026.12']) && r7.status === 200 && b7.cycleDay === '2026-12-24' && b7.doneDay === '2026-12-17' && google.writes === 1, JSON.stringify(m7.sheetDates));
+    check('[117-2] 시트에는 그 차례의 달 2026.12(누른 날의 달이 아님 — 112차 규칙 그대로) · asset_purchase 1줄 더(차례 12-24 · done_at 12-17)',
+      written7.length > 0 && written7.every((v) => v.includes('( 2026.12 )')) && purchaseCountForTest() === 2 && doneAtOf('2026-12-24') === '2026-12-17', written7.length.toString());
+    const mAfter = await sumMb();
+    const rAgain = await done();
+    const bAgain = await kindMsg(rAgain);
+    check('[117-2] 미리 완료한 뒤 summary nextDoneDay 12-17 · earlyCycle 없음 · 다시 누르면 409 already-done 「이미 구매 완료를 눌렀습니다(2026-12-17).」 · 쓰기 늘지 않음',
+      mAfter.nextDoneDay === '2026-12-17' && mAfter.earlyCycle === null && rAgain.status === 409 && bAgain.kind === 'already-done' && bAgain.error === '이미 구매 완료를 눌렀습니다(2026-12-17).' && google.writes === 1);
+    at('2026-12-24');
+    const mDay = await sumMb();
+    check('[117-2] 구매일 당일(12-24) → 이번 차례 12-24 · 이미 완료(done · doneDay 12-17) → 팝업 조건(!done && !skipped) 거짓 = 팝업 안 뜸',
+      mDay.cycleDay === '2026-12-24' && mDay.done && mDay.doneDay === '2026-12-17' && !(!mDay.done && !mDay.skipped));
+
+    // 2. 지금 차례가 미완료면 미리 완료 없음 — 늦은 차례가 대상
+    fresh();
+    clearPurchasesForTest();
+    at('2026-11-27');
+    await sumMb(); // 시작한 날 11-27
+    at('2026-12-20');
+    const mLate = await sumMb();
+    const rLate = await done();
+    const bLate = await kindMsg(rLate);
+    const mLate2 = await sumMb();
+    check('[117-2] 지금 차례(11-27) 미완료 · 다음 구매일 4일 전(12-20) → earlyCycle 없음 · POST 대상 = 늦은 차례 11-27(시트에 2026.11) · 그 뒤에야 earlyCycle 12-24',
+      mLate.cycleDay === '2026-11-27' && !mLate.done && mLate.earlyCycle === null && JSON.stringify(mLate.sheetDates) === JSON.stringify(['2026.11']) &&
+        rLate.status === 200 && bLate.cycleDay === '2026-11-27' && writesSeen.every((w) => String(w.value).includes('( 2026.11 )')) && mLate2.done && mLate2.earlyCycle === '2026-12-24');
+
+    // 3. 시작 전 차례(skipped) 다음 차례도 7일 전부터
+    fresh();
+    clearPurchasesForTest();
+    at('2026-11-07'); // 시작한 날 11-07 · 차례 10-30(시작 전) · 다음 11-27 · 7일 전 11-20
+    const mS0 = await sumMb();
+    at('2026-11-19');
+    const rS1 = await done();
+    const bS1 = await kindMsg(rS1);
+    at('2026-11-20');
+    const mS2 = await sumMb();
+    const rS2 = await done();
+    const bS2 = await kindMsg(rS2);
+    at('2026-11-27');
+    const mS3 = await sumMb();
+    check('[117-2] 시작 전 차례(10-30) — 다음 차례 11-27 의 8일 전(11-19) 409 not-yet · 7일 전(11-20) earlyCycle 11-27 · POST 200 · 구매일 당일 이미 완료(팝업 안 뜸)',
+      mS0.skipped && mS0.earlyFrom === '2026-11-20' && mS0.earlyCycle === null && rS1.status === 409 && bS1.kind === 'not-yet' &&
+        mS2.skipped && mS2.earlyCycle === '2026-11-27' && rS2.status === 200 && bS2.cycleDay === '2026-11-27' && mS3.cycleDay === '2026-11-27' && mS3.done && !mS3.skipped);
     setPurchaseClockForTest(null);
     clearPurchasesForTest();
     fresh();
@@ -1479,8 +1556,13 @@ check('[111-10] 구매 완료 · 이번 달 구매 코드에 console 출력 없�
 const buySrc = fs.readFileSync(path.join(root, 'src/components/asset/AssetMonthlyBuy.tsx'), 'utf8');
 check('[112-1] 화면 — 시작 전 차례면 구매일 팝업 없음(AssetDashboard 두 곳 !skipped) · [구매 완료] 버튼 숨김 · 「시작 전 차례 — 묻지 않음」',
   /if \(!mb\.done && !mb\.skipped\) setPurchasePopup\(true\)/.test(dashSrc) && /purchasePopup && summary && !summary\.monthlyBuy\.done && !summary\.monthlyBuy\.skipped &&/.test(dashSrc) &&
-  /mb\.done \|\| mb\.skipped \? undefined :/.test(buySrc) && buySrc.includes('시작 전 차례 — 묻지 않음'));
-check('[112-5] 확인 창 문구 — 서버가 준 sheetDates 로 만들고 「오늘(날짜)로」 글자 0', /askPurchaseDone\(summary\.monthlyBuy\.sheetDates\)/.test(dashSrc) && /sheetDateText\(sheetDates\)/.test(dashSrc) && !/날짜를 오늘/.test(dashSrc));
+  /!canPressDone\(mb\) \? undefined :/.test(buySrc) && /export const canPressDone = \(mb: MonthlyBuy\) => \(!mb\.done && !mb\.skipped\) \|\| isEarlyDone\(mb\);/.test(buySrc) && buySrc.includes('시작 전 차례 — 묻지 않음'));
+check('[112-5] [117-2] 확인 창 문구 — 서버가 준 sheetDates 로 만들고(미리 완료는 「다음 구매 차례(○)를 미리 완료로 기록하고」) 「오늘(날짜)로」 글자 0',
+  (dashSrc.match(/askPurchaseDone\(summary\.monthlyBuy\)/g) ?? []).length === 2 && /sheetDateText\(mb\.sheetDates\)/.test(dashSrc) && /다음 구매 차례\(\$\{dayText\(early\)\}\)를 미리 완료로 기록하고, 시트의 계좌 이름 날짜를 \$\{sheetDateText\(mb\.sheetDates, '다음'\)\} 바꿉니다/.test(dashSrc) && !/날짜를 오늘/.test(dashSrc));
+// [117-2] 화면 — 미리 완료할 수 있으면 「미리 구매 완료할 수 있어요」 + [구매 완료] · 미리 완료한 뒤 「완료 ○(미리)」 · 팝업 조건은 그대로(이번 차례 미완료 · 시작 전 아님)
+check('[117-2] 화면 — 「다음 구매일 ○ · 미리 구매 완료할 수 있어요」(isEarlyDone) · 「완료 {nextDoneDay}(미리)」 · isEarlyDone = (done || skipped) && earlyCycle · 팝업 조건 그대로',
+  /export const isEarlyDone = \(mb: MonthlyBuy\) => \(mb\.done \|\| mb\.skipped\) && mb\.earlyCycle != null;/.test(buySrc) && /isEarlyDone\(mb\) && \([\s\S]{0,120}미리 구매 완료할 수 있어요/.test(buySrc) &&
+    /완료 \{mb\.nextDoneDay\}\(미리\)/.test(buySrc) && /if \(!mb\.done && !mb\.skipped\) setPurchasePopup\(true\)/.test(dashSrc) && /purchasePopup && summary && !summary\.monthlyBuy\.done && !summary\.monthlyBuy\.skipped &&/.test(dashSrc));
 // [112-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 코드 바뀐 파일 0(111차 끝 1117cba 와 지금 작업 트리)
 const changed112 = spawnSync('git', ['diff', '--name-only', '1117cba', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'python'], { cwd: root, encoding: 'utf8' });
 check('[112-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 코드 바뀐 파일 0(1117cba 와 지금 작업 트리)', changed112.status === 0 && changed112.stdout.trim() === '', changed112.stdout.trim() || changed112.stderr.trim());
@@ -1565,10 +1647,13 @@ const OPTIONS_HAS_MIXED = (src: string) => /value: MIXED|'mixed'/.test(src);
   // [116-7] 서버 쓰기 함수 · 주소 바뀐 줄 0(04a202d 와 지금 작업 트리)
   const fnAt = (src: string) => { const i = src.indexOf('export async function writeAssetClasses('); return i < 0 ? '' : src.slice(i, src.indexOf('\n}\n', i)); };
   const oldSheet = spawnSync('git', ['show', '04a202d:server/asset/sheet.ts'], { cwd: root, encoding: 'utf8' }).stdout;
-  const routesDiff = spawnSync('git', ['diff', '--name-only', '04a202d', '--', 'server/asset/routes.ts', 'server/asset/google.ts'], { cwd: root, encoding: 'utf8' });
+  // v2.65.4 — routes.ts 는 117차에 바뀐다(구매 완료 대상 · touch · 잠금 시간) → 파일 전체 대신 /api/asset/class 라우트 글자만 견준다 · google.ts 는 파일 그대로
+  const routesDiff = spawnSync('git', ['diff', '--name-only', '04a202d', '--', 'server/asset/google.ts'], { cwd: root, encoding: 'utf8' });
   const oldRoutes = spawnSync('git', ['show', '04a202d:server/asset/routes.ts'], { cwd: root, encoding: 'utf8' }).stdout;
-  check('[116-7] writeAssetClasses 본문 · /api/asset/class 라우트(routes.ts · google.ts 파일) 바뀐 줄 0(04a202d 와 지금)',
-    fnAt(oldSheet).length > 500 && fnAt(oldSheet) === fnBody('writeAssetClasses') && routesDiff.status === 0 && routesDiff.stdout.trim() === '' && /assetRouter\.put\('\/api\/asset\/class'/.test(oldRoutes), routesDiff.stdout.trim());
+  const classRoute = (src: string) => { const i = src.indexOf("assetRouter.put('/api/asset/class'"); return i < 0 ? '' : src.slice(i, src.indexOf('\n});\n', i)); };
+  const nowRoutes = fs.readFileSync(path.join(root, 'server/asset/routes.ts'), 'utf8');
+  check('[116-7] [117-7] writeAssetClasses 본문 · /api/asset/class 라우트 글자 · google.ts 파일 바뀐 줄 0(04a202d 와 지금)',
+    fnAt(oldSheet).length > 500 && fnAt(oldSheet) === fnBody('writeAssetClasses') && routesDiff.status === 0 && routesDiff.stdout.trim() === '' && classRoute(oldRoutes).length > 50 && classRoute(oldRoutes) === classRoute(nowRoutes), routesDiff.stdout.trim());
 }
 // [116-9] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(115차 끝 04a202d 와 지금 작업 트리)
 const changed116 = spawnSync('git', ['diff', '--name-only', '04a202d', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python'], { cwd: root, encoding: 'utf8' });

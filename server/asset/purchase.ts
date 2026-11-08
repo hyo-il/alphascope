@@ -8,7 +8,10 @@
  * - 살 금액(`computeMonthlyBuy` — 순수 함수): 월급 × 목표 %(현금 · 채권 · 금 · 주식) · 주식 = 코어 + 위성. 원 단위 반올림 ·
  *   목표 합이 100 이면 반올림 차이를 주식(코어)에 더해 합 = 월급 · 코어 + 위성 합이 100 이면 코어 = 주식 − 위성.
  * - 구매 완료: `routes.ts` `POST /api/asset/purchase-done` → `sheet.ts` `writeAccountDates`(시트 계좌 이름 날짜 = **구매 차례의 날짜** — v2.64.1) 성공 뒤에만 `store.ts` `asset_purchase` 에 기록.
- * - 시작 전 차례(v2.64.1): 이 기능을 쓰기 시작한 날(`purchaseStartDay`)보다 앞선 차례는 묻지 않는다(`skipped` — 팝업 · [구매 완료] 없음 · POST 409).
+ * - 시작 전 차례(v2.64.1): 이 기능을 쓰기 시작한 날(`purchaseStartDay`)보다 앞선 차례는 묻지 않는다(`skipped` — 팝업 · [구매 완료] 없음).
+ * - 미리 구매 완료(v2.65.4 · 사용자 결정 2026-11-08): 지금 차례가 완료 · 시작 전이고 오늘(한국 날짜) ≥ 다음 구매일 − 7일(달력 날짜)이면
+ *   다음 차례(`earlyCycle`)를 미리 완료할 수 있다. 지금 차례가 미완료면 미리 완료는 없다(늦은 차례를 먼저). 미리 완료한 차례는 구매일이 와도
+ *   이미 완료라 팝업이 뜨지 않는다. [구매 완료] 대상은 `purchaseTargetOf` 한 곳 — 없으면 409 `not-yet`(다음 차례도 이미 완료면 `already-done`).
  * ⚠️ 월급 · 금액을 로그에 찍지 않는다.
  */
 import { marketDate } from '../../src/utils/marketDate';
@@ -155,18 +158,40 @@ export function setPurchaseClockForTest(now: (() => number) | null, cal: (() => 
   calendarOf = cal ?? krPurchaseCalendar;
 }
 
-/** 지금 구매 차례(오늘 · 이번 차례 · 다음 구매일 · 완료 여부 · 시작한 날 · 시작 전 차례인가) */
-export function currentCycle(): Pick<MonthlyBuy, 'today' | 'cycleDay' | 'nextDay' | 'done' | 'doneDay' | 'calendarUnchecked' | 'startDay' | 'skipped'> {
+/** 미리 완료할 수 있는 첫날 — 다음 구매일의 7일 전(달력 날짜) */
+export const EARLY_DAYS = 7;
+export const earlyFromOf = (nextDay: string) => iso(Date.parse(`${nextDay}T00:00:00Z`) - EARLY_DAYS * DAY_MS);
+
+type Cycle = Pick<MonthlyBuy, 'today' | 'cycleDay' | 'nextDay' | 'done' | 'doneDay' | 'calendarUnchecked' | 'startDay' | 'skipped' | 'earlyFrom' | 'earlyCycle' | 'nextDoneDay'>;
+
+/** 지금 구매 차례(오늘 · 이번 차례 · 다음 구매일 · 완료 여부 · 시작한 날 · 시작 전 차례인가 · 미리 완료할 수 있는 차례 · 다음 차례를 미리 완료한 날) */
+export function currentCycle(): Cycle {
   const today = todayKst(clock());
   const c = purchaseCycle(today, calendarOf());
   const startDay = purchaseStartDay(today);
   const skipped = c.cycleDay < startDay;
   const doneDay = skipped ? null : purchaseDoneDay(c.cycleDay);
-  return { today, ...c, done: doneDay != null, doneDay, startDay, skipped };
+  const nextDoneDay = purchaseDoneDay(c.nextDay);
+  const earlyFrom = earlyFromOf(c.nextDay);
+  // 지금 차례가 미완료면 미리 완료는 없다(늦은 차례를 먼저 끝낸다)
+  const earlyCycle = (skipped || doneDay != null) && nextDoneDay == null && today >= earlyFrom ? c.nextDay : null;
+  return { today, ...c, done: doneDay != null, doneDay, startDay, skipped, earlyFrom, earlyCycle, nextDoneDay };
 }
 
-/** `GET /api/asset/summary` 의 `monthlyBuy` — `sheetDates` 는 [구매 완료] 때 시트에 쓸 날짜 글자(`sheet.ts` `accountDateTexts`) */
+/**
+ * [구매 완료] 대상 차례 — 미완료인 지금 차례 · 없으면 미리 완료할 수 있는 다음 차례(`earlyCycle`).
+ * 둘 다 없으면: 다음 차례도 이미 (미리) 완료 → `already-done` · 아직 7일 전이 아님 → `not-yet`.
+ */
+export function purchaseTargetOf(c: Cycle): { ok: true; cycleDay: string; early: boolean } | { ok: false; kind: 'already-done' | 'not-yet'; message: string } {
+  if (!c.skipped && !c.done) return { ok: true, cycleDay: c.cycleDay, early: false };
+  if (c.earlyCycle) return { ok: true, cycleDay: c.earlyCycle, early: true };
+  if (c.nextDoneDay) return { ok: false, kind: 'already-done', message: `이미 구매 완료를 눌렀습니다(${c.nextDoneDay}).` };
+  return { ok: false, kind: 'not-yet', message: `다음 구매일 ${c.nextDay} ${EARLY_DAYS}일 전부터 누를 수 있습니다.` };
+}
+
+/** `GET /api/asset/summary` 의 `monthlyBuy` — `sheetDates` 는 [구매 완료] 때 시트에 쓸 날짜 글자(`sheet.ts` `accountDateTexts` — 대상 차례 기준 · 대상이 없으면 이번 차례) */
 export function monthlyBuyOf(salary: number | null, target: AssetTargetRatio, sheetDates: (day: string) => string[]): MonthlyBuy {
   const cycle = currentCycle();
-  return { ...computeMonthlyBuy(salary, target), ...cycle, sheetDates: sheetDates(cycle.cycleDay) };
+  const t = purchaseTargetOf(cycle);
+  return { ...computeMonthlyBuy(salary, target), ...cycle, sheetDates: sheetDates(t.ok ? t.cycleDay : cycle.cycleDay) };
 }

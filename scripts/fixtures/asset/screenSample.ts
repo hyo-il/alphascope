@@ -69,7 +69,7 @@ export const assetSheetFailureSample: AssetSheetFailure = {
  * 총 자산 요약(v2.62.0) 가짜 응답 — 만든 값. `none` = 미지정 금액 · 가격 못 받은 줄을 넣는다(긴 금액 · 경고 줄 넘침을 잰다).
  */
 export function assetSummarySample(
-  opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number; writeEnabled?: boolean; purchaseDone?: boolean; calendarUnchecked?: boolean; skipped?: boolean; salary?: number | null; price?: Parameters<typeof priceSheetSample>[0] } = {},
+  opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number; writeEnabled?: boolean; purchaseDone?: boolean; calendarUnchecked?: boolean; skipped?: boolean; early?: 'can' | 'done'; salary?: number | null; price?: Parameters<typeof priceSheetSample>[0] } = {},
 ): AssetSummary {
   const pension = opts.pension ?? false;
   const amounts: [AssetGroupKey, string, number][] = [
@@ -126,12 +126,15 @@ export function assetSummarySample(
     monthlyBuy: {
       ...computeMonthlyBuy(opts.salary === undefined ? 123456789 : opts.salary, target),
       // 시작 전 차례(v2.64.1 · `skipped`) — 오늘 11-07 · 차례 10-30 · 시작한 날 11-07
+      // 미리 구매 완료(v2.65.4 · `early`) — 오늘 12-20 · 이번 차례 11-27 완료 · 다음 12-24(7일 전 12-17부터) · 'can' 누를 수 있음 / 'done' 12-20 에 미리 완료
       ...(opts.skipped
-        ? { today: '2026-11-07', cycleDay: '2026-10-30', nextDay: '2026-11-27', done: false, doneDay: null, startDay: '2026-11-07', skipped: true }
-        : { today: '2026-11-27', cycleDay: '2026-11-27', nextDay: '2026-12-24', done: opts.purchaseDone ?? true, doneDay: opts.purchaseDone ?? true ? '2026-11-27' : null, startDay: '2026-11-07', skipped: false }),
+        ? { today: '2026-11-07', cycleDay: '2026-10-30', nextDay: '2026-11-27', done: false, doneDay: null, startDay: '2026-11-07', skipped: true, earlyFrom: '2026-11-20', earlyCycle: null, nextDoneDay: null }
+        : opts.early
+          ? { today: '2026-12-20', cycleDay: '2026-11-27', nextDay: '2026-12-24', done: true, doneDay: '2026-11-27', startDay: '2026-11-07', skipped: false, earlyFrom: '2026-12-17', earlyCycle: opts.early === 'can' ? '2026-12-24' : null, nextDoneDay: opts.early === 'done' ? '2026-12-20' : null }
+          : { today: '2026-11-27', cycleDay: '2026-11-27', nextDay: '2026-12-24', done: opts.purchaseDone ?? true, doneDay: opts.purchaseDone ?? true ? '2026-11-27' : null, startDay: '2026-11-07', skipped: false, earlyFrom: '2026-12-17', earlyCycle: null, nextDoneDay: null }),
       calendarUnchecked: opts.calendarUnchecked ?? false,
-      // 시트에 쓸 날짜 글자 — 위 가짜 계좌 이름(「( 2026.07 )」 모양)에 차례 날짜를 넣은 값
-      sheetDates: [opts.skipped ? '2026.10' : '2026.11'],
+      // 시트에 쓸 날짜 글자 — 위 가짜 계좌 이름(「( 2026.07 )」 모양)에 누를 차례 날짜를 넣은 값
+      sheetDates: [opts.skipped ? '2026.10' : opts.early ? '2026.12' : '2026.11'],
     },
     priceSheet: priceSheetSample(opts.price ?? 'google'),
   };

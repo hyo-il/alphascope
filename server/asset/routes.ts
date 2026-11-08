@@ -10,7 +10,7 @@ import { assetLimiter, isAssetPasswordSet, isUnlocked, lockSession, unlockSessio
 import { isAssetSyncEnabled, isSheetConfigured } from './config';
 import { AssetSheetError } from './google';
 import { readAssetSheet, writeAccountDates, writeAssetClasses, writeTargetRatio } from './sheet';
-import { currentCycle } from './purchase';
+import { currentCycle, purchaseTargetOf } from './purchase';
 import { assetSummary } from './summary';
 import { checkSheetSwitchSafe, sheetSwitchedAt } from './sheetSwitch';
 import { convertSheetPrices, restoreSheetPrices } from './priceSheet';
@@ -115,9 +115,11 @@ assetRouter.put('/api/asset/target-ratio', async (req, res) => {
 });
 
 /**
- * 「구매 완료」(v2.64.0) — 이번 구매 차례(오늘 기준 가장 최근에 지난 구매일)를 완료로 기록하고, 시트 「주식 투자 정리」 계좌 이름의
- * 「( 날짜 )」 를 **그 차례의 날짜**(`YYYY.MM` 모양이면 차례의 달 — 늦게 눌러도 · v2.64.1)로 바꾼다. 되돌리기 없음(날짜는 사용자가 시트에서 직접 고친다). 순서:
- * ① 스위치 꺼짐 → 503 `disabled` ② 시작 전 차례 → 409 `before-start` ③ 이번 차례가 이미 완료 → 409 `already-done` ④ 시트 쓰기(`writeAccountDates`)
+ * 「구매 완료」(v2.64.0 · v2.65.4 미리 완료) — 누를 차례(`purchaseTargetOf` — 미완료인 이번 차례 · 없으면 구매일 7일 전부터 다음 차례)를 완료로 기록하고,
+ * 시트 「주식 투자 정리」 계좌 이름의 「( 날짜 )」 를 **그 차례의 날짜**(`YYYY.MM` 모양이면 차례의 달 — 늦게 · 미리 눌러도 · v2.64.1)로 바꾼다.
+ * 되돌리기 없음(날짜는 사용자가 시트에서 직접 고친다). 순서:
+ * ① 스위치 꺼짐 → 503 `disabled` ② 누를 차례 없음 → 409 `not-yet`(다음 구매일 7일 전이 아직) · `already-done`(다음 차례도 이미 완료)
+ * ③ 같은 서버에서 저장 중 → 409 `already-done` ④ 시트 쓰기(`writeAccountDates`)
  * ⑤ **시트 쓰기가 성공했을 때만** `asset_purchase` 에 한 줄(`done_at` = 누른 날). 같은 서버에서 동시에 두 번 누르면 뒤의 것은 409(쓰기 한 번).
  */
 let purchaseBusy = false;
@@ -125,13 +127,14 @@ assetRouter.post('/api/asset/purchase-done', async (_req, res) => {
   try {
     if (!isAssetSyncEnabled()) throw new AssetSheetError('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다(ASSET_SYNC_ENABLED=false).');
     const before = currentCycle();
-    if (before.skipped) throw new AssetSheetError('before-start', `이 기능을 쓰기 전 구매 차례라 기록하지 않습니다 — 다음 구매일 ${before.nextDay}`);
-    if (before.done || purchaseBusy) throw new AssetSheetError('already-done', `이미 구매 완료를 눌렀습니다(${before.doneDay ?? '저장 중'}).`);
+    const target = purchaseTargetOf(before);
+    if (!target.ok) throw new AssetSheetError(target.kind, target.message);
+    if (purchaseBusy) throw new AssetSheetError('already-done', '이미 구매 완료를 눌렀습니다(저장 중).');
     purchaseBusy = true;
     try {
-      const { cells } = await writeAccountDates(before.cycleDay);
-      recordPurchase(before.cycleDay, before.today);
-      const body: PurchaseDoneResult = { cycleDay: before.cycleDay, doneDay: before.today, cells };
+      const { cells } = await writeAccountDates(target.cycleDay);
+      recordPurchase(target.cycleDay, before.today);
+      const body: PurchaseDoneResult = { cycleDay: target.cycleDay, doneDay: before.today, cells };
       res.json(body);
     } finally {
       purchaseBusy = false;
@@ -190,8 +193,8 @@ assetRouter.put('/api/asset/settings', async (req, res) => {
   }
 });
 
-/** 이유 종류 → HTTP — 이 서버 설정(연결 정보 · 열쇠 · 스위치)은 503, 요청이 틀림은 400, 수식 칸 · 날짜 없음 · 이미 구매 완료 · 시작 전 차례 · 시트 가격(도는 중 · 바꿀 줄 없음 · 백업 없음)은 409, 구글 쪽은 502 */
-const STATUS: Partial<Record<AssetSheetErrorKind, number>> = { 'not-configured': 503, 'key-file': 503, disabled: 503, 'not-editable': 400, 'formula-cell': 409, 'no-date': 409, 'already-done': 409, 'before-start': 409, busy: 409, 'no-rows': 409, 'no-backup': 409 };
+/** 이유 종류 → HTTP — 이 서버 설정(연결 정보 · 열쇠 · 스위치)은 503, 요청이 틀림은 400, 수식 칸 · 날짜 없음 · 이미 구매 완료 · 누를 차례 없음 · 시트 가격(도는 중 · 바꿀 줄 없음 · 백업 없음)은 409, 구글 쪽은 502 */
+const STATUS: Partial<Record<AssetSheetErrorKind, number>> = { 'not-configured': 503, 'key-file': 503, disabled: 503, 'not-editable': 400, 'formula-cell': 409, 'no-date': 409, 'already-done': 409, 'not-yet': 409, busy: 409, 'no-rows': 409, 'no-backup': 409 };
 
 /** 실패 응답 — 쉬운 말 + 이유 종류. ⚠️ 로그에는 이유 종류만(시트 값 · 응답 본문 · 경로를 찍지 않는다) */
 export function sendSheetError(res: Response, e: unknown, action: string): void {

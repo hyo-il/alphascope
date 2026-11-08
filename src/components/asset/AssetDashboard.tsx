@@ -6,7 +6,7 @@ import { Skeleton, SkeletonTable } from '../common/SkeletonLoader';
 import { usePolling } from '../../hooks/usePolling';
 import { changeColor, formatNumber, formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
-import type { AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio } from '../../types/asset';
+import type { AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio, MonthlyBuy } from '../../types/asset';
 import { modal } from '../../store/uiStore';
 import AssetDonut from './AssetDonut';
 import { groupDot } from './assetColors';
@@ -16,7 +16,7 @@ import AssetSettingsDialog from './AssetSettingsDialog';
 import AssetClassDialog from './AssetClassDialog';
 import type { ClassSendResult, ClassValue } from '../../utils/assetClassPlan';
 import AssetRebalanceView from './AssetRebalanceView';
-import { MonthlyBuySection, PurchaseDayDialog, sheetDateText } from './AssetMonthlyBuy';
+import { MonthlyBuySection, PurchaseDayDialog, dayText, isEarlyDone, sheetDateText } from './AssetMonthlyBuy';
 
 /**
  * 계좌 > 자산 관리 — 풀린 화면(v2.62.0 · 자산 관리 3단계 · v2.62.2 탭 · v2.63.0 비율 조정).
@@ -244,12 +244,15 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
     }
   };
 
-  /** [구매 완료] — 확인 창(저장 중 「처리 중…」) → 서버 → 성공이면 팝업 닫고 다시 받기 · 실패면 이유 한 줄 */
-  const askPurchaseDone = (sheetDates: string[]) => {
+  /** [구매 완료] — 확인 창(저장 중 「처리 중…」) → 서버 → 성공이면 팝업 닫고 다시 받기 · 실패면 이유 한 줄. 미리 완료(v2.65.4)는 다음 차례를 말한다 */
+  const askPurchaseDone = (mb: MonthlyBuy) => {
+    const early = isEarlyDone(mb) ? mb.earlyCycle : null;
     modal.confirm({
       title: '구매 완료',
-      // 날짜 글자는 서버가 실제로 쓸 값(`monthlyBuy.sheetDates` — v2.64.1)
-      message: `구매 완료로 기록하고, 시트의 계좌 이름 날짜를 ${sheetDateText(sheetDates)} 바꿉니다. 되돌릴 수 없습니다.`,
+      // 날짜 글자는 서버가 실제로 쓸 값(`monthlyBuy.sheetDates` — v2.64.1 · 누를 차례 기준)
+      message: early
+        ? `다음 구매 차례(${dayText(early)})를 미리 완료로 기록하고, 시트의 계좌 이름 날짜를 ${sheetDateText(mb.sheetDates, '다음')} 바꿉니다. 되돌릴 수 없습니다.`
+        : `구매 완료로 기록하고, 시트의 계좌 이름 날짜를 ${sheetDateText(mb.sheetDates)} 바꿉니다. 되돌릴 수 없습니다.`,
       confirmText: '구매 완료',
       onConfirm: async () => {
         setPurchaseError(null);
@@ -327,7 +330,7 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
         {tab === 'rebalance' && summary && (
           <>
             <AssetRebalanceView summary={summary} onEditTarget={() => setSettingsOpen('targetRatio')} />
-            <MonthlyBuySection mb={summary.monthlyBuy} writeEnabled={summary.writeEnabled} error={purchaseError} onDone={() => askPurchaseDone(summary.monthlyBuy.sheetDates)} />
+            <MonthlyBuySection mb={summary.monthlyBuy} writeEnabled={summary.writeEnabled} error={purchaseError} onDone={() => askPurchaseDone(summary.monthlyBuy)} />
           </>
         )}
         {/* 자산 현황 탭 — 요약 · 계좌 카드 · 자산 분류 고르기 */}
@@ -345,7 +348,7 @@ export default function AssetDashboard({ onLock, onLocked }: { onLock: () => voi
           writeEnabled={summary.writeEnabled}
           error={purchaseError}
           onLater={() => setPurchasePopup(false)}
-          onDone={() => askPurchaseDone(summary.monthlyBuy.sheetDates)}
+          onDone={() => askPurchaseDone(summary.monthlyBuy)}
         />
       )}
       {classOpen && (

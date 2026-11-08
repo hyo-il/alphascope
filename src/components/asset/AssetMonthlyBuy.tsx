@@ -11,6 +11,8 @@ import type { MonthlyBuy } from '../../types/asset';
  * - 금액 · 구매일 · 완료 여부는 서버 `monthlyBuy`(summary 응답) 그대로 — 화면에서 다시 계산하지 않는다.
  * - [구매 완료] 는 `AssetDashboard` 가 확인 창(`modal.confirm`)을 띄우고 서버에 보낸다(시트 계좌 이름 날짜를 바꿈 · 되돌리기 없음).
  * - 시작 전 차례(`mb.skipped` — v2.64.1): 이 기능을 쓰기 시작한 날보다 앞선 차례는 묻지 않는다 — [구매 완료] 를 숨기고 「시작 전 차례 — 묻지 않음」 만.
+ * - 미리 구매 완료(v2.65.4): 다음 구매일 7일 전부터(`mb.earlyCycle`) 「다음 구매일 ○ · 미리 구매 완료할 수 있어요」 + [구매 완료] ·
+ *   미리 완료한 뒤 「다음 구매일 ○ · 완료 ○(미리)」. 팝업은 그대로(구매일 당일부터 · 이번 차례 미완료일 때만 — 미리 완료한 차례는 이미 완료).
  * ⚠️ 금액은 콘솔 · 로컬 저장소에 남기지 않는다.
  */
 
@@ -20,14 +22,19 @@ export const dayText = (day: string) => `${day}(${WEEKDAY[new Date(`${day}T00:00
 
 /**
  * 확인 창에 넣을 「시트에 쓸 날짜」 — 서버가 준 글자(`mb.sheetDates`) 그대로. `2026.11` 이면 「2026.11(이번 구매 차례의 달)로」,
- * 일이 있으면 「…(이번 구매 차례의 날짜)로」. 단어 이음표(U+2060)로 날짜 · 괄호 · 「로」 사이에서 줄이 꺾이지 않게.
+ * 일이 있으면 「…(이번 구매 차례의 날짜)로」(미리 완료면 「다음 구매 차례」). 단어 이음표(U+2060)로 날짜 · 괄호 · 「로」 사이에서 줄이 꺾이지 않게.
  */
-export function sheetDateText(dates: string[]): string {
-  if (dates.length === 0) return '이번 구매 차례의 날짜로';
+export function sheetDateText(dates: string[], which: '이번' | '다음' = '이번'): string {
+  if (dates.length === 0) return `${which} 구매 차례의 날짜로`;
   const monthOnly = dates.every((d) => /^\d{4}[.\-/]\d{1,2}$/.test(d));
   const joined = dates.map((d) => d.replace(/([.\-/])/g, '$1\u2060')).join(' · ');
-  return `${joined}\u2060(이번 구매 차례의 ${monthOnly ? '달' : '날짜'})\u2060로`;
+  return `${joined}\u2060(${which} 구매 차례의 ${monthOnly ? '달' : '날짜'})\u2060로`;
 }
+
+/** 지금 [구매 완료] 를 누르면 다음 차례를 미리 완료하나(이번 차례가 완료 · 시작 전이고 7일 전부터 — 서버 `purchaseTargetOf` 와 같은 규칙) */
+export const isEarlyDone = (mb: MonthlyBuy) => (mb.done || mb.skipped) && mb.earlyCycle != null;
+/** [구매 완료] 를 보일까 — 미완료인 이번 차례 · 미리 완료할 수 있는 다음 차례 */
+export const canPressDone = (mb: MonthlyBuy) => (!mb.done && !mb.skipped) || isEarlyDone(mb);
 
 const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right tabular-nums`;
 const pct = (v: number | null) => (v == null ? '—' : formatNumber(v, Number.isInteger(v) ? 0 : 1, '%'));
@@ -124,6 +131,18 @@ function CycleLine({ mb }: { mb: MonthlyBuy }) {
       <span className="tabular-nums">
         다음 구매일 <span className="text-text-primary">{dayText(mb.nextDay)}</span>
       </span>
+      {mb.nextDoneDay ? (
+        <Badge tone="bullish" data-monthly-early-done>
+          <CircleCheck {...ICON_SM} aria-hidden />
+          완료 {mb.nextDoneDay}(미리)
+        </Badge>
+      ) : (
+        isEarlyDone(mb) && (
+          <span className="text-text-primary" data-monthly-early>
+            미리 구매 완료할 수 있어요
+          </span>
+        )
+      )}
       {mb.calendarUnchecked && <span className="text-caption text-warning keep-all">휴장일 확인 못 함 — 평일로만 셈</span>}
     </div>
   );
@@ -147,7 +166,7 @@ export function MonthlyBuySection({ mb, writeEnabled, error, onDone }: { mb: Mon
           aside="월급 × 목표 비율 — 보여 주기만(주문 없음)"
           info="살 금액 = 시트 「월 고정지출」 C5 월급 × 「자산 투자 비율 관리」 목표 비율. 주식은 코어 · 위성으로 한 번 더 나눕니다. 원 단위 반올림 차이는 코어에 더해 합계가 월급과 같습니다. 구매일 = 26일이 든 주의 금요일(26일이 토 · 일이면 바로 앞 금요일), 그날이 한국 휴장일이면 그 전 거래일입니다."
           right={
-            mb.done || mb.skipped ? undefined : (
+            !canPressDone(mb) ? undefined : (
               <Button size="sm" icon={CircleCheck} disabled={!writeEnabled} title={writeEnabled ? undefined : '이 서버에서는 시트 쓰기가 꺼져 있습니다'} onClick={onDone} data-purchase-done>
                 구매 완료
               </Button>
