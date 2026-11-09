@@ -68,10 +68,15 @@ check('[색-4] 주문 버튼에 bg-bearish/15 · bg-accent/15 글자 0곳', !ord
 const button = read('src/components/ui/Button.tsx');
 check('[색-4] 공용 Button 의 buy · sell 이 같은 정의를 씀', button.includes('buy: ORDER_BUY_COLOR') && button.includes('sell: ORDER_SELL_COLOR'));
 
+check('[119-9] 시장가 두 버튼 글자 굵기는 지정가와 같은 font-medium', buttonBlock('시장가 매도').includes('font-medium') && buttonBlock('시장가 매수').includes('font-medium'));
+const surge = read('src/components/surge/SurgeCard.tsx');
+const surgeBlock = (() => { const end = surge.indexOf('모의 매수\n'); return surge.slice(surge.lastIndexOf('<button', end), end); })();
+check('[119-9] 「모의 매수」 = 매수 색 정의(ORDER_BUY_COLOR) · 글자 · 동작 그대로', /const BUY_BUTTON = `[^`]*\$\{ORDER_BUY_COLOR\}`/.test(surge) && surgeBlock.includes('className={BUY_BUTTON}') && surgeBlock.includes('onPaperBuy(detection.symbol, detection.priceAtDetection)'));
+
 // ── 화면 ──
 const look = (l: Locator) => l.evaluate((el) => {
   const s = getComputedStyle(el);
-  return { bg: s.backgroundColor, color: s.color, opacity: s.opacity, height: el.getBoundingClientRect().height };
+  return { bg: s.backgroundColor, color: s.color, opacity: s.opacity, height: el.getBoundingClientRect().height, weight: s.fontWeight };
 });
 
 async function newPage(browser: Browser) {
@@ -139,6 +144,7 @@ try {
   const marketBuy = await look(orderButton(on.page, '시장가 매수'));
   check('[색-1] 지정가 매도 · 시장가 매도 계산된 배경 같음', limitSell.bg === marketSell.bg, `${limitSell.bg} / ${marketSell.bg}`);
   check('[색-1] 지정가 매수 · 시장가 매수 계산된 배경 같음', limitBuy.bg === marketBuy.bg, `${limitBuy.bg} / ${marketBuy.bg}`);
+  check('[119-9] 시장가 글자 굵기 = 지정가(500)', [limitSell, marketSell, limitBuy, marketBuy].every((b) => b.weight === '500'), [limitSell, marketSell, limitBuy, marketBuy].map((b) => b.weight).join(','));
   check('[색-1] 매수 · 매도 배경은 서로 다름', limitBuy.bg !== limitSell.bg);
   check('[색-1] 네 버튼 모두 흰 글자', [limitSell, marketSell, limitBuy, marketBuy].every((s) => s.color === WHITE));
   check('[색-1] 켜진 버튼은 옅지 않음(opacity 1)', [limitSell, marketSell, limitBuy, marketBuy].every((s) => s.opacity === '1'));

@@ -4,6 +4,7 @@ import type { SurgeDetection } from '../../types/surge';
 import StockName from '../common/StockName';
 import SurgeMiniChart from './SurgeMiniChart';
 import { GRADE_STYLE } from './gradeStyle';
+import { ORDER_BUY_COLOR } from '../ui/tokens';
 import NextSurgeDate from './NextSurgeDate';
 
 const SIGNAL_LABEL: Record<string, string> = {
@@ -118,7 +119,7 @@ export default function SurgeCard({
         <button
           type="button"
           onClick={() => onPaperBuy(detection.symbol, detection.priceAtDetection)}
-          className={BUTTON}
+          className={BUY_BUTTON}
         >
           모의 매수
         </button>
@@ -141,6 +142,9 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
     </div>
   );
 }
+
+/** 「모의 매수」 — 다른 버튼과 같은 크기 · 색만 매수 색(`tokens.ts`) */
+const BUY_BUTTON = `rounded px-2.5 py-1 text-caption transition-colors ${ORDER_BUY_COLOR}`;
 
 const BUTTON =
   'rounded bg-bg-tertiary px-2.5 py-1 text-caption text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary disabled:opacity-50 disabled:hover:bg-bg-tertiary disabled:hover:text-text-secondary';

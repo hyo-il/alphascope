@@ -535,7 +535,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('SELL', 'MARKET')}
             disabled={busy || !price || marketSellQuantity <= 0}
-            className={`rounded-md py-1 text-caption transition-colors disabled:opacity-40 ${ORDER_SELL_COLOR}`}
+            className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_SELL_COLOR}`}
           >
             시장가 매도
           </button>
@@ -543,7 +543,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('BUY', 'MARKET')}
             disabled={busy || !price || marketBuyQuantity <= 0}
-            className={`rounded-md py-1 text-caption transition-colors disabled:opacity-40 ${ORDER_BUY_COLOR}`}
+            className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_BUY_COLOR}`}
           >
             시장가 매수
           </button>
