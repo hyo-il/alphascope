@@ -23,6 +23,16 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.67.1',
+    date: '2026-11-09',
+    title: '자산 관리: 미국 코드 앞부분 BATS',
+    description: '새 종목을 넣을 때 미국 코드 앞부분으로 BATS 를 고를 수 있고, 모두 매도 뒤 다른 탭 합계를 확인했습니다',
+    changes: [
+      '자산 관리: 새 종목 매수 확인 화면의 미국 코드 앞부분에 BATS 추가',
+      '자산 관리: 새 종목을 넣었다가 모두 매도해도 다른 탭 합계가 처음과 같음을 확인',
+    ],
+  },
+  {
     version: 'v2.67.0',
     date: '2026-11-09',
     title: '자산 관리: 새 종목 매수 · 모두 매도',
