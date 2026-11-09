@@ -1,11 +1,11 @@
 /**
  * 구글 시트 읽기 · 쓰기 — **새 의존성 없이** Node 내장 `crypto` 로 서비스 계정 JWT(RS256)를 서명해 접근 토큰을 받고,
- * Sheets API v4 `values:batchGet`(읽기) · `values:batchUpdate`(쓰기 — 값 칸만 · 한 요청)를 `fetch` 로 부른다(v2.61.0 · v2.62.0 · v2.63.0 쓰기).
+ * Sheets API v4 `values:batchGet`(읽기) · `values:batchUpdate`(쓰기 — 값 칸만 · 한 요청) · `spreadsheets:batchUpdate`(구조 쓰기 — 줄 넣기 · 지우기 · 칸 복사 · v2.67.0)를 `fetch` 로 부른다.
  *
- * - 범위(scope)는 `spreadsheets`(읽기 · 쓰기 — v2.62.0). **쓰기 함수는 `valuesWrite` 하나**(쓰는 방식 RAW / USER_ENTERED 는 인자) · 부르는 곳은
+ * - 범위(scope)는 `spreadsheets`(읽기 · 쓰기 — v2.62.0). **구글에 쓰는 함수는 `valuesWrite`(값) · `structureWrite`(구조 — `rowOps.ts` 만 부른다) 둘**. `valuesWrite` 의 쓰는 방식 RAW / USER_ENTERED 는 인자 · 부르는 곳은
  *   `sheet.ts` 세 곳(`writeAssetClasses` 「티커」 종목 줄 D열 자산 분류(여러 줄 한 요청) · `writeTargetRatio` 목표 비율 여섯 칸 · `writeAccountDates` 계좌 이름 날짜(v2.64.0) — RAW)과
- *   시트 가격(v2.65.0 — `priceSheet.ts` 바꾸기 · 되돌리기 USER_ENTERED · `priceWriter.ts` 10초 쓰기 RAW) · 매수 · 매도 입력(v2.66.0 — `trade.ts` 국내 RAW · 미국 USER_ENTERED)뿐(`asset:test` · `assetprice:test` 가 검색으로 확인).
- *   서식 쓰기(스프레드시트 단위 batchUpdate)는 쓰지 않는다. 시트 쓰기는 서비스 계정이 시트의 「편집자」 여야 된다.
+ *   시트 가격(v2.65.0 — `priceSheet.ts` 바꾸기 · 되돌리기 USER_ENTERED · `priceWriter.ts` 10초 쓰기 RAW) · 매수 · 매도 입력(v2.66.0 — `trade.ts` 국내 RAW · 미국 USER_ENTERED) · 새 종목 줄 값(v2.67.0 — `rowOps.ts`)뿐(`asset:test` · `assetprice:test` · `assetrowops:test` 가 검색으로 확인).
+ *   `structureWrite` 는 줄 넣기 · 지우기 · 칸 복사 세 요청만 받는다(서식만 바꾸는 요청은 쓰지 않는다). 시트 쓰기는 서비스 계정이 시트의 「편집자」 여야 된다.
  * - 토큰은 만료 1분 전까지 메모리에 둔다(열쇠 파일이 바뀌면 새로 받는다).
  * - 실패는 쉬운 말 이유(`AssetSheetError.kind`)로 바꾼다. ⚠️ 구글 응답 본문 · 열쇠 내용 · 시트 ID 는 로그 · 오류 문구에 싣지 않는다.
  */
@@ -75,9 +75,10 @@ async function send(url: string, init: RequestInit): Promise<Response> {
 
 let cachedToken: { keyFile: string; mtimeMs: number; token: string; expiresAt: number } | null = null;
 
-/** 시험이 토큰 캐시를 비운다 */
+/** 시험이 토큰 · 탭 번호 캐시를 비운다 */
 export function resetTokenCache(): void {
   cachedToken = null;
+  cachedTabs = null;
 }
 
 async function accessToken(keyFile: string): Promise<string> {
@@ -171,10 +172,10 @@ export interface CellWrite {
 export type ValueInput = 'RAW' | 'USER_ENTERED';
 
 /**
- * **시트 쓰기 — 이 앱의 유일한 쓰기 함수**(`values:batchUpdate` · 여러 칸을 **한 요청**으로). 쓰는 방식은 인자로 고른다(기본 `RAW`).
+ * **값 쓰기 — 구글에 쓰는 함수 둘 중 하나**(`values:batchUpdate` · 여러 칸을 **한 요청**으로 · 다른 하나는 `structureWrite`). 쓰는 방식은 인자로 고른다(기본 `RAW`).
  * 숫자는 JSON 숫자로 보내 시트에 숫자로 들어간다(글자 「10」 이 아니다 — 시트 수식이 깨지지 않게).
  * 부르는 곳: `sheet.ts` `writeAssetClasses` · `writeTargetRatio` · `writeAccountDates`(RAW) · `priceSheet.ts` `convertSheetPrices` · `restoreSheetPrices`(USER_ENTERED) ·
- * `priceWriter.ts` `priceTick`(가격 · 환율 숫자 — RAW) · `trade.ts` `recordTrade`(국내 · 매도 RAW · 미국 매수 USER_ENTERED) — 모두 칸 · 값 확인을 거친 뒤.
+ * `priceWriter.ts` `priceTick`(가격 · 환율 숫자 — RAW) · `trade.ts` `recordTrade`(국내 · 매도 RAW · 미국 매수 USER_ENTERED) · `rowOps.ts`(새 종목 줄 — 글자 · 숫자 RAW · 수식 USER_ENTERED) — 모두 칸 · 값 확인을 거친 뒤.
  */
 export async function valuesWrite(config: AssetSheetConfig, cells: CellWrite[], input: ValueInput = 'RAW'): Promise<void> {
   const token = await accessToken(config.keyFile);
@@ -184,4 +185,75 @@ export async function valuesWrite(config: AssetSheetConfig, cells: CellWrite[], 
     body: JSON.stringify({ valueInputOption: input, data: cells.map((c) => ({ range: c.range, majorDimension: 'ROWS', values: [[c.value]] })) }),
   });
   await throwIfFailed(res, 'write');
+}
+
+/** 시트 안 줄 범위(0부터 · 끝은 빼고 — 구글 표기 그대로) */
+export interface RowRange {
+  sheetId: number;
+  dimension: 'ROWS';
+  startIndex: number;
+  endIndex: number;
+}
+
+/** 칸 범위(0부터 · 끝은 빼고) — 열을 안 주면 그 줄 전체 */
+export interface GridRange {
+  sheetId: number;
+  startRowIndex: number;
+  endRowIndex: number;
+  startColumnIndex?: number;
+  endColumnIndex?: number;
+}
+
+/** 구조 쓰기가 받는 요청 — 줄 넣기 · 줄 지우기 · 칸 복사(수식 · 서식) 셋뿐(v2.67.0) */
+export type StructureRequest =
+  | { insertDimension: { range: RowRange; inheritFromBefore: boolean } }
+  | { deleteDimension: { range: RowRange } }
+  | { copyPaste: { source: GridRange; destination: GridRange; pasteType: 'PASTE_NORMAL'; pasteOrientation: 'NORMAL' } };
+
+const STRUCTURE_KINDS = ['insertDimension', 'deleteDimension', 'copyPaste'];
+
+/** 받는 요청인가 — 요청 하나에 종류 하나 · 그 셋 중 하나 · 줄(ROWS)만. 틀리면 하나도 보내지 않는다 */
+function structureRequestOk(req: unknown): boolean {
+  if (!req || typeof req !== 'object') return false;
+  const keys = Object.keys(req);
+  if (keys.length !== 1 || !STRUCTURE_KINDS.includes(keys[0])) return false;
+  if (keys[0] === 'copyPaste') return true;
+  const body = (req as Record<string, { range?: { dimension?: unknown } }>)[keys[0]];
+  return body?.range?.dimension === 'ROWS';
+}
+
+/**
+ * **구조 쓰기 — 구글에 쓰는 함수 둘 중 하나**(다른 하나는 `valuesWrite` · v2.67.0 · `spreadsheets:batchUpdate` 한 요청).
+ * 받는 요청은 `insertDimension`(ROWS) · `deleteDimension`(ROWS) · `copyPaste` 뿐 — 그 밖은 구글에 보내지 않고 거절한다.
+ * 부르는 곳: `rowOps.ts`(새 종목 줄 넣기 · 복사 · 되돌리기 · 모두 매도 줄 지우기)뿐.
+ */
+export async function structureWrite(config: AssetSheetConfig, requests: StructureRequest[]): Promise<void> {
+  if (requests.length === 0 || !requests.every(structureRequestOk)) throw new AssetSheetError('not-editable', '시트 구조 쓰기는 줄 넣기 · 줄 지우기 · 칸 복사만 받습니다.');
+  const token = await accessToken(config.keyFile);
+  const res = await send(`${SHEETS_URL}/${encodeURIComponent(config.sheetId)}:batchUpdate`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ requests }),
+  });
+  await throwIfFailed(res, 'write');
+}
+
+let cachedTabs: { sheetId: string; tabs: Map<string, number> } | null = null;
+
+/** 탭 이름 → 탭 번호(`sheetId`) — 표 탭만(차트 전용 탭 제외) · 시트마다 한 번 받아 둔다 */
+export async function sheetTabs(config: AssetSheetConfig): Promise<Map<string, number>> {
+  if (cachedTabs?.sheetId === config.sheetId) return cachedTabs.tabs;
+  const token = await accessToken(config.keyFile);
+  const params = new URLSearchParams({ fields: 'sheets.properties(sheetId,title,sheetType)' });
+  const res = await send(`${SHEETS_URL}/${encodeURIComponent(config.sheetId)}?${params.toString()}`, { headers: { authorization: `Bearer ${token}` } });
+  await throwIfFailed(res, 'read');
+  const body = (await res.json().catch(() => null)) as { sheets?: { properties?: { sheetId?: number; title?: string; sheetType?: string } }[] } | null;
+  if (!Array.isArray(body?.sheets)) throw new AssetSheetError('network', '구글 시트 응답의 모양이 올바르지 않습니다.');
+  const tabs = new Map<string, number>();
+  for (const s of body.sheets) {
+    const p = s.properties;
+    if (typeof p?.title === 'string' && typeof p.sheetId === 'number' && (p.sheetType ?? 'GRID') === 'GRID') tabs.set(p.title, p.sheetId);
+  }
+  cachedTabs = { sheetId: config.sheetId, tabs };
+  return tabs;
 }
