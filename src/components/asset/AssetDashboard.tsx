@@ -7,7 +7,8 @@ import { usePolling } from '../../hooks/usePolling';
 import { useAssetIdleLock } from '../../hooks/useAssetIdleLock';
 import { changeColor, formatNumber, formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
-import type { AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetHolding, AssetSection, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetNewHoldingRequest, AssetNewHoldingTarget, AssetTradeRequest, AssetTradeSide, MonthlyBuy } from '../../types/asset';
+import type { AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetHolding, AssetSection, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetNewHoldingRequest, AssetNewHoldingResult, AssetNewHoldingTarget, AssetTradeRequest, AssetTradeSide, MonthlyBuy } from '../../types/asset';
+import { RATIO_TAB_NOTICE } from '../../types/asset';
 import { modal } from '../../store/uiStore';
 import AssetDonut from './AssetDonut';
 import { groupDot } from './assetColors';
@@ -147,6 +148,8 @@ export default function AssetDashboard({
   /** 매수 · 매도 입력 창(v2.66.0) */
   const [trade, setTrade] = useState<{ section: AssetSection; holding: AssetHolding; side: AssetTradeSide } | null>(null);
   const [newBuyOpen, setNewBuyOpen] = useState(false);
+  /** 새 종목을 줄로 넣은 뒤 버튼 줄 아래에 남기는 안내(다음에 새 종목 창을 열면 지운다) */
+  const [newBuyNotes, setNewBuyNotes] = useState<string[]>([]);
   const [tradeHistoryOpen, setTradeHistoryOpen] = useState(false);
   /** 구매일 팝업 — 이 화면이 열린 뒤 처음 받은 summary 로 한 번만 정한다 */
   const [purchasePopup, setPurchasePopup] = useState(false);
@@ -274,7 +277,14 @@ export default function AssetDashboard({
     const { error, body } = await postTrade('/api/asset/trade/new/plan', target);
     return error ?? (body as unknown as AssetNewHoldingPlan);
   };
-  const sendNewBuy = async (req: AssetNewHoldingRequest): Promise<string | null> => (await postTrade('/api/asset/trade/new', req)).error;
+  const sendNewBuy = async (req: AssetNewHoldingRequest): Promise<string | null> => {
+    const { error, body } = await postTrade('/api/asset/trade/new', req);
+    if (!error) {
+      const saved = body as unknown as AssetNewHoldingResult;
+      setNewBuyNotes(saved.mode === 'new' ? [...(saved.notice ? [saved.notice] : []), RATIO_TAB_NOTICE] : []);
+    }
+    return error;
+  };
 
   /** 시트 가격 바꾸기 · 되돌리기(v2.65.0) — 성공이면 다시 받아 설정 창 상태를 새로 · 실패면 이유 한 줄 */
   const priceSheetAction = async (kind: 'convert' | 'restore'): Promise<string | null> => {
@@ -342,7 +352,8 @@ export default function AssetDashboard({
         right={
           <>
             <label className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-text-primary">
-              <input type="checkbox" checked={pension} onChange={(e) => togglePension(e.target.checked)} />
+              {/* 글자 잉크가 줄 가운데보다 1px 아래에 그려진다 — 체크박스를 잉크 가운데에 맞춘다(v2.67.2 · 실제 픽셀로 측정) */}
+              <input type="checkbox" className="relative top-px" checked={pension} onChange={(e) => togglePension(e.target.checked)} data-asset-pension />
               연금 포함
               <span className="inline-flex w-4 justify-center">{switching && <LoaderCircle {...ICON_SM} className="animate-spin text-text-muted" aria-label="다시 계산하는 중" />}</span>
             </label>
@@ -395,7 +406,7 @@ export default function AssetDashboard({
           <div id="as-asset-status" className="space-y-3">
             {sheet == null && <SkeletonTable rows={6} columns={6} />}
             {sheet && 'error' in sheet && <ErrorLine message={sheet.error} onRetry={() => void loadSheet()} />}
-            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} onOpenClassDialog={() => setClassOpen(true)} onTrade={(section, holding, side) => setTrade({ section, holding, side })} onNewBuy={() => setNewBuyOpen(true)} onOpenTradeHistory={() => setTradeHistoryOpen(true)} />}
+            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} onOpenClassDialog={() => setClassOpen(true)} onTrade={(section, holding, side) => setTrade({ section, holding, side })} onNewBuy={() => { setNewBuyNotes([]); setNewBuyOpen(true); }} onOpenTradeHistory={() => setTradeHistoryOpen(true)} newBuyNotes={newBuyNotes} />}
           </div>
         )}
       </div>

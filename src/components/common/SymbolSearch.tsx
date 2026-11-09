@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { InlineSpinner } from './LoadingOverlay';
+import { CONTROL_H } from '../ui/tokens';
 import type { StockSearchResult } from '../../types/toss';
 import { hasHangul, searchStocksApi } from '../../utils/stockSearch';
 
@@ -23,6 +24,12 @@ interface Props {
    * 비교 화면의 빈 칸처럼 좁지만 화면 위쪽에 있는 자리는 반대로 위가 잘리므로 끈다.
    */
   dropUp?: boolean;
+  /**
+   * 버튼 없이 목록에서 고르는 자리(폼 줄 안 — 새 종목 매수 창).
+   * 입력칸이 줄을 다 채우고 폼 칸과 높이 · 테두리가 같다. Enter 는 목록의 맨 위(화살표로 옮겼으면 그 줄) — 검색 응답 전이면 응답을 기다려 고른다.
+   * 없으면(기본) 지금 모양 · 동작 그대로.
+   */
+  hideSubmit?: boolean;
 }
 
 const MARKET_LABEL: Record<string, string> = {
@@ -52,6 +59,7 @@ export default function SymbolSearch({
   isAdded,
   autoFocus = false,
   dropUp,
+  hideSubmit = false,
 }: Props) {
   const [value, setValue] = useState(symbol);
   const [results, setResults] = useState<StockSearchResult[]>([]);
@@ -136,7 +144,9 @@ export default function SymbolSearch({
     if (!query) return;
 
     // 목록이 열려 있으면 선택된 항목을, 아니면 입력값을 그대로 심볼로 본다.
-    if (open && results[highlight]) {
+    // (버튼 없는 자리는 검색 중이면 지난 글자의 목록일 수 있어 아래에서 응답을 기다린다)
+    const waitFresh = hideSubmit && searching;
+    if (open && results[highlight] && !waitFresh) {
       choose(results[highlight]);
       return;
     }
@@ -147,8 +157,8 @@ export default function SymbolSearch({
      * 아직 비어 있다. 여기서 조용히 return 하면 "한글 검색이 안 된다" 로 보인다.
      * 확정 시점에는 직접 한 번 더 물어 **결과를 기다린다**.
      */
-    if (hasHangul(query)) {
-      if (results[0]) {
+    if (hasHangul(query) || hideSubmit) {
+      if (results[0] && !waitFresh) {
         choose(results[0]);
         return;
       }
@@ -162,8 +172,11 @@ export default function SymbolSearch({
         choose(found[0]);
         return;
       }
-      setOpen(true); // 결과 없음 안내를 띄운다 — 아무 반응이 없는 것보다 낫다
-      return;
+      if (hasHangul(query)) {
+        setOpen(true); // 결과 없음 안내를 띄운다 — 아무 반응이 없는 것보다 낫다
+        return;
+      }
+      // 버튼 없는 자리에서 영문 · 숫자로 못 찾았으면 아래 — 티커 그대로 조회(안내 문구 「티커를 직접 입력하면 그대로 조회합니다」)
     }
 
     onSubmit(query.toUpperCase());
@@ -210,33 +223,39 @@ export default function SymbolSearch({
           autoFocus={autoFocus}
           placeholder={placeholder}
           spellCheck={false}
-          className={`rounded-md border border-border bg-bg-tertiary text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none ${
+          className={`rounded-md border bg-bg-tertiary text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none ${hideSubmit ? 'border-transparent' : 'border-border'} ${
             /*
              * 폭은 **바깥 래퍼가 정한다.** 여기서 w-48 로 고정하면 탐색 홈처럼 가운데
              * 정렬된 자리(max-w-md)에서 입력만 왼쪽에 쏠려 축이 어긋나 보인다.
              * 헤더는 감싸는 div 가 w-48 shrink-0 으로 폭을 잡아 준다.
              */
-            compact ? 'min-w-0 flex-1 py-1 pl-2 pr-6 text-xs' : 'min-w-0 flex-1 py-1.5 pl-3 pr-8 text-sm'
+            hideSubmit
+              ? `min-w-0 flex-1 pl-2 text-xs ${searching ? 'pr-6' : 'pr-2'} ${CONTROL_H.md}`
+              : compact
+                ? 'min-w-0 flex-1 py-1 pl-2 pr-6 text-xs'
+                : 'min-w-0 flex-1 py-1.5 pl-3 pr-8 text-sm'
           }`}
         />
         {/* 음수 마진으로 맞추면 compact(pr-6)와 기본(pr-7)에서 자리가 달라진다 */}
         {searching && (
           <InlineSpinner
             className={`pointer-events-none absolute top-1/2 -translate-y-1/2 ${
-              compact ? 'right-[4.25rem]' : 'right-[5.25rem]'
+              hideSubmit ? 'right-1.5' : compact ? 'right-[4.25rem]' : 'right-[5.25rem]'
             }`}
           />
         )}
-        <button
-          type="submit"
-          className={
-            compact
-              ? 'shrink-0 rounded border border-border px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary'
-              : 'shrink-0 rounded-md bg-accent px-3.5 py-1.5 text-sm text-white transition-colors hover:bg-accent-hover'
-          }
-        >
-          {submitLabel}
-        </button>
+        {!hideSubmit && (
+          <button
+            type="submit"
+            className={
+              compact
+                ? 'shrink-0 rounded border border-border px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary'
+                : 'shrink-0 rounded-md bg-accent px-3.5 py-1.5 text-sm text-white transition-colors hover:bg-accent-hover'
+            }
+          >
+            {submitLabel}
+          </button>
+        )}
       </form>
 
       {open && results.length > 0 && (

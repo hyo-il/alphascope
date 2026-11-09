@@ -133,7 +133,7 @@ export default function AssetTradeDialog({
             <FormRow label="수량" error={over ? '가진 수량보다 많아요' : undefined}>
               <NumberField kind="long" thousands decimals={digits.qty} unit="주" value={qty} onValue={setQty} invalid={over} aria-label="수량" data-trade-qty autoFocus />
             </FormRow>
-            <FormRow label={currency === 'KRW' ? '가격(원)' : '가격(달러)'}>
+            <FormRow label="가격">
               <NumberField kind="long" thousands decimals={digits.price} unit={currency === 'KRW' ? '원' : '$'} value={price} onValue={setPrice} aria-label="가격" data-trade-price />
             </FormRow>
           </div>

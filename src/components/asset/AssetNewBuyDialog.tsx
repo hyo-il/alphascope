@@ -4,13 +4,14 @@ import SymbolSearch from '../common/SymbolSearch';
 import { InlineSpinner } from '../common/LoadingOverlay';
 import { TRADE_DIGITS, tradeAfter } from '../../utils/assetTrade';
 import { tradeMoneyText, tradeQtyText } from './AssetTradeDialog';
-import { ASSET_CLASSES, UNASSIGNED_LABEL, US_CODE_PREFIXES, type AssetClass, type AssetCurrency, type AssetNewHoldingPlan, type AssetNewHoldingRequest, type AssetNewHoldingTarget, type AssetSection, type AssetUsPrefix } from '../../types/asset';
+import { ASSET_CLASSES, RATIO_TAB_NOTICE, UNASSIGNED_LABEL, US_CODE_PREFIXES, type AssetClass, type AssetCurrency, type AssetNewHoldingPlan, type AssetNewHoldingRequest, type AssetNewHoldingTarget, type AssetSection, type AssetUsPrefix } from '../../types/asset';
 import type { StockSearchResult } from '../../types/toss';
 
 /**
  * 새 종목 매수 창(v2.67.0) — 다른 증권사에서 산 새 종목을 적으면 시트에 줄을 넣고 「티커」 에 종목을 더한다(실제 주문 없음).
  * - 첫 화면: 계좌 · 종목 검색(종목 목록) · 수량 · 가격(국내 원 · 미국 달러) · 자산 분류. [다음] → 서버가 시트를 읽어 어디에 쓸지 돌려준다(시트를 바꾸지 않음).
- * - 확인 화면: 어느 줄에 쓰는지 · 코드(미국은 앞부분을 바꿀 수 있음) · 적립식 계좌면 합친 표 안내 → [저장] · [뒤로].
+ * - 종목 칸(v2.67.2): 버튼 없이 글자를 치면 목록이 뜨고 누르거나 Enter(맨 위)로 고른다(`SymbolSearch` `hideSubmit`). 칸은 모두 같은 왼쪽 끝 — 값 칸(`lg`)을 채운다.
+ * - 확인 화면: 어느 줄에 쓰는지 · 코드(미국은 앞부분을 바꿀 수 있음) · 적립식 계좌면 합친 표 안내 · 새 줄이면 비율 탭 안내 → [저장] · [뒤로].
  * - 그 계좌에 이미 있는 종목이면 새 줄 없이 매수로 더한다(확인 화면에 알림). 검사는 서버 `recordNewHolding` 한 곳.
  * - 바깥 클릭으로 닫지 않는다(입력을 잃는다).
  */
@@ -181,10 +182,17 @@ export default function AssetNewBuyDialog({
               </Select>
             </FormRow>
           )}
-          {plan.notice && (
-            <p className="text-caption text-text-muted keep-all" data-newbuy-notice>
-              {plan.notice}
-            </p>
+          {!plan.existing && (
+            <div className="space-y-0.5">
+              {plan.notice && (
+                <p className="text-caption text-text-muted keep-all" data-newbuy-notice>
+                  {plan.notice}
+                </p>
+              )}
+              <p className="text-caption text-text-muted keep-all" data-newbuy-ratio-notice>
+                {RATIO_TAB_NOTICE}
+              </p>
+            </div>
           )}
           {error && (
             <p role="alert" className="rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all" data-newbuy-error>
@@ -194,7 +202,7 @@ export default function AssetNewBuyDialog({
         </div>
       ) : (
         <div className="space-y-3" data-newbuy-form>
-          <FormRow label="계좌" labelW="sm">
+          <FormRow label="계좌" labelW="sm" valueW="lg">
             <Select className="w-full" aria-label="계좌" value={section} onChange={(e) => setSection(e.target.value)} data-newbuy-section>
               {accounts.map((s) => (
                 <option key={s.key} value={s.key as string}>
@@ -203,9 +211,9 @@ export default function AssetNewBuyDialog({
               ))}
             </Select>
           </FormRow>
-          <FormRow label="종목" labelW="sm" error={lookError ?? undefined}>
+          <FormRow label="종목" labelW="sm" valueW="lg" error={lookError ?? undefined}>
             <div className="w-full" data-newbuy-search>
-              <SymbolSearch symbol="" onSubmit={(s) => void choose(s)} submitLabel="고르기" placeholder="이름 · 티커" compact dropUp={false} clearOnSubmit autoFocus />
+              <SymbolSearch symbol="" onSubmit={(s) => void choose(s)} placeholder="종목 이름이나 티커를 입력하세요" hideSubmit compact dropUp={false} clearOnSubmit autoFocus />
             </div>
           </FormRow>
           <div className="flex min-h-5 items-center gap-2 text-xs" data-newbuy-chosen>
@@ -229,15 +237,15 @@ export default function AssetNewBuyDialog({
 
           <NumberUnitGroup w="sm">
             <div className="space-y-2">
-              <FormRow label="수량" labelW="sm">
-                <NumberField kind="long" thousands decimals={digits.qty} unit="주" value={qty} onValue={setQty} aria-label="수량" data-newbuy-qty />
+              <FormRow label="수량" labelW="sm" valueW="lg">
+                <NumberField boxClassName="w-full" kind="long" thousands decimals={digits.qty} unit="주" value={qty} onValue={setQty} aria-label="수량" data-newbuy-qty />
               </FormRow>
-              <FormRow label={currency === 'KRW' ? '가격(원)' : '가격(달러)'} labelW="sm">
-                <NumberField kind="long" thousands decimals={digits.price} unit={currency === 'KRW' ? '원' : '$'} value={price} onValue={setPrice} aria-label="가격" data-newbuy-price />
+              <FormRow label="가격" labelW="sm" valueW="lg">
+                <NumberField boxClassName="w-full" kind="long" thousands decimals={digits.price} unit={currency === 'KRW' ? '원' : '$'} value={price} onValue={setPrice} aria-label="가격" data-newbuy-price />
               </FormRow>
             </div>
           </NumberUnitGroup>
-          <FormRow label="자산 분류" labelW="sm">
+          <FormRow label="자산 분류" labelW="sm" valueW="lg">
             <Select className="w-full" aria-label="자산 분류" value={assetClass} onChange={(e) => setAssetClass(e.target.value as AssetClass | '')} data-newbuy-class>
               {CLASS_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>

@@ -200,6 +200,9 @@ export interface AssetNewHoldingPlan {
   notice: string | null;
 }
 
+/** 새 종목을 줄로 넣을 때 안내 한 줄 — 「자산 투자 비율 관리」 탭은 종목 줄을 한 칸씩 가리켜 새 종목이 저절로 들어가지 않는다 */
+export const RATIO_TAB_NOTICE = '「자산 투자 비율 관리」 탭에는 직접 더해 주세요.';
+
 /** `POST /api/asset/trade/new` 성공 — `mode: 'buy'` 는 이미 가진 종목이라 매수로 더함 */
 export interface AssetNewHoldingResult {
   id: number;

@@ -327,6 +327,7 @@ export default function AssetSheetValues({
   onTrade,
   onNewBuy,
   onOpenTradeHistory,
+  newBuyNotes,
 }: {
   data: AssetSheetData;
   /** 카드 머리 평가 금액 합 · 가격 못 받은 줄 수(총 자산 요약 응답) */
@@ -340,6 +341,8 @@ export default function AssetSheetValues({
   /** [매수 · 매도 기록] — 창 열기 */
   onNewBuy: () => void;
   onOpenTradeHistory: () => void;
+  /** 새 종목을 줄로 넣은 뒤 안내(합친 표 · 비율 탭 — 없으면 빈 배열) */
+  newBuyNotes: string[];
 }) {
   const [view, setView] = useState<StatusView>(readView);
   const [filter, setFilter] = useState<SymbolFilter>('all');
@@ -374,6 +377,15 @@ export default function AssetSheetValues({
       </div>
       {view === 'account' && (
         <>
+          {newBuyNotes.length > 0 && (
+            <div className="space-y-0.5" data-newbuy-saved-notes>
+              {newBuyNotes.map((note) => (
+                <p key={note} className="text-caption text-text-muted keep-all">
+                  {note}
+                </p>
+              ))}
+            </div>
+          )}
           <p className="text-caption text-text-muted" data-account-hint>
             계좌를 누르면 종목이 펼쳐져요
           </p>
