@@ -193,7 +193,7 @@ export default function RuleDialog({
       title={isNew ? '새 규칙 만들기' : editing ? '규칙 수정' : '규칙 조건 보기'}
       titleAside={readOnly ? '보기 전용 — 고치려면 「퀀트 > 매매 규칙」 에서' : !isNew && !editing ? '보기 상태 — 고치려면 [수정] 을 누르세요' : undefined}
       onClose={onClose}
-      size="xl"
+      size="xlFit"
       closeOnBackdrop={!editing}
       bodyClassName="p-4 [scrollbar-gutter:stable]"
       footer={

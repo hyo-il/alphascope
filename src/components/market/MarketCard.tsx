@@ -36,9 +36,9 @@ export default function MarketCard({
 
   return (
     <article className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-bg-secondary px-3 py-2">
-      <div className="min-w-0">
-        {/* 말줄임으로 자르지 않는다 — 1280 에서 「VIX 공포지수」 가 4px 넘쳤다. 넘치면 줄을 바꾼다 */}
-        <p className="break-keep text-caption leading-tight text-text-secondary">{name}</p>
+      {/* 글자 칸은 줄지 않는다(이름 · 금액 · 등락 모두 한 줄) — 좁은 1280 에서는 미니 차트가 남는 폭만큼 줄어든다 */}
+      <div className="shrink-0">
+        <p className="whitespace-nowrap text-caption leading-tight text-text-secondary">{name}</p>
         <p className="text-sm font-semibold tabular-nums text-text-primary">
           {value != null ? `${unit}${format(value)}` : '—'}
         </p>

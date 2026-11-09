@@ -5,7 +5,7 @@ import IconButton from './IconButton';
 /**
  * 창(모달) 틀 하나 — 어두운 바탕 · 제목 줄 + 닫기 X · ESC 닫기 · 크기는 정해진 값만 · 테두리 없음(디자인 규칙 3).
  *
- * - 크기: `sm` 420 · `md` 560 · `lg` 720×640 · `xl` 960×680 · `full` 1200(88vw)×78vh. 높이가 정해진 크기(lg·xl·full)는 본문이 스크롤된다.
+ * - 크기: `sm` 420 · `md` 560 · `lg` 720×640 · `xl` 960×680 · `xlFit` 960×내용만큼(화면 위아래 여백 p-4 까지 — 매매 규칙 창) · `full` 1200(88vw)×78vh. 높이가 정해진 크기(lg·xl·full)와 화면을 넘는 `xlFit` 은 본문이 스크롤된다.
  * - ⚠️ **겹침 순서(`z`)는 창마다 그대로 넘긴다** — 처음 켜기 85 · 설정 90 · 종목 추가 98 · 확인 창 100.
  * - ⚠️ **바깥 클릭으로 닫지 않는 창**이 있다(입력 중인 내용을 잃는 창) — `closeOnBackdrop={false}`.
  * - ESC 는 **맨 위 창 하나만** 닫는다(창 위에 창이 뜨면 둘 다 닫히지 않게 — 아래 스택).
@@ -14,13 +14,14 @@ import IconButton from './IconButton';
  *   창은 `#root` 안에 그려져 뒤 화면에 `inert` 를 걸면 창도 막히므로 이 방식으로 같은 효과를 낸다.
  *   `body` 로 따로 뜨는 것(`Popover` · `InfoTip` — 날짜 고르기 등)은 창 밖이어도 막지 않는다(그 안의 Tab 은 브라우저 그대로).
  */
-export type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
+export type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'xlFit' | 'full';
 
 const SIZE: Record<DialogSize, string> = {
   sm: 'w-[min(420px,90vw)] max-h-[85vh]',
   md: 'w-[min(560px,90vw)] max-h-[85vh]',
   lg: 'h-[min(640px,85vh)] w-[min(720px,90vw)]',
   xl: 'h-[min(680px,85vh)] w-[min(960px,90vw)]',
+  xlFit: 'max-h-full w-[min(960px,90vw)]',
   full: 'h-[78vh] w-[88vw] max-w-[1200px]',
 };
 
