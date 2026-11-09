@@ -117,7 +117,7 @@ function sheet(): Book {
 
 // ── 가짜 구글 ──
 let model = sheet();
-const g = { reads: 0, writes: 0, structure: [] as StructureRequest[][], valueBatches: [] as { input: string; ranges: string[] }[], failAt: 0, lie: false, autoExpand: false, realCalls: 0 };
+const g = { reads: 0, writes: 0, structure: [] as StructureRequest[][], valueBatches: [] as { input: string; ranges: string[] }[], failAt: 0, lie: false, autoExpand: false, realCalls: 0, computed: {} as Record<string, Cell> };
 const IDS: Record<string, number> = { [H]: 101, [T]: 102, [OTHER]: 103, '자산 투자 비율 관리': 104, '월 고정지출': 105, 현금: 106 };
 const tabOf = (id: number) => Object.keys(IDS).find((k) => IDS[k] === id) as string;
 const colN = (c: string) => [...c].reduce((a, x) => a * 26 + x.charCodeAt(0) - 64, 0);
@@ -134,7 +134,7 @@ const splitKey = (k: string) => {
 function reset(change?: (m: Book) => void) {
   model = sheet();
   change?.(model);
-  Object.assign(g, { reads: 0, writes: 0, structure: [], valueBatches: [], failAt: 0, lie: false, autoExpand: false });
+  Object.assign(g, { reads: 0, writes: 0, structure: [], valueBatches: [], failAt: 0, lie: false, autoExpand: false, computed: {} });
   resetSheetCache();
   resetTokenCache();
 }
@@ -208,7 +208,7 @@ function cut(range: string, formula: boolean): Cell[][] {
     const row: Cell[] = [];
     for (let x = c1; x <= c2; x++) {
       const v = model[tab]?.[`${colC(x)}${y}`] ?? '';
-      row.push(!formula && typeof v === 'string' && v.startsWith('=') ? 0 : v);
+      row.push(!formula && typeof v === 'string' && v.startsWith('=') ? (g.computed[`${tab}!${colC(x)}${y}`] ?? 0) : v);
     }
     while (row.length && row[row.length - 1] === '') row.pop();
     rows.push(row);
@@ -356,6 +356,11 @@ try {
     reset();
     const shared = await buyNew({ section: SEC.c, symbol: 'FAKA', exchange: null, qty: 2, price: 100, assetClass: '' });
     check('[120-2] 코드가 이미 있으면 「티커」 새 줄 0(다른 묶음의 줄을 같이 씀) · 앞부분은 시트 코드', shared.status === 200 && g.structure.length === 1 && String(model[H].F20).includes('$F$15') && !rangesWritten().some((x) => x.startsWith(`'${T}'`)), JSON.stringify(g.valueBatches));
+    // 코드 칸이 수식인 줄(시험용 시트에서 찾음) — 계산된 값으로 알아본다
+    reset((m) => { m[T].C25 = '=IMPORTXML("https://example.invalid","//x")'; });
+    g.computed[`${T}!C25`] = NEW.nk;
+    const viaFormula = await buyNew(krNew);
+    check('[120-2] 코드 칸이 수식인 줄도 계산된 코드로 알아봄 — 「티커」 새 줄 0 · 그 줄을 이음', viaFormula.status === 200 && g.structure.length === 1 && String(model[H].F8).includes('$F$25') && model[T].B18 === undefined, JSON.stringify(viaFormula.body));
     // 토스 시트
     reset();
     savePriceState({ source: 'toss', rows: [{ row: 15, code: CODE.a, market: 'US', name: NAME.a }] });

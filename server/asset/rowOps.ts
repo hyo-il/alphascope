@@ -103,12 +103,13 @@ export function linkFormulaFor(source: string, delta: number, tickerRow: number)
 
 // ───────── 읽기 ─────────
 
-/** 쓰기 직전에 읽은 시트 — `holding` · `ticker` 는 수식 그대로(`rows[줄 - 1][0]` = B열) · `tabs` 는 탭 전체 수식(`[0]` = A열 — `allTabs` 일 때만) */
+/** 쓰기 직전에 읽은 시트 — `holding` · `ticker` 는 수식 그대로(`rows[줄 - 1][0]` = B열) · `tickerValues` 는 「티커」 계산된 값(코드 칸이 수식인 줄도 코드로 알아본다) · `tabs` 는 탭 전체 수식(`[0]` = A열 — `allTabs` 일 때만) */
 export interface SheetGrid {
   data: AssetSheetData;
   shape: SheetShape;
   holding: CellRows;
   ticker: CellRows;
+  tickerValues: CellRows;
   tabs: Map<string, CellRows>;
 }
 
@@ -131,7 +132,7 @@ export async function readGrid(config: AssetSheetConfig, allTabs = false): Promi
   const tabs = new Map(names.map((name, i) => [name, got[start + i] ?? []]));
   const data = parseAssetSheet(values, got, at);
   const shape = findSheetShape(values[L.headers.length] ?? [], values[L.headers.length + 1] ?? []);
-  return { data, shape, holding: fromB(tabs.get(HOLDINGS_TAB) ?? []), ticker: got[base.formulas.length] ?? [], tabs: allTabs ? tabs : new Map() };
+  return { data, shape, holding: fromB(tabs.get(HOLDINGS_TAB) ?? []), ticker: got[base.formulas.length] ?? [], tickerValues: values[L.headers.length + 1] ?? [], tabs: allTabs ? tabs : new Map() };
 }
 
 // ───────── 합계 범위 ─────────
@@ -230,7 +231,7 @@ function tickerSpot(grid: SheetGrid, group: string, stock: StockInfo): TickerSpo
   if (!g) throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(「${TICKER_TAB}」 탭 — 「${group}」 묶음이 없습니다).`);
   const lines = [...g.rows, ...tickerRowsOf(groups).filter((r) => !g.rows.includes(r))];
   for (const row of lines) {
-    const code = tickerRowCode(grid.ticker[row - 1]);
+    const code = tickerRowCode(grid.tickerValues[row - 1]);
     if (code && sameStock(code, stock)) return { status: 'existing', row, code };
   }
   const last = g.rows[g.rows.length - 1];
@@ -260,7 +261,7 @@ export function decideNewHolding(grid: SheetGrid, sectionKey: string, stock: Sto
   const ticker = tickerSpot(grid, group, stock);
 
   const inSheet = new Set(tickerRowsOf(grid.shape.tickers).flatMap((r) => {
-    const c = tickerRowCode(grid.ticker[r - 1]);
+    const c = tickerRowCode(grid.tickerValues[r - 1]);
     const ex = c ? splitCode(c).exchange : null;
     return ex ? [ex.toUpperCase()] : [];
   }));
@@ -405,7 +406,7 @@ export async function insertNewHolding<T>(config: AssetSheetConfig, grid: SheetG
     const tickerLine = tickerNow[tickerRow - 1] ?? [];
     const avgOk = usd ? String(line[1] ?? '').replace(/\s/g, '') === avgFormula.replace(/\s/g, '') : sameValue(line[1], order.price);
     const holdingOk = sameValue(line[0], d.stock.name) && sameValue(line[2], order.qty) && avgOk && linkedTickerRow(line[4]) === tickerRow;
-    const tickerOk = sameValue(tickerLine[1], d.code) && (t.status === 'existing' || sameValue(tickerLine[0], d.stock.name));
+    const tickerOk = t.status === 'existing' || (sameValue(tickerLine[1], d.code) && sameValue(tickerLine[0], d.stock.name));
     if (!holdingOk || !tickerOk) throw new AssetSheetError('mismatch', '시트에 쓴 값이 다르게 읽혔습니다 — 넣은 줄을 되돌렸습니다.');
 
     const fixes = sumFixes(holdingNow, d.sums, d.section, newRow);
