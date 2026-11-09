@@ -172,6 +172,21 @@ try {
     cashCls.ok && /자산 분류 채권 1 · 금 0 · 주식 1 · 빈칸 0 · 미지정\(현금 — 고르기 목록에 없음\) 1줄 · 그 밖 0/.test(cashCls.text) && !/현금 \d/.test(cashCls.text.split('\n').find((l) => l.startsWith('3.')) ?? 'x'), cashCls.text);
   check('[115-8] 맞는 시트(현금 글자 없음) — 미지정(현금) 0줄', /미지정\(현금 — 고르기 목록에 없음\) 0줄 · 그 밖 0/.test(ok.text), ok.text);
 
+  // ═══ 118차 D — 7번 칸 모양(값 없이 · 읽기 그대로 2번) ═══
+  check('[118-D] 보유 구간마다 종목 줄 · 빈 줄 · 합친 표 표시', /보유 「개별 투자」 5~9행 — 종목 줄 1 · 빈 줄 4 \(6행 완전히 빈 줄/.test(ok.text) && /보유 「적립식 주식」\(합친 표\) 39~44행 — 종목 줄 1 · 빈 줄 5/.test(ok.text), ok.text);
+  check('[118-D] 「티커」 묶음 — 머리 줄 안에 있으면 그 이름 · 줄 수 · 빈 줄 · 구매 평균 환율 칸 모양', /묶음 「개별 투자」\(머리 14행\) — 종목 줄 3 · 빈 줄 25/.test(ok.text) && /구매 평균 환율 칸 — 숫자/.test(ok.text), ok.text);
+  const shape = await run('칸모양', (m) => {
+    m.formulas['주식 투자 정리!E6'] = '=C6*D6';
+    m.formulas['주식 투자 정리!F6'] = '=GOOGLEFINANCE("KRX:005930")';
+    m.formulas['티커!B13'] = '개별 투자';
+    m.values['티커!G9'] = 1300;
+    m.formulas['티커!G9'] = "='환율 원본'!B2";
+  });
+  check('[118-D] 수식만 남은 빈 줄 — 칸 글자 · 수식 모양(숫자 · 따옴표 안 가림) · 값 없음', /6행 E 수식\(=C#\*D#\) · F 수식\(=GOOGLEFINANCE\("…"\)\)/.test(shape.text), shape.text);
+  check('[118-D] 범위 바로 윗줄 머리 — 첫 묶음 이름 · 머리 13행', /묶음 「개별 투자」\(머리 13행\)/.test(shape.text), shape.text);
+  check('[118-D] 구매 평균 환율 수식 → 모양 표시 + ⚠️ 알림 · 연결 판단은 그대로(✅)', /구매 평균 환율 칸 — 수식\(='환율 원본'!B#\)/.test(shape.text) && /⚠️ 구매 평균 환율 칸이 숫자가 아닙니다/.test(shape.text) && shape.ok, shape.text);
+  check('[118-D] 7번을 더해도 읽기는 값 1번 · 수식 1번 · 쓰기 0', shape.reads === 2 && g.reads === 2 && g.writes === 0);
+
   const noD = await run('D12없음', (m) => {
     delete m.values['티커!D12'];
     delete m.formulas['티커!D12'];

@@ -126,6 +126,9 @@ export const SHEET_LAYOUT = {
     priceFormula: /^=\s*GOOGLEFINANCE\s*\(\s*([^,()]+?)\s*,\s*"price"\s*\)\s*$/i,
   },
 
+  /** 칸 모양 점검(`asset:check-sheet` 7번 · 읽기만)이 보는 마지막 열 — B 부터 여기까지 */
+  shapeLastColumn: 'I',
+
   /** F열 수식에서 「티커」 줄 번호 NN — `'티커'!$F$NN`(「티커」 F열 = 원화 표기) */
   linkFormula: /'?티커'?!\$?F\$?(\d+)/,
   /** C열 수식 `=(119.2338)*('티커'!$G$9)` — 달러 원래 값(「티커」 G9 = 구매 평균 환율) */

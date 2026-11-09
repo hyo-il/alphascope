@@ -6,7 +6,8 @@
  * - 보는 칸은 모두 `server/asset/sheetLayout.ts` 한 곳에서 가져온다(새 목록을 손으로 적지 않는다):
  *   1 열 수 있는가(안 되면 서비스 계정 이메일에 편집자로 공유) · 2 탭 이름 · 머리 글자(`headers` · 목표 비율 머리) ·
  *   3 「티커」 종목 줄 수 · 국내/미국 · D열 자산 분류 값 · 4 시트 가격 칸 모양(113차 A-0 와 같은 검사 — `classifyLine`) ·
- *   5 목표 비율 여섯 칸 · 계좌 이름 「( 날짜 )」 모양 · 값 칸(현금 · 퇴직 연금 · 월급 · 구매 평균 환율) · 6 「주식 투자 정리」 보유 줄이 「티커」 와 이어지는가.
+ *   5 목표 비율 여섯 칸 · 계좌 이름 「( 날짜 )」 모양 · 값 칸(현금 · 퇴직 연금 · 월급 · 구매 평균 환율) · 6 「주식 투자 정리」 보유 줄이 「티커」 와 이어지는가 ·
+ *   7 보유 구간 · 「티커」 묶음마다 종목 줄 수 · 빈 줄 수 · 빈 줄 칸 모양(새 종목 입력 준비 — v2.66.0) · 구매 평균 환율 칸 모양. 7번은 알림뿐(연결 판단에 넣지 않는다).
  * - 마지막 줄 「✅ 연결해도 됩니다」(종료 0) 또는 「❌ 연결하지 마세요 — 위 n곳을 먼저 고쳐 주세요」(종료 1). ⚠️ 는 알림(연결은 됨).
  * ⚠️ 금액 · 수량 · 종목 이름 · 코드 · 시트 ID 전체 · 열쇠 값(이메일 말고)을 출력하지 않는다 — 시트는 ID 앞 4글자 + 「…」 · 날짜는 숫자를 # 로.
  * ⚠️ 쓰기 함수(`valuesWrite` · `write…` · 바꾸기 · 되돌리기)를 import 하지 않는다(`assetsheet:test` 가 소스로 확인). DB 도 열지 않는다.
@@ -37,6 +38,18 @@ const blank = (v: Cell) => v == null || String(v).trim() === '';
 export const sheetHint = (id: string) => `${id.slice(0, 4)}…`;
 /** 날짜 글자의 숫자를 # 로 */
 const maskDigits = (s: string) => s.replace(/\d/g, '#');
+/** 수식 모양 — 따옴표 안 글자와 숫자를 가린다 */
+const maskFormula = (s: string) => s.replace(/"[^"]*"/g, '"…"').replace(/\d+(\.\d+)?/g, '#');
+/** 칸 줄 범위의 열 글자(B 부터) */
+const colLetter = (i: number) => String.fromCharCode(66 + i);
+/** 빈 줄의 칸 모양(값 없이) — 아무것도 없으면 「완전히 빈 줄」 */
+export function blankRowShape(row: Cell[] | undefined): string {
+  const parts = (row ?? []).flatMap((v, i) => {
+    if (blank(v)) return [];
+    return [`${colLetter(i)} ${isFormula(v) ? `수식(${maskFormula(String(v).trim())})` : isNum(v) ? '숫자' : '글자'}`];
+  });
+  return parts.length ? parts.join(' · ') : '완전히 빈 줄';
+}
 
 /** 서비스 계정 이메일만(열쇠의 다른 값은 읽어도 쓰지 않는다) — 없으면 null */
 function clientEmail(keyFile: string): string | null {
@@ -66,7 +79,17 @@ function ranges() {
       ...cells.map((c) => one(c.tab, c.cell)),
       ...ratioCells.map((c) => one(R.tab, c)),
     ],
-    formulas: [one(TICKER_TAB, P.fxCell), tickerBF, ...ratioCells.map((c) => one(R.tab, c)), ...L.sections.map(holding)],
+    formulas: [
+      one(TICKER_TAB, P.fxCell),
+      tickerBF,
+      ...ratioCells.map((c) => one(R.tab, c)),
+      ...L.sections.map(holding),
+      // 7번(칸 모양) — 첫 묶음 머리 줄(「티커」 종목 범위 바로 윗줄) · 「티커」 넓은 범위 · 보유 구간 넓은 범위 · 구매 평균 환율
+      one(TICKER_TAB, `B${T.firstRow - 1}`),
+      `${q(TICKER_TAB)}!B${T.firstRow}:${L.shapeLastColumn}${T.lastRow}`,
+      ...L.sections.map((s: HoldingSection) => `${q(HOLDINGS_TAB)}!B${s.firstRow}:${L.shapeLastColumn}${s.lastRow}`),
+      one(L.cells.avgFxRate.tab, L.cells.avgFxRate.cell),
+    ],
   };
 }
 
@@ -223,6 +246,39 @@ export async function runSheetCheck(config: AssetSheetConfig, say: (line: string
   say(`6. 「${HOLDINGS_TAB}」 보유 줄 — ${unlinked.length || !total ? '다름' : '맞음'} (「${TICKER_TAB}」 와 이어진 줄 ${linked} / ${total})`);
   if (!total) bad(`「${HOLDINGS_TAB}」 보유 줄이 없습니다`);
   for (const c of unlinked) bad(`「${HOLDINGS_TAB}」 ${c} — ='${TICKER_TAB}'!$F$행 으로 「${TICKER_TAB}」 종목 줄을 가리켜야 합니다`);
+
+  // 7. 칸 모양(새 종목 · 모두 매도 입력 준비 — 값 없이)
+  say(`7. 칸 모양 — 보유 구간 · 「${TICKER_TAB}」 묶음의 줄 수와 빈 줄 (값 없음)`);
+  const blankLines = (rows: (Cell[] | undefined)[], first: number) => rows.flatMap((row, k) => (blank(row?.[0]) && blank(row?.[1]) ? [`${first + k}행 ${blankRowShape(row)}`] : []));
+  const headAbove = first(nextF());
+  const shapeRows = nextF();
+  L.sections.forEach((s: HoldingSection) => {
+    const rows = nextF();
+    const all = Array.from({ length: s.lastRow - s.firstRow + 1 }, (_, k) => rows[k]);
+    const blanks = blankLines(all, s.firstRow);
+    say(`   보유 「${s.key ?? s.label}」${s.combined ? '(합친 표)' : ''} ${s.firstRow}~${s.lastRow}행 — 종목 줄 ${all.length - blanks.length} · 빈 줄 ${blanks.length}${blanks.length ? ` (${blanks.join(' / ')})` : ''}`);
+  });
+  const headName = (v: Cell) => T.skipNames.find((n) => headerOk({ tab: TICKER_TAB, cell: '', expect: n }, v)) ?? null;
+  type Group = { name: string; head: number | null; lines: number; blanks: string[] };
+  const aboveName = headName(headAbove);
+  const groups: Group[] = [{ name: aboveName ?? '머리 줄 없음', head: aboveName ? T.firstRow - 1 : null, lines: 0, blanks: [] }];
+  for (let k = 0; k <= T.lastRow - T.firstRow; k++) {
+    const row = shapeRows[k];
+    const name = headName(row?.[0]);
+    if (name) {
+      groups.push({ name, head: T.firstRow + k, lines: 0, blanks: [] });
+      continue;
+    }
+    const g = groups[groups.length - 1];
+    if (blank(row?.[0]) && blank(row?.[1])) g.blanks.push(`${T.firstRow + k}행 ${blankRowShape(row)}`);
+    else g.lines++;
+  }
+  for (const g of groups.filter((x) => x.head != null || x.lines > 0 || x.blanks.length > 0)) {
+    say(`   「${TICKER_TAB}」 묶음 「${g.name}」${g.head != null ? `(머리 ${g.head}행)` : ''} — 종목 줄 ${g.lines} · 빈 줄 ${g.blanks.length}${g.blanks.length ? ` (${g.blanks.join(' / ')})` : ''}`);
+  }
+  const fxF = first(nextF());
+  say(`   구매 평균 환율 칸 — ${isFormula(fxF) ? `수식(${maskFormula(String(fxF).trim())})` : isNum(fxF) ? '숫자' : '숫자 아님'}`);
+  if (!isNum(fxF)) warn(`구매 평균 환율 칸이 숫자가 아닙니다 — 매수 입력에서 환율을 받지 않습니다(수량 · 평균가는 입력됨)`);
 
   say(problems ? `❌ 연결하지 마세요 — 위 ${problems}곳을 먼저 고쳐 주세요` : '✅ 연결해도 됩니다');
   return { ok: problems === 0, problems, reads };
