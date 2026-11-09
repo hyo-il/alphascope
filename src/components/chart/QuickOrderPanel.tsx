@@ -1,7 +1,7 @@
 import Button from '../ui/Button';
 import { convertAmount } from '../../utils/fx';
 import Segmented from '../ui/Segmented';
-import { ORDER_INDENT, ORDER_LABEL_W, ORDER_TRAIL_W } from '../ui/tokens';
+import { ORDER_BUY_COLOR, ORDER_INDENT, ORDER_LABEL_W, ORDER_SELL_COLOR, ORDER_TRAIL_W } from '../ui/tokens';
 import Select from '../ui/Select';
 import NumberField from '../ui/NumberField';
 import { useEffect, useMemo, useState } from 'react';
@@ -519,7 +519,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('SELL', 'LIMIT')}
             disabled={busy || !price || !limitPrice || sellQuantity <= 0}
-            className="rounded-md bg-accent/80 py-1 text-caption font-medium text-white transition-colors hover:bg-accent disabled:opacity-40"
+            className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_SELL_COLOR}`}
           >
             지정가 매도
           </button>
@@ -527,7 +527,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('BUY', 'LIMIT')}
             disabled={busy || !price || !limitPrice || buyQuantity <= 0}
-            className="rounded-md bg-bearish/80 py-1 text-caption font-medium text-white transition-colors hover:bg-bearish disabled:opacity-40"
+            className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_BUY_COLOR}`}
           >
             지정가 매수
           </button>
@@ -535,7 +535,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('SELL', 'MARKET')}
             disabled={busy || !price || marketSellQuantity <= 0}
-            className="rounded-md bg-accent/15 py-1 text-caption text-accent transition-colors hover:bg-accent/25 disabled:opacity-40"
+            className={`rounded-md py-1 text-caption transition-colors disabled:opacity-40 ${ORDER_SELL_COLOR}`}
           >
             시장가 매도
           </button>
@@ -543,7 +543,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('BUY', 'MARKET')}
             disabled={busy || !price || marketBuyQuantity <= 0}
-            className="rounded-md bg-bearish/15 py-1 text-caption text-bearish transition-colors hover:bg-bearish/25 disabled:opacity-40"
+            className={`rounded-md py-1 text-caption transition-colors disabled:opacity-40 ${ORDER_BUY_COLOR}`}
           >
             시장가 매수
           </button>

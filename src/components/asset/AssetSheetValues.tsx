@@ -264,10 +264,10 @@ function AccountCard({
               <td className={`${CARD_BG} ${lastR(last)} ${TEXT} border-t border-border/30 pr-4 text-right`} data-trade-cell>
                 {h.tradable && (
                   <span className="inline-flex gap-1">
-                    <Button size="sm" onClick={() => onTrade(section, h, 'buy')} aria-label={`${h.name} 매수 입력`} data-trade-buy={h.row}>
+                    <Button variant="buy" size="sm" onClick={() => onTrade(section, h, 'buy')} aria-label={`${h.name} 매수 입력`} data-trade-buy={h.row}>
                       매수
                     </Button>
-                    <Button size="sm" onClick={() => onTrade(section, h, 'sell')} aria-label={`${h.name} 매도 입력`} data-trade-sell={h.row}>
+                    <Button variant="sell" size="sm" onClick={() => onTrade(section, h, 'sell')} aria-label={`${h.name} 매도 입력`} data-trade-sell={h.row}>
                       매도
                     </Button>
                   </span>

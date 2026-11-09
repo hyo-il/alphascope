@@ -102,7 +102,7 @@ export default function AssetTradeDialog({
               모두 파는 것은 다음 업데이트에서 돼요
             </span>
           ) : (
-            <Button variant="primary" busy={busy} disabled={!canSave} onClick={() => void save()} data-trade-save>
+            <Button variant={side} busy={busy} disabled={!canSave} onClick={() => void save()} data-trade-save>
               저장
             </Button>
           )}

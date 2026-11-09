@@ -95,6 +95,12 @@ export const ORDER_LABEL_W = 'w-8';
 export const ORDER_TRAIL_W = 'w-[4.5rem]';
 /** 빠른주문 — 입력칸 아래 줄(프리셋 버튼)을 입력칸 왼쪽 끝에서 시작하게: `ORDER_LABEL_W`(2rem) + 간격(0.375rem) */
 export const ORDER_INDENT = 'pl-[2.375rem]';
+/**
+ * 매수 · 매도 버튼 색 — 앱 안의 「매수 = 빨강 · 매도 = 파랑」(국내 관례) 정의는 여기 한 곳.
+ * 빠른주문 지정가 · 시장가와 `Button` 의 `buy` · `sell` 이 함께 쓴다. 꺼진 버튼은 각 버튼의 `disabled:opacity-40` 으로만 옅어진다.
+ */
+export const ORDER_BUY_COLOR = 'bg-bearish/80 text-white hover:bg-bearish';
+export const ORDER_SELL_COLOR = 'bg-accent/80 text-white hover:bg-accent';
 
 /**
  * 종목 지도 분야 이름 줄 (사용자 지적 4). 이름 글자 줄(16px) 위아래 여백. 칸 배치(squarified)는 이 높이를 뺀 영역으로 계산된다.
