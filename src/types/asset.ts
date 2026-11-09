@@ -47,7 +47,10 @@ export type AssetSheetErrorKind =
   // ── 시트 가격(v2.65.0) ──
   | 'busy' // 시트 가격 바꾸기 · 되돌리기가 이미 도는 중
   | 'no-rows' // 바꿀 줄이 없음(모두 이미 토스 · 토스 가격 없음 · 모양이 다름)
-  | 'no-backup'; // 되돌릴 원래 수식이 앱 DB 에 없음
+  | 'no-backup' // 되돌릴 원래 수식이 앱 DB 에 없음
+  // ── 매수 · 매도 입력(v2.66.0) ──
+  | 'sheet-changed' // 화면을 연 뒤 시트의 그 줄(이름 · 코드 · 수량 · 평균가)이 바뀜
+  | 'sell-all-later'; // 가진 수량을 모두 파는 입력 — 다음 업데이트에서 연다(119차)
 
 /**
  * 자산 분류 — 「티커」 D열에 적는 글자 셋(v2.65.2 — 사용자 결정 2026-11-08: 「현금」 을 뺐다).
@@ -87,6 +90,13 @@ export interface AssetHolding {
   assetClass: AssetClass | null;
   /** 「티커」 D칸(자산 분류)이 수식(`=`)인가 — 앱은 수식을 덮어쓰지 않는다(「자산 분류 정하기」 창은 그 줄에 버튼 대신 안내 · v2.65.3). 이을 수 없는 줄은 false */
   classFormula: boolean;
+  /**
+   * 매수 · 매도 입력을 받는 줄인가(v2.66.0) — 합친 표가 아니고 · 「티커」 와 이어지고 · 수량 칸이 0 보다 큰 숫자이고 ·
+   * 평균가 칸이 시장에 맞는 모양(국내 = 숫자 · 미국 = `=(달러)*('티커'!$G$9)` 수식)인 줄만.
+   */
+  tradable: boolean;
+  /** 미국 줄 평균가 칸의 수식 원문(숫자만 바꿔 다시 쓴다 · v2.66.0) — 그 밖의 줄은 null */
+  avgFormula: string | null;
 }
 
 /**
@@ -131,6 +141,53 @@ export interface AssetSheetData {
   salary: number | null;
   /** 구매 평균 환율(원/달러) */
   avgFxRate: number | null;
+  /** 구매 평균 환율 칸(「티커」 G9)이 수식인가(v2.66.0) — 수식이면 앱이 덮어쓰지 않아 매수 입력에서 환율을 받지 않는다 */
+  avgFxFormula: boolean;
+}
+
+export type AssetTradeSide = 'buy' | 'sell';
+
+/** `POST /api/asset/trade` 요청(v2.66.0) — `expect` 는 화면이 본 값(시트가 그 뒤 바뀌었으면 409 `sheet-changed`) */
+export interface AssetTradeRequest {
+  section: string;
+  row: number;
+  side: AssetTradeSide;
+  qty: number;
+  price: number;
+  fx?: number | null;
+  expect: { name: string; code: string; quantity: number; avgPrice: number };
+}
+
+/** `POST /api/asset/trade` 성공 — 기록 id 만(값은 시트를 다시 읽어 본다) */
+export interface AssetTradeResult {
+  id: number;
+}
+
+/** 매수 · 매도 기록 한 줄(`asset_trades` · v2.66.0) */
+export interface AssetTradeRecord {
+  id: number;
+  at: string;
+  section: string;
+  holdingRow: number;
+  symbol: string;
+  name: string;
+  side: AssetTradeSide;
+  qty: number;
+  price: number;
+  currency: AssetCurrency;
+  fx: number | null;
+  beforeQty: number;
+  beforeAvg: number;
+  afterQty: number;
+  afterAvg: number;
+  fxBefore: number | null;
+  fxAfter: number | null;
+}
+
+/** `GET /api/asset/trades` — 최근 순 · `hasMore` = 더 오래된 줄이 있다 */
+export interface AssetTradesResponse {
+  trades: AssetTradeRecord[];
+  hasMore: boolean;
 }
 
 /** `GET /api/asset/sheet` 실패 */

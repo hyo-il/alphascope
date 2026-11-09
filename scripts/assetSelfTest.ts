@@ -1495,6 +1495,7 @@ const appCode = [...walk(path.join(root, 'server')), ...walk(path.join(root, 'sr
 // [106-8] 쓰기는 한 곳 — 106차부터 시트 쓰기(「티커」 D열 자산 분류)가 생겼다(101차 [12] 「쓰기 주소 0」 을 대신한다).
 // 109차: 쓰기 함수가 `valuesUpdate`(한 칸 · 글자) → `valuesWrite`(values:batchUpdate · 여러 칸 · 숫자 그대로)로 바뀌고 부르는 곳이 sheet.ts 두 곳(자산 분류 · 목표 비율)이 됐다
 const codeFiles = [...walk(path.join(root, 'server')), ...walk(path.join(root, 'src'))].map((f) => ({ f: path.relative(root, f), src: fs.readFileSync(f, 'utf8') }));
+// 118차: 매수 · 매도 입력(trade.ts recordTrade) 한 곳이 늘었다
 const callers = codeFiles.flatMap(({ f, src }) => [...src.matchAll(/\bvaluesWrite\(/g)].map(() => f));
 const fnBody = (name: string) => {
   const src = fs.readFileSync(path.join(root, 'server/asset/sheet.ts'), 'utf8');
@@ -1503,8 +1504,8 @@ const fnBody = (name: string) => {
 };
 // 111차: 부르는 곳이 셋(+ writeAccountDates 계좌 이름 날짜)
 // 113차: 시트 가격(priceSheet.ts 바꾸기 · 되돌리기 · priceWriter.ts 10초 쓰기)이 같은 함수를 부른다(쓰는 방식은 인자 — `assetprice:test` [113-7])
-const WRITE_CALLERS = JSON.stringify(['server/asset/google.ts', 'server/asset/priceSheet.ts', 'server/asset/priceSheet.ts', 'server/asset/priceWriter.ts', 'server/asset/sheet.ts', 'server/asset/sheet.ts', 'server/asset/sheet.ts']);
-check('[106-8] [109-1] [111-8] 시트 쓰기 함수 valuesWrite — 정의(google.ts) 1 + 부르는 곳 sheet.ts 3(writeAssetClasses · writeTargetRatio · writeAccountDates) + 113차 시트 가격 3(priceSheet.ts 2 · priceWriter.ts 1)뿐 · 옛 valuesUpdate 0', JSON.stringify(callers.sort()) === WRITE_CALLERS && /valuesWrite\(/.test(fnBody('writeAssetClasses')) && /valuesWrite\(/.test(fnBody('writeTargetRatio')) && /valuesWrite\(/.test(fnBody('writeAccountDates')) && !/\bvaluesUpdate\b/.test(appCode), callers.join(','));
+const WRITE_CALLERS = JSON.stringify(['server/asset/google.ts', 'server/asset/priceSheet.ts', 'server/asset/priceSheet.ts', 'server/asset/priceWriter.ts', 'server/asset/sheet.ts', 'server/asset/sheet.ts', 'server/asset/sheet.ts', 'server/asset/trade.ts']);
+check('[106-8] [109-1] [111-8] 시트 쓰기 함수 valuesWrite — 정의(google.ts) 1 + 부르는 곳 sheet.ts 3(writeAssetClasses · writeTargetRatio · writeAccountDates) + 113차 시트 가격 3(priceSheet.ts 2 · priceWriter.ts 1) + 118차 매수 · 매도 입력 1(trade.ts)뿐 · 옛 valuesUpdate 0', JSON.stringify(callers.sort()) === WRITE_CALLERS && /valuesWrite\(/.test(fnBody('writeAssetClasses')) && /valuesWrite\(/.test(fnBody('writeTargetRatio')) && /valuesWrite\(/.test(fnBody('writeAccountDates')) && !/\bvaluesUpdate\b/.test(appCode), callers.join(','));
 check('[106-8] [109-1] 그 밖의 구글 쓰기 주소(서식 spreadsheets:batchUpdate · values:append · values:clear) 0 · values:batchUpdate 는 google.ts 한 곳 · googleapis 는 google.ts 한 곳', !/(?<!values):batchUpdate|values:append|values:clear|values:batchClear/.test(appCode) && codeFiles.filter(({ src }) => /values:batchUpdate/.test(src)).map((x) => x.f).join(',') === 'server/asset/google.ts' && codeFiles.filter(({ src }) => /sheets\.googleapis\.com/.test(src)).map((x) => x.f).join(',') === 'server/asset/google.ts');
 check('[106-8] 구글 scope 는 spreadsheets 하나(drive 등 다른 scope 없음)', /auth\/spreadsheets'/.test(appCode) && !/auth\/spreadsheets\.readonly/.test(appCode) && !/auth\/drive/.test(appCode));
 check('[106-8] 실제 구글 호출 0 — 이 시험의 googleapis 요청은 모두 가짜가 받았다(쓰기는 가짜 응답으로만)', realGoogleCalls === 0);
@@ -1651,12 +1652,15 @@ const OPTIONS_HAS_MIXED = (src: string) => /value: MIXED|'mixed'/.test(src);
   const fnAt = (src: string) => { const i = src.indexOf('export async function writeAssetClasses('); return i < 0 ? '' : src.slice(i, src.indexOf('\n}\n', i)); };
   const oldSheet = spawnSync('git', ['show', '04a202d:server/asset/sheet.ts'], { cwd: root, encoding: 'utf8' }).stdout;
   // v2.65.4 — routes.ts 는 117차에 바뀐다(구매 완료 대상 · touch · 잠금 시간) → 파일 전체 대신 /api/asset/class 라우트 글자만 견준다 · google.ts 는 파일 그대로
-  const routesDiff = spawnSync('git', ['diff', '--name-only', '04a202d', '--', 'server/asset/google.ts'], { cwd: root, encoding: 'utf8' });
+  // v2.66.0 — google.ts 는 118차에 주석(부르는 곳 목록)만 바뀐다 → 파일 전체 대신 valuesWrite 본문 글자만 견준다
+  const writeFn = (src: string) => { const i = src.indexOf('export async function valuesWrite('); return i < 0 ? '' : src.slice(i, src.indexOf('\n}\n', i)); };
+  const oldGoogle = spawnSync('git', ['show', '04a202d:server/asset/google.ts'], { cwd: root, encoding: 'utf8' }).stdout;
+  const nowGoogle = fs.readFileSync(path.join(root, 'server/asset/google.ts'), 'utf8');
   const oldRoutes = spawnSync('git', ['show', '04a202d:server/asset/routes.ts'], { cwd: root, encoding: 'utf8' }).stdout;
   const classRoute = (src: string) => { const i = src.indexOf("assetRouter.put('/api/asset/class'"); return i < 0 ? '' : src.slice(i, src.indexOf('\n});\n', i)); };
   const nowRoutes = fs.readFileSync(path.join(root, 'server/asset/routes.ts'), 'utf8');
-  check('[116-7] writeAssetClasses 본문 · /api/asset/class 라우트 글자 · google.ts 파일 바뀐 줄 0(04a202d 와 지금)',
-    fnAt(oldSheet).length > 500 && fnAt(oldSheet) === fnBody('writeAssetClasses') && routesDiff.status === 0 && routesDiff.stdout.trim() === '' && classRoute(oldRoutes).length > 50 && classRoute(oldRoutes) === classRoute(nowRoutes), routesDiff.stdout.trim());
+  check('[116-7] writeAssetClasses 본문 · /api/asset/class 라우트 글자 · google.ts valuesWrite 본문 바뀐 글자 0(04a202d 와 지금)',
+    fnAt(oldSheet).length > 500 && fnAt(oldSheet) === fnBody('writeAssetClasses') && writeFn(oldGoogle).length > 200 && writeFn(oldGoogle) === writeFn(nowGoogle) && classRoute(oldRoutes).length > 50 && classRoute(oldRoutes) === classRoute(nowRoutes));
 }
 // [116-9] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(115차 끝 04a202d 와 지금 작업 트리)
 const changed116 = spawnSync('git', ['diff', '--name-only', '04a202d', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python'], { cwd: root, encoding: 'utf8' });
@@ -1679,7 +1683,7 @@ const changed106 = spawnSync('git', ['diff', '--name-only', 'c166ecd', '--', 'se
 check('[106-12] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(c166ecd 와 지금 작업 트리)', changed106.status === 0 && changed106.stdout.trim() === '', changed106.stdout.trim() || changed106.stderr.trim());
 
 // [107-9] 시트 쓰기는 지금처럼 「티커」 D14~D42 자산 분류 한 곳뿐 · 서식 쓰기(batchUpdate — repeatCell · 정렬 등) 0 — 이번 설정 저장은 앱 DB(app_settings)에만
-check('[107-9] 시트 쓰기 = sheet.ts 세 곳(자산 분류 · 109차 목표 비율 · 111차 계좌 이름 날짜) + 113차 시트 가격(priceSheet.ts · priceWriter.ts) · 서식 쓰기(spreadsheets:batchUpdate · repeatCell · horizontalAlignment) 0 · settings.ts 는 시트를 쓰지 않음', JSON.stringify(callers.sort()) === WRITE_CALLERS && !/(?<!values):batchUpdate|repeatCell|horizontalAlignment|userEnteredFormat/.test(appCode) && !/valuesWrite|googleapis/.test(fs.readFileSync(path.join(root, 'server/asset/settings.ts'), 'utf8')));
+check('[107-9] 시트 쓰기 = sheet.ts 세 곳(자산 분류 · 109차 목표 비율 · 111차 계좌 이름 날짜) + 113차 시트 가격(priceSheet.ts · priceWriter.ts) + 118차 매수 · 매도(trade.ts) · 서식 쓰기(spreadsheets:batchUpdate · repeatCell · horizontalAlignment) 0 · settings.ts 는 시트를 쓰지 않음', JSON.stringify(callers.sort()) === WRITE_CALLERS && !/(?<!values):batchUpdate|repeatCell|horizontalAlignment|userEnteredFormat/.test(appCode) && !/valuesWrite|googleapis/.test(fs.readFileSync(path.join(root, 'server/asset/settings.ts'), 'utf8')));
 // [107-10] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(106차 끝 428db88 와 지금 작업 트리)
 const changed107 = spawnSync('git', ['diff', '--name-only', '428db88', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
 check('[107-10] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(428db88 와 지금 작업 트리)', changed107.status === 0 && changed107.stdout.trim() === '', changed107.stdout.trim() || changed107.stderr.trim());

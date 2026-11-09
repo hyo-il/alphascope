@@ -33,6 +33,9 @@ function holding(row: number, name: string, code: string | null, quantity: numbe
     tickerRow: code ? tickerRow : null,
     assetClass,
     classFormula: code ? classFormula : false,
+    // 합친 표의 줄은 `assetSheetSample` 이 끈다(서버 `isTradable` 과 같은 뜻 — 평균가 칸이 수식인 경우는 `formulaAvg`)
+    tradable: code != null && tickerRow != null,
+    avgFormula: us ? `=(${avgPrice})*('티커'!$G$9)` : null,
   };
 }
 
@@ -58,12 +61,13 @@ export function assetSheetSample(opts: { dupCode?: boolean } = {}): AssetSheetDa
       // 같은 종목(「티커」 16행)이 개별 투자에도 있다: 「자산 분류 정하기」 창에서 한 줄(v2.65.3)
       { key: 'ISA 계좌', name: 'ISA 계좌 ( 2026.07 )', combined: false, holdings: [holding(22, '예시 국내 배당주', '000002', 15, 42350, 'KRW', 25, '금'), opts.dupCode ? holding(23, '예시 국내 대형주', '000001', 5, 70000, 'KRW', 19, '금') : holding(23, '예시 국내 대형주', '000001', 5, 70000, 'KRW', 16, '주식')] },
       { key: '연금 저축 계좌', name: '연금 저축 계좌 ( 2026.07 )', combined: false, holdings: [] },
-      { key: null, name: '적립식 주식', combined: true, holdings: [holding(39, 'KODEX 예시 S&P500', '0072R0', 1200, 15000, 'KRW', 21, '주식'), holding(40, '예시 국내 배당주', '000002', 15, 42350, 'KRW', 25, '금')] },
+      { key: null, name: '적립식 주식', combined: true, holdings: [{ ...holding(39, 'KODEX 예시 S&P500', '0072R0', 1200, 15000, 'KRW', 21, '주식'), tradable: false }, { ...holding(40, '예시 국내 배당주', '000002', 15, 42350, 'KRW', 25, '금'), tradable: false }] },
     ],
     cashTotal: 1234567890,
     retirement: 234567890,
     salary: 3456789,
     avgFxRate: 1350.25,
+    avgFxFormula: false,
     targetRatio: { cash: 20, gold: 10, bond: 10, invest: 60, core: 70, satellite: 30 },
   };
 }

@@ -163,9 +163,9 @@ try {
       results.push(`${r}:${w.status}:${isLocked(still) ? 'locked' : 'open'}:${isLocked(late) ? 'locked' : 'open'}`);
     }
     check('[117-3] 쓰기 요청 6가지(PUT class · settings · target-ratio · POST purchase-done · price-source convert · restore) 각각 20분에 → 45분 풀림 · 50분 넘으면 잠김',
-      writes.length === 6 && results.every((x) => x.endsWith(':open:locked') && !x.includes(':403:')), results.join(' '));
-    check('[117-3] ACTIVE = touch + 쓰기 6가지뿐 · summary · sheet · history · status 는 없음',
-      ACTIVE.size === 7 && ![...ACTIVE].some((r) => r.startsWith('GET ')) && ACTIVE.has('POST /api/asset/touch'));
+      writes.length === 7 && results.every((x) => x.endsWith(':open:locked') && !x.includes(':403:')), results.join(' '));
+    check('[117-3] ACTIVE = touch + 쓰기 7가지뿐(118차 매수 · 매도 입력 포함) · summary · sheet · history · status 는 없음',
+      ACTIVE.size === 8 && ![...ACTIVE].some((r) => r.startsWith('GET ')) && ACTIVE.has('POST /api/asset/touch'));
   }
 
   {

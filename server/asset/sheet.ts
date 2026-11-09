@@ -44,8 +44,8 @@ export function sheetRanges(): { values: string[]; formulas: string[] } {
       ...ratio.assets.map((c) => one(ratio.tab, c)),
       ...ratio.coreSatellite.map((c) => one(ratio.tab, c)),
     ],
-    // 맨 끝 = 「티커」 종목 줄(자산 분류 칸 수식 여부 — v2.65.3). 보유 구간 순서는 그대로(앞에서부터 구간 번호)
-    formulas: [...L.sections.map(holdingRange), tickerRange()],
+    // 구간 뒤 = 구매 평균 환율 칸(수식 여부 — v2.66.0) · 맨 끝 = 「티커」 종목 줄(자산 분류 칸 수식 여부 — v2.65.3). 보유 구간 순서는 그대로(앞에서부터 구간 번호)
+    formulas: [...L.sections.map(holdingRange), one(L.cells.avgFxRate.tab, L.cells.avgFxRate.cell), tickerRange()],
   };
 }
 
@@ -97,6 +97,15 @@ export function linkedTickerRow(formula: Cell): number | null {
   return m ? Number(m[1]) : null;
 }
 
+/** 매수 · 매도 입력을 받는 줄인가(v2.66.0) — 평균가 칸(`avgF`) · 수량 칸(`qtyF`)은 수식 그대로 읽은 값. 수식 수량 · 시장과 다른 평균가 모양은 받지 않는다 */
+function isTradable(combined: boolean, market: AssetHolding['market'], linked: boolean, avgF: Cell, qtyF: Cell): boolean {
+  if (combined || !linked || typeof qtyF !== 'number' || !(qtyF > 0)) return false;
+  if (market === 'KR') return typeof avgF === 'number' && avgF > 0;
+  if (market !== 'US' || typeof avgF !== 'string') return false;
+  const m = avgF.trim().match(SHEET_LAYOUT.usdFormula);
+  return m != null && Number(m[1]) > 0;
+}
+
 /** 목표 비율 묶음을 백분율로 — 합이 1 근처면 비율(0.3)로 적힌 것(×100), 아니면 이미 백분율 */
 function asPercent(values: (number | null)[]): (number | null)[] {
   const known = values.filter((v): v is number => v != null);
@@ -129,7 +138,7 @@ export function parseAssetSheet(values: CellRows[], formulas: CellRows[], readAt
   // 「티커」 줄 번호 → 코드 · 자산 분류(D)
   const tickerRows = next();
   /** 「티커」 종목 줄 수식(맨 끝 범위) — 없으면(모양 확인 단계 · 옛 호출) 수식 아님 */
-  const tickerFormulas = formulas[L.sections.length] ?? [];
+  const tickerFormulas = formulas[L.sections.length + 1] ?? [];
   const codeByRow = new Map<number, { code: string; cls: string; clsFormula: boolean }>();
   tickerRows.forEach((r, k) => {
     const code = tickerRowCode(r);
@@ -150,13 +159,17 @@ export function parseAssetSheet(values: CellRows[], formulas: CellRows[], readAt
       const ticker = linked != null ? (codeByRow.get(linked) ?? null) : null;
       const code = ticker?.code ?? null;
       const cls = ticker?.cls ?? '';
+      const where = code ? splitCode(code) : { market: null, exchange: null, symbol: null };
+      const avg = avgPriceOf(f[1], r[1]);
       holdings.push({
         row: s.firstRow + k,
         name,
         code,
-        ...(code ? splitCode(code) : { market: null, exchange: null, symbol: null }),
+        ...where,
         quantity: num(r[2]),
-        ...avgPriceOf(f[1], r[1]),
+        ...avg,
+        tradable: isTradable(s.combined === true, where.market, ticker != null, f[1], f[2]),
+        avgFormula: avg.currency === 'USD' && typeof f[1] === 'string' ? f[1].trim() : null,
         tickerRow: ticker ? linked : null,
         assetClass: isAssetClass(cls) ? cls : null, // 빈칸 · 세 글자가 아닌 글자(옛 「현금」 포함) → 「미지정」(null)
         classFormula: ticker?.clsFormula ?? false,
@@ -174,7 +187,9 @@ export function parseAssetSheet(values: CellRows[], formulas: CellRows[], readAt
   const [core, satellite] = asPercent(L.targetRatio.coreSatellite.map(() => num(first(next()))));
   const targetRatio: AssetTargetRatio = { cash, gold, bond, invest, core, satellite };
 
-  return { readAt, sections, cashTotal, retirement, targetRatio, salary, avgFxRate };
+  const fxFormula = first(formulas[L.sections.length]);
+  const avgFxFormula = typeof fxFormula === 'string' && fxFormula.trim().startsWith('=');
+  return { readAt, sections, cashTotal, retirement, targetRatio, salary, avgFxRate, avgFxFormula };
 }
 
 let cache: { at: number; data: AssetSheetData } | null = null;
