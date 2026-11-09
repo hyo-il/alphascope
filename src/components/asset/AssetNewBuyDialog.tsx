@@ -236,12 +236,12 @@ export default function AssetNewBuyDialog({
           </div>
 
           <NumberUnitGroup w="sm">
-            <div className="space-y-2">
+            <div className="space-y-3">
               <FormRow label="수량" labelW="sm" valueW="lg">
-                <NumberField boxClassName="w-full" kind="long" thousands decimals={digits.qty} unit="주" value={qty} onValue={setQty} aria-label="수량" data-newbuy-qty />
+                <NumberField kind="fill" thousands decimals={digits.qty} unit="주" value={qty} onValue={setQty} aria-label="수량" data-newbuy-qty />
               </FormRow>
               <FormRow label="가격" labelW="sm" valueW="lg">
-                <NumberField boxClassName="w-full" kind="long" thousands decimals={digits.price} unit={currency === 'KRW' ? '원' : '$'} value={price} onValue={setPrice} aria-label="가격" data-newbuy-price />
+                <NumberField kind="fill" thousands decimals={digits.price} unit={currency === 'KRW' ? '원' : '$'} value={price} onValue={setPrice} aria-label="가격" data-newbuy-price />
               </FormRow>
             </div>
           </NumberUnitGroup>

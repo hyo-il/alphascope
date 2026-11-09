@@ -649,6 +649,36 @@ function targets(): Target[] {
           }
           await page.waitForTimeout(300);
         }] as const),
+        // v2.67.2 — 새 종목 창: 글자를 친 뒤 뜨는 목록 · 저장 뒤 버튼 줄 아래 안내
+        ['새종목-검색목록', {}, async (page: Page) => {
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+          await page.route('**/api/stocks/search**', (r) => r.fulfill({ json: { results: [{ symbol: 'FAKN', name: '가짜 새미국주', englishName: '', market: 'NASDAQ' }, { symbol: '999201', name: '가짜 새국내주', englishName: '', market: 'KOSPI' }], catalogSize: 2 } }).catch(() => {}));
+          await page.locator('[data-trade-new]').click().catch(() => {});
+          await page.locator('[data-newbuy-form]').waitFor({ timeout: 3000 }).catch(() => {});
+          await page.locator('[data-newbuy-search] input').fill('가짜').catch(() => {});
+          await page.locator('[data-newbuy-search] li button').first().waitFor({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(300);
+        }],
+        ['새종목-저장뒤안내', {}, async (page: Page) => {
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+          await page.route('**/api/stocks/search**', (r) => r.fulfill({ json: { results: [{ symbol: 'FAKN', name: '가짜 새미국주', englishName: '', market: 'NASDAQ' }], catalogSize: 1 } }).catch(() => {}));
+          await page.route('**/api/stocks/info**', (r) => r.fulfill({ json: { stock: { symbol: 'FAKN', name: '가짜 새미국주', englishName: '', market: 'NASDAQ' } } }).catch(() => {}));
+          await page.route('**/api/asset/trade/new/plan', (r) => r.fulfill({ json: assetNewPlanSample({ section: '적립식 계좌', notice: '합친 표 「적립식 주식」 은 직접 고쳐 주세요.' }) }).catch(() => {}));
+          await page.route('**/api/asset/trade/new', (r) => r.fulfill({ json: { id: 3, mode: 'new', notice: '합친 표 「적립식 주식」 은 직접 고쳐 주세요.' } }).catch(() => {}));
+          await page.locator('[data-trade-new]').click().catch(() => {});
+          await page.locator('[data-newbuy-form]').waitFor({ timeout: 3000 }).catch(() => {});
+          await page.locator('[data-newbuy-search] input').fill('FAKN').catch(() => {});
+          await page.locator('[data-newbuy-search] li button').first().click({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(200);
+          await page.locator('[data-newbuy-qty]').fill('1').catch(() => {});
+          await page.locator('[data-newbuy-price]').fill('10').catch(() => {});
+          await page.locator('[data-newbuy-next]').click().catch(() => {});
+          await page.locator('[data-newbuy-save]').click({ timeout: 3000 }).catch(() => {});
+          await page.locator('[data-newbuy-saved-notes]').waitFor({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(300);
+        }],
         ['매도창-409안내', {}, async (page: Page) => {
           await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
           await page.waitForTimeout(500);
@@ -841,6 +871,40 @@ function targets(): Target[] {
       },
     },
     { name: 'dialog-종목추가', hash: '#/backtest', open: click('종목 추가') },
+    // v2.67.2 — 공용 SymbolSearch 를 쓰는 다른 자리(「종목 추가」 버튼 그대로)
+    {
+      name: 'search-관심목록관리',
+      hash: '#/chart',
+      open: async (page) => {
+        await page.getByRole('button', { name: '관심 목록 관리 (폴더·순서)' }).click();
+        await page.locator('button:not([type="submit"])', { hasText: '종목 추가' }).first().click();
+        await page.waitForTimeout(500);
+      },
+    },
+    {
+      name: 'search-비교',
+      hash: '#/compare',
+      open: async (page) => {
+        await page.reload(); // 앞 장면(관심 목록 관리)의 창이 열려 있으면 버튼을 가린다
+        await page.waitForTimeout(1200);
+        const storeUrl = '/src/store/appStore.ts';
+        await page.evaluate(async (url) => {
+          const m = (await import(/* @vite-ignore */ url)) as { useAppStore: { getState: () => { clearCompareSymbols: () => void } } };
+          m.useAppStore.getState().clearCompareSymbols();
+        }, storeUrl);
+        await page.waitForTimeout(300);
+        await click('종목 검색')(page);
+      },
+    },
+    {
+      name: 'search-종목추가창',
+      hash: '#/backtest',
+      open: async (page) => {
+        await click('종목 추가')(page);
+        await page.getByRole('tab', { name: '새 종목 검색' }).click();
+        await page.waitForTimeout(400);
+      },
+    },
     {
       name: 'dialog-자동매매설정',
       hash: '#/portfolio/paper',
@@ -1408,7 +1472,7 @@ export function measure() {
   }
 
   // 2. 폼 줄(FormRow) — 같은 묶음(창·구역) 안에서 (기준표 「폼 줄 · 입력칸」)
-  //    칸 오른쪽 끝 0px · 단위 열 왼쪽 끝 0px · 설명 시작점 0px · 숫자 칸 폭 = 종류 변수(short 64 · long 128) · 이름 넘침 0
+  //    칸 오른쪽 끝 0px · 단위 열 왼쪽 끝 0px · 설명 시작점 0px · 숫자 칸 폭 = 종류 변수(short 64 · long 128 · fill 값 칸 폭) · 이름 넘침 0
   const groups = new Map<Element, Element[]>();
   for (const row of document.querySelectorAll('[data-formrow]')) {
     if (!visible(row)) continue;
@@ -1426,7 +1490,7 @@ export function measure() {
       const ctrls = cell
         ? [...cell.querySelectorAll('input:not([type=checkbox]):not([type=radio]), select, [role=radiogroup], label, button')]
             .map((c) => (c.tagName === 'INPUT' ? c.parentElement! : c))
-            .filter((c) => visible(c))
+            .filter((c) => visible(c) && !c.closest('ul')) // 열린 검색 목록(떠 있는 층)의 버튼은 칸이 아니다
         : [];
       if (ctrls.length) cellRight.push(Math.max(...ctrls.map((c) => Math.round(c.getBoundingClientRect().right))));
       const unit = row.querySelector('[data-formrow-unit]');
@@ -1438,7 +1502,7 @@ export function measure() {
         issues.push({ kind: '입력칸 끝 맞춤', detail: `이름이 이름 칸을 넘침 — 「${label(lab)}」` });
       for (const box of cell?.querySelectorAll('input[type=number], input[inputmode=decimal]') ?? []) {
         const w = Math.round(box.parentElement!.getBoundingClientRect().width);
-        if (![64, 128].includes(w)) issues.push({ kind: '입력칸 끝 맞춤', detail: `숫자 칸 폭 ${w}px — 종류 변수(64·128)와 다름 「${label(row.querySelector('label') ?? row)}」` });
+        if (![64, 128, Math.round(cell!.getBoundingClientRect().width)].includes(w)) issues.push({ kind: '입력칸 끝 맞춤', detail: `숫자 칸 폭 ${w}px — 종류 변수(64·128 · 값 칸 채움)와 다름 「${label(row.querySelector('label') ?? row)}」` });
       }
     }
     const dr = spread(cellRight);

@@ -77,7 +77,7 @@ export const PANEL_PAD = 'px-4 py-3';
  */
 /** 자산 관리 계좌 카드의 자산 분류 글자 칸(v2.65.3 — 고르기 없이 글자만) — 가장 긴 글자 「미지정」 이 잘리지 않는 폭 · 이을 수 없는 줄의 「—」 도 같은 폭 */
 export const ASSET_CLASS_W = 'w-16';
-export const FIELD_W = { short: 'w-16', long: 'w-32', select: 'w-auto' } as const;
+export const FIELD_W = { short: 'w-16', long: 'w-32', select: 'w-auto', /** 값 칸을 채움 — 드롭박스 · 검색칸과 섞인 폼에서 왼쪽 끝을 맞출 때 */ fill: 'w-full' } as const;
 export type FieldKind = keyof typeof FIELD_W;
 
 /**
