@@ -23,6 +23,7 @@ import { ACTIVE, assetRouter } from '../server/asset/routes';
 import { authGuard } from '../server/authGuard';
 import { readLockMinutes, writeAssetSettings } from '../server/asset/settings';
 import { assetSheetSample, assetSummarySample } from './fixtures/asset/screenSample';
+import { createBrowserStepGuard } from './lib/browserStepGuard';
 
 // 시트 · 쓰기 스위치 끔 — 시트를 읽거나 쓰는 길은 모두 설정 없음 · 꺼짐에서 멈춘다
 process.env.ASSET_SHEET_ID = '';
@@ -35,9 +36,11 @@ const LOGIN_PW = 'selftest-assetlock-login-0001';
 const ASSET_PW = 'selftest-assetlock-lock-0002';
 const MIN = 60_000;
 
+const guard = createBrowserStepGuard();
 let pass = 0;
 let fail = 0;
 function check(name: string, ok: boolean, detail = '') {
+  guard.mark(name);
   if (ok) pass++;
   else fail++;
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail && !ok ? ` — ${detail}` : ''}`);
@@ -227,11 +230,11 @@ try {
     logLevel: 'error',
     server: { host: '127.0.0.1', port: 5187, strictPort: true, hmr: false, proxy: { '/api': { target: API, changeOrigin: false } } },
   });
-  await vite.listen();
+  await guard.step('Vite 띄우기', () => vite.listen());
   viteClose = () => vite.close();
   const WEB = 'http://127.0.0.1:5187';
 
-  const browser = await chromium.launch({ channel: 'chrome' });
+  const browser = await guard.step('브라우저 띄우기', () => chromium.launch({ channel: 'chrome' }));
   try {
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     await ctx.addCookies([{ name: 'as_session', value: token, url: WEB }]);
@@ -264,8 +267,8 @@ try {
     };
     const touches = () => page.evaluate(() => (window as unknown as { __touches: number[] }).__touches.slice());
 
-    await page.goto(`${WEB}/#/asset`);
-    await unlockUi();
+    await guard.step('페이지 열기(#/asset)', () => page.goto(`${WEB}/#/asset`));
+    await guard.step('잠금 풀기', () => unlockUi());
 
     // 입력 3분(5초마다 클릭 · 키 · 휠을 돌아가며) → touch 1분에 1번 이하
     const kinds = ['pointerdown', 'keydown', 'wheel'] as const;
@@ -371,7 +374,7 @@ try {
     check('[117-4] 화면 오류(pageerror) 0', errors.length === 0, errors.join(' | '));
     await ctx.close();
   } finally {
-    await browser.close();
+    await guard.step('브라우저 닫기', () => browser.close());
   }
   check('[117-3] [117-4] 바깥 주소 호출 0(실제 구글 · 토스 0)', outside === 0, String(outside));
 } catch (e) {
@@ -381,8 +384,9 @@ try {
   setLockClockForTest(null);
   clearLockSetting();
   getDb().prepare(`DELETE FROM auth_sessions`).run();
-  if (viteClose) await viteClose().catch(() => {});
+  if (viteClose) await guard.step('Vite 닫기', () => (viteClose as () => Promise<void>)().catch(() => {}));
   srv.close();
+  guard.stop();
 }
 console.warn = origWarn;
 console.log(`(시트 연결 없음 경고 ${sheetWarns}줄 — 이유 종류만)`);

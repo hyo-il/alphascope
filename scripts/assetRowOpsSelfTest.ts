@@ -455,6 +455,10 @@ try {
     reset((m) => { m[OTHER].B5 = `='주식 투자 정리'!D6*2`; });
     const other = await sell(seenKr);
     check('[120-5] 다른 탭이 가리키면 409 row-referenced · 어디인지 칸 주소 · 쓰기 0', other.status === 409 && other.body.kind === 'row-referenced' && String(other.body.error).includes(`「${OTHER}」 B5`) && g.writes === 0, String(other.body.error));
+    check('[121-6] 막힘 문구 — 탭 · 칸이 앞에 · 409', other.status === 409 && other.body.error === `「${OTHER}」 B5 칸이 이 종목을 써요. 그 칸을 먼저 정리한 뒤 다시 눌러 주세요.`, String(other.body.error));
+    reset((m) => { for (const c of ['B5', 'B6', 'B7', 'B8', 'B9']) m[OTHER][c] = `='주식 투자 정리'!D6*2`; });
+    const many = await sell(seenKr);
+    check('[121-6] 3칸 넘으면 처음 3칸 + 「외 n칸」 · 409 · 쓰기 0', many.status === 409 && many.body.kind === 'row-referenced' && many.body.error === `「${OTHER}」 B5 · 「${OTHER}」 B6 · 「${OTHER}」 B7 외 2칸이 이 종목을 써요. 그 칸을 먼저 정리한 뒤 다시 눌러 주세요.` && g.writes === 0, String(many.body.error));
     reset((m) => { m[H].J6 = '=C6+1'; m[H].J7 = '=C6+1'; });
     const same = await sell(seenKr);
     check('[120-5] 같은 탭 다른 줄이 가리키면 409 · 그 줄 자신의 수식은 뺌', same.body.kind === 'row-referenced' && String(same.body.error).includes('J7') && !String(same.body.error).includes('J6'), String(same.body.error));

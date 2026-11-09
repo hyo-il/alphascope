@@ -652,7 +652,7 @@ function targets(): Target[] {
         ['매도창-409안내', {}, async (page: Page) => {
           await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
           await page.waitForTimeout(500);
-          await page.route('**/api/asset/trade', (r) => r.fulfill({ status: 409, json: { error: '다른 칸이 이 줄을 쓰고 있어요 — 시트에서 직접 정리해 주세요(「요약」 B5 · 「요약」 B7).', kind: 'row-referenced' } }).catch(() => {}));
+          await page.route('**/api/asset/trade', (r) => r.fulfill({ status: 409, json: { error: '「요약」 B5 · 「요약」 B7 칸이 이 종목을 써요. 그 칸을 먼저 정리한 뒤 다시 눌러 주세요.', kind: 'row-referenced' } }).catch(() => {}));
           await page.locator('[data-trade-sell="6"]').click().catch(() => {});
           await page.locator('[data-trade-dialog]').waitFor({ timeout: 3000 }).catch(() => {});
           await page.locator('[data-trade-qty]').fill('30').catch(() => {});

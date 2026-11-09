@@ -454,6 +454,13 @@ export function findRowRefs(tabs: Map<string, CellRows>, targetTab: string, row:
 
 const SHOW_REFS = 3;
 
+/** 모두 매도가 막힌 이유 — 어느 칸 때문인지 앞에(처음 3칸 + 「외 n칸」) */
+export function rowReferencedMessage(refs: string[]): string {
+  const shown = refs.slice(0, SHOW_REFS).join(' · ');
+  const subject = refs.length > SHOW_REFS ? `${shown} 외 ${refs.length - SHOW_REFS}칸이` : `${shown} 칸이`;
+  return `${subject} 이 종목을 써요. 그 칸을 먼저 정리한 뒤 다시 눌러 주세요.`;
+}
+
 /**
  * 모두 매도 — 보유 줄 하나만 지운다(「티커」 줄 · 합친 표는 그대로). 순서:
  * ① 합계 줄 말고 다른 칸이 이 줄을 가리키면 409 `row-referenced`(어디) ② 구간에 종목이 한 줄뿐이면 409 `last-row` ③ `deleteDimension` ④ 다시 읽어 줄이 빠졌는지 · 합계 범위 끝이 한 줄 줄었는지 확인.
@@ -463,10 +470,7 @@ export async function deleteHoldingRow(config: AssetSheetConfig, grid: SheetGrid
   if (!section) throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(「${HOLDINGS_TAB}」 「${sectionKey}」 구간이 없습니다).`);
   const sums = findSumCells(grid.holding, section, nextHead(grid.shape, section));
   const refs = findRowRefs(grid.tabs, HOLDINGS_TAB, h.row, new Set(sums.map((c) => `${colName(c.col + 1)}${c.row}`)));
-  if (refs.length > 0) {
-    const where = refs.slice(0, SHOW_REFS).join(' · ') + (refs.length > SHOW_REFS ? ` 외 ${refs.length - SHOW_REFS}곳` : '');
-    throw new AssetSheetError('row-referenced', `다른 칸이 이 줄을 쓰고 있어요 — 시트에서 직접 정리해 주세요(${where}).`);
-  }
+  if (refs.length > 0) throw new AssetSheetError('row-referenced', rowReferencedMessage(refs));
   const holdings = grid.data.sections.find((s) => !s.combined && s.key === sectionKey)?.holdings ?? [];
   if (holdings.length <= 1) throw new AssetSheetError('last-row', '마지막 종목은 시트에서 직접 정리해 주세요.');
 

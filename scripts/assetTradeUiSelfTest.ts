@@ -5,18 +5,22 @@
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import 'dotenv/config';
+import fs from 'node:fs';
 import path from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { assetHistorySample, assetNewPlanSample, assetSheetSample, assetStatusSample, assetSummarySample, assetTradesSample } from './fixtures/asset/screenSample';
 import type { AssetSheetData } from '../src/types/asset';
+import { createBrowserStepGuard } from './lib/browserStepGuard';
 
 const root = path.resolve(import.meta.dirname, '..');
 const PORT = 5188;
 const WEB = `http://127.0.0.1:${PORT}`;
 
+const guard = createBrowserStepGuard();
 let pass = 0;
 let fail = 0;
 function check(name: string, ok: boolean, detail = '') {
+  guard.mark(name);
   if (ok) pass++;
   else fail++;
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail && !ok ? ` — ${detail}` : ''}`);
@@ -26,6 +30,8 @@ interface Opts {
   writeEnabled?: boolean;
   sheet?: AssetSheetData;
   size?: { width: number; height: number };
+  /** 화면 배율(픽셀 측정) */
+  scale?: number;
   /** POST /api/asset/trade 응답 */
   trade?: { status: number; json: unknown };
   /** 응답을 늦춰 로딩을 본다 */
@@ -34,7 +40,7 @@ interface Opts {
 }
 
 async function open(browser: Browser, o: Opts = {}) {
-  const ctx = await browser.newContext({ viewport: o.size ?? { width: 1440, height: 900 } });
+  const ctx = await browser.newContext({ viewport: o.size ?? { width: 1440, height: 900 }, deviceScaleFactor: o.scale ?? 1 });
   await ctx.addInitScript(() => localStorage.setItem('alphascope.asset.tab', 'status'));
   const page = await ctx.newPage();
   const errors: string[] = [];
@@ -62,8 +68,8 @@ async function open(browser: Browser, o: Opts = {}) {
     const limit = Number(new URL(r.request().url()).searchParams.get('limit'));
     await r.fulfill({ json: assetTradesSample(limit, 120) });
   });
-  await page.goto(`${WEB}/#/asset`);
-  await page.locator('[data-account-cards]').waitFor({ timeout: 30_000 });
+  await guard.step('페이지 열기(#/asset)', () => page.goto(`${WEB}/#/asset`));
+  await guard.step('자산 화면 기다리기', () => page.locator('[data-account-cards]').waitFor({ timeout: 30_000 }));
   return { page, ctx, errors, seen, release: () => gates.release() };
 }
 
@@ -81,9 +87,12 @@ const panelOverflow = (page: Page) =>
 const noPageOverflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
 
 const { createServer } = await import('vite');
-const vite = await createServer({ root, configFile: path.join(root, 'vite.config.ts'), logLevel: 'error', server: { host: '127.0.0.1', port: PORT, strictPort: true, hmr: false } });
-await vite.listen();
-const browser = await chromium.launch({ channel: 'chrome' });
+const vite = await guard.step('Vite 띄우기', async () => {
+  const v = await createServer({ root, configFile: path.join(root, 'vite.config.ts'), logLevel: 'error', server: { host: '127.0.0.1', port: PORT, strictPort: true, hmr: false } });
+  await v.listen();
+  return v;
+});
+const browser = await guard.step('브라우저 띄우기', () => chromium.launch({ channel: 'chrome' }));
 try {
   // ── 줄마다 버튼 ──
   {
@@ -159,7 +168,7 @@ try {
 
   // ── 모두 매도 — 확인 창 한 번 · 409 안내(120차) ──
   {
-    const { page, ctx, seen } = await open(browser, { trade: { status: 409, json: { error: '다른 칸이 이 줄을 쓰고 있어요 — 시트에서 직접 정리해 주세요(「요약」 B5).', kind: 'row-referenced' } } });
+    const { page, ctx, seen } = await open(browser, { trade: { status: 409, json: { error: '「요약」 B5 칸이 이 종목을 써요. 그 칸을 먼저 정리한 뒤 다시 눌러 주세요.', kind: 'row-referenced' } } });
     await page.locator('[data-trade-sell="6"]').click();
     await fillTrade(page, '30', '72000');
     await page.locator('[data-trade-save]').click();
@@ -168,7 +177,7 @@ try {
     await page.getByRole('button', { name: '지우기' }).click();
     await page.locator('[data-trade-error]').waitFor({ timeout: 5000 });
     const b = seen.tradeBodies[0] as { side: string; qty: number; expect: { quantity: number } };
-    check('[120-5] 확인 → 요청 한 번(side sell · 수량 = 가진 수량) · 409 row-referenced 이유 한 줄 · 창 그대로', seen.tradeBodies.length === 1 && b.side === 'sell' && b.qty === 30 && b.expect.quantity === 30 && (await text(page, '[data-trade-error]')).startsWith('다른 칸이 이 줄을 쓰고 있어요') && (await count(page, '[data-trade-dialog]')) === 1);
+    check('[120-5] 확인 → 요청 한 번(side sell · 수량 = 가진 수량) · 409 row-referenced 이유 한 줄 · 창 그대로', seen.tradeBodies.length === 1 && b.side === 'sell' && b.qty === 30 && b.expect.quantity === 30 && (await text(page, '[data-trade-error]')).startsWith('「요약」 B5 칸이 이 종목을 써요') && (await count(page, '[data-trade-dialog]')) === 1);
     await ctx.close();
   }
   {
@@ -224,7 +233,7 @@ try {
     check('[120-6] 계좌 목록에 합친 표 없음', accounts.length === 4 && !accounts.includes('적립식 주식'), accounts.join(','));
     await pick(page, 'FAKN');
     check('[120-7] 종목 표시 — 이름 · 코드 · 국내/미국', (await text(page, '[data-newbuy-chosen]')).includes('가짜 새미국주') && (await text(page, '[data-newbuy-chosen]')).includes('미국'));
-    check('[120-7] 미국 종목 — 가격 칸이 달러', (await page.locator('[data-newbuy-form]').textContent())?.includes('가격(달러)') === true);
+    check('[120-7] [121-4] 미국 종목 — 칸 이름 「가격」 · 단위 $ 한 번', (await text(page, '[data-formrow]:has([data-newbuy-price]) label')) === '가격' && (await text(page, '[data-formrow]:has([data-newbuy-price]) [data-formrow-unit]')) === '$');
     await fillNew(page, '2.5', '110.25');
     await page.locator('[data-newbuy-class]').selectOption('금');
     await page.locator('[data-newbuy-next]').click();
@@ -249,7 +258,7 @@ try {
   {
     const { page, ctx } = await openNewBuy({ plan: assetNewPlanSample({ market: 'KR', currency: 'KRW', symbol: '999201', code: '999201', prefix: null, prefixEditable: false, ticker: { group: '연금 저축 계좌', row: 40, status: 'insert' } }) });
     await pick(page, '999201');
-    check('[120-7] 국내 종목 — 가격 칸이 원 · 국내 표시', (await page.locator('[data-newbuy-form]').textContent())?.includes('가격(원)') === true && (await text(page, '[data-newbuy-chosen]')).includes('국내'));
+    check('[120-7] [121-4] 국내 종목 — 칸 이름 「가격」 · 단위 원 한 번 · 국내 표시', (await text(page, '[data-formrow]:has([data-newbuy-price]) label')) === '가격' && (await text(page, '[data-formrow]:has([data-newbuy-price]) [data-formrow-unit]')) === '원' && (await text(page, '[data-newbuy-chosen]')).includes('국내'));
     await fillNew(page, '3', '12340');
     await page.locator('[data-newbuy-next]').click();
     await page.locator('[data-newbuy-confirm]').waitFor({ timeout: 5000 });
@@ -302,6 +311,162 @@ try {
     await pick(page, 'FAKN');
     await fillNew(page, '1', '10');
     check('[120-7] 쓰기 꺼짐 — 안내 + [다음] 막힘', (await count(page, '[data-newbuy-write-off]')) === 1 && (await page.locator('[data-newbuy-next]').isDisabled()));
+    await ctx.close();
+  }
+
+  // ── 121차 — 새 종목 창 종목 칸 · 줄맞춤 · 칸 이름 · 안내 · 연금 포함 ──
+  const PLACEHOLDER = '종목 이름이나 티커를 입력하세요';
+  const RATIO = '「자산 투자 비율 관리」 탭에는 직접 더해 주세요.';
+  for (const size of [{ width: 1280, height: 1080 }, { width: 1440, height: 900 }]) {
+    const { page, ctx } = await openNewBuy({ plan: assetNewPlanSample(), size });
+    const form = await page.evaluate(() => {
+      const spots: Record<string, { left: number; width: number }> = {};
+      for (const [key, sel, box] of [['account', '[data-newbuy-section]', false], ['search', '[data-newbuy-search] input', false], ['qty', '[data-newbuy-qty]', true], ['price', '[data-newbuy-price]', true], ['cls', '[data-newbuy-class]', false]] as const) {
+        const el = document.querySelector(sel) as HTMLElement;
+        const r = (box ? (el.parentElement as HTMLElement) : el).getBoundingClientRect();
+        spots[key] = { left: r.left, width: r.width };
+      }
+      const input = document.querySelector('[data-newbuy-search] input') as HTMLInputElement;
+      const cs = getComputedStyle(input);
+      const canvas = document.createElement('canvas').getContext('2d') as CanvasRenderingContext2D;
+      canvas.font = cs.font;
+      const inner = input.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth);
+      return {
+        spots,
+        placeholder: input.placeholder, textWidth: canvas.measureText(input.placeholder).width, inner, buttons: document.querySelectorAll('[data-newbuy-search] button').length,
+      };
+    });
+    check(`[121-1] ${size.width}px — 종목 칸 폭 = 계좌 칸 폭 · 버튼 0개`, form.spots.search.width === form.spots.account.width && form.spots.search.width > 0 && form.buttons === 0, JSON.stringify(form));
+    check(`[121-1] ${size.width}px — 안내 글자 「${PLACEHOLDER}」 잘림 없음`, form.placeholder === PLACEHOLDER && form.textWidth <= form.inner, `${form.textWidth} / ${form.inner}`);
+    const lefts = ['account', 'search', 'qty', 'price', 'cls'].map((k) => form.spots[k].left);
+    check(`[121-3] ${size.width}px — 계좌 · 종목 · 수량 · 가격 · 자산 분류 왼쪽 끝 차이 0px`, Math.max(...lefts) === Math.min(...lefts), lefts.join(','));
+    await ctx.close();
+
+    const pension = await open(browser, { size, scale: 2 });
+    const label = pension.page.locator('label:has([data-asset-pension])');
+    const split = await label.evaluate((l) => Math.ceil(((l.querySelector('input') as HTMLElement).getBoundingClientRect().right - l.getBoundingClientRect().left) * 2) + 1);
+    const ink = await pension.page.evaluate(async ({ b64, split: at }) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const g = canvas.getContext('2d') as CanvasRenderingContext2D;
+      g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, img.width, img.height).data;
+      const out: number[] = [];
+      for (const [x0, x1] of [[0, at], [at + 2, Math.floor(img.width * 0.8)]]) {
+        let top = 1e9;
+        let bottom = -1;
+        for (let y = 0; y < img.height; y++) for (let x = x0; x < x1; x++) {
+          const i = (y * img.width + x) * 4;
+          if (Math.abs(d[i] - d[0]) + Math.abs(d[i + 1] - d[1]) + Math.abs(d[i + 2] - d[2]) > 150) {
+            top = Math.min(top, y);
+            bottom = Math.max(bottom, y);
+          }
+        }
+        out.push((top + bottom + 1) / 2 / 2);
+      }
+      return out;
+    }, { b64: (await label.screenshot()).toString('base64'), split });
+    check(`[121-7] ${size.width}px — 연금 포함 체크박스 ↔ 글자 세로 가운데 차이 ≤ 1px(실제 픽셀 · 0.5px 안)`, Math.abs(ink[0] - ink[1]) <= 0.5, ink.join(' / '));
+    await pension.ctx.close();
+  }
+  {
+    const { page, ctx } = await openNewBuy({ plan: assetNewPlanSample() });
+    await page.route('**/api/stocks/search**', (r) => r.fulfill({ json: { results: [STOCKS['999201'], STOCKS.FAKN], catalogSize: 2 } }));
+    const input = page.locator('[data-newbuy-search] input');
+    await input.fill('가');
+    await page.locator('[data-newbuy-search] li button').nth(1).waitFor({ timeout: 5000 });
+    await input.press('Enter');
+    await page.locator('[data-newbuy-chosen]:has-text("999201")').waitFor({ timeout: 5000 });
+    check('[121-1] 글자 → 목록 → Enter = 맨 위 종목', (await text(page, '[data-newbuy-chosen]')).includes('가짜 새국내주'));
+    await input.fill('가');
+    await page.locator('[data-newbuy-search] li button').nth(1).click({ timeout: 5000 });
+    await page.locator('[data-newbuy-chosen]:has-text("FAKN")').waitFor({ timeout: 5000 });
+    check('[121-1] 글자 → 목록 → 누름 = 그 종목', (await text(page, '[data-newbuy-chosen]')).includes('가짜 새미국주'));
+    await input.fill('FAK');
+    await input.press('Enter');
+    await page.locator('[data-newbuy-chosen]:has-text("999201")').waitFor({ timeout: 5000 });
+    check('[121-1] 응답 전 Enter — 응답을 기다려 맨 위 종목(친 글자를 코드로 보지 않음)', (await text(page, '[data-newbuy-chosen]')).includes('999201') && (await count(page, '[data-newbuy-search] button[type="submit"]')) === 0);
+    await ctx.close();
+  }
+  {
+    const { page, ctx } = await openNewBuy({ plan: assetNewPlanSample() });
+    await pick(page, 'FAKN');
+    await fillNew(page, '1', '10');
+    await page.locator('[data-newbuy-next]').click();
+    await page.locator('[data-newbuy-confirm]').waitFor({ timeout: 5000 });
+    check('[121-5] 확인 화면 — 비율 탭 안내 · 합친 표 안내 없음', (await text(page, '[data-newbuy-ratio-notice]')) === RATIO && (await count(page, '[data-newbuy-notice]')) === 0, await text(page, '[data-newbuy-confirm]'));
+    await page.locator('[data-newbuy-save]').click();
+    await page.locator('[data-newbuy-saved-notes]').waitFor({ timeout: 5000 });
+    check('[121-5] 저장 성공 뒤 — 비율 탭 안내 한 줄', (await text(page, '[data-newbuy-saved-notes]')) === RATIO && (await count(page, '[data-newbuy-confirm]')) === 0, await text(page, '[data-newbuy-saved-notes]'));
+    await page.locator('[data-trade-new]').click();
+    await page.locator('[data-newbuy-form]').waitFor({ timeout: 5000 });
+    check('[121-5] 새 종목 창을 다시 열면 지난 안내를 지움', (await count(page, '[data-newbuy-saved-notes]')) === 0);
+    await ctx.close();
+  }
+  {
+    const combined = '합친 표 「적립식 주식」 은 직접 고쳐 주세요.';
+    const { page, ctx } = await openNewBuy({ plan: assetNewPlanSample({ section: '적립식 계좌', notice: combined }), save: { status: 200, json: { id: 3, mode: 'new', notice: combined } } });
+    await pick(page, 'FAKN');
+    await fillNew(page, '1', '10');
+    await page.locator('[data-newbuy-next]').click();
+    await page.locator('[data-newbuy-confirm]').waitFor({ timeout: 5000 });
+    check('[121-5] 확인 화면 — 합친 표 · 비율 탭 안내 두 줄', (await text(page, '[data-newbuy-notice]')) === combined && (await text(page, '[data-newbuy-ratio-notice]')) === RATIO);
+    await page.locator('[data-newbuy-save]').click();
+    await page.locator('[data-newbuy-saved-notes]').waitFor({ timeout: 5000 });
+    check('[121-5] 저장 뒤 — 합친 표 · 비율 탭 안내 두 줄', (await page.locator('[data-newbuy-saved-notes] p').allTextContents()).join('|') === `${combined}|${RATIO}`);
+    await ctx.close();
+  }
+  {
+    const { page, ctx } = await openNewBuy({ plan: assetNewPlanSample({ existing: { row: 5, quantity: 10, avgPrice: 100 }, prefixEditable: false, ticker: { group: '개별 투자', row: 15, status: 'existing' } }), save: { status: 200, json: { id: 4, mode: 'buy', notice: null } } });
+    await pick(page, 'FAKN');
+    await fillNew(page, '1', '10');
+    await page.locator('[data-newbuy-next]').click();
+    await page.locator('[data-newbuy-confirm]').waitFor({ timeout: 5000 });
+    check('[121-5] 이미 가진 종목(새 줄 없음)은 비율 탭 안내 없음', (await count(page, '[data-newbuy-ratio-notice]')) === 0);
+    await page.locator('[data-newbuy-save]').click();
+    await page.locator('[data-newbuy-confirm]').waitFor({ state: 'detached', timeout: 5000 });
+    await page.waitForTimeout(200);
+    check('[121-5] 이미 가진 종목 저장 뒤에도 안내 없음', (await count(page, '[data-newbuy-saved-notes]')) === 0);
+    await ctx.close();
+  }
+  {
+    const { page, ctx } = await open(browser);
+    const unitOf = (field: string) => text(page, `[data-formrow]:has(${field}) [data-formrow-unit]`);
+    const labelOf = (field: string) => text(page, `[data-formrow]:has(${field}) label`);
+    await page.locator('[data-trade-buy="6"]').click();
+    check('[121-4] 국내 매수 창 — 칸 이름 「가격」 · 단위 원 한 번', (await labelOf('[data-trade-price]')) === '가격' && (await unitOf('[data-trade-price]')) === '원');
+    await page.locator('[data-trade-cancel]').click();
+    await page.locator('[data-trade-buy="5"]').click();
+    check('[121-4] 미국 매수 창 — 칸 이름 「가격」 · 단위 $ 한 번', (await labelOf('[data-trade-price]')) === '가격' && (await unitOf('[data-trade-price]')) === '$');
+    await ctx.close();
+    const assetSrc = fs.readdirSync(path.join(root, 'src/components/asset')).filter((f) => f.endsWith('.tsx')).map((f) => fs.readFileSync(path.join(root, 'src/components/asset', f), 'utf8')).join('\n');
+    check('[121-4] 자산 창 소스에 「가격(원)」 · 「가격(달러)」 0곳', !assetSrc.includes('가격(원)') && !assetSrc.includes('가격(달러)'));
+  }
+
+  // ── 121차 — 다른 자리 검색칸은 「종목 추가」 버튼 그대로 ──
+  {
+    const { page, ctx } = await open(browser);
+    const addButton = (placeholder: string) => page.locator(`form:has(input[placeholder*="${placeholder}"]) button[type="submit"]`);
+    const go = (hash: string) => page.evaluate((h) => { location.hash = h; }, hash);
+    check('[121-2] 관심 목록 검색칸 — 「종목 추가」 버튼 그대로', (await addButton('종목 이름·티커').textContent())?.trim() === '종목 추가');
+    await page.getByRole('button', { name: '관심 목록 관리 (폴더·순서)' }).click();
+    await page.locator('button:not([type="submit"])', { hasText: '종목 추가' }).first().click({ timeout: 10_000 });
+    await addButton('추가 (구글, 애플').waitFor({ timeout: 5000 });
+    check('[121-2] 관심 목록 관리 검색칸 — 「종목 추가」 버튼 그대로', (await addButton('추가 (구글, 애플').textContent())?.trim() === '종목 추가');
+    await page.reload();
+    await guard.step('비교 화면 열기', () => go('#/compare'));
+    await page.getByRole('button', { name: '종목 검색' }).first().click({ timeout: 10_000 });
+    await addButton('종목명 또는 티커 (엔비디아').waitFor({ timeout: 5000 });
+    check('[121-2] 비교 검색칸 — 「종목 추가」 버튼 그대로', (await addButton('종목명 또는 티커 (엔비디아').textContent())?.trim() === '종목 추가');
+    await guard.step('백테스트 화면 열기', () => go('#/backtest'));
+    await page.locator('button:not([type="submit"])', { hasText: '종목 추가' }).first().click({ timeout: 15_000 });
+    await page.getByRole('tab', { name: '새 종목 검색' }).click({ timeout: 5000 });
+    await addButton('목록에 없는 종목 검색').waitFor({ timeout: 5000 });
+    check('[121-2] 종목 추가 창 검색칸 — 「종목 추가」 버튼 그대로', (await addButton('목록에 없는 종목 검색').textContent())?.trim() === '종목 추가');
     await ctx.close();
   }
 
@@ -386,8 +551,9 @@ try {
     await ctx.close();
   }
 } finally {
-  await browser.close();
-  await vite.close();
+  await guard.step('브라우저 닫기', () => browser.close());
+  await guard.step('Vite 닫기', () => vite.close());
+  guard.stop();
 }
 console.log(`\n결과: PASS ${pass} · FAIL ${fail}`);
 process.exit(fail > 0 ? 1 : 0);

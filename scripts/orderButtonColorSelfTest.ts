@@ -9,15 +9,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { chromium, type Browser, type Locator, type Page } from 'playwright';
 import { assetHistorySample, assetSheetSample, assetStatusSample, assetSummarySample, assetTradesSample } from './fixtures/asset/screenSample';
+import { createBrowserStepGuard } from './lib/browserStepGuard';
 
 const root = path.resolve(import.meta.dirname, '..');
 const PORT = 5189;
 const WEB = `http://127.0.0.1:${PORT}`;
 const WHITE = 'rgb(255, 255, 255)';
 
+const guard = createBrowserStepGuard();
 let pass = 0;
 let fail = 0;
 function check(name: string, ok: boolean, detail = '') {
+  guard.mark(name);
   if (ok) pass++;
   else fail++;
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail && !ok ? ` — ${detail}` : ''}`);
@@ -73,6 +76,9 @@ const surge = read('src/components/surge/SurgeCard.tsx');
 const surgeBlock = (() => { const end = surge.indexOf('모의 매수\n'); return surge.slice(surge.lastIndexOf('<button', end), end); })();
 check('[119-9] 「모의 매수」 = 매수 색 정의(ORDER_BUY_COLOR) · 글자 · 동작 그대로', /const BUY_BUTTON = `[^`]*\$\{ORDER_BUY_COLOR\}`/.test(surge) && surgeBlock.includes('className={BUY_BUTTON}') && surgeBlock.includes('onPaperBuy(detection.symbol, detection.priceAtDetection)'));
 
+const playwrightTests = ['scripts/orderButtonColorSelfTest.ts', 'scripts/assetTradeUiSelfTest.ts', 'scripts/assetLockSelfTest.ts'].map(read);
+check('[121-8] Playwright 시험 셋 모두 브라우저 띄우기 · 닫기를 공용 시간 제한(browserStepGuard) 안에서', playwrightTests.every((t) => t.includes("guard.step('브라우저 띄우기'") && t.includes("guard.step('브라우저 닫기'") && t.includes('guard.mark(name)')));
+
 // ── 화면 ──
 const look = (l: Locator) => l.evaluate((el) => {
   const s = getComputedStyle(el);
@@ -96,13 +102,13 @@ async function openQuickOrder(browser: Browser, price: number | null, held: numb
   await page.route('**/api/paper/accounts/1**', (r) => r.fulfill({ json: { account, positions: held > 0 ? [position] : [], orderable: 100_000, usdKrw: 1400 } }));
   await page.route('**/api/paper/orders**', (r) => r.fulfill({ json: { orders: [] } }));
   if (price != null) await page.route('**/api/prices?**', (r) => r.fulfill({ json: { price: { close: price } } }));
-  await page.goto(`${WEB}/#/chart`);
+  await guard.step('페이지 열기(#/chart)', () => page.goto(`${WEB}/#/chart`));
   const storeUrl = '/src/store/appStore.ts';
-  await page.evaluate(async (url) => {
+  await guard.step('종목 고르기(AAPL)', () => page.evaluate(async (url) => {
     const m = (await import(/* @vite-ignore */ url)) as { useAppStore: { getState: () => { setSymbol: (s: string) => void } } };
     m.useAppStore.getState().setSymbol('AAPL');
-  }, storeUrl);
-  await page.getByRole('button', { name: '시장가 매수', exact: true }).waitFor({ timeout: 30_000 });
+  }, storeUrl));
+  await guard.step('버튼 찾기(시장가 매수)', () => page.getByRole('button', { name: '시장가 매수', exact: true }).waitFor({ timeout: 30_000 }));
   return { page, ctx };
 }
 
@@ -124,15 +130,18 @@ async function openAsset(browser: Browser) {
   await page.route('**/api/asset/summary**', (r) => r.fulfill({ json: assetSummarySample({ purchaseDone: true, writeEnabled: true }) }));
   await page.route('**/api/asset/history**', (r) => r.fulfill({ json: assetHistorySample(5) }));
   await page.route('**/api/asset/trades**', (r) => r.fulfill({ json: assetTradesSample(50, 50) }));
-  await page.goto(`${WEB}/#/asset`);
-  await page.locator('[data-account-cards]').waitFor({ timeout: 30_000 });
+  await guard.step('페이지 열기(#/asset)', () => page.goto(`${WEB}/#/asset`));
+  await guard.step('자산 화면 기다리기', () => page.locator('[data-account-cards]').waitFor({ timeout: 30_000 }));
   return { page, ctx };
 }
 
 const { createServer } = await import('vite');
-const vite = await createServer({ root, configFile: path.join(root, 'vite.config.ts'), logLevel: 'error', server: { host: '127.0.0.1', port: PORT, strictPort: true, hmr: false } });
-await vite.listen();
-const browser = await chromium.launch({ channel: 'chrome' });
+const vite = await guard.step('Vite 띄우기', async () => {
+  const v = await createServer({ root, configFile: path.join(root, 'vite.config.ts'), logLevel: 'error', server: { host: '127.0.0.1', port: PORT, strictPort: true, hmr: false } });
+  await v.listen();
+  return v;
+});
+const browser = await guard.step('브라우저 띄우기', () => chromium.launch({ channel: 'chrome' }));
 try {
   // ── 빠른 주문 — 켜진 버튼 ──
   const on = await openQuickOrder(browser, 100, 3);
@@ -193,8 +202,9 @@ try {
   check('[색-3] 매도 창 [저장] = 매도 색 · 흰 글자', sellSave.after.bg === limitSell.bg && sellSave.after.color === WHITE && sellSave.after.opacity === '1', JSON.stringify(sellSave.after));
   await asset.ctx.close();
 } finally {
-  await browser.close();
-  await vite.close();
+  await guard.step('브라우저 닫기', () => browser.close());
+  await guard.step('Vite 닫기', () => vite.close());
+  guard.stop();
 }
 console.log(`\n결과: PASS ${pass} · FAIL ${fail}`);
 process.exit(fail > 0 ? 1 : 0);
