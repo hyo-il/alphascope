@@ -23,6 +23,17 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.67.4',
+    date: '2026-11-09',
+    title: '화면 정리',
+    description: '규칙 창 고급 설정과 시황 줄이 가리거나 꺾이지 않게 맞췄습니다',
+    changes: [
+      '매매 규칙 창: 고급 설정이 저장 줄에 가리지 않게 창 높이를 늘림',
+      '시황 줄: USD/KRW 금액과 옆 차트 사이에 간격을 둠',
+      '시황 줄: 「VIX 공포지수」 를 한 줄로 맞춰 카드 높이를 같게 함',
+    ],
+  },
+  {
     version: 'v2.67.3',
     date: '2026-11-09',
     title: '화면 정리',
