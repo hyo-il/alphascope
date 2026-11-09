@@ -23,6 +23,16 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.66.1',
+    date: '2026-11-09',
+    title: '매수 · 매도 버튼 색 통일',
+    description: '앱 안의 매수 버튼은 빨강, 매도 버튼은 파랑으로 맞췄습니다',
+    changes: [
+      '빠른 주문: 시장가 매수 · 매도를 지정가와 같은 색으로(꺼진 버튼처럼 보이던 문제)',
+      '자산 현황: [매수] 빨강 · [매도] 파랑 · 입력 창 [저장]도 같은 색',
+    ],
+  },
+  {
     version: 'v2.66.0',
     date: '2026-11-09',
     title: '자산 관리: 가진 종목의 매수 · 일부 매도 입력',
