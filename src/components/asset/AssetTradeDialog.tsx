@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { Button, Dialog, FormRow, NumberField, NumberUnitGroup } from '../ui';
 import { formatNumber, formatPrice } from '../../utils/formatters';
+import { modal } from '../../store/uiStore';
 import { TRADE_DIGITS, decimalPlaces, tradeAfter } from '../../utils/assetTrade';
 import type { AssetCurrency, AssetHolding, AssetSection, AssetTradeRequest, AssetTradeSide } from '../../types/asset';
 
 /**
- * 매수 · 매도 입력 창(v2.66.0 · 1차 — 시트에 줄이 있는 종목의 매수 · 일부 매도). 실제 주문은 없다 — 다른 증권사에서 사고판 것을 적는 창이다.
+ * 매수 · 매도 입력 창(v2.66.0 — 시트에 줄이 있는 종목의 매수 · 일부 매도 · v2.67.0 모두 매도). 실제 주문은 없다 — 다른 증권사에서 사고판 것을 적는 창이다.
  * - 미리 보기는 서버와 같은 계산(`src/utils/assetTrade.ts`). 저장은 `POST /api/asset/trade` — 검사는 서버 `recordTrade` 한 곳.
  * - 미국 매수는 환율을 받지 않는다 — 원화 매입 금액은 시트 「달러 환전」 탭이 계산(안내 한 줄 · v2.66.2).
- * - 모두 매도 수량 = [저장] 대신 안내(119차). 쓰기 스위치 꺼짐 = 안내 + [저장] 막음. 아직 모르면(요약 응답 전) 글 없이 막음.
+ * - 모두 매도 수량 = 미리 보기에 「이 줄을 지웁니다」 · [저장] 뒤 확인 창 한 번(시트에서 보유 줄을 지운다 · 「티커」 줄은 남김). 쓰기 스위치 꺼짐 = 안내 + [저장] 막음. 아직 모르면(요약 응답 전) 글 없이 막음.
  * - 바깥 클릭으로 닫지 않는다(입력을 잃는다).
  */
 
@@ -56,8 +57,20 @@ export default function AssetTradeDialog({
   const sameAsHeld = side === 'sell' && qty !== '' && Math.abs(qtyN - beforeQty) < 1e-9;
   const over = side === 'sell' && qty !== '' && qtyN > beforeQty && !sameAsHeld;
 
-  const after = filled && !over && !sameAsHeld ? tradeAfter({ side, currency, beforeQty, beforeAvg, qty: qtyN, price: priceN }) : null;
+  const after = filled && !over ? tradeAfter({ side, currency, beforeQty, beforeAvg, qty: qtyN, price: priceN }) : null;
   const canSave = writeEnabled === true && after != null && !busy;
+
+  /** 모두 매도는 시트에서 줄을 지우므로 한 번 더 묻는다 */
+  const askSave = () => {
+    if (!canSave) return;
+    if (!sameAsHeld) return void save();
+    modal.confirm({
+      title: '모두 매도',
+      message: `「${section.key}」 의 이 종목 줄을 시트에서 지웁니다(「티커」 줄은 남깁니다). 되돌리려면 시트의 버전 기록을 써야 합니다.`,
+      confirmText: '지우기',
+      onConfirm: save,
+    });
+  };
 
   const save = async () => {
     if (!canSave) return;
@@ -88,15 +101,9 @@ export default function AssetTradeDialog({
           <Button variant="ghost" disabled={busy} onClick={onClose} data-trade-cancel>
             취소
           </Button>
-          {sameAsHeld ? (
-            <span className="text-xs text-text-muted keep-all" data-trade-sell-all>
-              모두 파는 것은 다음 업데이트에서 돼요
-            </span>
-          ) : (
-            <Button variant={side} busy={busy} disabled={!canSave} onClick={() => void save()} data-trade-save>
-              저장
-            </Button>
-          )}
+          <Button variant={side} busy={busy} disabled={!canSave} onClick={askSave} data-trade-save>
+            저장
+          </Button>
         </>
       }
     >
@@ -137,16 +144,18 @@ export default function AssetTradeDialog({
           </p>
         )}
 
-        {!sameAsHeld && !over && (
+        {!over && (
         <div className="min-h-9 space-y-0.5 rounded-lg bg-bg-tertiary/40 px-3 py-2 text-xs tabular-nums text-text-primary" data-trade-preview>
           {after == null ? (
             <span className="text-text-muted">수량과 가격을 넣으면 결과가 여기에 보입니다.</span>
           ) : (
-            <>
-              <div data-trade-preview-main>
-                {side === 'buy' ? `사고 나면 ${tradeQtyText(after.afterQty)}주 · 평균 ${tradeMoneyText(after.afterAvg, currency)}` : `팔고 나면 ${tradeQtyText(after.afterQty)}주 · 평균 그대로`}
-              </div>
-            </>
+            <div data-trade-preview-main {...(sameAsHeld ? { 'data-trade-sell-all': true } : {})}>
+              {side === 'buy'
+                ? `사고 나면 ${tradeQtyText(after.afterQty)}주 · 평균 ${tradeMoneyText(after.afterAvg, currency)}`
+                : sameAsHeld
+                  ? '팔고 나면 0주 — 시트에서 이 줄을 지웁니다(「티커」 줄은 남김)'
+                  : `팔고 나면 ${tradeQtyText(after.afterQty)}주 · 평균 그대로`}
+            </div>
           )}
         </div>
         )}

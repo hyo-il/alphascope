@@ -7,7 +7,7 @@ import { usePolling } from '../../hooks/usePolling';
 import { useAssetIdleLock } from '../../hooks/useAssetIdleLock';
 import { changeColor, formatNumber, formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
-import type { AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetHolding, AssetSection, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio, AssetTradeRequest, AssetTradeSide, MonthlyBuy } from '../../types/asset';
+import type { AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetHolding, AssetSection, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetNewHoldingRequest, AssetNewHoldingTarget, AssetTradeRequest, AssetTradeSide, MonthlyBuy } from '../../types/asset';
 import { modal } from '../../store/uiStore';
 import AssetDonut from './AssetDonut';
 import { groupDot } from './assetColors';
@@ -16,6 +16,7 @@ import AssetSheetValues from './AssetSheetValues';
 import AssetSettingsDialog from './AssetSettingsDialog';
 import AssetClassDialog from './AssetClassDialog';
 import AssetTradeDialog from './AssetTradeDialog';
+import AssetNewBuyDialog from './AssetNewBuyDialog';
 import AssetTradeHistoryDialog from './AssetTradeHistoryDialog';
 import { codeOfTickerRow, type ClassSendResult, type ClassValue } from '../../utils/assetClassPlan';
 import AssetRebalanceView from './AssetRebalanceView';
@@ -145,6 +146,7 @@ export default function AssetDashboard({
   const [classOpen, setClassOpen] = useState(false);
   /** 매수 · 매도 입력 창(v2.66.0) */
   const [trade, setTrade] = useState<{ section: AssetSection; holding: AssetHolding; side: AssetTradeSide } | null>(null);
+  const [newBuyOpen, setNewBuyOpen] = useState(false);
   const [tradeHistoryOpen, setTradeHistoryOpen] = useState(false);
   /** 구매일 팝업 — 이 화면이 열린 뒤 처음 받은 summary 로 한 번만 정한다 */
   const [purchasePopup, setPurchasePopup] = useState(false);
@@ -251,22 +253,28 @@ export default function AssetDashboard({
     }
   };
 
-  /** 매수 · 매도 저장(v2.66.0) — 실패 이유 또는 null. 시트가 바뀌었으면 뒤에서 다시 읽어 표를 새로 한다(창은 이유를 보인 채) */
-  const sendTrade = async (req: AssetTradeRequest): Promise<string | null> => {
+  /** 매수 · 매도 요청 — `error` 있으면 실패 이유. 시트가 바뀌었으면 뒤에서 다시 읽어 표를 새로 한다(창은 이유를 보인 채) */
+  const postTrade = async (url: string, req: unknown): Promise<{ error: string | null; body: Record<string, unknown> }> => {
     try {
-      const res = await fetch('/api/asset/trade', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(req) });
+      const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(req) });
       const body = await readJson(res);
       if (body.code === 'asset-locked') {
         onLocked();
-        return '자산 관리가 잠겼습니다.';
+        return { error: '자산 관리가 잠겼습니다.', body };
       }
-      if (res.ok) return null;
+      if (res.ok) return { error: null, body };
       if (body.kind === 'sheet-changed') void reload();
-      return typeof body.error === 'string' ? body.error : `요청 실패 (${res.status})`;
+      return { error: typeof body.error === 'string' ? body.error : `요청 실패 (${res.status})`, body };
     } catch {
-      return '서버에 연결하지 못했습니다.';
+      return { error: '서버에 연결하지 못했습니다.', body: {} };
     }
   };
+  const sendTrade = async (req: AssetTradeRequest): Promise<string | null> => (await postTrade('/api/asset/trade', req)).error;
+  const sendNewPlan = async (target: AssetNewHoldingTarget): Promise<AssetNewHoldingPlan | string> => {
+    const { error, body } = await postTrade('/api/asset/trade/new/plan', target);
+    return error ?? (body as unknown as AssetNewHoldingPlan);
+  };
+  const sendNewBuy = async (req: AssetNewHoldingRequest): Promise<string | null> => (await postTrade('/api/asset/trade/new', req)).error;
 
   /** 시트 가격 바꾸기 · 되돌리기(v2.65.0) — 성공이면 다시 받아 설정 창 상태를 새로 · 실패면 이유 한 줄 */
   const priceSheetAction = async (kind: 'convert' | 'restore'): Promise<string | null> => {
@@ -387,7 +395,7 @@ export default function AssetDashboard({
           <div id="as-asset-status" className="space-y-3">
             {sheet == null && <SkeletonTable rows={6} columns={6} />}
             {sheet && 'error' in sheet && <ErrorLine message={sheet.error} onRetry={() => void loadSheet()} />}
-            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} onOpenClassDialog={() => setClassOpen(true)} onTrade={(section, holding, side) => setTrade({ section, holding, side })} onOpenTradeHistory={() => setTradeHistoryOpen(true)} />}
+            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} onOpenClassDialog={() => setClassOpen(true)} onTrade={(section, holding, side) => setTrade({ section, holding, side })} onNewBuy={() => setNewBuyOpen(true)} onOpenTradeHistory={() => setTradeHistoryOpen(true)} />}
           </div>
         )}
       </div>
@@ -429,6 +437,19 @@ export default function AssetDashboard({
             void reload();
           }}
           onClose={() => setTrade(null)}
+        />
+      )}
+      {newBuyOpen && sheet && 'data' in sheet && (
+        <AssetNewBuyDialog
+          sections={sheet.data.sections}
+          writeEnabled={summary ? summary.writeEnabled : null}
+          onPlan={sendNewPlan}
+          onSend={sendNewBuy}
+          onSaved={() => {
+            setNewBuyOpen(false);
+            void reload();
+          }}
+          onClose={() => setNewBuyOpen(false)}
         />
       )}
       {tradeHistoryOpen && <AssetTradeHistoryDialog onLocked={onLocked} onClose={() => setTradeHistoryOpen(false)} />}

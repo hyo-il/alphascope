@@ -4,7 +4,7 @@
  * 긴 종목명 · 긴 구간 이름 · 달러 소수 4자리 · 빈 구간 · 이을 수식 없는 줄 · 합계 표를 모두 넣어 칸 넘침을 잰다.
  */
 import { DEFAULT_CLASS_COLORS, type AssetClassColors } from '../../../src/types/asset';
-import type { AssetClass, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHolding, AssetPriceSheetStatus, AssetSheetData, AssetSheetFailure, AssetStatus, AssetSummary, AssetTargetRatio, AssetTradeRecord, AssetTradesResponse } from '../../../src/types/asset';
+import type { AssetClass, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHolding, AssetPriceSheetStatus, AssetSheetData, AssetSheetFailure, AssetStatus, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetTradeRecord, AssetTradesResponse } from '../../../src/types/asset';
 import { computeRebalance } from '../../../server/asset/rebalance';
 import { computeMonthlyBuy } from '../../../server/asset/purchase';
 
@@ -43,6 +43,11 @@ function holding(row: number, name: string, code: string | null, quantity: numbe
  * `dupCode`(v2.65.4): ISA 계좌의 「예시 국내 대형주」(000001)를 「티커」 **다른 줄(19행)** · 다른 분류(금)로 — 같은 코드가 「티커」 2줄 ·
  * 줄마다 값이 다름(「자산 분류 정하기」 창 「「티커」 2줄」 · 「줄마다 다름」 장면 · 시험).
  */
+/** 새 종목 — 어디에 쓸지(가짜 · v2.67.0) */
+export function assetNewPlanSample(o: Partial<AssetNewHoldingPlan> = {}): AssetNewHoldingPlan {
+  return { section: '개별 투자', name: '가짜 새미국주', symbol: 'FAKN', market: 'US', currency: 'USD', code: 'NASDAQ:FAKN', prefix: 'NASDAQ', prefixEditable: true, ticker: { group: '개별 투자', row: 22, status: 'blank' }, existing: null, notice: null, ...o };
+}
+
 export function assetSheetSample(opts: { dupCode?: boolean } = {}): AssetSheetData {
   return {
     readAt: new Date().toISOString(),

@@ -7,7 +7,7 @@ import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니�
 import 'dotenv/config';
 import path from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
-import { assetHistorySample, assetSheetSample, assetStatusSample, assetSummarySample, assetTradesSample } from './fixtures/asset/screenSample';
+import { assetHistorySample, assetNewPlanSample, assetSheetSample, assetStatusSample, assetSummarySample, assetTradesSample } from './fixtures/asset/screenSample';
 import type { AssetSheetData } from '../src/types/asset';
 
 const root = path.resolve(import.meta.dirname, '..');
@@ -96,8 +96,7 @@ try {
     check('[118-7] 줄마다 [매수] [매도] — tradable 줄 수만큼', (await count(page, '[data-trade-buy]')) === tradable.length && (await count(page, '[data-trade-sell]')) === tradable.length);
     check('[118-7] 수식 칸 줄(13) · 이을 수 없는 줄(14) 에는 버튼 없음', (await count(page, '[data-trade-buy="13"]')) === 0 && (await count(page, '[data-trade-buy="14"]')) === 0);
     check('[118-7] 합친 표는 그리지 않음(39행 버튼 없음)', (await count(page, '[data-trade-buy="39"]')) === 0);
-    const newBtn = page.locator('[data-trade-new]');
-    check('[118-7] [새 종목 매수] 막힘 · 툴팁 「다음 업데이트에서 열려요」', (await newBtn.isDisabled()) && (await page.locator('[data-trade-new-wrap]').getAttribute('title')) === '다음 업데이트에서 열려요');
+    check('[120-7] [새 종목 매수] 열림(옛 막힘 · 툴팁 없음)', !(await page.locator('[data-trade-new]').isDisabled()) && (await count(page, '[data-trade-new-wrap]')) === 0);
     check('[118-7] [매수 · 매도 기록] 버튼이 보임', (await count(page, '[data-trade-history-open]')) === 1);
     check('[118-7] 종목별 보기에는 입력 버튼 없음(계좌별에서만)', await (async () => {
       await page.getByRole('radio', { name: '종목별' }).click();
@@ -153,7 +152,152 @@ try {
     await page.locator('[data-trade-qty]').fill('31');
     check('[118-7] 보유보다 많으면 안내 + [저장] 막힘', (await page.locator('[data-trade-dialog]').textContent())?.includes('가진 수량보다 많아요') === true && (await page.locator('[data-trade-save]').isDisabled()));
     await page.locator('[data-trade-qty]').fill('30');
-    check('[118-7] 모두 매도 → [저장] 대신 「모두 파는 것은 다음 업데이트에서 돼요」 · 미리 보기 칸 없음', (await count(page, '[data-trade-save]')) === 0 && (await text(page, '[data-trade-sell-all]')) === '모두 파는 것은 다음 업데이트에서 돼요' && (await count(page, '[data-trade-preview]')) === 0);
+    await page.locator('[data-trade-price]').fill('72000');
+    check('[120-5] 모두 매도 미리 보기 「팔고 나면 0주 — 시트에서 이 줄을 지웁니다(「티커」 줄은 남김)」 · [저장] 있음', (await text(page, '[data-trade-sell-all]')) === '팔고 나면 0주 — 시트에서 이 줄을 지웁니다(「티커」 줄은 남김)' && !(await page.locator('[data-trade-save]').isDisabled()), await text(page, '[data-trade-preview]'));
+    await ctx.close();
+  }
+
+  // ── 모두 매도 — 확인 창 한 번 · 409 안내(120차) ──
+  {
+    const { page, ctx, seen } = await open(browser, { trade: { status: 409, json: { error: '다른 칸이 이 줄을 쓰고 있어요 — 시트에서 직접 정리해 주세요(「요약」 B5).', kind: 'row-referenced' } } });
+    await page.locator('[data-trade-sell="6"]').click();
+    await fillTrade(page, '30', '72000');
+    await page.locator('[data-trade-save]').click();
+    await page.getByRole('button', { name: '지우기' }).waitFor({ timeout: 5000 });
+    check('[120-5] 저장 → 확인 창 먼저(요청 0)', seen.tradeBodies.length === 0);
+    await page.getByRole('button', { name: '지우기' }).click();
+    await page.locator('[data-trade-error]').waitFor({ timeout: 5000 });
+    const b = seen.tradeBodies[0] as { side: string; qty: number; expect: { quantity: number } };
+    check('[120-5] 확인 → 요청 한 번(side sell · 수량 = 가진 수량) · 409 row-referenced 이유 한 줄 · 창 그대로', seen.tradeBodies.length === 1 && b.side === 'sell' && b.qty === 30 && b.expect.quantity === 30 && (await text(page, '[data-trade-error]')).startsWith('다른 칸이 이 줄을 쓰고 있어요') && (await count(page, '[data-trade-dialog]')) === 1);
+    await ctx.close();
+  }
+  {
+    const { page, ctx } = await open(browser, { trade: { status: 409, json: { error: '마지막 종목은 시트에서 직접 정리해 주세요.', kind: 'last-row' } } });
+    await page.locator('[data-trade-sell="6"]').click();
+    await fillTrade(page, '30', '72000');
+    await page.locator('[data-trade-save]').click();
+    await page.getByRole('button', { name: '지우기' }).click();
+    await page.locator('[data-trade-error]').waitFor({ timeout: 5000 });
+    check('[120-5] 409 last-row 이유 한 줄', (await text(page, '[data-trade-error]')) === '마지막 종목은 시트에서 직접 정리해 주세요.');
+    await ctx.close();
+  }
+
+  // ── 새 종목 매수 창(120차) ──
+  const STOCKS: Record<string, { symbol: string; name: string; englishName: string; market: string }> = {
+    FAKN: { symbol: 'FAKN', name: '가짜 새미국주', englishName: '', market: 'NASDAQ' },
+    '999201': { symbol: '999201', name: '가짜 새국내주', englishName: '', market: 'KOSPI' },
+  };
+  async function openNewBuy(o: Opts & { plan: unknown; save?: { status: number; json: unknown } }) {
+    const s = await open(browser, o);
+    const newBodies: Record<string, unknown>[] = [];
+    const planBodies: Record<string, unknown>[] = [];
+    await s.page.route('**/api/stocks/search**', (r) => {
+      const q = new URL(r.request().url()).searchParams.get('q') ?? '';
+      return r.fulfill({ json: { results: Object.values(STOCKS).filter((x) => x.symbol.includes(q)), catalogSize: 2 } });
+    });
+    await s.page.route('**/api/stocks/info**', (r) => r.fulfill({ json: { stock: STOCKS[new URL(r.request().url()).searchParams.get('symbol') ?? ''] ?? null } }));
+    await s.page.route('**/api/asset/trade/new/plan', (r) => {
+      planBodies.push(JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>);
+      return r.fulfill(typeof o.plan === 'object' && o.plan && 'status' in o.plan ? (o.plan as { status: number; json: unknown }) : { json: o.plan });
+    });
+    await s.page.route('**/api/asset/trade/new', (r) => {
+      newBodies.push(JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>);
+      return r.fulfill(o.save ?? { json: { id: 2, mode: 'new', notice: null } });
+    });
+    await s.page.locator('[data-trade-new]').click();
+    await s.page.locator('[data-newbuy-form]').waitFor({ timeout: 5000 });
+    return { ...s, newBodies, planBodies };
+  }
+  const pick = async (page: Page, symbol: string) => {
+    await page.locator('[data-newbuy-search] input').fill(symbol);
+    await page.locator('[data-newbuy-search] li button').first().click({ timeout: 5000 });
+    await page.locator(`[data-newbuy-chosen]:has-text("${symbol}")`).waitFor({ timeout: 5000 });
+  };
+  const fillNew = async (page: Page, qty: string, price: string) => {
+    await page.locator('[data-newbuy-qty]').fill(qty);
+    await page.locator('[data-newbuy-price]').fill(price);
+  };
+  {
+    const { page, ctx, planBodies, newBodies, seen, errors } = await openNewBuy({ plan: assetNewPlanSample() });
+    check('[120-7] 새 종목 창 — 고르기 전 [다음] 막힘', await page.locator('[data-newbuy-next]').isDisabled());
+    const accounts = await page.locator('[data-newbuy-section] option').allTextContents();
+    check('[120-6] 계좌 목록에 합친 표 없음', accounts.length === 4 && !accounts.includes('적립식 주식'), accounts.join(','));
+    await pick(page, 'FAKN');
+    check('[120-7] 종목 표시 — 이름 · 코드 · 국내/미국', (await text(page, '[data-newbuy-chosen]')).includes('가짜 새미국주') && (await text(page, '[data-newbuy-chosen]')).includes('미국'));
+    check('[120-7] 미국 종목 — 가격 칸이 달러', (await page.locator('[data-newbuy-form]').textContent())?.includes('가격(달러)') === true);
+    await fillNew(page, '2.5', '110.25');
+    await page.getByRole('radio', { name: '금' }).click();
+    await page.locator('[data-newbuy-next]').click();
+    await page.locator('[data-newbuy-confirm]').waitFor({ timeout: 5000 });
+    check('[120-7] 확인 화면 문장 — 어느 줄 · 코드 앞부분', (await text(page, '[data-newbuy-where]')) === '「개별 투자」 맨 아래에 줄을 넣고, 「티커」 「개별 투자」 묶음 22행(빈 줄)에 씁니다 · 코드 NASDAQ:FAKN', await text(page, '[data-newbuy-where]'));
+    check('[120-7] plan 요청 — 계좌 · 코드', planBodies[0].section === '개별 투자' && planBodies[0].symbol === 'FAKN');
+    await page.locator('[data-newbuy-prefix]').selectOption('NYSEARCA');
+    check('[120-7] 앞부분을 바꾸면 확인 문장 코드도 바뀜', (await text(page, '[data-newbuy-where]')).endsWith('코드 NYSEARCA:FAKN'), await text(page, '[data-newbuy-where]'));
+    const before = seen.sheet;
+    await page.locator('[data-newbuy-save]').click();
+    await page.locator('[data-newbuy-confirm]').waitFor({ state: 'detached', timeout: 5000 });
+    await page.waitForTimeout(300);
+    const b = newBodies[0];
+    check('[120-7] 저장 요청 — 고른 앞부분 · 수량 · 가격 · 분류', b.exchange === 'NYSEARCA' && b.qty === 2.5 && b.price === 110.25 && b.assetClass === '금' && b.section === '개별 투자' && b.symbol === 'FAKN', JSON.stringify(b));
+    check('[120-7] 저장 뒤 창 닫고 시트 다시 읽음 · 화면 오류 0', seen.sheet > before && errors.length === 0, errors.join(' / '));
+    await ctx.close();
+  }
+  {
+    const { page, ctx } = await openNewBuy({ plan: assetNewPlanSample({ market: 'KR', currency: 'KRW', symbol: '999201', code: '999201', prefix: null, prefixEditable: false, ticker: { group: '연금 저축 계좌', row: 40, status: 'insert' } }) });
+    await pick(page, '999201');
+    check('[120-7] 국내 종목 — 가격 칸이 원 · 국내 표시', (await page.locator('[data-newbuy-form]').textContent())?.includes('가격(원)') === true && (await text(page, '[data-newbuy-chosen]')).includes('국내'));
+    await fillNew(page, '3', '12340');
+    await page.locator('[data-newbuy-next]').click();
+    await page.locator('[data-newbuy-confirm]').waitFor({ timeout: 5000 });
+    check('[120-2] 「티커」 새 줄 문구 · 국내는 앞부분 칸 없음', (await text(page, '[data-newbuy-where]')).includes('40행(새 줄)') && (await count(page, '[data-newbuy-prefix]')) === 0, await text(page, '[data-newbuy-where]'));
+    await page.locator('[data-newbuy-back]').click();
+    check('[120-7] [뒤로] — 입력이 남음', (await page.locator('[data-newbuy-qty]').inputValue()) === '3');
+    await ctx.close();
+  }
+  {
+    const { page, ctx } = await openNewBuy({ plan: assetNewPlanSample({ section: '적립식 계좌', ticker: { group: '적립식 투자', row: 33, status: 'existing' }, prefixEditable: false, notice: '합친 표 「적립식 주식」 은 직접 고쳐 주세요.' }) });
+    await pick(page, 'FAKN');
+    await fillNew(page, '1', '10');
+    await page.locator('[data-newbuy-next]').click();
+    await page.locator('[data-newbuy-confirm]').waitFor({ timeout: 5000 });
+    check('[120-6] 적립식 계좌 — 합친 표 안내 한 줄', (await text(page, '[data-newbuy-notice]')) === '합친 표 「적립식 주식」 은 직접 고쳐 주세요.');
+    check('[120-2] 「티커」 에 이미 있음 — 앞부분 칸 없음 · 문구 이미 있음', (await count(page, '[data-newbuy-prefix]')) === 0 && (await text(page, '[data-newbuy-where]')).includes('33행(이미 있음)'));
+    await ctx.close();
+  }
+  {
+    const { page, ctx } = await openNewBuy({ plan: assetNewPlanSample({ existing: { row: 5, quantity: 10, avgPrice: 100 }, prefixEditable: false, ticker: { group: '개별 투자', row: 15, status: 'existing' } }) });
+    await pick(page, 'FAKN');
+    await fillNew(page, '10', '200');
+    await page.locator('[data-newbuy-next]').click();
+    await page.locator('[data-newbuy-confirm]').waitFor({ timeout: 5000 });
+    check('[120-3] 이미 가진 종목 — 「매수로 더합니다」 · 사고 나면 미리 보기', (await text(page, '[data-newbuy-existing]')).startsWith('이미 가진 종목 — 매수로 더합니다') && (await text(page, '[data-newbuy-after]')) === '사고 나면 20주 · 평균 $150.00', await text(page, '[data-newbuy-existing]'));
+    check('[120-3] 이미 가진 종목 — 줄 넣기 문장 · 안내 없음', (await count(page, '[data-newbuy-where]')) === 0);
+    await ctx.close();
+  }
+  {
+    const { page, ctx } = await openNewBuy({ plan: { status: 502, json: { error: '시트 모양이 바뀌었어요(「주식 투자 정리」 「개별 투자」 구간의 합계 줄을 찾지 못해 쓰지 않았습니다).', kind: 'shape' } } });
+    await pick(page, 'FAKN');
+    await fillNew(page, '1', '10');
+    await page.locator('[data-newbuy-next]').click();
+    await page.locator('[data-newbuy-error]').waitFor({ timeout: 5000 });
+    check('[120-7] 확인 화면 실패 — 입력 화면에 이유 한 줄', (await text(page, '[data-newbuy-error]')).startsWith('시트 모양이 바뀌었어요') && (await count(page, '[data-newbuy-confirm]')) === 0);
+    await ctx.close();
+  }
+  {
+    const { page, ctx } = await openNewBuy({ plan: assetNewPlanSample(), save: { status: 502, json: { error: '구글 시트 응답이 올바르지 않습니다(500).', kind: 'network' } } });
+    await pick(page, 'FAKN');
+    await fillNew(page, '1', '10');
+    await page.locator('[data-newbuy-next]').click();
+    await page.locator('[data-newbuy-save]').click();
+    await page.locator('[data-newbuy-error]').waitFor({ timeout: 5000 });
+    check('[120-4] 저장 실패 — 이유 한 줄 · 확인 화면 그대로', (await count(page, '[data-newbuy-confirm]')) === 1);
+    await ctx.close();
+  }
+  {
+    const { page, ctx } = await openNewBuy({ plan: assetNewPlanSample(), writeEnabled: false });
+    await pick(page, 'FAKN');
+    await fillNew(page, '1', '10');
+    check('[120-7] 쓰기 꺼짐 — 안내 + [다음] 막힘', (await count(page, '[data-newbuy-write-off]')) === 1 && (await page.locator('[data-newbuy-next]').isDisabled()));
     await ctx.close();
   }
 
@@ -228,6 +372,10 @@ try {
     await fillTrade(page, '2.5', '110');
     check(`[118-7] ${width}px — 매수 창 가로 넘침 없음`, !(await panelOverflow(page)));
     await page.locator('[data-trade-cancel]').click();
+    await page.locator('[data-trade-new]').click();
+    await page.locator('[data-newbuy-form]').waitFor({ timeout: 5000 });
+    check(`[120-7] ${width}px — 새 종목 창 가로 넘침 없음`, !(await panelOverflow(page)));
+    await page.locator('[data-newbuy-cancel]').click();
     await page.locator('[data-trade-history-open]').click();
     await page.locator('[data-trade-row]').first().waitFor({ timeout: 5000 });
     check(`[118-7] ${width}px — 기록 창 가로 넘침 없음(표는 창 안에서 스크롤)`, !(await panelOverflow(page)));

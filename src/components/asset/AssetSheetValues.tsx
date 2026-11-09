@@ -17,7 +17,7 @@ import { UNASSIGNED_LABEL, type AssetAccount, type AssetHolding, type AssetSecti
  * - 연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색은 오른쪽 위 「설정」 창(`AssetSettingsDialog`).
  * - 계좌 카드 위 「계좌별 | 종목별」(v2.63.0 — 이 기기에 기억 `alphascope.asset.statusView` · 읽기 실패면 계좌별).
  *   종목별 = 같은 종목을 한 줄로(`AssetSymbolTable` · 「전체 / 코어 / 위성」 거르기) — 자산 분류 고르기는 계좌별에서.
- * - 계좌별 줄 끝 [매수] [매도](v2.66.0 — `h.tradable` 인 줄만 · 합친 표 · 수식 칸 · 이을 수 없는 줄은 없음) · 위 [새 종목 매수](119차까지 막힘) · [매수 · 매도 기록].
+ * - 계좌별 줄 끝 [매수] [매도](v2.66.0 — `h.tradable` 인 줄만 · 합친 표 · 수식 칸 · 이을 수 없는 줄은 없음) · 위 [새 종목 매수](v2.67.0 · `AssetNewBuyDialog`) · [매수 · 매도 기록].
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 접은 계좌 이름 · 보기 이름만).
  */
 
@@ -325,6 +325,7 @@ export default function AssetSheetValues({
   bySymbol,
   onOpenClassDialog,
   onTrade,
+  onNewBuy,
   onOpenTradeHistory,
 }: {
   data: AssetSheetData;
@@ -337,6 +338,7 @@ export default function AssetSheetValues({
   /** 종목 줄 [매수] · [매도] — 입력 창 열기(v2.66.0) */
   onTrade: (section: AssetSection, holding: AssetHolding, side: AssetTradeSide) => void;
   /** [매수 · 매도 기록] — 창 열기 */
+  onNewBuy: () => void;
   onOpenTradeHistory: () => void;
 }) {
   const [view, setView] = useState<StatusView>(readView);
@@ -361,12 +363,9 @@ export default function AssetSheetValues({
         </Button>
         {view === 'account' && (
           <>
-            {/* 새 종목 매수는 119차에 연다 — 막힌 버튼에도 툴팁이 뜨게 바깥 칸에 둔다 */}
-            <span title="다음 업데이트에서 열려요" data-trade-new-wrap>
-              <Button size="md" icon={Plus} disabled data-trade-new>
-                새 종목 매수
-              </Button>
-            </span>
+            <Button size="md" icon={Plus} onClick={onNewBuy} data-trade-new>
+              새 종목 매수
+            </Button>
             <Button size="md" icon={History} onClick={onOpenTradeHistory} data-trade-history-open>
               매수 · 매도 기록
             </Button>

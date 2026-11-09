@@ -34,7 +34,7 @@ import { chromium, type Page } from 'playwright';
 import { NAV_GROUPS, PAGE_TABS } from '../src/types/nav';
 import { rankingSample, usHaltsSample } from './fixtures/usHalts/screenSample';
 import { briefSample, daySample, daysSample, mismatchSample, outlookSample, statusSample } from './fixtures/marketBrief/screenSample';
-import { assetTradesSample, assetHistorySample, assetSheetFailureSample, assetSheetSample, assetStatusSample, assetSummaryFailureSample, assetSummarySample } from './fixtures/asset/screenSample';
+import { assetNewPlanSample, assetTradesSample, assetHistorySample, assetSheetFailureSample, assetSheetSample, assetStatusSample, assetSummaryFailureSample, assetSummarySample } from './fixtures/asset/screenSample';
 import { CHANGELOG } from '../src/data/changelog';
 import { sortDayRows } from '../src/utils/buyJudgeOrder';
 
@@ -624,6 +624,44 @@ function targets(): Target[] {
           }
           await page.waitForTimeout(300);
         }] as const),
+        // v2.67.0 — 새 종목 매수 창 · 확인 화면 · 모두 매도 미리 보기 · 409 안내
+        ...([
+          ['새종목-입력창', null],
+          ['새종목-확인', assetNewPlanSample()],
+          ['새종목-확인-적립식', assetNewPlanSample({ section: '적립식 계좌', ticker: { group: '적립식 투자', row: 33, status: 'insert' }, notice: '합친 표 「적립식 주식」 은 직접 고쳐 주세요.' })],
+          ['새종목-이미가짐', assetNewPlanSample({ prefixEditable: false, ticker: { group: '개별 투자', row: 15, status: 'existing' }, existing: { row: 5, quantity: 10, avgPrice: 100.5 } })],
+        ] as const).map(([label, plan]) => [label, {}, async (page: Page) => {
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+          await page.route('**/api/stocks/search**', (r) => r.fulfill({ json: { results: [{ symbol: 'FAKN', name: '가짜 새미국주', englishName: '', market: 'NASDAQ' }], catalogSize: 1 } }).catch(() => {}));
+          await page.route('**/api/stocks/info**', (r) => r.fulfill({ json: { stock: { symbol: 'FAKN', name: '가짜 새미국주', englishName: '', market: 'NASDAQ' } } }).catch(() => {}));
+          if (plan) await page.route('**/api/asset/trade/new/plan', (r) => r.fulfill({ json: plan }).catch(() => {}));
+          await page.locator('[data-trade-new]').click().catch(() => {});
+          await page.locator('[data-newbuy-form]').waitFor({ timeout: 3000 }).catch(() => {});
+          await page.locator('[data-newbuy-search] input').fill('FAKN').catch(() => {});
+          await page.locator('[data-newbuy-search] li button').first().click({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(200);
+          await page.locator('[data-newbuy-qty]').fill('2.5').catch(() => {});
+          await page.locator('[data-newbuy-price]').fill('110.25').catch(() => {});
+          if (plan) {
+            await page.locator('[data-newbuy-next]').click().catch(() => {});
+            await page.locator('[data-newbuy-confirm]').waitFor({ timeout: 3000 }).catch(() => {});
+          }
+          await page.waitForTimeout(300);
+        }] as const),
+        ['매도창-409안내', {}, async (page: Page) => {
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+          await page.route('**/api/asset/trade', (r) => r.fulfill({ status: 409, json: { error: '다른 칸이 이 줄을 쓰고 있어요 — 시트에서 직접 정리해 주세요(「요약」 B5 · 「요약」 B7).', kind: 'row-referenced' } }).catch(() => {}));
+          await page.locator('[data-trade-sell="6"]').click().catch(() => {});
+          await page.locator('[data-trade-dialog]').waitFor({ timeout: 3000 }).catch(() => {});
+          await page.locator('[data-trade-qty]').fill('30').catch(() => {});
+          await page.locator('[data-trade-price]').fill('72000').catch(() => {});
+          await page.locator('[data-trade-save]').click().catch(() => {});
+          await page.getByRole('button', { name: '지우기' }).click({ timeout: 3000 }).catch(() => {});
+          await page.locator('[data-trade-error]').waitFor({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(300);
+        }],
         ['분류창-총자산링크', { none: true }, async (page: Page) => {
           await page.getByRole('tab', { name: '총 자산' }).click().catch(() => {});
           await page.waitForTimeout(500);
@@ -651,6 +689,7 @@ function targets(): Target[] {
         await page.route('**/api/asset/purchase-done', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
         await page.route('**/api/asset/price-source/**', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
         await page.route('**/api/asset/trade', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
+        await page.route('**/api/asset/trade/new', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
         await page.route('**/api/asset/trades**', (r) => r.fulfill({ json: assetTradesSample(50, 120) }).catch(() => {}));
       },
       open: async (page: Page) => {
