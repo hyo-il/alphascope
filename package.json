@@ -57,6 +57,7 @@
     "testguard:test": "tsx scripts/testGuardSelfTest.ts",
     "asset:test": "tsx scripts/assetSelfTest.ts",
     "assetsheet:test": "tsx scripts/assetSheetSelfTest.ts",
+    "assetshape:test": "tsx scripts/assetShapeSelfTest.ts",
     "assetprice:test": "tsx scripts/assetPriceSelfTest.ts",
     "assetlock:test": "tsx scripts/assetLockSelfTest.ts",
     "assettrade:test": "tsx scripts/assetTradeSelfTest.ts",
