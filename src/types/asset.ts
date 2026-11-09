@@ -363,13 +363,15 @@ export type AssetPriceSkipReason =
   | 'no-toss-price' // 토스가 가격을 주지 않음
   | 'price-shape' // 가격 칸(E)이 GOOGLEFINANCE 가격 수식이 아님
   | 'won-shape' // 원화 표기 칸(F)이 E행 · E행 × 환율로 읽히지 않음
-  | 'code-changed'; // 바꾼 뒤 그 줄의 종목 코드가 바뀜(줄을 옮김) — 쓰지 않음 · 되돌린 뒤 다시 바꾸기 필요
+  | 'code-changed' // 바꾼 뒤 그 코드를 시트에서 찾지 못함 — 쓰지 않음 · 되돌린 뒤 다시 바꾸기 필요
+  | 'duplicate-code'; // 줄이 옮겨졌는데 같은 코드가 두 줄이라 어느 줄인지 정할 수 없음 — 쓰지 않음
 
 export const PRICE_SKIP_LABEL: Record<AssetPriceSkipReason, string> = {
   'no-toss-price': '토스 가격 없음',
   'price-shape': '가격 칸이 GOOGLEFINANCE 가 아님',
   'won-shape': '원화 표기 칸 모양이 다름',
   'code-changed': '줄 코드가 바뀜 — 되돌린 뒤 다시 바꾸기 필요',
+  'duplicate-code': '같은 코드 두 줄 — 쓰지 않음',
 };
 
 export interface AssetPriceSkip {
@@ -393,6 +395,8 @@ export interface AssetPriceMoved {
   /** 지금 그 줄의 종목 이름 · 코드 — 빈 줄 · 구분 줄이면 null */
   nowName: string | null;
   nowCode: string | null;
+  /** 같은 코드가 두 줄이라 어느 줄인지 정할 수 없어 쓰지 않음(v2.66.2) */
+  duplicate?: boolean;
 }
 
 /** 설정 창 「시트 가격」(v2.65.0) — summary 응답에 같이 온다 */

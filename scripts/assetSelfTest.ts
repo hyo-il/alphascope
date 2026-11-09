@@ -287,11 +287,11 @@ const colNum = (c: string) => c.charCodeAt(0) - 64;
 const colChr = (n: number) => String.fromCharCode(64 + n);
 /** `'탭'!B5:F9` · `'탭'!C25` → 줄 → 칸 (끝의 빈 칸 · 빈 줄은 구글처럼 잘라 낸다) */
 function cut(model: Record<string, Cell>, range: string): Cell[][] {
-  const m = range.match(/^'((?:[^']|'')+)'!([A-Z])(\d+)(?::([A-Z])(\d+))?$/);
+  const m = range.match(/^'((?:[^']|'')+)'!([A-Z])(\d+)(?::([A-Z])(\d+)?)?$/);
   if (!m) throw new Error('범위 모양');
   const tab = m[1].replace(/''/g, "'");
   const [c1, r1] = [colNum(m[2]), Number(m[3])];
-  const [c2, r2] = m[4] ? [colNum(m[4]), Number(m[5])] : [c1, r1];
+  const [c2, r2] = m[4] ? [colNum(m[4]), m[5] ? Number(m[5]) : Math.max(r1, ...Object.keys(model).filter((k) => k.startsWith(`${tab}!`)).map((k) => Number(/(\d+)$/.exec(k)?.[1] ?? 0)))] : [c1, r1];
   const rows: Cell[][] = [];
   for (let r = r1; r <= r2; r++) {
     const row: Cell[] = [];
@@ -511,7 +511,7 @@ try {
   check('[106-7] 구분 줄(D14) · 빈 줄(D18) → not-editable · 쓰기 0', r14.k === 'not-editable' && r18.k === 'not-editable' && r14.writes === 0 && r18.writes === 0, `${r14.k} ${r18.k}`);
   const outside = [];
   for (const row of [13, 43, 12, 15.5, '15', null]) outside.push(await refused(row, '금'));
-  check('[106-7] D14~D42 밖(13 · 43 · 12) · 정수가 아닌 줄 번호 → not-editable · 구글 호출 0', outside.every((x) => x.k === 'not-editable' && x.writes === 0) && google.token === 0, outside.map((x) => x.k).join(','));
+  check('[106-7] 종목 줄이 아닌 줄(13 · 43 · 12) · 정수가 아닌 줄 번호 → not-editable · 쓰기 0', outside.every((x) => x.k === 'not-editable' && x.writes === 0) && google.token === 0, outside.map((x) => x.k).join(','));
   const badValues = [];
   for (const v of ['부동산', '현금', ' 금', 1, null, '=A1']) badValues.push(await refused(15, v));
   check('[106-7] [115-1] 세 글자 · 빈칸이 아닌 값(부동산 · 옛 「현금」 · 공백 섞임 · 숫자 · null · 수식) → not-editable · 쓰기 0', badValues.every((x) => x.k === 'not-editable' && x.writes === 0), badValues.map((x) => x.k).join(','));
@@ -551,7 +551,7 @@ try {
     const shapes = [];
     for (const rows of [[], 15, null, [15, 43], [15, '16'], Array.from({ length: ASSET_CLASS_MAX_ROWS + 1 }, (_, i) => [15, 16, 20, 21, 22][i % 5])]) shapes.push(await kindOf(writeAssetClasses(rows, '금')));
     check('[115-2] 줄 목록 모양 — 빈 목록 · 배열 아님 · 범위 밖 · 글자 줄 → not-editable · 구글 호출 0 · 중복을 빼면 29줄 이하는 받음(30개 = 다섯 줄)',
-      shapes.slice(0, 5).every((k) => k === 'not-editable') && shapes[5] !== 'not-editable' && ASSET_CLASS_MAX_ROWS === 29, shapes.join(','));
+      shapes.slice(0, 5).every((k) => k === 'not-editable') && shapes[5] !== 'not-editable' && ASSET_CLASS_MAX_ROWS === 200, shapes.join(','));
     fresh();
     const big = await kindOf(writeAssetClasses(Array.from({ length: 30 }, (_, i) => i + 13), '금'));
     check('[115-2] 서른 줄(13~42 — 13 은 범위 밖) → not-editable · 쓰기 0', big === 'not-editable' && google.writes === 0);
@@ -676,7 +676,7 @@ try {
     const hs = withF.sections.flatMap((x) => x.holdings);
     check('[116-3] 「티커」 D20 수식 → 이어진 보유 줄 classFormula true · 다른 줄 false · 수식 batchGet 1번 · 범위 맨 끝이 「티커」 종목 줄',
       hs.filter((h) => h.tickerRow === 20).length > 0 && hs.filter((h) => h.tickerRow === 20).every((h) => h.classFormula) && hs.filter((h) => h.tickerRow !== 20).every((h) => !h.classFormula) &&
-        google.formulas === 1 && /'티커'!B14:D42$/.test(sheetRanges().formulas.at(-1) ?? '') && classRowsOf(withF).filter((r) => r.locked).map((r) => r.rows.join('+')).join(',') === '20');
+        google.formulas === 1 && /'티커'!B1:D$/.test(sheetRanges().formulas.at(-1) ?? '') && classRowsOf(withF).filter((r) => r.locked).map((r) => r.rows.join('+')).join(',') === '20');
   }
 
   // ── 109차 A — 목표 비율 쓰기(가짜 구글로만 · 실제 시트 쓰기 0) ─────────────────────
@@ -1514,7 +1514,7 @@ check('[106-8] 실제 구글 호출 0 — 이 시험의 googleapis 요청은 모
   const dash = fs.readFileSync(path.join(root, 'src/components/asset/AssetDashboard.tsx'), 'utf8');
   const googleSrc = fs.readFileSync(path.join(root, 'server/asset/google.ts'), 'utf8');
   check('[115-3] writeAssetClass(한 칸 함수) 소스에 없음 · 화면은 rows 배열로 부름(116차부터 「자산 분류 정하기」 창 저장만) · 구글 쓰는 export 함수는 valuesWrite 하나',
-    !/\bwriteAssetClass\b/.test(appCode) && /\bwriteAssetClasses\(/.test(fs.readFileSync(path.join(root, 'server/asset/routes.ts'), 'utf8')) && /JSON\.stringify\(\{ rows, assetClass: value \}\)/.test(dash) && !/JSON\.stringify\(\{ row,/.test(dash) &&
+    !/\bwriteAssetClass\b/.test(appCode) && /\bwriteAssetClasses\(/.test(fs.readFileSync(path.join(root, 'server/asset/routes.ts'), 'utf8')) && /JSON\.stringify\(\{ rows, assetClass: value, codes:/.test(dash) && !/JSON\.stringify\(\{ row,/.test(dash) &&
       [...googleSrc.matchAll(/export async function (\w+)/g)].map((m) => m[1]).filter((n) => /write|update|append|clear/i.test(n)).join(',') === 'valuesWrite');
 }
 
@@ -1648,19 +1648,11 @@ const OPTIONS_HAS_MIXED = (src: string) => /value: MIXED|'mixed'/.test(src);
       !/h\.symbol \?\?/.test(sum117) && !/h\.symbol \?\?/.test(plan117) && !/byRow/.test(plan117));
   check('[117-1] 창 — mixed 이면 「줄마다 다름」(버튼 넷 중 눌린 것 없음 — value 가 mixed) · 2줄 이상이면 「「티커」 n줄」 · 누르면 그 묶음 열쇠(rows 전부)',
     /v === MIXED && \([\s\S]{0,200}줄마다 다름/.test(dlg) && /r\.rows\.length > 1 && \([\s\S]{0,200}「티커」 \{r\.rows\.length\}줄/.test(dlg) && /value=\{v\} onChange=\{\(nv\) => nv !== MIXED && pick\(r\.key, nv\)\}/.test(dlg) && !OPTIONS_HAS_MIXED(dlg));
-  // [116-7] 서버 쓰기 함수 · 주소 바뀐 줄 0(04a202d 와 지금 작업 트리)
-  const fnAt = (src: string) => { const i = src.indexOf('export async function writeAssetClasses('); return i < 0 ? '' : src.slice(i, src.indexOf('\n}\n', i)); };
-  const oldSheet = spawnSync('git', ['show', '04a202d:server/asset/sheet.ts'], { cwd: root, encoding: 'utf8' }).stdout;
-  // v2.65.4 — routes.ts 는 117차에 바뀐다(구매 완료 대상 · touch · 잠금 시간) → 파일 전체 대신 /api/asset/class 라우트 글자만 견준다 · google.ts 는 파일 그대로
-  // v2.66.0 — google.ts 는 118차에 주석(부르는 곳 목록)만 바뀐다 → 파일 전체 대신 valuesWrite 본문 글자만 견준다
+  // [116-7] 구글에 쓰는 함수는 그대로(04a202d 와 지금) — writeAssetClasses 본문 · 분류 라우트는 119차에 머리 글자 찾기 · 코드 받기로 바뀌어 비교에서 뺐다
   const writeFn = (src: string) => { const i = src.indexOf('export async function valuesWrite('); return i < 0 ? '' : src.slice(i, src.indexOf('\n}\n', i)); };
   const oldGoogle = spawnSync('git', ['show', '04a202d:server/asset/google.ts'], { cwd: root, encoding: 'utf8' }).stdout;
   const nowGoogle = fs.readFileSync(path.join(root, 'server/asset/google.ts'), 'utf8');
-  const oldRoutes = spawnSync('git', ['show', '04a202d:server/asset/routes.ts'], { cwd: root, encoding: 'utf8' }).stdout;
-  const classRoute = (src: string) => { const i = src.indexOf("assetRouter.put('/api/asset/class'"); return i < 0 ? '' : src.slice(i, src.indexOf('\n});\n', i)); };
-  const nowRoutes = fs.readFileSync(path.join(root, 'server/asset/routes.ts'), 'utf8');
-  check('[116-7] writeAssetClasses 본문 · /api/asset/class 라우트 글자 · google.ts valuesWrite 본문 바뀐 글자 0(04a202d 와 지금)',
-    fnAt(oldSheet).length > 500 && fnAt(oldSheet) === fnBody('writeAssetClasses') && writeFn(oldGoogle).length > 200 && writeFn(oldGoogle) === writeFn(nowGoogle) && classRoute(oldRoutes).length > 50 && classRoute(oldRoutes) === classRoute(nowRoutes));
+  check('[116-7] google.ts valuesWrite 본문 바뀐 글자 0(04a202d 와 지금)', writeFn(oldGoogle).length > 200 && writeFn(oldGoogle) === writeFn(nowGoogle));
 }
 // [116-9] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(115차 끝 04a202d 와 지금 작업 트리)
 const changed116 = spawnSync('git', ['diff', '--name-only', '04a202d', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python'], { cwd: root, encoding: 'utf8' });

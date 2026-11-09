@@ -114,7 +114,7 @@ export default function AssetPriceSheetSection({
               <tbody>
                 {status.moved.map((m) => {
                   const was = m.wasName || m.wasCode || '—';
-                  const now = m.nowCode == null ? '빈 줄' : m.nowName || m.nowCode;
+                  const now = m.duplicate ? '같은 코드 두 줄' : m.nowCode == null ? '빈 줄' : m.nowName || m.nowCode;
                   return (
                     <tr key={m.row} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW}`}>
                       <td className={`${TABLE_NUM_COL} py-1.5 pl-3 pr-4 tabular-nums text-text-secondary`}>티커 {m.row}행</td>

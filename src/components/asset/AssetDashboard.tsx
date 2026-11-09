@@ -17,7 +17,7 @@ import AssetSettingsDialog from './AssetSettingsDialog';
 import AssetClassDialog from './AssetClassDialog';
 import AssetTradeDialog from './AssetTradeDialog';
 import AssetTradeHistoryDialog from './AssetTradeHistoryDialog';
-import type { ClassSendResult, ClassValue } from '../../utils/assetClassPlan';
+import { codeOfTickerRow, type ClassSendResult, type ClassValue } from '../../utils/assetClassPlan';
 import AssetRebalanceView from './AssetRebalanceView';
 import { MonthlyBuySection, PurchaseDayDialog, dayText, isEarlyDone, sheetDateText } from './AssetMonthlyBuy';
 
@@ -207,7 +207,7 @@ export default function AssetDashboard({
   /** 자산 분류 한 묶음 쓰기(「자산 분류 정하기」 창 [저장] — 값마다 한 번 · `rows` 는 「티커」 줄 번호들 · 서버가 한 요청으로 씀) */
   const sendClass = async (rows: number[], value: ClassValue): Promise<ClassSendResult> => {
     try {
-      const res = await fetch('/api/asset/class', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rows, assetClass: value }) });
+      const res = await fetch('/api/asset/class', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rows, assetClass: value, codes: rows.map((r) => (sheet && 'data' in sheet ? codeOfTickerRow(sheet.data, r) : '')) }) });
       const body = await readJson(res);
       if (body.code === 'asset-locked') {
         onLocked();

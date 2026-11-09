@@ -2,18 +2,20 @@
  * 자산 시트 읽기 · 자산 분류 쓰기 · 목표 비율 쓰기 · 계좌 이름 날짜 쓰기(v2.61.0 · v2.62.0 · v2.63.0 · v2.64.0) — 칸 목록은 `sheetLayout.ts` 한 곳, 구글 호출은 `google.ts`.
  *
  * - 화면을 열 때 · 「다시 읽기」 · 총 자산 계산(화면이 열린 동안 · 하루 기록 1번)에 읽는다. 같은 결과는 30초 캐시(동시에 온 요청은 한 번만 읽는다).
- * - 쓰기는 세 곳 — `writeAssetClasses`(「티커」 D14~D42 종목 줄의 자산 분류 — 여러 줄 한 요청 · v2.65.2) · `writeTargetRatio`(목표 비율 여섯 칸) ·
+ * - 쓰기는 세 곳 — `writeAssetClasses`(「티커」 종목 줄 D열의 자산 분류 — 여러 줄 한 요청 · v2.65.2) · `writeTargetRatio`(목표 비율 여섯 칸) ·
  *   `writeAccountDates`(「구매 완료」 — 「주식 투자 정리」 계좌 이름 칸의 「( 날짜 )」).
  *   셋 다 쓰기 직전에 수식 그대로 다시 읽어 머리 글자 · 수식 칸을 확인한다(구글에 쓰는 함수는 `google.ts` `valuesWrite` 하나).
- * - 한 번 읽기 = `values:batchGet` 두 번: ① 값(UNFORMATTED_VALUE) — 머리 글자 · 종목 · 보유 · 값 칸 ② 수식(FORMULA) — 보유 줄의 C(평균 매입가) · F(이을 줄)
- *   + 「티커」 종목 줄 B~D(자산 분류 칸이 수식인지 — 「자산 분류 정하기」 창이 그 줄의 버튼을 감춘다 · v2.65.3 · 같은 요청 안의 범위 하나).
+ * - 한 번 읽기 = `values:batchGet` 두 번: ① 값(UNFORMATTED_VALUE) — 머리 글자 · 두 탭 넓은 범위 · 값 칸 ② 수식(FORMULA) — 보유 줄의 C(평균 매입가) · F(이을 줄)
+ *   + 「티커」 B~D(자산 분류 칸이 수식인지 — 「자산 분류 정하기」 창이 그 줄의 버튼을 감춘다 · v2.65.3 · 같은 요청 안의 범위 하나).
+ * - 구간은 고정 줄 번호가 아니라 읽은 넓은 범위에서 머리 글자로 찾는다(`sheetShape.ts` · v2.66.2).
  * - 머리 글자가 하나라도 다르면 값을 쓰지 않고 「시트 모양이 바뀌었어요(탭 · 칸)」.
  * ⚠️ 읽은 값은 로그에 찍지 않는다(실패 이유 종류만).
  */
 import { isAssetClass, type AssetClass, type AssetHolding, type AssetSection, type AssetSheetData, type AssetTargetRatio } from '../../src/types/asset';
 import { assetSheetConfig, isAssetSyncEnabled } from './config';
 import { AssetSheetError, batchGet, valuesWrite, type CellRows } from './google';
-import { HOLDINGS_TAB, SHEET_LAYOUT, TICKER_TAB, type HeaderCheck, type HoldingSection } from './sheetLayout';
+import { HOLDINGS_TAB, SHEET_LAYOUT, TICKER_TAB, type HeaderCheck } from './sheetLayout';
+import { findHoldingSections, findSheetShape, findTickerGroups, tickerRowsOf } from './sheetShape';
 
 const CACHE_MS = 30_000;
 
@@ -21,9 +23,12 @@ type Cell = string | number | boolean | undefined;
 
 const q = (tab: string) => `'${tab.replace(/'/g, "''")}'`;
 export const one = (tab: string, cell: string) => `${q(tab)}!${cell}`;
-const holdingRange = (s: HoldingSection) => `${q(HOLDINGS_TAB)}!B${s.firstRow}:F${s.lastRow}`;
+/** 넓은 범위 — B1 부터 그 열의 시트 끝까지(줄 수를 정하지 않는다 · 값이 있는 줄까지만 온다). `rows[줄 번호 - 1]` 이 그 줄 */
+export const wideRange = (tab: string, lastColumn: string) => `${q(tab)}!B1:${lastColumn}`;
+/** 「주식 투자 정리」 이름(B) ~ 이을 수식(F) */
+const holdingWide = () => wideRange(HOLDINGS_TAB, 'F');
 /** 「티커」 이름(B) · 코드(C) · 자산 분류(D) */
-const tickerRange = () => `${q(TICKER_TAB)}!B${SHEET_LAYOUT.tickers.firstRow}:${SHEET_LAYOUT.assetClass.column}${SHEET_LAYOUT.tickers.lastRow}`;
+const tickerWide = () => wideRange(TICKER_TAB, SHEET_LAYOUT.assetClass.column);
 
 /** 공백을 모두 뺀 글자 — 띄어쓰기만 다른 것은 같은 모양 */
 const squash = (v: Cell) => String(v ?? '').replace(/\s+/g, '');
@@ -35,8 +40,8 @@ export function sheetRanges(): { values: string[]; formulas: string[] } {
   return {
     values: [
       ...L.headers.map((h) => one(h.tab, h.cell)),
-      tickerRange(),
-      ...L.sections.map(holdingRange),
+      holdingWide(),
+      tickerWide(),
       one(L.cells.cashTotal.tab, L.cells.cashTotal.cell),
       one(L.cells.retirement.tab, L.cells.retirement.cell),
       one(L.cells.salary.tab, L.cells.salary.cell),
@@ -44,8 +49,8 @@ export function sheetRanges(): { values: string[]; formulas: string[] } {
       ...ratio.assets.map((c) => one(ratio.tab, c)),
       ...ratio.coreSatellite.map((c) => one(ratio.tab, c)),
     ],
-    // 구간 뒤 = 구매 평균 환율 칸(수식 여부 — v2.66.0) · 맨 끝 = 「티커」 종목 줄(자산 분류 칸 수식 여부 — v2.65.3). 보유 구간 순서는 그대로(앞에서부터 구간 번호)
-    formulas: [...L.sections.map(holdingRange), one(L.cells.avgFxRate.tab, L.cells.avgFxRate.cell), tickerRange()],
+    // 보유 탭 뒤 = 구매 평균 환율 칸(수식 여부 — v2.66.0) · 맨 끝 = 「티커」(자산 분류 칸 수식 여부 — v2.65.3)
+    formulas: [holdingWide(), one(L.cells.avgFxRate.tab, L.cells.avgFxRate.cell), tickerWide()],
   };
 }
 
@@ -71,6 +76,16 @@ export function tickerRowCode(r: Cell[] | undefined): string | null {
   if (!name || !code) return null;
   if (SHEET_LAYOUT.tickers.skipNames.some((n) => squash(n) === squash(name))) return null;
   return code;
+}
+
+/** 「티커」 넓은 범위 → 지금 종목 줄의 줄 번호 → 코드(머리를 찾지 못하면 `shape` 오류) */
+export function tickerCodeMap(rows: CellRows): Map<number, string> {
+  const out = new Map<number, string>();
+  for (const row of tickerRowsOf(findTickerGroups(rows))) {
+    const code = tickerRowCode(rows[row - 1]);
+    if (code) out.set(row, code);
+  }
+  return out;
 }
 
 /** 「티커」 코드 → 시장 · 거래소 · 종목. `:` 가 있으면 미국(`NASDAQ:NVDA`), 없으면 국내(코드 그대로 — `0072R0` 처럼 영문이 섞여도) */
@@ -124,35 +139,29 @@ export function parseAssetSheet(values: CellRows[], formulas: CellRows[], readAt
   const next = () => values[i++] ?? [];
 
   for (const h of L.headers) {
-    const got = squash(first(next()));
-    const want = squash(h.expect);
-    const ok = h.prefix ? got.startsWith(want) : got === want;
-    if (!ok) throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(「${h.tab}」 탭 ${h.cell} — 「${h.expect}」 이어야 합니다).`);
+    if (!headerOk(h, first(next()))) throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(「${h.tab}」 탭 ${h.cell} — 「${h.expect}」 이어야 합니다).`);
   }
-  /** 구간 이름 — 머리 글자로 확인한 그 칸의 글자 그대로 */
-  const headerText = (cell: string) => {
-    const idx = L.headers.findIndex((h) => h.tab === HOLDINGS_TAB && h.cell === cell);
-    return idx >= 0 ? text(first(values[idx])) : '';
-  };
+  const holdingRows = next();
+  const tickerRows = next();
+  const shape = findSheetShape(holdingRows, tickerRows); // 못 찾으면 shape 오류 — 값을 만들지 않는다
 
   // 「티커」 줄 번호 → 코드 · 자산 분류(D)
-  const tickerRows = next();
-  /** 「티커」 종목 줄 수식(맨 끝 범위) — 없으면(모양 확인 단계 · 옛 호출) 수식 아님 */
-  const tickerFormulas = formulas[L.sections.length + 1] ?? [];
+  /** 「티커」 수식(맨 끝 범위) — 없으면(모양 확인 단계 · 옛 호출) 수식 아님 */
+  const tickerFormulas = formulas[2] ?? [];
   const codeByRow = new Map<number, { code: string; cls: string; clsFormula: boolean }>();
-  tickerRows.forEach((r, k) => {
+  for (const row of tickerRowsOf(shape.tickers)) {
+    const r = tickerRows[row - 1];
     const code = tickerRowCode(r);
-    const f = tickerFormulas[k]?.[2];
-    if (code) codeByRow.set(L.tickers.firstRow + k, { code, cls: text(r?.[2]), clsFormula: typeof f === 'string' && f.trim().startsWith('=') });
-  });
+    const f = tickerFormulas[row - 1]?.[2];
+    if (code) codeByRow.set(row, { code, cls: text(r?.[2]), clsFormula: typeof f === 'string' && f.trim().startsWith('=') });
+  }
 
-  const sections: AssetSection[] = L.sections.map((s: HoldingSection, si) => {
-    const rows = next();
-    const fRows = formulas[si] ?? [];
+  const holdingFormulas = formulas[0] ?? [];
+  const sections: AssetSection[] = shape.sections.map((s) => {
     const holdings: AssetHolding[] = [];
-    for (let k = 0; k <= s.lastRow - s.firstRow; k++) {
-      const r = rows[k] ?? [];
-      const f = fRows[k] ?? [];
+    for (let row = s.firstRow; row <= s.lastRow; row++) {
+      const r = holdingRows[row - 1] ?? [];
+      const f = holdingFormulas[row - 1] ?? [];
       const name = text(r[0]);
       if (!name) continue;
       const linked = linkedTickerRow(f[4]);
@@ -162,21 +171,22 @@ export function parseAssetSheet(values: CellRows[], formulas: CellRows[], readAt
       const where = code ? splitCode(code) : { market: null, exchange: null, symbol: null };
       const avg = avgPriceOf(f[1], r[1]);
       holdings.push({
-        row: s.firstRow + k,
+        row,
         name,
         code,
         ...where,
         quantity: num(r[2]),
         ...avg,
-        tradable: isTradable(s.combined === true, where.market, ticker != null, f[1], f[2]),
+        tradable: isTradable(s.combined, where.market, ticker != null, f[1], f[2]),
         avgFormula: avg.currency === 'USD' && typeof f[1] === 'string' ? f[1].trim() : null,
         tickerRow: ticker ? linked : null,
         assetClass: isAssetClass(cls) ? cls : null, // 빈칸 · 세 글자가 아닌 글자(옛 「현금」 포함) → 「미지정」(null)
         classFormula: ticker?.clsFormula ?? false,
       });
     }
-    const name = (s.nameCell ? headerText(s.nameCell) : '') || s.label || '';
-    return { key: s.key ?? null, name, combined: s.combined === true, holdings };
+    // 합친 표는 머리 줄이 「내 계좌 정보」 라 정해 둔 이름 · 계좌는 그 칸의 글자 그대로
+    const name = s.combined ? s.key : text(holdingRows[s.nameRow - 1]?.[0]);
+    return { key: s.combined ? null : s.key, name, combined: s.combined, holdings };
   });
 
   const cashTotal = num(first(next()));
@@ -187,7 +197,7 @@ export function parseAssetSheet(values: CellRows[], formulas: CellRows[], readAt
   const [core, satellite] = asPercent(L.targetRatio.coreSatellite.map(() => num(first(next()))));
   const targetRatio: AssetTargetRatio = { cash, gold, bond, invest, core, satellite };
 
-  const fxFormula = first(formulas[L.sections.length]);
+  const fxFormula = first(formulas[1]);
   const avgFxFormula = typeof fxFormula === 'string' && fxFormula.trim().startsWith('=');
   return { readAt, sections, cashTotal, retirement, targetRatio, salary, avgFxRate, avgFxFormula };
 }
@@ -230,39 +240,66 @@ export const headerOk = (h: HeaderCheck, got: Cell) => (h.prefix ? squash(got).s
 /** 쓰기 실패 중 시트와 상관없는 것(칸 · 값 · 스위치) — 화면에는 문구 그대로 */
 const refuse = (kind: 'disabled' | 'not-editable' | 'formula-cell', message: string) => new AssetSheetError(kind, message);
 
-/** 한 번에 쓸 수 있는 「티커」 줄 수 — 종목 줄 범위(D14~D42) 전체 */
-export const ASSET_CLASS_MAX_ROWS = SHEET_LAYOUT.tickers.lastRow - SHEET_LAYOUT.tickers.firstRow + 1;
+/** 한 요청에 받는 줄 번호 수의 상한(잘못된 요청을 시트에 읽으러 가기 전에 막는다 · 실제 종목 줄인지는 시트를 읽어 본다) */
+export const ASSET_CLASS_MAX_ROWS = 200;
+
+/**
+ * 요청의 줄 번호를 지금 줄로(v2.66.2 — 화면이 본 뒤 사용자가 시트에 줄을 넣어도 맞는 줄에 쓴다). 순수 함수.
+ * 코드마다: 요청한 줄이 모두 지금도 그 코드면 그대로 · 아니면 지금 그 코드의 줄 수가 요청과 같을 때만 지금 줄들(같은 값을 쓰는 묶음이라 순서는 상관없다) · 그 밖은 `sheet-changed`.
+ * `codes` 를 안 보낸 요청(빈 글자 포함)은 줄 번호 그대로.
+ */
+export function resolveClassRows(rows: number[], codes: string[] | null, codeAt: Map<number, string>): number[] {
+  if (!codes) return [...new Set(rows)].sort((a, b) => a - b);
+  const asked = new Map<string, Set<number>>();
+  const out = new Set<number>();
+  rows.forEach((row, i) => {
+    if (!codes[i]) out.add(row);
+    else asked.set(codes[i], (asked.get(codes[i]) ?? new Set<number>()).add(row));
+  });
+  for (const [code, want] of asked) {
+    const now = [...codeAt].filter(([, c]) => c === code).map(([r]) => r);
+    let target: number[];
+    if ([...want].every((r) => codeAt.get(r) === code)) target = [...want];
+    else if (now.length === want.size) target = now;
+    else throw new AssetSheetError('sheet-changed', '시트가 바뀌었어요 — 다시 열어 주세요.');
+    for (const r of target) out.add(r);
+  }
+  return [...out].sort((a, b) => a - b);
+}
 
 /**
  * 자산 분류 쓰기(v2.65.2 — 여러 줄 한 번에 · 한 줄 고르기도 `rows: [n]`) — 「티커」 D열에 쓰는 **유일한 곳**. 검사는 모두 여기 한 곳. 순서:
- * ① 스위치(`ASSET_SYNC_ENABLED=false` → 「꺼짐」) ② 줄 번호 목록 · 값 확인(「티커」 D14~D42 정수 · 중복은 한 번 · 1~29줄 · 채권 · 금 · 주식 또는 빈칸 — 「현금」 은 거절)
- * ③ 쓰기 직전에 머리 D12 와 종목 줄 범위를 **수식 그대로** 한 번 다시 읽는다 — 머리가 다르면 「모양 바뀜」 · 종목 줄이 아닌 줄(구분 줄 · 빈 줄)이 하나라도 있으면 거절 ·
+ * ① 스위치(`ASSET_SYNC_ENABLED=false` → 「꺼짐」) ② 줄 번호 목록 · 값 확인(양의 정수 · 중복은 한 번 · 채권 · 금 · 주식 또는 빈칸 — 「현금」 은 거절 · `codes` 는 줄마다 화면이 본 코드)
+ * ③ 쓰기 직전에 머리 D12 와 「티커」 를 **수식 그대로** 한 번 다시 읽어 묶음을 다시 찾는다 — 머리가 다르면 「모양 바뀜」 · 코드로 지금 줄을 정한다(`resolveClassRows`) · 종목 줄이 아닌 줄(구분 줄 · 빈 줄)이 하나라도 있으면 거절 ·
  *    그 칸 중 하나라도 `=` 로 시작하면(수식) **하나도 쓰지 않고** 409 `formula-cell`
  * ④ `valuesWrite` **한 요청**(RAW — 칸 여럿) ⑤ 쓴 칸을 다시 읽어 보낸 값과 같은지 확인(다르면 `mismatch`) ⑥ 30초 캐시를 비우고 다시 읽은 시트 값을 돌려준다.
  * ⚠️ 쓴 값 · 읽은 값을 로그에 찍지 않는다.
  */
-export async function writeAssetClasses(rows: unknown, value: unknown): Promise<AssetSheetData> {
+export async function writeAssetClasses(rows: unknown, value: unknown, codes?: unknown): Promise<AssetSheetData> {
   if (!isAssetSyncEnabled()) throw refuse('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다(ASSET_SYNC_ENABLED=false).');
   const L = SHEET_LAYOUT;
-  const { firstRow, lastRow } = L.tickers;
   const col = L.assetClass.column;
-  const okRow = (r: unknown): r is number => typeof r === 'number' && Number.isInteger(r) && r >= firstRow && r <= lastRow;
+  const okRow = (r: unknown): r is number => typeof r === 'number' && Number.isInteger(r) && r >= 1;
   if (!Array.isArray(rows) || rows.length === 0 || !rows.every(okRow)) {
-    throw refuse('not-editable', `자산 분류는 「${TICKER_TAB}」 탭 ${col}${firstRow}~${col}${lastRow} 의 종목 줄에만 쓸 수 있습니다(요청 모양 { rows: [줄 번호…], assetClass }).`);
+    throw refuse('not-editable', `자산 분류는 「${TICKER_TAB}」 탭 ${col}열의 종목 줄에만 쓸 수 있습니다(요청 모양 { rows: [줄 번호…], assetClass }).`);
   }
-  const unique = [...new Set(rows)].sort((a, b) => a - b);
-  if (unique.length > ASSET_CLASS_MAX_ROWS) throw refuse('not-editable', `한 번에 ${ASSET_CLASS_MAX_ROWS}줄까지 쓸 수 있습니다.`);
+  if (new Set(rows).size > ASSET_CLASS_MAX_ROWS) throw refuse('not-editable', `한 번에 ${ASSET_CLASS_MAX_ROWS}줄까지 쓸 수 있습니다.`);
   if (value !== '' && !isAssetClass(value)) throw refuse('not-editable', `자산 분류는 ${L.assetClass.values.join(' · ')} 중 하나이거나 빈칸이어야 합니다.`);
+  if (codes !== undefined && !(Array.isArray(codes) && codes.length === rows.length && codes.every((c) => typeof c === 'string'))) {
+    throw refuse('not-editable', '요청 모양이 올바르지 않습니다(codes 는 줄마다 하나).');
+  }
   const config = assetSheetConfig();
   if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
 
-  const header = L.headers.find((h) => h.tab === TICKER_TAB && h.cell === `${col}12`)!;
-  const [headRows, lineRows] = await batchGet(config, [one(TICKER_TAB, header.cell), `${q(TICKER_TAB)}!B${firstRow}:${col}${lastRow}`], 'FORMULA');
+  const header = L.headers.find((h) => h.tab === TICKER_TAB && h.cell === `${col}${L.tickers.headRow}`)!;
+  const [headRows, grid] = await batchGet(config, [one(TICKER_TAB, header.cell), tickerWide()], 'FORMULA');
   if (!headerOk(header, first(headRows))) {
     throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(「${header.tab}」 탭 ${header.cell} — 「${header.expect}」 이어야 합니다).`);
   }
-  const lineOf = (row: number) => lineRows[row - firstRow];
-  const notLine = unique.filter((row) => !tickerRowCode(lineOf(row)));
+  const unique = resolveClassRows(rows, (codes as string[] | undefined) ?? null, tickerCodeMap(grid));
+  const lineOf = (row: number) => grid[row - 1];
+  const stockRows = new Set(tickerRowsOf(findTickerGroups(grid)));
+  const notLine = unique.filter((row) => !stockRows.has(row) || !tickerRowCode(lineOf(row)));
   if (notLine.length > 0) {
     throw refuse('not-editable', `「${TICKER_TAB}」 ${notLine.map((r) => `${r}행`).join(' · ')}은 종목 줄이 아닙니다(구분 줄 · 빈 줄에는 쓰지 않습니다 — 하나도 쓰지 않았습니다).`);
   }
@@ -385,22 +422,21 @@ function nameDate(name: string, day: string): { name: string; date: string } | n
 }
 
 /**
- * [구매 완료] 때 시트에 쓸 날짜 글자(v2.64.1 — 확인 창이 그대로 보인다) — 읽은 시트의 계좌 이름 칸(`nameCell`) 중 날짜가 든 칸마다
+ * [구매 완료] 때 시트에 쓸 날짜 글자(v2.64.1 — 확인 창이 그대로 보인다) — 읽은 시트의 계좌 이름(합친 표 제외) 중 날짜가 든 칸마다
  * `writeAccountDates` 와 같은 함수(`nameDate`)로 만든 글자, 겹치지 않게. 순수 함수(시험이 부른다).
  */
 export function accountDateTexts(data: AssetSheetData, day: string): string[] {
-  const texts = SHEET_LAYOUT.sections.flatMap((s: HoldingSection, i) => {
-    const name = s.nameCell ? data.sections[i]?.name : undefined;
-    const r = name ? nameDate(name, day) : null;
+  const texts = data.sections.flatMap((s) => {
+    const r = !s.combined && s.name ? nameDate(s.name, day) : null;
     return r ? [r.date] : [];
   });
   return [...new Set(texts)];
 }
 
 /**
- * 「구매 완료」 — 「주식 투자 정리」 계좌 이름 칸(B4 · B12 · B21 · B29 — `sections` 의 `nameCell`) 중 **「( 날짜 )」 가 든 칸 전부**의 날짜를
+ * 「구매 완료」 — 「주식 투자 정리」 계좌 이름 칸(머리 글자로 찾은 네 줄의 B열) 중 **「( 날짜 )」 가 든 칸 전부**의 날짜를
  * `day`(**구매 차례 날짜** · 한국 날짜 — 모양이 `YYYY.MM` 이면 그 달 · 일이 있으면 그 구매일 · v2.64.1)로 바꾼다. 순서:
- * ① 스위치(`ASSET_SYNC_ENABLED=false` → 「꺼짐」) ② 머리 글자(B3 · 네 이름 칸의 앞부분 — `writeAssetClasses` 와 같은 확인)와 네 칸을 **수식 그대로** 다시 읽는다
+ * ① 스위치(`ASSET_SYNC_ENABLED=false` → 「꺼짐」) ② B열을 값으로 읽어 구간을 다시 찾고(이름 칸이 수식이어도 찾게) 네 칸을 **수식 그대로** 다시 읽는다
  * ③ 네 칸 중 하나라도 수식이면 **하나도 쓰지 않고** 409 `formula-cell` · 날짜가 든 칸이 없으면 409 `no-date`
  * ④ 날짜 부분만 같은 모양으로 바꾼 글자를 `valuesWrite` **한 요청**으로(RAW — 글자 그대로)
  * ⑤ 그 칸들을 다시 읽어 보낸 글자와 같은지 확인 — 다르면 `mismatch` ⑥ 30초 캐시를 비운다.
@@ -412,20 +448,17 @@ export async function writeAccountDates(day: string): Promise<{ cells: number }>
   const config = assetSheetConfig();
   if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
 
-  const L = SHEET_LAYOUT;
-  const nameCells = L.sections.flatMap((s: HoldingSection) => (s.nameCell ? [s.nameCell] : []));
-  const headers = L.headers.filter((h) => h.tab === HOLDINGS_TAB && (h.cell === 'B3' || nameCells.includes(h.cell)));
-  const got = await batchGet(config, [...headers.map((h) => one(h.tab, h.cell)), ...nameCells.map((c) => one(HOLDINGS_TAB, c))], 'FORMULA');
-  const now = nameCells.map((_, i) => first(got[headers.length + i]));
+  const columnB = wideRange(HOLDINGS_TAB, 'B');
+  const [shown] = await batchGet(config, [columnB], 'UNFORMATTED_VALUE');
+  const names = findHoldingSections(shown).filter((s) => !s.combined);
+  const nameCells = names.map((s) => `B${s.nameRow}`);
+  const [raw] = await batchGet(config, [columnB], 'FORMULA');
+  const now = names.map((s) => first([raw[s.nameRow - 1] ?? []]));
   const isFormula = (v: Cell) => typeof v === 'string' && v.trim().startsWith('=');
-  // 수식 칸을 먼저 본다 — 수식 그대로 읽으면 이름 칸 머리(앞부분) 확인이 수식 글자로 틀려 「모양 바뀜」 으로 보이기 때문
   const formulaAt = nameCells.filter((_, i) => isFormula(now[i]));
   if (formulaAt.length > 0) {
     throw refuse('formula-cell', `「${HOLDINGS_TAB}」 ${formulaAt.join(' · ')} 칸에 수식이 있어 하나도 쓰지 않았습니다(수식을 덮어쓰지 않습니다).`);
   }
-  headers.forEach((h, i) => {
-    if (!headerOk(h, first(got[i]))) throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(「${h.tab}」 탭 ${h.cell} — 「${h.expect}」 이어야 합니다).`);
-  });
   const writes = nameCells.flatMap((cell, i) => {
     const next = typeof now[i] === 'string' ? replaceNameDate(now[i] as string, day) : null;
     return next == null ? [] : [{ cell, value: next }];

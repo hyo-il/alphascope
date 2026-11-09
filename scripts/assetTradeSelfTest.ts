@@ -62,7 +62,7 @@ const usd = (d: number | string) => `=(${d})*('티커'!$G$9)`;
 
 function sheet(): { values: Record<string, Cell>; formulas: Record<string, Cell> } {
   const v: Record<string, Cell> = {
-    [`${T}!B12`]: '구분', [`${T}!D12`]: '자산 분류', [`${T}!G9`]: 1300,
+    [`${T}!B12`]: '구분', [`${T}!D12`]: '자산 분류', [`${T}!G9`]: 1300, [`${T}!B14`]: '개별 투자',
     [`${T}!B15`]: NAME.us, [`${T}!C15`]: CODE.us, [`${T}!B16`]: NAME.kr, [`${T}!C16`]: CODE.kr, [`${T}!B17`]: NAME.us2, [`${T}!C17`]: CODE.us2, [`${T}!B18`]: NAME.fq, [`${T}!C18`]: CODE.fq,
     [`${H}!B3`]: '내 계좌 정보', [`${H}!B38`]: '내 계좌 정보',
     [`${H}!B4`]: '개별 투자 ( 2026.07 )', [`${H}!B12`]: '적립식 계좌 ( 2026.10 )', [`${H}!B21`]: 'ISA 계좌 ( 2026.07 )', [`${H}!B29`]: '연금 저축 계좌 ( 2026.07 )',
@@ -71,6 +71,10 @@ function sheet(): { values: Record<string, Cell>; formulas: Record<string, Cell>
     [`${H}!B7`]: NAME.us2, [`${H}!C7`]: 65000, [`${H}!D7`]: 2,
     [`${H}!B8`]: NAME.fq, [`${H}!C8`]: 50000, [`${H}!D8`]: 4,
     [`${H}!B9`]: NAME.nl, [`${H}!C9`]: 50000, [`${H}!D9`]: 4,
+    // 다른 계좌 — 머리 글자로 구간을 찾으므로 계좌마다 종목 줄이 있어야 한다(v2.66.2)
+    [`${H}!B13`]: '가짜 적립주', [`${H}!C13`]: 1000, [`${H}!D13`]: 1,
+    [`${H}!B22`]: '가짜 ISA주', [`${H}!C22`]: 1000, [`${H}!D22`]: 1,
+    [`${H}!B30`]: '가짜 연금주', [`${H}!C30`]: 1000, [`${H}!D30`]: 1,
     // 합친 표 — 같은 달러 줄이 커도 G9 계산에 넣지 않는다
     [`${H}!B39`]: NAME.us, [`${H}!C39`]: 130650, [`${H}!D39`]: 1000,
     '자산 투자 비율 관리!B18': '자산 배분 비율', '월 고정지출!B5': '현재 월 급여', '현금!B25': '은행 자산 총액', '현금!B30': '퇴직 연금 총액',
@@ -102,9 +106,11 @@ function reset(change?: (m: typeof model) => void) {
 const colNum = (c: string) => c.charCodeAt(0) - 64;
 const colChr = (n: number) => String.fromCharCode(64 + n);
 const parseRange = (range: string) => {
-  const r = range.match(/^'((?:[^']|'')+)'!([A-Z])(\d+)(?::([A-Z])(\d+))?$/);
+  const r = range.match(/^'((?:[^']|'')+)'!([A-Z])(\d+)(?::([A-Z])(\d+)?)?$/);
   if (!r) throw new Error('범위 모양');
-  return { tab: r[1].replace(/''/g, "'"), c1: colNum(r[2]), r1: Number(r[3]), c2: r[4] ? colNum(r[4]) : colNum(r[2]), r2: r[5] ? Number(r[5]) : Number(r[3]) };
+  const tab = r[1].replace(/''/g, "'");
+  const last = Math.max(Number(r[3]), ...Object.keys(model.values).filter((k) => k.startsWith(`${tab}!`)).map((k) => Number(/(\d+)$/.exec(k)?.[1] ?? 0)));
+  return { tab, c1: colNum(r[2]), r1: Number(r[3]), c2: r[4] ? colNum(r[4]) : colNum(r[2]), r2: r[5] ? Number(r[5]) : r[4] ? last : Number(r[3]) };
 };
 function cut(m: Record<string, Cell>, range: string): Cell[][] {
   const { tab, c1, r1, c2, r2 } = parseRange(range);
@@ -317,7 +323,7 @@ try {
       ['미국 가격 소수 5자리', { ...buyUs, price: 1.12345 }],
       ['글자 수량', { ...buyKr, qty: '2' }],
       ['합친 표', { ...buyKr, section: '적립식 주식', row: 39 }],
-      ['줄 범위 밖', { ...buyKr, row: 12 }],
+      ['줄 번호 0', { ...buyKr, row: 0 }],
     ];
     for (const [label, body] of bad) {
       reset();

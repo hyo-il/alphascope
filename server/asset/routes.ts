@@ -120,12 +120,12 @@ assetRouter.get('/api/asset/sheet', async (_req, res) => {
 });
 
 /**
- * 자산 분류 쓰기(v2.65.2 — 여러 줄 한 요청) — `{ rows: number[], assetClass }`(「티커」 줄 번호들 · 채권 · 금 · 주식 또는 빈칸). 성공하면 다시 읽은 시트 값.
+ * 자산 분류 쓰기(v2.65.2 — 여러 줄 한 요청) — `{ rows: number[], assetClass, codes?: string[] }`(「티커」 줄 번호들 · 채권 · 금 · 주식 또는 빈칸 · 줄마다 화면이 본 코드 — 그 사이 줄이 옮겨져도 맞는 줄에 쓴다). 성공하면 다시 읽은 시트 값.
  * 한 줄 고르기도 `rows: [n]`. 옛 모양 `{ row }` 는 받지 않는다(400 not-editable). 칸 · 값 · 수식 칸 · 스위치 확인은 `writeAssetClasses` 한 곳.
  */
 assetRouter.put('/api/asset/class', async (req, res) => {
   try {
-    res.json(await writeAssetClasses(req.body?.rows, req.body?.assetClass));
+    res.json(await writeAssetClasses(req.body?.rows, req.body?.assetClass, req.body?.codes));
   } catch (e) {
     sendSheetError(res, e, '쓰기');
   }

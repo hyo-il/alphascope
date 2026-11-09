@@ -82,6 +82,12 @@ export function planClassSave(list: readonly ClassRow[], base: Record<string, Gr
   }).filter((g) => g.rows.length > 0);
 }
 
+/** 그 「티커」 줄의 종목 코드(화면이 본 것 — 서버가 줄이 옮겨졌는지 본다 · v2.66.2) · 모르면 빈 글자 */
+export function codeOfTickerRow(data: AssetSheetData, row: number): string {
+  for (const s of data.sections) for (const h of s.holdings) if (h.tickerRow === row && h.code) return h.code;
+  return '';
+}
+
 export type ClassSendResult = { ok: true; data: AssetSheetData } | { ok: false; error: string };
 
 export interface ClassSaveOutcome {

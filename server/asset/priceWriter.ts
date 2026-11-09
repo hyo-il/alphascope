@@ -7,7 +7,7 @@
  * - 한 시장이 닫히면(애프터가 끝나면) 그 시장 줄의 마지막 가격을 **1번** 쓰고, 다음 세션까지 그 시장은 쉰다. 두 시장이 다 닫히면 요청 0.
  * - 시세: 열린 시장의 바꾼 줄(+ 토스 가격이 없어 남은 줄 — 「남은 종목도 토스로 바꾸기」 를 보일지)만 토스 /prices **1번** ·
  *   환율은 60초 캐시(`fetchExchangeRate` 와 같은 길이). 토스 가격을 못 받은 줄은 그 회차에 건너뛴다(시트 값 그대로).
- * - 쓰기 전에 「티커」 C열 코드를 다시 읽어 `asset.priceRows` 의 코드와 같은지 본다 — 다르면 그 줄은 쓰지 않고 「줄 코드가 바뀜」.
+ * - 쓰기 전에 「티커」 B · C 를 다시 읽어 **그 코드의 지금 줄**을 찾는다(`locateRow` · v2.66.2 — `asset.priceRows` 의 줄 번호는 마지막으로 본 자리) — 코드를 못 찾으면 「줄 코드가 바뀜」 · 자리를 정할 수 없게 같은 코드가 둘이면 「같은 코드 두 줄」(둘 다 쓰지 않음).
  * - 실패는 이유 종류만 로그. 구글 429 · 5xx 가 두 번 이어지면 60초 쉰다.
  * - 부담(한 시간): 구글 쓰기 ≤ 360 · 토스 시세 ≤ 360 · 환율 ≤ 60(`assetprice:test` 가 가짜 시계로 확인).
  * 스위치: `ASSET_PRICE_WRITE_ENABLED=true` 그리고 `ASSET_SYNC_ENABLED` · 시트 연결 정보 · 토스 키(모의 아님)일 때만.
@@ -16,9 +16,10 @@
 import { sessionSpans } from '../heatmapSession';
 import { assetSheetConfig, isAssetPriceWriteEnabled, isPriceWriteAllowed, isSheetConfigured } from './config';
 import { AssetSheetError, batchGet, valuesWrite } from './google';
-import { one, splitCode } from './sheet';
+import { one, splitCode, tickerCodeMap, wideRange } from './sheet';
 import { SHEET_LAYOUT, TICKER_TAB } from './sheetLayout';
-import { isMockPrices, priceRows, priceSkipped, priceSource, priceTools, tryExclusive } from './priceState';
+import { locateRow } from './sheetShape';
+import { isMockPrices, priceRows, priceSkipped, priceSource, priceTools, savePriceState, tryExclusive } from './priceState';
 
 export const PRICE_TICK_MS = 10_000;
 const RATE_TTL_MS = 60_000;
@@ -29,7 +30,6 @@ const BACKOFF_AFTER = 2;
 type Market = 'US' | 'KR';
 const MARKETS: Market[] = ['US', 'KR'];
 const P = SHEET_LAYOUT.prices;
-const T = SHEET_LAYOUT.tickers;
 
 const state = {
   /** 칸(E14 · C9) → 지난번에 쓴 값 */
@@ -40,13 +40,15 @@ const state = {
   backoffUntil: 0,
   googleFails: 0,
   codeChanged: new Set<number>(),
+  /** 코드로 찾았는데 같은 코드가 둘이라 쓰지 않은 줄(마지막으로 본 줄 번호) */
+  duplicateCode: new Set<number>(),
   /** 토스 가격이 없어 남았는데 이제 가격이 생긴 줄 */
   remaining: new Set<number>(),
   rate: null as { at: number; value: number | null } | null,
 };
 
-export function priceWriterStatus(): { lastWrittenAt: string | null; open: boolean; remaining: number; codeChanged: number[] } {
-  return { lastWrittenAt: state.lastWrittenAt, open: state.open, remaining: state.remaining.size, codeChanged: [...state.codeChanged] };
+export function priceWriterStatus(): { lastWrittenAt: string | null; open: boolean; remaining: number; codeChanged: number[]; duplicateCode: number[] } {
+  return { lastWrittenAt: state.lastWrittenAt, open: state.open, remaining: state.remaining.size, codeChanged: [...state.codeChanged], duplicateCode: [...state.duplicateCode] };
 }
 
 /** [바꾸기] 가 방금 쓴 값 — 다음 회차에 같은 값을 다시 쓰지 않게 */
@@ -54,6 +56,7 @@ export function seedPriceWriter(values: Map<string, number>): void {
   for (const [cell, v] of values) state.lastWritten.set(cell, v);
   state.lastWrittenAt = new Date().toISOString();
   state.codeChanged.clear();
+  state.duplicateCode.clear();
   state.remaining.clear();
 }
 
@@ -66,6 +69,7 @@ export function resetPriceWriterForTest(): void {
   state.backoffUntil = 0;
   state.googleFails = 0;
   state.codeChanged.clear();
+  state.duplicateCode.clear();
   state.remaining.clear();
   state.rate = null;
 }
@@ -143,18 +147,28 @@ async function tick(now: number): Promise<PriceTickResult> {
   const config = assetSheetConfig();
   if (!config) return 'off';
   try {
+    /** 옮겨진 줄 — 쓰고 나면 `asset.priceRows` 의 마지막으로 본 자리를 고친다 */
+    const movedTo = new Map<number, number>();
     if (changedRows.length > 0) {
-      // 쓰기 전에 줄 코드 확인(사용자가 시트 줄을 옮겼으면 엉뚱한 줄에 쓰지 않는다)
-      const [codes] = await batchGet(config, [`'${TICKER_TAB}'!${P.codeColumn}${T.firstRow}:${P.codeColumn}${T.lastRow}`], 'UNFORMATTED_VALUE');
+      // 쓰기 전에 지금 줄을 찾는다(사용자가 시트 줄을 넣거나 지웠으면 그 종목의 지금 줄에 쓴다 · 엉뚱한 줄에 쓰지 않는다)
+      const [grid] = await batchGet(config, [wideRange(TICKER_TAB, P.codeColumn)], 'UNFORMATTED_VALUE');
+      const codeAt = tickerCodeMap(grid);
       for (const c of changedRows) {
-        const got = String(codes[c.r.row - T.firstRow]?.[0] ?? '').trim();
-        if (got !== c.r.code) {
+        const at = locateRow(c.r, codeAt);
+        if (at === 'missing') {
           if (!state.codeChanged.has(c.r.row)) console.warn(`[asset] 시트 가격 쓰지 않음 · ${c.r.row}행 줄 코드가 바뀜`);
           state.codeChanged.add(c.r.row);
           continue;
         }
+        if (at === 'duplicate') {
+          if (!state.duplicateCode.has(c.r.row)) console.warn(`[asset] 시트 가격 쓰지 않음 · ${c.r.row}행 같은 코드 두 줄`);
+          state.duplicateCode.add(c.r.row);
+          continue;
+        }
         state.codeChanged.delete(c.r.row);
-        writes.push({ cell: c.cell, value: c.value });
+        state.duplicateCode.delete(c.r.row);
+        if (at !== c.r.row) movedTo.set(c.r.row, at);
+        writes.push({ cell: `${P.priceColumn}${at}`, value: c.value });
       }
     }
     if (writes.length === 0) {
@@ -163,6 +177,7 @@ async function tick(now: number): Promise<PriceTickResult> {
     }
     await valuesWrite(config, writes.map((w) => ({ range: one(TICKER_TAB, w.cell), value: w.value })));
     for (const w of writes) state.lastWritten.set(w.cell, w.value);
+    if (movedTo.size > 0) savePriceState({ rows: rows.map((r) => ({ ...r, row: movedTo.get(r.row) ?? r.row })) });
     state.lastWrittenAt = new Date(now).toISOString();
     state.googleFails = 0;
     settle();

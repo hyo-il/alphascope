@@ -5,10 +5,10 @@ const model = JSON.parse(fs.readFileSync(process.env.FAKE_GOOGLE_FILE, 'utf8'));
 const colNum = (c) => c.charCodeAt(0) - 64;
 const colChr = (n) => String.fromCharCode(64 + n);
 function cut(m, range) {
-  const r = range.match(/^'((?:[^']|'')+)'!([A-Z])(\d+)(?::([A-Z])(\d+))?$/);
+  const r = range.match(/^'((?:[^']|'')+)'!([A-Z])(\d+)(?::([A-Z])(\d+)?)?$/);
   const tab = r[1].replace(/''/g, "'");
   const [c1, r1] = [colNum(r[2]), Number(r[3])];
-  const [c2, r2] = r[4] ? [colNum(r[4]), Number(r[5])] : [c1, r1];
+  const [c2, r2] = r[4] ? [colNum(r[4]), r[5] ? Number(r[5]) : Math.max(r1, ...Object.keys(m).filter((k) => k.startsWith(`${tab}!`)).map((k) => Number(/(\d+)$/.exec(k)?.[1] ?? 0)))] : [c1, r1];
   const rows = [];
   for (let y = r1; y <= r2; y++) {
     const row = [];

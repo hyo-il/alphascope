@@ -9,7 +9,7 @@ import { getDb } from '../db';
 import { isAssetSyncEnabled, assetSheetConfig } from './config';
 import { AssetSheetError, batchGet, valuesWrite, type CellRows, type CellWrite } from './google';
 import { one, readAssetSheet, resetSheetCache } from './sheet';
-import { HOLDINGS_TAB, SHEET_LAYOUT, type HoldingSection } from './sheetLayout';
+import { HOLDINGS_TAB, SHEET_LAYOUT } from './sheetLayout';
 import { TRADE_DIGITS, TRADE_MAX, decimalPlaces, nextAvgFx, tradeAfter, usdCostOf } from '../../src/utils/assetTrade';
 import type { AssetHolding, AssetTradeRecord, AssetTradeRequest, AssetTradeResult, AssetTradesResponse, AssetTradeSide } from '../../src/types/asset';
 
@@ -76,7 +76,7 @@ function parseRequest(input: unknown): AssetTradeRequest {
   const e = (o.expect && typeof o.expect === 'object' ? o.expect : {}) as Record<string, unknown>;
   const fx = o.fx == null ? null : o.fx;
   if (
-    typeof o.section !== 'string' || typeof o.row !== 'number' || !Number.isInteger(o.row) || (o.side !== 'buy' && o.side !== 'sell') ||
+    typeof o.section !== 'string' || typeof o.row !== 'number' || !Number.isInteger(o.row) || o.row < 1 || (o.side !== 'buy' && o.side !== 'sell') ||
     !positive(o.qty, TRADE_MAX.qty) || !positive(o.price, TRADE_MAX.price) || (fx !== null && !positive(fx, TRADE_MAX.fx)) ||
     typeof e.name !== 'string' || typeof e.code !== 'string' || typeof e.quantity !== 'number' || typeof e.avgPrice !== 'number'
   ) {
@@ -88,6 +88,17 @@ function parseRequest(input: unknown): AssetTradeRequest {
 /** 시트의 그 줄이 화면이 본 것과 같은가 */
 function sameAsSeen(h: AssetHolding | undefined, seen: AssetTradeRequest['expect']): h is AssetHolding {
   return h != null && h.name === seen.name && h.code === seen.code && h.quantity != null && sameNum(h.quantity, seen.quantity) && h.avgPrice != null && sameNum(h.avgPrice, seen.avgPrice);
+}
+
+/**
+ * 화면이 본 줄의 지금 자리(v2.66.2 — 시트에 줄이 늘거나 줄어도 맞는 줄에 쓴다) — 그 줄 번호가 그대로면 그 줄 ·
+ * 아니면 같은 계좌에서 이름 · 코드 · 수량 · 평균가가 모두 같은 줄이 **하나일 때만** 그 줄.
+ */
+function seenRow(holdings: AssetHolding[], req: AssetTradeRequest): AssetHolding | undefined {
+  const at = holdings.find((x) => x.row === req.row);
+  if (sameAsSeen(at, req.expect)) return at;
+  const same = holdings.filter((x) => sameAsSeen(x, req.expect));
+  return same.length === 1 ? same[0] : undefined;
 }
 
 let busy = false;
@@ -102,16 +113,15 @@ export async function recordTrade(input: unknown): Promise<AssetTradeResult> {
   const req = parseRequest(input);
   const config = assetSheetConfig();
   if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
-  const layout = SHEET_LAYOUT.sections.find((s: HoldingSection) => s.key === req.section && !s.combined);
-  if (!layout || req.row < layout.firstRow || req.row > layout.lastRow) throw refuse('이 줄에는 매수 · 매도를 입력할 수 없습니다.');
+  if (!SHEET_LAYOUT.sections.some((s) => 'key' in s && s.key === req.section)) throw refuse('이 줄에는 매수 · 매도를 입력할 수 없습니다.');
   // 같은 서버에서 동시에 두 건이 같은 수량을 읽고 쓰지 않게
   if (busy) throw new AssetSheetError('busy', '다른 입력을 저장하는 중입니다 — 잠시 후 다시 시도해 주세요.');
   busy = true;
   try {
     resetSheetCache();
     const data = await readAssetSheet();
-    const h = data.sections.find((s) => !s.combined && s.key === req.section)?.holdings.find((x) => x.row === req.row);
-    if (!sameAsSeen(h, req.expect)) throw new AssetSheetError('sheet-changed', '시트가 바뀌었어요 — 다시 열어 주세요.');
+    const h = seenRow(data.sections.find((s) => !s.combined && s.key === req.section)?.holdings ?? [], req);
+    if (!h) throw new AssetSheetError('sheet-changed', '시트가 바뀌었어요 — 다시 열어 주세요.');
     if (!h.tradable) throw new AssetSheetError('formula-cell', '이 줄은 평균가 · 수량 칸 모양이 달라 입력할 수 없습니다(수식을 덮어쓰지 않습니다).');
     const beforeQty = h.quantity as number;
     const beforeAvg = h.avgPrice as number;

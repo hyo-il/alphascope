@@ -26,7 +26,7 @@ import { assetRouter } from '../server/asset/routes';
 import { AssetSheetError, resetTokenCache } from '../server/asset/google';
 import { resetSheetCache } from '../server/asset/sheet';
 import { sheetBackup, clearSheetBackup } from '../server/asset/store';
-import { classifyLine, convertSheetPrices, planRestore, priceSheetStatus, restoreSheetPrices } from '../server/asset/priceSheet';
+import { classifyLine, convertSheetPrices, planRestore, priceSheetStatus, restoreSheetPrices, retargetFormula } from '../server/asset/priceSheet';
 import { clearPriceStateForTest, priceRows, priceSource, setPriceToolsForTest } from '../server/asset/priceState';
 import { priceTick, resetPriceWriterForTest, setPriceTimerForTest } from '../server/asset/priceWriter';
 import { setSessionHooksForTest, type TossCalendarResponse } from '../server/heatmapSession';
@@ -95,11 +95,11 @@ let sheet = fakeSheet();
 const colNum = (c: string) => c.charCodeAt(0) - 64;
 const colChr = (n: number) => String.fromCharCode(64 + n);
 function cut(range: string): Cell[][] {
-  const m = range.match(/^'((?:[^']|'')+)'!([A-Z])(\d+)(?::([A-Z])(\d+))?$/);
+  const m = range.match(/^'((?:[^']|'')+)'!([A-Z])(\d+)(?::([A-Z])(\d+)?)?$/);
   if (!m) throw new Error('범위 모양');
   const tab = m[1].replace(/''/g, "'");
   const [c1, r1] = [colNum(m[2]), Number(m[3])];
-  const [c2, r2] = m[4] ? [colNum(m[4]), Number(m[5])] : [c1, r1];
+  const [c2, r2] = m[4] ? [colNum(m[4]), m[5] ? Number(m[5]) : Math.max(r1, ...Object.keys(sheet).filter((k) => k.startsWith(`${tab}!`)).map((k) => Number(/(\d+)$/.exec(k)?.[1] ?? 0)))] : [c1, r1];
   const rows: Cell[][] = [];
   for (let r = r1; r <= r2; r++) {
     const row: Cell[] = [];
@@ -295,35 +295,53 @@ try {
         else sheet[`${K}!${c}${b}`] = x;
       }
     };
-    // 사용자가 15 ↔ 21 줄을 바꾸고 16 줄을 비움(23 빈 줄과 바꿈)
+    // 사용자가 15 ↔ 21 줄을 바꾸고 16 줄을 23 으로 옮김 — 코드로 지금 줄을 찾아 되돌린다(119차)
+    const NVDA_E = ORIGINAL[`${K}!E15`] as string;
+    const NVDA_F = ORIGINAL[`${K}!F15`] as string;
     swap(15, 21);
     swap(16, 23);
-    const movedSheet = { ...sheet };
     requests = [];
     const r1 = await restoreSheetPrices();
-    const left = sheetBackup().map((b) => b.cell).sort();
-    check('[114-1] 되돌리기 — 코드가 같은 줄(18)과 C9 만 씀 · 옮겨진 줄(15 · 21) · 빈 줄(16)은 쓰지 않음(한 요청)',
-      requests.length === 1 && JSON.stringify(wroteCells(0)) === JSON.stringify(['C9', 'E18', 'F18']) && ['E15', 'F15', 'E16', 'F16', 'E21', 'F21', 'E23', 'F23'].every((c) => sheet[`${K}!${c}`] === movedSheet[`${K}!${c}`]),
-      wroteCells(0).join(','));
-    check('[114-1] 옮겨진 줄의 백업은 남음 · 쓴 칸(C9 · E18 · F18) 백업만 지움', JSON.stringify(left) === JSON.stringify(['E15', 'E16', 'E21', 'F15', 'F16', 'F21']), left.join(','));
-    check('[114-1] 「줄이 옮겨짐 — 직접 확인」 목록 = 15 · 16 · 21(그때 코드 · 지금 코드 · 빈 줄은 null)',
-      JSON.stringify(r1.moved.map((m) => [m.row, m.wasCode === ORIGINAL[`${K}!C${m.row}`], m.nowCode === (movedSheet[`${K}!C${m.row}`] ?? null)])) === JSON.stringify([[15, true, true], [16, true, true], [21, true, true]]) &&
-      r1.moved.find((m) => m.row === 16)?.nowCode === null && r1.moved.find((m) => m.row === 15)?.wasName === ORIGINAL[`${K}!B15`]);
+    check('[119-7] 되돌리기 — 코드로 지금 줄을 찾아 씀(15 → 21 · 21 → 15 · 16 → 23 · 18 그대로) · C9 · 한 요청', requests.length === 1 && JSON.stringify(wroteCells(0)) === JSON.stringify(['C9', 'E15', 'E18', 'E21', 'E23', 'F15', 'F18', 'F21', 'F23']), wroteCells(0).join(','));
+    check('[119-7] 되돌리기 — 수식 안의 줄 번호도 새 줄로($C$9 는 그대로)', sheet[`${K}!E21`] === NVDA_E.replace('C15', 'C21') && sheet[`${K}!F21`] === NVDA_F.replace('$C15', '$C21') && sheet[`${K}!E23`] === '=GOOGLEFINANCE(C23,"price")');
+    check('[119-7] 옮겨진 줄이 모두 찾아지면 「줄이 옮겨짐」 0 · 백업 0 · 출처 google', r1.moved.length === 0 && sheetBackup().length === 0 && r1.source === 'google' && !r1.hasBackup);
     check('[114-1] C9 은 줄과 상관없이 늘 되돌림(원래 GOOGLEFINANCE)', sheet[`${K}!C9`] === ORIGINAL[`${K}!C9`]);
     const tk = await priceTick(at('2026-11-09', '12:00'));
-    check('[114-1] 남은 백업이 있어도 출처 google · [되돌리기] 보임(hasBackup) · 10초 쓰기 멈춤(쓰기 0)',
-      priceSource() === 'google' && r1.source === 'google' && r1.hasBackup && tk === 'off' && requests.length === 1 && priceSheetStatus().moved.length === 3, `${tk}`);
-    // 사용자가 줄을 원래대로 돌린 뒤 다시 누름 — 그 줄만 씀
-    swap(15, 21);
-    swap(16, 23);
+    check('[114-1] 되돌린 뒤 10초 쓰기 멈춤(쓰기 0)', priceSource() === 'google' && tk === 'off' && requests.length === 1, `${tk}`);
+
+    // 코드를 시트에서 못 찾은 줄만 「줄이 옮겨짐」 — 쓰지 않고 백업을 남긴다
+    fresh();
+    useCalendar(WINTER_US, KR3);
+    await convertSheetPrices();
+    sheet[`${K}!C21`] = 'NASDAQ:AMD';
     requests = [];
-    const r2 = await restoreSheetPrices();
-    check('[114-1] 줄을 원래대로 돌린 뒤 다시 누르면 그 줄(15 · 16 · 21)만 씀 · C9 · 18 은 다시 쓰지 않음',
-      requests.length === 1 && JSON.stringify(wroteCells(0)) === JSON.stringify(['E15', 'E16', 'E21', 'F15', 'F16', 'F21']), wroteCells(0).join(','));
-    check('[114-1] 모두 되돌리면 백업 0 · 목록 비움 · 시트가 처음 모양', sheetBackup().length === 0 && r2.moved.length === 0 && !r2.hasBackup && Object.keys(ORIGINAL).every((c) => sheet[c] === ORIGINAL[c]));
+    const r3 = await restoreSheetPrices();
+    const left = sheetBackup().map((b) => b.cell).sort();
+    check('[119-7] 코드를 못 찾은 줄(21)은 쓰지 않음 · 나머지는 씀', requests.length === 1 && !wroteCells(0).includes('E21') && !wroteCells(0).includes('F21') && wroteCells(0).includes('E15'), wroteCells(0).join(','));
+    check('[114-1] 쓰지 않은 줄의 백업은 남음 · 쓴 칸 백업만 지움', JSON.stringify(left) === JSON.stringify(['E21', 'F21']), left.join(','));
+    check('[114-1] 「줄이 옮겨짐 — 직접 확인」 목록 = 21(그때 코드 · 지금 코드)', r3.moved.length === 1 && r3.moved[0].row === 21 && r3.moved[0].wasCode === 'NASDAQ:MSFT' && r3.moved[0].nowCode === 'NASDAQ:AMD' && !r3.moved[0].duplicate);
+    check('[114-1] 남은 백업이 있어도 출처 google · [되돌리기] 보임(hasBackup)', r3.source === 'google' && r3.hasBackup && priceSheetStatus().moved.length === 1);
+    sheet[`${K}!C21`] = 'NASDAQ:MSFT';
+    requests = [];
+    const r4 = await restoreSheetPrices();
+    check('[114-1] 코드를 돌린 뒤 다시 누르면 그 줄(21)만 씀', requests.length === 1 && JSON.stringify(wroteCells(0)) === JSON.stringify(['E21', 'F21']), wroteCells(0).join(','));
+    check('[114-1] 모두 되돌리면 백업 0 · 목록 비움 · 시트가 처음 모양', sheetBackup().length === 0 && r4.moved.length === 0 && !r4.hasBackup && Object.keys(ORIGINAL).every((c) => sheet[c] === ORIGINAL[c]));
+
+    // 같은 코드 두 줄 — 자리가 옮겨져 정할 수 없으면 쓰지 않는다
+    fresh();
+    useCalendar(WINTER_US, KR3);
+    await convertSheetPrices();
+    sheet[`${K}!C15`] = 'NASDAQ:AMD';
+    sheet[`${K}!C19`] = 'NASDAQ:NVDA';
+    sheet[`${K}!C20`] = 'NASDAQ:NVDA';
+    requests = [];
+    const r5 = await restoreSheetPrices();
+    check('[119-7] 되돌리기 — 같은 코드 두 줄이면 그 줄은 쓰지 않음(목록에 「같은 코드 두 줄」)', !wroteCells(0).includes('E15') && !wroteCells(0).includes('E19') && !wroteCells(0).includes('E20') && r5.moved.some((m) => m.row === 15 && m.duplicate === true), wroteCells(0).join(','));
+
     // 바꾼 줄 기록이 없는 백업 줄(옛 상태)은 쓰지 않고 목록에
     const plan = planRestore([{ cell: 'C9', formula: 'x' }, { cell: 'E30', formula: 'y' }], [], [{ row: 30, name: 'n', code: 'c', e: 1, f: '=E30' }]);
     check('[114-1] 바꾼 줄 기록이 없는 백업 줄은 쓰지 않음(목록 · 그때 코드 빈 글자) · C9 은 씀', JSON.stringify(plan.write.map((w) => w.cell)) === JSON.stringify(['C9']) && plan.moved.length === 1 && plan.moved[0].wasCode === '');
+    check('[119-7] 수식 줄 번호 바꾸기 — 그 줄만(다른 줄 · 따옴표 안 글자는 그대로)', retargetFormula('=GOOGLEFINANCE($C15,"A15")*$C$9+E150', 15, 16) === '=GOOGLEFINANCE($C16,"A15")*$C$9+E150');
   }
 
   // ═══ [113-4] 10초 쓰기 ═══
@@ -390,6 +408,52 @@ try {
   const st5 = priceSheetStatus();
   check('[113-5] 줄 코드가 바뀐 줄(15)에는 쓰지 않음 · 다른 줄(21)은 씀', requests.length === 1 && !wroteCells(0).includes('E15') && wroteCells(0).includes('E21') && sheet[`${K}!E15`] === PX.us1);
   check('[113-5] 상태 목록에 「줄 코드가 바뀜」(15행)', st5.skipped.some((s) => s.row === 15 && s.reason === 'code-changed'));
+
+  // ═══ [119-6] [119-7] 10초 쓰기 — 줄이 옮겨져도 코드로 찾아 씀 ═══
+  {
+    /** at 줄부터 한 줄씩 아래로 — 사용자가 시트에 줄을 넣음(가짜 시트 · 코드 칸만 보면 된다) */
+    const pushDown = (at2: number) => {
+      const moved: [string, Cell][] = [];
+      for (const [k, v] of Object.entries(sheet)) {
+        const m = k.match(/^티커!([A-Z])(\d+)$/);
+        if (m && Number(m[2]) >= at2) {
+          moved.push([`${K}!${m[1]}${Number(m[2]) + 1}`, v]);
+          delete sheet[k];
+        }
+      }
+      for (const [k, v] of moved) sheet[k] = v;
+    };
+    fresh();
+    useCalendar(WINTER_US, KR3);
+    await convertSheetPrices();
+    pushDown(15);
+    requests = [];
+    book.set('NVDA', PX.us1 + 11);
+    await priceTick(at('2026-11-09', '12:00'));
+    check('[119-6] 10초 쓰기 — 줄을 넣으면 그 종목의 지금 줄(16)에 씀 · 옛 줄(15)에 안 씀 · 같은 값', requests.length === 1 && wroteCells(0).includes('E16') && !wroteCells(0).includes('E15') && sheet[`${K}!E16`] === PX.us1 + 11, wroteCells(0).join(','));
+    check('[119-6] 쓴 뒤 마지막으로 본 자리 갱신', priceRows().some((r) => r.code === 'NASDAQ:NVDA' && r.row === 16) && !priceRows().some((r) => r.row === 15));
+
+    fresh();
+    useCalendar(WINTER_US, KR3);
+    await convertSheetPrices();
+    sheet[`${K}!C15`] = 'NASDAQ:AMD';
+    sheet[`${K}!C19`] = 'NASDAQ:NVDA';
+    sheet[`${K}!C20`] = 'NASDAQ:NVDA';
+    requests = [];
+    book.set('NVDA', PX.us1 + 13);
+    await priceTick(at('2026-11-09', '12:00'));
+    const stD = priceSheetStatus();
+    check('[119-7] 10초 쓰기 — 같은 코드 두 줄이면 쓰지 않음 · 목록에 「같은 코드 두 줄」', requests.every((_, i) => !wroteCells(i).some((c) => /^E(15|19|20)$/.test(c))) && stD.skipped.some((x) => x.row === 15 && x.reason === 'duplicate-code'), JSON.stringify(stD.skipped.map((x) => [x.row, x.reason])));
+
+    fresh();
+    useCalendar(WINTER_US, KR3);
+    await convertSheetPrices();
+    sheet[`${K}!C19`] = 'NASDAQ:NVDA'; // 같은 코드가 다른 줄에도 있지만 15 줄은 그대로
+    requests = [];
+    book.set('NVDA', PX.us1 + 15);
+    await priceTick(at('2026-11-09', '12:00'));
+    check('[119-7] 그 줄의 코드가 그대로면 같은 코드가 다른 줄에 있어도 씀(지금 동작 그대로)', requests.length === 1 && wroteCells(0).includes('E15'), requests.map((_, i) => wroteCells(i).join(',')).join('/'));
+  }
 
   // ═══ [113-6] 스위치 ═══
   for (const [val, sync, label] of [[undefined, 'true', '없음'], ['false', 'true', 'false'], ['1', 'true', '1'], ['TRUE', 'true', 'TRUE'], ['yes', 'true', 'yes'], ['true', 'false', 'true 이지만 ASSET_SYNC_ENABLED=false']] as const) {
