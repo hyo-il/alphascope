@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Tags } from 'lucide-react';
+import { ChevronDown, ChevronRight, History, Plus, Tags } from 'lucide-react';
 import { Button, ICON_SM, Panel, Segmented } from '../ui';
 import { SkeletonTable } from '../common/SkeletonLoader';
 import AssetSymbolTable, { SYMBOL_FILTERS, type SymbolFilter } from './AssetSymbolTable';
 import { ASSET_CLASS_W, LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice } from '../../utils/formatters';
-import { UNASSIGNED_LABEL, type AssetAccount, type AssetHolding, type AssetSection, type AssetSheetData, type AssetSymbolRow } from '../../types/asset';
+import { UNASSIGNED_LABEL, type AssetAccount, type AssetHolding, type AssetSection, type AssetSheetData, type AssetSymbolRow, type AssetTradeSide } from '../../types/asset';
 
 /**
  * 자산 관리 「자산 현황」 탭 (v2.61.0 1단계 확인 표 → v2.62.1 계좌 카드 → v2.62.2 탭).
@@ -17,6 +17,7 @@ import { UNASSIGNED_LABEL, type AssetAccount, type AssetHolding, type AssetSecti
  * - 연금으로 볼 계좌 · 위성으로 선택한 종목 · 자산 분류 색은 오른쪽 위 「설정」 창(`AssetSettingsDialog`).
  * - 계좌 카드 위 「계좌별 | 종목별」(v2.63.0 — 이 기기에 기억 `alphascope.asset.statusView` · 읽기 실패면 계좌별).
  *   종목별 = 같은 종목을 한 줄로(`AssetSymbolTable` · 「전체 / 코어 / 위성」 거르기) — 자산 분류 고르기는 계좌별에서.
+ * - 계좌별 줄 끝 [매수] [매도](v2.66.0 — `h.tradable` 인 줄만 · 합친 표 · 수식 칸 · 이을 수 없는 줄은 없음) · 위 [새 종목 매수](119차까지 막힘) · [매수 · 매도 기록].
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 접은 계좌 이름 · 보기 이름만).
  */
 
@@ -128,7 +129,7 @@ function saveClosed(keys: string[]) {
 
 const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right tabular-nums`;
 const TEXT = `${TABLE_NUM_COL} ${TABLE_NUM_GAP}`;
-const COLS = 6;
+const COLS = 7;
 /** 카드 바탕(`Panel` 과 같은 바탕) — 표 칸마다 칠해 카드처럼 보인다 */
 const CARD_BG = 'bg-bg-secondary';
 
@@ -160,6 +161,7 @@ function AccountCard({
   usdDigits,
   open,
   onToggle,
+  onTrade,
 }: {
   section: AssetSection;
   account: AssetAccount | undefined;
@@ -168,6 +170,8 @@ function AccountCard({
   usdDigits: number;
   open: boolean;
   onToggle: () => void;
+  /** [매수] · [매도] — 입력 창 열기 */
+  onTrade: (section: AssetSection, holding: AssetHolding, side: AssetTradeSide) => void;
 }) {
   const id = `as-asset-account-${section.key}`;
   const rows = section.holdings;
@@ -233,7 +237,8 @@ function AccountCard({
           <th className={`${CARD_BG} ${TEXT} text-left font-normal`}>시장</th>
           <th className={`${CARD_BG} ${NUM} font-normal`}>수량</th>
           <th className={`${CARD_BG} ${NUM} font-normal`}>평균 매입가</th>
-          <th className={`${CARD_BG} ${TEXT} pr-4 text-center font-normal`}>자산 분류</th>
+          <th className={`${CARD_BG} ${TEXT} text-center font-normal`}>자산 분류</th>
+          <th className={`${CARD_BG} ${TEXT} pr-4 text-right font-normal`}>입력</th>
         </tr>
       )}
       {open &&
@@ -253,8 +258,20 @@ function AccountCard({
               <td className={`${CARD_BG} ${TEXT} border-t border-border/30 text-text-secondary`}>{h.market === 'US' ? '미국' : h.market === 'KR' ? '국내' : '—'}</td>
               <td className={`${CARD_BG} ${NUM} border-t border-border/30 text-text-primary`}>{h.quantity == null ? '—' : formatNumber(h.quantity, qtyDigits)}</td>
               <td className={`${CARD_BG} ${NUM} border-t border-border/30 text-text-primary`}>{avgText(h, usdDigits)}</td>
-              <td className={`${CARD_BG} ${lastR(last)} ${TEXT} border-t border-border/30 pr-4 text-center`}>
+              <td className={`${CARD_BG} ${TEXT} border-t border-border/30 text-center`}>
                 <ClassText h={h} />
+              </td>
+              <td className={`${CARD_BG} ${lastR(last)} ${TEXT} border-t border-border/30 pr-4 text-right`} data-trade-cell>
+                {h.tradable && (
+                  <span className="inline-flex gap-1">
+                    <Button size="sm" onClick={() => onTrade(section, h, 'buy')} aria-label={`${h.name} 매수 입력`} data-trade-buy={h.row}>
+                      매수
+                    </Button>
+                    <Button size="sm" onClick={() => onTrade(section, h, 'sell')} aria-label={`${h.name} 매도 입력`} data-trade-sell={h.row}>
+                      매도
+                    </Button>
+                  </span>
+                )}
               </td>
             </tr>
           );
@@ -264,7 +281,7 @@ function AccountCard({
 }
 
 /** 계좌 카드들 — 합계 표(계좌를 합친 표)는 그리지 않는다 · 수량 · 달러 소수 자릿수는 모든 카드가 같다 */
-function AccountCards({ sections, accounts }: { sections: AssetSection[]; accounts: AssetAccount[] }) {
+function AccountCards({ sections, accounts, onTrade }: { sections: AssetSection[]; accounts: AssetAccount[]; onTrade: (section: AssetSection, holding: AssetHolding, side: AssetTradeSide) => void }) {
   const shown = sections.filter((s) => !s.combined);
   const all = shown.flatMap((s) => s.holdings);
   const qtyDigits = decimalsOf(all.map((h) => h.quantity));
@@ -290,6 +307,7 @@ function AccountCards({ sections, accounts }: { sections: AssetSection[]; accoun
             usdDigits={usdDigits}
             open={!closed.includes(key)}
             onToggle={() => toggle(key)}
+            onTrade={onTrade}
           />
         );
       })}
@@ -303,6 +321,8 @@ export default function AssetSheetValues({
   accounts,
   bySymbol,
   onOpenClassDialog,
+  onTrade,
+  onOpenTradeHistory,
 }: {
   data: AssetSheetData;
   /** 카드 머리 평가 금액 합 · 가격 못 받은 줄 수(총 자산 요약 응답) */
@@ -311,6 +331,10 @@ export default function AssetSheetValues({
   bySymbol: AssetSymbolRow[] | null;
   /** [자산 분류 정하기] — 창 열기 */
   onOpenClassDialog: () => void;
+  /** 종목 줄 [매수] · [매도] — 입력 창 열기(v2.66.0) */
+  onTrade: (section: AssetSection, holding: AssetHolding, side: AssetTradeSide) => void;
+  /** [매수 · 매도 기록] — 창 열기 */
+  onOpenTradeHistory: () => void;
 }) {
   const [view, setView] = useState<StatusView>(readView);
   const [filter, setFilter] = useState<SymbolFilter>('all');
@@ -318,7 +342,7 @@ export default function AssetSheetValues({
   return (
     <div className="space-y-3">
       <Summary data={data} />
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Segmented
           label="자산 현황 보기"
           options={VIEWS}
@@ -332,13 +356,26 @@ export default function AssetSheetValues({
         <Button size="md" icon={Tags} onClick={onOpenClassDialog} data-open-class-dialog>
           자산 분류 정하기
         </Button>
+        {view === 'account' && (
+          <>
+            {/* 새 종목 매수는 119차에 연다 — 막힌 버튼에도 툴팁이 뜨게 바깥 칸에 둔다 */}
+            <span title="다음 업데이트에서 열려요" data-trade-new-wrap>
+              <Button size="md" icon={Plus} disabled data-trade-new>
+                새 종목 매수
+              </Button>
+            </span>
+            <Button size="md" icon={History} onClick={onOpenTradeHistory} data-trade-history-open>
+              매수 · 매도 기록
+            </Button>
+          </>
+        )}
       </div>
       {view === 'account' && (
         <>
           <p className="text-caption text-text-muted" data-account-hint>
             계좌를 누르면 종목이 펼쳐져요
           </p>
-          <AccountCards sections={data.sections} accounts={accounts} />
+          <AccountCards sections={data.sections} accounts={accounts} onTrade={onTrade} />
         </>
       )}
       {view === 'symbol' && (bySymbol == null ? <SkeletonTable rows={6} columns={8} /> : <AssetSymbolTable rows={bySymbol} filter={filter} />)}

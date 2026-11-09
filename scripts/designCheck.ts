@@ -34,7 +34,7 @@ import { chromium, type Page } from 'playwright';
 import { NAV_GROUPS, PAGE_TABS } from '../src/types/nav';
 import { rankingSample, usHaltsSample } from './fixtures/usHalts/screenSample';
 import { briefSample, daySample, daysSample, mismatchSample, outlookSample, statusSample } from './fixtures/marketBrief/screenSample';
-import { assetHistorySample, assetSheetFailureSample, assetSheetSample, assetStatusSample, assetSummaryFailureSample, assetSummarySample } from './fixtures/asset/screenSample';
+import { assetTradesSample, assetHistorySample, assetSheetFailureSample, assetSheetSample, assetStatusSample, assetSummaryFailureSample, assetSummarySample } from './fixtures/asset/screenSample';
 import { CHANGELOG } from '../src/data/changelog';
 import { sortDayRows } from '../src/utils/buyJudgeOrder';
 
@@ -598,6 +598,34 @@ function targets(): Target[] {
           if (step === 'close') await page.keyboard.press('Escape').catch(() => {});
           await page.waitForTimeout(400);
         }] as const),
+        // v2.66.0 — 자산 현황 [매수] [매도] · 매수 창(국내 · 미국 환율 있음/없음) · 매도 창 · 모두 매도 안내 · 기록 창
+        ...([
+          ['매매-계좌별표', null, null, null],
+          ['매수창-국내', 'buy:6', ['10', '70000'], null],
+          ['매수창-미국-환율있음', 'buy:5', ['2.5', '110.1234'], '1400'],
+          ['매수창-미국-환율없음', 'buy:5', ['2.5', '110.1234'], null],
+          ['매도창', 'sell:5', ['2.5', '120'], null],
+          ['매도창-모두매도', 'sell:6', ['30', '72000'], null],
+          ['매매-기록창', 'history', null, null],
+        ] as const).map(([label, step, inputs, fx]) => [label, {}, async (page: Page) => {
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+          await page.locator('[data-account-cards]').scrollIntoViewIfNeeded().catch(() => {});
+          if (step === 'history') {
+            await page.locator('[data-trade-history-open]').click().catch(() => {});
+            await page.locator('[data-trade-row]').first().waitFor({ timeout: 3000 }).catch(() => {});
+          } else if (step) {
+            const [side, row] = step.split(':');
+            await page.locator(`[data-trade-${side}="${row}"]`).click().catch(() => {});
+            await page.locator('[data-trade-dialog]').waitFor({ timeout: 3000 }).catch(() => {});
+            if (inputs) {
+              await page.locator('[data-trade-qty]').fill(inputs[0]).catch(() => {});
+              await page.locator('[data-trade-price]').fill(inputs[1]).catch(() => {});
+            }
+            if (fx) await page.locator('[data-trade-fx]').fill(fx).catch(() => {});
+          }
+          await page.waitForTimeout(300);
+        }] as const),
         ['분류창-총자산링크', { none: true }, async (page: Page) => {
           await page.getByRole('tab', { name: '총 자산' }).click().catch(() => {});
           await page.waitForTimeout(500);
@@ -624,13 +652,15 @@ function targets(): Target[] {
         await page.route('**/api/asset/target-ratio', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
         await page.route('**/api/asset/purchase-done', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
         await page.route('**/api/asset/price-source/**', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
+        await page.route('**/api/asset/trade', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
+        await page.route('**/api/asset/trades**', (r) => r.fulfill({ json: assetTradesSample(50, 120) }).catch(() => {}));
       },
       open: async (page: Page) => {
         await page.waitForTimeout(800);
         await act(page);
       },
       after: async (page: Page) => {
-        for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/class', '**/api/asset/settings', '**/api/asset/target-ratio', '**/api/asset/purchase-done', '**/api/asset/price-source/**']) await page.unroute(p);
+        for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/trade', '**/api/asset/trades**', '**/api/asset/class', '**/api/asset/settings', '**/api/asset/target-ratio', '**/api/asset/purchase-done', '**/api/asset/price-source/**']) await page.unroute(p);
         await page.keyboard.press('Escape').catch(() => {});
         await page.keyboard.press('Escape').catch(() => {});
         // v2.65.3 — 「자산 분류 정하기」 창은 바꾼 것이 있으면 ESC 가 확인 창을 연다 → 확인 창의 [닫기] 로 끝낸다

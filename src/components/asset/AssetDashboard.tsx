@@ -7,7 +7,7 @@ import { usePolling } from '../../hooks/usePolling';
 import { useAssetIdleLock } from '../../hooks/useAssetIdleLock';
 import { changeColor, formatNumber, formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
-import type { AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio, MonthlyBuy } from '../../types/asset';
+import type { AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetHolding, AssetSection, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio, AssetTradeRequest, AssetTradeSide, MonthlyBuy } from '../../types/asset';
 import { modal } from '../../store/uiStore';
 import AssetDonut from './AssetDonut';
 import { groupDot } from './assetColors';
@@ -15,6 +15,8 @@ import AssetHistoryChart from './AssetHistoryChart';
 import AssetSheetValues from './AssetSheetValues';
 import AssetSettingsDialog from './AssetSettingsDialog';
 import AssetClassDialog from './AssetClassDialog';
+import AssetTradeDialog from './AssetTradeDialog';
+import AssetTradeHistoryDialog from './AssetTradeHistoryDialog';
 import type { ClassSendResult, ClassValue } from '../../utils/assetClassPlan';
 import AssetRebalanceView from './AssetRebalanceView';
 import { MonthlyBuySection, PurchaseDayDialog, dayText, isEarlyDone, sheetDateText } from './AssetMonthlyBuy';
@@ -36,6 +38,7 @@ import { MonthlyBuySection, PurchaseDayDialog, dayText, isEarlyDone, sheetDateTe
  * 받기: 처음 = 스켈레톤 · 다시 읽기 · 연금 포함 바꾸기 = 내용을 두고 작은 스피너 · 10초 가격 갱신(`usePolling` — 숨은 탭에서 쉼)은 표시 없음.
  * 잠금 시간(v2.65.4): 이 화면(창 포함)의 클릭 · 키 · 스크롤 · 터치를 `useAssetIdleLock` 에 알린다(touch 1분에 한 번 이하 · 화면 타이머 → `onIdle`).
  *   시간은 설정(`summary.settings.lockMinutes` — 받기 전에는 잠금 상태가 준 값).
+ * 매수 · 매도 입력(v2.66.0): 자산 현황 계좌별 줄의 [매수] [매도] → `AssetTradeDialog` · 성공하면 닫고 다시 읽기 · [매수 · 매도 기록] → `AssetTradeHistoryDialog`.
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 「연금 포함」 켬/끔만).
  */
 
@@ -140,6 +143,9 @@ export default function AssetDashboard({
   const [sheet, setSheet] = useState<{ data: AssetSheetData } | { error: string } | null>(null);
   /** 「자산 분류 정하기」 창(v2.65.3) — 자산 현황 버튼 · 총 자산 「미지정」 줄 링크 */
   const [classOpen, setClassOpen] = useState(false);
+  /** 매수 · 매도 입력 창(v2.66.0) */
+  const [trade, setTrade] = useState<{ section: AssetSection; holding: AssetHolding; side: AssetTradeSide } | null>(null);
+  const [tradeHistoryOpen, setTradeHistoryOpen] = useState(false);
   /** 구매일 팝업 — 이 화면이 열린 뒤 처음 받은 summary 로 한 번만 정한다 */
   const [purchasePopup, setPurchasePopup] = useState(false);
   const popupDecided = useRef(false);
@@ -242,6 +248,23 @@ export default function AssetDashboard({
       return { ok: true, ratio: data.targetRatio };
     } catch {
       return { ok: false, error: '서버에 연결하지 못했습니다.' };
+    }
+  };
+
+  /** 매수 · 매도 저장(v2.66.0) — 실패 이유 또는 null. 시트가 바뀌었으면 뒤에서 다시 읽어 표를 새로 한다(창은 이유를 보인 채) */
+  const sendTrade = async (req: AssetTradeRequest): Promise<string | null> => {
+    try {
+      const res = await fetch('/api/asset/trade', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(req) });
+      const body = await readJson(res);
+      if (body.code === 'asset-locked') {
+        onLocked();
+        return '자산 관리가 잠겼습니다.';
+      }
+      if (res.ok) return null;
+      if (body.kind === 'sheet-changed') void reload();
+      return typeof body.error === 'string' ? body.error : `요청 실패 (${res.status})`;
+    } catch {
+      return '서버에 연결하지 못했습니다.';
     }
   };
 
@@ -364,7 +387,7 @@ export default function AssetDashboard({
           <div id="as-asset-status" className="space-y-3">
             {sheet == null && <SkeletonTable rows={6} columns={6} />}
             {sheet && 'error' in sheet && <ErrorLine message={sheet.error} onRetry={() => void loadSheet()} />}
-            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} onOpenClassDialog={() => setClassOpen(true)} />}
+            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} onOpenClassDialog={() => setClassOpen(true)} onTrade={(section, holding, side) => setTrade({ section, holding, side })} onOpenTradeHistory={() => setTradeHistoryOpen(true)} />}
           </div>
         )}
       </div>
@@ -393,6 +416,23 @@ export default function AssetDashboard({
           onClose={() => setClassOpen(false)}
         />
       )}
+      {trade && sheet && 'data' in sheet && (
+        <AssetTradeDialog
+          key={`${trade.section.key}-${trade.holding.row}-${trade.side}`}
+          section={trade.section}
+          holding={trade.holding}
+          side={trade.side}
+          data={sheet.data}
+          writeEnabled={summary ? summary.writeEnabled : null}
+          onSend={sendTrade}
+          onSaved={() => {
+            setTrade(null);
+            void reload();
+          }}
+          onClose={() => setTrade(null)}
+        />
+      )}
+      {tradeHistoryOpen && <AssetTradeHistoryDialog onLocked={onLocked} onClose={() => setTradeHistoryOpen(false)} />}
       {settingsOpen && summary && (
         <AssetSettingsDialog
           summary={summary}

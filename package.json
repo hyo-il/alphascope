@@ -59,7 +59,8 @@
     "assetsheet:test": "tsx scripts/assetSheetSelfTest.ts",
     "assetprice:test": "tsx scripts/assetPriceSelfTest.ts",
     "assetlock:test": "tsx scripts/assetLockSelfTest.ts",
-    "assettrade:test": "tsx scripts/assetTradeSelfTest.ts"
+    "assettrade:test": "tsx scripts/assetTradeSelfTest.ts",
+    "assettradeui:test": "tsx scripts/assetTradeUiSelfTest.ts"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-kr": "^5.3.0",

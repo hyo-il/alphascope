@@ -4,7 +4,7 @@
  * 긴 종목명 · 긴 구간 이름 · 달러 소수 4자리 · 빈 구간 · 이을 수식 없는 줄 · 합계 표를 모두 넣어 칸 넘침을 잰다.
  */
 import { DEFAULT_CLASS_COLORS, type AssetClassColors } from '../../../src/types/asset';
-import type { AssetClass, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHolding, AssetPriceSheetStatus, AssetSheetData, AssetSheetFailure, AssetStatus, AssetSummary, AssetTargetRatio } from '../../../src/types/asset';
+import type { AssetClass, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHolding, AssetPriceSheetStatus, AssetSheetData, AssetSheetFailure, AssetStatus, AssetSummary, AssetTargetRatio, AssetTradeRecord, AssetTradesResponse } from '../../../src/types/asset';
 import { computeRebalance } from '../../../server/asset/rebalance';
 import { computeMonthlyBuy } from '../../../server/asset/purchase';
 
@@ -70,6 +70,35 @@ export function assetSheetSample(opts: { dupCode?: boolean } = {}): AssetSheetDa
     avgFxFormula: false,
     targetRatio: { cash: 20, gold: 10, bond: 10, invest: 60, core: 70, satellite: 30 },
   };
+}
+
+/** 매수 · 매도 기록(v2.66.0) 가짜 응답 — 만든 값 · 국내/미국 · 매수/매도가 섞이고 긴 이름 · 환율 있음/없음을 넣는다 */
+export function assetTradesSample(limit: number, total: number): AssetTradesResponse {
+  const take = Math.min(limit, total);
+  const trades: AssetTradeRecord[] = Array.from({ length: take }, (_, i) => {
+    const us = i % 2 === 0;
+    const buy = i % 3 !== 2;
+    return {
+      id: total - i,
+      at: new Date(Date.parse('2026-11-09T01:00:00Z') - i * 86_400_000).toISOString(),
+      section: i % 4 === 0 ? '연금 저축 계좌' : '개별 투자',
+      holdingRow: us ? 5 : 6,
+      symbol: us ? 'AAAA' : '000001',
+      name: i === 1 ? '예시 미국 ETF 이름이 아주 긴 종목 Vanguard Total World Stock Market Index Fund ETF Shares' : us ? '예시 미국 기술주' : '예시 국내 대형주',
+      side: buy ? 'buy' : 'sell',
+      qty: us ? 2.5 : 10,
+      price: us ? 110.1234 : 70000,
+      currency: us ? 'USD' : 'KRW',
+      fx: us && buy && i % 4 === 0 ? 1400.5 : null,
+      beforeQty: us ? 12.5 : 30,
+      beforeAvg: us ? 101.2345 : 71000,
+      afterQty: us ? (buy ? 15 : 10) : buy ? 40 : 20,
+      afterAvg: us ? (buy ? 102.6954 : 101.2345) : buy ? 70750 : 71000,
+      fxBefore: null,
+      fxAfter: null,
+    };
+  });
+  return { trades, hasMore: total > limit };
 }
 
 export const assetSheetFailureSample: AssetSheetFailure = {
