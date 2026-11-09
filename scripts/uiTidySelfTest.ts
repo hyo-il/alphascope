@@ -192,6 +192,11 @@ try {
         const attrs = [...dialog.querySelectorAll('[title],[aria-label],[placeholder]')].flatMap((e) => ['title', 'aria-label', 'placeholder'].map((a) => e.getAttribute(a) ?? ''));
         return `${dialog.innerText} ${attrs.join(' ')}`;
       });
+      // 「폴더 없음」 을 고른 채 종목 추가 칸을 연다 — 저장 이름(기본 폴더)이 안내 글자로 나오면 안 된다
+      await page.locator('button:not([type="submit"])', { hasText: '종목 추가' }).first().click();
+      const addInput = page.getByPlaceholder('폴더 없이 추가 (구글, 애플, AAPL…)');
+      await addInput.waitFor({ timeout: 5000 });
+      check(`[122-2] ${size.width}px — 「폴더 없음」 에서 종목 추가 안내 = 폴더 없이 추가`, (await addInput.count()) === 1);
       const shown = await words();
       check(`[122-2] ${size.width}px — 관심 목록 관리 글자에 「그룹」 · 「미분류」 0 · 「폴더 없음」 · 「폴더 추가」 있음`, !BANNED.test(shown) && shown.includes('폴더 없음') && shown.includes('폴더 추가'), shown.slice(0, 300));
       const row = page.locator('input[aria-label="AAPL 선택"]');
@@ -202,6 +207,9 @@ try {
       await row.click();
       check(`[122-4] ${size.width}px — 관심 목록 줄 체크 풀림 그대로`, !(await row.isChecked()));
 
+      await page.locator('[role="dialog"]').getByText('반도체', { exact: true }).first().click();
+      await page.getByPlaceholder("'반도체' 에 추가 (구글, 애플, AAPL…)").waitFor({ timeout: 5000 });
+      check(`[122-2] ${size.width}px — 폴더를 고르면 종목 추가 안내에 그 폴더 이름 그대로`, true);
       await page.locator('[aria-label="반도체 폴더 삭제"]').click({ force: true });
       const title = page.getByText("'반도체' 폴더 삭제", { exact: true });
       await title.waitFor({ timeout: 5000 });

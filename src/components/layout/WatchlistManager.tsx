@@ -500,7 +500,7 @@ export default function WatchlistManager({
                         watch.rememberFolder(folder?.id ?? DEFAULT_FOLDER_ID);
                       }}
                       placeholder={
-                        folder ? `'${folder.name}' 에 추가 (구글, 애플, AAPL…)` : '폴더 없이 추가 (구글, 애플, AAPL…)'
+                        folder && !isLoose ? `'${folder.name}' 에 추가 (구글, 애플, AAPL…)` : '폴더 없이 추가 (구글, 애플, AAPL…)'
                       }
                       submitLabel="종목 추가"
                       compact

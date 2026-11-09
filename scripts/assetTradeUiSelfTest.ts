@@ -465,8 +465,8 @@ try {
     await page.reload();
     await guard.step('비교 화면 열기', () => go('#/compare'));
     await page.getByRole('button', { name: '종목 검색' }).first().click({ timeout: 10_000 });
-    await addButton('종목명 또는 티커 (엔비디아').waitFor({ timeout: 5000 });
-    check('[121-2] 비교 검색칸 — 「종목 추가」 버튼 그대로', (await addButton('종목명 또는 티커 (엔비디아').textContent())?.trim() === '종목 추가');
+    await addButton('종목 이름이나 티커').waitFor({ timeout: 5000 });
+    check('[121-2] 비교 검색칸 — 「종목 추가」 버튼 그대로', (await addButton('종목 이름이나 티커').textContent())?.trim() === '종목 추가');
     await guard.step('백테스트 화면 열기', () => go('#/backtest'));
     await page.locator('button:not([type="submit"])', { hasText: '종목 추가' }).first().click({ timeout: 15_000 });
     await page.getByRole('tab', { name: '새 종목 검색' }).click({ timeout: 5000 });
