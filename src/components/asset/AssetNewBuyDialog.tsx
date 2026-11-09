@@ -216,24 +216,26 @@ export default function AssetNewBuyDialog({
               <SymbolSearch symbol="" onSubmit={(s) => void choose(s)} placeholder="종목 이름이나 티커를 입력하세요" hideSubmit compact dropUp={false} clearOnSubmit autoFocus />
             </div>
           </FormRow>
-          <div className="flex min-h-5 items-center gap-2 text-xs" data-newbuy-chosen>
-            {looking ? (
-              <>
-                <InlineSpinner />
-                <span className="text-text-muted">찾는 중…</span>
-              </>
-            ) : stock ? (
-              <>
-                <span className="min-w-0 truncate text-text-primary" title={stock.name}>
-                  {stock.name}
-                </span>
-                <span className="text-caption text-text-muted">{stock.symbol}</span>
-                <Badge>{US_LISTINGS.has(stock.market) ? '미국' : '국내'}</Badge>
-              </>
-            ) : (
-              <span className="text-text-muted">검색에서 종목을 고르면 여기에 보입니다.</span>
-            )}
-          </div>
+          <FormRow label="" labelW="sm" valueW="lg">
+            <div className="flex min-h-5 w-full min-w-0 items-center gap-2 text-xs" data-newbuy-chosen>
+              {looking ? (
+                <>
+                  <InlineSpinner />
+                  <span className="text-text-muted">찾는 중…</span>
+                </>
+              ) : stock ? (
+                <>
+                  <span className="min-w-0 truncate text-text-primary" title={stock.name}>
+                    {stock.name}
+                  </span>
+                  <span className="text-caption text-text-muted">{stock.symbol}</span>
+                  <Badge>{US_LISTINGS.has(stock.market) ? '미국' : '국내'}</Badge>
+                </>
+              ) : (
+                <span className="whitespace-nowrap text-text-muted">검색에서 종목을 고르면 여기에 보입니다.</span>
+              )}
+            </div>
+          </FormRow>
 
           <NumberUnitGroup w="sm">
             <div className="space-y-3">

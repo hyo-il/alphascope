@@ -63,6 +63,7 @@
     "assettrade:test": "tsx scripts/assetTradeSelfTest.ts",
     "assetrowops:test": "tsx scripts/assetRowOpsSelfTest.ts",
     "assettradeui:test": "tsx scripts/assetTradeUiSelfTest.ts",
+    "uitidy:test": "tsx scripts/uiTidySelfTest.ts",
     "ordercolor:test": "tsx scripts/orderButtonColorSelfTest.ts"
   },
   "dependencies": {

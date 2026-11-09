@@ -1,5 +1,6 @@
 import Input from '../ui/Input';
 import Button from '../ui/Button';
+import Checkbox from '../ui/Checkbox';
 import Dialog, { useDialogEsc } from '../ui/Dialog';
 import TrashIcon from '../common/TrashIcon';
 import { ICON_SM } from '../ui/icon';
@@ -150,11 +151,11 @@ export default function WatchlistManager({
 
   const confirmDeleteFolder = (id: string, name: string, count: number) =>
     modal.confirm({
-      title: `'${name}' 그룹 삭제`,
+      title: `'${name}' 폴더 삭제`,
       message:
         count > 0
           ? `안에 있는 ${count}개 종목은 폴더 밖으로 나옵니다. 종목이 삭제되지는 않습니다.`
-          : '빈 그룹을 삭제합니다.',
+          : '빈 폴더를 삭제합니다.',
       confirmText: '삭제',
       danger: true,
       onConfirm: () => {
@@ -355,8 +356,8 @@ export default function WatchlistManager({
                           <button
                             type="button"
                             onClick={() => confirmDeleteFolder(f.id, f.name, f.symbols.length)}
-                            title="그룹 삭제 (종목은 폴더 밖으로)"
-                            aria-label={`${f.name} 그룹 삭제`}
+                            title="폴더 삭제 (종목은 폴더 밖으로)"
+                            aria-label={`${f.name} 폴더 삭제`}
                             className="shrink-0 rounded p-1 text-text-muted opacity-50 transition-all hover:text-danger hover:opacity-100 focus:opacity-100"
                           >
                             <TrashIcon className="h-3.5 w-3.5" />
@@ -379,7 +380,7 @@ export default function WatchlistManager({
                 <Button variant="secondary" size="md"
                   onClick={() => setNewFolder('')}
                   className="w-full">
-                  + 그룹 추가
+                  + 폴더 추가
                 </Button>
               ) : (
                 <form
@@ -397,7 +398,7 @@ export default function WatchlistManager({
                       watch.createFolder(newFolder);
                       setNewFolder(null);
                     }}
-                    placeholder="그룹 이름"
+                    placeholder="폴더 이름"
                     className="w-full" />
                 </form>
               )}
@@ -531,8 +532,8 @@ export default function WatchlistManager({
               {symbols.length === 0 ? (
                 <p className="px-4 py-8 text-center text-xs text-text-muted">
                   {isLoose
-                    ? '폴더에 넣지 않은 종목이 없습니다. [종목 추가] 로 추가하거나, 그룹의 종목을 여기에 끌어 놓으면 폴더에서 빠집니다.'
-                    : '이 그룹에 추가한 종목이 없습니다. [종목 추가] 로 시작해 보세요.'}
+                    ? '폴더에 넣지 않은 종목이 없습니다. [종목 추가] 로 추가하거나, 폴더의 종목을 여기에 끌어 놓으면 폴더에서 빠집니다.'
+                    : '이 폴더에 추가한 종목이 없습니다. [종목 추가] 로 시작해 보세요.'}
                 </p>
               ) : (
                 sorted.map((symbol, index) => {
@@ -598,7 +599,7 @@ export default function WatchlistManager({
                           title={
                             sort !== 'manual'
                               ? '직접 설정한 순일 때만 순서를 바꿀 수 있습니다'
-                              : '끌어서 순서 변경 · 그룹 위에 놓으면 이동'
+                              : '끌어서 순서 변경 · 폴더 위에 놓으면 이동'
                           }
                           className={`shrink-0 text-text-muted ${
                             sort === 'manual' ? '' : 'cursor-not-allowed opacity-30'
@@ -607,8 +608,7 @@ export default function WatchlistManager({
                           <GripVertical size={14} aria-hidden />
                         </span>
 
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={isChecked}
                           onChange={() => toggleOne(symbol)}
                           aria-label={`${symbol} 선택`}
@@ -657,7 +657,7 @@ export default function WatchlistManager({
             </div>
 
             <p className="shrink-0 border-t border-border px-4 py-2 text-caption text-text-muted">
-              변경은 바로 저장됩니다 · 끌어서 순서·그룹을 바꿉니다 (Alt + ↑↓ 로도 이동) ·
+              변경은 바로 저장됩니다 · 끌어서 순서·폴더를 바꿉니다 (Alt + ↑↓ 로도 이동) ·
               폴더에 넣지 않은 종목은 목록 맨 위에 그대로 보입니다.
             </p>
 

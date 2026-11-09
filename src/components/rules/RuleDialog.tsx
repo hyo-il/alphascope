@@ -254,10 +254,10 @@ export default function RuleDialog({
                 const c = body.buy[key];
                 return (
                   <tr key={key} className="border-b border-border/30">
-                    {/* 체크 박스는 칸 가운데 — 머리 「사용」 글자와 가로 가운데가 같은 선. 브라우저 기본 여백(왼 4·오 3px)을 지워 정확히 가운데 */}
+                    {/* 체크 박스는 칸 가운데 — 머리 「사용」 글자와 가로 가운데가 같은 선 · 옆 칸 이름과 세로 가운데가 같은 선(글자 줄 안에 두면 2px 내려간다). 브라우저 기본 여백(왼 4·오 3px)을 지워 정확히 가운데 */}
                     <td className="py-1.5 text-center">
                       <input
-                        className="m-0 align-middle"
+                        className="m-0 mx-auto block"
                         type="checkbox"
                         aria-label={`${NAMES[key]} 사용`}
                         checked={c.on}

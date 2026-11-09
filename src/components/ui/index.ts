@@ -2,6 +2,7 @@
 export { default as Segmented, type SegmentedOption } from './Segmented';
 export { default as Tabs, type TabItem } from './Tabs';
 export { default as Button } from './Button';
+export { default as Checkbox } from './Checkbox';
 export { default as DisclosureButton } from './DisclosureButton';
 export { default as ListRemoveButton } from './ListRemoveButton';
 export { default as RemoveAllButton } from './RemoveAllButton';

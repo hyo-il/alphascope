@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { LoaderCircle, Lock, RefreshCw, Settings } from 'lucide-react';
-import { Button, ICON_SM, PageHeader, Panel, Segmented, SectionTitle } from '../ui';
+import { Button, Checkbox, ICON_SM, PageHeader, Panel, Segmented, SectionTitle } from '../ui';
 import { LIST_TABLE_ROW, PANEL_PAD, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { Skeleton, SkeletonTable } from '../common/SkeletonLoader';
 import { usePolling } from '../../hooks/usePolling';
@@ -352,8 +352,7 @@ export default function AssetDashboard({
         right={
           <>
             <label className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-text-primary">
-              {/* 글자 잉크가 줄 가운데보다 1px 아래에 그려진다 — 체크박스를 잉크 가운데에 맞춘다(v2.67.2 · 실제 픽셀로 측정) */}
-              <input type="checkbox" className="relative top-px" checked={pension} onChange={(e) => togglePension(e.target.checked)} data-asset-pension />
+              <Checkbox checked={pension} onChange={(e) => togglePension(e.target.checked)} data-asset-pension />
               연금 포함
               <span className="inline-flex w-4 justify-center">{switching && <LoaderCircle {...ICON_SM} className="animate-spin text-text-muted" aria-label="다시 계산하는 중" />}</span>
             </label>

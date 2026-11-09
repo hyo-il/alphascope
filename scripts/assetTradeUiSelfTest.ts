@@ -340,6 +340,11 @@ try {
     check(`[121-1] ${size.width}px — 안내 글자 「${PLACEHOLDER}」 잘림 없음`, form.placeholder === PLACEHOLDER && form.textWidth <= form.inner, `${form.textWidth} / ${form.inner}`);
     const lefts = ['account', 'search', 'qty', 'price', 'cls'].map((k) => form.spots[k].left);
     check(`[121-3] ${size.width}px — 계좌 · 종목 · 수량 · 가격 · 자산 분류 왼쪽 끝 차이 0px`, Math.max(...lefts) === Math.min(...lefts), lefts.join(','));
+    const hintBox = await page.locator('[data-newbuy-chosen]').evaluate((el) => ({ left: el.getBoundingClientRect().left, height: el.getBoundingClientRect().height, textRight: (el.firstElementChild as HTMLElement).getBoundingClientRect().right, formRight: (el.closest('[data-newbuy-form]') as HTMLElement).getBoundingClientRect().right }));
+    check(`[122-3] ${size.width}px — 고르기 전 안내 줄 왼쪽 끝 = 입력칸 왼쪽 끝(0px) · 한 줄`, hintBox.left === form.spots.account.left && hintBox.height <= 24 && hintBox.textRight <= hintBox.formRight, JSON.stringify(hintBox));
+    await pick(page, 'FAKN');
+    const chosenBox = await page.locator('[data-newbuy-chosen]').evaluate((el) => ({ left: (el.firstElementChild as HTMLElement).getBoundingClientRect().left, text: el.textContent ?? '' }));
+    check(`[122-3] ${size.width}px — 고른 종목 줄 왼쪽 끝 = 입력칸 왼쪽 끝(0px)`, chosenBox.left === form.spots.account.left && chosenBox.text.includes('FAKN'), JSON.stringify(chosenBox));
     await ctx.close();
 
     const pension = await open(browser, { size, scale: 2 });

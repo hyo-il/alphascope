@@ -120,7 +120,7 @@ export default function CompareSlot({
           <SymbolSearch
             symbol=""
             onSubmit={onPlace}
-            placeholder="종목명 또는 티커 (엔비디아, NVDA…)"
+            placeholder="종목 이름이나 티커"
             submitLabel="종목 추가"
             compact
             clearOnSubmit

@@ -215,7 +215,7 @@ export default function StockExplorer({
         {section('관심 종목', watchlist, {
           empty: watchlistPending ? '불러오는 중…' : '관심 목록이 비어 있습니다. 종목 화면의 별 아이콘으로 추가해 보세요.',
           onRemove: onRemoveWatch,
-          removeLabel: '관심 목록에서 삭제 (모든 그룹)',
+          removeLabel: '관심 목록에서 삭제 (모든 폴더)',
           limited: true,
         })}
         {/* 보유는 실제 모의투자 포지션이다 — 여기 삭제를 두면 매도로 오해한다 */}

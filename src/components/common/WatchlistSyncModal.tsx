@@ -30,7 +30,7 @@ export default function WatchlistSyncModal() {
     <div className="flex-1 rounded-lg bg-bg-tertiary/40 p-3">
       <p className="text-xs font-medium text-text-primary">{title}</p>
       <p className="mt-1.5 text-caption leading-relaxed text-text-secondary">
-        관심 종목 <b className="tabular-nums text-text-primary">{c.symbols}</b>개 · 그룹{' '}
+        관심 종목 <b className="tabular-nums text-text-primary">{c.symbols}</b>개 · 폴더{' '}
         <b className="tabular-nums text-text-primary">{c.folders}</b>개
         <br />
         최근 조회 <b className="tabular-nums text-text-primary">{c.recent}</b>개
@@ -83,7 +83,7 @@ export default function WatchlistSyncModal() {
           <Action
             primary
             label="합치기 (권장)"
-            hint="양쪽 종목을 모두 남깁니다. 같은 그룹은 하나로 합칩니다."
+            hint="양쪽 종목을 모두 남깁니다. 같은 폴더는 하나로 합칩니다."
             onClick={() => choice.resolve('merge')}
           />
           <Action

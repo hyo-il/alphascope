@@ -85,6 +85,7 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
 
         <Field label="가격 변동" hint="전일 종가 대비 하루 변동 · 이 값 이상">
           <NumberField
+            kind="fill"
             step={0.5}
             min={0.5}
             max={50}
@@ -99,6 +100,7 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
         </p>
         <Field label="거래량" hint="20일 평균 대비 · 이 값 이상">
           <NumberField
+            kind="fill"
             step={10}
             min={100}
             max={2000}
@@ -112,6 +114,7 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
         <h3 className="font-semibold text-text-secondary">주기성 판정</h3>
         <Field label="최소 급등 횟수" hint="분석 기간 안 급등일 수">
           <NumberField
+            kind="fill"
             min={2}
             max={20}
             unit="회"
@@ -120,6 +123,7 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
         </Field>
         <Field label="분석 기간">
           <Select
+            className="w-full"
             value={draft.analysisPeriod}
             onChange={(e) => patch({ analysisPeriod: e.target.value as AnalysisPeriod })}>
             {PERIODS.map((period) => (
@@ -131,6 +135,7 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
         </Field>
         <Field label="규칙성 기준" hint="이 값 이상이면 주기적">
           <NumberField
+            kind="fill"
             min={0}
             max={100}
             step={5}
