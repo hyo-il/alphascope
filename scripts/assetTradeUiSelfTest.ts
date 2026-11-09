@@ -226,7 +226,7 @@ try {
     check('[120-7] 종목 표시 — 이름 · 코드 · 국내/미국', (await text(page, '[data-newbuy-chosen]')).includes('가짜 새미국주') && (await text(page, '[data-newbuy-chosen]')).includes('미국'));
     check('[120-7] 미국 종목 — 가격 칸이 달러', (await page.locator('[data-newbuy-form]').textContent())?.includes('가격(달러)') === true);
     await fillNew(page, '2.5', '110.25');
-    await page.getByRole('radio', { name: '금' }).click();
+    await page.locator('[data-newbuy-class]').selectOption('금');
     await page.locator('[data-newbuy-next]').click();
     await page.locator('[data-newbuy-confirm]').waitFor({ timeout: 5000 });
     check('[120-7] 확인 화면 문장 — 어느 줄 · 코드 앞부분', (await text(page, '[data-newbuy-where]')) === '「개별 투자」 맨 아래에 줄을 넣고, 「티커」 「개별 투자」 묶음 22행(빈 줄)에 씁니다 · 코드 NASDAQ:FAKN', await text(page, '[data-newbuy-where]'));

@@ -23,6 +23,16 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.67.0',
+    date: '2026-11-09',
+    title: '자산 관리: 새 종목 매수 · 모두 매도',
+    description: '다른 증권사에서 새로 산 종목을 시트에 넣고, 모두 판 종목은 시트에서 지웁니다',
+    changes: [
+      '자산 관리: 새 종목 매수(시트에 줄을 넣고 「티커」 에 종목 추가)',
+      '자산 관리: 모두 매도(보유 줄 지움 · 「티커」 줄은 남김)',
+    ],
+  },
+  {
     version: 'v2.66.2',
     date: '2026-11-09',
     title: '자산 시트 구간 찾기 · 미국 매수 환율 칸 정리',

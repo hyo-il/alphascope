@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Badge, Button, Dialog, FormRow, NumberField, NumberUnitGroup, Segmented, Select } from '../ui';
+import { Badge, Button, Dialog, FormRow, NumberField, NumberUnitGroup, Select } from '../ui';
 import SymbolSearch from '../common/SymbolSearch';
 import { InlineSpinner } from '../common/LoadingOverlay';
 import { TRADE_DIGITS, tradeAfter } from '../../utils/assetTrade';
@@ -205,7 +205,7 @@ export default function AssetNewBuyDialog({
           </FormRow>
           <FormRow label="종목" labelW="sm" error={lookError ?? undefined}>
             <div className="w-full" data-newbuy-search>
-              <SymbolSearch symbol="" onSubmit={(s) => void choose(s)} submitLabel="고르기" placeholder="종목명 또는 티커" compact dropUp={false} clearOnSubmit autoFocus />
+              <SymbolSearch symbol="" onSubmit={(s) => void choose(s)} submitLabel="고르기" placeholder="이름 · 티커" compact dropUp={false} clearOnSubmit autoFocus />
             </div>
           </FormRow>
           <div className="flex min-h-5 items-center gap-2 text-xs" data-newbuy-chosen>
@@ -237,8 +237,14 @@ export default function AssetNewBuyDialog({
               </FormRow>
             </div>
           </NumberUnitGroup>
-          <FormRow label="자산 분류" labelW="sm" valueW="auto">
-            <Segmented<AssetClass | ''> label="자산 분류" size="sm" options={CLASS_OPTIONS} value={assetClass} onChange={setAssetClass} />
+          <FormRow label="자산 분류" labelW="sm">
+            <Select className="w-full" aria-label="자산 분류" value={assetClass} onChange={(e) => setAssetClass(e.target.value as AssetClass | '')} data-newbuy-class>
+              {CLASS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
           </FormRow>
 
           {writeEnabled === false && (
