@@ -162,7 +162,7 @@ export interface AssetTradeResult {
 }
 
 /** 미국 코드 앞부분 — 시트 「티커」 코드 `앞부분:종목`(v2.67.0) */
-export const US_CODE_PREFIXES = ['NASDAQ', 'NYSE', 'NYSEARCA', 'NYSEAMERICAN'] as const;
+export const US_CODE_PREFIXES = ['NASDAQ', 'NYSE', 'NYSEARCA', 'NYSEAMERICAN', 'BATS'] as const;
 export type AssetUsPrefix = (typeof US_CODE_PREFIXES)[number];
 export const isUsPrefix = (v: unknown): v is AssetUsPrefix => typeof v === 'string' && (US_CODE_PREFIXES as readonly string[]).includes(v);
 

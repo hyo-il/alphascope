@@ -231,6 +231,10 @@ try {
     await page.locator('[data-newbuy-confirm]').waitFor({ timeout: 5000 });
     check('[120-7] 확인 화면 문장 — 어느 줄 · 코드 앞부분', (await text(page, '[data-newbuy-where]')) === '「개별 투자」 맨 아래에 줄을 넣고, 「티커」 「개별 투자」 묶음 22행(빈 줄)에 씁니다 · 코드 NASDAQ:FAKN', await text(page, '[data-newbuy-where]'));
     check('[120-7] plan 요청 — 계좌 · 코드', planBodies[0].section === '개별 투자' && planBodies[0].symbol === 'FAKN');
+    const prefixOptions = await page.locator('[data-newbuy-prefix] option').allTextContents();
+    check('[120-1-3] 앞부분 선택지 — NASDAQ · NYSE · NYSEARCA · NYSEAMERICAN · BATS', prefixOptions.join() === 'NASDAQ,NYSE,NYSEARCA,NYSEAMERICAN,BATS', prefixOptions.join());
+    await page.locator('[data-newbuy-prefix]').selectOption('BATS');
+    check('[120-1-3] BATS 를 고르면 확인 문장 코드가 BATS:종목', (await text(page, '[data-newbuy-where]')).endsWith('코드 BATS:FAKN'), await text(page, '[data-newbuy-where]'));
     await page.locator('[data-newbuy-prefix]').selectOption('NYSEARCA');
     check('[120-7] 앞부분을 바꾸면 확인 문장 코드도 바뀜', (await text(page, '[data-newbuy-where]')).endsWith('코드 NYSEARCA:FAKN'), await text(page, '[data-newbuy-where]'));
     const before = seen.sheet;

@@ -503,6 +503,8 @@ try {
     check('[120-7] NYSE', (await plan(NEW.ny, null)).code === `NYSE:${NEW.ny}`);
     check('[120-7] AMEX → 시트에 쓰인 NYSEARCA', (await plan(NEW.am, null)).code === `NYSEARCA:${NEW.am}`);
     check('[120-7] 고른 앞부분이 코드에 들어감', (await plan(NEW.am, 'NYSEAMERICAN')).code === `NYSEAMERICAN:${NEW.am}`);
+    check('[120-1-3] BATS 를 고르면 코드가 BATS:종목', (await plan(NEW.am, 'BATS')).code === `BATS:${NEW.am}`);
+    check('[120-1-3] 기본 앞부분 규칙은 그대로(BATS 가 시트에 있어도 AMEX 는 NYSEARCA)', defaultPrefix('AMEX', new Set(['BATS'])) === 'NYSEARCA');
     const kr = await plan(NEW.nk, null);
     check('[120-7] 국내는 코드 그대로 · 앞부분 없음', kr.code === NEW.nk && kr.prefix === null && kr.prefixEditable === false);
     const shared = await plan('FAKE', 'NYSE');
