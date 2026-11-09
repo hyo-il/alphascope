@@ -151,6 +151,7 @@ export default function AssetTradeDialog({
           </p>
         )}
 
+        {!sameAsHeld && !over && (
         <div className="min-h-9 space-y-0.5 rounded-lg bg-bg-tertiary/40 px-3 py-2 text-xs tabular-nums text-text-primary" data-trade-preview>
           {after == null ? (
             <span className="text-text-muted">수량과 가격을 넣으면 결과가 여기에 보입니다.</span>
@@ -167,6 +168,7 @@ export default function AssetTradeDialog({
             </>
           )}
         </div>
+        )}
 
         {writeEnabled === false && (
           <p className="text-caption text-text-muted keep-all" data-trade-write-off>

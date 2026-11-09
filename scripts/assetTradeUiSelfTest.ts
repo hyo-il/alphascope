@@ -168,7 +168,7 @@ try {
     await page.locator('[data-trade-qty]').fill('31');
     check('[118-7] 보유보다 많으면 안내 + [저장] 막힘', (await page.locator('[data-trade-dialog]').textContent())?.includes('가진 수량보다 많아요') === true && (await page.locator('[data-trade-save]').isDisabled()));
     await page.locator('[data-trade-qty]').fill('30');
-    check('[118-7] 모두 매도 → [저장] 대신 「모두 파는 것은 다음 업데이트에서 돼요」', (await count(page, '[data-trade-save]')) === 0 && (await text(page, '[data-trade-sell-all]')) === '모두 파는 것은 다음 업데이트에서 돼요');
+    check('[118-7] 모두 매도 → [저장] 대신 「모두 파는 것은 다음 업데이트에서 돼요」 · 미리 보기 칸 없음', (await count(page, '[data-trade-save]')) === 0 && (await text(page, '[data-trade-sell-all]')) === '모두 파는 것은 다음 업데이트에서 돼요' && (await count(page, '[data-trade-preview]')) === 0);
     await ctx.close();
   }
 
@@ -224,6 +224,10 @@ try {
   for (const width of [760, 1280]) {
     const { page, ctx } = await open(browser, { size: { width, height: 1080 } });
     if (width === 1280) check('[118-7] 1280px — 자산 현황 페이지 가로 넘침 없음', await noPageOverflow(page));
+    check(`[118-7] ${width}px — 계좌별 표 칸이 화면 밖으로 넘치지 않음(좁으면 표만 칸 안에서 가로로 움직임)`, await page.evaluate(() => {
+      const w = document.querySelector('[data-account-cards-wrap]') as HTMLElement;
+      return w.getBoundingClientRect().right <= (w.parentElement as HTMLElement).getBoundingClientRect().right + 1 && getComputedStyle(w).overflowX === 'auto';
+    }));
     await page.locator('[data-trade-buy="5"]').click();
     await fillTrade(page, '2.5', '110', '1400');
     check(`[118-7] ${width}px — 매수 창 가로 넘침 없음`, !(await panelOverflow(page)));

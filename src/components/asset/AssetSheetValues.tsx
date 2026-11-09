@@ -294,6 +294,8 @@ function AccountCards({ sections, accounts, onTrade }: { sections: AssetSection[
   };
   return (
     /* 평균 매입가는 줄마다 통화가 다르다(원화는 소수 없음 · 달러는 시트 원래 값 소수 4자리까지) — design:check 의 「같은 열 소수 자릿수」 는 이 표에서 재지 않는다(`data-rows-differ`). 수량 열은 `qtyDigits` 로 모든 카드가 같다 */
+    /* 입력 칸이 늘어 좁은 창에서는 표가 칸보다 넓다 — 표만 칸 안에서 가로로 움직인다(넓은 창에서는 변화 없음) */
+    <div className="overflow-x-auto" data-account-cards-wrap>
     <table className="w-full border-separate border-spacing-0 text-left text-xs" data-rows-differ data-account-cards>
       {shown.map((s, i) => {
         const key = s.key ?? `#${i}`;
@@ -312,6 +314,7 @@ function AccountCards({ sections, accounts, onTrade }: { sections: AssetSection[
         );
       })}
     </table>
+    </div>
   );
 }
 

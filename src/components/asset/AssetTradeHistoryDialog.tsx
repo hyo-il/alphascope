@@ -62,9 +62,9 @@ export default function AssetTradeHistoryDialog({ onLocked, onClose }: { onLocke
           <table className="w-full text-left text-xs" data-rows-differ>
             <thead className="sticky top-0 bg-bg-secondary text-caption text-text-muted">
               <tr className={`border-b border-border/50 ${TABLE_HEAD_ROW}`}>
-                <th className={`${TEXT} pl-1 font-normal`}>날짜</th>
+                <th className={`${TABLE_NUM_COL} pl-1 font-normal`}>날짜</th>
                 <th className={`${TEXT} font-normal`}>계좌</th>
-                <th className="min-w-24 pr-4 font-normal">종목</th>
+                <th className={`${TABLE_NUM_GAP} min-w-24 font-normal`}>종목</th>
                 <th className={`${TEXT} font-normal`}>구분</th>
                 <th className={`${NUM} font-normal`}>수량</th>
                 <th className={`${NUM} font-normal`}>가격</th>
@@ -76,9 +76,9 @@ export default function AssetTradeHistoryDialog({ onLocked, onClose }: { onLocke
             <tbody>
               {data.trades.map((t) => (
                 <tr key={t.id} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW} text-text-primary`} data-trade-row={t.side}>
-                  <td className={`${TEXT} pl-1 text-text-secondary tabular-nums`}>{formatDateTime(t.at)}</td>
+                  <td className={`${TABLE_NUM_COL} pl-1 text-text-secondary tabular-nums`}>{formatDateTime(t.at)}</td>
                   <td className={`${TEXT} text-text-secondary`}>{t.section}</td>
-                  <td className="max-w-0 min-w-24 pr-4">
+                  <td className={`${TABLE_NUM_GAP} max-w-0 min-w-24`}>
                     <span className="block truncate" title={t.name}>
                       {t.name}
                     </span>
