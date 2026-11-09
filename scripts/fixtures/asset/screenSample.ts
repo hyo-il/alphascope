@@ -67,7 +67,6 @@ export function assetSheetSample(opts: { dupCode?: boolean } = {}): AssetSheetDa
     retirement: 234567890,
     salary: 3456789,
     avgFxRate: 1350.25,
-    avgFxFormula: false,
     targetRatio: { cash: 20, gold: 10, bond: 10, invest: 60, core: 70, satellite: 30 },
   };
 }

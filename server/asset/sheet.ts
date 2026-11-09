@@ -49,8 +49,8 @@ export function sheetRanges(): { values: string[]; formulas: string[] } {
       ...ratio.assets.map((c) => one(ratio.tab, c)),
       ...ratio.coreSatellite.map((c) => one(ratio.tab, c)),
     ],
-    // 보유 탭 뒤 = 구매 평균 환율 칸(수식 여부 — v2.66.0) · 맨 끝 = 「티커」(자산 분류 칸 수식 여부 — v2.65.3)
-    formulas: [holdingWide(), one(L.cells.avgFxRate.tab, L.cells.avgFxRate.cell), tickerWide()],
+    // 보유 탭(C · F 수식) · 「티커」(자산 분류 칸 수식 여부 — v2.65.3)
+    formulas: [holdingWide(), tickerWide()],
   };
 }
 
@@ -147,7 +147,7 @@ export function parseAssetSheet(values: CellRows[], formulas: CellRows[], readAt
 
   // 「티커」 줄 번호 → 코드 · 자산 분류(D)
   /** 「티커」 수식(맨 끝 범위) — 없으면(모양 확인 단계 · 옛 호출) 수식 아님 */
-  const tickerFormulas = formulas[2] ?? [];
+  const tickerFormulas = formulas[1] ?? [];
   const codeByRow = new Map<number, { code: string; cls: string; clsFormula: boolean }>();
   for (const row of tickerRowsOf(shape.tickers)) {
     const r = tickerRows[row - 1];
@@ -197,9 +197,7 @@ export function parseAssetSheet(values: CellRows[], formulas: CellRows[], readAt
   const [core, satellite] = asPercent(L.targetRatio.coreSatellite.map(() => num(first(next()))));
   const targetRatio: AssetTargetRatio = { cash, gold, bond, invest, core, satellite };
 
-  const fxFormula = first(formulas[1]);
-  const avgFxFormula = typeof fxFormula === 'string' && fxFormula.trim().startsWith('=');
-  return { readAt, sections, cashTotal, retirement, targetRatio, salary, avgFxRate, avgFxFormula };
+  return { readAt, sections, cashTotal, retirement, targetRatio, salary, avgFxRate };
 }
 
 let cache: { at: number; data: AssetSheetData } | null = null;

@@ -598,16 +598,15 @@ function targets(): Target[] {
           if (step === 'close') await page.keyboard.press('Escape').catch(() => {});
           await page.waitForTimeout(400);
         }] as const),
-        // v2.66.0 — 자산 현황 [매수] [매도] · 매수 창(국내 · 미국 환율 있음/없음) · 매도 창 · 모두 매도 안내 · 기록 창
+        // v2.66.0 — 자산 현황 [매수] [매도] · 매수 창(국내 · 미국) · 매도 창 · 모두 매도 안내 · 기록 창
         ...([
-          ['매매-계좌별표', null, null, null],
-          ['매수창-국내', 'buy:6', ['10', '70000'], null],
-          ['매수창-미국-환율있음', 'buy:5', ['2.5', '110.1234'], '1400'],
-          ['매수창-미국-환율없음', 'buy:5', ['2.5', '110.1234'], null],
-          ['매도창', 'sell:5', ['2.5', '120'], null],
-          ['매도창-모두매도', 'sell:6', ['30', '72000'], null],
-          ['매매-기록창', 'history', null, null],
-        ] as const).map(([label, step, inputs, fx]) => [label, {}, async (page: Page) => {
+          ['매매-계좌별표', null, null],
+          ['매수창-국내', 'buy:6', ['10', '70000']],
+          ['매수창-미국', 'buy:5', ['2.5', '110.1234']],
+          ['매도창', 'sell:5', ['2.5', '120']],
+          ['매도창-모두매도', 'sell:6', ['30', '72000']],
+          ['매매-기록창', 'history', null],
+        ] as const).map(([label, step, inputs]) => [label, {}, async (page: Page) => {
           await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
           await page.waitForTimeout(500);
           await page.locator('[data-account-cards]').scrollIntoViewIfNeeded().catch(() => {});
@@ -622,7 +621,6 @@ function targets(): Target[] {
               await page.locator('[data-trade-qty]').fill(inputs[0]).catch(() => {});
               await page.locator('[data-trade-price]').fill(inputs[1]).catch(() => {});
             }
-            if (fx) await page.locator('[data-trade-fx]').fill(fx).catch(() => {});
           }
           await page.waitForTimeout(300);
         }] as const),

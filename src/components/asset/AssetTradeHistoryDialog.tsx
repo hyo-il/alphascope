@@ -41,6 +41,9 @@ export default function AssetTradeHistoryDialog({ onLocked, onClose }: { onLocke
     void load();
   }, [load]);
 
+  /** 환율 칸은 값이 있는 옛 기록이 있을 때만(새 기록은 환율을 받지 않는다 · v2.66.2) */
+  const showFx = data?.trades.some((t) => t.fx != null) ?? false;
+
   return (
     <Dialog title="매수 · 매도 기록" onClose={onClose} size="xl" bodyClassName="flex min-h-0 flex-col gap-3 p-4">
       <div className="min-h-0 flex-1 overflow-auto" data-trade-history>
@@ -68,7 +71,7 @@ export default function AssetTradeHistoryDialog({ onLocked, onClose }: { onLocke
                 <th className={`${TEXT} font-normal`}>구분</th>
                 <th className={`${NUM} font-normal`}>수량</th>
                 <th className={`${NUM} font-normal`}>가격</th>
-                <th className={`${NUM} font-normal`}>환율</th>
+                {showFx && <th className={`${NUM} font-normal`}>환율</th>}
                 <th className={`${NUM} font-normal`}>그 뒤 수량</th>
                 <th className={`${NUM} pr-1 font-normal`}>그 뒤 평균가</th>
               </tr>
@@ -86,7 +89,7 @@ export default function AssetTradeHistoryDialog({ onLocked, onClose }: { onLocke
                   <td className={TEXT}>{t.side === 'buy' ? '매수' : '매도'}</td>
                   <td className={NUM}>{tradeQtyText(t.qty)}</td>
                   <td className={NUM}>{tradeMoneyText(t.price, t.currency)}</td>
-                  <td className={NUM}>{t.fx == null ? '—' : tradeFxText(t.fx)}</td>
+                  {showFx && <td className={NUM}>{t.fx == null ? '—' : tradeFxText(t.fx)}</td>}
                   <td className={NUM}>{tradeQtyText(t.afterQty)}</td>
                   <td className={`${NUM} pr-1`}>{tradeMoneyText(t.afterAvg, t.currency)}</td>
                 </tr>

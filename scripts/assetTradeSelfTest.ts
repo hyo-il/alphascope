@@ -204,41 +204,37 @@ try {
     check('[118-1] 수량 합에 부동소수 찌꺼기 없음(10 + 0.1 = 10.1)', fract.status === 200 && cellOf('D5') === 10.1);
   }
 
-  // ═══ 2. G9 ═══
+  // ═══ 2. 환율 — G9 는 쓰지 않는다(119차 · 시트 「달러 환전」 탭이 계산) ═══
   {
+    for (const fx of [1400, null, 0]) {
+      reset();
+      const before = rows();
+      const r = await trade({ ...buyUs, fx });
+      check(`[119-8] fx 를 보내면(${fx}) 400 not-editable · 쓰기 0 · 기록 0`, r.status === 400 && r.body.kind === 'not-editable' && g.writes.length === 0 && rows() === before, `${r.status}`);
+    }
     reset();
-    const r = await trade({ ...buyUs, fx: 1400 });
-    // (1300 × (10×100.5 + 2×50) + 1400 × 275.3085) ÷ (1105 + 275.3085) = 1319.95 — 합친 표(1000주)를 넣으면 다른 값
-    check('[118-2] 환율 넣은 미국 매수 — G9 = 식 그대로 · 소수 2자리 · 합친 표 제외 · 같은 1요청', r.status === 200 && g9() === 1319.95 && g.writes.length === 1, String(g9() ?? '없음'));
+    const r = await trade(buyUs);
+    check('[119-8] 환율 없는 미국 매수 — 저장 · G9 쓰기 0 · 평균가 · 수량만 쓴 1요청', r.status === 200 && g.writes.length === 1 && g.writes[0].cells.length === 2 && g9() === undefined);
     const t = listTrades('1').trades[0];
-    check('[118-2] 기록 — fx · fx_before · fx_after', t.fx === 1400 && t.fxBefore === 1300 && t.fxAfter === 1319.95);
-    reset();
-    await trade(buyUs);
-    check('[118-2] 환율 비운 미국 매수 — G9 쓰기 0', g.writes.length === 1 && g9() === undefined);
-    reset();
-    await trade({ ...buyUs, fx: null });
-    check('[118-2] 환율 null — G9 쓰기 0', g.writes.length === 1 && g9() === undefined);
+    check('[119-8] 새 기록 — fx · fx_before · fx_after 는 null', t.fx === null && t.fxBefore === null && t.fxAfter === null);
     reset();
     await trade(buyKr);
     check('[118-2] 국내 매수 — G9 쓰기 0', g9() === undefined);
     reset();
     await trade(sellUs);
     check('[118-2] 매도 — G9 쓰기 0', g.writes.length === 1 && g9() === undefined);
-    reset();
-    const krFx = await trade({ ...buyKr, fx: 1400 });
-    const sellFx = await trade({ ...sellUs, fx: 1400 });
-    check('[118-2] 국내 · 매도에 환율을 넣으면 400 · 쓰기 0', krFx.status === 400 && sellFx.status === 400 && g.writes.length === 0);
     reset((m) => {
-      m.formulas[`${T}!G9`] = "='다른탭'!B2";
-    });
-    const before = rows();
-    const lockedFx = await trade({ ...buyUs, fx: 1400 });
-    check('[118-2] G9 이 수식이면 환율 넣은 매수 거절 409 formula-cell · 쓰기 0 · 기록 0 — 수식을 덮어쓰지 않음', lockedFx.status === 409 && lockedFx.body.kind === 'formula-cell' && g.writes.length === 0 && rows() === before);
-    reset((m) => {
-      m.formulas[`${T}!G9`] = "='다른탭'!B2";
+      m.formulas[`${T}!G9`] = "='달러 환전'!D2";
     });
     const noFx = await trade(buyUs);
-    check('[118-2] G9 이 수식이어도 환율을 비우면 저장됨(G9 쓰기 0)', noFx.status === 200 && g9() === undefined);
+    check('[119-8] G9 이 수식이어도(원본 모양) 저장됨 · G9 쓰기 0', noFx.status === 200 && g9() === undefined);
+    // 옛 기록의 환율은 그대로 보인다
+    getDb().prepare(`INSERT INTO asset_trades (at, section, holding_row, symbol, name, side, qty, price, currency, fx, before_qty, before_avg, after_qty, after_avg, fx_before, fx_after) VALUES ('2026-11-01T00:00:00.000Z', '개별 투자', 5, 'X', 'x', 'buy', 1, 1, 'USD', 1400, 1, 1, 2, 1, 1300, 1319.95)`).run();
+    const old = listTrades('1').trades[0];
+    check('[119-8] 옛 기록의 환율 · 전후 G9 는 표에 남아 기록 목록에 나옴', old.fx === 1400 && old.fxBefore === 1300 && old.fxAfter === 1319.95);
+    const src = fs.readFileSync(path.join(root, 'server/asset/trade.ts'), 'utf8');
+    const ui = fs.readFileSync(path.join(root, 'src/utils/assetTrade.ts'), 'utf8');
+    check('[119-8] G9 계산 · 쓰기 코드 0(trade.ts · assetTrade.ts)', !/avgFxRate|nextAvgFx|usdCostOf|req\.fx/.test(src) && !/nextAvgFx|usdCostOf/.test(ui));
   }
 
   // ═══ 3. 일부 매도 ═══

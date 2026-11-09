@@ -69,10 +69,9 @@ async function open(browser: Browser, o: Opts = {}) {
 
 const text = async (page: Page, sel: string) => (await page.locator(sel).textContent())?.trim() ?? '';
 const count = (page: Page, sel: string) => page.locator(sel).count();
-const fillTrade = async (page: Page, qty: string, price: string, fx?: string) => {
+const fillTrade = async (page: Page, qty: string, price: string) => {
   await page.locator('[data-trade-qty]').fill(qty);
   await page.locator('[data-trade-price]').fill(price);
-  if (fx != null) await page.locator('[data-trade-fx]').fill(fx);
 };
 const panelOverflow = (page: Page) =>
   page.evaluate(() => {
@@ -131,30 +130,16 @@ try {
     await ctx.close();
   }
 
-  // ── 미국 매수 · 환율 ──
+  // ── 미국 매수 — 환율 칸 없음(119차) ──
   {
     const { page, ctx, seen } = await open(browser);
     await page.locator('[data-trade-buy="5"]').click();
-    check('[118-7] 미국 매수 — 환율 안내 문구', (await page.locator('[data-trade-dialog]').textContent())?.includes('모르면 비워 두세요 — 구매 평균 환율은 그대로 둡니다') === true);
+    check('[119-8] 미국 매수 창 — 환율 칸 0 · 안내 한 줄', (await count(page, '[data-trade-fx]')) === 0 && (await text(page, '[data-trade-fx-note]')) === '원화 매입 금액은 시트 「달러 환전」 탭의 구매 평균 환율로 계산돼요', await text(page, '[data-trade-fx-note]'));
     await fillTrade(page, '2.5', '110');
-    check('[118-7] 미국 미리 보기(환율 없음) — 달러 평균 소수 4자리 · 구매 평균 환율 줄 없음', (await text(page, '[data-trade-preview-main]')) === '사고 나면 15주 · 평균 $102.6954' && (await count(page, '[data-trade-preview-fx]')) === 0, await text(page, '[data-trade-preview-main]'));
-    await page.locator('[data-trade-fx]').fill('1400');
-    check('[118-7] 환율 넣으면 「구매 평균 환율 ₩1,350.25 → ₩1,352.31」(합친 표 제외)', (await text(page, '[data-trade-preview-fx]')) === '구매 평균 환율 ₩1,350.25 → ₩1,352.31', await text(page, '[data-trade-preview-fx]'));
+    check('[119-8] 미국 미리 보기 — 달러 평균 소수 4자리 · 구매 평균 환율 미리 보기 0', (await text(page, '[data-trade-preview-main]')) === '사고 나면 15주 · 평균 $102.6954' && (await count(page, '[data-trade-preview-fx]')) === 0, await text(page, '[data-trade-preview-main]'));
     await page.locator('[data-trade-save]').click();
     await page.locator('[data-trade-dialog]').waitFor({ state: 'detached', timeout: 5000 });
-    check('[118-7] 미국 저장 요청에 환율', (seen.tradeBodies[0] as { fx?: number }).fx === 1400);
-    await ctx.close();
-  }
-
-  // ── G9 수식 ──
-  {
-    const sheet = assetSheetSample();
-    sheet.avgFxFormula = true;
-    const { page, ctx } = await open(browser, { sheet });
-    await page.locator('[data-trade-buy="5"]').click();
-    check('[118-7] G9 이 수식이면 환율 칸 대신 안내(저장은 됨)', (await count(page, '[data-trade-fx]')) === 0 && (await count(page, '[data-trade-fx-locked]')) === 1);
-    await fillTrade(page, '1', '100');
-    check('[118-7] G9 수식 — [저장] 눌림 · 구매 평균 환율 미리 보기 없음', !(await page.locator('[data-trade-save]').isDisabled()) && (await count(page, '[data-trade-preview-fx]')) === 0);
+    check('[119-8] 미국 저장 요청에 환율 키 없음', !('fx' in (seen.tradeBodies[0] as object)));
     await ctx.close();
   }
 
@@ -213,10 +198,21 @@ try {
     await page.locator('[data-trade-row]').first().waitFor({ timeout: 5000 });
     check('[118-7] 기록 창 — 처음 50줄 · limit=50', (await count(page, '[data-trade-row]')) === 50 && seen.tradesUrls[0].includes('limit=50'));
     const headers = await page.locator('[data-trade-history] thead th').allTextContents();
-    check('[118-7] 칸 — 날짜 · 계좌 · 종목 · 구분 · 수량 · 가격 · 환율 · 그 뒤 수량 · 그 뒤 평균가', headers.join(',') === '날짜,계좌,종목,구분,수량,가격,환율,그 뒤 수량,그 뒤 평균가', headers.join(','));
+    check('[119-8] 옛 기록에 환율이 있으면 칸이 보임 — 날짜 · 계좌 · 종목 · 구분 · 수량 · 가격 · 환율 · 그 뒤 수량 · 그 뒤 평균가', headers.join(',') === '날짜,계좌,종목,구분,수량,가격,환율,그 뒤 수량,그 뒤 평균가', headers.join(','));
     await page.locator('[data-trade-history-more]').click();
     await page.locator('[data-trade-row]').nth(99).waitFor({ timeout: 5000 });
     check('[118-7] 50줄 더 보기 → 100줄 · limit=100', (await count(page, '[data-trade-row]')) === 100 && seen.tradesUrls.at(-1)!.includes('limit=100'));
+    await ctx.close();
+  }
+
+  // ── 환율 값이 있는 기록이 없으면 칸 없음(119차) ──
+  {
+    const { page, ctx } = await open(browser);
+    await page.route('**/api/asset/trades**', (r) => r.fulfill({ json: { trades: assetTradesSample(3, 3).trades.map((t) => ({ ...t, fx: null })), hasMore: false } }));
+    await page.locator('[data-trade-history-open]').click();
+    await page.locator('[data-trade-row]').first().waitFor({ timeout: 5000 });
+    const heads = await page.locator('[data-trade-history] thead th').allTextContents();
+    check('[119-8] 기록에 환율 값이 없으면 환율 칸 없음', !heads.includes('환율') && heads.length === 8, heads.join(','));
     await ctx.close();
   }
 
@@ -229,7 +225,7 @@ try {
       return w.getBoundingClientRect().right <= (w.parentElement as HTMLElement).getBoundingClientRect().right + 1 && getComputedStyle(w).overflowX === 'auto';
     }));
     await page.locator('[data-trade-buy="5"]').click();
-    await fillTrade(page, '2.5', '110', '1400');
+    await fillTrade(page, '2.5', '110');
     check(`[118-7] ${width}px — 매수 창 가로 넘침 없음`, !(await panelOverflow(page)));
     await page.locator('[data-trade-cancel]').click();
     await page.locator('[data-trade-history-open]').click();

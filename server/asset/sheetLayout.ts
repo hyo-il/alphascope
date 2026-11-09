@@ -12,7 +12,7 @@
  *   「자산 투자 비율 관리」 목표 비율 여섯 칸(`targetRatio` — 설정 창에서 저장할 때만 · `writeTargetRatio` · v2.63.0) ·
  *   「주식 투자 정리」 계좌 이름 칸(찾은 머리 줄의 B열)의 「( 날짜 )」 — 「구매 완료」 때만 · `writeAccountDates` · v2.64.0 ·
  *   「티커」 시트 가격(`prices` — C9 환율 · 종목 줄 E 가격 · F 원화 표기 수식 · v2.65.0 · `priceSheet.ts` · `priceWriter.ts`) ·
- *   ⑥ 「주식 투자 정리」 보유 줄 평균가(C) · 수량(D) + 「티커」 G9 구매 평균 환율(매수 · 매도 입력 — `trade.ts` `recordTrade` · v2.66.0 · G9 는 숫자 칸일 때만).
+ *   ⑥ 「주식 투자 정리」 보유 줄 평균가(C) · 수량(D)(매수 · 매도 입력 — `trade.ts` `recordTrade` · v2.66.0). 「티커」 G9 구매 평균 환율은 읽기만(시트 「달러 환전」 탭이 계산).
  */
 
 import { ASSET_CLASSES } from '../../src/types/asset';

@@ -262,7 +262,6 @@ export async function runSheetCheck(config: AssetSheetConfig, say: (line: string
   });
   const fxF = first(nextF());
   say(`   구매 평균 환율 칸 — ${isFormula(fxF) ? `수식(${maskFormula(String(fxF).trim())})` : isNum(fxF) ? '숫자' : '숫자 아님'}`);
-  if (!isNum(fxF)) warn(`구매 평균 환율 칸이 숫자가 아닙니다 — 매수 입력에서 환율을 받지 않습니다(수량 · 평균가는 입력됨)`);
 
   say(problems ? `❌ 연결하지 마세요 — 위 ${problems}곳을 먼저 고쳐 주세요` : '✅ 연결해도 됩니다');
   return { ok: problems === 0, problems, reads };

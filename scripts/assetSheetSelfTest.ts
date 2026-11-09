@@ -192,7 +192,7 @@ try {
   });
   check('[118-D] 수식만 남은 빈 줄 — 칸 글자 · 수식 모양(숫자 · 따옴표 안 가림) · 값 없음', /6행 E 수식\(=C#\*D#\) · F 수식\(=GOOGLEFINANCE\("…"\)\)/.test(shape.text), shape.text);
   check('[119-A] 머리 줄이 13행으로 옮겨져도 머리 글자로 찾음 — 첫 묶음 이름 · 머리 13행', /묶음 「개별 투자」\(머리 13행\)/.test(shape.text), shape.text);
-  check('[118-D] 구매 평균 환율 수식 → 모양 표시 + ⚠️ 알림 · 연결 판단은 그대로(✅)', /구매 평균 환율 칸 — 수식\(='환율 원본'!B#\)/.test(shape.text) && /⚠️ 구매 평균 환율 칸이 숫자가 아닙니다/.test(shape.text) && shape.ok, shape.text);
+  check('[118-D] 구매 평균 환율 수식 → 모양 표시 · 알림 없음(앱이 쓰지 않음 — 119차) · 연결 판단은 그대로(✅)', /구매 평균 환율 칸 — 수식\(='환율 원본'!B#\)/.test(shape.text) && !/⚠️ 구매 평균 환율 칸이 숫자가 아닙니다/.test(shape.text) && shape.ok, shape.text);
   check('[118-D] 7번을 더해도 읽기는 값 1번 · 수식 1번 · 쓰기 0', shape.reads === 2 && g.reads === 2 && g.writes === 0);
 
   const noD = await run('D12없음', (m) => {

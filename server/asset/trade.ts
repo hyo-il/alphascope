@@ -3,14 +3,14 @@
  *
  * - 검사 · 계산 · 쓰기 · 기록은 `recordTrade` 한 곳. 계산은 화면 미리 보기와 같은 함수(`src/utils/assetTrade.ts`).
  * - 표 `asset_trades` — 선택 기능이라 이 파일에서 만든다. ⚠️ 개인 자산 정보다: 로그에는 id · 이유 종류만.
- * - G9(구매 평균 환율)가 **수식이면 쓰지 않는다**(409 `formula-cell` — 시트의 수식을 덮어쓰지 않는다는 다른 쓰기와 같은 규칙).
+ * - G9(구매 평균 환율)는 쓰지 않는다 — 시트 「달러 환전」 탭이 계산한다(v2.66.2 · `fx` 를 보내면 400). 표의 `fx` · `fx_before` · `fx_after` 칸은 옛 기록 보존용(새 기록은 NULL).
  */
 import { getDb } from '../db';
 import { isAssetSyncEnabled, assetSheetConfig } from './config';
 import { AssetSheetError, batchGet, valuesWrite, type CellRows, type CellWrite } from './google';
 import { one, readAssetSheet, resetSheetCache } from './sheet';
 import { HOLDINGS_TAB, SHEET_LAYOUT } from './sheetLayout';
-import { TRADE_DIGITS, TRADE_MAX, decimalPlaces, nextAvgFx, tradeAfter, usdCostOf } from '../../src/utils/assetTrade';
+import { TRADE_DIGITS, TRADE_MAX, decimalPlaces, tradeAfter } from '../../src/utils/assetTrade';
 import type { AssetHolding, AssetTradeRecord, AssetTradeRequest, AssetTradeResult, AssetTradesResponse, AssetTradeSide } from '../../src/types/asset';
 
 let ready = false;
@@ -29,12 +29,12 @@ function db() {
         qty REAL NOT NULL,
         price REAL NOT NULL,            -- 원래 통화(국내 원 · 미국 달러)
         currency TEXT NOT NULL,         -- KRW | USD
-        fx REAL,                        -- 넣은 환율(미국 매수에서만 · 비우면 NULL)
+        fx REAL,                        -- 옛 기록의 넣은 환율(v2.66.2 부터 NULL)
         before_qty REAL NOT NULL,
         before_avg REAL NOT NULL,
         after_qty REAL NOT NULL,
         after_avg REAL NOT NULL,
-        fx_before REAL,                 -- G9 를 바꿨을 때만
+        fx_before REAL,                 -- 옛 기록(v2.66.2 부터 NULL)
         fx_after REAL
       );
     `);
@@ -74,15 +74,15 @@ const sameNum = (a: number, b: number) => Math.abs(a - b) < 1e-9;
 function parseRequest(input: unknown): AssetTradeRequest {
   const o = (input && typeof input === 'object' && !Array.isArray(input) ? input : {}) as Record<string, unknown>;
   const e = (o.expect && typeof o.expect === 'object' ? o.expect : {}) as Record<string, unknown>;
-  const fx = o.fx == null ? null : o.fx;
+  if ('fx' in o) throw refuse('환율은 받지 않습니다 — 시트 「달러 환전」 탭이 계산합니다.');
   if (
     typeof o.section !== 'string' || typeof o.row !== 'number' || !Number.isInteger(o.row) || o.row < 1 || (o.side !== 'buy' && o.side !== 'sell') ||
-    !positive(o.qty, TRADE_MAX.qty) || !positive(o.price, TRADE_MAX.price) || (fx !== null && !positive(fx, TRADE_MAX.fx)) ||
+    !positive(o.qty, TRADE_MAX.qty) || !positive(o.price, TRADE_MAX.price) ||
     typeof e.name !== 'string' || typeof e.code !== 'string' || typeof e.quantity !== 'number' || typeof e.avgPrice !== 'number'
   ) {
     throw refuse('입력이 올바르지 않습니다 — 수량 · 가격은 0 보다 커야 합니다.');
   }
-  return { section: o.section, row: o.row, side: o.side, qty: o.qty as number, price: o.price as number, fx: fx as number | null, expect: { name: e.name, code: e.code, quantity: e.quantity, avgPrice: e.avgPrice } };
+  return { section: o.section, row: o.row, side: o.side, qty: o.qty as number, price: o.price as number, expect: { name: e.name, code: e.code, quantity: e.quantity, avgPrice: e.avgPrice } };
 }
 
 /** 시트의 그 줄이 화면이 본 것과 같은가 */
@@ -106,7 +106,7 @@ let busy = false;
 /**
  * 매수 · 일부 매도 한 건. 순서:
  * ① 스위치 · 요청 모양 ② 시트를 값 · 수식으로 다시 읽음(머리 글자 확인 포함) ③ 화면이 본 이름 · 코드 · 수량 · 평균가와 비교(다르면 409 `sheet-changed`)
- * ④ 입력 검사(자릿수 · 매도 수량 · 환율) ⑤ 계산 ⑥ `valuesWrite` **한 요청** ⑦ 쓴 칸을 다시 읽어 확인(다르면 `mismatch`) ⑧ 그때만 `asset_trades` 한 줄.
+ * ④ 입력 검사(자릿수 · 매도 수량) ⑤ 계산 ⑥ `valuesWrite` **한 요청** ⑦ 쓴 칸을 다시 읽어 확인(다르면 `mismatch`) ⑧ 그때만 `asset_trades` 한 줄.
  */
 export async function recordTrade(input: unknown): Promise<AssetTradeResult> {
   if (!isAssetSyncEnabled()) throw new AssetSheetError('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다(ASSET_SYNC_ENABLED=false).');
@@ -132,21 +132,12 @@ export async function recordTrade(input: unknown): Promise<AssetTradeResult> {
       if (req.qty > beforeQty && !sameNum(req.qty, beforeQty)) throw refuse('매도 수량이 가진 수량보다 많습니다.');
       if (sameNum(req.qty, beforeQty)) throw new AssetSheetError('sell-all-later', '모두 파는 것은 다음 업데이트에서 돼요.');
     }
-    const fx = req.fx ?? null;
-    if (fx != null && (h.currency !== 'USD' || req.side !== 'buy')) throw refuse('환율은 미국 종목 매수에서만 넣을 수 있습니다.');
-    if (fx != null && data.avgFxFormula) throw new AssetSheetError('formula-cell', '구매 평균 환율 칸이 수식이라 쓰지 않았습니다 — 환율을 비우고 저장해 주세요.');
-    if (fx != null && data.avgFxRate == null) throw refuse('구매 평균 환율 칸이 숫자가 아니라 환율을 넣을 수 없습니다 — 환율을 비우고 저장해 주세요.');
-
     const { afterQty, afterAvg } = tradeAfter({ side: req.side, currency: h.currency, beforeQty, beforeAvg, qty: req.qty, price: req.price });
-    const fxBefore = fx != null ? (data.avgFxRate as number) : null;
-    const fxAfter = fx != null ? nextAvgFx(fxBefore as number, usdCostOf(data.sections), fx, req.qty * req.price) : null;
 
     const avgCell = one(HOLDINGS_TAB, `C${h.row}`);
     const qtyCell = one(HOLDINGS_TAB, `D${h.row}`);
-    const fxCell = one(SHEET_LAYOUT.cells.avgFxRate.tab, SHEET_LAYOUT.cells.avgFxRate.cell);
     const cells: CellWrite[] = [{ range: qtyCell, value: afterQty }];
     if (req.side === 'buy') cells.push({ range: avgCell, value: h.currency === 'USD' ? usdFormulaWith(h.avgFormula as string, afterAvg) : afterAvg });
-    if (fxAfter != null) cells.push({ range: fxCell, value: fxAfter });
     // 미국 평균가 칸은 수식이라 USER_ENTERED(「=」 그대로 수식) · 나머지(국내 매수 · 모든 매도)는 숫자만이라 RAW
     await valuesWrite(config, cells, req.side === 'buy' && h.currency === 'USD' ? 'USER_ENTERED' : 'RAW');
     resetSheetCache();
@@ -162,8 +153,8 @@ export async function recordTrade(input: unknown): Promise<AssetTradeResult> {
     if (!cells.every((_, i) => sameCell(i))) throw new AssetSheetError('mismatch', '시트에 쓴 값이 다르게 읽혔습니다(시트를 열어 그 줄을 확인하세요) — 기록은 남기지 않았습니다.');
 
     const res = db()
-      .prepare(`INSERT INTO asset_trades (at, section, holding_row, symbol, name, side, qty, price, currency, fx, before_qty, before_avg, after_qty, after_avg, fx_before, fx_after) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(new Date().toISOString(), req.section, h.row, h.symbol ?? '', h.name, req.side, req.qty, req.price, h.currency, fx, beforeQty, beforeAvg, afterQty, afterAvg, fxBefore, fxAfter);
+      .prepare(`INSERT INTO asset_trades (at, section, holding_row, symbol, name, side, qty, price, currency, before_qty, before_avg, after_qty, after_avg) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(new Date().toISOString(), req.section, h.row, h.symbol ?? '', h.name, req.side, req.qty, req.price, h.currency, beforeQty, beforeAvg, afterQty, afterAvg);
     const id = Number(res.lastInsertRowid);
     console.log(`[asset] 매수·매도 기록 id=${id}`);
     return { id };

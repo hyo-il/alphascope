@@ -422,7 +422,6 @@ export default function AssetDashboard({
           section={trade.section}
           holding={trade.holding}
           side={trade.side}
-          data={sheet.data}
           writeEnabled={summary ? summary.writeEnabled : null}
           onSend={sendTrade}
           onSaved={() => {

@@ -141,9 +141,7 @@ export interface AssetSheetData {
   salary: number | null;
   /** 구매 평균 환율(원/달러) */
   avgFxRate: number | null;
-  /** 구매 평균 환율 칸(「티커」 G9)이 수식인가(v2.66.0) — 수식이면 앱이 덮어쓰지 않아 매수 입력에서 환율을 받지 않는다 */
-  avgFxFormula: boolean;
-}
+  }
 
 export type AssetTradeSide = 'buy' | 'sell';
 
@@ -154,7 +152,6 @@ export interface AssetTradeRequest {
   side: AssetTradeSide;
   qty: number;
   price: number;
-  fx?: number | null;
   expect: { name: string; code: string; quantity: number; avgPrice: number };
 }
 

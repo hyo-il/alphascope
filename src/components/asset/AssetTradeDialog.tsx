@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Button, Dialog, FormRow, NumberField, NumberUnitGroup } from '../ui';
 import { formatNumber, formatPrice } from '../../utils/formatters';
-import { TRADE_DIGITS, decimalPlaces, nextAvgFx, tradeAfter, usdCostOf } from '../../utils/assetTrade';
-import type { AssetCurrency, AssetHolding, AssetSection, AssetSheetData, AssetTradeRequest, AssetTradeSide } from '../../types/asset';
+import { TRADE_DIGITS, decimalPlaces, tradeAfter } from '../../utils/assetTrade';
+import type { AssetCurrency, AssetHolding, AssetSection, AssetTradeRequest, AssetTradeSide } from '../../types/asset';
 
 /**
  * 매수 · 매도 입력 창(v2.66.0 · 1차 — 시트에 줄이 있는 종목의 매수 · 일부 매도). 실제 주문은 없다 — 다른 증권사에서 사고판 것을 적는 창이다.
  * - 미리 보기는 서버와 같은 계산(`src/utils/assetTrade.ts`). 저장은 `POST /api/asset/trade` — 검사는 서버 `recordTrade` 한 곳.
- * - 미국 매수만 환율 칸(비워도 됨). 시트의 구매 평균 환율 칸이 수식이거나 숫자가 아니면 칸 대신 안내(서버도 거절).
+ * - 미국 매수는 환율을 받지 않는다 — 원화 매입 금액은 시트 「달러 환전」 탭이 계산(안내 한 줄 · v2.66.2).
  * - 모두 매도 수량 = [저장] 대신 안내(119차). 쓰기 스위치 꺼짐 = 안내 + [저장] 막음. 아직 모르면(요약 응답 전) 글 없이 막음.
  * - 바깥 클릭으로 닫지 않는다(입력을 잃는다).
  */
@@ -24,7 +24,6 @@ export default function AssetTradeDialog({
   section,
   holding,
   side,
-  data,
   writeEnabled,
   onSend,
   onSaved,
@@ -33,7 +32,6 @@ export default function AssetTradeDialog({
   section: AssetSection;
   holding: AssetHolding;
   side: AssetTradeSide;
-  data: AssetSheetData;
   /** 이 서버에서 시트 쓰기가 켜져 있나 — 아직 모르면 null */
   writeEnabled: boolean | null;
   /** 저장 — 실패 이유 또는 null */
@@ -43,7 +41,6 @@ export default function AssetTradeDialog({
 }) {
   const [qty, setQty] = useState('');
   const [price, setPrice] = useState('');
-  const [fx, setFx] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,20 +49,15 @@ export default function AssetTradeDialog({
   const beforeQty = holding.quantity as number;
   const beforeAvg = holding.avgPrice as number;
   const usBuy = side === 'buy' && currency === 'USD';
-  const fxLocked = data.avgFxFormula || data.avgFxRate == null;
 
   const qtyN = Number(qty);
   const priceN = Number(price);
-  const fxN = fx === '' ? null : Number(fx);
   const filled = qty !== '' && price !== '' && qtyN > 0 && priceN > 0;
   const sameAsHeld = side === 'sell' && qty !== '' && Math.abs(qtyN - beforeQty) < 1e-9;
   const over = side === 'sell' && qty !== '' && qtyN > beforeQty && !sameAsHeld;
-  const fxBad = usBuy && !fxLocked && fxN != null && !(fxN > 0);
-  const sendFx = usBuy && !fxLocked && fxN != null && fxN > 0 ? fxN : null;
 
   const after = filled && !over && !sameAsHeld ? tradeAfter({ side, currency, beforeQty, beforeAvg, qty: qtyN, price: priceN }) : null;
-  const fxAfter = after && sendFx != null ? nextAvgFx(data.avgFxRate as number, usdCostOf(data.sections), sendFx, qtyN * priceN) : null;
-  const canSave = writeEnabled === true && after != null && !fxBad && !busy;
+  const canSave = writeEnabled === true && after != null && !busy;
 
   const save = async () => {
     if (!canSave) return;
@@ -77,7 +69,6 @@ export default function AssetTradeDialog({
       side,
       qty: qtyN,
       price: priceN,
-      ...(usBuy ? { fx: sendFx } : {}),
       expect: { name: holding.name, code: holding.code as string, quantity: beforeQty, avgPrice: beforeAvg },
     });
     setBusy(false);
@@ -138,16 +129,11 @@ export default function AssetTradeDialog({
             <FormRow label={currency === 'KRW' ? '가격(원)' : '가격(달러)'}>
               <NumberField kind="long" thousands decimals={digits.price} unit={currency === 'KRW' ? '원' : '$'} value={price} onValue={setPrice} aria-label="가격" data-trade-price />
             </FormRow>
-            {usBuy && !fxLocked && (
-              <FormRow label="환율(선택)" hint="모르면 비워 두세요 — 구매 평균 환율은 그대로 둡니다">
-                <NumberField kind="long" thousands decimals={2} unit="원" value={fx} onValue={setFx} aria-label="환율" data-trade-fx />
-              </FormRow>
-            )}
           </div>
         </NumberUnitGroup>
-        {usBuy && fxLocked && (
-          <p className="text-caption text-text-muted keep-all" data-trade-fx-locked>
-            시트의 구매 평균 환율 칸이 수식이라 여기서 바꾸지 않습니다 — 수량 · 달러 평균가만 바뀝니다.
+        {usBuy && (
+          <p className="text-caption text-text-muted keep-all" data-trade-fx-note>
+            원화 매입 금액은 시트 「달러 환전」 탭의 구매 평균 환율로 계산돼요
           </p>
         )}
 
@@ -160,11 +146,6 @@ export default function AssetTradeDialog({
               <div data-trade-preview-main>
                 {side === 'buy' ? `사고 나면 ${tradeQtyText(after.afterQty)}주 · 평균 ${tradeMoneyText(after.afterAvg, currency)}` : `팔고 나면 ${tradeQtyText(after.afterQty)}주 · 평균 그대로`}
               </div>
-              {fxAfter != null && (
-                <div data-trade-preview-fx>
-                  구매 평균 환율 {tradeFxText(data.avgFxRate as number)} → {tradeFxText(fxAfter)}
-                </div>
-              )}
             </>
           )}
         </div>
