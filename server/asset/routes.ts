@@ -18,7 +18,7 @@ import { checkSheetSwitchSafe, sheetSwitchedAt } from './sheetSwitch';
 import { convertSheetPrices, restoreSheetPrices } from './priceSheet';
 import { historyPoints, isHistoryRange, recordPurchase } from './store';
 import { writeAssetSettings } from './settings';
-import { listTrades, recordTrade } from './trade';
+import { listTrades, planNewHolding, recordNewHolding, recordTrade } from './trade';
 import type { AssetSheetErrorKind, AssetSheetFailure, AssetStatus, AssetTouchResult, PurchaseDoneResult } from '../../src/types/asset';
 
 export const assetRouter = Router();
@@ -34,6 +34,8 @@ export const ACTIVE = new Set([
   'POST /api/asset/price-source/convert',
   'POST /api/asset/price-source/restore',
   'POST /api/asset/trade',
+  'POST /api/asset/trade/new',
+  'POST /api/asset/trade/new/plan',
 ]);
 const isAssetPath = (p: string) => p === '/api/asset' || p.startsWith('/api/asset/');
 
@@ -201,6 +203,24 @@ assetRouter.post('/api/asset/trade', async (req, res) => {
   }
 });
 
+/** 새 종목 — 어디에 쓸지(저장 전 확인 화면 · v2.67.0 · 시트를 바꾸지 않는다) */
+assetRouter.post('/api/asset/trade/new/plan', async (req, res) => {
+  try {
+    res.json(await planNewHolding(req.body));
+  } catch (e) {
+    sendSheetError(res, e, '읽기');
+  }
+});
+
+/** 새 종목 매수(v2.67.0) — 시트에 줄을 넣고 「티커」 에 종목을 더한다(실제 주문 없음) · 이미 가진 종목이면 매수로 더한다. 검사 · 쓰기 · 되돌리기 · 기록은 `recordNewHolding` 한 곳 */
+assetRouter.post('/api/asset/trade/new', async (req, res) => {
+  try {
+    res.json(await recordNewHolding(req.body));
+  } catch (e) {
+    sendSheetError(res, e, '쓰기');
+  }
+});
+
 /** 매수 · 매도 기록 — 최근 순 · `limit`(기본 50 · 최대 1000 — 화면은 50씩 늘려 다시 받는다) */
 assetRouter.get('/api/asset/trades', (req, res) => {
   res.json(listTrades(req.query.limit));
@@ -236,8 +256,8 @@ assetRouter.put('/api/asset/settings', async (req, res) => {
   }
 });
 
-/** 이유 종류 → HTTP — 이 서버 설정(연결 정보 · 열쇠 · 스위치)은 503, 요청이 틀림은 400, 수식 칸 · 날짜 없음 · 이미 구매 완료 · 누를 차례 없음 · 시트 가격(도는 중 · 바꿀 줄 없음 · 백업 없음) · 매수 · 매도(시트 바뀜 · 모두 매도)는 409, 구글 쪽은 502 */
-const STATUS: Partial<Record<AssetSheetErrorKind, number>> = { 'not-configured': 503, 'key-file': 503, disabled: 503, 'not-editable': 400, 'formula-cell': 409, 'no-date': 409, 'already-done': 409, 'not-yet': 409, busy: 409, 'no-rows': 409, 'no-backup': 409, 'sheet-changed': 409, 'sell-all-later': 409 };
+/** 이유 종류 → HTTP — 이 서버 설정(연결 정보 · 열쇠 · 스위치)은 503, 요청이 틀림은 400, 수식 칸 · 날짜 없음 · 이미 구매 완료 · 누를 차례 없음 · 시트 가격(도는 중 · 바꿀 줄 없음 · 백업 없음) · 매수 · 매도(시트 바뀜 · 모두 매도의 다른 칸이 가리킴 · 마지막 줄)는 409, 구글 쪽은 502 */
+const STATUS: Partial<Record<AssetSheetErrorKind, number>> = { 'not-configured': 503, 'key-file': 503, disabled: 503, 'not-editable': 400, 'formula-cell': 409, 'no-date': 409, 'already-done': 409, 'not-yet': 409, busy: 409, 'no-rows': 409, 'no-backup': 409, 'sheet-changed': 409, 'row-referenced': 409, 'last-row': 409 };
 
 /** 실패 응답 — 쉬운 말 + 이유 종류. ⚠️ 로그에는 이유 종류만(시트 값 · 응답 본문 · 경로를 찍지 않는다) */
 export function sendSheetError(res: Response, e: unknown, action: string): void {

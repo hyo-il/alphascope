@@ -171,6 +171,18 @@ export function clearSheetBackup(): void {
   backupDb().prepare(`DELETE FROM asset_sheet_backup`).run();
 }
 
+/** 칸 주소가 옮겨진 백업 바꾸기(v2.67.0 — 「티커」 에 줄을 넣었을 때) — 한 트랜잭션 */
+export function replaceSheetBackupCells(moved: { from: string; cell: string; formula: string }[]): void {
+  const database = backupDb();
+  const rows = moved.map((m) => ({ ...m, savedAt: (database.prepare(`SELECT saved_at AS s FROM asset_sheet_backup WHERE cell = ?`).get(m.from) as { s: string } | undefined)?.s ?? new Date().toISOString() }));
+  const del = database.prepare(`DELETE FROM asset_sheet_backup WHERE cell = ?`);
+  const ins = database.prepare(`INSERT INTO asset_sheet_backup (cell, formula, saved_at) VALUES (?, ?, ?)`);
+  database.transaction(() => {
+    for (const m of rows) del.run(m.from);
+    for (const m of rows) ins.run(m.cell, m.formula, m.savedAt);
+  })();
+}
+
 /** 되돌린 칸만 백업에서 지우기(v2.65.1 — 줄이 옮겨져 쓰지 않은 칸의 백업은 남긴다) */
 export function deleteSheetBackupCells(cells: string[]): void {
   const database = backupDb();

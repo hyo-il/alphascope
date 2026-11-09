@@ -247,9 +247,7 @@ try {
     reset();
     const over = await trade({ ...sellUs, qty: 10.5 });
     check('[118-3] 매도 > 보유 → 400 · 쓰기 0', over.status === 400 && over.body.kind === 'not-editable' && g.writes.length === 0);
-    reset();
-    const all = await trade({ ...sellUs, qty: 10 });
-    check('[118-3] 모두 매도 → 409 sell-all-later · 쓰기 0', all.status === 409 && all.body.kind === 'sell-all-later' && g.writes.length === 0);
+    // 모두 매도는 120차에 열렸다(줄 지우기 — `assetrowops:test` [120-5])
   }
 
   // ═══ 4. 시트 바뀜 ═══

@@ -17,7 +17,7 @@ import { AssetSheetError, batchGet, valuesWrite, type CellRows } from './google'
 import { headerOk, one, resetSheetCache, splitCode, tickerRowCode, wideRange } from './sheet';
 import { SHEET_LAYOUT, TICKER_TAB } from './sheetLayout';
 import { findTickerGroups, locateRow, tickerRowsOf, type ShapeTicker } from './sheetShape';
-import { archivedBackup, clearSheetBackup, deleteSheetBackupCells, saveSheetBackup, sheetBackup } from './store';
+import { archivedBackup, clearSheetBackup, deleteSheetBackupCells, replaceSheetBackupCells, saveSheetBackup, sheetBackup } from './store';
 import { isMockPrices, priceMoved, priceRows, priceSkipped, priceSource, priceTools, runOperation, savePriceState, type PriceRow } from './priceState';
 import { priceWriterStatus, seedPriceWriter, syncPriceWriter } from './priceWriter';
 import type { AssetPriceMoved, AssetPriceSheetStatus, AssetPriceSkip, AssetPriceSkipReason } from '../../src/types/asset';
@@ -284,6 +284,33 @@ export async function restoreSheetPrices(): Promise<AssetPriceSheetStatus> {
     console.log(`[asset] 시트 가격 되돌림 · ${write.length}칸${moved.length ? ` · 남은 백업 ${sheetBackup().length}칸` : ''}`);
     return priceSheetStatus();
   });
+}
+
+/**
+ * 「티커」 에 줄을 넣은 뒤(v2.67.0) — 그 줄과 아래 줄의 앱 기록(바꾼 줄 · 바꾸지 않은 줄 · 옮겨진 줄 · 백업 칸과 수식 안 줄 번호)을 한 줄 내린다.
+ * 같은 코드가 두 줄인 종목도 자리로 알아보고, [되돌리기] 가 맞는 줄에 쓰게.
+ */
+export function shiftPriceRowsForInsert(at: number): void {
+  const down = <T extends { row: number }>(list: T[]) => list.map((x) => (x.row >= at ? { ...x, row: x.row + 1 } : x));
+  savePriceState({ rows: down(priceRows()), skipped: down(priceSkipped()), moved: down(priceMoved()) });
+  const moved = sheetBackup().flatMap((b) => {
+    const row = backupRow(b.cell);
+    return row != null && row >= at ? [{ from: b.cell, cell: b.cell.replace(/\d+$/, String(row + 1)), formula: retargetFormula(b.formula, row, row + 1) }] : [];
+  });
+  if (moved.length > 0) replaceSheetBackupCells(moved);
+}
+
+/** 새 종목을 토스 숫자로 쓴 줄(v2.67.0) — 10초 쓰기 대상 + [되돌리기] 때 넣을 GOOGLEFINANCE 수식(원래 수식이 없는 줄이라 같은 모양으로 저장) */
+export function addTossPriceRow(row: number, code: string, market: 'US' | 'KR', name: string): void {
+  const fx = P.fxCell.replace(/^([A-Z]+)(\d+)$/, '$$$1$$$2');
+  savePriceState({ rows: [...priceRows(), { row, code, market, name }] });
+  saveSheetBackup(
+    [
+      { cell: `${P.priceColumn}${row}`, formula: `=GOOGLEFINANCE(${P.codeColumn}${row},"price")` },
+      { cell: `${P.wonColumn}${row}`, formula: market === 'US' ? `=GOOGLEFINANCE($${P.codeColumn}${row},"price")*${fx}` : `=GOOGLEFINANCE(${P.codeColumn}${row},"price")` },
+    ],
+    new Date().toISOString(),
+  );
 }
 
 /** 설정 창 「시트 가격」 상태 — summary 응답에 더한다 */

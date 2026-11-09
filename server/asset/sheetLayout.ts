@@ -12,7 +12,8 @@
  *   「자산 투자 비율 관리」 목표 비율 여섯 칸(`targetRatio` — 설정 창에서 저장할 때만 · `writeTargetRatio` · v2.63.0) ·
  *   「주식 투자 정리」 계좌 이름 칸(찾은 머리 줄의 B열)의 「( 날짜 )」 — 「구매 완료」 때만 · `writeAccountDates` · v2.64.0 ·
  *   「티커」 시트 가격(`prices` — C9 환율 · 종목 줄 E 가격 · F 원화 표기 수식 · v2.65.0 · `priceSheet.ts` · `priceWriter.ts`) ·
- *   ⑥ 「주식 투자 정리」 보유 줄 평균가(C) · 수량(D)(매수 · 매도 입력 — `trade.ts` `recordTrade` · v2.66.0). 「티커」 G9 구매 평균 환율은 읽기만(시트 「달러 환전」 탭이 계산).
+ *   ⑥ 「주식 투자 정리」 보유 줄 평균가(C) · 수량(D)(매수 · 매도 입력 — `trade.ts` `recordTrade` · v2.66.0) ·
+ *   ⑦ 줄 넣기 · 지우기(새 종목 매수 · 모두 매도 — `rowOps.ts` · v2.67.0: 보유 줄 전체 · 「티커」 종목 줄 B ~ `shapeLastColumn` · 합계 줄 범위 끝). 합친 표는 쓰지 않는다. 「티커」 G9 구매 평균 환율은 읽기만(시트 「달러 환전」 탭이 계산).
  */
 
 import { ASSET_CLASSES } from '../../src/types/asset';
@@ -51,7 +52,12 @@ export const SHEET_LAYOUT = {
    * 「티커」 종목 이름(B) · 코드(C) · 자산 분류(D). 머리 줄(`headRow` — B12 · D12)보다 아래에서 B열이 `skipNames` 인 줄 = 묶음 머리(이 순서 · 한 번씩).
    * 종목 줄 = 묶음 머리 다음 줄부터 다음 머리 앞 또는 B · C 가 모두 빈 줄이 두 줄 이어지는 곳 앞까지(빈 줄 하나는 건너뛴다 — `sheetShape.ts`).
    */
-  tickers: { headRow: 12, skipNames: ['개별 투자', '적립식 투자', 'ISA 계좌', '연금 저축 계좌'] },
+  tickers: {
+    headRow: 12,
+    skipNames: ['개별 투자', '적립식 투자', 'ISA 계좌', '연금 저축 계좌'],
+    /** 계좌 key → 그 계좌의 「티커」 묶음(새 종목 매수 · v2.67.0) */
+    groupOfSection: { '개별 투자': '개별 투자', '적립식 계좌': '적립식 투자', 'ISA 계좌': 'ISA 계좌', '연금 저축 계좌': '연금 저축 계좌' },
+  },
 
   /**
    * 자산 분류 — 「티커」 D열(종목 줄). 읽기 · 쓰기 모두 이 칸. 값은 `values` 셋(채권 · 금 · 주식) 중 하나 또는 빈칸(미지정 — 세 글자가 아닌 글자 · 옛 「현금」 도 읽을 때 미지정 · v2.65.2).
@@ -73,6 +79,9 @@ export const SHEET_LAYOUT = {
     { key: '연금 저축 계좌' },
     { label: '적립식 주식', combined: true },
   ] satisfies HoldingSection[],
+
+  /** 새 종목을 넣으면 합친 표를 직접 고쳐야 하는 계좌(합친 표는 앱이 쓰지 않는다 · v2.67.0) */
+  combinedFrom: '적립식 계좌',
 
   /** 값 한 칸씩 */
   cells: {

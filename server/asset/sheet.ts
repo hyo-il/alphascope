@@ -23,6 +23,8 @@ type Cell = string | number | boolean | undefined;
 
 const q = (tab: string) => `'${tab.replace(/'/g, "''")}'`;
 export const one = (tab: string, cell: string) => `${q(tab)}!${cell}`;
+/** 탭 전체(값이 있는 곳까지 · 칸 수를 정하지 않는다 — A1 부터) */
+export const wholeTab = (tab: string) => q(tab);
 /** 넓은 범위 — B1 부터 그 열의 시트 끝까지(줄 수를 정하지 않는다 · 값이 있는 줄까지만 온다). `rows[줄 번호 - 1]` 이 그 줄 */
 export const wideRange = (tab: string, lastColumn: string) => `${q(tab)}!B1:${lastColumn}`;
 /** 「주식 투자 정리」 이름(B) ~ 이을 수식(F) */

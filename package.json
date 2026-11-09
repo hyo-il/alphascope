@@ -61,6 +61,7 @@
     "assetprice:test": "tsx scripts/assetPriceSelfTest.ts",
     "assetlock:test": "tsx scripts/assetLockSelfTest.ts",
     "assettrade:test": "tsx scripts/assetTradeSelfTest.ts",
+    "assetrowops:test": "tsx scripts/assetRowOpsSelfTest.ts",
     "assettradeui:test": "tsx scripts/assetTradeUiSelfTest.ts",
     "ordercolor:test": "tsx scripts/orderButtonColorSelfTest.ts"
   },

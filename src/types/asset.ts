@@ -50,7 +50,8 @@ export type AssetSheetErrorKind =
   | 'no-backup' // 되돌릴 원래 수식이 앱 DB 에 없음
   // ── 매수 · 매도 입력(v2.66.0) ──
   | 'sheet-changed' // 화면을 연 뒤 시트의 그 줄(이름 · 코드 · 수량 · 평균가)이 바뀜
-  | 'sell-all-later'; // 가진 수량을 모두 파는 입력 — 다음 업데이트에서 연다(119차)
+  | 'row-referenced' // 모두 매도 — 다른 칸이 지울 줄을 가리킴(v2.67.0)
+  | 'last-row'; // 모두 매도 — 그 계좌 구간의 마지막 종목 줄(지우면 구간이 사라진다 · v2.67.0)
 
 /**
  * 자산 분류 — 「티커」 D열에 적는 글자 셋(v2.65.2 — 사용자 결정 2026-11-08: 「현금」 을 뺐다).
@@ -158,6 +159,52 @@ export interface AssetTradeRequest {
 /** `POST /api/asset/trade` 성공 — 기록 id 만(값은 시트를 다시 읽어 본다) */
 export interface AssetTradeResult {
   id: number;
+}
+
+/** 미국 코드 앞부분 — 시트 「티커」 코드 `앞부분:종목`(v2.67.0) */
+export const US_CODE_PREFIXES = ['NASDAQ', 'NYSE', 'NYSEARCA', 'NYSEAMERICAN'] as const;
+export type AssetUsPrefix = (typeof US_CODE_PREFIXES)[number];
+export const isUsPrefix = (v: unknown): v is AssetUsPrefix => typeof v === 'string' && (US_CODE_PREFIXES as readonly string[]).includes(v);
+
+/** `POST /api/asset/trade/new/plan` 요청 — 계좌 · 종목 목록의 코드 · 미국 앞부분(없으면 시장에 맞춘 기본) */
+export interface AssetNewHoldingTarget {
+  section: string;
+  symbol: string;
+  exchange: AssetUsPrefix | null;
+}
+
+/** `POST /api/asset/trade/new` 요청(v2.67.0) — `assetClass` 빈 글자 = 미지정 */
+export interface AssetNewHoldingRequest extends AssetNewHoldingTarget {
+  qty: number;
+  price: number;
+  assetClass: AssetClass | '';
+}
+
+/** 새 종목을 어디에 쓸지(저장 전 확인 화면 · 시트를 바꾸지 않는다) */
+export interface AssetNewHoldingPlan {
+  section: string;
+  name: string;
+  symbol: string;
+  market: 'KR' | 'US';
+  currency: AssetCurrency;
+  /** 시트에 쓸 코드(「티커」 에 이미 있으면 그 줄의 코드) */
+  code: string;
+  /** 미국 앞부분 — 국내는 null */
+  prefix: AssetUsPrefix | null;
+  /** 확인 화면에서 앞부분을 바꿀 수 있나(미국 + 「티커」 에 새로 쓸 때) */
+  prefixEditable: boolean;
+  ticker: { group: string; row: number; status: 'blank' | 'insert' | 'existing' };
+  /** 그 계좌에 이미 있는 종목이면 그 줄(새 줄 없이 매수로 더한다) */
+  existing: { row: number; quantity: number | null; avgPrice: number | null } | null;
+  /** 합친 표를 직접 고쳐야 할 때 한 줄 */
+  notice: string | null;
+}
+
+/** `POST /api/asset/trade/new` 성공 — `mode: 'buy'` 는 이미 가진 종목이라 매수로 더함 */
+export interface AssetNewHoldingResult {
+  id: number;
+  mode: 'new' | 'buy';
+  notice: string | null;
 }
 
 /** 매수 · 매도 기록 한 줄(`asset_trades` · v2.66.0) */
