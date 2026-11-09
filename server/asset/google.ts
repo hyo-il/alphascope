@@ -3,7 +3,7 @@
  * Sheets API v4 `values:batchGet`(읽기) · `values:batchUpdate`(쓰기 — 값 칸만 · 한 요청)를 `fetch` 로 부른다(v2.61.0 · v2.62.0 · v2.63.0 쓰기).
  *
  * - 범위(scope)는 `spreadsheets`(읽기 · 쓰기 — v2.62.0). **쓰기 함수는 `valuesWrite` 하나**(쓰는 방식 RAW / USER_ENTERED 는 인자) · 부르는 곳은
- *   `sheet.ts` 세 곳(`writeAssetClasses` 「티커」 D14~D42 자산 분류(여러 줄 한 요청) · `writeTargetRatio` 목표 비율 여섯 칸 · `writeAccountDates` 계좌 이름 날짜(v2.64.0) — RAW)과
+ *   `sheet.ts` 세 곳(`writeAssetClasses` 「티커」 종목 줄 D열 자산 분류(여러 줄 한 요청) · `writeTargetRatio` 목표 비율 여섯 칸 · `writeAccountDates` 계좌 이름 날짜(v2.64.0) — RAW)과
  *   시트 가격(v2.65.0 — `priceSheet.ts` 바꾸기 · 되돌리기 USER_ENTERED · `priceWriter.ts` 10초 쓰기 RAW) · 매수 · 매도 입력(v2.66.0 — `trade.ts` 국내 RAW · 미국 USER_ENTERED)뿐(`asset:test` · `assetprice:test` 가 검색으로 확인).
  *   서식 쓰기(스프레드시트 단위 batchUpdate)는 쓰지 않는다. 시트 쓰기는 서비스 계정이 시트의 「편집자」 여야 된다.
  * - 토큰은 만료 1분 전까지 메모리에 둔다(열쇠 파일이 바뀌면 새로 받는다).

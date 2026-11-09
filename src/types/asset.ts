@@ -38,7 +38,7 @@ export type AssetSheetErrorKind =
   | 'network'
   // ── 쓰기(자산 분류 · 목표 비율)만 ──
   | 'disabled' // 이 서버에서 시트 쓰기 · 하루 기록이 꺼짐(ASSET_SYNC_ENABLED=false)
-  | 'not-editable' // 쓸 수 없는 칸(「티커」 D14~D42 의 종목 줄이 아님) · 허용하지 않는 값
+  | 'not-editable' // 쓸 수 없는 칸(「티커」 종목 줄이 아님) · 허용하지 않는 값
   | 'formula-cell' // 그 칸이 수식(`=` 로 시작) — 덮어쓰지 않는다
   | 'mismatch' // 쓴 뒤 다시 읽은 값이 보낸 값과 다름(목표 비율 — v2.63.0 · 계좌 이름 날짜 — v2.64.0)
   | 'no-date' // 「( 날짜 )」 가 든 계좌 이름 칸이 없음(구매 완료 — v2.64.0)
