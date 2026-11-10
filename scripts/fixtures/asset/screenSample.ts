@@ -163,7 +163,7 @@ export function assetSummarySample(
       { id: '000003', name: '예시 고가 국내주', symbol: '000003', exchange: null, assetClass: null, side: null, sections: ['개별 투자'], quantity: 1, value: opts.none ? null : 98765432, missing: opts.none ? 1 : 0, ratio: opts.none ? null : 98765432 / total },
       { id: 'name:이을 수식 없는 줄', name: '이을 수식 없는 줄', symbol: null, exchange: null, assetClass: null, side: null, sections: ['적립식 계좌'], quantity: 1, value: null, missing: 1, ratio: null },
     ],
-    // 지금 가격(v2.68.0 물타기 계산기 — 만든 값 · 원래 통화) — 미국 소형주 CCCC 는 가격 못 받음(빠짐)
+    // 지금 가격(v2.68.0 평단 계산기 — 만든 값 · 원래 통화) — 미국 소형주 CCCC 는 가격 못 받음(빠짐)
     prices: opts.prices ?? { AAAA: 95.5, '000001': 65000, BBBB: 1300.25, '000003': 1100000, '0072R0': 16500, '000002': 44000, '000004': 48000 },
     rebalance: computeRebalance(totals, target, band),
     targetRatio: target,

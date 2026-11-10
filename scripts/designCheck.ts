@@ -624,11 +624,14 @@ function targets(): Target[] {
           }
           await page.waitForTimeout(300);
         }] as const),
-        // v2.68.0 — 물타기 계산기(국내 두 줄 + 목표 · 미국 · 세 줄 · 거꾸로 계산 안 됨 · 지금 가격 없음)
+        // v2.68.0 · v2.68.1 — 평단 계산기(「더 사면 평단은?」 1차 · 2차 · 3차 · 5차 · 미국 · 「목표 평단까지」 됨 · 안 됨 · 지금 가격 없음)
         ...([
-          ['계산기-국내', 6, [['60000', '10'], ['55000', '10']], '68500'],
+          ['계산기-국내', 6, [['60000', '10'], ['55000', '10']], null],
+          ['계산기-1차', 6, [], null],
+          ['계산기-목표', 6, [], '68500'],
           ['계산기-미국', 5, [['90', '2.5']], '100'],
           ['계산기-여러줄', 7, [['1200', '1'], ['1100.5', '2'], ['1000', '3']], null],
+          ['계산기-5차', 6, [['60000', '1'], ['58000', '2'], ['56000', '3'], ['54000', '4'], ['52000', '5']], null],
           ['계산기-거꾸로안됨', 6, [], '64000'],
           ['계산기-가격없음', 16, [], '10'],
         ] as const).map(([label, row, lines, target]) => [label, {}, async (page: Page) => {
@@ -641,7 +644,10 @@ function targets(): Target[] {
             await page.locator('[data-avgcalc-price]').nth(i).fill(lines[i][0]).catch(() => {});
             await page.locator('[data-avgcalc-qty]').nth(i).fill(lines[i][1]).catch(() => {});
           }
-          if (target) await page.locator('[data-avgcalc-target]').fill(target).catch(() => {});
+          if (target) {
+            await page.locator('[data-avgcalc]').getByRole('tab', { name: '목표 평단까지' }).click().catch(() => {});
+            await page.locator('[data-avgcalc-target]').fill(target).catch(() => {});
+          }
           await page.waitForTimeout(300);
         }] as const),
         // v2.67.0 — 새 종목 매수 창 · 확인 화면 · 모두 매도 미리 보기 · 409 안내

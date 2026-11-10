@@ -18,7 +18,7 @@ import { UNASSIGNED_LABEL, type AssetAccount, type AssetHolding, type AssetSecti
  * - 계좌 카드 위 「계좌별 | 종목별」(v2.63.0 — 이 기기에 기억 `alphascope.asset.statusView` · 읽기 실패면 계좌별).
  *   종목별 = 같은 종목을 한 줄로(`AssetSymbolTable` · 「전체 / 코어 / 위성」 거르기) — 자산 분류 고르기는 계좌별에서.
  * - 계좌별 줄 끝 [매수] [매도](v2.66.0 — `h.tradable` 인 줄만 · 합친 표 · 수식 칸 · 이을 수 없는 줄은 없음) · 위 [새 종목 매수](v2.67.0 · `AssetNewBuyDialog`) · [매수 · 매도 기록].
- *   [계산](v2.68.0 물타기 계산기 · 회색 기본 버튼) — 수량 · 평균가가 0 보다 큰 줄이면 [매수] 가 없는 줄에도 보인다(계산만 · `canCalc`).
+ *   [평단 계산기](v2.68.0 · v2.68.1 이름 · 회색 기본 버튼) — 수량 · 평균가가 0 보다 큰 줄이면 [매수] 가 없는 줄에도 보인다(계산만 · `canCalc`).
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 접은 계좌 이름 · 보기 이름만).
  */
 
@@ -88,7 +88,7 @@ function avgText(h: AssetHolding, usdDigits: number): string {
   return `$${formatNumber(h.avgPrice, Math.max(2, usdDigits))}`;
 }
 
-/** 물타기 계산기를 열 수 있는 줄 — 수량 · 평균가가 0 보다 큰 숫자(시트 쓰기와 상관없음 · 계산만) */
+/** 평단 계산기를 열 수 있는 줄 — 수량 · 평균가가 0 보다 큰 숫자(시트 쓰기와 상관없음 · 계산만) */
 export const canCalc = (h: AssetHolding) => h.quantity != null && h.quantity > 0 && h.avgPrice != null && h.avgPrice > 0;
 
 /** 「계좌별 | 종목별」 — 이 기기에 기억(읽기 실패 · 모르는 값이면 계좌별) */
@@ -177,7 +177,7 @@ function AccountCard({
   onToggle: () => void;
   /** [매수] · [매도] — 입력 창 열기 */
   onTrade: (section: AssetSection, holding: AssetHolding, side: AssetTradeSide) => void;
-  /** [계산] — 물타기 계산기 열기 */
+  /** [평단 계산기] — 평단 계산기 열기 */
   onCalc: (section: AssetSection, holding: AssetHolding) => void;
 }) {
   const id = `as-asset-account-${section.key}`;
@@ -282,8 +282,8 @@ function AccountCard({
                       </>
                     )}
                     {canCalc(h) && (
-                      <Button size="sm" onClick={() => onCalc(section, h)} aria-label={`${h.name} 물타기 계산`} data-avgcalc-open={h.row}>
-                        계산
+                      <Button size="sm" onClick={() => onCalc(section, h)} aria-label={`${h.name} 평단 계산기`} data-avgcalc-open={h.row}>
+                        평단 계산기
                       </Button>
                     )}
                   </span>
@@ -356,7 +356,7 @@ export default function AssetSheetValues({
   onOpenClassDialog: () => void;
   /** 종목 줄 [매수] · [매도] — 입력 창 열기(v2.66.0) */
   onTrade: (section: AssetSection, holding: AssetHolding, side: AssetTradeSide) => void;
-  /** 종목 줄 [계산] — 물타기 계산기 열기(v2.68.0) */
+  /** 종목 줄 [평단 계산기] — 평단 계산기 열기(v2.68.0) */
   onCalc: (section: AssetSection, holding: AssetHolding) => void;
   /** [매수 · 매도 기록] — 창 열기 */
   onNewBuy: () => void;

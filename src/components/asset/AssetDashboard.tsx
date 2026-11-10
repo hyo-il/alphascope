@@ -42,7 +42,7 @@ import { MonthlyBuySection, PurchaseDayDialog, dayText, isEarlyDone, sheetDateTe
  * 잠금 시간(v2.65.4): 이 화면(창 포함)의 클릭 · 키 · 스크롤 · 터치를 `useAssetIdleLock` 에 알린다(touch 1분에 한 번 이하 · 화면 타이머 → `onIdle`).
  *   시간은 설정(`summary.settings.lockMinutes` — 받기 전에는 잠금 상태가 준 값).
  * 매수 · 매도 입력(v2.66.0): 자산 현황 계좌별 줄의 [매수] [매도] → `AssetTradeDialog` · 성공하면 닫고 다시 읽기 · [매수 · 매도 기록] → `AssetTradeHistoryDialog`.
- * 물타기 계산기(v2.68.0): 같은 줄의 [계산] → `AssetAverageCalculator`(계산만 — 서버 요청 없음 · 지금 가격은 summary 의 `prices`).
+ * 평단 계산기(v2.68.0): 같은 줄의 [평단 계산기] → `AssetAverageCalculator`(계산만 — 서버 요청 없음 · 지금 가격은 summary 의 `prices`).
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 「연금 포함」 켬/끔만).
  */
 
@@ -153,7 +153,7 @@ export default function AssetDashboard({
   /** 새 종목을 줄로 넣은 뒤 버튼 줄 아래에 남기는 안내(다음에 새 종목 창을 열면 지운다) */
   const [newBuyNotes, setNewBuyNotes] = useState<string[]>([]);
   const [tradeHistoryOpen, setTradeHistoryOpen] = useState(false);
-  /** 물타기 계산기(v2.68.0 — 계산만) — 연 줄 */
+  /** 평단 계산기(v2.68.0 — 계산만) — 연 줄 */
   const [calc, setCalc] = useState<{ section: AssetSection; holding: AssetHolding; opened: number } | null>(null);
   /** 구매일 팝업 — 이 화면이 열린 뒤 처음 받은 summary 로 한 번만 정한다 */
   const [purchasePopup, setPurchasePopup] = useState(false);

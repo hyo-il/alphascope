@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Button, Dialog, FormRow, ListRemoveButton, NumberField, NumberUnitGroup } from '../ui';
+import { Button, Dialog, FormRow, ListRemoveButton, NumberField, NumberUnitGroup, Tabs, type TabItem } from '../ui';
 import { Skeleton } from '../common/SkeletonLoader';
 import { changeColor, formatNumber, formatSigned } from '../../utils/formatters';
 import { TRADE_DIGITS, TRADE_MAX, roundTo } from '../../utils/assetTrade';
@@ -9,8 +9,11 @@ import { tradeMoneyText, tradeQtyText } from './AssetTradeDialog';
 import type { AssetHolding, AssetSection } from '../../types/asset';
 
 /**
- * 물타기 계산기(v2.68.0) — 가진 종목을 「얼마에 몇 주 더 사면 평균 단가가 얼마가 되나」 계산만 한다.
+ * 평단 계산기(v2.68.0 · v2.68.1 이름 · 탭 · 차수) — 가진 종목을 「얼마에 몇 주 더 사면 평균 단가가 얼마가 되나」 계산만 한다.
  * - **계산만**: 저장 · 시트 쓰기 · 기록 · 주문 · 서버 요청 없음. 입력은 이 창 안에만 있고 닫으면 사라진다(다시 열면 첫 줄 지금 가격만).
+ * - 탭 「더 사면 평단은?」 | 「목표 평단까지」(공용 `Tabs`) — 처음은 늘 첫째 탭(기억하지 않음) · 탭을 바꿔도 두 탭 값은 창을 닫기 전까지 남는다.
+ *   두 탭 내용을 같은 칸에 겹쳐 두고 고르지 않은 쪽은 숨긴다(`invisible` — 초점 · 클릭에서도 빠진다) — 창 높이 = 더 긴 탭(탭을 바꿔도 흔들리지 않음 · 길면 창 안 스크롤).
+ * - 「더 살 것」 = 구매 단계 「1차 매수 · 2차 매수 · …」(최대 `MAX_STEPS` · 다 차면 [+ n차 매수] 숨김) · 지우기는 마지막 차수만(1차는 지우지 않음 — 번호가 섞이지 않게).
  * - 평균 식은 `src/utils/assetAverage.ts` 한 곳(매수 창 미리 보기 · 서버 `recordTrade` 와 같은 함수 — 여러 줄은 한 줄씩 차례로 더한다).
  * - 지금 가격 = 「자산 현황」 이 계산에 쓴 summary 의 가격(미국은 달러) — 새 가격 요청 없음. 받기 전에는 뼈대 · 못 받았으면 「지금 가격 없음」.
  *   첫 줄 가격 칸에 지금 가격을 미리 넣는다(가격이 늦게 오면 그 칸을 아직 건드리지 않았을 때만 넣는다).
@@ -24,6 +27,15 @@ interface Line {
 }
 
 /** 돈(더 드는 돈 · 필요한 돈) — 국내 원 · 미국 달러는 소수 2자리로 맞춘다(평균 단가 · 가격은 매수 창과 같은 `tradeMoneyText`) */
+/** 구매 단계 최대 차수 */
+const MAX_STEPS = 5;
+
+type CalcTab = 'more' | 'target';
+const TABS: TabItem<CalcTab>[] = [
+  { id: 'more', label: '더 사면 평단은?' },
+  { id: 'target', label: '목표 평단까지' },
+];
+
 const costText = (n: number, currency: AssetHolding['currency']) => (currency === 'KRW' ? tradeMoneyText(n, currency) : `$${formatNumber(n, 2)}`);
 
 /** 수익률 — 「−12.3%」(소수 한 자리 · 부호) */
@@ -55,6 +67,7 @@ export default function AssetAverageCalculator({
   const unit = currency === 'KRW' ? '원' : '$';
   const priceText = (p: number) => String(roundTo(p, digits.price));
 
+  const [tab, setTab] = useState<CalcTab>('more');
   const nextId = useRef(2);
   const [lines, setLines] = useState<Line[]>(() => [{ id: 1, price: price != null ? priceText(price) : '', qty: '' }]);
   const [target, setTarget] = useState('');
@@ -70,8 +83,9 @@ export default function AssetAverageCalculator({
     if (id === lines[0].id && patch.price !== undefined) firstTouched.current = true;
     setLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l)));
   };
-  const addLine = () => setLines((ls) => [...ls, { id: nextId.current++, price: '', qty: '' }]);
-  const removeLine = (id: number) => setLines((ls) => (ls.length > 1 ? ls.filter((l) => l.id !== id) : ls));
+  const addLine = () => setLines((ls) => (ls.length < MAX_STEPS ? [...ls, { id: nextId.current++, price: '', qty: '' }] : ls));
+  /** 마지막 차수만 지운다(1차는 남김) */
+  const removeLast = () => setLines((ls) => (ls.length > 1 ? ls.slice(0, -1) : ls));
 
   const base: AverageHolding = { currency, qty: holding.quantity as number, avg: holding.avgPrice as number, price: price ?? null };
   const buys = lines.flatMap((l) => {
@@ -87,7 +101,7 @@ export default function AssetAverageCalculator({
 
   return (
     <Dialog
-      title="물타기 계산기"
+      title="평단 계산기"
       titleAside="더 사면 평균 단가가 어떻게 되는지 계산합니다"
       onClose={onClose}
       size="md"
@@ -133,79 +147,93 @@ export default function AssetAverageCalculator({
           </dd>
         </dl>
 
-        <section className="space-y-2" aria-label="더 살 것">
-          <h3 className="text-xs font-semibold text-text-primary">더 살 것</h3>
-          <NumberUnitGroup w="sm">
-            <div className="space-y-3">
-              {lines.map((l, i) => (
-                <div key={l.id} className="space-y-1.5" data-avgcalc-line={i}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-caption text-text-muted">{i + 1}번째</span>
-                    {lines.length > 1 && <ListRemoveButton label="삭제" name={`${i + 1}번째 줄`} onClick={() => removeLine(l.id)} />}
-                  </div>
-                  <FormRow label="가격">
-                    <NumberField kind="fill" thousands decimals={digits.price} max={TRADE_MAX.price} unit={unit} value={l.price} onValue={(v) => setLine(l.id, { price: v })} aria-label={`${i + 1}번째 가격`} data-avgcalc-price />
-                  </FormRow>
-                  <FormRow label="수량">
-                    <NumberField kind="fill" thousands decimals={digits.qty} max={TRADE_MAX.qty} unit="주" value={l.qty} onValue={(v) => setLine(l.id, { qty: v })} aria-label={`${i + 1}번째 수량`} data-avgcalc-qty autoFocus={i === 0} />
-                  </FormRow>
-                </div>
-              ))}
-            </div>
-          </NumberUnitGroup>
-          <Button size="sm" icon={Plus} onClick={addLine} data-avgcalc-add>
-            줄 추가
-          </Button>
-        </section>
+        <Tabs items={TABS} value={tab} onChange={setTab} size="sm" label="평단 계산기 탭" />
 
-        <div className="space-y-1 rounded-lg bg-bg-tertiary/40 px-3 py-2 text-xs tabular-nums text-text-primary" data-avgcalc-result>
-          {result == null ? (
-            <span className="text-text-muted">가격과 수량을 넣으면 결과가 여기에 보입니다.</span>
-          ) : (
-            <>
-              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1">
-                <dt className="text-text-muted">새 평균 단가</dt>
-                <dd className="font-semibold" data-avgcalc-new-avg>
-                  {tradeMoneyText(result.newAvg, currency)}
-                </dd>
-                <dt className="text-text-muted">총 수량</dt>
-                <dd data-avgcalc-new-qty>{tradeQtyText(result.newQty)}주</dd>
-                <dt className="text-text-muted">더 드는 돈</dt>
-                <dd data-avgcalc-cost>{costText(result.extraCost, currency)}</dd>
-                <dt className="text-text-muted">수익률(지금 가격 기준)</dt>
-                <dd data-avgcalc-return>
-                  <ReturnText value={result.returnBefore} data="data-avgcalc-return-before" />
-                  <span className="mx-1.5 text-text-muted">→</span>
-                  <ReturnText value={result.returnAfter} data="data-avgcalc-return-after" />
-                </dd>
-              </dl>
-              {skipped > 0 && (
-                <p className="text-caption text-text-muted keep-all" data-avgcalc-skipped>
-                  가격이나 수량이 빈 줄 {skipped}개는 빼고 계산했어요
+        {/* 두 탭을 같은 칸에 겹친다 — 창 높이 = 더 긴 탭(탭을 바꿔도 같음) */}
+        <div className="grid">
+          <div className={`col-start-1 row-start-1 space-y-4 ${tab === 'more' ? '' : 'invisible'}`} role="tabpanel" aria-label="더 사면 평단은?" data-avgcalc-panel="more">
+            <section className="space-y-2" aria-label="더 살 것">
+              <h3 className="text-xs font-semibold text-text-primary">더 살 것</h3>
+              <NumberUnitGroup w="sm">
+                <div className="space-y-3">
+                  {lines.map((l, i) => {
+                    const step = `${i + 1}차 매수`;
+                    return (
+                      <div key={l.id} className="space-y-1.5" data-avgcalc-line={i}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-caption text-text-muted" data-avgcalc-step>{step}</span>
+                          {i > 0 && i === lines.length - 1 && <ListRemoveButton label="삭제" name={step} onClick={removeLast} />}
+                        </div>
+                        <FormRow label="가격">
+                          <NumberField kind="fill" thousands decimals={digits.price} max={TRADE_MAX.price} unit={unit} value={l.price} onValue={(v) => setLine(l.id, { price: v })} aria-label={`${step} 가격`} data-avgcalc-price />
+                        </FormRow>
+                        <FormRow label="수량">
+                          <NumberField kind="fill" thousands decimals={digits.qty} max={TRADE_MAX.qty} unit="주" value={l.qty} onValue={(v) => setLine(l.id, { qty: v })} aria-label={`${step} 수량`} data-avgcalc-qty autoFocus={i === 0} />
+                        </FormRow>
+                      </div>
+                    );
+                  })}
+                </div>
+              </NumberUnitGroup>
+              {lines.length < MAX_STEPS && (
+                <Button size="sm" icon={Plus} onClick={addLine} data-avgcalc-add>
+                  {lines.length + 1}차 매수
+                </Button>
+              )}
+            </section>
+
+            <div className="space-y-1 rounded-lg bg-bg-tertiary/40 px-3 py-2 text-xs tabular-nums text-text-primary" data-avgcalc-result>
+              {result == null ? (
+                <span className="text-text-muted">가격과 수량을 넣으면 결과가 여기에 보입니다.</span>
+              ) : (
+                <>
+                  <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1">
+                    <dt className="text-text-muted">새 평균 단가</dt>
+                    <dd className="font-semibold" data-avgcalc-new-avg>
+                      {tradeMoneyText(result.newAvg, currency)}
+                    </dd>
+                    <dt className="text-text-muted">총 수량</dt>
+                    <dd data-avgcalc-new-qty>{tradeQtyText(result.newQty)}주</dd>
+                    <dt className="text-text-muted">더 드는 돈</dt>
+                    <dd data-avgcalc-cost>{costText(result.extraCost, currency)}</dd>
+                    <dt className="text-text-muted">수익률(지금 가격 기준)</dt>
+                    <dd data-avgcalc-return>
+                      <ReturnText value={result.returnBefore} data="data-avgcalc-return-before" />
+                      <span className="mx-1.5 text-text-muted">→</span>
+                      <ReturnText value={result.returnAfter} data="data-avgcalc-return-after" />
+                    </dd>
+                  </dl>
+                  {skipped > 0 && (
+                    <p className="text-caption text-text-muted keep-all" data-avgcalc-skipped>
+                      가격이나 수량이 빈 차수 {skipped}개는 빼고 계산했어요
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className={`col-start-1 row-start-1 ${tab === 'target' ? '' : 'invisible'}`} role="tabpanel" aria-label="목표 평단까지" data-avgcalc-panel="target">
+            <section className="space-y-2" aria-label="목표 평균 단가">
+              <NumberUnitGroup w="sm">
+                <FormRow label="목표 평균 단가">
+                  <NumberField kind="fill" thousands decimals={digits.price} max={TRADE_MAX.price} unit={unit} value={target} onValue={setTarget} aria-label="목표 평균 단가" data-avgcalc-target />
+                </FormRow>
+              </NumberUnitGroup>
+              {reverse && (
+                <p className="text-xs tabular-nums text-text-primary keep-all" data-avgcalc-reverse={reverse.ok ? 'ok' : reverse.reason}>
+                  {reverse.ok
+                    ? `지금 가격 ${tradeMoneyText(price as number, currency)}에 ${tradeQtyText(reverse.qty)}주 더 사면 됩니다(${costText(reverse.cost, currency)} 필요)`
+                    : reverse.reason === 'price-too-high'
+                      ? '지금 가격으로는 목표까지 낮출 수 없어요'
+                      : reverse.reason === 'above-avg'
+                        ? '목표 평균 단가는 지금 평균 단가보다 낮아야 해요'
+                        : '지금 가격이 없어 계산할 수 없어요'}
                 </p>
               )}
-            </>
-          )}
+            </section>
+          </div>
         </div>
-
-        <section className="space-y-2" aria-label="목표 평균 단가">
-          <NumberUnitGroup w="sm">
-            <FormRow label="목표 평균 단가">
-              <NumberField kind="fill" thousands decimals={digits.price} max={TRADE_MAX.price} unit={unit} value={target} onValue={setTarget} aria-label="목표 평균 단가" data-avgcalc-target />
-            </FormRow>
-          </NumberUnitGroup>
-          {reverse && (
-            <p className="text-xs tabular-nums text-text-primary keep-all" data-avgcalc-reverse={reverse.ok ? 'ok' : reverse.reason}>
-              {reverse.ok
-                ? `지금 가격 ${tradeMoneyText(price as number, currency)}에 ${tradeQtyText(reverse.qty)}주 더 사면 됩니다(${costText(reverse.cost, currency)} 필요)`
-                : reverse.reason === 'price-too-high'
-                  ? '지금 가격으로는 목표까지 낮출 수 없어요'
-                  : reverse.reason === 'above-avg'
-                    ? '목표 평균 단가는 지금 평균 단가보다 낮아야 해요'
-                    : '지금 가격이 없어 계산할 수 없어요'}
-            </p>
-          )}
-        </section>
 
         <p className="text-caption text-text-muted" data-avgcalc-note>
           계산만 해요 — 시트에 쓰지 않습니다
