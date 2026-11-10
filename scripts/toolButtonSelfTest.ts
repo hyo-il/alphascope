@@ -217,6 +217,14 @@ const lint = (env: Record<string, string>) => spawnSync(process.execPath, [tsx, 
   check('[130-2] ListRemoveButton 에 따로 적은 높이 숫자 0(IconButton sm)', !/\bh-(?:6|7|8)\b/.test(code(`${C}ui/ListRemoveButton.tsx`)) && /<IconButton\s+size="sm"/.test(code(`${C}ui/ListRemoveButton.tsx`)));
 }
 
+// ── [130-6] 접힌 메뉴 — 툴팁 숨김 표시는 공용 툴팁이 판단(메뉴 쪽 툴팁 코드 없음) ──
+{
+  const tip = code('src/components/ui/Tooltip.tsx');
+  const nav = code('src/components/layout/SideNav.tsx');
+  check('[130-6] 공용 툴팁(ui/Tooltip) — data-tip-off 면 대상에서 뺌 · 표시가 바뀌면 다시 판단', /if \(el\.hasAttribute\('data-tip-off'\)\) return null;/.test(tip) && /attributeFilter: \['data-tip-off'\]/.test(tip));
+  check('[130-6] 접힌 메뉴는 표시만 단다(data-tip-off={flyout …}) · 메뉴에 툴팁 코드 없음(tipController · setTimeout 0)', /data-tip-off=\{flyout \|\| undefined\}/.test(nav) && !/tipController|setTimeout|TOOLTIP_/.test(nav));
+}
+
 // ── 화면 ──
 const RULE = { id: 1, name: '기본 규칙', createdAt: '2026-11-01T00:00:00.000Z', updatedAt: '2026-11-01T00:00:00.000Z', usedBy: { ...EMPTY_USAGE, buyJudge: true }, ...defaultRuleBody() };
 const JUDGE = { ruleId: 1, ruleName: '기본 규칙', symbols: ['AAPL'], retention: '6m', rows: [], computedAt: '2026-11-10T07:00:00.000Z' };
@@ -231,6 +239,7 @@ const TIMING = `
   }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
 `;
 const resetTiming = (page: Page) => page.evaluate(() => Object.assign((window as unknown as { __tip: object }).__tip, { enter: 0, shown: 0 }));
+const shownAt = (page: Page) => page.evaluate(() => (window as unknown as { __tip: { shown: number } }).__tip.shown);
 /** 지금 보이는 툴팁 글(없으면 null) */
 const tipText = (page: Page) =>
   page.evaluate(() => {
@@ -336,6 +345,52 @@ try {
       await ctx.close();
     }
 
+    // [130-6] 접힌 왼쪽 메뉴 — 펼침 메뉴가 열린 동안 그 대메뉴 툴팁 없음 · 닫히면 0.3초 뒤 뜸 · 펼침 없는 대메뉴 · 넓은 메뉴 그대로
+    {
+      const { page, ctx, errors } = await open(browser, size, '#/rules', (p) => p.getByRole('button', { name: '메뉴 접기', exact: true }));
+      await page.getByRole('button', { name: '메뉴 접기', exact: true }).click();
+      const nav = page.getByRole('navigation');
+      const quant = nav.getByRole('button', { name: '퀀트', exact: true });
+      await quant.waitFor({ timeout: 5000 });
+      await page.mouse.move(2, 2);
+      await page.waitForTimeout(400);
+      await resetTiming(page);
+      const q = await center(quant);
+      await page.mouse.move(q.x, q.y);
+      await page.waitForTimeout(800);
+      const sub = nav.getByRole('button', { name: '매매 규칙', exact: true });
+      check(`[130-6] ${w}px — 접힌 메뉴 「퀀트」 에 올림: 펼침 메뉴 열림 · 0.8초 지나도 툴팁 없음`, (await sub.isVisible()) && (await tipText(page)) == null, String(await tipText(page)));
+      check(`[130-6] ${w}px — 펼침이 열린 동안 그 대메뉴에 툴팁 숨김 표시(data-tip-off)`, (await quant.getAttribute('data-tip-off')) != null);
+      // 마우스는 대메뉴 위 그대로 · 펼침 메뉴만 닫음(메뉴 칸에서 마우스가 나간 것처럼 — React onMouseLeave)
+      await resetTiming(page);
+      const t0 = await page.evaluate(() => performance.now());
+      await quant.evaluate((b) => b.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body })));
+      await page.waitForTimeout(800);
+      const at = await shownAt(page);
+      const delay = at ? Math.round(at - t0) : -1;
+      check(`[130-6] ${w}px — 펼침 메뉴가 닫히면 0.3초 뒤(${delay}ms) 그 대메뉴 툴팁 「퀀트」 · 표시 떨어짐`, !(await sub.isVisible()) && (await tipText(page)) === '퀀트' && delay >= 280 && delay <= 600 && (await quant.getAttribute('data-tip-off')) == null, JSON.stringify({ delay, tip: await tipText(page) }));
+      // 펼침이 없는 대메뉴(「일정」 — 소메뉴 하나)는 전처럼 0.3초 뒤 툴팁
+      await page.mouse.move(2, 2);
+      await page.waitForTimeout(400);
+      await resetTiming(page);
+      const cal = nav.getByRole('button', { name: '일정', exact: true });
+      const cc = await center(cal);
+      await page.mouse.move(cc.x, cc.y);
+      await page.waitForTimeout(700);
+      check(`[130-6] ${w}px — 펼침 없는 대메뉴 「일정」 은 그대로 툴팁 「증시 일정」`, (await tipText(page)) === '증시 일정', String(await tipText(page)));
+      // 넓은 메뉴 — 표시 없음 · [메뉴 접기] 툴팁 그대로
+      await page.getByRole('button', { name: '메뉴 펼치기', exact: true }).click();
+      await page.mouse.move(2, 2);
+      await page.waitForTimeout(400);
+      const fold = page.getByRole('button', { name: '메뉴 접기', exact: true });
+      const fc = await center(fold);
+      await page.mouse.move(fc.x, fc.y);
+      await page.waitForTimeout(700);
+      const offs = await page.evaluate(() => document.querySelectorAll('[data-tip-off]').length);
+      check(`[130-6] ${w}px — 넓은 메뉴: 툴팁 숨김 표시 0 · [메뉴 접기] 툴팁 그대로`, offs === 0 && (await tipText(page)) === '메뉴 접기', JSON.stringify({ offs, tip: await tipText(page) }));
+      check(`[130-6] ${w}px — 접힌 메뉴 페이지 오류 0`, errors.length === 0, errors.join(' | '));
+      await ctx.close();
+    }
   }
 } finally {
   await guard.step('브라우저 닫기', () => browser.close());

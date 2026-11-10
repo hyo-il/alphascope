@@ -11,6 +11,9 @@ import { placeTip, tipMaxWidth } from './tooltip/place';
  * - `data-tip="글"` — 마우스를 올리고 0.3초 뒤 · 키보드 초점이면 바로. 줄바꿈 글(`\n`) 그대로.
  * - `data-tip-clip="글"` — **글이 잘렸을 때만**(말줄임 칸의 긴 이름 전체 보기). 안 잘렸으면 뜨지 않는다.
  * - [ⓘ] 은 `ui/InfoTip` — 같은 판단(`tooltip/hover`) · 같은 상자 · 같은 자리 계산(`tooltip/place`)을 쓴다.
+ * - `data-tip-off` — **툴팁 숨김 표시**. 붙어 있는 동안 그 요소의 툴팁을 열지 않는다(열려 있으면 바로 닫음 · 조상으로 올라가 찾지도 않음).
+ *   떨어지면 마우스가 그 위에 있을 때 0.3초 규칙대로 다시 연다(예: 접힌 왼쪽 메뉴 — 펼침 메뉴가 열린 동안 대메뉴 툴팁이 그 글자를 가리지 않게).
+ *   화면 코드는 표시만 단다 — 툴팁 코드를 따로 만들지 않는다.
  *
  * 문서 전체의 마우스 · 키보드 초점을 보고 표시가 달린 요소의 툴팁을 `document.body` 에 그린다(조상의 넘침 숨김에 잘리지 않게).
  * 터치(마우스 아닌 누름)에는 열지 않는다 — 누름은 버튼 동작. 열린 툴팁은 앱 전체에서 하나.
@@ -46,6 +49,7 @@ function tipTarget(node: EventTarget | null): HTMLElement | null {
   if (!(node instanceof Element)) return null;
   let el = node.closest<HTMLElement>(TIP_SELECTOR);
   while (el) {
+    if (el.hasAttribute('data-tip-off')) return null; // 툴팁 숨김 표시 — 이 요소 · 조상 모두 열지 않음
     if (el.hasAttribute('data-infotip')) return el;
     if (el.getAttribute('data-tip')) return el;
     const clip = el.getAttribute('data-tip-clip');
@@ -84,15 +88,30 @@ export default function TooltipHost() {
       else if (next) tipController.hoverIn(next);
     };
     const zoneOf = (t: EventTarget | null): HTMLElement | 'box' | null => (t instanceof Node && boxRef.current?.contains(t) ? 'box' : tipTarget(t));
+    /** 마우스가 지금 올라가 있는 요소 — 툴팁 숨김 표시가 바뀌면 이 자리로 다시 판단한다 */
+    let over: EventTarget | null = null;
     const onOver = (e: PointerEvent) => {
       if (e.pointerType !== 'mouse') return;
+      over = e.target;
       const cur = tipController.current();
       if (cur && !cur.isConnected) tipController.hide(cur);
       moveTo(zoneOf(e.target));
     };
     const onOut = (e: PointerEvent) => {
-      if (e.pointerType === 'mouse' && e.relatedTarget == null) moveTo(null);
+      if (e.pointerType === 'mouse' && e.relatedTarget == null) {
+        over = null;
+        moveTo(null);
+      }
     };
+    // 툴팁 숨김 표시(`data-tip-off`)가 붙으면 그 요소 툴팁을 바로 닫고, 떨어지면 마우스 자리로 다시 판단(0.3초 뒤 열림)
+    const offWatch = new MutationObserver((list) => {
+      for (const m of list) {
+        const el = m.target as HTMLElement;
+        if (el.hasAttribute('data-tip-off')) tipController.hide(el);
+      }
+      moveTo(zoneOf(over));
+    });
+    offWatch.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-tip-off'] });
     const onDown = () => tipController.press();
     const onFocusIn = (e: FocusEvent) => {
       const t = e.target;
@@ -120,6 +139,7 @@ export default function TooltipHost() {
     window.addEventListener('resize', onResize);
     window.addEventListener('blur', onBlur);
     return () => {
+      offWatch.disconnect();
       document.removeEventListener('pointerover', onOver);
       document.removeEventListener('pointerout', onOut);
       document.removeEventListener('pointerdown', onDown, true);

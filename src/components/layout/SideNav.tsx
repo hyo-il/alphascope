@@ -63,52 +63,57 @@ export default function SideNav({
   useEffect(() => setFoldedGroup(null), [group]);
 
   /** 접힌 상태의 대메뉴 한 칸 (아이콘 + 호버 플라이아웃) */
-  const collapsedGroup = (item: NavGroup) => (
-    <div
-      key={item.id}
-      className="relative"
-      onMouseEnter={() => setHovered(item.id)}
-      onMouseLeave={() => setHovered(null)}
-    >
-      <button
-        type="button"
-        onClick={() => onSelectGroup(item.id)}
-        data-tip={item.badge ? `${item.label} (${item.badge})` : item.label}
-        className={`flex w-full flex-col items-center gap-0.5 border-l-2 py-2.5 transition-colors ${
-          group === item.id
-            ? 'border-transparent bg-bg-tertiary text-text-primary'
-            : 'border-transparent text-text-muted hover:bg-bg-tertiary/60 hover:text-text-primary'
-        }`}
+  const collapsedGroup = (item: NavGroup) => {
+    /** 소메뉴가 하나뿐이면 플라이아웃을 띄우지 않는다 — 대메뉴를 누르면 바로 그 화면이다(`showSinglePage` 인 실험실은 예외) */
+    const flyout = hovered === item.id && (item.pages.length > 1 || item.showSinglePage);
+    return (
+      <div
+        key={item.id}
+        className="relative"
+        onMouseEnter={() => setHovered(item.id)}
+        onMouseLeave={() => setHovered(null)}
       >
-        {(() => {
-          const Icon = NAV_ICON[item.icon];
-          return <Icon {...ICON_LG} />;
-        })()}
-        {/* 접힌 폭(52px)에는 짧은 이름 — 「차트·비교」「증시 일정」 은 들어가지 않는다 */}
-        <span className="text-caption leading-tight">{item.shortLabel}</span>
-      </button>
+        <button
+          type="button"
+          onClick={() => onSelectGroup(item.id)}
+          data-tip={item.badge ? `${item.label} (${item.badge})` : item.label}
+          // 펼침 메뉴가 열린 동안 툴팁 숨김 — 툴팁이 펼침 메뉴 글자를 가리지 않게(공용 툴팁이 판단 · 닫히면 0.3초 뒤 다시)
+          data-tip-off={flyout || undefined}
+          className={`flex w-full flex-col items-center gap-0.5 border-l-2 py-2.5 transition-colors ${
+            group === item.id
+              ? 'border-transparent bg-bg-tertiary text-text-primary'
+              : 'border-transparent text-text-muted hover:bg-bg-tertiary/60 hover:text-text-primary'
+          }`}
+        >
+          {(() => {
+            const Icon = NAV_ICON[item.icon];
+            return <Icon {...ICON_LG} />;
+          })()}
+          {/* 접힌 폭(52px)에는 짧은 이름 — 「차트·비교」「증시 일정」 은 들어가지 않는다 */}
+          <span className="text-caption leading-tight">{item.shortLabel}</span>
+        </button>
 
-      {/* 소메뉴가 하나뿐이면 플라이아웃을 띄우지 않는다 — 대메뉴를 누르면 바로 그 화면이다(`showSinglePage` 인 실험실은 예외) */}
-      {hovered === item.id && (item.pages.length > 1 || item.showSinglePage) && (
-        <div className="absolute left-full top-0 z-50 ml-px w-40 rounded-lg bg-bg-elevated py-1 shadow-xl">
-          {item.pages.map((sub) => (
-            <button
-              key={sub.id}
-              type="button"
-              onClick={() => onSelectPage(sub.id)}
-              className={`block w-full whitespace-nowrap px-3 py-1.5 text-left text-xs transition-colors ${
-                page === sub.id
-                  ? 'bg-bg-tertiary font-medium text-text-primary'
-                  : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
-              }`}
-            >
-              {sub.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+        {flyout && (
+          <div className="absolute left-full top-0 z-50 ml-px w-40 rounded-lg bg-bg-elevated py-1 shadow-xl">
+            {item.pages.map((sub) => (
+              <button
+                key={sub.id}
+                type="button"
+                onClick={() => onSelectPage(sub.id)}
+                className={`block w-full whitespace-nowrap px-3 py-1.5 text-left text-xs transition-colors ${
+                  page === sub.id
+                    ? 'bg-bg-tertiary font-medium text-text-primary'
+                    : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+                }`}
+              >
+                {sub.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   /** 펼친 상태의 대메뉴 한 칸 (아코디언) */
   const expandedGroup = (item: NavGroup) => {
