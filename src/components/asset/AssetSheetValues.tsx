@@ -18,6 +18,7 @@ import { UNASSIGNED_LABEL, type AssetAccount, type AssetHolding, type AssetSecti
  * - 계좌 카드 위 「계좌별 | 종목별」(v2.63.0 — 이 기기에 기억 `alphascope.asset.statusView` · 읽기 실패면 계좌별).
  *   종목별 = 같은 종목을 한 줄로(`AssetSymbolTable` · 「전체 / 코어 / 위성」 거르기) — 자산 분류 고르기는 계좌별에서.
  * - 계좌별 줄 끝 [매수] [매도](v2.66.0 — `h.tradable` 인 줄만 · 합친 표 · 수식 칸 · 이을 수 없는 줄은 없음) · 위 [새 종목 매수](v2.67.0 · `AssetNewBuyDialog`) · [매수 · 매도 기록].
+ *   [계산](v2.68.0 물타기 계산기 · 회색 기본 버튼) — 수량 · 평균가가 0 보다 큰 줄이면 [매수] 가 없는 줄에도 보인다(계산만 · `canCalc`).
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 접은 계좌 이름 · 보기 이름만).
  */
 
@@ -86,6 +87,9 @@ function avgText(h: AssetHolding, usdDigits: number): string {
   if (h.currency === 'KRW') return formatPrice(h.avgPrice, 'KRW');
   return `$${formatNumber(h.avgPrice, Math.max(2, usdDigits))}`;
 }
+
+/** 물타기 계산기를 열 수 있는 줄 — 수량 · 평균가가 0 보다 큰 숫자(시트 쓰기와 상관없음 · 계산만) */
+export const canCalc = (h: AssetHolding) => h.quantity != null && h.quantity > 0 && h.avgPrice != null && h.avgPrice > 0;
 
 /** 「계좌별 | 종목별」 — 이 기기에 기억(읽기 실패 · 모르는 값이면 계좌별) */
 type StatusView = 'account' | 'symbol';
@@ -162,6 +166,7 @@ function AccountCard({
   open,
   onToggle,
   onTrade,
+  onCalc,
 }: {
   section: AssetSection;
   account: AssetAccount | undefined;
@@ -172,6 +177,8 @@ function AccountCard({
   onToggle: () => void;
   /** [매수] · [매도] — 입력 창 열기 */
   onTrade: (section: AssetSection, holding: AssetHolding, side: AssetTradeSide) => void;
+  /** [계산] — 물타기 계산기 열기 */
+  onCalc: (section: AssetSection, holding: AssetHolding) => void;
 }) {
   const id = `as-asset-account-${section.key}`;
   const rows = section.holdings;
@@ -262,14 +269,23 @@ function AccountCard({
                 <ClassText h={h} />
               </td>
               <td className={`${CARD_BG} ${lastR(last)} ${TEXT} border-t border-border/30 pr-4 text-right`} data-trade-cell>
-                {h.tradable && (
+                {(h.tradable || canCalc(h)) && (
                   <span className="inline-flex gap-1">
-                    <Button variant="buy" size="sm" onClick={() => onTrade(section, h, 'buy')} aria-label={`${h.name} 매수 입력`} data-trade-buy={h.row}>
-                      매수
-                    </Button>
-                    <Button variant="sell" size="sm" onClick={() => onTrade(section, h, 'sell')} aria-label={`${h.name} 매도 입력`} data-trade-sell={h.row}>
-                      매도
-                    </Button>
+                    {h.tradable && (
+                      <>
+                        <Button variant="buy" size="sm" onClick={() => onTrade(section, h, 'buy')} aria-label={`${h.name} 매수 입력`} data-trade-buy={h.row}>
+                          매수
+                        </Button>
+                        <Button variant="sell" size="sm" onClick={() => onTrade(section, h, 'sell')} aria-label={`${h.name} 매도 입력`} data-trade-sell={h.row}>
+                          매도
+                        </Button>
+                      </>
+                    )}
+                    {canCalc(h) && (
+                      <Button size="sm" onClick={() => onCalc(section, h)} aria-label={`${h.name} 물타기 계산`} data-avgcalc-open={h.row}>
+                        계산
+                      </Button>
+                    )}
                   </span>
                 )}
               </td>
@@ -281,7 +297,7 @@ function AccountCard({
 }
 
 /** 계좌 카드들 — 합계 표(계좌를 합친 표)는 그리지 않는다 · 수량 · 달러 소수 자릿수는 모든 카드가 같다 */
-function AccountCards({ sections, accounts, onTrade }: { sections: AssetSection[]; accounts: AssetAccount[]; onTrade: (section: AssetSection, holding: AssetHolding, side: AssetTradeSide) => void }) {
+function AccountCards({ sections, accounts, onTrade, onCalc }: { sections: AssetSection[]; accounts: AssetAccount[]; onTrade: (section: AssetSection, holding: AssetHolding, side: AssetTradeSide) => void; onCalc: (section: AssetSection, holding: AssetHolding) => void }) {
   const shown = sections.filter((s) => !s.combined);
   const all = shown.flatMap((s) => s.holdings);
   const qtyDigits = decimalsOf(all.map((h) => h.quantity));
@@ -310,6 +326,7 @@ function AccountCards({ sections, accounts, onTrade }: { sections: AssetSection[
             open={!closed.includes(key)}
             onToggle={() => toggle(key)}
             onTrade={onTrade}
+            onCalc={onCalc}
           />
         );
       })}
@@ -325,6 +342,7 @@ export default function AssetSheetValues({
   bySymbol,
   onOpenClassDialog,
   onTrade,
+  onCalc,
   onNewBuy,
   onOpenTradeHistory,
   newBuyNotes,
@@ -338,6 +356,8 @@ export default function AssetSheetValues({
   onOpenClassDialog: () => void;
   /** 종목 줄 [매수] · [매도] — 입력 창 열기(v2.66.0) */
   onTrade: (section: AssetSection, holding: AssetHolding, side: AssetTradeSide) => void;
+  /** 종목 줄 [계산] — 물타기 계산기 열기(v2.68.0) */
+  onCalc: (section: AssetSection, holding: AssetHolding) => void;
   /** [매수 · 매도 기록] — 창 열기 */
   onNewBuy: () => void;
   onOpenTradeHistory: () => void;
@@ -389,7 +409,7 @@ export default function AssetSheetValues({
           <p className="text-caption text-text-muted" data-account-hint>
             계좌를 누르면 종목이 펼쳐져요
           </p>
-          <AccountCards sections={data.sections} accounts={accounts} onTrade={onTrade} />
+          <AccountCards sections={data.sections} accounts={accounts} onTrade={onTrade} onCalc={onCalc} />
         </>
       )}
       {view === 'symbol' && (bySymbol == null ? <SkeletonTable rows={6} columns={8} /> : <AssetSymbolTable rows={bySymbol} filter={filter} />)}

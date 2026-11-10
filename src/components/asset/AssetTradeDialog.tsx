@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { Button, Dialog, FormRow, NumberField, NumberUnitGroup } from '../ui';
 import { formatNumber, formatPrice } from '../../utils/formatters';
 import { modal } from '../../store/uiStore';
-import { TRADE_DIGITS, decimalPlaces, tradeAfter } from '../../utils/assetTrade';
+import { TRADE_DIGITS, decimalPlaces } from '../../utils/assetTrade';
+import { tradeAfter } from '../../utils/assetAverage';
 import type { AssetCurrency, AssetHolding, AssetSection, AssetTradeRequest, AssetTradeSide } from '../../types/asset';
 
 /**
  * 매수 · 매도 입력 창(v2.66.0 — 시트에 줄이 있는 종목의 매수 · 일부 매도 · v2.67.0 모두 매도). 실제 주문은 없다 — 다른 증권사에서 사고판 것을 적는 창이다.
- * - 미리 보기는 서버와 같은 계산(`src/utils/assetTrade.ts`). 저장은 `POST /api/asset/trade` — 검사는 서버 `recordTrade` 한 곳.
+ * - 미리 보기는 서버와 같은 계산(`src/utils/assetAverage.ts` — 평균 식 한 곳). 저장은 `POST /api/asset/trade` — 검사는 서버 `recordTrade` 한 곳.
  * - 미국 매수는 환율을 받지 않는다 — 원화 매입 금액은 시트 「달러 환전」 탭이 계산(안내 한 줄 · v2.66.2).
  * - 모두 매도 수량 = 미리 보기에 「이 줄을 지웁니다」 · [저장] 뒤 확인 창 한 번(시트에서 보유 줄을 지운다 · 「티커」 줄은 남김). 쓰기 스위치 꺼짐 = 안내 + [저장] 막음. 아직 모르면(요약 응답 전) 글 없이 막음.
  * - 바깥 클릭으로 닫지 않는다(입력을 잃는다).

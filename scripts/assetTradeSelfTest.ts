@@ -233,8 +233,8 @@ try {
     const old = listTrades('1').trades[0];
     check('[119-8] 옛 기록의 환율 · 전후 G9 는 표에 남아 기록 목록에 나옴', old.fx === 1400 && old.fxBefore === 1300 && old.fxAfter === 1319.95);
     const src = fs.readFileSync(path.join(root, 'server/asset/trade.ts'), 'utf8');
-    const ui = fs.readFileSync(path.join(root, 'src/utils/assetTrade.ts'), 'utf8');
-    check('[119-8] G9 계산 · 쓰기 코드 0(trade.ts · assetTrade.ts)', !/avgFxRate|nextAvgFx|usdCostOf|req\.fx/.test(src) && !/nextAvgFx|usdCostOf/.test(ui));
+    const ui = ['src/utils/assetTrade.ts', 'src/utils/assetAverage.ts'].map((f) => fs.readFileSync(path.join(root, f), 'utf8')).join('\n');
+    check('[119-8] G9 계산 · 쓰기 코드 0(trade.ts · assetTrade.ts · assetAverage.ts)', !/avgFxRate|nextAvgFx|usdCostOf|req\.fx/.test(src) && !/nextAvgFx|usdCostOf/.test(ui));
   }
 
   // ═══ 3. 일부 매도 ═══

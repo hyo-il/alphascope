@@ -491,6 +491,11 @@ export interface AssetSummary {
   targetRatio: AssetTargetRatio;
   /** 「자산 현황」 종목별(v2.63.0) — 평가 금액 큰 순 */
   bySymbol: AssetSymbolRow[];
+  /**
+   * 종목 코드 → 지금 가격(원래 통화 — 미국은 달러 · v2.68.0 물타기 계산기). 총 자산 · 계좌 카드가 계산에 쓴 **같은 가격 표**를 그대로 보낸다(새 가격 요청 없음).
+   * 가격을 못 받은 종목은 빠진다.
+   */
+  prices: Record<string, number>;
   /** 이 서버에서 시트 쓰기가 켜져 있나(`ASSET_SYNC_ENABLED`) — 꺼져 있으면 설정 창 목표 비율 [저장] 을 막는다 */
   writeEnabled: boolean;
   /** 이번 달 구매(v2.64.0) — 월급 × 목표 비율 · 구매일 · 이번 차례 완료 여부 */

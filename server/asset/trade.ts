@@ -1,7 +1,7 @@
 /**
  * 매수 · 매도 입력(v2.66.0) · 새 종목 매수 · 모두 매도(v2.67.0). **실제 주문은 없다** — 다른 증권사에서 사고판 것을 적어 시트를 갱신한다.
  *
- * - 검사 · 계산 · 쓰기 · 기록은 `recordTrade`(가진 종목) · `recordNewHolding`(새 종목). 줄 넣기 · 지우기는 `rowOps.ts`. 계산은 화면 미리 보기와 같은 함수(`src/utils/assetTrade.ts`).
+ * - 검사 · 계산 · 쓰기 · 기록은 `recordTrade`(가진 종목) · `recordNewHolding`(새 종목). 줄 넣기 · 지우기는 `rowOps.ts`. 계산은 화면 미리 보기와 같은 함수(평균 `src/utils/assetAverage.ts` · 자릿수 `src/utils/assetTrade.ts`).
  * - 표 `asset_trades` — 선택 기능이라 이 파일에서 만든다. ⚠️ 개인 자산 정보다: 로그에는 id · 이유 종류만.
  * - G9(구매 평균 환율)는 쓰지 않는다 — 시트 「달러 환전」 탭이 계산한다(v2.66.2 · `fx` 를 보내면 400). 표의 `fx` · `fx_before` · `fx_after` 칸은 옛 기록 보존용(새 기록은 NULL).
  */
@@ -14,7 +14,8 @@ import { addTossPriceRow, shiftPriceRowsForInsert } from './priceSheet';
 import { isMockPrices, priceSource, priceTools, runOperation } from './priceState';
 import { decideNewHolding, deleteHoldingRow, insertNewHolding, readGrid, type NewHoldingDecision, type StockInfo } from './rowOps';
 import { findStock } from '../stockCatalog';
-import { TRADE_DIGITS, TRADE_MAX, decimalPlaces, tradeAfter } from '../../src/utils/assetTrade';
+import { TRADE_DIGITS, TRADE_MAX, decimalPlaces } from '../../src/utils/assetTrade';
+import { tradeAfter } from '../../src/utils/assetAverage';
 import { isAssetClass, isUsPrefix } from '../../src/types/asset';
 import type { AssetCurrency, AssetHolding, AssetNewHoldingPlan, AssetNewHoldingRequest, AssetNewHoldingResult, AssetNewHoldingTarget, AssetTradeRecord, AssetTradeRequest, AssetTradeResult, AssetTradesResponse, AssetTradeSide } from '../../src/types/asset';
 

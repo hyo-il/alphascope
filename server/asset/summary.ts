@@ -209,6 +209,7 @@ export async function assetSummary(includePension: boolean): Promise<AssetSummar
     settings,
     accounts: accountValues(data, book),
     bySymbol: holdingsBySymbol(data, book, settings, includePension, c.totals.total),
+    prices: Object.fromEntries(book.prices),
     stockChoices: stockChoices(data, settings),
     rebalance: computeRebalance(c.totals, data.targetRatio, settings.rebalanceBand),
     targetRatio: data.targetRatio,
