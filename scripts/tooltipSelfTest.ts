@@ -357,9 +357,12 @@ check(
     check('[129-6] 업데이트 내역(changelog.ts)은 맨 앞 항목 더하기만(지운 · 바꾼 줄 0)', cl.filter((l) => /^-(?!--)/.test(l)).length === 0);
     const ops = diff('deploy', 'db', 'scripts/lib/testServerEnv.ts', 'scripts/lib/requireCopyDb.ts', 'scripts/lib/requireTossKeys.ts', '.env.example');
     check('[129-3] 배포 · DB 정의 · 시험 서버 스위치 · 사본 DB 막기 바뀐 파일 0', ops === '', ops);
-    const dc = execFileSync('git', ['diff', '-U0', `${BASE}..HEAD`, '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' });
-    const removed = dc.split('\n').filter((l) => /^-(?!--)/.test(l));
-    check('[129-6] designCheck.ts — 지운 · 바꾼 줄 0(장면 더하기만 · 판정 부분 그대로)', removed.length === 0, removed.slice(0, 3).join(' / '));
+    // 바뀐 줄은 장면을 여는 「title 로 찾기」(getByTitle — 이번에 그 title 이 data-tip 으로 옮겨 감)뿐 · 측정 판정 부분 그대로
+    const dc = execFileSync('git', ['diff', '-U0', `${BASE}..HEAD`, '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' }).split('\n');
+    const removed = dc.filter((l) => /^-(?!--)/.test(l));
+    const added = dc.filter((l) => /^\+(?!\+\+)/.test(l));
+    const onlyFind = removed.every((l) => /getByTitle\(/.test(l)) && added.length === removed.length && added.every((l, i) => l.slice(1) === removed[i].slice(1).replace(/getByTitle\('([^']+)'\)/g, `locator('[data-tip="$1"]')`));
+    check(`[129-6] designCheck.ts — 판정 부분 바뀐 줄 0(바뀐 ${removed.length}줄은 장면을 여는 getByTitle → [data-tip] 찾기뿐)`, onlyFind, removed.slice(0, 3).join(' / '));
   }
 }
 
