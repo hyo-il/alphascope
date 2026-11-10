@@ -364,8 +364,8 @@ export default function AccountsOverview({
                       // ↑↓ — 끌기를 모르는 사람도 바꿀 수 있게(사용자 결정). 맨 위의 ↑ · 맨 아래의 ↓ 는 잠근다
                       <td className={`${TABLE_NUM_COL} pl-2 pr-2`} onClick={(e) => e.stopPropagation()}>
                         <span className="flex items-center">
-                          <IconButton icon={ArrowUp} size="sm" label="위로" disabled={index === 0 || savingOrder} onClick={() => void moveAccount(item.account.id, index - 1)} />
-                          <IconButton icon={ArrowDown} size="sm" label="아래로" disabled={index === list.length - 1 || savingOrder} onClick={() => void moveAccount(item.account.id, index + 2)} />
+                          <IconButton icon={ArrowUp} size="sm" label="위로" data-tip-side="right" disabled={index === 0 || savingOrder} onClick={() => void moveAccount(item.account.id, index - 1)} />
+                          <IconButton icon={ArrowDown} size="sm" label="아래로" data-tip-side="right" disabled={index === list.length - 1 || savingOrder} onClick={() => void moveAccount(item.account.id, index + 2)} />
                         </span>
                       </td>
                     )}

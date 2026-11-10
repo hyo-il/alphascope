@@ -219,6 +219,7 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
                         aria-label={`${roundLabel(round.at)} 회차 삭제`}
                         onClick={() => confirmDelete(round.at, round.rows.length)}
                         disabled={running}
+                        data-tip-side="right"
                         className="ml-auto"
                       />
                     </div>

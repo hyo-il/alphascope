@@ -99,7 +99,7 @@ export default function SymbolTable(
                       </>
                     )}
                     <td className="py-1.5 pr-2 text-right">
-                      <ListRemoveButton onClick={() => onChange(selected.filter((x) => x !== s))} name={nameOf?.(s) ?? s} label="목록에서 삭제" />
+                      <ListRemoveButton onClick={() => onChange(selected.filter((x) => x !== s))} name={nameOf?.(s) ?? s} label="목록에서 삭제" tipSide="right" />
                     </td>
                   </tr>
                 );

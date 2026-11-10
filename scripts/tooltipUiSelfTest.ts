@@ -5,6 +5,8 @@
  * 129차(v2.69.1 · [129-1]): 바꾼 91곳의 묶음마다 대표 자리 — A 메뉴 · 오른쪽 패널 · 이름 칸 · B 실시간 순위 · 오늘 시황 · C 거래정지.
  * Vite + Playwright, `/api` 는 모두 `page.route` 가짜(만든 값) — 구글 · 토스 · 서버 호출 0.
  * 시각은 페이지 안에서 잰다(마우스가 대상에 들어간 때 → 툴팁이 보인 때).
+ * 131차(v2.69.3 · [131-n]): 2 실시간 순위 관심 별 툴팁은 옆(오른쪽 4px · 세로 가운데) — 다음 줄 종목 이름 칸과 겹침 0 ·
+ *   3 거래정지 거래소 글자 말줄임 0(「전체」 · 「상위」 — 1280 은 좁은 칸이라 줄 툴팁 「시장 …」) · 다른 칸 말줄임 0.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import path from 'node:path';
@@ -405,6 +407,22 @@ try {
       await page.evaluate(() => document.querySelector('[data-test-inner]')?.parentElement?.remove());
       const b1 = await hover(page, page.getByRole('button', { name: /관심 목록에 추가$/ }));
       check(`[129-1] ${w}px — B 실시간 순위 관심 별 0.3초 뒤(${b1.delay}ms) 「관심 목록에 추가」 · 14px`, shown(b1, '관심 목록에 추가'), JSON.stringify(b1));
+      // [131-2] 관심 별 툴팁은 옆으로 — 별 오른쪽 4px · 세로 가운데 · 다음 줄 종목 이름 칸과 겹침 0(줄마다 몇 개 — 첫 줄 · 가운데 줄)
+      for (const nth of [0, 3]) {
+        const star = page.getByRole('button', { name: /관심 목록에 추가$/ }).nth(nth);
+        const h = await hover(page, star);
+        const next = await star.evaluate((b) => {
+          const tr = b.closest('tr')!.nextElementSibling as HTMLTableRowElement | null;
+          const r = tr?.cells[2]?.getBoundingClientRect();
+          return r ? { left: r.left, right: r.right, top: r.top, bottom: r.bottom } : null;
+        });
+        const t = h.tip;
+        const overlap = t && next ? Math.max(0, Math.min(t.right, next.right) - Math.max(t.left, next.left)) * Math.max(0, Math.min(t.bottom, next.bottom) - Math.max(t.top, next.top)) : -1;
+        const side = t ? Math.abs(t.left - (h.box.x + h.box.width + 4)) < 1 && Math.abs((t.top + t.bottom) / 2 - (h.box.y + h.box.height / 2)) < 1 : false;
+        check(`[131-2] ${w}px — 관심 별(${nth + 1}번째) 툴팁 옆(오른쪽 4px · 세로 가운데) · 다음 줄 종목 이름 칸과 겹침 0`, shown(h, '관심 목록에 추가') && side && next != null && overlap === 0, JSON.stringify({ tip: t, box: h.box, next, overlap }));
+      }
+      check(`[131-2] ${w}px — 관심 별에 data-tip-side="right" · 다른 버튼(메뉴 접기)은 표시 없음(아래 / 위 그대로)`,
+        (await page.getByRole('button', { name: /관심 목록에 추가$/ }).first().getAttribute('data-tip-side')) === 'right' && (await page.getByRole('button', { name: '메뉴 접기', exact: true }).getAttribute('data-tip-side')) == null);
       check(`[129-1] ${w}px — A · B 실시간 순위 화면에 title 속성 0(브라우저 기본 툴팁 없음)`, (await titleCount(page)) === 0, String(await titleCount(page)));
       check(`[129-1] ${w}px — 실시간 순위 페이지 오류 0`, errors.length === 0, errors.join(' | '));
       await ctx.close();
@@ -446,6 +464,25 @@ try {
       check(`[129-1] ${w}px — C 거래정지 시각 칸 0.3초 뒤(${c1?.delay}ms) 미국 시각 · 14px`, !!c1 && !!picks.c1 && shown(c1, picks.c1.trim()), JSON.stringify({ picks, c1 }));
       check(`[129-1] ${w}px — C 거래정지 다른 칸(${picks.c2?.slice(0, 12)}…) 0.3초 뒤(${c2?.delay}ms) · 14px`, !!c2 && !!picks.c2 && shown(c2, picks.c2.trim()), JSON.stringify({ picks, c2 }));
       check(`[129-1] ${w}px — C 거래정지 화면에 title 속성 0`, (await titleCount(page)) === 0, String(await titleCount(page)));
+      // [131-3] 거래소 글자(「NYSE American」 이 가장 긴 견본) 말줄임 0 · 다른 칸 말줄임 0 — 보기 「전체」 · 「상위」
+      for (const view of ['all', 'top'] as const) {
+        await page.evaluate((v) => localStorage.setItem('alphascope.usHaltsView.v2', JSON.stringify({ view: v, top: 30 })), view);
+        await page.reload();
+        await page.locator('[data-halt-row="LUDB"]').waitFor({ timeout: 30_000 });
+        await page.waitForTimeout(500);
+        const m = await page.evaluate(() => {
+          const compact = document.querySelector('[data-compact-reason]') != null;
+          const markets = [...document.querySelectorAll<HTMLElement>('[data-halt-row] [data-halt-market]')].map((e) => ({ t: e.textContent, w: e.clientWidth, sw: e.scrollWidth, tiny: e.hasAttribute('data-market-tiny') }));
+          const cut = (e: Element) => e instanceof HTMLElement && e.scrollWidth > e.clientWidth + 0.5 && getComputedStyle(e).textOverflow === 'ellipsis';
+          const others = [...document.querySelectorAll<HTMLTableRowElement>('[data-halt-row]')].flatMap((tr) => [...tr.cells].slice(1).flatMap((td) => [td, ...td.querySelectorAll('*')].filter(cut).map((e) => (e.textContent ?? '').slice(0, 16))));
+          const rowTip = document.querySelector<HTMLTableRowElement>('[data-halt-row="LUDB"]')?.cells[0]?.firstElementChild?.getAttribute('data-tip') ?? null; // 종목 칸 한 줄 상자
+          return { compact, markets, others, rowTip };
+        });
+        const amex = m.markets.find((x) => x.t === 'NYSE American');
+        const ok = m.compact ? m.markets.length === 0 && m.rowTip === '시장 NYSE American' : !!amex && m.markets.every((x) => x.sw <= x.w && !x.tiny);
+        check(`[131-3] ${w}px 「${view}」 — 거래소 글자 말줄임 0(${m.compact ? '좁은 칸 — 줄 툴팁 「시장 NYSE American」' : `「NYSE American」 ${amex?.w}/${amex?.sw}px`})`, ok, JSON.stringify(m));
+        check(`[131-3] ${w}px 「${view}」 — 다른 칸(사유 · 시각 · 재개 · 방향 · 거래대금) 말줄임 0`, m.others.length === 0, JSON.stringify(m.others));
+      }
       check(`[129-1] ${w}px — 거래정지 페이지 오류 0`, errors.length === 0, errors.join(' | '));
       await ctx.close();
     }

@@ -14,6 +14,8 @@ import { placeTip, tipMaxWidth } from './tooltip/place';
  * - `data-tip-off` — **툴팁 숨김 표시**. 붙어 있는 동안 그 요소의 툴팁을 열지 않는다(열려 있으면 바로 닫음 · 조상으로 올라가 찾지도 않음).
  *   떨어지면 마우스가 그 위에 있을 때 0.3초 규칙대로 다시 연다(예: 접힌 왼쪽 메뉴 — 펼침 메뉴가 열린 동안 대메뉴 툴팁이 그 글자를 가리지 않게).
  *   화면 코드는 표시만 단다 — 툴팁 코드를 따로 만들지 않는다.
+ * - `data-tip-side="right"` — **옆으로**(대상 오른쪽 · 자리가 모자라면 왼쪽 · 세로 가운데). 없으면 아래 / 위.
+ *   표 안 줄마다 있는 작은 아이콘 버튼에 단다(아래로 뜨면 다음 줄 글을 가린다 — 실시간 순위 관심 별 등).
  *
  * 문서 전체의 마우스 · 키보드 초점을 보고 표시가 달린 요소의 툴팁을 `document.body` 에 그린다(조상의 넘침 숨김에 잘리지 않게).
  * 터치(마우스 아닌 누름)에는 열지 않는다 — 누름은 버튼 동작. 열린 툴팁은 앱 전체에서 하나.
@@ -172,7 +174,8 @@ export default function TooltipHost() {
       return;
     }
     const b = boxRef.current.getBoundingClientRect();
-    const p = placeTip(open.getBoundingClientRect(), { w: b.width, h: b.height }, { w: window.innerWidth, h: window.innerHeight });
+    const side = open.getAttribute('data-tip-side') === 'right' ? 'right' : undefined;
+    const p = placeTip(open.getBoundingClientRect(), { w: b.width, h: b.height }, { w: window.innerWidth, h: window.innerHeight }, side);
     setPos({ el: open, left: p.left, top: p.top });
   }, [open, content]);
 

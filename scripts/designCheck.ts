@@ -157,6 +157,8 @@ function targets(): Target[] {
     // 오른쪽 패널 계좌 탭 — 맨 아래 고정 「총 평가 · 총 손익」(v2.52.0)
     // 끝나면 관심 탭으로 되돌린다 — 계좌 탭이 남으면 다음 대상의 「계좌」 고르기 상자가 둘로 잡힌다
     { name: 'panel-계좌탭', hash: '#/chart', open: async (page) => { await page.getByTestId('watch-panel').getByRole('button', { name: '계좌', exact: true }).click(); await page.waitForTimeout(1500); }, after: async (page) => { await page.getByTestId('watch-panel').getByRole('button', { name: '관심', exact: true }).click().catch(() => undefined); } },
+    // v2.69.3 — 오른쪽 패널 최근 탭(톱니 자리를 비워 탭 줄이 관심 탭과 같은 x) · 끝나면 관심 탭으로
+    { name: 'panel-최근탭', hash: '#/chart', open: async (page) => { await page.getByTestId('watch-panel').getByRole('button', { name: '최근', exact: true }).click(); await page.waitForTimeout(800); }, after: async (page) => { await page.getByTestId('watch-panel').getByRole('button', { name: '관심', exact: true }).click().catch(() => undefined); } },
     { name: 'form-새계좌', hash: '#/portfolio/paper', open: click(/새 계좌/) },
     // 차트 아래 「AI 분석」 탭(간단 · 전체 모드), 검증 기록(AI 검증 계좌 하나 · 빈 화면 · AI 분석 성적표), 퀀트 메뉴 접힘
     ...(['간단', '전체'] as const).map((mode) => ({

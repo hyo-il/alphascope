@@ -1,6 +1,7 @@
 import { confirmClearRecent } from '../common/confirmClearRecent';
 import { ICON_LG, ICON_SM } from '../ui/icon';
 import { IconButton, ListRemoveButton, RemoveAllButton } from '../ui';
+import { ICON_BUTTON_BOX } from '../ui/tokens';
 import { Check, ChevronLeft, ChevronRight, Clock, Settings, Star, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import SymbolSearch from '../common/SymbolSearch';
@@ -179,8 +180,11 @@ export default function WatchPanel({
             {label}
           </button>
         ))}
-        {tab === 'watch' && (
+        {/* 톱니는 관심 탭에만 — 다른 탭에서는 같은 폭의 빈 자리(보이지 않음 · 누를 수 없음 · 화면 읽기에 안 읽힘)를 두어 탭 줄이 옆으로 움직이지 않게 */}
+        {tab === 'watch' ? (
           <IconButton size="md" icon={Settings} label="관심 목록 관리 (폴더·순서)" onClick={() => setManaging(true)} />
+        ) : (
+          <span aria-hidden="true" data-testid="watch-gear-slot" className={`shrink-0 ${ICON_BUTTON_BOX.md}`} />
         )}
         <IconButton size="sm" icon={ChevronRight} label="접기" aria-label="관심 목록 패널 접기" onClick={onToggleCollapse} className="mr-1" />
       </div>

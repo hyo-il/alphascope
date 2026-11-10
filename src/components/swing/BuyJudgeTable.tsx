@@ -185,7 +185,7 @@ export default function BuyJudgeTable({
                     </Button>
                   </td>
                   <td className="w-px py-1 pr-2 text-right" onClick={(e) => e.stopPropagation()}>
-                    <ListRemoveButton onClick={() => onRemove(r.symbol)} name={r.symbol} label="목록에서 삭제" />
+                    <ListRemoveButton onClick={() => onRemove(r.symbol)} name={r.symbol} label="목록에서 삭제" tipSide="right" />
                   </td>
                 </tr>
                 {isOpen && (

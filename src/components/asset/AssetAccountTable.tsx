@@ -66,7 +66,7 @@ export default function AssetAccountTable({
                     </span>
                   </td>
                   <td className="py-1.5 pr-2 text-right">
-                    <ListRemoveButton onClick={() => onChange(selected.filter((x) => x !== k))} name={nameOf(k)} label="목록에서 삭제" />
+                    <ListRemoveButton onClick={() => onChange(selected.filter((x) => x !== k))} name={nameOf(k)} label="목록에서 삭제" tipSide="right" />
                   </td>
                 </tr>
               ))}

@@ -6,6 +6,8 @@
  *   5 아이콘 버튼 두 크기(소스) · 6 `design:lint` 규칙(시험용 가짜 파일 — 끝나면 지운다) · 7 목록 문서 줄 수.
  * 129차(v2.69.1 · [129-n]): 1 툴팁용 title 0 · 툴팁 아닌 속성 95 그대로 · 바꾼 91곳 · 아이콘 버튼 이름 · 2 lint 기준 목록 0 ·
  *   3 · 6 서버 · 매매 · 서버가 함께 쓰는 src(가져오기 끝까지 — `lib/serverSharedSrc`) · 배포 · 스위치 바뀐 줄 0.
+ * 131차(v2.69.3 · [131-n]): 2 옆 자리(순수 · `data-tip-side` 단 곳) · 4 `CLAUDE.md` 새 일하는 법 · 25,600바이트 안 ·
+ *   5 서버 · 매매 · 주문 · 로그인 · 서버가 함께 쓰는 src 바뀐 줄 0 · designCheck 판정 부분 0.
  * 화면(Playwright)은 `tooltipui:test`.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
@@ -204,6 +206,49 @@ const VP = { w: 1280, h: 1080 };
   const p = placeTip({ left: 600, top: 1000, right: 628, bottom: 1028 }, { w: 80, h: 48 }, VP);
   check('[128-2] 아래 화면 끝 8px 안쪽 계산(1028 + 4 + 48 = 1080 > 1072 → 위로)', p.side === 'above', JSON.stringify(p));
 }
+// ── [131-2] 옆 자리(data-tip-side="right") ──
+{
+  const p = placeTip({ left: 600, top: 100, right: 624, bottom: 124 }, { w: 80, h: 30 }, VP, 'right');
+  check('[131-2] 옆 — 대상 오른쪽 4px · 세로 가운데', p.side === 'right' && p.left === 628 && p.top === 97, JSON.stringify(p));
+}
+{
+  const p = placeTip({ left: 1200, top: 100, right: 1224, bottom: 124 }, { w: 80, h: 30 }, VP, 'right');
+  check('[131-2] 옆 — 오른쪽 자리가 모자라면 왼쪽(대상 왼쪽 4px · 1228 + 80 > 1272)', p.side === 'left' && p.left === 1200 - 4 - 80 && p.top === 97, JSON.stringify(p));
+}
+{
+  const exact = placeTip({ left: 600, top: 100, right: 1188, bottom: 124 }, { w: 80, h: 30 }, VP, 'right');
+  check('[131-2] 옆 — 화면 오른쪽 끝 8px 안쪽 계산(1188 + 4 + 80 = 1272 → 오른쪽 그대로)', exact.side === 'right' && exact.left === 1192, JSON.stringify(exact));
+}
+{
+  const top = placeTip({ left: 600, top: 0, right: 624, bottom: 10 }, { w: 80, h: 30 }, VP, 'right');
+  const bottom = placeTip({ left: 600, top: 1070, right: 624, bottom: 1078 }, { w: 80, h: 30 }, VP, 'right');
+  check('[131-2] 옆 — 세로는 화면 위 · 아래 끝에서 8px 안쪽', top.top === 8 && bottom.top === 1080 - 8 - 30, `${top.top} · ${bottom.top}`);
+}
+{
+  const p = placeTip({ left: 40, top: 100, right: 60, bottom: 124 }, { w: 80, h: 30 }, { w: 100, h: 1080 }, 'right');
+  check('[131-2] 옆 — 양옆 다 모자라면 기본(아래 4px · 가로 가운데)', p.side === 'below' && p.top === 128, JSON.stringify(p));
+}
+{
+  const a = placeTip({ left: 600, top: 100, right: 628, bottom: 128 }, { w: 80, h: 30 }, VP);
+  const b = placeTip({ left: 600, top: 100, right: 628, bottom: 128 }, { w: 80, h: 30 }, VP, undefined);
+  check('[131-2] 표시 없음 = 기본 아래 / 위 그대로(128-2 와 같은 값)', JSON.stringify(a) === JSON.stringify(b) && a.side === 'below' && a.top === 132 && a.left === 574, JSON.stringify(a));
+}
+{
+  const host = code('src/components/ui/Tooltip.tsx');
+  check('[131-2] 툴팁 담당이 요소의 data-tip-side="right" 를 읽어 placeTip 에 넘김', /getAttribute\('data-tip-side'\) === 'right'/.test(host) && /placeTip\([^;]*, side\)/.test(host));
+  // 표 안 줄마다 있는 작은 아이콘 버튼(아래로 뜨면 다음 줄을 가림) — 옆으로 단 곳
+  const sites: [string, RegExp][] = [
+    ['src/components/ranking/RankingView.tsx', /data-tip-side="right"/],
+    ['src/components/swing/BuyJudgeTable.tsx', /<ListRemoveButton [^\n]*tipSide="right"/],
+    ['src/components/asset/AssetAccountTable.tsx', /<ListRemoveButton [^\n]*label="목록에서 삭제" tipSide="right"/],
+    ['src/components/common/SymbolTable.tsx', /<ListRemoveButton [^\n]*tipSide="right"/],
+    ['src/components/paper-trading/AccountsOverview.tsx', /label="위로" data-tip-side="right"[\s\S]*label="아래로" data-tip-side="right"/],
+    ['src/components/surge/SurgeDashboard.tsx', /label="이 회차 삭제"[\s\S]{0,400}data-tip-side="right"/],
+    ['src/components/ui/ListRemoveButton.tsx', /data-tip-side=\{tipSide\}/],
+  ];
+  const miss = sites.filter(([f, re]) => !re.test(code(f))).map(([f]) => f);
+  check(`[131-2] 옆 툴팁을 단 곳 ${sites.length - 1}파일(실시간 순위 별 · 매수 판단 · 종목 표 · 자산 계좌 표 · 계좌 ↑↓ · 급등 회차 삭제) + ListRemoveButton 선택 옵션`, miss.length === 0, miss.join(', '));
+}
 check('[128-2] 최대 폭 = 320 · 화면 − 16 가운데 작은 것', tipMaxWidth(1280) === 320 && tipMaxWidth(300) === 284 && tipMaxWidth(10) === 0);
 check(
   '[128-2] 상자 모양 — 떠 있는 바탕 · 1px 테두리 · 둥글기 8px · 그림자 · 14px · 줄 높이 1.625 · 가로 10 · 세로 6 · 줄바꿈 지킴 · 글 길이만큼',
@@ -391,6 +436,40 @@ check(
     const added = dc.filter((l) => /^\+(?!\+\+)/.test(l));
     const onlyFind = removed.every((l) => /getByTitle\(/.test(l) && added.includes(`+${l.slice(1).replace(/getByTitle\('([^']+)'\)/g, `locator('[data-tip="$1"]')`)}`));
     check(`[129-6] designCheck.ts — 판정 부분 바뀐 줄 0(지운 ${removed.length}줄은 장면을 여는 getByTitle → [data-tip] 찾기뿐 · 나머지는 장면 더하기)`, onlyFind, removed.slice(0, 3).join(' / '));
+  }
+}
+
+// ── [131-4] CLAUDE.md(관리 루트 · git 밖) — 새 일하는 법 세 줄 · 크기 기준 줄 · 25,600바이트 안 ──
+{
+  const common = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: root, encoding: 'utf8' }).trim();
+  const md = path.resolve(common, '../../../CLAUDE.md');
+  if (!fs.existsSync(md)) console.log(`건너뜀  [131-4] CLAUDE.md 없음(관리 루트 — ${md})`);
+  else {
+    const text = fs.readFileSync(md, 'utf8');
+    const bytes = fs.statSync(md).size;
+    const rules = [/작업 뒤 찾은 화면 문제[^\n]*그 작업 안에서 고치고/, /`npm run check:all` 은 마지막에 한 번/, /캡처 검토는 바뀐 장면만 1440 하나/, /25,600바이트\(25KiB\) 안/];
+    const miss = rules.filter((re) => !re.test(text)).map(String);
+    check(`[131-4] CLAUDE.md 새 일하는 법 세 줄 · 크기 기준 줄 · ${bytes}바이트 ≤ 25,600`, miss.length === 0 && bytes <= 25_600 && !/900줄을 넘으면/.test(text), miss.join(' · '));
+  }
+}
+
+// ── [131-5] 서버 · 매매 · 주문 · 로그인 · 서버가 함께 쓰는 src 바뀐 줄 0 · designCheck 판정 부분 0(131차 v2.69.3 동안만) ──
+{
+  const head = fs.readFileSync(path.join(root, 'src/data/changelog.ts'), 'utf8').match(/version: '(v[\d.]+)'/)?.[1];
+  const BASE = '92af0e3';
+  if (head !== 'v2.69.2' && head !== 'v2.69.3') console.log(`건너뜀  [131-5] 지금 버전 ${head} — 131차(v2.69.3) 범위 시험`);
+  else {
+    const diff = (...p: string[]) => execFileSync('git', ['diff', '--name-only', BASE, '--', ...p], { cwd: root, encoding: 'utf8' }).trim();
+    check(`[131-5] git diff ${BASE} -- server python src/services = 0개`, diff('server', 'python', 'src/services') === '', diff('server', 'python', 'src/services'));
+    const shared = serverSharedSrc();
+    const CHANGELOG = 'src/data/changelog.ts';
+    const touched = diff(...shared.closure.filter((f) => f !== CHANGELOG));
+    check(`[131-5] 서버가 함께 쓰는 src ${shared.direct.length}개 + 그 가져오기 파일(전체 ${shared.closure.length}개 · 업데이트 내역 밖) 바뀐 줄 0`, shared.direct.length === 54 && touched === '', `${shared.direct.length} · ${touched}`);
+    const cl = execFileSync('git', ['diff', '-U0', BASE, '--', CHANGELOG], { cwd: root, encoding: 'utf8' }).split('\n');
+    check('[131-5] 업데이트 내역(changelog.ts)은 맨 앞 항목 더하기만(지운 · 바꾼 줄 0)', cl.filter((l) => /^-(?!--)/.test(l)).length === 0);
+    const dc = execFileSync('git', ['diff', '-U0', BASE, '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' }).split('\n');
+    const removed = dc.filter((l) => /^-(?!--)/.test(l));
+    check(`[131-5] designCheck.ts — 지운 · 바꾼 줄 0(판정 부분 그대로 · 장면 더하기만)`, removed.length === 0, removed.slice(0, 3).join(' / '));
   }
 }
 

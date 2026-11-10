@@ -11,6 +11,7 @@ export default function ListRemoveButton({
   name,
   keeps,
   label = '목록에서 삭제',
+  tipSide,
   className = '',
 }: {
   onClick: () => void;
@@ -19,6 +20,8 @@ export default function ListRemoveButton({
   /** 툴팁 뒤에 붙는 "무엇이 남는지" */
   keeps?: string;
   label?: string;
+  /** 툴팁을 옆으로(`data-tip-side`) — 표 안 줄마다 있는 버튼(아래로 뜨면 다음 줄을 가린다) */
+  tipSide?: 'right';
   className?: string;
 }) {
   return (
@@ -31,6 +34,7 @@ export default function ListRemoveButton({
       }}
       label={keeps ? `${label} — ${keeps}` : label}
       aria-label={name ? `${name} ${label}` : label}
+      data-tip-side={tipSide}
       className={className}
     />
   );

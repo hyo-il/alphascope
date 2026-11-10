@@ -6,6 +6,7 @@
  * 123차 · v2.67.4([123-n]): 규칙 창 고급 설정이 저장 줄에 가리지 않음 · 다른 창 모양 그대로 · 시황 줄 간격 · 「VIX 공포지수」 한 줄 · 카드 높이.
  * 124차 · v2.68.0([124-6]): 규칙 창 고급 설정을 펼치면 그 자리로 스크롤 · 접을 때 · 처음 열 때는 안 함 · 동작 줄이기면 바로.
  * 127차 · v2.68.3([127-2]): 매수 판단 · 급등 탐지 · 검증 기록 탭 줄 아래 가림 띠(공용 `ui/ScrollTopShade`) — 맨 위 겹침 0 · 스크롤 때 잘린 끝 덮음.
+ * 131차 · v2.69.3([131-1]): 오른쪽 패널 관심 · 최근 · 계좌 탭 x 같음 · 「계좌」 탭 톱니 자리는 누를 수 없는 빈 자리 · 관심 탭 톱니 그대로 열림.
  * 129차 · v2.69.1: [122-2] 폴더를 바꾸는 단계는 실제 상태(종목 줄 · 추가 칸 닫힘)를 기다린다 · 금지어 검사에 툴팁 글(data-tip) 포함.
  * Vite + Playwright, `/api` 는 모두 `page.route` 가짜(만든 값) — 구글 · 토스 · 서버 호출 0. 새 종목 창 줄([122-3])은 `assettradeui:test`.
  */
@@ -198,6 +199,39 @@ try {
         return { text: input.placeholder, width: c.measureText(input.placeholder).width, inner: input.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) };
       });
       check(`[122-1] ${size.width}px — 비교 검색칸 안내 글자 잘림 없음`, m.text === '종목 이름이나 티커' && m.width <= m.inner, JSON.stringify(m));
+      await ctx.close();
+    }
+
+    // [131-1] 오른쪽 패널 탭 줄 — 관심 · 최근 · 계좌 어느 탭이어도 탭 x 가 같다(톱니는 관심 탭에만 · 다른 탭은 같은 폭 빈 자리)
+    {
+      const { page, ctx, errors } = await open(browser, '#/chart', size);
+      const panel = page.getByTestId('watch-panel');
+      const tabs = ['관심', '최근', '계좌'] as const;
+      const gear = panel.getByRole('button', { name: '관심 목록 관리 (폴더·순서)', exact: true });
+      await gear.waitFor({ timeout: 10_000 });
+      const xs = async () => Promise.all(tabs.map(async (t) => Math.round(((await panel.getByRole('button', { name: t, exact: true }).boundingBox())!.x) * 100) / 100));
+      const seen: Record<string, number[]> = {};
+      const slot: Record<string, unknown> = {};
+      for (const t of tabs) {
+        await panel.getByRole('button', { name: t, exact: true }).click();
+        await page.waitForTimeout(150);
+        seen[t] = await xs();
+        slot[t] = await panel.evaluate((p) => {
+          const s = p.querySelector<HTMLElement>('[data-testid="watch-gear-slot"]');
+          return s ? { w: s.getBoundingClientRect().width, hidden: s.getAttribute('aria-hidden'), kids: s.childElementCount, focusable: s.tabIndex >= 0 } : null;
+        });
+      }
+      const same = tabs.every((t) => JSON.stringify(seen[t]) === JSON.stringify(seen['관심']));
+      check(`[131-1] ${size.width}px — 관심 · 최근 · 계좌 탭 x 위치 세 탭에서 같음(${seen['관심'].join(' · ')})`, same, JSON.stringify(seen));
+      await panel.getByRole('button', { name: '계좌', exact: true }).click();
+      await page.waitForTimeout(100);
+      const s = slot['계좌'] as { w: number; hidden: string | null; kids: number; focusable: boolean } | null;
+      check(`[131-1] ${size.width}px — 「계좌」 탭에서 톱니 누를 수 없음(버튼 0 · 빈 자리 28px · aria-hidden · 초점 없음)`, (await gear.count()) === 0 && !!s && s.w === 28 && s.hidden === 'true' && s.kids === 0 && !s.focusable, JSON.stringify(s));
+      await panel.getByRole('button', { name: '관심', exact: true }).click();
+      await gear.click({ timeout: 5000 });
+      const opened = await page.getByRole('dialog').first().waitFor({ timeout: 5000 }).then(() => true, () => false);
+      check(`[131-1] ${size.width}px — 관심 탭 톱니는 그대로 열림(관심 목록 관리 창) · 빈 자리 없음`, opened && slot['관심'] == null, JSON.stringify(slot['관심']));
+      check(`[131-1] ${size.width}px — 관심 패널 탭 페이지 오류 0`, errors.length === 0, errors.join(' | '));
       await ctx.close();
     }
 
