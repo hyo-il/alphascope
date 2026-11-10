@@ -118,6 +118,30 @@ function targets(): Target[] {
   list.push(
     // v2.69.0 — [ⓘ] 설명이 열린 장면(증시 일정 「데이터 출처」 — 앱 툴팁과 같은 상자)
     { name: 'tooltip-정보-증시일정', hash: '#/calendar', open: async (page) => { await page.waitForTimeout(800); await hoverTip(page, 'button[aria-label="데이터 출처"]'); } },
+    // v2.69.1 — 앱 전체 툴팁(129차 묶음 A · B · C 대표 자리)이 열린 장면
+    { name: 'tooltip-A-메뉴접기', hash: '#/rules', open: async (page) => { await page.waitForTimeout(800); await hoverTip(page, 'button[aria-label="메뉴 접기"]'); } },
+    {
+      name: 'tooltip-B-실시간순위-관심별',
+      hash: '#/ranking',
+      before: async (page: Page) => {
+        await page.route('**/api/rankings/live**', (r) => r.fulfill({ json: rankingSample(new URL(r.request().url()).searchParams.get('kind') as 'gainers', Date.now()) }).catch(() => {}));
+      },
+      open: async (page: Page) => { await page.waitForTimeout(1200); await hoverTip(page, 'button[aria-label$="관심 목록에 추가"]'); },
+      after: async (page: Page) => { await page.unroute('**/api/rankings/live**'); },
+    },
+    {
+      name: 'tooltip-C-거래정지-시각',
+      hash: '#/ushalts',
+      before: async (page: Page) => {
+        await page.route('**/api/us-halts', (r) => r.fulfill({ json: usHaltsSample(Date.now(), true, 3) }).catch(() => {}));
+        await page.route('**/api/rankings/live**', (r) => r.fulfill({ json: rankingSample(new URL(r.request().url()).searchParams.get('kind') as 'gainers', Date.now()) }).catch(() => {}));
+      },
+      open: async (page: Page) => { await page.waitForTimeout(1200); await hoverTip(page, 'table td span[data-tip]'); },
+      after: async (page: Page) => {
+        await page.unroute('**/api/us-halts');
+        await page.unroute('**/api/rankings/live**');
+      },
+    },
     { name: 'dialog-자동매매설정-고급', hash: '#/portfolio/paper', open: async (page) => { await openAccountSettings(page); await expandAdvanced(page); } },
     { name: 'backtest-고급', hash: '#/backtest', open: expandAdvanced },
     // 계좌 상세 윗줄의 [입금] · [출금] 창(v2.52.0) — 금액을 넣은 모양으로 잰다. 출금은 출금할 수 있는 돈보다 많이 넣어 막힌 모양

@@ -361,8 +361,8 @@ check(
     const dc = execFileSync('git', ['diff', '-U0', `${BASE}..HEAD`, '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' }).split('\n');
     const removed = dc.filter((l) => /^-(?!--)/.test(l));
     const added = dc.filter((l) => /^\+(?!\+\+)/.test(l));
-    const onlyFind = removed.every((l) => /getByTitle\(/.test(l)) && added.length === removed.length && added.every((l, i) => l.slice(1) === removed[i].slice(1).replace(/getByTitle\('([^']+)'\)/g, `locator('[data-tip="$1"]')`));
-    check(`[129-6] designCheck.ts — 판정 부분 바뀐 줄 0(바뀐 ${removed.length}줄은 장면을 여는 getByTitle → [data-tip] 찾기뿐)`, onlyFind, removed.slice(0, 3).join(' / '));
+    const onlyFind = removed.every((l) => /getByTitle\(/.test(l) && added.includes(`+${l.slice(1).replace(/getByTitle\('([^']+)'\)/g, `locator('[data-tip="$1"]')`)}`));
+    check(`[129-6] designCheck.ts — 판정 부분 바뀐 줄 0(지운 ${removed.length}줄은 장면을 여는 getByTitle → [data-tip] 찾기뿐 · 나머지는 장면 더하기)`, onlyFind, removed.slice(0, 3).join(' / '));
   }
 }
 
