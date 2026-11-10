@@ -5,6 +5,7 @@ import type { WatchFolder } from '../../types/watchlist';
 import type { Quote } from '../../types/toss';
 import { COMPARE_DRAG_TYPE } from '../../types/compare';
 import { formatPercent, formatPrice } from '../../utils/formatters';
+import { STALE_QUOTE_TIP } from '../common/quoteText';
 
 /**
  * 관심 목록 패널의 폴더 하나 — **거의** 읽기 전용이다.
@@ -131,7 +132,7 @@ export default function WatchFolderView({
 
                     <span
                       className="shrink-0 text-right"
-                      data-tip={quote?.stale ? '실시간 조회 실패 — 마지막 캐시 종가입니다.' : undefined}
+                      data-tip={quote?.stale ? STALE_QUOTE_TIP : undefined}
                     >
                       <span className="block text-xs tabular-nums text-text-secondary">
                         {/* 지연 시세는 앞에 · 를 붙여 실시간인 척하지 않게 한다. */}

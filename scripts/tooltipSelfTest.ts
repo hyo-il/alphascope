@@ -3,7 +3,7 @@
  *
  * 128차 지시서 「꼭 지킬 동작」(시험 이름 앞의 [128-n]) 가운데 DOM 없이 보는 것:
  *   1 여닫기(순수 `ui/tooltip/hover` · 가짜 시계) · 2 자리(순수 `ui/tooltip/place`) · 4 [ⓘ] 옛 여닫기 · 자리 코드 0(소스) ·
- *   5 아이콘 버튼 두 크기(소스) · 6 `design:lint` 규칙(시험용 가짜 파일 — 끝나면 지운다) · 7 목록 문서 줄 수 · 8 서버 · 매매 코드 바뀐 파일 0.
+ *   5 아이콘 버튼 두 크기(소스) · 6 `design:lint` 규칙(시험용 가짜 파일 — 끝나면 지운다) · 7 목록 문서 줄 수.
  * 129차(v2.69.1 · [129-n]): 1 툴팁용 title 0 · 툴팁 아닌 속성 95 그대로 · 바꾼 91곳 · 아이콘 버튼 이름 · 2 lint 기준 목록 0 ·
  *   3 · 6 서버 · 매매 · 서버가 함께 쓰는 src(가져오기 끝까지 — `lib/serverSharedSrc`) · 배포 · 스위치 바뀐 줄 0.
  * 화면(Playwright)은 `tooltipui:test`.
@@ -338,19 +338,6 @@ check(
 {
   const lintSrc = code('scripts/designLint.ts') + code('scripts/lib/tooltipTitles.ts');
   check('[129-2] 기준 목록 파일 · 코드 0(tooltipTitleBaseline.json 없음 · 읽는 코드 없음)', !fs.existsSync(path.join(root, 'scripts/fixtures/tooltipTitleBaseline.json')) && !/Baseline|BASELINE|baseline/.test(lintSrc));
-}
-
-// ── [128-8] 서버 · 매매 · 주문 · 로그인 코드 바뀐 파일 0 · designCheck 판정 부분 0(이번 차수 v2.69.0 동안만) ──
-{
-  const head = fs.readFileSync(path.join(root, 'src/data/changelog.ts'), 'utf8').match(/version: '(v[\d.]+)'/)?.[1];
-  if (head !== 'v2.69.0') console.log(`건너뜀  [128-8] 지금 버전 ${head} — 128차(v2.69.0) 범위 시험`);
-  else {
-    const changed = execFileSync('git', ['diff', '--name-only', '42adc73..HEAD', '--', 'server', 'python', 'src/services'], { cwd: root, encoding: 'utf8' }).trim();
-    check('[128-8] git diff 42adc73..HEAD -- server python src/services = 0개', changed === '', changed);
-    const dc = execFileSync('git', ['diff', '-U0', '42adc73..HEAD', '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' });
-    const removed = dc.split('\n').filter((l) => /^-(?!--)/.test(l));
-    check('[128-8] designCheck.ts — 지운 · 바꾼 줄 0(장면 더하기만 · 판정 부분 그대로)', removed.length === 0, removed.slice(0, 3).join(' / '));
-  }
 }
 
 // ── [129-3] [129-6] 서버 · 매매 · 주문 · 로그인 코드 · 서버가 함께 쓰는 src(가져오기 끝까지) 바뀐 줄 0 · designCheck 판정 부분 0(129차 v2.69.1 동안만) ──

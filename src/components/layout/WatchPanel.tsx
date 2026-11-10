@@ -13,6 +13,7 @@ import { useQuotes } from '../../hooks/useQuotes';
 import { useStockNames } from '../../hooks/useStockNames';
 import { COMPARE_DRAG_TYPE } from '../../types/compare';
 import { formatPercent, formatPrice } from '../../utils/formatters';
+import { STALE_QUOTE_TIP } from '../common/quoteText';
 import { usePaperAccounts, usePaperAccountDetail } from '../../hooks/usePaperTrading';
 import { SIDE_POLL_MS, useAutoTradingOverview } from '../../hooks/usePaperOverview';
 import AccountMiniView from './AccountMiniView';
@@ -286,7 +287,7 @@ export default function WatchPanel({
                   </span>
                   <span
                     className="shrink-0 text-right"
-                    data-tip={quote?.stale ? '실시간 조회 실패 — 마지막 캐시 종가입니다.' : undefined}
+                    data-tip={quote?.stale ? STALE_QUOTE_TIP : undefined}
                   >
                     <span className="block text-xs tabular-nums text-text-secondary">
                       {quote?.price != null
