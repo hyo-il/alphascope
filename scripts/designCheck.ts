@@ -107,7 +107,17 @@ function targets(): Target[] {
     await page.waitForTimeout(1200);
     await click('자동매매 설정')(page);
   };
+  /** v2.69.0 — 앱 툴팁을 연 채로 잰다(마우스를 대상 가운데에 · 0.3초 뒤 열림 + 여유) */
+  const hoverTip = async (page: Page, selector: string) => {
+    await page.mouse.move(2, 2);
+    await page.waitForTimeout(300);
+    const b = await page.locator(selector).first().boundingBox().catch(() => null);
+    if (b) await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.waitForTimeout(500);
+  };
   list.push(
+    // v2.69.0 — [ⓘ] 설명이 열린 장면(증시 일정 「데이터 출처」 — 앱 툴팁과 같은 상자)
+    { name: 'tooltip-정보-증시일정', hash: '#/calendar', open: async (page) => { await page.waitForTimeout(800); await hoverTip(page, 'button[aria-label="데이터 출처"]'); } },
     { name: 'dialog-자동매매설정-고급', hash: '#/portfolio/paper', open: async (page) => { await openAccountSettings(page); await expandAdvanced(page); } },
     { name: 'backtest-고급', hash: '#/backtest', open: expandAdvanced },
     // 계좌 상세 윗줄의 [입금] · [출금] 창(v2.52.0) — 금액을 넣은 모양으로 잰다. 출금은 출금할 수 있는 돈보다 많이 넣어 막힌 모양
@@ -761,6 +771,45 @@ function targets(): Target[] {
           await page.locator('[data-group="none"] [data-open-class-dialog]').click().catch(() => {});
           await page.locator('[data-class-dialog]').waitFor({ timeout: 3000 }).catch(() => {});
           await page.waitForTimeout(300);
+        }],
+        // v2.69.0 — 앱 툴팁이 열린 장면(위 줄 아이콘 버튼 · 화면 오른쪽 끝 · 잘린 긴 이름 · 아래 끝에서 위로 뒤집힘 · 평단 계산기 아이콘)
+        ['툴팁-아이콘버튼', {}, async (page: Page) => hoverTip(page, '[data-asset-settings]')],
+        ['툴팁-오른쪽끝', {}, async (page: Page) => hoverTip(page, '[data-asset-lock]')],
+        ['툴팁-긴이름', {}, async (page: Page) => {
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+          // 이름 칸 하나를 좁혀 잘린 모양을 만든다(잘렸을 때만 뜨는 툴팁)
+          await page.evaluate(() => {
+            const s = document.querySelector('[data-account-cards] tbody tr [data-tip-clip]') as HTMLElement | null;
+            if (s) {
+              s.style.maxWidth = '48px';
+              s.setAttribute('data-measure-cut', '');
+            }
+          }).catch(() => {});
+          await hoverTip(page, '[data-measure-cut]');
+        }],
+        ['툴팁-아래끝위로', {}, async (page: Page) => {
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+          // 계산기 아이콘 하나가 화면 아래 끝에 오도록 스크롤
+          await page.evaluate(() => {
+            const sc = document.querySelector('[data-asset-scroll]') as HTMLElement | null;
+            const btns = [...document.querySelectorAll('[data-avgcalc-open]')] as HTMLElement[];
+            const b = btns[btns.length - 1];
+            if (sc && b) sc.scrollTop += b.getBoundingClientRect().bottom - (innerHeight - 6);
+          }).catch(() => {});
+          await page.waitForTimeout(200);
+          const btns = page.locator('[data-avgcalc-open]');
+          const n = await btns.count();
+          if (n) {
+            const b = await btns.nth(n - 1).boundingBox().catch(() => null);
+            if (b) {
+              await page.mouse.move(2, 2);
+              await page.waitForTimeout(300);
+              await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+              await page.waitForTimeout(500);
+            }
+          }
         }],
       ] as const
     ).map(([label, sum, act]) => ({

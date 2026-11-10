@@ -130,6 +130,11 @@ try {
       check(`[128-5] ${w}px — 자산 현황 [자산 분류 정하기] · [매수 · 매도 기록] 아이콘만 · 툴팁 글 = 옛 글자 · [새 종목 매수] 글자 그대로`,
         JSON.stringify(tools) === JSON.stringify([{ text: '', label: '자산 분류 정하기', tip: '자산 분류 정하기', h: 28 }, { text: '', label: '매수 · 매도 기록', tip: '매수 · 매도 기록', h: 28 }]) && (await page.locator('[data-trade-new]').textContent())?.trim() === '새 종목 매수',
         JSON.stringify(tools));
+      const rowH = await page.evaluate(() => {
+        const row = document.querySelector('[data-open-class-dialog]')!.parentElement!;
+        return [...row.children].map((c) => Math.round((c as HTMLElement).getBoundingClientRect().height));
+      });
+      check(`[128-5] ${w}px — 자산 현황 도구 줄 높이 하나(28px — 아이콘 버튼 md · 묶음 버튼 · 글자 버튼 sm)`, rowH.length >= 4 && rowH.every((h) => h === 28), JSON.stringify(rowH));
       const tradeText = await page.evaluate(() => [...document.querySelectorAll('[data-trade-buy], [data-trade-sell]')].map((b) => (b.textContent ?? '').trim()));
       check(`[128-5] ${w}px — 종목 줄 [매수] [매도] 글자 그대로`, tradeText.length > 0 && tradeText.every((t) => t === '매수' || t === '매도') && tradeText.includes('매수') && tradeText.includes('매도'), JSON.stringify(tradeText.slice(0, 4)));
 

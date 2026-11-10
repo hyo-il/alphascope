@@ -343,7 +343,9 @@ export default function AssetSheetValues({
     <div className="space-y-3">
       <Summary data={data} />
       <div className="flex flex-wrap items-center gap-3">
+        {/* 도구 줄 높이 28px 하나(v2.69.0) — 아이콘 버튼 md(28) 와 같은 줄이라 묶음 버튼 · 글자 버튼은 sm */}
         <Segmented
+          size="sm"
           label="자산 현황 보기"
           options={VIEWS}
           value={view}
@@ -352,12 +354,12 @@ export default function AssetSheetValues({
             saveView(v);
           }}
         />
-        {view === 'symbol' && <Segmented label="코어 · 위성 거르기" options={SYMBOL_FILTERS} value={filter} onChange={setFilter} />}
+        {view === 'symbol' && <Segmented size="sm" label="코어 · 위성 거르기" options={SYMBOL_FILTERS} value={filter} onChange={setFilter} />}
         {/* 창을 열기만 하는 도구 버튼은 아이콘만(v2.69.0 · 툴팁 = 예전 글자) · 「새 종목 매수」 는 매수 — 글자 그대로 */}
         <IconButton size="md" icon={Tags} label="자산 분류 정하기" onClick={onOpenClassDialog} data-open-class-dialog />
         {view === 'account' && (
           <>
-            <Button size="md" icon={Plus} onClick={onNewBuy} data-trade-new>
+            <Button size="sm" icon={Plus} onClick={onNewBuy} data-trade-new>
               새 종목 매수
             </Button>
             <IconButton size="md" icon={History} label="매수 · 매도 기록" onClick={onOpenTradeHistory} data-trade-history-open />
