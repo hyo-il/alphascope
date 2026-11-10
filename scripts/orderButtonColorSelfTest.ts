@@ -178,7 +178,17 @@ try {
   check('[색-3] 자산 [매도] 배경 = 빠른 주문 매도 배경', sell.bg === limitSell.bg, `${sell.bg} / ${limitSell.bg}`);
   check('[색-3] 자산 [매수] [매도] 흰 글자 · 크기 sm(28px)', buy.color === WHITE && sell.color === WHITE && buy.height === 28 && sell.height === 28, JSON.stringify([buy, sell]));
 
-  const secondary = await look(asset.page.locator('[data-trade-history-open]'));
+  // 공용 secondary 배경(bg-bg-tertiary) — 128차부터 [매수 · 매도 기록] 은 아이콘 버튼이라 견줄 글자 버튼 대신 토큰 색을 잰다
+  const secondary = {
+    bg: await asset.page.evaluate(() => {
+      const el = document.createElement('span');
+      el.className = 'bg-bg-tertiary';
+      document.body.append(el);
+      const c = getComputedStyle(el).backgroundColor;
+      el.remove();
+      return c;
+    }),
+  };
   const newBuy = await look(asset.page.locator('[data-trade-new]'));
   check('[색-3] [새 종목 매수] 는 회색(공용 secondary 배경)', newBuy.bg === secondary.bg && newBuy.bg !== buy.bg && newBuy.bg !== sell.bg, `${newBuy.bg} / ${secondary.bg}`);
 

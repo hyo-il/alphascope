@@ -178,7 +178,7 @@ export function MonthlyBuySection({ mb, writeEnabled, error, onDone }: { mb: Mon
           info="살 금액 = 시트 「월 고정지출」 C5 월급 × 「자산 투자 비율 관리」 목표 비율. 주식은 코어 · 위성으로 한 번 더 나눕니다. 원 단위 반올림 차이는 코어에 더해 합계가 월급과 같습니다. 구매일 = 26일이 든 주의 금요일(26일이 토 · 일이면 바로 앞 금요일), 그날이 한국 휴장일이면 그 전 거래일입니다."
           right={
             !canPressDone(mb) ? undefined : (
-              <Button size="sm" icon={CircleCheck} disabled={!writeEnabled} title={writeEnabled ? undefined : '이 서버에서는 시트 쓰기가 꺼져 있습니다'} onClick={onDone} data-purchase-done>
+              <Button size="sm" icon={CircleCheck} disabled={!writeEnabled} data-tip={writeEnabled ? undefined : '이 서버에서는 시트 쓰기가 꺼져 있습니다'} onClick={onDone} data-purchase-done>
                 구매 완료
               </Button>
             )

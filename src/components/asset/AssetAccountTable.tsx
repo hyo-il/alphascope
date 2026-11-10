@@ -61,7 +61,7 @@ export default function AssetAccountTable({
               {rows.map((k) => (
                 <tr key={k} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW}`}>
                   <td className="max-w-0 py-1.5 pl-3 pr-4">
-                    <span className="block truncate font-medium text-text-primary" title={nameOf(k)}>
+                    <span className="block truncate font-medium text-text-primary" data-tip-clip={nameOf(k)}>
                       {nameOf(k)}
                     </span>
                   </td>
@@ -157,7 +157,7 @@ function AccountPickerDialog({ title, choices, onAdd, onClose }: { title: string
                     <span className={`flex h-4 w-4 shrink-0 items-center justify-center ${on ? 'text-text-primary' : 'text-transparent'}`}>
                       <Check {...ICON_SM} aria-hidden />
                     </span>
-                    <span className="min-w-0 flex-1 truncate font-medium" title={a.name}>
+                    <span className="min-w-0 flex-1 truncate font-medium" data-tip-clip={a.name}>
                       {a.name}
                     </span>
                   </button>
@@ -178,7 +178,7 @@ function AccountPickerDialog({ title, choices, onAdd, onClose }: { title: string
         <ul data-list className="-mx-1 min-h-0 flex-1 space-y-1 overflow-y-auto px-1 [scrollbar-gutter:stable]">
           {picked.map((k) => (
             <li key={k} className="flex min-h-9 items-center gap-2 rounded-md px-2 py-1 hover:bg-bg-tertiary/60">
-              <span className="min-w-0 flex-1 truncate text-xs font-medium" title={nameOf(k)}>
+              <span className="min-w-0 flex-1 truncate text-xs font-medium" data-tip-clip={nameOf(k)}>
                 {nameOf(k)}
               </span>
               <ListRemoveButton onClick={() => setPicked((cur) => cur.filter((x) => x !== k))} name={nameOf(k)} label="고른 계좌에서 삭제" />

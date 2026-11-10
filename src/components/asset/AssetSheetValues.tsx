@@ -124,7 +124,7 @@ const CARD_BG = 'bg-bg-secondary';
 function ClassText({ h }: { h: AssetHolding }) {
   if (h.tickerRow == null)
     return (
-      <span className={`inline-block ${ASSET_CLASS_W} text-center text-text-muted`} title="「티커」 탭과 이을 수식이 없어 고를 수 없습니다">
+      <span className={`inline-block ${ASSET_CLASS_W} text-center text-text-muted`} data-tip="「티커」 탭과 이을 수식이 없어 고를 수 없습니다">
         —
       </span>
     );
@@ -191,7 +191,7 @@ function AccountCard({
           className={`${CARD_BG} px-4 text-left font-normal ${open ? 'rounded-t-xl border-b border-border/50' : 'rounded-xl'}`}
         >
           <span className="flex items-center gap-3">
-            <span className="min-w-0 truncate text-sm font-semibold text-text-primary" title={section.name}>
+            <span className="min-w-0 truncate text-sm font-semibold text-text-primary" data-tip-clip={section.name}>
               {section.name || '이름 없는 계좌'}
             </span>
             <span className="shrink-0 whitespace-nowrap text-caption text-text-muted" data-count>
@@ -201,7 +201,7 @@ function AccountCard({
               {account ? formatPrice(account.value, 'KRW') : '—'}
             </span>
             {account != null && account.missing > 0 && (
-              <span className="shrink-0 whitespace-nowrap text-caption text-warning" title="가격을 받지 못한 줄은 평가 금액 합에서 빠졌습니다">
+              <span className="shrink-0 whitespace-nowrap text-caption text-warning" data-tip="가격을 받지 못한 줄은 평가 금액 합에서 빠졌습니다">
                 {account.missing}줄 빠짐
               </span>
             )}
@@ -233,11 +233,11 @@ function AccountCard({
           return (
             <tr key={h.row} className={LIST_TABLE_ROW}>
               <td className={`${CARD_BG} ${lastL(last)} max-w-0 border-t border-border/30 pl-4`}>
-                <span className="block truncate text-text-primary" title={h.name}>
+                <span className="block truncate text-text-primary" data-tip-clip={h.name}>
                   {h.name}
                 </span>
               </td>
-              <td className={`${CARD_BG} ${TEXT} border-t border-border/30 text-text-secondary`} title={h.code ?? '「티커」 탭과 이을 수식이 없습니다'}>
+              <td className={`${CARD_BG} ${TEXT} border-t border-border/30 text-text-secondary`} data-tip={h.code ?? '「티커」 탭과 이을 수식이 없습니다'}>
                 {h.symbol ?? '—'}
                 {h.exchange && <span className="ml-1 text-caption text-text-muted">{h.exchange}</span>}
               </td>
@@ -353,17 +353,14 @@ export default function AssetSheetValues({
           }}
         />
         {view === 'symbol' && <Segmented label="코어 · 위성 거르기" options={SYMBOL_FILTERS} value={filter} onChange={setFilter} />}
-        <Button size="md" icon={Tags} onClick={onOpenClassDialog} data-open-class-dialog>
-          자산 분류 정하기
-        </Button>
+        {/* 창을 열기만 하는 도구 버튼은 아이콘만(v2.69.0 · 툴팁 = 예전 글자) · 「새 종목 매수」 는 매수 — 글자 그대로 */}
+        <IconButton size="md" icon={Tags} label="자산 분류 정하기" onClick={onOpenClassDialog} data-open-class-dialog />
         {view === 'account' && (
           <>
             <Button size="md" icon={Plus} onClick={onNewBuy} data-trade-new>
               새 종목 매수
             </Button>
-            <Button size="md" icon={History} onClick={onOpenTradeHistory} data-trade-history-open>
-              매수 · 매도 기록
-            </Button>
+            <IconButton size="md" icon={History} label="매수 · 매도 기록" onClick={onOpenTradeHistory} data-trade-history-open />
           </>
         )}
       </div>

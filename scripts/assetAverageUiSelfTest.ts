@@ -99,8 +99,8 @@ try {
     const rows = await page.locator('[data-account-cards] [data-trade-cell]').count();
     const calcs = await page.locator('[data-account-cards] [data-avgcalc-open]').count();
     check(`[124-5] ${w}px — 평단 계산기 버튼이 종목 줄마다(${calcs}/${rows})`, rows === 10 && calcs === rows, `${calcs}/${rows}`);
-    const icons = await page.locator('[data-account-cards] [data-avgcalc-open]').evaluateAll((els) => els.map((e) => ({ text: (e.textContent ?? '').trim(), svg: e.querySelector('svg.lucide-calculator') != null, title: e.getAttribute('title'), label: e.getAttribute('aria-label') })));
-    check(`[126-1] ${w}px — 종목 줄마다 계산기 아이콘만(글자 없음) · 툴팁 「평단 계산기」 · aria-label 「<종목> 평단 계산기」`, icons.length === 10 && icons.every((b) => b.text === '' && b.svg && b.title === '평단 계산기' && b.label?.endsWith(' 평단 계산기')), JSON.stringify(icons[0]));
+    const icons = await page.locator('[data-account-cards] [data-avgcalc-open]').evaluateAll((els) => els.map((e) => ({ text: (e.textContent ?? '').trim(), svg: e.querySelector('svg.lucide-calculator') != null, title: e.getAttribute('title'), tip: e.getAttribute('data-tip'), label: e.getAttribute('aria-label') })));
+    check(`[126-1] ${w}px — 종목 줄마다 계산기 아이콘만(글자 없음) · 툴팁 「평단 계산기」(128차부터 앱 툴팁 data-tip · title 없음) · aria-label 「<종목> 평단 계산기」`, icons.length === 10 && icons.every((b) => b.text === '' && b.svg && b.title == null && b.tip === '평단 계산기' && b.label?.endsWith(' 평단 계산기')), JSON.stringify(icons[0]));
     const nameCell = await page.evaluate(() => {
       const span = document.querySelector('[data-avgcalc-open="6"]')!.closest('tr')!.querySelector('td span.truncate') as HTMLElement;
       return Math.round(span.getBoundingClientRect().width * 10) / 10;

@@ -83,7 +83,7 @@ export default function AssetTradeHistoryDialog({ onLocked, onClose }: { onLocke
                   <td className={`${TABLE_NUM_COL} pl-1 text-text-secondary tabular-nums`}>{formatDateTime(t.at)}</td>
                   <td className={`${TEXT} text-text-secondary`}>{t.section}</td>
                   <td className={`${TABLE_NUM_GAP} max-w-0 min-w-24`}>
-                    <span className="block truncate" title={t.name}>
+                    <span className="block truncate" data-tip-clip={t.name}>
                       {t.name}
                     </span>
                   </td>

@@ -1639,7 +1639,7 @@ const OPTIONS_HAS_MIXED = (src: string) => /value: MIXED|'mixed'/.test(src);
       /writeEnabled === false && \(/.test(dlg) && /이 서버에서는 시트 쓰기가 꺼져 있습니다/.test(dlg) && /writeEnabled=\{summary \? summary\.writeEnabled : null\}/.test(dash));
   check('[116-6] 총 자산 분류별 표 「미지정」 줄 링크 → 창 열림 · 자산 현황 [자산 분류 정하기] 버튼 → 창 열림 · 창이 열리면 시트를 읽음(총 자산 탭에서도)',
     /onClick=\{onOpenClassDialog\} className="truncate text-caption text-accent hover:underline" data-open-class-dialog/.test(dash) && /<GroupTable summary=\{summary\} onOpenClassDialog=\{\(\) => setClassOpen\(true\)\} \/>/.test(dash) &&
-      /onOpenClassDialog=\{\(\) => setClassOpen\(true\)\}/.test(dash) && /onClick=\{onOpenClassDialog\} data-open-class-dialog>\s*자산 분류 정하기/.test(sv) && /if \(\(open \|\| classOpen\) && sheet == null\) void loadSheet\(\)/.test(dash));
+      /onOpenClassDialog=\{\(\) => setClassOpen\(true\)\}/.test(dash) && /<IconButton size="md" icon=\{Tags\} label="자산 분류 정하기" onClick=\{onOpenClassDialog\} data-open-class-dialog \/>/.test(sv) && /if \(\(open \|\| classOpen\) && sheet == null\) void loadSheet\(\)/.test(dash));
   // [117-1] 117차(v2.65.4) — 묶음 열쇠는 종목별 보기와 같은 함수 · 창의 「줄마다 다름」 · 「「티커」 n줄」
   const plan117 = fs.readFileSync(path.join(root, 'src/utils/assetClassPlan.ts'), 'utf8');
   const sum117 = fs.readFileSync(path.join(root, 'server/asset/summary.ts'), 'utf8');

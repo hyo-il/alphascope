@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { LoaderCircle, Lock, RefreshCw, Settings } from 'lucide-react';
-import { Button, Checkbox, ICON_SM, PageHeader, Panel, ScrollTopShade, Segmented, SectionTitle } from '../ui';
+import { Button, Checkbox, ICON_SM, IconButton, PageHeader, Panel, ScrollTopShade, Segmented, SectionTitle } from '../ui';
 import { LIST_TABLE_ROW, PANEL_PAD, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { Skeleton, SkeletonTable } from '../common/SkeletonLoader';
 import { usePolling } from '../../hooks/usePolling';
@@ -361,15 +361,10 @@ export default function AssetDashboard({
               <span className="inline-flex w-4 justify-center">{switching && <LoaderCircle {...ICON_SM} className="animate-spin text-text-muted" aria-label="다시 계산하는 중" />}</span>
             </label>
             {summary && <span className="whitespace-nowrap text-caption text-text-muted tabular-nums">읽은 시각 {formatDateTime(summary.readAt)}</span>}
-            <Button size="md" icon={Settings} disabled={summary == null} onClick={() => setSettingsOpen('top')} data-asset-settings>
-              설정
-            </Button>
-            <Button size="md" icon={RefreshCw} busy={reloading} disabled={latest == null} onClick={() => void reload()}>
-              다시 읽기
-            </Button>
-            <Button size="md" icon={Lock} onClick={onLock}>
-              잠그기
-            </Button>
+            {/* 도구 버튼은 아이콘만(v2.69.0 · 툴팁 = 예전 글자) */}
+            <IconButton size="md" icon={Settings} label="설정" disabled={summary == null} onClick={() => setSettingsOpen('top')} data-asset-settings />
+            <IconButton size="md" icon={RefreshCw} label="다시 읽기" busy={reloading} disabled={latest == null} onClick={() => void reload()} data-asset-reload />
+            <IconButton size="md" icon={Lock} label="잠그기" onClick={onLock} data-asset-lock />
           </>
         }
         tabs={TABS}
@@ -540,7 +535,7 @@ function Cards({ summary }: { summary: AssetSummary }) {
         value={formatPrice(totals.total, 'KRW')}
         sub={
           totals.missing > 0 ? (
-            <span className="text-warning" title={summary.missingNames.join(', ')}>
+            <span className="text-warning" data-tip={summary.missingNames.join(', ')}>
               가격 못 받음 {totals.missing}줄 — 총 자산에서 빠짐
             </span>
           ) : (

@@ -35,7 +35,8 @@ export function setInfoTipContent(el: HTMLElement, node: ReactNode | null) {
 const TIP_SELECTOR = '[data-tip], [data-tip-clip], [data-infotip]';
 const TIP_ID = 'as-tooltip';
 
-const clipped = (el: HTMLElement) => el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight;
+/** 한 줄 말줄임이 잘렸나 — 가로만 본다(본고딕 글자 위아래가 줄 높이보다 커 세로 scrollHeight 는 안 잘린 칸도 크다) */
+const clipped = (el: HTMLElement) => el.scrollWidth > el.clientWidth;
 
 /** 그 요소(또는 조상)의 툴팁 대상 — 보일 글이 없으면(빈 글 · 안 잘린 `data-tip-clip`) null */
 function tipTarget(node: EventTarget | null): HTMLElement | null {

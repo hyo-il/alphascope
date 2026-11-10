@@ -280,7 +280,7 @@ function ColorRow({ label, value, disabled, onPick }: { label: string; value: As
               role="radio"
               aria-checked={on}
               aria-label={ASSET_COLOR_LABEL[id]}
-              title={ASSET_COLOR_LABEL[id]}
+              data-tip={ASSET_COLOR_LABEL[id]}
               disabled={disabled}
               data-color={id}
               onClick={() => !on && onPick(id)}

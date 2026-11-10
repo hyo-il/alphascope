@@ -209,7 +209,7 @@ export default function AssetClassDialog({
                 <li key={r.key} className="flex flex-col gap-2 px-4 py-2.5 md:flex-row md:items-center md:gap-4" data-class-row={r.rows.join(',')}>
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-baseline gap-2">
-                      <span className="min-w-0 truncate text-xs text-text-primary" title={r.name}>
+                      <span className="min-w-0 truncate text-xs text-text-primary" data-tip-clip={r.name}>
                         {r.name}
                       </span>
                       <span className="shrink-0 whitespace-nowrap text-caption text-text-secondary">
@@ -223,7 +223,7 @@ export default function AssetClassDialog({
                         </span>
                       )}
                     </div>
-                    <div className="truncate text-caption text-text-muted" title={r.sections.join(' · ')}>
+                    <div className="truncate text-caption text-text-muted" data-tip-clip={r.sections.join(' · ')}>
                       {r.sections.join(' · ')}
                     </div>
                   </div>

@@ -143,7 +143,7 @@ export default function AssetNewBuyDialog({
         <div className="space-y-3" data-newbuy-confirm>
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs">
             <dt className="text-text-muted">종목</dt>
-            <dd className="min-w-0 truncate text-text-primary" title={plan.name}>
+            <dd className="min-w-0 truncate text-text-primary" data-tip-clip={plan.name}>
               {plan.name}
               <span className="ml-2 text-caption text-text-muted">{plan.symbol}</span>
             </dd>
@@ -226,7 +226,7 @@ export default function AssetNewBuyDialog({
                 </>
               ) : stock ? (
                 <>
-                  <span className="min-w-0 truncate text-text-primary" title={stock.name}>
+                  <span className="min-w-0 truncate text-text-primary" data-tip-clip={stock.name}>
                     {stock.name}
                   </span>
                   <span className="text-caption text-text-muted">{stock.symbol}</span>

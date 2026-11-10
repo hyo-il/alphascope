@@ -116,13 +116,13 @@ export default function AssetAverageCalculator({
           <dt className="text-text-muted">종목</dt>
           {/* 긴 이름만 말줄임 · 티커는 자르지 않는다 */}
           <dd className="flex min-w-0 items-baseline gap-2 text-text-primary">
-            <span className="min-w-0 truncate" title={holding.name}>
+            <span className="min-w-0 truncate" data-tip-clip={holding.name}>
               {holding.name}
             </span>
             {holding.symbol && <span className="shrink-0 text-caption text-text-muted" data-avgcalc-symbol>{holding.symbol}</span>}
           </dd>
           <dt className="text-text-muted">계좌</dt>
-          <dd className="min-w-0 truncate text-text-primary" title={section.name}>
+          <dd className="min-w-0 truncate text-text-primary" data-tip-clip={section.name}>
             {section.name}
           </dd>
           <dt className="text-text-muted">지금 수량</dt>

@@ -61,7 +61,7 @@ export default function AssetSymbolTable({ rows, filter }: { rows: AssetSymbolRo
               return (
                 <tr key={r.id} className={`border-t border-border/30 ${LIST_TABLE_ROW} ${dim ? 'text-text-muted' : 'text-text-primary'}`} data-symbol-row={r.id}>
                   <td className="max-w-0 pl-4">
-                    <span className="block truncate" title={r.name}>
+                    <span className="block truncate" data-tip-clip={r.name}>
                       {r.name}
                     </span>
                   </td>
@@ -79,7 +79,7 @@ export default function AssetSymbolTable({ rows, filter }: { rows: AssetSymbolRo
                     ))}
                   </td>
                   <td className={NUM}>{formatAssetQty(r.quantity)}</td>
-                  <td className={NUM} title={r.missing > 0 ? `가격을 받지 못한 줄 ${r.missing}개는 빠졌습니다` : undefined}>
+                  <td className={NUM} data-tip={r.missing > 0 ? `가격을 받지 못한 줄 ${r.missing}개는 빠졌습니다` : undefined}>
                     {r.value == null ? '—' : formatPrice(r.value, 'KRW')}
                   </td>
                   <td className={`${NUM} pr-4`}>{r.ratio == null ? '—' : formatNumber(r.ratio * 100, 1, '%')}</td>

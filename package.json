@@ -67,7 +67,8 @@
     "ordercolor:test": "tsx scripts/orderButtonColorSelfTest.ts",
     "assetavg:test": "tsx scripts/assetAverageSelfTest.ts",
     "assetavgui:test": "tsx scripts/assetAverageUiSelfTest.ts",
-    "tooltip:test": "tsx scripts/tooltipSelfTest.ts"
+    "tooltip:test": "tsx scripts/tooltipSelfTest.ts",
+    "tooltipui:test": "tsx scripts/tooltipUiSelfTest.ts"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-kr": "^5.3.0",

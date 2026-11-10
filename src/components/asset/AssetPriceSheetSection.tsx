@@ -119,12 +119,12 @@ export default function AssetPriceSheetSection({
                     <tr key={m.row} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW}`}>
                       <td className={`${TABLE_NUM_COL} py-1.5 pl-3 pr-4 tabular-nums text-text-secondary`}>티커 {m.row}행</td>
                       <td className="max-w-0 py-1.5 pr-4">
-                        <span className="block truncate font-medium text-text-primary" title={m.wasCode ? `${was} (${m.wasCode})` : was}>
+                        <span className="block truncate font-medium text-text-primary" data-tip-clip={m.wasCode ? `${was} (${m.wasCode})` : was}>
                           {was}
                         </span>
                       </td>
                       <td className="max-w-0 py-1.5 pr-3">
-                        <span className="block truncate text-text-secondary" title={m.nowCode ? `${now} (${m.nowCode})` : now}>
+                        <span className="block truncate text-text-secondary" data-tip-clip={m.nowCode ? `${now} (${m.nowCode})` : now}>
                           {now}
                         </span>
                       </td>
@@ -154,7 +154,7 @@ export default function AssetPriceSheetSection({
                   return (
                     <tr key={`${s.row}-${s.reason}`} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW}`}>
                       <td className="max-w-0 py-1.5 pl-3 pr-4">
-                        <span className="block truncate font-medium text-text-primary" title={name}>
+                        <span className="block truncate font-medium text-text-primary" data-tip-clip={name}>
                           {name}
                         </span>
                       </td>
