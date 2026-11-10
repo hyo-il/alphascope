@@ -121,13 +121,10 @@ function targets(): Target[] {
     // v2.69.1 — 앱 전체 툴팁(129차 묶음 A · B · C 대표 자리)이 열린 장면
     { name: 'tooltip-A-메뉴접기', hash: '#/rules', open: async (page) => { await page.waitForTimeout(800); await hoverTip(page, 'button[aria-label="메뉴 접기"]'); } },
     {
+      // 실제 순위(토스 시세 조회만) — 가짜 순위의 없는 종목은 줄 미리보기가 봉을 못 받아 콘솔 오류
       name: 'tooltip-B-실시간순위-관심별',
       hash: '#/ranking',
-      before: async (page: Page) => {
-        await page.route('**/api/rankings/live**', (r) => r.fulfill({ json: rankingSample(new URL(r.request().url()).searchParams.get('kind') as 'gainers', Date.now()) }).catch(() => {}));
-      },
-      open: async (page: Page) => { await page.waitForTimeout(1200); await hoverTip(page, 'button[aria-label$="관심 목록에 추가"]'); },
-      after: async (page: Page) => { await page.unroute('**/api/rankings/live**'); },
+      open: async (page: Page) => { await page.waitForTimeout(1500); await hoverTip(page, 'button[aria-label$="관심 목록에 추가"]'); },
     },
     {
       name: 'tooltip-C-거래정지-시각',
