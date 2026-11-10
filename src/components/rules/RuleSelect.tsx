@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Eye } from 'lucide-react';
-import { Button, Select } from '../ui';
+import { IconButton, Select } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
 import { useAppStore } from '../../store/appStore';
 import { usePaperAccounts } from '../../hooks/usePaperTrading';
@@ -20,7 +20,7 @@ export default function RuleSelect({
   disabled = false,
   warnNoStop = false,
   label = '매매 규칙',
-  size = 'md',
+  size = 'sm',
   aside,
 }: {
   /** `useTradingRules().rules` — null = 불러오는 중 */
@@ -71,9 +71,8 @@ export default function RuleSelect({
             </option>
           ))}
         </Select>
-        <Button size={size} icon={Eye} onClick={() => setViewing(true)} disabled={!selected}>
-          조건 보기
-        </Button>
+        {/* 창을 열기만 하는 도구 버튼 — 아이콘만(130차 · 툴팁 「조건 보기」) */}
+        <IconButton size="md" icon={Eye} label="조건 보기" onClick={() => setViewing(true)} disabled={!selected} />
         {aside && <div className="ml-auto flex shrink-0 items-center gap-2">{aside}</div>}
       </div>
       {missing && <p className="text-caption text-warning">고른 규칙이 지워졌습니다 — 다시 고르세요.</p>}

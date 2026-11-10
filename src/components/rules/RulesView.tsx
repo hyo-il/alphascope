@@ -5,7 +5,7 @@ import { usePaperAccounts } from '../../hooks/usePaperTrading';
 import { isUsed, type TradingRule } from '../../types/tradingRule';
 import { usageText } from './usage';
 import { modal, toast } from '../../store/uiStore';
-import { Button, PageHeader } from '../ui';
+import { Button, IconButton, PageHeader } from '../ui';
 import { LIST_TABLE_ROW, TABLE_NAME_COL } from '../ui/tokens';
 import { SkeletonText } from '../common/SkeletonLoader';
 import RuleDialog from './RuleDialog';
@@ -122,9 +122,8 @@ export default function RulesView() {
                     <td className="py-1 pr-6 text-text-secondary">{usageText(rule.usedBy, accountName)}</td>
                     <td className="whitespace-nowrap py-1">
                       <div className="flex items-center justify-end gap-2">
-                        <Button size="sm" icon={Eye} onClick={() => setOpen(rule.id)}>
-                          조건 보기
-                        </Button>
+                        {/* 창을 열기만 하는 도구 버튼 — 아이콘만(130차 · 같은 줄 Button sm 과 같은 28px) */}
+                        <IconButton size="md" icon={Eye} label="조건 보기" onClick={() => setOpen(rule.id)} />
                         <Button busy={busyId === rule.id} size="sm" icon={Copy} onClick={() => void copy(rule)} disabled={busyId === rule.id}>
                           {busyId === rule.id ? '복사 중…' : '복사'}
                         </Button>

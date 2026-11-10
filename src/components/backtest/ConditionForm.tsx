@@ -33,12 +33,12 @@ export default function ConditionForm({
         <div className="space-y-3">
           {draft.conditions.map((c) => (
             <div key={c.label} className="flex flex-wrap items-start gap-x-3 gap-y-1">
-              <span className="w-14 shrink-0 pt-1.5 text-xs font-medium text-text-primary">{methodName(c.label)}</span>
+              <span className="w-14 shrink-0 pt-1 text-xs font-medium text-text-primary">{methodName(c.label)}</span>
               <div className="min-w-0 flex-1">
                 <RuleSelect rules={rules} value={c.ruleId} onChange={(id) => setMethodRule(c.label, id)} label={`${methodName(c.label)} 매매 규칙`} />
               </div>
               {many && (
-                <Button size="md" variant="danger-text" onClick={() => removeMethod(c.label)}>
+                <Button size="sm" variant="danger-text" onClick={() => removeMethod(c.label)}>
                   {methodName(c.label)} 삭제
                 </Button>
               )}

@@ -1,9 +1,10 @@
-import { LoaderCircle, type LucideIcon } from 'lucide-react';
-import { forwardRef, type ButtonHTMLAttributes } from 'react';
+import { LoaderCircle, type LucideIcon, type LucideProps } from 'lucide-react';
+import { forwardRef, type ButtonHTMLAttributes, type ComponentType } from 'react';
 import { ICON, ICON_SM } from './icon';
 import { ICON_BUTTON_BOX, type IconButtonSize } from './tokens';
 
-type IconType = LucideIcon;
+/** lucide 아이콘, 또는 같은 크기 · 선 굵기를 받는 아이콘(채운 관심 별 `starIconOf`) */
+type IconType = LucideIcon | ComponentType<LucideProps>;
 
 /**
  * 아이콘만 있는 버튼 — **`label` 이 필수**다(`aria-label` 과 앱 툴팁 `data-tip` 에 함께 쓴다 · 브라우저 기본 `title` 은 쓰지 않는다).

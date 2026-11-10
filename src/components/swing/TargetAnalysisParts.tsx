@@ -4,7 +4,8 @@ import { modal, toast } from '../../store/uiStore';
 import { formatPrice, formatSigned } from '../../utils/formatters';
 import { currencyOfSymbol } from '../../utils/market';
 import StockName from '../common/StockName';
-import TrashIcon from '../common/TrashIcon';
+import { Trash2 } from 'lucide-react';
+import IconButton from '../ui/IconButton';
 import {
   type TargetAnalysisRecord,
   type TargetOutcome,
@@ -73,15 +74,7 @@ export function ResultCard({
           +{record.targetPct}% / −{record.stopPct}% · {record.days}거래일 · 기준 {record.baseDate} 종가{' '}
           {formatPrice(record.entryPrice, currencyOfSymbol(record.symbol))}
         </span>
-        <button
-          type="button"
-          onClick={() => onDelete(record)}
-          aria-label="이 결과 삭제"
-          data-tip="이 결과 삭제"
-          className="ml-auto rounded p-1 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-danger"
-        >
-          <TrashIcon className="h-3.5 w-3.5" />
-        </button>
+        <IconButton size="sm" tone="danger" icon={Trash2} label="이 결과 삭제" onClick={() => onDelete(record)} className="ml-auto" />
       </div>
 
       <div className="space-y-1">

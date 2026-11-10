@@ -1,7 +1,7 @@
 import { formatTime } from '../../utils/dateFormat';
 import { PANEL_PAD, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
-import { InfoTip, Segmented, Button } from '../ui';
-import StarIcon from '../ui/StarIcon';
+import { InfoTip, Segmented, Button, IconButton } from '../ui';
+import { starIconOf } from '../ui/StarIcon';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import StockName from '../common/StockName';
 import { useWatchlist } from '../../hooks/useWatchlist';
@@ -236,19 +236,19 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
                   >
                     <td className="py-2.5 pl-2 pr-1 text-right tabular-nums text-text-muted">{row.rank}</td>
                     <td className="text-center">
-                      <button
-                        type="button"
+                      {/* 담긴 별은 누를 것이 없다 — disabled(흐리게) 대신 aria-disabled 로 둔다(채운 노랑 별을 흐리지 않게) */}
+                      <IconButton
+                        size="sm"
+                        icon={starIconOf(watched)}
+                        label={watched ? '관심 종목' : '관심 목록에 추가'}
+                        aria-label={watched ? `${row.symbol} 관심 종목` : `${row.symbol} 관심 목록에 추가`}
+                        aria-disabled={watched || undefined}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (!watched) add(row.symbol);
                         }}
-                        disabled={watched}
-                        data-tip={watched ? '관심 종목' : '관심 목록에 추가'}
-                        aria-label={watched ? `${row.symbol} 관심 종목` : `${row.symbol} 관심 목록에 추가`}
-                        className="inline-flex align-middle disabled:cursor-default"
-                      >
-                        <StarIcon on={watched} size="sm" />
-                      </button>
+                        className="align-middle aria-disabled:cursor-default"
+                      />
                     </td>
                     <td className="max-w-0 overflow-hidden whitespace-nowrap px-2">
                       {/* flex 상자로 폭을 묶어야 이름 쪽 truncate(…)가 먹는다 */}

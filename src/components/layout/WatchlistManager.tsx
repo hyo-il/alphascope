@@ -2,10 +2,11 @@ import Input from '../ui/Input';
 import Button from '../ui/Button';
 import Checkbox from '../ui/Checkbox';
 import Dialog, { useDialogEsc } from '../ui/Dialog';
-import TrashIcon from '../common/TrashIcon';
 import { ICON_SM } from '../ui/icon';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { GripVertical, Pencil, Plus, Search } from 'lucide-react';
+import { GripVertical, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import TrashIcon from '../common/TrashIcon';
+import IconButton from '../ui/IconButton';
 import { useFlipReorder } from '../../hooks/useFlipReorder';
 import SyncStatusLine from './SyncStatusLine';
 import type { useWatchlist } from '../../hooks/useWatchlist';
@@ -339,29 +340,27 @@ export default function WatchlistManager({
                           「폴더 없음」(기본 폴더)에는 없다(이름을 바꿀 수 없다).
                         */}
                         {!isDefault && (
-                          <button
-                            type="button"
+                          <IconButton
+                            size="sm"
+                            icon={Pencil}
+                            label="이름 바꾸기"
                             onClick={() => {
                               setDraft(f.name);
                               setRenaming(f.id);
                             }}
-                            data-tip="이름 바꾸기"
-                            aria-label="이름 바꾸기"
-                            className="shrink-0 rounded p-1 text-text-muted opacity-50 transition-all hover:text-accent hover:opacity-100 focus:opacity-100"
-                          >
-                            <Pencil size={14} aria-hidden />
-                          </button>
+                            className="opacity-50 hover:opacity-100 focus:opacity-100"
+                          />
                         )}
                         {!isDefault && (
-                          <button
-                            type="button"
-                            onClick={() => confirmDeleteFolder(f.id, f.name, f.symbols.length)}
-                            data-tip="폴더 삭제 (종목은 폴더 밖으로)"
+                          <IconButton
+                            size="sm"
+                            tone="danger"
+                            icon={Trash2}
+                            label="폴더 삭제 (종목은 폴더 밖으로)"
                             aria-label={`${f.name} 폴더 삭제`}
-                            className="shrink-0 rounded p-1 text-text-muted opacity-50 transition-all hover:text-danger hover:opacity-100 focus:opacity-100"
-                          >
-                            <TrashIcon className="h-3.5 w-3.5" />
-                          </button>
+                            onClick={() => confirmDeleteFolder(f.id, f.name, f.symbols.length)}
+                            className="opacity-50 hover:opacity-100 focus:opacity-100"
+                          />
                         )}
                       </div>
                     )}

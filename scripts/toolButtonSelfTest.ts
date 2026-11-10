@@ -148,14 +148,105 @@ const lint = (env: Record<string, string>) => spawnSync(process.execPath, [tsx, 
   }
 }
 
+// ── [130-5] 아이콘 버튼 — 25곳 가운데 바꾼 곳 · 그대로 둔 곳(까닭) · 「조건 보기」 아이콘만 · 글자 그대로 둘 곳 ──
+{
+  /** `needle` 이 들어 있는 JSX 태그의 이름(바로 앞의 `<이름`) */
+  const tagOf = (text: string, needle: string) => {
+    const i = text.indexOf(needle);
+    if (i < 0) return null;
+    return text.slice(0, i).match(/<([A-Za-z]+)(?![\s\S]*<[A-Za-z])/)?.[1] ?? null;
+  };
+  const C = 'src/components/';
+  // 바꾼 곳 — 공용 IconButton(툴팁 글 = label · 화면 읽기 이름 = aria-label · 누르면 하는 일 그대로)
+  const moved: [string, string][] = [
+    [`${C}ui/ListRemoveButton.tsx`, 'label={keeps ? `${label} — ${keeps}` : label}'],
+    [`${C}layout/SideNav.tsx`, 'label="메뉴 펼치기"'],
+    [`${C}layout/SideNav.tsx`, 'label="메뉴 접기"'],
+    [`${C}layout/WatchlistManager.tsx`, 'label="이름 바꾸기"'],
+    [`${C}layout/WatchlistManager.tsx`, 'label="폴더 삭제 (종목은 폴더 밖으로)"'],
+    [`${C}layout/WatchPanel.tsx`, 'label="관심 목록 관리 (폴더·순서)"'],
+    [`${C}layout/WatchPanel.tsx`, 'label="접기" aria-label="관심 목록 패널 접기"'],
+    [`${C}surge/SurgeDashboard.tsx`, 'label="이 회차 삭제"'],
+    [`${C}swing/TargetAnalysisParts.tsx`, 'label="이 결과 삭제"'],
+    [`${C}backtest/BacktestView.tsx`, 'label="삭제" aria-label={`${when(item.createdAt)} 결과 삭제`}'],
+    [`${C}ranking/RankingView.tsx`, "label={watched ? '관심 종목' : '관심 목록에 추가'}"],
+    ['src/App.tsx', 'label="종목 선택 해제"'],
+    ['src/App.tsx', "label={isWatched ? '관심 목록에서 삭제' : '관심 목록에 추가'} aria-pressed={isWatched}"],
+    [`${C}diagnose/DiagnoseView.tsx`, 'label="이 리포트 삭제 (웹 목록에서만)" aria-label="이 리포트 삭제"'],
+  ];
+  const notIcon = moved.filter(([f, n]) => tagOf(code(f), n) !== 'IconButton');
+  check(`[130-5] 글자 없는 맨 버튼 → IconButton ${moved.length}곳(툴팁 글 · 이름 그대로)`, moved.length === 14 && notIcon.length === 0, notIcon.map(([f, n]) => `${f} ${n}`).join(', '));
+  const ariaKept = [
+    [`${C}layout/WatchlistManager.tsx`, 'aria-label={`${f.name} 폴더 삭제`}'],
+    [`${C}surge/SurgeDashboard.tsx`, 'aria-label={`${roundLabel(round.at)} 회차 삭제`}'],
+    [`${C}ranking/RankingView.tsx`, 'aria-label={watched ? `${row.symbol} 관심 종목` : `${row.symbol} 관심 목록에 추가`}'],
+    [`${C}ui/ListRemoveButton.tsx`, 'aria-label={name ? `${name} ${label}` : label}'],
+  ].filter(([f, n]) => tagOf(code(f), n) !== 'IconButton');
+  check('[130-5] 툴팁 글과 다른 화면 읽기 이름(aria-label)도 그대로 4곳', ariaKept.length === 0, ariaKept.join(', '));
+  const clicks = [
+    [`${C}layout/WatchlistManager.tsx`, 'onClick={() => confirmDeleteFolder(f.id, f.name, f.symbols.length)}'],
+    [`${C}surge/SurgeDashboard.tsx`, 'onClick={() => confirmDelete(round.at, round.rows.length)}'],
+    [`${C}swing/TargetAnalysisParts.tsx`, 'onClick={() => onDelete(record)}'],
+    [`${C}backtest/BacktestView.tsx`, 'onClick={onRemove} />'],
+    [`${C}diagnose/DiagnoseView.tsx`, 'onClick={confirmDelete} disabled={running} />'],
+    ['src/App.tsx', 'onClick={() => toggle(symbol)} />'],
+  ].filter(([f, n]) => tagOf(code(f), n) !== 'IconButton');
+  check('[130-5] 누르면 하는 일 그대로(지우기 확인 · 관심 담기 등 같은 함수)', clicks.length === 0, clicks.join(', '));
+  // 그대로 둔 곳 — 보이는 글자가 이름인 버튼 7곳(129차 aria-label 안 단 곳) + 아이콘이 아닌 4곳(로고 2 · 글자 있는 로그아웃 · 차트 사진 미리보기)
+  const kept: [string, string, string][] = [
+    [`${C}layout/AccountMiniView.tsx`, '차트로 이동`}', '종목 이름이 보이는 줄'],
+    [`${C}layout/WatchFolderView.tsx`, '비교에서 삭제`', '종목 이름이 보이는 줄'],
+    [`${C}layout/WatchPanel.tsx`, 'data-tip="관심 목록 열기"', '「관심」 세로 글자 · 개수'],
+    [`${C}common/SymbolChartLink.tsx`, 'data-tip={`${name || symbol} 차트로 이동`}', '종목 이름 글자'],
+    [`${C}heatmap/SectorRanking.tsx`, "data-tip={off ? '[보기] 에서 끈 분야입니다' : undefined}", '분야 이름 · 숫자 줄'],
+    [`${C}calendar/CalendarView.tsx`, 'data-tip="이 종목 차트로"', '종목 이름 · 일정 글자'],
+    [`${C}analysis/ManualAnalysis.tsx`, 'data-tip={h.directive}', '투자 기간 글자'],
+    [`${C}analysis/CopyPreview.tsx`, 'data-tip="크게 보기"', '차트 사진 미리보기(아이콘 아님)'],
+    [`${C}layout/SideNav.tsx`, 'data-tip="로그아웃"', '접힌 메뉴 — 아이콘 + 「로그아웃」 글자'],
+  ];
+  const keptBad = kept.filter(([f, n]) => tagOf(code(f), n) !== 'button');
+  const logo = (code(`${C}layout/SideNav.tsx`).match(/<button[^>]*?data-tip="홈으로"/g) ?? []).length;
+  check(`[130-5] 그대로 둔 ${kept.length + 2}곳 — 맨 button 그대로(보이는 글자 · 로고 · 사진이 그 버튼의 내용)`, keptBad.length === 0 && logo === 2, `${keptBad.map(([f]) => f).join(', ')} · 로고 ${logo}`);
+  // 「조건 보기」 2곳 — 아이콘만(md) · 툴팁 「조건 보기」
+  const cond = [`${C}rules/RuleSelect.tsx`, `${C}rules/RulesView.tsx`].map((f) => ({ f, icon: /<IconButton size="md" icon=\{Eye\} label="조건 보기"/.test(code(f)), text: />\s*조건 보기\s*</.test(code(f)) }));
+  check('[130-5] 「조건 보기」 2곳 아이콘만(IconButton md · 툴팁 「조건 보기」 · 글자 0)', cond.every((c) => c.icon && !c.text), JSON.stringify(cond));
+  // 글자 그대로 — [목표 비율 바꾸기] · 규칙 [복사] · 자물쇠 · 꼬리표 아이콘
+  check('[130-5] [목표 비율 바꾸기] · 규칙 [복사] 글자 그대로', /icon=\{Pencil\}[^>]*>\s*목표 비율 바꾸기\s*</.test(code(`${C}asset/AssetRebalanceView.tsx`)) && /icon=\{Copy\}[\s\S]{0,160}?>\s*\{busyId === rule\.id \? '복사 중…' : '복사'\}/.test(code(`${C}rules/RulesView.tsx`)));
+  check('[130-5] 자물쇠(잠그기) · 꼬리표(자산 분류 정하기) 아이콘 그대로', /icon=\{Lock\} label="잠그기"/.test(code(`${C}asset/AssetDashboard.tsx`)) && /icon=\{Tags\} label="자산 분류 정하기"/.test(code(`${C}asset/AssetSheetValues.tsx`)));
+  check('[130-5] 옛 관심 별 부품(StarIcon 기본 내보내기) 지움(A-11) — 별은 IconButton 의 아이콘(starIconOf)', !/export default/.test(code(`${C}ui/StarIcon.tsx`)) && /export const starIconOf/.test(code(`${C}ui/StarIcon.tsx`)));
+  check('[130-2] ListRemoveButton 에 따로 적은 높이 숫자 0(IconButton sm)', !/\bh-(?:6|7|8)\b/.test(code(`${C}ui/ListRemoveButton.tsx`)) && /<IconButton\s+size="sm"/.test(code(`${C}ui/ListRemoveButton.tsx`)));
+}
+
 // ── 화면 ──
 const RULE = { id: 1, name: '기본 규칙', createdAt: '2026-11-01T00:00:00.000Z', updatedAt: '2026-11-01T00:00:00.000Z', usedBy: { ...EMPTY_USAGE, buyJudge: true }, ...defaultRuleBody() };
 const JUDGE = { ruleId: 1, ruleName: '기본 규칙', symbols: ['AAPL'], retention: '6m', rows: [], computedAt: '2026-11-10T07:00:00.000Z' };
+
+/** 페이지 안 시계 — 마우스가 들어간 때 · 툴팁이 보인 때(tooltipui:test 와 같은 재기) */
+const TIMING = `
+  window.__tip = { enter: 0, shown: 0 };
+  document.addEventListener('pointerover', () => { window.__tip.enter = performance.now(); }, true);
+  new MutationObserver(() => {
+    const t = document.querySelector('[role="tooltip"]');
+    if (t && t.style.visibility !== 'hidden' && !window.__tip.shown) window.__tip.shown = performance.now();
+  }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
+`;
+const resetTiming = (page: Page) => page.evaluate(() => Object.assign((window as unknown as { __tip: object }).__tip, { enter: 0, shown: 0 }));
+/** 지금 보이는 툴팁 글(없으면 null) */
+const tipText = (page: Page) =>
+  page.evaluate(() => {
+    const t = document.querySelector<HTMLElement>('[role="tooltip"]');
+    return t && t.style.visibility !== 'hidden' ? (t.textContent ?? '').trim() : null;
+  });
+const center = async (l: Locator) => {
+  const b = (await l.boundingBox())!;
+  return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+};
 
 async function open(browser: Browser, size: { width: number; height: number }, hash: string, ready: (p: Page) => Locator) {
   const ctx = await browser.newContext({ viewport: size });
   await ctx.addInitScript(() => localStorage.setItem('alphascope.asset.tab', 'status'));
   await ctx.addInitScript('window.__name = (f) => f');
+  await ctx.addInitScript(TIMING);
   const page = await ctx.newPage();
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 120)));
@@ -210,6 +301,9 @@ try {
     // [130-2] 대표 3줄 — 아이콘 버튼과 글자 버튼(· 묶음 버튼 · 드롭박스)이 같이 있는 줄
     const rows: { name: string; hash: string; anchor: (p: Page) => Locator; row: (p: Page, a: Locator) => Locator }[] = [
       { name: '자산 현황 도구 줄', hash: '#/asset', anchor: (p) => p.getByRole('button', { name: '자산 분류 정하기', exact: true }), row: (_p, a) => a.locator('xpath=..') },
+      // 고르기 줄(RuleSelect: 드롭박스 · 조건 보기) + [실행] 을 품은 줄 = 조건 보기에서 세 단계 위
+      { name: '매수 판단 도구 줄', hash: '#/swing', anchor: (p) => p.getByRole('button', { name: '조건 보기', exact: true }), row: (_p, a) => a.locator('xpath=../../..') },
+      { name: '매매 규칙 표 줄', hash: '#/rules', anchor: (p) => p.getByRole('button', { name: '조건 보기', exact: true }), row: (p) => p.getByRole('row').filter({ has: p.getByRole('button', { name: '조건 보기', exact: true }) }) },
     ];
     for (const r of rows) {
       const { page, ctx, errors } = await open(browser, size, r.hash, r.anchor);
@@ -221,6 +315,27 @@ try {
       check(`[130-2] ${w}px — ${r.name} 화면 페이지 오류 0`, errors.length === 0, errors.join(' | '));
       await ctx.close();
     }
+
+    // [130-5] 「조건 보기」 — 아이콘만 · 28px · 툴팁 「조건 보기」 · 누르면 규칙 조건 창(매매 규칙 표 · 매수 판단 고르기 줄)
+    for (const hash of ['#/rules', '#/swing']) {
+      const { page, ctx, errors } = await open(browser, size, hash, (p) => p.getByRole('button', { name: '조건 보기', exact: true }));
+      const btn = page.getByRole('button', { name: '조건 보기', exact: true });
+      const look = await btn.evaluate((b) => ({ text: (b.textContent ?? '').trim(), tip: b.getAttribute('data-tip'), w: b.getBoundingClientRect().width, h: b.getBoundingClientRect().height, svg: b.querySelector('svg')?.getBoundingClientRect().width }));
+      check(`[130-5] ${w}px ${hash} — 「조건 보기」 아이콘만(글자 0) · 28px · 16px 아이콘 · 툴팁 글 「조건 보기」`, look.text === '' && look.tip === '조건 보기' && look.w === 28 && look.h === 28 && look.svg === 16, JSON.stringify(look));
+      await page.mouse.move(2, 2);
+      await resetTiming(page);
+      const c = await center(btn);
+      await page.mouse.move(c.x, c.y);
+      await page.waitForTimeout(600);
+      check(`[130-5] ${w}px ${hash} — 마우스를 올리면 0.3초 뒤 툴팁 「조건 보기」`, (await tipText(page)) === '조건 보기');
+      await btn.click();
+      const dialog = page.getByRole('dialog');
+      const opened = await dialog.waitFor({ timeout: 5000 }).then(() => true, () => false);
+      check(`[130-5] ${w}px ${hash} — 누르면 규칙 조건 창(「규칙 조건 보기」 · 기본 규칙)이 열림(전과 같음)`, opened && (await dialog.getByText('규칙 조건 보기').count()) > 0, String(opened));
+      check(`[130-5] ${w}px ${hash} — 페이지 오류 0`, errors.length === 0, errors.join(' | '));
+      await ctx.close();
+    }
+
   }
 } finally {
   await guard.step('브라우저 닫기', () => browser.close());

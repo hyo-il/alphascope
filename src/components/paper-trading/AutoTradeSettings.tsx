@@ -84,6 +84,7 @@ export default function AutoTradeSettings({ strategy, onSave, onClose, doneMessa
                 <>
                   <span className="whitespace-nowrap text-xs text-text-secondary">AI 검증</span>
                   <Segmented
+                    size="sm"
                     label="AI 검증"
                     value={draft.aiCheck ? 'on' : 'off'}
                     onChange={(v) => patch({ aiCheck: v === 'on' })}

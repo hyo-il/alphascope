@@ -112,7 +112,7 @@ export default function BuyJudgeView() {
                 [실행]. 같은 날 다시 실행하면 판단(끝난 봉)은 같고 걸리는 시간도 짧아 알리지 않으면 바뀐 것이
                 하나도 보이지 않는다(진행 표시 0.2초 · 계산 시각은 분 단위). 그래서 끝나면 늘 알림을 띄운다.
               */}
-              <Button className="ml-auto" icon={RefreshCw} busy={busy === '실행 중…'} onClick={() => void runAll()} disabled={busy != null || ruleMissing || !symbols.length}>
+              <Button size="sm" className="ml-auto" icon={RefreshCw} busy={busy === '실행 중…'} onClick={() => void runAll()} disabled={busy != null || ruleMissing || !symbols.length}>
                 {busy === '실행 중…' ? '실행 중…' : '실행'}
               </Button>
             </div>

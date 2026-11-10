@@ -4,6 +4,7 @@ import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import LogoMark from './LogoMark';
 import { LOGOUT_ICON, NAV_ICON } from './navIcons';
 import { ICON, ICON_LG, ICON_SM } from '../ui/icon';
+import IconButton from '../ui/IconButton';
 
 /**
  * 펼친 메뉴의 아이콘 칸 — **폭 고정**. 대메뉴와 로그아웃이 같은 칸을 쓴다 — 라벨 시작점이 한 줄에 선다.
@@ -184,7 +185,8 @@ export default function SideNav({
           접힌 상태에서도 **도형 자체가 홈 버튼**이다. 메뉴를 펼치는 `›` 는 옆에 따로 둔다 —
           로고에 펼치기를 겹쳐 두면 홈으로 갈 방법이 없어진다.
         */}
-        <div className="flex h-12 shrink-0 items-center border-b border-border pl-1.5 pr-0.5">
+        {/* 52px 폭 — 로고(22px) + 펼치기 아이콘 버튼(sm 24px)이 들어가게 좌우 2px */}
+        <div className="flex h-12 shrink-0 items-center border-b border-border px-0.5">
           <button
             type="button"
             onClick={onGoHome}
@@ -194,15 +196,7 @@ export default function SideNav({
           >
             <LogoMark size={22} />
           </button>
-          <button
-            type="button"
-            onClick={() => setCollapsed(false)}
-            data-tip="메뉴 펼치기"
-            aria-label="메뉴 펼치기"
-            className="text-text-muted transition-colors hover:text-text-primary"
-          >
-            <ChevronRight {...ICON_SM} />
-          </button>
+          <IconButton size="sm" icon={ChevronRight} label="메뉴 펼치기" onClick={() => setCollapsed(false)} />
         </div>
 
         {/*
@@ -249,15 +243,7 @@ export default function SideNav({
           </span>
           <span className="truncate">AlphaScope</span>
         </button>
-        <button
-          type="button"
-          onClick={() => setCollapsed(true)}
-          data-tip="메뉴 접기"
-          aria-label="메뉴 접기"
-          className="shrink-0 text-text-muted transition-colors hover:text-text-primary"
-        >
-          <ChevronLeft {...ICON_SM} />
-        </button>
+        <IconButton size="sm" icon={ChevronLeft} label="메뉴 접기" onClick={() => setCollapsed(true)} />
       </div>
 
       {/* 목록 줄 사이 4px (디자인 기준표 「여백·목록」) */}

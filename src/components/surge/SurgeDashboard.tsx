@@ -1,6 +1,6 @@
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
 import { TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
-import { Button, RemoveAllButton, ScrollTopShade, PANEL_PAD, PANEL_X } from '../ui';
+import { Button, IconButton, RemoveAllButton, ScrollTopShade, PANEL_PAD, PANEL_X } from '../ui';
 import { Fragment } from 'react';
 import { usePageTab } from '../../hooks/usePageTab';
 import PageHeader from '../ui/PageHeader';
@@ -16,7 +16,7 @@ import NextSurgeDate from './NextSurgeDate';
 import { SURGE_CRITERIA } from '../../data/criteria';
 import { formatPercent } from '../../utils/formatters';
 import { modal, toast } from '../../store/uiStore';
-import TrashIcon from '../common/TrashIcon';
+import { Trash2 } from 'lucide-react';
 import type { SurgeDetection } from '../../types/surge';
 
 /** 탭 목록은 `types/nav.ts` 의 `PAGE_TABS` 한 곳 — 주소 `#/surge/{탭}` */
@@ -211,16 +211,16 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
                       <span>
                         탐지 회차 {roundLabel(round.at)} · {round.rows.length}종목
                       </span>
-                      <button
-                        type="button"
+                      <IconButton
+                        size="sm"
+                        tone="danger"
+                        icon={Trash2}
+                        label="이 회차 삭제"
+                        aria-label={`${roundLabel(round.at)} 회차 삭제`}
                         onClick={() => confirmDelete(round.at, round.rows.length)}
                         disabled={running}
-                        aria-label={`${roundLabel(round.at)} 회차 삭제`}
-                        data-tip="이 회차 삭제"
-                        className="ml-auto rounded p-1 transition-colors hover:bg-bg-tertiary hover:text-danger disabled:opacity-40"
-                      >
-                        <TrashIcon className="h-3.5 w-3.5" />
-                      </button>
+                        className="ml-auto"
+                      />
                     </div>
                   </td>
                 </tr>

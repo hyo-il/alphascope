@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { ICON_SM } from './icon';
+import IconButton from './IconButton';
 
 /**
  * 「목록에서 삭제」 × 버튼 (공통 동작 규칙) — **데이터는 남고 목록에서만 빠지는** 삭제.
@@ -22,17 +22,16 @@ export default function ListRemoveButton({
   className?: string;
 }) {
   return (
-    <button
-      type="button"
+    <IconButton
+      size="sm"
+      icon={X}
       onClick={(e) => {
         e.stopPropagation();
         onClick();
       }}
+      label={keeps ? `${label} — ${keeps}` : label}
       aria-label={name ? `${name} ${label}` : label}
-      data-tip={keeps ? `${label} — ${keeps}` : label}
-      className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary ${className}`}
-    >
-      <X {...ICON_SM} />
-    </button>
+      className={className}
+    />
   );
 }

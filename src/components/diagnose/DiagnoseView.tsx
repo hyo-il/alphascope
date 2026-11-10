@@ -15,7 +15,8 @@ import { modal, toast } from '../../store/uiStore';
 import type { DiagnoseDetail, DiagnoseSummary } from '../../types/diagnose';
 import { GEMINI_TRIGGER_LABEL } from '../../types/gemini';
 import StockName from '../common/StockName';
-import TrashIcon from '../common/TrashIcon';
+import { Trash2 } from 'lucide-react';
+import IconButton from '../ui/IconButton';
 
 /**
  * 진단 리포트 — 「퀀트 > 검증 기록 > 진단 리포트」 탭. 네 질문(목표 수익률·급등·Gemini·뉴스 AI)에 숫자로 답한다.
@@ -495,9 +496,9 @@ export default function DiagnoseView() {
           <div className="ml-auto flex items-center gap-2">
             {reports.length > 0 && (
               <Select
+                size="sm"
                 value={selected?.id ?? ''}
                 onChange={(e) => select(Number(e.target.value))}
-                
                 aria-label="과거 리포트">
                 {reports.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -508,16 +509,7 @@ export default function DiagnoseView() {
               </Select>
             )}
             {selected && (
-              <button
-                type="button"
-                onClick={confirmDelete}
-                disabled={running}
-                data-tip="이 리포트 삭제 (웹 목록에서만)"
-                aria-label="이 리포트 삭제"
-                className="rounded bg-bg-tertiary p-1 text-text-secondary transition-colors hover:bg-bg-elevated hover:text-danger disabled:opacity-40"
-              >
-                <TrashIcon className="h-3.5 w-3.5" />
-              </button>
+              <IconButton size="md" tone="danger" icon={Trash2} label="이 리포트 삭제 (웹 목록에서만)" aria-label="이 리포트 삭제" onClick={confirmDelete} disabled={running} />
             )}
             <Button busy={running} variant="primary" size="sm"
               onClick={() => void run()}

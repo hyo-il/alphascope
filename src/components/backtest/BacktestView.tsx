@@ -2,15 +2,14 @@ import { formatDate, formatDateTime, formatTime } from '../../utils/dateFormat';
 import DateGroupList, { SymbolsTitle } from '../common/DateGroupList';
 import { formatSigned } from '../../utils/formatters';
 import { useEffect, useRef, useState } from 'react';
-import { LoaderCircle } from 'lucide-react';
+import { LoaderCircle, Trash2 } from 'lucide-react';
 import { useBacktest, useBacktestUniverse, useGeminiStatus } from '../../hooks/useBacktest';
 import { draftRequest, useBacktestDraft } from '../../hooks/useBacktestDraft';
 import { useTradingRules } from '../../hooks/useTradingRules';
 import HelpBox from '../common/HelpBox';
-import TrashIcon from '../common/TrashIcon';
 import { SkeletonList } from '../common/SkeletonLoader';
 import LoadingOverlay from '../common/LoadingOverlay';
-import { Button, Panel, SectionTitle } from '../ui';
+import { Button, IconButton, Panel, SectionTitle } from '../ui';
 import { ICON } from '../ui/icon';
 import { modal, toast } from '../../store/uiStore';
 import { stockNameOf } from '../../utils/stockNames';
@@ -72,15 +71,7 @@ function HistoryRow({ item, selected, onOpen, onRetry, onRemove }: { item: Backt
           이 조건으로 다시 실행
         </Button>
       )}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`${when(item.createdAt)} 결과 삭제`}
-        data-tip="삭제"
-        className="shrink-0 rounded p-1 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-danger"
-      >
-        <TrashIcon className="h-3.5 w-3.5" />
-      </button>
+      <IconButton size="md" tone="danger" icon={Trash2} label="삭제" aria-label={`${when(item.createdAt)} 결과 삭제`} onClick={onRemove} />
     </li>
   );
 }

@@ -1,7 +1,7 @@
 import InfoTip from './components/ui/InfoTip';
 import WarnIcon from './components/ui/WarnIcon';
-import StarIcon from './components/ui/StarIcon';
-import { ICON_SM } from './components/ui/icon';
+import { starIconOf } from './components/ui/StarIcon';
+import IconButton from './components/ui/IconButton';
 import { X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import CompareView from './components/compare/CompareView';
@@ -490,29 +490,17 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           {symbol ? (
             <>
               {/* 종목 해제 — 홈의 탐색 화면으로 돌아간다 */}
-              <button
-                type="button"
+              <IconButton
+                size="sm"
+                icon={X}
+                label="종목 선택 해제"
                 onClick={() => {
                   clearSymbol();
                   setPage('home');
                 }}
-                data-tip="종목 선택 해제"
-                aria-label="종목 선택 해제"
-                className="text-sm leading-none text-text-muted transition-colors hover:text-text-primary"
-              >
-                <X {...ICON_SM} />
-              </button>
+              />
 
-              <button
-                type="button"
-                onClick={() => toggle(symbol)}
-                data-tip={isWatched ? '관심 목록에서 삭제' : '관심 목록에 추가'}
-                aria-label={isWatched ? '관심 목록에서 삭제' : '관심 목록에 추가'}
-                aria-pressed={isWatched}
-                className="rounded p-0.5 transition-colors hover:bg-bg-tertiary"
-              >
-                <StarIcon on={isWatched} />
-              </button>
+              <IconButton size="sm" icon={starIconOf(isWatched)} label={isWatched ? '관심 목록에서 삭제' : '관심 목록에 추가'} aria-pressed={isWatched} onClick={() => toggle(symbol)} />
 
               {/* 종목명이 먼저다 — 헤더에서 가장 먼저 읽히는 값이어야 한다 */}
               <span className="shrink-0 whitespace-nowrap text-base font-semibold">{stockInfo?.name || symbol}</span>

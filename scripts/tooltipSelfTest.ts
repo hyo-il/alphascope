@@ -296,14 +296,19 @@ check(
     const texts = new Map<string, string>();
     const attrOf = (r: (typeof rows)[number]) => (r.to.startsWith('`data-tip-clip') ? 'data-tip-clip' : 'data-tip');
     const countAttr = (text: string, attr: string) => text.split(`${attr}=`).length - 1;
+    const byValue = new Map<(typeof rows)[number], 'attr' | 'label' | null>();
     for (const r of moved) {
       const text = texts.get(r.file) ?? squash(fs.readFileSync(path.join(root, r.file), 'utf8'));
       texts.set(r.file, text);
       const v = valueOf(r);
+      byValue.set(r, attrHas(text, attrOf(r), v) ? 'attr' : r.kind === '아이콘 버튼' && attrHas(text, 'label', v) ? 'label' : null);
+    }
+    // 값으로 못 찾은 줄 수 ≤ 그 파일의 그 속성 개수 − 값으로 찾은 줄 수(같은 속성)
+    for (const r of moved.filter((m) => byValue.get(m) == null)) {
       const attr = attrOf(r);
-      const byValue = attrHas(text, attr, v) || (r.kind === '아이콘 버튼' && attrHas(text, 'label', v));
-      const need = moved.filter((m) => m.file === r.file && attrOf(m) === attr).length;
-      if (!byValue && countAttr(text, attr) < need) missing.push(`${r.file}:${r.line}(${v.slice(0, 16)})`);
+      const same = moved.filter((m) => m.file === r.file && attrOf(m) === attr);
+      const left = countAttr(texts.get(r.file)!, attr) - same.filter((m) => byValue.get(m) === 'attr').length;
+      if (left < same.filter((m) => byValue.get(m) == null).length) missing.push(`${r.file}:${r.line}(${valueOf(r).slice(0, 16)})`);
     }
     const kinds = { 설명: moved.filter((r) => r.kind === '설명').length, 긴이름: moved.filter((r) => r.kind === '긴 이름 전체 보기').length, 아이콘: moved.filter((r) => r.kind === '아이콘 버튼').length };
     check(`[129-1] 바꾼 ${moved.length}곳(설명 ${kinds.설명} · 긴 이름 ${kinds.긴이름} → data-tip-clip · 아이콘 버튼 ${kinds.아이콘}) 모두 파일에 문서가 정한 속성 · 값(줄 번호 아닌 값으로 찾음)`, moved.length === 91 && kinds.설명 === 51 && kinds.긴이름 === 15 && kinds.아이콘 === 25 && missing.length === 0, missing.join(', '));

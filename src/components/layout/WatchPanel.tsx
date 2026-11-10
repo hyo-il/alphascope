@@ -1,6 +1,6 @@
 import { confirmClearRecent } from '../common/confirmClearRecent';
-import { ICON, ICON_LG, ICON_SM } from '../ui/icon';
-import { ListRemoveButton, RemoveAllButton } from '../ui';
+import { ICON_LG, ICON_SM } from '../ui/icon';
+import { IconButton, ListRemoveButton, RemoveAllButton } from '../ui';
 import { Check, ChevronLeft, ChevronRight, Clock, Settings, Star, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import SymbolSearch from '../common/SymbolSearch';
@@ -180,25 +180,9 @@ export default function WatchPanel({
           </button>
         ))}
         {tab === 'watch' && (
-          <button
-            type="button"
-            onClick={() => setManaging(true)}
-            data-tip="관심 목록 관리 (폴더·순서)"
-            aria-label="관심 목록 관리 (폴더·순서)"
-            className="px-1.5 text-text-muted transition-colors hover:text-text-primary"
-          >
-            <Settings {...ICON} />
-          </button>
+          <IconButton size="md" icon={Settings} label="관심 목록 관리 (폴더·순서)" onClick={() => setManaging(true)} />
         )}
-        <button
-          type="button"
-          onClick={onToggleCollapse}
-          data-tip="접기"
-          aria-label="관심 목록 패널 접기"
-          className="px-2 text-text-muted transition-colors hover:text-text-primary"
-        >
-          <ChevronRight {...ICON_SM} />
-        </button>
+        <IconButton size="sm" icon={ChevronRight} label="접기" aria-label="관심 목록 패널 접기" onClick={onToggleCollapse} className="mr-1" />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
