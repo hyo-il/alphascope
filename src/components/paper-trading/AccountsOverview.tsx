@@ -290,14 +290,14 @@ export default function AccountsOverview({
                   >
                     {many && (
                       <td className={`${TABLE_NUM_COL} pl-2 text-text-muted`}>
-                        <span aria-hidden title="끌어서 순서 바꾸기 (↑↓ 버튼으로도)" className="flex">
+                        <span aria-hidden data-tip="끌어서 순서 바꾸기 (↑↓ 버튼으로도)" className="flex">
                           <GripVertical {...ICON_SM} />
                         </span>
                       </td>
                     )}
                     <td className={`${TABLE_NAME_COL} max-w-0 ${many ? 'pl-1' : 'pl-3'}`}>
                       <div className="flex min-w-0 items-center gap-2">
-                        <span title={item.account.name} className="min-w-16 truncate text-sm font-medium text-text-primary">
+                        <span data-tip-clip={item.account.name} className="min-w-16 truncate text-sm font-medium text-text-primary">
                           {item.account.name}
                         </span>
                         <span className="shrink-0 text-caption text-text-muted">{currency}</span>
@@ -309,7 +309,7 @@ export default function AccountsOverview({
                       </div>
                     </td>
                     {item.error ? (
-                      <td colSpan={2} title={item.error} className={`whitespace-nowrap ${TABLE_NUM_GAP} text-right text-caption text-danger`}>
+                      <td colSpan={2} data-tip={item.error} className={`whitespace-nowrap ${TABLE_NUM_GAP} text-right text-caption text-danger`}>
                         평가 실패
                       </td>
                     ) : (
@@ -332,7 +332,7 @@ export default function AccountsOverview({
                         <Skeleton className="h-5 w-14" />
                       ) : (
                         <span
-                          title={view.reason ?? undefined}
+                          data-tip={view.reason ?? undefined}
                           className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-caption font-medium ${BADGE[view.state]}`}
                         >
                           <AutoTradeIcon view={view} />
@@ -343,7 +343,7 @@ export default function AccountsOverview({
                     {/* 카드와 같은 「규칙 「…」」 — 이름표가 없으면 「없음」 이 무엇이 없다는 말인지 읽히지 않는다 */}
                     <td className={`hidden max-w-40 ${TABLE_NUM_GAP} @4xl:table-cell`}>
                       {rule != null && (
-                        <span title={`규칙 「${rule}」`} className="block truncate text-caption text-text-muted">
+                        <span data-tip-clip={`규칙 「${rule}」`} className="block truncate text-caption text-text-muted">
                           규칙 「{rule}」
                         </span>
                       )}
@@ -468,7 +468,7 @@ export default function AccountsOverview({
               )}
               <header className="flex items-center gap-2">
                 {list.length > 1 && (
-                  <span aria-hidden title="끌어서 순서 바꾸기" className="-ml-1 shrink-0 text-text-muted">
+                  <span aria-hidden data-tip="끌어서 순서 바꾸기" className="-ml-1 shrink-0 text-text-muted">
                     <GripVertical {...ICON_SM} />
                   </span>
                 )}
@@ -522,7 +522,7 @@ export default function AccountsOverview({
                   <Skeleton className="h-5 w-24" />
                 ) : (
                 <span
-                  title={view.reason ?? undefined}
+                  data-tip={view.reason ?? undefined}
                   className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-caption font-medium ${BADGE[view.state]}`}
                 >
                   {/*

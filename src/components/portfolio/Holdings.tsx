@@ -59,7 +59,7 @@ export default function Holdings({ onSelectSymbol }: Props) {
                   key={holding.symbol}
                   onClick={() => onSelectSymbol(holding.symbol)}
                   className="cursor-pointer border-t border-border/60 hover:bg-bg-tertiary/60"
-                  title={`${holding.symbol} 차트 보기`}
+                  data-tip={`${holding.symbol} 차트 보기`}
                 >
                   <td className="py-1.5 pl-4 pr-2">
                     <span className="font-medium text-text-primary">

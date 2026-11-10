@@ -76,7 +76,7 @@ function HistoryRow({ item, selected, onOpen, onRetry, onRemove }: { item: Backt
         type="button"
         onClick={onRemove}
         aria-label={`${when(item.createdAt)} 결과 삭제`}
-        title="삭제"
+        data-tip="삭제"
         className="shrink-0 rounded p-1 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-danger"
       >
         <TrashIcon className="h-3.5 w-3.5" />

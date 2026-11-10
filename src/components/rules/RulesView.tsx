@@ -115,7 +115,7 @@ export default function RulesView() {
                 {r.rules.map((rule) => (
                   <tr key={rule.id} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW}`}>
                     <td className="py-1 pr-6">
-                      <span className="block max-w-64 truncate whitespace-nowrap font-medium text-text-primary" title={rule.name}>
+                      <span className="block max-w-64 truncate whitespace-nowrap font-medium text-text-primary" data-tip-clip={rule.name}>
                         {rule.name}
                       </span>
                     </td>

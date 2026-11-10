@@ -393,7 +393,7 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
                   <SectionTitle info={HALTS_DELAY_TIP}>{fetchBad(data.status) || hits === undefined || unknown ? '지금 정지 중' : `지금 정지 중 (${today.groups.length})`}</SectionTitle>
                 </div>
                 {!loading && failed.length > 0 && (
-                  <p className="mb-2 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger" data-rank-error title={failed.map((k) => ranks[k].error).join(' · ')}>
+                  <p className="mb-2 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger" data-rank-error data-tip={failed.map((k) => ranks[k].error).join(' · ')}>
                     {failed.map((k) => SIDE_NAME[k]).join(' · ')} 순위를 받지 못했습니다
                     {failed.some((k) => ranks[k].stopped)
                       ? ` — ${ranks[failed[0]].error}`
@@ -446,7 +446,7 @@ function StatusLine({ status }: { status: UsHaltFetchStatus }) {
   const blocked = status.blockedStatus != null ? ` · 차단으로 보이는 응답 ${status.blockedStatus}` : '';
   if (status.consecutiveFailures >= FAIL_WARN)
     return (
-      <span className="text-warning" title={status.lastError ?? undefined}>
+      <span className="text-warning" data-tip={status.lastError ?? undefined}>
         Nasdaq 목록을 받지 못하고 있습니다(마지막 성공 {last ?? '없음'} · 연속 실패 {status.consecutiveFailures}번{blocked} · 받는 간격을 늘렸습니다)
       </span>
     );
@@ -759,7 +759,7 @@ function HaltTable({
                 </td>
                 {/* 지금 멈춘 정지의 시각만(이전 정지 시각은 보이지 않는다 — v2.56.2) */}
                 <td className={`${NUM} py-1.5 tabular-nums`}>
-                  <span title={etTitle(h.rawHaltDate, h.rawHaltTime)}>{kstClockText(h.haltAtMs)}</span>
+                  <span data-tip={etTitle(h.rawHaltDate, h.rawHaltTime)}>{kstClockText(h.haltAtMs)}</span>
                 </td>
                 {/* 최소 폭 — 「22:46:03 예상」 → 「조건이 맞으면 재개」 로 바뀔 때 칸 폭이 흔들려 표 전체가 움직이지 않게 */}
                 <td className={`${NUM} min-w-32 py-1.5`}>
@@ -805,7 +805,7 @@ function ResumeCell({ resume }: { resume: ReturnType<typeof expectedResume> }) {
       );
     case 'open':
       return (
-        <span className="text-text-secondary" title="시각 정해지지 않음">
+        <span className="text-text-secondary" data-tip="시각 정해지지 않음">
           조건이 맞으면 재개
         </span>
       );
@@ -849,13 +849,13 @@ function HaltName({
   const symbol = h.rawIssueSymbol.trim();
   const compact = useContext(CompactReason);
   return (
-    <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap" title={market && compact ? `시장 ${market}` : undefined}>
+    <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap" data-tip={market && compact ? `시장 ${market}` : undefined}>
       {h.inToss ? (
         <button type="button" onClick={() => onSelectSymbol(symbol)} className="flex rounded text-left hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent">
           <StockName symbol={symbol} name={h.catalogName ?? (h.rawIssueName.trim() || null)} keepTicker />
         </button>
       ) : (
-        <span title="토스에 없는 종목" aria-disabled="true" className="flex cursor-not-allowed text-text-secondary">
+        <span data-tip="토스에 없는 종목" aria-disabled="true" className="flex cursor-not-allowed text-text-secondary">
           <StockName symbol={symbol} name={h.rawIssueName.trim() || null} keepTicker />
         </span>
       )}
@@ -887,7 +887,7 @@ function MarketText({ market }: { market: string }) {
     return () => ro.disconnect();
   }, []);
   return (
-    <span ref={ref} className={`min-w-0 shrink-[10000] truncate text-caption text-text-muted ${tiny ? 'invisible' : ''}`} title={market} data-market-tiny={tiny ? '' : undefined}>
+    <span ref={ref} className={`min-w-0 shrink-[10000] truncate text-caption text-text-muted ${tiny ? 'invisible' : ''}`} data-tip-clip={market} data-market-tiny={tiny ? '' : undefined}>
       {market}
     </span>
   );
@@ -910,7 +910,7 @@ function ReasonText({ h }: { h: UsHaltRow }) {
       </span>
     );
   return (
-    <span className="whitespace-nowrap" title={haltCodeTitle(codeOf(h)) ?? undefined}>
+    <span className="whitespace-nowrap" data-tip={haltCodeTitle(codeOf(h)) ?? undefined}>
       {label}
       <span className="text-caption text-text-muted"> · {h.rawReasonCode}</span>
     </span>
@@ -1001,13 +1001,13 @@ function OngoingTable({
                 <ReasonText h={h} />
               </td>
               <td className={`${NUM} py-1.5 tabular-nums`}>
-                <span title={etTitle(h.rawHaltDate, h.rawHaltTime)}>{kstMonthDayTime(h.haltAtMs)}</span>
+                <span data-tip={etTitle(h.rawHaltDate, h.rawHaltTime)}>{kstMonthDayTime(h.haltAtMs)}</span>
               </td>
               <td className={`${NUM} py-1.5 text-right tabular-nums`}>{h.daysHalted}일째</td>
               <td className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} py-1.5`}>
                 {/* 공지 시각이 지나면 줄째 사라진다(위 1초 거르기) — 남는 것은 「상태 모름」 줄뿐이라 그 시각을 그대로 둔다 */}
                 {h.resumeAtMs != null ? (
-                  <span title={etTitle(h.rawResumptionDate || h.rawHaltDate, h.rawResumptionTradeTime)}>
+                  <span data-tip={etTitle(h.rawResumptionDate || h.rawHaltDate, h.rawResumptionTradeTime)}>
                     <span className="tabular-nums">{kstMonthDayTime(h.resumeAtMs)}</span> <span className="text-caption text-text-muted">재개(공지)</span>
                   </span>
                 ) : (

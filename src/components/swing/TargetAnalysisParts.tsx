@@ -77,7 +77,7 @@ export function ResultCard({
           type="button"
           onClick={() => onDelete(record)}
           aria-label="이 결과 삭제"
-          title="이 결과 삭제"
+          data-tip="이 결과 삭제"
           className="ml-auto rounded p-1 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-danger"
         >
           <TrashIcon className="h-3.5 w-3.5" />

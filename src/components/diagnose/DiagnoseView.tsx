@@ -159,7 +159,7 @@ function Card({
         {/* 마우스를 올리면(키보드 포커스로도) 이 카드의 실제 비교식 — 판정과 같은 값에서 만든다 */}
         <span
           tabIndex={0}
-          title={why}
+          data-tip={why}
           aria-describedby={whyId}
           className={`ml-auto inline-flex shrink-0 cursor-help items-center gap-1 rounded px-1.5 py-0.5 text-caption ${style.badge}`}
         >
@@ -512,7 +512,7 @@ export default function DiagnoseView() {
                 type="button"
                 onClick={confirmDelete}
                 disabled={running}
-                title="이 리포트 삭제 (웹 목록에서만)"
+                data-tip="이 리포트 삭제 (웹 목록에서만)"
                 aria-label="이 리포트 삭제"
                 className="rounded bg-bg-tertiary p-1 text-text-secondary transition-colors hover:bg-bg-elevated hover:text-danger disabled:opacity-40"
               >

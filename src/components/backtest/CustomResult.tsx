@@ -277,7 +277,7 @@ export default function CustomResult({
                   const now = rules?.find((r) => r.id === c.condition.ruleId);
                   const then = rules != null && (!now || !sameRuleBody(now, c.condition));
                   return (
-                    <span className="text-text-primary" title={`매수: ${ruleBuyText(c.condition.rule)}\n매도: ${ruleSellText(c.condition.rule)}`}>
+                    <span className="text-text-primary" data-tip={`매수: ${ruleBuyText(c.condition.rule)}\n매도: ${ruleSellText(c.condition.rule)}`}>
                       「{c.condition.ruleName}」
                       {then && <span className="block text-caption text-text-muted">(시험 당시 조건)</span>}
                     </span>

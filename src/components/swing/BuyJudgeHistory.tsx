@@ -168,7 +168,7 @@ export default function BuyJudgeHistory() {
                         <td className="whitespace-nowrap py-1 pr-4">
                           <VerdictText verdict={r.verdict} score={r.score} maxScore={r.maxScore} gateReason={r.gateReason} stackReason />
                         </td>
-                        <td className="truncate py-1 pr-2 text-text-secondary" title={r.ruleName}>
+                        <td className="truncate py-1 pr-2 text-text-secondary" data-tip-clip={r.ruleName}>
                           {r.ruleName}
                         </td>
                         {/* 「사도 됨」 만 그 뒤 수익률 — 다른 판단은 「—」 */}

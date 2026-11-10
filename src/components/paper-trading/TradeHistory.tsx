@@ -216,7 +216,7 @@ export default function TradeHistory({ trades, cashFlows, currency, orders, onCh
                             자동
                           </span>
                         )}
-                        <span className="block max-w-[22rem] truncate" title={t.reason ?? undefined}>
+                        <span className="block max-w-[22rem] truncate" data-tip-clip={t.reason ?? undefined}>
                           {t.reason ?? '—'}
                         </span>
                       </span>

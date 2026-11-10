@@ -48,7 +48,7 @@ export default function NextSurgeDate({
     );
   }
   return (
-    <span className="text-text-muted" title="마지막 급등 뒤로 평균 간격보다 오래 급등이 없었습니다">
+    <span className="text-text-muted" data-tip="마지막 급등 뒤로 평균 간격보다 오래 급등이 없었습니다">
       <span className="line-through opacity-60">{date}</span>{' '}
       {prefix}예상일 지남 ({overdueDays}일 경과) — 주기가 깨졌을 수 있음
     </span>

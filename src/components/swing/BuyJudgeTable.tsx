@@ -56,7 +56,7 @@ export function VerdictText({
   // 기준 미달 · 거름망에 걸림 — 같은 빨강, 글자로 구분
   if (verdict === 'gate_block' && stackReason && gateReason)
     return (
-      <span className="text-danger" title={GATE_REASON_HELP[gateReason]}>
+      <span className="text-danger" data-tip={GATE_REASON_HELP[gateReason]}>
         <span className="whitespace-nowrap">
           {VERDICT_LABEL.gate_block}
           {total}
@@ -65,7 +65,7 @@ export function VerdictText({
       </span>
     );
   return (
-    <span className="whitespace-nowrap text-danger" title={verdict === 'gate_block' && gateReason ? GATE_REASON_HELP[gateReason] : undefined}>
+    <span className="whitespace-nowrap text-danger" data-tip={verdict === 'gate_block' && gateReason ? GATE_REASON_HELP[gateReason] : undefined}>
       {verdict === 'gate_block' ? gateBlockLabel(gateReason) : VERDICT_LABEL[verdict]}
       {total}
     </span>
