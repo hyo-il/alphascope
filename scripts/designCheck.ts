@@ -133,7 +133,7 @@ function targets(): Target[] {
         await page.route('**/api/us-halts', (r) => r.fulfill({ json: usHaltsSample(Date.now(), true, 3) }).catch(() => {}));
         await page.route('**/api/rankings/live**', (r) => r.fulfill({ json: rankingSample(new URL(r.request().url()).searchParams.get('kind') as 'gainers', Date.now()) }).catch(() => {}));
       },
-      open: async (page: Page) => { await page.waitForTimeout(1200); await hoverTip(page, 'table td span[data-tip]'); },
+      open: async (page: Page) => { await page.waitForTimeout(1200); await hoverTip(page, 'table td.tabular-nums span[data-tip]'); },
       after: async (page: Page) => {
         await page.unroute('**/api/us-halts');
         await page.unroute('**/api/rankings/live**');
