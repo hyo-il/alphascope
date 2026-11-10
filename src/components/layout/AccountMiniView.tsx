@@ -152,7 +152,7 @@ export default function AccountMiniView({
 
           <div className="border-t border-border">
             <p className="px-3 py-1.5 text-caption font-medium text-text-muted">
-              보유종목 ({positions.length})
+              보유 종목 ({positions.length})
             </p>
 
             {positions.length === 0 ? (

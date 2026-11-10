@@ -41,7 +41,7 @@ type Tab = 'positions' | 'trades' | 'performance' | 'aiCheck';
 type View = 'overview' | 'detail';
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'positions', label: '보유종목' },
+  { id: 'positions', label: '보유 종목' },
   { id: 'trades', label: '거래내역' },
   { id: 'performance', label: '성과분석' },
 ];

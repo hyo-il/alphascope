@@ -439,6 +439,13 @@ check(
   }
 }
 
+// ── [131-E] 캡처 검토에서 고친 것 — 오른쪽 패널 계좌 탭 「보유 종목 (n)」 · 「보유 종목이 없습니다」 띄어쓰기 같게(용어집 「보유 종목」) ──
+{
+  const files = ['src/components/layout/AccountMiniView.tsx', 'src/components/paper-trading/PaperTradingDashboard.tsx'];
+  const bad = files.filter((f) => /보유종목/.test(read(f)));
+  check('[131-E] 화면 글자 「보유종목」 0 — 오른쪽 패널 계좌 탭 · 계좌 관리 탭 이름은 「보유 종목」', bad.length === 0 && /보유 종목 \(\{positions\.length\}\)/.test(read(files[0])), bad.join(', '));
+}
+
 // ── [131-4] CLAUDE.md(관리 루트 · git 밖) — 새 일하는 법 세 줄 · 크기 기준 줄 · 25,600바이트 안 ──
 {
   const common = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: root, encoding: 'utf8' }).trim();
