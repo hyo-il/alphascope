@@ -23,6 +23,17 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.68.0',
+    date: '2026-11-10',
+    title: '자산 관리: 물타기 계산기',
+    description: '더 살 가격 · 수량을 넣으면 새 평균 단가와 수익률을 계산합니다(계산만 — 시트에 쓰지 않음)',
+    changes: [
+      '자산 현황 종목 줄 [계산]: 가격 · 수량을 여러 줄 넣으면 새 평균 단가 · 총 수량 · 더 드는 돈 · 수익률(전 → 후)을 바로 보여 줌',
+      '목표 평균 단가를 넣으면 지금 가격에 몇 주를 더 사야 하는지 계산',
+      '매매 규칙 창: 고급 설정을 펼치면 그 자리로 스크롤',
+    ],
+  },
+  {
     version: 'v2.67.4',
     date: '2026-11-09',
     title: '화면 정리',

@@ -624,6 +624,26 @@ function targets(): Target[] {
           }
           await page.waitForTimeout(300);
         }] as const),
+        // v2.68.0 — 물타기 계산기(국내 두 줄 + 목표 · 미국 · 세 줄 · 거꾸로 계산 안 됨 · 지금 가격 없음)
+        ...([
+          ['계산기-국내', 6, [['60000', '10'], ['55000', '10']], '68500'],
+          ['계산기-미국', 5, [['90', '2.5']], '100'],
+          ['계산기-여러줄', 7, [['1200', '1'], ['1100.5', '2'], ['1000', '3']], null],
+          ['계산기-거꾸로안됨', 6, [], '64000'],
+          ['계산기-가격없음', 16, [], '10'],
+        ] as const).map(([label, row, lines, target]) => [label, {}, async (page: Page) => {
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+          await page.locator(`[data-avgcalc-open="${row}"]`).click().catch(() => {});
+          await page.locator('[data-avgcalc]').waitFor({ timeout: 3000 }).catch(() => {});
+          for (let i = 0; i < lines.length; i++) {
+            if (i > 0) await page.locator('[data-avgcalc-add]').click().catch(() => {});
+            await page.locator('[data-avgcalc-price]').nth(i).fill(lines[i][0]).catch(() => {});
+            await page.locator('[data-avgcalc-qty]').nth(i).fill(lines[i][1]).catch(() => {});
+          }
+          if (target) await page.locator('[data-avgcalc-target]').fill(target).catch(() => {});
+          await page.waitForTimeout(300);
+        }] as const),
         // v2.67.0 — 새 종목 매수 창 · 확인 화면 · 모두 매도 미리 보기 · 409 안내
         ...([
           ['새종목-입력창', null],

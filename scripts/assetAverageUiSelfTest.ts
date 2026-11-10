@@ -145,7 +145,7 @@ try {
     await page.locator('[data-avgcalc-qty]').fill('2.5');
     check(`[124-5] ${w}px — 미국 결과 $99.3621 · 15주 · $225.00`, (await text(page, '[data-avgcalc-new-avg]')) === '$99.3621' && (await text(page, '[data-avgcalc-new-qty]')) === '15주' && (await text(page, '[data-avgcalc-cost]')) === '$225.00');
     await page.locator('[data-avgcalc-target]').fill('100');
-    check(`[124-5] ${w}px — 미국 거꾸로 계산 3.429167주 · $327.4854`, (await text(page, '[data-avgcalc-reverse]')) === '지금 가격 $95.50에 3.429167주 더 사면 됩니다($327.4854 필요)', await text(page, '[data-avgcalc-reverse]'));
+    check(`[124-5] ${w}px — 미국 거꾸로 계산 3.429167주 · $327.49(돈은 소수 2자리)`, (await text(page, '[data-avgcalc-reverse]')) === '지금 가격 $95.50에 3.429167주 더 사면 됩니다($327.49 필요)', await text(page, '[data-avgcalc-reverse]'));
     check(`[124-5] ${w}px — 미국은 원화(₩) 환산을 보이지 않음`, !(await text(page, '[data-avgcalc]')).includes('₩'));
     await closeCalc(page);
 
@@ -183,6 +183,27 @@ try {
     release();
     await page.locator('[data-avgcalc-now-price]').filter({ hasText: '₩65,000' }).waitFor({ timeout: 5000 });
     check('[124-5] 로딩 — 첫 줄을 먼저 고쳤으면 늦게 온 가격으로 덮지 않음', (await val(page, '[data-avgcalc-price]')) === '61,000');
+    await ctx.close();
+  }
+
+  // ── 긴 이름 — 이름만 말줄임 · 티커는 보임(계산기 · 매수 창) ──
+  {
+    const { page, ctx } = await open(browser, { size: { width: 1280, height: 1080 } });
+    await openCalc(page, 7);
+    const sym = await page.evaluate(() => {
+      const s = document.querySelector('[data-avgcalc-symbol]') as HTMLElement;
+      const dd = s.parentElement as HTMLElement;
+      return { text: s.textContent, inside: s.getBoundingClientRect().right <= dd.getBoundingClientRect().right + 0.5, w: s.getBoundingClientRect().width, cut: s.scrollWidth > s.clientWidth };
+    });
+    check('[124-5] 긴 이름 — 계산기 머리 티커(BBBB)가 잘리지 않고 보임', sym.text === 'BBBB' && sym.inside && sym.w > 0 && !sym.cut, JSON.stringify(sym));
+    await closeCalc(page);
+    await page.locator('[data-trade-buy="7"]').click();
+    const tsym = await page.evaluate(() => {
+      const s = document.querySelector('[data-trade-symbol]') as HTMLElement;
+      const dd = s.parentElement as HTMLElement;
+      return { text: s.textContent, inside: s.getBoundingClientRect().right <= dd.getBoundingClientRect().right + 0.5, w: s.getBoundingClientRect().width };
+    });
+    check('[124-5] 긴 이름 — 매수 창 머리 티커도 보임(같은 모양)', tsym.text === 'BBBB' && tsym.inside && tsym.w > 0, JSON.stringify(tsym));
     await ctx.close();
   }
 

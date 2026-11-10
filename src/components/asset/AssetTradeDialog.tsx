@@ -111,9 +111,12 @@ export default function AssetTradeDialog({
       <div className="space-y-3" data-trade-dialog={side}>
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs">
           <dt className="text-text-muted">종목</dt>
-          <dd className="min-w-0 truncate text-text-primary" title={holding.name}>
-            {holding.name}
-            <span className="ml-2 text-caption text-text-muted">{holding.symbol}</span>
+          {/* 긴 이름만 말줄임 · 티커는 자르지 않는다(v2.68.0 캡처 검토) */}
+          <dd className="flex min-w-0 items-baseline gap-2 text-text-primary">
+            <span className="min-w-0 truncate" title={holding.name}>
+              {holding.name}
+            </span>
+            <span className="shrink-0 text-caption text-text-muted" data-trade-symbol>{holding.symbol}</span>
           </dd>
           <dt className="text-text-muted">계좌</dt>
           <dd className="min-w-0 truncate text-text-primary" title={section.name}>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button, Dialog, FormRow, ListRemoveButton, NumberField, NumberUnitGroup } from '../ui';
 import { Skeleton } from '../common/SkeletonLoader';
-import { changeColor, formatSigned } from '../../utils/formatters';
+import { changeColor, formatNumber, formatSigned } from '../../utils/formatters';
 import { TRADE_DIGITS, TRADE_MAX, roundTo } from '../../utils/assetTrade';
 import { addBuys, buysToTarget, type AverageHolding } from '../../utils/assetAverage';
 import { tradeMoneyText, tradeQtyText } from './AssetTradeDialog';
@@ -22,6 +22,9 @@ interface Line {
   price: string;
   qty: string;
 }
+
+/** 돈(더 드는 돈 · 필요한 돈) — 국내 원 · 미국 달러는 소수 2자리로 맞춘다(평균 단가 · 가격은 매수 창과 같은 `tradeMoneyText`) */
+const costText = (n: number, currency: AssetHolding['currency']) => (currency === 'KRW' ? tradeMoneyText(n, currency) : `$${formatNumber(n, 2)}`);
 
 /** 수익률 — 「−12.3%」(소수 한 자리 · 부호) */
 const pctText = (r: number) => formatSigned(r * 100, 1, '%');
@@ -97,9 +100,12 @@ export default function AssetAverageCalculator({
       <div className="space-y-4" data-avgcalc>
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs">
           <dt className="text-text-muted">종목</dt>
-          <dd className="min-w-0 truncate text-text-primary" title={holding.name}>
-            {holding.name}
-            {holding.symbol && <span className="ml-2 text-caption text-text-muted">{holding.symbol}</span>}
+          {/* 긴 이름만 말줄임 · 티커는 자르지 않는다 */}
+          <dd className="flex min-w-0 items-baseline gap-2 text-text-primary">
+            <span className="min-w-0 truncate" title={holding.name}>
+              {holding.name}
+            </span>
+            {holding.symbol && <span className="shrink-0 text-caption text-text-muted" data-avgcalc-symbol>{holding.symbol}</span>}
           </dd>
           <dt className="text-text-muted">계좌</dt>
           <dd className="min-w-0 truncate text-text-primary" title={section.name}>
@@ -165,7 +171,7 @@ export default function AssetAverageCalculator({
                 <dt className="text-text-muted">총 수량</dt>
                 <dd data-avgcalc-new-qty>{tradeQtyText(result.newQty)}주</dd>
                 <dt className="text-text-muted">더 드는 돈</dt>
-                <dd data-avgcalc-cost>{tradeMoneyText(result.extraCost, currency)}</dd>
+                <dd data-avgcalc-cost>{costText(result.extraCost, currency)}</dd>
                 <dt className="text-text-muted">수익률(지금 가격 기준)</dt>
                 <dd data-avgcalc-return>
                   <ReturnText value={result.returnBefore} data="data-avgcalc-return-before" />
@@ -191,7 +197,7 @@ export default function AssetAverageCalculator({
           {reverse && (
             <p className="text-xs tabular-nums text-text-primary keep-all" data-avgcalc-reverse={reverse.ok ? 'ok' : reverse.reason}>
               {reverse.ok
-                ? `지금 가격 ${tradeMoneyText(price as number, currency)}에 ${tradeQtyText(reverse.qty)}주 더 사면 됩니다(${tradeMoneyText(reverse.cost, currency)} 필요)`
+                ? `지금 가격 ${tradeMoneyText(price as number, currency)}에 ${tradeQtyText(reverse.qty)}주 더 사면 됩니다(${costText(reverse.cost, currency)} 필요)`
                 : reverse.reason === 'price-too-high'
                   ? '지금 가격으로는 목표까지 낮출 수 없어요'
                   : reverse.reason === 'above-avg'
