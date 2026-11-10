@@ -1,7 +1,7 @@
 /**
- * 평단 계산기 화면 시험(124차 · v2.68.0 · 125차 · v2.68.1) — `npm run assetavgui:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import · DB 는 쓰지 않는다).
+ * 평단 계산기 화면 시험(124차 · v2.68.0 · 125차 · v2.68.1 · 126차 · v2.68.2) — `npm run assetavgui:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import · DB 는 쓰지 않는다).
  *
- * 124차 지시서 「꼭 지킬 동작」 4 · 5 · 125차 1 · 2 · 3 · 5 · 6 을 확인한다(시험 이름 앞의 [124-n] · [125-n]). Vite + Playwright, `/api` 는 모두 `page.route` 가짜(만든 값) —
+ * 124차 지시서 「꼭 지킬 동작」 4 · 5 · 125차 1 · 2 · 3 · 5 · 6 · 126차 1 · 2 · 3 · 5 · 6 을 확인한다(시험 이름 앞의 [124-n] · [125-n] · [126-n]). Vite + Playwright, `/api` 는 모두 `page.route` 가짜(만든 값) —
  * 구글 · 토스 · 서버 호출 0. 계산기를 쓰는 동안 서버 쓰기 요청(POST · PUT · PATCH · DELETE)을 센다(잠금 시간 알림 `asset/touch` 는 화면 아무 곳을 눌러도 가는 것이라 뺀다).
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
@@ -11,6 +11,7 @@ import path from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { assetHistorySample, assetSheetSample, assetStatusSample, assetSummarySample, assetTradesSample } from './fixtures/asset/screenSample';
 import { createBrowserStepGuard } from './lib/browserStepGuard';
+import { formatAssetPrice, formatAssetQty } from '../src/utils/assetFormat';
 
 const root = path.resolve(import.meta.dirname, '..');
 const PORT = 5195;
@@ -92,28 +93,49 @@ try {
     const w = size.width;
     const { page, ctx, errors, writes } = await open(browser, { size });
 
-    // ── [평단 계산기] 버튼 — 종목 줄마다 · 회색 ──
+    // ── 평단 계산기 아이콘 버튼 — 종목 줄마다 · 회색 ──
     const rows = await page.locator('[data-account-cards] [data-trade-cell]').count();
     const calcs = await page.locator('[data-account-cards] [data-avgcalc-open]').count();
-    check(`[124-5] ${w}px — [평단 계산기] 버튼이 종목 줄마다(${calcs}/${rows})`, rows === 10 && calcs === rows, `${calcs}/${rows}`);
-    const btnTexts = await page.locator('[data-account-cards] [data-avgcalc-open]').allTextContents();
-    check(`[125-1] ${w}px — 버튼 글자 「평단 계산기」 · aria-label 「<종목> 평단 계산기」`, btnTexts.every((t) => t.trim() === '평단 계산기') && (await page.locator('[data-avgcalc-open="6"]').getAttribute('aria-label'))?.endsWith(' 평단 계산기') === true, btnTexts.join(','));
+    check(`[124-5] ${w}px — 평단 계산기 버튼이 종목 줄마다(${calcs}/${rows})`, rows === 10 && calcs === rows, `${calcs}/${rows}`);
+    const icons = await page.locator('[data-account-cards] [data-avgcalc-open]').evaluateAll((els) => els.map((e) => ({ text: (e.textContent ?? '').trim(), svg: e.querySelector('svg.lucide-calculator') != null, title: e.getAttribute('title'), label: e.getAttribute('aria-label') })));
+    check(`[126-1] ${w}px — 종목 줄마다 계산기 아이콘만(글자 없음) · 툴팁 「평단 계산기」 · aria-label 「<종목> 평단 계산기」`, icons.length === 10 && icons.every((b) => b.text === '' && b.svg && b.title === '평단 계산기' && b.label?.endsWith(' 평단 계산기')), JSON.stringify(icons[0]));
     const nameCell = await page.evaluate(() => {
-      const td = document.querySelector('[data-avgcalc-open="6"]')!.closest('tr')!.querySelector('td') as HTMLElement;
-      return { w: Math.round(td.getBoundingClientRect().width * 10) / 10 };
+      const span = document.querySelector('[data-avgcalc-open="6"]')!.closest('tr')!.querySelector('td span.truncate') as HTMLElement;
+      return Math.round(span.getBoundingClientRect().width * 10) / 10;
     });
-    console.log(`  (보고용) ${w}px 계좌별 표 이름 칸 폭 ${nameCell.w}px`);
+    console.log(`  (보고용) ${w}px 계좌별 표 이름 칸 폭 ${nameCell}px`);
+    if (w === 1280) check(`[126-1] 1280px — 이름 칸 폭이 148px 보다 넓음(${nameCell}px)`, nameCell > 148, String(nameCell));
     const look = await page.evaluate(() => {
-      const [calc, plain, buy, sell] = ['[data-avgcalc-open="6"]', '[data-open-class-dialog]', '[data-trade-buy="6"]', '[data-trade-sell="6"]'].map((q) => getComputedStyle(document.querySelector(q) as Element).backgroundColor);
-      return { calc, plain, buy, sell };
+      const calcEl = document.querySelector('[data-avgcalc-open="6"]') as HTMLElement;
+      const buyEl = document.querySelector('[data-trade-buy="6"]') as HTMLElement;
+      const calc = calcEl.getBoundingClientRect();
+      const buy = buyEl.getBoundingClientRect();
+      const muted = document.createElement('span');
+      muted.className = 'text-text-muted';
+      document.body.append(muted);
+      const gray = getComputedStyle(muted).color;
+      muted.remove();
+      return { color: getComputedStyle(calcEl).color, gray, bg: getComputedStyle(calcEl).backgroundColor, buyBg: getComputedStyle(buyEl).backgroundColor, h: calc.height, buyH: buy.height };
     });
-    check(`[124-5] ${w}px — [평단 계산기] 는 회색 기본 버튼(「자산 분류 정하기」 와 같은 바탕 · 매수 · 매도 색 아님)`, look.calc === look.plain && look.calc !== look.buy && look.calc !== look.sell, JSON.stringify(look));
-    check(`[124-5] ${w}px — [매수] 가 없는 줄(이을 수식 없는 줄)에도 [평단 계산기]`, (await page.locator('[data-trade-buy="14"]').count()) === 0 && (await page.locator('[data-avgcalc-open="14"]').count()) === 1);
-    check(`[124-5] ${w}px — [평단 계산기] 가 [매수] [매도] 옆(같은 칸 · 오른쪽)`, await page.evaluate(() => {
+    check(`[126-1] ${w}px — 아이콘은 회색(text-muted) · 매수 · 매도 색 아님 · 높이 = [매수] sm 높이(${look.h}px)`, look.color === look.gray && look.bg !== look.buyBg && look.h === look.buyH, JSON.stringify(look));
+    await page.locator('[data-avgcalc-open="6"]').focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    const ring = await page.evaluate(() => { const e = document.activeElement as HTMLElement; const cs = getComputedStyle(e); return { calc: e.hasAttribute('data-avgcalc-open'), visible: e.matches(':focus-visible'), outline: cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0 }; });
+    check(`[126-1] ${w}px — 키보드 초점 표시(:focus-visible 테두리)`, ring.calc && ring.visible && ring.outline, JSON.stringify(ring));
+    check(`[124-5] ${w}px — [매수] 가 없는 줄(이을 수식 없는 줄)에도 평단 계산기 아이콘`, (await page.locator('[data-trade-buy="14"]').count()) === 0 && (await page.locator('[data-avgcalc-open="14"]').count()) === 1);
+    check(`[124-5] ${w}px — 평단 계산기 아이콘이 [매수] [매도] 옆(같은 칸 · 오른쪽)`, await page.evaluate(() => {
       const s = document.querySelector('[data-trade-sell="6"]')!.getBoundingClientRect();
       const c = document.querySelector('[data-avgcalc-open="6"]')!.getBoundingClientRect();
       return c.left > s.right && Math.abs(c.top - s.top) < 1 && c.right <= innerWidth;
     }));
+
+    // ── 표 숫자 표시 — 「$12.50 · 30주」 ──
+    const cells = await page.evaluate(() => {
+      const [us, kr, etf] = ['5', '6', '7'].map((r) => Array.from(document.querySelector(`[data-avgcalc-open="${r}"]`)!.closest('tr')!.querySelectorAll('td')).map((td) => (td.textContent ?? '').trim()));
+      return { us, kr, etf };
+    });
+    check(`[126-3] ${w}px — 계좌별 표: 미국 「12.5주 · $101.23」 · 국내 「30주 · ₩71,000」 · ETF 「4주 · $1,250.50」`, cells.us[3] === '12.5주' && cells.us[4] === '$101.23' && cells.kr[3] === '30주' && cells.kr[4] === '₩71,000' && cells.etf[3] === '4주' && cells.etf[4] === '$1,250.50', JSON.stringify([cells.us.slice(3, 5), cells.kr.slice(3, 5), cells.etf.slice(3, 5)]));
 
     // ── 국내 — 첫 줄 지금 가격 · 결과 바로 바뀜 ──
     await openCalc(page, 6);
@@ -151,6 +173,26 @@ try {
       const want = Array.from({ length: n }, (_, i) => `${i + 1}차 매수`);
       check(`[125-3] ${w}px — ${n}차까지: 이름 ${n}개 · 「삭제」 는 ${n}차에만 · 버튼 ${n < 5 ? `[+ ${n + 1}차 매수]` : '없음'}`, JSON.stringify(names) === JSON.stringify(want) && JSON.stringify(await removeNames(page)) === JSON.stringify([`${n}차 매수 삭제`]) && (await addText(page)) === (n < 5 ? `${n + 1}차 매수` : null), `${names.join(',')} · ${await addText(page)}`);
     }
+    const above = await page.evaluate(() => {
+      const box = (document.querySelector('[data-avgcalc-result]') as HTMLElement).getBoundingClientRect();
+      const body = (document.querySelector('[data-avgcalc]') as HTMLElement).parentElement as HTMLElement; // Dialog 몸통(스크롤)
+      const b = body.getBoundingClientRect();
+      return { boxTop: box.top, boxBottom: box.bottom, firstInput: (document.querySelector('[data-avgcalc-price]') as HTMLElement).getBoundingClientRect().top, bodyTop: b.top, bodyBottom: b.bottom, scrollTop: body.scrollTop };
+    });
+    check(`[126-2] ${w}px — 「더 사면 평단은?」 5차 · 결과 상자가 창 안에 보임(5차 칸으로 스크롤한 채 · 위 끝 ${Math.round(above.boxTop - above.bodyTop)}px)`, above.boxTop >= above.bodyTop - 0.5 && above.boxBottom <= above.bodyBottom, JSON.stringify(above));
+    const lastQty = await page.evaluate(() => {
+      const body = (document.querySelector('[data-avgcalc]') as HTMLElement).parentElement as HTMLElement;
+      body.scrollTop = body.scrollHeight;
+      const box = (document.querySelector('[data-avgcalc-result]') as HTMLElement).getBoundingClientRect();
+      const q = Array.from(document.querySelectorAll('[data-avgcalc-qty]')).pop() as HTMLElement;
+      const b = body.getBoundingClientRect();
+      const qr = q.getBoundingClientRect();
+      return { boxTop: box.top, boxBottom: box.bottom, bodyTop: b.top, bodyBottom: b.bottom, qTop: qr.top, qBottom: qr.bottom, hit: document.elementFromPoint(qr.left + 5, qr.top + qr.height / 2) === q };
+    });
+    check(`[126-2] ${w}px — 5차 · 맨 아래까지 스크롤해도 결과 상자 보임 · 5차 수량 칸도 보이고 가려지지 않음`, lastQty.boxTop >= lastQty.bodyTop - 0.5 && lastQty.boxBottom <= lastQty.qTop && lastQty.qBottom <= lastQty.bodyBottom && lastQty.hit, JSON.stringify(lastQty));
+    await page.evaluate(() => (((document.querySelector('[data-avgcalc]') as HTMLElement).parentElement as HTMLElement).scrollTop = 0));
+    const firstBelow = await page.evaluate(() => (document.querySelector('[data-avgcalc-result]') as HTMLElement).getBoundingClientRect().bottom <= (document.querySelector('[data-avgcalc-price]') as HTMLElement).getBoundingClientRect().top);
+    check(`[126-2] ${w}px — 맨 위에서 결과 상자가 첫 입력 칸보다 위`, firstBelow);
     const h5a = await dialogHeight(page);
     await toTab(page, '목표 평단까지');
     const h5b = await dialogHeight(page);
@@ -165,6 +207,7 @@ try {
 
     // ── 거꾸로 계산(「목표 평단까지」 탭) ──
     await toTab(page, '목표 평단까지');
+    check(`[126-2] ${w}px — 「목표 평단까지」 결과 상자가 입력 칸보다 위`, await page.evaluate(() => (document.querySelector('[data-avgcalc-target-result]') as HTMLElement).getBoundingClientRect().bottom <= (document.querySelector('[data-avgcalc-target]') as HTMLElement).getBoundingClientRect().top));
     await page.locator('[data-avgcalc-target]').fill('68500');
     check(`[124-5] ${w}px — 목표 ₩68,500 → 「지금 가격 ₩65,000에 22주 더 사면 됩니다(₩1,430,000 필요)」`, (await text(page, '[data-avgcalc-reverse]')) === '지금 가격 ₩65,000에 22주 더 사면 됩니다(₩1,430,000 필요)', await text(page, '[data-avgcalc-reverse]'));
     await page.locator('[data-avgcalc-target]').fill('64000');
@@ -191,10 +234,10 @@ try {
     check(`[124-5] ${w}px — 미국: 지금 가격 $95.50 · 첫 줄 95.5`, (await text(page, '[data-avgcalc-now-price]')) === '$95.50' && (await val(page, '[data-avgcalc-price]')) === '95.5');
     await page.locator('[data-avgcalc-price]').fill('90');
     await page.locator('[data-avgcalc-qty]').fill('2.5');
-    check(`[124-5] ${w}px — 미국 결과 $99.3621 · 15주 · $225.00`, (await text(page, '[data-avgcalc-new-avg]')) === '$99.3621' && (await text(page, '[data-avgcalc-new-qty]')) === '15주' && (await text(page, '[data-avgcalc-cost]')) === '$225.00');
+    check(`[124-5][126-3] ${w}px — 미국 결과 $99.36 · 15주 · $225.00(표시 소수 2자리)`, (await text(page, '[data-avgcalc-new-avg]')) === '$99.36' && (await text(page, '[data-avgcalc-new-qty]')) === '15주' && (await text(page, '[data-avgcalc-cost]')) === '$225.00', await text(page, '[data-avgcalc-new-avg]'));
     await toTab(page, '목표 평단까지');
     await page.locator('[data-avgcalc-target]').fill('100');
-    check(`[124-5] ${w}px — 미국 거꾸로 계산 3.429167주 · $327.49(돈은 소수 2자리)`, (await text(page, '[data-avgcalc-reverse]')) === '지금 가격 $95.50에 3.429167주 더 사면 됩니다($327.49 필요)', await text(page, '[data-avgcalc-reverse]'));
+    check(`[126-3] ${w}px — 미국 목표 수량 3.429167 → 「3.43주」(소수 2자리 올림) · $327.49`, (await text(page, '[data-avgcalc-reverse]')) === '지금 가격 $95.50에 3.43주 더 사면 됩니다($327.49 필요)', await text(page, '[data-avgcalc-reverse]'));
     check(`[124-5] ${w}px — 미국은 원화(₩) 환산을 보이지 않음`, !(await text(page, '[data-avgcalc]')).includes('₩'));
     await closeCalc(page);
 
@@ -271,6 +314,54 @@ try {
     check('[125-6] 760px — 「목표 평단까지」 탭 가로 넘침 없음(목표 안내)', !(await panelOverflow(page)) && (await page.locator('[data-avgcalc-reverse]').isVisible()));
     await ctx.close();
   }
+  // ── 탭 줄 비침 — 1440 · 스크롤해 도구 줄 끝이 3px 남을 때 가림 띠가 그 자리를 덮는다 ──
+  {
+    const { page, ctx } = await open(browser, { size: { width: 1440, height: 900 } });
+    const m = await page.evaluate(() => {
+      const sc = document.querySelector('[data-asset-scroll]') as HTMLElement;
+      const tool = document.querySelector('[data-open-class-dialog]') as HTMLElement;
+      sc.scrollTop = tool.getBoundingClientRect().bottom - sc.getBoundingClientRect().top - 3;
+      const s = sc.getBoundingClientRect();
+      const c = (document.querySelector('[data-asset-scroll-cover]') as HTMLElement).getBoundingClientRect();
+      const t = tool.getBoundingClientRect();
+      const cs = getComputedStyle(document.querySelector('[data-asset-scroll-cover]') as HTMLElement);
+      const tabs = (document.querySelector('[aria-label="자산 관리 보기"]') as HTMLElement).getBoundingClientRect();
+      return { scrollTop: sc.scrollTop, coverTop: c.top - s.top, coverH: c.height, coverW: c.width, scrollW: s.width, sliver: t.bottom - s.top, z: cs.zIndex, bg: cs.backgroundImage, tabsBottom: tabs.bottom, scrollTopEdge: s.top };
+    });
+    check('[126-5] 1440px 스크롤 — 탭 줄 바로 밑 가림 띠가 스크롤 영역 위 끝에 붙고(0px) · 잘린 도구 줄 끝(3px)보다 높고 · 앞에 그려짐', m.scrollTop > 0 && Math.abs(m.coverTop) < 0.5 && m.coverH >= 12 && m.sliver > 0 && m.sliver < m.coverH && m.z === '10' && m.bg.startsWith('linear-gradient') && m.coverW >= m.scrollW - 16 && m.scrollTopEdge >= m.tabsBottom - 0.5, JSON.stringify(m));
+    await page.evaluate(() => ((document.querySelector('[data-asset-scroll]') as HTMLElement).scrollTop = 0));
+    const top0 = await page.evaluate(() => {
+      const c = (document.querySelector('[data-asset-scroll-cover]') as HTMLElement).getBoundingClientRect();
+      const first = (document.querySelector('[data-open-class-dialog]') as HTMLElement).getBoundingClientRect();
+      return { coverBottom: c.bottom, firstTop: first.top };
+    });
+    check('[126-5] 1440px 맨 위 — 가림 띠는 빈 위 여백 위에만(내용과 겹침 0)', top0.coverBottom <= top0.firstTop + 0.5, JSON.stringify(top0));
+    await ctx.close();
+  }
+
+  // ── 숫자 표시 함수 한 곳 ──
+  {
+    const cases: [string, string][] = [
+      [formatAssetQty(30), '30주'], [formatAssetQty(0.5), '0.5주'], [formatAssetQty(12.5), '12.5주'], [formatAssetQty(2.0), '2주'], [formatAssetQty(1234.567), '1,234.57주'], [formatAssetQty(0.1 + 0.2), '0.3주'],
+      [formatAssetQty(3.429167, { ceil: true }), '3.43주'], [formatAssetQty(3.43, { ceil: true }), '3.43주'], [formatAssetQty(22, { ceil: true }), '22주'], [formatAssetQty(null), '—'],
+      [formatAssetPrice(71000.4, 'KRW'), '₩71,000'], [formatAssetPrice(12.5, 'USD'), '$12.50'], [formatAssetPrice(1250.5, 'USD'), '$1,250.50'], [formatAssetPrice(101.2345, 'USD'), '$101.23'],
+    ];
+    const bad = cases.filter(([a, b]) => a !== b);
+    check(`[126-3] formatAssetQty · formatAssetPrice — 「30주」 · 「0.5주」 · 올림 「3.43주」 · 원 정수 · $ 소수 2자리(${cases.length}가지)`, bad.length === 0, JSON.stringify(bad));
+    const files = ['AssetSheetValues', 'AssetSymbolTable', 'AssetAverageCalculator', 'AssetTradeDialog', 'AssetNewBuyDialog', 'AssetTradeHistoryDialog'];
+    const notUsing = files.filter((f) => !/from '\.\.\/\.\.\/utils\/assetFormat'/.test(fs.readFileSync(path.join(root, 'src/components/asset', `${f}.tsx`), 'utf8')));
+    const oldLeft: string[] = [];
+    const walkOld = (dir: string) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const f = path.join(dir, e.name);
+        if (e.isDirectory()) walkOld(f);
+        else if (/\.tsx?$/.test(e.name) && /\b(tradeQtyText|tradeMoneyText|costText|decimalsOf|avgText|qtyDigits)\b/.test(fs.readFileSync(f, 'utf8'))) oldLeft.push(path.relative(root, f));
+      }
+    };
+    walkOld(path.join(root, 'src'));
+    check('[126-3] 표 · 종목별 표 · 계산기 · 매수/매도 창 · 새 종목 창 · 기록 창이 같은 표시 함수(assetFormat) · 옛 표시 함수 0곳', notUsing.length === 0 && oldLeft.length === 0, JSON.stringify({ notUsing, oldLeft }));
+  }
+
   // ── 이름 — 화면 코드 · 시험에 옛 이름 0곳(지난 changelog 항목 · 이 시험 파일 · 계산 식 주석은 제외) ──
   {
     const old = ['물타기', '계산기'].join(' ');

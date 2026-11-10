@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Button, Dialog, FormRow, NumberField, NumberUnitGroup } from '../ui';
-import { formatNumber, formatPrice } from '../../utils/formatters';
+import { formatNumber } from '../../utils/formatters';
 import { modal } from '../../store/uiStore';
-import { TRADE_DIGITS, decimalPlaces } from '../../utils/assetTrade';
+import { TRADE_DIGITS } from '../../utils/assetTrade';
 import { tradeAfter } from '../../utils/assetAverage';
-import type { AssetCurrency, AssetHolding, AssetSection, AssetTradeRequest, AssetTradeSide } from '../../types/asset';
+import { formatAssetPrice, formatAssetQty } from '../../utils/assetFormat';
+import type { AssetHolding, AssetSection, AssetTradeRequest, AssetTradeSide } from '../../types/asset';
 
 /**
  * 매수 · 매도 입력 창(v2.66.0 — 시트에 줄이 있는 종목의 매수 · 일부 매도 · v2.67.0 모두 매도). 실제 주문은 없다 — 다른 증권사에서 사고판 것을 적는 창이다.
@@ -14,10 +15,7 @@ import type { AssetCurrency, AssetHolding, AssetSection, AssetTradeRequest, Asse
  * - 바깥 클릭으로 닫지 않는다(입력을 잃는다).
  */
 
-/** 수량 — 쉼표 · 있는 소수만(6자리까지) */
-export const tradeQtyText = (n: number) => formatNumber(n, Math.min(6, decimalPlaces(n)));
-/** 가격 · 평균가 — 국내 원 · 미국 달러(소수 2~4자리) */
-export const tradeMoneyText = (n: number, currency: AssetCurrency) => (currency === 'KRW' ? formatPrice(n, 'KRW') : `$${formatNumber(n, Math.max(2, Math.min(4, decimalPlaces(n))))}`);
+/** 수량 · 가격 표시는 `src/utils/assetFormat.ts` 한 곳(v2.68.2) — 입력 칸 자릿수(`TRADE_DIGITS`)는 그대로 */
 export const tradeFxText = (n: number) => `₩${formatNumber(n, 2)}`;
 
 const SIDE_LABEL: Record<AssetTradeSide, string> = { buy: '매수', sell: '매도' };
@@ -124,11 +122,11 @@ export default function AssetTradeDialog({
           </dd>
           <dt className="text-text-muted">지금 수량</dt>
           <dd className="text-text-primary tabular-nums" data-trade-now-qty>
-            {tradeQtyText(beforeQty)}주
+            {formatAssetQty(beforeQty)}
           </dd>
           <dt className="text-text-muted">지금 평균가</dt>
           <dd className="text-text-primary tabular-nums" data-trade-now-avg>
-            {tradeMoneyText(beforeAvg, currency)}
+            {formatAssetPrice(beforeAvg, currency)}
           </dd>
         </dl>
 
@@ -155,10 +153,10 @@ export default function AssetTradeDialog({
           ) : (
             <div data-trade-preview-main {...(sameAsHeld ? { 'data-trade-sell-all': true } : {})}>
               {side === 'buy'
-                ? `사고 나면 ${tradeQtyText(after.afterQty)}주 · 평균 ${tradeMoneyText(after.afterAvg, currency)}`
+                ? `사고 나면 ${formatAssetQty(after.afterQty)} · 평균 ${formatAssetPrice(after.afterAvg, currency)}`
                 : sameAsHeld
                   ? '팔고 나면 0주 — 시트에서 이 줄을 지웁니다(「티커」 줄은 남김)'
-                  : `팔고 나면 ${tradeQtyText(after.afterQty)}주 · 평균 그대로`}
+                  : `팔고 나면 ${formatAssetQty(after.afterQty)} · 평균 그대로`}
             </div>
           )}
         </div>

@@ -42,7 +42,7 @@ import { MonthlyBuySection, PurchaseDayDialog, dayText, isEarlyDone, sheetDateTe
  * 잠금 시간(v2.65.4): 이 화면(창 포함)의 클릭 · 키 · 스크롤 · 터치를 `useAssetIdleLock` 에 알린다(touch 1분에 한 번 이하 · 화면 타이머 → `onIdle`).
  *   시간은 설정(`summary.settings.lockMinutes` — 받기 전에는 잠금 상태가 준 값).
  * 매수 · 매도 입력(v2.66.0): 자산 현황 계좌별 줄의 [매수] [매도] → `AssetTradeDialog` · 성공하면 닫고 다시 읽기 · [매수 · 매도 기록] → `AssetTradeHistoryDialog`.
- * 평단 계산기(v2.68.0): 같은 줄의 [평단 계산기] → `AssetAverageCalculator`(계산만 — 서버 요청 없음 · 지금 가격은 summary 의 `prices`).
+ * 평단 계산기(v2.68.0): 같은 줄의 계산기 아이콘(v2.68.2) → `AssetAverageCalculator`(계산만 — 서버 요청 없음 · 지금 가격은 summary 의 `prices`).
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 「연금 포함」 켬/끔만).
  */
 
@@ -380,7 +380,10 @@ export default function AssetDashboard({
         }}
         tabsLabel="자산 관리 보기"
       />
-      <div className={`min-h-0 flex-1 space-y-3 overflow-y-auto [scrollbar-gutter:stable] ${PANEL_PAD}`}>
+      <div className={`min-h-0 flex-1 space-y-3 overflow-y-auto [scrollbar-gutter:stable] ${PANEL_PAD}`} data-asset-scroll>
+        {/* 탭 줄 아래 가림 띠(v2.68.2) — 스크롤 영역 맨 위에 붙어(위 여백 12px 자리 · 높이 0 을 차지 · 크롬은 붙는 위치를 여백 안쪽으로 재서 -12px) 스크롤된 내용의 잘린 끝(버튼 아래 몇 px)이
+            탭 줄 바로 밑에 비치지 않게 바탕색 → 투명으로 덮는다. 맨 위에서는 빈 여백 위라 보이지 않는다 */}
+        <div aria-hidden className="pointer-events-none sticky -top-3 z-10 -mx-4 -mt-3 -mb-3 h-3 bg-gradient-to-b from-bg-primary to-transparent" data-asset-scroll-cover />
         {/* 총 자산 탭 — 처음 받기는 스켈레톤(받기 전에 0 · 빈 값을 그리지 않는다) */}
         {tab === 'total' && latest == null && <DashboardSkeleton />}
         {(tab === 'total' || tab === 'rebalance') && result && !result.ok && !result.fail.locked && <ErrorLine message={result.fail.error} busy={reloading} onRetry={() => void reload()} />}

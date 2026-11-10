@@ -4,7 +4,7 @@ import SymbolSearch from '../common/SymbolSearch';
 import { InlineSpinner } from '../common/LoadingOverlay';
 import { TRADE_DIGITS } from '../../utils/assetTrade';
 import { tradeAfter } from '../../utils/assetAverage';
-import { tradeMoneyText, tradeQtyText } from './AssetTradeDialog';
+import { formatAssetPrice, formatAssetQty } from '../../utils/assetFormat';
 import { ASSET_CLASSES, RATIO_TAB_NOTICE, UNASSIGNED_LABEL, US_CODE_PREFIXES, type AssetClass, type AssetCurrency, type AssetNewHoldingPlan, type AssetNewHoldingRequest, type AssetNewHoldingTarget, type AssetSection, type AssetUsPrefix } from '../../types/asset';
 import type { StockSearchResult } from '../../types/toss';
 
@@ -150,9 +150,9 @@ export default function AssetNewBuyDialog({
             <dt className="text-text-muted">계좌</dt>
             <dd className="min-w-0 truncate text-text-primary">{plan.section}</dd>
             <dt className="text-text-muted">수량</dt>
-            <dd className="text-text-primary tabular-nums">{tradeQtyText(qtyN)}주</dd>
+            <dd className="text-text-primary tabular-nums">{formatAssetQty(qtyN)}</dd>
             <dt className="text-text-muted">가격</dt>
-            <dd className="text-text-primary tabular-nums">{tradeMoneyText(priceN, plan.currency)}</dd>
+            <dd className="text-text-primary tabular-nums">{formatAssetPrice(priceN, plan.currency)}</dd>
             {!plan.existing && (
               <>
                 <dt className="text-text-muted">자산 분류</dt>
@@ -164,7 +164,7 @@ export default function AssetNewBuyDialog({
           {plan.existing ? (
             <div className="space-y-0.5 rounded-lg bg-bg-tertiary/40 px-3 py-2 text-xs text-text-primary" data-newbuy-existing>
               <div>이미 가진 종목 — 매수로 더합니다</div>
-              {afterBuy && <div className="tabular-nums" data-newbuy-after>{`사고 나면 ${tradeQtyText(afterBuy.afterQty)}주 · 평균 ${tradeMoneyText(afterBuy.afterAvg, plan.currency)}`}</div>}
+              {afterBuy && <div className="tabular-nums" data-newbuy-after>{`사고 나면 ${formatAssetQty(afterBuy.afterQty)} · 평균 ${formatAssetPrice(afterBuy.afterAvg, plan.currency)}`}</div>}
             </div>
           ) : (
             <p className="rounded-lg bg-bg-tertiary/40 px-3 py-2 text-xs text-text-primary keep-all" data-newbuy-where>

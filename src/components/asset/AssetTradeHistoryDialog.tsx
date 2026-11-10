@@ -3,7 +3,8 @@ import { Button, Dialog } from '../ui';
 import { SkeletonTable } from '../common/SkeletonLoader';
 import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatDateTime } from '../../utils/dateFormat';
-import { tradeFxText, tradeMoneyText, tradeQtyText } from './AssetTradeDialog';
+import { tradeFxText } from './AssetTradeDialog';
+import { formatAssetPrice, formatAssetQty } from '../../utils/assetFormat';
 import type { AssetTradesResponse } from '../../types/asset';
 
 /**
@@ -87,11 +88,11 @@ export default function AssetTradeHistoryDialog({ onLocked, onClose }: { onLocke
                     </span>
                   </td>
                   <td className={TEXT}>{t.side === 'buy' ? '매수' : '매도'}</td>
-                  <td className={NUM}>{tradeQtyText(t.qty)}</td>
-                  <td className={NUM}>{tradeMoneyText(t.price, t.currency)}</td>
+                  <td className={NUM}>{formatAssetQty(t.qty)}</td>
+                  <td className={NUM}>{formatAssetPrice(t.price, t.currency)}</td>
                   {showFx && <td className={NUM}>{t.fx == null ? '—' : tradeFxText(t.fx)}</td>}
-                  <td className={NUM}>{tradeQtyText(t.afterQty)}</td>
-                  <td className={`${NUM} pr-1`}>{tradeMoneyText(t.afterAvg, t.currency)}</td>
+                  <td className={NUM}>{formatAssetQty(t.afterQty)}</td>
+                  <td className={`${NUM} pr-1`}>{formatAssetPrice(t.afterAvg, t.currency)}</td>
                 </tr>
               ))}
             </tbody>

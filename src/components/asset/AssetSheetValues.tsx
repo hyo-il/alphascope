@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, History, Plus, Tags } from 'lucide-react';
-import { Button, ICON_SM, Panel, Segmented } from '../ui';
+import { Calculator, ChevronDown, ChevronRight, History, Plus, Tags } from 'lucide-react';
+import { Button, ICON_SM, IconButton, Panel, Segmented } from '../ui';
 import { SkeletonTable } from '../common/SkeletonLoader';
 import AssetSymbolTable, { SYMBOL_FILTERS, type SymbolFilter } from './AssetSymbolTable';
 import { ASSET_CLASS_W, LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice } from '../../utils/formatters';
+import { formatAssetPrice, formatAssetQty } from '../../utils/assetFormat';
 import { UNASSIGNED_LABEL, type AssetAccount, type AssetHolding, type AssetSection, type AssetSheetData, type AssetSymbolRow, type AssetTradeSide } from '../../types/asset';
 
 /**
@@ -18,7 +19,7 @@ import { UNASSIGNED_LABEL, type AssetAccount, type AssetHolding, type AssetSecti
  * - 계좌 카드 위 「계좌별 | 종목별」(v2.63.0 — 이 기기에 기억 `alphascope.asset.statusView` · 읽기 실패면 계좌별).
  *   종목별 = 같은 종목을 한 줄로(`AssetSymbolTable` · 「전체 / 코어 / 위성」 거르기) — 자산 분류 고르기는 계좌별에서.
  * - 계좌별 줄 끝 [매수] [매도](v2.66.0 — `h.tradable` 인 줄만 · 합친 표 · 수식 칸 · 이을 수 없는 줄은 없음) · 위 [새 종목 매수](v2.67.0 · `AssetNewBuyDialog`) · [매수 · 매도 기록].
- *   [평단 계산기](v2.68.0 · v2.68.1 이름 · 회색 기본 버튼) — 수량 · 평균가가 0 보다 큰 줄이면 [매수] 가 없는 줄에도 보인다(계산만 · `canCalc`).
+ *   계산기 아이콘 버튼(v2.68.0 · v2.68.2 아이콘 — 공용 `IconButton` · 툴팁 · aria-label 「<종목> 평단 계산기」) — 수량 · 평균가가 0 보다 큰 줄이면 [매수] 가 없는 줄에도 보인다(계산만 · `canCalc`).
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 접은 계좌 이름 · 보기 이름만).
  */
 
@@ -68,24 +69,6 @@ function Summary({ data }: { data: AssetSheetData }) {
       </div>
     </Panel>
   );
-}
-
-/** 칸 안 소수 자릿수 — 같은 열은 같은 자릿수(가장 긴 것 · 최대 4자리) */
-function decimalsOf(values: (number | null)[]): number {
-  let d = 0;
-  for (const v of values) {
-    if (v == null || Number.isInteger(v)) continue;
-    const frac = String(v).split('.')[1] ?? '';
-    d = Math.max(d, Math.min(4, frac.length));
-  }
-  return d;
-}
-
-/** 평균 매입가 — 원래 통화 그대로. 달러는 시트 값(소수 4자리까지)을 줄이지 않는다 */
-function avgText(h: AssetHolding, usdDigits: number): string {
-  if (h.avgPrice == null) return '—';
-  if (h.currency === 'KRW') return formatPrice(h.avgPrice, 'KRW');
-  return `$${formatNumber(h.avgPrice, Math.max(2, usdDigits))}`;
 }
 
 /** 평단 계산기를 열 수 있는 줄 — 수량 · 평균가가 0 보다 큰 숫자(시트 쓰기와 상관없음 · 계산만) */
@@ -161,8 +144,6 @@ function AccountCard({
   section,
   account,
   first,
-  qtyDigits,
-  usdDigits,
   open,
   onToggle,
   onTrade,
@@ -171,13 +152,11 @@ function AccountCard({
   section: AssetSection;
   account: AssetAccount | undefined;
   first: boolean;
-  qtyDigits: number;
-  usdDigits: number;
   open: boolean;
   onToggle: () => void;
   /** [매수] · [매도] — 입력 창 열기 */
   onTrade: (section: AssetSection, holding: AssetHolding, side: AssetTradeSide) => void;
-  /** [평단 계산기] — 평단 계산기 열기 */
+  /** 계산기 아이콘 — 평단 계산기 열기 */
   onCalc: (section: AssetSection, holding: AssetHolding) => void;
 }) {
   const id = `as-asset-account-${section.key}`;
@@ -263,8 +242,8 @@ function AccountCard({
                 {h.exchange && <span className="ml-1 text-caption text-text-muted">{h.exchange}</span>}
               </td>
               <td className={`${CARD_BG} ${TEXT} border-t border-border/30 text-text-secondary`}>{h.market === 'US' ? '미국' : h.market === 'KR' ? '국내' : '—'}</td>
-              <td className={`${CARD_BG} ${NUM} border-t border-border/30 text-text-primary`}>{h.quantity == null ? '—' : formatNumber(h.quantity, qtyDigits)}</td>
-              <td className={`${CARD_BG} ${NUM} border-t border-border/30 text-text-primary`}>{avgText(h, usdDigits)}</td>
+              <td className={`${CARD_BG} ${NUM} border-t border-border/30 text-text-primary`}>{formatAssetQty(h.quantity)}</td>
+              <td className={`${CARD_BG} ${NUM} border-t border-border/30 text-text-primary`}>{formatAssetPrice(h.avgPrice, h.currency)}</td>
               <td className={`${CARD_BG} ${TEXT} border-t border-border/30 text-center`}>
                 <ClassText h={h} />
               </td>
@@ -282,9 +261,7 @@ function AccountCard({
                       </>
                     )}
                     {canCalc(h) && (
-                      <Button size="sm" onClick={() => onCalc(section, h)} aria-label={`${h.name} 평단 계산기`} data-avgcalc-open={h.row}>
-                        평단 계산기
-                      </Button>
+                      <IconButton icon={Calculator} label="평단 계산기" aria-label={`${h.name} 평단 계산기`} onClick={() => onCalc(section, h)} data-avgcalc-open={h.row} />
                     )}
                   </span>
                 )}
@@ -299,9 +276,6 @@ function AccountCard({
 /** 계좌 카드들 — 합계 표(계좌를 합친 표)는 그리지 않는다 · 수량 · 달러 소수 자릿수는 모든 카드가 같다 */
 function AccountCards({ sections, accounts, onTrade, onCalc }: { sections: AssetSection[]; accounts: AssetAccount[]; onTrade: (section: AssetSection, holding: AssetHolding, side: AssetTradeSide) => void; onCalc: (section: AssetSection, holding: AssetHolding) => void }) {
   const shown = sections.filter((s) => !s.combined);
-  const all = shown.flatMap((s) => s.holdings);
-  const qtyDigits = decimalsOf(all.map((h) => h.quantity));
-  const usdDigits = decimalsOf(all.filter((h) => h.currency === 'USD').map((h) => h.avgPrice));
   const [closed, setClosed] = useState<string[]>(readClosed);
   const toggle = (key: string) => {
     const next = closed.includes(key) ? closed.filter((k) => k !== key) : [...closed, key];
@@ -309,7 +283,7 @@ function AccountCards({ sections, accounts, onTrade, onCalc }: { sections: Asset
     saveClosed(next);
   };
   return (
-    /* 평균 매입가는 줄마다 통화가 다르다(원화는 소수 없음 · 달러는 시트 원래 값 소수 4자리까지) — design:check 의 「같은 열 소수 자릿수」 는 이 표에서 재지 않는다(`data-rows-differ`). 수량 열은 `qtyDigits` 로 모든 카드가 같다 */
+    /* 평균 매입가는 줄마다 통화가 다르고(원 정수 · $ 소수 2자리) 수량은 「30주」 · 「0.5주」(끝 0 지움 — `assetFormat.ts`) — design:check 의 「같은 열 소수 자릿수」 는 이 표에서 재지 않는다(`data-rows-differ`) */
     /* 입력 칸이 늘어 좁은 창에서는 표가 칸보다 넓다 — 표만 칸 안에서 가로로 움직인다(넓은 창에서는 변화 없음) */
     <div className="overflow-x-auto" data-account-cards-wrap>
     <table className="w-full border-separate border-spacing-0 text-left text-xs" data-rows-differ data-account-cards>
@@ -321,8 +295,6 @@ function AccountCards({ sections, accounts, onTrade, onCalc }: { sections: Asset
             section={s}
             account={accounts.find((a) => a.key === s.key)}
             first={i === 0}
-            qtyDigits={qtyDigits}
-            usdDigits={usdDigits}
             open={!closed.includes(key)}
             onToggle={() => toggle(key)}
             onTrade={onTrade}
@@ -356,7 +328,7 @@ export default function AssetSheetValues({
   onOpenClassDialog: () => void;
   /** 종목 줄 [매수] · [매도] — 입력 창 열기(v2.66.0) */
   onTrade: (section: AssetSection, holding: AssetHolding, side: AssetTradeSide) => void;
-  /** 종목 줄 [평단 계산기] — 평단 계산기 열기(v2.68.0) */
+  /** 종목 줄 계산기 아이콘 — 평단 계산기 열기(v2.68.0) */
   onCalc: (section: AssetSection, holding: AssetHolding) => void;
   /** [매수 · 매도 기록] — 창 열기 */
   onNewBuy: () => void;

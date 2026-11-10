@@ -546,6 +546,17 @@ function targets(): Target[] {
           await page.locator('[data-account-hint]').scrollIntoViewIfNeeded().catch(() => {});
           await page.waitForTimeout(200);
         }],
+        // v2.68.2 — 스크롤해 도구 줄 끝이 3px 남을 때 탭 줄 바로 밑(가림 띠)
+        ['자산현황-스크롤탭줄', {}, async (page: Page) => {
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+          await page.evaluate(() => {
+            const sc = document.querySelector('[data-asset-scroll]') as HTMLElement | null;
+            const tool = document.querySelector('[data-open-class-dialog]') as HTMLElement | null;
+            if (sc && tool) sc.scrollTop = tool.getBoundingClientRect().bottom - sc.getBoundingClientRect().top - 3;
+          }).catch(() => {});
+          await page.waitForTimeout(200);
+        }],
         ['자산현황-요약목표비율', {}, async (page: Page) => {
           await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
           await page.waitForTimeout(500);
@@ -624,7 +635,7 @@ function targets(): Target[] {
           }
           await page.waitForTimeout(300);
         }] as const),
-        // v2.68.0 · v2.68.1 — 평단 계산기(「더 사면 평단은?」 1차 · 2차 · 3차 · 5차 · 미국 · 「목표 평단까지」 됨 · 안 됨 · 지금 가격 없음)
+        // v2.68.0 · v2.68.1 · v2.68.2 — 평단 계산기(「더 사면 평단은?」 1차 · 2차 · 3차 · 5차 · 5차 맨 아래 · 미국 · 「목표 평단까지」 됨 · 안 됨 · 지금 가격 없음)
         ...([
           ['계산기-국내', 6, [['60000', '10'], ['55000', '10']], null],
           ['계산기-1차', 6, [], null],
@@ -632,6 +643,7 @@ function targets(): Target[] {
           ['계산기-미국', 5, [['90', '2.5']], '100'],
           ['계산기-여러줄', 7, [['1200', '1'], ['1100.5', '2'], ['1000', '3']], null],
           ['계산기-5차', 6, [['60000', '1'], ['58000', '2'], ['56000', '3'], ['54000', '4'], ['52000', '5']], null],
+          ['계산기-5차-아래', 6, [['60000', '1'], ['58000', '2'], ['56000', '3'], ['54000', '4'], ['52000', '5']], 'bottom'],
           ['계산기-거꾸로안됨', 6, [], '64000'],
           ['계산기-가격없음', 16, [], '10'],
         ] as const).map(([label, row, lines, target]) => [label, {}, async (page: Page) => {
@@ -644,7 +656,12 @@ function targets(): Target[] {
             await page.locator('[data-avgcalc-price]').nth(i).fill(lines[i][0]).catch(() => {});
             await page.locator('[data-avgcalc-qty]').nth(i).fill(lines[i][1]).catch(() => {});
           }
-          if (target) {
+          if (target === 'bottom') {
+            await page.evaluate(() => {
+              const body = document.querySelector('[data-avgcalc]')?.parentElement;
+              if (body) body.scrollTop = body.scrollHeight;
+            }).catch(() => {});
+          } else if (target) {
             await page.locator('[data-avgcalc]').getByRole('tab', { name: '목표 평단까지' }).click().catch(() => {});
             await page.locator('[data-avgcalc-target]').fill(target).catch(() => {});
           }

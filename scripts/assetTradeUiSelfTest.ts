@@ -144,7 +144,7 @@ try {
     await page.locator('[data-trade-buy="5"]').click();
     check('[119-8] 미국 매수 창 — 환율 칸 0 · 안내 한 줄', (await count(page, '[data-trade-fx]')) === 0 && (await text(page, '[data-trade-fx-note]')) === '원화 매입 금액은 시트 「달러 환전」 탭의 구매 평균 환율로 계산돼요', await text(page, '[data-trade-fx-note]'));
     await fillTrade(page, '2.5', '110');
-    check('[119-8] 미국 미리 보기 — 달러 평균 소수 4자리 · 구매 평균 환율 미리 보기 0', (await text(page, '[data-trade-preview-main]')) === '사고 나면 15주 · 평균 $102.6954' && (await count(page, '[data-trade-preview-fx]')) === 0, await text(page, '[data-trade-preview-main]'));
+    check('[119-8][126-3] 미국 미리 보기 — 달러 평균 소수 2자리(v2.68.2 표시 한 곳) · 구매 평균 환율 미리 보기 0', (await text(page, '[data-trade-preview-main]')) === '사고 나면 15주 · 평균 $102.70' && (await count(page, '[data-trade-preview-fx]')) === 0, await text(page, '[data-trade-preview-main]'));
     await page.locator('[data-trade-save]').click();
     await page.locator('[data-trade-dialog]').waitFor({ state: 'detached', timeout: 5000 });
     check('[119-8] 미국 저장 요청에 환율 키 없음', !('fx' in (seen.tradeBodies[0] as object)));

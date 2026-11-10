@@ -1,6 +1,7 @@
 import { Panel } from '../ui';
 import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice } from '../../utils/formatters';
+import { formatAssetQty } from '../../utils/assetFormat';
 import { UNASSIGNED_LABEL, type AssetSymbolRow } from '../../types/asset';
 
 /**
@@ -24,20 +25,8 @@ const SIDE_LABEL = { core: '코어', satellite: '위성' } as const;
 const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right tabular-nums`;
 const TEXT = `${TABLE_NUM_COL} ${TABLE_NUM_GAP}`;
 
-/** 수량 소수 자릿수 — 같은 열은 같은 자릿수(가장 긴 것 · 최대 4자리) */
-function qtyDigits(rows: AssetSymbolRow[]): number {
-  let d = 0;
-  for (const r of rows) {
-    if (r.quantity == null || Number.isInteger(r.quantity)) continue;
-    d = Math.max(d, Math.min(4, (String(r.quantity).split('.')[1] ?? '').length));
-  }
-  return d;
-}
-
 export default function AssetSymbolTable({ rows, filter }: { rows: AssetSymbolRow[]; filter: Filter }) {
   const shown = filter === 'all' ? rows : rows.filter((r) => r.assetClass === '주식' && r.side === filter);
-  // 수량 자릿수는 거르기 전 모든 줄로 — 거르기를 바꿔도 같은 종목의 자릿수가 같다
-  const digits = qtyDigits(rows);
   const sum = shown.reduce((a, r) => a + (r.value ?? 0), 0);
   const label = FILTERS.find((f) => f.value === filter)?.label ?? '전체';
 
@@ -88,7 +77,7 @@ export default function AssetSymbolTable({ rows, filter }: { rows: AssetSymbolRo
                       </span>
                     ))}
                   </td>
-                  <td className={NUM}>{r.quantity == null ? '—' : formatNumber(r.quantity, digits)}</td>
+                  <td className={NUM}>{formatAssetQty(r.quantity)}</td>
                   <td className={NUM} title={r.missing > 0 ? `가격을 받지 못한 줄 ${r.missing}개는 빠졌습니다` : undefined}>
                     {r.value == null ? '—' : formatPrice(r.value, 'KRW')}
                   </td>
