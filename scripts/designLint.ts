@@ -6,10 +6,16 @@
  *   3. 공용 부품을 쓰지 않은 `<input>`(체크박스·라디오·range·hidden·file 제외)·`<select>` — `ui/Input`·`ui/Select`·`ui/NumberField`
  *   4. 화면 루트를 가운데로 좁히는 `mx-auto max-w-*` — 모든 화면은 폭을 꽉 채운다
  *   5. lg·2xl 글자(`text-lg`·`text-2xl`) — 기준표에 없는 크기
+ *   6. 툴팁용 `title=`(브라우저 기본 툴팁) — 앱 툴팁 `data-tip` · `data-tip-clip` 을 쓴다(v2.69.0). 남은 곳은 기준 목록
+ *      `scripts/fixtures/tooltipTitleBaseline.json`(파일마다 개수)으로 허용하고, **파일마다 그 개수보다 늘면** 실패(129차에서 줄여 0 으로).
+ *      툴팁인지는 형 정보로 가린다(`scripts/lib/tooltipTitles.ts` — 우리 부품의 `title` 속성 · `iframe` 은 툴팁이 아님).
+ *   7. `IconButton` 의 정해진 두 크기 밖(`size` 가 md · sm 아님 · `className` 에 높이 · 폭)
  * 끝나면 어긴 곳 수를 출력하고, 하나라도 있으면 exit 1.
+ * 시험용: `DESIGN_LINT_EXTRA=<파일,…>` 를 주면 그 파일도 검사한다(`tooltip:test` 의 가짜 파일 — 커밋하지 않는다).
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { appProgram, iconButtonSizeHits, nativeTitleCounts, TITLE_BASELINE_FILE, titleAttrs } from './lib/tooltipTitles';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const FILES: string[] = [];
@@ -22,6 +28,8 @@ const walk = (dir: string) => {
 };
 walk(path.join(ROOT, 'src/components'));
 FILES.push(path.join(ROOT, 'src/App.tsx'));
+const EXTRA = (process.env.DESIGN_LINT_EXTRA ?? '').split(',').map((f) => f.trim()).filter(Boolean).map((f) => path.resolve(f));
+FILES.push(...EXTRA);
 
 const PALETTE = /\b(?:text|bg|border|ring|from|to|via|fill|stroke|outline|decoration|divide)-(?:red|blue|green|yellow|gray|slate|zinc|neutral|stone|orange|amber|lime|emerald|teal|cyan|sky|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/;
 const RULES: { id: string; test: (line: string, file: string) => boolean; why: string }[] = [
@@ -52,6 +60,25 @@ for (const file of FILES) {
       hits.push({ file: path.relative(ROOT, file), line: i + 1, id: r.id, text: line.trim().slice(0, 140), why: r.why });
     }
   });
+}
+
+// 6 · 7 — 형 정보가 필요한 규칙(앱 tsconfig 프로그램 하나)
+{
+  const program = appProgram(EXTRA);
+  const scan = [...FILES, path.join(ROOT, 'src/main.tsx')];
+  const attrs = titleAttrs(program, scan);
+  const baseline = JSON.parse(fs.readFileSync(TITLE_BASELINE_FILE, 'utf8')) as Record<string, number>;
+  const counts = nativeTitleCounts(attrs);
+  for (const [file, n] of Object.entries(counts)) {
+    const allowed = baseline[file] ?? 0;
+    if (n <= allowed) continue;
+    const first = attrs.filter((a) => a.native && a.file === file);
+    for (const a of first) {
+      if (/design-lint-ignore/.test(a.text)) continue;
+      hits.push({ file, line: a.line, id: '툴팁용 title', text: a.text, why: `브라우저 기본 툴팁 ${n}곳(기준 ${allowed}) — data-tip(설명) · data-tip-clip(잘렸을 때만)을 쓴다` });
+    }
+  }
+  for (const h of iconButtonSizeHits(scan, program)) hits.push({ file: h.file, line: h.line, id: '아이콘 버튼 크기', text: h.text, why: h.why });
 }
 
 const by = new Map<string, number>();

@@ -7,8 +7,10 @@
  * 화면(Playwright)은 `tooltipui:test`.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { appProgram, iconTextButtons, screenFiles, titleAttrs } from './lib/tooltipTitles';
 import { createTipController, type TipClock } from '../src/components/ui/tooltip/hover';
 import { placeTip, tipMaxWidth } from '../src/components/ui/tooltip/place';
 import { ICON_BUTTON_BOX, TOOLTIP_BOX, TOOLTIP_CLOSE_MS, TOOLTIP_EDGE, TOOLTIP_GAP, TOOLTIP_MAX_W, TOOLTIP_OPEN_MS } from '../src/components/ui/tokens';
@@ -223,6 +225,67 @@ check(
   const ib = code('src/components/ui/IconButton.tsx');
   check('[128-5] 아이콘 버튼 크기 두 가지만 — md 28px(h-7 w-7) · sm 24px(h-6 w-6)', JSON.stringify(ICON_BUTTON_BOX) === JSON.stringify({ md: 'h-7 w-7', sm: 'h-6 w-6' }));
   check('[128-5] IconButton — 브라우저 title 없음 · data-tip = label · aria-label = label · 아이콘 md 16 · sm 14 · busy 회전', !/\btitle=/.test(ib) && /data-tip=\{label\}/.test(ib) && /aria-label=\{label\}/.test(ib) && /size === 'sm' \? ICON_SM : ICON/.test(ib) && /ICON_BUTTON_BOX\[size\]/.test(ib) && /animate-spin/.test(ib));
+}
+
+// ── [128-6] design:lint — 툴팁용 title 하나 더하면 · 정해진 밖 크기면 실패(시험용 가짜 파일 · 끝나면 지운다 · 커밋 안 함) ──
+{
+  const dir = path.join(root, 'scripts', '.lint-fake-128');
+  const bad = path.join(dir, 'bad.tsx');
+  const good = path.join(dir, 'good.tsx');
+  const lint = (file: string) => spawnSync(process.execPath, [path.join(root, 'node_modules/tsx/dist/cli.mjs'), 'scripts/designLint.ts'], { cwd: root, env: { ...process.env, DESIGN_LINT_EXTRA: file }, encoding: 'utf8' });
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    const head = "import { X } from 'lucide-react';\nimport { IconButton } from '../../src/components/ui';\n";
+    fs.writeFileSync(bad, `${head}export function Bad() {\n  return (\n    <div>\n      <span title="가짜 툴팁">a</span>\n      <IconButton icon={X} label="x" size={'lg' as 'md'} />\n      <IconButton icon={X} label="y" className="h-9 w-9" />\n    </div>\n  );\n}\n`);
+    fs.writeFileSync(good, `${head}export function Good() {\n  return (\n    <div>\n      <span data-tip="앱 툴팁">a</span>\n      <IconButton icon={X} label="x" size="sm" />\n      <IconButton icon={X} label="y" className="ml-auto" />\n    </div>\n  );\n}\n`);
+    const b = lint(bad);
+    const g = lint(good);
+    const out = b.stdout ?? '';
+    check('[128-6] design:lint — 툴팁용 title 하나 더하면 실패(기준 목록 밖)', b.status === 1 && /bad\.tsx:6 {2}\[툴팁용 title\]/.test(out), out.slice(-600));
+    check('[128-6] design:lint — IconButton 정해진 밖 크기(size) · className 높이 · 폭이면 실패', /bad\.tsx:7 {2}\[아이콘 버튼 크기\]/.test(out) && /bad\.tsx:8 {2}\[아이콘 버튼 크기\]/.test(out), out.slice(-600));
+    check('[128-6] design:lint — data-tip · 두 크기만 쓴 파일은 통과(지금 코드도 통과)', g.status === 0, (g.stdout ?? '').slice(-400));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  check('[128-6] 시험용 가짜 파일 지움', !fs.existsSync(dir));
+}
+
+// ── [128-7] 목록 문서 — title= 남은 개수 = 문서 줄 수 · 아이콘 + 글자 버튼 전부 ──
+{
+  const common = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: root, encoding: 'utf8' }).trim();
+  const doc = path.resolve(common, '../../../docs/analysis/2026-11-10_툴팁_아이콘_목록.md');
+  if (!fs.existsSync(doc)) console.log(`건너뜀  [128-7] 목록 문서 없음(관리 루트 docs/analysis — ${doc})`);
+  else {
+    const md = fs.readFileSync(doc, 'utf8');
+    const section = (n: number) => (md.split(/^## /m).find((s) => s.startsWith(`${n}.`)) ?? '').split('\n').filter((l) => /^\| [^|]+ \| `src\//.test(l)); // 줄 = 「| 화면 | `파일` | …」
+    const program = appProgram();
+    const attrs = titleAttrs(program, screenFiles());
+    let grepCount = 0;
+    const walk = (d: string) => {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/\.tsx?$/.test(e.name)) grepCount += fs.readFileSync(p, 'utf8').split('\n').filter((l) => l.includes('title=')).length;
+      }
+    };
+    walk(path.join(root, 'src'));
+    const buttons = iconTextButtons(screenFiles());
+    check(`[128-7] 목록 문서 1 — title= 남은 ${grepCount}곳 = 문서 ${section(1).length}줄(형 분류 ${attrs.length}곳)`, grepCount === attrs.length && section(1).length === grepCount, `${grepCount} · ${attrs.length} · ${section(1).length}`);
+    check(`[128-7] 목록 문서 2 — 아이콘 + 글자 버튼 ${buttons.length}곳 = 문서 ${section(2).length}줄`, section(2).length === buttons.length, `${buttons.length} · ${section(2).length}`);
+  }
+}
+
+// ── [128-8] 서버 · 매매 · 주문 · 로그인 코드 바뀐 파일 0 · designCheck 판정 부분 0(이번 차수 v2.69.0 동안만) ──
+{
+  const head = fs.readFileSync(path.join(root, 'src/data/changelog.ts'), 'utf8').match(/version: '(v[\d.]+)'/)?.[1];
+  if (head !== 'v2.69.0') console.log(`건너뜀  [128-8] 지금 버전 ${head} — 128차(v2.69.0) 범위 시험`);
+  else {
+    const changed = execFileSync('git', ['diff', '--name-only', '42adc73..HEAD', '--', 'server', 'python', 'src/services'], { cwd: root, encoding: 'utf8' }).trim();
+    check('[128-8] git diff 42adc73..HEAD -- server python src/services = 0개', changed === '', changed);
+    const dc = execFileSync('git', ['diff', '-U0', '42adc73..HEAD', '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' });
+    const removed = dc.split('\n').filter((l) => /^-(?!--)/.test(l));
+    check('[128-8] designCheck.ts — 지운 · 바꾼 줄 0(장면 더하기만 · 판정 부분 그대로)', removed.length === 0, removed.slice(0, 3).join(' / '));
+  }
 }
 
 console.log(`\n툴팁 시험 — 통과 ${pass} · 실패 ${fail}`);
