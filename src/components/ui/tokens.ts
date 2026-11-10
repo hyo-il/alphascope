@@ -115,3 +115,23 @@ export const HEATMAP_SECTOR_LINE = 16;
  * (auto-fit 은 빈 칸을 접어 카드 한 장이 가로를 다 차지한다). 카드 높이는 내용이고 같은 줄은 같은 높이(격자 기본 stretch).
  */
 export const CARD_GRID = 'grid-cols-[repeat(auto-fill,minmax(max(18rem,calc((100%_-_0.75rem)/2)),1fr))]';
+
+/**
+ * 툴팁 (v2.69.0 — `ui/Tooltip` · `ui/InfoTip` 이 함께 쓴다 · 사용자 결정 2026-11-10). 시간 · 크기 · 상자 모양은 여기 한 곳.
+ * - 마우스를 올리고 `TOOLTIP_OPEN_MS` 뒤 열림 · 대상과 상자 둘 다에서 벗어나고 `TOOLTIP_CLOSE_MS` 뒤 닫힘.
+ * - 자리: 대상 바로 아래 `TOOLTIP_GAP` · 화면 끝에서 `TOOLTIP_EDGE` 안쪽 · 폭은 글 길이만큼(최대 `TOOLTIP_MAX_W` · 화면 폭 − 2 × `TOOLTIP_EDGE`).
+ * - 상자: 떠 있는 바탕(`bg-elevated`) · 1px 테두리 · 둥글기 8px · 그림자 · 글자 14px(`text-xs`) · 줄 높이 1.625 · 안쪽 여백 가로 10px · 세로 6px · 줄바꿈 지킴.
+ */
+export const TOOLTIP_OPEN_MS = 300;
+export const TOOLTIP_CLOSE_MS = 200;
+export const TOOLTIP_MAX_W = 320;
+export const TOOLTIP_GAP = 4;
+export const TOOLTIP_EDGE = 8;
+export const TOOLTIP_BOX = 'fixed z-[120] w-max rounded-lg border border-border bg-bg-elevated px-2.5 py-1.5 text-xs leading-relaxed whitespace-pre-line text-text-primary shadow-lg';
+
+/**
+ * 아이콘 버튼(`ui/IconButton`) 크기 — **두 가지만**(사용자 결정 2026-11-10 · 다른 크기 금지 · `design:lint`).
+ * `md` 도구 줄 = 28px 상자 · 16px 아이콘 / `sm` 표 안 = 24px 상자 · 14px 아이콘.
+ */
+export const ICON_BUTTON_BOX = { md: 'h-7 w-7', sm: 'h-6 w-6' } as const;
+export type IconButtonSize = keyof typeof ICON_BUTTON_BOX;

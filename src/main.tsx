@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import TooltipHost from './components/ui/Tooltip';
 import { AUTH_REQUIRED_EVENT } from './hooks/useAuth';
 import './index.css';
 
@@ -35,5 +36,7 @@ window.fetch = async (...args: Parameters<typeof fetch>) => {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
+    {/* 앱 툴팁 담당 — 하나만(`data-tip` · [ⓘ] · v2.69.0) */}
+    <TooltipHost />
   </StrictMode>,
 );
