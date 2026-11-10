@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { LoaderCircle, Lock, RefreshCw, Settings } from 'lucide-react';
-import { Button, Checkbox, ICON_SM, PageHeader, Panel, Segmented, SectionTitle } from '../ui';
+import { Button, Checkbox, ICON_SM, PageHeader, Panel, ScrollTopShade, Segmented, SectionTitle } from '../ui';
 import { LIST_TABLE_ROW, PANEL_PAD, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { Skeleton, SkeletonTable } from '../common/SkeletonLoader';
 import { usePolling } from '../../hooks/usePolling';
@@ -381,9 +381,7 @@ export default function AssetDashboard({
         tabsLabel="자산 관리 보기"
       />
       <div className={`min-h-0 flex-1 space-y-3 overflow-y-auto [scrollbar-gutter:stable] ${PANEL_PAD}`} data-asset-scroll>
-        {/* 탭 줄 아래 가림 띠(v2.68.2) — 스크롤 영역 맨 위에 붙어(위 여백 12px 자리 · 높이 0 을 차지 · 크롬은 붙는 위치를 여백 안쪽으로 재서 -12px) 스크롤된 내용의 잘린 끝(버튼 아래 몇 px)이
-            탭 줄 바로 밑에 비치지 않게 덮는다(위 6px 는 바탕색 그대로 · 아래 6px 만 투명으로). 맨 위에서는 빈 여백 위라 보이지 않는다 */}
-        <div aria-hidden className="pointer-events-none sticky -top-3 z-10 -mt-3 -mb-3 h-3 bg-gradient-to-b from-bg-primary from-50% to-transparent" data-asset-scroll-cover />
+        <ScrollTopShade />
         {/* 총 자산 탭 — 처음 받기는 스켈레톤(받기 전에 0 · 빈 값을 그리지 않는다) */}
         {tab === 'total' && latest == null && <DashboardSkeleton />}
         {(tab === 'total' || tab === 'rebalance') && result && !result.ok && !result.fail.locked && <ErrorLine message={result.fail.error} busy={reloading} onRetry={() => void reload()} />}

@@ -7,8 +7,10 @@ import { UNASSIGNED_LABEL, type AssetSymbolRow } from '../../types/asset';
 /**
  * 「자산 현황」 종목별 표(v2.63.0) — 같은 종목을 계좌와 상관없이 한 줄로(서버 `holdingsBySymbol` — 총 자산과 같은 값 계산 · 화면에서 다시 계산하지 않는다).
  * 칸: 종목 · 코드 · 자산 분류 · 코어/위성(주식만) · 있는 계좌 · 수량 합 · 평가 금액 합 · 비중(「연금 포함」 을 따른 총 자산 대비). 평가 금액 큰 순.
+ * 「있는 계좌」 는 계좌마다 한 줄 · 코드 칸의 거래소는 코드 아래 줄(v2.68.3) — 칸 폭 = 가장 긴 계좌 이름 하나 · 코드와 거래소 중 긴 것
+ * (한 줄로 이으면 그 길이만큼 이름 칸이 줄어 1280 에서 96px — 짧은 이름도 말줄임. 계좌별 표는 줄마다 입력 버튼이 있어 거래소를 옆에 둔다).
  * 「전체 / 코어 / 위성」 거르기 — 코어 · 위성을 고르면 분류 「주식」 만 남는다 · 표 아래 합계 한 줄(코어 합 = 비율 조정 탭 코어 금액).
- * 가격 못 받은 종목은 금액 「—」 + 흐리게. 거르기는 이 화면 안에서만(기억하지 않는다 — 상태는 부모). 있는 계좌는 계좌 key(짧은 이름 · 날짜 없음 — 좁은 창에서 꺾임).
+ * 가격 못 받은 종목은 금액 「—」 + 흐리게. 거르기는 이 화면 안에서만(기억하지 않는다 — 상태는 부모). 있는 계좌는 계좌 key(짧은 이름 · 날짜 없음).
  */
 
 export type SymbolFilter = 'all' | 'core' | 'satellite';
@@ -40,7 +42,7 @@ export default function AssetSymbolTable({ rows, filter }: { rows: AssetSymbolRo
               <th className={`${TEXT} font-normal`}>코드</th>
               <th className={`${TEXT} text-center font-normal`}>자산 분류</th>
               <th className={`${TEXT} text-center font-normal`}>코어/위성</th>
-              <th className={`${TABLE_NUM_GAP} min-w-28 font-normal`}>있는 계좌</th>
+              <th className={`${TEXT} font-normal`}>있는 계좌</th>
               <th className={`${NUM} font-normal`}>수량</th>
               <th className={`${NUM} font-normal`}>평가 금액</th>
               <th className={`${NUM} pr-4 font-normal`}>비중</th>
@@ -63,16 +65,15 @@ export default function AssetSymbolTable({ rows, filter }: { rows: AssetSymbolRo
                       {r.name}
                     </span>
                   </td>
-                  <td className={`${TEXT} ${dim ? '' : 'text-text-secondary'}`}>
+                  <td className={`${TEXT} py-1 ${dim ? '' : 'text-text-secondary'}`} data-symbol-code>
                     {r.symbol ?? '—'}
-                    {r.exchange && <span className="ml-1 text-caption text-text-muted">{r.exchange}</span>}
+                    {r.exchange && <span className="block text-caption text-text-muted">{r.exchange}</span>}
                   </td>
                   <td className={`${TEXT} text-center`}>{r.assetClass ?? UNASSIGNED_LABEL}</td>
                   <td className={`${TEXT} text-center`}>{r.side ? SIDE_LABEL[r.side] : '—'}</td>
-                  <td className={`${TABLE_NUM_GAP} py-1 text-caption ${dim ? '' : 'text-text-secondary'}`}>
-                    {r.sections.map((k, i) => (
-                      <span key={k} className="whitespace-nowrap">
-                        {i > 0 && ' · '}
+                  <td className={`${TEXT} py-1 text-caption ${dim ? '' : 'text-text-secondary'}`} data-symbol-sections>
+                    {r.sections.map((k) => (
+                      <span key={k} className="block">
                         {k}
                       </span>
                     ))}

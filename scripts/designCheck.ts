@@ -172,6 +172,24 @@ function targets(): Target[] {
         await page.waitForTimeout(1500);
       },
     },
+    // v2.68.3 — 탭 줄 아래 가림 띠(공용 ScrollTopShade): 매수 판단 · 급등 탐지 · 검증 기록을 스크롤해 첫 칸 아래 끝이 위 끝 3px 아래에 오게(내용이 짧으면 끝에 빈 칸을 붙여 스크롤이 생기게)
+    ...(['#/swing/list', '#/surge/list', '#/records/analysis'] as const).map((hash) => ({
+      name: `${hash.split('/')[1]}-스크롤탭줄`,
+      hash,
+      open: async (page: Page) => {
+        await page.waitForTimeout(2500);
+        await page.evaluate(() => {
+          const sc = document.querySelector('[data-page-scroll]') as HTMLElement | null;
+          if (!sc) return;
+          const pad = document.createElement('div');
+          pad.style.height = '1500px';
+          sc.appendChild(pad);
+          const first = sc.children[1] as HTMLElement | undefined;
+          if (first) sc.scrollTop = first.getBoundingClientRect().bottom - sc.getBoundingClientRect().top - 3;
+        }).catch(() => {});
+        await page.waitForTimeout(200);
+      },
+    })),
     { name: 'records-analysis-성적표', hash: '#/records/analysis', open: async (page) => { await page.waitForTimeout(1200); await page.getByRole('radio', { name: '성적표' }).click().catch(() => page.getByRole('button', { name: '성적표' }).click()); await page.waitForTimeout(1500); } },
     { name: 'nav-퀀트접힘', hash: '#/rules', open: click(/^퀀트/) },
     // 실험실은 소메뉴 「급등 탐지」 를 보인다(펼친 메뉴 · 접힌 메뉴 플라이아웃)

@@ -5,6 +5,7 @@
  * 지시서 「꼭 지킬 동작」(시험 이름 앞의 [122-n]): 비교 검색칸 안내 글자 잘림 · 관심 목록 말 「폴더」 · 저장 값 그대로 · 체크박스 세로 가운데 · 규칙 · 급등 설정 칸 왼쪽 끝.
  * 123차 · v2.67.4([123-n]): 규칙 창 고급 설정이 저장 줄에 가리지 않음 · 다른 창 모양 그대로 · 시황 줄 간격 · 「VIX 공포지수」 한 줄 · 카드 높이.
  * 124차 · v2.68.0([124-6]): 규칙 창 고급 설정을 펼치면 그 자리로 스크롤 · 접을 때 · 처음 열 때는 안 함 · 동작 줄이기면 바로.
+ * 127차 · v2.68.3([127-2]): 매수 판단 · 급등 탐지 · 검증 기록 탭 줄 아래 가림 띠(공용 `ui/ScrollTopShade`) — 맨 위 겹침 0 · 스크롤 때 잘린 끝 덮음.
  * Vite + Playwright, `/api` 는 모두 `page.route` 가짜(만든 값) — 구글 · 토스 · 서버 호출 0. 새 종목 창 줄([122-3])은 `assettradeui:test`.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
@@ -434,6 +435,56 @@ try {
         const sent = seen.surgePuts.at(-1) as typeof SURGE | undefined;
         check('[122-5] 급등 설정 저장 값 그대로(숫자 네 칸 · 고른 기간)', sent?.priceThreshold === 5 && sent.volumeThreshold === 200 && sent.minSurgeCount === 3 && sent.regularityThreshold === 50 && sent.analysisPeriod === other, JSON.stringify(sent));
       }
+      await ctx.close();
+    }
+
+    // 127차 — 탭 줄 아래 가림 띠(공용 ScrollTopShade) — 매수 판단 · 급등 탐지 · 검증 기록
+    for (const hash of ['#/swing/list', '#/surge/list', '#/records/target']) {
+      const { page, ctx, errors } = await open(browser, hash, size);
+      // 맨 위 — 첫 내용이 위 여백 12px 아래 그대로 · 띠는 빈 여백 위에만
+      const top = await page.evaluate(() => {
+        const sc = document.querySelector('[data-page-scroll]') as HTMLElement;
+        const band = sc.querySelector('[data-scroll-shade]') as HTMLElement;
+        const s = sc.getBoundingClientRect();
+        const first = (sc.children[1] as HTMLElement | undefined)?.getBoundingClientRect();
+        return { firstChildIsShade: sc.firstElementChild === band.parentElement, bandTop: band.getBoundingClientRect().top - s.top, bandBottom: band.getBoundingClientRect().bottom - s.top, firstTop: first ? first.top - s.top : null, pad: parseFloat(getComputedStyle(sc).paddingTop) };
+      });
+      check(`[127-2] ${size.width}px ${hash} 맨 위 — 가림 띠가 스크롤 영역 첫 자식 · 첫 내용 위 끝 12px 그대로 · 겹침 0`, top.firstChildIsShade && top.pad === 12 && top.firstTop != null && Math.abs(top.firstTop - 12) < 0.5 && Math.abs(top.bandTop) < 0.5 && top.bandBottom <= top.firstTop + 0.5, JSON.stringify(top));
+      // 운영처럼 내용이 길 때 — 맨 앞에 바탕 있는 시험 상자(40px) · 끝에 빈 칸(1500px)을 넣고, 상자 아래 끝이 위 끝 3px 아래에 오게 스크롤
+      const m = await page.evaluate(() => {
+        const sc = document.querySelector('[data-page-scroll]') as HTMLElement;
+        const box = document.createElement('div');
+        box.style.cssText = 'height:40px;background:#3b82f6;margin:0';
+        sc.insertBefore(box, sc.children[1] ?? null);
+        const pad = document.createElement('div');
+        pad.style.height = '1500px';
+        sc.appendChild(pad);
+        sc.scrollTop = box.getBoundingClientRect().bottom - sc.getBoundingClientRect().top - 3;
+        const s = sc.getBoundingClientRect();
+        const band = sc.querySelector('[data-scroll-shade]') as HTMLElement;
+        const c = band.getBoundingClientRect();
+        const content = sc.clientWidth - parseFloat(getComputedStyle(sc).paddingLeft) - parseFloat(getComputedStyle(sc).paddingRight);
+        return { scrollTop: sc.scrollTop, x: s.left, y: s.top, w: sc.clientWidth, sliver: box.getBoundingClientRect().bottom - s.top, coverTop: c.top - s.top, coverH: c.height, coverW: c.width, contentW: content, z: getComputedStyle(band.parentElement as HTMLElement).zIndex };
+      });
+      await page.waitForTimeout(100);
+      const strip = await page.screenshot({ clip: { x: m.x, y: m.y, width: m.w - 20, height: 6 } });
+      const ink = await page.evaluate(async (data) => {
+        const img = new Image();
+        img.src = `data:image/png;base64,${data}`;
+        await img.decode();
+        const c = document.createElement('canvas');
+        c.width = img.width;
+        c.height = img.height;
+        const g = c.getContext('2d') as CanvasRenderingContext2D;
+        g.drawImage(img, 0, 0);
+        const d = g.getImageData(0, 0, img.width, img.height).data;
+        // 시험 상자는 파랑 — 띠 위 6px(바탕색 그대로) 안에 파란 점이 하나라도 보이면 비침
+        let blue = 0;
+        for (let i = 0; i < d.length; i += 4) if (d[i + 2] - d[i] > 60) blue++;
+        return blue;
+      }, strip.toString('base64'));
+      check(`[127-2] ${size.width}px ${hash} 스크롤 — 잘린 끝(3px)을 띠가 덮음(위 끝 0px · 12px · 내용 폭 · 앞에 그림 · 위 6px 안 비친 점 0)`, m.scrollTop > 0 && m.sliver > 0 && m.sliver < m.coverH && Math.abs(m.coverTop) < 0.5 && m.coverH === 12 && Math.abs(m.coverW - m.contentW) < 0.5 && m.z === '10' && ink === 0, JSON.stringify({ ...m, ink }));
+      check(`[127-2] ${size.width}px ${hash} — 페이지 오류 0`, errors.length === 0, errors.join(' / '));
       await ctx.close();
     }
   }

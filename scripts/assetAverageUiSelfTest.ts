@@ -30,6 +30,8 @@ function check(name: string, ok: boolean, detail = '') {
 async function open(browser: Browser, o: { size?: { width: number; height: number }; holdSummary?: boolean } = {}) {
   const ctx = await browser.newContext({ viewport: o.size ?? { width: 1440, height: 900 } });
   await ctx.addInitScript(() => localStorage.setItem('alphascope.asset.tab', 'status'));
+  // tsx(esbuild) 가 함수에 넣는 __name 도우미 — 브라우저에는 없어서 측정 함수 안의 이름 붙은 함수가 깨진다
+  await ctx.addInitScript('window.__name = (f) => f');
   const page = await ctx.newPage();
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 120)));
@@ -314,6 +316,39 @@ try {
     check('[125-6] 760px — 「목표 평단까지」 탭 가로 넘침 없음(목표 안내)', !(await panelOverflow(page)) && (await page.locator('[data-avgcalc-reverse]').isVisible()));
     await ctx.close();
   }
+  // ── 127차 — 자산 현황 「종목별」 표 이름 칸(「있는 계좌」 칸은 계좌 사이에서 줄바꿈 · 칸 폭 고정) ──
+  for (const size of [{ width: 1280, height: 1080 }, { width: 1440, height: 900 }]) {
+    const w = size.width;
+    const { page, ctx } = await open(browser, { size });
+    await page.getByRole('radio', { name: '종목별' }).click();
+    await page.locator('[data-symbol-table]').waitFor({ timeout: 5000 });
+    const m = await page.evaluate(() => {
+      const table = document.querySelector('[data-symbol-table]') as HTMLElement;
+      const ths = [...table.querySelectorAll('thead th')].map((th) => Math.round(th.getBoundingClientRect().width * 10) / 10);
+      const names = [...table.querySelectorAll('tbody tr[data-symbol-row] td:first-child span')] as HTMLElement[];
+      const nameW = Math.round(names[0].getBoundingClientRect().width * 10) / 10;
+      // 짧은 이름(한글 6자 · 영문 10자) — 같은 글꼴로 잰 글자 폭이 이름 칸에 들어가는지
+      const probe = (t: string) => {
+        const s = document.createElement('span');
+        s.style.cssText = `font:${getComputedStyle(names[0]).font};white-space:nowrap;position:absolute;visibility:hidden`;
+        s.textContent = t;
+        document.body.appendChild(s);
+        const x = s.getBoundingClientRect().width;
+        s.remove();
+        return x;
+      };
+      const cut = names.filter((n) => n.scrollWidth > n.clientWidth + 0.5).map((n) => n.textContent);
+      const right = [...table.querySelectorAll('tbody tr[data-symbol-row]')].map((tr) => [...tr.querySelectorAll('td')].slice(5).map((td) => getComputedStyle(td).textAlign).join('/'));
+      const nums = [...table.querySelectorAll('tbody tr[data-symbol-row="0072R0"], tbody tr[data-symbol-row="AAAA"]')].map((tr) => [...tr.querySelectorAll('td')].slice(5).map((td) => (td.textContent ?? '').trim()).join('|'));
+      return { ths, nameW, ko6: probe('가나다라마바'), en10: probe('ABCDEFGHIJ'), cut, right, nums, overflow: table.scrollWidth > (table.parentElement as HTMLElement).clientWidth + 0.5 };
+    });
+    console.log(`  (보고용) ${w}px 종목별 표 이름 칸 폭 ${m.nameW}px · 칸 폭 ${m.ths.join(' / ')}`);
+    if (w === 1280) check(`[127-1] 1280px — 종목별 표 이름 칸이 계좌별 표와 비슷하게 넓음(전 96px → ${m.nameW}px · 180px 이상)`, m.nameW >= 180, JSON.stringify(m.ths));
+    check(`[127-1] ${w}px — 짧은 이름(한글 6자 ${Math.round(m.ko6)}px · 영문 10자 ${Math.round(m.en10)}px)이 이름 칸에 들어감 · 가짜 값의 긴 이름 하나만 말줄임 · 표 가로 넘침 없음`, m.ko6 <= m.nameW && m.en10 <= m.nameW && m.cut.length === 1 && /아주 긴/.test(String(m.cut[0])) && !m.overflow, JSON.stringify({ cut: m.cut, nameW: m.nameW }));
+    check(`[127-1] ${w}px — 수량 · 평가 금액 · 비중 칸 오른쪽 정렬 · 표시 그대로(formatAssetQty · 원 · 소수 1자리 %)`, m.right.every((r) => r === 'right/right/right') && m.nums.length === 2 && m.nums.every((t) => /^[\d,.]+주\|₩[\d,]+\|\d+\.\d%$/.test(t)) && m.nums.some((t) => t.startsWith(`${formatAssetQty(1500.25)}|₩2,765,431,209|`)) && m.nums.some((t) => t.startsWith(`${formatAssetQty(12.5)}|₩691,357,803|`)), JSON.stringify(m.nums));
+    await ctx.close();
+  }
+
   // ── 탭 줄 비침 — 1440 · 스크롤해 도구 줄 끝이 3px 남을 때 가림 띠가 그 자리를 덮는다 ──
   {
     const { page, ctx } = await open(browser, { size: { width: 1440, height: 900 } });
@@ -322,9 +357,11 @@ try {
       const tool = document.querySelector('[data-open-class-dialog]') as HTMLElement;
       sc.scrollTop = tool.getBoundingClientRect().bottom - sc.getBoundingClientRect().top - 3;
       const s = sc.getBoundingClientRect();
-      const c = (document.querySelector('[data-asset-scroll-cover]') as HTMLElement).getBoundingClientRect();
+      // 127차 — 가림 띠는 공용 `ui/ScrollTopShade`(띠 = `[data-scroll-shade]` · 앞에 그리는 z 는 높이 0 sticky 틀)
+      const band = sc.querySelector('[data-scroll-shade]') as HTMLElement;
+      const c = band.getBoundingClientRect();
       const t = tool.getBoundingClientRect();
-      const cs = getComputedStyle(document.querySelector('[data-asset-scroll-cover]') as HTMLElement);
+      const cs = { zIndex: getComputedStyle(band.parentElement as HTMLElement).zIndex, backgroundImage: getComputedStyle(band).backgroundImage };
       const tabs = (document.querySelector('[aria-label="자산 관리 보기"]') as HTMLElement).getBoundingClientRect();
       const content = sc.clientWidth - parseFloat(getComputedStyle(sc).paddingLeft) - parseFloat(getComputedStyle(sc).paddingRight);
       return { scrollTop: sc.scrollTop, coverTop: c.top - s.top, coverH: c.height, coverW: c.width, scrollW: content, toolLeft: t.left, coverLeft: c.left, sliver: t.bottom - s.top, z: cs.zIndex, bg: cs.backgroundImage, tabsBottom: tabs.bottom, scrollTopEdge: s.top };
@@ -332,12 +369,47 @@ try {
     check('[126-5] 1440px 스크롤 — 탭 줄 바로 밑 가림 띠가 스크롤 영역 위 끝에 붙고(0px) · 내용 폭 전체 · 잘린 도구 줄 끝(3px)보다 높고 · 앞에 그려짐', m.scrollTop > 0 && Math.abs(m.coverTop) < 0.5 && m.coverH >= 12 && m.sliver > 0 && m.sliver < m.coverH && m.z === '10' && m.bg.startsWith('linear-gradient') && Math.abs(m.coverW - m.scrollW) < 0.5 && m.coverLeft <= m.toolLeft + 0.5 && m.scrollTopEdge >= m.tabsBottom - 0.5, JSON.stringify(m));
     await page.evaluate(() => ((document.querySelector('[data-asset-scroll]') as HTMLElement).scrollTop = 0));
     const top0 = await page.evaluate(() => {
-      const c = (document.querySelector('[data-asset-scroll-cover]') as HTMLElement).getBoundingClientRect();
+      const sc = document.querySelector('[data-asset-scroll]') as HTMLElement;
+      const c = (sc.querySelector('[data-scroll-shade]') as HTMLElement).getBoundingClientRect();
       const first = (document.querySelector('[data-open-class-dialog]') as HTMLElement).getBoundingClientRect();
-      return { coverBottom: c.bottom, firstTop: first.top };
+      // 가림 띠 틀 다음의 첫 내용 상자 — 위 여백 12px 아래 그대로(띠가 자리를 차지하거나 내용을 끌어올리지 않음)
+      const box = (sc.children[1] as HTMLElement).getBoundingClientRect();
+      return { coverBottom: c.bottom, firstTop: first.top, boxTop: box.top - sc.getBoundingClientRect().top, pad: parseFloat(getComputedStyle(sc).paddingTop) };
     });
     check('[126-5] 1440px 맨 위 — 가림 띠는 빈 위 여백 위에만(내용과 겹침 0)', top0.coverBottom <= top0.firstTop + 0.5, JSON.stringify(top0));
+    check('[127-2] 1440px 맨 위 — 첫 내용 상자가 위 여백(12px) 아래 그대로 · 가림 띠 아래 끝 = 첫 내용 위 끝(겹침 0)', top0.pad === 12 && Math.abs(top0.boxTop - 12) < 0.5 && top0.coverBottom <= top0.firstTop + 0.5, JSON.stringify(top0));
     await ctx.close();
+  }
+  // ── 127차 — 총 자산 탭도 맨 위 첫 카드가 띠 밑에 깔리지 않음(126차에는 위 여백이 사라져 카드 위 12px 가 덮였다) ──
+  for (const size of [{ width: 1280, height: 1080 }, { width: 1440, height: 900 }]) {
+    const { page, ctx } = await open(browser, { size });
+    await page.getByRole('tab', { name: '총 자산' }).click();
+    await page.waitForTimeout(400);
+    const g = await page.evaluate(() => {
+      const sc = document.querySelector('[data-asset-scroll]') as HTMLElement;
+      const band = (sc.querySelector('[data-scroll-shade]') as HTMLElement).getBoundingClientRect();
+      const box = (sc.children[1] as HTMLElement).getBoundingClientRect();
+      return { boxTop: box.top - sc.getBoundingClientRect().top, bandBottom: band.bottom - sc.getBoundingClientRect().top };
+    });
+    check(`[127-2] ${size.width}px 총 자산 맨 위 — 첫 카드 위 끝 12px · 가림 띠와 겹침 0`, Math.abs(g.boxTop - 12) < 0.5 && g.bandBottom <= g.boxTop + 0.5, JSON.stringify(g));
+    await ctx.close();
+  }
+
+  // ── 127차 — 가림 띠 공용 부품 하나(소스 검사) ──
+  {
+    const read = (f: string) => fs.readFileSync(path.join(root, f), 'utf8');
+    const screens = ['src/components/asset/AssetDashboard.tsx', 'src/components/swing/BuyJudgeView.tsx', 'src/components/surge/SurgeDashboard.tsx', 'src/components/records/RecordsView.tsx'];
+    const notUsing = screens.filter((f) => !/<ScrollTopShade \/>/.test(read(f)));
+    const oldLeft: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const f = path.join(dir, e.name);
+        if (e.isDirectory()) walk(f);
+        else if (/\.tsx?$/.test(e.name) && !f.endsWith(path.join('ui', 'ScrollTopShade.tsx')) && /data-asset-scroll-cover|from-bg-primary from-50% to-transparent/.test(read(path.relative(root, f)))) oldLeft.push(path.relative(root, f));
+      }
+    };
+    walk(path.join(root, 'src'));
+    check('[127-2] 가림 띠는 공용 부품 하나(ui/ScrollTopShade) — 자산 · 매수 판단 · 급등 탐지 · 검증 기록이 같이 씀 · 자산 화면 옛 코드 · 다른 곳의 같은 띠 0곳', notUsing.length === 0 && oldLeft.length === 0, JSON.stringify({ notUsing, oldLeft }));
   }
 
   // ── 숫자 표시 함수 한 곳 ──

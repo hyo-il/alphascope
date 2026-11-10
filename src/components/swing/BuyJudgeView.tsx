@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { LoaderCircle, RefreshCw } from 'lucide-react';
 import { PANEL_PAD } from '../ui/tokens';
-import { Button, PageHeader } from '../ui';
+import { Button, PageHeader, ScrollTopShade } from '../ui';
 import { ICON_SM } from '../ui/icon';
 import HelpBox from '../common/HelpBox';
 import SymbolListBar from '../common/SymbolListBar';
@@ -96,7 +96,8 @@ export default function BuyJudgeView() {
   return (
     <div className="flex h-full flex-col">
       <PageHeader title="매수 판단" tabs={TABS} value={tab} onChange={setTab} tabsLabel="매수 판단" />
-      <div className={`min-h-0 flex-1 space-y-4 overflow-auto ${PANEL_PAD}`}>
+      <div className={`min-h-0 flex-1 space-y-4 overflow-auto ${PANEL_PAD}`} data-page-scroll>
+        <ScrollTopShade />
         {tab === 'list' && (
           <>
             <HelpBox id="list" title="매수 판단은 무엇을 하나요?" storageKey="alphascope.swingHelp.list">

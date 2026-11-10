@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { PANEL_PAD } from '../ui/tokens';
 import PageHeader from '../ui/PageHeader';
-import { Segmented, Select } from '../ui';
+import { ScrollTopShade, Segmented, Select } from '../ui';
 import { usePageTab } from '../../hooks/usePageTab';
 import type { PageTab } from '../../types/nav';
 import { useAppStore } from '../../store/appStore';
@@ -40,7 +40,8 @@ export default function RecordsView({ currentPrice }: { currentPrice: number | n
   return (
     <div className="flex h-full flex-col">
       <PageHeader title="검증 기록" tabs={TABS} value={tab} onChange={setTab} tabsLabel="검증 기록" />
-      <div className={`min-h-0 flex-1 overflow-auto ${PANEL_PAD}`}>
+      <div className={`min-h-0 flex-1 overflow-auto ${PANEL_PAD}`} data-page-scroll>
+        <ScrollTopShade />
         {tab === 'target' && <TargetTab />}
         {tab === 'aicheck' && <AiCheckTab />}
         {tab === 'analysis' && <AnalysisTab currentPrice={currentPrice} />}
