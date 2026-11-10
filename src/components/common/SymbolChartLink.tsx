@@ -19,7 +19,7 @@ export default function SymbolChartLink({
   return (
     <button
       type="button"
-      title={`${name || symbol} 차트로 이동`}
+      data-tip={`${name || symbol} 차트로 이동`}
       onClick={(e) => {
         e.stopPropagation();
         onOpen(symbol);

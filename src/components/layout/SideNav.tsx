@@ -72,7 +72,7 @@ export default function SideNav({
       <button
         type="button"
         onClick={() => onSelectGroup(item.id)}
-        title={item.badge ? `${item.label} (${item.badge})` : item.label}
+        data-tip={item.badge ? `${item.label} (${item.badge})` : item.label}
         className={`flex w-full flex-col items-center gap-0.5 border-l-2 py-2.5 transition-colors ${
           group === item.id
             ? 'border-transparent bg-bg-tertiary text-text-primary'
@@ -188,7 +188,7 @@ export default function SideNav({
           <button
             type="button"
             onClick={onGoHome}
-            title="홈으로"
+            data-tip="홈으로"
             aria-label="홈으로"
             className="flex flex-1 items-center justify-center text-accent transition-opacity hover:opacity-80"
           >
@@ -197,7 +197,7 @@ export default function SideNav({
           <button
             type="button"
             onClick={() => setCollapsed(false)}
-            title="메뉴 펼치기"
+            data-tip="메뉴 펼치기"
             aria-label="메뉴 펼치기"
             className="text-text-muted transition-colors hover:text-text-primary"
           >
@@ -221,7 +221,7 @@ export default function SideNav({
             <button
               type="button"
               onClick={onLogout}
-              title="로그아웃"
+              data-tip="로그아웃"
               aria-label="로그아웃"
               className="flex w-full flex-col items-center gap-0.5 border-l-2 border-transparent py-2.5 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-danger"
             >
@@ -240,7 +240,7 @@ export default function SideNav({
         <button
           type="button"
           onClick={onGoHome}
-          title="홈으로"
+          data-tip="홈으로"
           aria-label="홈으로"
           className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-text-primary transition-opacity hover:opacity-80"
         >
@@ -252,7 +252,7 @@ export default function SideNav({
         <button
           type="button"
           onClick={() => setCollapsed(true)}
-          title="메뉴 접기"
+          data-tip="메뉴 접기"
           aria-label="메뉴 접기"
           className="shrink-0 text-text-muted transition-colors hover:text-text-primary"
         >

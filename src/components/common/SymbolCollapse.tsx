@@ -30,7 +30,7 @@ export default function SymbolCollapse({ symbols, collapsible, children }: { sym
     <div className="space-y-2" data-symbol-collapse={open || empty ? 'open' : 'closed'}>
       {!empty && (
         <div className="flex items-center gap-3">
-          <p className="min-w-0 flex-1 truncate text-xs text-text-secondary" title={summary}>
+          <p className="min-w-0 flex-1 truncate text-xs text-text-secondary" data-tip-clip={summary}>
             {summary}
           </p>
           <DisclosureButton open={open} onToggle={() => setOpen((v) => !v)} label="펼치기" controls={bodyId} />

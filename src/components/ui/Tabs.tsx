@@ -39,7 +39,7 @@ export default function Tabs<T extends string>({
             type="button"
             role="tab"
             aria-selected={on}
-            title={t.title}
+            data-tip={t.title}
             onClick={() => onChange(t.id)}
             className={`relative -mb-px inline-flex items-center gap-1 whitespace-nowrap border-b-2 py-2 transition-colors ${text} ${
               on ? 'border-text-primary font-medium text-text-primary' : 'border-transparent text-text-secondary hover:text-text-primary'

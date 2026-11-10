@@ -47,7 +47,7 @@ export default function Segmented<T extends string | number>({
             type="button"
             role="radio"
             aria-checked={on}
-            title={o.title}
+            data-tip={o.title}
             disabled={o.disabled}
             onClick={() => !on && onChange(o.value)}
             className={`whitespace-nowrap rounded-md text-xs transition-colors disabled:opacity-40 ${pad} ${

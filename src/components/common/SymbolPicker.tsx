@@ -86,7 +86,7 @@ function SourceRow({ symbol, name, note, on, onToggle }: { symbol: string; name:
         <span className={`flex h-4 w-4 shrink-0 items-center justify-center ${on ? 'text-text-primary' : 'text-transparent'}`}>
           <Check {...ICON_SM} aria-hidden />
         </span>
-        <span className="min-w-0 flex-1 truncate text-xs font-medium" title={name}>
+        <span className="min-w-0 flex-1 truncate text-xs font-medium" data-tip-clip={name}>
           {name}
         </span>
         <span className="shrink-0 text-caption text-text-secondary">{symbol}</span>
@@ -291,7 +291,7 @@ function SourcePickerDialog({ selected, onChange, dialogTitle, onClose, disabled
         <ul data-list className="-mx-1 min-h-0 flex-1 space-y-1 overflow-y-auto px-1 [scrollbar-gutter:stable]">
           {draft.map((s) => (
             <li key={s} className="flex min-h-9 items-center gap-2 rounded-md px-2 py-1 hover:bg-bg-tertiary/60">
-              <span className="min-w-0 flex-1 truncate text-xs font-medium" title={nameOf(s)}>
+              <span className="min-w-0 flex-1 truncate text-xs font-medium" data-tip-clip={nameOf(s)}>
                 {nameOf(s)}
               </span>
               <span className="shrink-0 text-caption text-text-secondary">{s}</span>

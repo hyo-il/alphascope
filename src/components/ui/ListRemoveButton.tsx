@@ -29,7 +29,7 @@ export default function ListRemoveButton({
         onClick();
       }}
       aria-label={name ? `${name} ${label}` : label}
-      title={keeps ? `${label} — ${keeps}` : label}
+      data-tip={keeps ? `${label} — ${keeps}` : label}
       className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary ${className}`}
     >
       <X {...ICON_SM} />

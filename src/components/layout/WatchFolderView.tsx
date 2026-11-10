@@ -109,7 +109,7 @@ export default function WatchFolderView({
                       e.dataTransfer.setData('text/plain', symbol);
                       e.dataTransfer.effectAllowed = 'copy';
                     }}
-                    title={
+                    data-tip={
                       compareMode
                         ? picked
                           ? `${nameOf(symbol) || symbol} 비교에서 삭제`
@@ -131,7 +131,7 @@ export default function WatchFolderView({
 
                     <span
                       className="shrink-0 text-right"
-                      title={quote?.stale ? '실시간 조회 실패 — 마지막 캐시 종가입니다.' : undefined}
+                      data-tip={quote?.stale ? '실시간 조회 실패 — 마지막 캐시 종가입니다.' : undefined}
                     >
                       <span className="block text-xs tabular-nums text-text-secondary">
                         {/* 지연 시세는 앞에 · 를 붙여 실시간인 척하지 않게 한다. */}

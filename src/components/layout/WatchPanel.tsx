@@ -96,7 +96,7 @@ export default function WatchPanel({
       <button
         type="button"
         onClick={onToggleCollapse}
-        title="관심 목록 열기"
+        data-tip="관심 목록 열기"
         className="group flex w-9 shrink-0 flex-col items-center gap-2 border-l border-border bg-bg-secondary py-3 transition-colors hover:bg-bg-tertiary"
       >
         <span className="flex h-6 w-6 items-center justify-center rounded text-base text-text-secondary transition-colors group-hover:bg-bg-tertiary group-hover:text-text-primary">
@@ -166,7 +166,7 @@ export default function WatchPanel({
             key={id}
             type="button"
             onClick={() => setTab(id)}
-            title={id === 'watch' ? '관심 목록' : id === 'recent' ? '최근 조회' : '모의투자 계좌'}
+            data-tip={id === 'watch' ? '관심 목록' : id === 'recent' ? '최근 조회' : '모의투자 계좌'}
             /* 글자 탭 (디자인 규칙 2) — 아이콘 없이, 고른 탭만 흰 글자 + 밑줄. 파란 밑줄을 쓰지 않는다 */
             className={`flex flex-1 items-center justify-center border-b-2 py-2.5 text-xs transition-colors ${
               tab === id
@@ -181,7 +181,7 @@ export default function WatchPanel({
           <button
             type="button"
             onClick={() => setManaging(true)}
-            title="관심 목록 관리 (폴더·순서)"
+            data-tip="관심 목록 관리 (폴더·순서)"
             aria-label="관심 목록 관리 (폴더·순서)"
             className="px-1.5 text-text-muted transition-colors hover:text-text-primary"
           >
@@ -191,7 +191,7 @@ export default function WatchPanel({
         <button
           type="button"
           onClick={onToggleCollapse}
-          title="접기"
+          data-tip="접기"
           aria-label="관심 목록 패널 접기"
           className="px-2 text-text-muted transition-colors hover:text-text-primary"
         >
@@ -286,7 +286,7 @@ export default function WatchPanel({
                   </span>
                   <span
                     className="shrink-0 text-right"
-                    title={quote?.stale ? '실시간 조회 실패 — 마지막 캐시 종가입니다.' : undefined}
+                    data-tip={quote?.stale ? '실시간 조회 실패 — 마지막 캐시 종가입니다.' : undefined}
                   >
                     <span className="block text-xs tabular-nums text-text-secondary">
                       {quote?.price != null

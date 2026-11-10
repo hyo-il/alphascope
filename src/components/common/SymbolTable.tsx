@@ -75,7 +75,7 @@ export default function SymbolTable(
                     <td className="max-w-0 py-1.5 pl-3 pr-4">
                       {nameOf ? (
                         <span className="flex min-w-0 items-center gap-2">
-                          <span className={`min-w-0 truncate font-medium ${note ? '' : 'text-text-primary'}`} title={nameOf(s) ?? s}>
+                          <span className={`min-w-0 truncate font-medium ${note ? '' : 'text-text-primary'}`} data-tip-clip={nameOf(s) ?? s}>
                             {nameOf(s) ?? s}
                           </span>
                           {note && <span className="shrink-0 whitespace-nowrap text-caption">{note}</span>}

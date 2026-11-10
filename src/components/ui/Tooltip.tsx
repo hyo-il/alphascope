@@ -38,15 +38,21 @@ const TIP_ID = 'as-tooltip';
 /** 한 줄 말줄임이 잘렸나 — 가로만 본다(본고딕 글자 위아래가 줄 높이보다 커 세로 scrollHeight 는 안 잘린 칸도 크다) */
 const clipped = (el: HTMLElement) => el.scrollWidth > el.clientWidth;
 
-/** 그 요소(또는 조상)의 툴팁 대상 — 보일 글이 없으면(빈 글 · 안 잘린 `data-tip-clip`) null */
+/**
+ * 그 요소(또는 조상)의 툴팁 대상 — 보일 글이 없으면(빈 글 · 안 잘린 `data-tip-clip`) 바깥 조상으로 올라가 찾고, 끝내 없으면 null.
+ * (`data-tip` 버튼 안의 안 잘린 이름 칸에서도 버튼 설명이 뜬다)
+ */
 function tipTarget(node: EventTarget | null): HTMLElement | null {
   if (!(node instanceof Element)) return null;
-  const el = node.closest<HTMLElement>(TIP_SELECTOR);
-  if (!el) return null;
-  if (el.hasAttribute('data-infotip')) return el;
-  if (el.getAttribute('data-tip')) return el;
-  const clip = el.getAttribute('data-tip-clip');
-  return clip && clipped(el) ? el : null;
+  let el = node.closest<HTMLElement>(TIP_SELECTOR);
+  while (el) {
+    if (el.hasAttribute('data-infotip')) return el;
+    if (el.getAttribute('data-tip')) return el;
+    const clip = el.getAttribute('data-tip-clip');
+    if (clip && clipped(el)) return el;
+    el = el.parentElement?.closest<HTMLElement>(TIP_SELECTOR) ?? null;
+  }
+  return null;
 }
 
 function contentOf(el: HTMLElement): ReactNode {

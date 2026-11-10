@@ -165,7 +165,7 @@ export default function AccountMiniView({
                     key={p.symbol}
                     type="button"
                     onClick={() => onSelectSymbol(p.symbol)}
-                    title={`${p.name ?? p.symbol} 차트로 이동`}
+                    data-tip={`${p.name ?? p.symbol} 차트로 이동`}
                     className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left transition-colors hover:bg-bg-tertiary/60 ${
                       held ? 'bg-bg-tertiary' : ''
                     }`}
@@ -232,7 +232,7 @@ function AutoDot({ auto }: { auto: ReturnType<typeof autoTradeView> | null }) {
   if (!auto) return null;
   return (
     <span
-      title={auto.reason ? `${auto.label} — ${auto.reason}` : auto.label}
+      data-tip={auto.reason ? `${auto.label} — ${auto.reason}` : auto.label}
       aria-label={auto.label}
       className={`inline-flex shrink-0 ${AUTO_TRADE_TONE[auto.state]}`}
     >

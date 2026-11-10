@@ -287,7 +287,7 @@ function SymbolGrid({
                 "$319.70", 탐색 화면은 "319.7" 처럼 같은 값이 다르게 보인다. */}
             <span
               className="text-sm tabular-nums text-text-secondary"
-              title={quote?.stale ? '실시간 조회 실패 — 마지막 캐시 종가입니다.' : undefined}
+              data-tip={quote?.stale ? '실시간 조회 실패 — 마지막 캐시 종가입니다.' : undefined}
             >
               {quote?.price != null
                 ? `${quote.stale ? '· ' : ''}${formatPrice(quote.price, quote.currency)}`

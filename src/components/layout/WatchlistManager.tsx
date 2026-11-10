@@ -307,7 +307,7 @@ export default function WatchlistManager({
                         }`}
                       >
                         {/* 손잡이 — 마우스를 올리면 끄는 법과 키보드 대체를 알린다 */}
-                        <span className="pl-1 text-text-muted" title="끌어서 순서 바꾸기 (Alt + ↑/↓ 로도 이동)">
+                        <span className="pl-1 text-text-muted" data-tip="끌어서 순서 바꾸기 (Alt + ↑/↓ 로도 이동)">
                           <GripVertical size={14} aria-hidden />
                         </span>
 
@@ -345,7 +345,7 @@ export default function WatchlistManager({
                               setDraft(f.name);
                               setRenaming(f.id);
                             }}
-                            title="이름 바꾸기"
+                            data-tip="이름 바꾸기"
                             aria-label="이름 바꾸기"
                             className="shrink-0 rounded p-1 text-text-muted opacity-50 transition-all hover:text-accent hover:opacity-100 focus:opacity-100"
                           >
@@ -356,7 +356,7 @@ export default function WatchlistManager({
                           <button
                             type="button"
                             onClick={() => confirmDeleteFolder(f.id, f.name, f.symbols.length)}
-                            title="폴더 삭제 (종목은 폴더 밖으로)"
+                            data-tip="폴더 삭제 (종목은 폴더 밖으로)"
                             aria-label={`${f.name} 폴더 삭제`}
                             className="shrink-0 rounded p-1 text-text-muted opacity-50 transition-all hover:text-danger hover:opacity-100 focus:opacity-100"
                           >
@@ -480,7 +480,7 @@ export default function WatchlistManager({
                 onClick={() =>
                   setSort((prev) => SORT_ORDER[(SORT_ORDER.indexOf(prev) + 1) % SORT_ORDER.length])
                 }
-                title="정렬 방식 전환"
+                data-tip="정렬 방식 전환"
                 className={ACTION}
               >
                 {SORT_LABEL[sort]}
@@ -596,7 +596,7 @@ export default function WatchlistManager({
                         {/* 손잡이는 "끌 수 있다" 는 **표시**다 — 실제 드래그는 행 전체가 받는다 */}
                         <span
                           aria-hidden
-                          title={
+                          data-tip={
                             sort !== 'manual'
                               ? '직접 설정한 순일 때만 순서를 바꿀 수 있습니다'
                               : '끌어서 순서 변경 · 폴더 위에 놓으면 이동'

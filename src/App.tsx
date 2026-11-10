@@ -496,7 +496,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
                   clearSymbol();
                   setPage('home');
                 }}
-                title="종목 선택 해제"
+                data-tip="종목 선택 해제"
                 aria-label="종목 선택 해제"
                 className="text-sm leading-none text-text-muted transition-colors hover:text-text-primary"
               >
@@ -506,7 +506,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
               <button
                 type="button"
                 onClick={() => toggle(symbol)}
-                title={isWatched ? '관심 목록에서 삭제' : '관심 목록에 추가'}
+                data-tip={isWatched ? '관심 목록에서 삭제' : '관심 목록에 추가'}
                 aria-label={isWatched ? '관심 목록에서 삭제' : '관심 목록에 추가'}
                 aria-pressed={isWatched}
                 className="rounded p-0.5 transition-colors hover:bg-bg-tertiary"
