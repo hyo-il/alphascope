@@ -8,7 +8,7 @@
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import path from 'node:path';
-import { chromium, type Browser, type Page } from 'playwright';
+import { chromium, type Browser, type Locator, type Page } from 'playwright';
 import { assetHistorySample, assetSheetSample, assetStatusSample, assetSummarySample, assetTradesSample } from './fixtures/asset/screenSample';
 import { briefSample, daySample, daysSample, statusSample } from './fixtures/marketBrief/screenSample';
 import { rankingSample, usHaltsSample } from './fixtures/usHalts/screenSample';
@@ -41,7 +41,8 @@ const TIMING = `
   }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
 `;
 
-async function open(browser: Browser, size: { width: number; height: number }, hash: string, ready: string, before?: (page: Page) => Promise<void>) {
+/** `ready` = 화면이 다 떴다고 볼 요소(역할 + 이름 · data-testid — 툴팁 글 · 클래스로 찾지 않는다 · 130차) */
+async function open(browser: Browser, size: { width: number; height: number }, hash: string, ready: (page: Page) => Locator, before?: (page: Page) => Promise<void>) {
   const ctx = await browser.newContext({ viewport: size });
   await ctx.addInitScript(() => localStorage.setItem('alphascope.asset.tab', 'status'));
   await ctx.addInitScript('window.__name = (f) => f');
@@ -65,7 +66,7 @@ async function open(browser: Browser, size: { width: number; height: number }, h
   await page.route('**/api/asset/trades**', (r) => r.fulfill({ json: assetTradesSample(20, 20) }));
   if (before) await before(page); // 화면마다 더 바꿔치기(나중에 단 것이 먼저 받는다)
   await guard.step(`페이지 열기(${hash})`, () => page.goto(`${WEB}/${hash}`));
-  await guard.step('화면 기다리기', () => page.locator(ready).first().waitFor({ timeout: 30_000 }));
+  await guard.step('화면 기다리기', () => ready(page).first().waitFor({ timeout: 30_000 }));
   return { page, ctx, errors, hold, release: () => gates.release() };
 }
 
@@ -86,10 +87,10 @@ const away = async (page: Page) => {
   await page.waitForTimeout(300);
 };
 /** 대상 가운데로 마우스를 옮기고 툴팁이 뜰 때까지(최대 1.5초) */
-async function hover(page: Page, sel: string) {
+async function hover(page: Page, target: Locator) {
   await away(page);
   await resetTiming(page);
-  const b = (await page.locator(sel).first().boundingBox())!;
+  const b = (await target.first().boundingBox())!;
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
   await page.waitForFunction(() => (window as unknown as { __tip: { shown: number } }).__tip.shown > 0, null, { timeout: 1500 }).catch(() => {});
   const t = await timing(page);
@@ -108,7 +109,7 @@ try {
     const w = size.width;
     // ── 자산 관리 ──
     {
-      const { page, ctx, errors, hold, release } = await open(browser, size, '#/asset', '[data-account-cards]');
+      const { page, ctx, errors, hold, release } = await open(browser, size, '#/asset', (p) => p.locator('[data-account-cards]'));
       await page.waitForFunction(() => !(document.querySelector('[data-asset-reload]') as HTMLButtonElement | null)?.disabled, null, { timeout: 10_000 });
 
       // [128-5] 위 줄 세 버튼 — 아이콘만 · aria-label · 툴팁 글 = 옛 글자 · 28/16
@@ -148,7 +149,7 @@ try {
 
       // [128-3] 마우스 → 0.3초 뒤 · 14px · 아래 4px
       {
-        const h = await hover(page, '[data-asset-settings]');
+        const h = await hover(page, page.locator('[data-asset-settings]'));
         check(`[128-3] ${w}px — [설정] 에 마우스 → 0.3초 뒤 툴팁 「설정」(${h.delay}ms) · 14px · 줄 높이 1.625`,
           h.tip?.text === '설정' && h.delay >= 280 && h.delay <= 600 && h.tip.font === '14px' && Math.abs(parseFloat(h.tip.line) - 14 * 1.625) < 0.6, JSON.stringify({ d: h.delay, t: h.tip }));
         check(`[128-3] ${w}px — 상자 모양 둥글기 8 · 테두리 1 · 여백 10/6 · 대상 아래 4px · 하나만`,
@@ -179,12 +180,12 @@ try {
       }
       // 화면 오른쪽 끝 — [잠그기] 툴팁이 화면 안 8px
       {
-        const h = await hover(page, '[data-asset-lock]');
+        const h = await hover(page, page.locator('[data-asset-lock]'));
         check(`[128-3] ${w}px — 오른쪽 끝 [잠그기] 툴팁 화면 안(오른쪽 ${Math.round(h.tip?.right ?? -1)} ≤ ${w - 8})`, h.tip?.text === '잠그기' && h.tip.right <= w - 8 + 0.5 && h.tip.left >= 8, JSON.stringify(h.tip));
       }
       // 열린 채 다른 대상으로 옮기면 바로 바뀜
       {
-        await hover(page, '[data-asset-settings]');
+        await hover(page, page.locator('[data-asset-settings]'));
         const b = (await page.locator('[data-asset-lock]').boundingBox())!;
         await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 3 });
         await page.waitForTimeout(80);
@@ -192,7 +193,7 @@ try {
       }
       // 누르면 닫힘(고정 안 함) — [다시 읽기] 를 눌러 보며 로딩 표시도 확인
       {
-        const h = await hover(page, '[data-asset-reload]');
+        const h = await hover(page, page.locator('[data-asset-reload]'));
         hold.on = true;
         await page.mouse.down();
         await page.mouse.up();
@@ -241,8 +242,8 @@ try {
           }
           return { n: spans.length, free: !!free, cut: cut ? cut.scrollWidth > cut.clientWidth : false, text: cut?.getAttribute('data-tip-clip') };
         });
-        const hc = await hover(page, '[data-test-cut]');
-        const hf = await hover(page, '[data-test-free]');
+        const hc = await hover(page, page.locator('[data-test-cut]'));
+        const hf = await hover(page, page.locator('[data-test-free]'));
         check(`[128-3] ${w}px — 긴 이름은 잘렸을 때만 툴팁(전체 이름) · 안 잘린 이름은 툴팁 없음`, marks.n > 0 && marks.free && marks.cut && hc.tip?.text === marks.text && hf.tip == null, JSON.stringify({ marks, cut: hc.tip?.text, free: hf.tip }));
       }
       // 아래 끝 — 위로 뒤집힘(시험용 대상 하나를 화면 아래 끝에 붙인다 · 같은 담당이 그림)
@@ -255,7 +256,7 @@ try {
           Object.assign(b.style, { position: 'fixed', left: '600px', bottom: '2px', height: '20px' });
           document.body.append(b);
         });
-        const h = await hover(page, '[data-test-bottom]');
+        const h = await hover(page, page.locator('[data-test-bottom]'));
         check(`[128-3] ${w}px — 아래 자리가 모자라면 위로(대상 위 4px)`, h.tip != null && Math.abs(h.tip.bottom - (h.box.y - 4)) < 1, JSON.stringify({ tip: h.tip, box: h.box }));
         await page.evaluate(() => document.querySelector('[data-test-bottom]')?.remove());
       }
@@ -270,22 +271,22 @@ try {
           Object.assign(b.style, { position: 'fixed', left: '600px', top: '300px', height: '28px' });
           document.body.append(b);
         });
-        const h = await hover(page, '[data-test-disabled]');
+        const h = await hover(page, page.locator('[data-test-disabled]'));
         check(`[128-3] ${w}px — 꺼진(disabled) 버튼에도 툴팁`, h.tip?.text === '이 서버에서는 시트 쓰기가 꺼져 있습니다', JSON.stringify(h.tip));
         await page.evaluate(() => document.querySelector('[data-test-disabled]')?.remove());
       }
       // 평단 계산기 아이콘 — 같은 툴팁
       {
-        const h = await hover(page, '[data-avgcalc-open]');
+        const h = await hover(page, page.locator('[data-avgcalc-open]'));
         check(`[128-5] ${w}px — 평단 계산기 아이콘 툴팁 「평단 계산기」 · 같은 모양(14px)`, h.tip?.text === '평단 계산기' && h.tip.font === '14px', JSON.stringify(h.tip));
       }
       // 스크롤 · 창 크기에 닫힘
       {
-        await hover(page, '[data-asset-settings]');
+        await hover(page, page.locator('[data-asset-settings]'));
         await page.evaluate(() => window.dispatchEvent(new Event('scroll')));
         await page.waitForTimeout(50);
         const afterScroll = await tip(page);
-        await hover(page, '[data-asset-settings]');
+        await hover(page, page.locator('[data-asset-settings]'));
         await page.setViewportSize({ width: w - 10, height: size.height });
         await page.waitForTimeout(80);
         const afterResize = await tip(page);
@@ -307,8 +308,7 @@ try {
       {
         await page.locator('[data-asset-settings]').click();
         await page.locator('[role="dialog"]').first().waitFor({ timeout: 5000 });
-        const x = await page.evaluate(() => {
-          const b = document.querySelector('[role="dialog"] button[aria-label="닫기"]') as HTMLElement;
+        const x = await page.getByRole('dialog').getByRole('button', { name: '닫기', exact: true }).first().evaluate((b) => {
           return { w: b.getBoundingClientRect().width, h: b.getBoundingClientRect().height, svg: b.querySelector('svg')!.getBoundingClientRect().width, tip: b.getAttribute('data-tip'), title: b.getAttribute('title') };
         });
         check(`[128-5] ${w}px — sm 아이콘 버튼(창 닫기) 24px 상자 · 14px 아이콘 · 툴팁 「닫기」 · title 없음`, x.w === 24 && x.h === 24 && x.svg === 14 && x.tip === '닫기' && x.title == null, JSON.stringify(x));
@@ -320,15 +320,16 @@ try {
 
     // ── [ⓘ] — 증시 일정 「데이터 출처」 ──
     {
-      const { page, ctx, errors } = await open(browser, size, '#/calendar', 'button[aria-label="데이터 출처"]');
-      const info = 'button[aria-label="데이터 출처"]';
+      const infoOf = (p: Page) => p.getByRole('button', { name: '데이터 출처', exact: true });
+      const { page, ctx, errors } = await open(browser, size, '#/calendar', infoOf);
+      const info = infoOf(page);
       const h = await hover(page, info);
-      const ib = await hover(page, 'button[aria-label="이전 달"]');
+      const ib = await hover(page, page.getByRole('button', { name: '이전 달', exact: true }));
       check(`[128-4] ${w}px — [ⓘ] 도 0.3초 뒤(${h.delay}ms) · 같은 상자(같은 클래스 · 14px · 둥글기 8 · 테두리 1)`,
         h.tip != null && h.delay >= 280 && h.delay <= 600 && h.tip.className === ib.tip?.className && h.tip.font === '14px' && h.tip.radius === '8px' && h.tip.border === '1px' && h.tip.text.length > 10,
         JSON.stringify({ d: h.delay, info: h.tip?.className, tip: ib.tip?.className }));
       // 툴팁이 열린 채 [ⓘ] 로 → 툴팁이 닫히고 [ⓘ] 하나만(바로 바뀜)
-      const b = (await page.locator(info).boundingBox())!;
+      const b = (await info.boundingBox())!;
       await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 3 });
       await page.waitForTimeout(80);
       const sw = await tip(page);
@@ -339,7 +340,7 @@ try {
       check(`[128-4] ${w}px — [ⓘ] 상자 위로 옮기면 열린 채`, (await tip(page))?.text === sw!.text);
       // 키보드 Tab 으로도 바로
       await away(page);
-      await page.locator(info).focus();
+      await info.focus();
       await page.keyboard.press('Shift+Tab');
       await page.keyboard.press('Tab');
       await page.waitForTimeout(60);
@@ -354,20 +355,20 @@ try {
     const shown = (h: Awaited<ReturnType<typeof hover>>, text: string) => h.tip?.text === text && h.delay >= 280 && h.delay <= 600 && h.tip.font === '14px';
     // A 공통(메뉴 · 오른쪽 패널 · 이름 칸) + B 실시간 순위(관심 별)
     {
-      const { page, ctx, errors } = await open(browser, size, '#/ranking', 'button[aria-label$="관심 목록에 추가"]', async (p) => {
+      const { page, ctx, errors } = await open(browser, size, '#/ranking', (p) => p.getByRole('button', { name: /관심 목록에 추가$/ }), async (p) => {
         await p.route('**/api/rankings/live**', (r) => r.fulfill({ json: rankingSample(new URL(r.request().url()).searchParams.get('kind') as 'gainers', Date.now()) }));
       });
-      const a1 = await hover(page, 'button[aria-label="메뉴 접기"]');
+      const a1 = await hover(page, page.getByRole('button', { name: '메뉴 접기', exact: true }));
       check(`[129-1] ${w}px — A 메뉴 [메뉴 접기](글자 없는 아이콘 버튼) 0.3초 뒤(${a1.delay}ms) 「메뉴 접기」 · 14px`, shown(a1, '메뉴 접기'), JSON.stringify(a1));
-      const panelBtn = (await page.locator('button[aria-label="관심 목록 패널 접기"]').count()) ? 'button[aria-label="관심 목록 패널 접기"]' : 'button[data-tip="관심 목록 열기"]';
-      const a2 = await hover(page, panelBtn);
-      const a2want = panelBtn.includes('aria-label') ? '접기' : '관심 목록 열기';
+      const closeBtn = page.getByRole('button', { name: '관심 목록 패널 접기', exact: true });
+      const panelOpen = (await closeBtn.count()) > 0;
+      const a2 = await hover(page, panelOpen ? closeBtn : page.getByTestId('watch-panel-open'));
+      const a2want = panelOpen ? '접기' : '관심 목록 열기';
       check(`[129-1] ${w}px — A 오른쪽 패널 [${a2want}] 0.3초 뒤(${a2.delay}ms) · 14px`, shown(a2, a2want), JSON.stringify(a2));
-      const icon = await page.evaluate(() =>
-        ['메뉴 접기', '홈으로'].map((l) => {
-          const b = document.querySelector(`button[aria-label="${l}"]`) as HTMLElement | null;
-          return { l, tip: b?.getAttribute('data-tip'), title: b?.getAttribute('title'), h: b ? Math.round(b.getBoundingClientRect().height) : -1 };
-        }),
+      const icon = await Promise.all(
+        ['메뉴 접기', '홈으로'].map((l) =>
+          page.getByRole('button', { name: l, exact: true }).first().evaluate((b, l) => ({ l, tip: b.getAttribute('data-tip'), title: b.getAttribute('title'), h: Math.round(b.getBoundingClientRect().height) }), l),
+        ),
       );
       check(`[129-1] ${w}px — A 글자 없는 아이콘 버튼 aria-label · data-tip 같은 글 · title 없음`, icon.every((x) => x.tip === x.l && x.title == null && x.h > 0), JSON.stringify(icon));
       // 이름 칸(공용 StockName) — 잘렸을 때만
@@ -384,8 +385,8 @@ try {
         }
         return { n: spans.length, free: !!free, cut: cut ? cut.scrollWidth > cut.clientWidth : false, text: cut?.getAttribute('data-tip-clip') };
       });
-      const hc = await hover(page, '[data-test-cut]');
-      const hf = await hover(page, '[data-test-free]');
+      const hc = await hover(page, page.locator('[data-test-cut]'));
+      const hf = await hover(page, page.locator('[data-test-free]'));
       check(`[129-1] ${w}px — A 종목 이름 칸(StockName)은 잘렸을 때만 전체 이름(${hc.delay}ms) · 안 잘리면 없음`, marks.n > 0 && marks.free && marks.cut && hc.tip?.text === marks.text && hc.tip?.font === '14px' && hf.tip == null, JSON.stringify({ marks, cut: hc.tip?.text, free: hf.tip }));
       // 툴팁 버튼 안의 안 잘린 이름 칸 — 바깥 버튼 설명이 뜬다(SymbolChartLink · 계좌 줄 모양 · 시험용 대상)
       await page.evaluate(() => {
@@ -399,10 +400,10 @@ try {
         b.append(s);
         document.body.append(b);
       });
-      const hn = await hover(page, '[data-test-inner]');
+      const hn = await hover(page, page.locator('[data-test-inner]'));
       check(`[129-1] ${w}px — 툴팁 버튼 안 안 잘린 이름 칸 위 = 버튼 설명 「AAPL 차트로 이동」`, hn.tip?.text === 'AAPL 차트로 이동', JSON.stringify(hn.tip));
       await page.evaluate(() => document.querySelector('[data-test-inner]')?.parentElement?.remove());
-      const b1 = await hover(page, 'button[aria-label$="관심 목록에 추가"]');
+      const b1 = await hover(page, page.getByRole('button', { name: /관심 목록에 추가$/ }));
       check(`[129-1] ${w}px — B 실시간 순위 관심 별 0.3초 뒤(${b1.delay}ms) 「관심 목록에 추가」 · 14px`, shown(b1, '관심 목록에 추가'), JSON.stringify(b1));
       check(`[129-1] ${w}px — A · B 실시간 순위 화면에 title 속성 0(브라우저 기본 툴팁 없음)`, (await titleCount(page)) === 0, String(await titleCount(page)));
       check(`[129-1] ${w}px — 실시간 순위 페이지 오류 0`, errors.length === 0, errors.join(' | '));
@@ -410,14 +411,17 @@ try {
     }
     // B 오늘 시황(「AI 꺼짐」 까닭)
     {
-      const { page, ctx, errors } = await open(browser, size, '#/market-brief', 'text=AI 꺼짐 — 데이터만 만듭니다', async (p) => {
+      const { page, ctx, errors } = await open(browser, size, '#/market-brief', (p) => p.getByText('AI 꺼짐 — 데이터만 만듭니다', { exact: true }), async (p) => {
         const brief = briefSample('morning', false);
         await p.route('**/api/market-brief/status', (r) => r.fulfill({ json: statusSample({ gemini: false }) }));
         await p.route('**/api/market-brief/days', (r) => r.fulfill({ json: daysSample }));
         await p.route(/\/api\/market-brief\?/, (r) => r.fulfill({ json: daySample(brief) }));
       });
       const want = statusSample({ gemini: false }).geminiDisabledReason!;
-      const b2 = await hover(page, `[data-tip="${want}"]`);
+      // 「AI 꺼짐」 글(보이는 글자)로 찾고, 툴팁 글은 그 요소의 값으로 확인한다(툴팁 글로 찾지 않는다 · 130차)
+      const off = page.getByText('AI 꺼짐 — 데이터만 만듭니다', { exact: true });
+      check(`[129-1] ${w}px — B 오늘 시황 「AI 꺼짐」 의 툴팁 글 = 까닭`, (await off.getAttribute('data-tip')) === want, String(await off.getAttribute('data-tip')));
+      const b2 = await hover(page, off);
       check(`[129-1] ${w}px — B 오늘 시황 「AI 꺼짐」 까닭 0.3초 뒤(${b2.delay}ms) · 14px`, shown(b2, want), JSON.stringify(b2));
       check(`[129-1] ${w}px — B 오늘 시황 화면에 title 속성 0`, (await titleCount(page)) === 0, String(await titleCount(page)));
       check(`[129-1] ${w}px — 오늘 시황 페이지 오류 0`, errors.length === 0, errors.join(' | '));
@@ -425,7 +429,7 @@ try {
     }
     // C 거래정지(시각 칸 · 다른 열의 툴팁 칸)
     {
-      const { page, ctx, errors } = await open(browser, size, '#/ushalts', 'table td span[data-tip]', async (p) => {
+      const { page, ctx, errors } = await open(browser, size, '#/ushalts', (p) => p.getByRole('cell').locator('span[data-tip]'), async (p) => {
         await p.route('**/api/us-halts', (r) => r.fulfill({ json: usHaltsSample(Date.now(), true, 3) }));
         await p.route('**/api/rankings/live**', (r) => r.fulfill({ json: rankingSample(new URL(r.request().url()).searchParams.get('kind') as 'gainers', Date.now()) }));
       });
@@ -437,8 +441,8 @@ try {
         code?.setAttribute('data-test-c2', '');
         return { c1: time?.getAttribute('data-tip') ?? null, c2: code?.getAttribute('data-tip') ?? null };
       });
-      const c1 = picks.c1 ? await hover(page, '[data-test-c1]') : null;
-      const c2 = picks.c2 ? await hover(page, '[data-test-c2]') : null;
+      const c1 = picks.c1 ? await hover(page, page.locator('[data-test-c1]')) : null;
+      const c2 = picks.c2 ? await hover(page, page.locator('[data-test-c2]')) : null;
       check(`[129-1] ${w}px — C 거래정지 시각 칸 0.3초 뒤(${c1?.delay}ms) 미국 시각 · 14px`, !!c1 && !!picks.c1 && shown(c1, picks.c1.trim()), JSON.stringify({ picks, c1 }));
       check(`[129-1] ${w}px — C 거래정지 다른 칸(${picks.c2?.slice(0, 12)}…) 0.3초 뒤(${c2?.delay}ms) · 14px`, !!c2 && !!picks.c2 && shown(c2, picks.c2.trim()), JSON.stringify({ picks, c2 }));
       check(`[129-1] ${w}px — C 거래정지 화면에 title 속성 0`, (await titleCount(page)) === 0, String(await titleCount(page)));

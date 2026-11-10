@@ -205,7 +205,7 @@ try {
     {
       const { page, ctx, errors, seen } = await open(browser, '#/chart', size);
       await page.getByRole('button', { name: '관심 목록 관리 (폴더·순서)' }).click({ timeout: 10_000 });
-      await page.locator('input[aria-label="AAPL 선택"]').waitFor({ timeout: 5000 });
+      await page.getByRole('checkbox', { name: 'AAPL 선택', exact: true }).waitFor({ timeout: 5000 });
       const words = () => page.evaluate(() => {
         const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
         // 툴팁 글(data-tip · data-tip-clip — 129차에 title 에서 옮김)까지 본다
@@ -214,13 +214,13 @@ try {
         return `${dialog.innerText} ${attrs.join(' ')}`;
       });
       // 「폴더 없음」 을 고른 채 종목 추가 칸을 연다 — 저장 이름(기본 폴더)이 안내 글자로 나오면 안 된다
-      await page.locator('button:not([type="submit"])', { hasText: '종목 추가' }).first().click();
+      await page.getByRole('dialog').getByRole('button', { name: '종목 추가', exact: true }).click();
       const addInput = page.getByPlaceholder('폴더 없이 추가 (구글, 애플, AAPL…)');
       await addInput.waitFor({ timeout: 5000 });
       check(`[122-2] ${size.width}px — 「폴더 없음」 에서 종목 추가 안내 = 폴더 없이 추가`, (await addInput.count()) === 1);
       const shown = await words();
       check(`[122-2] ${size.width}px — 관심 목록 관리 글자에 「그룹」 · 「미분류」 0 · 「폴더 없음」 · 「폴더 추가」 있음`, !BANNED.test(shown) && shown.includes('폴더 없음') && shown.includes('폴더 추가'), shown.slice(0, 300));
-      const row = page.locator('input[aria-label="AAPL 선택"]');
+      const row = page.getByRole('checkbox', { name: 'AAPL 선택', exact: true });
       const rowDiff = await inkDiff(page, row);
       check(`[122-4] ${size.width}px — 관심 목록 줄 체크박스 ↔ 글자 세로 가운데 ≤ 1px`, Math.abs(rowDiff) <= 1, String(rowDiff));
       await row.click();
@@ -231,20 +231,20 @@ try {
       // 폴더를 바꾸면 열려 있던 [종목 추가] 칸은 닫힌다(WatchlistManager 의 정리 effect) — 「'반도체' 에 추가」 안내는 그 effect 전 한 프레임만
       // 그려지므로 그 순간을 기다리지 않는다(129차 G — 한 프레임을 놓치면 5초 넘김 실패). 실제 상태: 폴더가 골라지고 칸이 닫힘 → 다시 열면 그 폴더 이름.
       await page.locator('[role="dialog"]').getByText('반도체', { exact: true }).first().click();
-      await page.locator('input[aria-label="NVDA 선택"]').waitFor({ timeout: 5000 }); // 「반도체」 의 종목 줄 = 폴더가 골라짐
+      await page.getByRole('checkbox', { name: 'NVDA 선택', exact: true }).waitFor({ timeout: 5000 }); // 「반도체」 의 종목 줄 = 폴더가 골라짐
       const closed = await page
         .getByPlaceholder(/에 추가 \(구글/)
         .waitFor({ state: 'detached', timeout: 5000 })
         .then(() => true, () => false);
       check(`[122-2] ${size.width}px — 폴더를 바꾸면 열려 있던 종목 추가 칸은 닫힘(지금 동작 그대로)`, closed);
-      await page.locator('button:not([type="submit"])', { hasText: '종목 추가' }).first().click();
+      await page.getByRole('dialog').getByRole('button', { name: '종목 추가', exact: true }).click();
       const folderInput = page.getByPlaceholder("'반도체' 에 추가 (구글, 애플, AAPL…)");
       await folderInput.waitFor({ timeout: 5000 });
       check(`[122-2] ${size.width}px — 폴더를 고르면 종목 추가 안내에 그 폴더 이름 그대로`, true);
       // 추가 칸을 다시 닫아 아래 단계는 전과 같은 상태(창 안 [취소] 하나 — 삭제 확인 창의 것)
       await folderInput.locator('xpath=ancestor::div[.//button[normalize-space()="취소"]][1]').getByRole('button', { name: '취소' }).click();
       await folderInput.waitFor({ state: 'detached', timeout: 5000 });
-      await page.locator('[aria-label="반도체 폴더 삭제"]').click({ force: true });
+      await page.getByRole('button', { name: '반도체 폴더 삭제', exact: true }).click({ force: true });
       const title = page.getByText("'반도체' 폴더 삭제", { exact: true });
       await title.waitFor({ timeout: 5000 });
       const box = await page.locator('body').innerText();
@@ -381,7 +381,7 @@ try {
       {
         const { page, ctx } = await open(browser, '#/chart', size);
         await page.getByRole('button', { name: '관심 목록 관리 (폴더·순서)' }).click({ timeout: 10_000 });
-        await page.locator('input[aria-label="AAPL 선택"]').waitFor({ timeout: 5000 });
+        await page.getByRole('checkbox', { name: 'AAPL 선택', exact: true }).waitFor({ timeout: 5000 });
         const b = await box(page);
         check(`[123-2] ${size.width}px — 관심 목록 관리 창(lg) 크기 그대로`, same(b, Math.min(720, size.width * 0.9), Math.min(640, size.height * 0.85)), JSON.stringify(b));
         await ctx.close();

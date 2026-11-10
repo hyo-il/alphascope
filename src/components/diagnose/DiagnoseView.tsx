@@ -170,7 +170,7 @@ function Card({
           {why}
         </span>
       </div>
-      {/* 읽는 법 한 줄 — 배지 옆 좁은 칸에 두면 세로로 길어져 카드 전체 폭에 둔다 */}
+      {/* 음수 여백(design:lint 허용 목록 — 제목 줄 간격을 4px 줄여 제목에 붙임) · 읽는 법 한 줄 — 배지 옆 좁은 칸에 두면 세로로 길어져 카드 전체 폭에 둔다 */}
       <p className="-mt-1 mb-2 text-caption leading-snug text-text-secondary">{hint}</p>
       <dl className="space-y-1 text-caption">
         {numbers.map((n) => (

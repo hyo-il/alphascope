@@ -152,7 +152,7 @@ export default function AssetAverageCalculator({
         {/* 두 탭을 같은 칸에 겹친다 — 창 높이 = 더 긴 탭(탭을 바꿔도 같음) */}
         <div className="grid">
           <div className={`col-start-1 row-start-1 space-y-4 ${tab === 'more' ? '' : 'invisible'}`} role="tabpanel" aria-label="더 사면 평단은?" data-avgcalc-panel="more">
-            {/* 결과 — 위. 창 안을 스크롤해도 맨 위에 붙어 있다(창 바탕으로 아래 칸을 가림 · 크롬은 붙는 위치를 몸통 여백 안쪽으로 재서 -16px) ·
+            {/* 음수 여백(design:lint 허용 목록) · 결과 — 위. 창 안을 스크롤해도 맨 위에 붙어 있다(창 바탕으로 아래 칸을 가림 · 크롬은 붙는 위치를 몸통 여백 안쪽으로 재서 -16px) ·
                 결과가 없어도 네 줄 자리를 잡는다(보이지 않는 「—」 줄 + 안내 글 겹침) */}
             <div className="sticky -top-4 z-10 -mt-2 mb-2 bg-bg-secondary pt-2 pb-2" data-avgcalc-result-pin>
             <div className="relative space-y-1 rounded-lg bg-bg-tertiary/40 px-3 py-2 text-xs tabular-nums text-text-primary" data-avgcalc-result>

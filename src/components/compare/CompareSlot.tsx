@@ -98,7 +98,7 @@ export default function CompareSlot({
           currency={fundamentals?.profile.currency === 'KRW' ? 'KRW' : 'USD'}
         />
         {dragOver && (
-          <p className="pointer-events-none -mt-6 text-center text-caption text-warning">
+          <p /* 음수 여백(design:lint 허용 목록): 끌어 놓는 동안 안내를 차트 아래 끝에 겹쳐 올림 — 칸 높이가 늘지 않게 */ className="pointer-events-none -mt-6 text-center text-caption text-warning">
             놓으면 이 칸이 교체됩니다
           </p>
         )}

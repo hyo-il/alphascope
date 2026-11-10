@@ -217,6 +217,7 @@ export function PurchaseDayDialog({ mb, writeEnabled, error, onLater, onDone }: 
         <CycleLine mb={mb} />
         {!writeEnabled && <p className="text-caption text-text-muted keep-all">이 서버에서는 시트 쓰기가 꺼져 있어 [구매 완료] 를 누를 수 없습니다.</p>}
         {error && <FailLine message={error} />}
+        {/* 음수 여백(design:lint 허용 목록): 창 안쪽 여백(16px)을 넘어 표를 창 폭 끝까지 */}
         <div className="-mx-4">
           <MonthlyBuyTable mb={mb} />
         </div>

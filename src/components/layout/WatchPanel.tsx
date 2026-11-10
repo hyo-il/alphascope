@@ -98,6 +98,7 @@ export default function WatchPanel({
         type="button"
         onClick={onToggleCollapse}
         data-tip="관심 목록 열기"
+        data-testid="watch-panel-open"
         className="group flex w-9 shrink-0 flex-col items-center gap-2 border-l border-border bg-bg-secondary py-3 transition-colors hover:bg-bg-tertiary"
       >
         <span className="flex h-6 w-6 items-center justify-center rounded text-base text-text-secondary transition-colors group-hover:bg-bg-tertiary group-hover:text-text-primary">
@@ -148,7 +149,7 @@ export default function WatchPanel({
   }
 
   return (
-    <aside className="flex w-[250px] shrink-0 flex-col border-l border-border bg-bg-secondary">
+    <aside data-testid="watch-panel" className="flex w-[250px] shrink-0 flex-col border-l border-border bg-bg-secondary">
       <div className="flex items-center border-b border-border">
         {(
           [

@@ -285,20 +285,32 @@ check(
     const have = attrs.map((a) => key(a.file, a.tag, a.value)).sort();
     const sameKeep = want.length === have.length && want.every((w, i) => have[i].startsWith(w.slice(0, w.length)));
     check(`[128-7] [129-1] 남은 title= ${grepCount}곳 = 툴팁 아닌 부품 속성 ${attrs.length}곳 = 문서 「바꾸지 않음」 ${keep.length}줄(95 · 파일 · 요소 · 값 같음)`, grepCount === attrs.length && keep.length === 95 && attrs.length === 95 && sameKeep, `${grepCount} · ${attrs.length} · ${keep.length} · 다른 첫 줄 ${want.find((w, i) => !have[i]?.startsWith(w)) ?? ''}`);
-    // 바꾼 91곳 — 그 줄(앞뒤 한 줄)에 문서가 정한 속성(data-tip · data-tip-clip)이 있다
+    // 바꾼 91곳 — 파일 안에 문서가 정한 속성(data-tip · data-tip-clip)과 그 값이 있다.
+    // 줄 번호로 찾지 않는다(130차 — 줄이 밀리면 시험이 틀린 곳을 본다). 값으로 찾는다(공백 무시 · 문서의 「…」 앞까지).
+    // 130차: 「아이콘 버튼」 줄은 공용 IconButton 으로 바뀌면 그 값이 `label` 로 간다(IconButton 이 data-tip = label).
+    const squash = (t: string) => t.replace(/\s+/g, '');
+    const valueOf = (r: (typeof rows)[number]) => squash(r.value.replace(/…$/, '')).slice(0, 40);
+    const attrHas = (text: string, attr: string, v: string) => text.includes(`${attr}={${v}`) || text.includes(`${attr}="${v}`);
+    // 값이 그대로 없으면(129차에 공용 함수로 옮긴 값 — 예: 시세 칸 글 `quoteText`) 그 파일의 그 속성 개수가 문서 줄 수 이상인지 본다
     const missing: string[] = [];
-    const texts = new Map<string, string[]>();
+    const texts = new Map<string, string>();
+    const attrOf = (r: (typeof rows)[number]) => (r.to.startsWith('`data-tip-clip') ? 'data-tip-clip' : 'data-tip');
+    const countAttr = (text: string, attr: string) => text.split(`${attr}=`).length - 1;
     for (const r of moved) {
-      const lines = texts.get(r.file) ?? fs.readFileSync(path.join(root, r.file), 'utf8').split('\n');
-      texts.set(r.file, lines);
-      const attr = r.to.startsWith('`data-tip-clip') ? /\bdata-tip-clip=/ : /\bdata-tip=/;
-      if (!lines.slice(r.line - 2, r.line + 1).some((l) => attr.test(l))) missing.push(`${r.file}:${r.line}`);
+      const text = texts.get(r.file) ?? squash(fs.readFileSync(path.join(root, r.file), 'utf8'));
+      texts.set(r.file, text);
+      const v = valueOf(r);
+      const attr = attrOf(r);
+      const byValue = attrHas(text, attr, v) || (r.kind === '아이콘 버튼' && attrHas(text, 'label', v));
+      const need = moved.filter((m) => m.file === r.file && attrOf(m) === attr).length;
+      if (!byValue && countAttr(text, attr) < need) missing.push(`${r.file}:${r.line}(${v.slice(0, 16)})`);
     }
     const kinds = { 설명: moved.filter((r) => r.kind === '설명').length, 긴이름: moved.filter((r) => r.kind === '긴 이름 전체 보기').length, 아이콘: moved.filter((r) => r.kind === '아이콘 버튼').length };
-    check(`[129-1] 바꾼 ${moved.length}곳(설명 ${kinds.설명} · 긴 이름 ${kinds.긴이름} → data-tip-clip · 아이콘 버튼 ${kinds.아이콘}) 모두 그 자리에 문서가 정한 속성`, moved.length === 91 && kinds.설명 === 51 && kinds.긴이름 === 15 && kinds.아이콘 === 25 && missing.length === 0, missing.join(', '));
-    // 글자 없는 아이콘 버튼 25곳 — 화면 읽기 이름이 있다(aria-label, 또는 버튼 안에 보이는 글자 · 그림 alt 가 아닌 글자)
+    check(`[129-1] 바꾼 ${moved.length}곳(설명 ${kinds.설명} · 긴 이름 ${kinds.긴이름} → data-tip-clip · 아이콘 버튼 ${kinds.아이콘}) 모두 파일에 문서가 정한 속성 · 값(줄 번호 아닌 값으로 찾음)`, moved.length === 91 && kinds.설명 === 51 && kinds.긴이름 === 15 && kinds.아이콘 === 25 && missing.length === 0, missing.join(', '));
+    // 글자 없는 아이콘 버튼 25곳 — 화면 읽기 이름이 있다(공용 IconButton = label 필수 · 맨 button 은 aria-label 또는 안에 보이는 글자)
     const noName: string[] = [];
     const withText: string[] = [];
+    const iconButtons: string[] = [];
     // 보이는 글자 — 글자 노드 · 값 식({p.quantity} 등) · 이름 부품(StockName). 아이콘 부품 · 그림은 글자가 아니다
     const hasText = (kids: ts.NodeArray<ts.JsxChild>): boolean =>
       kids.some((c) =>
@@ -307,30 +319,40 @@ check(
         (ts.isJsxSelfClosingElement(c) && c.tagName.getText() === 'StockName') ||
         (ts.isJsxElement(c) && hasText(c.children)),
       );
+    const attrValue = (a: ts.JsxAttributeLike) => (ts.isJsxAttribute(a) && a.initializer ? squash(a.initializer.getText()).replace(/^\{/, '').replace(/^"/, '') : '');
+    type Found = { tag: string; attrs: ts.JsxAttributes; kids: ts.NodeArray<ts.JsxChild> | null };
     for (const r of moved.filter((m) => m.kind === '아이콘 버튼')) {
       const sf = program.getSourceFile(path.join(root, r.file))!;
-      let el: ts.JsxElement | null = null;
+      const v = valueOf(r);
+      let found: Found | null = null;
       const visit = (n: ts.Node) => {
-        if (el) return;
-        if (ts.isJsxElement(n) && n.openingElement.tagName.getText() === 'button') {
-          const a = n.openingElement.attributes.properties.find((p) => ts.isJsxAttribute(p) && p.name.getText() === 'data-tip');
-          if (a && Math.abs(sf.getLineAndCharacterOfPosition(a.getStart()).line + 1 - r.line) <= 1) el = n;
+        if (found) return;
+        const open = ts.isJsxElement(n) ? n.openingElement : ts.isJsxSelfClosingElement(n) ? n : null;
+        if (open && /^(button|IconButton)$/.test(open.tagName.getText())) {
+          const hit = open.attributes.properties.some((a) => ts.isJsxAttribute(a) && /^(data-tip|label)$/.test(a.name.getText()) && attrValue(a).startsWith(v));
+          if (hit) found = { tag: open.tagName.getText(), attrs: open.attributes, kids: ts.isJsxElement(n) ? n.children : null };
         }
         ts.forEachChild(n, visit);
       };
       visit(sf);
-      const e = el as ts.JsxElement | null;
+      const e = found as Found | null;
       if (!e) {
         noName.push(`${r.file}:${r.line}(버튼 못 찾음)`);
         continue;
       }
-      if (e.openingElement.attributes.properties.some((p) => ts.isJsxAttribute(p) && p.name.getText() === 'aria-label')) continue;
-      if (hasText(e.children)) withText.push(`${r.file.replace('src/components/', '')}:${r.line}`);
+      if (e.tag === 'IconButton') {
+        iconButtons.push(r.file.replace('src/components/', ''));
+        continue;
+      }
+      if (e.attrs.properties.some((p) => ts.isJsxAttribute(p) && p.name.getText() === 'aria-label')) continue;
+      if (e.kids && hasText(e.kids)) withText.push(`${r.file.replace('src/components/', '')}:${r.line}`);
       else noName.push(`${r.file}:${r.line}`);
     }
-    check(`[129-1] 글자 없는 아이콘 버튼 25곳 모두 aria-label(안에 글자가 보이는 ${withText.length}곳은 그 글자가 이름 — ${withText.join(' · ')})`, noName.length === 0, noName.join(', '));
+    check(`[129-1] [130-5] 글자 없는 아이콘 버튼 25곳 모두 이름 있음(IconButton ${iconButtons.length}곳 · 안에 글자가 보이는 ${withText.length}곳은 그 글자가 이름 — ${withText.join(' · ')})`, noName.length === 0, noName.join(', '));
     const buttons = iconTextButtons(screenFiles());
-    check(`[128-7] 목록 문서 2 — 아이콘 + 글자 버튼 ${buttons.length}곳 = 문서 ${section(2).length}줄`, section(2).length === buttons.length, `${buttons.length} · ${section(2).length}`);
+    // 130차 — 문서 2 의 「아이콘만」 줄(조건 보기 2곳)은 공용 IconButton 으로 바뀌어 아이콘 + 글자 버튼에서 빠진다
+    const iconOnlyRows = section(2).filter((l) => / \| 아이콘만 \| /.test(l)).length;
+    check(`[128-7] [130-5] 목록 문서 2 — 아이콘 + 글자 버튼 ${buttons.length}곳 = 문서 ${section(2).length}줄 − 「아이콘만」 ${iconOnlyRows}줄(바꾸기 전이면 문서 줄 그대로)`, section(2).length - iconOnlyRows === buttons.length || section(2).length === buttons.length, `${buttons.length} · ${section(2).length} · ${iconOnlyRows}`);
   }
 }
 
@@ -346,19 +368,20 @@ check(
   const BASE = '18a9099';
   if (head !== 'v2.69.0' && head !== 'v2.69.1') console.log(`건너뜀  [129-6] 지금 버전 ${head} — 129차(v2.69.1) 범위 시험`);
   else {
-    const diff = (...p: string[]) => execFileSync('git', ['diff', '--name-only', `${BASE}..HEAD`, '--', ...p], { cwd: root, encoding: 'utf8' }).trim();
-    check(`[129-6] git diff ${BASE}..HEAD -- server python src/services = 0개`, diff('server', 'python', 'src/services') === '', diff('server', 'python', 'src/services'));
+    const END = '72679bb'; // 129차 마지막 커밋(v2.69.1) — 130차 커밋이 더해져도 이 시험은 129차 범위만 본다
+    const diff = (...p: string[]) => execFileSync('git', ['diff', '--name-only', `${BASE}..${END}`, '--', ...p], { cwd: root, encoding: 'utf8' }).trim();
+    check(`[129-6] git diff ${BASE}..${END} -- server python src/services = 0개`, diff('server', 'python', 'src/services') === '', diff('server', 'python', 'src/services'));
     const shared = serverSharedSrc();
     // 업데이트 내역(changelog.ts)은 서버가 버전 표시에 읽어 54개 안이지만, 문서 4종(지시서 H)으로 맨 앞 항목을 더한다 — 더하기만(지운 줄 0) 따로 본다
     const CHANGELOG = 'src/data/changelog.ts';
     const touched = diff(...shared.closure.filter((f) => f !== CHANGELOG));
     check(`[129-6] 서버가 함께 쓰는 src ${shared.direct.length}개 + 그 가져오기 파일(전체 ${shared.closure.length}개 · 업데이트 내역 밖) 바뀐 줄 0`, shared.direct.length === 54 && touched === '', `${shared.direct.length} · ${touched}`);
-    const cl = execFileSync('git', ['diff', '-U0', `${BASE}..HEAD`, '--', CHANGELOG], { cwd: root, encoding: 'utf8' }).split('\n');
+    const cl = execFileSync('git', ['diff', '-U0', `${BASE}..${END}`, '--', CHANGELOG], { cwd: root, encoding: 'utf8' }).split('\n');
     check('[129-6] 업데이트 내역(changelog.ts)은 맨 앞 항목 더하기만(지운 · 바꾼 줄 0)', cl.filter((l) => /^-(?!--)/.test(l)).length === 0);
     const ops = diff('deploy', 'db', 'scripts/lib/testServerEnv.ts', 'scripts/lib/requireCopyDb.ts', 'scripts/lib/requireTossKeys.ts', '.env.example');
     check('[129-3] 배포 · DB 정의 · 시험 서버 스위치 · 사본 DB 막기 바뀐 파일 0', ops === '', ops);
     // 바뀐 줄은 장면을 여는 「title 로 찾기」(getByTitle — 이번에 그 title 이 data-tip 으로 옮겨 감)뿐 · 측정 판정 부분 그대로
-    const dc = execFileSync('git', ['diff', '-U0', `${BASE}..HEAD`, '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' }).split('\n');
+    const dc = execFileSync('git', ['diff', '-U0', `${BASE}..${END}`, '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' }).split('\n');
     const removed = dc.filter((l) => /^-(?!--)/.test(l));
     const added = dc.filter((l) => /^\+(?!\+\+)/.test(l));
     const onlyFind = removed.every((l) => /getByTitle\(/.test(l) && added.includes(`+${l.slice(1).replace(/getByTitle\('([^']+)'\)/g, `locator('[data-tip="$1"]')`)}`));

@@ -1,13 +1,16 @@
 /**
  * 디자인 기준표의 크기 값 — 한 곳. 글자 크기·색은 `index.css` 의 `@theme`, **높이·폭**은 여기다.
- * 버튼·묶음 버튼·입력칸·드롭박스가 같은 높이를 쓴다: 기본 `md` 32px · 좁은 곳(표 안 등) `sm` 28px.
- * ⚠️ Tailwind 는 소스의 글자 그대로를 찾아 클래스를 만든다 — 값을 문자열을 조합해 만들지 말고 아래처럼 통째로 적는다.
+ * **조작 부품 높이는 이 이름 하나**(`CONTROL_H`) — 버튼 · 묶음 버튼 · 입력칸 · 드롭박스 · 아이콘 버튼이 모두 여기서 높이를 받는다
+ * (다른 파일에 높이 숫자를 따로 적지 않는다 — 같은 줄에 섞여도 높이가 갈리지 않게):
+ *   `md` 32px 기본 · `sm` 28px **도구 줄**(= 아이콘 버튼 md · 버튼 sm · 묶음 버튼 sm · 입력칸 sm) · `xs` 24px **표 안**(= 아이콘 버튼 sm).
+ * ⚠️ Tailwind 는 소스의 글자 그대로를 찾아 클래스를 만든다 — 클래스 이름 자체(`h-7` 등)는 여기 통째로 적고, 다른 정의는 이 값을 가져다 쓴다.
  */
-export const CONTROL_H = { md: 'h-8', sm: 'h-7' } as const;
-export type ControlSize = keyof typeof CONTROL_H;
+export const CONTROL_H = { md: 'h-8', sm: 'h-7', xs: 'h-6' } as const;
+/** 버튼 · 입력칸 · 드롭박스 · 묶음 버튼의 크기(2가지) — `xs` 는 아이콘 버튼 sm 전용 */
+export type ControlSize = 'md' | 'sm';
 
-/** 묶음 버튼(Segmented) 안 칸 높이 — 바깥 틀 p-0.5(2px) 안에서 위 높이에 맞춘다 */
-export const SEGMENT_H = { md: 'h-7', sm: 'h-6' } as const;
+/** 묶음 버튼(Segmented) 안 칸 높이 — 바깥 틀 p-0.5(2px) 안이라 한 단계 아래(md 틀 32 → 칸 28 · sm 틀 28 → 칸 24) */
+export const SEGMENT_H = { md: CONTROL_H.sm, sm: CONTROL_H.xs } as const;
 
 /**
  * 폼 줄(`FormRow`)의 이름 칸·값 칸 폭 — **같은 묶음은 같은 폭**이라 입력칸의 왼쪽·오른쪽 끝이 맞는다(사용자: "끝부분이 맞아떨어져야 깔끔").
@@ -131,7 +134,7 @@ export const TOOLTIP_BOX = 'fixed z-[120] w-max rounded-lg border border-border 
 
 /**
  * 아이콘 버튼(`ui/IconButton`) 크기 — **두 가지만**(사용자 결정 2026-11-10 · 다른 크기 금지 · `design:lint`).
- * `md` 도구 줄 = 28px 상자 · 16px 아이콘 / `sm` 표 안 = 24px 상자 · 14px 아이콘.
+ * `md` 도구 줄 = 28px 상자(`CONTROL_H.sm` — 버튼 sm · 묶음 버튼 sm 과 같은 줄 높이) · 16px 아이콘 / `sm` 표 안 = 24px 상자(`CONTROL_H.xs`) · 14px 아이콘.
  */
-export const ICON_BUTTON_BOX = { md: 'h-7 w-7', sm: 'h-6 w-6' } as const;
+export const ICON_BUTTON_BOX = { md: `${CONTROL_H.sm} w-7`, sm: `${CONTROL_H.xs} w-6` } as const; // 높이는 CONTROL_H(도구 줄 · 표 안) — 폭만 여기
 export type IconButtonSize = keyof typeof ICON_BUTTON_BOX;

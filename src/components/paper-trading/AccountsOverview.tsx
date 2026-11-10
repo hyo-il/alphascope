@@ -468,7 +468,7 @@ export default function AccountsOverview({
               )}
               <header className="flex items-center gap-2">
                 {list.length > 1 && (
-                  <span aria-hidden data-tip="끌어서 순서 바꾸기" className="-ml-1 shrink-0 text-text-muted">
+                  <span /* 음수 여백(design:lint 허용 목록): 끌기 손잡이 아이콘의 빈 가장자리만큼 당겨 줄 왼쪽 끝에 맞춤 */ aria-hidden data-tip="끌어서 순서 바꾸기" className="-ml-1 shrink-0 text-text-muted">
                     <GripVertical {...ICON_SM} />
                   </span>
                 )}

@@ -337,7 +337,7 @@ function AuthSection() {
                 <td className={`${TABLE_NUM_COL} pr-6 tabular-nums text-text-secondary`}>{formatDateTime(s.createdAt)}</td>
                 <td className={`${TABLE_NUM_COL} pr-6 tabular-nums text-text-secondary`}>{formatDateTime(s.lastSeenAt)}</td>
                 <td className={`${TABLE_NUM_COL} text-right`}>
-                  {/* 글자형 버튼의 안쪽 여백만큼 밀어 글자 끝을 표 오른쪽 끝에 맞춘다 */}
+                  {/* 음수 여백(design:lint 허용 목록): 글자형 버튼의 안쪽 여백만큼 밀어 글자 끝을 표 오른쪽 끝에 맞춘다 */}
                   <Button variant="danger-text" size="sm" className="-mr-2.5" busy={removing === s.id} disabled={removing !== null || busy} onClick={() => logoutOne(s)}>
                     로그아웃
                   </Button>
@@ -348,7 +348,7 @@ function AuthSection() {
         </table>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        {/* 글자 시작을 표 왼쪽 끝에 맞춘다(글자형 버튼 안쪽 여백 px-3) */}
+        {/* 음수 여백(design:lint 허용 목록): 글자 시작을 표 왼쪽 끝에 맞춘다(글자형 버튼 안쪽 여백 px-3) */}
         <Button variant="danger-text" size="md" className="-ml-3" busy={busy} disabled={removing !== null} onClick={logoutAll}>
           모든 기기에서 로그아웃
         </Button>

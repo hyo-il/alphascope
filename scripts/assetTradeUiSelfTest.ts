@@ -459,7 +459,7 @@ try {
     const go = (hash: string) => page.evaluate((h) => { location.hash = h; }, hash);
     check('[121-2] 관심 목록 검색칸 — 「종목 추가」 버튼 그대로', (await addButton('종목 이름·티커').textContent())?.trim() === '종목 추가');
     await page.getByRole('button', { name: '관심 목록 관리 (폴더·순서)' }).click();
-    await page.locator('button:not([type="submit"])', { hasText: '종목 추가' }).first().click({ timeout: 10_000 });
+    await page.getByRole('dialog').getByRole('button', { name: '종목 추가', exact: true }).click({ timeout: 10_000 });
     await addButton('추가 (구글, 애플').waitFor({ timeout: 5000 });
     check('[121-2] 관심 목록 관리 검색칸 — 「종목 추가」 버튼 그대로', (await addButton('추가 (구글, 애플').textContent())?.trim() === '종목 추가');
     await page.reload();
@@ -468,7 +468,7 @@ try {
     await addButton('종목 이름이나 티커').waitFor({ timeout: 5000 });
     check('[121-2] 비교 검색칸 — 「종목 추가」 버튼 그대로', (await addButton('종목 이름이나 티커').textContent())?.trim() === '종목 추가');
     await guard.step('백테스트 화면 열기', () => go('#/backtest'));
-    await page.locator('button:not([type="submit"])', { hasText: '종목 추가' }).first().click({ timeout: 15_000 });
+    await page.getByRole('button', { name: '종목 추가', exact: true }).first().click({ timeout: 15_000 });
     await page.getByRole('tab', { name: '새 종목 검색' }).click({ timeout: 5000 });
     await addButton('목록에 없는 종목 검색').waitFor({ timeout: 5000 });
     check('[121-2] 종목 추가 창 검색칸 — 「종목 추가」 버튼 그대로', (await addButton('목록에 없는 종목 검색').textContent())?.trim() === '종목 추가');

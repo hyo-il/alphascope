@@ -74,7 +74,7 @@ const selectedTab = async (page: Page) => ((await page.locator('[data-avgcalc] [
 const dialogHeight = (page: Page) => page.evaluate(() => (document.querySelector('[role="dialog"] > div') as HTMLElement).getBoundingClientRect().height);
 const steps = (page: Page) => page.locator('[data-avgcalc-step]').allTextContents();
 const addText = async (page: Page) => ((await page.locator('[data-avgcalc-add]').count()) ? ((await page.locator('[data-avgcalc-add]').textContent()) ?? '').trim() : null);
-const removeNames = (page: Page) => page.locator('[data-avgcalc-panel="more"] button[aria-label$=" 삭제"]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+const removeNames = (page: Page) => page.locator('[data-avgcalc-panel="more"]').getByRole('button', { name: / 삭제$/ }).evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
 const panelOverflow = (page: Page) =>
   page.evaluate(() => {
     const d = document.querySelector('[role="dialog"] > div') as HTMLElement | null;
@@ -352,7 +352,8 @@ try {
   // ── 탭 줄 비침 — 1440 · 스크롤해 도구 줄 끝이 3px 남을 때 가림 띠가 그 자리를 덮는다 ──
   {
     const { page, ctx } = await open(browser, { size: { width: 1440, height: 900 } });
-    const m = await page.evaluate(() => {
+    const tabsBox = (await page.getByRole('tablist', { name: '자산 관리 보기' }).boundingBox())!;
+    const m = await page.evaluate((tabsBottom) => {
       const sc = document.querySelector('[data-asset-scroll]') as HTMLElement;
       const tool = document.querySelector('[data-open-class-dialog]') as HTMLElement;
       sc.scrollTop = tool.getBoundingClientRect().bottom - sc.getBoundingClientRect().top - 3;
@@ -362,10 +363,9 @@ try {
       const c = band.getBoundingClientRect();
       const t = tool.getBoundingClientRect();
       const cs = { zIndex: getComputedStyle(band.parentElement as HTMLElement).zIndex, backgroundImage: getComputedStyle(band).backgroundImage };
-      const tabs = (document.querySelector('[aria-label="자산 관리 보기"]') as HTMLElement).getBoundingClientRect();
       const content = sc.clientWidth - parseFloat(getComputedStyle(sc).paddingLeft) - parseFloat(getComputedStyle(sc).paddingRight);
-      return { scrollTop: sc.scrollTop, coverTop: c.top - s.top, coverH: c.height, coverW: c.width, scrollW: content, toolLeft: t.left, coverLeft: c.left, sliver: t.bottom - s.top, z: cs.zIndex, bg: cs.backgroundImage, tabsBottom: tabs.bottom, scrollTopEdge: s.top };
-    });
+      return { scrollTop: sc.scrollTop, coverTop: c.top - s.top, coverH: c.height, coverW: c.width, scrollW: content, toolLeft: t.left, coverLeft: c.left, sliver: t.bottom - s.top, z: cs.zIndex, bg: cs.backgroundImage, tabsBottom, scrollTopEdge: s.top };
+    }, tabsBox.y + tabsBox.height);
     check('[126-5] 1440px 스크롤 — 탭 줄 바로 밑 가림 띠가 스크롤 영역 위 끝에 붙고(0px) · 내용 폭 전체 · 잘린 도구 줄 끝(3px)보다 높고 · 앞에 그려짐', m.scrollTop > 0 && Math.abs(m.coverTop) < 0.5 && m.coverH >= 12 && m.sliver > 0 && m.sliver < m.coverH && m.z === '10' && m.bg.startsWith('linear-gradient') && Math.abs(m.coverW - m.scrollW) < 0.5 && m.coverLeft <= m.toolLeft + 0.5 && m.scrollTopEdge >= m.tabsBottom - 0.5, JSON.stringify(m));
     await page.evaluate(() => ((document.querySelector('[data-asset-scroll]') as HTMLElement).scrollTop = 0));
     const top0 = await page.evaluate(() => {

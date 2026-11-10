@@ -41,6 +41,7 @@ export default function Tabs<T extends string>({
             aria-selected={on}
             data-tip={t.title}
             onClick={() => onChange(t.id)}
+            /* 음수 여백(design:lint 허용 목록): 고른 탭 밑줄을 탭 줄 아래 테두리(1px) 위에 겹침 */
             className={`relative -mb-px inline-flex items-center gap-1 whitespace-nowrap border-b-2 py-2 transition-colors ${text} ${
               on ? 'border-text-primary font-medium text-text-primary' : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}

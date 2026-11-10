@@ -366,9 +366,16 @@ console.log('━━━ 6. 사람에게 보여 주는 안내에도 「모두」 p
   // 맥에는 `alphascope` 접속 이름(~/.ssh/config Host)이 없다 — 안내 명령은 열쇠 파일을 직접 적는다(v2.61.4)
   const SSH_ALIAS_RE = /\bssh(\s+-[a-zA-Z]+)*\s+alphascope\b/;
   const filesBeforeDocs = files.length;
-  walk(path.join(root, 'docs'));
+  // 저장소 `docs/` 는 문서를 지우면 폴더째 없어질 수 있다 — 없으면 멈추지 않고 건너뛴 사실을 확인 줄에 적는다(130차 · 확인 뜻은 그대로)
+  const DOCS_DIR = path.join(root, 'docs');
+  const docsThere = fs.existsSync(DOCS_DIR);
+  if (docsThere) walk(DOCS_DIR);
   const aliasHits = [...files, path.join(root, 'README.md')].filter((f) => fs.existsSync(f) && SSH_ALIAS_RE.test(fs.readFileSync(f, 'utf8')));
-  check('src · server · scripts · deploy · docs · README 에 맥에 없는 접속 이름(ssh 뒤 alphascope) 0곳', aliasHits.length === 0, aliasHits.map((f) => path.relative(root, f)).join(', ') || `${files.length - filesBeforeDocs}개 docs 파일 포함`);
+  check(
+    `src · server · scripts · deploy · ${docsThere ? 'docs' : 'docs(폴더 없음 — 건너뜀)'} · README 에 맥에 없는 접속 이름(ssh 뒤 alphascope) 0곳`,
+    aliasHits.length === 0,
+    aliasHits.map((f) => path.relative(root, f)).join(', ') || `${files.length - filesBeforeDocs}개 docs 파일 포함`,
+  );
   const pathsSh = fs.readFileSync(path.join(DEPLOY_DIR, 'paths.sh'), 'utf8');
   check('배너 경로 = deploy/paths.sh 의 SCRIPTS_DIR 자리', /^PROJECTS_ROOT="\$HOME\/projects"$/m.test(pathsSh) && /^PROJECT_DIR="\$PROJECTS_ROOT\/alphascope"$/m.test(pathsSh) && /^SCRIPTS_DIR="\$PROJECT_DIR\/scripts"$/m.test(pathsSh));
 }

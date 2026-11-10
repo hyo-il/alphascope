@@ -30,7 +30,7 @@
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import fs from 'node:fs';
 import path from 'node:path';
-import { chromium, type Page } from 'playwright';
+import { chromium, type Locator, type Page } from 'playwright';
 import { NAV_GROUPS, PAGE_TABS } from '../src/types/nav';
 import { rankingSample, usHaltsSample } from './fixtures/usHalts/screenSample';
 import { briefSample, daySample, daysSample, mismatchSample, outlookSample, statusSample } from './fixtures/marketBrief/screenSample';
@@ -86,7 +86,7 @@ function targets(): Target[] {
   /** 접힌 「고급 설정」 을 모두 펼친다(펼치면 안에 또 있을 수 있어 몇 번 돈다) — 접힌 폼 줄도 재기 위해 */
   const expandAdvanced = async (page: Page) => {
     for (let i = 0; i < 4; i++) {
-      const closed = page.locator('button[aria-expanded="false"]', { hasText: '고급 설정' });
+      const closed = page.getByRole('button', { name: '고급 설정', expanded: false });
       const n = await closed.count();
       if (!n) break;
       for (let k = 0; k < n; k++) await closed.first().click().catch(() => {});
@@ -108,23 +108,23 @@ function targets(): Target[] {
     await click('자동매매 설정')(page);
   };
   /** v2.69.0 — 앱 툴팁을 연 채로 잰다(마우스를 대상 가운데에 · 0.3초 뒤 열림 + 여유) */
-  const hoverTip = async (page: Page, selector: string) => {
+  const hoverTip = async (page: Page, target: Locator) => {
     await page.mouse.move(2, 2);
     await page.waitForTimeout(300);
-    const b = await page.locator(selector).first().boundingBox().catch(() => null);
+    const b = await target.first().boundingBox().catch(() => null);
     if (b) await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
     await page.waitForTimeout(500);
   };
   list.push(
     // v2.69.0 — [ⓘ] 설명이 열린 장면(증시 일정 「데이터 출처」 — 앱 툴팁과 같은 상자)
-    { name: 'tooltip-정보-증시일정', hash: '#/calendar', open: async (page) => { await page.waitForTimeout(800); await hoverTip(page, 'button[aria-label="데이터 출처"]'); } },
+    { name: 'tooltip-정보-증시일정', hash: '#/calendar', open: async (page) => { await page.waitForTimeout(800); await hoverTip(page, page.getByRole('button', { name: '데이터 출처', exact: true })); } },
     // v2.69.1 — 앱 전체 툴팁(129차 묶음 A · B · C 대표 자리)이 열린 장면
-    { name: 'tooltip-A-메뉴접기', hash: '#/rules', open: async (page) => { await page.waitForTimeout(800); await hoverTip(page, 'button[aria-label="메뉴 접기"]'); } },
+    { name: 'tooltip-A-메뉴접기', hash: '#/rules', open: async (page) => { await page.waitForTimeout(800); await hoverTip(page, page.getByRole('button', { name: '메뉴 접기', exact: true })); } },
     {
       // 실제 순위(토스 시세 조회만) — 가짜 순위의 없는 종목은 줄 미리보기가 봉을 못 받아 콘솔 오류
       name: 'tooltip-B-실시간순위-관심별',
       hash: '#/ranking',
-      open: async (page: Page) => { await page.waitForTimeout(1500); await hoverTip(page, 'button[aria-label$="관심 목록에 추가"]'); },
+      open: async (page: Page) => { await page.waitForTimeout(1500); await hoverTip(page, page.getByRole('button', { name: /관심 목록에 추가$/ })); },
     },
     {
       name: 'tooltip-C-거래정지-시각',
@@ -133,7 +133,7 @@ function targets(): Target[] {
         await page.route('**/api/us-halts', (r) => r.fulfill({ json: usHaltsSample(Date.now(), true, 3) }).catch(() => {}));
         await page.route('**/api/rankings/live**', (r) => r.fulfill({ json: rankingSample(new URL(r.request().url()).searchParams.get('kind') as 'gainers', Date.now()) }).catch(() => {}));
       },
-      open: async (page: Page) => { await page.waitForTimeout(1200); await hoverTip(page, 'table td.tabular-nums span[data-tip]'); },
+      open: async (page: Page) => { await page.waitForTimeout(1200); await hoverTip(page, page.getByRole('cell', { name: /\d{1,2}:\d{2}/ }).first().locator('span[data-tip]')); },
       after: async (page: Page) => {
         await page.unroute('**/api/us-halts');
         await page.unroute('**/api/rankings/live**');
@@ -156,7 +156,7 @@ function targets(): Target[] {
     { name: 'account-거래내역', hash: '#/portfolio/paper', open: async (page) => { await openAccountDetail(page); await click('거래내역')(page); } },
     // 오른쪽 패널 계좌 탭 — 맨 아래 고정 「총 평가 · 총 손익」(v2.52.0)
     // 끝나면 관심 탭으로 되돌린다 — 계좌 탭이 남으면 다음 대상의 「계좌」 고르기 상자가 둘로 잡힌다
-    { name: 'panel-계좌탭', hash: '#/chart', open: async (page) => { await page.locator('[data-tip="모의투자 계좌"]').click(); await page.waitForTimeout(1500); }, after: async (page) => { await page.locator('[data-tip="관심 목록"]').click().catch(() => undefined); } },
+    { name: 'panel-계좌탭', hash: '#/chart', open: async (page) => { await page.getByTestId('watch-panel').getByRole('button', { name: '계좌', exact: true }).click(); await page.waitForTimeout(1500); }, after: async (page) => { await page.getByTestId('watch-panel').getByRole('button', { name: '관심', exact: true }).click().catch(() => undefined); } },
     { name: 'form-새계좌', hash: '#/portfolio/paper', open: click(/새 계좌/) },
     // 차트 아래 「AI 분석」 탭(간단 · 전체 모드), 검증 기록(AI 검증 계좌 하나 · 빈 화면 · AI 분석 성적표), 퀀트 메뉴 접힘
     ...(['간단', '전체'] as const).map((mode) => ({
@@ -233,7 +233,7 @@ function targets(): Target[] {
       open: async (page: Page) => {
         await page.getByRole('button', { name: '메뉴 접기' }).click();
         await page.waitForTimeout(400);
-        await page.locator('[data-tip="실험실 (테스트)"]').hover();
+        await page.getByRole('navigation').getByRole('button', { name: '실험실', exact: true }).hover();
         await page.waitForTimeout(400);
       },
     },
@@ -794,8 +794,8 @@ function targets(): Target[] {
           await page.waitForTimeout(300);
         }],
         // v2.69.0 — 앱 툴팁이 열린 장면(위 줄 아이콘 버튼 · 화면 오른쪽 끝 · 잘린 긴 이름 · 아래 끝에서 위로 뒤집힘 · 평단 계산기 아이콘)
-        ['툴팁-아이콘버튼', {}, async (page: Page) => hoverTip(page, '[data-asset-settings]')],
-        ['툴팁-오른쪽끝', {}, async (page: Page) => hoverTip(page, '[data-asset-lock]')],
+        ['툴팁-아이콘버튼', {}, async (page: Page) => hoverTip(page, page.locator('[data-asset-settings]'))],
+        ['툴팁-오른쪽끝', {}, async (page: Page) => hoverTip(page, page.locator('[data-asset-lock]'))],
         ['툴팁-긴이름', {}, async (page: Page) => {
           await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
           await page.waitForTimeout(500);
@@ -807,7 +807,7 @@ function targets(): Target[] {
               s.setAttribute('data-measure-cut', '');
             }
           }).catch(() => {});
-          await hoverTip(page, '[data-measure-cut]');
+          await hoverTip(page, page.locator('[data-measure-cut]'));
         }],
         ['툴팁-아래끝위로', {}, async (page: Page) => {
           await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
@@ -1010,7 +1010,7 @@ function targets(): Target[] {
       hash: '#/chart',
       open: async (page) => {
         await page.getByRole('button', { name: '관심 목록 관리 (폴더·순서)' }).click();
-        await page.locator('button:not([type="submit"])', { hasText: '종목 추가' }).first().click();
+        await page.getByRole('dialog').getByRole('button', { name: '종목 추가', exact: true }).click();
         await page.waitForTimeout(500);
       },
     },
@@ -1531,7 +1531,7 @@ function targets(): Target[] {
       name: 'nav-보고있는대메뉴-접힘',
       hash: '#/compare',
       open: async (page) => {
-        await page.locator('nav button[aria-expanded="true"]', { hasText: '차트·비교' }).first().click();
+        await page.getByRole('navigation').getByRole('button', { name: '차트·비교', expanded: true }).click();
         await page.waitForTimeout(400);
       },
     },

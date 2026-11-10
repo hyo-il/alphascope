@@ -139,6 +139,7 @@ function AccountPickerDialog({ title, choices, onAdd, onClose }: { title: string
             className="h-full min-w-0 flex-1 bg-transparent text-xs outline-none"
           />
         </label>
+        {/* 음수 여백(design:lint 허용 목록): 스크롤 상자를 좌우 4px 밖으로 — 안쪽 여백 px-1 과 짝(포커스 테두리 · 줄 바탕이 잘리지 않게) */}
         <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-gutter:stable]">
           <p className="px-1 py-1 text-xs font-medium text-text-secondary">
             시트 계좌 <span className="text-text-muted">{shown.length}</span>
@@ -175,6 +176,7 @@ function AccountPickerDialog({ title, choices, onAdd, onClose }: { title: string
           <p className="text-xs font-semibold text-text-primary">고른 계좌 {picked.length}개</p>
           {picked.length > 0 && <RemoveAllButton onClick={() => setPicked([])} className="ml-auto" />}
         </div>
+        {/* 음수 여백(design:lint 허용 목록): 스크롤 상자를 좌우 4px 밖으로 — 안쪽 여백 px-1 과 짝(포커스 테두리 · 줄 바탕이 잘리지 않게) */}
         <ul data-list className="-mx-1 min-h-0 flex-1 space-y-1 overflow-y-auto px-1 [scrollbar-gutter:stable]">
           {picked.map((k) => (
             <li key={k} className="flex min-h-9 items-center gap-2 rounded-md px-2 py-1 hover:bg-bg-tertiary/60">
