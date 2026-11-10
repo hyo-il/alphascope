@@ -4,12 +4,16 @@
  * 128차 지시서 「꼭 지킬 동작」(시험 이름 앞의 [128-n]) 가운데 DOM 없이 보는 것:
  *   1 여닫기(순수 `ui/tooltip/hover` · 가짜 시계) · 2 자리(순수 `ui/tooltip/place`) · 4 [ⓘ] 옛 여닫기 · 자리 코드 0(소스) ·
  *   5 아이콘 버튼 두 크기(소스) · 6 `design:lint` 규칙(시험용 가짜 파일 — 끝나면 지운다) · 7 목록 문서 줄 수 · 8 서버 · 매매 코드 바뀐 파일 0.
+ * 129차(v2.69.1 · [129-n]): 1 툴팁용 title 0 · 툴팁 아닌 속성 95 그대로 · 바꾼 91곳 · 아이콘 버튼 이름 · 2 lint 기준 목록 0 ·
+ *   3 · 6 서버 · 매매 · 서버가 함께 쓰는 src(가져오기 끝까지 — `lib/serverSharedSrc`) · 배포 · 스위치 바뀐 줄 0.
  * 화면(Playwright)은 `tooltipui:test`.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import ts from 'typescript';
+import { serverSharedSrc } from './lib/serverSharedSrc';
 import { appProgram, iconTextButtons, screenFiles, titleAttrs } from './lib/tooltipTitles';
 import { createTipController, type TipClock } from '../src/components/ui/tooltip/hover';
 import { placeTip, tipMaxWidth } from '../src/components/ui/tooltip/place';
@@ -241,7 +245,7 @@ check(
     const b = lint(bad);
     const g = lint(good);
     const out = b.stdout ?? '';
-    check('[128-6] design:lint — 툴팁용 title 하나 더하면 실패(기준 목록 밖)', b.status === 1 && /bad\.tsx:6 {2}\[툴팁용 title\]/.test(out), out.slice(-600));
+    check('[128-6] [129-2] design:lint — 툴팁용 title 하나 넣으면 실패(기준 목록 없음 — 하나라도 있으면)', b.status === 1 && /bad\.tsx:6 {2}\[툴팁용 title\]/.test(out), out.slice(-600));
     check('[128-6] design:lint — IconButton 정해진 밖 크기(size) · className 높이 · 폭이면 실패', /bad\.tsx:7 {2}\[아이콘 버튼 크기\]/.test(out) && /bad\.tsx:8 {2}\[아이콘 버튼 크기\]/.test(out), out.slice(-600));
     check('[128-6] design:lint — data-tip · 두 크기만 쓴 파일은 통과(지금 코드도 통과)', g.status === 0, (g.stdout ?? '').slice(-400));
   } finally {
@@ -250,14 +254,18 @@ check(
   check('[128-6] 시험용 가짜 파일 지움', !fs.existsSync(dir));
 }
 
-// ── [128-7] 목록 문서 — title= 남은 개수 = 문서 줄 수 · 아이콘 + 글자 버튼 전부 ──
+// ── [128-7] [129-1] 목록 문서(128차 목록 · 129차에 91곳을 바꿈) — 남은 title= = 문서 「바꾸지 않음」 줄 · 바꾼 91곳 · 아이콘 + 글자 버튼 전부 ──
 {
   const common = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: root, encoding: 'utf8' }).trim();
   const doc = path.resolve(common, '../../../docs/analysis/2026-11-10_툴팁_아이콘_목록.md');
-  if (!fs.existsSync(doc)) console.log(`건너뜀  [128-7] 목록 문서 없음(관리 루트 docs/analysis — ${doc})`);
+  if (!fs.existsSync(doc)) console.log(`건너뜀  [128-7] [129-1] 목록 문서 없음(관리 루트 docs/analysis — ${doc})`);
   else {
     const md = fs.readFileSync(doc, 'utf8');
     const section = (n: number) => (md.split(/^## /m).find((s) => s.startsWith(`${n}.`)) ?? '').split('\n').filter((l) => /^\| [^|]+ \| `src\//.test(l)); // 줄 = 「| 화면 | `파일` | …」
+    const cells = (l: string) => l.split(' | ').map((c) => c.replace(/^\| /, '').replace(/ \|$/, '').trim());
+    const rows = section(1).map(cells).map((c) => ({ file: c[1].replace(/`/g, ''), line: Number(c[2]), tag: c[3].replace(/`/g, ''), kind: c[4], to: c[5], value: c[6].replace(/\\\|/g, '|') }));
+    const keep = rows.filter((r) => r.to === '바꾸지 않음');
+    const moved = rows.filter((r) => r.to.startsWith('`data-tip'));
     const program = appProgram();
     const attrs = titleAttrs(program, screenFiles());
     let grepCount = 0;
@@ -269,10 +277,67 @@ check(
       }
     };
     walk(path.join(root, 'src'));
+    const native = attrs.filter((a) => a.native);
+    check(`[129-1] 앱 화면 코드에 툴팁용 title= 0곳(형 정보 · ${attrs.length}곳 중)`, native.length === 0, native.map((a) => `${a.file}:${a.line}`).join(', '));
+    // 툴팁 아닌 부품 속성 95곳 그대로 — 파일 · 요소 · 값이 문서 「바꾸지 않음」 줄과 같다(줄 번호는 위에 한 줄 더한 곳이 있어 보지 않는다)
+    const key = (f: string, t: string, v: string) => `${f}|${t}|${v.replace(/\s+/g, ' ').slice(0, 60)}`;
+    const want = keep.map((r) => key(r.file, r.tag, r.value.replace(/…$/, ''))).sort();
+    const have = attrs.map((a) => key(a.file, a.tag, a.value)).sort();
+    const sameKeep = want.length === have.length && want.every((w, i) => have[i].startsWith(w.slice(0, w.length)));
+    check(`[128-7] [129-1] 남은 title= ${grepCount}곳 = 툴팁 아닌 부품 속성 ${attrs.length}곳 = 문서 「바꾸지 않음」 ${keep.length}줄(95 · 파일 · 요소 · 값 같음)`, grepCount === attrs.length && keep.length === 95 && attrs.length === 95 && sameKeep, `${grepCount} · ${attrs.length} · ${keep.length} · 다른 첫 줄 ${want.find((w, i) => !have[i]?.startsWith(w)) ?? ''}`);
+    // 바꾼 91곳 — 그 줄(앞뒤 한 줄)에 문서가 정한 속성(data-tip · data-tip-clip)이 있다
+    const missing: string[] = [];
+    const texts = new Map<string, string[]>();
+    for (const r of moved) {
+      const lines = texts.get(r.file) ?? fs.readFileSync(path.join(root, r.file), 'utf8').split('\n');
+      texts.set(r.file, lines);
+      const attr = r.to.startsWith('`data-tip-clip') ? /\bdata-tip-clip=/ : /\bdata-tip=/;
+      if (!lines.slice(r.line - 2, r.line + 1).some((l) => attr.test(l))) missing.push(`${r.file}:${r.line}`);
+    }
+    const kinds = { 설명: moved.filter((r) => r.kind === '설명').length, 긴이름: moved.filter((r) => r.kind === '긴 이름 전체 보기').length, 아이콘: moved.filter((r) => r.kind === '아이콘 버튼').length };
+    check(`[129-1] 바꾼 ${moved.length}곳(설명 ${kinds.설명} · 긴 이름 ${kinds.긴이름} → data-tip-clip · 아이콘 버튼 ${kinds.아이콘}) 모두 그 자리에 문서가 정한 속성`, moved.length === 91 && kinds.설명 === 51 && kinds.긴이름 === 15 && kinds.아이콘 === 25 && missing.length === 0, missing.join(', '));
+    // 글자 없는 아이콘 버튼 25곳 — 화면 읽기 이름이 있다(aria-label, 또는 버튼 안에 보이는 글자 · 그림 alt 가 아닌 글자)
+    const noName: string[] = [];
+    const withText: string[] = [];
+    // 보이는 글자 — 글자 노드 · 값 식({p.quantity} 등) · 이름 부품(StockName). 아이콘 부품 · 그림은 글자가 아니다
+    const hasText = (kids: ts.NodeArray<ts.JsxChild>): boolean =>
+      kids.some((c) =>
+        (ts.isJsxText(c) && c.text.trim() !== '') ||
+        (ts.isJsxExpression(c) && !!c.expression && !ts.isJsxElement(c.expression) && !ts.isJsxSelfClosingElement(c.expression) && !/<\w/.test(c.expression.getText())) ||
+        (ts.isJsxSelfClosingElement(c) && c.tagName.getText() === 'StockName') ||
+        (ts.isJsxElement(c) && hasText(c.children)),
+      );
+    for (const r of moved.filter((m) => m.kind === '아이콘 버튼')) {
+      const sf = program.getSourceFile(path.join(root, r.file))!;
+      let el: ts.JsxElement | null = null;
+      const visit = (n: ts.Node) => {
+        if (el) return;
+        if (ts.isJsxElement(n) && n.openingElement.tagName.getText() === 'button') {
+          const a = n.openingElement.attributes.properties.find((p) => ts.isJsxAttribute(p) && p.name.getText() === 'data-tip');
+          if (a && Math.abs(sf.getLineAndCharacterOfPosition(a.getStart()).line + 1 - r.line) <= 1) el = n;
+        }
+        ts.forEachChild(n, visit);
+      };
+      visit(sf);
+      const e = el as ts.JsxElement | null;
+      if (!e) {
+        noName.push(`${r.file}:${r.line}(버튼 못 찾음)`);
+        continue;
+      }
+      if (e.openingElement.attributes.properties.some((p) => ts.isJsxAttribute(p) && p.name.getText() === 'aria-label')) continue;
+      if (hasText(e.children)) withText.push(`${r.file.replace('src/components/', '')}:${r.line}`);
+      else noName.push(`${r.file}:${r.line}`);
+    }
+    check(`[129-1] 글자 없는 아이콘 버튼 25곳 모두 aria-label(안에 글자가 보이는 ${withText.length}곳은 그 글자가 이름 — ${withText.join(' · ')})`, noName.length === 0, noName.join(', '));
     const buttons = iconTextButtons(screenFiles());
-    check(`[128-7] 목록 문서 1 — title= 남은 ${grepCount}곳 = 문서 ${section(1).length}줄(형 분류 ${attrs.length}곳)`, grepCount === attrs.length && section(1).length === grepCount, `${grepCount} · ${attrs.length} · ${section(1).length}`);
     check(`[128-7] 목록 문서 2 — 아이콘 + 글자 버튼 ${buttons.length}곳 = 문서 ${section(2).length}줄`, section(2).length === buttons.length, `${buttons.length} · ${section(2).length}`);
   }
+}
+
+// ── [129-2] lint 기준 목록 코드 0 ──
+{
+  const lintSrc = code('scripts/designLint.ts') + code('scripts/lib/tooltipTitles.ts');
+  check('[129-2] 기준 목록 파일 · 코드 0(tooltipTitleBaseline.json 없음 · 읽는 코드 없음)', !fs.existsSync(path.join(root, 'scripts/fixtures/tooltipTitleBaseline.json')) && !/Baseline|BASELINE|baseline/.test(lintSrc));
 }
 
 // ── [128-8] 서버 · 매매 · 주문 · 로그인 코드 바뀐 파일 0 · designCheck 판정 부분 0(이번 차수 v2.69.0 동안만) ──
@@ -285,6 +350,25 @@ check(
     const dc = execFileSync('git', ['diff', '-U0', '42adc73..HEAD', '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' });
     const removed = dc.split('\n').filter((l) => /^-(?!--)/.test(l));
     check('[128-8] designCheck.ts — 지운 · 바꾼 줄 0(장면 더하기만 · 판정 부분 그대로)', removed.length === 0, removed.slice(0, 3).join(' / '));
+  }
+}
+
+// ── [129-3] [129-6] 서버 · 매매 · 주문 · 로그인 코드 · 서버가 함께 쓰는 src(가져오기 끝까지) 바뀐 줄 0 · designCheck 판정 부분 0(129차 v2.69.1 동안만) ──
+{
+  const head = fs.readFileSync(path.join(root, 'src/data/changelog.ts'), 'utf8').match(/version: '(v[\d.]+)'/)?.[1];
+  const BASE = '18a9099';
+  if (head !== 'v2.69.0' && head !== 'v2.69.1') console.log(`건너뜀  [129-6] 지금 버전 ${head} — 129차(v2.69.1) 범위 시험`);
+  else {
+    const diff = (...p: string[]) => execFileSync('git', ['diff', '--name-only', `${BASE}..HEAD`, '--', ...p], { cwd: root, encoding: 'utf8' }).trim();
+    check(`[129-6] git diff ${BASE}..HEAD -- server python src/services = 0개`, diff('server', 'python', 'src/services') === '', diff('server', 'python', 'src/services'));
+    const shared = serverSharedSrc();
+    const touched = diff(...shared.closure);
+    check(`[129-6] 서버가 함께 쓰는 src ${shared.direct.length}개 + 그 가져오기 파일(전체 ${shared.closure.length}개) 바뀐 줄 0`, shared.direct.length === 54 && touched === '', `${shared.direct.length} · ${touched}`);
+    const ops = diff('deploy', 'db', 'scripts/lib/testServerEnv.ts', 'scripts/lib/requireCopyDb.ts', 'scripts/lib/requireTossKeys.ts', '.env.example');
+    check('[129-3] 배포 · DB 정의 · 시험 서버 스위치 · 사본 DB 막기 바뀐 파일 0', ops === '', ops);
+    const dc = execFileSync('git', ['diff', '-U0', `${BASE}..HEAD`, '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' });
+    const removed = dc.split('\n').filter((l) => /^-(?!--)/.test(l));
+    check('[129-6] designCheck.ts — 지운 · 바꾼 줄 0(장면 더하기만 · 판정 부분 그대로)', removed.length === 0, removed.slice(0, 3).join(' / '));
   }
 }
 

@@ -89,16 +89,6 @@ export function titleAttrs(program: ts.Program, files: string[]): TitleAttr[] {
   return out;
 }
 
-/** 화면 코드의 툴팁용 title 개수 — 파일마다 */
-export function nativeTitleCounts(attrs: TitleAttr[]): Record<string, number> {
-  const by: Record<string, number> = {};
-  for (const a of attrs) if (a.native) by[a.file] = (by[a.file] ?? 0) + 1;
-  return by;
-}
-
-/** 기준 목록(128차의 남은 곳 — 129차에서 줄여 0 으로) */
-export const TITLE_BASELINE_FILE = path.join(ROOT, 'scripts/fixtures/tooltipTitleBaseline.json');
-
 export interface SizeHit {
   file: string;
   line: number;
