@@ -6,6 +6,7 @@
  * 123차 · v2.67.4([123-n]): 규칙 창 고급 설정이 저장 줄에 가리지 않음 · 다른 창 모양 그대로 · 시황 줄 간격 · 「VIX 공포지수」 한 줄 · 카드 높이.
  * 124차 · v2.68.0([124-6]): 규칙 창 고급 설정을 펼치면 그 자리로 스크롤 · 접을 때 · 처음 열 때는 안 함 · 동작 줄이기면 바로.
  * 127차 · v2.68.3([127-2]): 매수 판단 · 급등 탐지 · 검증 기록 탭 줄 아래 가림 띠(공용 `ui/ScrollTopShade`) — 맨 위 겹침 0 · 스크롤 때 잘린 끝 덮음.
+ * 129차 · v2.69.1: [122-2] 폴더를 바꾸는 단계는 실제 상태(종목 줄 · 추가 칸 닫힘)를 기다린다 · 금지어 검사에 툴팁 글(data-tip) 포함.
  * Vite + Playwright, `/api` 는 모두 `page.route` 가짜(만든 값) — 구글 · 토스 · 서버 호출 0. 새 종목 창 줄([122-3])은 `assettradeui:test`.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
@@ -207,7 +208,9 @@ try {
       await page.locator('input[aria-label="AAPL 선택"]').waitFor({ timeout: 5000 });
       const words = () => page.evaluate(() => {
         const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
-        const attrs = [...dialog.querySelectorAll('[title],[aria-label],[placeholder]')].flatMap((e) => ['title', 'aria-label', 'placeholder'].map((a) => e.getAttribute(a) ?? ''));
+        // 툴팁 글(data-tip · data-tip-clip — 129차에 title 에서 옮김)까지 본다
+        const names = ['title', 'aria-label', 'placeholder', 'data-tip', 'data-tip-clip'];
+        const attrs = [...dialog.querySelectorAll('[title],[aria-label],[placeholder],[data-tip],[data-tip-clip]')].flatMap((e) => names.map((a) => e.getAttribute(a) ?? ''));
         return `${dialog.innerText} ${attrs.join(' ')}`;
       });
       // 「폴더 없음」 을 고른 채 종목 추가 칸을 연다 — 저장 이름(기본 폴더)이 안내 글자로 나오면 안 된다
@@ -225,9 +228,22 @@ try {
       await row.click();
       check(`[122-4] ${size.width}px — 관심 목록 줄 체크 풀림 그대로`, !(await row.isChecked()));
 
+      // 폴더를 바꾸면 열려 있던 [종목 추가] 칸은 닫힌다(WatchlistManager 의 정리 effect) — 「'반도체' 에 추가」 안내는 그 effect 전 한 프레임만
+      // 그려지므로 그 순간을 기다리지 않는다(129차 G — 한 프레임을 놓치면 5초 넘김 실패). 실제 상태: 폴더가 골라지고 칸이 닫힘 → 다시 열면 그 폴더 이름.
       await page.locator('[role="dialog"]').getByText('반도체', { exact: true }).first().click();
-      await page.getByPlaceholder("'반도체' 에 추가 (구글, 애플, AAPL…)").waitFor({ timeout: 5000 });
+      await page.locator('input[aria-label="NVDA 선택"]').waitFor({ timeout: 5000 }); // 「반도체」 의 종목 줄 = 폴더가 골라짐
+      const closed = await page
+        .getByPlaceholder(/에 추가 \(구글/)
+        .waitFor({ state: 'detached', timeout: 5000 })
+        .then(() => true, () => false);
+      check(`[122-2] ${size.width}px — 폴더를 바꾸면 열려 있던 종목 추가 칸은 닫힘(지금 동작 그대로)`, closed);
+      await page.locator('button:not([type="submit"])', { hasText: '종목 추가' }).first().click();
+      const folderInput = page.getByPlaceholder("'반도체' 에 추가 (구글, 애플, AAPL…)");
+      await folderInput.waitFor({ timeout: 5000 });
       check(`[122-2] ${size.width}px — 폴더를 고르면 종목 추가 안내에 그 폴더 이름 그대로`, true);
+      // 추가 칸을 다시 닫아 아래 단계는 전과 같은 상태(창 안 [취소] 하나 — 삭제 확인 창의 것)
+      await folderInput.locator('xpath=ancestor::div[.//button[normalize-space()="취소"]][1]').getByRole('button', { name: '취소' }).click();
+      await folderInput.waitFor({ state: 'detached', timeout: 5000 });
       await page.locator('[aria-label="반도체 폴더 삭제"]').click({ force: true });
       const title = page.getByText("'반도체' 폴더 삭제", { exact: true });
       await title.waitFor({ timeout: 5000 });

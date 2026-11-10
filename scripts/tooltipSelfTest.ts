@@ -349,8 +349,12 @@ check(
     const diff = (...p: string[]) => execFileSync('git', ['diff', '--name-only', `${BASE}..HEAD`, '--', ...p], { cwd: root, encoding: 'utf8' }).trim();
     check(`[129-6] git diff ${BASE}..HEAD -- server python src/services = 0개`, diff('server', 'python', 'src/services') === '', diff('server', 'python', 'src/services'));
     const shared = serverSharedSrc();
-    const touched = diff(...shared.closure);
-    check(`[129-6] 서버가 함께 쓰는 src ${shared.direct.length}개 + 그 가져오기 파일(전체 ${shared.closure.length}개) 바뀐 줄 0`, shared.direct.length === 54 && touched === '', `${shared.direct.length} · ${touched}`);
+    // 업데이트 내역(changelog.ts)은 서버가 버전 표시에 읽어 54개 안이지만, 문서 4종(지시서 H)으로 맨 앞 항목을 더한다 — 더하기만(지운 줄 0) 따로 본다
+    const CHANGELOG = 'src/data/changelog.ts';
+    const touched = diff(...shared.closure.filter((f) => f !== CHANGELOG));
+    check(`[129-6] 서버가 함께 쓰는 src ${shared.direct.length}개 + 그 가져오기 파일(전체 ${shared.closure.length}개 · 업데이트 내역 밖) 바뀐 줄 0`, shared.direct.length === 54 && touched === '', `${shared.direct.length} · ${touched}`);
+    const cl = execFileSync('git', ['diff', '-U0', `${BASE}..HEAD`, '--', CHANGELOG], { cwd: root, encoding: 'utf8' }).split('\n');
+    check('[129-6] 업데이트 내역(changelog.ts)은 맨 앞 항목 더하기만(지운 · 바꾼 줄 0)', cl.filter((l) => /^-(?!--)/.test(l)).length === 0);
     const ops = diff('deploy', 'db', 'scripts/lib/testServerEnv.ts', 'scripts/lib/requireCopyDb.ts', 'scripts/lib/requireTossKeys.ts', '.env.example');
     check('[129-3] 배포 · DB 정의 · 시험 서버 스위치 · 사본 DB 막기 바뀐 파일 0', ops === '', ops);
     const dc = execFileSync('git', ['diff', '-U0', `${BASE}..HEAD`, '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' });
