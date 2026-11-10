@@ -184,7 +184,9 @@ function targets(): Target[] {
           const pad = document.createElement('div');
           pad.style.height = '1500px';
           sc.appendChild(pad);
-          const first = sc.children[1] as HTMLElement | undefined;
+          // 첫 칸 — 탭 내용을 감싼 상자(급등 탐지 · 검증 기록)면 그 안의 첫 칸
+          const wrap = sc.children[1] as HTMLElement | undefined;
+          const first = wrap && wrap.getBoundingClientRect().height > 300 ? ((wrap.firstElementChild as HTMLElement | null) ?? wrap) : wrap;
           if (first) sc.scrollTop = first.getBoundingClientRect().bottom - sc.getBoundingClientRect().top - 3;
         }).catch(() => {});
         await page.waitForTimeout(200);
