@@ -235,7 +235,8 @@ export default function SideNav({
 
   return (
     <nav className="flex w-[156px] shrink-0 flex-col border-r border-border bg-bg-secondary">
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border pl-3 pr-2">
+      {/* 오른쪽 2px — [메뉴 접기](아이콘 버튼 sm 24px) 옆에 「AlphaScope」 가 말줄임 없이 들어가게(아이콘 자리는 전과 같음) */}
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border pl-3 pr-0.5">
         <button
           type="button"
           onClick={onGoHome}
