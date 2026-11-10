@@ -16,7 +16,7 @@ export default function RunControls({ status, starting, onRun }: { status: Marke
         한국 시간 13시 전에 누르면 오전판(미국 증시 · 금리 · 달러 · 금 · 원유 등 13가지, 국내 · 해외 뉴스), 13시부터는 오후판(코스피 · 코스닥 마감 · VIX 공포지수, 국내 뉴스)을 만듭니다.
       </InfoTip>
       {status.geminiDisabledReason && (
-        <span className="text-caption text-warning" title={status.geminiDisabledReason}>
+        <span className="text-caption text-warning" data-tip={status.geminiDisabledReason}>
           <WarnIcon />
           AI 꺼짐 — 데이터만 만듭니다
         </span>

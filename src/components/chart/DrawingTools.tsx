@@ -91,7 +91,7 @@ export default function DrawingTools({
             type="button"
             role="radio"
             aria-checked={activeTool === tool.type}
-            title={tool.hint}
+            data-tip={tool.hint}
             onClick={() => onSelect(tool.type)}
             className={`whitespace-nowrap rounded-md px-2 py-0.5 text-xs transition-colors ${
               activeTool === tool.type ? 'bg-bg-elevated font-medium text-text-primary' : 'text-text-secondary hover:text-text-primary'

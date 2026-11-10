@@ -78,7 +78,7 @@ function Row({
     <button
       type="button"
       onClick={() => onPick?.(level.price)}
-      title={`${label} — 빠른주문 가격 칸에 넣기`}
+      data-tip={`${label} — 빠른주문 가격 칸에 넣기`}
       aria-label={`호가 ${label} — 빠른주문 가격 칸에 넣기`}
       className={`flex w-[92px] shrink-0 flex-col items-center justify-center rounded-md px-1 transition-colors hover:bg-bg-elevated ${
         isBest ? 'bg-bg-tertiary/60' : ''

@@ -38,7 +38,7 @@ export default function SectorRanking({
               type="button"
               onClick={() => onSelect(active ? null : s.sector)}
               disabled={off}
-              title={off ? '[보기] 에서 끈 분야입니다' : undefined}
+              data-tip={off ? '[보기] 에서 끈 분야입니다' : undefined}
               className={`w-full px-3 py-2 text-left transition-colors enabled:hover:bg-bg-tertiary/60 disabled:cursor-default ${active ? 'bg-bg-tertiary' : ''}`}
               aria-pressed={active}
             >
@@ -50,14 +50,14 @@ export default function SectorRanking({
                 <span className={`text-xs font-medium tabular-nums ${tone(s.capReturn)}`}>{pct(s.capReturn)}</span>
               </div>
               <div className="ml-5 flex flex-wrap gap-x-2 text-caption tabular-nums text-text-muted">
-                <span title="동일 가중(단순 평균) 수익률">동일 {pct(s.equalReturn)}</span>
-                <span title="오른 종목 / 계산한 종목">
+                <span data-tip="동일 가중(단순 평균) 수익률">동일 {pct(s.equalReturn)}</span>
+                <span data-tip="오른 종목 / 계산한 종목">
                   상승 {s.up}/{s.counted}
                 </span>
-                <span className={tone(s.vsMarket)} title="시장 평균(시총 가중) 대비">
+                <span className={tone(s.vsMarket)} data-tip="시장 평균(시총 가중) 대비">
                   시장 대비 {formatSigned(s.vsMarket, 2, '%p')}
                 </span>
-                {s.excluded > 0 && <span title="N거래일 전 종가가 없어 뺀 종목">제외 {s.excluded}</span>}
+                {s.excluded > 0 && <span data-tip="N거래일 전 종가가 없어 뺀 종목">제외 {s.excluded}</span>}
               </div>
               <div className="ml-5 mt-0.5 flex flex-wrap gap-x-2 text-caption text-text-secondary">
                 {s.top.map((t) => (
@@ -66,7 +66,7 @@ export default function SectorRanking({
                   <span
                     key={t.symbol}
                     className="inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-x-1"
-                    title={`섹터 수익률 기여 ${formatSigned(t.contribution, 2, '%p', { plus: false })}`}
+                    data-tip={`섹터 수익률 기여 ${formatSigned(t.contribution, 2, '%p', { plus: false })}`}
                   >
                     <StockName symbol={t.symbol} name={t.name ?? undefined} size="sm" wrap />
                     <span className={`whitespace-nowrap tabular-nums ${tone(t.returnPct)}`}>{pct(t.returnPct)}</span>

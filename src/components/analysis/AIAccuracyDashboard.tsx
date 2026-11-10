@@ -288,7 +288,7 @@ function AccuracyReport({ report }: { report: Report }) {
                 <span
                   key={index}
                   /* 칩이 좁아 이름을 적을 자리가 없다 — 호버 툴팁으로 보여 준다 */
-                  title={`${pair.symbol}${stockNameOf(pair.symbol) ? ` ${stockNameOf(pair.symbol)}` : ''}`}
+                  data-tip={`${pair.symbol}${stockNameOf(pair.symbol) ? ` ${stockNameOf(pair.symbol)}` : ''}`}
                   className={`rounded px-2 py-0.5 text-xs ${pair.agreed ? 'bg-bullish/15 text-bullish' : 'bg-warning/15 text-warning'}`}
                 >
                   {pair.symbol} {pair.date.slice(5)}

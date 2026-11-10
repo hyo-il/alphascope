@@ -97,7 +97,7 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
                   </div>
                   {note && (
                     // 긴 사유를 말줄임으로 숨기지 않는다 — 줄바꿈한다
-                    <div className="break-keep text-text-muted" title={note.reason}>
+                    <div className="break-keep text-text-muted" data-tip={note.reason}>
                       최근 판단: {note.symbol} {ACTION_LABEL[note.action] ?? note.action} — {note.reason}
                     </div>
                   )}

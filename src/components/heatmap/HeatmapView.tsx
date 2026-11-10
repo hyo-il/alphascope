@@ -637,7 +637,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
             >
               {s.rect.w > 40 && (
                 <span
-                  title={s.name}
+                  data-tip-clip={s.name}
                   style={{ paddingTop: HEATMAP_SECTOR_PAD_Y, paddingBottom: HEATMAP_SECTOR_PAD_Y }}
                   className={`block truncate px-1 text-caption font-medium leading-4 ${
                     focusSector === s.name ? 'text-accent' : 'text-text-secondary'
@@ -744,7 +744,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         {legend.map((v) => (
           <span
             key={v.key}
-            title={v.title}
+            data-tip={v.title}
             style={{ textShadow: TILE_TEXT_SHADOW }}
             className={`flex h-4 w-8 items-center justify-center text-text-primary ${v.cls}`}
           >

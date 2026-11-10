@@ -139,7 +139,7 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
               <td className="py-1 text-text-secondary">
                 {r.date}
                 {r.provisional && (
-                  <span className="ml-1 rounded bg-warning/15 px-1 text-caption text-warning" title="장중 잠정치 — 개인·기타법인은 그날 저녁 확정치 때 채워집니다">
+                  <span className="ml-1 rounded bg-warning/15 px-1 text-caption text-warning" data-tip="장중 잠정치 — 개인·기타법인은 그날 저녁 확정치 때 채워집니다">
                     잠정
                   </span>
                 )}

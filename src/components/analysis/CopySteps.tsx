@@ -174,7 +174,7 @@ export default function CopySteps({
 
   const stepCard = (n: number, description: string, children: React.ReactNode) =>
     horizontal ? (
-      <li className="flex min-w-0 flex-col gap-1.5 rounded-md bg-bg-tertiary/50 p-2.5" title={description}>
+      <li className="flex min-w-0 flex-col gap-1.5 rounded-md bg-bg-tertiary/50 p-2.5" data-tip={description}>
         <div className="flex items-center gap-2">
           <StepBadge n={n} />
           <p className="text-caption font-medium text-text-secondary">{SHORT_TITLE[n]}</p>

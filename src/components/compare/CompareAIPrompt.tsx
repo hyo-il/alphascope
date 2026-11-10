@@ -80,7 +80,7 @@ export default function CompareAIPrompt({ summaries, loading }: Props) {
               key={h.id}
               type="button"
               onClick={() => setHorizon(h.id)}
-              title={h.period}
+              data-tip={h.period}
               className={`rounded border px-2 py-0.5 text-caption transition-colors ${
                 horizon === h.id
                   ? 'border-transparent bg-bg-elevated font-medium text-text-primary'

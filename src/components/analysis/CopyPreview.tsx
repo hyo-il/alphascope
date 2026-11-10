@@ -65,7 +65,8 @@ export default function CopyPreview({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title="크게 보기"
+        data-tip="크게 보기"
+        aria-label="크게 보기"
         className="block w-full overflow-hidden rounded border border-border transition-colors hover:border-text-muted"
       >
         <img src={url} alt="복사될 차트" className="block h-auto w-full" />

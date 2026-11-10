@@ -236,7 +236,7 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
         onPointerUp={onPointerUp}
         /* 더블클릭하면 기본 높이로 돌아온다 — 잘못 끌었을 때 되돌리는 가장 빠른 길 */
         onDoubleClick={resetDefault}
-        title="드래그: 높이 조절 · 더블클릭: 기본 높이"
+        data-tip="드래그: 높이 조절 · 더블클릭: 기본 높이"
         className={`h-1 shrink-0 cursor-row-resize transition-colors ${
           dragging ? 'bg-accent' : 'bg-transparent hover:bg-accent/40'
         }`}

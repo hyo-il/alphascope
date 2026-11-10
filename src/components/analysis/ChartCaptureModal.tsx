@@ -400,7 +400,7 @@ export default function ChartCaptureModal({
                     key={value}
                     type="button"
                     onClick={() => setQuality(value)}
-                    title={hint}
+                    data-tip={hint}
                     className={`rounded border px-2 py-0.5 transition-colors ${
                       quality === value
                         ? 'border-text-primary font-medium text-text-primary'

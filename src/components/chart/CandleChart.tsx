@@ -836,7 +836,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
               drawingsRef.current?.removeDrawing(selectedAnchor.id);
               setSelectedAnchor(null);
             }}
-            title="이 드로잉 삭제 (Delete)"
+            data-tip="이 드로잉 삭제 (Delete)"
             className="absolute z-20 flex items-center gap-1 rounded-full bg-danger px-2.5 py-1 text-caption font-semibold text-white shadow-lg transition-transform hover:scale-105"
             style={{ left: selectedAnchor.x - 24, top: selectedAnchor.y - 30 }}
           >

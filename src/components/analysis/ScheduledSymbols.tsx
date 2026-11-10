@@ -39,12 +39,12 @@ function Summary({ status }: { status: ScheduledStatus }) {
         <p className="text-text-muted">아직 실행한 적이 없습니다.</p>
       )}
       {last && last.done.length > 0 && (
-        <p className="truncate text-text-muted" title={last.done.map((d) => `${d.symbol} ${SIGNAL_LABEL[d.signal as keyof typeof SIGNAL_LABEL] ?? d.signal}`).join(' · ')}>
+        <p className="truncate text-text-muted" data-tip-clip={last.done.map((d) => `${d.symbol} ${SIGNAL_LABEL[d.signal as keyof typeof SIGNAL_LABEL] ?? d.signal}`).join(' · ')}>
           {last.done.map((d) => `${d.symbol} ${SIGNAL_LABEL[d.signal as keyof typeof SIGNAL_LABEL] ?? d.signal}`).join(' · ')}
         </p>
       )}
       {last && last.failed.length > 0 && (
-        <p className="truncate text-danger" title={last.failed.map((f) => `${f.symbol}: ${f.error}`).join('\n')}>
+        <p className="truncate text-danger" data-tip-clip={last.failed.map((f) => `${f.symbol}: ${f.error}`).join('\n')}>
           실패: {last.failed.map((f) => `${f.symbol}(${f.error})`).join(' · ')}
         </p>
       )}

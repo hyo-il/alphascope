@@ -270,7 +270,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
                         type="button"
                         onClick={() => onSelectSymbol(e.symbol!)}
                         className="min-w-0 text-left hover:underline"
-                        title="이 종목 차트로"
+                        data-tip="이 종목 차트로"
                       >
                         <StockName symbol={e.symbol} name={e.name ?? undefined} size="sm" className="text-text-primary" />
                         <span className="block text-text-muted">{e.label}</span>

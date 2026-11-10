@@ -357,7 +357,7 @@ export default function ManualAnalysis({
                     key={h.id}
                     type="button"
                     onClick={() => setHorizon(h.id)}
-                    title={h.directive}
+                    data-tip={h.directive}
                     className={`rounded-md border px-1 py-1.5 text-center transition-colors ${
                       horizon === h.id
                         ? 'border-transparent bg-bg-elevated font-medium text-text-primary'

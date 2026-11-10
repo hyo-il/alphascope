@@ -59,7 +59,7 @@ export default function CompareChart({
         <span className="flex min-w-0 items-baseline gap-1 text-sm font-semibold">
           {name ? (
             <>
-              <span className="truncate" title={name}>{name}</span>
+              <span className="truncate" data-tip-clip={name}>{name}</span>
               <span className="shrink-0">({symbol})</span>
             </>
           ) : (
