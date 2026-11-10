@@ -4,6 +4,7 @@
  *
  * 지시서 「꼭 지킬 동작」(시험 이름 앞의 [122-n]): 비교 검색칸 안내 글자 잘림 · 관심 목록 말 「폴더」 · 저장 값 그대로 · 체크박스 세로 가운데 · 규칙 · 급등 설정 칸 왼쪽 끝.
  * 123차 · v2.67.4([123-n]): 규칙 창 고급 설정이 저장 줄에 가리지 않음 · 다른 창 모양 그대로 · 시황 줄 간격 · 「VIX 공포지수」 한 줄 · 카드 높이.
+ * 124차 · v2.68.0([124-6]): 규칙 창 고급 설정을 펼치면 그 자리로 스크롤 · 접을 때 · 처음 열 때는 안 함 · 동작 줄이기면 바로.
  * Vite + Playwright, `/api` 는 모두 `page.route` 가짜(만든 값) — 구글 · 토스 · 서버 호출 0. 새 종목 창 줄([122-3])은 `assettradeui:test`.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
@@ -302,6 +303,54 @@ try {
       check(`[123-1] ${size.width}px — 고급 설정 마지막 항목 아래 끝 ≤ 저장 줄 위 끝(겹침 0)`, end.lastBottom <= end.footerTop && end.lastBottom <= end.bodyBottom, JSON.stringify(end));
       check(`[123-1] ${size.width}px — 저장 줄이 창 맨 아래에 보임 · 페이지는 스크롤 없음`, end.footerBottom <= end.vh && Math.abs(end.footerBottom - end.panelBottom) <= 1 && end.pageOverflow <= 0, JSON.stringify(end));
       check(`[123-1] ${size.width}px — [저장] 버튼 보임`, await dialog.getByRole('button', { name: '저장', exact: true }).isVisible());
+      await ctx.close();
+    }
+
+    // 124차 — 규칙 창 고급 설정을 펼치면 그 머리가 창 안 보이는 범위 위쪽으로 · 접을 때 · 처음 열 때는 스크롤 안 함
+    for (const reduce of [false, true]) {
+      const { page, ctx } = await open(browser, '#/rules', size);
+      if (reduce) await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.getByRole('button', { name: '새 규칙 만들기' }).first().click({ timeout: 10_000 });
+      const dialog = page.locator('[role="dialog"]');
+      await dialog.locator('[data-rule-adv-head]').waitFor({ timeout: 5000 });
+      // 창 안 스크롤 영역 = 본문(머리 줄 · 저장 줄 사이) · 머리 위치는 그 보이는 범위 위 끝에서 잰 px
+      const where = () => page.evaluate(() => {
+        const panel = document.querySelector('[role="dialog"] > div') as HTMLElement;
+        const body = panel.children[1] as HTMLElement;
+        const head = document.querySelector('[data-rule-adv-head]') as HTMLElement;
+        const b = body.getBoundingClientRect();
+        return { scrollTop: body.scrollTop, headTop: head.getBoundingClientRect().top - b.top, bodyH: b.height, pageScroll: document.scrollingElement ? document.scrollingElement.scrollTop : 0 };
+      });
+      const first = await where();
+      const tag = `${size.width}px${reduce ? ' · 동작 줄이기' : ''}`;
+      if (!reduce) check(`[124-6] ${tag} — 처음 열 때는 스크롤 안 함(맨 위)`, first.scrollTop === 0, JSON.stringify(first));
+      await dialog.getByRole('button', { name: '고급 설정' }).click();
+      // 부드러운 스크롤은 끝날 때까지 기다린다 · 동작 줄이기는 바로(다음 그리기 한 번 뒤)
+      if (reduce) await page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
+      else await page.waitForFunction(() => {
+        const w = window as unknown as { __last?: number; __same?: number };
+        const body = (document.querySelector('[role="dialog"] > div') as HTMLElement).children[1] as HTMLElement;
+        w.__same = w.__last === body.scrollTop ? (w.__same ?? 0) + 1 : 0;
+        w.__last = body.scrollTop;
+        return body.scrollTop > 0 && (w.__same ?? 0) >= 5;
+      }, undefined, { timeout: 5000, polling: 50 });
+      const opened = await where();
+      check(`[124-6] ${tag} — 펼치면 고급 설정 머리가 창 안 보이는 범위 위쪽(위 끝에서 0~16px)`, opened.headTop >= 0 && opened.headTop <= 16 && opened.scrollTop > first.scrollTop, JSON.stringify({ first, opened }));
+      check(`[124-6] ${tag} — 뒤 페이지는 스크롤 안 함`, opened.pageScroll === first.pageScroll, JSON.stringify(opened));
+      if (!reduce) {
+        // 접을 때 — 스크롤 위치 그대로(맨 위로 올려 두고 접어 본다 · 접으며 영역이 줄어 생기는 브라우저 자리 맞춤을 빼려고)
+        await page.evaluate(() => (((document.querySelector('[role="dialog"] > div') as HTMLElement).children[1] as HTMLElement).scrollTop = 0));
+        const before = await where();
+        await dialog.getByRole('button', { name: '접기' }).click();
+        await page.waitForTimeout(600);
+        const closed = await where();
+        check(`[124-6] ${tag} — 접을 때 스크롤 위치 그대로(머리 자리 그대로)`, closed.scrollTop === before.scrollTop && Math.abs(closed.headTop - before.headTop) < 1, JSON.stringify({ before, closed }));
+        // 다시 펼치면 또 스크롤
+        await dialog.getByRole('button', { name: '고급 설정' }).click();
+        await page.waitForTimeout(900);
+        const again = await where();
+        check(`[124-6] ${tag} — 다시 펼치면 다시 그 자리로`, again.headTop >= 0 && again.headTop <= 16, JSON.stringify(again));
+      }
       await ctx.close();
     }
 

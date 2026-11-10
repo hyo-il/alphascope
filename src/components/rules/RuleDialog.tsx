@@ -1,5 +1,5 @@
 import { MARKET_REF } from '../../utils/market';
-import { useId, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Pencil } from 'lucide-react';
 import {
   BUY_KEYS,
@@ -108,6 +108,20 @@ const CHECKS: Record<Exclude<BuyKey, 'riskReward' | 'maCross' | 'rsiRebound'>, (
   volume: () => ['최근 3일 거래량 ≥ 20일 평균의 120%', '내린 날 거래량 < 오른 날 거래량', 'OBV 가 10일 전보다 높음'],
 };
 
+/**
+ * 고급 설정 머리를 창 안 스크롤 영역의 보이는 범위 맨 위(여백 8px)로 — 가장 가까운 세로 스크롤 조상만 움직인다(뒤 페이지는 그대로).
+ * 「동작 줄이기」(`prefers-reduced-motion`)면 부드럽게 하지 않고 바로 이동.
+ */
+function scrollHeadToTop(head: HTMLElement | null) {
+  if (!head) return;
+  let box = head.parentElement;
+  while (box && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement;
+  if (!box) return;
+  const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const top = box.scrollTop + head.getBoundingClientRect().top - box.getBoundingClientRect().top - 8;
+  box.scrollTo({ top: Math.max(0, top), behavior: reduce ? 'auto' : 'smooth' });
+}
+
 const num = (text: string): number => (text.trim() === '' ? Number.NaN : Number(text));
 const shown = (v: number) => (Number.isFinite(v) ? v : '');
 
@@ -135,7 +149,17 @@ export default function RuleDialog({
   /** 이름 오류는 고친 뒤나 [저장] 을 누른 뒤에만 보인다 — 새 규칙을 열자마자 빨간 글자가 뜨지 않게 */
   const [nameTouched, setNameTouched] = useState(false);
   const advId = useId();
+  /** 고급 설정 머리(펼침 버튼 줄) — 펼칠 때 창 안 스크롤을 이 자리로(v2.68.0) */
+  const advHeadRef = useRef<HTMLDivElement>(null);
+  /** 방금 펼쳤나 — 펼칠 때만 스크롤(접을 때 · 처음 열 때는 안 함) */
+  const scrollToAdv = useRef(false);
   const locked = !editing || saving;
+
+  useEffect(() => {
+    if (!advanced || !scrollToAdv.current) return;
+    scrollToAdv.current = false;
+    scrollHeadToTop(advHeadRef.current);
+  }, [advanced]);
 
   const errors = useMemo(() => ruleFieldErrors(body), [body]);
   const nameError = ruleNameError(name);
@@ -333,7 +357,17 @@ export default function RuleDialog({
             </p>
           ))}
 
-          <DisclosureButton open={advanced} onToggle={() => setAdvanced((v) => !v)} label="고급 설정" controls={advId} />
+          <div ref={advHeadRef} data-rule-adv-head>
+            <DisclosureButton
+              open={advanced}
+              onToggle={() => {
+                if (!advanced) scrollToAdv.current = true;
+                setAdvanced(!advanced);
+              }}
+              label="고급 설정"
+              controls={advId}
+            />
+          </div>
           {advanced && (
             <div id={advId} className="space-y-4 rounded-lg bg-bg-primary/40 p-3">
               <p className="text-caption text-text-muted">
