@@ -30,6 +30,7 @@ import {
   PRICE_SCALE_MARGINS,
   dateTimeOptions,
   isIntraday,
+  keepOutOfAutoscale,
   CANDLE_SERIES_OPTIONS,
   priceFormatOf,
   COLORS,
@@ -423,7 +424,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       );
 
       if (!drawing) return false;
-      drawings.addDrawing(drawing);
+      drawings.addDrawing(keepOutOfAutoscale(drawing));
       return true;
     };
 

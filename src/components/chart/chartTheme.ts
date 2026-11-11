@@ -79,6 +79,19 @@ export const VOLUME_SCALE_MARGINS = { top: 0.12, bottom: 0 };
  */
 export const PANE_EDGE_LABELS = { entireTextOnly: true };
 
+/**
+ * 드로잉(수평선 · 추세선 · 자 · 피보나치 · 박스)은 **가격 축 자동 맞춤에 넣지 않는다** — 메인 차트 · 캡처 팝업이 같이 쓴다.
+ *
+ * 드로잉 라이브러리(lightweight-charts-drawing 0.1.1)의 `autoscaleInfo` 는 앵커 가격 전부를 **보이는 구간과 상관없이**
+ * 축 범위에 넣는다. 거래량 칸까지 끌어 그린 자 · 화면 밖으로 지나간 추세선 하나가 가격 축을 0 근처까지 넓혀,
+ * 크게 확대해도 봉이 납작한 띠로 보였다(132차 · 잰 값은 일지 01). 축은 보이는 봉 · 이동평균만으로 맞추고,
+ * 드로잉은 그 위에 그린다(축 밖 부분은 칸에서 잘린다). 라이브러리 코드는 고치지 않고 드로잉마다 이 함수를 거친다.
+ */
+export function keepOutOfAutoscale<T extends object>(drawing: T): T {
+  (drawing as { autoscaleInfo?: () => null }).autoscaleInfo = () => null;
+  return drawing;
+}
+
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
 /** yyyy-MM-dd */

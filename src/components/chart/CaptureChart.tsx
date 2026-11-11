@@ -19,6 +19,7 @@ import {
   drawExtremeMarkers,
   extentOf,
   PANE_EDGE_LABELS,
+  keepOutOfAutoscale,
   PRICE_SCALE_MARGINS,
   dateTimeOptions,
   isIntraday,
@@ -308,7 +309,7 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
         snapshot.style,
         snapshot.options,
       );
-      if (drawing) manager.addDrawing(drawing);
+      if (drawing) manager.addDrawing(keepOutOfAutoscale(drawing));
     }
   }, [drawings]);
 
