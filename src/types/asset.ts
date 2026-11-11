@@ -592,4 +592,100 @@ export interface AssetHistoryResponse {
   points: AssetHistoryPoint[];
   /** 마지막으로 시트가 바뀐 시각(ISO · v2.65.1) — 빈 차트 「원본 시트 연결 뒤 ○부터 쌓입니다」. 바뀐 적 없으면 null */
   since: string | null;
+  /** 일별 변화 표(v2.70.0) — `points` 와 같은 날짜 · 같은 순서(날짜 순 — 화면이 거꾸로 보인다) */
+  rows: AssetDailyChange[];
+}
+
+/**
+ * 하루 기록의 보유 줄 하나(v2.70.0 · `asset_daily.holdings_json`) — 그날 총 자산을 계산할 때 쓴 **같은 값**(합친 표 제외 · 모든 계좌).
+ * 연금 뺌 총 자산 = `pension` 이 아닌 줄의 `krw` 합 + 현금 · 연금 포함 = 모든 줄의 `krw` 합 + 현금 + 퇴직 연금(가격 못 받은 줄은 빠짐).
+ */
+export interface AssetDailyHolding {
+  /** 계좌 key */
+  section: string;
+  /** 「연금으로 볼 계좌」 인가(기록할 때 설정) */
+  pension: boolean;
+  /** 종목 코드(`NVDA` · `005930`) — 이을 수 없으면 null */
+  symbol: string | null;
+  name: string;
+  market: 'US' | 'KR' | null;
+  /** 묶음(채권 · 금 · 주식 · 미지정) — 「무엇 때문에」 가 사고판 금액을 묶음에 나눌 때 쓴다 */
+  group: AssetGroupKey;
+  quantity: number | null;
+  /** 가격(원래 통화) — 못 받았으면 null */
+  price: number | null;
+  currency: AssetCurrency;
+  /** 원화 금액 = 수량 × 가격(× 환율) — 못 받았으면 null */
+  krw: number | null;
+  /** 가격 못 받음(총 자산에서 빠짐) */
+  missing: boolean;
+}
+
+/** 「무엇 때문에」 몫 이름 — 주가 · 환율은 두 날 모두 종목별 기록이 있을 때만(그 밖은 「주식 값」 으로 묶음) */
+export type AssetDailyShareKey = 'price' | 'fx' | 'stock' | 'flow' | 'bond' | 'gold' | 'retirement' | 'none' | 'other';
+export const ASSET_DAILY_SHARE_LABEL: Record<AssetDailyShareKey, string> = {
+  price: '주가',
+  fx: '환율',
+  stock: '주식 값',
+  flow: '입금 · 출금',
+  bond: '채권',
+  gold: '금',
+  retirement: '퇴직 연금',
+  none: UNASSIGNED_LABEL,
+  other: '기타',
+};
+
+/** 몫 하나(원 · 정수) */
+export interface AssetDailyShare {
+  key: AssetDailyShareKey;
+  label: string;
+  amount: number;
+}
+
+/** 많이 바뀐 종목(같은 코드는 계좌를 합침 · 주가 + 환율 몫 · 원 정수) */
+export interface AssetDailyMover {
+  symbol: string;
+  name: string;
+  amount: number;
+}
+
+/** 비교하지 않는 까닭 — 첫 기록 · 시트를 바꾼 뒤 첫 기록 */
+export type AssetDailySkip = 'first' | 'sheet-switched';
+
+/** 일별 변화 한 줄(v2.70.0) — 그날(D)과 바로 앞 기록(P) */
+export interface AssetDailyChange {
+  /** 미국 거래일(YYYY-MM-DD) */
+  day: string;
+  /** 총 자산(원 · 정수) */
+  total: number;
+  /** 앞 기록 날짜 — 비교하지 않으면 null */
+  prevDay: string | null;
+  /** 전날 대비(원 · 정수 = 반올림한 D − 반올림한 P) — 비교하지 않으면 null */
+  change: number | null;
+  /** 전날 대비 비율(0~1) — 앞 기록이 0 이하이거나 비교하지 않으면 null */
+  ratio: number | null;
+  /** 몫(0 은 뺌 · 금액 순서는 화면이 정한다) — 합 = `change` */
+  shares: AssetDailyShare[];
+  /** 사고판 금액(순매수 · 원) — 현금 → 종목으로 옮긴 돈이라 몫의 합에는 0(현금 −, 종목 +) · 매매 기록이 없으면 null */
+  traded: number | null;
+  /** 많이 바뀐 종목 3개(두 날 모두 종목별 기록이 있을 때만) */
+  movers: AssetDailyMover[];
+  /** 주가 · 환율로 나눴나(두 날 모두 환율 · 종목별 기록) */
+  split: boolean;
+  /** 대략 — 미국 매매를 원화로 바꿀 환율을 기록에서 찾지 못함(그 매매는 빼고 셈) */
+  approx: boolean;
+  /** 가격 못 받은 줄 수(두 날 중 큰 쪽) — 0 이 아니면 「정확하지 않음」 */
+  missing: number;
+  skip: AssetDailySkip | null;
+  /** 사용자 메모(최대 40자) — 없으면 null */
+  note: string | null;
+}
+
+/** 메모 최대 글자 수 */
+export const ASSET_DAILY_NOTE_MAX = 40;
+
+/** `PUT /api/asset/daily-note` 요청 — 빈 글이면 지움 */
+export interface AssetDailyNoteRequest {
+  day: string;
+  note: string;
 }

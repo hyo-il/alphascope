@@ -15,7 +15,7 @@
 import { fetchQuotes } from '../quoteService';
 import { isMockMode } from '../mockData';
 import { fetchExchangeRate } from '../../src/services/toss/account';
-import { ASSET_GROUP_LABEL, holdingGroupKey, type AssetClass, type AssetSymbolRow, type AssetAccount, type AssetGroup, type AssetGroupKey, type AssetHolding, type AssetSettings, type AssetSheetData, type AssetSummary, type AssetTotals } from '../../src/types/asset';
+import { ASSET_GROUP_LABEL, holdingGroupKey, type AssetClass, type AssetDailyHolding, type AssetSymbolRow, type AssetAccount, type AssetGroup, type AssetGroupKey, type AssetHolding, type AssetSettings, type AssetSheetData, type AssetSummary, type AssetTotals } from '../../src/types/asset';
 import { accountDateTexts, readAssetSheet } from './sheet';
 import { readAssetSettings, stockChoices } from './settings';
 import { latestRecord } from './store';
@@ -153,6 +153,36 @@ export function holdingsBySymbol(data: AssetSheetData, book: PriceBook, settings
   }
   const rows = [...map.values()].map((r) => ({ ...r, ratio: r.value != null && total > 0 ? r.value / total : null }));
   return rows.sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity));
+}
+
+/**
+ * 하루 기록의 보유 줄(v2.70.0 · `asset_daily.holdings_json`) — **금액은 `valuedRow`(총 자산과 같은 계산 · 같은 `PriceBook`)** · 새 가격 계산 없음.
+ * 합친 표(39~44행)는 넣지 않는다 · 연금 계좌도 모두 넣고 `pension` 으로 표시(연금 뺌 · 포함 두 갈래를 한 목록으로).
+ */
+export function dailyHoldings(data: AssetSheetData, book: PriceBook, settings: Pick<AssetSettings, 'pensionSections'>): AssetDailyHolding[] {
+  const out: AssetDailyHolding[] = [];
+  for (const section of data.sections) {
+    if (section.combined || !section.key) continue; // ⚠️ 합친 표 — 더하지 않는다
+    const pension = settings.pensionSections.includes(section.key);
+    for (const h of section.holdings) {
+      const krw = valuedRow(h, book);
+      const price = h.symbol ? (book.prices.get(h.symbol) ?? null) : null;
+      out.push({
+        section: section.key,
+        pension,
+        symbol: h.symbol,
+        name: h.name,
+        market: h.market,
+        group: h.assetClass ? CLASS_GROUP[h.assetClass] : 'none',
+        quantity: h.quantity,
+        price: krw == null ? null : price,
+        currency: h.currency,
+        krw,
+        missing: krw == null,
+      });
+    }
+  }
+  return out;
 }
 
 // ── 가격 받기 (지금 있는 함수 그대로 — 관심 목록과 같은 토스 /prices 묶음 · 환율 60초 캐시) ──

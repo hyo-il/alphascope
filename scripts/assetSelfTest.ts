@@ -1052,6 +1052,19 @@ try {
   const r1 = await dailyTick(at(k('2026-11-07', '20:00'))); // 토요일 저녁에 켜짐 — 11-06 애프터는 09:50 에 끝났다
   check('[106-9] 서버 재시작 — 켜진 뒤 그날 것(11-06)을 한 번(국내 휴장일이라 미루지 않음)', r1 === 'recorded' && latestRecord()?.day === '2026-11-06' && count() === before + 1, r1);
   check('[106-9] 다시 켜도(같은 날) 또 쓰지 않는다', (await dailyTick(at(k('2026-11-08', '12:00')))) === 'done-already' && count() === before + 1);
+  {
+    // [134-1] 새 기록에 환율 · 종목별 금액 — 같은 book(정규장 종가로 바꾼 것)의 값 · 종목별 원화 합 + 현금(+ 퇴직 연금) = 총 자산(원 단위)
+    const raw = getDb().prepare(`SELECT total, total_pension, totals_json, fx_usdkrw, holdings_json FROM asset_daily WHERE day = '2026-11-06'`).get() as { total: number; total_pension: number; totals_json: string; fx_usdkrw: number | null; holdings_json: string | null };
+    const hs = JSON.parse(raw.holdings_json ?? '[]') as { pension: boolean; krw: number | null; missing: boolean; price: number | null; quantity: number | null; market: string | null }[];
+    const t = JSON.parse(raw.totals_json) as { plain: AssetTotals; pension: AssetTotals };
+    const g = (x: AssetTotals, key: string) => x.groups.find((y) => y.key === key)?.amount ?? 0;
+    const plainSum = hs.filter((h) => !h.pension && !h.missing).reduce((a, h) => a + (h.krw ?? 0), 0) + g(t.plain, 'cash');
+    const penSum = hs.filter((h) => !h.missing).reduce((a, h) => a + (h.krw ?? 0), 0) + g(t.pension, 'cash') + g(t.pension, 'retirement');
+    const usRow = hs.find((h) => h.market === 'US' && !h.missing);
+    check('[134-1] 새 기록에 환율 · 종목별 금액 — 종목별 원화 합 + 현금 = 총 자산(연금 뺌 · 포함 · 원 단위) · 미국 줄 = 수량 × 종가 × 기록 환율',
+      raw.fx_usdkrw === FX_NOW && hs.length > 0 && Math.round(plainSum) === Math.round(raw.total) && Math.round(penSum) === Math.round(raw.total_pension) &&
+      usRow != null && Math.round((usRow.quantity ?? 0) * (usRow.price ?? 0) * FX_NOW) === Math.round(usRow.krw ?? -1));
+  }
 
   // 휴장(미국 추수감사절 11-26 — 달력에 그 날 칸이 없다) → 11-25 기록 뒤 11-26 것은 없다
   setSessionHooksForTest({ calendar: calendar([usDay('2026-11-24', '23:30', '06:00', '09:50', '2026-11-25'), usDay('2026-11-25', '23:30', '06:00', '09:50', '2026-11-26'), usDay('2026-11-27', '23:30', '03:00', '06:50', '2026-11-28')], [krDay('2026-11-25'), krDay('2026-11-26'), krDay('2026-11-27')]) });

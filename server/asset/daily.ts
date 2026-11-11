@@ -11,6 +11,7 @@
  *   정규장 끝 + 10분 뒤에 받은 일봉만 — 토스 미국 일봉 종가 = 정규장 종가). 겨울에는 기록 시각(국내 정규장 끝 15:30 KST)이 미국 주간거래 중이라
  *   토스 지금 가격에 주간거래 체결이 섞인다 — 그래서 지금 가격을 쓰지 않는다. 종가를 못 받으면 그 종목은 「가격 못 받음」.
  *   국내 종목 · 환율은 지금처럼 토스 지금 가격(기록 시각이 국내 정규장 끝 뒤). 화면의 지금 총 자산(10초 갱신)은 지금 가격 그대로.
+ * v2.70.0: 그 기록에 쓴 환율(`fx_usdkrw`) · 보유 줄마다 금액(`holdings_json`)도 같은 `book` 으로 남긴다(총 자산 계산은 그대로).
  * 같은 날 두 번 쓰지 않는다(`day` 기본 키). 모든 보유 줄의 가격을 못 받았으면 쓰지 않고 다음 확인에 다시(총 자산이 현금만으로 남지 않게).
  * 예약은 `ASSET_SYNC_ENABLED`(기본 켬) · 시트 연결 정보가 있을 때만 · 모의 데이터 모드는 하지 않는다(받은 가격이 아니다).
  * ⚠️ 로그에는 「하루 기록 완료 · 가격 못 받음 N줄」 과 실패 이유 종류만(금액 · 수량 없음).
@@ -23,7 +24,7 @@ import { isAssetSyncEnabled, isSheetConfigured } from './config';
 import { AssetSheetError } from './google';
 import { hasRecord, insertRecord } from './store';
 import type { AssetSheetData } from '../../src/types/asset';
-import { computeAssetTotals, loadInputs, type PriceBook } from './summary';
+import { computeAssetTotals, dailyHoldings, loadInputs, type PriceBook } from './summary';
 
 /** 확인 간격 — 기록할 수 있는 동안(몇 시간)보다 훨씬 짧으면 된다 */
 const CHECK_MS = 5 * 60_000;
@@ -94,7 +95,9 @@ export async function dailyTick(now = Date.now()): Promise<TickResult> {
       console.warn('[asset] 하루 기록 미룸 · 가격을 하나도 받지 못함');
       return 'no-prices';
     }
-    if (!insertRecord(w.day, plain, pension, new Date(now).toISOString())) return 'done-already';
+    // v2.70.0 — 같은 `book` 으로 계산한 환율 · 보유 줄마다 금액도 함께(다시 받지 않는다 · 「무엇 때문에」 의 주가 · 환율 나누기)
+    const extra = { fxUsdKrw: book.usdKrw, holdings: dailyHoldings(data, book, settings) };
+    if (!insertRecord(w.day, plain, pension, new Date(now).toISOString(), extra)) return 'done-already';
     console.log(`[asset] 하루 기록 완료 · 가격 못 받음 ${pension.missing}줄`);
     return 'recorded';
   } catch (e) {

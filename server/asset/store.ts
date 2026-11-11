@@ -4,7 +4,7 @@
  * ⚠️ 금액은 이 표에만 — 로그 · 응답 밖으로 내보내지 않는다(화면 응답은 자산 문지기 뒤).
  */
 import { getDb } from '../db';
-import { ASSET_GROUP_LABEL, type AssetHistoryPoint, type AssetHistoryRange, type AssetTotals } from '../../src/types/asset';
+import { ASSET_DAILY_NOTE_MAX, ASSET_GROUP_LABEL, type AssetDailyHolding, type AssetHistoryPoint, type AssetHistoryRange, type AssetTotals } from '../../src/types/asset';
 
 let ready = false;
 function db() {
@@ -20,9 +20,30 @@ function db() {
         recorded_at TEXT NOT NULL       -- 기록 시각(ISO)
       );
     `);
+    addDailyColumns(database, 'asset_daily');
     ready = true;
   }
   return database;
+}
+
+/**
+ * v2.70.0 칸 — 옛 줄은 NULL(지우거나 바꾸지 않는다 · 있으면 건너뜀). 선택 기능 표라 이 폴더에서 더한다(`CREATE TABLE IF NOT EXISTS` 는 있는 표를 바꾸지 않는다).
+ * - `fx_usdkrw` — 그 기록에 쓴 환율(`PriceBook.usdKrw` · 미국 종목이 없거나 못 받았으면 NULL)
+ * - `holdings_json` — 보유 줄마다 `AssetDailyHolding`(그날 총 자산을 계산한 같은 값)
+ */
+const DAILY_COLUMNS = [
+  ['fx_usdkrw', 'REAL'],
+  ['holdings_json', 'TEXT'],
+] as const;
+function addDailyColumns(database: ReturnType<typeof getDb>, table: 'asset_daily' | 'asset_daily_archive'): void {
+  const have = new Set((database.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name));
+  for (const [name, type] of DAILY_COLUMNS) if (!have.has(name)) database.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`);
+}
+
+/** 하루 기록에 더 남기는 것(v2.70.0) — 총 자산을 계산할 때 쓴 같은 값 */
+export interface DailyExtra {
+  fxUsdKrw: number | null;
+  holdings: AssetDailyHolding[];
 }
 
 export interface DailyRecord {
@@ -39,10 +60,10 @@ export interface DailyRecord {
 export const hasRecord = (day: string): boolean => db().prepare(`SELECT 1 FROM asset_daily WHERE day = ?`).get(day) !== undefined;
 
 /** 한 줄 쓰기 — 이미 있으면 쓰지 않고 false */
-export function insertRecord(day: string, plain: AssetTotals, pension: AssetTotals, recordedAt: string): boolean {
+export function insertRecord(day: string, plain: AssetTotals, pension: AssetTotals, recordedAt: string, extra: DailyExtra | null = null): boolean {
   const r = db()
-    .prepare(`INSERT OR IGNORE INTO asset_daily (day, total, total_pension, totals_json, missing, recorded_at) VALUES (?, ?, ?, ?, ?, ?)`)
-    .run(day, plain.total, pension.total, JSON.stringify({ plain, pension }), pension.missing, recordedAt);
+    .prepare(`INSERT OR IGNORE INTO asset_daily (day, total, total_pension, totals_json, missing, recorded_at, fx_usdkrw, holdings_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(day, plain.total, pension.total, JSON.stringify({ plain, pension }), pension.missing, recordedAt, extra?.fxUsdKrw ?? null, extra ? JSON.stringify(extra.holdings) : null);
   return r.changes === 1;
 }
 
@@ -69,6 +90,27 @@ export function historyPoints(range: AssetHistoryRange, includePension: boolean,
   if (range === 'all') return rows;
   const from = new Date(now - RANGE_DAYS[range] * 86_400_000).toISOString().slice(0, 10);
   return rows.filter((r) => r.day > from);
+}
+
+/** 「무엇 때문에」 계산에 쓰는 기록 한 줄(v2.70.0) — 옛 줄은 `fxUsdKrw` · `holdings` 가 null */
+export interface DailyFullRecord {
+  day: string;
+  recordedAt: string;
+  plain: AssetTotals;
+  pension: AssetTotals;
+  fxUsdKrw: number | null;
+  holdings: AssetDailyHolding[] | null;
+}
+
+/** 모든 하루 기록(날짜 순) — 기간 안의 첫 줄도 바로 앞 기록과 견주려고 모두 읽는다(미국 거래일 한 줄씩이라 해마다 약 250줄) */
+export function allRecords(): DailyFullRecord[] {
+  const rows = db().prepare(`SELECT day, totals_json, recorded_at, fx_usdkrw, holdings_json FROM asset_daily ORDER BY day`).all() as {
+    day: string; totals_json: string; recorded_at: string; fx_usdkrw: number | null; holdings_json: string | null;
+  }[];
+  return rows.map((r) => {
+    const t = JSON.parse(r.totals_json) as { plain: AssetTotals; pension: AssetTotals };
+    return { day: r.day, recordedAt: r.recorded_at, plain: t.plain, pension: t.pension, fxUsdKrw: r.fx_usdkrw, holdings: r.holdings_json ? (JSON.parse(r.holdings_json) as AssetDailyHolding[]) : null };
+  });
 }
 
 /** 시험이 표를 비운다(사본 DB) */
@@ -216,6 +258,13 @@ function archiveDb() {
         sheet_key TEXT NOT NULL,        -- 그 기록을 쌓은 시트 ID 의 sha256 앞 12자(ID 자체는 저장하지 않음)
         archived_at TEXT NOT NULL       -- 옮긴 시각(ISO)
       );
+      CREATE TABLE IF NOT EXISTS asset_daily_note_archive (
+        day TEXT NOT NULL,              -- asset_daily_note 와 같은 칸(v2.70.0)
+        note TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        sheet_key TEXT NOT NULL,        -- 그 메모를 적은 시트 ID 의 sha256 앞 12자
+        archived_at TEXT NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS asset_sheet_backup_archive (
         cell TEXT NOT NULL,             -- asset_sheet_backup 과 같은 칸
         formula TEXT NOT NULL,
@@ -225,6 +274,7 @@ function archiveDb() {
         archived_at TEXT NOT NULL
       );
     `);
+    addDailyColumns(database, 'asset_daily_archive');
     archiveReady = true;
   }
   return database;
@@ -236,19 +286,26 @@ function archiveDb() {
  */
 export function archiveForSheetSwitch(oldKey: string, oldHint: string, at: string): { daily: number; backup: number } {
   const database = archiveDb();
+  noteDb();
   const count = (table: string) => (database.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
   const daily = count('asset_daily');
   const backup = count('asset_sheet_backup');
+  const notes = count('asset_daily_note');
   const movedDaily = database
-    .prepare(`INSERT INTO asset_daily_archive (day, total, total_pension, totals_json, missing, recorded_at, sheet_key, archived_at)
-              SELECT day, total, total_pension, totals_json, missing, recorded_at, ?, ? FROM asset_daily`)
+    .prepare(`INSERT INTO asset_daily_archive (day, total, total_pension, totals_json, missing, recorded_at, fx_usdkrw, holdings_json, sheet_key, archived_at)
+              SELECT day, total, total_pension, totals_json, missing, recorded_at, fx_usdkrw, holdings_json, ?, ? FROM asset_daily`)
+    .run(oldKey, at).changes;
+  const movedNotes = database
+    .prepare(`INSERT INTO asset_daily_note_archive (day, note, updated_at, sheet_key, archived_at)
+              SELECT day, note, updated_at, ?, ? FROM asset_daily_note`)
     .run(oldKey, at).changes;
   const movedBackup = database
     .prepare(`INSERT INTO asset_sheet_backup_archive (cell, formula, saved_at, sheet_key, sheet_hint, archived_at)
               SELECT cell, formula, saved_at, ?, ?, ? FROM asset_sheet_backup`)
     .run(oldKey, oldHint, at).changes;
-  if (movedDaily !== daily || movedBackup !== backup) throw new Error('보관표로 옮긴 줄 수가 다릅니다');
+  if (movedDaily !== daily || movedBackup !== backup || movedNotes !== notes) throw new Error('보관표로 옮긴 줄 수가 다릅니다');
   database.prepare(`DELETE FROM asset_daily`).run();
+  database.prepare(`DELETE FROM asset_daily_note`).run();
   database.prepare(`DELETE FROM asset_sheet_backup`).run();
   return { daily, backup };
 }
@@ -269,5 +326,60 @@ export const archiveCountsForTest = (): { daily: number; backup: number } => {
 export function clearArchivesForTest(): void {
   const database = archiveDb();
   database.prepare(`DELETE FROM asset_daily_archive`).run();
+  database.prepare(`DELETE FROM asset_daily_note_archive`).run();
   database.prepare(`DELETE FROM asset_sheet_backup_archive`).run();
+}
+
+// ── 날짜별 메모 `asset_daily_note`(v2.70.0) — 앱에만(시트에 쓰지 않는다) · 날짜마다 하나 · 최대 40자 · 빈 글이면 지움 ──
+let noteReady = false;
+function noteDb() {
+  const database = getDb();
+  if (!noteReady) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS asset_daily_note (
+        day TEXT PRIMARY KEY,           -- 하루 기록 날짜(미국 거래일 YYYY-MM-DD)
+        note TEXT NOT NULL,             -- 사용자가 적은 글(최대 40자)
+        updated_at TEXT NOT NULL        -- 마지막으로 고친 시각(ISO)
+      );
+    `);
+    noteReady = true;
+  }
+  return database;
+}
+
+/** 모든 메모(날짜 → 글) */
+export function dailyNotes(): Map<string, string> {
+  const rows = noteDb().prepare(`SELECT day, note FROM asset_daily_note`).all() as { day: string; note: string }[];
+  return new Map(rows.map((r) => [r.day, r.note]));
+}
+
+export type NoteResult = { ok: true; note: string | null } | { ok: false; error: string };
+
+/** 메모 저장 — 앞뒤 빈칸을 지운 글이 비면 지움 · 40자(글자 수) 넘으면 거절 · 하루 기록이 없는 날은 거절 */
+export function saveDailyNote(day: unknown, note: unknown, at: string): NoteResult {
+  if (typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return { ok: false, error: '날짜가 올바르지 않습니다.' };
+  if (typeof note !== 'string') return { ok: false, error: '메모는 글자여야 합니다.' };
+  const text = note.trim();
+  if ([...text].length > ASSET_DAILY_NOTE_MAX) return { ok: false, error: `메모는 ${ASSET_DAILY_NOTE_MAX}자까지 적을 수 있습니다.` };
+  if (!hasRecord(day)) return { ok: false, error: '그 날짜의 하루 기록이 없습니다.' };
+  const database = noteDb();
+  if (text === '') {
+    database.prepare(`DELETE FROM asset_daily_note WHERE day = ?`).run(day);
+    return { ok: true, note: null };
+  }
+  database.prepare(`INSERT INTO asset_daily_note (day, note, updated_at) VALUES (?, ?, ?) ON CONFLICT(day) DO UPDATE SET note = excluded.note, updated_at = excluded.updated_at`).run(day, text, at);
+  return { ok: true, note: text };
+}
+
+/** 시험이 메모 · 보관 메모를 센다 · 비운다(사본 DB) */
+export const noteCountsForTest = (): { notes: number; archived: number } => {
+  archiveDb();
+  const database = noteDb();
+  const n = (t: string) => (database.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n;
+  return { notes: n('asset_daily_note'), archived: n('asset_daily_note_archive') };
+};
+export function clearNotesForTest(): void {
+  archiveDb();
+  noteDb().prepare(`DELETE FROM asset_daily_note`).run();
+  noteDb().prepare(`DELETE FROM asset_daily_note_archive`).run();
 }
