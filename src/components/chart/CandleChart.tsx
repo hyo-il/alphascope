@@ -7,7 +7,6 @@ import {
   type Anchor,
   type DrawingOptions,
   type DrawingStyle,
-  type IDrawing,
 } from 'lightweight-charts-drawing';
 import {
   CandlestickSeries,
@@ -22,7 +21,16 @@ import ChartInfoBar, { lastAsHover, type HoverInfo, type VisibleExtent } from '.
 import type { RangeStats } from '../../hooks/useRangeStats';
 import { liveCandle } from '../../utils/liveCandle';
 import { cursorFor, type DrawingToolType } from './DrawingTools';
-import { chartTimeCoords, measureLines, MEASURE_INFO_GAP, prepareDrawing, withBarTime, type ChartTimeCoords } from './drawingSupport';
+import {
+  chartTimeCoords,
+  measureLines,
+  MEASURE_INFO_GAP,
+  prepareDrawing,
+  shapeTopOf,
+  withBarTime,
+  withShapeHit,
+  type ChartTimeCoords,
+} from './drawingSupport';
 import {
   BASE_CHART_OPTIONS,
   drawExtremeMarkers,
@@ -76,8 +84,6 @@ interface Props {
   livePrice: Price | null;
   activeTool?: DrawingToolType;
   onDrawingCountChange?: (count: number) => void;
-  /** 그림을 고르거나 풀 때 — 툴바 「선택 삭제」 를 켜고 끈다 */
-  onSelectionChange?: (selected: boolean) => void;
   /**
    * 하나 그리고 나면 호출 — 툴바를 커서 모드로 되돌린다.
    * 도구를 계속 쥐고 있으면 그린 선을 지우려고 클릭했을 때 새 선이 그려진다.
@@ -135,7 +141,6 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     livePrice,
     activeTool = null,
     onDrawingCountChange,
-    onSelectionChange,
     onToolConsumed,
     onReachPast,
     indicators = null,
@@ -184,8 +189,6 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
 
   const countCallbackRef = useRef(onDrawingCountChange);
   countCallbackRef.current = onDrawingCountChange;
-  const selectionCallbackRef = useRef(onSelectionChange);
-  selectionCallbackRef.current = onSelectionChange;
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const onReachPastRef = useRef(onReachPast);
@@ -275,7 +278,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
 
     /** 시간 ↔ 화면 x(빈 곳 포함) · 봉 수 — 드로잉 · 자 정보가 같이 쓴다 */
     const coords: ChartTimeCoords = chartTimeCoords(chart, candleSeries);
-    const drawings = withBarTime(new DrawingManager(), coords);
+    // 시간 ↔ x 는 빈 곳 포함(withBarTime) · 누르기 판정은 상자 모양 안쪽 포함(withShapeHit)
+    const drawings = withShapeHit(withBarTime(new DrawingManager(), coords));
     drawings.attach(chart, candleSeries, container);
     drawingsRef.current = drawings;
     // 시험(`chartview:test`)이 축 범위 · 시리즈 값 · 드로잉 수를 재는 손잡이(차트 칸 요소에 붙임 · 화면 · 동작에는 쓰지 않는다)
@@ -283,49 +287,30 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
 
     const reportCount = () => countCallbackRef.current?.(drawings.getAllDrawings().length);
 
-    /**
-     * 마지막으로 누른 지점. 삭제 버튼을 여기에 띄운다 —
-     * 자 도구처럼 넓은 도형은 첫 앵커가 멀리 있어서, 누른 자리에 버튼이 뜨는 편이 훨씬 가깝다.
-     */
+    /** 마지막으로 누른 지점 — 수평선의 「삭제」 버튼 가로 자리(선이 칸 끝에서 끝까지라 누른 x 위에 띄운다) */
     let lastPointer: { x: number; y: number } | null = null;
 
-    const reportSelected = () => selectionCallbackRef.current?.(drawings.getSelectedDrawing() !== null);
+    /** 고른 그림의 「삭제」 버튼 자리 = 모양 위쪽 가장자리(133차) — 고를 때 · 확대 · 이동 · 끝점을 끌 때 다시 잰다 */
+    const placeDeleteButton = () => {
+      const selected = drawings.getSelectedDrawing();
+      const top = selected ? shapeTopOf(selected, lastPointer?.x ?? null) : null;
+      setSelectedAnchor(selected && top ? { x: top.x, y: top.y, id: selected.id } : null);
+    };
     const unsubscribers = [
       ...(['drawing:added', 'drawing:removed', 'drawing:cleared'] as const).map((event) =>
         drawings.on(event, reportCount),
       ),
-      // 지우거나 선택이 풀리면 메뉴도 닫는다(Delete 키 · 툴바로 지운 뒤 남은 메뉴가 없는 그림을 가리키지 않게).
+      // 지우거나 선택이 풀리면 메뉴도 닫는다(Delete 키로 지운 뒤 남은 메뉴가 없는 그림을 가리키지 않게).
       ...(['drawing:removed', 'drawing:cleared', 'drawing:deselected'] as const).map((event) =>
-        drawings.on(event, () => {
-          setMenu(null);
-          reportSelected();
-        }),
+        drawings.on(event, () => setMenu(null)),
       ),
-      // 선택되면 누른 자리 근처에 「삭제」 버튼을 띄운다 (수정 3-B).
-      drawings.on('drawing:selected', () => {
-        reportSelected();
-        const selected = drawings.getSelectedDrawing();
-        if (!selected) return setSelectedAnchor(null);
-        setSelectedAnchor(
-          lastPointer
-            ? { x: lastPointer.x, y: lastPointer.y, id: selected.id }
-            : anchorToScreen(selected),
-        );
-      }),
+      // 고르면 모양 위에 「삭제」 버튼 (수정 3-B · 133차)
+      drawings.on('drawing:selected', placeDeleteButton),
+      drawings.on('drawing:updated', placeDeleteButton),
       drawings.on('drawing:deselected', () => setSelectedAnchor(null)),
       // 지운 그림이 선택돼 있었으면 deselected 가 먼저 오지만, 남은 버튼을 확실히 지운다.
       drawings.on('drawing:cleared', () => setSelectedAnchor(null)),
     ];
-
-    /** 드로잉의 첫 앵커를 화면 좌표로 변환 */
-    const anchorToScreen = (drawing: IDrawing) => {
-      const anchor = drawing.anchors[0];
-      if (!anchor) return null;
-      const x = chart.timeScale().timeToCoordinate(anchor.time);
-      const y = candleSeries.priceToCoordinate(anchor.price);
-      if (x === null || y === null) return null;
-      return { x, y, id: drawing.id };
-    };
 
     // ── 크로스헤어 → 레전드 (OHLCV + MA) ──
     chart.subscribeCrosshairMove((param) => {
@@ -363,6 +348,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       if (range.from < 20) onReachPastRef.current?.();
       // 구간 고·저는 여기서만 갱신한다 — 줌·스크롤·데이터 추가가 모두 이 이벤트를 거친다.
       setVisibleExtent(extentOf(candlesRef.current, range.from, range.to));
+      // 고른 그림의 「삭제」 버튼이 모양을 따라간다(가격 축은 같은 프레임에 다시 맞춰지므로 다음 프레임에 잰다)
+      if (drawings.getSelectedDrawing()) requestAnimationFrame(placeDeleteButton);
     });
 
     /** 마우스가 오른쪽 가격 축 위면 그 칸(pane) 번호 — 그림 영역 · 아래 시간 축 위면 null */
@@ -658,7 +645,10 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     if (measure) placeBesideCursor(measureInfoRef.current, measure.currentX, measure.currentY);
   }, [measure]);
   // 「삭제」 버튼 · 메뉴는 차트 칸 안에 — 화면 끝에서 잘리면 안쪽으로 옮긴다(메뉴는 누른 자리 반대쪽으로 넘긴다).
-  useLayoutEffect(() => fitInside(deleteButtonRef.current, false), [selectedAnchor]);
+  useLayoutEffect(() => {
+    if (selectedAnchor) placeAboveShape(deleteButtonRef.current, selectedAnchor);
+    fitInside(deleteButtonRef.current, false);
+  }, [selectedAnchor]);
   useLayoutEffect(() => fitInside(menuRef.current, true), [menu]);
 
   // 메뉴는 Esc · 바깥 누르기 · 휠 · 스크롤에 닫는다.
@@ -911,7 +901,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
             }}
             data-tip="이 드로잉 삭제 (Delete)"
             className="absolute z-20 flex items-center gap-1 rounded-full bg-danger px-2.5 py-1 text-caption font-semibold text-white shadow-lg transition-transform hover:scale-105"
-            style={{ left: selectedAnchor.x - 24, top: selectedAnchor.y - 30 }}
+            style={{ left: selectedAnchor.x, top: selectedAnchor.y }}
           >
             삭제
           </button>
@@ -976,6 +966,20 @@ const EDGE_GAP = 4;
  * `flip` 이면 넘치는 쪽에서 누른 자리 반대편으로 넘긴다(메뉴가 커서 왼쪽 · 위로), 아니면 안쪽으로 붙인다.
  * React 는 자리 값(style)이 바뀔 때만 다시 쓰므로, 여기서 고친 자리는 다음 선택 · 메뉴 전까지 남는다.
  */
+/** 모양 위쪽 가장자리와 「삭제」 버튼 사이(px) */
+const SHAPE_GAP = 4;
+
+/**
+ * 「삭제」 버튼을 모양 위쪽 가장자리 바로 위(가로 가운데)에 — 칸 위 끝이라 자리가 없으면 가장자리 바로 아래(모양 안쪽)로.
+ * 그다음 fitInside 가 칸 안으로 맞춘다.
+ */
+function placeAboveShape(el: HTMLElement | null, top: { x: number; y: number }) {
+  if (!el) return;
+  const above = top.y - SHAPE_GAP - el.offsetHeight;
+  el.style.left = `${top.x - el.offsetWidth / 2}px`;
+  el.style.top = `${above >= EDGE_GAP ? above : top.y + SHAPE_GAP}px`;
+}
+
 /**
  * 자 정보 상자를 커서 옆에 — 오른쪽(커서에서 MEASURE_INFO_GAP)에 두고, 차트 칸 오른쪽 끝을 넘으면 커서 왼쪽으로.
  * 세로는 커서 높이 가운데(칸 위아래 끝에서는 안쪽으로).

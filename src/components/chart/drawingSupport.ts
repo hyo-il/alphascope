@@ -31,12 +31,17 @@ export function chartTimeCoords(chart: IChartApi, series: ISeriesApi<SeriesType>
   return {
     timeToCoordinate(time) {
       const logical = typeof time === 'number' ? current().timeToLogical(time) : null;
-      return logical === null ? timeScale.timeToCoordinate(time) : timeScale.logicalToCoordinate(logical as never);
+      if (logical === null) return timeScale.timeToCoordinate(time);
+      // `logicalToCoordinate` 는 정수 자리만 받는다(소수면 0) — 정수 칸 x + 나머지 × 봉 간격
+      const whole = Math.floor(logical);
+      const x = timeScale.logicalToCoordinate(whole as never);
+      return x === null ? null : x + (logical - whole) * timeScale.options().barSpacing;
     },
     coordinateToTime(x) {
       if (x < 0 || x > timeScale.width()) return null;
-      const logical = timeScale.coordinateToLogical(x);
-      const time = logical === null ? null : current().logicalToTime(logical);
+      // 논리 자리(소수) — `coordinateToLogical` 은 정수(올림)라 빈 곳 점이 반 칸 어긋난다. 봉 0 의 x 와 봉 간격으로 센다
+      const origin = timeScale.logicalToCoordinate(0 as never);
+      const time = origin === null ? null : current().logicalToTime((x - origin) / timeScale.options().barSpacing);
       return time === null ? timeScale.coordinateToTime(x) : (time as Time);
     },
     barsBetween(a, b) {
@@ -148,4 +153,66 @@ export function prepareDrawing<T extends object>(drawing: T, coords: ChartTimeCo
     d.paneViews = () => [...views(), label];
   }
   return keepOutOfAutoscale(withBarTime(drawing, coords));
+}
+
+/** 안쪽을 눌러도 고르는 상자 모양 — 자 · 박스 · 피보나치(라이브러리 피보나치는 선 위만 맞는다) */
+const BOX_TYPES = new Set(['date-price-range', 'rectangle', 'fib-retracement']);
+
+type Point = { x: number; y: number };
+type ManagedDrawing = DrawingLike & { id: string; options: { visible?: boolean } };
+type ManagerLike = {
+  hitTest(point: Point): ManagedDrawing | null;
+  getAllDrawings(): ManagedDrawing[];
+  getViewport(): Viewport | null;
+};
+
+/** 두 끝점의 화면 자리(뷰포트 = `withBarTime` 을 거친 것) */
+function anchorPixels(drawing: DrawingLike, viewport: Viewport) {
+  const [a, b] = drawing.anchors.map((anchor) => drawing.anchorToPixel(anchor, viewport));
+  return a && b ? { a, b } : null;
+}
+
+/**
+ * 드로잉 관리자의 누르기 판정 — 라이브러리 판정(선 · 테두리)에 **상자 모양 안쪽**을 더한다.
+ * 앱의 누르기 · 오른쪽 클릭과 라이브러리의 차트 click 선택이 모두 `hitTest` 를 부르므로 여기 하나로 같아진다
+ * (라이브러리만 바꾸면 안쪽을 누른 직후 차트 click 이 「못 맞힘」 으로 보고 선택을 풀었다).
+ */
+export function withShapeHit<T extends object>(manager: T): T {
+  const m = manager as unknown as ManagerLike;
+  const base = m.hitTest.bind(m);
+  m.hitTest = (point) => {
+    const hit = base(point);
+    if (hit) return hit;
+    const viewport = m.getViewport();
+    if (!viewport) return null;
+    for (const drawing of [...m.getAllDrawings()].reverse()) {
+      if (drawing.options.visible === false || !BOX_TYPES.has(drawing.type)) continue;
+      const p = anchorPixels(drawing, viewport);
+      if (!p) continue;
+      const inX = point.x >= Math.min(p.a.x, p.b.x) && point.x <= Math.max(p.a.x, p.b.x);
+      const inY = point.y >= Math.min(p.a.y, p.b.y) && point.y <= Math.max(p.a.y, p.b.y);
+      if (inX && inY) return drawing;
+    }
+    return null;
+  };
+  return manager;
+}
+
+/**
+ * 고른 모양의 「삭제」 버튼 자리 — 모양 **위쪽 가장자리**(차트 칸 좌표). 수평선은 누른 x 의 선 위, 추세선은 높은 끝점,
+ * 상자 모양은 위 테두리 가운데. 버튼은 이 점 바로 위에 놓는다(`CandleChart` 의 placeAboveShape).
+ */
+export function shapeTopOf(drawing: object, pointerX: number | null): Point | null {
+  const d = drawing as DrawingLike;
+  const viewport = d.getViewport();
+  if (!viewport) return null;
+  if (d.type === 'horizontal-line') {
+    const y = (viewport as unknown as { priceScale: { priceToCoordinate(p: number): number | null } }).priceScale.priceToCoordinate(d.anchors[0]?.price ?? NaN);
+    return y === null ? null : { x: pointerX ?? 0, y };
+  }
+  const p = anchorPixels(d, viewport);
+  if (!p) return null;
+  const top = Math.min(p.a.y, p.b.y);
+  if (d.type === 'trend-line') return p.a.y <= p.b.y ? p.a : p.b;
+  return { x: (p.a.x + p.b.x) / 2, y: top };
 }

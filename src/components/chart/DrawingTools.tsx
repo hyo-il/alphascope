@@ -1,4 +1,4 @@
-import { Eraser, Trash2 } from 'lucide-react';
+import { Eraser } from 'lucide-react';
 import IconButton from '../ui/IconButton';
 import { useEffect } from 'react';
 
@@ -58,10 +58,9 @@ interface Props {
   activeTool: DrawingToolType;
   onSelect: (tool: DrawingToolType) => void;
   onClearAll: () => void;
+  /** Delete · Backspace 키 — 고른 그림 지우기 */
   onDeleteSelected: () => void;
   hasDrawings: boolean;
-  /** 차트에서 고른 그림이 있다 — 「선택 삭제」 를 켠다 */
-  hasSelected: boolean;
 }
 
 export default function DrawingTools({
@@ -70,7 +69,6 @@ export default function DrawingTools({
   onClearAll,
   onDeleteSelected,
   hasDrawings,
-  hasSelected,
 }: Props) {
   // Esc = 드로잉 취소, Delete/Backspace = 선택한 드로잉 삭제
   useEffect(() => {
@@ -110,12 +108,9 @@ export default function DrawingTools({
       <span className="mx-0.5 h-5 w-px bg-border" />
 
       {/*
-        지우기 두 버튼은 아이콘만(도구 버튼 — 디자인 규칙 9 · 툴팁에 할 일). 1280 에서 도구줄 폭(850px)을 이미 다 써서,
-        글자 버튼(71px)을 하나 더하면 두 줄로 넘어가 빠른주문이 잘린다 — 아이콘 둘(28px)이면 한 줄에 든다(132차).
+        「모두 삭제」 는 아이콘만(도구 버튼 — 디자인 규칙 9 · 툴팁에 할 일). 그림 하나 지우기는 그 모양 위 「삭제」 버튼 ·
+        오른쪽 클릭 메뉴 · Delete 키(133차 — 도구줄 「선택 삭제」 는 두지 않는다).
       */}
-      <IconButton icon={Trash2} tone="danger" label="고른 그림 삭제 (Delete)" aria-label="선택 삭제"
-        onClick={onDeleteSelected}
-        disabled={!hasSelected} />
       <IconButton icon={Eraser} tone="danger" label="그린 것 모두 삭제" aria-label="모두 삭제"
         onClick={onClearAll}
         disabled={!hasDrawings} />

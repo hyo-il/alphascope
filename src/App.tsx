@@ -144,7 +144,6 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   /** 호가 가격 칸을 누른 값 — 빠른주문 가격 칸으로 보낸다 */
   const [pickedPrice, setPickedPrice] = useState<{ price: number; nonce: number } | null>(null);
   const [drawingCount, setDrawingCount] = useState(0);
-  const [hasSelectedDrawing, setHasSelectedDrawing] = useState(false);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [toggles, setToggles] = useState<IndicatorToggles>(DEFAULT_TOGGLES);
 
@@ -202,7 +201,6 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         onClearDrawings={() => chartRef.current?.clearDrawings()}
         onDeleteSelected={() => chartRef.current?.deleteSelectedDrawing()}
         hasDrawings={drawingCount > 0}
-        hasSelectedDrawing={hasSelectedDrawing}
         onResetView={() => chartRef.current?.resetView()}
       />
 
@@ -235,7 +233,6 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
                 livePrice={livePrice}
                 activeTool={activeTool}
                 onDrawingCountChange={setDrawingCount}
-                onSelectionChange={setHasSelectedDrawing}
                 onToolConsumed={() => setActiveTool(null)}
                 onReachPast={loadMore}
                 indicators={indicators}
