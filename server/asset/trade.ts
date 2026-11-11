@@ -74,6 +74,11 @@ export function listTrades(limit: unknown): AssetTradesResponse {
   return { trades, hasMore: rows.length > take };
 }
 
+/** 「무엇 때문에」 계산(v2.70.0 · `dailyChange.ts`)이 쓰는 칸만 — 모든 기록(입력 순) · 읽기만 */
+export function tradesForChange(): { at: string; section: string; symbol: string; side: AssetTradeSide; qty: number; price: number; currency: 'KRW' | 'USD' }[] {
+  return db().prepare(`SELECT at, section, symbol, side, qty, price, currency FROM asset_trades ORDER BY id`).all() as ReturnType<typeof tradesForChange>;
+}
+
 /** 시험이 비운다 */
 export const clearTradesForTest = (): void => void db().prepare(`DELETE FROM asset_trades`).run();
 

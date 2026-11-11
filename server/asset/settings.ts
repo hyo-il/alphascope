@@ -61,6 +61,9 @@ function readPension(): string[] {
   return (strings(v) ?? DEFAULT_PENSION).filter((x) => SECTION_KEYS.includes(x));
 }
 
+/** 「연금으로 볼 계좌」 만(v2.70.0 — 하루 기록 「무엇 때문에」 가 시트를 읽지 않고 매매 줄의 계좌를 가린다 · `readAssetSettings` 와 같은 값) */
+export const readPensionSections = (): string[] => readPension();
+
 function readColors(): AssetClassColors {
   const v = readJson(KEYS.classColors);
   const out = { ...DEFAULT_CLASS_COLORS };
