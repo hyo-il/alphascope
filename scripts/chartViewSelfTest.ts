@@ -104,6 +104,8 @@ function makeBars(seed: number, base: number, tail: [number, number] | null): Ba
 const DATA: Record<string, Bar[]> = {
   '000660': makeBars(7, 1_330_000, [1_070_000, 1_587_000]),
   '005930': makeBars(11, 210_000, [180_000, 240_000]),
+  // 달러 종목(133차 — 자 정보 「$」 · 소수 둘째). 값은 만든 것
+  AAPL: makeBars(5, 230, null).map((b) => ({ ...b })),
 };
 const sma = (bars: Bar[], n: number) => bars.map((_, i) => (i + 1 < n ? null : bars.slice(i + 1 - n, i + 1).reduce((s, b) => s + b.close, 0) / n));
 function indicatorsOf(bars: Bar[]) {
@@ -160,9 +162,10 @@ const paneBox = (page: Page, index: number) =>
     return { x: el.x, y: el.y, w: p.chart.timeScale().width(), h: el.height, axisX: el.x + p.chart.timeScale().width() + 20 };
   }, index);
 
-async function open(browser: Browser, size: { width: number; height: number }) {
-  const ctx = await browser.newContext({ viewport: size });
+async function open(browser: Browser, size: { width: number; height: number }, _unused?: undefined, init?: string, symbol = '000660') {
+  const ctx = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: 1 });
   await ctx.addInitScript('window.__name = (f) => f');
+  if (init) await ctx.addInitScript(init);
   // 지표 3개(5 · 20 · 60일선) · 거래량 · 최고 / 최저 — 사용자 캡처 상태(앱 기본 지표)
   const page = await ctx.newPage();
   const errors: string[] = [];
@@ -178,7 +181,7 @@ async function open(browser: Browser, size: { width: number; height: number }) {
     return r.fulfill({ status: 503, json: { error: '시험 — 없음' } });
   });
   await guard.step('페이지 열기', () => page.goto(`${WEB}/#/chart`));
-  await choose(page, '000660');
+  await choose(page, symbol);
   return { page, ctx, errors };
 }
 
@@ -256,6 +259,258 @@ const inside = async (page: Page, testOrRole: 'button' | 'menu') => {
   return !!r && r.x >= chart.x && r.y >= chart.y && r.x + r.width <= chart.x + chart.width + 0.5 && r.y + r.height <= chart.y + chart.height + 0.5;
 };
 
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// [133-n] 사용자 시나리오 — 사람처럼 마우스로(mouse.move · down · up · 오른쪽 클릭). 앱 안 함수를 부르지 않고,
+// 화면에 그려진 글(캔버스 fillText 를 엿봄) · 요소 자리 · 그림 수만 읽는다.
+// 132차 시험은 그림을 늘 봉이 있는 가운데(가로 30~60%)에만 그리고, 캔버스 글을 읽지 않았고, 높이 비율을 큰 화면에서 35% 로만 봐서
+// 빈 곳에 그린 자(폭 0 · 0 bars · 0 days · $) · 낮은 차트 칸의 납작한 봉을 못 잡았다.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+const ONLY = process.env.ONLY;
+/** 캔버스에 그린 글을 모은다(페이지 좌표) — 자 정보 · 최고 / 최저 표시 글 · 라이브러리 기본 영어 글을 그대로 본다 */
+const CANVAS_SPY = `
+  window.__texts = [];
+  const fill = CanvasRenderingContext2D.prototype.fillText;
+  CanvasRenderingContext2D.prototype.fillText = function (t, x, y, ...rest) {
+    const m = this.getTransform();
+    const dpr = window.devicePixelRatio || 1;
+    window.__texts.push({ t: String(t), x: (m.a * x + m.c * y + m.e) / dpr, y: (m.b * x + m.d * y + m.f) / dpr, c: this.canvas });
+    if (window.__texts.length > 4000) window.__texts.splice(0, 2000);
+    return fill.call(this, t, x, y, ...rest);
+  };
+  window.__ctx = [];
+  window.addEventListener('contextmenu', (e) => window.__ctx.push(e.defaultPrevented));
+`;
+type Drawn = { t: string; x: number; y: number };
+const clearTexts = (page: Page) => page.evaluate(() => { (window as unknown as { __texts: unknown[] }).__texts.length = 0; });
+const texts = (page: Page) =>
+  page.evaluate(() =>
+    (window as unknown as { __texts: { t: string; x: number; y: number; c: HTMLCanvasElement }[] }).__texts.map((r) => {
+      const b = r.c.getBoundingClientRect();
+      return { t: r.t, x: b.x + r.x, y: b.y + r.y };
+    }),
+  ) as Promise<Drawn[]>;
+const lastCtxPrevented = (page: Page) => page.evaluate(() => (window as unknown as { __ctx: boolean[] }).__ctx.at(-1) ?? null);
+
+/** 화면 좌표 — 봉 번호(논리 자리) → x, 가격 → y (가격 칸 기준 페이지 좌표) */
+const geo = (page: Page) =>
+  probe(page, (p) => {
+    const el = p.chart.panes()[0].getHTMLElement()!.getBoundingClientRect();
+    const data = p.candleSeries.data() as unknown as { time: number }[];
+    const ts = p.chart.timeScale();
+    return { px: el.x, py: el.y, w: ts.width(), h: el.height, bs: ts.options().barSpacing, last: data.length - 1, lastX: el.x + (ts.logicalToCoordinate((data.length - 1) as never) ?? 0) };
+  });
+const barX = (page: Page, i: number) => probe(page, (p, n) => p.chart.panes()[0].getHTMLElement()!.getBoundingClientRect().x + (p.chart.timeScale().logicalToCoordinate(n as never) ?? NaN), i);
+
+/** 마지막으로 그린 그림의 두 끝점 화면 자리(페이지 좌표) — 그림이 스스로 쓰는 좌표 변환으로(그려진 그대로) */
+const lastShape = (page: Page) =>
+  probe(page, (p) => {
+    const el = p.chart.panes()[0].getHTMLElement()!.getBoundingClientRect();
+    const all = p.drawings.getAllDrawings() as unknown as { type: string; anchors: unknown[]; getViewport(): unknown; anchorToPixel(a: unknown, v: unknown): { x: number; y: number } | null }[];
+    const d = all.at(-1);
+    if (!d) return null;
+    const v = d.getViewport();
+    const pts = d.anchors.map((a) => d.anchorToPixel(a, v));
+    return { type: d.type, pts: pts.map((q) => (q ? { x: el.x + q.x, y: el.y + q.y } : null)) };
+  });
+
+/** 끌어 그리기(2점 도구) · 누르기(수평선) — 진짜 마우스. `during` 은 끌고 있는 동안(놓기 전) 부른다 */
+async function dragDraw(page: Page, label: string, a: { x: number; y: number }, b: { x: number; y: number }, during?: () => Promise<void>) {
+  await page.getByRole('radio', { name: label, exact: true }).click();
+  if (label === '수평선') {
+    await page.mouse.click(a.x, a.y);
+  } else {
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(b.x, b.y, { steps: 8 });
+    await page.waitForTimeout(150);
+    if (during) await during();
+    await page.mouse.up();
+  }
+  await page.waitForTimeout(300);
+}
+
+/** 그림이 없는 빈 자리 누르기(선택 풀기) — 가격 칸 왼쪽 아래 구석 */
+async function clickBlank(page: Page) {
+  const g = await geo(page);
+  await page.mouse.click(g.px + 6, g.py + g.h - 6);
+  await page.waitForTimeout(650); // 앞 클릭과 0.5초 넘게 띄운다(두 번 누르기로 보지 않게)
+}
+
+const KRW_MONEY = /^[+−]₩\d{1,3}(,\d{3})*$/;
+const USD_MONEY = /^[+−]\$\d{1,3}(,\d{3})*\.\d{2}$/;
+const PCT = /^[+−]\d{1,3}(,\d{3})*\.\d{2}%$/;
+const BARS_DAYS = /^(\d+)봉 · (\d+)일$/;
+const ENGLISH = /bars|days|\$/;
+
+async function userScenario(browser: Browser) {
+  // 낮은 차트 칸(사용자 캡처 — 차트 칸 약 320px): 1280 폭에서 창 높이를 줄여 맞춘다
+  // 사용자가 차트 아래 탭을 끌어 높여 둔 상태 = 저장된 아래 탭 높이(앱이 끌기 손잡이로 저장하는 그 값)
+  const tabsHeight = (px: number) => `localStorage.setItem('alphascope.chartTabsHeight', '${px}');`;
+  let tabs = 420;
+  for (let i = 0; i < 2; i++) {
+    const tmp = await open(browser, { width: 1280, height: 1080 }, undefined, tabsHeight(tabs));
+    const h = (await tmp.page.getByTestId('candle-chart').boundingBox())!.height;
+    await tmp.ctx.close();
+    tabs = Math.round(tabs + (h - 320));
+  }
+  const sizes = [{ width: 1280, height: 1080, low: true }, { width: 1280, height: 1080, low: false }, { width: 1440, height: 900, low: false }];
+
+  for (const size of sizes) {
+    const tag = size.low ? `낮은 칸 ${size.width}×${size.height}` : `${size.width}×${size.height}`;
+    const { page, ctx, errors } = await open(browser, size, undefined, CANVAS_SPY + (size.low ? tabsHeight(tabs) : ''));
+    const chartH = (await page.getByTestId('candle-chart').boundingBox())!.height;
+    if (size.low) check(`[133-T] ${tag} — 차트 칸 높이 ${Math.round(chartH)}px(사용자 캡처 약 320px · 300~340)`, chartH >= 300 && chartH <= 340, String(chartH));
+
+    // ── 1. 크게 확대 → 보이는 봉 높이 비율 · 최고 / 최저 표시 보임 ──
+    await zoomTo(page, 11);
+    await clearTexts(page);
+    await page.mouse.move(2, 2);
+    await page.waitForTimeout(400);
+    const z = await axisState(page);
+    const ratio = z.px / z.paneH;
+    check(`[133-4] ${tag} — 확대(${z.bars}봉) 때 보이는 봉(고가 ~ 저가)이 가격 칸의 ${Math.round(ratio * 100)}% (70% 이상 · ${Math.round(z.px)}/${Math.round(z.paneH)}px)`, ratio >= 0.7, fmt(z));
+    {
+      const g = await geo(page);
+      const t = await texts(page);
+      const seen = (s: string) => t.some((r) => r.t.startsWith(s) && r.y - 7 >= g.py && r.y + 7 <= g.py + g.h);
+      check(`[133-4] ${tag} — 최고 / 최저 표시 글(₩1,587,000 · ₩1,070,000)이 가격 칸 안에 보임`, seen('₩1,587,000') && seen('₩1,070,000'), JSON.stringify(t.filter((r) => r.t.includes('₩1,')).slice(-4)));
+    }
+
+    // ── 2. 자 — 마지막 봉 오른쪽 빈 곳에서 끌어 그리기(사용자 캡처 1 · 2) ──
+    // 빈 곳이 봉 5칸 넘게 보이도록 차트를 왼쪽으로 끌어 옮긴다(사람처럼)
+    for (let i = 0; i < 4; i++) {
+      const gg = await geo(page);
+      if (gg.lastX + gg.bs * 5.5 < gg.px + gg.w) break;
+      await page.mouse.move(gg.px + gg.w * 0.75, gg.py + gg.h * 0.9);
+      await page.mouse.down();
+      await page.mouse.move(gg.px + gg.w * 0.25, gg.py + gg.h * 0.9, { steps: 8 });
+      await page.mouse.up();
+      await page.waitForTimeout(300);
+    }
+    await page.mouse.move(2, 2);
+    await page.waitForTimeout(300);
+    const g = await geo(page);
+    check(`[133-T] ${tag} — 마지막 봉 오른쪽에 빈 곳(봉 4칸 넘게)이 있음`, g.lastX + g.bs * 4.5 < g.px + g.w, JSON.stringify(g));
+    const emptyA = { x: g.lastX + g.bs * 1.5, y: g.py + g.h * 0.35 };
+    const emptyB = { x: g.lastX + g.bs * 4.5, y: g.py + g.h * 0.6 };
+    let preview: { box: { x: number; y: number; width: number; height: number } | null; text: string } = { box: null, text: '' };
+    await dragDraw(page, '자', emptyA, emptyB, async () => {
+      const info = page.getByTestId('measure-info');
+      preview = { box: (await info.count()) ? await info.boundingBox() : null, text: (await info.count()) ? (await info.innerText()).replace(/\s*\n\s*/g, '|') : '' };
+    });
+    {
+      const b = preview.box;
+      check(`[133-1] ${tag} — 그리는 중 자 정보가 커서 오른쪽(커서 x ${Math.round(emptyB.x)} → 상자 왼쪽 ${b ? Math.round(b.x) : '없음'} · 4~24px)`, !!b && b.x >= emptyB.x + 4 && b.x <= emptyB.x + 24 && b.y <= emptyB.y && b.y + b.height >= emptyB.y, JSON.stringify(b));
+      const parts = preview.text.split('|');
+      const bd = parts[2]?.match(BARS_DAYS);
+      check(`[133-1] ${tag} — 그리는 중 글: 원화 「₩」 · 소수 없음 · 등락률 · 「3봉 · 3일」(「${preview.text}」)`, KRW_MONEY.test(parts[0] ?? '') && PCT.test(parts[1] ?? '') && bd?.[1] === '3' && bd?.[2] === '3' && !ENGLISH.test(preview.text), preview.text);
+    }
+    await clearTexts(page);
+    await page.mouse.move(2, 2);
+    await page.waitForTimeout(400);
+    {
+      const s = await lastShape(page);
+      const w = s?.pts[0] && s.pts[1] ? Math.abs(s.pts[1].x - s.pts[0].x) : 0;
+      check(`[133-2] ${tag} — 빈 곳에 그린 자가 놓은 자리 그대로(폭 ${Math.round(w)}px · 끌어 그은 폭 ${Math.round(emptyB.x - emptyA.x)}px · 시작점 x 차이 ${s?.pts[0] ? Math.round(s.pts[0].x - emptyA.x) : '—'}px)`, !!s?.pts[0] && Math.abs(s.pts[0].x - emptyA.x) <= g.bs * 0.6 && Math.abs(w - (emptyB.x - emptyA.x)) <= g.bs * 0.6, JSON.stringify(s));
+      const t = await texts(page);
+      const bd = t.find((r) => BARS_DAYS.test(r.t));
+      check(`[133-1] ${tag} — 그린 뒤 라이브러리 영어 글(bars · days · $) 0 · 앱 글 「3봉 · 3일」`, !t.some((r) => ENGLISH.test(r.t)) && bd?.t === '3봉 · 3일', JSON.stringify(t.filter((r) => ENGLISH.test(r.t) || /봉|₩/.test(r.t)).map((r) => r.t).slice(0, 8)));
+      const money = t.find((r) => /^[+−][₩$]/.test(r.t) && r.t !== '');
+      check(`[133-1] ${tag} — 그린 뒤 가격 차 원화 「₩」 · 소수 없음(「${money?.t ?? '없음'}」)`, !!money && KRW_MONEY.test(money.t));
+      const endX = s?.pts[1]?.x ?? emptyB.x;
+      check(`[133-1] ${tag} — 그린 뒤 정보 자리: 끝점(놓은 자리) 오른쪽 또는 모자라면 왼쪽(글 x ${bd ? Math.round(bd.x) : '—'} · 끝점 ${Math.round(endX)})`, !!bd && (bd.x >= endX + 4 || bd.x <= endX - 4) && Math.abs(bd.x - endX) <= 160);
+    }
+    await page.getByRole('button', { name: '모두 삭제', exact: true }).click();
+    await page.waitForTimeout(300);
+
+    // ── 3. 봉이 있는 곳에서 자 — 봉 3개 앞 → 마지막 봉 ──
+    {
+      const g2 = await geo(page);
+      const a = { x: await barX(page, g2.last - 4), y: g2.py + g2.h * 0.3 };
+      const b = { x: await barX(page, g2.last - 1), y: g2.py + g2.h * 0.55 };
+      let txt = '';
+      await dragDraw(page, '자', a, b, async () => { txt = (await page.getByTestId('measure-info').count()) ? (await page.getByTestId('measure-info').innerText()).replace(/\s*\n\s*/g, '|') : ''; });
+      check(`[133-1] ${tag} — 봉 위 자 그리는 중 「3봉 · 3일」(「${txt}」)`, txt.split('|')[2] === '3봉 · 3일' && KRW_MONEY.test(txt.split('|')[0] ?? ''), txt);
+      await clearTexts(page);
+      await page.mouse.move(2, 2);
+      await page.waitForTimeout(400);
+      const t = await texts(page);
+      check(`[133-1] ${tag} — 봉 위 자 그린 뒤 「3봉 · 3일」 · 영어 글 0`, t.some((r) => r.t === '3봉 · 3일') && !t.some((r) => ENGLISH.test(r.t)), JSON.stringify(t.filter((r) => /봉|bars|days|\$/.test(r.t)).map((r) => r.t).slice(0, 6)));
+      await page.getByRole('button', { name: '모두 삭제', exact: true }).click();
+      await page.waitForTimeout(300);
+    }
+
+    // ── 4 · 5 · 6. 도구 5개 × (빈 곳 · 봉 있는 곳) × (한 번 누름 → 모양 위 「삭제」 · 오른쪽 클릭 → 메뉴 「삭제」) ──
+    check(`[133-3] ${tag} — 도구줄 「선택 삭제」 없음 · 「모두 삭제」 있음`, (await page.getByRole('button', { name: '선택 삭제', exact: true }).count()) === 0 && (await page.getByRole('button', { name: '모두 삭제', exact: true }).count()) === 1);
+    for (const region of ['빈 곳', '봉 있는 곳'] as const) {
+      for (const tool of TOOLS) {
+        for (const how of ['누름', '오른쪽 클릭', 'Delete 키'] as const) {
+          const g3 = await geo(page);
+          const a = region === '빈 곳' ? { x: g3.lastX + g3.bs * 1.5, y: g3.py + g3.h * 0.3 } : { x: await barX(page, g3.last - 5), y: g3.py + g3.h * 0.3 };
+          const b = region === '빈 곳' ? { x: g3.lastX + g3.bs * 4.5, y: g3.py + g3.h * 0.6 } : { x: await barX(page, g3.last - 2), y: g3.py + g3.h * 0.6 };
+          await dragDraw(page, tool.label, a, b);
+          await clickBlank(page);
+          const n0 = await drawingCount(page);
+          // 누를 자리: 상자 모양(자 · 박스 · 피보나치)은 안쪽 가운데, 추세선은 선 가운데, 수평선은 선 위
+          const hit = tool.label === '수평선' ? { x: a.x + 20, y: a.y } : { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+          const name = `[133-3] ${tag} ${region} ${tool.label} ${how}`;
+          if (how === '누름') {
+            await page.mouse.click(hit.x, hit.y);
+            await page.waitForTimeout(300);
+            const btn = page.getByTestId('drawing-delete');
+            const box = (await btn.count()) ? await btn.boundingBox() : null;
+            const top = tool.label === '수평선' ? a.y : Math.min(a.y, b.y);
+            const [l, r] = tool.label === '수평선' ? [g3.px, g3.px + g3.w] : [Math.min(a.x, b.x), Math.max(a.x, b.x)];
+            const onTop = !!box && box.y + box.height <= top + box.height + 6 && box.y + box.height >= top - 14 && box.x + box.width >= l - 4 && box.x <= r + 4;
+            check(`${name} — 한 번 누르면 선택 · 모양 위(위쪽 가장자리 근처) 「삭제」 버튼(버튼 ${box ? `${Math.round(box.x)},${Math.round(box.y)}` : '없음'} · 모양 위 ${Math.round(top)})`, (await selectedType(page)) === tool.type && onTop && (await inside(page, 'button')), String(await selectedType(page)));
+            if (box) await btn.click();
+          } else if (how === '오른쪽 클릭') {
+            await page.mouse.click(hit.x, hit.y, { button: 'right' });
+            await page.waitForTimeout(250);
+            const menu = page.getByRole('menu', { name: '드로잉 메뉴' });
+            const items = (await menu.count()) ? (await menu.getByRole('menuitem').allTextContents()).join('·') : '';
+            check(`${name} — 모양 위 오른쪽 클릭: 그 모양 선택 · 메뉴 「삭제 · 모두 삭제 · 취소」 · 브라우저 메뉴 안 뜸`, (await selectedType(page)) === tool.type && items === '삭제·모두 삭제·취소' && (await lastCtxPrevented(page)) === true, `${await selectedType(page)} · ${items}`);
+            if (items) await menu.getByRole('menuitem', { name: '삭제', exact: true }).click();
+          } else {
+            await page.mouse.click(hit.x, hit.y);
+            await page.waitForTimeout(300);
+            await page.keyboard.press('Delete');
+          }
+          await page.waitForTimeout(250);
+          check(`${name} — 지워짐(${n0} → ${await drawingCount(page)})`, n0 === 1 && (await drawingCount(page)) === 0);
+          if ((await drawingCount(page)) > 0) {
+            await page.getByRole('button', { name: '모두 삭제', exact: true }).click();
+            await page.waitForTimeout(250);
+            if (await page.getByRole('button', { name: '삭제', exact: true }).count()) await page.getByRole('button', { name: '삭제', exact: true }).last().click();
+            await page.waitForTimeout(250);
+          }
+        }
+      }
+    }
+    check(`[133-T] ${tag} — 페이지 오류 0`, errors.length === 0, errors.join(' | '));
+    await ctx.close();
+  }
+
+  // ── 달러 종목: 「$」 · 소수 둘째 ──
+  {
+    const { page, ctx } = await open(browser, { width: 1440, height: 900 }, undefined, CANVAS_SPY, 'AAPL');
+    await zoomTo(page, 11);
+    const g = await geo(page);
+    const a = { x: await barX(page, g.last - 4), y: g.py + g.h * 0.3 };
+    const b = { x: await barX(page, g.last - 1), y: g.py + g.h * 0.55 };
+    let txt = '';
+    await dragDraw(page, '자', a, b, async () => { txt = (await page.getByTestId('measure-info').count()) ? (await page.getByTestId('measure-info').innerText()).replace(/\s*\n\s*/g, '|') : ''; });
+    check(`[133-1] 달러 종목 — 그리는 중 「$」 · 소수 둘째(「${txt}」)`, USD_MONEY.test(txt.split('|')[0] ?? ''), txt);
+    await clearTexts(page);
+    await page.mouse.move(2, 2);
+    await page.waitForTimeout(400);
+    const t = await texts(page);
+    const money = t.find((r) => /^[+−][₩$]/.test(r.t));
+    check(`[133-1] 달러 종목 — 그린 뒤 「$」 · 소수 둘째(「${money?.t ?? '없음'}」) · bars · days 0`, !!money && USD_MONEY.test(money.t) && !t.some((r) => /bars|days/.test(r.t)));
+    await ctx.close();
+  }
+}
+
 const { createServer } = await import('vite');
 const vite = await guard.step('Vite 띄우기', async () => {
   const v = await createServer({ root, configFile: path.join(root, 'vite.config.ts'), logLevel: 'error', server: { host: '127.0.0.1', port: PORT, strictPort: true, hmr: false } });
@@ -264,7 +519,8 @@ const vite = await guard.step('Vite 띄우기', async () => {
 });
 const browser = await guard.step('브라우저 띄우기', () => chromium.launch({ channel: 'chrome' }));
 try {
-  for (const size of SIZES) {
+  await userScenario(browser);
+  for (const size of ONLY === '133' ? [] : SIZES) {
     const w = size.width;
 
     // ── [132-1] 확대 · [132-4] 값 ──
