@@ -234,5 +234,5 @@ export default function LiteCandleChart({
     series.update({ time: toChartTime(next.timestamp), open: next.open, high: next.high, low: next.low, close: next.close });
   }, [livePrice, candles, intraday]);
 
-  return <div ref={containerRef} className="h-full w-full" />;
+  return <div ref={containerRef} data-testid="lite-candle-chart" className="h-full w-full" />;
 }

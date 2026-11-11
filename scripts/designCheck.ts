@@ -1564,6 +1564,28 @@ function targets(): Target[] {
         await page.mouse.click(b.x + b.width * 0.55, b.y + b.height * 0.5);
         await page.waitForTimeout(700);
       };
+      /** 차트를 왼쪽으로 끌어 마지막 봉 오른쪽 빈 곳을 넓힌 뒤 그 빈 곳에 자를 끈다 — `release` 가 아니면 끄는 중(놓지 않음). 돌려주는 값 = 자 안쪽 한 점 */
+      const rulerInEmpty = async (page: Page, release: boolean) => {
+        const b = await chartBox(page);
+        await page.mouse.move(b.x + b.width * 0.7, b.y + b.height * 0.85);
+        await page.mouse.down();
+        await page.mouse.move(b.x + b.width * 0.3, b.y + b.height * 0.85, { steps: 8 });
+        await page.mouse.up();
+        await page.waitForTimeout(300);
+        await page.getByRole('radio', { name: '자', exact: true }).click();
+        const from = { x: b.x + b.width * 0.62, y: b.y + b.height * 0.22 };
+        const to = { x: b.x + b.width * 0.8, y: b.y + b.height * 0.42 };
+        await page.mouse.move(from.x, from.y);
+        await page.mouse.down();
+        await page.mouse.move(to.x, to.y, { steps: 8 });
+        await page.waitForTimeout(200);
+        if (release) {
+          await page.mouse.up();
+          await page.mouse.move(0, 0);
+          await page.waitForTimeout(700);
+        }
+        return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
+      };
       const reset = async (page: Page) => {
         await page.keyboard.press('Escape');
         const clear = page.getByRole('button', { name: '모두 삭제', exact: true });
@@ -1608,8 +1630,56 @@ function targets(): Target[] {
           },
           after: reset,
         },
+        // v2.69.5 — 마지막 봉 오른쪽 빈 곳에 그린 자(그리는 중 · 그린 뒤) · 모양 위 「삭제」 · 모양 위 오른쪽 클릭 메뉴
+        { name: 'chart-자-빈곳-그리는중', hash: '#/chart', open: async (page: Page) => { await zoomIn(page); await rulerInEmpty(page, false); }, after: async (page: Page) => { await page.mouse.up(); await reset(page); } },
+        { name: 'chart-자-빈곳-그린뒤', hash: '#/chart', open: async (page: Page) => { await zoomIn(page); await rulerInEmpty(page, true); }, after: reset },
+        {
+          name: 'chart-모양위-삭제버튼',
+          hash: '#/chart',
+          open: async (page: Page) => {
+            await zoomIn(page);
+            const r = await rulerInEmpty(page, true);
+            await page.mouse.click(r.x, r.y);
+            await page.waitForTimeout(400);
+          },
+          after: reset,
+        },
+        {
+          name: 'chart-모양위-오른쪽클릭메뉴',
+          hash: '#/chart',
+          open: async (page: Page) => {
+            await zoomIn(page);
+            const r = await rulerInEmpty(page, true);
+            await page.mouse.click(r.x, r.y, { button: 'right' });
+            await page.waitForTimeout(400);
+          },
+          after: reset,
+        },
       ];
     })(),
+    // v2.69.5 — 가벼운 캔들 차트(실시간 순위 미리보기 · 기업 비교)를 크게 확대 — 봉 높이 차이(메인 · 캡처와 같은 축 설정)
+    ...(['#/ranking', '#/compare'] as const).map((hash) => ({
+      name: `${hash === '#/ranking' ? 'ranking-미리보기' : 'compare-차트'}-크게확대`,
+      hash,
+      open: async (page: Page) => {
+        // 기업 비교가 비어 있으면 관심 목록의 SK하이닉스를 한 칸에 넣는다(클릭: 빈 칸에 차례로 추가)
+        if (hash === '#/compare' && !(await page.getByTestId('lite-candle-chart').count())) {
+          await page.getByRole('button', { name: /SK하이닉스/ }).first().click();
+        }
+        await page.waitForTimeout(5000); // 봉이 다 들어온 뒤 확대(먼저 확대하면 데이터가 들어오며 처음 범위로 돌아간다)
+        const lite = page.getByTestId('lite-candle-chart').first();
+        if (!(await lite.count())) return;
+        const b = (await lite.boundingBox())!;
+        await page.mouse.move(b.x + b.width * 0.85, b.y + b.height * 0.4);
+        // 라이브러리 기본 휠 확대는 한 번에 조금씩 — 봉 10~20개가 될 만큼
+        for (let i = 0; i < 40; i++) {
+          await page.mouse.wheel(0, -100);
+          await page.waitForTimeout(40);
+        }
+        await page.mouse.move(0, 0);
+        await page.waitForTimeout(500);
+      },
+    })),
   );
   return list;
 }
