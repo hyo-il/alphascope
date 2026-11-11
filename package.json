@@ -64,6 +64,7 @@
     "assetrowops:test": "tsx scripts/assetRowOpsSelfTest.ts",
     "assettradeui:test": "tsx scripts/assetTradeUiSelfTest.ts",
     "assetdaily:test": "tsx scripts/assetDailySelfTest.ts",
+    "assetdailyui:test": "tsx scripts/assetDailyUiSelfTest.ts",
     "uitidy:test": "tsx scripts/uiTidySelfTest.ts",
     "ordercolor:test": "tsx scripts/orderButtonColorSelfTest.ts",
     "assetavg:test": "tsx scripts/assetAverageSelfTest.ts",

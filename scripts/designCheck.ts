@@ -499,6 +499,85 @@ function targets(): Target[] {
         await page.unroute('**/api/asset/touch');
       },
     })),
+    // 자산 관리 v2.70.0 — 「총 자산」 탭 일별 변화: 그래프 마우스 오버 · 표 · 줄 펼침(주가 · 환율 / 지난 날짜) · 메모 입력 · 메모 저장 실패 · 잠금(메모 403 → 잠금 화면) · 빈 기록
+    ...(
+      [
+        ['일별변화-그래프오버', 30, async (page: Page) => {
+          const box = await page.getByTestId('asset-history-chart').boundingBox();
+          if (box) await page.mouse.move(box.x + box.width - 90, box.y + box.height / 2);
+          await page.waitForTimeout(400);
+        }],
+        ['일별변화-표', 30, async (page: Page) => {
+          await page.getByTestId('asset-daily-table').scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+        }],
+        ['일별변화-줄펼침', 30, async (page: Page) => {
+          const rows = page.getByTestId('asset-daily-table').getByRole('button', { name: /자세히 보기$/ });
+          await rows.nth(1).click().catch(() => {}); // 끝에서 둘째(가격 못 받음 · 주가 · 환율)
+          await rows.nth(25).click().catch(() => {}); // 지난 날짜(주식 값)
+          await page.getByTestId('asset-daily-table').scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+        }],
+        ['일별변화-메모입력', 30, async (page: Page) => {
+          await page.getByTestId('asset-daily-table').scrollIntoViewIfNeeded().catch(() => {});
+          await page.getByRole('button', { name: /메모$/ }).first().click().catch(() => {});
+          await page.keyboard.type('보너스 · 이체').catch(() => {});
+          await page.waitForTimeout(200);
+        }],
+        ['일별변화-메모실패', 30, async (page: Page) => {
+          await page.getByTestId('asset-daily-table').scrollIntoViewIfNeeded().catch(() => {});
+          await page.getByRole('button', { name: /메모$/ }).first().click().catch(() => {});
+          await page.keyboard.type('가'.repeat(12)).catch(() => {});
+          await page.keyboard.press('Enter').catch(() => {});
+          await page.waitForTimeout(400);
+        }],
+        ['일별변화-잠금', 30, async (page: Page) => {
+          await page.getByTestId('asset-daily-table').scrollIntoViewIfNeeded().catch(() => {});
+          await page.getByRole('button', { name: /메모$/ }).first().click().catch(() => {});
+          await page.keyboard.type('급여').catch(() => {});
+          await page.unroute('**/api/asset/daily-note').catch(() => {});
+          await page.route('**/api/asset/status', (r) => r.fulfill({ json: assetStatusSample(false) }).catch(() => {}));
+          await page.route('**/api/asset/daily-note', (r) => r.fulfill({ status: 403, json: { error: '자산 관리가 잠겨 있습니다.', code: 'asset-locked' } }).catch(() => {}));
+          await page.keyboard.press('Enter').catch(() => {});
+          await page.waitForTimeout(600);
+        }],
+        ['일별변화-빈기록', 0, async (page: Page) => {
+          await page.getByTestId('asset-daily-table').scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+        }],
+      ] as const
+    ).map(([label, records, act]) => ({
+      name: `asset-${label}`,
+      hash: '#/asset',
+      before: async (page: Page) => {
+        await page.evaluate(() => {
+          localStorage.setItem('alphascope.asset.includePension', '1');
+          localStorage.setItem('alphascope.asset.tab', 'total');
+        });
+        await page.route('**/api/asset/status', (r) => r.fulfill({ json: assetStatusSample(true) }).catch(() => {}));
+        await page.route('**/api/asset/touch', (r) => r.fulfill({ json: { ok: true, lockMinutes: 30, remainingMs: 30 * 60_000 } }).catch(() => {}));
+        await page.route('**/api/asset/sheet', (r) => r.fulfill({ json: assetSheetSample() }).catch(() => {}));
+        await page.route('**/api/asset/summary**', (r) => r.fulfill({ json: assetSummarySample({ pension: true }) }).catch(() => {}));
+        await page.route('**/api/asset/history**', (r) => r.fulfill({ json: assetHistorySample(records) }).catch(() => {}));
+        // 메모 — 「메모실패」 는 400(글은 그대로 · 오류 한 줄) · 그 밖은 저장하지 않고 503
+        await page.route('**/api/asset/daily-note', (r) =>
+          r.fulfill(label === '일별변화-메모실패' ? { status: 400, json: { error: '시험 — 저장하지 않음' } } : { status: 503, json: { error: '시험 — 쓰지 않음' } }).catch(() => {}),
+        );
+      },
+      open: async (page: Page) => {
+        await page.waitForTimeout(800);
+        await act(page);
+      },
+      after: async (page: Page) => {
+        for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/daily-note']) await page.unroute(p);
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.evaluate(() => {
+          localStorage.removeItem('alphascope.asset.includePension');
+          localStorage.removeItem('alphascope.asset.tab');
+        });
+        await page.unroute('**/api/asset/touch');
+      },
+    })),
     // 자산 관리 v2.63.0 · v2.64.0 — 「비율 조정」 탭(괜찮음 · 조정 필요 섞임 · 빠진 금액 줄 · 목표 합 ≠ 100 · 목표 빈칸) ·
     // 설정 창 「목표 비율」(합 맞음 · 틀림 · 쓰기 꺼짐) · 「비율 조정 범위」 · 「자산 현황」 종목별(전체 · 코어 · 위성). 가짜 응답만(쓰기 주소는 막는다)
     ...(

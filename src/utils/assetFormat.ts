@@ -1,4 +1,4 @@
-import { formatNumber, formatPrice } from './formatters';
+import { MINUS, formatNumber, formatPrice, formatSignedMoney } from './formatters';
 import type { AssetCurrency } from '../types/asset';
 
 /**
@@ -21,4 +21,25 @@ export function formatAssetQty(qty: number | null | undefined, opts: { ceil?: bo
   const v = opts.ceil ? Math.ceil(qty * 100 - 1e-9) / 100 : Math.round(qty * 100) / 100;
   const frac = Number.isInteger(v) ? 0 : (String(v).split('.')[1] ?? '').length;
   return `${formatNumber(v, Math.min(2, frac))}주`;
+}
+
+/** 원화 금액 정확히 — 「₩5,123,456,789」(원 단위 정수 · v2.70.0 총 자산 추이 · 일별 변화 표) */
+export function formatAssetWon(value: number | null | undefined): string {
+  return formatPrice(value, 'KRW');
+}
+
+/** 부호 있는 원화 금액 정확히 — 「+₩12,345,678」 · 「−₩1,000」 · 「₩0」 */
+export function formatAssetWonSigned(value: number | null | undefined): string {
+  return formatSignedMoney(value, 'KRW');
+}
+
+/**
+ * 부호 있는 만 원 단위(반올림) — 「+₩90만」 · 「−₩1,235만」(일별 변화 표 「무엇 때문에」 칸). 1만 원 아래는 부호와 상관없이 「1만 원 미만」 으로 묶는다.
+ * 정확한 금액은 줄을 펼쳐 `formatAssetWonSigned` 로 본다.
+ */
+export function formatAssetManwon(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  if (Math.abs(value) < 10_000) return '1만 원 미만';
+  const man = Math.round(Math.abs(value) / 10_000);
+  return `${value > 0 ? '+' : MINUS}₩${man.toLocaleString('ko-KR')}만`;
 }

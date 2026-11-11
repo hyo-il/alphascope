@@ -3,8 +3,8 @@
  * `design:check` 가 `page.route` 로 `/api/asset/status` · `sheet` · `summary` · `history` 를 바꿔치기한다 — 구글 · DB 를 건드리지 않는다.
  * 긴 종목명 · 긴 구간 이름 · 달러 소수 4자리 · 빈 구간 · 이을 수식 없는 줄 · 합계 표를 모두 넣어 칸 넘침을 잰다.
  */
-import { DEFAULT_CLASS_COLORS, type AssetClassColors } from '../../../src/types/asset';
-import type { AssetClass, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHolding, AssetPriceSheetStatus, AssetSheetData, AssetSheetFailure, AssetStatus, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetTradeRecord, AssetTradesResponse } from '../../../src/types/asset';
+import { ASSET_DAILY_SHARE_LABEL, DEFAULT_CLASS_COLORS, type AssetClassColors } from '../../../src/types/asset';
+import type { AssetClass, AssetDailyChange, AssetDailyShare, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHolding, AssetPriceSheetStatus, AssetSheetData, AssetSheetFailure, AssetStatus, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetTradeRecord, AssetTradesResponse } from '../../../src/types/asset';
 import { computeRebalance } from '../../../server/asset/rebalance';
 import { computeMonthlyBuy } from '../../../server/asset/purchase';
 
@@ -221,8 +221,12 @@ export function priceSheetSample(kind: 'google' | 'toss' | 'off' | 'google-backu
   return { ...base, enabled: true, source: 'google', state: 'idle', hasBackup: false };
 }
 
-/** 하루 기록 가짜 응답 — n 개(평일만 · 오늘 쪽으로 끝남) · since = 시트가 바뀐 시각(v2.65.1 — 빈 차트 문구) */
-export function assetHistorySample(n: number, since: string | null = null): { range: string; points: AssetHistoryPoint[]; since: string | null } {
+/**
+ * 하루 기록 가짜 응답 — n 개(평일만 · 오늘 쪽으로 끝남) · since = 시트가 바뀐 시각(v2.65.1 — 빈 차트 문구).
+ * v2.70.0 `rows`(일별 변화 표): 첫 줄 비교 안 함 · 앞쪽 절반은 지난 날짜(C-1 주식 값) · 뒤쪽은 주가 · 환율 · 많이 바뀐 종목 · 몫의 합 = 변화 ·
+ * 끝에서 셋째 줄 입금(급여) + 메모 · 끝에서 둘째 줄 가격 못 받음 1줄 · 끝에서 넷째 줄 대략(미국 매매 환율).
+ */
+export function assetHistorySample(n: number, since: string | null = null): { range: string; points: AssetHistoryPoint[]; since: string | null; rows: AssetDailyChange[] } {
   const points: AssetHistoryPoint[] = [];
   let t = Date.now() - 86_400_000;
   let v = 5_100_000_000;
@@ -234,7 +238,47 @@ export function assetHistorySample(n: number, since: string | null = null): { ra
     }
     t -= 86_400_000;
   }
-  return { range: '1m', points, since };
+  const label = (key: AssetDailyShare['key']) => ASSET_DAILY_SHARE_LABEL[key];
+  const rows: AssetDailyChange[] = points.map((p, i) => {
+    const base: AssetDailyChange = { day: p.day, total: p.total, prevDay: null, change: null, ratio: null, shares: [], traded: null, movers: [], split: false, approx: false, missing: 0, skip: null, note: null };
+    if (i === 0) return { ...base, skip: since ? 'sheet-switched' : 'first' };
+    const prev = points[i - 1].total;
+    const change = p.total - prev;
+    const split = i >= Math.ceil(n / 2);
+    const salary = i === n - 3 ? 4_500_000 : 0;
+    const body = change - salary;
+    const shares: AssetDailyShare[] = split
+      ? [
+          { key: 'price', label: label('price'), amount: Math.round(body * 0.7) },
+          { key: 'fx', label: label('fx'), amount: Math.round(body * 0.25) },
+          { key: 'gold', label: label('gold'), amount: Math.round(body * 0.04) },
+        ]
+      : [{ key: 'stock', label: label('stock'), amount: Math.round(body * 0.98) }];
+    if (salary) shares.push({ key: 'flow', label: label('flow'), amount: salary });
+    const rest = change - shares.reduce((a, s) => a + s.amount, 0);
+    if (rest !== 0) shares.push({ key: 'other', label: label('other'), amount: rest });
+    const price = shares.find((s) => s.key === 'price')?.amount ?? 0;
+    return {
+      ...base,
+      prevDay: points[i - 1].day,
+      change,
+      ratio: change / prev,
+      shares,
+      split,
+      traded: i === n - 4 ? 1_250_000 : null,
+      approx: i === n - 4,
+      missing: i === n - 2 ? 1 : 0,
+      movers: split
+        ? [
+            { symbol: 'NVDA', name: '엔비디아', amount: Math.round(price * 0.6) },
+            { symbol: '005930', name: '삼성전자', amount: Math.round(price * 0.3) },
+            { symbol: 'QQQM', name: 'Invesco NASDAQ 100 ETF', amount: Math.round(price * 0.1) },
+          ]
+        : [],
+      note: salary ? '급여' : null,
+    };
+  });
+  return { range: '1m', points, since, rows };
 }
 
 export const assetSummaryFailureSample: AssetSheetFailure = {
