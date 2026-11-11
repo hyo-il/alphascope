@@ -15,6 +15,8 @@ interface Props {
   onClearDrawings: () => void;
   onDeleteSelected: () => void;
   hasDrawings: boolean;
+  /** 차트에서 고른 그림이 있다 — 「선택 삭제」 */
+  hasSelectedDrawing: boolean;
   /** 확대·위치를 처음으로(드로잉은 남긴다) */
   onResetView: () => void;
 }
@@ -34,6 +36,7 @@ export default function ChartToolbar({
   onClearDrawings,
   onDeleteSelected,
   hasDrawings,
+  hasSelectedDrawing,
   onResetView,
 }: Props) {
   return (
@@ -62,6 +65,7 @@ export default function ChartToolbar({
         onClearAll={onClearDrawings}
         onDeleteSelected={onDeleteSelected}
         hasDrawings={hasDrawings}
+        hasSelected={hasSelectedDrawing}
       />
 
       <span className="mx-1 h-4 w-px bg-border" />

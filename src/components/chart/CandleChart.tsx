@@ -1,5 +1,5 @@
 import { formatSigned } from '../../utils/formatters';
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { modal } from '../../store/uiStore';
 import {
   DrawingManager,
@@ -76,6 +76,8 @@ interface Props {
   livePrice: Price | null;
   activeTool?: DrawingToolType;
   onDrawingCountChange?: (count: number) => void;
+  /** 그림을 고르거나 풀 때 — 툴바 「선택 삭제」 를 켜고 끈다 */
+  onSelectionChange?: (selected: boolean) => void;
   /**
    * 하나 그리고 나면 호출 — 툴바를 커서 모드로 되돌린다.
    * 도구를 계속 쥐고 있으면 그린 선을 지우려고 클릭했을 때 새 선이 그려진다.
@@ -136,6 +138,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     livePrice,
     activeTool = null,
     onDrawingCountChange,
+    onSelectionChange,
     onToolConsumed,
     onReachPast,
     indicators = null,
@@ -184,6 +187,10 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
 
   const countCallbackRef = useRef(onDrawingCountChange);
   countCallbackRef.current = onDrawingCountChange;
+  const selectionCallbackRef = useRef(onSelectionChange);
+  selectionCallbackRef.current = onSelectionChange;
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const onReachPastRef = useRef(onReachPast);
   onReachPastRef.current = onReachPast;
   const cancelPendingRef = useRef<(() => void) | null>(null);
@@ -268,6 +275,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     const drawings = new DrawingManager();
     drawings.attach(chart, candleSeries, container);
     drawingsRef.current = drawings;
+    // 시험(`chartview:test`)이 축 범위 · 시리즈 값 · 드로잉 수를 재는 손잡이(차트 칸 요소에 붙임 · 화면 · 동작에는 쓰지 않는다)
+    Object.assign(container, { __chartProbe: { chart, candleSeries, drawings } });
 
     const reportCount = () => countCallbackRef.current?.(drawings.getAllDrawings().length);
 
@@ -277,12 +286,21 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
      */
     let lastPointer: { x: number; y: number } | null = null;
 
+    const reportSelected = () => selectionCallbackRef.current?.(drawings.getSelectedDrawing() !== null);
     const unsubscribers = [
       ...(['drawing:added', 'drawing:removed', 'drawing:cleared'] as const).map((event) =>
         drawings.on(event, reportCount),
       ),
-      // 선택되면 첫 앵커 근처에 ✕ 버튼을 띄운다 (수정 3-B).
+      // 지우거나 선택이 풀리면 메뉴도 닫는다(Delete 키 · 툴바로 지운 뒤 남은 메뉴가 없는 그림을 가리키지 않게).
+      ...(['drawing:removed', 'drawing:cleared', 'drawing:deselected'] as const).map((event) =>
+        drawings.on(event, () => {
+          setMenu(null);
+          reportSelected();
+        }),
+      ),
+      // 선택되면 누른 자리 근처에 「삭제」 버튼을 띄운다 (수정 3-B).
       drawings.on('drawing:selected', () => {
+        reportSelected();
         const selected = drawings.getSelectedDrawing();
         if (!selected) return setSelectedAnchor(null);
         setSelectedAnchor(
@@ -292,6 +310,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
         );
       }),
       drawings.on('drawing:deselected', () => setSelectedAnchor(null)),
+      // 지운 그림이 선택돼 있었으면 deselected 가 먼저 오지만, 남은 버튼을 확실히 지운다.
+      drawings.on('drawing:cleared', () => setSelectedAnchor(null)),
     ];
 
     /** 드로잉의 첫 앵커를 화면 좌표로 변환 */
@@ -509,7 +529,15 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       drawStartScreen = null;
       setPending(null);
 
-      if (drawings.getSelectedDrawing()) return;
+      /*
+       * 그림을 누르면 **누른 그 순간** 선택한다. 라이브러리 선택은 차트 click 을 기다리는데, 앞 클릭에서 0.5초 안의
+       * 클릭은 차트가 두 번 누르기로 보고 click 을 내지 않는다 — 한 번 못 맞혀 곧바로 다시 누르면 선택이 끝내 되지 않아
+       * 「삭제」 버튼이 뜨지 않았다(132차). 선택한 그림의 끝점을 끄는 것(라이브러리)은 그대로 둔다.
+       */
+      if (drawings.hitTestAnchor(lastPointer) !== null) return;
+      const hit = drawings.hitTest(lastPointer);
+      if (hit) return drawings.selectDrawing(hit.id);
+      if (drawings.getSelectedDrawing()) return drawings.deselectAll();
       dragging = true;
       lastX = e.clientX;
     };
@@ -612,19 +640,16 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       setMeasure(null);
     };
 
-    // ── 우클릭 삭제 메뉴 (수정 3-A) ──
+    // ── 우클릭 삭제 메뉴 (수정 3-A) — 그림 위면 그것을 선택하고, 그림이 선택된 상태면 차트 아무 곳에서나 ──
     const onContextMenu = (e: MouseEvent) => {
       e.preventDefault();
       const rect = container.getBoundingClientRect();
       const point = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      lastPointer = point;
       const hit = drawings.hitTest(point);
-
-      if (hit) {
-        drawings.selectDrawing(hit.id);
-        setMenu({ x: point.x, y: point.y, drawingId: hit.id });
-      } else {
-        setMenu(null);
-      }
+      if (hit) drawings.selectDrawing(hit.id);
+      const target = hit ?? drawings.getSelectedDrawing();
+      setMenu(target ? { x: point.x, y: point.y, drawingId: target.id } : null);
     };
 
     container.addEventListener('mousedown', onMouseDown);
@@ -652,6 +677,32 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       setSelectedAnchor(null);
     };
   }, []);
+
+  // 「삭제」 버튼 · 메뉴는 차트 칸 안에 — 화면 끝에서 잘리면 안쪽으로 옮긴다(메뉴는 누른 자리 반대쪽으로 넘긴다).
+  useLayoutEffect(() => fitInside(deleteButtonRef.current, false), [selectedAnchor]);
+  useLayoutEffect(() => fitInside(menuRef.current, true), [menu]);
+
+  // 메뉴는 Esc · 바깥 누르기 · 휠 · 스크롤에 닫는다.
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    const onDown = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) close();
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('mousedown', onDown, true);
+    window.addEventListener('wheel', close, { capture: true, passive: true });
+    window.addEventListener('scroll', close, true);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('mousedown', onDown, true);
+      window.removeEventListener('wheel', close, { capture: true });
+      window.removeEventListener('scroll', close, true);
+    };
+  }, [menu]);
 
   // 가격 자릿수는 통화로 — 원화는 소수점 없이 (`priceFormatOf` 한 곳)
   useEffect(() => {
@@ -872,10 +923,12 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
           </div>
         )}
 
-        {/* 드로잉 선택 시 ✕ 버튼 (수정 3-B) */}
+        {/* 드로잉 선택 시 「삭제」 버튼 (수정 3-B) — 자리는 fitInside 가 차트 칸 안으로 */}
         {selectedAnchor && (
           <button
+            ref={deleteButtonRef}
             type="button"
+            data-testid="drawing-delete"
             onClick={() => {
               drawingsRef.current?.removeDrawing(selectedAnchor.id);
               setSelectedAnchor(null);
@@ -891,11 +944,15 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
         {/* 우클릭 컨텍스트 메뉴 (수정 3-A) */}
         {menu && (
           <div
+            ref={menuRef}
+            role="menu"
+            aria-label="드로잉 메뉴"
             className="absolute z-40 min-w-[110px] overflow-hidden rounded-lg bg-bg-elevated shadow-xl"
             style={{ left: menu.x, top: menu.y }}
           >
             <button
               type="button"
+              role="menuitem"
               onClick={() => {
                 drawingsRef.current?.removeDrawing(menu.drawingId);
                 setMenu(null);
@@ -907,6 +964,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
             </button>
             <button
               type="button"
+              role="menuitem"
               onClick={clearAllDrawings}
               className="block w-full px-3 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
             >
@@ -914,6 +972,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
             </button>
             <button
               type="button"
+              role="menuitem"
               onClick={() => setMenu(null)}
               className="block w-full border-t border-border px-3 py-1.5 text-left text-xs text-text-muted transition-colors hover:bg-bg-tertiary"
             >
@@ -924,6 +983,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
 
         <div
           ref={containerRef}
+          data-testid="candle-chart"
           className="h-full w-full"
           style={{ cursor: cursorFor(activeTool) }}
         />
@@ -931,6 +991,26 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     </div>
   );
 });
+
+/** 차트 칸 가장자리와 띄울 거리(px) */
+const EDGE_GAP = 4;
+
+/**
+ * 차트 칸(가장 가까운 position 조상) 안에 들어오게 자리를 옮긴다 — 「삭제」 버튼 · 우클릭 메뉴.
+ * `flip` 이면 넘치는 쪽에서 누른 자리 반대편으로 넘긴다(메뉴가 커서 왼쪽 · 위로), 아니면 안쪽으로 붙인다.
+ * React 는 자리 값(style)이 바뀔 때만 다시 쓰므로, 여기서 고친 자리는 다음 선택 · 메뉴 전까지 남는다.
+ */
+function fitInside(el: HTMLElement | null, flip: boolean) {
+  const box = el?.offsetParent as HTMLElement | null;
+  if (!el || !box) return;
+  const place = (start: number, size: number, room: number) => {
+    let next = start;
+    if (flip && next + size > room - EDGE_GAP) next = start - size;
+    return Math.max(EDGE_GAP, Math.min(next, room - size - EDGE_GAP));
+  };
+  el.style.left = `${place(el.offsetLeft, el.offsetWidth, box.clientWidth)}px`;
+  el.style.top = `${place(el.offsetTop, el.offsetHeight, box.clientHeight)}px`;
+}
 
 function describeMeasure(measure: MeasurePreview) {
   const diff = measure.currentPrice - measure.startPrice;

@@ -69,7 +69,8 @@
     "assetavgui:test": "tsx scripts/assetAverageUiSelfTest.ts",
     "tooltip:test": "tsx scripts/tooltipSelfTest.ts",
     "tooltipui:test": "tsx scripts/tooltipUiSelfTest.ts",
-    "toolbutton:test": "tsx scripts/toolButtonSelfTest.ts"
+    "toolbutton:test": "tsx scripts/toolButtonSelfTest.ts",
+    "chartview:test": "tsx scripts/chartViewSelfTest.ts"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-kr": "^5.3.0",

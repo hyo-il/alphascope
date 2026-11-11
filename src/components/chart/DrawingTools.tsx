@@ -1,4 +1,5 @@
-import Button from '../ui/Button';
+import { Eraser, Trash2 } from 'lucide-react';
+import IconButton from '../ui/IconButton';
 import { useEffect } from 'react';
 
 /** 툴바에 노출할 도구 — 플러그인의 67종 중 스윙 트레이딩에 자주 쓰는 것만 추린다. */
@@ -59,6 +60,8 @@ interface Props {
   onClearAll: () => void;
   onDeleteSelected: () => void;
   hasDrawings: boolean;
+  /** 차트에서 고른 그림이 있다 — 「선택 삭제」 를 켠다 */
+  hasSelected: boolean;
 }
 
 export default function DrawingTools({
@@ -67,12 +70,14 @@ export default function DrawingTools({
   onClearAll,
   onDeleteSelected,
   hasDrawings,
+  hasSelected,
 }: Props) {
   // Esc = 드로잉 취소, Delete/Backspace = 선택한 드로잉 삭제
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      // 입력 칸에 글자를 쓰는 중이면 키를 가로채지 않는다(Backspace 가 그림을 지우면 안 된다)
       const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+      if (target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)) return;
 
       if (e.key === 'Escape') onSelect(null);
       if (e.key === 'Delete' || e.key === 'Backspace') onDeleteSelected();
@@ -104,13 +109,16 @@ export default function DrawingTools({
 
       <span className="mx-0.5 h-5 w-px bg-border" />
 
-      {/* 도구줄의 글자 버튼은 「초기화」 와 같은 모양(ghost · 좁은 여백) — 1280 에서 도구줄이 한 줄에 들어가야 빠른주문이 잘리지 않는다 */}
-      <Button variant="ghost" size="sm" className="!px-2"
+      {/*
+        지우기 두 버튼은 아이콘만(도구 버튼 — 디자인 규칙 9 · 툴팁에 할 일). 1280 에서 도구줄 폭(850px)을 이미 다 써서,
+        글자 버튼(71px)을 하나 더하면 두 줄로 넘어가 빠른주문이 잘린다 — 아이콘 둘(28px)이면 한 줄에 든다(132차).
+      */}
+      <IconButton icon={Trash2} tone="danger" label="고른 그림 삭제 (Delete)" aria-label="선택 삭제"
+        onClick={onDeleteSelected}
+        disabled={!hasSelected} />
+      <IconButton icon={Eraser} tone="danger" label="그린 것 모두 삭제" aria-label="모두 삭제"
         onClick={onClearAll}
-        disabled={!hasDrawings}
-        title="그린 것 모두 삭제">
-        모두 삭제
-      </Button>
+        disabled={!hasDrawings} />
     </div>
   );
 }
