@@ -438,6 +438,7 @@ try {
         const menu = page.getByRole('menu', { name: '드로잉 메뉴' });
         const menuOpen = await menu.isVisible();
         check(`[132-3] ${w}px ${t} — 선택한 뒤 빈 곳 오른쪽 클릭: 메뉴(삭제 · 모두 삭제 · 취소) · 칸 안`, menuOpen && (await menu.getByRole('menuitem').allTextContents()).join('·') === '삭제·모두 삭제·취소' && (await inside(page, 'menu')));
+        check(`[132-3] ${w}px ${t} — 메뉴가 열린 동안 떠 있는 「삭제」 버튼은 숨김(메뉴와 겹치지 않게)`, !(await btn.isVisible()));
         await menu.getByRole('menuitem', { name: '삭제', exact: true }).click();
         await page.waitForTimeout(250);
         check(`[132-3] ${w}px ${t} — 메뉴 「삭제」: 그것만 지워짐 · 다른 그림 남음 · 메뉴 닫힘`, (await target()) === 0 && (await others()) && !(await menu.isVisible()));

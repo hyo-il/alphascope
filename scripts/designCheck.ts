@@ -1545,6 +1545,71 @@ function targets(): Target[] {
         await page.waitForTimeout(500);
       },
     },
+    // v2.69.4 차트 보기 — 크게 확대한 일봉 · 가격 축 휠 · 드로잉 선택 「삭제」 버튼 · 오른쪽 클릭 메뉴(잰 뒤 [초기화] · 그림 지움)
+    ...(() => {
+      const chartBox = async (page: Page) => (await page.getByTestId('candle-chart').boundingBox())!;
+      const zoomIn = async (page: Page) => {
+        const b = await chartBox(page);
+        await page.mouse.move(b.x + b.width * 0.85, b.y + b.height * 0.3);
+        for (let i = 0; i < 8; i++) {
+          await page.mouse.wheel(0, -100);
+          await page.waitForTimeout(60);
+        }
+        await page.waitForTimeout(400);
+      };
+      const drawTrend = async (page: Page) => {
+        const b = await chartBox(page);
+        await page.getByRole('radio', { name: '추세선', exact: true }).click();
+        await page.mouse.click(b.x + b.width * 0.25, b.y + b.height * 0.2);
+        await page.mouse.click(b.x + b.width * 0.55, b.y + b.height * 0.5);
+        await page.waitForTimeout(700);
+      };
+      const reset = async (page: Page) => {
+        await page.keyboard.press('Escape');
+        const clear = page.getByRole('button', { name: '모두 삭제', exact: true });
+        if (await clear.isEnabled()) await clear.click();
+        await page.getByRole('button', { name: '초기화', exact: true }).click();
+        await page.mouse.move(0, 0);
+        await page.waitForTimeout(300);
+      };
+      return [
+        { name: 'chart-크게확대-일봉', hash: '#/chart', open: zoomIn, after: reset },
+        {
+          name: 'chart-가격축휠-늘림',
+          hash: '#/chart',
+          open: async (page: Page) => {
+            const b = await chartBox(page);
+            await page.mouse.move(b.x + b.width - 30, b.y + b.height * 0.3);
+            await page.mouse.wheel(0, -100);
+            await page.mouse.wheel(0, -100);
+            await page.waitForTimeout(400);
+          },
+          after: reset,
+        },
+        {
+          name: 'chart-드로잉선택-삭제버튼',
+          hash: '#/chart',
+          open: async (page: Page) => {
+            await drawTrend(page);
+            const b = await chartBox(page);
+            await page.mouse.click(b.x + b.width * 0.4, b.y + b.height * 0.35);
+            await page.waitForTimeout(400);
+          },
+          after: reset,
+        },
+        {
+          name: 'chart-드로잉-오른쪽클릭메뉴',
+          hash: '#/chart',
+          open: async (page: Page) => {
+            await drawTrend(page);
+            const b = await chartBox(page);
+            await page.mouse.click(b.x + b.width * 0.4, b.y + b.height * 0.35, { button: 'right' });
+            await page.waitForTimeout(400);
+          },
+          after: reset,
+        },
+      ];
+    })(),
   );
   return list;
 }

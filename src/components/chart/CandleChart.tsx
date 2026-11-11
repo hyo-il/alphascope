@@ -923,8 +923,11 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
           </div>
         )}
 
-        {/* 드로잉 선택 시 「삭제」 버튼 (수정 3-B) — 자리는 fitInside 가 차트 칸 안으로 */}
-        {selectedAnchor && (
+        {/*
+          드로잉 선택 시 「삭제」 버튼 (수정 3-B) — 자리는 fitInside 가 차트 칸 안으로.
+          오른쪽 클릭 메뉴가 열린 동안은 숨긴다(메뉴에 「삭제」 가 있고, 버튼이 메뉴 모서리와 겹쳤다 — 132차 캡처 검토)
+        */}
+        {selectedAnchor && !menu && (
           <button
             ref={deleteButtonRef}
             type="button"

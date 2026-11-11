@@ -324,12 +324,13 @@ check(
     walk(path.join(root, 'src'));
     const native = attrs.filter((a) => a.native);
     check(`[129-1] 앱 화면 코드에 툴팁용 title= 0곳(형 정보 · ${attrs.length}곳 중)`, native.length === 0, native.map((a) => `${a.file}:${a.line}`).join(', '));
-    // 툴팁 아닌 부품 속성 95곳 그대로 — 파일 · 요소 · 값이 문서 「바꾸지 않음」 줄과 같다(줄 번호는 위에 한 줄 더한 곳이 있어 보지 않는다)
+    // 툴팁 아닌 부품 속성 94곳 그대로 — 파일 · 요소 · 값이 문서 「바꾸지 않음」 줄과 같다(줄 번호는 위에 한 줄 더한 곳이 있어 보지 않는다)
+    // 132차: 차트 도구줄 「모두 삭제」(Button title)가 아이콘 버튼(IconButton label)이 되어 95 → 94 — 문서 그 줄은 「지움(132차)」
     const key = (f: string, t: string, v: string) => `${f}|${t}|${v.replace(/\s+/g, ' ').slice(0, 60)}`;
     const want = keep.map((r) => key(r.file, r.tag, r.value.replace(/…$/, ''))).sort();
     const have = attrs.map((a) => key(a.file, a.tag, a.value)).sort();
     const sameKeep = want.length === have.length && want.every((w, i) => have[i].startsWith(w.slice(0, w.length)));
-    check(`[128-7] [129-1] 남은 title= ${grepCount}곳 = 툴팁 아닌 부품 속성 ${attrs.length}곳 = 문서 「바꾸지 않음」 ${keep.length}줄(95 · 파일 · 요소 · 값 같음)`, grepCount === attrs.length && keep.length === 95 && attrs.length === 95 && sameKeep, `${grepCount} · ${attrs.length} · ${keep.length} · 다른 첫 줄 ${want.find((w, i) => !have[i]?.startsWith(w)) ?? ''}`);
+    check(`[128-7] [129-1] 남은 title= ${grepCount}곳 = 툴팁 아닌 부품 속성 ${attrs.length}곳 = 문서 「바꾸지 않음」 ${keep.length}줄(94 · 파일 · 요소 · 값 같음)`, grepCount === attrs.length && keep.length === 94 && attrs.length === 94 && sameKeep, `${grepCount} · ${attrs.length} · ${keep.length} · 다른 첫 줄 ${want.find((w, i) => !have[i]?.startsWith(w)) ?? ''}`);
     // 바꾼 91곳 — 파일 안에 문서가 정한 속성(data-tip · data-tip-clip)과 그 값이 있다.
     // 줄 번호로 찾지 않는다(130차 — 줄이 밀리면 시험이 틀린 곳을 본다). 값으로 찾는다(공백 무시 · 문서의 「…」 앞까지).
     // 130차: 「아이콘 버튼」 줄은 공용 IconButton 으로 바뀌면 그 값이 `label` 로 간다(IconButton 이 data-tip = label).
