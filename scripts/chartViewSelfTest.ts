@@ -366,13 +366,17 @@ async function dragDraw(page: Page, label: string, a: { x: number; y: number }, 
   await page.waitForTimeout(300);
 }
 
-/** 차트를 다시 그리게 한다 — 마우스를 가격 칸 위로 지나가게(십자선) 한 뒤 밖으로. 캔버스 글은 다시 그릴 때만 찍힌다 */
+/**
+ * 차트 전체를 다시 그리게 한다 — 창 높이를 1px 바꿨다 되돌림(차트 autoSize). 캔버스 글은 다시 그릴 때만 찍히고,
+ * 마우스 이동(십자선)은 위 레이어만 다시 그려 본 캔버스(봉 · 드로잉 · 글)는 찍히지 않는다. 마우스는 차트 밖으로.
+ */
 async function repaint(page: Page) {
-  const g = await geo(page);
-  await page.mouse.move(g.px + g.w * 0.02, g.py + g.h * 0.98);
-  await page.waitForTimeout(150);
   await page.mouse.move(2, 2);
-  await page.waitForTimeout(350);
+  const v = page.viewportSize()!;
+  await page.setViewportSize({ width: v.width, height: v.height + 1 });
+  await page.waitForTimeout(200);
+  await page.setViewportSize(v);
+  await page.waitForTimeout(400);
 }
 
 /** 그림이 없는 빈 자리 누르기(선택 풀기) — 가격 칸 왼쪽 아래 구석 */
@@ -496,6 +500,13 @@ async function userScenario(browser: Browser) {
           const a = region === '빈 곳' ? { x: g3.lastX + g3.bs * 1.5, y: g3.py + g3.h * 0.3 } : { x: await barX(page, Math.min(g3.first, g3.last - 3)), y: g3.py + g3.h * 0.3 };
           const b = region === '빈 곳' ? { x: g3.lastX + g3.bs * 4.5, y: g3.py + g3.h * 0.6 } : { x: await barX(page, Math.min(g3.first, g3.last - 3) + 3), y: g3.py + g3.h * 0.6 };
           await dragDraw(page, tool.label, a, b);
+          if (tool.label === '추세선' && how === '누름') {
+            // 추세선 위 글(가격 차 | 등락률)도 원화 규칙 — 라이브러리 글은 통화 없이 소수 둘째(「−263039.12 | −16.75%」)였다
+            await clearTexts(page);
+            await repaint(page);
+            const t = await texts(page);
+            check(`[133-1] ${tag} ${region} 추세선 글 원화 「₩」 · 소수 없음 · 등락률(「${t.find((r) => r.t.includes(' | '))?.t ?? '없음'}」)`, t.some((r) => /^[+−]₩\d{1,3}(,\d{3})* \| [+−]\d+\.\d{2}%$/.test(r.t)) && !t.some((r) => /^[+-]?\d+\.\d{2} \|/.test(r.t)), `${t.length}개 · ${JSON.stringify(t.slice(-5).map((r) => r.t))} · 그림 ${await drawingCount(page)}`);
+          }
           await clickBlank(page);
           const n0 = await drawingCount(page);
           // 누를 자리: 상자 모양(자 · 박스 · 피보나치)은 안쪽 가운데, 추세선은 선 가운데, 수평선은 선 위

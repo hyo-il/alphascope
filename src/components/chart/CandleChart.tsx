@@ -454,13 +454,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
           labelColor: isTrend ? color : COLORS.label,
           labelFont: labelFont(isTrend ? 13 : 12, isTrend),
         },
-        isMeasure
-          ? // 정보 글(가격 차 · 등락률 · 봉 · 일)은 라이브러리 글을 끄고 앱이 그린다(`prepareDrawing`)
-            ({ filled: true } as DrawingOptions)
-          : isTrend
-            ? // 라이브러리 기본값은 전부 꺼져 있어 선만 남는다. 등락률·등락폭을 켠다.
-              ({ showPercentChange: true, showPriceChange: true } as DrawingOptions)
-            : {},
+        // 자 · 추세선의 글(가격 차 · 등락률 · 봉 · 일)은 라이브러리 글을 끄고 앱이 그린다(`prepareDrawing` — 통화 규칙)
+        isMeasure ? ({ filled: true } as DrawingOptions) : {},
       );
 
       if (!drawing) return false;

@@ -74,10 +74,12 @@ type Viewport = { timeScale: { timeToCoordinate(t: Time): number | null; coordin
 type DrawingLike = {
   type: string;
   anchors: Anchor[];
+  style: { labelColor?: string };
   getViewport(): Viewport | null;
   anchorToPixel(anchor: Anchor, viewport: Viewport): { x: number; y: number } | null;
   paneViews(): unknown[];
   setMeasureOptions?(options: Record<string, boolean>): void;
+  setTrendLineOptions?(options: Record<string, boolean>): void;
 };
 
 /**
@@ -136,13 +138,39 @@ function measureLabelView(drawing: DrawingLike, coords: ChartTimeCoords, currenc
       });
     },
   };
-  return { zOrder: () => 'top' as const, renderer: () => renderer };
+  return { zOrder: () => 'normal' as const, renderer: () => renderer };
+}
+
+/**
+ * 추세선 위 글(가격 차 | 등락률) — 라이브러리 글과 같은 자리(선 가운데 15px 위 · 가운데 맞춤 · 선 색 굵은 13px)에 앱 규칙 숫자로.
+ * 라이브러리 글은 통화 없이 소수 둘째 고정(원화 종목이 「−263039.12」)이었다(133차).
+ */
+function trendLabelView(drawing: DrawingLike, coords: ChartTimeCoords, currency: () => ChartCurrency) {
+  const renderer = {
+    draw(target: { useMediaCoordinateSpace(fn: (scope: { context: CanvasRenderingContext2D }) => void): void }) {
+      target.useMediaCoordinateSpace(({ context: ctx }) => {
+        const [start, end] = drawing.anchors;
+        const viewport = drawing.getViewport();
+        const p = viewport && start && end ? anchorPixels(drawing, viewport) : null;
+        if (!p) return;
+        const info = measureLines(start, end, coords, currency());
+        ctx.save();
+        ctx.font = `bold 13px ${FONT_FAMILY}`;
+        ctx.fillStyle = drawing.style.labelColor ?? COLORS.label;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`${info.money} | ${info.percent}`, (p.a.x + p.b.x) / 2, (p.a.y + p.b.y) / 2 - 15);
+        ctx.restore();
+      });
+    },
+  };
+  return { zOrder: () => 'normal' as const, renderer: () => renderer };
 }
 
 /**
  * 차트에 넣는 드로잉마다 거친다 — 메인 차트 · 캡처 팝업 같은 모양.
- * ① 가격 축 자동 맞춤에서 뺀다(`keepOutOfAutoscale`) ② 자는 라이브러리 기본 글(영어 「bars · days」 · 「$」)을 끄고 앱이 그린다
- * ③ 빈 곳(마지막 봉 오른쪽)의 점을 그 자리에(`withBarTime`). 드로잉 관리자도 `withBarTime` 을 거친다(누르기 판정 · 끝점 끌기).
+ * ① 가격 축 자동 맞춤에서 뺀다(`keepOutOfAutoscale`) ② 자 · 추세선은 라이브러리 기본 글(영어 「bars · days」 · 「$」 · 통화 없는 소수 둘째)을
+ * 끄고 앱이 그린다 ③ 빈 곳(마지막 봉 오른쪽)의 점을 그 자리에(`withBarTime`). 드로잉 관리자도 `withBarTime` 을 거친다(누르기 판정 · 끝점 끌기).
  */
 export function prepareDrawing<T extends object>(drawing: T, coords: ChartTimeCoords, currency: () => ChartCurrency): T {
   const d = drawing as unknown as DrawingLike;
@@ -150,6 +178,12 @@ export function prepareDrawing<T extends object>(drawing: T, coords: ChartTimeCo
     d.setMeasureOptions?.({ showPrices: false, showPercentage: false, showBars: false, showDays: false });
     const views = d.paneViews.bind(d);
     const label = measureLabelView(d, coords, currency);
+    d.paneViews = () => [...views(), label];
+  }
+  if (d.type === 'trend-line') {
+    d.setTrendLineOptions?.({ showPriceChange: false, showPercentChange: false });
+    const views = d.paneViews.bind(d);
+    const label = trendLabelView(d, coords, currency);
     d.paneViews = () => [...views(), label];
   }
   return keepOutOfAutoscale(withBarTime(drawing, coords));
