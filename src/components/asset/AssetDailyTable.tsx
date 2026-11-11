@@ -84,7 +84,13 @@ export default function AssetDailyTable({
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 z-10 bg-bg-secondary text-caption text-text-muted">
               <tr className={`border-b border-border/50 ${TABLE_HEAD_ROW}`}>
-                <th className="w-px whitespace-nowrap pl-4 font-normal">날짜</th>
+                <th className="w-px whitespace-nowrap pl-4 font-normal">
+                  {/* 펼침 화살표 폭만큼 비워 날짜 글자와 왼쪽 끝을 맞춘다 */}
+                  <span className="inline-flex items-center gap-1">
+                    <span className="inline-block w-3.5" aria-hidden />
+                    날짜
+                  </span>
+                </th>
                 <th className={`${NUM} font-normal`}>총 자산</th>
                 <th className={`${NUM} font-normal`}>전날 대비</th>
                 <th className={`${NUM} font-normal`}>등락률</th>
@@ -131,7 +137,7 @@ export default function AssetDailyTable({
                           </span>
                         </span>
                       </td>
-                      <td className="w-24 max-w-24 pl-3 pr-3" onClick={(e) => e.stopPropagation()}>
+                      <td className="relative w-24 max-w-24 pl-3 pr-3" onClick={(e) => e.stopPropagation()}>
                         <NoteCell day={r.day} note={r.note} disabled={noteDisabled} onSave={onSaveNote} onError={setNoteError} />
                       </td>
                     </tr>
@@ -249,8 +255,9 @@ function NoteCell({ day, note, disabled, onSave, onError }: { day: string; note:
   };
 
   if (editing) {
+    // 메모 칸은 좁다(96px) — 적는 동안만 왼쪽으로 넓힌 입력칸을 칸 위에 띄운다(글 앞부분이 잘리지 않게)
     return (
-      <span className="flex items-center gap-1">
+      <span className="absolute inset-y-0 right-3 z-10 flex w-60 items-center gap-1 bg-bg-secondary pl-2">
         <Input
           ref={inputRef}
           size="sm"

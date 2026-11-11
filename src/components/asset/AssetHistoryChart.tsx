@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { LineSeries, createChart, type IChartApi, type ISeriesApi, type MouseEventParams, type UTCTimestamp } from 'lightweight-charts';
-import { BASE_CHART_OPTIONS, COLORS } from '../chart/chartTheme';
+import { BASE_CHART_OPTIONS, COLORS, dateTimeOptions } from '../chart/chartTheme';
 import { TOOLTIP_BOX, TOOLTIP_EDGE, TOOLTIP_GAP } from '../ui/tokens';
 import { changeColor, formatCompactMoney, formatNumber, formatSigned } from '../../utils/formatters';
 import { formatAssetWon, formatAssetWonSigned } from '../../utils/assetFormat';
@@ -33,6 +33,8 @@ export default function AssetHistoryChart({ points, rows }: { points: AssetHisto
       rightPriceScale: { borderColor: COLORS.border, scaleMargins: { top: 0.15, bottom: 0.15 } },
       timeScale: { borderColor: COLORS.border, timeVisible: false },
     });
+    // 십자선 아래 날짜 글 — 라이브러리 기본(「10 11월 '26」) 대신 앱 날짜 표기 한 곳(`dateTimeOptions` · 2026-11-10) · 아래 축 눈금은 그대로
+    chart.applyOptions({ localization: dateTimeOptions(false).localization });
     seriesRef.current = chart.addSeries(LineSeries, {
       color: COLORS.accent,
       lineWidth: 2,
