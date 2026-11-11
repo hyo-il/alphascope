@@ -35,8 +35,7 @@ import {
   BASE_CHART_OPTIONS,
   drawExtremeMarkers,
   extentOf,
-  PANE_EDGE_LABELS,
-  PRICE_SCALE_MARGINS,
+  fitCandleScale,
   dateTimeOptions,
   isIntraday,
   CANDLE_SERIES_OPTIONS,
@@ -271,7 +270,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     });
 
     const candleSeries = chart.addSeries(CandlestickSeries, CANDLE_SERIES_OPTIONS);
-    candleSeries.priceScale().applyOptions({ scaleMargins: PRICE_SCALE_MARGINS, ...PANE_EDGE_LABELS });
+    fitCandleScale(candleSeries, { extremes: true });
 
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
@@ -282,8 +281,9 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     const drawings = withShapeHit(withBarTime(new DrawingManager(), coords));
     drawings.attach(chart, candleSeries, container);
     drawingsRef.current = drawings;
-    // 시험(`chartview:test`)이 축 범위 · 시리즈 값 · 드로잉 수를 재는 손잡이(차트 칸 요소에 붙임 · 화면 · 동작에는 쓰지 않는다)
-    Object.assign(container, { __chartProbe: { chart, candleSeries, drawings } });
+    // 시험(`chartview:test`)이 축 범위 · 시리즈 값 · 드로잉 수를 재는 손잡이(차트 칸 요소에 붙임 · 화면 · 동작에는 쓰지 않는다).
+    // 개발 서버 · 시험에서만 — 운영 빌드에는 이 줄이 빠진다(`import.meta.env.DEV` = false → 빌드가 지움)
+    if (import.meta.env.DEV) Object.assign(container, { __chartProbe: { chart, candleSeries, drawings } });
 
     const reportCount = () => countCallbackRef.current?.(drawings.getAllDrawings().length);
 
@@ -771,6 +771,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       livePrice?.close ?? candles.at(-1)?.close ?? null,
       currency,
       isIntraday(candles),
+      chartRef.current?.timeScale().options().barSpacing ?? 9,
     );
     /*
      * ⚠️ 언마운트 때는 차트 생성 effect 의 정리(`chart.remove()`)가 **먼저** 돈다(effect 선언 순서).

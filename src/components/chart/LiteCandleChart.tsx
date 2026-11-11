@@ -16,7 +16,7 @@ import {
   priceFormatOf,
   COLORS,
   PANE_EDGE_LABELS,
-  PRICE_SCALE_MARGINS,
+  fitCandleScale,
   VOLUME_SCALE_MARGINS,
   toChartTime,
   VOLUME_PRICE_FORMAT,
@@ -114,7 +114,7 @@ export default function LiteCandleChart({
     interactedRef.current = false;
 
     const candleSeries = chart.addSeries(CandlestickSeries, CANDLE_SERIES_OPTIONS);
-    candleSeries.priceScale().applyOptions({ scaleMargins: PRICE_SCALE_MARGINS, ...PANE_EDGE_LABELS });
+    fitCandleScale(candleSeries, { extremes: false });
 
     const volumeSeries = chart.addSeries(
       HistogramSeries,

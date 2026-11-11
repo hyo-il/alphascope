@@ -8,6 +8,7 @@ import {
   createSeriesMarkers,
   HistogramSeries,
   LineSeries,
+  type AutoscaleInfo,
   type IChartApi,
   type ISeriesApi,
   type SeriesMarker,
@@ -55,12 +56,38 @@ export const INDICATOR_COLORS = {
 export const toChartTime = (ms: number) => (ms / 1000) as UTCTimestamp;
 
 /**
- * 가격축 위아래 여백.
- *
- * 캔들이 pane 의 위아래 끝에 붙으면 답답하고, 고점·저점 근처의 꼬리가 축 라벨과 겹친다.
- * 메인 차트·캡처 팝업·지표 pane 이 같은 값을 써야 두 그림이 같아 보인다.
+ * 지표 칸(RSI · MACD 등) 축 위아래 여백 — 선이 칸 경계에 붙으면 읽기 어렵다. 캔들 칸은 `fitCandleScale`(px 여백).
  */
 export const PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.12 };
+
+/** 최고 / 최저 화살표 크기(px) — 확대해도 이 크기(라이브러리 기본은 봉 간격 따라 최대 30px 로 커진다) */
+const EXTREME_ARROW_PX = 12;
+/**
+ * 캔들 칸 위아래 여백(px) — 최고 화살표 + 글(위) · 최저 화살표 + 글(아래)이 칸 안에 들 자리.
+ * 위 = 화살표 12 + 글 한 줄(13px 글꼴) ≈ 27 · 아래 = 화살표 12 + 틈 3 + 글 한 줄 ≈ 30 — 둥글려 28 · 32.
+ */
+const EXTREME_ROOM = { above: 28, below: 32 };
+/** 최고 / 최저 표시가 없는 캔들 차트(가벼운 차트)의 위아래 여백(px) — 꼬리가 칸 끝에 붙지 않을 만큼 */
+const CANDLE_EDGE_PX = 8;
+
+/**
+ * 캔들 칸의 가격 축 — **캔들을 그리는 모든 차트가 이 함수 하나**(메인 · 캡처 팝업 · 가벼운 차트[실시간 순위 미리보기 · 기업 비교]).
+ *
+ * 크게 확대해도 보이는 봉(고가 ~ 저가)이 가격 칸의 70% 이상을 쓰게 한다(133차). 예전에는 위아래 12% 비율 여백 + 최고 / 최저
+ * 화살표 자리(확대할수록 커져 위아래 51px 씩)를 함께 잡아, 사용자 화면(가격 칸 약 210px)에서 봉이 칸의 약 28% 만 썼다.
+ * 이제 비율 여백은 0 이고, 위아래 여백은 px 로 정한다 — 최고 / 최저 표시가 있으면 그 화살표 · 글 자리, 없으면 8px.
+ * 이동평균선은 지금처럼 축 맞춤에 들어간다(멀리 떨어진 이동평균이 있으면 그만큼 넓어진다).
+ */
+export function fitCandleScale(series: ISeriesApi<'Candlestick'>, { extremes }: { extremes: boolean }) {
+  const room = extremes ? EXTREME_ROOM : { above: CANDLE_EDGE_PX, below: CANDLE_EDGE_PX };
+  series.applyOptions({
+    autoscaleInfoProvider: (base: () => AutoscaleInfo | null) => {
+      const info = base();
+      return info && { priceRange: info.priceRange, margins: { above: Math.max(room.above, info.margins?.above ?? 0), below: Math.max(room.below, info.margins?.below ?? 0) } };
+    },
+  });
+  series.priceScale().applyOptions({ scaleMargins: { top: 0, bottom: 0 }, ...PANE_EDGE_LABELS });
+}
 
 /**
  * 거래량은 아래 여백을 두지 않는다 — 히스토그램의 기준선(0)이 pane 바닥이라,
@@ -230,6 +257,8 @@ export function drawExtremeMarkers(
   current: number | null,
   currency: 'KRW' | 'USD',
   intraday: boolean,
+  /** 지금 봉 간격(px) — 화살표를 확대와 상관없이 같은 크기로 그리려고 */
+  barSpacing: number,
 ): () => void {
   if (!extent || !candles.length) return () => {};
 
@@ -272,24 +301,34 @@ export function drawExtremeMarkers(
     return `${formatPrice(price, currency)} (${rate}${when})`;
   };
 
+  /*
+   * 화살표는 고가 바로 위 · 저가 바로 아래(가격 자리 표시 — 꼬리 끝에 닿게)에 늘 같은 크기로 그리고, 축 맞춤 여백은 잡지 않는다
+   * (`autoScale: false`) — 그 자리는 `fitCandleScale` 의 px 여백이 정해 둔다. 라이브러리 기본(aboveBar · 자동 여백)은 확대할수록
+   * 화살표가 커지며 위아래 51px 씩 비워 봉이 납작해졌다(133차).
+   */
+  const size = EXTREME_ARROW_PX / Math.min(Math.max(barSpacing, 12), 30);
   const markers: SeriesMarker<UTCTimestamp>[] = [
     {
       time: toChartTime(highBar.timestamp),
-      position: 'aboveBar',
+      position: 'atPriceTop',
+      price: extent.high,
       color: COLORS.bearish,
       shape: 'arrowDown',
+      size,
       text: textOf(extent.highIndex, extent.high, highBar.timestamp),
     },
     {
       time: toChartTime(lowBar.timestamp),
-      position: 'belowBar',
+      position: 'atPriceBottom',
+      price: extent.low,
       color: COLORS.bullish,
       shape: 'arrowUp',
+      size,
       text: textOf(extent.lowIndex, extent.low, lowBar.timestamp),
     },
   ];
 
-  const handle = createSeriesMarkers(series, markers);
+  const handle = createSeriesMarkers(series, markers, { autoScale: false });
   /*
    * ⚠️ 차트를 `remove()` 한 **뒤에는 부르지 않는다**(호출부가 chartRef 로 막는다).
    * detach 는 시리즈 primitive 를 떼며 차트에 다시 그리기를 예약하는데, 이미 제거된 차트라면

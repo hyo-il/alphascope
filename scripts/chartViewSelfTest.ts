@@ -6,9 +6,12 @@
  *   1 크게 확대(일봉 · 봉 10개 안팎 · 이동평균 · 거래량 · 최고 / 최저)해도 가격 축이 보이는 봉의 저가 ~ 고가 근처(0 없음) ·
  *     가장 높은 봉과 낮은 봉의 화면 높이 차이(픽셀) · 가로 확대 · 스크롤 · 종목 바꿈 뒤에도 다시 맞음 · 화면 밖까지 뻗은 드로잉이 축을 넓히지 않음
  *   2 가격 축 위 휠 위 → 축 범위 좁아짐 · 아래 → 넓어짐 · 그림 영역 휠은 가로 확대 그대로 · 축 두 번 누르기 / [초기화] 로 자동 맞춤
- *   3 드로잉 도구마다 — 선택 → 「삭제」 버튼(칸 안) · 선택 → 오른쪽 클릭 → 「삭제」 · 툴바 「선택 삭제」 · Delete 키 · 다른 그림은 남음 · 다시 열어도 없음
+ *   3 드로잉 도구마다 — 선택 → 「삭제」 버튼(칸 안) · 선택 → 오른쪽 클릭 → 「삭제」 · Delete 키 · 다른 그림은 남음 · 다시 열어도 없음(툴바 「선택 삭제」 는 133차에 지움)
  *   4 캔들 · 지표 값 · 거래량 · 최고 / 최저 표시 값 그대로(같은 데이터로 — 넣은 값과 차트 값이 같음 · 그리는 함수 바뀐 줄 0)
  *   5 서버 · 매매 · 주문 · 로그인 코드 · 서버가 함께 쓰는 src · designCheck 판정 부분 바뀐 줄 0(132차 v2.69.4 동안만)
+ * 133차 지시서 「꼭 지킬 동작」(시험 이름 앞의 [133-n] · [133-T] = 사용자 시나리오 준비): 1 자 정보 · 2 빈 곳 · 3 모양 위 삭제 ·
+ *   4 확대 높이 70% · 4개 캔들 차트 같은 설정 · 5 캔들 · 지표 · 거래량 값 그대로([132-4] 의 브라우저 줄과 같은 시험) · 6 서버 · 매매 · 주문 · 로그인 바뀐 파일 0 ·
+ *   7 사용자 시나리오가 8d3b50e 에서 실패 · 고친 뒤 통과(`ONLY=133` 으로 133 만 돌린다).
  * 화면은 Vite + Playwright, `/api` 는 모두 `page.route` 가짜(만든 값) — 토스 · 서버 호출 0.
  * 축 범위 · 시리즈 값은 차트 칸 요소의 손잡이(`[data-testid="candle-chart"]` 의 `__chartProbe`)로 잰다.
  */
@@ -43,37 +46,52 @@ const git = (...a: string[]) => execFileSync('git', a, { cwd: root, encoding: 'u
   /** `export function 이름(` 부터 다음 맨 앞 `}` 까지 */
   const fnBody = (text: string, name: string) => text.match(new RegExp(`export function ${name}\\([\\s\\S]*?\\n\\}\\n`))?.[0] ?? null;
   const theme = 'src/components/chart/chartTheme.ts';
-  const same = ['renderIndicators', 'drawExtremeMarkers', 'extentOf'].map((n) => ({ n, ok: fnBody(code(theme), n) !== null && fnBody(code(theme), n) === fnBody(git('show', `${BASE}:${theme}`), n) }));
-  check('[132-4] 지표 · 거래량 그리기(renderIndicators) · 최고 / 최저 표시(drawExtremeMarkers · extentOf) 바뀐 줄 0', same.every((s) => s.ok), JSON.stringify(same));
+  const same = ['renderIndicators', 'extentOf'].map((n) => ({ n, ok: fnBody(code(theme), n) !== null && fnBody(code(theme), n) === fnBody(git('show', `${BASE}:${theme}`), n) }));
+  check('[132-4] [133-5] 지표 · 거래량 그리기(renderIndicators) · 최고 / 최저 구간(extentOf) 바뀐 줄 0', same.every((s) => s.ok), JSON.stringify(same));
+  // 최고 / 최저 표시(drawExtremeMarkers)는 133차에 화살표 자리 · 크기만 바꿨다 — 값(어느 봉 · 가격 · 글)을 만드는 줄은 그대로
+  const valuePart = (text: string) => fnBody(text, 'drawExtremeMarkers')?.match(/  const highBar[\s\S]*?\n  };\n\n/)?.[0] ?? null;
+  check('[133-5] 최고 / 최저 표시의 값(어느 봉 · 가격 · 글)을 만드는 줄 8d3b50e 와 같음', valuePart(code(theme)) !== null && valuePart(code(theme)) === valuePart(git('show', `8d3b50e:${theme}`)));
   const others = git('diff', '--name-only', BASE, '--', 'src/utils/liveCandle.ts', 'src/components/chart/ChartInfoBar.tsx', 'src/hooks/useCandleData.ts', 'src/hooks/useIndicators.ts', 'src/types/chart.ts').trim();
   check('[132-4] 현재가 봉(liveCandle) · 정보 줄(ChartInfoBar) · 캔들 · 지표 받기 · 지표 종류 바뀐 파일 0', others === '', others);
   const candle = git('diff', '-U0', BASE, '--', 'src/components/chart/CandleChart.tsx');
   check('[132-4] 메인 차트의 캔들 넣기(setData) · 현재가 봉(update) 줄 바뀜 0', !/^[-+].*(setData|candleSeries\.update|liveCandle\()/m.test(candle));
 }
 
-// ── [132-5] 서버 · 매매 · 주문 · 로그인 · 서버가 함께 쓰는 src · designCheck 판정 부분 바뀐 줄 0(132차 v2.69.4 동안만) ──
-{
+// ── [132-5] · [133-6] 서버 · 매매 · 주문 · 로그인 · 서버가 함께 쓰는 src · designCheck 판정 부분 바뀐 줄 0(그 차수 버전 동안만) ──
+function scopeChecks(tag: string, BASE: string, versions: string[]) {
   const head = code('src/data/changelog.ts').match(/version: '(v[\d.]+)'/)?.[1];
-  if (head !== 'v2.69.3' && head !== 'v2.69.4') console.log(`건너뜀  [132-5] 지금 버전 ${head} — 132차(v2.69.4) 범위 시험`);
+  if (!head || !versions.includes(head)) console.log(`건너뜀  ${tag} 지금 버전 ${head} — ${versions.at(-1)} 범위 시험`);
   else {
     const diff = (...p: string[]) => git('diff', '--name-only', BASE, '--', ...p).trim();
-    check(`[132-5] git diff ${BASE} -- server python src/services = 0개`, diff('server', 'python', 'src/services') === '', diff('server', 'python', 'src/services'));
+    check(`${tag} git diff ${BASE} -- server python src/services = 0개`, diff('server', 'python', 'src/services') === '', diff('server', 'python', 'src/services'));
     const shared = serverSharedSrc();
     const CHANGELOG = 'src/data/changelog.ts';
     const touched = diff(...shared.closure.filter((f) => f !== CHANGELOG));
-    check(`[132-5] 서버가 함께 쓰는 src ${shared.direct.length}개 + 그 가져오기 파일(전체 ${shared.closure.length}개 · 업데이트 내역 밖) 바뀐 줄 0`, shared.direct.length === 54 && touched === '', `${shared.direct.length} · ${touched}`);
+    check(`${tag} 서버가 함께 쓰는 src ${shared.direct.length}개 + 그 가져오기 파일(전체 ${shared.closure.length}개 · 업데이트 내역 밖) 바뀐 줄 0`, shared.direct.length === 54 && touched === '', `${shared.direct.length} · ${touched}`);
     const cl = git('diff', '-U0', BASE, '--', CHANGELOG).split('\n');
-    check('[132-5] 업데이트 내역(changelog.ts)은 맨 앞 항목 더하기만(지운 · 바꾼 줄 0)', cl.filter((l) => /^-(?!--)/.test(l)).length === 0);
+    check(`${tag} 업데이트 내역(changelog.ts)은 맨 앞 항목 더하기만(지운 · 바꾼 줄 0)`, cl.filter((l) => /^-(?!--)/.test(l)).length === 0);
     const ops = diff('deploy', 'db', 'scripts/lib/testServerEnv.ts', 'scripts/lib/requireCopyDb.ts', 'scripts/lib/requireTossKeys.ts', '.env.example');
-    check('[132-5] 배포 · DB 정의 · 시험 서버 스위치 · 사본 DB 막기 바뀐 파일 0', ops === '', ops);
+    check(`${tag} 배포 · DB 정의 · 시험 서버 스위치 · 사본 DB 막기 바뀐 파일 0`, ops === '', ops);
     const baseDc = git('show', `${BASE}:scripts/designCheck.ts`).split('\n');
     const startT = baseDc.findIndex((l) => l.startsWith('function targets(): Target[] {')) + 1;
     const endT = baseDc.findIndex((l) => l === '  return list;') + 1;
     const hunks = [...git('diff', '-U0', BASE, '--', 'scripts/designCheck.ts').matchAll(/^@@ -(\d+)(?:,(\d+))? /gm)].map((m) => ({ from: Number(m[1]), n: m[2] == null ? 1 : Number(m[2]) }));
     const outside = hunks.filter((h) => h.from <= startT || h.from + Math.max(h.n, 1) - 1 >= endT);
-    check(`[132-5] designCheck.ts — 판정 부분(장면 목록 ${startT}~${endT}줄 밖) 바뀐 줄 0(바뀐 덩어리 ${hunks.length}개 모두 장면)`, startT > 0 && endT > startT && outside.length === 0, JSON.stringify(outside));
+    check(`${tag} designCheck.ts — 판정 부분(장면 목록 ${startT}~${endT}줄 밖) 바뀐 줄 0(바뀐 덩어리 ${hunks.length}개 모두 장면)`, startT > 0 && endT > startT && outside.length === 0, JSON.stringify(outside));
   }
 }
+scopeChecks('[132-5]', BASE, ['v2.69.3', 'v2.69.4']);
+
+// ── [133-4] 캔들을 그리는 모든 차트가 같은 축 설정(chartTheme.fitCandleScale) — 따로 적힌 여백 숫자 0 ──
+{
+  const walk = (dir: string): string[] => fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(`${dir}/${e.name}`) : /\.tsx?$/.test(e.name) ? [`${dir}/${e.name}`] : []));
+  const candleFiles = walk('src').filter((f) => /\bCandlestickSeries\b/.test(code(f)) && !f.endsWith('chartTheme.ts'));
+  const rows = candleFiles.map((f) => ({ f: path.basename(f), shared: /fitCandleScale\(candleSeries/.test(code(f)), ownMargin: /PRICE_SCALE_MARGINS|scaleMargins:\s*\{/.test(code(f)) }));
+  check(`[133-4] 캔들 차트 ${rows.length}개(${rows.map((r) => r.f).join(' · ')}) 모두 fitCandleScale · 따로 적힌 가격 칸 여백 0`, rows.length === 3 && rows.every((r) => r.shared && !r.ownMargin), JSON.stringify(rows));
+  check('[133-4] 기업 비교 차트(CompareChart)는 가벼운 차트(LiteCandleChart)를 그대로 씀', /<LiteCandleChart\b/.test(code('src/components/compare/CompareChart.tsx')));
+  check('[133-4] 최고 / 최저 화살표는 축 여백을 잡지 않음(autoScale: false · 크기 고정)', /createSeriesMarkers\(series, markers, \{ autoScale: false \}\)/.test(code('src/components/chart/chartTheme.ts')));
+}
+scopeChecks('[133-6]', '8d3b50e', ['v2.69.4', 'v2.69.5']);
 
 // ── 만든 값(가짜) — 국내 종목 일봉 300개. 마지막 11봉은 사용자 캡처와 같은 띠(1,070,000 ~ 1,587,000) ──
 const DAY = 86_400_000;
@@ -348,6 +366,15 @@ async function dragDraw(page: Page, label: string, a: { x: number; y: number }, 
   await page.waitForTimeout(300);
 }
 
+/** 차트를 다시 그리게 한다 — 마우스를 가격 칸 위로 지나가게(십자선) 한 뒤 밖으로. 캔버스 글은 다시 그릴 때만 찍힌다 */
+async function repaint(page: Page) {
+  const g = await geo(page);
+  await page.mouse.move(g.px + g.w * 0.02, g.py + g.h * 0.98);
+  await page.waitForTimeout(150);
+  await page.mouse.move(2, 2);
+  await page.waitForTimeout(350);
+}
+
 /** 그림이 없는 빈 자리 누르기(선택 풀기) — 가격 칸 왼쪽 아래 구석 */
 async function clickBlank(page: Page) {
   const g = await geo(page);
@@ -381,18 +408,19 @@ async function userScenario(browser: Browser) {
     if (size.low) check(`[133-T] ${tag} — 차트 칸 높이 ${Math.round(chartH)}px(사용자 캡처 약 320px · 300~340)`, chartH >= 300 && chartH <= 340, String(chartH));
 
     // ── 1. 크게 확대 → 보이는 봉 높이 비율 · 최고 / 최저 표시 보임 ──
-    await zoomTo(page, 11);
     await clearTexts(page);
-    await page.mouse.move(2, 2);
-    await page.waitForTimeout(400);
+    await zoomTo(page, 11); // 확대하는 동안 다시 그린 글이 모인다 — 아래는 글마다 마지막 것(확대가 끝난 화면)
     const z = await axisState(page);
     const ratio = z.px / z.paneH;
     check(`[133-4] ${tag} — 확대(${z.bars}봉) 때 보이는 봉(고가 ~ 저가)이 가격 칸의 ${Math.round(ratio * 100)}% (70% 이상 · ${Math.round(z.px)}/${Math.round(z.paneH)}px)`, ratio >= 0.7, fmt(z));
     {
       const g = await geo(page);
       const t = await texts(page);
-      const seen = (s: string) => t.some((r) => r.t.startsWith(s) && r.y - 7 >= g.py && r.y + 7 <= g.py + g.h);
-      check(`[133-4] ${tag} — 최고 / 최저 표시 글(₩1,587,000 · ₩1,070,000)이 가격 칸 안에 보임`, seen('₩1,587,000') && seen('₩1,070,000'), JSON.stringify(t.filter((r) => r.t.includes('₩1,')).slice(-4)));
+      const seen = (s: string) => {
+        const r = t.filter((x) => x.t.startsWith(s)).at(-1);
+        return !!r && r.y - 7 >= g.py && r.y + 7 <= g.py + g.h;
+      };
+      check(`[133-4] ${tag} — 최고 / 최저 표시 글(₩1,587,000 · ₩1,070,000)이 가격 칸 안에 보임`, seen('₩1,587,000') && seen('₩1,070,000'), JSON.stringify({ g, t: t.filter((r) => r.t.startsWith('₩1,')).slice(-2) }));
     }
 
     // ── 2. 자 — 마지막 봉 오른쪽 빈 곳에서 끌어 그리기(사용자 캡처 1 · 2) ──
@@ -425,8 +453,7 @@ async function userScenario(browser: Browser) {
       check(`[133-1] ${tag} — 그리는 중 글: 원화 「₩」 · 소수 없음 · 등락률 · 「3봉 · 3일」(「${preview.text}」)`, KRW_MONEY.test(parts[0] ?? '') && PCT.test(parts[1] ?? '') && bd?.[1] === '3' && bd?.[2] === '3' && !ENGLISH.test(preview.text), preview.text);
     }
     await clearTexts(page);
-    await page.mouse.move(2, 2);
-    await page.waitForTimeout(400);
+    await repaint(page);
     {
       const s = await lastShape(page);
       const w = s?.pts[0] && s.pts[1] ? Math.abs(s.pts[1].x - s.pts[0].x) : 0;
@@ -453,8 +480,7 @@ async function userScenario(browser: Browser) {
       await dragDraw(page, '자', a, b, async () => { txt = (await page.getByTestId('measure-info').count()) ? (await page.getByTestId('measure-info').innerText()).replace(/\s*\n\s*/g, '|') : ''; });
       check(`[133-1] ${tag} — 봉 위 자 그리는 중 「3봉 · 3일」(「${txt}」)`, txt.split('|')[2] === '3봉 · 3일' && KRW_MONEY.test(txt.split('|')[0] ?? ''), txt);
       await clearTexts(page);
-      await page.mouse.move(2, 2);
-      await page.waitForTimeout(400);
+      await repaint(page);
       const t = await texts(page);
       check(`[133-1] ${tag} — 봉 위 자 그린 뒤 「3봉 · 3일」 · 영어 글 0`, t.some((r) => r.t === '3봉 · 3일') && !t.some((r) => ENGLISH.test(r.t)), JSON.stringify(t.filter((r) => /봉|bars|days|\$/.test(r.t)).map((r) => r.t).slice(0, 6)));
       await page.getByRole('button', { name: '모두 삭제', exact: true }).click();
@@ -523,8 +549,7 @@ async function userScenario(browser: Browser) {
     await dragDraw(page, '자', a, b, async () => { txt = (await page.getByTestId('measure-info').count()) ? (await page.getByTestId('measure-info').innerText()).replace(/\s*\n\s*/g, '|') : ''; });
     check(`[133-1] 달러 종목 — 그리는 중 「$」 · 소수 둘째(「${txt}」)`, USD_MONEY.test(txt.split('|')[0] ?? ''), txt);
     await clearTexts(page);
-    await page.mouse.move(2, 2);
-    await page.waitForTimeout(400);
+    await repaint(page);
     const t = await texts(page);
     const money = t.find((r) => /^[+−][₩$]/.test(r.t));
     check(`[133-1] 달러 종목 — 그린 뒤 「$」 · 소수 둘째(「${money?.t ?? '없음'}」) · bars · days 0`, !!money && USD_MONEY.test(money.t) && !t.some((r) => /bars|days/.test(r.t)));
@@ -678,15 +703,13 @@ try {
       const keepId = await probe(page, (p) => p.drawings.getAllDrawings()[0]?.id ?? '');
       const others = async () => probe(page, (p, id) => p.drawings.getAllDrawings().some((d) => d.id === id), keepId);
 
-      // 툴바가 1280 에서도 한 줄(「선택 삭제」 · 「모두 삭제」 · 「초기화」 · 봉 단위가 같은 줄)
+      // 툴바가 1280 에서도 한 줄(「모두 삭제」 · 「초기화」 · 봉 단위가 같은 줄 · 133차에 「선택 삭제」 는 지움)
       const tops = await Promise.all([
         page.getByRole('radiogroup', { name: '봉 단위' }),
-        page.getByRole('button', { name: '선택 삭제', exact: true }),
         page.getByRole('button', { name: '모두 삭제', exact: true }),
         page.getByRole('button', { name: '초기화', exact: true }),
       ].map(async (l) => { const r = (await l.boundingBox())!; return Math.round(r.y + r.height / 2); }));
-      check(`[132-3] ${w}px — 툴바 한 줄(봉 단위 · 선택 삭제 · 모두 삭제 · 초기화 가운데 높이 ${[...new Set(tops)].join(' · ')})`, Math.max(...tops) - Math.min(...tops) <= 1, JSON.stringify(tops));
-      check(`[132-3] ${w}px — 고른 그림이 없으면 툴바 「선택 삭제」 꺼짐`, await page.getByRole('button', { name: '선택 삭제', exact: true }).isDisabled());
+      check(`[132-3] ${w}px — 툴바 한 줄(봉 단위 · 모두 삭제 · 초기화 가운데 높이 ${[...new Set(tops)].join(' · ')})`, Math.max(...tops) - Math.min(...tops) <= 1, JSON.stringify(tops));
 
       for (const tool of TOOLS) {
         const t = tool.label;
@@ -702,7 +725,6 @@ try {
         await page.waitForTimeout(250);
         const btn = page.getByTestId('drawing-delete');
         check(`[132-3] ${w}px ${t} — 앞 클릭 0.2초 뒤 눌러도 선택 · 「삭제」 버튼 보임(차트 칸 안)`, (await selectedType(page)) === tool.type && (await btn.isVisible()) && (await inside(page, 'button')), String(await selectedType(page)));
-        check(`[132-3] ${w}px ${t} — 고르면 툴바 「선택 삭제」 켜짐`, await page.getByRole('button', { name: '선택 삭제', exact: true }).isEnabled());
         await btn.click();
         await page.waitForTimeout(250);
         check(`[132-3] ${w}px ${t} — 「삭제」 버튼: 그것만 지워짐 · 다른 그림 남음`, (await target()) === 0 && (await others()) && !(await btn.isVisible()));
@@ -728,14 +750,6 @@ try {
         await menu.getByRole('menuitem', { name: '삭제', exact: true }).click();
         await page.waitForTimeout(250);
         check(`[132-3] ${w}px ${t} — 그 메뉴 「삭제」 로 지워짐 · 다른 그림 남음`, (await target()) === 0 && (await others()));
-
-        // ④ 툴바 「선택 삭제」
-        await redraw();
-        await page.mouse.click(hp.x, hp.y);
-        await page.waitForTimeout(250);
-        await page.getByRole('button', { name: '선택 삭제', exact: true }).click();
-        await page.waitForTimeout(250);
-        check(`[132-3] ${w}px ${t} — 툴바 「선택 삭제」: 그것만 지워짐 · 다른 그림 남음 · 버튼 다시 꺼짐`, (await target()) === 0 && (await others()) && (await page.getByRole('button', { name: '선택 삭제', exact: true }).isDisabled()));
 
         // ⑤ Delete 키 · ⑥ Backspace 키
         for (const key of ['Delete', 'Backspace']) {
