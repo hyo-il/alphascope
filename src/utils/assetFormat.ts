@@ -1,4 +1,5 @@
-import { MINUS, formatNumber, formatPrice, formatSignedMoney } from './formatters';
+import { formatNumber, formatPrice } from './formatters';
+import { MINUS, formatSignedMoney } from './formatters';
 import type { AssetCurrency } from '../types/asset';
 
 /**

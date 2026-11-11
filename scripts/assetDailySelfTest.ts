@@ -329,12 +329,20 @@ await main();
   // 7: 매매 · 주문 · 로그인 · 시세 · 시황 코드 바뀐 파일 0
   const trading = spawnSync('git', ['diff', '--name-only', 'f64668b', '--', 'server/autoTrading', 'server/buyJudge', 'server/rules', 'server/paperTradingService.ts', 'server/paperPerformanceService.ts', 'server/paperSnapshotScheduler.ts', 'server/aiCheck', 'server/marketBrief', 'server/usHalts', 'server/quoteService.ts', 'server/heatmapSession.ts', 'server/marketCalendar.ts', 'server/auth.ts', 'server/authGuard.ts', 'src/services', 'python'], { cwd: root, encoding: 'utf8' });
   check('[134-7] 매매 · 주문 · 자동매매 · AI 검증 · 시세 · 시황 · 로그인 · src/services · python 바뀐 파일 0(f64668b 와 지금 작업 트리)', trading.status === 0 && trading.stdout.trim() === '', trading.stdout.trim() || trading.stderr.trim());
-  // 7: 서버가 함께 쓰는 src/ 파일 가운데 바뀐 것은 types/asset.ts 더하기만(지운 줄 0)
+  // 7: 서버가 함께 쓰는 src/ 파일 가운데 바뀐 것은 types/asset.ts · utils/assetFormat.ts(지시서 D-2 「만 원 단위 표기 함수를 assetFormat.ts 에」) 더하기만(지운 줄 0) +
+  //    문서 4종인 data/changelog.ts(버전마다 맨 앞에 더함)
   const list = spawnSync('npx', ['tsc', '-p', 'tsconfig.node.json', '--listFilesOnly'], { cwd: root, encoding: 'utf8' });
   const shared = list.stdout.split('\n').map((l) => path.relative(root, l.trim())).filter((f) => f.startsWith('src/'));
   const changedShared = spawnSync('git', ['diff', '--name-only', 'f64668b', '--', ...shared], { cwd: root, encoding: 'utf8' }).stdout.trim().split('\n').filter(Boolean);
-  const typesDel = spawnSync('git', ['diff', '-U0', 'f64668b', '--', 'src/types/asset.ts'], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
-  check(`[134-7] 서버가 함께 쓰는 src/ ${shared.length}개 가운데 바뀐 것은 types/asset.ts 하나 · 지운 줄 0`, shared.length > 30 && JSON.stringify(changedShared) === JSON.stringify(['src/types/asset.ts']) && typesDel.length === 0, `${changedShared.join(',')} · 지운 줄 ${typesDel.length}`);
+  const ALLOWED = ['src/data/changelog.ts', 'src/types/asset.ts', 'src/utils/assetFormat.ts'];
+  const deleted = spawnSync('git', ['diff', '-U0', 'f64668b', '--', ...ALLOWED], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
+  check(`[134-7] 서버가 함께 쓰는 src/ ${shared.length}개 가운데 바뀐 것은 types/asset.ts · utils/assetFormat.ts · data/changelog.ts 뿐 · 모두 더하기만(지운 줄 0)`,
+    shared.length > 30 && changedShared.every((f) => ALLOWED.includes(f)) && changedShared.includes('src/types/asset.ts') && deleted.length === 0, `${changedShared.join(',')} · 지운 줄 ${deleted.length}`);
+  // 7: designCheck.ts 판정 부분 바뀐 줄 0 — 이번에 바뀐 줄은 장면 목록(asset-일별변화 묶음)에 더한 줄뿐
+  const dc = spawnSync('git', ['diff', '-U0', 'f64668b', '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' }).stdout;
+  const dcDeleted = dc.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
+  const dcHunks = (dc.match(/^@@ /gm) ?? []).length;
+  check('[134-7] designCheck.ts 판정 부분 바뀐 줄 0 — 지운 줄 0 · 더한 곳은 장면 묶음 한 곳(asset-일별변화)', dcDeleted.length === 0 && dcHunks <= 1 && dc.includes('일별변화'), `지운 줄 ${dcDeleted.length} · 덩어리 ${dcHunks}`);
   check('[134-8] 이 시험 동안 127.0.0.1 밖 호출 0(구글 · 토스 · 주문 없음)', outside === 0, String(outside));
 }
 
