@@ -214,11 +214,18 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     });
   };
 
+  /** 모든 칸(가격 · 거래량 · 지표)의 축을 자동 맞춤으로 — 축을 끌거나 휠로 늘린 배율을 푼다([초기화] · 종목 바뀜) */
+  const autoScaleAllPanes = () => {
+    for (const pane of chartRef.current?.panes() ?? []) {
+      for (const series of pane.getSeries()) series.priceScale().applyOptions({ autoScale: true });
+    }
+  };
+
   useImperativeHandle(ref, () => ({
     clearDrawings: clearAllDrawings,
     resetView: () => {
       chartRef.current?.timeScale().resetTimeScale();
-      candleSeriesRef.current?.priceScale().applyOptions({ autoScale: true });
+      autoScaleAllPanes();
     },
     deleteSelectedDrawing: () => {
       const selected = drawingsRef.current?.getSelectedDrawing();
@@ -335,24 +342,60 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       setVisibleExtent(extentOf(candlesRef.current, range.from, range.to));
     });
 
-    // ── 마우스 위치 기준 휠 줌 (수정 1·2) ──
+    /** 마우스가 오른쪽 가격 축 위면 그 칸(pane) 번호 — 그림 영역 · 아래 시간 축 위면 null */
+    const priceAxisPaneAt = (x: number, y: number): number | null => {
+      if (x < chart.timeScale().width()) return null;
+      const top = container.getBoundingClientRect().top;
+      const index = chart.panes().findIndex((pane) => {
+        const r = pane.getHTMLElement()?.getBoundingClientRect();
+        return !!r && y >= r.top - top && y < r.bottom - top;
+      });
+      return index < 0 ? null : index;
+    };
+
+    /**
+     * 가격 축 위 휠 = 그 칸의 세로 배율(축을 끌 때와 같은 결과) — 마우스 아래 가격이 제자리에 남는다.
+     * 범위를 정하면 자동 맞춤이 꺼진다. 축 두 번 누르기 · [초기화] 로 돌아온다.
+     * 칸에 시리즈가 없으면 아무 일도 하지 않는다.
+     */
+    const zoomPriceAxis = (paneIndex: number, y: number, factor: number) => {
+      const pane = chart.panes()[paneIndex];
+      const series = paneIndex === 0 ? candleSeries : pane?.getSeries()[0];
+      const paneEl = pane?.getHTMLElement();
+      if (!series || !paneEl) return;
+      const scale = series.priceScale();
+      const range = scale.getVisibleRange();
+      const paneY = y - (paneEl.getBoundingClientRect().top - container.getBoundingClientRect().top);
+      const anchor = series.coordinateToPrice(paneY);
+      if (!range || anchor === null) return;
+      scale.applyOptions({ autoScale: false });
+      scale.setVisibleRange({
+        from: anchor - (anchor - range.from) * factor,
+        to: anchor + (range.to - anchor) * factor,
+      });
+    };
+
+    // ── 마우스 위치 기준 휠 줌 (수정 1·2) — 가격 축 위면 세로, 그 밖(그림 영역 · 시간 축)은 가로 ──
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
 
-      const timeScale = chart.timeScale();
-      const range = timeScale.getVisibleLogicalRange();
-      if (!range) return;
-
       const rect = container.getBoundingClientRect();
-      // 커서 아래의 봉(logical index)을 기준점으로 삼아 그 지점이 고정되게 한다.
-      const anchor = timeScale.coordinateToLogical(e.clientX - rect.left);
-      if (anchor === null) return;
-
       // 마우스 휠은 deltaY 가 100 이상, 트랙패드는 한 자릿수로 잘게 들어온다.
       // 크기에 비례시키면 두 입력이 모두 자연스럽고, 트랙패드 관성 스크롤도 폭주하지 않는다.
       const intensity = Math.min(1, Math.max(0.08, Math.abs(e.deltaY) / 100));
       const direction = e.deltaY > 0 ? 1 : -1;
       const factor = 1 + direction * ZOOM_STEP * ZOOM_SPEED_MULTIPLIER * intensity;
+
+      const axisPane = priceAxisPaneAt(e.clientX - rect.left, e.clientY - rect.top);
+      if (axisPane !== null) return zoomPriceAxis(axisPane, e.clientY - rect.top, factor);
+
+      const timeScale = chart.timeScale();
+      const range = timeScale.getVisibleLogicalRange();
+      if (!range) return;
+
+      // 커서 아래의 봉(logical index)을 기준점으로 삼아 그 지점이 고정되게 한다.
+      const anchor = timeScale.coordinateToLogical(e.clientX - rect.left);
+      if (anchor === null) return;
 
       const nextSpan = (range.to - range.from) * factor;
       if (nextSpan < MIN_VISIBLE_BARS || nextSpan > MAX_VISIBLE_BARS) return;
@@ -658,7 +701,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       setHover(null);
       setMeasure(null);
       chart?.timeScale().resetTimeScale(); // 확대·위치를 기본(barSpacing 9 · 오른쪽 끝)으로
-      candleSeries.priceScale().applyOptions({ autoScale: true }); // 축을 끌어 고정했어도 새 종목 범위로
+      autoScaleAllPanes(); // 축을 끌거나 휠로 늘려 고정했어도 새 종목 범위로
     }
     renderedKeyRef.current = datasetKey;
 
