@@ -423,11 +423,12 @@ async function userScenario(browser: Browser) {
     await page.getByRole('button', { name: '모두 삭제', exact: true }).click();
     await page.waitForTimeout(300);
 
-    // ── 3. 봉이 있는 곳에서 자 — 봉 3개 앞 → 마지막 봉 ──
+    // ── 3. 봉이 있는 곳에서 자 — 마지막 봉 3개 앞 → 마지막 봉 ──
     {
       const g2 = await geo(page);
-      const a = { x: await barX(page, g2.last - 4), y: g2.py + g2.h * 0.3 };
-      const b = { x: await barX(page, g2.last - 1), y: g2.py + g2.h * 0.55 };
+      const a = { x: await barX(page, g2.last - 3), y: g2.py + g2.h * 0.3 };
+      const b = { x: await barX(page, g2.last), y: g2.py + g2.h * 0.55 };
+      check(`[133-T] ${tag} — 봉 위 자의 두 봉이 화면 안(${Math.round(a.x)} · ${Math.round(b.x)})`, a.x > g2.px + 4 && b.x < g2.px + g2.w);
       let txt = '';
       await dragDraw(page, '자', a, b, async () => { txt = (await page.getByTestId('measure-info').count()) ? (await page.getByTestId('measure-info').innerText()).replace(/\s*\n\s*/g, '|') : ''; });
       check(`[133-1] ${tag} — 봉 위 자 그리는 중 「3봉 · 3일」(「${txt}」)`, txt.split('|')[2] === '3봉 · 3일' && KRW_MONEY.test(txt.split('|')[0] ?? ''), txt);
@@ -446,8 +447,8 @@ async function userScenario(browser: Browser) {
       for (const tool of TOOLS) {
         for (const how of ['누름', '오른쪽 클릭', 'Delete 키'] as const) {
           const g3 = await geo(page);
-          const a = region === '빈 곳' ? { x: g3.lastX + g3.bs * 1.5, y: g3.py + g3.h * 0.3 } : { x: await barX(page, g3.last - 5), y: g3.py + g3.h * 0.3 };
-          const b = region === '빈 곳' ? { x: g3.lastX + g3.bs * 4.5, y: g3.py + g3.h * 0.6 } : { x: await barX(page, g3.last - 2), y: g3.py + g3.h * 0.6 };
+          const a = region === '빈 곳' ? { x: g3.lastX + g3.bs * 1.5, y: g3.py + g3.h * 0.3 } : { x: await barX(page, g3.last - 4), y: g3.py + g3.h * 0.3 };
+          const b = region === '빈 곳' ? { x: g3.lastX + g3.bs * 4.5, y: g3.py + g3.h * 0.6 } : { x: await barX(page, g3.last - 1), y: g3.py + g3.h * 0.6 };
           await dragDraw(page, tool.label, a, b);
           await clickBlank(page);
           const n0 = await drawingCount(page);

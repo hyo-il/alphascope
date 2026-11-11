@@ -19,7 +19,6 @@ import {
   drawExtremeMarkers,
   extentOf,
   PANE_EDGE_LABELS,
-  keepOutOfAutoscale,
   PRICE_SCALE_MARGINS,
   dateTimeOptions,
   isIntraday,
@@ -28,6 +27,7 @@ import {
   renderIndicators,
   toChartTime,
 } from './chartTheme';
+import { chartTimeCoords, prepareDrawing, type ChartTimeCoords } from './drawingSupport';
 
 interface Props {
   candles: Candle[];
@@ -109,6 +109,10 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const drawingManagerRef = useRef<DrawingManager | null>(null);
+  /** 시간 ↔ 화면 x(빈 곳 포함) — 메인 차트와 같은 함수(`drawingSupport`) */
+  const coordsRef = useRef<ChartTimeCoords | null>(null);
+  const currencyRef = useRef(currency);
+  currencyRef.current = currency;
   const indicatorSeriesRef = useRef<ISeriesApi<'Line' | 'Histogram'>[]>([]);
   /** 최초 1회만 메인 차트의 범위를 따라간다 — 이후에는 사용자가 맞춘 범위를 존중한다. */
   const rangeAppliedRef = useRef(false);
@@ -141,6 +145,7 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
 
     const manager = new DrawingManager();
     manager.attach(chart, candleSeries, container);
+    coordsRef.current = chartTimeCoords(chart, candleSeries);
 
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
@@ -297,7 +302,8 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
   // ── 드로잉 복제 ──
   useEffect(() => {
     const manager = drawingManagerRef.current;
-    if (!manager) return;
+    const coords = coordsRef.current;
+    if (!manager || !coords) return;
 
     manager.clearAll();
     const registry = getToolRegistry();
@@ -309,7 +315,7 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
         snapshot.style,
         snapshot.options,
       );
-      if (drawing) manager.addDrawing(keepOutOfAutoscale(drawing));
+      if (drawing) manager.addDrawing(prepareDrawing(drawing, coords, () => currencyRef.current));
     }
   }, [drawings]);
 

@@ -50,7 +50,8 @@ import { useAppStore } from './store/appStore';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
 import { pageMeta } from './types/nav';
 import { toast } from './store/uiStore';
-import { changeColor, currencyOf, formatPercent, formatPrice, displayMinus, formatSigned } from './utils/formatters';
+import { changeColor, formatPercent, formatPrice, displayMinus, formatSigned } from './utils/formatters';
+import { currencyOfSymbol } from './utils/market';
 import LoginScreen from './components/auth/LoginScreen';
 import { useAuth } from './hooks/useAuth';
 import { useHashRoute } from './hooks/useHashRoute';
@@ -155,7 +156,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   const { watchlist, add, toggle } = watch;
   const { recent, remove: removeRecent, clear: clearRecent } = useRecentSymbols(symbol ?? '');
   const stockInfo = useStockInfo(symbol);
-  const currency = currencyOf(stockInfo?.market);
+  // 종목 정보(시장)가 오기 전 · 못 받았을 때도 국내 종목 코드면 원화 — 차트 가격 · 최고 / 최저 · 자 정보가 「$」 로 나오지 않게(133차)
+  const currency = currencyOfSymbol(symbol ?? '', stockInfo?.market);
 
   // 거래량은 캔들만으로 그리므로 지표 엔진 호출 대상에서 제외한다.
   const needsEngine =

@@ -22,6 +22,7 @@ import ChartInfoBar, { lastAsHover, type HoverInfo, type VisibleExtent } from '.
 import type { RangeStats } from '../../hooks/useRangeStats';
 import { liveCandle } from '../../utils/liveCandle';
 import { cursorFor, type DrawingToolType } from './DrawingTools';
+import { chartTimeCoords, measureLines, MEASURE_INFO_GAP, prepareDrawing, type ChartTimeCoords } from './drawingSupport';
 import {
   BASE_CHART_OPTIONS,
   drawExtremeMarkers,
@@ -30,7 +31,6 @@ import {
   PRICE_SCALE_MARGINS,
   dateTimeOptions,
   isIntraday,
-  keepOutOfAutoscale,
   CANDLE_SERIES_OPTIONS,
   priceFormatOf,
   COLORS,
@@ -113,16 +113,13 @@ export interface DrawingSnapshot {
   options: Partial<DrawingOptions>;
 }
 
-/** 자(Measure) 도구 드래그 중 표시하는 실시간 정보 */
+/** 자(Measure) 도구 드래그 중 표시하는 실시간 정보 — 글은 그린 뒤 차트 위 글과 같은 함수(`measureLines`) */
 interface MeasurePreview {
   startX: number;
   startY: number;
   currentX: number;
   currentY: number;
-  startPrice: number;
-  currentPrice: number;
-  bars: number;
-  days: number;
+  info: ReturnType<typeof measureLines>;
 }
 
 interface DrawingMenu {
@@ -196,6 +193,10 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
   const cancelPendingRef = useRef<(() => void) | null>(null);
   const onToolConsumedRef = useRef(onToolConsumed);
   onToolConsumedRef.current = onToolConsumed;
+  /** 자 정보 글의 통화 — 그린 뒤 글은 차트가 다시 그릴 때마다 읽는다 */
+  const currencyRef = useRef(currency);
+  currencyRef.current = currency;
+  const measureInfoRef = useRef<HTMLDivElement>(null);
 
   /*
    * 드로잉 모두 지우기 — 도구줄 「전체 삭제」 와 우클릭 「모두 지우기」 가 같은 함수.
@@ -272,6 +273,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
 
+    /** 시간 ↔ 화면 x(빈 곳 포함) · 봉 수 — 드로잉 · 자 정보가 같이 쓴다 */
+    const coords: ChartTimeCoords = chartTimeCoords(chart, candleSeries);
     const drawings = new DrawingManager();
     drawings.attach(chart, candleSeries, container);
     drawingsRef.current = drawings;
@@ -479,7 +482,8 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
           labelFont: labelFont(isTrend ? 13 : 12, isTrend),
         },
         isMeasure
-          ? ({ filled: true, showPercentage: true, showPrices: true } as DrawingOptions)
+          ? // 정보 글(가격 차 · 등락률 · 봉 · 일)은 라이브러리 글을 끄고 앱이 그린다(`prepareDrawing`)
+            ({ filled: true } as DrawingOptions)
           : isTrend
             ? // 라이브러리 기본값은 전부 꺼져 있어 선만 남는다. 등락률·등락폭을 켠다.
               ({ showPercentChange: true, showPriceChange: true } as DrawingOptions)
@@ -487,7 +491,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
       );
 
       if (!drawing) return false;
-      drawings.addDrawing(keepOutOfAutoscale(drawing));
+      drawings.addDrawing(prepareDrawing(drawing, coords, () => currencyRef.current));
       return true;
     };
 
@@ -560,32 +564,17 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
         });
       }
 
-      // 자 도구 드래그 중이면 실시간 박스를 갱신한다 (수정 4).
+      // 자 도구 드래그 중이면 실시간 박스 · 정보를 갱신한다 (수정 4) — 정보 글은 그린 뒤와 같은 함수
       if (drawStart && drawStartScreen && drawings.getActiveTool() === 'date-price-range') {
         const rect = container.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const price = candleSeries.coordinateToPrice(y);
-        const startLogical = chart.timeScale().coordinateToLogical(drawStartScreen.x);
-        const nowLogical = chart.timeScale().coordinateToLogical(x);
-        const time = chart.timeScale().coordinateToTime(x);
-
-        if (price !== null) {
+        const end = toAnchor(e);
+        if (end) {
           setMeasure({
             startX: drawStartScreen.x,
             startY: drawStartScreen.y,
-            currentX: x,
-            currentY: y,
-            startPrice: drawStart.price,
-            currentPrice: price,
-            bars:
-              startLogical !== null && nowLogical !== null
-                ? Math.abs(Math.round(nowLogical - startLogical))
-                : 0,
-            days:
-              time !== null && typeof time === 'number' && typeof drawStart.time === 'number'
-                ? Math.abs(Math.round((time - drawStart.time) / 86400))
-                : 0,
+            currentX: e.clientX - rect.left,
+            currentY: e.clientY - rect.top,
+            info: measureLines(drawStart, end, coords, currencyRef.current),
           });
         }
         return;
@@ -678,6 +667,10 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     };
   }, []);
 
+  // 자 정보는 커서 오른쪽 — 차트 칸 오른쪽 끝에 닿으면 커서 왼쪽으로
+  useLayoutEffect(() => {
+    if (measure) placeBesideCursor(measureInfoRef.current, measure.currentX, measure.currentY);
+  }, [measure]);
   // 「삭제」 버튼 · 메뉴는 차트 칸 안에 — 화면 끝에서 잘리면 안쪽으로 옮긴다(메뉴는 누른 자리 반대쪽으로 넘긴다).
   useLayoutEffect(() => fitInside(deleteButtonRef.current, false), [selectedAnchor]);
   useLayoutEffect(() => fitInside(menuRef.current, true), [menu]);
@@ -830,7 +823,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
 
   // 크로스헤어가 없을 때는 마지막 봉 값을 보여 준다 (빈 칸보다 유용하다).
   const legend = hover ?? lastAsHover(candles, indicators);
-  const measureInfo = measure ? describeMeasure(measure) : null;
+  const measureColor = measure?.info.isUp ? COLORS.bullish : COLORS.bearish;
 
   return (
     /*
@@ -890,7 +883,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
         )}
 
         {/* 자 도구 실시간 박스 (수정 4) */}
-        {measure && measureInfo && (
+        {measure && (
           <div
             className="pointer-events-none absolute z-20 border-2"
             style={{
@@ -898,28 +891,22 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
               top: Math.min(measure.startY, measure.currentY),
               width: Math.abs(measure.currentX - measure.startX),
               height: Math.abs(measure.currentY - measure.startY),
-              borderColor: measureInfo.isUp ? COLORS.bullish : COLORS.bearish,
-              backgroundColor: `${measureInfo.isUp ? COLORS.bullish : COLORS.bearish}22`,
+              borderColor: measureColor,
+              backgroundColor: `${measureColor}22`,
             }}
+          />
+        )}
+        {/* 자 정보 — 커서 오른쪽(상자 크기와 상관없이 늘 보임 · 133차). 자리는 placeBesideCursor */}
+        {measure && (
+          <div
+            ref={measureInfoRef}
+            data-testid="measure-info"
+            className="pointer-events-none absolute z-20 whitespace-nowrap rounded px-2 py-1 text-caption font-medium tabular-nums"
+            style={{ left: measure.currentX + MEASURE_INFO_GAP, top: measure.currentY, backgroundColor: COLORS.tooltipBg, color: measureColor }}
           >
-            <div
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded px-2 py-1 text-center text-caption font-medium tabular-nums"
-              style={{
-                backgroundColor: COLORS.tooltipBg,
-                color: measureInfo.isUp ? COLORS.bullish : COLORS.bearish,
-              }}
-            >
-              <div>
-                {measureInfo.sign}${measureInfo.diff}
-              </div>
-              <div>
-                {measureInfo.sign}
-                {measureInfo.percent}%
-              </div>
-              <div className="text-text-muted">
-                {measure.bars}봉 · {measure.days}일
-              </div>
-            </div>
+            <div>{measure.info.money}</div>
+            <div>{measure.info.percent}</div>
+            <div className="text-text-secondary">{measure.info.span}</div>
           </div>
         )}
 
@@ -1003,6 +990,21 @@ const EDGE_GAP = 4;
  * `flip` 이면 넘치는 쪽에서 누른 자리 반대편으로 넘긴다(메뉴가 커서 왼쪽 · 위로), 아니면 안쪽으로 붙인다.
  * React 는 자리 값(style)이 바뀔 때만 다시 쓰므로, 여기서 고친 자리는 다음 선택 · 메뉴 전까지 남는다.
  */
+/**
+ * 자 정보 상자를 커서 옆에 — 오른쪽(커서에서 MEASURE_INFO_GAP)에 두고, 차트 칸 오른쪽 끝을 넘으면 커서 왼쪽으로.
+ * 세로는 커서 높이 가운데(칸 위아래 끝에서는 안쪽으로).
+ */
+function placeBesideCursor(el: HTMLElement | null, x: number, y: number) {
+  const box = el?.offsetParent as HTMLElement | null;
+  if (!el || !box) return;
+  const w = el.offsetWidth;
+  const h = el.offsetHeight;
+  const right = x + MEASURE_INFO_GAP;
+  const left = right + w > box.clientWidth - EDGE_GAP ? x - MEASURE_INFO_GAP - w : right;
+  el.style.left = `${Math.max(EDGE_GAP, left)}px`;
+  el.style.top = `${Math.max(EDGE_GAP, Math.min(y - h / 2, box.clientHeight - h - EDGE_GAP))}px`;
+}
+
 function fitInside(el: HTMLElement | null, flip: boolean) {
   const box = el?.offsetParent as HTMLElement | null;
   if (!el || !box) return;
@@ -1013,17 +1015,6 @@ function fitInside(el: HTMLElement | null, flip: boolean) {
   };
   el.style.left = `${place(el.offsetLeft, el.offsetWidth, box.clientWidth)}px`;
   el.style.top = `${place(el.offsetTop, el.offsetHeight, box.clientHeight)}px`;
-}
-
-function describeMeasure(measure: MeasurePreview) {
-  const diff = measure.currentPrice - measure.startPrice;
-  const percent = measure.startPrice ? (diff / measure.startPrice) * 100 : 0;
-  return {
-    isUp: diff >= 0,
-    sign: diff >= 0 ? '+' : '-',
-    diff: Math.abs(diff).toFixed(2),
-    percent: Math.abs(percent).toFixed(2),
-  };
 }
 
 export default CandleChart;
