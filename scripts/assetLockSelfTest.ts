@@ -165,10 +165,10 @@ try {
       const late = await call('GET', '/api/asset/summary?pension=0');
       results.push(`${r}:${w.status}:${isLocked(still) ? 'locked' : 'open'}:${isLocked(late) ? 'locked' : 'open'}`);
     }
-    check('[117-3] [120-1] 쓰기 요청 9가지(PUT class · settings · target-ratio · POST purchase-done · price-source convert · restore · trade · 120차 새 종목 trade/new · 확인 화면 trade/new/plan) 각각 20분에 → 45분 풀림 · 50분 넘으면 잠김',
-      writes.length === 9 && results.every((x) => x.endsWith(':open:locked') && !x.includes(':403:')), results.join(' '));
-    check('[117-3] [120-1] ACTIVE = touch + 쓰기 9가지뿐(118차 매수 · 매도 입력 · 120차 새 종목 포함) · summary · sheet · history · status 는 없음',
-      ACTIVE.size === 10 && ![...ACTIVE].some((r) => r.startsWith('GET ')) && ACTIVE.has('POST /api/asset/touch'));
+    check('[117-3] [120-1] [134-4] 쓰기 요청 10가지(PUT class · settings · target-ratio · POST purchase-done · price-source convert · restore · trade · 120차 새 종목 trade/new · 확인 화면 trade/new/plan · 134차 메모 daily-note) 각각 20분에 → 45분 풀림 · 50분 넘으면 잠김',
+      writes.length === 10 && results.every((x) => x.endsWith(':open:locked') && !x.includes(':403:')), results.join(' '));
+    check('[117-3] [120-1] [134-4] ACTIVE = touch + 쓰기 10가지뿐(118차 매수 · 매도 입력 · 120차 새 종목 · 134차 메모 포함) · summary · sheet · history · status 는 없음',
+      ACTIVE.size === 11 && ACTIVE.has('PUT /api/asset/daily-note') && ![...ACTIVE].some((r) => r.startsWith('GET ')) && ACTIVE.has('POST /api/asset/touch'));
   }
 
   {

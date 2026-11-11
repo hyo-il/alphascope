@@ -16,9 +16,10 @@ import { currentCycle, purchaseTargetOf } from './purchase';
 import { assetSummary } from './summary';
 import { checkSheetSwitchSafe, sheetSwitchedAt } from './sheetSwitch';
 import { convertSheetPrices, restoreSheetPrices } from './priceSheet';
-import { historyPoints, isHistoryRange, recordPurchase } from './store';
-import { writeAssetSettings } from './settings';
-import { listTrades, planNewHolding, recordNewHolding, recordTrade } from './trade';
+import { allRecords, dailyNotes, historyPoints, isHistoryRange, recordPurchase, saveDailyNote } from './store';
+import { readPensionSections, writeAssetSettings } from './settings';
+import { listTrades, planNewHolding, recordNewHolding, recordTrade, tradesForChange } from './trade';
+import { dailyChanges } from './dailyChange';
 import type { AssetSheetErrorKind, AssetSheetFailure, AssetStatus, AssetTouchResult, PurchaseDoneResult } from '../../src/types/asset';
 
 export const assetRouter = Router();
@@ -36,6 +37,7 @@ export const ACTIVE = new Set([
   'POST /api/asset/trade',
   'POST /api/asset/trade/new',
   'POST /api/asset/trade/new/plan',
+  'PUT /api/asset/daily-note',
 ]);
 const isAssetPath = (p: string) => p === '/api/asset' || p.startsWith('/api/asset/');
 
@@ -235,11 +237,30 @@ assetRouter.get('/api/asset/summary', async (req, res) => {
   }
 });
 
-/** 하루 기록 — 총 자산 선 차트(기간 1m · 3m · 1y · all) */
+/**
+ * 하루 기록 — 총 자산 선 차트(기간 1m · 3m · 1y · all) + 일별 변화 표(v2.70.0 · 같은 날짜 · 같은 응답).
+ * 표의 줄은 모든 기록을 바로 앞 기록과 견준 뒤(기간 첫 줄도 기간 밖 앞 기록과) 기간 안 날짜만 남긴다 · 계산은 `dailyChange.ts` 한 곳 · 시트 · 구글 호출 없음.
+ */
 assetRouter.get('/api/asset/history', (req, res) => {
   const range = req.query.range ?? '1m';
   if (!isHistoryRange(range)) return res.status(400).json({ error: '기간은 1m · 3m · 1y · all 중 하나입니다.' });
-  res.json({ range, points: historyPoints(range, req.query.pension === '1'), since: sheetSwitchedAt() });
+  const includePension = req.query.pension === '1';
+  const since = sheetSwitchedAt();
+  const points = historyPoints(range, includePension);
+  const days = new Set(points.map((p) => p.day));
+  const notes = dailyNotes();
+  const rows = dailyChanges(allRecords(), tradesForChange(), { includePension, pensionSections: readPensionSections(), sheetSwitchedAt: since })
+    .filter((r) => days.has(r.day))
+    .map((r) => ({ ...r, note: notes.get(r.day) ?? null }));
+  res.json({ range, points, since, rows });
+});
+
+/** 날짜별 메모(v2.70.0) — `{ day, note }` · 빈 글이면 지움 · 40자까지 · 앱에만 저장(시트에 쓰지 않는다) · 잠금은 맨 앞 자산 문지기 */
+assetRouter.put('/api/asset/daily-note', (req, res) => {
+  const body = (req.body ?? {}) as { day?: unknown; note?: unknown };
+  const r = saveDailyNote(body.day, body.note, new Date().toISOString());
+  if (!r.ok) return res.status(400).json({ error: r.error });
+  res.json({ day: body.day, note: r.note });
 });
 
 /**
