@@ -8,58 +8,9 @@ import type { IChartApi, ISeriesApi, SeriesType, Time } from 'lightweight-charts
 import type { Anchor } from 'lightweight-charts-drawing';
 import { formatSigned, formatSignedMoney } from '../../utils/formatters';
 import { COLORS, FONT_FAMILY, keepOutOfAutoscale } from './chartTheme';
+import { barTimeAxis, type BarTimeAxis } from './barTimeAxis';
 
 export type ChartCurrency = 'KRW' | 'USD';
-
-/**
- * 봉 시간축 — 봉 시간 목록(초)으로 시간 ↔ 논리 자리(봉 번호 · 소수 가능)를 바꾼다.
- *
- * Lightweight Charts 의 `timeToCoordinate` · `coordinateToTime` 은 **봉이 있는 시간만** 안다 — 마지막 봉 오른쪽 빈 곳은 null 이라,
- * 그곳에 찍은 점은 「가장 가까운 봉(마지막 봉)」 으로 당겨져 자 · 추세선의 폭이 0 이 됐다(133차 · 0 bars · 0 days).
- * 여기서는 봉 밖 시간을 **봉 간격(가장 짧은 간격)만큼 늘린 자리**로 센다 — 빈 곳 n칸째 = 마지막 봉 시간 + n × 간격.
- * 봉 사이 시간(주말 등)은 앞뒤 봉 사이를 비율로 나눈다. 시간으로 기억하므로 새 봉이 들어오거나 과거가 앞에 붙어도 자리가 그대로다.
- */
-export interface BarTimeAxis {
-  timeToLogical(time: number): number | null;
-  logicalToTime(logical: number): number | null;
-}
-
-/** 봉 간격 — 마지막 봉 20개 사이의 가장 짧은 간격(일봉 1일 · 주봉 7일 · 분봉 n분). 봉이 하나면 하루 */
-function stepOf(times: readonly number[]): number {
-  let step = Infinity;
-  for (let i = Math.max(1, times.length - 20); i < times.length; i++) {
-    const gap = times[i] - times[i - 1];
-    if (gap > 0 && gap < step) step = gap;
-  }
-  return Number.isFinite(step) ? step : 86_400;
-}
-
-export function barTimeAxis(times: readonly number[]): BarTimeAxis {
-  const last = times.length - 1;
-  const step = stepOf(times);
-  return {
-    timeToLogical(time) {
-      if (last < 0) return null;
-      if (time >= times[last]) return last + (time - times[last]) / step;
-      if (time <= times[0]) return (time - times[0]) / step;
-      let lo = 0;
-      let hi = last;
-      while (hi - lo > 1) {
-        const mid = (lo + hi) >> 1;
-        if (times[mid] <= time) lo = mid;
-        else hi = mid;
-      }
-      return lo + (time - times[lo]) / (times[hi] - times[lo]);
-    },
-    logicalToTime(logical) {
-      if (last < 0 || !Number.isFinite(logical)) return null;
-      const index = Math.round(logical);
-      if (index > last) return times[last] + (index - last) * step;
-      if (index < 0) return times[0] + index * step;
-      return times[index];
-    },
-  };
-}
 
 /** 차트 하나의 시간 ↔ 화면 x — 봉 시간축을 쓰므로 빈 곳에서도 null 이 아니다(차트 칸 밖 x 는 null) */
 export interface ChartTimeCoords {
@@ -124,6 +75,23 @@ type DrawingLike = {
   setMeasureOptions?(options: Record<string, boolean>): void;
 };
 
+/**
+ * 드로잉 · 드로잉 관리자의 시간 ↔ 화면 x 를 봉 시간축으로 바꾼다 — 라이브러리의 그리기 · 누르기 판정 · 끝점 끌기가 모두
+ * `getViewport().timeScale` 을 거치므로 여기 하나로 빈 곳의 점이 그 자리에 그려지고 · 눌리고 · 끌린다.
+ */
+export function withBarTime<T extends object>(target: T, coords: ChartTimeCoords): T {
+  const t = target as unknown as { getViewport(): Viewport | null };
+  const base = t.getViewport.bind(t);
+  t.getViewport = () => {
+    const viewport = base();
+    return viewport && {
+      ...viewport,
+      timeScale: { ...viewport.timeScale, timeToCoordinate: coords.timeToCoordinate, coordinateToTime: coords.coordinateToTime },
+    };
+  };
+  return target;
+}
+
 /** 자 위에 앱이 그리는 정보 글 — 끝점(놓은 자리) 오른쪽, 모자라면 왼쪽 */
 function measureLabelView(drawing: DrawingLike, coords: ChartTimeCoords, currency: () => ChartCurrency) {
   const renderer = {
@@ -168,7 +136,8 @@ function measureLabelView(drawing: DrawingLike, coords: ChartTimeCoords, currenc
 
 /**
  * 차트에 넣는 드로잉마다 거친다 — 메인 차트 · 캡처 팝업 같은 모양.
- * ① 가격 축 자동 맞춤에서 뺀다(`keepOutOfAutoscale`) ② 자는 라이브러리 기본 글(영어 「bars · days」 · 「$」)을 끄고 앱이 그린다.
+ * ① 가격 축 자동 맞춤에서 뺀다(`keepOutOfAutoscale`) ② 자는 라이브러리 기본 글(영어 「bars · days」 · 「$」)을 끄고 앱이 그린다
+ * ③ 빈 곳(마지막 봉 오른쪽)의 점을 그 자리에(`withBarTime`). 드로잉 관리자도 `withBarTime` 을 거친다(누르기 판정 · 끝점 끌기).
  */
 export function prepareDrawing<T extends object>(drawing: T, coords: ChartTimeCoords, currency: () => ChartCurrency): T {
   const d = drawing as unknown as DrawingLike;
@@ -178,5 +147,5 @@ export function prepareDrawing<T extends object>(drawing: T, coords: ChartTimeCo
     const label = measureLabelView(d, coords, currency);
     d.paneViews = () => [...views(), label];
   }
-  return keepOutOfAutoscale(drawing);
+  return keepOutOfAutoscale(withBarTime(drawing, coords));
 }

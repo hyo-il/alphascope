@@ -27,7 +27,7 @@ import {
   renderIndicators,
   toChartTime,
 } from './chartTheme';
-import { chartTimeCoords, prepareDrawing, type ChartTimeCoords } from './drawingSupport';
+import { chartTimeCoords, prepareDrawing, withBarTime, type ChartTimeCoords } from './drawingSupport';
 
 interface Props {
   candles: Candle[];
@@ -143,9 +143,9 @@ const CaptureChart = forwardRef<CaptureChartHandle, Props>(function CaptureChart
     const candleSeries = chart.addSeries(CandlestickSeries, CANDLE_SERIES_OPTIONS);
     candleSeries.priceScale().applyOptions({ scaleMargins: PRICE_SCALE_MARGINS, ...PANE_EDGE_LABELS });
 
-    const manager = new DrawingManager();
-    manager.attach(chart, candleSeries, container);
     coordsRef.current = chartTimeCoords(chart, candleSeries);
+    const manager = withBarTime(new DrawingManager(), coordsRef.current);
+    manager.attach(chart, candleSeries, container);
 
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;

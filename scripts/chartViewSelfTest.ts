@@ -266,6 +266,24 @@ const inside = async (page: Page, testOrRole: 'button' | 'menu') => {
 // 빈 곳에 그린 자(폭 0 · 0 bars · 0 days · $) · 낮은 차트 칸의 납작한 봉을 못 잡았다.
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 const ONLY = process.env.ONLY;
+
+// ── [133-2] 빈 곳 점의 시간 ↔ 자리(봉 시간축) — 새 봉이 들어와도 · 과거가 앞에 붙어도 같은 자리 ──
+{
+  const { barTimeAxis } = await import('../src/components/chart/barTimeAxis');
+  const D = 86_400;
+  const t0 = 1_700_000_000;
+  const days = Array.from({ length: 30 }, (_, i) => t0 + i * D); // 날마다 봉
+  const before = barTimeAxis(days);
+  const future = before.logicalToTime(29 + 3)!; // 마지막 봉 오른쪽 빈 곳 3칸째
+  check('[133-2] 빈 곳 3칸째 = 마지막 봉 시간 + 3일(가장 가까운 봉으로 당기지 않음)', future === days[29] + 3 * D && before.timeToLogical(future) === 32);
+  const plusOne = barTimeAxis([...days, days[29] + D]); // 다음 날 봉이 들어옴
+  check('[133-2] 새 봉이 들어와도 빈 곳 점은 같은 날짜 자리(논리 자리 32 그대로)', plusOne.timeToLogical(future) === 32);
+  const prepended = barTimeAxis([...Array.from({ length: 10 }, (_, i) => t0 - (10 - i) * D), ...days]); // 과거 10봉이 앞에 붙음
+  check('[133-2] 과거가 앞에 붙어도 같은 봉 · 같은 빈 곳(번호만 10 밀림)', prepended.timeToLogical(future) === 42 && prepended.timeToLogical(days[5]) === 15);
+  const weekdays = days.filter((t) => ![4, 5].includes(Math.floor((t - t0) / D) % 7)); // 주말 빠진 일봉
+  const wk = barTimeAxis(weekdays);
+  check('[133-2] 주말 빠진 일봉: 간격 = 1일 · 봉 사이 시간은 앞뒤 봉 사이 비율', wk.logicalToTime(weekdays.length - 1 + 2) === weekdays.at(-1)! + 2 * D && wk.timeToLogical(t0 + 5 * D)! > 3 && wk.timeToLogical(t0 + 5 * D)! < 5);
+}
 /** 캔버스에 그린 글을 모은다(페이지 좌표) — 자 정보 · 최고 / 최저 표시 글 · 라이브러리 기본 영어 글을 그대로 본다 */
 const CANVAS_SPY = `
   window.__texts = [];
@@ -297,7 +315,8 @@ const geo = (page: Page) =>
     const el = p.chart.panes()[0].getHTMLElement()!.getBoundingClientRect();
     const data = p.candleSeries.data() as unknown as { time: number }[];
     const ts = p.chart.timeScale();
-    return { px: el.x, py: el.y, w: ts.width(), h: el.height, bs: ts.options().barSpacing, last: data.length - 1, lastX: el.x + (ts.logicalToCoordinate((data.length - 1) as never) ?? 0) };
+    const first = Math.max(0, Math.ceil(ts.getVisibleLogicalRange()!.from) + 1); // 화면 안 첫 봉(가장자리 반 칸 다음)
+    return { px: el.x, py: el.y, w: ts.width(), h: el.height, bs: ts.options().barSpacing, last: data.length - 1, first, lastX: el.x + (ts.logicalToCoordinate((data.length - 1) as never) ?? 0) };
   });
 const barX = (page: Page, i: number) => probe(page, (p, n) => p.chart.panes()[0].getHTMLElement()!.getBoundingClientRect().x + (p.chart.timeScale().logicalToCoordinate(n as never) ?? NaN), i);
 
@@ -423,11 +442,12 @@ async function userScenario(browser: Browser) {
     await page.getByRole('button', { name: '모두 삭제', exact: true }).click();
     await page.waitForTimeout(300);
 
-    // ── 3. 봉이 있는 곳에서 자 — 마지막 봉 3개 앞 → 마지막 봉 ──
+    // ── 3. 봉이 있는 곳에서 자 — 화면 안 첫 봉 → 3봉 뒤 ──
     {
       const g2 = await geo(page);
-      const a = { x: await barX(page, g2.last - 3), y: g2.py + g2.h * 0.3 };
-      const b = { x: await barX(page, g2.last), y: g2.py + g2.h * 0.55 };
+      const i0 = Math.min(g2.first, g2.last - 3);
+      const a = { x: await barX(page, i0), y: g2.py + g2.h * 0.3 };
+      const b = { x: await barX(page, i0 + 3), y: g2.py + g2.h * 0.55 };
       check(`[133-T] ${tag} — 봉 위 자의 두 봉이 화면 안(${Math.round(a.x)} · ${Math.round(b.x)})`, a.x > g2.px + 4 && b.x < g2.px + g2.w);
       let txt = '';
       await dragDraw(page, '자', a, b, async () => { txt = (await page.getByTestId('measure-info').count()) ? (await page.getByTestId('measure-info').innerText()).replace(/\s*\n\s*/g, '|') : ''; });
@@ -447,8 +467,8 @@ async function userScenario(browser: Browser) {
       for (const tool of TOOLS) {
         for (const how of ['누름', '오른쪽 클릭', 'Delete 키'] as const) {
           const g3 = await geo(page);
-          const a = region === '빈 곳' ? { x: g3.lastX + g3.bs * 1.5, y: g3.py + g3.h * 0.3 } : { x: await barX(page, g3.last - 4), y: g3.py + g3.h * 0.3 };
-          const b = region === '빈 곳' ? { x: g3.lastX + g3.bs * 4.5, y: g3.py + g3.h * 0.6 } : { x: await barX(page, g3.last - 1), y: g3.py + g3.h * 0.6 };
+          const a = region === '빈 곳' ? { x: g3.lastX + g3.bs * 1.5, y: g3.py + g3.h * 0.3 } : { x: await barX(page, Math.min(g3.first, g3.last - 3)), y: g3.py + g3.h * 0.3 };
+          const b = region === '빈 곳' ? { x: g3.lastX + g3.bs * 4.5, y: g3.py + g3.h * 0.6 } : { x: await barX(page, Math.min(g3.first, g3.last - 3) + 3), y: g3.py + g3.h * 0.6 };
           await dragDraw(page, tool.label, a, b);
           await clickBlank(page);
           const n0 = await drawingCount(page);

@@ -22,7 +22,7 @@ import ChartInfoBar, { lastAsHover, type HoverInfo, type VisibleExtent } from '.
 import type { RangeStats } from '../../hooks/useRangeStats';
 import { liveCandle } from '../../utils/liveCandle';
 import { cursorFor, type DrawingToolType } from './DrawingTools';
-import { chartTimeCoords, measureLines, MEASURE_INFO_GAP, prepareDrawing, type ChartTimeCoords } from './drawingSupport';
+import { chartTimeCoords, measureLines, MEASURE_INFO_GAP, prepareDrawing, withBarTime, type ChartTimeCoords } from './drawingSupport';
 import {
   BASE_CHART_OPTIONS,
   drawExtremeMarkers,
@@ -275,7 +275,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
 
     /** 시간 ↔ 화면 x(빈 곳 포함) · 봉 수 — 드로잉 · 자 정보가 같이 쓴다 */
     const coords: ChartTimeCoords = chartTimeCoords(chart, candleSeries);
-    const drawings = new DrawingManager();
+    const drawings = withBarTime(new DrawingManager(), coords);
     drawings.attach(chart, candleSeries, container);
     drawingsRef.current = drawings;
     // 시험(`chartview:test`)이 축 범위 · 시리즈 값 · 드로잉 수를 재는 손잡이(차트 칸 요소에 붙임 · 화면 · 동작에는 쓰지 않는다)
@@ -432,28 +432,14 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
 
     // ── 드로잉 생성 ──
     /**
-     * 클릭 좌표를 앵커로. 마지막 봉 오른쪽 빈 공간에서는 `coordinateToTime` 이 null 을 주는데,
-     * 여기서 포기하면 그 영역 클릭이 전부 무시된다 — 확대해서 볼수록 빈 공간이 넓어지므로
-     * "도구가 아예 동작하지 않는" 것처럼 보인다. 시간축 밖이면 가장 가까운 봉의 시간을 쓴다.
-     * (수평선은 시간이 의미 없고, 추세선도 끝점이 마지막 봉에 붙는 편이 자연스럽다.)
+     * 클릭 좌표를 앵커로. 마지막 봉 오른쪽 빈 곳도 **찍은 그 자리**(봉 간격으로 늘린 시간 — `chartTimeCoords`)로 남긴다.
+     * 가장 가까운 봉으로 당기면 빈 곳에 그린 자 · 추세선의 두 점이 같은 봉이 되어 폭 0 · 「0봉 · 0일」 이 되고 누를 수도 없었다(133차).
      */
     const toAnchor = (e: MouseEvent): Anchor | null => {
       const rect = container.getBoundingClientRect();
-      const x = e.clientX - rect.left;
       const price = candleSeries.coordinateToPrice(e.clientY - rect.top);
-      if (price === null) return null;
-
-      const time = chart.timeScale().coordinateToTime(x);
-      if (time !== null) return { time, price };
-
-      const data = candleSeries.data();
-      if (!data.length) return null;
-      const logical = chart.timeScale().coordinateToLogical(x);
-      const index =
-        logical === null
-          ? data.length - 1
-          : Math.min(data.length - 1, Math.max(0, Math.round(logical)));
-      return { time: data[index].time, price };
+      const time = coords.coordinateToTime(e.clientX - rect.left);
+      return price === null || time === null ? null : { time, price };
     };
 
     /** 실제로 그려졌는지 돌려준다 — 실패했는데 도구까지 풀리면 사용자는 원인을 알 수 없다. */
