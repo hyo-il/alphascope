@@ -14,7 +14,18 @@ import { NO_STOP_WARNING } from '../../utils/ruleText';
 import { toast } from '../../store/uiStore';
 import { useStockNames } from '../../hooks/useStockNames';
 import { autoTradeView } from '../../utils/autoTradeStatus';
-import { explainNote, groupNotes, nextJudgeText, nowSentence } from '../../utils/autoTradeExplain';
+import { explainNote, groupNotes, nextJudgeText, noteKind, nowSentence, NOTE_KIND_LABEL, type NoteKind } from '../../utils/autoTradeExplain';
+import { withUsDateTag } from '../common/UsDateTag';
+
+type NoteFilter = 'all' | 'trades' | 'skips';
+/** 보기마다 보이는 줄 종류(`noteKind`) — 「매수·매도」 = 「그대로」 · 「건너뜀」 을 숨김 · 「못 산 이유」 = 「건너뜀」 만 */
+const FILTER_KINDS: Record<NoteFilter, NoteKind[]> = { all: ['buy', 'sell', 'hold', 'skip'], trades: ['buy', 'sell'], skips: ['skip'] };
+const FILTER_OPTIONS: { value: NoteFilter; label: string }[] = [
+  { value: 'all', label: '전체' },
+  { value: 'trades', label: '매수·매도' },
+  { value: 'skips', label: '못 산 이유' },
+];
+const FILTER_EMPTY: Record<NoteFilter, string> = { all: '판단한 줄이 없습니다.', trades: '매수·매도한 줄이 없습니다.', skips: '못 산 줄이 없습니다.' };
 
 /**
  * 계좌 대시보드 상단의 자동매매 바.
@@ -28,7 +39,8 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
   const { rules } = useTradingRules();
   /** 「최근 판단 보기」 펼침 — 기억하지 않는다(용어집 공통 동작) */
   const [notesOpen, setNotesOpen] = useState(false);
-  const [noteFilter, setNoteFilter] = useState<'all' | 'trades'>('all');
+  /** 「최근 판단」 보기 — 화면에만 기억(새로고침하면 「전체」) */
+  const [noteFilter, setNoteFilter] = useState<NoteFilter>('all');
   const [groupOpenMap, setGroupOpenMap] = useState<Map<string, boolean>>(new Map());
   /** 「최근 판단」 AI 이유를 펼친 줄(번호) — 기억하지 않는다 */
   const [openDetails, setOpenDetails] = useState<Set<number>>(new Set());
@@ -87,12 +99,12 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
   // 「최근 판단」 하루치 — 판단 한 번씩 묶음(최근이 위). 줄 번호는 묶음을 이어 센다(AI 이유 펼침 상태)
   const groups = groupNotes(status?.lastNotes ?? []);
   const offsets = groups.reduce<number[]>((acc, _g, k) => [...acc, k === 0 ? 0 : acc[k - 1] + groups[k - 1].notes.length], []);
-  // 「매수·매도만 보기」(화면에만 기억, 새로고침하면 「전체」) — 기다림(그대로) 줄을 숨기고, 남는 줄이 없는 묶음은 감춘다
+  // 보기 「전체 | 매수·매도 | 못 산 이유」(화면에만 기억, 새로고침하면 「전체」) — 줄 종류는 `noteKind` 한 곳, 남는 줄이 없는 묶음은 감춘다
   const shownGroups = groups
-    .map((g, gi) => ({ g, gi, items: g.notes.map((n, j) => ({ n, i: offsets[gi] + j })).filter(({ n }) => noteFilter === 'all' || n.action !== 'HOLD') }))
+    .map((g, gi) => ({ g, gi, items: g.notes.map((n, j) => ({ n, i: offsets[gi] + j })).filter(({ n }) => FILTER_KINDS[noteFilter].includes(noteKind(n))) }))
     .filter((x) => x.items.length > 0)
     .map((x, si) => ({ ...x, si }));
-  // 묶음 접기 — 처음엔 **보이는** 묶음 중 맨 위(가장 최근)만 펼친다(「매수·매도만」 으로 맨 위 묶음이 숨어도 다음 묶음이 펼쳐진다). 사용자가 누른 묶음만 기억(화면에만)
+  // 묶음 접기 — 처음엔 **보이는** 묶음 중 맨 위(가장 최근)만 펼친다(「매수·매도」 · 「못 산 이유」 로 맨 위 묶음이 숨어도 다음 묶음이 펼쳐진다). 사용자가 누른 묶음만 기억(화면에만)
   const isGroupOpen = (key: string, si: number) => groupOpenMap.get(key) ?? si === 0;
   const toggleGroup = (key: string, si: number) =>
     setGroupOpenMap((prev) => new Map(prev).set(key, !(prev.get(key) ?? si === 0)));
@@ -179,7 +191,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
       </div>
 
       {/*
-        마지막 한 바퀴의 판단 — 매수·매도와 **건너뛴 이유**(실적 발표 직전·하루 손실 한도·한도 초과 등).
+        마지막 한 바퀴의 판단 — 매수·매도와 **못 산 이유**(「건너뜀」 — 실적 발표 직전·하루 손실 한도·한도 초과 등).
         거래내역은 체결만 보여서, 여기가 아니면 "왜 안 샀나" 를 확인할 곳이 없다.
       */}
       {/*
@@ -210,10 +222,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
                 size="sm"
                 value={noteFilter}
                 onChange={setNoteFilter}
-                options={[
-                  { value: 'all', label: '전체' },
-                  { value: 'trades', label: '매수·매도만' },
-                ]}
+                options={FILTER_OPTIONS}
               />
             )}
             {rule && !rule.sell.stopLoss.on && (
@@ -228,12 +237,12 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           <div id={`autotrade-notes-${strategy.accountId}`} className="mt-1.5 max-h-[240px] overflow-y-auto border-t border-border/30 pt-1 [scrollbar-gutter:stable]">
           {/* 판단 한 번마다 머리 줄(「22:31 미국 판단 · 6종목」) · 쉬운 문장이 먼저, 원래 문장은 작은 회색으로 아래 — 사거나 판 줄이 위, 기다림 줄이 아래 */}
           <ul className="mt-1 space-y-2">
-            {shownGroups.length === 0 && <li className="text-text-muted">매수·매도한 줄이 없습니다.</li>}
+            {shownGroups.length === 0 && <li className="text-text-muted">{FILTER_EMPTY[noteFilter]}</li>}
             {shownGroups.map(({ g, gi, si, items }) => {
               const key = g.at ?? `g${gi}`;
               const groupOpen = isGroupOpen(key, si);
-              // 묶음 머리 — 시각 · 시장 · 종목 수 · 매수 N · 매도 N · 그대로 N. 접기 버튼 글자 그대로(열고 닫아도 같은 글자)
-              const head = `${g.at ? formatTime(g.at) : '—'} ${g.market} 판단 · ${g.symbols}종목 · 매수 ${g.buys} · 매도 ${g.sells} · 그대로 ${g.holds}`;
+              // 묶음 머리 — 시각 · 시장 · 종목 수 · 매수 N · 매도 N · 그대로 N · 못 산 N(0 도 적는다 — 칸이 흔들리지 않게). 접기 버튼 글자 그대로(열고 닫아도 같은 글자)
+              const head = `${g.at ? formatTime(g.at) : '—'} ${g.market} 판단 · ${g.symbols}종목 · 매수 ${g.buys} · 매도 ${g.sells} · 그대로 ${g.holds} · 못 산 ${g.skips}`;
               return (
             <li key={`${key}-${gi}`} className={si > 0 ? 'border-t border-border/30 pt-2' : ''} data-notes-group>
               <DisclosureButton
@@ -251,14 +260,15 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
               const aiWarn = n.code === 'ai_risk' || n.code === 'ai_unavailable';
               const hasDetail = (n.code === 'ai_pass' || aiWarn) && (n.detail?.length ?? 0) > 0;
               const detailOpen = openDetails.has(i);
+              const kind = noteKind(n);
               return (
-                <li key={i} className="flex gap-2">
+                <li key={i} className="flex gap-2" data-note-kind={kind}>
                   <span
                     className={`w-9 shrink-0 font-medium ${
-                      n.action === 'BUY' ? 'text-bullish' : n.action === 'SELL' ? 'text-bearish' : 'text-text-muted'
+                      kind === 'buy' ? 'text-bullish' : kind === 'sell' ? 'text-bearish' : 'text-text-muted'
                     }`}
                   >
-                    {n.action === 'BUY' ? '매수' : n.action === 'SELL' ? '매도' : '건너뜀'}
+                    {NOTE_KIND_LABEL[kind]}
                   </span>
                   <span className="min-w-0">
                     {easy ? (
@@ -268,7 +278,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
                           {easy}
                         </span>
                         <span className="block text-text-muted">
-                          {n.symbol} · {n.reason}
+                          {n.symbol} · {withUsDateTag(n.reason)}
                         </span>
                         {hasDetail && (
                           <span className="mt-1 block">
@@ -291,7 +301,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
                     ) : (
                       <span className="text-text-secondary">
                         <span className="mr-2 text-text-secondary">{n.symbol}</span>
-                        {n.reason}
+                        {withUsDateTag(n.reason)}
                       </span>
                     )}
                   </span>

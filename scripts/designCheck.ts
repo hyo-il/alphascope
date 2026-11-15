@@ -1220,8 +1220,8 @@ function targets(): Target[] {
         await page.waitForTimeout(300);
       },
     },
-    // 「최근 판단」 묶음 접기(처음엔 가장 최근만 펼침) · 둘째 묶음도 펼침 · 「매수·매도만」
-    ...(['접힘', '펼침', '매수매도만'] as const).map((v) => ({
+    // 「최근 판단」 묶음 접기(처음엔 가장 최근만 펼침) · 둘째 묶음도 펼침 · 보기 「매수·매도」 · 「못 산 이유」(실적 회피 「미국 날짜」 줄)
+    ...(['접힘', '펼침', '매수매도', '못산이유'] as const).map((v) => ({
       name: `account-최근판단-${v}`,
       hash: '#/portfolio/paper',
       before: async (page: Page) => {
@@ -1237,6 +1237,7 @@ function targets(): Target[] {
             { symbol: 'MSFT', action: 'BUY', reason: '매수 점수 80점(기준 65점) → 35주 · 총점 순위 1위(3종목 중)', code: 'score_buy', rank: { n: 1, of: 3 }, ...U },
             { symbol: 'NVDA', action: 'HOLD', reason: '보유 종목 수가 가득 차 사지 않았습니다 (총점 순위 2위 / 3종목 중)', code: 'max_positions', rank: { n: 2, of: 3 }, ...U },
             { symbol: 'AAPL', action: 'HOLD', reason: '보유 종목 수가 가득 차 사지 않았습니다 (총점 순위 3위 / 3종목 중)', code: 'max_positions', rank: { n: 3, of: 3 }, ...U },
+            { symbol: 'TSLA', action: 'HOLD', reason: 'TSLA 실적 발표 11/19(예정 · 미국 날짜) 2거래일 전 — 신규 매수 건너뜀', code: 'earnings_blackout', ...U },
             { symbol: '005930', action: 'HOLD', reason: '점수 72/100 — 시장 기준 KODEX 200 가 200일선 아래라 사지 않습니다 (KODEX 200 ₩88,750 · 200일선 ₩99,193) (10-15 마감 기준)', code: 'gate_block', gateReason: 'market', ...K },
             { symbol: '035420', action: 'SELL', reason: '점수 40점 — 50점 아래로 떨어져 매도 (10-15 마감 기준)', code: 'score_sell', ...K },
             { symbol: '000660', action: 'HOLD', reason: '점수 40/100 — 기준 65점 미만 (10-15 마감 기준)', code: 'no_signal_buy', ...K },
@@ -1267,7 +1268,8 @@ function targets(): Target[] {
         await click(/최근 판단 보기/)(page);
         await page.waitForTimeout(400);
         if (v === '펼침') await page.locator('[data-notes-group]').nth(1).getByRole('button').first().click();
-        if (v === '매수매도만') await page.getByRole('radio', { name: '매수·매도만' }).click();
+        if (v === '매수매도') await page.getByRole('radio', { name: '매수·매도', exact: true }).click();
+        if (v === '못산이유') await page.getByRole('radio', { name: '못 산 이유', exact: true }).click();
         await page.waitForTimeout(300);
       },
     })),

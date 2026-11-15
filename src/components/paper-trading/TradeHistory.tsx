@@ -6,6 +6,7 @@ import type { Currency, PaperCashFlow, PaperOrder, PaperTrade } from '../../type
 import { cancelPaperOrder } from '../../hooks/usePaperTrading';
 import { formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
 import SymbolChartLink from '../common/SymbolChartLink';
+import { isAutoTradeReason } from '../../utils/autoTradeExplain';
 import { TABLE_NAME_COL, TABLE_NUM_COL } from '../ui/tokens';
 
 interface Props {
@@ -29,18 +30,6 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'win', label: '수익' },
   { id: 'loss', label: '손실' },
 ];
-
-/**
- * 자동매매가 낸 주문인지 — 사유 문자열로 가른다.
- *
- * 주문에 출처 컬럼을 새로 두지 않았다. 사유는 이미 사람이 읽으라고 쓰는 문장이고,
- * 자동매매 쪽 문구는 엔진이 정해진 형태로 만든다 (`autoTrading/engine.ts`).
- * 손으로 낸 주문의 사유는 "차트 빠른주문 …" 이라 겹치지 않는다.
- */
-// 사유 문장은 용어집 이름을 쓴다 — 옛 문장(하드 손절·트레일링 스톱)과 새 문장(손절 — 기준·트레일링 — 최고가·익절) 모두 잡는다
-const AUTO_MARKERS = ['AI 매수', 'AI 매도', '골든크로스', '데드크로스', 'RSI', '하드 손절', '트레일링 스톱', 'Gemini', '손절 ', '익절 ', '트레일링 — '];
-const isAuto = (reason: string | null): boolean =>
-  Boolean(reason) && AUTO_MARKERS.some((m) => reason!.includes(m));
 
 /** 거르기 — 이 브라우저 탭이 열려 있는 동안 기억(차트에 다녀와도 그대로 · 계좌 화면 상태와 같은 방식) */
 let rememberedFilter: Filter = 'all';
@@ -211,7 +200,7 @@ export default function TradeHistory({ trades, cashFlows, currency, orders, onCh
                     */}
                     <td className="px-3 py-2 text-text-muted">
                       <span className="flex items-center gap-1.5">
-                        {isAuto(t.reason) && (
+                        {isAutoTradeReason(t.reason) && (
                           <span className="shrink-0 rounded bg-bg-tertiary px-1 py-0.5 text-caption text-text-secondary">
                             자동
                           </span>

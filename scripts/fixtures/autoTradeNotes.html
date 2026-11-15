@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>시험 — 자동매매 최근 판단</title>
+  </head>
+  <body class="bg-bg-primary text-text-primary">
+    <!-- `npm run autotradenotes:test` 전용(Vite 시험 서버에서만 연다 · 앱 빌드에 들어가지 않는다): 계좌 화면의 자동매매 바(`AutoTradeBar`)만 그린다 -->
+    <div id="root"></div>
+    <script type="module">
+      import '/src/index.css';
+      import { createElement } from 'react';
+      import { createRoot } from 'react-dom/client';
+      import AutoTradeBar from '/src/components/paper-trading/AutoTradeBar.tsx';
+      createRoot(document.getElementById('root')).render(createElement(AutoTradeBar, { accountId: 1 }));
+    </script>
+  </body>
+</html>

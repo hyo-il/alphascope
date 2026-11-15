@@ -38,6 +38,7 @@
     "recheck:report": "tsx scripts/recheckReport.ts",
     "brief:score-report": "tsx scripts/briefScoreReport.ts",
     "autotrade:report": "tsx scripts/autotradeReport.ts",
+    "autotradenotes:test": "tsx scripts/autoTradeNotesUiSelfTest.ts",
     "oraclereport:test": "tsx scripts/oracleReportSelfTest.ts",
     "auth:test": "tsx scripts/authSessionsSelfTest.ts",
     "accountsview:test": "tsx scripts/accountsViewSelfTest.ts",

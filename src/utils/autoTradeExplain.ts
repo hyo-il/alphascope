@@ -1,5 +1,5 @@
 import { marketRefOfSymbol } from './market';
-import type { AccountStrategy, AccountStrategyStatus, DecisionNote } from '../types/autoTrading';
+import type { AccountStrategy, AccountStrategyStatus, DecisionCode, DecisionNote } from '../types/autoTrading';
 import type { RuleBody } from '../types/tradingRule';
 import type { AutoTradeView } from './autoTradeStatus';
 
@@ -79,12 +79,46 @@ export function explainNote(note: DecisionNote, name: string, s: Pick<AccountStr
 }
 
 /**
+ * 자동매매가 낸 주문인지 — 거래 내역 「자동」 표시(`TradeHistory`). 사유 **문장**으로 가른다(주문에 출처 칸이 없다).
+ * 자동매매 쪽 문구는 엔진이 정해진 형태로 만든다(`server/rules/engine.ts` · `server/autoTrading/engine.ts`). 손으로 낸 주문은 「차트 빠른주문 …」 이라 겹치지 않는다.
+ * 옛 문장(하드 손절 · 트레일링 스톱 · AI 매수/매도 · Gemini)과 새 문장(손절 — · 익절 · 트레일링 — · 점수 매수 「≥ 기준 N점 — 매수」 · 점수 매도 「N점 아래로 떨어져 매도」) 모두 잡는다.
+ * 실적 회피(`earnings_blackout`)는 주문을 내지 않아 거래 사유가 되지 않는다 — 산 줄의 덧붙임 「실적일 미확인」 은 그대로.
+ */
+const AUTO_MARKERS = ['AI 매수', 'AI 매도', '골든크로스', '데드크로스', 'RSI', '하드 손절', '트레일링 스톱', 'Gemini', '손절 ', '익절 ', '트레일링 — ', '점 — 매수', '점 아래로 떨어져 매도'];
+export const isAutoTradeReason = (reason: string | null): boolean => Boolean(reason) && AUTO_MARKERS.some((m) => reason!.includes(m));
+
+/**
+ * 「최근 판단」 줄의 종류 — **한 곳**. 화면 글자(사유 문장)가 아니라 `action` · `code` 로 나눈다.
+ * - `hold` 「그대로」 = 신호가 없어 아무것도 하지 않음(기준 미달 · 보유 유지 · 손절 뒤 대기 · 봉 미확정 · 일봉 부족 · 코드 없는 옛 기록)
+ * - `skip` 「건너뜀」 = 점수는 사도 됨(매수 신호)인데 조건 · 안전장치 때문에 사지 않음(묶음 머리 「못 산 N」 · 보기 「못 산 이유」)
+ */
+export type NoteKind = 'buy' | 'sell' | 'hold' | 'skip';
+export const NOTE_KIND_LABEL: Record<NoteKind, string> = { buy: '매수', sell: '매도', hold: '그대로', skip: '건너뜀' };
+/** 「건너뜀」 코드 — 손익비 · 거름망(점수는 기준 이상) · 계좌 안전장치(하루 손실 · 실적 · 보유 가득) · 현금 · 예산(`other`) · AI 검증 위험 · 못 함 · 주문 실패 */
+const SKIP_CODES: ReadonlySet<string> = new Set<DecisionCode>([
+  'rr_block',
+  'gate_block',
+  'daily_loss',
+  'earnings_blackout',
+  'max_positions',
+  'other',
+  'ai_risk',
+  'ai_unavailable',
+  'error',
+]);
+export function noteKind(n: Pick<DecisionNote, 'action' | 'code'>): NoteKind {
+  if (n.action === 'BUY') return 'buy';
+  if (n.action === 'SELL') return 'sell';
+  return n.code && SKIP_CODES.has(n.code) ? 'skip' : 'hold';
+}
+
+/**
  * 「최근 판단」 하루치를 판단 한 번씩 묶는다 — 저장 순서(최근이 위)대로, 같은 `at` 이 한 묶음.
- * 묶음 안은 `sortNotes`(사거나 판 줄이 위). 머리 줄 = 시각 · 시장(국내/미국/국내·미국) · 종목 수.
+ * 묶음 안은 `sortNotes`(사거나 판 줄이 위). 머리 줄 = 시각 · 시장(국내/미국/국내·미국) · 종목 수 · 종류(`noteKind`)마다 줄 수.
  */
 export function groupNotes<T extends DecisionNote>(
   notes: T[],
-): { at: string | null; market: string; symbols: number; buys: number; sells: number; holds: number; notes: T[] }[] {
+): { at: string | null; market: string; symbols: number; buys: number; sells: number; holds: number; skips: number; notes: T[] }[] {
   const groups: { at: string | null; notes: T[] }[] = [];
   for (const n of notes) {
     const last = groups.at(-1);
@@ -94,8 +128,8 @@ export function groupNotes<T extends DecisionNote>(
   return groups.map((g) => {
     const markets = new Set(g.notes.map((n) => n.market));
     const market = markets.has('KR') && markets.has('US') ? '국내·미국' : markets.has('KR') ? '국내' : '미국';
-    const count = (a: DecisionNote['action']) => g.notes.filter((n) => n.action === a).length;
-    return { at: g.at, market, symbols: new Set(g.notes.map((n) => n.symbol)).size, buys: count('BUY'), sells: count('SELL'), holds: count('HOLD'), notes: sortNotes(g.notes) };
+    const count = (k: NoteKind) => g.notes.filter((n) => noteKind(n) === k).length;
+    return { at: g.at, market, symbols: new Set(g.notes.map((n) => n.symbol)).size, buys: count('buy'), sells: count('sell'), holds: count('hold'), skips: count('skip'), notes: sortNotes(g.notes) };
   });
 }
 
