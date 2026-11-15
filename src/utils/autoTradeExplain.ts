@@ -65,7 +65,9 @@ export function explainNote(note: DecisionNote, name: string, s: Pick<AccountStr
     case 'not_enough_candles':
       return `${name}: 가격 데이터가 아직 부족해 판단하지 않았습니다.`;
     case 'error':
-      return `${name}: 주문하지 못했습니다(아래 자세한 이유).`;
+      return isSellFailure(note)
+        ? `${name}: 매도 주문을 내지 못해 그대로 들고 있습니다(아래 자세한 이유).`
+        : `${name}: 주문하지 못했습니다(아래 자세한 이유).`;
     // AI 검증 — 이유는 줄을 펼치면(note.detail) 보인다
     case 'ai_pass':
       return `${name}: 규칙 사도 됨 · AI 검증 통과 — 매수했습니다.${ranked}`;
@@ -91,10 +93,12 @@ export const isAutoTradeReason = (reason: string | null): boolean => Boolean(rea
  * 「최근 판단」 줄의 종류 — **한 곳**. 화면 글자(사유 문장)가 아니라 `action` · `code` 로 나눈다.
  * - `hold` 「그대로」 = 신호가 없어 아무것도 하지 않음(기준 미달 · 보유 유지 · 손절 뒤 대기 · 봉 미확정 · 일봉 부족 · 코드 없는 옛 기록)
  * - `skip` 「건너뜀」 = 점수는 사도 됨(매수 신호)인데 조건 · 안전장치 때문에 사지 않음(묶음 머리 「못 산 N」 · 보기 「못 산 이유」)
+ * - 주문 실패(`error`)는 매수 쪽만 「건너뜀」. **매도 주문 실패는 「그대로」**(아직 들고 있음 — 「매도」 로 세면 판 것처럼 보이고, 「못 산」 은 매수 쪽만 센다).
+ *   실패 줄은 code 가 같은 `error` 라 서버가 만든 사유 머리(`server/autoTrading/engine.ts` 의 `매도 실패: …` · `매수 실패: …`)로 가른다 — 이 한 곳만.
  */
 export type NoteKind = 'buy' | 'sell' | 'hold' | 'skip';
 export const NOTE_KIND_LABEL: Record<NoteKind, string> = { buy: '매수', sell: '매도', hold: '그대로', skip: '건너뜀' };
-/** 「건너뜀」 코드 — 손익비 · 거름망(점수는 기준 이상) · 계좌 안전장치(하루 손실 · 실적 · 보유 가득) · 현금 · 예산(`other`) · AI 검증 위험 · 못 함 · 주문 실패 */
+/** 「건너뜀」 코드 — 손익비 · 거름망(점수는 기준 이상) · 계좌 안전장치(하루 손실 · 실적 · 보유 가득) · 현금 · 예산(`other`) · AI 검증 위험 · 못 함 · 주문 실패(매수 쪽만 — `isSellFailure`) */
 const SKIP_CODES: ReadonlySet<string> = new Set<DecisionCode>([
   'rr_block',
   'gate_block',
@@ -106,9 +110,16 @@ const SKIP_CODES: ReadonlySet<string> = new Set<DecisionCode>([
   'ai_unavailable',
   'error',
 ]);
-export function noteKind(n: Pick<DecisionNote, 'action' | 'code'>): NoteKind {
+/** 서버가 매도 주문 실패 줄에 붙이는 사유 머리(`server/autoTrading/engine.ts` `sell` — `autotrade:test` 17 이 같은지 확인) */
+export const SELL_FAILURE_PREFIX = '매도 실패: ';
+/** 매도 주문 실패 줄인가 — `error` 가운데 사유가 `SELL_FAILURE_PREFIX` 로 시작하는 것 */
+function isSellFailure(n: Pick<DecisionNote, 'code'> & { reason?: string | null }): boolean {
+  return n.code === 'error' && typeof n.reason === 'string' && n.reason.startsWith(SELL_FAILURE_PREFIX);
+}
+export function noteKind(n: Pick<DecisionNote, 'action' | 'code'> & { reason?: string | null }): NoteKind {
   if (n.action === 'BUY') return 'buy';
   if (n.action === 'SELL') return 'sell';
+  if (isSellFailure(n)) return 'hold';
   return n.code && SKIP_CODES.has(n.code) ? 'skip' : 'hold';
 }
 

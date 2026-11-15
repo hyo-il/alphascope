@@ -12,6 +12,8 @@
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import './lib/requireTossKeys'; // ⚠️ 둘째 import — 모의 모드(토스 키 없음)면 여기서 멈춘다
 import './lib/fixedClock'; // ⚠️ 셋째 import — 「지금」 을 두 시장 장 밖의 고요한 때로(언제 돌려도 같은 결과 · docs/rules/workflow.md 「시험 시계」)
+import fs from 'node:fs';
+import path from 'node:path';
 import { getDb, loadCandles } from '../server/db';
 import { createAccount, createOrder, deleteAccount, getAccount, listAccounts, listPositions, listTrades, reorderAccounts, setUsdKrwForTest } from '../server/paperTradingService';
 import { planBuy } from '../server/autoTrading/sizing';
@@ -31,7 +33,7 @@ import { evaluateRule } from '../server/rules/engine';
 import { createRule, deleteRule, ensureSeeded, listRules, resetSeedCheckForTest } from '../server/rules/store';
 import { NOTES_MAX, readNotes, recordNotes } from '../server/autoTrading/store';
 import { ABOVE200_RULE_NAME } from '../src/types/tradingRule';
-import { groupNotes, isAutoTradeReason, NOTE_KIND_LABEL, noteKind, type NoteKind } from '../src/utils/autoTradeExplain';
+import { groupNotes, isAutoTradeReason, NOTE_KIND_LABEL, noteKind, SELL_FAILURE_PREFIX, type NoteKind } from '../src/utils/autoTradeExplain';
 import { loadMarketRef, marketRefLoader, MARKET_REF_RETRY_MS, resetMarketRefMissForTest, setMarketRefLoadForTest } from '../server/rules/marketRef';
 import { resetPendingNotesForTest } from '../server/autoTrading/engine';
 import { runCustomBacktest } from '../server/autoTrading/ruleResearch';
@@ -1068,6 +1070,26 @@ function noteKindSection(): void {
   check('HOLD 줄 — 신호 없음 「그대로」 · 막힌 매수 「건너뜀」(code 마다)', wrong.length === 0, wrong.join(', ') || `${Object.keys(HOLD_KIND).length}개 code`);
   check('코드 없는 옛 HOLD 줄 → 「그대로」', noteKind({ action: 'HOLD' }) === 'hold');
   check('BUY → 「매수」 · SELL → 「매도」(code 와 상관없이)', noteKind({ action: 'BUY', code: 'ai_pass' }) === 'buy' && noteKind({ action: 'SELL', code: 'hard_stop' }) === 'sell');
+  // 주문 실패(error) — 매수 쪽만 「건너뜀」 · 매도 주문 실패는 「그대로」(137차 · 「못 산 N」 은 매수 쪽만)
+  const engineSrc = fs.readFileSync(path.resolve(import.meta.dirname, '../server/autoTrading/engine.ts'), 'utf8');
+  check('[137-5] 서버 사유 머리 = 화면이 가르는 머리(`매도 실패: ` · `매수 실패: ` — engine.ts 의 실패 줄 두 곳)',
+    engineSrc.includes(`reason: \`${SELL_FAILURE_PREFIX}\${(error as Error).message}\``) && engineSrc.includes('reason: `매수 실패: ${(error as Error).message}`'));
+  check('[137-5] 매도 주문 실패 → 「그대로」 · 매수 주문 실패 → 「건너뜀」 · 사유 없는 옛 error → 「건너뜀」(그대로)',
+    noteKind({ action: 'HOLD', code: 'error', reason: '매도 실패: 잔고 부족' }) === 'hold'
+    && noteKind({ action: 'HOLD', code: 'error', reason: '매수 실패: 현금 부족' }) === 'skip'
+    && noteKind({ action: 'HOLD', code: 'error' }) === 'skip');
+  check('[137-5] 다른 code 는 사유가 「매도 실패: 」 로 시작해도 종류 그대로(사유 머리는 error 에서만 봄)',
+    noteKind({ action: 'HOLD', code: 'rr_block', reason: '매도 실패: x' }) === 'skip' && noteKind({ action: 'HOLD', code: 'no_signal_hold', reason: '매도 실패: x' }) === 'hold');
+  const failNotes = [
+    { symbol: 'AAPL', action: 'HOLD' as const, reason: '매도 실패: 시세 없음', code: 'error' as const, at: '2026-10-16T13:35:00.000Z', market: 'US' as const },
+    { symbol: 'MSFT', action: 'HOLD' as const, reason: '매수 실패: 현금 부족', code: 'error' as const, at: '2026-10-16T13:35:00.000Z', market: 'US' as const },
+    { symbol: 'NVDA', action: 'HOLD' as const, reason: 'g', code: 'gate_block' as const, at: '2026-10-16T13:35:00.000Z', market: 'US' as const },
+  ];
+  const [gf] = groupNotes(failNotes);
+  check('[137-5] 묶음 머리 「못 산 N」 에 매도 실패가 들어가지 않음(못 산 2 = 매수 실패 · 거름망 · 그대로 1 = 매도 실패)', gf.skips === 2 && gf.holds === 1 && gf.sells === 0, JSON.stringify([gf.buys, gf.sells, gf.holds, gf.skips]));
+  const sellEx = explainNote(failNotes[0], '애플', { maxPositions: 5, dailyLossLimitPercent: 0 }, null) ?? '';
+  const buyEx = explainNote(failNotes[1], '마이크로소프트', { maxPositions: 5, dailyLossLimitPercent: 0 }, null) ?? '';
+  check('[137-5] 매도 실패 줄 글 = 「매도 주문을 내지 못해 그대로 들고 있습니다」 · 매수 실패 줄 글 그대로', sellEx.includes('매도 주문을 내지 못해 그대로 들고 있습니다') && buyEx === '마이크로소프트: 주문하지 못했습니다(아래 자세한 이유).', `${sellEx} | ${buyEx}`);
   check('줄 글자 네 가지', JSON.stringify(NOTE_KIND_LABEL) === JSON.stringify({ buy: '매수', sell: '매도', hold: '그대로', skip: '건너뜀' }));
 
   const at = '2026-10-16T13:35:00.000Z';
