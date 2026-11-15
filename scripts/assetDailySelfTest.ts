@@ -336,7 +336,7 @@ await main();
   const shared = list.stdout.split('\n').map((l) => path.relative(root, l.trim())).filter((f) => f.startsWith('src/'));
   const changedShared = tradingDiff(root, 'f64668b', [...shared]).stdout.trim().split('\n').filter(Boolean);
   const ALLOWED = ['src/data/changelog.ts', 'src/types/asset.ts', 'src/utils/assetFormat.ts'];
-  const deleted = spawnSync('git', ['diff', '-U0', 'f64668b', '--', ...ALLOWED], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
+  const deleted = laterAwarePatch(root, 'f64668b', ALLOWED).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
   check(`[134-7] 서버가 함께 쓰는 src/ ${shared.length}개 가운데 바뀐 것은 types/asset.ts · utils/assetFormat.ts · data/changelog.ts 뿐 · 모두 더하기만(지운 줄 0)`,
     shared.length > 30 && changedShared.every((f) => ALLOWED.includes(f)) && changedShared.includes('src/types/asset.ts') && deleted.length === 0, `${changedShared.join(',')} · 지운 줄 ${deleted.length}`);
   // 7: designCheck.ts 판정 부분 바뀐 줄 0 — 이번에 바뀐 줄은 장면 목록(asset-일별변화 묶음)에 더한 줄뿐

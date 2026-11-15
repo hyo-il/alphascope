@@ -23,7 +23,7 @@ import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니�
 import { TEST_SERVER_SWITCHES } from './lib/testServerEnv';
 import 'dotenv/config';
 import { spawn, spawnSync } from 'node:child_process';
-import { tradingDiff } from './lib/tradingDiff';
+import { laterAwarePatch, tradingDiff } from './lib/tradingDiff';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -1674,7 +1674,7 @@ const OPTIONS_HAS_MIXED = (src: string) => /value: MIXED|'mixed'/.test(src);
 const changed116 = tradingDiff(root, '04a202d', ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python']);
 check('[116-9] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(04a202d 와 지금 작업 트리)', changed116.status === 0 && changed116.stdout.trim() === '', changed116.stdout.trim() || changed116.stderr.trim());
 // [117-5] 로그인 코드 바뀐 줄 0 · [117-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 · 로그인 코드 바뀐 파일 0(116차 끝 4bbc1e5 와 지금 작업 트리)
-const changed117auth = spawnSync('git', ['diff', '4bbc1e5', '--', 'server/auth.ts', 'server/authGuard.ts'], { cwd: root, encoding: 'utf8' });
+const changed117auth = laterAwarePatch(root, '4bbc1e5', ['server/auth.ts', 'server/authGuard.ts']); // 뒤 지시서 커밋(137차 export 떼기)은 나눠 견줌
 check('[117-5] 로그인(server/auth.ts · server/authGuard.ts) 바뀐 줄 0(4bbc1e5 와 지금 작업 트리)', changed117auth.status === 0 && changed117auth.stdout.trim() === '', changed117auth.stdout.slice(0, 200) || changed117auth.stderr.trim());
 const changed117 = tradingDiff(root, '4bbc1e5', ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'server/auth.ts', 'server/authGuard.ts', 'python']);
 check('[117-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 · 로그인 코드 바뀐 파일 0(4bbc1e5 와 지금 작업 트리)', changed117.status === 0 && changed117.stdout.trim() === '', changed117.stdout.trim() || changed117.stderr.trim());

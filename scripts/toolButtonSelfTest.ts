@@ -100,6 +100,7 @@ const lint = (env: Record<string, string>) => spawnSync(process.execPath, [tsx, 
 // ── [130-4] deploy:test — docs/ 없는 사본에서 멈추지 않고 「건너뜀」 ──
 {
   check('[130-4] deploySelfTest 의 docs 훑기 — 폴더가 없으면 건너뜀(있을 때만 walk)', /const docsThere = fs\.existsSync\(DOCS_DIR\);\s*\n\s*if \(docsThere\) walk\(DOCS_DIR\);/.test(code('scripts/deploySelfTest.ts')));
+  const docsBefore = fs.existsSync(path.join(root, 'docs')); // 137차에 저장소 docs/ 의 마지막 문서를 지움 — 있든 없든 그대로인지만 본다
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'alphascope-nodocs-130-'));
   try {
     const skip = new Set(['node_modules', '.git', 'docs', 'reports', 'db', 'dist', '.env', 'python']);
@@ -115,7 +116,7 @@ const lint = (env: Record<string, string>) => spawnSync(process.execPath, [tsx, 
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
-  check('[130-4] 임시 사본 지움(저장소 docs/ 는 그대로)', !fs.existsSync(tmp) && fs.existsSync(path.join(root, 'docs')));
+  check('[130-4] 임시 사본 지움(저장소 docs/ 는 그대로)', !fs.existsSync(tmp) && fs.existsSync(path.join(root, 'docs')) === docsBefore);
 }
 
 // ── [130-7] 서버 · 매매 · 주문 · 로그인 · 서버가 함께 쓰는 src · designCheck 판정 부분 바뀐 줄 0(130차 v2.69.2 동안만) ──

@@ -22,6 +22,7 @@ import path from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { createBrowserStepGuard } from './lib/browserStepGuard';
 import { serverSharedSrc } from './lib/serverSharedSrc';
+import { tradingDiff } from './lib/tradingDiff';
 
 const root = path.resolve(import.meta.dirname, '..');
 const PORT = 5198;
@@ -51,7 +52,8 @@ const git = (...a: string[]) => execFileSync('git', a, { cwd: root, encoding: 'u
   // 최고 / 최저 표시(drawExtremeMarkers)는 133차에 화살표 자리 · 크기만 바꿨다 — 값(어느 봉 · 가격 · 글)을 만드는 줄은 그대로
   const valuePart = (text: string) => fnBody(text, 'drawExtremeMarkers')?.match(/  const highBar[\s\S]*?\n  };\n\n/)?.[0] ?? null;
   check('[133-5] 최고 / 최저 표시의 값(어느 봉 · 가격 · 글)을 만드는 줄 8d3b50e 와 같음', valuePart(code(theme)) !== null && valuePart(code(theme)) === valuePart(git('show', `8d3b50e:${theme}`)));
-  const others = git('diff', '--name-only', BASE, '--', 'src/utils/liveCandle.ts', 'src/components/chart/ChartInfoBar.tsx', 'src/hooks/useCandleData.ts', 'src/hooks/useIndicators.ts', 'src/types/chart.ts').trim();
+  // 뒤 지시서 커밋(137차 — src/types/chart.ts export 떼기)은 나눠 견줌(tradingDiff)
+  const others = tradingDiff(root, BASE, ['src/utils/liveCandle.ts', 'src/components/chart/ChartInfoBar.tsx', 'src/hooks/useCandleData.ts', 'src/hooks/useIndicators.ts', 'src/types/chart.ts']).stdout.trim();
   check('[132-4] 현재가 봉(liveCandle) · 정보 줄(ChartInfoBar) · 캔들 · 지표 받기 · 지표 종류 바뀐 파일 0', others === '', others);
   const candle = git('diff', '-U0', BASE, '--', 'src/components/chart/CandleChart.tsx');
   check('[132-4] 메인 차트의 캔들 넣기(setData) · 현재가 봉(update) 줄 바뀜 0', !/^[-+].*(setData|candleSeries\.update|liveCandle\()/m.test(candle));

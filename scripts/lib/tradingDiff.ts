@@ -3,6 +3,8 @@
  *
  * 그 뒤 **다른 지시서가 바꾼 파일**은 둘로 나눠 견준다 — ① 기준 커밋 → 그 지시서 커밋 바로 앞(그 차수의 뜻 그대로) ② 그 지시서 커밋 → 지금(그 뒤 다시 바뀌면 걸린다).
  * 지시된 변경 때문에 옛 시험이 모두 깨지지 않게 하면서 확인하는 범위는 줄이지 않는다. 지시서가 이런 파일을 바꾸면 여기에 한 줄(파일 → 그 커밋)을 더한다.
+ * 한 커밋이 파일을 많이 바꾸면(정리 등) 그 커밋을 `LATER_COMMITS` 에 한 줄 — 그 커밋이 바꾼 파일 전부를 같은 방법으로 나눈다.
+ * 한 파일을 여러 지시서가 바꿨으면 차례대로 나눈다(기준 → 첫 커밋 앞 · 첫 커밋 → 둘째 커밋 앞 · … · 마지막 커밋 → 지금). 기준 커밋보다 앞선 커밋은 쓰지 않는다.
  */
 import { spawnSync } from 'node:child_process';
 
@@ -12,18 +14,41 @@ export const LATER_CHANGES: Readonly<Record<string, string>> = {
   'scripts/designCheck.ts': 'ca9606d', // 136차 v2.70.2 A — 「최근 판단」 장면(보기 이름 · 못 산 이유)
 };
 
+/** 지시서 커밋 전체(오래된 것부터) — 그 커밋이 바꾼 파일은 모두 위처럼 나눠 견준다 */
+export const LATER_COMMITS: readonly string[] = [
+  '6ce2321', // 137차 v2.70.3 A — 서버 · 공유 파일 export 떼기(이름 · 본문 그대로) · 끝난 데이터 정리 · 배포 스크립트 지움
+  '1ccbaf0', // 137차 v2.70.3 B — 「최근 판단」 매도 주문 실패는 「그대로」(화면 셈만)
+];
+
 const covers = (spec: string, file: string) => file === spec || file.startsWith(`${spec.replace(/\/$/, '')}/`);
 
 function run(root: string, args: string[]) {
   return spawnSync('git', args, { cwd: root, encoding: 'utf8' });
 }
 
+/** 파일 → 그 파일을 바꾼 뒤 지시서 커밋들(오래된 것부터 · 기준 커밋 뒤의 것만) */
+function laterFiles(root: string, base: string): Map<string, string[]> {
+  const after = (c: string) => run(root, ['merge-base', '--is-ancestor', base, c]).status === 0 && run(root, ['rev-parse', base]).stdout !== run(root, ['rev-parse', c]).stdout;
+  const map = new Map<string, string[]>();
+  const add = (f: string, c: string) => map.set(f, [...(map.get(f) ?? []), c]);
+  for (const [f, c] of Object.entries(LATER_CHANGES)) if (after(c)) add(f, c);
+  for (const c of LATER_COMMITS) {
+    if (!after(c)) continue;
+    for (const f of run(root, ['diff', '--name-only', `${c}^`, c]).stdout.split('\n').filter(Boolean)) add(f, c);
+  }
+  return map;
+}
+
 /** `git diff <opts> <base> -- <paths>` 와 같은 모양(status · stdout · stderr) — 뒤에 바뀐 파일은 위 ① ② 로 */
 function laterAware(root: string, opts: string[], base: string, paths: string[]) {
-  const later = Object.entries(LATER_CHANGES).filter(([f]) => paths.some((p) => covers(p, f)));
+  const later = [...laterFiles(root, base)].filter(([f]) => paths.some((p) => covers(p, f)));
   const all = [
     run(root, ['diff', ...opts, base, '--', ...paths, ...later.map(([f]) => `:!${f}`)]),
-    ...later.flatMap(([f, c]) => [run(root, ['diff', ...opts, base, `${c}^`, '--', f]), run(root, ['diff', ...opts, c, '--', f])]),
+    ...later.flatMap(([f, cs]) => {
+      const starts = [base, ...cs];
+      const ends = [...cs.map((c) => `${c}^`), null];
+      return starts.map((from, i) => run(root, ['diff', ...opts, from, ...(ends[i] ? [ends[i]!] : []), '--', f]));
+    }),
   ];
   return {
     status: all.find((r) => r.status !== 0)?.status ?? 0,
