@@ -7,7 +7,7 @@
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import 'dotenv/config';
-import { spawnSync } from 'node:child_process';
+import { tradingDiff } from './lib/tradingDiff';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -582,7 +582,7 @@ try {
     check('[120-11] 시험 · 서버 출력에 금액 · 이름 · 코드 · 시트 ID 없음', leaks.length === 0, `${leaks.length}개`);
     const logs = ['server/asset/rowOps.ts', 'server/asset/trade.ts'].map((f) => fs.readFileSync(path.join(root, f), 'utf8'));
     check('[120-11] rowOps.ts 는 로그를 쓰지 않음 · trade.ts 는 기록 id 한 줄', !/console\./.test(logs[0]) && [...logs[1].matchAll(/console\.\w+\(/g)].length === 1);
-    const changed = spawnSync('git', ['diff', '--name-only', 'a44b171', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'server/auth.ts', 'server/authGuard.ts', 'python'], { cwd: root, encoding: 'utf8' });
+    const changed = tradingDiff(root, 'a44b171', ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'server/auth.ts', 'server/authGuard.ts', 'python']);
     check('[120-12] 매매 · 주문 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 · 로그인 코드 바뀐 파일 0(a44b171 와 지금 작업 트리)', changed.status === 0 && changed.stdout.trim() === '', changed.stdout.trim() || changed.stderr.trim());
   }
 } finally {

@@ -23,6 +23,7 @@ import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니�
 import { TEST_SERVER_SWITCHES } from './lib/testServerEnv';
 import 'dotenv/config';
 import { spawn, spawnSync } from 'node:child_process';
+import { tradingDiff } from './lib/tradingDiff';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -1557,7 +1558,7 @@ const optionUsers = codeFiles.filter(({ f, src }) => f.startsWith('src/') && !f.
 check('[108-6] 새 옵션을 쓰는 곳 = 자산 설정 창 하나 · 기본은 옛 창(CatalogPickerDialog) · 옛 칸(시장 · 분야)', JSON.stringify(optionUsers) === JSON.stringify(['src/components/asset/AssetSettingsDialog.tsx']) && /props\.source \? <SourcePickerDialog [^>]*\/> : <CatalogPickerDialog \{\.\.\.props\} \/>/.test(pickerSrc) && /<th className="whitespace-nowrap py-2 pr-6">시장<\/th>\s*<th className="whitespace-nowrap py-2 pr-6">분야<\/th>/.test(tableSrc), optionUsers.join(','));
 
 // [108-7] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(107차 끝 af69935 와 지금 작업 트리)
-const changed108 = spawnSync('git', ['diff', '--name-only', 'af69935', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
+const changed108 = tradingDiff(root, 'af69935', ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python']);
 check('[108-7] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(af69935 와 지금 작업 트리)', changed108.status === 0 && changed108.stdout.trim() === '', changed108.stdout.trim() || changed108.stderr.trim());
 
 
@@ -1565,7 +1566,7 @@ check('[108-7] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 �
 const sheetValuesSrc = fs.readFileSync(path.join(root, 'src/components/asset/AssetSheetValues.tsx'), 'utf8');
 check('[111-7] 자산 현황 요약 목표 비율 순서 = 현금 · 채권 · 금 · 주식(「투자」 글자 없음)', /<Field label="현금" value=\{pct\(t\.cash\)\} \/>\s*<Field label="채권" value=\{pct\(t\.bond\)\} \/>\s*<Field label="금" value=\{pct\(t\.gold\)\} \/>\s*<Field label="주식" value=\{pct\(t\.invest\)\} \/>/.test(sheetValuesSrc) && !/label="투자"/.test(sheetValuesSrc));
 // [111-9] 매매 · 시황 · 자동매매 · 거래정지 · 시장 달력 코드 바뀐 파일 0(110차 끝 2b548e5 와 지금 작업 트리)
-const changed111 = spawnSync('git', ['diff', '--name-only', '2b548e5', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'python'], { cwd: root, encoding: 'utf8' });
+const changed111 = tradingDiff(root, '2b548e5', ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'python']);
 check('[111-9] 매매 · 시황 · 자동매매 · 거래정지 · 시장 달력 코드 바뀐 파일 0(2b548e5 와 지금 작업 트리)', changed111.status === 0 && changed111.stdout.trim() === '', changed111.stdout.trim() || changed111.stderr.trim());
 // [111-10] 구매 완료 경로가 로그에 계좌 이름 · 날짜 · 금액을 찍지 않는다(이유 종류만) — 소스 검사 + 아래 출력 검사
 const purchaseSrc = ['server/asset/purchase.ts', 'server/asset/routes.ts'].map((f) => fs.readFileSync(path.join(root, f), 'utf8')).join('\n') + fnBody('writeAccountDates');
@@ -1582,7 +1583,7 @@ check('[117-2] 화면 — 「다음 구매일 ○ · 미리 구매 완료할 수
   /export const isEarlyDone = \(mb: MonthlyBuy\) => \(mb\.done \|\| mb\.skipped\) && mb\.earlyCycle != null;/.test(buySrc) && /isEarlyDone\(mb\) && \([\s\S]{0,400}미리 구매 완료할 수 있어요/.test(buySrc) &&
     /완료 \{mb\.nextDoneDay\}\(미리\)/.test(buySrc) && /if \(!mb\.done && !mb\.skipped\) setPurchasePopup\(true\)/.test(dashSrc) && /purchasePopup && summary && !summary\.monthlyBuy\.done && !summary\.monthlyBuy\.skipped &&/.test(dashSrc));
 // [112-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 코드 바뀐 파일 0(111차 끝 1117cba 와 지금 작업 트리)
-const changed112 = spawnSync('git', ['diff', '--name-only', '1117cba', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'python'], { cwd: root, encoding: 'utf8' });
+const changed112 = tradingDiff(root, '1117cba', ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'python']);
 check('[112-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 코드 바뀐 파일 0(1117cba 와 지금 작업 트리)', changed112.status === 0 && changed112.stdout.trim() === '', changed112.stdout.trim() || changed112.stderr.trim());
 // ── 115차(v2.65.2) 화면 정리 — 소스 검사(화면 동작은 Playwright 로도: 체크 · 띠 · 상세 보기 · 설정 창 메뉴) ──
 {
@@ -1610,7 +1611,7 @@ check('[112-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력
       /ArrowDown/.test(nav) && /ArrowUp/.test(nav) && /md:flex-row/.test(nav) && /Extract<DialogSize, 'lg' \| 'xl' \| 'full'>/.test(nav) && !/자산/.test(nav) && !/#[0-9a-fA-F]{3,6}\b|rgb\(/.test(nav));
 }
 // [115-10] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(114차 끝 43a0b33 와 지금 작업 트리)
-const changed115 = spawnSync('git', ['diff', '--name-only', '43a0b33', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python'], { cwd: root, encoding: 'utf8' });
+const changed115 = tradingDiff(root, '43a0b33', ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python']);
 check('[115-10] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(43a0b33 와 지금 작업 트리)', changed115.status === 0 && changed115.stdout.trim() === '', changed115.stdout.trim() || changed115.stderr.trim());
 // ── 116차(v2.65.3) 「꼭 지킬 동작」 [116-n] — 1 「-」 대신 「미지정」 · 2 계좌 카드(글자만 · 일괄 띠 지움 · 화살표 · 안내) (화면은 Playwright · design:check 로도) ──
 {
@@ -1670,12 +1671,12 @@ const OPTIONS_HAS_MIXED = (src: string) => /value: MIXED|'mixed'/.test(src);
   check('[116-7] google.ts valuesWrite 본문 바뀐 글자 0(04a202d 와 지금)', writeFn(oldGoogle).length > 200 && writeFn(oldGoogle) === writeFn(nowGoogle));
 }
 // [116-9] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(115차 끝 04a202d 와 지금 작업 트리)
-const changed116 = spawnSync('git', ['diff', '--name-only', '04a202d', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python'], { cwd: root, encoding: 'utf8' });
+const changed116 = tradingDiff(root, '04a202d', ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python']);
 check('[116-9] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(04a202d 와 지금 작업 트리)', changed116.status === 0 && changed116.stdout.trim() === '', changed116.stdout.trim() || changed116.stderr.trim());
 // [117-5] 로그인 코드 바뀐 줄 0 · [117-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 · 로그인 코드 바뀐 파일 0(116차 끝 4bbc1e5 와 지금 작업 트리)
 const changed117auth = spawnSync('git', ['diff', '4bbc1e5', '--', 'server/auth.ts', 'server/authGuard.ts'], { cwd: root, encoding: 'utf8' });
 check('[117-5] 로그인(server/auth.ts · server/authGuard.ts) 바뀐 줄 0(4bbc1e5 와 지금 작업 트리)', changed117auth.status === 0 && changed117auth.stdout.trim() === '', changed117auth.stdout.slice(0, 200) || changed117auth.stderr.trim());
-const changed117 = spawnSync('git', ['diff', '--name-only', '4bbc1e5', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'server/auth.ts', 'server/authGuard.ts', 'python'], { cwd: root, encoding: 'utf8' });
+const changed117 = tradingDiff(root, '4bbc1e5', ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'server/auth.ts', 'server/authGuard.ts', 'python']);
 check('[117-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 · 로그인 코드 바뀐 파일 0(4bbc1e5 와 지금 작업 트리)', changed117.status === 0 && changed117.stdout.trim() === '', changed117.stdout.trim() || changed117.stderr.trim());
 const leaked = (textAll: string) => SECRET_STRINGS.filter((x) => textAll.includes(x));
 check('[13] 서버 로그(시험 서버) · 안쪽 경고 출력에 가짜 금액 · 수량이 없다', leaked(serverLog + captured.join('\n')).length === 0 && captured.some((l) => l.includes('[asset] 시트 읽기 실패: shape')));
@@ -1684,15 +1685,15 @@ const allOut = [serverLog, captured.join('\n'), logged.join('\n'), printed.join(
 check('[112-8] 로그 · 시험 출력에 계좌 이름 날짜 글자(괄호 속 점 모양 연 · 월 — 시험 이름의 하이픈 날짜는 계좌 이름이 아님)가 없다', !/\(\s*\d{4}\.\d{1,2}(\.\d{1,2})?\s*\)/.test(allOut));
 check('[106-11] [107-11] [111-10] [112-8] 로그 · 시험 출력에 계산한 총 자산 · 분류 금액 · 계좌 평가 합 · 종가 기록 금액이 없다(출력 문자열 검사)', totalsSecret.length > 0 && totalsSecret.every((x) => !allOut.includes(x)) && leaked(allOut).length === 0);
 
-const changed = spawnSync('git', ['diff', '--name-only', '0a2dc10', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
+const changed = tradingDiff(root, '0a2dc10', ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python']);
 check('[14] 매매 · 시황 · 자동매매 코드 바뀐 파일 0(0a2dc10 와 지금 작업 트리)', changed.status === 0 && changed.stdout.trim() === '', changed.stdout.trim() || changed.stderr.trim());
-const changed106 = spawnSync('git', ['diff', '--name-only', 'c166ecd', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
+const changed106 = tradingDiff(root, 'c166ecd', ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python']);
 check('[106-12] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(c166ecd 와 지금 작업 트리)', changed106.status === 0 && changed106.stdout.trim() === '', changed106.stdout.trim() || changed106.stderr.trim());
 
 // [107-9] 시트 쓰기는 지금처럼 「티커」 D14~D42 자산 분류 한 곳뿐 · 서식 쓰기(batchUpdate — repeatCell · 정렬 등) 0 — 이번 설정 저장은 앱 DB(app_settings)에만
 check('[107-9] 시트 쓰기 = sheet.ts 세 곳(자산 분류 · 109차 목표 비율 · 111차 계좌 이름 날짜) + 113차 시트 가격(priceSheet.ts · priceWriter.ts) + 118차 매수 · 매도(trade.ts) + 120차 줄 넣기(rowOps.ts) · 서식 쓰기(repeatCell · horizontalAlignment) 0 · 구조 쓰기(spreadsheets:batchUpdate)는 google.ts 한 곳(120차) · settings.ts 는 시트를 쓰지 않음', JSON.stringify(callers.sort()) === WRITE_CALLERS && structureFiles === 'server/asset/google.ts' && !/repeatCell|horizontalAlignment|userEnteredFormat/.test(appCode) && !/valuesWrite|googleapis/.test(fs.readFileSync(path.join(root, 'server/asset/settings.ts'), 'utf8')));
 // [107-10] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(106차 끝 428db88 와 지금 작업 트리)
-const changed107 = spawnSync('git', ['diff', '--name-only', '428db88', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python'], { cwd: root, encoding: 'utf8' });
+const changed107 = tradingDiff(root, '428db88', ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'python']);
 check('[107-10] 매매 · 시황 · 자동매매 · 거래정지 코드 바뀐 파일 0(428db88 와 지금 작업 트리)', changed107.status === 0 && changed107.stdout.trim() === '', changed107.stdout.trim() || changed107.stderr.trim());
 
 // [15] 메뉴 — 계좌 대메뉴의 소메뉴는 「계좌 관리」 · 「자산 관리」 순서 · 대메뉴를 누르면 첫 소메뉴(appStore.setGroup 이 pages[0] 으로 간다 — 화면 클릭은 Playwright 로도 확인)

@@ -12,6 +12,7 @@ import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니�
 import { TEST_SERVER_SWITCHES } from './lib/testServerEnv';
 import 'dotenv/config';
 import { spawnSync } from 'node:child_process';
+import { tradingDiff } from './lib/tradingDiff';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -569,7 +570,7 @@ const res = assetTest.stdout.match(/결과: (\d+)개 통과 \/ (\d+)개 실패/)
 check('[113-7] [115-9] [116-8] [117-6] [134-1] asset:test 299개 그대로 통과(115차에 20개 · 116차에 20개 · 117차에 18개 · 134차에 1개 더함)', assetTest.status === 0 && res?.[1] === '299' && res?.[2] === '0', res?.[0] ?? assetTest.stderr.slice(-300));
 
 // ═══ [113-9] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0 ═══
-const diff = spawnSync('git', ['diff', '--name-only', '9597bae', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python'], { cwd: root, encoding: 'utf8' });
+const diff = tradingDiff(root, '9597bae', ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python']);
 check('[113-9] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(9597bae 와 지금 작업 트리)', diff.status === 0 && diff.stdout.trim() === '', diff.stdout.trim() || diff.stderr.trim());
 
 // ═══ [113-10] 로그 · 시험 출력 ═══

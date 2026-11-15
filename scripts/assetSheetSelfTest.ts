@@ -11,6 +11,7 @@
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import 'dotenv/config';
 import { spawnSync } from 'node:child_process';
+import { tradingDiff } from './lib/tradingDiff';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -360,7 +361,7 @@ try {
 }
 
 // ═══ [114-8] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0 ═══
-const diff = spawnSync('git', ['diff', '--name-only', 'c68fab2', '--', 'server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python'], { cwd: root, encoding: 'utf8' });
+const diff = tradingDiff(root, 'c68fab2', ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python']);
 check('[114-8] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(c68fab2 와 지금 작업 트리)', diff.status === 0 && diff.stdout.trim() === '', diff.stdout.trim() || diff.stderr.trim());
 
 const leaked = SECRET.filter((x) => printed.join('\n').includes(x));
