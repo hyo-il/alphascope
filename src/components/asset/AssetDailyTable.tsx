@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react';
 import { ICON_SM, Input, Panel, SectionTitle } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
-import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NUM_COL, TABLE_NUM_GAP_TIGHT, TOOLTIP_BOX } from '../ui/tokens';
+import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NUM_COL, TABLE_NUM_GAP_TIGHT, TOOLTIP_BOX, TOOLTIP_EDGE } from '../ui/tokens';
 import { placeTip } from '../ui/tooltip/place';
 import { changeColor, formatSigned } from '../../utils/formatters';
 import { formatAssetManwon, formatAssetWon, formatAssetWonSigned } from '../../utils/assetFormat';
@@ -230,7 +230,8 @@ function NoteErrorTip({ anchorRef, message }: { anchorRef: RefObject<HTMLElement
       const box = boxRef.current;
       if (!a || !box) return;
       const p = placeTip(a, { w: box.offsetWidth, h: box.offsetHeight }, { w: window.innerWidth, h: window.innerHeight });
-      setPos({ left: p.left, top: p.top });
+      // 위 · 아래는 툴팁 자리 계산 그대로, 가로는 입력칸 오른쪽 끝에 맞춘다 — 가운데 맞춤이면 표 카드 밖(오른쪽 패널 경계)까지 나간다
+      setPos({ left: Math.max(TOOLTIP_EDGE, a.right - box.offsetWidth), top: p.top });
     };
     place();
     window.addEventListener('resize', place);

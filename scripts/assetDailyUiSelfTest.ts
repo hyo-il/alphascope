@@ -291,8 +291,9 @@ try {
       check(`[135-3] ${w}px 메모 저장 실패 — 표 자리 그대로(표 · 스크롤 칸 · 첫 줄 위치 픽셀 같음)`, JSON.stringify(before) === JSON.stringify(during), `${JSON.stringify(before)} → ${JSON.stringify(during)}`);
       const tipBox = (await page.getByTestId('asset-daily-error').boundingBox())!;
       const inBox = (await input.boundingBox())!;
-      check(`[135-3] ${w}px 메모 저장 실패 — 안내는 입력칸 바로 아래(또는 위) · 화면 안 · 빨간 테두리`,
-        (Math.abs(tipBox.y - (inBox.y + inBox.height)) <= 12 || Math.abs(tipBox.y + tipBox.height - inBox.y) <= 12) && tipBox.x >= 0 && tipBox.x + tipBox.width <= size.width && (await input.getAttribute('aria-invalid')) === 'true',
+      const tableBox = (await page.getByTestId('asset-daily-table').boundingBox())!;
+      check(`[135-3] ${w}px 메모 저장 실패 — 안내는 입력칸 바로 아래(또는 위) · 오른쪽 끝 = 입력칸 끝(표 카드 안) · 빨간 테두리`,
+        (Math.abs(tipBox.y - (inBox.y + inBox.height)) <= 12 || Math.abs(tipBox.y + tipBox.height - inBox.y) <= 12) && tipBox.x >= 0 && Math.abs(tipBox.x + tipBox.width - (inBox.x + inBox.width)) <= 1 && tipBox.x + tipBox.width <= tableBox.x + tableBox.width && (await input.getAttribute('aria-invalid')) === 'true',
         JSON.stringify({ tipBox, inBox }));
       await page.getByTestId('asset-daily-error').waitFor({ state: 'detached', timeout: 7000 });
       check(`[135-3] ${w}px 메모 저장 실패 — 안내는 몇 초 뒤 사라짐 · 글 · 빨간 테두리는 남음`, (await input.inputValue()) === '보너스' && (await input.getAttribute('aria-invalid')) === 'true');
