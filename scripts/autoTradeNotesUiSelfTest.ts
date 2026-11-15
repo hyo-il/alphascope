@@ -2,7 +2,7 @@
  * 자동매매 「최근 판단」 이름 · 보기 버튼 · 실적 회피 「미국 날짜」 시험(136차 · v2.70.2) — `npm run autotradenotes:test`
  * ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import · DB 는 쓰지 않는다).
  *
- * 136차 지시서 「꼭 지킬 동작」 1 · 2 · 3(화면)을 확인한다(시험 이름 앞의 [판단-n]). 소스 검사 + Vite + Playwright(1280 × 1080 · 1440 × 900).
+ * 136차 지시서 「꼭 지킬 동작」 1 · 2 · 3(화면)을 확인한다(시험 이름 앞의 [판단-n]). 137차 [137-5]: 주문 실패 — 매수 쪽만 「건너뜀」(「못 산 N」) · 매도 주문 실패는 「그대로」. 소스 검사 + Vite + Playwright(1280 × 1080 · 1440 × 900).
  * 화면은 `scripts/fixtures/autoTradeNotes.html`(자동매매 바만 그림) · `/api` 는 모두 `page.route` 가짜(만든 값) — 토스 · 구글 · Gemini · 서버 호출 0 · 주문 0.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
@@ -45,7 +45,7 @@ const US = { at: at(22, 31), market: 'US' as const };
 const KR2 = { at: at(9, 30), market: 'KR' as const };
 const KR1 = { at: at(9, 5), market: 'KR' as const };
 const EARNINGS = 'TSLA 실적 발표 11/19(예정 · 미국 날짜) 2거래일 전 — 신규 매수 건너뜀';
-/** 묶음 셋(최근이 위): 미국 = 매수 1 · 건너뜀 2 · 그대로 1 / 국내 09:30 = 그대로만(「매수·매도」 · 「못 산 이유」 에서 감춤) / 국내 09:05 = 매도 1 · 건너뜀 1 · 그대로 1 */
+/** 묶음 셋(최근이 위): 미국 = 매수 1 · 건너뜀 2 · 그대로 1 / 국내 09:30 = 그대로만(「매수·매도」 · 「못 산 이유」 에서 감춤) / 국내 09:05 = 매도 1 · 건너뜀 2(거름망 · 매수 실패) · 그대로 2(신호 없음 · 매도 실패) */
 const NOTES: DecisionNote[] = [
   { symbol: 'MSFT', action: 'BUY', reason: '점수 5/7 ≥ 기준 4점 — 매수 → 10주', code: 'score_buy', ...US },
   { symbol: 'NVDA', action: 'HOLD', reason: '보유 종목이 한도(5종목)에 도달해 신규 매수를 건너뜁니다', code: 'max_positions', ...US },
@@ -56,6 +56,9 @@ const NOTES: DecisionNote[] = [
   { symbol: '035420', action: 'SELL', reason: '점수 1/7 — 2점 아래로 떨어져 매도', code: 'score_sell', ...KR1 },
   { symbol: '035720', action: 'HOLD', reason: '점수 5/7 — 200일선 아래라 사지 않습니다', code: 'gate_block', gateReason: 'below200', ...KR1 },
   { symbol: '051910', action: 'HOLD', reason: '점수 1/7 — 기준 4점 미만', code: 'no_signal_buy', ...KR1 },
+  // 137차 — 주문 실패 두 줄(서버 엔진이 만드는 사유 머리 그대로): 매도 실패는 「그대로」 · 매수 실패는 「건너뜀」
+  { symbol: '005380', action: 'HOLD', reason: '매도 실패: 시세를 받지 못했습니다', code: 'error', ...KR1 },
+  { symbol: '000270', action: 'HOLD', reason: '매수 실패: 주문 가능 금액이 부족합니다', code: 'error', ...KR1 },
 ];
 const rule = { ...defaultRuleBody(), id: 1, name: '시험 규칙', createdAt: '2026-11-01T00:00:00.000Z', updatedAt: '2026-11-01T00:00:00.000Z', usedBy: { buyJudge: false, accounts: [1], backtest: false } };
 const strategy = { ...defaultStrategy(1), enabled: true, ruleId: 1, symbols: [...new Set(NOTES.map((n) => n.symbol))] };
@@ -123,10 +126,17 @@ try {
     check(`[판단-1] ${size} 묶음 머리 「매수 · 매도 · 그대로 · 못 산」(0 도 적음)`, JSON.stringify(all.heads.map(tail)) === JSON.stringify([
       '미국 판단 · 4종목 · 매수 1 · 매도 0 · 그대로 1 · 못 산 2',
       '국내 판단 · 2종목 · 매수 0 · 매도 0 · 그대로 2 · 못 산 0',
-      '국내 판단 · 3종목 · 매수 0 · 매도 1 · 그대로 1 · 못 산 1',
+      '국내 판단 · 5종목 · 매수 0 · 매도 1 · 그대로 2 · 못 산 2',
     ]), all.heads.join(' / '));
     const count = (k: string) => all.kinds.filter((x) => x.startsWith(`${k}:`)).length;
-    check(`[판단-1] ${size} 머리 수 합 = 보이는 줄 수(매수 1 · 매도 1 · 그대로 4 · 건너뜀 3)`, all.kinds.length === NOTES.length && count('buy') === 1 && count('sell') === 1 && count('hold') === 4 && count('skip') === 3, all.kinds.join(' '));
+    check(`[판단-1] ${size} 머리 수 합 = 보이는 줄 수(매수 1 · 매도 1 · 그대로 5 · 건너뜀 4)`, all.kinds.length === NOTES.length && count('buy') === 1 && count('sell') === 1 && count('hold') === 5 && count('skip') === 4, all.kinds.join(' '));
+    // [137-5] 매도 주문 실패 = 「그대로」(아직 들고 있음 · 사유 「매도 실패: …」 가 줄에 보임) · 매수 주문 실패 = 「건너뜀」
+    const sellFail = page.locator('li[data-note-kind]').filter({ hasText: '매도 실패:' });
+    const buyFail = page.locator('li[data-note-kind]').filter({ hasText: '매수 실패:' });
+    const sellFailText = (await sellFail.textContent()) ?? '';
+    check(`[137-5] ${size} 매도 주문 실패 줄 = 「그대로」 · 「매도 주문을 내지 못해 그대로 들고 있습니다」 · 사유 「매도 실패: …」 보임`,
+      (await sellFail.count()) === 1 && (await sellFail.getAttribute('data-note-kind')) === 'hold' && sellFailText.startsWith('그대로') && sellFailText.includes('매도 주문을 내지 못해 그대로 들고 있습니다') && sellFailText.includes('005380 · 매도 실패: 시세를 받지 못했습니다'), sellFailText);
+    check(`[137-5] ${size} 매수 주문 실패 줄 = 「건너뜀」(그대로 「못 산」 에 셈)`, (await buyFail.count()) === 1 && (await buyFail.getAttribute('data-note-kind')) === 'skip' && ((await buyFail.textContent()) ?? '').startsWith('건너뜀'));
     check(`[판단-1] ${size} 줄 글자 — 신호 없음 「그대로」 · 막힌 매수 「건너뜀」`, all.kinds.every((x) => ({ buy: '매수', sell: '매도', hold: '그대로', skip: '건너뜀' } as Record<string, string>)[x.split(':')[0]] === x.split(':')[1]), all.kinds.join(' '));
 
     // 실적 회피 줄 — 「미국 날짜」 는 공용 표시 하나(글자 중복 없음)
@@ -143,7 +153,8 @@ try {
     await view(page, '못 산 이유').click();
     const skips = await snapshot(page);
     const skipText = await page.locator('li[data-note-kind]').allTextContents();
-    check(`[판단-2] ${size} 「못 산 이유」 — 건너뜀 3줄만 · 빈 묶음 감춤(묶음 2)`, skips.heads.length === 2 && skips.kinds.length === 3 && skips.kinds.every((k) => k === 'skip:건너뜀'), `${skips.heads.length} · ${skips.kinds.join(' ')}`);
+    check(`[판단-2] ${size} 「못 산 이유」 — 건너뜀 4줄만 · 빈 묶음 감춤(묶음 2)`, skips.heads.length === 2 && skips.kinds.length === 4 && skips.kinds.every((k) => k === 'skip:건너뜀'), `${skips.heads.length} · ${skips.kinds.join(' ')}`);
+    check(`[137-5] ${size} 「못 산 이유」 에 매도 실패 줄 없음 · 매수 실패 줄 있음`, !skipText.some((t) => t.includes('매도 실패:')) && skipText.some((t) => t.includes('매수 실패:')), skipText.join(' | ').slice(0, 300));
     check(`[판단-2] ${size} 「못 산 이유」 — 이유 글 그대로(보유 가득 · 실적 · 거름망)`, ['보유 종목이 한도', 'TSLA 실적 발표 11/19', '200일선 아래라 사지 않습니다'].every((s) => skipText.some((t) => t.includes(s))), skipText.join(' | ').slice(0, 300));
 
     // 새로고침하면 「전체」
