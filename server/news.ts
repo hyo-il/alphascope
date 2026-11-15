@@ -16,7 +16,7 @@ import { callGemini, type GeminiCallOptions, type GeminiCallResult } from './gem
 const ENGINE_URL = process.env.INDICATORS_URL ?? `http://127.0.0.1:${process.env.INDICATORS_PORT ?? 5001}`;
 const CACHE_MS = 30 * 60_000;
 /** 뉴스 판정 프롬프트 버전 — 프롬프트·스키마를 고치면 올린다 */
-export const NEWS_PROMPT_VERSION = 'news-v1';
+const NEWS_PROMPT_VERSION = 'news-v1';
 
 const cache = new Map<string, { at: number; data: NewsList }>();
 
@@ -87,7 +87,7 @@ const SYSTEM = [
 ].join('\n');
 
 /** 인용 검증 — 입력 범위 밖이거나 중복·형식 오류인 항목을 버린다 */
-export function validateJudgment(raw: RawJudgment, count: number): NewsJudgment {
+function validateJudgment(raw: RawJudgment, count: number): NewsJudgment {
   let dropped = 0;
   const seen = new Set<number>();
   const articles: NewsJudgment['articles'] = [];

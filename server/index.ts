@@ -62,7 +62,6 @@ import { namesAndSectors, researchTargets } from './autoTrading/ruleResearch';
 import { explainBacktest } from './gemini/backtestAi';
 import { geminiUsageToday } from './gemini/usage';
 import { parseBacktestInput } from '../src/utils/backtestInput';
-import { runDataResetV2440 } from './dataReset/v2_44_0';
 import { previousClose as previousCloseOf } from './previousClose';
 import { BACKTEST_SECTORS, methodName, type BacktestCondition } from '../src/types/backtest';
 import type { AccountStrategy } from '../src/types/autoTrading';
@@ -1912,13 +1911,7 @@ app.post('/api/rules/:id/copy', (req, res) => {
 
 const port = Number(process.env.API_PORT ?? 4000);
 getDb(); // 시작 시 스키마 생성
-// 데이터 정리(v2_44_0) — 처음 켜질 때 한 번만(백업 확인 후). 이미 했으면 아무것도 하지 않는다. 스케줄러보다 먼저
-try {
-  runDataResetV2440();
-} catch (e) {
-  console.error('[data-reset v2.44.0] 실패 — 다음 시작 때 다시 시도합니다:', e);
-}
-// 기본 규칙 · 예시 규칙 「기본 규칙 + 200일선」 — 표시가 없을 때 한 번만(데이터 정리 뒤)
+// 기본 규칙 · 예시 규칙 「기본 규칙 + 200일선」 — 표시가 없을 때 한 번만
 try {
   ensureSeeded();
 } catch (e) {

@@ -17,8 +17,6 @@ export const BRIEF_AI_RATE_LIMITED = 'Gemini 무료 한도 초과(429) — 다�
 export const BRIEF_KEEP_DAYS = 30;
 /** 판 경계 — 한국 시간 이 시(時)부터 오후판 (Stockproject 와 같음) */
 export const BRIEF_AFTERNOON_HOUR = 13;
-/** 자동 시각(한국 시간, 월~금) — 실제로는 이 시각 뒤 첫 10분 확인 때 돈다 */
-export const BRIEF_AUTO_TIME = '06:55';
 
 export type BriefAssetKey =
   | 'KOSPI'

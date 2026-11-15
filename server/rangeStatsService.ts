@@ -11,7 +11,7 @@ import { getCandles } from './candleService';
  * ⚠️ 오늘 캔들까지 포함한다 — 장중 신고가를 갱신하는 중이면 그 값이 곧 52주 최고다.
  */
 
-export interface RangeStats {
+interface RangeStats {
   symbol: string;
   high: number;
   low: number;

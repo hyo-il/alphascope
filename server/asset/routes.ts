@@ -42,7 +42,7 @@ export const ACTIVE = new Set([
 const isAssetPath = (p: string) => p === '/api/asset' || p.startsWith('/api/asset/');
 
 /** 자산 문지기 — 자산 비밀번호가 없거나 이 로그인 세션이 풀지 않았거나 잠금 시간이 지났으면 403 `asset-locked` · 통과한 `ACTIVE` 요청은 시간을 늘린다 */
-export function assetGuard(req: Request, res: Response, next: NextFunction) {
+function assetGuard(req: Request, res: Response, next: NextFunction) {
   if (!isAssetPath(req.path)) return next();
   const route = `${req.method} ${req.path}`;
   if (OPEN.has(route)) return next();
@@ -281,7 +281,7 @@ assetRouter.put('/api/asset/settings', async (req, res) => {
 const STATUS: Partial<Record<AssetSheetErrorKind, number>> = { 'not-configured': 503, 'key-file': 503, disabled: 503, 'not-editable': 400, 'formula-cell': 409, 'no-date': 409, 'already-done': 409, 'not-yet': 409, busy: 409, 'no-rows': 409, 'no-backup': 409, 'sheet-changed': 409, 'row-referenced': 409, 'last-row': 409 };
 
 /** 실패 응답 — 쉬운 말 + 이유 종류. ⚠️ 로그에는 이유 종류만(시트 값 · 응답 본문 · 경로를 찍지 않는다) */
-export function sendSheetError(res: Response, e: unknown, action: string): void {
+function sendSheetError(res: Response, e: unknown, action: string): void {
   if (e instanceof AssetSheetError) {
     console.warn(`[asset] 시트 ${action} 실패: ${e.kind}`);
     const body: AssetSheetFailure = { error: e.message, kind: e.kind };

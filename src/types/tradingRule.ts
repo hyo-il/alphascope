@@ -8,26 +8,26 @@
  */
 
 /** 5그룹 점수 조건 — 그룹 안 작은 검사 3개(손익비는 비율 표)의 통과 수로 점수를 낸다 */
-export interface GroupCondition {
+interface GroupCondition {
   on: boolean;
   /** 이 그룹의 만점. 기본값이면 기본 점수표와 같고, 바꾸면 표를 비례로 늘리거나 줄인다(`scaledTable`) */
   points: number;
 }
 
-export interface TimingCondition extends GroupCondition {
+interface TimingCondition extends GroupCondition {
   /** RSI 눌림 구간 (기본 35~45) */
   rsiLow: number;
   rsiHigh: number;
 }
 
 /** 순간 조건 — 단기선이 장기선을 위로 넘는 **그날**만 켜진다 */
-export interface MaCrossCondition extends GroupCondition {
+interface MaCrossCondition extends GroupCondition {
   short: number;
   long: number;
 }
 
 /** 순간 조건 — RSI 가 below 이하였다가 오르는 **그날**만 켜진다 */
-export interface RsiReboundCondition extends GroupCondition {
+interface RsiReboundCondition extends GroupCondition {
   below: number;
 }
 
@@ -35,7 +35,7 @@ export interface RsiReboundCondition extends GroupCondition {
  * 「거름망」 (사용자 결정 A-1) — 점수와 따로, **통과하지 못하면 점수가 높아도 사지 않는다.** 매도에는 쓰지 않는다.
  * 첫 항목 = 주가(끝난 봉 종가)가 200일선 위일 때만 매수. 다음 묶음의 시장 필터가 같은 자리에 들어온다.
  */
-export interface RuleGates {
+interface RuleGates {
   above200: { on: boolean };
   /**
    * 시장 필터 (사용자 결정 A-1·A-2): 종목의 시장 기준(미국 SPY · 국내 KODEX 200 — `server/rules/marketRef.ts`)이

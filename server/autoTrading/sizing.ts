@@ -9,7 +9,7 @@ import { getAccountDetail, symbolCurrency, usdKrwRate } from '../paperTradingSer
 import { convertAmount } from '../../src/utils/fx';
 import { formatPrice } from '../../src/utils/formatters';
 
-export type BuyPlan =
+type BuyPlan =
   | { ok: true; quantity: number; budget: number }
   | { ok: false; reason: string };
 

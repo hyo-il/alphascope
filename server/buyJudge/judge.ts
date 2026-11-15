@@ -45,7 +45,7 @@ import {
 } from '../../src/types/buyJudge';
 import * as store from './store';
 
-export interface CurrentRule {
+interface CurrentRule {
   id: number;
   name: string;
   body: RuleBody;
@@ -67,7 +67,7 @@ export function currentRule(): CurrentRule | null {
  * - 국내: 정규장 15:30 이후에도 NXT 애프터마켓이 20:00 까지 열려 토스 일봉 종가가 바뀐다(통합 종가) → **20:30 KST**
  * - 미국: 토스 일봉 종가는 정규장 종가(애프터마켓을 넣지 않는다 — 2026-10-17 15종목 확인) → 마감 16:00 + 30분 = **16:30 ET**
  */
-export const RECORD_AT: Record<CalendarMarket, { tz: string; minutes: number }> = {
+const RECORD_AT: Record<CalendarMarket, { tz: string; minutes: number }> = {
   KR: { tz: 'Asia/Seoul', minutes: 20 * 60 + 30 },
   US: { tz: 'America/New_York', minutes: 16 * 60 + 30 },
 };

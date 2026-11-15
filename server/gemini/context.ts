@@ -16,7 +16,7 @@ import { isKrSymbol } from '../../src/utils/market';
 import { investorFlowBlock } from '../../src/utils/investorFlow';
 import { getInvestorFlow } from '../investorTrading';
 
-export interface AnalysisContext {
+interface AnalysisContext {
   symbol: string;
   /** 프롬프트에 넣을 텍스트 */
   text: string;

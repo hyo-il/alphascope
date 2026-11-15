@@ -144,7 +144,7 @@ export function deleteRule(id: number): number[] | null {
 }
 
 /** 복사 이름 — 「○○ 복사본」, 이미 있으면 「○○ 복사본 2」 · 3 … (40자를 넘으면 원래 이름을 줄인다) */
-export function copyName(name: string): string {
+function copyName(name: string): string {
   const fit = (base: string, suffix: string) => base.slice(0, Math.max(1, 40 - suffix.length)) + suffix;
   let candidate = fit(name, ' 복사본');
   for (let n = 2; nameTaken(candidate); n++) candidate = fit(name, ` 복사본 ${n}`);

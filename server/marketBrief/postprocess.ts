@@ -15,7 +15,7 @@ import { scheduleItemMarket } from '../../src/utils/marketBrief';
 import type { BriefAi, BriefEarning, BriefScheduleItem } from '../../src/types/marketBrief';
 
 type Slot = keyof BriefAi['upcoming_schedule'];
-export const SLOTS: Slot[] = ['this_week', 'this_month', 'next_2_months'];
+const SLOTS: Slot[] = ['this_week', 'this_month', 'next_2_months'];
 
 /** 국내 종목 — AlphaScope 6자리(숫자로 시작) 또는 원본 표기(.KS · .KQ) */
 const isDomesticTicker = (ticker: string) => isKrSymbol(ticker) || /\.(KS|KQ)$/i.test(ticker);
@@ -55,7 +55,7 @@ export function normalizeBrief(raw: Partial<BriefAi>): BriefAi {
 }
 
 /** ⓪ 실적 항목 섹터를 입력 데이터로 */
-export function alignEarningSectors(brief: BriefAi, earnings: BriefEarning[]): BriefAi {
+function alignEarningSectors(brief: BriefAi, earnings: BriefEarning[]): BriefAi {
   const sectorOf = new Map(earnings.map((e) => [e.symbol.toUpperCase(), e.sector]));
   for (const slot of SLOTS) {
     for (const item of brief.upcoming_schedule[slot]) {
@@ -104,7 +104,7 @@ export function daysUntilLabel(label: string, today: string): number | null {
  * 그 일정의 「오늘」 — 그 일정의 시장(`scheduleItemMarket` — 종목 시장, 종목 없으면 국내 단서가 있을 때만 국내 · 그 밖(FOMC 등) 미국)의 오늘(v2.59.3).
  * 날짜 칸(MM/DD)도 그 시장 날짜라 같은 기준으로 날수를 센다.
  */
-export function itemToday(item: Pick<BriefScheduleItem, 'ticker' | 'event'>, now: number): string {
+function itemToday(item: Pick<BriefScheduleItem, 'ticker' | 'event'>, now: number): string {
   return marketDate(now, scheduleItemMarket(item) === 'KR' ? '005930' : 'SPY');
 }
 
@@ -131,7 +131,7 @@ export function reassignSlotsByDays(brief: BriefAi, now: number): BriefAi {
 }
 
 /** 슬롯마다 (섹터 상한, 총 상한) — 사용자 정책 3/3/2(한 섹터 몰림 방지), 원본과 같음 */
-export const SLOT_CAPS: Record<Slot, { sector: number; total: number }> = {
+const SLOT_CAPS: Record<Slot, { sector: number; total: number }> = {
   this_week: { sector: 3, total: 6 },
   this_month: { sector: 3, total: 5 },
   next_2_months: { sector: 2, total: 5 },
@@ -183,7 +183,7 @@ const RELEASE_EVENT = /FOMC|금리\s*결정|CPI|PCE|PPI|고용|비농업|실업�
  * 실적 한 건이 「발표됨」 인가 — 미국 종목 · 실적일 확정(추정일이면 그 날 발표하지 않았을 수 있다) · 실적일 = 지금의 미국 날짜 · 그 날 정규장 끝 뒤.
  * AI 일정의 실적 항목과 AI 없는 실적 목록이 같은 판정을 쓴다.
  */
-export function isReleasedEarning(e: BriefEarning, now: number, usClose: number | null): boolean {
+function isReleasedEarning(e: BriefEarning, now: number, usClose: number | null): boolean {
   if (usClose == null || now < usClose || isDomesticTicker(e.symbol) || e.isEstimateDate) return false;
   return daysBetweenDates(marketDate(now, 'SPY'), e.date) === 0;
 }

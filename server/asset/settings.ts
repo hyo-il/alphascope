@@ -37,7 +37,7 @@ const DEFAULT_PENSION = ['연금 저축 계좌'];
 const DEFAULT_SATELLITE_SECTIONS = ['개별 투자'];
 
 /** 「연금으로 볼 계좌」 에서 고를 수 있는 계좌 key — 시트 순서(합친 표 제외) */
-export const SECTION_KEYS: string[] = SHEET_LAYOUT.sections.flatMap((s) => ('key' in s && s.key ? [s.key] : []));
+const SECTION_KEYS: string[] = SHEET_LAYOUT.sections.flatMap((s) => ('key' in s && s.key ? [s.key] : []));
 
 function readJson(key: string): unknown {
   const row = getDb().prepare(`SELECT value FROM app_settings WHERE key = ?`).get(key) as { value: string } | undefined;

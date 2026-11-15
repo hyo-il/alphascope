@@ -17,7 +17,7 @@ export const SECTOR_KO: Record<string, string> = {
   'Basic Materials': '소재',
 };
 
-export const INDUSTRY_KO: Record<string, string> = {
+const INDUSTRY_KO: Record<string, string> = {
   Semiconductors: '반도체',
   'Semiconductor Equipment & Materials': '반도체 장비·소재',
   'Consumer Electronics': '가전·전자기기',

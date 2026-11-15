@@ -11,10 +11,10 @@
 
 import { isKrSymbol, MARKET_REF } from './market';
 
-export type MarketTimeZone = 'Asia/Seoul' | 'America/New_York';
+type MarketTimeZone = 'Asia/Seoul' | 'America/New_York';
 
 // 국내 판별은 `utils/market.ts` 한 곳이다.
-export function marketTimeZone(symbol: string): MarketTimeZone {
+function marketTimeZone(symbol: string): MarketTimeZone {
   return isKrSymbol(symbol) ? 'Asia/Seoul' : 'America/New_York';
 }
 
@@ -85,7 +85,7 @@ function usEtToKstMinutes(etMinutes: number, now: Date): number {
 }
 
 /** 그 한국 날짜의 미국 프리장 시작(미국 동부 04:00)을 한국 시각(자정부터 분)으로 — 서머타임이면 17:00, 아니면 18:00 */
-export function usPremarketOpenKstMinutes(now: Date = new Date()): number {
+function usPremarketOpenKstMinutes(now: Date = new Date()): number {
   return usEtToKstMinutes(US_PREMARKET_OPEN_ET_MINUTES, now);
 }
 

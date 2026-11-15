@@ -34,7 +34,7 @@ interface Row {
   ai_error: string | null;
 }
 
-export type NewBrief = Omit<MarketBrief, 'id'>;
+type NewBrief = Omit<MarketBrief, 'id'>;
 
 export function insertBrief(b: NewBrief): number {
   const info = getDb()
@@ -136,7 +136,7 @@ export function listOutlookBriefs(sinceDay: string): { id: number; createdAt: st
   });
 }
 
-export interface ScoreRow {
+interface ScoreRow {
   target: OutlookTarget;
   tradeDay: string;
   briefId: number;

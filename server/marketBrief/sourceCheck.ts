@@ -8,7 +8,7 @@
 
 import { DOMESTIC_FALLBACK, DOMESTIC_RSS, FOREIGN_RSS, FOREIGN_SLOT_CANDIDATES, fetchRssRaw, freshNews, kstMonthDay, NEWS_MAX_AGE_MS, parseFeed, type RssSource } from './news';
 
-export interface SourceRow {
+interface SourceRow {
   group: string;
   source: string;
   /** HTTP 코드 — 연결 실패 · 시간 초과면 null */
@@ -19,7 +19,7 @@ export interface SourceRow {
   ok: boolean;
 }
 
-export interface Us2yCheck {
+interface Us2yCheck {
   source: string;
   status: number | null;
   ms: number;
@@ -27,7 +27,7 @@ export interface Us2yCheck {
   error: string | null;
 }
 
-export interface SourceCheckDeps {
+interface SourceCheckDeps {
   rss: (url: string) => Promise<{ status: number; text: string }>;
   us2y: () => Promise<Us2yCheck[]>;
   now: () => number;
@@ -44,7 +44,7 @@ async function us2yFromPython(): Promise<Us2yCheck[]> {
   return JSON.parse(out.trim().split('\n').at(-1) ?? '[]') as Us2yCheck[];
 }
 
-export const defaultSourceCheckDeps: SourceCheckDeps = { rss: fetchRssRaw, us2y: us2yFromPython, now: () => Date.now() };
+const defaultSourceCheckDeps: SourceCheckDeps = { rss: fetchRssRaw, us2y: us2yFromPython, now: () => Date.now() };
 
 async function rssRow(group: string, src: RssSource, deps: SourceCheckDeps): Promise<SourceRow> {
   const started = deps.now();

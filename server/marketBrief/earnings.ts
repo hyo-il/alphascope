@@ -19,7 +19,7 @@ import { marketDate } from '../../src/utils/marketDate';
 import type { BriefEarning } from '../../src/types/marketBrief';
 
 const ENGINE_URL = process.env.INDICATORS_URL ?? `http://127.0.0.1:${process.env.INDICATORS_PORT ?? 5001}`;
-export const EARNINGS_DAYS_AHEAD = 60;
+const EARNINGS_DAYS_AHEAD = 60;
 const CHUNK = 10;
 const GAP_MS = 1000;
 /** 전망치 받기 전체 상한 — 원본 2단계 상한(120초)보다 길다(대상이 원본 78종목보다 많고 나란히 4개만 받는다) */
@@ -47,7 +47,7 @@ export interface RawEstimate {
 
 const comma = (n: number) => n.toLocaleString('en-US');
 
-export function fmtEps(value: number | null | undefined, kr: boolean): string {
+function fmtEps(value: number | null | undefined, kr: boolean): string {
   if (value == null || !Number.isFinite(value)) return '-';
   return kr ? `₩${comma(Math.round(value))}` : `$${value.toFixed(2)}`;
 }
@@ -66,7 +66,7 @@ export function fmtMoney(value: number | null | undefined, kr: boolean): string 
   return `$${value.toFixed(2)}`;
 }
 
-export function fmtRecommendation(rec: RawEstimate['recommendation']): string {
+function fmtRecommendation(rec: RawEstimate['recommendation']): string {
   if (!rec) return '-';
   const total = rec.strongBuy + rec.buy + rec.hold + rec.sell + rec.strongSell;
   if (!total) return '-';
@@ -193,9 +193,9 @@ export function upcomingEarningBases(now: number, targets: string[] = earningsTa
     .sort((a, b) => a.daysUntil - b.daysUntil || a.symbol.localeCompare(b.symbol));
 }
 
-export type EstimatesFetcher = (symbols: string[]) => Promise<RawEstimate[]>;
+type EstimatesFetcher = (symbols: string[]) => Promise<RawEstimate[]>;
 
-export const fetchEstimates: EstimatesFetcher = async (symbols) => {
+const fetchEstimates: EstimatesFetcher = async (symbols) => {
   const response = await fetch(`${ENGINE_URL}/earnings-estimates?symbols=${encodeURIComponent(symbols.join(','))}`, {
     signal: AbortSignal.timeout(120_000),
   });

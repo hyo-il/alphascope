@@ -153,10 +153,10 @@ export function readUniverse(): Universe {
 // `universe.json` 은 최신본 하나, DB `universe_snapshots` 는 달마다 한 행씩 쌓인다.
 
 /** 스냅샷의 달 — 사용자가 한국에 있으므로 KST 기준 (YYYY-MM) */
-export const snapshotMonth = (ms: number) => marketDate(ms, '005930').slice(0, 7);
+const snapshotMonth = (ms: number) => marketDate(ms, '005930').slice(0, 7);
 
 /** 그 달 행이 이미 있으면 아무것도 하지 않는다 (PRIMARY KEY + INSERT OR IGNORE — 중복 저장 없음) */
-export function saveSnapshot(universe: Universe): boolean {
+function saveSnapshot(universe: Universe): boolean {
   const info = getDb()
     .prepare(
       `INSERT OR IGNORE INTO universe_snapshots (month, as_of, source, us_json, kr_json) VALUES (?, ?, ?, ?, ?)`,
@@ -165,7 +165,7 @@ export function saveSnapshot(universe: Universe): boolean {
   return info.changes > 0;
 }
 
-export function hasSnapshot(month: string): boolean {
+function hasSnapshot(month: string): boolean {
   return !!getDb().prepare(`SELECT 1 FROM universe_snapshots WHERE month = ?`).get(month);
 }
 
@@ -175,7 +175,7 @@ export function hasSnapshot(month: string): boolean {
  * 2) 아니면 `updateUniverse()` 로 새로 받는다(파일도 갱신된다).
  * `fetcher` 는 시험용으로 바꿔 끼울 수 있다(네트워크 없이 달 넘김을 확인).
  */
-export async function ensureMonthlySnapshot(
+async function ensureMonthlySnapshot(
   now = Date.now(),
   fetcher: () => Promise<Universe> = updateUniverse,
 ): Promise<'exists' | 'seeded' | 'fetched'> {

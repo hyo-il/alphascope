@@ -144,7 +144,7 @@ const KR_INDEX_KEYS: BriefAssetKey[] = ['KOSPI', 'KOSDAQ'];
  * 그 값의 기준 라벨 — 「10/28(수) 종가」 · 「10/29(목) 장중(마감 전) — 14:20 기준」 · 「10/28(수) 기준」.
  * 장중이면 받은 시각을 밝힌다(국내 지수는 한국 시각 · 미국 지수는 「한국 HH:MM」) — AI 가 장중 값을 마감처럼 쓰지 않게(v2.59.6).
  */
-export function basisLabel(key: BriefAssetKey, v: BriefAsset, at: number): string {
+function basisLabel(key: BriefAssetKey, v: BriefAsset, at: number): string {
   if (!v.data_date) return '';
   if (!INDEX_KEYS.includes(key)) return `${dateLabel(v.data_date)} 기준`;
   if (!isIntradayBar(key, v.data_date, at)) return `${dateLabel(v.data_date)} 종가`;
@@ -211,7 +211,7 @@ const TREND_HEAD =
   '[섹터 1주 흐름 (앱 종목 지도 · 시가총액 상위 100 · 섹터별 시총 가중 5거래일 수익률(마지막 완성 종가 기준) — 상위 3 · 하위 3, 순위일 뿐 부호와 상관없다 · 괄호 = 센 종목 수, 적으면 한두 종목의 등락)]';
 
 /** 오늘부터 60일 안 FOMC 회의(연준 공식 일정 `data/fomc.ts`) — AI 가 경제 일정 날짜를 기억으로 쓰지 않게 */
-export function fomcText(today: string, usReleased = false): string {
+function fomcText(today: string, usReleased = false): string {
   const rows = FOMC_MEETINGS.filter((m) => {
     const d = daysBetween(today, m.end);
     return d >= 0 && d <= 60;
@@ -231,7 +231,7 @@ const newsText = (items: BriefNewsItem[], tag: string, max: number, empty: strin
   items.slice(0, max).map((n) => `[${tag}] ${n.title} (${n.source})`).join('\n') || empty;
 
 /** 「2026년 10월 29일」 */
-export function todayText(day: string): string {
+function todayText(day: string): string {
   return `${day.slice(0, 4)}년 ${day.slice(5, 7)}월 ${day.slice(8, 10)}일`;
 }
 
@@ -304,7 +304,7 @@ const THEME_RULE = (beginner: boolean) => `- key_themes: 정확히 3개, 1~3개�
 const OUTLOOK_NAME: Record<string, string> = { KOSPI: '오늘 국내 정규장 코스피', SP500: '오늘 밤(미국 날짜로 다음 정규장) S&P500' };
 
 /** 판의 예상 대상 — 오전판이라도 오늘 국내 휴장이면 코스피는 뺀다 */
-export const outlookTargets = (edition: BriefEdition, krClosed = false) => OUTLOOK_TARGETS[edition].filter((t) => !(krClosed && t === 'KOSPI'));
+const outlookTargets = (edition: BriefEdition, krClosed = false) => OUTLOOK_TARGETS[edition].filter((t) => !(krClosed && t === 'KOSPI'));
 
 const OUTLOOK_JSON = (edition: BriefEdition, krClosed = false) => `  "today_outlook": [
 ${outlookTargets(edition, krClosed)
@@ -404,7 +404,7 @@ const COMMON_RULES = `- 방향 표현(모든 문장): 위 시장 데이터의 �
   ★ 투자 권유 표현 금지 ("매수하세요" 등). 권유성은 "진입 후보로 검토 가능" 형태로.
 - 인사말·서문·결론 문구 금지.`;
 
-export interface PromptInput {
+interface PromptInput {
   edition: BriefEdition;
   today: string;
   assets: Partial<Record<BriefAssetKey, BriefAsset>>;

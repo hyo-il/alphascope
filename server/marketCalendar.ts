@@ -65,7 +65,7 @@ function writeSetting(key: string, value: unknown): void {
 type Coverage = Partial<Record<CalendarMarket, { from: string; to: string }>>;
 
 /** 이 범위(from~to)의 휴장일을 토스에서 받아 저장한다. 반환: 찾은 휴장일 수 */
-export async function refreshHolidays(market: CalendarMarket, from: string, to: string): Promise<number> {
+async function refreshHolidays(market: CalendarMarket, from: string, to: string): Promise<number> {
   const business = new Set<string>();
   let cursor = addDays(from, -1);
   let guard = 0;
@@ -142,7 +142,7 @@ export function usHolidayMismatches(): { date: string; nyse: boolean; toss: bool
 }
 
 /** 오늘(KST) 이미 받았으면 건너뛴다 — 재시작해도 하루 한 번 */
-export async function ensureDailyHolidays(now = Date.now()): Promise<'skipped' | Record<CalendarMarket, number>> {
+async function ensureDailyHolidays(now = Date.now()): Promise<'skipped' | Record<CalendarMarket, number>> {
   const today = marketDate(now, '005930');
   if (readSetting<string>(LAST_REFRESH_KEY) === today) return 'skipped';
   // 지난달 1일부터 — 달력에서 지난달을 넘겨 봐도 휴장이 보이게

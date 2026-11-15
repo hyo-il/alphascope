@@ -15,7 +15,7 @@ import { checkPassword, isPasswordSetFor, sessionKeyOf, storePassword, type Pass
 import { createAttemptLimiter } from '../authGuard';
 import { readLockMinutes } from './settings';
 
-export const ASSET_PASSWORD_KEY: PasswordKey = 'asset.password';
+const ASSET_PASSWORD_KEY: PasswordKey = 'asset.password';
 
 /** 자산 잠금 풀기 시도 막기 — 로그인과 따로 센다 */
 export const assetLimiter = createAttemptLimiter('[asset] 자산 잠금 풀기');

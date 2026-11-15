@@ -25,9 +25,9 @@ import { usesMarketFilter, type RuleBody } from '../../src/types/tradingRule';
 
 export const MIN_TRADES = 10;
 
-export type ExitKind = 'signal' | 'stop' | 'take_profit' | 'trailing' | 'end';
+type ExitKind = 'signal' | 'stop' | 'take_profit' | 'trailing' | 'end';
 
-export interface BacktestTrade {
+interface BacktestTrade {
   entryDate: string;
   exitDate: string;
   entry: number;
@@ -42,7 +42,7 @@ export interface BacktestTrade {
   exitIdx: number;
 }
 
-export interface SimResult {
+interface SimResult {
   trades: number;
   winRate: number | null;
   avgReturn: number | null;

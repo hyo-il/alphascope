@@ -14,7 +14,7 @@ import type express from 'express';
 import { getDb } from './db';
 
 const OWNER_KEY = 'auth.owner';
-export const SESSION_COOKIE = 'as_session';
+const SESSION_COOKIE = 'as_session';
 
 /** 세션 수명. 자주 쓰면 아래 `touch` 가 계속 늘려 준다. */
 const SESSION_DAYS = 30;
@@ -189,10 +189,10 @@ export function countSessions(): number {
  * 기기별 로그아웃 — 세션 식별값. **토큰도 해시 전체도 아닌** 해시 앞 12자(16진수).
  * 목록·지우기 모두 문지기(`authGuard`) 뒤라 로그인한 주인만 부른다. 식별값으로 토큰을 되살릴 수 없다(해시의 일부일 뿐).
  */
-export const SESSION_ID_LENGTH = 12;
+const SESSION_ID_LENGTH = 12;
 const SESSION_ID_PATTERN = new RegExp(`^[0-9a-f]{${SESSION_ID_LENGTH}}$`);
 
-export interface SessionInfo {
+interface SessionInfo {
   id: string;
   /** user_agent 원문 — 화면에는 보내지 않고 기기 이름으로 바꿔 보낸다(라우트) */
   userAgent: string;

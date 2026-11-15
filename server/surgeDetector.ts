@@ -223,7 +223,7 @@ const SCORE: Record<keyof SurgeSignals | 'periodic', number> = {
   nearSupport: 0, // 지지선은 볼린저 하단과 겹쳐 이중 가산이 되므로 표시만 한다
 };
 
-export function gradeOf(score: number): SurgeGrade {
+function gradeOf(score: number): SurgeGrade {
   if (score >= 80) return 'HIGH';
   if (score >= 60) return 'MEDIUM';
   if (score >= 40) return 'LOW';

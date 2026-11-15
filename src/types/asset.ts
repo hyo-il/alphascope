@@ -683,9 +683,3 @@ export interface AssetDailyChange {
 
 /** 메모 최대 글자 수 */
 export const ASSET_DAILY_NOTE_MAX = 40;
-
-/** `PUT /api/asset/daily-note` 요청 — 빈 글이면 지움 */
-export interface AssetDailyNoteRequest {
-  day: string;
-  note: string;
-}

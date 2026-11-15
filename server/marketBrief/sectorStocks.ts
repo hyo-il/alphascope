@@ -18,7 +18,7 @@ import { isKrSymbol } from '../../src/utils/market';
 import type { BriefAi, BriefSectorStock } from '../../src/types/marketBrief';
 
 /** 섹터 · 시장마다 프롬프트에 주는 후보 수(시총 큰 순) */
-export const SECTOR_STOCKS_PER_MARKET = 6;
+const SECTOR_STOCKS_PER_MARKET = 6;
 /** 응답에서 섹터 · 시장마다 남기는 최대 수 */
 export const SECTOR_STOCKS_KEEP = 3;
 

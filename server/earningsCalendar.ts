@@ -22,7 +22,7 @@ const LAST_REFRESH_KEY = 'earnings.lastRefresh';
 const CHUNK = 10;
 const GAP_MS = 1000;
 
-export interface EarningsDate {
+interface EarningsDate {
   /** YYYY-MM-DD */
   date: string;
   /** 추정일인가 (회사 확정 전) */
@@ -132,7 +132,7 @@ function markRefreshed(day: string): void {
 }
 
 /** 오늘 아직 안 받았으면 받는다. 반환: 'skipped' | 저장 행 수 */
-export async function ensureDailyEarnings(now = Date.now()): Promise<'skipped' | number> {
+async function ensureDailyEarnings(now = Date.now()): Promise<'skipped' | number> {
   const day = todayKst(now);
   if (lastRefreshDate() === day) return 'skipped';
   const saved = await refreshEarnings();

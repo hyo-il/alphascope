@@ -325,7 +325,7 @@ async function cached(key: string, period: HeatmapPeriod, now: number, make: () 
 }
 
 export const HEATMAP_TOPS = [30, 50, 100] as const;
-export type HeatmapTop = (typeof HEATMAP_TOPS)[number];
+type HeatmapTop = (typeof HEATMAP_TOPS)[number];
 
 export async function heatmap(
   market: HeatmapMarket,

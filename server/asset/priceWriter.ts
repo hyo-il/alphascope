@@ -21,7 +21,7 @@ import { SHEET_LAYOUT, TICKER_TAB } from './sheetLayout';
 import { locateRow } from './sheetShape';
 import { isMockPrices, priceRows, priceSkipped, priceSource, priceTools, savePriceState, tryExclusive } from './priceState';
 
-export const PRICE_TICK_MS = 10_000;
+const PRICE_TICK_MS = 10_000;
 const RATE_TTL_MS = 60_000;
 const BACKOFF_MS = 60_000;
 /** 429 · 5xx 가 이만큼 이어지면 쉰다 */
@@ -89,7 +89,7 @@ async function isOpen(market: Market, now: number): Promise<boolean> {
 const symbolOf = (code: string) => splitCode(code).symbol ?? code;
 const marketOf = (code: string): Market => (splitCode(code).market === 'US' ? 'US' : 'KR');
 
-export type PriceTickResult = 'off' | 'busy' | 'backoff' | 'closed' | 'unchanged' | 'written' | 'failed';
+type PriceTickResult = 'off' | 'busy' | 'backoff' | 'closed' | 'unchanged' | 'written' | 'failed';
 
 /** 한 회차 — 시험이 가짜 시계(now) · 가짜 달력 · 가짜 토스 · 가짜 구글로 부른다 */
 export async function priceTick(now = Date.now()): Promise<PriceTickResult> {

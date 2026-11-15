@@ -4,7 +4,7 @@
  * (+ 값의 합) ÷ |(− 값의 합)|. 값이 없거나 손실이 없으면 null 과 이유.
  * ⚠️ 합하는 순서를 바꾸지 않는다 — 백테스트 결과가 바이트 단위로 같아야 한다.
  */
-export type ProfitFactorNote = '손실 거래 없음' | '거래 없음' | '청산 거래 없음';
+type ProfitFactorNote = '손실 거래 없음' | '거래 없음' | '청산 거래 없음';
 
 export function profitFactor(
   values: number[],

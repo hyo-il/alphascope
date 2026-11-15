@@ -50,7 +50,7 @@ const DAY_MS = 86_400_000;
 
 // ── 실행 설정 ────────────────────────────────────────────────────────────────
 
-export interface DiagnoseOptions {
+interface DiagnoseOptions {
   /** 오라클(ARM 무료)에서 오래 걸릴 수 있어 종목 5개·기간 절반으로 줄이는 모드 */
   quick?: boolean;
   /** 대상 종목을 덮어쓴다 (없으면 서버의 관심 목록) */
@@ -682,7 +682,7 @@ export async function runDiagnose(options: DiagnoseOptions = {}): Promise<Diagno
 
 // ── 요약 카드 (웹 「진단 리포트」 맨 위 네 장) ──────────────────────────────
 
-export interface DiagnoseOutcome {
+interface DiagnoseOutcome {
   id: number;
   summary: DiagnoseSummary;
   consoleLines: string[];

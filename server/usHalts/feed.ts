@@ -10,9 +10,9 @@
  * - ⚠️ 칸 값은 받은 문자열 그대로 돌려준다(앞뒤 공백도) — 약관상 피드를 고치지 않는다. 비교 · 계산은 부르는 쪽이 `trim()` 해서 한다.
  */
 
-export const HALTS_FEED_URL = 'https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts';
+const HALTS_FEED_URL = 'https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts';
 /** 한 번 받기의 시간 제한 — 다음 분 받기와 겹치지 않게 1분보다 짧게 */
-export const FEED_TIMEOUT_MS = 20_000;
+const FEED_TIMEOUT_MS = 20_000;
 
 export interface RawHaltItem {
   HaltDate: string;

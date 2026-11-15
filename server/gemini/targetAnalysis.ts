@@ -25,8 +25,8 @@ import { buildContext } from './context';
 import { callGemini, DEFAULT_MODEL, geminiDisabledReason, GeminiError } from './client';
 
 /** 목표 도달 분석 프롬프트 버전 — 질문·스키마를 고치면 올린다 */
-export const TARGET_PROMPT_VERSION = 't1';
-export const TARGET_MAX_SYMBOLS = 5;
+const TARGET_PROMPT_VERSION = 't1';
+const TARGET_MAX_SYMBOLS = 5;
 export const TARGET_LIMITS = { targetPct: [0.5, 50], stopPct: [0.5, 30], days: [2, 120] } as const;
 
 // ── 저장소 ───────────────────────────────────────────────
@@ -72,7 +72,7 @@ function db() {
   return database;
 }
 
-export interface TargetAgentOpinion {
+interface TargetAgentOpinion {
   role: string;
   label: string;
   pTarget: number;
@@ -82,7 +82,7 @@ export interface TargetAgentOpinion {
   error: string | null;
 }
 
-export interface TargetAnalysisRecord {
+interface TargetAnalysisRecord {
   id: number;
   symbol: string;
   createdAt: string;
@@ -112,7 +112,7 @@ export interface TargetAnalysisRecord {
 }
 
 /** 기준일 뒤 n 번째 거래일 — 주말·휴장일을 건너뛴다(확인 범위 밖은 주말만) */
-export function addTradingDays(baseDate: string, n: number, market: 'US' | 'KR'): string {
+function addTradingDays(baseDate: string, n: number, market: 'US' | 'KR'): string {
   const d = new Date(`${baseDate}T12:00:00Z`);
   let left = n;
   while (left > 0) {
@@ -182,7 +182,7 @@ function toRecord(row: Row): TargetAnalysisRecord {
  * 0~100 으로 자르고, 합이 100 이 아니면 **비율대로** 맞춘다(정수 반올림 오차는 가장 큰 값에 몰아 합 100).
  * 셋 다 0 이면 기준선을 알 수 없으니 균등(34/33/33). 맞췄으면 normalized = true 로 기록한다.
  */
-export function normalizeProbs(raw: { pTarget?: unknown; pStop?: unknown; pNeither?: unknown }): {
+function normalizeProbs(raw: { pTarget?: unknown; pStop?: unknown; pNeither?: unknown }): {
   pTarget: number;
   pStop: number;
   pNeither: number;
@@ -274,18 +274,18 @@ function earningsLine(symbol: string, baseDate: string, days: number): string {
 // ── 실행 ──────────────────────────────────────────────────
 
 /** 확정 봉만 — 장중이면 진행 중인 오늘 봉을 뺀다 */
-export function completedCandles(candles: Candle[], symbol: string): Candle[] {
+function completedCandles(candles: Candle[], symbol: string): Candle[] {
   return candles.length && isFormingBar(candles, '1d', symbol) ? candles.slice(0, -1) : candles;
 }
 
-export interface TargetInput {
+interface TargetInput {
   symbol: string;
   targetPct: number;
   stopPct: number;
   days: number;
 }
 
-export async function runTargetAnalysis(input: TargetInput): Promise<TargetAnalysisRecord> {
+async function runTargetAnalysis(input: TargetInput): Promise<TargetAnalysisRecord> {
   const symbol = input.symbol.trim().toUpperCase();
   const { targetPct, stopPct, days } = input;
   const model = DEFAULT_MODEL;
@@ -384,7 +384,7 @@ export async function runTargetAnalysis(input: TargetInput): Promise<TargetAnaly
   return getTargetAnalysis(Number(info.lastInsertRowid))!;
 }
 
-export function getTargetAnalysis(id: number): TargetAnalysisRecord | null {
+function getTargetAnalysis(id: number): TargetAnalysisRecord | null {
   const row = db().prepare(`SELECT * FROM target_analysis WHERE id = ?`).get(id) as Row | undefined;
   return row ? toRecord(row) : null;
 }
@@ -399,7 +399,7 @@ export function deleteTargetAnalysis(id: number): boolean {
  * 기록 하나를 확정 봉으로 채점한다 — `touchOutcome` 그대로(같은 날 둘 다면 손절).
  * 기준일 봉을 찾고, 그 뒤 `days` 봉이 다 있어야 판정한다. 아직이면 null.
  */
-export function scoreRecord(
+function scoreRecord(
   record: Pick<TargetAnalysisRecord, 'symbol' | 'baseDate' | 'targetPct' | 'stopPct' | 'days'>,
   candles: Candle[],
 ): { outcome: TouchOutcome; outcomeDate: string } | null {
@@ -445,12 +445,12 @@ export async function listTargetAnalyses(symbol?: string, limit = 100): Promise<
 
 const ORDER: TouchOutcome[] = ['target', 'stop', 'neither'];
 /** 가장 높게 준 결과(같으면 target → stop → neither 순) */
-export function topPick(p: { target: number; stop: number; neither: number }): TouchOutcome {
+function topPick(p: { target: number; stop: number; neither: number }): TouchOutcome {
   const values = [p.target, p.stop, p.neither];
   return ORDER[values.indexOf(Math.max(...values))];
 }
 
-export interface TargetStats {
+interface TargetStats {
   scored: number;
   aiHit: number;
   baseHit: number;
@@ -467,7 +467,7 @@ export interface TargetStats {
  * 같은 날 같은 조건으로 여러 번 돌리면 한 종목이 성적을 지배한다(Gemini 적중률의 `onePerDay` 와 같은 문제).
  * 목록·채점·삭제는 원본 그대로다 — 통계를 낼 때만 묶는다.
  */
-export function onePerCondition(records: TargetAnalysisRecord[]): TargetAnalysisRecord[] {
+function onePerCondition(records: TargetAnalysisRecord[]): TargetAnalysisRecord[] {
   const latest = new Map<string, TargetAnalysisRecord>();
   for (const r of records) {
     const key = `${r.symbol}|${r.baseDate}|${r.targetPct}|${r.stopPct}|${r.days}`;
@@ -489,7 +489,7 @@ export function targetStats(records: TargetAnalysisRecord[]): TargetStats {
 
 // ── 한 번에 여러 종목 (백그라운드 + 진행률) ─────────────────
 
-export interface TargetProgress {
+interface TargetProgress {
   running: boolean;
   total: number;
   done: number;

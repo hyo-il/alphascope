@@ -40,7 +40,7 @@ export interface ChangeTrade {
   currency: 'KRW' | 'USD';
 }
 
-export interface ChangeOptions {
+interface ChangeOptions {
   includePension: boolean;
   /** 「연금으로 볼 계좌」(매매 줄이 연금 계좌인지 — 연금 뺌이면 그 매매는 빼고 셈) */
   pensionSections: string[];

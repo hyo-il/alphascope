@@ -41,12 +41,12 @@ function addDailyColumns(database: ReturnType<typeof getDb>, table: 'asset_daily
 }
 
 /** 하루 기록에 더 남기는 것(v2.70.0) — 총 자산을 계산할 때 쓴 같은 값 */
-export interface DailyExtra {
+interface DailyExtra {
   fxUsdKrw: number | null;
   holdings: AssetDailyHolding[];
 }
 
-export interface DailyRecord {
+interface DailyRecord {
   day: string;
   total: number;
   totalPension: number;
@@ -93,7 +93,7 @@ export function historyPoints(range: AssetHistoryRange, includePension: boolean,
 }
 
 /** 「무엇 때문에」 계산에 쓰는 기록 한 줄(v2.70.0) — 옛 줄은 `fxUsdKrw` · `holdings` 가 null */
-export interface DailyFullRecord {
+interface DailyFullRecord {
   day: string;
   recordedAt: string;
   plain: AssetTotals;
@@ -353,7 +353,7 @@ export function dailyNotes(): Map<string, string> {
   return new Map(rows.map((r) => [r.day, r.note]));
 }
 
-export type NoteResult = { ok: true; note: string | null } | { ok: false; error: string };
+type NoteResult = { ok: true; note: string | null } | { ok: false; error: string };
 
 /** 메모 저장 — 앞뒤 빈칸을 지운 글이 비면 지움 · 40자(글자 수) 넘으면 거절 · 하루 기록이 없는 날은 거절 */
 export function saveDailyNote(day: unknown, note: unknown, at: string): NoteResult {

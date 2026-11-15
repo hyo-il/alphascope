@@ -32,7 +32,7 @@ import type { IndicatorSeries } from '../../src/types/chart';
 import { countCallsOn, findCheck, insertCheck, type AiCheckRow } from './store';
 
 /** 질문·답 모양을 고치면 올린다 */
-export const AI_CHECK_PROMPT_VERSION = 'ai-check-v1';
+const AI_CHECK_PROMPT_VERSION = 'ai-check-v1';
 
 /** 한국 시간 날짜(하루 횟수 기준) — 앱의 다른 곳과 같은 관례 */
 export const kstDate = (now: Date) => marketDate(now.getTime(), '005930');
@@ -67,7 +67,7 @@ export function setAiCheckForTest(opts: {
 export const aiCheckCallsForTest = () => calls;
 
 // ── 주는 정보 ──────────────────────────────────────────────────────────────
-export interface AiCheckInput {
+interface AiCheckInput {
   symbol: string;
   name: string | null;
   market: 'US' | 'KR';
@@ -178,7 +178,7 @@ const SCHEMA = {
   required: ['verdict', 'reasons'],
 };
 
-export function promptText(input: AiCheckInput): string {
+function promptText(input: AiCheckInput): string {
   const money = (v: number) => (input.currency === 'KRW' ? `₩${Math.round(v).toLocaleString('ko-KR')}` : `$${v.toFixed(2)}`);
   const lines: string[] = [];
   lines.push(`# 종목: ${input.name ? `${input.name} ` : ''}(${input.symbol}) · 시장 ${input.market} · 지금 가격 ${money(input.price)} · 기준 봉 ${input.basisDate}`);
@@ -199,7 +199,7 @@ export function promptText(input: AiCheckInput): string {
 }
 
 /** 답 검사 — 모양이 틀리거나 이유가 비면 null(「못 함(형식)」). 이유는 3개까지, 줄마다 80자로 자른다 */
-export function validateAnswer(raw: RawAnswer | null | undefined): { verdict: 'pass' | 'risk'; reasons: string[] } | null {
+function validateAnswer(raw: RawAnswer | null | undefined): { verdict: 'pass' | 'risk'; reasons: string[] } | null {
   if (!raw || (raw.verdict !== 'PASS' && raw.verdict !== 'RISK') || !Array.isArray(raw.reasons)) return null;
   const reasons = raw.reasons
     .filter((x): x is string => typeof x === 'string')
@@ -228,7 +228,7 @@ const inflight = new Map<string, Promise<AiCheckRow>>();
 /** 지금 Gemini 를 부르고 있는 수 — 아직 저장 전이라 하루 셈에 더한다(동시에 21번째가 나가지 않게) */
 let pendingCalls = 0;
 
-export interface CheckArgs {
+interface CheckArgs {
   symbol: string;
   /** 지금 가격(검증 때 가격) */
   price: number;

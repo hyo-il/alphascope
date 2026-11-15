@@ -51,7 +51,7 @@ function blockedFor(bucket: Bucket | undefined, limit: number): number {
   return Math.ceil((WINDOW_MS - (now - bucket.firstAt)) / 60_000);
 }
 
-export interface AttemptLimiter {
+interface AttemptLimiter {
   /** 지금 이 IP 가 시도할 수 있는가 — 막혀 있으면 남은 분(0 = 시도 가능) */
   blockedMinutes(ip: string): number;
   recordFailure(ip: string): void;

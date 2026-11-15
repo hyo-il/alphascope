@@ -35,7 +35,7 @@ function put(key: string, value: string): void {
   getDb().prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(key, value);
 }
 
-export type SheetSwitchResult = 'none' | 'same' | 'saved' | 'switched';
+type SheetSwitchResult = 'none' | 'same' | 'saved' | 'switched';
 
 /** 지금 시트 해시와 저장값을 견주어 필요하면 한 번 정리한다 */
 export function checkSheetSwitch(now = new Date()): SheetSwitchResult {

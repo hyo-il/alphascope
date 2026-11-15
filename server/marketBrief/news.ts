@@ -104,7 +104,7 @@ export const FOREIGN_SLOT_CANDIDATES: RssSource[] = [
 /** 72시간 거르기 뒤 국내 글이 0건일 때만(4곳 모두 실패 · 받았어도 모두 72시간 넘음) */
 export const DOMESTIC_FALLBACK: RssSource = { url: 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=02', source: 'SBS 경제' };
 
-export const PER_SOURCE = 20;
+const PER_SOURCE = 20;
 const TIMEOUT_MS = 15_000;
 
 /** RSS 본문 받기 — 시험은 바꿔 끼운다(네트워크 0) */
@@ -227,7 +227,7 @@ async function collect(sources: RssSource[], foreign: boolean, fetcher: RssFetch
   return { items: all.flatMap((a) => a.items), results: all.map((a) => a.result) };
 }
 
-export interface NewsCollection {
+interface NewsCollection {
   domestic: BriefNewsItem[];
   foreign: BriefNewsItem[];
   /** slot = 후보 자리(해외 4번째) — 성공이면 error 에 앞 후보들의 실패 이유 */

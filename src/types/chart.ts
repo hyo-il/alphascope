@@ -122,7 +122,7 @@ export const PANEL_ITEMS: { key: PanelIndicator; label: string }[] = [
  * 봉 간격으로 본 단위 — 차트 컴포넌트는 타임프레임을 모르므로 봉 사이 간격(중앙값)으로 가른다.
  * 25일 이상 = 월봉, 5일 이상 = 주봉, 반나절 미만 = 분봉(bar), 그 밖 = 일봉.
  */
-export type BarUnit = 'bar' | 'day' | 'week' | 'month';
+type BarUnit = 'bar' | 'day' | 'week' | 'month';
 
 export function barUnitOf(candles: { timestamp: number }[]): BarUnit {
   if (candles.length < 3) return 'day';

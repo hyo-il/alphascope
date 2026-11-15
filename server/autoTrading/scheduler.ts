@@ -25,7 +25,7 @@ export function isAutoTradingEnabled(): boolean {
 }
 
 export const SERVER_OFF_REASON = '이 서버에서는 자동매매가 꺼져 있습니다(AUTO_TRADING_ENABLED=false)';
-export const NO_RULE_REASON = '매매 규칙을 고르세요.';
+const NO_RULE_REASON = '매매 규칙을 고르세요.';
 
 /** 틱 간격 — 청산 검사 주기이기도 하다 */
 const TICK_MS = 60_000;
@@ -52,7 +52,7 @@ function stateOf(accountId: number): RunState {
 }
 
 /** 계좌가 쓰는 규칙 — 없거나 지워졌으면 null */
-export function ruleOf(strategy: AccountStrategy): RuleBody | null {
+function ruleOf(strategy: AccountStrategy): RuleBody | null {
   return strategy.ruleId != null ? getRule(strategy.ruleId) : null;
 }
 

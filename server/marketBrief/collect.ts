@@ -25,7 +25,7 @@ const MARKET_DATA_TIMEOUT_MS = 185_000;
 /** 섹터 1주 흐름 — 종목 지도 1주 계산을 기다리는 한도(처음 만들 때 일봉을 받는다 · 넘기면 그 시장은 빼고 간다) */
 const SECTOR_TREND_TIMEOUT_MS = 60_000;
 /** 섹터 1주 흐름 — 시장마다 강세 위 · 약세 아래 몇 개 */
-export const SECTOR_TREND_EACH = 3;
+const SECTOR_TREND_EACH = 3;
 
 /**
  * 섹터 통계(종목 지도 응답의 `sectors` — 시총 가중 1주 수익률 순) → 강세 위 3 · 약세 아래 3. 「기타」(섹터 모름)는 뺀다.
@@ -63,7 +63,7 @@ async function readSectorTrend(now: number): Promise<BriefSectorTrend> {
 }
 
 
-export interface MarketData {
+interface MarketData {
   assets: Partial<Record<BriefAssetKey, BriefAsset>>;
   failed: BriefAssetKey[];
   /** 지표 엔진이 실제로 받은 시각(ms, 엔진 10분 캐시면 그때) — 장중/종가 판단은 이 시각 하나로 한다 */
@@ -74,7 +74,7 @@ export interface MarketData {
 
 export type MarketDataFetcher = (edition: BriefEdition) => Promise<MarketData>;
 
-export const fetchMarketData: MarketDataFetcher = async (edition) => {
+const fetchMarketData: MarketDataFetcher = async (edition) => {
   const response = await fetch(`${ENGINE_URL}/market-brief-data?edition=${edition}`, { signal: AbortSignal.timeout(MARKET_DATA_TIMEOUT_MS) });
   const payload = (await response.json().catch(() => ({}))) as Partial<MarketData> & { error?: string };
   if (!response.ok || !payload.assets) throw new Error(payload.error ?? `지표 엔진 응답 ${response.status}`);
@@ -107,7 +107,7 @@ export const defaultCollectDeps: CollectDeps = {
   sectorTrend: readSectorTrend,
 };
 
-export interface Collected {
+interface Collected {
   market: MarketData;
   domestic: BriefNewsItem[];
   foreign: BriefNewsItem[];

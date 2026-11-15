@@ -23,7 +23,7 @@ export const SCORING_RULE = '5거래일(v2.15.0) — 기준 거래일 D(마감 �
 /** HOLD 를 맞다고 볼 변동 범위 */
 const FLAT_BAND_PERCENT = 2;
 
-export type Outcome = 'correct' | 'incorrect' | 'pending';
+type Outcome = 'correct' | 'incorrect' | 'pending';
 
 /** SQLite 행 — 두 테이블에서 채점에 필요한 열만 뽑는다 */
 interface GeminiRow {
@@ -54,7 +54,7 @@ interface AgentsRow {
   prompt_version: string | null;
 }
 
-export interface ScoredAnalysis {
+interface ScoredAnalysis {
   id: number;
   source: 'claude' | 'gemini';
   symbol: string;
@@ -229,7 +229,7 @@ export function scoredAnalyses(limit = 500): ScoredAnalysis[] {
   return [...gemini, ...claude].sort((a, b) => b.analyzedAt.localeCompare(a.analyzedAt));
 }
 
-export interface AccuracyStats {
+interface AccuracyStats {
   /** 묶기 전 원본 분석 수 */
   rawTotal: number;
   /** 하루 1건으로 묶은 뒤의 수 — 아래 숫자는 전부 이것 기준이다 */
@@ -266,7 +266,7 @@ function summarize(raw: ScoredAnalysis[]): AccuracyStats {
 }
 
 /** 에이전트 개인별 적중률 — 누가 쓸모 있는지 본다 */
-export interface AgentAccuracy {
+interface AgentAccuracy {
   role: string;
   label: string;
   scored: number;
@@ -321,7 +321,7 @@ function agentAccuracy(): AgentAccuracy[] {
 }
 
 /** 같은 종목·같은 날 두 AI 가 모두 분석한 건만 짝지어 비교한다 */
-export interface PairedItem {
+interface PairedItem {
   symbol: string;
   date: string;
   claude: ScoredAnalysis;

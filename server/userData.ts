@@ -42,7 +42,7 @@ const MAX_NAME_LEN = 40;
 /** 서버도 같은 심볼 규칙을 쓴다 (토스 symbol 은 영문·숫자·. - 만 받는다) */
 const SYMBOL_PATTERN = /^[A-Z0-9.\-]+$/;
 
-export interface WatchlistPayload {
+interface WatchlistPayload {
   folders: WatchFolder[] | null;
   recent: string[] | null;
   revision: number;

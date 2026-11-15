@@ -14,7 +14,7 @@ import { loadCandles } from '../db';
 import { getWatchlist } from '../userData';
 
 /** 판정 구간 — 최근 250 거래일(약 1년) */
-export const FREQ_DAYS = 250;
+const FREQ_DAYS = 250;
 
 /** 모의계좌 기본값 — 왕복으로 뺀다 (수수료 0.1% + 슬리피지 0.05%) × 2 = 0.30%p */
 const COMMISSION = 0.001;

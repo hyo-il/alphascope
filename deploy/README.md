@@ -32,136 +32,11 @@ cd ~/projects/alphascope/app && git pull --ff-only origin main && bash deploy/ap
 
 ### 폴더 정리 — `~/projects/alphascope/` 한 곳으로 (v2.61.3 · 한 번만)
 
-오라클에 다른 프로젝트가 들어와도 섞이지 않게 맥 `Work/<프로젝트>/` 와 같은 모양으로 둡니다(사용자 결정 2026-11-06). 자리는 저장소 `deploy/paths.sh` 한 곳에서 정합니다.
-
-```
-~/projects/
-├── _common/                 비워 둠(나중에 여러 프로젝트가 같이 쓰는 것)
-└── alphascope/
-    ├── app/                 ← ~/alphascope (git · DB 는 app/db/)
-    ├── secrets/             ← ~/secrets (700 · 파일 600)
-    ├── scripts/             ← ~/setpw.sh(옮기기만) · deploy.sh(저장소 판) · backup.sh(새 한 줄)
-    ├── backups/             db/ ← ~/backups · node24/ · https/ ← 홈의 옛 백업 · nginx/ ← sites-available 의 *.backup-*
-    └── data/                ← ~/alphascope-samples
-/var/www/alphascope · /etc/nginx/sites-available/alphascope · alphascope-acme 는 그대로
-```
-
-지우는 것(Vite 때): `~/deploy.sh.vite-backup` · `~/alphascope/ecosystem.config.cjs.vite-backup` · `/etc/nginx/sites-available/alphascope.vite-backup`. 건드리지 않는 것: `~/.ssh` · `~/.pm2` · `~/snap` · `~/.cache` · `~/.npm` · `/var/www/letsencrypt` · `/var/www/html` · `/var/www/project2` · `sites-available/project2` · `default` · 인증서(`/etc/letsencrypt`).
-
-**언제** — **토 15:00 ~ 22:30 또는 일 06:00 ~ 17:00 KST**(스케줄러가 쉬는 때 · 배포 시간대 안 · 일요일 03:00 주간 백업 앞뒤는 피함 — 위 「Node 24 올리기」 표와 같은 이유).
-
-**멈추는 시간** — AlphaScope 두 프로그램이 꺼져 있는 것은 4/6 단계(두 이름 멈춤 → 앱 폴더 옮기기 → venv 확인 → 새 설정으로 켬 → API 응답)뿐으로 **약 20~40초**입니다. 같은 디스크 안의 옮기기라 688M 앱 폴더도 이름만 바뀝니다(디스크가 다르면 스크립트가 멈춤). 백업 · 데이터 · nginx 옛 백업 · 스크립트 · secrets 옮기기는 **서버를 켠 채로** 먼저 합니다. 옮긴 venv 가 열리지 않으면 새 자리에서 다시 만드느라(`python -m venv` + `pip install -r requirements.txt`) **몇 분** 더 멈출 수 있습니다.
-
-**① 맥에서 푸시** 한 뒤 **② 서버에서**(아직 옛 자리에서 받습니다):
-
-```bash
-ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189
-```
-
-```bash
-cd ~/alphascope && git pull --ff-only origin main && bash deploy/move-to-projects.sh
-```
-
-`move-to-projects.sh` 가 하는 일 — 1/6 지금 상태 확인(홈 목록 · `~/projects` 없음 · crontab 이 주간 백업 한 줄뿐 · pm2 두 이름이 옛 자리에서 online · API 200 · `.env` 의 `DB_PATH` · `GOOGLE_SA_KEY_FILE` · venv — 하나라도 다르면 **아무것도 바꾸지 않고 멈춤**) → 2/6 되돌리기 준비(`~/projects/.move-backup-<날짜>/` — 목록 · crontab · pm2 이름과 cwd · `.env` 사본 600) → 3/6 켠 채로 옮기기(+ `.env` 의 열쇠 경로) → 4/6 멈춤 구간(+ `DB_PATH` 가 옛 절대 경로일 때만 새 경로로) → 확인(API 200 · 「로그인 사용 중」 = 새 자리 DB · 자동매매 스케줄러 줄 · 지표 엔진 `/health` · 옛 경로 오류 없음 · 열쇠 새 경로 · `pm2 save` 목록) → 5/6 crontab 주간 백업 줄을 새 자리로(일요일 03:00 그대로) → 6/6 Vite 옛 파일 지우기. `.env` 값 · 열쇠 · `setpw.sh` 내용은 출력하지 않습니다(바꾼 줄 개수만).
-
-- 끝에 **「완료 — 새 자리 /home/ubuntu/projects/alphascope · 서버가 멈춘 시간 약 N초」** 가 나오면 성공입니다.
-- 「아무것도 바꾸지 않고 멈춥니다」 — 서버 모양이 예상과 다릅니다. 나온 글을 개발 대화에 붙여 주세요(서버는 그대로 돕니다).
-- 「되돌렸습니다 — 옛 자리(/home/ubuntu/alphascope)로 돌아갔습니다」 — 중간에 실패해 **바꾼 것만 거꾸로 되돌리고 옛 자리에서 다시 켠 것**입니다. ⚠️ 줄을 붙여 주세요. `~/projects/.move-backup-<날짜>/` 만 남습니다(`.env` 사본 — 확인 뒤 지움).
-
-**③ 끝난 뒤 확인**
-
-1. `https://161.33.153.189:8080` — 로그인 · 차트 · 계좌 · 자산 관리(열쇠 새 경로)가 된다.
-2. 서버에서 `ls ~` → `projects` 와 시스템 폴더(`snap`)만 · `crontab -l` → `0 3 * * 0 /home/ubuntu/projects/alphascope/scripts/backup.sh` · `pm2 list` 의 두 이름 online.
-3. 주간 백업을 바로 한 번 시험해도 됩니다(서버가 도는 중에도 안전): `~/projects/alphascope/scripts/backup.sh && tail -n 2 ~/projects/alphascope/backups/db/backup.log` → 「완료 … integrity_check ok」.
-4. `~/projects/alphascope/scripts/setpw.sh` 는 옮기기만 했습니다(스크립트는 내용을 읽지 않음) — 안에 `~/alphascope` 가 있으면 직접 `~/projects/alphascope/app` 으로 고칩니다.
-5. 다음 일요일 03:00 뒤 `ls ~/projects/alphascope/backups/db/` 에 새 백업이 있다.
-6. 1주쯤 문제없으면 지웁니다: `rm -rf ~/projects/alphascope/backups/node24/alphascope-node24-backup-* ~/projects/.move-backup-*`
-
-맥에서 배포하는 한 줄도 바뀝니다: `ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189 '~/projects/alphascope/scripts/deploy.sh'`.
-
-**④ 손으로 되돌리기**(성공한 뒤 며칠 지나 문제가 보일 때 — 서버 안에서. 그 사이 `.env` 를 고쳤다면 그 줄은 다시 고칩니다):
-
-```bash
-M=$(ls -d ~/projects/.move-backup-* | tail -1); P=~/projects/alphascope
-pm2 stop alphascope-api && pm2 stop alphascope-indicators
-mv $P/app ~/alphascope && mv $P/secrets ~/secrets && cat "$M/.env.before" > ~/alphascope/.env
-mv $P/backups/db ~/backups && mv $P/data ~/alphascope-samples && mv $P/scripts/setpw.sh ~/setpw.sh
-cp "$M/old/deploy.sh" ~/deploy.sh && cp "$M/old/backup.sh" ~/backup.sh && crontab "$M/crontab.txt"
-pm2 delete alphascope-api && pm2 delete alphascope-indicators
-pm2 start "$M/old/ecosystem.config.cjs" --only alphascope-api && pm2 start "$M/old/ecosystem.config.cjs" --only alphascope-indicators
-pm2 save && curl -s http://127.0.0.1:4000/api/version
-```
-
-- nginx 옛 백업 · Node 24 · https 백업은 `~/projects/alphascope/backups/` 에 그대로 둬도 해가 없습니다. 지운 Vite 옛 파일 3개는 되돌리지 않습니다(옛 Vite 시절로 돌아갈 일 없음 — `rollback-to-vite.sh` 는 이제 1/4 에서 멈춤).
+지난 일 — 오라클은 이미 끝남 · 스크립트(`move-to-projects.sh`)와 설명은 git 기록 `57b989f` 에 있음. 자리는 지금 `deploy/paths.sh` 한 곳에서 정합니다.
 
 ### Node 24 올리기 (v2.60.9 · 한 번만)
 
-맥과 같은 **Node 24.22.1**(nodesource 패키지 `24.22.1-1nodesource1`)로 올립니다. `deploy/upgrade-node24.sh` 가 **설치 · 빌드 · 화면 복사까지** 하므로 푸시한 뒤 배포(`scripts/deploy.sh`)를 **먼저 돌리지 않습니다**.
-
-**언제** — 서버 스케줄러가 모두 쉬는 때(KST, 11월 · 미국 서머타임이 끝난 뒤 기준):
-
-| 때(KST) | 도는 것 | 올려도 되나 |
-|---|---|---|
-| **토 15:00 ~ 일 17:00** | 6시간 · 24시간마다 「오늘 받았나」 확인만(실적일 · 휴장일 · 종목 목록 · 세션 정리 — 켜지면 따라잡음) | ✅ **추천** |
-| 토 06:00 ~ 14:00 | 미국 금요일 장 뒤 일 — 매수 판단 기록(06:30) · 지정 종목 Gemini 분석 · 거래정지 받기(~10:00, 안 풀린 정지가 있으면 ~14:00) · 다시 계산(10:45~14:00) | ⚠️ 피함 |
-| 일 18:00 ~ | 미국 월요일 04:00 ET 부터 거래정지 받기 | ⚠️ 피함 |
-| 평일 06:30 ~ 07:20 | 매수 판단(미국) · Gemini 지정 종목 · 성과 스냅샷(07:00) · 오늘 시황(07:05) | ❌ |
-| 평일 09:00 ~ 15:30 · 23:30 ~ 06:00 | 국내 장 · 미국 장 — 계좌 자동매매(60초마다 손절 · 익절 검사) | ❌ |
-| 05:30 앞뒤 | (배포 시간대 규칙) | ❌ |
-
-미국 서머타임 중(3월~11월 첫 주)에는 미국 쪽 시각이 모두 1시간 앞당겨집니다(추천은 토 14:00 ~ 일 16:00).
-
-**멈추는 시간** — AlphaScope 두 프로그램이 꺼져 있는 것은 ⑤단계(멈춤 → DB 복사 → node_modules 바꿔 끼움 → 다시 켬 → API 응답)뿐으로, **약 10~30초**입니다(맥: 서버가 켜져 응답까지 0.9초 · 오라클 2 OCPU 는 몇 배 느림 · DB 크기만큼 복사 시간이 더해짐). Node 24 설치(apt)와 `npm ci`(맥에서 캐시 없이 7초 — 오라클은 1~2분 예상)는 **서버를 켠 채로** 옆 폴더에서 먼저 합니다. 스크립트 전체는 3~5분쯤 걸립니다.
-
-**순서** — 맥 터미널에서 한 줄씩:
-
-1. 들어가기 전에 지금 상태만 봅니다(아무것도 바꾸지 않음 — `v22.x` · `…nodesource…` · `/usr/bin/node` 가 나와야 합니다).
-
-   ```bash
-   ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189 'node -v; dpkg-query -W -f="\${Version}\n" nodejs; command -v node; readlink -f "$(command -v pm2)"; df -h ~ | tail -1'
-   ```
-
-2. 서버에 들어가 코드를 받고 스크립트를 돌립니다.
-
-   ```bash
-   ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189
-   ```
-
-   ```bash
-   cd ~/projects/alphascope/app && git pull --ff-only origin main && bash deploy/upgrade-node24.sh
-   ```
-
-   - 「━━━ 1/7 … 7/7」 을 차례로 지나 끝에 **「완료 — Node 24 (v24.22.1) · 서버 켜짐 · 오류 없음」** 이 나오면 성공입니다.
-   - 「아무것도 바꾸지 않고 멈춥니다」 — 설치 방식이 예상과 다릅니다(nodesource 가 아님 · nvm · node 가 22 가 아님 등). 서버는 그대로 돕니다. 나온 글을 개발 대화에 붙여 주세요.
-   - 「되돌렸습니다」 — 중간에 실패해 **스스로 Node 22 · 옛 node_modules · 옛 화면으로 되돌리고 서버를 다시 켠 것**입니다. ⚠️ 줄을 개발 대화에 붙여 주세요.
-   - 이미 Node 24 면 「할 일이 없습니다」 로 끝납니다(두 번 돌려도 해가 없음).
-
-**끝난 뒤 확인할 것**
-
-1. 브라우저에서 `https://161.33.153.189:8080` 새로고침 → 로그인 · 차트 · 계좌가 열린다.
-2. 서버에서 `node -v` = `v24.22.1` · `pm2 list` 에서 `alphascope-api` · `alphascope-indicators` 가 `online`(다른 프로젝트 줄은 그대로).
-3. 다음 장에서 자동매매 · 매수 판단 기록이 평소처럼 돈다(계좌 「최근 판단」 · 매수 판단 화면의 그날 기록).
-4. 며칠 문제가 없으면 백업 폴더를 지웁니다(옛 node_modules 가 있어 수백 MB): `rm -rf ~/projects/alphascope/backups/node24/alphascope-node24-backup-<날짜>`
-
-**알아 둘 것**
-
-- 백업 폴더 `~/projects/alphascope/backups/node24/alphascope-node24-backup-<날짜>/` — `info.txt`(옛 버전들) · Node 22 패키지(`nodejs_22…arm64.deb`) · apt 저장소 설정 · `db/`(멈춘 뒤 복사한 DB · `-wal` · `-shm`) · `node_modules.node22` · `web/`(옛 화면) · `dump.pm2` · 단계별 로그.
-- 같은 서버의 **다른 프로젝트**는 멈추거나 다시 켜지 않습니다. 다만 서버의 `node` 가 24 로 바뀌므로 그 프로젝트도 **다음에 다시 켜질 때(재부팅 포함)부터 Node 24** 로 돕니다. pm2 자체(데몬)도 재부팅 전까지는 옛 Node 로 돌지만 AlphaScope 는 영향이 없습니다 — `pm2 update` 는 모든 프로그램을 다시 켜므로 쓰지 않습니다.
-- DB 는 되돌릴 때도 **덮어쓰지 않습니다**(better-sqlite3 11.10 → 12.1 은 같은 SQLite 3.49.2 라 파일 형식이 같고, 되돌리기 전까지 새 서버가 쓴 기록을 잃지 않게). 사본은 백업 폴더 `db/` 에 있습니다.
-
-**손으로 되돌리기**(스크립트가 성공한 뒤 며칠 지나 문제가 보일 때 — 서버 안에서, `<날짜>` 는 `ls ~/projects/alphascope/backups/node24` 로 확인):
-
-```bash
-B=~/projects/alphascope/backups/node24/alphascope-node24-backup-<날짜>
-sudo rm -f /etc/apt/sources.list.d/nodesource.sources /etc/apt/sources.list.d/nodesource.list /etc/apt/preferences.d/nodejs /etc/apt/preferences.d/nsolid
-while IFS='|' read -r NAME DEST; do sudo cp "$B/apt/$NAME" "$DEST"; done < "$B/apt-paths.txt"
-sudo dpkg -i "$B"/nodejs_*.deb && node -v
-pm2 stop alphascope-api alphascope-indicators
-mv ~/projects/alphascope/app/node_modules "$B/node_modules.node24" && mv "$B/node_modules.node22" ~/projects/alphascope/app/node_modules
-pm2 restart alphascope-api && pm2 restart alphascope-indicators && curl -s http://127.0.0.1:4000/api/version
-```
-
-되돌린 뒤 배포(`~/projects/alphascope/scripts/deploy.sh`)를 돌리면 Node 22 로 다시 설치 · 빌드합니다(`package.json` 의 `engines` 가 24 라 npm 이 경고만 냅니다).
+지난 일 — 오라클은 이미 Node 24 · 스크립트(`upgrade-node24.sh`)와 설명 · 손으로 되돌리기는 git 기록 `57b989f` 에 있음.
 
 ### 주소 8080 · 443 닫기 (v2.61.2 · 한 번만)
 
@@ -204,7 +79,7 @@ sudo iptables -I INPUT 6 -p tcp --dport 443 -m state --state NEW -j ACCEPT && su
 
 `http://161.33.153.189:8080` → **`https://161.33.153.189:8080`**(Let's Encrypt IP 인증서 · 무료 · 같은 문이 https 가 되고 평문 http 는 https 로 넘어감). 근거 · 출처는 아래 「HTTPS 조사」.
 
-**언제** — 앱 서버(pm2)는 다시 켜지 않고 nginx 만 다시 읽으므로 **멈추는 시간이 거의 없습니다**(자동매매 · 스케줄러는 그대로 돕니다). 그래도 장 밖(위 「Node 24 올리기」 표의 토 15:00 ~ 일 17:00 추천)에, 배포 시간대(05:00~22:30 KST · 05:30 전후 피함) 안에 합니다. 5~10분.
+**언제** — 앱 서버(pm2)는 다시 켜지 않고 nginx 만 다시 읽으므로 **멈추는 시간이 거의 없습니다**(자동매매 · 스케줄러는 그대로 돕니다). 그래도 장 밖(서버 스케줄러가 쉬는 토 15:00 ~ 일 17:00 KST 추천 — 미국 서머타임 중에는 토 14:00 ~ 일 16:00)에, 배포 시간대(05:00~22:30 KST · 05:30 전후 피함) 안에 합니다. 5~10분.
 
 **① 오라클 웹 콘솔** — 보안 목록에 80 을 더합니다(서버 안에서는 이것을 볼 수 없어 스크립트가 물어봅니다).
 ☰ → 네트워킹 → 가상 클라우드 네트워크 → VCN → 서브넷 → 공용 서브넷 → 보안 목록 → Default Security List → 수신 규칙 추가:
@@ -276,34 +151,9 @@ cd ~/projects/alphascope/app && npm run auth:set-password
 기기 하나만 끊으려면 앱의 「설정 > 앱 기능 설정 > 로그인된 기기」 에서 [로그아웃] 을 누릅니다.
 
 
-## 처음 서버를 완성본 방식으로 바꿀 때 (한 번만 — 이미 했다면 필요 없음)
+## 처음 서버를 완성본 방식으로 바꿀 때 (한 번만 — 이미 했음)
 
-아래 명령을 **순서대로 하나씩** 복사해 붙여 넣습니다.
-
-1. 맥의 터미널에서 서버에 들어갑니다. (줄 앞이 `ubuntu@alphascope-server` 로 시작하면 이미 서버 안이니 건너뜁니다.)
-
-   ```bash
-   ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189
-   ```
-
-2. 최신 코드를 받습니다.
-
-   ```bash
-   cd ~/projects/alphascope/app && git pull --ff-only origin main
-   ```
-
-3. 전환 스크립트를 실행합니다. (1~2분 걸립니다. 마지막에 「전환 완료」 가 나오면 성공입니다.)
-
-   ```bash
-   bash deploy/switch-to-static.sh
-   ```
-
-   - 중간에 「⚠️ … 되돌립니다」 가 나오면 **자동으로 예전 상태로 돌아간 것**입니다. 화면은 그대로 쓸 수 있습니다. 나온 글을 그대로 알려 주세요.
-
-4. 브라우저에서 서버 주소를 **새로고침**하고 세 가지를 봅니다.
-   1. 로그인 화면이 뜨고, 로그인하면 종목 지도·차트가 보인다.
-   2. 글자 모양(글꼴)이 전과 같다.
-   3. 서버에서 `pm2 list` 를 쳤을 때 `alphascope-web` 이 없고 `alphascope-api`·`alphascope-indicators` 가 `online` 이다.
+지난 일 — 스크립트(`switch-to-static.sh`)와 순서는 git 기록 `57b989f` 에 있음.
 
 ## 되돌리기
 
@@ -313,7 +163,7 @@ cd ~/projects/alphascope/app && npm run auth:set-password
   sudo cp /etc/nginx/sites-available/alphascope.backup-<날짜> /etc/nginx/sites-available/alphascope && sudo nginx -t && sudo systemctl reload nginx
   ```
 
-- ⚠️ `rollback-to-vite.sh` 는 **옛 Vite 시절(80번) 설정**으로 돌아갑니다 — 지금은 쓰지 않습니다.
+- 옛 Vite 시절(80번)로 되돌리기 — 지난 일 · 지금은 쓰지 않음(스크립트 `rollback-to-vite.sh` 는 git 기록 `57b989f` 에 있음).
 
 ## 자주 생길 일
 
@@ -500,11 +350,7 @@ IP 주소(`161.33.153.189`)에 Let's Encrypt 인증서를 받아 https 로 여�
 | `setup-https.sh` | https 로 바꾸기(손으로 한 번 · 위 「https 로 바꾸기」) — 상태가 예상과 다르면 아무것도 바꾸지 않고 멈춤 · Certbot(snap) · iptables 80 · 인증서 · 새 nginx · 자동 갱신 확인 · 실패하면 nginx · iptables · 인증서 · Certbot 을 전으로 |
 | `check-https.sh` | 인증서 상태 보기(바꾸지 않음) — 만료 · 48시간 경고 · 갱신 타이머 · 마지막 갱신 기록. `--short` 한 줄은 배포 끝에서 |
 | `apply-nginx.sh` | nginx 설정 두 개가 바뀌었을 때 손으로 한 번 — (인증서 · 80 확인 경로가 없거나 다른 설정 · 프로그램이 443 을 들으면 멈춤) 백업 · 넣기 · 검사 · 적용 · 확인(https 8080 · http → https · 443 거절 · 80 확인 파일 · 80 끊김) · 갱신 연습 · iptables 443 지움 · 실패하면 되돌리고 예전 주소 확인 |
-| `upgrade-node24.sh` | Node 22 → 24 올리기(손으로 한 번 · 위 「Node 24 올리기」) — 설치 방식이 예상과 다르면 아무것도 바꾸지 않고 멈춤 · 실패하면 Node 22 · 옛 node_modules · 옛 화면으로 되돌림 · pm2 는 AlphaScope 두 이름만 |
 | `paths.sh` | 오라클 자리 한 곳(v2.61.3) — `~/projects/alphascope/` 아래 `app` · `secrets` · `scripts` · `backups` · `data`. 배포 스크립트들이 맨 위에서 읽는다(경로를 파일마다 적지 않음) |
 | `ecosystem.config.cjs` | pm2 설정 — api·indicators 두 개(개발 서버 없음) · cwd · venv 는 이 파일 자리(`app/deploy/`)에서 계산 · 배포가 이 파일을 그대로 씀 |
 | `backup-db.sh` · `backup-db.cjs` | 주간 DB 백업(crontab 일요일 03:00 → `scripts/backup.sh` → 이것) — SQLite 온라인 백업(WAL 이어도 온전) · `integrity_check` · 실패하면 사본 지움 · 성공했을 때만 30일 넘은 것 지움 · 로그 `backups/db/backup.log` |
-| `move-to-projects.sh` | 홈 폴더 정리(손으로 한 번 · 위 「폴더 정리」) — 상태가 예상과 다르면 멈춤 · 서버 멈춤은 pm2 두 이름 멈춤 ~ 다시 켬 사이뿐 · 실패하면 자리 · pm2 · crontab · `.env` 를 되돌리고 옛 자리에서 다시 켬 |
 | `deploy.sh` | 배포 스크립트 — `~/projects/alphascope/scripts/deploy.sh` 로 복사되어 쓰인다 · pm2 는 AlphaScope 두 이름만(`PM2_APPS` — `ecosystem.config.cjs` 와 같게 · `npm run deploy:test`) |
-| `switch-to-static.sh` | 한 번만 쓰는 전환 스크립트(백업·자동 되돌리기 포함) |
-| `rollback-to-vite.sh` | 옛 Vite 시절(80번)로 되돌리기 — 지금은 쓰지 않는다 |

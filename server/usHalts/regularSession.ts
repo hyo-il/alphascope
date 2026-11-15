@@ -6,7 +6,7 @@
  */
 import { heatmapSession, nextSessionSpan } from '../heatmapSession';
 
-export interface UsRegularStatus {
+interface UsRegularStatus {
   regularOpen: boolean;
   /** 다음 정규장 시작 · 끝(epoch ms — 지금 열려 있으면 그다음 것). 모르면 null */
   nextRegularOpen: number | null;

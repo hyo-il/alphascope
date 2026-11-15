@@ -41,7 +41,7 @@ export interface AverageHolding {
   price: number | null;
 }
 
-export interface AddBuysResult {
+interface AddBuysResult {
   newQty: number;
   newAvg: number;
   /** 더 드는 돈(원래 통화) */
@@ -68,7 +68,7 @@ export function addBuys(h: AverageHolding, buys: { price: number; qty: number }[
   return { newQty: qty, newAvg: avg, extraCost: money(cost, h.currency), returnBefore: returnOf(h.price, h.avg), returnAfter: returnOf(h.price, avg) };
 }
 
-export type BuysToTarget =
+type BuysToTarget =
   | { ok: true; qty: number; cost: number }
   /** above-avg: 목표가 지금 평균보다 높거나 같다 · price-too-high: 지금 가격이 목표보다 높거나 같다(아무리 사도 못 내림) · no-price: 지금 가격을 모른다 */
   | { ok: false; reason: 'above-avg' | 'price-too-high' | 'no-price' };

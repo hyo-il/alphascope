@@ -26,7 +26,7 @@ export class BacktestBusyError extends Error {
 const kstDay = (iso: string | number) => marketDate(typeof iso === 'string' ? Date.parse(iso) : iso, '005930');
 
 /** 오늘(KST) 같은 입력으로 이미 만든 사용자 시험 결과 */
-export function sameDayCustomId(input: BacktestInput, now = Date.now()): number | null {
+function sameDayCustomId(input: BacktestInput, now = Date.now()): number | null {
   const key = customInputKey(input);
   for (const item of listBacktests()) {
     if (item.summary.inputKey === key && kstDay(item.createdAt) === kstDay(now)) return item.id;

@@ -187,7 +187,7 @@ export function loadCandlesBefore(
   return rows.reverse();
 }
 
-export interface AnalysisRecord {
+interface AnalysisRecord {
   id?: number;
   symbol: string;
   timeframe: string;

@@ -78,7 +78,7 @@ export function clearPriceStateForTest(): void {
 
 // ── 토스 가격 · 환율 (시험이 바꿔 끼운다) ──
 
-export interface PriceTools {
+interface PriceTools {
   /** 종목 → 원래 통화 가격(받은 것만) — 요청 1번 */
   quotes: (symbols: string[]) => Promise<Map<string, number>>;
   /** 1달러 = N원 — 못 받으면 null */

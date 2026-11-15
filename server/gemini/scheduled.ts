@@ -22,15 +22,15 @@ import { geminiDisabledReason, GeminiError } from './client';
 import { readSetting, writeSetting } from './store';
 import type { GeminiAnalysis } from '../../src/types/gemini';
 
-export const SCHEDULED_MAX = 10;
+const SCHEDULED_MAX = 10;
 /** 마감 뒤 데이터가 완성될 시간 */
-export const SCHEDULED_DELAY_MINUTES = 30;
+const SCHEDULED_DELAY_MINUTES = 30;
 const SYMBOLS_KEY = 'scheduled_symbols';
 const STATE_KEY = 'scheduled_state';
 /** 기준 시장 — 미국 마감 시각·미국 휴장일로 정한다 */
 const REF = 'AAPL';
 
-export interface ScheduledRunResult {
+interface ScheduledRunResult {
   /** 그 미국 거래일 (YYYY-MM-DD) */
   baseDate: string;
   startedAt: string;
@@ -44,13 +44,13 @@ export interface ScheduledRunResult {
   rateLimited: boolean;
 }
 
-export interface ScheduledState {
+interface ScheduledState {
   /** 정기 실행을 마친 마지막 기준일 — 같은 날 두 번 돌지 않는 근거 */
   lastBaseDate: string | null;
   last: ScheduledRunResult | null;
 }
 
-export interface ScheduledStatus {
+interface ScheduledStatus {
   symbols: string[];
   max: number;
   running: boolean;
@@ -66,7 +66,7 @@ export class ScheduledError extends Error {}
 
 // ── 저장 ────────────────────────────────────────────────
 
-export function getScheduledSymbols(): string[] {
+function getScheduledSymbols(): string[] {
   const list = readSetting<unknown>(SYMBOLS_KEY, []);
   return Array.isArray(list) ? list.filter((s): s is string => typeof s === 'string') : [];
 }
@@ -97,7 +97,7 @@ function writeState(state: ScheduledState): void {
 
 // ── 스위치 ──────────────────────────────────────────────
 
-export function scheduledDisabledReason(): string | null {
+function scheduledDisabledReason(): string | null {
   const gemini = geminiDisabledReason();
   if (gemini) return gemini;
   if (process.env.GEMINI_SCHEDULED_ENABLED?.trim().toLowerCase() === 'false') {
@@ -112,7 +112,7 @@ export function scheduledDisabledReason(): string | null {
  * 지금 정기 실행을 해야 하나 — 해야 하면 그 기준일, 아니면 null.
  * 기준일 = 지금의 미국(ET) 날짜. 휴장일·마감+30분 전·이미 그날 돈 날은 null.
  */
-export function dueBaseDate(now: number, lastBaseDate: string | null, closed = isMarketClosed): string | null {
+function dueBaseDate(now: number, lastBaseDate: string | null, closed = isMarketClosed): string | null {
   const day = marketDate(now, REF);
   if (closed('US', day)) return null;
   if (marketMinutes(now, REF) < marketCloseMinutes(REF) + SCHEDULED_DELAY_MINUTES) return null;
@@ -141,7 +141,7 @@ function previousTradingDay(day: string, closed: typeof isMarketClosed): string 
  *   (그날 분석은 마감 뒤 정기 실행이 맡는다). 오늘이 휴장일이면 다음 개장 전이므로 보충할 수 있다.
  * - 한 번도 돈 적이 없으면(lastBaseDate null) 보충하지 않는다 — 종목을 막 지정했을 때 바로 돌지 않게.
  */
-export function catchUpBaseDate(now: number, lastBaseDate: string | null, closed = isMarketClosed): string | null {
+function catchUpBaseDate(now: number, lastBaseDate: string | null, closed = isMarketClosed): string | null {
   if (!lastBaseDate) return null;
   const day = marketDate(now, REF);
   if (!closed('US', day) && marketMinutes(now, REF) >= US_OPEN_MINUTES) return null;
@@ -149,7 +149,7 @@ export function catchUpBaseDate(now: number, lastBaseDate: string | null, closed
   return lastBaseDate < prev ? prev : null;
 }
 
-export interface ScheduledDeps {
+interface ScheduledDeps {
   analyze: (symbol: string) => Promise<Pick<GeminiAnalysis, 'signal' | 'confidence'>>;
   now: () => number;
 }

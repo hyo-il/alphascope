@@ -33,7 +33,7 @@ import {
   type BacktestInput,
 } from '../../src/types/backtest';
 
-export const SEGMENT_DAYS = 252;
+const SEGMENT_DAYS = 252;
 /** 받는 일봉 = 기간 + 이만큼(지표 준비) */
 const WARMUP = 140;
 /**
@@ -77,7 +77,7 @@ function hashSeed(text: string): number {
  * 기준선 2 — 같은 횟수·같은 보유일로 겹치지 않는 무작위 진입, 200번 평균 (사전 등록 표).
  * 거래 하나는 진입 봉 ~ 청산 봉(h+1 봉)을 차지한다. 남는 봉을 n+1 틈에 무작위로 나누고 거래 순서도 섞는다.
  */
-export function randomBaseline(candles: Candle[], start: number, end: number, holdDays: number[], seed: number): number | null {
+function randomBaseline(candles: Candle[], start: number, end: number, holdDays: number[], seed: number): number | null {
   const n = holdDays.length;
   if (!n) return 0;
   const span = end - start + 1;
@@ -146,7 +146,7 @@ export async function researchTargets(): Promise<{ asOf: string; included: Targe
   return { asOf: u.asOf, included, outOfSector, unknown };
 }
 
-export interface ResearchProgress {
+interface ResearchProgress {
   (done: number, total: number, current: string): void;
 }
 
@@ -176,7 +176,7 @@ export function namesAndSectors(symbols: string[]): Map<string, { name: string |
   );
 }
 
-export type Cell = {
+type Cell = {
   rule: number;
   hold: number | null;
   random: number | null;
@@ -204,7 +204,7 @@ function chainCurves(curves: number[][]): number[] {
  * 시험 기간 = 마지막 `252 × years` 봉. 구간마다 `simulateRule(…, end)` 와 같은 횟수·보유일의 무작위 기준선.
  * 시드는 조건과 무관(`custom|종목|구간`) — 같은 거래 횟수·보유일이면 같은 기준선이 나와 조건끼리 공정하게 비교된다.
  */
-export function simulateSegments(symbol: string, candles: Candle[], series: IndicatorSeries, years: number, rule: RuleBody, market?: MarketRefData | null) {
+function simulateSegments(symbol: string, candles: Candle[], series: IndicatorSeries, years: number, rule: RuleBody, market?: MarketRefData | null) {
   const first = candles.length - SEGMENT_DAYS * years;
   const date = (i: number) => marketDate(candles[i].timestamp, symbol);
   const bounds = Array.from({ length: years }, (_, k) => {
@@ -233,7 +233,7 @@ const toMdd = (curve: number[]) => {
 };
 
 /** 셀 묶음 → 종목 평균 숫자 (요약·구간 표 공용). 앞 8개 칸의 계산은 바꾸지 않는다(백테스트 바이트 비교 기준) */
-export function customStats(cells: Cell[], who: { symbol: string; name: string | null }[]): BacktestCustomStats {
+function customStats(cells: Cell[], who: { symbol: string; name: string | null }[]): BacktestCustomStats {
   const per = cells.map((c) => {
     const n = c.list.length;
     return {

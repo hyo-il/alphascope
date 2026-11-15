@@ -14,7 +14,7 @@ import { ruleBuyText, ruleSellText } from '../../src/utils/ruleText';
 // v2: 조언에 익절 추가 · 설명은 조건 비교 모양(조건 1개도 같은 모양) + MDD·Profit Factor 숫자
 // v3: 초등학생도 아는 쉬운 말 규칙(전문용어 풀이·한 문장 40자 안팎·숫자 1~2개·용어집 이름·"방법 1·2·3")
 /** v4 — 방법 = 매매 규칙(이름·매수·매도 조건 문장). 프롬프트·스키마를 고치면 올린다 */
-export const EXPLAIN_PROMPT_VERSION = 'bt-explain-v5'; // v5: 매도 문장 표기만 — 손절 −7% · 익절 +10% · 트레일링 −5%
+const EXPLAIN_PROMPT_VERSION = 'bt-explain-v5'; // v5: 매도 문장 표기만 — 손절 −7% · 익절 +10% · 트레일링 −5%
 
 /** 쉬운 말 규칙 */
 const EASY_RULES = [
@@ -73,7 +73,7 @@ const ruleText = (c: BacktestCondition, n: (v: number | null | undefined) => str
   `매매 규칙 「${c.ruleName}」 — 매수: ${ruleBuyText(c.rule, (v) => n(v))} / 매도: ${ruleSellText(c.rule, (v) => n(v))}`;
 
 /** 설명에 보낼 숫자 표 — 검증도 이 숫자로 한다(차이 숫자도 미리 계산해 넣는다 — 모델이 새로 빼지 않게) */
-export function explainPayload(r: BacktestCustomReport): { text: string; numbers: number[] } {
+function explainPayload(r: BacktestCustomReport): { text: string; numbers: number[] } {
   const numbers: number[] = [];
   const n = (v: number | null | undefined) => {
     if (v == null) return '—';
@@ -111,7 +111,7 @@ export function explainPayload(r: BacktestCustomReport): { text: string; numbers
 }
 
 /** 문장 속 % 숫자가 입력 숫자(반올림 ±0.05, 부호 무시)에 모두 있으면 통과 */
-export function sentenceOk(sentence: string, numbers: number[]): boolean {
+function sentenceOk(sentence: string, numbers: number[]): boolean {
   const found = [...sentence.matchAll(/([+\-−]?\d+(?:[.,]\d+)?)\s*%/g)].map((m) => Math.abs(Number(m[1].replace('−', '-').replace(',', '.'))));
   return found.every((x) => numbers.some((v) => Math.abs(Math.abs(v) - x) <= 0.05 + 1e-9));
 }

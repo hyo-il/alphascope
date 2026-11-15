@@ -33,7 +33,7 @@ function colName(i: number): string {
 // ───────── 수식 속 칸 주소 ─────────
 
 /** 수식 속 칸 주소 하나 — `A1` · `'탭'!$A$1` · `A1:A9` · `A1:A`(끝 줄 없음) */
-export interface CellRef {
+interface CellRef {
   /** 시작 글자 위치 · 끝 글자 위치(수식 글자 기준) */
   at: number;
   end: number;
@@ -104,7 +104,7 @@ export function linkFormulaFor(source: string, delta: number, tickerRow: number)
 // ───────── 읽기 ─────────
 
 /** 쓰기 직전에 읽은 시트 — `holding` · `ticker` 는 수식 그대로(`rows[줄 - 1][0]` = B열) · `tickerValues` 는 「티커」 계산된 값(코드 칸이 수식인 줄도 코드로 알아본다) · `tabs` 는 탭 전체 수식(`[0]` = A열 — `allTabs` 일 때만) */
-export interface SheetGrid {
+interface SheetGrid {
   data: AssetSheetData;
   shape: SheetShape;
   holding: CellRows;
@@ -148,7 +148,7 @@ const isHere = (r: CellRef) => r.tab == null || r.tab === HOLDINGS_TAB;
 const coversSection = (r: CellRef, s: Pick<ShapeSection, 'nameRow' | 'firstRow'>, lastRow: number) => isHere(r) && r.range && r.endRow != null && r.row >= s.nameRow && r.row <= s.firstRow && r.endRow >= lastRow && r.endRow <= lastRow + 1;
 
 /** 구간 아래(다음 머리 앞) 줄의 칸 중 구간을 덮는 범위가 든 칸 — 없으면 빈 목록 */
-export function findSumCells(holding: CellRows, s: ShapeSection, limit: number): SumCell[] {
+function findSumCells(holding: CellRows, s: ShapeSection, limit: number): SumCell[] {
   const out: SumCell[] = [];
   for (let row = s.lastRow + 1; row < limit; row++) {
     (holding[row - 1] ?? []).forEach((v, col) => {
@@ -167,7 +167,7 @@ const sumAddress = (c: SumCell, shift: number) => one(HOLDINGS_TAB, `${colName(c
  * 줄을 넣은 뒤 합계 칸 — 범위가 새 줄을 품었으면 그대로, 끝이 옛 마지막 줄에 머물렀으면 **범위 끝만** 새 줄로 바꾼 수식을 돌려준다(그 밖 모양은 `mismatch`).
  * 다른 칸 · 다른 탭 수식은 건드리지 않는다.
  */
-export function sumFixes(after: CellRows, sums: SumCell[], s: ShapeSection, newRow: number): CellWrite[] {
+function sumFixes(after: CellRows, sums: SumCell[], s: ShapeSection, newRow: number): CellWrite[] {
   const fixes: CellWrite[] = [];
   for (const c of sums) {
     const f = after[c.row]?.[c.col]; // 줄이 하나 늘어 한 칸 아래
@@ -280,7 +280,7 @@ export function decideNewHolding(grid: SheetGrid, sectionKey: string, stock: Sto
 
 // ───────── 새 종목 — 쓰기 ─────────
 
-export interface NewHoldingOrder {
+interface NewHoldingOrder {
   qty: number;
   price: number;
   assetClass: string;
@@ -288,7 +288,7 @@ export interface NewHoldingOrder {
   tossPrice: number | null;
 }
 
-export interface NewHoldingDone {
+interface NewHoldingDone {
   holdingRow: number;
   tickerRow: number;
   /** 「티커」 에 줄을 넣었으면 그 줄 번호 */
@@ -455,7 +455,7 @@ export function findRowRefs(tabs: Map<string, CellRows>, targetTab: string, row:
 const SHOW_REFS = 3;
 
 /** 모두 매도가 막힌 이유 — 어느 칸 때문인지 앞에(처음 3칸 + 「외 n칸」) */
-export function rowReferencedMessage(refs: string[]): string {
+function rowReferencedMessage(refs: string[]): string {
   const shown = refs.slice(0, SHOW_REFS).join(' · ');
   const subject = refs.length > SHOW_REFS ? `${shown} 외 ${refs.length - SHOW_REFS}칸이` : `${shown} 칸이`;
   return `${subject} 이 종목을 써요. 그 칸을 먼저 정리한 뒤 다시 눌러 주세요.`;

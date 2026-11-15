@@ -27,7 +27,7 @@ export const RULE_INPUT_LIMITS = {
 } as const;
 
 /** 칸 이름(예: 'buy.timing.rsiLow') → 오류 문장. 비어 있으면 저장할 수 있다 */
-export type RuleFieldErrors = Record<string, string>;
+type RuleFieldErrors = Record<string, string>;
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 

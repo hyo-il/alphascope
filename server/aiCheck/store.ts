@@ -22,7 +22,7 @@ export interface AiCheckRow {
 }
 
 /** Gemini 를 실제로 부른 「못 함」 까닭 — 하루 횟수에 센다 */
-export const CALLED_UNAVAILABLE: AiUnavailableReason[] = ['rate_limit', 'error', 'timeout', 'format'];
+const CALLED_UNAVAILABLE: AiUnavailableReason[] = ['rate_limit', 'error', 'timeout', 'format'];
 
 export function findCheck(marketDate: string, symbol: string): AiCheckRow | null {
   return (getDb().prepare(`SELECT * FROM ai_checks WHERE market_date = ? AND symbol = ?`).get(marketDate, symbol) as AiCheckRow | undefined) ?? null;

@@ -37,7 +37,7 @@ export const wonFormula = (row: number, market: 'US' | 'KR') => {
 };
 
 /** 「티커」 한 종목 줄 — B 이름 · C 코드 · E 가격 칸 · F 원화 표기 칸(수식 그대로 읽은 것) */
-export interface TickerLine {
+interface TickerLine {
   row: number;
   name: string;
   code: string;

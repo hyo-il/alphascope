@@ -47,7 +47,7 @@ const costOf = (h: AssetHolding, avgFxRate: number | null): number | null => {
   return h.quantity * h.avgPrice;
 };
 
-export interface ComputedTotals {
+interface ComputedTotals {
   totals: AssetTotals;
   profit: AssetSummary['profit'];
   missingNames: string[];

@@ -89,7 +89,7 @@ export function purchaseCycle(today: string, cal: PurchaseCalendar): { cycleDay:
 }
 
 /** 한국 휴장 달력(앱 DB) — `isMarketClosed('KR', day)` · 확인한 범위 `coverageOf('KR')` */
-export function krPurchaseCalendar(): PurchaseCalendar {
+function krPurchaseCalendar(): PurchaseCalendar {
   const cov = coverageOf('KR');
   return {
     isClosed: (day) => isMarketClosed('KR', day),
@@ -98,7 +98,7 @@ export function krPurchaseCalendar(): PurchaseCalendar {
 }
 
 /** 오늘 한국 날짜 */
-export const todayKst = (now = Date.now()) => marketDate(now, '005930');
+const todayKst = (now = Date.now()) => marketDate(now, '005930');
 
 const sumOf = (vs: (number | null)[]) => {
   const known = vs.filter((v): v is number => v != null);
@@ -159,8 +159,8 @@ export function setPurchaseClockForTest(now: (() => number) | null, cal: (() => 
 }
 
 /** 미리 완료할 수 있는 첫날 — 다음 구매일의 7일 전(달력 날짜) */
-export const EARLY_DAYS = 7;
-export const earlyFromOf = (nextDay: string) => iso(Date.parse(`${nextDay}T00:00:00Z`) - EARLY_DAYS * DAY_MS);
+const EARLY_DAYS = 7;
+const earlyFromOf = (nextDay: string) => iso(Date.parse(`${nextDay}T00:00:00Z`) - EARLY_DAYS * DAY_MS);
 
 type Cycle = Pick<MonthlyBuy, 'today' | 'cycleDay' | 'nextDay' | 'done' | 'doneDay' | 'calendarUnchecked' | 'startDay' | 'skipped' | 'earlyFrom' | 'earlyCycle' | 'nextDoneDay'>;
 

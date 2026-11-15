@@ -321,7 +321,7 @@ export async function writeAssetClasses(rows: unknown, value: unknown, codes?: u
 }
 
 /** 저장할 목표 비율 — 여섯 칸 모두 정수 % */
-export type TargetRatioInput = Record<keyof AssetTargetRatio, number>;
+type TargetRatioInput = Record<keyof AssetTargetRatio, number>;
 /** 시트 칸 순서 그대로(현금 · 금 · 채권 · 투자 / 코어 · 위성) — `SHEET_LAYOUT.targetRatio.assets` · `coreSatellite` 와 짝 */
 const RATIO_ASSET_KEYS = ['cash', 'gold', 'bond', 'invest'] as const;
 const RATIO_STOCK_KEYS = ['core', 'satellite'] as const;

@@ -17,7 +17,7 @@ import { getDb } from './db';
 import { dailyWithDates, onePerDay, scoringBaseIndex } from './gemini/accuracy';
 import type { Candle } from '../src/types/toss';
 
-export const NEWS_HORIZONS = [
+const NEWS_HORIZONS = [
   { days: 1, band: 1 },
   { days: 5, band: 2 },
 ] as const;
@@ -41,7 +41,7 @@ export interface NewsScoredItem {
 }
 
 /** 판정 하나를 채점한다 — 캔들을 받는 순수 함수(점검 스크립트가 손 검산에 쓴다) */
-export function scoreNewsItem(
+function scoreNewsItem(
   item: { symbol: string; analyzedAt: string; overall: Overall },
   candles: Candle[],
   dates?: string[],

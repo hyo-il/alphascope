@@ -6,7 +6,6 @@ import { Check, ChevronLeft, ChevronRight, Clock, Settings, Star, Wallet } from 
 import { useState } from 'react';
 import SymbolSearch from '../common/SymbolSearch';
 import WatchFolderView from './WatchFolderView';
-import { UNGROUPED_ID } from '../../types/watchlist';
 import WatchlistManager from './WatchlistManager';
 import type { useWatchlist } from '../../hooks/useWatchlist';
 import { DEFAULT_FOLDER_ID } from '../../types/watchlist';
@@ -216,7 +215,7 @@ export default function WatchPanel({
             <WatchFolderView
               key={folder.id}
               folder={folder}
-              bare={folder.id === UNGROUPED_ID}
+              bare={folder.id === DEFAULT_FOLDER_ID}
               currentSymbol={currentSymbol}
               quotes={quotes}
               nameOf={names}

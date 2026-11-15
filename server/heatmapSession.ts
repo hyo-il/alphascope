@@ -55,7 +55,7 @@ const OTHER_LABEL = '장외 거래';
 const KR_PRE_AUCTION_LABEL = '정규장 시작 전';
 
 /** 보조 판단 — 마지막 체결이 이만큼 안이면 거래 중으로 본다 */
-export const RECENT_TRADE_MS = 2 * 60_000;
+const RECENT_TRADE_MS = 2 * 60_000;
 /** 체결 시각이 서버 시계보다 이만큼 넘게 앞이면 믿지 않는다(이상한 값으로 밤새 「열림」 이 되지 않게) */
 const FUTURE_TRADE_MS = 60_000;
 const PROBE_TTL_MS = 60_000;
@@ -86,7 +86,7 @@ export interface TossCalendarResponse {
 }
 
 /** 토스 달력 응답 → 세션 칸(시작 순). 모양이 다르거나 시각이 틀린 칸은 버린다 */
-export function spansFromToss(market: CalendarMarket, res: TossCalendarResponse): SessionSpan[] {
+function spansFromToss(market: CalendarMarket, res: TossCalendarResponse): SessionSpan[] {
   const out: SessionSpan[] = [];
   const push = (session: HeatmapSession, label: string, start: number, end: number, tradeDay: string) => {
     if (Number.isFinite(start) && Number.isFinite(end) && start < end) out.push({ session, label, start, end, tradeDay });
@@ -420,7 +420,7 @@ export function setSessionHooksForTest(hooks: {
 }
 const defaults = { calendar: fetchCalendar, lastTrade: probeLastTrade, refreshDaily };
 
-export function resetHeatmapSessionForTest(): void {
+function resetHeatmapSessionForTest(): void {
   calendarCache.clear();
   probeCache.clear();
   todayMemo.clear();

@@ -5,7 +5,7 @@
  * ⚠️ **계좌마다 키를 나누지 않고 맵 하나에 담는다.** 스케줄러가 "활성화된 계좌 전부" 를 매 틱 훑기 때문이다.
  *
  * 설정 모양은 「규칙 하나 + 종목 + 계좌 운용 + 신규 매수 안전장치」 다. 옛 칸(mode · 분석 주기 · 청산 등)은
- * 읽을 때 버린다(`normalizeStrategy`). 데이터 정리(`server/dataReset/v2_44_0.ts`)가 저장값도 한 번 새 모양으로 바꾼다.
+ * 읽을 때 버린다(`normalizeStrategy`).
  * 같은 테이블에 계좌 × 종목별로 「마지막 신호 판단 시장 날짜」·「마지막 손절 시장 날짜」·트레일링 최고가를 둔다.
  */
 
@@ -16,15 +16,14 @@ import { marketDate } from '../../src/utils/marketDate';
 import { isKrSymbol } from '../../src/utils/market';
 
 export const STRATEGIES_KEY = 'autoTrading.strategies';
-export const PEAKS_KEY = 'autoTrading.trailingPeaks';
+const PEAKS_KEY = 'autoTrading.trailingPeaks';
 /** 계좌별 마지막 바퀴의 판단 (건너뜀 사유 포함) — 재시작해도 화면에서 볼 수 있게 저장한다 */
-export const NOTES_KEY = 'autoTrading.lastNotes';
+const NOTES_KEY = 'autoTrading.lastNotes';
 /** 계좌 × 종목 → 마지막으로 신호를 본 그 종목 시장 날짜 (하루 한 번 판단) */
-export const JUDGED_KEY = 'autoTrading.lastJudged';
+const JUDGED_KEY = 'autoTrading.lastJudged';
 /** 계좌 × 종목 → 마지막 손절(hard_stop)로 판 그 종목 시장 날짜 (손절 뒤 다시 매수 대기) */
-export const STOPS_KEY = 'autoTrading.lastStops';
+const STOPS_KEY = 'autoTrading.lastStops';
 
-export type { DecisionNote };
 /** `day` = 한국 시간 날짜(옛 기록에는 없다: `at` 의 한국 날짜로 읽는다) */
 type NotesMap = Record<string, { at: string; day?: string; notes: DecisionNote[] }>;
 

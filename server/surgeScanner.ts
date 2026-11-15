@@ -24,7 +24,7 @@ import {
  * (실제로 51종목을 돌려 3건뿐이었다). 진짜 급등은 중소형주에서 나온다.
  * 지금 기본 종목 풀은 토스 랭킹(아래)이고, 이 목록은 설정에서 켤 때만 쓴다.
  */
-export const PRESET_UNIVERSE = [
+const PRESET_UNIVERSE = [
   'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'AVGO', 'TSLA', 'BRK-B', 'LLY',
   'JPM', 'V', 'XOM', 'UNH', 'MA', 'COST', 'HD', 'PG', 'JNJ', 'WMT',
   'NFLX', 'ABBV', 'CRM', 'BAC', 'ORCL', 'MRK', 'CVX', 'KO', 'AMD', 'PEP',
@@ -85,7 +85,7 @@ async function rankingSymbols(): Promise<{ symbols: string[]; error: string | nu
 }
 
 /** 분석 대상 종목 — 랭킹 · 관심 목록 · (선택) 대형주 목록을 합친다. */
-export async function resolveUniverse(
+async function resolveUniverse(
   settings: SurgeSettings,
   watchlist: string[],
 ): Promise<{ symbols: string[]; rankingError: string | null }> {

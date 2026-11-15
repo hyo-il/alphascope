@@ -1,4 +1,4 @@
-export interface ChangelogEntry {
+interface ChangelogEntry {
   /** 버전 번호 (예: 'v2.1.0') */
   version: string;
   /** 날짜 (예: '2026-09-20') */

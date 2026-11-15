@@ -21,7 +21,7 @@ import type { DirectionUnknownReason } from '../../src/types/usHalts';
 
 const MINUTE = 60_000;
 /** 한 번에 받는 1분봉 수 — 정지 앞 15분(5분 전 봉을 찾기에 넉넉하다) */
-export const ESTIMATE_BARS = 15;
+const ESTIMATE_BARS = 15;
 /** 직전 봉이 정지보다 이만큼 넘게 앞서면 판정하지 않는다 */
 const STALE_MS = 2 * MINUTE;
 /** 거래대금을 더하는 구간 — 정지 칸 앞 5분 */
@@ -30,10 +30,10 @@ const TURNOVER_MS = 5 * MINUTE;
 export type EstimateFetcher = (symbol: string, haltAtMs: number) => Promise<Candle[]>;
 
 /** 실제 받기 — 정지가 들어 있는 1분 칸까지 오도록 `before` = 정지 + 1분 */
-export const tossMinuteBars: EstimateFetcher = async (symbol, haltAtMs) =>
+const tossMinuteBars: EstimateFetcher = async (symbol, haltAtMs) =>
   (await fetchCandlePage(symbol, '1m', ESTIMATE_BARS, new Date(haltAtMs + MINUTE).toISOString())).candles;
 
-export interface DirectionEstimateResult {
+interface DirectionEstimateResult {
   est: 'up' | 'down' | 'unknown';
   detail: {
     reason?: DirectionUnknownReason;
@@ -70,7 +70,7 @@ export function turnoverBefore(bars: Candle[], haltAtMs: number): number | null 
   return inWindow.reduce((sum, b) => sum + b.close * b.volume, 0);
 }
 
-export interface HaltAnalysis {
+interface HaltAnalysis {
   /** LULD 일 때만 */
   direction: DirectionEstimateResult | null;
   /** 정지 전 5분 거래대금(달러) — null = 모름 */

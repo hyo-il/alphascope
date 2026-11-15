@@ -14,7 +14,6 @@
  */
 
 export const NYSE_SOURCE = 'https://www.nyse.com/markets/hours-calendars';
-export const NYSE_CHECKED_AT = '2026-09-30';
 /** 이 표가 책임지는 기간 */
 export const NYSE_COVERAGE = { from: '2026-01-01', to: '2027-12-31' };
 /** 이 날 이후에는 달력이 "휴장 상수 갱신 필요" 를 띄운다 */

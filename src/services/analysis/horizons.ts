@@ -7,7 +7,7 @@
 
 export type InvestmentHorizon = 'short' | 'swing' | 'mid' | 'long';
 
-export interface HorizonSpec {
+interface HorizonSpec {
   id: InvestmentHorizon;
   /** 버튼 라벨 */
   label: string;

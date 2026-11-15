@@ -9,7 +9,7 @@
  * ⚠️ Python(`python/fundamentals.py`)은 이 파일을 부를 수 없어 같은 규칙을 따로 적었다 — 함께 고친다.
  */
 
-export const KR_MARKETS = ['KOSPI', 'KOSDAQ', 'KR_ETC'] as const;
+const KR_MARKETS = ['KOSPI', 'KOSDAQ', 'KR_ETC'] as const;
 
 /** 카탈로그 시장이 국내인가 */
 export function isKrMarket(market?: string | null): boolean {
@@ -27,7 +27,7 @@ export function isKrSymbol(symbol: string): boolean {
 }
 
 /** 국내 종목인가 — 시장을 알면 시장으로, 모르면 심볼 규칙으로 */
-export function isKrStock(symbol: string, market?: string | null): boolean {
+function isKrStock(symbol: string, market?: string | null): boolean {
   return market ? isKrMarket(market) : isKrSymbol(symbol);
 }
 

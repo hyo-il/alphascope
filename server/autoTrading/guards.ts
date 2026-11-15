@@ -80,7 +80,7 @@ export function earningsGuard(
 
 const DAILY_LOSS_KEY = 'autoTrading.dailyLoss';
 
-export interface DailyLossState {
+interface DailyLossState {
   /** 이 기록의 거래일 (시장 날짜) */
   day: string;
   /** 그 거래일의 시작 평가액 — 그 뒤 입출금만큼 옮긴 값(입금 · 출금이 손실 · 회복으로 잡히지 않게) */

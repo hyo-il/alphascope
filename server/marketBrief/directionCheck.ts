@@ -23,7 +23,7 @@ export const FLAT_RATE_PP = 0.03;
 /** 「방어 · 선방」 이 어긋남이 되는 등락률(%) — 이보다 나쁘면 */
 export const DEFENSE_PCT = -1;
 /** 기조 라벨(Risk-On · Risk-Off) — S&P500 · 나스닥이 둘 다 이만큼 반대로 움직였을 때만(%) */
-export const REGIME_PCT = 1;
+const REGIME_PCT = 1;
 
 type Kind = 'index' | 'rate' | 'other';
 
@@ -36,7 +36,7 @@ interface MarketTerm {
 }
 
 /** 시장 이름 — 앞에 있을수록 먼저 잡는다(「원달러」 를 「달러」 보다 먼저 · 「국내 증시」 를 「코스피」 와 따로) */
-export const MARKET_TERMS: MarketTerm[] = [
+const MARKET_TERMS: MarketTerm[] = [
   { name: '국내 증시', pattern: /(?:국내|한국)\s*(?:증시|주식\s*시장|주식시장|시장|지수|주식)/g, keys: ['KOSPI', 'KOSDAQ'], kind: 'index' },
   { name: '코스닥', pattern: /코스닥|KOSDAQ/gi, keys: ['KOSDAQ'], kind: 'index' },
   { name: '코스피', pattern: /코스피|KOSPI/gi, keys: ['KOSPI'], kind: 'index' },
@@ -58,10 +58,10 @@ export const MARKET_TERMS: MarketTerm[] = [
 ];
 
 /** 방향 말 */
-export const UP_WORDS = /상승|반등|강세|올랐|오른|오르|올라|급등|랠리|호조|회복|신고가/g;
-export const DOWN_WORDS = /하락|급락|약세|내렸|내린|떨어|부진|폭락|반락|밀렸|밀려/g;
+const UP_WORDS = /상승|반등|강세|올랐|오른|오르|올라|급등|랠리|호조|회복|신고가/g;
+const DOWN_WORDS = /하락|급락|약세|내렸|내린|떨어|부진|폭락|반락|밀렸|밀려/g;
 /** 「덜 빠졌다」 일 수 있는 말 — 주식 지수에서만, −1% 보다 나쁠 때 어긋남. 「방어적 대응 · 방어주 · 방어 업종」(자세 · 업종)은 아니다 */
-export const DEFENSE_WORDS = /방어(?=력|했|하|에\s*성공)|선방|견조|버텼|버티|하방\s*경직/g;
+const DEFENSE_WORDS = /방어(?=력|했|하|에\s*성공)|선방|견조|버텼|버티|하방\s*경직/g;
 /** 경제 · 실적을 말하는 「호조 · 회복 · 부진」 — 바로 앞(8자 안)에 이 말이 있으면 지수 방향이 아니다(「수출 호조」 · 「경기 회복」) */
 const ECONOMY_BEFORE = /수출|실적|지표|고용|소비|경기|경제|업황|수요|매출|이익/;
 const ECONOMY_WORDS = /^(?:호조|회복|부진|견조)$/;
@@ -70,9 +70,9 @@ const ECONOMY_AFTER = /지표|실적|수출|고용|소비|경기|매출|이익|�
 /** 시장 이름 바로 뒤가 이 말이면 그 뒤 방향은 지수가 아니라 견준 대상 · 그 안의 업종이다(「코스피 대비 강세」 · 「코스피에서 반도체주 상승」 · 「나스닥 선물」) */
 const NOT_INDEX_AFTER = /^\s*(?:대비|보다|에서|내에서|내\s|안에서|선물|200\s*선물)/;
 /** 방향 말 바로 뒤(10자 안)에 오면 그 말은 지금 일이 아니다 — 전망 · 우려 · 부정 · 가정 · 폭 이야기(상승폭 반납 · 하락폭 축소) */
-export const HEDGE_AFTER = /출발|이후|반납|꺾|둔화|축소|제한|가능|우려|리스크|위험|기대|전망|예상|경계|않|없|못|여부|압력|요인|시나리오|수\s*있|수도|대비|하면|되면|할\s*경우|것으로|할\s*것|일\s*것|듯/;
+const HEDGE_AFTER = /출발|이후|반납|꺾|둔화|축소|제한|가능|우려|리스크|위험|기대|전망|예상|경계|않|없|못|여부|압력|요인|시나리오|수\s*있|수도|대비|하면|되면|할\s*경우|것으로|할\s*것|일\s*것|듯/;
 /** 방향 말 바로 앞(8자 안) — 가정 · 부정 · 장중 흐름 · 지난 일(「장 초반 상승」 · 「지난주 상승」 — 오늘 마감 방향이 아니다) */
-export const HEDGE_BEFORE = /(?:^|\s)시\s|경우|면\s|않|만약|초반|한때|지난\s*주|지난\s*달|지난해/;
+const HEDGE_BEFORE = /(?:^|\s)시\s|경우|면\s|않|만약|초반|한때|지난\s*주|지난\s*달|지난해/;
 /** 「금리」 가 정책 금리 이야기인 마디 — 시장 금리(국채 수익률)와 다르다 */
 const POLICY_RATE = /인하|인상|동결|기준\s*금리|연준|Fed|FOMC|금통위|통화\s*정책|피벗/i;
 /** 미국 국채가 아닌 금리(국고채 · 일본 · 유럽 · 대출 …)가 나오는 마디 — 금리 이름을 미국 국채로 보지 않는다 */
@@ -142,7 +142,7 @@ function contradicts(kind: Kind, dir: Dir, move: number): boolean {
   return dir === 'up' ? move < 0 : move > 0;
 }
 
-export interface CheckInput {
+interface CheckInput {
   edition: BriefEdition;
   assets: Partial<Record<BriefAssetKey, BriefAsset>>;
   /** 시장 데이터를 받은 시각(ms) — 장중 표시 */

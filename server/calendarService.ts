@@ -29,14 +29,14 @@ const addDays = (day: string, n: number) => {
 };
 
 /** 그 달의 셋째 금요일 */
-export function thirdFriday(year: number, month: number): string {
+function thirdFriday(year: number, month: number): string {
   const first = new Date(Date.UTC(year, month - 1, 1, 12));
   const offset = (5 - first.getUTCDay() + 7) % 7; // 첫 금요일까지
   return new Date(Date.UTC(year, month - 1, 1 + offset + 14, 12)).toISOString().slice(0, 10);
 }
 
 /** 옵션 만기일 — 셋째 금요일, 미국 휴장이면 그 전 거래일 */
-export function optionExpiry(year: number, month: number): { date: string; shifted: boolean } {
+function optionExpiry(year: number, month: number): { date: string; shifted: boolean } {
   let date = thirdFriday(year, month);
   let shifted = false;
   while (isMarketClosed('US', date)) {

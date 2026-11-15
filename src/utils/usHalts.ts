@@ -21,11 +21,11 @@ export function haltsDelayTip(serverMs = US_HALTS_FETCH_INTERVAL_MS, screenMs = 
 }
 
 /** LULD(가격 제한 범위 이탈) 정지 코드 — Nasdaq 상장 LUDP · LUDS, 다른 거래소 상장 M */
-export const LULD_CODES = ['LUDP', 'LUDS', 'M'] as const;
+const LULD_CODES = ['LUDP', 'LUDS', 'M'] as const;
 export const isLuldCode = (code: string): boolean => (LULD_CODES as readonly string[]).includes(code);
 
-export const LULD_FIRST_MS = 5 * 60_000;
-export const LULD_EXTENDED_MS = 10 * 60_000;
+const LULD_FIRST_MS = 5 * 60_000;
+const LULD_EXTENDED_MS = 10 * 60_000;
 
 /**
  * 예상 재개 — `now` 는 서버 시각 기준(화면은 서버 시각 차를 더해 1초마다 다시 부른다).
@@ -36,7 +36,7 @@ export const LULD_EXTENDED_MS = 10 * 60_000;
  * - open: LULD · 정지 + 10분 이상 → 시각 정해지지 않음
  * - none: LULD 가 아니고 재개 시각도 없음 → 정해진 시각 없음
  */
-export type ExpectedResume =
+type ExpectedResume =
   | { kind: 'resumed'; at: number }
   | { kind: 'announced'; at: number }
   | { kind: 'first'; at: number }
@@ -132,7 +132,7 @@ export function longHaltRows<T extends { rawReasonCode: string; resumeAtMs: numb
  * - partial: 아는 값이 있는데 모르는 정지(null · 아직)도 있다 → 화면 정보 아이콘
  * - checking: 아직 내지 않은 정지가 하나라도 있다(방금 다시 멈춤 등) — 아는 값이 없으면 화면 「확인 중」, 숨기기는 하지 않는다
  */
-export interface GroupTurnover {
+interface GroupTurnover {
   usd: number | null;
   partial: boolean;
   checking: boolean;

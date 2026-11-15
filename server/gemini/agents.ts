@@ -42,7 +42,7 @@ function baseSchema(detail: Record<string, unknown>, required: string[]) {
   };
 }
 
-export interface AgentDefinition {
+interface AgentDefinition {
   role: AgentRole;
   label: string;
   /** 차트 이미지를 붙일지 — 기술 분석가만 참이다.

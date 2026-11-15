@@ -106,7 +106,7 @@ mkdir -p "$NGINX_BK_DIR"
 sudo cp "$NGINX_AVAIL" "$BACKUP"
 sudo cp "$ACME_AVAIL" "$ACME_BACKUP"
 echo "  nginx → $BACKUP · $ACME_BACKUP"
-# sites-enabled 의 파일이 링크가 아니라 따로 복사된 파일이면, 그 파일도 백업하고 함께 바꾼다(switch-to-static.sh 와 같다)
+# sites-enabled 의 파일이 링크가 아니라 따로 복사된 파일이면, 그 파일도 백업하고 함께 바꾼다
 if [ -f "$NGINX_ENABLED" ] && [ ! -L "$NGINX_ENABLED" ]; then
   sudo cp "$NGINX_ENABLED" "$ENABLED_BACKUP"
   echo "  알림: $NGINX_ENABLED 이 링크가 아니라 파일입니다 — 백업 → $ENABLED_BACKUP"

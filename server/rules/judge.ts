@@ -19,9 +19,9 @@ import type { IndicatorSeries } from '../../src/types/chart';
 /** 받는 일봉 수 — 지표 준비(120일선·120일 고점) + 여유 */
 export const JUDGE_CANDLE_LIMIT = 300;
 /** 이보다 적으면 판단하지 않는다 */
-export const JUDGE_MIN_CANDLES = 30;
+const JUDGE_MIN_CANDLES = 30;
 
-export type ClosedJudgement =
+type ClosedJudgement =
   | { kind: 'ok'; ev: RuleEvaluation; candles: Candle[]; completed: Candle[]; series: IndicatorSeries }
   | { kind: 'short'; count: number; candles: Candle[] }
   /**

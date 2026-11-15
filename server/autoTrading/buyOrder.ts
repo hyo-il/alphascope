@@ -7,7 +7,7 @@
 import type { Candle } from '../../src/types/toss';
 
 /** 수익률을 재는 거래일 수 */
-export const RETURN_DAYS = 60;
+const RETURN_DAYS = 60;
 
 /**
  * 최근 60거래일 수익률 — 판단에 쓴 같은 끝난 봉으로 `종가[i] / 종가[i-60] − 1`(i = 마지막 끝난 봉).
@@ -22,7 +22,7 @@ export function recentReturn(completed: readonly Candle[], days = RETURN_DAYS): 
   return now / then - 1;
 }
 
-export interface BuyCandidate {
+interface BuyCandidate {
   symbol: string;
   score: number;
   /** `recentReturn` — null 이면 가장 낮은 순위 */

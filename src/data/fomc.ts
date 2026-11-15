@@ -9,7 +9,7 @@
  * 공식 일정표 외의 출처(뉴스·추정)로 채우지 않는다.
  */
 
-export interface FomcMeeting {
+interface FomcMeeting {
   /** 회의 첫날 (YYYY-MM-DD) */
   start: string;
   /** 회의 둘째 날 = 성명·금리 결정 발표일 */
@@ -19,7 +19,6 @@ export interface FomcMeeting {
 }
 
 export const FOMC_SOURCE = 'https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm';
-export const FOMC_CHECKED_AT = '2026-09-29';
 /** 이 날 이후에는 달력이 "FOMC 일정 갱신 필요" 를 띄운다 */
 export const FOMC_STALE_AFTER = '2027-10-31';
 

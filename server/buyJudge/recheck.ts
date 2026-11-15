@@ -37,12 +37,12 @@ import * as store from './store';
 /** 다시 계산 시각 — 20:45 ET(최종값이 된 가장 늦은 시각 20:40 + 5분) */
 export const RECHECK_AT_MINUTES = 20 * 60 + 45;
 /** 보관 — 1~2주 결과를 보면 된다 */
-export const RECHECK_KEEP_DAYS = 30;
+const RECHECK_KEEP_DAYS = 30;
 /** 받기 실패가 남으면 그날 창 안에서 다음 틱에 다시(쌍 전부 다시 — 같은 줄을 덮는다). 이만큼 해도 남으면 그날을 마친다(토스 호출 상한) */
 export const RECHECK_MAX_TRIES = 3;
 const KEY_LAST = 'buyJudge.recheckLast';
 
-export const isRecheckEnabled = (): boolean => process.env.BUYJUDGE_RECHECK_ENABLED !== 'false';
+const isRecheckEnabled = (): boolean => process.env.BUYJUDGE_RECHECK_ENABLED !== 'false';
 
 const ET = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 function etParts(now: number): { day: string; minutes: number } {
@@ -58,7 +58,7 @@ export function recheckDayOf(now: number): string | null {
 
 // ── 저장 ───────────────────────────────────────────────────────────────────
 const readSetting = (key: string) => (getDb().prepare(`SELECT value FROM app_settings WHERE key = ?`).get(key) as { value: string } | undefined)?.value ?? null;
-export const getRecheckLast = () => readSetting(KEY_LAST);
+const getRecheckLast = () => readSetting(KEY_LAST);
 function setRecheckLast(day: string) {
   getDb().prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(KEY_LAST, day);
 }
@@ -116,7 +116,7 @@ export const listRecheckRows = (): RecheckRow[] => getDb().prepare(`SELECT * FRO
 export const listRecheckDays = (): RecheckDay[] => getDb().prepare(`SELECT * FROM buy_judgment_recheck_days ORDER BY market_date`).all() as RecheckDay[];
 
 /** 30일 보관 — 그날(ET) − 29일보다 앞 줄을 지운다. 지운 줄 수 */
-export function pruneRechecks(today: string): number {
+function pruneRechecks(today: string): number {
   const cutoff = new Date(Date.parse(`${today}T12:00:00Z`) - (RECHECK_KEEP_DAYS - 1) * 86_400_000).toISOString().slice(0, 10);
   const a = getDb().prepare(`DELETE FROM buy_judgment_rechecks WHERE market_date < ?`).run(cutoff).changes;
   const b = getDb().prepare(`DELETE FROM buy_judgment_recheck_days WHERE market_date < ?`).run(cutoff).changes;
@@ -212,7 +212,7 @@ export function recheckPairs(day: string): Pair[] {
   return [...pairs, ...acct.values()];
 }
 
-export interface RecheckResult {
+interface RecheckResult {
   day: string;
   /** 견준 매수 판단 기록 수(= same + changed) */
   checked: number;

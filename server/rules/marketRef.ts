@@ -23,7 +23,7 @@ export { MARKET_REF };
 export const marketOfSymbol = (symbol: string): CalendarMarket => (isKrSymbol(symbol) ? 'KR' : 'US');
 
 /** 판단용으로 받는 시장 기준 일봉 — 200일선 + 여유(종목 판단 `JUDGE_CANDLE_LIMIT` 과 같은 300) */
-export const MARKET_REF_LIMIT = 300;
+const MARKET_REF_LIMIT = 300;
 
 /** 시장 기준 일봉(끝난 봉) + 지표. 받기 실패 · 봉 없음이면 null — 거름망은 「시장 데이터 없음」 으로 사지 않는다 */
 export async function loadMarketRef(market: CalendarMarket, now = Date.now(), limit = MARKET_REF_LIMIT): Promise<MarketRefData | null> {

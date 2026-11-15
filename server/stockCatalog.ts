@@ -140,7 +140,7 @@ function getJamoIndex(): JamoEntry[] {
 }
 
 /** 카탈로그를 새로 받으면 인덱스도 버린다 */
-export function invalidateJamoIndex(): void {
+function invalidateJamoIndex(): void {
   jamoIndex = null;
 }
 

@@ -12,7 +12,7 @@ import { haltDayCount, isHaltOngoing, isLuldCode, isoDayOfRaw, msOfRawTime } fro
 import type { DirectionUnknownReason, HaltDirectionEstimate, UsHaltRow, UsOngoingHaltRow } from '../../src/types/usHalts';
 import type { RawHaltItem } from './feed';
 
-export const KEEP_DAYS = 30;
+const KEEP_DAYS = 30;
 
 /** 미국 날짜(ET, YYYY-MM-DD) */
 export const usDayOf = (ms: number): string => marketDate(ms, MARKET_REF.US.symbol);
@@ -23,10 +23,10 @@ const addDays = (day: string, n: number) => {
   return d.toISOString().slice(0, 10);
 };
 /** 이 날짜보다 앞선 정지는 저장하지 않고 지운다 — 오늘(미국) − 30일 */
-export const keepFromDay = (now: number): string => addDays(usDayOf(now), -KEEP_DAYS);
+const keepFromDay = (now: number): string => addDays(usDayOf(now), -KEEP_DAYS);
 
 /** 원문 날짜 + 시각(ET) → epoch ms. 모양이 다르면 null */
-export function etMsOf(rawDate: string, rawTime: string): number | null {
+function etMsOf(rawDate: string, rawTime: string): number | null {
   const day = isoDayOfRaw(rawDate);
   const offset = msOfRawTime(rawTime);
   if (!day || offset == null) return null;
@@ -79,7 +79,7 @@ const UPDATABLE: [keyof RawHaltItem, keyof DbRow][] = [
   ['ResumptionTradeTime', 'raw_resumption_trade_time'],
 ];
 
-export interface IngestResult {
+interface IngestResult {
   inserted: number;
   updated: number;
   /** 30일보다 오래돼 저장하지 않은 항목 */

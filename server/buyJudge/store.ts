@@ -101,7 +101,7 @@ export interface JudgmentRow {
   gate_reason: string | null;
 }
 
-export interface JudgmentInput {
+interface JudgmentInput {
   marketDate: string;
   symbol: string;
   ruleId: number;

@@ -21,5 +21,3 @@ export interface WatchFolder {
 export const DEFAULT_FOLDER_ID = 'default';
 /** 저장된 값의 이름. 화면에 그대로 내보내지 않는다 — 위 설명 참고. */
 export const DEFAULT_FOLDER_NAME = '미분류';
-/** 코드에서 뜻이 드러나게 쓰는 별칭 (저장된 id 값은 바꾸지 않는다) */
-export const UNGROUPED_ID = DEFAULT_FOLDER_ID;

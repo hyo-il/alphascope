@@ -57,7 +57,7 @@ function readKey(keyFile: string): ServiceAccountKey {
 const b64url = (v: Buffer | string) => Buffer.from(v).toString('base64url');
 
 /** 서비스 계정 JWT — 시험이 서명을 확인하려고 내보낸다 */
-export function signJwt(key: ServiceAccountKey, nowS: number): string {
+function signJwt(key: ServiceAccountKey, nowS: number): string {
   const header = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const claims = b64url(JSON.stringify({ iss: key.client_email, scope: SCOPE, aud: TOKEN_URL, iat: nowS, exp: nowS + TOKEN_LIFETIME_S }));
   const signature = crypto.createSign('RSA-SHA256').update(`${header}.${claims}`).sign(key.private_key);
@@ -109,7 +109,7 @@ async function accessToken(keyFile: string): Promise<string> {
   return body.access_token;
 }
 
-export type ValueRender = 'UNFORMATTED_VALUE' | 'FORMULA';
+type ValueRender = 'UNFORMATTED_VALUE' | 'FORMULA';
 /** 범위 하나의 값 — 줄 → 칸. 빈 칸은 구글이 줄 끝을 잘라 보낸다(없는 칸 = 빈 칸) */
 export type CellRows = (string | number | boolean)[][];
 
@@ -169,7 +169,7 @@ export interface CellWrite {
  * 쓰는 방식(구글 `valueInputOption`) — `RAW`: 글자는 글자 그대로(「=E14」 도 글자로 들어간다) ·
  * `USER_ENTERED`: 사람이 친 것처럼(「=」 로 시작하면 수식) — **수식 칸을 쓸 때만**(시트 가격 [바꾸기] · [되돌리기] · v2.65.0).
  */
-export type ValueInput = 'RAW' | 'USER_ENTERED';
+type ValueInput = 'RAW' | 'USER_ENTERED';
 
 /**
  * **값 쓰기 — 구글에 쓰는 함수 둘 중 하나**(`values:batchUpdate` · 여러 칸을 **한 요청**으로 · 다른 하나는 `structureWrite`). 쓰는 방식은 인자로 고른다(기본 `RAW`).

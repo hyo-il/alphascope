@@ -23,11 +23,11 @@ import { getScore, listOutlookBriefs, purgeOldScores, recentScores, upsertScore 
 /** 채점 줄 보관(일) — 1년. 브리핑(30일)보다 길게 — 「최근 20번」 을 늘 셀 수 있게 */
 export const SCORE_KEEP_DAYS = 365;
 /** 「최근 N번 중 M번 맞음」 의 N */
-export const SCORE_RECENT = 20;
+const SCORE_RECENT = 20;
 /** 정규장 끝 뒤 이만큼 지나야 그날 일봉을 확정으로 보고 채점한다(지표 엔진 일봉이 마감 값으로 바뀌는 여유) */
 export const SETTLE_MARGIN_MS = 60 * 60_000;
 /** S&P500 예상은 만든 뒤 이 시간 안에 열리는 미국 정규장만 — 주말 · 연휴 너머의 정규장을 그 예상으로 채점하지 않는다 */
-export const US_LEAD_MAX_MS = 36 * 3_600_000;
+const US_LEAD_MAX_MS = 36 * 3_600_000;
 
 const ENGINE_URL = process.env.INDICATORS_URL ?? `http://127.0.0.1:${process.env.INDICATORS_PORT ?? 5001}`;
 
@@ -58,7 +58,7 @@ export const defaultScoreDeps: ScoreDeps = {
 
 const shiftDay = (day: string, n: number) => new Date(Date.parse(`${day}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
-export type TargetDay = { day: string; start: number; end: number } | { skip: 'after-open' | 'holiday' };
+type TargetDay = { day: string; start: number; end: number } | { skip: 'after-open' | 'holiday' };
 
 /** 그 예상이 맞힐 거래일 — 장 시작 전에 만든 것만 */
 export async function targetDayOf(target: OutlookTarget, createdAt: number, deps: Pick<ScoreDeps, 'start' | 'end'>): Promise<TargetDay> {

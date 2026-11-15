@@ -65,12 +65,12 @@ export const FLOW_SIDE_LABEL: Record<FlowSideKey | 'otherCorporation', string> =
 };
 
 /** 확정된 날만 — 개인 값이 있어야 확정치다(명세: 개인은 확정치 반영 때 채워진다) */
-export function confirmedRecords(records: FlowRecord[]): FlowRecord[] {
+function confirmedRecords(records: FlowRecord[]): FlowRecord[] {
   return records.filter((r) => !r.provisional);
 }
 
 /** 합계에 쓰는 확정일 — 최신순 최대 20일 */
-export function flowWindow(records: FlowRecord[]): FlowRecord[] {
+function flowWindow(records: FlowRecord[]): FlowRecord[] {
   return confirmedRecords(records).slice(0, FLOW_DAYS);
 }
 

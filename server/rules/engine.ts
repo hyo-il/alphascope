@@ -35,7 +35,7 @@ export function completedDaily(candles: Candle[], symbol: string, now = Date.now
 }
 
 /** 이동평균 일수 → 엔진 시리즈 (`ENGINE_MA_PERIODS` — 다른 값은 가장 가까운 값). 50·200 포함 */
-export function pickMa(series: IndicatorSeries, period: number): { line: (number | null)[]; used: number } {
+function pickMa(series: IndicatorSeries, period: number): { line: (number | null)[]; used: number } {
   const used = nearestEngineMa(period);
   const lines: Record<EngineMaPeriod, (number | null)[] | undefined> = {
     5: series.sma5,
@@ -152,7 +152,7 @@ export interface RuleState {
   lastStopDate?: string | null;
 }
 
-export interface RuleContext {
+interface RuleContext {
   symbol: string;
   /** 끝난 일봉만 (진행 중 봉 제외) */
   candles: Candle[];

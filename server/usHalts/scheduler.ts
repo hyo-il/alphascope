@@ -34,7 +34,7 @@ export const ALIGN_TOLERANCE_MS = 2_000;
  * 만든 자리가 이보다 많은 곳에 흩어지면 「흔들림」 — 60초 고정으로.
  * 관찰(2026-11-05): 캐시 서버가 여럿이라 만든 자리가 두세 곳(:04 · :49 · :31)이고 받을 때마다 어느 쪽이 올지 모른다.
  */
-export const ALIGN_MAX_PHASES = 2;
+const ALIGN_MAX_PHASES = 2;
 /**
  * 맞추기 근거로 쓰는 최근 만든 시각 수 — 만든 자리는 몇 분마다 옮겨 간다(관찰 15분 동안 :04 → :49~:50 → :31).
  * 관찰 순서로 견줘 5개가 받을 때 목록 나이가 가장 짧았다(평균 12.6초 · 10개 14.5초 · 60초 고정은 켠 자리에 따라 0~59초 · 평균 약 30초).
@@ -47,17 +47,17 @@ export const ALIGN_HISTORY = 5;
  */
 export const ALIGN_MAX_EXTRA_MS = 15_000;
 /** 받는 시간대 — 미국 현지 분 [04:00, 20:00). 20:00 뒤 자정 전은 이어 받기(안 풀린 오늘 정지가 있을 때만) */
-export const WINDOW_START_MIN = 4 * 60;
-export const WINDOW_END_MIN = 20 * 60;
+const WINDOW_START_MIN = 4 * 60;
+const WINDOW_END_MIN = 20 * 60;
 /**
  * 20:00 ET 뒤 3분은 안 풀린 정지가 없어도 받는다 — 목록은 정지 뒤 0.5~2분 늦게 올라와, 19:58~19:59 ET 정지는 20:00 전에 한 번도 보이지 않을 수 있다
  * (보이지 않으면 「안 풀린 오늘 정지」 로 셀 수도 없어 이어 받기가 시작되지 않는다).
  */
-export const GRACE_END_MIN = WINDOW_END_MIN + 3;
+const GRACE_END_MIN = WINDOW_END_MIN + 3;
 
-export const isUsHaltsEnabled = (): boolean => process.env.US_HALTS_ENABLED !== 'false';
+const isUsHaltsEnabled = (): boolean => process.env.US_HALTS_ENABLED !== 'false';
 
-export interface WindowDeps {
+interface WindowDeps {
   /** 휴장 판단 — 시험이 바꿔 넣는다 */
   closed?: (day: string) => boolean;
   /** 오늘 안 풀린 정지 수 — 시험이 바꿔 넣는다(기본 = DB) */
@@ -90,7 +90,7 @@ const status: Omit<UsHaltFetchStatus, 'enabled' | 'inWindow' | 'window' | 'openT
 /** 성공한 받기의 피드 만든 시각(서버 시계 · 최근 `ALIGN_HISTORY` 개 · 최신이 끝) — 다음 받기를 맞추는 근거 */
 const builtAts: number[] = [];
 
-export type NextFetchMode = 'first' | 'aligned' | 'fixed' | 'fixed-far' | 'approach' | 'backoff';
+type NextFetchMode = 'first' | 'aligned' | 'fixed' | 'fixed-far' | 'approach' | 'backoff';
 /** 로그에 쓰는 방식 이름 — fixed-far · approach 는 fixed 와 구별되게 */
 export function nextFetchModeLabel(mode: NextFetchMode, waitSec: number): string {
   if (mode === 'fixed-far') return `fixed(자리 너무 멀어 ${waitSec}초)`;
@@ -114,7 +114,7 @@ export function nextFetchModeLabel(mode: NextFetchMode, waitSec: number): string
 const MOD = (n: number) => ((n % FETCH_INTERVAL_MS) + FETCH_INTERVAL_MS) % FETCH_INTERVAL_MS;
 
 /** 받을 자리(분 안의 ms + 여유 · 0 기준 epoch 와 같은 위상) — 근거가 없거나 흩어지면 null */
-export function alignedPhase(builtAts: readonly number[]): number | null {
+function alignedPhase(builtAts: readonly number[]): number | null {
   const recent = builtAts.slice(-ALIGN_HISTORY);
   if (recent.length < 2) return null;
   const phases = recent.map(MOD);
@@ -179,7 +179,7 @@ export function resetFetchStatusForTest(): void {
   getDb().prepare(`DELETE FROM app_settings WHERE key = ?`).run(LAST_SUCCESS_KEY);
 }
 
-export interface TickDeps {
+interface TickDeps {
   now?: number;
   /** RSS 받기 — 시험은 시험용 항목을 돌려준다(만든 시각은 없어도 된다) */
   load?: () => Promise<HaltsFeed>;

@@ -29,7 +29,7 @@ import { computeAssetTotals, dailyHoldings, loadInputs, type PriceBook } from '.
 /** 확인 간격 — 기록할 수 있는 동안(몇 시간)보다 훨씬 짧으면 된다 */
 const CHECK_MS = 5 * 60_000;
 
-export interface RecordWindow {
+interface RecordWindow {
   /** 미국 거래일 D */
   day: string;
   /** 기록 시각(이때부터) */
@@ -39,7 +39,7 @@ export interface RecordWindow {
 }
 
 /** 지금 기준 가장 최근 미국 거래일의 기록 칸 — 토스 달력이 없으면 null */
-export async function recordWindow(now: number): Promise<RecordWindow | null> {
+async function recordWindow(now: number): Promise<RecordWindow | null> {
   const us = await sessionSpans('US', now);
   if (!us) return null;
   const after = us.filter((s) => s.session === 'after' && s.end <= now && s.tradeDay).at(-1);
@@ -56,7 +56,7 @@ export async function recordWindow(now: number): Promise<RecordWindow | null> {
  * 하루 기록 가격 — 미국 종목은 지금 가격을 버리고 D 의 정규장 종가로 바꾼다(못 받으면 빠짐 → 「가격 못 받음」). 국내 · 환율은 그대로.
  * 종가는 정규장 끝 + 10분 뒤에 받은 일봉만(`regularCloseOn` 의 `confirmAt`) — 달력에 정규장 끝이 없으면 기록 시각 뒤에 받은 것만.
  */
-export async function closingBook(data: AssetSheetData, book: PriceBook, w: RecordWindow, now: number): Promise<PriceBook> {
+async function closingBook(data: AssetSheetData, book: PriceBook, w: RecordWindow, now: number): Promise<PriceBook> {
   const prices = new Map(book.prices);
   const usSymbols = [...new Set(data.sections.filter((s) => !s.combined).flatMap((s) => s.holdings.flatMap((h) => (h.market === 'US' && h.symbol ? [h.symbol] : []))))];
   if (usSymbols.length === 0) return book;
@@ -70,7 +70,7 @@ export async function closingBook(data: AssetSheetData, book: PriceBook, w: Reco
   return { prices, usdKrw: book.usdKrw };
 }
 
-export type TickResult = 'off' | 'no-window' | 'not-yet' | 'expired' | 'done-already' | 'no-prices' | 'failed' | 'recorded';
+type TickResult = 'off' | 'no-window' | 'not-yet' | 'expired' | 'done-already' | 'no-prices' | 'failed' | 'recorded';
 
 let running = false;
 

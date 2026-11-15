@@ -22,7 +22,7 @@ import { DEFAULT_HORIZON, horizonBlock, type InvestmentHorizon } from '../../src
 import { buildModeratorPrompt, MODERATOR_SCHEMA, MODERATOR_SYSTEM } from './moderator';
 import { insertAnalysis } from './store';
 
-export interface RunOptions {
+interface RunOptions {
   symbol: string;
   /** 'scheduled' = 지정 종목 · 'manual' = 바로 분석 */
   trigger: Exclude<GeminiTrigger, 'other'>;

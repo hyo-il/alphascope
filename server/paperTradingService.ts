@@ -392,7 +392,7 @@ function limitBuyHold(price: number, quantity: number, account: PaperAccount, fx
  * 체결은 지정가 이하에서만 일어나므로(`limitTriggered`) 실제로 나갈 돈은 이보다 많지 않다 — 남는 돈은 현금에 그대로 남는다.
  * 미체결만 세므로 체결 · 취소 · 자동 취소되면 저절로 풀린다.
  */
-export function reservedCash(accountId: number, excludeOrderId: number | null = null): number {
+function reservedCash(accountId: number, excludeOrderId: number | null = null): number {
   const account = getAccount(accountId);
   const rows = getDb()
     .prepare(`SELECT id, requested_price, quantity, fx_rate FROM paper_orders WHERE account_id = ? AND status = 'PENDING' AND side = 'BUY'`)
@@ -404,7 +404,7 @@ export function reservedCash(accountId: number, excludeOrderId: number | null = 
  * **쓸 수 있는 현금**(주문 가능 금액) = 현금 − 걸려 있는 지정가 매수에 묶인 돈. 매수(지정가 걸기 · 체결 · 시장가 · 자동매매 수량)와 출금이 **이 함수 하나**를 쓴다.
  * 걸린 지정가 매수가 없으면 묶인 돈이 0 이라 현금과 같다(예전 결과와 같음).
  */
-export function availableCash(account: PaperAccount, excludeOrderId: number | null = null): number {
+function availableCash(account: PaperAccount, excludeOrderId: number | null = null): number {
   return account.currentCash - reservedCash(account.id, excludeOrderId);
 }
 
@@ -412,7 +412,7 @@ export function availableCash(account: PaperAccount, excludeOrderId: number | nu
  * 출금할 수 있는 돈 = min(쓸 수 있는 현금, 원금 − 최소 단위). 계좌 통화 소수 자리에서 내림(보이는 값을 그대로 넣어도 넘지 않게), 0 아래면 0.
  * 원금 쪽도 넣는다 — 원금이 0 이하가 되는 출금은 거절하므로, 많이 번 계좌에서 창에 보인 돈 안쪽인데 거절되지 않게(창과 서버가 같은 숫자).
  */
-export function withdrawableCash(account: PaperAccount): number {
+function withdrawableCash(account: PaperAccount): number {
   const scale = 10 ** CURRENCY_DECIMALS[account.currency];
   const byCash = Math.floor(availableCash(account) * scale + 1e-6) / scale;
   const byPrincipal = Math.ceil(account.initialBalance * scale - 1e-6) / scale - 1 / scale;

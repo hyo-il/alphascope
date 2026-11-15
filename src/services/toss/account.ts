@@ -26,7 +26,7 @@ interface AccountsResponse {
   result?: Raw[];
 }
 
-export async function fetchAccounts(): Promise<TossAccount[]> {
+async function fetchAccounts(): Promise<TossAccount[]> {
   const payload = await tossGet<AccountsResponse>('/api/v1/accounts', {}, 'ACCOUNT');
   return (payload.result ?? []).map((row) => ({
     accountNo: str(row.accountNo),

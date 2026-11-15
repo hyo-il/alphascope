@@ -44,7 +44,7 @@ let refreshTimer: NodeJS.Timeout | null = null;
  * 받은 토큰을 프로세스 밖에 두는 곳 — 5분마다 새 프로세스로 뜨는 점검 도구(`scripts/usCloseSampler.ts`)가
  * 실행마다 토큰을 새로 발급받지 않게 한다. ⚠️ 서버는 부르지 않는다(서버 토큰은 이 프로세스 메모리에만 있다).
  */
-export interface TokenStore {
+interface TokenStore {
   load(): CachedToken | null;
   save(token: CachedToken): void;
   clear(): void;
