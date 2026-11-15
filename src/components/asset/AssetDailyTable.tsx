@@ -1,8 +1,10 @@
-import { Fragment, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react';
 import { ICON_SM, Input, Panel, SectionTitle } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
-import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NUM_COL, TABLE_NUM_GAP_TIGHT } from '../ui/tokens';
+import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NUM_COL, TABLE_NUM_GAP_TIGHT, TOOLTIP_BOX } from '../ui/tokens';
+import { placeTip } from '../ui/tooltip/place';
 import { changeColor, formatSigned } from '../../utils/formatters';
 import { formatAssetManwon, formatAssetWon, formatAssetWonSigned } from '../../utils/assetFormat';
 import { ASSET_DAILY_NOTE_MAX, type AssetDailyChange } from '../../types/asset';
@@ -11,7 +13,9 @@ import { ASSET_DAILY_NOTE_MAX, type AssetDailyChange } from '../../types/asset';
  * 일별 자산 변화 표(v2.70.0) — 「총 자산」 탭, 추이 그래프 바로 아래. 그래프와 같은 응답(`GET /api/asset/history` 의 `rows`)을 쓴다.
  * - 줄 순서: 최신 날짜가 맨 위 · 칸: 날짜 · 총 자산 · 전날 대비(원) · 등락률 · 무엇 때문에(큰 몫 3개 · 만 원 단위) · 메모.
  * - 줄을 누르면 펼침: 몫 전부(원 단위) · 사고판 금액 · 많이 바뀐 종목 3개 · 「대략」 · 「가격 못 받음」 · 지난 날짜 안내.
- * - 메모: 누르면 바로 입력 · Enter / 바깥 누르기에 저장 · Esc 취소 · 저장 중 회전 표시 · 실패하면 글을 그대로 두고 오류 한 줄 · 잠겨 있으면 꺼짐.
+ *   몫 금액은 앞 세 칸(날짜 · 총 자산 · 전날 대비)을 묶은 칸의 오른쪽 끝 = 「전날 대비」 칸 오른쪽 끝에 맞춘다(v2.70.1).
+ * - 메모: 누르면 바로 입력 · Enter / 바깥 누르기에 저장 · Esc 취소 · 저장 중 회전 표시 · 잠겨 있으면 꺼짐.
+ *   실패하면 글을 그대로 두고(입력칸 빨간 테두리 · 다시 저장 가능) 입력칸 아래에 작은 안내가 몇 초 뜬다 — 표를 밀지 않는다(v2.70.1).
  * - 줄이 많으면 표 안 스크롤(머리 줄 고정) · 숫자 칸은 오른쪽 정렬 · 말줄임 금지(「무엇 때문에」 · 메모 글만 말줄임 + 툴팁).
  */
 /** 숫자 칸 — 칸이 여섯이라 좁은 간격(1280 에서 「무엇 때문에」 몫 셋이 보이게) */
@@ -49,7 +53,6 @@ export default function AssetDailyTable({
   onSaveNote: NoteSave;
 }) {
   const [open, setOpen] = useState<Set<string>>(new Set());
-  const [noteError, setNoteError] = useState<string | null>(null);
   const list = [...rows].reverse();
   const toggle = (day: string) =>
     setOpen((prev) => {
@@ -69,11 +72,6 @@ export default function AssetDailyTable({
           일별 자산 변화
         </SectionTitle>
       </div>
-      {noteError && (
-        <p role="alert" className="mx-4 mb-2 rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all" data-testid="asset-daily-error">
-          메모를 저장하지 못했습니다 — {noteError}
-        </p>
-      )}
       {rows.length === 0 && (
         <p className="px-4 pb-3 text-xs text-text-muted keep-all" data-testid="asset-daily-empty">
           아직 하루 기록이 없습니다 — 기록이 쌓이면 날마다 무엇 때문에 바뀌었는지 보여 줍니다.
@@ -138,14 +136,12 @@ export default function AssetDailyTable({
                         </span>
                       </td>
                       <td className="relative w-24 max-w-24 pl-3 pr-3" onClick={(e) => e.stopPropagation()}>
-                        <NoteCell day={r.day} note={r.note} disabled={noteDisabled} onSave={onSaveNote} onError={setNoteError} />
+                        <NoteCell day={r.day} note={r.note} disabled={noteDisabled} onSave={onSaveNote} />
                       </td>
                     </tr>
                     {expanded && (
-                      <tr className="bg-bg-tertiary/30" id={`asset-daily-detail-${r.day}`} data-testid="asset-daily-detail">
-                        <td colSpan={6} className="px-4 py-2">
-                          <Detail r={r} />
-                        </td>
+                      <tr className="bg-bg-tertiary/30 align-top" id={`asset-daily-detail-${r.day}`} data-testid="asset-daily-detail">
+                        <Detail r={r} />
                       </tr>
                     )}
                   </Fragment>
@@ -159,59 +155,120 @@ export default function AssetDailyTable({
   );
 }
 
-/** 펼친 줄 — 몫 전부(원 단위) · 사고판 금액 · 많이 바뀐 종목 · 안내 */
+/**
+ * 펼친 줄(칸 두 개) — 왼쪽 = 앞 세 칸(날짜 · 총 자산 · 전날 대비)을 묶은 칸: 몫 전부(원 단위) · 사고판 금액.
+ * 금액은 그 칸 오른쪽 끝(오른쪽 여백 0 — 숫자 칸과 같음)에 붙어 「전날 대비」 금액과 오른쪽 끝이 같다.
+ * 오른쪽 = 나머지 세 칸: 많이 바뀐 종목 · 안내. 글은 줄바꿈 가능(칸 폭을 넓히지 않게 — 위 줄의 칸 폭이 그대로).
+ */
 function Detail({ r }: { r: AssetDailyChange }) {
-  if (r.skip) return <p className="text-xs text-text-muted keep-all">{SKIP_TEXT[r.skip]}</p>;
+  if (r.skip)
+    return (
+      <td colSpan={6} className="px-4 py-2">
+        <p className="text-xs text-text-muted keep-all">{SKIP_TEXT[r.skip]}</p>
+      </td>
+    );
   const shares = [...r.shares].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
   return (
-    <div className="flex flex-wrap gap-x-10 gap-y-2 text-xs">
-      <dl className="grid grid-cols-[auto_auto] gap-x-6 gap-y-1">
-        <dt className="text-caption text-text-muted">{r.prevDay} 기록 대비</dt>
-        <dd className={`text-right tabular-nums ${changeColor(r.change ?? 0)}`}>{formatAssetWonSigned(r.change)}</dd>
-        {shares.map((s) => (
-          <Fragment key={s.key}>
-            <dt className="text-text-secondary">{s.label}</dt>
-            <dd className={`text-right tabular-nums ${changeColor(s.amount)}`}>{formatAssetWonSigned(s.amount)}</dd>
-          </Fragment>
-        ))}
-        {r.traded != null && (
-          <>
-            <dt className="text-text-secondary">사고판 금액(현금 → 종목 · 합에는 0)</dt>
-            <dd className="text-right tabular-nums text-text-secondary">{formatAssetWonSigned(r.traded)}</dd>
-          </>
-        )}
-      </dl>
-      {r.movers.length > 0 && (
-        <dl className="grid grid-cols-[auto_auto] content-start gap-x-6 gap-y-1">
-          <dt className="col-span-2 text-caption text-text-muted">많이 바뀐 종목(주가 + 환율)</dt>
-          {r.movers.map((m) => (
-            <Fragment key={m.symbol}>
-              <dt className="text-text-secondary">
-                {m.name} <span className="text-caption text-text-muted">{m.symbol}</span>
-              </dt>
-              <dd className={`text-right tabular-nums ${changeColor(m.amount)}`}>{formatAssetWonSigned(m.amount)}</dd>
+    <>
+      <td colSpan={3} className="py-2 pl-4 pr-0">
+        <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-xs keep-all" data-testid="asset-daily-shares">
+          <dt className="text-caption text-text-muted">{r.prevDay} 기록 대비</dt>
+          <dd className={`text-right tabular-nums whitespace-nowrap ${changeColor(r.change ?? 0)}`}>{formatAssetWonSigned(r.change)}</dd>
+          {shares.map((s) => (
+            <Fragment key={s.key}>
+              <dt className="text-text-secondary">{s.label}</dt>
+              <dd className={`text-right tabular-nums whitespace-nowrap ${changeColor(s.amount)}`}>{formatAssetWonSigned(s.amount)}</dd>
             </Fragment>
           ))}
+          {r.traded != null && (
+            <>
+              <dt className="text-text-secondary">사고판 금액(현금 → 종목 · 합에는 0)</dt>
+              <dd className="text-right tabular-nums whitespace-nowrap text-text-secondary">{formatAssetWonSigned(r.traded)}</dd>
+            </>
+          )}
         </dl>
-      )}
-      <ul className="min-w-0 basis-full space-y-0.5 text-caption text-text-muted keep-all">
-        {!r.split && <li>{OLD_RECORD_TEXT}</li>}
-        {r.approx && <li className="text-warning">대략 — 미국 매매를 원화로 바꿀 그날 환율 기록이 없어 가까운 날의 환율로 셌어요(없으면 그 매매는 빼고 셈)</li>}
-        {r.missing > 0 && <li className="text-warning">가격 못 받음 {r.missing}줄 — 정확하지 않음(그 줄 금액은 「기타」 에 들어가요)</li>}
-      </ul>
-    </div>
+      </td>
+      <td colSpan={3} className="py-2 pl-10 pr-4">
+        <div className="flex flex-col gap-2 text-xs">
+          {r.movers.length > 0 && (
+            <dl className="grid w-max max-w-full grid-cols-[auto_auto] gap-x-6 gap-y-1">
+              <dt className="col-span-2 text-caption text-text-muted">많이 바뀐 종목(주가 + 환율)</dt>
+              {r.movers.map((m) => (
+                <Fragment key={m.symbol}>
+                  <dt className="text-text-secondary">
+                    {m.name} <span className="text-caption text-text-muted">{m.symbol}</span>
+                  </dt>
+                  <dd className={`text-right tabular-nums ${changeColor(m.amount)}`}>{formatAssetWonSigned(m.amount)}</dd>
+                </Fragment>
+              ))}
+            </dl>
+          )}
+          <ul className="min-w-0 space-y-0.5 text-caption text-text-muted keep-all">
+            {!r.split && <li>{OLD_RECORD_TEXT}</li>}
+            {r.approx && <li className="text-warning">대략 — 미국 매매를 원화로 바꿀 그날 환율 기록이 없어 가까운 날의 환율로 셌어요(없으면 그 매매는 빼고 셈)</li>}
+            {r.missing > 0 && <li className="text-warning">가격 못 받음 {r.missing}줄 — 정확하지 않음(그 줄 금액은 「기타」 에 들어가요)</li>}
+          </ul>
+        </div>
+      </td>
+    </>
+  );
+}
+
+/** 메모 저장 실패 안내가 떠 있는 시간 — 그 뒤 사라진다(입력칸 빨간 테두리 · 글은 그대로) */
+const NOTE_ERROR_MS = 4000;
+
+/**
+ * 메모 저장 실패 안내 — 입력칸 바로 아래(모자라면 위)에 앱 툴팁과 같은 상자 · 같은 자리 계산(`tooltip/place`)으로 몇 초 뜬다.
+ * `document.body` 로 포털이라 표 안 스크롤에 잘리지 않고, 표 줄을 밀지 않는다.
+ */
+function NoteErrorTip({ anchorRef, message }: { anchorRef: RefObject<HTMLElement | null>; message: string }) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  useLayoutEffect(() => {
+    const place = () => {
+      const a = anchorRef.current?.getBoundingClientRect();
+      const box = boxRef.current;
+      if (!a || !box) return;
+      const p = placeTip(a, { w: box.offsetWidth, h: box.offsetHeight }, { w: window.innerWidth, h: window.innerHeight });
+      setPos({ left: p.left, top: p.top });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [anchorRef, message]);
+  return createPortal(
+    <div ref={boxRef} role="alert" data-testid="asset-daily-error" className={`${TOOLTIP_BOX} keep-all`} style={{ left: pos?.left ?? -9999, top: pos?.top ?? -9999 }}>
+      <span className="text-danger">메모를 저장하지 못했습니다</span> — {message}
+    </div>,
+    document.body,
   );
 }
 
 /** 메모 칸 — 누르면 입력 · Enter / 바깥 누르기 저장 · Esc 취소 */
-function NoteCell({ day, note, disabled, onSave, onError }: { day: string; note: string | null; disabled: boolean; onSave: NoteSave; onError: (message: string | null) => void }) {
+function NoteCell({ day, note, disabled, onSave }: { day: string; note: string | null; disabled: boolean; onSave: NoteSave }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(note ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** 실패 안내가 떠 있나 — 실패할 때마다 다시 뜨고 `NOTE_ERROR_MS` 뒤 사라진다(빨간 테두리 · 입력칸 툴팁은 오류가 풀릴 때까지) */
+  const [tipShown, setTipShown] = useState(0);
   const [shown, setShown] = useState(note);
   const inputRef = useRef<HTMLInputElement>(null);
   const done = useRef(false);
+
+  useEffect(() => {
+    if (!tipShown) return;
+    const id = window.setTimeout(() => setTipShown(0), NOTE_ERROR_MS);
+    return () => window.clearTimeout(id);
+  }, [tipShown]);
+  const clearError = () => {
+    setError(null);
+    setTipShown(0);
+  };
 
   useEffect(() => setShown(note), [note]);
   useEffect(() => {
@@ -222,8 +279,7 @@ function NoteCell({ day, note, disabled, onSave, onError }: { day: string; note:
     if (done.current || saving) return;
     if (text.trim() === (shown ?? '')) {
       setEditing(false);
-      setError(null);
-      onError(null);
+      clearError();
       return;
     }
     done.current = true;
@@ -235,11 +291,10 @@ function NoteCell({ day, note, disabled, onSave, onError }: { day: string; note:
       setShown(r.note);
       setText(r.note ?? '');
       setEditing(false);
-      setError(null);
-      onError(null);
+      clearError();
     } else {
-      setError(r.error); // 글은 그대로 두고 입력 칸을 연 채로 · 오류는 표 위 한 줄
-      onError(r.error);
+      setError(r.error); // 글은 그대로 두고 입력 칸을 연 채로 · 안내는 입력칸 아래에 몇 초
+      setTipShown((n) => n + 1);
     }
   };
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -249,8 +304,7 @@ function NoteCell({ day, note, disabled, onSave, onError }: { day: string; note:
     } else if (e.key === 'Escape') {
       setText(shown ?? '');
       setEditing(false);
-      setError(null);
-      onError(null);
+      clearError();
     }
   };
 
@@ -274,6 +328,7 @@ function NoteCell({ day, note, disabled, onSave, onError }: { day: string; note:
           data-tip={error ?? undefined}
         />
         {saving && <LoaderCircle {...ICON_SM} className="shrink-0 animate-spin text-text-muted" aria-label="저장 중" />}
+        {error != null && tipShown > 0 && <NoteErrorTip key={tipShown} anchorRef={inputRef} message={error} />}
       </span>
     );
   }

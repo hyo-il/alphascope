@@ -2,6 +2,7 @@
  * 일별 자산 변화 화면 시험(134차 · v2.70.0) — `npm run assetdailyui:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import).
  *
  * 134차 지시서 「꼭 지킬 동작」 5(화면 · 1280 × 1080 · 1440 × 900)를 확인한다(시험 이름 앞의 [134-5]) · 4 의 화면 쪽(잠금 · 실패 안내)은 [134-4].
+ * 135차 「꼭 지킬 동작」 3 — 펼친 몫 금액 오른쪽 끝 = 「전날 대비」 칸 오른쪽 끝(±1px) · 메모 실패 때 표 자리 그대로 · 글 남음 · 다시 저장 됨은 [135-3].
  * Vite + Playwright, `/api` 는 모두 `page.route` 가짜(만든 값) — 구글 · 토스 · 서버 호출 0. 요소는 역할 + 이름 · `data-testid` 로 찾는다.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
@@ -166,6 +167,22 @@ try {
       await btn.click();
       await detailOf(r2.day).waitFor({ timeout: 5000 });
       const dt = (await detailOf(r2.day).textContent()) ?? '';
+      // [135-3] 펼친 몫 금액(사고판 금액 포함)의 오른쪽 끝 = 같은 표 「전날 대비」 금액 글자의 오른쪽 끝(±1px)
+      // ⚠️ evaluate 안에서는 이름 붙인 함수를 만들지 않는다(tsx 가 __name 을 끼워 브라우저에서 깨진다) — 글자 오른쪽 끝은 Range 로
+      const align = await table(page).evaluate((el, day) => {
+        const rows = [...el.querySelectorAll('tbody tr[data-day]')].map((tr) => tr.children[2]); // 3번째 칸 = 전날 대비
+        const dds = [...el.querySelectorAll(`[id="asset-daily-detail-${day}"] [data-testid="asset-daily-shares"] dd`)];
+        const [head, ...rest] = [el.querySelector('thead th:nth-child(3)')!, ...rows, ...dds].map((n) => {
+          const range = document.createRange();
+          range.selectNodeContents(n);
+          return range.getBoundingClientRect().right;
+        });
+        const changeRights = rest.slice(0, rows.length);
+        const ddRights = rest.slice(rows.length);
+        const ref = changeRights[0];
+        return { ref, head, spread: Math.max(...changeRights) - Math.min(...changeRights), dds: ddRights, worst: Math.max(...ddRights.map((d) => Math.abs(d - ref))) };
+      }, r2.day);
+      check(`[135-3] ${w}px 줄 펼침 — 몫 금액 오른쪽 끝 = 「전날 대비」 칸 오른쪽 끝(±1px · 몫 ${align.dds.length}줄)`, align.dds.length >= r2.shares.length + 1 && align.worst <= 1 && align.spread <= 1 && Math.abs(align.head - align.ref) <= 1, JSON.stringify(align));
       check(`[134-5] ${w}px 줄 펼침 — aria-expanded · 몫 전부 원 단위 · 많이 바뀐 종목 3개 · 가격 못 받음 안내`,
         (await btn.getAttribute('aria-expanded')) === 'true' && r2.shares.every((s) => dt.includes(`${s.label}`) && dt.includes(formatAssetWonSigned(s.amount))) && r2.movers.every((m) => dt.includes(m.name)) && dt.includes('가격 못 받음 1줄 — 정확하지 않음'), dt);
       const old = sample.rows[4]; // 지난 날짜(주식 값)
@@ -176,6 +193,17 @@ try {
       await table(page).getByRole('button', { name: `${ap.day} 자세히 보기` }).click();
       const approx = (await detailOf(ap.day).textContent()) ?? '';
       check(`[134-5] ${w}px 줄 펼침 — 「대략」 · 사고판 금액(합에는 0) 안내`, approx.includes('대략') && approx.includes('사고판 금액') && approx.includes(formatAssetWonSigned(1_250_000)), approx);
+      const apAlign = await table(page).evaluate((el, day) => {
+        const [ref, ...dds] = [el.querySelector('tbody tr[data-day] td:nth-child(3)')!, ...el.querySelectorAll(`[id="asset-daily-detail-${day}"] [data-testid="asset-daily-shares"] dd`)].map((n) => {
+          const range = document.createRange();
+          range.selectNodeContents(n);
+          return range.getBoundingClientRect().right;
+        });
+        return { ref, dds, worst: Math.max(...dds.map((d) => Math.abs(d - ref))) };
+      }, ap.day);
+      check(`[135-3] ${w}px 줄 펼침 — 사고판 금액 줄도 같은 오른쪽 끝(±1px)`, apAlign.dds.length >= 2 && apAlign.worst <= 1, JSON.stringify(apAlign));
+      const after = await page.getByTestId('asset-daily-scroll').evaluate((el) => ({ h: el.scrollWidth > el.clientWidth + 1, page: document.documentElement.scrollWidth > window.innerWidth + 1 }));
+      check(`[135-3] ${w}px 줄 펼침 — 펼쳐도 가로 넘침 0`, !after.h && !after.page, JSON.stringify(after));
       await btn.click();
       check(`[134-5] ${w}px 줄 다시 누르면 접힘`, (await btn.getAttribute('aria-expanded')) === 'false' && (await detailOf(r2.day).count()) === 0 && (await table(page).getByTestId('asset-daily-detail').count()) === 2);
       check(`[134-5] ${w}px 화면 오류 0`, errors.length === 0, errors.join(' | '));
@@ -249,9 +277,30 @@ try {
       await table(page).getByRole('button', { name: `${latest.day} 메모` }).click();
       const input = table(page).getByRole('textbox', { name: `${latest.day} 메모` });
       await input.fill('보너스');
+      // 표 자리(표 상자 · 첫 줄 · 메모 칸 줄)를 실패 전 · 후로 잰다 — 안내가 표를 밀지 않아야 한다
+      const spots = () =>
+        page.getByTestId('asset-daily-table').evaluate((el) => {
+          const [table, scroll, firstRow] = [el, el.querySelector('[data-testid="asset-daily-scroll"]'), el.querySelector('tbody tr[data-day]')].map((n) => (n ? Math.round(n.getBoundingClientRect().top * 10) / 10 : -1));
+          return { table, scroll, firstRow };
+        });
+      const before = await spots();
       await input.press('Enter');
       await page.getByTestId('asset-daily-error').waitFor({ timeout: 5000 });
-      check(`[134-4] ${w}px 메모 저장 실패 — 글은 그대로(칸 열린 채) · 오류 한 줄`, (await input.inputValue()) === '보너스' && ((await page.getByTestId('asset-daily-error').textContent()) ?? '').includes('40자'));
+      const during = await spots();
+      check(`[134-4] ${w}px 메모 저장 실패 — 글은 그대로(칸 열린 채) · 오류 안내`, (await input.inputValue()) === '보너스' && ((await page.getByTestId('asset-daily-error').textContent()) ?? '').includes('40자'));
+      check(`[135-3] ${w}px 메모 저장 실패 — 표 자리 그대로(표 · 스크롤 칸 · 첫 줄 위치 픽셀 같음)`, JSON.stringify(before) === JSON.stringify(during), `${JSON.stringify(before)} → ${JSON.stringify(during)}`);
+      const tipBox = (await page.getByTestId('asset-daily-error').boundingBox())!;
+      const inBox = (await input.boundingBox())!;
+      check(`[135-3] ${w}px 메모 저장 실패 — 안내는 입력칸 바로 아래(또는 위) · 화면 안 · 빨간 테두리`,
+        (Math.abs(tipBox.y - (inBox.y + inBox.height)) <= 12 || Math.abs(tipBox.y + tipBox.height - inBox.y) <= 12) && tipBox.x >= 0 && tipBox.x + tipBox.width <= size.width && (await input.getAttribute('aria-invalid')) === 'true',
+        JSON.stringify({ tipBox, inBox }));
+      await page.getByTestId('asset-daily-error').waitFor({ state: 'detached', timeout: 7000 });
+      check(`[135-3] ${w}px 메모 저장 실패 — 안내는 몇 초 뒤 사라짐 · 글 · 빨간 테두리는 남음`, (await input.inputValue()) === '보너스' && (await input.getAttribute('aria-invalid')) === 'true');
+      // 다시 저장 — 이번엔 서버가 받아 준다
+      await page.route('**/api/asset/daily-note', (r) => r.fulfill({ json: { day: latest.day, note: '보너스' } }));
+      await input.press('Enter');
+      await table(page).getByRole('button', { name: `${latest.day} 메모 — 보너스` }).waitFor({ timeout: 5000 });
+      check(`[135-3] ${w}px 메모 저장 실패 뒤 다시 저장하면 저장됨 · 안내 없음`, (await page.getByTestId('asset-daily-error').count()) === 0);
       await ctx.close();
     }
     {
