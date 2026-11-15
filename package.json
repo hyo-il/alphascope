@@ -32,6 +32,8 @@
     "rules:test": "tsx scripts/rulesSelfTest.ts",
     "prevclose:test": "tsx scripts/prevCloseSelfTest.ts",
     "buyjudge:test": "tsx scripts/buyJudgeSelfTest.ts",
+    "testclock:test": "tsx scripts/fixedClockSelfTest.ts",
+    "testclock:matrix": "tsx scripts/fixedClockMatrix.ts",
     "recheck:test": "tsx scripts/recheckSelfTest.ts",
     "recheck:report": "tsx scripts/recheckReport.ts",
     "auth:test": "tsx scripts/authSessionsSelfTest.ts",

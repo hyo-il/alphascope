@@ -8,6 +8,7 @@
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import './lib/requireTossKeys'; // ⚠️ 둘째 import — 모의 모드(토스 키 없음)면 여기서 멈춘다
+import './lib/fixedClock'; // ⚠️ 셋째 import — 「지금」 을 두 시장 장 밖의 고요한 때로(언제 돌려도 같은 결과 · docs/rules/workflow.md 「시험 시계」)
 import 'dotenv/config';
 import { getDb } from '../server/db';
 import { createAccount, deleteAccount } from '../server/paperTradingService';

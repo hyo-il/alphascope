@@ -11,6 +11,7 @@
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import './lib/requireTossKeys'; // ⚠️ 둘째 import — 모의 모드(토스 키 없음)면 여기서 멈춘다
+import './lib/fixedClock'; // ⚠️ 셋째 import — 「지금」 을 두 시장 장 밖의 고요한 때로(언제 돌려도 같은 결과 · docs/rules/workflow.md 「시험 시계」)
 import { getDb, loadCandles } from '../server/db';
 import { createAccount, createOrder, deleteAccount, getAccount, listAccounts, listPositions, listTrades, reorderAccounts, setUsdKrwForTest } from '../server/paperTradingService';
 import { planBuy } from '../server/autoTrading/sizing';
@@ -453,7 +454,7 @@ async function aiSection(): Promise<void> {
   });
   try {
     const judged = await judgeOnClose(SYM, rule, { held: false });
-    if (judged.kind !== 'ok') throw new Error(`${SYM} 캔들이 모자랍니다`);
+    if (judged.kind !== 'ok') throw new Error(`${SYM} 판단할 수 없습니다(${judged.kind})`);
     const ctx = { ev: judged.ev, candles: judged.completed, series: judged.series };
     const price = judged.candles.at(-1)!.close;
     const strategyOf = (accountId: number, aiCheck: boolean) =>
