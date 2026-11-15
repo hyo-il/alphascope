@@ -404,6 +404,26 @@ cd ~/projects/alphascope/app && npm run -s recheck:report
 
 「다시 계산 N건 · 달라짐 M건(action 바뀜 a · code 바뀜 b · 점수만 바뀜 c)」 · 달라진 줄 표 · 한 줄 결론이 나옵니다. 기간만 보려면 `npm run -s recheck:report -- --from 2026-11-02 --to 2026-11-06`. 끄려면 `.env` 에 `BUYJUDGE_RECHECK_ENABLED=false` 를 넣고 pm2 를 다시 켭니다.
 
+### 오늘 시황 「예상 방향」 채점 보고 (`brief:score-report`)
+
+오늘 시황 「오늘 예상 방향」 채점(`market_brief_scores` — 코스피 · S&P500)을 대상마다 셉니다(v2.70.1). **오라클에 들어가서** 봅니다(앱 DB 를 읽기 전용으로 엽니다 — 쓰지 않고 토스 · 지표 엔진 · Gemini 를 부르지 않습니다):
+
+```bash
+cd ~/projects/alphascope/app && npm run -s brief:score-report
+```
+
+대상별 채점한 날 · 맞음 / 틀림 / 채점 못 함(최근 30일 — 브리핑 보관 기간) · 예상 방향별 · 확신별 맞은 비율 · 실제 등락률 크기(0.3% 미만 · 0.3~0.5 · 0.5~1 · 1% 넘음) · 보합 기준을 ±0.3 · ±0.5 · ±0.7 · ±1.0% 로 바꿨다면의 맞은 비율(저장하지 않음)과 한 줄 결론이 나옵니다. 기간만 보려면 `-- --from YYYY-MM-DD --to YYYY-MM-DD`.
+
+### 계좌 자동매매 테스트 결과 보고 (`autotrade:report`)
+
+모든 모의 계좌의 자동매매 결과를 계좌마다 한 줄 + 합계로 봅니다(v2.70.1). **오라클에 들어가서** 봅니다(읽기 전용 — 쓰지 않고 토스 · Gemini 를 부르지 않으며 주문을 내지 않습니다 · 금액 · 수량 · 가격은 찍지 않고 손익은 %):
+
+```bash
+cd ~/projects/alphascope/app && npm run -s autotrade:report
+```
+
+계좌 · 규칙 · AI 검증 켬/끔 · 시작일 · 거래일 · 산 · 판 · 보유 종목 수 · 수익률 · 같은 기간 기준 지수(SPY · KODEX 200) · 「못 산 이유」 별 횟수 · 「사도 됨」 인데 사지 않은 날과 까닭 · 같은 규칙 · 같은 종목의 AI 켬/끔 계좌 견주기와 한 줄 결론이 나옵니다. 계좌의 판단 기록은 그날 하루치만 남아, 지난 날 「못 산 이유」 는 매수 판단 기록(같은 `judgeOnClose`)에서 그 계좌의 규칙 · 종목 줄로 셉니다(매수 판단 목록에 없는 종목은 「덮은 종목」 칸에 빠짐으로 보입니다). 기간만 보려면 `-- --from YYYY-MM-DD --to YYYY-MM-DD`.
+
 ### 16:30 값 vs 최종값 매수 판단 견주기 (`ussample:judge`)
 
 `~/projects/alphascope/data/us-close.jsonl`(아래 `ussample:run` 기록)의 16:30 ET 무렵 값과 최종값으로 같은 규칙(「기본 규칙」 + 자동매매를 켠 계좌의 규칙)을 두 번 판단해
