@@ -91,7 +91,9 @@ const MONEY = ['12345678', '12,345,678', '23456789', '23,456,789', '987.65', '98
   };
   w.prepare(`INSERT INTO gemini_settings (key, value) VALUES ('autoTrading.strategies', ?)`).run(JSON.stringify(strategies));
   w.prepare(`INSERT INTO gemini_settings (key, value) VALUES ('autoTrading.lastNotes', ?)`).run(
-    JSON.stringify({ [on]: { at: '2026-10-30T14:00:00Z', day: '2026-10-30', notes: [{ symbol: 'AAPL', action: 'HOLD', reason: 'x', code: 'max_positions' }, { symbol: 'MSFT', action: 'HOLD', reason: 'x', code: 'no_signal_buy' }, { symbol: 'MSFT', action: 'HOLD', reason: 'x', code: 'no_signal_buy' }] } }),
+    JSON.stringify({ [on]: { at: '2026-10-30T14:00:00Z', day: '2026-10-30', notes: [{ symbol: 'AAPL', action: 'HOLD', reason: 'x', code: 'max_positions' }, { symbol: 'MSFT', action: 'HOLD', reason: 'x', code: 'no_signal_buy' }, { symbol: 'MSFT', action: 'HOLD', reason: 'x', code: 'no_signal_buy' }] },
+      // 실적 회피 — 옛 문장(날짜 표시 없음)과 새 문장(「미국 날짜」)이 같은 이유로 셈(code 로 센다 · v2.70.2)
+      [off]: { at: '2026-10-30T14:00:00Z', day: '2026-10-30', notes: [{ symbol: 'AAPL', action: 'HOLD', reason: 'AAPL 실적 발표 10/30(예정) 당일 — 신규 매수 건너뜀', code: 'earnings_blackout' }, { symbol: 'MSFT', action: 'HOLD', reason: 'MSFT 실적 발표 10/31(예정 · 미국 날짜) 1거래일 전 — 신규 매수 건너뜀', code: 'earnings_blackout' }] } }),
   );
   const trade = w.prepare(`INSERT INTO paper_trades (account_id, order_id, symbol, side, price, quantity, commission, slippage, currency, traded_at) VALUES (?, 0, ?, ?, 987.65, 437, 1, 1, 'USD', ?)`);
   trade.run(on, 'AAPL', 'BUY', '2026-10-06T14:00:00Z');
@@ -176,6 +178,8 @@ check('「사도 됨」 인데 사지 않음 — 켬 2(AI 위험 1 · 이미 보
 check('「사도 됨」 인데 사지 않음 — 끔 1(이미 보유 중) · AI 칸 「끔」', missOff === `| ${offName} | 3 | 1 | 이미 보유 중 1 | — (끔) |`, missOff);
 const lastOn = autoLines.filter((l) => l.startsWith(`| ${onName} |`))[3] ?? '';
 check('마지막 판단 날 — 켬 10-30: 기준 미달(매수) 2 · 보유 종목 수 가득 1', lastOn === `| ${onName} | 2026-10-30 | 기준 미달(매수) 2 · 보유 종목 수 가득 1 |`, lastOn);
+const lastOff = autoLines.filter((l) => l.startsWith(`| ${offName} |`))[3] ?? '';
+check('마지막 판단 날 — 끔 10-30: 실적 회피 옛 문장 · 새 문장(「미국 날짜」) 모두 「실적 발표 앞」 2', lastOff === `| ${offName} | 2026-10-30 | 실적 발표 앞 2 |`, lastOff);
 check('AI 켬 / 끔 견주기 — 같은 규칙 · 같은 종목(순서 달라도) 한 줄', auto.includes(`| ${onName} | ${offName} | +5.20% / −1.50% | 1 / 2 | 1 / 0 | 2 / 1 | 1 |`));
 check('100줄 안 · 맨 끝 「한 줄 결론」', autoLines.length <= 100 && autoLines.at(-1)!.startsWith('한 줄 결론: 3계좌 · 산 3번 · 판 1번'), `${autoLines.length}줄 · ${autoLines.at(-1)}`);
 const autoPeriod = buildAutotradeReport(ro, { from: '2026-10-15', to: '2026-10-30', today: '2026-10-31' });

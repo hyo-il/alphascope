@@ -24,12 +24,14 @@ import { GeminiError } from '../server/gemini/client';
 import { fetchQuotes } from '../server/quoteService';
 import { runExitChecks, runSignalChecks, setJudgeForTest, tryBuy } from '../server/autoTrading/engine';
 import { rankBuyCandidates, recentReturn } from '../server/autoTrading/buyOrder';
-import { dailyLossBlock, evaluateDailyLoss, setEarningsLookupForTest, strategyDay } from '../server/autoTrading/guards';
+import { dailyLossBlock, earningsGuard, evaluateDailyLoss, setEarningsLookupForTest, strategyDay, tradingDaysUntil } from '../server/autoTrading/guards';
+import type { DecisionCode } from '../src/types/autoTrading';
+import { isKrSymbol } from '../src/utils/market';
 import { evaluateRule } from '../server/rules/engine';
 import { createRule, deleteRule, ensureSeeded, listRules, resetSeedCheckForTest } from '../server/rules/store';
 import { NOTES_MAX, readNotes, recordNotes } from '../server/autoTrading/store';
 import { ABOVE200_RULE_NAME } from '../src/types/tradingRule';
-import { groupNotes } from '../src/utils/autoTradeExplain';
+import { groupNotes, isAutoTradeReason, NOTE_KIND_LABEL, noteKind, type NoteKind } from '../src/utils/autoTradeExplain';
 import { loadMarketRef, marketRefLoader, MARKET_REF_RETRY_MS, resetMarketRefMissForTest, setMarketRefLoadForTest } from '../server/rules/marketRef';
 import { resetPendingNotesForTest } from '../server/autoTrading/engine';
 import { runCustomBacktest } from '../server/autoTrading/ruleResearch';
@@ -255,6 +257,7 @@ async function main(): Promise<void> {
       fakeEarnings(null);
       const unknown2 = await tryBuy(guarded, crossRule, SYMBOL, price, signal.reasons[0], 0, signal.code);
       check('실적일을 모르면 사되 "실적일 미확인"', unknown2.action === 'BUY' && unknown2.reason.includes('실적일 미확인'), unknown2.reason);
+      check('엔진이 낸 점수 매수 사유(+ 「실적일 미확인」)는 거래 내역 「자동」 표시(isAutoTradeReason)', isAutoTradeReason(unknown2.reason), unknown2.reason);
     } finally {
       setEarningsLookupForTest(null);
     }
@@ -351,6 +354,8 @@ async function main(): Promise<void> {
   dailySection();
   await marketSection();
   await retrySection();
+  noteKindSection();
+  earningsLabelSection();
 
   console.log(`\n결과: ${pass}개 통과 / ${fail}개 실패`);
   if (fail > 0) process.exit(1);
@@ -1028,4 +1033,113 @@ async function retrySection(): Promise<void> {
     deleteRule(rule.id);
     console.log(`임시 계좌 · 임시 규칙 #${rule.id} 삭제 완료`);
   }
+}
+
+/** 17. 「최근 판단」 줄 이름 — code 마다 「그대로」 / 「건너뜀」(한 함수 `noteKind`) · 묶음 머리 수 = 줄 수 · 거래 내역 「자동」 표시 */
+function noteKindSection(): void {
+  console.log('\n── 17. 최근 판단 이름 (그대로 · 건너뜀 · 못 산) ──');
+  // 모든 code 를 적는다 — code 가 늘면 이 표가 타입 오류로 알린다(빠짐 없음)
+  const HOLD_KIND: Record<DecisionCode, NoteKind> = {
+    no_signal_buy: 'hold',
+    no_signal_hold: 'hold',
+    reentry_wait: 'hold',
+    bar_unconfirmed: 'hold',
+    not_enough_candles: 'hold',
+    rr_block: 'skip',
+    gate_block: 'skip',
+    daily_loss: 'skip',
+    earnings_blackout: 'skip',
+    max_positions: 'skip',
+    other: 'skip',
+    ai_risk: 'skip',
+    ai_unavailable: 'skip',
+    error: 'skip',
+    // 아래는 HOLD 로 오지 않는 code — 오더라도 신호 없음 쪽(「못 산」 으로 세지 않음)
+    score_buy: 'hold',
+    score_sell: 'hold',
+    dead: 'hold',
+    rsi_hot: 'hold',
+    hard_stop: 'hold',
+    take_profit: 'hold',
+    trailing: 'hold',
+    ai_pass: 'hold',
+  };
+  const wrong = (Object.keys(HOLD_KIND) as DecisionCode[]).filter((code) => noteKind({ action: 'HOLD', code }) !== HOLD_KIND[code]);
+  check('HOLD 줄 — 신호 없음 「그대로」 · 막힌 매수 「건너뜀」(code 마다)', wrong.length === 0, wrong.join(', ') || `${Object.keys(HOLD_KIND).length}개 code`);
+  check('코드 없는 옛 HOLD 줄 → 「그대로」', noteKind({ action: 'HOLD' }) === 'hold');
+  check('BUY → 「매수」 · SELL → 「매도」(code 와 상관없이)', noteKind({ action: 'BUY', code: 'ai_pass' }) === 'buy' && noteKind({ action: 'SELL', code: 'hard_stop' }) === 'sell');
+  check('줄 글자 네 가지', JSON.stringify(NOTE_KIND_LABEL) === JSON.stringify({ buy: '매수', sell: '매도', hold: '그대로', skip: '건너뜀' }));
+
+  const at = '2026-10-16T13:35:00.000Z';
+  const notes = [
+    { symbol: 'AAPL', action: 'BUY' as const, reason: 'b', code: 'score_buy' as const, at, market: 'US' as const },
+    { symbol: 'MSFT', action: 'SELL' as const, reason: 's', code: 'hard_stop' as const, at, market: 'US' as const },
+    { symbol: 'NVDA', action: 'HOLD' as const, reason: 'h', code: 'no_signal_buy' as const, at, market: 'US' as const },
+    { symbol: 'TSLA', action: 'HOLD' as const, reason: 'e', code: 'earnings_blackout' as const, at, market: 'US' as const },
+    { symbol: 'AMZN', action: 'HOLD' as const, reason: 'r', code: 'ai_risk' as const, at, market: 'US' as const },
+    { symbol: 'META', action: 'HOLD' as const, reason: 'o', at, market: 'US' as const },
+  ];
+  const [g] = groupNotes(notes);
+  check('묶음 머리 — 매수 1 · 매도 1 · 그대로 2 · 못 산 2 · 합 = 줄 수', g.buys === 1 && g.sells === 1 && g.holds === 2 && g.skips === 2 && g.buys + g.sells + g.holds + g.skips === notes.length, JSON.stringify([g.buys, g.sells, g.holds, g.skips]));
+  const [g0] = groupNotes([notes[0], notes[2]]);
+  check('못 산 0 이어도 수가 있다(0)', g0.skips === 0 && g0.holds === 1);
+
+  // 거래 내역 「자동」 표시 — 옛 문장 · 새 문장 모두 · 손으로 낸 주문은 아님
+  const autoReasons = [
+    '하드 손절 -10.13% — 기준 -7% 도달로 전량 청산',
+    '트레일링 스톱 -8.2% (고점 대비)',
+    'AI 매수 신호',
+    'Gemini 매도',
+    '손절 −7.4% — 기준 −7% → 10주',
+    '익절 +10.2% — 목표 +10%',
+    '트레일링 — 최고가 대비 −8.1%',
+    '5/20 데드크로스 — 반대 신호로 매도',
+    'RSI 72.1 — 과열(70 이상)로 매도',
+    '점수 4/7 (추세 2 · 타이밍 1 · 모멘텀 1 · 거래량 0) ≥ 기준 4점 — 매수 → 10주',
+    '점수 4/7 (추세 2) ≥ 기준 4점 — 매수 · 실적일 미확인 → 10주 · 총점 순위 1위(3종목 중)',
+    '점수 1/7 (추세 1) — 2점 아래로 떨어져 매도',
+  ];
+  const missed = autoReasons.filter((r) => !isAutoTradeReason(r));
+  check('자동매매 거래 사유(옛 · 새) → 「자동」', missed.length === 0, missed.join(' | ') || `${autoReasons.length}개`);
+  const manual = ['차트 빠른주문 시장가 매수', '차트 빠른주문 지정가 매도 (보유 전부)', '점검용 매수', null, ''];
+  check('손으로 낸 주문 · 사유 없음 → 「자동」 아님', manual.every((r) => !isAutoTradeReason(r)));
+}
+
+/** 18. 실적 회피 사유 「미국 날짜」 — 문장만 바뀌고 막는 날 · 막는 종목은 그대로 */
+function earningsLabelSection(): void {
+  console.log('\n── 18. 실적 회피 사유 「미국 날짜」 ──');
+  const strategy = { ...normalizeStrategy(1, {}), earningsBlackoutDays: 3 } as AccountStrategy;
+  const now = Date.now();
+  /** 바꾸기 전 문장(v2.70.1 `guards.ts`) — 막는 날 계산은 같은 `tradingDaysUntil` */
+  const before = (symbol: string, date: string, isEstimate: boolean): string | null => {
+    const until = tradingDaysUntil(marketDate(now, symbol), date, isKrSymbol(symbol) ? 'KR' : 'US');
+    if (until < 0 || until > 3) return null;
+    const label = `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}${isEstimate ? '(예정)' : ''}`;
+    return `${symbol} 실적 발표 ${label} ${until === 0 ? '당일' : `${until}거래일 전`} — 신규 매수 건너뜀`;
+  };
+  const rows: { symbol: string; date: string; isEstimate: boolean; was: string | null; got: string | null }[] = [];
+  try {
+    for (const symbol of ['NVDA', 'AAPL', '005930', '000660']) {
+      const today = marketDate(now, symbol);
+      for (let k = -3; k <= 8; k++) {
+        const d = new Date(`${today}T12:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + k);
+        const date = d.toISOString().slice(0, 10);
+        for (const isEstimate of [false, true]) {
+          setEarningsLookupForTest((s) => (s === symbol ? { date, isEstimate } : null));
+          rows.push({ symbol, date, isEstimate, was: before(symbol, date, isEstimate), got: earningsGuard(strategy, symbol, now).blocked });
+        }
+      }
+    }
+  } finally {
+    setEarningsLookupForTest(null);
+  }
+  const sameDays = rows.every((r) => (r.was == null) === (r.got == null));
+  check('막는 날 · 막는 종목이 전 · 후 같음(국내 · 미국 · 예정 · 확정 × 12일)', sameDays && rows.some((r) => r.got), `${rows.filter((r) => r.got).length}/${rows.length} 막힘`);
+  const us = rows.filter((r) => r.got && !isKrSymbol(r.symbol));
+  const kr = rows.filter((r) => r.got && isKrSymbol(r.symbol));
+  const usTag = (r: (typeof rows)[number]) => r.was!.replace(r.isEstimate ? '(예정)' : /(\d+\/\d+)/, r.isEstimate ? '(예정 · 미국 날짜)' : '$1(미국 날짜)');
+  check('미국 종목 — 「11/19(미국 날짜)」 · 예정 「11/19(예정 · 미국 날짜)」 · 나머지 글자 같음', us.length > 0 && us.every((r) => r.got === usTag(r)), us.find((r) => r.got !== usTag(r))?.got ?? us[0]?.got ?? '');
+  check('국내 종목 — 문장 그대로(바이트 같음)', kr.length > 0 && kr.every((r) => r.got === r.was), kr[0]?.got ?? '');
+  check('미국 · 확정 예 — 「(미국 날짜)」 하나 · 「(예정)」 없음', us.some((r) => !r.isEstimate && r.got!.split('미국 날짜').length === 2 && !r.got!.includes('예정')));
 }

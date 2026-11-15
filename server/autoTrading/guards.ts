@@ -11,7 +11,7 @@ import { getEarningsDate } from '../earningsCalendar';
 import { readSetting, writeSetting } from '../gemini/store';
 import { isKrSymbol } from '../../src/utils/market';
 import { isMarketClosed, type CalendarMarket } from '../marketCalendar';
-import { marketDate } from '../../src/utils/marketDate';
+import { marketDate, US_DATE_LABEL } from '../../src/utils/marketDate';
 import type { AccountStrategy } from '../../src/types/autoTrading';
 
 // ── 실적 발표 직전 회피 ─────────────────────────────────────────────────────
@@ -69,7 +69,9 @@ export function earningsGuard(
   const today = marketDate(now, symbol);
   const until = tradingDaysUntil(today, e.date, isKrSymbol(symbol) ? 'KR' : 'US');
   if (until < 0 || until > days) return { blocked: null, note: null };
-  const label = `${Number(e.date.slice(5, 7))}/${Number(e.date.slice(8, 10))}${e.isEstimate ? '(예정)' : ''}`;
+  // 미국 종목은 「미국 날짜」(실적일은 미국 동부 날짜 — 문구 한 곳 `US_DATE_LABEL` · 화면이 `common/UsDateTag` 로 그린다) · 국내는 그대로
+  const tags = [e.isEstimate ? '예정' : '', isKrSymbol(symbol) ? '' : US_DATE_LABEL].filter(Boolean).join(' · ');
+  const label = `${Number(e.date.slice(5, 7))}/${Number(e.date.slice(8, 10))}${tags ? `(${tags})` : ''}`;
   const when = until === 0 ? '당일' : `${until}거래일 전`;
   return { blocked: `${symbol} 실적 발표 ${label} ${when} — 신규 매수 건너뜀`, note: null };
 }
