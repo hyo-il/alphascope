@@ -75,10 +75,10 @@ export function assetSheetSample(opts: { dupCode?: boolean; cashMismatch?: boole
     cashTotal: 1234567890,
     retirement: 234567890,
     cashAccounts: [
-      { row: 5, name: '예시은행 입출금', amount: 500_000_000 },
+      { row: 5, name: '예시은행', amount: 500_000_000 },
       { row: 6, name: '예시은행 (청년 적금 26.11.16 ~ 29.11.16)', amount: 34_567_890 },
       { row: 7, name: '예시 저축은행 정기예금 이름이 아주 긴 계좌 — 만기 자동 연장 특판 상품 2026년 11월 가입분', amount: opts.cashMismatch ? 690_000_000 : 700_000_000 },
-      { row: 8, name: '예시은행 입출금', amount: null },
+      { row: 8, name: '예시은행', amount: null },
     ],
     retirementAccounts: [{ row: 12, name: '예시은행 확정기여(DC) (해외 ETF)', amount: 234_567_890 }],
     salary: 3456789,

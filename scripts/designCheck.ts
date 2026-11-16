@@ -767,6 +767,15 @@ function targets(): Target[] {
           await page.getByTestId('asset-cash-accounts').waitFor({ timeout: 3000 }).catch(() => {});
           await page.waitForTimeout(200);
         }] as const),
+        // v2.71.1 — 「현금 합계」 은행별 합계에서 은행 하나를 펼침(상품 · 긴 은행 이름 말줄임)
+        ['자산현황-현금펼침-은행', {}, async (page: Page) => {
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+          await page.getByTestId('asset-cash-toggle').click().catch(() => {});
+          await page.getByTestId('asset-cash-accounts').waitFor({ timeout: 3000 }).catch(() => {});
+          await page.getByRole('button', { name: /상품 펼치기$/ }).first().click().catch(() => {});
+          await page.waitForTimeout(200);
+        }],
         ...(['전체', '코어', '위성'] as const).map((f) => [`자산현황-종목별-${f}`, { none: true }, async (page: Page) => {
           await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
           await page.waitForTimeout(500);

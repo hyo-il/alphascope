@@ -2,6 +2,7 @@
  * 「현금 합계」 계좌별 펼침 화면 시험(138차 · v2.70.4) — `npm run assetcashui:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import).
  * 138차 「꼭 지킬 동작」 6(1280 × 1080 · 1440 × 900) — 펼침 · 계좌 줄(시트 순서 · 원 · 오른쪽 정렬 · 빈 금액 「—」 · 긴 이름 말줄임 + `data-tip-clip`) ·
  * 「연금 포함」 때만 퇴직 연금 · 합이 총액과 다르면 안내 · 넘침 0 · 로딩 표시 · 시트 오류 안내 그대로 · 펼침은 기억하지 않음.
+ * (v2.71.1 140차 — 은행 계좌는 은행별 합계로 묶여 은행을 누르면 상품이 펼쳐진다: 은행을 모두 펼친 뒤 같은 계좌 줄을 본다 · 은행 합 = 상품 합은 assetcasheasyui:test)
  * Vite + Playwright, `/api` 는 모두 `page.route` 가짜(만든 값 — `fixtures/asset/screenSample.ts`) — 구글 · 토스 · 서버 호출 0. 요소는 역할 + 이름 · `data-testid` 로 찾는다.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
@@ -87,12 +88,15 @@ try {
       await list.waitFor({ timeout: 5000 });
       check(`[138-6] ${w}px 누르면 펼침(aria-expanded=true · aria-controls 가 목록)`, (await toggle.getAttribute('aria-expanded')) === 'true' && (await toggle.getAttribute('aria-controls')) === (await list.getAttribute('id')));
       const bank = page.getByTestId('asset-cash-bank');
-      const rows = await bank.locator('tr[data-cash-row]').evaluateAll((trs) => trs.map((tr) => ({ row: Number(tr.getAttribute('data-cash-row')), name: tr.querySelector('td span')?.textContent ?? '', amount: tr.querySelectorAll('td')[1]?.textContent ?? '' })));
-      check(`[138-6] ${w}px 은행 계좌 줄 — 시트 순서 · 이름 · 금액(원 · formatAssetPrice) · 빈 금액은 「—」`,
-        JSON.stringify(rows) === JSON.stringify(sample.cashAccounts.map((r) => ({ row: r.row, name: r.name, amount: formatAssetPrice(r.amount, 'KRW') }))) && rows.at(-1)?.amount === '—', JSON.stringify(rows.map((r) => r.amount)));
+      for (const more = bank.getByRole('button', { name: /상품 펼치기$/ }); (await more.count()) > 0; ) await more.first().click(); // 펼치면 이름이 「접기」 로 바뀐다
+      const rows = await bank.locator('tr[data-cash-row]').evaluateAll((trs) => trs.map((tr) => ({ row: Number(tr.getAttribute('data-cash-row')), name: tr.querySelector('td span')?.getAttribute('data-tip-clip') ?? '', amount: tr.querySelectorAll('td')[1]?.textContent ?? '' })));
+      const want = sample.cashAccounts.map((r) => ({ row: r.row, name: r.name, amount: formatAssetPrice(r.amount, 'KRW') }));
+      const byRow = (a: { row: number }, b: { row: number }) => a.row - b.row;
+      check(`[138-6] ${w}px 은행 계좌(은행을 모두 펼침) — 모든 계좌 · 이름(툴팁에 시트 이름 그대로) · 금액(원 · formatAssetPrice) · 빈 금액은 「—」`,
+        JSON.stringify([...rows].sort(byRow)) === JSON.stringify([...want].sort(byRow)) && rows.some((r) => r.amount === '—'), JSON.stringify(rows.map((r) => r.amount)));
       const layout = await list.evaluate((el) => {
-        const nums = [...el.querySelectorAll('tr[data-cash-row] td:nth-child(2)')] as HTMLElement[];
-        const names = [...el.querySelectorAll('tr[data-cash-row] td:first-child span')] as HTMLElement[];
+        const nums = [...el.querySelectorAll('tr[data-cash-row] td:nth-child(2), tr[data-cash-bank] td:nth-child(2)')] as HTMLElement[];
+        const names = [...el.querySelectorAll('tr[data-cash-row] td:first-child span, tr[data-cash-bank] td:first-child span.truncate')] as HTMLElement[];
         const panel = el.closest('section,div[class*="rounded"]') as HTMLElement | null;
         const rights = nums.map((n) => Math.round(n.getBoundingClientRect().right));
         const clipped = names.filter((n) => n.scrollWidth > n.clientWidth + 1);
@@ -102,7 +106,7 @@ try {
           align: nums.every((n) => getComputedStyle(n).textAlign === 'right'),
           sameRight: new Set(rights).size === 1,
           clipped: clipped.length,
-          clipTip: clipped.every((n) => (n.getAttribute('data-tip-clip') ?? '') === n.textContent),
+          clipTip: clipped.every((n) => (n.getAttribute('data-tip-clip') ?? '').includes(n.textContent ?? '')),
           numFits: nums.every((n) => n.scrollWidth <= n.clientWidth + 1),
           inPanel: pb == null || (box.left >= pb.left - 0.5 && box.right <= pb.right + 0.5),
           pageX: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
@@ -131,6 +135,7 @@ try {
       await guard.step('현금 합계 기다리기', () => toggle.waitFor({ timeout: 30_000 }));
       await toggle.click();
       await page.getByTestId('asset-cash-accounts').waitFor({ timeout: 5000 });
+      for (const more = page.getByTestId('asset-cash-bank').getByRole('button', { name: /상품 펼치기$/ }); (await more.count()) > 0; ) await more.first().click();
       check(`[138-6] ${w}px 「연금 포함」 끔 → 퇴직 연금 줄 없음 · 은행 계좌는 그대로`, (await page.getByTestId('asset-cash-retirement').count()) === 0 && (await page.getByTestId('asset-cash-bank').locator('tr[data-cash-row]').count()) === sample.cashAccounts.length);
       const note = page.getByTestId('asset-cash-bank-mismatch');
       check(`[138-6] ${w}px 계좌 합이 총액과 다르면 작은 안내 「계좌 합이 총액과 달라요 — 시트 합계 식을 확인해 주세요」`, (await note.count()) === 1 && ((await note.textContent()) ?? '').includes('계좌 합이 총액과 달라요 — 시트 합계 식을 확인해 주세요'));

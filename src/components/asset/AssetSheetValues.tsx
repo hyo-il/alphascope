@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Calculator, ChevronDown, ChevronRight, History, Plus, Tags } from 'lucide-react';
 import { Button, ICON_SM, IconButton, Panel, Segmented } from '../ui';
 import { SkeletonTable } from '../common/SkeletonLoader';
@@ -6,7 +6,7 @@ import AssetSymbolTable, { SYMBOL_FILTERS, type SymbolFilter } from './AssetSymb
 import { ASSET_CLASS_W, LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice } from '../../utils/formatters';
 import { formatAssetPrice, formatAssetQty } from '../../utils/assetFormat';
-import { UNASSIGNED_LABEL, type AssetAccount, type AssetCashRow, type AssetHolding, type AssetSection, type AssetSheetData, type AssetSymbolRow, type AssetTradeSide } from '../../types/asset';
+import { UNASSIGNED_LABEL, cashBankGroups, type AssetAccount, type AssetCashBankFix, type AssetCashRow, type AssetSheetCashBanks, type AssetHolding, type AssetSection, type AssetSheetData, type AssetSymbolRow, type AssetTradeSide } from '../../types/asset';
 
 /**
  * 자산 관리 「자산 현황」 탭 (v2.61.0 1단계 확인 표 → v2.62.1 계좌 카드 → v2.62.2 탭).
@@ -20,7 +20,8 @@ import { UNASSIGNED_LABEL, type AssetAccount, type AssetCashRow, type AssetHoldi
  *   종목별 = 같은 종목을 한 줄로(`AssetSymbolTable` · 「전체 / 코어 / 위성」 거르기) — 자산 분류 고르기는 계좌별에서.
  * - 계좌별 줄 끝 [매수] [매도](v2.66.0 — `h.tradable` 인 줄만 · 합친 표 · 수식 칸 · 이을 수 없는 줄은 없음) · 위 [새 종목 매수](v2.67.0 · `AssetNewBuyDialog`) · [매수 · 매도 기록].
  *   계산기 아이콘 버튼(v2.68.0 · v2.68.2 아이콘 — 공용 `IconButton` · 툴팁 · aria-label 「<종목> 평단 계산기」) — 수량 · 평균가가 0 보다 큰 줄이면 [매수] 가 없는 줄에도 보인다(계산만 · `canCalc`).
- * - 「현금 합계」 를 누르면 「현금」 탭 은행 계좌 줄(이름 · 금액 — 시트 순서 · 읽기만)이 펼쳐진다 · 「연금 포함」 이면 퇴직 연금 줄도(v2.70.4 · 펼침은 기억하지 않음).
+ * - 「현금 합계」 를 누르면 「현금」 탭 은행 계좌가 **은행별 합계**로 펼쳐진다(v2.71.1 — 은행 순서 = 시트에서 처음 나온 순서 · 은행을 누르면 상품(입출금 · 청년 적금 · 정기 예금 #1 …)이 펼쳐짐 ·
+ *   묶기는 `cashBankGroups`(설정 화면 · 서버와 같은 함수) + 시트 응답의 「은행 묶음 고치기」) · 「연금 포함」 이면 퇴직 연금 줄도 따로(v2.70.4 · 펼침은 기억하지 않음).
  *   계좌 합이 시트 총액과 다르면 작은 안내만(총 자산 계산은 시트 총액 그대로 — 서버).
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 접은 계좌 이름 · 보기 이름만).
  */
@@ -75,6 +76,74 @@ function CashBlock({ heading, rows, total, testId }: { heading: string; rows: As
   );
 }
 
+/** 은행 합 — 빈 금액은 빼고 더함(시트 SUM 과 같게) · 모두 비면 null(「—」) */
+const bankSum = (rows: AssetCashRow[]) => (rows.every((r) => r.amount == null) ? null : rows.reduce((a, r) => a + (r.amount ?? 0), 0));
+
+/** 「현금」 탭 은행 계좌 — 은행별 합계(누르면 상품 펼침 · 펼침은 기억하지 않음) · 합이 총액과 다르면 안내 */
+function BankCashBlock({ rows, total, fix }: { rows: AssetCashRow[]; total: number | null; fix: AssetCashBankFix | undefined }) {
+  const groups = cashBankGroups(rows, (r) => r.name, fix);
+  const [open, setOpen] = useState<string[]>([]);
+  const testId = 'asset-cash-bank';
+  return (
+    <div className="space-y-1" data-testid={testId}>
+      <div className="text-caption text-text-secondary">은행 계좌 — 은행을 누르면 상품이 펼쳐져요</div>
+      {rows.length === 0 ? (
+        <p className="text-caption text-text-muted">「현금」 탭에 계좌가 없습니다.</p>
+      ) : (
+        <table className="w-full border-separate border-spacing-0 text-left text-xs">
+          <tbody>
+            {groups.map((g) => {
+              const isOpen = open.includes(g.bank);
+              const Arrow = isOpen ? ChevronDown : ChevronRight;
+              const sum = bankSum(g.items.map((it) => it.row));
+              return (
+                <Fragment key={g.bank}>
+                  <tr className={LIST_TABLE_ROW} data-cash-bank={g.bank}>
+                    <td className={`${TABLE_NAME_COL} max-w-0 border-t border-border/30`}>
+                      <button
+                        type="button"
+                        className="flex w-full min-w-0 cursor-pointer items-center gap-1 text-left text-text-primary"
+                        aria-expanded={isOpen}
+                        aria-label={`${g.bank} 상품 ${isOpen ? '접기' : '펼치기'}`}
+                        onClick={() => setOpen((o) => (isOpen ? o.filter((x) => x !== g.bank) : [...o, g.bank]))}
+                      >
+                        <Arrow {...ICON_SM} className="shrink-0 text-text-muted" />
+                        <span className="min-w-0 truncate font-medium" data-tip-clip={g.bank}>
+                          {g.bank}
+                        </span>
+                        <span className="shrink-0 text-caption text-text-muted">{g.items.length}개</span>
+                      </button>
+                    </td>
+                    <td className={`${NUM} border-t border-border/30 font-medium text-text-primary`} data-cash-bank-sum>
+                      {formatAssetPrice(sum, 'KRW')}
+                    </td>
+                  </tr>
+                  {isOpen &&
+                    g.items.map((it) => (
+                      <tr key={it.row.row} className={LIST_TABLE_ROW} data-cash-row={it.row.row}>
+                        <td className={`${TABLE_NAME_COL} max-w-0 pl-7`}>
+                          <span className="block truncate text-text-secondary" data-tip-clip={it.row.name}>
+                            {it.label}
+                          </span>
+                        </td>
+                        <td className={`${NUM} text-text-secondary`}>{formatAssetPrice(it.row.amount, 'KRW')}</td>
+                      </tr>
+                    ))}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      {sumDiffers(rows, total) && (
+        <p className="text-caption text-warning" data-testid={`${testId}-mismatch`}>
+          계좌 합이 총액과 달라요 — 시트 합계 식을 확인해 주세요
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** 현금 · 연금 · 월급 · 환율 한 줄, 목표 비율 한 줄 — 칸은 내용 폭(금액이 길어져도 겹치지 않고 다음 줄로) */
 function Summary({ data, includePension }: { data: AssetSheetData; includePension: boolean }) {
   const t = data.targetRatio;
@@ -89,7 +158,7 @@ function Summary({ data, includePension }: { data: AssetSheetData; includePensio
           className="shrink-0 cursor-pointer text-left"
           aria-expanded={cashOpen}
           aria-controls="as-asset-cashlist"
-          aria-label={`현금 합계 ${cashOpen ? '접기' : '계좌별로 펼치기'}`}
+          aria-label={`현금 합계 ${cashOpen ? '접기' : '은행별로 펼치기'}`}
           data-testid="asset-cash-toggle"
           onClick={() => setCashOpen((v) => !v)}
         >
@@ -105,7 +174,7 @@ function Summary({ data, includePension }: { data: AssetSheetData; includePensio
       </div>
       {cashOpen && (
         <div id="as-asset-cashlist" className="max-w-xl space-y-3" data-testid="asset-cash-accounts">
-          <CashBlock heading="은행 계좌" rows={data.cashAccounts} total={data.cashTotal} testId="asset-cash-bank" />
+          <BankCashBlock rows={data.cashAccounts} total={data.cashTotal} fix={(data as AssetSheetData & AssetSheetCashBanks).cashBankFix} />
           {includePension && <CashBlock heading="퇴직 연금" rows={data.retirementAccounts} total={data.retirement} testId="asset-cash-retirement" />}
         </div>
       )}

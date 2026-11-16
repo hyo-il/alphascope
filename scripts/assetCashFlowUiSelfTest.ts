@@ -16,6 +16,8 @@ import type { AssetCashPairView } from '../src/types/asset';
 const root = path.resolve(import.meta.dirname, '..');
 const PORT = 5192;
 const WEB = `http://127.0.0.1:${PORT}`;
+/** 서버가 보내는 예수금 계좌 이름(v2.71.1 — 은행 · 상품) */
+const KIWOOM_LABEL = '예시키움 · 투자 계좌 예수금';
 
 const guard = createBrowserStepGuard();
 let pass = 0;
@@ -77,7 +79,7 @@ async function open(browser: Browser, o: Opts) {
   });
   await page.route('**/api/asset/cash/pair**', async (r) => {
     if (o.holdPair) await pairGate;
-    await r.fulfill({ json: o.pair ?? { enabled: true, pair: { key: KIWOOM, label: KIWOOM.name }, usdKrw: 1380.5 } });
+    await r.fulfill({ json: o.pair ?? { enabled: true, pair: { key: KIWOOM, label: KIWOOM_LABEL }, usdKrw: 1380.5 } });
   });
   await page.route('**/api/asset/trade', async (r) => {
     seen.trades.push(JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>);
@@ -188,10 +190,10 @@ try {
       check(`[139-8] ${w}px 짝을 받기 전 — 「확인 중」 · [저장] 막힘(짝 없음을 먼저 그리지 않음)`, (await page.getByTestId('asset-cash-trade').getAttribute('data-cash-state')) === 'loading' && (await page.getByRole('button', { name: '저장' }).isDisabled()));
       gates.pair();
       await page.getByTestId('asset-cash-trade-preview').waitFor({ timeout: 5000 });
-      check(`[139-6] ${w}px 미리 보기 「예시키움 (투자 계좌 예수금) ₩700,000 줄어듭니다」 · 금액 칸 = 수량 × 가격`, ((await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '').replace(/\s+/g, ' ') === `${KIWOOM.name}₩700,000 줄어듭니다` && (await page.getByTestId('asset-cash-trade-amount').inputValue()) === '700,000',
+      check(`[139-6] ${w}px 미리 보기 「예시키움 · 투자 계좌 예수금에서 ₩700,000 빠집니다」(v2.71.1 문장) · 금액 칸 = 수량 × 가격`, ((await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '').replace(/\s+/g, ' ') === `${KIWOOM_LABEL}에서 ₩700,000 빠집니다` && (await page.getByTestId('asset-cash-trade-amount').inputValue()) === '700,000',
         (await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '');
       await page.getByTestId('asset-cash-trade-amount').fill('701500');
-      check(`[139-6] ${w}px 금액을 고치면 미리 보기도 그 금액`, ((await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '').includes('₩701,500 줄어듭니다'));
+      check(`[139-6] ${w}px 금액을 고치면 미리 보기도 그 금액`, ((await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '').includes('₩701,500 빠집니다'));
       await page.getByRole('textbox', { name: '수량' }).fill('11');
       check(`[139-6] ${w}px 고친 뒤에는 수량을 바꿔도 고친 금액 그대로`, (await page.getByTestId('asset-cash-trade-amount').inputValue()) === '701,500');
       check(`[139-8] ${w}px 매수 창 넘침 0`, await noOverflow(page));
@@ -232,8 +234,8 @@ try {
       await page.getByRole('textbox', { name: '가격' }).fill('72000');
       await page.getByRole('button', { name: '저장' }).click();
       await page.getByRole('dialog', { name: '매도 입력' }).waitFor({ state: 'detached', timeout: 5000 });
-      check(`[139-6] ${w}px ${pair.enabled ? '짝 없음' : '꺼짐'} → 안내 한 줄(「예수금 줄 짝을 정하면 … 함께 바뀝니다」) · 금액 칸 없음 · 요청에 cashAmount 없음(지금과 같음)`,
-        line.includes('예수금 줄 짝을 정하면') && line.includes('함께 바뀝니다') && (await page.getByTestId('asset-cash-trade-amount').count()) === 0 && seen.trades.length === 1 && !('cashAmount' in seen.trades[0]));
+      check(`[139-6] ${w}px ${pair.enabled ? '짝 없음' : '꺼짐'} → 안내 한 줄(「예수금 계좌 짝을 정하면 … 함께 바뀝니다」) · 금액 칸 없음 · 요청에 cashAmount 없음(지금과 같음)`,
+        line.includes('예수금 계좌 짝을 정하면') && line.includes('함께 바뀝니다') && (await page.getByTestId('asset-cash-trade-amount').count()) === 0 && seen.trades.length === 1 && !('cashAmount' in seen.trades[0]));
       await ctx.close();
     }
   }

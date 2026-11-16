@@ -8,7 +8,7 @@ import { ASSET_CASH_MAX, type AssetCashPairView, type AssetCurrency, type AssetT
 /**
  * 매수 · 매도 창의 예수금 줄(v2.71.0 · 현금 자동 반영 ①) — `AssetTradeDialog` · `AssetNewBuyDialog`(확인 화면)가 함께 쓴다.
  * - 열 때 `GET /api/asset/cash/pair?section=` 로 그 계좌의 짝 · 켜짐 · 지금 환율을 받는다. 받기 전에는 「확인 중」(짝 없음을 먼저 그리지 않는다) · 저장을 막는다.
- * - 짝이 있으면 「○○ ₩… 줄어듭니다(매도 늘어납니다)」 + 금액 입력칸. 처음 값 = 수량 × 가격(국내 원 · 미국 × 지금 환율 · 반올림) — 사용자가 고치면 그 값을 그대로 쓴다(0 = 예수금은 안 바꿈).
+ * - 짝이 있으면 「키움증권 · 투자 계좌 예수금에서 ₩… 빠집니다(매도 = 「…에 ₩… 들어갑니다」)」(v2.71.1 — 이름은 서버가 은행 · 상품으로 · 설정 화면과 같은 함수) + 금액 입력칸. 처음 값 = 수량 × 가격(국내 원 · 미국 × 지금 환율 · 반올림) — 사용자가 고치면 그 값을 그대로 쓴다(0 = 예수금은 안 바꿈).
  * - 짝이 없거나 꺼졌으면 안내 한 줄만(지금과 같게 저장 — 예수금 금액을 보내지 않는다). 받기 실패도 보내지 않는다(이유 한 줄).
  * - 저장 결과(예수금만 실패)는 창을 부른 쪽이 안내한다.
  */
@@ -94,34 +94,34 @@ export default function AssetCashTradeLine({
     return (
       <div className="flex min-h-5 items-center gap-2 text-caption text-text-muted" data-testid="asset-cash-trade" data-cash-state="loading">
         <InlineSpinner />
-        <span>예수금 줄 확인 중…</span>
+        <span>예수금 계좌 확인 중…</span>
       </div>
     );
   }
   if (load.state === 'error') {
     return (
       <p className="text-caption text-text-muted keep-all" data-testid="asset-cash-trade" data-cash-state="error">
-        예수금 줄 짝을 확인하지 못했어요 — 예수금은 바꾸지 않습니다.
+        예수금 계좌 짝을 확인하지 못했어요 — 예수금은 바꾸지 않습니다.
       </p>
     );
   }
   if (!pair) {
     return (
       <p className="text-caption text-text-muted keep-all" data-testid="asset-cash-trade" data-cash-state={view?.enabled ? 'no-pair' : 'off'}>
-        {view?.enabled ? '설정에서 예수금 줄 짝을 정하면 예수금도 함께 바뀝니다.' : '「현금 자동 반영」 을 켜고 예수금 줄 짝을 정하면 예수금도 함께 바뀝니다.'}
+        {view?.enabled ? '설정에서 예수금 계좌 짝을 정하면 예수금도 함께 바뀝니다.' : '「현금 자동 반영」 을 켜고 예수금 계좌 짝을 정하면 예수금도 함께 바뀝니다.'}
       </p>
     );
   }
 
-  const verb = side === 'buy' ? '줄어듭니다' : '늘어납니다';
+  const moves = amount != null && amount > 0;
   return (
     <div className="space-y-2" data-testid="asset-cash-trade" data-cash-state="pair">
-      <p className="flex min-w-0 items-baseline gap-1 rounded-lg bg-bg-tertiary/40 px-3 py-2 text-xs text-text-primary" data-testid="asset-cash-trade-preview">
+      <p className="flex min-w-0 items-baseline rounded-lg bg-bg-tertiary/40 px-3 py-2 text-xs text-text-primary" data-testid="asset-cash-trade-preview">
         <span className="min-w-0 truncate" data-tip-clip={pair.label}>
           {pair.label}
         </span>
         <span className="shrink-0 whitespace-nowrap tabular-nums">
-          {amount != null && amount > 0 ? `${formatAssetWon(amount)} ${verb}` : '바꾸지 않습니다'}
+          {!moves ? '\u00a0— 바꾸지 않습니다' : side === 'buy' ? `에서 ${formatAssetWon(amount)} 빠집니다` : `에 ${formatAssetWon(amount)} 들어갑니다`}
         </span>
       </p>
       {/* 창의 수량 · 가격 칸과 같은 묶음 폭(단위 열 · 칸 오른쪽 끝을 맞춘다) */}
