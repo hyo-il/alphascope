@@ -884,3 +884,175 @@ export interface AssetCashTradeOutcome {
 
 /** 금액 상한(원) — 잘못 친 큰 수를 막는다 */
 export const ASSET_CASH_MAX = 10_000_000_000;
+
+// ── 현금 자동 반영 쉽게(v2.71.1) — 은행 묶기 · 빠지는 계좌 기본값 · 다음 한 달 미리 보기 ──
+
+/** 빠지는 계좌 = 「월급 받는 계좌」 를 따라감(저장값 — 월급 받는 계좌를 바꾸면 함께 바뀐다) */
+export const ASSET_CASH_FROM_SALARY = 'salary';
+/** 고정 흐름 빠지는 계좌(저장값) — 「현금」 줄 또는 월급 받는 계좌 따라감 */
+export type AssetCashFrom = AssetCashKey | typeof ASSET_CASH_FROM_SALARY;
+
+/** 고정 흐름 한 줄 고치기(v2.71.1 · `PUT /api/asset/cash/settings` 의 `flowEdit`) — 날짜 · 빠지는 계좌 · 들어가는 계좌가 모두 null 이면 지운다 */
+export interface AssetCashFlowEdit {
+  item: AssetFixedKey;
+  day: number | null;
+  from: AssetCashFrom | null;
+  to: AssetCashTarget | null;
+}
+
+/** 설정 고치기 더한 칸(v2.71.1) — `flowEdit` 한 줄 · `flowDayAll` 모든 줄 같은 날(₩0 · 변동 지출 줄 빼고) */
+export interface AssetCashSettingsPatchV2 extends AssetCashSettingsPatch {
+  flowEdit?: AssetCashFlowEdit;
+  flowDayAll?: number;
+}
+
+/** 쓰기만 하는 분류 — 들어가는 계좌 기본 = 쓴 돈(밖으로) */
+export const ASSET_CASH_SPEND_CATEGORIES = ['월세', '고정 지출'];
+const squashName = (v: string) => v.replace(/\s+/g, '');
+/** 그 분류의 들어가는 계좌 기본값 — 월세 · 고정 지출 = 쓴 돈(밖으로) · 그 밖은 정하지 않음 */
+export const assetCashDefaultTo = (category: string): AssetCashTarget | null => (ASSET_CASH_SPEND_CATEGORIES.some((c) => squashName(c) === squashName(category)) ? 'out' : null);
+
+/** 은행 묶음 고치기(앱에만 · `app_settings` 'asset.cashBanks' — 시트는 그대로) */
+export interface AssetCashBankFix {
+  /** 계좌 이름(한 줄로 고친 이름) → 옮길 은행 */
+  rows: Record<string, string>;
+  /** 은행 이름(괄호 앞 글자) → 바꾼 이름 */
+  renames: Record<string, string>;
+}
+export const ASSET_CASH_BANK_FIX_EMPTY: AssetCashBankFix = { rows: {}, renames: {} };
+/** 은행 이름 최대 글자 수 */
+export const ASSET_CASH_BANK_NAME_MAX = 20;
+
+/** 괄호가 없는 계좌의 상품 이름 */
+export const ASSET_CASH_PLAIN_PRODUCT = '입출금';
+
+/** 「현금」 탭 계좌 이름 → 은행(괄호 앞 글자) · 상품(괄호 안 · 없으면 입출금). 고치기 = 은행 이름 바꾸기 → 줄 옮기기 순 */
+export function cashBankName(name: string, fix: AssetCashBankFix = ASSET_CASH_BANK_FIX_EMPTY): { raw: string; bank: string; product: string } {
+  const full = name.trim().replace(/\s+/g, ' ');
+  const open = full.search(/[(（]/);
+  let raw = full;
+  let product = ASSET_CASH_PLAIN_PRODUCT;
+  if (open > 0) {
+    raw = full.slice(0, open).trim();
+    const inner = full.slice(open + 1).replace(/[)）]\s*$/, '').trim();
+    if (inner) product = inner;
+  }
+  const moved = fix.rows[full];
+  const bank = moved && moved.trim() ? moved.trim() : fix.renames[raw]?.trim() || raw;
+  return { raw, bank, product };
+}
+
+/** 은행 묶음 한 칸 — 상품 이름(같은 은행 같은 상품이 여럿이면 「#n」 · 시트 순서) · 은행까지 붙인 이름(입출금 하나면 은행만) */
+export interface AssetCashBankItem<T> {
+  row: T;
+  product: string;
+  label: string;
+  full: string;
+}
+export interface AssetCashBankGroup<T> {
+  bank: string;
+  items: AssetCashBankItem<T>[];
+}
+
+/** 계좌 줄 → 은행 묶음(은행 순서 = 시트에서 처음 나온 순서 · 묶음 안은 시트 순서) — 서버 · 화면이 함께 쓰는 한 곳 */
+export function cashBankGroups<T>(rows: T[], nameOf: (r: T) => string, fix: AssetCashBankFix = ASSET_CASH_BANK_FIX_EMPTY): AssetCashBankGroup<T>[] {
+  const named = rows.map((row) => ({ row, ...cashBankName(nameOf(row), fix) }));
+  const count = new Map<string, number>();
+  for (const n of named) count.set(`${n.bank}\u0000${n.product}`, (count.get(`${n.bank}\u0000${n.product}`) ?? 0) + 1);
+  const seen = new Map<string, number>();
+  const groups: AssetCashBankGroup<T>[] = [];
+  for (const n of named) {
+    const id = `${n.bank}\u0000${n.product}`;
+    const nth = (seen.get(id) ?? 0) + 1;
+    seen.set(id, nth);
+    const label = (count.get(id) ?? 0) > 1 ? `${n.product} #${nth}` : n.product;
+    const full = label === ASSET_CASH_PLAIN_PRODUCT ? n.bank : `${n.bank} · ${label}`;
+    let g = groups.find((x) => x.bank === n.bank);
+    if (!g) groups.push((g = { bank: n.bank, items: [] }));
+    g.items.push({ row: n.row, product: n.product, label, full });
+  }
+  return groups;
+}
+
+/** 「현금」 줄 열쇠(이름 · 몇 번째) → 은행까지 붙인 이름. 시트에 없으면 null */
+export function cashBankLabelOf(key: AssetCashKey, names: string[], fix: AssetCashBankFix = ASSET_CASH_BANK_FIX_EMPTY): string | null {
+  const keyed = names.map((name, i) => ({ name: name.trim().replace(/\s+/g, ' '), i }));
+  const nths = new Map<string, number>();
+  const withNth = keyed.map((k) => {
+    const nth = (nths.get(k.name) ?? 0) + 1;
+    nths.set(k.name, nth);
+    return { ...k, nth };
+  });
+  const hit = withNth.find((k) => k.name === key.name && k.nth === key.nth);
+  if (!hit) return null;
+  for (const g of cashBankGroups(withNth, (k) => k.name, fix)) for (const it of g.items) if (it.row === hit) return it.full;
+  return null;
+}
+
+/** 다음 한 달 미리 보기 한 칸 상태 — 반영 예정 · 이미 기록 있음 · 반영 안 함(까닭) */
+export type AssetCashPreviewStatus = 'planned' | 'recorded' | 'not';
+/** 반영 안 함 까닭 */
+export type AssetCashPreviewWhy = 'no-day' | 'no-from' | 'no-to' | 'same-row' | 'missing-row' | 'missing-item' | 'zero' | 'no-salary' | 'variable';
+export const ASSET_CASH_PREVIEW_WHY_LABEL: Record<AssetCashPreviewWhy, string> = {
+  'no-day': '날짜 없음',
+  'no-from': '빠지는 계좌 없음',
+  'no-to': '들어가는 계좌 없음',
+  'same-row': '빠지는 계좌와 들어가는 계좌가 같음',
+  'missing-row': '「현금」 탭에서 계좌를 찾지 못함 — 다시 확인 필요',
+  'missing-item': '「월 고정지출」 에서 찾지 못함 — 다시 확인 필요',
+  zero: '₩0',
+  'no-salary': '「현재 월 급여」 가 비었음',
+  variable: '변동 지출',
+};
+
+/** 미리 보기 한 칸 — 계좌 이름은 은행까지 붙인 이름 · 쓴 돈(밖으로)은 `out` */
+export interface AssetCashPreviewItem {
+  /** 반영 날(한국 날짜) — 반영 안 함(날짜 없음 등)은 null */
+  day: string | null;
+  kind: 'salary' | 'fixed';
+  /** 월급 · 사유(#n) */
+  label: string;
+  /** 분류(고정 흐름) */
+  category: string | null;
+  /** 빠지는 계좌 — 월급은 null(밖에서 들어옴) */
+  from: string | null;
+  /** 들어가는 계좌 — 쓴 돈(밖으로)이면 null + out */
+  to: string | null;
+  out: boolean;
+  amount: number | null;
+  status: AssetCashPreviewStatus;
+  /** 이미 기록 있음이면 그 기록 상태 */
+  record: AssetCashMoveStatus | null;
+  why: AssetCashPreviewWhy | null;
+}
+
+/** `GET /api/asset/cash/preview` — 오늘부터 다음 한 달(`from` ~ `until`) · 꺼져 있어도 「켜면 이렇게」 */
+export interface AssetCashPreview {
+  from: string;
+  until: string;
+  enabled: boolean;
+  items: AssetCashPreviewItem[];
+}
+
+/** 고정 흐름 줄(화면 · v2.71.1) — 빠지는 계좌가 「월급 받는 계좌」 를 따라가나 */
+export interface AssetCashFlowViewV2 extends AssetCashFlowView {
+  fromSalary: boolean;
+}
+
+/** 설정 화면 더한 값(v2.71.1) — `GET /api/asset/cash` 응답에 함께 */
+export interface AssetCashViewV2 extends AssetCashView {
+  flows: AssetCashFlowViewV2[];
+  bankFix: AssetCashBankFix;
+  preview: AssetCashPreview;
+}
+
+/** 은행 묶음 고치기 요청(`PUT /api/asset/cash/banks`) — 줄 하나 옮기기(bank null = 처음대로) 또는 은행 이름 바꾸기(to null = 처음대로) */
+export interface AssetCashBankPatch {
+  row?: { name: string; bank: string | null };
+  rename?: { from: string; to: string | null };
+}
+
+/** `GET /api/asset/sheet` 에 더한 값(v2.71.1) — 「현금 합계」 은행별 묶음의 고치기 */
+export interface AssetSheetCashBanks {
+  cashBankFix?: AssetCashBankFix;
+}

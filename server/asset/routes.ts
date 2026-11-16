@@ -21,10 +21,11 @@ import { readPensionSections, writeAssetSettings } from './settings';
 import { listTrades, planNewHolding, recordNewHolding, recordTrade, tradesForChange } from './trade';
 import { dailyChanges } from './dailyChange';
 import { cashWide, isCashWriteOn, parseCashAmount, readCashSettings, tradeCash, undoCashMove, writeCashSettings } from './cashMoves';
-import { buildCashView, cashSheetNow } from './cashView';
-import { cashLabel, cashLines } from './cashKeys';
+import { buildCashPreview, buildCashView, cashSheetNow } from './cashView';
+import { cashLines } from './cashKeys';
+import { readCashBankFix, writeCashBankFix } from './cashBanks';
 import { kstDay } from './cashSchedule';
-import type { AssetCashPairView, AssetSheetErrorKind, AssetSheetFailure, AssetStatus, AssetTouchResult, PurchaseDoneResult } from '../../src/types/asset';
+import { cashBankLabelOf, type AssetCashPairView, type AssetSheetCashBanks, type AssetSheetErrorKind, AssetSheetFailure, AssetStatus, AssetTouchResult, PurchaseDoneResult } from '../../src/types/asset';
 
 export const assetRouter = Router();
 
@@ -44,6 +45,7 @@ export const ACTIVE = new Set([
   'PUT /api/asset/daily-note',
   'PUT /api/asset/cash/settings',
   'POST /api/asset/cash/undo',
+  'PUT /api/asset/cash/banks',
 ]);
 const isAssetPath = (p: string) => p === '/api/asset' || p.startsWith('/api/asset/');
 
@@ -123,7 +125,9 @@ assetRouter.post('/api/asset/lock', (req, res) => {
  */
 assetRouter.get('/api/asset/sheet', async (_req, res) => {
   try {
-    res.json(await readAssetSheet());
+    // 「현금 합계」 은행별 묶음의 고치기(앱에만 저장 · v2.71.1)를 함께
+    const banks: AssetSheetCashBanks = { cashBankFix: readCashBankFix() };
+    res.json({ ...(await readAssetSheet()), ...banks });
   } catch (e) {
     sendSheetError(res, e, '읽기');
   }
@@ -256,7 +260,10 @@ assetRouter.get('/api/asset/cash/pair', async (req, res) => {
     const config = assetSheetConfig();
     if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
     const [[rows], usdKrw] = await Promise.all([batchGet(config, [cashWide()], 'UNFORMATTED_VALUE'), usdKrwNow()]);
-    const body: AssetCashPairView = { enabled, pair: { key, label: cashLabel(key, cashLines(rows)) }, usdKrw };
+    // 은행 · 상품 이름(v2.71.1 — 설정 화면 · 「현금 합계」 와 같은 함수) · 시트에 없으면 저장한 이름 그대로
+    const names = cashLines(rows).map((l) => l.key.name);
+    const label = cashBankLabelOf(key, names, readCashBankFix()) ?? (key.nth > 1 ? `${key.name} #${key.nth}` : key.name);
+    const body: AssetCashPairView = { enabled, pair: { key, label }, usdKrw };
     res.json(body);
   } catch (e) {
     sendSheetError(res, e, '읽기');
@@ -335,6 +342,27 @@ assetRouter.put('/api/asset/cash/settings', async (req, res) => {
     const now = await cashSheetNow();
     const saved = writeCashSettings(req.body, now, kstDay(Date.now()));
     if (!saved) return res.status(400).json({ error: '설정 값이 올바르지 않습니다 — 시트에 없는 줄 · 계좌이거나, 변동 지출 · 같은 줄 출금 · 입금 · 날짜(1~31) 밖입니다.', kind: 'not-editable' });
+    res.json(await buildCashView());
+  } catch (e) {
+    sendSheetError(res, e, '읽기');
+  }
+});
+
+/** 다음 한 달 미리 보기(v2.71.1) — 읽기만(시트 쓰기 0 · 기록 0 · 꺼져 있어도 「켜면 이렇게」) · 계산은 `cashPreview.ts`(실제 예약과 같은 함수) */
+assetRouter.get('/api/asset/cash/preview', async (_req, res) => {
+  try {
+    res.json(await buildCashPreview());
+  } catch (e) {
+    sendSheetError(res, e, '읽기');
+  }
+});
+
+/** 은행 묶음 고치기(v2.71.1) — `{ row: { name, bank } }` · `{ rename: { from, to } }` · 앱에만 저장(시트는 그대로) · 성공하면 화면 응답 전체 */
+assetRouter.put('/api/asset/cash/banks', async (req, res) => {
+  try {
+    const now = await cashSheetNow();
+    const saved = writeCashBankFix(req.body, now.lines.map((l) => l.key.name));
+    if (!saved) return res.status(400).json({ error: '은행 묶음 값이 올바르지 않습니다 — 시트에 없는 계좌 · 은행이거나 이름이 비었거나 20자를 넘습니다.', kind: 'not-editable' });
     res.json(await buildCashView());
   } catch (e) {
     sendSheetError(res, e, '읽기');

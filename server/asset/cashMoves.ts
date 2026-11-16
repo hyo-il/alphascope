@@ -9,7 +9,9 @@
  *   **쓰기 전에** 「쓰는 중」 줄을 먼저 넣어 자리를 잡고(두 번 쓰지 않기 · 서버가 다시 켜져도) 쓴 뒤 「반영」 으로 바꾼다.
  *   쓰는 중에 멈춘 줄(「쓰는 중」 이 남음)은 다음 시작 때 「다시 확인 필요(쓰는 중에 멈춤)」 로 바꾸고 다시 쓰지 않는다.
  * - 되돌리기(`undoCashMove`): 「반영」 줄만 · 그 기록의 반대 금액을 **지금 숫자**에 더하고 빼서 같은 방법으로 쓴다 · 「되돌리는 중」 으로 먼저 바꿔 두 번 되돌리지 않는다.
- * - 설정 `app_settings` 'asset.cash'(JSON — 키-값은 기능 표에 얹지 않는다 · CLAUDE.md 8).
+ * - 설정 `app_settings` 'asset.cash'(JSON — 키-값은 기능 표에 얹지 않는다 · CLAUDE.md 8). 저장 모양 2(v2.71.1 · `v: 2`): 고정 흐름 빠지는 계좌에
+ *   「월급 받는 계좌 따라감」(`'salary'`)을 둘 수 있다 — 옛 모양(139차 · `v` 없음)의 빠지는 계좌 빈칸은 「따라감」 으로 읽는다(사용자 결정 — 처음부터 모든 줄 = 월급 받는 계좌).
+ *   반영 · 쓰기 · 예약은 `readCashSettings()` 의 **풀린 설정**(따라감 → 그때의 월급 받는 계좌 열쇠)만 본다 — 판단 코드는 그대로.
  * - 켬 조건: `ASSET_SYNC_ENABLED`(시트 쓰기 스위치) **그리고** 설정 「현금 자동 반영」 켬(기본 꺼짐). 하나라도 꺼지면 쓰기 0.
  * ⚠️ 로그에는 기록 id · 종류 · 상태 · 까닭 종류만(금액 · 수량 · 계좌 이름 없음).
  */
@@ -17,14 +19,18 @@ import { getDb } from '../db';
 import {
   ASSET_CASH_DEFAULT_SALARY_DAY,
   ASSET_CASH_MAX,
+  ASSET_CASH_FROM_SALARY,
+  assetCashDefaultTo,
+  type AssetCashFlowEdit,
   type AssetCashFlowSetting,
+  type AssetCashFrom,
   type AssetCashKey,
   type AssetCashMoveKind,
   type AssetCashMoveRecord,
   type AssetCashMoveStatus,
   type AssetCashReason,
   type AssetCashSettings,
-  type AssetCashSettingsPatch,
+  type AssetCashSettingsPatchV2,
   type AssetCashShift,
   type AssetCashTarget,
   type AssetCashTradeOutcome,
@@ -101,6 +107,10 @@ export const listCashMoves = (): AssetCashMoveRecord[] => (db().prepare(`SELECT 
 export const hasMonthMove = (kind: 'salary' | 'fixed', itemKey: string, month: string): boolean =>
   Boolean(db().prepare(`SELECT 1 FROM asset_cash_moves WHERE kind = ? AND item_key = ? AND month = ?`).get(kind, itemKey, month));
 
+/** 월급 · 고정 흐름 그 달 기록의 상태(없으면 null) — 미리 보기 「이미 기록 있음」 */
+export const monthMoveStatus = (kind: 'salary' | 'fixed', itemKey: string, month: string): AssetCashMoveStatus | null =>
+  (db().prepare(`SELECT status FROM asset_cash_moves WHERE kind = ? AND item_key = ? AND month = ?`).get(kind, itemKey, month) as { status: AssetCashMoveStatus } | undefined)?.status ?? null;
+
 /** 시험이 비운다 */
 export const clearCashMovesForTest = (): void => void db().prepare(`DELETE FROM asset_cash_moves`).run();
 
@@ -135,17 +145,24 @@ const isFixedKey = (v: unknown): v is AssetFixedKey => {
 const isShift = (v: unknown): v is AssetCashShift => v === 'prev' || v === 'next';
 const isDay = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 31;
 const isTarget = (v: unknown): v is AssetCashTarget => v === 'out' || isKey(v);
-const isFlow = (v: unknown): v is AssetCashFlowSetting => {
-  const o = v as AssetCashFlowSetting | null;
-  return o != null && typeof o === 'object' && isFixedKey(o.item) && (o.day === null || isDay(o.day)) && (o.from === null || isKey(o.from)) && (o.to === null || isTarget(o.to));
+const isFrom = (v: unknown): v is AssetCashFrom => v === ASSET_CASH_FROM_SALARY || isKey(v);
+/** 저장 · 고치기 한 줄 — 빠지는 계좌는 「현금」 줄 · 월급 받는 계좌 따라감 · 빈칸 */
+const isFlowEdit = (v: unknown): v is AssetCashFlowEdit => {
+  const o = v as AssetCashFlowEdit | null;
+  return o != null && typeof o === 'object' && isFixedKey(o.item) && (o.day === null || isDay(o.day)) && (o.from === null || isFrom(o.from)) && (o.to === null || isTarget(o.to));
 };
 
-/** 저장값 → 설정(모양이 틀린 칸은 처음 값) */
-export function readCashSettings(): AssetCashSettings {
+/** 저장 모양 2 — 고정 흐름 빠지는 계좌에 「따라감」 */
+interface StoredCashSettings extends Omit<AssetCashSettings, 'flows'> {
+  flows: AssetCashFlowEdit[];
+}
+
+/** 저장값 그대로(모양 2) — 옛 모양(`v` 없음)의 빠지는 계좌 빈칸은 「월급 받는 계좌 따라감」 · 모양이 틀린 칸은 처음 값 */
+export function readCashStored(): StoredCashSettings {
   const row = getDb().prepare(`SELECT value FROM app_settings WHERE key = ?`).get(SETTINGS_KEY) as { value: string } | undefined;
-  let v: Partial<AssetCashSettings> = {};
+  let v: Partial<StoredCashSettings> & { v?: unknown } = {};
   try {
-    v = row ? ((JSON.parse(row.value) as Partial<AssetCashSettings>) ?? {}) : {};
+    v = row ? ((JSON.parse(row.value) as Partial<StoredCashSettings>) ?? {}) : {};
   } catch {
     v = {};
   }
@@ -153,18 +170,35 @@ export function readCashSettings(): AssetCashSettings {
   const pairs: Record<string, AssetCashKey> = {};
   if (v.depositPairs && typeof v.depositPairs === 'object') for (const [k, key] of Object.entries(v.depositPairs)) if (isKey(key)) pairs[k] = key;
   const salary = (v.salary ?? {}) as Partial<AssetCashSettings['salary']>;
+  const old = v.v !== 2;
   return {
     enabled: v.enabled === true,
     enabledDay: typeof v.enabledDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.enabledDay) ? v.enabledDay : null,
     depositPairs: pairs,
     salary: { to: isKey(salary.to) ? salary.to : null, day: isDay(salary.day) ? salary.day : s.salary.day, shift: isShift(salary.shift) ? salary.shift : s.salary.shift },
     flowShift: isShift(v.flowShift) ? v.flowShift : s.flowShift,
-    flows: Array.isArray(v.flows) ? v.flows.filter(isFlow) : [],
+    flows: Array.isArray(v.flows) ? v.flows.filter(isFlowEdit).map((f) => (old && f.from === null ? { ...f, from: ASSET_CASH_FROM_SALARY } : f)) : [],
   };
 }
 
-function putSettings(next: AssetCashSettings): void {
-  getDb().prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(SETTINGS_KEY, JSON.stringify(next));
+/** 저장값 → 반영에 쓰는 설정 — 「따라감」 은 지금 월급 받는 계좌 열쇠(없거나 들어가는 계좌와 같으면 빈칸 = 반영 안 함) */
+export function resolveCashSettings(st: StoredCashSettings): AssetCashSettings {
+  const salaryTo = st.salary.to;
+  return {
+    ...st,
+    flows: st.flows.map((f) => {
+      if (f.from !== ASSET_CASH_FROM_SALARY) return f as AssetCashFlowSetting;
+      const same = salaryTo != null && f.to != null && f.to !== 'out' && sameCashKey(salaryTo, f.to);
+      return { ...f, from: salaryTo && !same ? salaryTo : null };
+    }),
+  };
+}
+
+/** 반영 · 예약 · 화면이 쓰는 설정(따라감을 푼 것) */
+export const readCashSettings = (): AssetCashSettings => resolveCashSettings(readCashStored());
+
+function putSettings(next: StoredCashSettings): void {
+  getDb().prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(SETTINGS_KEY, JSON.stringify({ v: 2, ...next }));
 }
 
 /** 시험이 지운다 */
@@ -178,17 +212,19 @@ export interface CashSheetNow {
 }
 
 /**
- * 고칠 칸만(`AssetCashSettingsPatch`) — 틀리면 null(요청 전체 거절). 「현금」 줄 · 「월 고정지출」 줄은 **지금 시트에 있는 것만** 고를 수 있다.
+ * 고칠 칸만(`AssetCashSettingsPatchV2`) — 틀리면 null(요청 전체 거절). 「현금」 줄 · 「월 고정지출」 줄은 **지금 시트에 있는 것만** 고를 수 있다.
  * 켜면 그날(`today`)을 `enabledDay` 로 — 그 앞 날짜는 반영하지 않는다(끄고 다시 켜면 다시 그날부터).
+ * `flow`(139차 이름)와 `flowEdit` 은 같은 한 줄 고치기 · `flowDayAll` = 반영하는 분류의 ₩0 아닌 줄 모두 그 날(설정이 없던 줄은 빠지는 계좌 = 따라감 · 들어가는 계좌 = 분류 기본값).
  */
 export function writeCashSettings(patch: unknown, now: CashSheetNow, today: string): AssetCashSettings | null {
   if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return null;
-  const p = patch as AssetCashSettingsPatch & Record<string, unknown>;
+  const p = patch as AssetCashSettingsPatchV2 & Record<string, unknown>;
   const keys = Object.keys(p);
-  const known = ['enabled', 'depositPair', 'salary', 'flowShift', 'flow'];
+  const known = ['enabled', 'depositPair', 'salary', 'flowShift', 'flow', 'flowEdit', 'flowDayAll'];
   if (keys.length === 0 || !keys.every((k) => known.includes(k))) return null;
-  const cur = readCashSettings();
-  const next: AssetCashSettings = { ...cur, depositPairs: { ...cur.depositPairs }, salary: { ...cur.salary }, flows: [...cur.flows] };
+  if (p.flow !== undefined && p.flowEdit !== undefined) return null;
+  const cur = readCashStored();
+  const next: StoredCashSettings = { ...cur, depositPairs: { ...cur.depositPairs }, salary: { ...cur.salary }, flows: [...cur.flows] };
   const lineOk = (k: AssetCashKey) => findCashLine(now.lines, k) != null;
 
   if (p.enabled !== undefined) {
@@ -224,9 +260,10 @@ export function writeCashSettings(patch: unknown, now: CashSheetNow, today: stri
     if (!isShift(p.flowShift)) return null;
     next.flowShift = p.flowShift;
   }
-  if (p.flow !== undefined) {
-    const f = p.flow;
-    if (!isFlow(f)) return null;
+  const edit = p.flowEdit ?? p.flow;
+  if (edit !== undefined) {
+    const f = edit as unknown;
+    if (!isFlowEdit(f)) return null;
     const idx = next.flows.findIndex((x) => sameItem(x.item, f.item));
     const empty = f.day === null && f.from === null && f.to === null;
     if (empty) {
@@ -235,12 +272,27 @@ export function writeCashSettings(patch: unknown, now: CashSheetNow, today: stri
     } else {
       const item = now.fixed ? findFixedLine(now.fixed, f.item) : null;
       if (!item || !item.reflect) return null;
-      if (f.from && !lineOk(f.from)) return null;
+      if (f.from && f.from !== ASSET_CASH_FROM_SALARY && !lineOk(f.from)) return null;
       if (f.to && f.to !== 'out' && !lineOk(f.to)) return null;
-      if (f.from && f.to && f.to !== 'out' && sameCashKey(f.from, f.to)) return null;
-      const clean: AssetCashFlowSetting = { item: storedFixedKey(now.fixed!, item.key), day: f.day, from: f.from ? storedCashKey(now.lines, f.from) : null, to: f.to === 'out' ? 'out' : f.to ? storedCashKey(now.lines, f.to) : null };
+      const fromKey = f.from === ASSET_CASH_FROM_SALARY ? next.salary.to : f.from;
+      if (fromKey && f.to && f.to !== 'out' && sameCashKey(fromKey, f.to)) return null;
+      const clean: AssetCashFlowEdit = {
+        item: storedFixedKey(now.fixed!, item.key),
+        day: f.day,
+        from: f.from === ASSET_CASH_FROM_SALARY ? ASSET_CASH_FROM_SALARY : f.from ? storedCashKey(now.lines, f.from) : null,
+        to: f.to === 'out' ? 'out' : f.to ? storedCashKey(now.lines, f.to) : null,
+      };
       if (idx >= 0) next.flows[idx] = clean;
       else next.flows.push(clean);
+    }
+  }
+  if (p.flowDayAll !== undefined) {
+    if (!isDay(p.flowDayAll) || !now.fixed) return null;
+    for (const line of now.fixed) {
+      if (!line.reflect || line.amount == null || !(line.amount > 0)) continue;
+      const idx = next.flows.findIndex((x) => findFixedLine(now.fixed!, x.item)?.row === line.row);
+      if (idx >= 0) next.flows[idx] = { ...next.flows[idx], day: p.flowDayAll };
+      else next.flows.push({ item: storedFixedKey(now.fixed, line.key), day: p.flowDayAll, from: ASSET_CASH_FROM_SALARY, to: assetCashDefaultTo(line.key.category) });
     }
   }
   putSettings(next);

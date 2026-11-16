@@ -29,7 +29,7 @@ const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
 export const kstDay = (now: number) => iso(now + KST_MS);
 const kstHour = (now: number) => new Date(now + KST_MS).getUTCHours();
 const monthOfDay = (day: string) => day.slice(0, 7);
-const addMonth = (month: string, n: number) => {
+export const addMonth = (month: string, n: number) => {
   const [y, m] = month.split('-').map(Number);
   const k = y * 12 + (m - 1) + n;
   return `${Math.floor(k / 12)}-${String((k % 12) + 1).padStart(2, '0')}`;
@@ -60,8 +60,8 @@ export function dueDay(month: string, d: number, shift: AssetCashShift, closed: 
   return iso(t);
 }
 
-/** 반영할 항목 하나(그 달) */
-interface Planned {
+/** 반영할 항목 하나(그 달) — 미리 보기(`cashPreview.ts`)도 같은 것을 쓴다 */
+export interface Planned {
   kind: 'salary' | 'fixed';
   itemKey: string;
   item: AssetFixedKey | null;
@@ -75,8 +75,8 @@ export const SALARY_ITEM = 'salary';
 export const flowItemKey = (k: AssetFixedKey) => JSON.stringify({ category: k.category, reason: k.reason, nth: k.nth });
 const ready = (f: AssetCashFlowSetting): f is AssetCashFlowSetting & { day: number; from: AssetCashKey } => f.day != null && f.from != null && f.to != null;
 
-/** 그 달에 반영할 항목(설정이 다 된 것만) */
-function plannedOf(s: AssetCashSettings, month: string, closed: ClosedFn): Planned[] {
+/** 그 달에 반영할 항목(설정이 다 된 것만) — 예약 · 미리 보기가 함께 쓰는 한 곳 */
+export function plannedOf(s: AssetCashSettings, month: string, closed: ClosedFn): Planned[] {
   const out: Planned[] = [];
   if (s.salary.to) out.push({ kind: 'salary', itemKey: SALARY_ITEM, item: null, month, day: dueDay(month, s.salary.day, s.salary.shift, closed), from: null, to: s.salary.to });
   for (const f of s.flows) {

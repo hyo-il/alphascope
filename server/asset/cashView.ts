@@ -3,14 +3,16 @@
  * 시트는 읽기만(「현금」 B:C · 「월 고정지출」 A:Z 한 번씩 + 계좌 이름은 30초 캐시 시트). 계산은 `cashKeys.ts` · `cashSchedule.ts` 그대로.
  * ⚠️ 로그를 남기지 않는다(값이 든 응답).
  */
-import type { AssetCashFlowView, AssetCashView } from '../../src/types/asset';
+import { ASSET_CASH_FROM_SALARY, type AssetCashFlowViewV2, type AssetCashPreview, type AssetCashViewV2 } from '../../src/types/asset';
 import { assetSheetConfig, isAssetSyncEnabled } from './config';
 import { AssetSheetError } from './google';
 import { readAssetSheet } from './sheet';
 import { cashOptions, findCashLine, findFixedLine, fixedViews, sameFixedKey, type CashLine } from './cashKeys';
-import { listCashMoves, readCashSettings, readCashSheetNow, type CashSheetNow } from './cashMoves';
+import { listCashMoves, readCashStored, readCashSheetNow, resolveCashSettings, type CashSheetNow } from './cashMoves';
 import { cashCalendar, kstDay, nextDueDay } from './cashSchedule';
 import { SHEET_LAYOUT } from './sheetLayout';
+import { readCashBankFix } from './cashBanks';
+import { cashPreview } from './cashPreview';
 
 /** 계좌 key(합친 표 제외 · 시트 순서) */
 export const CASH_SECTION_KEYS: string[] = SHEET_LAYOUT.sections.flatMap((s) => ('key' in s && s.key ? [s.key] : []));
@@ -23,13 +25,21 @@ export async function cashSheetNow(): Promise<CashSheetNow & { salary: number | 
   return { sections: CASH_SECTION_KEYS, ...r };
 }
 
-export async function buildCashView(now = Date.now()): Promise<AssetCashView> {
+/** 미리 보기만(`GET /api/asset/cash/preview`) — 시트 읽기만 */
+export async function buildCashPreview(now = Date.now()): Promise<AssetCashPreview> {
+  const sheet = await cashSheetNow();
+  return cashPreview(sheet, readCashBankFix(), now, cashCalendar());
+}
+
+export async function buildCashView(now = Date.now()): Promise<AssetCashViewV2> {
   const [sheet, data] = await Promise.all([cashSheetNow(), readAssetSheet()]);
-  const s = readCashSettings();
+  const stored = readCashStored();
+  const s = resolveCashSettings(stored);
+  const follows = (k: AssetCashFlowViewV2['item']) => k != null && stored.flows.some((f) => f.from === ASSET_CASH_FROM_SALARY && sameFixedKey(f.item, k.key));
   const cal = cashCalendar();
   const lineOk = (k: { name: string; nth: number } | null) => k == null || findCashLine(sheet.lines as CashLine[], k) != null;
 
-  const flows: AssetCashFlowView[] = [];
+  const flows: AssetCashFlowViewV2[] = [];
   const items = sheet.fixed ? fixedViews(sheet.fixed) : [];
   for (const item of items) {
     // 저장 때와 같은 분류 · 사유 줄 수일 때만 이 줄의 설정(「#n」 이 밀렸으면 아래 「시트에서 찾지 못한 줄」 로)
@@ -41,13 +51,15 @@ export async function buildCashView(now = Date.now()): Promise<AssetCashView> {
       setting,
       nextDay: setting && rowsOk && payable ? nextDueDay(s, 'fixed', setting, now, cal) : null,
       problem: setting && !rowsOk ? 'missing-row' : null,
+      // 설정이 없는 줄도 빠지는 계좌 기본 = 월급 받는 계좌(따라감)
+      fromSalary: !setting || follows(item),
     });
   }
   // 설정만 남고 시트에서 사라진 줄 — 「다시 확인 필요」(지울 수 있다) · 「월 고정지출」 을 못 읽었으면 설정 그대로 보인다(문제 표시 없음)
   for (const setting of s.flows) {
     if (sheet.fixed && findFixedLine(sheet.fixed, setting.item)) continue;
     if (!sheet.fixed && items.some((i) => sameFixedKey(i.key, setting.item))) continue;
-    flows.push({ item: null, setting, nextDay: null, problem: sheet.fixed ? 'missing-item' : null });
+    flows.push({ item: null, setting, nextDay: null, problem: sheet.fixed ? 'missing-item' : null, fromSalary: stored.flows.some((f) => f.from === ASSET_CASH_FROM_SALARY && sameFixedKey(f.item, setting.item)) });
   }
 
   const salaryRowOk = lineOk(s.salary.to);
@@ -65,5 +77,7 @@ export async function buildCashView(now = Date.now()): Promise<AssetCashView> {
     },
     flows,
     moves: listCashMoves(),
+    bankFix: readCashBankFix(),
+    preview: cashPreview(sheet, readCashBankFix(), now, cal),
   };
 }
