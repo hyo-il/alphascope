@@ -6,8 +6,8 @@
  * - 월급: 매달 `salary.day`(처음 25일) → 쉬는 날이면 `salary.shift`(처음 앞 영업일) · 금액 = 「월 고정지출」 「현재 월 급여」(반영할 때 읽은 값).
  * - 고정 흐름: 줄마다 매달 며칠(그 달에 없는 날은 말일) → 쉬는 날이면 `flowShift`(처음 다음 영업일 — 은행 자동이체 일반 규칙) ·
  *   금액 = 반영할 때 읽은 「비용」(₩0 · 빈칸이면 「건너뜀」) · 날짜 · 출금 줄 · 입금 줄이 정해지지 않은 줄은 반영하지 않는다.
- * - 그 달 M 의 반영 날 D(다음 영업일로 밀려 M+1 이 될 수 있다): 한국 D 08:00 뒤 첫 확인에 반영 · D 가 켠 날(`enabledDay`)보다 앞이면 하지 않음(기록도 없음) ·
- *   오늘의 달이 D 의 달보다 뒤면(서버가 꺼져 있다가 다음 달로 넘어감) 쓰지 않고 「건너뜀(서버 꺼짐)」 — 지난달 · 이번 달만 본다.
+ * - 그 달 M 의 반영 날 D(다음 영업일로 밀려 M+1 · 앞 영업일로 당겨져 M−1 이 될 수 있다): 한국 D 08:00 뒤 첫 확인에 반영 · D 가 켠 날(`enabledDay`)보다 앞이면 하지 않음(기록도 없음) ·
+ *   오늘의 달이 M 과 D 의 달보다 모두 뒤면(서버가 꺼져 있다가 다음 달로 넘어감) 쓰지 않고 「건너뜀(서버 꺼짐)」 — 지난달 · 이번 달 · (당겨진) 다음 달 항목만 본다.
  * - 확인: 서버 시작 1분 뒤 + 30분마다. 켜는 조건 = `ASSET_SYNC_ENABLED` · 시트 연결 정보 · 설정 켬.
  * ⚠️ 로그에는 종류 · 상태 · 까닭 종류만(금액 · 계좌 이름 없음).
  */
@@ -144,15 +144,19 @@ export async function cashTick(now = Date.now()): Promise<CashTickResult> {
     const today = kstDay(now);
     const thisMonth = monthOfDay(today);
     const due: Planned[] = [];
-    for (const month of [addMonth(thisMonth, -1), thisMonth]) {
+    // 다음 달 항목도 본다 — 「1일 + 앞 영업일」 처럼 반영 날이 앞 달(이번 달)로 당겨질 수 있다(그 날이 오늘 이전일 때만)
+    for (const month of [addMonth(thisMonth, -1), thisMonth, addMonth(thisMonth, 1)]) {
       for (const p of plannedOf(s, month, closedFn)) {
+        if (month > thisMonth && p.day > today) continue;
         if (s.enabledDay && p.day < s.enabledDay) continue; // 켜기 전 날짜는 채우지 않는다
         if (hasMonthMove(p.kind, p.itemKey, p.month)) continue;
         if (p.day > today || (p.day === today && kstHour(now) < RUN_HOUR_KST)) {
           waiting++;
           continue;
         }
-        if (monthOfDay(p.day) < thisMonth) {
+        // 서버 꺼짐: 그 항목의 달과 반영 날의 달이 모두 지났을 때만(반영 날이 앞 달로 당겨진 이번 달 항목은 이번 달 안에서 한다)
+        const lastMonth = monthOfDay(p.day) > p.month ? monthOfDay(p.day) : p.month;
+        if (lastMonth < thisMonth) {
           if (recordCashSkip(moveOf(p, 0, labelOf(p, null)), 'server-off').status === 'skipped') skipped++;
           continue;
         }

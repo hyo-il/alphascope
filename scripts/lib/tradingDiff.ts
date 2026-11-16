@@ -20,6 +20,9 @@ export const LATER_COMMITS: readonly string[] = [
   '1ccbaf0', // 137차 v2.70.3 B — 「최근 판단」 매도 주문 실패는 「그대로」(화면 셈만)
   'deaf94c', // 138차 v2.70.4 B — 자산 「현금 합계」 계좌별 펼침(화면) · design:check 장면 2
   'ed19639', // 139차 v2.71.0 A — 현금 자동 반영 계산 · 기록(타입 더하기 · 「월 고정지출」 칸 정의 · google.ts 주석 · 쓰는 곳 목록 시험)
+  '9d80375', // 139차 v2.71.0 B — 현금 자동 반영 예약(server/index.ts 예약 시작)
+  '8932789', // 139차 v2.71.0 C — 매수 · 매도 때 예수금(routes · summary 환율 함수 · 매수 창)
+  '55962dd', // 139차 v2.71.0 D — 설정 「현금 자동 반영」 화면 · design:check 장면(더하기만)
 ];
 
 const covers = (spec: string, file: string) => file === spec || file.startsWith(`${spec.replace(/\/$/, '')}/`);

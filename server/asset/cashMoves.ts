@@ -31,10 +31,10 @@ import {
   type AssetFixedKey,
 } from '../../src/types/asset';
 import { assetSheetConfig, isAssetSyncEnabled, type AssetSheetConfig } from './config';
-import { AssetSheetError, batchGet, valuesWrite, type CellWrite } from './google';
+import { AssetSheetError, batchGet, valuesWrite, type CellRows, type CellWrite } from './google';
 import { one, wideRange } from './sheet';
 import { SHEET_LAYOUT } from './sheetLayout';
-import { cashLines, findCashLine, findFixedLine, fixedLines, salaryOf, sameCashKey, type CashLine, type FixedLine } from './cashKeys';
+import { cashLines, cellName, findCashLine, storedCashKey, storedFixedKey, findFixedLine, fixedLines, salaryOf, sameCashKey, type CashLine, type FixedLine } from './cashKeys';
 
 const CASH_TAB = SHEET_LAYOUT.cash.tab;
 const SETTINGS_KEY = 'asset.cash';
@@ -67,6 +67,7 @@ function db() {
         undo_json TEXT             -- 되돌릴 때 쓰기 전 · 뒤 값
       );
       CREATE UNIQUE INDEX IF NOT EXISTS asset_cash_moves_once ON asset_cash_moves(kind, item_key, month) WHERE kind IN ('salary', 'fixed');
+      CREATE UNIQUE INDEX IF NOT EXISTS asset_cash_moves_trade_once ON asset_cash_moves(kind, item_key) WHERE kind IN ('buy', 'sell');
     `);
     ready = true;
   }
@@ -105,7 +106,9 @@ export const clearCashMovesForTest = (): void => void db().prepare(`DELETE FROM 
 
 /** 서버 시작 때 한 번 — 쓰는 중 · 되돌리는 중에 멈춘 줄은 「다시 확인 필요(쓰는 중에 멈춤)」(다시 쓰지 않는다 · 시트를 직접 확인) */
 export function settleStoppedMoves(): number {
-  const n = db().prepare(`UPDATE asset_cash_moves SET status = 'check', reason = 'stopped' WHERE status IN ('pending', 'undoing')`).run().changes;
+  const n =
+    db().prepare(`UPDATE asset_cash_moves SET status = 'check', reason = 'stopped', detail = 'write' WHERE status = 'pending'`).run().changes +
+    db().prepare(`UPDATE asset_cash_moves SET status = 'check', reason = 'stopped', detail = 'undo' WHERE status = 'undoing'`).run().changes;
   if (n > 0) console.warn(`[asset] 현금 반영 쓰는 중 멈춤 ${n}건 — 다시 확인 필요`);
   return n;
 }
@@ -197,7 +200,7 @@ export function writeCashSettings(patch: unknown, now: CashSheetNow, today: stri
     const d = p.depositPair as { section?: unknown; key?: unknown } | null;
     if (!d || typeof d.section !== 'string' || !now.sections.includes(d.section)) return null;
     if (d.key === null) delete next.depositPairs[d.section];
-    else if (isKey(d.key) && lineOk(d.key)) next.depositPairs[d.section] = { name: d.key.name, nth: d.key.nth };
+    else if (isKey(d.key) && lineOk(d.key)) next.depositPairs[d.section] = storedCashKey(now.lines, d.key);
     else return null;
   }
   if (p.salary !== undefined) {
@@ -205,7 +208,7 @@ export function writeCashSettings(patch: unknown, now: CashSheetNow, today: stri
     if (!sp || typeof sp !== 'object' || Object.keys(sp).length === 0 || !Object.keys(sp).every((k) => ['to', 'day', 'shift'].includes(k))) return null;
     if (sp.to !== undefined) {
       if (sp.to === null) next.salary.to = null;
-      else if (isKey(sp.to) && lineOk(sp.to)) next.salary.to = { name: sp.to.name, nth: sp.to.nth };
+      else if (isKey(sp.to) && lineOk(sp.to)) next.salary.to = storedCashKey(now.lines, sp.to);
       else return null;
     }
     if (sp.day !== undefined) {
@@ -235,7 +238,7 @@ export function writeCashSettings(patch: unknown, now: CashSheetNow, today: stri
       if (f.from && !lineOk(f.from)) return null;
       if (f.to && f.to !== 'out' && !lineOk(f.to)) return null;
       if (f.from && f.to && f.to !== 'out' && sameCashKey(f.from, f.to)) return null;
-      const clean: AssetCashFlowSetting = { item: { ...item.key }, day: f.day, from: f.from ? { name: f.from.name, nth: f.from.nth } : null, to: f.to === 'out' ? 'out' : f.to ? { name: f.to.name, nth: f.to.nth } : null };
+      const clean: AssetCashFlowSetting = { item: storedFixedKey(now.fixed!, item.key), day: f.day, from: f.from ? storedCashKey(now.lines, f.from) : null, to: f.to === 'out' ? 'out' : f.to ? storedCashKey(now.lines, f.to) : null };
       if (idx >= 0) next.flows[idx] = clean;
       else next.flows.push(clean);
     }
@@ -268,6 +271,16 @@ export class CashSkip extends Error {
   }
 }
 
+/**
+ * 쓰기 요청을 **보낸 뒤**의 실패(응답 시간 초과 · 쓴 뒤 다시 읽기 실패 등) — 시트가 이미 바뀌었을 수 있다.
+ * 다시 쓰지도(예약), 「반영」 으로 되돌리지도(되돌리기) 않고 「다시 확인 필요」 로 남긴다(두 번 쓰지 않게).
+ */
+export class CashMaybeWritten extends Error {
+  constructor(readonly kind: string) {
+    super(kind);
+  }
+}
+
 /** 쓴 칸 하나의 전 · 뒤 */
 export interface CashSide {
   row: number;
@@ -289,7 +302,7 @@ function amountOf(line: CashLine): number {
 }
 
 const sameNum = (a: number, b: number) => Math.abs(a - b) < 1e-6;
-/** 원 단위 계산 — 소수 몇 자리 차이(시트 원래 값이 소수일 때)는 그대로 두고 더하고 뺀다 */
+/** 원 단위 계산 — 소수 둘째 자리까지 반올림(부동소수 찌꺼기를 남기지 않게 · 시트 금액은 원 단위 정수가 보통) */
 const plus = (a: number, b: number) => Math.round((a + b) * 100) / 100;
 
 /**
@@ -299,7 +312,8 @@ const plus = (a: number, b: number) => Math.round((a + b) * 100) / 100;
  * 쓰기 전에 실패하면 `CashSkip`(시트 그대로) · 구글 실패는 `AssetSheetError`.
  */
 export async function writeCashMove(config: AssetSheetConfig, from: AssetCashKey | null, to: AssetCashKey | null, amount: number): Promise<CashWriteResult & { mismatch: boolean }> {
-  if (!(amount > 0) || amount > ASSET_CASH_MAX) throw new CashSkip('zero');
+  if (!(amount > 0)) throw new CashSkip('zero');
+  if (amount > ASSET_CASH_MAX) throw new CashSkip('not-number', 'too-large');
   if (!from && !to) throw new CashSkip('missing-row');
   if (from && to && sameCashKey(from, to)) throw new CashSkip('missing-row');
   const [rows] = await batchGet(config, [cashWide()], 'FORMULA');
@@ -318,11 +332,23 @@ export async function writeCashMove(config: AssetSheetConfig, from: AssetCashKey
   }
   // 쓰는 칸 = 방금 찾은 은행 계좌 줄의 C열뿐(총액 줄 · 이름 칸 · 퇴직 연금 줄은 `cashLines` 가 내지 않는다)
   const cells: CellWrite[] = sides.map((s) => ({ range: one(CASH_TAB, `C${s.line.row}`), value: s.after }));
-  await valuesWrite(config, cells, 'RAW');
-  const back = await batchGet(config, cells.map((c) => c.range), 'FORMULA');
+  try {
+    await valuesWrite(config, cells, 'RAW');
+  } catch (e) {
+    // 구글이 분명히 거절한 것(권한 · 인증 · 범위 · 시트 없음 — 4xx)은 쓰이지 않았다 · 네트워크(시간 초과) · 5xx 는 쓰였을 수 있다
+    if (e instanceof AssetSheetError && e.kind !== 'network') throw e;
+    throw new CashMaybeWritten(e instanceof AssetSheetError ? e.kind : 'unknown');
+  }
+  let back: CellRows[];
+  try {
+    // 다시 읽기는 이름(B)까지 — 그 사이 사용자가 줄을 넣어 C{줄} 이 다른 계좌가 됐는지도 본다
+    back = await batchGet(config, sides.map((s) => one(CASH_TAB, `B${s.line.row}:C${s.line.row}`)), 'FORMULA');
+  } catch (e) {
+    throw new CashMaybeWritten(e instanceof AssetSheetError ? e.kind : 'unknown');
+  }
   const mismatch = !sides.every((s, i) => {
-    const got = back[i]?.[0]?.[0];
-    return typeof got === 'number' && sameNum(got, s.after);
+    const row = back[i]?.[0] ?? [];
+    return cellName(row[0]) === s.line.key.name && typeof row[1] === 'number' && sameNum(row[1], s.after);
   });
   const sideOf = (line: CashLine | null) => {
     const s = line ? sides.find((x) => x.line === line) : null;
@@ -398,8 +424,11 @@ export function applyCashMove(m: CashMoveInput, opts: { transientRetry?: boolean
       return w.mismatch ? finish('check', 'mismatch', null, w) : finish('applied', null, null, w);
     } catch (e) {
       if (e instanceof CashSkip) return finish('skipped', e.reason, e.detail);
+      // 쓰기 요청을 보낸 뒤 실패 — 쓰였을 수 있다: 다시 쓰지 않고 「다시 확인 필요」(그 달 자리도 그대로)
+      if (e instanceof CashMaybeWritten) return finish('check', 'write-failed', e.kind);
       const kind = e instanceof AssetSheetError ? e.kind : 'unknown';
-      if (opts.transientRetry && kind !== 'shape') {
+      // 다음 확인에 다시 하는 것은 네트워크 · 구글 일시 오류뿐(쓰기 전) — 설정 오류(권한 · 열쇠 · 시트 없음)는 「건너뜀(까닭)」 으로 남긴다
+      if (opts.transientRetry && kind === 'network') {
         // 그 달 자리를 내놓는다 — 다음 확인에 다시(쓰기 전 실패라 시트 그대로)
         d.prepare(`DELETE FROM asset_cash_moves WHERE id = ? AND status = 'pending'`).run(id);
         throw e;
@@ -433,6 +462,12 @@ export function undoCashMove(id: unknown): Promise<AssetCashMoveRecord> {
       else d.prepare(`UPDATE asset_cash_moves SET status = 'undone', undone_at = ?, undo_json = ? WHERE id = ?`).run(nowIso(), undo, id);
       console.log(`[asset] 현금 반영 되돌림 id=${id}${w.mismatch ? ' mismatch' : ''}`);
     } catch (e) {
+      if (e instanceof CashMaybeWritten) {
+        // 되돌리기 요청을 보낸 뒤 실패 — 되돌려졌을 수 있다: 「반영」 으로 두면 다시 눌러 두 번 되돌린다
+        d.prepare(`UPDATE asset_cash_moves SET status = 'check', reason = 'write-failed', detail = 'undo', undone_at = ? WHERE id = ? AND status = 'undoing'`).run(nowIso(), id);
+        console.warn(`[asset] 현금 반영 되돌리기 확인 못 함 id=${id} ${e.kind}`);
+        throw new AssetSheetError('network', '되돌렸는지 확인하지 못했어요 — 시트 「현금」 탭을 확인해 주세요(기록은 「다시 확인 필요」).');
+      }
       d.prepare(`UPDATE asset_cash_moves SET status = 'applied' WHERE id = ? AND status = 'undoing'`).run(id);
       if (e instanceof CashSkip) {
         console.warn(`[asset] 현금 반영 되돌리기 못 함 id=${id} ${e.reason}`);
@@ -499,7 +534,7 @@ export async function tradeCash(side: 'buy' | 'sell', section: string, tradeId: 
   try {
     const r = await applyCashMove(m);
     if (r.status === 'applied') return { cash: { status: 'applied', message: null } };
-    if (r.status === 'check') return { cash: { status: 'skipped', message: '예수금 줄을 썼지만 다시 읽은 값이 달라요 — 시트에서 확인해 주세요.' } };
+    if (r.status === 'check') return { cash: { status: 'skipped', message: '예수금 줄이 바뀌었는지 확인하지 못했어요 — 시트 「현금」 탭을 확인해 주세요(다시 빼거나 더하기 전에).' } };
     return { cash: { status: 'skipped', message: cashFailText(r.reason) } };
   } catch (e) {
     const kind = e instanceof AssetSheetError ? e.kind : 'unknown';

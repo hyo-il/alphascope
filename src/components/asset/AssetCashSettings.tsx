@@ -151,7 +151,7 @@ export default function AssetCashSettings({ onLocked }: { onLocked: () => void }
 
   return (
     <div className="space-y-6" data-testid="asset-cash-settings">
-      <Block title="켜기 · 끄기" busy={busy === 'enabled'} error={errors.enabled ?? null}>
+      <Block heading="켜기 · 끄기" busy={busy === 'enabled'} error={errors.enabled ?? null}>
         <div className="flex flex-wrap items-center gap-3">
           <Segmented<'off' | 'on'>
             size="sm"
@@ -170,7 +170,7 @@ export default function AssetCashSettings({ onLocked }: { onLocked: () => void }
         {!v.writeEnabled && <p className="text-caption text-text-muted keep-all">이 서버에서는 시트 쓰기가 꺼져 있어 반영하지 않습니다.</p>}
       </Block>
 
-      <Block title="예수금 줄 짝" desc="매수 · 매도를 적을 때 이 줄 금액도 함께 바뀝니다(매수는 줄고 매도는 늘어납니다)." busy={busy?.startsWith('pair-') ?? false} error={errors.pairs ?? null}>
+      <Block heading="예수금 줄 짝" desc="매수 · 매도를 적을 때 이 줄 금액도 함께 바뀝니다(매수는 줄고 매도는 늘어납니다)." busy={busy?.startsWith('pair-') ?? false} error={errors.pairs ?? null}>
         <Panel pad="none" className="pb-1">
           <table className="w-full table-fixed text-left text-xs" data-testid="asset-cash-pairs">
             <thead className="text-caption text-text-muted">
@@ -206,7 +206,7 @@ export default function AssetCashSettings({ onLocked }: { onLocked: () => void }
         </Panel>
       </Block>
 
-      <Block title="월급" desc="「월 고정지출」 탭 「현재 월 급여」 를 그날 들어오는 줄에 더합니다." busy={busy === 'salary'} error={errors.salary ?? null}>
+      <Block heading="월급" desc="「월 고정지출」 탭 「현재 월 급여」 를 그날 들어오는 줄에 더합니다." busy={busy === 'salary'} error={errors.salary ?? null}>
         <div className="space-y-2" data-testid="asset-cash-salary">
           <FormRow label="들어오는 줄" labelW="sm" valueW="lg" error={v.salary.problem ? '시트에서 줄을 찾지 못했어요 — 다시 골라 주세요' : undefined}>
             <RowSelect rows={v.rows} label="월급 들어오는 줄" value={s.salary.to} disabled={busy != null} onPick={(k) => void save('salary', 'salary', { salary: { to: k === OUT ? null : k } })} />
@@ -245,7 +245,7 @@ export default function AssetCashSettings({ onLocked }: { onLocked: () => void }
         </div>
       </Block>
 
-      <Block title="고정 흐름" desc="「월 고정지출」 의 저축 및 투자 · 월세 · 고정 지출 줄을 매달 그날 옮깁니다. 날짜 · 출금 줄 · 입금 줄을 모두 정한 줄만 반영합니다." busy={busy?.startsWith('flow') ?? false} error={errors.flows ?? null}>
+      <Block heading="고정 흐름" desc="「월 고정지출」 의 저축 및 투자 · 월세 · 고정 지출 줄을 매달 그날 옮깁니다. 날짜 · 출금 줄 · 입금 줄을 모두 정한 줄만 반영합니다." busy={busy?.startsWith('flow') ?? false} error={errors.flows ?? null}>
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <span className="text-caption text-text-muted">휴일이면</span>
@@ -374,7 +374,7 @@ export default function AssetCashSettings({ onLocked }: { onLocked: () => void }
         </div>
       </Block>
 
-      <Block title="반영 기록" desc="최근 50개 · 최신이 위입니다. 「반영」 줄은 되돌릴 수 있습니다(지금 시트 숫자에서 반대로)." busy={busy?.startsWith('undo-') ?? false} error={errors.moves ?? null}>
+      <Block heading="반영 기록" desc="최근 50개 · 최신이 위입니다. 「반영」 줄은 되돌릴 수 있습니다(지금 시트 숫자에서 반대로)." busy={busy?.startsWith('undo-') ?? false} error={errors.moves ?? null}>
         <Panel pad="none" className="pb-1">
           <table className="w-full table-fixed text-left text-xs" data-testid="asset-cash-moves">
             <colgroup>
@@ -449,12 +449,12 @@ export default function AssetCashSettings({ onLocked }: { onLocked: () => void }
   );
 }
 
-/** 구역 하나 — 제목 + 저장 중 로딩 + 설명 + 내용 + 이유 한 줄 */
-function Block({ title, desc, busy, error, children }: { title: string; desc?: string; busy: boolean; error: string | null; children: React.ReactNode }) {
+/** 구역 하나(속성 이름은 heading — 툴팁 시험이 세는 속성 이름을 피함) — 제목 + 저장 중 로딩 + 설명 + 내용 + 이유 한 줄 */
+function Block({ heading, desc, busy, error, children }: { heading: string; desc?: string; busy: boolean; error: string | null; children: React.ReactNode }) {
   return (
-    <section className="space-y-2" data-testid={`asset-cash-block-${title}`}>
+    <section className="space-y-2" data-testid={`asset-cash-block-${heading}`}>
       <h4 className="flex items-center gap-2 text-xs font-semibold text-text-primary">
-        {title}
+        {heading}
         <span className="inline-flex w-4 justify-center">{busy && <LoaderCircle {...ICON_SM} className="animate-spin text-text-muted" aria-label="저장하는 중" />}</span>
       </h4>
       {desc && <p className="text-caption text-text-muted keep-all">{desc}</p>}

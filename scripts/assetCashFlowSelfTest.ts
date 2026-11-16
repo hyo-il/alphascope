@@ -177,7 +177,7 @@ try {
     g.failWrite = true;
     const r7 = await quiet(() => applyCashMove(move({ from: KB(2), to: KIWOOM })));
     g.failWrite = false;
-    check('[139-2] 구글 쓰기 실패 → 「건너뜀(시트를 읽거나 쓰지 못함 · network)」', r7.status === 'skipped' && r7.reason === 'write-failed' && r7.detail === 'network');
+    check('[139-2] 구글 쓰기 응답 실패(500 — 쓰였을 수 있음) → 「다시 확인 필요(시트를 읽거나 쓰지 못함 · network)」 · 다시 쓰지 않음', r7.status === 'check' && r7.reason === 'write-failed' && r7.detail === 'network');
 
     const all = g.writes.flat();
     const bankRows = new Set(cashLines(cut(g.book.values, `'${C}'!B1:C`)).map((l) => l.row));
@@ -377,7 +377,7 @@ try {
     g.failWrite = true;
     const gfail = await quiet(() => tradeCash('buy', '개별 투자', 107, '가짜종목', 10_000, TODAY));
     g.failWrite = false;
-    check('[139-6] 구글 쓰기 실패도 던지지 않고 안내(보유 쓰기 결과는 그대로 응답)', gfail.cash.status === 'skipped' && /시트를 읽거나 쓰지 못함/.test(gfail.cash.message ?? ''));
+    check('[139-6] 구글 쓰기 응답 실패도 던지지 않고 안내 — 「바뀌었는지 확인하지 못했어요 — 시트를 확인」(다시 빼라고 하지 않음)', gfail.cash.status === 'skipped' && /확인하지 못했어요/.test(gfail.cash.message ?? '') && !/고쳐 주세요/.test(gfail.cash.message ?? ''));
     writeCashSettings({ enabled: false }, now, TODAY);
     const offTrade = await quiet(() => tradeCash('buy', '개별 투자', 108, '가짜종목', 10_000, TODAY));
     check('[139-7] 설정 끔 → 매수 · 매도 예수금 쓰기 0(none)', offTrade.cash.status === 'none' && g.writes.length === 0);
@@ -400,6 +400,63 @@ try {
     check('[139-6] 주소 순서 — 금액 검사 → 보유 쓰기(recordTrade · recordNewHolding) → 그 뒤에만 예수금(tradeCash)', order(route('/api/asset/trade'), 'recordTrade') && order(route('/api/asset/trade/new'), 'recordNewHolding'));
     const tradeDiff = spawnSync('git', ['diff', '--name-only', '91622e3', '--', 'server/asset/trade.ts', 'server/asset/rowOps.ts'], { cwd: root, encoding: 'utf8' });
     check('[139-6] 보유 쓰기 코드(trade.ts · rowOps.ts) 바뀐 줄 0(91622e3 와 지금)', tradeDiff.status === 0 && tradeDiff.stdout.trim() === '', tradeDiff.stdout.trim());
+    clearCashSettingsForTest();
+  }
+
+  // ═══ 데이터 품질 검토 뒤(139차 H) — 쓰기 요청 뒤 실패 · 같은 이름 줄 수 · 앞 달로 당겨진 반영 날 ═══
+  {
+    reset();
+    clearCashMovesForTest();
+    clearCashSettingsForTest();
+    const now0 = await quiet(sheetNow);
+    writeCashSettings({ enabled: true }, now0, '2026-11-01');
+    writeCashSettings({ salary: { to: KB(2) } }, now0, '2026-11-01');
+    setCashCalendarForTest(() => false);
+    const at = (day: string, hm: string) => Date.parse(`${day}T${hm}:00+09:00`);
+    // 쓴 뒤 다시 읽기 실패 → 「다시 확인 필요」 · 그 달 자리 그대로 · 다음 확인에 다시 쓰지 않음
+    g.failReadAfterWrite = true;
+    await quiet(() => cashTick(at('2026-11-25', '09:00')));
+    g.failReadAfterWrite = false;
+    const w1 = g.writes.length;
+    await quiet(() => cashTick(at('2026-11-25', '09:30')));
+    const sal = listCashMoves().filter((m) => m.kind === 'salary');
+    check('[139-4] 쓰기 요청 뒤 다시 읽기 실패(쓰였을 수 있음) → 「다시 확인 필요」 · 다음 확인에 다시 쓰지 않음(월급 두 번 0)', w1 === 1 && g.writes.length === 1 && sal.length === 1 && sal[0].status === 'check');
+    // 되돌리기 요청 뒤 실패 → 「반영」 으로 두지 않음(두 번 되돌리기 0)
+    const r = await quiet(() => applyCashMove(move({ from: KB(2), to: KIWOOM, amount: 5_000 })));
+    g.failReadAfterWrite = true;
+    let undoErr = '';
+    await quiet(() => undoCashMove(r.id).catch((e: AssetSheetError) => void (undoErr = e.kind)));
+    g.failReadAfterWrite = false;
+    let again = '';
+    await quiet(() => undoCashMove(r.id).catch((e: AssetSheetError) => void (again = e.kind)));
+    const rec = listCashMoves().find((m) => m.id === r.id);
+    check('[139-5] 되돌리기 요청 뒤 실패 → 「다시 확인 필요」(「반영」 으로 되돌리지 않음) · 다시 눌러도 쓰기 0', undoErr === 'network' && rec?.status === 'check' && again === 'already-done' && g.writes.length === 3);
+    // 쓰기 403(권한 — 쓰이지 않음) → 「건너뜀」(그 달 자리 · 다음 확인에 다시 하지 않음)
+    g.denyWrite = true;
+    const deny = await quiet(() => applyCashMove(move({ kind: 'fixed', itemKey: 'deny', from: KB(2), to: null, amount: 1_000 }), { transientRetry: true }));
+    g.denyWrite = false;
+    check('[139-2] 구글이 쓰기를 거절(403 — 쓰이지 않음) → 「건너뜀(not-shared)」 기록 · 다시 시도로 내놓지 않음', deny.status === 'skipped' && deny.detail === 'not-shared');
+
+    // 같은 이름 줄 수가 바뀌면(#n 이 밀림) 저장한 짝 줄을 찾지 못함으로 — 옆 계좌에 쓰지 않음
+    reset();
+    writeCashSettings({ depositPair: { section: '개별 투자', key: KB(3) } }, await quiet(sheetNow), '2026-11-01');
+    check('[139-1] 설정에 저장한 열쇠에 같은 이름 줄 수(of=3)', readCashSettings().depositPairs['개별 투자']?.of === 3);
+    insertRow(g.book, C, 5, { B: '가짜국민 (가짜 예금)', C: 7 }); // 맨 위에 같은 이름 줄 — 옛 #3 은 이제 #4
+    const shifted = await quiet(() => tradeCash('buy', '개별 투자', 201, '가짜종목', 10_000, TODAY));
+    check('[139-1] 같은 이름 줄을 넣어 「#n」 이 밀리면 쓰지 않음(찾지 못함 · 「다시 확인 필요」 안내) · 쓰기 0', shifted.cash.status === 'skipped' && /「현금」 줄을 찾지 못함/.test(shifted.cash.message ?? '') && g.writes.length === 0);
+
+    // 반영 날이 앞 달로 당겨짐(1일 · 앞 영업일 · 1-01 휴일 → 12-31)
+    reset();
+    clearCashMovesForTest();
+    setCashCalendarForTest((d) => d === '2027-01-01');
+    writeCashSettings({ salary: { to: KB(1), day: 1, shift: 'prev' } }, await quiet(sheetNow), '2026-12-01');
+    const dec31 = await quiet(() => cashTick(at('2026-12-31', '09:00')));
+    const jan = listCashMoves().find((m) => m.kind === 'salary' && m.month === '2027-01');
+    check('[139-3] 「1일 · 앞 영업일」 — 1월 월급 반영 날이 12-31 로 당겨지면 12-31 에 반영(그 달 = 2027-01 · 「서버 꺼짐」 아님 · 같은 확인에 12월 1일 월급도 1번)', dec31.applied === 2 && jan?.status === 'applied' && jan.day === '2026-12-31');
+    clearCashMovesForTest();
+    const jan2 = await quiet(() => cashTick(at('2027-01-02', '09:00')));
+    check('[139-3] 12-31 에 서버가 꺼져 있었으면 1월 안에서 한 번(항목 달 기준 — 건너뛰지 않음)', jan2.applied === 1 && listCashMoves()[0].month === '2027-01' && listCashMoves()[0].status === 'applied');
+    setCashCalendarForTest(null);
     clearCashSettingsForTest();
   }
 

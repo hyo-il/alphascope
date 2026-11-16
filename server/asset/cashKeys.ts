@@ -54,8 +54,20 @@ export function cashLines(rows: CellRows): CashLine[] {
 
 export const sameCashKey = (a: AssetCashKey | null | undefined, b: AssetCashKey | null | undefined) => a != null && b != null && a.name === b.name && a.nth === b.nth;
 
-/** 저장한 열쇠의 지금 줄 — 없으면 null */
-export const findCashLine = (lines: CashLine[], key: AssetCashKey): CashLine | null => lines.find((l) => sameCashKey(l.key, key)) ?? null;
+/** 지금 같은 이름 줄 수 */
+export const cashCount = (lines: { key: AssetCashKey }[], name: string) => lines.filter((l) => l.key.name === name).length;
+
+/**
+ * 저장한 열쇠의 지금 줄 — 없으면 null. 열쇠에 저장 때 같은 이름 줄 수(`of`)가 있고 지금 수가 다르면 null
+ * (같은 이름 줄을 넣거나 지우면 「#n」 이 밀려 옆 계좌를 가리킨다 — 쓰지 않고 「다시 확인 필요」).
+ */
+export function findCashLine(lines: CashLine[], key: AssetCashKey): CashLine | null {
+  if (key.of != null && cashCount(lines, key.name) !== key.of) return null;
+  return lines.find((l) => sameCashKey(l.key, key)) ?? null;
+}
+
+/** 설정에 저장할 열쇠 — 지금 같은 이름 줄 수를 함께 */
+export const storedCashKey = (lines: { key: AssetCashKey }[], key: AssetCashKey): AssetCashKey => ({ name: key.name, nth: key.nth, of: cashCount(lines, key.name) });
 
 /** 화면 이름 — 같은 이름이 둘 이상이면 「#n」 */
 export function cashLabel(key: AssetCashKey, lines: { key: AssetCashKey }[]): string {
@@ -114,7 +126,16 @@ export function fixedLines(rows: CellRows): FixedLine[] {
 export const sameFixedKey = (a: AssetFixedKey | null | undefined, b: AssetFixedKey | null | undefined) =>
   a != null && b != null && a.category === b.category && a.reason === b.reason && a.nth === b.nth;
 
-export const findFixedLine = (lines: FixedLine[], key: AssetFixedKey): FixedLine | null => lines.find((l) => sameFixedKey(l.key, key)) ?? null;
+const fixedCount = (lines: { key: AssetFixedKey }[], k: AssetFixedKey) => lines.filter((l) => l.key.category === k.category && l.key.reason === k.reason).length;
+
+/** 저장한 열쇠의 지금 줄 — 저장 때 같은 분류 · 사유 줄 수(`of`)와 지금 수가 다르면 null(「#n」 이 밀렸을 수 있음) */
+export function findFixedLine(lines: FixedLine[], key: AssetFixedKey): FixedLine | null {
+  if (key.of != null && fixedCount(lines, key) !== key.of) return null;
+  return lines.find((l) => sameFixedKey(l.key, key)) ?? null;
+}
+
+/** 설정에 저장할 열쇠 — 지금 같은 분류 · 사유 줄 수를 함께 */
+export const storedFixedKey = (lines: { key: AssetFixedKey }[], key: AssetFixedKey): AssetFixedKey => ({ category: key.category, reason: key.reason, nth: key.nth, of: fixedCount(lines, key) });
 
 /** 화면 이름 — 같은 분류 · 사유가 둘 이상이면 「#n」 */
 export function fixedLabel(key: AssetFixedKey, lines: { key: AssetFixedKey }[]): string {

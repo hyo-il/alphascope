@@ -109,17 +109,24 @@ export interface FakeGoogle {
   failWrite: boolean;
   /** 이 탭 이름을 읽으면 500(「월 고정지출」 읽기 실패) */
   failReadTab: string | null;
+  /** 쓰기는 되지만 그 뒤 첫 읽기가 500(쓴 뒤 다시 읽기 실패 — 「쓰였을 수 있음」) */
+  failReadAfterWrite?: boolean;
+  /** 쓰기 403(권한 — 쓰이지 않음) */
+  denyWrite?: boolean;
 }
 
 export function fakeGoogleFetch(g: FakeGoogle, realFetch: typeof fetch): typeof fetch {
+  let pendingReadFail = false;
   return (async (input: string | URL | Request, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     if (!/googleapis\.com/.test(url)) return realFetch(input, init);
     if (url.startsWith('https://oauth2.googleapis.com/token')) return new Response(JSON.stringify({ access_token: 'fake', expires_in: 3600 }), { status: 200 });
     if ((init?.method ?? 'GET') !== 'GET') {
       if (g.failWrite) return new Response('{}', { status: 500 });
+      if (g.denyWrite) return new Response(JSON.stringify({ error: { code: 403 } }), { status: 403 });
       const body = JSON.parse(String(init?.body)) as { data: { range: string; values: Cell[][] }[] };
       g.writes.push(body.data.map((d) => d.range));
+      if (g.failReadAfterWrite) pendingReadFail = true;
       for (const d of body.data) {
         const m = /^'((?:[^']|'')+)'!([A-Z]\d+)$/.exec(d.range);
         if (!m) continue;
@@ -132,6 +139,10 @@ export function fakeGoogleFetch(g: FakeGoogle, realFetch: typeof fetch): typeof 
       return new Response('{}', { status: 200 });
     }
     g.reads++;
+    if (pendingReadFail) {
+      pendingReadFail = false;
+      return new Response('{}', { status: 503 });
+    }
     const params = new URL(url).searchParams;
     const ranges = params.getAll('ranges');
     if (g.failReadTab && ranges.some((r) => r.includes(g.failReadTab as string))) return new Response('{}', { status: 500 });

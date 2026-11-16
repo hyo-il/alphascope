@@ -7,7 +7,7 @@ import type { AssetCashFlowView, AssetCashView } from '../../src/types/asset';
 import { assetSheetConfig, isAssetSyncEnabled } from './config';
 import { AssetSheetError } from './google';
 import { readAssetSheet } from './sheet';
-import { cashOptions, findCashLine, fixedViews, sameFixedKey, type CashLine } from './cashKeys';
+import { cashOptions, findCashLine, findFixedLine, fixedViews, sameFixedKey, type CashLine } from './cashKeys';
 import { listCashMoves, readCashSettings, readCashSheetNow, type CashSheetNow } from './cashMoves';
 import { cashCalendar, kstDay, nextDueDay } from './cashSchedule';
 import { SHEET_LAYOUT } from './sheetLayout';
@@ -32,7 +32,8 @@ export async function buildCashView(now = Date.now()): Promise<AssetCashView> {
   const flows: AssetCashFlowView[] = [];
   const items = sheet.fixed ? fixedViews(sheet.fixed) : [];
   for (const item of items) {
-    const setting = s.flows.find((f) => sameFixedKey(f.item, item.key)) ?? null;
+    // 저장 때와 같은 분류 · 사유 줄 수일 때만 이 줄의 설정(「#n」 이 밀렸으면 아래 「시트에서 찾지 못한 줄」 로)
+    const setting = s.flows.find((f) => sameFixedKey(f.item, item.key) && sheet.fixed != null && findFixedLine(sheet.fixed, f.item) != null) ?? null;
     const rowsOk = !setting || (lineOk(setting.from) && (setting.to === 'out' || lineOk(setting.to)));
     const payable = item.reflect && item.amount != null && item.amount > 0;
     flows.push({
@@ -44,7 +45,8 @@ export async function buildCashView(now = Date.now()): Promise<AssetCashView> {
   }
   // 설정만 남고 시트에서 사라진 줄 — 「다시 확인 필요」(지울 수 있다) · 「월 고정지출」 을 못 읽었으면 설정 그대로 보인다(문제 표시 없음)
   for (const setting of s.flows) {
-    if (items.some((i) => sameFixedKey(i.key, setting.item))) continue;
+    if (sheet.fixed && findFixedLine(sheet.fixed, setting.item)) continue;
+    if (!sheet.fixed && items.some((i) => sameFixedKey(i.key, setting.item))) continue;
     flows.push({ item: null, setting, nextDay: null, problem: sheet.fixed ? 'missing-item' : null });
   }
 

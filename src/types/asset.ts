@@ -702,6 +702,8 @@ export const ASSET_DAILY_NOTE_MAX = 40;
 export interface AssetCashKey {
   name: string;
   nth: number;
+  /** 저장할 때 같은 이름 줄이 몇 개였나 — 지금 개수가 다르면(#n 이 밀렸을 수 있음) 찾지 못함으로 본다(설정에 저장한 열쇠만) */
+  of?: number;
 }
 
 /** 「월 고정지출」 표 한 줄 알아보기 — 분류(합쳐진 칸은 위 줄 이어받기) + 지출 사유 + 같은 분류 · 사유 가운데 몇 번째(1부터) */
@@ -709,6 +711,8 @@ export interface AssetFixedKey {
   category: string;
   reason: string;
   nth: number;
+  /** 저장할 때 같은 분류 · 사유 줄이 몇 개였나 — 지금 개수가 다르면 찾지 못함으로 본다(설정에 저장한 열쇠만) */
+  of?: number;
 }
 
 /** 휴일이면 앞 영업일 / 다음 영업일 */
