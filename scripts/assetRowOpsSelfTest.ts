@@ -559,7 +559,7 @@ try {
     check('[120-8] 구글에 쓰는 함수 = valuesWrite · structureWrite 둘', writers.join() === 'valuesWrite,structureWrite', writers.join());
     const callers = (name: string) => files.flatMap(({ f, src }) => [...src.matchAll(new RegExp(`(?<![\\w.'])${name}\\(`, 'g'))].map(() => f)).filter((f) => f !== 'server/asset/google.ts').sort();
     check('[120-8] structureWrite 를 부르는 곳 = rowOps.ts 뿐', [...new Set(callers('structureWrite'))].join() === 'server/asset/rowOps.ts', callers('structureWrite').join());
-    check('[120-8] valuesWrite 를 부르는 곳 = 정해진 다섯 파일', [...new Set(callers('valuesWrite'))].join() === 'server/asset/priceSheet.ts,server/asset/priceWriter.ts,server/asset/rowOps.ts,server/asset/sheet.ts,server/asset/trade.ts', [...new Set(callers('valuesWrite'))].join());
+    check('[120-8] [139-2] valuesWrite 를 부르는 곳 = 정해진 여섯 파일(139차 cashMoves.ts 더함)', [...new Set(callers('valuesWrite'))].join() === 'server/asset/cashMoves.ts,server/asset/priceSheet.ts,server/asset/priceWriter.ts,server/asset/rowOps.ts,server/asset/sheet.ts,server/asset/trade.ts', [...new Set(callers('valuesWrite'))].join());
     const config = assetSheetConfig();
     if (!config) throw new Error('시험 설정 없음');
     reset();

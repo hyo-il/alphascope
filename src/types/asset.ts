@@ -695,3 +695,188 @@ export interface AssetDailyChange {
 
 /** 메모 최대 글자 수 */
 export const ASSET_DAILY_NOTE_MAX = 40;
+
+// ── 현금 자동 반영(v2.71.0) — 「현금」 탭 은행 계좌 줄 C열만 앱이 바꾼다 · 서버 `server/asset/cashMoves.ts` · `cashSchedule.ts` ──
+
+/** 「현금」 탭 은행 계좌 줄 알아보기 — 이름(두 줄 이름은 한 줄 · 공백 하나) + 같은 이름 가운데 몇 번째(1부터) */
+export interface AssetCashKey {
+  name: string;
+  nth: number;
+}
+
+/** 「월 고정지출」 표 한 줄 알아보기 — 분류(합쳐진 칸은 위 줄 이어받기) + 지출 사유 + 같은 분류 · 사유 가운데 몇 번째(1부터) */
+export interface AssetFixedKey {
+  category: string;
+  reason: string;
+  nth: number;
+}
+
+/** 휴일이면 앞 영업일 / 다음 영업일 */
+export type AssetCashShift = 'prev' | 'next';
+/** 고정 흐름 입금 쪽 — 「현금」 줄 또는 밖으로(출금만) */
+export type AssetCashTarget = AssetCashKey | 'out';
+
+/** 고정 흐름 한 줄 설정 — 날짜가 비면(null) 반영하지 않는다 */
+export interface AssetCashFlowSetting {
+  item: AssetFixedKey;
+  /** 매달 며칠(1~31 · 그 달에 없는 날은 말일) */
+  day: number | null;
+  from: AssetCashKey | null;
+  to: AssetCashTarget | null;
+}
+
+/** 설정(`app_settings` 'asset.cash') — 처음 값: 꺼짐 · 짝 없음 · 월급 25일 앞 영업일 · 고정 흐름 다음 영업일 */
+export interface AssetCashSettings {
+  enabled: boolean;
+  /** 켠 날(한국 날짜) — 이 날보다 앞선 날짜는 반영하지 않는다 */
+  enabledDay: string | null;
+  /** 계좌 key → 예수금 줄(없으면 짝 없음) */
+  depositPairs: Record<string, AssetCashKey>;
+  salary: { to: AssetCashKey | null; day: number; shift: AssetCashShift };
+  flowShift: AssetCashShift;
+  flows: AssetCashFlowSetting[];
+}
+
+export const ASSET_CASH_DEFAULT_SALARY_DAY = 25;
+
+/** 고칠 칸만 — `flow` 는 한 줄(같은 `item` 줄을 바꾼다 · 날짜 · 출금 · 입금이 모두 null 이면 지운다) */
+export interface AssetCashSettingsPatch {
+  enabled?: boolean;
+  depositPair?: { section: string; key: AssetCashKey | null };
+  salary?: Partial<AssetCashSettings['salary']>;
+  flowShift?: AssetCashShift;
+  flow?: AssetCashFlowSetting;
+}
+
+/** 반영 기록 종류 */
+export type AssetCashMoveKind = 'salary' | 'fixed' | 'buy' | 'sell';
+export const ASSET_CASH_KIND_LABEL: Record<AssetCashMoveKind, string> = { salary: '월급', fixed: '고정 흐름', buy: '매수', sell: '매도' };
+
+/** 반영 기록 상태 — 쓰는 중 · 반영 · 되돌리는 중 · 되돌림 · 건너뜀(까닭) · 다시 확인 필요(쓴 뒤 다시 읽은 값이 다름 · 쓰는 중 멈춤) */
+export type AssetCashMoveStatus = 'pending' | 'applied' | 'undoing' | 'undone' | 'skipped' | 'check';
+export const ASSET_CASH_STATUS_LABEL: Record<AssetCashMoveStatus, string> = {
+  pending: '쓰는 중',
+  applied: '반영',
+  undoing: '되돌리는 중',
+  undone: '되돌림',
+  skipped: '건너뜀',
+  check: '다시 확인 필요',
+};
+
+/** 건너뜀 · 다시 확인 필요 까닭 */
+export type AssetCashReason =
+  | 'server-off' // 서버가 꺼져 있다가 다음 달로 넘어감
+  | 'missing-row' // 「현금」 줄을 찾지 못함
+  | 'missing-item' // 「월 고정지출」 줄을 찾지 못함
+  | 'zero' // 비용 ₩0 · 빈칸
+  | 'not-number' // 「현금」 금액 칸이 숫자가 아님(빈칸 · 글자)
+  | 'formula-cell' // 「현금」 금액 칸이 수식
+  | 'no-salary' // 「현재 월 급여」 가 비었거나 숫자가 아님
+  | 'mismatch' // 쓴 뒤 다시 읽은 값이 다름
+  | 'stopped' // 쓰는 중에 멈춤(서버가 꺼짐 등) — 시트를 직접 확인
+  | 'write-failed'; // 시트를 읽거나 쓰지 못함(까닭 종류는 `detail`)
+
+export const ASSET_CASH_REASON_LABEL: Record<AssetCashReason, string> = {
+  'server-off': '서버 꺼짐',
+  'missing-row': '「현금」 줄을 찾지 못함',
+  'missing-item': '「월 고정지출」 줄을 찾지 못함',
+  zero: '비용이 ₩0 · 빈칸',
+  'not-number': '금액 칸이 숫자가 아님',
+  'formula-cell': '금액 칸이 수식',
+  'no-salary': '「현재 월 급여」 가 비었음',
+  mismatch: '쓴 뒤 다시 읽은 값이 다름',
+  stopped: '쓰는 중에 멈춤',
+  'write-failed': '시트를 읽거나 쓰지 못함',
+};
+
+/** 반영 기록 한 줄(화면) — 금액은 원 */
+export interface AssetCashMoveRecord {
+  id: number;
+  /** 기록 시각(ISO) */
+  at: string;
+  kind: AssetCashMoveKind;
+  /** 무엇 — 월급 · 고정 흐름 사유(#n) · 매수 · 매도 종목 */
+  label: string;
+  /** 그 달(YYYY-MM) */
+  month: string;
+  /** 반영 날(한국 날짜) — 매수 · 매도는 입력한 날 */
+  day: string;
+  from: AssetCashKey | null;
+  to: AssetCashKey | null;
+  amount: number;
+  status: AssetCashMoveStatus;
+  reason: AssetCashReason | null;
+  /** 되돌린 때(ISO) */
+  undoneAt: string | null;
+}
+
+/** 「현금」 줄 고르기 한 칸 */
+export interface AssetCashRowOption {
+  key: AssetCashKey;
+  /** 화면 이름 — 같은 이름이 여럿이면 「#n」 */
+  label: string;
+  amount: number | null;
+}
+
+/** 「월 고정지출」 한 줄(화면) */
+export interface AssetFixedItemView {
+  key: AssetFixedKey;
+  /** 같은 분류 · 사유가 여럿이면 「사유 #n」 */
+  label: string;
+  /** 비용(원) — 빈칸 · 글자는 null */
+  amount: number | null;
+  /** 반영할 수 있는 분류(저축 및 투자 · 월세 · 고정 지출) — 변동 지출 · 그 밖은 false(회색 「반영 안 함」) */
+  reflect: boolean;
+}
+
+/** 고정 흐름 줄(화면) — 시트 줄 + 설정 + 다음 반영 날 + 문제 */
+export interface AssetCashFlowView {
+  /** 시트에서 찾은 줄 — 설정만 남고 시트에서 사라진 줄은 null */
+  item: AssetFixedItemView | null;
+  setting: AssetCashFlowSetting | null;
+  /** 다음 반영 날(한국 날짜) — 날짜 · 줄이 정해지지 않았거나 켜지 않았으면 null */
+  nextDay: string | null;
+  /** 다시 확인 필요 — 줄 · 「현금」 줄을 찾지 못함 */
+  problem: AssetCashReason | null;
+}
+
+/** `GET /api/asset/cash` — 설정 창 「현금 자동 반영」 */
+export interface AssetCashView {
+  settings: AssetCashSettings;
+  /** 이 서버에서 시트 쓰기가 켜져 있나(`ASSET_SYNC_ENABLED`) */
+  writeEnabled: boolean;
+  /** 오늘(한국 날짜) */
+  today: string;
+  /** 계좌(합친 표 제외 · 시트 순서) — 예수금 줄 짝 */
+  sections: { key: string; name: string }[];
+  rows: AssetCashRowOption[];
+  /** 「월 고정지출」 을 읽지 못하면 이유(고정 흐름 · 월급 금액만 비운다) */
+  fixedError: string | null;
+  salary: { amount: number | null; nextDay: string | null; problem: AssetCashReason | null };
+  flows: AssetCashFlowView[];
+  /** 최근 50 · 최신 위 */
+  moves: AssetCashMoveRecord[];
+}
+
+/** `GET /api/asset/cash/pair?section=` — 매수 · 매도 창 예수금 줄 */
+export interface AssetCashPairView {
+  /** 「현금 자동 반영」 켬 · 시트 쓰기 켬 */
+  enabled: boolean;
+  /** 짝 — 없으면 null */
+  pair: { key: AssetCashKey; label: string } | null;
+  /** 지금 환율(원/달러) — 못 받으면 null */
+  usdKrw: number | null;
+}
+
+/** 매수 · 매도 요청에 더하는 예수금 금액(원 · 0 이상 정수 · 0 이면 예수금은 안 바꿈 · 없으면 안 바꿈) */
+export interface AssetCashTradeExtra {
+  cashAmount?: number;
+}
+
+/** 매수 · 매도 응답에 더하는 예수금 결과 — none = 짝 없음 · 꺼짐 · 0 */
+export interface AssetCashTradeOutcome {
+  cash: { status: 'applied' | 'skipped' | 'none'; message: string | null };
+}
+
+/** 금액 상한(원) — 잘못 친 큰 수를 막는다 */
+export const ASSET_CASH_MAX = 10_000_000_000;
