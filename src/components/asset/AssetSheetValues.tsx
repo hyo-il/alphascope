@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Calculator, ChevronDown, ChevronRight, History, Plus, Tags } from 'lucide-react';
 import { Button, ICON_SM, IconButton, Panel, Segmented } from '../ui';
 import { SkeletonTable } from '../common/SkeletonLoader';
@@ -148,6 +148,12 @@ function BankCashBlock({ rows, total, fix }: { rows: AssetCashRow[]; total: numb
 function Summary({ data, includePension }: { data: AssetSheetData; includePension: boolean }) {
   const t = data.targetRatio;
   const [cashOpen, setCashOpen] = useState(false);
+  // 은행 묶음 고치기는 시트 읽기 응답에만 온다 — 쓰기 응답(시트 값만)으로 바뀌어도 마지막 고치기를 그대로 쓴다
+  const sentFix = (data as AssetSheetData & AssetSheetCashBanks).cashBankFix;
+  const [bankFix, setBankFix] = useState<AssetCashBankFix | undefined>(sentFix);
+  useEffect(() => {
+    if (sentFix) setBankFix(sentFix);
+  }, [sentFix]);
   const CashArrow = cashOpen ? ChevronDown : ChevronRight;
   return (
     <Panel className="space-y-3">
@@ -174,7 +180,7 @@ function Summary({ data, includePension }: { data: AssetSheetData; includePensio
       </div>
       {cashOpen && (
         <div id="as-asset-cashlist" className="max-w-xl space-y-3" data-testid="asset-cash-accounts">
-          <BankCashBlock rows={data.cashAccounts} total={data.cashTotal} fix={(data as AssetSheetData & AssetSheetCashBanks).cashBankFix} />
+          <BankCashBlock rows={data.cashAccounts} total={data.cashTotal} fix={sentFix ?? bankFix} />
           {includePension && <CashBlock heading="퇴직 연금" rows={data.retirementAccounts} total={data.retirement} testId="asset-cash-retirement" />}
         </div>
       )}

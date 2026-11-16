@@ -165,11 +165,11 @@ try {
       const late = await call('GET', '/api/asset/summary?pension=0');
       results.push(`${r}:${w.status}:${isLocked(still) ? 'locked' : 'open'}:${isLocked(late) ? 'locked' : 'open'}`);
     }
-    // 139차: 현금 자동 반영 설정 · 되돌리기 두 가지가 늘었다
-    check('[117-3] [120-1] [134-4] [139-8] 쓰기 요청 12가지(PUT class · settings · target-ratio · POST purchase-done · price-source convert · restore · trade · 120차 새 종목 trade/new · 확인 화면 trade/new/plan · 134차 메모 daily-note · 139차 cash/settings · cash/undo) 각각 20분에 → 45분 풀림 · 50분 넘으면 잠김',
-      writes.length === 12 && results.every((x) => x.endsWith(':open:locked') && !x.includes(':403:')), results.join(' '));
-    check('[117-3] [120-1] [134-4] [139-8] ACTIVE = touch + 쓰기 12가지뿐(118차 매수 · 매도 입력 · 120차 새 종목 · 134차 메모 · 139차 현금 설정 · 되돌리기 포함) · summary · sheet · history · status · cash 읽기는 없음',
-      ACTIVE.size === 13 && ACTIVE.has('PUT /api/asset/daily-note') && ACTIVE.has('PUT /api/asset/cash/settings') && ACTIVE.has('POST /api/asset/cash/undo') && ![...ACTIVE].some((r) => r.startsWith('GET ')) && ACTIVE.has('POST /api/asset/touch'));
+    // 139차: 현금 자동 반영 설정 · 되돌리기 두 가지가 늘었다 · 140차: 은행 묶음 고치기 하나
+    check('[117-3] [120-1] [134-4] [139-8] [140-3] 쓰기 요청 13가지(PUT class · settings · target-ratio · POST purchase-done · price-source convert · restore · trade · 120차 새 종목 trade/new · 확인 화면 trade/new/plan · 134차 메모 daily-note · 139차 cash/settings · cash/undo · 140차 cash/banks) 각각 20분에 → 45분 풀림 · 50분 넘으면 잠김',
+      writes.length === 13 && results.every((x) => x.endsWith(':open:locked') && !x.includes(':403:')), results.join(' '));
+    check('[117-3] [120-1] [134-4] [139-8] [140-3] ACTIVE = touch + 쓰기 13가지뿐(118차 매수 · 매도 입력 · 120차 새 종목 · 134차 메모 · 139차 현금 설정 · 되돌리기 · 140차 은행 묶음 고치기 포함) · summary · sheet · history · status · cash · 미리 보기 읽기는 없음',
+      ACTIVE.size === 14 && ACTIVE.has('PUT /api/asset/daily-note') && ACTIVE.has('PUT /api/asset/cash/settings') && ACTIVE.has('POST /api/asset/cash/undo') && ACTIVE.has('PUT /api/asset/cash/banks') && ![...ACTIVE].some((r) => r.startsWith('GET ')) && ACTIVE.has('POST /api/asset/touch'));
   }
 
   {

@@ -1000,7 +1000,7 @@ export const ASSET_CASH_PREVIEW_WHY_LABEL: Record<AssetCashPreviewWhy, string> =
   'same-row': '빠지는 계좌와 들어가는 계좌가 같음',
   'missing-row': '「현금」 탭에서 계좌를 찾지 못함 — 다시 확인 필요',
   'missing-item': '「월 고정지출」 에서 찾지 못함 — 다시 확인 필요',
-  zero: '₩0',
+  zero: '금액이 0 · 빈칸',
   'no-salary': '「현재 월 급여」 가 비었음',
   variable: '변동 지출',
 };

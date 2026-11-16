@@ -206,7 +206,7 @@ export default function AssetCashSettings({ onLocked }: { onLocked: () => void }
 
       {/* 월급 카드(맨 위 · 시트처럼) → 그 아래로 퍼지는 고정 흐름 */}
       <section className="space-y-0" aria-label="월급과 고정 흐름">
-        <Panel tone="tertiary" className="space-y-2" data-testid="asset-cash-salary">
+        <Panel className="space-y-2 border border-border/60" data-testid="asset-cash-salary">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h4 className="flex items-center gap-2 text-xs font-semibold text-text-primary">
               월급
@@ -223,7 +223,7 @@ export default function AssetCashSettings({ onLocked }: { onLocked: () => void }
             <ArrowRight {...ICON_SM} className="shrink-0 text-text-muted" aria-label="들어가는 계좌" />
             <AssetCashAccountPicker
               label="월급 받는 계좌"
-              className="w-56"
+              className="w-48"
               value={valueOf(s.salary.to)}
               groups={groups}
               idOf={rowId}
@@ -344,7 +344,7 @@ export default function AssetCashSettings({ onLocked }: { onLocked: () => void }
               const pair = s.depositPairs[sec.key] ?? null;
               return (
                 <li key={sec.key} className={`flex items-center gap-2 px-4 text-xs ${LIST_TABLE_ROW} ${i > 0 ? 'border-t border-border/30' : ''}`} data-testid="asset-cash-pair-row">
-                  <span className="w-56 min-w-0 truncate text-text-primary" data-tip-clip={sec.name}>
+                  <span className="w-56 min-w-0 shrink-0 truncate text-text-primary" data-tip-clip={sec.name}>
                     {sec.name}
                   </span>
                   <ArrowRight {...ICON_SM} className="shrink-0 text-text-muted" aria-hidden />
@@ -367,8 +367,8 @@ export default function AssetCashSettings({ onLocked }: { onLocked: () => void }
       </Block>
 
       <Block heading="은행 묶음" desc="「현금」 탭 계좌 이름의 괄호 앞 글자가 은행, 괄호 안이 상품입니다(괄호가 없으면 입출금). 시트에 계좌를 넣으면 새 은행이 저절로 생깁니다." busy={busy?.startsWith('bank') ?? false} error={errors.banks ?? null}>
-        <DisclosureButton open={banksOpen} onToggle={() => setBanksOpen((o) => !o)} label="은행 묶음 고치기" controls="as-asset-cash-banks" />
-        {banksOpen && <BankFix id="as-asset-cash-banks" names={names} fix={v.bankFix} groups={groups} busy={busy} onSave={saveBank} />}
+        <DisclosureButton open={banksOpen} onToggle={() => setBanksOpen((o) => !o)} label="은행 묶음 고치기" controls="as-asset-bankfix" />
+        {banksOpen && <BankFix id="as-asset-bankfix" names={names} fix={v.bankFix} groups={groups} busy={busy} onSave={saveBank} />}
       </Block>
 
       <Block heading="반영 기록" desc="최근 50개 · 최신이 위입니다. 「반영」 은 되돌릴 수 있습니다(지금 시트 숫자에서 반대로)." busy={busy?.startsWith('undo-') ?? false} error={errors.moves ?? null}>
@@ -379,8 +379,8 @@ export default function AssetCashSettings({ onLocked }: { onLocked: () => void }
               <col className="w-40" />
               <col />
               <col className="w-28" />
-              <col className="w-32" />
-              <col className="w-24" />
+              <col className="w-40" />
+              <col className="w-20" />
             </colgroup>
             <thead className="text-caption text-text-muted">
               <tr className={`border-b border-border/50 ${TABLE_HEAD_ROW}`}>
@@ -510,11 +510,13 @@ function FlowRow({
   }
   if (!reflect || zero) {
     return (
-      <div className="flex min-w-0 items-center gap-3 rounded-lg px-3 py-1.5 text-xs text-text-muted" data-testid="asset-cash-flow-row" data-flow-reflect={reflect ? 'zero' : 'no'}>
+      <div className="flex min-w-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-text-muted" data-testid="asset-cash-flow-row" data-flow-reflect={reflect ? 'zero' : 'no'}>
         <span className="min-w-0 flex-1 truncate" data-tip-clip={label}>
           {label}
         </span>
-        <span className="shrink-0 tabular-nums">{amount != null ? formatAssetWon(amount) : '₩0'} — 반영 안 함</span>
+        {/* 금액 끝 = 다른 줄 금액 칸 끝 · 「반영 안 함」 = 날짜 칸 자리 */}
+        <span className="w-28 shrink-0 text-right tabular-nums">{amount != null ? formatAssetWon(amount) : '₩0'}</span>
+        <span className="w-20 shrink-0 pl-2">반영 안 함</span>
       </div>
     );
   }
@@ -589,10 +591,10 @@ function PreviewTable({ items }: { items: AssetCashPreviewItem[] }) {
       <table className="w-full table-fixed text-left text-xs" data-testid="asset-cash-preview">
         <colgroup>
           <col className="w-24" />
-          <col className="w-44" />
+          <col className="w-32" />
           <col />
           <col className="w-28" />
-          <col className="w-36" />
+          <col className="w-44" />
         </colgroup>
         <thead className="text-caption text-text-muted">
           <tr className={`border-b border-border/50 ${TABLE_HEAD_ROW}`}>
@@ -626,11 +628,8 @@ function PreviewTable({ items }: { items: AssetCashPreviewItem[] }) {
                 <td className={`${TABLE_NUM_GAP} text-right tabular-nums`}>{it.amount != null ? formatAssetWon(it.amount) : '—'}</td>
                 <td className="max-w-0 pr-4 pl-4">
                   <span className={`block truncate ${statusTone}`}>{status}</span>
-                  {why && (
-                    <span className="block truncate text-caption" data-tip-clip={why}>
-                      {why}
-                    </span>
-                  )}
+                  {/* 까닭은 줄여 쓰지 않는다(말줄임이면 켜기 전에 왜 안 되는지 안 보임) — 칸 안에서 줄바꿈 */}
+                  {why && <span className="block text-caption keep-all">{why}</span>}
                 </td>
               </tr>
             );
@@ -668,7 +667,7 @@ function BankFix({
         <ul>
           {raws.map((raw) => (
             <li key={raw} className={`flex items-center gap-2 px-4 text-xs ${LIST_TABLE_ROW}`}>
-              <span className="w-48 min-w-0 truncate text-text-primary" data-tip-clip={raw}>
+              <span className="w-56 min-w-0 shrink-0 truncate text-text-primary" data-tip-clip={raw}>
                 {raw}
               </span>
               <ArrowRight {...ICON_SM} className="shrink-0 text-text-muted" aria-hidden />
@@ -682,7 +681,7 @@ function BankFix({
         <ul>
           {rows.map((name) => (
             <li key={name} className={`flex items-center gap-2 px-4 text-xs ${LIST_TABLE_ROW}`}>
-              <span className="min-w-0 flex-1 truncate text-text-primary" data-tip-clip={name}>
+              <span className="w-56 min-w-0 shrink-0 truncate text-text-primary" data-tip-clip={name}>
                 {name}
               </span>
               <ArrowRight {...ICON_SM} className="shrink-0 text-text-muted" aria-hidden />
@@ -706,7 +705,7 @@ function NameInput({ label, value, disabled, onCommit }: { label: string; value:
   return (
     <Input
       size="sm"
-      className="w-44 shrink-0"
+      className="w-72 shrink-0 text-ellipsis"
       aria-label={label}
       value={text}
       maxLength={20}

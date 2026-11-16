@@ -24,6 +24,7 @@ export const LATER_COMMITS: readonly string[] = [
   '8932789', // 139차 v2.71.0 C — 매수 · 매도 때 예수금(routes · summary 환율 함수 · 매수 창)
   '55962dd', // 139차 v2.71.0 D — 설정 「현금 자동 반영」 화면 · design:check 장면(더하기만)
   '90c92b5', // 140차 v2.71.1 B — 현금 자동 반영 설정 화면 다시 그리기 · 타입 더하기 · design:check 장면 3(더하기만)
+  '9c42321', // 140차 v2.71.1 C — 매수 창 예수금 문장 · 「현금 합계」 은행별 · design:check 장면 1(더하기만)
 ];
 
 const covers = (spec: string, file: string) => file === spec || file.startsWith(`${spec.replace(/\/$/, '')}/`);

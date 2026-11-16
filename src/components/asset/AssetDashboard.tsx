@@ -7,7 +7,7 @@ import { usePolling } from '../../hooks/usePolling';
 import { useAssetIdleLock } from '../../hooks/useAssetIdleLock';
 import { changeColor, formatNumber, formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
-import type { AssetCashTradeExtra, AssetCashTradeOutcome, AssetDailyChange, AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetHolding, AssetSection, AssetSettings, AssetSheetCashBanks, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetNewHoldingRequest, AssetNewHoldingResult, AssetNewHoldingTarget, AssetTradeRequest, AssetTradeSide, MonthlyBuy } from '../../types/asset';
+import type { AssetCashTradeExtra, AssetCashTradeOutcome, AssetDailyChange, AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetHolding, AssetSection, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetNewHoldingRequest, AssetNewHoldingResult, AssetNewHoldingTarget, AssetTradeRequest, AssetTradeSide, MonthlyBuy } from '../../types/asset';
 import { RATIO_TAB_NOTICE } from '../../types/asset';
 import { modal } from '../../store/uiStore';
 import AssetDonut from './AssetDonut';
@@ -146,9 +146,6 @@ export default function AssetDashboard({
   /** 설정 창 — null 이면 닫힘 · 'targetRatio' 면 목표 비율 칸으로 연다 */
   const [settingsOpen, setSettingsOpen] = useState<null | 'top' | 'targetRatio'>(null);
   const [sheet, setSheet] = useState<{ data: AssetSheetData } | { error: string } | null>(null);
-  /** 쓰기 응답(시트 값만)으로 바꿀 때 — 「현금 합계」 은행 묶음 고치기(시트 읽기 응답에만 옴 · v2.71.1)는 그대로 둔다 */
-  const setSheetKeepBanks = (data: AssetSheetData) =>
-    setSheet((prev) => ({ data: { ...data, cashBankFix: (data as AssetSheetData & AssetSheetCashBanks).cashBankFix ?? (prev && 'data' in prev ? (prev.data as AssetSheetData & AssetSheetCashBanks).cashBankFix : undefined) } as AssetSheetData }));
   /** 「자산 분류 정하기」 창(v2.65.3) — 자산 현황 버튼 · 총 자산 「미지정」 줄 링크 */
   const [classOpen, setClassOpen] = useState(false);
   /** 매수 · 매도 입력 창(v2.66.0) */
@@ -256,7 +253,7 @@ export default function AssetDashboard({
       }
       if (!res.ok) return { ok: false, error: typeof body.error === 'string' ? body.error : `요청 실패 (${res.status})` };
       const data = body as unknown as AssetSheetData;
-      if (sheet && 'data' in sheet) setSheetKeepBanks(data);
+      if (sheet && 'data' in sheet) setSheet({ data });
       await reload();
       return { ok: true, ratio: data.targetRatio };
     } catch {
@@ -437,9 +434,9 @@ export default function AssetDashboard({
           onRetryLoad={() => void loadSheet()}
           writeEnabled={summary ? summary.writeEnabled : null}
           onSend={sendClass}
-          onPartial={(data) => setSheetKeepBanks(data)}
+          onPartial={(data) => setSheet({ data })}
           onSaved={(data) => {
-            if (data) setSheetKeepBanks(data);
+            if (data) setSheet({ data });
             setClassOpen(false);
             void reload();
           }}
