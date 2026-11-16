@@ -693,6 +693,14 @@ function targets(): Target[] {
           await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
           await page.waitForTimeout(500);
         }],
+        // v2.70.4 — 「현금 합계」 를 누르면 은행 계좌 줄(긴 이름 말줄임 · 빈 금액 「—」) · 연금 포함이면 퇴직 연금 줄도
+        ...([['현금펼침', {}], ['현금펼침-연금포함', { pension: true }]] as const).map(([label, sum]) => [`자산현황-${label}`, sum, async (page: Page) => {
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+          await page.getByTestId('asset-cash-toggle').click().catch(() => {});
+          await page.getByTestId('asset-cash-accounts').waitFor({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(200);
+        }] as const),
         ...(['전체', '코어', '위성'] as const).map((f) => [`자산현황-종목별-${f}`, { none: true }, async (page: Page) => {
           await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
           await page.waitForTimeout(500);

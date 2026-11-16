@@ -406,7 +406,7 @@ export default function AssetDashboard({
           <div id="as-asset-status" className="space-y-3">
             {sheet == null && <SkeletonTable rows={6} columns={6} />}
             {sheet && 'error' in sheet && <ErrorLine message={sheet.error} onRetry={() => void loadSheet()} />}
-            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} onOpenClassDialog={() => setClassOpen(true)} onTrade={(section, holding, side) => setTrade({ section, holding, side })} onCalc={(section, holding) => setCalc({ section, holding, opened: Date.now() })} onNewBuy={() => { setNewBuyNotes([]); setNewBuyOpen(true); }} onOpenTradeHistory={() => setTradeHistoryOpen(true)} newBuyNotes={newBuyNotes} />}
+            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} includePension={pension} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} onOpenClassDialog={() => setClassOpen(true)} onTrade={(section, holding, side) => setTrade({ section, holding, side })} onCalc={(section, holding) => setCalc({ section, holding, opened: Date.now() })} onNewBuy={() => { setNewBuyNotes([]); setNewBuyOpen(true); }} onOpenTradeHistory={() => setTradeHistoryOpen(true)} newBuyNotes={newBuyNotes} />}
           </div>
         )}
       </div>

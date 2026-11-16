@@ -6,7 +6,7 @@ import AssetSymbolTable, { SYMBOL_FILTERS, type SymbolFilter } from './AssetSymb
 import { ASSET_CLASS_W, LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice } from '../../utils/formatters';
 import { formatAssetPrice, formatAssetQty } from '../../utils/assetFormat';
-import { UNASSIGNED_LABEL, type AssetAccount, type AssetHolding, type AssetSection, type AssetSheetData, type AssetSymbolRow, type AssetTradeSide } from '../../types/asset';
+import { UNASSIGNED_LABEL, type AssetAccount, type AssetCashRow, type AssetHolding, type AssetSection, type AssetSheetData, type AssetSymbolRow, type AssetTradeSide } from '../../types/asset';
 
 /**
  * 자산 관리 「자산 현황」 탭 (v2.61.0 1단계 확인 표 → v2.62.1 계좌 카드 → v2.62.2 탭).
@@ -20,6 +20,8 @@ import { UNASSIGNED_LABEL, type AssetAccount, type AssetHolding, type AssetSecti
  *   종목별 = 같은 종목을 한 줄로(`AssetSymbolTable` · 「전체 / 코어 / 위성」 거르기) — 자산 분류 고르기는 계좌별에서.
  * - 계좌별 줄 끝 [매수] [매도](v2.66.0 — `h.tradable` 인 줄만 · 합친 표 · 수식 칸 · 이을 수 없는 줄은 없음) · 위 [새 종목 매수](v2.67.0 · `AssetNewBuyDialog`) · [매수 · 매도 기록].
  *   계산기 아이콘 버튼(v2.68.0 · v2.68.2 아이콘 — 공용 `IconButton` · 툴팁 · aria-label 「<종목> 평단 계산기」) — 수량 · 평균가가 0 보다 큰 줄이면 [매수] 가 없는 줄에도 보인다(계산만 · `canCalc`).
+ * - 「현금 합계」 를 누르면 「현금」 탭 은행 계좌 줄(이름 · 금액 — 시트 순서 · 읽기만)이 펼쳐진다 · 「연금 포함」 이면 퇴직 연금 줄도(v2.70.4 · 펼침은 기억하지 않음).
+ *   계좌 합이 시트 총액과 다르면 작은 안내만(총 자산 계산은 시트 총액 그대로 — 서버).
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 접은 계좌 이름 · 보기 이름만).
  */
 
@@ -36,17 +38,77 @@ function Field({ label, value }: { label: string; value: string }) {
 /** 백분율 — 정수면 소수 없이, 아니면 한 자리 */
 const pct = (v: number | null) => (v == null ? '—' : formatNumber(v, Number.isInteger(v) ? 0 : 1, '%'));
 
+/** 계좌 줄 합이 시트 총액과 다른가(빈 금액은 빼고 더함 — 시트 SUM 과 같게 · 1원 미만 차이는 같음) */
+const sumDiffers = (rows: AssetCashRow[], total: number | null) => total != null && rows.length > 0 && Math.abs(rows.reduce((a, r) => a + (r.amount ?? 0), 0) - total) >= 1;
+
+/** 「현금 합계」 펼침 목록의 최대 폭은 `max-w-xl`(이름이 길어도 금액이 멀리 떨어지지 않게 — 서버도 컴파일하는 `ui/tokens.ts` 는 바꾸지 않는다 · v2.70.4) */
+
+/** 「현금」 탭 계좌 줄 한 묶음 — 소제목 · 이름(말줄임) · 금액(오른쪽 정렬) · 합이 총액과 다르면 안내 */
+function CashBlock({ title, rows, total, testId }: { title: string; rows: AssetCashRow[]; total: number | null; testId: string }) {
+  return (
+    <div className="space-y-1" data-testid={testId}>
+      <div className="text-caption text-text-secondary">{title}</div>
+      {rows.length === 0 ? (
+        <p className="text-caption text-text-muted">「현금」 탭에 계좌 줄이 없습니다.</p>
+      ) : (
+        <table className="w-full border-separate border-spacing-0 text-left text-xs">
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.row} className={LIST_TABLE_ROW} data-cash-row={r.row}>
+                <td className={`${TABLE_NAME_COL} max-w-0 border-t border-border/30`}>
+                  <span className="block truncate text-text-primary" data-tip-clip={r.name}>
+                    {r.name}
+                  </span>
+                </td>
+                <td className={`${NUM} border-t border-border/30 text-text-primary`}>{formatAssetPrice(r.amount, 'KRW')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {sumDiffers(rows, total) && (
+        <p className="text-caption text-warning" data-testid={`${testId}-mismatch`}>
+          계좌 합이 총액과 달라요 — 시트 합계 식을 확인해 주세요
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** 현금 · 연금 · 월급 · 환율 한 줄, 목표 비율 한 줄 — 칸은 내용 폭(금액이 길어져도 겹치지 않고 다음 줄로) */
-function Summary({ data }: { data: AssetSheetData }) {
+function Summary({ data, includePension }: { data: AssetSheetData; includePension: boolean }) {
   const t = data.targetRatio;
+  const [cashOpen, setCashOpen] = useState(false);
+  const CashArrow = cashOpen ? ChevronDown : ChevronRight;
   return (
     <Panel className="space-y-3">
       <div className="flex flex-wrap gap-x-8 gap-y-3">
-        <Field label="현금 합계" value={formatPrice(data.cashTotal, 'KRW')} />
+        {/* 「현금 합계」 칸 전체가 누르는 곳 — 계좌별 금액 펼침(읽기만) */}
+        <button
+          type="button"
+          className="shrink-0 cursor-pointer text-left"
+          aria-expanded={cashOpen}
+          aria-controls="as-asset-cashlist"
+          aria-label={`현금 합계 ${cashOpen ? '접기' : '계좌별로 펼치기'}`}
+          data-testid="asset-cash-toggle"
+          onClick={() => setCashOpen((v) => !v)}
+        >
+          <span className="flex items-center gap-1 text-caption text-text-muted">
+            현금 합계
+            <CashArrow {...ICON_SM} className="shrink-0" />
+          </span>
+          <span className="block whitespace-nowrap text-sm font-semibold text-text-primary tabular-nums">{formatPrice(data.cashTotal, 'KRW')}</span>
+        </button>
         <Field label="퇴직 연금" value={formatPrice(data.retirement, 'KRW')} />
         <Field label="월급" value={formatPrice(data.salary, 'KRW')} />
         <Field label="구매 평균 환율(원/$)" value={data.avgFxRate == null ? '—' : `₩${formatNumber(data.avgFxRate, 2)}`} />
       </div>
+      {cashOpen && (
+        <div id="as-asset-cashlist" className="max-w-xl space-y-3" data-testid="asset-cash-accounts">
+          <CashBlock title="은행 계좌" rows={data.cashAccounts} total={data.cashTotal} testId="asset-cash-bank" />
+          {includePension && <CashBlock title="퇴직 연금" rows={data.retirementAccounts} total={data.retirement} testId="asset-cash-retirement" />}
+        </div>
+      )}
       {/* 목표 비율 두 묶음 — 자산 배분(합 100%)과 주식 안의 코어 · 위성(합 100%)을 나눠 보인다(한 줄이면 합이 200% 로 읽힌다).
           순서 · 이름은 비율 조정 탭과 같게 현금 · 채권 · 금 · 주식(v2.64.0 — 시트 칸 「투자」 = 화면 「주식」 · 시트 칸 순서는 그대로) */}
       <div className="flex flex-wrap gap-x-12 gap-y-3">
@@ -318,8 +380,11 @@ export default function AssetSheetValues({
   onNewBuy,
   onOpenTradeHistory,
   newBuyNotes,
+  includePension,
 }: {
   data: AssetSheetData;
+  /** 「연금 포함」 — 켜져 있으면 「현금 합계」 펼침에 퇴직 연금 줄도(v2.70.4) */
+  includePension: boolean;
   /** 카드 머리 평가 금액 합 · 가격 못 받은 줄 수(총 자산 요약 응답) */
   accounts: AssetAccount[];
   /** 종목별 줄(총 자산 요약 응답) — 아직 받지 못했으면 null(뼈대) */
@@ -341,7 +406,7 @@ export default function AssetSheetValues({
 
   return (
     <div className="space-y-3">
-      <Summary data={data} />
+      <Summary data={data} includePension={includePension} />
       <div className="flex flex-wrap items-center gap-3">
         {/* 도구 줄 높이 28px 하나(v2.69.0) — 아이콘 버튼 md(28) 와 같은 줄이라 묶음 버튼 · 글자 버튼은 sm */}
         <Segmented
