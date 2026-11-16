@@ -27,6 +27,7 @@ import {
   type AssetCashSettingsPatch,
   type AssetCashShift,
   type AssetCashTarget,
+  type AssetCashTradeOutcome,
   type AssetFixedKey,
 } from '../../src/types/asset';
 import { assetSheetConfig, isAssetSyncEnabled, type AssetSheetConfig } from './config';
@@ -460,5 +461,49 @@ export async function readCashSheetNow(config: AssetSheetConfig): Promise<{ line
   } catch (e) {
     if (e instanceof AssetSheetError) return { lines, fixed: null, salary: null, fixedError: e.message };
     throw e;
+  }
+}
+
+// ── 매수 · 매도 때 예수금(①) ──
+
+/**
+ * 요청의 `cashAmount`(원) — 없으면 null(예수금은 안 바꿈) · 0 이상 정수 · 상한 안. 틀리면 `not-editable`(보유 쓰기 **전에** 거절 — 시트는 그대로).
+ */
+export function parseCashAmount(body: unknown): number | null {
+  const v = body && typeof body === 'object' ? (body as Record<string, unknown>).cashAmount : undefined;
+  if (v === undefined || v === null) return null;
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > ASSET_CASH_MAX) {
+    throw new AssetSheetError('not-editable', '예수금 금액은 0 이상 원 단위 정수여야 합니다.');
+  }
+  return v;
+}
+
+/** 매매 기록의 종목 이름 — 화면 「무엇」(60자까지) */
+const tradeLabel = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 60) : '종목');
+
+/** 예수금 결과 문구 — 보유는 이미 바뀌었고 예수금만 못 바꾼 때 */
+const cashFailText = (reason: AssetCashReason | null) =>
+  `예수금 줄은 바꾸지 못했어요 — 시트에서 고쳐 주세요(${reason ? (CASH_SKIP_TEXT[reason] ?? CASH_REASON_TEXT[reason] ?? reason) : '알 수 없음'}).`;
+const CASH_REASON_TEXT: Partial<Record<AssetCashReason, string>> = { mismatch: '쓴 뒤 다시 읽은 값이 다름', 'write-failed': '시트를 읽거나 쓰지 못함' };
+
+/**
+ * 보유 줄 쓰기가 **성공한 뒤** 예수금 줄 쓰기(①). 짝이 없거나 · 꺼졌거나 · 금액이 없거나 0 이면 `none`(쓰기 0 · 지금과 같음).
+ * 매수 = 짝 줄에서 출금 · 매도 = 짝 줄로 입금(밖과 오가는 돈이라 한 줄만). 실패해도 보유는 그대로 — 「건너뜀」 기록 + 안내 문구.
+ */
+export async function tradeCash(side: 'buy' | 'sell', section: string, tradeId: number, name: unknown, amount: number | null, today: string): Promise<AssetCashTradeOutcome> {
+  const none: AssetCashTradeOutcome = { cash: { status: 'none', message: null } };
+  if (amount == null || amount === 0 || !isCashWriteOn()) return none;
+  const pair = readCashSettings().depositPairs[section];
+  if (!pair) return none;
+  const m: CashMoveInput = { kind: side, itemKey: `trade:${tradeId}`, label: tradeLabel(name), month: today.slice(0, 7), day: today, from: side === 'buy' ? pair : null, to: side === 'sell' ? pair : null, amount };
+  try {
+    const r = await applyCashMove(m);
+    if (r.status === 'applied') return { cash: { status: 'applied', message: null } };
+    if (r.status === 'check') return { cash: { status: 'skipped', message: '예수금 줄을 썼지만 다시 읽은 값이 달라요 — 시트에서 확인해 주세요.' } };
+    return { cash: { status: 'skipped', message: cashFailText(r.reason) } };
+  } catch (e) {
+    const kind = e instanceof AssetSheetError ? e.kind : 'unknown';
+    recordCashSkip(m, 'write-failed', kind);
+    return { cash: { status: 'skipped', message: cashFailText('write-failed') } };
   }
 }

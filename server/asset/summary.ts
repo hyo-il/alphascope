@@ -197,17 +197,20 @@ const tossPriceBook: PriceSource = async (data) => {
     // 캐시된 지난 종가(stale — 토스가 막힘)는 지금 가격이 아니다 → 「가격 못 받음」
     if (q.price != null && Number.isFinite(q.price) && !q.stale) prices.set(q.symbol, q.price);
   }
-  let usdKrw: number | null = null;
-  if (holdings.some((h) => h.market === 'US')) {
-    try {
-      const rate = isMockMode() ? 1380 : (await fetchExchangeRate('USD', 'KRW')).rate;
-      usdKrw = Number.isFinite(rate) && rate > 0 ? rate : null;
-    } catch {
-      usdKrw = null; // 미국 줄은 「가격 못 받음」
-    }
-  }
+  // 못 받으면 미국 줄은 「가격 못 받음」
+  const usdKrw = holdings.some((h) => h.market === 'US') ? await usdKrwNow() : null;
   return { prices, usdKrw };
 };
+
+/** 지금 환율(원/달러 · 토스 60초 캐시 · 모의 1380) — 못 받으면 null. 총 자산 가격 표 · 매수 창 예수금 미리 보기(v2.71.0)가 같은 함수 */
+export async function usdKrwNow(): Promise<number | null> {
+  try {
+    const rate = isMockMode() ? 1380 : (await fetchExchangeRate('USD', 'KRW')).rate;
+    return Number.isFinite(rate) && rate > 0 ? rate : null;
+  } catch {
+    return null;
+  }
+}
 
 let priceSource: PriceSource = tossPriceBook;
 

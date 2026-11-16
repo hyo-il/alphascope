@@ -275,7 +275,8 @@ try {
     clearTradesForTest();
     reset();
     const ok = await trade(buyKr);
-    check('[118-5] 시트 쓰기 성공 → 기록 1줄 · 응답은 id 만', ok.status === 200 && rows() === 1 && Object.keys(ok.body).join() === 'id');
+    // 139차: 응답에 예수금 결과 `cash` 가 더해졌다(짝 없음 · 꺼짐 = none · 금액 · 이름 없음)
+    check('[118-5] [139-6] 시트 쓰기 성공 → 기록 1줄 · 응답은 id + cash(예수금 결과 — 짝 없으면 none · 값 없음)', ok.status === 200 && rows() === 1 && Object.keys(ok.body).join() === 'id,cash' && JSON.stringify(ok.body.cash) === JSON.stringify({ status: 'none', message: null }));
     reset();
     g.writeStatus = 500;
     const fail500 = await trade(buyKr);

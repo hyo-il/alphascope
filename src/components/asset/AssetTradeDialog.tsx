@@ -5,13 +5,16 @@ import { modal } from '../../store/uiStore';
 import { TRADE_DIGITS } from '../../utils/assetTrade';
 import { tradeAfter } from '../../utils/assetAverage';
 import { formatAssetPrice, formatAssetQty } from '../../utils/assetFormat';
-import type { AssetHolding, AssetSection, AssetTradeRequest, AssetTradeSide } from '../../types/asset';
+import type { AssetCashTradeExtra, AssetHolding, AssetSection, AssetTradeRequest, AssetTradeSide } from '../../types/asset';
+import AssetCashTradeLine, { type CashTradeValue } from './AssetCashTradeLine';
 
 /**
  * 매수 · 매도 입력 창(v2.66.0 — 시트에 줄이 있는 종목의 매수 · 일부 매도 · v2.67.0 모두 매도). 실제 주문은 없다 — 다른 증권사에서 사고판 것을 적는 창이다.
  * - 미리 보기는 서버와 같은 계산(`src/utils/assetAverage.ts` — 평균 식 한 곳). 저장은 `POST /api/asset/trade` — 검사는 서버 `recordTrade` 한 곳.
  * - 미국 매수는 환율을 받지 않는다 — 원화 매입 금액은 시트 「달러 환전」 탭이 계산(안내 한 줄 · v2.66.2).
  * - 모두 매도 수량 = 미리 보기에 「이 줄을 지웁니다」 · [저장] 뒤 확인 창 한 번(시트에서 보유 줄을 지운다 · 「티커」 줄은 남김). 쓰기 스위치 꺼짐 = 안내 + [저장] 막음. 아직 모르면(요약 응답 전) 글 없이 막음.
+ * - 예수금(v2.71.0): 창 아래 `AssetCashTradeLine`(그 계좌의 예수금 줄 짝이 있으면 「○○ ₩… 줄어듭니다」 + 금액 칸) · 받는 중에는 [저장] 막음 ·
+ *   저장 뒤 예수금만 못 바꿨으면 창을 닫지 않고 안내 + [닫기](보유는 이미 저장됨 — 다시 저장하지 않게 [저장] 을 없앤다).
  * - 바깥 클릭으로 닫지 않는다(입력을 잃는다).
  */
 
@@ -34,8 +37,8 @@ export default function AssetTradeDialog({
   side: AssetTradeSide;
   /** 이 서버에서 시트 쓰기가 켜져 있나 — 아직 모르면 null */
   writeEnabled: boolean | null;
-  /** 저장 — 실패 이유 또는 null */
-  onSend: (req: AssetTradeRequest) => Promise<string | null>;
+  /** 저장 — 실패 이유(`error`) · 보유는 저장했지만 예수금 줄은 못 바꾼 안내(`cashMessage`) */
+  onSend: (req: AssetTradeRequest & AssetCashTradeExtra) => Promise<{ error: string | null; cashMessage: string | null }>;
   onSaved: () => void;
   onClose: () => void;
 }) {
@@ -43,6 +46,9 @@ export default function AssetTradeDialog({
   const [price, setPrice] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cash, setCash] = useState<CashTradeValue>({ send: null, ready: false });
+  /** 저장했지만 예수금 줄은 못 바꿈 — 안내 + [닫기] 만 */
+  const [cashFailed, setCashFailed] = useState<string | null>(null);
 
   const currency = holding.currency;
   const digits = TRADE_DIGITS[currency];
@@ -57,7 +63,7 @@ export default function AssetTradeDialog({
   const over = side === 'sell' && qty !== '' && qtyN > beforeQty && !sameAsHeld;
 
   const after = filled && !over ? tradeAfter({ side, currency, beforeQty, beforeAvg, qty: qtyN, price: priceN }) : null;
-  const canSave = writeEnabled === true && after != null && !busy;
+  const canSave = writeEnabled === true && after != null && !busy && cash.ready && cashFailed == null;
 
   /** 모두 매도는 시트에서 줄을 지우므로 한 번 더 묻는다 */
   const askSave = () => {
@@ -75,16 +81,18 @@ export default function AssetTradeDialog({
     if (!canSave) return;
     setBusy(true);
     setError(null);
-    const message = await onSend({
+    const r = await onSend({
       section: section.key as string,
       row: holding.row,
       side,
       qty: qtyN,
       price: priceN,
       expect: { name: holding.name, code: holding.code as string, quantity: beforeQty, avgPrice: beforeAvg },
+      ...(cash.send != null ? { cashAmount: cash.send } : {}),
     });
     setBusy(false);
-    if (message) setError(message);
+    if (r.error) setError(r.error);
+    else if (r.cashMessage) setCashFailed(r.cashMessage);
     else onSaved();
   };
 
@@ -92,18 +100,24 @@ export default function AssetTradeDialog({
     <Dialog
       title={`${SIDE_LABEL[side]} 입력`}
       titleAside="다른 증권사에서 사고판 것을 적어 시트를 갱신합니다"
-      onClose={() => !busy && onClose()}
+      onClose={() => !busy && (cashFailed != null ? onSaved() : onClose())}
       closeOnBackdrop={false}
       size="md"
       footer={
-        <>
-          <Button variant="ghost" disabled={busy} onClick={onClose} data-trade-cancel>
-            취소
+        cashFailed != null ? (
+          <Button variant="primary" onClick={onSaved} data-testid="asset-cash-trade-close">
+            닫기
           </Button>
-          <Button variant={side} busy={busy} disabled={!canSave} onClick={askSave} data-trade-save>
-            저장
-          </Button>
-        </>
+        ) : (
+          <>
+            <Button variant="ghost" disabled={busy} onClick={onClose} data-trade-cancel>
+              취소
+            </Button>
+            <Button variant={side} busy={busy} disabled={!canSave} onClick={askSave} data-trade-save>
+              저장
+            </Button>
+          </>
+        )
       }
     >
       <div className="space-y-3" data-trade-dialog={side}>
@@ -162,6 +176,14 @@ export default function AssetTradeDialog({
         </div>
         )}
 
+        {writeEnabled !== false && section.key && (
+          <AssetCashTradeLine section={section.key} side={side} currency={currency} qty={filled ? qtyN : 0} price={filled ? priceN : 0} onValue={setCash} />
+        )}
+        {cashFailed != null && (
+          <p role="alert" className="rounded-lg bg-warning/10 px-3 py-1.5 text-xs text-warning keep-all" data-testid="asset-cash-trade-failed">
+            {`${side === 'buy' ? '매수' : '매도'}는 저장했어요. ${cashFailed}`}
+          </p>
+        )}
         {writeEnabled === false && (
           <p className="text-caption text-text-muted keep-all" data-trade-write-off>
             이 서버에서는 시트 쓰기가 꺼져 있습니다.

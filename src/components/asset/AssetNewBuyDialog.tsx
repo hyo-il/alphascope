@@ -7,6 +7,8 @@ import { tradeAfter } from '../../utils/assetAverage';
 import { formatAssetPrice, formatAssetQty } from '../../utils/assetFormat';
 import { ASSET_CLASSES, RATIO_TAB_NOTICE, UNASSIGNED_LABEL, US_CODE_PREFIXES, type AssetClass, type AssetCurrency, type AssetNewHoldingPlan, type AssetNewHoldingRequest, type AssetNewHoldingTarget, type AssetSection, type AssetUsPrefix } from '../../types/asset';
 import type { StockSearchResult } from '../../types/toss';
+import type { AssetCashTradeExtra } from '../../types/asset';
+import AssetCashTradeLine, { type CashTradeValue } from './AssetCashTradeLine';
 
 /**
  * 새 종목 매수 창(v2.67.0) — 다른 증권사에서 산 새 종목을 적으면 시트에 줄을 넣고 「티커」 에 종목을 더한다(실제 주문 없음).
@@ -14,6 +16,7 @@ import type { StockSearchResult } from '../../types/toss';
  * - 종목 칸(v2.67.2): 버튼 없이 글자를 치면 목록이 뜨고 누르거나 Enter(맨 위)로 고른다(`SymbolSearch` `hideSubmit`). 칸은 모두 같은 왼쪽 끝 — 값 칸(`lg`)을 채운다.
  * - 확인 화면: 어느 줄에 쓰는지 · 코드(미국은 앞부분을 바꿀 수 있음) · 적립식 계좌면 합친 표 안내 · 새 줄이면 비율 탭 안내 → [저장] · [뒤로].
  * - 그 계좌에 이미 있는 종목이면 새 줄 없이 매수로 더한다(확인 화면에 알림). 검사는 서버 `recordNewHolding` 한 곳.
+ * - 예수금(v2.71.0): 확인 화면 아래 `AssetCashTradeLine`(매수 — 그 계좌의 예수금 줄이 줄어듦 · 금액을 고칠 수 있음) · 저장 뒤 예수금만 못 바꿨으면 안내 + [닫기].
  * - 바깥 클릭으로 닫지 않는다(입력을 잃는다).
  */
 
@@ -34,8 +37,8 @@ export default function AssetNewBuyDialog({
   writeEnabled: boolean | null;
   /** 어디에 쓸지 — 실패면 이유 글자 */
   onPlan: (target: AssetNewHoldingTarget) => Promise<AssetNewHoldingPlan | string>;
-  /** 저장 — 실패 이유 또는 null */
-  onSend: (req: AssetNewHoldingRequest) => Promise<string | null>;
+  /** 저장 — 실패 이유(`error`) · 보유는 저장했지만 예수금 줄은 못 바꾼 안내(`cashMessage`) */
+  onSend: (req: AssetNewHoldingRequest & AssetCashTradeExtra) => Promise<{ error: string | null; cashMessage: string | null }>;
   onSaved: () => void;
   onClose: () => void;
 }) {
@@ -52,6 +55,9 @@ export default function AssetNewBuyDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lookId = useRef(0);
+  const [cash, setCash] = useState<CashTradeValue>({ send: null, ready: false });
+  /** 저장했지만 예수금 줄은 못 바꿈 — 안내 + [닫기] 만 */
+  const [cashFailed, setCashFailed] = useState<string | null>(null);
 
   const currency: AssetCurrency = stock && US_LISTINGS.has(stock.market) ? 'USD' : 'KRW';
   const digits = TRADE_DIGITS[currency];
@@ -101,9 +107,10 @@ export default function AssetNewBuyDialog({
     if (!plan || !stock) return;
     setBusy(true);
     setError(null);
-    const message = await onSend({ section, symbol: stock.symbol, exchange: plan.market === 'US' ? prefix : null, qty: qtyN, price: priceN, assetClass });
+    const r = await onSend({ section, symbol: stock.symbol, exchange: plan.market === 'US' ? prefix : null, qty: qtyN, price: priceN, assetClass, ...(cash.send != null ? { cashAmount: cash.send } : {}) });
     setBusy(false);
-    if (message) setError(message);
+    if (r.error) setError(r.error);
+    else if (r.cashMessage) setCashFailed(r.cashMessage);
     else onSaved();
   };
 
@@ -114,16 +121,20 @@ export default function AssetNewBuyDialog({
     <Dialog
       title="새 종목 매수"
       titleAside="다른 증권사에서 산 종목을 시트에 적습니다"
-      onClose={() => !busy && onClose()}
+      onClose={() => !busy && (cashFailed != null ? onSaved() : onClose())}
       closeOnBackdrop={false}
       size="md"
       footer={
-        plan ? (
+        cashFailed != null ? (
+          <Button variant="primary" onClick={onSaved} data-testid="asset-cash-trade-close">
+            닫기
+          </Button>
+        ) : plan ? (
           <>
             <Button variant="ghost" disabled={busy} onClick={() => { setPlan(null); setError(null); }} data-newbuy-back>
               뒤로
             </Button>
-            <Button variant="buy" busy={busy} onClick={() => void save()} data-newbuy-save>
+            <Button variant="buy" busy={busy} disabled={!cash.ready} onClick={() => void save()} data-newbuy-save>
               저장
             </Button>
           </>
@@ -194,6 +205,12 @@ export default function AssetNewBuyDialog({
                 {RATIO_TAB_NOTICE}
               </p>
             </div>
+          )}
+          <AssetCashTradeLine section={plan.section} side="buy" currency={plan.currency} qty={qtyN} price={priceN} onValue={setCash} />
+          {cashFailed != null && (
+            <p role="alert" className="rounded-lg bg-warning/10 px-3 py-1.5 text-xs text-warning keep-all" data-testid="asset-cash-trade-failed">
+              {`매수는 저장했어요. ${cashFailed}`}
+            </p>
           )}
           {error && (
             <p role="alert" className="rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all" data-newbuy-error>

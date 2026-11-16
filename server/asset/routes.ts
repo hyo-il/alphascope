@@ -9,18 +9,21 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { readSessionCookie } from '../auth';
 import { assetLimiter, isAssetPasswordSet, isUnlocked, lockSession, lockStateOf, touchSession, unlockSession, verifyAssetPassword } from './lock';
-import { isAssetSyncEnabled, isSheetConfigured } from './config';
-import { AssetSheetError } from './google';
+import { assetSheetConfig, isAssetSyncEnabled, isSheetConfigured } from './config';
+import { AssetSheetError, batchGet } from './google';
 import { readAssetSheet, writeAccountDates, writeAssetClasses, writeTargetRatio } from './sheet';
 import { currentCycle, purchaseTargetOf } from './purchase';
-import { assetSummary } from './summary';
+import { assetSummary, usdKrwNow } from './summary';
 import { checkSheetSwitchSafe, sheetSwitchedAt } from './sheetSwitch';
 import { convertSheetPrices, restoreSheetPrices } from './priceSheet';
 import { allRecords, dailyNotes, historyPoints, isHistoryRange, recordPurchase, saveDailyNote } from './store';
 import { readPensionSections, writeAssetSettings } from './settings';
 import { listTrades, planNewHolding, recordNewHolding, recordTrade, tradesForChange } from './trade';
 import { dailyChanges } from './dailyChange';
-import type { AssetSheetErrorKind, AssetSheetFailure, AssetStatus, AssetTouchResult, PurchaseDoneResult } from '../../src/types/asset';
+import { cashWide, isCashWriteOn, parseCashAmount, readCashSettings, tradeCash } from './cashMoves';
+import { cashLabel, cashLines } from './cashKeys';
+import { kstDay } from './cashSchedule';
+import type { AssetCashPairView, AssetSheetErrorKind, AssetSheetFailure, AssetStatus, AssetTouchResult, PurchaseDoneResult } from '../../src/types/asset';
 
 export const assetRouter = Router();
 
@@ -196,10 +199,16 @@ assetRouter.post('/api/asset/price-source/restore', async (_req, res) => {
   }
 });
 
-/** 매수 · 매도 입력(v2.66.0) — 다른 증권사에서 사고판 것을 적어 시트 수량 · 평균가를 갱신한다(실제 주문 없음). 스위치 · 검사 · 쓰기 · 기록은 `recordTrade` 한 곳 */
+/**
+ * 매수 · 매도 입력(v2.66.0) — 다른 증권사에서 사고판 것을 적어 시트 수량 · 평균가를 갱신한다(실제 주문 없음). 스위치 · 검사 · 쓰기 · 기록은 `recordTrade` 한 곳.
+ * 예수금(v2.71.0): `cashAmount`(원) 검사는 보유 쓰기 **전** · 보유 쓰기가 성공한 뒤에만 예수금 줄을 쓴다(`tradeCash` — 실패해도 보유는 그대로 · 응답 `cash` 에 안내).
+ */
 assetRouter.post('/api/asset/trade', async (req, res) => {
   try {
-    res.json(await recordTrade(req.body));
+    const cashAmount = parseCashAmount(req.body);
+    const result = await recordTrade(req.body);
+    const side = req.body?.side === 'sell' ? 'sell' : 'buy';
+    res.json({ ...result, ...(await tradeCash(side, String(req.body?.section), result.id, req.body?.expect?.name, cashAmount, kstDay(Date.now()))) });
   } catch (e) {
     sendSheetError(res, e, '쓰기');
   }
@@ -214,12 +223,40 @@ assetRouter.post('/api/asset/trade/new/plan', async (req, res) => {
   }
 });
 
-/** 새 종목 매수(v2.67.0) — 시트에 줄을 넣고 「티커」 에 종목을 더한다(실제 주문 없음) · 이미 가진 종목이면 매수로 더한다. 검사 · 쓰기 · 되돌리기 · 기록은 `recordNewHolding` 한 곳 */
+/**
+ * 새 종목 매수(v2.67.0) — 시트에 줄을 넣고 「티커」 에 종목을 더한다(실제 주문 없음) · 이미 가진 종목이면 매수로 더한다. 검사 · 쓰기 · 되돌리기 · 기록은 `recordNewHolding` 한 곳.
+ * 예수금(v2.71.0)은 `/api/asset/trade` 와 같다(매수 · 이름은 종목 코드).
+ */
 assetRouter.post('/api/asset/trade/new', async (req, res) => {
   try {
-    res.json(await recordNewHolding(req.body));
+    const cashAmount = parseCashAmount(req.body);
+    const result = await recordNewHolding(req.body);
+    res.json({ ...result, ...(await tradeCash('buy', String(req.body?.section), result.id, req.body?.symbol, cashAmount, kstDay(Date.now()))) });
   } catch (e) {
     sendSheetError(res, e, '쓰기');
+  }
+});
+
+/**
+ * 매수 · 매도 창 예수금 줄(v2.71.0) — 그 계좌의 짝 · 켜짐 · 지금 환율. 짝이 있고 켜졌을 때만 「현금」 탭을 읽는다(같은 이름 「#n」 표시).
+ * 꺼졌거나 짝이 없으면 시트 · 환율을 읽지 않는다.
+ */
+assetRouter.get('/api/asset/cash/pair', async (req, res) => {
+  try {
+    const section = typeof req.query.section === 'string' ? req.query.section : '';
+    const enabled = isCashWriteOn();
+    const key = readCashSettings().depositPairs[section] ?? null;
+    if (!enabled || !key) {
+      const body: AssetCashPairView = { enabled, pair: null, usdKrw: null };
+      return res.json(body);
+    }
+    const config = assetSheetConfig();
+    if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
+    const [[rows], usdKrw] = await Promise.all([batchGet(config, [cashWide()], 'UNFORMATTED_VALUE'), usdKrwNow()]);
+    const body: AssetCashPairView = { enabled, pair: { key, label: cashLabel(key, cashLines(rows)) }, usdKrw };
+    res.json(body);
+  } catch (e) {
+    sendSheetError(res, e, '읽기');
   }
 });
 

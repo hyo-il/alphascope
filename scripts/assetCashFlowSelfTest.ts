@@ -1,18 +1,19 @@
 /**
  * 현금 자동 반영(v2.71.0 · 139차) 서버 시험 — `npm run assetcashflow:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import).
  * 139차 「꼭 지킬 동작」 1(줄 알아보기) · 2(쓰기) · 5(되돌리기) · 7(꺼짐) · 9(로그 · 구글 실제 호출 0)를 줄마다 확인한다.
- * 3 · 4(날짜 · 두 번 쓰지 않기 — 가짜 시계 · 가짜 휴장일)는 「B」 절, 6(매수 · 매도)은 「C」 절, 8(화면)은 `assetcashflowui:test`, 10(바뀐 파일 · 바이트)은 「바뀐 파일」 절.
+ * 3 · 4(날짜 · 두 번 쓰지 않기 — 가짜 시계 · 가짜 휴장일)는 「B」 절, 6(매수 · 매도 — 서버)은 「C」 절, 8(화면)은 `assetcashflowui:test`, 10(바뀐 파일 · 바이트)은 「바뀐 파일」 절.
  * 구글: 이 프로세스의 `fetch` 를 바꿔치기한 **가짜 시트**(`fixtures/asset/cashFlowBook.ts` — 만든 값 · 쓰기도 그 책에 반영) · 실제 구글 호출 0.
  * ⚠️ 출력에 가짜 금액 · 계좌 이름을 찍지 않는다.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { AssetSheetError, batchGet, resetTokenCache } from '../server/asset/google';
 import { cashLines, findCashLine, fixedLines, salaryOf } from '../server/asset/cashKeys';
-import { applyCashMove, clearCashMovesForTest, clearCashSettingsForTest, listCashMoves, readCashSettings, settleStoppedMoves, undoCashMove, writeCashSettings, type CashMoveInput } from '../server/asset/cashMoves';
+import { applyCashMove, clearCashMovesForTest, clearCashSettingsForTest, listCashMoves, parseCashAmount, readCashSettings, settleStoppedMoves, tradeCash, undoCashMove, writeCashSettings, type CashMoveInput } from '../server/asset/cashMoves';
 import { SALARY_ITEM, bankCalendar, bankClosed, cashTick, dueDay, nextDueDay, setCashCalendarForTest } from '../server/asset/cashSchedule';
 import { assetSheetConfig } from '../server/asset/config';
 import { BANK, FIXED, SALARY, deleteRow, fakeGoogleFetch, flowBook, insertRow, setCell, type FakeGoogle } from './fixtures/asset/cashFlowBook';
@@ -35,6 +36,7 @@ process.env.ASSET_SHEET_ID = 'selftest-cashflow-sheet';
 process.env.GOOGLE_SA_KEY_FILE = keyFile;
 process.env.ASSET_SYNC_ENABLED = 'true';
 
+const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const C = '현금';
 const F = '월 고정지출';
 const realFetch = globalThis.fetch;
@@ -344,6 +346,58 @@ try {
     const back = await quiet(() => cashTick(at('2027-01-26', '09:00')));
     check('[139-3] 끄고 다시 켜면 다시 켠 날(2027-01-26)부터 — 1월 25일 월급(1-25 월)은 켜기 전이라 반영 안 함', back.status === 'done' && back.applied === 0 && g.writes.length === w9 && !listCashMoves().some((m) => m.month === '2027-01' && m.kind === 'salary'));
     setCashCalendarForTest(null);
+    clearCashSettingsForTest();
+  }
+
+  // ═══ C. 6 매수 · 매도 때 예수금(서버 — 화면 미리 보기 · 환율 계산은 assetcashflowui:test) ═══
+  {
+    reset();
+    clearCashMovesForTest();
+    clearCashSettingsForTest();
+    const now = await quiet(sheetNow);
+    writeCashSettings({ enabled: true }, now, TODAY);
+    const none = await quiet(() => tradeCash('buy', '개별 투자', 101, '가짜종목', 1_234_000, TODAY));
+    check('[139-6] 짝이 없으면 지금과 같음 — 예수금 쓰기 0 · 기록 0 · none', none.cash.status === 'none' && g.writes.length === 0 && listCashMoves().length === 0);
+    writeCashSettings({ depositPair: { section: '개별 투자', key: KIWOOM } }, now, TODAY);
+    const buy = await quiet(() => tradeCash('buy', '개별 투자', 102, '가짜종목', 1_234_000, TODAY));
+    check('[139-6] 짝 있음 · 매수 — 보낸(고친) 금액만큼 예수금 줄이 줄어듦 · 한 줄 · 기록 「매수」', buy.cash.status === 'applied' && cashAt(5) === 1_000_000 - 1_234_000 && g.writes.length === 1 && g.writes[0].join() === `'${C}'!C5`
+      && listCashMoves()[0].kind === 'buy' && listCashMoves()[0].amount === 1_234_000 && listCashMoves()[0].label === '가짜종목');
+    const sell = await quiet(() => tradeCash('sell', '개별 투자', 103, '가짜종목', 500_000, TODAY));
+    check('[139-6] 매도 — 예수금 줄이 늘어남', sell.cash.status === 'applied' && cashAt(5) === 1_000_000 - 1_234_000 + 500_000);
+    const zero = await quiet(() => tradeCash('buy', '개별 투자', 104, '가짜종목', 0, TODAY));
+    const absent = await quiet(() => tradeCash('buy', '개별 투자', 105, '가짜종목', null, TODAY));
+    check('[139-6] 금액 0 · 안 보냄 → 예수금은 안 바꿈(쓰기 0 더)', zero.cash.status === 'none' && absent.cash.status === 'none' && g.writes.length === 2);
+    deleteRow(g.book, C, 5); // 짝 줄이 사라짐 → 예수금 쓰기만 실패
+    const failed = await quiet(() => tradeCash('buy', '개별 투자', 106, '가짜종목', 10_000, TODAY));
+    check('[139-6] 예수금 쓰기만 실패 → 안내 「예수금 줄은 바꾸지 못했어요 — 시트에서 고쳐 주세요(까닭)」 · 기록 「건너뜀」 · 쓰기 0',
+      failed.cash.status === 'skipped' && /^예수금 줄은 바꾸지 못했어요 — 시트에서 고쳐 주세요\(「현금」 줄을 찾지 못함\)\.$/.test(failed.cash.message ?? '') && listCashMoves()[0].status === 'skipped' && g.writes.length === 2);
+    reset();
+    g.failWrite = true;
+    const gfail = await quiet(() => tradeCash('buy', '개별 투자', 107, '가짜종목', 10_000, TODAY));
+    g.failWrite = false;
+    check('[139-6] 구글 쓰기 실패도 던지지 않고 안내(보유 쓰기 결과는 그대로 응답)', gfail.cash.status === 'skipped' && /시트를 읽거나 쓰지 못함/.test(gfail.cash.message ?? ''));
+    writeCashSettings({ enabled: false }, now, TODAY);
+    const offTrade = await quiet(() => tradeCash('buy', '개별 투자', 108, '가짜종목', 10_000, TODAY));
+    check('[139-7] 설정 끔 → 매수 · 매도 예수금 쓰기 0(none)', offTrade.cash.status === 'none' && g.writes.length === 0);
+
+    const bad = [-1, 1.5, '1000', 20_000_000_000].map((v) => {
+      try {
+        parseCashAmount({ cashAmount: v });
+        return 'ok';
+      } catch (e) {
+        return e instanceof AssetSheetError ? e.kind : 'other';
+      }
+    });
+    check('[139-6] 예수금 금액 검사 — 음수 · 소수 · 글자 · 상한 넘음은 400(not-editable) · 없음 = null · 0 = 0', bad.every((k) => k === 'not-editable') && parseCashAmount({}) === null && parseCashAmount({ cashAmount: 0 }) === 0);
+    const routes = fs.readFileSync(path.join(root, 'server/asset/routes.ts'), 'utf8');
+    const route = (url: string) => {
+      const i = routes.indexOf(`assetRouter.post('${url}'`);
+      return routes.slice(i, routes.indexOf('\n});', i));
+    };
+    const order = (body: string, write: string) => body.indexOf('parseCashAmount(') >= 0 && body.indexOf('parseCashAmount(') < body.indexOf(`${write}(`) && body.indexOf(`${write}(`) < body.indexOf('tradeCash(');
+    check('[139-6] 주소 순서 — 금액 검사 → 보유 쓰기(recordTrade · recordNewHolding) → 그 뒤에만 예수금(tradeCash)', order(route('/api/asset/trade'), 'recordTrade') && order(route('/api/asset/trade/new'), 'recordNewHolding'));
+    const tradeDiff = spawnSync('git', ['diff', '--name-only', '91622e3', '--', 'server/asset/trade.ts', 'server/asset/rowOps.ts'], { cwd: root, encoding: 'utf8' });
+    check('[139-6] 보유 쓰기 코드(trade.ts · rowOps.ts) 바뀐 줄 0(91622e3 와 지금)', tradeDiff.status === 0 && tradeDiff.stdout.trim() === '', tradeDiff.stdout.trim());
     clearCashSettingsForTest();
   }
 

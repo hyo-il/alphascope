@@ -7,7 +7,7 @@ import { usePolling } from '../../hooks/usePolling';
 import { useAssetIdleLock } from '../../hooks/useAssetIdleLock';
 import { changeColor, formatNumber, formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
-import type { AssetDailyChange, AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetHolding, AssetSection, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetNewHoldingRequest, AssetNewHoldingResult, AssetNewHoldingTarget, AssetTradeRequest, AssetTradeSide, MonthlyBuy } from '../../types/asset';
+import type { AssetCashTradeExtra, AssetCashTradeOutcome, AssetDailyChange, AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetHolding, AssetSection, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetNewHoldingRequest, AssetNewHoldingResult, AssetNewHoldingTarget, AssetTradeRequest, AssetTradeSide, MonthlyBuy } from '../../types/asset';
 import { RATIO_TAB_NOTICE } from '../../types/asset';
 import { modal } from '../../store/uiStore';
 import AssetDonut from './AssetDonut';
@@ -277,18 +277,26 @@ export default function AssetDashboard({
       return { error: '서버에 연결하지 못했습니다.', body: {} };
     }
   };
-  const sendTrade = async (req: AssetTradeRequest): Promise<string | null> => (await postTrade('/api/asset/trade', req)).error;
+  /** 예수금 결과(v2.71.0) — 보유는 저장했지만 예수금 줄은 못 바꿨으면 그 안내(창이 보이고 [닫기]) */
+  const cashMessageOf = (body: Record<string, unknown>): string | null => {
+    const c = (body as Partial<AssetCashTradeOutcome>).cash;
+    return c?.status === 'skipped' ? (c.message ?? '예수금 줄은 바꾸지 못했어요 — 시트에서 고쳐 주세요.') : null;
+  };
+  const sendTrade = async (req: AssetTradeRequest & AssetCashTradeExtra): Promise<{ error: string | null; cashMessage: string | null }> => {
+    const { error, body } = await postTrade('/api/asset/trade', req);
+    return { error, cashMessage: error ? null : cashMessageOf(body) };
+  };
   const sendNewPlan = async (target: AssetNewHoldingTarget): Promise<AssetNewHoldingPlan | string> => {
     const { error, body } = await postTrade('/api/asset/trade/new/plan', target);
     return error ?? (body as unknown as AssetNewHoldingPlan);
   };
-  const sendNewBuy = async (req: AssetNewHoldingRequest): Promise<string | null> => {
+  const sendNewBuy = async (req: AssetNewHoldingRequest & AssetCashTradeExtra): Promise<{ error: string | null; cashMessage: string | null }> => {
     const { error, body } = await postTrade('/api/asset/trade/new', req);
     if (!error) {
       const saved = body as unknown as AssetNewHoldingResult;
       setNewBuyNotes(saved.mode === 'new' ? [...(saved.notice ? [saved.notice] : []), RATIO_TAB_NOTICE] : []);
     }
-    return error;
+    return { error, cashMessage: error ? null : cashMessageOf(body) };
   };
 
   /** 시트 가격 바꾸기 · 되돌리기(v2.65.0) — 성공이면 다시 받아 설정 창 상태를 새로 · 실패면 이유 한 줄 */
