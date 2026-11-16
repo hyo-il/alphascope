@@ -193,6 +193,7 @@ import { marketBriefTick } from './marketBrief/service';
 import { marketBriefRouter } from './marketBrief/routes';
 import { assetRouter } from './asset/routes';
 import { startAssetDailyScheduler } from './asset/daily';
+import { startCashScheduler } from './asset/cashSchedule';
 import { startAssetPriceWriter } from './asset/priceWriter';
 import { checkSheetSwitchSafe } from './asset/sheetSwitch';
 import { fail } from './apiError';
@@ -1980,6 +1981,7 @@ app.listen(port, host, () => {
   // 시트가 바뀌었으면(ASSET_SHEET_ID 해시가 저장값과 다름) 예약보다 먼저 한 번 정리 — 하루 기록 · 옛 시트 백업 보관(v2.65.1)
   checkSheetSwitchSafe();
   startAssetDailyScheduler();
+  startCashScheduler(); // 현금 자동 반영(v2.71.0 — 월급 · 고정 흐름 · ASSET_SYNC_ENABLED + 설정 켬)
   startAssetPriceWriter();
 
   // 앱이 꺼져 있던 구간의 모의투자 스냅샷을 채우고, 이후 하루 한 번 기록한다.
