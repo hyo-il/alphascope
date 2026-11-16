@@ -28,7 +28,7 @@ import { MonthlyBuySection, PurchaseDayDialog, dayText, isEarlyDone, sheetDateTe
 /**
  * 계좌 > 자산 관리 — 풀린 화면(v2.62.0 · 자산 관리 3단계 · v2.62.2 탭 · v2.63.0 비율 조정).
  * 머리: 제목 줄 오른쪽 「연금 포함」(이 기기에 기억) · 읽은 시각 · 「설정」 · 「다시 읽기」 · 「잠그기」 — 세 탭 공통.
- *    「설정」 = 「자산 관리 설정」 창 하나(왼쪽 메뉴 다섯 — 목표 비율(+ 비율 조정 범위) · 코어 · 위성 · 연금 · 자산 분류 색 · 시트 가격 — `AssetSettingsDialog` · v2.65.2)
+ *    「설정」 = 「자산 관리 설정」 창 하나(왼쪽 메뉴 — 목표 비율(+ 비율 조정 범위) · 코어 · 위성 · 연금 · 자산 분류 색 · 시트 가격 · 현금 자동 반영(v2.71.0) · 잠금 — `AssetSettingsDialog` · v2.65.2)
  * 제목 아래 탭 「총 자산 | 자산 현황 | 비율 조정」 — 처음 = 총 자산 · 마지막 탭을 이 기기에 기억(`alphascope.asset.tab` · 읽기 실패 · 모르는 값이면 총 자산).
  * 주소에는 넣지 않는다(소메뉴 안 탭).
  * - 비율 조정: 보기만(`AssetRebalanceView` — summary 의 `rebalance` 그대로) · [목표 비율 바꾸기] = 설정 창을 목표 비율 칸으로 연다.
@@ -488,6 +488,7 @@ export default function AssetDashboard({
           onSave={saveSettings}
           onSaveTarget={saveTarget}
           onPriceSheet={priceSheetAction}
+          onLocked={onLocked}
           focus={settingsOpen === 'targetRatio' ? 'targetRatio' : undefined}
           onClose={() => setSettingsOpen(null)}
         />

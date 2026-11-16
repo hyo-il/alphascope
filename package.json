@@ -72,6 +72,7 @@
     "assetcash:test": "tsx scripts/assetCashSelfTest.ts",
     "assetcashui:test": "tsx scripts/assetCashUiSelfTest.ts",
     "assetcashflow:test": "tsx scripts/assetCashFlowSelfTest.ts",
+    "assetcashflowui:test": "tsx scripts/assetCashFlowUiSelfTest.ts",
     "assetdaily:test": "tsx scripts/assetDailySelfTest.ts",
     "assetdailyui:test": "tsx scripts/assetDailyUiSelfTest.ts",
     "uitidy:test": "tsx scripts/uiTidySelfTest.ts",

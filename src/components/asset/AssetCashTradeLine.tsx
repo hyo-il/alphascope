@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FormRow, NumberField } from '../ui';
+import { FormRow, NumberField, NumberUnitGroup } from '../ui';
 import { InlineSpinner } from '../common/LoadingOverlay';
 import { formatNumber } from '../../utils/formatters';
 import { formatAssetWon } from '../../utils/assetFormat';
@@ -34,6 +34,9 @@ export default function AssetCashTradeLine({
   qty,
   price,
   onValue,
+  labelW = 'md',
+  valueW = 'md',
+  kind = 'long',
 }: {
   section: string;
   side: AssetTradeSide;
@@ -42,6 +45,10 @@ export default function AssetCashTradeLine({
   qty: number;
   price: number;
   onValue: (v: CashTradeValue) => void;
+  /** 창의 수량 · 가격 칸과 같은 이름 폭 · 값 폭 · 칸 종류(칸 끝 · 단위 열을 맞춘다) */
+  labelW?: 'sm' | 'md' | 'lg';
+  valueW?: 'sm' | 'md' | 'lg';
+  kind?: 'long' | 'fill';
 }) {
   const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [text, setText] = useState('');
@@ -108,8 +115,8 @@ export default function AssetCashTradeLine({
 
   const verb = side === 'buy' ? '줄어듭니다' : '늘어납니다';
   return (
-    <div className="space-y-1 rounded-lg bg-bg-tertiary/40 px-3 py-2" data-testid="asset-cash-trade" data-cash-state="pair">
-      <p className="flex min-w-0 items-baseline gap-1 text-xs text-text-primary" data-testid="asset-cash-trade-preview">
+    <div className="space-y-2" data-testid="asset-cash-trade" data-cash-state="pair">
+      <p className="flex min-w-0 items-baseline gap-1 rounded-lg bg-bg-tertiary/40 px-3 py-2 text-xs text-text-primary" data-testid="asset-cash-trade-preview">
         <span className="min-w-0 truncate" data-tip-clip={pair.label}>
           {pair.label}
         </span>
@@ -117,23 +124,26 @@ export default function AssetCashTradeLine({
           {amount != null && amount > 0 ? `${formatAssetWon(amount)} ${verb}` : '바꾸지 않습니다'}
         </span>
       </p>
-      <FormRow label="예수금 금액" labelW="sm" error={amount == null ? '금액을 넣어 주세요(0 이면 예수금은 바꾸지 않습니다)' : undefined}>
-        <NumberField
-          kind="long"
-          thousands
-          decimals={0}
-          unit="원"
-          max={ASSET_CASH_MAX}
-          value={text}
-          invalid={amount == null}
-          onValue={(v) => {
-            setEdited(true);
-            setText(v);
-          }}
-          aria-label="예수금 금액"
-          data-testid="asset-cash-trade-amount"
-        />
-      </FormRow>
+      {/* 창의 수량 · 가격 칸과 같은 묶음 폭(단위 열 · 칸 오른쪽 끝을 맞춘다) */}
+      <NumberUnitGroup w="sm">
+        <FormRow label="예수금 금액" labelW={labelW} valueW={kind === 'fill' ? valueW : undefined} error={amount == null ? '금액을 넣어 주세요(0 이면 예수금은 바꾸지 않습니다)' : undefined}>
+          <NumberField
+            kind={kind}
+            thousands
+            decimals={0}
+            unit="원"
+            max={ASSET_CASH_MAX}
+            value={text}
+            invalid={amount == null}
+            onValue={(v) => {
+              setEdited(true);
+              setText(v);
+            }}
+            aria-label="예수금 금액"
+            data-testid="asset-cash-trade-amount"
+          />
+        </FormRow>
+      </NumberUnitGroup>
       {usd && (
         <p className="text-caption text-text-muted" data-testid="asset-cash-trade-fx">
           {fx != null ? `환율 ${fxText(fx)} 기준 · 고칠 수 있어요` : '환율을 받지 못했어요 — 금액을 넣어 주세요'}

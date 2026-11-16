@@ -6,7 +6,7 @@
  *   30분 넘게 touch 없음 → asset-locked · summary 폴링만으로는 늘지 않음 · touch · 쓰기 요청은 늘림 · 0(끄기) · 10 · 60 · 잘못된 값 거절.
  * - [117-4] 화면(Playwright 가짜 시계 `page.clock`): 같은 안쪽 서버 + Vite(프록시만 안쪽 서버로) — 입력이 있으면 touch 1분에 1번 이하 ·
  *   시간이 지나면 서버를 기다리지 않고 잠금 화면 + 안내 한 줄 · 서버가 asset-locked 를 돌려줘도 같은 화면 · 다른 메뉴에 갔다 와도 서버 시각 기준 ·
- *   설정 메뉴 6개 · 「잠금」 바로 저장 · 로딩 표시.
+ *   설정 메뉴 7개(139차 「현금 자동 반영」) · 「잠금」 바로 저장 · 로딩 표시.
  * 시트 연결 정보를 비우고 돈다 — 실제 구글 · 토스 호출 0(이 프로세스의 바깥 주소 fetch 는 막고 센다).
  * ⚠️ 자산 값은 다루지 않는다(가짜 요약 값만 · 출력에 금액 없음).
  */
@@ -165,10 +165,11 @@ try {
       const late = await call('GET', '/api/asset/summary?pension=0');
       results.push(`${r}:${w.status}:${isLocked(still) ? 'locked' : 'open'}:${isLocked(late) ? 'locked' : 'open'}`);
     }
-    check('[117-3] [120-1] [134-4] 쓰기 요청 10가지(PUT class · settings · target-ratio · POST purchase-done · price-source convert · restore · trade · 120차 새 종목 trade/new · 확인 화면 trade/new/plan · 134차 메모 daily-note) 각각 20분에 → 45분 풀림 · 50분 넘으면 잠김',
-      writes.length === 10 && results.every((x) => x.endsWith(':open:locked') && !x.includes(':403:')), results.join(' '));
-    check('[117-3] [120-1] [134-4] ACTIVE = touch + 쓰기 10가지뿐(118차 매수 · 매도 입력 · 120차 새 종목 · 134차 메모 포함) · summary · sheet · history · status 는 없음',
-      ACTIVE.size === 11 && ACTIVE.has('PUT /api/asset/daily-note') && ![...ACTIVE].some((r) => r.startsWith('GET ')) && ACTIVE.has('POST /api/asset/touch'));
+    // 139차: 현금 자동 반영 설정 · 되돌리기 두 가지가 늘었다
+    check('[117-3] [120-1] [134-4] [139-8] 쓰기 요청 12가지(PUT class · settings · target-ratio · POST purchase-done · price-source convert · restore · trade · 120차 새 종목 trade/new · 확인 화면 trade/new/plan · 134차 메모 daily-note · 139차 cash/settings · cash/undo) 각각 20분에 → 45분 풀림 · 50분 넘으면 잠김',
+      writes.length === 12 && results.every((x) => x.endsWith(':open:locked') && !x.includes(':403:')), results.join(' '));
+    check('[117-3] [120-1] [134-4] [139-8] ACTIVE = touch + 쓰기 12가지뿐(118차 매수 · 매도 입력 · 120차 새 종목 · 134차 메모 · 139차 현금 설정 · 되돌리기 포함) · summary · sheet · history · status · cash 읽기는 없음',
+      ACTIVE.size === 13 && ACTIVE.has('PUT /api/asset/daily-note') && ACTIVE.has('PUT /api/asset/cash/settings') && ACTIVE.has('POST /api/asset/cash/undo') && ![...ACTIVE].some((r) => r.startsWith('GET ')) && ACTIVE.has('POST /api/asset/touch'));
   }
 
   {
@@ -366,8 +367,8 @@ try {
     await page.waitForTimeout(400);
     const spinnerAfter = await dialog.getByLabel('저장하는 중').count();
     const checkedAfter = await group.getByRole('radio', { name: '60분' }).getAttribute('aria-checked');
-    check('[117-4] 설정 메뉴 6개(… 시트 가격 · 잠금 — 잠금이 맨 아래) · 「잠금」 = [10분 | 30분 | 60분 | 끄기] · 지금 값(10분) 눌림',
-      tabNames.length === 6 && tabNames[5] === '잠금' && JSON.stringify(radios) === JSON.stringify(['10분', '30분', '60분', '끄기']) && checked0 === 'true', `${tabNames.join('|')} / ${radios.join('|')} / ${checked0}`);
+    check('[117-4] [139-8] 설정 메뉴 7개(… 시트 가격 · 139차 현금 자동 반영 · 잠금 — 잠금이 맨 아래) · 「잠금」 = [10분 | 30분 | 60분 | 끄기] · 지금 값(10분) 눌림',
+      tabNames.length === 7 && tabNames[5] === '현금 자동 반영' && tabNames[6] === '잠금' && JSON.stringify(radios) === JSON.stringify(['10분', '30분', '60분', '끄기']) && checked0 === 'true', `${tabNames.join('|')} / ${radios.join('|')} / ${checked0}`);
     check('[117-4] 「60분」 누름 → 바로 저장(PUT /api/asset/settings { lockMinutes: 60 } 한 번) · 저장 중 로딩(「저장하는 중」) · 그 칸 막힘 · 끝나면 로딩 사라지고 60분 눌림',
       putBodies.length === 1 && JSON.parse(putBodies[0] || '{}').lockMinutes === 60 && Object.keys(JSON.parse(putBodies[0] || '{}')).length === 1 &&
         spinner >= 1 && disabledWhileBusy && checkedBusy === 'true' && spinnerAfter === 0 && checkedAfter === 'true', `${putBodies.join('|')} 로딩 ${spinner}→${spinnerAfter} 막힘 ${disabledWhileBusy}`);

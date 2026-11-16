@@ -35,6 +35,7 @@ import { NAV_GROUPS, PAGE_TABS } from '../src/types/nav';
 import { rankingSample, usHaltsSample } from './fixtures/usHalts/screenSample';
 import { briefSample, daySample, daysSample, mismatchSample, outlookSample, statusSample } from './fixtures/marketBrief/screenSample';
 import { assetNewPlanSample, assetTradesSample, assetHistorySample, assetSheetFailureSample, assetSheetSample, assetStatusSample, assetSummaryFailureSample, assetSummarySample } from './fixtures/asset/screenSample';
+import { CASH_SAMPLE_KIWOOM, cashViewSample } from './fixtures/asset/screenSample'; // v2.71.0 현금 자동 반영 장면
 import { CHANGELOG } from '../src/data/changelog';
 import { sortDayRows } from '../src/utils/buyJudgeOrder';
 
@@ -574,6 +575,61 @@ function targets(): Target[] {
         await page.evaluate(() => {
           localStorage.removeItem('alphascope.asset.includePension');
           localStorage.removeItem('alphascope.asset.tab');
+        });
+        await page.unroute('**/api/asset/touch');
+      },
+    })),
+    // v2.71.0 — 설정 「현금 자동 반영」(켬 · 예수금 줄 짝 · 월급 · 고정 흐름 표 · 반영 기록 · 되돌리기 확인 창) · 매수 창 예수금 줄(국내 · 미국 환율). 가짜 응답만(쓰기 주소는 막는다)
+    ...(
+      [
+        ['설정창-현금자동반영', 'top'],
+        ['설정창-현금자동반영-고정흐름', 'flows'],
+        ['설정창-현금자동반영-반영기록', 'moves'],
+        ['설정창-현금자동반영-되돌리기창', 'undo'],
+        ['매수창-예수금줄', 'buy:6'],
+        ['매수창-예수금줄-미국', 'buy:5'],
+      ] as const
+    ).map(([label, step]) => ({
+      name: `asset-${label}`,
+      hash: '#/asset',
+      before: async (page: Page) => {
+        await page.evaluate(() => {
+          localStorage.setItem('alphascope.asset.tab', 'status');
+          localStorage.setItem('alphascope.asset.settingsMenu', 'cash');
+        });
+        await page.route('**/api/asset/status', (r) => r.fulfill({ json: assetStatusSample(true) }).catch(() => {}));
+        await page.route('**/api/asset/touch', (r) => r.fulfill({ json: { ok: true, lockMinutes: 30, remainingMs: 30 * 60_000 } }).catch(() => {}));
+        await page.route('**/api/asset/sheet', (r) => r.fulfill({ json: assetSheetSample() }).catch(() => {}));
+        await page.route('**/api/asset/summary**', (r) => r.fulfill({ json: assetSummarySample({}) }).catch(() => {}));
+        await page.route('**/api/asset/history**', (r) => r.fulfill({ json: assetHistorySample(5) }).catch(() => {}));
+        await page.route('**/api/asset/cash', (r) => r.fulfill({ json: cashViewSample() }).catch(() => {}));
+        await page.route('**/api/asset/cash/pair**', (r) => r.fulfill({ json: { enabled: true, pair: { key: CASH_SAMPLE_KIWOOM, label: CASH_SAMPLE_KIWOOM.name }, usdKrw: 1380.5 } }).catch(() => {}));
+        await page.route('**/api/asset/cash/**', (r) => (r.request().method() === 'GET' ? r.fallback() : r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } })).catch(() => {}));
+      },
+      open: async (page: Page) => {
+        await page.waitForTimeout(800);
+        if (step.startsWith('buy:')) {
+          await page.locator(`[data-trade-buy="${step.slice(4)}"]`).click().catch(() => {});
+          await page.getByRole('textbox', { name: '수량' }).fill(step === 'buy:6' ? '10' : '2.5').catch(() => {});
+          await page.getByRole('textbox', { name: '가격' }).fill(step === 'buy:6' ? '70000' : '110.1234').catch(() => {});
+          await page.getByTestId('asset-cash-trade-preview').waitFor({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(200);
+          return;
+        }
+        await page.getByLabel('설정', { exact: true }).click().catch(() => {});
+        await page.getByTestId('asset-cash-settings').waitFor({ timeout: 3000 }).catch(() => {});
+        if (step === 'flows') await page.getByTestId('asset-cash-flows').scrollIntoViewIfNeeded().catch(() => {});
+        if (step === 'moves' || step === 'undo') await page.getByTestId('asset-cash-moves').scrollIntoViewIfNeeded().catch(() => {});
+        if (step === 'undo') await page.getByTestId('asset-cash-moves').getByRole('button', { name: '되돌리기' }).click().catch(() => {});
+        await page.waitForTimeout(300);
+      },
+      after: async (page: Page) => {
+        for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/cash', '**/api/asset/cash/pair**', '**/api/asset/cash/**']) await page.unroute(p);
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.evaluate(() => {
+          localStorage.removeItem('alphascope.asset.tab');
+          localStorage.removeItem('alphascope.asset.settingsMenu');
         });
         await page.unroute('**/api/asset/touch');
       },

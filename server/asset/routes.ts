@@ -20,7 +20,8 @@ import { allRecords, dailyNotes, historyPoints, isHistoryRange, recordPurchase, 
 import { readPensionSections, writeAssetSettings } from './settings';
 import { listTrades, planNewHolding, recordNewHolding, recordTrade, tradesForChange } from './trade';
 import { dailyChanges } from './dailyChange';
-import { cashWide, isCashWriteOn, parseCashAmount, readCashSettings, tradeCash } from './cashMoves';
+import { cashWide, isCashWriteOn, parseCashAmount, readCashSettings, tradeCash, undoCashMove, writeCashSettings } from './cashMoves';
+import { buildCashView, cashSheetNow } from './cashView';
 import { cashLabel, cashLines } from './cashKeys';
 import { kstDay } from './cashSchedule';
 import type { AssetCashPairView, AssetSheetErrorKind, AssetSheetFailure, AssetStatus, AssetTouchResult, PurchaseDoneResult } from '../../src/types/asset';
@@ -41,6 +42,8 @@ export const ACTIVE = new Set([
   'POST /api/asset/trade/new',
   'POST /api/asset/trade/new/plan',
   'PUT /api/asset/daily-note',
+  'PUT /api/asset/cash/settings',
+  'POST /api/asset/cash/undo',
 ]);
 const isAssetPath = (p: string) => p === '/api/asset' || p.startsWith('/api/asset/');
 
@@ -311,6 +314,40 @@ assetRouter.put('/api/asset/settings', async (req, res) => {
     res.json(saved);
   } catch (e) {
     sendSheetError(res, e, '읽기');
+  }
+});
+
+/** 설정 창 「현금 자동 반영」(v2.71.0) — 설정 · 「현금」 줄 · 「월 고정지출」 줄 · 다음 반영 날 · 반영 기록(최근 50). 시트는 읽기만 */
+assetRouter.get('/api/asset/cash', async (_req, res) => {
+  try {
+    res.json(await buildCashView());
+  } catch (e) {
+    sendSheetError(res, e, '읽기');
+  }
+});
+
+/**
+ * 현금 자동 반영 설정 고치기(v2.71.0) — 고칠 칸만(`AssetCashSettingsPatch`). 「현금」 · 「월 고정지출」 줄은 지금 시트에 있는 것만이라 먼저 읽는다.
+ * 검사는 `writeCashSettings` 한 곳 · 성공하면 화면 응답 전체(다음 반영 날이 바뀐다). 앱 DB 에만 쓴다(시트 쓰기 없음).
+ */
+assetRouter.put('/api/asset/cash/settings', async (req, res) => {
+  try {
+    const now = await cashSheetNow();
+    const saved = writeCashSettings(req.body, now, kstDay(Date.now()));
+    if (!saved) return res.status(400).json({ error: '설정 값이 올바르지 않습니다 — 시트에 없는 줄 · 계좌이거나, 변동 지출 · 같은 줄 출금 · 입금 · 날짜(1~31) 밖입니다.', kind: 'not-editable' });
+    res.json(await buildCashView());
+  } catch (e) {
+    sendSheetError(res, e, '읽기');
+  }
+});
+
+/** 반영 기록 되돌리기(v2.71.0) — `{ id }` · 「반영」 줄만 · 지금 숫자 기준 반대로 한 요청(`undoCashMove` 한 곳). 성공하면 화면 응답 전체 */
+assetRouter.post('/api/asset/cash/undo', async (req, res) => {
+  try {
+    await undoCashMove(req.body?.id);
+    res.json(await buildCashView());
+  } catch (e) {
+    sendSheetError(res, e, '쓰기');
   }
 });
 

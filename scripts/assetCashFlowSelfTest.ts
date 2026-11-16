@@ -1,7 +1,7 @@
 /**
  * 현금 자동 반영(v2.71.0 · 139차) 서버 시험 — `npm run assetcashflow:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import).
  * 139차 「꼭 지킬 동작」 1(줄 알아보기) · 2(쓰기) · 5(되돌리기) · 7(꺼짐) · 9(로그 · 구글 실제 호출 0)를 줄마다 확인한다.
- * 3 · 4(날짜 · 두 번 쓰지 않기 — 가짜 시계 · 가짜 휴장일)는 「B」 절, 6(매수 · 매도 — 서버)은 「C」 절, 8(화면)은 `assetcashflowui:test`, 10(바뀐 파일 · 바이트)은 「바뀐 파일」 절.
+ * 3 · 4(날짜 · 두 번 쓰지 않기 — 가짜 시계 · 가짜 휴장일)는 「B」 절, 6(매수 · 매도 — 서버)은 「C」 절, 8(화면)은 `assetcashflowui:test`, 10(바뀐 파일 · 바이트 — 기준 91622e3)은 「10」 절.
  * 구글: 이 프로세스의 `fetch` 를 바꿔치기한 **가짜 시트**(`fixtures/asset/cashFlowBook.ts` — 만든 값 · 쓰기도 그 책에 반영) · 실제 구글 호출 0.
  * ⚠️ 출력에 가짜 금액 · 계좌 이름을 찍지 않는다.
  */
@@ -17,7 +17,9 @@ import { applyCashMove, clearCashMovesForTest, clearCashSettingsForTest, listCas
 import { SALARY_ITEM, bankCalendar, bankClosed, cashTick, dueDay, nextDueDay, setCashCalendarForTest } from '../server/asset/cashSchedule';
 import { assetSheetConfig } from '../server/asset/config';
 import { BANK, FIXED, SALARY, deleteRow, fakeGoogleFetch, flowBook, insertRow, setCell, type FakeGoogle } from './fixtures/asset/cashFlowBook';
-import { cut } from './fixtures/asset/cashSheetBook';
+import { book as cashBook, cut, cutRanges, snapshotOf } from './fixtures/asset/cashSheetBook';
+import { parseAssetSheet, sheetRanges } from '../server/asset/sheet';
+import { tradingDiff } from './lib/tradingDiff';
 import type { AssetCashKey } from '../src/types/asset';
 
 let pass = 0;
@@ -399,6 +401,30 @@ try {
     const tradeDiff = spawnSync('git', ['diff', '--name-only', '91622e3', '--', 'server/asset/trade.ts', 'server/asset/rowOps.ts'], { cwd: root, encoding: 'utf8' });
     check('[139-6] 보유 쓰기 코드(trade.ts · rowOps.ts) 바뀐 줄 0(91622e3 와 지금)', tradeDiff.status === 0 && tradeDiff.stdout.trim() === '', tradeDiff.stdout.trim());
     clearCashSettingsForTest();
+  }
+
+  // ═══ 10. 바뀐 파일 · 총 자산 바이트(기준 91622e3 = v2.70.4 와 지금 작업 트리) ═══
+  {
+    const BASE = '91622e3';
+    const trading = tradingDiff(root, BASE, ['server/autoTrading', 'server/buyJudge', 'server/rules', 'server/paperTradingService.ts', 'server/paperPerformanceService.ts', 'server/paperSnapshotScheduler.ts', 'server/aiCheck', 'server/marketBrief', 'server/usHalts', 'server/quoteService.ts', 'server/heatmapSession.ts', 'server/marketCalendar.ts', 'server/auth.ts', 'server/authGuard.ts', 'src/services', 'python', 'server/asset/trade.ts', 'server/asset/rowOps.ts']);
+    check('[139-10] 매매 · 주문 · 자동매매 · 시세 · 휴장일 · 로그인 · 보유 쓰기(trade.ts · rowOps.ts) 코드 바뀐 파일 0', trading.status === 0 && trading.stdout.trim() === '', trading.stdout.trim() || trading.stderr.trim());
+    // 총 자산 계산 — 138차 정답(옛 모양 가짜 값 → computeAssetTotals · 비율 조정 · 하루 기록 · 계좌 · 종목별)과 바이트까지 같음
+    const r = sheetRanges();
+    const b = cashBook('old');
+    const now = snapshotOf(parseAssetSheet(cutRanges(b.values, r.values), cutRanges(b.formulas, r.formulas), '2026-11-16T00:00:00.000Z'));
+    const baseline = fs.readFileSync(path.join(root, 'scripts/fixtures/asset/cashBaseline.json'), 'utf8').trimEnd();
+    check('[139-10] 총 자산 계산 바이트 같음(computeAssetTotals 같은 입력 → 같은 결과 · fixtures/asset/cashBaseline.json)', now === baseline, `길이 ${now.length} / ${baseline.length}`);
+    const list = spawnSync('npx', ['tsc', '-p', 'tsconfig.node.json', '--listFilesOnly'], { cwd: root, encoding: 'utf8' });
+    const shared = list.stdout.split('\n').map((l) => path.relative(root, l.trim())).filter((f) => f.startsWith('src/'));
+    // 이 차수 커밋이 「뒤 지시서 목록」(tradingDiff) 에 들어가도 빠지지 않게 기준에서 그대로 git diff
+    const changedShared = spawnSync('git', ['diff', '--name-only', BASE, '--', ...shared], { cwd: root, encoding: 'utf8' }).stdout.trim().split('\n').filter(Boolean);
+    const ALLOWED = ['src/data/changelog.ts', 'src/types/asset.ts'];
+    const deleted = spawnSync('git', ['diff', '-U0', BASE, '--', ...ALLOWED], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
+    check(`[139-10] 서버가 함께 쓰는 src/ ${shared.length}개 가운데 바뀐 것은 types/asset.ts · data/changelog.ts 뿐 · 더하기만(지운 줄 0)`,
+      shared.length > 30 && changedShared.every((f) => ALLOWED.includes(f)) && changedShared.includes('src/types/asset.ts') && deleted.length === 0, `${changedShared.join(',')} · 지운 줄 ${deleted.length}`);
+    const dc = spawnSync('git', ['diff', '-U0', BASE, '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' }).stdout;
+    const dcDeleted = dc.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
+    check('[139-10] designCheck.ts 판정 부분 바뀐 줄 0 — 지운 줄 0 · 더한 곳은 견본 import 한 줄 · 장면 묶음 한 곳(현금자동반영 · 예수금줄)', dcDeleted.length === 0 && (dc.match(/^@@ /gm) ?? []).length === 2 && dc.includes('현금자동반영') && dc.includes('예수금줄'), `지운 줄 ${dcDeleted.length}`);
   }
 
   // ═══ 9. 로그 · 구글 ═══

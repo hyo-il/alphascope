@@ -20,9 +20,10 @@ import { swatchBg } from './assetColors';
 import AssetAccountTable from './AssetAccountTable';
 import AssetTargetRatioForm from './AssetTargetRatioForm';
 import AssetPriceSheetSection from './AssetPriceSheetSection';
+import AssetCashSettings from './AssetCashSettings';
 
 /**
- * 「자산 관리 설정」 창(v2.62.1 · v2.65.2 왼쪽 메뉴 — 공용 `SideNavDialog`) — 오른쪽 위 「설정」 버튼이 연다. 메뉴 여섯(이 순서):
+ * 「자산 관리 설정」 창(v2.62.1 · v2.65.2 왼쪽 메뉴 — 공용 `SideNavDialog`) — 오른쪽 위 「설정」 버튼이 연다. 메뉴 일곱(이 순서):
  * 1. 목표 비율 — 정수 % 여섯 칸 · 두 합이 100 일 때만 [저장] · **시트에 쓴다**(`AssetTargetRatioForm`) + 비율 조정 범위(±1~20 %p 고르기 · 바로 저장 — 앱 DB).
  *    「비율 조정」 [목표 비율 바꾸기] 는 이 메뉴로 연다.
  * 2. 코어 · 위성 — 위성으로 선택한 종목: 매매 설정 대상 종목과 같은 부품(`common/SymbolTable`): 표(종목 · 코드 · 있는 계좌) + [종목 추가] + 줄마다 삭제.
@@ -31,14 +32,15 @@ import AssetPriceSheetSection from './AssetPriceSheetSection';
  * 3. 연금 — 연금으로 볼 계좌: 표(계좌 이름 「( 날짜 )」 그대로) + [계좌 추가](창 = 시트 계좌 중 아직 없는 것) + 줄마다 삭제(`AssetAccountTable`)
  * 4. 자산 분류 색 — 분류마다 팔레트 색 동그라미(원형 · 분류별 표가 같은 색)
  * 5. 시트 가격(v2.65.0) — 「티커」 가격 · 환율을 토스로 바꾸기 · 되돌리기(확인 창 · **시트에 쓴다** — `AssetPriceSheetSection`)
- * 6. 잠금(v2.65.4) — 「쓰지 않으면 잠그는 시간」 [10분 | 30분 | 60분 | 끄기](`Segmented` · 바로 저장 — 앱 DB `asset.lockMinutes`)
+ * 6. 현금 자동 반영(v2.71.0) — 「현금」 탭 은행 계좌 줄 금액을 앱이 바꾸는 설정 · 반영 기록 · 되돌리기(`AssetCashSettings` — 열 때 따로 받는다)
+ * 7. 잠금(v2.65.4) — 「쓰지 않으면 잠그는 시간」 [10분 | 30분 | 60분 | 끄기](`Segmented` · 바로 저장 — 앱 DB `asset.lockMinutes`)
  * 처음 열면 「목표 비율」 · 마지막에 본 메뉴는 이 기기에 기억(`alphascope.asset.settingsMenu` · 읽기 실패면 목표 비율).
  * 추가 · 삭제 · 색 바꿈 · 고르기마다 바로 저장(그 칸만 로딩 + 메뉴 이름 옆 로딩 · 저장 중에는 그 칸을 다시 바꾸지 않음) — 실패하면 원래 값으로 되돌리고 그 칸에 이유 한 줄.
  * 저장 뒤 화면을 다시 받아 원형 · 표에 반영.
  */
 
 /** 메뉴 — 순서가 곧 화면 순서 */
-const MENUS = ['target', 'core', 'pension', 'colors', 'price', 'lock'] as const;
+const MENUS = ['target', 'core', 'pension', 'colors', 'price', 'cash', 'lock'] as const;
 type Menu = (typeof MENUS)[number];
 const MENU_KEY = 'alphascope.asset.settingsMenu';
 function readMenu(): Menu {
@@ -91,6 +93,7 @@ export default function AssetSettingsDialog({
   onSave,
   onSaveTarget,
   onPriceSheet,
+  onLocked,
   focus,
   onClose,
 }: {
@@ -101,6 +104,8 @@ export default function AssetSettingsDialog({
   onSaveTarget: (ratio: Record<keyof AssetTargetRatio, number>) => Promise<{ ok: true; ratio: AssetTargetRatio } | { ok: false; error: string }>;
   /** 시트 가격 바꾸기 · 되돌리기 — 실패면 이유 문구 */
   onPriceSheet: (kind: 'convert' | 'restore') => Promise<string | null>;
+  /** 「현금 자동 반영」 요청이 잠김(403)을 받으면 */
+  onLocked: () => void;
   /** 「비율 조정」 [목표 비율 바꾸기] 로 열면 목표 비율 칸으로 */
   focus?: 'targetRatio';
   onClose: () => void;
@@ -252,6 +257,12 @@ export default function AssetSettingsDialog({
           desc: '시트 「티커」 의 가격 · 환율을 어디서 받는지입니다. 토스로 바꾸면 장이 열린 동안 10초마다 바뀐 값만 시트에 씁니다.',
           busy: priceBusy,
           content: price,
+        },
+        {
+          id: 'cash',
+          label: '현금 자동 반영',
+          desc: '시트 「현금」 탭 은행 계좌 줄의 금액만 앱이 바꿉니다 — 매수 · 매도 때 예수금 · 매달 월급 · 고정 흐름. 어긋나면 시트에서 고치면 그 숫자에서 이어 갑니다.',
+          content: <AssetCashSettings onLocked={onLocked} />,
         },
         {
           id: 'lock',

@@ -206,7 +206,7 @@ export default function AssetNewBuyDialog({
               </p>
             </div>
           )}
-          <AssetCashTradeLine section={plan.section} side="buy" currency={plan.currency} qty={qtyN} price={priceN} onValue={setCash} />
+          <AssetCashTradeLine section={plan.section} side="buy" currency={plan.currency} qty={qtyN} price={priceN} onValue={setCash} labelW="sm" valueW="lg" kind="fill" />
           {cashFailed != null && (
             <p role="alert" className="rounded-lg bg-warning/10 px-3 py-1.5 text-xs text-warning keep-all" data-testid="asset-cash-trade-failed">
               {`매수는 저장했어요. ${cashFailed}`}
