@@ -2,11 +2,13 @@
  * 자산 「현금」 탭을 머리 글자로 찾기(v2.70.4 · 138차) — `npm run assetcash:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import · DB 는 쓰지 않는다).
  * 138차 「꼭 지킬 동작」 1(사용자 캡처 모양) · 2(옛 모양 · 줄 넣기 · 지우기) · 3(못 찾으면 shape + 찾지 못한 글자 · 값 없음) ·
  * 4(옛 모양 가짜 값 → 총 자산 · 비율 조정 · 하루 기록이 바꾸기 전 `69624a7` 과 바이트까지 같음 — `fixtures/asset/cashBaseline.json`) ·
- * 5(구글 읽기 두 번 · 쓰기 0 · 로그에 금액 · 이름 0) · 점검 명령(`asset:check-sheet`) 줄 수 · 총액 줄 위치를 줄마다 확인한다. 화면(6)은 `assetcashui:test`.
+ * 5(구글 읽기 두 번 · 쓰기 0 · 시트 쓰기 코드 바뀐 줄 0 · 로그에 금액 · 이름 0) · 7(매매 · 주문 · 로그인 코드 바뀐 파일 0 · 서버가 함께 쓰는 `src/` 는 types/asset.ts · changelog 더하기만 ·
+ * `designCheck.ts` 판정 부분 0 — 기준 `69624a7` 과 지금 작업 트리 · 뒤 지시서 몫은 `lib/tradingDiff.ts` 가 나눈다) · 점검 명령(`asset:check-sheet`) 줄 수 · 총액 줄 위치를 줄마다 확인한다. 화면(6)은 `assetcashui:test`.
  * 구글: 이 프로세스의 `fetch` 를 바꿔치기한 **가짜 시트**(`fixtures/asset/cashSheetBook.ts` — 만든 값) · 실제 구글 호출 0.
  * ⚠️ 출력에 가짜 금액 · 계좌 이름을 찍지 않는다.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -16,6 +18,7 @@ import { parseAssetSheet, readAssetSheet, resetSheetCache, sheetRanges } from '.
 import { findCashShape } from '../server/asset/sheetShape';
 import { SHEET_LAYOUT } from '../server/asset/sheetLayout';
 import { runSheetCheck } from './assetCheckSheet';
+import { laterAwarePatch, tradingDiff } from './lib/tradingDiff';
 import { RETIRE_AMOUNT, bankAmount, book, cut, cutRanges, snapshotOf, type Book, type Cell } from './fixtures/asset/cashSheetBook';
 import type { AssetSheetData } from '../src/types/asset';
 
@@ -234,6 +237,30 @@ try {
   check('[138-5] 읽은 값은 같은 결과(캐시 · 화면용 계좌 줄 포함)', read.cashAccounts.length === 21 && read.cashTotal === bankSum(21));
   const secrets = SECRETS(book('user'));
   check('[138-5] 읽는 동안 로그에 금액 · 계좌 이름 0', !logged.some((l) => secrets.some((s) => l.includes(s))), `${logged.length}줄`);
+
+  // ═══ 5 · 7 — 바뀐 파일(기준 69624a7) ═══
+  {
+    const BASE = '69624a7';
+    // 시트에 쓰는 코드: 구글 쓰기 함수 · 가격 쓰기 · 줄 넣기 · 매수 · 매도 파일은 바뀐 줄 0 · sheet.ts 는 쓰기 함수 세 개 본문이 그대로(A 커밋 5605a27 — 이 작업에서 sheet.ts 를 바꾼 커밋)
+    const writers = tradingDiff(root, BASE, ['server/asset/google.ts', 'server/asset/priceSheet.ts', 'server/asset/priceWriter.ts', 'server/asset/rowOps.ts', 'server/asset/trade.ts', 'server/asset/purchase.ts', 'server/asset/settings.ts', 'server/asset/store.ts']);
+    const show = (rev: string) => spawnSync('git', ['show', `${rev}:server/asset/sheet.ts`], { cwd: root, encoding: 'utf8' }).stdout;
+    const body = (src: string, name: string) => src.split(new RegExp(`export (?:async )?function ${name}\\(`))[1]?.split('\nexport ')[0] ?? '';
+    const [before, after] = [show(BASE), show('5605a27')];
+    const same = ['writeAssetClasses', 'writeTargetRatio', 'writeAccountDates', 'checkTargetRatio'].every((n) => body(before, n).length > 50 && body(before, n) === body(after, n));
+    check('[138-5] 시트 쓰기 코드 바뀐 줄 0(google · 가격 쓰기 · 줄 넣기 · 매수 매도 · 구매 · 설정 파일 0 · sheet.ts 쓰기 함수 본문 그대로)', writers.status === 0 && writers.stdout.trim() === '' && same, writers.stdout.trim());
+    const trading = tradingDiff(root, BASE, ['server/autoTrading', 'server/buyJudge', 'server/rules', 'server/paperTradingService.ts', 'server/paperPerformanceService.ts', 'server/paperSnapshotScheduler.ts', 'server/aiCheck', 'server/marketBrief', 'server/usHalts', 'server/quoteService.ts', 'server/heatmapSession.ts', 'server/marketCalendar.ts', 'server/auth.ts', 'server/authGuard.ts', 'src/services', 'python']);
+    check('[138-7] 매매 · 주문 · 자동매매 · AI 검증 · 시세 · 시황 · 로그인 · src/services · python 바뀐 파일 0(69624a7 와 지금 작업 트리)', trading.status === 0 && trading.stdout.trim() === '', trading.stdout.trim() || trading.stderr.trim());
+    const list = spawnSync('npx', ['tsc', '-p', 'tsconfig.node.json', '--listFilesOnly'], { cwd: root, encoding: 'utf8' });
+    const shared = list.stdout.split('\n').map((l) => path.relative(root, l.trim())).filter((f) => f.startsWith('src/'));
+    const changedShared = tradingDiff(root, BASE, [...shared]).stdout.trim().split('\n').filter(Boolean);
+    const ALLOWED = ['src/data/changelog.ts', 'src/types/asset.ts'];
+    const deleted = laterAwarePatch(root, BASE, ALLOWED).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
+    check(`[138-7] 서버가 함께 쓰는 src/ ${shared.length}개 가운데 바뀐 것은 types/asset.ts · data/changelog.ts 뿐 · 모두 더하기만(지운 줄 0)`,
+      shared.length > 30 && changedShared.every((f) => ALLOWED.includes(f)) && changedShared.includes('src/types/asset.ts') && deleted.length === 0, `${changedShared.join(',')} · 지운 줄 ${deleted.length}`);
+    const dc = spawnSync('git', ['diff', '-U0', BASE, 'deaf94c', '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' }).stdout;
+    const dcDeleted = dc.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
+    check('[138-7] designCheck.ts 판정 부분 바뀐 줄 0 — 지운 줄 0 · 더한 곳은 장면 목록 한 곳(현금펼침 — B 커밋 deaf94c)', dcDeleted.length === 0 && (dc.match(/^@@ /gm) ?? []).length === 1 && dc.includes('현금펼침'), `지운 줄 ${dcDeleted.length}`);
+  }
 
   // ═══ 점검 명령 — 「은행 계좌 N줄 · 퇴직 연금 N줄 · 총액 줄 위치」 · 금액 · 이름은 출력 안 함 ═══
   for (const [kind, bank, retire, bt, rt] of [['user', 21, 1, 26, 31], ['old', 20, 1, 25, 30]] as const) {

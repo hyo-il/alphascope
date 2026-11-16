@@ -44,10 +44,10 @@ const sumDiffers = (rows: AssetCashRow[], total: number | null) => total != null
 /** 「현금 합계」 펼침 목록의 최대 폭은 `max-w-xl`(이름이 길어도 금액이 멀리 떨어지지 않게 — 서버도 컴파일하는 `ui/tokens.ts` 는 바꾸지 않는다 · v2.70.4) */
 
 /** 「현금」 탭 계좌 줄 한 묶음 — 소제목 · 이름(말줄임) · 금액(오른쪽 정렬) · 합이 총액과 다르면 안내 */
-function CashBlock({ title, rows, total, testId }: { title: string; rows: AssetCashRow[]; total: number | null; testId: string }) {
+function CashBlock({ heading, rows, total, testId }: { heading: string; rows: AssetCashRow[]; total: number | null; testId: string }) {
   return (
     <div className="space-y-1" data-testid={testId}>
-      <div className="text-caption text-text-secondary">{title}</div>
+      <div className="text-caption text-text-secondary">{heading}</div>
       {rows.length === 0 ? (
         <p className="text-caption text-text-muted">「현금」 탭에 계좌 줄이 없습니다.</p>
       ) : (
@@ -105,8 +105,8 @@ function Summary({ data, includePension }: { data: AssetSheetData; includePensio
       </div>
       {cashOpen && (
         <div id="as-asset-cashlist" className="max-w-xl space-y-3" data-testid="asset-cash-accounts">
-          <CashBlock title="은행 계좌" rows={data.cashAccounts} total={data.cashTotal} testId="asset-cash-bank" />
-          {includePension && <CashBlock title="퇴직 연금" rows={data.retirementAccounts} total={data.retirement} testId="asset-cash-retirement" />}
+          <CashBlock heading="은행 계좌" rows={data.cashAccounts} total={data.cashTotal} testId="asset-cash-bank" />
+          {includePension && <CashBlock heading="퇴직 연금" rows={data.retirementAccounts} total={data.retirement} testId="asset-cash-retirement" />}
         </div>
       )}
       {/* 목표 비율 두 묶음 — 자산 배분(합 100%)과 주식 안의 코어 · 위성(합 100%)을 나눠 보인다(한 줄이면 합이 200% 로 읽힌다).
