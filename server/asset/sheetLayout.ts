@@ -5,6 +5,7 @@
  * 시트에서 줄 · 칸이 옮겨지면 여기만 고친다.
  * - `headers`: 읽기 전에 확인하는 **고정 칸** 머리 글자. 하나라도 다르면 **값을 쓰지 않고** 「시트 모양이 바뀌었어요(탭 · 칸)」 오류(엉뚱한 칸을 읽지 않게).
  *   비교는 공백을 모두 빼고 한다(띄어쓰기만 다른 것은 같은 모양) · `prefix` 는 앞부분만.
+ * - 「현금」 탭도 고정 줄 번호가 없다 — `cash` 의 머리 · 총액 글자로 `sheetShape.ts` `findCashShape` 가 찾는다(v2.70.4).
  * - 보유 구간 · 「티커」 묶음은 고정 줄 번호가 없다 — `holdingsMark` · `sections` 의 계좌 이름 · `tickers.skipNames` 머리 글자로 `sheetShape.ts` 가 찾는다(v2.66.2 · 줄이 늘거나 줄어도 맞게 읽는다).
  * - 보유 줄 ↔ 종목 줄은 이름 글자가 아니라 F열 수식 `'티커'!$F$NN` 의 NN(「티커」 줄 번호)으로 잇는다(`linkFormula`).
  * - 평균 매입가: C열 수식이 `=(달러값)*('티커'!$G$9)` 이면 달러 원래 값 · USD, 숫자면 원화 KRW(`usdFormula`).
@@ -44,8 +45,6 @@ export const SHEET_LAYOUT = {
     { tab: TICKER_TAB, cell: 'D12', expect: '자산 분류' },
     { tab: '자산 투자 비율 관리', cell: 'B18', expect: '자산 배분 비율' },
     { tab: '월 고정지출', cell: 'B5', expect: '현재 월 급여' },
-    { tab: '현금', cell: 'B25', expect: '은행 자산 총액' },
-    { tab: '현금', cell: 'B30', expect: '퇴직 연금 총액' },
   ] satisfies HeaderCheck[],
 
   /**
@@ -83,10 +82,23 @@ export const SHEET_LAYOUT = {
   /** 새 종목을 넣으면 합친 표를 직접 고쳐야 하는 계좌(합친 표는 앱이 쓰지 않는다 · v2.67.0) */
   combinedFrom: '적립식 계좌',
 
+  /**
+   * 「현금」 탭(v2.70.4) — 고정 칸이 없다. B열 글자로 찾는다(`sheetShape.ts` `findCashShape` · 공백을 빼고 같은 글자 · 한 번씩 · 이 순서).
+   * 은행 머리 ~ 은행 총액 사이 = 은행 계좌 줄 · 퇴직 연금 머리 ~ 퇴직 연금 총액 사이 = 퇴직 연금 줄(B 이름 · C 금액).
+   * 총액은 각 「…총액」 줄의 C열(시트 합계 그대로 — 앱이 다시 더하지 않는다). 읽기만(앱은 이 탭에 쓰지 않는다).
+   */
+  cash: {
+    tab: '현금',
+    /** 읽는 넓은 범위의 마지막 열 — B 이름 · C 금액 */
+    lastColumn: 'C',
+    bankHead: '은행 자산',
+    bankTotal: '은행 자산 총액',
+    retireHead: '퇴직 연금',
+    retireTotal: '퇴직 연금 총액',
+  },
+
   /** 값 한 칸씩 */
   cells: {
-    cashTotal: { tab: '현금', cell: 'C25' },
-    retirement: { tab: '현금', cell: 'C30' },
     salary: { tab: '월 고정지출', cell: 'C5' },
     avgFxRate: { tab: TICKER_TAB, cell: 'G9' },
   },

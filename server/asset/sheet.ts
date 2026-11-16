@@ -5,17 +5,17 @@
  * - 쓰기는 세 곳 — `writeAssetClasses`(「티커」 종목 줄 D열의 자산 분류 — 여러 줄 한 요청 · v2.65.2) · `writeTargetRatio`(목표 비율 여섯 칸) ·
  *   `writeAccountDates`(「구매 완료」 — 「주식 투자 정리」 계좌 이름 칸의 「( 날짜 )」).
  *   셋 다 쓰기 직전에 수식 그대로 다시 읽어 머리 글자 · 수식 칸을 확인한다(구글에 쓰는 함수는 `google.ts` `valuesWrite` 하나).
- * - 한 번 읽기 = `values:batchGet` 두 번: ① 값(UNFORMATTED_VALUE) — 머리 글자 · 두 탭 넓은 범위 · 값 칸 ② 수식(FORMULA) — 보유 줄의 C(평균 매입가) · F(이을 줄)
+ * - 한 번 읽기 = `values:batchGet` 두 번: ① 값(UNFORMATTED_VALUE) — 머리 글자 · 두 탭 넓은 범위 · 「현금」 넓은 범위(B · C — v2.70.4) · 값 칸 ② 수식(FORMULA) — 보유 줄의 C(평균 매입가) · F(이을 줄)
  *   + 「티커」 B~D(자산 분류 칸이 수식인지 — 「자산 분류 정하기」 창이 그 줄의 버튼을 감춘다 · v2.65.3 · 같은 요청 안의 범위 하나).
- * - 구간은 고정 줄 번호가 아니라 읽은 넓은 범위에서 머리 글자로 찾는다(`sheetShape.ts` · v2.66.2).
+ * - 구간은 고정 줄 번호가 아니라 읽은 넓은 범위에서 머리 글자로 찾는다(`sheetShape.ts` · v2.66.2 · 「현금」 탭은 v2.70.4).
  * - 머리 글자가 하나라도 다르면 값을 쓰지 않고 「시트 모양이 바뀌었어요(탭 · 칸)」.
  * ⚠️ 읽은 값은 로그에 찍지 않는다(실패 이유 종류만).
  */
-import { isAssetClass, type AssetClass, type AssetHolding, type AssetSection, type AssetSheetData, type AssetTargetRatio } from '../../src/types/asset';
+import { isAssetClass, type AssetCashRow, type AssetClass, type AssetHolding, type AssetSection, type AssetSheetData, type AssetTargetRatio } from '../../src/types/asset';
 import { assetSheetConfig, isAssetSyncEnabled } from './config';
 import { AssetSheetError, batchGet, valuesWrite, type CellRows } from './google';
 import { HOLDINGS_TAB, SHEET_LAYOUT, TICKER_TAB, type HeaderCheck } from './sheetLayout';
-import { findHoldingSections, findSheetShape, findTickerGroups, tickerRowsOf } from './sheetShape';
+import { findCashShape, findHoldingSections, findSheetShape, findTickerGroups, tickerRowsOf, type CashBlock } from './sheetShape';
 
 const CACHE_MS = 30_000;
 
@@ -31,6 +31,8 @@ export const wideRange = (tab: string, lastColumn: string) => `${q(tab)}!B1:${la
 const holdingWide = () => wideRange(HOLDINGS_TAB, 'F');
 /** 「티커」 이름(B) · 코드(C) · 자산 분류(D) */
 const tickerWide = () => wideRange(TICKER_TAB, SHEET_LAYOUT.assetClass.column);
+/** 「현금」 이름(B) · 금액(C) — 줄 수를 정하지 않는다(v2.70.4) */
+const cashWide = () => wideRange(SHEET_LAYOUT.cash.tab, SHEET_LAYOUT.cash.lastColumn);
 
 /** 공백을 모두 뺀 글자 — 띄어쓰기만 다른 것은 같은 모양 */
 const squash = (v: Cell) => String(v ?? '').replace(/\s+/g, '');
@@ -44,8 +46,7 @@ export function sheetRanges(): { values: string[]; formulas: string[] } {
       ...L.headers.map((h) => one(h.tab, h.cell)),
       holdingWide(),
       tickerWide(),
-      one(L.cells.cashTotal.tab, L.cells.cashTotal.cell),
-      one(L.cells.retirement.tab, L.cells.retirement.cell),
+      cashWide(),
       one(L.cells.salary.tab, L.cells.salary.cell),
       one(L.cells.avgFxRate.tab, L.cells.avgFxRate.cell),
       ...ratio.assets.map((c) => one(ratio.tab, c)),
@@ -70,6 +71,16 @@ function num(v: Cell): number | null {
 }
 
 const text = (v: Cell) => (v == null ? '' : String(v).trim());
+
+/** 「현금」 구간의 계좌 줄(머리 다음 ~ 총액 앞) — 이름이 빈 줄은 건너뛴다 · 두 줄 이름은 한 줄로(공백) · 금액이 빈칸이면 null(0 이 아니다) */
+function cashRowsOf(rows: CellRows, block: CashBlock): AssetCashRow[] {
+  const out: AssetCashRow[] = [];
+  for (let row = block.headRow + 1; row < block.totalRow; row++) {
+    const name = text(rows[row - 1]?.[0]).replace(/\s+/g, ' ');
+    if (name) out.push({ row, name, amount: num(rows[row - 1]?.[1]) });
+  }
+  return out;
+}
 
 /** 「티커」 한 줄(B · C …)이 종목 줄이면 그 코드 — 빈 줄 · 이름 없음 · 코드 없음 · 구분 줄(「개별 투자」 등)은 null */
 export function tickerRowCode(r: Cell[] | undefined): string | null {
@@ -191,15 +202,27 @@ export function parseAssetSheet(values: CellRows[], formulas: CellRows[], readAt
     return { key: s.combined ? null : s.key, name, combined: s.combined, holdings };
   });
 
-  const cashTotal = num(first(next()));
-  const retirement = num(first(next()));
+  const cashRows = next();
+  const cash = findCashShape(cashRows); // 못 찾으면 shape 오류 — 값을 만들지 않는다
+  const cashTotal = num(cashRows[cash.bank.totalRow - 1]?.[1]);
+  const retirement = num(cashRows[cash.retirement.totalRow - 1]?.[1]);
   const salary = num(first(next()));
   const avgFxRate = num(first(next()));
-  const [cash, gold, bond, invest] = asPercent(L.targetRatio.assets.map(() => num(first(next()))));
+  const [cashPct, gold, bond, invest] = asPercent(L.targetRatio.assets.map(() => num(first(next()))));
   const [core, satellite] = asPercent(L.targetRatio.coreSatellite.map(() => num(first(next()))));
-  const targetRatio: AssetTargetRatio = { cash, gold, bond, invest, core, satellite };
+  const targetRatio: AssetTargetRatio = { cash: cashPct, gold, bond, invest, core, satellite };
 
-  return { readAt, sections, cashTotal, retirement, targetRatio, salary, avgFxRate };
+  return {
+    readAt,
+    sections,
+    cashTotal,
+    retirement,
+    cashAccounts: cashRowsOf(cashRows, cash.bank),
+    retirementAccounts: cashRowsOf(cashRows, cash.retirement),
+    targetRatio,
+    salary,
+    avgFxRate,
+  };
 }
 
 let cache: { at: number; data: AssetSheetData } | null = null;

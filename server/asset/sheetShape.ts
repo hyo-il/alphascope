@@ -28,6 +28,18 @@ export interface ShapeTicker {
   rows: number[];
 }
 
+/** 「현금」 탭에서 찾은 구간 하나(v2.70.4) — 계좌 줄 = 머리 다음 줄 ~ 총액 앞 줄 */
+export interface CashBlock {
+  headRow: number;
+  totalRow: number;
+}
+
+/** 「현금」 탭 — 은행 · 퇴직 연금 */
+export interface CashShape {
+  bank: CashBlock;
+  retirement: CashBlock;
+}
+
 export interface SheetShape {
   sections: ShapeSection[];
   tickers: ShapeTicker[];
@@ -125,6 +137,26 @@ export function findTickerGroups(rows: CellRows): ShapeTicker[] {
 /** 읽은 두 탭 → 구간 전체. 못 찾으면 `shape` 오류 */
 export function findSheetShape(holdingRows: CellRows, tickerRows: CellRows): SheetShape {
   return { sections: findHoldingSections(holdingRows), tickers: findTickerGroups(tickerRows) };
+}
+
+/**
+ * 「현금」 B열부터의 줄(`rows[줄 번호 - 1]`) → 은행 · 퇴직 연금 구간(v2.70.4). 글자는 `sheetLayout` `cash` — 공백을 빼고 같은 글자.
+ * 네 글자가 한 번씩 · 은행 머리 < 은행 총액 < 퇴직 연금 머리 < 퇴직 연금 총액 순서여야 한다. 아니면 `shape` 오류(찾지 못한 글자를 알린다 — 값은 싣지 않는다).
+ */
+export function findCashShape(rows: CellRows): CashShape {
+  const c = L.cash;
+  const rowOf = (mark: string): number => {
+    const found = rows.flatMap((r, i) => (squash(r?.[0]) === squash(mark) ? [i + 1] : []));
+    if (found.length === 0) throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(「${c.tab}」 탭에서 「${mark}」 줄을 찾지 못했어요).`);
+    if (found.length > 1) throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(「${c.tab}」 탭에 「${mark}」 줄이 두 번 있어요).`);
+    return found[0];
+  };
+  const marks = [c.bankHead, c.bankTotal, c.retireHead, c.retireTotal];
+  const at = marks.map(rowOf);
+  for (let i = 1; i < at.length; i++) {
+    if (at[i] <= at[i - 1]) throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(「${c.tab}」 탭 — 「${marks[i - 1]}」 줄이 「${marks[i]}」 줄보다 위에 있어야 해요).`);
+  }
+  return { bank: { headRow: at[0], totalRow: at[1] }, retirement: { headRow: at[2], totalRow: at[3] } };
 }
 
 /** 「티커」 종목 줄 번호 전부(시트 순서) */

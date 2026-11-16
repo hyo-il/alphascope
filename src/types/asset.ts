@@ -128,6 +128,14 @@ export interface AssetTargetRatio {
   satellite: number | null;
 }
 
+/** 「현금」 탭 계좌 한 줄(v2.70.4) — 이름(두 줄 이름은 한 줄로) · 금액(빈칸 · 숫자 아님은 null → 화면 「—」) */
+export interface AssetCashRow {
+  /** 시트 줄 번호 */
+  row: number;
+  name: string;
+  amount: number | null;
+}
+
 /** `GET /api/asset/sheet` 성공 */
 export interface AssetSheetData {
   /** 시트에서 읽은 시각(ISO) */
@@ -137,6 +145,10 @@ export interface AssetSheetData {
   cashTotal: number | null;
   /** 퇴직 연금(원) */
   retirement: number | null;
+  /** 「현금」 탭 은행 계좌 줄(시트 순서 · 읽기만 · v2.70.4) — 「현금 합계」 펼침 */
+  cashAccounts: AssetCashRow[];
+  /** 「현금」 탭 퇴직 연금 줄(시트 순서 · 읽기만 · v2.70.4) — 「연금 포함」 일 때 펼침에 */
+  retirementAccounts: AssetCashRow[];
   targetRatio: AssetTargetRatio;
   /** 월급(원) */
   salary: number | null;

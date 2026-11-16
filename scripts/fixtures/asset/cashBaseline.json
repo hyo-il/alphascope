@@ -1,0 +1,898 @@
+{
+ "sheet": {
+  "sections": [
+   {
+    "key": "개별 투자",
+    "name": "개별 투자 ( 2026.07 )",
+    "combined": false,
+    "holdings": [
+     {
+      "row": 5,
+      "name": "가짜A",
+      "code": "900001",
+      "market": "KR",
+      "exchange": null,
+      "symbol": "900001",
+      "quantity": 10,
+      "avgPrice": 71000,
+      "currency": "KRW",
+      "tradable": true,
+      "avgFormula": null,
+      "tickerRow": 14,
+      "assetClass": "주식",
+      "classFormula": false
+     },
+     {
+      "row": 6,
+      "name": "가짜B",
+      "code": "NASDAQ:FAKB",
+      "market": "US",
+      "exchange": "NASDAQ",
+      "symbol": "FAKB",
+      "quantity": 3,
+      "avgPrice": 120.5,
+      "currency": "USD",
+      "tradable": true,
+      "avgFormula": "=(120.5)*('티커'!$G$9)",
+      "tickerRow": 15,
+      "assetClass": "주식",
+      "classFormula": false
+     },
+     {
+      "row": 7,
+      "name": "가짜C",
+      "code": "900003",
+      "market": "KR",
+      "exchange": null,
+      "symbol": "900003",
+      "quantity": 5,
+      "avgPrice": 98000,
+      "currency": "KRW",
+      "tradable": true,
+      "avgFormula": null,
+      "tickerRow": 16,
+      "assetClass": "채권",
+      "classFormula": false
+     }
+    ]
+   },
+   {
+    "key": "적립식 계좌",
+    "name": "적립식 계좌 ( 2026.10 )",
+    "combined": false,
+    "holdings": [
+     {
+      "row": 11,
+      "name": "가짜D",
+      "code": "900004",
+      "market": "KR",
+      "exchange": null,
+      "symbol": "900004",
+      "quantity": 40,
+      "avgPrice": 15000,
+      "currency": "KRW",
+      "tradable": true,
+      "avgFormula": null,
+      "tickerRow": 19,
+      "assetClass": "주식",
+      "classFormula": false
+     },
+     {
+      "row": 12,
+      "name": "가짜E",
+      "code": "NYSEARCA:FAKE",
+      "market": "US",
+      "exchange": "NYSEARCA",
+      "symbol": "FAKE",
+      "quantity": 2,
+      "avgPrice": 210.25,
+      "currency": "USD",
+      "tradable": true,
+      "avgFormula": "=(210.25)*('티커'!$G$9)",
+      "tickerRow": 20,
+      "assetClass": "금",
+      "classFormula": false
+     }
+    ]
+   },
+   {
+    "key": "ISA 계좌",
+    "name": "ISA 계좌 ( 2026.07 )",
+    "combined": false,
+    "holdings": [
+     {
+      "row": 16,
+      "name": "가짜F",
+      "code": "900006",
+      "market": "KR",
+      "exchange": null,
+      "symbol": "900006",
+      "quantity": 100,
+      "avgPrice": 9000,
+      "currency": "KRW",
+      "tradable": true,
+      "avgFormula": null,
+      "tickerRow": 23,
+      "assetClass": "주식",
+      "classFormula": false
+     },
+     {
+      "row": 17,
+      "name": "가짜G",
+      "code": "900007",
+      "market": "KR",
+      "exchange": null,
+      "symbol": "900007",
+      "quantity": 7,
+      "avgPrice": 12000,
+      "currency": "KRW",
+      "tradable": true,
+      "avgFormula": null,
+      "tickerRow": 24,
+      "assetClass": null,
+      "classFormula": false
+     }
+    ]
+   },
+   {
+    "key": "연금 저축 계좌",
+    "name": "연금 저축 계좌 ( 2026.07 )",
+    "combined": false,
+    "holdings": [
+     {
+      "row": 21,
+      "name": "가짜H",
+      "code": "900008",
+      "market": "KR",
+      "exchange": null,
+      "symbol": "900008",
+      "quantity": 30,
+      "avgPrice": 20000,
+      "currency": "KRW",
+      "tradable": true,
+      "avgFormula": null,
+      "tickerRow": 27,
+      "assetClass": "주식",
+      "classFormula": false
+     },
+     {
+      "row": 22,
+      "name": "가짜I",
+      "code": "NASDAQ:FAKI",
+      "market": "US",
+      "exchange": "NASDAQ",
+      "symbol": "FAKI",
+      "quantity": 4,
+      "avgPrice": 88.75,
+      "currency": "USD",
+      "tradable": true,
+      "avgFormula": "=(88.75)*('티커'!$G$9)",
+      "tickerRow": 28,
+      "assetClass": "채권",
+      "classFormula": false
+     }
+    ]
+   },
+   {
+    "key": null,
+    "name": "적립식 주식",
+    "combined": true,
+    "holdings": [
+     {
+      "row": 31,
+      "name": "가짜D",
+      "code": "900004",
+      "market": "KR",
+      "exchange": null,
+      "symbol": "900004",
+      "quantity": 40,
+      "avgPrice": 15000,
+      "currency": "KRW",
+      "tradable": false,
+      "avgFormula": null,
+      "tickerRow": 19,
+      "assetClass": "주식",
+      "classFormula": false
+     }
+    ]
+   }
+  ],
+  "cashTotal": 41111090,
+  "retirement": 33333333,
+  "targetRatio": {
+   "cash": 20,
+   "gold": 10,
+   "bond": 20,
+   "invest": 50,
+   "core": 70,
+   "satellite": 30
+  },
+  "salary": 3210000,
+  "avgFxRate": 1350
+ },
+ "out": [
+  {
+   "pension": false,
+   "totals": {
+    "totals": {
+     "total": 45074573.875,
+     "groups": [
+      {
+       "key": "cash",
+       "label": "현금",
+       "amount": 41111090,
+       "ratio": 0.9120683007233421
+      },
+      {
+       "key": "bond",
+       "label": "채권",
+       "amount": 485000,
+       "ratio": 0.010759946424451916
+      },
+      {
+       "key": "gold",
+       "label": "금",
+       "amount": 597055,
+       "ratio": 0.013245937757631214
+      },
+      {
+       "key": "stock",
+       "label": "주식",
+       "amount": 2796728.875,
+       "ratio": 0.06204670692519109
+      },
+      {
+       "key": "none",
+       "label": "미지정",
+       "amount": 84700,
+       "ratio": 0.0018791081693836644
+      }
+     ],
+     "core": 1866728.875,
+     "satellite": 930000,
+     "missing": 0
+    },
+    "profit": {
+     "amount": 123783.875,
+     "ratio": 0.032237902700731826
+    },
+    "missingNames": []
+   },
+   "rebalance": {
+    "band": 5,
+    "assets": {
+     "base": 44989873.875,
+     "rows": [
+      {
+       "key": "cash",
+       "label": "현금",
+       "targetPct": 20,
+       "nowPct": 91.3785402337939,
+       "targetAmount": 8997974.775,
+       "nowAmount": 41111090,
+       "diffAmount": -32113115,
+       "diffPp": -71.3785402337939,
+       "status": "adjust"
+      },
+      {
+       "key": "bond",
+       "label": "채권",
+       "targetPct": 20,
+       "nowPct": 1.0780203593091313,
+       "targetAmount": 8997974.775,
+       "nowAmount": 485000,
+       "diffAmount": 8512975,
+       "diffPp": 18.921979640690868,
+       "status": "adjust"
+      },
+      {
+       "key": "gold",
+       "label": "금",
+       "targetPct": 10,
+       "nowPct": 1.3270875167573473,
+       "targetAmount": 4498987.3875,
+       "nowAmount": 597055,
+       "diffAmount": 3901932,
+       "diffPp": 8.672912483242653,
+       "status": "adjust"
+      },
+      {
+       "key": "stock",
+       "label": "주식",
+       "targetPct": 50,
+       "nowPct": 6.216351890139634,
+       "targetAmount": 22494936.9375,
+       "nowAmount": 2796728.875,
+       "diffAmount": 19698208,
+       "diffPp": 43.783648109860366,
+       "status": "adjust"
+      }
+     ],
+     "targetSum": 100,
+     "targetMissing": false
+    },
+    "stocks": {
+     "base": 2796728.875,
+     "rows": [
+      {
+       "key": "core",
+       "label": "코어",
+       "targetPct": 70,
+       "nowPct": 66.74686601503336,
+       "targetAmount": 1957710.2125,
+       "nowAmount": 1866728.875,
+       "diffAmount": 90981,
+       "diffPp": 3.253133984966638,
+       "status": "ok"
+      },
+      {
+       "key": "satellite",
+       "label": "위성",
+       "targetPct": 30,
+       "nowPct": 33.25313398496663,
+       "targetAmount": 839018.6625,
+       "nowAmount": 930000,
+       "diffAmount": -90981,
+       "diffPp": -3.253133984966631,
+       "status": "ok"
+      }
+     ],
+     "targetSum": 100,
+     "targetMissing": false
+    },
+    "excluded": [
+     {
+      "key": "none",
+      "label": "미지정",
+      "amount": 84700,
+      "count": null
+     }
+    ]
+   },
+   "bySymbol": [
+    {
+     "id": "900006",
+     "name": "가짜F",
+     "symbol": "900006",
+     "exchange": null,
+     "assetClass": "주식",
+     "side": "satellite",
+     "sections": [
+      "ISA 계좌"
+     ],
+     "quantity": 100,
+     "value": 930000,
+     "missing": 0,
+     "ratio": 0.020632474587093365
+    },
+    {
+     "id": "900001",
+     "name": "가짜A",
+     "symbol": "900001",
+     "exchange": null,
+     "assetClass": "주식",
+     "side": "core",
+     "sections": [
+      "개별 투자"
+     ],
+     "quantity": 10,
+     "value": 725000,
+     "missing": 0,
+     "ratio": 0.01608445599531472
+    },
+    {
+     "id": "900004",
+     "name": "가짜D",
+     "symbol": "900004",
+     "exchange": null,
+     "assetClass": "주식",
+     "side": "core",
+     "sections": [
+      "적립식 계좌"
+     ],
+     "quantity": 40,
+     "value": 620000,
+     "missing": 0,
+     "ratio": 0.013754983058062243
+    },
+    {
+     "id": "FAKE",
+     "name": "가짜E",
+     "symbol": "FAKE",
+     "exchange": "NYSEARCA",
+     "assetClass": "금",
+     "side": null,
+     "sections": [
+      "적립식 계좌"
+     ],
+     "quantity": 2,
+     "value": 597055,
+     "missing": 0,
+     "ratio": 0.013245937757631214
+    },
+    {
+     "id": "FAKB",
+     "name": "가짜B",
+     "symbol": "FAKB",
+     "exchange": "NASDAQ",
+     "assetClass": "주식",
+     "side": "core",
+     "sections": [
+      "개별 투자"
+     ],
+     "quantity": 3,
+     "value": 521728.875,
+     "missing": 0,
+     "ratio": 0.011574793284720764
+    },
+    {
+     "id": "900003",
+     "name": "가짜C",
+     "symbol": "900003",
+     "exchange": null,
+     "assetClass": "채권",
+     "side": null,
+     "sections": [
+      "개별 투자"
+     ],
+     "quantity": 5,
+     "value": 485000,
+     "missing": 0,
+     "ratio": 0.010759946424451916
+    },
+    {
+     "id": "900007",
+     "name": "가짜G",
+     "symbol": "900007",
+     "exchange": null,
+     "assetClass": null,
+     "side": null,
+     "sections": [
+      "ISA 계좌"
+     ],
+     "quantity": 7,
+     "value": 84700,
+     "missing": 0,
+     "ratio": 0.0018791081693836644
+    }
+   ]
+  },
+  {
+   "pension": true,
+   "totals": {
+    "totals": {
+     "total": 79540543.875,
+     "groups": [
+      {
+       "key": "cash",
+       "label": "현금",
+       "amount": 41111090,
+       "ratio": 0.5168570391548634
+      },
+      {
+       "key": "bond",
+       "label": "채권",
+       "amount": 987637,
+       "ratio": 0.01241677453893321
+      },
+      {
+       "key": "gold",
+       "label": "금",
+       "amount": 597055,
+       "ratio": 0.007506297680567626
+      },
+      {
+       "key": "stock",
+       "label": "주식",
+       "amount": 3426728.875,
+       "ratio": 0.043081536887467
+      },
+      {
+       "key": "retirement",
+       "label": "퇴직 연금",
+       "amount": 33333333,
+       "ratio": 0.4190734859995952
+      },
+      {
+       "key": "none",
+       "label": "미지정",
+       "amount": 84700,
+       "ratio": 0.0010648657385736288
+      }
+     ],
+     "core": 2496728.875,
+     "satellite": 930000,
+     "missing": 0
+    },
+    "profit": {
+     "amount": 177170.875,
+     "ratio": 0.03601802722125657
+    },
+    "missingNames": []
+   },
+   "rebalance": {
+    "band": 5,
+    "assets": {
+     "base": 46122510.875,
+     "rows": [
+      {
+       "key": "cash",
+       "label": "현금",
+       "targetPct": 20,
+       "nowPct": 89.13454454250807,
+       "targetAmount": 9224502.175,
+       "nowAmount": 41111090,
+       "diffAmount": -31886588,
+       "diffPp": -69.13454454250807,
+       "status": "adjust"
+      },
+      {
+       "key": "bond",
+       "label": "채권",
+       "targetPct": 20,
+       "nowPct": 2.141333984779509,
+       "targetAmount": 9224502.175,
+       "nowAmount": 987637,
+       "diffAmount": 8236865,
+       "diffPp": 17.858666015220493,
+       "status": "adjust"
+      },
+      {
+       "key": "gold",
+       "label": "금",
+       "targetPct": 10,
+       "nowPct": 1.2944980415704657,
+       "targetAmount": 4612251.0875,
+       "nowAmount": 597055,
+       "diffAmount": 4015196,
+       "diffPp": 8.705501958429535,
+       "status": "adjust"
+      },
+      {
+       "key": "stock",
+       "label": "주식",
+       "targetPct": 50,
+       "nowPct": 7.429623431141962,
+       "targetAmount": 23061255.4375,
+       "nowAmount": 3426728.875,
+       "diffAmount": 19634527,
+       "diffPp": 42.57037656885804,
+       "status": "adjust"
+      }
+     ],
+     "targetSum": 100,
+     "targetMissing": false
+    },
+    "stocks": {
+     "base": 3426728.875,
+     "rows": [
+      {
+       "key": "core",
+       "label": "코어",
+       "targetPct": 70,
+       "nowPct": 72.86041487597994,
+       "targetAmount": 2398710.2125,
+       "nowAmount": 2496728.875,
+       "diffAmount": -98019,
+       "diffPp": -2.8604148759799415,
+       "status": "ok"
+      },
+      {
+       "key": "satellite",
+       "label": "위성",
+       "targetPct": 30,
+       "nowPct": 27.13958512402006,
+       "targetAmount": 1028018.6625,
+       "nowAmount": 930000,
+       "diffAmount": 98019,
+       "diffPp": 2.8604148759799415,
+       "status": "ok"
+      }
+     ],
+     "targetSum": 100,
+     "targetMissing": false
+    },
+    "excluded": [
+     {
+      "key": "none",
+      "label": "미지정",
+      "amount": 84700,
+      "count": null
+     },
+     {
+      "key": "retirement",
+      "label": "퇴직 연금",
+      "amount": 33333333,
+      "count": null
+     }
+    ]
+   },
+   "bySymbol": [
+    {
+     "id": "900006",
+     "name": "가짜F",
+     "symbol": "900006",
+     "exchange": null,
+     "assetClass": "주식",
+     "side": "satellite",
+     "sections": [
+      "ISA 계좌"
+     ],
+     "quantity": 100,
+     "value": 930000,
+     "missing": 0,
+     "ratio": 0.01169215037631021
+    },
+    {
+     "id": "900001",
+     "name": "가짜A",
+     "symbol": "900001",
+     "exchange": null,
+     "assetClass": "주식",
+     "side": "core",
+     "sections": [
+      "개별 투자"
+     ],
+     "quantity": 10,
+     "value": 725000,
+     "missing": 0,
+     "ratio": 0.009114848411639679
+    },
+    {
+     "id": "900008",
+     "name": "가짜H",
+     "symbol": "900008",
+     "exchange": null,
+     "assetClass": "주식",
+     "side": "core",
+     "sections": [
+      "연금 저축 계좌"
+     ],
+     "quantity": 30,
+     "value": 630000,
+     "missing": 0,
+     "ratio": 0.007920488964597239
+    },
+    {
+     "id": "900004",
+     "name": "가짜D",
+     "symbol": "900004",
+     "exchange": null,
+     "assetClass": "주식",
+     "side": "core",
+     "sections": [
+      "적립식 계좌"
+     ],
+     "quantity": 40,
+     "value": 620000,
+     "missing": 0,
+     "ratio": 0.00779476691754014
+    },
+    {
+     "id": "FAKE",
+     "name": "가짜E",
+     "symbol": "FAKE",
+     "exchange": "NYSEARCA",
+     "assetClass": "금",
+     "side": null,
+     "sections": [
+      "적립식 계좌"
+     ],
+     "quantity": 2,
+     "value": 597055,
+     "missing": 0,
+     "ratio": 0.007506297680567626
+    },
+    {
+     "id": "FAKB",
+     "name": "가짜B",
+     "symbol": "FAKB",
+     "exchange": "NASDAQ",
+     "assetClass": "주식",
+     "side": "core",
+     "sections": [
+      "개별 투자"
+     ],
+     "quantity": 3,
+     "value": 521728.875,
+     "missing": 0,
+     "ratio": 0.006559282217379734
+    },
+    {
+     "id": "FAKI",
+     "name": "가짜I",
+     "symbol": "FAKI",
+     "exchange": "NASDAQ",
+     "assetClass": "채권",
+     "side": null,
+     "sections": [
+      "연금 저축 계좌"
+     ],
+     "quantity": 4,
+     "value": 502637,
+     "missing": 0,
+     "ratio": 0.006319255256663908
+    },
+    {
+     "id": "900003",
+     "name": "가짜C",
+     "symbol": "900003",
+     "exchange": null,
+     "assetClass": "채권",
+     "side": null,
+     "sections": [
+      "개별 투자"
+     ],
+     "quantity": 5,
+     "value": 485000,
+     "missing": 0,
+     "ratio": 0.006097519282269303
+    },
+    {
+     "id": "900007",
+     "name": "가짜G",
+     "symbol": "900007",
+     "exchange": null,
+     "assetClass": null,
+     "side": null,
+     "sections": [
+      "ISA 계좌"
+     ],
+     "quantity": 7,
+     "value": 84700,
+     "missing": 0,
+     "ratio": 0.0010648657385736288
+    }
+   ]
+  }
+ ],
+ "accounts": [
+  {
+   "key": "개별 투자",
+   "name": "개별 투자 ( 2026.07 )",
+   "holdings": 3,
+   "value": 1731728.875,
+   "missing": 0
+  },
+  {
+   "key": "적립식 계좌",
+   "name": "적립식 계좌 ( 2026.10 )",
+   "holdings": 2,
+   "value": 1217055,
+   "missing": 0
+  },
+  {
+   "key": "ISA 계좌",
+   "name": "ISA 계좌 ( 2026.07 )",
+   "holdings": 2,
+   "value": 1014700,
+   "missing": 0
+  },
+  {
+   "key": "연금 저축 계좌",
+   "name": "연금 저축 계좌 ( 2026.07 )",
+   "holdings": 2,
+   "value": 1132637,
+   "missing": 0
+  }
+ ],
+ "daily": [
+  {
+   "section": "개별 투자",
+   "pension": false,
+   "symbol": "900001",
+   "name": "가짜A",
+   "market": "KR",
+   "group": "stock",
+   "quantity": 10,
+   "price": 72500,
+   "currency": "KRW",
+   "krw": 725000,
+   "missing": false
+  },
+  {
+   "section": "개별 투자",
+   "pension": false,
+   "symbol": "FAKB",
+   "name": "가짜B",
+   "market": "US",
+   "group": "stock",
+   "quantity": 3,
+   "price": 125.25,
+   "currency": "USD",
+   "krw": 521728.875,
+   "missing": false
+  },
+  {
+   "section": "개별 투자",
+   "pension": false,
+   "symbol": "900003",
+   "name": "가짜C",
+   "market": "KR",
+   "group": "bond",
+   "quantity": 5,
+   "price": 97000,
+   "currency": "KRW",
+   "krw": 485000,
+   "missing": false
+  },
+  {
+   "section": "적립식 계좌",
+   "pension": false,
+   "symbol": "900004",
+   "name": "가짜D",
+   "market": "KR",
+   "group": "stock",
+   "quantity": 40,
+   "price": 15500,
+   "currency": "KRW",
+   "krw": 620000,
+   "missing": false
+  },
+  {
+   "section": "적립식 계좌",
+   "pension": false,
+   "symbol": "FAKE",
+   "name": "가짜E",
+   "market": "US",
+   "group": "gold",
+   "quantity": 2,
+   "price": 215,
+   "currency": "USD",
+   "krw": 597055,
+   "missing": false
+  },
+  {
+   "section": "ISA 계좌",
+   "pension": false,
+   "symbol": "900006",
+   "name": "가짜F",
+   "market": "KR",
+   "group": "stock",
+   "quantity": 100,
+   "price": 9300,
+   "currency": "KRW",
+   "krw": 930000,
+   "missing": false
+  },
+  {
+   "section": "ISA 계좌",
+   "pension": false,
+   "symbol": "900007",
+   "name": "가짜G",
+   "market": "KR",
+   "group": "none",
+   "quantity": 7,
+   "price": 12100,
+   "currency": "KRW",
+   "krw": 84700,
+   "missing": false
+  },
+  {
+   "section": "연금 저축 계좌",
+   "pension": true,
+   "symbol": "900008",
+   "name": "가짜H",
+   "market": "KR",
+   "group": "stock",
+   "quantity": 30,
+   "price": 21000,
+   "currency": "KRW",
+   "krw": 630000,
+   "missing": false
+  },
+  {
+   "section": "연금 저축 계좌",
+   "pension": true,
+   "symbol": "FAKI",
+   "name": "가짜I",
+   "market": "US",
+   "group": "bond",
+   "quantity": 4,
+   "price": 90.5,
+   "currency": "USD",
+   "krw": 502637,
+   "missing": false
+  }
+ ]
+}

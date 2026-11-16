@@ -269,8 +269,8 @@ function fakeSheet(): { values: Record<string, Cell>; formulas: Record<string, C
     '자산 투자 비율 관리!C18': 0.2, '자산 투자 비율 관리!D18': 0.1, '자산 투자 비율 관리!E18': 0.1, '자산 투자 비율 관리!F18': 0.6,
     '자산 투자 비율 관리!G23': 70, '자산 투자 비율 관리!G24': 30,
     '월 고정지출!B5': '현재 월 급여', '월 고정지출!C5': FAKE.salary,
-    '현금!B25': '은행 자산 총액', '현금!C25': FAKE.cash,
-    '현금!B30': '퇴직 연금 총액', '현금!C30': FAKE.retirement,
+    '현금!B4': '은행 자산', '현금!B25': '은행 자산 총액', '현금!C25': FAKE.cash,
+    '현금!B28': '퇴직 연금', '현금!B30': '퇴직 연금 총액', '현금!C30': FAKE.retirement,
   };
   const f: Record<string, Cell> = { ...v,
     '주식 투자 정리!C5': `=(${FAKE.usd})*('티커'!$G$9)`, '주식 투자 정리!F5': "=D5*'티커'!$F$15",
@@ -444,7 +444,7 @@ try {
   } catch (e) {
     shapeErr = e instanceof AssetSheetError ? e : null;
   }
-  check('[7] 머리 글자가 다르면 kind shape · 어느 탭 · 어느 칸을 말한다', shapeErr?.kind === 'shape' && /「현금」 탭 B25/.test(shapeErr.message));
+  check('[7] 머리 글자가 다르면 kind shape · 어느 탭 · 어느 글자를 말한다(「현금」 탭은 v2.70.4 부터 글자로 찾음 — 「은행 자산」 두 번)', shapeErr?.kind === 'shape' && /「현금」 탭에 「은행 자산」 줄이 두 번/.test(shapeErr.message));
   check('[7] 모양이 다르면 수식은 읽지 않고 값도 돌려주지 않는다', google.formulas === 0 && !SECRET_STRINGS.some((x) => (shapeErr?.message ?? '').includes(x)));
   const r = sheetRanges();
   const fakeValues = r.values.map((x) => cut(sheetModel.values, x));

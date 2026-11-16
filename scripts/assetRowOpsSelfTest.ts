@@ -79,7 +79,7 @@ function holdingLine(b: Book, r: number, name: string, avg: Cell, qty: number, l
 
 /** 만든 시트 — 보유 구간 아래 = 빈 줄 하나 + 합계 줄(B열 글자 없음 — 원본 모양) · 「티커」 묶음 뒤 빈 줄(마지막 묶음은 없음) */
 function sheet(): Book {
-  const b: Book = { [H]: {}, [T]: {}, [OTHER]: {}, '자산 투자 비율 관리': { B18: '자산 배분 비율' }, '월 고정지출': { B5: '현재 월 급여' }, 현금: { B25: '은행 자산 총액', B30: '퇴직 연금 총액' } };
+  const b: Book = { [H]: {}, [T]: {}, [OTHER]: {}, '자산 투자 비율 관리': { B18: '자산 배분 비율' }, '월 고정지출': { B5: '현재 월 급여' }, 현금: { B4: '은행 자산', B25: '은행 자산 총액', B28: '퇴직 연금', B30: '퇴직 연금 총액' } };
   Object.assign(b[T], { B12: '구분', D12: '자산 분류', G9: 1300, C9: 1300, B14: '개별 투자', B19: '적립식 투자', B23: 'ISA 계좌', B27: '연금 저축 계좌' });
   tickerLine(b, 15, NAME.a, CODE.a, '주식');
   tickerLine(b, 16, NAME.b, CODE.b, '주식');

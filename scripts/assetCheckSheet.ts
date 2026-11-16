@@ -4,9 +4,9 @@
  *
  * - 시트: `--sheet <ID>`(또는 `--sheet=<ID>`) · 없으면 `.env` 의 `ASSET_SHEET_ID`. 열쇠: `.env` 의 `GOOGLE_SA_KEY_FILE`.
  * - 보는 칸은 모두 `server/asset/sheetLayout.ts` 한 곳에서 가져온다(새 목록을 손으로 적지 않는다):
- *   1 열 수 있는가(안 되면 서비스 계정 이메일에 편집자로 공유) · 2 탭 이름 · 머리 글자(`headers` · 목표 비율 머리) ·
+ *   1 열 수 있는가(안 되면 서비스 계정 이메일에 편집자로 공유) · 2 탭 이름 · 머리 글자(`headers` · 목표 비율 머리) · 「현금」 탭 머리 · 총액 줄(`findCashShape` — 은행 계좌 · 퇴직 연금 줄 수 · 총액 줄 위치 · v2.70.4) ·
  *   3 「티커」 종목 줄 수 · 국내/미국 · D열 자산 분류 값 · 4 시트 가격 칸 모양(113차 A-0 와 같은 검사 — `classifyLine`) ·
- *   5 목표 비율 여섯 칸 · 계좌 이름 「( 날짜 )」 모양 · 값 칸(현금 · 퇴직 연금 · 월급 · 구매 평균 환율) · 6 「주식 투자 정리」 보유 줄이 「티커」 와 이어지는가 ·
+ *   5 목표 비율 여섯 칸 · 계좌 이름 「( 날짜 )」 모양 · 값 칸(은행 자산 총액 · 퇴직 연금 총액 · 월급 · 구매 평균 환율) · 6 「주식 투자 정리」 보유 줄이 「티커」 와 이어지는가 ·
  *   7 머리 글자로 찾은 보유 구간 · 「티커」 묶음마다 종목 줄 수 · 빈 줄 수 · 빈 줄 칸 모양(새 종목 입력 준비 — v2.66.0) · 구매 평균 환율 칸 모양. 7번은 알림뿐(연결 판단에 넣지 않는다).
  * - 마지막 줄 「✅ 연결해도 됩니다」(종료 0) 또는 「❌ 연결하지 마세요 — 위 n곳을 먼저 고쳐 주세요」(종료 1). ⚠️ 는 알림(연결은 됨).
  * ⚠️ 금액 · 수량 · 종목 이름 · 코드 · 시트 ID 전체 · 열쇠 값(이메일 말고)을 출력하지 않는다 — 시트는 ID 앞 4글자 + 「…」 · 날짜는 숫자를 # 로.
@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { AssetSheetError, batchGet, type CellRows } from '../server/asset/google';
 import { NAME_DATE, headerOk, linkedTickerRow, one, splitCode, tickerRowCode, wideRange } from '../server/asset/sheet';
 import { HOLDINGS_TAB, SHEET_LAYOUT, TICKER_TAB, type HeaderCheck } from '../server/asset/sheetLayout';
-import { findSheetShape, tickerRowsOf, type SheetShape } from '../server/asset/sheetShape';
+import { findCashShape, findSheetShape, tickerRowsOf, type CashShape, type SheetShape } from '../server/asset/sheetShape';
 import { classifyLine, tickerLines } from '../server/asset/priceSheet';
 import { ASSET_CLASSES, LEGACY_CASH_CLASS } from '../src/types/asset';
 import type { AssetSheetConfig } from '../server/asset/config';
@@ -75,6 +75,7 @@ function ranges() {
       ...R.headers.map((h) => one(h.tab, h.cell)),
       ticker,
       holding,
+      wideRange(L.cash.tab, L.cash.lastColumn),
       ...cells.map((c) => one(c.tab, c.cell)),
       ...ratioCells.map((c) => one(R.tab, c)),
     ],
@@ -140,6 +141,21 @@ export async function runSheetCheck(config: AssetSheetConfig, say: (line: string
     bad(e instanceof AssetSheetError ? e.message : '구간을 찾지 못했습니다');
     say(`❌ 연결하지 마세요 — 위 ${problems}곳을 먼저 고쳐 주세요`);
     return { ok: false, problems, reads };
+  }
+
+  // 「현금」 탭 — 머리 · 총액 글자로(읽기 앱과 같은 함수 · v2.70.4). 줄 수 · 줄 위치만(이름 · 금액은 내보내지 않는다)
+  const cashRows = nextV();
+  let cash: CashShape | null = null;
+  try {
+    cash = findCashShape(cashRows);
+  } catch (e) {
+    bad(e instanceof AssetSheetError ? e.message : `「${L.cash.tab}」 탭 구간을 찾지 못했습니다`);
+  }
+  if (cash) {
+    const named = (b: CashShape['bank']) => Array.from({ length: b.totalRow - b.headRow - 1 }, (_, k) => b.headRow + 1 + k).filter((row) => !blank(cashRows[row - 1]?.[0])).length;
+    say(
+      `   「${L.cash.tab}」 탭 — 맞음 (은행 계좌 ${named(cash.bank)}줄 · 퇴직 연금 ${named(cash.retirement)}줄 · 총액 줄 「${L.cash.bankTotal}」 B${cash.bank.totalRow} · 「${L.cash.retireTotal}」 B${cash.retirement.totalRow})`,
+    );
   }
 
   // 3. 「티커」 종목 줄 · 자산 분류(D열)
@@ -220,11 +236,19 @@ export async function runSheetCheck(config: AssetSheetConfig, say: (line: string
   say(`   계좌 이름 「( 날짜 )」 — ${nameShapes.map((x) => `${x.cell} ${x.date ?? '날짜 없음'}`).join(' · ')}`);
   if (noDate.length === nameShapes.length) warn(`계좌 이름 칸에 「( 날짜 )」 가 없어 [구매 완료] 가 날짜를 쓰지 못합니다`);
 
-  const cellNames: Record<string, string> = { cashTotal: '은행 자산 총액', retirement: '퇴직 연금 총액', salary: '현재 월 급여', avgFxRate: '구매 평균 환율' };
+  const cellNames: Record<string, string> = { salary: '현재 월 급여', avgFxRate: '구매 평균 환율' };
   const cellKeys = Object.keys(L.cells);
-  const notNum = r.cells.map((c, k) => ({ c, key: cellKeys[k], v: cellVals[k] })).filter((x) => !isNum(x.v));
-  say(`   값 칸 — ${notNum.length ? `숫자 아님 ${notNum.length}칸` : `맞음 (${r.cells.length}칸 숫자)`}`);
-  for (const x of notNum) warn(`「${x.c.tab}」 ${x.c.cell}(${cellNames[x.key] ?? x.key}) 이 숫자가 아닙니다 — 그 값은 빠지고 계산됩니다`);
+  // 「현금」 총액 두 칸(찾은 총액 줄의 C열) + 값 칸
+  const totals = cash
+    ? [
+        { c: { tab: L.cash.tab, cell: `C${cash.bank.totalRow}` }, key: L.cash.bankTotal, v: cashRows[cash.bank.totalRow - 1]?.[1] },
+        { c: { tab: L.cash.tab, cell: `C${cash.retirement.totalRow}` }, key: L.cash.retireTotal, v: cashRows[cash.retirement.totalRow - 1]?.[1] },
+      ]
+    : [];
+  const valueCells = [...totals, ...r.cells.map((c, k) => ({ c, key: cellNames[cellKeys[k]] ?? cellKeys[k], v: cellVals[k] }))];
+  const notNum = valueCells.filter((x) => !isNum(x.v));
+  say(`   값 칸 — ${notNum.length ? `숫자 아님 ${notNum.length}칸` : `맞음 (${valueCells.length}칸 숫자)`}`);
+  for (const x of notNum) warn(`「${x.c.tab}」 ${x.c.cell}(${x.key}) 이 숫자가 아닙니다 — 그 값은 빠지고 계산됩니다`);
 
   // 6. 「주식 투자 정리」 보유 줄 ↔ 「티커」
   const tickerRowSet = new Set(lines.map((l) => l.row));

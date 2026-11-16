@@ -45,7 +45,7 @@ function model(): Model {
   const v: Record<string, Cell> = {
     [`${T}!B12`]: '구분', [`${T}!D12`]: '자산 분류', [`${T}!G9`]: 1300,
     [`${T}!B13`]: '개별 투자', [`${T}!B23`]: '적립식 투자', [`${T}!B32`]: 'ISA 계좌', [`${T}!B39`]: '연금 저축 계좌',
-    '자산 투자 비율 관리!B18': '자산 배분 비율', '월 고정지출!B5': '현재 월 급여', '현금!B25': '은행 자산 총액', '현금!B30': '퇴직 연금 총액',
+    '자산 투자 비율 관리!B18': '자산 배분 비율', '월 고정지출!B5': '현재 월 급여', '현금!B4': '은행 자산', '현금!B25': '은행 자산 총액', '현금!B28': '퇴직 연금', '현금!B30': '퇴직 연금 총액',
     [`${H}!B3`]: '내 계좌 정보', [`${H}!B38`]: '내 계좌 정보',
   };
   const tickerRows = [14, 15, 16, 17, 18, 19, 20, 21, 24, 25, 27, 28, 29, 30, 33, 34, 35, 36, 37, 40, 41, 42];
@@ -265,7 +265,7 @@ try {
 
   // 순수 함수 — 찾는 규칙
   const ranges = sheetRanges();
-  check('[119-5] 읽는 범위 수가 늘지 않음(값 — 머리 · 두 탭 · 값 칸 / 수식 — 보유 · 환율 · 티커)', ranges.formulas.length <= 3 && ranges.values.filter((r) => /B1:/.test(r)).length === 2);
+  check('[119-5] 읽는 범위 수가 늘지 않음(값 — 머리 · 세 탭 넓은 범위(「현금」 은 v2.70.4 — 고정 칸 넷을 대신) · 값 칸 / 수식 — 보유 · 환율 · 티커)', ranges.formulas.length <= 3 && ranges.values.filter((r) => /B1:/.test(r)).length === 3 && ranges.values.length <= 18);
   const holdings = findHoldingSections(cut(model().values, `'${H}'!B1:F`));
   check('[119-A] findHoldingSections — key · 머리 줄 · 첫 끝 줄', JSON.stringify(holdings.map((s) => [s.key, s.nameRow, s.firstRow, s.lastRow, s.combined])) === JSON.stringify([['개별 투자', 4, 5, 9, false], ['적립식 계좌', 12, 13, 18, false], ['ISA 계좌', 21, 22, 26, false], ['연금 저축 계좌', 29, 30, 32, false], ['적립식 주식', 38, 39, 44, true]]));
   const groups = findTickerGroups(cut(model().values, `'${T}'!B1:D`));
