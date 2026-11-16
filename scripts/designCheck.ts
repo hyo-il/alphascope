@@ -586,6 +586,10 @@ function targets(): Target[] {
         ['설정창-현금자동반영-고정흐름', 'flows'],
         ['설정창-현금자동반영-반영기록', 'moves'],
         ['설정창-현금자동반영-되돌리기창', 'undo'],
+        // v2.71.1 — 다음 한 달 미리 보기 · 계좌 고르기 펼침(은행별 묶음) · 은행 묶음 고치기 펼침
+        ['설정창-현금자동반영-미리보기', 'preview'],
+        ['설정창-현금자동반영-고르는칸', 'picker'],
+        ['설정창-현금자동반영-은행묶음', 'banks'],
         ['매수창-예수금줄', 'buy:6'],
         ['매수창-예수금줄-미국', 'buy:5'],
       ] as const
@@ -621,6 +625,12 @@ function targets(): Target[] {
         if (step === 'flows') await page.getByTestId('asset-cash-flows').scrollIntoViewIfNeeded().catch(() => {});
         if (step === 'moves' || step === 'undo') await page.getByTestId('asset-cash-moves').scrollIntoViewIfNeeded().catch(() => {});
         if (step === 'undo') await page.getByTestId('asset-cash-moves').getByRole('button', { name: '되돌리기' }).click().catch(() => {});
+        if (step === 'preview') await page.getByTestId('asset-cash-preview').scrollIntoViewIfNeeded().catch(() => {});
+        if (step === 'picker') await page.getByRole('button', { name: /#2 빠지는 계좌$/ }).click().catch(() => {});
+        if (step === 'banks') {
+          await page.getByRole('button', { name: '은행 묶음 고치기' }).click().catch(() => {});
+          await page.getByTestId('asset-cash-banks').scrollIntoViewIfNeeded().catch(() => {});
+        }
         await page.waitForTimeout(300);
       },
       after: async (page: Page) => {

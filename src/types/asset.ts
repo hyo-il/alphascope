@@ -1056,3 +1056,17 @@ export interface AssetCashBankPatch {
 export interface AssetSheetCashBanks {
   cashBankFix?: AssetCashBankFix;
 }
+
+/** 건너뜀 · 다시 확인 필요 까닭 — 설정 화면 글(v2.71.1 · 「줄」 · 「출금」 · 「입금」 을 쓰지 않는 말) */
+export const ASSET_CASH_REASON_TEXT: Record<AssetCashReason, string> = {
+  'server-off': '서버 꺼짐',
+  'missing-row': '「현금」 탭에서 계좌를 찾지 못함',
+  'missing-item': '「월 고정지출」 에서 찾지 못함',
+  zero: '비용이 ₩0 · 빈칸',
+  'not-number': '금액 칸이 숫자가 아님',
+  'formula-cell': '금액 칸이 수식',
+  'no-salary': '「현재 월 급여」 가 비었음',
+  mismatch: '쓴 뒤 다시 읽은 값이 다름',
+  stopped: '쓰는 중에 멈춤',
+  'write-failed': '시트를 읽거나 쓰지 못함',
+};

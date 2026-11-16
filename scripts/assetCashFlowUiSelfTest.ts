@@ -1,6 +1,7 @@
 /**
  * 현금 자동 반영 화면 시험(139차 · v2.71.0) — `npm run assetcashflowui:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import).
- * 139차 「꼭 지킬 동작」 8(1280 × 1080 · 1440 × 900): 설정 「현금 자동 반영」 표 · 고정 흐름 표 · 반영 기록 · 되돌리기 확인 창 · 매수 창 예수금 줄 · 잠금 때 꺼짐 · 로딩 · 넘침 0
+ * 139차 「꼭 지킬 동작」 8(1280 × 1080 · 1440 × 900): 설정 「현금 자동 반영」 · 고정 흐름 · 반영 기록 · 되돌리기 확인 창 · 매수 창 예수금 줄 · 잠금 때 꺼짐 · 로딩 · 넘침 0
+ * (v2.71.1 140차 — 설정 화면을 다시 그려 찾는 이름 · 글을 새 화면에 맞춤: 예수금 계좌 짝 · 고정 흐름 칸 · 「flowEdit」 · 은행 이름. 동작은 그대로)
  * + 6 의 화면 몫(미리 보기 금액 · 고친 금액이 요청에 · 미국 = 환율 계산 · 예수금 실패 안내 · 짝 없음 = 지금과 같음).
  * Vite + Playwright, `/api` 는 모두 `page.route` 가짜(만든 값) — 구글 · 토스 · 서버 호출 0. 요소는 역할 + 이름 · `data-testid` 로 찾는다.
  */
@@ -119,30 +120,30 @@ try {
       gates.cash();
       await page.getByTestId('asset-cash-settings').waitFor({ timeout: 5000 });
       const pairs = page.getByTestId('asset-cash-pairs');
-      check(`[139-8] ${w}px 예수금 줄 짝 — 계좌 4줄 · 개별 투자 = 키움`, (await pairs.locator('tbody tr').count()) === 4 && (await page.getByRole('combobox', { name: '개별 투자 예수금 줄' }).locator('option:checked').textContent()) === KIWOOM.name);
+      check(`[139-8] ${w}px 예수금 계좌 짝 — 계좌 4개 · 개별 투자 = 키움(은행 · 상품 이름)`, (await pairs.getByTestId('asset-cash-pair-row').count()) === 4 && (await page.getByRole('button', { name: '개별 투자 예수금 계좌' }).textContent()) === '예시키움 · 투자 계좌 예수금');
       const flows = page.getByTestId('asset-cash-flows');
-      const rowsText = await flows.locator('tbody tr').allTextContents();
-      check(`[139-8] ${w}px 고정 흐름 — 분류 묶음 머리 줄(저축 및 투자 · 월세 · 고정 지출 · 변동 지출) · 같은 사유 「#1」 · 「#2」 · 변동 지출은 회색 「반영 안 함」 · ₩0 「반영 안 함」`,
-        (await flows.getByTestId('asset-cash-flow-category').allTextContents()).join('|') === '저축 및 투자|월세|고정 지출|변동 지출|시트에서 찾지 못한 줄' &&
+      const rowsText = await flows.getByTestId('asset-cash-flow-row').allTextContents();
+      check(`[139-8] ${w}px 고정 흐름 — 분류 묶음 머리(저축 및 투자 · 월세 · 고정 지출 · 변동 지출) · 같은 사유 「#1」 · 「#2」 · 변동 지출은 회색 「반영 안 함」 · ₩0 「반영 안 함」`,
+        (await flows.getByTestId('asset-cash-flow-category').allTextContents()).join('|') === '저축 및 투자|월세|고정 지출|변동 지출|「월 고정지출」 에서 찾지 못함' &&
         rowsText.some((t) => t.includes('#1')) && rowsText.some((t) => t.includes('#2')) && (await flows.locator('[data-flow-reflect="no"]').textContent())?.includes('반영 안 함') === true
         && rowsText.some((t) => t.includes('ISA') && t.includes('₩0') && t.includes('반영 안 함')));
-      check(`[139-8] ${w}px 다시 확인 필요한 줄은 빨간 글(「현금」 줄을 찾지 못함 · 「월 고정지출」 줄을 찾지 못함) + 지운 줄은 [설정 지우기]`,
-        (await flows.locator('.text-danger', { hasText: '「현금」 줄을 찾지 못함' }).count()) >= 1 && (await flows.locator('.text-danger', { hasText: '「월 고정지출」 줄을 찾지 못함' }).count()) >= 1
+      check(`[139-8] ${w}px 다시 확인 필요한 것은 빨간 글(「현금」 탭에서 계좌를 찾지 못함 · 「월 고정지출」 에서 찾지 못함) + 지운 것은 [설정 지우기]`,
+        (await flows.locator('.text-danger', { hasText: '「현금」 탭에서 계좌를 찾지 못함' }).count()) >= 1 && (await flows.locator('.text-danger', { hasText: '「월 고정지출」 에서 찾지 못함' }).count()) >= 1
         && (await flows.getByRole('button', { name: '설정 지우기' }).count()) === 1);
-      check(`[139-8] ${w}px 다음 반영 날 · 월급 금액 · 다음 날`, rowsText.some((t) => t.includes('2026-12-10')) && ((await page.getByTestId('asset-cash-salary-next').textContent()) ?? '').includes('2026-11-25'));
+      check(`[139-8] ${w}px 다음 반영 날 · 월급 금액 · 다음 날`, rowsText.some((t) => t.includes('12-10(목)')) && ((await page.getByTestId('asset-cash-salary-next').textContent()) ?? '').includes('11-25(수)'));
       const moves = page.getByTestId('asset-cash-moves');
       check(`[139-8] ${w}px 반영 기록 — 최신 위 · 상태(반영 · 건너뜀 · 서버 꺼짐 · 다시 확인 필요) · [되돌리기] 는 「반영」 줄만`,
         (await moves.locator('[data-testid="asset-cash-move-row"]').count()) === 3 && (await moves.getByRole('button', { name: '되돌리기' }).count()) === 1
         && ((await moves.locator('[data-move-status="skipped"]').textContent()) ?? '').includes('서버 꺼짐') && (await moves.locator('[data-move-status="check"] .text-danger').count()) >= 1);
       check(`[139-8] ${w}px 넘침 0(창 · 표 · 화면 가로)`, await noOverflow(page));
       // 긴 이름은 말줄임 + data-tip-clip
-      check(`[139-8] ${w}px 긴 줄 이름은 말줄임(data-tip-clip 에 전체 글)`, await moves.evaluate((el, long) => [...el.querySelectorAll<HTMLElement>('span.truncate')].some((sp) => sp.scrollWidth > sp.clientWidth && (sp.getAttribute('data-tip-clip') ?? '').includes(long)), LONG));
+      check(`[139-8] ${w}px 긴 계좌 이름은 말줄임(data-tip-clip 에 전체 글)`, await moves.evaluate((el, long) => [...el.querySelectorAll<HTMLElement>('span.truncate')].some((sp) => sp.scrollWidth > sp.clientWidth && (sp.getAttribute('data-tip-clip') ?? '').includes(long)), LONG));
 
-      // 고정 흐름 날짜 고치기 → 그 줄 설정 한 번 저장
+      // 고정 흐름 날짜 고치기 → 그 한 줄 설정 한 번 저장(v2.71.1 — 빠지는 계좌 기본 = 따라감 · 고정 지출의 들어가는 계좌 기본 = 쓴 돈(밖으로))
       await flows.getByRole('combobox', { name: '통신비 날짜' }).selectOption('5');
       await page.waitForTimeout(300);
-      const put = seen.puts.at(-1) as { flow?: { day: number; from: unknown; to: unknown; item: { reason: string } } } | undefined;
-      check(`[139-8] ${w}px 날짜를 고르면 그 줄만 저장(flow · 날짜 5 · 출금 · 입금은 아직 비어 있음)`, put?.flow?.day === 5 && put.flow.item.reason === '통신비' && put.flow.from === null && put.flow.to === null);
+      const put = seen.puts.at(-1) as { flowEdit?: { day: number; from: unknown; to: unknown; item: { reason: string } } } | undefined;
+      check(`[139-8] ${w}px 날짜를 고르면 그 한 줄만 저장(flowEdit · 날짜 5 · 빠지는 계좌 = 월급 받는 계좌 따라감 · 들어가는 계좌 = 쓴 돈)`, put?.flowEdit?.day === 5 && put.flowEdit.item.reason === '통신비' && put.flowEdit.from === 'salary' && put.flowEdit.to === 'out');
 
       // 되돌리기 — 확인 창 · 처리 중 로딩 · 결과
       await moves.getByRole('button', { name: '되돌리기' }).click();
@@ -165,7 +166,7 @@ try {
       await page.route('**/api/asset/cash', (r) => r.fulfill({ json: cashViewSample({ enabled: false }) }));
       await openSettings(page);
       await page.getByTestId('asset-cash-settings').waitFor({ timeout: 5000 });
-      check(`[139-8] ${w}px 꺼짐 — 「예수금 · 은행 잔액을 시트에서 먼저 맞춰 주세요」`, ((await page.getByTestId('asset-cash-enabled-note').textContent()) ?? '').includes('먼저 맞춰'));
+      check(`[139-8] ${w}px 꺼짐 — 「예수금 · 은행 잔액을 시트에서 먼저 맞추고 …」`, ((await page.getByTestId('asset-cash-enabled-note').textContent()) ?? '').includes('먼저 맞추'));
       await page.getByRole('radiogroup', { name: '현금 자동 반영' }).getByRole('radio', { name: '켬' }).click();
       const confirm = page.getByRole('dialog', { name: '현금 자동 반영 켜기' });
       await confirm.waitFor({ timeout: 5000 });

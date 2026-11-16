@@ -4,7 +4,7 @@
  * 긴 종목명 · 긴 구간 이름 · 달러 소수 4자리 · 빈 구간 · 이을 수식 없는 줄 · 합계 표를 모두 넣어 칸 넘침을 잰다.
  */
 import { ASSET_DAILY_SHARE_LABEL, DEFAULT_CLASS_COLORS, type AssetClassColors } from '../../../src/types/asset';
-import type { AssetCashKey, AssetCashView, AssetClass, AssetDailyChange, AssetDailyShare, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHolding, AssetPriceSheetStatus, AssetSheetData, AssetSheetFailure, AssetStatus, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetTradeRecord, AssetTradesResponse } from '../../../src/types/asset';
+import type { AssetCashKey, AssetCashViewV2, AssetClass, AssetDailyChange, AssetDailyShare, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHolding, AssetPriceSheetStatus, AssetSheetData, AssetSheetFailure, AssetStatus, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetTradeRecord, AssetTradesResponse } from '../../../src/types/asset';
 import { computeRebalance } from '../../../server/asset/rebalance';
 import { computeMonthlyBuy } from '../../../server/asset/purchase';
 
@@ -302,30 +302,35 @@ const cashKey = (name: string, nth = 1): AssetCashKey => ({ name, nth });
 export const CASH_SAMPLE_LONG = '예시 저축은행 정기예금 이름이 아주 긴 계좌 — 만기 자동 연장 특판 상품 2026년 11월 가입분';
 const CASH_KB = '예시국민 (정기 예금 25.12.29 ~ 26.12.29)';
 export const CASH_SAMPLE_KIWOOM = cashKey('예시키움 (투자 계좌 예수금)');
+/** 월급 받는 계좌(괄호 없음 = 입출금 — 은행 묶음 「예시국민」) */
+export const CASH_SAMPLE_MAIN = cashKey('예시국민');
 
-/** 설정 「현금 자동 반영」 가짜 응답(v2.71.0 — assetcashflowui:test · design:check) — 만든 값 */
-export function cashViewSample(o: { enabled?: boolean; undone?: boolean } = {}): AssetCashView {
+/** 설정 「현금 자동 반영」 가짜 응답(v2.71.0 · v2.71.1 은행 묶음 · 따라감 · 미리 보기 — assetcashflowui · assetcasheasyui:test · design:check) — 만든 값 */
+export function cashViewSample(o: { enabled?: boolean; undone?: boolean; emptyPreview?: boolean } = {}): AssetCashViewV2 {
   const rows = [
     { key: CASH_SAMPLE_KIWOOM, label: CASH_SAMPLE_KIWOOM.name, amount: 1_000_000 },
     { key: cashKey(CASH_KB, 1), label: `${CASH_KB} #1`, amount: 10_000_000 },
     { key: cashKey(CASH_KB, 2), label: `${CASH_KB} #2`, amount: 10_000_000 },
     { key: cashKey(CASH_KB, 3), label: `${CASH_KB} #3`, amount: 10_000_000 },
-    { key: cashKey('예시국민 입출금'), label: '예시국민 입출금', amount: 2_345_678 },
+    { key: CASH_SAMPLE_MAIN, label: CASH_SAMPLE_MAIN.name, amount: 2_345_678 },
+    { key: cashKey('예시키움 (적립식)'), label: '예시키움 (적립식)', amount: 3_000_000 },
     { key: cashKey(CASH_SAMPLE_LONG), label: CASH_SAMPLE_LONG, amount: 700_000_000 },
   ];
   const item = (category: string, reason: string, nth: number, amount: number | null, reflect: boolean, many = false) => ({ key: { category, reason, nth }, label: many ? `${reason} #${nth}` : reason, amount, reflect });
   const INV = '투자 비용(국민 -> 키움 증권 (적립식계좌))';
+  const KW = '예시키움 · 투자 계좌 예수금';
   return {
     settings: {
       enabled: o.enabled ?? true,
       enabledDay: '2026-11-16',
       depositPairs: { '개별 투자': CASH_SAMPLE_KIWOOM },
-      salary: { to: cashKey('예시국민 입출금'), day: 25, shift: 'prev' },
+      salary: { to: CASH_SAMPLE_MAIN, day: 25, shift: 'prev' },
       flowShift: 'next',
       flows: [
-        { item: { category: '저축 및 투자', reason: INV, nth: 2 }, day: 10, from: cashKey('예시국민 입출금'), to: CASH_SAMPLE_KIWOOM },
-        { item: { category: '월세', reason: '월세', nth: 1 }, day: 31, from: cashKey('없어진 줄'), to: 'out' },
-        { item: { category: '고정 지출', reason: '시트에서 지운 줄', nth: 1 }, day: 5, from: cashKey('예시국민 입출금'), to: 'out' },
+        { item: { category: '저축 및 투자', reason: INV, nth: 2 }, day: 10, from: CASH_SAMPLE_MAIN, to: CASH_SAMPLE_KIWOOM },
+        { item: { category: '월세', reason: '월세', nth: 1 }, day: 31, from: cashKey('없어진 계좌'), to: 'out' },
+        { item: { category: '고정 지출', reason: '보험', nth: 1 }, day: 12, from: cashKey(CASH_KB, 1), to: 'out' },
+        { item: { category: '고정 지출', reason: '시트에서 지운 항목', nth: 1 }, day: 5, from: CASH_SAMPLE_MAIN, to: 'out' },
       ],
     },
     writeEnabled: true,
@@ -340,18 +345,38 @@ export function cashViewSample(o: { enabled?: boolean; undone?: boolean } = {}):
     fixedError: null,
     salary: { amount: 3_456_789, nextDay: '2026-11-25', problem: null },
     flows: [
-      { item: item('저축 및 투자', INV, 1, 1_500_000, true, true), setting: null, nextDay: null, problem: null },
-      { item: item('저축 및 투자', INV, 2, 1_000_000, true, true), setting: { item: { category: '저축 및 투자', reason: INV, nth: 2 }, day: 10, from: cashKey('예시국민 입출금'), to: CASH_SAMPLE_KIWOOM }, nextDay: '2026-12-10', problem: null },
-      { item: item('저축 및 투자', 'ISA', 1, 0, true), setting: null, nextDay: null, problem: null },
-      { item: item('월세', '월세', 1, 700_000, true), setting: { item: { category: '월세', reason: '월세', nth: 1 }, day: 31, from: cashKey('없어진 줄'), to: 'out' }, nextDay: null, problem: 'missing-row' },
-      { item: item('고정 지출', '통신비', 1, 55_000, true), setting: null, nextDay: null, problem: null },
-      { item: item('변동 지출', '식비', 1, 400_000, false), setting: null, nextDay: null, problem: null },
-      { item: null, setting: { item: { category: '고정 지출', reason: '시트에서 지운 줄', nth: 1 }, day: 5, from: cashKey('예시국민 입출금'), to: 'out' }, nextDay: null, problem: 'missing-item' },
+      { item: item('저축 및 투자', INV, 1, 1_500_000, true, true), setting: null, nextDay: null, problem: null, fromSalary: true },
+      { item: item('저축 및 투자', INV, 2, 1_000_000, true, true), setting: { item: { category: '저축 및 투자', reason: INV, nth: 2 }, day: 10, from: CASH_SAMPLE_MAIN, to: CASH_SAMPLE_KIWOOM }, nextDay: '2026-12-10', problem: null, fromSalary: true },
+      { item: item('저축 및 투자', 'ISA', 1, 0, true), setting: null, nextDay: null, problem: null, fromSalary: true },
+      { item: item('월세', '월세', 1, 700_000, true), setting: { item: { category: '월세', reason: '월세', nth: 1 }, day: 31, from: cashKey('없어진 계좌'), to: 'out' }, nextDay: null, problem: 'missing-row', fromSalary: false },
+      { item: item('고정 지출', '통신비', 1, 55_000, true), setting: null, nextDay: null, problem: null, fromSalary: true },
+      { item: item('고정 지출', '보험', 1, 120_000, true), setting: { item: { category: '고정 지출', reason: '보험', nth: 1 }, day: 12, from: cashKey(CASH_KB, 1), to: 'out' }, nextDay: '2026-12-14', problem: null, fromSalary: false },
+      { item: item('변동 지출', '식비', 1, 400_000, false), setting: null, nextDay: null, problem: null, fromSalary: true },
+      { item: null, setting: { item: { category: '고정 지출', reason: '시트에서 지운 항목', nth: 1 }, day: 5, from: CASH_SAMPLE_MAIN, to: 'out' }, nextDay: null, problem: 'missing-item', fromSalary: true },
     ],
     moves: [
       { id: 3, at: '2026-11-16T01:00:00.000Z', kind: 'buy', label: '예시 국내 대형주', month: '2026-11', day: '2026-11-16', from: CASH_SAMPLE_KIWOOM, to: null, amount: 1_234_000, status: o.undone ? 'undone' : 'applied', reason: null, undoneAt: o.undone ? '2026-11-16T02:00:00.000Z' : null },
-      { id: 2, at: '2026-11-10T00:00:00.000Z', kind: 'fixed', label: `${INV} #2`, month: '2026-11', day: '2026-11-10', from: cashKey('예시국민 입출금'), to: CASH_SAMPLE_KIWOOM, amount: 1_000_000, status: 'skipped', reason: 'server-off', undoneAt: null },
+      { id: 2, at: '2026-11-10T00:00:00.000Z', kind: 'fixed', label: `${INV} #2`, month: '2026-11', day: '2026-11-10', from: CASH_SAMPLE_MAIN, to: CASH_SAMPLE_KIWOOM, amount: 1_000_000, status: 'skipped', reason: 'server-off', undoneAt: null },
       { id: 1, at: '2026-10-23T00:00:00.000Z', kind: 'salary', label: '월급', month: '2026-10', day: '2026-10-23', from: null, to: cashKey(CASH_SAMPLE_LONG), amount: 3_456_789, status: 'check', reason: 'mismatch', undoneAt: null },
     ],
+    bankFix: { rows: {}, renames: {} },
+    preview: {
+      from: '2026-11-16',
+      until: '2026-12-15',
+      enabled: o.enabled ?? true,
+      items: o.emptyPreview
+        ? [{ day: null, kind: 'salary', label: '월급', category: null, from: null, to: null, out: false, amount: 3_456_789, status: 'not', record: null, why: 'no-to' }]
+        : [
+            { day: '2026-11-25', kind: 'salary', label: '월급', category: null, from: null, to: '예시국민', out: false, amount: 3_456_789, status: 'planned', record: null, why: null },
+            { day: '2026-12-10', kind: 'fixed', label: `${INV} #2`, category: '저축 및 투자', from: '예시국민', to: KW, out: false, amount: 1_000_000, status: 'planned', record: null, why: null },
+            { day: '2026-12-14', kind: 'fixed', label: '보험', category: '고정 지출', from: '예시국민 · 정기 예금 25.12.29 ~ 26.12.29 #1', to: null, out: true, amount: 120_000, status: 'planned', record: null, why: null },
+            { day: null, kind: 'fixed', label: `${INV} #1`, category: '저축 및 투자', from: null, to: null, out: false, amount: 1_500_000, status: 'not', record: null, why: 'no-day' },
+            { day: null, kind: 'fixed', label: 'ISA', category: '저축 및 투자', from: null, to: null, out: false, amount: 0, status: 'not', record: null, why: 'zero' },
+            { day: null, kind: 'fixed', label: '월세', category: '월세', from: null, to: null, out: false, amount: 700_000, status: 'not', record: null, why: 'missing-row' },
+            { day: null, kind: 'fixed', label: '통신비', category: '고정 지출', from: null, to: null, out: false, amount: 55_000, status: 'not', record: null, why: 'no-day' },
+            { day: null, kind: 'fixed', label: '시트에서 지운 항목', category: '고정 지출', from: null, to: null, out: false, amount: null, status: 'not', record: null, why: 'missing-item' },
+            { day: null, kind: 'fixed', label: '식비', category: '변동 지출', from: null, to: null, out: false, amount: 400_000, status: 'not', record: null, why: 'variable' },
+          ],
+    },
   };
 }

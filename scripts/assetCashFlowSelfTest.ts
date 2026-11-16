@@ -479,7 +479,8 @@ try {
     const deleted = spawnSync('git', ['diff', '-U0', BASE, '--', ...ALLOWED], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
     check(`[139-10] 서버가 함께 쓰는 src/ ${shared.length}개 가운데 바뀐 것은 types/asset.ts · data/changelog.ts 뿐 · 더하기만(지운 줄 0)`,
       shared.length > 30 && changedShared.every((f) => ALLOWED.includes(f)) && changedShared.includes('src/types/asset.ts') && deleted.length === 0, `${changedShared.join(',')} · 지운 줄 ${deleted.length}`);
-    const dc = spawnSync('git', ['diff', '-U0', BASE, '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' }).stdout;
+    // 139차 끝(f5d753e)까지만 — 뒤 지시서(140차~)가 장면을 더해도 139차 몫만 센다(140차 몫은 assetcasheasy:test 가 f5d753e 부터 셈)
+    const dc = spawnSync('git', ['diff', '-U0', BASE, 'f5d753e', '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' }).stdout;
     const dcDeleted = dc.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
     check('[139-10] designCheck.ts 판정 부분 바뀐 줄 0 — 지운 줄 0 · 더한 곳은 견본 import 한 줄 · 장면 묶음 한 곳(현금자동반영 · 예수금줄)', dcDeleted.length === 0 && (dc.match(/^@@ /gm) ?? []).length === 2 && dc.includes('현금자동반영') && dc.includes('예수금줄'), `지운 줄 ${dcDeleted.length}`);
   }
