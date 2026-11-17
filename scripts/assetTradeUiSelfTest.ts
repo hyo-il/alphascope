@@ -156,13 +156,17 @@ try {
     const { page, ctx } = await open(browser);
     await page.locator('[data-trade-sell="6"]').click();
     check('[118-7] 매도 창에는 환율 칸 없음', (await count(page, '[data-trade-fx]')) === 0);
+    // v2.71.2 — 빨간 글은 그 칸을 한 번 떠난 뒤에만(막는 규칙 · [저장] 막힘은 그대로)
+    const dlgText = async () => (await page.locator('[data-trade-dialog]').textContent()) ?? '';
+    check('[141-1] 매도 창을 처음 열 때 빨간 표시 0', (await count(page, '[data-trade-dialog] [data-field-error], [data-trade-dialog] [aria-invalid="true"]')) === 0);
+    await page.locator('[data-trade-qty]').fill('31');
+    check('[141-2] 보유보다 많으면 [저장] 막힘 · 칸을 떠나기 전에는 빨간 글 0', !(await dlgText()).includes('가진 수량보다 많아요') && (await page.locator('[data-trade-save]').isDisabled()));
+    await page.locator('[data-trade-qty]').blur();
+    check('[141-1] 수량 칸을 떠나면 빨간 글 · 빨간 테두리', (await dlgText()).includes('가진 수량보다 많아요') && (await page.locator('[data-trade-qty]').getAttribute('aria-invalid')) === 'true');
     await fillTrade(page, '10', '72000');
     check('[118-7] 매도 미리 보기 「팔고 나면 20주 · 평균 그대로」', (await text(page, '[data-trade-preview-main]')) === '팔고 나면 20주 · 평균 그대로', await text(page, '[data-trade-preview-main]'));
     await page.locator('[data-trade-qty]').fill('31');
-    // v2.71.2 — 빨간 글은 칸을 떠난 뒤에만(막는 규칙 · [저장] 막힘은 그대로)
-    check('[141-2] 보유보다 많으면 [저장] 막힘 · 칸을 떠나기 전에는 빨간 글 0', (await page.locator('[data-trade-dialog]').textContent())?.includes('가진 수량보다 많아요') === false && (await page.locator('[data-trade-save]').isDisabled()));
-    await page.locator('[data-trade-qty]').blur();
-    check('[118-7] 보유보다 많으면 안내 + [저장] 막힘(칸을 떠난 뒤)', (await page.locator('[data-trade-dialog]').textContent())?.includes('가진 수량보다 많아요') === true && (await page.locator('[data-trade-save]').isDisabled()));
+    check('[118-7] 보유보다 많으면 안내 + [저장] 막힘', (await page.locator('[data-trade-dialog]').textContent())?.includes('가진 수량보다 많아요') === true && (await page.locator('[data-trade-save]').isDisabled()));
     await page.locator('[data-trade-qty]').fill('30');
     await page.locator('[data-trade-price]').fill('72000');
     check('[120-5] 모두 매도 미리 보기 「팔고 나면 0주 — 시트에서 이 줄을 지웁니다(「티커」 줄은 남김)」 · [저장] 있음', (await text(page, '[data-trade-sell-all]')) === '팔고 나면 0주 — 시트에서 이 줄을 지웁니다(「티커」 줄은 남김)' && !(await page.locator('[data-trade-save]').isDisabled()), await text(page, '[data-trade-preview]'));

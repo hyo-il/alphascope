@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FormRow, NumberField, NumberUnitGroup } from '../ui';
+import { Button, FormRow, NumberField, NumberUnitGroup } from '../ui';
 import { InlineSpinner } from '../common/LoadingOverlay';
 import { formatNumber } from '../../utils/formatters';
 import { formatAssetWon } from '../../utils/assetFormat';
@@ -8,7 +8,10 @@ import { ASSET_CASH_MAX, type AssetCashPairView, type AssetCurrency, type AssetT
 /**
  * 매수 · 매도 창의 예수금 줄(v2.71.0 · 현금 자동 반영 ①) — `AssetTradeDialog` · `AssetNewBuyDialog`(확인 화면)가 함께 쓴다.
  * - 열 때 `GET /api/asset/cash/pair?section=` 로 그 계좌의 짝 · 켜짐 · 지금 환율을 받는다. 받기 전에는 「확인 중」(짝 없음을 먼저 그리지 않는다) · 저장을 막는다.
- * - 짝이 있으면 「키움증권 · 투자 계좌 예수금에서 ₩… 빠집니다(매도 = 「…에 ₩… 들어갑니다」)」(v2.71.1 — 이름은 서버가 은행 · 상품으로 · 설정 화면과 같은 함수) + 금액 입력칸. 처음 값 = 수량 × 가격(국내 원 · 미국 × 지금 환율 · 반올림) — 사용자가 고치면 그 값을 그대로 쓴다(0 = 예수금은 안 바꿈).
+ * - 짝이 있으면 **한 줄 안내**(v2.71.2 · 사용자 결정 2026-11-17): 「키움증권 · 투자 계좌 예수금에서 ₩… 빠집니다(매도 = 「…에 ₩… 들어갑니다」)」(이름은 서버가 은행 · 상품으로 · 설정 화면과 같은 함수) + 작은 [금액 고치기].
+ *   수량 · 가격 전에는 회색 「… — 수량과 가격을 넣으면 계산됩니다」. 금액 = 수량 × 가격(국내 원 · 미국 × 지금 환율 · 반올림).
+ *   [금액 고치기] 를 눌렀을 때만 금액 칸이 열린다(처음 값 = 계산 값) — 고치면 그 값을 그대로 쓴다(0 = 예수금은 안 바꿈) · [계산 값으로] 는 계산 값으로 되돌리고 칸을 닫는다.
+ *   미국 주식인데 환율을 못 받았으면 계산할 수 없어 금액 칸을 바로 연다.
  * - 짝이 없거나 꺼졌으면 안내 한 줄만(지금과 같게 저장 — 예수금 금액을 보내지 않는다). 받기 실패도 보내지 않는다(이유 한 줄).
  * - 저장 결과(예수금만 실패)는 창을 부른 쪽이 안내한다.
  */
@@ -53,11 +56,14 @@ export default function AssetCashTradeLine({
   const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [text, setText] = useState('');
   const [edited, setEdited] = useState(false);
+  /** [금액 고치기] 로 금액 칸을 열었나 */
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
     setLoad({ state: 'loading' });
     setEdited(false);
+    setOpen(false);
     fetch(`/api/asset/cash/pair?section=${encodeURIComponent(section)}`)
       .then(async (res) => {
         if (!res.ok) throw new Error('응답 실패');
@@ -114,40 +120,82 @@ export default function AssetCashTradeLine({
   }
 
   const moves = amount != null && amount > 0;
+  /** 수량 · 가격을 넣었나(넣기 전에는 계산할 것이 없다) */
+  const entered = qty > 0 && price > 0;
+  /** 미국인데 환율을 못 받음 — 계산할 수 없어 금액 칸을 바로 연다 */
+  const noFx = usd && fx == null && entered;
+  const fieldOpen = open || noFx;
+  const fieldLabel = side === 'buy' ? '예수금에서 빠질 금액' : '예수금에 들어갈 금액';
   return (
     <div className="space-y-2" data-testid="asset-cash-trade" data-cash-state="pair">
-      <p className="flex min-w-0 items-baseline rounded-lg bg-bg-tertiary/40 px-3 py-2 text-xs text-text-primary" data-testid="asset-cash-trade-preview">
-        <span className="min-w-0 truncate" data-tip-clip={pair.label}>
-          {pair.label}
-        </span>
-        <span className="shrink-0 whitespace-nowrap tabular-nums">
-          {!moves ? '\u00a0— 바꾸지 않습니다' : side === 'buy' ? `에서 ${formatAssetWon(amount)} 빠집니다` : `에 ${formatAssetWon(amount)} 들어갑니다`}
-        </span>
-      </p>
-      {/* 창의 수량 · 가격 칸과 같은 묶음 폭(단위 열 · 칸 오른쪽 끝을 맞춘다) */}
-      <NumberUnitGroup w="sm">
-        <FormRow label="예수금 금액" labelW={labelW} valueW={kind === 'fill' ? valueW : undefined} error={amount == null ? '금액을 넣어 주세요(0 이면 예수금은 바꾸지 않습니다)' : undefined}>
-          <NumberField
-            kind={kind}
-            thousands
-            decimals={0}
-            unit="원"
-            max={ASSET_CASH_MAX}
-            value={text}
-            invalid={amount == null}
-            onValue={(v) => {
-              setEdited(true);
-              setText(v);
-            }}
-            aria-label="예수금 금액"
-            data-testid="asset-cash-trade-amount"
-          />
-        </FormRow>
-      </NumberUnitGroup>
-      {usd && (
-        <p className="text-caption text-text-muted" data-testid="asset-cash-trade-fx">
-          {fx != null ? `환율 ${fxText(fx)} 기준 · 고칠 수 있어요` : '환율을 받지 못했어요 — 금액을 넣어 주세요'}
+      <div className="flex min-w-0 items-center gap-2 rounded-lg bg-bg-tertiary/40 px-3 py-2 text-xs" data-testid="asset-cash-trade-preview-line">
+        <p className={`flex min-w-0 flex-1 items-baseline ${entered || fieldOpen ? 'text-text-primary' : 'text-text-muted'}`} data-testid="asset-cash-trade-preview">
+          <span className="min-w-0 truncate" data-tip-clip={pair.label}>
+            {pair.label}
+          </span>
+          <span className="shrink-0 whitespace-nowrap tabular-nums">
+            {!entered && !fieldOpen
+              ? '\u00a0— 수량과 가격을 넣으면 계산됩니다'
+              : amount == null
+                ? '\u00a0— 금액을 넣어 주세요'
+                : !moves
+                  ? '\u00a0— 바꾸지 않습니다'
+                  : side === 'buy'
+                    ? `에서 ${formatAssetWon(amount)} 빠집니다`
+                    : `에 ${formatAssetWon(amount)} 들어갑니다`}
+          </span>
         </p>
+        {entered && !fieldOpen && (
+          <Button size="sm" variant="ghost" onClick={() => setOpen(true)} data-testid="asset-cash-trade-edit">
+            금액 고치기
+          </Button>
+        )}
+        {open && auto != null && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setEdited(false);
+              setOpen(false);
+            }}
+            data-testid="asset-cash-trade-reset"
+          >
+            계산 값으로
+          </Button>
+        )}
+      </div>
+      {usd && entered && (
+        <p className="text-caption text-text-muted" data-testid="asset-cash-trade-fx">
+          {fx != null ? `환율 ${fxText(fx)} 기준` : '환율을 받지 못했어요 — 금액을 넣어 주세요'}
+        </p>
+      )}
+      {fieldOpen && (
+        // 창의 수량 · 가격 칸과 같은 묶음 폭(단위 열 · 칸 오른쪽 끝을 맞춘다)
+        <NumberUnitGroup w="sm">
+          <FormRow
+            label={fieldLabel}
+            labelW={labelW}
+            valueW={kind === 'fill' ? valueW : undefined}
+            hint={amount === 0 ? '예수금은 바꾸지 않습니다' : undefined}
+            error={amount == null ? '금액을 넣어 주세요(0 이면 예수금은 바꾸지 않습니다)' : undefined}
+          >
+            <NumberField
+              kind={kind}
+              thousands
+              decimals={0}
+              unit="원"
+              max={ASSET_CASH_MAX}
+              value={text}
+              invalid={amount == null}
+              onValue={(v) => {
+                setEdited(true);
+                setText(v);
+              }}
+              aria-label={fieldLabel}
+              data-testid="asset-cash-trade-amount"
+            />
+          </FormRow>
+        </NumberUnitGroup>
       )}
     </div>
   );

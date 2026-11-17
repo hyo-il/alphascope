@@ -3,6 +3,7 @@
  * 139차 「꼭 지킬 동작」 8(1280 × 1080 · 1440 × 900): 설정 「현금 자동 반영」 · 고정 흐름 · 반영 기록 · 되돌리기 확인 창 · 매수 창 예수금 줄 · 잠금 때 꺼짐 · 로딩 · 넘침 0
  * (v2.71.1 140차 — 설정 화면을 다시 그려 찾는 이름 · 글을 새 화면에 맞춤: 예수금 계좌 짝 · 고정 흐름 칸 · 「flowEdit」 · 은행 이름. 동작은 그대로)
  * + 6 의 화면 몫(미리 보기 금액 · 고친 금액이 요청에 · 미국 = 환율 계산 · 예수금 실패 안내 · 짝 없음 = 지금과 같음).
+ * (v2.71.2 141차 — 예수금은 한 줄 안내 · [금액 고치기] 를 눌렀을 때만 금액 칸 · [계산 값으로] · 보내는 값 그대로 · 빨간 표시는 칸을 떠난 뒤 [141-1] [141-3])
  * Vite + Playwright, `/api` 는 모두 `page.route` 가짜(만든 값) — 구글 · 토스 · 서버 호출 0. 요소는 역할 + 이름 · `data-testid` 로 찾는다.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
@@ -190,8 +191,10 @@ try {
       check(`[139-8] ${w}px 짝을 받기 전 — 「확인 중」 · [저장] 막힘(짝 없음을 먼저 그리지 않음)`, (await page.getByTestId('asset-cash-trade').getAttribute('data-cash-state')) === 'loading' && (await page.getByRole('button', { name: '저장' }).isDisabled()));
       gates.pair();
       await page.getByTestId('asset-cash-trade-preview').waitFor({ timeout: 5000 });
-      check(`[139-6] ${w}px 미리 보기 「예시키움 · 투자 계좌 예수금에서 ₩700,000 빠집니다」(v2.71.1 문장) · 금액 칸 = 수량 × 가격`, ((await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '').replace(/\s+/g, ' ') === `${KIWOOM_LABEL}에서 ₩700,000 빠집니다` && (await page.getByTestId('asset-cash-trade-amount').inputValue()) === '700,000',
+      check(`[139-6][141-3] ${w}px 한 줄 「예시키움 · 투자 계좌 예수금에서 ₩700,000 빠집니다」 · [금액 고치기] 전에는 금액 칸 없음`, ((await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '').replace(/\s+/g, ' ') === `${KIWOOM_LABEL}에서 ₩700,000 빠집니다` && (await page.getByTestId('asset-cash-trade-amount').count()) === 0,
         (await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '');
+      await page.getByRole('button', { name: '금액 고치기' }).click();
+      check(`[139-6][141-3] ${w}px [금액 고치기] → 「예수금에서 빠질 금액」 칸 = 수량 × 가격 · 빨간 표시 0`, (await page.getByRole('textbox', { name: '예수금에서 빠질 금액' }).inputValue()) === '700,000' && (await page.locator('[data-field-error]').count()) === 0 && (await page.locator('[aria-invalid="true"]').count()) === 0);
       await page.getByTestId('asset-cash-trade-amount').fill('701500');
       check(`[139-6] ${w}px 금액을 고치면 미리 보기도 그 금액`, ((await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '').includes('₩701,500 빠집니다'));
       await page.getByRole('textbox', { name: '수량' }).fill('11');
@@ -204,6 +207,71 @@ try {
       await ctx.close();
     }
 
+    // ── 141차 B — 한 줄 안내 · [금액 고치기] · [계산 값으로] · 보내는 값 그대로 ──
+    {
+      const { page, ctx, seen, errors } = await open(browser, { size });
+      await page.getByRole('button', { name: '예시 국내 대형주 매수 입력' }).first().click();
+      await page.waitForTimeout(150);
+      await page.getByTestId('asset-cash-trade-preview').waitFor({ timeout: 5000 });
+      const dlg = page.getByRole('dialog', { name: '매수 입력' });
+      check(`[141-3] ${w}px 수량 · 가격 전 — 회색 「… 예수금 — 수량과 가격을 넣으면 계산됩니다」 · [금액 고치기] · 금액 칸 0 · 빨간 표시 0`,
+        ((await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '').replace(/\s+/g, ' ') === `${KIWOOM_LABEL} — 수량과 가격을 넣으면 계산됩니다`
+          && ((await page.getByTestId('asset-cash-trade-preview').getAttribute('class')) ?? '').includes('text-text-muted')
+          && (await page.getByRole('button', { name: '금액 고치기' }).count()) === 0 && (await page.getByTestId('asset-cash-trade-amount').count()) === 0
+          && (await dlg.locator('[data-field-error], [aria-invalid="true"], .border-danger').count()) === 0);
+      check(`[141-3] ${w}px 화면에 「예수금 금액」 0`, !((await dlg.innerText()) ?? '').includes('예수금 금액'));
+      await page.getByRole('textbox', { name: '수량' }).fill('10');
+      await page.waitForTimeout(150);
+      await page.getByRole('textbox', { name: '가격' }).fill('70000');
+      await page.waitForTimeout(150);
+      await page.getByRole('button', { name: '금액 고치기' }).click();
+      await page.waitForTimeout(150);
+      await page.getByTestId('asset-cash-trade-amount').fill('');
+      await page.waitForTimeout(150);
+      check(`[141-1] ${w}px 금액 칸을 비워도 떠나기 전에는 빨간 표시 0 · [저장] 막힘`, (await dlg.locator('[data-field-error], [aria-invalid="true"]').count()) === 0 && (await page.getByRole('button', { name: '저장' }).isDisabled()),
+        `${(await dlg.locator('[data-field-error], [aria-invalid="true"]').evaluateAll((els) => els.map((e) => e.outerHTML.slice(0, 120)).join(' | ')))} · 저장 꺼짐 ${await page.getByRole('button', { name: '저장' }).isDisabled()} · 칸 ${await page.getByTestId('asset-cash-trade-amount').count()}`);
+      await page.getByTestId('asset-cash-trade-amount').blur();
+      await page.waitForTimeout(150);
+      check(`[141-1] ${w}px 비우고 떠나면 빨간 테두리 · 빨간 글`, (await dlg.locator('[data-field-error]').count()) === 1 && (await page.getByTestId('asset-cash-trade-amount').getAttribute('aria-invalid')) === 'true');
+      await page.getByTestId('asset-cash-trade-amount').fill('0');
+      await page.waitForTimeout(150);
+      check(`[141-1][141-3] ${w}px 고치면 빨강 사라짐 · 0 → 회색 「예수금은 바꾸지 않습니다」 · 한 줄 「— 바꾸지 않습니다」`, (await dlg.locator('[data-field-error], [aria-invalid="true"]').count()) === 0
+        && ((await dlg.locator('[data-formrow-hint]').innerText()) ?? '') === '예수금은 바꾸지 않습니다' && ((await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '').replace(/\s+/g, ' ').includes('예수금 — 바꾸지 않습니다'));
+      await page.getByRole('button', { name: '계산 값으로' }).click();
+      await page.waitForTimeout(150);
+      check(`[141-3] ${w}px [계산 값으로] → 금액 칸 닫힘 · 한 줄이 계산 값(₩700,000)`, (await page.getByTestId('asset-cash-trade-amount').count()) === 0 && ((await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '').includes('₩700,000 빠집니다'));
+      await page.getByRole('textbox', { name: '수량' }).fill('12');
+      await page.waitForTimeout(150);
+      check(`[141-3] ${w}px 고치지 않았으면 수량을 따라감(₩840,000)`, ((await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '').includes('₩840,000 빠집니다'));
+      await page.getByRole('button', { name: '저장' }).click();
+      await page.waitForTimeout(150);
+      await page.getByRole('dialog', { name: '매수 입력' }).waitFor({ state: 'detached', timeout: 5000 });
+      check(`[141-3] ${w}px 보내는 값 그대로 — 고치지 않으면 cashAmount = 수량 × 가격(840,000 · 139 · 140차와 같음)`, seen.trades.length === 1 && seen.trades[0].cashAmount === 840_000);
+      check(`[141-3] ${w}px 화면 오류 0`, errors.length === 0, errors.join(' / '));
+      await ctx.close();
+    }
+    // ── 141차 B — 매도 「들어갑니다」 · 이름 「예수금에 들어갈 금액」 ──
+    {
+      const { page, ctx, seen } = await open(browser, { size });
+      await page.getByRole('button', { name: '예시 국내 대형주 매도 입력' }).first().click();
+      await page.waitForTimeout(150);
+      await page.getByTestId('asset-cash-trade-preview').waitFor({ timeout: 5000 });
+      await page.getByRole('textbox', { name: '수량' }).fill('1');
+      await page.waitForTimeout(150);
+      await page.getByRole('textbox', { name: '가격' }).fill('72000');
+      await page.waitForTimeout(150);
+      check(`[141-3] ${w}px 매도 — 「…에 ₩72,000 들어갑니다」`, ((await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '').replace(/\s+/g, ' ') === `${KIWOOM_LABEL}에 ₩72,000 들어갑니다`);
+      await page.getByRole('button', { name: '금액 고치기' }).click();
+      await page.waitForTimeout(150);
+      await page.getByRole('textbox', { name: '예수금에 들어갈 금액' }).fill('71000');
+      await page.waitForTimeout(150);
+      await page.getByRole('button', { name: '저장' }).click();
+      await page.waitForTimeout(150);
+      await page.getByRole('dialog', { name: '매도 입력' }).waitFor({ state: 'detached', timeout: 5000 });
+      check(`[141-3] ${w}px 매도 금액 칸 「예수금에 들어갈 금액」 · 고친 값이 저장됨(71,000)`, seen.trades.length === 1 && seen.trades[0].cashAmount === 71_000);
+      await ctx.close();
+    }
+
     // ── 매수 창 — 미국(환율) · 예수금 실패 안내 ──
     {
       const { page, ctx, seen } = await open(browser, { size, tradeCash: { status: 'skipped', message: '예수금 줄은 바꾸지 못했어요 — 시트에서 고쳐 주세요(「현금」 줄을 찾지 못함).' } });
@@ -212,7 +280,7 @@ try {
       await page.getByRole('textbox', { name: '수량' }).fill('2');
       await page.getByRole('textbox', { name: '가격' }).fill('100.25');
       const want = Math.round(2 * 100.25 * 1380.5); // 276,790
-      check(`[139-6] ${w}px 미국 = 수량 × 가격 × 지금 환율(반올림 ${want.toLocaleString('en-US')}) · 「환율 1,380.5 기준」`, (await page.getByTestId('asset-cash-trade-amount').inputValue()) === want.toLocaleString('en-US') && ((await page.getByTestId('asset-cash-trade-fx').textContent()) ?? '').includes('환율 1,380.5 기준'));
+      check(`[139-6][141-3] ${w}px 미국 = 수량 × 가격 × 지금 환율(반올림 ${want.toLocaleString('en-US')}) · 한 줄 아래 「환율 1,380.5 기준」 · 금액 칸 없음`, ((await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '').includes(`에서 ₩${want.toLocaleString('en-US')} 빠집니다`) && (await page.getByTestId('asset-cash-trade-amount').count()) === 0 && ((await page.getByTestId('asset-cash-trade-fx').textContent()) ?? '') === '환율 1,380.5 기준');
       await page.getByRole('button', { name: '저장' }).click();
       await page.getByTestId('asset-cash-trade-failed').waitFor({ timeout: 5000 });
       check(`[139-6] ${w}px 예수금 쓰기만 실패 → 창에 「매수는 저장했어요. 예수금 줄은 바꾸지 못했어요 — 시트에서 고쳐 주세요(까닭)」 + [닫기] 만([저장] 없음)`,

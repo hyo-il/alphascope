@@ -209,6 +209,7 @@ try {
       await page.getByRole('textbox', { name: '수량' }).fill('2');
       await page.getByRole('textbox', { name: '가격' }).fill('70000');
       check(`[140-7] ${w}px 매도 창 — 「예시키움 · 투자 계좌 예수금에 ₩140,000 들어갑니다」(은행 · 상품 이름)`, ((await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '').replace(/\s+/g, ' ') === '예시키움 · 투자 계좌 예수금에 ₩140,000 들어갑니다');
+      await page.getByRole('button', { name: '금액 고치기' }).click();
       await page.getByTestId('asset-cash-trade-amount').fill('0');
       check(`[140-7] ${w}px 금액 0 → 「… — 바꾸지 않습니다」`, ((await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '').replace(/\s+/g, ' ').includes('예수금 — 바꾸지 않습니다'));
       check(`[140-7] ${w}px 매도 창 글에 「줄」 0(예수금 계좌)`, badWords((await page.getByTestId('asset-cash-trade').innerText()) ?? '').length === 0);
