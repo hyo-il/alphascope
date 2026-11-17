@@ -24,6 +24,7 @@ import { cashWide, isCashWriteOn, parseCashAmount, readCashSettings, tradeCash, 
 import { buildCashPreview, buildCashView, cashSheetNow } from './cashView';
 import { cashLines, cellNumber, findCashLine } from './cashKeys';
 import { readCashBankFix, writeCashBankFix } from './cashBanks';
+import { applyManualCash } from './cashManual';
 import { kstDay } from './cashSchedule';
 import { cashBankLabelOf, type AssetCashPairView, type AssetSheetCashBanks, type AssetSheetErrorKind, AssetSheetFailure, AssetStatus, AssetTouchResult, PurchaseDoneResult } from '../../src/types/asset';
 
@@ -46,6 +47,7 @@ export const ACTIVE = new Set([
   'PUT /api/asset/cash/settings',
   'POST /api/asset/cash/undo',
   'PUT /api/asset/cash/banks',
+  'POST /api/asset/cash/manual',
 ]);
 const isAssetPath = (p: string) => p === '/api/asset' || p.startsWith('/api/asset/');
 
@@ -376,6 +378,18 @@ assetRouter.post('/api/asset/cash/undo', async (req, res) => {
   try {
     await undoCashMove(req.body?.id);
     res.json(await buildCashView());
+  } catch (e) {
+    sendSheetError(res, e, '쓰기');
+  }
+});
+
+/**
+ * 직접 입출금(v2.72.0) — `{ kind: transfer | deposit | withdraw, from, to, amount, memo?, requestId }` · 시트 쓰기 스위치만 봄(「현금 자동 반영」 설정은 안 봄) · 잠금은 맨 앞 자산 문지기.
+ * 쓰기 · 기록은 `cashManual.ts` → `applyCashMove`(현금 자동 반영과 같은 길) · 같은 요청 번호는 한 번만 쓰고 같은 기록을 돌려준다 · 응답 = 기록 + 쓴 뒤 금액.
+ */
+assetRouter.post('/api/asset/cash/manual', async (req, res) => {
+  try {
+    res.json(await applyManualCash(req.body));
   } catch (e) {
     sendSheetError(res, e, '쓰기');
   }

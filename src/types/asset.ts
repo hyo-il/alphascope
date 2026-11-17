@@ -1087,3 +1087,63 @@ export const ASSET_CASH_REASON_TEXT: Record<AssetCashReason, string> = {
   stopped: '쓰는 중에 멈춤',
   'write-failed': '시트를 읽거나 쓰지 못함',
 };
+
+// ── 직접 입출금(v2.72.0 · 143차) — 예수금 · 현금 [입출금] 창의 이체 · 입금 · 출금(쓰기는 현금 자동 반영과 같은 `server/asset/cashMoves.ts`) ──
+
+/** 직접 입출금 종류 — 이체(계좌 → 계좌 · 총 자산 그대로) · 입금(밖에서 들어옴) · 출금(밖으로 나감) */
+export type AssetCashManualKind = 'transfer' | 'deposit' | 'withdraw';
+export const ASSET_CASH_MANUAL_KINDS: readonly AssetCashManualKind[] = ['transfer', 'deposit', 'withdraw'];
+/** 화면 이름 — 계좌 관리(모의투자) 「입금 · 출금」 과 같은 말 */
+export const ASSET_CASH_MANUAL_LABEL: Record<AssetCashManualKind, string> = { transfer: '이체', deposit: '입금', withdraw: '출금' };
+/** 반영 기록 종류 전부(자동 반영 + 직접 입출금) */
+export type AssetCashMoveKindAll = AssetCashMoveKind | AssetCashManualKind;
+export const isAssetCashManualKind = (v: unknown): v is AssetCashManualKind => typeof v === 'string' && (ASSET_CASH_MANUAL_KINDS as readonly string[]).includes(v);
+/** 반영 기록 종류 화면 이름 */
+export const assetCashKindLabel = (k: AssetCashMoveKindAll): string => (isAssetCashManualKind(k) ? ASSET_CASH_MANUAL_LABEL[k] : ASSET_CASH_KIND_LABEL[k]);
+/** 메모 최대 글자 수 */
+export const ASSET_CASH_MEMO_MAX = 40;
+
+/** 반영 기록 한 줄(직접 입출금 포함) — 직접 입출금의 `label` 은 메모(없으면 빈 글자) */
+export interface AssetCashMoveRecordAll extends Omit<AssetCashMoveRecord, 'kind'> {
+  kind: AssetCashMoveKindAll;
+}
+
+/** `GET /api/asset/cash` 응답(v2.72.0) — 반영 기록에 직접 입출금 줄도 */
+export interface AssetCashViewV3 extends Omit<AssetCashViewV2, 'moves'> {
+  moves: AssetCashMoveRecordAll[];
+}
+
+/** `POST /api/asset/cash/manual` 요청 — 이체 = 빠지는 · 들어가는 계좌 둘 · 입금 = 들어가는 계좌만 · 출금 = 빠지는 계좌만 */
+export interface AssetCashManualRequest {
+  kind: AssetCashManualKind;
+  from: AssetCashKey | null;
+  to: AssetCashKey | null;
+  /** 원 · 양의 정수 */
+  amount: number;
+  /** 선택 · 40자까지 */
+  memo?: string;
+  /** 화면이 만든 한 번용 id — 같은 번호는 한 번만 쓴다(두 번 눌러도 · 다시 보내도 같은 기록) */
+  requestId: string;
+}
+
+/** `POST /api/asset/cash/manual` 응답 — 기록 한 줄 + 쓴 뒤 그 계좌들의 금액(원 · 그 쪽이 없거나 쓰지 않았으면 null) */
+export interface AssetCashManualResult {
+  move: AssetCashMoveRecordAll;
+  after: { from: number | null; to: number | null };
+  /** 같은 요청 번호가 이미 있어 쓰지 않고 그 기록을 돌려줌 */
+  duplicate: boolean;
+}
+
+/** 「현금」 탭 은행 계좌 줄 → 열쇠(이름 · 같은 이름 가운데 몇 번째 · 같은 이름 줄 수) — 화면 [입출금] 창(서버 `cashLines` · `storedCashKey` 와 같은 뜻) */
+export function cashKeysOfRows<T extends { name: string }>(rows: T[]): { row: T; key: AssetCashKey }[] {
+  const nameOf = (r: T) => r.name.trim().replace(/\s+/g, ' ');
+  const count = new Map<string, number>();
+  for (const r of rows) count.set(nameOf(r), (count.get(nameOf(r)) ?? 0) + 1);
+  const seen = new Map<string, number>();
+  return rows.map((row) => {
+    const name = nameOf(row);
+    const nth = (seen.get(name) ?? 0) + 1;
+    seen.set(name, nth);
+    return { row, key: { name, nth, of: count.get(name) ?? 1 } };
+  });
+}

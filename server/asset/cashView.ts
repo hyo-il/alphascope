@@ -3,7 +3,7 @@
  * 시트는 읽기만(「현금」 B:C · 「월 고정지출」 A:Z 한 번씩 + 계좌 이름은 30초 캐시 시트). 계산은 `cashKeys.ts` · `cashSchedule.ts` 그대로.
  * ⚠️ 로그를 남기지 않는다(값이 든 응답).
  */
-import { ASSET_CASH_FROM_SALARY, type AssetCashFlowViewV2, type AssetCashPreview, type AssetCashViewV2 } from '../../src/types/asset';
+import { ASSET_CASH_FROM_SALARY, type AssetCashFlowViewV2, type AssetCashPreview, type AssetCashViewV3 } from '../../src/types/asset';
 import { assetSheetConfig, isAssetSyncEnabled } from './config';
 import { AssetSheetError } from './google';
 import { readAssetSheet } from './sheet';
@@ -31,7 +31,7 @@ export async function buildCashPreview(now = Date.now()): Promise<AssetCashPrevi
   return cashPreview(sheet, readCashBankFix(), now, cashCalendar());
 }
 
-export async function buildCashView(now = Date.now()): Promise<AssetCashViewV2> {
+export async function buildCashView(now = Date.now()): Promise<AssetCashViewV3> {
   const [sheet, data] = await Promise.all([cashSheetNow(), readAssetSheet()]);
   const stored = readCashStored();
   const s = resolveCashSettings(stored);

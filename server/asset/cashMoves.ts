@@ -13,6 +13,8 @@
  *   「월급 받는 계좌 따라감」(`'salary'`)을 둘 수 있다 — 옛 모양(139차 · `v` 없음)의 빠지는 계좌 빈칸은 「따라감」 으로 읽는다(사용자 결정 — 처음부터 모든 줄 = 월급 받는 계좌).
  *   반영 · 쓰기 · 예약은 `readCashSettings()` 의 **풀린 설정**(따라감 → 그때의 월급 받는 계좌 열쇠)만 본다 — 판단 코드는 그대로.
  * - 켬 조건: `ASSET_SYNC_ENABLED`(시트 쓰기 스위치) **그리고** 설정 「현금 자동 반영」 켬(기본 꺼짐). 하나라도 꺼지면 쓰기 0.
+ * - 직접 입출금(v2.72.0 · 이체 · 입금 · 출금 — `cashManual.ts`)은 사용자가 누르는 일이라 「현금 자동 반영」 설정은 보지 않고 `ASSET_SYNC_ENABLED` 만 본다(`manual`).
+ *   요청 번호 하나에 한 줄(고유 색인 — 두 번 눌러도 · 다시 보내도 쓰기 1번) · 쓰기 전에 실패하면(줄 못 찾음 · 숫자 아님 · 구글 거절) 기록을 남기지 않고 까닭을 돌려준다.
  * ⚠️ 로그에는 기록 id · 종류 · 상태 · 까닭 종류만(금액 · 수량 · 계좌 이름 없음).
  */
 import { getDb } from '../db';
@@ -25,8 +27,8 @@ import {
   type AssetCashFlowSetting,
   type AssetCashFrom,
   type AssetCashKey,
-  type AssetCashMoveKind,
-  type AssetCashMoveRecord,
+  type AssetCashMoveKindAll,
+  type AssetCashMoveRecordAll,
   type AssetCashMoveStatus,
   type AssetCashReason,
   type AssetCashSettings,
@@ -56,7 +58,7 @@ function db() {
       CREATE TABLE IF NOT EXISTS asset_cash_moves (
         id INTEGER PRIMARY KEY,
         at TEXT NOT NULL,          -- 기록 시각(ISO)
-        kind TEXT NOT NULL,        -- salary | fixed | buy | sell
+        kind TEXT NOT NULL,        -- salary | fixed | buy | sell | transfer | deposit | withdraw(직접 입출금 · label = 메모)
         item_key TEXT NOT NULL,    -- 항목 열쇠 JSON(월급 = "salary" · 고정 흐름 = AssetFixedKey · 매수 · 매도 = 매매 기록 id)
         label TEXT NOT NULL,       -- 화면 이름(사유 · 종목)
         month TEXT NOT NULL,       -- 그 달 YYYY-MM
@@ -74,6 +76,7 @@ function db() {
       );
       CREATE UNIQUE INDEX IF NOT EXISTS asset_cash_moves_once ON asset_cash_moves(kind, item_key, month) WHERE kind IN ('salary', 'fixed');
       CREATE UNIQUE INDEX IF NOT EXISTS asset_cash_moves_trade_once ON asset_cash_moves(kind, item_key) WHERE kind IN ('buy', 'sell');
+      CREATE UNIQUE INDEX IF NOT EXISTS asset_cash_moves_manual_once ON asset_cash_moves(item_key) WHERE kind IN ('transfer', 'deposit', 'withdraw');
     `);
     ready = true;
   }
@@ -81,7 +84,7 @@ function db() {
 }
 
 interface MoveRow {
-  id: number; at: string; kind: AssetCashMoveKind; item_key: string; label: string; month: string; day: string; from_key: string | null; to_key: string | null;
+  id: number; at: string; kind: AssetCashMoveKindAll; item_key: string; label: string; month: string; day: string; from_key: string | null; to_key: string | null;
   amount: number; status: AssetCashMoveStatus; reason: AssetCashReason | null; undone_at: string | null;
 }
 
@@ -95,13 +98,27 @@ const parseKey = (v: string | null): AssetCashKey | null => {
   }
 };
 
-const recordOf = (r: MoveRow): AssetCashMoveRecord => ({
+const recordOf = (r: MoveRow): AssetCashMoveRecordAll => ({
   id: r.id, at: r.at, kind: r.kind, label: r.label, month: r.month, day: r.day, from: parseKey(r.from_key), to: parseKey(r.to_key),
   amount: r.amount, status: r.status, reason: r.reason, undoneAt: r.undone_at,
 });
 
 /** 반영 기록 — 최근 50 · 최신 위 */
-export const listCashMoves = (): AssetCashMoveRecord[] => (db().prepare(`SELECT * FROM asset_cash_moves ORDER BY id DESC LIMIT ?`).all(MOVES_LIMIT) as MoveRow[]).map(recordOf);
+export const listCashMoves = (): AssetCashMoveRecordAll[] => (db().prepare(`SELECT * FROM asset_cash_moves ORDER BY id DESC LIMIT ?`).all(MOVES_LIMIT) as MoveRow[]).map(recordOf);
+
+/** 직접 입출금 기록(요청 번호 하나에 한 줄) — 기록 + 쓴 뒤 값(없으면 null) */
+export function manualMoveOf(itemKey: string): { move: AssetCashMoveRecordAll; after: { from: number | null; to: number | null } } | null {
+  const r = db().prepare(`SELECT * FROM asset_cash_moves WHERE item_key = ? AND kind IN ('transfer', 'deposit', 'withdraw')`).get(itemKey) as (MoveRow & { after_json: string | null }) | undefined;
+  if (!r) return null;
+  let after = { from: null as number | null, to: null as number | null };
+  try {
+    const a = r.after_json ? (JSON.parse(r.after_json) as { from?: unknown; to?: unknown }) : {};
+    after = { from: typeof a.from === 'number' ? a.from : null, to: typeof a.to === 'number' ? a.to : null };
+  } catch {
+    // 쓴 뒤 값을 못 읽으면 null(기록은 그대로)
+  }
+  return { move: recordOf(r), after };
+}
 
 /** 월급 · 고정 흐름 그 달 기록이 이미 있나(어떤 상태든 — 두 번 쓰지 않기) */
 export const hasMonthMove = (kind: 'salary' | 'fixed', itemKey: string, month: string): boolean =>
@@ -419,7 +436,7 @@ export function serial<T>(fn: () => Promise<T>): Promise<T> {
 
 /** 반영 한 건 */
 export interface CashMoveInput {
-  kind: AssetCashMoveKind;
+  kind: AssetCashMoveKindAll;
   /** 항목 열쇠 글자(월급 · 고정 흐름은 그 달 한 번의 기준) */
   itemKey: string;
   label: string;
@@ -450,9 +467,10 @@ export function recordCashSkip(m: CashMoveInput, reason: AssetCashReason, detail
  * 시트를 쓰지 못하면(줄 없음 · 숫자 아님 · 구글 실패) 「건너뜀(까닭)」 · 쓴 뒤 다시 읽은 값이 다르면 「다시 확인 필요」.
  * `transientRetry` 면 구글 실패(네트워크 등)는 기록 없이 다시 던진다(예약이 다음 확인에 다시 — 그 달 자리를 잡지 않는다).
  */
-export function applyCashMove(m: CashMoveInput, opts: { transientRetry?: boolean } = {}): Promise<CashMoveOutcome> {
+export function applyCashMove(m: CashMoveInput, opts: { transientRetry?: boolean; manual?: boolean } = {}): Promise<CashMoveOutcome> {
   return serial(async () => {
-    if (!isCashWriteOn()) throw new AssetSheetError('disabled', '현금 자동 반영이 꺼져 있습니다.');
+    // 직접 입출금(`manual`)은 시트 쓰기 스위치만 본다(사용자 결정 2026-11-17 — 「현금 자동 반영」 이 꺼져 있어도 됨)
+    if (opts.manual ? !isAssetSyncEnabled() : !isCashWriteOn()) throw new AssetSheetError('disabled', opts.manual ? '시트 쓰기가 꺼져 있어요.' : '현금 자동 반영이 꺼져 있습니다.');
     const config = assetSheetConfig();
     if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
     const d = db();
@@ -475,6 +493,11 @@ export function applyCashMove(m: CashMoveInput, opts: { transientRetry?: boolean
       const w = await writeCashMove(config, m.from, m.to, m.amount);
       return w.mismatch ? finish('check', 'mismatch', null, w) : finish('applied', null, null, w);
     } catch (e) {
+      // 직접 입출금 — 쓰기 전 실패(줄 못 찾음 · 숫자 아님 · 구글 거절)는 쓰지 않았다: 기록을 남기지 않고(같은 요청 번호로 다시 할 수 있게) 까닭을 던진다
+      if (opts.manual && !(e instanceof CashMaybeWritten)) {
+        d.prepare(`DELETE FROM asset_cash_moves WHERE id = ? AND status = 'pending'`).run(id);
+        throw e;
+      }
       if (e instanceof CashSkip) return finish('skipped', e.reason, e.detail);
       // 쓰기 요청을 보낸 뒤 실패 — 쓰였을 수 있다: 다시 쓰지 않고 「다시 확인 필요」(그 달 자리도 그대로)
       if (e instanceof CashMaybeWritten) return finish('check', 'write-failed', e.kind);
@@ -494,9 +517,10 @@ export function applyCashMove(m: CashMoveInput, opts: { transientRetry?: boolean
  * 되돌리기 — 「반영」 줄만. 「되돌리는 중」 으로 먼저 바꿔(두 번 누름 · 두 서버 요청이 겹쳐도 한 번) 반대 금액을 **지금 숫자**에 쓴다
  * (출금 줄 +금액 · 입금 줄 −금액 · 같은 `writeCashMove`). 쓰지 못하면 「반영」 으로 되돌리고 이유를 알린다 · 다시 읽은 값이 다르면 「다시 확인 필요」.
  */
-export function undoCashMove(id: unknown): Promise<AssetCashMoveRecord> {
+export function undoCashMove(id: unknown): Promise<AssetCashMoveRecordAll> {
   return serial(async () => {
-    if (!isCashWriteOn()) throw new AssetSheetError('disabled', '현금 자동 반영이 꺼져 있어 되돌릴 수 없습니다.');
+    // 직접 입출금 기록은 시트 쓰기 스위치만 본다(「현금 자동 반영」 이 꺼져 있어도 되돌림) · 그 밖 기록은 지금 그대로
+    if (!isCashWriteOn() && !(isAssetSyncEnabled() && isManualMoveId(id))) throw new AssetSheetError('disabled', '현금 자동 반영이 꺼져 있어 되돌릴 수 없습니다.');
     if (typeof id !== 'number' || !Number.isInteger(id) || id < 1) throw new AssetSheetError('not-editable', '되돌릴 기록이 올바르지 않습니다.');
     const config = assetSheetConfig();
     if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
@@ -531,8 +555,15 @@ export function undoCashMove(id: unknown): Promise<AssetCashMoveRecord> {
   });
 }
 
+/** 직접 입출금 기록인가(되돌리기 켬 판단) */
+function isManualMoveId(id: unknown): boolean {
+  if (typeof id !== 'number' || !Number.isInteger(id) || id < 1) return false;
+  const r = db().prepare(`SELECT kind FROM asset_cash_moves WHERE id = ?`).get(id) as { kind: string } | undefined;
+  return r != null && ['transfer', 'deposit', 'withdraw'].includes(r.kind);
+}
+
 /** 되돌리기 실패 문구 — 화면 문구(`ASSET_CASH_REASON_LABEL`)와 같은 뜻 */
-const CASH_SKIP_TEXT: Partial<Record<AssetCashReason, string>> = {
+export const CASH_SKIP_TEXT: Partial<Record<AssetCashReason, string>> = {
   'missing-row': '「현금」 줄을 찾지 못함',
   'not-number': '금액 칸이 숫자가 아님',
   'formula-cell': '금액 칸이 수식',
