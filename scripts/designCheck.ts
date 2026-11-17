@@ -671,6 +671,65 @@ function targets(): Target[] {
         await page.unroute('**/api/asset/touch');
       },
     })),
+    // v2.71.3 — 자산 현황 계좌 머리 예수금(플러스 · 마이너스) · 매수 창 남는 예수금 · 고친 금액 노란 경고 · 마이너스 확인 창(142차 실제 사례 숫자). 가짜 응답만(쓰기 주소는 막는다)
+    ...(
+      [
+        ['계좌머리-예수금', 'heads'],
+        ['매수창-남는예수금', 'left'],
+        ['매수창-예수금-노란경고', 'gap'],
+        ['매수창-예수금-마이너스확인창', 'minus'],
+      ] as const
+    ).map(([label, step]) => ({
+      name: `asset-${label}`,
+      hash: '#/asset',
+      before: async (page: Page) => {
+        await page.evaluate(() => {
+          localStorage.setItem('alphascope.asset.tab', 'status');
+          localStorage.setItem('alphascope.asset.statusView', 'account');
+        });
+        const base = assetSheetSample();
+        const minusKey = { name: '예시국민 (ISA 예수금)', nth: 1 };
+        const sheet = {
+          ...base,
+          cashAccounts: [...base.cashAccounts, { row: 9, name: CASH_SAMPLE_KIWOOM.name, amount: 694_000 }, { row: 10, name: minusKey.name, amount: -18_329 }],
+          cashDepositPairs: { '개별 투자': CASH_SAMPLE_KIWOOM, 'ISA 계좌': minusKey },
+        };
+        await page.route('**/api/asset/status', (r) => r.fulfill({ json: assetStatusSample(true) }).catch(() => {}));
+        await page.route('**/api/asset/touch', (r) => r.fulfill({ json: { ok: true, lockMinutes: 30, remainingMs: 30 * 60_000 } }).catch(() => {}));
+        await page.route('**/api/asset/sheet', (r) => r.fulfill({ json: sheet }).catch(() => {}));
+        await page.route('**/api/asset/summary**', (r) => r.fulfill({ json: assetSummarySample({}) }).catch(() => {}));
+        await page.route('**/api/asset/history**', (r) => r.fulfill({ json: assetHistorySample(5) }).catch(() => {}));
+        await page.route('**/api/asset/cash/pair**', (r) => r.fulfill({ json: { enabled: true, pair: { key: CASH_SAMPLE_KIWOOM, label: '예시키움 · 투자 계좌 예수금' }, usdKrw: 1380.5, balance: 4_000_000 } }).catch(() => {}));
+        await page.route('**/api/asset/trade', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
+      },
+      open: async (page: Page) => {
+        await page.waitForTimeout(800);
+        if (step === 'heads') return;
+        await page.locator('[data-trade-buy="6"]').click().catch(() => {});
+        await page.getByRole('textbox', { name: '수량' }).fill('3').catch(() => {});
+        await page.getByRole('textbox', { name: '가격' }).fill('1102000').catch(() => {});
+        await page.getByTestId('asset-cash-trade-preview').waitFor({ timeout: 3000 }).catch(() => {});
+        if (step !== 'left') {
+          await page.getByRole('button', { name: '금액 고치기' }).click().catch(() => {});
+          await page.getByRole('textbox', { name: '예수금에서 빠질 금액' }).fill('4018329').catch(() => {});
+        }
+        if (step === 'minus') {
+          await page.getByRole('button', { name: '저장' }).click().catch(() => {});
+          await page.getByRole('dialog', { name: '예수금이 마이너스가 됩니다' }).waitFor({ timeout: 3000 }).catch(() => {});
+        }
+        await page.waitForTimeout(300);
+      },
+      after: async (page: Page) => {
+        for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/cash/pair**', '**/api/asset/trade']) await page.unroute(p);
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.evaluate(() => {
+          localStorage.removeItem('alphascope.asset.tab');
+          localStorage.removeItem('alphascope.asset.statusView');
+        });
+        await page.unroute('**/api/asset/touch');
+      },
+    })),
     // 자산 관리 v2.63.0 · v2.64.0 — 「비율 조정」 탭(괜찮음 · 조정 필요 섞임 · 빠진 금액 줄 · 목표 합 ≠ 100 · 목표 빈칸) ·
     // 설정 창 「목표 비율」(합 맞음 · 틀림 · 쓰기 꺼짐) · 「비율 조정 범위」 · 「자산 현황」 종목별(전체 · 코어 · 위성). 가짜 응답만(쓰기 주소는 막는다)
     ...(

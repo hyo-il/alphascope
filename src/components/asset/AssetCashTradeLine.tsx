@@ -14,7 +14,7 @@ import { ASSET_CASH_MAX, ASSET_CASH_WARN_RATIO, type AssetCashPairView, type Ass
  *   [금액 고치기] 를 눌렀을 때만 금액 칸이 열린다(처음 값 = 계산 값) — 고치면 그 값을 그대로 쓴다(0 = 예수금은 안 바꿈) · [계산 값으로] 는 계산 값으로 되돌리고 칸을 닫는다.
  *   미국 주식인데 환율을 못 받았으면 계산할 수 없어 금액 칸을 바로 연다.
  * - 남는 예수금 · 경고 · 확인(v2.71.3 · 142차 — 서버가 「현금」 탭 같은 읽기에서 보낸 지금 예수금 `balance`):
- *   매수 한 줄 끝에 「→ 남는 예수금 ₩…」(마이너스면 하락 색) · [금액 고치기] 로 고친 금액이 계산 값과 `ASSET_CASH_WARN_RATIO` 넘게 다르면 칸 아래 노란 주의 글(빨간 표시 아님 · 저장은 막지 않음) ·
+ *   매수 한 줄 안내 아래(같은 상자 둘째 줄)에 「→ 남는 예수금 ₩…」(마이너스면 하락 색) · [금액 고치기] 로 고친 금액이 계산 값과 `ASSET_CASH_WARN_RATIO` 넘게 다르면 칸 아래 노란 주의 글(빨간 표시 아님 · 저장은 막지 않음) ·
  *   매수 저장 뒤 예수금이 마이너스가 되면 [저장] 을 눌렀을 때 확인 창(`askCashMinus` — 창을 부른 쪽이 저장 전에 부른다 · 취소면 창 그대로). `balance` 가 null 이면 남는 금액 · 확인 창 없음.
  *   보내는 값(`send` · `ready`)은 그대로 — `confirm` 만 더한다.
  * - 짝이 없거나 꺼졌으면 안내 한 줄만(지금과 같게 저장 — 예수금 금액을 보내지 않는다). 받기 실패도 보내지 않는다(이유 한 줄).
@@ -154,7 +154,9 @@ export default function AssetCashTradeLine({
   return (
     <div className="space-y-2" data-testid="asset-cash-trade" data-cash-state="pair">
       <div className="flex min-w-0 items-center gap-2 rounded-lg bg-bg-tertiary/40 px-3 py-2 text-xs" data-testid="asset-cash-trade-preview-line">
-        <p className={`flex min-w-0 flex-1 items-baseline ${entered || fieldOpen ? 'text-text-primary' : 'text-text-muted'}`} data-testid="asset-cash-trade-preview">
+        {/* 남는 예수금은 같은 상자 둘째 줄(같은 줄에 붙이면 예수금 계좌 이름이 잘린다 — v2.71.3 design:check) */}
+        <div className="min-w-0 flex-1 space-y-0.5">
+        <p className={`flex min-w-0 items-baseline ${entered || fieldOpen ? 'text-text-primary' : 'text-text-muted'}`} data-testid="asset-cash-trade-preview">
           <span className="min-w-0 truncate" data-tip-clip={pair.label}>
             {pair.label}
           </span>
@@ -169,13 +171,14 @@ export default function AssetCashTradeLine({
                     ? `에서 ${formatAssetWon(amount)} 빠집니다`
                     : `에 ${formatAssetWon(amount)} 들어갑니다`}
           </span>
-          {left != null && (entered || fieldOpen) && (
-            <span className="shrink-0 whitespace-nowrap tabular-nums" data-testid="asset-cash-trade-left" data-cash-left={left < 0 ? 'minus' : 'plus'}>
-              {'\u00a0→ 남는 예수금 '}
-              <span className={left < 0 ? 'text-bearish' : undefined}>{left < 0 ? formatAssetWonSigned(left) : formatAssetWon(left)}</span>
-            </span>
-          )}
         </p>
+        {left != null && (entered || fieldOpen) && (
+          <p className="whitespace-nowrap tabular-nums text-text-secondary" data-testid="asset-cash-trade-left" data-cash-left={left < 0 ? 'minus' : 'plus'}>
+            {'→ 남는 예수금 '}
+            <span className={left < 0 ? 'text-bearish' : 'text-text-primary'}>{left < 0 ? formatAssetWonSigned(left) : formatAssetWon(left)}</span>
+          </p>
+        )}
+        </div>
         {entered && !fieldOpen && (
           <Button size="sm" variant="ghost" onClick={() => setOpen(true)} data-testid="asset-cash-trade-edit">
             금액 고치기

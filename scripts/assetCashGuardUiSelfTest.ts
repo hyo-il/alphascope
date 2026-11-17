@@ -99,7 +99,10 @@ const dialogNoOverflow = (page: Page) =>
     return document.documentElement.scrollWidth <= window.innerWidth + 1 && d.length > 0 && d.every((x) => x.scrollWidth <= x.clientWidth + 1) && inner === 0;
   });
 
-const preview = async (page: Page) => ((await page.getByTestId('asset-cash-trade-preview-line').textContent()) ?? '').replace(/\s+/g, ' ').trim();
+const preview = async (page: Page) => ((await page.getByTestId('asset-cash-trade-preview').textContent()) ?? '').replace(/\s+/g, ' ').trim();
+const leftText = async (page: Page) => ((await page.getByTestId('asset-cash-trade-left').textContent()) ?? '').replace(/\s+/g, ' ').trim();
+/** 예수금 계좌 이름이 잘리지 않음(남는 예수금이 이름 자리를 뺏지 않는다) */
+const labelWhole = (page: Page) => page.getByTestId('asset-cash-trade-preview').locator('[data-tip-clip]').evaluate((el) => el.scrollWidth <= el.clientWidth);
 const noRed = async (page: Page) => (await page.locator('[data-field-error]').count()) === 0 && (await page.locator('[aria-invalid="true"]').count()) === 0;
 
 /** 개별 투자 「예시 국내 대형주」 매수 창 — 수량 · 가격 넣기 */
@@ -185,8 +188,9 @@ try {
     {
       const { page, ctx, errors, seen } = await open(browser, { size });
       await buy(page);
-      check(`[142-4] ${w}px 한 줄 「${KIWOOM_LABEL}에서 ₩3,306,000 빠집니다 → 남는 예수금 ₩694,000」(하락 색 아님)`,
-        (await preview(page)).startsWith(`${KIWOOM_LABEL}에서 ₩3,306,000 빠집니다 → 남는 예수금 ₩694,000`) && (await page.getByTestId('asset-cash-trade-left').getAttribute('data-cash-left')) === 'plus', await preview(page));
+      check(`[142-4] ${w}px 한 줄 「${KIWOOM_LABEL}에서 ₩3,306,000 빠집니다」 + 같은 상자 둘째 줄 「→ 남는 예수금 ₩694,000」(하락 색 아님) · 이름 잘림 0`,
+        (await preview(page)) === `${KIWOOM_LABEL}에서 ₩3,306,000 빠집니다` && (await leftText(page)) === '→ 남는 예수금 ₩694,000' && (await page.getByTestId('asset-cash-trade-left').getAttribute('data-cash-left')) === 'plus' && (await labelWhole(page)),
+        `${await preview(page)} / ${await leftText(page)}`);
       check(`[142-3] ${w}px 고치기 전 — 노란 경고 0`, (await page.getByTestId('asset-cash-trade-gap').count()) === 0);
       await page.getByRole('button', { name: '금액 고치기' }).click();
       await page.getByRole('textbox', { name: '예수금에서 빠질 금액' }).fill(REAL.typed);
@@ -195,8 +199,8 @@ try {
         (await gap.textContent()) === '계산 값 ₩3,306,000 과 ₩712,329 차이 나요 — 수수료 · 환율 차이가 아니면 확인해 주세요' && (await colorOf(page, 'asset-cash-trade-gap')) === (await tokenColor(page, '--color-warning')), (await gap.textContent()) ?? '');
       check(`[142-3] ${w}px 노란 경고는 빨간 표시 아님(aria-invalid · 칸 오류 0) · [저장] 막지 않음`, (await noRed(page)) && (await page.getByRole('button', { name: '저장' }).isEnabled()));
       const left = page.getByTestId('asset-cash-trade-left');
-      check(`[142-4] ${w}px 한 줄 「→ 남는 예수금 −₩18,329」 하락 색`,
-        (await preview(page)).includes('에서 ₩4,018,329 빠집니다 → 남는 예수금 −₩18,329') && (await left.getAttribute('data-cash-left')) === 'minus' &&
+      check(`[142-4] ${w}px 「…에서 ₩4,018,329 빠집니다」 + 「→ 남는 예수금 −₩18,329」 하락 색 · 이름 잘림 0`,
+        (await preview(page)) === `${KIWOOM_LABEL}에서 ₩4,018,329 빠집니다` && (await leftText(page)) === '→ 남는 예수금 −₩18,329' && (await left.getAttribute('data-cash-left')) === 'minus' && (await labelWhole(page)) &&
         (await left.locator('span').evaluate((el) => getComputedStyle(el).color)) === (await tokenColor(page, '--color-bearish')), await preview(page));
       check(`[142-2] ${w}px 매수 창 넘침 0(경고 · 남는 예수금 함께)`, await dialogNoOverflow(page));
       await page.getByRole('button', { name: '저장' }).click();
