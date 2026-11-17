@@ -47,12 +47,19 @@ const C = '현금';
 const g: FakeGoogle = { book: flowBook(), reads: 0, writes: [], tamper: false, failWrite: false, failReadTab: null };
 let otherFetches = 0;
 const realFetch = globalThis.fetch;
-globalThis.fetch = fakeGoogleFetch(g, (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+/** 구글 쓰기 요청을 잠시 붙잡기(앞 요청이 「쓰는 중」 인 동안 같은 번호가 오는 경우) */
+let holdWrite: Promise<void> | null = null;
+const fakeFetch = fakeGoogleFetch(g, (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
   if (/^http:\/\/127\.0\.0\.1:\d+\//.test(url)) return realFetch(input, init);
   otherFetches++;
   throw new Error('시험 — 바깥 주소 호출 막음');
 }) as typeof fetch);
+globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  if (holdWrite && /sheets\.googleapis\.com/.test(url) && (init?.method ?? 'GET') !== 'GET') await holdWrite;
+  return fakeFetch(input, init);
+}) as typeof fetch;
 function reset() {
   g.book = flowBook();
   g.reads = 0;
@@ -247,6 +254,24 @@ try {
     const again = await manual({ ...body, requestId: id3 });
     check('[143-4] 쓰기 요청 뒤 끊김 → 기록 「다시 확인 필요」(쓰였을 수 있음) · 같은 번호로 다시 보내도 쓰기 1 · 같은 기록', cut.status === 200 && cut.body.move.status === 'check' && cut.body.move.reason === 'write-failed' && again.body.move.id === cut.body.move.id && g.writes.length === 1, `${cut.status} ${cut.body.move?.status} 쓰기 ${g.writes.length}`);
 
+    // 앞 요청이 「쓰는 중」 인 동안 같은 번호 → 409 처리 중(성공으로 돌려주지 않음) · 끝난 뒤 같은 번호 → 그 기록 · 쓰기 1
+    reset();
+    clearCashMovesForTest();
+    let release = () => {};
+    holdWrite = new Promise<void>((ok) => (release = ok));
+    const id5 = rid();
+    const firstP = manual({ ...body, requestId: id5 });
+    for (let i = 0; i < 50 && listCashMoves()[0]?.status !== 'pending'; i++) await new Promise((r) => setTimeout(r, 20));
+    const during = await manual({ ...body, requestId: id5 });
+    release();
+    holdWrite = null;
+    const firstR = await firstP;
+    const after5 = await manual({ ...body, requestId: id5 });
+    check('[143-4] 앞 요청이 쓰는 중일 때 같은 번호 → 409 「처리 중」(성공으로 닫지 않음) · 끝난 뒤 같은 번호 → 같은 기록 · 쓰기 1',
+      during.status === 409 && during.body.kind === 'busy' && firstR.status === 200 && after5.body.move?.id === firstR.body.move.id && after5.body.duplicate === true && g.writes.length === 1, `${during.status} ${during.body.kind} 쓰기 ${g.writes.length}`);
+    const diff = await manual({ ...body, amount: 600_000, requestId: id5 });
+    check('[143-4] 같은 번호에 다른 내용(금액) → 400 · 쓰기 그대로', diff.status === 400 && diff.body.kind === 'not-editable' && g.writes.length === 1);
+
     // 쓰기 전에 실패한 번호는 고친 뒤 같은 번호로 다시 할 수 있음(기록 0 → 1)
     reset();
     clearCashMovesForTest();
@@ -288,8 +313,14 @@ try {
     check('[143-5] ASSET_SYNC_ENABLED=false 면 되돌리기도 503 · 쓰기 그대로', u.status === 503 && g.writes.length === 1 && listCashMoves()[0].status === 'applied');
   }
 
-  // ═══ 6. 반영 기록(설정 화면 응답) ═══
+  // ═══ 6. 반영 기록(설정 화면 응답) · 시트 캐시 ═══
   {
+    // 쓴 뒤 시트 30초 캐시를 비움 — 화면이 바로 다시 읽으면 새 금액(옛 금액을 보고 다시 저장해 두 번 쓰지 않게)
+    const man = fs.readFileSync(path.join(root, 'server/asset/cashManual.ts'), 'utf8');
+    const rt = fs.readFileSync(path.join(root, 'server/asset/routes.ts'), 'utf8');
+    const undoRoute = rt.slice(rt.indexOf("assetRouter.post('/api/asset/cash/undo'"), rt.indexOf("assetRouter.post('/api/asset/cash/manual'"));
+    check('[143-6] 직접 입출금 쓰기 뒤(중복 아님) · 되돌리기 뒤(성공 · 실패 모두) 시트 캐시 비움(resetSheetCache — 매수 · 매도와 같은 함수)',
+      /if \(outcome\.status !== 'duplicate'\) resetSheetCache\(\);/.test(man) && /finally \{[\s\S]*resetSheetCache\(\);[\s\S]*\}/.test(undoRoute));
     // 설정 화면 응답(`buildCashView`)의 moves = `listCashMoves()` 그대로
     const view = fs.readFileSync(path.join(root, 'server/asset/cashView.ts'), 'utf8');
     const moves: AssetCashViewV3['moves'] = listCashMoves();

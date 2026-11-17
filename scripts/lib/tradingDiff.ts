@@ -30,6 +30,8 @@ export const LATER_COMMITS: readonly string[] = [
   '461e95d', // 141차 v2.71.2 H — 빨간 표시 · 예수금 한 줄 시험 · design:check 장면 5(더하기만)
   'b695e82', // 142차 v2.71.3 A — 예수금 balance · 시트 응답 짝(routes pair · sheet 응답 칸 더하기 · 타입 더하기)
   '793d3a6', // 142차 v2.71.3 H — design:check 장면 4(더하기만) · 예수금 줄 둘째 줄
+  '4ba3004', // 143차 v2.72.0 A — 직접 입출금 서버(타입 더하기 · cashMoves 켬 판단 · 새 cashManual · routes manual)
+  '027626d', // 143차 v2.72.0 B — [입출금] 화면 · design:check 장면 7(더하기만) · 견본 더하기
 ];
 
 const covers = (spec: string, file: string) => file === spec || file.startsWith(`${spec.replace(/\/$/, '')}/`);
