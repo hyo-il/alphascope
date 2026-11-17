@@ -19,6 +19,7 @@ export { default as Input } from './Input';
 export { default as Select } from './Select';
 export { default as NumberField, NumberUnitGroup } from './NumberField';
 export { default as FormRow } from './FormRow';
+export { FormScope, FieldTouch, FieldError } from './fieldReveal';
 export { default as Popover } from './Popover';
 export { default as PageHeader } from './PageHeader';
 export { default as ScrollTopShade } from './ScrollTopShade';

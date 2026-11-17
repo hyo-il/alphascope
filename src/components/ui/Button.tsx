@@ -35,8 +35,10 @@ const Button = forwardRef<
     children?: ReactNode;
     /** 작업 중 — 아이콘 자리에 회전 아이콘을 보이고 누를 수 없게 한다. 글자는 부르는 쪽이 「실행 중…」 처럼 바꾼다 */
     busy?: boolean;
+    /** 폼의 [저장] — 누르면(꺼져 있어도) 그 폼 묶음(`Dialog` · `FormScope`)의 틀린 칸이 빨갛게 보인다(`fieldReveal`) */
+    submit?: boolean;
   }
->(function Button({ variant = 'secondary', size = 'md', icon: Icon, children, className = '', type = 'button', busy = false, disabled, ...rest }, ref) {
+>(function Button({ variant = 'secondary', size = 'md', icon: Icon, children, className = '', type = 'button', busy = false, disabled, submit = false, ...rest }, ref) {
   const iconProps = size === 'sm' ? ICON_SM : ICON;
   return (
     <button
@@ -45,6 +47,7 @@ const Button = forwardRef<
       {...rest}
       disabled={disabled || busy}
       aria-busy={busy || undefined}
+      data-form-submit={submit || undefined}
       className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors disabled:opacity-40 ${VARIANT[variant]} ${SIZE[size]} ${className}`}
     >
       {busy ? <LoaderCircle {...iconProps} className="animate-spin" /> : Icon && <Icon {...iconProps} />}

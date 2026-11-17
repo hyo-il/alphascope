@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import IconButton from './IconButton';
+import { SubmitTriedProvider, useFormScope } from './fieldReveal';
 
 /**
  * 창(모달) 틀 하나 — 어두운 바탕 · 제목 줄 + 닫기 X · ESC 닫기 · 크기는 정해진 값만 · 테두리 없음(디자인 규칙 3).
@@ -13,6 +14,7 @@ import IconButton from './IconButton';
  *   나가면 창으로 되돌린다. 닫으면 창을 연 요소로 초점을 돌려준다(없어졌으면 그대로). 화면 읽기 프로그램은 `aria-modal` 로 뒤 화면을 읽지 않는다.
  *   창은 `#root` 안에 그려져 뒤 화면에 `inert` 를 걸면 창도 막히므로 이 방식으로 같은 효과를 낸다.
  *   `body` 로 따로 뜨는 것(`Popover` · `InfoTip` — 날짜 고르기 등)은 창 밖이어도 막지 않는다(그 안의 Tab 은 브라우저 그대로).
+ * - **폼 묶음**(`fieldReveal`): 판 하나가 묶음 — 아래 버튼 줄의 `Button submit`([저장])을 누르면 그 뒤로 창 안의 틀린 칸이 빨갛게 보인다.
  */
 export type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'xlFit' | 'full';
 
@@ -168,6 +170,7 @@ export default function Dialog({
   const titleId = useId();
   useDialogEsc(closeOnEsc && onClose ? onClose : null);
   const panelRef = useFocusTrap();
+  const form = useFormScope();
 
   return (
     <div
@@ -180,7 +183,8 @@ export default function Dialog({
         if (closeOnBackdrop && onClose && e.target === e.currentTarget) onClose();
       }}
     >
-      <div ref={panelRef} tabIndex={-1} className={`flex flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl outline-none ${SIZE[size]}`}>
+      <div ref={panelRef} tabIndex={-1} {...form.props} className={`flex flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl outline-none ${SIZE[size]}`}>
+        <SubmitTriedProvider value={form.tried}>
         <div className="flex shrink-0 items-center gap-2 border-b border-border/40 px-4 py-3">
           <h2 id={titleId} className="min-w-0 text-sm font-semibold text-text-primary">
             {title}
@@ -195,6 +199,7 @@ export default function Dialog({
         {footer != null && (
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border/40 px-4 py-3">{footer}</div>
         )}
+        </SubmitTriedProvider>
       </div>
     </div>
   );

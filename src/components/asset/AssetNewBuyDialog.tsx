@@ -134,7 +134,7 @@ export default function AssetNewBuyDialog({
             <Button variant="ghost" disabled={busy} onClick={() => { setPlan(null); setError(null); }} data-newbuy-back>
               뒤로
             </Button>
-            <Button variant="buy" busy={busy} disabled={!cash.ready} onClick={() => void save()} data-newbuy-save>
+            <Button variant="buy" busy={busy} disabled={!cash.ready} onClick={() => void save()} submit data-newbuy-save>
               저장
             </Button>
           </>
@@ -229,7 +229,7 @@ export default function AssetNewBuyDialog({
               ))}
             </Select>
           </FormRow>
-          <FormRow label="종목" labelW="sm" valueW="lg" error={lookError ?? undefined}>
+          <FormRow label="종목" labelW="sm" valueW="lg" rejected={lookError ?? undefined}>
             <div className="w-full" data-newbuy-search>
               <SymbolSearch symbol="" onSubmit={(s) => void choose(s)} placeholder="종목 이름이나 티커를 입력하세요" hideSubmit compact dropUp={false} clearOnSubmit autoFocus />
             </div>

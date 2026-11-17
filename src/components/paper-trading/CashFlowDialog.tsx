@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Dialog, NumberField } from '../ui';
+import { Button, Dialog, FieldError, FieldTouch, NumberField } from '../ui';
 import { groupNumber } from '../ui/NumberField';
 import { toast } from '../../store/uiStore';
 import { CASH_MAX, CURRENCY_DECIMALS, type CashFlowType, type PaperAccount } from '../../types/paper';
@@ -64,7 +64,7 @@ export default function CashFlowDialog({
           <Button onClick={onClose} disabled={saving}>
             취소
           </Button>
-          <Button busy={saving} variant="primary" onClick={() => void submit()} disabled={saving || !canSubmit}>
+          <Button busy={saving} variant="primary" onClick={() => void submit()} disabled={saving || !canSubmit} submit>
             {saving ? `${label} 중…` : label}
           </Button>
         </>
@@ -78,6 +78,7 @@ export default function CashFlowDialog({
         }}
       >
         {/* 간단한 입력 — 금액 칸 하나(창 너비에 꽉 차게, 사용자 결정). 상한(CASH_MAX)보다 큰 수는 쳐지지 않는다 */}
+        <FieldTouch>
         <div className="flex items-center gap-1.5">
           <NumberField
             thousands
@@ -93,7 +94,8 @@ export default function CashFlowDialog({
           />
           <span className="shrink-0 text-caption text-text-muted">{unit}</span>
         </div>
-        {over && <p className="text-caption text-danger">출금할 수 있는 돈보다 많습니다.</p>}
+        {over && <FieldError className="block">출금할 수 있는 돈보다 많습니다.</FieldError>}
+        </FieldTouch>
         {type === 'withdraw' && (
           // 숫자 정보라 남긴다 — 금액 칸과 같은 표기(쉼표 숫자 + 단위), 오른쪽 끝을 금액 칸 단위에 맞춘다
           <p className="flex items-center justify-between gap-2">

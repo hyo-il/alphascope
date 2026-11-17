@@ -1,5 +1,6 @@
 import { createContext, forwardRef, useContext, useEffect, useLayoutEffect, useRef, useState, type InputHTMLAttributes, type ReactNode } from 'react';
 import { CONTROL_H, FIELD_W, UNIT_W, type ControlSize, type FieldKind } from './tokens';
+import { useFieldInvalid } from './fieldReveal';
 
 /** 같은 묶음의 단위 열 폭 — 묶음을 이것으로 감싸면 안의 모든 단위 열(`FormRow` · `NumberField`)이 같은 폭이다 */
 const UnitWidth = createContext<keyof typeof UNIT_W | undefined>(undefined);
@@ -53,7 +54,10 @@ type Common = {
   size?: ControlSize;
   kind?: FieldKind;
   unit?: string;
+  /** 틀림 — 빨간 테두리는 `fieldReveal` 규칙의 때에만(칸을 떠난 뒤 · [저장] 을 누른 뒤) */
   invalid?: boolean;
+  /** 서버가 거절한 값 — 바로 빨간 테두리 */
+  rejected?: boolean;
   /** 기본값과 다른 값(판단 기준 숫자표) — 밝은 테두리 + 굵게 */
   changed?: boolean;
   /** 단위 열 폭 — 보통은 `NumberUnitGroup` 이 정한다 */
@@ -83,9 +87,10 @@ type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'size' | 'type' | 'valu
   };
 
 const NumberField = forwardRef<HTMLInputElement, Props>(function NumberField(
-  { size = 'md', kind = 'short', unit, invalid = false, changed = false, unitW, className = '', boxClassName = '', onKeyDown, onWheel, thousands = false, decimals = 0, onValue, max, maxText, text, value, onChange, ...rest },
+  { size = 'md', kind = 'short', unit, invalid = false, rejected = false, changed = false, unitW, className = '', boxClassName = '', onKeyDown, onWheel, thousands = false, decimals = 0, onValue, max, maxText, text, value, onChange, onBlur, ...rest },
   ref,
 ) {
+  const { show: showInvalid, touch } = useFieldInvalid(invalid, rejected);
   const groupW = useContext(UnitWidth);
   const inFormRow = useContext(InFormRow);
   const w = unitW ?? groupW;
@@ -122,7 +127,7 @@ const NumberField = forwardRef<HTMLInputElement, Props>(function NumberField(
   const box = (
     <span
       className={`relative flex min-w-0 items-center rounded-md border bg-bg-tertiary focus-within:border-accent ${CONTROL_H[size]} ${widthClass} ${
-        invalid ? 'border-danger' : changed ? 'border-text-primary/70' : 'border-transparent'
+        showInvalid ? 'border-danger' : changed ? 'border-text-primary/70' : 'border-transparent'
       } ${className} ${boxClassName}`}
     >
       <input
@@ -176,7 +181,11 @@ const NumberField = forwardRef<HTMLInputElement, Props>(function NumberField(
           (e.target as HTMLInputElement).blur();
           onWheel?.(e);
         }}
-        aria-invalid={invalid || undefined}
+        onBlur={(e) => {
+          touch();
+          onBlur?.(e);
+        }}
+        aria-invalid={showInvalid || undefined}
         className={`h-full w-full min-w-0 border-0 bg-transparent px-2 text-right text-xs tabular-nums text-text-primary focus:outline-none disabled:opacity-50 ${changed ? 'font-medium' : ''}`}
       />
       {blocked && maxText && (

@@ -13,6 +13,9 @@
  *      지금 있는 곳은 아래 `NEGATIVE_MARGIN_OK`(이름 붙은 허용 목록 — 파일 · 그 줄 클래스 · 까닭)와 그 줄 위 한 줄 주석으로만 둔다.
  *   9. `scripts/` 의 시험 · 점검이 툴팁 글로 요소를 찾음(`[title=` · `[data-tip=` · `[data-tip-clip=` · `getByTitle(`) — 툴팁 글이 바뀌면
  *      시험이 대상을 못 찾는다(129차 `design:check` 장면 2개). 역할 + 이름(`getByRole`) 또는 `data-testid` 로 찾는다(허용: `SCRIPT_FIND_OK`).
+ *  10. 화면 코드의 맨 `border-danger`(입력 칸 빨간 테두리) — 빨간 테두리는 공용 입력 부품(`ui/Input` · `ui/NumberField`)만 그린다.
+ *      보이는 때(칸을 떠난 뒤 · [저장] 을 누른 뒤)는 `ui/fieldReveal` 한 곳 — 화면은 `invalid` · `rejected` 만 넘긴다(v2.71.2).
+ *      옅은 테두리(`border-danger/40` 등 알림 상자) · `hover:` 같은 상태 접두는 입력 칸이 아니라 대상 밖.
  * 끝나면 어긴 곳 수를 출력하고, 하나라도 있으면 exit 1.
  * 시험용: `DESIGN_LINT_EXTRA=<파일,…>` 를 주면 그 파일도 검사한다(`tooltip:test` · `toolbutton:test` 의 가짜 파일 — 커밋하지 않는다).
  *   `DESIGN_LINT_SCRIPTS_EXTRA=<파일,…>` = 9 번 검사에 더할 가짜 시험 파일.
@@ -47,6 +50,11 @@ const RULES: { id: string; test: (line: string, file: string) => boolean; why: s
   },
   { id: '맨 select', test: (l, f) => !f.includes('/ui/') && /<select\b/.test(l), why: '<select> — ui/Select 를 쓴다' },
   { id: '가운데 좁힘', test: (l) => /\bmx-auto\b/.test(l) && /\bmax-w-/.test(l), why: 'mx-auto max-w-* — 화면은 폭을 꽉 채운다(읽기 폭 상한이 필요한 작은 상자는 예외 주석)' },
+  {
+    id: '입력 칸 빨간 테두리',
+    test: (l, f) => !f.includes('/ui/') && /(?<![\w:/-])border-danger(?![\w/-])/.test(l),
+    why: '맨 border-danger — 입력 칸 빨간 테두리는 공용 부품(ui/Input · ui/NumberField)의 invalid · rejected 로(보이는 때는 ui/fieldReveal 한 곳)',
+  },
   { id: '기준표 밖 크기', test: (l) => /\btext-(?:lg|2xl|3xl)\b/.test(l), why: 'text-lg·2xl — 기준표 4단계(+로그인 앱 제목 text-xl)만' },
 ];
 

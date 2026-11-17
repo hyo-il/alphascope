@@ -18,7 +18,7 @@ import {
 import { ENGINE_MA_PERIODS } from '../../types/autoTrading';
 import { ruleFieldErrors, ruleNameError, ruleWarnings, RULE_INPUT_LIMITS as L } from '../../utils/ruleInput';
 import { modal, toast } from '../../store/uiStore';
-import { Badge, Button, Dialog, DisclosureButton, FormRow, Input, NumberField, NumberUnitGroup, Select } from '../ui';
+import { Badge, Button, Dialog, DisclosureButton, FieldError, FieldTouch, FormRow, Input, NumberField, NumberUnitGroup, Select } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
 import { usageText } from './usage';
 
@@ -146,8 +146,6 @@ export default function RuleDialog({
   const [body, setBody] = useState<RuleBody>(() => (rule ? cloneRuleBody(rule) : emptyRuleBody()));
   const [advanced, setAdvanced] = useState(false);
   const [saving, setSaving] = useState(false);
-  /** 이름 오류는 고친 뒤나 [저장] 을 누른 뒤에만 보인다 — 새 규칙을 열자마자 빨간 글자가 뜨지 않게 */
-  const [nameTouched, setNameTouched] = useState(false);
   const advId = useId();
   /** 고급 설정 머리(펼침 버튼 줄) — 펼칠 때 창 안 스크롤을 이 자리로(v2.68.0) */
   const advHeadRef = useRef<HTMLDivElement>(null);
@@ -185,10 +183,8 @@ export default function RuleDialog({
   };
 
   const save = () => {
-    if (hasError) {
-      setNameTouched(true);
-      return;
-    }
+    // 틀린 칸은 [저장] 을 누른 뒤 빨갛게 보인다(공용 `fieldReveal` — `Button submit`)
+    if (hasError) return;
     if (rule && isUsed(rule.usedBy)) {
       modal.confirm({
         title: '매매 규칙 저장',
@@ -226,7 +222,7 @@ export default function RuleDialog({
             <Button variant="ghost" onClick={cancelEdit} disabled={saving}>
               취소
             </Button>
-            <Button busy={saving} variant="primary" onClick={save} disabled={saving}>
+            <Button busy={saving} variant="primary" onClick={save} disabled={saving} submit>
               {saving ? '저장 중…' : '저장'}
             </Button>
           </>
@@ -245,17 +241,14 @@ export default function RuleDialog({
       }
     >
       <div className="space-y-5">
-        <FormRow label="이름" labelW="md" valueW="auto" error={editing && nameTouched ? nameError : undefined}>
+        <FormRow label="이름" labelW="md" valueW="auto" error={editing ? nameError : undefined}>
           <Input
             value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              setNameTouched(true);
-            }}
+            onChange={(e) => setName(e.target.value)}
             disabled={locked}
             maxLength={L.nameLength}
             placeholder="예: 눌림 매수"
-            invalid={editing && nameTouched && !!nameError}
+            invalid={editing && !!nameError}
             className="w-80"
           />
         </FormRow>
@@ -277,7 +270,8 @@ export default function RuleDialog({
               {BUY_KEYS.map((key) => {
                 const c = body.buy[key];
                 return (
-                  <tr key={key} className="border-b border-border/30">
+                  <FieldTouch key={key}>
+                  <tr className="border-b border-border/30">
                     {/* 체크 박스는 칸 가운데 — 머리 「사용」 글자와 가로 가운데가 같은 선 · 옆 칸 이름과 세로 가운데가 같은 선(글자 줄 안에 두면 2px 내려간다). 브라우저 기본 여백(왼 4·오 3px)을 지워 정확히 가운데 */}
                     <td className="py-1.5 text-center">
                       <input
@@ -314,14 +308,16 @@ export default function RuleDialog({
                     </td>
                     <td className="py-1.5 text-text-secondary">
                       {describe(key, body.buy)}
-                      {err(`buy.${key}.points`) && <span className="ml-2 text-danger">{err(`buy.${key}.points`)}</span>}
+                      <FieldError className="ml-2">{err(`buy.${key}.points`)}</FieldError>
                     </td>
                   </tr>
+                  </FieldTouch>
                 );
               })}
             </tbody>
             <tfoot>
               {/* 매수 기준 — 점수 칸과 같은 열(입력칸·단위·설명 시작점이 위 줄과 한 선) */}
+              <FieldTouch>
               <tr>
                 <td className="py-2" />
                 <td className="whitespace-nowrap py-2 font-medium text-text-primary">매수 기준</td>
@@ -343,9 +339,10 @@ export default function RuleDialog({
                 </td>
                 <td className="py-2 text-text-secondary">
                   합계가 이 점수 이상이면 매수 <span className="text-text-muted">· 켠 조건의 최대 점수 {maxScore}점</span>
-                  {err('buy.minScore') && <span className="ml-2 text-danger">{err('buy.minScore')}</span>}
+                  <FieldError className="ml-2">{err('buy.minScore')}</FieldError>
                 </td>
               </tr>
+              </FieldTouch>
             </tfoot>
           </table>
 
@@ -384,6 +381,7 @@ export default function RuleDialog({
                   </ul>
                   <TableLine k={key} points={body.buy[key].points} />
                   {key === 'timing' && (
+                    <FieldTouch>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-xs text-text-secondary">
                       <span>눌림 구간 RSI(14)</span>
                       <NumberField
@@ -406,10 +404,9 @@ export default function RuleDialog({
                         onChange={(e) => setBuy('timing', { rsiHigh: num(e.target.value) })}
                       />
                       <span className="text-caption text-text-muted">{L.rsiBand.min}~{L.rsiBand.max}</span>
-                      {(err('buy.timing.rsiLow') || err('buy.timing.rsiHigh')) && (
-                        <span className="text-caption text-danger">{err('buy.timing.rsiLow') ?? err('buy.timing.rsiHigh')}</span>
-                      )}
+                      <FieldError>{err('buy.timing.rsiLow') ?? err('buy.timing.rsiHigh')}</FieldError>
                     </div>
+                    </FieldTouch>
                   )}
                 </div>
               ))}
@@ -468,6 +465,7 @@ export default function RuleDialog({
 
               <div className="space-y-1.5">
                 <h4 className="text-xs font-medium text-text-primary">RSI 반등</h4>
+                <FieldTouch>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
                   <span>RSI(14) 가</span>
                   <NumberField
@@ -482,8 +480,9 @@ export default function RuleDialog({
                   <span>이하였다가 다시 오르는 날</span>
                   <Rec show={body.buy.rsiRebound.below === RECOMMENDED.rsiBelow} />
                   <span className="text-caption text-text-muted">{L.rsiBelow.min}~{L.rsiBelow.max}</span>
-                  {err('buy.rsiRebound.below') && <span className="text-caption text-danger">{err('buy.rsiRebound.below')}</span>}
+                  <FieldError>{err('buy.rsiRebound.below')}</FieldError>
                 </div>
+                </FieldTouch>
               </div>
             </div>
           )}

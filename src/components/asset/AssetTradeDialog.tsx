@@ -113,7 +113,7 @@ export default function AssetTradeDialog({
             <Button variant="ghost" disabled={busy} onClick={onClose} data-trade-cancel>
               취소
             </Button>
-            <Button variant={side} busy={busy} disabled={!canSave} onClick={askSave} data-trade-save>
+            <Button variant={side} busy={busy} disabled={!canSave} onClick={askSave} submit data-trade-save>
               저장
             </Button>
           </>

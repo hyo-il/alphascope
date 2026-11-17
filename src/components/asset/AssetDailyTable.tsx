@@ -319,7 +319,7 @@ function NoteCell({ day, note, disabled, onSave }: { day: string; note: string |
           className="w-full"
           value={text}
           maxLength={ASSET_DAILY_NOTE_MAX}
-          invalid={error != null}
+          rejected={error != null}
           disabled={saving}
           aria-label={`${day} 메모`}
           placeholder="예: 급여"

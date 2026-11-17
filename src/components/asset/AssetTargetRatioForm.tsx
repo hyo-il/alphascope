@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
-import { Button, ICON_SM, NumberField } from "../ui";
+import { Button, FormScope, ICON_SM, NumberField } from "../ui";
 import type { AssetTargetRatio } from "../../types/asset";
 
 /**
@@ -170,7 +170,9 @@ export default function AssetTargetRatioForm({
     }
   };
 
+  // 폼 묶음 — [저장] 을 누르면 이 폼의 틀린 칸만 빨갛게(설정 창의 다른 구역은 그대로)
   return (
+    <FormScope>
     <div ref={boxRef} className="space-y-2" data-setting="target-ratio">
       <FieldGroup
         title="자산"
@@ -194,6 +196,7 @@ export default function AssetTargetRatioForm({
           busy={busy}
           disabled={!valid || !writeEnabled}
           onClick={() => void save()}
+          submit
           data-save-target
         >
           저장
@@ -215,5 +218,6 @@ export default function AssetTargetRatioForm({
         </p>
       )}
     </div>
+    </FormScope>
   );
 }
