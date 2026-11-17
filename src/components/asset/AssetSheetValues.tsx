@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { Calculator, ChevronDown, ChevronRight, History, Plus, Tags } from 'lucide-react';
 import { Button, ICON_SM, IconButton, Panel, Segmented } from '../ui';
 import { SkeletonTable } from '../common/SkeletonLoader';
@@ -6,7 +6,8 @@ import AssetSymbolTable, { SYMBOL_FILTERS, type SymbolFilter } from './AssetSymb
 import { ASSET_CLASS_W, LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice } from '../../utils/formatters';
 import { formatAssetPrice, formatAssetQty, formatAssetWon, formatAssetWonSigned } from '../../utils/assetFormat';
-import { UNASSIGNED_LABEL, cashBankGroups, cashBankLabelOf, cashRowOfKey, type AssetAccount, type AssetCashBankFix, type AssetCashKey, type AssetCashRow, type AssetSheetCashBanks, type AssetHolding, type AssetSection, type AssetSheetData, type AssetSymbolRow, type AssetTradeSide } from '../../types/asset';
+import AssetCashMoveDialog from './AssetCashMoveDialog';
+import { UNASSIGNED_LABEL, cashBankGroups, cashBankLabelOf, cashKeysOfRows, cashRowOfKey, type AssetCashManualRequest, type AssetCashManualResult, type AssetAccount, type AssetCashBankFix, type AssetCashKey, type AssetCashRow, type AssetSheetCashBanks, type AssetHolding, type AssetSection, type AssetSheetData, type AssetSymbolRow, type AssetTradeSide } from '../../types/asset';
 
 /**
  * 자산 관리 「자산 현황」 탭 (v2.61.0 1단계 확인 표 → v2.62.1 계좌 카드 → v2.62.2 탭).
@@ -26,8 +27,44 @@ import { UNASSIGNED_LABEL, cashBankGroups, cashBankLabelOf, cashRowOfKey, type A
  * - 계좌 카드 머리에 그 계좌와 짝지은 예수금(v2.71.3 · 사용자 결정 2026-11-17) — 「예수금 ₩694,000」 + 작게 은행 · 상품 이름(말줄임 · 잘렸을 때 툴팁).
  *   값은 이미 받은 시트 읽기(「현금」 탭 은행 계좌 줄)와 시트 응답의 짝 설정(`cashDepositPairs`)으로 화면에서 맞춘다(구글 요청 없음) ·
  *   「현금 자동 반영」 이 꺼져 있어도 짝이 있으면 보인다(읽기만) · 짝이 없는 계좌는 아무것도 없음 · 마이너스는 하락 색 숫자 · 「종목별」 보기에는 없음.
+ * - [입출금](v2.72.0 · 143차) — 계좌 머리 「예수금 ₩…」 옆(짝이 있는 계좌만 · 처음 계좌 = 그 예수금 · 들어가는 쪽)과 「현금 합계」 펼침의 상품 줄마다(처음 계좌 = 그 줄 · 빠지는 쪽).
+ *   작은 글자 버튼(무언가를 바꾸는 버튼) → `AssetCashMoveDialog`(이체 · 입금 · 출금). 잠겼으면 · 시트 쓰기가 꺼졌으면 꺼짐 + 툴팁. 저장되면 부모가 다시 읽는다.
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 접은 계좌 이름 · 보기 이름만).
  */
+
+/** [입출금] 을 열 수 있나 — 잠김 · 시트 쓰기 꺼짐이면 꺼짐(툴팁 글) · 아직 모르면 켬(창이 [저장] 을 막는다) */
+interface CashMoveGate {
+  locked: boolean;
+  writeEnabled: boolean | null;
+}
+const moveOff = (g: CashMoveGate): string | null => (g.locked ? '잠금을 풀면 쓸 수 있어요' : g.writeEnabled === false ? '이 서버에서는 시트 쓰기가 꺼져 있어요' : null);
+
+/** [입출금] 작은 글자 버튼 — 꺼졌으면 툴팁(꺼진 버튼은 마우스 이벤트가 없어 감싼 칸에 단다) */
+function CashMoveButton({ name, gate, onOpen }: { name: string; gate: CashMoveGate; onOpen: () => void }) {
+  const off = moveOff(gate);
+  const button = (
+    <Button
+      size="sm"
+      disabled={off != null}
+      aria-label={`${name} 입출금`}
+      data-testid="asset-cash-move-open"
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpen();
+      }}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      입출금
+    </Button>
+  );
+  return off ? (
+    <span className="inline-flex shrink-0" data-tip={off} data-testid="asset-cash-move-off">
+      {button}
+    </span>
+  ) : (
+    button
+  );
+}
 
 /** 값 한 칸 — 이름(13px 회색) 위 · 숫자 아래 */
 function Field({ label, value }: { label: string; value: string }) {
@@ -47,6 +84,13 @@ const sumDiffers = (rows: AssetCashRow[], total: number | null) => total != null
 
 /** 「현금 합계」 펼침 목록의 최대 폭은 `max-w-xl`(이름이 길어도 금액이 멀리 떨어지지 않게 — 서버도 컴파일하는 `ui/tokens.ts` 는 바꾸지 않는다 · v2.70.4) */
 
+/** 「현금 합계」 펼침 표 끝 칸(v2.72.0) — 은행 표 상품 줄 [입출금] 자리 · 퇴직 연금 표도 같은 폭으로 비워 두 표의 금액 오른쪽 끝을 맞춘다 */
+const MOVE_COL = 'pl-3';
+/** 끝 칸 안 고정 폭 상자 — 빈 칸도 표 자동 폭에 줄지 않게(버튼 「입출금」 sm 이 들어가는 폭) */
+function MoveCell({ children = null }: { children?: ReactNode }) {
+  return <div className="flex w-16 justify-end">{children}</div>;
+}
+
 /** 「현금」 탭 계좌 줄 한 묶음 — 소제목 · 이름(말줄임) · 금액(오른쪽 정렬) · 합이 총액과 다르면 안내 */
 function CashBlock({ heading, rows, total, testId }: { heading: string; rows: AssetCashRow[]; total: number | null; testId: string }) {
   return (
@@ -65,6 +109,9 @@ function CashBlock({ heading, rows, total, testId }: { heading: string; rows: As
                   </span>
                 </td>
                 <td className={`${NUM} border-t border-border/30 text-text-primary`}>{formatAssetPrice(r.amount, 'KRW')}</td>
+                <td className={`${MOVE_COL} border-t border-border/30`}>
+                  <MoveCell />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -83,8 +130,22 @@ function CashBlock({ heading, rows, total, testId }: { heading: string; rows: As
 const bankSum = (rows: AssetCashRow[]) => (rows.every((r) => r.amount == null) ? null : rows.reduce((a, r) => a + (r.amount ?? 0), 0));
 
 /** 「현금」 탭 은행 계좌 — 은행별 합계(누르면 상품 펼침 · 펼침은 기억하지 않음) · 합이 총액과 다르면 안내 */
-function BankCashBlock({ rows, total, fix }: { rows: AssetCashRow[]; total: number | null; fix: AssetCashBankFix | undefined }) {
+function BankCashBlock({
+  rows,
+  total,
+  fix,
+  gate,
+  onMove,
+}: {
+  rows: AssetCashRow[];
+  total: number | null;
+  fix: AssetCashBankFix | undefined;
+  gate: CashMoveGate;
+  /** 상품 줄 [입출금](v2.72.0) — 그 줄 열쇠로 창 열기 */
+  onMove: (key: AssetCashKey) => void;
+}) {
   const groups = cashBankGroups(rows, (r) => r.name, fix);
+  const keys = new Map(cashKeysOfRows(rows).map((k) => [k.row, k.key]));
   const [open, setOpen] = useState<string[]>([]);
   const testId = 'asset-cash-bank';
   return (
@@ -120,6 +181,9 @@ function BankCashBlock({ rows, total, fix }: { rows: AssetCashRow[]; total: numb
                     <td className={`${NUM} border-t border-border/30 font-medium text-text-primary`} data-cash-bank-sum>
                       {formatAssetPrice(sum, 'KRW')}
                     </td>
+                    <td className={`${MOVE_COL} border-t border-border/30`}>
+                      <MoveCell />
+                    </td>
                   </tr>
                   {isOpen &&
                     g.items.map((it) => (
@@ -130,6 +194,9 @@ function BankCashBlock({ rows, total, fix }: { rows: AssetCashRow[]; total: numb
                           </span>
                         </td>
                         <td className={`${NUM} text-text-secondary`}>{formatAssetPrice(it.row.amount, 'KRW')}</td>
+                        <td className={MOVE_COL}>
+                          <MoveCell>{keys.get(it.row) && <CashMoveButton name={it.full} gate={gate} onOpen={() => onMove(keys.get(it.row) as AssetCashKey)} />}</MoveCell>
+                        </td>
                       </tr>
                     ))}
                 </Fragment>
@@ -148,7 +215,19 @@ function BankCashBlock({ rows, total, fix }: { rows: AssetCashRow[]; total: numb
 }
 
 /** 현금 · 연금 · 월급 · 환율 한 줄, 목표 비율 한 줄 — 칸은 내용 폭(금액이 길어져도 겹치지 않고 다음 줄로) */
-function Summary({ data, includePension, bankFix }: { data: AssetSheetData; includePension: boolean; bankFix: AssetCashBankFix | undefined }) {
+function Summary({
+  data,
+  includePension,
+  bankFix,
+  gate,
+  onMove,
+}: {
+  data: AssetSheetData;
+  includePension: boolean;
+  bankFix: AssetCashBankFix | undefined;
+  gate: CashMoveGate;
+  onMove: (key: AssetCashKey) => void;
+}) {
   const t = data.targetRatio;
   const [cashOpen, setCashOpen] = useState(false);
   const CashArrow = cashOpen ? ChevronDown : ChevronRight;
@@ -177,7 +256,7 @@ function Summary({ data, includePension, bankFix }: { data: AssetSheetData; incl
       </div>
       {cashOpen && (
         <div id="as-asset-cashlist" className="max-w-xl space-y-3" data-testid="asset-cash-accounts">
-          <BankCashBlock rows={data.cashAccounts} total={data.cashTotal} fix={bankFix} />
+          <BankCashBlock rows={data.cashAccounts} total={data.cashTotal} fix={bankFix} gate={gate} onMove={onMove} />
           {includePension && <CashBlock heading="퇴직 연금" rows={data.retirementAccounts} total={data.retirement} testId="asset-cash-retirement" />}
         </div>
       )}
@@ -276,6 +355,8 @@ function ClassText({ h }: { h: AssetHolding }) {
  */
 /** 계좌 머리 예수금 — 짝 줄 이름(은행 · 상품) · 지금 금액(시트 C열 · 숫자 아님 · 줄 못 찾음이면 null) */
 interface AccountDeposit {
+  /** 짝 줄 열쇠(v2.72.0 — [입출금] 처음 계좌) */
+  key: AssetCashKey;
   label: string;
   amount: number | null;
 }
@@ -294,7 +375,7 @@ function depositOf(pairs: Record<string, AssetCashKey> | undefined, rows: AssetC
   const key = sectionKey != null ? pairs?.[sectionKey] : undefined;
   if (!key) return null;
   const label = cashBankLabelOf(key, rows.map((r) => r.name), fix) ?? (key.nth > 1 ? `${key.name} #${key.nth}` : key.name);
-  return { label, amount: cashRowOfKey(rows, key)?.amount ?? null };
+  return { key, label, amount: cashRowOfKey(rows, key)?.amount ?? null };
 }
 
 function AccountCard({
@@ -306,11 +387,16 @@ function AccountCard({
   onToggle,
   onTrade,
   onCalc,
+  gate,
+  onMove,
 }: {
   section: AssetSection;
   account: AssetAccount | undefined;
   /** 짝지은 예수금(v2.71.3) — 짝이 없으면 null */
   deposit: AccountDeposit | null;
+  gate: CashMoveGate;
+  /** 예수금 [입출금](v2.72.0) — 그 예수금 열쇠로 창 열기 */
+  onMove: (key: AssetCashKey) => void;
   first: boolean;
   open: boolean;
   onToggle: () => void;
@@ -365,6 +451,9 @@ function AccountCard({
                   <span className={`font-semibold tabular-nums ${deposit.amount != null && deposit.amount < 0 ? 'text-bearish' : 'text-text-primary'}`} data-account-deposit-amount>
                     {deposit.amount != null && deposit.amount < 0 ? formatAssetWonSigned(deposit.amount) : formatAssetWon(deposit.amount)}
                   </span>
+                </span>
+                <span className="shrink-0 self-center">
+                  <CashMoveButton name={`${section.name || '계좌'} 예수금`} gate={gate} onOpen={() => onMove(deposit.key)} />
                 </span>
                 <span className="min-w-0 flex-1 truncate text-caption text-text-muted contain-inline-size" data-tip-clip={deposit.label} data-account-deposit-label>
                   {deposit.label}
@@ -456,9 +545,13 @@ function AccountCards({
   bankFix,
   onTrade,
   onCalc,
+  gate,
+  onMove,
 }: {
   sections: AssetSection[];
   accounts: AssetAccount[];
+  gate: CashMoveGate;
+  onMove: (key: AssetCashKey) => void;
   /** 「현금」 탭 은행 계좌 줄 · 예수금 짝 · 은행 묶음 고치기(계좌 머리 예수금 — v2.71.3) */
   cashRows: AssetCashRow[];
   pairs: Record<string, AssetCashKey> | undefined;
@@ -491,6 +584,8 @@ function AccountCards({
             onToggle={() => toggle(key)}
             onTrade={onTrade}
             onCalc={onCalc}
+            gate={gate}
+            onMove={onMove}
           />
         );
       })}
@@ -511,8 +606,17 @@ export default function AssetSheetValues({
   onOpenTradeHistory,
   newBuyNotes,
   includePension,
+  cashGate,
+  onCashMove,
+  onCashMoved,
 }: {
   data: AssetSheetData;
+  /** [입출금](v2.72.0) — 잠김 · 시트 쓰기 켬(요약 응답 · 모르면 null) */
+  cashGate: CashMoveGate;
+  /** 입출금 저장 — `POST /api/asset/cash/manual` */
+  onCashMove: (req: AssetCashManualRequest) => Promise<{ error: string } | { result: AssetCashManualResult }>;
+  /** 입출금 저장됨 — 다시 읽기 */
+  onCashMoved: () => void;
   /** 「연금 포함」 — 켜져 있으면 「현금 합계」 펼침에 퇴직 연금 줄도(v2.70.4) */
   includePension: boolean;
   /** 카드 머리 평가 금액 합 · 가격 못 받은 줄 수(총 자산 요약 응답) */
@@ -536,10 +640,12 @@ export default function AssetSheetValues({
   const sent = data as AssetSheetData & AssetSheetCashBanks;
   const bankFix = useLastSent(sent.cashBankFix);
   const pairs = useLastSent(sent.cashDepositPairs);
+  /** [입출금] 창 — 처음 계좌 · 이체의 그 쪽(예수금 머리 = 들어가는 쪽 · 상품 줄 = 빠지는 쪽) */
+  const [move, setMove] = useState<{ key: AssetCashKey; side: 'from' | 'to'; opened: number } | null>(null);
 
   return (
     <div className="space-y-3">
-      <Summary data={data} includePension={includePension} bankFix={bankFix} />
+      <Summary data={data} includePension={includePension} bankFix={bankFix} gate={cashGate} onMove={(key) => setMove({ key, side: 'from', opened: Date.now() })} />
       <div className="flex flex-wrap items-center gap-3">
         {/* 도구 줄 높이 28px 하나(v2.69.0) — 아이콘 버튼 md(28) 와 같은 줄이라 묶음 버튼 · 글자 버튼은 sm */}
         <Segmented
@@ -578,10 +684,26 @@ export default function AssetSheetValues({
           <p className="text-caption text-text-muted" data-account-hint>
             계좌를 누르면 종목이 펼쳐져요
           </p>
-          <AccountCards sections={data.sections} accounts={accounts} cashRows={data.cashAccounts} pairs={pairs} bankFix={bankFix} onTrade={onTrade} onCalc={onCalc} />
+          <AccountCards sections={data.sections} accounts={accounts} cashRows={data.cashAccounts} pairs={pairs} bankFix={bankFix} onTrade={onTrade} onCalc={onCalc} gate={cashGate} onMove={(key) => setMove({ key, side: 'to', opened: Date.now() })} />
         </>
       )}
       {view === 'symbol' && (bySymbol == null ? <SkeletonTable rows={6} columns={8} /> : <AssetSymbolTable rows={bySymbol} filter={filter} />)}
+      {move && (
+        <AssetCashMoveDialog
+          key={move.opened}
+          rows={data.cashAccounts}
+          fix={bankFix}
+          initial={move.key}
+          initialSide={move.side}
+          writeEnabled={cashGate.writeEnabled}
+          onSend={onCashMove}
+          onSaved={() => {
+            setMove(null);
+            onCashMoved();
+          }}
+          onClose={() => setMove(null)}
+        />
+      )}
     </div>
   );
 }

@@ -8,11 +8,12 @@ import { formatAssetWon } from '../../utils/assetFormat';
 import AssetCashAccountPicker, { type PickerExtra } from './AssetCashAccountPicker';
 import {
   ASSET_CASH_FROM_SALARY,
-  ASSET_CASH_KIND_LABEL,
   ASSET_CASH_PREVIEW_WHY_LABEL,
   ASSET_CASH_REASON_TEXT,
   ASSET_CASH_STATUS_LABEL,
   assetCashDefaultTo,
+  assetCashKindLabel,
+  isAssetCashManualKind,
   cashBankGroups,
   cashBankLabelOf,
   cashBankName,
@@ -21,12 +22,13 @@ import {
   type AssetCashFlowEdit,
   type AssetCashFlowViewV2,
   type AssetCashKey,
-  type AssetCashMoveRecord,
+  type AssetCashMoveRecordAll,
   type AssetCashPreviewItem,
   type AssetCashRowOption,
   type AssetCashSettingsPatchV2,
   type AssetCashShift,
   type AssetCashViewV2,
+  type AssetCashViewV3,
 } from '../../types/asset';
 
 /**
@@ -43,7 +45,7 @@ import {
  * ⚠️ 금액 · 계좌 이름을 콘솔 · 로컬 저장소에 남기지 않는다.
  */
 
-type Load = { state: 'loading' } | { state: 'error'; message: string } | { state: 'done'; view: AssetCashViewV2 };
+type Load = { state: 'loading' } | { state: 'error'; message: string } | { state: 'done'; view: AssetCashViewV3 };
 type BlockId = 'enabled' | 'pairs' | 'salary' | 'flows' | 'banks' | 'moves';
 
 const SHIFT_OPTIONS: { value: AssetCashShift; label: string }[] = [
@@ -79,7 +81,7 @@ export default function AssetCashSettings({ onLocked }: { onLocked: () => void }
       const body = await readJson(res);
       if (body.code === 'asset-locked') return onLocked();
       if (!res.ok) return setLoad({ state: 'error', message: typeof body.error === 'string' ? body.error : `요청 실패 (${res.status})` });
-      setLoad({ state: 'done', view: body as unknown as AssetCashViewV2 });
+      setLoad({ state: 'done', view: body as unknown as AssetCashViewV3 });
     } catch {
       setLoad({ state: 'error', message: '서버에 연결하지 못했습니다.' });
     }
@@ -105,7 +107,7 @@ export default function AssetCashSettings({ onLocked }: { onLocked: () => void }
         setErrors((e) => ({ ...e, [block]: typeof body.error === 'string' ? body.error : `요청 실패 (${res.status})` }));
         return false;
       }
-      setLoad({ state: 'done', view: body as unknown as AssetCashViewV2 });
+      setLoad({ state: 'done', view: body as unknown as AssetCashViewV3 });
       return true;
     } catch {
       setErrors((e) => ({ ...e, [block]: '서버에 연결하지 못했습니다.' }));
@@ -168,15 +170,18 @@ export default function AssetCashSettings({ onLocked }: { onLocked: () => void }
   };
   const saveFlow = (f: AssetCashFlowViewV2, id: string, change: Partial<AssetCashFlowEdit>) => void save('flows', id, { flowEdit: { ...flowNow(f), ...change } });
 
-  const pathOf = (m: AssetCashMoveRecord) => {
-    const from = m.from ? full(m.from) : m.kind === 'salary' ? '월급' : m.kind === 'sell' ? '매도' : '—';
-    const to = m.to ? full(m.to) : m.kind === 'buy' ? '매수' : '쓴 돈(밖으로)';
+  // 직접 입출금(v2.72.0) — 입금은 「밖에서 →」 · 출금은 「→ 밖으로」
+  const pathOf = (m: AssetCashMoveRecordAll) => {
+    const from = m.from ? full(m.from) : m.kind === 'salary' ? '월급' : m.kind === 'sell' ? '매도' : m.kind === 'deposit' ? '밖에서' : '—';
+    const to = m.to ? full(m.to) : m.kind === 'buy' ? '매수' : m.kind === 'withdraw' ? '밖으로' : '쓴 돈(밖으로)';
     return `${from} → ${to}`;
   };
-  const undo = (m: AssetCashMoveRecord) =>
+  /** 「무엇」 — 종류 + 사유 · 종목 · 메모(월급 · 메모 없는 직접 입출금은 종류만) */
+  const whatOf = (m: AssetCashMoveRecordAll) => `${assetCashKindLabel(m.kind)}${m.kind === 'salary' || !m.label ? '' : ` · ${m.label}`}`;
+  const undo = (m: AssetCashMoveRecordAll) =>
     modal.confirm({
       title: '되돌리기',
-      message: `「${m.label}」 ${formatAssetWon(m.amount)} 반영을 되돌립니다. 지금 시트 숫자에서 ${[m.from ? `「${full(m.from)}」 에 다시 더하고` : null, m.to ? `「${full(m.to)}」 에서 뺍니다` : null].filter(Boolean).join(' ').replace(/더하고$/, '더합니다')}.`,
+      message: `「${whatOf(m)}」 ${formatAssetWon(m.amount)} 반영을 되돌립니다. 지금 시트 숫자에서 ${[m.from ? `「${full(m.from)}」 에 다시 더하고` : null, m.to ? `「${full(m.to)}」 에서 뺍니다` : null].filter(Boolean).join(' ').replace(/더하고$/, '더합니다')}.`,
       confirmText: '되돌리기',
       onConfirm: () => void send('moves', `undo-${m.id}`, '/api/asset/cash/undo', 'POST', { id: m.id }),
     });
@@ -401,7 +406,7 @@ export default function AssetCashSettings({ onLocked }: { onLocked: () => void }
                 </tr>
               )}
               {v.moves.map((m) => {
-                const what = `${ASSET_CASH_KIND_LABEL[m.kind]}${m.kind === 'salary' ? '' : ` · ${m.label}`}`;
+                const what = whatOf(m);
                 const path = pathOf(m);
                 const status = ASSET_CASH_STATUS_LABEL[m.status];
                 const reason = m.reason ? ASSET_CASH_REASON_TEXT[m.reason] : null;
@@ -430,7 +435,7 @@ export default function AssetCashSettings({ onLocked }: { onLocked: () => void }
                     </td>
                     <td className="pr-4 text-right">
                       {m.status === 'applied' && (
-                        <Button size="sm" variant="ghost" busy={busy === `undo-${m.id}`} disabled={busy != null || !s.enabled || !v.writeEnabled} onClick={() => undo(m)}>
+                        <Button size="sm" variant="ghost" busy={busy === `undo-${m.id}`} disabled={busy != null || (!s.enabled && !isAssetCashManualKind(m.kind)) || !v.writeEnabled} onClick={() => undo(m)}>
                           되돌리기
                         </Button>
                       )}

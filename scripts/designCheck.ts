@@ -36,6 +36,7 @@ import { rankingSample, usHaltsSample } from './fixtures/usHalts/screenSample';
 import { briefSample, daySample, daysSample, mismatchSample, outlookSample, statusSample } from './fixtures/marketBrief/screenSample';
 import { assetNewPlanSample, assetTradesSample, assetHistorySample, assetSheetFailureSample, assetSheetSample, assetStatusSample, assetSummaryFailureSample, assetSummarySample } from './fixtures/asset/screenSample';
 import { CASH_SAMPLE_KIWOOM, cashViewSample } from './fixtures/asset/screenSample'; // v2.71.0 현금 자동 반영 장면
+import { cashViewManualSample } from './fixtures/asset/screenSample'; // v2.72.0 직접 입출금 장면
 import { CHANGELOG } from '../src/data/changelog';
 import { sortDayRows } from '../src/utils/buyJudgeOrder';
 
@@ -726,6 +727,78 @@ function targets(): Target[] {
         await page.evaluate(() => {
           localStorage.removeItem('alphascope.asset.tab');
           localStorage.removeItem('alphascope.asset.statusView');
+        });
+        await page.unroute('**/api/asset/touch');
+      },
+    })),
+    // v2.72.0 — 자산 「입출금」(143차): 계좌 머리 예수금 [입출금] · 「현금 합계」 상품 줄 [입출금] · 창 이체 / 입금 / 출금 · 마이너스 확인 창 · 반영 기록 직접 입출금 줄. 가짜 응답만(쓰기 주소는 막는다)
+    ...(
+      [
+        ['계좌머리-입출금', 'heads'],
+        ['현금합계-상품줄-입출금', 'bank'],
+        ['입출금창-이체', 'transfer'],
+        ['입출금창-입금', 'deposit'],
+        ['입출금창-출금', 'withdraw'],
+        ['입출금창-마이너스확인창', 'minus'],
+        ['반영기록-입출금', 'moves'],
+      ] as const
+    ).map(([label, step]) => ({
+      name: `asset-${label}`,
+      hash: '#/asset',
+      before: async (page: Page) => {
+        await page.evaluate((menu) => {
+          localStorage.setItem('alphascope.asset.tab', 'status');
+          localStorage.setItem('alphascope.asset.statusView', 'account');
+          if (menu) localStorage.setItem('alphascope.asset.settingsMenu', 'cash');
+        }, step === 'moves');
+        const base = assetSheetSample();
+        const sheet = { ...base, cashAccounts: [...base.cashAccounts, { row: 9, name: CASH_SAMPLE_KIWOOM.name, amount: 694_000 }], cashDepositPairs: { '개별 투자': CASH_SAMPLE_KIWOOM }, cashBankFix: { rows: {}, renames: {} } };
+        await page.route('**/api/asset/status', (r) => r.fulfill({ json: assetStatusSample(true) }).catch(() => {}));
+        await page.route('**/api/asset/touch', (r) => r.fulfill({ json: { ok: true, lockMinutes: 30, remainingMs: 30 * 60_000 } }).catch(() => {}));
+        await page.route('**/api/asset/sheet', (r) => r.fulfill({ json: sheet }).catch(() => {}));
+        await page.route('**/api/asset/summary**', (r) => r.fulfill({ json: assetSummarySample({}) }).catch(() => {}));
+        await page.route('**/api/asset/history**', (r) => r.fulfill({ json: assetHistorySample(5) }).catch(() => {}));
+        await page.route('**/api/asset/cash', (r) => r.fulfill({ json: cashViewManualSample() }).catch(() => {}));
+        await page.route('**/api/asset/cash/manual', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
+      },
+      open: async (page: Page) => {
+        await page.waitForTimeout(800);
+        if (step === 'heads') return;
+        if (step === 'moves') {
+          await page.getByLabel('설정', { exact: true }).click().catch(() => {});
+          await page.getByTestId('asset-cash-settings').waitFor({ timeout: 5000 }).catch(() => {});
+          await page.getByTestId('asset-cash-move-row').first().scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(300);
+          return;
+        }
+        await page.getByTestId('asset-cash-toggle').click().catch(() => {});
+        await page.getByRole('button', { name: '예시은행 상품 펼치기' }).click().catch(() => {});
+        if (step === 'bank') return void (await page.waitForTimeout(300));
+        await page.getByRole('button', { name: '개별 투자 ( 2026.07 ) 예수금 입출금', exact: true }).click().catch(() => {});
+        const dialog = page.getByRole('dialog', { name: '입출금' });
+        await dialog.waitFor({ timeout: 3000 }).catch(() => {});
+        if (step === 'deposit') await dialog.getByRole('radio', { name: '입금' }).click().catch(() => {});
+        if (step === 'withdraw' || step === 'minus') await dialog.getByRole('radio', { name: '출금' }).click().catch(() => {});
+        if (step === 'transfer') {
+          await dialog.getByRole('button', { name: '빠지는 계좌', exact: true }).click().catch(() => {});
+          await page.getByRole('listbox', { name: '빠지는 계좌' }).getByRole('group', { name: '예시은행' }).getByRole('option', { name: '입출금 #1', exact: true }).click().catch(() => {});
+        }
+        await page.getByRole('textbox', { name: '금액' }).fill(step === 'minus' ? '1000000' : '500000').catch(() => {});
+        await page.getByRole('textbox', { name: '메모' }).fill('보너스').catch(() => {});
+        if (step === 'minus') {
+          await dialog.getByRole('button', { name: '저장' }).click().catch(() => {});
+          await page.getByRole('dialog', { name: '계좌 금액이 마이너스가 됩니다' }).waitFor({ timeout: 3000 }).catch(() => {});
+        }
+        await page.waitForTimeout(300);
+      },
+      after: async (page: Page) => {
+        for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/cash', '**/api/asset/cash/manual']) await page.unroute(p);
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.evaluate(() => {
+          localStorage.removeItem('alphascope.asset.tab');
+          localStorage.removeItem('alphascope.asset.statusView');
+          localStorage.removeItem('alphascope.asset.settingsMenu');
         });
         await page.unroute('**/api/asset/touch');
       },

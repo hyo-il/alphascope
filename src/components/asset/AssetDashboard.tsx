@@ -7,7 +7,7 @@ import { usePolling } from '../../hooks/usePolling';
 import { useAssetIdleLock } from '../../hooks/useAssetIdleLock';
 import { changeColor, formatNumber, formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
-import type { AssetCashTradeExtra, AssetCashTradeOutcome, AssetDailyChange, AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetHolding, AssetSection, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetNewHoldingRequest, AssetNewHoldingResult, AssetNewHoldingTarget, AssetTradeRequest, AssetTradeSide, MonthlyBuy } from '../../types/asset';
+import type { AssetCashManualRequest, AssetCashManualResult, AssetCashTradeExtra, AssetCashTradeOutcome, AssetDailyChange, AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetHolding, AssetSection, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetNewHoldingRequest, AssetNewHoldingResult, AssetNewHoldingTarget, AssetTradeRequest, AssetTradeSide, MonthlyBuy } from '../../types/asset';
 import { RATIO_TAB_NOTICE } from '../../types/asset';
 import { modal } from '../../store/uiStore';
 import AssetDonut from './AssetDonut';
@@ -286,6 +286,11 @@ export default function AssetDashboard({
     const { error, body } = await postTrade('/api/asset/trade', req);
     return { error, cashMessage: error ? null : cashMessageOf(body) };
   };
+  /** 직접 입출금(v2.72.0) — 기록 + 쓴 뒤 금액 · 실패면 까닭(잠김은 잠금 화면) */
+  const sendCashMove = async (req: AssetCashManualRequest): Promise<{ error: string } | { result: AssetCashManualResult }> => {
+    const { error, body } = await postTrade('/api/asset/cash/manual', req);
+    return error ? { error } : { result: body as unknown as AssetCashManualResult };
+  };
   const sendNewPlan = async (target: AssetNewHoldingTarget): Promise<AssetNewHoldingPlan | string> => {
     const { error, body } = await postTrade('/api/asset/trade/new/plan', target);
     return error ?? (body as unknown as AssetNewHoldingPlan);
@@ -414,7 +419,7 @@ export default function AssetDashboard({
           <div id="as-asset-status" className="space-y-3">
             {sheet == null && <SkeletonTable rows={6} columns={6} />}
             {sheet && 'error' in sheet && <ErrorLine message={sheet.error} onRetry={() => void loadSheet()} />}
-            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} includePension={pension} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} onOpenClassDialog={() => setClassOpen(true)} onTrade={(section, holding, side) => setTrade({ section, holding, side })} onCalc={(section, holding) => setCalc({ section, holding, opened: Date.now() })} onNewBuy={() => { setNewBuyNotes([]); setNewBuyOpen(true); }} onOpenTradeHistory={() => setTradeHistoryOpen(true)} newBuyNotes={newBuyNotes} />}
+            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} includePension={pension} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} onOpenClassDialog={() => setClassOpen(true)} onTrade={(section, holding, side) => setTrade({ section, holding, side })} onCalc={(section, holding) => setCalc({ section, holding, opened: Date.now() })} onNewBuy={() => { setNewBuyNotes([]); setNewBuyOpen(true); }} onOpenTradeHistory={() => setTradeHistoryOpen(true)} newBuyNotes={newBuyNotes} cashGate={{ locked: !!(result && !result.ok && result.fail.locked), writeEnabled: summary ? summary.writeEnabled : null }} onCashMove={sendCashMove} onCashMoved={() => void reload()} />}
           </div>
         )}
       </div>

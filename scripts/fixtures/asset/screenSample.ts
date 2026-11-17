@@ -5,6 +5,7 @@
  */
 import { ASSET_DAILY_SHARE_LABEL, DEFAULT_CLASS_COLORS, type AssetClassColors } from '../../../src/types/asset';
 import type { AssetCashKey, AssetCashViewV2, AssetClass, AssetDailyChange, AssetDailyShare, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHolding, AssetPriceSheetStatus, AssetSheetData, AssetSheetFailure, AssetStatus, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetTradeRecord, AssetTradesResponse } from '../../../src/types/asset';
+import type { AssetCashMoveRecordAll, AssetCashViewV3 } from '../../../src/types/asset'; // v2.72.0 직접 입출금
 import { computeRebalance } from '../../../server/asset/rebalance';
 import { computeMonthlyBuy } from '../../../server/asset/purchase';
 
@@ -380,3 +381,15 @@ export function cashViewSample(o: { enabled?: boolean; undone?: boolean; emptyPr
     },
   };
 }
+
+// ── 직접 입출금(v2.72.0 · 143차) ──
+/** 반영 기록 직접 입출금 줄(만든 값 — 이체 · 메모 / 입금 · 메모 없음 / 출금 · 되돌림) — assetcashmanualui:test · design:check */
+export function cashManualMovesSample(): AssetCashMoveRecordAll[] {
+  return [
+    { id: 13, at: '2026-11-17T03:00:00.000Z', kind: 'transfer', label: '보너스', month: '2026-11', day: '2026-11-17', from: CASH_SAMPLE_MAIN, to: CASH_SAMPLE_KIWOOM, amount: 500_000, status: 'applied', reason: null, undoneAt: null },
+    { id: 12, at: '2026-11-17T02:00:00.000Z', kind: 'deposit', label: '', month: '2026-11', day: '2026-11-17', from: null, to: CASH_SAMPLE_KIWOOM, amount: 200_000, status: 'applied', reason: null, undoneAt: null },
+    { id: 11, at: '2026-11-17T01:00:00.000Z', kind: 'withdraw', label: '여행 경비', month: '2026-11', day: '2026-11-17', from: CASH_SAMPLE_MAIN, to: null, amount: 300_000, status: 'undone', reason: null, undoneAt: '2026-11-17T01:30:00.000Z' },
+  ];
+}
+/** 설정 「현금 자동 반영」 응답 — 꺼짐 + 반영 기록 맨 위에 직접 입출금 셋 */
+export const cashViewManualSample = (): AssetCashViewV3 => ({ ...cashViewSample({ enabled: false }), moves: [...cashManualMovesSample(), ...cashViewSample().moves] });
