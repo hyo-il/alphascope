@@ -28,6 +28,8 @@ export const LATER_COMMITS: readonly string[] = [
   '9c42321', // 140차 v2.71.1 C — 매수 창 예수금 문장 · 「현금 합계」 은행별 · design:check 장면 1(더하기만)
   '9466811', // 140차 v2.71.1 H — 캡처 검토 반영(이 차수에 더한 미리 보기 까닭 글 하나 고침) · 시험 손질
   '461e95d', // 141차 v2.71.2 H — 빨간 표시 · 예수금 한 줄 시험 · design:check 장면 5(더하기만)
+  'b695e82', // 142차 v2.71.3 A — 예수금 balance · 시트 응답 짝(routes pair · sheet 응답 칸 더하기 · 타입 더하기)
+  '793d3a6', // 142차 v2.71.3 H — design:check 장면 4(더하기만) · 예수금 줄 둘째 줄
 ];
 
 const covers = (spec: string, file: string) => file === spec || file.startsWith(`${spec.replace(/\/$/, '')}/`);
