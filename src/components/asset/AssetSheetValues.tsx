@@ -5,8 +5,8 @@ import { SkeletonTable } from '../common/SkeletonLoader';
 import AssetSymbolTable, { SYMBOL_FILTERS, type SymbolFilter } from './AssetSymbolTable';
 import { ASSET_CLASS_W, LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice } from '../../utils/formatters';
-import { formatAssetPrice, formatAssetQty } from '../../utils/assetFormat';
-import { UNASSIGNED_LABEL, cashBankGroups, type AssetAccount, type AssetCashBankFix, type AssetCashRow, type AssetSheetCashBanks, type AssetHolding, type AssetSection, type AssetSheetData, type AssetSymbolRow, type AssetTradeSide } from '../../types/asset';
+import { formatAssetPrice, formatAssetQty, formatAssetWon, formatAssetWonSigned } from '../../utils/assetFormat';
+import { UNASSIGNED_LABEL, cashBankGroups, cashBankLabelOf, cashRowOfKey, type AssetAccount, type AssetCashBankFix, type AssetCashKey, type AssetCashRow, type AssetSheetCashBanks, type AssetHolding, type AssetSection, type AssetSheetData, type AssetSymbolRow, type AssetTradeSide } from '../../types/asset';
 
 /**
  * 자산 관리 「자산 현황」 탭 (v2.61.0 1단계 확인 표 → v2.62.1 계좌 카드 → v2.62.2 탭).
@@ -23,6 +23,9 @@ import { UNASSIGNED_LABEL, cashBankGroups, type AssetAccount, type AssetCashBank
  * - 「현금 합계」 를 누르면 「현금」 탭 은행 계좌가 **은행별 합계**로 펼쳐진다(v2.71.1 — 은행 순서 = 시트에서 처음 나온 순서 · 은행을 누르면 상품(입출금 · 청년 적금 · 정기 예금 #1 …)이 펼쳐짐 ·
  *   묶기는 `cashBankGroups`(설정 화면 · 서버와 같은 함수) + 시트 응답의 「은행 묶음 고치기」) · 「연금 포함」 이면 퇴직 연금 줄도 따로(v2.70.4 · 펼침은 기억하지 않음).
  *   계좌 합이 시트 총액과 다르면 작은 안내만(총 자산 계산은 시트 총액 그대로 — 서버).
+ * - 계좌 카드 머리에 그 계좌와 짝지은 예수금(v2.71.3 · 사용자 결정 2026-11-17) — 「예수금 ₩694,000」 + 작게 은행 · 상품 이름(말줄임 · 잘렸을 때 툴팁).
+ *   값은 이미 받은 시트 읽기(「현금」 탭 은행 계좌 줄)와 시트 응답의 짝 설정(`cashDepositPairs`)으로 화면에서 맞춘다(구글 요청 없음) ·
+ *   「현금 자동 반영」 이 꺼져 있어도 짝이 있으면 보인다(읽기만) · 짝이 없는 계좌는 아무것도 없음 · 마이너스는 하락 색 숫자 · 「종목별」 보기에는 없음.
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 접은 계좌 이름 · 보기 이름만).
  */
 
@@ -145,15 +148,9 @@ function BankCashBlock({ rows, total, fix }: { rows: AssetCashRow[]; total: numb
 }
 
 /** 현금 · 연금 · 월급 · 환율 한 줄, 목표 비율 한 줄 — 칸은 내용 폭(금액이 길어져도 겹치지 않고 다음 줄로) */
-function Summary({ data, includePension }: { data: AssetSheetData; includePension: boolean }) {
+function Summary({ data, includePension, bankFix }: { data: AssetSheetData; includePension: boolean; bankFix: AssetCashBankFix | undefined }) {
   const t = data.targetRatio;
   const [cashOpen, setCashOpen] = useState(false);
-  // 은행 묶음 고치기는 시트 읽기 응답에만 온다 — 쓰기 응답(시트 값만)으로 바뀌어도 마지막 고치기를 그대로 쓴다
-  const sentFix = (data as AssetSheetData & AssetSheetCashBanks).cashBankFix;
-  const [bankFix, setBankFix] = useState<AssetCashBankFix | undefined>(sentFix);
-  useEffect(() => {
-    if (sentFix) setBankFix(sentFix);
-  }, [sentFix]);
   const CashArrow = cashOpen ? ChevronDown : ChevronRight;
   return (
     <Panel className="space-y-3">
@@ -180,7 +177,7 @@ function Summary({ data, includePension }: { data: AssetSheetData; includePensio
       </div>
       {cashOpen && (
         <div id="as-asset-cashlist" className="max-w-xl space-y-3" data-testid="asset-cash-accounts">
-          <BankCashBlock rows={data.cashAccounts} total={data.cashTotal} fix={sentFix ?? bankFix} />
+          <BankCashBlock rows={data.cashAccounts} total={data.cashTotal} fix={bankFix} />
           {includePension && <CashBlock heading="퇴직 연금" rows={data.retirementAccounts} total={data.retirement} testId="asset-cash-retirement" />}
         </div>
       )}
@@ -277,9 +274,33 @@ function ClassText({ h }: { h: AssetHolding }) {
  * 카드들을 **표 하나**로 그려 숫자 칸은 내용 폭 그대로 두고 카드끼리 열 자리가 같다(카드마다 표를 따로 두면 열 자리가 어긋난다).
  * 카드 모양 = 칸마다 바탕을 칠하고 머리 · 마지막 줄 끝 칸만 둥글게 · 카드 사이는 빈 줄(바탕 없음 12px).
  */
+/** 계좌 머리 예수금 — 짝 줄 이름(은행 · 상품) · 지금 금액(시트 C열 · 숫자 아님 · 줄 못 찾음이면 null) */
+interface AccountDeposit {
+  label: string;
+  amount: number | null;
+}
+
+/** 시트 응답 값 가운데 읽기 응답에만 오는 것(은행 묶음 고치기 · 예수금 짝) — 쓰기 응답(시트 값만)으로 바뀌어도 마지막 값을 그대로 쓴다 */
+function useLastSent<T>(sent: T | undefined): T | undefined {
+  const [last, setLast] = useState<T | undefined>(sent);
+  useEffect(() => {
+    if (sent) setLast(sent);
+  }, [sent]);
+  return sent ?? last;
+}
+
+/** 계좌 key → 머리 예수금(짝이 없으면 없음) */
+function depositOf(pairs: Record<string, AssetCashKey> | undefined, rows: AssetCashRow[], fix: AssetCashBankFix | undefined, sectionKey: string | null): AccountDeposit | null {
+  const key = sectionKey != null ? pairs?.[sectionKey] : undefined;
+  if (!key) return null;
+  const label = cashBankLabelOf(key, rows.map((r) => r.name), fix) ?? (key.nth > 1 ? `${key.name} #${key.nth}` : key.name);
+  return { label, amount: cashRowOfKey(rows, key)?.amount ?? null };
+}
+
 function AccountCard({
   section,
   account,
+  deposit,
   first,
   open,
   onToggle,
@@ -288,6 +309,8 @@ function AccountCard({
 }: {
   section: AssetSection;
   account: AssetAccount | undefined;
+  /** 짝지은 예수금(v2.71.3) — 짝이 없으면 null */
+  deposit: AccountDeposit | null;
   first: boolean;
   open: boolean;
   onToggle: () => void;
@@ -334,6 +357,20 @@ function AccountCard({
             <span className="shrink-0 whitespace-nowrap text-caption text-text-muted" data-count>
               {rows.length}종목
             </span>
+            {deposit && (
+              // 예수금 이름은 표 폭 계산에 넣지 않는다(contain-inline-size — 긴 이름이 계좌 표 전체를 넓히지 않고 남은 자리에서 말줄임)
+              <span className="flex min-w-0 flex-1 items-baseline gap-1.5" data-account-deposit={deposit.amount == null ? 'none' : deposit.amount < 0 ? 'minus' : 'plus'}>
+                <span className="shrink-0 whitespace-nowrap text-xs text-text-secondary">
+                  예수금{' '}
+                  <span className={`font-semibold tabular-nums ${deposit.amount != null && deposit.amount < 0 ? 'text-bearish' : 'text-text-primary'}`} data-account-deposit-amount>
+                    {deposit.amount != null && deposit.amount < 0 ? formatAssetWonSigned(deposit.amount) : formatAssetWon(deposit.amount)}
+                  </span>
+                </span>
+                <span className="min-w-0 flex-1 truncate text-caption text-text-muted contain-inline-size" data-tip-clip={deposit.label} data-account-deposit-label>
+                  {deposit.label}
+                </span>
+              </span>
+            )}
             <span className="ml-auto shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums text-text-primary" data-value>
               {account ? formatPrice(account.value, 'KRW') : '—'}
             </span>
@@ -411,7 +448,24 @@ function AccountCard({
 }
 
 /** 계좌 카드들 — 합계 표(계좌를 합친 표)는 그리지 않는다 · 수량 · 달러 소수 자릿수는 모든 카드가 같다 */
-function AccountCards({ sections, accounts, onTrade, onCalc }: { sections: AssetSection[]; accounts: AssetAccount[]; onTrade: (section: AssetSection, holding: AssetHolding, side: AssetTradeSide) => void; onCalc: (section: AssetSection, holding: AssetHolding) => void }) {
+function AccountCards({
+  sections,
+  accounts,
+  cashRows,
+  pairs,
+  bankFix,
+  onTrade,
+  onCalc,
+}: {
+  sections: AssetSection[];
+  accounts: AssetAccount[];
+  /** 「현금」 탭 은행 계좌 줄 · 예수금 짝 · 은행 묶음 고치기(계좌 머리 예수금 — v2.71.3) */
+  cashRows: AssetCashRow[];
+  pairs: Record<string, AssetCashKey> | undefined;
+  bankFix: AssetCashBankFix | undefined;
+  onTrade: (section: AssetSection, holding: AssetHolding, side: AssetTradeSide) => void;
+  onCalc: (section: AssetSection, holding: AssetHolding) => void;
+}) {
   const shown = sections.filter((s) => !s.combined);
   const [closed, setClosed] = useState<string[]>(readClosed);
   const toggle = (key: string) => {
@@ -431,6 +485,7 @@ function AccountCards({ sections, accounts, onTrade, onCalc }: { sections: Asset
             key={key}
             section={s}
             account={accounts.find((a) => a.key === s.key)}
+            deposit={depositOf(pairs, cashRows, bankFix, s.key)}
             first={i === 0}
             open={!closed.includes(key)}
             onToggle={() => toggle(key)}
@@ -478,10 +533,13 @@ export default function AssetSheetValues({
 }) {
   const [view, setView] = useState<StatusView>(readView);
   const [filter, setFilter] = useState<SymbolFilter>('all');
+  const sent = data as AssetSheetData & AssetSheetCashBanks;
+  const bankFix = useLastSent(sent.cashBankFix);
+  const pairs = useLastSent(sent.cashDepositPairs);
 
   return (
     <div className="space-y-3">
-      <Summary data={data} includePension={includePension} />
+      <Summary data={data} includePension={includePension} bankFix={bankFix} />
       <div className="flex flex-wrap items-center gap-3">
         {/* 도구 줄 높이 28px 하나(v2.69.0) — 아이콘 버튼 md(28) 와 같은 줄이라 묶음 버튼 · 글자 버튼은 sm */}
         <Segmented
@@ -520,7 +578,7 @@ export default function AssetSheetValues({
           <p className="text-caption text-text-muted" data-account-hint>
             계좌를 누르면 종목이 펼쳐져요
           </p>
-          <AccountCards sections={data.sections} accounts={accounts} onTrade={onTrade} onCalc={onCalc} />
+          <AccountCards sections={data.sections} accounts={accounts} cashRows={data.cashAccounts} pairs={pairs} bankFix={bankFix} onTrade={onTrade} onCalc={onCalc} />
         </>
       )}
       {view === 'symbol' && (bySymbol == null ? <SkeletonTable rows={6} columns={8} /> : <AssetSymbolTable rows={bySymbol} filter={filter} />)}

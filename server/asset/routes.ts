@@ -22,7 +22,7 @@ import { listTrades, planNewHolding, recordNewHolding, recordTrade, tradesForCha
 import { dailyChanges } from './dailyChange';
 import { cashWide, isCashWriteOn, parseCashAmount, readCashSettings, tradeCash, undoCashMove, writeCashSettings } from './cashMoves';
 import { buildCashPreview, buildCashView, cashSheetNow } from './cashView';
-import { cashLines } from './cashKeys';
+import { cashLines, cellNumber, findCashLine } from './cashKeys';
 import { readCashBankFix, writeCashBankFix } from './cashBanks';
 import { kstDay } from './cashSchedule';
 import { cashBankLabelOf, type AssetCashPairView, type AssetSheetCashBanks, type AssetSheetErrorKind, AssetSheetFailure, AssetStatus, AssetTouchResult, PurchaseDoneResult } from '../../src/types/asset';
@@ -125,8 +125,8 @@ assetRouter.post('/api/asset/lock', (req, res) => {
  */
 assetRouter.get('/api/asset/sheet', async (_req, res) => {
   try {
-    // 「현금 합계」 은행별 묶음의 고치기(앱에만 저장 · v2.71.1)를 함께
-    const banks: AssetSheetCashBanks = { cashBankFix: readCashBankFix() };
+    // 「현금 합계」 은행별 묶음의 고치기(앱에만 저장 · v2.71.1) · 계좌 머리 예수금 짝(v2.71.3 — 꺼져 있어도 · 앱 DB 만 읽음)을 함께
+    const banks: AssetSheetCashBanks = { cashBankFix: readCashBankFix(), cashDepositPairs: readCashSettings().depositPairs };
     res.json({ ...(await readAssetSheet()), ...banks });
   } catch (e) {
     sendSheetError(res, e, '읽기');
@@ -245,8 +245,8 @@ assetRouter.post('/api/asset/trade/new', async (req, res) => {
 });
 
 /**
- * 매수 · 매도 창 예수금 줄(v2.71.0) — 그 계좌의 짝 · 켜짐 · 지금 환율. 짝이 있고 켜졌을 때만 「현금」 탭을 읽는다(같은 이름 「#n」 표시).
- * 꺼졌거나 짝이 없으면 시트 · 환율을 읽지 않는다.
+ * 매수 · 매도 창 예수금 줄(v2.71.0) — 그 계좌의 짝 · 켜짐 · 지금 환율 · 지금 예수금(v2.71.3 `balance`). 짝이 있고 켜졌을 때만 「현금」 탭을 읽는다(같은 이름 「#n」 표시).
+ * 꺼졌거나 짝이 없으면 시트 · 환율을 읽지 않는다(`balance: null`). 예수금은 같은 읽기의 짝 줄 C열 — 줄을 못 찾거나 숫자가 아니면 null(쓰기와 같은 `findCashLine`).
  */
 assetRouter.get('/api/asset/cash/pair', async (req, res) => {
   try {
@@ -254,16 +254,18 @@ assetRouter.get('/api/asset/cash/pair', async (req, res) => {
     const enabled = isCashWriteOn();
     const key = readCashSettings().depositPairs[section] ?? null;
     if (!enabled || !key) {
-      const body: AssetCashPairView = { enabled, pair: null, usdKrw: null };
+      const body: AssetCashPairView = { enabled, pair: null, usdKrw: null, balance: null };
       return res.json(body);
     }
     const config = assetSheetConfig();
     if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
     const [[rows], usdKrw] = await Promise.all([batchGet(config, [cashWide()], 'UNFORMATTED_VALUE'), usdKrwNow()]);
     // 은행 · 상품 이름(v2.71.1 — 설정 화면 · 「현금 합계」 와 같은 함수) · 시트에 없으면 저장한 이름 그대로
-    const names = cashLines(rows).map((l) => l.key.name);
+    const lines = cashLines(rows);
+    const names = lines.map((l) => l.key.name);
     const label = cashBankLabelOf(key, names, readCashBankFix()) ?? (key.nth > 1 ? `${key.name} #${key.nth}` : key.name);
-    const body: AssetCashPairView = { enabled, pair: { key, label }, usdKrw };
+    const line = findCashLine(lines, key);
+    const body: AssetCashPairView = { enabled, pair: { key, label }, usdKrw, balance: line ? cellNumber(line.cell) : null };
     res.json(body);
   } catch (e) {
     sendSheetError(res, e, '읽기');

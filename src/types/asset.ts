@@ -870,6 +870,8 @@ export interface AssetCashPairView {
   pair: { key: AssetCashKey; label: string } | null;
   /** 지금 환율(원/달러) — 못 받으면 null */
   usdKrw: number | null;
+  /** 지금 예수금(원 · v2.71.3) — 짝 줄 C열 · 짝 없음 · 꺼짐 · 줄 못 찾음 · 숫자 아님이면 null */
+  balance: number | null;
 }
 
 /** 매수 · 매도 요청에 더하는 예수금 금액(원 · 0 이상 정수 · 0 이면 예수금은 안 바꿈 · 없으면 안 바꿈) */
@@ -1055,6 +1057,18 @@ export interface AssetCashBankPatch {
 /** `GET /api/asset/sheet` 에 더한 값(v2.71.1) — 「현금 합계」 은행별 묶음의 고치기 */
 export interface AssetSheetCashBanks {
   cashBankFix?: AssetCashBankFix;
+  /** 계좌 key → 예수금 줄(v2.71.3 — 계좌 머리 예수금 · 「현금 자동 반영」 이 꺼져 있어도) */
+  cashDepositPairs?: Record<string, AssetCashKey>;
+}
+
+/**
+ * 「현금」 탭 은행 계좌 줄 목록에서 저장한 열쇠의 줄(v2.71.3 · 화면용 — 서버 `findCashLine` 과 같은 뜻) — 없으면 null.
+ * 열쇠에 저장 때 같은 이름 줄 수(`of`)가 있고 지금 수가 다르면 null(「#n」 이 밀렸을 수 있음).
+ */
+export function cashRowOfKey<T extends { name: string }>(rows: T[], key: AssetCashKey): T | null {
+  const same = rows.filter((r) => r.name.trim().replace(/\s+/g, ' ') === key.name);
+  if (key.of != null && same.length !== key.of) return null;
+  return same[key.nth - 1] ?? null;
 }
 
 /** 건너뜀 · 다시 확인 필요 까닭 — 설정 화면 글(v2.71.1 · 「줄」 · 「출금」 · 「입금」 을 쓰지 않는 말) */
