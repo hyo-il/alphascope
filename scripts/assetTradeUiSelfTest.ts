@@ -2,6 +2,7 @@
  * 자산 매수 · 매도 입력 화면 시험(118차 · v2.66.0) — `npm run assettradeui:test` · ⚠️ `DB_PATH=<사본>` 으로만 돈다(맨 첫 import).
  *
  * 118차 지시서 「꼭 지킬 동작」 7 을 확인한다(시험 이름 앞의 [118-7]). Vite + Playwright, `/api` 는 모두 `page.route` 가짜(만든 값) — 구글 · 토스 · 서버 호출 0.
+ * 141차 · v2.71.2([141-1] [141-2]): 매도 창 · 새 종목 매수 창 — 처음 열 때 빨간 표시 0 · 빨간 글은 칸을 떠난 뒤에만 · [저장] 막힘 그대로.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import 'dotenv/config';
@@ -236,6 +237,11 @@ try {
   {
     const { page, ctx, planBodies, newBodies, seen, errors } = await openNewBuy({ plan: assetNewPlanSample() });
     check('[120-7] 새 종목 창 — 고르기 전 [다음] 막힘', await page.locator('[data-newbuy-next]').isDisabled());
+    check('[141-1] 새 종목 매수 창을 처음 열 때 빨간 표시 0', (await count(page, '[role="dialog"] [data-field-error], [role="dialog"] [aria-invalid="true"], [role="dialog"] .border-danger')) === 0);
+    await page.locator('[data-newbuy-qty]').focus();
+    await page.locator('[data-newbuy-price]').focus();
+    await page.locator('[data-newbuy-class]').focus();
+    check('[141-1] 새 종목 창 — 빈 수량 · 가격 · 선택 칸(자산 분류)을 지나가도 빨강 0', (await count(page, '[role="dialog"] [data-field-error], [role="dialog"] [aria-invalid="true"]')) === 0);
     const accounts = await page.locator('[data-newbuy-section] option').allTextContents();
     check('[120-6] 계좌 목록에 합친 표 없음', accounts.length === 4 && !accounts.includes('적립식 주식'), accounts.join(','));
     await pick(page, 'FAKN');

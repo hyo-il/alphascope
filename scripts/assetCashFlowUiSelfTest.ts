@@ -181,6 +181,31 @@ try {
       await ctx.close();
     }
 
+    // ── 141차 A — 자산 설정 창: 처음 열 때 빨강 0 · 목표 비율(필수 칸) — 떠나기 전 0 · 꺼진 [저장] 을 누르면 틀린 칸만 ──
+    {
+      const { page, ctx, errors } = await open(browser, { size });
+      await openSettings(page);
+      await page.getByTestId('asset-cash-settings').waitFor({ timeout: 5000 });
+      const dlg = page.getByRole('dialog', { name: '자산 관리 설정' });
+      const red = (sel = '[data-field-error], [aria-invalid="true"], .border-danger') => dlg.locator(sel).count();
+      check(`[141-1] ${w}px 자산 설정 창(「현금 자동 반영」 포함 모든 메뉴)을 처음 열 때 빨간 테두리 · 빨간 글(입력 칸) 0`, (await red()) === 0);
+      await dlg.getByRole('tab', { name: '목표 비율' }).click();
+      const cash = dlg.getByRole('textbox', { name: '목표 비율 현금' }).or(dlg.getByRole('spinbutton', { name: '목표 비율 현금' }));
+      await cash.fill('');
+      await page.waitForTimeout(150);
+      const save = dlg.locator('[data-save-target]');
+      check(`[141-1][141-2] ${w}px 목표 비율 현금 칸을 비움 — 떠나기 전 빨강 0 · [저장] 꺼짐(막는 규칙 그대로)`, (await red()) === 0 && (await save.isDisabled()));
+      await save.click({ force: true });
+      await page.waitForTimeout(150);
+      const invalid = await dlg.locator('[aria-invalid="true"]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+      check(`[141-1] ${w}px 꺼진 [저장] 을 누르면 틀린 필수 칸(현금)만 빨강 · 다른 칸 0`, invalid.join('|') === '목표 비율 현금', invalid.join('|'));
+      await cash.fill('20');
+      await page.waitForTimeout(150);
+      check(`[141-1] ${w}px 고치면 빨강 사라짐`, (await red()) === 0);
+      check(`[141-1] ${w}px 화면 오류 0(설정 창)`, errors.length === 0, errors.join(' / '));
+      await ctx.close();
+    }
+
     // ── 매수 창 예수금 줄 — 국내 ──
     {
       const { page, ctx, seen, gates, errors } = await open(browser, { size, holdPair: true });

@@ -84,6 +84,7 @@
     "tooltip:test": "tsx scripts/tooltipSelfTest.ts",
     "tooltipui:test": "tsx scripts/tooltipUiSelfTest.ts",
     "toolbutton:test": "tsx scripts/toolButtonSelfTest.ts",
+    "fieldreveal:test": "tsx scripts/fieldRevealSelfTest.ts",
     "chartview:test": "tsx scripts/chartViewSelfTest.ts",
     "tidy:test": "tsx scripts/tidySelfTest.ts"
   },

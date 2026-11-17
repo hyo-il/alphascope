@@ -592,6 +592,12 @@ function targets(): Target[] {
         ['설정창-현금자동반영-은행묶음', 'banks'],
         ['매수창-예수금줄', 'buy:6'],
         ['매수창-예수금줄-미국', 'buy:5'],
+        // v2.71.2 — 예수금 한 줄(수량 · 가격 전 · [금액 고치기] 연 때) · error 를 쓰는 창을 처음 연 모양(빨간 표시 0)
+        ['매수창-예수금-수량전', 'buyempty:6'],
+        ['매수창-예수금-금액고치기', 'buyedit:6'],
+        ['매도창-처음', 'sellempty:6'],
+        ['새종목매수-처음', 'newbuy'],
+        ['설정창-목표비율-처음', 'target'],
       ] as const
     ).map(([label, step]) => ({
       name: `asset-${label}`,
@@ -612,6 +618,26 @@ function targets(): Target[] {
       },
       open: async (page: Page) => {
         await page.waitForTimeout(800);
+        if (step === 'buyempty:6' || step === 'sellempty:6') {
+          await page.locator(`[data-trade-${step.startsWith('buy') ? 'buy' : 'sell'}="6"]`).click().catch(() => {});
+          await page.getByTestId('asset-cash-trade-preview').waitFor({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(200);
+          return;
+        }
+        if (step === 'buyedit:6') {
+          await page.locator('[data-trade-buy="6"]').click().catch(() => {});
+          await page.getByRole('textbox', { name: '수량' }).fill('10').catch(() => {});
+          await page.getByRole('textbox', { name: '가격' }).fill('70000').catch(() => {});
+          await page.getByRole('button', { name: '금액 고치기' }).click().catch(() => {});
+          await page.waitForTimeout(200);
+          return;
+        }
+        if (step === 'newbuy') {
+          await page.locator('[data-trade-new]').click().catch(() => {});
+          await page.locator('[data-newbuy-form]').waitFor({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(200);
+          return;
+        }
         if (step.startsWith('buy:')) {
           await page.locator(`[data-trade-buy="${step.slice(4)}"]`).click().catch(() => {});
           await page.getByRole('textbox', { name: '수량' }).fill(step === 'buy:6' ? '10' : '2.5').catch(() => {});
@@ -622,6 +648,7 @@ function targets(): Target[] {
         }
         await page.getByLabel('설정', { exact: true }).click().catch(() => {});
         await page.getByTestId('asset-cash-settings').waitFor({ timeout: 3000 }).catch(() => {});
+        if (step === 'target') await page.getByRole('dialog', { name: '자산 관리 설정' }).getByRole('tab', { name: '목표 비율' }).click().catch(() => {});
         if (step === 'flows') await page.getByTestId('asset-cash-flows').scrollIntoViewIfNeeded().catch(() => {});
         if (step === 'moves' || step === 'undo') await page.getByTestId('asset-cash-moves').scrollIntoViewIfNeeded().catch(() => {});
         if (step === 'undo') await page.getByTestId('asset-cash-moves').getByRole('button', { name: '되돌리기' }).click().catch(() => {});

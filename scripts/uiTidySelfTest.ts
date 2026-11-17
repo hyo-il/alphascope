@@ -7,6 +7,7 @@
  * 124차 · v2.68.0([124-6]): 규칙 창 고급 설정을 펼치면 그 자리로 스크롤 · 접을 때 · 처음 열 때는 안 함 · 동작 줄이기면 바로.
  * 127차 · v2.68.3([127-2]): 매수 판단 · 급등 탐지 · 검증 기록 탭 줄 아래 가림 띠(공용 `ui/ScrollTopShade`) — 맨 위 겹침 0 · 스크롤 때 잘린 끝 덮음.
  * 131차 · v2.69.3([131-1]): 오른쪽 패널 관심 · 최근 · 계좌 탭 x 같음 · 「계좌」 탭 톱니 자리는 누를 수 없는 빈 자리 · 관심 탭 톱니 그대로 열림.
+ * 141차 · v2.71.2([141-1] [141-2]): 규칙 창 빨간 표시 — 처음 열 때 0 · 필수 칸(이름)을 비우고 떠나면 빨강 · 고치면 사라짐 · [저장] 을 누르면 틀린 칸만 · 저장 거절 그대로.
  * 129차 · v2.69.1: [122-2] 폴더를 바꾸는 단계는 실제 상태(종목 줄 · 추가 칸 닫힘)를 기다린다 · 금지어 검사에 툴팁 글(data-tip) 포함.
  * Vite + Playwright, `/api` 는 모두 `page.route` 가짜(만든 값) — 구글 · 토스 · 서버 호출 0. 새 종목 창 줄([122-3])은 `assettradeui:test`.
  */
@@ -89,7 +90,7 @@ async function open(browser: Browser, hash: string, size = SIZES[1]) {
   const page = await ctx.newPage();
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 120)));
-  const seen = { watchPuts: [] as { folders: { id: string; name: string; symbols: string[] }[] }[], surgePuts: [] as Record<string, unknown>[] };
+  const seen = { watchPuts: [] as { folders: { id: string; name: string; symbols: string[] }[] }[], surgePuts: [] as Record<string, unknown>[], ruleWrites: 0 };
   await page.route(/\/api\//, (r) => {
     const url = r.request().url();
     const method = r.request().method();
@@ -106,7 +107,10 @@ async function open(browser: Browser, hash: string, size = SIZES[1]) {
       const symbol = new URL(url).searchParams.get('symbol') ?? '';
       return r.fulfill({ json: { stock: { symbol, name: NAMES[symbol] ?? symbol, englishName: '', market: 'NASDAQ' } } });
     }
-    if (url.includes('/api/rules')) return r.fulfill({ json: { rules: [] } });
+    if (url.includes('/api/rules')) {
+      if (method !== 'GET') seen.ruleWrites++;
+      return r.fulfill({ json: { rules: [] } });
+    }
     if (url.includes('/api/surge/settings')) {
       if (method === 'PUT') {
         seen.surgePuts.push(JSON.parse(r.request().postData() ?? '{}'));
@@ -315,6 +319,37 @@ try {
       check(`[122-4] ${size.width}px — 규칙 창 표 체크 동작 그대로`, (await table.first().isChecked()) !== before);
       const lefts = await page.locator('[role="dialog"] section [data-formrow-value] input').evaluateAll((els) => els.map((e) => (e.parentElement as HTMLElement).getBoundingClientRect().left));
       check(`[122-5] ${size.width}px — 규칙 창 칸 왼쪽 끝 차이 0px`, lefts.length >= 6 && Math.max(...lefts) === Math.min(...lefts), lefts.join(','));
+      await ctx.close();
+    }
+
+    // 141차 — 규칙 창 빨간 표시: 처음 열 때 0 · 필수 칸을 비우고 떠나면 빨강 · 고치면 사라짐 · [저장] 을 누르면 틀린 칸만 · 저장 막힘 그대로
+    {
+      const { page, ctx, seen, errors } = await open(browser, '#/rules', size);
+      await page.getByRole('button', { name: '새 규칙 만들기' }).first().click({ timeout: 10_000 });
+      const dlg = page.getByRole('dialog', { name: '새 규칙 만들기' });
+      await dlg.getByRole('button', { name: '저장' }).waitFor({ timeout: 5000 });
+      const red = () => dlg.locator('[data-field-error], [aria-invalid="true"], .border-danger').count();
+      check(`[141-1] ${size.width}px 새 규칙 창을 처음 열 때(이름 비어 있음) 빨간 표시 0`, (await red()) === 0);
+      const nameBox = dlg.getByRole('textbox').first();
+      await nameBox.focus();
+      await nameBox.blur();
+      await page.waitForTimeout(150);
+      check(`[141-1] ${size.width}px 필수 칸(이름)을 비우고 떠나면 빨간 테두리 + 「이름을 입력하세요」`, (await nameBox.getAttribute('aria-invalid')) === 'true' && ((await dlg.locator('[data-field-error]').allTextContents()).join('|')) === '이름을 입력하세요');
+      await nameBox.fill('시험 규칙');
+      await page.waitForTimeout(150);
+      check(`[141-1] ${size.width}px 고치면 빨강 사라짐`, (await red()) === 0);
+      await nameBox.fill('');
+      const points = dlg.getByRole('spinbutton', { name: '매수 기준 점수' });
+      await points.fill('');
+      await page.waitForTimeout(150);
+      const before = await red();
+      await dlg.getByRole('button', { name: '저장' }).click();
+      await page.waitForTimeout(300);
+      const invalid = await dlg.locator('[aria-invalid="true"]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') ?? e.getAttribute('placeholder') ?? ''));
+      check(`[141-1] ${size.width}px 다시 비운 칸 — 이름은 이미 건드려 빨강 · 처음 비운 매수 기준은 떠나기 전 0`, before === 2, String(before));
+      check(`[141-1] ${size.width}px [저장] 을 누르면 틀린 칸(이름 · 매수 기준)만 빨강 — 다른 칸 0`, invalid.length === 2 && invalid.includes('매수 기준 점수'), invalid.join('|'));
+      check(`[141-2] ${size.width}px 틀린 값이면 저장 거절(요청 0) · 창 그대로`, seen.ruleWrites === 0 && (await dlg.count()) === 1);
+      check(`[141-1] ${size.width}px 화면 오류 0(규칙 창)`, errors.length === 0, errors.join(' / '));
       await ctx.close();
     }
 
