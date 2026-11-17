@@ -6,7 +6,7 @@ import { TRADE_DIGITS } from '../../utils/assetTrade';
 import { tradeAfter } from '../../utils/assetAverage';
 import { formatAssetPrice, formatAssetQty } from '../../utils/assetFormat';
 import type { AssetCashTradeExtra, AssetHolding, AssetSection, AssetTradeRequest, AssetTradeSide } from '../../types/asset';
-import AssetCashTradeLine, { type CashTradeValue } from './AssetCashTradeLine';
+import AssetCashTradeLine, { askCashMinus, type CashTradeValue } from './AssetCashTradeLine';
 
 /**
  * 매수 · 매도 입력 창(v2.66.0 — 시트에 줄이 있는 종목의 매수 · 일부 매도 · v2.67.0 모두 매도). 실제 주문은 없다 — 다른 증권사에서 사고판 것을 적는 창이다.
@@ -68,7 +68,8 @@ export default function AssetTradeDialog({
   /** 모두 매도는 시트에서 줄을 지우므로 한 번 더 묻는다 */
   const askSave = () => {
     if (!canSave) return;
-    if (!sameAsHeld) return void save();
+    // 매수로 예수금이 마이너스가 되면 저장 전에 한 번 묻는다(v2.71.3 — 모두 매도는 매도라 겹치지 않는다)
+    if (!sameAsHeld) return askCashMinus(cash, () => void save());
     modal.confirm({
       title: '모두 매도',
       message: `「${section.key}」 의 이 종목 줄을 시트에서 지웁니다(「티커」 줄은 남깁니다). 되돌리려면 시트의 버전 기록을 써야 합니다.`,

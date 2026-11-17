@@ -8,7 +8,7 @@ import { formatAssetPrice, formatAssetQty } from '../../utils/assetFormat';
 import { ASSET_CLASSES, RATIO_TAB_NOTICE, UNASSIGNED_LABEL, US_CODE_PREFIXES, type AssetClass, type AssetCurrency, type AssetNewHoldingPlan, type AssetNewHoldingRequest, type AssetNewHoldingTarget, type AssetSection, type AssetUsPrefix } from '../../types/asset';
 import type { StockSearchResult } from '../../types/toss';
 import type { AssetCashTradeExtra } from '../../types/asset';
-import AssetCashTradeLine, { type CashTradeValue } from './AssetCashTradeLine';
+import AssetCashTradeLine, { askCashMinus, type CashTradeValue } from './AssetCashTradeLine';
 
 /**
  * 새 종목 매수 창(v2.67.0) — 다른 증권사에서 산 새 종목을 적으면 시트에 줄을 넣고 「티커」 에 종목을 더한다(실제 주문 없음).
@@ -134,7 +134,7 @@ export default function AssetNewBuyDialog({
             <Button variant="ghost" disabled={busy} onClick={() => { setPlan(null); setError(null); }} data-newbuy-back>
               뒤로
             </Button>
-            <Button variant="buy" busy={busy} disabled={!cash.ready} onClick={() => void save()} submit data-newbuy-save>
+            <Button variant="buy" busy={busy} disabled={!cash.ready} onClick={() => askCashMinus(cash, () => void save())} submit data-newbuy-save>
               저장
             </Button>
           </>
