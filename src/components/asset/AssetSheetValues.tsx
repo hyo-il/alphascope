@@ -3,7 +3,7 @@ import { Calculator, ChevronDown, ChevronRight, History, Plus, Tags } from 'luci
 import { Button, ICON_SM, IconButton, Panel, Segmented } from '../ui';
 import { SkeletonTable } from '../common/SkeletonLoader';
 import AssetSymbolTable, { SYMBOL_FILTERS, type SymbolFilter } from './AssetSymbolTable';
-import { ASSET_CLASS_W, LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
+import { ACCOUNT_HEAD_TEXT, ACCOUNT_HEAD_VALUE_W, ASSET_CLASS_W, LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice } from '../../utils/formatters';
 import { formatAssetPrice, formatAssetQty, formatAssetWon, formatAssetWonSigned } from '../../utils/assetFormat';
 import AssetCashMoveDialog from './AssetCashMoveDialog';
@@ -27,7 +27,7 @@ import { UNASSIGNED_LABEL, cashBankGroups, cashBankLabelOf, cashKeysOfRows, cash
  * - 계좌 카드 머리에 그 계좌와 짝지은 예수금(v2.71.3 · 사용자 결정 2026-11-17) — 「예수금 ₩694,000」 + 작게 은행 · 상품 이름(말줄임 · 잘렸을 때 툴팁).
  *   값은 이미 받은 시트 읽기(「현금」 탭 은행 계좌 줄)와 시트 응답의 짝 설정(`cashDepositPairs`)으로 화면에서 맞춘다(구글 요청 없음) ·
  *   「현금 자동 반영」 이 꺼져 있어도 짝이 있으면 보인다(읽기만) · 짝이 없는 계좌는 아무것도 없음 · 마이너스는 하락 색 숫자 · 「종목별」 보기에는 없음.
- * - [입출금](v2.72.0 · 143차) — 계좌 머리 「예수금 ₩…」 옆(짝이 있는 계좌만 · 처음 계좌 = 그 예수금 · 들어가는 쪽)과 「현금 합계」 펼침의 상품 줄마다(처음 계좌 = 그 줄 · 빠지는 쪽).
+ * - [입출금](v2.72.0 · 143차) — 계좌 머리 예수금 이름 뒤(v2.72.1 — 계좌마다 같은 세로선 · 짝이 있는 계좌만 · 처음 계좌 = 그 예수금 · 들어가는 쪽)과 「현금 합계」 펼침의 상품 줄마다(처음 계좌 = 그 줄 · 빠지는 쪽).
  *   작은 글자 버튼(무언가를 바꾸는 버튼) → `AssetCashMoveDialog`(이체 · 입금 · 출금). 잠겼으면 · 시트 쓰기가 꺼졌으면 꺼짐 + 툴팁. 저장되면 부모가 다시 읽는다.
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 접은 계좌 이름 · 보기 이름만).
  */
@@ -437,37 +437,41 @@ function AccountCard({
           className={`${CARD_BG} px-4 text-left font-normal ${open ? 'rounded-t-xl border-b border-border/50' : 'rounded-xl'}`}
         >
           <span className="flex items-center gap-3">
-            <span className="min-w-0 truncate text-sm font-semibold text-text-primary" data-tip-clip={section.name}>
+            {/* 한 줄 모두 세로 가운데(v2.72.1) — 이름 · 「n종목」 · (「N줄 빠짐」) · 「예수금 ₩…」 · 예수금 이름(남은 자리 · 말줄임) · [입출금] · 계좌 금액(최소 폭 · 오른쪽 맞춤) · 화살표.
+                예수금 칸이 남은 자리를 모두 가져가고 계좌 금액 칸 폭이 같아 [입출금] 이 계좌마다 같은 세로선에 선다 · 글자는 `ACCOUNT_HEAD_TEXT` 세 가지만 */}
+            <span className={`min-w-0 truncate ${ACCOUNT_HEAD_TEXT.name}`} data-tip-clip={section.name} data-account-name>
               {section.name || '이름 없는 계좌'}
             </span>
-            <span className="shrink-0 whitespace-nowrap text-caption text-text-muted" data-count>
+            <span className={`shrink-0 whitespace-nowrap ${ACCOUNT_HEAD_TEXT.sub}`} data-count>
               {rows.length}종목
             </span>
-            {deposit && (
-              // 예수금 이름은 표 폭 계산에 넣지 않는다(contain-inline-size — 긴 이름이 계좌 표 전체를 넓히지 않고 남은 자리에서 말줄임)
-              <span className="flex min-w-0 flex-1 items-baseline gap-1.5" data-account-deposit={deposit.amount == null ? 'none' : deposit.amount < 0 ? 'minus' : 'plus'}>
-                <span className="shrink-0 whitespace-nowrap text-xs text-text-secondary">
-                  예수금{' '}
-                  <span className={`font-semibold tabular-nums ${deposit.amount != null && deposit.amount < 0 ? 'text-bearish' : 'text-text-primary'}`} data-account-deposit-amount>
-                    {deposit.amount != null && deposit.amount < 0 ? formatAssetWonSigned(deposit.amount) : formatAssetWon(deposit.amount)}
-                  </span>
-                </span>
-                <span className="shrink-0 self-center">
-                  <CashMoveButton name={`${section.name || '계좌'} 예수금`} gate={gate} onOpen={() => onMove(deposit.key)} />
-                </span>
-                <span className="min-w-0 flex-1 truncate text-caption text-text-muted contain-inline-size" data-tip-clip={deposit.label} data-account-deposit-label>
-                  {deposit.label}
-                </span>
-              </span>
-            )}
-            <span className="ml-auto shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums text-text-primary" data-value>
-              {account ? formatPrice(account.value, 'KRW') : '—'}
-            </span>
             {account != null && account.missing > 0 && (
-              <span className="shrink-0 whitespace-nowrap text-caption text-warning" data-tip="가격을 받지 못한 줄은 평가 금액 합에서 빠졌습니다">
+              <span className="shrink-0 whitespace-nowrap text-caption text-warning" data-tip="가격을 받지 못한 줄은 평가 금액 합에서 빠졌습니다" data-account-missing>
                 {account.missing}줄 빠짐
               </span>
             )}
+            {deposit ? (
+              // 예수금 이름은 표 폭 계산에 넣지 않는다(contain-inline-size — 긴 이름이 계좌 표 전체를 넓히지 않고 남은 자리에서 말줄임)
+              <span className="flex min-w-0 flex-1 items-center gap-3" data-account-deposit={deposit.amount == null ? 'none' : deposit.amount < 0 ? 'minus' : 'plus'}>
+                <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+                  <span className={ACCOUNT_HEAD_TEXT.sub} data-account-deposit-word>
+                    예수금
+                  </span>{' '}
+                  <span className={`${ACCOUNT_HEAD_TEXT.amount} ${deposit.amount != null && deposit.amount < 0 ? 'text-bearish' : 'text-text-primary'}`} data-account-deposit-amount>
+                    {deposit.amount != null && deposit.amount < 0 ? formatAssetWonSigned(deposit.amount) : formatAssetWon(deposit.amount)}
+                  </span>
+                </span>
+                <span className={`min-w-0 flex-1 truncate contain-inline-size ${ACCOUNT_HEAD_TEXT.sub}`} data-tip-clip={deposit.label} data-account-deposit-label>
+                  {deposit.label}
+                </span>
+                <CashMoveButton name={`${section.name || '계좌'} 예수금`} gate={gate} onOpen={() => onMove(deposit.key)} />
+              </span>
+            ) : (
+              <span aria-hidden className="flex-1" />
+            )}
+            <span className={`${ACCOUNT_HEAD_VALUE_W} shrink-0 whitespace-nowrap text-right ${ACCOUNT_HEAD_TEXT.amount} text-text-primary`} data-value>
+              {account ? formatPrice(account.value, 'KRW') : '—'}
+            </span>
             <Arrow {...ICON_SM} aria-hidden={false} className="shrink-0 text-text-muted" role="img" aria-label={open ? '접기' : '펼치기'} data-account-arrow={open ? 'open' : 'closed'} />
           </span>
         </th>
