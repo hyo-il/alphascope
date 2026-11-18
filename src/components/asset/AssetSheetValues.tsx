@@ -3,7 +3,7 @@ import { Calculator, ChevronDown, ChevronRight, History, Plus, Tags } from 'luci
 import { Button, ICON_SM, IconButton, Panel, Segmented } from '../ui';
 import { SkeletonTable } from '../common/SkeletonLoader';
 import AssetSymbolTable, { SYMBOL_FILTERS, type SymbolFilter } from './AssetSymbolTable';
-import { ACCOUNT_HEAD_TEXT, ACCOUNT_HEAD_VALUE_W, ASSET_CLASS_W, LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
+import { ASSET_CLASS_W, LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice } from '../../utils/formatters';
 import { formatAssetPrice, formatAssetQty, formatAssetWon, formatAssetWonSigned } from '../../utils/assetFormat';
 import AssetCashMoveDialog from './AssetCashMoveDialog';
@@ -332,6 +332,13 @@ const TEXT = `${TABLE_NUM_COL} ${TABLE_NUM_GAP}`;
 const COLS = 7;
 /** 카드 바탕(`Panel` 과 같은 바탕) — 표 칸마다 칠해 카드처럼 보인다 */
 const CARD_BG = 'bg-bg-secondary';
+/**
+ * 계좌 카드 머리 글자 세 가지(v2.72.1 — 글자 크기 · 색은 `@theme` 이름만) — 이름 16px 굵게 · 보조 글(「n종목」 · 「예수금」 · 예수금 이름) 13px 회색 ·
+ * 금액(예수금 · 계좌 금액) 14px 굵게 · 숫자 폭 같게. ⚠️ `ui/tokens.ts` 는 시험 스크립트를 거쳐 서버 컴파일 목록에 들어가 이 화면 전용 묶음은 여기에 둔다.
+ */
+const ACCOUNT_HEAD_TEXT = { name: 'text-sm font-semibold text-text-primary', sub: 'text-caption text-text-muted', amount: 'text-xs font-semibold tabular-nums' } as const;
+/** 계좌 금액 칸 최소 폭 112px(₩999,999,999 가 들어감) · 오른쪽 맞춤 — 금액 길이가 달라도 [입출금] 이 계좌마다 같은 세로선에 선다 */
+const ACCOUNT_HEAD_VALUE_W = 'min-w-28';
 
 /** 자산 분류 글자 한 칸 — 이을 수 없는 줄은 「—」 + 툴팁(「티커」 줄이 없다) · 미지정은 흐린 「미지정」 */
 function ClassText({ h }: { h: AssetHolding }) {

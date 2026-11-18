@@ -80,13 +80,6 @@ export const PANEL_PAD = 'px-4 py-3';
  */
 /** 자산 관리 계좌 카드의 자산 분류 글자 칸(v2.65.3 — 고르기 없이 글자만) — 가장 긴 글자 「미지정」 이 잘리지 않는 폭 · 이을 수 없는 줄의 「—」 도 같은 폭 */
 export const ASSET_CLASS_W = 'w-16';
-/**
- * 자산 관리 계좌 카드 머리(v2.72.1) — 글자 세 가지 · 계좌 금액 칸 최소 폭.
- * - 이름 `text-sm` 굵게 · 보조 글(「n종목」 · 「예수금」 · 예수금 이름) 13px 회색 · 금액(예수금 · 계좌 금액) 14px 굵게 숫자 폭 같게.
- * - 계좌 금액 칸은 최소 폭 112px(₩999,999,999 가 들어감) · 오른쪽 맞춤 — 금액 길이가 달라도 [입출금] 이 계좌마다 같은 세로선에 선다.
- */
-export const ACCOUNT_HEAD_TEXT = { name: 'text-sm font-semibold text-text-primary', sub: 'text-caption text-text-muted', amount: 'text-xs font-semibold tabular-nums' } as const;
-export const ACCOUNT_HEAD_VALUE_W = 'min-w-28';
 export const FIELD_W = { short: 'w-16', long: 'w-32', select: 'w-auto', /** 값 칸을 채움 — 드롭박스 · 검색칸과 섞인 폼에서 왼쪽 끝을 맞출 때 */ fill: 'w-full' } as const;
 export type FieldKind = keyof typeof FIELD_W;
 
