@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useAppStore, type NavState, type NavSub } from '../store/appStore';
+import { guardAddressLeave, runPassing } from '../store/leaveGuard';
 import { normalizeTab, pageMeta, tabFromPath, tabPath, type NavPageId } from '../types/nav';
 
 /**
@@ -105,7 +106,26 @@ export function useHashRoute(): void {
     });
 
     // 3) 주소 → 상태 (뒤로·앞으로 가기, 주소창 직접 수정)
+    //    바꾼 것이 남은 창 · 화면이 있으면 먼저 묻는다(`leaveGuard` · 공통 3-3) — 주소는 이미 바뀌었으므로 지금 화면 주소를 다시 쌓아 되돌리고,
+    //    [저장하지 않고 닫기] 면 가려던 주소로 다시 간다(그 한 번은 묻지 않음). 저장 중이면 되돌리기만 한다.
     const onAddress = () => {
+      const now = useAppStore.getState().nav;
+      const wanted = parseHash(window.location.hash);
+      const moving = !wanted || now.page !== wanted.page || (now.sub ?? null) !== wanted.sub;
+      if (moving) {
+        const target = window.location.hash;
+        const here = hashFor(now);
+        const go = guardAddressLeave(
+          () => history.pushState(null, '', here),
+          () => {
+            window.location.hash = target;
+          },
+        );
+        if (!go) return;
+      }
+      runPassing(followAddress);
+    };
+    const followAddress = () => {
       const parsed = parseHash(window.location.hash);
       const legacy = parsed ? null : legacyRoute(window.location.hash);
       if (legacy) {

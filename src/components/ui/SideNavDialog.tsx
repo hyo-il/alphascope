@@ -20,8 +20,10 @@ export interface SideNavItem {
   label: string;
   /** 오른쪽 위 메뉴 이름 아래 설명 한 줄 */
   desc?: string;
-  /** 저장 중 — 메뉴 이름 옆 회전 아이콘 */
+  /** 저장 중 — 메뉴 이름 옆 회전 아이콘 · 창 전체를 막는다(공통 7-2 — 저장하는 동안 닫히지 않음) */
   busy?: boolean;
+  /** 이 메뉴에 저장하지 않은 바꾼 것이 있음 — 하나라도 있으면 창을 닫을 때 묻는다(공통 3-3) */
+  dirty?: boolean;
   content: ReactNode;
 }
 
@@ -69,7 +71,7 @@ export default function SideNavDialog({
   };
 
   return (
-    <Dialog title={title} onClose={onClose} size={size} z={z} bodyClassName="p-0">
+    <Dialog title={title} onClose={onClose} size={size} z={z} bodyClassName="p-0" busy={items.some((it) => it.busy)} dirty={items.some((it) => it.dirty)}>
       <div className="flex h-full min-h-0 flex-col md:flex-row">
         <div
           role="tablist"

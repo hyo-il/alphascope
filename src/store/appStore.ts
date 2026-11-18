@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Timeframe } from '../types/toss';
 import { MAX_COMPARE_SYMBOLS } from '../types/compare';
+import { guardLeave } from './leaveGuard';
 import { groupOf, NAV_GROUPS, normalizeTab, type HomePageId, type NavGroupId, type NavPageId } from '../types/nav';
 
 /** 관심 목록 클릭 한 번의 결과 — 호출부가 안내 문구를 고른다 */
@@ -112,6 +113,15 @@ interface AppState {
 
 const normalize = (symbol: string) => symbol.trim().toUpperCase();
 
+/**
+ * 화면 바꾸기는 모두 여기를 거친다 — 화면(또는 화면 안 탭)이 실제로 바뀔 때만 「저장하지 않고 나갈 때 묻기」(`leaveGuard` 한 곳 · 공통 3-3).
+ * 같은 화면 · 같은 탭이면 묻지 않고 그대로 넣는다(메뉴 다시 누름 · 주소 정리).
+ */
+function leave(now: Pick<NavState, 'page' | 'sub'>, next: Pick<NavState, 'page' | 'sub'>, go: () => void): void {
+  if (now.page === next.page && (now.sub ?? null) === (next.sub ?? null)) return go();
+  guardLeave(go);
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   symbol: null,
   timeframe: '1d',
@@ -130,14 +140,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   setPage: (page, sub) => {
     // 탭을 말하지 않고 같은 화면을 다시 부르면(사이드 메뉴 재클릭) 보던 탭을 지킨다 
     const keep = sub === undefined && get().nav.page === page ? get().nav.sub : sub;
-    set({ nav: { group: groupOf(page), page, sub: normalizeTab(page, keep) }, homePending: null });
+    const next = { group: groupOf(page), page, sub: normalizeTab(page, keep) };
+    leave(get().nav, next, () => set({ nav: next, homePending: null }));
   },
   setGroup: (group) => {
     const item = NAV_GROUPS.find((g) => g.id === group);
     if (item?.home) return get().goHome();
     // 모든 대메뉴는 늘 첫 소메뉴로 간다(사용자 결정 2026-10-29)
     const landing = item?.pages[0]?.id;
-    if (landing) set({ nav: { group, page: landing, sub: normalizeTab(landing, null), viaGroup: true }, homePending: null });
+    if (!landing) return;
+    const next = { group, page: landing, sub: normalizeTab(landing, null), viaGroup: true };
+    leave(get().nav, next, () => set({ nav: next, homePending: null }));
   },
   homePage: null,
   homePending: null,
@@ -151,12 +164,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     const page = get().homePage;
     if (!page) return set({ homePending: { replace } });
     const keep = get().nav.page === page ? get().nav.sub : null;
-    set({ nav: { group: groupOf(page), page, sub: normalizeTab(page, keep), ...(replace ? { replace: true } : {}) }, homePending: null });
+    const next = { group: groupOf(page), page, sub: normalizeTab(page, keep), ...(replace ? { replace: true } : {}) };
+    leave(get().nav, next, () => set({ nav: next, homePending: null }));
   },
   chartAiRequest: 0,
   openChartAi: () => {
-    get().setPage('chart');
-    set({ chartAiRequest: get().chartAiRequest + 1 });
+    const next = { group: groupOf('chart'), page: 'chart' as const, sub: normalizeTab('chart', get().nav.page === 'chart' ? get().nav.sub : null) };
+    leave(get().nav, next, () => {
+      get().setPage('chart');
+      set({ chartAiRequest: get().chartAiRequest + 1 });
+    });
   },
   setSymbol: (symbol) => set({ symbol: symbol ? normalize(symbol) : null }),
   clearSymbol: () => set({ symbol: null }),

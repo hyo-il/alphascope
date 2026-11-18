@@ -9,7 +9,7 @@ export { default as RemoveAllButton } from './RemoveAllButton';
 export { default as IconButton } from './IconButton';
 export { default as Panel } from './Panel';
 export { default as Badge } from './Badge';
-export { default as Dialog, type DialogSize } from './Dialog';
+export { default as Dialog, DialogCancel, type DialogSize } from './Dialog';
 export { default as SideNavDialog, type SideNavItem } from './SideNavDialog';
 export { default as InfoTip } from './InfoTip';
 export { default as SectionTitle } from './SectionTitle';

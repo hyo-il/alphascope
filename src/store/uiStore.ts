@@ -35,6 +35,8 @@ export interface ModalRequest {
   danger?: boolean;
   /** 알림 전용 — 취소 버튼을 감춘다 */
   alertOnly?: boolean;
+  /** 처음 초점을 [취소] 에 — Enter 로 실수 실행이 되지 않게(저장하지 않고 닫기 · 공통 3-3) */
+  focusCancel?: boolean;
   onConfirm?: () => void | Promise<void>;
   onCancel?: () => void;
 }

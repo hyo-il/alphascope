@@ -1,8 +1,11 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useId, useRef, type ComponentProps, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import IconButton from './IconButton';
 import { SubmitTriedProvider, useFormScope } from './fieldReveal';
 import LoadingOverlay from '../common/LoadingOverlay';
+import Button from './Button';
+import { askDiscard } from '../../store/leaveGuard';
+import { useLeaveGuard } from '../../hooks/useLeaveGuard';
 
 /**
  * 창(모달) 틀 하나 — 어두운 바탕 · 제목 줄 + 닫기 X · ESC 닫기 · 크기는 정해진 값만 · 테두리 없음(디자인 규칙 3).
@@ -18,6 +21,9 @@ import LoadingOverlay from '../common/LoadingOverlay';
  * - **폼 묶음**(`fieldReveal`): 판 하나가 묶음 — 아래 버튼 줄의 `Button submit`([저장])을 누르면 그 뒤로 창 안의 틀린 칸이 빨갛게 보인다.
  * - **저장 중 막기**(`busy` · v2.72.2 · 공통 7-2): 창 안 저장 · 삭제처럼 기다리는 동안 다른 조작이 꼬이는 일이면 `busy` 를 준다 —
  *   창 전체(제목 줄 × 까지)를 막는 로딩(`common/LoadingOverlay`)이 덮고, 그동안 × · Esc · 바깥 누름으로 닫히지 않는다.
+ * - **저장하지 않고 나갈 때 묻기**(`dirty` · v2.72.2 · 공통 3-3): 처음 값과 지금 값이 다르면 `dirty` 를 준다(되돌리면 false) —
+ *   × · Esc · 아래 줄 [취소](`DialogCancel`) · 다른 메뉴 · 뒤로 가기에서 「저장하지 않고 닫을까요?」(`store/leaveGuard` 한 곳) ·
+ *   바깥 누름은 닫지도 묻지도 않는다. 아래 줄 [취소] 는 `DialogCancel` 을 쓴다(창의 닫기 길 하나 — 직접 `onClose` 를 부르면 묻지 않는다).
  */
 export type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'xlFit' | 'full';
 
@@ -29,6 +35,19 @@ const SIZE: Record<DialogSize, string> = {
   xlFit: 'max-h-full w-[min(960px,90vw)]',
   full: 'h-[78vh] w-[88vw] max-w-[1200px]',
 };
+
+/** 창의 닫기 길(× · Esc · [취소] 같은 함수) — `DialogCancel` 이 쓴다 */
+const DialogCloseContext = createContext<() => void>(() => {});
+
+/** 창 아래 줄 [취소] — 창의 닫기 길 그대로(바꾼 것이 있으면 묻는다 · 저장 중이면 닫히지 않는다) */
+export function DialogCancel({ children = '취소', ...rest }: Omit<ComponentProps<typeof Button>, 'onClick' | 'variant'>) {
+  const close = useContext(DialogCloseContext);
+  return (
+    <Button variant="ghost" onClick={close} {...rest}>
+      {children}
+    </Button>
+  );
+}
 
 /** 열린 창 순서 — ESC 는 마지막(맨 위) 창만 */
 const stack: string[] = [];
@@ -155,6 +174,7 @@ export default function Dialog({
   busy = false,
   busyLabel = '저장 중…',
   onCancelBusy,
+  dirty = false,
 }: {
   title: ReactNode;
   /** 제목 옆 짧은 회색 글자 */
@@ -179,15 +199,22 @@ export default function Dialog({
   busyLabel?: string;
   /** 멈출 수 있는 일이면 — 10초 뒤 [취소] 가 부른다 */
   onCancelBusy?: () => void;
+  /** 바꾼 것이 있음(처음 값과 다름) — 닫는 길마다 묻고 바깥 누름은 무시 */
+  dirty?: boolean;
 }) {
   const titleId = useId();
   const busyRef = useRef(busy);
   busyRef.current = busy;
-  /** 닫기 길(× · Esc · 바깥 누름)이 모두 부른다 — 막는 중이면 닫지 않는다 */
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  /** 닫기 길(× · Esc · [취소])이 모두 부른다 — 막는 중이면 닫지 않고 · 바꾼 것이 있으면 묻는다 */
   const requestClose = () => {
     if (busyRef.current || !onClose) return;
+    if (dirtyRef.current) return askDiscard(onClose);
     onClose();
   };
+  // 다른 메뉴 · 뒤로 가기도 같은 판단(창이 닫히는 길) — 버리면 창을 닫는다
+  useLeaveGuard(dirty && onClose != null, { busy, discard: onClose });
   useDialogEsc(closeOnEsc && onClose ? requestClose : null);
   const panelRef = useFocusTrap();
   const form = useFormScope();
@@ -200,11 +227,13 @@ export default function Dialog({
       style={{ zIndex: z }}
       className="fixed inset-0 flex items-center justify-center bg-black/70 p-4"
       onMouseDown={(e) => {
-        if (closeOnBackdrop && onClose && e.target === e.currentTarget) requestClose();
+        // 바꾼 것이 있으면 바깥 누름은 닫지도 묻지도 않는다(공통 3-3)
+        if (closeOnBackdrop && onClose && !dirty && e.target === e.currentTarget) requestClose();
       }}
     >
       <div ref={panelRef} tabIndex={-1} {...form.props} className={`flex flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl outline-none ${SIZE[size]}`}>
         <SubmitTriedProvider value={form.tried}>
+        <DialogCloseContext.Provider value={requestClose}>
         <LoadingOverlay busy={busy} label={busyLabel} onCancel={onCancelBusy} className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center gap-2 border-b border-border/40 px-4 py-3">
           <h2 id={titleId} className="min-w-0 text-sm font-semibold text-text-primary">
@@ -221,6 +250,7 @@ export default function Dialog({
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border/40 px-4 py-3">{footer}</div>
         )}
         </LoadingOverlay>
+        </DialogCloseContext.Provider>
         </SubmitTriedProvider>
       </div>
     </div>

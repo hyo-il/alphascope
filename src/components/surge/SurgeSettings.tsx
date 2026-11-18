@@ -9,6 +9,8 @@ import type { AnalysisPeriod, SurgeSettings as Settings } from '../../types/surg
 import { MARKET_CAP_TIERS } from '../../types/surge';
 import { toast } from '../../store/uiStore';
 import { useSurgeSettings } from '../../hooks/useSurge';
+import { useLeaveGuard } from '../../hooks/useLeaveGuard';
+import LoadingOverlay from '../common/LoadingOverlay';
 
 const PERIODS: { id: AnalysisPeriod; label: string }[] = [
   { id: '3mo', label: '3개월' },
@@ -30,6 +32,10 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
   useEffect(() => {
     if (settings) setDraft(settings);
   }, [settings]);
+
+  // 저장하지 않은 바꾼 것이 있으면 다른 메뉴 · 탭 · 뒤로 가기에서 묻는다(공통 3-3 — 처음 값과 같아지면 묻지 않음) · 저장 중이면 떠나지 않는다
+  const dirty = draft != null && settings != null && JSON.stringify(draft) !== JSON.stringify(settings);
+  useLeaveGuard(dirty, { busy: saving, discard: () => settings && setDraft(settings) });
 
   if (error) {
     return (
@@ -56,7 +62,9 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
   };
 
   return (
-    // 숫자 칸 묶음 — 단위 열(%·회) 폭이 같아 설명 시작점이 한 줄. 폭은 이름+칸+단위+설명이 한 줄에 들어가는 읽기 폭
+    // 숫자 칸 묶음 — 단위 열(%·회) 폭이 같아 설명 시작점이 한 줄. 폭은 이름+칸+단위+설명이 한 줄에 들어가는 읽기 폭.
+    // 저장하는 동안 이 칸 묶음을 막는다(공통 7-2 — 0.3초 뒤 표시)
+    <LoadingOverlay busy={saving} label="저장 중…" className="w-fit">
     <NumberUnitGroup w="sm">
     <div className="max-w-2xl space-y-4 text-xs">
       <section className="space-y-2">
@@ -204,6 +212,7 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
       </Button>
     </div>
     </NumberUnitGroup>
+    </LoadingOverlay>
   );
 }
 

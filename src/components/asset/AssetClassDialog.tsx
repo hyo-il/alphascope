@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Button, Dialog, Segmented } from '../ui';
+import { Button, Dialog, DialogCancel, Segmented } from '../ui';
 import { Skeleton } from '../common/SkeletonLoader';
-import { modal } from '../../store/uiStore';
 import { UNASSIGNED_LABEL, type AssetSheetData } from '../../types/asset';
 import { CLASS_VALUES, MIXED, changedKeys, classRowsOf, planClassSave, runClassSave, type ClassSendResult, type ClassValue, type GroupValue } from '../../utils/assetClassPlan';
 
@@ -14,7 +13,7 @@ import { CLASS_VALUES, MIXED, changedKeys, classRowsOf, planClassSave, runClassS
  * - 위: 「미지정만 보기」(이 기기에 기억 · 창을 연 때 미지정이던 줄 — 고르는 중에 줄이 사라지지 않게) · 「미지정 n개 · 바꾼 것 n개」.
  * - [저장]: 바꾼 줄만 값마다 한 요청(`planClassSave` · `runClassSave` — 많아야 4번). 저장 전에는 시트에 쓰지 않는다. 추천(이름으로 짐작)은 없다.
  *   모두 성공 → 창 닫힘 + 다시 읽기 · 일부 실패 → 창 그대로 · 성공한 줄 「저장됨」 · 실패한 줄은 바꾼 상태 그대로 + 이유 한 줄 · 다시 [저장] = 남은 것만.
- * - 바꾼 것이 있는데 [취소] · × · ESC → 확인 창 「바꾼 n개를 저장하지 않고 닫을까요?」 · 바깥 클릭으로 닫지 않는다(고른 것을 잃는다).
+ * - 바꾼 것이 있으면 닫는 길마다 공용 확인 창 「저장하지 않고 닫을까요?」(공용 `Dialog` `dirty` — 공통 3-3) · 바깥 클릭으로 닫지 않는다(고른 것을 잃는다) · 저장 중에는 창을 막는다(`busy`).
  * - 쓰기 스위치가 꺼진 서버 → 「이 서버에서는 시트 쓰기가 꺼져 있습니다」 · [저장] 막음(보기 · 고르기는 됨). 스위치를 아직 모르면(요약 응답 전) 글 없이 [저장] 만 막음.
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 「미지정만 보기」 켬/끔만).
  */
@@ -118,30 +117,19 @@ export default function AssetClassDialog({
     setError(`${failed.length}개를 시트에 쓰지 못했습니다 — ${out.failed[0].error}`);
   };
 
-  const requestClose = () => {
-    if (busy) return;
-    if (changed.length === 0) return onClose();
-    modal.confirm({
-      title: '저장하지 않고 닫기',
-      message: `바꾼 ${changed.length}개를 저장하지 않고 닫을까요?`,
-      confirmText: '닫기',
-      cancelText: '계속 고르기',
-      onConfirm: onClose,
-    });
-  };
-
+  // 닫기 길(× · Esc · [취소] · 다른 메뉴 · 뒤로 가기)의 묻기 · 저장 중 막기는 공용 창이 한다(`dirty` · `busy` — 공통 3-3 · 7-2)
   return (
     <Dialog
       title="자산 분류 정하기"
-      onClose={requestClose}
+      onClose={onClose}
       size="lg"
       closeOnBackdrop={false}
       bodyClassName="p-0"
+      busy={busy}
+      dirty={changed.length > 0}
       footer={
         <>
-          <Button variant="ghost" disabled={busy} onClick={requestClose} data-class-cancel>
-            취소
-          </Button>
+          <DialogCancel data-class-cancel />
           <Button variant="primary" busy={busy} disabled={!canSave} onClick={() => void save()} data-class-save>
             저장
           </Button>
