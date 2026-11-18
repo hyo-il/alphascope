@@ -1,14 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import Button from '../ui/Button';
-import { BLOCKING_SHOW_MS, BLOCKING_SLOW_MS } from '../ui/tokens';
 
 /**
  * 화면을 막는 로딩 — 앱에 **하나**(v2.72.2 · 공통 화면 부품 7-2). 화면 코드에서 덮개를 직접 만들지 않는다(`design:lint` 「직접 덮개」).
  *
  * - **언제**: 기다리는 동안 다른 조작을 하면 결과가 꼬이는 일만 — 저장 · 삭제 · 전체 다시 읽기 · 되돌릴 수 없는 일.
  *   나머지 기다림(읽기)은 막지 않고 표시만(`InlineSpinner` · 스켈레톤 · `LoadingSpinner`).
- * - **두 꼴**: `scope="area"`(기본 · 그 칸만 — `children` 을 감싼다) · `scope="app"`(앱 전체 — 앱 전체 데이터를 바꿀 때만 · 앱 루트를 막는다).
+ * - **두 꼴**: `scope="area"`(기본 · 그 칸만 — `children` 을 감싼 상자 안 마지막 자식 덮개가 형제를 막는다) · `scope="app"`(앱 전체 — 앱 전체 데이터를 바꿀 때만 · 앱 루트를 막는다).
  *   창(`ui/Dialog`) 안 저장은 창에 `busy` 를 주면 창이 같은 덮개(`LoadingCover` — 감싸지 않고 판의 마지막 자식으로 붙어 형제를 막음)로 창 전체(제목 줄 × 까지)를 막는다.
  * - **때**: `busy` 가 켜진 순간 덮인 곳에 `inert`(Tab · Enter · 마우스가 닿지 않음 — 두 번 누름 방지) + 투명 덮개.
  *   로딩 표시(도는 원 · 글)는 `BLOCKING_SHOW_MS`(0.3초) 뒤 — 빨리 끝나면 깜빡이지 않는다.
@@ -17,6 +16,13 @@ import { BLOCKING_SHOW_MS, BLOCKING_SLOW_MS } from '../ui/tokens';
  * - **끝**: `busy` 를 끄면 푼다. 실패 이유 한 줄은 부르는 쪽의 지금 오류 안내 그대로(이 부품은 글을 정하지 않는다).
  * - 모양은 AlphaScope 로딩 그대로(옅은 바탕 · 도는 원 · 글).
  */
+/**
+ * 시간 정의 한 곳(공통 7-2) — 누르는 순간 막고 로딩 표시는 `BLOCKING_SHOW_MS` 뒤(빨리 끝나면 깜빡이지 않게) ·
+ * `BLOCKING_SLOW_MS` 를 넘으면 「오래 걸리고 있어요」. ⚠️ `ui/tokens.ts` 가 아니라 여기 — `tokens.ts` 는 시험 스크립트를 거쳐 서버 컴파일 목록(`tsconfig.node.json`)에 들어간다.
+ */
+export const BLOCKING_SHOW_MS = 300;
+export const BLOCKING_SLOW_MS = 10_000;
+
 type Phase = 'off' | 'blocking' | 'shown' | 'slow';
 
 function useBlockPhase(busy: boolean): Phase {
@@ -110,26 +116,24 @@ export default function LoadingOverlay({
   className?: string;
   children?: ReactNode;
 }) {
-  const phase = useBlockPhase(busy);
-  const coverRef = useRef<HTMLDivElement>(null);
-  const innerRef = useRef<HTMLDivElement>(null);
-  const appRoot = useRef(() => [document.getElementById('root')].filter((x): x is HTMLElement => x != null)).current;
-  const areaRoot = useRef(() => (innerRef.current ? [innerRef.current] : [])).current;
-  useInert(busy, scope === 'app' ? appRoot : areaRoot, coverRef);
-  useEscGuard(busy, () => scope === 'app' || [innerRef.current, coverRef.current].some((el) => el?.contains(document.activeElement)));
-
-  if (scope === 'app') {
-    return phase === 'off' ? null : createPortal(<Cover phase={phase} label={label} onCancel={onCancel} fixed coverRef={coverRef} />, document.body);
-  }
+  if (scope === 'app') return <AppCover busy={busy} label={label} onCancel={onCancel} />;
+  // 그 칸 — 바깥 상자 안에 내용 그대로 + 마지막 자식 덮개(형제인 내용을 막음). 사이에 상자를 끼우지 않아 배치 · 측정이 그대로다
   return (
     <div className={`relative ${className}`} aria-busy={busy || undefined}>
-      {/* display: contents — 감싸도 배치는 그대로(자식이 바깥 상자의 자식처럼 놓인다). inert 는 이 아래 전체 */}
-      <div ref={innerRef} className="contents">
-        {children}
-      </div>
-      {phase !== 'off' && <Cover phase={phase} label={label} onCancel={onCancel} fixed={false} coverRef={coverRef} />}
+      {children}
+      <LoadingCover busy={busy} label={label} onCancel={onCancel} />
     </div>
   );
+}
+
+/** 앱 전체 — 앱 루트(`#root`)를 막고 덮개는 `body` 로 띄운다 */
+function AppCover({ busy, label, onCancel }: { busy: boolean; label: string; onCancel?: () => void }) {
+  const phase = useBlockPhase(busy);
+  const coverRef = useRef<HTMLDivElement>(null);
+  const appRoot = useRef(() => [document.getElementById('root')].filter((x): x is HTMLElement => x != null)).current;
+  useInert(busy, appRoot, coverRef);
+  useEscGuard(busy, () => true);
+  return phase === 'off' ? null : createPortal(<Cover phase={phase} label={label} onCancel={onCancel} fixed coverRef={coverRef} />, document.body);
 }
 
 /** 덮개가 떠 있는 동안 Esc 가 아래(창 닫기 등)로 가지 않게 — 풀리지도 않는다 */

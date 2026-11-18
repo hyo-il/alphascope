@@ -72,6 +72,22 @@ async function pickMarket(page: Page, market: 'us' | 'kr') {
 }
 
 /** 화면 주소 — 메뉴(NAV_GROUPS)의 모든 page × 그 page 의 탭(PAGE_TABS) */
+/**
+ * v2.72.2 — 장면 뒤 정리: 「저장하지 않고 닫을까요?」 가 떠 있으면 [저장하지 않고 닫기], 창이 남아 있으면 Esc(최대 6번).
+ * 측정(판정)과 상관없다 — 다음 장면의 주소 바꾸기가 확인 창에 막히지 않게.
+ */
+async function closeLeftovers(page: Page) {
+  // 늦춘 저장(막는 로딩)이 끝날 때까지 — 막는 동안은 Esc · 주소 바꾸기가 듣지 않는다
+  await page.waitForFunction(() => document.querySelector('[data-testid="blocking-loader"]') == null, null, { timeout: 10_000 }).catch(() => {});
+  for (let i = 0; i < 6; i++) {
+    const ask = page.getByRole('dialog', { name: '저장하지 않고 닫을까요?' });
+    if ((await ask.count().catch(() => 0)) > 0) await ask.getByRole('button', { name: '저장하지 않고 닫기' }).click().catch(() => {});
+    else if ((await page.getByRole('dialog').count().catch(() => 0)) > 0) await page.keyboard.press('Escape').catch(() => {});
+    else return;
+    await page.waitForTimeout(150);
+  }
+}
+
 function targets(): Target[] {
   const list: Target[] = [];
   for (const g of NAV_GROUPS) {
@@ -309,6 +325,47 @@ function targets(): Target[] {
       open: async (page: Page) => {
         await page.waitForSelector('table', { timeout: 30000 });
         await page.getByRole('button', { name: '실행', exact: true }).click();
+        await page.waitForTimeout(700);
+      },
+    },
+    // v2.72.2 — 저장하지 않고 나갈 때 묻기(규칙 창 Esc · 급등 탐지 설정에서 다른 메뉴) · 막는 로딩(급등 탐지 설정 저장 중 — 5초 늦춤)
+    {
+      name: 'leave-규칙창-묻기',
+      hash: '#/rules',
+      open: async (page: Page) => {
+        await page.getByRole('button', { name: '새 규칙 만들기' }).first().click();
+        await page.getByRole('dialog', { name: '새 규칙 만들기' }).getByRole('textbox').first().fill('점검 규칙');
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(500);
+      },
+    },
+    {
+      name: 'leave-급등설정-묻기',
+      hash: '#/surge/settings',
+      open: async (page: Page) => {
+        await page.getByRole('spinbutton').and(page.locator(':enabled')).first().fill('77');
+        await page.getByRole('navigation').getByRole('button', { name: '증시 일정', exact: true }).first().click();
+        await page.waitForTimeout(500);
+      },
+      after: async (page: Page) => {
+        // 바꾼 값을 버리고 떠난다(다음 장면의 주소 바꾸기가 묻지 않게)
+        await page.evaluate(() => (location.hash = '#/home'));
+        await page.getByRole('dialog', { name: '저장하지 않고 닫을까요?' }).getByRole('button', { name: '저장하지 않고 닫기' }).click({ timeout: 3000 }).catch(() => {});
+      },
+    },
+    {
+      name: 'block-급등설정-저장중',
+      hash: '#/surge/settings',
+      before: async (page: Page) => {
+        await page.route('**/api/surge/settings', async (r) => {
+          if (r.request().method() === 'GET') return r.continue().catch(() => undefined);
+          await new Promise((res) => setTimeout(res, 5000));
+          await r.continue().catch(() => undefined);
+        });
+      },
+      after: (page: Page) => page.unroute('**/api/surge/settings'),
+      open: async (page: Page) => {
+        await page.getByRole('button', { name: '설정 저장' }).click();
         await page.waitForTimeout(700);
       },
     },
@@ -1008,6 +1065,57 @@ function targets(): Target[] {
             }
           }
           await page.waitForTimeout(300);
+        }] as const),
+        // v2.72.2 — 막는 로딩(0.3초 뒤 표시 — 응답을 5초 늦춰 표시된 때) · 저장하지 않고 나갈 때 묻는 확인 창
+        ...([
+          ['막는중-다시읽기', 'reload'],
+          ['막는중-매수창저장', 'save'],
+          ['막는중-모두매도확인', 'sellAll'],
+          ['묻기-매수창', 'askTrade'],
+          ['묻기-설정창목표비율', 'askTarget'],
+        ] as const).map(([label, step]) => [label, { purchaseDone: true }, async (page: Page) => {
+          // 구매 완료 상태 — 구매일 팝업이 먼저 떠 단추를 가리지 않게
+          const slow = async (pattern: string, reply: () => { status?: number; json: unknown }) => {
+            await page.unroute(pattern);
+            await page.route(pattern, (r) => {
+              setTimeout(() => void r.fulfill(reply()).catch(() => {}), 5000);
+            });
+          };
+          await page.getByRole('tab', { name: '자산 현황' }).click().catch(() => {});
+          await page.waitForTimeout(500);
+          if (step === 'reload') {
+            await slow('**/api/asset/summary**', () => ({ json: assetSummarySample({ purchaseDone: true }) }));
+            await page.getByRole('button', { name: '다시 읽기' }).click().catch(() => {});
+          } else if (step === 'save' || step === 'askTrade') {
+            await page.locator('[data-trade-buy="6"]').click().catch(() => {});
+            await page.locator('[data-trade-dialog]').waitFor({ timeout: 3000 }).catch(() => {});
+            await page.locator('[data-trade-qty]').fill('10').catch(() => {});
+            await page.locator('[data-trade-price]').fill('70000').catch(() => {});
+            if (step === 'save') {
+              await slow('**/api/asset/trade', () => ({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }));
+              await page.locator('[data-trade-save]').click().catch(() => {});
+            } else await page.keyboard.press('Escape').catch(() => {});
+          } else if (step === 'sellAll') {
+            await page.locator('[data-trade-sell="6"]').click().catch(() => {});
+            await page.locator('[data-trade-dialog]').waitFor({ timeout: 3000 }).catch(() => {});
+            await page.locator('[data-trade-qty]').fill('30').catch(() => {});
+            await page.locator('[data-trade-price]').fill('72000').catch(() => {});
+            await slow('**/api/asset/trade', () => ({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }));
+            await page.locator('[data-trade-save]').click().catch(() => {});
+            await page.getByRole('dialog', { name: '모두 매도' }).getByRole('button', { name: '지우기' }).click().catch(() => {});
+          } else if (step === 'askTarget') {
+            // 설정 창 안 「현금 자동 반영」 이 받는 값 — 없으면 시험 서버가 잠김(403)으로 답해 창이 닫힌다
+            await page.route('**/api/asset/cash', (r) => r.fulfill({ json: cashViewSample() }).catch(() => {}));
+            await page.locator('[data-asset-settings]:enabled').click({ timeout: 10_000 }).catch(() => {});
+            await page.getByRole('dialog', { name: '자산 관리 설정' }).waitFor({ timeout: 5000 }).catch(() => {});
+            await page.locator('[data-setting="target-ratio"] input').first().waitFor({ timeout: 5000 }).catch(() => {});
+            await page.getByRole('dialog').getByRole('tab', { name: '목표 비율', exact: true }).click().catch(() => {});
+            const first = page.locator('[data-setting="target-ratio"] input').first();
+            await first.fill((await first.inputValue().catch(() => '')) === '11' ? '12' : '11').catch(() => {});
+            await page.waitForTimeout(200);
+            await page.keyboard.press('Escape').catch(() => {});
+          }
+          await page.waitForTimeout(700);
         }] as const),
         // v2.68.0 · v2.68.1 · v2.68.2 — 평단 계산기(「더 사면 평단은?」 1차 · 2차 · 3차 · 5차 · 5차 맨 아래 · 미국 · 「목표 평단까지」 됨 · 안 됨 · 지금 가격 없음)
         ...([
@@ -2401,6 +2509,8 @@ async function main() {
       all.push({ size: String(size.w), name: t.name, issues, console: [...consoleErrors] });
       if (t.open) await page.keyboard.press('Escape').catch(() => {});
       if (t.after) await t.after(page).catch(() => {});
+      // v2.72.2 — 값을 넣은 창 · 화면이 남으면 다음 장면으로 갈 때 「저장하지 않고 닫을까요?」 가 막는다 — 남은 확인 창 · 창을 정리
+      await closeLeftovers(page);
       console.log(`${size.w} ${t.name}: ${issues.length}건${consoleErrors.length ? ` · 콘솔 오류 ${consoleErrors.length}` : ''}`);
     }
     await ctx.close();

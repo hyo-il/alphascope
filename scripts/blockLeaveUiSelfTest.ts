@@ -544,7 +544,8 @@ try {
           const code = line.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, '');
           if (/계속 고르기|그냥 닫기|버리기/.test(code)) bad.push(`${path.relative(root, f)}:${i + 1}`);
           if (/title\s*[:=]\s*['"`{]*\s*['"`]저장하지 않고 닫기['"`]/.test(code)) bad.push(`${path.relative(root, f)}:${i + 1} (제목)`);
-          if (/저장하지 않고 닫을까요\?/.test(code)) titles++;
+          // 업데이트 내역(`src/data/changelog.ts`)은 바뀐 것을 알리는 글이라 세지 않는다
+          if (/저장하지 않고 닫을까요\?/.test(code) && !f.endsWith(path.join('src', 'data', 'changelog.ts'))) titles++;
         });
     }
     check('[145-4] 화면 글에 「계속 고르기」 · 「그냥 닫기」 · 「버리기」 · 제목 「저장하지 않고 닫기」 0', bad.length === 0, bad.join(', '));
@@ -563,8 +564,14 @@ try {
       .flatMap((f) => git('diff', `${BASE}..HEAD`, '--', f).split('\n').concat(git('diff', '--', f).split('\n')))
       .filter((l) => /^[-+](?![-+])/.test(l) && /\/api\/|json\(|fetch\(|onSave\(|body:/.test(l));
     check('[145-5] 자동매매 설정 · 처음 켜기 창 — 서버로 보내는 줄 바뀐 것 0(창 막기 · 묻기만)', sendLines.length === 0, sendLines.slice(0, 3).join(' | '));
-    // 서버가 함께 쓰는 src(tsconfig.node.json include) — changelog 더하기 말고 0
-    const shared = changed.filter((f) => /^src\/(types|utils|services\/toss|services\/analysis\/horizons)/.test(f));
+    // 서버가 함께 쓰는 src — 서버 컴파일 목록(`tsconfig.node.json` 프로그램이 실제로 읽는 src 파일)과 겹치는 바뀐 파일 · 업데이트 내역 더하기 말고 0
+    const nodeSrc = new Set(
+      execFileSync(process.execPath, [path.join(root, 'node_modules/typescript/bin/tsc'), '-p', 'tsconfig.node.json', '--listFilesOnly'], { cwd: root, encoding: 'utf8' })
+        .split('\n')
+        .map((l) => path.relative(root, l.trim()))
+        .filter((f) => f.startsWith('src/')),
+    );
+    const shared = changed.filter((f) => nodeSrc.has(f) && f !== 'src/data/changelog.ts');
     check('[145-5] 서버가 함께 쓰는 src 바뀐 줄 0', shared.length === 0, shared.join(', '));
     const dc = git('diff', `${BASE}..HEAD`, '--', 'scripts/designCheck.ts') + git('diff', '--', 'scripts/designCheck.ts');
     const removed = dc.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
