@@ -32,6 +32,10 @@ export const LATER_COMMITS: readonly string[] = [
   '793d3a6', // 142차 v2.71.3 H — design:check 장면 4(더하기만) · 예수금 줄 둘째 줄
   '4ba3004', // 143차 v2.72.0 A — 직접 입출금 서버(타입 더하기 · cashMoves 켬 판단 · 새 cashManual · routes manual)
   '027626d', // 143차 v2.72.0 B — [입출금] 화면 · design:check 장면 7(더하기만) · 견본 더하기
+  'e9ec1fd', // 145차 v2.72.2 A — 막는 로딩 부품(LoadingOverlay) · 창 busy · 매수 판단 표 덮개 · 읽기 덮개를 표시로
+  '0b36dc1', // 145차 v2.72.2 B — 나갈 때 묻기(Dialog dirty · leaveGuard · appStore 화면 바꾸기)
+  '0310c5e', // 145차 v2.72.2 C — 창 dirty · busy 맞추기(자산 · 모의 계좌 · 규칙 · 목표 창) · 편집 화면 묻기
+  '511d287', // 145차 v2.72.2 H — 덮개 구조 · design:check 장면(더하기만 · 장면 뒤 정리 함수)
 ];
 
 const covers = (spec: string, file: string) => file === spec || file.startsWith(`${spec.replace(/\/$/, '')}/`);
