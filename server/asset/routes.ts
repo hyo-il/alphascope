@@ -11,7 +11,7 @@ import { readSessionCookie } from '../auth';
 import { assetLimiter, isAssetPasswordSet, isUnlocked, lockSession, lockStateOf, touchSession, unlockSession, verifyAssetPassword } from './lock';
 import { assetSheetConfig, isAssetSyncEnabled, isSheetConfigured } from './config';
 import { AssetSheetError, batchGet } from './google';
-import { readAssetSheet, resetSheetCache, writeAccountDates, writeAssetClasses, writeTargetRatio } from './sheet';
+import { readAssetSheet, writeAccountDates, writeAssetClasses, writeTargetRatio } from './sheet';
 import { currentCycle, purchaseTargetOf } from './purchase';
 import { assetSummary, usdKrwNow } from './summary';
 import { checkSheetSwitchSafe, sheetSwitchedAt } from './sheetSwitch';
@@ -376,12 +376,8 @@ assetRouter.put('/api/asset/cash/banks', async (req, res) => {
 /** 반영 기록 되돌리기(v2.71.0) — `{ id }` · 「반영」 줄만 · 지금 숫자 기준 반대로 한 요청(`undoCashMove` 한 곳). 성공하면 화면 응답 전체 */
 assetRouter.post('/api/asset/cash/undo', async (req, res) => {
   try {
-    try {
-      await undoCashMove(req.body?.id);
-    } finally {
-      // 시트를 썼을 수 있다 — 시트 30초 캐시를 비워 자산 현황이 다음 읽기에 새 금액을 보게(v2.72.0 · 매수 · 매도와 같게)
-      resetSheetCache();
-    }
+    // 시트 30초 캐시는 쓰기 한 곳(`writeCashMove`)이 비운다(v2.72.1)
+    await undoCashMove(req.body?.id);
     res.json(await buildCashView());
   } catch (e) {
     sendSheetError(res, e, '쓰기');

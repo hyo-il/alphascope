@@ -40,7 +40,7 @@ import {
 } from '../../src/types/asset';
 import { assetSheetConfig, isAssetSyncEnabled, type AssetSheetConfig } from './config';
 import { AssetSheetError, batchGet, valuesWrite, type CellRows, type CellWrite } from './google';
-import { one, wideRange } from './sheet';
+import { one, resetSheetCache, wideRange } from './sheet';
 import { SHEET_LAYOUT } from './sheetLayout';
 import { cashLines, cellName, findCashLine, storedCashKey, storedFixedKey, findFixedLine, fixedLines, salaryOf, sameCashKey, type CashLine, type FixedLine } from './cashKeys';
 
@@ -407,6 +407,10 @@ export async function writeCashMove(config: AssetSheetConfig, from: AssetCashKey
     // 구글이 분명히 거절한 것(권한 · 인증 · 범위 · 시트 없음 — 4xx)은 쓰이지 않았다 · 네트워크(시간 초과) · 5xx 는 쓰였을 수 있다
     if (e instanceof AssetSheetError && e.kind !== 'network') throw e;
     throw new CashMaybeWritten(e instanceof AssetSheetError ? e.kind : 'unknown');
+  } finally {
+    // 쓰기 요청을 보냈다(반영 · 다시 확인 필요 · 쓰였을 수 있음 모두) — 시트 30초 캐시를 **이 한 곳**에서 비운다(v2.72.1).
+    // 예약(월급 · 고정 흐름) · 매수 · 매도 · 직접 입출금 · 되돌리기가 모두 여기를 지나 자산 현황이 다음 읽기에 새 금액을 본다(옛 금액을 보고 다시 저장해 두 번 쓰지 않게)
+    resetSheetCache();
   }
   let back: CellRows[];
   try {

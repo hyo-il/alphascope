@@ -315,12 +315,12 @@ try {
 
   // ═══ 6. 반영 기록(설정 화면 응답) · 시트 캐시 ═══
   {
-    // 쓴 뒤 시트 30초 캐시를 비움 — 화면이 바로 다시 읽으면 새 금액(옛 금액을 보고 다시 저장해 두 번 쓰지 않게)
-    const man = fs.readFileSync(path.join(root, 'server/asset/cashManual.ts'), 'utf8');
-    const rt = fs.readFileSync(path.join(root, 'server/asset/routes.ts'), 'utf8');
-    const undoRoute = rt.slice(rt.indexOf("assetRouter.post('/api/asset/cash/undo'"), rt.indexOf("assetRouter.post('/api/asset/cash/manual'"));
-    check('[143-6] 직접 입출금 쓰기 뒤(중복 아님) · 되돌리기 뒤(성공 · 실패 모두) 시트 캐시 비움(resetSheetCache — 매수 · 매도와 같은 함수)',
-      /if \(outcome\.status !== 'duplicate'\) resetSheetCache\(\);/.test(man) && /finally \{[\s\S]*resetSheetCache\(\);[\s\S]*\}/.test(undoRoute));
+    // 쓴 뒤 시트 30초 캐시를 비움 — 화면이 바로 다시 읽으면 새 금액(옛 금액을 보고 다시 저장해 두 번 쓰지 않게).
+    // v2.72.1(144차)부터 비우는 곳은 쓰기 한 곳 `writeCashMove`(직접 입출금 · 되돌리기 · 예약 · 매수 · 매도 모두) — 읽기 횟수로 보는 시험은 `assetcashcache:test`
+    const cmSrc = fs.readFileSync(path.join(root, 'server/asset/cashMoves.ts'), 'utf8');
+    const writeFn = cmSrc.slice(cmSrc.indexOf('export async function writeCashMove'), cmSrc.indexOf('export function serial'));
+    check('[143-6] 직접 입출금 쓰기 뒤 · 되돌리기 뒤 시트 캐시 비움(resetSheetCache — 쓰기 한 곳 writeCashMove 의 finally)',
+      /finally \{[\s\S]*resetSheetCache\(\);[\s\S]*\}/.test(writeFn));
     // 설정 화면 응답(`buildCashView`)의 moves = `listCashMoves()` 그대로
     const view = fs.readFileSync(path.join(root, 'server/asset/cashView.ts'), 'utf8');
     const moves: AssetCashViewV3['moves'] = listCashMoves();
@@ -340,8 +340,8 @@ try {
     check('[143-8] 서버에서 바뀐 파일은 routes · cashMoves · cashView · 새 cashManual 뿐', [...serverChanged, ...untracked].every((f) => SERVER_OK.includes(f)), [...serverChanged, ...untracked].join(','));
     // cashMoves.ts — 지운 줄은 켬 판단 두 줄 · 타입 이름 · 표 주석 · 내보내기 한 단어뿐(쓰기 · 기록 · 되돌리기 본문은 그대로)
     const cm = spawnSync('git', ['diff', '-U0', BASE, '--', 'server/asset/cashMoves.ts'], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
-    const cmOk = cm.every((l) => /isCashWriteOn\(\)\) throw|AssetCashMoveKind|AssetCashMoveRecord|kind TEXT NOT NULL|const CASH_SKIP_TEXT|export function (applyCashMove|undoCashMove)/.test(l));
-    check('[143-8] cashMoves.ts 지운 줄은 켬 판단 · 타입 이름 · 표 주석 · 내보내기뿐(쓰기 · 기록 · 되돌리기 본문 그대로)', cmOk && cm.length <= 12, `${cm.length}줄`);
+    const cmOk = cm.every((l) => /isCashWriteOn\(\)\) throw|AssetCashMoveKind|AssetCashMoveRecord|kind TEXT NOT NULL|const CASH_SKIP_TEXT|export function (applyCashMove|undoCashMove)|^-import \{ one, wideRange \} from '\.\/sheet';$/.test(l));
+    check('[143-8] cashMoves.ts 지운 줄은 켬 판단 · 타입 이름 · 표 주석 · 내보내기뿐(쓰기 · 기록 · 되돌리기 본문 그대로)', cmOk && cm.length <= 13, `${cm.length}줄`);
     const list = spawnSync('npx', ['tsc', '-p', 'tsconfig.node.json', '--listFilesOnly'], { cwd: root, encoding: 'utf8' });
     const shared = list.stdout.split('\n').map((l) => path.relative(root, l.trim())).filter((f) => f.startsWith('src/'));
     const changedShared = spawnSync('git', ['diff', '--name-only', BASE, '--', ...shared], { cwd: root, encoding: 'utf8' }).stdout.trim().split('\n').filter(Boolean);

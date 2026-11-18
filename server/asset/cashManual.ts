@@ -6,7 +6,7 @@
  * - 켬 조건은 `ASSET_SYNC_ENABLED` 만(「현금 자동 반영」 설정은 보지 않음 — 사용자 결정 2026-11-17) · 자산 잠금은 라우터 맨 앞 자산 문지기 한 곳.
  * - 두 번 쓰지 않기: 화면이 만든 요청 번호(`requestId`) 하나에 기록 한 줄(고유 색인) — 같은 번호가 다시 오면 쓰지 않고 그 기록을 돌려준다.
  * - 같은 번호가 앞 요청을 처리하는 중(「쓰는 중」)에 오면 409 「처리 중」(성공으로 닫지 않게 — 끝난 뒤 다시 보내면 그 결과) · 같은 번호에 다른 내용이면 400.
- * - 시트를 쓴 뒤(반영 · 다시 확인 필요)에는 시트 30초 캐시를 비운다(`resetSheetCache` — 매수 · 매도와 같게) — 화면이 바로 다시 읽어 새 금액을 보게(옛 금액을 보고 다시 저장해 두 번 쓰지 않게).
+ * - 시트를 쓴 뒤(반영 · 다시 확인 필요)에는 시트 30초 캐시가 비워진다 — 비우는 곳은 쓰기 한 곳 `writeCashMove`(v2.72.1 · 예약 · 매수 · 매도 · 되돌리기와 같음) · 화면이 바로 다시 읽어 새 금액을 보게.
  * - 메모는 기록의 `label`(선택 · 40자까지 · 앞뒤 공백 · 줄바꿈 정리) — 표 모양은 그대로.
  * ⚠️ 로그에는 기록 id · 종류 · 상태 · 까닭 종류만(금액 · 계좌 이름 · 메모 없음 — `applyCashMove` 로그 그대로).
  */
@@ -21,7 +21,6 @@ import {
 import { AssetSheetError } from './google';
 import { CASH_SKIP_TEXT, CashSkip, applyCashMove, manualMoveOf } from './cashMoves';
 import { sameCashKey } from './cashKeys';
-import { resetSheetCache } from './sheet';
 import { kstDay } from './cashSchedule';
 
 /** 요청 번호 모양 — 화면이 만든 글자(영문 · 숫자 · - · _ 8~64자) */
@@ -92,7 +91,6 @@ export async function applyManualCash(body: unknown, now = Date.now()): Promise<
     if (e instanceof CashSkip) throw new AssetSheetError('sheet-changed', `쓰지 않았어요 — ${CASH_SKIP_TEXT[e.reason] ?? '시트를 확인해 주세요'}(시트 「현금」 탭을 확인한 뒤 다시 해 주세요).`);
     throw e;
   }
-  if (outcome.status !== 'duplicate') resetSheetCache();
   const rec = manualMoveOf(itemKey);
   if (!rec) throw new AssetSheetError('network', '기록을 찾지 못했습니다.');
   return { ...rec, duplicate: outcome.status === 'duplicate' };
