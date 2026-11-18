@@ -202,6 +202,8 @@ try {
     await asset.page.waitForTimeout(300);
     const after = await look(asset.page.locator('[data-trade-save]'));
     await asset.page.locator('[data-trade-cancel]').click();
+    // 145차 — 넣은 값이 있으면 [취소] 가 묻는다(공용 확인 창)
+    await asset.page.getByRole('dialog', { name: '저장하지 않고 닫을까요?' }).getByRole('button', { name: '저장하지 않고 닫기' }).click();
     await asset.page.locator('[data-trade-dialog]').waitFor({ state: 'detached', timeout: 5000 });
     return { before, after };
   };
