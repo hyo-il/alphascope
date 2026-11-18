@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import IconButton from './IconButton';
 import { SubmitTriedProvider, useFormScope } from './fieldReveal';
+import LoadingOverlay from '../common/LoadingOverlay';
 
 /**
  * 창(모달) 틀 하나 — 어두운 바탕 · 제목 줄 + 닫기 X · ESC 닫기 · 크기는 정해진 값만 · 테두리 없음(디자인 규칙 3).
@@ -15,6 +16,8 @@ import { SubmitTriedProvider, useFormScope } from './fieldReveal';
  *   창은 `#root` 안에 그려져 뒤 화면에 `inert` 를 걸면 창도 막히므로 이 방식으로 같은 효과를 낸다.
  *   `body` 로 따로 뜨는 것(`Popover` · `InfoTip` — 날짜 고르기 등)은 창 밖이어도 막지 않는다(그 안의 Tab 은 브라우저 그대로).
  * - **폼 묶음**(`fieldReveal`): 판 하나가 묶음 — 아래 버튼 줄의 `Button submit`([저장])을 누르면 그 뒤로 창 안의 틀린 칸이 빨갛게 보인다.
+ * - **저장 중 막기**(`busy` · v2.72.2 · 공통 7-2): 창 안 저장 · 삭제처럼 기다리는 동안 다른 조작이 꼬이는 일이면 `busy` 를 준다 —
+ *   창 전체(제목 줄 × 까지)를 막는 로딩(`common/LoadingOverlay`)이 덮고, 그동안 × · Esc · 바깥 누름으로 닫히지 않는다.
  */
 export type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'xlFit' | 'full';
 
@@ -34,7 +37,8 @@ const trapStack: HTMLElement[] = [];
 const FOCUSABLE =
   'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 function focusablesIn(el: HTMLElement): HTMLElement[] {
-  return [...el.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((x) => x.getClientRects().length > 0);
+  // 막는 로딩(`inert`) 아래 요소는 건너뛴다 — 막는 동안 Tab 이 덮인 곳에 닿지 않게
+  return [...el.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((x) => x.getClientRects().length > 0 && !x.closest('[inert]'));
 }
 /** 뒤 화면(앱 루트 안)인가 — `body` 로 따로 뜨는 목록은 뒤 화면이 아니다 */
 function inAppRoot(node: Node | null): boolean {
@@ -148,6 +152,9 @@ export default function Dialog({
   children,
   bodyClassName = 'p-4',
   headerRight,
+  busy = false,
+  busyLabel = '저장 중…',
+  onCancelBusy,
 }: {
   title: ReactNode;
   /** 제목 옆 짧은 회색 글자 */
@@ -166,9 +173,22 @@ export default function Dialog({
   bodyClassName?: string;
   /** 제목 줄 오른쪽(닫기 X 앞)에 둘 것 */
   headerRight?: ReactNode;
+  /** 저장 · 삭제 중 — 창 전체를 막고(0.3초 뒤 표시 · 10초 뒤 안내) 닫히지 않는다 */
+  busy?: boolean;
+  /** 막는 동안 0.3초 뒤 보이는 글 */
+  busyLabel?: string;
+  /** 멈출 수 있는 일이면 — 10초 뒤 [취소] 가 부른다 */
+  onCancelBusy?: () => void;
 }) {
   const titleId = useId();
-  useDialogEsc(closeOnEsc && onClose ? onClose : null);
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+  /** 닫기 길(× · Esc · 바깥 누름)이 모두 부른다 — 막는 중이면 닫지 않는다 */
+  const requestClose = () => {
+    if (busyRef.current || !onClose) return;
+    onClose();
+  };
+  useDialogEsc(closeOnEsc && onClose ? requestClose : null);
   const panelRef = useFocusTrap();
   const form = useFormScope();
 
@@ -180,11 +200,12 @@ export default function Dialog({
       style={{ zIndex: z }}
       className="fixed inset-0 flex items-center justify-center bg-black/70 p-4"
       onMouseDown={(e) => {
-        if (closeOnBackdrop && onClose && e.target === e.currentTarget) onClose();
+        if (closeOnBackdrop && onClose && e.target === e.currentTarget) requestClose();
       }}
     >
       <div ref={panelRef} tabIndex={-1} {...form.props} className={`flex flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl outline-none ${SIZE[size]}`}>
         <SubmitTriedProvider value={form.tried}>
+        <LoadingOverlay busy={busy} label={busyLabel} onCancel={onCancelBusy} className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center gap-2 border-b border-border/40 px-4 py-3">
           <h2 id={titleId} className="min-w-0 text-sm font-semibold text-text-primary">
             {title}
@@ -192,13 +213,14 @@ export default function Dialog({
           {titleAside != null && <span className="min-w-0 text-caption text-text-muted">{titleAside}</span>}
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {headerRight}
-            {onClose && <IconButton icon={X} label="닫기" size="sm" onClick={onClose} />}
+            {onClose && <IconButton icon={X} label="닫기" size="sm" onClick={requestClose} />}
           </div>
         </div>
         <div className={`min-h-0 flex-1 overflow-y-auto ${bodyClassName}`}>{children}</div>
         {footer != null && (
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border/40 px-4 py-3">{footer}</div>
         )}
+        </LoadingOverlay>
         </SubmitTriedProvider>
       </div>
     </div>

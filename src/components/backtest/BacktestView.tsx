@@ -8,7 +8,7 @@ import { draftRequest, useBacktestDraft } from '../../hooks/useBacktestDraft';
 import { useTradingRules } from '../../hooks/useTradingRules';
 import HelpBox from '../common/HelpBox';
 import { SkeletonList } from '../common/SkeletonLoader';
-import LoadingOverlay from '../common/LoadingOverlay';
+import { InlineSpinner } from '../common/LoadingOverlay';
 import { Button, IconButton, Panel, SectionTitle } from '../ui';
 import { ICON } from '../ui/icon';
 import { modal, toast } from '../../store/uiStore';
@@ -284,9 +284,14 @@ export default function BacktestView() {
               <SkeletonList count={4} />
             </Panel>
           ) : d ? (
-            // 히스토리에서 다른 결과를 고르면 받는 동안 지금 결과 위에 작은 덮개(내용은 그대로)
-            <div className="relative">
-            {bt.detailLoading && <LoadingOverlay contained label="결과를 불러오는 중…" />}
+            // 히스토리에서 다른 결과를 고르면 받는 동안 — 읽기만이라 막지 않는다(공통 7-2). 지금 결과를 흐리게 두고 위에 도는 원 + 글
+            <div className={bt.detailLoading ? 'space-y-2' : undefined} aria-busy={bt.detailLoading || undefined}>
+            {bt.detailLoading && (
+              <p className="flex items-center gap-1.5 text-caption text-text-secondary" role="status">
+                <InlineSpinner /> 결과를 불러오는 중…
+              </p>
+            )}
+            <div className={bt.detailLoading ? 'opacity-50' : undefined}>
             <CustomResult
               id={d.id}
               report={d.detail}
@@ -299,6 +304,7 @@ export default function BacktestView() {
               rerunBusy={running || starting}
               applySlot={<ApplyRuleButton key={d.id} options={d.detail.input.conditions} rules={rules} />}
             />
+            </div>
             </div>
           ) : (
             <Panel pad="sm" className="text-caption text-text-muted">

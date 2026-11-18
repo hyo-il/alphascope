@@ -39,11 +39,14 @@ export default function ModalHost() {
     }
   };
 
-  // 공용 창 틀 — 확인 창은 맨 위(z 100). ESC·바깥 클릭·닫기 X = 취소
+  // 공용 창 틀 — 확인 창은 맨 위(z 100). ESC·바깥 클릭·닫기 X = 취소.
+  // 확인 뒤 기다리는 동안(삭제 등)은 창을 막는다(`busy` — 공통 7-2) — 그동안 Esc · × · 바깥 누름으로 닫히지 않는다
   return (
     <Dialog
       title={request.title}
       onClose={cancel}
+      busy={busy}
+      busyLabel="처리 중…"
       size="sm"
       z={100}
       bodyClassName="p-0"

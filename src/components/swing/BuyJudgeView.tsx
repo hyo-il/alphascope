@@ -4,6 +4,7 @@ import { PANEL_PAD } from '../ui/tokens';
 import { Button, PageHeader, ScrollTopShade } from '../ui';
 import { ICON_SM } from '../ui/icon';
 import HelpBox from '../common/HelpBox';
+import LoadingOverlay from '../common/LoadingOverlay';
 import SymbolListBar from '../common/SymbolListBar';
 import { SkeletonCards } from '../common/SkeletonLoader';
 import RuleSelect from '../rules/RuleSelect';
@@ -145,17 +146,8 @@ export default function BuyJudgeView() {
               ) : ruleMissing ? (
                 <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">매매 규칙을 고르면 {symbols.length}종목을 판단합니다.</p>
               ) : (
-                // 작업 중에는 표 위에 회전 아이콘 + 문구(버튼과 함께 — 표에 결과가 새로 들어올 자리라는 것이 보이게)
-                <div className="relative" aria-busy={busy != null}>
-                  {busy && (
-                    <div className="absolute inset-0 z-10 flex items-start justify-center rounded-lg bg-bg-primary/40 pt-1.5" role="status">
-                      <span className="flex items-center gap-1.5 rounded-md bg-bg-elevated px-3 py-1.5 text-xs text-text-secondary shadow">
-                        <LoaderCircle {...ICON_SM} className="animate-spin" />
-                        {busy}
-                      </span>
-                    </div>
-                  )}
-                  <div className={busy ? 'pointer-events-none opacity-60' : ''}>
+                // 작업 중(실행 · 목록 바꾸기 · 규칙 바꾸기)에는 표를 막는다 — 막는 로딩 부품 하나(0.3초 뒤 표시 · 공통 7-2)
+                <LoadingOverlay busy={busy != null} label={busy ?? ''}>
                   <BuyJudgeTable
                     rows={rows}
                     onRemove={(s) => void act(j.setSymbols(symbols.filter((x) => x !== s)), '목록을 바꾸지 못했습니다')}
@@ -168,8 +160,7 @@ export default function BuyJudgeView() {
                     onDeleteTarget={confirmDeleteTarget}
                     onEditGoal={() => setGoalOpen(true)}
                   />
-                  </div>
-                </div>
+                </LoadingOverlay>
               )}
             </div>
           </>

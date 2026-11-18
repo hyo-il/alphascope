@@ -133,6 +133,14 @@ export const TOOLTIP_EDGE = 8;
 export const TOOLTIP_BOX = 'fixed z-[120] w-max rounded-lg border border-border bg-bg-elevated px-2.5 py-1.5 text-xs leading-relaxed whitespace-pre-line text-text-primary shadow-lg';
 
 /**
+ * 화면을 막는 로딩(v2.72.2 · 공통 화면 부품 7-2 — `common/LoadingOverlay` 가 쓴다). 시간은 여기 한 곳.
+ * - 누르는 순간 막고(투명 덮개) 로딩 표시는 `BLOCKING_SHOW_MS` 뒤 — 빨리 끝나면 깜빡이지 않는다.
+ * - `BLOCKING_SLOW_MS` 를 넘으면 「오래 걸리고 있어요」(멈출 수 있는 일이면 [취소]).
+ */
+export const BLOCKING_SHOW_MS = 300;
+export const BLOCKING_SLOW_MS = 10_000;
+
+/**
  * 아이콘 버튼(`ui/IconButton`) 크기 — **두 가지만**(사용자 결정 2026-11-10 · 다른 크기 금지 · `design:lint`).
  * `md` 도구 줄 = 28px 상자(`CONTROL_H.sm` — 버튼 sm · 묶음 버튼 sm 과 같은 줄 높이) · 16px 아이콘 / `sm` 표 안 = 24px 상자(`CONTROL_H.xs`) · 14px 아이콘.
  */

@@ -16,6 +16,9 @@
  *  10. 화면 코드의 맨 `border-danger`(입력 칸 빨간 테두리) — 빨간 테두리는 공용 입력 부품(`ui/Input` · `ui/NumberField`)만 그린다.
  *      보이는 때(칸을 떠난 뒤 · [저장] 을 누른 뒤)는 `ui/fieldReveal` 한 곳 — 화면은 `invalid` · `rejected` 만 넘긴다(v2.71.2).
  *      옅은 테두리(`border-danger/40` 등 알림 상자) · `hover:` 같은 상태 접두는 입력 칸이 아니라 대상 밖.
+ *  11. 화면 코드에서 직접 만든 덮개(v2.72.2 · 공통 화면 부품 7-2) — 막는 로딩은 `common/LoadingOverlay` 하나 · 창은 `ui/Dialog` 하나.
+ *      `fixed inset-0` · `absolute inset-0` + 반투명 바탕(`bg-…/NN` · `backdrop-`) · 기다리는 동안 `pointer-events-none` 으로 막기(같은 줄에 busy · loading · saving …)는
+ *      실패(허용: 부품 두 파일 · 아래 `OVERLAY_OK`). 읽기만 하는 기다림은 막지 않고 표시만(불투명 판 · 흐림 · 도는 원).
  * 끝나면 어긴 곳 수를 출력하고, 하나라도 있으면 exit 1.
  * 시험용: `DESIGN_LINT_EXTRA=<파일,…>` 를 주면 그 파일도 검사한다(`tooltip:test` · `toolbutton:test` 의 가짜 파일 — 커밋하지 않는다).
  *   `DESIGN_LINT_SCRIPTS_EXTRA=<파일,…>` = 9 번 검사에 더할 가짜 시험 파일.
@@ -84,6 +87,18 @@ export const SCRIPT_FIND_OK: { file: string; has: string; why: string }[] = [
 ];
 const SCRIPT_FIND = /\[(?:title|data-tip|data-tip-clip)[\^$*~|]?=|getByTitle\(/;
 
+/** 11 — 직접 덮개 허용(부품 두 파일 + 이름 붙은 목록 · 새로 더하지 않는다) */
+const OVERLAY_PARTS = ['src/components/common/LoadingOverlay.tsx', 'src/components/ui/Dialog.tsx'];
+export const OVERLAY_OK: { file: string; has: string; why: string }[] = [
+  { file: 'src/components/analysis/ChartCaptureModal.tsx', has: 'fixed inset-0 z-50', why: '차트 캡처 창 — 화면 밖 캡처 판과 한 몸이라 공용 창 틀로 옮기지 않았다(막는 로딩 아님)' },
+];
+/** 직접 덮개인가 — 한 줄의 클래스 글로 본다 */
+function isOverlayLine(line: string): boolean {
+  if (/\bfixed\b/.test(line) && /\binset-0\b/.test(line)) return true;
+  if (/\babsolute\b/.test(line) && /\binset-0\b/.test(line) && /(?:\bbg-[\w-]+\/\d+|\bbackdrop-)/.test(line)) return true;
+  return /\bpointer-events-none\b/.test(line) && /\b(?:busy|loading|saving|pending|reloading|running|working)\b/i.test(line);
+}
+
 const hits: { file: string; line: number; id: string; text: string; why: string }[] = [];
 for (const file of FILES) {
   const lines = fs.readFileSync(file, 'utf8').split('\n');
@@ -107,6 +122,17 @@ for (const file of FILES) {
     if (/^\s*(\*|\/\/|\/\*)/.test(line) || !NEGATIVE_MARGIN.test(line)) return;
     if (NEGATIVE_MARGIN_OK.some((o) => o.file === rel && line.includes(o.has))) return;
     hits.push({ file: rel, line: i + 1, id: '음수 여백', text: line.trim().slice(0, 140), why: '음수 여백 — 부모 간격을 덮는다. 간격 · 안쪽 여백으로 맞춘다(허용 목록 NEGATIVE_MARGIN_OK 는 지금 있는 곳만)' });
+  });
+}
+
+// 11 — 직접 덮개(부품 두 파일 · 허용 목록 밖은 실패)
+for (const file of FILES) {
+  const rel = path.relative(ROOT, file);
+  if (OVERLAY_PARTS.includes(rel)) continue;
+  fs.readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+    if (/^\s*(\*|\/\/|\/\*)/.test(line) || !isOverlayLine(line)) return;
+    if (OVERLAY_OK.some((o) => o.file === rel && line.includes(o.has))) return;
+    hits.push({ file: rel, line: i + 1, id: '직접 덮개', text: line.trim().slice(0, 140), why: '화면 코드의 덮개 — 막는 로딩은 common/LoadingOverlay(busy) · 창은 ui/Dialog · 읽기만이면 막지 않고 표시만(공통 7-2)' });
   });
 }
 

@@ -58,7 +58,6 @@ import { useHashRoute } from './hooks/useHashRoute';
 import { useLoadHomePage } from './hooks/useHomePage';
 import { useLoadClockSetting } from './hooks/useClockSetting';
 import KstClock from './components/common/KstClock';
-import LoadingOverlay from './components/common/LoadingOverlay';
 
 /**
  * 앱 본체. **로그인한 뒤에만 마운트된다** (아래 `App` 참고).
@@ -251,7 +250,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
                   </div>
                 </div>
               ) : loading ? (
-                <div className="absolute inset-0 z-30 bg-bg-primary/85" aria-busy="true">
+                // 읽기만이라 막는 로딩이 아니다 — 불투명 판(옛 종목 차트가 비쳐 새 종목 값으로 읽히지 않게) + 로딩 표시
+                <div className="absolute inset-0 z-30 bg-bg-primary" aria-busy="true">
                   <LoadingSpinner label={`${symbol} 캔들 불러오는 중…`} />
                 </div>
               ) : null}
@@ -468,7 +468,12 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
 
       <div className="relative flex min-w-0 flex-1 flex-col">
         {/* 홈으로 가려는데 홈 화면 설정을 받는 중 — 받으면 그 화면으로 간다 */}
-        {homePending && <LoadingOverlay contained label="홈 화면을 불러오는 중…" />}
+        {/* 읽기만이라 막는 로딩이 아니다 — 불투명 판에 로딩 표시(지나가는 화면을 비치지 않게 · 7절) */}
+        {homePending && (
+          <div className="absolute inset-0 z-40 bg-bg-primary">
+            <LoadingSpinner label="홈 화면을 불러오는 중…" />
+          </div>
+        )}
         {/*
           종목 헤더 — 차트·AI 분석·비교에서는 늘 떠 있다.
           ⚠️ 계좌·설정·진단·급등·스윙·일정에서는 감춘다 — 계좌는 자체 헤더가 있어 겹치고,

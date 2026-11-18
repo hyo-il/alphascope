@@ -326,7 +326,7 @@ export default function RankingPreview({
           </div>
         )}
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-bg-secondary/60 text-xs text-text-secondary">
+          <div /* 읽기만 — 막지 않는 표시(불투명 판 · 옛 종목 봉이 비치지 않게) */ className="absolute inset-0 flex items-center justify-center bg-bg-secondary text-xs text-text-secondary">
             <InlineSpinner /> <span className="ml-1.5">불러오는 중…</span>
           </div>
         )}

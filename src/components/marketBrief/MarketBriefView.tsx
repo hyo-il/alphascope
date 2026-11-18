@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { PageHeader } from '../ui';
 import { PANEL_PAD } from '../ui/tokens';
 import { SkeletonCards } from '../common/SkeletonLoader';
-import LoadingOverlay from '../common/LoadingOverlay';
 import { toast } from '../../store/uiStore';
 import type { MarketBriefDayResponse, MarketBriefDays, MarketBriefStatus } from '../../types/marketBrief';
 import RunControls from './RunControls';
@@ -190,8 +189,8 @@ export default function MarketBriefView({ onSelectSymbol }: { onSelectSymbol: (s
         {error && <LoadError error={error} hasDay={!!day} />}
         {firstLoad && <SkeletonCards count={4} />}
         {day && (
-          <div className="relative">
-            {loadingDay && <LoadingOverlay contained label="불러오는 중…" />}
+          // 다른 날을 받는 동안 — 읽기만이라 막지 않는다(공통 7-2). 내용을 흐리게 두고 위 고르기 줄에 도는 원(`BriefPicker`)
+          <div className={loadingDay ? 'opacity-50' : undefined} aria-busy={loadingDay || undefined}>
             {selected ? (
               <BriefBody brief={selected} outlook={day?.outlook} onOpen={onSelectSymbol} />
             ) : (
