@@ -18,6 +18,7 @@ import {
 import { ENGINE_MA_PERIODS } from '../../types/autoTrading';
 import { ruleFieldErrors, ruleNameError, ruleWarnings, RULE_INPUT_LIMITS as L } from '../../utils/ruleInput';
 import { modal, toast } from '../../store/uiStore';
+import { askDiscard } from '../../store/leaveGuard';
 import { Badge, Button, Dialog, DisclosureButton, FieldError, FieldTouch, FormRow, Input, NumberField, NumberUnitGroup, Select } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
 import { usageText } from './usage';
@@ -199,11 +200,20 @@ export default function RuleDialog({
     void doSave();
   };
 
+  // 바꾼 것 — 연 때 값(이름 · 조건)과 다르면(되돌리면 다시 없음 · 공통 3-3). 보기 상태에서는 없음
+  const firstBody = useMemo(() => JSON.stringify(rule ? cloneRuleBody(rule) : emptyRuleBody()), [rule]);
+  const dirty = editing && (name !== (rule?.name ?? '') || JSON.stringify(body) !== firstBody);
+
+  /** 수정 [취소] — 바꾼 것이 있으면 같은 확인 창(공통 3-3)을 거쳐 보기 상태로(새 규칙이면 창 닫기) */
   const cancelEdit = () => {
-    if (isNew) return onClose();
-    setName(rule.name);
-    setBody(cloneRuleBody(rule));
-    setEditing(false);
+    const drop = () => {
+      if (isNew) return onClose();
+      setName(rule.name);
+      setBody(cloneRuleBody(rule));
+      setEditing(false);
+    };
+    if (dirty) askDiscard(drop);
+    else drop();
   };
 
   const maxScore = maxScoreOf(body.buy);
@@ -216,6 +226,8 @@ export default function RuleDialog({
       size="xlFit"
       closeOnBackdrop={!editing}
       bodyClassName="p-4 [scrollbar-gutter:stable]"
+      busy={saving}
+      dirty={dirty}
       footer={
         editing ? (
           <>

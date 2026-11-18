@@ -4,7 +4,8 @@ import Button from '../ui/Button';
 import TrashIcon from '../common/TrashIcon';
 import { useCallback, useEffect, useState } from 'react';
 import { SkeletonList } from '../common/SkeletonLoader';
-import { InlineSpinner } from '../common/LoadingOverlay';
+import LoadingOverlay, { InlineSpinner } from '../common/LoadingOverlay';
+import { useLeaveGuard } from '../../hooks/useLeaveGuard';
 import { analysisModeLabel } from '../../types/analysis';
 import type { Timeframe } from '../../types/toss';
 import { formatPrice, formatSigned } from '../../utils/formatters';
@@ -136,6 +137,9 @@ export default function AnalysisHistory({
     }
   };
 
+  // 붙여넣고 저장하지 않은 글이 있으면 다른 메뉴 · 뒤로 가기에서 묻는다(공통 3-3) · 저장 중이면 떠나지 않는다
+  useLeaveGuard(draft.trim() !== '', { busy: saving, discard: () => setDraft('') });
+
   const handleSave = async () => {
     if (!draft.trim() || saving) return;
     setSaving(true);
@@ -192,7 +196,8 @@ export default function AnalysisHistory({
 
   return (
     <div className="flex h-full gap-4 overflow-hidden py-4">
-      <div className="flex w-80 shrink-0 flex-col gap-2">
+      {/* 저장하는 동안 붙여넣기 칸을 막는다(공통 7-2 — 0.3초 뒤 표시) */}
+      <LoadingOverlay busy={saving} label="저장 중…" className="flex w-80 shrink-0 flex-col gap-2">
         <p className="text-xs text-text-secondary">
           Claude 대화의 분석 결과를 붙여넣어 {symbol} 히스토리에 저장합니다.
         </p>
@@ -233,7 +238,7 @@ export default function AnalysisHistory({
           disabled={!draft.trim()}>
           저장 (현재가 {formatPrice(currentPrice, currencyOfSymbol(symbol))})
         </Button>
-      </div>
+      </LoadingOverlay>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="mb-1.5 flex items-center justify-between">

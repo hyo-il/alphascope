@@ -20,6 +20,8 @@ interface Guard {
   busy: () => boolean;
   /** 버리기 — 창은 닫기 · 화면은 처음 값으로 */
   discard: () => void;
+  /** 확인 창에 더할 한 줄(없으면 기본 내용만) */
+  note?: () => string | undefined;
 }
 
 const guards = new Set<Guard>();
@@ -45,9 +47,15 @@ export function leaveState(): 'free' | 'dirty' | 'busy' {
   return dirty ? 'dirty' : 'free';
 }
 
-/** 공용 확인 창 — [취소](기본 초점 · Esc) → [저장하지 않고 닫기] */
-export function askDiscard(onDiscard: () => void): void {
-  modal.confirm({ ...DISCARD_ASK, danger: true, focusCancel: true, onConfirm: onDiscard });
+/** 공용 확인 창 — [취소](기본 초점 · Esc) → [저장하지 않고 닫기] · `note` = 내용에 더할 한 줄(공통 3-3 「앱마다 한 줄 더할 수 있음」) */
+export function askDiscard(onDiscard: () => void, note?: string): void {
+  modal.confirm({ ...DISCARD_ASK, message: note ? `${DISCARD_ASK.message}\n${note}` : DISCARD_ASK.message, danger: true, focusCancel: true, onConfirm: onDiscard });
+}
+
+/** 바꾼 것이 남은 곳이 더한 한 줄(첫 것) */
+function noteOf(): string | undefined {
+  for (const g of guards) if (g.dirty()) return g.note?.();
+  return undefined;
 }
 
 function discardAll(): void {
@@ -65,7 +73,7 @@ export function guardLeave(go: () => void): void {
   const state = leaveState();
   if (state === 'free') return go();
   if (state === 'busy') return;
-  askDiscard(() => passWith(go));
+  askDiscard(() => passWith(go), noteOf());
 }
 
 /**
@@ -86,7 +94,7 @@ export function guardAddressLeave(restore: () => void, retry: () => void): boole
       discardAll();
       allowance = true;
       retry();
-    });
+    }, noteOf());
   }
   return false;
 }

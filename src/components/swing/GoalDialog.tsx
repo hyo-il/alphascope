@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Dialog, NumberField, Segmented } from '../ui';
+import { Button, Dialog, DialogCancel, NumberField, Segmented } from '../ui';
 import { toast } from '../../store/uiStore';
 import { GOAL_PERIOD_CHOICES, GOAL_TARGET_CHOICES, autoStop, goalPct, type SwingGoal } from '../../types/swingGoal';
 import { TARGET_INPUT_LIMITS } from '../../types/targetAnalysis';
@@ -36,9 +36,12 @@ export default function GoalDialog({ goal, onSave, onClose }: { goal: SwingGoal;
       title="목표 수익 가능성 — 조건"
       onClose={onClose}
       size="md"
+      busy={saving}
+      // 바꾼 것 — 받은 조건과 다르면(되돌리면 다시 없음 · 공통 3-3)
+      dirty={JSON.stringify(draft) !== JSON.stringify(goal)}
       footer={
         <>
-          <Button onClick={onClose}>취소</Button>
+          <DialogCancel variant="secondary" />
           <Button busy={saving} variant="primary" onClick={() => void save()} disabled={saving}>
             {saving ? '저장하는 중…' : '저장'}
           </Button>

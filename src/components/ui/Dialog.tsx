@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useId, useRef, type ComponentProp
 import { X } from 'lucide-react';
 import IconButton from './IconButton';
 import { SubmitTriedProvider, useFormScope } from './fieldReveal';
-import LoadingOverlay from '../common/LoadingOverlay';
+import { LoadingCover } from '../common/LoadingOverlay';
 import Button from './Button';
 import { askDiscard } from '../../store/leaveGuard';
 import { useLeaveGuard } from '../../hooks/useLeaveGuard';
@@ -40,10 +40,10 @@ const SIZE: Record<DialogSize, string> = {
 const DialogCloseContext = createContext<() => void>(() => {});
 
 /** 창 아래 줄 [취소] — 창의 닫기 길 그대로(바꾼 것이 있으면 묻는다 · 저장 중이면 닫히지 않는다) */
-export function DialogCancel({ children = '취소', ...rest }: Omit<ComponentProps<typeof Button>, 'onClick' | 'variant'>) {
+export function DialogCancel({ children = '취소', variant = 'ghost', ...rest }: Omit<ComponentProps<typeof Button>, 'onClick'>) {
   const close = useContext(DialogCloseContext);
   return (
-    <Button variant="ghost" onClick={close} {...rest}>
+    <Button variant={variant} onClick={close} {...rest}>
       {children}
     </Button>
   );
@@ -175,6 +175,7 @@ export default function Dialog({
   busyLabel = '저장 중…',
   onCancelBusy,
   dirty = false,
+  dirtyNote,
 }: {
   title: ReactNode;
   /** 제목 옆 짧은 회색 글자 */
@@ -201,6 +202,8 @@ export default function Dialog({
   onCancelBusy?: () => void;
   /** 바꾼 것이 있음(처음 값과 다름) — 닫는 길마다 묻고 바깥 누름은 무시 */
   dirty?: boolean;
+  /** 묻는 확인 창 내용에 더할 한 줄(공통 3-3 — 앱마다 한 줄 더할 수 있음) */
+  dirtyNote?: string;
 }) {
   const titleId = useId();
   const busyRef = useRef(busy);
@@ -210,11 +213,11 @@ export default function Dialog({
   /** 닫기 길(× · Esc · [취소])이 모두 부른다 — 막는 중이면 닫지 않고 · 바꾼 것이 있으면 묻는다 */
   const requestClose = () => {
     if (busyRef.current || !onClose) return;
-    if (dirtyRef.current) return askDiscard(onClose);
+    if (dirtyRef.current) return askDiscard(onClose, dirtyNote);
     onClose();
   };
   // 다른 메뉴 · 뒤로 가기도 같은 판단(창이 닫히는 길) — 버리면 창을 닫는다
-  useLeaveGuard(dirty && onClose != null, { busy, discard: onClose });
+  useLeaveGuard(dirty && onClose != null, { busy, discard: onClose, note: dirtyNote });
   useDialogEsc(closeOnEsc && onClose ? requestClose : null);
   const panelRef = useFocusTrap();
   const form = useFormScope();
@@ -231,10 +234,9 @@ export default function Dialog({
         if (closeOnBackdrop && onClose && !dirty && e.target === e.currentTarget) requestClose();
       }}
     >
-      <div ref={panelRef} tabIndex={-1} {...form.props} className={`flex flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl outline-none ${SIZE[size]}`}>
+      <div ref={panelRef} tabIndex={-1} {...form.props} className={`relative flex flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl outline-none ${SIZE[size]}`}>
         <SubmitTriedProvider value={form.tried}>
         <DialogCloseContext.Provider value={requestClose}>
-        <LoadingOverlay busy={busy} label={busyLabel} onCancel={onCancelBusy} className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center gap-2 border-b border-border/40 px-4 py-3">
           <h2 id={titleId} className="min-w-0 text-sm font-semibold text-text-primary">
             {title}
@@ -249,7 +251,8 @@ export default function Dialog({
         {footer != null && (
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border/40 px-4 py-3">{footer}</div>
         )}
-        </LoadingOverlay>
+        {/* 저장 중 — 판의 마지막 자식으로 붙어 제목 줄 · 본문 · 아래 줄을 막는다(판의 자식 순서 · 배치는 그대로) */}
+        <LoadingCover busy={busy} label={busyLabel} onCancel={onCancelBusy} />
         </DialogCloseContext.Provider>
         </SubmitTriedProvider>
       </div>

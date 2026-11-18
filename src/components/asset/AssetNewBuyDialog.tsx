@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Badge, Button, Dialog, FormRow, NumberField, NumberUnitGroup, Select } from '../ui';
+import { Badge, Button, Dialog, DialogCancel, FormRow, NumberField, NumberUnitGroup, Select } from '../ui';
 import SymbolSearch from '../common/SymbolSearch';
 import { InlineSpinner } from '../common/LoadingOverlay';
 import { TRADE_DIGITS } from '../../utils/assetTrade';
@@ -117,6 +117,8 @@ export default function AssetNewBuyDialog({
   const shownCode = plan ? (plan.prefixEditable && prefix ? `${prefix}:${plan.symbol}` : plan.code) : '';
   const afterBuy = plan?.existing && plan.existing.quantity != null && plan.existing.avgPrice != null ? tradeAfter({ side: 'buy', currency: plan.currency, beforeQty: plan.existing.quantity, beforeAvg: plan.existing.avgPrice, qty: qtyN, price: priceN }) : null;
 
+  // 바꾼 것 — 연 때 값(첫 계좌 · 빈 칸)과 다르면(공통 3-3). 막는 로딩은 시트에 쓰는 [저장] 뒤만 — [다음](확인 화면 받기)은 읽기라 버튼 표시만
+  const dirty = cashFailed == null && (section !== (accounts[0]?.key ?? '') || stock != null || qty !== '' || price !== '' || assetClass !== '');
   return (
     <Dialog
       title="새 종목 매수"
@@ -124,6 +126,8 @@ export default function AssetNewBuyDialog({
       onClose={() => !busy && (cashFailed != null ? onSaved() : onClose())}
       closeOnBackdrop={false}
       size="md"
+      busy={busy && plan != null}
+      dirty={dirty}
       footer={
         cashFailed != null ? (
           <Button variant="primary" onClick={onSaved} data-testid="asset-cash-trade-close">
@@ -140,9 +144,7 @@ export default function AssetNewBuyDialog({
           </>
         ) : (
           <>
-            <Button variant="ghost" disabled={busy} onClick={onClose} data-newbuy-cancel>
-              취소
-            </Button>
+            <DialogCancel disabled={busy} data-newbuy-cancel />
             <Button variant="primary" busy={busy} disabled={!filled || writeEnabled !== true || looking} onClick={() => void toConfirm()} data-newbuy-next>
               다음
             </Button>

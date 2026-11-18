@@ -115,6 +115,9 @@ export default function AssetSettingsDialog({
   const [busy, setBusy] = useState<Partial<Record<Field, boolean>>>({});
   const [errors, setErrors] = useState<Partial<Record<Field, string | null>>>({});
   const [priceBusy, setPriceBusy] = useState(false);
+  /** 목표 비율 폼(저장 단추가 따로) · 현금 자동 반영의 상태 — 창의 닫을 때 묻기 · 막는 로딩(공통 3-3 · 7-2) */
+  const [targetState, setTargetState] = useState({ dirty: false, busy: false });
+  const [cashBusy, setCashBusy] = useState(false);
 
   const save = async <K extends Field>(field: K, value: AssetSettings[K]) => {
     if (busy[field]) return; // 저장 중에 또 바꾸면 앞의 저장과 겹친다 — 끝난 뒤 다시
@@ -202,7 +205,7 @@ export default function AssetSettingsDialog({
   const target = (
     <div className="space-y-6">
       <Block title="목표 비율" desc="정수 %. 두 합이 각각 100일 때 저장할 수 있고, 저장하면 시트에도 씁니다." busy={false} error={null}>
-        <AssetTargetRatioForm initial={summary.targetRatio} writeEnabled={summary.writeEnabled} onSave={onSaveTarget} autoFocus={focus === 'targetRatio'} />
+        <AssetTargetRatioForm initial={summary.targetRatio} writeEnabled={summary.writeEnabled} onSave={onSaveTarget} autoFocus={focus === 'targetRatio'} onState={setTargetState} />
       </Block>
 
       <Block title="비율 조정 범위" desc="「비율 조정」 에서 목표와의 차이가 이 범위 안이면 「괜찮음」 입니다." busy={!!busy.rebalanceBand} error={errors.rebalanceBand ?? null}>
@@ -247,7 +250,7 @@ export default function AssetSettingsDialog({
       onChange={(id) => setMenu(id as Menu)}
       onClose={onClose}
       items={[
-        { id: 'target', label: '목표 비율', desc: '자산 배분 · 주식 안 코어 · 위성의 목표와, 「비율 조정」 이 괜찮다고 보는 범위입니다.', busy: !!busy.rebalanceBand, content: target },
+        { id: 'target', label: '목표 비율', desc: '자산 배분 · 주식 안 코어 · 위성의 목표와, 「비율 조정」 이 괜찮다고 보는 범위입니다.', busy: !!busy.rebalanceBand || targetState.busy, dirty: targetState.dirty, content: target },
         { id: 'core', label: '코어 · 위성', desc: '분류 「주식」 종목을 코어와 위성으로 나눕니다.', busy: !!busy.satelliteSymbols, content: satellite },
         { id: 'pension', label: '연금', desc: '「연금 포함」 을 켜고 끌 때 함께 더하고 빼는 계좌입니다.', busy: !!busy.pensionSections, content: pension },
         { id: 'colors', label: '자산 분류 색', desc: '원형 차트와 분류별 표에 같은 색으로 보입니다. 미지정은 회색입니다.', busy: !!busy.classColors, content: colors },
@@ -262,7 +265,8 @@ export default function AssetSettingsDialog({
           id: 'cash',
           label: '현금 자동 반영',
           desc: '시트 「현금」 탭 은행 계좌의 금액만 앱이 바꿉니다 — 매수 · 매도 때 예수금 · 매달 월급 · 고정 흐름. 어긋나면 시트에서 고치면 그 숫자에서 이어 갑니다.',
-          content: <AssetCashSettings onLocked={onLocked} />,
+          busy: cashBusy,
+          content: <AssetCashSettings onLocked={onLocked} onBusy={setCashBusy} />,
         },
         {
           id: 'lock',

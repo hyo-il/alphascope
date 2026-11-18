@@ -559,6 +559,8 @@ try {
     await fillTrade(page, '2.5', '110');
     check(`[118-7] ${width}px — 매수 창 가로 넘침 없음`, !(await panelOverflow(page)));
     await page.locator('[data-trade-cancel]').click();
+    // 145차 — 넣은 값이 있으면 [취소] 가 묻는다(공용 확인 창)
+    await page.getByRole('dialog', { name: '저장하지 않고 닫을까요?' }).getByRole('button', { name: '저장하지 않고 닫기' }).click();
     await page.locator('[data-trade-new]').click();
     await page.locator('[data-newbuy-form]').waitFor({ timeout: 5000 });
     check(`[120-7] ${width}px — 새 종목 창 가로 넘침 없음`, !(await panelOverflow(page)));

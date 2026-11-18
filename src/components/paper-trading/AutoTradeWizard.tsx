@@ -1,5 +1,5 @@
 import Button from '../ui/Button';
-import Dialog from '../ui/Dialog';
+import Dialog, { DialogCancel } from '../ui/Dialog';
 import { ICON_SM } from '../ui/icon';
 import { Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -60,7 +60,6 @@ export default function AutoTradeWizard({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [closing, setClosing] = useState(false);
   const { rules } = useTradingRules();
 
   const accountId = choice === 'new' ? (created?.id ?? null) : existingId;
@@ -126,16 +125,8 @@ export default function AutoTradeWizard({
     }
   };
 
-  const requestClose = () => {
-    if (created && !closing) {
-      setClosing(true);
-      return;
-    }
-    onClose();
-  };
-
   return (
-    // 바깥 클릭으로 닫지 않는다 — 닫기 X·ESC 는 닫기 확인 줄을 거친다(requestClose)
+    // 바깥 클릭으로 닫지 않는다 — 바꾼 것이 있으면 닫는 길(× · Esc · [취소] · 다른 메뉴 · 뒤로 가기)마다 공용 확인 창(공통 3-3)
     <Dialog
       title="자동매매 처음 켜기"
       titleAside={
@@ -157,11 +148,16 @@ export default function AutoTradeWizard({
           </ol>
         </span>
       }
-      onClose={requestClose}
+      onClose={onClose}
       size="lg"
       z={85}
       closeOnBackdrop={false}
       bodyClassName="flex flex-col"
+      // 켜는 동안 막는다(공통 7-2) · 바꾼 것(1단계에서 고른 것 · 단계를 넘김 · 새 계좌를 만듦)이 있으면 닫을 때 묻는다(공통 3-3) —
+      // 새 계좌를 만들었으면 「그 계좌는 남는다」 한 줄을 확인 창에 더한다
+      busy={busy}
+      dirty={created != null || step > 1 || choice !== 'new' || existingId !== (accounts[0]?.account.id ?? null)}
+      dirtyNote={created ? `새 계좌 「${created.name}」 는 이미 만들어져 남아요` : undefined}
     >
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 [scrollbar-gutter:stable]">
@@ -313,35 +309,11 @@ export default function AutoTradeWizard({
           )}
         </div>
 
-        {/* 닫기 확인 — 새 계좌는 이미 만들어졌다 */}
-        {closing && created && (
-          <div className="flex shrink-0 items-center gap-2 border-t border-warning/40 bg-warning/10 px-4 py-2 text-caption text-warning">
-            <span className="min-w-0">
-              새 계좌 「{created.name}」 는 이미 만들어져 남습니다. 자동매매 설정은 저장하지 않고 닫을까요?
-            </span>
-            <button
-              type="button"
-              onClick={onClose}
-              className="shrink-0 whitespace-nowrap ml-auto rounded border border-warning px-2 py-0.5 hover:bg-warning/10"
-            >
-              닫기
-            </button>
-            <Button variant="secondary" size="sm"
-              onClick={() => setClosing(false)}>
-              계속하기
-            </Button>
-          </div>
-        )}
-
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">
           <span className="min-w-0 text-caption text-text-muted">
             자동매매 설정은 [켜기] 를 눌러야 저장됩니다{created ? ' (새 계좌는 만들 때 바로 생겼습니다)' : ''}.
           </span>
-          <Button variant="secondary" size="md"
-            onClick={requestClose}
-            className="ml-auto">
-            취소
-          </Button>
+          <DialogCancel variant="secondary" size="md" className="ml-auto" />
           {step > 1 && (
             <Button variant="secondary" size="md"
               onClick={() => setStep((s) => (s - 1) as Step)}>

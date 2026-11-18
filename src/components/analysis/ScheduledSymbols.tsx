@@ -1,7 +1,7 @@
 import { formatDateTime } from '../../utils/dateFormat';
 import { useState } from 'react';
 import { Button } from '../ui';
-import Dialog from '../ui/Dialog';
+import Dialog, { DialogCancel } from '../ui/Dialog';
 import { useScheduledSymbols, type ScheduledStatus } from '../../hooks/useScheduledSymbols';
 import { useStockNames } from '../../hooks/useStockNames';
 import { modal, toast } from '../../store/uiStore';
@@ -152,11 +152,11 @@ function ScheduledEditor({
       size="md"
       z={95}
       bodyClassName="space-y-3 p-4"
+      busy={saving}
+      dirty={draft.join(',') !== status.symbols.join(',')}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
-            취소
-          </Button>
+          <DialogCancel />
           <Button busy={saving} variant="primary" onClick={() => void submit()} disabled={saving}>
             {saving ? '저장 중…' : '저장'}
           </Button>

@@ -9,7 +9,7 @@ import { BLOCKING_SHOW_MS, BLOCKING_SLOW_MS } from '../ui/tokens';
  * - **언제**: 기다리는 동안 다른 조작을 하면 결과가 꼬이는 일만 — 저장 · 삭제 · 전체 다시 읽기 · 되돌릴 수 없는 일.
  *   나머지 기다림(읽기)은 막지 않고 표시만(`InlineSpinner` · 스켈레톤 · `LoadingSpinner`).
  * - **두 꼴**: `scope="area"`(기본 · 그 칸만 — `children` 을 감싼다) · `scope="app"`(앱 전체 — 앱 전체 데이터를 바꿀 때만 · 앱 루트를 막는다).
- *   창(`ui/Dialog`) 안 저장은 창에 `busy` 를 주면 창이 이 부품으로 창 전체(제목 줄 × 까지)를 막는다.
+ *   창(`ui/Dialog`) 안 저장은 창에 `busy` 를 주면 창이 같은 덮개(`LoadingCover` — 감싸지 않고 판의 마지막 자식으로 붙어 형제를 막음)로 창 전체(제목 줄 × 까지)를 막는다.
  * - **때**: `busy` 가 켜진 순간 덮인 곳에 `inert`(Tab · Enter · 마우스가 닿지 않음 — 두 번 누름 방지) + 투명 덮개.
  *   로딩 표시(도는 원 · 글)는 `BLOCKING_SHOW_MS`(0.3초) 뒤 — 빨리 끝나면 깜빡이지 않는다.
  *   `BLOCKING_SLOW_MS`(10초)를 넘으면 「오래 걸리고 있어요」, 멈출 수 있는 일(부르는 쪽이 `onCancel` 을 줄 때)이면 [취소].
@@ -71,23 +71,23 @@ function Cover({ phase, label, onCancel, fixed, coverRef }: { phase: Phase; labe
   );
 }
 
-/** 막는 동안 덮인 곳(`target`)에 inert · 초점을 덮개로 · 풀리면 돌려줌 */
-function useInert(busy: boolean, target: () => HTMLElement | null, coverRef: RefObject<HTMLDivElement>) {
+/** 막는 동안 덮인 곳(`targets`)에 inert · 초점을 덮개로 · 풀리면 돌려줌 */
+function useInert(busy: boolean, targets: () => HTMLElement[], coverRef: RefObject<HTMLDivElement>) {
   useLayoutEffect(() => {
-    const el = target();
-    if (!busy || !el) return;
+    const els = busy ? targets() : [];
+    if (!els.length) return;
     const before = document.activeElement as HTMLElement | null;
-    const had = before != null && el.contains(before);
-    el.inert = true;
+    const had = before != null && els.some((el) => el.contains(before));
+    for (const el of els) el.inert = true;
     if (had) coverRef.current?.focus({ preventScroll: true });
     return () => {
-      el.inert = false;
+      for (const el of els) el.inert = false;
       // 덮개에 있던 초점만 돌려준다(그 사이 사용자가 다른 곳으로 옮겼으면 그대로)
       const now = document.activeElement;
       const lost = now == null || now === document.body || now === coverRef.current;
       if (had && lost && before && before.isConnected && !(before as HTMLButtonElement).disabled) before.focus({ preventScroll: true });
     };
-  }, [busy, target, coverRef]);
+  }, [busy, targets, coverRef]);
 }
 
 export default function LoadingOverlay({
@@ -113,22 +113,10 @@ export default function LoadingOverlay({
   const phase = useBlockPhase(busy);
   const coverRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
-  const appRoot = useRef(() => document.getElementById('root')).current;
-  const areaRoot = useRef(() => innerRef.current).current;
+  const appRoot = useRef(() => [document.getElementById('root')].filter((x): x is HTMLElement => x != null)).current;
+  const areaRoot = useRef(() => (innerRef.current ? [innerRef.current] : [])).current;
   useInert(busy, scope === 'app' ? appRoot : areaRoot, coverRef);
-
-  // 덮개가 떠 있는 동안 Esc 가 아래(창 닫기 등)로 가지 않게 — 풀리지도 않는다
-  useEffect(() => {
-    if (!busy) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      const cover = coverRef.current;
-      const inside = scope === 'app' || (cover && innerRef.current && (innerRef.current.contains(document.activeElement) || cover.contains(document.activeElement)));
-      if (inside) e.stopPropagation();
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [busy, scope]);
+  useEscGuard(busy, () => scope === 'app' || [innerRef.current, coverRef.current].some((el) => el?.contains(document.activeElement)));
 
   if (scope === 'app') {
     return phase === 'off' ? null : createPortal(<Cover phase={phase} label={label} onCancel={onCancel} fixed coverRef={coverRef} />, document.body);
@@ -142,6 +130,37 @@ export default function LoadingOverlay({
       {phase !== 'off' && <Cover phase={phase} label={label} onCancel={onCancel} fixed={false} coverRef={coverRef} />}
     </div>
   );
+}
+
+/** 덮개가 떠 있는 동안 Esc 가 아래(창 닫기 등)로 가지 않게 — 풀리지도 않는다 */
+function useEscGuard(busy: boolean, inside: () => boolean) {
+  const ref = useRef(inside);
+  ref.current = inside;
+  useEffect(() => {
+    if (!busy) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && ref.current()) e.stopPropagation();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [busy]);
+}
+
+/**
+ * 감싸지 않는 꼴 — 부모(`relative`) 안 마지막 자식으로 놓으면 **형제 요소 모두**를 막는다(창 판처럼 자식 순서 · 배치를 바꾸면 안 되는 곳 · `ui/Dialog`).
+ * 때 · 표시 · 초점 · Esc 는 `LoadingOverlay` 와 같다.
+ */
+export function LoadingCover({ busy, label = '처리 중…', onCancel }: { busy: boolean; label?: string; onCancel?: () => void }) {
+  const phase = useBlockPhase(busy);
+  const coverRef = useRef<HTMLDivElement>(null);
+  const siblings = useRef(() => {
+    const cover = coverRef.current;
+    const parent = cover?.parentElement;
+    return parent ? [...parent.children].filter((c): c is HTMLElement => c !== cover && c instanceof HTMLElement) : [];
+  }).current;
+  useInert(busy, siblings, coverRef);
+  useEscGuard(busy, () => coverRef.current?.parentElement?.contains(document.activeElement) ?? false);
+  return phase === 'off' ? null : <Cover phase={phase} label={label} onCancel={onCancel} fixed={false} coverRef={coverRef} />;
 }
 
 /** 버튼·입력창 안에 넣는 작은 스피너 — 막지 않는 표시(7절) */

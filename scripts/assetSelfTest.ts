@@ -1650,8 +1650,9 @@ const OPTIONS_HAS_MIXED = (src: string) => /value: MIXED|'mixed'/.test(src);
   check('[116-4] [저장] = planClassSave → runClassSave(값마다 한 요청) · 모두 성공 → onSaved(닫고 다시 읽기) · 일부 실패 → 창 그대로 · 「저장됨」 · 이유 한 줄 · 저장 중 버튼 막음',
     /runClassSave\(planClassSave\(rows, base, draft\), onSend\)/.test(dlg) && /if \(out\.failed\.length === 0\) \{\s*onSaved\(out\.data\);/.test(dlg) && /저장됨/.test(dlg) && /개를 시트에 쓰지 못했습니다 — /.test(dlg) && /OPTIONS_BUSY/.test(dlg) &&
       /onSaved=\{\(data\) => \{\s*if \(data\) setSheet\(\{ data \}\);\s*setClassOpen\(false\);\s*void reload\(\);/.test(dash) && /onPartial=\{\(data\) => setSheet\(\{ data \}\)\}/.test(dash));
-  check('[116-5] 바꾼 채 닫기([취소] · × · ESC) → 확인 창 「바꾼 n개를 저장하지 않고 닫을까요?」 · 바깥 클릭으로 닫지 않음 · 스위치 꺼짐 → 안내 · [저장] 막힘 · 모르면 글 없이 막음',
-    /onClose=\{requestClose\}/.test(dlg) && /onClick=\{requestClose\}/.test(dlg) && /closeOnBackdrop=\{false\}/.test(dlg) && /바꾼 \$\{changed\.length\}개를 저장하지 않고 닫을까요\?/.test(dlg) && /modal\.confirm\(/.test(dlg) &&
+  // 145차(v2.72.2) — 묻기는 공용 창(`Dialog` `dirty` · `DialogCancel` · 「저장하지 않고 닫을까요?」 — 동작은 blockleaveui:test [145-3])
+  check('[116-5] 바꾼 채 닫기([취소] · × · ESC) → 공용 확인 창(`dirty`) · 바깥 클릭으로 닫지 않음 · 저장 중 막음(`busy`) · 스위치 꺼짐 → 안내 · [저장] 막힘 · 모르면 글 없이 막음',
+    /dirty=\{changed\.length > 0\}/.test(dlg) && /busy=\{busy\}/.test(dlg) && /<DialogCancel data-class-cancel \/>/.test(dlg) && /closeOnBackdrop=\{false\}/.test(dlg) && !/modal\.confirm\(/.test(dlg) &&
       /writeEnabled === false && \(/.test(dlg) && /이 서버에서는 시트 쓰기가 꺼져 있습니다/.test(dlg) && /writeEnabled=\{summary \? summary\.writeEnabled : null\}/.test(dash));
   check('[116-6] 총 자산 분류별 표 「미지정」 줄 링크 → 창 열림 · 자산 현황 [자산 분류 정하기] 버튼 → 창 열림 · 창이 열리면 시트를 읽음(총 자산 탭에서도)',
     /onClick=\{onOpenClassDialog\} className="truncate text-caption text-accent hover:underline" data-open-class-dialog/.test(dash) && /<GroupTable summary=\{summary\} onOpenClassDialog=\{\(\) => setClassOpen\(true\)\} \/>/.test(dash) &&

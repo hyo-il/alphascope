@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { Button, FormScope, ICON_SM, NumberField } from "../ui";
 import type { AssetTargetRatio } from "../../types/asset";
@@ -115,6 +115,7 @@ export default function AssetTargetRatioForm({
   writeEnabled,
   onSave,
   autoFocus = false,
+  onState,
 }: {
   /** 시트에서 읽은 목표 비율(백분율) */
   initial: AssetTargetRatio;
@@ -127,6 +128,8 @@ export default function AssetTargetRatioForm({
   >;
   /** [목표 비율 바꾸기] 로 열면 첫 칸에 초점 */
   autoFocus?: boolean;
+  /** 저장하지 않은 바꾼 것 · 저장 중 — 설정 창이 닫을 때 묻기 · 막는 로딩에 쓴다(공통 3-3 · 7-2) */
+  onState?: (s: { dirty: boolean; busy: boolean }) => void;
 }) {
   const [saved, setSaved] = useState<AssetTargetRatio>(initial);
   const [texts, setTexts] = useState<Texts>(() => toTexts(initial));
@@ -152,6 +155,8 @@ export default function AssetTargetRatioForm({
     sumOf(ASSET_FIELDS) === 100 &&
     sumOf(STOCK_FIELDS) === 100;
   const changed = ALL.some(({ key }) => texts[key] !== toTexts(saved)[key]);
+  // 그리기 바로 뒤(화면에 보이기 전)에 창으로 — 넣자마자 Esc 를 눌러도 창이 바뀐 것을 안다
+  useLayoutEffect(() => onState?.({ dirty: changed, busy }), [changed, busy, onState]);
 
   const save = async () => {
     if (!valid || busy || !writeEnabled) return;

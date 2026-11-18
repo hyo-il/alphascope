@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Dialog, Input } from '../ui';
+import { Button, Dialog, DialogCancel, Input } from '../ui';
 import { toast } from '../../store/uiStore';
 import type { PaperAccount } from '../../types/paper';
 
@@ -18,14 +18,20 @@ export default function CopyAccountDialog({
   onCopied: (copy: PaperAccount) => Promise<void> | void;
 }) {
   const [name, setName] = useState<string | null>(null);
+  /** 서버가 정해 준 처음 이름 — 바꾼 것인지 견줄 값 */
+  const [firstName, setFirstName] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    const start = (first: string) => {
+      setName(first);
+      setFirstName(first);
+    };
     fetch(`/api/paper/accounts/${account.id}/copy-name`)
       .then((r) => r.json())
-      .then((b: { name?: string }) => !cancelled && setName(b.name ?? `${account.name} 복사본`))
-      .catch(() => !cancelled && setName(`${account.name} 복사본`));
+      .then((b: { name?: string }) => !cancelled && start(b.name ?? `${account.name} 복사본`))
+      .catch(() => !cancelled && start(`${account.name} 복사본`));
     return () => {
       cancelled = true;
     };
@@ -55,13 +61,15 @@ export default function CopyAccountDialog({
   return (
     <Dialog
       title="계좌 복사"
-      onClose={saving ? undefined : onClose}
+      onClose={onClose}
       size="md"
+      // 복사하는 동안 창을 막는다(공통 7-2 — 닫히지 않음) · 이름을 바꿨으면 닫을 때 묻는다(공통 3-3)
+      busy={saving}
+      busyLabel="복사하는 중…"
+      dirty={name != null && firstName != null && name !== firstName}
       footer={
         <>
-          <Button onClick={onClose} disabled={saving}>
-            취소
-          </Button>
+          <DialogCancel variant="secondary" disabled={saving} />
           <Button busy={saving} variant="primary" onClick={() => void copy()} disabled={saving || !name?.trim()}>
             {saving ? '복사하는 중…' : '복사'}
           </Button>

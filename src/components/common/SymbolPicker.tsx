@@ -5,7 +5,7 @@ import StockName from './StockName';
 import SymbolSearch from './SymbolSearch';
 import { SkeletonList } from './SkeletonLoader';
 import { Button, ListRemoveButton, RemoveAllButton, Tabs } from '../ui';
-import Dialog from '../ui/Dialog';
+import Dialog, { DialogCancel } from '../ui/Dialog';
 import { ICON_SM } from '../ui/icon';
 import { CONTROL_H } from '../ui/tokens';
 import { useBacktestUniverse } from '../../hooks/useBacktest';
@@ -248,12 +248,13 @@ function SourcePickerDialog({ selected, onChange, dialogTitle, onClose, disabled
       size="xl"
       z={98}
       bodyClassName="flex"
+      dirty={changed}
       footer={
         <>
           <span className="mr-auto text-caption text-text-muted tabular-nums" aria-live="polite">
             {changed ? changeText(adding, dropping, false) : '바뀐 것이 없습니다'}
           </span>
-          <Button onClick={onClose}>취소</Button>
+          <DialogCancel variant="secondary" />
           <Button variant="primary" onClick={commit} disabled={!changed || disabled}>
             추가
           </Button>
@@ -400,13 +401,14 @@ function CatalogPickerDialog({
       size="xl"
       z={98}
       bodyClassName="flex"
+      dirty={changed}
       footer={
         <>
           <span className="mr-auto text-caption text-text-muted tabular-nums" aria-live="polite">
             {disabled ? '실행이 끝나면 추가할 수 있습니다 · ' : ''}
             {changed ? changeText(adding, dropping, true) : '바뀐 것이 없습니다'}
           </span>
-          <Button onClick={onClose}>취소</Button>
+          <DialogCancel variant="secondary" />
           <Button variant="primary" onClick={commit} disabled={!changed || disabled}>
             추가
           </Button>

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
-import { Button, Dialog, FieldError, FieldTouch, FormRow, ICON_SM, Input, NumberField, NumberUnitGroup, Segmented } from '../ui';
+import { Button, Dialog, DialogCancel, FieldError, FieldTouch, FormRow, ICON_SM, Input, NumberField, NumberUnitGroup, Segmented } from '../ui';
 import { modal } from '../../store/uiStore';
 import { formatAssetWon, formatAssetWonSigned } from '../../utils/assetFormat';
 import AssetCashAccountPicker from './AssetCashAccountPicker';
@@ -179,6 +179,8 @@ export default function AssetCashMoveDialog({
       {text}
     </span>
   );
+  // 바꾼 것 — 연 때 값(종류 「옮기기」 · 처음 계좌 · 빈 금액 · 빈 메모)과 다르면(공통 3-3 · 되돌리면 다시 없음)
+  const dirty = !unsure && (kind !== 'transfer' || fromId !== (initialSide === 'from' ? start : '') || toId !== (initialSide === 'to' ? start : '') || amount !== '' || memo !== '');
   const accountError = (needFrom && !from) || (needTo && !to) ? '계좌를 골라 주세요' : same ? '빠지는 계좌와 들어가는 계좌가 같아요' : undefined;
 
   return (
@@ -188,6 +190,8 @@ export default function AssetCashMoveDialog({
       onClose={() => !busy && (unsure ? onSaved() : onClose())}
       closeOnBackdrop={false}
       size="md"
+      busy={busy}
+      dirty={dirty}
       footer={
         unsure ? (
           <Button variant="primary" onClick={onSaved} data-testid="asset-cash-move-close">
@@ -195,9 +199,7 @@ export default function AssetCashMoveDialog({
           </Button>
         ) : (
           <>
-            <Button variant="ghost" disabled={busy} onClick={onClose} data-testid="asset-cash-move-cancel">
-              취소
-            </Button>
+            <DialogCancel disabled={busy} data-testid="asset-cash-move-cancel" />
             <Button variant="primary" busy={busy} disabled={!canSave} onClick={askSave} submit data-testid="asset-cash-move-save">
               저장
             </Button>

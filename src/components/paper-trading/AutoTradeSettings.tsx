@@ -1,5 +1,5 @@
 import Button from '../ui/Button';
-import Dialog from '../ui/Dialog';
+import Dialog, { DialogCancel } from '../ui/Dialog';
 import { Children, useEffect, useState } from 'react';
 import FormRow from '../ui/FormRow';
 import NumberField, { NumberUnitGroup } from '../ui/NumberField';
@@ -68,6 +68,9 @@ export default function AutoTradeSettings({ strategy, onSave, onClose, doneMessa
       size="lg"
       z={90}
       bodyClassName="flex flex-col"
+      busy={saving}
+      // 바꾼 것 — 받은 설정과 다르면(되돌리면 다시 없음 · 공통 3-3)
+      dirty={JSON.stringify(draft) !== JSON.stringify(strategy)}
     >
       {/* 숫자 칸 단위 폭을 창 전체가 같게 — 「%」·「종목」·「거래일」 이 달라도 숫자 오른쪽 끝이 한 줄 */}
       <NumberUnitGroup w="lg">
@@ -160,9 +163,7 @@ export default function AutoTradeSettings({ strategy, onSave, onClose, doneMessa
 
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">
           <span className="min-w-0 text-caption text-text-muted">값의 허용 범위는 저장할 때 서버가 다시 한 번 조입니다.</span>
-          <Button variant="secondary" size="md" onClick={onClose} className="ml-auto">
-            취소
-          </Button>
+          <DialogCancel variant="secondary" size="md" className="ml-auto" />
           <Button busy={saving} variant="primary" size="md" onClick={() => void save()} disabled={saving}>
             {saving ? '저장하는 중…' : saveLabel}
           </Button>

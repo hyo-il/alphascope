@@ -2,6 +2,8 @@ import NumberField from '../ui/NumberField';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
 import { useState } from 'react';
+import LoadingOverlay from '../common/LoadingOverlay';
+import { useLeaveGuard } from '../../hooks/useLeaveGuard';
 import { CASH_MAX, type PaperAccount } from '../../types/paper';
 import { formatPrice } from '../../utils/formatters';
 
@@ -47,7 +49,10 @@ export default function CreateAccountForm({ onCreate, onDone, onCancel }: Props)
     }
   };
 
+  // 넣은 이름 · 금액이 있으면 다른 메뉴 · 뒤로 가기에서 묻는다(공통 3-3) · 만드는 동안 이 줄을 막는다(공통 7-2)
+  useLeaveGuard(name !== '' || balance !== 10_000_000, { busy });
   return (
+    <LoadingOverlay busy={busy} label="만드는 중…" className="w-full">
     <div className="flex w-full flex-wrap items-center gap-2 rounded-md bg-bg-tertiary/50 px-3 py-2">
       <Input
         value={name}
@@ -96,5 +101,6 @@ export default function CreateAccountForm({ onCreate, onDone, onCancel }: Props)
       )}
       {error && <span className="text-xs text-danger">{error}</span>}
     </div>
+    </LoadingOverlay>
   );
 }

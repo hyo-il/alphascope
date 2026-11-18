@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { ArrowRight, LoaderCircle } from 'lucide-react';
 import { Button, DisclosureButton, ICON_SM, Input, Panel, Segmented, Select } from '../ui';
 import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NUM_GAP } from '../ui/tokens';
@@ -67,9 +67,11 @@ async function readJson(res: Response): Promise<Record<string, unknown>> {
   return ((await res.json().catch(() => ({}))) ?? {}) as Record<string, unknown>;
 }
 
-export default function AssetCashSettings({ onLocked }: { onLocked: () => void }) {
+export default function AssetCashSettings({ onLocked, onBusy }: { onLocked: () => void; /** 저장 중 — 설정 창이 막는 로딩에 쓴다(공통 7-2 · 칸마다 바로 저장이라 닫을 때 물을 것은 없다) */ onBusy?: (busy: boolean) => void }) {
   const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [busy, setBusy] = useState<string | null>(null);
+  // 그리기 바로 뒤에 창으로 — 누르자마자 Esc 를 눌러도 창이 저장 중인 것을 안다
+  useLayoutEffect(() => onBusy?.(busy != null), [busy, onBusy]);
   const [errors, setErrors] = useState<Partial<Record<BlockId, string | null>>>({});
   const [allDay, setAllDay] = useState(26);
   const [banksOpen, setBanksOpen] = useState(false);

@@ -3,6 +3,7 @@ import { LoaderCircle, Lock, RefreshCw, Settings } from 'lucide-react';
 import { Button, Checkbox, ICON_SM, IconButton, PageHeader, Panel, ScrollTopShade, Segmented, SectionTitle } from '../ui';
 import { LIST_TABLE_ROW, PANEL_PAD, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { Skeleton, SkeletonTable } from '../common/SkeletonLoader';
+import LoadingOverlay from '../common/LoadingOverlay';
 import { usePolling } from '../../hooks/usePolling';
 import { useAssetIdleLock } from '../../hooks/useAssetIdleLock';
 import { changeColor, formatNumber, formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
@@ -39,7 +40,7 @@ import { MonthlyBuySection, PurchaseDayDialog, dayText, isEarlyDone, sheetDateTe
  * - 총 자산: 숫자 카드 셋(총 자산 · 어제보다 · 평가 손익) · 총 자산 선 차트(하루 기록 · 1개월 · 3개월 · 1년 · 전체) ·
  *   구성 원형 차트 / 분류별 표(주식 아래 코어 · 위성 · 미지정은 흐리게) — 분류 색은 설정의 「자산 분류 색」
  * - 자산 현황: 요약 + 계좌 카드(자산 분류 고르기 — 시트에 바로 씀). 이 탭을 처음 열 때 시트를 읽는다.
- * 받기: 처음 = 스켈레톤 · 다시 읽기 · 연금 포함 바꾸기 = 내용을 두고 작은 스피너 · 10초 가격 갱신(`usePolling` — 숨은 탭에서 쉼)은 표시 없음.
+ * 받기: 처음 = 스켈레톤 · 다시 읽기(쓰기 뒤 포함) = 내용 칸을 막는 로딩(`LoadingOverlay` — 0.3초 뒤 표시 · 10초 넘으면 [취소]) · 연금 포함 바꾸기 = 내용을 두고 작은 스피너 · 10초 가격 갱신(`usePolling` — 숨은 탭에서 쉼)은 표시 없음.
  * 잠금 시간(v2.65.4): 이 화면(창 포함)의 클릭 · 키 · 스크롤 · 터치를 `useAssetIdleLock` 에 알린다(touch 1분에 한 번 이하 · 화면 타이머 → `onIdle`).
  *   시간은 설정(`summary.settings.lockMinutes` — 받기 전에는 잠금 상태가 준 값).
  * 매수 · 매도 입력(v2.66.0): 자산 현황 계좌별 줄의 [매수] [매도] → `AssetTradeDialog` · 성공하면 닫고 다시 읽기 · [매수 · 매도 기록] → `AssetTradeHistoryDialog`.
@@ -181,29 +182,47 @@ export default function AssetDashboard({
     if (!mb.done && !mb.skipped) setPurchasePopup(true);
   }, [latest]);
 
-  const loadSheet = useCallback(async () => {
+  const loadSheet = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch('/api/asset/sheet');
+      const res = await fetch('/api/asset/sheet', { signal });
       const body = await readJson(res);
+      if (signal?.aborted) return;
       if (body.code === 'asset-locked') return onLocked();
       setSheet(res.ok ? { data: body as unknown as AssetSheetData } : { error: (body as unknown as AssetSheetFailure).error ?? '시트를 읽지 못했습니다.' });
     } catch {
+      if (signal?.aborted) return;
       setSheet({ error: '서버에 연결하지 못했습니다.' });
     }
   }, [onLocked]);
 
-  /** 「다시 읽기」 · 쓰기 뒤 — 내용을 두고 버튼만 돈다 */
+  /**
+   * 「다시 읽기」 · 쓰기 뒤 — 전체 다시 읽기라 내용 칸을 막는다(공통 7-2 — 0.3초 뒤 표시 · 10초 넘으면 [취소]).
+   * [취소] = 받기를 멈추고 그린 값 그대로(읽기만이라 되돌릴 것이 없다).
+   */
+  const reloadAbort = useRef<AbortController | null>(null);
   const reload = useCallback(async () => {
+    const ac = new AbortController();
+    reloadAbort.current?.abort();
+    reloadAbort.current = ac;
     setReloading(true);
     try {
-      const res = await fetch(url);
-      setLatest({ pension, result: toResult(await readJson(res)) });
+      const res = await fetch(url, { signal: ac.signal });
+      const next = toResult(await readJson(res));
+      if (!ac.signal.aborted) setLatest({ pension, result: next });
     } catch {
-      setLatest((prev) => prev ?? { pension, result: { ok: false, fail: { error: '서버에 연결하지 못했습니다.' } } });
+      if (!ac.signal.aborted) setLatest((prev) => prev ?? { pension, result: { ok: false, fail: { error: '서버에 연결하지 못했습니다.' } } });
     }
-    if (open) await loadSheet();
-    setReloading(false);
+    if (open && !ac.signal.aborted) await loadSheet(ac.signal);
+    if (reloadAbort.current === ac) {
+      reloadAbort.current = null;
+      setReloading(false);
+    }
   }, [url, pension, open, loadSheet]);
+  const cancelReload = () => {
+    reloadAbort.current?.abort();
+    reloadAbort.current = null;
+    setReloading(false);
+  };
 
   useEffect(() => {
     if ((open || classOpen) && sheet == null) void loadSheet();
@@ -389,6 +408,7 @@ export default function AssetDashboard({
         }}
         tabsLabel="자산 관리 보기"
       />
+      <LoadingOverlay busy={reloading} label="다시 읽는 중…" onCancel={cancelReload} className="flex min-h-0 flex-1 flex-col">
       <div className={`min-h-0 flex-1 space-y-3 overflow-y-auto [scrollbar-gutter:stable] ${PANEL_PAD}`} data-asset-scroll>
         <ScrollTopShade />
         {/* 총 자산 탭 — 처음 받기는 스켈레톤(받기 전에 0 · 빈 값을 그리지 않는다) */}
@@ -423,6 +443,7 @@ export default function AssetDashboard({
           </div>
         )}
       </div>
+      </LoadingOverlay>
       {purchasePopup && summary && !summary.monthlyBuy.done && !summary.monthlyBuy.skipped && (
         <PurchaseDayDialog
           mb={summary.monthlyBuy}

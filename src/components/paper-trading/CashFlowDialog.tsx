@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Dialog, FieldError, FieldTouch, NumberField } from '../ui';
+import { Button, Dialog, DialogCancel, FieldError, FieldTouch, NumberField } from '../ui';
 import { groupNumber } from '../ui/NumberField';
 import { toast } from '../../store/uiStore';
 import { CASH_MAX, CURRENCY_DECIMALS, type CashFlowType, type PaperAccount } from '../../types/paper';
@@ -57,13 +57,15 @@ export default function CashFlowDialog({
     <Dialog
       title={label}
       titleAside={account.name}
-      onClose={saving ? undefined : onClose}
+      onClose={onClose}
       size="sm"
+      // 처리하는 동안 창을 막는다(공통 7-2 — 닫히지 않음) · 금액을 넣었으면 닫을 때 묻는다(공통 3-3)
+      busy={saving}
+      busyLabel={`${label} 중…`}
+      dirty={raw !== ''}
       footer={
         <>
-          <Button onClick={onClose} disabled={saving}>
-            취소
-          </Button>
+          <DialogCancel variant="secondary" disabled={saving} />
           <Button busy={saving} variant="primary" onClick={() => void submit()} disabled={saving || !canSubmit} submit>
             {saving ? `${label} 중…` : label}
           </Button>

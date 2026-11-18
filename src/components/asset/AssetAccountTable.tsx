@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Check, Plus, Search } from 'lucide-react';
-import { Button, Dialog, ListRemoveButton, RemoveAllButton } from '../ui';
+import { Button, Dialog, DialogCancel, ListRemoveButton, RemoveAllButton } from '../ui';
 import { ICON_SM } from '../ui/icon';
 import { LIST_TABLE_ROW, TABLE_NAME_COL } from '../ui/tokens';
 
@@ -107,12 +107,13 @@ function AccountPickerDialog({ title, choices, onAdd, onClose }: { title: string
       size="xl"
       z={98}
       bodyClassName="flex"
+      dirty={picked.length > 0}
       footer={
         <>
           <span className="mr-auto text-caption text-text-muted tabular-nums" aria-live="polite">
             {picked.length > 0 ? `${picked.length}계좌 추가` : '바뀐 것이 없습니다'}
           </span>
-          <Button onClick={onClose}>취소</Button>
+          <DialogCancel variant="secondary" />
           <Button
             variant="primary"
             disabled={picked.length === 0}

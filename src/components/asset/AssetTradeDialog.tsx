@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Dialog, FormRow, NumberField, NumberUnitGroup } from '../ui';
+import { Button, Dialog, DialogCancel, FormRow, NumberField, NumberUnitGroup } from '../ui';
 import { formatNumber } from '../../utils/formatters';
 import { modal } from '../../store/uiStore';
 import { TRADE_DIGITS } from '../../utils/assetTrade';
@@ -104,6 +104,9 @@ export default function AssetTradeDialog({
       onClose={() => !busy && (cashFailed != null ? onSaved() : onClose())}
       closeOnBackdrop={false}
       size="md"
+      busy={busy}
+      // 바꾼 것 — 수량 · 가격 칸을 넣었으면(연 때는 빈 칸 · 지우면 다시 없음 — 공통 3-3)
+      dirty={cashFailed == null && (qty !== '' || price !== '')}
       footer={
         cashFailed != null ? (
           <Button variant="primary" onClick={onSaved} data-testid="asset-cash-trade-close">
@@ -111,9 +114,7 @@ export default function AssetTradeDialog({
           </Button>
         ) : (
           <>
-            <Button variant="ghost" disabled={busy} onClick={onClose} data-trade-cancel>
-              취소
-            </Button>
+            <DialogCancel disabled={busy} data-trade-cancel />
             <Button variant={side} busy={busy} disabled={!canSave} onClick={askSave} submit data-trade-save>
               저장
             </Button>
