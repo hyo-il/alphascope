@@ -514,7 +514,10 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
             className={
               view === 'chart'
                 ? 'flex min-h-0 flex-1 flex-col'
-                : 'pointer-events-none fixed left-[-200vw] top-0 flex h-[640px] w-[960px] flex-col'
+                : desk
+                  ? 'pointer-events-none fixed left-[-200vw] top-0 flex h-[640px] w-[960px] flex-col'
+                  : // 폰 · 패드는 −200vw 가 960 보다 짧아(402 폭이면 −804px) 차트 끝이 화면 왼쪽에 비쳤다 — 고정 거리로 화면 밖에
+                    'pointer-events-none fixed left-[-4000px] top-0 flex h-[640px] w-[960px] flex-col'
             }
             aria-hidden={view !== 'chart'}
           >
@@ -581,7 +584,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
       <div className="relative flex min-w-0 flex-1 flex-col">
         {phone && (
           <MobileTopBar
-            title={pageMeta(view)?.label ?? ''}
+            heading={pageMeta(view)?.label ?? ''}
             code={view === 'chart' ? symbol : null}
             onMenu={() => setMenuOpen(true)}
             onSearch={() => setSearchOpen(true)}
@@ -684,7 +687,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           onClose={() => setWatchOpen(false)}
           side="right"
           label="관심 목록"
-          title="관심 목록"
+          heading="관심 목록"
           testId="watch-sheet"
           widthClass="phone:w-[min(85vw,360px)] pad:w-[320px]"
         >

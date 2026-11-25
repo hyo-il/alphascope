@@ -17,14 +17,14 @@ const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia?.
  * - 닫힘: 덮개 누름 · [닫기] · Esc(맨 위 창 · 판 하나만 — `Dialog` 와 같은 순서) · 나온 쪽으로 밀기. 고른 뒤 닫는 것은 쓰는 쪽이.
  * - 초점: 열면 [닫기](`data-sheet-close` — 머리를 직접 그리면 그 단추에 붙인다)로 가고 판 안에 갇힘 · 닫으면 연 단추로 돌아감(`Dialog` 의 초점 가두기 그대로).
  * - 움직임 200ms(`index.css` `.sheet-panel`) · 움직임 줄이기면 바로.
- * - 머리: `title` 을 주면 높이 52 · 제목 + [닫기]. 직접 그리려면 `header`(그 안에 `data-sheet-close` 단추).
+ * - 머리: `heading` 을 주면 높이 52 · 제목 + [닫기]. 직접 그리려면 `header`(그 안에 `data-sheet-close` 단추).
  */
 export default function Sheet({
   open,
   onClose,
   side,
   label,
-  title,
+  heading,
   header,
   footer,
   widthClass,
@@ -37,7 +37,7 @@ export default function Sheet({
   /** 판의 이름(화면 읽기 · 시험이 `getByRole('dialog', { name })` 로 찾음) */
   label: string;
   /** 머리 제목(16 굵게) — `header` 를 주면 쓰지 않음 */
-  title?: ReactNode;
+  heading?: ReactNode;
   header?: ReactNode;
   /** 판 아래에 붙는 줄(아래 안전 여백 위) */
   footer?: ReactNode;
@@ -58,7 +58,7 @@ export default function Sheet({
   }, [open]);
   if (!open && !shown) return null;
   return (
-    <SheetPanel open={open} onClose={onClose} side={side} label={label} title={title} header={header} footer={footer} widthClass={widthClass} testId={testId}>
+    <SheetPanel open={open} onClose={onClose} side={side} label={label} heading={heading} header={header} footer={footer} widthClass={widthClass} testId={testId}>
       {children}
     </SheetPanel>
   );
@@ -69,7 +69,7 @@ function SheetPanel({
   onClose,
   side,
   label,
-  title,
+  heading,
   header,
   footer,
   widthClass,
@@ -80,7 +80,7 @@ function SheetPanel({
   onClose: () => void;
   side: 'left' | 'right';
   label: string;
-  title?: ReactNode;
+  heading?: ReactNode;
   header?: ReactNode;
   footer?: ReactNode;
   widthClass: string;
@@ -89,9 +89,13 @@ function SheetPanel({
 }) {
   const panelRef = useFocusTrap();
   useDialogEsc(open ? onClose : null);
-  // 열면 초점은 [닫기] — 초점 가두기(위 줄)가 먼저 첫 요소로 보낸 뒤 옮긴다
+  // 열면 초점은 [닫기] — 초점 가두기(위 줄)가 먼저 첫 요소로 보낸 뒤 옮긴다.
+  // 손으로 누르지 않은 초점이라 초점 표시(앱 툴팁 「닫기」 가 탭 줄을 가렸다)는 켜지 않는다
   useEffect(() => {
-    panelRef.current?.querySelector<HTMLElement>('[data-sheet-close]')?.focus();
+    const close = panelRef.current?.querySelector<HTMLElement>('[data-sheet-close]');
+    if (!close) return;
+    close.blur();
+    close.focus({ focusVisible: false } as FocusOptions);
   }, [panelRef]);
   const touch = useRef<{ x: number; y: number } | null>(null);
   const state = open ? 'open' : 'closed';
@@ -99,7 +103,8 @@ function SheetPanel({
   return (
     // 닫히는 움직임 동안은 누름을 받지 않는다(뒤 화면으로 그대로 — 두 번 닫기 · 판 안 단추 누름 막기)
     <div className={`fixed inset-0 z-[80] ${open ? '' : 'pointer-events-none'}`} data-testid={testId}>
-      <div aria-hidden="true" data-state={state} className="sheet-backdrop absolute inset-0 bg-overlay" onMouseDown={onClose} />
+      {/* 누름이 끝난 뒤(click) 닫는다 — 누르는 순간 닫으면 손을 뗄 때의 누름이 뒤 화면 단추로 새어 나간다 */}
+      <div aria-hidden="true" data-state={state} className="sheet-backdrop absolute inset-0 bg-overlay" onClick={onClose} />
       <div
         ref={panelRef}
         role="dialog"
@@ -126,7 +131,7 @@ function SheetPanel({
       >
         {header ?? (
           <div className="flex h-[52px] shrink-0 items-center gap-2 pl-4 pr-2">
-            <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-text-primary">{title}</h2>
+            <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-text-primary">{heading}</h2>
             <IconButton icon={X} label="닫기" onClick={onClose} data-sheet-close />
           </div>
         )}

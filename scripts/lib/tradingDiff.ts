@@ -36,6 +36,7 @@ export const LATER_COMMITS: readonly string[] = [
   '0b36dc1', // 145차 v2.72.2 B — 나갈 때 묻기(Dialog dirty · leaveGuard · appStore 화면 바꾸기)
   '0310c5e', // 145차 v2.72.2 C — 창 dirty · busy 맞추기(자산 · 모의 계좌 · 규칙 · 목표 창) · 편집 화면 묻기
   '511d287', // 145차 v2.72.2 H — 덮개 구조 · design:check 장면(더하기만 · 장면 뒤 정리 함수)
+  '6284b37', // 146차 v2.73.0 F — design:check 폰 · 패드 크기 · 앱틀 장면 · 「화면 가로 넘침」 항목(더하기만)
 ];
 
 const covers = (spec: string, file: string) => file === spec || file.startsWith(`${spec.replace(/\/$/, '')}/`);

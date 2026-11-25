@@ -7,13 +7,13 @@ import IconButton from '../ui/IconButton';
  * [메뉴](서랍) · 화면 이름(차트면 + 종목 코드) · [종목 찾기] · [관심 목록](옆 판).
  */
 export default function MobileTopBar({
-  title,
+  heading,
   code,
   onMenu,
   onSearch,
   onWatch,
 }: {
-  title: string;
+  heading: string;
   /** 차트 화면의 종목 코드 */
   code?: string | null;
   onMenu: () => void;
@@ -25,8 +25,8 @@ export default function MobileTopBar({
       <div className="flex h-[52px] items-center gap-1 px-1">
         <IconButton icon={Menu} label="메뉴" onClick={onMenu} />
         <h1 className="flex min-w-0 flex-1 items-baseline gap-1.5 px-1">
-          <span className="min-w-0 truncate text-sm font-semibold text-text-primary" data-tip-clip={title}>
-            {title}
+          <span className="min-w-0 truncate text-sm font-semibold text-text-primary" data-tip-clip={heading}>
+            {heading}
           </span>
           {code && <span className="shrink-0 text-caption text-text-secondary">{code}</span>}
         </h1>

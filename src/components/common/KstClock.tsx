@@ -26,9 +26,6 @@ const PinFilled = forwardRef<SVGSVGElement, LucideProps>(function PinFilled(prop
   return <Pin ref={ref} {...props} fill="currentColor" />;
 }) as LucideIcon;
 
-/** 폰 모양에서 시계가 내려올 수 있는 가장 위 — 위쪽 막대 52 + 시황 띠 40 */
-const PHONE_CLOCK_MIN_TOP = 92;
-
 /** 놓을 때 이만큼(px) 넘게 움직였을 때만 옮긴 것으로 본다 — 살짝 누른 것은 저장하지 않는다 */
 const DRAG_SLOP = 3;
 
@@ -108,9 +105,10 @@ export default function KstClock() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // 폰 모양은 위쪽 막대(52) + 시황 띠(40)를 가리지 않게 그 아래에서 시작한다(v2.73.0 — 저장한 자리는 그대로 · 보이는 자리만)
+  // 폰 · 패드 모양은 위쪽 막대 · 시황 띠를 가리지 않게 그 아래에서 시작한다(v2.73.0 — 저장한 자리는 그대로 · 보이는 자리만)
   const layout = useLayoutMode();
-  const minTop = layout === 'phone' ? PHONE_CLOCK_MIN_TOP : 0;
+  // 시황 띠의 실제 아래 끝(위에 버전 알림 띠가 있으면 그만큼 내려간다) — 큰 화면은 0
+  const minTop = layout === 'desk' ? 0 : Math.ceil(document.querySelector('[data-testid="market-strip"]')?.getBoundingClientRect().bottom ?? 0);
   const placedRaw = size ? placeOf(clock, size.w, size.h, viewport.w, viewport.h) : null;
   const placed = placedRaw && minTop ? { left: placedRaw.left, top: clamp(Math.max(placedRaw.top, minTop), viewport.h - (size?.h ?? 0)) } : placedRaw;
   const box = dragBox ?? placed;
