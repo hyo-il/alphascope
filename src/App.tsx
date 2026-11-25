@@ -573,6 +573,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         */
         onGoHome={() => goHome()}
         onLogout={onLogout}
+        pad={layout === 'pad'}
+        onOpenWatch={layout === 'pad' ? () => setWatchOpen(true) : undefined}
       />
       )}
 

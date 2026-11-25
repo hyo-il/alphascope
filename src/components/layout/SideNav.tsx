@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { NAV_GROUPS, type NavGroup, type NavGroupId, type NavPageId } from '../../types/nav';
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Star, X } from 'lucide-react';
+import Sheet from '../ui/Sheet';
 import LogoMark from './LogoMark';
 import { LOGOUT_ICON, NAV_ICON } from './navIcons';
 import { ICON, ICON_LG, ICON_SM } from '../ui/icon';
@@ -38,6 +39,12 @@ interface Props {
   onGoHome: () => void;
   /** 로그아웃 — 이 브라우저의 세션만 끊는다 (모든 기기는 설정 화면에서) */
   onLogout: () => void;
+  /**
+   * 패드 모양(v2.73.0 · 테마 5-3) — 접힌 메뉴(52)만 늘 보이고, [메뉴 펼치기] 는 펼친 메뉴(156)를 본문 위에 **덮어** 연다(옆 판 · 본문을 밀지 않음).
+   * 접힌 메뉴 아래쪽(설정 위)에 [관심 목록](`onOpenWatch` — 관심 목록 옆 판). 없으면 큰 화면 그대로.
+   */
+  pad?: boolean;
+  onOpenWatch?: () => void;
 }
 
 /** 위 목록 · 맨 아래 설정 — 폰 메뉴 서랍(`NavDrawer`)도 같은 나눔을 쓴다 */
@@ -51,8 +58,26 @@ export default function SideNav({
   onSelectGroup,
   onGoHome,
   onLogout,
+  pad = false,
+  onOpenWatch,
 }: Props) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsedState, setCollapsed] = useState(false);
+  /** 패드는 늘 접힌 메뉴 — 펼친 메뉴는 덮개 판(`overlayOpen`)으로 */
+  const collapsed = pad || collapsedState;
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  // 덮개 판에서 고르면 판을 닫는다(큰 화면은 닫을 판이 없어 그대로)
+  const selectPage = (next: NavPageId) => {
+    onSelectPage(next);
+    setOverlayOpen(false);
+  };
+  const selectGroup = (next: NavGroupId) => {
+    onSelectGroup(next);
+    setOverlayOpen(false);
+  };
+  const goHome = () => {
+    onGoHome();
+    setOverlayOpen(false);
+  };
   /** 접힌 상태에서 아이콘에 올린 대메뉴 — 소메뉴를 옆에 띄운다 */
   const [hovered, setHovered] = useState<NavGroupId | null>(null);
   /**
@@ -76,7 +101,7 @@ export default function SideNav({
       >
         <button
           type="button"
-          onClick={() => onSelectGroup(item.id)}
+          onClick={() => selectGroup(item.id)}
           data-tip={item.badge ? `${item.label} (${item.badge})` : item.label}
           // 펼침 메뉴가 열린 동안 툴팁 숨김 — 툴팁이 펼침 메뉴 글자를 가리지 않게(공용 툴팁이 판단 · 닫히면 0.3초 뒤 다시)
           data-tip-off={flyout || undefined}
@@ -100,7 +125,7 @@ export default function SideNav({
               <button
                 key={sub.id}
                 type="button"
-                onClick={() => onSelectPage(sub.id)}
+                onClick={() => selectPage(sub.id)}
                 className={`block w-full whitespace-nowrap px-3 py-1.5 text-left text-xs transition-colors ${
                   page === sub.id
                     ? 'bg-bg-tertiary font-medium text-text-primary'
@@ -139,7 +164,7 @@ export default function SideNav({
           type="button"
           onClick={() => {
             if (current && !single) setFoldedGroup(folded ? null : item.id);
-            else onSelectGroup(item.id);
+            else selectGroup(item.id);
           }}
           aria-expanded={single ? undefined : open}
           className={`flex w-full items-center gap-1.5 rounded-md border-l-2 px-2.5 py-2 text-left text-xs transition-colors ${
@@ -170,7 +195,7 @@ export default function SideNav({
             <button
               key={sub.id}
               type="button"
-              onClick={() => onSelectPage(sub.id)}
+              onClick={() => selectPage(sub.id)}
               className={`block w-full whitespace-nowrap rounded-md py-1.5 pl-10 pr-2 text-left text-xs transition-colors ${
                 page === sub.id
                   ? 'bg-bg-tertiary font-medium text-text-primary'
@@ -195,14 +220,14 @@ export default function SideNav({
         <div className="flex h-12 shrink-0 items-center border-b border-border px-0.5">
           <button
             type="button"
-            onClick={onGoHome}
+            onClick={goHome}
             data-tip="홈으로"
             aria-label="홈으로"
             className="flex flex-1 items-center justify-center text-accent transition-opacity hover:opacity-80"
           >
             <LogoMark size={22} />
           </button>
-          <IconButton size="sm" icon={ChevronRight} label="메뉴 펼치기" onClick={() => setCollapsed(false)} />
+          <IconButton size="sm" icon={ChevronRight} label="메뉴 펼치기" onClick={() => (pad ? setOverlayOpen(true) : setCollapsed(false))} />
         </div>
 
         {/*
@@ -213,9 +238,23 @@ export default function SideNav({
         */}
         <div data-list className="flex-1 space-y-1 py-1">{MAIN_GROUPS.map(collapsedGroup)}</div>
 
+        {/* 패드 — [관심 목록](설정 위 · 다른 대메뉴와 같은 틀) → 관심 목록 옆 판 */}
+        {pad && onOpenWatch && (
+          <button
+            type="button"
+            onClick={onOpenWatch}
+            data-tip="관심 목록"
+            aria-label="관심 목록"
+            className="mt-auto flex w-full flex-col items-center gap-0.5 border-l-2 border-transparent py-2.5 text-text-muted transition-colors hover:bg-bg-tertiary/60 hover:text-text-primary"
+          >
+            <Star {...ICON_LG} />
+            <span className="text-caption leading-tight">관심</span>
+          </button>
+        )}
+
         {/* 설정은 스크롤과 무관하게 늘 맨 아래에 보인다 */}
         {SETTINGS_GROUP && (
-          <div className="mt-auto border-t border-border">
+          <div className={pad && onOpenWatch ? 'border-t border-border' : 'mt-auto border-t border-border'}>
             {collapsedGroup(SETTINGS_GROUP)}
             {/* 다른 대메뉴와 같은 틀 — 아이콘 + 아래 라벨 */}
             <button
@@ -230,17 +269,27 @@ export default function SideNav({
             </button>
           </div>
         )}
+        {/* 패드 — 펼친 메뉴를 본문 위에 덮어 연다(같은 목록 · 같은 이동 함수 · 고르면 닫힘) */}
+        {pad && (
+          <Sheet open={overlayOpen} onClose={() => setOverlayOpen(false)} side="left" label="메뉴" header={false} widthClass="w-[156px]" testId="pad-nav-overlay">
+            {expandedNav('flex h-full w-full flex-col bg-bg-secondary', <IconButton size="sm" icon={X} label="닫기" onClick={() => setOverlayOpen(false)} data-sheet-close />)}
+          </Sheet>
+        )}
       </nav>
     );
   }
 
+  return expandedNav('flex w-[156px] shrink-0 flex-col border-r border-border bg-bg-secondary', <IconButton size="sm" icon={ChevronLeft} label="메뉴 접기" onClick={() => setCollapsed(true)} />);
+
+  /** 펼친 메뉴 — 큰 화면 왼쪽 156 메뉴와 패드 덮개 메뉴가 같은 것(머리 오른쪽 단추만 다름: 접기 · 닫기) */
+  function expandedNav(navClass: string, headButton: ReactNode) {
   return (
-    <nav className="flex w-[156px] shrink-0 flex-col border-r border-border bg-bg-secondary">
+    <nav className={navClass}>
       {/* 오른쪽 2px — [메뉴 접기](아이콘 버튼 sm 24px) 옆에 「AlphaScope」 가 말줄임 없이 들어가게(아이콘 자리는 전과 같음) */}
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-border pl-3 pr-0.5">
         <button
           type="button"
-          onClick={onGoHome}
+          onClick={goHome}
           data-tip="홈으로"
           aria-label="홈으로"
           className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-text-primary transition-opacity hover:opacity-80"
@@ -250,7 +299,7 @@ export default function SideNav({
           </span>
           <span className="truncate">AlphaScope</span>
         </button>
-        <IconButton size="sm" icon={ChevronLeft} label="메뉴 접기" onClick={() => setCollapsed(true)} />
+        {headButton}
       </div>
 
       {/* 목록 줄 사이 4px (디자인 기준표 「여백·목록」) */}
@@ -274,4 +323,5 @@ export default function SideNav({
       )}
     </nav>
   );
+  }
 }
