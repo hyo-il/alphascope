@@ -18,7 +18,7 @@
  *      옅은 테두리(`border-danger/40` 등 알림 상자) · `hover:` 같은 상태 접두는 입력 칸이 아니라 대상 밖.
  *  11. 화면 코드에서 직접 만든 덮개(v2.72.2 · 공통 화면 부품 7-2) — 막는 로딩은 `common/LoadingOverlay` 하나 · 창은 `ui/Dialog` 하나.
  *      `fixed inset-0` · `absolute inset-0` + 반투명 바탕(`bg-…/NN` · `backdrop-`) · 기다리는 동안 `pointer-events-none` 으로 막기(같은 줄에 busy · loading · saving …)는
- *      실패(허용: 부품 두 파일 · 아래 `OVERLAY_OK`). 읽기만 하는 기다림은 막지 않고 표시만(불투명 판 · 흐림 · 도는 원).
+ *      실패(허용: 부품 세 파일 · 아래 `OVERLAY_OK`). 읽기만 하는 기다림은 막지 않고 표시만(불투명 판 · 흐림 · 도는 원).
  * 끝나면 어긴 곳 수를 출력하고, 하나라도 있으면 exit 1.
  * 시험용: `DESIGN_LINT_EXTRA=<파일,…>` 를 주면 그 파일도 검사한다(`tooltip:test` · `toolbutton:test` 의 가짜 파일 — 커밋하지 않는다).
  *   `DESIGN_LINT_SCRIPTS_EXTRA=<파일,…>` = 9 번 검사에 더할 가짜 시험 파일.
@@ -87,8 +87,8 @@ export const SCRIPT_FIND_OK: { file: string; has: string; why: string }[] = [
 ];
 const SCRIPT_FIND = /\[(?:title|data-tip|data-tip-clip)[\^$*~|]?=|getByTitle\(/;
 
-/** 11 — 직접 덮개 허용(부품 두 파일 + 이름 붙은 목록 · 새로 더하지 않는다) */
-const OVERLAY_PARTS = ['src/components/common/LoadingOverlay.tsx', 'src/components/ui/Dialog.tsx'];
+/** 11 — 직접 덮개 허용(부품 세 파일 — 막는 로딩 · 창 · 옆 판(v2.73.0) + 이름 붙은 목록 · 새로 더하지 않는다) */
+const OVERLAY_PARTS = ['src/components/common/LoadingOverlay.tsx', 'src/components/ui/Dialog.tsx', 'src/components/ui/Sheet.tsx'];
 export const OVERLAY_OK: { file: string; has: string; why: string }[] = [
   { file: 'src/components/analysis/ChartCaptureModal.tsx', has: 'fixed inset-0 z-50', why: '차트 캡처 창 — 화면 밖 캡처 판과 한 몸이라 공용 창 틀로 옮기지 않았다(막는 로딩 아님)' },
 ];

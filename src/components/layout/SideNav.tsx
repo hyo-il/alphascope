@@ -40,8 +40,9 @@ interface Props {
   onLogout: () => void;
 }
 
-const MAIN_GROUPS = NAV_GROUPS.filter((g) => g.id !== 'settings');
-const SETTINGS_GROUP = NAV_GROUPS.find((g) => g.id === 'settings');
+/** 위 목록 · 맨 아래 설정 — 폰 메뉴 서랍(`NavDrawer`)도 같은 나눔을 쓴다 */
+export const MAIN_GROUPS = NAV_GROUPS.filter((g) => g.id !== 'settings');
+export const SETTINGS_GROUP = NAV_GROUPS.find((g) => g.id === 'settings');
 
 export default function SideNav({
   page,

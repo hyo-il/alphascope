@@ -65,8 +65,8 @@ function inAppRoot(node: Node | null): boolean {
   return Boolean(root && node && root.contains(node));
 }
 
-/** 초점 가두기 — `Dialog` 가 쓴다. 판(panel) ref 를 돌려준다 */
-function useFocusTrap() {
+/** 초점 가두기 — `Dialog` · `Sheet`(옆 판) 가 쓴다(같은 겹침 순서). 판(panel) ref 를 돌려준다 */
+export function useFocusTrap() {
   const panelRef = useRef<HTMLDivElement>(null);
   /** 창을 연 요소 — 첫 그리기(자식의 autoFocus 보다 먼저)에서 잡는다 */
   const openerRef = useRef<Element | null | undefined>(undefined);

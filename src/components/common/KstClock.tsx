@@ -5,6 +5,7 @@ import { CONTROL_H } from '../ui/tokens';
 import { kstClockText } from '../../utils/marketDate';
 import { saveClock, useClockStore } from '../../hooks/useClockSetting';
 import type { ClockCorner, ClockSetting } from '../../types/clock';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 
 /**
  * 떠 있는 **한국 시간** 시계(사용자 결정 2026-10-21) — 미국 장 시작 · 거래정지 해제 시각을 한국 시간으로 바로 본다.
@@ -24,6 +25,9 @@ import type { ClockCorner, ClockSetting } from '../../types/clock';
 const PinFilled = forwardRef<SVGSVGElement, LucideProps>(function PinFilled(props, ref) {
   return <Pin ref={ref} {...props} fill="currentColor" />;
 }) as LucideIcon;
+
+/** 폰 모양에서 시계가 내려올 수 있는 가장 위 — 위쪽 막대 52 + 시황 띠 40 */
+const PHONE_CLOCK_MIN_TOP = 92;
 
 /** 놓을 때 이만큼(px) 넘게 움직였을 때만 옮긴 것으로 본다 — 살짝 누른 것은 저장하지 않는다 */
 const DRAG_SLOP = 3;
@@ -104,7 +108,11 @@ export default function KstClock() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  const placed = size ? placeOf(clock, size.w, size.h, viewport.w, viewport.h) : null;
+  // 폰 모양은 위쪽 막대(52) + 시황 띠(40)를 가리지 않게 그 아래에서 시작한다(v2.73.0 — 저장한 자리는 그대로 · 보이는 자리만)
+  const layout = useLayoutMode();
+  const minTop = layout === 'phone' ? PHONE_CLOCK_MIN_TOP : 0;
+  const placedRaw = size ? placeOf(clock, size.w, size.h, viewport.w, viewport.h) : null;
+  const placed = placedRaw && minTop ? { left: placedRaw.left, top: clamp(Math.max(placedRaw.top, minTop), viewport.h - (size?.h ?? 0)) } : placedRaw;
   const box = dragBox ?? placed;
   // 지금 상자를 스토어에 알린다(토스트 묶음이 겹치지 않게 읽는다 — `useClockStore.box`)
   useLayoutEffect(() => {

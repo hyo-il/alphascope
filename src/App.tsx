@@ -58,6 +58,20 @@ import { useHashRoute } from './hooks/useHashRoute';
 import { useLoadHomePage } from './hooks/useHomePage';
 import { useLoadClockSetting } from './hooks/useClockSetting';
 import KstClock from './components/common/KstClock';
+import { useLayoutMode } from './hooks/useLayoutMode';
+import MobileTopBar from './components/layout/MobileTopBar';
+import NavDrawer from './components/layout/NavDrawer';
+import MarketStrip from './components/market/MarketStrip';
+import SymbolSearchDialog from './components/common/SymbolSearchDialog';
+
+/*
+ * 폰 · 패드 모양의 본문 상자(v2.73.0 · 테마 5-1 · 5-3) — 화면 안의 모양(표 · 카드 · 차트 오른쪽 열)은 다음 차수들.
+ * 여기서는 본문이 0px 이 되지 않고 화면 전체가 옆으로 밀리지 않게만 한다(넘치는 내용은 이 상자 안에서 밀어 봄).
+ * 폰: 좌우 16 · 위 12 · 최대 폭 600 가운데(아이패드 미니 세로 744 도 폰 모양) · 아래 안전 여백. 패드: 좌우 24.
+ */
+// design-lint-ignore: 폰 본문 최대 폭 600 가운데(테마 5-1 — 아이패드 미니 세로 744 에서 카드 한 줄이 너무 넓지 않게)
+const PHONE_BODY = 'mx-auto flex min-h-0 w-full max-w-[600px] flex-1 flex-col overflow-x-auto px-4 pb-[env(safe-area-inset-bottom)] pt-3';
+const PAD_BODY = 'flex min-h-0 w-full flex-1 flex-col overflow-x-auto px-6';
 
 /**
  * 앱 본체. **로그인한 뒤에만 마운트된다** (아래 `App` 참고).
@@ -123,6 +137,19 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   };
   const setGroup = useAppStore((s) => s.setGroup);
   const view = nav.page;
+  /** 화면 모양 — desk(1280 이상)는 지금 모양 그대로, phone · pad 만 새 틀(v2.73.0) */
+  const layout = useLayoutMode();
+  const desk = layout === 'desk';
+  const phone = layout === 'phone';
+  /** 폰 메뉴 서랍 · 종목 찾기 창 */
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  // 큰 화면으로 바뀌면 폰 · 패드에서 연 판을 닫는다
+  useEffect(() => {
+    if (!desk) return;
+    setMenuOpen(false);
+    setSearchOpen(false);
+  }, [desk]);
   /** 포트폴리오를 모의투자 계좌로 열지 (빠른주문의 '모의투자로 가기') */
   /*
    * 차트는 캡처 대상이라 다른 화면에서도 언마운트하지 않고 화면 밖으로 보낸다.
@@ -347,7 +374,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
       <div className="max-w-sm space-y-2 text-center">
         <p className="text-sm font-medium text-text-secondary">분석할 종목을 먼저 고르세요.</p>
         <p className="text-xs leading-relaxed text-text-muted">
-          화면 <span className="text-text-secondary">왼쪽 위 검색창</span>에 종목명이나 티커를
+          화면 <span className="text-text-secondary">{phone ? '위쪽 [종목 찾기]' : '왼쪽 위 검색창'}</span>에 종목명이나 티커를
           입력하면 바로 분석할 수 있습니다. 한글로도 찾습니다 — 예: 애플, 엔비디아, AAPL
         </p>
       </div>
@@ -436,6 +463,55 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
     }
   };
 
+  /** 본문(차트 · 종목 탐색 · 그 밖의 화면) — 큰 화면은 그대로, 폰 · 패드는 본문 상자 안에 */
+  const layoutBody = (
+    <>
+        {/*
+          차트는 어느 화면에서도 언마운트하지 않는다.
+          차트 아래 AI 탭의 '차트 이미지 복사'가 캡처할 대상이 필요하고,
+          화면을 오갈 때마다 차트를 다시 만드는 비용도 사라진다.
+          숨길 때는 display:none 대신 화면 밖으로 보낸다 — html2canvas 는
+          display:none 요소를 캡처하지 못한다.
+        */}
+        {/*
+          종목을 고르기 전에는 차트 자체를 만들지 않는다. 캡처 대상이 필요해서 유지하는
+          것이므로, 볼 종목이 없으면 유지할 이유도 없다.
+        */}
+        {symbol && (
+          <div
+            className={
+              view === 'chart'
+                ? 'flex min-h-0 flex-1 flex-col'
+                : 'pointer-events-none fixed left-[-200vw] top-0 flex h-[640px] w-[960px] flex-col'
+            }
+            aria-hidden={view !== 'chart'}
+          >
+            {chartView}
+          </div>
+        )}
+
+        {/* 종목 탐색 — 홈, 그리고 종목 없이 연 차트. 둘 중 보이는 곳 하나만 그린다(시세 폴링이 두 벌이 되지 않게) */}
+        {(view === 'home' || (view === 'chart' && !symbol)) && (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <StockExplorer
+              onSelect={openChart}
+              watchlist={watchlist}
+              watchlistPending={watch.pending}
+              recent={recent}
+              /* 패널과 **같은 함수**를 넘긴다 — 삭제 로직을 화면마다 만들면 갈라진다 */
+              onRemoveWatch={watch.remove}
+              onRemoveRecent={removeRecent}
+              onClearRecent={() => confirmClearRecent(recent.length, clearRecent)}
+            />
+          </div>
+        )}
+
+        {view !== 'chart' && view !== 'home' && (
+          <div className="flex min-h-0 flex-1 flex-col" data-main-content>{mainContent()}</div>
+        )}
+    </>
+  );
+
   return (
     <div className="flex h-full flex-col bg-bg-primary">
       {/* 공통 팝업은 앱 루트에 한 번만 둔다 — 어디서든 스토어로 호출한다 */}
@@ -450,9 +526,10 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
       {/* 서버가 옛 코드로 떠 있으면 무엇보다 먼저 알린다 — 그 아래 화면들이 전부 거짓말을 한다 */}
       <VersionMismatchBanner />
 
-      <MarketOverview />
+      {desk && <MarketOverview />}
 
       <div className="flex min-h-0 flex-1">
+      {!phone && (
       <SideNav
         page={nav.page}
         group={nav.group}
@@ -465,8 +542,19 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         onGoHome={() => goHome()}
         onLogout={onLogout}
       />
+      )}
 
       <div className="relative flex min-w-0 flex-1 flex-col">
+        {phone && (
+          <MobileTopBar
+            title={pageMeta(view)?.label ?? ''}
+            code={view === 'chart' ? symbol : null}
+            onMenu={() => setMenuOpen(true)}
+            onSearch={() => setSearchOpen(true)}
+            onWatch={() => {}}
+          />
+        )}
+        {!desk && <MarketStrip />}
         {/* 홈으로 가려는데 홈 화면 설정을 받는 중 — 받으면 그 화면으로 간다 */}
         {/* 읽기만이라 막는 로딩이 아니다 — 불투명 판에 로딩 표시(지나가는 화면을 비치지 않게 · 7절) */}
         {homePending && (
@@ -480,7 +568,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           설정은 종목을 쓰지 않는다. **어느 화면인지는 `types/nav.ts` 가 안다** —
           여기에 화면 이름을 나열하면 새 화면이 생길 때마다 빠뜨린다 (needsSymbol 과 같은 이유).
         */}
-        {!pageMeta(view)?.hidesSymbolHeader && (
+        {!phone && !pageMeta(view)?.hidesSymbolHeader && (
         <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-3">
           {/*
             검색 입력은 주어진 폭을 채운다 — 헤더에서는 이 래퍼가 폭을 잡는다.
@@ -537,49 +625,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         </header>
         )}
 
-        {/*
-          차트는 어느 화면에서도 언마운트하지 않는다.
-          차트 아래 AI 탭의 '차트 이미지 복사'가 캡처할 대상이 필요하고,
-          화면을 오갈 때마다 차트를 다시 만드는 비용도 사라진다.
-          숨길 때는 display:none 대신 화면 밖으로 보낸다 — html2canvas 는
-          display:none 요소를 캡처하지 못한다.
-        */}
-        {/*
-          종목을 고르기 전에는 차트 자체를 만들지 않는다. 캡처 대상이 필요해서 유지하는
-          것이므로, 볼 종목이 없으면 유지할 이유도 없다.
-        */}
-        {symbol && (
-          <div
-            className={
-              view === 'chart'
-                ? 'flex min-h-0 flex-1 flex-col'
-                : 'pointer-events-none fixed left-[-200vw] top-0 flex h-[640px] w-[960px] flex-col'
-            }
-            aria-hidden={view !== 'chart'}
-          >
-            {chartView}
-          </div>
-        )}
-
-        {/* 종목 탐색 — 홈, 그리고 종목 없이 연 차트. 둘 중 보이는 곳 하나만 그린다(시세 폴링이 두 벌이 되지 않게) */}
-        {(view === 'home' || (view === 'chart' && !symbol)) && (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <StockExplorer
-              onSelect={openChart}
-              watchlist={watchlist}
-              watchlistPending={watch.pending}
-              recent={recent}
-              /* 패널과 **같은 함수**를 넘긴다 — 삭제 로직을 화면마다 만들면 갈라진다 */
-              onRemoveWatch={watch.remove}
-              onRemoveRecent={removeRecent}
-              onClearRecent={() => confirmClearRecent(recent.length, clearRecent)}
-            />
-          </div>
-        )}
-
-        {view !== 'chart' && view !== 'home' && (
-          <div className="flex min-h-0 flex-1 flex-col" data-main-content>{mainContent()}</div>
-        )}
+        {desk ? layoutBody : <div className={phone ? PHONE_BODY : PAD_BODY} data-layout-body>{layoutBody}</div>}
       </div>
 
       <WatchPanel
@@ -613,6 +659,21 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         onToggleCollapse={() => setPanelCollapsed((v) => !v)}
       />
       </div>
+
+      {/* 폰 메뉴 서랍 — SideNav 와 같은 메뉴 데이터 · 같은 이동 함수 */}
+      {phone && (
+        <NavDrawer
+          open={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          page={nav.page}
+          group={nav.group}
+          onSelectPage={setPage}
+          onSelectGroup={setGroup}
+          onLogout={onLogout}
+        />
+      )}
+      {/* 폰 [종목 찾기] — 큰 화면 종목 머리줄 검색과 같은 함수 */}
+      {searchOpen && <SymbolSearchDialog symbol={symbol ?? ''} onSubmit={searchSymbol} onClose={() => setSearchOpen(false)} />}
     </div>
   );
 }

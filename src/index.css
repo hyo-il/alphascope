@@ -75,6 +75,11 @@
    */
   --color-rebalance-add: var(--color-swatch-blue);
   --color-rebalance-cut: var(--color-bearish);
+  /*
+   * 창 · 판 뒤 덮개(v2.73.0 · 테마 1-2) — 「뒤 화면은 눌리지 않는다」 표시. 값은 지금 창(`ui/Dialog`) 덮개 그대로(검정 70%) — 새 값을 만들지 않았다.
+   * 덮개는 이 이름 하나(`bg-overlay`) — 맨 `bg-black/NN` 은 `design:lint` 실패.
+   */
+  --color-overlay: rgb(0 0 0 / 0.7);
   --color-border: #333333;
   --color-chart-grid: #222222;
 
@@ -197,6 +202,65 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .skeleton {
     animation: none;
+  }
+}
+
+/*
+ * 옆 판(`ui/Sheet` — 폰 메뉴 서랍 · 관심 목록 판 · 패드 덮개 메뉴 · v2.73.0 테마 3-2 · 3-3) — 200ms 미끄러짐 · 덮개는 흐려짐.
+ * 움직임을 줄인 사용자(`prefers-reduced-motion`)는 바로 나타나고 바로 사라진다(시간도 `Sheet` 가 0 으로).
+ */
+@keyframes sheet-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+@keyframes sheet-in-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes sheet-out-left {
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes sheet-out-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes sheet-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sheet-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+.sheet-panel[data-side='left'][data-state='open'] {
+  animation: sheet-in-left 200ms ease-out;
+}
+.sheet-panel[data-side='right'][data-state='open'] {
+  animation: sheet-in-right 200ms ease-out;
+}
+.sheet-panel[data-side='left'][data-state='closed'] {
+  animation: sheet-out-left 200ms ease-in forwards;
+}
+.sheet-panel[data-side='right'][data-state='closed'] {
+  animation: sheet-out-right 200ms ease-in forwards;
+}
+.sheet-backdrop[data-state='open'] {
+  animation: sheet-fade-in 200ms ease-out;
+}
+.sheet-backdrop[data-state='closed'] {
+  animation: sheet-fade-out 200ms ease-in forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet-panel,
+  .sheet-backdrop {
+    animation: none !important;
   }
 }
 

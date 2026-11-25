@@ -6,6 +6,7 @@ import {
   subscribeSyncState,
   type SyncState,
 } from '../../services/watchlistSync';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 
 /**
  * 관심 목록의 **서버 저장 상태** — 화면 왼쪽 아래 구석에.
@@ -16,11 +17,13 @@ import {
  * 저장이 끝난 평소에는 아무것도 그리지 않는다 — 늘 떠 있으면 배경이 된다.
  *
  * ⚠️ 왼쪽 여백(`left-[168px]`)은 **펼친 사이드 메뉴(156px)를 피하려는 것**이다.
- * `left-3` 에 두었더니 맨 아래 「설정」 메뉴를 덮었다.
+ * `left-3` 에 두었더니 맨 아래 「설정」 메뉴를 덮었다. 폰 모양(왼쪽 메뉴 없음)은 `left-4` · 패드(접힌 메뉴 52)는 `left-[64px]`(v2.73.0).
  */
 export default function SyncIndicator() {
   const [state, setState] = useState<SyncState>(getSyncState);
   const [busy, setBusy] = useState(false);
+  const layout = useLayoutMode();
+  const left = layout === 'desk' ? 'left-[168px]' : layout === 'pad' ? 'left-[64px]' : 'left-4';
 
   useEffect(() => subscribeSyncState(setState), []);
 
@@ -30,7 +33,7 @@ export default function SyncIndicator() {
     return (
       <div
         role="status"
-        className="pointer-events-none fixed bottom-3 left-[168px] z-40 rounded-xl bg-bg-secondary px-2 py-1 text-caption text-text-muted"
+        className={`pointer-events-none fixed bottom-3 ${left} z-40 rounded-xl bg-bg-secondary px-2 py-1 text-caption text-text-muted`}
       >
         관심 목록 저장 중…
       </div>
@@ -41,7 +44,7 @@ export default function SyncIndicator() {
   return (
     <div
       role="status"
-      className={`fixed bottom-3 left-[168px] z-40 max-w-[320px] rounded-md border px-2.5 py-1.5 text-caption leading-snug ${
+      className={`fixed bottom-3 ${left} z-40 max-w-[320px] rounded-md border px-2.5 py-1.5 text-caption leading-snug ${
         failed
           ? 'border-danger/50 bg-danger/15 text-danger'
           : 'border-warning/50 bg-warning/15 text-warning'

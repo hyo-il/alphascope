@@ -8,3 +8,5 @@
 export const ICON = { size: 16, strokeWidth: 1.75, 'aria-hidden': true } as const;
 export const ICON_SM = { size: 14, strokeWidth: 1.75, 'aria-hidden': true } as const;
 export const ICON_LG = { size: 18, strokeWidth: 1.75, 'aria-hidden': true } as const;
+/** 폰 메뉴 서랍의 대메뉴 줄(v2.73.0 · 테마 3-2 「아이콘 20 + 글 16」) — 다른 자리에는 쓰지 않는다 */
+export const ICON_XL = { size: 20, strokeWidth: 1.75, 'aria-hidden': true } as const;

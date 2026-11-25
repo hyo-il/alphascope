@@ -1,44 +1,19 @@
 import Button from '../ui/Button';
 import { ICON_SM } from '../ui/icon';
 import { ChevronUp, ChevronDown } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { MarketIndex } from '../../types/analysis';
 import type { ExchangeRate } from '../../types/toss';
 import MarketCard from './MarketCard';
 import { Skeleton } from '../common/SkeletonLoader';
+import { useMarketOverview } from '../../hooks/useMarketOverview';
 
-/** 현재가는 30초, 스파크라인은 서버가 캐시하므로 같은 주기로 함께 받는다. */
-const POLL_INTERVAL_MS = 30_000;
 const COLLAPSE_KEY = 'alphascope.marketCollapsed';
 
-/** 시황 카드 그리드 — 접어 두면 차트 영역이 넓어진다. */
+/** 시황 카드 그리드 — 접어 두면 차트 영역이 넓어진다. 1280 이상 화면만(폰 · 패드는 `MarketStrip` 한 줄 띠) */
 export default function MarketOverview() {
-  const [indices, setIndices] = useState<MarketIndex[]>([]);
-  const [rate, setRate] = useState<ExchangeRate | null>(null);
+  const { indices, rate } = useMarketOverview();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSE_KEY) === '1');
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        const res = await fetch('/api/market-overview');
-        const data = await res.json();
-        if (cancelled) return;
-        setIndices(Array.isArray(data.indices) ? data.indices : []);
-        setRate(data.rate ?? null);
-      } catch {
-        // 다음 주기에 자연스럽게 재시도된다.
-      }
-    };
-
-    void load();
-    const timer = setInterval(() => void load(), POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, []);
 
   const toggle = () => {
     setCollapsed((prev) => {
@@ -92,42 +67,60 @@ export default function MarketOverview() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
-        {/* 첫 응답 전에는 카드 자리를 스켈레톤으로 잡아 둔다 —
-            비워 두면 시황이 도착하는 순간 아래 화면 전체가 밀려 내려간다. */}
-        {indices.length === 0 &&
-          Array.from({ length: 7 }).map((_, index) => (
-            <div
-              key={index}
-              className="rounded-xl bg-bg-secondary px-3 py-2"
-            >
-              <Skeleton className="mb-1.5 h-2.5 w-14" />
-              <Skeleton className="mb-1 h-5 w-24" />
-              <Skeleton className="h-2.5 w-16" />
-            </div>
-          ))}
-        {indices.map((index) => (
-          <MarketCard
-            key={index.symbol}
-            name={index.label}
-            value={index.price}
-            change={index.change ?? null}
-            changePercent={index.changeRate}
-            sparklineData={index.sparkline ?? []}
-          />
-        ))}
-
-        {rate && (
-          <MarketCard
-            name={`${rate.baseCurrency}/${rate.quoteCurrency}`}
-            value={rate.rate}
-            change={null}
-            changePercent={null}
-            sparklineData={rate.sparkline ?? []}
-            unit="₩"
-          />
-        )}
-      </div>
+      <MarketCardGrid indices={indices} rate={rate} />
     </section>
+  );
+}
+
+/**
+ * 펼친 시황 카드들 — 큰 화면 시황 줄과 폰 · 패드 시황 띠를 누르면 여는 창(`MarketStrip`)이 같은 것을 쓴다.
+ * `className` = 칸 나눔(큰 화면은 화면 폭에 따라 2 · 4 · 7칸 — 기본값, 창 안은 2칸).
+ */
+export function MarketCardGrid({
+  indices,
+  rate,
+  className = 'grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7',
+}: {
+  indices: MarketIndex[];
+  rate: ExchangeRate | null;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      {/* 첫 응답 전에는 카드 자리를 스켈레톤으로 잡아 둔다 —
+          비워 두면 시황이 도착하는 순간 아래 화면 전체가 밀려 내려간다. */}
+      {indices.length === 0 &&
+        Array.from({ length: 7 }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-xl bg-bg-secondary px-3 py-2"
+          >
+            <Skeleton className="mb-1.5 h-2.5 w-14" />
+            <Skeleton className="mb-1 h-5 w-24" />
+            <Skeleton className="h-2.5 w-16" />
+          </div>
+        ))}
+      {indices.map((index) => (
+        <MarketCard
+          key={index.symbol}
+          name={index.label}
+          value={index.price}
+          change={index.change ?? null}
+          changePercent={index.changeRate}
+          sparklineData={index.sparkline ?? []}
+        />
+      ))}
+
+      {rate && (
+        <MarketCard
+          name={`${rate.baseCurrency}/${rate.quoteCurrency}`}
+          value={rate.rate}
+          change={null}
+          changePercent={null}
+          sparklineData={rate.sparkline ?? []}
+          unit="₩"
+        />
+      )}
+    </div>
   );
 }
