@@ -39,6 +39,11 @@ interface Props {
   compareMode?: boolean;
   /** 지금 비교 중인 종목 — ✓ 와 배경색으로 표시한다 */
   compareSymbols?: string[];
+  /**
+   * 폰 · 패드의 관심 목록 옆 판(`ui/Sheet`) 안에 그린다(v2.73.0 · 테마 3-3) — 판 폭을 채우고, 접기 단추는 없다(판의 [닫기]).
+   * 안의 탭 · 목록 · 동작은 오른쪽 패널과 같다.
+   */
+  inSheet?: boolean;
 }
 
 type PanelTab = 'watch' | 'recent' | 'account';
@@ -56,6 +61,7 @@ export default function WatchPanel({
   onToggleCollapse,
   compareMode = false,
   compareSymbols = [],
+  inSheet = false,
 }: Props) {
   const [tab, setTab] = useState<PanelTab>('watch');
   /** 관리 팝업 — 폴더·종목 조작은 전부 저기서 한다 */
@@ -149,7 +155,10 @@ export default function WatchPanel({
   }
 
   return (
-    <aside data-testid="watch-panel" className="flex w-[250px] shrink-0 flex-col border-l border-border bg-bg-secondary">
+    <aside
+      data-testid={inSheet ? 'watch-sheet-panel' : 'watch-panel'}
+      className={inSheet ? 'flex h-full w-full flex-col bg-bg-secondary' : 'flex w-[250px] shrink-0 flex-col border-l border-border bg-bg-secondary'}
+    >
       <div className="flex items-center border-b border-border">
         {(
           [
@@ -185,7 +194,7 @@ export default function WatchPanel({
         ) : (
           <span aria-hidden="true" data-testid="watch-gear-slot" className={`shrink-0 ${ICON_BUTTON_BOX.md}`} />
         )}
-        <IconButton size="sm" icon={ChevronRight} label="접기" aria-label="관심 목록 패널 접기" onClick={onToggleCollapse} className="mr-1" />
+        {!inSheet && <IconButton size="sm" icon={ChevronRight} label="접기" aria-label="관심 목록 패널 접기" onClick={onToggleCollapse} className="mr-1" />}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

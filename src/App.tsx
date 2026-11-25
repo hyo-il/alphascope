@@ -63,6 +63,7 @@ import MobileTopBar from './components/layout/MobileTopBar';
 import NavDrawer from './components/layout/NavDrawer';
 import MarketStrip from './components/market/MarketStrip';
 import SymbolSearchDialog from './components/common/SymbolSearchDialog';
+import Sheet from './components/ui/Sheet';
 
 /*
  * 폰 · 패드 모양의 본문 상자(v2.73.0 · 테마 5-1 · 5-3) — 화면 안의 모양(표 · 카드 · 차트 오른쪽 열)은 다음 차수들.
@@ -144,11 +145,14 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   /** 폰 메뉴 서랍 · 종목 찾기 창 */
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  /** 폰 · 패드 관심 목록 옆 판(오른쪽 250 패널 대신) */
+  const [watchOpen, setWatchOpen] = useState(false);
   // 큰 화면으로 바뀌면 폰 · 패드에서 연 판을 닫는다
   useEffect(() => {
     if (!desk) return;
     setMenuOpen(false);
     setSearchOpen(false);
+    setWatchOpen(false);
   }, [desk]);
   /** 포트폴리오를 모의투자 계좌로 열지 (빠른주문의 '모의투자로 가기') */
   /*
@@ -463,6 +467,34 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
     }
   };
 
+  /** 관심 목록 패널 — 큰 화면 오른쪽 250 패널과 폰 · 패드 옆 판이 같은 부품 · 같은 함수를 쓴다 */
+  const watchPanelProps = {
+    currentSymbol: symbol ?? '',
+    watch,
+    recent,
+    compareMode,
+    // ✓ 는 **보이는 칸**의 종목만(2개 보기면 ①②). 클릭 동작(toggleCompareSymbol)도 같은 compareLayout 을 본다
+    compareSymbols: compareSlots.slice(0, compareLayout).filter((s): s is string => Boolean(s)),
+    /*
+      어느 화면에서든 종목을 누르면 차트 화면으로 간다(`openChart` · 사용자 결정 2026-10-29) — 모든 탭(관심 · 최근 · 계좌)이 이 하나.
+      예외: 비교 화면에서는 클릭이 '비교에 담기/빼기' 다.
+      팝업으로 한 번 더 묻지 않는다 — 원클릭으로 담기는 것이 이 화면의 기본 동작이다.
+    */
+    onSelect: compareMode
+      ? (next: string) => {
+          const result = toggleCompareSymbol(next);
+          if (result === 'full') {
+            const n = useAppStore.getState().compareLayout;
+            toast.warning(`최대 ${n}개까지 비교 가능합니다`, n === 2 ? '하나를 삭제하거나 4개 보기로 바꾸세요' : '하나를 삭제하고 추가하세요');
+          }
+        }
+      : openChart,
+    onRemoveRecent: removeRecent,
+    onClearRecent: clearRecent,
+    /* 계좌 탭에서 계좌가 없을 때 — 계좌 관리 화면으로 보낸다 */
+    onGoToAccounts: () => setPage('portfolio', 'paper'),
+  };
+
   /** 본문(차트 · 종목 탐색 · 그 밖의 화면) — 큰 화면은 그대로, 폰 · 패드는 본문 상자 안에 */
   const layoutBody = (
     <>
@@ -551,7 +583,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
             code={view === 'chart' ? symbol : null}
             onMenu={() => setMenuOpen(true)}
             onSearch={() => setSearchOpen(true)}
-            onWatch={() => {}}
+            onWatch={() => setWatchOpen(true)}
           />
         )}
         {!desk && <MarketStrip />}
@@ -628,36 +660,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         {desk ? layoutBody : <div className={phone ? PHONE_BODY : PAD_BODY} data-layout-body>{layoutBody}</div>}
       </div>
 
-      <WatchPanel
-        currentSymbol={symbol ?? ''}
-        watch={watch}
-        recent={recent}
-        compareMode={compareMode}
-        /* ✓ 는 **보이는 칸**의 종목만(2개 보기면 ①②). 클릭 동작(toggleCompareSymbol)도 같은 compareLayout 을 본다 */
-        compareSymbols={compareSlots.slice(0, compareLayout).filter((s): s is string => Boolean(s))}
-        /*
-          어느 화면에서든 종목을 누르면 차트 화면으로 간다(`openChart` · 사용자 결정 2026-10-29) — 모든 탭(관심 · 최근 · 계좌)이 이 하나.
-          예외: 비교 화면에서는 클릭이 '비교에 담기/빼기' 다.
-          팝업으로 한 번 더 묻지 않는다 — 원클릭으로 담기는 것이 이 화면의 기본 동작이다.
-        */
-        onSelect={
-          compareMode
-            ? (next) => {
-                const result = toggleCompareSymbol(next);
-                if (result === 'full') {
-                  const n = useAppStore.getState().compareLayout;
-                  toast.warning(`최대 ${n}개까지 비교 가능합니다`, n === 2 ? '하나를 삭제하거나 4개 보기로 바꾸세요' : '하나를 삭제하고 추가하세요');
-                }
-              }
-            : openChart
-        }
-        onRemoveRecent={removeRecent}
-        onClearRecent={clearRecent}
-        /* 계좌 탭에서 계좌가 없을 때 — 계좌 관리 화면으로 보낸다 */
-        onGoToAccounts={() => setPage('portfolio', 'paper')}
-        collapsed={panelCollapsed}
-        onToggleCollapse={() => setPanelCollapsed((v) => !v)}
-      />
+      {desk && <WatchPanel {...watchPanelProps} collapsed={panelCollapsed} onToggleCollapse={() => setPanelCollapsed((v) => !v)} />}
       </div>
 
       {/* 폰 메뉴 서랍 — SideNav 와 같은 메뉴 데이터 · 같은 이동 함수 */}
@@ -671,6 +674,29 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           onSelectGroup={setGroup}
           onLogout={onLogout}
         />
+      )}
+      {/* 폰 · 패드 관심 목록 옆 판 — 종목을 고르면 닫히고 차트로(비교 화면은 담기 · 빼기만 하고 열어 둠) */}
+      {!desk && (
+        <Sheet
+          open={watchOpen}
+          onClose={() => setWatchOpen(false)}
+          side="right"
+          label="관심 목록"
+          title="관심 목록"
+          testId="watch-sheet"
+          widthClass="phone:w-[min(85vw,360px)] pad:w-[320px]"
+        >
+          <WatchPanel
+            {...watchPanelProps}
+            inSheet
+            onSelect={(next) => {
+              watchPanelProps.onSelect(next);
+              if (!compareMode) setWatchOpen(false);
+            }}
+            collapsed={!watchOpen}
+            onToggleCollapse={() => setWatchOpen(false)}
+          />
+        </Sheet>
       )}
       {/* 폰 [종목 찾기] — 큰 화면 종목 머리줄 검색과 같은 함수 */}
       {searchOpen && <SymbolSearchDialog symbol={symbol ?? ''} onSubmit={searchSymbol} onClose={() => setSearchOpen(false)} />}
