@@ -8,7 +8,8 @@ type IconType = LucideIcon;
 
 const VARIANT: Record<Variant, string> = {
   // 파란색은 그 화면의 **주요 실행 버튼 하나**에만 (디자인 규칙 2)
-  primary: 'bg-accent text-white hover:bg-accent-hover',
+  // 바탕은 주 단추 전용 진한 파랑(흰 글 대비 5.41 · v2.73.0) — 파란 글 · 초점 테두리는 accent 그대로
+  primary: 'bg-accent-button text-white hover:bg-accent-button-hover active:bg-accent-button-hover',
   secondary: 'bg-bg-tertiary text-text-primary hover:bg-bg-elevated',
   ghost: 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
   // 확인 창의 「삭제」 = 빨간 바탕 / 화면 안의 삭제(「방법 3 삭제」·「모두 삭제」 등) = 빨간 글자

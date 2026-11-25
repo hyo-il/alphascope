@@ -19,6 +19,7 @@
  *  11. 화면 코드에서 직접 만든 덮개(v2.72.2 · 공통 화면 부품 7-2) — 막는 로딩은 `common/LoadingOverlay` 하나 · 창은 `ui/Dialog` 하나.
  *      `fixed inset-0` · `absolute inset-0` + 반투명 바탕(`bg-…/NN` · `backdrop-`) · 기다리는 동안 `pointer-events-none` 으로 막기(같은 줄에 busy · loading · saving …)는
  *      실패(허용: 부품 세 파일 · 아래 `OVERLAY_OK`). 읽기만 하는 기다림은 막지 않고 표시만(불투명 판 · 흐림 · 도는 원).
+ *  12. 맨 검정 덮개(`bg-black/NN`) — 창 · 판 뒤 덮개 색은 `index.css` `--color-overlay`(`bg-overlay`) 하나(v2.73.0).
  * 끝나면 어긴 곳 수를 출력하고, 하나라도 있으면 exit 1.
  * 시험용: `DESIGN_LINT_EXTRA=<파일,…>` 를 주면 그 파일도 검사한다(`tooltip:test` · `toolbutton:test` 의 가짜 파일 — 커밋하지 않는다).
  *   `DESIGN_LINT_SCRIPTS_EXTRA=<파일,…>` = 9 번 검사에 더할 가짜 시험 파일.
@@ -58,6 +59,8 @@ const RULES: { id: string; test: (line: string, file: string) => boolean; why: s
     test: (l, f) => !f.includes('/ui/') && /(?<![\w:/-])border-danger(?![\w/-])/.test(l),
     why: '맨 border-danger — 입력 칸 빨간 테두리는 공용 부품(ui/Input · ui/NumberField)의 invalid · rejected 로(보이는 때는 ui/fieldReveal 한 곳)',
   },
+  // 12 — 덮개 색은 `--color-overlay`(`bg-overlay`) 하나(v2.73.0 · 테마 1-2). 맨 검정 반투명은 창 · 판마다 값이 갈라진다
+  { id: '맨 검정 덮개', test: (l) => /\bbg-black\/\d+/.test(l), why: 'bg-black/NN — 덮개는 bg-overlay(--color-overlay) 하나' },
   { id: '기준표 밖 크기', test: (l) => /\btext-(?:lg|2xl|3xl)\b/.test(l), why: 'text-lg·2xl — 기준표 4단계(+로그인 앱 제목 text-xl)만' },
 ];
 

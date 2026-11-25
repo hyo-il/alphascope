@@ -228,7 +228,7 @@ export default function Dialog({
       aria-modal="true"
       aria-labelledby={titleId}
       style={{ zIndex: z }}
-      className="fixed inset-0 flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 flex items-center justify-center bg-overlay p-4"
       onMouseDown={(e) => {
         // 바꾼 것이 있으면 바깥 누름은 닫지도 묻지도 않는다(공통 3-3)
         if (closeOnBackdrop && onClose && !dirty && e.target === e.currentTarget) requestClose();

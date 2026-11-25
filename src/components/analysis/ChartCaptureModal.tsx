@@ -279,7 +279,7 @@ export default function ChartCaptureModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-6"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
