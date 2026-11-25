@@ -18,6 +18,7 @@
  *  11. 숫자 입력칸 — 스피너 없음 · 같은 묶음 FormRow 숫자 오른쪽 끝 0px
  *  12. 4자리 이상 숫자에 쉼표 없음(날짜·시각·버전·연도·종목 코드·「포트 N」 제외) · 13. 하이픈 음수 · 14. 같은 표 열의 소수 자릿수 다름
  *  15. 날짜 표기 — 오전/오후 시각 · 「YYYY. M. D.」 형식 0 (형식 2026-10-08 14:30)
+ *  17. 화면 가로 넘침 — 문서 폭 > 화면 폭(폰 · 패드에서 화면이 옆으로 밀림 · v2.73.0)
  *  16. 차트 축 숫자 잘림 — 칸이 여럿인 차트의 오른쪽 축 글자가 칸 위아래 끝에 닿음 0(가격 칸 맨 아래 · 거래량 칸 맨 위 숫자가 경계에서 맞붙지 않게)
  *  `[data-measure-skip]` 안(업데이트 내역 같은 기록 글)은 12~14 를 재지 않는다
  * 결과: `<OUT>/report.md`(화면별 표) · `<OUT>/{1280,1920}/<이름>.png` · `<OUT>/result.json`.
@@ -44,6 +45,7 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 const BASE = process.env.BASE ?? 'http://localhost:5180';
 const OUT = path.resolve(ROOT, process.env.OUT ?? `../../docs/design-check/${CHANGELOG[0].version}`);
 /** 1280 이상 여러 크기를 쓴다(사용자). 1440×900 은 1080 보다 낮다(오른쪽 열 예비 스크롤). `SIZES=1920x1080,2560x1440` 로 일부만 */
+/* 폰 · 패드 모양(v2.73.0)은 `SIZES=402x874`(폰) · `874x402`(폰 가로) · `1133x744`(패드 가로) · `744x1133`(패드 세로 = 폰 모양) — 1280 밑은 `isMobile` · `hasTouch` 로 연다(main 의 창 열기). */
 const SIZES = (process.env.SIZES ?? '1280x1080,1440x900,1920x1080,2560x1440').split(',').map((x) => {
   const [w, h] = x.split('x').map(Number);
   return { w, h };
@@ -133,7 +135,22 @@ function targets(): Target[] {
     if (b) await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
     await page.waitForTimeout(500);
   };
+  /** v2.73.0 — 폰 · 패드 앱 틀: 폰은 위쪽 막대 [메뉴] · 패드는 접힌 메뉴 [메뉴 펼치기] */
+  const openMenu = async (page: Page) => {
+    await page.waitForTimeout(800);
+    // 1280 이상은 펼친 메뉴가 늘 보여 누를 단추가 없다(그 크기는 틀 그대로를 잰다)
+    const phone = page.getByRole('button', { name: '메뉴', exact: true });
+    const pad = page.getByRole('button', { name: '메뉴 펼치기', exact: true });
+    if (await phone.count()) await phone.first().click();
+    else if (await pad.count()) await pad.first().click();
+    await page.waitForTimeout(500);
+  };
   list.push(
+    // v2.73.0 — 폰 · 패드 앱 틀(위쪽 막대 · 시황 띠 · 본문 상자) · 메뉴 서랍(패드는 덮개 메뉴) · 관심 목록 옆 판 · 시황 띠를 눌러 연 창. 1280 이상에서는 지금 모양 그대로를 잰다
+    { name: '앱틀-기본', hash: '#/portfolio', open: async (page) => { await page.waitForTimeout(800); } },
+    { name: '앱틀-서랍', hash: '#/portfolio', open: openMenu },
+    { name: '앱틀-관심판', hash: '#/portfolio', open: async (page) => { await page.waitForTimeout(800); await page.getByRole('button', { name: '관심 목록', exact: true }).first().click().catch(() => {}); await page.waitForTimeout(600); } },
+    { name: '앱틀-시황창', hash: '#/portfolio', open: async (page) => { await page.waitForTimeout(800); await page.getByRole('button', { name: '시황 펼치기', exact: true }).first().click().catch(() => {}); await page.waitForTimeout(600); } },
     // v2.69.0 — [ⓘ] 설명이 열린 장면(증시 일정 「데이터 출처」 — 앱 툴팁과 같은 상자)
     { name: 'tooltip-정보-증시일정', hash: '#/calendar', open: async (page) => { await page.waitForTimeout(800); await hoverTip(page, page.getByRole('button', { name: '데이터 출처', exact: true })); } },
     // v2.69.1 — 앱 전체 툴팁(129차 묶음 A · B · C 대표 자리)이 열린 장면
@@ -2462,6 +2479,9 @@ export function measure() {
       if (top || bottom) issues.push({ kind: '차트 축 숫자 잘림', detail: `${label(root.closest('section, main') ?? root)} · ${pi + 1}번째 칸 ${top ? '위' : ''}${top && bottom ? ' · ' : ''}${bottom ? '아래' : ''} 끝(칸 높이 ${Math.round(h / scale)}px)` });
     });
   });
+  // 17. 화면 가로 넘침(v2.73.0) — 문서 전체가 화면 폭보다 넓으면 폰 · 패드에서 화면이 옆으로 밀린다
+  const docW = document.documentElement.scrollWidth;
+  if (docW > innerWidth + 1) issues.push({ kind: '화면 가로 넘침', detail: `문서 폭 ${docW}px > 화면 ${innerWidth}px` });
   return issues;
 }
 
@@ -2474,6 +2494,9 @@ async function main() {
     token = createSession('design-check');
   }
   const browser = await chromium.launch({ channel: 'chrome' });
+  // v2.73.0 — 1280 밑(폰 · 패드 모양)은 손가락 기기처럼(`isMobile` · `hasTouch`) 연다. 1280 이상은 받은 값 그대로
+  const openContext = browser.newContext.bind(browser);
+  browser.newContext = (o) => openContext(o?.viewport && o.viewport.width < 1280 ? { ...o, isMobile: true, hasTouch: true } : o);
   const all: { size: string; name: string; issues: { kind: string; detail: string }[]; console: string[] }[] = [];
   for (const size of SIZES) {
     const dir = path.join(OUT, String(size.w));
@@ -2518,6 +2541,7 @@ async function main() {
   await browser.close();
 
   const KINDS = ['같은 줄 높이', '입력칸 끝 맞춤', '글자 잘림', '말줄임', '겹침', '목록 줄 간격', '13px 미만', '기준표 밖 크기', '화면 폭 좁힘', '표 숫자 칸 벌어짐', '탭·내용 왼쪽 끝', '숫자 입력칸', '쉼표 없는 큰 수', '하이픈 음수', '소수 자릿수', '날짜 표기'];
+  KINDS.push('화면 가로 넘침'); // v2.73.0
   const md: string[] = [
     `# 디자인 숫자 측정 — ${CHANGELOG[0].version}`,
     '',
