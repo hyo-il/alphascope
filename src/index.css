@@ -114,6 +114,38 @@
   --text-xl--line-height: calc(30 / 22);
 }
 
+/*
+ * 화면 모양 셋(v2.73.0 · 테마 `_CommonGuide/테마/Alphascope.md` 2절) — **조건은 여기 한 곳**.
+ *   phone = 폭 ≤ 767 또는 (높이 < 500 이고 폭 < 1280) · pad = 768 ~ 1279 이고 높이 ≥ 500 · desk = 1280 이상(지금 모양 그대로)
+ * CSS 는 `phone:` · `pad:` 이름(아래 @custom-variant)으로, JS 는 `hooks/useLayoutMode` 가 아래 `--layout-mode` 를 읽어 쓴다(조건을 두 번 쓰지 않는다).
+ * ⚠️ 아이패드 미니 세로(744)는 폭이 767 아래라 phone 이다.
+ * `touch:` = 손가락 화면(`pointer: coarse` · 폭과 따로) — 이름만 만들어 둠(누르는 칸 44 등은 147차).
+ */
+@custom-variant phone {
+  @media (max-width: 767px), (max-height: 499px) and (max-width: 1279px) {
+    @slot;
+  }
+}
+@custom-variant pad {
+  @media (min-width: 768px) and (max-width: 1279px) and (min-height: 500px) {
+    @slot;
+  }
+}
+@custom-variant touch {
+  @media (pointer: coarse) {
+    @slot;
+  }
+}
+:root {
+  --layout-mode: desk;
+  @variant phone {
+    --layout-mode: phone;
+  }
+  @variant pad {
+    --layout-mode: pad;
+  }
+}
+
 html,
 body,
 #root {
