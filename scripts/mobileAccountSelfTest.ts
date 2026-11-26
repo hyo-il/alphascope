@@ -439,9 +439,9 @@ try {
       const { page, ctx } = await open(browser, size, '#/portfolio/paper');
       await openWizard(page, 'new');
       if (phone) {
-        const head = await page.locator(`${DIALOG} h2`).last().evaluate((e) => ({ h: e.getBoundingClientRect().height, clip: !!e.querySelector('[data-tip-clip]') }));
+        const head = await page.locator(`${DIALOG} h2`).last().evaluate((e) => ({ h: e.getBoundingClientRect().height, clip: e.getAttribute('data-tip-clip') === '자동매매 처음 켜기' && getComputedStyle(e).textOverflow === 'ellipsis' }));
         const steps = await page.locator('[data-testid="wizard-steps"]').evaluate((e) => ({ text: (e as HTMLElement).innerText.trim(), dots: e.querySelectorAll('.rounded-full').length, h: e.getBoundingClientRect().height }));
-        check('[149-8] 19줄 — 폰 자동매매 설정 창 제목 한 줄(말줄임 + data-tip-clip) · 단계 「1/4 · 계좌」 + 점 4개 한 줄', head.h <= 24 && head.clip && steps.text === '1/4 · 계좌' && steps.dots === 4 && steps.h <= 22, `${JSON.stringify(head)} ${JSON.stringify(steps)}`);
+        check('[149-8] 19줄 — 폰 자동매매 설정 창 제목 한 줄(말줄임 + data-tip-clip — 폰 창 ui/Dialog) · 단계 「1/4 · 계좌」 + 점 4개 한 줄', head.h <= 24 && head.clip && steps.text === '1/4 · 계좌' && steps.dots === 4 && steps.h <= 22, `${JSON.stringify(head)} ${JSON.stringify(steps)}`);
       }
       const yField = await midY(page, `${DIALOG} [aria-label="초기 자금"]`);
       const yMake = await midY(page, `${DIALOG} button:text-is("만들기")`);

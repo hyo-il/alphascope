@@ -46,6 +46,9 @@ export const LATER_COMMITS: readonly string[] = [
   '5ff8377', // 148차 v2.75.0 A — 옆으로 미는 표 부품(ui/tokens.ts 이름 칸 최소 폭 이름 더하기 · ScrollTable · index.css)
   '568c390', // 148차 v2.75.0 B — 표 32곳 감싸기(ui/tokens.ts 폰 · 패드 이름 칸 · 한 줄 칸 이름 더하기)
   '2d31822', // 148차 v2.75.0 C — 점검 7줄(ui/tokens.ts 한 줄 칸 이름 바꿈 · 설명 글)
+  '2257186', // 149차 v2.76.0 B — 폰 계좌 보유 카드(ui/tokens.ts 카드 이름 더하기)
+  '102e629', // 149차 v2.76.0 C — 계좌 · 자동매매 점검 줄(ui/tokens.ts 손가락 줄 사이 · 칩 크기 이름 더하기 · 공용 부품)
+  '23e3771', // 149차 v2.76.0 D — 시험 mobileaccount:test · ui/tokens.ts 손가락 표 줄 이름 더하기
 ];
 
 const covers = (spec: string, file: string) => file === spec || file.startsWith(`${spec.replace(/\/$/, '')}/`);

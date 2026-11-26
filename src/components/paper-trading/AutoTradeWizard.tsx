@@ -64,7 +64,7 @@ export default function AutoTradeWizard({
   const [detailOpen, setDetailOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const { rules } = useTradingRules();
-  /** 폰 — 제목 한 줄(넘치면 말줄임) · 단계는 「1/4 · 계좌」 + 점(지금 · 지난 · 남은) */
+  /** 폰 — 단계는 「1/4 · 계좌」 + 점(지금 · 지난 · 남은) · 제목 한 줄(넘치면 말줄임)은 폰 창(`ui/Dialog` 아래 판)이 맡는다 */
   const phone = useLayoutMode() === 'phone';
 
   const accountId = choice === 'new' ? (created?.id ?? null) : existingId;
@@ -133,15 +133,8 @@ export default function AutoTradeWizard({
   return (
     // 바깥 클릭으로 닫지 않는다 — 바꾼 것이 있으면 닫는 길(× · Esc · [취소] · 다른 메뉴 · 뒤로 가기)마다 공용 확인 창(공통 3-3)
     <Dialog
-      title={
-        phone ? (
-          <span className="block truncate" data-tip-clip="자동매매 처음 켜기">
-            자동매매 처음 켜기
-          </span>
-        ) : (
-          '자동매매 처음 켜기'
-        )
-      }
+      title="자동매매 처음 켜기"
+      titleOneLine
       titleAside={
         phone ? (
           <span className="flex items-center gap-2 whitespace-nowrap" data-testid="wizard-steps">

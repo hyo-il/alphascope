@@ -198,10 +198,13 @@ export default function Dialog({
   onCancelBusy,
   dirty = false,
   dirtyNote,
+  titleOneLine = false,
 }: {
   title: ReactNode;
   /** 제목 옆 짧은 회색 글자 */
   titleAside?: ReactNode;
+  /** 폰 창(아래 판) 제목을 한 줄로 — 넘치면 말줄임 · 누르면 전체 글(v2.76.0 · 자동매매 처음 켜기). 패드 · 1280 이상은 그대로 */
+  titleOneLine?: boolean;
   /** 없으면 닫기 X·ESC·바깥 클릭이 모두 없다 — 반드시 하나를 골라야 하는 창(관심 목록 맞추기) */
   onClose?: () => void;
   size?: DialogSize;
@@ -311,7 +314,11 @@ export default function Dialog({
             <span className="h-1 w-9 rounded-xs bg-bg-elevated" />
           </div>
           <div {...dragProps} data-dialog-head className="flex h-[52px] shrink-0 touch-none items-center gap-2 border-b border-border/40 pl-4 pr-2">
-            <h2 id={titleId} className="min-w-0 text-sm font-semibold text-text-primary">
+            <h2
+              id={titleId}
+              className={`min-w-0 text-sm font-semibold text-text-primary ${titleOneLine ? 'truncate' : ''}`.trim()}
+              data-tip-clip={titleOneLine && typeof title === 'string' ? title : undefined}
+            >
               {title}
             </h2>
             {titleAside != null && <span className="min-w-0 text-caption text-text-muted">{titleAside}</span>}
