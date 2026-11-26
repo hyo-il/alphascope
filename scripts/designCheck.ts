@@ -152,6 +152,44 @@ function targets(): Target[] {
     { name: '앱틀-서랍', hash: '#/portfolio', open: openMenu },
     { name: '앱틀-관심판', hash: '#/portfolio', open: async (page) => { await page.waitForTimeout(800); await page.getByRole('button', { name: '관심 목록', exact: true }).first().click().catch(() => {}); await page.waitForTimeout(600); } },
     { name: '앱틀-시황창', hash: '#/portfolio', open: async (page) => { await page.waitForTimeout(800); await page.getByRole('button', { name: '시황 펼치기', exact: true }).first().click().catch(() => {}); await page.waitForTimeout(600); } },
+    // v2.74.0 — 폰 창(아래 판 — 짧은 확인 창 · 긴 매매 규칙 창) · 패드 창(같은 장면을 패드 크기에서) · 시황 띠 시계(띠를 끝까지 밀어도 그 자리) · 손가락으로 누른 [ⓘ]
+    {
+      name: '147-창-확인',
+      hash: '#/rules',
+      open: async (page: Page) => {
+        await page.waitForTimeout(800);
+        await page.evaluate(async (url) => {
+          const m = await import(/* @vite-ignore */ url);
+          m.modal.confirm({ title: '규칙을 지울까요?', message: '「점검용 규칙」 을 지웁니다. 이 규칙을 쓰는 계좌는 자동매매가 꺼집니다.', danger: true, confirmText: '삭제' });
+        }, '/src/store/uiStore.ts');
+        await page.waitForTimeout(600);
+      },
+    },
+    { name: '147-창-긴규칙', hash: '#/rules', open: async (page) => { await page.waitForTimeout(1200); await page.getByRole('button', { name: '새 규칙 만들기' }).first().click().catch(() => {}); await page.waitForTimeout(900); } },
+    {
+      name: '147-시황띠시계-끝까지',
+      hash: '#/portfolio',
+      open: async (page: Page) => {
+        await page.waitForTimeout(800);
+        await page.evaluate(() => {
+          const b = document.querySelector<HTMLElement>('[data-testid="market-strip"] button[aria-label="시황 펼치기"]');
+          if (b) b.scrollLeft = b.scrollWidth;
+        });
+        await page.waitForTimeout(300);
+      },
+    },
+    {
+      name: '147-툴팁-누르기',
+      hash: '#/calendar',
+      open: async (page: Page) => {
+        await page.waitForTimeout(800);
+        const target = page.getByRole('button', { name: '데이터 출처', exact: true }).first();
+        // 손가락 화면(폰 · 패드 크기)은 누르기 · 1280 이상은 마우스 올림(같은 상자)
+        if (await page.evaluate(() => matchMedia('(pointer: coarse)').matches)) await target.tap().catch(() => {});
+        else await hoverTip(page, target);
+        await page.waitForTimeout(500);
+      },
+    },
     // v2.69.0 — [ⓘ] 설명이 열린 장면(증시 일정 「데이터 출처」 — 앱 툴팁과 같은 상자)
     { name: 'tooltip-정보-증시일정', hash: '#/calendar', open: async (page) => { await page.waitForTimeout(800); await hoverTip(page, page.getByRole('button', { name: '데이터 출처', exact: true })); } },
     // v2.69.1 — 앱 전체 툴팁(129차 묶음 A · B · C 대표 자리)이 열린 장면
