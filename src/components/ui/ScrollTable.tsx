@@ -14,7 +14,8 @@ import { TABLE_NAME_MIN_PX, TOOLTIP_TOUCH_MOVE_PX } from './tokens';
  *     그 칸이 상자 폭의 절반을 넘으면 고정하지 않는다(고정 칸이 화면을 다 차지하지 않게).
  *   - 고정 칸 그림자: 그 칸이 실제로 붙어 있을 때만(첫 칸이면 가로 스크롤 > 0) — `--shadow-scroll-pin`.
  *   - 끝 흐림 24(`--scroll-table-fade`): 더 밀 수 있는 쪽만(왼쪽은 고정 칸 바로 오른쪽부터) · 상자 바탕 → 투명.
- *   - 이름 칸(`TABLE_NAME_COL` = 글이 있는 `w-full` 머리 칸) 최소 `TABLE_NAME_MIN_PX`.
+ *   - 이름 칸(`TABLE_NAME_COL` = 글이 있는 `w-full` 머리 칸) 최소 `TABLE_NAME_MIN_PX`(칸에 원래 최소 폭이 있으면 그것).
+ *   - 줄 전체를 합친 칸(묶음 머리 줄)의 내용은 보이는 폭으로 줄여 왼쪽에 붙인다(밀어도 묶음 이름 · 단추가 보임).
  *   - 판단은 스크롤 · 크기 바뀜(`ResizeObserver`) · 줄 바뀜(`MutationObserver`)마다 다시 한다(내용이 늦게 와도 맞음).
  *   - 손가락: 가로 · 세로 밀기는 브라우저 기본(`touch-action` 을 막지 않음). 밀고 뗀 뒤의 줄 누름(`click`)은 막는다
  *     (`TOOLTIP_TOUCH_MOVE_PX` 넘게 움직였거나 표가 밀렸으면 — 툴팁 길게 누르기의 취소 거리와 같음). 창 「아래로 밀어 닫기」 는 손잡이 · 머리에서만이라 부딪히지 않는다.
@@ -93,6 +94,7 @@ const ScrollTable = forwardRef<HTMLDivElement, ScrollTableProps>(function Scroll
       const padR = parseFloat(cs.paddingRight) || 0;
       box.style.setProperty('--st-pad-l', `${padL}px`);
       box.style.setProperty('--st-pad-r', `${padR}px`);
+      box.style.setProperty('--st-view-w', `${box.clientWidth - padL - padR}px`);
       const bg = surfaceBg(box);
       if (bg) box.style.setProperty('--st-bg', bg);
       const tables = box.querySelectorAll<HTMLTableElement>(':scope > [data-scroll-table-inner] > table');

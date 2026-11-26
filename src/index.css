@@ -563,6 +563,16 @@ input[type='number']::-webkit-outer-spin-button {
   display: block;
   box-shadow: var(--shadow-scroll-pin);
 }
+/*
+ * 줄 전체를 합친 칸(급등 「탐지 회차 … [삭제]」 같은 묶음 머리 줄)의 내용 상자 — 보이는 폭(`--st-view-w`)으로 줄이고 왼쪽에 붙인다.
+ * 밀어도 묶음 이름 · 그 줄 단추가 화면 밖으로 사라지지 않는다(글만 든 합친 칸은 그대로).
+ */
+[data-scroll-table] > [data-scroll-table-inner] > table > * > tr > td[colspan]:first-child:last-child > * {
+  position: sticky;
+  left: 0;
+  max-width: var(--st-view-w, 100%);
+  box-sizing: border-box;
+}
 [data-scroll-fade] {
   position: sticky;
   z-index: 4;
