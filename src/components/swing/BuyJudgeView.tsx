@@ -100,7 +100,10 @@ export default function BuyJudgeView() {
   const markets = [...new Set(rows.filter((r) => r.basisDate).map((r) => `${isKrSymbol(r.symbol) ? '국내' : '미국'} ${r.basisDate}`))];
   const ruleMissing = j.state != null && j.state.ruleId == null;
   const tableShown = j.state != null && symbols.length > 0 && !ruleMissing;
-  const phone = useLayoutMode() === 'phone';
+  const layout = useLayoutMode();
+  const phone = layout === 'phone';
+  /** 폰 · 패드만(v2.77.0) — 응답 전 종목 줄 숨김 · 처음 받기 실패는 오류 + [다시 시도]. 1280 이상은 지금 동작 그대로(지시서 · 사용자 결정 3) */
+  const touchLoading = layout !== 'desk';
 
   return (
     <div className="flex h-full flex-col">
@@ -132,14 +135,14 @@ export default function BuyJudgeView() {
             </p>
 
             <div className="space-y-2">
-              {/* 응답 전에는 그리지 않는다 — 「0종목」 을 먼저 보이지 않게(`docs/rules/ui.md` 「로딩 표시」) */}
-              {j.state != null && (
+              {/* 폰 · 패드는 응답 전에 그리지 않는다 — 「0종목」 을 먼저 보이지 않게(`docs/rules/ui.md` 「로딩 표시」) */}
+              {(j.state != null || !touchLoading) && (
                 <SymbolListBar
                   selected={symbols}
                   onChange={(next) => void act(j.setSymbols(next), '목록을 바꾸지 못했습니다')}
                   max={MAX_SYMBOLS}
                   dialogTitle="매수 판단 종목 추가"
-                  disabled={busy != null}
+                  disabled={busy != null || j.state == null}
                 />
               )}
               {/* 표가 있으면 진행 표시는 표 위에 덮는다(아래) — 표가 없을 때만 이 줄 */}
@@ -150,7 +153,7 @@ export default function BuyJudgeView() {
                 </p>
               )}
               {j.error && <p className="text-caption text-danger">{j.error}</p>}
-              {j.state == null && j.error && busy == null ? (
+              {touchLoading && j.state == null && j.error && busy == null ? (
                 // 처음 받기 실패 — 오류(위 줄) + [다시 시도](빈 목록 · 스켈레톤으로 두지 않는다 · `docs/rules/ui.md` 「로딩 표시」)
                 <Button variant="secondary" size="md" onClick={() => void j.load().catch(() => undefined)}>
                   다시 시도
