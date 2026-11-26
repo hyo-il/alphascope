@@ -143,6 +143,12 @@ export const CARD_GRID = 'grid-cols-[repeat(auto-fill,minmax(max(18rem,calc((100
  * - 자리: 대상 바로 아래 `TOOLTIP_GAP` · 화면 끝에서 `TOOLTIP_EDGE` 안쪽 · 폭은 글 길이만큼(최대 `TOOLTIP_MAX_W` · 화면 폭 − 2 × `TOOLTIP_EDGE`).
  * - 상자: 떠 있는 바탕(`bg-elevated`) · 1px 테두리 · 둥글기 8px · 그림자 · 글자 14px(`text-xs`) · 줄 높이 1.625 · 안쪽 여백 가로 10px · 세로 6px · 줄바꿈 지킴.
  */
+/**
+ * 손가락(v2.74.0 · 사용자 결정 2026-11-25): 누를 때 하는 일이 없는 대상([ⓘ] · 점선 글자 · 맨 글)은 **누르면** 열림 ·
+ * 하는 일이 있는 단추 · 줄은 `TOOLTIP_LONG_PRESS_MS` **길게 누르면** 열림(손을 떼도 그 동작은 일어나지 않음) · 누른 채 `TOOLTIP_TOUCH_MOVE_PX` 넘게 움직이면 취소.
+ */
+export const TOOLTIP_LONG_PRESS_MS = 500;
+export const TOOLTIP_TOUCH_MOVE_PX = 10;
 export const TOOLTIP_OPEN_MS = 300;
 export const TOOLTIP_CLOSE_MS = 200;
 export const TOOLTIP_MAX_W = 320;

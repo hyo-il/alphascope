@@ -92,6 +92,22 @@ async function tap(page: Page, cdp: CDPSession, x: number, y: number) {
   await touch(cdp, 'touchEnd', x, y);
   await page.waitForTimeout(250);
 }
+async function longPress(page: Page, cdp: CDPSession, x: number, y: number, ms: number, moveTo?: { x: number; y: number }) {
+  await touch(cdp, 'touchStart', x, y);
+  if (moveTo) {
+    await page.waitForTimeout(100);
+    await touch(cdp, 'touchMove', (x + moveTo.x) / 2, (y + moveTo.y) / 2);
+    await touch(cdp, 'touchMove', moveTo.x, moveTo.y);
+  }
+  await page.waitForTimeout(ms);
+  await touch(cdp, 'touchEnd', moveTo?.x ?? x, moveTo?.y ?? y);
+  await page.waitForTimeout(300);
+}
+/** 요소의 가운데 */
+async function centerOf(page: Page, sel: string) {
+  const b = await box(page, sel);
+  return b ? { x: b.x + b.w / 2, y: b.y + b.h / 2 } : null;
+}
 /** 합성 손가락 밀기(창 손잡이 · 머리 · 몸) — React 의 onTouch* 는 이 사건을 받는다 */
 async function swipe(page: Page, sel: string, dy: number) {
   await page.evaluate(
@@ -158,7 +174,7 @@ const hitArea = (page: Page, sel: string) =>
     const h = Math.max(r.height, parseFloat(after.height) || 0);
     return { ok: miss.length === 0 && w >= 44 && h >= 44, miss: miss.length, w: Math.round(w), h: Math.round(h), left: Math.round(cx - w / 2), right: Math.round(cx + w / 2) };
   }, sel);
-const harness = (page: Page) => page.evaluate(() => (window as unknown as { __harness: { open: boolean; closed: number } }).__harness);
+const harness = (page: Page) => page.evaluate(() => (window as unknown as { __harness: { open: boolean; closed: number; saved: number } }).__harness);
 const PANEL = '[role="dialog"][aria-labelledby] > div';
 const askShown = async (page: Page) => (await page.getByRole('dialog', { name: '저장하지 않고 닫을까요?' }).count()) === 1;
 /** 묻는 창을 [취소] 로 닫는다(시험 창은 남음) */
@@ -344,6 +360,58 @@ try {
       };
     });
     check('[147-1] 1280 마우스 — 바깥 칸 없음 · 아이콘 사이 0 · 입력 32/14 · 표 줄 40 · 목록 줄 36 · position static', desk.after === 'none' && desk.gap === 0 && desk.input === '32/14px' && desk.tableRow === 40 && desk.listRow === 36 && desk.pos === 'static', JSON.stringify(desk));
+    await unmount(page);
+    await ctx.close();
+  }
+
+  // ───────── 6 · 7 툴팁 — 누르기 · 길게 누르기 ─────────
+  for (const size of [PHONE, PAD]) {
+    const { page, ctx, cdp } = await open(browser, size, '#/portfolio');
+    await mountParts(page);
+    const tag = `${size.width}`;
+    const tip = () => page.evaluate(() => {
+      const t = document.querySelector('[role="tooltip"]') as HTMLElement | null;
+      if (!t || t.style.visibility === 'hidden') return null;
+      const r = t.getBoundingClientRect();
+      return { text: t.textContent, left: Math.round(r.left), right: Math.round(r.right) };
+    });
+    const saved = async () => (await harness(page)).saved;
+    const info = (await centerOf(page, '[data-testid="parts"] [data-infotip]'))!;
+    await tap(page, cdp!, info.x, info.y);
+    const t1 = await tip();
+    check(`[147-6] ${tag} [ⓘ] 을 누르면 열림`, t1?.text === '정보 설명 글', JSON.stringify(t1));
+    check(`[147-6] ${tag} 툴팁이 화면 안(좌우 끝 8 안쪽)`, t1 != null && t1.left >= 8 && t1.right <= size.width - 8, JSON.stringify(t1));
+    await tap(page, cdp!, 200, size.height - 60);
+    check(`[147-6] ${tag} 다른 곳을 누르면 닫힘`, (await tip()) == null);
+    await tap(page, cdp!, info.x, info.y);
+    await tap(page, cdp!, info.x, info.y);
+    check(`[147-6] ${tag} 같은 [ⓘ] 을 다시 누르면 닫힘`, (await tip()) == null);
+    const plain = (await centerOf(page, '[data-testid="plain-tip"]'))!;
+    await tap(page, cdp!, plain.x, plain.y);
+    check(`[147-6] ${tag} 누름 동작 없는 글(data-tip)도 누르면 열림`, (await tip())?.text === '맨 글 설명');
+    await tap(page, cdp!, 200, size.height - 60);
+
+    const btn = (await centerOf(page, '[data-testid="btn-sm"]'))!;
+    const s0 = await saved();
+    await longPress(page, cdp!, btn.x, btn.y, 700);
+    const t2 = await tip();
+    check(`[147-7] ${tag} 툴팁 단추를 0.7초 길게 누르면 열림 · 손을 떼도 단추 동작 없음`, t2?.text === '단추 설명' && (await saved()) === s0, `${JSON.stringify(t2)} · 누름 ${(await saved()) - s0}`);
+    await tap(page, cdp!, 200, size.height - 60);
+    const s1 = await saved();
+    await tap(page, cdp!, btn.x, btn.y);
+    check(`[147-7] ${tag} 짧게 누르면 단추 동작만 · 툴팁 없음`, (await saved()) === s1 + 1 && (await tip()) == null, `누름 ${(await saved()) - s1}`);
+    const s2 = await saved();
+    await longPress(page, cdp!, btn.x, btn.y, 700, { x: btn.x + 30, y: btn.y });
+    check(`[147-7] ${tag} 누른 채 밀면 열리지 않음`, (await tip()) == null && (await saved()) === s2);
+    const icon = (await centerOf(page, '[data-testid="icon-a"]'))!;
+    const s3 = await saved();
+    await longPress(page, cdp!, icon.x, icon.y, 700);
+    check(`[147-7] ${tag} 아이콘 단추 길게 누르기 → 이름(고치기) · 동작 없음`, (await tip())?.text === '고치기' && (await saved()) === s3);
+    await tap(page, cdp!, 200, size.height - 60);
+    // 길게 누른 다음 누름은 그대로(click 막기는 하나만)
+    const s4 = await saved();
+    await tap(page, cdp!, btn.x, btn.y);
+    check(`[147-7] ${tag} 길게 누른 뒤 다음 짧은 누름은 동작함(막는 click 은 하나만)`, (await saved()) === s4 + 1);
     await unmount(page);
     await ctx.close();
   }

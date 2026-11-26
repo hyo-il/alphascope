@@ -7,6 +7,11 @@
  * - 키보드 초점이면 바로 열림 · 초점이 떠나면 닫힘.
  * - 누름 · Esc · 창 크기 바꿈 · 창이 초점을 잃음에 닫힘. 스크롤에도 닫히되, 키보드 초점으로 연 뒤 `openMs` 안의 스크롤은 무시(초점 받은 곳을 보이게 하는 스크롤).
  * - **하나만** 열림 — 새것이 열리면 앞의 것이 닫힘. 열린 채 다른 대상으로 옮기면 기다리지 않고 바로 바뀜.
+ * - **손가락**(v2.74.0 · 사용자 결정 2026-11-25 — `touchDown` · `touchMove` · `touchUp` · `touchCancel`). 대상은 둘로 나뉜다(나누기는 부르는 쪽 — `ui/Tooltip`):
+ *   - `tap`(누를 때 하는 일이 없음 — [ⓘ] · 점선 글자 · 누름 동작이 없는 글): **누르면**(손을 뗄 때) 열림 · 같은 것을 다시 누르면 닫힘.
+ *   - `press`(단추 · 줄처럼 누르면 하는 일이 있음): **`longPressMs` 길게 누르면** 열림 — 그러면 `touchUp` 이 true(뒤따르는 click 하나를 막으라는 뜻 —
+ *     손을 떼도 그 동작은 일어나지 않음). 그 전에 떼면 동작만(툴팁 없음). 누른 채 `moveTolerancePx` 넘게 움직이면(밀어 보기) 취소.
+ *   - 다른 곳을 누르면 열린 것이 닫힘(누르는 순간). 스크롤 · Esc · 창 크기 바꿈에도 닫힘(위와 같음).
  */
 export interface TipClock {
   now: () => number;
@@ -31,11 +36,31 @@ export interface TipController<T> {
   scroll: () => void;
   resize: () => void;
   windowBlur: () => void;
+  /** 손가락이 닿음 — 대상(없으면 null)과 그 종류 · 자리 */
+  touchDown: (t: T | null, kind: TouchKind, x: number, y: number) => void;
+  touchMove: (x: number, y: number) => void;
+  /** 손가락을 뗌 — true 면 뒤따르는 click 하나를 막는다(길게 눌러 툴팁을 열었음) */
+  touchUp: () => boolean;
+  /** 브라우저가 누름을 가져감(스크롤 시작 등) */
+  touchCancel: () => void;
   subscribe: (fn: () => void) => () => void;
 }
 
-export function createTipController<T>(clock: TipClock, o: { openMs: number; closeMs: number }): TipController<T> {
+/** 손가락 대상 종류 — `tap` 누름 동작 없음(누르면 열림) · `press` 누름 동작 있음(길게 누르면 열림) */
+export type TouchKind = 'tap' | 'press';
+
+export function createTipController<T>(
+  clock: TipClock,
+  o: { openMs: number; closeMs: number; longPressMs: number; moveTolerancePx: number },
+): TipController<T> {
   let open: T | null = null;
+  /** 지금 닿아 있는 손가락 — 대상 · 종류 · 처음 자리 · 누르기 전에 이 대상이 열려 있었나 · 길게 눌러 열었나 · 움직였나 */
+  let finger: { t: T | null; kind: TouchKind; x: number; y: number; wasOpen: boolean; opened: boolean; moved: boolean } | null = null;
+  let pressTimer: unknown = null;
+  const cancelPress = () => {
+    if (pressTimer != null) clock.clearTimeout(pressTimer);
+    pressTimer = null;
+  };
   let pending: T | null = null;
   let openTimer: unknown = null;
   let closeTimer: unknown = null;
@@ -107,6 +132,11 @@ export function createTipController<T>(clock: TipClock, o: { openMs: number; clo
     },
     escape: () => close(),
     scroll() {
+      // 손가락으로 밀어 보는 중이면 길게 누르기를 취소한다
+      if (finger) {
+        cancelPress();
+        finger.moved = true;
+      }
       if (focusOpenedAt != null && clock.now() - focusOpenedAt < o.openMs) return;
       cancelOpen();
       if (open != null) close();
@@ -115,6 +145,46 @@ export function createTipController<T>(clock: TipClock, o: { openMs: number; clo
     windowBlur() {
       cancelOpen();
       if (open != null) close();
+    },
+    touchDown(t, kind, x, y) {
+      cancelOpen();
+      cancelPress();
+      const wasOpen = t != null && open === t && kind === 'tap';
+      // 다른 곳(또는 길게 누르는 대상 — 다시 누르면 새로 길게 눌러야 함)을 누르면 열린 것이 닫힌다
+      if (open != null && !wasOpen) close();
+      finger = { t, kind, x, y, wasOpen, opened: false, moved: false };
+      if (t != null && kind === 'press') {
+        const f = finger;
+        pressTimer = clock.setTimeout(() => {
+          pressTimer = null;
+          if (finger !== f || f.moved) return;
+          f.opened = true;
+          setOpen(t);
+        }, o.longPressMs);
+      }
+    },
+    touchMove(x, y) {
+      const f = finger;
+      if (!f || f.moved) return;
+      if (Math.hypot(x - f.x, y - f.y) > o.moveTolerancePx) {
+        f.moved = true;
+        cancelPress();
+      }
+    },
+    touchUp() {
+      const f = finger;
+      finger = null;
+      cancelPress();
+      if (!f) return false;
+      if (f.opened) return true;
+      if (f.moved || f.t == null || f.kind !== 'tap') return false;
+      if (f.wasOpen) close();
+      else setOpen(f.t);
+      return false;
+    },
+    touchCancel() {
+      finger = null;
+      cancelPress();
     },
     subscribe(fn) {
       listeners.add(fn);

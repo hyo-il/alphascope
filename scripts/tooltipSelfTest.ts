@@ -19,7 +19,7 @@ import { serverSharedSrc } from './lib/serverSharedSrc';
 import { appProgram, iconTextButtons, screenFiles, titleAttrs } from './lib/tooltipTitles';
 import { createTipController, type TipClock } from '../src/components/ui/tooltip/hover';
 import { placeTip, tipMaxWidth } from '../src/components/ui/tooltip/place';
-import { ICON_BUTTON_BOX, TOOLTIP_BOX, TOOLTIP_CLOSE_MS, TOOLTIP_EDGE, TOOLTIP_GAP, TOOLTIP_MAX_W, TOOLTIP_OPEN_MS } from '../src/components/ui/tokens';
+import { ICON_BUTTON_BOX, TOOLTIP_BOX, TOOLTIP_CLOSE_MS, TOOLTIP_EDGE, TOOLTIP_GAP, TOOLTIP_LONG_PRESS_MS, TOOLTIP_MAX_W, TOOLTIP_OPEN_MS, TOOLTIP_TOUCH_MOVE_PX } from '../src/components/ui/tokens';
 
 const root = path.resolve(import.meta.dirname, '..');
 let pass = 0;
@@ -62,7 +62,7 @@ function fakeClock() {
 }
 const make = () => {
   const c = fakeClock();
-  const ctl = createTipController<string>(c.clock, { openMs: TOOLTIP_OPEN_MS, closeMs: TOOLTIP_CLOSE_MS });
+  const ctl = createTipController<string>(c.clock, { openMs: TOOLTIP_OPEN_MS, closeMs: TOOLTIP_CLOSE_MS, longPressMs: TOOLTIP_LONG_PRESS_MS, moveTolerancePx: TOOLTIP_TOUCH_MOVE_PX });
   return { ctl, advance: c.advance };
 };
 
@@ -266,7 +266,7 @@ check(
   check('[128-4] InfoTip = 같은 판단(tipController) · 내용만 넣음(setInfoTipContent) · data-infotip', /tipController\.(show|hide)/.test(info) && /setInfoTipContent\(/.test(info) && /data-infotip/.test(info));
   check('[128-4] 툴팁 담당이 [ⓘ] 도 같은 상자(TOOLTIP_BOX) · 같은 자리(placeTip) · 같은 판단으로 그림', /\[data-infotip\]/.test(host) && /className=\{TOOLTIP_BOX\}/.test(host) && /placeTip\(/.test(host) && /createTipController/.test(host));
   check('[128-4] 툴팁 담당은 앱 뿌리(main.tsx)에 하나', (code('src/main.tsx').match(/<TooltipHost \/>/g) ?? []).length === 1 && !/TooltipHost/.test(code('src/App.tsx')));
-  check('[128-1] 터치(마우스 아닌 누름)에는 열지 않음 — pointerType mouse 만 · 누름은 닫기', /e\.pointerType !== 'mouse'\) return/.test(host) && /pointerdown', onDown, true/.test(host));
+  check('[128-1] 마우스 올림만 연다(터치 올림 pointerover 는 무시 — 손가락은 누르기 · 길게 누르기 [147-C]) · 마우스 누름은 닫기', /e\.pointerType !== 'mouse'\) return/.test(host) && /pointerdown', onDown, true/.test(host));
 }
 
 // ── [128-5] 아이콘 버튼 두 크기 ──
@@ -481,6 +481,111 @@ check(
     const removed = dc.filter((l) => /^-(?!--)/.test(l));
     check(`[131-5] designCheck.ts — 지운 · 바꾼 줄 0(판정 부분 그대로 · 장면 더하기만)`, removed.length === 0, removed.slice(0, 3).join(' / '));
   }
+}
+
+// ── [147-C] 손가락 — 누르기 · 길게 누르기(147차 v2.74.0 · 사용자 결정 2026-11-25) ──
+check('[147-C] 시간 숫자 — 길게 누르기 500ms · 움직임 10px(tokens.ts 한 곳)', TOOLTIP_LONG_PRESS_MS === 500 && TOOLTIP_TOUCH_MOVE_PX === 10);
+{
+  const { ctl, advance } = make();
+  ctl.touchDown('i', 'tap', 10, 10);
+  advance(50);
+  const beforeUp = ctl.current();
+  const swallow = ctl.touchUp();
+  const opened = ctl.current();
+  ctl.touchDown('i', 'tap', 10, 10);
+  ctl.touchUp();
+  check('[147-C] 누름 동작 없는 대상(tap) — 손을 떼면 열림 · click 은 막지 않음 · 같은 것을 다시 누르면 닫힘', beforeUp === null && opened === 'i' && !swallow && ctl.current() === null);
+}
+{
+  const { ctl } = make();
+  ctl.touchDown('i', 'tap', 10, 10);
+  ctl.touchUp();
+  ctl.touchDown(null, 'tap', 200, 200);
+  const closedOnDown = ctl.current();
+  ctl.touchUp();
+  ctl.touchDown('i', 'tap', 10, 10);
+  ctl.touchUp();
+  ctl.touchDown('b', 'press', 50, 50);
+  check('[147-C] 다른 곳(빈 곳 · 다른 대상)을 누르는 순간 닫힘', closedOnDown === null && ctl.current() === null);
+  ctl.touchCancel();
+}
+{
+  const { ctl, advance } = make();
+  ctl.touchDown('b', 'press', 10, 10);
+  advance(499);
+  const early = ctl.current();
+  advance(1);
+  const at500 = ctl.current();
+  const swallow = ctl.touchUp();
+  check('[147-C] 누름 동작 있는 대상(press) — 0.5초 길게 누르면 열림(499ms 에는 아직) · 떼면 click 하나를 막음(true) · 열린 채', early === null && at500 === 'b' && swallow && ctl.current() === 'b');
+}
+{
+  const { ctl, advance } = make();
+  ctl.touchDown('b', 'press', 10, 10);
+  advance(300);
+  const swallow = ctl.touchUp();
+  advance(1000);
+  check('[147-C] 0.5초 전에 떼면 툴팁 없음 · click 그대로(false)', ctl.current() === null && !swallow);
+}
+{
+  const { ctl, advance } = make();
+  ctl.touchDown('b', 'press', 10, 10);
+  ctl.touchMove(10, 19);
+  advance(100);
+  const small = ctl.current();
+  ctl.touchMove(10, 21);
+  advance(1000);
+  const moved = ctl.current();
+  const swallow = ctl.touchUp();
+  check('[147-C] 누른 채 10px 넘게 움직이면(밀어 보기) 길게 누르기 취소 · 10px 안은 그대로 기다림', small === null && moved === null && !swallow);
+  ctl.touchDown('b', 'press', 10, 10);
+  advance(100);
+  ctl.touchMove(10, 15);
+  advance(400);
+  check('[147-C] 10px 안 움직임은 0.5초에 열림', ctl.current() === 'b');
+  ctl.touchUp();
+}
+{
+  const { ctl, advance } = make();
+  ctl.touchDown('b', 'press', 10, 10);
+  advance(200);
+  ctl.scroll();
+  advance(1000);
+  const afterScroll = ctl.current();
+  ctl.touchUp();
+  ctl.touchDown('i', 'tap', 10, 10);
+  ctl.touchMove(10, 40);
+  ctl.touchUp();
+  const tapMoved = ctl.current();
+  ctl.touchDown('i', 'tap', 10, 10);
+  ctl.touchUp();
+  ctl.scroll();
+  const scrolled = ctl.current();
+  ctl.touchDown('i', 'tap', 10, 10);
+  ctl.touchUp();
+  ctl.escape();
+  const esc = ctl.current();
+  ctl.touchDown('i', 'tap', 10, 10);
+  ctl.touchUp();
+  ctl.resize();
+  check('[147-C] 스크롤이 길게 누르기를 취소 · 밀고 뗀 누르기는 열지 않음 · 열린 것은 스크롤 · Esc · 창 크기에 닫힘', afterScroll === null && tapMoved === null && scrolled === null && esc === null && ctl.current() === null);
+}
+{
+  const { ctl, advance } = make();
+  ctl.touchDown('b', 'press', 10, 10);
+  advance(600);
+  ctl.touchUp();
+  ctl.touchDown('i', 'tap', 10, 10);
+  const one = ctl.current();
+  ctl.touchUp();
+  check('[147-C] 열린 툴팁은 하나 — 다른 대상을 누르면 앞의 것이 닫히고 새것이 열림', one === null && ctl.current() === 'i');
+}
+{
+  const host = code('src/components/ui/Tooltip.tsx');
+  check('[147-C] 툴팁 담당 — 손가락 사건(pointerdown · move · up · cancel)을 판단 한 곳(tipController.touch*)으로 · 뒤따르는 click 막기 · contextmenu 막기 · 하는 일 판단 한 곳(touchKind)',
+    /tipController\.touchDown\(/.test(host) && /tipController\.touchUp\(\)/.test(host) && /'pointercancel', onCancel, true/.test(host) && /'click', swallowClick, true/.test(host) && /'contextmenu', onContext, true/.test(host) && /function touchKind\(/.test(host));
+  const css = read('src/index.css');
+  check('[147-C] 길게 누를 때 기본 메뉴 막기는 툴팁 대상에만 · 손가락 조건(touch 변형)으로', /\[data-tip\],\s*\[data-tip-clip\],\s*\[data-infotip\] \{\s*@variant touch \{\s*-webkit-touch-callout: none;/.test(css));
 }
 
 console.log(`\n툴팁 시험 — 통과 ${pass} · 실패 ${fail}`);

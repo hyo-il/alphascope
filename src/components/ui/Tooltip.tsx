@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { TOOLTIP_BOX, TOOLTIP_CLOSE_MS, TOOLTIP_OPEN_MS } from './tokens';
-import { createTipController } from './tooltip/hover';
+import { TOOLTIP_BOX, TOOLTIP_CLOSE_MS, TOOLTIP_LONG_PRESS_MS, TOOLTIP_OPEN_MS, TOOLTIP_TOUCH_MOVE_PX } from './tokens';
+import { createTipController, type TouchKind } from './tooltip/hover';
 import { placeTip, tipMaxWidth } from './tooltip/place';
 
 /**
@@ -17,13 +17,19 @@ import { placeTip, tipMaxWidth } from './tooltip/place';
  * - `data-tip-side="right"` — **옆으로**(대상 오른쪽 · 자리가 모자라면 왼쪽 · 세로 가운데). 없으면 아래 / 위.
  *   표 안 줄마다 있는 작은 아이콘 버튼에 단다(아래로 뜨면 다음 줄 글을 가린다 — 실시간 순위 관심 별 등).
  *
- * 문서 전체의 마우스 · 키보드 초점을 보고 표시가 달린 요소의 툴팁을 `document.body` 에 그린다(조상의 넘침 숨김에 잘리지 않게).
- * 터치(마우스 아닌 누름)에는 열지 않는다 — 누름은 버튼 동작. 열린 툴팁은 앱 전체에서 하나.
+ * 문서 전체의 마우스 · 키보드 초점 · 손가락을 보고 표시가 달린 요소의 툴팁을 `document.body` 에 그린다(조상의 넘침 숨김에 잘리지 않게).
+ * **손가락**(`pointerType` touch · pen — v2.74.0 · 사용자 결정 2026-11-25): 누를 때 하는 일이 없는 대상([ⓘ] · 점선 글자 · 누름 동작이 없는 요소의
+ *   `data-tip` · 잘린 `data-tip-clip`)은 **누르면** 열림 · 같은 것을 다시 누르면 닫힘. 하는 일이 있는 대상(단추 · 링크 · 입력 · 탭 · 누르면 이동하는 줄)은
+ *   **0.5초 길게 누르면** 열리고, 손을 떼도 그 동작은 일어나지 않는다(뒤따르는 click 하나를 막음). 짧게 누르면 동작만 · 누른 채 10px 넘게 밀면 취소.
+ *   「하는 일이 있나」 는 여기 한 곳(`touchKind`)에서 가린다 — 역할(단추 · 링크 · 입력 · 탭 …) 또는 **손가락 모양 커서**(`cursor: pointer` —
+ *   누르면 이동하는 표 줄은 `cursor-pointer` 를 이미 단다 · 커서는 물려받으므로 줄 안 이름 칸도 같다). 화면 코드는 따로 표시를 달지 않는다.
+ *   길게 누를 때 브라우저 기본 메뉴(글 고르기 · 링크 미리보기)는 `index.css` 가 툴팁 대상에만 막고, `contextmenu` 도 여기서 막는다.
+ * 열린 툴팁은 앱 전체에서 하나. 다른 곳을 누름 · 스크롤 · Esc · 창 크기 바뀜에 닫힌다.
  * 시간 · 크기 · 상자 모양은 `tokens.ts` 「툴팁」 한 곳.
  */
 export const tipController = createTipController<HTMLElement>(
   { now: () => performance.now(), setTimeout: (fn, ms) => window.setTimeout(fn, ms), clearTimeout: (id) => window.clearTimeout(id as number) },
-  { openMs: TOOLTIP_OPEN_MS, closeMs: TOOLTIP_CLOSE_MS },
+  { openMs: TOOLTIP_OPEN_MS, closeMs: TOOLTIP_CLOSE_MS, longPressMs: TOOLTIP_LONG_PRESS_MS, moveTolerancePx: TOOLTIP_TOUCH_MOVE_PX },
 );
 
 /** [ⓘ] 내용 — `InfoTip` 이 자기 단추에 맞춰 넣는다(글자가 아니라 React 내용이라 속성에 담지 못한다) */
@@ -59,6 +65,17 @@ function tipTarget(node: EventTarget | null): HTMLElement | null {
     el = el.parentElement?.closest<HTMLElement>(TIP_SELECTOR) ?? null;
   }
   return null;
+}
+
+/** 누를 때 하는 일이 있는 요소(그 조상 포함) — 길게 눌러야 툴팁 */
+const PRESS_ACTION = 'a[href], button, input, select, textarea, label, summary, [role="button"], [role="tab"], [role="link"], [role="radio"], [role="checkbox"], [role="switch"], [role="menuitem"], [role="option"]';
+
+/** 손가락 대상 종류 — [ⓘ] · 꺼진 단추 · 누름 동작이 없는 글은 `tap`(누르면 열림), 그 밖은 `press`(길게 눌러 열림) */
+function touchKind(el: HTMLElement): TouchKind {
+  if (el.hasAttribute('data-infotip')) return 'tap';
+  const act = el.closest<HTMLElement>(PRESS_ACTION);
+  if (act && !(act as HTMLButtonElement).disabled) return 'press';
+  return getComputedStyle(el).cursor === 'pointer' ? 'press' : 'tap';
 }
 
 function contentOf(el: HTMLElement): ReactNode {
@@ -114,7 +131,41 @@ export default function TooltipHost() {
       moveTo(zoneOf(over));
     });
     offWatch.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-tip-off'] });
-    const onDown = () => tipController.press();
+    // 손가락 — 누르는 순간 대상 · 종류를 정하고, 뗄 때 열거나(누르기) 뒤따르는 click 을 막는다(길게 누르기)
+    let lastPointer: string = 'mouse';
+    const onDown = (e: PointerEvent) => {
+      lastPointer = e.pointerType;
+      if (e.pointerType === 'mouse') return tipController.press();
+      const el = tipTarget(e.target);
+      tipController.touchDown(el, el ? touchKind(el) : 'tap', e.clientX, e.clientY);
+    };
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse') tipController.touchMove(e.clientX, e.clientY);
+    };
+    const swallowClick = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropSwallow();
+    };
+    let swallowTimer = 0;
+    const dropSwallow = () => {
+      window.removeEventListener('click', swallowClick, true);
+      window.clearTimeout(swallowTimer);
+    };
+    const onUp = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse' || !tipController.touchUp()) return;
+      // 길게 눌러 열었다 — 손을 뗄 때 오는 click 하나만 막는다(오지 않으면 잠시 뒤 풀어 다음 누름은 그대로)
+      dropSwallow();
+      window.addEventListener('click', swallowClick, true);
+      swallowTimer = window.setTimeout(dropSwallow, 800);
+    };
+    const onCancel = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse') tipController.touchCancel();
+    };
+    // 길게 누를 때 브라우저 메뉴 — 툴팁 대상에서만 막는다
+    const onContext = (e: MouseEvent) => {
+      if (lastPointer !== 'mouse' && tipTarget(e.target)) e.preventDefault();
+    };
     const onFocusIn = (e: FocusEvent) => {
       const t = e.target;
       if (!(t instanceof Element) || !t.matches(':focus-visible')) return;
@@ -134,6 +185,10 @@ export default function TooltipHost() {
     document.addEventListener('pointerover', onOver);
     document.addEventListener('pointerout', onOut);
     document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('pointermove', onMove, true);
+    document.addEventListener('pointerup', onUp, true);
+    document.addEventListener('pointercancel', onCancel, true);
+    document.addEventListener('contextmenu', onContext, true);
     document.addEventListener('focusin', onFocusIn);
     document.addEventListener('focusout', onFocusOut);
     document.addEventListener('keydown', onKey);
@@ -145,6 +200,11 @@ export default function TooltipHost() {
       document.removeEventListener('pointerover', onOver);
       document.removeEventListener('pointerout', onOut);
       document.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('pointermove', onMove, true);
+      document.removeEventListener('pointerup', onUp, true);
+      document.removeEventListener('pointercancel', onCancel, true);
+      document.removeEventListener('contextmenu', onContext, true);
+      dropSwallow();
       document.removeEventListener('focusin', onFocusIn);
       document.removeEventListener('focusout', onFocusOut);
       document.removeEventListener('keydown', onKey);
