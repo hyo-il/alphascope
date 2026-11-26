@@ -1,0 +1,1861 @@
+{
+"/api/settings/clock": {
+"clock": {
+"pinned": false,
+"corner": "top-right",
+"dx": 136,
+"dy": 0
+}
+},
+"/api/paper/accounts": {
+"accounts": [
+{
+"id": 8,
+"name": "모의 투자 계좌",
+"initialBalance": 10000000,
+"currentCash": 9570469.609473009,
+"currency": "KRW",
+"commissionRate": 0.001,
+"slippageRate": 0.0005,
+"createdAt": "2026-08-28T01:27:51.976Z",
+"isActive": true
+}
+]
+},
+"/api/settings/home-page": {
+"homePage": "home"
+},
+"/api/auto-trading/overview": {
+"items": [
+{
+"strategy": {
+"accountId": 8,
+"enabled": true,
+"ruleId": 1,
+"symbols": [
+"NVDA",
+"AAPL",
+"WMT"
+],
+"positionSizePercent": 10,
+"maxPositions": 5,
+"earningsBlackoutDays": 3,
+"dailyLossLimitPercent": 0,
+"aiCheck": true
+},
+"status": {
+"accountId": 8,
+"enabled": true,
+"running": false,
+"lastRunAt": "2026-11-25T14:31:00.000Z",
+"lastError": null,
+"blockedReason": null,
+"blockedKind": null,
+"serverEnabled": true,
+"judgedToday": 0,
+"nextOpen": {
+"US": "2026-11-27T14:30:00.000Z"
+},
+"lastNotes": [
+{
+"symbol": "NVDA",
+"action": "BUY",
+"reason": "점수 72 ≥ 65 — 매수",
+"code": "buy",
+"at": "2026-11-25T14:31:00.000Z",
+"market": "US"
+},
+{
+"symbol": "AAPL",
+"action": "HOLD",
+"reason": "점수 58 < 65 — 매수 조건 아님",
+"code": "score_low",
+"at": "2026-11-25T14:31:00.000Z",
+"market": "US"
+},
+{
+"symbol": "WMT",
+"action": "HOLD",
+"reason": "실적 발표 3거래일 전이라 새로 매수하지 않음",
+"code": "earnings",
+"at": "2026-11-25T14:31:00.000Z",
+"market": "US"
+}
+],
+"lastNotesAt": "2026-11-25T14:31:00.000Z"
+}
+}
+]
+},
+"/api/paper/accounts-view": {
+"view": "card"
+},
+"/api/rules": {
+"rules": [
+{
+"id": 1,
+"name": "기본 규칙",
+"createdAt": "2026-10-14T07:15:00.520Z",
+"updatedAt": "2026-10-14T07:15:00.520Z",
+"buy": {
+"trend": {
+"on": true,
+"points": 30
+},
+"timing": {
+"on": true,
+"points": 25,
+"rsiLow": 35,
+"rsiHigh": 45
+},
+"momentum": {
+"on": true,
+"points": 20
+},
+"volume": {
+"on": true,
+"points": 15
+},
+"riskReward": {
+"on": true,
+"points": 10
+},
+"maCross": {
+"on": false,
+"points": 10,
+"short": 5,
+"long": 20
+},
+"rsiRebound": {
+"on": false,
+"points": 10,
+"below": 30
+},
+"minScore": 65
+},
+"sell": {
+"scoreBelow": {
+"on": true,
+"value": 50
+},
+"opposite": {
+"on": false,
+"rsiAbove": 70
+},
+"stopLoss": {
+"on": true,
+"percent": 7
+},
+"takeProfit": {
+"on": false,
+"percent": 10
+},
+"trailing": {
+"on": false,
+"percent": 5
+}
+},
+"reentryWaitDays": 5,
+"usedBy": {
+"buyJudge": true,
+"accounts": [],
+"backtest": false
+}
+},
+{
+"id": 4,
+"name": "기본 규칙 + 200일선",
+"createdAt": "2026-11-26T04:50:46.470Z",
+"updatedAt": "2026-11-26T04:50:46.470Z",
+"buy": {
+"trend": {
+"on": true,
+"points": 30
+},
+"timing": {
+"on": true,
+"points": 25,
+"rsiLow": 35,
+"rsiHigh": 45
+},
+"momentum": {
+"on": true,
+"points": 20
+},
+"volume": {
+"on": true,
+"points": 15
+},
+"riskReward": {
+"on": true,
+"points": 10
+},
+"maCross": {
+"on": false,
+"points": 10,
+"short": 5,
+"long": 20
+},
+"rsiRebound": {
+"on": false,
+"points": 10,
+"below": 30
+},
+"minScore": 65,
+"gates": {
+"above200": {
+"on": true
+}
+}
+},
+"sell": {
+"scoreBelow": {
+"on": true,
+"value": 50
+},
+"opposite": {
+"on": false,
+"rsiAbove": 70
+},
+"stopLoss": {
+"on": true,
+"percent": 7
+},
+"takeProfit": {
+"on": false,
+"percent": 10
+},
+"trailing": {
+"on": false,
+"percent": 5
+}
+},
+"reentryWaitDays": 5,
+"usedBy": {
+"buyJudge": false,
+"accounts": [],
+"backtest": false
+}
+}
+]
+},
+"/api/paper/trades?accountId=8": {
+"trades": [
+{
+"id": 17,
+"accountId": 8,
+"orderId": 19,
+"symbol": "AAPL",
+"name": "애플",
+"side": "BUY",
+"price": 317.5587,
+"quantity": 1,
+"commission": 0.31755869999999997,
+"slippage": 0.15870000000001028,
+"currency": "USD",
+"fxRate": 1338.7,
+"cashDelta": -425540.94752169,
+"pnl": null,
+"pnlPercent": null,
+"reason": "영속성 테스트",
+"tradedAt": "2026-09-09T03:45:10.870Z"
+},
+{
+"id": 16,
+"accountId": 8,
+"orderId": 18,
+"symbol": "AAPL",
+"name": "애플",
+"side": "SELL",
+"price": 326.46668500000004,
+"quantity": 1,
+"commission": 0.32646668500000003,
+"slippage": 0.16331499999995458,
+"currency": "USD",
+"fxRate": 1360.17,
+"cashDelta": 443606.1407455136,
+"pnl": -0.979889999999898,
+"pnlPercent": -0.2995505244380495,
+"reason": "점검 원복",
+"tradedAt": "2026-09-03T13:48:32.508Z"
+},
+{
+"id": 15,
+"accountId": 8,
+"orderId": 17,
+"symbol": "AAPL",
+"name": "애플",
+"side": "BUY",
+"price": 326.79331499999995,
+"quantity": 1,
+"commission": 0.326793315,
+"slippage": 0.16331499999995458,
+"currency": "USD",
+"fxRate": 1360.17,
+"cashDelta": -444938.95772681345,
+"pnl": null,
+"pnlPercent": null,
+"reason": "IP 등록 후 기능 점검",
+"tradedAt": "2026-09-03T13:48:32.342Z"
+},
+{
+"id": 14,
+"accountId": 8,
+"orderId": 16,
+"symbol": "AAPL",
+"name": "애플",
+"side": "SELL",
+"price": 319.89997,
+"quantity": 2,
+"commission": 0.63979994,
+"slippage": 0.3200600000000122,
+"currency": "USD",
+"fxRate": 1383.4,
+"cashDelta": 884214.137759004,
+"pnl": -1.9203599999999597,
+"pnlPercent": -0.2995505244380744,
+"reason": null,
+"tradedAt": "2026-08-29T04:56:32.983Z"
+},
+{
+"id": 13,
+"accountId": 8,
+"orderId": 15,
+"symbol": "AAPL",
+"name": "애플",
+"side": "BUY",
+"price": 320.22003,
+"quantity": 2,
+"commission": 0.64044006,
+"slippage": 0.3200600000000122,
+"currency": "USD",
+"fxRate": 1383.4,
+"cashDelta": -886870.763783004,
+"pnl": null,
+"pnlPercent": null,
+"reason": null,
+"tradedAt": "2026-08-29T04:56:09.321Z"
+}
+],
+"cashFlows": []
+},
+"/api/paper/orders?accountId=8": {
+"orders": [
+{
+"id": 19,
+"accountId": 8,
+"symbol": "AAPL",
+"name": "애플",
+"side": "BUY",
+"orderType": "MARKET",
+"requestedPrice": null,
+"executedPrice": 317.5587,
+"quantity": 1,
+"amount": 317.5587,
+"commission": 0.31755869999999997,
+"slippage": 0.15870000000001028,
+"currency": "USD",
+"fxRate": 1338.7,
+"status": "FILLED",
+"reason": "영속성 테스트",
+"orderedAt": "2026-09-09T03:45:10.868Z",
+"filledAt": "2026-09-09T03:45:10.870Z"
+},
+{
+"id": 18,
+"accountId": 8,
+"symbol": "AAPL",
+"name": "애플",
+"side": "SELL",
+"orderType": "MARKET",
+"requestedPrice": null,
+"executedPrice": 326.46668500000004,
+"quantity": 1,
+"amount": 326.46668500000004,
+"commission": 0.32646668500000003,
+"slippage": 0.16331499999995458,
+"currency": "USD",
+"fxRate": 1360.17,
+"status": "FILLED",
+"reason": "점검 원복",
+"orderedAt": "2026-09-03T13:48:32.508Z",
+"filledAt": "2026-09-03T13:48:32.508Z"
+},
+{
+"id": 17,
+"accountId": 8,
+"symbol": "AAPL",
+"name": "애플",
+"side": "BUY",
+"orderType": "MARKET",
+"requestedPrice": null,
+"executedPrice": 326.79331499999995,
+"quantity": 1,
+"amount": 326.79331499999995,
+"commission": 0.326793315,
+"slippage": 0.16331499999995458,
+"currency": "USD",
+"fxRate": 1360.17,
+"status": "FILLED",
+"reason": "IP 등록 후 기능 점검",
+"orderedAt": "2026-09-03T13:48:32.341Z",
+"filledAt": "2026-09-03T13:48:32.342Z"
+},
+{
+"id": 16,
+"accountId": 8,
+"symbol": "AAPL",
+"name": "애플",
+"side": "SELL",
+"orderType": "MARKET",
+"requestedPrice": null,
+"executedPrice": 319.89997,
+"quantity": 2,
+"amount": 639.79994,
+"commission": 0.63979994,
+"slippage": 0.3200600000000122,
+"currency": "USD",
+"fxRate": 1383.4,
+"status": "FILLED",
+"reason": null,
+"orderedAt": "2026-08-29T04:56:32.982Z",
+"filledAt": "2026-08-29T04:56:32.983Z"
+},
+{
+"id": 15,
+"accountId": 8,
+"symbol": "AAPL",
+"name": "애플",
+"side": "BUY",
+"orderType": "MARKET",
+"requestedPrice": null,
+"executedPrice": 320.22003,
+"quantity": 2,
+"amount": 640.44006,
+"commission": 0.64044006,
+"slippage": 0.3200600000000122,
+"currency": "USD",
+"fxRate": 1383.4,
+"status": "FILLED",
+"reason": null,
+"orderedAt": "2026-08-29T04:56:09.320Z",
+"filledAt": "2026-08-29T04:56:09.321Z"
+}
+]
+},
+"/api/paper/accounts/overview": {
+"items": [
+{
+"account": {
+"id": 8,
+"name": "모의 투자 계좌",
+"initialBalance": 10000000,
+"currentCash": 9570469.609473009,
+"currency": "KRW",
+"commissionRate": 0.001,
+"slippageRate": 0.0005,
+"createdAt": "2026-08-28T01:27:51.976Z",
+"isActive": true
+},
+"totalValue": 15038783.31,
+"stockValue": 5468313.7,
+"totalPnl": 5038783.31,
+"totalReturn": 50.3878331,
+"pendingOrders": 0,
+"positions": 3,
+"error": null
+}
+]
+},
+"/api/paper/accounts/8?settle=1": {
+"account": {
+"id": 8,
+"name": "모의 투자 계좌",
+"initialBalance": 10000000,
+"currentCash": 9570469.609473009,
+"currency": "KRW",
+"commissionRate": 0.001,
+"slippageRate": 0.0005,
+"createdAt": "2026-08-28T01:27:51.976Z",
+"isActive": true
+},
+"positions": [
+{
+"id": 101,
+"accountId": 8,
+"symbol": "AAPL",
+"name": "애플",
+"quantity": 12,
+"avgPrice": 221.4,
+"totalCost": 2656.8,
+"currency": "USD",
+"openedAt": "2026-11-02T03:45:10.870Z",
+"updatedAt": "2026-11-02T03:45:10.870Z",
+"currentPrice": 229.85,
+"marketValue": 2758.2,
+"unrealizedPnl": 101.4,
+"unrealizedPnlPercent": 3.8166,
+"marketValueInAccount": 3705641.7
+},
+{
+"id": 102,
+"accountId": 8,
+"symbol": "NVDA",
+"name": "엔비디아",
+"quantity": 5,
+"avgPrice": 120.25,
+"totalCost": 601.25,
+"currency": "USD",
+"openedAt": "2026-11-02T03:45:10.870Z",
+"updatedAt": "2026-11-02T03:45:10.870Z",
+"currentPrice": 98.4,
+"marketValue": 492.0,
+"unrealizedPnl": -109.25,
+"unrealizedPnlPercent": -18.1705,
+"marketValueInAccount": 661002.0
+},
+{
+"id": 103,
+"accountId": 8,
+"symbol": "BRK.B",
+"name": "버크셔 해서웨이 클래스 B 아주 긴 이름 시험용",
+"quantity": 2,
+"avgPrice": 410.0,
+"totalCost": 820.0,
+"currency": "USD",
+"openedAt": "2026-11-02T03:45:10.870Z",
+"updatedAt": "2026-11-02T03:45:10.870Z",
+"currentPrice": null,
+"marketValue": null,
+"unrealizedPnl": null,
+"unrealizedPnlPercent": null,
+"marketValueInAccount": null
+}
+],
+"stockValue": 5468313.7,
+"totalValue": 15038783.31,
+"totalPnl": 5038783.31,
+"totalReturn": 50.3878331,
+"usdKrw": 1342.9,
+"pendingOrders": 0,
+"orderable": 9570469.609473009,
+"withdrawable": 9570469,
+"filled": []
+},
+"/api/paper/performance?accountId=8": {
+"performance": {
+"initialBalance": 10000000,
+"totalValue": 10047387.115473008,
+"cash": 9570469.609473009,
+"stockValue": 476917.506,
+"totalPnl": 47387.11547300778,
+"totalReturn": 0.4738711547300767,
+"dailyPnl": 17621.94399999827,
+"dailyReturn": 0.1756964764251828,
+"mdd": -0.09190959426729808,
+"volatility": 0.7025447640155624,
+"tradeCount": 5,
+"closedCount": 2,
+"winCount": 0,
+"lossCount": 2,
+"winRate": 0,
+"avgWin": null,
+"avgLoss": -1.4501249999999288,
+"payoffRatio": null,
+"profitFactor": 0,
+"profitFactorNote": null,
+"maxWinStreak": 0,
+"maxLossStreak": 2,
+"bySymbol": [
+{
+"symbol": "AAPL",
+"name": "애플",
+"realizedPnl": -2.9002499999998577,
+"unrealizedPnl": 37.26374129999999,
+"returnPercent": 11.722719228040289,
+"weight": 4.746681903651802
+}
+]
+},
+"snapshots": [
+{
+"date": "2026-08-28",
+"totalValue": 10000000,
+"cash": 10000000,
+"stockValue": 0,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0
+},
+{
+"date": "2026-08-31",
+"totalValue": 10000000,
+"cash": 10000000,
+"stockValue": 0,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0
+},
+{
+"date": "2026-09-01",
+"totalValue": 10000000,
+"cash": 10000000,
+"stockValue": 0,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0
+},
+{
+"date": "2026-09-02",
+"totalValue": 9997343.373976,
+"cash": 9997343.373976,
+"stockValue": 0,
+"cashFlow": 0,
+"dailyPnl": -2656.6260240003467,
+"dailyReturn": -0.026566260240003463,
+"cumulativeReturn": -0.02656626024000186
+},
+{
+"date": "2026-09-03",
+"totalValue": 9996010.556994699,
+"cash": 9996010.556994699,
+"stockValue": 0,
+"cashFlow": 0,
+"dailyPnl": -1332.8169813007116,
+"dailyReturn": -0.013331711550191985,
+"cumulativeReturn": -0.0398944300530113
+},
+{
+"date": "2026-09-04",
+"totalValue": 9996010.556994699,
+"cash": 9996010.556994699,
+"stockValue": 0,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": -0.0398944300530113
+},
+{
+"date": "2026-09-07",
+"totalValue": 9996010.556994699,
+"cash": 9996010.556994699,
+"stockValue": 0,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": -0.0398944300530113
+},
+{
+"date": "2026-09-08",
+"totalValue": 9996010.556994699,
+"cash": 9996010.556994699,
+"stockValue": 0,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": -0.0398944300530113
+},
+{
+"date": "2026-09-09",
+"totalValue": 9995396.302473009,
+"cash": 9570469.609473009,
+"stockValue": 424926.693,
+"cashFlow": 0,
+"dailyPnl": -614.254521690309,
+"dailyReturn": -0.006144996728324631,
+"cumulativeReturn": -0.04603697526991413
+},
+{
+"date": "2026-09-10",
+"totalValue": 9995396.302473009,
+"cash": 9570469.609473009,
+"stockValue": 424926.693,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": -0.04603697526991413
+},
+{
+"date": "2026-09-11",
+"totalValue": 10009893.357473008,
+"cash": 9570469.609473009,
+"stockValue": 439423.748,
+"cashFlow": 0,
+"dailyPnl": 14497.054999999702,
+"dailyReturn": 0.1450373207955038,
+"cumulativeReturn": 0.09893357473007569
+},
+{
+"date": "2026-09-14",
+"totalValue": 10009893.357473008,
+"cash": 9570469.609473009,
+"stockValue": 439423.748,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.09893357473007569
+},
+{
+"date": "2026-09-15",
+"totalValue": 10009893.357473008,
+"cash": 9570469.609473009,
+"stockValue": 439423.748,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.09893357473007569
+},
+{
+"date": "2026-09-16",
+"totalValue": 10009893.357473008,
+"cash": 9570469.609473009,
+"stockValue": 439423.748,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.09893357473007569
+},
+{
+"date": "2026-09-17",
+"totalValue": 10009893.357473008,
+"cash": 9570469.609473009,
+"stockValue": 439423.748,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.09893357473007569
+},
+{
+"date": "2026-09-18",
+"totalValue": 10036662.19347301,
+"cash": 9570469.609473009,
+"stockValue": 466192.58400000003,
+"cashFlow": 0,
+"dailyPnl": 26768.836000001058,
+"dailyReturn": 0.26742378808677775,
+"cumulativeReturn": 0.36662193473009363
+},
+{
+"date": "2026-09-21",
+"totalValue": 10032359.017238008,
+"cash": 9570469.609473009,
+"stockValue": 461889.407765,
+"cashFlow": 0,
+"dailyPnl": -4303.176235001534,
+"dailyReturn": -0.04287457475454294,
+"cumulativeReturn": 0.3235901723800838
+},
+{
+"date": "2026-09-22",
+"totalValue": 10030803.884223009,
+"cash": 9570469.609473009,
+"stockValue": 460334.27475,
+"cashFlow": 0,
+"dailyPnl": -1555.13301499933,
+"dailyReturn": -0.015501169887632981,
+"cumulativeReturn": 0.30803884223009614
+},
+{
+"date": "2026-09-23",
+"totalValue": 10032399.29083301,
+"cash": 9570469.609473009,
+"stockValue": 461929.68136000005,
+"cashFlow": 0,
+"dailyPnl": 1595.4066100008786,
+"dailyReturn": 0.015905072299441728,
+"cumulativeReturn": 0.3239929083300952
+},
+{
+"date": "2026-09-24",
+"totalValue": 10031270.288073009,
+"cash": 9570469.609473009,
+"stockValue": 460800.6786,
+"cashFlow": 0,
+"dailyPnl": -1129.002760000527,
+"dailyReturn": -0.011253566841504607,
+"cumulativeReturn": 0.3127028807300869
+},
+{
+"date": "2026-09-25",
+"totalValue": 10027437.537973009,
+"cash": 9570469.609473009,
+"stockValue": 456967.9285,
+"cashFlow": 0,
+"dailyPnl": -3832.75009999983,
+"dailyReturn": -0.03820802341012481,
+"cumulativeReturn": 0.2743753797300963
+},
+{
+"date": "2026-09-28",
+"totalValue": 10027437.537973009,
+"cash": 9570469.609473009,
+"stockValue": 456967.92850000004,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.2743753797300963
+},
+{
+"date": "2026-09-29",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 2327.633500000462,
+"dailyReturn": 0.023212645216546323,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-09-30",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-01",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-02",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-05",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-06",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-07",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-08",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-09",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-12",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-13",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-14",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-15",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-16",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-19",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-20",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-21",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-22",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-23",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-26",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-27",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-28",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-29",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-10-30",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-02",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-03",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-04",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-05",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-06",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-09",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-10",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-11",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-12",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-13",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-16",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-17",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-18",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-19",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-20",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-23",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-24",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-25",
+"totalValue": 10029765.17147301,
+"cash": 9570469.609473009,
+"stockValue": 459295.562,
+"cashFlow": 0,
+"dailyPnl": 0,
+"dailyReturn": 0,
+"cumulativeReturn": 0.297651714730085
+},
+{
+"date": "2026-11-26",
+"totalValue": 10047387.115473008,
+"cash": 9570469.609473009,
+"stockValue": 476917.506,
+"cashFlow": 0,
+"dailyPnl": 17621.94399999827,
+"dailyReturn": 0.1756964764251828,
+"cumulativeReturn": 0.4738711547300767
+}
+]
+},
+"/api/market-overview": {
+"indices": [
+{
+"change": 73.1401,
+"changeRate": 1.56,
+"label": "코스피",
+"price": 4775.04,
+"sparkline": [
+5668.0498,
+5768.0098,
+5552.7402,
+5735.6602,
+5533.77,
+5550.2998,
+5469.4702,
+5638.3398,
+6012.4399,
+5937.6602,
+5730.7402,
+5859.0801,
+5648.79,
+5683.7998,
+5383.7998,
+5059.6899,
+5018.8501,
+5239.1299,
+5375.3599,
+5342.73,
+5290.5298,
+5100.5,
+4968.48,
+5067.4399,
+5137.8901,
+4869.96,
+4708.54,
+5006.0298,
+4697.5098,
+4775.04
+],
+"symbol": "^KS11"
+},
+{
+"change": 17.92,
+"changeRate": 2.77,
+"label": "코스닥",
+"price": 665.65,
+"sparkline": [
+794.78,
+808.89,
+781.97,
+792.76,
+764.1,
+751.69,
+727.21,
+743.83,
+771.28,
+753.23,
+724.38,
+734.36,
+704.39,
+714.95,
+678.41,
+644.27,
+638.97,
+667.61,
+705.1,
+696.53,
+699.66,
+665.65,
+650.06,
+662.81,
+684.81,
+645.68,
+635.45,
+665.88,
+650.64,
+665.65
+],
+"symbol": "^KQ11"
+},
+{
+"change": -19.6704,
+"changeRate": -0.27,
+"label": "S&P 500",
+"price": 7182.7798,
+"sparkline": [
+7744.0601,
+7659.4399,
+7690.73,
+7712.5698,
+7757.1699,
+7663.4302,
+7623.6802,
+7676.77,
+7722.6001,
+7743.98,
+7720.3901,
+7580.0698,
+7541.3999,
+7568.9199,
+7688.6201,
+7353.73,
+7376.8599,
+7549.9399,
+7520.9302,
+7619.3799,
+7592.3999,
+7561.6699,
+7416.5898,
+7340.5298,
+7323.6299,
+7175.8301,
+6910.3901,
+7237.1699,
+7201.0898,
+7182.7798
+],
+"symbol": "^GSPC"
+},
+{
+"change": -149.8808,
+"changeRate": -0.63,
+"label": "나스닥",
+"price": 23585.8008,
+"sparkline": [
+26713.0293,
+26140.0293,
+26430.8906,
+26424.8203,
+26702.8594,
+26008.8594,
+25955.3398,
+26169.3809,
+26477.8105,
+26549.8496,
+26184.7207,
+25437,
+25164.3105,
+25372.0098,
+25736.5098,
+24315,
+24579.4297,
+25253.1406,
+25065.8691,
+25466.1895,
+25366.0898,
+25136.2695,
+24509.7598,
+24328.3809,
+24429.8809,
+23879.1992,
+22617.7305,
+24089.5605,
+23733.5391,
+23585.8008
+],
+"symbol": "^IXIC"
+},
+{
+"change": 156.4883,
+"changeRate": 0.31,
+"label": "다우존스",
+"price": 50182.9492,
+"sparkline": [
+52177.6914,
+52002.4102,
+51966.0312,
+52495.8789,
+52856.0898,
+52867.9805,
+52215.1602,
+52361.5781,
+52377.5703,
+52475.1016,
+52342.5586,
+51770.3086,
+51983.9805,
+51786.7188,
+53356.1211,
+51523.0586,
+51285.7305,
+52389.75,
+52231.8906,
+52486.4883,
+52297.0898,
+52347.5508,
+51608.1719,
+50759.4219,
+50198.1719,
+49097.0586,
+48147.3281,
+49595.3086,
+50018.6992,
+50182.9492
+],
+"symbol": "^DJI"
+},
+{
+"change": 1.93,
+"changeRate": 7.32,
+"label": "VIX 공포지수",
+"price": 28.29,
+"sparkline": [
+16.46,
+19.99,
+18.44,
+17.31,
+16.68,
+19.03,
+19.45,
+18.39,
+17.52,
+16.91,
+17.2,
+19.42,
+21.15,
+20.83,
+16.61,
+28.18,
+25.64,
+19.92,
+19.46,
+17.49,
+18.7,
+19.3,
+22.91,
+25.46,
+24.56,
+28.44,
+35.89,
+26.62,
+26.36,
+28.29
+],
+"symbol": "^VIX"
+}
+],
+"rate": {
+"baseCurrency": "USD",
+"quoteCurrency": "KRW",
+"rate": 1342.9,
+"fetchedAt": 1795669917839,
+"sparkline": [
+1340.95,
+1333.4301,
+1330,
+1323.9399,
+1325.59,
+1325.99,
+1321.76,
+1324.77,
+1326.8101,
+1340.34,
+1337.98,
+1325.52,
+1344.8101,
+1342.9,
+1340.0699,
+1356.34,
+1362.7,
+1343.84,
+1341.91,
+1336.26,
+1333.78,
+1333.25,
+1335.67,
+1333.01,
+1330.4,
+1334.79,
+1344.3101,
+1341.02,
+1342.65,
+1342.67
+]
+}
+},
+"/api/auto-trading/strategies/8": {
+"strategy": {
+"accountId": 8,
+"enabled": true,
+"ruleId": 1,
+"symbols": [
+"NVDA",
+"AAPL",
+"WMT"
+],
+"positionSizePercent": 10,
+"maxPositions": 5,
+"earningsBlackoutDays": 3,
+"dailyLossLimitPercent": 0,
+"aiCheck": true
+},
+"status": {
+"accountId": 8,
+"enabled": true,
+"running": false,
+"lastRunAt": "2026-11-25T14:31:00.000Z",
+"lastError": null,
+"blockedReason": null,
+"blockedKind": null,
+"serverEnabled": true,
+"judgedToday": 0,
+"nextOpen": {
+"US": "2026-11-27T14:30:00.000Z"
+},
+"lastNotes": [
+{
+"symbol": "NVDA",
+"action": "BUY",
+"reason": "점수 72 ≥ 65 — 매수",
+"code": "buy",
+"at": "2026-11-25T14:31:00.000Z",
+"market": "US"
+},
+{
+"symbol": "AAPL",
+"action": "HOLD",
+"reason": "점수 58 < 65 — 매수 조건 아님",
+"code": "score_low",
+"at": "2026-11-25T14:31:00.000Z",
+"market": "US"
+},
+{
+"symbol": "WMT",
+"action": "HOLD",
+"reason": "실적 발표 3거래일 전이라 새로 매수하지 않음",
+"code": "earnings",
+"at": "2026-11-25T14:31:00.000Z",
+"market": "US"
+}
+],
+"lastNotesAt": "2026-11-25T14:31:00.000Z"
+}
+},
+"/api/ai-check/records?accountId=8&limit=50": {
+"rows": [],
+"total": 0,
+"stats": {
+"blocked": {
+"n": {
+"5": 0,
+"10": 0,
+"20": 0
+},
+"avg": {
+"5": null,
+"10": null,
+"20": null
+}
+},
+"passed": {
+"n": {
+"5": 0,
+"10": 0,
+"20": 0
+},
+"avg": {
+"5": null,
+"10": null,
+"20": null
+}
+},
+"unavailable": 0
+}
+},
+"/api/symbols/info?symbols=NVDA%2CAAPL%2CWMT": {
+"items": [
+{
+"symbol": "NVDA",
+"name": "엔비디아",
+"sector": "기술"
+},
+{
+"symbol": "AAPL",
+"name": "애플",
+"sector": "기술"
+},
+{
+"symbol": "WMT",
+"name": "월마트",
+"sector": "필수소비재"
+}
+]
+},
+"/api/gemini/status": {
+"enabled": false,
+"model": "gemini-3.5-flash-lite",
+"reason": "이 서버에서는 Gemini 가 꺼져 있습니다(GEMINI_ENABLED=false)",
+"usage": {
+"date": "2026-11-26",
+"items": [
+{
+"key": "analysis",
+"label": "AI 분석",
+"runs": 0,
+"calls": 0
+},
+{
+"key": "aiCheck",
+"label": "AI 검증",
+"runs": null,
+"calls": 0
+},
+{
+"key": "news",
+"label": "뉴스 AI 판정",
+"runs": 0,
+"calls": 0
+},
+{
+"key": "target",
+"label": "목표 수익 가능성",
+"runs": 0,
+"calls": 0
+},
+{
+"key": "backtestExplain",
+"label": "백테스트 AI 설명",
+"runs": 0,
+"calls": 0
+},
+{
+"key": "marketBrief",
+"label": "오늘 시황",
+"runs": null,
+"calls": 0
+}
+],
+"totalCalls": 0
+}
+},
+"/api/holdings": {
+"portfolio": {
+"holdings": [
+{
+"symbol": "AAPL",
+"name": "애플 아주 긴 이름 시험용 홀딩스 주식회사",
+"currency": "USD",
+"quantity": 3,
+"averagePrice": 180.5,
+"currentPrice": 231.2,
+"purchaseAmount": 541.5,
+"evaluationAmount": 693.6,
+"profitLoss": 152.1,
+"profitLossRate": 28.09,
+"dailyProfitLoss": -2.4,
+"dailyProfitLossRate": -0.35
+},
+{
+"symbol": "NVDA",
+"name": "엔비디아",
+"currency": "USD",
+"quantity": 5,
+"averagePrice": 120.25,
+"currentPrice": 98.4,
+"purchaseAmount": 601.25,
+"evaluationAmount": 492,
+"profitLoss": -109.25,
+"profitLossRate": -18.17,
+"dailyProfitLoss": 3.1,
+"dailyProfitLossRate": 0.63
+}
+],
+"summary": null
+}
+},
+"/api/exchange-rate": {
+"rate": {
+"baseCurrency": "USD",
+"quoteCurrency": "KRW",
+"rate": 1343.5,
+"fetchedAt": 1795663166824
+},
+"mock": false
+},
+"/api/paper/positions?accountId=8": {
+"positions": [
+{
+"id": 10,
+"accountId": 8,
+"symbol": "AAPL",
+"name": "애플",
+"quantity": 1,
+"avgPrice": 317.8762587,
+"totalCost": 317.8762587,
+"currency": "USD",
+"openedAt": "2026-09-09T03:45:10.870Z",
+"updatedAt": "2026-09-09T03:45:10.870Z",
+"currentPrice": 355.14,
+"marketValue": 355.14,
+"unrealizedPnl": 37.26374129999999,
+"unrealizedPnlPercent": 11.722719228040289,
+"marketValueInAccount": 476917.506
+}
+],
+"stockValue": 476917.506,
+"usdKrw": 1342.9,
+"filled": []
+},
+"/api/user-data/watchlist": {
+"folders": [
+{
+"id": "default",
+"name": "미분류",
+"collapsed": false,
+"symbols": [
+"AAPL",
+"NVDA"
+]
+}
+],
+"recent": [],
+"revision": 1,
+"updatedAt": "2026-11-25T00:00:00.000Z"
+},
+"/api/stocks/names?symbols=AAPL%2CNVDA%2CTSLA%2CMSFT%2CAMZN%2CMETA%2CGOOGL%2CAMD%2CNFLX": {
+"names": {
+"AAPL": "애플",
+"AMD": "AMD",
+"AMZN": "아마존",
+"GOOGL": "알파벳 A",
+"META": "메타",
+"MSFT": "마이크로소프트",
+"NFLX": "넷플릭스",
+"NVDA": "엔비디아",
+"TSLA": "테슬라"
+}
+},
+"/api/stocks/names?symbols=AAPL%2CNVDA": {
+"names": {
+"AAPL": "애플",
+"NVDA": "엔비디아"
+}
+},
+"/api/quotes?symbols=AAPL,NVDA,TSLA,MSFT,AMZN,META,GOOGL,AMD,NFLX": {
+"quotes": [
+{
+"symbol": "AAPL",
+"price": 355.14,
+"changeRate": 0.3022001299178109,
+"currency": "USD",
+"error": null
+},
+{
+"symbol": "NVDA",
+"price": 151.23,
+"changeRate": -2.670871412022143,
+"currency": "USD",
+"error": null
+},
+{
+"symbol": "TSLA",
+"price": 383.28,
+"changeRate": -0.36393885827181915,
+"currency": "USD",
+"error": null
+},
+{
+"symbol": "MSFT",
+"price": 491.59,
+"changeRate": -0.9150827404107836,
+"currency": "USD",
+"error": null
+},
+{
+"symbol": "AMZN",
+"price": 246.77,
+"changeRate": -2.1879583019540934,
+"currency": "USD",
+"error": null
+},
+{
+"symbol": "META",
+"price": 612.3,
+"changeRate": 3.8113322708622803,
+"currency": "USD",
+"error": null
+},
+{
+"symbol": "GOOGL",
+"price": 274.99,
+"changeRate": -1.4549363913277198,
+"currency": "USD",
+"error": null
+},
+{
+"symbol": "AMD",
+"price": 413.84,
+"changeRate": 0.13792435937764494,
+"currency": "USD",
+"error": null
+},
+{
+"symbol": "NFLX",
+"price": 59.238,
+"changeRate": 0.6251061661287619,
+"currency": "USD",
+"error": null
+}
+]
+},
+"/api/quotes?symbols=AAPL,NVDA": {
+"quotes": [
+{
+"symbol": "AAPL",
+"price": 355.14,
+"changeRate": 0.3022001299178109,
+"currency": "USD",
+"error": null
+},
+{
+"symbol": "NVDA",
+"price": 151.23,
+"changeRate": -2.670871412022143,
+"currency": "USD",
+"error": null
+}
+]
+},
+"/api/stocks/names?symbols=005930%2C000660": {
+"names": {
+"000660": "SK하이닉스",
+"005930": "삼성전자"
+}
+},
+"/api/auth/me": {
+"loggedIn": true
+}
+}

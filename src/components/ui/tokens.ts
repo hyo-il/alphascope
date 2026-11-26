@@ -212,3 +212,5 @@ export const TOUCH_FIELD_INNER = 'touch:-my-px touch:h-[calc(100%+2px)]';
 export const CHIP_SIZE = { xs: 'px-2 py-0.5 text-caption', sm: 'px-2 py-1 text-caption', md: 'px-2 py-1 text-xs', tab: 'px-2.5 py-1 text-xs' } as const;
 /** 손가락 화면에서 위 탭 줄 바로 밑에 붙은 단추 줄의 위아래 안 여백(누르는 칸이 위 탭과 겹치지 않게) */
 export const TOUCH_BAR_PAD = 'touch:py-3';
+/** 손가락 화면 표 줄 44(v2.76.0) — 높이를 `LIST_TABLE_ROW` 로 정하지 않은 표에서 줄 안 단추(종목 이름)의 누르는 칸 44 가 위아래 줄끼리 겹치지 않게 · 마우스 화면 그대로 */
+export const TOUCH_TABLE_ROW = 'touch:h-11';

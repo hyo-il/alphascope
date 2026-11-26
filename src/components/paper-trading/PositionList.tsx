@@ -1,4 +1,4 @@
-import { TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
+import { TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP, TOUCH_TABLE_ROW } from '../ui/tokens';
 import SymbolChartLink from '../common/SymbolChartLink';
 import type { PaperPositionValued } from '../../types/paper';
 import { formatPrice, formatSignedMoney, formatSigned } from '../../utils/formatters';
@@ -110,7 +110,7 @@ export default function PositionList({ positions, onSelectSymbol }: Props) {
         </thead>
         <tbody>
           {positions.map((p) => (
-            <tr key={p.symbol} className="border-b border-border/60 hover:bg-bg-tertiary/40">
+            <tr key={p.symbol} className={`border-b border-border/60 hover:bg-bg-tertiary/40 ${TOUCH_TABLE_ROW}`}>
               <td className="px-3 py-2">
                 <SymbolChartLink symbol={p.symbol} name={p.name} onOpen={onSelectSymbol} />
               </td>
