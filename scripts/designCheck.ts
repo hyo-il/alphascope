@@ -19,6 +19,7 @@
  *  12. 4자리 이상 숫자에 쉼표 없음(날짜·시각·버전·연도·종목 코드·「포트 N」 제외) · 13. 하이픈 음수 · 14. 같은 표 열의 소수 자릿수 다름
  *  15. 날짜 표기 — 오전/오후 시각 · 「YYYY. M. D.」 형식 0 (형식 2026-10-08 14:30)
  *  17. 화면 가로 넘침 — 문서 폭 > 화면 폭(폰 · 패드에서 화면이 옆으로 밀림 · v2.73.0)
+ *  18. 누르는 칸 44 미만 · 19. 누르는 칸 겹침 — 손가락 화면(폰 · 패드 크기 · `pointer: coarse`)에서만(v2.74.0 · 테마 6절). 누르는 칸 = 요소 + 보이지 않는 바깥 칸(`touch-hit` 의 ::after)
  *  16. 차트 축 숫자 잘림 — 칸이 여럿인 차트의 오른쪽 축 글자가 칸 위아래 끝에 닿음 0(가격 칸 맨 아래 · 거래량 칸 맨 위 숫자가 경계에서 맞붙지 않게)
  *  `[data-measure-skip]` 안(업데이트 내역 같은 기록 글)은 12~14 를 재지 않는다
  * 결과: `<OUT>/report.md`(화면별 표) · `<OUT>/{1280,1920}/<이름>.png` · `<OUT>/result.json`.
@@ -2482,6 +2483,35 @@ export function measure() {
   // 17. 화면 가로 넘침(v2.73.0) — 문서 전체가 화면 폭보다 넓으면 폰 · 패드에서 화면이 옆으로 밀린다
   const docW = document.documentElement.scrollWidth;
   if (docW > innerWidth + 1) issues.push({ kind: '화면 가로 넘침', detail: `문서 폭 ${docW}px > 화면 ${innerWidth}px` });
+  // 18 · 19. 손가락 화면 누르는 칸(v2.74.0) — 폰 · 패드 크기 + 손가락 화면에서만. 같은 묶음 단추(radiogroup) 안의 칸끼리는 한 부품이라 겹침을 세지 않는다
+  if (innerWidth < 1280 && matchMedia('(pointer: coarse)').matches) {
+    const MIN = 44;
+    const hits: { el: Element; x: number; y: number; w: number; h: number }[] = [];
+    const sel = 'button, a[href], [role="tab"], [role="radio"], [role="button"], [role="checkbox"], input:not([type="hidden"]), select, textarea';
+    for (const el of document.querySelectorAll<HTMLElement>(sel)) {
+      if ((el as HTMLButtonElement).disabled || el.closest('[inert], [aria-hidden="true"]')) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1 || r.right <= 0 || r.left >= innerWidth || getComputedStyle(el).visibility === 'hidden') continue;
+      const after = getComputedStyle(el, '::after');
+      const on = after.content !== 'none' && after.content !== 'normal' && after.position === 'absolute';
+      const w = Math.max(r.width, on ? parseFloat(after.width) || 0 : 0);
+      const h = Math.max(r.height, on ? parseFloat(after.height) || 0 : 0);
+      hits.push({ el, x: r.left + r.width / 2 - w / 2, y: r.top + r.height / 2 - h / 2, w, h });
+      if (Math.min(w, h) < MIN - 0.5) issues.push({ kind: '누르는 칸 44 미만', detail: `${label(el)} ${Math.round(w)}×${Math.round(h)}` });
+    }
+    for (let i = 0; i < hits.length; i++) {
+      for (let j = i + 1; j < hits.length; j++) {
+        const a = hits[i];
+        const b = hits[j];
+        if (a.el.contains(b.el) || b.el.contains(a.el)) continue;
+        const g = a.el.closest('[role="radiogroup"]');
+        if (g && g === b.el.closest('[role="radiogroup"]')) continue;
+        const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+        const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+        if (ox > 2 && oy > 2) issues.push({ kind: '누르는 칸 겹침', detail: `${label(a.el)} ↔ ${label(b.el)} (${Math.round(ox)}×${Math.round(oy)})` });
+      }
+    }
+  }
   return issues;
 }
 
@@ -2542,6 +2572,7 @@ async function main() {
 
   const KINDS = ['같은 줄 높이', '입력칸 끝 맞춤', '글자 잘림', '말줄임', '겹침', '목록 줄 간격', '13px 미만', '기준표 밖 크기', '화면 폭 좁힘', '표 숫자 칸 벌어짐', '탭·내용 왼쪽 끝', '숫자 입력칸', '쉼표 없는 큰 수', '하이픈 음수', '소수 자릿수', '날짜 표기'];
   KINDS.push('화면 가로 넘침'); // v2.73.0
+  KINDS.push('누르는 칸 44 미만', '누르는 칸 겹침'); // v2.74.0 — 손가락 화면(폰 · 패드 크기)에서만 잰다
   const md: string[] = [
     `# 디자인 숫자 측정 — ${CHANGELOG[0].version}`,
     '',
