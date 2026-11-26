@@ -1,0 +1,644 @@
+{
+ "note": "150차 매수 판단 「히스토리」 견본(가짜 값 — 점검 · 시험 화면용). history = GET /api/buy-judge/history · days = GET /api/buy-judge/days · symbolDays = GET /api/buy-judge/history/:symbol",
+ "history": {
+  "stats": {
+   "n5": 10,
+   "n10": 3,
+   "n20": 0,
+   "avg5": 2.41,
+   "avg10": 4.8,
+   "avg20": null,
+   "smallSample": true
+  },
+  "reasons": [
+   {
+    "symbol": "AAPL",
+    "days": 10,
+    "below": 6,
+    "rrBlock": 1,
+    "gateBlock": 1,
+    "gateReasons": {
+     "market": 1
+    },
+    "buy": 2,
+    "mostMissing": "타이밍"
+   },
+   {
+    "symbol": "NVDA",
+    "days": 10,
+    "below": 7,
+    "rrBlock": 3,
+    "gateBlock": 0,
+    "gateReasons": {},
+    "buy": 0,
+    "mostMissing": "거래량"
+   },
+   {
+    "symbol": "005930",
+    "days": 10,
+    "below": 5,
+    "rrBlock": 0,
+    "gateBlock": 5,
+    "gateReasons": {
+     "market": 4,
+     "market_nodata": 1
+    },
+    "buy": 0,
+    "mostMissing": "모멘텀"
+   },
+   {
+    "symbol": "TSLA",
+    "days": 10,
+    "below": 10,
+    "rrBlock": 0,
+    "gateBlock": 0,
+    "gateReasons": {},
+    "buy": 0,
+    "mostMissing": "타이밍"
+   }
+  ],
+  "counts": {
+   "all": 40,
+   "nonBuy": 30
+  }
+ },
+ "days": {
+  "days": [
+   {
+    "marketDate": "2026-11-25",
+    "rows": [
+     {
+      "symbol": "AAPL",
+      "ruleName": "기본 규칙",
+      "verdict": "buy",
+      "score": 72,
+      "maxScore": 100,
+      "r5": 2.41,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "NVDA",
+      "ruleName": "기본 규칙",
+      "verdict": "rr_block",
+      "score": 68,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "005930",
+      "ruleName": "기본 규칙",
+      "verdict": "gate_block",
+      "gateReason": "market",
+      "score": 70,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "TSLA",
+      "ruleName": "기본 규칙",
+      "verdict": "below",
+      "score": 61,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     }
+    ],
+    "buys": 1,
+    "nonBuys": 3
+   },
+   {
+    "marketDate": "2026-11-24",
+    "rows": [
+     {
+      "symbol": "AAPL",
+      "ruleName": "기본 규칙",
+      "verdict": "buy",
+      "score": 72,
+      "maxScore": 100,
+      "r5": 2.41,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "NVDA",
+      "ruleName": "기본 규칙",
+      "verdict": "rr_block",
+      "score": 68,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "005930",
+      "ruleName": "기본 규칙",
+      "verdict": "gate_block",
+      "gateReason": "market",
+      "score": 70,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "TSLA",
+      "ruleName": "기본 규칙",
+      "verdict": "below",
+      "score": 61,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     }
+    ],
+    "buys": 1,
+    "nonBuys": 3
+   },
+   {
+    "marketDate": "2026-11-21",
+    "rows": [
+     {
+      "symbol": "AAPL",
+      "ruleName": "기본 규칙",
+      "verdict": "buy",
+      "score": 72,
+      "maxScore": 100,
+      "r5": 2.41,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "NVDA",
+      "ruleName": "기본 규칙",
+      "verdict": "rr_block",
+      "score": 68,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "005930",
+      "ruleName": "기본 규칙",
+      "verdict": "gate_block",
+      "gateReason": "market",
+      "score": 70,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "TSLA",
+      "ruleName": "기본 규칙",
+      "verdict": "below",
+      "score": 61,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     }
+    ],
+    "buys": 1,
+    "nonBuys": 3
+   },
+   {
+    "marketDate": "2026-11-20",
+    "rows": [
+     {
+      "symbol": "AAPL",
+      "ruleName": "기본 규칙",
+      "verdict": "buy",
+      "score": 72,
+      "maxScore": 100,
+      "r5": 2.41,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "NVDA",
+      "ruleName": "기본 규칙",
+      "verdict": "rr_block",
+      "score": 68,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "005930",
+      "ruleName": "기본 규칙",
+      "verdict": "gate_block",
+      "gateReason": "market",
+      "score": 70,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "TSLA",
+      "ruleName": "기본 규칙",
+      "verdict": "below",
+      "score": 61,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     }
+    ],
+    "buys": 1,
+    "nonBuys": 3
+   },
+   {
+    "marketDate": "2026-11-19",
+    "rows": [
+     {
+      "symbol": "AAPL",
+      "ruleName": "기본 규칙",
+      "verdict": "buy",
+      "score": 72,
+      "maxScore": 100,
+      "r5": 2.41,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "NVDA",
+      "ruleName": "기본 규칙",
+      "verdict": "rr_block",
+      "score": 68,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "005930",
+      "ruleName": "기본 규칙",
+      "verdict": "gate_block",
+      "gateReason": "market",
+      "score": 70,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "TSLA",
+      "ruleName": "기본 규칙",
+      "verdict": "below",
+      "score": 61,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     }
+    ],
+    "buys": 1,
+    "nonBuys": 3
+   },
+   {
+    "marketDate": "2026-11-18",
+    "rows": [
+     {
+      "symbol": "AAPL",
+      "ruleName": "기본 규칙",
+      "verdict": "buy",
+      "score": 72,
+      "maxScore": 100,
+      "r5": 2.41,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "NVDA",
+      "ruleName": "기본 규칙",
+      "verdict": "rr_block",
+      "score": 68,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "005930",
+      "ruleName": "기본 규칙",
+      "verdict": "gate_block",
+      "gateReason": "market",
+      "score": 70,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "TSLA",
+      "ruleName": "기본 규칙",
+      "verdict": "below",
+      "score": 61,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     }
+    ],
+    "buys": 1,
+    "nonBuys": 3
+   },
+   {
+    "marketDate": "2026-11-17",
+    "rows": [
+     {
+      "symbol": "AAPL",
+      "ruleName": "기본 규칙",
+      "verdict": "buy",
+      "score": 72,
+      "maxScore": 100,
+      "r5": 2.41,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "NVDA",
+      "ruleName": "기본 규칙",
+      "verdict": "rr_block",
+      "score": 68,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "005930",
+      "ruleName": "기본 규칙",
+      "verdict": "gate_block",
+      "gateReason": "market",
+      "score": 70,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "TSLA",
+      "ruleName": "기본 규칙",
+      "verdict": "below",
+      "score": 61,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     }
+    ],
+    "buys": 1,
+    "nonBuys": 3
+   },
+   {
+    "marketDate": "2026-11-14",
+    "rows": [
+     {
+      "symbol": "AAPL",
+      "ruleName": "기본 규칙",
+      "verdict": "buy",
+      "score": 72,
+      "maxScore": 100,
+      "r5": 2.41,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "NVDA",
+      "ruleName": "기본 규칙",
+      "verdict": "rr_block",
+      "score": 68,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "005930",
+      "ruleName": "기본 규칙",
+      "verdict": "gate_block",
+      "gateReason": "market",
+      "score": 70,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "TSLA",
+      "ruleName": "기본 규칙",
+      "verdict": "below",
+      "score": 61,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     }
+    ],
+    "buys": 1,
+    "nonBuys": 3
+   },
+   {
+    "marketDate": "2026-11-13",
+    "rows": [
+     {
+      "symbol": "AAPL",
+      "ruleName": "기본 규칙",
+      "verdict": "buy",
+      "score": 72,
+      "maxScore": 100,
+      "r5": 2.41,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "NVDA",
+      "ruleName": "기본 규칙",
+      "verdict": "rr_block",
+      "score": 68,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "005930",
+      "ruleName": "기본 규칙",
+      "verdict": "gate_block",
+      "gateReason": "market",
+      "score": 70,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "TSLA",
+      "ruleName": "기본 규칙",
+      "verdict": "below",
+      "score": 61,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     }
+    ],
+    "buys": 1,
+    "nonBuys": 3
+   },
+   {
+    "marketDate": "2026-11-12",
+    "rows": [
+     {
+      "symbol": "AAPL",
+      "ruleName": "기본 규칙",
+      "verdict": "buy",
+      "score": 72,
+      "maxScore": 100,
+      "r5": 2.41,
+      "r10": 4.8,
+      "r20": null
+     },
+     {
+      "symbol": "NVDA",
+      "ruleName": "기본 규칙",
+      "verdict": "rr_block",
+      "score": 68,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "005930",
+      "ruleName": "기본 규칙",
+      "verdict": "gate_block",
+      "gateReason": "market",
+      "score": 70,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     },
+     {
+      "symbol": "TSLA",
+      "ruleName": "기본 규칙",
+      "verdict": "below",
+      "score": 61,
+      "maxScore": 100,
+      "r5": null,
+      "r10": null,
+      "r20": null
+     }
+    ],
+    "buys": 1,
+    "nonBuys": 3
+   }
+  ],
+  "totalDays": 10
+ },
+ "symbolDays": {
+  "days": [
+   {
+    "marketDate": "2026-11-25",
+    "ruleName": "기본 규칙",
+    "verdict": "buy",
+    "score": 72,
+    "maxScore": 100,
+    "minScore": 65,
+    "reason": "점수 72/100 — 기준 65점 이상 (11-25 마감 기준)"
+   },
+   {
+    "marketDate": "2026-11-24",
+    "ruleName": "기본 규칙",
+    "verdict": "below",
+    "score": 58,
+    "maxScore": 100,
+    "minScore": 65,
+    "reason": "점수 58/100 (추세 30 · 타이밍 0 · 모멘텀 20 · 거래량 5 · 손익비 3) — 기준 65점 미만 (11-24 마감 기준)"
+   },
+   {
+    "marketDate": "2026-11-21",
+    "ruleName": "기본 규칙",
+    "verdict": "below",
+    "score": 58,
+    "maxScore": 100,
+    "minScore": 65,
+    "reason": "점수 58/100 (추세 30 · 타이밍 0 · 모멘텀 20 · 거래량 5 · 손익비 3) — 기준 65점 미만 (11-21 마감 기준)"
+   },
+   {
+    "marketDate": "2026-11-20",
+    "ruleName": "기본 규칙",
+    "verdict": "buy",
+    "score": 72,
+    "maxScore": 100,
+    "minScore": 65,
+    "reason": "점수 72/100 — 기준 65점 이상 (11-20 마감 기준)"
+   },
+   {
+    "marketDate": "2026-11-19",
+    "ruleName": "기본 규칙",
+    "verdict": "below",
+    "score": 58,
+    "maxScore": 100,
+    "minScore": 65,
+    "reason": "점수 58/100 (추세 30 · 타이밍 0 · 모멘텀 20 · 거래량 5 · 손익비 3) — 기준 65점 미만 (11-19 마감 기준)"
+   },
+   {
+    "marketDate": "2026-11-18",
+    "ruleName": "기본 규칙",
+    "verdict": "below",
+    "score": 58,
+    "maxScore": 100,
+    "minScore": 65,
+    "reason": "점수 58/100 (추세 30 · 타이밍 0 · 모멘텀 20 · 거래량 5 · 손익비 3) — 기준 65점 미만 (11-18 마감 기준)"
+   },
+   {
+    "marketDate": "2026-11-17",
+    "ruleName": "기본 규칙",
+    "verdict": "buy",
+    "score": 72,
+    "maxScore": 100,
+    "minScore": 65,
+    "reason": "점수 72/100 — 기준 65점 이상 (11-17 마감 기준)"
+   },
+   {
+    "marketDate": "2026-11-14",
+    "ruleName": "기본 규칙",
+    "verdict": "below",
+    "score": 58,
+    "maxScore": 100,
+    "minScore": 65,
+    "reason": "점수 58/100 (추세 30 · 타이밍 0 · 모멘텀 20 · 거래량 5 · 손익비 3) — 기준 65점 미만 (11-14 마감 기준)"
+   },
+   {
+    "marketDate": "2026-11-13",
+    "ruleName": "기본 규칙",
+    "verdict": "below",
+    "score": 58,
+    "maxScore": 100,
+    "minScore": 65,
+    "reason": "점수 58/100 (추세 30 · 타이밍 0 · 모멘텀 20 · 거래량 5 · 손익비 3) — 기준 65점 미만 (11-13 마감 기준)"
+   },
+   {
+    "marketDate": "2026-11-12",
+    "ruleName": "기본 규칙",
+    "verdict": "buy",
+    "score": 72,
+    "maxScore": 100,
+    "minScore": 65,
+    "reason": "점수 72/100 — 기준 65점 이상 (11-12 마감 기준)"
+   }
+  ]
+ }
+}

@@ -8,6 +8,8 @@
  * - 그 뒤에 고침 커밋이 더 있었던 차수는 시험이 `end` 에 `PROMPTS_INDEX.md` 그 줄의 마지막 해시를 직접 적는다.
  */
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 
 /** 한 차수 — 기준 커밋 · 그 차수 버전 · (예외만) 마지막 커밋 */
 export interface Chasu {
@@ -63,5 +65,8 @@ export function chasuDeleted(root: string, c: Chasu, paths: string[]): string[] 
 /** 아직 커밋하지 않은 새 파일 — 지금 하는 차수(끝 없음)만 센다 · 끝난 차수는 커밋끼리 견주므로 0개 */
 export function chasuUntracked(root: string, c: Chasu, paths: string[]): string[] {
   if (chasuEnd(root, c)) return [];
-  return git(root, ['ls-files', '--others', '--exclude-standard', '--', ...paths]).stdout.split('\n').filter(Boolean);
+  // 링크(scratch worktree 의 `python/.venv` 같은 시험 환경 연결)는 코드가 아니다
+  return git(root, ['ls-files', '--others', '--exclude-standard', '--', ...paths])
+    .stdout.split('\n')
+    .filter((f) => f && !fs.lstatSync(path.join(root, f)).isSymbolicLink());
 }

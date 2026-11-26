@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LoaderCircle, RefreshCw } from 'lucide-react';
 import { PANEL_PAD } from '../ui/tokens';
 import { Button, PageHeader, ScrollTopShade } from '../ui';
@@ -53,9 +53,12 @@ export default function BuyJudgeView() {
   const symbols = j.state?.symbols ?? [];
   useStockNames(symbols);
 
-  // 목표 수익 가능성 — 서버 진행이 끝나면 줄 표시를 푼다
+  // 목표 수익 가능성 — 서버 진행이 끝나면 줄 표시를 푼다. 시작 응답을 받은 뒤의 「끝남」 만 본다
+  // (누르기 전에 받아 둔 진행 상태는 늘 「끝남」 이라, 그것을 보고 곧바로 풀어 「분석 중…」 이 보이지 않았다)
+  const started = useRef(false);
   useEffect(() => {
-    if (runningSymbol && target.progress && !target.progress.running) {
+    if (runningSymbol && started.current && target.progress && !target.progress.running) {
+      started.current = false;
       const r = target.progress.results.find((x) => x.symbol === runningSymbol);
       if (r?.error) toast.error('목표 수익 가능성을 분석하지 못했습니다', r.error);
       setRunningSymbol(null);
@@ -63,9 +66,11 @@ export default function BuyJudgeView() {
   }, [target.progress, runningSymbol]);
 
   const runTarget = async (symbol: string) => {
+    started.current = false;
     setRunningSymbol(symbol);
     try {
       await target.start({ symbols: [symbol], targetPct: goal.goal.targetPct, stopPct: goal.goal.stopPct, days: goal.goal.days });
+      started.current = true;
     } catch (e) {
       setRunningSymbol(null);
       toast.error('목표 수익 가능성을 시작하지 못했습니다', (e as Error).message);
@@ -127,13 +132,16 @@ export default function BuyJudgeView() {
             </p>
 
             <div className="space-y-2">
-              <SymbolListBar
-                selected={symbols}
-                onChange={(next) => void act(j.setSymbols(next), '목록을 바꾸지 못했습니다')}
-                max={MAX_SYMBOLS}
-                dialogTitle="매수 판단 종목 추가"
-                disabled={busy != null || j.state == null}
-              />
+              {/* 응답 전에는 그리지 않는다 — 「0종목」 을 먼저 보이지 않게(`docs/rules/ui.md` 「로딩 표시」) */}
+              {j.state != null && (
+                <SymbolListBar
+                  selected={symbols}
+                  onChange={(next) => void act(j.setSymbols(next), '목록을 바꾸지 못했습니다')}
+                  max={MAX_SYMBOLS}
+                  dialogTitle="매수 판단 종목 추가"
+                  disabled={busy != null}
+                />
+              )}
               {/* 표가 있으면 진행 표시는 표 위에 덮는다(아래) — 표가 없을 때만 이 줄 */}
               {busy && !tableShown && (
                 <p className="flex items-center gap-1.5 text-caption text-text-secondary" role="status">

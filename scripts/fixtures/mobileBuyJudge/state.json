@@ -1,0 +1,527 @@
+{
+ "note": "150차 mobilebuyjudge:test · design:check 견본 — 사본 DB 실제 응답(AAPL · NVDA · 005930 · TSLA · QQQ)에서 판단만 바꿈: 사도 됨 · 손익비 부족 · 거름망 · 기준 미달 · 판단 못 함. 기준 커밋 표와 지금 카드가 같은 응답을 받는다.",
+ "state": {
+  "ruleId": 1,
+  "ruleName": "기본 규칙",
+  "symbols": [
+   "AAPL",
+   "NVDA",
+   "005930",
+   "TSLA",
+   "QQQ"
+  ],
+  "retention": "1y",
+  "computedAt": "2026-11-26T07:30:00.000Z",
+  "rows": [
+   {
+    "symbol": "AAPL",
+    "basisDate": "2026-11-25",
+    "verdict": "buy",
+    "code": "score_buy",
+    "score": 72,
+    "maxScore": 100,
+    "minScore": 65,
+    "conditions": [
+     {
+      "key": "trend",
+      "name": "추세",
+      "score": 30,
+      "max": 30,
+      "checks": [
+       {
+        "label": "현재가 > 60일선",
+        "passed": true
+       },
+       {
+        "label": "20일선 > 60일선 (정배열)",
+        "passed": true
+       },
+       {
+        "label": "60일선 기울기 상승",
+        "passed": true
+       }
+      ]
+     },
+     {
+      "key": "timing",
+      "name": "타이밍",
+      "score": 0,
+      "max": 25,
+      "checks": [
+       {
+        "label": "RSI 35~45 (눌림 구간)",
+        "passed": false
+       },
+       {
+        "label": "20일선 ±1.5% 이내",
+        "passed": false
+       },
+       {
+        "label": "볼린저 중단~하단",
+        "passed": false
+       }
+      ]
+     },
+     {
+      "key": "momentum",
+      "name": "모멘텀",
+      "score": 20,
+      "max": 20,
+      "checks": [
+       {
+        "label": "MACD 양전환 또는 전환 임박",
+        "passed": true
+       },
+       {
+        "label": "스토캐스틱 %K가 %D 상향 돌파",
+        "passed": true
+       },
+       {
+        "label": "RSI 상승 반전 (최근 3봉)",
+        "passed": true
+       }
+      ]
+     },
+     {
+      "key": "volume",
+      "name": "거래량",
+      "score": 0,
+      "max": 15,
+      "checks": [
+       {
+        "label": "최근 3일 거래량 ≥ 20일 평균의 120%",
+        "passed": false
+       },
+       {
+        "label": "하락 시 거래량 감소 · 반등 시 증가",
+        "passed": false
+       },
+       {
+        "label": "OBV 상승 추세",
+        "passed": false
+       }
+      ]
+     },
+     {
+      "key": "riskReward",
+      "name": "손익비",
+      "score": 3,
+      "max": 10,
+      "checks": [
+       {
+        "label": "비율 ≥ 1.5",
+        "passed": false
+       },
+       {
+        "label": "비율 ≥ 2.0",
+        "passed": false
+       }
+      ]
+     }
+    ],
+    "reference": {
+     "entryType": "BREAKOUT",
+     "entryPrice": 361.55,
+     "stop": 344.43,
+     "target1": 378.68,
+     "target2": 387.24,
+     "ratio": 1.25,
+     "sizePercent": 21.1
+    },
+    "reason": "점수 72/100 — 기준 65점 이상 (11-25 마감 기준)",
+    "refScore": 53,
+    "refLabel": "장 마감 가격",
+    "warnings": [
+     "손익비가 1:1.5 미만입니다 — 목표가까지 여유가 크지 않습니다"
+    ],
+    "error": null
+   },
+   {
+    "symbol": "NVDA",
+    "basisDate": "2026-11-25",
+    "verdict": "rr_block",
+    "code": "rr_block",
+    "score": 68,
+    "maxScore": 100,
+    "minScore": 65,
+    "conditions": [
+     {
+      "key": "trend",
+      "name": "추세",
+      "score": 0,
+      "max": 30,
+      "checks": [
+       {
+        "label": "현재가 > 60일선",
+        "passed": false
+       },
+       {
+        "label": "20일선 > 60일선 (정배열)",
+        "passed": false
+       },
+       {
+        "label": "60일선 기울기 상승",
+        "passed": false
+       }
+      ]
+     },
+     {
+      "key": "timing",
+      "name": "타이밍",
+      "score": 15,
+      "max": 25,
+      "checks": [
+       {
+        "label": "RSI 35~45 (눌림 구간)",
+        "passed": true
+       },
+       {
+        "label": "20일선 ±1.5% 이내",
+        "passed": false
+       },
+       {
+        "label": "볼린저 중단~하단",
+        "passed": true
+       }
+      ]
+     },
+     {
+      "key": "momentum",
+      "name": "모멘텀",
+      "score": 6,
+      "max": 20,
+      "checks": [
+       {
+        "label": "MACD 양전환 또는 전환 임박",
+        "passed": true
+       },
+       {
+        "label": "스토캐스틱 %K가 %D 상향 돌파",
+        "passed": false
+       },
+       {
+        "label": "RSI 상승 반전 (최근 3봉)",
+        "passed": false
+       }
+      ]
+     },
+     {
+      "key": "volume",
+      "name": "거래량",
+      "score": 10,
+      "max": 15,
+      "checks": [
+       {
+        "label": "최근 3일 거래량 ≥ 20일 평균의 120%",
+        "passed": true
+       },
+       {
+        "label": "하락 시 거래량 감소 · 반등 시 증가",
+        "passed": true
+       },
+       {
+        "label": "OBV 상승 추세",
+        "passed": false
+       }
+      ]
+     },
+     {
+      "key": "riskReward",
+      "name": "손익비",
+      "score": 10,
+      "max": 10,
+      "checks": [
+       {
+        "label": "비율 ≥ 1.5",
+        "passed": true
+       },
+       {
+        "label": "비율 ≥ 2.0",
+        "passed": true
+       }
+      ]
+     }
+    ],
+    "reference": {
+     "entryType": "BREAKOUT",
+     "entryPrice": 180.2,
+     "stop": 171.4,
+     "target1": 187.1,
+     "target2": 190.5,
+     "ratio": 0.78,
+     "sizePercent": 12.4
+    },
+    "reason": "점수 41/100 (추세 0 · 타이밍 15 · 모멘텀 6 · 거래량 10 · 손익비 10) — 기준 65점 미만 (11-25 마감 기준)",
+    "refScore": 41,
+    "refLabel": "장 마감 가격",
+    "warnings": [
+     "변동성이 높습니다(ATR 9.0%) — 비중을 줄이세요"
+    ],
+    "error": null
+   },
+   {
+    "symbol": "005930",
+    "basisDate": "2026-11-25",
+    "verdict": "gate_block",
+    "code": "gate_block",
+    "score": 70,
+    "maxScore": 100,
+    "minScore": 65,
+    "conditions": [
+     {
+      "key": "trend",
+      "name": "추세",
+      "score": 0,
+      "max": 30,
+      "checks": [
+       {
+        "label": "현재가 > 60일선",
+        "passed": false
+       },
+       {
+        "label": "20일선 > 60일선 (정배열)",
+        "passed": false
+       },
+       {
+        "label": "60일선 기울기 상승",
+        "passed": false
+       }
+      ]
+     },
+     {
+      "key": "timing",
+      "name": "타이밍",
+      "score": 8,
+      "max": 25,
+      "checks": [
+       {
+        "label": "RSI 35~45 (눌림 구간)",
+        "passed": false
+       },
+       {
+        "label": "20일선 ±1.5% 이내",
+        "passed": false
+       },
+       {
+        "label": "볼린저 중단~하단",
+        "passed": true
+       }
+      ]
+     },
+     {
+      "key": "momentum",
+      "name": "모멘텀",
+      "score": 0,
+      "max": 20,
+      "checks": [
+       {
+        "label": "MACD 양전환 또는 전환 임박",
+        "passed": false
+       },
+       {
+        "label": "스토캐스틱 %K가 %D 상향 돌파",
+        "passed": false
+       },
+       {
+        "label": "RSI 상승 반전 (최근 3봉)",
+        "passed": false
+       }
+      ]
+     },
+     {
+      "key": "volume",
+      "name": "거래량",
+      "score": 0,
+      "max": 15,
+      "checks": [
+       {
+        "label": "최근 3일 거래량 ≥ 20일 평균의 120%",
+        "passed": false
+       },
+       {
+        "label": "하락 시 거래량 감소 · 반등 시 증가",
+        "passed": false
+       },
+       {
+        "label": "OBV 상승 추세",
+        "passed": false
+       }
+      ]
+     },
+     {
+      "key": "riskReward",
+      "name": "손익비",
+      "score": 10,
+      "max": 10,
+      "checks": [
+       {
+        "label": "비율 ≥ 1.5",
+        "passed": true
+       },
+       {
+        "label": "비율 ≥ 2.0",
+        "passed": true
+       }
+      ]
+     }
+    ],
+    "reference": {
+     "entryType": "PULLBACK",
+     "entryPrice": 98000,
+     "stop": 93500,
+     "target1": 107000,
+     "target2": 111500,
+     "ratio": 2,
+     "sizePercent": 15
+    },
+    "reason": "점수 18/100 (추세 0 · 타이밍 8 · 모멘텀 0 · 거래량 0 · 손익비 10) — 기준 65점 미만 (11-25 마감 기준)",
+    "refScore": 31,
+    "refLabel": "장 마감 가격",
+    "warnings": [
+     "변동성이 높습니다(ATR 8.4%) — 비중을 줄이세요"
+    ],
+    "error": null,
+    "gateReason": "market"
+   },
+   {
+    "symbol": "TSLA",
+    "basisDate": "2026-11-25",
+    "verdict": "below",
+    "code": "no_signal_buy",
+    "score": 61,
+    "maxScore": 100,
+    "minScore": 65,
+    "conditions": [
+     {
+      "key": "trend",
+      "name": "추세",
+      "score": 30,
+      "max": 30,
+      "checks": [
+       {
+        "label": "현재가 > 60일선",
+        "passed": true
+       },
+       {
+        "label": "20일선 > 60일선 (정배열)",
+        "passed": true
+       },
+       {
+        "label": "60일선 기울기 상승",
+        "passed": true
+       }
+      ]
+     },
+     {
+      "key": "timing",
+      "name": "타이밍",
+      "score": 15,
+      "max": 25,
+      "checks": [
+       {
+        "label": "RSI 35~45 (눌림 구간)",
+        "passed": false
+       },
+       {
+        "label": "20일선 ±1.5% 이내",
+        "passed": true
+       },
+       {
+        "label": "볼린저 중단~하단",
+        "passed": true
+       }
+      ]
+     },
+     {
+      "key": "momentum",
+      "name": "모멘텀",
+      "score": 6,
+      "max": 20,
+      "checks": [
+       {
+        "label": "MACD 양전환 또는 전환 임박",
+        "passed": true
+       },
+       {
+        "label": "스토캐스틱 %K가 %D 상향 돌파",
+        "passed": false
+       },
+       {
+        "label": "RSI 상승 반전 (최근 3봉)",
+        "passed": false
+       }
+      ]
+     },
+     {
+      "key": "volume",
+      "name": "거래량",
+      "score": 0,
+      "max": 15,
+      "checks": [
+       {
+        "label": "최근 3일 거래량 ≥ 20일 평균의 120%",
+        "passed": false
+       },
+       {
+        "label": "하락 시 거래량 감소 · 반등 시 증가",
+        "passed": false
+       },
+       {
+        "label": "OBV 상승 추세",
+        "passed": false
+       }
+      ]
+     },
+     {
+      "key": "riskReward",
+      "name": "손익비",
+      "score": 10,
+      "max": 10,
+      "checks": [
+       {
+        "label": "비율 ≥ 1.5",
+        "passed": true
+       },
+       {
+        "label": "비율 ≥ 2.0",
+        "passed": true
+       }
+      ]
+     }
+    ],
+    "reference": {
+     "entryType": "NOW",
+     "entryPrice": 380.14,
+     "stop": 372.87,
+     "target1": 414.23,
+     "target2": 432.86,
+     "ratio": 5.97,
+     "sizePercent": 25
+    },
+    "reason": "점수 61/100 (추세 30 · 타이밍 15 · 모멘텀 6 · 거래량 0 · 손익비 10) — 기준 65점 미만 (11-25 마감 기준)",
+    "refScore": 61,
+    "refLabel": "장 마감 가격",
+    "warnings": [
+     "변동성이 높습니다(ATR 5.2%) — 비중을 줄이세요"
+    ],
+    "error": null
+   },
+   {
+    "symbol": "QQQ",
+    "basisDate": "2026-11-25",
+    "verdict": null,
+    "code": null,
+    "score": null,
+    "maxScore": null,
+    "minScore": null,
+    "conditions": [],
+    "reference": null,
+    "reason": null,
+    "refScore": null,
+    "refLabel": null,
+    "warnings": [],
+    "error": "캔들이 부족해 판단하지 못했습니다 (시험 견본)"
+   }
+  ]
+ }
+}

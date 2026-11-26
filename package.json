@@ -95,6 +95,7 @@
     "mobileframe:test": "tsx scripts/mobileFrameSelfTest.ts",
     "mobiletable:test": "tsx scripts/mobileTableSelfTest.ts",
     "mobileaccount:test": "tsx scripts/mobileAccountSelfTest.ts",
+    "mobilebuyjudge:test": "tsx scripts/mobileBuyJudgeSelfTest.ts",
     "mobiletouch:test": "tsx scripts/mobileTouchSelfTest.ts",
     "chartview:test": "tsx scripts/chartViewSelfTest.ts",
     "tidy:test": "tsx scripts/tidySelfTest.ts"
