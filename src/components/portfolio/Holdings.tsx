@@ -129,7 +129,8 @@ function HoldingsBody({ onSelectSymbol, onRetry }: Props & { onRetry: () => void
                   data-tip={`${holding.symbol} 차트 보기`}
                 >
                   <td className={`py-1.5 pl-4 pr-2 ${TABLE_NAME_CELL_TOUCH}`}>
-                    <span className="font-medium text-text-primary">
+                    {/* 패드 — 긴 이름만 말줄임(코드는 늘 보임 · 칸 최대 160 안에 이름 112 + 코드) */}
+                    <span className="font-medium text-text-primary pad:inline-block pad:max-w-28 pad:truncate pad:align-bottom" data-tip-clip={holding.name || holding.symbol}>
                       {holding.name || holding.symbol}
                     </span>
                     {holding.name && (
