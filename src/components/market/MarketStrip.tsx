@@ -12,7 +12,7 @@ import { useClockStore } from '../../hooks/useClockSetting';
  * - 높이 40 · 지수마다 「이름 값 등락」(13) · 넘치면 가로로 밀어 봄 · 더 밀 수 있으면 오른쪽 끝 32 흐림.
  * - 띠 전체가 단추 — 누르면 펼친 시황(카드)을 창으로 연다. 창은 공용 `Dialog`(폰 아래 판은 147차에 그 부품이 바뀌면 함께 바뀜).
  * - 접힘 기억(localStorage)은 쓰지 않는다(큰 화면만).
- * - **맨 왼쪽에 한국 시간 시계**(v2.74.0 · 사용자 결정 1 — 떠 있는 상자 대신): 띠를 가로로 밀어도 그 자리(지수 글만 뒤로 밀림) · 오른쪽 끝 흐림 16 ·
+ * - **맨 왼쪽에 한국 시간 시계**(v2.74.0 · 사용자 결정 1 — 떠 있는 상자 대신): 띠를 가로로 밀어도 그 자리(지수 글만 뒤로 밀림) · 오른쪽 바탕 여백 12 + 흐림 24(밀린 지수 글이 시계에 붙어 보이지 않게 — 캡처 검토) ·
  *   띠 단추 밖이라 시계를 눌러도 시황 창이 열리지 않는다 · 끌기 · 핀 없음. 글 · 시간 계산은 떠 있는 시계와 같은 것(`common/KstClock` 의 `ClockText`).
  */
 export default function MarketStrip() {
@@ -42,7 +42,7 @@ export default function MarketStrip() {
         type="button"
         aria-label="시황 펼치기"
         onClick={() => setOpen(true)}
-        className="flex h-full min-w-0 flex-1 items-center gap-4 overflow-x-auto whitespace-nowrap pl-4 pr-4 text-caption [scrollbar-width:none]"
+        className="flex h-full min-w-0 flex-1 items-center gap-4 overflow-x-auto whitespace-nowrap pl-2 pr-4 text-caption [scrollbar-width:none]"
       >
         {!loaded &&
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-2.5 w-24 shrink-0" />)}
@@ -94,10 +94,10 @@ function StripClock() {
     };
   }, []);
   return (
-    <div ref={ref} role="group" aria-label="한국 시간" data-strip-clock className="relative z-10 flex shrink-0 select-none items-center gap-1.5 bg-bg-primary pl-4">
+    <div ref={ref} role="group" aria-label="한국 시간" data-strip-clock className="relative z-10 flex shrink-0 select-none items-center gap-1.5 bg-bg-primary pl-4 pr-3">
       <ClockText size="text-caption" />
       {/* 밀린 지수 글이 시계에 바로 붙어 보이지 않게 — 띠 바탕색 흐림 */}
-      <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-full w-4 bg-gradient-to-r from-bg-primary to-transparent" />
+      <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-full w-6 bg-gradient-to-r from-bg-primary to-transparent" />
     </div>
   );
 }
