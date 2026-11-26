@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useId, useRef, type ComponentProps, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useId, useRef, useState, type ComponentProps, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react';
 import { X } from 'lucide-react';
 import IconButton from './IconButton';
 import { SubmitTriedProvider, useFormScope } from './fieldReveal';
@@ -6,6 +6,8 @@ import { LoadingCover } from '../common/LoadingOverlay';
 import Button from './Button';
 import { askDiscard } from '../../store/leaveGuard';
 import { useLeaveGuard } from '../../hooks/useLeaveGuard';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
+import { DIALOG_SWIPE_CLOSE_PX, PHONE_DIALOG_MAX_H } from './tokens';
 
 /**
  * 창(모달) 틀 하나 — 어두운 바탕 · 제목 줄 + 닫기 X · ESC 닫기 · 크기는 정해진 값만 · 테두리 없음(디자인 규칙 3).
@@ -24,6 +26,15 @@ import { useLeaveGuard } from '../../hooks/useLeaveGuard';
  * - **저장하지 않고 나갈 때 묻기**(`dirty` · v2.72.2 · 공통 3-3): 처음 값과 지금 값이 다르면 `dirty` 를 준다(되돌리면 false) —
  *   × · Esc · 아래 줄 [취소](`DialogCancel`) · 다른 메뉴 · 뒤로 가기에서 「저장하지 않고 닫을까요?」(`store/leaveGuard` 한 곳) ·
  *   바깥 누름은 닫지도 묻지도 않는다. 아래 줄 [취소] 는 `DialogCancel` 을 쓴다(창의 닫기 길 하나 — 직접 `onClose` 를 부르면 묻지 않는다).
+ * - **화면 모양**(v2.74.0 · 테마 3-5 · 조건은 `hooks/useLayoutMode` 한 곳 — 1280 이상은 위 모양 그대로):
+ *   - 폰 = **아래에서 올라오는 판** — 폭 화면 전체 · 위 모서리만 둥근 12 · 최대 높이 = 보이는 높이 − 64(`100dvh` — 키보드가 올라오면 판도 준다) ·
+ *     `size` 는 쓰지 않는다(정해진 높이도 없음 — 내용이 짧으면 판도 짧고, 넘치면 몸만 밀어 봄) · 위 가운데 손잡이 36 × 4 · 머리 52 ·
+ *     아래 단추 줄은 판 아래에 붙고 아래 안전 여백만큼 띄움 · 단추 높이 44 · 아래에서 200ms 올라옴(움직임 줄이기면 바로 — `index.css` `.sheet-panel`).
+ *     닫힘에 **손잡이 · 머리를 아래로 밀기**가 더해진다(몸에서 시작한 밀기는 몸 스크롤이라 닫지 않는다) — 다른 닫힘과 같은 길(`requestClose`)이라
+ *     `busy` 면 판이 제자리로 돌아오고 · `dirty` 면 제자리로 돌아온 뒤 묻는다.
+ *   - 패드 = 가운데 창 그대로 · 폭 `min(지금 폭, 화면 폭 − 48)` · 높이 `min(지금, 100dvh − 48)` · 넘치면 몸만 밀어 봄.
+ *   - 폰 · 패드의 덮개 누름은 `click` 으로 판단한다(누르는 순간 닫으면 손을 뗄 때의 누름이 뒤 화면 단추로 샌다 — `ui/Sheet` 와 같음).
+ *     누름이 판 안에서 시작해 덮개에서 끝난 것(글 고르기 등)은 덮개 누름이 아니다.
  */
 export type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'xlFit' | 'full';
 
@@ -35,6 +46,17 @@ const SIZE: Record<DialogSize, string> = {
   xlFit: 'max-h-full w-[min(960px,90vw)]',
   full: 'h-[78vh] w-[88vw] max-w-[1200px]',
 };
+/** 패드 크기 — 폭 `min(지금, 화면 폭 − 48)` · 높이 `min(지금, 100dvh − 48)`(바깥 여백 p-6 이라 `xlFit` 의 max-h-full 도 100dvh − 48) */
+const PAD_SIZE: Record<DialogSize, string> = {
+  sm: 'w-[min(420px,90vw,calc(100vw-48px))] max-h-[min(85vh,calc(100dvh-48px))]',
+  md: 'w-[min(560px,90vw,calc(100vw-48px))] max-h-[min(85vh,calc(100dvh-48px))]',
+  lg: 'h-[min(640px,85vh,calc(100dvh-48px))] w-[min(720px,90vw,calc(100vw-48px))]',
+  xl: 'h-[min(680px,85vh,calc(100dvh-48px))] w-[min(960px,90vw,calc(100vw-48px))]',
+  xlFit: 'max-h-full w-[min(960px,90vw,calc(100vw-48px))]',
+  full: 'h-[min(78vh,calc(100dvh-48px))] w-[min(88vw,calc(100vw-48px))] max-w-[1200px]',
+};
+
+const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 /** 창의 닫기 길(× · Esc · [취소] 같은 함수) — `DialogCancel` 이 쓴다 */
 const DialogCloseContext = createContext<() => void>(() => {});
@@ -221,20 +243,121 @@ export default function Dialog({
   useDialogEsc(closeOnEsc && onClose ? requestClose : null);
   const panelRef = useFocusTrap();
   const form = useFormScope();
+  const mode = useLayoutMode();
 
+  // 폰 · 패드 — 덮개 누름은 click(누름이 덮개에서 시작했을 때만)
+  const downOnBackdrop = useRef(false);
+  // 폰 — 손잡이 · 머리를 아래로 밀기
+  const [drag, setDrag] = useState<number | null>(null);
+  const dragStart = useRef<{ x: number; y: number } | null>(null);
+  const dragProps = {
+    onTouchStart: (e: ReactTouchEvent) => {
+      const t = e.touches[0];
+      dragStart.current = t ? { x: t.clientX, y: t.clientY } : null;
+    },
+    onTouchMove: (e: ReactTouchEvent) => {
+      const s = dragStart.current;
+      const t = e.touches[0];
+      if (s && t) setDrag(Math.max(0, t.clientY - s.y));
+    },
+    onTouchEnd: (e: ReactTouchEvent) => {
+      const s = dragStart.current;
+      const t = e.changedTouches[0];
+      dragStart.current = null;
+      setDrag(null); // 제자리로(닫히면 판이 사라진다 · busy 면 제자리 · dirty 면 제자리에서 묻는다)
+      if (!s || !t) return;
+      const dy = t.clientY - s.y;
+      if (dy >= DIALOG_SWIPE_CLOSE_PX && dy > Math.abs(t.clientX - s.x)) requestClose();
+    },
+    onTouchCancel: () => {
+      dragStart.current = null;
+      setDrag(null);
+    },
+  };
+
+  if (mode === 'phone') {
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        style={{ zIndex: z }}
+        className="fixed inset-0 flex items-end justify-center bg-overlay"
+        onPointerDown={(e) => {
+          downOnBackdrop.current = e.target === e.currentTarget;
+        }}
+        onClick={(e) => {
+          const fromBackdrop = downOnBackdrop.current;
+          downOnBackdrop.current = false;
+          if (fromBackdrop && closeOnBackdrop && onClose && !dirty && e.target === e.currentTarget) requestClose();
+        }}
+      >
+        <div
+          ref={panelRef}
+          tabIndex={-1}
+          {...form.props}
+          data-side="bottom"
+          data-state="open"
+          data-dialog-sheet
+          style={{
+            transform: drag ? `translateY(${drag}px)` : undefined,
+            transition: drag != null || reducedMotion() ? 'none' : 'transform 200ms ease-out',
+          }}
+          className={`sheet-panel relative flex w-full flex-col overflow-hidden rounded-t-xl bg-bg-secondary shadow-2xl outline-none ${PHONE_DIALOG_MAX_H}`}
+        >
+          <SubmitTriedProvider value={form.tried}>
+          <DialogCloseContext.Provider value={requestClose}>
+          <div {...dragProps} data-dialog-handle className="flex shrink-0 touch-none justify-center pt-2" aria-hidden="true">
+            <span className="h-1 w-9 rounded-xs bg-bg-elevated" />
+          </div>
+          <div {...dragProps} data-dialog-head className="flex h-[52px] shrink-0 touch-none items-center gap-2 border-b border-border/40 pl-4 pr-2">
+            <h2 id={titleId} className="min-w-0 text-sm font-semibold text-text-primary">
+              {title}
+            </h2>
+            {titleAside != null && <span className="min-w-0 text-caption text-text-muted">{titleAside}</span>}
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              {headerRight}
+              {onClose && <IconButton icon={X} label="닫기" onClick={requestClose} />}
+            </div>
+          </div>
+          <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain ${bodyClassName}`}>{children}</div>
+          {footer != null && (
+            <div data-dialog-foot className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border/40 px-4 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] [&_button]:h-11">
+              {footer}
+            </div>
+          )}
+          <LoadingCover busy={busy} label={busyLabel} onCancel={onCancelBusy} />
+          </DialogCloseContext.Provider>
+          </SubmitTriedProvider>
+        </div>
+      </div>
+    );
+  }
+
+  const pad = mode === 'pad';
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
       style={{ zIndex: z }}
-      className="fixed inset-0 flex items-center justify-center bg-overlay p-4"
+      className={`fixed inset-0 flex items-center justify-center bg-overlay ${pad ? 'p-6' : 'p-4'}`}
       onMouseDown={(e) => {
         // 바꾼 것이 있으면 바깥 누름은 닫지도 묻지도 않는다(공통 3-3)
-        if (closeOnBackdrop && onClose && !dirty && e.target === e.currentTarget) requestClose();
+        if (!pad && closeOnBackdrop && onClose && !dirty && e.target === e.currentTarget) requestClose();
       }}
+      onPointerDown={pad ? (e) => (downOnBackdrop.current = e.target === e.currentTarget) : undefined}
+      onClick={
+        pad
+          ? (e) => {
+              const fromBackdrop = downOnBackdrop.current;
+              downOnBackdrop.current = false;
+              if (fromBackdrop && closeOnBackdrop && onClose && !dirty && e.target === e.currentTarget) requestClose();
+            }
+          : undefined
+      }
     >
-      <div ref={panelRef} tabIndex={-1} {...form.props} className={`relative flex flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl outline-none ${SIZE[size]}`}>
+      <div ref={panelRef} tabIndex={-1} {...form.props} className={`relative flex flex-col overflow-hidden rounded-xl bg-bg-secondary shadow-2xl outline-none ${pad ? PAD_SIZE[size] : SIZE[size]}`}>
         <SubmitTriedProvider value={form.tried}>
         <DialogCloseContext.Provider value={requestClose}>
         <div className="flex shrink-0 items-center gap-2 border-b border-border/40 px-4 py-3">

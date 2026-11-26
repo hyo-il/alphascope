@@ -138,3 +138,10 @@ export const TOOLTIP_BOX = 'fixed z-[120] w-max rounded-lg border border-border 
  */
 export const ICON_BUTTON_BOX = { md: `${CONTROL_H.sm} w-7`, sm: `${CONTROL_H.xs} w-6` } as const; // 높이는 CONTROL_H(도구 줄 · 표 안) — 폭만 여기
 export type IconButtonSize = keyof typeof ICON_BUTTON_BOX;
+
+/**
+ * 폰 창(아래에서 올라오는 판 · v2.74.0 · 테마 3-5 — `ui/Dialog`) — 최대 높이 = 보이는 높이 − 64(`100dvh` — 키보드가 올라오면 판도 준다).
+ * 손잡이 · 머리를 `DIALOG_SWIPE_CLOSE_PX` 넘게 아래로 밀면 닫는다(그보다 짧으면 제자리).
+ */
+export const PHONE_DIALOG_MAX_H = 'max-h-[calc(100dvh-64px)]';
+export const DIALOG_SWIPE_CLOSE_PX = 80;

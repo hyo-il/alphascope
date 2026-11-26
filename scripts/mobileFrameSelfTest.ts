@@ -96,7 +96,9 @@ async function deskSnapshot(page: Page): Promise<string[]> {
       if (r.width < 1 || r.height < 1) continue;
       const cls = (el.getAttribute('class') ?? '')
         // 주 단추 바탕만 바뀌었다(사용자 결정 2 — 모든 크기) — 옛 이름으로 견준다
-        .replace('bg-accent-button text-white hover:bg-accent-button-hover active:bg-accent-button-hover', 'bg-accent text-white hover:bg-accent-hover');
+        .replace('bg-accent-button text-white hover:bg-accent-button-hover active:bg-accent-button-hover', 'bg-accent text-white hover:bg-accent-hover')
+        // 손가락 화면에서만 켜지는 이름(147차 — `touch:` 변형 · `touch-hit` · `touch-hit-gap`)은 마우스 큰 화면에서 아무것도 하지 않는다 — 빼고 견준다
+        .replace(/(^|\s)(touch:\S+|touch-hit|touch-hit-gap)(?=\s|$)/g, '$1');
       out.push(`${el.tagName}|${cls}|${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)},${Math.round(r.height)}`);
     }
     return out;
@@ -148,8 +150,10 @@ try {
     }
     const want = JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) as Record<string, string[]>;
     for (const key of Object.keys(want)) {
-      const a = want[key];
-      const b = shots[key] ?? [];
+      // 빈 칸 수만 다른 것(이름을 뺀 자리)은 같다 — 두 쪽 모두 빈 칸 하나로
+      const norm = (x: string) => x.replace(/\s+/g, ' ').replace(/ ?\| ?/g, '|');
+      const a = want[key].map(norm);
+      const b = (shots[key] ?? []).map(norm);
       const i = a.findIndex((x, k) => x !== b[k]);
       const same = a.length === b.length && i < 0;
       check(`[146-1] ${key} — 기준 커밋(${BASE})과 요소 ${a.length}개 태그 · 클래스 · 자리 · 크기 같음(주 단추 바탕만 다름)`, same, same ? '' : `개수 ${a.length} → ${b.length} · 첫 차이 #${i}: ${a[i] ?? '-'} → ${b[i] ?? '-'}`);
@@ -307,7 +311,11 @@ try {
     const old = execFileSync('git', ['show', `${BASE}:src/components/ui/Button.tsx`], { cwd: root, encoding: 'utf8' });
     const line = (src: string, v: string) => src.split('\n').find((l) => l.trim().startsWith(`${v}:`)) ?? '';
     check('[146-8] Button primary 바탕 = accent-button · 올림 · 누름 = accent-button-hover', /primary: 'bg-accent-button text-white hover:bg-accent-button-hover active:bg-accent-button-hover'/.test(btn));
-    check('[146-8] 매수 · 매도 단추 줄 · 주문 색 그대로', line(btn, 'buy') === line(old, 'buy') && line(btn, 'sell') === line(old, 'sell') && spawnSync('git', ['diff', '--quiet', BASE, '--', 'src/components/ui/tokens.ts'], { cwd: root }).status === 0);
+    // 주문 색 정의 두 줄(`tokens.ts` — 147차부터 이 파일에 손가락 크기 이름이 더해져 파일 전체 대신 두 줄을 견준다)
+    const tok = fs.readFileSync(path.join(root, 'src/components/ui/tokens.ts'), 'utf8');
+    const oldTok = execFileSync('git', ['show', `${BASE}:src/components/ui/tokens.ts`], { cwd: root, encoding: 'utf8' });
+    const color = (src: string) => src.split('\n').filter((l) => /^export const ORDER_(BUY|SELL)_COLOR /.test(l)).join('\n');
+    check('[146-8] 매수 · 매도 단추 줄 · 주문 색 그대로', line(btn, 'buy') === line(old, 'buy') && line(btn, 'sell') === line(old, 'sell') && color(tok) !== '' && color(tok) === color(oldTok));
   }
 
   // ───────── 9 lint ─────────
@@ -351,7 +359,9 @@ try {
     if (!fs.existsSync(dir)) console.log('SKIP  [146-11] 관리 루트 docs/design-check 가 보이지 않는 자리(scratch worktree) — 본 저장소에서 잰다');
     else {
       const dirs = fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
-      check('[146-11] docs/design-check 안 폴더 = 최근 버전 하나(v2.73.0)', dirs.length === 1 && dirs[0] === 'v2.73.0', dirs.join(' '));
+      // 최근 버전 = `changelog.ts` 맨 앞(버전이 오르면 폴더도 그 버전 하나)
+      const latest = /version: '(v[\d.]+)'/.exec(fs.readFileSync(path.join(root, 'src/data/changelog.ts'), 'utf8'))?.[1] ?? '';
+      check(`[146-11] docs/design-check 안 폴더 = 최근 버전 하나(${latest})`, dirs.length === 1 && dirs[0] === latest, dirs.join(' '));
     }
   }
 } catch (e) {

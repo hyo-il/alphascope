@@ -212,7 +212,7 @@ body {
 }
 
 /*
- * 옆 판(`ui/Sheet` — 폰 메뉴 서랍 · 관심 목록 판 · 패드 덮개 메뉴 · v2.73.0 테마 3-2 · 3-3) — 200ms 미끄러짐 · 덮개는 흐려짐.
+ * 옆 판(`ui/Sheet` — 폰 메뉴 서랍 · 관심 목록 판 · 패드 덮개 메뉴 · v2.73.0 테마 3-2 · 3-3) · 폰 창 아래 판(`ui/Dialog` · v2.74.0 테마 3-5) — 200ms 미끄러짐 · 덮개는 흐려짐.
  * 움직임을 줄인 사용자(`prefers-reduced-motion`)는 바로 나타나고 바로 사라진다(시간도 `Sheet` 가 0 으로).
  */
 @keyframes sheet-in-left {
@@ -223,6 +223,11 @@ body {
 @keyframes sheet-in-right {
   from {
     transform: translateX(100%);
+  }
+}
+@keyframes sheet-in-bottom {
+  from {
+    transform: translateY(100%);
   }
 }
 @keyframes sheet-out-left {
@@ -250,6 +255,9 @@ body {
 }
 .sheet-panel[data-side='right'][data-state='open'] {
   animation: sheet-in-right 200ms ease-out;
+}
+.sheet-panel[data-side='bottom'][data-state='open'] {
+  animation: sheet-in-bottom 200ms ease-out;
 }
 .sheet-panel[data-side='left'][data-state='closed'] {
   animation: sheet-out-left 200ms ease-in forwards;
