@@ -3,13 +3,15 @@ import { Pin, type LucideIcon, type LucideProps } from 'lucide-react';
 import { IconButton } from '../ui';
 import { CONTROL_H } from '../ui/tokens';
 import { kstClockText } from '../../utils/marketDate';
-import { saveClock, useClockStore } from '../../hooks/useClockSetting';
+import { saveClock, useClockStore, useLoadClockSetting } from '../../hooks/useClockSetting';
 import type { ClockCorner, ClockSetting } from '../../types/clock';
 import { useLayoutMode } from '../../hooks/useLayoutMode';
 
 /**
  * 떠 있는 **한국 시간** 시계(사용자 결정 2026-10-21) — 미국 장 시작 · 거래정지 해제 시각을 한국 시간으로 바로 본다.
  *
+ * - **1280 이상(desk)만 떠 있는 상자**다. 폰 · 패드 모양은 시황 띠 맨 왼쪽에 고정된 시계(`StripClock` — `market/MarketStrip` 이 그림 · v2.74.0 사용자 결정 1)이고,
+ *   이 상자는 그리지 않으며 저장한 자리(`ui.clock`)를 읽지도 쓰지도 않는다. 시계 글(「한국 HH:MM:SS」)과 시간 계산은 둘이 같은 것(`ClockText` · `useKstNow`)을 쓴다.
  * - 앱 루트(`App.tsx` 의 공통 부품 자리)에 한 번 — 모든 화면에서 같은 자리, 화면을 바꿔도 다시 만들지 않는다.
  * - 시각: 매 초 `Date.now()` 로 다시 계산한다(`utils/marketDate.kstClockText` — PC 시간대와 상관없이 Asia/Seoul).
  *   숨긴 탭에서 돌아오면(`visibilitychange`) 곧바로 다시 그린다 — 밀린 타이머의 틀린 초를 보이지 않게.
@@ -56,7 +58,7 @@ function settingOf(box: Box, w: number, h: number, vw: number, vh: number, pinne
 }
 
 /** 지금 한국 시각 — 다음 초가 바뀌는 때에 맞춰 다시 그린다 */
-function useKstNow(): string {
+export function useKstNow(): string {
   const [text, setText] = useState(() => kstClockText(Date.now()));
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -79,8 +81,28 @@ function useKstNow(): string {
   return text;
 }
 
-export default function KstClock() {
+/**
+ * 시계 글 「한국 HH:MM:SS」 — 「한국」 은 시각과 같은 글자(크기 · 굵기 · 색 — 사용자 결정 2026-10-21).
+ * 크기만 자리마다(떠 있는 상자 16 · 시황 띠 13) — 굵기 · 색 · 숫자 폭 맞춤은 여기 한 곳.
+ */
+export function ClockText({ size }: { size: 'text-sm' | 'text-caption' }) {
   const time = useKstNow();
+  return (
+    <>
+      <span className={`${size} font-semibold text-text-primary`}>한국</span>
+      <time className={`${size} font-semibold tabular-nums text-text-primary`}>{time}</time>
+    </>
+  );
+}
+
+/** 떠 있는 시계 — 1280 이상만(폰 · 패드는 시황 띠 안 `StripClock`) */
+export default function KstClock() {
+  return useLayoutMode() === 'desk' ? <FloatingClock /> : null;
+}
+
+function FloatingClock() {
+  // 자리 · 고정 상태(서버 저장)는 떠 있는 시계가 처음 뜰 때 받는다 — 폰 · 패드(띠 안 시계)는 읽지 않는다
+  useLoadClockSetting();
   const clock = useClockStore((s) => s.clock);
   const boxRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
@@ -105,12 +127,7 @@ export default function KstClock() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // 폰 · 패드 모양은 위쪽 막대 · 시황 띠를 가리지 않게 그 아래에서 시작한다(v2.73.0 — 저장한 자리는 그대로 · 보이는 자리만)
-  const layout = useLayoutMode();
-  // 시황 띠의 실제 아래 끝(위에 버전 알림 띠가 있으면 그만큼 내려간다) — 큰 화면은 0
-  const minTop = layout === 'desk' ? 0 : Math.ceil(document.querySelector('[data-testid="market-strip"]')?.getBoundingClientRect().bottom ?? 0);
-  const placedRaw = size ? placeOf(clock, size.w, size.h, viewport.w, viewport.h) : null;
-  const placed = placedRaw && minTop ? { left: placedRaw.left, top: clamp(Math.max(placedRaw.top, minTop), viewport.h - (size?.h ?? 0)) } : placedRaw;
+  const placed = size ? placeOf(clock, size.w, size.h, viewport.w, viewport.h) : null;
   const box = dragBox ?? placed;
   // 지금 상자를 스토어에 알린다(토스트 묶음이 겹치지 않게 읽는다 — `useClockStore.box`)
   useLayoutEffect(() => {
@@ -170,9 +187,7 @@ export default function KstClock() {
         pinned ? '' : dragBox ? 'cursor-grabbing' : 'cursor-grab'
       }`}
     >
-      {/* 「한국」 은 시각과 같은 글자(크기 · 굵기 · 색 — 사용자 결정 2026-10-21) */}
-      <span className="text-sm font-semibold text-text-primary">한국</span>
-      <time className="text-sm font-semibold tabular-nums text-text-primary">{time}</time>
+      <ClockText size="text-sm" />
       <IconButton
         icon={pinned ? PinFilled : Pin}
         label={pinned ? '위치 고정됨 — 누르면 옮길 수 있습니다' : '끌어서 옮기세요 — 누르면 이 자리에 고정됩니다'}

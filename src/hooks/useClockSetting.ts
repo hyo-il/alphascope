@@ -64,7 +64,7 @@ export function saveClock(next: ClockSetting): Promise<boolean> {
 /** 받는 중인 요청 — 다시 마운트돼도(개발 StrictMode) 두 번 받지 않는다 */
 let inflight: Promise<void> | null = null;
 
-/** 로그인한 앱이 처음 뜰 때 한 번 받는다. 실패하면 기본 자리 그대로(토스트 한 번) */
+/** 떠 있는 시계(1280 이상 — `KstClock`)가 처음 뜰 때 한 번 받는다(폰 · 패드는 받지 않음 · v2.74.0). 실패하면 기본 자리 그대로(토스트 한 번) */
 export function useLoadClockSetting(): void {
   useEffect(() => {
     if (inflight) return;

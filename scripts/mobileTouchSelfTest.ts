@@ -8,6 +8,7 @@
  * 손가락 누름 · 길게 누름은 크롬 개발 도구(CDP `Input.dispatchTouchEvent`)로 보낸다 — 진짜 손가락과 같은 pointer · click 순서.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { chromium, type Browser, type CDPSession, type Page } from 'playwright';
@@ -191,7 +192,60 @@ const vite = await guard.step('Vite 띄우기', async () => {
 });
 const browser = await guard.step('브라우저 띄우기', () => chromium.launch({ channel: 'chrome' }));
 
+/** 큰 화면 모양 — 고른 요소와 그 안의 보이는 요소마다 태그 · 클래스(손가락 이름은 뺌) · 자리 · 크기 */
+const deskShape = (page: Page, sel: string) =>
+  page.evaluate((s) => {
+    const out: string[] = [];
+    for (const top of document.querySelectorAll(s)) {
+      for (const el of [top, ...top.querySelectorAll('*')]) {
+        const r = el.getBoundingClientRect();
+        if (r.width < 1 || r.height < 1) continue;
+        const cls = (el.getAttribute('class') ?? '').replace(/(^|\s)(touch:\S+|touch-hit|touch-hit-gap)(?=\s|$)/g, '$1').replace(/\s+/g, ' ').trim();
+        out.push(`${el.tagName}|${cls}|${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)},${Math.round(r.height)}`);
+      }
+    }
+    return out;
+  }, sel);
+/** 1 의 창 · 툴팁 · 떠 있는 시계(1280 × 1080 · 1440 × 900) — CAPTURE 면 기준 커밋 worktree 에서 정답 파일을 만든다 */
+async function deskExtras(): Promise<Record<string, string[]>> {
+  const shots: Record<string, string[]> = {};
+  for (const size of [{ width: 1280, height: 1080 }, { width: 1440, height: 900 }]) {
+    const { page, ctx } = await open(browser, size, '#/portfolio');
+    await page.addStyleTag({ content: '*::-webkit-scrollbar { width: 0 !important; height: 0 !important; } * { scrollbar-width: none !important; }' });
+    shots[`${size.width} 떠 있는 시계`] = await deskShape(page, '[data-kst-clock]');
+    await mount(page, { dirty: false });
+    shots[`${size.width} 창(md)`] = await deskShape(page, '[role="dialog"][aria-labelledby]');
+    await unmount(page);
+    await mountParts(page);
+    await page.mouse.move(0, 0);
+    await page.hover('[data-testid="btn-sm"]');
+    await page.waitForTimeout(600);
+    shots[`${size.width} 툴팁`] = await deskShape(page, '[role="tooltip"]');
+    await ctx.close();
+  }
+  return shots;
+}
+const DESK_FIXTURE = path.join(root, 'scripts/fixtures/mobileTouch/desk.json');
+
 try {
+  if (process.env.CAPTURE) {
+    fs.writeFileSync(process.env.CAPTURE, JSON.stringify(await deskExtras(), null, 0));
+    console.log(`정답 파일 저장 — ${process.env.CAPTURE}`);
+    process.exit(0);
+  }
+  // ───────── 1 큰 화면 + 마우스 — 창 · 툴팁 · 떠 있는 시계가 기준 커밋과 같음 ─────────
+  {
+    const want = JSON.parse(fs.readFileSync(DESK_FIXTURE, 'utf8')) as Record<string, string[]>;
+    const got = await deskExtras();
+    for (const key of Object.keys(want)) {
+      const a = want[key];
+      const b = got[key] ?? [];
+      const i = a.findIndex((x, k) => x !== b[k]);
+      const same = a.length > 0 && a.length === b.length && i < 0;
+      check(`[147-1] ${key} — 기준 커밋(${BASE})과 요소 ${a.length}개 태그 · 클래스 · 자리 · 크기 같음`, same, same ? '' : `개수 ${a.length} → ${b.length} · 첫 차이 #${i}: ${a[i] ?? '-'} → ${b[i] ?? '-'}`);
+    }
+  }
+
   // ───────── 2 · 3 폰 창 ─────────
   {
     const { page, ctx, errors, cdp } = await open(browser, PHONE, '#/portfolio');
@@ -458,6 +512,57 @@ try {
       }
       await ctx.close();
     }
+  }
+
+  // ───────── 10 시계 = 시황 띠 맨 왼쪽 ─────────
+  for (const size of [PHONE, PAD]) {
+    const clockCalls: string[] = [];
+    const { page, ctx, cdp } = await open(browser, size, '#/portfolio', (url) => {
+      if (url.includes('/api/settings/clock')) clockCalls.push(url);
+      return undefined;
+    });
+    page.on('request', (r) => r.url().includes('/api/settings/clock') && r.method() !== 'GET' && clockCalls.push(`${r.method()} ${r.url()}`));
+    const tag = `${size.width}`;
+    const strip = (await box(page, '[data-testid="market-strip"]'))!;
+    const c0 = await box(page, '[data-strip-clock]');
+    const text = await page.locator('[data-strip-clock]').innerText();
+    check(`[147-10] ${tag} 시계가 시황 띠 맨 왼쪽 · 띠 높이 40 안 · 「한국 HH:MM:SS」`, c0 != null && c0.x === strip.x && c0.y >= strip.y && c0.y + c0.h <= strip.y + strip.h && /^한국\s*\d{2}:\d{2}:\d{2}$/.test(text.trim()), `${JSON.stringify(c0)} · ${JSON.stringify(strip)} · ${text}`);
+    const font = await page.evaluate(() => {
+      const t = document.querySelector('[data-strip-clock] time')!;
+      return `${getComputedStyle(t).fontSize}|${getComputedStyle(t).fontVariantNumeric}`;
+    });
+    check(`[147-10] ${tag} 시계 글 13 · 숫자 폭 맞춤(tabular-nums)`, font === '13px|tabular-nums', font);
+    check(`[147-10] ${tag} 떠 있는 시계 상자 · 끌기 · 핀 없음`, (await page.locator('[data-kst-clock]').count()) === 0 && (await page.locator('[data-strip-clock] button').count()) === 0);
+    await page.evaluate(() => {
+      const b = document.querySelector<HTMLElement>('[data-testid="market-strip"] button[aria-label="시황 펼치기"]')!;
+      b.scrollLeft = b.scrollWidth;
+    });
+    await page.waitForTimeout(200);
+    const c1 = await box(page, '[data-strip-clock]');
+    const scrolled = await page.evaluate(() => document.querySelector<HTMLElement>('[data-testid="market-strip"] button[aria-label="시황 펼치기"]')!.scrollLeft);
+    check(`[147-10] ${tag} 띠를 끝까지 밀어도 시계 자리 그대로`, JSON.stringify(c0) === JSON.stringify(c1) && (size === PAD || scrolled > 0), `${JSON.stringify(c0)} → ${JSON.stringify(c1)} · 민 거리 ${scrolled}`);
+    const bar = await box(page, '[data-testid="top-bar"]');
+    const body = await box(page, '[data-layout-body]');
+    const apart = (a: Box | null, b: Box | null) => !a || !b || a.y + a.h <= b.y || b.y + b.h <= a.y || a.x + a.w <= b.x || b.x + b.w <= a.x;
+    check(`[147-10] ${tag} 시계가 위쪽 막대 · 본문과 겹치지 않음`, apart(c1, bar) && apart(c1, body), `${JSON.stringify(c1)} · 막대 ${JSON.stringify(bar)} · 본문 ${JSON.stringify(body)}`);
+    await tap(page, cdp!, c1!.x + c1!.w / 2, c1!.y + c1!.h / 2);
+    await page.waitForTimeout(300);
+    check(`[147-10] ${tag} 시계를 눌러도 시황 창이 열리지 않음`, (await page.getByRole('dialog', { name: '시황' }).count()) === 0);
+    await tap(page, cdp!, strip.x + strip.w - 40, strip.y + strip.h / 2);
+    await page.waitForTimeout(500);
+    check(`[147-10] ${tag} 지수 쪽을 누르면 시황 창이 열림`, (await page.getByRole('dialog', { name: '시황' }).count()) === 1);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    // 토스트(가짜 503 오류)가 위쪽 막대 · 시황 띠를 가리지 않음
+    await page.evaluate(async (url) => {
+      const m = await import(/* @vite-ignore */ url);
+      m.toast.error('시험 토스트', '가림 확인');
+    }, '/src/store/uiStore.ts');
+    await page.waitForTimeout(300);
+    const toastTop = await page.evaluate(() => Math.round(document.querySelector('[data-toast-host] > *')!.getBoundingClientRect().top));
+    check(`[147-10] ${tag} 토스트가 위쪽 막대 · 시황 띠 아래에 뜸`, toastTop >= strip.y + strip.h, `토스트 위 ${toastTop} · 띠 아래 ${strip.y + strip.h}`);
+    check(`[147-10] ${tag} 저장한 시계 자리(ui.clock)를 읽지도 쓰지도 않음(요청 0)`, clockCalls.length === 0, clockCalls.join(' '));
+    await ctx.close();
   }
 
   // ───────── 13 바뀐 파일 ─────────

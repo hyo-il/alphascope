@@ -56,7 +56,6 @@ import LoginScreen from './components/auth/LoginScreen';
 import { useAuth } from './hooks/useAuth';
 import { useHashRoute } from './hooks/useHashRoute';
 import { useLoadHomePage } from './hooks/useHomePage';
-import { useLoadClockSetting } from './hooks/useClockSetting';
 import KstClock from './components/common/KstClock';
 import { useLayoutMode } from './hooks/useLayoutMode';
 import MobileTopBar from './components/layout/MobileTopBar';
@@ -81,8 +80,6 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   // 화면 주소(#/pageId) ↔ appStore.nav — 뒤로·앞으로 가기·새로고침. 로그인한 상태에서만
   // 홈 화면 설정을 먼저 받기 시작한다 — 주소 없이 열면 useHashRoute 가 그 화면으로 간다(받는 중이면 받은 뒤에)
   useLoadHomePage();
-  // 떠 있는 한국 시간 시계의 자리 · 고정 상태(서버 저장)
-  useLoadClockSetting();
   useHashRoute();
   /*
    * ⚠️ `useAppStore()` 를 인자 없이 부르면 **스토어의 모든 변화**를 구독한다.
