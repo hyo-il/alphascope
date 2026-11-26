@@ -530,8 +530,15 @@ input[type='number']::-webkit-outer-spin-button {
   position: sticky;
   left: 0;
   z-index: 1;
-  background-color: var(--st-bg);
   background-image: linear-gradient(var(--st-row, transparent), var(--st-row, transparent));
+}
+/* 고정 칸 바탕 — components 층: 칸에 원래 바탕(`bg-*`)이 있으면 그것이 이긴다(없으면 상자 바탕 — 밀린 글이 비치지 않게) */
+@layer components {
+  [data-scroll-table][data-pin='1'] > [data-scroll-table-inner] > table > * > tr > :nth-child(1),
+  [data-scroll-table][data-pin='2'] > [data-scroll-table-inner] > table > * > tr > :nth-child(2),
+  [data-scroll-table][data-pin='3'] > [data-scroll-table-inner] > table > * > tr > :nth-child(3) {
+    background-color: var(--st-bg);
+  }
 }
 /*
  * 고정 칸 그림자 · 왼쪽 여백 덮개 — 표 칸(border-collapse)에는 box-shadow 가 그려지지 않고, 칸 안 덧그림은 `overflow-hidden` 칸(말줄임 이름 칸)에서 잘린다.
@@ -552,6 +559,8 @@ input[type='number']::-webkit-outer-spin-button {
   width: var(--st-pin-w, 0px);
 }
 [data-scroll-pin-cover] {
+  /* 제자리 = 상자 왼쪽 안쪽 여백(표 시작보다 여백만큼 왼쪽) — 바깥 여백으로 당겨 두지 않으면 첫 칸 글자 위에 놓인다 */
+  margin-left: calc(-1 * var(--st-pad-l, 0px));
   left: calc(-1 * var(--st-pad-l, 0px));
   width: var(--st-pad-l, 0px);
   background-color: var(--st-bg);
@@ -572,6 +581,10 @@ input[type='number']::-webkit-outer-spin-button {
   left: 0;
   max-width: var(--st-view-w, 100%);
   box-sizing: border-box;
+}
+/* 그 합친 칸은 흐림 · 고정 칸 그림자 위 — 묶음 이름 글이 가려지지 않게(칸이 sticky 라 쌓임이 칸에서 정해진다) */
+[data-scroll-table][data-pin] > [data-scroll-table-inner] > table > * > tr > td[colspan]:first-child:last-child {
+  z-index: 5;
 }
 [data-scroll-fade] {
   position: sticky;

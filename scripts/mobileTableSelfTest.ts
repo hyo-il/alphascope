@@ -394,9 +394,19 @@ try {
     check('[148-3] 시험 표 — 끝까지 밀어도 첫 칸 머리 · 몸 자리 그대로', x0 === x1, `${x0} → ${x1}`);
     // 상자에 안쪽 여백이 있어도 첫 칸이 그 자리
     await mount(page, { pad: true });
+    // 첫 칸 글자 왼쪽 끝이 덧칸(여백 덮개 · 흐림)에 덮이지 않음 — 그 자리를 누르면 그 칸이 잡힘
+    const firstHit = () =>
+      page.evaluate((s) => {
+        const td = document.querySelector(s)!.querySelector<HTMLElement>('tbody tr:nth-child(2) > :first-child')!;
+        const r = td.getBoundingClientRect();
+        const x = r.x + parseFloat(getComputedStyle(td).paddingLeft) + 2;
+        const hit = document.elementFromPoint(x, r.y + r.height / 2);
+        return !!hit && (hit === td || td.contains(hit));
+      }, H_BOX);
+    const hit0 = await firstHit();
     const p0 = await firstCellX(page, H_BOX);
     await scrollBox(page, H_BOX, 'end');
-    check('[148-3] 안쪽 여백 있는 상자 — 끝까지 밀어도 첫 칸 자리 그대로', p0 === (await firstCellX(page, H_BOX)), `${p0} → ${await firstCellX(page, H_BOX)}`);
+    check('[148-3] 안쪽 여백 있는 상자 — 끝까지 밀어도 첫 칸 자리 그대로 · 첫 칸 글자가 덮이지 않음(처음 · 끝)', p0 === (await firstCellX(page, H_BOX)) && hit0 && (await firstHit()), `${p0} → ${await firstCellX(page, H_BOX)} · 덮이지 않음 ${hit0}/${await firstHit()}`);
     // 5 — 넘치지 않는 표
     await mount(page, { narrow: true });
     box = await boxInfo(page, H_BOX);
