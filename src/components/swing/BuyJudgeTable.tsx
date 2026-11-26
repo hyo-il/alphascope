@@ -14,6 +14,7 @@ import { currencyOfSymbol } from '../../utils/market';
 import { ENTRY_LABEL, VERDICT_LABEL, type BuyJudgeRow, type Verdict } from '../../types/buyJudge';
 import type { SwingGoal } from '../../types/swingGoal';
 import type { TargetAnalysisRecord } from '../../types/targetAnalysis';
+import ScrollTable from '../ui/ScrollTable';
 
 /** 판단 글자 — 색만으로 뜻을 전하지 않는다(글자가 있다). 손익비 부족은 경고 아이콘도 */
 /**
@@ -115,7 +116,7 @@ export default function BuyJudgeTable({
   const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP_TIGHT} text-right`;
 
   return (
-    <div className="rounded-lg bg-bg-tertiary/40" data-buy-judge-table>
+    <ScrollTable className="rounded-lg bg-bg-tertiary/40" data-buy-judge-table>
       {/* 미국($ 소수 둘째)·국내(₩ 정수) 종목이 한 표에 섞여 가격 열의 소수 자릿수가 통화마다 다르다 — 통화 규칙이 맞다(data-rows-differ: 자릿수 측정 제외) */}
       <table className="w-full text-left text-xs" data-rows-differ>
         <thead className="text-caption text-text-muted">
@@ -203,7 +204,7 @@ export default function BuyJudgeTable({
           })}
         </tbody>
       </table>
-    </div>
+    </ScrollTable>
   );
 }
 

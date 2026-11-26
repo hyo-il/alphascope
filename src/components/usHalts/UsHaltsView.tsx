@@ -34,6 +34,7 @@ import { kstClockText } from '../../utils/marketDate';
 import { changeColor, formatSigned, formatUsdShort } from '../../utils/formatters';
 import { MIN_TURNOVER_MAX, US_HALTS_FAIL_WARN, type UsHaltFetchStatus, type UsHaltRow, type UsHaltsResponse, type UsOngoingHaltRow } from '../../types/usHalts';
 import type { LiveRankingResponse } from '../../types/ranking';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 실험실 > 거래정지 (v2.55.0) — **미국 정규장에** **지금 멈춰 있는** 미국 종목(오늘 · 며칠째) · 사유 · 정지 시각 · 예상 재개(한국 시간) · 방향(추정) · 오늘 최대 5분 거래대금.
@@ -708,7 +709,7 @@ function HaltTable({
 }) {
   const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP_TIGHT}`;
   return (
-    <div className="rounded-lg bg-bg-tertiary/40">
+    <ScrollTable className="rounded-lg bg-bg-tertiary/40">
       <table className="w-full text-left text-xs">
         <thead className="text-caption text-text-muted">
           {/* 머리줄 높이는 위 「며칠째」 표(고정 머리줄)와 같게 */}
@@ -776,7 +777,7 @@ function HaltTable({
           })}
         </tbody>
       </table>
-    </div>
+    </ScrollTable>
   );
 }
 
@@ -968,7 +969,7 @@ function OngoingTable({
   const HEAD = `sticky top-0 z-[1] bg-bg-box shadow-[inset_0_-1px_0_color-mix(in_srgb,var(--color-border)_50%,transparent)]`;
   return (
     <div className="relative" data-ongoing-halts>
-      <div
+      <ScrollTable
         ref={box}
         tabIndex={scroll.over ? 0 : undefined}
         aria-label={scroll.over ? '며칠째 정지 중 목록' : undefined}
@@ -1032,7 +1033,7 @@ function OngoingTable({
           ))}
         </tbody>
       </table>
-      </div>
+      </ScrollTable>
       {/* 아래에 줄이 더 있으면 그림자(화면 바탕 → 투명, 칸보다 어두워 보인다) — 스크롤이 있다는 표시. 끝까지 내리면 사라진다. 오른쪽은 스크롤 막대(6px) 자리를 비운다 */}
       {scroll.more && (
         <div aria-hidden className="pointer-events-none absolute bottom-0 left-0 right-2 h-8 rounded-bl-lg bg-gradient-to-t from-bg-primary to-transparent" data-ongoing-more />

@@ -8,6 +8,7 @@ import { formatNumber, formatPrice } from '../../utils/formatters';
 import { formatAssetPrice, formatAssetQty, formatAssetWon, formatAssetWonSigned } from '../../utils/assetFormat';
 import AssetCashMoveDialog from './AssetCashMoveDialog';
 import { UNASSIGNED_LABEL, cashBankGroups, cashBankLabelOf, cashKeysOfRows, cashRowOfKey, type AssetCashManualRequest, type AssetCashManualResult, type AssetAccount, type AssetCashBankFix, type AssetCashKey, type AssetCashRow, type AssetSheetCashBanks, type AssetHolding, type AssetSection, type AssetSheetData, type AssetSymbolRow, type AssetTradeSide } from '../../types/asset';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 자산 관리 「자산 현황」 탭 (v2.61.0 1단계 확인 표 → v2.62.1 계좌 카드 → v2.62.2 탭).
@@ -99,6 +100,7 @@ function CashBlock({ heading, rows, total, testId }: { heading: string; rows: As
       {rows.length === 0 ? (
         <p className="text-caption text-text-muted">「현금」 탭에 계좌 줄이 없습니다.</p>
       ) : (
+        <ScrollTable>
         <table className="w-full border-separate border-spacing-0 text-left text-xs">
           <tbody>
             {rows.map((r) => (
@@ -116,6 +118,7 @@ function CashBlock({ heading, rows, total, testId }: { heading: string; rows: As
             ))}
           </tbody>
         </table>
+        </ScrollTable>
       )}
       {sumDiffers(rows, total) && (
         <p className="text-caption text-warning" data-testid={`${testId}-mismatch`}>
@@ -154,6 +157,7 @@ function BankCashBlock({
       {rows.length === 0 ? (
         <p className="text-caption text-text-muted">「현금」 탭에 계좌가 없습니다.</p>
       ) : (
+        <ScrollTable>
         <table className="w-full border-separate border-spacing-0 text-left text-xs">
           <tbody>
             {groups.map((g) => {
@@ -204,6 +208,7 @@ function BankCashBlock({
             })}
           </tbody>
         </table>
+        </ScrollTable>
       )}
       {sumDiffers(rows, total) && (
         <p className="text-caption text-warning" data-testid={`${testId}-mismatch`}>
@@ -580,7 +585,7 @@ function AccountCards({
   return (
     /* 평균 매입가는 줄마다 통화가 다르고(원 정수 · $ 소수 2자리) 수량은 「30주」 · 「0.5주」(끝 0 지움 — `assetFormat.ts`) — design:check 의 「같은 열 소수 자릿수」 는 이 표에서 재지 않는다(`data-rows-differ`) */
     /* 입력 칸이 늘어 좁은 창에서는 표가 칸보다 넓다 — 표만 칸 안에서 가로로 움직인다(넓은 창에서는 변화 없음) */
-    <div className="overflow-x-auto" data-account-cards-wrap>
+    <ScrollTable deskScroll data-account-cards-wrap>
     <table className="w-full border-separate border-spacing-0 text-left text-xs" data-rows-differ data-account-cards>
       {shown.map((s, i) => {
         const key = s.key ?? `#${i}`;
@@ -601,7 +606,7 @@ function AccountCards({
         );
       })}
     </table>
-    </div>
+    </ScrollTable>
   );
 }
 

@@ -16,6 +16,7 @@ import {
 import { changeColor, formatCompact, formatCompactMoney, formatPercent, formatPrice } from '../../utils/formatters';
 import RankingPreview, { isPreviewTimeframe, type PreviewTimeframe } from './RankingPreview';
 import { marketByKstTime } from '../../utils/marketDate';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 📶 실시간 순위 — 토스 거래대금·거래량·상승률·하락률 상위 100(`/api/rankings/live`, 서버 30초 캐시).
@@ -184,7 +185,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
         </div>
 
         {/* 아래 = 목록(나머지 높이) */}
-        <div
+        <ScrollTable pin={3}
           ref={listRef}
           tabIndex={0}
           onKeyDown={onKeyDown}
@@ -278,7 +279,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
               {showAll ? '50위까지만 보기' : `더 보기 (+${data.rows.length - FIRST_PAGE})`}
             </Button>
           )}
-        </div>
+        </ScrollTable>
       </div>
 
       {/* ⚠️ 고정 문구 — 지우지 않는다. 조작법만 정보 아이콘으로 */}

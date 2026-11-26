@@ -25,6 +25,7 @@ import AssetTradeHistoryDialog from './AssetTradeHistoryDialog';
 import { codeOfTickerRow, type ClassSendResult, type ClassValue } from '../../utils/assetClassPlan';
 import AssetRebalanceView from './AssetRebalanceView';
 import { MonthlyBuySection, PurchaseDayDialog, dayText, isEarlyDone, sheetDateText } from './AssetMonthlyBuy';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 계좌 > 자산 관리 — 풀린 화면(v2.62.0 · 자산 관리 3단계 · v2.62.2 탭 · v2.63.0 비율 조정).
@@ -700,6 +701,7 @@ function GroupTable({ summary, onOpenClassDialog }: { summary: AssetSummary; onO
   const inStock = (v: number) => (stock > 0 ? v / stock : null);
   return (
     <Panel pad="none" className="pb-1">
+      <ScrollTable>
       <table className="w-full text-left text-xs">
         <thead className="text-caption text-text-muted">
           <tr className={`border-b border-border/50 ${TABLE_HEAD_ROW}`}>
@@ -745,6 +747,7 @@ function GroupTable({ summary, onOpenClassDialog }: { summary: AssetSummary; onO
           })}
         </tbody>
       </table>
+      </ScrollTable>
     </Panel>
   );
 }

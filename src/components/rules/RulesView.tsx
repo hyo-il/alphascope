@@ -9,6 +9,7 @@ import { Button, IconButton, PageHeader } from '../ui';
 import { LIST_TABLE_ROW, TABLE_NAME_COL } from '../ui/tokens';
 import { SkeletonText } from '../common/SkeletonLoader';
 import RuleDialog from './RuleDialog';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 「퀀트 > 매매 규칙」 (퀀트 다시 만들기 1단계).
@@ -101,7 +102,7 @@ export default function RulesView() {
         )}
 
         {!!r.rules?.length && (
-          <div className="rounded-xl bg-bg-secondary px-4 py-2">
+          <ScrollTable className="rounded-xl bg-bg-secondary px-4 py-2">
             <table className="w-full text-left text-xs">
               <thead className="text-caption text-text-muted">
                 <tr className="border-b border-border/50">
@@ -136,7 +137,7 @@ export default function RulesView() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         )}
       </div>
 

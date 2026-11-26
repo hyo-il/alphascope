@@ -2,6 +2,8 @@ import { SkeletonCards, SkeletonTable } from '../common/SkeletonLoader';
 import PortfolioSummaryBar from './PortfolioSummary';
 import { useExchangeRate, usePortfolio } from '../../hooks/useCompany';
 import { changeColor, formatPercent, formatUsd, formatSignedMoney } from '../../utils/formatters';
+import ScrollTable from '../ui/ScrollTable';
+import { TABLE_NAME_CELL_TOUCH, TABLE_NUM_CELL_TOUCH } from '../ui/tokens';
 
 interface Props {
   /** 종목 클릭 시 차트를 그 종목으로 바꾼다. */
@@ -36,7 +38,7 @@ export default function Holdings({ onSelectSymbol }: Props) {
     <div className="flex h-full flex-col overflow-hidden">
       <PortfolioSummaryBar summary={portfolio.summary} exchangeRate={rate} />
 
-      <div className="min-h-0 flex-1 overflow-auto pb-4">
+      <ScrollTable className="min-h-0 flex-1 overflow-auto pb-4">
         {/* 좌우 여백을 스크롤 영역이 아니라 첫·마지막 열에 둔다 — 그래야 sticky 헤더 배경이 본문 양 끝까지 닿는다 */}
         {portfolio.holdings.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-text-muted">보유 중인 해외주식이 없습니다.</p>
@@ -61,7 +63,7 @@ export default function Holdings({ onSelectSymbol }: Props) {
                   className="cursor-pointer border-t border-border/60 hover:bg-bg-tertiary/60"
                   data-tip={`${holding.symbol} 차트 보기`}
                 >
-                  <td className="py-1.5 pl-4 pr-2">
+                  <td className={`py-1.5 pl-4 pr-2 ${TABLE_NAME_CELL_TOUCH}`}>
                     <span className="font-medium text-text-primary">
                       {holding.name || holding.symbol}
                     </span>
@@ -69,15 +71,15 @@ export default function Holdings({ onSelectSymbol }: Props) {
                       <span className="ml-1.5 text-caption text-text-secondary">{holding.symbol}</span>
                     )}
                   </td>
-                  <td className="py-1.5 px-2 text-right">{holding.quantity}</td>
-                  <td className="py-1.5 px-2 text-right">{formatUsd(holding.averagePrice)}</td>
-                  <td className="py-1.5 px-2 text-right">{formatUsd(holding.currentPrice)}</td>
-                  <td className="py-1.5 px-2 text-right">{formatUsd(holding.evaluationAmount)}</td>
-                  <td className={`py-1.5 px-2 text-right ${changeColor(holding.profitLoss)}`}>
+                  <td className={`py-1.5 px-2 text-right ${TABLE_NUM_CELL_TOUCH}`}>{holding.quantity}</td>
+                  <td className={`py-1.5 px-2 text-right ${TABLE_NUM_CELL_TOUCH}`}>{formatUsd(holding.averagePrice)}</td>
+                  <td className={`py-1.5 px-2 text-right ${TABLE_NUM_CELL_TOUCH}`}>{formatUsd(holding.currentPrice)}</td>
+                  <td className={`py-1.5 px-2 text-right ${TABLE_NUM_CELL_TOUCH}`}>{formatUsd(holding.evaluationAmount)}</td>
+                  <td className={`py-1.5 px-2 text-right ${changeColor(holding.profitLoss)} ${TABLE_NUM_CELL_TOUCH}`}>
                     {formatSignedMoney(holding.profitLoss, 'USD')}
                     <span className="ml-1">({formatPercent(holding.profitLossRate)})</span>
                   </td>
-                  <td className={`py-1.5 pl-2 pr-4 text-right ${changeColor(holding.dailyProfitLoss)}`}>
+                  <td className={`py-1.5 pl-2 pr-4 text-right ${changeColor(holding.dailyProfitLoss)} ${TABLE_NUM_CELL_TOUCH}`}>
                     {formatSignedMoney(holding.dailyProfitLoss, 'USD')}
                     <span className="ml-1">({formatPercent(holding.dailyProfitLossRate)})</span>
                   </td>
@@ -86,7 +88,7 @@ export default function Holdings({ onSelectSymbol }: Props) {
             </tbody>
           </table>
         )}
-      </div>
+      </ScrollTable>
     </div>
   );
 }

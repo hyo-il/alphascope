@@ -18,6 +18,7 @@ import {
   type AiOutcomeDays,
   type AiVerdict,
 } from '../../types/aiCheck';
+import ScrollTable from '../ui/ScrollTable';
 
 const RETURN_HELP =
   '수익률 = AI 검증 때 가격 → 검증한 날 뒤 N번째 거래일 종가(끝난 봉). 「위험으로 막은 것」 과 「통과해서 산 것」 을 같은 기준으로 비교하는 것이라 수수료·슬리피지는 빼지 않습니다. 아직 날이 지나지 않은 칸은 「—」 입니다.';
@@ -113,7 +114,7 @@ export default function AiCheckHistoryPanel({
           {emptyText}
         </p>
       ) : (
-        <div className="rounded-lg bg-bg-tertiary/40">
+        <ScrollTable className="rounded-lg bg-bg-tertiary/40">
           <table className="w-full text-left text-xs">
             <thead className="text-caption text-text-muted">
               <tr className="border-b border-border/50">
@@ -195,7 +196,7 @@ export default function AiCheckHistoryPanel({
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       )}
       {data.rows.length < data.total && (
         <Button size="sm" onClick={onMore} disabled={loading}>

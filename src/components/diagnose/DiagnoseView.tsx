@@ -17,6 +17,7 @@ import { GEMINI_TRIGGER_LABEL } from '../../types/gemini';
 import StockName from '../common/StockName';
 import { Trash2 } from 'lucide-react';
 import IconButton from '../ui/IconButton';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 진단 리포트 — 「퀀트 > 검증 기록 > 진단 리포트」 탭. 네 질문(목표 수익률·급등·Gemini·뉴스 AI)에 숫자로 답한다.
@@ -301,7 +302,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function Table({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) {
   return (
-    <div className="overflow-x-auto">
+    <ScrollTable deskScroll>
       <table className="w-full text-caption">
         <thead className="text-text-secondary">
           <tr>
@@ -324,7 +325,7 @@ function Table({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollTable>
   );
 }
 

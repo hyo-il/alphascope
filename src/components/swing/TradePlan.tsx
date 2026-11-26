@@ -34,6 +34,7 @@ export default function TradePlan({ plan, currency = 'USD' }: { plan: JudgeRefer
         <span className="bg-bearish/50" style={{ flexGrow: risk / total }} />
       </div>
       {/* 열 너비를 고정해 값이 길어져도 라벨과 겹치지 않게 한다 */}
+      {/* design-lint-ignore: 배치용 가격 사다리(세로 막대 옆 세 칸 · 고정 폭 224px · 넘치지 않음) — 옆으로 미는 표가 아니다 */}
       <table className="min-w-0 text-caption tabular-nums">
         <tbody>
           {rows.map((row) => (

@@ -3,6 +3,7 @@ import { Fragment, useState } from 'react';
 import type { SymbolSummary } from '../../types/analysis';
 import { displayPeg, type Fundamentals } from '../../types/company';
 import { changeColor, formatCompactMoney, formatPrice, formatSigned, formatNumber } from '../../utils/formatters';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 기업정보 비교 테이블 — 행이 항목, 열이 종목이다.
@@ -313,7 +314,7 @@ export default function CompareTable({ symbols, names, fundamentals, summaries, 
         )}
       </div>
 
-      <div className="overflow-x-auto">
+      <ScrollTable deskScroll>
         <table className="w-full min-w-[520px] text-xs">
           <thead>
             <tr className="border-b border-border/50 text-text-secondary">
@@ -379,7 +380,7 @@ export default function CompareTable({ symbols, names, fundamentals, summaries, 
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
     </section>
   );
 }

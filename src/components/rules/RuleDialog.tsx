@@ -22,6 +22,7 @@ import { askDiscard } from '../../store/leaveGuard';
 import { Badge, Button, Dialog, DisclosureButton, FieldError, FieldTouch, FormRow, Input, NumberField, NumberUnitGroup, Select } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
 import { usageText } from './usage';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 「추천」 배지 (사용자 결정 A-9) — **값이 이 값일 때만** 붙는다(바꾸면 사라진다). 뜻은 「자주 사용되는 설정」 — 수익 확인이 아니다.
@@ -268,6 +269,7 @@ export default function RuleDialog({
         {/* ── 매수 조건 ───────────────────────────────── */}
         <section className="space-y-3">
           <h3 className="text-sm font-semibold text-text-primary">매수 조건</h3>
+          <ScrollTable pin={2}>
           <table className="w-full text-left text-xs" data-rows-differ>
             <thead className="text-caption text-text-muted">
               <tr className="border-b border-border/50">
@@ -357,6 +359,7 @@ export default function RuleDialog({
               </FieldTouch>
             </tfoot>
           </table>
+          </ScrollTable>
 
           <p className="text-xs text-text-primary">잃을 돈이 벌 돈보다 큰 거래(손익비 1 미만)는 어떤 규칙이든 사지 않습니다.</p>
           {warnings.map((w) => (

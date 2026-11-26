@@ -8,7 +8,7 @@ import { TABLE_NAME_MIN_PX, TOOLTIP_TOUCH_MOVE_PX } from './tokens';
  * **1280 이상(`desk`)** — 지금 모양 그대로: `className`(또는 `deskScroll`)이 있으면 그 `div` 하나, 없으면 표만 그린다
  *   (상자 · 고정 칸 · 흐림 · 그림자 없음). `deskScroll` = 예전 표마다의 `overflow-x-auto` 가 하던 일(넘치면 밀기)을 부품이 맡음
  *   — 클래스 글자는 `${className} overflow-x-auto` 로 예전과 같다.
- * **폰 · 패드** — 표를 바탕 상자(둥근 12 · 바탕 = 그 표가 놓인 상자 바탕 `tone`) 안에서만 가로로 민다(세로는 지금처럼 바깥 ·
+ * **폰 · 패드** — 표를 바탕 상자(둥근 12 · 바탕 = 그 표가 놓인 상자 바탕 그대로 — 고정 칸 · 흐림 색은 그 자리의 실제 바탕 `surfaceBg`) 안에서만 가로로 민다(세로는 지금처럼 바깥 ·
  *   감싼 상자가 원래 세로 스크롤이면 그 상자가 그대로 맡는다 — 머리 줄 `sticky top` 도 그대로).
  *   - 고정 칸: 머리 · 몸 줄의 `pin` 번째 칸(기본 첫 칸)에 `sticky left` · 바탕 = 상자 바탕 + 그 줄의 바탕(고른 줄 · 머리 바탕).
  *     그 칸이 상자 폭의 절반을 넘으면 고정하지 않는다(고정 칸이 화면을 다 차지하지 않게).
@@ -21,33 +21,43 @@ import { TABLE_NAME_MIN_PX, TOOLTIP_TOUCH_MOVE_PX } from './tokens';
  * 모양 CSS 는 `src/index.css` 「옆으로 미는 표」 한 곳(폰 · 패드에서만 생기는 `data-scroll-table` 에만 걸림).
  * 표(`<table>`)는 이 부품의 **바로 아래 자식**으로 둔다(흐림을 표 옆에 붙인다). 다른 자식(더 보기 단추 등)은 그대로 그린다.
  */
-type Tone = 'secondary' | 'inset' | 'primary';
-
 interface ScrollTableProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
   /** 1280 이상에서 넘치면 밀기(예전 감싸기의 `overflow-x-auto`) */
   deskScroll?: boolean;
-  /** 폰 · 패드 상자 바탕 — 없으면 `className` 의 바탕에서(`bg-bg-tertiary/40` = inset · 그 밖 secondary) */
-  tone?: Tone;
   /** 고정할 칸 번호(1부터 · 기본 1) — 첫 칸이 순위 · 별처럼 종목이 아닌 좁은 칸이면 종목 칸 번호 */
   pin?: 1 | 2 | 3;
 }
 
-/** 감싼 상자에 바탕이 없을 때 폰 · 패드 상자 바탕(고정 칸 · 흐림 색 `--st-bg` 는 index.css 가 `data-tone` 으로) */
-const TONE_BG: Record<Tone, string> = { secondary: 'bg-bg-secondary', inset: 'bg-bg-tertiary/40', primary: 'bg-bg-primary' };
-
 const join = (...xs: (string | false | undefined)[]) => xs.filter(Boolean).join(' ');
 
-function toneOf(className: string | undefined, tone: Tone | undefined): Tone {
-  if (tone) return tone;
-  if (className?.includes('bg-bg-tertiary/40')) return 'inset';
-  if (className?.includes('bg-bg-primary')) return 'primary';
-  return 'secondary';
+const clear = (c: string) => !c || c === 'transparent' || c === 'rgba(0, 0, 0, 0)';
+
+/**
+ * 상자 자리의 실제 바탕 — 상자부터 뿌리까지 바탕색을 겹쳐 칠한 색(반투명 바탕 `bg-…/40` 도 아래 바탕과 겹친 색).
+ * 새 색을 만들지 않는다: 화면에 이미 깔린 바탕을 그대로 고정 칸 · 흐림에 쓴다(1×1 캔버스에 바깥부터 차례로 칠해 읽음).
+ */
+function surfaceBg(el: HTMLElement): string {
+  const layers: string[] = [];
+  for (let n: HTMLElement | null = el; n; n = n.parentElement) {
+    const c = getComputedStyle(n).backgroundColor;
+    if (!clear(c)) layers.push(c);
+  }
+  const cv = document.createElement('canvas');
+  cv.width = 1;
+  cv.height = 1;
+  const ctx = cv.getContext('2d');
+  if (!ctx) return '';
+  for (const c of layers.reverse()) {
+    ctx.fillStyle = c;
+    ctx.fillRect(0, 0, 1, 1);
+  }
+  const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+  return a === 0 ? '' : `rgb(${r} ${g} ${b})`;
 }
 
 /** 줄 바탕(투명이면 머리 · 몸 묶음 바탕) — 고정 칸이 상자 바탕 위에 같이 칠한다 */
 function rowBg(tr: HTMLTableRowElement): string {
-  const clear = (c: string) => c === 'transparent' || c === 'rgba(0, 0, 0, 0)';
   const own = getComputedStyle(tr).backgroundColor;
   if (!clear(own)) return own;
   const sec = tr.parentElement ? getComputedStyle(tr.parentElement).backgroundColor : '';
@@ -55,7 +65,7 @@ function rowBg(tr: HTMLTableRowElement): string {
 }
 
 const ScrollTable = forwardRef<HTMLDivElement, ScrollTableProps>(function ScrollTable(
-  { children, className, deskScroll, tone, pin = 1, ...rest },
+  { children, className, deskScroll, pin = 1, ...rest },
   ref,
 ) {
   const mode = useLayoutMode();
@@ -83,6 +93,8 @@ const ScrollTable = forwardRef<HTMLDivElement, ScrollTableProps>(function Scroll
       const padR = parseFloat(cs.paddingRight) || 0;
       box.style.setProperty('--st-pad-l', `${padL}px`);
       box.style.setProperty('--st-pad-r', `${padR}px`);
+      const bg = surfaceBg(box);
+      if (bg) box.style.setProperty('--st-bg', bg);
       const tables = box.querySelectorAll<HTMLTableElement>(':scope > [data-scroll-table-inner] > table');
       let pinW = 0;
       pinOffset = 0;
@@ -102,6 +114,7 @@ const ScrollTable = forwardRef<HTMLDivElement, ScrollTableProps>(function Scroll
       const pinOn = pinW > 0 && pinW <= box.clientWidth / 2;
       box.dataset.pin = pinOn ? String(pin) : 'off';
       box.style.setProperty('--st-fade-l', `${pinOn ? pinW : -padL}px`);
+      box.style.setProperty('--st-pin-w', `${pinOn ? pinW : 0}px`);
       onScroll();
     };
     const onScroll = () => {
@@ -190,25 +203,25 @@ const ScrollTable = forwardRef<HTMLDivElement, ScrollTableProps>(function Scroll
     );
   }
 
-  // 폰 · 패드: 표마다 흐림 두 개를 같은 칸(grid 1/1)에 겹쳐 둔다 — 흐림은 sticky 라 상자 끝에 붙어 있다
+  // 폰 · 패드: 표마다 덧칸 넷(여백 덮개 · 고정 칸 그림자 · 흐림 둘)을 같은 칸(grid 1/1)에 겹쳐 둔다 — sticky 라 상자 끝 · 고정 칸 자리에 붙어 있다
   const body = Children.map(children, (child) => {
     if (!isValidElement(child) || child.type !== 'table') return child;
     return (
       <div className="grid w-fit min-w-full" data-scroll-table-inner>
         {child}
+        <span aria-hidden data-scroll-pin-cover />
+        <span aria-hidden data-scroll-pin-shadow />
         <span aria-hidden data-scroll-fade="left" />
         <span aria-hidden data-scroll-fade="right" />
       </div>
     );
   });
-  const t = toneOf(className, tone);
   return (
     <div
       ref={setRef}
       {...rest}
-      className={join(className, 'overflow-x-auto', !/(^|\s)rounded(-|\s|$)/.test(className ?? '') && 'rounded-xl', !/(^|\s)bg-/.test(className ?? '') && TONE_BG[t])}
+      className={join(className, 'overflow-x-auto', !/(^|\s)rounded(-|\s|$)/.test(className ?? '') && 'rounded-xl')}
       data-scroll-table=""
-      data-tone={t}
       style={{ ...rest.style, ['--st-name-min' as string]: `${TABLE_NAME_MIN_PX}px` }}
     >
       {body}

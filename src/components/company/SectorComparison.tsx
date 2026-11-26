@@ -8,6 +8,7 @@ import { PEER_MAX } from '../../data/peerPairs';
 import StockName from '../common/StockName';
 import { InfoTip, Segmented } from '../ui';
 import { useStockNames } from '../../hooks/useStockNames';
+import ScrollTable from '../ui/ScrollTable';
 
 interface Props {
   symbol: string;
@@ -111,7 +112,7 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
       {error && <p className="text-xs text-danger">{error}</p>}
 
       {peers && peers.length > 0 && (
-        <div className="overflow-x-auto">
+        <ScrollTable deskScroll>
           <table className="w-full min-w-[420px] text-xs tabular-nums">
             <thead>
               <tr className="text-text-muted">
@@ -159,7 +160,7 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
             </tbody>
           </table>
           <p className="mt-1 text-caption text-text-muted">PER·PBR 이 「—」 인 국내 종목은 yfinance 가 값을 주지 않는 경우입니다(기본정보 탭의 PER 은 앱이 따로 계산합니다).</p>
-        </div>
+        </ScrollTable>
       )}
 
       {peers && peers.length <= 1 && !loading && <p className="text-xs text-text-muted">비교할 종목을 찾지 못했습니다.</p>}

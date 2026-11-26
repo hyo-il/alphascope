@@ -5,6 +5,7 @@ import { formatDateTime } from '../../utils/dateFormat';
 import { formatNumber } from '../../utils/formatters';
 import { modal } from '../../store/uiStore';
 import { PRICE_SKIP_LABEL, type AssetPriceSheetStatus } from '../../types/asset';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 설정 창 「시트 가격」 구역(v2.65.0 · 자산 관리 2단계) — 시트 「티커」 의 가격(E열) · 환율(C9)이 GOOGLEFINANCE 인지 토스인지.
@@ -101,7 +102,7 @@ export default function AssetPriceSheetSection({
       {status.moved.length > 0 && (
         <div className="space-y-1" data-price-moved>
           <p className="text-caption text-text-muted keep-all">줄이 옮겨짐 — 직접 확인(시트 줄을 원래대로 돌린 뒤 [되돌리기] 를 다시 누르면 그 줄만 되돌립니다)</p>
-          <div className="rounded-lg bg-bg-tertiary/40">
+          <ScrollTable className="rounded-lg bg-bg-tertiary/40">
             <table className="w-full text-left text-xs">
               <thead className="bg-bg-secondary text-caption text-text-muted">
                 <tr className="border-b border-border/50">
@@ -133,13 +134,13 @@ export default function AssetPriceSheetSection({
                 })}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         </div>
       )}
       {status.skipped.length > 0 && (
         <div className="space-y-1" data-price-skipped>
           <p className="text-caption text-text-muted">토스 가격 없음 — 시트 값 그대로</p>
-          <div className="rounded-lg bg-bg-tertiary/40">
+          <ScrollTable className="rounded-lg bg-bg-tertiary/40">
             <table className="w-full text-left text-xs">
               <thead className="bg-bg-secondary text-caption text-text-muted">
                 <tr className="border-b border-border/50">
@@ -165,7 +166,7 @@ export default function AssetPriceSheetSection({
                 })}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         </div>
       )}
     </div>

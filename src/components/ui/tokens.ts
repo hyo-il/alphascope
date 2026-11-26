@@ -78,6 +78,13 @@ export const TABLE_FILL = 'w-full';
  */
 export const TABLE_NAME_MIN_PX = 140;
 /**
+ * 폰 · 패드의 미는 표에서 **이름 칸이 `TABLE_NAME_COL` 이 아닌 표**(실제 계좌 보유 등)의 이름 칸(td) — 한 줄 · 최대 160 · 넘치면 말줄임.
+ * 좁은 상자에서 이름이 두 줄로 꺾이던 것을 막는다(160 = 폰 상자 폭 절반 안 — 고정 칸이 풀리지 않게). 1280 이상은 아무것도 하지 않는다.
+ */
+export const TABLE_NAME_CELL_TOUCH = 'phone:max-w-40 phone:truncate pad:max-w-40 pad:truncate';
+/** 폰 · 패드의 미는 표에서 `TABLE_NUM_COL` 을 쓰지 않는 표의 숫자 칸 — 한 줄(「−」 뒤에서 금액이 꺾이지 않게 · 넘치면 상자 안에서 밂). 1280 이상은 아무것도 하지 않는다 */
+export const TABLE_NUM_CELL_TOUCH = 'phone:whitespace-nowrap pad:whitespace-nowrap';
+/**
  * 글자가 섞인 비교 칸(백테스트 비교 표의 방법·들고 있기 칸 — 조건 한 줄·판 이유) — 넓은 창(1536px 이상)에서만 최소 폭 176px.
  * 폭을 고정하지 않는다 — 빈 칸(`TABLE_FILL`)이 남는 폭을 가져가므로 이 칸은 내용의 줄바꿈 단위(줄바꿈 금지 조각) 폭까지만 넓어진다.
  * 1280 에서는 최소 폭을 두지 않는다(줄바꿈해 들어간다 — 최소 폭을 두면 표가 35px 넘친다).

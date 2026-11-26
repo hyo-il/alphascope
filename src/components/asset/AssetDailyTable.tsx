@@ -8,6 +8,7 @@ import { placeTip } from '../ui/tooltip/place';
 import { changeColor, formatSigned } from '../../utils/formatters';
 import { formatAssetManwon, formatAssetWon, formatAssetWonSigned } from '../../utils/assetFormat';
 import { ASSET_DAILY_NOTE_MAX, type AssetDailyChange } from '../../types/asset';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 일별 자산 변화 표(v2.70.0) — 「총 자산」 탭, 추이 그래프 바로 아래. 그래프와 같은 응답(`GET /api/asset/history` 의 `rows`)을 쓴다.
@@ -78,7 +79,7 @@ export default function AssetDailyTable({
         </p>
       )}
       {list.length > 0 && (
-        <div className="max-h-96 overflow-y-auto [scrollbar-gutter:stable]" data-testid="asset-daily-scroll">
+        <ScrollTable className="max-h-96 overflow-y-auto [scrollbar-gutter:stable]" data-testid="asset-daily-scroll">
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 z-10 bg-bg-secondary text-caption text-text-muted">
               <tr className={`border-b border-border/50 ${TABLE_HEAD_ROW}`}>
@@ -149,7 +150,7 @@ export default function AssetDailyTable({
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       )}
     </Panel>
   );

@@ -5,6 +5,7 @@ import AsyncBoundary from '../common/AsyncBoundary';
 import { Skeleton, SkeletonCards } from '../common/SkeletonLoader';
 import { useLoading } from '../../hooks/useLoading';
 import { stockNameOf } from '../../utils/stockNames';
+import ScrollTable from '../ui/ScrollTable';
 
 interface Stats {
   /** 묶기 전 원본 분석 수 */
@@ -219,7 +220,7 @@ function AccuracyReport({ report }: { report: Report }) {
 
       {/* 신호별 */}
       {signals.length > 0 && (
-        <div className="overflow-x-auto rounded-xl bg-bg-secondary">
+        <ScrollTable deskScroll className="rounded-xl bg-bg-secondary">
           <table className="w-full text-sm">
             <thead className="text-xs text-text-muted">
               <tr className="border-b border-border/50">
@@ -246,7 +247,7 @@ function AccuracyReport({ report }: { report: Report }) {
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       )}
 
       {/* 같은 조건 비교 */}

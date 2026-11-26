@@ -18,6 +18,7 @@ import { formatPercent } from '../../utils/formatters';
 import { modal, toast } from '../../store/uiStore';
 import { Trash2 } from 'lucide-react';
 import type { SurgeDetection } from '../../types/surge';
+import ScrollTable from '../ui/ScrollTable';
 
 /** 탭 목록은 `types/nav.ts` 의 `PAGE_TABS` 한 곳 — 주소 `#/surge/{탭}` */
 type Tab = PageTab<'surge'>;
@@ -186,7 +187,7 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
         {!running && <RemoveAllButton onClick={() => confirmDelete()} className="ml-auto" />}
       </div>
 
-      <div className="overflow-x-auto">
+      <ScrollTable deskScroll>
         <table className="w-full min-w-[720px] text-left text-caption">
           <thead className="whitespace-nowrap text-text-muted">
             <tr className="border-b border-border/50">
@@ -272,7 +273,7 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
     </div>
   );
 }

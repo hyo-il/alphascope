@@ -15,6 +15,7 @@ import { formatSigned } from '../../utils/formatters';
 import { modal, toast } from '../../store/uiStore';
 import { REASON_DAYS, SMALL_SAMPLE, type JudgeDay } from '../../types/buyJudge';
 import { VerdictText } from './BuyJudgeTable';
+import ScrollTable from '../ui/ScrollTable';
 
 const OUTCOME_HELP =
   '「사도 됨」 다음 거래일 시가에 샀다고 보고, 그 판단 날(기준 봉)에서 5·10·20번째 거래일 종가로 계산한 수익률입니다. 백테스트와 같은 왕복 비용 0.30%p 를 뺐습니다. 아직 날이 지나지 않은 칸은 「—」 입니다.';
@@ -140,6 +141,7 @@ export default function BuyJudgeHistory() {
               ),
               render: () => (
                 // 칸 폭 고정(table-fixed) — 날짜마다 내용 폭이 달라 두 날짜를 펼치면 열이 어긋난다
+                <ScrollTable>
                 <table className="w-full table-fixed text-left text-xs">
                   <colgroup>
                     <col />
@@ -179,6 +181,7 @@ export default function BuyJudgeHistory() {
                     ))}
                   </tbody>
                 </table>
+                </ScrollTable>
               ),
             }))}
           />
@@ -230,6 +233,7 @@ export default function BuyJudgeHistory() {
                       {list === 'loading' || !list ? (
                         <p className="py-2 text-caption text-text-muted">불러오는 중…</p>
                       ) : (
+                        <ScrollTable>
                         <table className="w-full text-left text-caption">
                           <tbody>
                             {list.map((d) => (
@@ -243,6 +247,7 @@ export default function BuyJudgeHistory() {
                             ))}
                           </tbody>
                         </table>
+                        </ScrollTable>
                       )}
                     </li>
                   )}

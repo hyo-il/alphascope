@@ -2,6 +2,7 @@ import { TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import SymbolChartLink from '../common/SymbolChartLink';
 import type { PaperPositionValued } from '../../types/paper';
 import { formatPrice, formatSignedMoney, formatSigned } from '../../utils/formatters';
+import ScrollTable from '../ui/ScrollTable';
 
 interface Props {
   positions: PaperPositionValued[];
@@ -35,7 +36,7 @@ export default function PositionList({ positions, onSelectSymbol }: Props) {
   const single = currencies.size === 1 ? [...currencies][0] : null;
 
   return (
-    <div className="overflow-x-auto">
+    <ScrollTable deskScroll>
       <table className="w-full whitespace-nowrap text-xs">
         <thead className="text-text-muted">
           <tr className="border-b border-border/50">
@@ -95,6 +96,6 @@ export default function PositionList({ positions, onSelectSymbol }: Props) {
           </tfoot>
         )}
       </table>
-    </div>
+    </ScrollTable>
   );
 }

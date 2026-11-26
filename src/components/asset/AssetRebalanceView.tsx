@@ -3,6 +3,7 @@ import { Badge, Button, Panel, SectionTitle } from '../ui';
 import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice, formatSigned } from '../../utils/formatters';
 import type { AssetRebalance, AssetSummary, RebalanceExcluded, RebalanceRow, RebalanceTable } from '../../types/asset';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 자산 관리 「비율 조정」(v2.63.0 · 자산 관리 4단계) — **보기만**(목표 비율은 설정 창에서 바꾼다 · 사용자 결정 1).
@@ -96,10 +97,12 @@ function RebalanceSection({ title, aside, table, testId, first }: { title: strin
 export function RebalanceTables({ rebalance }: { rebalance: AssetRebalance }) {
   return (
     <Panel pad="none" className="pb-1">
+      <ScrollTable>
       <table className="w-full text-left text-xs" data-rebalance-tables>
         <RebalanceSection first title="자산" aside="목표 = 시트 「자산 투자 비율 관리」" table={rebalance.assets} testId="assets" />
         <RebalanceSection first={false} title="주식 안" aside={`코어 · 위성 — 기준 = 주식 ${formatPrice(rebalance.stocks.base, 'KRW')}`} table={rebalance.stocks} testId="stocks" />
       </table>
+      </ScrollTable>
     </Panel>
   );
 }

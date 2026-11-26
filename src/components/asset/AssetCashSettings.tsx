@@ -30,6 +30,7 @@ import {
   type AssetCashViewV2,
   type AssetCashViewV3,
 } from '../../types/asset';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 「자산 관리 설정」 → 「현금 자동 반영」(v2.71.0 · v2.71.1 쉽게) — 시트 「현금」 탭 은행 계좌 금액을 앱이 바꾸는 설정 · 미리 보기 · 기록.
@@ -380,6 +381,7 @@ export default function AssetCashSettings({ onLocked, onBusy }: { onLocked: () =
 
       <Block heading="반영 기록" desc="최근 50개 · 최신이 위입니다. 「반영」 은 되돌릴 수 있습니다(지금 시트 숫자에서 반대로)." busy={busy?.startsWith('undo-') ?? false} error={errors.moves ?? null}>
         <Panel pad="none" className="pb-1">
+          <ScrollTable>
           <table className="w-full table-fixed text-left text-xs" data-testid="asset-cash-moves">
             <colgroup>
               <col className="w-28" />
@@ -447,6 +449,7 @@ export default function AssetCashSettings({ onLocked, onBusy }: { onLocked: () =
               })}
             </tbody>
           </table>
+          </ScrollTable>
         </Panel>
       </Block>
     </div>
@@ -595,6 +598,7 @@ function PreviewTable({ items }: { items: AssetCashPreviewItem[] }) {
           반영할 것이 없어요 — 날짜 · 계좌를 정해 주세요.
         </p>
       )}
+      <ScrollTable>
       <table className="w-full table-fixed text-left text-xs" data-testid="asset-cash-preview">
         <colgroup>
           <col className="w-24" />
@@ -643,6 +647,7 @@ function PreviewTable({ items }: { items: AssetCashPreviewItem[] }) {
           })}
         </tbody>
       </table>
+      </ScrollTable>
     </Panel>
   );
 }

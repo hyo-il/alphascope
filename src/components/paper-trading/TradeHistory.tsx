@@ -8,6 +8,7 @@ import { formatPrice, formatSigned, formatSignedMoney } from '../../utils/format
 import SymbolChartLink from '../common/SymbolChartLink';
 import { isAutoTradeReason } from '../../utils/autoTradeExplain';
 import { TABLE_NAME_COL, TABLE_NUM_COL } from '../ui/tokens';
+import ScrollTable from '../ui/ScrollTable';
 
 interface Props {
   trades: PaperTrade[];
@@ -122,7 +123,7 @@ export default function TradeHistory({ trades, cashFlows, currency, orders, onCh
       {!filtered.length ? (
         <p className="py-8 text-center text-xs text-text-muted">{filter === 'all' ? '거래 내역이 없습니다.' : '조건에 맞는 거래가 없습니다.'}</p>
       ) : (
-        <div className="overflow-x-auto">
+        <ScrollTable deskScroll>
           <table className="w-full text-xs">
             <thead className="text-text-muted">
               {/* 숫자 · 짧은 칸은 내용 폭(TABLE_NUM_COL), 남는 폭은 사유 칸 — 넓은 창에서 숫자 칸이 벌어지지 않게 */}
@@ -215,7 +216,7 @@ export default function TradeHistory({ trades, cashFlows, currency, orders, onCh
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       )}
     </div>
   );

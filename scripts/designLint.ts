@@ -142,6 +142,29 @@ for (const file of FILES) {
   });
 }
 
+/** 13b — i 번째 줄 `<table` 의 부모 JSX 태그 이름(앞쪽으로 읽으며 닫힌 형제 요소는 짝을 맞춰 건너뛴다 · 주석 줄 제외) */
+function parentTag(lines: string[], i: number): string {
+  const text = lines
+    .slice(Math.max(0, i - 80), i)
+    .filter((l) => !/^\s*(\*|\/\/|\/\*|\{\/\*)/.test(l))
+    .join('\n')
+    .concat('\n', lines[i].slice(0, lines[i].search(/<table\b/)));
+  const tokens = [...text.matchAll(/<\/([A-Za-z][\w.]*)\s*>|<([A-Za-z][\w.]*)|\/>/g)];
+  const closed: string[] = [];
+  let selfClose = false;
+  for (let k = tokens.length - 1; k >= 0; k--) {
+    const [all, close, open] = tokens[k];
+    if (all === '/>') selfClose = true;
+    else if (close) closed.push(close);
+    else if (open) {
+      if (selfClose) selfClose = false;
+      else if (closed.length && closed[closed.length - 1] === open) closed.pop();
+      else return open;
+    }
+  }
+  return '';
+}
+
 // 13 — 넓은 표는 ui/ScrollTable 하나(맨 overflow-x-auto 감싸기 · 감싸지 않은 표는 실패)
 for (const file of FILES) {
   const rel = path.relative(ROOT, file);
@@ -164,19 +187,9 @@ for (const file of FILES) {
       if ((/<table\b/.test(next) || /<ScrollTable\b/.test(line)) && !ignored)
         hits.push({ file: rel, line: i + 1, id: '맨 overflow-x-auto 표', text: line.trim().slice(0, 140), why: '표마다 overflow-x-auto 금지 — ui/ScrollTable 로 감싼다(1280 이상의 넘치면 밀기는 deskScroll)' });
     }
-    // 13b — <table 바로 위 태그가 <ScrollTable 이 아님
-    if (/<table\b/.test(line) && !ignored) {
-      let prev = '';
-      for (let k = i - 1; k >= 0; k--) {
-        if (isComment(lines[k])) continue;
-        if (/<\/?[A-Za-z>]/.test(lines[k])) {
-          prev = lines[k];
-          break;
-        }
-      }
-      if (!/<ScrollTable\b/.test(prev))
-        hits.push({ file: rel, line: i + 1, id: '미는 표 아님', text: line.trim().slice(0, 140), why: '<table> 은 ui/ScrollTable 바로 안에 둔다(폰 · 패드에서 표만 옆으로 밀림) — 배치용 표면 그 줄 위에 design-lint-ignore: <이유>' });
-    }
+    // 13b — <table 의 부모 태그가 <ScrollTable 이 아님(앞의 형제 요소 · 조건문 갈래는 짝을 맞춰 건너뜀)
+    if (/<table\b/.test(line) && !ignored && parentTag(lines, i) !== 'ScrollTable')
+      hits.push({ file: rel, line: i + 1, id: '미는 표 아님', text: line.trim().slice(0, 140), why: '<table> 은 ui/ScrollTable 바로 안에 둔다(폰 · 패드에서 표만 옆으로 밀림) — 배치용 표면 그 줄 위에 design-lint-ignore: <이유>' });
   });
 }
 

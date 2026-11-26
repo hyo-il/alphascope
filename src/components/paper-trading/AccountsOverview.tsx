@@ -14,6 +14,7 @@ import { toast } from '../../store/uiStore';
 import { autoTradeView } from '../../utils/autoTradeStatus';
 import { useTradingRules } from '../../hooks/useTradingRules';
 import { ruleSafetyText } from '../../utils/ruleText';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 계좌 **모아보기** — 계좌 관리에 들어가면 먼저 보이는 화면.
@@ -262,7 +263,7 @@ export default function AccountsOverview({
             이 서버에서는 자동매매가 꺼져 있습니다(AUTO_TRADING_ENABLED=false)
           </p>
         )}
-        <div className="@container rounded-lg bg-bg-secondary">
+        <ScrollTable pin={many ? 2 : 1} className="@container rounded-lg bg-bg-secondary">
           <table className="w-full table-auto border-collapse text-xs">
             <tbody>
               {list.map((item, index) => {
@@ -374,7 +375,7 @@ export default function AccountsOverview({
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       </>
     );
   };

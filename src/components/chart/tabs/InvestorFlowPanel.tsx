@@ -8,6 +8,7 @@ import {
   type FlowSide,
   type FlowSideKey,
 } from '../../../utils/investorFlow';
+import ScrollTable from '../../ui/ScrollTable';
 
 /**
  * 차트 하단 「투자자 동향」 탭 — 국내 종목만, 최근 20 확정 거래일.
@@ -90,6 +91,7 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
             )}
           </p>
         )}
+        <ScrollTable>
         <table className="tabular-nums">
           <thead className="text-text-muted">
             <tr>
@@ -118,10 +120,12 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
             })}
           </tbody>
         </table>
+        </ScrollTable>
       </div>
 
       {/* 막대 차트·범례는 두지 않는다(사용자 요청) — 표·합계·외국인 보유 비율만 */}
 
+      <ScrollTable>
       <table className="w-full tabular-nums">
         <thead className="text-text-muted">
           <tr className="border-b border-border/50">
@@ -156,6 +160,7 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
           ))}
         </tbody>
       </table>
+      </ScrollTable>
 
       <p className="text-text-muted">
         출처: 토스증권 Open API · 단위: 주(금액 아님) · 외국인 = 등록외국인 · 외국인 보유 비율 = 토스 투자자 동향의 외국인 보유 수량 ÷ 외국인 한도 수량

@@ -1,5 +1,6 @@
 import type { StatementRow } from '../../types/company';
 import { formatCompact } from '../../utils/formatters';
+import ScrollTable from '../ui/ScrollTable';
 
 interface Props {
   incomeStatement: StatementRow[];
@@ -43,7 +44,7 @@ function Table({
   }
 
   return (
-    <div className="min-w-0 flex-1 overflow-x-auto">
+    <ScrollTable deskScroll className="min-w-0 flex-1">
       <h4 className="mb-1 text-caption text-text-muted">{title} (단위: {currency})</h4>
       <table className="w-full min-w-[280px] text-xs tabular-nums">
         <thead>
@@ -72,7 +73,7 @@ function Table({
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollTable>
   );
 }
 

@@ -3,6 +3,7 @@ import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NU
 import { formatNumber, formatPrice } from '../../utils/formatters';
 import { formatAssetQty } from '../../utils/assetFormat';
 import { UNASSIGNED_LABEL, type AssetSymbolRow } from '../../types/asset';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 「자산 현황」 종목별 표(v2.63.0) — 같은 종목을 계좌와 상관없이 한 줄로(서버 `holdingsBySymbol` — 총 자산과 같은 값 계산 · 화면에서 다시 계산하지 않는다).
@@ -35,6 +36,7 @@ export default function AssetSymbolTable({ rows, filter }: { rows: AssetSymbolRo
   return (
     <div className="space-y-2" data-symbol-view>
       <Panel pad="none" className="pb-1">
+        <ScrollTable>
         <table className="w-full text-left text-xs" data-symbol-table>
           <thead className="text-caption text-text-muted">
             <tr className={`border-b border-border/50 ${TABLE_HEAD_ROW}`}>
@@ -88,6 +90,7 @@ export default function AssetSymbolTable({ rows, filter }: { rows: AssetSymbolRo
             })}
           </tbody>
         </table>
+        </ScrollTable>
       </Panel>
       <p className="pl-4 text-xs text-text-secondary tabular-nums" data-symbol-sum>
         {label} {formatPrice(sum, 'KRW')} · {shown.length}종목

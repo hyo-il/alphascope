@@ -42,6 +42,7 @@ interface Health {
 import BuyJudgeRetention from '../swing/BuyJudgeRetention';
 import HomePageSetting from '../settings/HomePageSetting';
 import ClockResetSetting from '../settings/ClockResetSetting';
+import ScrollTable from '../ui/ScrollTable';
 
 export default function Settings({ isMock, engineDown, section }: Props) {
   const [health, setHealth] = useState<Health | null>(null);
@@ -317,6 +318,7 @@ function AuthSection() {
       ) : sessions.length === 0 ? (
         <p className="py-2 text-xs text-text-muted">로그인된 기기가 없습니다.</p>
       ) : (
+        <ScrollTable>
         <table className="w-full text-left text-xs">
           <thead className="text-caption text-text-muted">
             <tr className="border-b border-border/60">
@@ -347,6 +349,7 @@ function AuthSection() {
             ))}
           </tbody>
         </table>
+        </ScrollTable>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-3">
         {/* 음수 여백(design:lint 허용 목록): 글자 시작을 표 왼쪽 끝에 맞춘다(글자형 버튼 안쪽 여백 px-3) */}

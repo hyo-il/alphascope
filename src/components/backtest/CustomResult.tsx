@@ -14,6 +14,7 @@ import { sameRuleBody } from './ApplyRuleButton';
 import type { TradingRule } from '../../types/tradingRule';
 import WarnIcon from '../ui/WarnIcon';
 import { fixMethodNames, methodName, type BacktestConditionResult, type BacktestCustomReport, type BacktestCustomSymbol, type ConditionLabel, type WorstDrawdown } from '../../types/backtest';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * ④ 결과 — 사용자 시험. **판정 배지 없음**.
@@ -106,7 +107,7 @@ function SymbolTable({ result }: { result: BacktestConditionResult }) {
     });
   }, [result.symbols, sort]);
   return (
-    <div className="mt-2 max-h-[28rem] overflow-auto">
+    <ScrollTable className="mt-2 max-h-[28rem] overflow-auto">
       <table className="w-full text-caption tabular-nums [&_td+td]:pl-3 [&_th+th]:pl-3">
         <thead className="sticky top-0 whitespace-nowrap bg-bg-secondary text-text-muted">
           <tr className="border-b border-border/50">
@@ -147,7 +148,7 @@ function SymbolTable({ result }: { result: BacktestConditionResult }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollTable>
   );
 }
 
@@ -256,7 +257,7 @@ export default function CustomResult({
               </InfoTip>
             </p>
           ))}
-        <div className="overflow-x-auto">
+        <ScrollTable deskScroll>
           <table className="w-full text-caption tabular-nums">
             <thead className="whitespace-nowrap text-text-muted">
               <tr className="border-b border-border/50">
@@ -378,7 +379,7 @@ export default function CustomResult({
               />
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
         {/* ⚠️ 고정 문구 — 지우지 않는다 */}
         <p className="text-caption text-text-muted">여러 조건을 바꿔 보며 가장 좋은 숫자를 고르면 우연에 속기 쉽습니다.</p>
       </Panel>
@@ -386,7 +387,7 @@ export default function CustomResult({
       {report.segments.length > 1 && (
         <Panel pad="sm">
           <SectionTitle aside="1년씩 · 종목 평균 · 기간 수익">구간별</SectionTitle>
-          <div className="mt-2 overflow-x-auto">
+          <ScrollTable deskScroll className="mt-2">
             <table className="w-full text-caption tabular-nums [&_td+td]:pl-3 [&_th+th]:pl-3">
               <thead className="whitespace-nowrap text-text-muted">
                 <tr className="border-b border-border/50">
@@ -420,7 +421,7 @@ export default function CustomResult({
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         </Panel>
       )}
 

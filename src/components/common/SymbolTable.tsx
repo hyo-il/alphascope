@@ -8,6 +8,7 @@ import { LIST_TABLE_ROW, TABLE_NAME_COL } from '../ui/tokens';
 import { useStockNames } from '../../hooks/useStockNames';
 import { useSymbolInfo } from '../../hooks/useSymbolInfo';
 import { isKrSymbol } from '../../utils/market';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 종목 목록 **표** — 공용 부품 하나 (사용자 결정 A-7). 계좌 「② 대상 종목」 과 백테스트 「① 종목」 이 같은 부품을 쓴다
@@ -47,7 +48,7 @@ export default function SymbolTable(
         <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">{emptyText ?? '아직 추가한 종목이 없습니다. [종목 추가] 로 시작하세요.'}</p>
       ) : (
         // 10줄이 넘을 때만 표 안 스크롤(그때만 스크롤 칸을 비운다 — 적을 때 비우면 표 오른쪽 끝이 위아래 줄과 어긋난다)
-        <div className={`rounded-lg bg-bg-tertiary/40 ${scrolls ? 'max-h-[23rem] overflow-y-auto [scrollbar-gutter:stable]' : ''}`} data-symbol-table>
+        <ScrollTable className={`rounded-lg bg-bg-tertiary/40 ${scrolls ? 'max-h-[23rem] overflow-y-auto [scrollbar-gutter:stable]' : ''}`} data-symbol-table>
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 z-10 bg-bg-secondary text-caption text-text-muted">
               <tr className="border-b border-border/50">
@@ -106,7 +107,7 @@ export default function SymbolTable(
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       )}
 
       {scrolls && <p className="text-caption text-text-muted">표 안에서 스크롤하면 나머지 {selected.length - 10}종목이 보입니다.</p>}

@@ -3,6 +3,7 @@ import { Check, Plus, Search } from 'lucide-react';
 import { Button, Dialog, DialogCancel, ListRemoveButton, RemoveAllButton } from '../ui';
 import { ICON_SM } from '../ui/icon';
 import { LIST_TABLE_ROW, TABLE_NAME_COL } from '../ui/tokens';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 계좌 목록 표 + [계좌 추가] (v2.62.2 · 자산 관리 「연금으로 볼 계좌」) — 종목 표(`common/SymbolTable`)와 **같은 모양 · 같은 흐름**:
@@ -49,7 +50,7 @@ export default function AssetAccountTable({
       {rows.length === 0 ? (
         <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted keep-all">{emptyText}</p>
       ) : (
-        <div className="rounded-lg bg-bg-tertiary/40">
+        <ScrollTable className="rounded-lg bg-bg-tertiary/40">
           <table className="w-full text-left text-xs">
             <thead className="bg-bg-secondary text-caption text-text-muted">
               <tr className="border-b border-border/50">
@@ -72,7 +73,7 @@ export default function AssetAccountTable({
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       )}
       {open && (
         <AccountPickerDialog

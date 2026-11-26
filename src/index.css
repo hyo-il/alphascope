@@ -505,18 +505,12 @@ input[type='number']::-webkit-outer-spin-button {
 /*
  * 옆으로 미는 표(v2.75.0 · 테마 4-2) — `ui/ScrollTable` 이 폰 · 패드에서만 그리는 `data-scroll-table` 상자에만 걸린다(1280 이상 DOM 에는 없음).
  * 레이어 밖에 둔다 — 고정 칸의 바탕 · 자리가 칸에 달린 유틸(`bg-*` · `relative`)에 덮이지 않게.
- *   --st-bg    상자 바탕(고정 칸 · 흐림 색) — 새 색이 아니라 상자에 깔린 바탕 그대로(inset = bg-tertiary 40% 를 bg-secondary 위에 겹친 색)
- *   --st-row   그 줄의 바탕(고른 줄 · 머리 바탕 — ScrollTable 이 줄마다 잰다) · --st-pad-l/r 상자 안쪽 여백 · --st-fade-l 왼쪽 흐림 자리(고정 칸 폭 · 없으면 −왼쪽 여백)
- * 상자에 안쪽 여백이 있으면 크롬은 sticky 를 여백 안쪽에 붙인다 — 고정 칸 왼쪽 여백 자리는 바탕색 덧그림(::before)으로 덮고, 흐림은 여백만큼 바깥으로 낸다.
+ *   --st-bg    상자 자리의 실제 바탕(고정 칸 · 흐림 색) — 새 색이 아니라 화면에 깔린 바탕을 ScrollTable 이 겹쳐 잰 색(못 재면 bg-secondary)
+ *   --st-row   그 줄의 바탕(고른 줄 · 머리 바탕 — ScrollTable 이 줄마다 잰다) · --st-pad-l/r 상자 안쪽 여백 · --st-pin-w 고정 칸 폭 · --st-fade-l 왼쪽 흐림 자리(고정 칸 폭 · 없으면 −왼쪽 여백)
+ * 상자에 안쪽 여백이 있으면 크롬은 sticky 를 여백 안쪽에 붙인다 — 고정 칸 왼쪽 여백 자리는 바탕색 덧칸으로 덮고, 흐림은 여백만큼 바깥으로 낸다.
  */
 [data-scroll-table] {
   --st-bg: var(--color-bg-secondary);
-}
-[data-scroll-table][data-tone='inset'] {
-  --st-bg: color-mix(in srgb, var(--color-bg-tertiary) 40%, var(--color-bg-secondary));
-}
-[data-scroll-table][data-tone='primary'] {
-  --st-bg: var(--color-bg-primary);
 }
 [data-scroll-table-inner] > * {
   grid-area: 1 / 1;
@@ -536,31 +530,34 @@ input[type='number']::-webkit-outer-spin-button {
   background-color: var(--st-bg);
   background-image: linear-gradient(var(--st-row, transparent), var(--st-row, transparent));
 }
-/* 표 칸(border-collapse)에는 box-shadow 가 그려지지 않는다 — 고정 칸 그림자 · 왼쪽 여백 덮개는 칸 안의 덧그림으로 */
-[data-scroll-table][data-pin='1'] > [data-scroll-table-inner] > table > * > tr > :nth-child(1)::before,
-[data-scroll-table][data-pin='2'] > [data-scroll-table-inner] > table > * > tr > :nth-child(2)::before,
-[data-scroll-table][data-pin='3'] > [data-scroll-table-inner] > table > * > tr > :nth-child(3)::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
+/*
+ * 고정 칸 그림자 · 왼쪽 여백 덮개 — 표 칸(border-collapse)에는 box-shadow 가 그려지지 않고, 칸 안 덧그림은 `overflow-hidden` 칸(말줄임 이름 칸)에서 잘린다.
+ * 그래서 흐림처럼 표와 같은 칸(grid 1/1)에 겹친 sticky 덧칸으로 그린다: 그림자 = 고정 칸 폭의 투명 상자에 `--shadow-scroll-pin`(붙어 있을 때만) ·
+ * 덮개 = 상자 왼쪽 안쪽 여백 자리(고정 칸 왼쪽으로 밀려 지나가는 글을 가림).
+ */
+[data-scroll-pin-shadow],
+[data-scroll-pin-cover] {
+  position: sticky;
+  z-index: 2;
+  justify-self: start;
+  align-self: stretch;
+  pointer-events: none;
+  display: none;
+}
+[data-scroll-pin-shadow] {
+  left: 0;
+  width: var(--st-pin-w, 0px);
+}
+[data-scroll-pin-cover] {
   left: calc(-1 * var(--st-pad-l, 0px));
   width: var(--st-pad-l, 0px);
   background-color: var(--st-bg);
-  pointer-events: none;
 }
-[data-scroll-table][data-pin='1'] > [data-scroll-table-inner] > table > * > tr > :nth-child(1)::after,
-[data-scroll-table][data-pin='2'] > [data-scroll-table-inner] > table > * > tr > :nth-child(2)::after,
-[data-scroll-table][data-pin='3'] > [data-scroll-table-inner] > table > * > tr > :nth-child(3)::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  box-shadow: none;
+[data-scroll-table]:is([data-pin='1'], [data-pin='2'], [data-pin='3']) [data-scroll-pin-cover] {
+  display: block;
 }
-[data-scroll-table][data-stuck][data-pin='1'] > [data-scroll-table-inner] > table > * > tr > :nth-child(1)::after,
-[data-scroll-table][data-stuck][data-pin='2'] > [data-scroll-table-inner] > table > * > tr > :nth-child(2)::after,
-[data-scroll-table][data-stuck][data-pin='3'] > [data-scroll-table-inner] > table > * > tr > :nth-child(3)::after {
+[data-scroll-table][data-stuck]:is([data-pin='1'], [data-pin='2'], [data-pin='3']) [data-scroll-pin-shadow] {
+  display: block;
   box-shadow: var(--shadow-scroll-pin);
 }
 [data-scroll-fade] {

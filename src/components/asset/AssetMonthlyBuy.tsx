@@ -4,6 +4,7 @@ import { Badge, Button, Dialog, ICON_SM, Panel, SectionTitle } from '../ui';
 import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice } from '../../utils/formatters';
 import type { MonthlyBuy } from '../../types/asset';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 자산 관리 「이번 달 구매」(v2.64.0 · 자산 관리 5단계) — **보여 주기만, 주문 없음**.
@@ -64,6 +65,7 @@ export function MonthlyBuyTable({ mb }: { mb: MonthlyBuy }) {
           ))}
         </ul>
       )}
+      <ScrollTable>
       <table className="w-full text-left text-xs" data-monthly-table>
         <thead className="text-caption text-text-muted">
           <tr className={`border-b border-border/50 ${TABLE_HEAD_ROW}`}>
@@ -104,6 +106,7 @@ export function MonthlyBuyTable({ mb }: { mb: MonthlyBuy }) {
           </tr>
         </tbody>
       </table>
+      </ScrollTable>
     </div>
   );
 }

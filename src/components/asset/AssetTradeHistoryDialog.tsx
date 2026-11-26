@@ -6,6 +6,7 @@ import { formatDateTime } from '../../utils/dateFormat';
 import { tradeFxText } from './AssetTradeDialog';
 import { formatAssetPrice, formatAssetQty } from '../../utils/assetFormat';
 import type { AssetTradesResponse } from '../../types/asset';
+import ScrollTable from '../ui/ScrollTable';
 
 /**
  * 매수 · 매도 기록 창(v2.66.0) — `GET /api/asset/trades` 최근 순 · 50줄씩 더 보기(`limit` 를 늘려 다시 받는다).
@@ -63,6 +64,7 @@ export default function AssetTradeHistoryDialog({ onLocked, onClose }: { onLocke
           </p>
         )}
         {data != null && data.trades.length > 0 && (
+          <ScrollTable>
           <table className="w-full text-left text-xs" data-rows-differ>
             <thead className="sticky top-0 bg-bg-secondary text-caption text-text-muted">
               <tr className={`border-b border-border/50 ${TABLE_HEAD_ROW}`}>
@@ -97,6 +99,7 @@ export default function AssetTradeHistoryDialog({ onLocked, onClose }: { onLocke
               ))}
             </tbody>
           </table>
+          </ScrollTable>
         )}
       </div>
       {data?.hasMore && (
