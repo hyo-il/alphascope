@@ -499,10 +499,12 @@ try {
     const changed = (paths: string[]) => execFileSync('git', ['diff', '--name-only', BASE, '--', ...paths], { cwd: root, encoding: 'utf8' }).trim().split('\n').filter(Boolean);
     const server = changed(['server', 'deploy', 'python', 'db']);
     check('[148-12] 매매 · 주문 · 로그인 · 서버 코드(server · deploy · python · db) 바뀐 파일 0', server.length === 0, server.join(', '));
-    const shared = changed(['src/types', 'src/utils', 'src/services', 'src/data']).filter((f) => f !== 'src/data/changelog.ts');
-    const log = execFileSync('git', ['diff', '-U0', BASE, '--', 'src/data/changelog.ts'], { cwd: root, encoding: 'utf8' });
+    // ui/tokens.ts 는 서버 프로세스가 쓰지 않지만 시험(scripts)을 거쳐 서버 타입 검사에 들어간다 — 지시서가 값을 이름으로 두라고 한 곳이라 더하기만 허용
+    const ADD_ONLY = ['src/data/changelog.ts', 'src/components/ui/tokens.ts'];
+    const shared = changed(['src/types', 'src/utils', 'src/services', 'src/data']).filter((f) => !ADD_ONLY.includes(f));
+    const log = execFileSync('git', ['diff', '-U0', BASE, '--', ...ADD_ONLY], { cwd: root, encoding: 'utf8' });
     const removed = log.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
-    check('[148-12] 서버가 함께 쓰는 src(types · utils · services · data) 바뀐 줄 0(changelog 더하기 제외)', shared.length === 0 && removed.length === 0, `${shared.join(', ')} · changelog 지운 줄 ${removed.length}`);
+    check('[148-12] 서버가 함께 쓰는 src(types · utils · services · data) 바뀐 줄 0 · changelog · ui/tokens.ts 는 더하기만(지운 줄 0)', shared.length === 0 && removed.length === 0, `${shared.join(', ')} · 지운 줄 ${removed.length}`);
     const dc = changed(['scripts/designCheck.ts']);
     check('[148-12] designCheck.ts 판정 부분 0(파일 그대로)', dc.length === 0, dc.join(', '));
   }

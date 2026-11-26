@@ -43,6 +43,9 @@ export const LATER_COMMITS: readonly string[] = [
   '3f0dc69', // 147차 v2.74.0 C — 툴팁 손가락(ui/tooltip/hover.ts 판단 더하기 · tokens.ts 시간 이름)
   '1ae5c3d', // 147차 v2.74.0 F — 폰 종목 지도(ui/tokens.ts 지도 높이 이름)
   'afa438d', // 147차 v2.74.0 H — design:check 장면 4(폰 · 패드 창 · 시황 띠 시계 · 손가락 [ⓘ] — 더하기만)
+  '5ff8377', // 148차 v2.75.0 A — 옆으로 미는 표 부품(ui/tokens.ts 이름 칸 최소 폭 이름 더하기 · ScrollTable · index.css)
+  '568c390', // 148차 v2.75.0 B — 표 32곳 감싸기(ui/tokens.ts 폰 · 패드 이름 칸 · 한 줄 칸 이름 더하기)
+  '2d31822', // 148차 v2.75.0 C — 점검 7줄(ui/tokens.ts 한 줄 칸 이름 바꿈 · 설명 글)
 ];
 
 const covers = (spec: string, file: string) => file === spec || file.startsWith(`${spec.replace(/\/$/, '')}/`);
