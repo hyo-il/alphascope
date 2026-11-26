@@ -326,7 +326,7 @@ try {
     check('[140-8] 매매 · 주문 · 로그인 · 휴장일 · 보유 쓰기 코드 바뀐 파일 0(f5d753e 와 지금)', trading.status === 0 && trading.stdout.trim() === '', trading.stdout.trim() || trading.stderr.trim());
     const list = spawnSync('npx', ['tsc', '-p', 'tsconfig.node.json', '--listFilesOnly'], { cwd: root, encoding: 'utf8' });
     const shared = list.stdout.split('\n').map((l) => path.relative(root, l.trim())).filter((f) => f.startsWith('src/'));
-    const changedShared = spawnSync('git', ['diff', '--name-only', BASE, '--', ...shared], { cwd: root, encoding: 'utf8' }).stdout.trim().split('\n').filter(Boolean);
+    const changedShared = tradingDiff(root, BASE, shared).stdout.trim().split('\n').filter(Boolean); // 뒤 지시서가 바꾼 파일은 그 몫을 빼고(147차 — ui/tokens.ts · tooltip/hover.ts 는 시험 스크립트가 가져와 이 목록에 든다)
     const ALLOWED = ['src/data/changelog.ts', 'src/types/asset.ts'];
     const deleted = spawnSync('git', ['diff', '-U0', BASE, '--', ...ALLOWED], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
     check(`[140-8] 서버가 함께 쓰는 src/ ${shared.length}개 가운데 바뀐 것은 types/asset.ts · data/changelog.ts 뿐 · 더하기만(지운 줄 0)`,

@@ -344,7 +344,10 @@ try {
     check('[143-8] cashMoves.ts 지운 줄은 켬 판단 · 타입 이름 · 표 주석 · 내보내기뿐(쓰기 · 기록 · 되돌리기 본문 그대로)', cmOk && cm.length <= 13, `${cm.length}줄`);
     const list = spawnSync('npx', ['tsc', '-p', 'tsconfig.node.json', '--listFilesOnly'], { cwd: root, encoding: 'utf8' });
     const shared = list.stdout.split('\n').map((l) => path.relative(root, l.trim())).filter((f) => f.startsWith('src/'));
-    const changedShared = spawnSync('git', ['diff', '--name-only', BASE, '--', ...shared], { cwd: root, encoding: 'utf8' }).stdout.trim().split('\n').filter(Boolean);
+    const ALLOWED_SHARED = ['src/data/changelog.ts', 'src/types/asset.ts'];
+    // 이 차수가 바꾼 파일(ALLOWED)은 기준 커밋과 그대로 견주고, 그 밖은 뒤 지시서가 바꾼 몫을 빼고 본다(147차 — ui/tokens.ts · tooltip/hover.ts 는 시험 스크립트가 가져와 이 목록에 든다)
+    const rawShared = spawnSync('git', ['diff', '--name-only', BASE, '--', ...shared], { cwd: root, encoding: 'utf8' }).stdout.trim().split('\n').filter(Boolean);
+    const changedShared = rawShared.filter((f) => ALLOWED_SHARED.includes(f) || tradingDiff(root, BASE, [f]).stdout.trim() !== '');
     const ALLOWED = ['src/data/changelog.ts', 'src/types/asset.ts'];
     const deleted = spawnSync('git', ['diff', '-U0', BASE, '--', ...ALLOWED], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
     check(`[143-8] 서버가 함께 쓰는 src/ ${shared.length}개 가운데 바뀐 것은 types/asset.ts · data/changelog.ts 뿐 · 더하기만(지운 줄 0)`,

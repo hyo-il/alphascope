@@ -474,7 +474,7 @@ try {
     const list = spawnSync('npx', ['tsc', '-p', 'tsconfig.node.json', '--listFilesOnly'], { cwd: root, encoding: 'utf8' });
     const shared = list.stdout.split('\n').map((l) => path.relative(root, l.trim())).filter((f) => f.startsWith('src/'));
     // 이 차수 커밋이 「뒤 지시서 목록」(tradingDiff) 에 들어가도 빠지지 않게 기준에서 그대로 git diff
-    const changedShared = spawnSync('git', ['diff', '--name-only', BASE, '--', ...shared], { cwd: root, encoding: 'utf8' }).stdout.trim().split('\n').filter(Boolean);
+    const changedShared = tradingDiff(root, BASE, shared).stdout.trim().split('\n').filter(Boolean); // 뒤 지시서가 바꾼 파일은 그 몫을 빼고(147차 — ui/tokens.ts · tooltip/hover.ts 는 시험 스크립트가 가져와 이 목록에 든다)
     const ALLOWED = ['src/data/changelog.ts', 'src/types/asset.ts'];
     const deleted = spawnSync('git', ['diff', '-U0', BASE, '--', ...ALLOWED], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
     check(`[139-10] 서버가 함께 쓰는 src/ ${shared.length}개 가운데 바뀐 것은 types/asset.ts · data/changelog.ts 뿐 · 더하기만(지운 줄 0)`,

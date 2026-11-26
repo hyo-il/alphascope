@@ -15,6 +15,7 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { chromium, type Browser, type Page } from 'playwright';
 import { assetHistorySample, assetSheetSample, assetStatusSample, assetSummarySample, cashViewSample } from './fixtures/asset/screenSample';
+import { tradingDiff } from './lib/tradingDiff';
 import { createBrowserStepGuard } from './lib/browserStepGuard';
 
 const root = path.resolve(import.meta.dirname, '..');
@@ -571,7 +572,8 @@ try {
         .map((l) => path.relative(root, l.trim()))
         .filter((f) => f.startsWith('src/')),
     );
-    const shared = changed.filter((f) => nodeSrc.has(f) && f !== 'src/data/changelog.ts');
+    // 뒤 지시서가 바꾼 몫은 빼고 본다(147차 — ui/tokens.ts · tooltip/hover.ts 는 시험 스크립트가 가져와 이 목록에 든다 · `lib/tradingDiff`)
+    const shared = tradingDiff(root, BASE, [...nodeSrc]).stdout.split('\n').filter((f) => f && f !== 'src/data/changelog.ts');
     check('[145-5] 서버가 함께 쓰는 src 바뀐 줄 0', shared.length === 0, shared.join(', '));
     const dc = git('diff', `${BASE}..HEAD`, '--', 'scripts/designCheck.ts') + git('diff', '--', 'scripts/designCheck.ts');
     const removed = dc.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));

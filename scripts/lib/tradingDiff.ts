@@ -37,7 +37,12 @@ export const LATER_COMMITS: readonly string[] = [
   '0310c5e', // 145차 v2.72.2 C — 창 dirty · busy 맞추기(자산 · 모의 계좌 · 규칙 · 목표 창) · 편집 화면 묻기
   '511d287', // 145차 v2.72.2 H — 덮개 구조 · design:check 장면(더하기만 · 장면 뒤 정리 함수)
   '6284b37', // 146차 v2.73.0 F — design:check 폰 · 패드 크기 · 앱틀 장면 · 「화면 가로 넘침」 항목(더하기만)
+  '882effb', // 147차 v2.74.0 A — 폰 창 아래 판(ui/tokens.ts 이름 더하기 · Dialog · index.css)
   '52ca4a2', // 147차 v2.74.0 B — design:check 「누르는 칸 44 미만」 · 「누르는 칸 겹침」(손가락 화면만 · 더하기만)
+  '7664602', // 147차 v2.74.0 B — 손가락 크기(ui/tokens.ts 이름 · 공용 부품 · 표 줄 높이 이름)
+  '3f0dc69', // 147차 v2.74.0 C — 툴팁 손가락(ui/tooltip/hover.ts 판단 더하기 · tokens.ts 시간 이름)
+  '1ae5c3d', // 147차 v2.74.0 F — 폰 종목 지도(ui/tokens.ts 지도 높이 이름)
+  'afa438d', // 147차 v2.74.0 H — design:check 장면 4(폰 · 패드 창 · 시황 띠 시계 · 손가락 [ⓘ] — 더하기만)
 ];
 
 const covers = (spec: string, file: string) => file === spec || file.startsWith(`${spec.replace(/\/$/, '')}/`);
