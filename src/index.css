@@ -518,8 +518,11 @@ input[type='number']::-webkit-outer-spin-button {
 [data-scroll-table-inner] > table > thead {
   z-index: 3;
 }
-[data-scroll-table] > [data-scroll-table-inner] > table th.w-full:not(:empty) {
-  min-width: var(--st-name-min);
+/* 이름 칸 최소 폭 — components 층(유틸보다 약함): 칸에 원래 최소 폭(`min-w-40` 등)이 있으면 그것이 이긴다 */
+@layer components {
+  [data-scroll-table] > [data-scroll-table-inner] > table th.w-full:not(:empty) {
+    min-width: var(--st-name-min);
+  }
 }
 [data-scroll-table][data-pin='1'] > [data-scroll-table-inner] > table > * > tr > :nth-child(1),
 [data-scroll-table][data-pin='2'] > [data-scroll-table-inner] > table > * > tr > :nth-child(2),

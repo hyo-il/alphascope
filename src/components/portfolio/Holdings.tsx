@@ -3,7 +3,7 @@ import PortfolioSummaryBar from './PortfolioSummary';
 import { useExchangeRate, usePortfolio } from '../../hooks/useCompany';
 import { changeColor, formatPercent, formatUsd, formatSignedMoney } from '../../utils/formatters';
 import ScrollTable from '../ui/ScrollTable';
-import { TABLE_NAME_CELL_TOUCH, TABLE_NUM_CELL_TOUCH } from '../ui/tokens';
+import { TABLE_NAME_CELL_TOUCH, TABLE_ONE_LINE_TOUCH } from '../ui/tokens';
 
 interface Props {
   /** 종목 클릭 시 차트를 그 종목으로 바꾼다. */
@@ -71,15 +71,15 @@ export default function Holdings({ onSelectSymbol }: Props) {
                       <span className="ml-1.5 text-caption text-text-secondary">{holding.symbol}</span>
                     )}
                   </td>
-                  <td className={`py-1.5 px-2 text-right ${TABLE_NUM_CELL_TOUCH}`}>{holding.quantity}</td>
-                  <td className={`py-1.5 px-2 text-right ${TABLE_NUM_CELL_TOUCH}`}>{formatUsd(holding.averagePrice)}</td>
-                  <td className={`py-1.5 px-2 text-right ${TABLE_NUM_CELL_TOUCH}`}>{formatUsd(holding.currentPrice)}</td>
-                  <td className={`py-1.5 px-2 text-right ${TABLE_NUM_CELL_TOUCH}`}>{formatUsd(holding.evaluationAmount)}</td>
-                  <td className={`py-1.5 px-2 text-right ${changeColor(holding.profitLoss)} ${TABLE_NUM_CELL_TOUCH}`}>
+                  <td className={`py-1.5 px-2 text-right ${TABLE_ONE_LINE_TOUCH}`}>{holding.quantity}</td>
+                  <td className={`py-1.5 px-2 text-right ${TABLE_ONE_LINE_TOUCH}`}>{formatUsd(holding.averagePrice)}</td>
+                  <td className={`py-1.5 px-2 text-right ${TABLE_ONE_LINE_TOUCH}`}>{formatUsd(holding.currentPrice)}</td>
+                  <td className={`py-1.5 px-2 text-right ${TABLE_ONE_LINE_TOUCH}`}>{formatUsd(holding.evaluationAmount)}</td>
+                  <td className={`py-1.5 px-2 text-right ${changeColor(holding.profitLoss)} ${TABLE_ONE_LINE_TOUCH}`}>
                     {formatSignedMoney(holding.profitLoss, 'USD')}
                     <span className="ml-1">({formatPercent(holding.profitLossRate)})</span>
                   </td>
-                  <td className={`py-1.5 pl-2 pr-4 text-right ${changeColor(holding.dailyProfitLoss)} ${TABLE_NUM_CELL_TOUCH}`}>
+                  <td className={`py-1.5 pl-2 pr-4 text-right ${changeColor(holding.dailyProfitLoss)} ${TABLE_ONE_LINE_TOUCH}`}>
                     {formatSignedMoney(holding.dailyProfitLoss, 'USD')}
                     <span className="ml-1">({formatPercent(holding.dailyProfitLossRate)})</span>
                   </td>

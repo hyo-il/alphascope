@@ -1,5 +1,5 @@
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
-import { TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
+import { TABLE_NAME_COL, TABLE_ONE_LINE_TOUCH, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { Button, IconButton, RemoveAllButton, ScrollTopShade, PANEL_PAD, PANEL_X } from '../ui';
 import { Fragment } from 'react';
 import { usePageTab } from '../../hooks/usePageTab';
@@ -255,13 +255,14 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
                       날짜 줄 · 등락률 줄 두 줄(덩어리마다 줄바꿈 금지) — 한 줄(「급등 2026-09-21 (+5.3%)」)이면 1280 에서 표가 넘쳐
                       이 열이 화면 밖으로 잘린다. 괄호만 따로 꺾이지는 않는다.
                     */}
-                    <td className="pl-4">
+                    {/* 폰 · 패드는 표가 상자 안에서 밀리므로 한 줄(「(+6.2%)」 만 다음 줄로 꺾이지 않게 · v2.75.0) */}
+                    <td className={`pl-4 ${TABLE_ONE_LINE_TOUCH}`}>
                       {row.actualSurged == null ? (
                         <span className="text-text-muted">대기</span>
                       ) : row.actualSurged ? (
                         <span className="text-bullish">
-                          <span className="block whitespace-nowrap">급등 {row.actualSurgeDate}</span>
-                          <span className="block whitespace-nowrap">(+{row.actualSurgePercent?.toFixed(1)}%)</span>
+                          <span className="block whitespace-nowrap phone:inline pad:inline">급등 {row.actualSurgeDate}</span>
+                          <span className="block whitespace-nowrap phone:ml-1 phone:inline pad:ml-1 pad:inline">(+{row.actualSurgePercent?.toFixed(1)}%)</span>
                         </span>
                       ) : (
                         <span className="text-text-secondary">없음</span>

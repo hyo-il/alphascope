@@ -6,7 +6,7 @@ import { isUsed, type TradingRule } from '../../types/tradingRule';
 import { usageText } from './usage';
 import { modal, toast } from '../../store/uiStore';
 import { Button, IconButton, PageHeader } from '../ui';
-import { LIST_TABLE_ROW, TABLE_NAME_COL } from '../ui/tokens';
+import { LIST_TABLE_ROW, TABLE_NAME_COL, TABLE_ONE_LINE_TOUCH } from '../ui/tokens';
 import { SkeletonText } from '../common/SkeletonLoader';
 import RuleDialog from './RuleDialog';
 import ScrollTable from '../ui/ScrollTable';
@@ -120,7 +120,7 @@ export default function RulesView() {
                         {rule.name}
                       </span>
                     </td>
-                    <td className="py-1 pr-6 text-text-secondary">{usageText(rule.usedBy, accountName)}</td>
+                    <td className={`py-1 pr-6 text-text-secondary ${TABLE_ONE_LINE_TOUCH}`}>{usageText(rule.usedBy, accountName)}</td>
                     <td className="whitespace-nowrap py-1">
                       <div className="flex items-center justify-end gap-2">
                         {/* 창을 열기만 하는 도구 버튼 — 아이콘만(130차 · 같은 줄 Button sm 과 같은 28px) */}
