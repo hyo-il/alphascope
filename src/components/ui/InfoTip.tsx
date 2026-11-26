@@ -13,7 +13,20 @@ import { TOUCH_HIT } from './tokens';
  * - `trigger` 를 주면 아이콘 대신 그 글자가 단추가 된다(점선 밑줄 — 좁은 칸에서 덧붙임을 숨기고 글자에 툴팁을 달 때. 지금: 거래정지 사유 칸).
  * - `open` 을 주면 밖에서도 연다(true) — 흐린(disabled) 입력칸은 마우스 · 초점을 받지 않아, 그 칸 위에 마우스가 오면 옆 아이콘의 툴팁을 연다(지금: 거래정지 정규장 밖 보기).
  */
-export default function InfoTip({ children, label = '설명', trigger, open }: { children: ReactNode; label?: string; trigger?: ReactNode; open?: boolean }) {
+export default function InfoTip({
+  children,
+  label = '설명',
+  trigger,
+  open,
+  className = '',
+}: {
+  children: ReactNode;
+  label?: string;
+  trigger?: ReactNode;
+  open?: boolean;
+  /** 자리 잡기(순서 · 여백)에만 — 색 · 크기는 덧칠하지 않는다 */
+  className?: string;
+}) {
   const ref = useRef<HTMLButtonElement>(null);
   useLayoutEffect(() => {
     if (ref.current) setInfoTipContent(ref.current, children);
@@ -43,7 +56,7 @@ export default function InfoTip({ children, label = '설명', trigger, open }: {
         trigger
           ? 'cursor-help rounded text-left underline decoration-text-muted decoration-dotted underline-offset-4 transition-colors hover:text-text-primary hover:decoration-text-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent'
           : 'inline-flex shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:text-text-primary focus-visible:text-text-primary'
-      } ${TOUCH_HIT}`}
+      } ${TOUCH_HIT} ${className}`.trim()}
     >
       {trigger ?? <Info {...ICON_SM} />}
     </button>

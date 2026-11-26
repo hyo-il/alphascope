@@ -54,8 +54,9 @@ export default function PortfolioView({ onSelectSymbol }: Props) {
         tabsRight={
           account === 'paper' ? (
             // 계좌 화면의 모의 안내는 여기 하나 — 긴 설명은 정보 아이콘에
-            <span className="flex items-center gap-1">
-              <span className="rounded bg-warning/15 px-2 py-0.5 text-caption text-warning">모의 — 실제 주문은 나가지 않습니다</span>
+            // 폰 — 배지 글은 넘치면 줄바꿈 · [ⓘ] 은 배지 옆에 붙어 혼자 떨어지지 않음(탭 줄을 넘치게 하지 않음)
+            <span className="flex items-center gap-1 phone:min-w-0" data-testid="paper-badge">
+              <span className="rounded bg-warning/15 px-2 py-0.5 text-caption text-warning phone:min-w-0">모의 — 실제 주문은 나가지 않습니다</span>
               <InfoTip label="모의투자 안내">
                 모의투자 — 실제 거래가 아닙니다. 시세는 실시간이지만 주문·체결·잔고는 앱 안의 가상 자금으로만 처리되며, 증권사에 주문이 전송되지 않습니다.
               </InfoTip>

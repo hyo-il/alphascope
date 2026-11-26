@@ -1,6 +1,10 @@
 import Button from '../ui/Button';
 import InfoTip from '../ui/InfoTip';
 import Segmented from '../ui/Segmented';
+import Chip from '../ui/Chip';
+import { DataCardSkeleton } from '../ui/DataCard';
+import { TOUCH_BAR_PAD, TOUCH_WRAP_GAP } from '../ui/tokens';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { useAccountsView } from '../../hooks/useAccountsView';
 import { useEffect, useState } from 'react';
 import { Skeleton, SkeletonCards, SkeletonTable } from '../common/SkeletonLoader';
@@ -117,6 +121,8 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   const accountsView = useAccountsView();
   /** 주문·취소 후 목록을 다시 읽기 위한 카운터 */
   const [version, setVersion] = useState(0);
+  /** 폰은 보유 종목을 카드로(테마 4-1) — 받기 전 모양도 카드 */
+  const phone = useLayoutMode() === 'phone';
 
   const { trades, cashFlows, loaded: tradesLoaded } = usePaperTrades(selectedId, version);
   const orders = usePaperOrders(selectedId, version);
@@ -238,8 +244,9 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   if (view === 'overview') {
     return (
       <div className="flex h-full min-h-0 flex-col">
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2">
-          <h2 className="text-sm font-semibold text-text-primary">계좌 모아보기</h2>
+        {/* 손가락 화면은 줄바꿈된 단추 줄 사이를 넓힘 · 폰은 [ⓘ] 을 제목 바로 옆으로(혼자 떨어지지 않게 — 1280 이상 순서 그대로) */}
+        <div className={`flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2 ${TOUCH_WRAP_GAP} ${TOUCH_BAR_PAD}`}>
+          <h2 className="text-sm font-semibold text-text-primary phone:order-first">계좌 모아보기</h2>
           {/*
             카드를 다 훑지 않아도 전체 자동매매 상태를 알 수 있게 한 줄로 센다.
             분류는 `utils/autoTradeStatus` 한 곳이라 카드와 숫자가 갈라지지 않는다.
@@ -261,7 +268,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
             </>
             )}
           </span>
-          <InfoTip label="모아보기 쓰는 법">
+          <InfoTip label="모아보기 쓰는 법" className="phone:order-first">
             계좌(카드 · 목록 줄)를 누르면 그 계좌의 잔고·거래·자동매매 설정으로 들어갑니다. 순서는 카드 보기에서는 끌어서, 목록 보기에서는 끌거나 ↑↓ 로 바꿉니다.
           </InfoTip>
           {/*
@@ -354,7 +361,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto">
 
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
+      <div className={`flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5 ${TOUCH_BAR_PAD}`}>
         <Button variant="secondary" size="sm"
           onClick={() => setView('overview')}>
           ← 계좌 모아보기
@@ -419,28 +426,29 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
             </div>
           )}
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-bg-secondary">
+          {/* 폰 보유 종목은 카드(bg-secondary)라 이 판 바탕을 걷는다 — 카드가 판에 묻히지 않게(테마 4-1) */}
+          <div className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-bg-secondary ${tab === 'positions' ? 'phone:bg-transparent' : ''}`}>
             <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
               {tabs.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTab(t.id)}
-                  className={`rounded px-2.5 py-1 text-xs transition-colors ${
-                    tab === t.id
-                      ? 'bg-bg-elevated font-medium text-text-primary'
-                      : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
-                  }`}
-                >
+                <Chip key={t.id} size="tab" selected={tab === t.id} onClick={() => setTab(t.id)}>
                   {t.label}
-                </button>
+                </Chip>
               ))}
             </div>
 
             <div className="min-h-0 flex-1 overflow-auto">
-              {tab === 'positions' && !detail && (
-                <div className="p-3">
-                  <SkeletonTable rows={4} columns={5} />
+              {/* 받기 전 = 스켈레톤(폰은 카드 모양) · 받기 실패 = 오류 + [다시 시도](「없음」 으로 그리지 않는다 — CLAUDE.md 2-3) */}
+              {tab === 'positions' && !detail && error && (
+                <div className="flex flex-col items-center gap-2 p-6 text-center">
+                  <p className="text-xs text-danger">보유 종목을 불러오지 못했습니다</p>
+                  <Button variant="secondary" size="md" onClick={refresh}>
+                    다시 시도
+                  </Button>
+                </div>
+              )}
+              {tab === 'positions' && !detail && !error && (
+                <div className={phone ? 'pt-2' : 'p-3'}>
+                  {phone ? <DataCardSkeleton count={3} /> : <SkeletonTable rows={4} columns={5} />}
                 </div>
               )}
               {tab === 'positions' && detail && (

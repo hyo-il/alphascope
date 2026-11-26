@@ -8,6 +8,8 @@ import AutoTradeSettings from './AutoTradeSettings';
 import ConditionCard from './ConditionCard';
 import DisclosureButton from '../ui/DisclosureButton';
 import Segmented from '../ui/Segmented';
+import { TOUCH_WRAP_GAP } from '../ui/tokens';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { useAutoTrading } from '../../hooks/useAutoTrading';
 import { useTradingRules } from '../../hooks/useTradingRules';
 import { NO_STOP_WARNING } from '../../utils/ruleText';
@@ -54,13 +56,15 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
   const [open, setOpen] = useState(false);
   const [toggling, setToggling] = useState(false);
   const nameOf = useStockNames(status?.lastNotes.map((n) => n.symbol) ?? []);
+  /** 폰 — 판단 묶음 머리 단추는 「시각 시장 판단 · N종목」 만, 매수 · 매도 · 그대로 · 못 산 수는 단추 아래 글(단추 글이 폭을 넘어 잘렸다) */
+  const phone = useLayoutMode() === 'phone';
 
   if (!accountId) return null;
   // 설정을 받기 전 — 빈칸으로 두지 않는다 · 첫 조회 실패는 오류 줄
   if (!strategy) {
     return (
       <div className="flex items-center gap-2 border-b border-border px-4 py-2">
-        {error ? <span className="text-caption text-danger">자동매매 설정을 불러오지 못했습니다: {error}</span> : <Skeleton className="h-7 w-72" />}
+        {error ? <span className="text-caption text-danger">자동매매 설정을 불러오지 못했습니다: {error}</span> : <Skeleton className="h-7 w-72 phone:w-full phone:max-w-72" />}
       </div>
     );
   }
@@ -208,7 +212,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
       )}
       {status && status.lastNotes.length > 0 && (
         <div className="border-b border-border px-4 py-1.5 text-caption">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className={`flex flex-wrap items-center gap-2 ${TOUCH_WRAP_GAP}`}>
             <DisclosureButton
               open={notesOpen}
               onToggle={() => setNotesOpen((v) => !v)}
@@ -242,7 +246,9 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
               const key = g.at ?? `g${gi}`;
               const groupOpen = isGroupOpen(key, si);
               // 묶음 머리 — 시각 · 시장 · 종목 수 · 매수 N · 매도 N · 그대로 N · 못 산 N(0 도 적는다 — 칸이 흔들리지 않게). 접기 버튼 글자 그대로(열고 닫아도 같은 글자)
-              const head = `${g.at ? formatTime(g.at) : '—'} ${g.market} 판단 · ${g.symbols}종목 · 매수 ${g.buys} · 매도 ${g.sells} · 그대로 ${g.holds} · 못 산 ${g.skips}`;
+              const headMain = `${g.at ? formatTime(g.at) : '—'} ${g.market} 판단 · ${g.symbols}종목`;
+              const headCounts = `매수 ${g.buys} · 매도 ${g.sells} · 그대로 ${g.holds} · 못 산 ${g.skips}`;
+              const head = phone ? headMain : `${headMain} · ${headCounts}`;
               return (
             <li key={`${key}-${gi}`} className={si > 0 ? 'border-t border-border/30 pt-2' : ''} data-notes-group>
               <DisclosureButton
@@ -252,6 +258,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
                 openLabel={head}
                 controls={`autotrade-group-${strategy.accountId}-${gi}`}
               />
+              {phone && <p className="mt-1 text-text-secondary" data-testid="notes-group-counts">{headCounts}</p>}
           {groupOpen && (
           <ul id={`autotrade-group-${strategy.accountId}-${gi}`} className="mt-1 space-y-1">
             {items.map(({ n, i }) => {

@@ -1,5 +1,5 @@
 import { createContext, forwardRef, useContext, useEffect, useLayoutEffect, useRef, useState, type InputHTMLAttributes, type ReactNode } from 'react';
-import { CONTROL_H, FIELD_W, TOUCH_FIELD_H, TOUCH_FIELD_TEXT, UNIT_W, type ControlSize, type FieldKind } from './tokens';
+import { CONTROL_H, FIELD_W, TOUCH_FIELD_H, TOUCH_FIELD_INNER, TOUCH_FIELD_TEXT, UNIT_W, type ControlSize, type FieldKind } from './tokens';
 import { useFieldInvalid } from './fieldReveal';
 
 /** 같은 묶음의 단위 열 폭 — 묶음을 이것으로 감싸면 안의 모든 단위 열(`FormRow` · `NumberField`)이 같은 폭이다 */
@@ -186,7 +186,7 @@ const NumberField = forwardRef<HTMLInputElement, Props>(function NumberField(
           onBlur?.(e);
         }}
         aria-invalid={showInvalid || undefined}
-        className={`h-full w-full min-w-0 border-0 bg-transparent px-2 text-right text-xs tabular-nums text-text-primary focus:outline-none disabled:opacity-50 ${TOUCH_FIELD_TEXT} ${changed ? 'font-medium' : ''}`}
+        className={`h-full w-full min-w-0 border-0 bg-transparent px-2 text-right text-xs tabular-nums text-text-primary focus:outline-none disabled:opacity-50 ${TOUCH_FIELD_TEXT} ${TOUCH_FIELD_INNER} ${changed ? 'font-medium' : ''}`}
       />
       {blocked && maxText && (
         <span role="status" className="absolute right-0 top-full z-10 mt-0.5 whitespace-nowrap text-caption text-warning">

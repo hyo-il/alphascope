@@ -7,6 +7,8 @@ import { usePaperAccounts } from '../../hooks/usePaperTrading';
 import { NO_STOP_WARNING } from '../../utils/ruleText';
 import type { TradingRule } from '../../types/tradingRule';
 import RuleDialog from './RuleDialog';
+import LinkButton from '../ui/LinkButton';
+import { TOUCH_INFO_GAP } from '../ui/tokens';
 
 /**
  * 매매 규칙 고르기 — 계좌 설정 「① 매매 규칙」 · 처음 켜기 안내 · 백테스트 방법마다 **같은 부품**.
@@ -44,9 +46,7 @@ export default function RuleSelect({
     return (
       <p className="text-xs text-text-secondary">
         매매 규칙이 없습니다. 「퀀트 &gt; 매매 규칙」 에서 먼저 만드세요.{' '}
-        <button type="button" className="text-accent hover:underline" onClick={() => setPage('rules')}>
-          매매 규칙으로 가기
-        </button>
+        <LinkButton onClick={() => setPage('rules')}>매매 규칙으로 가기</LinkButton>
       </p>
     );
   }
@@ -73,15 +73,13 @@ export default function RuleSelect({
         </Select>
         {/* 창을 열기만 하는 도구 버튼 — 아이콘만(130차 · 툴팁 「조건 보기」) */}
         <IconButton size="md" icon={Eye} label="조건 보기" onClick={() => setViewing(true)} disabled={!selected} />
-        {aside && <div className="ml-auto flex shrink-0 items-center gap-2">{aside}</div>}
+        {aside && <div className={`ml-auto flex shrink-0 items-center gap-2 ${TOUCH_INFO_GAP}`}>{aside}</div>}
       </div>
       {missing && <p className="text-caption text-warning">고른 규칙이 지워졌습니다 — 다시 고르세요.</p>}
       {!selected && !missing && (
         <p className="text-caption text-text-muted">
           「퀀트 &gt; 매매 규칙」 에서 규칙을 만들 수 있습니다.{' '}
-          <button type="button" className="text-accent hover:underline" onClick={() => setPage('rules')}>
-            매매 규칙으로 가기
-          </button>
+          <LinkButton onClick={() => setPage('rules')}>매매 규칙으로 가기</LinkButton>
         </p>
       )}
       {warnNoStop && selected && !selected.sell.stopLoss.on && (

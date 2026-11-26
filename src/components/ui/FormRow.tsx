@@ -65,7 +65,8 @@ function FormRowInner({
   const showUnit = groupW != null || unitText != null;
   return (
     <div data-formrow className="min-w-0">
-      <div className="flex min-w-0 items-center gap-x-3">
+      {/* 폰 — 오른쪽 설명은 다음 줄 폭 전체(좁은 칸에 세로로 꺾여 창 밖으로 잘렸다 · v2.76.0) · 패드 · 1280 이상 그대로 */}
+      <div className="flex min-w-0 items-center gap-x-3 phone:flex-wrap phone:gap-y-1">
         <label htmlFor={htmlFor} className={`shrink-0 whitespace-nowrap text-xs text-text-secondary ${FORM_LABEL_W[labelW]}`}>
           {label}
         </label>
@@ -79,7 +80,7 @@ function FormRowInner({
             </span>
           )}
         </div>
-        {hint != null && <span data-formrow-hint className="min-w-0 flex-1 text-caption text-text-muted">{hint}</span>}
+        {hint != null && <span data-formrow-hint className="min-w-0 flex-1 text-caption text-text-muted phone:basis-full">{hint}</span>}
       </div>
       {message != null && (
         <p className={`mt-1 text-caption text-danger ${FORM_LABEL_PAD[labelW]}`} data-field-error>

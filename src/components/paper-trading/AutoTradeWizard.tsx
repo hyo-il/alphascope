@@ -12,6 +12,9 @@ import { JUDGE_TIMING_TEXT, ruleBuyText, ruleSafetyText, ruleSellText } from '..
 import TargetSymbolsEditor from './TargetSymbolsEditor';
 import AutoTradeSettings from './AutoTradeSettings';
 import { toast } from '../../store/uiStore';
+import Radio from '../ui/Radio';
+import { TOUCH_LIST_ROW } from '../ui/tokens';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 
 /**
  * 자동매매 **처음 켜기** 4단계 안내 — 계좌 → **매매 규칙** → 종목 → 확인.
@@ -61,6 +64,8 @@ export default function AutoTradeWizard({
   const [detailOpen, setDetailOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const { rules } = useTradingRules();
+  /** 폰 — 제목 한 줄(넘치면 말줄임) · 단계는 「1/4 · 계좌」 + 점(지금 · 지난 · 남은) */
+  const phone = useLayoutMode() === 'phone';
 
   const accountId = choice === 'new' ? (created?.id ?? null) : existingId;
   const accountName =
@@ -128,8 +133,28 @@ export default function AutoTradeWizard({
   return (
     // 바깥 클릭으로 닫지 않는다 — 바꾼 것이 있으면 닫는 길(× · Esc · [취소] · 다른 메뉴 · 뒤로 가기)마다 공용 확인 창(공통 3-3)
     <Dialog
-      title="자동매매 처음 켜기"
+      title={
+        phone ? (
+          <span className="block truncate" data-tip-clip="자동매매 처음 켜기">
+            자동매매 처음 켜기
+          </span>
+        ) : (
+          '자동매매 처음 켜기'
+        )
+      }
       titleAside={
+        phone ? (
+          <span className="flex items-center gap-2 whitespace-nowrap" data-testid="wizard-steps">
+            <span>
+              {step}/4 · {STEP_LABEL[step]}
+            </span>
+            <span className="flex items-center gap-1" aria-hidden>
+              {([1, 2, 3, 4] as Step[]).map((n) => (
+                <span key={n} className={`size-1.5 rounded-full ${n === step ? 'bg-text-primary' : n < step ? 'bg-text-secondary' : 'bg-bg-elevated'}`} />
+              ))}
+            </span>
+          </span>
+        ) : (
         <span className="flex items-center gap-2">
           <span>
             {step}/4 · {STEP_LABEL[step]}
@@ -147,6 +172,7 @@ export default function AutoTradeWizard({
             ))}
           </ol>
         </span>
+        )
       }
       onClose={onClose}
       size="lg"
@@ -208,9 +234,8 @@ export default function AutoTradeWizard({
                   {accounts.map((a) => {
                     const st = strategies.find((s) => s.strategy.accountId === a.account.id)?.strategy;
                     return (
-                      <label key={a.account.id} className="flex w-fit items-center gap-2 text-xs text-text-secondary">
-                        <input
-                          type="radio"
+                      <label key={a.account.id} className={`flex w-fit items-center gap-2 text-xs text-text-secondary ${TOUCH_LIST_ROW}`}>
+                        <Radio
                           name="wizard-account"
                           checked={existingId === a.account.id}
                           onChange={() => setExistingId(a.account.id)}
@@ -230,13 +255,9 @@ export default function AutoTradeWizard({
                         씁니다.
                       </p>
                       {!overrideOk ? (
-                        <button
-                          type="button"
-                          onClick={() => setOverrideOk(true)}
-                          className="rounded border border-warning px-2 py-0.5 text-warning hover:bg-warning/10"
-                        >
+                        <Button variant="secondary" size="sm" onClick={() => setOverrideOk(true)}>
                           이 계좌로 계속
-                        </button>
+                        </Button>
                       ) : (
                         <p className="text-text-secondary">이 계좌로 계속합니다 — [켜기] 를 누르기 전까지는 바뀌지 않습니다.</p>
                       )}

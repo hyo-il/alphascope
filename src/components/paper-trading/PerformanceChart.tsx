@@ -1,3 +1,4 @@
+import Chip from '../ui/Chip';
 import { formatSigned } from '../../utils/formatters';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -139,18 +140,9 @@ export default function PerformanceChart({ snapshots }: Props) {
         )}
         {stats.ret == null && <span className="mr-auto" />}
         {RANGES.map((r) => (
-          <button
-            key={r.id}
-            type="button"
-            onClick={() => setRange(r.id)}
-            className={`rounded px-2 py-0.5 text-caption transition-colors ${
-              range === r.id
-                ? 'bg-bg-elevated font-medium text-text-primary'
-                : 'text-text-secondary hover:bg-bg-tertiary'
-            }`}
-          >
+          <Chip key={r.id} size="xs" selected={range === r.id} onClick={() => setRange(r.id)}>
             {r.label}
-          </button>
+          </Chip>
         ))}
       </div>
 

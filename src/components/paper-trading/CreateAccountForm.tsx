@@ -1,6 +1,8 @@
 import NumberField from '../ui/NumberField';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
+import Chip from '../ui/Chip';
+import { TOUCH_WRAP_GAP } from '../ui/tokens';
 import { useState } from 'react';
 import LoadingOverlay from '../common/LoadingOverlay';
 import { useLeaveGuard } from '../../hooks/useLeaveGuard';
@@ -53,7 +55,7 @@ export default function CreateAccountForm({ onCreate, onDone, onCancel }: Props)
   useLeaveGuard(name !== '' || balance !== 10_000_000, { busy });
   return (
     <LoadingOverlay busy={busy} label="만드는 중…" className="w-full">
-    <div className="flex w-full flex-wrap items-center gap-2 rounded-md bg-bg-tertiary/50 px-3 py-2">
+    <div className={`flex w-full flex-wrap items-center gap-2 rounded-md bg-bg-tertiary/50 px-3 py-2 ${TOUCH_WRAP_GAP}`}>
       <Input
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -61,18 +63,9 @@ export default function CreateAccountForm({ onCreate, onDone, onCancel }: Props)
         className="w-56" />
       <span className="text-xs text-text-muted">초기 자금</span>
       {PRESETS.map((value) => (
-        <button
-          key={value}
-          type="button"
-          onClick={() => setBalance(value)}
-          className={`rounded px-2 py-1 text-xs transition-colors ${
-            balance === value
-              ? 'bg-bg-elevated font-medium text-text-primary'
-              : 'text-text-secondary hover:bg-bg-tertiary'
-          }`}
-        >
+        <Chip key={value} selected={balance === value} onClick={() => setBalance(value)}>
           {(value / 10_000).toLocaleString('ko-KR')}만
-        </button>
+        </Chip>
       ))}
       {/* 금액 칸 — 입력하는 동안에도 천 단위 쉼표(thousands). 값은 쉼표 없는 숫자로 */}
       {/* 상한 1조(쉼표 포함 17자)가 다 보이는 폭 — 기본 금액 칸(128px)은 앞이 잘렸다 */}
@@ -88,6 +81,8 @@ export default function CreateAccountForm({ onCreate, onDone, onCancel }: Props)
         aria-label="초기 자금"
         value={String(balance)}
         onValue={(raw) => setBalance(raw === '' ? 0 : Number(raw))} />
+      {/* 손가락 화면 — [만들기] · [취소] 는 다음 줄(높이 44 인 입력 칸과 32 단추가 한 줄에 섞이지 않게) · 마우스 화면은 그리지 않음 */}
+      <span aria-hidden className="hidden touch:block touch:basis-full" />
       <Button variant="primary" size="md"
         onClick={() => void submit()}
         disabled={busy}>

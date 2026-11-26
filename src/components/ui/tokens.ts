@@ -194,3 +194,21 @@ export const DIALOG_SWIPE_CLOSE_PX = 80;
  */
 export const DATA_CARD = 'rounded-xl bg-bg-secondary px-4 py-3 space-y-2 tabular-nums';
 export const DATA_CARD_LIST = 'flex flex-col gap-2';
+
+/**
+ * 손가락 화면 단추 줄 사이(v2.76.0 · 테마 6 「12 이상」) — 마우스 화면(1280 이상 포함)은 그대로.
+ * - `TOUCH_WRAP_GAP` 줄바꿈되는 단추 줄의 위아래 16(= 44 − 28 — 28 단추의 누르는 칸 44 가 위아래 줄과 겹치지 않게).
+ * - `TOUCH_INFO_GAP` [ⓘ] 옆 단추와의 사이 24(= [ⓘ] 14 의 바깥 칸 15 + 단추 바깥 칸 8 + 여유).
+ * - `TOUCH_FIELD_INNER` 숫자 칸 안 입력(`NumberField`) — 틀 44 의 테두리(위아래 1) 안이라 42 → 테두리까지 덮어 44(보이는 모양 그대로 · 바탕 투명).
+ */
+export const TOUCH_WRAP_GAP = 'touch:gap-y-4';
+export const TOUCH_INFO_GAP = 'touch:gap-x-6';
+export const TOUCH_FIELD_INNER = 'touch:-my-px touch:h-[calc(100%+2px)]';
+
+/**
+ * 고르기 칩(v2.76.0 · `ui/Chip` — 하나를 고르는 작은 글자 단추: 초기 자금 · 거래 거르기 · 성과 기간 · 계좌 아래 탭).
+ * 크기는 쓰던 모양 그대로(1280 이상 그대로) — xs 22 · sm · md 26 · tab(px 10). 손가락 화면 누르는 칸 44 는 `TOUCH_HIT`.
+ */
+export const CHIP_SIZE = { xs: 'px-2 py-0.5 text-caption', sm: 'px-2 py-1 text-caption', md: 'px-2 py-1 text-xs', tab: 'px-2.5 py-1 text-xs' } as const;
+/** 손가락 화면에서 위 탭 줄 바로 밑에 붙은 단추 줄의 위아래 안 여백(누르는 칸이 위 탭과 겹치지 않게) */
+export const TOUCH_BAR_PAD = 'touch:py-3';

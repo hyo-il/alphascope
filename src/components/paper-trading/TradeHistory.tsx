@@ -1,5 +1,6 @@
 import { formatDateTime } from '../../utils/dateFormat';
 import Button from '../ui/Button';
+import Chip from '../ui/Chip';
 import { useState } from 'react';
 import { toast } from '../../store/uiStore';
 import type { Currency, PaperCashFlow, PaperOrder, PaperTrade } from '../../types/paper';
@@ -104,18 +105,9 @@ export default function TradeHistory({ trades, cashFlows, currency, orders, onCh
 
       <div className="flex items-center gap-1">
         {FILTERS.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => setFilter(f.id)}
-            className={`rounded px-2 py-1 text-caption transition-colors ${
-              filter === f.id
-                ? 'bg-bg-elevated font-medium text-text-primary'
-                : 'text-text-secondary hover:bg-bg-tertiary'
-            }`}
-          >
+          <Chip key={f.id} size="sm" selected={filter === f.id} onClick={() => setFilter(f.id)}>
             {f.label}
-          </button>
+          </Chip>
         ))}
         <span className="ml-2 text-caption text-text-muted">{filtered.length}건</span>
       </div>
