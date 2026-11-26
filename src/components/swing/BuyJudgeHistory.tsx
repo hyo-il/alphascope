@@ -6,7 +6,7 @@ import StockName from '../common/StockName';
 import { SkeletonCards } from '../common/SkeletonLoader';
 import { Badge, Button, InfoTip, Segmented } from '../ui';
 import { ICON_SM } from '../ui/icon';
-import { LIST_TABLE_ROW, TABLE_NUM_COL, TOUCH_BAR_PAD, TOUCH_LIST_ROW } from '../ui/tokens';
+import { LIST_TABLE_ROW, PHONE_TABLE_MIN_W, TABLE_NUM_COL, TOUCH_BAR_PAD, TOUCH_LIST_ROW } from '../ui/tokens';
 import { fetchJudgeDays, useBuyJudgeDays, useBuyJudgeHistory } from '../../hooks/useBuyJudge';
 import DateGroupList, { SymbolsTitle } from '../common/DateGroupList';
 import { daySymbols } from '../../utils/buyJudgeOrder';
@@ -142,7 +142,7 @@ export default function BuyJudgeHistory() {
               render: () => (
                 // 칸 폭 고정(table-fixed) — 날짜마다 내용 폭이 달라 두 날짜를 펼치면 열이 어긋난다
                 <ScrollTable>
-                <table className="w-full table-fixed text-left text-xs">
+                <table className={`w-full table-fixed text-left text-xs ${PHONE_TABLE_MIN_W}`}>
                   <colgroup>
                     <col />
                     <col className="w-44" />
@@ -234,7 +234,7 @@ export default function BuyJudgeHistory() {
                         <p className="py-2 text-caption text-text-muted">불러오는 중…</p>
                       ) : (
                         <ScrollTable>
-                        <table className="w-full text-left text-caption">
+                        <table className={`w-full text-left text-caption ${PHONE_TABLE_MIN_W}`}>
                           <tbody>
                             {list.map((d) => (
                               <tr key={`${d.marketDate}-${d.ruleName}`} className="border-b border-border/30 last:border-b-0">

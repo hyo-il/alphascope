@@ -2168,6 +2168,46 @@ function targets(): Target[] {
       },
     })),
   );
+  // v2.77.0 — 매수 판단 폰 카드 · 규칙 고르기 줄 · 목표 바꾸기 창(판단 목록은 견본 응답 — 사도 됨 · 손익비 부족 · 거름망 · 기준 미달 · 판단 못 함)
+  {
+    const judgeState = JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts/fixtures/mobileBuyJudge/state.json'), 'utf8')).state;
+    const routeJudge = async (page: Page) => {
+      await page.route(/\/api\/buy-judge$/, (r) => (r.request().method() === 'GET' ? r.fulfill({ json: judgeState }) : r.fallback()));
+    };
+    const unrouteJudge = (page: Page) => page.unroute(/\/api\/buy-judge$/);
+    // 폰은 카드, 패드 · 1280 이상은 표 줄 — 첫 종목을 펼친다
+    const openFirstJudge = async (page: Page) => {
+      const card = page.getByRole('button', { name: /판단 자세히$/ });
+      if (await card.count()) await card.first().click();
+      else await page.locator('[data-buy-judge-table] tbody tr').first().click();
+      await page.waitForTimeout(700);
+    };
+    list.push(
+      { name: 'swing-판단카드', hash: '#/swing/list', before: routeJudge, after: unrouteJudge },
+      { name: 'swing-판단카드펼침', hash: '#/swing/list', before: routeJudge, after: unrouteJudge, open: openFirstJudge },
+      {
+        name: 'swing-규칙고르기줄',
+        hash: '#/swing/list',
+        before: routeJudge,
+        after: unrouteJudge,
+        open: async (page) => {
+          await page.locator('select[aria-label="매매 규칙"]').first().scrollIntoViewIfNeeded();
+          await page.waitForTimeout(300);
+        },
+      },
+      {
+        name: 'swing-목표바꾸기창',
+        hash: '#/swing/list',
+        before: routeJudge,
+        after: unrouteJudge,
+        open: async (page) => {
+          await openFirstJudge(page);
+          await page.getByRole('button', { name: '조건 바꾸기' }).first().click();
+          await page.waitForTimeout(800);
+        },
+      },
+    );
+  }
   return list;
 }
 

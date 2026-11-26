@@ -422,6 +422,8 @@ try {
       check(`[150-8] ${phone ? '26' : '28'}줄 — ${S} 규칙 고르기 줄 높이 하나(드롭박스 ${Math.round(sel.h)} = [조건 보기] ${Math.round(eye.h)} = 44)`, Math.round(sel.h) === 44 && Math.round(eye.h) === 44, `${sel.h} · ${eye.h}`);
       const help = await hitOf(page, `${BODY} section > button[aria-expanded]`);
       check(`[150-8] ${phone ? '27' : '29'}줄 — ${S} 「매수 판단은 무엇을 하나요?」 누르는 칸 44 이상`, help.h >= 44 && help.w >= 44, JSON.stringify(help));
+      const run = await box(page, `${BODY} button:has-text("실행")`);
+      check(`[150-8] 167줄 — ${S} [실행] 높이 = 드롭박스 44(규칙 고르기 줄 높이 하나)`, Math.round(run.h) === 44, String(run.h));
       await ctx.close();
     }
     {
@@ -461,6 +463,10 @@ try {
           return { titleLines: Math.round(title.getBoundingClientRect().height / parseFloat(getComputedStyle(title).lineHeight)), sumTop: sum.top, titleBottom: title.getBoundingClientRect().bottom };
         });
         check('[150-8] 161줄 — 402 날짜 줄 제목(「애플 외 3개」) 한 줄 · 요약은 다음 줄', d.titleLines === 1 && d.sumTop >= d.titleBottom - 1, JSON.stringify(d));
+        // 166줄 — 펼친 날짜 표 · 종목별 날짜 표: 칸이 겹치지 않음(종목 칸 · 이유 칸이 제 폭 — 상자 안에서 밀기)
+        const cols = await page.locator('[data-date-group] table').first().evaluate((t) => ({ name: (t.querySelector('tbody td') as HTMLElement).getBoundingClientRect().width, w: t.getBoundingClientRect().width }));
+        const why = await page.locator('#buy-judge-reasons table td:last-child').first().evaluate((td) => td.getBoundingClientRect().width);
+        check('[150-8] 166줄 — 402 펼친 날짜 표 종목 칸 120 이상(칸 겹침 0) · 종목별 날짜 표 이유 칸 250 이상', cols.name >= 120 && why >= 250, `${JSON.stringify(cols)} · 이유 ${why}`);
       }
       await ctx.close();
     }

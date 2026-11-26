@@ -222,3 +222,5 @@ export const TOUCH_TABLE_ROW = 'touch:h-11';
 export const TOUCH_FIELD_SIDE = 'touch:h-11 touch:w-11';
 /** 줄 단추 바로 옆 아이콘 단추(v2.77.0 종목 추가 창 「직접 추가」 줄 삭제) — 손가락 화면은 사이 12(아이콘 단추 바깥 칸 10 + 여유 — 누르는 칸 겹침 0) */
 export const TOUCH_SIDE_GAP = 'touch:gap-x-3';
+/** 폰 표 최소 폭(v2.77.0 매수 판단 히스토리 펼친 표 — 고정 칸 합 608 + 종목 칸) — 고정 칸 합이 폰 폭보다 커 칸이 겹치던 표는 이 폭으로 두고 `ScrollTable` 이 상자 안에서 민다 */
+export const PHONE_TABLE_MIN_W = 'phone:min-w-[760px]';
