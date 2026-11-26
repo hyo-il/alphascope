@@ -49,6 +49,7 @@ export const LATER_COMMITS: readonly string[] = [
   '2257186', // 149차 v2.76.0 B — 폰 계좌 보유 카드(ui/tokens.ts 카드 이름 더하기)
   '102e629', // 149차 v2.76.0 C — 계좌 · 자동매매 점검 줄(ui/tokens.ts 손가락 줄 사이 · 칩 크기 이름 더하기 · 공용 부품)
   '23e3771', // 149차 v2.76.0 D — 시험 mobileaccount:test · ui/tokens.ts 손가락 표 줄 이름 더하기
+  '64b1f52', // 149차 v2.76.0 E — 처음 켜기 창 폰 제목 한 줄(Dialog 선택 옵션 · 화면만)
 ];
 
 const covers = (spec: string, file: string) => file === spec || file.startsWith(`${spec.replace(/\/$/, '')}/`);
