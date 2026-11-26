@@ -1,6 +1,7 @@
 import { formatTime } from '../../utils/dateFormat';
 import { PANEL_PAD } from '../ui/tokens';
-import { HEATMAP_SECTOR_LINE, HEATMAP_SECTOR_PAD_Y } from '../ui/tokens';
+import { HEATMAP_PHONE_MAP_H, HEATMAP_SECTOR_LINE, HEATMAP_SECTOR_PAD_Y } from '../ui/tokens';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { Button, InfoTip, PageTitle, Segmented, Tabs } from '../ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { squarify, type Rect } from '../../utils/treemap';
@@ -406,6 +407,19 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   const [hover, setHover] = useState<{ cell: HeatmapCell; x: number; y: number } | null>(null);
   const [focusSector, setFocusSector] = useState<string | null>(null);
   const box = useRef<HTMLDivElement>(null);
+  // 폰 모양(v2.74.0 · 사용자 결정 4 · 5) — 지도는 본문 폭 전체 · 업종 칸은 지도 아래(화면 전체가 함께 밀림). 패드 · 1280 이상은 옆 그대로
+  const phone = useLayoutMode() === 'phone';
+  /** 업종을 고르면 강조 — 폰에서 지도가 화면 위로 지나갔으면 지도가 보이게 올린다(부드럽게 · 움직임 줄이기면 바로) */
+  const selectSector = (sector: string | null) => {
+    setFocusSector(sector);
+    const map = box.current;
+    const scroller = map?.closest<HTMLElement>('[data-heatmap-root]');
+    if (!phone || !sector || !map || !scroller) return;
+    if (map.getBoundingClientRect().top < scroller.getBoundingClientRect().top) {
+      const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      map.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    }
+  };
   const sequence = useRef(0);
 
   /** `poll` = 주기 재조회 — 「새로고침 중…」 을 붙이지 않는다(폴링에는 표시를 더하지 않는다) */
@@ -540,7 +554,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   } 작은 종목도 이름이 보이도록 칸에 최소 크기를 두었습니다 — 작은 칸은 실제 시가총액 비율보다 조금 큽니다.${period === '1d' ? ` 거래가 열려 있는 동안(${market === 'us' ? '주간거래 · 프리마켓 · 정규장 · 애프터마켓' : 'NXT 프리마켓 · 정규장 · NXT 애프터마켓'}) ${HEATMAP_LIVE_MS / 1000}초마다 새로고침(화면을 보고 있을 때만). ${market === 'us' ? ' 애프터마켓 처음 10분은 오늘 종가가 확정되기 전이라 전일 종가 대비입니다.' : ''} 시간표 밖이라도 방금 체결이 있으면 「장외 거래」 로 이어 받습니다. 거래가 모두 닫히면 「장 마감」 으로 보이고 1분마다 다시 열렸는지만 확인합니다.` : ''}`;
 
   return (
-    <div className={`@container flex h-full flex-col ${PANEL_PAD}`}>
+    <div className={phone ? '@container flex h-full flex-col overflow-y-auto pb-3' : `@container flex h-full flex-col ${PANEL_PAD}`} data-heatmap-root={phone || undefined}>
       {/* 제목 줄 / 탭 줄을 나눈다 (디자인 규칙 7) */}
       <PageTitle className="shrink-0 pb-2 text-base font-semibold text-text-primary">종목 지도</PageTitle>
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60">
@@ -608,14 +622,14 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         </p>
       )}
 
-      <div className="flex min-h-0 flex-1 gap-2">
+      <div className={phone ? 'flex shrink-0 flex-col gap-2' : 'flex min-h-0 flex-1 gap-2'}>
         <div
           ref={box}
           data-tiles={tiles.length}
           data-labeled={labeled}
           data-passes={passes}
           data-rated={tiles.filter((t) => t.fit?.rate).length}
-          className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl bg-bg-secondary"
+          className={phone ? `relative w-full shrink-0 overflow-hidden rounded-xl bg-bg-secondary ${HEATMAP_PHONE_MAP_H}` : 'relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl bg-bg-secondary'}
         >
           {empty && (
             <p className="p-4 text-xs text-text-secondary">
@@ -707,7 +721,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
         </div>
 
         {/* 섹터 강세 순위 — 설명용 */}
-        <aside className="flex w-72 shrink-0 flex-col overflow-hidden rounded-xl bg-bg-secondary">
+        <aside className={phone ? 'flex w-full shrink-0 flex-col rounded-xl bg-bg-secondary' : 'flex w-72 shrink-0 flex-col overflow-hidden rounded-xl bg-bg-secondary'}>
           <div className="flex shrink-0 items-center gap-1.5 px-3 pb-2 pt-3">
             <p className="text-xs font-semibold text-text-primary">
               섹터 강세 순위 · {periodInfo.label}
@@ -719,9 +733,9 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
               {activeOff.size > 0 && ' 흐린 줄은 지도에서 끈 분야입니다.'}
             </InfoTip>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className={phone ? '' : 'min-h-0 flex-1 overflow-y-auto'}>
             {data ? (
-              <SectorRanking sectors={data.sectors} selected={focusSector} onSelect={setFocusSector} dimmed={activeOff} />
+              <SectorRanking sectors={data.sectors} selected={focusSector} onSelect={selectSector} dimmed={activeOff} />
             ) : (
               <p className="p-3 text-caption text-text-muted">불러오는 중…</p>
             )}

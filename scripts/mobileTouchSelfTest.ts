@@ -75,6 +75,7 @@ async function open(browser: Browser, size: { width: number; height: number }, h
 }
 
 type Box = { x: number; y: number; w: number; h: number };
+const docOverflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
 const box = (page: Page, sel: string) =>
   page.evaluate((s) => {
     const el = document.querySelector(s);
@@ -563,6 +564,61 @@ try {
     check(`[147-10] ${tag} 토스트가 위쪽 막대 · 시황 띠 아래에 뜸`, toastTop >= strip.y + strip.h, `토스트 위 ${toastTop} · 띠 아래 ${strip.y + strip.h}`);
     check(`[147-10] ${tag} 저장한 시계 자리(ui.clock)를 읽지도 쓰지도 않음(요청 0)`, clockCalls.length === 0, clockCalls.join(' '));
     await ctx.close();
+  }
+
+  // ───────── 11 종목 지도 폰 ─────────
+  {
+    const SECTORS = ['기술', '금융', '헬스케어', '에너지', '소비재', '산업재', '통신', '유틸리티', '소재', '부동산', '필수소비재', '기타'];
+    const cells = SECTORS.flatMap((sec, i) => Array.from({ length: 4 }, (_, k) => ({ symbol: `T${i}${k}`, name: `${sec} ${k + 1}`, sector: sec, marketCap: (50 - i * 3 - k) * 1e10, price: 100 + k, changeRate: ((i + k) % 5) - 2, currency: 'USD', watch: false })));
+    const HEATMAP = {
+      market: 'us', period: '1d', view: 'market', top: 50, cells,
+      sectors: SECTORS.map((sec, i) => ({ sector: sec, capReturn: 2 - i * 0.3, equalReturn: 1, up: 2, counted: 4, excluded: 0, vsMarket: 0.1, top: [] })),
+      marketReturn: 0.5, counted: cells.length, excluded: 0, asOf: '2026-11-25T06:00:00.000Z', marketOpen: false, session: null, sessionLabel: null,
+      basis: 'prev', basisLabel: '전일 종가 대비', nextOpen: '2026-11-25T14:30:00.000Z', missingSectors: 0, missingCap: [],
+    };
+    const fake = (url: string) => (url.includes('/api/heatmap') ? HEATMAP : undefined);
+    for (const size of [PHONE, PAD, { width: 1280, height: 1080 }]) {
+      const { page, ctx, cdp } = await open(browser, size, '#/heatmap', fake);
+      await page.waitForTimeout(800);
+      const tag = `${size.width}`;
+      const map = await box(page, '[data-tiles]');
+      const aside = await box(page, '[data-tiles] ~ aside, aside:has(p)');
+      if (size === PHONE) {
+        const body = await page.evaluate(() => {
+          const b = document.querySelector('[data-layout-body]')!;
+          const cs = getComputedStyle(b);
+          const r = b.getBoundingClientRect();
+          return { x: Math.round(r.x + parseFloat(cs.paddingLeft)), w: Math.round(r.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) };
+        });
+        const wantH = Math.max(320, Math.round((874 - 52 - 40) * 0.6));
+        check('[147-11] 402 지도 폭 = 본문 폭', map != null && map.x === body.x && map.w === body.w, `${JSON.stringify(map)} · 본문 ${JSON.stringify(body)}`);
+        check(`[147-11] 402 지도 높이 = (보이는 높이 − 52 − 40) × 0.6 = ${wantH} (≥ 320)`, map != null && Math.abs(map.h - wantH) <= 1, JSON.stringify(map));
+        check('[147-11] 402 업종 칸이 지도 아래 · 폭 = 본문 폭(w-72 고정 아님)', aside != null && map != null && aside.y >= map.y + map.h && aside.w === body.w, `${JSON.stringify(aside)}`);
+        check('[147-11] 402 화면 가로 넘침 0', (await docOverflow(page)) <= 0, String(await docOverflow(page)));
+        const innerScroll = await page.evaluate(() => {
+          const a = [...document.querySelectorAll('aside')].find((x) => x.textContent?.includes('섹터 강세 순위'))!;
+          return [...a.querySelectorAll('*')].some((el) => el.scrollHeight > el.clientHeight + 1 && ['auto', 'scroll'].includes(getComputedStyle(el).overflowY));
+        });
+        check('[147-11] 402 업종 칸만의 따로 스크롤 없음', !innerScroll);
+        // 아래로 밀어 지도가 화면 위로 지나간 뒤 업종을 누르면 강조 + 지도가 보이게 올라옴
+        await page.evaluate(() => {
+          const r = document.querySelector<HTMLElement>('[data-heatmap-root]')!;
+          r.scrollTop = r.scrollHeight;
+        });
+        await page.waitForTimeout(300);
+        const row = page.locator('aside').getByRole('button', { name: /에너지/ }).first();
+        const rb = (await row.boundingBox())!;
+        await tap(page, cdp!, rb.x + rb.width / 2, rb.y + rb.height / 2);
+        await page.waitForTimeout(900);
+        const focused = await page.evaluate(() => document.querySelectorAll('[data-tiles] .ring-accent').length);
+        const m2 = await box(page, '[data-tiles]');
+        const root = await box(page, '[data-heatmap-root]');
+        check('[147-11] 402 업종을 누르면 지도에서 강조 · 지도가 보이게 올라옴', focused >= 1 && m2 != null && root != null && m2.y >= root.y - 1 && m2.y < root.y + root.h, `강조 ${focused} · 지도 ${JSON.stringify(m2)} · 칸 ${JSON.stringify(root)}`);
+      } else {
+        check(`[147-11] ${tag} 업종 칸은 지금처럼 지도 오른쪽(폭 288)`, aside != null && map != null && aside.x >= map.x + map.w && aside.w === 288 && Math.abs(aside.y - map.y) <= 1, `${JSON.stringify(map)} · ${JSON.stringify(aside)}`);
+      }
+      await ctx.close();
+    }
   }
 
   // ───────── 13 바뀐 파일 ─────────

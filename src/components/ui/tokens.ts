@@ -128,6 +128,11 @@ export const ORDER_SELL_COLOR = 'bg-accent/80 text-white hover:bg-accent';
  * 여백이 없으면 「기술」·「금융」 글자가 위 분야 경계와 아래 첫 칸에 붙는다.
  */
 export const HEATMAP_SECTOR_PAD_Y = 4;
+/**
+ * 폰 종목 지도 높이(v2.74.0 · 사용자 결정 5) = (보이는 높이 − 위쪽 막대 52 − 시황 띠 40 − 위 안전 여백) × 0.6 · 최소 320.
+ * 업종 칸은 지도 아래(본문과 함께 밀어 봄).
+ */
+export const HEATMAP_PHONE_MAP_H = 'h-[max(320px,calc((100dvh-92px-env(safe-area-inset-top))*0.6))]';
 export const HEATMAP_SECTOR_LINE = 16;
 
 /**
