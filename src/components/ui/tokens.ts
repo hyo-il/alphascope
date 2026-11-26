@@ -6,6 +6,19 @@
  * ⚠️ Tailwind 는 소스의 글자 그대로를 찾아 클래스를 만든다 — 클래스 이름 자체(`h-7` 등)는 여기 통째로 적고, 다른 정의는 이 값을 가져다 쓴다.
  */
 export const CONTROL_H = { md: 'h-8', sm: 'h-7', xs: 'h-6' } as const;
+/**
+ * 손가락 화면(v2.74.0 · 테마 6절 · `touch:` = `pointer: coarse` · 폭과 상관없음) — 보이는 크기는 그대로, **누르는 칸**만 키운다.
+ * - `TOUCH_MIN` 44 — 누르는 칸 최소(px). 공용 단추 · 묶음 단추 · 아이콘 단추 · 탭 · 체크 · [ⓘ] 은 `TOUCH_HIT`(`index.css` `touch-hit` — 보이지 않는 바깥 칸).
+ * - `TOUCH_HIT_GAP` — 아이콘 단추끼리 바로 붙어 있으면 사이를 넓힌다(누르는 칸이 서로 겹치지 않게).
+ * - `TOUCH_FIELD` — 입력 칸 · 드롭박스는 높이 44 · 글 16(사파리는 16 보다 작은 입력 글을 누르면 화면을 확대한다 — 입력 칸 글만 글자 4단계 예외).
+ * - 목록 줄(`LIST_ROW`) · 표 줄(`LIST_TABLE_ROW`)은 44 — 각 이름에 함께 적었다. 표 머리 줄은 그대로.
+ */
+export const TOUCH_MIN = 44;
+export const TOUCH_HIT = 'touch-hit';
+export const TOUCH_HIT_GAP = 'touch-hit-gap';
+export const TOUCH_FIELD_H = 'touch:h-11';
+export const TOUCH_FIELD_TEXT = 'touch:text-sm';
+export const TOUCH_FIELD = `${TOUCH_FIELD_H} ${TOUCH_FIELD_TEXT}`;
 /** 버튼 · 입력칸 · 드롭박스 · 묶음 버튼의 크기(2가지) — `xs` 는 아이콘 버튼 sm 전용 */
 export type ControlSize = 'md' | 'sm';
 
@@ -20,16 +33,21 @@ export const FORM_LABEL_W = { sm: 'w-32', md: 'w-44', lg: 'w-56' } as const;
 /** 값 칸 폭 — 묶음에서 가장 넓은 입력칸(또는 드롭박스)이 들어가는 폭. 칸은 이 안에서 **오른쪽 끝에 붙는다** */
 export const FORM_VALUE_W = { sm: 'w-28', md: 'w-40', lg: 'w-56' } as const;
 
-/** 목록 줄 — 높이 약 36px + 줄 사이 4px (사용자: "아이템 사이 약간의 간격이 있어야 구분") */
-export const LIST_ROW = 'min-h-9';
+/** 목록 줄 — 높이 약 36px + 줄 사이 4px (사용자: "아이템 사이 약간의 간격이 있어야 구분") · 손가락 화면은 44(테마 6절) */
+/** 손가락 화면 목록 줄 44 — 마우스 높이를 따로 정하지 않은 열리는 목록(검색 결과 등)의 줄에도 단다 */
+export const TOUCH_LIST_ROW = 'touch:min-h-11';
+export const LIST_ROW = `min-h-9 ${TOUCH_LIST_ROW}`;
 export const LIST_GAP = 'space-y-1';
 /**
  * 목록 **표** 의 줄 높이 — 40px. 표 줄(`tr`)에는 min-height 가 먹지 않아 `LIST_ROW` 대신 이것을 쓴다.
  * 매매 규칙 목록(버튼 28px 줄)과 종목 목록 표(계좌 ② · 백테스트 ①)가 같은 높이가 된다.
  */
-export const LIST_TABLE_ROW = 'h-10';
-/** `LIST_TABLE_ROW`(h-10) 의 px — 줄 N개 높이를 계산할 때(거래정지 「며칠째 정지 중」 5줄 칸) */
-export const LIST_TABLE_ROW_PX = 40;
+export const LIST_TABLE_ROW = 'h-10 touch:h-11';
+/**
+ * `LIST_TABLE_ROW` 의 높이(CSS 값) — 줄 N개 높이를 계산할 때(거래정지 「며칠째 정지 중」 5줄 칸). 마우스 40px · 손가락 화면 44px
+ * (`index.css` 의 `--list-table-row-h` — 같은 값 · 조건은 `touch` 변형 한 곳).
+ */
+export const LIST_TABLE_ROW_H = 'var(--list-table-row-h)';
 /** 고정(sticky) 머리줄 높이 — 몸통 높이를 줄 수로 정하는 표에서 머리줄도 높이를 고정한다(13px 글자 + 위아래 8px 와 같은 36px) */
 export const TABLE_HEAD_ROW = 'h-9';
 export const TABLE_HEAD_ROW_PX = 36;

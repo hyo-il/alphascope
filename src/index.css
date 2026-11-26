@@ -130,7 +130,7 @@
  *   phone = 폭 ≤ 767 또는 (높이 < 500 이고 폭 < 1280) · pad = 768 ~ 1279 이고 높이 ≥ 500 · desk = 1280 이상(지금 모양 그대로)
  * CSS 는 `phone:` · `pad:` 이름(아래 @custom-variant)으로, JS 는 `hooks/useLayoutMode` 가 아래 `--layout-mode` 를 읽어 쓴다(조건을 두 번 쓰지 않는다).
  * ⚠️ 아이패드 미니 세로(744)는 폭이 767 아래라 phone 이다.
- * `touch:` = 손가락 화면(`pointer: coarse` · 폭과 따로) — 이름만 만들어 둠(누르는 칸 44 등은 147차).
+ * `touch:` = 손가락 화면(`pointer: coarse` · 폭과 따로) — 누르는 칸 44 · 표 줄 44 · 입력 칸 16 / 44(아래 `touch-hit` · `ui/tokens.ts`).
  */
 @custom-variant phone {
   @media (max-width: 767px), (max-height: 499px) and (max-width: 1279px) {
@@ -145,6 +145,55 @@
 @custom-variant touch {
   @media (pointer: coarse) {
     @slot;
+  }
+}
+/*
+ * 손가락 화면 크기(v2.74.0 · 테마 6절 · `touch:` 일 때만 — 폭과 상관없음). 값은 `ui/tokens.ts` 「손가락 화면」 과 같다(`TOUCH_MIN` 44 · 표 줄 44).
+ * - `touch-hit` — 누르는 칸 44 × 44 이상. 보이지 않는 바깥 칸(::after)이 단추 가운데에 겹쳐 놓여 **보이는 모양 · 배치는 그대로**.
+ *   자리 잡기(absolute · fixed · sticky)를 받은 단추는 그대로 두고, 그 밖은 바깥 칸의 기준이 되게 relative. 공용 부품만 단다(`Button` · `IconButton` ·
+ *   `Segmented` · `Tabs` · `Checkbox` · `InfoTip`) — 화면 파일에 따로 쓰지 않는다.
+ * - `touch-hit-gap` — 붙어 있는 아이콘 단추(이 이름끼리 바로 옆)는 사이를 20 넓힌다(28 · 24 상자의 누르는 칸 44 가 서로 겹치지 않게 — 테마 「12 이상」).
+ * - `--list-table-row-h` — 표 줄 높이(`LIST_TABLE_ROW` h-10 · touch:h-11 과 같은 값) — 줄 N개 높이를 style 로 계산하는 곳이 쓴다.
+ */
+@utility touch-hit {
+  @variant touch {
+    &:not(.absolute, .fixed, .sticky) {
+      position: relative;
+    }
+    &::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      transform: translate(-50%, -50%);
+    }
+  }
+}
+@utility touch-hit-gap {
+  @variant touch {
+    :where(.touch-hit-gap) + & {
+      margin-inline-start: 20px;
+    }
+  }
+}
+:root {
+  --list-table-row-h: 40px;
+  @variant touch {
+    --list-table-row-h: 44px;
+  }
+}
+/*
+ * 툴팁 대상은 손가락으로 길게 누를 때 브라우저 기본 메뉴(글 고르기 · 링크 미리보기)를 띄우지 않는다(147차 — 길게 누르면 앱 툴팁 · `ui/Tooltip`).
+ */
+[data-tip],
+[data-tip-clip],
+[data-infotip] {
+  @variant touch {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
 }
 :root {

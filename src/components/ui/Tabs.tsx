@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { TOUCH_HIT } from './tokens';
 
 export interface TabItem<T extends string> {
   id: T;
@@ -42,7 +43,7 @@ export default function Tabs<T extends string>({
             data-tip={t.title}
             onClick={() => onChange(t.id)}
             /* 음수 여백(design:lint 허용 목록): 고른 탭 밑줄을 탭 줄 아래 테두리(1px) 위에 겹침 */
-            className={`relative -mb-px inline-flex items-center gap-1 whitespace-nowrap border-b-2 py-2 transition-colors ${text} ${
+            className={`relative -mb-px inline-flex items-center gap-1 whitespace-nowrap border-b-2 py-2 transition-colors ${text} ${TOUCH_HIT} ${
               on ? 'border-text-primary font-medium text-text-primary' : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >

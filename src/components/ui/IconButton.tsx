@@ -1,7 +1,7 @@
 import { LoaderCircle, type LucideIcon, type LucideProps } from 'lucide-react';
 import { forwardRef, type ButtonHTMLAttributes, type ComponentType } from 'react';
 import { ICON, ICON_SM } from './icon';
-import { ICON_BUTTON_BOX, type IconButtonSize } from './tokens';
+import { ICON_BUTTON_BOX, TOUCH_HIT, TOUCH_HIT_GAP, type IconButtonSize } from './tokens';
 
 /** lucide 아이콘, 또는 같은 크기 · 선 굵기를 받는 아이콘(채운 관심 별 `starIconOf`) */
 type IconType = LucideIcon | ComponentType<LucideProps>;
@@ -42,7 +42,7 @@ const IconButton = forwardRef<
       {...rest}
       disabled={disabled || busy}
       aria-busy={busy || undefined}
-      className={`inline-flex shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-40 ${ICON_BUTTON_BOX[size]} ${color} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-40 ${ICON_BUTTON_BOX[size]} ${color} ${TOUCH_HIT} ${TOUCH_HIT_GAP} ${className}`}
     >
       {busy ? <LoaderCircle {...iconProps} className="animate-spin" /> : <Icon {...iconProps} />}
     </button>

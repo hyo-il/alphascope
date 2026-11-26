@@ -1,7 +1,7 @@
 import { LoaderCircle, type LucideIcon } from 'lucide-react';
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { ICON, ICON_SM } from './icon';
-import { CONTROL_H, ORDER_BUY_COLOR, ORDER_SELL_COLOR } from './tokens';
+import { CONTROL_H, ORDER_BUY_COLOR, ORDER_SELL_COLOR, TOUCH_HIT } from './tokens';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-text' | 'buy' | 'sell';
 type IconType = LucideIcon;
@@ -49,7 +49,7 @@ const Button = forwardRef<
       disabled={disabled || busy}
       aria-busy={busy || undefined}
       data-form-submit={submit || undefined}
-      className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors disabled:opacity-40 ${VARIANT[variant]} ${SIZE[size]} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors disabled:opacity-40 ${VARIANT[variant]} ${SIZE[size]} ${TOUCH_HIT} ${className}`}
     >
       {busy ? <LoaderCircle {...iconProps} className="animate-spin" /> : Icon && <Icon {...iconProps} />}
       {children}

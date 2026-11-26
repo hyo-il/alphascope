@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { InlineSpinner } from './LoadingOverlay';
-import { CONTROL_H } from '../ui/tokens';
+import { CONTROL_H, TOUCH_FIELD, TOUCH_LIST_ROW } from '../ui/tokens';
 import type { StockSearchResult } from '../../types/toss';
 import { hasHangul, searchStocksApi } from '../../utils/stockSearch';
 
@@ -223,7 +223,7 @@ export default function SymbolSearch({
           autoFocus={autoFocus}
           placeholder={placeholder}
           spellCheck={false}
-          className={`rounded-md border bg-bg-tertiary text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none ${hideSubmit ? 'border-transparent' : 'border-border'} ${
+          className={`rounded-md border bg-bg-tertiary text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none ${hideSubmit ? 'border-transparent' : 'border-border'} ${TOUCH_FIELD} ${
             /*
              * 폭은 **바깥 래퍼가 정한다.** 여기서 w-48 로 고정하면 탐색 홈처럼 가운데
              * 정렬된 자리(max-w-md)에서 입력만 왼쪽에 쏠려 축이 어긋나 보인다.
@@ -274,7 +274,7 @@ export default function SymbolSearch({
                 type="button"
                 onMouseEnter={() => setHighlight(index)}
                 onClick={() => choose(result)}
-                className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors ${
+                className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors ${TOUCH_LIST_ROW} ${
                   index === highlight ? 'bg-bg-tertiary' : ''
                 }`}
               >

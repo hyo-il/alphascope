@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { Info } from 'lucide-react';
 import { ICON_SM } from './icon';
 import { setInfoTipContent, tipController } from './Tooltip';
+import { TOUCH_HIT } from './tokens';
 
 /**
  * 정보 아이콘 [ⓘ] + 설명 (디자인 규칙 6) — 제목 줄·바닥 줄에 늘 떠 있던 긴 설명(기준 시각·새로고침 주기·조작법)을 여기로 옮긴다.
@@ -38,11 +39,11 @@ export default function InfoTip({ children, label = '설명', trigger, open }: {
       type="button"
       aria-label={label}
       data-infotip
-      className={
+      className={`${
         trigger
           ? 'cursor-help rounded text-left underline decoration-text-muted decoration-dotted underline-offset-4 transition-colors hover:text-text-primary hover:decoration-text-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent'
           : 'inline-flex shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:text-text-primary focus-visible:text-text-primary'
-      }
+      } ${TOUCH_HIT}`}
     >
       {trigger ?? <Info {...ICON_SM} />}
     </button>

@@ -131,6 +131,33 @@ async function unmount(page: Page) {
   }, HARNESS);
   await page.waitForTimeout(150);
 }
+async function mountParts(page: Page) {
+  // 가짜 응답 503 의 오류 토스트가 오른쪽 위에 떠 부품을 가린다 — 이 시험에서는 감춘다
+  await page.addStyleTag({ content: '[data-toast-host] { display: none !important; }' });
+  await page.evaluate(async (url) => {
+    const m = await import(/* @vite-ignore */ url);
+    m.mountParts();
+  }, HARNESS);
+  await page.waitForTimeout(300);
+}
+/** 누르는 칸 — 가운데에서 위아래 · 양옆 21px(= 44 칸 안쪽 끝) 여덟 점을 누르면 그 요소(또는 그 안)가 맞나 · 누르는 칸 좌우 끝 */
+const hitArea = (page: Page, sel: string) =>
+  page.evaluate((s) => {
+    const el = document.querySelector(s)!;
+    const r = el.getBoundingClientRect();
+    const cx = r.x + r.width / 2;
+    const cy = r.y + r.height / 2;
+    // ±20 — 44 칸 끝에서 2px 안쪽(밑줄 테두리가 있는 탭은 바깥 칸 가운데가 1px 위라 ±21 은 끝에 걸린다) · 바깥 칸 크기는 따로 44 이상인지 본다
+    const pts = [[-20, -20], [20, -20], [-20, 20], [20, 20], [0, -20], [0, 20], [-20, 0], [20, 0]];
+    const miss = pts.filter(([dx, dy]) => {
+      const e = document.elementFromPoint(cx + dx, cy + dy);
+      return !(e && (e === el || el.contains(e)));
+    });
+    const after = getComputedStyle(el, '::after');
+    const w = Math.max(r.width, parseFloat(after.width) || 0);
+    const h = Math.max(r.height, parseFloat(after.height) || 0);
+    return { ok: miss.length === 0 && w >= 44 && h >= 44, miss: miss.length, w: Math.round(w), h: Math.round(h), left: Math.round(cx - w / 2), right: Math.round(cx + w / 2) };
+  }, sel);
 const harness = (page: Page) => page.evaluate(() => (window as unknown as { __harness: { open: boolean; closed: number } }).__harness);
 const PANEL = '[role="dialog"][aria-labelledby] > div';
 const askShown = async (page: Page) => (await page.getByRole('dialog', { name: '저장하지 않고 닫을까요?' }).count()) === 1;
@@ -251,6 +278,72 @@ try {
     await page.mouse.click(30, 30);
     await page.waitForTimeout(300);
     check('[147-4] 패드 덮개 누름(click) → 닫힘', !(await harness(page)).open);
+    await unmount(page);
+    await ctx.close();
+  }
+
+  // ───────── 5 손가락 크기 ─────────
+  for (const size of [PHONE, PAD]) {
+    const { page, ctx } = await open(browser, size, '#/portfolio');
+    await mountParts(page);
+    const tag = `${size.width}`;
+    for (const [id, name] of [
+      ['btn-sm', '단추 sm'],
+      ['btn-md', '단추 md'],
+      ['icon-a', '아이콘 단추 md'],
+      ['icon-sm', '아이콘 단추 sm'],
+      ['parts"] [role="radio', '묶음 단추 칸'],
+      ['parts"] [role="tab', '탭'],
+      ['check', '체크'],
+      ['parts"] [data-infotip]:not([x="', '[ⓘ]'],
+    ] as const) {
+      const r = await hitArea(page, `[data-testid="${id}"]`);
+      check(`[147-5] ${tag} ${name} — 누르는 칸 ≥ 44 × 44(바깥 칸 크기 · 가운데 ± 20 을 누르면 그 요소)`, r.ok, JSON.stringify(r));
+    }
+    const vis = await page.evaluate(() => {
+      const q = (id: string) => document.querySelector(`[data-testid="${id}"]`)!;
+      const hh = (id: string) => Math.round(q(id).getBoundingClientRect().height);
+      const ww = (id: string) => Math.round(q(id).getBoundingClientRect().width);
+      const fs = (el: Element) => getComputedStyle(el).fontSize;
+      return {
+        btnSm: hh('btn-sm'),
+        btnMd: hh('btn-md'),
+        icon: `${ww('icon-a')}x${hh('icon-a')}`,
+        iconSm: `${ww('icon-sm')}x${hh('icon-sm')}`,
+        seg: Math.round(document.querySelector('[data-testid="parts"] [role="radiogroup"]')!.getBoundingClientRect().height),
+        input: `${hh('input')}/${fs(q('input'))}`,
+        number: `${Math.round(q('number').parentElement!.getBoundingClientRect().height)}/${fs(q('number'))}`,
+        select: `${hh('select')}/${fs(q('select'))}`,
+        listRow: hh('list-row'),
+        tableRow: hh('table-row'),
+        gap: Math.round(q('icon-b').getBoundingClientRect().left - q('icon-a').getBoundingClientRect().right),
+      };
+    });
+    check(`[147-5] ${tag} 보이는 단추 크기 그대로(sm 28 · md 32 · 아이콘 28 · 24 · 묶음 32)`, vis.btnSm === 28 && vis.btnMd === 32 && vis.icon === '28x28' && vis.iconSm === '24x24' && vis.seg === 32, JSON.stringify(vis));
+    check(`[147-5] ${tag} 입력 칸 · 숫자 칸 · 드롭다운 높이 44 · 글 16`, vis.input === '44/16px' && vis.number === '44/16px' && vis.select === '44/16px', JSON.stringify(vis));
+    check(`[147-5] ${tag} 목록 줄 · 표 줄 높이 44`, vis.listRow === 44 && vis.tableRow === 44, JSON.stringify(vis));
+    const a = await hitArea(page, '[data-testid="icon-a"]');
+    const b = await hitArea(page, '[data-testid="icon-b"]');
+    check(`[147-5] ${tag} 붙은 아이콘 단추 사이 ≥ 12 · 누르는 칸 겹침 없음`, vis.gap >= 12 && a.right <= b.left, `사이 ${vis.gap} · ${a.right} / ${b.left}`);
+    await unmount(page);
+    await ctx.close();
+  }
+  {
+    // 1280 마우스 — 같은 부품 한 벌이 손가락 이름을 받아도 아무것도 바뀌지 않음(바깥 칸 없음 · 사이 0 · 높이 그대로)
+    const { page, ctx } = await open(browser, { width: 1280, height: 1080 }, '#/portfolio');
+    await mountParts(page);
+    const desk = await page.evaluate(() => {
+      const q = (id: string) => document.querySelector(`[data-testid="${id}"]`)!;
+      return {
+        after: getComputedStyle(q('btn-sm'), '::after').content,
+        gap: Math.round(q('icon-b').getBoundingClientRect().left - q('icon-a').getBoundingClientRect().right),
+        input: `${Math.round(q('input').getBoundingClientRect().height)}/${getComputedStyle(q('input')).fontSize}`,
+        tableRow: Math.round(q('table-row').getBoundingClientRect().height),
+        listRow: Math.round(q('list-row').getBoundingClientRect().height),
+        pos: getComputedStyle(q('btn-sm')).position,
+      };
+    });
+    check('[147-1] 1280 마우스 — 바깥 칸 없음 · 아이콘 사이 0 · 입력 32/14 · 표 줄 40 · 목록 줄 36 · position static', desk.after === 'none' && desk.gap === 0 && desk.input === '32/14px' && desk.tableRow === 40 && desk.listRow === 36 && desk.pos === 'static', JSON.stringify(desk));
     await unmount(page);
     await ctx.close();
   }

@@ -1,4 +1,4 @@
-import { CONTROL_H, SEGMENT_H } from './tokens';
+import { CONTROL_H, SEGMENT_H, TOUCH_HIT } from './tokens';
 import type { ReactNode } from 'react';
 
 export interface SegmentedOption<T extends string | number> {
@@ -50,7 +50,7 @@ export default function Segmented<T extends string | number>({
             data-tip={o.title}
             disabled={o.disabled}
             onClick={() => !on && onChange(o.value)}
-            className={`whitespace-nowrap rounded-md text-xs transition-colors disabled:opacity-40 ${pad} ${
+            className={`whitespace-nowrap rounded-md text-xs transition-colors disabled:opacity-40 ${pad} ${TOUCH_HIT} ${
               on
                 ? o.activeTone === 'warning'
                   ? 'bg-warning/20 font-medium text-warning'

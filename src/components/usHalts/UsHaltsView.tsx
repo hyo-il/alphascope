@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Badge, InfoTip, NumberField, PageHeader, SectionTitle, Select } from '../ui';
-import { LIST_TABLE_ROW, LIST_TABLE_ROW_PX, PANEL_PAD, TABLE_HEAD_ROW, TABLE_HEAD_ROW_PX, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP, TABLE_NUM_GAP_TIGHT } from '../ui/tokens';
+import { LIST_TABLE_ROW, LIST_TABLE_ROW_H, PANEL_PAD, TABLE_HEAD_ROW, TABLE_HEAD_ROW_PX, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP, TABLE_NUM_GAP_TIGHT } from '../ui/tokens';
 import StockName from '../common/StockName';
 import { SkeletonTable } from '../common/SkeletonLoader';
 import { InlineSpinner } from '../common/LoadingOverlay';
@@ -974,7 +974,7 @@ function OngoingTable({
         aria-label={scroll.over ? '며칠째 정지 중 목록' : undefined}
         role={scroll.over ? 'region' : undefined}
         className="overflow-y-auto rounded-lg bg-bg-tertiary/40 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-        style={{ maxHeight: TABLE_HEAD_ROW_PX + ONGOING_ROWS * LIST_TABLE_ROW_PX }}
+        style={{ maxHeight: `calc(${TABLE_HEAD_ROW_PX}px + ${ONGOING_ROWS} * ${LIST_TABLE_ROW_H})` }}
         data-ongoing-scroll
       >
       <table className="w-full text-left text-xs">

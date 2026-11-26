@@ -7,6 +7,16 @@ import { createElement as h } from 'react';
 import { createRoot } from 'react-dom/client';
 import Dialog, { DialogCancel } from '/src/components/ui/Dialog.tsx';
 import Button from '/src/components/ui/Button.tsx';
+import IconButton from '/src/components/ui/IconButton.tsx';
+import Segmented from '/src/components/ui/Segmented.tsx';
+import Tabs from '/src/components/ui/Tabs.tsx';
+import Checkbox from '/src/components/ui/Checkbox.tsx';
+import Input from '/src/components/ui/Input.tsx';
+import NumberField from '/src/components/ui/NumberField.tsx';
+import Select from '/src/components/ui/Select.tsx';
+import InfoTip from '/src/components/ui/InfoTip.tsx';
+import { LIST_ROW, LIST_TABLE_ROW } from '/src/components/ui/tokens.ts';
+import { Pencil, Trash2 } from 'lucide-react';
 
 let root = null;
 let host = null;
@@ -48,4 +58,38 @@ export function unmount() {
   root = null;
   host = null;
   state.open = false;
+}
+
+/** 공용 부품 한 벌(손가락 크기 · 툴팁 시험) — 본문 위에 고정 상자로 띄운다(`data-testid="parts"`) */
+export function mountParts() {
+  unmount();
+  host = document.createElement('div');
+  document.getElementById('root').append(host);
+  root = createRoot(host);
+  const t = (id) => ({ 'data-testid': id });
+  root.render(
+    h(
+      'div',
+      { ...t('parts'), className: 'fixed left-4 top-24 z-[95] flex w-[340px] flex-col items-start gap-6 bg-bg-secondary p-4' },
+      h('div', { className: 'flex items-center gap-6' },
+        h(Button, { size: 'sm', ...t('btn-sm'), onClick: () => state.saved++, 'data-tip': '단추 설명' }, '저장'),
+        h(Button, { ...t('btn-md') }, '실행'),
+        h(InfoTip, { label: '설명' }, '정보 설명 글'),
+        h('span', { ...t('plain-tip'), 'data-tip': '맨 글 설명', className: 'text-xs' }, '맨 글'),
+      ),
+      h('div', { className: 'flex items-center' },
+        h(IconButton, { icon: Pencil, label: '고치기', ...t('icon-a'), onClick: () => state.saved++ }),
+        h(IconButton, { icon: Trash2, label: '지우기', ...t('icon-b') }),
+        h(IconButton, { icon: Pencil, label: '표 고치기', size: 'sm', ...t('icon-sm'), className: 'ml-6' }),
+      ),
+      h(Segmented, { label: '시장', value: 'us', onChange: () => {}, options: [{ value: 'us', label: '미국' }, { value: 'kr', label: '국내' }] }),
+      h(Tabs, { label: '탭', value: 'a', onChange: () => {}, items: [{ id: 'a', label: '첫 탭' }, { id: 'b', label: '둘째' }] }),
+      h('label', { className: 'flex items-center gap-2 text-xs' }, h(Checkbox, { ...t('check') }), '체크'),
+      h(Input, { ...t('input'), placeholder: '입력', className: 'w-40' }),
+      h(NumberField, { ...t('number'), value: 1, onChange: () => {} }),
+      h(Select, { ...t('select'), defaultValue: 'a' }, h('option', { value: 'a' }, '하나'), h('option', { value: 'b' }, '둘')),
+      h('div', { ...t('list-row'), className: `${LIST_ROW} w-40 rounded-md bg-bg-tertiary` }),
+      h('table', null, h('tbody', null, h('tr', { ...t('table-row'), className: LIST_TABLE_ROW }, h('td', null, '표 줄')))),
+    ),
+  );
 }

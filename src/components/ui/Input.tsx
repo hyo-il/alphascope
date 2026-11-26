@@ -1,5 +1,5 @@
 import { forwardRef, type InputHTMLAttributes } from 'react';
-import { CONTROL_H, type ControlSize } from './tokens';
+import { CONTROL_H, TOUCH_FIELD, type ControlSize } from './tokens';
 import { useFieldInvalid } from './fieldReveal';
 
 /**
@@ -19,7 +19,7 @@ const Input = forwardRef<HTMLInputElement, Omit<InputHTMLAttributes<HTMLInputEle
           onBlur?.(e);
         }}
         aria-invalid={show || undefined}
-        className={`min-w-0 rounded-md border bg-bg-tertiary px-2 text-xs text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none disabled:opacity-50 ${CONTROL_H[size]} ${
+        className={`min-w-0 rounded-md border bg-bg-tertiary px-2 text-xs text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none disabled:opacity-50 ${CONTROL_H[size]} ${TOUCH_FIELD} ${
           show ? 'border-danger' : 'border-transparent'
         } ${className}`}
       />

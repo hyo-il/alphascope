@@ -7,7 +7,7 @@ import { SkeletonList } from './SkeletonLoader';
 import { Button, ListRemoveButton, RemoveAllButton, Tabs } from '../ui';
 import Dialog, { DialogCancel } from '../ui/Dialog';
 import { ICON_SM } from '../ui/icon';
-import { CONTROL_H } from '../ui/tokens';
+import { CONTROL_H, LIST_ROW, TOUCH_FIELD_H, TOUCH_FIELD_TEXT } from '../ui/tokens';
 import { useBacktestUniverse } from '../../hooks/useBacktest';
 import { useWatchlist } from '../../hooks/useWatchlist';
 import { useStockNames } from '../../hooks/useStockNames';
@@ -82,7 +82,7 @@ function SourceRow({ symbol, name, note, on, onToggle }: { symbol: string; name:
         type="button"
         onClick={() => onToggle(symbol)}
         aria-pressed={on}
-        className={`flex min-h-9 w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${on ? 'bg-bg-elevated text-text-primary' : 'hover:bg-bg-tertiary'}`}
+        className={`flex ${LIST_ROW} w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${on ? 'bg-bg-elevated text-text-primary' : 'hover:bg-bg-tertiary'}`}
       >
         <span className={`flex h-4 w-4 shrink-0 items-center justify-center ${on ? 'text-text-primary' : 'text-transparent'}`}>
           <Check {...ICON_SM} aria-hidden />
@@ -136,7 +136,7 @@ function RowButton({
         onClick={() => onToggle(row.symbol)}
         aria-pressed={on}
         disabled={disabled}
-        className={`flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors disabled:opacity-40 ${
+        className={`flex ${LIST_ROW} min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors disabled:opacity-40 ${
           on ? 'bg-bg-elevated text-text-primary' : 'hover:bg-bg-tertiary'
         }`}
       >
@@ -262,7 +262,7 @@ function SourcePickerDialog({ selected, onChange, dialogTitle, onClose, disabled
       }
     >
       <div className="flex min-w-0 flex-1 flex-col gap-2 border-r border-border/40 p-3" data-picker-source>
-        <label className={`flex items-center gap-2 rounded-md bg-bg-tertiary px-2 ${CONTROL_H.md}`}>
+        <label className={`flex items-center gap-2 rounded-md bg-bg-tertiary px-2 ${CONTROL_H.md} ${TOUCH_FIELD_H}`}>
           <Search {...ICON_SM} className="shrink-0 text-text-muted" aria-hidden />
           {/* design-lint-ignore: 아이콘과 한 상자인 검색칸 — 바깥 상자가 입력칸 모양(높이·바탕)을 맡는다 */}
           <input
@@ -270,7 +270,7 @@ function SourcePickerDialog({ selected, onChange, dialogTitle, onClose, disabled
             onChange={(e) => setQuery(e.target.value)}
             placeholder="목록 안에서 찾기 (이름·코드·초성)"
             aria-label="목록 안에서 찾기"
-            className="h-full min-w-0 flex-1 bg-transparent text-xs outline-none"
+            className={`h-full min-w-0 flex-1 bg-transparent text-xs outline-none ${TOUCH_FIELD_TEXT}`}
           />
         </label>
         {/* 음수 여백(design:lint 허용 목록): 스크롤 상자를 좌우 4px 밖으로 — 안쪽 여백 px-1 과 짝(포커스 테두리 · 줄 바탕이 잘리지 않게) */}
@@ -294,7 +294,7 @@ function SourcePickerDialog({ selected, onChange, dialogTitle, onClose, disabled
         {/* 음수 여백(design:lint 허용 목록): 스크롤 상자를 좌우 4px 밖으로 — 안쪽 여백 px-1 과 짝(포커스 테두리 · 줄 바탕이 잘리지 않게) */}
         <ul data-list className="-mx-1 min-h-0 flex-1 space-y-1 overflow-y-auto px-1 [scrollbar-gutter:stable]">
           {draft.map((s) => (
-            <li key={s} className="flex min-h-9 items-center gap-2 rounded-md px-2 py-1 hover:bg-bg-tertiary/60">
+            <li key={s} className={`flex ${LIST_ROW} items-center gap-2 rounded-md px-2 py-1 hover:bg-bg-tertiary/60`}>
               <span className="min-w-0 flex-1 truncate text-xs font-medium" data-tip-clip={nameOf(s)}>
                 {nameOf(s)}
               </span>
@@ -448,7 +448,7 @@ function CatalogPickerDialog({
         )}
         {leftTab === 'list' && (
           <>
-        <label className={`flex items-center gap-2 rounded-md bg-bg-tertiary px-2 ${CONTROL_H.md}`}>
+        <label className={`flex items-center gap-2 rounded-md bg-bg-tertiary px-2 ${CONTROL_H.md} ${TOUCH_FIELD_H}`}>
           <Search {...ICON_SM} className="shrink-0 text-text-muted" aria-hidden />
           {/* design-lint-ignore: 아이콘과 한 상자인 검색칸 — 바깥 상자가 입력칸 모양(높이·바탕)을 맡는다 */}
           <input
@@ -456,7 +456,7 @@ function CatalogPickerDialog({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="목록 안에서 찾기 (이름·티커·초성)"
             aria-label="목록 안에서 찾기"
-            className="h-full min-w-0 flex-1 bg-transparent text-xs outline-none"
+            className={`h-full min-w-0 flex-1 bg-transparent text-xs outline-none ${TOUCH_FIELD_TEXT}`}
           />
         </label>
         <Button size="sm" onClick={() => add(watchAll)} disabled={!watchAll.length || full || watchAll.every((s) => sel.has(s))} className="self-start">
@@ -601,7 +601,7 @@ function CatalogPickerDialog({
         {/* 음수 여백(design:lint 허용 목록): 스크롤 상자를 좌우 4px 밖으로 — 안쪽 여백 px-1 과 짝(포커스 테두리 · 줄 바탕이 잘리지 않게) */}
         <ul data-list className="-mx-1 min-h-0 flex-1 space-y-1 overflow-y-auto px-1 [scrollbar-gutter:stable]">
           {draft.map((s) => (
-            <li key={s} className="flex min-h-9 items-center gap-2 rounded-md px-2 py-1 hover:bg-bg-tertiary/60">
+            <li key={s} className={`flex ${LIST_ROW} items-center gap-2 rounded-md px-2 py-1 hover:bg-bg-tertiary/60`}>
               <span className="min-w-0 flex-1 truncate">
                 <StockName symbol={s} size="sm" />
               </span>
