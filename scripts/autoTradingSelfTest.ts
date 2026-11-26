@@ -27,6 +27,7 @@ import { fetchQuotes } from '../server/quoteService';
 import { runExitChecks, runSignalChecks, setJudgeForTest, tryBuy } from '../server/autoTrading/engine';
 import { rankBuyCandidates, recentReturn } from '../server/autoTrading/buyOrder';
 import { dailyLossBlock, earningsGuard, evaluateDailyLoss, setEarningsLookupForTest, strategyDay, tradingDaysUntil } from '../server/autoTrading/guards';
+import { isMarketClosed } from '../server/marketCalendar';
 import type { DecisionCode } from '../src/types/autoTrading';
 import { isKrSymbol } from '../src/utils/market';
 import { evaluateRule } from '../server/rules/engine';
@@ -82,14 +83,17 @@ function inflateAvgPrice(accountId: number, symbol: string, factor: number): num
   return next;
 }
 
-/** 주말을 건너뛰며 N 거래일 뒤 날짜 */
-function addTradingDays(day: string, n: number): string {
+/**
+ * N 거래일 뒤 날짜 — 앱(`guards.tradingDaysUntil`)과 **같은 휴장일 달력**(`server/marketCalendar` 의 `isMarketClosed` · 종목의 시장)으로 센다.
+ * (주말만 빼면 추수감사절 같은 휴장일이 끼는 날 앱의 「N거래일 전」 과 하루 어긋났다 — 147차)
+ */
+function addTradingDays(day: string, n: number, symbol = SYMBOL): string {
+  const market = isKrSymbol(symbol) ? 'KR' : 'US';
   const d = new Date(`${day}T12:00:00Z`);
   let left = n;
   while (left > 0) {
     d.setUTCDate(d.getUTCDate() + 1);
-    const w = d.getUTCDay();
-    if (w !== 0 && w !== 6) left -= 1;
+    if (!isMarketClosed(market, d.toISOString().slice(0, 10))) left -= 1;
   }
   return d.toISOString().slice(0, 10);
 }
@@ -217,6 +221,19 @@ async function main(): Promise<void> {
 
     // ── 5. 실적 발표 직전 신규 매수 회피 ──
     console.log('\n5) 실적 발표 직전 매수 회피 (3거래일)');
+    {
+      // 시험의 거래일 계산 = 앱의 거래일 계산(같은 휴장일 달력) — 「지금」 과 상관없이 휴장일(추수감사절 11/26 · 성탄절 12/25)이 낀 두 달을 모두 본다(147차)
+      const bad: string[] = [];
+      for (let t = Date.parse('2026-11-01T12:00:00Z'); t <= Date.parse('2026-12-31T12:00:00Z'); t += 86_400_000) {
+        const d = new Date(t).toISOString().slice(0, 10);
+        for (const n of [1, 2, 3]) {
+          const to = addTradingDays(d, n);
+          if (tradingDaysUntil(d, to, 'US') !== n) bad.push(`${d}+${n}=${to}`);
+        }
+      }
+      check('시험의 「N거래일 뒤」 가 앱의 거래일 계산(휴장일 달력)과 같다 — 2026-11 · 12 매일 · 1~3거래일', bad.length === 0, bad.slice(0, 3).join(' '));
+      check('추수감사절(11/26)을 건너뛴다 — 11/25 + 1거래일 = 11/27', addTradingDays('2026-11-25', 1) === '2026-11-27', addTradingDays('2026-11-25', 1));
+    }
     const price = loadCandles(SYMBOL, '1d', 1).at(-1)?.close ?? 300;
     const guarded: AccountStrategy = { ...base, earningsBlackoutDays: 3, dailyLossLimitPercent: 0 };
     saveStrategy(account.id, guarded, exists);
