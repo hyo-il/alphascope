@@ -50,6 +50,7 @@ export const LATER_COMMITS: readonly string[] = [
   '102e629', // 149차 v2.76.0 C — 계좌 · 자동매매 점검 줄(ui/tokens.ts 손가락 줄 사이 · 칩 크기 이름 더하기 · 공용 부품)
   '23e3771', // 149차 v2.76.0 D — 시험 mobileaccount:test · ui/tokens.ts 손가락 표 줄 이름 더하기
   '64b1f52', // 149차 v2.76.0 E — 처음 켜기 창 폰 제목 한 줄(Dialog 선택 옵션 · 화면만)
+  'dcf28e9', // 149차 v2.76.0 E — 모의 배지 폰 이름 되돌림(화면만)
 ];
 
 const covers = (spec: string, file: string) => file === spec || file.startsWith(`${spec.replace(/\/$/, '')}/`);
