@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { InlineSpinner } from '../common/LoadingOverlay';
 import { SkeletonTable } from '../common/SkeletonLoader';
 import Badge from '../ui/Badge';
+import PageTitle from '../ui/PageTitle';
 import { LIST_TABLE_ROW, TABLE_NAME_COL, TABLE_NUM_COL } from '../ui/tokens';
 // 키 문자열을 여기에 다시 적지 않는다 — 옛 키만 지워 '비우기' 가 동작하지 않던 원인이다.
 import { RECENT_KEY, WATCHLIST_KEYS } from '../../hooks/useWatchlist';
@@ -88,7 +89,7 @@ export default function Settings({ isMock, engineDown, section }: Props) {
   if (section === 'account') {
     return (
       <div className="h-full overflow-y-auto p-4">
-        <h2 className="mb-4 text-base font-semibold">계좌 설정</h2>
+        <PageTitle className="mb-4 text-base font-semibold">계좌 설정</PageTitle>
 
         <section className="mb-6 max-w-2xl">
           <h3 className="mb-1 text-xs font-medium text-text-secondary">증권사 연결</h3>
@@ -127,7 +128,7 @@ export default function Settings({ isMock, engineDown, section }: Props) {
 
   return (
     <div className="h-full overflow-y-auto p-4">
-      <h2 className="mb-4 text-base font-semibold">앱 기능 설정</h2>
+      <PageTitle className="mb-4 text-base font-semibold">앱 기능 설정</PageTitle>
 
       <section className="mb-6 max-w-2xl">
         <h3 className="mb-1 text-xs font-medium text-text-secondary">서비스 상태</h3>

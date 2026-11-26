@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { ICON_SM } from '../ui/icon';
+import PageTitle from '../ui/PageTitle';
 import { CHANGELOG } from '../../data/changelog';
 
 /**
@@ -23,7 +24,7 @@ export default function Changelog() {
     });
   return (
     <div className="h-full overflow-y-auto p-4">
-      <h2 className="mb-1 text-base font-semibold">업데이트 내역</h2>
+      <PageTitle className="mb-1 text-base font-semibold">업데이트 내역</PageTitle>
       <p className="mb-4 text-caption text-text-muted">
         최신 버전이 맨 위입니다. 줄을 누르면 바뀐 내용이 펼쳐집니다.
       </p>

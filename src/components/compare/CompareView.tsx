@@ -1,6 +1,7 @@
 import { PANEL_PAD } from '../ui/tokens';
 import Select from '../ui/Select';
 import InfoTip from '../ui/InfoTip';
+import PageTitle from '../ui/PageTitle';
 import { Button, DisclosureButton, Segmented } from '../ui';
 import type { Timeframe } from '../../types/toss';
 import { useEffect, useState } from 'react';
@@ -74,7 +75,7 @@ export default function CompareView({ currentSymbol }: Props) {
   return (
     <div className={`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto ${PANEL_PAD}`}>
       <header className="flex flex-wrap items-center gap-2">
-        <h2 className="text-base font-semibold">기업 비교</h2>
+        <PageTitle className="text-base font-semibold">기업 비교</PageTitle>
         <InfoTip label="기업 비교 쓰는 법">2개부터 비교됩니다 · 오른쪽 관심 목록에서 클릭하거나 원하는 칸으로 드래그</InfoTip>
         <Segmented
           label="보기"

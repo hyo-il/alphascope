@@ -1,7 +1,7 @@
 import { formatTime } from '../../utils/dateFormat';
 import { PANEL_PAD } from '../ui/tokens';
 import { HEATMAP_SECTOR_LINE, HEATMAP_SECTOR_PAD_Y } from '../ui/tokens';
-import { Button, InfoTip, Segmented, Tabs } from '../ui';
+import { Button, InfoTip, PageTitle, Segmented, Tabs } from '../ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { squarify, type Rect } from '../../utils/treemap';
 import { formatCompactMoney, formatPrice, formatSigned, MINUS } from '../../utils/formatters';
@@ -542,7 +542,7 @@ export default function HeatmapView({ onSelectSymbol }: { onSelectSymbol: (symbo
   return (
     <div className={`@container flex h-full flex-col ${PANEL_PAD}`}>
       {/* 제목 줄 / 탭 줄을 나눈다 (디자인 규칙 7) */}
-      <h2 className="shrink-0 pb-2 text-base font-semibold text-text-primary">종목 지도</h2>
+      <PageTitle className="shrink-0 pb-2 text-base font-semibold text-text-primary">종목 지도</PageTitle>
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60">
         {/* 탭 — 시장·기간은 두 탭이 함께 쓴다. 탭은 글자 + 밑줄, 시장·기간은 회색 묶음 버튼 */}
         <Tabs

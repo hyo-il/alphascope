@@ -1,6 +1,6 @@
 import { formatTime } from '../../utils/dateFormat';
 import { PANEL_PAD, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
-import { InfoTip, Segmented, Button, IconButton } from '../ui';
+import { InfoTip, Segmented, Button, IconButton, PageTitle } from '../ui';
 import { starIconOf } from '../ui/StarIcon';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import StockName from '../common/StockName';
@@ -136,7 +136,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
   return (
     <div className={`flex h-full flex-col ${PANEL_PAD}`}>
       {/* 제목 줄 / 고르기 줄을 나눈다 (디자인 규칙 7) */}
-      <h2 className="shrink-0 pb-2 text-base font-semibold text-text-primary">실시간 순위</h2>
+      <PageTitle className="shrink-0 pb-2 text-base font-semibold text-text-primary">실시간 순위</PageTitle>
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
         <Segmented
           label="시장"

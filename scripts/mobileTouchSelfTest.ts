@@ -416,6 +416,50 @@ try {
     await ctx.close();
   }
 
+  // ───────── 9 폰 제목 숨김 ─────────
+  {
+    const PAGES: { hash: string; title: string }[] = [
+      { hash: '#/portfolio', title: '계좌 관리' },
+      { hash: '#/rules', title: '매매 규칙' },
+      { hash: '#/swing', title: '매수 판단' },
+      { hash: '#/heatmap', title: '종목 지도' },
+      { hash: '#/ranking', title: '실시간 순위' },
+      { hash: '#/calendar', title: '증시 일정' },
+      { hash: '#/compare', title: '기업 비교' },
+      { hash: '#/settings-account', title: '계좌 설정' },
+      { hash: '#/settings-changelog', title: '업데이트 내역' },
+    ];
+    const titleState = (page: Page, title: string) =>
+      page.evaluate((t) => {
+        const h = [...document.querySelectorAll('h2')].find((x) => x.textContent?.trim() === t);
+        if (!h) return 'none';
+        const r = h.getBoundingClientRect();
+        return r.width <= 1 && r.height <= 1 && getComputedStyle(h).position === 'absolute' ? 'sr-only' : 'visible';
+      }, title);
+    for (const size of [PHONE, PAD, { width: 1280, height: 1080 }]) {
+      const { page, ctx } = await open(browser, size, '#/portfolio');
+      const states: string[] = [];
+      for (const p of PAGES) {
+        await page.evaluate((h) => (location.hash = h), p.hash);
+        await page.waitForTimeout(700);
+        states.push(`${p.title}:${await titleState(page, p.title)}`);
+      }
+      const want = size === PHONE ? 'sr-only' : 'visible';
+      check(`[147-9] ${size.width} 화면 제목 ${PAGES.length}곳(PageHeader · 직접 그린 제목) = ${size === PHONE ? '숨김(화면 읽기용으로는 있음)' : '보임'}`, states.every((x) => x.endsWith(`:${want}`)), states.join(' · '));
+      if (size === PHONE) {
+        await page.evaluate(() => (location.hash = '#/rules'));
+        await page.waitForTimeout(700);
+        const right = await page.getByRole('button', { name: '새 규칙 만들기' }).boundingBox();
+        check('[147-9] 402 제목 옆 단추(매매 규칙 [새 규칙 만들기])는 본문 맨 위 한 줄에 보임', right != null && right.y < 160, JSON.stringify(right));
+        await page.evaluate(() => (location.hash = '#/portfolio'));
+        await page.waitForTimeout(700);
+        const tabs = await page.getByRole('tablist', { name: '계좌 유형' }).boundingBox();
+        check('[147-9] 402 탭 줄(계좌 유형)은 그대로 보임', tabs != null && tabs.height > 20, JSON.stringify(tabs));
+      }
+      await ctx.close();
+    }
+  }
+
   // ───────── 13 바뀐 파일 ─────────
   {
     const changed = execFileSync('git', ['diff', '--name-only', BASE], { cwd: root, encoding: 'utf8' }).split('\n').filter(Boolean);

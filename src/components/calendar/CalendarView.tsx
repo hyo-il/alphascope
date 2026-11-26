@@ -1,6 +1,6 @@
 import { PANEL_PAD } from '../ui/tokens';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { IconButton, InfoTip, Button } from '../ui';
+import { IconButton, InfoTip, Button, PageTitle } from '../ui';
 import WarnIcon from '../ui/WarnIcon';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import DatePicker from './DatePicker';
@@ -118,7 +118,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
     <div className={`h-full overflow-auto ${PANEL_PAD}`}>
       <div className="space-y-3">
         {/* 제목 줄 / 고르기 줄을 나눈다 (디자인 규칙 7) */}
-        <h2 className="text-base font-semibold text-text-primary">증시 일정</h2>
+        <PageTitle className="text-base font-semibold text-text-primary">증시 일정</PageTitle>
         <header className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1">
             <IconButton icon={ChevronLeft} label="이전 달" size="sm" onClick={() => move(-1)} />
