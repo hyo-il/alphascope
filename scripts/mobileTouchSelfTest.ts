@@ -10,16 +10,16 @@
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
 import { chromium, type Browser, type CDPSession, type Page } from 'playwright';
 import { createBrowserStepGuard } from './lib/browserStepGuard';
-import { tradingDiff } from './lib/tradingDiff';
+import { chasuDiff, type Chasu } from './lib/chasuRange';
 
 const root = path.resolve(import.meta.dirname, '..');
 const PORT = 5196;
 const WEB = `http://127.0.0.1:${PORT}`;
 /** 기준 커밋(v2.73.0) — 13 은 여기서부터 바뀐 것을 본다 */
 const BASE = '2fe322c';
+const CHASU: Chasu = { base: BASE, version: 'v2.74.0' }; // 그 차수 범위만(scripts/lib/chasuRange.ts)
 
 const guard = createBrowserStepGuard();
 let pass = 0;
@@ -624,16 +624,16 @@ try {
 
   // ───────── 13 바뀐 파일 ─────────
   {
-    // 뒤 지시서가 시킨 변경(148차 표 감싸기 — 계좌 · 규칙 · 백테스트 화면의 표)은 그 지시서 몫을 빼고 본다(`lib/tradingDiff` — 자산 시험들과 같은 방법)
-    const changed = tradingDiff(root, BASE, ['server', 'deploy', 'python', 'db', 'src']).stdout.split('\n').filter(Boolean);
+    // 147차 범위만 본다(`lib/chasuRange` — 뒤 차수 변경은 그 차수 시험이 본다)
+    const changed = chasuDiff(root, CHASU, ['--name-only'], ['server', 'deploy', 'python', 'db', 'src']).stdout.split('\n').filter(Boolean);
     const trade = changed.filter((f) => /^(server\/|deploy\/|python\/|db\/|src\/services\/toss\/|src\/components\/(paper-trading|portfolio|swing|rules|backtest|records|auth)\/|src\/hooks\/(useAuth|usePaperTrading|useAutoTrading|usePaperQuickBuy)\.ts|src\/components\/chart\/QuickOrderPanel\.tsx)/.test(f));
     check('[147-13] 매매 · 주문 · 로그인 · 서버 코드 바뀐 파일 0', trade.length === 0, trade.join(' '));
     const shared = ['src/services/analysis/horizons.ts', 'src/services/toss', 'src/types', 'src/utils', 'src/data/changelog.ts'];
-    const diff = execFileSync('git', ['diff', '-U0', BASE, '--', ...shared], { cwd: root, encoding: 'utf8' });
+    const diff = chasuDiff(root, CHASU, ['-U0'], [...shared]).stdout;
     const files = [...diff.matchAll(/^\+\+\+ b\/(.+)$/gm)].map((m) => m[1]);
     const removed = diff.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
     check('[147-13] 서버가 함께 쓰는 src 바뀐 줄 0(changelog 더하기 제외)', files.every((f) => f === 'src/data/changelog.ts') && removed.length === 0, `${files.join(' ')} · 지운 줄 ${removed.length}`);
-    const dc = execFileSync('git', ['diff', '-U0', BASE, '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' });
+    const dc = chasuDiff(root, CHASU, ['-U0'], ['scripts/designCheck.ts']).stdout;
     const dcRemoved = dc.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
     check('[147-13] designCheck.ts 판정 부분 바뀐 줄 0 — 지운 줄 0(측정 항목 더하기만)', dcRemoved.length === 0, dcRemoved.join(' / '));
   }

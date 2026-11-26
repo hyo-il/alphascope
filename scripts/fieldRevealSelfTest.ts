@@ -11,9 +11,11 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { serverSharedSrc } from './lib/serverSharedSrc';
+import { chasuDiff, type Chasu } from './lib/chasuRange';
 
 const root = path.resolve(import.meta.dirname, '..');
 const BASE = '536ac58'; // 141차 기준 커밋(v2.71.1)
+const CHASU: Chasu = { base: BASE, version: 'v2.71.2' }; // 그 차수 범위만(scripts/lib/chasuRange.ts)
 
 let pass = 0;
 let fail = 0;
@@ -84,7 +86,7 @@ const noComments = (t: string) => t.split('\n').filter((l) => !/^\s*(\*|\/\/|\/\
   if (head !== 'v2.71.1' && head !== 'v2.71.2') console.log(`건너뜀  [141-5] 지금 버전 ${head} — 141차(v2.71.2) 범위 시험`);
   else {
     const git = (...a: string[]) => execFileSync('git', a, { cwd: root, encoding: 'utf8' });
-    const diff = (...p: string[]) => git('diff', '--name-only', BASE, '--', ...p).trim();
+    const diff = (...p: string[]) => chasuDiff(root, CHASU, ['--name-only'], [...p]).stdout.trim();
     check(`[141-5] git diff ${BASE} -- server python src/services(토스 · 주문 · 로그인 서버) = 0개`, diff('server', 'python', 'src/services') === '', diff('server', 'python', 'src/services'));
     const ui = diff('src/components/chart/QuickOrderPanel.tsx', 'src/components/paper-trading/AutoTradeSettings.tsx', 'src/components/paper-trading/AutoTradeWizard.tsx', 'src/components/auth');
     check('[141-5] 주문 화면(빠른 주문) · 계좌 자동매매 설정 · 로그인 화면 바뀐 파일 0', ui === '', ui);
@@ -92,7 +94,7 @@ const noComments = (t: string) => t.split('\n').filter((l) => !/^\s*(\*|\/\/|\/\
     const CHANGELOG = 'src/data/changelog.ts';
     const touched = diff(...shared.closure.filter((f) => f !== CHANGELOG));
     check(`[141-5] 서버가 함께 쓰는 src ${shared.direct.length}개 + 그 가져오기 파일(전체 ${shared.closure.length}개 · 업데이트 내역 밖) 바뀐 줄 0`, shared.direct.length === 54 && touched === '', `${shared.direct.length} · ${touched}`);
-    const cl = git('diff', '-U0', BASE, '--', CHANGELOG).split('\n');
+    const cl = chasuDiff(root, CHASU, ['-U0'], [CHANGELOG]).stdout.split('\n');
     check('[141-5] 업데이트 내역(changelog.ts)은 맨 앞 항목 더하기만(지운 · 바꾼 줄 0)', cl.filter((l) => /^-(?!--)/.test(l)).length === 0);
     const ops = diff('deploy', 'db', 'scripts/lib/testServerEnv.ts', 'scripts/lib/requireCopyDb.ts', 'scripts/lib/requireTossKeys.ts', '.env.example');
     check('[141-5] 배포 · DB 정의 · 시험 서버 스위치 · 사본 DB 막기 바뀐 파일 0', ops === '', ops);
@@ -100,7 +102,7 @@ const noComments = (t: string) => t.split('\n').filter((l) => !/^\s*(\*|\/\/|\/\
     const baseDc = git('show', `${BASE}:scripts/designCheck.ts`).split('\n');
     const startT = baseDc.findIndex((l) => l.startsWith('function targets(): Target[] {')) + 1;
     const endT = baseDc.findIndex((l) => l === '  return list;') + 1;
-    const hunks = [...git('diff', '-U0', BASE, '--', 'scripts/designCheck.ts').matchAll(/^@@ -(\d+)(?:,(\d+))? /gm)].map((m) => ({ from: Number(m[1]), n: m[2] == null ? 1 : Number(m[2]) }));
+    const hunks = [...chasuDiff(root, CHASU, ['-U0'], ['scripts/designCheck.ts']).stdout.matchAll(/^@@ -(\d+)(?:,(\d+))? /gm)].map((m) => ({ from: Number(m[1]), n: m[2] == null ? 1 : Number(m[2]) }));
     const outside = hunks.filter((h) => h.from <= startT || h.from + Math.max(h.n, 1) - 1 >= endT);
     check(`[141-5] designCheck.ts — 판정 부분(장면 목록 ${startT}~${endT}줄 밖) 바뀐 줄 0(바뀐 덩어리 ${hunks.length}개 모두 장면)`, startT > 0 && endT > startT && outside.length === 0, JSON.stringify(outside));
   }

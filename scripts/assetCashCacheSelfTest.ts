@@ -20,8 +20,8 @@ import { cashSheetNow } from '../server/asset/cashView';
 import { SALARY_ITEM } from '../server/asset/cashSchedule';
 import { book } from './fixtures/asset/cashSheetBook';
 import { fakeGoogleFetch, flowBook, type FakeGoogle, type FlowBook } from './fixtures/asset/cashFlowBook';
-import { tradingDiff } from './lib/tradingDiff';
 import type { AssetCashKey } from '../src/types/asset';
+import { chasuDiff, type Chasu } from './lib/chasuRange';
 
 let pass = 0;
 let fail = 0;
@@ -42,6 +42,7 @@ process.env.ASSET_PRICE_WRITE_ENABLED = 'false';
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const BASE = '1eccf3a';
+const CHASU: Chasu = { base: BASE, version: 'v2.72.1' }; // 그 차수 범위만(scripts/lib/chasuRange.ts)
 const TODAY = '2026-11-18';
 const MONTH = TODAY.slice(0, 7);
 
@@ -130,14 +131,14 @@ try {
     calls(rt) === 0 && calls(man) === 0 && calls(cm) === 1 && calls(write) === 1 && /finally \{[\s\S]*resetSheetCache\(\);/.test(write), `routes ${calls(rt)} · manual ${calls(man)} · cashMoves ${calls(cm)}`);
 
   // 4. 바뀐 파일
-  const trading = tradingDiff(root, BASE, ['server/autoTrading', 'server/buyJudge', 'server/rules', 'server/paperTradingService.ts', 'server/paperPerformanceService.ts', 'server/paperSnapshotScheduler.ts', 'server/aiCheck', 'server/auth.ts', 'server/authGuard.ts', 'server/index.ts', 'src/services', 'python', 'server/asset/trade.ts', 'server/asset/google.ts', 'server/asset/sheet.ts']);
-  check(`[144-4] 매매 · 주문 · 로그인 · 보유 쓰기 · 구글 쓰기 · 시트 읽기 코드 바뀐 파일 0(${BASE} 와 지금)`, trading.status === 0 && trading.stdout.trim() === '', trading.stdout.trim() || trading.stderr.trim());
+  const trading = chasuDiff(root, CHASU, ['--name-only'], ['server/autoTrading', 'server/buyJudge', 'server/rules', 'server/paperTradingService.ts', 'server/paperPerformanceService.ts', 'server/paperSnapshotScheduler.ts', 'server/aiCheck', 'server/auth.ts', 'server/authGuard.ts', 'server/index.ts', 'src/services', 'python', 'server/asset/trade.ts', 'server/asset/google.ts', 'server/asset/sheet.ts']);
+  check(`[144-4] 매매 · 주문 · 로그인 · 보유 쓰기 · 구글 쓰기 · 시트 읽기 코드 바뀐 파일 0(${BASE} → 그 차수 끝)`, trading.status === 0 && trading.stdout.trim() === '', trading.stdout.trim() || trading.stderr.trim());
   const list = spawnSync('npx', ['tsc', '-p', 'tsconfig.node.json', '--listFilesOnly'], { cwd: root, encoding: 'utf8' });
   const shared = list.stdout.split('\n').map((l) => path.relative(root, l.trim())).filter((f) => f.startsWith('src/'));
-  const changedShared = tradingDiff(root, BASE, shared).stdout.trim().split('\n').filter(Boolean); // 뒤 지시서가 바꾼 파일은 그 몫을 빼고(147차 — ui/tokens.ts · tooltip/hover.ts 는 시험 스크립트가 가져와 이 목록에 든다)
-  const deleted = spawnSync('git', ['diff', '-U0', BASE, '--', 'src/data/changelog.ts'], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
+  const changedShared = chasuDiff(root, CHASU, ['--name-only'], shared).stdout.trim().split('\n').filter(Boolean); // 그 차수 범위만(lib/chasuRange)
+  const deleted = chasuDiff(root, CHASU, ['-U0'], ['src/data/changelog.ts']).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
   check(`[144-4] 서버가 함께 쓰는 src/ ${shared.length}개 가운데 바뀐 줄 0(changelog 더하기 제외)`, shared.length > 30 && changedShared.every((f) => f === 'src/data/changelog.ts') && deleted.length === 0, `${changedShared.join(',')} · 지운 줄 ${deleted.length}`);
-  const dc = spawnSync('git', ['diff', '-U0', BASE, '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
+  const dc = chasuDiff(root, CHASU, ['-U0'], ['scripts/designCheck.ts']).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
   check('[144-4] designCheck.ts 판정 부분 바뀐 줄 0 — 지운 줄 0(장면 더하기만)', dc.length === 0, `지운 줄 ${dc.length}`);
   const SECRETS = ['100000', '100,000', '50000', '50,000', '가짜은행0', '가짜은행1', '가짜종목'];
   check('[144-3] 로그에 금액 · 계좌 이름 0', logged.every((l) => !SECRETS.some((s) => l.includes(s))), `${logged.filter((l) => SECRETS.some((s) => l.includes(s))).length}줄`);

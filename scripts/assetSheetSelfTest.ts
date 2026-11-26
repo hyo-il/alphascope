@@ -11,7 +11,7 @@
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import 'dotenv/config';
 import { spawnSync } from 'node:child_process';
-import { tradingDiff } from './lib/tradingDiff';
+import { chasuDiff } from './lib/chasuRange';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -361,8 +361,8 @@ try {
 }
 
 // ═══ [114-8] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0 ═══
-const diff = tradingDiff(root, 'c68fab2', ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python']);
-check('[114-8] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(c68fab2 와 지금 작업 트리)', diff.status === 0 && diff.stdout.trim() === '', diff.stdout.trim() || diff.stderr.trim());
+const diff = chasuDiff(root, { base: 'c68fab2', version: 'v2.65.1', end: '43a0b33' }, ['--name-only'], ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'server/heatmapSession.ts', 'server/quoteService.ts', 'src/services/toss', 'python']);
+check('[114-8] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 · 시세 · 장 시간 코드 바뀐 파일 0(c68fab2 → v2.65.1 끝)', diff.status === 0 && diff.stdout.trim() === '', diff.stdout.trim() || diff.stderr.trim());
 
 const leaked = SECRET.filter((x) => printed.join('\n').includes(x));
 check('[114-6] 이 시험 · 점검 스크립트 출력에 시트 ID 전체 · 금액 · 코드 · 이름 · 열쇠 값 없음', leaked.length === 0, leaked.join(','));

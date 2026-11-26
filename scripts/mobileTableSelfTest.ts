@@ -19,12 +19,14 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { chromium, type Browser, type CDPSession, type Page } from 'playwright';
 import { createBrowserStepGuard } from './lib/browserStepGuard';
+import { chasuDiff, type Chasu } from './lib/chasuRange';
 
 const root = path.resolve(import.meta.dirname, '..');
 const PORT = 5198;
 const WEB = `http://127.0.0.1:${PORT}`;
 /** 기준 커밋(v2.74.0) — 1 의 정답 파일 · 12 는 여기서부터 바뀐 것을 본다 */
 const BASE = 'cb23013';
+const CHASU: Chasu = { base: BASE, version: 'v2.75.0' }; // 그 차수 범위만(scripts/lib/chasuRange.ts)
 const FIXTURE = path.join(root, 'scripts/fixtures/mobileTable/desk.json');
 const API: Record<string, unknown> = JSON.parse(fs.readFileSync(path.join(root, 'scripts/fixtures/mobileTable/api.json'), 'utf8'));
 const CAPTURE = process.env.CAPTURE ?? '';
@@ -492,13 +494,13 @@ try {
 
   // ───────── 12 매매 · 주문 · 로그인 · 서버 코드 · 서버가 함께 쓰는 src · designCheck 판정 ─────────
   {
-    const changed = (paths: string[]) => execFileSync('git', ['diff', '--name-only', BASE, '--', ...paths], { cwd: root, encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+    const changed = (paths: string[]) => chasuDiff(root, CHASU, ['--name-only'], [...paths]).stdout.trim().split('\n').filter(Boolean);
     const server = changed(['server', 'deploy', 'python', 'db']);
     check('[148-12] 매매 · 주문 · 로그인 · 서버 코드(server · deploy · python · db) 바뀐 파일 0', server.length === 0, server.join(', '));
     // ui/tokens.ts 는 서버 프로세스가 쓰지 않지만 시험(scripts)을 거쳐 서버 타입 검사에 들어간다 — 지시서가 값을 이름으로 두라고 한 곳이라 더하기만 허용
     const ADD_ONLY = ['src/data/changelog.ts', 'src/components/ui/tokens.ts'];
     const shared = changed(['src/types', 'src/utils', 'src/services', 'src/data']).filter((f) => !ADD_ONLY.includes(f));
-    const log = execFileSync('git', ['diff', '-U0', BASE, '--', ...ADD_ONLY], { cwd: root, encoding: 'utf8' });
+    const log = chasuDiff(root, CHASU, ['-U0'], [...ADD_ONLY]).stdout;
     const removed = log.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
     check('[148-12] 서버가 함께 쓰는 src(types · utils · services · data) 바뀐 줄 0 · changelog · ui/tokens.ts 는 더하기만(지운 줄 0)', shared.length === 0 && removed.length === 0, `${shared.join(', ')} · 지운 줄 ${removed.length}`);
     const dc = changed(['scripts/designCheck.ts']);

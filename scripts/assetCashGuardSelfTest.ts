@@ -22,8 +22,8 @@ import { resetTokenCache } from '../server/asset/google';
 import { clearCashMovesForTest, clearCashSettingsForTest, readCashSettings, writeCashSettings } from '../server/asset/cashMoves';
 import { cashSheetNow } from '../server/asset/cashView';
 import { BANK, fakeGoogleFetch, flowBook, type FakeGoogle } from './fixtures/asset/cashFlowBook';
-import { tradingDiff } from './lib/tradingDiff';
 import type { AssetCashKey, AssetCashPairView } from '../src/types/asset';
+import { chasuDiff, type Chasu } from './lib/chasuRange';
 
 let pass = 0;
 let fail = 0;
@@ -170,28 +170,27 @@ try {
   // ═══ 5 · 6. 보내는 값 · 쓰기 · 기록 · 바뀐 파일 · 로그 ═══
   {
     const BASE = '54cfc1a';
-    // 142차 끝(00e8ed0)까지만 — 뒤 지시서(143차 직접 입출금 ~)가 cashMoves · 라우트를 바꿔도 142차 몫만 센다(143차 몫은 assetcashmanual:test 가 00e8ed0 부터 셈)
-    const END = '00e8ed0';
-    const cashMoves = spawnSync('git', ['diff', '--name-only', BASE, END, '--', 'server/asset/cashMoves.ts', 'server/asset/cashKeys.ts', 'server/asset/cashSchedule.ts', 'server/asset/cashBanks.ts', 'server/asset/google.ts', 'server/asset/rowOps.ts', 'server/asset/trade.ts'], { cwd: root, encoding: 'utf8' });
+    const CHASU: Chasu = { base: BASE, version: 'v2.71.3' }; // 142차 범위만(끝 00e8ed0 — scripts/lib/chasuRange.ts) · 143차 몫은 assetcashmanual:test
+    const cashMoves = chasuDiff(root, CHASU, ['--name-only'], ['server/asset/cashMoves.ts', 'server/asset/cashKeys.ts', 'server/asset/cashSchedule.ts', 'server/asset/cashBanks.ts', 'server/asset/google.ts', 'server/asset/rowOps.ts', 'server/asset/trade.ts']);
     check('[142-5] 예수금 쓰기 · 기록 · 되돌리기 · 구글 쓰기 · 보유 쓰기 파일 바뀐 줄 0(54cfc1a 와 142차 끝 00e8ed0)', cashMoves.status === 0 && cashMoves.stdout.trim() === '', cashMoves.stdout.trim());
-    const routes = spawnSync('git', ['diff', '-U0', BASE, END, '--', 'server/asset/routes.ts'], { cwd: root, encoding: 'utf8' }).stdout;
+    const routes = chasuDiff(root, CHASU, ['-U0'], ['server/asset/routes.ts']).stdout;
     const tradeRoutes = fs.readFileSync(path.join(root, 'server/asset/routes.ts'), 'utf8');
     const hunks = routes.split('\n').filter((l) => /^[-+]/.test(l) && !/^(---|\+\+\+)/.test(l));
     const touchesTrade = hunks.some((l) => /tradeCash|parseCashAmount|recordTrade|recordNewHolding|undoCashMove/.test(l));
     check('[142-5] routes.ts 매수 · 매도 · 되돌리기 줄 그대로 — 바뀐 줄은 pair · 시트 응답 · import 뿐', !touchesTrade && /tradeCash\('buy'/.test(tradeRoutes), hunks.filter((l) => /tradeCash|recordTrade/.test(l)).length.toString());
 
-    const trading = tradingDiff(root, BASE, ['server/autoTrading', 'server/buyJudge', 'server/rules', 'server/paperTradingService.ts', 'server/paperPerformanceService.ts', 'server/paperSnapshotScheduler.ts', 'server/aiCheck', 'server/marketBrief', 'server/usHalts', 'server/quoteService.ts', 'server/heatmapSession.ts', 'server/marketCalendar.ts', 'server/auth.ts', 'server/authGuard.ts', 'server/index.ts', 'src/services', 'python']);
-    check('[142-6] 매매 · 주문 · 로그인 · 시황 코드 바뀐 파일 0(54cfc1a 와 지금)', trading.status === 0 && trading.stdout.trim() === '', trading.stdout.trim() || trading.stderr.trim());
-    const serverChanged = spawnSync('git', ['diff', '--name-only', BASE, END, '--', 'server'], { cwd: root, encoding: 'utf8' }).stdout.trim().split('\n').filter(Boolean);
+    const trading = chasuDiff(root, CHASU, ['--name-only'], ['server/autoTrading', 'server/buyJudge', 'server/rules', 'server/paperTradingService.ts', 'server/paperPerformanceService.ts', 'server/paperSnapshotScheduler.ts', 'server/aiCheck', 'server/marketBrief', 'server/usHalts', 'server/quoteService.ts', 'server/heatmapSession.ts', 'server/marketCalendar.ts', 'server/auth.ts', 'server/authGuard.ts', 'server/index.ts', 'src/services', 'python']);
+    check('[142-6] 매매 · 주문 · 로그인 · 시황 코드 바뀐 파일 0(54cfc1a → 그 차수 끝)', trading.status === 0 && trading.stdout.trim() === '', trading.stdout.trim() || trading.stderr.trim());
+    const serverChanged = chasuDiff(root, CHASU, ['--name-only'], ['server']).stdout.trim().split('\n').filter(Boolean);
     check('[142-6] 서버에서 바뀐 파일은 server/asset/routes.ts 하나(142차 끝까지)', serverChanged.every((f) => f === 'server/asset/routes.ts'), serverChanged.join(','));
     const list = spawnSync('npx', ['tsc', '-p', 'tsconfig.node.json', '--listFilesOnly'], { cwd: root, encoding: 'utf8' });
     const shared = list.stdout.split('\n').map((l) => path.relative(root, l.trim())).filter((f) => f.startsWith('src/'));
-    const changedShared = tradingDiff(root, BASE, shared).stdout.trim().split('\n').filter(Boolean); // 뒤 지시서가 바꾼 파일은 그 몫을 빼고(147차 — ui/tokens.ts · tooltip/hover.ts 는 시험 스크립트가 가져와 이 목록에 든다)
+    const changedShared = chasuDiff(root, CHASU, ['--name-only'], shared).stdout.trim().split('\n').filter(Boolean); // 그 차수 범위만(lib/chasuRange)
     const ALLOWED = ['src/data/changelog.ts', 'src/types/asset.ts'];
-    const deleted = spawnSync('git', ['diff', '-U0', BASE, '--', ...ALLOWED], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
+    const deleted = chasuDiff(root, CHASU, ['-U0'], [...ALLOWED]).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
     check(`[142-6] 서버가 함께 쓰는 src/ ${shared.length}개 가운데 바뀐 것은 types/asset.ts · data/changelog.ts 뿐 · 더하기만(지운 줄 0)`,
       shared.length > 30 && changedShared.every((f) => ALLOWED.includes(f)) && changedShared.includes('src/types/asset.ts') && deleted.length === 0, `${changedShared.join(',')} · 지운 줄 ${deleted.length}`);
-    const dc = spawnSync('git', ['diff', '-U0', BASE, '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' }).stdout;
+    const dc = chasuDiff(root, CHASU, ['-U0'], ['scripts/designCheck.ts']).stdout;
     const dcDeleted = dc.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
     check('[142-6] designCheck.ts 판정 부분 바뀐 줄 0 — 지운 줄 0(장면 더하기만)', dcDeleted.length === 0, `지운 줄 ${dcDeleted.length}`);
     const leaked = logged.filter((l) => SECRETS.some((s) => l.includes(s)) || l.includes('18329') || l.includes('18,329'));

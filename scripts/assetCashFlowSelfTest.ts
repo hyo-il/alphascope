@@ -19,8 +19,8 @@ import { assetSheetConfig } from '../server/asset/config';
 import { BANK, FIXED, SALARY, deleteRow, fakeGoogleFetch, flowBook, insertRow, setCell, type FakeGoogle } from './fixtures/asset/cashFlowBook';
 import { book as cashBook, cut, cutRanges, snapshotOf } from './fixtures/asset/cashSheetBook';
 import { parseAssetSheet, sheetRanges } from '../server/asset/sheet';
-import { tradingDiff } from './lib/tradingDiff';
 import type { AssetCashKey } from '../src/types/asset';
+import { chasuDiff, type Chasu } from './lib/chasuRange';
 
 let pass = 0;
 let fail = 0;
@@ -398,8 +398,8 @@ try {
     };
     const order = (body: string, write: string) => body.indexOf('parseCashAmount(') >= 0 && body.indexOf('parseCashAmount(') < body.indexOf(`${write}(`) && body.indexOf(`${write}(`) < body.indexOf('tradeCash(');
     check('[139-6] 주소 순서 — 금액 검사 → 보유 쓰기(recordTrade · recordNewHolding) → 그 뒤에만 예수금(tradeCash)', order(route('/api/asset/trade'), 'recordTrade') && order(route('/api/asset/trade/new'), 'recordNewHolding'));
-    const tradeDiff = spawnSync('git', ['diff', '--name-only', '91622e3', '--', 'server/asset/trade.ts', 'server/asset/rowOps.ts'], { cwd: root, encoding: 'utf8' });
-    check('[139-6] 보유 쓰기 코드(trade.ts · rowOps.ts) 바뀐 줄 0(91622e3 와 지금)', tradeDiff.status === 0 && tradeDiff.stdout.trim() === '', tradeDiff.stdout.trim());
+    const tradeDiff = chasuDiff(root, { base: '91622e3', version: 'v2.71.0' }, ['--name-only'], ['server/asset/trade.ts', 'server/asset/rowOps.ts']);
+    check('[139-6] 보유 쓰기 코드(trade.ts · rowOps.ts) 바뀐 줄 0(91622e3 → 그 차수 끝)', tradeDiff.status === 0 && tradeDiff.stdout.trim() === '', tradeDiff.stdout.trim());
     clearCashSettingsForTest();
   }
 
@@ -460,10 +460,11 @@ try {
     clearCashSettingsForTest();
   }
 
-  // ═══ 10. 바뀐 파일 · 총 자산 바이트(기준 91622e3 = v2.70.4 와 지금 작업 트리) ═══
+  // ═══ 10. 바뀐 파일 · 총 자산 바이트(기준 91622e3 = v2.70.4 → 139차 끝 — lib/chasuRange) ═══
   {
     const BASE = '91622e3';
-    const trading = tradingDiff(root, BASE, ['server/autoTrading', 'server/buyJudge', 'server/rules', 'server/paperTradingService.ts', 'server/paperPerformanceService.ts', 'server/paperSnapshotScheduler.ts', 'server/aiCheck', 'server/marketBrief', 'server/usHalts', 'server/quoteService.ts', 'server/heatmapSession.ts', 'server/marketCalendar.ts', 'server/auth.ts', 'server/authGuard.ts', 'src/services', 'python', 'server/asset/trade.ts', 'server/asset/rowOps.ts']);
+    const CHASU: Chasu = { base: BASE, version: 'v2.71.0' }; // 그 차수 범위만(scripts/lib/chasuRange.ts)
+    const trading = chasuDiff(root, CHASU, ['--name-only'], ['server/autoTrading', 'server/buyJudge', 'server/rules', 'server/paperTradingService.ts', 'server/paperPerformanceService.ts', 'server/paperSnapshotScheduler.ts', 'server/aiCheck', 'server/marketBrief', 'server/usHalts', 'server/quoteService.ts', 'server/heatmapSession.ts', 'server/marketCalendar.ts', 'server/auth.ts', 'server/authGuard.ts', 'src/services', 'python', 'server/asset/trade.ts', 'server/asset/rowOps.ts']);
     check('[139-10] 매매 · 주문 · 자동매매 · 시세 · 휴장일 · 로그인 · 보유 쓰기(trade.ts · rowOps.ts) 코드 바뀐 파일 0', trading.status === 0 && trading.stdout.trim() === '', trading.stdout.trim() || trading.stderr.trim());
     // 총 자산 계산 — 138차 정답(옛 모양 가짜 값 → computeAssetTotals · 비율 조정 · 하루 기록 · 계좌 · 종목별)과 바이트까지 같음
     const r = sheetRanges();
@@ -473,14 +474,13 @@ try {
     check('[139-10] 총 자산 계산 바이트 같음(computeAssetTotals 같은 입력 → 같은 결과 · fixtures/asset/cashBaseline.json)', now === baseline, `길이 ${now.length} / ${baseline.length}`);
     const list = spawnSync('npx', ['tsc', '-p', 'tsconfig.node.json', '--listFilesOnly'], { cwd: root, encoding: 'utf8' });
     const shared = list.stdout.split('\n').map((l) => path.relative(root, l.trim())).filter((f) => f.startsWith('src/'));
-    // 이 차수 커밋이 「뒤 지시서 목록」(tradingDiff) 에 들어가도 빠지지 않게 기준에서 그대로 git diff
-    const changedShared = tradingDiff(root, BASE, shared).stdout.trim().split('\n').filter(Boolean); // 뒤 지시서가 바꾼 파일은 그 몫을 빼고(147차 — ui/tokens.ts · tooltip/hover.ts 는 시험 스크립트가 가져와 이 목록에 든다)
+    // 139차 범위만(scripts/lib/chasuRange.ts — 기준 → 그 차수 끝)
+    const changedShared = chasuDiff(root, CHASU, ['--name-only'], shared).stdout.trim().split('\n').filter(Boolean); // 그 차수 범위만(lib/chasuRange)
     const ALLOWED = ['src/data/changelog.ts', 'src/types/asset.ts'];
-    const deleted = spawnSync('git', ['diff', '-U0', BASE, '--', ...ALLOWED], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
+    const deleted = chasuDiff(root, CHASU, ['-U0'], [...ALLOWED]).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
     check(`[139-10] 서버가 함께 쓰는 src/ ${shared.length}개 가운데 바뀐 것은 types/asset.ts · data/changelog.ts 뿐 · 더하기만(지운 줄 0)`,
       shared.length > 30 && changedShared.every((f) => ALLOWED.includes(f)) && changedShared.includes('src/types/asset.ts') && deleted.length === 0, `${changedShared.join(',')} · 지운 줄 ${deleted.length}`);
-    // 139차 끝(f5d753e)까지만 — 뒤 지시서(140차~)가 장면을 더해도 139차 몫만 센다(140차 몫은 assetcasheasy:test 가 f5d753e 부터 셈)
-    const dc = spawnSync('git', ['diff', '-U0', BASE, 'f5d753e', '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' }).stdout;
+    const dc = chasuDiff(root, CHASU, ['-U0'], ['scripts/designCheck.ts']).stdout;
     const dcDeleted = dc.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
     check('[139-10] designCheck.ts 판정 부분 바뀐 줄 0 — 지운 줄 0 · 더한 곳은 견본 import 한 줄 · 장면 묶음 한 곳(현금자동반영 · 예수금줄)', dcDeleted.length === 0 && (dc.match(/^@@ /gm) ?? []).length === 2 && dc.includes('현금자동반영') && dc.includes('예수금줄'), `지운 줄 ${dcDeleted.length}`);
   }

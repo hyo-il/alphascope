@@ -15,6 +15,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
+import { chasuDiff, chasuLabel, type Chasu } from './lib/chasuRange';
 import { serverSharedSrc } from './lib/serverSharedSrc';
 import { appProgram, iconTextButtons, screenFiles, titleAttrs } from './lib/tooltipTitles';
 import { createTipController, type TipClock } from '../src/components/ui/tooltip/hover';
@@ -421,20 +422,20 @@ check(
   const BASE = '18a9099';
   if (head !== 'v2.69.0' && head !== 'v2.69.1') console.log(`건너뜀  [129-6] 지금 버전 ${head} — 129차(v2.69.1) 범위 시험`);
   else {
-    const END = '72679bb'; // 129차 마지막 커밋(v2.69.1) — 130차 커밋이 더해져도 이 시험은 129차 범위만 본다
-    const diff = (...p: string[]) => execFileSync('git', ['diff', '--name-only', `${BASE}..${END}`, '--', ...p], { cwd: root, encoding: 'utf8' }).trim();
-    check(`[129-6] git diff ${BASE}..${END} -- server python src/services = 0개`, diff('server', 'python', 'src/services') === '', diff('server', 'python', 'src/services'));
+    const C129: Chasu = { base: BASE, version: 'v2.69.1', end: '72679bb' }; // 끝 = PROMPTS_INDEX 그 줄 마지막 해시(changelog 커밋 뒤 고침 커밋이 더 있었음)
+    const diff = (...p: string[]) => chasuDiff(root, C129, ['--name-only'], p).stdout.trim();
+    check(`[129-6] git diff ${chasuLabel(root, C129)} -- server python src/services = 0개`, diff('server', 'python', 'src/services') === '', diff('server', 'python', 'src/services'));
     const shared = serverSharedSrc();
     // 업데이트 내역(changelog.ts)은 서버가 버전 표시에 읽어 54개 안이지만, 문서 4종(지시서 H)으로 맨 앞 항목을 더한다 — 더하기만(지운 줄 0) 따로 본다
     const CHANGELOG = 'src/data/changelog.ts';
     const touched = diff(...shared.closure.filter((f) => f !== CHANGELOG));
     check(`[129-6] 서버가 함께 쓰는 src ${shared.direct.length}개 + 그 가져오기 파일(전체 ${shared.closure.length}개 · 업데이트 내역 밖) 바뀐 줄 0`, shared.direct.length === 54 && touched === '', `${shared.direct.length} · ${touched}`);
-    const cl = execFileSync('git', ['diff', '-U0', `${BASE}..${END}`, '--', CHANGELOG], { cwd: root, encoding: 'utf8' }).split('\n');
+    const cl = chasuDiff(root, C129, ['-U0'], [CHANGELOG]).stdout.split('\n');
     check('[129-6] 업데이트 내역(changelog.ts)은 맨 앞 항목 더하기만(지운 · 바꾼 줄 0)', cl.filter((l) => /^-(?!--)/.test(l)).length === 0);
     const ops = diff('deploy', 'db', 'scripts/lib/testServerEnv.ts', 'scripts/lib/requireCopyDb.ts', 'scripts/lib/requireTossKeys.ts', '.env.example');
     check('[129-3] 배포 · DB 정의 · 시험 서버 스위치 · 사본 DB 막기 바뀐 파일 0', ops === '', ops);
     // 바뀐 줄은 장면을 여는 「title 로 찾기」(getByTitle — 이번에 그 title 이 data-tip 으로 옮겨 감)뿐 · 측정 판정 부분 그대로
-    const dc = execFileSync('git', ['diff', '-U0', `${BASE}..${END}`, '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' }).split('\n');
+    const dc = chasuDiff(root, C129, ['-U0'], ['scripts/designCheck.ts']).stdout.split('\n');
     const removed = dc.filter((l) => /^-(?!--)/.test(l));
     const added = dc.filter((l) => /^\+(?!\+\+)/.test(l));
     const onlyFind = removed.every((l) => /getByTitle\(/.test(l) && added.includes(`+${l.slice(1).replace(/getByTitle\('([^']+)'\)/g, `locator('[data-tip="$1"]')`)}`));
@@ -469,15 +470,16 @@ check(
   const BASE = '92af0e3';
   if (head !== 'v2.69.2' && head !== 'v2.69.3') console.log(`건너뜀  [131-5] 지금 버전 ${head} — 131차(v2.69.3) 범위 시험`);
   else {
-    const diff = (...p: string[]) => execFileSync('git', ['diff', '--name-only', BASE, '--', ...p], { cwd: root, encoding: 'utf8' }).trim();
-    check(`[131-5] git diff ${BASE} -- server python src/services = 0개`, diff('server', 'python', 'src/services') === '', diff('server', 'python', 'src/services'));
+    const C131: Chasu = { base: BASE, version: 'v2.69.3' }; // 그 차수 범위만(scripts/lib/chasuRange.ts)
+    const diff = (...p: string[]) => chasuDiff(root, C131, ['--name-only'], p).stdout.trim();
+    check(`[131-5] git diff ${chasuLabel(root, C131)} -- server python src/services = 0개`, diff('server', 'python', 'src/services') === '', diff('server', 'python', 'src/services'));
     const shared = serverSharedSrc();
     const CHANGELOG = 'src/data/changelog.ts';
     const touched = diff(...shared.closure.filter((f) => f !== CHANGELOG));
     check(`[131-5] 서버가 함께 쓰는 src ${shared.direct.length}개 + 그 가져오기 파일(전체 ${shared.closure.length}개 · 업데이트 내역 밖) 바뀐 줄 0`, shared.direct.length === 54 && touched === '', `${shared.direct.length} · ${touched}`);
-    const cl = execFileSync('git', ['diff', '-U0', BASE, '--', CHANGELOG], { cwd: root, encoding: 'utf8' }).split('\n');
+    const cl = chasuDiff(root, C131, ['-U0'], [CHANGELOG]).stdout.split('\n');
     check('[131-5] 업데이트 내역(changelog.ts)은 맨 앞 항목 더하기만(지운 · 바꾼 줄 0)', cl.filter((l) => /^-(?!--)/.test(l)).length === 0);
-    const dc = execFileSync('git', ['diff', '-U0', BASE, '--', 'scripts/designCheck.ts'], { cwd: root, encoding: 'utf8' }).split('\n');
+    const dc = chasuDiff(root, C131, ['-U0'], ['scripts/designCheck.ts']).stdout.split('\n');
     const removed = dc.filter((l) => /^-(?!--)/.test(l));
     check(`[131-5] designCheck.ts — 지운 · 바꾼 줄 0(판정 부분 그대로 · 장면 더하기만)`, removed.length === 0, removed.slice(0, 3).join(' / '));
   }

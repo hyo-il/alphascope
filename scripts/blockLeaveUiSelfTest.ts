@@ -15,14 +15,15 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { chromium, type Browser, type Page } from 'playwright';
 import { assetHistorySample, assetSheetSample, assetStatusSample, assetSummarySample, cashViewSample } from './fixtures/asset/screenSample';
-import { tradingDiff } from './lib/tradingDiff';
 import { createBrowserStepGuard } from './lib/browserStepGuard';
+import { chasuDiff, type Chasu } from './lib/chasuRange';
 
 const root = path.resolve(import.meta.dirname, '..');
 const PORT = 5193;
 const WEB = `http://127.0.0.1:${PORT}`;
 /** 이 일의 기준 커밋(v2.72.1) — 5 · 6 은 여기서부터 바뀐 것을 본다 */
 const BASE = '9fe0139';
+const CHASU: Chasu = { base: BASE, version: 'v2.72.2', end: 'd44bfcf' }; // 끝 = PROMPTS_INDEX 그 줄 마지막 해시(changelog 커밋 뒤 고침 커밋이 더 있었음)
 
 const guard = createBrowserStepGuard();
 let pass = 0;
@@ -555,14 +556,13 @@ try {
 
   // ───────── 5 바뀐 파일 ─────────
   {
-    const git = (...a: string[]) => execFileSync('git', a, { cwd: root, encoding: 'utf8' });
-    const changed = git('diff', '--name-only', `${BASE}..HEAD`).split('\n').concat(git('diff', '--name-only').split('\n')).filter(Boolean);
+    const changed = chasuDiff(root, CHASU, ['--name-only'], []).stdout.split('\n').filter(Boolean);
     // 주문(차트 빠른 주문 · 모의 주문 훅) · 자동매매 실행(server/autoTrading) · 서버 · 로그인
     const forbidden = changed.filter((f) => f.startsWith('server/') || /^src\/(components\/chart\/QuickOrderPanel|hooks\/usePaperTrading|hooks\/usePaperQuickBuy|components\/auth\/|services\/toss\/|hooks\/useAuth)/.test(f));
     check('[145-5] 주문 · 자동매매 실행 · 서버 · 로그인 코드 바뀐 파일 0', forbidden.length === 0, forbidden.join(', '));
     // 자동매매 설정 창 · 처음 켜기 창은 창 막기 · 묻기만 — 서버로 보내는 줄(요청 주소 · 보내는 값)은 그대로
     const sendLines = ['src/components/paper-trading/AutoTradeSettings.tsx', 'src/components/paper-trading/AutoTradeWizard.tsx']
-      .flatMap((f) => git('diff', `${BASE}..HEAD`, '--', f).split('\n').concat(git('diff', '--', f).split('\n')))
+      .flatMap((f) => chasuDiff(root, CHASU, [], [f]).stdout.split('\n'))
       .filter((l) => /^[-+](?![-+])/.test(l) && /\/api\/|json\(|fetch\(|onSave\(|body:/.test(l));
     check('[145-5] 자동매매 설정 · 처음 켜기 창 — 서버로 보내는 줄 바뀐 것 0(창 막기 · 묻기만)', sendLines.length === 0, sendLines.slice(0, 3).join(' | '));
     // 서버가 함께 쓰는 src — 서버 컴파일 목록(`tsconfig.node.json` 프로그램이 실제로 읽는 src 파일)과 겹치는 바뀐 파일 · 업데이트 내역 더하기 말고 0
@@ -572,10 +572,10 @@ try {
         .map((l) => path.relative(root, l.trim()))
         .filter((f) => f.startsWith('src/')),
     );
-    // 뒤 지시서가 바꾼 몫은 빼고 본다(147차 — ui/tokens.ts · tooltip/hover.ts 는 시험 스크립트가 가져와 이 목록에 든다 · `lib/tradingDiff`)
-    const shared = tradingDiff(root, BASE, [...nodeSrc]).stdout.split('\n').filter((f) => f && f !== 'src/data/changelog.ts');
+    // 145차 범위만 본다(`lib/chasuRange` — 뒤 차수가 ui/tokens.ts 등을 바꿔도 걸리지 않음)
+    const shared = chasuDiff(root, CHASU, ['--name-only'], [...nodeSrc]).stdout.split('\n').filter((f) => f && f !== 'src/data/changelog.ts');
     check('[145-5] 서버가 함께 쓰는 src 바뀐 줄 0', shared.length === 0, shared.join(', '));
-    const dc = git('diff', `${BASE}..HEAD`, '--', 'scripts/designCheck.ts') + git('diff', '--', 'scripts/designCheck.ts');
+    const dc = chasuDiff(root, CHASU, [], ['scripts/designCheck.ts']).stdout;
     const removed = dc.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
     check('[145-5] designCheck.ts 판정 부분 바뀐 줄 0(장면 더하기만 — 지운 줄 0)', removed.length === 0, removed.slice(0, 3).join(' | '));
   }

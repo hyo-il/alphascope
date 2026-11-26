@@ -10,13 +10,13 @@
  * 3. [137-4] 지운 파일(배포 스크립트 4 · `server/dataReset/v2_44_0.ts` · 저장소 옛 조사 문서)이 없고, 이름으로 찾는 곳 0
  *    (`src` · `server` · `scripts` · `deploy` · `python` · `package.json` — 옛 정답 파일 `scripts/fixtures` 와
  *    `deploy/README.md` 의 「git 기록」 줄은 지난 일 기록이라 뺌) · 저장소 `docs/` 를 훑는 `deploy:test` 는 폴더가 없어도 건너뜀
- * 4. [137-6] `swing` 폴더(매수 판단 화면) · `scripts/designCheck.ts` 바뀐 줄 0(57b989f 와 지금 — 뒤 지시서는 `tradingDiff` 로 나눠 견줌)
+ * 4. [137-6] `swing` 폴더(매수 판단 화면) · `scripts/designCheck.ts` 바뀐 줄 0(57b989f → v2.70.3 끝 — `chasuRange` 그 차수 범위만)
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import fs from 'node:fs';
 import path from 'node:path';
 import { serverSharedSrc } from './lib/serverSharedSrc';
-import { laterAwarePatch } from './lib/tradingDiff';
+import { chasuDiff } from './lib/chasuRange';
 
 const root = path.resolve(import.meta.dirname, '..');
 const SELF = path.relative(root, import.meta.filename);
@@ -122,8 +122,8 @@ console.log('━━━ [137-4] 지운 파일 — 없음 · 이름으로 찾는 �
 console.log('━━━ [137-6] swing 폴더 · designCheck.ts 바뀐 줄 0');
 {
   check('swing 폴더 그대로 있음(매수 판단 화면 — 이름 바꾸지 않음)', fs.existsSync(path.join(root, 'src/components/swing')) && walk(path.join(root, 'src/components/swing')).length > 0);
-  const d = laterAwarePatch(root, '57b989f', ['src/components/swing', 'scripts/designCheck.ts']);
-  check('src/components/swing · scripts/designCheck.ts 바뀐 줄 0(57b989f 와 지금 작업 트리)', d.status === 0 && d.stdout.trim() === '', d.stdout.slice(0, 300) || d.stderr.trim());
+  const d = chasuDiff(root, { base: '57b989f', version: 'v2.70.3' }, ['-U0'], ['src/components/swing', 'scripts/designCheck.ts']);
+  check('src/components/swing · scripts/designCheck.ts 바뀐 줄 0(57b989f → v2.70.3 끝)', d.status === 0 && d.stdout.trim() === '', d.stdout.slice(0, 300) || d.stderr.trim());
 }
 
 console.log(`\n결과: ${pass}개 통과 / ${fail}개 실패`);

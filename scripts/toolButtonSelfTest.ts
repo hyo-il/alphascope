@@ -24,12 +24,14 @@ import { defaultRuleBody, EMPTY_USAGE } from '../src/types/tradingRule';
 import { assetHistorySample, assetSheetSample, assetStatusSample, assetSummarySample, assetTradesSample } from './fixtures/asset/screenSample';
 import { createBrowserStepGuard } from './lib/browserStepGuard';
 import { serverSharedSrc } from './lib/serverSharedSrc';
+import { chasuDiff, type Chasu } from './lib/chasuRange';
 
 const root = path.resolve(import.meta.dirname, '..');
 const PORT = 5197;
 const WEB = `http://127.0.0.1:${PORT}`;
 const SIZES = [{ width: 1280, height: 1080 }, { width: 1440, height: 900 }];
 const BASE = '72679bb'; // 130차 기준 커밋(v2.69.1)
+const CHASU: Chasu = { base: BASE, version: 'v2.69.2' }; // 그 차수 범위만(scripts/lib/chasuRange.ts)
 
 const guard = createBrowserStepGuard();
 let pass = 0;
@@ -125,13 +127,13 @@ const lint = (env: Record<string, string>) => spawnSync(process.execPath, [tsx, 
   if (head !== 'v2.69.1' && head !== 'v2.69.2') console.log(`건너뜀  [130-7] 지금 버전 ${head} — 130차(v2.69.2) 범위 시험`);
   else {
     const git = (...a: string[]) => execFileSync('git', a, { cwd: root, encoding: 'utf8' });
-    const diff = (...p: string[]) => git('diff', '--name-only', BASE, '--', ...p).trim();
+    const diff = (...p: string[]) => chasuDiff(root, CHASU, ['--name-only'], [...p]).stdout.trim();
     check(`[130-7] git diff ${BASE} -- server python src/services = 0개`, diff('server', 'python', 'src/services') === '', diff('server', 'python', 'src/services'));
     const shared = serverSharedSrc();
     const CHANGELOG = 'src/data/changelog.ts';
     const touched = diff(...shared.closure.filter((f) => f !== CHANGELOG));
     check(`[130-7] 서버가 함께 쓰는 src ${shared.direct.length}개 + 그 가져오기 파일(전체 ${shared.closure.length}개 · 업데이트 내역 밖) 바뀐 줄 0`, shared.direct.length === 54 && touched === '', `${shared.direct.length} · ${touched}`);
-    const cl = git('diff', '-U0', BASE, '--', CHANGELOG).split('\n');
+    const cl = chasuDiff(root, CHASU, ['-U0'], [CHANGELOG]).stdout.split('\n');
     check('[130-7] 업데이트 내역(changelog.ts)은 맨 앞 항목 더하기만(지운 · 바꾼 줄 0)', cl.filter((l) => /^-(?!--)/.test(l)).length === 0);
     const ops = diff('deploy', 'db', 'scripts/lib/testServerEnv.ts', 'scripts/lib/requireCopyDb.ts', 'scripts/lib/requireTossKeys.ts', '.env.example');
     check('[130-7] 배포 · DB 정의 · 시험 서버 스위치 · 사본 DB 막기 바뀐 파일 0', ops === '', ops);
@@ -139,7 +141,7 @@ const lint = (env: Record<string, string>) => spawnSync(process.execPath, [tsx, 
     const baseDc = git('show', `${BASE}:scripts/designCheck.ts`).split('\n');
     const startT = baseDc.findIndex((l) => l.startsWith('function targets(): Target[] {')) + 1;
     const endT = baseDc.findIndex((l) => l === '  return list;') + 1;
-    const hunks = [...git('diff', '-U0', BASE, '--', 'scripts/designCheck.ts').matchAll(/^@@ -(\d+)(?:,(\d+))? /gm)].map((m) => ({ from: Number(m[1]), n: m[2] == null ? 1 : Number(m[2]) }));
+    const hunks = [...chasuDiff(root, CHASU, ['-U0'], ['scripts/designCheck.ts']).stdout.matchAll(/^@@ -(\d+)(?:,(\d+))? /gm)].map((m) => ({ from: Number(m[1]), n: m[2] == null ? 1 : Number(m[2]) }));
     const outside = hunks.filter((h) => {
       const last = h.from + Math.max(h.n, 1) - 1;
       const isImport = h.n <= 1 && /^import \{ chromium/.test(baseDc[h.from - 1] ?? '');

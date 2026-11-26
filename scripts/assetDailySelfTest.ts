@@ -11,7 +11,7 @@
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import 'dotenv/config';
 import { spawnSync } from 'node:child_process';
-import { laterAwarePatch, tradingDiff } from './lib/tradingDiff';
+import { chasuDiff } from './lib/chasuRange';
 import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
@@ -324,23 +324,23 @@ await main();
   const routeNote = read('server/asset/routes.ts').split("assetRouter.put('/api/asset/daily-note'")[1]?.split('\n});')[0] ?? '';
   check('[134-4] 메모 저장 코드는 시트를 쓰지 않음(valuesWrite · structureWrite · google · sheet 부름 0)', noteCode.length > 100 && routeNote.length > 50 && !/valuesWrite|structureWrite|google|readAssetSheet|write[A-Z]\w*\(/.test(noteCode + routeNote));
   // 6: 이번 작업이 더한 로그 줄(server/asset · 자산 화면)에 금액 · 수량이 없다 — 더한 줄 중 console 줄이 0 이거나 숫자 변수를 싣지 않음
-  const diff = spawnSync('git', ['diff', '-U0', 'f64668b', '--', 'server/asset', 'src/components/asset', 'src/utils/assetFormat.ts'], { cwd: root, encoding: 'utf8' });
+  const diff = chasuDiff(root, { base: 'f64668b', version: 'v2.70.0' }, ['-U0'], ['server/asset', 'src/components/asset', 'src/utils/assetFormat.ts']);
   const logLines = diff.stdout.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++') && /console\.(log|warn|error|info)/.test(l));
-  check('[134-6] 새 코드의 로그 줄에 금액 · 수량 0(f64668b 와 지금 — 더한 console 줄이 값 변수를 싣지 않음)', diff.status === 0 && logLines.every((l) => !/\$\{[^}]*(total|amount|krw|qty|quantity|price|fx|note|change)/i.test(l)), logLines.join(' | '));
+  check('[134-6] 새 코드의 로그 줄에 금액 · 수량 0(f64668b → v2.70.0 끝 — 더한 console 줄이 값 변수를 싣지 않음)', diff.status === 0 && logLines.every((l) => !/\$\{[^}]*(total|amount|krw|qty|quantity|price|fx|note|change)/i.test(l)), logLines.join(' | '));
   // 7: 매매 · 주문 · 로그인 · 시세 · 시황 코드 바뀐 파일 0
-  const trading = tradingDiff(root, 'f64668b', ['server/autoTrading', 'server/buyJudge', 'server/rules', 'server/paperTradingService.ts', 'server/paperPerformanceService.ts', 'server/paperSnapshotScheduler.ts', 'server/aiCheck', 'server/marketBrief', 'server/usHalts', 'server/quoteService.ts', 'server/heatmapSession.ts', 'server/marketCalendar.ts', 'server/auth.ts', 'server/authGuard.ts', 'src/services', 'python']);
-  check('[134-7] 매매 · 주문 · 자동매매 · AI 검증 · 시세 · 시황 · 로그인 · src/services · python 바뀐 파일 0(f64668b 와 지금 작업 트리)', trading.status === 0 && trading.stdout.trim() === '', trading.stdout.trim() || trading.stderr.trim());
+  const trading = chasuDiff(root, { base: 'f64668b', version: 'v2.70.0' }, ['--name-only'], ['server/autoTrading', 'server/buyJudge', 'server/rules', 'server/paperTradingService.ts', 'server/paperPerformanceService.ts', 'server/paperSnapshotScheduler.ts', 'server/aiCheck', 'server/marketBrief', 'server/usHalts', 'server/quoteService.ts', 'server/heatmapSession.ts', 'server/marketCalendar.ts', 'server/auth.ts', 'server/authGuard.ts', 'src/services', 'python']);
+  check('[134-7] 매매 · 주문 · 자동매매 · AI 검증 · 시세 · 시황 · 로그인 · src/services · python 바뀐 파일 0(f64668b → v2.70.0 끝)', trading.status === 0 && trading.stdout.trim() === '', trading.stdout.trim() || trading.stderr.trim());
   // 7: 서버가 함께 쓰는 src/ 파일 가운데 바뀐 것은 types/asset.ts · utils/assetFormat.ts(지시서 D-2 「만 원 단위 표기 함수를 assetFormat.ts 에」) 더하기만(지운 줄 0) +
   //    문서 4종인 data/changelog.ts(버전마다 맨 앞에 더함)
   const list = spawnSync('npx', ['tsc', '-p', 'tsconfig.node.json', '--listFilesOnly'], { cwd: root, encoding: 'utf8' });
   const shared = list.stdout.split('\n').map((l) => path.relative(root, l.trim())).filter((f) => f.startsWith('src/'));
-  const changedShared = tradingDiff(root, 'f64668b', [...shared]).stdout.trim().split('\n').filter(Boolean);
+  const changedShared = chasuDiff(root, { base: 'f64668b', version: 'v2.70.0' }, ['--name-only'], [...shared]).stdout.trim().split('\n').filter(Boolean);
   const ALLOWED = ['src/data/changelog.ts', 'src/types/asset.ts', 'src/utils/assetFormat.ts'];
-  const deleted = laterAwarePatch(root, 'f64668b', ALLOWED).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
+  const deleted = chasuDiff(root, { base: 'f64668b', version: 'v2.70.0' }, ['-U0'], ALLOWED).stdout.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
   check(`[134-7] 서버가 함께 쓰는 src/ ${shared.length}개 가운데 바뀐 것은 types/asset.ts · utils/assetFormat.ts · data/changelog.ts 뿐 · 모두 더하기만(지운 줄 0)`,
     shared.length > 30 && changedShared.every((f) => ALLOWED.includes(f)) && changedShared.includes('src/types/asset.ts') && deleted.length === 0, `${changedShared.join(',')} · 지운 줄 ${deleted.length}`);
   // 7: designCheck.ts 판정 부분 바뀐 줄 0 — 이번에 바뀐 줄은 장면 목록(asset-일별변화 묶음)에 더한 줄뿐
-  const dc = laterAwarePatch(root, 'f64668b', ['scripts/designCheck.ts']).stdout;
+  const dc = chasuDiff(root, { base: 'f64668b', version: 'v2.70.0' }, ['-U0'], ['scripts/designCheck.ts']).stdout;
   const dcDeleted = dc.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---'));
   const dcHunks = (dc.match(/^@@ /gm) ?? []).length;
   check('[134-7] designCheck.ts 판정 부분 바뀐 줄 0 — 지운 줄 0 · 더한 곳은 장면 묶음 한 곳(asset-일별변화)', dcDeleted.length === 0 && dcHunks <= 1 && dc.includes('일별변화'), `지운 줄 ${dcDeleted.length} · 덩어리 ${dcHunks}`);

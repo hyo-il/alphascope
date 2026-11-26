@@ -22,13 +22,14 @@ import path from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { createBrowserStepGuard } from './lib/browserStepGuard';
 import { serverSharedSrc } from './lib/serverSharedSrc';
-import { tradingDiff } from './lib/tradingDiff';
+import { chasuDiff, type Chasu } from './lib/chasuRange';
 
 const root = path.resolve(import.meta.dirname, '..');
 const PORT = 5198;
 const WEB = `http://127.0.0.1:${PORT}`;
 const SIZES = [{ width: 1280, height: 1080 }, { width: 1440, height: 900 }];
 const BASE = '815ad1c'; // 132차 기준 커밋(v2.69.3)
+const CHASU: Chasu = { base: BASE, version: 'v2.69.4' }; // 그 차수 범위만(scripts/lib/chasuRange.ts)
 
 const guard = createBrowserStepGuard();
 let pass = 0;
@@ -52,10 +53,10 @@ const git = (...a: string[]) => execFileSync('git', a, { cwd: root, encoding: 'u
   // 최고 / 최저 표시(drawExtremeMarkers)는 133차에 화살표 자리 · 크기만 바꿨다 — 값(어느 봉 · 가격 · 글)을 만드는 줄은 그대로
   const valuePart = (text: string) => fnBody(text, 'drawExtremeMarkers')?.match(/  const highBar[\s\S]*?\n  };\n\n/)?.[0] ?? null;
   check('[133-5] 최고 / 최저 표시의 값(어느 봉 · 가격 · 글)을 만드는 줄 8d3b50e 와 같음', valuePart(code(theme)) !== null && valuePart(code(theme)) === valuePart(git('show', `8d3b50e:${theme}`)));
-  // 뒤 지시서 커밋(137차 — src/types/chart.ts export 떼기)은 나눠 견줌(tradingDiff)
-  const others = tradingDiff(root, BASE, ['src/utils/liveCandle.ts', 'src/components/chart/ChartInfoBar.tsx', 'src/hooks/useCandleData.ts', 'src/hooks/useIndicators.ts', 'src/types/chart.ts']).stdout.trim();
+  // 132차 범위만(`lib/chasuRange` — 뒤 차수 변경은 걸리지 않음)
+  const others = chasuDiff(root, CHASU, ['--name-only'], ['src/utils/liveCandle.ts', 'src/components/chart/ChartInfoBar.tsx', 'src/hooks/useCandleData.ts', 'src/hooks/useIndicators.ts', 'src/types/chart.ts']).stdout.trim();
   check('[132-4] 현재가 봉(liveCandle) · 정보 줄(ChartInfoBar) · 캔들 · 지표 받기 · 지표 종류 바뀐 파일 0', others === '', others);
-  const candle = git('diff', '-U0', BASE, '--', 'src/components/chart/CandleChart.tsx');
+  const candle = chasuDiff(root, CHASU, ['-U0'], ['src/components/chart/CandleChart.tsx']).stdout;
   check('[132-4] 메인 차트의 캔들 넣기(setData) · 현재가 봉(update) 줄 바뀜 0', !/^[-+].*(setData|candleSeries\.update|liveCandle\()/m.test(candle));
 }
 
@@ -64,20 +65,20 @@ function scopeChecks(tag: string, BASE: string, versions: string[]) {
   const head = code('src/data/changelog.ts').match(/version: '(v[\d.]+)'/)?.[1];
   if (!head || !versions.includes(head)) console.log(`건너뜀  ${tag} 지금 버전 ${head} — ${versions.at(-1)} 범위 시험`);
   else {
-    const diff = (...p: string[]) => git('diff', '--name-only', BASE, '--', ...p).trim();
+    const diff = (...p: string[]) => chasuDiff(root, CHASU, ['--name-only'], [...p]).stdout.trim();
     check(`${tag} git diff ${BASE} -- server python src/services = 0개`, diff('server', 'python', 'src/services') === '', diff('server', 'python', 'src/services'));
     const shared = serverSharedSrc();
     const CHANGELOG = 'src/data/changelog.ts';
     const touched = diff(...shared.closure.filter((f) => f !== CHANGELOG));
     check(`${tag} 서버가 함께 쓰는 src ${shared.direct.length}개 + 그 가져오기 파일(전체 ${shared.closure.length}개 · 업데이트 내역 밖) 바뀐 줄 0`, shared.direct.length === 54 && touched === '', `${shared.direct.length} · ${touched}`);
-    const cl = git('diff', '-U0', BASE, '--', CHANGELOG).split('\n');
+    const cl = chasuDiff(root, CHASU, ['-U0'], [CHANGELOG]).stdout.split('\n');
     check(`${tag} 업데이트 내역(changelog.ts)은 맨 앞 항목 더하기만(지운 · 바꾼 줄 0)`, cl.filter((l) => /^-(?!--)/.test(l)).length === 0);
     const ops = diff('deploy', 'db', 'scripts/lib/testServerEnv.ts', 'scripts/lib/requireCopyDb.ts', 'scripts/lib/requireTossKeys.ts', '.env.example');
     check(`${tag} 배포 · DB 정의 · 시험 서버 스위치 · 사본 DB 막기 바뀐 파일 0`, ops === '', ops);
     const baseDc = git('show', `${BASE}:scripts/designCheck.ts`).split('\n');
     const startT = baseDc.findIndex((l) => l.startsWith('function targets(): Target[] {')) + 1;
     const endT = baseDc.findIndex((l) => l === '  return list;') + 1;
-    const hunks = [...git('diff', '-U0', BASE, '--', 'scripts/designCheck.ts').matchAll(/^@@ -(\d+)(?:,(\d+))? /gm)].map((m) => ({ from: Number(m[1]), n: m[2] == null ? 1 : Number(m[2]) }));
+    const hunks = [...chasuDiff(root, CHASU, ['-U0'], ['scripts/designCheck.ts']).stdout.matchAll(/^@@ -(\d+)(?:,(\d+))? /gm)].map((m) => ({ from: Number(m[1]), n: m[2] == null ? 1 : Number(m[2]) }));
     const outside = hunks.filter((h) => h.from <= startT || h.from + Math.max(h.n, 1) - 1 >= endT);
     check(`${tag} designCheck.ts — 판정 부분(장면 목록 ${startT}~${endT}줄 밖) 바뀐 줄 0(바뀐 덩어리 ${hunks.length}개 모두 장면)`, startT > 0 && endT > startT && outside.length === 0, JSON.stringify(outside));
   }

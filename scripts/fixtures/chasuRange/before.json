@@ -1,0 +1,110 @@
+{
+  "note": "150차 A — 옛 「바뀐 파일 0」 시험을 차수 범위로 고정하기 전(c0e8845) 시험마다 확인 항목 수 · 통과 · 실패(PASS/FAIL · ✅/❌ 줄 수). 바꾼 뒤도 같아야 한다.",
+  "tests": {
+    "asset:test": {
+      "checks": 299,
+      "pass": 299,
+      "fail": 0
+    },
+    "assetcash:test": {
+      "checks": 54,
+      "pass": 54,
+      "fail": 0
+    },
+    "assetcashcache:test": {
+      "checks": 17,
+      "pass": 17,
+      "fail": 0
+    },
+    "assetcasheasy:test": {
+      "checks": 39,
+      "pass": 39,
+      "fail": 0
+    },
+    "assetcashflow:test": {
+      "checks": 71,
+      "pass": 71,
+      "fail": 0
+    },
+    "assetcashguard:test": {
+      "checks": 21,
+      "pass": 21,
+      "fail": 0
+    },
+    "assetcashmanual:test": {
+      "checks": 59,
+      "pass": 59,
+      "fail": 0
+    },
+    "assetdaily:test": {
+      "checks": 32,
+      "pass": 32,
+      "fail": 0
+    },
+    "assetprice:test": {
+      "checks": 66,
+      "pass": 66,
+      "fail": 0
+    },
+    "assetrowops:test": {
+      "checks": 102,
+      "pass": 102,
+      "fail": 0
+    },
+    "assetsheet:test": {
+      "checks": 37,
+      "pass": 37,
+      "fail": 0
+    },
+    "blockleaveui:test": {
+      "checks": 86,
+      "pass": 86,
+      "fail": 0
+    },
+    "chartview:test": {
+      "checks": 362,
+      "pass": 362,
+      "fail": 0
+    },
+    "fieldreveal:test": {
+      "checks": 7,
+      "pass": 7,
+      "fail": 0
+    },
+    "mobileaccount:test": {
+      "checks": 137,
+      "pass": 137,
+      "fail": 0
+    },
+    "mobileframe:test": {
+      "checks": 63,
+      "pass": 63,
+      "fail": 0
+    },
+    "mobiletable:test": {
+      "checks": 77,
+      "pass": 77,
+      "fail": 0
+    },
+    "mobiletouch:test": {
+      "checks": 122,
+      "pass": 122,
+      "fail": 0
+    },
+    "tidy:test": {
+      "checks": 20,
+      "pass": 20,
+      "fail": 0
+    },
+    "toolbutton:test": {
+      "checks": 65,
+      "pass": 65,
+      "fail": 0
+    },
+    "tooltip:test": {
+      "checks": 61,
+      "pass": 61,
+      "fail": 0
+    }
+  }
+}
