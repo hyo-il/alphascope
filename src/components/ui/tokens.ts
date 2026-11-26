@@ -186,3 +186,11 @@ export type IconButtonSize = keyof typeof ICON_BUTTON_BOX;
  */
 export const PHONE_DIALOG_MAX_H = 'max-h-[calc(100dvh-64px)]';
 export const DIALOG_SWIPE_CLOSE_PX = 80;
+
+/**
+ * 폰 카드(v2.76.0 · 테마 4-1 — `ui/DataCard`) — 폰 모양에서 표 대신 그리는 카드 한 벌(계좌 보유 · 다음 차수 매수 판단 · 거래정지).
+ * 바탕 bg-secondary · 둥근 12 · 안 여백 위아래 12 / 옆 16 · 줄 사이 8 · 숫자 고정 폭 · 카드 사이 8.
+ * 카드 위 이름표 글은 `text-secondary`(테마 1-1 — `text-muted` 는 bg-secondary 위 4.22 라 쓰지 않음).
+ */
+export const DATA_CARD = 'rounded-xl bg-bg-secondary px-4 py-3 space-y-2 tabular-nums';
+export const DATA_CARD_LIST = 'flex flex-col gap-2';
