@@ -51,6 +51,7 @@ export const LATER_COMMITS: readonly string[] = [
   '23e3771', // 149차 v2.76.0 D — 시험 mobileaccount:test · ui/tokens.ts 손가락 표 줄 이름 더하기
   '64b1f52', // 149차 v2.76.0 E — 처음 켜기 창 폰 제목 한 줄(Dialog 선택 옵션 · 화면만)
   'dcf28e9', // 149차 v2.76.0 E — 모의 배지 폰 이름 되돌림(화면만)
+  'bc9c6e4', // 149차 v2.76.0 E — 패드 실제 계좌 표 이름 칸(화면만 · 캡처 검토)
 ];
 
 const covers = (spec: string, file: string) => file === spec || file.startsWith(`${spec.replace(/\/$/, '')}/`);
