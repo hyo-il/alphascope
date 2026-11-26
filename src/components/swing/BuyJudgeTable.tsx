@@ -3,10 +3,12 @@ import { Fragment, useState } from 'react';
 import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react';
 import StockName from '../common/StockName';
 import { Button, ListRemoveButton } from '../ui';
+import DataCard, { DataCardList, DataCardRow } from '../ui/DataCard';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { ICON_SM } from '../ui/icon';
 import { withUsDateTag } from '../common/UsDateTag';
 import WarnIcon from '../ui/WarnIcon';
-import { LIST_TABLE_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP_TIGHT } from '../ui/tokens';
+import { DATA_CARD_GRID, LIST_TABLE_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP_TIGHT } from '../ui/tokens';
 import TradePlan from './TradePlan';
 import { ResultCard, latestFor } from './TargetAnalysisParts';
 import { formatNumber, formatPrice } from '../../utils/formatters';
@@ -75,6 +77,20 @@ export function VerdictText({
 
 const TARGET_ONE_AT_A_TIME = '목표 수익 가능성은 한 번에 한 종목만 분석합니다 — Gemini 무료 한도를 아끼기 위해서입니다(종목당 약 5회 호출).';
 
+/** 줄 하나의 값 — 표와 폰 카드가 같은 값을 쓰게 한 곳에서(따로 계산하지 않는다) */
+function cellsOf(r: BuyJudgeRow) {
+  const cur = currencyOfSymbol(r.symbol);
+  const planned = r.verdict === 'buy' || r.verdict === 'rr_block' || r.verdict === 'gate_block';
+  const ref = planned ? r.reference : null;
+  return {
+    cur,
+    stop: ref ? formatPrice(ref.stop, cur) : '—',
+    target: ref ? formatPrice(ref.target1, cur) : '—',
+    ratio: ref ? formatNumber(ref.ratio, 2) : '—',
+    size: ref ? `${formatNumber(ref.sizePercent, 1)}%` : '—',
+  };
+}
+
 /**
  * 매수 판단 표 (사용자 결정 A-2). 종목 · 판단(총점 함께) · 참고 점수 · 손절가 · 목표가 · 손익비 · 비중(참고) · [목표 수익 가능성] · ×.
  * 줄을 누르면 아래에 조건별 점수 · 진입 방식 · 가격 계획 · 경고 · 목표 수익 가능성 결과가 펼쳐진다.
@@ -112,8 +128,96 @@ export default function BuyJudgeTable({
     else next.add(s);
     return next;
   });
+  const phone = useLayoutMode() === 'phone';
   // 칸이 10개라 숫자 칸 여백을 좁힌다(1280 에서 종목 칸에 이름·티커 자리 — 티커는 자르지 않는다)
   const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP_TIGHT} text-right`;
+  const targetButton = (r: BuyJudgeRow, running: boolean, targetDisabled: boolean) => (
+    <Button busy={running}
+      size="sm"
+      onClick={() => {
+        setOpen((prev) => new Set(prev).add(r.symbol));
+        onTarget(r.symbol);
+      }}
+      disabled={targetDisabled}
+      title={targetBlockedReason ?? TARGET_ONE_AT_A_TIME}
+    >
+      {/* 한 종목 약 5회 호출 — 10초 넘게 걸릴 수 있어 진행 문구를 보인다 */}
+      {running ? '분석 중…' : '목표 수익 가능성'}
+    </Button>
+  );
+
+  /*
+   * 폰(테마 4-1 · 사용자 결정 2026-11-25 1) — 표 대신 카드. 값 · 글은 표와 같은 함수(`cellsOf` · `VerdictText` · `StockName`).
+   * 카드를 누르면 표 줄을 누른 것과 같은 일(펼침 / 접힘) · 펼친 내용은 카드 안 아래. 줄 3 의 두 단추는 따로(눌러도 펼치거나 접지 않음).
+   * 패드 · 1280 이상은 아래 표 그대로(148차 미는 표).
+   */
+  if (phone)
+    return (
+      <DataCardList>
+        {rows.map((r) => {
+          const c = cellsOf(r);
+          const isOpen = open.has(r.symbol);
+          const running = targetRunning === r.symbol;
+          const record = latestFor(targetRecords, r.symbol, goal);
+          const targetDisabled = disabled || targetBlockedReason != null || (targetRunning != null && !running);
+          const Chevron = isOpen ? ChevronDown : ChevronRight;
+          const cell = (name: string, value: string) => (
+            <span className="flex items-baseline justify-between gap-2">
+              <span className="text-caption text-text-secondary">{name}</span>
+              <span className="text-xs text-text-primary">{value}</span>
+            </span>
+          );
+          return (
+            <DataCard
+              key={r.symbol}
+              label={`${r.symbol} 판단 자세히`}
+              expanded={isOpen}
+              onOpen={() => toggle(r.symbol)}
+              after={
+                isOpen ? (
+                  <div className="border-t border-border/40 pt-3" data-card-detail>
+                    <Detail row={r} currency={c.cur} record={record} recordsLoaded={targetRecords !== null} running={running} goal={goal} onDeleteTarget={onDeleteTarget} onEditGoal={onEditGoal} card />
+                  </div>
+                ) : null
+              }
+            >
+              <DataCardRow
+                left={
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <Chevron {...ICON_SM} className="shrink-0 text-text-muted" />
+                    <StockName symbol={r.symbol} keepTicker className="max-w-full text-sm font-semibold text-text-primary" />
+                  </span>
+                }
+                right={r.error ? <span className="text-xs text-text-secondary">판단 못 함</span> : <span className="text-xs"><VerdictText verdict={r.verdict} score={r.score} maxScore={r.maxScore} gateReason={r.gateReason} stackReason /></span>}
+              />
+              <div className={DATA_CARD_GRID} data-card-values>
+                {cell('손절가', r.error ? '—' : c.stop)}
+                {cell('목표가', r.error ? '—' : c.target)}
+                {cell('손익비', r.error ? '—' : c.ratio)}
+                {cell('비중(참고)', r.error ? '—' : c.size)}
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                {/* 넘치면 말줄임 대신 두 줄(「(장 마감 가격)」 이 잘려 보이지 않게) */}
+                <span className="min-w-0 break-keep text-caption text-text-secondary">
+                  {r.refScore != null ? (
+                    <>
+                      참고 점수 {r.refScore} <span className="whitespace-nowrap">({r.refLabel})</span>
+                    </>
+                  ) : (
+                    '참고 점수 —'
+                  )}
+                </span>
+                {/* 따로 누르는 곳 — 카드 펼침 · 접힘으로 번지지 않게(표의 stopPropagation 과 같음) */}
+                <span className="flex shrink-0 items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                  {targetButton(r, running, targetDisabled)}
+                  <ListRemoveButton onClick={() => onRemove(r.symbol)} name={r.symbol} label="목록에서 삭제" />
+                </span>
+              </div>
+            </DataCard>
+          );
+        })}
+      </DataCardList>
+    );
 
   return (
     <ScrollTable className="rounded-lg bg-bg-tertiary/40" data-buy-judge-table>
@@ -134,9 +238,8 @@ export default function BuyJudgeTable({
         </thead>
         <tbody>
           {rows.map((r) => {
-            const cur = currencyOfSymbol(r.symbol);
-            const planned = r.verdict === 'buy' || r.verdict === 'rr_block' || r.verdict === 'gate_block';
-            const ref = planned ? r.reference : null;
+            const c = cellsOf(r);
+            const cur = c.cur;
             const isOpen = open.has(r.symbol);
             const running = targetRunning === r.symbol;
             const record = latestFor(targetRecords, r.symbol, goal);
@@ -167,23 +270,12 @@ export default function BuyJudgeTable({
                       '—'
                     )}
                   </td>
-                  <td className={`${NUM} py-1 tabular-nums`}>{ref ? formatPrice(ref.stop, cur) : '—'}</td>
-                  <td className={`${NUM} py-1 tabular-nums`}>{ref ? formatPrice(ref.target1, cur) : '—'}</td>
-                  <td className={`${NUM} py-1 tabular-nums`}>{ref ? formatNumber(ref.ratio, 2) : '—'}</td>
-                  <td className={`${NUM} py-1 tabular-nums`}>{ref ? `${formatNumber(ref.sizePercent, 1)}%` : '—'}</td>
+                  <td className={`${NUM} py-1 tabular-nums`}>{c.stop}</td>
+                  <td className={`${NUM} py-1 tabular-nums`}>{c.target}</td>
+                  <td className={`${NUM} py-1 tabular-nums`}>{c.ratio}</td>
+                  <td className={`${NUM} py-1 tabular-nums`}>{c.size}</td>
                   <td className={`${TABLE_NUM_COL} py-1 pl-3 pr-2`} onClick={(e) => e.stopPropagation()}>
-                    <Button busy={running}
-                      size="sm"
-                      onClick={() => {
-                        setOpen((prev) => new Set(prev).add(r.symbol));
-                        onTarget(r.symbol);
-                      }}
-                      disabled={targetDisabled}
-                      title={targetBlockedReason ?? TARGET_ONE_AT_A_TIME}
-                    >
-                      {/* 한 종목 약 5회 호출 — 10초 넘게 걸릴 수 있어 진행 문구를 보인다 */}
-                      {running ? '분석 중…' : '목표 수익 가능성'}
-                    </Button>
+                    {targetButton(r, running, targetDisabled)}
                   </td>
                   <td className="w-px py-1 pr-2 text-right" onClick={(e) => e.stopPropagation()}>
                     <ListRemoveButton onClick={() => onRemove(r.symbol)} name={r.symbol} label="목록에서 삭제" tipSide="right" />
@@ -218,6 +310,7 @@ function Detail({
   goal,
   onDeleteTarget,
   onEditGoal,
+  card = false,
 }: {
   row: BuyJudgeRow;
   currency: 'KRW' | 'USD';
@@ -228,35 +321,38 @@ function Detail({
   goal: SwingGoal;
   onDeleteTarget: (record: TargetAnalysisRecord) => void;
   onEditGoal: () => void;
+  /** 폰 카드 안(v2.77.0) — 조건 확인 글을 이름 아래 한 줄로 · 흐린 글은 secondary(카드 바탕 위 — 테마 1-1). 표(패드 · 1280 이상)는 그대로 */
+  card?: boolean;
 }) {
-  if (r.error) return <p className="text-caption text-text-muted">{r.error}</p>;
+  const muted = card ? 'text-text-secondary' : 'text-text-muted';
+  if (r.error) return <p className={`text-caption ${muted}`}>{r.error}</p>;
   return (
     <div className="space-y-3 text-caption">
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
         <div className="space-y-2">
           <p className="font-medium text-text-primary">
-            조건별 점수 <span className="font-normal text-text-muted">· {r.basisDate} 마감 기준 · 합계 {r.score}/{r.maxScore} · 매수 기준 {r.minScore}점</span>
+            조건별 점수 <span className={`font-normal ${muted}`}>· {r.basisDate} 마감 기준 · 합계 {r.score}/{r.maxScore} · 매수 기준 {r.minScore}점</span>
           </p>
           <ul className="space-y-1">
             {r.conditions.map((c) => (
-              <li key={c.key} className="flex items-baseline gap-x-2">
+              <li key={c.key} className={card ? 'flex flex-wrap items-baseline gap-x-2' : 'flex items-baseline gap-x-2'}>
                 <span className="w-24 shrink-0 text-text-secondary">{c.name}</span>
                 <span className={`w-14 shrink-0 text-right tabular-nums ${c.score >= c.max ? 'text-bullish' : 'text-text-primary'}`}>
                   {c.score}/{c.max}
                 </span>
-                <span className="min-w-0 flex-1 text-text-muted">
+                <span className={card ? `w-full ${muted}` : 'min-w-0 flex-1 text-text-muted'}>
                   {c.checks.map((k) => `${k.passed ? '○' : '×'} ${k.label}`).join(' · ')}
                 </span>
               </li>
             ))}
           </ul>
-          {r.reason && <p className="text-text-muted">{r.reason}</p>}
+          {r.reason && <p className={muted}>{r.reason}</p>}
         </div>
         <div className="space-y-2">
           <p className="font-medium text-text-primary">
-            가격 계획 <span className="font-normal text-text-muted">· 참고{r.reference ? ` · 진입 방식 ${ENTRY_LABEL[r.reference.entryType]}` : ''}</span>
+            가격 계획 <span className={`font-normal ${muted}`}>· 참고{r.reference ? ` · 진입 방식 ${ENTRY_LABEL[r.reference.entryType]}` : ''}</span>
           </p>
-          {r.reference ? <TradePlan plan={r.reference} currency={currency} /> : <p className="text-text-muted">손절 자리를 찾지 못해 계획이 없습니다.</p>}
+          {r.reference ? <TradePlan plan={r.reference} currency={currency} /> : <p className={muted}>손절 자리를 찾지 못해 계획이 없습니다.</p>}
         </div>
       </div>
       {r.warnings.length > 0 && (
@@ -269,11 +365,11 @@ function Detail({
           ))}
         </ul>
       )}
-      <p className="text-text-muted">참고 — 실제 주문은 계좌 자동매매가 규칙대로 합니다. 이 화면은 주문을 내지 않습니다.</p>
+      <p className={muted}>참고 — 실제 주문은 계좌 자동매매가 규칙대로 합니다. 이 화면은 주문을 내지 않습니다.</p>
       <div className="space-y-2 border-t border-border/40 pt-3">
         <p className="flex flex-wrap items-center gap-2 font-medium text-text-primary">
           목표 수익 가능성
-          <span className="font-normal text-text-muted">
+          <span className={`font-normal ${muted}`}>
             조건: 목표 +{goal.targetPct}% · {goal.days}거래일 · 손절 −{goal.stopPct}%
           </span>
           <button type="button" className="font-normal text-accent hover:underline" onClick={onEditGoal}>
@@ -288,9 +384,9 @@ function Detail({
         ) : record ? (
           <ResultCard record={record} isNew={false} onDelete={onDeleteTarget} flat />
         ) : !recordsLoaded ? (
-          <p className="text-text-muted">분석 기록을 불러오는 중…</p>
+          <p className={muted}>분석 기록을 불러오는 중…</p>
         ) : (
-          <p className="text-text-muted">이 조건으로 분석한 결과가 없습니다. 줄의 [목표 수익 가능성] 을 누르면 이 종목 하나를 분석합니다.</p>
+          <p className={muted}>이 조건으로 분석한 결과가 없습니다. 줄의 [목표 수익 가능성] 을 누르면 이 종목 하나를 분석합니다.</p>
         )}
       </div>
     </div>

@@ -7,6 +7,8 @@ import HelpBox from '../common/HelpBox';
 import LoadingOverlay from '../common/LoadingOverlay';
 import SymbolListBar from '../common/SymbolListBar';
 import { SkeletonCards } from '../common/SkeletonLoader';
+import { DataCardSkeleton } from '../ui/DataCard';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 import RuleSelect from '../rules/RuleSelect';
 import BuyJudgeTable from './BuyJudgeTable';
 import BuyJudgeHistory from './BuyJudgeHistory';
@@ -93,6 +95,7 @@ export default function BuyJudgeView() {
   const markets = [...new Set(rows.filter((r) => r.basisDate).map((r) => `${isKrSymbol(r.symbol) ? '국내' : '미국'} ${r.basisDate}`))];
   const ruleMissing = j.state != null && j.state.ruleId == null;
   const tableShown = j.state != null && symbols.length > 0 && !ruleMissing;
+  const phone = useLayoutMode() === 'phone';
 
   return (
     <div className="flex h-full flex-col">
@@ -139,8 +142,13 @@ export default function BuyJudgeView() {
                 </p>
               )}
               {j.error && <p className="text-caption text-danger">{j.error}</p>}
-              {j.state == null ? (
-                <SkeletonCards count={3} className="grid-cols-1" />
+              {j.state == null && j.error && busy == null ? (
+                // 처음 받기 실패 — 오류(위 줄) + [다시 시도](빈 목록 · 스켈레톤으로 두지 않는다 · `docs/rules/ui.md` 「로딩 표시」)
+                <Button variant="secondary" size="md" onClick={() => void j.load().catch(() => undefined)}>
+                  다시 시도
+                </Button>
+              ) : j.state == null ? (
+                phone ? <DataCardSkeleton count={3} /> : <SkeletonCards count={3} className="grid-cols-1" />
               ) : !symbols.length ? (
                 <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">아직 추가한 종목이 없습니다. [종목 추가] 로 판단할 종목을 넣으세요.</p>
               ) : ruleMissing ? (

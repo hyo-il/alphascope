@@ -1,6 +1,6 @@
 import type { KeyboardEvent, ReactNode } from 'react';
 import { Skeleton } from '../common/SkeletonLoader';
-import { DATA_CARD, DATA_CARD_LIST } from './tokens';
+import { DATA_CARD, DATA_CARD_LIST, DATA_CARD_PRESS } from './tokens';
 
 /**
  * 폰 카드(v2.76.0 · 테마 4-1) — **폰 모양에서만** 표 대신 그리는 카드 한 장. 모양은 `tokens.DATA_CARD` 한 곳.
@@ -8,7 +8,21 @@ import { DATA_CARD, DATA_CARD_LIST } from './tokens';
  * 키보드: 역할 button · 이름 `label` · Enter / Space. 카드 안에 따로 단추를 두면 그 단추의 키는 단추 몫이다(`e.target === e.currentTarget` 일 때만).
  * 패드 · 1280 이상은 표 그대로 — 고르는 곳은 쓰는 화면(`useLayoutMode() === 'phone'`).
  */
-export default function DataCard({ label, onOpen, children }: { label: string; onOpen: () => void; children: ReactNode }) {
+export default function DataCard({
+  label,
+  onOpen,
+  expanded,
+  after,
+  children,
+}: {
+  label: string;
+  onOpen: () => void;
+  /** 펼치는 카드(v2.77.0 매수 판단) — `aria-expanded` */
+  expanded?: boolean;
+  /** 펼친 내용 — 카드 안 맨 아래(누르는 곳 밖 · 눌러도 접히지 않음 — 표의 펼친 줄과 같음) */
+  after?: ReactNode;
+  children: ReactNode;
+}) {
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) return;
     if (e.key === 'Enter' || e.key === ' ') {
@@ -16,9 +30,19 @@ export default function DataCard({ label, onOpen, children }: { label: string; o
       onOpen();
     }
   };
+  const press = { role: 'button', tabIndex: 0, 'aria-label': label, 'aria-expanded': expanded, onClick: onOpen, onKeyDown: onKey } as const;
+  if (after === undefined)
+    return (
+      <div {...press} data-card className={`${DATA_CARD} cursor-pointer`}>
+        {children}
+      </div>
+    );
   return (
-    <div role="button" tabIndex={0} aria-label={label} data-card onClick={onOpen} onKeyDown={onKey} className={`${DATA_CARD} cursor-pointer`}>
-      {children}
+    <div data-card className={DATA_CARD}>
+      <div {...press} className={DATA_CARD_PRESS}>
+        {children}
+      </div>
+      {after}
     </div>
   );
 }

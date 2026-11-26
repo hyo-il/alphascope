@@ -194,6 +194,10 @@ export const DIALOG_SWIPE_CLOSE_PX = 80;
  */
 export const DATA_CARD = 'rounded-xl bg-bg-secondary px-4 py-3 space-y-2 tabular-nums';
 export const DATA_CARD_LIST = 'flex flex-col gap-2';
+/** 펼치는 카드(v2.77.0 매수 판단)의 누르는 곳 — 줄 사이 8 그대로(바깥 카드가 바탕 · 여백을 맡음) */
+export const DATA_CARD_PRESS = 'cursor-pointer space-y-2';
+/** 카드 안 2 × 2 값 칸(v2.77.0 매수 판단 — 손절가 · 목표가 / 손익비 · 비중) — 칸 사이 가로 16 · 세로 6 */
+export const DATA_CARD_GRID = 'grid grid-cols-2 gap-x-4 gap-y-1.5';
 
 /**
  * 손가락 화면 단추 줄 사이(v2.76.0 · 테마 6 「12 이상」) — 마우스 화면(1280 이상 포함)은 그대로.
