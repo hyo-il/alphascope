@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Dialog, DialogCancel, NumberField, Segmented } from '../ui';
+import { Button, Checkbox, Dialog, DialogCancel, NumberField, Segmented } from '../ui';
 import { toast } from '../../store/uiStore';
 import { GOAL_PERIOD_CHOICES, GOAL_TARGET_CHOICES, autoStop, goalPct, type SwingGoal } from '../../types/swingGoal';
 import { TARGET_INPUT_LIMITS } from '../../types/targetAnalysis';
@@ -80,7 +80,7 @@ export default function GoalDialog({ goal, onSave, onClose }: { goal: SwingGoal;
           <p className="mb-1 text-caption text-text-primary">손절</p>
           <div className="flex flex-wrap items-center gap-3 text-xs">
             <label className="inline-flex w-fit items-center gap-1.5 text-text-secondary">
-              <input type="checkbox" checked={draft.stopAuto} onChange={(e) => set({ stopAuto: e.target.checked, stopPct: shownStop })} />
+              <Checkbox checked={draft.stopAuto} onChange={(e) => set({ stopAuto: e.target.checked, stopPct: shownStop })} />
               목표의 절반으로 자동
             </label>
             <span className="inline-flex items-center gap-1">

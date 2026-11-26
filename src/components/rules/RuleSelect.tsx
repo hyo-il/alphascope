@@ -8,7 +8,7 @@ import { NO_STOP_WARNING } from '../../utils/ruleText';
 import type { TradingRule } from '../../types/tradingRule';
 import RuleDialog from './RuleDialog';
 import LinkButton from '../ui/LinkButton';
-import { TOUCH_INFO_GAP } from '../ui/tokens';
+import { TOUCH_FIELD_SIDE, TOUCH_INFO_GAP } from '../ui/tokens';
 
 /**
  * 매매 규칙 고르기 — 계좌 설정 「① 매매 규칙」 · 처음 켜기 안내 · 백테스트 방법마다 **같은 부품**.
@@ -71,8 +71,8 @@ export default function RuleSelect({
             </option>
           ))}
         </Select>
-        {/* 창을 열기만 하는 도구 버튼 — 아이콘만(130차 · 툴팁 「조건 보기」) */}
-        <IconButton size="md" icon={Eye} label="조건 보기" onClick={() => setViewing(true)} disabled={!selected} />
+        {/* 창을 열기만 하는 도구 버튼 — 아이콘만(130차 · 툴팁 「조건 보기」) · 손가락 화면은 드롭박스와 같은 높이 44(150차 — 한 줄 높이 섞임) */}
+        <IconButton size="md" icon={Eye} label="조건 보기" onClick={() => setViewing(true)} disabled={!selected} className={TOUCH_FIELD_SIDE} />
         {aside && <div className={`ml-auto flex shrink-0 items-center gap-2 ${TOUCH_INFO_GAP}`}>{aside}</div>}
       </div>
       {missing && <p className="text-caption text-warning">고른 규칙이 지워졌습니다 — 다시 고르세요.</p>}

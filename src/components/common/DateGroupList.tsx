@@ -79,11 +79,11 @@ export default function DateGroupList({
                 type="button"
                 onClick={() => toggle(g.key)}
                 aria-expanded={isOpen}
-                className={`flex w-full items-center gap-4 px-3 text-left text-xs transition-colors hover:bg-bg-tertiary/60 ${LIST_TABLE_ROW} ${isOpen ? 'bg-bg-tertiary/60' : ''}`}
+                className={`flex w-full items-center gap-4 px-3 text-left text-xs transition-colors hover:bg-bg-tertiary/60 phone:flex-wrap phone:gap-y-0.5 phone:py-2 ${LIST_TABLE_ROW} ${isOpen ? 'bg-bg-tertiary/60' : ''}`}
               >
                 <span className="w-24 shrink-0 tabular-nums text-text-secondary">{g.date}</span>
                 <span className="min-w-0 flex-1 text-text-primary">{g.title}</span>
-                <span className="shrink-0 whitespace-nowrap text-text-secondary">{g.summary}</span>
+                <span className="shrink-0 whitespace-nowrap text-text-secondary phone:order-last phone:basis-full phone:pl-28">{g.summary}</span>
                 <span className="shrink-0 text-text-muted">{isOpen ? <ChevronDown {...ICON_SM} /> : <ChevronRight {...ICON_SM} />}</span>
               </button>
               {isOpen && <div className="bg-bg-secondary/60 px-3 pb-3 pt-1">{g.render()}</div>}

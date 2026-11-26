@@ -1,4 +1,5 @@
 import { ICON_SM } from '../ui/icon';
+import { TOUCH_LIST_ROW } from '../ui/tokens';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
@@ -42,7 +43,7 @@ export default function HelpBox({
         type="button"
         onClick={toggle}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-text-secondary hover:text-text-primary"
+        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-text-secondary hover:text-text-primary ${TOUCH_LIST_ROW}`}
       >
         <span className="w-3 shrink-0">{open ? <ChevronDown {...ICON_SM} /> : <ChevronRight {...ICON_SM} />}</span>
         {title}

@@ -7,7 +7,7 @@ import { SkeletonList } from './SkeletonLoader';
 import { Button, ListRemoveButton, RemoveAllButton, Tabs } from '../ui';
 import Dialog, { DialogCancel } from '../ui/Dialog';
 import { ICON_SM } from '../ui/icon';
-import { CONTROL_H, LIST_ROW, TOUCH_FIELD_H, TOUCH_FIELD_TEXT } from '../ui/tokens';
+import { CONTROL_H, LIST_ROW, TOUCH_FIELD_H, TOUCH_FIELD_TEXT, TOUCH_LIST_ROW, TOUCH_SIDE_GAP } from '../ui/tokens';
 import { useBacktestUniverse } from '../../hooks/useBacktest';
 import { useWatchlist } from '../../hooks/useWatchlist';
 import { useStockNames } from '../../hooks/useStockNames';
@@ -130,7 +130,7 @@ function RowButton({
   onRemove?: (s: string) => void;
 }) {
   return (
-    <li className="flex items-center gap-1">
+    <li className={`flex items-center gap-1 ${TOUCH_SIDE_GAP}`}>
       <button
         type="button"
         onClick={() => onToggle(row.symbol)}
@@ -181,7 +181,7 @@ function GroupHead({
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-controls={`sp-group-${id}`}
-        className="flex min-w-0 flex-1 items-center gap-1 text-left text-xs font-medium text-text-secondary hover:text-text-primary"
+        className={`flex min-w-0 flex-1 items-center gap-1 text-left text-xs font-medium text-text-secondary hover:text-text-primary ${TOUCH_LIST_ROW}`}
       >
         {open ? <ChevronDown {...ICON_SM} /> : <ChevronRight {...ICON_SM} />}
         <span className="truncate">{title}</span>
@@ -400,7 +400,7 @@ function CatalogPickerDialog({
       closeOnBackdrop={false}
       size="xl"
       z={98}
-      bodyClassName="flex"
+      bodyClassName="flex phone:flex-col"
       dirty={changed}
       footer={
         <>
@@ -416,7 +416,7 @@ function CatalogPickerDialog({
       }
     >
       {/* 왼쪽 — 맨 위 탭 둘: [목록에서 고르기] 목록 안 찾기 + 묶음 목록 / [새 종목 검색] 목록 밖 종목 추가 */}
-      <div className="flex min-w-0 flex-1 flex-col gap-2 border-r border-border/40 p-3">
+      <div className="flex min-w-0 flex-1 flex-col gap-2 border-r border-border/40 p-3 phone:min-h-0 phone:border-b phone:border-r-0">
         <Tabs
           label="종목 고르는 방법"
           size="sm"
@@ -448,7 +448,7 @@ function CatalogPickerDialog({
         )}
         {leftTab === 'list' && (
           <>
-        <label className={`flex items-center gap-2 rounded-md bg-bg-tertiary px-2 ${CONTROL_H.md} ${TOUCH_FIELD_H}`}>
+        <label className={`flex items-center gap-2 rounded-md bg-bg-tertiary px-2 ${CONTROL_H.md} ${TOUCH_FIELD_H} phone:shrink-0`}>
           <Search {...ICON_SM} className="shrink-0 text-text-muted" aria-hidden />
           {/* design-lint-ignore: 아이콘과 한 상자인 검색칸 — 바깥 상자가 입력칸 모양(높이·바탕)을 맡는다 */}
           <input
@@ -585,7 +585,7 @@ function CatalogPickerDialog({
       </div>
 
       {/* 오른쪽 — 고른 종목 */}
-      <div className="flex w-[300px] shrink-0 flex-col gap-2 p-3">
+      <div className="flex w-[300px] shrink-0 flex-col gap-2 p-3 phone:max-h-[40%] phone:w-full">
         <div className="flex items-center gap-2">
           <p className="text-xs font-semibold text-text-primary">
             고른 종목 {draft.length}

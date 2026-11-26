@@ -6,7 +6,7 @@ import StockName from '../common/StockName';
 import { SkeletonCards } from '../common/SkeletonLoader';
 import { Badge, Button, InfoTip, Segmented } from '../ui';
 import { ICON_SM } from '../ui/icon';
-import { LIST_TABLE_ROW, TABLE_NUM_COL } from '../ui/tokens';
+import { LIST_TABLE_ROW, TABLE_NUM_COL, TOUCH_BAR_PAD, TOUCH_LIST_ROW } from '../ui/tokens';
 import { fetchJudgeDays, useBuyJudgeDays, useBuyJudgeHistory } from '../../hooks/useBuyJudge';
 import DateGroupList, { SymbolsTitle } from '../common/DateGroupList';
 import { daySymbols } from '../../utils/buyJudgeOrder';
@@ -109,7 +109,7 @@ export default function BuyJudgeHistory() {
     <div className="space-y-6">
       {/* ① 날짜별 목록 (사용자 결정) — 위 한 줄 = 「사도 됨」 성과 요약, 날짜를 펼치면 그날 종목 전부. 백테스트 히스토리와 같은 부품(DateGroupList) */}
       <section className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className={`flex flex-wrap items-center gap-2 ${TOUCH_BAR_PAD}`}>
           <h3 className="text-sm font-semibold text-text-primary">날짜별 판단</h3>
           <InfoTip label="수익 계산">{OUTCOME_HELP}</InfoTip>
           {s && (
@@ -218,11 +218,11 @@ export default function BuyJudgeHistory() {
                       type="button"
                       onClick={() => void toggle(r.symbol)}
                       aria-expanded={open}
-                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-bg-tertiary/60 ${open ? 'bg-bg-tertiary/60' : 'bg-bg-tertiary/30'}`}
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-bg-tertiary/60 phone:flex-wrap ${TOUCH_LIST_ROW} ${open ? 'bg-bg-tertiary/60' : 'bg-bg-tertiary/30'}`}
                     >
                       {open ? <ChevronDown {...ICON_SM} className="shrink-0 text-text-muted" /> : <ChevronRight {...ICON_SM} className="shrink-0 text-text-muted" />}
-                      <StockName symbol={r.symbol} className="w-48 shrink-0" />
-                      <span className="min-w-0 text-text-secondary">
+                      <StockName symbol={r.symbol} className="w-48 shrink-0 phone:w-auto" />
+                      <span className="min-w-0 text-text-secondary phone:basis-full phone:pl-5.5">
                         최근 {r.days}거래일 — 기준 미달 {r.below}일 · 손익비 부족 {r.rrBlock}일 · 거름망에 걸림 {r.gateBlock ?? 0}일{gateBreakdown(r.gateReasons)} · 사도 됨 {r.buy}일
                         {r.mostMissing ? ` · 가장 자주 모자란 조건: ${r.mostMissing}` : ''}
                       </span>

@@ -218,3 +218,7 @@ export const CHIP_SIZE = { xs: 'px-2 py-0.5 text-caption', sm: 'px-2 py-1 text-c
 export const TOUCH_BAR_PAD = 'touch:py-3';
 /** 손가락 화면 표 줄 44(v2.76.0) — 높이를 `LIST_TABLE_ROW` 로 정하지 않은 표에서 줄 안 단추(종목 이름)의 누르는 칸 44 가 위아래 줄끼리 겹치지 않게 · 마우스 화면 그대로 */
 export const TOUCH_TABLE_ROW = 'touch:h-11';
+/** 입력 칸 · 드롭박스 옆 아이콘 단추(v2.77.0 규칙 고르기 [조건 보기]) — 손가락 화면은 칸(`TOUCH_FIELD` 44)과 같은 높이 · 폭 44(같은 줄 높이) */
+export const TOUCH_FIELD_SIDE = 'touch:h-11 touch:w-11';
+/** 줄 단추 바로 옆 아이콘 단추(v2.77.0 종목 추가 창 「직접 추가」 줄 삭제) — 손가락 화면은 사이 12(아이콘 단추 바깥 칸 10 + 여유 — 누르는 칸 겹침 0) */
+export const TOUCH_SIDE_GAP = 'touch:gap-x-3';

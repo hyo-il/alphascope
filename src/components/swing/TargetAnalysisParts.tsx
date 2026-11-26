@@ -6,6 +6,7 @@ import { currencyOfSymbol } from '../../utils/market';
 import StockName from '../common/StockName';
 import { Trash2 } from 'lucide-react';
 import IconButton from '../ui/IconButton';
+import LinkButton from '../ui/LinkButton';
 import {
   type TargetAnalysisRecord,
   type TargetOutcome,
@@ -107,9 +108,9 @@ export function ResultCard({
 
       {record.summary && <p className="whitespace-pre-line text-text-secondary">{record.summary}</p>}
 
-      <button type="button" onClick={() => setOpen((v) => !v)} className="text-accent hover:underline">
+      <LinkButton onClick={() => setOpen((v) => !v)}>
         {open ? '근거·위험 접기' : '근거·위험 보기'}
-      </button>
+      </LinkButton>
       {open && (
         <div className="space-y-1.5 border-t border-border pt-2 text-text-secondary">
           {record.reasons.length > 0 && (

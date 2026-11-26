@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react';
 import StockName from '../common/StockName';
 import { Button, ListRemoveButton } from '../ui';
 import DataCard, { DataCardList, DataCardRow } from '../ui/DataCard';
+import LinkButton from '../ui/LinkButton';
 import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { ICON_SM } from '../ui/icon';
 import { withUsDateTag } from '../common/UsDateTag';
@@ -372,9 +373,9 @@ function Detail({
           <span className={`font-normal ${muted}`}>
             조건: 목표 +{goal.targetPct}% · {goal.days}거래일 · 손절 −{goal.stopPct}%
           </span>
-          <button type="button" className="font-normal text-accent hover:underline" onClick={onEditGoal}>
+          <LinkButton className="font-normal" onClick={onEditGoal}>
             조건 바꾸기
-          </button>
+          </LinkButton>
         </p>
         {running ? (
           <p className="text-text-secondary">
