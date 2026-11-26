@@ -24,4 +24,5 @@ export { default as Popover } from './Popover';
 export { default as PageHeader } from './PageHeader';
 export { default as PageTitle } from './PageTitle';
 export { default as ScrollTopShade } from './ScrollTopShade';
+export { default as ScrollTable } from './ScrollTable';
 export { CONTROL_H, FORM_LABEL_W, FORM_VALUE_W, LIST_GAP, LIST_ROW, TABLE_FILL, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP, TABLE_TEXT_COL, PANEL_X, PANEL_PAD, UNIT_W } from './tokens';

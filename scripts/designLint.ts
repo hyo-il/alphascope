@@ -20,6 +20,9 @@
  *      `fixed inset-0` · `absolute inset-0` + 반투명 바탕(`bg-…/NN` · `backdrop-`) · 기다리는 동안 `pointer-events-none` 으로 막기(같은 줄에 busy · loading · saving …)는
  *      실패(허용: 부품 세 파일 · 아래 `OVERLAY_OK`). 읽기만 하는 기다림은 막지 않고 표시만(불투명 판 · 흐림 · 도는 원).
  *  12. 맨 검정 덮개(`bg-black/NN`) — 창 · 판 뒤 덮개 색은 `index.css` `--color-overlay`(`bg-overlay`) 하나(v2.73.0).
+ *  13. 넓은 표는 `ui/ScrollTable` 하나(v2.75.0 · 테마 4-2) — 표(`<table`)를 감싸는 맨 `overflow-x-auto` 는 실패(폰 · 패드에서 본문 전체가 밀리거나
+ *      표마다 넘칠 때의 규칙이 갈라진다 · 1280 이상의 넘치면 밀기는 `<ScrollTable deskScroll>`). `<table` 바로 위 태그가 `<ScrollTable` 이 아니어도 실패
+ *      (배치용 표처럼 미는 표가 아닌 것은 그 줄 위에 `design-lint-ignore: <이유>`). 부품 파일(`ui/ScrollTable.tsx`)은 예외.
  * 끝나면 어긴 곳 수를 출력하고, 하나라도 있으면 exit 1.
  * 시험용: `DESIGN_LINT_EXTRA=<파일,…>` 를 주면 그 파일도 검사한다(`tooltip:test` · `toolbutton:test` 의 가짜 파일 — 커밋하지 않는다).
  *   `DESIGN_LINT_SCRIPTS_EXTRA=<파일,…>` = 9 번 검사에 더할 가짜 시험 파일.
@@ -136,6 +139,44 @@ for (const file of FILES) {
     if (/^\s*(\*|\/\/|\/\*)/.test(line) || !isOverlayLine(line)) return;
     if (OVERLAY_OK.some((o) => o.file === rel && line.includes(o.has))) return;
     hits.push({ file: rel, line: i + 1, id: '직접 덮개', text: line.trim().slice(0, 140), why: '화면 코드의 덮개 — 막는 로딩은 common/LoadingOverlay(busy) · 창은 ui/Dialog · 읽기만이면 막지 않고 표시만(공통 7-2)' });
+  });
+}
+
+// 13 — 넓은 표는 ui/ScrollTable 하나(맨 overflow-x-auto 감싸기 · 감싸지 않은 표는 실패)
+for (const file of FILES) {
+  const rel = path.relative(ROOT, file);
+  if (rel === 'src/components/ui/ScrollTable.tsx') continue;
+  const lines = fs.readFileSync(file, 'utf8').split('\n');
+  const isComment = (l: string) => /^\s*(\*|\/\/|\/\*|\{\/\*)/.test(l) || /^\s*$/.test(l);
+  lines.forEach((line, i) => {
+    if (isComment(line)) return;
+    const ignored = /design-lint-ignore/.test(line) || /design-lint-ignore/.test(lines[i - 1] ?? '');
+    // 13a — 맨 overflow-x-auto 가 표를 감쌈(그 줄 다음의 첫 태그가 <table) · ScrollTable 에 직접 적은 overflow-x-auto
+    if (/(?<![\w:-])overflow-x-auto(?![\w-])/.test(line)) {
+      let next = '';
+      for (let k = i + 1; k < Math.min(lines.length, i + 8); k++) {
+        if (isComment(lines[k])) continue;
+        if (/<[A-Za-z]/.test(lines[k])) {
+          next = lines[k];
+          break;
+        }
+      }
+      if ((/<table\b/.test(next) || /<ScrollTable\b/.test(line)) && !ignored)
+        hits.push({ file: rel, line: i + 1, id: '맨 overflow-x-auto 표', text: line.trim().slice(0, 140), why: '표마다 overflow-x-auto 금지 — ui/ScrollTable 로 감싼다(1280 이상의 넘치면 밀기는 deskScroll)' });
+    }
+    // 13b — <table 바로 위 태그가 <ScrollTable 이 아님
+    if (/<table\b/.test(line) && !ignored) {
+      let prev = '';
+      for (let k = i - 1; k >= 0; k--) {
+        if (isComment(lines[k])) continue;
+        if (/<\/?[A-Za-z>]/.test(lines[k])) {
+          prev = lines[k];
+          break;
+        }
+      }
+      if (!/<ScrollTable\b/.test(prev))
+        hits.push({ file: rel, line: i + 1, id: '미는 표 아님', text: line.trim().slice(0, 140), why: '<table> 은 ui/ScrollTable 바로 안에 둔다(폰 · 패드에서 표만 옆으로 밀림) — 배치용 표면 그 줄 위에 design-lint-ignore: <이유>' });
+    }
   });
 }
 

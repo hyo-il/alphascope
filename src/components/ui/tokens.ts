@@ -73,6 +73,11 @@ export const TABLE_NUM_GAP = 'pl-6';
 export const TABLE_NUM_GAP_TIGHT = 'pl-3';
 export const TABLE_FILL = 'w-full';
 /**
+ * 폰 · 패드의 옆으로 미는 표(`ui/ScrollTable` · v2.75.0)에서 이름 칸(`TABLE_NAME_COL` — 글이 있는 `w-full` 머리 칸) 최소 폭(px).
+ * 표가 좁아지면 이름 칸이 먼저 줄어 코드만 보였다(「0006…」) — 넘치는 긴 이름은 지금처럼 말줄임 + 잘렸을 때만 툴팁. 1280 이상은 쓰지 않는다.
+ */
+export const TABLE_NAME_MIN_PX = 140;
+/**
  * 글자가 섞인 비교 칸(백테스트 비교 표의 방법·들고 있기 칸 — 조건 한 줄·판 이유) — 넓은 창(1536px 이상)에서만 최소 폭 176px.
  * 폭을 고정하지 않는다 — 빈 칸(`TABLE_FILL`)이 남는 폭을 가져가므로 이 칸은 내용의 줄바꿈 단위(줄바꿈 금지 조각) 폭까지만 넓어진다.
  * 1280 에서는 최소 폭을 두지 않는다(줄바꿈해 들어간다 — 최소 폭을 두면 표가 35px 넘친다).

@@ -123,6 +123,13 @@
   --text-base--line-height: calc(25 / 18);
   --text-xl: 1.375rem; /* 22px — 로그인 화면 앱 제목 전용 */
   --text-xl--line-height: calc(30 / 22);
+
+  /*
+   * 옆으로 미는 표(v2.75.0 · 테마 4-2 · `ui/ScrollTable`) — 폰 · 패드에서만 쓰인다(1280 이상은 상자를 그리지 않음).
+   * 고정 칸 그림자(밀었을 때만) · 끝 흐림 폭. 이름 칸 최소 폭은 `ui/tokens.ts` `TABLE_NAME_MIN_PX`.
+   */
+  --shadow-scroll-pin: 6px 0 8px -4px rgb(0 0 0 / 0.6);
+  --scroll-table-fade: 24px;
 }
 
 /*
@@ -493,4 +500,89 @@ input[type='number']::-webkit-inner-spin-button,
 input[type='number']::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
+}
+
+/*
+ * 옆으로 미는 표(v2.75.0 · 테마 4-2) — `ui/ScrollTable` 이 폰 · 패드에서만 그리는 `data-scroll-table` 상자에만 걸린다(1280 이상 DOM 에는 없음).
+ * 레이어 밖에 둔다 — 고정 칸의 바탕 · 자리가 칸에 달린 유틸(`bg-*` · `relative`)에 덮이지 않게.
+ *   --st-bg    상자 바탕(고정 칸 · 흐림 색) — 새 색이 아니라 상자에 깔린 바탕 그대로(inset = bg-tertiary 40% 를 bg-secondary 위에 겹친 색)
+ *   --st-row   그 줄의 바탕(고른 줄 · 머리 바탕 — ScrollTable 이 줄마다 잰다) · --st-pad-l/r 상자 안쪽 여백 · --st-fade-l 왼쪽 흐림 자리(고정 칸 폭 · 없으면 −왼쪽 여백)
+ * 상자에 안쪽 여백이 있으면 크롬은 sticky 를 여백 안쪽에 붙인다 — 고정 칸 왼쪽 여백 자리는 바탕색 덧그림(::before)으로 덮고, 흐림은 여백만큼 바깥으로 낸다.
+ */
+[data-scroll-table] {
+  --st-bg: var(--color-bg-secondary);
+}
+[data-scroll-table][data-tone='inset'] {
+  --st-bg: color-mix(in srgb, var(--color-bg-tertiary) 40%, var(--color-bg-secondary));
+}
+[data-scroll-table][data-tone='primary'] {
+  --st-bg: var(--color-bg-primary);
+}
+[data-scroll-table-inner] > * {
+  grid-area: 1 / 1;
+}
+[data-scroll-table-inner] > table > thead {
+  z-index: 3;
+}
+[data-scroll-table] > [data-scroll-table-inner] > table th.w-full:not(:empty) {
+  min-width: var(--st-name-min);
+}
+[data-scroll-table][data-pin='1'] > [data-scroll-table-inner] > table > * > tr > :nth-child(1),
+[data-scroll-table][data-pin='2'] > [data-scroll-table-inner] > table > * > tr > :nth-child(2),
+[data-scroll-table][data-pin='3'] > [data-scroll-table-inner] > table > * > tr > :nth-child(3) {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: var(--st-bg);
+  background-image: linear-gradient(var(--st-row, transparent), var(--st-row, transparent));
+}
+/* 표 칸(border-collapse)에는 box-shadow 가 그려지지 않는다 — 고정 칸 그림자 · 왼쪽 여백 덮개는 칸 안의 덧그림으로 */
+[data-scroll-table][data-pin='1'] > [data-scroll-table-inner] > table > * > tr > :nth-child(1)::before,
+[data-scroll-table][data-pin='2'] > [data-scroll-table-inner] > table > * > tr > :nth-child(2)::before,
+[data-scroll-table][data-pin='3'] > [data-scroll-table-inner] > table > * > tr > :nth-child(3)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(-1 * var(--st-pad-l, 0px));
+  width: var(--st-pad-l, 0px);
+  background-color: var(--st-bg);
+  pointer-events: none;
+}
+[data-scroll-table][data-pin='1'] > [data-scroll-table-inner] > table > * > tr > :nth-child(1)::after,
+[data-scroll-table][data-pin='2'] > [data-scroll-table-inner] > table > * > tr > :nth-child(2)::after,
+[data-scroll-table][data-pin='3'] > [data-scroll-table-inner] > table > * > tr > :nth-child(3)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: none;
+}
+[data-scroll-table][data-stuck][data-pin='1'] > [data-scroll-table-inner] > table > * > tr > :nth-child(1)::after,
+[data-scroll-table][data-stuck][data-pin='2'] > [data-scroll-table-inner] > table > * > tr > :nth-child(2)::after,
+[data-scroll-table][data-stuck][data-pin='3'] > [data-scroll-table-inner] > table > * > tr > :nth-child(3)::after {
+  box-shadow: var(--shadow-scroll-pin);
+}
+[data-scroll-fade] {
+  position: sticky;
+  z-index: 4;
+  width: var(--scroll-table-fade);
+  align-self: stretch;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+[data-scroll-fade='left'] {
+  justify-self: start;
+  left: var(--st-fade-l, 0px);
+  background: linear-gradient(to right, var(--st-bg), transparent);
+}
+[data-scroll-fade='right'] {
+  justify-self: end;
+  right: calc(-1 * var(--st-pad-r, 0px));
+  background: linear-gradient(to left, var(--st-bg), transparent);
+}
+[data-scroll-table][data-fade~='l'] [data-scroll-fade='left'],
+[data-scroll-table][data-fade~='r'] [data-scroll-fade='right'] {
+  opacity: 1;
 }
