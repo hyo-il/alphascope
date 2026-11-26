@@ -276,6 +276,13 @@ try {
       const info = await boxInfo(page, s.box);
       const body = await bodyOverflow(page);
       const doc = await docOverflow(page);
+      // 3 — 149차(v2.76.0)부터 폰 실제 계좌 보유는 표 대신 카드(테마 4-1) — 넘침 0 과 카드만 본다(카드 글 · 말줄임은 mobileaccount:test 4)
+      if (s.line === 3) {
+        const cards = await page.locator('[data-card]').count();
+        check('[148-2] 402×874 실제 계좌 보유 — 문서 · 본문 가로 넘침 0 · 149 부터 폰은 카드(미는 표 없음)', doc <= 0 && body.all === 0 && !info && cards > 0, `문서 ${doc} · 본문 ${JSON.stringify(body)} · 상자 ${JSON.stringify(info)} · 카드 ${cards}`);
+        await ctx.close();
+        continue;
+      }
       // 급등 탐지는 화면 안 탭 줄(「설정」 탭)이 17px 넘친다 — 점검 102줄(실험실 차수) · 표 때문이 아니다
       const bodyOk = s.line === 6 ? body.byTable === 0 : body.all === 0;
       check(
@@ -303,17 +310,6 @@ try {
         await scrollBox(page, s.box, 'end');
         const r = await insideBox(page, s.box, s.last);
         check('[148-10-2] 실시간 순위 — 이름이 보이고(위 148-6) 끝까지 밀면 「거래대금」 칸까지 보임', r.ok && name.w >= 140, r.why);
-      }
-      if (s.line === 3) {
-        const lines = await lineCount(page, '[data-scroll-table] tbody tr td:first-child');
-        const clip = await page.evaluate(() => {
-          const td = document.querySelector<HTMLElement>('[data-scroll-table] tbody tr td:first-child')!;
-          return td.scrollWidth > td.clientWidth;
-        });
-        const pnlLines = await lineCount(page, '[data-scroll-table] tbody tr td:nth-child(6)');
-        await scrollBox(page, s.box, 'end');
-        const r = await insideBox(page, s.box, s.last);
-        check('[148-10-3] 실제 계좌 보유 — 끝까지 밀면 평가손익 뒤 「당일손익」 까지 보임 · 긴 종목명 한 줄(말줄임) · 평가손익 한 줄', r.ok && lines === 1 && clip && pnlLines === 1, `${r.why} · 이름 ${lines}줄 · 잘림 ${clip} · 평가손익 ${pnlLines}줄`);
       }
       if (s.line === 4) {
         const usage = await lineCount(page, '[data-scroll-table] tbody tr td:nth-child(2)');
