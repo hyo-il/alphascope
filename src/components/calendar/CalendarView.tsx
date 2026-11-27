@@ -1,6 +1,7 @@
-import { PANEL_PAD } from '../ui/tokens';
+import { DATA_CARD, DATA_CARD_LIST, PANEL_PAD, PHONE_CHIP_GAP, PHONE_CHIP_ROW_H, PHONE_WEEK_DATE, PHONE_WEEK_DAY, PHONE_WEEK_GRID } from '../ui/tokens';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { IconButton, InfoTip, Button, PageTitle } from '../ui';
+import { IconButton, InfoTip, Button, PageTitle, Chip, Checkbox, ScrollRow, DataCardSkeleton } from '../ui';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 import WarnIcon from '../ui/WarnIcon';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import DatePicker from './DatePicker';
@@ -16,6 +17,10 @@ import type { CalendarEvent, CalendarEventType, CalendarResponse, CalendarScope 
  * 실적(관심 종목 · 시총 상위 100) · FOMC · 옵션 만기 · 휴장을 한 곳에서 본다. 데이터는 서버 `GET /api/calendar` 한 곳이고,
  * 이 화면은 거르고 그리기만 한다. 실적 종목을 누르면 그 종목 차트로 간다.
  * ⚠️ 판정은 없다 — 일정 표시일 뿐이다(자동매매 실적 회피는 서버가 따로 본다).
+ *
+ * 폰(v2.83.0 · 테마 9-2 「증시일정」 · 사용자 결정 2026-11-27): 달력 격자 대신 주 이동 줄 → 거르기 칩 줄 → **가로 7일 칸**(일 ~ 토 · 한국 날짜) →
+ * 그날 일정 카드. 같은 응답 · 같은 고른 날(`selected`) · 같은 달 상태(`month`)를 쓴다 — 주를 옮겨 다른 달이 되면 달 상태만 바꿔 지금처럼 그 달을 받는다
+ * (받는 범위 = 그 달 ± 7일이라 달 경계에 걸친 주도 다 들어 있다 · 같은 달 안에서는 다시 받지 않는다). 패드 · 1280 이상은 달력 격자 그대로.
  */
 
 const TYPES: { id: CalendarEventType; label: string; dot: string }[] = [
@@ -39,8 +44,46 @@ const addDays = (day: string, n: number) => {
 
 /** 오늘(KST) — 서버 meta 가 오기 전 초기값 */
 const todayKst = () => new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10);
+const weekdayOf = (day: string) => new Date(`${day}T12:00:00Z`).getUTCDay();
+/** 그 날이 든 주(일 ~ 토) 일곱 날 */
+const weekOf = (day: string) => Array.from({ length: 7 }, (_, i) => addDays(day, i - weekdayOf(day)));
+/** 「2026년 11월 4주」 — 그 날이 그 달의 몇째 주(일요일 시작 · 1일이 든 주 = 1주)인지 */
+const weekTitle = (day: string) => {
+  const y = Number(day.slice(0, 4));
+  const m = Number(day.slice(5, 7));
+  const d = Number(day.slice(8, 10));
+  return `${y}년 ${m}월 ${Math.ceil((d + weekdayOf(ymd(y, m, 1))) / 7)}주`;
+};
+
+const eventText = (e: CalendarEvent) =>
+  e.type === 'earnings' ? `${e.name ?? e.symbol} 실적${e.isEstimate ? '(예정)' : ''}` : e.label;
+
+/** 그날 일정 한 줄의 안쪽 — 1280 오른쪽 판 줄과 폰 카드가 같은 부품 · 같은 글 */
+function EventLine({ e, onSelectSymbol }: { e: CalendarEvent; onSelectSymbol: (symbol: string) => void }) {
+  return (
+    <>
+      <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${DOT[e.type]}`} aria-hidden />
+      {e.type === 'earnings' && e.symbol ? (
+        <button
+          type="button"
+          onClick={() => onSelectSymbol(e.symbol!)}
+          className="touch-hit min-w-0 text-left hover:underline"
+          data-tip="이 종목 차트로"
+        >
+          <StockName symbol={e.symbol} name={e.name ?? undefined} size="sm" className="text-text-primary" />
+          <span className="block text-text-muted">{e.label}</span>
+        </button>
+      ) : (
+        <span className="text-text-secondary">{e.label}</span>
+      )}
+      {/* 미국 일정 — 날짜 · 「지남」 이 미국 날짜라 한국 달력과 하루 다를 수 있다(종목 단추 밖에 — 단추 안에 단추를 두지 않는다) */}
+      {e.market === 'US' && <UsDateTag className="ml-auto pl-2" />}
+    </>
+  );
+}
 
 export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symbol: string) => void }) {
+  const phone = useLayoutMode() === 'phone';
   const initial = todayKst();
   const [month, setMonth] = useState<{ y: number; m: number }>({ y: Number(initial.slice(0, 4)), m: Number(initial.slice(5, 7)) });
   const [selected, setSelected] = useState<string>(initial);
@@ -110,10 +153,207 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
       return { y: next.getUTCFullYear(), m: next.getUTCMonth() + 1 };
     });
 
-  const eventText = (e: CalendarEvent) =>
-    e.type === 'earnings' ? `${e.name ?? e.symbol} 실적${e.isEstimate ? '(예정)' : ''}` : e.label;
+  /** 폰 — 그 날을 고르고, 다른 달이면 달 상태만 바꾼다(같은 달이면 그대로 — 다시 받지 않음) */
+  const pick = (day: string) => {
+    const y = Number(day.slice(0, 4));
+    const m = Number(day.slice(5, 7));
+    setMonth((cur) => (cur.y === y && cur.m === m ? cur : { y, m }));
+    setSelected(day);
+  };
 
   const dayEvents = byDay.get(selected) ?? [];
+  const visibleTypes = TYPES.filter((t) => t.id !== 'holiday' || holidaysAvailable);
+  const toggleType = (id: CalendarEventType) => setFilters((f) => ({ ...f, [id]: !f[id] }));
+  const scopeLabel = '관심 종목만';
+
+  /** 이번 주 요약 한 줄(월 ~ 일) */
+  const summary = (
+        <p className="rounded-xl bg-bg-secondary px-3 py-2 text-caption text-text-secondary">
+          <span className="text-text-muted">이번 주({shortDate(weekStart)}~{shortDate(weekEnd)}) · </span>
+          {firstLoad ? (
+            <>
+              <InlineSpinner className="mr-1 align-[-2px]" />
+              일정을 불러오는 중…
+            </>
+          ) : failedEmpty ? (
+            '—'
+          ) : thisWeek.length ? (
+            thisWeek.map((e) => `${eventText(e)} ${shortDate(e.date)}`).join(' · ')
+          ) : (
+            '고른 종류의 일정이 없습니다'
+          )}
+          {loading && !firstLoad && <InlineSpinner className="ml-2 align-[-2px]" />}
+        </p>
+  );
+  /** 상수 갱신 알림 · 받기 실패 */
+  const notices = (
+    <>
+        {data?.meta.fomcStale && (
+          <p className="rounded-lg bg-warning/10 px-3 py-1.5 text-caption text-warning">
+            FOMC 일정 갱신 필요 — 달력의 FOMC 는 2027년까지만 들어 있습니다 (src/data/fomc.ts)
+          </p>
+        )}
+        {data?.meta.nyse.stale && (
+          <p className="rounded-lg bg-warning/10 px-3 py-1.5 text-caption text-warning">
+            휴장 상수 갱신 필요 — NYSE 휴장 표는 2027년까지만 들어 있습니다 (src/data/nyseHolidays.ts)
+          </p>
+        )}
+        {error && (
+          <p data-tone="error" className="flex items-center gap-3 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">
+            {error}
+            <Button size="sm" busy={loading} onClick={() => setRetry((n) => n + 1)}>
+              다시 시도
+            </Button>
+          </p>
+        )}
+    </>
+  );
+  /** 고른 날 제목(「11월 27일 오늘」) */
+  const dayTitle = (
+            <p className="mb-2 text-xs font-semibold text-text-primary">
+              {Number(selected.slice(5, 7))}월 {Number(selected.slice(8, 10))}일
+              {selected === today && <span className="ml-1 text-caption font-normal text-text-secondary">오늘</span>}
+            </p>
+  );
+  /** 데이터 출처 · 휴장일 불일치 */
+  const source = (
+    <>
+        {/* 데이터 출처 설명은 정보 아이콘으로 (디자인 규칙 6) */}
+        <p className="flex items-center gap-1 text-caption text-text-muted">
+          데이터 출처{data && ` · 실적 대상 ${data.meta.scopeSize}종목`}
+          <InfoTip label="데이터 출처">
+          실적일은 재무 자료(Yahoo Finance) 기준이며 회사가 확정하기 전의 추정일일 수 있습니다(「예정」). FOMC 는 연준 공식 일정표.
+          옵션 만기는 매월 셋째 금요일(휴장이면 그 전 거래일), 3·6·9·12월은 분기 동시 만기입니다.
+          {holidaysAvailable
+            ? ` 휴장일은 토스 시장 달력 기준이고, 미국은 NYSE 공식 일정(${data?.meta.nyse.coverage.to.slice(0, 4) ?? '2027'}년까지)으로 보완합니다 — 둘 중 하나라도 휴장이면 휴장으로 표시합니다.`
+            : ' 휴장일은 아직 받지 못해 표시하지 않습니다.'}
+          </InfoTip>
+        </p>
+        {!!data?.meta.nyse.mismatches.length && (
+          <p className="text-caption text-warning">
+            <WarnIcon />토스·NYSE 휴장일 불일치: {data.meta.nyse.mismatches.join(', ')} — 둘 중 하나라도 휴장이면 휴장으로 계산합니다.
+          </p>
+        )}
+    </>
+  );
+  const picker = pickerOpen && (
+        <DatePicker
+          anchorRef={titleRef}
+          selected={selected}
+          today={data?.meta.today ?? initial}
+          onPick={(day) => {
+            setMonth({ y: Number(day.slice(0, 4)), m: Number(day.slice(5, 7)) });
+            setSelected(day);
+            setPickerOpen(false);
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+  );
+
+  if (phone)
+    return (
+      <div className={`h-full overflow-auto ${PANEL_PAD}`}>
+        <div className="space-y-3">
+          <PageTitle className="text-base font-semibold text-text-primary">증시 일정</PageTitle>
+          {/* 주 이동 줄 — [이전 주] 「2026년 11월 4주」(날짜 고르기) [다음 주] · [오늘] */}
+          <div data-testid="phone-week-nav" className="flex items-center gap-3">
+            <IconButton icon={ChevronLeft} label="이전 주" onClick={() => pick(addDays(selected, -7))} />
+            <Button variant="secondary" size="sm"
+              ref={titleRef}
+              onClick={() => setPickerOpen((v) => !v)}
+              aria-haspopup="dialog"
+              aria-expanded={pickerOpen}
+              aria-label={`${weekTitle(selected)} — 날짜 고르기`}
+              className="tabular-nums">
+              {weekTitle(selected)}
+            </Button>
+            <IconButton icon={ChevronRight} label="다음 주" onClick={() => pick(addDays(selected, 7))} />
+            {loading && !firstLoad && <InlineSpinner />}
+            <Button variant="secondary" size="sm" onClick={() => pick(today)} className="ml-auto">
+              오늘
+            </Button>
+          </div>
+
+          {/* 거르기 칩 · 관심 종목만 — 한 줄(44) · 넘치면 옆으로 밀기 + 끝 흐림(R7) */}
+          <ScrollRow testId="phone-calendar-filters" className={PHONE_CHIP_ROW_H} innerClassName={`flex h-full items-center ${PHONE_CHIP_GAP}`}>
+            {visibleTypes.map((t) => (
+              <Chip key={t.id} size="lg" selected={filters[t.id]} onClick={() => toggleType(t.id)}>
+                <span className="flex items-center gap-1">
+                  <span className={`h-1.5 w-1.5 rounded-full ${t.dot}`} aria-hidden />
+                  {t.label}
+                </span>
+              </Chip>
+            ))}
+            <label className="ml-2 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-caption text-text-secondary">
+              <Checkbox checked={scope === 'watchlist'} onChange={(e) => setScope(e.target.checked ? 'watchlist' : 'universe')} />
+              {scopeLabel}
+            </label>
+          </ScrollRow>
+
+          {notices}
+
+          {/* 가로 7일 칸(일 ~ 토 · 한국 날짜) — 받는 범위가 바뀌는 동안은 칸을 두고 주 이동 줄의 인라인 스피너만 */}
+          <div role="group" aria-label="이번 주 날짜" data-testid="phone-week-days" className={PHONE_WEEK_GRID}>
+            {weekOf(selected).map((day) => {
+              const events = byDay.get(day) ?? [];
+              const types = [...new Set(events.map((e) => e.type))];
+              const isToday = day === today;
+              const isSelected = day === selected;
+              const count = firstLoad || failedEmpty ? '' : events.length ? `${events.length}건` : '';
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  data-day={day}
+                  onClick={() => pick(day)}
+                  aria-pressed={isSelected}
+                  aria-current={isToday ? 'date' : undefined}
+                  aria-label={`${Number(day.slice(5, 7))}월 ${Number(day.slice(8, 10))}일 ${WEEKDAYS[weekdayOf(day)]}요일${count ? ` ${count}` : ''}`}
+                  className={`${PHONE_WEEK_DAY} ${isSelected ? 'bg-bg-elevated underline underline-offset-4' : 'hover:bg-bg-tertiary/60'}`}
+                >
+                  <span className="text-caption text-text-muted">{WEEKDAYS[weekdayOf(day)]}</span>
+                  <span
+                    className={`${PHONE_WEEK_DATE} ${
+                      isToday ? 'rounded bg-text-primary px-1 font-semibold text-bg-primary' : 'text-text-primary'
+                    }`}
+                  >
+                    {Number(day.slice(8, 10))}
+                  </span>
+                  <span className="flex h-1.5 items-center gap-0.5" aria-hidden>
+                    {types.map((t) => (
+                      <span key={t} className={`h-1.5 w-1.5 rounded-full ${DOT[t]}`} />
+                    ))}
+                  </span>
+                  <span data-day-count className="min-h-[18px] text-caption text-text-secondary">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 그날 일정 카드(4-1) — 1280 오른쪽 판과 같은 줄 부품 · 같은 글 · 같은 차례 */}
+          <section data-testid="phone-day-events">
+            {dayTitle}
+            {firstLoad ? (
+              <DataCardSkeleton count={2} />
+            ) : failedEmpty ? null : dayEvents.length === 0 ? (
+              <p className="text-caption text-text-muted">이날 일정이 없습니다.</p>
+            ) : (
+              <ul className={DATA_CARD_LIST}>
+                {dayEvents.map((e, i) => (
+                  <li key={`${e.type}-${e.symbol ?? i}`} data-event-card className={`${DATA_CARD} flex items-start gap-2 text-caption ${e.past ? 'opacity-50' : ''}`}>
+                    <EventLine e={e} onSelectSymbol={onSelectSymbol} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {summary}
+          {source}
+        </div>
+        {picker}
+      </div>
+    );
 
   return (
     <div className={`h-full overflow-auto ${PANEL_PAD}`}>
@@ -121,7 +361,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
         {/* 제목 줄 / 고르기 줄을 나눈다 (디자인 규칙 7) */}
         <PageTitle className="text-base font-semibold text-text-primary">증시 일정</PageTitle>
         <header className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 touch:gap-3">
             <IconButton icon={ChevronLeft} label="이전 달" size="sm" onClick={() => move(-1)} />
             {/* 제목 = 날짜 고르기 창 버튼 */}
             <Button variant="secondary" size="sm"
@@ -145,12 +385,12 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
           </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-1.5">
-            {TYPES.filter((t) => t.id !== 'holiday' || holidaysAvailable).map((t) => (
+            {visibleTypes.map((t) => (
               <button
                 key={t.id}
                 type="button"
-                onClick={() => setFilters((f) => ({ ...f, [t.id]: !f[t.id] }))}
-                className={`flex items-center gap-1 rounded-md px-2 py-0.5 text-caption transition-colors ${
+                onClick={() => toggleType(t.id)}
+                className={`touch-hit flex items-center gap-1 rounded-md px-2 py-0.5 text-caption transition-colors ${
                   filters[t.id] ? 'border-transparent bg-bg-elevated text-text-primary' : 'border-transparent bg-bg-tertiary text-text-muted hover:text-text-primary'
                 }`}
               >
@@ -158,53 +398,22 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
                 {t.label}
               </button>
             ))}
-            <label className="ml-2 inline-flex w-fit items-center gap-1.5 text-caption text-text-secondary">
+            <label className="ml-2 inline-flex w-fit items-center gap-1.5 text-caption text-text-secondary touch:ml-4">
               <input
                 type="checkbox"
+                className="touch-hit"
                 checked={scope === 'watchlist'}
                 onChange={(e) => setScope(e.target.checked ? 'watchlist' : 'universe')}
               />
-              관심 종목만
+              {scopeLabel}
             </label>
           </div>
         </header>
 
         {/* 이번 주 요약 한 줄 */}
-        <p className="rounded-xl bg-bg-secondary px-3 py-2 text-caption text-text-secondary">
-          <span className="text-text-muted">이번 주({shortDate(weekStart)}~{shortDate(weekEnd)}) · </span>
-          {firstLoad ? (
-            <>
-              <InlineSpinner className="mr-1 align-[-2px]" />
-              일정을 불러오는 중…
-            </>
-          ) : failedEmpty ? (
-            '—'
-          ) : thisWeek.length ? (
-            thisWeek.map((e) => `${eventText(e)} ${shortDate(e.date)}`).join(' · ')
-          ) : (
-            '고른 종류의 일정이 없습니다'
-          )}
-          {loading && !firstLoad && <InlineSpinner className="ml-2 align-[-2px]" />}
-        </p>
+        {summary}
 
-        {data?.meta.fomcStale && (
-          <p className="rounded-lg bg-warning/10 px-3 py-1.5 text-caption text-warning">
-            FOMC 일정 갱신 필요 — 달력의 FOMC 는 2027년까지만 들어 있습니다 (src/data/fomc.ts)
-          </p>
-        )}
-        {data?.meta.nyse.stale && (
-          <p className="rounded-lg bg-warning/10 px-3 py-1.5 text-caption text-warning">
-            휴장 상수 갱신 필요 — NYSE 휴장 표는 2027년까지만 들어 있습니다 (src/data/nyseHolidays.ts)
-          </p>
-        )}
-        {error && (
-          <p data-tone="error" className="flex items-center gap-3 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">
-            {error}
-            <Button size="sm" busy={loading} onClick={() => setRetry((n) => n + 1)}>
-              다시 시도
-            </Button>
-          </p>
-        )}
+        {notices}
 
         <div className="grid gap-3 [grid-template-columns:minmax(0,1fr)_300px]">
           {/* 월 달력 */}
@@ -216,7 +425,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7 gap-px">
+            <div data-month-grid className="grid grid-cols-7 gap-px">
               {cells.map((day) => {
                 const inMonth = day >= range.first && day <= range.last;
                 const events = byDay.get(day) ?? [];
@@ -227,6 +436,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
                   <button
                     key={day}
                     type="button"
+                    data-day={day}
                     onClick={() => setSelected(day)}
                     className={`flex h-16 flex-col items-start rounded p-1 text-left transition-colors ${
                       isSelected ? 'bg-bg-elevated' : 'hover:bg-bg-tertiary/60'
@@ -252,35 +462,17 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
           </div>
 
           {/* 고른 날의 목록 */}
-          <div className="rounded-xl bg-bg-secondary p-3">
-            <p className="mb-2 text-xs font-semibold text-text-primary">
-              {Number(selected.slice(5, 7))}월 {Number(selected.slice(8, 10))}일
-              {selected === today && <span className="ml-1 text-caption font-normal text-text-secondary">오늘</span>}
-            </p>
+          <div data-day-panel className="rounded-xl bg-bg-secondary p-3">
+            {dayTitle}
             {firstLoad ? (
               <SkeletonList count={3} />
             ) : failedEmpty ? null : dayEvents.length === 0 ? (
               <p className="text-caption text-text-muted">이날 일정이 없습니다.</p>
             ) : (
-              <ul className="space-y-1.5">
+              <ul className="space-y-1.5 touch:space-y-3">
                 {dayEvents.map((e, i) => (
                   <li key={`${e.type}-${e.symbol ?? i}`} className={`flex items-start gap-2 text-caption ${e.past ? 'opacity-50' : ''}`}>
-                    <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${DOT[e.type]}`} aria-hidden />
-                    {e.type === 'earnings' && e.symbol ? (
-                      <button
-                        type="button"
-                        onClick={() => onSelectSymbol(e.symbol!)}
-                        className="min-w-0 text-left hover:underline"
-                        data-tip="이 종목 차트로"
-                      >
-                        <StockName symbol={e.symbol} name={e.name ?? undefined} size="sm" className="text-text-primary" />
-                        <span className="block text-text-muted">{e.label}</span>
-                      </button>
-                    ) : (
-                      <span className="text-text-secondary">{e.label}</span>
-                    )}
-                    {/* 미국 일정 — 날짜 · 「지남」 이 미국 날짜라 한국 달력과 하루 다를 수 있다(종목 단추 밖에 — 단추 안에 단추를 두지 않는다) */}
-                    {e.market === 'US' && <UsDateTag className="ml-auto pl-2" />}
+                    <EventLine e={e} onSelectSymbol={onSelectSymbol} />
                   </li>
                 ))}
               </ul>
@@ -288,36 +480,9 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
           </div>
         </div>
 
-        {/* 데이터 출처 설명은 정보 아이콘으로 (디자인 규칙 6) */}
-        <p className="flex items-center gap-1 text-caption text-text-muted">
-          데이터 출처{data && ` · 실적 대상 ${data.meta.scopeSize}종목`}
-          <InfoTip label="데이터 출처">
-          실적일은 재무 자료(Yahoo Finance) 기준이며 회사가 확정하기 전의 추정일일 수 있습니다(「예정」). FOMC 는 연준 공식 일정표.
-          옵션 만기는 매월 셋째 금요일(휴장이면 그 전 거래일), 3·6·9·12월은 분기 동시 만기입니다.
-          {holidaysAvailable
-            ? ` 휴장일은 토스 시장 달력 기준이고, 미국은 NYSE 공식 일정(${data?.meta.nyse.coverage.to.slice(0, 4) ?? '2027'}년까지)으로 보완합니다 — 둘 중 하나라도 휴장이면 휴장으로 표시합니다.`
-            : ' 휴장일은 아직 받지 못해 표시하지 않습니다.'}
-          </InfoTip>
-        </p>
-        {!!data?.meta.nyse.mismatches.length && (
-          <p className="text-caption text-warning">
-            <WarnIcon />토스·NYSE 휴장일 불일치: {data.meta.nyse.mismatches.join(', ')} — 둘 중 하나라도 휴장이면 휴장으로 계산합니다.
-          </p>
-        )}
+        {source}
       </div>
-      {pickerOpen && (
-        <DatePicker
-          anchorRef={titleRef}
-          selected={selected}
-          today={data?.meta.today ?? initial}
-          onPick={(day) => {
-            setMonth({ y: Number(day.slice(0, 4)), m: Number(day.slice(5, 7)) });
-            setSelected(day);
-            setPickerOpen(false);
-          }}
-          onClose={() => setPickerOpen(false)}
-        />
-      )}
+      {picker}
     </div>
   );
 }

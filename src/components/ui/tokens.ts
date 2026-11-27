@@ -258,3 +258,21 @@ export const PAD_CHART_TABS_MIN_PX = 300;
 export const PHONE_CAPTURE_CHART_H = 'h-[45dvh]';
 /** 폰 표 최소 폭(v2.77.0 매수 판단 히스토리 펼친 표 — 고정 칸 합 608 + 종목 칸) — 고정 칸 합이 폰 폭보다 커 칸이 겹치던 표는 이 폭으로 두고 `ScrollTable` 이 상자 안에서 민다 */
 export const PHONE_TABLE_MIN_W = 'phone:min-w-[760px]';
+/**
+ * 폰 증시 일정(v2.83.0 · 테마 9-2 「증시일정」) — 위 → 아래: 주 이동 줄 → 거르기 칩 줄(44 · 넘치면 `ScrollRow`) → 가로 7일 칸 → 그날 일정 카드.
+ * 7일 칸 한 칸 = 요일 13 · 날짜 16 · 「N건」 13 secondary(폭 = 본문 ÷ 7 ≥ 44 · 높이 ≥ 44) · 고른 날 = `bg-bg-elevated` + 밑줄.
+ */
+export const PHONE_WEEK_GRID = 'grid grid-cols-7 gap-1 rounded-xl bg-bg-secondary p-1';
+export const PHONE_WEEK_DAY = 'flex min-h-11 flex-col items-center gap-0.5 rounded-lg py-1.5 tabular-nums transition-colors';
+export const PHONE_WEEK_DATE = 'text-sm';
+/** 손가락 화면 날짜 고르기 판 폭(칸 44 × 7 + 사이 2 × 6 + 안 여백 24) — 마우스 화면은 지금 300 그대로 */
+export const DATE_PICKER_W = 300;
+export const DATE_PICKER_TOUCH_W = 344;
+/**
+ * 폰 자산 관리(v2.83.0 · 테마 9-2 「계좌-자산관리 · 자산-총자산」) — 요약 카드 한 줄에 하나(이름 13 · 값 18 · 변화 13) ·
+ * 도넛 160 위 가운데 · 범례 아래 폭 전체.
+ */
+export const PHONE_SUMMARY_VALUE = 'text-base';
+export const PHONE_DONUT_PX = 160;
+/** 붙은 단추 줄 사이(테마 6 「12 이상」 · 넘치면 줄바꿈) */
+export const BUTTON_ROW_GAP = 'gap-3';

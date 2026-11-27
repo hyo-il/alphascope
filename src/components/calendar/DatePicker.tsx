@@ -2,12 +2,15 @@ import { useState, type RefObject } from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import Popover from '../ui/Popover';
 import IconButton from '../ui/IconButton';
+import { DATE_PICKER_TOUCH_W, DATE_PICKER_W } from '../ui/tokens';
+import { useTouchScreen } from '../../hooks/useLayoutMode';
 
 /**
  * 증시 일정의 날짜 고르기 (**제목 바로 아래 뜨는 Popover** — 가운데 창이 아니다) — 「2026년 10월」 제목을 누르면 뜬다.
  * ‹‹ ›› = 1년, ‹ › = 1달. 주 시작 요일은 본 달력과 같다(일요일). 오늘 = 밑줄, 지금 고른 날 = 밝은 바탕(디자인 규칙 2).
  * ⚠️ **늘 6주 줄**(앞뒤 달 날짜는 흐리게) — 달마다 주 수가 달라 창 높이가 흔들렸다. 앞뒤 달 날짜를 눌러도 그 날로 간다.
  * 날짜를 누르면 그 달로 이동 + 그 날 선택 + 닫힘. ESC·바깥 클릭 = 닫힘.
+ * 손가락 화면(v2.83.0 · 테마 6절)은 날짜 칸 44 × 44(판 폭 `DATE_PICKER_TOUCH_W`) — 마우스 화면은 지금 크기 그대로.
  */
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -25,6 +28,7 @@ export default function DatePicker({
   onPick: (day: string) => void;
   onClose: () => void;
 }) {
+  const touch = useTouchScreen();
   const [view, setView] = useState({ y: Number(selected.slice(0, 4)), m: Number(selected.slice(5, 7)) });
   const move = (months: number) =>
     setView(({ y, m }) => {
@@ -41,7 +45,7 @@ export default function DatePicker({
   });
 
   return (
-    <Popover anchorRef={anchorRef} onClose={onClose} width={300} label="날짜 고르기">
+    <Popover anchorRef={anchorRef} onClose={onClose} width={touch ? DATE_PICKER_TOUCH_W : DATE_PICKER_W} label="날짜 고르기">
       <div className="mb-2 flex items-center justify-center gap-1">
         <IconButton icon={ChevronsLeft} label="1년 전" size="sm" onClick={() => move(-12)} />
         <IconButton icon={ChevronLeft} label="이전 달" size="sm" onClick={() => move(-1)} />
@@ -64,7 +68,7 @@ export default function DatePicker({
             onClick={() => onPick(day)}
             aria-current={day === today ? 'date' : undefined}
             aria-pressed={day === selected}
-            className={`h-8 rounded-md tabular-nums transition-colors ${
+            className={`h-8 touch:h-11 rounded-md tabular-nums transition-colors ${
               day === selected
                 ? 'bg-bg-tertiary font-medium text-text-primary'
                 : inMonth
