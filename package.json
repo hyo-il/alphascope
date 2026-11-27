@@ -63,6 +63,7 @@
     "testguard:test": "tsx scripts/testGuardSelfTest.ts",
     "asset:test": "tsx scripts/assetSelfTest.ts",
     "assetpurchase:test": "tsx scripts/assetPurchaseSelfTest.ts",
+    "assetplan:test": "tsx scripts/assetPlanSelfTest.ts",
     "assetsheet:test": "tsx scripts/assetSheetSelfTest.ts",
     "assetshape:test": "tsx scripts/assetShapeSelfTest.ts",
     "assetprice:test": "tsx scripts/assetPriceSelfTest.ts",
