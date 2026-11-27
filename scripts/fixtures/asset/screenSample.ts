@@ -134,7 +134,7 @@ const ym = (day: string) => `${day.slice(0, 4)}.${day.slice(5, 7)}`;
  * - `purchaseDone: false`: 네 계좌 아직 · `purchase: 'mixed'`: 개별 투자 완료 + 다음 차례 건너뜀 · 적립식 아직(시트 날짜 이미 2026.12) · ISA 건너뜀 · 연금 저축 매달 아님
  * - `skipped`: 오늘 11-07 · 차례 10-30 시작 전 · `early`: 오늘 12-20 · 11-27 완료 · 'can' 다음 차례 미리 완료 가능 / 'done' 12-20 에 미리 완료
  */
-export function monthlyBuySample(opts: { salary?: number | null; target?: AssetTargetRatio; purchaseDone?: boolean; purchase?: 'mixed'; calendarUnchecked?: boolean; skipped?: boolean; early?: 'can' | 'done'; plan?: PlanSampleKind } = {}): MonthlyBuy {
+export function monthlyBuySample(opts: { salary?: number | null; target?: AssetTargetRatio; purchaseDone?: boolean; purchase?: 'mixed'; calendarUnchecked?: boolean; skipped?: boolean; early?: 'can' | 'done'; plan?: PlanSampleKind; planBuy?: boolean } = {}): MonthlyBuy {
   const target = opts.target ?? { cash: 10, gold: 30, bond: 20, invest: 40, core: 60, satellite: 40 };
   const cyc = opts.skipped
     ? { today: '2026-11-07', cycleDay: '2026-10-30', nextDay: '2026-11-27', startDay: '2026-11-07', skipped: true, earlyFrom: '2026-11-20' }
@@ -177,6 +177,11 @@ export function monthlyBuySample(opts: { salary?: number | null; target?: AssetT
   if (!opts.plan) return mb;
   // v2.79.0 — 계좌 · 종목별 목록(summary 의 `withPlans` 와 같은 모양)
   const p = planSample(opts.plan);
+  // v2.80.0 — [매수 입력] 장면: 적립식 국내 줄 「이번 차례 입력: 3주」 · ISA 국내 줄 「같은 종목이 두 줄」(막힘)
+  if (opts.planBuy) {
+    for (const r of p.plans['적립식 계좌']?.rows ?? []) if (r.symbol === '0072R0') r.boughtThisCycle = 3;
+    for (const r of p.plans['ISA 계좌']?.rows ?? []) if (r.symbol === '000002') Object.assign(r, { holdingRow: null, holdingProblem: 'many' as const });
+  }
   return { ...mb, accounts: mb.accounts.map((a) => ({ ...a, plan: p.plans[a.section] ?? null })), planError: p.error, planSkipped: p.skipped };
 }
 
@@ -231,7 +236,7 @@ export function planSample(kind: PlanSampleKind): { plans: Record<string, Monthl
  * 총 자산 요약(v2.62.0) 가짜 응답 — 만든 값. `none` = 미지정 금액 · 가격 못 받은 줄을 넣는다(긴 금액 · 경고 줄 넘침을 잰다).
  */
 export function assetSummarySample(
-  opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number; writeEnabled?: boolean; purchaseDone?: boolean; purchase?: 'mixed'; calendarUnchecked?: boolean; skipped?: boolean; early?: 'can' | 'done'; plan?: PlanSampleKind; lockMinutes?: number; salary?: number | null; price?: Parameters<typeof priceSheetSample>[0]; prices?: Record<string, number> } = {},
+  opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number; writeEnabled?: boolean; purchaseDone?: boolean; purchase?: 'mixed'; calendarUnchecked?: boolean; skipped?: boolean; early?: 'can' | 'done'; plan?: PlanSampleKind; planBuy?: boolean; lockMinutes?: number; salary?: number | null; price?: Parameters<typeof priceSheetSample>[0]; prices?: Record<string, number> } = {},
 ): AssetSummary {
   const pension = opts.pension ?? false;
   const amounts: [AssetGroupKey, string, number][] = [

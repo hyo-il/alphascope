@@ -148,11 +148,7 @@ function PlanTable({ plan, section, onLink, buy }: { plan: MonthlyPlan; section:
             <th className={`${NUM} font-normal`}>지금 가격</th>
             <th className={`${NUM} font-normal`}>살 주</th>
             <th className={`${NUM} ${buy ? '' : 'pr-4'} font-normal`}>남는 돈</th>
-            {buy && (
-              <th className="pr-4 font-normal">
-                <span className="sr-only">매수 입력</span>
-              </th>
-            )}
+            {buy && <th className="pr-4" aria-label="매수 입력" />}
           </tr>
         </thead>
         <tbody>
@@ -234,7 +230,8 @@ function PlanCards({ plan, section, onLink, buy }: { plan: MonthlyPlan; section:
                 ) : undefined
               }
             >
-              <div className="space-y-1 text-xs" data-testid="plan-row" data-linked={r.symbol != null}>
+              {/* 최소 높이 44 — [매수 입력] 이 카드 아래(누르는 곳 밖)로 빠져도 카드 누르는 칸이 44 아래로 줄지 않게(v2.80.0 design:check) */}
+              <div className="min-h-11 space-y-1 text-xs" data-testid="plan-row" data-linked={r.symbol != null}>
                 <CardLine
                   left={<span className="text-text-primary">{r.symbol == null ? r.name : `${r.name} → ${r.stockName}`}</span>}
                   right={<span className="tabular-nums text-text-primary" data-testid="plan-amount">{won(r.amount)}</span>}

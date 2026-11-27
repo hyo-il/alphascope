@@ -36,7 +36,7 @@ import { chromium, type Locator, type Page } from 'playwright';
 import { NAV_GROUPS, PAGE_TABS } from '../src/types/nav';
 import { rankingSample, usHaltsSample } from './fixtures/usHalts/screenSample';
 import { briefSample, daySample, daysSample, mismatchSample, outlookSample, statusSample } from './fixtures/marketBrief/screenSample';
-import { assetNewPlanSample, assetTradesSample, assetHistorySample, assetSheetFailureSample, assetSheetSample, assetStatusSample, assetSummaryFailureSample, assetSummarySample } from './fixtures/asset/screenSample';
+import { assetNewPlanSample, assetTradesSample, assetHistorySample, assetSheetFailureSample, assetSheetSample, assetStatusSample, assetSummaryFailureSample, assetSummarySample, planSheetSample } from './fixtures/asset/screenSample';
 import { CASH_SAMPLE_KIWOOM, cashViewSample } from './fixtures/asset/screenSample'; // v2.71.0 현금 자동 반영 장면
 import { cashViewManualSample } from './fixtures/asset/screenSample'; // v2.72.0 직접 입출금 장면
 import { CHANGELOG } from '../src/data/changelog';
@@ -1010,6 +1010,21 @@ function targets(): Target[] {
           await page.locator('#as-asset-monthly-buy [data-testid="plan"]').first().scrollIntoViewIfNeeded().catch(() => {});
           await page.waitForTimeout(200);
         }] as const),
+        // v2.80.0 — 살 종목 [매수 입력](이음 줄 · 「이번 차례 입력: 3주」 · 같은 종목 두 줄 막힘) · 채운 매수 창(머리 아래 「이번 달 구매(○ 차례) — 계획 N주 · ₩…」)
+        ['이번달구매-매수입력', { purchase: 'mixed', plan: 'mixed', planBuy: true }, async (page: Page) => {
+          await page.locator('[data-purchase-later]').click().catch(() => {});
+          await page.waitForTimeout(300);
+          await page.locator('#as-asset-monthly-buy [data-testid="plan"]').first().scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+        }],
+        ['이번달구매-채운매수창', { purchase: 'mixed', plan: 'mixed', planBuy: true }, async (page: Page) => {
+          await page.route('**/api/asset/cash/pair**', (r) => r.fulfill({ json: { enabled: true, pair: { key: CASH_SAMPLE_KIWOOM, label: CASH_SAMPLE_KIWOOM.name }, usdKrw: 1380.5, balance: 4_000_000 } }).catch(() => {}));
+          await page.locator('[data-purchase-later]').click().catch(() => {});
+          await page.waitForTimeout(300);
+          await page.locator('#as-asset-monthly-buy [data-section="적립식 계좌"] [data-testid="plan-buy"]').first().click().catch(() => {});
+          await page.locator('[data-trade-plan-note]').waitFor({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(400);
+        }],
         ['설정창-살종목잇기', { plan: 'mixed' }, async (page: Page) => {
           await page.locator('[data-asset-settings]').click().catch(() => {});
           await page.waitForTimeout(400);
@@ -1379,7 +1394,8 @@ function targets(): Target[] {
         }, 'pension' in sum && sum.pension === true);
         await page.route('**/api/asset/status', (r) => r.fulfill({ json: assetStatusSample(true) }).catch(() => {}));
         await page.route('**/api/asset/touch', (r) => r.fulfill({ json: { ok: true, lockMinutes: 30, remainingMs: 30 * 60_000 } }).catch(() => {}));
-        await page.route('**/api/asset/sheet', (r) => r.fulfill({ json: assetSheetSample() }).catch(() => {}));
+        // 살 종목 장면(v2.80.0)은 [매수 입력] 이 찾는 보유 줄이 든 시트 응답
+        await page.route('**/api/asset/sheet', (r) => r.fulfill({ json: 'plan' in sum ? planSheetSample() : assetSheetSample() }).catch(() => {}));
         await page.route('**/api/asset/summary**', (r) => r.fulfill({ json: assetSummarySample(sum as Parameters<typeof assetSummarySample>[0]) }).catch(() => {}));
         await page.route('**/api/asset/history**', (r) => r.fulfill({ json: assetHistorySample(30) }).catch(() => {}));
         await page.route('**/api/asset/class', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
