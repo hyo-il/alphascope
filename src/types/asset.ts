@@ -630,6 +630,14 @@ export interface MonthlyPlanRow {
   /** 살 주(내림) · 남는 돈(원) */
   shares: number | null;
   rest: number | null;
+  /**
+   * [매수 입력] 이 열 보유 줄(v2.80.0 · 「주식 투자 정리」 줄 번호) — 그 계좌에 이 종목 보유 줄이 **하나**이고 입력을 받는 줄일 때만.
+   * 아니면 null + `holdingProblem`(`many` 같은 코드 두 줄 이상 · `not-tradable` 평균가 · 수량 칸 모양이 달라 입력 못 함) · 잇지 않은 줄은 둘 다 null.
+   */
+  holdingRow: number | null;
+  holdingProblem: 'many' | 'not-tradable' | null;
+  /** 이번 차례 입력(v2.80.0) — 같은 계좌 · 같은 종목 · 매수 · 이번 차례 구매일(한국 날짜) 이후 기록의 수량 합(없으면 0) · 잇지 않은 줄은 null */
+  boughtThisCycle: number | null;
 }
 
 /** 계좌 하나의 「적립식 투자」 묶음 계산(v2.79.0) */

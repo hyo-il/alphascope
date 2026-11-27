@@ -10,9 +10,12 @@
  * - 몇 주: 가격은 summary 가격 표(`PriceBook` — 총 자산과 같은 값) · 미국은 가격 × 지금 환율(summary 와 같은 환율) ·
  *   살 주 = 내림(금액 ÷ 원 가격) · 남는 돈 = 금액 − 살 주 × 원 가격(원 반올림 · 0 이상) · 가격이 없으면 null.
  * - 줄 이름 → 종목: `store.ts` `planLinks`(앱 설정) — 지금 줄 이름 · 그 계좌 보유 종목일 때만 쓴다(아니면 「이어 주세요」).
+ * - [매수 입력](v2.80.0): 보유 줄 찾기는 `holdingOf` 한 곳(그 계좌 · 같은 종목 줄이 하나이고 입력을 받는 줄일 때만 줄 번호) ·
+ *   「이번 차례 입력」 은 `cycleBuysOf`(순수 — 매수 기록 · 이번 차례 구매일) + `withCycleBuys`(summary 가 기록을 한 번 읽어 붙인다).
  * ⚠️ 금액 · 비율 · 개월 수 · 줄 이름 · 종목을 로그에 찍지 않는다(개수 · 까닭 종류만).
  */
-import type { AssetSheetData, MonthlyPlan, MonthlyPlanError, MonthlyPlanRow, MonthlyPlanSkip } from '../../src/types/asset';
+import { marketDate } from '../../src/utils/marketDate';
+import type { AssetSheetData, AssetTradeSide, MonthlyPlan, MonthlyPlanError, MonthlyPlanRow, MonthlyPlanSkip } from '../../src/types/asset';
 import { assetSheetConfig } from './config';
 import { AssetSheetError, batchGet, type CellRows } from './google';
 import { one, onSheetCacheReset, wideRange } from './sheet';
@@ -71,6 +74,49 @@ function choicesOf(data: Pick<AssetSheetData, 'sections'>, section: string) {
   const seen = new Map<string, { symbol: string; name: string; market: 'US' | 'KR' | null }>();
   for (const h of s?.holdings ?? []) if (h.symbol && !seen.has(h.symbol)) seen.set(h.symbol, { symbol: h.symbol, name: h.name, market: h.market });
   return [...seen.values()];
+}
+
+/**
+ * [매수 입력] 이 열 보유 줄(v2.80.0 — 찾기 한 곳) — 그 계좌(합친 표 아님)에서 이 종목 보유 줄이 하나이고 입력을 받는 줄(`tradable`)이면 줄 번호.
+ * 두 줄 이상 = `many`(자산 현황에서 줄을 골라 입력) · 한 줄인데 입력 못 받음 = `not-tradable`.
+ */
+export function holdingOf(data: Pick<AssetSheetData, 'sections'>, section: string, symbol: string): Pick<MonthlyPlanRow, 'holdingRow' | 'holdingProblem'> {
+  const s = data.sections.find((x) => !x.combined && x.key === section);
+  const rows = (s?.holdings ?? []).filter((h) => h.symbol === symbol);
+  if (rows.length > 1) return { holdingRow: null, holdingProblem: 'many' };
+  if (rows.length === 1 && rows[0].tradable) return { holdingRow: rows[0].row, holdingProblem: null };
+  return { holdingRow: null, holdingProblem: 'not-tradable' };
+}
+
+/** 매수 기록 한 줄(`asset_trades` 에서 쓰는 칸만) */
+export interface CycleTrade {
+  at: string;
+  section: string;
+  symbol: string;
+  side: AssetTradeSide;
+  qty: number;
+}
+const buyKey = (section: string, symbol: string) => `${section}\u0000${symbol}`;
+
+/**
+ * 이번 차례 입력(v2.80.0 · 순수) — 매수 기록 가운데 **입력 시각의 한국 날짜가 이번 차례 구매일 이후(그날 포함)** 인 것만 계좌 · 종목마다 수량 합.
+ * 매도 · 지난 차례는 세지 않는다 · 다음 차례 구매일이 오면 `cycleDay` 가 바뀌어 0 부터.
+ */
+export function cycleBuysOf(trades: readonly CycleTrade[], cycleDay: string): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const t of trades) {
+    if (t.side !== 'buy' || !t.symbol) continue;
+    const at = Date.parse(t.at);
+    if (!Number.isFinite(at) || marketDate(at, '005930') < cycleDay) continue;
+    const k = buyKey(t.section, t.symbol);
+    out.set(k, (out.get(k) ?? 0) + t.qty);
+  }
+  return out;
+}
+
+/** 계좌 계산에 「이번 차례 입력」 을 붙인다(순수 · 이은 줄만 — 없으면 0 · 소수 찌꺼기는 6자리로) */
+export function withCycleBuys(plan: MonthlyPlan, section: string, buys: ReadonlyMap<string, number>): MonthlyPlan {
+  return { ...plan, rows: plan.rows.map((r) => ({ ...r, boughtThisCycle: r.symbol == null ? null : Math.round((buys.get(buyKey(section, r.symbol)) ?? 0) * 1e6) / 1e6 })) };
 }
 
 /** 몇 주 — 원 가격 · 살 주(내림) · 남는 돈(원 · 0 이상). 가격이 없으면 모두 null */
@@ -134,6 +180,8 @@ export function planOfGroup(g: SavingGroup, data: Pick<AssetSheetData, 'sections
       ...s,
       usdKrw: usd,
       amountUsd: usd != null && usd > 0 ? amounts[i] / usd : null,
+      ...(symbol ? holdingOf(data, g.account as string, symbol) : { holdingRow: null, holdingProblem: null }),
+      boughtThisCycle: symbol ? 0 : null,
     };
   });
   const rests = rows.filter((r) => r.rest != null).map((r) => r.rest as number);

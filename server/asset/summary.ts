@@ -23,7 +23,8 @@ import { isAssetSyncEnabled } from './config';
 import { computeRebalance } from './rebalance';
 import { monthlyBuyOf, purchaseAccountsInput } from './purchase';
 import { priceSheetStatus } from './priceSheet';
-import { savingPlansFor, type SavingPlanResult } from './savingPlan';
+import { cycleBuysOf, savingPlansFor, withCycleBuys, type SavingPlanResult } from './savingPlan';
+import { tradesForChange } from './trade';
 
 /** 토스 가격(종목 → 원래 통화 값) · 환율(1달러 = N원) */
 export interface PriceBook {
@@ -229,9 +230,25 @@ export async function loadInputs(): Promise<{ data: AssetSheetData; book: PriceB
 /**
  * 이번 달 구매에 계좌 · 종목별 목록을 붙인다(v2.79.0) — 계좌 key 로 이음 · 묶음이 없는 계좌는 null · 탭을 못 쓰면 모두 null + `planError` 하나.
  * `monthlyBuyOf`(살 금액 · 차례 · 상태)는 그대로 두고 그 결과에 칸만 더한다.
+ * v2.80.0 — 줄마다 「이번 차례 입력」(`buys` = `cycleBuysOf(매수 기록, 이번 차례 구매일)` · 없으면 모두 0).
  */
-export function withPlans(mb: MonthlyBuy, r: SavingPlanResult): MonthlyBuy {
-  return { ...mb, accounts: mb.accounts.map((a) => ({ ...a, plan: r.plans.get(a.section) ?? null })), planError: r.error, planSkipped: r.skipped };
+export function withPlans(mb: MonthlyBuy, r: SavingPlanResult, buys: ReadonlyMap<string, number> = new Map()): MonthlyBuy {
+  return {
+    ...mb,
+    accounts: mb.accounts.map((a) => {
+      const plan = r.plans.get(a.section) ?? null;
+      return { ...a, plan: plan ? withCycleBuys(plan, a.section, buys) : null };
+    }),
+    planError: r.error,
+    planSkipped: r.skipped,
+  };
+}
+
+/** 이번 달 구매 + 목록 + 이번 차례 입력 — 매수 기록은 여기서 한 번 읽는다(목록이 있을 때만 · 로그는 개수만) */
+function monthlyWithPlans(mb: MonthlyBuy, plans: SavingPlanResult): MonthlyBuy {
+  if (plans.plans.size === 0) return withPlans(mb, plans);
+  const buys = cycleBuysOf(tradesForChange(), mb.cycleDay);
+  return withPlans(mb, plans, buys);
 }
 
 /** `GET /api/asset/summary` — 카드 · 분류별 · 코어/위성 · 어제보다(가장 최근 하루 기록) · 이번 달 구매(계좌 · 종목별 목록 — 「적립식 투자」 탭 따로 읽기) */
@@ -257,7 +274,7 @@ export async function assetSummary(includePension: boolean): Promise<AssetSummar
     rebalance: computeRebalance(c.totals, data.targetRatio, settings.rebalanceBand),
     targetRatio: data.targetRatio,
     writeEnabled: isAssetSyncEnabled(),
-    monthlyBuy: withPlans(monthlyBuyOf(data.salary, data.targetRatio, purchaseAccountsInput(data)), plans),
+    monthlyBuy: monthlyWithPlans(monthlyBuyOf(data.salary, data.targetRatio, purchaseAccountsInput(data)), plans),
     priceSheet: priceSheetStatus(),
   };
 }
