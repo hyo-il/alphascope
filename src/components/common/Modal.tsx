@@ -57,7 +57,7 @@ export default function ModalHost() {
               {request.cancelText ?? '취소'}
             </Button>
           )}
-          {/* 확인 버튼 하나만 색을 준다 — 지우기는 빨강, 그 밖은 파랑 (공용 Button) */}
+          {/* 확인 버튼 하나만 색을 준다 — 지우기 · 로그아웃 같은 위험은 빨강(`danger` — 앱에서 빨간 바탕 단추는 여기 하나), 그 밖은 파랑 (공용 Button) */}
           <Button busy={busy} variant={request.danger ? 'danger' : 'primary'} onClick={() => void accept()} disabled={busy} autoFocus={!request.focusCancel}>
             {busy ? '처리 중…' : (request.confirmText ?? '확인')}
           </Button>
@@ -76,7 +76,7 @@ export default function ModalHost() {
               {request.rows!.map((row) => (
                 <div key={row.label} className="flex justify-between text-caption">
                   <dt className="text-text-muted">{row.label}</dt>
-                  <dd className={`tabular-nums ${TONE[row.tone ?? 'default']}`}>{row.value}</dd>
+                  <dd className={`tabular-nums ${TONE[row.tone ?? 'default']}`} data-tone={row.tone === 'bearish' ? 'down' : undefined}>{row.value}</dd>
                 </div>
               ))}
             </dl>

@@ -354,7 +354,6 @@ export default function WatchlistManager({
                         {!isDefault && (
                           <IconButton
                             size="sm"
-                            tone="danger"
                             icon={Trash2}
                             label="폴더 삭제 (종목은 폴더 밖으로)"
                             aria-label={`${f.name} 폴더 삭제`}

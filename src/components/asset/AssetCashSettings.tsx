@@ -511,7 +511,7 @@ function FlowRow({
       <div className="rounded-lg bg-bg-tertiary/30 px-3 py-1.5" data-testid="asset-cash-flow-row" data-flow-reflect="missing">
         {head}
         <div className="flex justify-end">
-          <Button size="sm" variant="danger-text" disabled={busy != null} onClick={onClear}>
+          <Button size="sm" variant="ghost" disabled={busy != null} onClick={onClear}>
             설정 지우기
           </Button>
         </div>

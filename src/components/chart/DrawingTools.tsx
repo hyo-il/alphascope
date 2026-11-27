@@ -111,7 +111,7 @@ export default function DrawingTools({
         「모두 삭제」 는 아이콘만(도구 버튼 — 디자인 규칙 9 · 툴팁에 할 일). 그림 하나 지우기는 그 모양 위 「삭제」 버튼 ·
         오른쪽 클릭 메뉴 · Delete 키(133차 — 도구줄 「선택 삭제」 는 두지 않는다).
       */}
-      <IconButton icon={Eraser} tone="danger" label="그린 것 모두 삭제" aria-label="모두 삭제"
+      <IconButton icon={Eraser} label="그린 것 모두 삭제" aria-label="모두 삭제"
         onClick={onClearAll}
         disabled={!hasDrawings} />
     </div>

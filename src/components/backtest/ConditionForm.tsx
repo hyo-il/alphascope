@@ -38,7 +38,7 @@ export default function ConditionForm({
                 <RuleSelect rules={rules} value={c.ruleId} onChange={(id) => setMethodRule(c.label, id)} label={`${methodName(c.label)} 매매 규칙`} />
               </div>
               {many && (
-                <Button size="sm" variant="danger-text" onClick={() => removeMethod(c.label)}>
+                <Button size="sm" variant="ghost" onClick={() => removeMethod(c.label)}>
                   {methodName(c.label)} 삭제
                 </Button>
               )}

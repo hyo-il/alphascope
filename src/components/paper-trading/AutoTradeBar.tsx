@@ -181,13 +181,10 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
           <Button
             size="sm"
             busy={toggling}
-            variant={on ? 'danger' : 'primary'}
+            variant={on ? 'secondary' : 'primary'}
             onClick={() => void toggle()}
             disabled={toggling}
-            /*
-              ⚠️ 끄기는 **빨강**이다. 돌고 있는 자동매매를 멈추는 동작이라, 켜기와 같은 무게로
-              보이면 안 된다 — 눌러 놓고 "왜 안 도나" 를 찾게 된다.
-            */
+            /* 끄기 = 보조 단추(빨강은 하락 · 매도 · 틀린 칸에만 — 테마 9-1 R2) · 확인 창 없이 바로(지금 동작 그대로) */
           >
             {toggling ? (on ? '끄는 중…' : '켜는 중…') : on ? '끄기' : '켜기'}
           </Button>

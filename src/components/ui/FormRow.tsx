@@ -83,7 +83,7 @@ function FormRowInner({
         {hint != null && <span data-formrow-hint className="min-w-0 flex-1 text-caption text-text-muted phone:basis-full">{hint}</span>}
       </div>
       {message != null && (
-        <p className={`mt-1 text-caption text-danger ${FORM_LABEL_PAD[labelW]}`} data-field-error>
+        <p className={`mt-1 text-caption text-danger ${FORM_LABEL_PAD[labelW]}`} data-field-error data-tone="invalid">
           {message}
         </p>
       )}

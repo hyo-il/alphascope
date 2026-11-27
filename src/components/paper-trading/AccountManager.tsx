@@ -135,7 +135,7 @@ export default function AccountManager({
               초기화
             </Button>
             {/* 화면 안의 삭제 = 빨간 글자(기준표 「버튼」) */}
-            <Button variant="danger-text" size="sm"
+            <Button variant="ghost" size="sm"
               onClick={confirmDelete}>
               <TrashIcon className="h-3.5 w-3.5" />
               삭제

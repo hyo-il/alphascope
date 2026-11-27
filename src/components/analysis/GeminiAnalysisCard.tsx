@@ -114,7 +114,7 @@ export default function GeminiAnalysisCard({
       <div className="mt-2 flex items-center gap-2 text-xs">
         <DisclosureButton open={open} onToggle={() => setOpen(!open)} label="상세 보기" controls={`gemini-card-${analysis.id}`} />
         {onDelete && (
-          <Button variant="danger-text" size="sm" className="ml-auto"
+          <Button variant="ghost" size="sm" className="ml-auto"
             onClick={() => onDelete(analysis.id)}>
             <TrashIcon className="h-3.5 w-3.5" />
             삭제

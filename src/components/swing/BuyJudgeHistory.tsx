@@ -275,7 +275,7 @@ export default function BuyJudgeHistory() {
                 { value: 'all', label: '전부' },
               ]}
             />
-            <Button busy={clearing} size="sm" variant="danger-text" onClick={clear} disabled={clearing}>
+            <Button busy={clearing} size="sm" variant="ghost" onClick={clear} disabled={clearing}>
               {clearing ? '삭제하는 중…' : '기록 삭제'}
             </Button>
           </span>

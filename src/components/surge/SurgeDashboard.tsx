@@ -214,7 +214,6 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
                       </span>
                       <IconButton
                         size="sm"
-                        tone="danger"
                         icon={Trash2}
                         label="이 회차 삭제"
                         aria-label={`${roundLabel(round.at)} 회차 삭제`}

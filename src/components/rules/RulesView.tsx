@@ -128,7 +128,7 @@ export default function RulesView() {
                         <Button busy={busyId === rule.id} size="sm" icon={Copy} onClick={() => void copy(rule)} disabled={busyId === rule.id}>
                           {busyId === rule.id ? '복사 중…' : '복사'}
                         </Button>
-                        <Button size="sm" variant="danger-text" icon={Trash2} onClick={() => confirmRemove(rule)}>
+                        <Button size="sm" variant="ghost" icon={Trash2} onClick={() => confirmRemove(rule)}>
                           삭제
                         </Button>
                       </div>

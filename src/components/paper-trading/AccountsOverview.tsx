@@ -352,7 +352,7 @@ export default function AccountsOverview({
                     {/* 버튼 칸 — 누른 것이 줄 열기로 번지지 않게 막는다 */}
                     <td className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} ${many ? '' : 'pr-3'}`} onClick={(e) => e.stopPropagation()}>
                       <Button
-                        variant={on ? 'danger-text' : 'secondary'}
+                        variant="secondary"
                         size="sm"
                         busy={busy}
                         disabled={busy || !strategy}
@@ -566,9 +566,9 @@ export default function AccountsOverview({
                   </span>
                 )}
 
-                {/* 카드마다 파란 버튼이 생기지 않게 보조 버튼(켜기) · 빨간 글자(끄기) — 파랑은 화면의 주요 실행 하나만 */}
+                {/* 카드마다 파란 버튼이 생기지 않게 켜기 · 끄기 모두 보조 버튼 — 파랑은 화면의 주요 실행 하나만 · 빨강은 하락 · 매도 · 틀린 칸에만 */}
                 <Button
-                  variant={on ? 'danger-text' : 'secondary'}
+                  variant="secondary"
                   size="sm"
                   className="ml-auto"
                   busy={busyId === item.account.id}

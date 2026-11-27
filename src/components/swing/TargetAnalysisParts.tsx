@@ -75,7 +75,7 @@ export function ResultCard({
           +{record.targetPct}% / −{record.stopPct}% · {record.days}거래일 · 기준 {record.baseDate} 종가{' '}
           {formatPrice(record.entryPrice, currencyOfSymbol(record.symbol))}
         </span>
-        <IconButton size="sm" tone="danger" icon={Trash2} label="이 결과 삭제" onClick={() => onDelete(record)} className="ml-auto" />
+        <IconButton size="sm" icon={Trash2} label="이 결과 삭제" onClick={() => onDelete(record)} className="ml-auto" />
       </div>
 
       <div className="space-y-1">

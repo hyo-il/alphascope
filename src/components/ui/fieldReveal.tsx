@@ -74,7 +74,7 @@ export function FieldError({ children, className = '' }: { children: ReactNode; 
   const revealed = useRevealed();
   if (children == null || children === false || children === '' || !revealed) return null;
   return (
-    <span className={`text-caption text-danger ${className}`} data-field-error>
+    <span className={`text-caption text-danger ${className}`} data-field-error data-tone="invalid">
       {children}
     </span>
   );

@@ -335,13 +335,9 @@ export default function QuickOrderPanel({
           <p className="text-caption leading-relaxed text-text-muted">
             모의투자 계좌를 먼저 만드세요.
           </p>
-          <button
-            type="button"
-            onClick={onGoToPaperTrading}
-            className="w-full rounded-md bg-accent px-2 py-1.5 text-caption font-medium text-white transition-colors hover:bg-accent-hover"
-          >
+          <Button variant="primary" size="sm" onClick={onGoToPaperTrading} className="w-full">
             계좌 생성
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -513,12 +509,13 @@ export default function QuickOrderPanel({
           {info(unit === 'percent' ? `매수 예상 (${percent}%, 지정가)` : '매수 예상 (지정가)', formatPrice(buyEstimate, currency))}
         </div>
 
-        {/* 주문 버튼 — 매도 파랑 / 매수 빨강 (국내 관례) */}
+        {/* 주문 버튼 — 매수 초록 / 매도 빨강 (미국 증권 기준 · 색 정의는 `tokens` 한 곳) */}
         <div className="grid grid-cols-2 gap-1">
           <button
             type="button"
             onClick={() => order('SELL', 'LIMIT')}
             disabled={busy || !price || !limitPrice || sellQuantity <= 0}
+            data-tone="sell"
             className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_SELL_COLOR}`}
           >
             지정가 매도
@@ -535,6 +532,7 @@ export default function QuickOrderPanel({
             type="button"
             onClick={() => order('SELL', 'MARKET')}
             disabled={busy || !price || marketSellQuantity <= 0}
+            data-tone="sell"
             className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_SELL_COLOR}`}
           >
             시장가 매도

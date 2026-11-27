@@ -331,7 +331,7 @@ export default function AnalysisHistory({
                         ? (record.prompt ?? '저장된 프롬프트가 없습니다.')
                         : record.synthesis}
                     </pre>
-                    <Button variant="danger-text" size="sm"
+                    <Button variant="ghost" size="sm"
                       onClick={() => handleDelete(record)}
                       className="mt-2">
                       <TrashIcon className="h-3.5 w-3.5" />

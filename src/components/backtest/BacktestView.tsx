@@ -71,7 +71,7 @@ function HistoryRow({ item, selected, onOpen, onRetry, onRemove }: { item: Backt
           이 조건으로 다시 실행
         </Button>
       )}
-      <IconButton size="md" tone="danger" icon={Trash2} label="삭제" aria-label={`${when(item.createdAt)} 결과 삭제`} onClick={onRemove} />
+      <IconButton size="md" icon={Trash2} label="삭제" aria-label={`${when(item.createdAt)} 결과 삭제`} onClick={onRemove} />
     </li>
   );
 }

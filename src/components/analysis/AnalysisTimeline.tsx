@@ -291,16 +291,16 @@ export default function AnalysisTimeline({
       {items.length > 0 && source === 'all' && (
         <div className="flex flex-wrap items-center justify-end gap-2">
           {/* 화면 안의 삭제 = 빨간 글자 버튼, 줄 오른쪽 끝 · 0개면 감춘다 */}
-          <Button variant="danger-text" size="sm" onClick={() => removeMany('all')}>
+          <Button variant="ghost" size="sm" onClick={() => removeMany('all')}>
             모두 삭제 ({items.length})
           </Button>
           {claude.length > 0 && (
-            <Button variant="danger-text" size="sm" onClick={() => removeMany('claude')}>
+            <Button variant="ghost" size="sm" onClick={() => removeMany('claude')}>
               Claude만 삭제 ({claude.length})
             </Button>
           )}
           {gemini.length > 0 && (
-            <Button variant="danger-text" size="sm" onClick={() => removeMany('gemini')}>
+            <Button variant="ghost" size="sm" onClick={() => removeMany('gemini')}>
               Gemini만 삭제 ({gemini.length})
             </Button>
           )}

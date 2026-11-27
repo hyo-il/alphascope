@@ -510,7 +510,7 @@ export default function DiagnoseView() {
               </Select>
             )}
             {selected && (
-              <IconButton size="md" tone="danger" icon={Trash2} label="이 리포트 삭제 (웹 목록에서만)" aria-label="이 리포트 삭제" onClick={confirmDelete} disabled={running} />
+              <IconButton size="md" icon={Trash2} label="이 리포트 삭제 (웹 목록에서만)" aria-label="이 리포트 삭제" onClick={confirmDelete} disabled={running} />
             )}
             <Button busy={running} variant="primary" size="sm"
               onClick={() => void run()}
