@@ -339,9 +339,7 @@ export default function AssetSettingsDialog({
                     const value = links[key] ?? '';
                     return (
                       <li key={l.name} className={`flex items-center gap-3 ${LIST_ROW}`} data-testid="plan-link-row" data-name={l.name}>
-                        <span className="min-w-0 flex-1 truncate text-xs text-text-primary" data-tip={l.name} data-tip-clip>
-                          {l.name}
-                        </span>
+                        <span className="min-w-0 flex-1 break-words text-xs text-text-primary keep-all">{l.name}</span>
                         <Select
                           size="sm"
                           className="w-48 shrink-0 phone:w-40"

@@ -94,6 +94,11 @@ export default function TooltipHost() {
   );
   const boxRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ el: HTMLElement; left: number; top: number } | null>(null);
+  /**
+   * 대상이 든 판의 움직임(폰 아래 판이 올라오는 200ms 등 — `index.css` `.sheet-panel`)이 끝나면 자리를 다시 잰다(v2.79.0).
+   * 창이 열리며 초점이 × 로 가 움직이는 중에 열린 툴팁이 판이 오기 전 자리(화면 아래)에 남지 않게.
+   */
+  const [placeTick, setPlaceTick] = useState(0);
 
   // 문서 전체 — 마우스(대상 · 상자) · 초점 · 닫히는 때
   useEffect(() => {
@@ -182,6 +187,10 @@ export default function TooltipHost() {
     const onScroll = () => tipController.scroll();
     const onResize = () => tipController.resize();
     const onBlur = () => tipController.windowBlur();
+    const onAnimEnd = (e: AnimationEvent) => {
+      const cur = tipController.current();
+      if (cur && e.target instanceof Node && e.target.contains(cur)) setPlaceTick((n) => n + 1);
+    };
     document.addEventListener('pointerover', onOver);
     document.addEventListener('pointerout', onOut);
     document.addEventListener('pointerdown', onDown, true);
@@ -195,6 +204,7 @@ export default function TooltipHost() {
     window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onResize);
     window.addEventListener('blur', onBlur);
+    document.addEventListener('animationend', onAnimEnd, true);
     return () => {
       offWatch.disconnect();
       document.removeEventListener('pointerover', onOver);
@@ -211,6 +221,7 @@ export default function TooltipHost() {
       window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('blur', onBlur);
+      document.removeEventListener('animationend', onAnimEnd, true);
     };
   }, []);
 
@@ -237,7 +248,7 @@ export default function TooltipHost() {
     const side = open.getAttribute('data-tip-side') === 'right' ? 'right' : undefined;
     const p = placeTip(open.getBoundingClientRect(), { w: b.width, h: b.height }, { w: window.innerWidth, h: window.innerHeight }, side);
     setPos({ el: open, left: p.left, top: p.top });
-  }, [open, content]);
+  }, [open, content, placeTick]);
 
   if (!open || content == null) return null;
   const placed = pos?.el === open ? pos : null;

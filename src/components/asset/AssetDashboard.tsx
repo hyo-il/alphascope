@@ -166,6 +166,8 @@ export default function AssetDashboard({
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [purchaseBusy, setPurchaseBusy] = useState<string | null>(null);
   const [purchaseNotes, setPurchaseNotes] = useState<Record<string, string>>({});
+  /** 팝업 「계좌별 살 종목 보기」(v2.79.0) — 비율 조정 탭으로 바꾼 뒤 「이번 달 구매」 구역으로 */
+  const [scrollToPlans, setScrollToPlans] = useState(false);
 
   useEffect(() => {
     if (!polled) return;
@@ -226,6 +228,12 @@ export default function AssetDashboard({
     reloadAbort.current = null;
     setReloading(false);
   };
+
+  useEffect(() => {
+    if (!scrollToPlans || tab !== 'rebalance' || !latest?.result.ok) return;
+    setScrollToPlans(false);
+    document.getElementById('as-asset-monthly-buy')?.scrollIntoView({ block: 'start' });
+  }, [scrollToPlans, tab, latest]);
 
   useEffect(() => {
     if ((open || classOpen) && sheet == null) void loadSheet();
@@ -493,7 +501,17 @@ export default function AssetDashboard({
         {tab === 'rebalance' && summary && (
           <>
             <AssetRebalanceView summary={summary} onEditTarget={() => setSettingsOpen('targetRatio')} />
-            <MonthlyBuySection mb={summary.monthlyBuy} writeEnabled={summary.writeEnabled} error={purchaseError} busyKey={purchaseBusy} notes={purchaseNotes} onPress={pressPurchase} />
+            <MonthlyBuySection
+              mb={summary.monthlyBuy}
+              writeEnabled={summary.writeEnabled}
+              error={purchaseError}
+              busyKey={purchaseBusy}
+              notes={purchaseNotes}
+              onPress={pressPurchase}
+              onLinkPlan={(section) => setSettingsOpen({ purchase: section })}
+              onRetryPlan={() => void reload()}
+              retrying={reloading}
+            />
           </>
         )}
         {/* 자산 현황 탭 — 요약 · 계좌 카드 · 자산 분류 고르기 */}
@@ -515,6 +533,12 @@ export default function AssetDashboard({
           notes={purchaseNotes}
           onPress={pressPurchase}
           onLater={() => setPurchasePopup(false)}
+          onShowPlans={() => {
+            setPurchasePopup(false);
+            setTab('rebalance');
+            saveTab('rebalance');
+            setScrollToPlans(true);
+          }}
         />
       )}
       {classOpen && (

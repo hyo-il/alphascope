@@ -5,6 +5,8 @@ import { LIST_ROW, LIST_TABLE_ROW, TABLE_HEAD_ROW, TOUCH_WRAP_GAP, TABLE_NAME_CO
 import { formatNumber, formatPrice } from '../../utils/formatters';
 import type { MonthlyBuy, MonthlyBuyAccount, PurchaseStatus } from '../../types/asset';
 import ScrollTable from '../ui/ScrollTable';
+import LinkButton from '../ui/LinkButton';
+import { AccountPlan, PlanNotes } from './AssetMonthlyPlan';
 
 /**
  * 자산 관리 「이번 달 구매」(v2.64.0 · 자산 관리 5단계 · v2.78.0 계좌마다) — **보여 주기만, 주문 없음**.
@@ -15,6 +17,7 @@ import ScrollTable from '../ui/ScrollTable';
  * - 매달 사지 않는 계좌(자산 관리 설정 › 이번 달 구매)는 목록에 나오지 않는다. 시작 전 차례(`mb.skipped`)는 「시작 전 차례 — 묻지 않음」.
  * - 쓰기 스위치가 꺼진 서버: [구매 완료] 만 막고 안내(건너뛰기 · 되돌리기는 시트를 쓰지 않으므로 됨).
  * - 저장 중(`busy` — 누른 단추)에는 목록 전체를 막는다(`AssetDashboard` 가 요청 · 확인 창 · 다시 받기).
+ * - 계좌 · 종목별 목록(v2.79.0 — `AssetMonthlyPlan`)은 구역에서만 계좌 줄 아래 펼침으로 · 팝업은 계좌 줄 그대로 + 「계좌별 살 종목 보기」 글 단추(→ 구역).
  * ⚠️ 금액은 콘솔 · 로컬 저장소에 남기지 않는다.
  */
 
@@ -204,8 +207,8 @@ function Actions({
   );
 }
 
-/** 계좌 한 줄 + (이번 차례를 끝냈으면) 다음 차례 줄 */
-function AccountRow({ mb, a, writeEnabled, busyKey, note, onPress }: { mb: MonthlyBuy; a: MonthlyBuyAccount; writeEnabled: boolean; busyKey: string | null; note: string | null; onPress: (p: PurchasePress) => void }) {
+/** 계좌 한 줄 + (이번 차례를 끝냈으면) 다음 차례 줄 + (구역에서만 · `onLinkPlan`) 계좌 · 종목별 목록 */
+function AccountRow({ mb, a, writeEnabled, busyKey, note, onPress, onLinkPlan }: { mb: MonthlyBuy; a: MonthlyBuyAccount; writeEnabled: boolean; busyKey: string | null; note: string | null; onPress: (p: PurchasePress) => void; onLinkPlan?: (section: string) => void }) {
   const finished = a.status !== 'todo';
   const showNext = finished && (a.next.status !== 'todo' || a.next.canDone || a.next.canSkip);
   return (
@@ -254,12 +257,17 @@ function AccountRow({ mb, a, writeEnabled, busyKey, note, onPress }: { mb: Month
           {note}
         </p>
       )}
+      {onLinkPlan && a.plan && (
+        <div className="pl-4 phone:pl-0">
+          <AccountPlan a={a} onLink={onLinkPlan} />
+        </div>
+      )}
     </li>
   );
 }
 
-/** 계좌별 목록(구역 · 팝업 같음) — 매달 사는 계좌만 · 저장 중이면 막음 */
-export function PurchaseAccountList({ mb, writeEnabled, busyKey, notes, onPress }: { mb: MonthlyBuy; writeEnabled: boolean; busyKey: string | null; notes: Record<string, string>; onPress: (p: PurchasePress) => void }) {
+/** 계좌별 목록(구역 · 팝업 같음) — 매달 사는 계좌만 · 저장 중이면 막음 · `onLinkPlan` 을 주면(구역) 계좌 줄 아래 계좌 · 종목별 목록 */
+export function PurchaseAccountList({ mb, writeEnabled, busyKey, notes, onPress, onLinkPlan }: { mb: MonthlyBuy; writeEnabled: boolean; busyKey: string | null; notes: Record<string, string>; onPress: (p: PurchasePress) => void; onLinkPlan?: (section: string) => void }) {
   const list = monthlyAccounts(mb);
   if (list.length === 0) {
     return (
@@ -271,7 +279,7 @@ export function PurchaseAccountList({ mb, writeEnabled, busyKey, notes, onPress 
   return (
     <ul className="divide-y divide-border/30" aria-busy={busyKey != null || undefined} data-testid="purchase-accounts">
       {list.map((a) => (
-        <AccountRow key={a.section} mb={mb} a={a} writeEnabled={writeEnabled} busyKey={busyKey} note={notes[a.section] ?? null} onPress={onPress} />
+        <AccountRow key={a.section} mb={mb} a={a} writeEnabled={writeEnabled} busyKey={busyKey} note={notes[a.section] ?? null} onPress={onPress} onLinkPlan={onLinkPlan} />
       ))}
     </ul>
   );
@@ -297,8 +305,18 @@ function WriteOffNote({ writeEnabled }: { writeEnabled: boolean }) {
 
 type ListProps = { mb: MonthlyBuy; writeEnabled: boolean; error: string | null; busyKey: string | null; notes: Record<string, string>; onPress: (p: PurchasePress) => void };
 
-/** 「비율 조정」 탭 아래 「이번 달 구매」 구역 */
-export function MonthlyBuySection({ mb, writeEnabled, error, busyKey, notes, onPress }: ListProps) {
+/** 「비율 조정」 탭 아래 「이번 달 구매」 구역 — 계좌 줄 아래 계좌 · 종목별 목록(v2.79.0) */
+export function MonthlyBuySection({
+  mb,
+  writeEnabled,
+  error,
+  busyKey,
+  notes,
+  onPress,
+  onLinkPlan,
+  onRetryPlan,
+  retrying,
+}: ListProps & { onLinkPlan: (section: string) => void; onRetryPlan: () => void; retrying: boolean }) {
   return (
     <Panel pad="none" className="space-y-3 pb-1 pt-3" id="as-asset-monthly-buy">
       <div className="space-y-2 px-4">
@@ -310,7 +328,8 @@ export function MonthlyBuySection({ mb, writeEnabled, error, busyKey, notes, onP
         </SectionTitle>
         <CycleLine mb={mb} />
         {error && <FailLine message={error} />}
-        <PurchaseAccountList mb={mb} writeEnabled={writeEnabled} busyKey={busyKey} notes={notes} onPress={onPress} />
+        <PlanNotes mb={mb} onRetry={onRetryPlan} retrying={retrying} />
+        <PurchaseAccountList mb={mb} writeEnabled={writeEnabled} busyKey={busyKey} notes={notes} onPress={onPress} onLinkPlan={onLinkPlan} />
         <WriteOffNote writeEnabled={writeEnabled} />
       </div>
       <MonthlyBuyTable mb={mb} />
@@ -318,8 +337,12 @@ export function MonthlyBuySection({ mb, writeEnabled, error, busyKey, notes, onP
   );
 }
 
-/** 구매일 팝업 — 자산 관리에 들어올 때마다(이번 차례에 「아직」 인 매달 사는 계좌가 있을 때) · [나중에] = 닫기(다음 접속 때 다시) */
-export function PurchaseDayDialog({ mb, writeEnabled, error, busyKey, notes, onPress, onLater }: ListProps & { onLater: () => void }) {
+/**
+ * 구매일 팝업 — 자산 관리에 들어올 때마다(이번 차례에 「아직」 인 매달 사는 계좌가 있을 때) · [나중에] = 닫기(다음 접속 때 다시).
+ * 계좌 · 종목별 목록은 팝업에 넣지 않고(길어지지 않게) 「계좌별 살 종목 보기」 글 단추 → 구역으로 가며 팝업을 닫는다(v2.79.0).
+ */
+export function PurchaseDayDialog({ mb, writeEnabled, error, busyKey, notes, onPress, onLater, onShowPlans }: ListProps & { onLater: () => void; onShowPlans: () => void }) {
+  const hasPlans = monthlyAccounts(mb).some((a) => a.plan != null);
   return (
     <Dialog
       title="이번 달 구매일입니다"
@@ -337,6 +360,11 @@ export function PurchaseDayDialog({ mb, writeEnabled, error, busyKey, notes, onP
         {error && <FailLine message={error} />}
         <PurchaseAccountList mb={mb} writeEnabled={writeEnabled} busyKey={busyKey} notes={notes} onPress={onPress} />
         <WriteOffNote writeEnabled={writeEnabled} />
+        {hasPlans && (
+          <p className="text-xs" data-testid="purchase-show-plans">
+            <LinkButton onClick={onShowPlans}>계좌별 살 종목 보기</LinkButton>
+          </p>
+        )}
         {/* 음수 여백(design:lint 허용 목록): 창 안쪽 여백(16px)을 넘어 표를 창 폭 끝까지 */}
         <div className="-mx-4">
           <MonthlyBuyTable mb={mb} />

@@ -997,8 +997,31 @@ function targets(): Target[] {
           await page.locator('#as-asset-monthly-buy').scrollIntoViewIfNeeded().catch(() => {});
           await page.waitForTimeout(200);
         }],
+        // v2.79.0 — 계좌 · 종목별 목록(이음 · 안 이음 · 미국 · 가격 없음 · 비율 합 아님 · 읽지 않은 묶음) · 시트 값 확인 · 계좌 못 맞춤 · 탭 못 읽음 · 모양 바뀜
+        ...([
+          ['이번달구매-살종목', 'mixed'],
+          ['이번달구매-살종목-안내', 'values'],
+          ['이번달구매-살종목-못읽음', 'error-read'],
+          ['이번달구매-살종목-모양바뀜', 'error-shape'],
+        ] as const).map(([label, plan]) => [label, { purchase: 'mixed', plan }, async (page: Page) => {
+          await page.locator('[data-purchase-later]').click().catch(() => {});
+          await page.waitForTimeout(200);
+          await page.locator('#as-asset-monthly-buy [data-testid="purchase-accounts"]').scrollIntoViewIfNeeded().catch(() => {});
+          await page.locator('#as-asset-monthly-buy [data-testid="plan"]').first().scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+        }] as const),
+        ['설정창-살종목잇기', { plan: 'mixed' }, async (page: Page) => {
+          await page.locator('[data-asset-settings]').click().catch(() => {});
+          await page.waitForTimeout(400);
+          await page.getByRole('dialog').getByRole('tab', { name: '이번 달 구매', exact: true }).click().catch(() => {});
+          await page.waitForTimeout(200);
+          await page.locator('[data-setting="purchase-links"]').scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+        }],
         ['구매일팝업', { purchaseDone: false }, async () => {}],
         ['구매일팝업-계좌별', { purchase: 'mixed' }, async () => {}],
+        // v2.79.0 — 팝업 「계좌별 살 종목 보기」 글 단추 · 폰 아래 단추 줄([나중에])이 늘 보임
+        ['구매일팝업-살종목단추', { purchaseDone: false, plan: 'mixed' }, async () => {}],
         ['구매일팝업-확인창', { purchaseDone: false }, async (page: Page) => {
           await page.locator('[data-purchase-dialog]').waitFor({ timeout: 3000 }).catch(() => {});
           await page.getByRole('dialog').getByRole('button', { name: '구매 완료' }).first().click().catch(() => {});
@@ -1392,6 +1415,7 @@ function targets(): Target[] {
           localStorage.removeItem('alphascope.asset.settingsMenu');
           localStorage.removeItem('alphascope.asset.closedAccounts');
           localStorage.removeItem('alphascope.asset.classOnlyUnassigned');
+          localStorage.removeItem('alphascope.asset.planClosed');
         });
         await page.unroute('**/api/asset/touch');
       },

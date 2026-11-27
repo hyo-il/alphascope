@@ -8,6 +8,8 @@ import type { AssetCashKey, AssetCashViewV2, AssetClass, AssetDailyChange, Asset
 import type { AssetCashMoveRecordAll, AssetCashViewV3 } from '../../../src/types/asset'; // v2.72.0 직접 입출금
 import { computeRebalance } from '../../../server/asset/rebalance';
 import { computeMonthlyBuy, needsPurchasePopup } from '../../../server/asset/purchase';
+import { planOfGroup } from '../../../server/asset/savingPlan';
+import type { MonthlyPlan, MonthlyPlanError, MonthlyPlanSkip } from '../../../src/types/asset';
 
 /** `idleLocked`(v2.65.4) — 쓰지 않아 저절로 잠긴 잠금 화면(「○분 동안 쓰지 않아 잠갔어요」) · `lockMinutes` 처음 값 30 */
 export const assetStatusSample = (unlocked: boolean, sheetConfigured = true, idleLocked = false, lockMinutes = 30): AssetStatus => ({
@@ -132,7 +134,7 @@ const ym = (day: string) => `${day.slice(0, 4)}.${day.slice(5, 7)}`;
  * - `purchaseDone: false`: 네 계좌 아직 · `purchase: 'mixed'`: 개별 투자 완료 + 다음 차례 건너뜀 · 적립식 아직(시트 날짜 이미 2026.12) · ISA 건너뜀 · 연금 저축 매달 아님
  * - `skipped`: 오늘 11-07 · 차례 10-30 시작 전 · `early`: 오늘 12-20 · 11-27 완료 · 'can' 다음 차례 미리 완료 가능 / 'done' 12-20 에 미리 완료
  */
-export function monthlyBuySample(opts: { salary?: number | null; target?: AssetTargetRatio; purchaseDone?: boolean; purchase?: 'mixed'; calendarUnchecked?: boolean; skipped?: boolean; early?: 'can' | 'done' } = {}): MonthlyBuy {
+export function monthlyBuySample(opts: { salary?: number | null; target?: AssetTargetRatio; purchaseDone?: boolean; purchase?: 'mixed'; calendarUnchecked?: boolean; skipped?: boolean; early?: 'can' | 'done'; plan?: PlanSampleKind } = {}): MonthlyBuy {
   const target = opts.target ?? { cash: 10, gold: 30, bond: 20, invest: 40, core: 60, satellite: 40 };
   const cyc = opts.skipped
     ? { today: '2026-11-07', cycleDay: '2026-10-30', nextDay: '2026-11-27', startDay: '2026-11-07', skipped: true, earlyFrom: '2026-11-20' }
@@ -165,20 +167,57 @@ export function monthlyBuySample(opts: { salary?: number | null; target?: AssetT
       next: { status: nextStatus, at: nextStatus === 'todo' ? null : cyc.today, canDone: finished && nextStatus === 'todo' && cyc.today >= cyc.earlyFrom, canSkip: finished && nextStatus === 'todo' },
     };
   });
-  return {
+  const mb: MonthlyBuy = {
     ...computeMonthlyBuy(opts.salary === undefined ? 123456789 : opts.salary, target),
     ...cyc,
     calendarUnchecked: opts.calendarUnchecked ?? false,
     accounts,
     needsPopup: needsPurchasePopup(cyc, accounts),
   };
+  if (!opts.plan) return mb;
+  // v2.79.0 — 계좌 · 종목별 목록(summary 의 `withPlans` 와 같은 모양)
+  const p = planSample(opts.plan);
+  return { ...mb, accounts: mb.accounts.map((a) => ({ ...a, plan: p.plans[a.section] ?? null })), planError: p.error, planSkipped: p.skipped };
+}
+
+/** 계좌별 목록 가짜 경우(v2.79.0) — `mixed` 이음 · 안 이음 · 미국 · 가격 없음 · 비율 합 아님 · 읽지 않은 묶음 / `values` 시트 값 확인 · 계좌 못 맞춘 묶음 / `error-read` · `error-shape` 탭을 못 씀 */
+export type PlanSampleKind = 'mixed' | 'values' | 'error-read' | 'error-shape';
+
+/**
+ * 이번 달 구매 계좌 · 종목별 목록 가짜 값(v2.79.0) — **서버 계산 함수(`planOfGroup`) 그대로** · 만든 값(시트 · 가격 아님).
+ * 개별 투자는 묶음 없음(목록 없음) · 적립식 = 국내 이음(긴 이름) · 미국 이음 · 안 이음 · 0% 줄 · ISA = 이었는데 가격 없음 · 국내 이음 · 연금 저축 = 비율 합 100% 아님.
+ */
+export function planSample(kind: PlanSampleKind): { plans: Record<string, MonthlyPlan>; skipped: MonthlyPlanSkip[]; error: MonthlyPlanError | null } {
+  if (kind === 'error-read') return { plans: {}, skipped: [], error: { kind: 'read', message: '「적립식 투자」 탭을 읽지 못함' } };
+  if (kind === 'error-shape') return { plans: {}, skipped: [], error: { kind: 'shape', message: '시트 모양이 바뀌었어요(적립식 투자)' } };
+  const h = (row: number, name: string, code: string) => holding(row, name, code, 1, 1, code.includes(':') ? 'USD' : 'KRW');
+  const sections = [
+    { key: '적립식 계좌', name: '적립식 계좌 ( 2026.07 )', combined: false, holdings: [h(13, 'KODEX 예시 S&P500 이름이 아주 긴 종목 Vanguard Total World Stock Market Index Fund ETF Shares', '0072R0'), h(14, '예시 미국 나스닥 ETF', 'NASDAQ:DDDD')] },
+    { key: 'ISA 계좌', name: 'ISA 계좌 ( 2026.07 )', combined: false, holdings: [h(22, '예시 미국 반도체주', 'NASDAQ:CCCC'), h(23, '예시 국내 금 ETF', '000002')] },
+    { key: '연금 저축 계좌', name: '연금 저축 계좌 ( 2026.07 )', combined: false, holdings: [h(30, '예시 국내 대형주', '000001')] },
+  ];
+  const book = { prices: new Map<string, number>([['0072R0', 16500], ['DDDD', 512.34], ['000002', 44000], ['000001', 65000]]), usdKrw: 1387.45 };
+  const links = { '적립식 계좌': { 'S&P500 지수': '0072R0', '나스닥100 지수': 'DDDD' }, 'ISA 계좌': { '미국 반도체 지수': 'CCCC', '금 현물': '000002' } };
+  const line = (row: number, name: string, ratio: number | null) => ({ row, name, ratio });
+  const groups = {
+    '적립식 계좌': { headRow: 20, account: '적립식 계좌', total: 34567890, months: 7, problem: null, lines: [line(22, 'S&P500 지수', 0.6), line(23, '나스닥100 지수', 0.3), line(24, '미국 채권 지수 이름이 긴 줄 Bloomberg US Aggregate', 0.1), line(25, '빈 줄 0%', 0)] },
+    'ISA 계좌': { headRow: 10, account: 'ISA 계좌', total: 23456789, months: 10, problem: null, lines: [line(12, '미국 반도체 지수', 0.5), line(13, '금 현물', 0.5)] },
+    '연금 저축 계좌': { headRow: 3, account: '연금 저축 계좌', total: 12345678, months: 12, problem: null, lines: [line(5, '국내 대형주', 0.55), line(6, '국내 중형주', 0.25), line(7, '국내 채권', 0.1)] },
+  } as const;
+  const plans: Record<string, MonthlyPlan> = {};
+  for (const [key, g] of Object.entries(groups)) {
+    const group = { ...g, lines: [...g.lines], problem: kind === 'values' && key === '적립식 계좌' ? ('values' as const) : g.problem, months: kind === 'values' && key === '적립식 계좌' ? 0 : g.months };
+    plans[key] = planOfGroup(group, { sections }, book, links);
+  }
+  const skipped: MonthlyPlanSkip[] = kind === 'values' ? [{ row: 28, kind: 'shape' }, { row: 36, kind: 'no-account' }, { row: 44, kind: 'same-account' }] : [{ row: 28, kind: 'shape' }];
+  return { plans, skipped, error: null };
 }
 
 /**
  * 총 자산 요약(v2.62.0) 가짜 응답 — 만든 값. `none` = 미지정 금액 · 가격 못 받은 줄을 넣는다(긴 금액 · 경고 줄 넘침을 잰다).
  */
 export function assetSummarySample(
-  opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number; writeEnabled?: boolean; purchaseDone?: boolean; purchase?: 'mixed'; calendarUnchecked?: boolean; skipped?: boolean; early?: 'can' | 'done'; lockMinutes?: number; salary?: number | null; price?: Parameters<typeof priceSheetSample>[0]; prices?: Record<string, number> } = {},
+  opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number; writeEnabled?: boolean; purchaseDone?: boolean; purchase?: 'mixed'; calendarUnchecked?: boolean; skipped?: boolean; early?: 'can' | 'done'; plan?: PlanSampleKind; lockMinutes?: number; salary?: number | null; price?: Parameters<typeof priceSheetSample>[0]; prices?: Record<string, number> } = {},
 ): AssetSummary {
   const pension = opts.pension ?? false;
   const amounts: [AssetGroupKey, string, number][] = [
