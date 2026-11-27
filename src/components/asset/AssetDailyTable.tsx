@@ -107,7 +107,7 @@ export default function AssetDailyTable({
                       <td className="whitespace-nowrap pl-4">
                         <button
                           type="button"
-                          className="inline-flex items-center gap-1 text-text-primary tabular-nums"
+                          className="inline-flex items-center gap-1 text-text-primary tabular-nums touch:min-h-11"
                           aria-expanded={expanded}
                           aria-controls={`asset-daily-detail-${r.day}`}
                           aria-label={`${r.day} 자세히 보기`}
@@ -345,7 +345,7 @@ function NoteCell({ day, note, disabled, onSave }: { day: string; note: string |
         setText(shown ?? '');
         setEditing(true);
       }}
-      className={`block w-full truncate rounded-md px-2 py-1 text-left hover:bg-bg-tertiary disabled:cursor-not-allowed disabled:opacity-50 ${shown ? 'text-text-primary' : 'text-text-muted'}`}
+      className={`block w-full truncate rounded-md px-2 py-1 text-left hover:bg-bg-tertiary touch:min-h-11 touch:py-3 disabled:cursor-not-allowed disabled:opacity-50 ${shown ? 'text-text-primary' : 'text-text-muted'}`}
     >
       {shown ?? '메모'}
     </button>

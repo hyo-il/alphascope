@@ -1,5 +1,6 @@
 import { Pencil } from 'lucide-react';
-import { Badge, Button, Panel, SectionTitle } from '../ui';
+import { Badge, Button, InfoTip, Panel, SectionTitle } from '../ui';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice, formatSigned } from '../../utils/formatters';
 import type { AssetRebalance, AssetSummary, RebalanceExcluded, RebalanceRow, RebalanceTable } from '../../types/asset';
@@ -107,8 +108,40 @@ export function RebalanceTables({ rebalance }: { rebalance: AssetRebalance }) {
   );
 }
 
-/** 맨 위 한 줄 — 기준 금액(연금 포함 / 연금 뺌) + [목표 비율 바꾸기] · 아래에 빠진 금액 줄들 */
+/**
+ * 맨 위 한 줄 — 기준 금액(연금 포함 / 연금 뺌) + [목표 비율 바꾸기] · 아래에 빠진 금액 줄들.
+ * 폰(v2.83.0 · 테마 9-2 · R5): 「기준 금액 · 값 · [?]」 한 줄(설명은 [?] 안 — 같은 글) · [목표 비율 바꾸기] 는 카드 아래 줄.
+ */
 function BaseLine({ rebalance, includePension, onEditTarget }: { rebalance: AssetRebalance; includePension: boolean; onEditTarget: () => void }) {
+  const phone = useLayoutMode() === 'phone';
+  const desc = `${includePension ? '연금 포함' : '연금 뺌'} · 현금 + 채권 + 금 + 주식 · 비율 조정 범위 ±${rebalance.band}%p`;
+  const excluded = rebalance.excluded.length > 0 && (
+    <ul className="space-y-0.5 text-caption text-text-muted" data-rebalance-excluded>
+      {rebalance.excluded.map((e) => (
+        <li key={e.key} className="tabular-nums">
+          {excludedText(e)}
+        </li>
+      ))}
+    </ul>
+  );
+  if (phone)
+    return (
+      <Panel className="space-y-2" data-testid="rebalance-base-card">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="text-xs text-text-secondary">기준 금액</span>
+          <span className="text-sm font-semibold tabular-nums text-text-primary" data-rebalance-base>
+            {formatPrice(rebalance.assets.base, 'KRW')}
+          </span>
+          <InfoTip label="기준 금액">{desc}</InfoTip>
+        </div>
+        {excluded}
+        <div className="flex flex-wrap items-center">
+          <Button size="sm" icon={Pencil} onClick={onEditTarget} data-edit-target>
+            목표 비율 바꾸기
+          </Button>
+        </div>
+      </Panel>
+    );
   return (
     <Panel className="space-y-1.5">
       <div className="flex min-w-0 items-center gap-3">
@@ -116,20 +149,12 @@ function BaseLine({ rebalance, includePension, onEditTarget }: { rebalance: Asse
         <span className="text-sm font-semibold tabular-nums text-text-primary" data-rebalance-base>
           {formatPrice(rebalance.assets.base, 'KRW')}
         </span>
-        <span className="text-caption text-text-muted">{includePension ? '연금 포함' : '연금 뺌'} · 현금 + 채권 + 금 + 주식 · 비율 조정 범위 ±{rebalance.band}%p</span>
+        <span className="text-caption text-text-muted">{desc}</span>
         <Button size="sm" icon={Pencil} className="ml-auto" onClick={onEditTarget} data-edit-target>
           목표 비율 바꾸기
         </Button>
       </div>
-      {rebalance.excluded.length > 0 && (
-        <ul className="space-y-0.5 text-caption text-text-muted" data-rebalance-excluded>
-          {rebalance.excluded.map((e) => (
-            <li key={e.key} className="tabular-nums">
-              {excludedText(e)}
-            </li>
-          ))}
-        </ul>
-      )}
+      {excluded}
     </Panel>
   );
 }

@@ -451,6 +451,188 @@ try {
     }
   }
 
+  // ───────── 4 · 5 · 135 · 136 · 140 · 142 폰 자산 머리 · 숫자 카드 · 원형 차트 ─────────
+  /** 1280 분류별 표 줄 — [분류, 금액, 비율] */
+  let deskGroups: string[][] = [];
+  if (want('asset')) {
+    const o = await open(browser, DESK_SIZES[0], '#/home');
+    await scene(o.page, 'asset-기록여러개-미지정');
+    deskGroups = await o.page.locator('[data-testid="asset-group-table"] tbody tr').evaluateAll((trs) => trs.map((tr) => [...tr.querySelectorAll('td')].map((td) => (td as HTMLElement).innerText.replace(/\s+/g, ' ').trim())));
+    const checked = await o.page.locator('[data-asset-pension]').isChecked();
+    check('[158-4] 1280 머리 = 「연금 포함」 체크박스 그대로(처음 끔)', !checked);
+    await o.ctx.close();
+  }
+  if (want('asset')) {
+    const o = await open(browser, PHONE, '#/home');
+    const { page } = o;
+    await scene(page, 'asset-기록여러개-미지정');
+    await shot(page, '402-asset-total');
+    const head = await rect(page, '[data-testid="asset-phone-head"]');
+    const btns = await page.getByTestId('asset-phone-head').getByRole('button').evaluateAll((els) =>
+      els.map((e) => {
+        const r = e.getBoundingClientRect();
+        const a = getComputedStyle(e, '::after');
+        return { name: e.getAttribute('aria-label'), top: Math.round(r.top), hit: Math.min(Math.max(r.width, parseFloat(a.width) || 0), Math.max(r.height, parseFloat(a.height) || 0)) };
+      }),
+    );
+    const time = (await page.getByTestId('asset-phone-head').innerText()).trim();
+    check('[158-4] 402 머리 한 줄 — 왼쪽 「읽은 시각」 · 오른쪽 [연금 포함] [다시 읽기] [잠그기] [설정] · 같은 줄 · 누르는 칸 44', btns.map((b) => b.name).join('|') === '연금 포함|다시 읽기|잠그기|설정' && new Set(btns.map((b) => b.top)).size === 1 && btns.every((b) => b.hit >= 44) && /^읽은 시각 /.test(time) && Boolean(head && head.h <= 44), JSON.stringify({ btns, time, head }));
+    check('[158-136] 402 「연금 포함 · 읽은 시각」 줄 한 줄 · 아이콘이 다음 줄로 내려가지 않음 [점검 136]', new Set(btns.map((b) => b.top)).size === 1 && Boolean(head && head.h <= 44), JSON.stringify(head));
+    const pen = page.getByTestId('asset-phone-head').getByRole('button', { name: '연금 포함' });
+    const before = await pen.getAttribute('aria-pressed');
+    await pen.click();
+    await page.waitForTimeout(1500);
+    const after = await pen.getAttribute('aria-pressed');
+    const stored = await page.evaluate(() => localStorage.getItem('alphascope.asset.includePension'));
+    check('[158-4] [연금 포함] 누르면 누름 상태(aria-pressed) 켜짐 · 1280 체크박스와 같은 기억(alphascope.asset.includePension = 1)', before === 'false' && after === 'true' && stored === '1', `${before} → ${after} · ${stored}`);
+    const cards = await page.locator('[data-asset-card]').evaluateAll((els) => els.map((e) => {
+      const r = e.getBoundingClientRect();
+      const v = e.querySelector('[data-asset-card-value]') as HTMLElement;
+      const sub = e.querySelector('[data-asset-card-sub]') as HTMLElement;
+      return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), vClip: v.scrollWidth > v.clientWidth + 1, sClip: sub.scrollWidth > sub.clientWidth + 1, vSize: parseFloat(getComputedStyle(v).fontSize) };
+    }));
+    const stacked = cards.length === 3 && new Set(cards.map((c) => c.x)).size === 1 && cards[0].y < cards[1].y && cards[1].y < cards[2].y;
+    check('[158-5] 402 숫자 카드 셋이 세로로 쌓임 · 값 18 · 금액 · 변화 줄 말줄임 0', stacked && cards.every((c) => !c.vClip && !c.sClip && c.vSize === 18), JSON.stringify(cards));
+    check('[158-135] 402 요약 카드 금액이 잘리지 않음 [점검 135]', stacked && cards.every((c) => !c.vClip), JSON.stringify(cards));
+    check('[158-140] 402 카드 변화 줄 말줄임 0(「+0.43% · 2026-11-0…」 · 「−2.34% · 평균 매입가 대비」) [점검 140]', cards.every((c) => !c.sClip), JSON.stringify(cards));
+    const subColor = await page.locator('[data-asset-card-sub] span').first().evaluate((e) => getComputedStyle(e).color).catch(() => '');
+    check('[158-5] 402 변화 줄 % 는 등락 색', subColor !== '' && subColor !== (await page.locator('[data-asset-card-sub]').first().evaluate((e) => getComputedStyle(e).color)), subColor);
+    const donut = await rect(page, '[data-testid="asset-donut-row"] figure');
+    const panel = await rect(page, '[data-testid="asset-donut-row"] > div');
+    const table = await rect(page, '[data-testid="asset-group-table"]');
+    const row = await rect(page, '[data-testid="asset-donut-row"]');
+    check('[158-5] 402 원형 차트 160 · 위 가운데 · 분류별 표(범례)는 아래 폭 전체', Boolean(donut && panel && table && row && Math.round(donut.w) === 160 && Math.abs(donut.x + donut.w / 2 - (panel.x + panel.w / 2)) <= 1 && table.y >= panel.b && Math.abs(table.w - row.w) <= 1), JSON.stringify({ donut, panel, table, row }));
+    // 연금 포함을 켠 뒤라 1280 표(끔)와 견주려면 되돌린다
+    await pen.click();
+    await page.waitForTimeout(1500);
+    const phoneGroups = await page.locator('[data-testid="asset-group-table"] tbody tr').evaluateAll((trs) => trs.map((tr) => [...tr.querySelectorAll('td')].map((td) => (td as HTMLElement).innerText.replace(/\s+/g, ' ').trim())));
+    const reordered = deskGroups.map((r) => [r[0], r[2], r[1]].join(' | '));
+    check(`[158-5] 범례 줄(이름 · % · 금액) = 1280 분류별 표 줄 ${deskGroups.length}개(칸 차례만 다름)`, deskGroups.length > 0 && phoneGroups.map((r) => r.join(' | ')).join('\n') === reordered.join('\n'), `${phoneGroups.map((r) => r.join(' | ')).join(' / ')} ≠ ${reordered.join(' / ')}`);
+    const t = await touchIssues(page);
+    check('[158-142] 402 자산 관리 누르는 칸 겹침 0(설정 ↔ 설명) [점검 142]', t.overlap.length === 0, t.overlap.join(' / '));
+    await o.ctx.close();
+  }
+
+  // ───────── 6 · 137 총 자산 추이 누르기 ─────────
+  if (want('asset')) {
+    for (const size of [PHONE, PAD]) {
+      const o = await open(browser, size, '#/home');
+      const { page } = o;
+      await scene(page, 'asset-기록여러개-미지정');
+      const box = await page.getByTestId('asset-history-chart').boundingBox();
+      await page.getByTestId('asset-history-chart').scrollIntoViewIfNeeded();
+      const b = (await page.getByTestId('asset-history-chart').boundingBox()) ?? box;
+      await page.touchscreen.tap(b!.x + b!.width * 0.5, b!.y + b!.height * 0.5);
+      await page.waitForTimeout(500);
+      const tip = page.getByTestId('asset-history-tip');
+      const shown = (await tip.count()) > 0 ? (await tip.innerText()).replace(/\s+/g, ' ') : '';
+      const visible = (await tip.count()) > 0 && (await tip.evaluate((e) => !e.className.includes('invisible')));
+      check(`[158-6] ${size.width} 점을 누르면 날짜 · 금액 · 전날 대비가 뜸(${shown.slice(0, 60)})`, visible && /\d{4}-\d{2}-\d{2}/.test(shown) && /₩/.test(shown) && /(전날|대비)/.test(shown), shown);
+      await page.locator('[data-asset-card]').first().tap();
+      await page.waitForTimeout(400);
+      const gone = (await tip.count()) === 0;
+      check(`[158-6] ${size.width} 다른 곳을 누르면 닫힘`, gone);
+      check(`[158-137] ${size.width} 총 자산 추이 날짜별 금액이 손가락 누르기로 보임 [점검 137]`, visible && gone);
+      await o.ctx.close();
+    }
+    const o = await open(browser, DESK_SIZES[0], '#/home');
+    await scene(o.page, 'asset-기록여러개-미지정');
+    const box = (await o.page.getByTestId('asset-history-chart').boundingBox())!;
+    await o.page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await o.page.waitForTimeout(500);
+    const tip = (await o.page.getByTestId('asset-history-tip').count()) > 0 ? await o.page.getByTestId('asset-history-tip').innerText() : '';
+    await o.page.mouse.move(box.x + box.width * 0.5, box.y + box.height + 120);
+    await o.page.waitForTimeout(400);
+    check('[158-6] 1280 마우스 올림 그대로(올리면 뜸 · 벗어나면 닫힘)', /₩/.test(tip) && (await o.page.getByTestId('asset-history-tip').count()) === 0, tip);
+    await o.ctx.close();
+  }
+
+  // ───────── 7 · 비율 조정 · 이번 달 구매 ─────────
+  if (want('asset')) {
+    const o = await open(browser, PHONE, '#/home');
+    const { page } = o;
+    await scene(page, 'asset-이번달구매-계좌별');
+    await shot(page, '402-asset-rebalance');
+    const groups = await page.locator('[data-purchase-actions]').evaluateAll((els) => els.map((g) => {
+      const bs = [...g.querySelectorAll('button')].map((b) => b.getBoundingClientRect());
+      const gaps = bs.slice(1).map((r, i) => Math.round(r.left - bs[i].right));
+      return { n: bs.length, tops: [...new Set(bs.map((r) => Math.round(r.top)))].length, gaps };
+    }));
+    const two = groups.filter((g) => g.n >= 2);
+    check(`[158-7] 402 계좌 줄 단추가 한 줄에 나란히 · 사이 12 이상(${two.length}묶음)`, two.length > 0 && two.every((g) => g.tops === 1 && g.gaps.every((x) => x >= 12)), JSON.stringify(groups));
+    const base = await rect(page, '[data-testid="rebalance-base-card"]');
+    const edit = await rect(page, '[data-testid="rebalance-base-card"] [data-edit-target]');
+    const tip = await page.getByTestId('rebalance-base-card').getByRole('button', { name: '기준 금액' }).count();
+    const word = await textIssues(page);
+    check('[158-7] 402 「기준 금액」 카드 — 설명은 [?] · [목표 비율 바꾸기] 는 카드 아래 줄 · 잘림 0', Boolean(base && edit && edit.b <= base.b && edit.r <= base.r) && tip === 1 && word.clipped.length === 0, JSON.stringify({ base, edit, tip, clip: word.clipped }));
+    await o.ctx.close();
+  }
+
+  // ───────── 141 · 143 일별 자산 변화 표 · 138 · 139 고정 폭 칸 ─────────
+  if (want('asset')) {
+    for (const size of [PHONE, PAD]) {
+      const o = await open(browser, size, '#/home');
+      const { page } = o;
+      await scene(page, 'asset-일별변화-표');
+      const t = await touchIssues(page, '[data-testid="asset-daily-table"]');
+      const tag = size.width === 402 ? '141' : '143';
+      check(`[158-${tag}] ${size.width} 일별 자산 변화 표 — 날짜 줄 · 메모 누르는 칸 44 미만 0 · 겹침 0 [점검 ${tag}]`, t.small.length === 0 && t.overlap.length === 0, [...t.small, ...t.overlap].join(' / '));
+      await o.ctx.close();
+    }
+    const o = await open(browser, PHONE, '#/home');
+    const { page } = o;
+    await scene(page, 'asset-설정창-현금자동반영');
+    await shot(page, '402-asset-cash-settings', false);
+    const fixed = await page.evaluate(() => {
+      const dlg = document.querySelector('[role="dialog"]');
+      if (!dlg) return ['창 없음'];
+      const dw = dlg.getBoundingClientRect();
+      return [...dlg.querySelectorAll<HTMLElement>('[data-testid="asset-cash-pair-row"] > *, [data-testid="asset-cash-banks"] li > *')]
+        .filter((e) => e.getBoundingClientRect().width > 0)
+        .filter((e) => e.getBoundingClientRect().right > dw.right + 0.5 || e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflow === 'visible')
+        .map((e) => `${e.tagName} ${Math.round(e.getBoundingClientRect().width)}`);
+    });
+    const pairW = await page.locator('[data-testid="asset-cash-pair-row"]').first().evaluate((li) => {
+      const picker = li.querySelector('button[aria-haspopup="listbox"]') as HTMLElement | null;
+      if (!picker) return 999;
+      const cs = getComputedStyle(li);
+      return Math.round(picker.getBoundingClientRect().width) - Math.round(li.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight));
+    });
+    check('[158-138] 402 현금 자동 반영 w-64 · w-72 칸 = 폭 전체(위 이름 · 아래 값) · 판 밖으로 넘침 0 [점검 138]', fixed.length === 0 && Math.abs(pairW) <= 1, `${fixed.join(' / ')} · 차이 ${pairW}`);
+    await leave(page, 'asset-설정창-현금자동반영');
+    await scene(page, 'asset-설정창-계좌추가');
+    await shot(page, '402-asset-account-add', false);
+    const col = await page.evaluate(() => {
+      const dlg = [...document.querySelectorAll('[role="dialog"]')].pop();
+      if (!dlg?.querySelector('[data-account-picker]')) return { pickW: 0, rightW: -1, stacked: false, none: true };
+      const pick = dlg.querySelector('[data-account-picker]')!.getBoundingClientRect();
+      const right = (dlg.querySelector('[data-account-picker]')!.nextElementSibling as HTMLElement).getBoundingClientRect();
+      return { pickW: Math.round(pick.width), rightW: Math.round(right.width), stacked: right.top >= pick.bottom - 1 };
+    });
+    check('[158-139] 402 계좌 추가 창 w-[300px] 칸 = 폭 전체(목록 아래로) [점검 139]', col.stacked && Math.abs(col.pickW - col.rightW) <= 1, JSON.stringify(col));
+    await o.ctx.close();
+  }
+
+  // ───────── 11 손가락 크기 — 자산 관리(탭마다) · 설정 창(메뉴마다) ─────────
+  if (want('asset') || want('touch')) {
+    for (const size of [PHONE, PAD]) {
+      const o = await open(browser, size, '#/home');
+      const { page } = o;
+      const all = { small: [] as string[], overlap: [] as string[] };
+      for (const name of ['asset-기록여러개-미지정', 'asset-자산현황-계좌카드', 'asset-이번달구매', 'asset-설정창-메뉴-목표비율', 'asset-설정창-메뉴-코어위성', 'asset-설정창-메뉴-연금', 'asset-설정창-메뉴-이번달구매', 'asset-설정창-메뉴-자산분류색', 'asset-설정창-메뉴-시트가격', 'asset-설정창-메뉴-잠금', 'asset-설정창-현금자동반영']) {
+        await scene(page, name);
+        if (size.width === 402) await shot(page, `402-${name}`, !name.includes('설정창'));
+        const t = await touchIssues(page);
+        all.small.push(...t.small.map((x) => `${name}: ${x}`));
+        all.overlap.push(...t.overlap.map((x) => `${name}: ${x}`));
+        await leave(page, name);
+      }
+      check(`[158-11] ${size.width} 자산 관리(총 자산 · 자산 현황 · 비율 조정) · 설정 창(메뉴마다) 누르는 칸 44 미만 0`, all.small.length === 0, all.small.join(' / '));
+      check(`[158-11] ${size.width} 자산 관리 · 설정 창 누르는 칸 겹침 0`, all.overlap.length === 0, all.overlap.join(' / '));
+      await o.ctx.close();
+    }
+  }
+
   // ───────── 12 · 13 바뀐 파일 · lint ─────────
   if (want('files')) {
     const keep = chasuChanged(root, CHASU, ['server', 'deploy', 'python', 'db', 'src/services/toss', 'src/hooks/usePaperTrading.ts', 'src/hooks/useAutoTrading.ts']);

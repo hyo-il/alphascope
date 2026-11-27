@@ -1,7 +1,8 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
-import { LoaderCircle, Lock, RefreshCw, Settings } from 'lucide-react';
+import { LoaderCircle, Lock, PiggyBank, RefreshCw, Settings } from 'lucide-react';
 import { Button, Checkbox, ICON_SM, IconButton, PageHeader, Panel, ScrollTopShade, Segmented, SectionTitle } from '../ui';
-import { LIST_TABLE_ROW, PANEL_PAD, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
+import { LIST_TABLE_ROW, PANEL_PAD, PHONE_DONUT_PX, PHONE_SUMMARY_VALUE, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
+import { useLayoutMode, useTouchScreen } from '../../hooks/useLayoutMode';
 import { Skeleton, SkeletonTable } from '../common/SkeletonLoader';
 import LoadingOverlay from '../common/LoadingOverlay';
 import { usePolling } from '../../hooks/usePolling';
@@ -49,6 +50,9 @@ import ScrollTable from '../ui/ScrollTable';
  * 매수 · 매도 입력(v2.66.0): 자산 현황 계좌별 줄의 [매수] [매도] → `AssetTradeDialog` · 성공하면 닫고 다시 읽기 · [매수 · 매도 기록] → `AssetTradeHistoryDialog`.
  * 평단 계산기(v2.68.0): 같은 줄의 계산기 아이콘(v2.68.2) → `AssetAverageCalculator`(계산만 — 서버 요청 없음 · 지금 가격은 summary 의 `prices`).
  * ⚠️ 자산 값은 콘솔 · 로컬 저장소에 남기지 않는다(로컬 저장소에는 「연금 포함」 켬/끔만).
+ * 폰(v2.83.0 · 테마 9-2 「계좌-자산관리 · 자산-총자산」): 머리 = 본문 맨 위 한 줄(왼쪽 읽은 시각 · 오른쪽 아이콘 단추 [연금 포함(누름 상태 —
+ * 체크박스와 같은 값 · 같은 기억)] [다시 읽기] [잠그기] [설정]) · 숫자 카드 한 줄에 하나씩(값 18 · 변화 등락 색 · 잘리지 않음) ·
+ * 원형 차트 160 위 가운데 · 분류별 표는 그 아래 폭 전체(분류 · 비율 · 금액). 패드 · 1280 이상은 지금 모양 그대로.
  */
 
 const PENSION_KEY = 'alphascope.asset.includePension';
@@ -467,6 +471,7 @@ export default function AssetDashboard({
   const onInput = useAssetIdleLock({ lockMinutes: summary?.settings.lockMinutes ?? lockMinutes, remainingMs, onIdle, onLocked });
   /** 지금 고른 「연금 포함」 과 그린 값이 다르면(다시 받는 중) 작은 스피너 */
   const switching = latest != null && latest.pension !== pension;
+  const phone = useLayoutMode() === 'phone';
 
   return (
     <div
@@ -481,6 +486,18 @@ export default function AssetDashboard({
       <PageHeader
         title="자산 관리"
         right={
+          phone ? (
+            // 폰 — 본문 맨 위 한 줄: 왼쪽 읽은 시각 · 오른쪽 아이콘 단추 넷(툴팁 = 1280 의 글 · 누르는 칸 44 는 IconButton)
+            <div className="flex min-w-0 flex-1 items-center gap-2" data-testid="asset-phone-head">
+              <span className="min-w-0 text-caption leading-tight text-text-secondary tabular-nums">{summary ? `읽은 시각 ${formatDateTime(summary.readAt)}` : ''}</span>
+              <span className="ml-auto flex shrink-0 items-center">
+                <IconButton size="md" icon={PiggyBank} label="연금 포함" active={pension} aria-pressed={pension} busy={switching} onClick={() => togglePension(!pension)} data-asset-pension-toggle />
+                <IconButton size="md" icon={RefreshCw} label="다시 읽기" busy={reloading} disabled={latest == null} onClick={() => void reload()} data-asset-reload />
+                <IconButton size="md" icon={Lock} label="잠그기" onClick={onLock} data-asset-lock />
+                <IconButton size="md" icon={Settings} label="설정" disabled={summary == null} onClick={() => setSettingsOpen('top')} data-asset-settings />
+              </span>
+            </div>
+          ) : (
           <>
             <label className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-text-primary">
               <Checkbox checked={pension} onChange={(e) => togglePension(e.target.checked)} data-asset-pension />
@@ -493,6 +510,7 @@ export default function AssetDashboard({
             <IconButton size="md" icon={RefreshCw} label="다시 읽기" busy={reloading} disabled={latest == null} onClick={() => void reload()} data-asset-reload />
             <IconButton size="md" icon={Lock} label="잠그기" onClick={onLock} data-asset-lock />
           </>
+          )
         }
         tabs={TABS}
         value={tab}
@@ -510,13 +528,13 @@ export default function AssetDashboard({
         {(tab === 'total' || tab === 'rebalance') && result && !result.ok && !result.fail.locked && <ErrorLine message={result.fail.error} busy={reloading} onRetry={() => void reload()} />}
         {tab === 'total' && summary && (
           <>
-            <Cards summary={summary} />
+            <Cards summary={summary} phone={phone} />
             <HistoryPanel pension={pension} noteDisabled={!!(result && !result.ok && result.fail.locked)} onLocked={onLocked} />
-            <div className="grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-3">
+            <div className="grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-3 phone:grid-cols-1" data-testid="asset-donut-row">
               <Panel className="flex items-center justify-center">
-                <AssetDonut groups={summary.totals.groups} total={summary.totals.total} colors={summary.settings.classColors} />
+                <AssetDonut groups={summary.totals.groups} total={summary.totals.total} colors={summary.settings.classColors} size={phone ? PHONE_DONUT_PX : undefined} />
               </Panel>
-              <GroupTable summary={summary} onOpenClassDialog={() => setClassOpen(true)} />
+              <GroupTable summary={summary} onOpenClassDialog={() => setClassOpen(true)} phone={phone} />
             </div>
           </>
         )}
@@ -668,21 +686,32 @@ function RebalanceSkeleton() {
   );
 }
 
-/** 숫자 카드 — 이름(13px) · 핵심 숫자(16px 600) · 보조 한 줄 */
+/** 숫자 카드 — 이름(13px) · 핵심 숫자(16px 600 · 폰 18) · 보조 한 줄(폰은 잘리지 않게 줄바꿈) */
 function Card({ label, value, valueClass = 'text-text-primary', sub }: { label: string; value: string; valueClass?: string; sub: React.ReactNode }) {
   return (
-    <Panel className="min-w-0">
+    <Panel className="min-w-0" data-asset-card>
       <div className="text-caption text-text-muted">{label}</div>
-      <div className={`mt-1 whitespace-nowrap text-sm font-semibold tabular-nums ${valueClass}`}>{value}</div>
-      <div className="mt-1 truncate text-caption text-text-muted">{sub}</div>
+      <div className={`mt-1 whitespace-nowrap text-sm font-semibold tabular-nums ${PHONE_SUMMARY_VALUE} ${valueClass}`} data-asset-card-value>{value}</div>
+      <div className="mt-1 truncate text-caption text-text-muted phone:overflow-visible phone:whitespace-normal" data-asset-card-sub>{sub}</div>
     </Panel>
   );
 }
 
-function Cards({ summary }: { summary: AssetSummary }) {
+/** 폰 — 변화 줄의 등락(%) 은 등락 색(테마 9-2 「변화 13 등락 색」) */
+function SubChange({ phone, ratio, rest }: { phone: boolean; ratio: number | null; rest: string }) {
+  const pct = formatSigned(ratio == null ? null : ratio * 100, 2, '%');
+  if (!phone) return <>{`${pct} · ${rest}`}</>;
+  return (
+    <>
+      <span className={ratio == null ? '' : changeColor(ratio)}>{pct}</span> · {rest}
+    </>
+  );
+}
+
+function Cards({ summary, phone }: { summary: AssetSummary; phone: boolean }) {
   const { totals, vsLast, profit } = summary;
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-3 gap-3 phone:grid-cols-1 phone:gap-2" data-testid="asset-cards">
       <Card
         label="총 자산"
         value={formatPrice(totals.total, 'KRW')}
@@ -700,13 +729,13 @@ function Cards({ summary }: { summary: AssetSummary }) {
         label="어제보다"
         value={vsLast ? formatSignedMoney(vsLast.amount, 'KRW') : '기록 없음'}
         valueClass={vsLast ? changeColor(vsLast.amount) : 'text-text-muted'}
-        sub={vsLast ? `${formatSigned(vsLast.ratio == null ? null : vsLast.ratio * 100, 2, '%')} · ${vsLast.day} 하루 기록 대비` : '하루 기록이 쌓이면 보입니다'}
+        sub={vsLast ? <SubChange phone={phone} ratio={vsLast.ratio} rest={`${vsLast.day} 하루 기록 대비`} /> : '하루 기록이 쌓이면 보입니다'}
       />
       <Card
         label="평가 손익"
         value={profit ? formatSignedMoney(profit.amount, 'KRW') : '—'}
         valueClass={profit ? changeColor(profit.amount) : 'text-text-muted'}
-        sub={profit ? `${formatSigned(profit.ratio == null ? null : profit.ratio * 100, 2, '%')} · 평균 매입가 대비(현금 제외)` : '매입가를 아는 종목이 없습니다'}
+        sub={profit ? <SubChange phone={phone} ratio={profit.ratio} rest="평균 매입가 대비(현금 제외)" /> : '매입가를 아는 종목이 없습니다'}
       />
     </div>
   );
@@ -725,6 +754,8 @@ const RANGES: { value: AssetHistoryRange; label: string }[] = [
  */
 function HistoryPanel({ pension, noteDisabled, onLocked }: { pension: boolean; noteDisabled: boolean; onLocked: () => void }) {
   const [range, setRange] = useState<AssetHistoryRange>('1m');
+  /** 손가락 화면 — 안내 글 「누르면」(R9) */
+  const touch = useTouchScreen();
   const [state, setState] = useState<{ points: AssetHistoryPoint[]; rows: AssetDailyChange[]; since: string | null } | { error: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -774,7 +805,7 @@ function HistoryPanel({ pension, noteDisabled, onLocked }: { pension: boolean; n
       <Panel className="flex h-64 flex-col gap-2">
         <SectionTitle
           aside={busy && state != null ? <LoaderCircle {...ICON_SM} className="animate-spin" aria-label="받는 중" /> : undefined}
-          info="미국 애프터마켓이 끝난 뒤(두 시장이 모두 닫힌 때) 하루 한 번 총 자산을 기록합니다. 서버가 꺼져 있던 날은 비어 있습니다. 점에 마우스를 올리면 그날 정확한 금액과 전날 기록 대비가 보입니다."
+          info={`미국 애프터마켓이 끝난 뒤(두 시장이 모두 닫힌 때) 하루 한 번 총 자산을 기록합니다. 서버가 꺼져 있던 날은 비어 있습니다. ${touch ? '점을 누르면' : '점에 마우스를 올리면'} 그날 정확한 금액과 전날 기록 대비가 보입니다.`}
           right={<Segmented size="sm" label="기간" options={RANGES} value={range} onChange={setRange} />}
         >
           총 자산 추이
@@ -810,20 +841,45 @@ function HistoryPanel({ pension, noteDisabled, onLocked }: { pension: boolean; n
 
 const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right tabular-nums`;
 
-/** 분류별 표 — 분류 · 금액 · 비율(총 자산 대비) · 주식 아래 들여 쓴 코어 · 위성(비율은 주식 금액 대비) */
-function GroupTable({ summary, onOpenClassDialog }: { summary: AssetSummary; onOpenClassDialog: () => void }) {
+/**
+ * 분류별 표 — 분류 · 금액 · 비율(총 자산 대비) · 주식 아래 들여 쓴 코어 · 위성(비율은 주식 금액 대비).
+ * 폰(v2.83.0)은 원형 차트 아래 범례 — 칸 차례 분류 · 비율 · 금액(테마 9-2 「이름 · % · 금액」 · 값은 같은 함수).
+ */
+function GroupTable({ summary, onOpenClassDialog, phone }: { summary: AssetSummary; onOpenClassDialog: () => void; phone: boolean }) {
   const { totals } = summary;
   const stock = totals.groups.find((g) => g.key === 'stock')?.amount ?? 0;
   const inStock = (v: number) => (stock > 0 ? v / stock : null);
+  /** 금액 · 비율 두 칸 — 1280 = 금액 → 비율 · 폰 = 비율 → 금액(끝 칸에 오른쪽 여백) */
+  const cells = (amount: React.ReactNode, ratio: React.ReactNode) =>
+    phone ? (
+      <>
+        <td className={NUM}>{ratio}</td>
+        <td className={`${NUM} pr-4`}>{amount}</td>
+      </>
+    ) : (
+      <>
+        <td className={NUM}>{amount}</td>
+        <td className={`${NUM} pr-4`}>{ratio}</td>
+      </>
+    );
   return (
-    <Panel pad="none" className="pb-1">
+    <Panel pad="none" className="pb-1" data-testid="asset-group-table">
       <ScrollTable>
       <table className="w-full text-left text-xs">
         <thead className="text-caption text-text-muted">
           <tr className={`border-b border-border/50 ${TABLE_HEAD_ROW}`}>
             <th className={`${TABLE_NAME_COL} pl-4 font-normal`}>분류</th>
-            <th className={`${NUM} font-normal`}>금액</th>
-            <th className={`${NUM} pr-4 font-normal`}>비율</th>
+            {phone ? (
+              <>
+                <th className={`${NUM} font-normal`}>비율</th>
+                <th className={`${NUM} pr-4 font-normal`}>금액</th>
+              </>
+            ) : (
+              <>
+                <th className={`${NUM} font-normal`}>금액</th>
+                <th className={`${NUM} pr-4 font-normal`}>비율</th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -844,8 +900,7 @@ function GroupTable({ summary, onOpenClassDialog }: { summary: AssetSummary; onO
                       )}
                     </span>
                   </td>
-                  <td className={NUM}>{formatPrice(g.amount, 'KRW')}</td>
-                  <td className={`${NUM} pr-4`}>{ratioText(g.ratio)}</td>
+                  {cells(formatPrice(g.amount, 'KRW'), ratioText(g.ratio))}
                 </tr>
                 {g.key === 'stock' &&
                   ([
@@ -854,8 +909,7 @@ function GroupTable({ summary, onOpenClassDialog }: { summary: AssetSummary; onO
                   ] as const).map(([label, v]) => (
                     <tr key={label} className={`${LIST_TABLE_ROW} text-text-secondary`} data-group={`stock-${label}`}>
                       <td className="pl-10">{label}</td>
-                      <td className={NUM}>{formatPrice(v, 'KRW')}</td>
-                      <td className={`${NUM} pr-4`}>{ratioText(inStock(v))}</td>
+                      {cells(formatPrice(v, 'KRW'), ratioText(inStock(v)))}
                     </tr>
                   ))}
               </Fragment>

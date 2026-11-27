@@ -5,12 +5,14 @@ import { TOOLTIP_BOX, TOOLTIP_EDGE, TOOLTIP_GAP } from '../ui/tokens';
 import { changeColor, formatCompactMoney, formatNumber, formatSigned } from '../../utils/formatters';
 import { formatAssetWon, formatAssetWonSigned } from '../../utils/assetFormat';
 import type { AssetDailyChange, AssetHistoryPoint } from '../../types/asset';
+import { useTouchScreen } from '../../hooks/useLayoutMode';
 
 /**
  * 총 자산 선 차트(v2.62.0) — 하루 기록(미국 거래일마다 한 점) · `lightweight-charts` 선 하나.
  * 점이 하나뿐이어도 점으로 그린다(선은 둘째 기록부터). 축 · 십자선 값은 억 단위 소수 둘째 자리(₩51.23억 — 하루 움직임이 축에 보이게) · 1억 미만은 압축 표기.
  * 마우스 오버(v2.70.0): 마우스 아래 점의 날짜 · 원 단위 정확한 금액 · 전날 기록 대비(원 · % — 일별 변화 표와 같은 `rows` 값 · 첫 기록은 대비 없음).
  *   상자는 앱 툴팁과 같은 모양(`TOOLTIP_BOX`) · 차트 칸 안에서 잘리지 않게 자리를 옮긴다(오른쪽 · 아래가 모자라면 반대쪽).
+ * 손가락 화면(v2.83.0 · 점검 137 · 테마 6절 「올림이 없음 — 누르면 보임」): 점을 **누르면** 같은 상자(같은 글)가 뜨고, 차트 밖 다른 곳을 누르면 닫힌다.
  */
 const axisMoney = (v: number) => (Math.abs(v) >= 1e8 ? `₩${formatNumber(v / 1e8, 2, '억')}` : formatCompactMoney(v, 'KRW'));
 const timeOf = (day: string) => (Date.parse(`${day}T00:00:00Z`) / 1000) as UTCTimestamp;
@@ -23,6 +25,9 @@ export default function AssetHistoryChart({ points, rows }: { points: AssetHisto
   /** 마우스 아래 점 — 날짜 · 차트 칸 안 좌표(px) */
   const [hover, setHover] = useState<{ day: string; x: number; y: number } | null>(null);
   const [tipPos, setTipPos] = useState<{ left: number; top: number } | null>(null);
+  const touch = useTouchScreen();
+  const touchRef = useRef(touch);
+  touchRef.current = touch;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -64,7 +69,13 @@ export default function AssetHistoryChart({ points, rows }: { points: AssetHisto
       setHover({ day: new Date(t * 1000).toISOString().slice(0, 10), x, y });
     };
     chart.subscribeCrosshairMove(onMove);
+    // 손가락 화면 — 누른 점(마우스 올림과 같은 판단 · 점이 없는 곳을 누르면 닫힘)
+    const onTap = (param: MouseEventParams) => {
+      if (touchRef.current) onMove(param);
+    };
+    chart.subscribeClick(onTap);
     return () => {
+      chart.unsubscribeClick(onTap);
       chart.unsubscribeCrosshairMove(onMove);
       chart.remove();
       chartRef.current = null;
@@ -77,6 +88,16 @@ export default function AssetHistoryChart({ points, rows }: { points: AssetHisto
     chartRef.current?.timeScale().fitContent();
     setHover(null);
   }, [points]);
+
+  // 손가락 화면 — 상자가 떠 있을 때 차트 밖을 누르면 닫는다
+  useEffect(() => {
+    if (!touch || !hover) return;
+    const onDown = (e: PointerEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setHover(null);
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    return () => document.removeEventListener('pointerdown', onDown, true);
+  }, [touch, hover]);
 
   // 상자 자리 — 점 오른쪽 아래가 기본, 차트 칸을 넘으면 왼쪽 · 위로(칸 안 `TOOLTIP_EDGE` 안쪽)
   useEffect(() => {

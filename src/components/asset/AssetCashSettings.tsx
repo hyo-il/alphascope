@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { ArrowRight, LoaderCircle } from 'lucide-react';
 import { Button, DisclosureButton, ICON_SM, Input, Panel, Segmented, Select } from '../ui';
-import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NUM_GAP } from '../ui/tokens';
+import { LIST_TABLE_ROW, PHONE_STACK_ROW, TABLE_HEAD_ROW, TABLE_NUM_GAP } from '../ui/tokens';
 import { Skeleton } from '../common/SkeletonLoader';
 import { modal } from '../../store/uiStore';
 import { formatAssetWon } from '../../utils/assetFormat';
@@ -125,7 +125,7 @@ export default function AssetCashSettings({ onLocked, onBusy }: { onLocked: () =
   if (load.state === 'loading') {
     return (
       <div className="space-y-3" aria-busy="true" data-testid="asset-cash-settings-loading">
-        <Skeleton className="h-8 w-64 rounded-md" />
+        <Skeleton className="h-8 w-64 rounded-md phone:w-full" />
         <Skeleton className="h-24 rounded-xl" />
         <Skeleton className="h-40 rounded-xl" />
       </div>
@@ -351,14 +351,14 @@ export default function AssetCashSettings({ onLocked, onBusy }: { onLocked: () =
             {v.sections.map((sec, i) => {
               const pair = s.depositPairs[sec.key] ?? null;
               return (
-                <li key={sec.key} className={`flex items-center gap-2 px-4 text-xs ${LIST_TABLE_ROW} ${i > 0 ? 'border-t border-border/30' : ''}`} data-testid="asset-cash-pair-row">
-                  <span className="w-56 min-w-0 shrink-0 truncate text-text-primary" data-tip-clip={sec.name}>
+                <li key={sec.key} className={`flex items-center gap-2 px-4 text-xs ${LIST_TABLE_ROW} ${PHONE_STACK_ROW} ${i > 0 ? 'border-t border-border/30' : ''}`} data-testid="asset-cash-pair-row">
+                  <span className="w-56 min-w-0 shrink-0 truncate text-text-primary phone:w-full" data-tip-clip={sec.name}>
                     {sec.name}
                   </span>
-                  <ArrowRight {...ICON_SM} className="shrink-0 text-text-muted" aria-hidden />
+                  <ArrowRight {...ICON_SM} className="shrink-0 text-text-muted phone:hidden" aria-hidden />
                   <AssetCashAccountPicker
                     label={`${sec.key} 예수금 계좌`}
-                    className="w-72"
+                    className="w-72 phone:w-full"
                     value={valueOf(pair)}
                     groups={groups}
                     idOf={rowId}
@@ -543,10 +543,12 @@ function FlowRow({
   return (
     <div className="rounded-lg px-3 py-1.5 hover:bg-bg-tertiary/30" data-testid="asset-cash-flow-row" data-flow-reflect="yes">
       {head}
-      <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-text-primary">
+      <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-text-primary phone:flex-wrap phone:gap-y-3">
+        {/* 1280 = 상자 없음(contents) · 폰 = 두 계좌 한 줄 */}
+        <div className="contents phone:flex phone:w-full phone:min-w-0 phone:items-center phone:gap-2">
         <AssetCashAccountPicker
           label={`${label} 빠지는 계좌`}
-          className={`w-48 ${changed ? 'font-semibold' : ''}`}
+          className={`w-48 phone:w-auto phone:flex-1 ${changed ? 'font-semibold' : ''}`}
           value={fromValue}
           groups={groups}
           idOf={rowId}
@@ -558,7 +560,7 @@ function FlowRow({
         <ArrowRight {...ICON_SM} className="shrink-0 text-text-muted" aria-hidden />
         <AssetCashAccountPicker
           label={`${label} 들어가는 계좌`}
-          className="w-52"
+          className="w-52 phone:w-auto phone:flex-1"
           value={toValue}
           groups={groups}
           idOf={rowId}
@@ -567,6 +569,7 @@ function FlowRow({
           disabled={off}
           onPick={(x) => onSave({ to: x === OUT ? OUT : x === NONE ? null : keyOf(x) })}
         />
+        </div>
         <span className="ml-auto w-28 shrink-0 text-right tabular-nums">{amount != null ? formatAssetWon(amount) : '—'}</span>
         <Select
           size="sm"
@@ -678,11 +681,11 @@ function BankFix({
         <div className="px-4 pt-1 text-caption text-text-secondary">은행 이름 바꾸기</div>
         <ul>
           {raws.map((raw) => (
-            <li key={raw} className={`flex items-center gap-2 px-4 text-xs ${LIST_TABLE_ROW}`}>
-              <span className="w-56 min-w-0 shrink-0 truncate text-text-primary" data-tip-clip={raw}>
+            <li key={raw} className={`flex items-center gap-2 px-4 text-xs ${LIST_TABLE_ROW} ${PHONE_STACK_ROW}`}>
+              <span className="w-56 min-w-0 shrink-0 truncate text-text-primary phone:w-full" data-tip-clip={raw}>
                 {raw}
               </span>
-              <ArrowRight {...ICON_SM} className="shrink-0 text-text-muted" aria-hidden />
+              <ArrowRight {...ICON_SM} className="shrink-0 text-text-muted phone:hidden" aria-hidden />
               <NameInput label={`${raw} 은행 이름`} value={fix.renames[raw] ?? raw} disabled={busy != null} onCommit={(t) => void onSave(`bank-rename-${raw}`, { rename: { from: raw, to: t === '' || t === raw ? null : t } })} />
             </li>
           ))}
@@ -692,11 +695,11 @@ function BankFix({
         <div className="px-4 pt-1 text-caption text-text-secondary">계좌를 다른 은행으로</div>
         <ul>
           {rows.map((name) => (
-            <li key={name} className={`flex items-center gap-2 px-4 text-xs ${LIST_TABLE_ROW}`}>
-              <span className="w-56 min-w-0 shrink-0 truncate text-text-primary" data-tip-clip={name}>
+            <li key={name} className={`flex items-center gap-2 px-4 text-xs ${LIST_TABLE_ROW} ${PHONE_STACK_ROW}`}>
+              <span className="w-56 min-w-0 shrink-0 truncate text-text-primary phone:w-full" data-tip-clip={name}>
                 {name}
               </span>
-              <ArrowRight {...ICON_SM} className="shrink-0 text-text-muted" aria-hidden />
+              <ArrowRight {...ICON_SM} className="shrink-0 text-text-muted phone:hidden" aria-hidden />
               <NameInput label={`${name} 은행`} value={bankOf(name)} disabled={busy != null} onCommit={(t) => void onSave(`bank-row`, { row: { name, bank: t === '' ? null : t } })} />
             </li>
           ))}
@@ -717,7 +720,7 @@ function NameInput({ label, value, disabled, onCommit }: { label: string; value:
   return (
     <Input
       size="sm"
-      className="w-72 shrink-0 text-ellipsis"
+      className="w-72 shrink-0 text-ellipsis phone:w-full"
       aria-label={label}
       value={text}
       maxLength={20}

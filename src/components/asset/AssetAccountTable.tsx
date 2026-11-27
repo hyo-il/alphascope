@@ -107,7 +107,7 @@ function AccountPickerDialog({ title, choices, onAdd, onClose }: { title: string
       closeOnBackdrop={false}
       size="xl"
       z={98}
-      bodyClassName="flex"
+      bodyClassName="flex phone:flex-col"
       dirty={picked.length > 0}
       footer={
         <>
@@ -129,7 +129,7 @@ function AccountPickerDialog({ title, choices, onAdd, onClose }: { title: string
         </>
       }
     >
-      <div className="flex min-w-0 flex-1 flex-col gap-2 border-r border-border/40 p-3" data-account-picker>
+      <div className="flex min-w-0 flex-1 flex-col gap-2 border-r border-border/40 p-3 phone:border-r-0 phone:border-b" data-account-picker>
         <label className="flex h-8 items-center gap-2 rounded-md bg-bg-tertiary px-2">
           <Search {...ICON_SM} className="shrink-0 text-text-muted" aria-hidden />
           {/* design-lint-ignore: 아이콘과 한 상자인 검색칸 — 바깥 상자가 입력칸 모양(높이·바탕)을 맡는다 */}
@@ -173,7 +173,7 @@ function AccountPickerDialog({ title, choices, onAdd, onClose }: { title: string
           )}
         </div>
       </div>
-      <div className="flex w-[300px] shrink-0 flex-col gap-2 p-3">
+      <div className="flex w-[300px] shrink-0 flex-col gap-2 p-3 phone:w-full">
         <div className="flex items-center gap-2">
           <p className="text-xs font-semibold text-text-primary">고른 계좌 {picked.length}개</p>
           {picked.length > 0 && <RemoveAllButton onClick={() => setPicked([])} className="ml-auto" />}

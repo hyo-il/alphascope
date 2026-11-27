@@ -24,7 +24,8 @@ export default function SectionTitle({
       <Tag className={`shrink-0 font-semibold text-text-primary ${level === 1 ? 'text-base' : 'text-sm'}`}>{children}</Tag>
       {aside != null && <span className="min-w-0 text-caption text-text-muted">{aside}</span>}
       {info != null && <InfoTip>{info}</InfoTip>}
-      {right != null && <div className="ml-auto flex shrink-0 items-center gap-2">{right}</div>}
+      {/* 손가락 화면 — [?] 의 누르는 칸 44 가 오른쪽 고르기와 겹치지 않게 사이 8 을 더 둔다(v2.83.0 · 점검 142) */}
+      {right != null && <div className="ml-auto flex shrink-0 items-center gap-2 touch:pl-2">{right}</div>}
     </div>
   );
 }

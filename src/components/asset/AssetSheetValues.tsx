@@ -242,7 +242,7 @@ function Summary({
         {/* 「현금 합계」 칸 전체가 누르는 곳 — 계좌별 금액 펼침(읽기만) */}
         <button
           type="button"
-          className="shrink-0 cursor-pointer text-left"
+          className="shrink-0 cursor-pointer text-left touch:min-h-11"
           aria-expanded={cashOpen}
           aria-controls="as-asset-cashlist"
           aria-label={`현금 합계 ${cashOpen ? '접기' : '은행별로 펼치기'}`}
@@ -528,7 +528,7 @@ function AccountCard({
               </td>
               <td className={`${CARD_BG} ${lastR(last)} ${TEXT} border-t border-border/30 pr-4 text-right`} data-trade-cell>
                 {(h.tradable || canCalc(h)) && (
-                  <span className="inline-flex gap-1">
+                  <span className="inline-flex gap-1 touch:gap-3">
                     {h.tradable && (
                       <>
                         <Button variant="buy" size="sm" onClick={() => onTrade(section, h, 'buy')} aria-label={`${h.name} 매수 입력`} data-trade-buy={h.row}>

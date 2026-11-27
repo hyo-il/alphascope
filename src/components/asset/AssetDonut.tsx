@@ -5,15 +5,17 @@ import { groupStroke } from './assetColors';
 /**
  * 자산 구성 원형 차트(v2.62.0) — 새 의존성 없이 SVG 고리. 분류 색은 설정(「자산 분류 색」 — 팔레트 이름)을 `assetColors.ts` 한 표로 칠한다.
  * 조각 사이 2px 바탕 틈 · 가운데 총 자산. 조각에 마우스를 올리면 분류 · 금액 · 비율(옆 분류별 표가 범례 · 표 보기를 겸한다).
+ * 크기 = 지금 180(폰은 `tokens.PHONE_DONUT_PX` 160 — v2.83.0).
  */
-const SIZE = 180;
+const DEFAULT_SIZE = 180;
 const STROKE = 26;
-const R = (SIZE - STROKE) / 2;
-const C = 2 * Math.PI * R;
 /** 조각 사이 틈(둘레 길이) */
 const GAP = 2;
 
-export default function AssetDonut({ groups, total, colors }: { groups: AssetGroup[]; total: number; colors: AssetClassColors }) {
+export default function AssetDonut({ groups, total, colors, size }: { groups: AssetGroup[]; total: number; colors: AssetClassColors; size?: number }) {
+  const SIZE = size ?? DEFAULT_SIZE;
+  const R = (SIZE - STROKE) / 2;
+  const C = 2 * Math.PI * R;
   // 음수(빚 등)는 원에 그릴 수 없다 — 0 으로(표에는 그대로 보인다)
   const parts = groups.filter((g) => g.amount > 0);
   const sum = parts.reduce((a, g) => a + g.amount, 0);

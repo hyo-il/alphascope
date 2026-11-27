@@ -272,7 +272,13 @@ export const DATE_PICKER_TOUCH_W = 344;
  * 폰 자산 관리(v2.83.0 · 테마 9-2 「계좌-자산관리 · 자산-총자산」) — 요약 카드 한 줄에 하나(이름 13 · 값 18 · 변화 13) ·
  * 도넛 160 위 가운데 · 범례 아래 폭 전체.
  */
-export const PHONE_SUMMARY_VALUE = 'text-base';
+/** 폰 숫자 카드 값 18(`phone:` 이름 — 폰에서만 · 1280 이상은 지금 16 그대로) */
+export const PHONE_SUMMARY_VALUE = 'phone:text-base';
 export const PHONE_DONUT_PX = 160;
 /** 붙은 단추 줄 사이(테마 6 「12 이상」 · 넘치면 줄바꿈) */
 export const BUTTON_ROW_GAP = 'gap-3';
+/**
+ * 폰 「위 이름 · 아래 값」 줄(v2.83.0 · 테마 9-1 R10) — 이름 칸 + 고르기 · 입력 칸이 한 줄에 들어가지 않는 고정 높이 줄(`LIST_TABLE_ROW`)을 폰에서만 두 줄로 쌓는다.
+ * 높이는 내용만큼(`!` — 손가락 화면 줄 높이 `touch:h-11` 보다 먼저) · 이름 칸 · 값 칸은 그 자리에서 `phone:w-full`.
+ */
+export const PHONE_STACK_ROW = 'phone:h-auto! phone:flex-wrap phone:gap-y-1 phone:py-2';

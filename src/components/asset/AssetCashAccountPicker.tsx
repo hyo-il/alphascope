@@ -1,7 +1,7 @@
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { ICON_SM, Popover } from '../ui';
-import { CONTROL_H } from '../ui/tokens';
+import { CONTROL_H, TOUCH_FIELD_H, TOUCH_LIST_ROW } from '../ui/tokens';
 import type { AssetCashBankGroup, AssetCashRowOption } from '../../types/asset';
 
 /**
@@ -78,7 +78,7 @@ export default function AssetCashAccountPicker({
       type="button"
       role="option"
       aria-selected={v === value}
-      className="flex w-full min-w-0 items-center gap-2 rounded px-2 py-1 text-left text-xs text-text-primary hover:bg-bg-tertiary focus:bg-bg-tertiary focus:outline-none"
+      className={`flex w-full min-w-0 items-center gap-2 rounded px-2 py-1 text-left text-xs text-text-primary hover:bg-bg-tertiary focus:bg-bg-tertiary focus:outline-none ${TOUCH_LIST_ROW}`}
       onClick={() => pick(v)}
     >
       <span className="inline-flex w-4 shrink-0 justify-center">{v === value && <Check {...ICON_SM} className="text-accent" />}</span>
@@ -103,7 +103,7 @@ export default function AssetCashAccountPicker({
           setOpen((o) => !o);
           focusCurrent();
         }}
-        className={`flex min-w-0 items-center gap-1 rounded-md border border-transparent bg-bg-tertiary pr-1.5 pl-2 text-left text-xs focus:border-accent focus:outline-none disabled:opacity-50 ${CONTROL_H.sm} ${lost && !extra && !item ? 'text-danger' : 'text-text-primary'} ${className}`}
+        className={`flex min-w-0 items-center gap-1 rounded-md border border-transparent bg-bg-tertiary pr-1.5 pl-2 text-left text-xs focus:border-accent focus:outline-none disabled:opacity-50 ${CONTROL_H.sm} ${TOUCH_FIELD_H} ${lost && !extra && !item ? 'text-danger' : 'text-text-primary'} ${className}`}
         data-tone={lost && !extra && !item ? 'invalid' : undefined}
       >
         <span className="min-w-0 flex-1 truncate" data-tip-clip={shown}>

@@ -218,7 +218,7 @@ function AccountRow({ mb, a, writeEnabled, busyKey, note, onPress, onLinkPlan, p
           {a.name}
         </span>
         <StatusBadge status={a.status} at={a.at} />
-        <span className="ml-auto flex shrink-0 items-center justify-end gap-1 phone:basis-full">
+        <span className="ml-auto flex shrink-0 items-center justify-end gap-1 phone:basis-full phone:flex-wrap phone:gap-3" data-purchase-actions>
           <Actions
             status={a.status}
             canDone
@@ -237,7 +237,7 @@ function AccountRow({ mb, a, writeEnabled, busyKey, note, onPress, onLinkPlan, p
         <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${TOUCH_WRAP_GAP} pl-4 text-xs text-text-secondary ${LIST_ROW}`} data-testid="purchase-next" data-status={a.next.status}>
           <span className="tabular-nums">다음 차례 {dayText(mb.nextDay)}</span>
           {a.next.status !== 'todo' && <StatusBadge status={a.next.status} at={a.next.at} />}
-          <span className="ml-auto flex shrink-0 items-center justify-end gap-1 phone:basis-full">
+          <span className="ml-auto flex shrink-0 items-center justify-end gap-1 phone:basis-full phone:flex-wrap phone:gap-3" data-purchase-actions>
             <Actions
               status={a.next.status}
               canDone={a.next.canDone}
