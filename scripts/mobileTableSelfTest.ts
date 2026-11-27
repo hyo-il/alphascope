@@ -14,6 +14,7 @@
  * 손가락 밀기는 크롬 개발 도구(CDP `Input.synthesizeScrollGesture` · 손가락)로, 누름은 `Input.dispatchTouchEvent` 로 보낸다.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import { noColorLine } from './lib/noColorClass';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -244,8 +245,9 @@ try {
     }
     const want = JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) as Record<string, string[]>;
     for (const key of Object.keys(want)) {
-      const a = want[key];
-      const b = shots[key] ?? [];
+      // 155차 — 색 이름은 빼고 견준다(앱 전체 색 규칙 · noColorLine)
+      const a = want[key].map(noColorLine);
+      const b = (shots[key] ?? []).map(noColorLine);
       const i = a.findIndex((x, k) => x !== b[k]);
       const same = a.length === b.length && i < 0;
       check(`[148-1] ${key} — 기준 커밋(${BASE})과 요소 ${a.length}개 태그 · 클래스 · 자리 · 크기 같음`, same, same ? '' : `개수 ${a.length} → ${b.length} · 첫 차이 #${i}: ${a[i] ?? '-'} → ${b[i] ?? '-'}`);

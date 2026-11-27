@@ -16,6 +16,7 @@
  *   브라우저 옛 시험은 가장 최근 기계 검사 로그(`reports/machine-check/<날짜>/<이름>_test.log`)의 PASS · FAIL 줄 수를 본다.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import { noColorLine } from './lib/noColorClass';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -268,8 +269,9 @@ try {
     }
     want = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
     for (const key of Object.keys(want.shots)) {
-      const a = want.shots[key];
-      const b = shots[key] ?? [];
+      // 155차 — 색 이름은 빼고 견준다(앱 전체 색 규칙 · noColorLine)
+      const a = (want.shots[key] as string[]).map(noColorLine);
+      const b = (shots[key] ?? []).map(noColorLine);
       let i = 0;
       while (i < Math.max(a.length, b.length) && a[i] === b[i]) i++;
       const same = a.length === b.length && i === a.length;

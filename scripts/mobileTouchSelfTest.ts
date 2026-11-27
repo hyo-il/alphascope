@@ -8,6 +8,7 @@
  * 손가락 누름 · 길게 누름은 크롬 개발 도구(CDP `Input.dispatchTouchEvent`)로 보낸다 — 진짜 손가락과 같은 pointer · click 순서.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import { noColorLine } from './lib/noColorClass';
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium, type Browser, type CDPSession, type Page } from 'playwright';
@@ -240,8 +241,9 @@ try {
     const want = JSON.parse(fs.readFileSync(DESK_FIXTURE, 'utf8')) as Record<string, string[]>;
     const got = await deskExtras();
     for (const key of Object.keys(want)) {
-      const a = want[key];
-      const b = got[key] ?? [];
+      // 155차 — 색 이름은 빼고 견준다(앱 전체 색 규칙 · noColorLine)
+      const a = want[key].map(noColorLine);
+      const b = (got[key] ?? []).map(noColorLine);
       const i = a.findIndex((x, k) => x !== b[k]);
       const same = a.length > 0 && a.length === b.length && i < 0;
       check(`[147-1] ${key} — 기준 커밋(${BASE})과 요소 ${a.length}개 태그 · 클래스 · 자리 · 크기 같음`, same, same ? '' : `개수 ${a.length} → ${b.length} · 첫 차이 #${i}: ${a[i] ?? '-'} → ${b[i] ?? '-'}`);

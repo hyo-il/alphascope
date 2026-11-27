@@ -14,6 +14,7 @@
  *   (앱 틀 · 창 뒤 화면은 다른 차수 몫 · 스크롤로 가려진 요소는 뺌).
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import { noColorLine } from './lib/noColorClass';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -247,8 +248,9 @@ try {
     }
     want = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
     for (const key of Object.keys(want.shots)) {
-      const a = want.shots[key];
-      const b = shots[key] ?? [];
+      // 155차 — 색 이름은 빼고 견준다(앱 전체 색 규칙 · noColorLine)
+      const a = (want.shots[key] as string[]).map(noColorLine);
+      const b = (shots[key] ?? []).map(noColorLine);
       let i = 0;
       while (i < Math.max(a.length, b.length) && a[i] === b[i]) i++;
       const same = a.length === b.length && i === a.length;

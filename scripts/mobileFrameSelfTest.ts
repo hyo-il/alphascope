@@ -9,6 +9,7 @@
  * 11 은 관리 루트 `docs/design-check` 가 보이는 자리(본 저장소)에서만 잰다 — scratch worktree 에서는 건너뜀을 적는다.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import { noColorLine } from './lib/noColorClass';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -153,12 +154,13 @@ try {
     const want = JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) as Record<string, string[]>;
     for (const key of Object.keys(want)) {
       // 빈 칸 수만 다른 것(이름을 뺀 자리)은 같다 — 두 쪽 모두 빈 칸 하나로
-      const norm = (x: string) => x.replace(/\s+/g, ' ').replace(/ ?\| ?/g, '|');
+      // 155차 — 색 이름은 빼고 견준다(앱 전체 색 규칙 · noColorLine)
+      const norm = (x: string) => noColorLine(x.replace(/\s+/g, ' ').replace(/ ?\| ?/g, '|')).replace(/\s+/g, ' ').replace(/ ?\| ?/g, '|');
       const a = want[key].map(norm);
       const b = (shots[key] ?? []).map(norm);
       const i = a.findIndex((x, k) => x !== b[k]);
       const same = a.length === b.length && i < 0;
-      check(`[146-1] ${key} — 기준 커밋(${BASE})과 요소 ${a.length}개 태그 · 클래스 · 자리 · 크기 같음(주 단추 바탕만 다름)`, same, same ? '' : `개수 ${a.length} → ${b.length} · 첫 차이 #${i}: ${a[i] ?? '-'} → ${b[i] ?? '-'}`);
+      check(`[146-1] ${key} — 기준 커밋(${BASE})과 요소 ${a.length}개 태그 · 클래스 · 자리 · 크기 같음(색 이름은 뺌)`, same, same ? '' : `개수 ${a.length} → ${b.length} · 첫 차이 #${i}: ${a[i] ?? '-'} → ${b[i] ?? '-'}`);
     }
   }
 
@@ -312,12 +314,16 @@ try {
     const btn = fs.readFileSync(path.join(root, 'src/components/ui/Button.tsx'), 'utf8');
     const old = execFileSync('git', ['show', `${BASE}:src/components/ui/Button.tsx`], { cwd: root, encoding: 'utf8' });
     const line = (src: string, v: string) => src.split('\n').find((l) => l.trim().startsWith(`${v}:`)) ?? '';
-    check('[146-8] Button primary 바탕 = accent-button · 올림 · 누름 = accent-button-hover', /primary: 'bg-accent-button text-white hover:bg-accent-button-hover active:bg-accent-button-hover'/.test(btn));
+    // 155차 — 주 단추 색 이름을 tokens.PRIMARY_BUTTON_COLOR 한 곳으로(값 그대로)
+    const tokSrc = fs.readFileSync(path.join(root, 'src/components/ui/tokens.ts'), 'utf8');
+    check('[146-8] Button primary 바탕 = accent-button · 올림 · 누름 = accent-button-hover', /primary: PRIMARY_BUTTON_COLOR,/.test(btn) && /PRIMARY_BUTTON_COLOR = 'bg-accent-button text-white hover:bg-accent-button-hover active:bg-accent-button-hover'/.test(tokSrc));
     // 주문 색 정의 두 줄(`tokens.ts` — 147차부터 이 파일에 손가락 크기 이름이 더해져 파일 전체 대신 두 줄을 견준다)
     const tok = fs.readFileSync(path.join(root, 'src/components/ui/tokens.ts'), 'utf8');
     const oldTok = execFileSync('git', ['show', `${BASE}:src/components/ui/tokens.ts`], { cwd: root, encoding: 'utf8' });
     const color = (src: string) => src.split('\n').filter((l) => /^export const ORDER_(BUY|SELL)_COLOR /.test(l)).join('\n');
-    check('[146-8] 매수 · 매도 단추 줄 · 주문 색 그대로', line(btn, 'buy') === line(old, 'buy') && line(btn, 'sell') === line(old, 'sell') && color(tok) !== '' && color(tok) === color(oldTok));
+    // 155차(v2.81.0 · 사용자 결정 2) — 주문 색은 미국 증권 기준(매수 초록 · 매도 빨강)으로 바뀜: 146차 몫(단추 줄 그대로)만 보고, 색 값은 155차 정의와 견준다
+    const want155 = "export const ORDER_BUY_COLOR = 'bg-bullish text-bg-primary hover:brightness-110';\nexport const ORDER_SELL_COLOR = 'bg-bearish text-bg-primary hover:brightness-110';";
+    check('[146-8] 매수 · 매도 단추 줄 그대로 · 주문 색 = 155차 정의(매수 초록 · 매도 빨강)', line(btn, 'buy') === line(old, 'buy') && line(btn, 'sell') === line(old, 'sell') && color(oldTok) !== '' && color(tok) === want155, color(tok));
   }
 
   // ───────── 9 lint ─────────

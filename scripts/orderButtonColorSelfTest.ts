@@ -15,6 +15,11 @@ const root = path.resolve(import.meta.dirname, '..');
 const PORT = 5189;
 const WEB = `http://127.0.0.1:${PORT}`;
 const WHITE = 'rgb(255, 255, 255)';
+/** 155차(v2.81.0) — 매수 초록 · 매도 빨강 바탕 위 글 = --color-bg-primary · 자산 창 [저장] = 주 단추(--color-accent-button) */
+const BG_PRIMARY = 'rgb(20, 20, 20)';
+const BULLISH = 'rgb(51, 196, 99)';
+const BEARISH = 'rgb(255, 91, 91)';
+const PRIMARY = 'rgb(27, 100, 218)';
 
 const guard = createBrowserStepGuard();
 let pass = 0;
@@ -64,8 +69,8 @@ check('[색-2] 빠른 주문 네 버튼의 order( · disabled= 줄이 9f64c61 �
 
 const allSrc = sources('src');
 const defined = (needle: string) => allSrc.filter((s) => s.text.includes(needle)).map((s) => s.file);
-check('[색-4] 빠른 주문 색 글자 bg-bearish/80 은 tokens.ts 한 곳', defined('bg-bearish/80').join() === 'src/components/ui/tokens.ts', defined('bg-bearish/80').join());
-check('[색-4] 빠른 주문 색 글자 bg-accent/80 은 tokens.ts 한 곳', defined('bg-accent/80').join() === 'src/components/ui/tokens.ts', defined('bg-accent/80').join());
+check('[색-4] 빠른 주문 매수 색 글자(bg-bullish text-bg-primary)는 tokens.ts 한 곳', defined('bg-bullish text-bg-primary').join() === 'src/components/ui/tokens.ts', defined('bg-bullish text-bg-primary').join());
+check('[색-4] 빠른 주문 매도 색 글자(bg-bearish text-bg-primary)는 tokens.ts 한 곳(확인 창 위험 단추 Button danger 는 따로)', defined('bg-bearish text-bg-primary').every((f) => f === 'src/components/ui/tokens.ts' || f === 'src/components/ui/Button.tsx') && defined('bg-bearish text-bg-primary').includes('src/components/ui/tokens.ts'), defined('bg-bearish text-bg-primary').join());
 const orderFiles = [panel, read('src/components/asset/AssetSheetValues.tsx'), read('src/components/asset/AssetTradeDialog.tsx')].join('\n');
 check('[색-4] 주문 버튼에 bg-bearish/15 · bg-accent/15 글자 0곳', !orderFiles.includes('bg-bearish/15') && !orderFiles.includes('bg-accent/15'));
 const button = read('src/components/ui/Button.tsx');
@@ -154,8 +159,8 @@ try {
   check('[색-1] 지정가 매도 · 시장가 매도 계산된 배경 같음', limitSell.bg === marketSell.bg, `${limitSell.bg} / ${marketSell.bg}`);
   check('[색-1] 지정가 매수 · 시장가 매수 계산된 배경 같음', limitBuy.bg === marketBuy.bg, `${limitBuy.bg} / ${marketBuy.bg}`);
   check('[119-9] 시장가 글자 굵기 = 지정가(500)', [limitSell, marketSell, limitBuy, marketBuy].every((b) => b.weight === '500'), [limitSell, marketSell, limitBuy, marketBuy].map((b) => b.weight).join(','));
-  check('[색-1] 매수 · 매도 배경은 서로 다름', limitBuy.bg !== limitSell.bg);
-  check('[색-1] 네 버튼 모두 흰 글자', [limitSell, marketSell, limitBuy, marketBuy].every((s) => s.color === WHITE));
+  check('[색-1] 매수 · 매도 배경은 서로 다름 — 매수 초록(bullish) · 매도 빨강(bearish)', limitBuy.bg !== limitSell.bg && limitBuy.bg === BULLISH && limitSell.bg === BEARISH, `${limitBuy.bg} / ${limitSell.bg}`);
+  check('[색-1] 네 버튼 모두 bg-primary 글자', [limitSell, marketSell, limitBuy, marketBuy].every((s) => s.color === BG_PRIMARY));
   check('[색-1] 켜진 버튼은 옅지 않음(opacity 1)', [limitSell, marketSell, limitBuy, marketBuy].every((s) => s.opacity === '1'));
   await on.ctx.close();
 
@@ -176,7 +181,7 @@ try {
   const sell = await look(firstSell);
   check('[색-3] 자산 [매수] 배경 = 빠른 주문 매수 배경', buy.bg === limitBuy.bg, `${buy.bg} / ${limitBuy.bg}`);
   check('[색-3] 자산 [매도] 배경 = 빠른 주문 매도 배경', sell.bg === limitSell.bg, `${sell.bg} / ${limitSell.bg}`);
-  check('[색-3] 자산 [매수] [매도] 흰 글자 · 크기 sm(28px)', buy.color === WHITE && sell.color === WHITE && buy.height === 28 && sell.height === 28, JSON.stringify([buy, sell]));
+  check('[색-3] 자산 [매수] [매도] bg-primary 글자 · 크기 sm(28px)', buy.color === BG_PRIMARY && sell.color === BG_PRIMARY && buy.height === 28 && sell.height === 28, JSON.stringify([buy, sell]));
 
   // 공용 secondary 배경(bg-bg-tertiary) — 128차부터 [매수 · 매도 기록] 은 아이콘 버튼이라 견줄 글자 버튼 대신 토큰 색을 잰다
   const secondary = {
@@ -208,10 +213,10 @@ try {
     return { before, after };
   };
   const buySave = await saveLook(firstBuy);
-  check('[색-3] 매수 창 [저장] = 매수 색 · 흰 글자', buySave.after.bg === limitBuy.bg && buySave.after.color === WHITE && buySave.after.opacity === '1', JSON.stringify(buySave.after));
+  check('[색-3] 매수 창 [저장] = 주 단추 색(진한 파랑 · 155차 R1) · 흰 글자', buySave.after.bg === PRIMARY && buySave.after.color === WHITE && buySave.after.opacity === '1', JSON.stringify(buySave.after));
   check('[색-3] 매수 창 [저장] 은 꺼졌을 때만 옅음', buySave.before.opacity === '0.4');
   const sellSave = await saveLook(firstSell);
-  check('[색-3] 매도 창 [저장] = 매도 색 · 흰 글자', sellSave.after.bg === limitSell.bg && sellSave.after.color === WHITE && sellSave.after.opacity === '1', JSON.stringify(sellSave.after));
+  check('[색-3] 매도 창 [저장] = 주 단추 색(진한 파랑 · 155차 R1) · 흰 글자', sellSave.after.bg === PRIMARY && sellSave.after.color === WHITE && sellSave.after.opacity === '1', JSON.stringify(sellSave.after));
   await asset.ctx.close();
 } finally {
   await guard.step('브라우저 닫기', () => browser.close());
