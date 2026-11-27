@@ -18,7 +18,7 @@ import AssetDailyTable, { type NoteSave } from './AssetDailyTable';
 import AssetSheetValues from './AssetSheetValues';
 import AssetSettingsDialog from './AssetSettingsDialog';
 import AssetClassDialog from './AssetClassDialog';
-import AssetTradeDialog from './AssetTradeDialog';
+import AssetTradeDialog, { type AssetTradeInitial } from './AssetTradeDialog';
 import AssetAverageCalculator from './AssetAverageCalculator';
 import AssetNewBuyDialog from './AssetNewBuyDialog';
 import AssetTradeHistoryDialog from './AssetTradeHistoryDialog';
@@ -152,7 +152,9 @@ export default function AssetDashboard({
   /** 「자산 분류 정하기」 창(v2.65.3) — 자산 현황 버튼 · 총 자산 「미지정」 줄 링크 */
   const [classOpen, setClassOpen] = useState(false);
   /** 매수 · 매도 입력 창(v2.66.0) */
-  const [trade, setTrade] = useState<{ section: AssetSection; holding: AssetHolding; side: AssetTradeSide } | null>(null);
+  const [trade, setTrade] = useState<{ section: AssetSection; holding: AssetHolding; side: AssetTradeSide; initial?: AssetTradeInitial } | null>(null);
+  /** 매수 · 매도 창 열기 — **여는 곳 한 곳**(v2.80.0 · 자산 현황 [매수] [매도] · 이번 달 구매 살 종목 [매수 입력]) */
+  const openTrade = (section: AssetSection, holding: AssetHolding, side: AssetTradeSide, initial?: AssetTradeInitial) => setTrade({ section, holding, side, ...(initial ? { initial } : {}) });
   const [newBuyOpen, setNewBuyOpen] = useState(false);
   /** 새 종목을 줄로 넣은 뒤 버튼 줄 아래에 남기는 안내(다음에 새 종목 창을 열면 지운다) */
   const [newBuyNotes, setNewBuyNotes] = useState<string[]>([]);
@@ -519,7 +521,7 @@ export default function AssetDashboard({
           <div id="as-asset-status" className="space-y-3">
             {sheet == null && <SkeletonTable rows={6} columns={6} />}
             {sheet && 'error' in sheet && <ErrorLine message={sheet.error} onRetry={() => void loadSheet()} />}
-            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} includePension={pension} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} onOpenClassDialog={() => setClassOpen(true)} onTrade={(section, holding, side) => setTrade({ section, holding, side })} onCalc={(section, holding) => setCalc({ section, holding, opened: Date.now() })} onNewBuy={() => { setNewBuyNotes([]); setNewBuyOpen(true); }} onOpenTradeHistory={() => setTradeHistoryOpen(true)} newBuyNotes={newBuyNotes} cashGate={{ locked: !!(result && !result.ok && result.fail.locked), writeEnabled: summary ? summary.writeEnabled : null }} onCashMove={sendCashMove} onCashMoved={() => void reload()} />}
+            {sheet && 'data' in sheet && <AssetSheetValues data={sheet.data} includePension={pension} accounts={summary?.accounts ?? []} bySymbol={summary?.bySymbol ?? null} onOpenClassDialog={() => setClassOpen(true)} onTrade={(section, holding, side) => openTrade(section, holding, side)} onCalc={(section, holding) => setCalc({ section, holding, opened: Date.now() })} onNewBuy={() => { setNewBuyNotes([]); setNewBuyOpen(true); }} onOpenTradeHistory={() => setTradeHistoryOpen(true)} newBuyNotes={newBuyNotes} cashGate={{ locked: !!(result && !result.ok && result.fail.locked), writeEnabled: summary ? summary.writeEnabled : null }} onCashMove={sendCashMove} onCashMoved={() => void reload()} />}
           </div>
         )}
       </div>
@@ -564,6 +566,7 @@ export default function AssetDashboard({
           holding={trade.holding}
           side={trade.side}
           writeEnabled={summary ? summary.writeEnabled : null}
+          initial={trade.initial}
           onSend={sendTrade}
           onSaved={() => {
             setTrade(null);

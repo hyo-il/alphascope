@@ -16,7 +16,17 @@ import AssetCashTradeLine, { askCashMinus, type CashTradeValue } from './AssetCa
  * - 예수금(v2.71.0): 창 아래 `AssetCashTradeLine`(그 계좌의 예수금 줄 짝이 있으면 「○○ ₩… 줄어듭니다」 + 금액 칸) · 받는 중에는 [저장] 막음 ·
  *   저장 뒤 예수금만 못 바꿨으면 창을 닫지 않고 안내 + [닫기](보유는 이미 저장됨 — 다시 저장하지 않게 [저장] 을 없앤다).
  * - 바깥 클릭으로 닫지 않는다(입력을 잃는다).
+ * - 처음 값(v2.80.0 · 선택 `initial`): 이번 달 구매 살 종목 줄 [매수 입력]이 수량(살 주) · 가격(지금 가격)을 채워 연다 · `note` 는 창 머리 아래 한 줄.
+ *   없으면 예전과 같다(빈 칸). 「바꾼 것」(나갈 때 묻기)은 처음 값에서 바뀌었을 때만.
  */
+
+/** 창을 열 때 채울 값(v2.80.0) — 모두 고칠 수 있다 */
+export interface AssetTradeInitial {
+  qty?: string;
+  price?: string;
+  /** 창 머리 아래 작은 글 한 줄 */
+  note?: string;
+}
 
 /** 수량 · 가격 표시는 `src/utils/assetFormat.ts` 한 곳(v2.68.2) — 입력 칸 자릿수(`TRADE_DIGITS`)는 그대로 */
 export const tradeFxText = (n: number) => `₩${formatNumber(n, 2)}`;
@@ -28,6 +38,7 @@ export default function AssetTradeDialog({
   holding,
   side,
   writeEnabled,
+  initial,
   onSend,
   onSaved,
   onClose,
@@ -37,13 +48,15 @@ export default function AssetTradeDialog({
   side: AssetTradeSide;
   /** 이 서버에서 시트 쓰기가 켜져 있나 — 아직 모르면 null */
   writeEnabled: boolean | null;
+  /** 처음 값(선택) — 없으면 빈 칸 */
+  initial?: AssetTradeInitial;
   /** 저장 — 실패 이유(`error`) · 보유는 저장했지만 예수금 줄은 못 바꾼 안내(`cashMessage`) */
   onSend: (req: AssetTradeRequest & AssetCashTradeExtra) => Promise<{ error: string | null; cashMessage: string | null }>;
   onSaved: () => void;
   onClose: () => void;
 }) {
-  const [qty, setQty] = useState('');
-  const [price, setPrice] = useState('');
+  const [qty, setQty] = useState(initial?.qty ?? '');
+  const [price, setPrice] = useState(initial?.price ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cash, setCash] = useState<CashTradeValue>({ send: null, ready: false });
@@ -105,8 +118,8 @@ export default function AssetTradeDialog({
       closeOnBackdrop={false}
       size="md"
       busy={busy}
-      // 바꾼 것 — 수량 · 가격 칸을 넣었으면(연 때는 빈 칸 · 지우면 다시 없음 — 공통 3-3)
-      dirty={cashFailed == null && (qty !== '' || price !== '')}
+      // 바꾼 것 — 수량 · 가격 칸이 연 때 값(보통 빈 칸 · 채워 열면 그 값)과 다르면(되돌리면 다시 없음 — 공통 3-3)
+      dirty={cashFailed == null && (qty !== (initial?.qty ?? '') || price !== (initial?.price ?? ''))}
       footer={
         cashFailed != null ? (
           <Button variant="primary" onClick={onSaved} data-testid="asset-cash-trade-close">
@@ -123,6 +136,11 @@ export default function AssetTradeDialog({
       }
     >
       <div className="space-y-3" data-trade-dialog={side}>
+        {initial?.note && (
+          <p className="text-caption text-text-muted tabular-nums keep-all" data-trade-plan-note>
+            {initial.note}
+          </p>
+        )}
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs">
           <dt className="text-text-muted">종목</dt>
           {/* 긴 이름만 말줄임 · 티커는 자르지 않는다(v2.68.0 캡처 검토) */}
