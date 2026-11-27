@@ -102,7 +102,7 @@ export default function CompanySummary({
       <div className="flex h-full flex-col">
         {header}
         <div className={PANEL_PAD}>
-          <p className="text-xs text-danger">기업 정보를 불러오지 못했습니다</p>
+          <p data-tone="error" className="text-xs text-danger">기업 정보를 불러오지 못했습니다</p>
           <p className="mt-1 text-caption text-text-secondary">{error}</p>
         </div>
       </div>

@@ -218,7 +218,7 @@ export default function AssetTargetRatioForm({
         )}
       </div>
       {error && (
-        <p role="alert" className="text-xs text-danger keep-all">
+        <p data-tone="error" role="alert" className="text-xs text-danger keep-all">
           {error}
         </p>
       )}

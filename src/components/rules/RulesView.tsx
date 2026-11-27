@@ -84,7 +84,7 @@ export default function RulesView() {
 
         {r.rules == null && !r.error && <SkeletonText lines={3} />}
         {r.error && r.rules == null && (
-          <div className="flex items-center gap-3 rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">
+          <div data-tone="error" className="flex items-center gap-3 rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">
             <span className="min-w-0">매매 규칙을 불러오지 못했습니다 — {r.error}</span>
             <Button size="sm" onClick={() => void r.reload()}>
               다시 시도

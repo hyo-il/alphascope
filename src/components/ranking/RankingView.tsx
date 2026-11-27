@@ -165,7 +165,7 @@ export default function RankingView({ onOpen }: { onOpen: (symbol: string, timef
       </header>
 
       {error && (
-        <p className="mb-2 flex items-center gap-3 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">
+        <p data-tone="error" className="mb-2 flex items-center gap-3 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">
           {error}
           <Button size="sm" onClick={() => void load()}>
             다시 시도

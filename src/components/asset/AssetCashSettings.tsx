@@ -134,7 +134,7 @@ export default function AssetCashSettings({ onLocked, onBusy }: { onLocked: () =
   if (load.state === 'error') {
     return (
       <div className="space-y-2" data-testid="asset-cash-settings-error">
-        <p role="alert" className="text-xs text-danger keep-all">
+        <p data-tone="error" role="alert" className="text-xs text-danger keep-all">
           {load.message}
         </p>
         <Button size="sm" onClick={() => void fetchView()}>
@@ -263,7 +263,7 @@ export default function AssetCashSettings({ onLocked, onBusy }: { onLocked: () =
           </div>
           {v.salary.problem && <p className="text-caption text-danger keep-all" data-tone="invalid">시트에서 받는 계좌를 찾지 못했어요 — 다시 골라 주세요.</p>}
           {errors.salary && (
-            <p role="alert" className="text-xs text-danger keep-all">
+            <p data-tone="error" role="alert" className="text-xs text-danger keep-all">
               {errors.salary}
             </p>
           )}
@@ -299,7 +299,7 @@ export default function AssetCashSettings({ onLocked, onBusy }: { onLocked: () =
               />
             </div>
             {v.fixedError && (
-              <p role="alert" className="text-xs text-danger keep-all" data-testid="asset-cash-fixed-error">
+              <p data-tone="error" role="alert" className="text-xs text-danger keep-all" data-testid="asset-cash-fixed-error">
                 「월 고정지출」 을 읽지 못했어요 — {v.fixedError}
               </p>
             )}
@@ -742,7 +742,7 @@ function Block({ heading, desc, busy, error, children }: { heading: string; desc
       {desc && <p className="text-caption text-text-muted keep-all">{desc}</p>}
       {children}
       {error && (
-        <p role="alert" className="text-xs text-danger keep-all">
+        <p data-tone="error" role="alert" className="text-xs text-danger keep-all">
           {error}
         </p>
       )}

@@ -261,7 +261,7 @@ export default function AnalysisHistory({
         <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
           {!loaded && <SkeletonList count={3} />}
           {loaded && loadError && (
-            <div className="flex items-center justify-center gap-3 py-4 text-xs text-danger">
+            <div data-tone="error" className="flex items-center justify-center gap-3 py-4 text-xs text-danger">
               <span>불러오지 못했습니다: {loadError}</span>
               <Button size="sm" busy={busy} onClick={() => void load()}>
                 다시 시도

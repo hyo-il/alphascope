@@ -327,7 +327,7 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
             />
           )}
         </div>
-        {error && <p className="mb-2 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">{error}</p>}
+        {error && <p data-tone="error" className="mb-2 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">{error}</p>}
 
         {!data && !error && <SkeletonTable rows={5} columns={6} />}
         {data &&
@@ -394,7 +394,7 @@ export default function UsHaltsView({ onSelectSymbol }: { onSelectSymbol: (symbo
                   <SectionTitle info={HALTS_DELAY_TIP}>{fetchBad(data.status) || hits === undefined || unknown ? '지금 정지 중' : `지금 정지 중 (${today.groups.length})`}</SectionTitle>
                 </div>
                 {!loading && failed.length > 0 && (
-                  <p className="mb-2 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger" data-rank-error data-tip={failed.map((k) => ranks[k].error).join(' · ')}>
+                  <p data-tone="error" className="mb-2 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger" data-rank-error data-tip={failed.map((k) => ranks[k].error).join(' · ')}>
                     {failed.map((k) => SIDE_NAME[k]).join(' · ')} 순위를 받지 못했습니다
                     {failed.some((k) => ranks[k].stopped)
                       ? ` — ${ranks[failed[0]].error}`

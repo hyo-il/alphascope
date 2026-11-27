@@ -8,6 +8,7 @@
  * ⚠️ 출력에 가짜 금액 · 이름을 찍지 않는다(개수 · 맞음 / 아님만 — [153-13] 이 출력 전체를 다시 본다).
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
+import { noColorClass } from './lib/noColorClass';
 import 'dotenv/config';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -607,10 +608,13 @@ try {
     {
       const want = JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) as Record<string, Record<string, unknown>>;
       const now = await baseShapes(browser);
+      // 155차 — 창 DOM 의 class 는 색 이름만 빼고 견준다(앱 전체 색 규칙 · [저장] = 주 단추 · noColorClass)
+      const noColor = (v: unknown) =>
+        Object.fromEntries(Object.entries((v ?? {}) as Record<string, unknown>).map(([key, x]) => [key, typeof x === 'string' ? x.replace(/class="([^"]*)"/g, (_m, c: string) => `class="${noColorClass(c)}"`) : x]));
       for (const k of ['1280 buy', '1280 sell', '402 buy', '402 sell']) {
-        const same = JSON.stringify(now[k]) === JSON.stringify(want[k]);
-        const w = want[k] ?? {};
-        const n = (now[k] ?? {}) as Record<string, unknown>;
+        const same = JSON.stringify(noColor(now[k])) === JSON.stringify(noColor(want[k]));
+        const w = noColor(want[k]);
+        const n = noColor(now[k]);
         check(`[153-6] ${k} — 자산 현황 [${k.endsWith('buy') ? '매수' : '매도'}] 창(처음 값 없음)이 ${BASE} 와 같음(연 때 DOM · 넣은 뒤 DOM · 저장 막힘 · 나갈 때 묻기)`,
           same, ['open', 'filled', 'saveDisabled', 'askEmpty', 'askFilled'].filter((x) => JSON.stringify(n[x]) !== JSON.stringify(w[x])).join(','));
       }

@@ -58,7 +58,7 @@ export default function BuyJudgeRetention() {
   return (
     <div className="space-y-1.5">
       {value == null && loadError ? (
-        <p className="flex items-center gap-2 text-caption text-danger">
+        <p data-tone="error" className="flex items-center gap-2 text-caption text-danger">
           보관 기간을 불러오지 못했습니다: {loadError}
           <Button size="sm" onClick={load}>
             다시 시도

@@ -180,7 +180,7 @@ export default function AutoTradeWizard({
     >
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 [scrollbar-gutter:stable]">
-          {loadError && <p className="text-caption text-danger">설정을 불러오지 못했습니다: {loadError}</p>}
+          {loadError && <p data-tone="error" className="text-caption text-danger">설정을 불러오지 못했습니다: {loadError}</p>}
 
           {step === 1 && (
             <section className="space-y-3">

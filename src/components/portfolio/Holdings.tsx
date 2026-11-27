@@ -39,7 +39,7 @@ function HoldingsBody({ onSelectSymbol, onRetry }: Props & { onRetry: () => void
   if (error) {
     return (
       <div className="p-4">
-        <p className="text-sm text-danger">보유 주식을 불러오지 못했습니다</p>
+        <p data-tone="error" className="text-sm text-danger">보유 주식을 불러오지 못했습니다</p>
         <p className="mt-1 text-xs text-text-secondary">{error}</p>
         <Button variant="secondary" size="md" className="mt-3" onClick={onRetry}>
           다시 시도

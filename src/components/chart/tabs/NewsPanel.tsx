@@ -111,7 +111,7 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
       </div>
 
       {analyzeError && (
-        <p className="rounded-lg bg-danger/10 px-2 py-1 text-caption text-danger">{analyzeError}</p>
+        <p data-tone="error" className="rounded-lg bg-danger/10 px-2 py-1 text-caption text-danger">{analyzeError}</p>
       )}
 
       {analysis && (
@@ -142,7 +142,7 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
         </section>
       )}
 
-      {error && <p className="text-caption text-danger">뉴스를 불러오지 못했습니다: {error}</p>}
+      {error && <p data-tone="error" className="text-caption text-danger">뉴스를 불러오지 못했습니다: {error}</p>}
       {!news && !error && <p className="text-caption text-text-muted">뉴스를 불러오는 중…</p>}
       {news && news.items.length === 0 && (
         <p className="text-caption text-text-muted">

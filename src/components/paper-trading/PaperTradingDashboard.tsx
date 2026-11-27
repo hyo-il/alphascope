@@ -391,7 +391,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
       <AutoTradeBar accountId={selectedId} />
 
       {error && (
-        <div className="border-b border-danger/30 bg-danger/10 px-4 py-1.5 text-caption text-danger">
+        <div data-tone="error" className="border-b border-danger/30 bg-danger/10 px-4 py-1.5 text-caption text-danger">
           {error}
         </div>
       )}
@@ -440,7 +440,7 @@ export default function PaperTradingDashboard({ onSelectSymbol }: Props) {
               {/* 받기 전 = 스켈레톤(폰은 카드 모양) · 받기 실패 = 오류 + [다시 시도](「없음」 으로 그리지 않는다 — CLAUDE.md 2-3) */}
               {tab === 'positions' && !detail && error && (
                 <div className="flex flex-col items-center gap-2 p-6 text-center">
-                  <p className="text-xs text-danger">보유 종목을 불러오지 못했습니다</p>
+                  <p data-tone="error" className="text-xs text-danger">보유 종목을 불러오지 못했습니다</p>
                   <Button variant="secondary" size="md" onClick={refresh}>
                     다시 시도
                   </Button>

@@ -471,7 +471,7 @@ export default function RuleDialog({
                     ))}
                   </Select>
                   <span>을 위로 넘는 날</span>
-                  {err('buy.maCross.long') && <span className="text-caption text-danger">{err('buy.maCross.long')}</span>}
+                  {err('buy.maCross.long') && <span data-tone="invalid" className="text-caption text-danger">{err('buy.maCross.long')}</span>}
                 </div>
                 <p className="text-caption text-text-muted">
                   지표 엔진이 계산하는 이동평균은 {ENGINE_MA_PERIODS.join('·')}일뿐이라 이 중에서 고릅니다. 50일 · 200일을 고르면 널리 쓰이는 골든크로스입니다.

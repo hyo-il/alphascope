@@ -249,7 +249,7 @@ def get_fundamentals(symbol: str) -> dict:
     ticker, info = resolve_ticker(symbol)
     if ticker is None:
         # 상장 직후·비상장·심볼 오류 — 빈 값으로 채워 화면이 "—" 로 뜨게 둔다.
-        raise ValueError(f"yfinance 에서 {symbol} 을(를) 찾지 못했습니다.")
+        raise ValueError(f"재무 자료에서 {symbol} 을(를) 찾지 못했습니다.")
 
     dividends = ticker.dividends
     recent_dividends = []

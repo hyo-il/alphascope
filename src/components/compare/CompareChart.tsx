@@ -108,7 +108,7 @@ export default function CompareChart({
           </div>
         )}
         {error && !loading && (
-          <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-caption text-danger">
+          <div data-tone="error" className="absolute inset-0 flex items-center justify-center px-3 text-center text-caption text-danger">
             {error}
           </div>
         )}

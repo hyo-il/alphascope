@@ -513,7 +513,7 @@ function CatalogPickerDialog({
               <SkeletonList count={4} />
             </div>
           ) : uni.error && !uni.data ? (
-            <div className="space-y-2 p-2 text-caption text-danger">
+            <div data-tone="error" className="space-y-2 p-2 text-caption text-danger">
               <p>분야 목록을 불러오지 못했습니다: {uni.error}</p>
               <Button size="sm" onClick={uni.reload}>
                 다시 시도
@@ -594,7 +594,7 @@ function CatalogPickerDialog({
           {draft.length > 0 && <RemoveAllButton onClick={() => setDraft([])} className="ml-auto" />}
         </div>
         {softLimit != null && (
-          <p className={`text-caption ${soft ? 'text-danger' : 'text-text-muted'}`}>
+          <p data-tone={soft ? 'invalid' : undefined} className={`text-caption ${soft ? 'text-danger' : 'text-text-muted'}`}>
             {softLimitText ? softLimitText(draft.length, softLimit) : `${softLimit}개까지 — 지금 ${draft.length}개`}
           </p>
         )}
@@ -712,7 +712,7 @@ export default function SymbolPicker(props: SymbolPickerProps) {
     </SymbolCollapse>
     {/* 한도 안내는 접혀 있어도 보인다(접기 밖) */}
     {soft && softLimit != null && (
-      <p className="text-caption text-danger">
+      <p data-tone="error" className="text-caption text-danger">
         {softLimitText ? softLimitText(selected.length, softLimit) : `${softLimit}개까지 — 지금 ${selected.length}개`}
       </p>
     )}

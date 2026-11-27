@@ -146,7 +146,7 @@ function UnlockForm({ sheetConfigured, idleNote, onUnlocked }: { sheetConfigured
           className="w-full"
         />
         {error && (
-          <p role="alert" className="mt-2 text-xs leading-relaxed text-danger keep-all">
+          <p data-tone="error" role="alert" className="mt-2 text-xs leading-relaxed text-danger keep-all">
             {error}
           </p>
         )}

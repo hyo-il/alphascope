@@ -84,7 +84,7 @@ function Block({ title, desc, busy, error, children }: { title?: string; desc?: 
       {desc && <p className="text-caption text-text-muted keep-all">{desc}</p>}
       {children}
       {error && (
-        <p role="alert" className="text-xs text-danger keep-all">
+        <p data-tone="error" role="alert" className="text-xs text-danger keep-all">
           {error}
         </p>
       )}

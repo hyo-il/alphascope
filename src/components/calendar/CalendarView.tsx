@@ -198,7 +198,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
           </p>
         )}
         {error && (
-          <p className="flex items-center gap-3 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">
+          <p data-tone="error" className="flex items-center gap-3 rounded-lg bg-danger/10 px-3 py-1.5 text-caption text-danger">
             {error}
             <Button size="sm" busy={loading} onClick={() => setRetry((n) => n + 1)}>
               다시 시도

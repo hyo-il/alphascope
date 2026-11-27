@@ -67,7 +67,7 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
     <div className="space-y-2">
       <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(360px,1fr))]">
         <Cell title="계좌 자동매매">
-          {error && !items && <p className="text-caption text-danger">상태를 불러오지 못했습니다: {error}</p>}
+          {error && !items && <p data-tone="error" className="text-caption text-danger">상태를 불러오지 못했습니다: {error}</p>}
           {items && items.length === 0 && (
             <p className="text-caption text-text-muted">자동매매를 설정한 계좌가 없습니다 (「계좌」 메뉴 &gt; 자동매매).</p>
           )}
@@ -132,7 +132,7 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
           </>
         ) : (
           // 받기 전에 「—」(없음)으로 보이지 않게
-          usageError ? <span className="text-danger">불러오지 못했습니다 — 화면을 다시 열어 주세요</span> : '불러오는 중…'
+          usageError ? <span data-tone="error" className="text-danger">불러오지 못했습니다 — 화면을 다시 열어 주세요</span> : '불러오는 중…'
         )}
       </p>
     </div>

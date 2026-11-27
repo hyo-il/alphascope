@@ -44,6 +44,7 @@ export default function SyncIndicator() {
   return (
     <div
       role="status"
+      data-tone={failed ? 'error' : undefined}
       className={`fixed bottom-3 ${left} z-40 max-w-[320px] rounded-md border px-2.5 py-1.5 text-caption leading-snug ${
         failed
           ? 'border-danger/50 bg-danger/15 text-danger'

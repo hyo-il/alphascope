@@ -51,7 +51,7 @@ export default function AssetTradeHistoryDialog({ onLocked, onClose }: { onLocke
       <div className="min-h-0 flex-1 overflow-auto" data-trade-history>
         {data == null && error == null && <SkeletonTable rows={8} columns={9} />}
         {error && (
-          <p role="alert" className="mb-2 flex items-center gap-3 rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger" data-trade-history-error>
+          <p data-tone="error" role="alert" className="mb-2 flex items-center gap-3 rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger" data-trade-history-error>
             <span className="min-w-0 keep-all">{error}</span>
             <Button size="sm" busy={busy} onClick={() => void load()} className="ml-auto">
               다시 시도

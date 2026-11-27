@@ -215,7 +215,7 @@ export default function AssetNewBuyDialog({
             </p>
           )}
           {error && (
-            <p role="alert" className="rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all" data-newbuy-error>
+            <p data-tone="error" role="alert" className="rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all" data-newbuy-error>
               {error}
             </p>
           )}
@@ -283,7 +283,7 @@ export default function AssetNewBuyDialog({
             </p>
           )}
           {error && (
-            <p role="alert" className="rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all" data-newbuy-error>
+            <p data-tone="error" role="alert" className="rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all" data-newbuy-error>
               {error}
             </p>
           )}

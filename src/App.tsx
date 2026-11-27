@@ -270,7 +270,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
               {error ? (
                 <div className="absolute inset-0 z-30 flex items-center justify-center bg-bg-primary px-8">
                   <div className="max-w-lg rounded-lg border border-danger/40 bg-bg-secondary p-5">
-                    <p className="font-medium text-danger">데이터를 불러오지 못했습니다</p>
+                    <p data-tone="error" className="font-medium text-danger">데이터를 불러오지 못했습니다</p>
                     <p className="mt-2 text-sm text-text-secondary">{error}</p>
                     <Button size="sm" className="mt-3" onClick={reloadCandles}>
                       다시 시도

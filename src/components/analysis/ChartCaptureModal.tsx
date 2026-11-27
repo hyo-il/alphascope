@@ -325,7 +325,7 @@ export default function ChartCaptureModal({
               </button>
             ))}
             {dataLoading && <span className="ml-2 text-caption text-text-secondary">불러오는 중…</span>}
-            {dataError && <span className="ml-2 text-caption text-danger">{dataError}</span>}
+            {dataError && <span data-tone="error" className="ml-2 text-caption text-danger">{dataError}</span>}
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md bg-bg-tertiary/50 px-3 py-2">
@@ -382,7 +382,7 @@ export default function ChartCaptureModal({
             <div className="flex min-w-0 items-center gap-3">
               <p className="text-caption text-text-muted">
                 휠: 확대/축소 · 드래그: 좌우 이동 · Esc: 닫기
-                {error && <span className="ml-2 text-danger">{error}</span>}
+                {error && <span data-tone="error" className="ml-2 text-danger">{error}</span>}
               </p>
 
               {/*

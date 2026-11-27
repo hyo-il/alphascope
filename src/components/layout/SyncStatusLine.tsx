@@ -40,7 +40,7 @@ export default function SyncStatusLine() {
 
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border px-4 py-1.5 text-caption">
-      <span className={state === 'failed' ? 'text-danger' : 'text-text-muted'}>{label}</span>
+      <span className={state === 'failed' ? 'text-danger' : 'text-text-muted'} data-tone={state === 'failed' ? 'error' : undefined}>{label}</span>
 
       {(state === 'failed' || state === 'offline') && (
         <button

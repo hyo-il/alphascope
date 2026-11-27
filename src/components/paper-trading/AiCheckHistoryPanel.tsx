@@ -78,7 +78,7 @@ export default function AiCheckHistoryPanel({
   if (!data) {
     return (
       <div className={flush ? '' : 'p-3'}>
-        {error ? <p className="text-caption text-danger">{error}</p> : <SkeletonTable rows={4} columns={6} />}
+        {error ? <p data-tone="error" className="text-caption text-danger">{error}</p> : <SkeletonTable rows={4} columns={6} />}
       </div>
     );
   }
@@ -107,7 +107,7 @@ export default function AiCheckHistoryPanel({
         {small && <Badge tone="neutral">표본 적음({AI_CHECK_SMALL_SAMPLE}건 미만)</Badge>}
         {loading && <LoaderCircle {...ICON_SM} className="animate-spin text-text-muted" aria-label="불러오는 중" />}
       </div>
-      {error && <p className="text-caption text-danger">{error}</p>}
+      {error && <p data-tone="error" className="text-caption text-danger">{error}</p>}
 
       {!data.rows.length ? (
         <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">

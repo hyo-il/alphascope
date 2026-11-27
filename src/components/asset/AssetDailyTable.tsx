@@ -244,7 +244,7 @@ function NoteErrorTip({ anchorRef, message }: { anchorRef: RefObject<HTMLElement
   }, [anchorRef, message]);
   return createPortal(
     <div ref={boxRef} role="alert" data-testid="asset-daily-error" className={`${TOOLTIP_BOX} keep-all`} style={{ left: pos?.left ?? -9999, top: pos?.top ?? -9999 }}>
-      <span className="text-danger">메모를 저장하지 못했습니다</span> — {message}
+      <span data-tone="error" className="text-danger">메모를 저장하지 못했습니다</span> — {message}
     </div>,
     document.body,
   );

@@ -111,7 +111,7 @@ async function readJson(res: Response): Promise<Record<string, unknown>> {
 /** 실패 한 줄 + [다시 시도] — 빈 화면으로 바꾸지 않는다 */
 export function ErrorLine({ message, onRetry, busy = false }: { message: string; onRetry?: () => void; busy?: boolean }) {
   return (
-    <p role="alert" className="flex items-center gap-3 rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger">
+    <p data-tone="error" role="alert" className="flex items-center gap-3 rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger">
       <span className="min-w-0 keep-all">{message}</span>
       {onRetry && (
         <Button size="sm" busy={busy} onClick={onRetry} className="ml-auto">

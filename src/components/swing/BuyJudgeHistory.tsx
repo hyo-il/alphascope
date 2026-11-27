@@ -121,7 +121,7 @@ export default function BuyJudgeHistory() {
           {s?.smallSample && <Badge tone="neutral">표본 적음(5거래일 {s.n5}건 · {SMALL_SAMPLE}건 미만)</Badge>}
         </div>
         {dayList.days == null ? (
-          dayList.error ? <p className="text-caption text-danger">{dayList.error}</p> : <SkeletonCards count={2} className="grid-cols-1" />
+          dayList.error ? <p data-tone="error" className="text-caption text-danger">{dayList.error}</p> : <SkeletonCards count={2} className="grid-cols-1" />
         ) : !dayList.days.length ? (
           <p className="rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-text-muted">아직 판단 기록이 없습니다. 서버가 매일 각 시장 마감 뒤 기록하고, [실행] 을 눌러도 기록합니다.</p>
         ) : (
@@ -197,7 +197,7 @@ export default function BuyJudgeHistory() {
         </div>
         <div id="buy-judge-reasons" hidden={!reasonsOpen} className="space-y-2">
         {h.error && !h.data ? (
-          <div className="flex items-center gap-3 rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-danger">
+          <div data-tone="error" className="flex items-center gap-3 rounded-lg bg-bg-tertiary/40 px-3 py-3 text-xs text-danger">
             <span>판단 기록을 불러오지 못했습니다: {h.error}</span>
             <Button size="sm" busy={h.loading} onClick={() => void h.reload()}>
               다시 시도

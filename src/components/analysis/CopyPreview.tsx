@@ -48,7 +48,7 @@ export default function CopyPreview({
   if (error) {
     return (
       <div className={`${box} flex-col gap-1 px-2`}>
-        <span className="text-danger">캡처하지 못했습니다 — {error}</span>
+        <span data-tone="error" className="text-danger">캡처하지 못했습니다 — {error}</span>
         <button type="button" onClick={onRecapture} className="text-accent hover:underline">
           다시 캡처
         </button>

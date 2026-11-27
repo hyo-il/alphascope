@@ -163,7 +163,7 @@ export default function AssetClassDialog({
             </p>
           )}
           {error && (
-            <p role="alert" className="rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all" data-class-error>
+            <p data-tone="error" role="alert" className="rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all" data-class-error>
               {error}
             </p>
           )}
@@ -176,7 +176,7 @@ export default function AssetClassDialog({
           </div>
         )}
         {data == null && loadError != null && (
-          <p role="alert" className="m-4 flex items-center gap-2 rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all">
+          <p data-tone="error" role="alert" className="m-4 flex items-center gap-2 rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all">
             {loadError}
             <Button size="sm" onClick={onRetryLoad} className="ml-auto">
               다시 시도
@@ -222,7 +222,7 @@ export default function AssetClassDialog({
                       </span>
                     )}
                     {failedKeys.has(r.key) && isChanged && (
-                      <span className="whitespace-nowrap text-caption text-danger" data-class-failed>
+                      <span data-tone="error" className="whitespace-nowrap text-caption text-danger" data-class-failed>
                         저장 안 됨
                       </span>
                     )}

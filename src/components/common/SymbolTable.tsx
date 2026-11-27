@@ -115,7 +115,7 @@ export default function SymbolTable(
     </SymbolCollapse>
     {/* 한도 안내는 접혀 있어도 보인다(접기 밖) */}
     {soft && softLimit != null && (
-      <p className="text-caption text-danger">{softLimitText ? softLimitText(selected.length, softLimit) : `${softLimit}개까지 — 지금 ${selected.length}개`}</p>
+      <p data-tone="invalid" className="text-caption text-danger">{softLimitText ? softLimitText(selected.length, softLimit) : `${softLimit}개까지 — 지금 ${selected.length}개`}</p>
     )}
     </div>
   );

@@ -72,7 +72,7 @@ export default function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
           autoComplete="current-password"
           className="w-full" />
 
-        {error && <p className="mt-2 text-xs leading-relaxed text-danger">{error}</p>}
+        {error && <p data-tone="invalid" className="mt-2 text-xs leading-relaxed text-danger">{error}</p>}
 
         <Button busy={busy} variant="primary" size="md"
           type="submit"

@@ -303,7 +303,7 @@ export default function CompareTable({ symbols, names, fundamentals, summaries, 
         ))}
         {loading && <span className="ml-auto text-caption text-text-muted">불러오는 중…</span>}
         {!loading && error && (
-          <span className="ml-auto flex items-center gap-2 text-caption text-danger">
+          <span data-tone="error" className="ml-auto flex items-center gap-2 text-caption text-danger">
             지표를 불러오지 못했습니다: {error}
             {onRetry && (
               <Button size="sm" onClick={onRetry}>

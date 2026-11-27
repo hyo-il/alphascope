@@ -109,7 +109,7 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
       </div>
 
       {loading && <p className="text-xs text-text-muted">비교 종목 불러오는 중…</p>}
-      {error && <p className="text-xs text-danger">{error}</p>}
+      {error && <p data-tone="error" className="text-xs text-danger">{error}</p>}
 
       {peers && peers.length > 0 && (
         <ScrollTable deskScroll>

@@ -55,7 +55,7 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
     );
   }
   // 처음 받기 실패만 오류 화면 — 다시 받기 실패는 보던 값을 두고 위쪽 줄에 작게(1분 뒤 다시 받는다)
-  if (error && !flow) return <p className={`${PANEL_PAD} text-caption text-danger`}>투자자 동향을 불러오지 못했습니다: {error}</p>;
+  if (error && !flow) return <p data-tone="error" className={`${PANEL_PAD} text-caption text-danger`}>투자자 동향을 불러오지 못했습니다: {error}</p>;
   if (!flow) return <p className={`${PANEL_PAD} text-caption text-text-muted`}>불러오는 중…</p>;
 
   const period = flow.period;
@@ -66,7 +66,7 @@ export default function InvestorFlowPanel({ symbol }: { symbol: string }) {
       {/* 토스가 값을 만든 시각(`updatedAt`) — 1분마다 다시 받는다. 오늘이 아니면 날짜도 붙인다 */}
       <p className="text-text-muted tabular-nums">
         토스 기준 {tossStamp(flow.updatedAt)} 갱신
-        {error && <span className="text-danger"> · 다시 받지 못했습니다(1분 뒤 다시): {error}</span>}
+        {error && <span data-tone="error" className="text-danger"> · 다시 받지 못했습니다(1분 뒤 다시): {error}</span>}
       </p>
       <div>
         <p className="mb-1 text-text-secondary">

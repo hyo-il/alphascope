@@ -31,7 +31,7 @@ export default function AsyncBoundary({
   if (error) {
     return (
       <div className="rounded-xl bg-bg-secondary p-6 text-center">
-        <p className="text-sm text-danger">{error}</p>
+        <p data-tone="error" className="text-sm text-danger">{error}</p>
         {onRetry && (
           <Button variant="secondary" size="md"
             onClick={onRetry}

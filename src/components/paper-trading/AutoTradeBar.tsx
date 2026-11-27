@@ -65,7 +65,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
   if (!strategy) {
     return (
       <div className="flex items-center gap-2 border-b border-border px-4 py-2">
-        {error ? <span className="text-caption text-danger">자동매매 설정을 불러오지 못했습니다: {error}</span> : <Skeleton className="h-7 w-72 phone:w-full phone:max-w-72" />}
+        {error ? <span data-tone="error" className="text-caption text-danger">자동매매 설정을 불러오지 못했습니다: {error}</span> : <Skeleton className="h-7 w-72 phone:w-full phone:max-w-72" />}
       </div>
     );
   }
@@ -170,7 +170,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
             오늘 판단 {status.judgedToday}/{strategy.symbols.length}종목
           </span>
         )}
-        {error && <span className="text-caption text-danger">상태 조회 실패: {error}</span>}
+        {error && <span data-tone="error" className="text-caption text-danger">상태 조회 실패: {error}</span>}
 
         <span className="ml-auto flex items-center gap-2">
           <Button variant="secondary" size="sm"

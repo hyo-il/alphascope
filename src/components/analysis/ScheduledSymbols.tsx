@@ -30,7 +30,7 @@ function Summary({ status }: { status: ScheduledStatus }) {
         <p className="text-text-secondary">
           마지막 {RUN_LABEL[last.trigger] ?? '정기 실행'} {time(last.finishedAt ?? last.startedAt)} (기준일{' '}
           {last.baseDate}) — 완료 {last.done.length}
-          {last.failed.length > 0 && <span className="text-danger"> · 실패 {last.failed.length}</span>}
+          {last.failed.length > 0 && <span data-tone="error" className="text-danger"> · 실패 {last.failed.length}</span>}
           {last.rateLimited && (
             <span className="text-warning"> · 무료 한도 초과로 {last.skipped.length}종목 중단</span>
           )}
@@ -44,7 +44,7 @@ function Summary({ status }: { status: ScheduledStatus }) {
         </p>
       )}
       {last && last.failed.length > 0 && (
-        <p className="truncate text-danger" data-tip-clip={last.failed.map((f) => `${f.symbol}: ${f.error}`).join('\n')}>
+        <p data-tone="error" className="truncate text-danger" data-tip-clip={last.failed.map((f) => `${f.symbol}: ${f.error}`).join('\n')}>
           실패: {last.failed.map((f) => `${f.symbol}(${f.error})`).join(' · ')}
         </p>
       )}
@@ -57,7 +57,7 @@ export default function ScheduledSymbols() {
   const [editing, setEditing] = useState(false);
   const names = useStockNames(status?.symbols ?? []);
 
-  if (error && !status) return <p className="text-caption text-danger">불러오지 못했습니다: {error}</p>;
+  if (error && !status) return <p data-tone="error" className="text-caption text-danger">불러오지 못했습니다: {error}</p>;
   if (!status) return <p className="text-caption text-text-muted">불러오는 중…</p>;
 
   const n = status.symbols.length;

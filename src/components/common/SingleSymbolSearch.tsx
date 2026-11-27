@@ -40,7 +40,7 @@ export default function SingleSymbolSearch({
       {!queried && !loading && <p className="rounded-xl bg-bg-secondary px-3 py-6 text-center text-xs text-text-muted">{emptyText}</p>}
       {/* 받기 전에는 결과 자리를 미리 그린다 — 「없음」 을 먼저 그리지 않는다(로딩 표시 규칙) */}
       {loading && queried && <SkeletonCards count={1} />}
-      {error && !loading && <p className="rounded-lg bg-danger/10 px-3 py-2 text-caption text-danger">{error}</p>}
+      {error && !loading && <p data-tone="error" className="rounded-lg bg-danger/10 px-3 py-2 text-caption text-danger">{error}</p>}
       {!loading && children}
       {footer}
     </div>

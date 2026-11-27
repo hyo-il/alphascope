@@ -94,7 +94,7 @@ export default function CreateAccountForm({ onCreate, onDone, onCancel }: Props)
           취소
         </Button>
       )}
-      {error && <span className="text-xs text-danger">{error}</span>}
+      {error && <span data-tone="error" className="text-xs text-danger">{error}</span>}
     </div>
     </LoadingOverlay>
   );

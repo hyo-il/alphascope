@@ -273,7 +273,7 @@ export default function BacktestView() {
             </div>
           )}
           {bt.engineDown && <p className="rounded-lg bg-warning/10 px-3 py-2 text-caption text-warning">지표 엔진이 꺼져 있어 계산할 수 없습니다.</p>}
-          {bt.error && !bt.engineDown && <p className="rounded-lg bg-danger/10 px-3 py-2 text-caption text-danger">{bt.error}</p>}
+          {bt.error && !bt.engineDown && <p data-tone="error" className="rounded-lg bg-danger/10 px-3 py-2 text-caption text-danger">{bt.error}</p>}
         </Panel>
 
         {/* ④ 결과 */}

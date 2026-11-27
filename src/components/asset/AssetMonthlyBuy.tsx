@@ -288,7 +288,7 @@ export function PurchaseAccountList({ mb, writeEnabled, busyKey, notes, onPress,
 /** 실패 이유 한 줄(팝업 · 구역 그대로 둔다) */
 function FailLine({ message }: { message: string }) {
   return (
-    <p role="alert" className="rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all" data-purchase-error>
+    <p data-tone="error" role="alert" className="rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all" data-purchase-error>
       {message}
     </p>
   );

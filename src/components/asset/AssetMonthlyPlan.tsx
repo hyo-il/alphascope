@@ -331,7 +331,7 @@ export function PlanNotes({ mb, onRetry, retrying }: { mb: MonthlyBuy; onRetry: 
   return (
     <div className="space-y-1" data-testid="plan-notes">
       {mb.planError && (
-        <div role="alert" className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all" data-testid="plan-error" data-kind={mb.planError.kind}>
+        <div data-tone="error" role="alert" className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all" data-testid="plan-error" data-kind={mb.planError.kind}>
           <span className="min-w-0">계좌별 살 종목 — {mb.planError.message}</span>
           <Button size="sm" variant="ghost" busy={retrying} onClick={onRetry} className="ml-auto">
             다시 시도

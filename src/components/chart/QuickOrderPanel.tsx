@@ -311,7 +311,7 @@ export default function QuickOrderPanel({
         {header}
         {accountsError ? (
           <div className="space-y-2 px-2.5 py-3">
-            <p className="text-caption leading-relaxed text-danger">계좌를 불러오지 못했습니다: {accountsError}</p>
+            <p data-tone="error" className="text-caption leading-relaxed text-danger">계좌를 불러오지 못했습니다: {accountsError}</p>
             <Button size="sm" className="w-full" onClick={() => void reloadAccounts()}>
               다시 시도
             </Button>

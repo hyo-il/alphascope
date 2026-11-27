@@ -152,7 +152,7 @@ export default function BuyJudgeView() {
                   {busy}
                 </p>
               )}
-              {j.error && <p className="text-caption text-danger">{j.error}</p>}
+              {j.error && <p data-tone="error" className="text-caption text-danger">{j.error}</p>}
               {touchLoading && j.state == null && j.error && busy == null ? (
                 // 처음 받기 실패 — 오류(위 줄) + [다시 시도](빈 목록 · 스켈레톤으로 두지 않는다 · `docs/rules/ui.md` 「로딩 표시」)
                 <Button variant="secondary" size="md" onClick={() => void j.load().catch(() => undefined)}>

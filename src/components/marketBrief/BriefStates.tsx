@@ -6,7 +6,7 @@ import type { MarketBriefStatus } from '../../types/marketBrief';
 /** 불러오기 실패 줄 — 본문이 있으면 본문 위에 */
 export function LoadError({ error, hasDay }: { error: string; hasDay: boolean }) {
   return (
-    <Panel pad="sm" className={`text-xs text-danger ${hasDay ? 'mb-3' : ''}`}>
+    <Panel data-tone="error" pad="sm" className={`text-xs text-danger ${hasDay ? 'mb-3' : ''}`}>
       <WarnIcon />
       불러오지 못했습니다: {error}
     </Panel>

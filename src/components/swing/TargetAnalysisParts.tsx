@@ -130,7 +130,7 @@ export function ResultCard({
             <ul className="space-y-0.5">
               {record.agents.map((a) => (
                 <li key={a.role}>
-                  {a.label}: {a.error ? <span className="text-danger">실패 — {a.error}</span> : `목표 ${a.pTarget}% · 손절 ${a.pStop}% · 둘 다 아님 ${a.pNeither}% — ${a.summary}`}
+                  {a.label}: {a.error ? <span data-tone="error" className="text-danger">실패 — {a.error}</span> : `목표 ${a.pTarget}% · 손절 ${a.pStop}% · 둘 다 아님 ${a.pNeither}% — ${a.summary}`}
                 </li>
               ))}
             </ul>
@@ -202,7 +202,7 @@ export function TargetHistorySection({
   );
   return (
     <div className="space-y-3">
-      {error && <p className="text-caption text-danger">히스토리를 불러오지 못했습니다: {error}</p>}
+      {error && <p data-tone="error" className="text-caption text-danger">히스토리를 불러오지 못했습니다: {error}</p>}
       <section className="space-y-2">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <h3 className="font-medium text-text-secondary">분석 히스토리 (모든 조건)</h3>

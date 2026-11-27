@@ -311,7 +311,7 @@ export default function AccountsOverview({
                       </div>
                     </td>
                     {item.error ? (
-                      <td colSpan={2} data-tip={item.error} className={`whitespace-nowrap ${TABLE_NUM_GAP} text-right text-caption text-danger`}>
+                      <td data-tone="error" colSpan={2} data-tip={item.error} className={`whitespace-nowrap ${TABLE_NUM_GAP} text-right text-caption text-danger`}>
                         평가 실패
                       </td>
                     ) : (
@@ -486,7 +486,7 @@ export default function AccountsOverview({
               </header>
 
               {item.error ? (
-                <p className="mt-2 text-caption text-danger">평가 실패: {item.error}</p>
+                <p data-tone="error" className="mt-2 text-caption text-danger">평가 실패: {item.error}</p>
               ) : (
                 <>
                   <p className="mt-2 text-sm font-semibold tabular-nums text-text-primary">

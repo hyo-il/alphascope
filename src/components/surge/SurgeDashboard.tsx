@@ -148,7 +148,7 @@ function SurgeHistoryTable({ running, onDeleted }: { running: boolean; onDeleted
 
   if (error && !loaded) {
     return (
-      <div className="flex items-center gap-3 text-xs text-danger">
+      <div data-tone="error" className="flex items-center gap-3 text-xs text-danger">
         <span>히스토리를 불러오지 못했습니다: {error}</span>
         <Button size="sm" busy={loading} onClick={reload}>
           다시 시도

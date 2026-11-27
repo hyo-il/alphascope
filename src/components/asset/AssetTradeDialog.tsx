@@ -210,7 +210,7 @@ export default function AssetTradeDialog({
           </p>
         )}
         {error && (
-          <p role="alert" className="rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all" data-trade-error>
+          <p data-tone="error" role="alert" className="rounded-lg bg-danger/10 px-3 py-1.5 text-xs text-danger keep-all" data-trade-error>
             {error}
           </p>
         )}

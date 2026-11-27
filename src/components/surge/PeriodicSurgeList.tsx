@@ -120,7 +120,7 @@ export default function PeriodicSurgeList({
       )}
 
       {error && (
-        <p className="rounded-lg bg-danger/10 px-3 py-2 text-caption text-danger">
+        <p data-tone="error" className="rounded-lg bg-danger/10 px-3 py-2 text-caption text-danger">
           {error}
         </p>
       )}

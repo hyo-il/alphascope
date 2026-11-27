@@ -7,7 +7,7 @@
  *   154차 `designReviewShots` 의 **모든 장면**(메뉴 · 탭 · 창 · 판 — 같은 여는 코드 · 같은 가짜 응답)을 1440 × 900 · 402 × 874(손가락) 두 크기로
  *   **함께**(맥락 둘) 연다. 찍지 않고 장면마다 잰다:
  *   1 밝은 파랑(`--color-accent`) 바탕 단추 0 · 2 빨간(bearish · danger) 글 · 바탕 요소는 모두 뜻 표시(`data-tone` = down · sell · invalid ·
- *   danger-confirm — 조상 포함) 또는 음수 숫자 글(− · ▼ 로 시작하거나 − 숫자) · 4 화면 글 + 툴팁 글(`data-tip` · `data-tip-clip` · `aria-label` ·
+ *   danger-confirm · 오류 알림 error — 조상 포함) 또는 음수 숫자 글(− · ▼ 로 시작하거나 − 숫자) · 4 화면 글 + 툴팁 글(`data-tip` · `data-tip-clip` · `aria-label` ·
  *   `placeholder`)에 개발용 글 0. 클래스로 찾지 않는다(계산된 색 + `data-*` · 역할 이름).
  * - 코드(4 · 5 · 6 · 7 · 8): [ⓘ] 안 글은 DOM 에 없어서 화면 코드 글을 함께 훑는다 · 확인 창 수 · 바뀐 파일의 배치 클래스 · 매매 코드 범위 · `design:lint` 새 규칙.
  * - 외부 호출: Gemini 0(서버 스위치 끔 + 부르는 주소 가짜) · 자산은 가짜 응답(실제 시트 0) · 토스 주문 0.
@@ -39,7 +39,8 @@ const SIZES = (process.env.SIZES ?? '1440x900,402x874').split(',').map((s) => {
 });
 /** 개발용 글(테마 9-1 R4) — 화면 글 · 툴팁 글 · 화면 코드 글 */
 const DEV_TEXT = /_ENABLED\b|CLIENT_ID|CLIENT_SECRET|(^|[^\w])\.env\b|npm run|(^|[^\w/])db\/|yfinance|\/candles|\/api\//i;
-const TONES = ['down', 'sell', 'invalid', 'danger-confirm'];
+/** 빨강의 뜻 — 하락 · 매도 · 틀린 칸 · 확인 창 위험 단추 + 오류 알림 글(불러오기 · 저장 실패 — 「틀림」 쪽으로 봄 · 155차 정함) */
+const TONES = ['down', 'sell', 'invalid', 'danger-confirm', 'error'];
 
 const guard = createBrowserStepGuard();
 let pass = 0;
@@ -392,7 +393,7 @@ try {
       for (const x of r.reds) uniq.set(x, (uniq.get(x) ?? 0) + 1);
       console.log(`      (알림) ${w} 빨강 뜻 없음 목록:\n${[...uniq].map(([k, n]) => `        ${k}${n > 1 ? ` ×${n}` : ''}`).join('\n')}`);
     }
-    check(`[155-2] ${w} — 빨간 글 · 바탕은 하락 · 매도 · 틀린 칸 · 확인 창 위험 단추에만(뜻 표시 data-tone 또는 음수 숫자) — 그 밖 0`, r.reds.length === 0, `${r.reds.length}개: ${r.reds.slice(0, 15).join(' · ')}`);
+    check(`[155-2] ${w} — 빨간 글 · 바탕은 하락 · 매도 · 틀린 칸(오류 알림 포함) · 확인 창 위험 단추에만(뜻 표시 data-tone 또는 음수 숫자) — 그 밖 0`, r.reds.length === 0, `${r.reds.length}개: ${r.reds.slice(0, 15).join(' · ')}`);
     check(`[155-4] ${w} — 모든 장면 화면 글 · 툴팁 글에 개발용 글 0`, r.dev.length === 0, r.dev.slice(0, 12).join(' · '));
     check(`[155-4] ${w} — 꺼진 기능 자리에 「${FEATURE_OFF_TEXT}」(${r.featureOff.length}장면) · [ⓘ] 를 누르면 「${FEATURE_OFF_HOW}」`, r.featureOff.length > 0 && r.featureTip.includes(FEATURE_OFF_HOW), `${r.featureOff.join(' · ')} / 툴팁 「${r.featureTip}」`);
     const badges = JSON.parse(r.r3['거래내역'] ?? '[]') as { side: string; text: string; color: string; tone: string }[];

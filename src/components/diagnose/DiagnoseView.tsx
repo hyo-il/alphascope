@@ -542,7 +542,7 @@ export default function DiagnoseView() {
         <DiagnoseHelp />
 
         {(runError || listError) && (
-          <p className="rounded-lg bg-danger/10 px-3 py-2 text-caption text-danger">
+          <p data-tone="error" className="rounded-lg bg-danger/10 px-3 py-2 text-caption text-danger">
             {runError ?? listError}
           </p>
         )}
@@ -563,7 +563,7 @@ export default function DiagnoseView() {
               {s.quick && ' · quick'}
             </p>
             <Cards s={s} />
-            {detailError && <p className="text-caption text-danger">상세를 불러오지 못했습니다: {detailError}</p>}
+            {detailError && <p data-tone="error" className="text-caption text-danger">상세를 불러오지 못했습니다: {detailError}</p>}
             {detail ? (
               <Details d={detail} />
             ) : (

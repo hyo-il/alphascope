@@ -32,7 +32,7 @@ function Toast({ item }: { item: ToastItem }) {
       role="status"
       className="pointer-events-auto flex min-w-[240px] max-w-sm items-start gap-2 rounded-xl bg-bg-elevated px-3 py-2.5 shadow-xl"
     >
-      <span className={`mt-px ${style.color}`}>
+      <span className={`mt-px ${style.color}`} data-tone={item.type === 'error' ? 'error' : undefined}>
         <Icon {...ICON} />
       </span>
       <div className="min-w-0 flex-1">

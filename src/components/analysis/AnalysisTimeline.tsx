@@ -279,7 +279,7 @@ export default function AnalysisTimeline({
       </div>
 
       {loadError && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl bg-bg-secondary px-3 py-3 text-xs text-danger">
+        <div data-tone="error" className="flex flex-wrap items-center gap-3 rounded-xl bg-bg-secondary px-3 py-3 text-xs text-danger">
           <span>분석 히스토리를 불러오지 못했습니다: {loadError}</span>
           <Button size="sm" onClick={() => void load()} busy={loading}>
             다시 시도
