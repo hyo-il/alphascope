@@ -36,7 +36,7 @@ import { lockSession, setAssetPassword, unlockSession } from '../server/asset/lo
 import { authGuard } from '../server/authGuard';
 import { assetRouter } from '../server/asset/routes';
 import { AssetSheetError, resetTokenCache } from '../server/asset/google';
-import { avgPriceOf, checkTargetRatio, linkedTickerRow, parseAssetSheet, readAssetSheet, replaceNameDate, resetSheetCache, sheetRanges, splitCode, writeAccountDates, writeAssetClasses, writeTargetRatio, ASSET_CLASS_MAX_ROWS } from '../server/asset/sheet';
+import { avgPriceOf, checkTargetRatio, linkedTickerRow, parseAssetSheet, readAssetSheet, replaceNameDate, resetSheetCache, sheetRanges, splitCode, writeAccountDate, writeAssetClasses, writeTargetRatio, ASSET_CLASS_MAX_ROWS } from '../server/asset/sheet';
 import { computeMonthlyBuy, purchaseCycle, purchaseDayOf, setPurchaseClockForTest, type PurchaseCalendar } from '../server/asset/purchase';
 import { clearPurchasesForTest, purchaseCountForTest, purchaseStartDayStoredForTest, recordPurchase } from '../server/asset/store';
 import { CLASS_VALUES, MIXED, changedKeys, classRowsOf, planClassSave, runClassSave, type ClassRow, type ClassValue, type GroupValue } from '../src/utils/assetClassPlan';
@@ -1189,34 +1189,45 @@ try {
       replaceNameDate('X ( 2026-10-24 )', '2026-11-07') === 'X ( 2026-11-07 )' &&
       replaceNameDate('적립식 계좌', '2026-11-07') === null && replaceNameDate('적립식 계좌 ( 메모 )', '2026-11-07') === null);
 
+    // v2.78.0 — 계좌 하나씩(`writeAccountDate(day, section)`) · 옛 「날짜가 든 칸 전부」 결과와 같은 칸 · 같은 글자인지 [151-A11] 은 assetpurchase:test
     const H = '주식 투자 정리';
     const setName = (cell: string, v: string) => { sheetModel.values[`${H}!${cell}`] = v; sheetModel.formulas[`${H}!${cell}`] = v; };
     fresh();
     setName('B21', 'ISA 계좌'); // 날짜 없는 칸 — 쓰지 않는다
     setName('B29', '연금 저축 계좌 ( 2026.07)');
-    const r1 = await writeAccountDates('2026-11-27');
+    const r1 = [] as { written: boolean }[];
+    for (const sec of ['개별 투자', '적립식 계좌', '연금 저축 계좌']) r1.push(await writeAccountDate('2026-11-27', sec));
+    const isaKind = await kindOf(writeAccountDate('2026-11-27', 'ISA 계좌'));
     const at = (cell: string) => writesSeen.find((w) => w.range === `'${H}'!${cell}`)?.value;
-    check('[111-4] 「( 날짜 )」 가 있는 칸만(B4 · B12 · B29 — 날짜 없는 B21 은 안 씀) · 날짜 부분만 바뀜 · 나머지 글자 · 빈칸 그대로',
-      r1.cells === 3 && writesSeen.length === 3 && at('B21') === undefined && at('B4') === '개별 투자 ( 2026.11 )' && at('B12') === '적립식 계좌 ( 2026.11 )' && at('B29') === '연금 저축 계좌 ( 2026.11)');
-    check('[111-4] 한 요청(쓰기 1번) · RAW · 글자 그대로(문자열)', google.writes === 1 && writesSeen.every((w) => w.input === 'RAW' && typeof w.value === 'string'));
+    check('[111-4] [151-1] 「( 날짜 )」 가 있는 계좌만 그 칸 하나씩(B4 · B12 · B29 — 날짜 없는 B21 은 no-date · 안 씀) · 날짜 부분만 바뀜 · 나머지 글자 · 빈칸 그대로',
+      r1.every((r) => r.written) && isaKind === 'no-date' && writesSeen.length === 3 && at('B21') === undefined && at('B4') === '개별 투자 ( 2026.11 )' && at('B12') === '적립식 계좌 ( 2026.11 )' && at('B29') === '연금 저축 계좌 ( 2026.11)');
+    check('[111-4] [151-1] 계좌마다 한 요청(쓰기 3번 · 요청마다 칸 하나) · RAW · 글자 그대로(문자열)', google.writes === 3 && writesSeen.every((w) => w.input === 'RAW' && typeof w.value === 'string'));
     fresh();
     sheetModel.formulas[`${H}!B12`] = '="적립식 계좌 ( "&TEXT(TODAY(),"yyyy.mm")&" )"';
-    check('[111-4] 네 칸 중 하나라도 수식 → formula-cell · 하나도 안 씀', (await kindOf(writeAccountDates('2026-11-27'))) === 'formula-cell' && google.writes === 0);
+    const fk = await kindOf(writeAccountDate('2026-11-27', '적립식 계좌'));
+    const fw = google.writes;
+    await writeAccountDate('2026-11-27', '개별 투자');
+    check('[111-4] [151-3] 그 계좌 칸이 수식 → formula-cell · 안 씀 · 다른 계좌는 그 칸만 씀', fk === 'formula-cell' && fw === 0 && google.writes === 1 && writesSeen.length === 1 && at('B4') === '개별 투자 ( 2026.11 )');
     fresh();
     for (const c of ['B4', 'B12', 'B21', 'B29']) setName(c, sheetModel.values[`${H}!${c}`].toString().replace(/\s*\(.*\)\s*$/, ''));
-    check('[111-4] 날짜가 든 칸이 하나도 없으면 no-date · 안 씀', (await kindOf(writeAccountDates('2026-11-27'))) === 'no-date' && google.writes === 0);
+    check('[111-4] 날짜가 없는 이름이면 no-date · 안 씀', (await kindOf(writeAccountDate('2026-11-27', '개별 투자'))) === 'no-date' && google.writes === 0);
+    fresh();
+    setName('B4', '개별 투자 ( 2026.13 )');
+    check('[151-B] 읽을 수 없는 날짜(13월)면 no-date · 안 씀', (await kindOf(writeAccountDate('2026-11-27', '개별 투자'))) === 'no-date' && google.writes === 0);
     fresh();
     sheetModel.values[`${H}!B3`] = '바뀐 머리';
     sheetModel.formulas[`${H}!B3`] = '바뀐 머리';
-    check('[111-4] 머리 글자(B3)가 다르면 shape · 안 씀', (await kindOf(writeAccountDates('2026-11-27'))) === 'shape' && google.writes === 0);
+    check('[111-4] 머리 글자(B3)가 다르면 shape · 안 씀', (await kindOf(writeAccountDate('2026-11-27', '개별 투자'))) === 'shape' && google.writes === 0);
     fresh();
     process.env.ASSET_SYNC_ENABLED = 'false';
-    check('[111-4] 스위치 꺼짐(ASSET_SYNC_ENABLED=false) → disabled · 구글 호출 0(토큰도 받지 않음)', (await kindOf(writeAccountDates('2026-11-27'))) === 'disabled' && google.token === 0 && google.writes === 0);
+    check('[111-4] 스위치 꺼짐(ASSET_SYNC_ENABLED=false) → disabled · 구글 호출 0(토큰도 받지 않음)', (await kindOf(writeAccountDate('2026-11-27', '개별 투자'))) === 'disabled' && google.token === 0 && google.writes === 0);
     process.env.ASSET_SYNC_ENABLED = 'true';
     fresh();
     afterWrite = () => { sheetModel.formulas[`${H}!B4`] = '개별 투자 ( 바뀜 )'; };
-    const mm = await writeAccountDates('2026-11-27').catch((e: unknown) => e);
+    const mm = await writeAccountDate('2026-11-27', '개별 투자').catch((e: unknown) => e);
     check('[111-4] 다시 읽은 값이 다르면 mismatch 오류', mm instanceof AssetSheetError && mm.kind === 'mismatch');
+    fresh();
+    check('[151-B] 모르는 계좌 key → not-editable · 안 씀', (await kindOf(writeAccountDate('2026-11-27', '없는 계좌'))) === 'not-editable' && google.writes === 0);
     fresh();
   }
 
@@ -1299,44 +1310,61 @@ try {
   const shapeBody = (await shapeRes.json()) as { kind?: string; error?: string; sections?: unknown };
   check('[7] (안쪽 서버) 모양 바뀜 → 502 · kind shape · 값 칸 없음', shapeRes.status === 502 && shapeBody.kind === 'shape' && shapeBody.sections === undefined);
 
+  // v2.78.0 — 이번 달 구매는 계좌마다(`POST /api/asset/purchase/done` · `skip` · `undo` — 몸 `{ cycleDay, section }`). 옛 「차례 하나 완료」 = 네 계좌 모두 완료로 옮겨 같은 내용을 본다
+  const ALL = ['개별 투자', '적립식 계좌', 'ISA 계좌', '연금 저축 계좌'];
+  const act = (action: 'done' | 'skip' | 'undo', cycleDay: string, section: string) =>
+    fetch(`${base}/api/asset/purchase/${action}`, { method: 'POST', headers: { ...ck, 'content-type': 'application/json' }, body: JSON.stringify({ cycleDay, section }) });
+  const doneAll = async (cycleDay: string) => {
+    const out: { status: number; body: { kind?: string; error?: string; cycleDay?: string; at?: string; written?: boolean } }[] = [];
+    for (const sec of ALL) {
+      const r = await act('done', cycleDay, sec);
+      out.push({ status: r.status, body: (await r.json()) as never });
+    }
+    return out;
+  };
+  const accOf = (mb: AssetSummary['monthlyBuy'], sec: string) => mb.accounts.find((x) => x.section === sec);
+  const allIs = (mb: AssetSummary['monthlyBuy'], status: string, at: string | null) => mb.accounts.length === 4 && mb.accounts.every((x) => x.status === status && x.at === at);
+  const recAt = (cycle: string) => (getDb().prepare(`SELECT DISTINCT at FROM asset_purchase_account WHERE cycle_date = ?`).all(cycle) as { at: string }[]).map((r) => r.at);
+  const recordAll = (cycle: string, at: string) => { for (const sec of ALL) recordPurchase(cycle, sec, 'done', at); };
   {
-    // [111-5] POST /api/asset/purchase-done — 가짜 오늘 · 가짜 달력 · 가짜 구글
+    // [111-5] 구매 완료 — 가짜 오늘 · 가짜 달력 · 가짜 구글
     fresh();
     clearPurchasesForTest();
     setPurchaseClockForTest(() => Date.parse('2026-11-27T03:00:00Z'), () => ({ isClosed: (d) => d === '2026-12-25', isChecked: () => true }));
-    const done = () => fetch(`${base}/api/asset/purchase-done`, { method: 'POST', headers: { ...ck, 'content-type': 'application/json' } });
     const sumMb = async () => ((await (await fetch(`${base}/api/asset/summary?pension=0`, { headers: ck })).json()) as AssetSummary).monthlyBuy;
     const mb0 = await sumMb();
-    check('[111-3] (안쪽 서버) summary 에 monthlyBuy — 오늘 · 이번 차례 11-27 · 다음 12-24 · 미완료 · 합 = 시트 월급(새 요청 없음)',
-      mb0.today === '2026-11-27' && mb0.cycleDay === '2026-11-27' && mb0.nextDay === '2026-12-24' && !mb0.done && mb0.doneDay === null && mb0.total === FAKE.salary && !mb0.noSalary);
+    check('[111-3] (안쪽 서버) summary 에 monthlyBuy — 오늘 · 이번 차례 11-27 · 다음 12-24 · 네 계좌 모두 아직 · 팝업 · 합 = 시트 월급(새 요청 없음)',
+      mb0.today === '2026-11-27' && mb0.cycleDay === '2026-11-27' && mb0.nextDay === '2026-12-24' && allIs(mb0, 'todo', null) && mb0.needsPopup && mb0.total === FAKE.salary && !mb0.noSalary);
     mode = 'write-403';
-    const f1 = await done();
+    const f1 = await act('done', '2026-11-27', '개별 투자');
     const f1Body = (await f1.json()) as { kind?: string };
-    check('[111-5] 시트 쓰기 실패(403) → 502 not-shared · asset_purchase 기록 없음', f1.status === 502 && f1Body.kind === 'not-shared' && purchaseCountForTest() === 0);
+    check('[111-5] 시트 쓰기 실패(403) → 502 not-shared · 기록 없음', f1.status === 502 && f1Body.kind === 'not-shared' && purchaseCountForTest() === 0);
     mode = 'ok';
     sheetModel.formulas['주식 투자 정리!B4'] = '=B3';
-    const f2 = await done();
-    check('[111-5] 수식 칸 → 409 formula-cell · 기록 없음 · 쓰기 0', f2.status === 409 && ((await f2.json()) as { kind?: string }).kind === 'formula-cell' && purchaseCountForTest() === 0);
+    const f2 = await act('done', '2026-11-27', '개별 투자');
+    check('[111-5] [151-3] 수식 칸 → 409 formula-cell · 기록 없음 · 쓰기 0', f2.status === 409 && ((await f2.json()) as { kind?: string }).kind === 'formula-cell' && purchaseCountForTest() === 0 && google.writes === 1);
     fresh();
     process.env.ASSET_SYNC_ENABLED = 'false';
-    const f3 = await done();
-    check('[111-5] 스위치 꺼짐 → 503 disabled 「시트 쓰기가 꺼져 있습니다」 · 기록 없음 · 구글 호출 0', f3.status === 503 && /시트 쓰기가 꺼져 있습니다/.test(((await f3.json()) as { error?: string }).error ?? '') && purchaseCountForTest() === 0 && google.token === 0);
+    const f3 = await act('done', '2026-11-27', '개별 투자');
+    check('[111-5] [151-11] 스위치 꺼짐 → [구매 완료] 503 disabled 「시트 쓰기가 꺼져 있습니다」 · 기록 없음 · 구글 호출 0', f3.status === 503 && /시트 쓰기가 꺼져 있습니다/.test(((await f3.json()) as { error?: string }).error ?? '') && purchaseCountForTest() === 0 && google.token === 0);
     process.env.ASSET_SYNC_ENABLED = 'true';
-    const ok = await done();
-    const okBody = (await ok.json()) as { cycleDay?: string; doneDay?: string; cells?: number };
-    check('[111-5] 성공 → 200 · 기록 1줄(차례 11-27 · 누른 날 11-27) · 쓰기 1번', ok.status === 200 && okBody.cycleDay === '2026-11-27' && okBody.doneDay === '2026-11-27' && okBody.cells === 4 && purchaseCountForTest() === 1 && google.writes === 1);
-    const again = await done();
+    const ok = await doneAll('2026-11-27');
+    check('[111-5] [151-1] 네 계좌 성공 → 200 · 기록 4줄(차례 11-27 · 누른 날 11-27) · 계좌마다 쓰기 1번(4번)',
+      ok.every((r) => r.status === 200 && r.body.cycleDay === '2026-11-27' && r.body.at === '2026-11-27' && r.body.written === true) && purchaseCountForTest() === 4 && google.writes === 4);
+    const again = await act('done', '2026-11-27', '개별 투자');
     const againBody = (await again.json()) as { kind?: string; error?: string };
-    // v2.65.4 — 이번 차례가 완료면 누를 차례는 다음 차례(7일 전부터)뿐 → 아직이면 409 not-yet(옛 already-done 에서 바뀜 · 다음 차례도 완료면 already-done 은 [117-2])
-    check('[111-5] [117-2] 이미 완료한 차례 → 409 not-yet 「다음 구매일 2026-12-24 7일 전부터 누를 수 있습니다.」 · 쓰기 늘지 않음 · 기록 1줄', again.status === 409 && againBody.kind === 'not-yet' && againBody.error === '다음 구매일 2026-12-24 7일 전부터 누를 수 있습니다.' && google.writes === 1 && purchaseCountForTest() === 1);
+    const early = await act('done', '2026-12-24', '개별 투자');
+    const earlyBody = (await early.json()) as { kind?: string; error?: string };
+    check('[111-5] [117-2] 이미 완료한 차례 → 409 already-done · 다음 차례는 409 not-yet 「다음 구매일 2026-12-24 7일 전부터 누를 수 있습니다.」 · 쓰기 늘지 않음 · 기록 4줄',
+      again.status === 409 && againBody.kind === 'already-done' && againBody.error === '이미 구매 완료했습니다(2026-11-27).' && early.status === 409 && earlyBody.kind === 'not-yet' && earlyBody.error === '다음 구매일 2026-12-24 7일 전부터 누를 수 있습니다.' && google.writes === 4 && purchaseCountForTest() === 4);
     const mb1 = await sumMb();
-    check('[111-5] (안쪽 서버) 완료 뒤 summary — done · doneDay 11-27', mb1.done && mb1.doneDay === '2026-11-27');
+    check('[111-5] (안쪽 서버) 완료 뒤 summary — 네 계좌 done · 누른 날 11-27 · 팝업 없음', allIs(mb1, 'done', '2026-11-27') && !mb1.needsPopup);
     setPurchaseClockForTest(() => Date.parse('2026-12-24T03:00:00Z'), () => ({ isClosed: (d) => d === '2026-12-25', isChecked: () => true }));
     const mb2 = await sumMb();
-    check('[111-2] (안쪽 서버) 다음 구매일(12-24)이 오면 새 차례 · 미완료(옛 차례는 더 묻지 않음)', mb2.cycleDay === '2026-12-24' && !mb2.done && mb2.nextDay === '2027-01-29');
+    check('[111-2] (안쪽 서버) 다음 구매일(12-24)이 오면 새 차례 · 네 계좌 아직(옛 차례는 더 묻지 않음)', mb2.cycleDay === '2026-12-24' && allIs(mb2, 'todo', null) && mb2.nextDay === '2027-01-29');
     lockSession(token);
-    const lockedDone = await done();
-    check('[111-5] 잠김 → POST /api/asset/purchase-done 403 asset-locked · 쓰기 늘지 않음', lockedDone.status === 403 && ((await lockedDone.json()) as { code?: string }).code === 'asset-locked' && google.writes === 1);
+    const lockedDone = await act('done', '2026-12-24', '개별 투자');
+    check('[111-5] 잠김 → POST /api/asset/purchase/done 403 asset-locked · 쓰기 늘지 않음', lockedDone.status === 403 && ((await lockedDone.json()) as { code?: string }).code === 'asset-locked' && google.writes === 4);
     unlockSession(token);
     setPurchaseClockForTest(null);
     clearPurchasesForTest();
@@ -1347,28 +1375,27 @@ try {
     const H = '주식 투자 정리';
     const noHoliday = () => ({ isClosed: () => false, isChecked: () => true });
     const at = (iso: string) => setPurchaseClockForTest(() => Date.parse(`${iso}T03:00:00Z`), noHoliday);
-    const done = () => fetch(`${base}/api/asset/purchase-done`, { method: 'POST', headers: { ...ck, 'content-type': 'application/json' } });
     const sumMb = async () => ((await (await fetch(`${base}/api/asset/summary?pension=0`, { headers: ck })).json()) as AssetSummary).monthlyBuy;
-    const doneAtOf = (cycle: string) => (getDb().prepare(`SELECT done_at FROM asset_purchase WHERE cycle_date = ?`).get(cycle) as { done_at: string } | undefined)?.done_at ?? null;
 
     // 1. 빈 DB · 오늘 11-07
     fresh();
     clearPurchasesForTest();
     at('2026-11-07');
     const s1 = await sumMb();
-    check('[112-1] 빈 DB · 오늘 11-07 → 시작한 날 11-07 저장 · 차례 10-30 = 시작 전(skipped · 미완료) · 다음 구매일 11-27',
-      purchaseStartDayStoredForTest() === '2026-11-07' && s1.startDay === '2026-11-07' && s1.cycleDay === '2026-10-30' && s1.skipped && !s1.done && s1.doneDay === null && s1.nextDay === '2026-11-27');
-    const r1 = await done();
+    check('[112-1] [151-10] 빈 DB · 오늘 11-07 → 시작한 날 11-07 저장 · 차례 10-30 = 시작 전(skipped · 네 계좌 before-start · 팝업 없음) · 다음 구매일 11-27',
+      purchaseStartDayStoredForTest() === '2026-11-07' && s1.startDay === '2026-11-07' && s1.cycleDay === '2026-10-30' && s1.skipped && allIs(s1, 'before-start', null) && !s1.needsPopup && s1.nextDay === '2026-11-27');
+    const r0 = await act('done', '2026-10-30', '개별 투자');
+    const b0 = (await r0.json()) as { kind?: string; error?: string };
+    const r1 = await act('done', '2026-11-27', '개별 투자');
     const b1 = (await r1.json()) as { kind?: string; error?: string };
-    // v2.65.4 — 시작 전 차례는 그대로 기록하지 않고, 다음 차례 7일 전이 아직이라 409 not-yet(옛 before-start 에서 바뀜 — 7일 전부터는 [117-2])
-    check('[112-1] [117-2] 시작 전 차례 [구매 완료] → 409 not-yet 「다음 구매일 2026-11-27 7일 전부터 누를 수 있습니다.」 · 시트 쓰기 0번 · 기록 0줄',
-      r1.status === 409 && b1.kind === 'not-yet' && b1.error === '다음 구매일 2026-11-27 7일 전부터 누를 수 있습니다.' && google.writes === 0 && writesSeen.length === 0 && purchaseCountForTest() === 0);
+    check('[112-1] [117-2] [151-10] 시작 전 차례 [구매 완료] → 409 「시작 전 차례는 묻지 않습니다.」 · 다음 차례는 409 not-yet 「다음 구매일 2026-11-27 7일 전부터 누를 수 있습니다.」 · 시트 쓰기 0번 · 기록 0줄',
+      r0.status === 409 && b0.error === '시작 전 차례는 묻지 않습니다.' && r1.status === 409 && b1.kind === 'not-yet' && b1.error === '다음 구매일 2026-11-27 7일 전부터 누를 수 있습니다.' && google.writes === 0 && writesSeen.length === 0 && purchaseCountForTest() === 0);
 
     // 2. 같은 DB · 11-27
     at('2026-11-27');
     const s2 = await sumMb();
-    check('[112-2] 같은 DB · 가짜 시계 11-27 → 차례 11-27 · 시작 전 아님 · 미완료(팝업 뜸 · [구매 완료] 가능) · 시작한 날 그대로 11-07',
-      s2.cycleDay === '2026-11-27' && !s2.skipped && !s2.done && s2.startDay === '2026-11-07' && purchaseStartDayStoredForTest() === '2026-11-07');
+    check('[112-2] 같은 DB · 가짜 시계 11-27 → 차례 11-27 · 시작 전 아님 · 네 계좌 아직(팝업 뜸 · [구매 완료] 가능) · 시작한 날 그대로 11-07',
+      s2.cycleDay === '2026-11-27' && !s2.skipped && allIs(s2, 'todo', null) && s2.needsPopup && s2.startDay === '2026-11-07' && purchaseStartDayStoredForTest() === '2026-11-07');
 
     // 4 · 5. 11-27 차례를 12-02 에 누름 — 한 칸은 일이 있는 모양(「( 2026.07.05 )」)으로 바꿔 두 모양을 함께 본다
     at('2026-12-02');
@@ -1376,87 +1403,90 @@ try {
     sheetModel.formulas[`${H}!B29`] = '연금 저축 계좌 ( 2026.07.05 )';
     resetSheetCache();
     const s4 = await sumMb();
-    const r4 = await done();
-    const b4 = (await r4.json()) as { cycleDay?: string; doneDay?: string; cells?: number };
+    const r4 = await doneAll('2026-11-27');
     const written = writesSeen.map((w) => String(w.value));
-    const writtenDates = [...new Set(written.map((v) => v.match(/\(\s*([\d.\-/]+)\s*\)/)?.[1] ?? ''))];
-    check('[112-4] 11-27 차례를 12-02 에 누름 → 시트에 「2026.11」(차례의 달 · 12 아님) · 일이 있는 칸은 차례의 구매일 「2026.11.27」 · 쓰기 1번',
-      r4.status === 200 && b4.cycleDay === '2026-11-27' && google.writes === 1 && written.length === 4 &&
+    const writtenDates = written.map((v) => v.match(/\(\s*([\d.\-/]+)\s*\)/)?.[1] ?? '');
+    check('[112-4] 11-27 차례를 12-02 에 누름 → 시트에 「2026.11」(차례의 달 · 12 아님) · 일이 있는 칸은 차례의 구매일 「2026.11.27」 · 계좌마다 쓰기 1번',
+      r4.every((r) => r.status === 200 && r.body.cycleDay === '2026-11-27') && google.writes === 4 && written.length === 4 &&
       written.filter((v) => v.includes('( 2026.11 )')).length === 3 && written.includes('연금 저축 계좌 ( 2026.11.27 )') && !written.some((v) => v.includes('2026.12')));
-    check('[112-4] asset_purchase.done_at = 누른 날 12-02 · 응답 doneDay 12-02', doneAtOf('2026-11-27') === '2026-12-02' && b4.doneDay === '2026-12-02');
-    check('[112-5] 확인 창 날짜 글자(summary sheetDates) = 서버가 실제로 쓴 글자(2026.11 · 2026.11.27)',
-      s4.cycleDay === '2026-11-27' && JSON.stringify([...s4.sheetDates].sort()) === JSON.stringify([...writtenDates].sort()) && JSON.stringify([...s4.sheetDates].sort()) === JSON.stringify(['2026.11', '2026.11.27']));
+    check('[112-4] 기록 at = 누른 날 12-02 · 응답 at 12-02', JSON.stringify(recAt('2026-11-27')) === JSON.stringify(['2026-12-02']) && r4.every((r) => r.body.at === '2026-12-02'));
+    check('[112-5] 확인 창 날짜 글자(summary 계좌마다 sheetDateText) = 서버가 실제로 그 계좌에 쓴 글자(2026.11 · 2026.11.27)',
+      s4.cycleDay === '2026-11-27' && ALL.every((sec, i) => accOf(s4, sec)?.sheetDateText === writtenDates[i]) && accOf(s4, '연금 저축 계좌')?.sheetDateText === '2026.11.27' && accOf(s4, '개별 투자')?.sheetDateText === '2026.11');
 
     // 3. 기록이 이미 있는 DB — 시작한 날 = 가장 이른 기록의 차례
     fresh();
     clearPurchasesForTest();
-    recordPurchase('2026-10-30', '2026-11-02');
-    recordPurchase('2026-11-27', '2026-11-27');
+    recordAll('2026-10-30', '2026-11-02');
+    recordAll('2026-11-27', '2026-11-27');
     at('2026-11-07');
     const s3 = await sumMb();
-    check('[112-3] asset_purchase 에 기록이 있는 DB → 시작한 날 = 가장 이른 기록의 차례 10-30 · 그 차례는 시작 전이 아님(완료로 보임)',
-      purchaseStartDayStoredForTest() === '2026-10-30' && s3.startDay === '2026-10-30' && s3.cycleDay === '2026-10-30' && !s3.skipped && s3.done && s3.doneDay === '2026-11-02');
-    getDb().prepare(`DELETE FROM asset_purchase WHERE cycle_date = ?`).run('2026-11-27');
+    check('[112-3] 기록이 있는 DB → 시작한 날 = 가장 이른 기록의 차례 10-30 · 그 차례는 시작 전이 아님(완료로 보임)',
+      purchaseStartDayStoredForTest() === '2026-10-30' && s3.startDay === '2026-10-30' && s3.cycleDay === '2026-10-30' && !s3.skipped && allIs(s3, 'done', '2026-11-02'));
+    getDb().prepare(`DELETE FROM asset_purchase_account WHERE cycle_date = ?`).run('2026-11-27');
     at('2026-11-27');
     const s3b = await sumMb();
-    check('[112-3] 그 뒤 차례(11-27)는 지금처럼 묻는다(시작 전 아님 · 미완료)', s3b.cycleDay === '2026-11-27' && !s3b.skipped && !s3b.done);
+    check('[112-3] 그 뒤 차례(11-27)는 지금처럼 묻는다(시작 전 아님 · 아직)', s3b.cycleDay === '2026-11-27' && !s3b.skipped && allIs(s3b, 'todo', null));
     setPurchaseClockForTest(null);
     clearPurchasesForTest();
     fresh();
   }
 
   {
-    // ── 117차(v2.65.4) [117-2] 미리 구매 완료 — 가짜 시계 · 가짜 달력(12-25 휴장 → 12월 구매일 12-24) · 가짜 구글 ──
+    // ── 117차(v2.65.4) [117-2] 미리 구매 완료 — 가짜 시계 · 가짜 달력(12-25 휴장 → 12월 구매일 12-24) · 가짜 구글 · v2.78.0 계좌마다 ──
     const cal = () => ({ isClosed: (d: string) => d === '2026-12-25', isChecked: () => true });
     const at = (day: string) => setPurchaseClockForTest(() => Date.parse(`${day}T03:00:00Z`), cal);
-    const done = () => fetch(`${base}/api/asset/purchase-done`, { method: 'POST', headers: { ...ck, 'content-type': 'application/json' } });
     const sumMb = async () => ((await (await fetch(`${base}/api/asset/summary?pension=0`, { headers: ck })).json()) as AssetSummary).monthlyBuy;
-    const kindMsg = async (r: Response) => (await r.json()) as { kind?: string; error?: string; cycleDay?: string; doneDay?: string };
-    const doneAtOf = (cycle: string) => (getDb().prepare(`SELECT done_at FROM asset_purchase WHERE cycle_date = ?`).get(cycle) as { done_at: string } | undefined)?.done_at ?? null;
+    const kindMsg = async (r: Response) => (await r.json()) as { kind?: string; error?: string; cycleDay?: string; at?: string };
 
     // 1. 이번 차례(11-27) 완료 · 구매일 8일 전(12-16) → 409 not-yet · 7일 전(12-17) → 됨
     fresh();
     clearPurchasesForTest();
-    recordPurchase('2026-11-27', '2026-11-27');
+    recordAll('2026-11-27', '2026-11-27');
     at('2026-12-16');
     const m8 = await sumMb();
-    const r8 = await done();
+    const r8 = await act('done', '2026-12-24', '개별 투자');
     const b8 = await kindMsg(r8);
-    check('[117-2] 구매일(12-24) 8일 전(12-16) → summary earlyCycle 없음 · earlyFrom 12-17 · POST 409 not-yet 「다음 구매일 2026-12-24 7일 전부터 누를 수 있습니다.」 · 쓰기 0 · 기록 그대로',
-      m8.cycleDay === '2026-11-27' && m8.done && m8.nextDay === '2026-12-24' && m8.earlyCycle === null && m8.earlyFrom === '2026-12-17' && m8.nextDoneDay === null &&
-        r8.status === 409 && b8.kind === 'not-yet' && b8.error === '다음 구매일 2026-12-24 7일 전부터 누를 수 있습니다.' && google.writes === 0 && purchaseCountForTest() === 1);
+    check('[117-2] [151-6] 구매일(12-24) 8일 전(12-16) → 다음 차례 canDone 없음 · earlyFrom 12-17 · POST 409 not-yet 「다음 구매일 2026-12-24 7일 전부터 누를 수 있습니다.」 · 쓰기 0 · 기록 그대로',
+      m8.cycleDay === '2026-11-27' && allIs(m8, 'done', '2026-11-27') && m8.nextDay === '2026-12-24' && m8.accounts.every((x) => !x.next.canDone && x.next.canSkip && x.next.status === 'todo') && m8.earlyFrom === '2026-12-17' &&
+        r8.status === 409 && b8.kind === 'not-yet' && b8.error === '다음 구매일 2026-12-24 7일 전부터 누를 수 있습니다.' && google.writes === 0 && purchaseCountForTest() === 4);
     at('2026-12-17');
     const m7 = await sumMb();
-    const r7 = await done();
-    const b7 = await kindMsg(r7);
+    const r7 = await doneAll('2026-12-24');
     const written7 = writesSeen.map((w) => String(w.value));
-    check('[117-2] 7일 전(12-17) → summary earlyCycle 12-24 · sheetDates 그 차례의 달 2026.12 · POST 200 차례 12-24 · 누른 날 12-17 · 쓰기 1번',
-      m7.earlyCycle === '2026-12-24' && JSON.stringify(m7.sheetDates) === JSON.stringify(['2026.12']) && r7.status === 200 && b7.cycleDay === '2026-12-24' && b7.doneDay === '2026-12-17' && google.writes === 1, JSON.stringify(m7.sheetDates));
-    check('[117-2] 시트에는 그 차례의 달 2026.12(누른 날의 달이 아님 — 112차 규칙 그대로) · asset_purchase 1줄 더(차례 12-24 · done_at 12-17)',
-      written7.length > 0 && written7.every((v) => v.includes('( 2026.12 )')) && purchaseCountForTest() === 2 && doneAtOf('2026-12-24') === '2026-12-17', written7.length.toString());
+    check('[117-2] [151-6] 7일 전(12-17) → 다음 차례 canDone · doneCycle 12-24 · sheetDateText 그 차례의 달 2026.12 · POST 200 차례 12-24 · 누른 날 12-17 · 계좌마다 쓰기 1번',
+      m7.accounts.every((x) => x.next.canDone && x.doneCycle === '2026-12-24' && x.sheetDateText === '2026.12') && r7.every((r) => r.status === 200 && r.body.cycleDay === '2026-12-24' && r.body.at === '2026-12-17') && google.writes === 4);
+    check('[117-2] 시트에는 그 차례의 달 2026.12(누른 날의 달이 아님 — 112차 규칙 그대로) · 기록 4줄 더(차례 12-24 · at 12-17)',
+      written7.length === 4 && written7.every((v) => v.includes('( 2026.12 )')) && purchaseCountForTest() === 8 && JSON.stringify(recAt('2026-12-24')) === JSON.stringify(['2026-12-17']), written7.length.toString());
     const mAfter = await sumMb();
-    const rAgain = await done();
+    const rAgain = await act('done', '2026-12-24', '개별 투자');
     const bAgain = await kindMsg(rAgain);
-    check('[117-2] 미리 완료한 뒤 summary nextDoneDay 12-17 · earlyCycle 없음 · 다시 누르면 409 already-done 「이미 구매 완료를 눌렀습니다(2026-12-17).」 · 쓰기 늘지 않음',
-      mAfter.nextDoneDay === '2026-12-17' && mAfter.earlyCycle === null && rAgain.status === 409 && bAgain.kind === 'already-done' && bAgain.error === '이미 구매 완료를 눌렀습니다(2026-12-17).' && google.writes === 1);
+    check('[117-2] 미리 완료한 뒤 다음 차례 done · at 12-17 · canDone 없음 · 다시 누르면 409 already-done 「이미 구매 완료했습니다(2026-12-17).」 · 쓰기 늘지 않음',
+      mAfter.accounts.every((x) => x.next.status === 'done' && x.next.at === '2026-12-17' && !x.next.canDone) && rAgain.status === 409 && bAgain.kind === 'already-done' && bAgain.error === '이미 구매 완료했습니다(2026-12-17).' && google.writes === 4);
     at('2026-12-24');
     const mDay = await sumMb();
-    check('[117-2] 구매일 당일(12-24) → 이번 차례 12-24 · 이미 완료(done · doneDay 12-17) → 팝업 조건(!done && !skipped) 거짓 = 팝업 안 뜸',
-      mDay.cycleDay === '2026-12-24' && mDay.done && mDay.doneDay === '2026-12-17' && !(!mDay.done && !mDay.skipped));
+    check('[117-2] 구매일 당일(12-24) → 이번 차례 12-24 · 이미 완료(at 12-17) → 팝업 안 뜸(needsPopup 거짓)',
+      mDay.cycleDay === '2026-12-24' && allIs(mDay, 'done', '2026-12-17') && !mDay.needsPopup);
 
-    // 2. 지금 차례가 미완료면 미리 완료 없음 — 늦은 차례가 대상
+    // 2. 지금 차례가 아직이면 미리 처리 없음 — 늦은 차례가 대상
     fresh();
     clearPurchasesForTest();
     at('2026-11-27');
     await sumMb(); // 시작한 날 11-27
     at('2026-12-20');
     const mLate = await sumMb();
-    const rLate = await done();
+    const rNext = await act('done', '2026-12-24', '개별 투자');
+    const bNext = await kindMsg(rNext);
+    const rSkipNext = await act('skip', '2026-12-24', '개별 투자');
+    const bSkipNext = await kindMsg(rSkipNext);
+    const rLate = await act('done', '2026-11-27', '개별 투자');
     const bLate = await kindMsg(rLate);
     const mLate2 = await sumMb();
-    check('[117-2] 지금 차례(11-27) 미완료 · 다음 구매일 4일 전(12-20) → earlyCycle 없음 · POST 대상 = 늦은 차례 11-27(시트에 2026.11) · 그 뒤에야 earlyCycle 12-24',
-      mLate.cycleDay === '2026-11-27' && !mLate.done && mLate.earlyCycle === null && JSON.stringify(mLate.sheetDates) === JSON.stringify(['2026.11']) &&
-        rLate.status === 200 && bLate.cycleDay === '2026-11-27' && writesSeen.every((w) => String(w.value).includes('( 2026.11 )')) && mLate2.done && mLate2.earlyCycle === '2026-12-24');
+    const late = accOf(mLate, '개별 투자');
+    const late2 = accOf(mLate2, '개별 투자');
+    check('[117-2] [151-6] 지금 차례(11-27) 아직 · 다음 구매일 4일 전(12-20) → 다음 차례 canDone · canSkip 없음 · 다음 차례 POST 409 「이번 차례(2026-11-27)를 먼저 끝내 주세요.」(완료 · 건너뛰기 둘 다) · 대상 = 늦은 차례 11-27(시트에 2026.11) · 그 뒤에야 다음 차례 canDone',
+      mLate.cycleDay === '2026-11-27' && late?.status === 'todo' && !late.next.canDone && !late.next.canSkip && late.doneCycle === '2026-11-27' && late.sheetDateText === '2026.11' &&
+        rNext.status === 409 && bNext.error === '이번 차례(2026-11-27)를 먼저 끝내 주세요.' && rSkipNext.status === 409 && bSkipNext.error === '이번 차례(2026-11-27)를 먼저 끝내 주세요.' &&
+        rLate.status === 200 && bLate.cycleDay === '2026-11-27' && writesSeen.length === 1 && writesSeen.every((w) => String(w.value).includes('( 2026.11 )')) && late2?.status === 'done' && late2.next.canDone);
 
     // 3. 시작 전 차례(skipped) 다음 차례도 7일 전부터
     fresh();
@@ -1464,17 +1494,17 @@ try {
     at('2026-11-07'); // 시작한 날 11-07 · 차례 10-30(시작 전) · 다음 11-27 · 7일 전 11-20
     const mS0 = await sumMb();
     at('2026-11-19');
-    const rS1 = await done();
+    const rS1 = await act('done', '2026-11-27', '개별 투자');
     const bS1 = await kindMsg(rS1);
     at('2026-11-20');
     const mS2 = await sumMb();
-    const rS2 = await done();
+    const rS2 = await act('done', '2026-11-27', '개별 투자');
     const bS2 = await kindMsg(rS2);
     at('2026-11-27');
     const mS3 = await sumMb();
-    check('[117-2] 시작 전 차례(10-30) — 다음 차례 11-27 의 8일 전(11-19) 409 not-yet · 7일 전(11-20) earlyCycle 11-27 · POST 200 · 구매일 당일 이미 완료(팝업 안 뜸)',
-      mS0.skipped && mS0.earlyFrom === '2026-11-20' && mS0.earlyCycle === null && rS1.status === 409 && bS1.kind === 'not-yet' &&
-        mS2.skipped && mS2.earlyCycle === '2026-11-27' && rS2.status === 200 && bS2.cycleDay === '2026-11-27' && mS3.cycleDay === '2026-11-27' && mS3.done && !mS3.skipped);
+    check('[117-2] 시작 전 차례(10-30) — 다음 차례 11-27 의 8일 전(11-19) 409 not-yet · 7일 전(11-20) canDone · POST 200 · 구매일 당일 그 계좌는 완료',
+      mS0.skipped && mS0.earlyFrom === '2026-11-20' && !accOf(mS0, '개별 투자')?.next.canDone && rS1.status === 409 && bS1.kind === 'not-yet' &&
+        mS2.skipped && accOf(mS2, '개별 투자')?.next.canDone === true && rS2.status === 200 && bS2.cycleDay === '2026-11-27' && mS3.cycleDay === '2026-11-27' && accOf(mS3, '개별 투자')?.status === 'done' && !mS3.skipped);
     setPurchaseClockForTest(null);
     clearPurchasesForTest();
     fresh();
@@ -1516,11 +1546,11 @@ const fnBody = (name: string) => {
   const i = src.indexOf(`export async function ${name}(`);
   return i < 0 ? '' : src.slice(i, src.indexOf('\n}\n', i));
 };
-// 111차: 부르는 곳이 셋(+ writeAccountDates 계좌 이름 날짜)
+// 111차: 부르는 곳이 셋(+ 계좌 이름 날짜 — 151차 writeAccountDates → writeAccountDate 계좌 하나)
 // 113차: 시트 가격(priceSheet.ts 바꾸기 · 되돌리기 · priceWriter.ts 10초 쓰기)이 같은 함수를 부른다(쓰는 방식은 인자 — `assetprice:test` [113-7])
 // 139차: 현금 자동 반영(cashMoves.ts writeCashMove — 「현금」 은행 계좌 줄 C열) 한 곳이 늘었다
 const WRITE_CALLERS = JSON.stringify(['server/asset/cashMoves.ts', 'server/asset/google.ts', 'server/asset/priceSheet.ts', 'server/asset/priceSheet.ts', 'server/asset/priceWriter.ts', 'server/asset/rowOps.ts', 'server/asset/rowOps.ts', 'server/asset/sheet.ts', 'server/asset/sheet.ts', 'server/asset/sheet.ts', 'server/asset/trade.ts']);
-check('[106-8] [109-1] [111-8] 시트 쓰기 함수 valuesWrite — 정의(google.ts) 1 + 부르는 곳 sheet.ts 3(writeAssetClasses · writeTargetRatio · writeAccountDates) + 113차 시트 가격 3(priceSheet.ts 2 · priceWriter.ts 1) + 118차 매수 · 매도 입력 1(trade.ts) + 120차 줄 넣기 2(rowOps.ts) + 139차 현금 자동 반영 1(cashMoves.ts)뿐 · 옛 valuesUpdate 0', JSON.stringify(callers.sort()) === WRITE_CALLERS && /valuesWrite\(/.test(fnBody('writeAssetClasses')) && /valuesWrite\(/.test(fnBody('writeTargetRatio')) && /valuesWrite\(/.test(fnBody('writeAccountDates')) && !/\bvaluesUpdate\b/.test(appCode), callers.join(','));
+check('[106-8] [109-1] [111-8] 시트 쓰기 함수 valuesWrite — 정의(google.ts) 1 + 부르는 곳 sheet.ts 3(writeAssetClasses · writeTargetRatio · 151차 writeAccountDate 계좌 하나) + 113차 시트 가격 3(priceSheet.ts 2 · priceWriter.ts 1) + 118차 매수 · 매도 입력 1(trade.ts) + 120차 줄 넣기 2(rowOps.ts) + 139차 현금 자동 반영 1(cashMoves.ts)뿐 · 옛 valuesUpdate 0', JSON.stringify(callers.sort()) === WRITE_CALLERS && /valuesWrite\(/.test(fnBody('writeAssetClasses')) && /valuesWrite\(/.test(fnBody('writeTargetRatio')) && /valuesWrite\(/.test(fnBody('writeAccountDate')) && !/\bvaluesUpdate\b/.test(appCode), callers.join(','));
 // 120차: 구조 쓰기(줄 넣기 · 지우기 · 칸 복사 — `structureWrite` 의 spreadsheets:batchUpdate)가 생겼다 — 주소는 google.ts 한 곳
 const structureFiles = codeFiles.filter(({ src }) => /(?<!values):batchUpdate/.test(src)).map((x) => x.f).join(',');
 check('[106-8] [109-1] [120-8] 그 밖의 구글 쓰기 주소(values:append · values:clear) 0 · spreadsheets:batchUpdate 는 google.ts 한 곳(structureWrite) · values:batchUpdate 는 google.ts 한 곳 · googleapis 는 google.ts 한 곳', structureFiles === 'server/asset/google.ts' && !/values:append|values:clear|values:batchClear/.test(appCode) && codeFiles.filter(({ src }) => /values:batchUpdate/.test(src)).map((x) => x.f).join(',') === 'server/asset/google.ts' && codeFiles.filter(({ src }) => /sheets\.googleapis\.com/.test(src)).map((x) => x.f).join(',') === 'server/asset/google.ts');
@@ -1570,7 +1600,7 @@ check('[111-7] 자산 현황 요약 목표 비율 순서 = 현금 · 채권 · �
 const changed111 = chasuDiff(root, { base: '2b548e5', version: 'v2.64.0' }, ['--name-only'], ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'python']);
 check('[111-9] 매매 · 시황 · 자동매매 · 거래정지 · 시장 달력 코드 바뀐 파일 0(2b548e5 → v2.64.0 끝)', changed111.status === 0 && changed111.stdout.trim() === '', changed111.stdout.trim() || changed111.stderr.trim());
 // [111-10] 구매 완료 경로가 로그에 계좌 이름 · 날짜 · 금액을 찍지 않는다(이유 종류만) — 소스 검사 + 아래 출력 검사
-const purchaseSrc = ['server/asset/purchase.ts', 'server/asset/routes.ts'].map((f) => fs.readFileSync(path.join(root, f), 'utf8')).join('\n') + fnBody('writeAccountDates');
+const purchaseSrc = ['server/asset/purchase.ts', 'server/asset/routes.ts'].map((f) => fs.readFileSync(path.join(root, f), 'utf8')).join('\n') + fnBody('writeAccountDate');
 check('[111-10] 구매 완료 · 이번 달 구매 코드에 console 출력 없음(실패 로그는 sendSheetError 의 이유 종류 한 줄뿐)', !/console\.(log|info|debug)/.test(purchaseSrc) && (purchaseSrc.match(/console\.warn/g) ?? []).length === 2);
 // [112-1] 화면 — 시작 전 차례면 팝업을 열지 않고(처음 정할 때 · 그릴 때 둘 다) [구매 완료] 를 숨긴다(화면 동작은 Playwright 로도)
 const buySrc = fs.readFileSync(path.join(root, 'src/components/asset/AssetMonthlyBuy.tsx'), 'utf8');

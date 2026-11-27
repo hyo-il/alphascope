@@ -1,5 +1,5 @@
 /*
-  자산 관리(v2.61.0 · v2.62.0 · v2.64.0 구매 완료 · v2.65.0 시트 가격) 주소 — 모두 로그인 문지기(`authGuard`) 뒤다. `server/index.ts` 가 `app.use(assetRouter)` 로 붙인다(주소는 전체 경로 그대로).
+  자산 관리(v2.61.0 · v2.62.0 · v2.64.0 구매 완료(v2.78.0 계좌마다) · v2.65.0 시트 가격) 주소 — 모두 로그인 문지기(`authGuard`) 뒤다. `server/index.ts` 가 `app.use(assetRouter)` 로 붙인다(주소는 전체 경로 그대로).
   - 자산 문지기(`assetGuard`)는 이 라우터 맨 앞 **한 곳**에서 모든 `/api/asset/*` 를 막는다 — 잠겨 있으면 403 `asset-locked`.
     빠지는 것은 `status` · `unlock` · `lock` 셋뿐이다(라우트마다 따로 검사하지 않는다).
   - 잠금 시간(v2.65.4): 잠겼는지 볼 때 잠금 시간이 지났으면 그 세션을 잠근다(`lock.ts` `lockStateOf`). 통과한 요청 중 `ACTIVE`(touch · 쓰기)만
@@ -11,12 +11,12 @@ import { readSessionCookie } from '../auth';
 import { assetLimiter, isAssetPasswordSet, isUnlocked, lockSession, lockStateOf, touchSession, unlockSession, verifyAssetPassword } from './lock';
 import { assetSheetConfig, isAssetSyncEnabled, isSheetConfigured } from './config';
 import { AssetSheetError, batchGet } from './google';
-import { readAssetSheet, writeAccountDates, writeAssetClasses, writeTargetRatio } from './sheet';
-import { currentCycle, purchaseTargetOf } from './purchase';
+import { readAssetSheet, writeAccountDate, writeAssetClasses, writeTargetRatio } from './sheet';
+import { purchaseAccountsInput, purchaseActionCheck, purchaseStateOf } from './purchase';
 import { assetSummary, usdKrwNow } from './summary';
 import { checkSheetSwitchSafe, sheetSwitchedAt } from './sheetSwitch';
 import { convertSheetPrices, restoreSheetPrices } from './priceSheet';
-import { allRecords, dailyNotes, historyPoints, isHistoryRange, recordPurchase, saveDailyNote } from './store';
+import { allRecords, dailyNotes, historyPoints, isHistoryRange, purchaseMonthlyOff, recordPurchase, saveDailyNote, savePurchaseMonthlyOff, undoPurchase } from './store';
 import { readPensionSections, writeAssetSettings } from './settings';
 import { listTrades, planNewHolding, recordNewHolding, recordTrade, tradesForChange } from './trade';
 import { dailyChanges } from './dailyChange';
@@ -26,7 +26,7 @@ import { cashLines, cellNumber, findCashLine } from './cashKeys';
 import { readCashBankFix, writeCashBankFix } from './cashBanks';
 import { applyManualCash } from './cashManual';
 import { kstDay } from './cashSchedule';
-import { cashBankLabelOf, type AssetCashPairView, type AssetSheetCashBanks, type AssetSheetErrorKind, AssetSheetFailure, AssetStatus, AssetTouchResult, PurchaseDoneResult } from '../../src/types/asset';
+import { cashBankLabelOf, type AssetCashPairView, type AssetSheetCashBanks, type AssetSheetErrorKind, AssetSheetFailure, AssetStatus, AssetTouchResult, PurchaseActionRequest, PurchaseActionResult, PurchaseMonthlyRequest } from '../../src/types/asset';
 
 export const assetRouter = Router();
 
@@ -37,7 +37,10 @@ export const ACTIVE = new Set([
   'PUT /api/asset/class',
   'PUT /api/asset/settings',
   'PUT /api/asset/target-ratio',
-  'POST /api/asset/purchase-done',
+  'POST /api/asset/purchase/done',
+  'POST /api/asset/purchase/skip',
+  'POST /api/asset/purchase/undo',
+  'PUT /api/asset/purchase/monthly-accounts',
   'POST /api/asset/price-source/convert',
   'POST /api/asset/price-source/restore',
   'POST /api/asset/trade',
@@ -160,32 +163,62 @@ assetRouter.put('/api/asset/target-ratio', async (req, res) => {
 });
 
 /**
- * 「구매 완료」(v2.64.0 · v2.65.4 미리 완료) — 누를 차례(`purchaseTargetOf` — 미완료인 이번 차례 · 없으면 구매일 7일 전부터 다음 차례)를 완료로 기록하고,
- * 시트 「주식 투자 정리」 계좌 이름의 「( 날짜 )」 를 **그 차례의 날짜**(`YYYY.MM` 모양이면 차례의 달 — 늦게 · 미리 눌러도 · v2.64.1)로 바꾼다.
- * 되돌리기 없음(날짜는 사용자가 시트에서 직접 고친다). 순서:
- * ① 스위치 꺼짐 → 503 `disabled` ② 누를 차례 없음 → 409 `not-yet`(다음 구매일 7일 전이 아직) · `already-done`(다음 차례도 이미 완료)
- * ③ 같은 서버에서 저장 중 → 409 `already-done` ④ 시트 쓰기(`writeAccountDates`)
- * ⑤ **시트 쓰기가 성공했을 때만** `asset_purchase` 에 한 줄(`done_at` = 누른 날). 같은 서버에서 동시에 두 번 누르면 뒤의 것은 409(쓰기 한 번).
+ * 이번 달 구매(v2.78.0 — 계좌마다) — 요청 몸 `{ cycleDay, section }`. 받을지는 `purchase.ts` `purchaseActionCheck` 한 곳
+ * (화면 목록 · 팝업과 같은 `purchaseAccountsOf` 결과 — 처리할 수 없는 차례 409 · 모르는 계좌 · 매달 사지 않는 계좌 400).
+ * - `done`: ① 스위치 꺼짐 → 503 `disabled`(이것만 막힘) ② 검사 ③ 같은 계좌가 처리 중 → 409 `busy` ④ `writeAccountDate`(그 계좌 칸 하나 —
+ *   시트 날짜가 이미 그 차례 달 이후면 쓰지 않음) ⑤ **시트 쓰기가 성공했을 때만**(또는 쓸 필요가 없었을 때) 기록 `done`(누른 날).
+ * - `skip`: 시트를 쓰지 않고 기록 `skip` · `undo`: 기록만 지움(**시트 날짜는 되돌리지 않는다**).
+ * 같은 계좌를 동시에 두 번 누르면 뒤의 것은 409(쓰기 한 번).
  */
-let purchaseBusy = false;
-assetRouter.post('/api/asset/purchase-done', async (_req, res) => {
+const purchaseBusy = new Set<string>();
+type PurchaseRoute = 'done' | 'skip' | 'undo';
+async function purchaseAction(action: PurchaseRoute, req: Request, res: Response): Promise<void> {
   try {
-    if (!isAssetSyncEnabled()) throw new AssetSheetError('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다(ASSET_SYNC_ENABLED=false).');
-    const before = currentCycle();
-    const target = purchaseTargetOf(before);
-    if (!target.ok) throw new AssetSheetError(target.kind, target.message);
-    if (purchaseBusy) throw new AssetSheetError('already-done', '이미 구매 완료를 눌렀습니다(저장 중).');
-    purchaseBusy = true;
+    if (action === 'done' && !isAssetSyncEnabled()) throw new AssetSheetError('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다(ASSET_SYNC_ENABLED=false).');
+    const { cycleDay, section } = (req.body ?? {}) as Partial<PurchaseActionRequest>;
+    const state = purchaseStateOf(purchaseAccountsInput(await readAssetSheet()));
+    const ok = purchaseActionCheck(state, action, cycleDay, section);
+    if (!ok.ok) throw new AssetSheetError(ok.kind, ok.message);
+    const day = cycleDay as string;
+    const key = ok.account.section;
+    if (purchaseBusy.has(key)) throw new AssetSheetError('busy', '그 계좌를 처리하는 중입니다 — 잠시 뒤 다시 보세요.');
+    purchaseBusy.add(key);
     try {
-      const { cells } = await writeAccountDates(target.cycleDay);
-      recordPurchase(target.cycleDay, before.today);
-      const body: PurchaseDoneResult = { cycleDay: target.cycleDay, doneDay: before.today, cells };
+      let body: PurchaseActionResult;
+      if (action === 'undo') {
+        if (!undoPurchase(day, key)) throw new AssetSheetError('not-yet', '되돌릴 기록이 없습니다.');
+        body = { cycleDay: day, section: key, status: 'todo', at: state.today };
+      } else if (action === 'skip') {
+        if (!recordPurchase(day, key, 'skip', state.today)) throw new AssetSheetError('already-done', '이미 처리한 차례입니다.');
+        body = { cycleDay: day, section: key, status: 'skip', at: state.today };
+      } else {
+        const w = await writeAccountDate(day, key);
+        if (!recordPurchase(day, key, 'done', state.today)) throw new AssetSheetError('already-done', '이미 처리한 차례입니다.');
+        body = { cycleDay: day, section: key, status: 'done', at: state.today, written: w.written, sheetDate: w.sheetDate };
+      }
       res.json(body);
     } finally {
-      purchaseBusy = false;
+      purchaseBusy.delete(key);
     }
   } catch (e) {
-    sendSheetError(res, e, '쓰기');
+    sendSheetError(res, e, action === 'done' ? '쓰기' : '기록');
+  }
+}
+assetRouter.post('/api/asset/purchase/done', (req, res) => void purchaseAction('done', req, res));
+assetRouter.post('/api/asset/purchase/skip', (req, res) => void purchaseAction('skip', req, res));
+assetRouter.post('/api/asset/purchase/undo', (req, res) => void purchaseAction('undo', req, res));
+
+/** 매달 사는 계좌(v2.78.0) — `{ section, monthly }` 계좌 하나를 켜고 끈다(앱 DB · 시트를 쓰지 않음). 시트에 없는 계좌는 400 */
+assetRouter.put('/api/asset/purchase/monthly-accounts', async (req, res) => {
+  try {
+    const { section, monthly } = (req.body ?? {}) as Partial<PurchaseMonthlyRequest>;
+    const keys = purchaseAccountsInput(await readAssetSheet()).map((a) => a.key);
+    if (typeof section !== 'string' || !keys.includes(section) || typeof monthly !== 'boolean') throw new AssetSheetError('not-editable', '그 계좌를 시트에서 찾지 못했습니다.');
+    const off = purchaseMonthlyOff().filter((k) => k !== section);
+    savePurchaseMonthlyOff(monthly ? off : [...off, section]);
+    res.json({ section, monthly });
+  } catch (e) {
+    sendSheetError(res, e, '기록');
   }
 });
 

@@ -25,7 +25,7 @@ import { priceSheetStatus, restoreSheetPrices } from '../server/asset/priceSheet
 import { clearPriceStateForTest, priceMoved, priceRows, priceSkipped, priceSource, savePriceState } from '../server/asset/priceState';
 import { checkSheetSwitch, clearSheetKeyForTest, sheetKeyOf, sheetSwitchedAt, storedSheetKeyForTest } from '../server/asset/sheetSwitch';
 import {
-  archiveCountsForTest, clearArchivesForTest, clearPurchasesForTest, clearRecordsForTest, clearSheetBackup, insertRecord, purchaseStartDay, recordPurchase, saveSheetBackup, sheetBackup,
+  archiveCountsForTest, clearArchivesForTest, clearPurchasesForTest, clearRecordsForTest, clearSheetBackup, insertRecord, purchaseStartDay, recordPurchase, saveSheetBackup, savePurchaseMonthlyOff, sheetBackup,
 } from '../server/asset/store';
 import type { AssetTotals } from '../src/types/asset';
 import { runSheetCheck, sheetArg } from './assetCheckSheet';
@@ -253,11 +253,11 @@ try {
     process.env.ASSET_SYNC_ENABLED = 'true';
     const db = getDb();
     const count = (t: string) => (db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n;
-    const KEEP = ['asset.pensionSections', 'asset.satelliteSymbols', 'asset.classColors', 'asset.rebalanceBand', 'asset.purchaseStartDay'];
+    const KEEP = ['asset.pensionSections', 'asset.satelliteSymbols', 'asset.classColors', 'asset.rebalanceBand', 'asset.purchaseStartDay', 'asset.purchaseMonthlyOff'];
     const snapshot = () =>
       JSON.stringify({
         settings: db.prepare(`SELECT key, value FROM app_settings WHERE key IN (${KEEP.map(() => '?').join(',')}) ORDER BY key`).all(...KEEP),
-        purchase: db.prepare(`SELECT * FROM asset_purchase ORDER BY cycle_date`).all(),
+        purchase: db.prepare(`SELECT * FROM asset_purchase_account ORDER BY cycle_date, section`).all(),
       });
     // 처음 상태(사본 DB) — 비우고 시작
     clearSheetKeyForTest();
@@ -293,7 +293,9 @@ try {
     put.run('asset.classColors', JSON.stringify({ cash: 'red', bond: 'purple', gold: 'yellow', stock: 'teal', retirement: 'pink' }));
     put.run('asset.rebalanceBand', '7');
     purchaseStartDay('2026-10-01');
-    recordPurchase('2026-10-30', '2026-10-30');
+    recordPurchase('2026-10-30', '개별 투자', 'done', '2026-10-30');
+    recordPurchase('2026-10-30', 'ISA 계좌', 'skip', '2026-10-30');
+    savePurchaseMonthlyOff(['연금 저축 계좌']);
     const before = snapshot();
     const dailyBefore = db.prepare(`SELECT day, total, total_pension, totals_json, missing, recorded_at FROM asset_daily ORDER BY day`).all();
 
@@ -313,7 +315,7 @@ try {
     check('[114-4] 새 시트에는 쓰지 않음 — 바뀜 처리 · 되돌리기(no-backup) 모두 구글 호출 0', restoreKind === 'no-backup' && g.reads === 0 && g.writes === 0, `${restoreKind} r${g.reads} w${g.writes}`);
     check('[114-4] 서버 로그 한 줄 「[asset] 시트가 바뀜 — 하루 기록 3줄 보관 · 옛 시트 백업 3칸 보관」(ID 없음)', captured.some((l) => l === '[asset] 시트가 바뀜 — 하루 기록 3줄 보관 · 옛 시트 백업 3칸 보관'), captured.join(' / '));
     check('[114-4] 바뀐 시각 저장(빈 차트 「원본 시트 연결 뒤 ○부터」)', sheetSwitchedAt() === '2026-11-07T23:10:00.000Z');
-    check('[114-5] 그대로 두는 것 — 위성 · 연금 · 색 · 범위 · purchaseStartDay · asset_purchase 값이 처리 전후 같음', snapshot() === before && before.includes('ISA 계좌') && before.includes('2026-10-30'));
+    check('[114-5] 그대로 두는 것 — 위성 · 연금 · 색 · 범위 · purchaseStartDay · 매달 사는 계좌 · asset_purchase_account(151차 — 계좌마다) 값이 처리 전후 같음', snapshot() === before && before.includes('ISA 계좌') && before.includes('2026-10-30') && before.includes('skip') && before.includes('purchaseMonthlyOff'));
 
     // 서버를 다시 켜도(같은 해시) 다시 하지 않음 — 다른 프로세스로 확인
     insertRecord('2026-11-06', totals(201), totals(202), '2026-11-06T23:00:00.000Z');

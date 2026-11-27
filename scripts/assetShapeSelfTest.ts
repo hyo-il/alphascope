@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { AssetSheetError, resetTokenCache } from '../server/asset/google';
-import { parseAssetSheet, readAssetSheet, resetSheetCache, resolveClassRows, sheetRanges, writeAccountDates, writeAssetClasses } from '../server/asset/sheet';
+import { parseAssetSheet, readAssetSheet, resetSheetCache, resolveClassRows, sheetRanges, writeAccountDate, writeAssetClasses } from '../server/asset/sheet';
 import { findHoldingSections, findTickerGroups, locateRow } from '../server/asset/sheetShape';
 import { recordTrade } from '../server/asset/trade';
 import type { AssetSheetData } from '../src/types/asset';
@@ -243,7 +243,7 @@ try {
   for (const [label, change] of fails.slice(0, 3)) {
     reset((m) => { change(m); Object.assign(m.formulas, m.values); for (const k of Object.keys(m.formulas)) if (!(k in m.values) && k.startsWith(`${H}!B`)) delete m.formulas[k]; });
     const before = g.writes.length;
-    const k = await kindOf(writeAccountDates('2026-11-27'));
+    const k = await kindOf(writeAccountDate('2026-11-27', '개별 투자'));
     check(`[119-3] 쓰기에서도 ${label} → shape · 쓰기 0`, k === 'shape' && g.writes.length === before, k);
   }
   for (const [label, change] of fails.slice(4, 6)) {
@@ -321,9 +321,10 @@ try {
 
   // 계좌 이름 날짜 — 줄을 넣은 뒤 찾은 머리 줄에 쓴다
   reset((m) => insertRow(m, H, 6, (row, d) => { d[`${H}!B${row}`] = '끼어든보유'; d[`${H}!C${row}`] = 1; d[`${H}!D${row}`] = 1; }));
-  const dates = await writeAccountDates('2026-11-27');
+  const dates = [] as boolean[];
+  for (const sec of ['개별 투자', '적립식 계좌', 'ISA 계좌', '연금 저축 계좌']) dates.push((await writeAccountDate('2026-11-27', sec)).written);
   const written = g.writes.map((w) => w.range).sort().join(',');
-  check('[119-6] 계좌 이름 날짜 — 줄을 넣어도 찾은 머리 줄(B4 · B13 · B22 · B30)에 씀', dates.cells === 4 && written === [`'${H}'!B13`, `'${H}'!B22`, `'${H}'!B30`, `'${H}'!B4`].sort().join(','), written);
+  check('[119-6] [151-1] 계좌 이름 날짜 — 줄을 넣어도 찾은 머리 줄(B4 · B13 · B22 · B30)에 계좌마다 그 칸 하나씩 씀', dates.every(Boolean) && g.writes.length === 4 && written === [`'${H}'!B13`, `'${H}'!B22`, `'${H}'!B30`, `'${H}'!B4`].sort().join(','), written);
 } finally {
   globalThis.fetch = realFetch;
   fs.rmSync(tmp, { recursive: true, force: true });
