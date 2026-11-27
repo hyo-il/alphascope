@@ -44,13 +44,14 @@ function Row({
   const rate =
     previousClose && previousClose > 0 ? ((level.price - previousClose) / previousClose) * 100 : null;
 
+  // 전일 종가보다 오르면 초록 · 내리면 빨강(앱 전체 등락 색과 같음 — 테마 9-1 R2 · R3)
   const priceColor =
     rate == null
       ? 'text-text-primary'
       : rate > 0
-        ? 'text-bearish'
+        ? 'text-bullish'
         : rate < 0
-          ? 'text-bullish'
+          ? 'text-bearish'
           : 'text-text-secondary';
 
   const quantity = (
@@ -60,6 +61,8 @@ function Row({
         className={`absolute inset-y-0.5 ${isAsk ? 'right-0' : 'left-0'} rounded-sm ${
           isAsk ? 'bg-bearish/20' : 'bg-bullish/20'
         }`}
+        data-tone={isAsk ? 'sell' : undefined}
+        data-side={isAsk ? 'ask' : 'bid'}
         style={{ width: `${ratio}%` }}
       />
       <span
@@ -84,7 +87,7 @@ function Row({
         isBest ? 'bg-bg-tertiary/60' : ''
       } ${isCurrent ? 'ring-1 ring-inset ring-text-primary/60' : ''}`}
     >
-      <span className={`block whitespace-nowrap text-xs font-medium leading-tight tabular-nums ${priceColor}`}>{label}</span>
+      <span className={`block whitespace-nowrap text-xs font-medium leading-tight tabular-nums ${priceColor}`} data-tone={rate != null && rate < 0 ? 'down' : undefined}>{label}</span>
       {rate != null && (
         <span className={`block whitespace-nowrap text-caption leading-tight tabular-nums ${priceColor} opacity-70`}>
           {formatSigned(rate, 2, '%')}
@@ -260,7 +263,7 @@ export default function OrderbookPanel({
 
           <div className="border-t border-border px-3 py-1">
             <div className="flex items-center justify-between text-caption tabular-nums">
-              <span className="text-bearish">{formatCompact(askTotal)}</span>
+              <span className="text-bearish" data-tone="sell">{formatCompact(askTotal)}</span>
               <span className="text-caption text-text-muted">총잔량</span>
               <span className="text-bullish">{formatCompact(bidTotal)}</span>
             </div>
@@ -269,6 +272,7 @@ export default function OrderbookPanel({
             <div className="mt-1 flex h-1 overflow-hidden rounded-full bg-bg-tertiary">
               <div
                 className="bg-bearish/70"
+                data-tone="sell"
                 style={{ width: `${(askTotal / Math.max(1, askTotal + bidTotal)) * 100}%` }}
               />
               <div className="flex-1 bg-bullish/70" />

@@ -18,6 +18,7 @@
  * 쓰는 법(테스트 서버를 띄운 뒤 · 크기마다 따로 · Bash 한 번 10분 안 — 넘으면 `PART=1/2` · `PART=2/2` 로 장면을 나눈다):
  *   DB_PATH=<사본> BASE=http://127.0.0.1:5180 SIZES=1440x900 npx tsx scripts/designReviewShots.ts
  *   목록만 다시 쓰기(찍지 않음): DB_PATH=<사본> LIST_ONLY=1 npx tsx scripts/designReviewShots.ts
+ *   장면 · 가짜 응답(`allScenes` · `fakeContext` · `prepareData` · `waitLoaded`)은 `designrules:test`(155차 · 색 · 글 규칙)가 다시 쓴다.
  *   OUT 기본 = 관리 루트 `docs/design-review/<오늘 KST>_<changelog 맨 앞 버전>` · `ONLY=<장면 파일 이름 정규식>`
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
@@ -49,7 +50,7 @@ const SIZES = process.env.SIZES
 const MAX_FULL_HEIGHT = 8000;
 
 type Kind = 'page' | 'dialog';
-interface Scene {
+export interface Scene {
   /** 파일 이름(확장자 없이) — `<메뉴>-<탭 또는 창>` · 네 크기 같은 이름 */
   file: string;
   /** 메뉴 › 탭 */
@@ -317,7 +318,7 @@ function quantScenes(): Scene[] {
     },
   ];
 }
-async function prepareData(page: Page) {
+export async function prepareData(page: Page) {
   await page.evaluate(async () => {
     const list = (await (await fetch('/api/backtest/reports')).json()) as { reports: unknown[] };
     if (list.reports.length) return;
@@ -364,7 +365,7 @@ function chartScenes(): Scene[] {
   ];
 }
 
-function allScenes(): { scenes: Scene[]; missing: string[] } {
+export function allScenes(): { scenes: Scene[]; missing: string[] } {
   const dc = designCheckScenes();
   const scenes = [...pageScenes(), ...panelScenes(), ...accountScenes(), ...quantScenes(), ...chartScenes(), ...dc.scenes];
   // 계좌 › 실제 계좌는 메뉴 장면(portfolio-real)이 가짜 보유로 찍힌다
@@ -409,7 +410,7 @@ function geminiSample(symbol: string) {
     promptVersion: 'v-예시',
   };
 }
-async function fakeContext(ctx: BrowserContext) {
+export async function fakeContext(ctx: BrowserContext) {
   await ctx.route('**/api/asset/**', (r) => {
     const req = r.request();
     const url = req.url();
@@ -443,7 +444,7 @@ function visibleSkeletons(): number {
     return r.width > 0 && r.height > 0 && r.right > 0 && r.bottom > 0 && r.left < window.innerWidth && r.top < window.innerHeight;
   }).length;
 }
-async function waitLoaded(page: Page): Promise<number> {
+export async function waitLoaded(page: Page): Promise<number> {
   const t0 = Date.now();
   for (let i = 0; i < 40; i++) {
     if ((await page.evaluate(visibleSkeletons).catch(() => 0)) === 0) break;
@@ -617,9 +618,11 @@ async function main() {
   writeList(scenes, missing);
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  });
+// 장면 · 가짜 응답은 `designrules:test`(155차)도 다시 쓴다 — 바로 실행했을 때만 찍는다
+if (process.argv[1]?.endsWith('designReviewShots.ts'))
+  main()
+    .then(() => process.exit(0))
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    });

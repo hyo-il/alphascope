@@ -23,6 +23,10 @@
  *  13. 넓은 표는 `ui/ScrollTable` 하나(v2.75.0 · 테마 4-2) — 표(`<table`)를 감싸는 맨 `overflow-x-auto` 는 실패(폰 · 패드에서 본문 전체가 밀리거나
  *      표마다 넘칠 때의 규칙이 갈라진다 · 1280 이상의 넘치면 밀기는 `<ScrollTable deskScroll>`). `<table` 바로 위 태그가 `<ScrollTable` 이 아니어도 실패
  *      (배치용 표처럼 미는 표가 아닌 것은 그 줄 위에 `design-lint-ignore: <이유>`). 부품 파일(`ui/ScrollTable.tsx`)은 예외.
+ *  14. 밝은 파랑 단추 바탕(v2.81.0 · 테마 9-1 R1) — 맨 `bg-accent` 와 `text-white` · `hover:bg-accent-hover` 가 같은 줄이면 실패. 주 단추 바탕은
+ *      `tokens.PRIMARY_BUTTON_COLOR`(`bg-accent-button`) 하나 — `ui/Button` `primary` 를 쓴다(진행 막대 · 점 · 끌기 선은 대상 밖).
+ *  15. `danger-text`(빨간 글 단추 — v2.81.0 에 지움) — 화면 안 삭제 · 로그아웃 · 끄기는 `ghost` · `secondary`(테마 9-1 R2).
+ *  16. 화면 글 안의 설정 이름 `*_ENABLED`(v2.81.0 · 테마 9-1 R4) — 주석 밖에 있으면 실패. 꺼진 기능 안내는 `ui/FeatureOff`.
  * 끝나면 어긴 곳 수를 출력하고, 하나라도 있으면 exit 1.
  * 시험용: `DESIGN_LINT_EXTRA=<파일,…>` 를 주면 그 파일도 검사한다(`tooltip:test` · `toolbutton:test` 의 가짜 파일 — 커밋하지 않는다).
  *   `DESIGN_LINT_SCRIPTS_EXTRA=<파일,…>` = 9 번 검사에 더할 가짜 시험 파일.
@@ -65,6 +69,20 @@ const RULES: { id: string; test: (line: string, file: string) => boolean; why: s
   // 12 — 덮개 색은 `--color-overlay`(`bg-overlay`) 하나(v2.73.0 · 테마 1-2). 맨 검정 반투명은 창 · 판마다 값이 갈라진다
   { id: '맨 검정 덮개', test: (l) => /\bbg-black\/\d+/.test(l), why: 'bg-black/NN — 덮개는 bg-overlay(--color-overlay) 하나' },
   { id: '기준표 밖 크기', test: (l) => /\btext-(?:lg|2xl|3xl)\b/.test(l), why: 'text-lg·2xl — 기준표 4단계(+로그인 앱 제목 text-xl)만' },
+  // 14 — 주 단추 바탕은 진한 파랑 하나(v2.81.0 · 테마 9-1 R1)
+  {
+    id: '밝은 파랑 단추',
+    test: (l) => (/(?<![\w:-])bg-accent(?![\w/-])/.test(l) && /\btext-white\b/.test(l)) || /\bhover:bg-accent-hover\b/.test(l),
+    why: '맨 bg-accent 단추 바탕 — 주 단추는 ui/Button primary(tokens.PRIMARY_BUTTON_COLOR · bg-accent-button) 하나',
+  },
+  // 15 — 빨간 글 단추(v2.81.0 에 지움 · 테마 9-1 R2)
+  { id: 'danger-text', test: (l) => /\bdanger-text\b/.test(l), why: 'danger-text — 빨강은 하락 · 매도 · 틀린 칸에만. 화면 안 삭제 · 로그아웃 · 끄기는 ghost · secondary' },
+  // 16 — 화면 글 안의 설정 이름(v2.81.0 · 테마 9-1 R4). 같은 줄 끝 주석(// · {/* */})은 뺀다
+  {
+    id: '화면 글 설정 이름',
+    test: (l) => /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*_ENABLED\b/.test(l.replace(/\{\/\*.*?\*\/\}/g, '').replace(/\/\*.*?\*\//g, '').replace(/(^|\s)\/\/.*$/, '$1')),
+    why: '*_ENABLED — 화면에 설정 이름을 내지 않는다. 꺼진 기능 안내는 ui/FeatureOff(「이 기능은 꺼져 있습니다」 + [ⓘ])',
+  },
 ];
 
 /**

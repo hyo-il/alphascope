@@ -1,9 +1,5 @@
 import InfoTip from './InfoTip';
-
-/** 꺼진 기능 안내 글 — 화면 · 시험 · 용어집이 같은 글을 쓴다 */
-export const FEATURE_OFF_TEXT = '이 기능은 꺼져 있습니다';
-/** [ⓘ] 안 첫 줄 — 설정 이름 · 명령 · 경로 없이 쉬운 말로만(테마 9-1 R4 · 사용자 결정 3) */
-export const FEATURE_OFF_HOW = '서버 설정에서 켭니다.';
+import { FEATURE_OFF_HOW, FEATURE_OFF_TEXT } from './featureOffText';
 
 /**
  * 꺼진 기능 안내 — 그 자리에 「이 기능은 꺼져 있습니다」 한 줄(13 · secondary) + [ⓘ](「서버 설정에서 켭니다」 + 그 기능 한 줄 설명).
