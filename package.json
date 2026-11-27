@@ -62,6 +62,7 @@
     "investorflow:test": "tsx scripts/investorFlowSelfTest.ts",
     "testguard:test": "tsx scripts/testGuardSelfTest.ts",
     "asset:test": "tsx scripts/assetSelfTest.ts",
+    "assetpurchase:test": "tsx scripts/assetPurchaseSelfTest.ts",
     "assetsheet:test": "tsx scripts/assetSheetSelfTest.ts",
     "assetshape:test": "tsx scripts/assetShapeSelfTest.ts",
     "assetprice:test": "tsx scripts/assetPriceSelfTest.ts",
