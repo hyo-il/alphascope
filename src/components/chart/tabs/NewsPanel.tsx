@@ -174,7 +174,7 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
                       href={item.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-text-primary hover:text-accent hover:underline"
+                      className="text-text-primary hover:text-accent hover:underline touch:min-h-11"
                     >
                       {item.title}
                     </a>

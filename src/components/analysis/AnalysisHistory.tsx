@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { SkeletonList } from '../common/SkeletonLoader';
 import LoadingOverlay, { InlineSpinner } from '../common/LoadingOverlay';
 import { useLeaveGuard } from '../../hooks/useLeaveGuard';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { analysisModeLabel } from '../../types/analysis';
 import type { Timeframe } from '../../types/toss';
 import { formatPrice, formatSigned } from '../../utils/formatters';
@@ -90,6 +91,7 @@ export default function AnalysisHistory({
   mode,
   prompt,
 }: Props) {
+  const phone = useLayoutMode() === 'phone';
   const [records, setRecords] = useState<AnalysisRecord[]>([]);
   /** 처음 받는 중 — 받기 전에 "저장된 분석이 없습니다" 를 띄우지 않는다 */
   const [loaded, setLoaded] = useState(false);
@@ -196,9 +198,10 @@ export default function AnalysisHistory({
   };
 
   return (
-    <div className="flex h-full gap-4 overflow-hidden py-4">
+    // 폰(v2.82.0 · 점검 56)은 붙여넣기 칸(고정 폭 320) · 히스토리를 위아래로 쌓고 둘 다 폭 전체 — 큰 화면 · 패드는 그대로 옆에 나란히
+    <div className={phone ? 'flex flex-col gap-4 py-4' : 'flex h-full gap-4 overflow-hidden py-4'}>
       {/* 저장하는 동안 붙여넣기 칸을 막는다(공통 7-2 — 0.3초 뒤 표시) */}
-      <LoadingOverlay busy={saving} label="저장 중…" className="flex w-80 shrink-0 flex-col gap-2">
+      <LoadingOverlay busy={saving} label="저장 중…" className={phone ? 'flex h-60 w-full flex-col gap-2' : 'flex w-80 shrink-0 flex-col gap-2'}>
         <p className="text-xs text-text-secondary">
           Claude 대화의 분석 결과를 붙여넣어 {symbol} 히스토리에 저장합니다.
         </p>

@@ -1,6 +1,10 @@
 import Button from '../ui/Button';
-import { ICON_SM } from '../ui/icon';
-import { X } from 'lucide-react';
+import Dialog from '../ui/Dialog';
+import Chip from '../ui/Chip';
+import Checkbox from '../ui/Checkbox';
+import Segmented from '../ui/Segmented';
+import { PHONE_CAPTURE_CHART_H, TOUCH_INFO_GAP, TOUCH_SIDE_GAP, TOUCH_WRAP_GAP } from '../ui/tokens';
+import { useLayoutMode, useTouchScreen } from '../../hooks/useLayoutMode';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import CaptureChart, { type CaptureChartHandle } from '../chart/CaptureChart';
 import CapturePreview from './CapturePreview';
@@ -80,6 +84,9 @@ export default function ChartCaptureModal({
   const [toggles, setToggles] = useState<IndicatorToggles>(initialToggles);
   /** 팝업 안에서만 바꾸는 타임프레임 — 메인 차트는 건드리지 않는다 */
   const [tf, setTf] = useState<Timeframe>(timeframe);
+  /** 폰 · 손가락 화면(v2.82.0) — 폰 판의 차트 칸 높이 · 키 안내 숨김 */
+  const phone = useLayoutMode() === 'phone';
+  const touchScreen = useTouchScreen();
   const [includeDrawings, setIncludeDrawings] = useState(drawings.length > 0);
   const [shot, setShot] = useState<Shot | null>(null);
   const [busy, setBusy] = useState(false);
@@ -272,63 +279,39 @@ export default function ChartCaptureModal({
 
   const checkbox = (checked: boolean, label: string, onChange: () => void) => (
     <label key={label} className="flex items-center gap-1.5 text-caption text-text-secondary">
-      <input type="checkbox" checked={checked} onChange={onChange} className="accent-accent" />
+      <Checkbox checked={checked} onChange={onChange} className="accent-accent" />
       {label}
     </label>
   );
 
+  /*
+   * 창은 공용 `Dialog`(v2.82.0 · 점검 54) — 폰 = 아래에서 올라오는 판 · 패드 = 화면 안 크기 제한 · 1280 이상 = 지금 크기(`full` — 78vh × 88vw · 최대 1200).
+   * 폰 판은 높이가 내용만큼이라 차트 칸 높이를 따로 준다(`PHONE_CAPTURE_CHART_H`).
+   */
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-6"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <Dialog
+      size="full"
+      onClose={onClose}
+      title={shot ? '캡처 확인' : '차트 캡처'}
+      titleAside={shot ? '이 이미지를 Claude 에 보냅니다' : '범위를 맞추고 포함할 항목을 고른 뒤 캡처하세요'}
+      bodyClassName="flex flex-col gap-3 p-4"
     >
-      <div className="flex h-[78vh] w-[88vw] max-w-[1200px] flex-col gap-3 rounded-xl bg-bg-secondary p-4">
-        <div className="flex shrink-0 items-center justify-between">
-          <h2 className="text-sm font-medium text-text-primary">
-            {shot ? '캡처 확인' : '차트 캡처'}
-            <span className="ml-2 text-caption font-normal text-text-muted">
-              {shot
-                ? '이 이미지를 Claude 에 보냅니다'
-                : '범위를 맞추고 포함할 항목을 고른 뒤 캡처하세요'}
-            </span>
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-text-muted transition-colors hover:text-text-primary"
-            aria-label="닫기"
-          >
-            <X {...ICON_SM} />
-          </button>
-        </div>
-
         {/*
           1단계 차트는 언마운트하지 않는다. 프리뷰에서 '다시 캡처'로 돌아왔을 때
           차트를 새로 만들면 맞춰 둔 범위와 조작감이 초기화되기 때문이다.
         */}
         <div className={shot ? 'hidden' : 'flex min-h-0 flex-1 flex-col gap-3'}>
-          <div className="flex items-center gap-1">
+          <div className={`flex flex-wrap items-center gap-1 ${TOUCH_SIDE_GAP}`}>
             {TIMEFRAME_ITEMS.map((item) => (
-              <button
-                key={item.value}
-                type="button"
-                onClick={() => changeTimeframe(item.value)}
-                className={`rounded px-2 py-1 text-xs transition-colors ${
-                  tf === item.value
-                    ? 'bg-bg-elevated font-medium text-text-primary'
-                    : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
-                }`}
-              >
+              <Chip key={item.value} selected={tf === item.value} onClick={() => changeTimeframe(item.value)}>
                 {item.label}
-              </button>
+              </Chip>
             ))}
             {dataLoading && <span className="ml-2 text-caption text-text-secondary">불러오는 중…</span>}
             {dataError && <span data-tone="error" className="ml-2 text-caption text-danger">{dataError}</span>}
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md bg-bg-tertiary/50 px-3 py-2">
+          <div className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md bg-bg-tertiary/50 px-3 py-2 ${TOUCH_WRAP_GAP} ${TOUCH_INFO_GAP}`}>
             {OVERLAY_ITEMS.map((item) =>
               checkbox(toggles.overlays[item.key], item.label, () => flip('overlays', item.key)),
             )}
@@ -358,7 +341,7 @@ export default function ChartCaptureModal({
             )}
           </div>
 
-          <div className="min-h-0 flex-1 overflow-hidden rounded-lg bg-bg-tertiary/40">
+          <div className={`overflow-hidden rounded-lg bg-bg-tertiary/40 ${phone ? `${PHONE_CAPTURE_CHART_H} shrink-0` : 'min-h-0 flex-1'}`}>
             {/*
               타임프레임이 바뀌면 차트를 새로 만든다. 봉 수가 달라져 이전 논리 범위를
               그대로 쓸 수 없고, 남은 시리즈를 일일이 정리하는 것보다 확실하다.
@@ -378,39 +361,30 @@ export default function ChartCaptureModal({
             />
           </div>
 
-          <div className="flex shrink-0 items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <p className="text-caption text-text-muted">
-                휠: 확대/축소 · 드래그: 좌우 이동 · Esc: 닫기
-                {error && <span data-tone="error" className="ml-2 text-danger">{error}</span>}
-              </p>
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              {/* 손가락 화면은 휠 · 드래그 · Esc 안내를 숨긴다(테마 9-1 R9) */}
+              {(!touchScreen || error) && (
+                <p className="text-caption text-text-muted">
+                  {!touchScreen && '휠: 확대/축소 · 드래그: 좌우 이동 · Esc: 닫기'}
+                  {error && <span data-tone="error" className="ml-2 text-danger">{error}</span>}
+                </p>
+              )}
 
               {/*
                 해상도는 캡처 버튼 옆에 둔다 — 고를 일이 캡처 직전뿐이라
                 위쪽 체크박스 줄에 섞으면 매번 찾아야 한다.
               */}
-              <div className="flex shrink-0 items-center gap-1 text-caption">
-                {(
-                  [
-                    ['low', '저화질', '토큰 절약 · 1배'],
-                    ['high', '고화질', '지표선까지 또렷 · 2배'],
-                  ] as const
-                ).map(([value, label, hint]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setQuality(value)}
-                    data-tip={hint}
-                    className={`rounded border px-2 py-0.5 transition-colors ${
-                      quality === value
-                        ? 'border-text-primary font-medium text-text-primary'
-                        : 'border-border text-text-muted hover:text-text-secondary'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <Segmented
+                label="해상도"
+                size="sm"
+                value={quality}
+                onChange={setQuality}
+                options={[
+                  { value: 'low', label: '저화질', title: '토큰 절약 · 1배' },
+                  { value: 'high', label: '고화질', title: '지표선까지 또렷 · 2배' },
+                ]}
+              />
             </div>
             <Button busy={busy} variant="primary" size="md"
               onClick={() => void handleCapture()}
@@ -431,7 +405,6 @@ export default function ChartCaptureModal({
             onConfirm={handleConfirm}
           />
         )}
-      </div>
-    </div>
+    </Dialog>
   );
 }

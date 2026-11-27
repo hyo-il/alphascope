@@ -1,3 +1,4 @@
+import { TOUCH_HIT } from '../../ui/tokens';
 import { formatDateTime } from '../../../utils/dateFormat';
 import { FeatureOff, PANEL_PAD, PANEL_X, Tabs } from '../../ui';
 import Button from '../../ui/Button';
@@ -66,7 +67,7 @@ export default function ChartAiPanel({
         <button
           type="button"
           onClick={() => setPage('records', 'analysis')}
-          className="ml-auto py-1 text-caption text-text-muted transition-colors hover:text-accent"
+          className={`ml-auto py-1 text-caption text-text-muted transition-colors hover:text-accent ${TOUCH_HIT}`}
         >
           검증 기록에서 히스토리 보기
         </button>

@@ -15,6 +15,7 @@ import { investorFlowBlock } from '../../utils/investorFlow';
 import CopySteps from './CopySteps';
 import ModeSelector from './ModeSelector';
 import ChartCaptureModal from './ChartCaptureModal';
+import LinkButton from '../ui/LinkButton';
 import type { DrawingSnapshot } from '../chart/CandleChart';
 import type { IndicatorSeries, IndicatorToggles } from '../../types/chart';
 import { useCaptureStore } from '../../store/captureStore';
@@ -263,17 +264,16 @@ export default function ManualAnalysis({
         가로 배치 — 좁은 세로 칸 하나(max-w-md)에 쌓으면 오른쪽이 비고 아래가 잘린다.
         위 한 줄(설명 + 오른쪽 끝 「분석 방식·프롬프트 수정 보기」) → ① ② ③ 가로 3칸. 탭 기본 높이에서 스크롤 없이 다 보인다.
       */
-      <div className={`space-y-2 ${PANEL_PAD}`}>
+      <div className={`space-y-2 ${PANEL_PAD} touch:pt-4`}>
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <p className="min-w-0 flex-1 text-caption leading-relaxed text-text-secondary">
+          {/* 폰(v2.82.0)은 설명이 한 줄 폭 전체 · 「고치려면」 은 다음 줄 — 둘이 나란히면 설명이 좁은 세로 칸으로 접힌다 */}
+          <p className="min-w-0 flex-1 text-caption leading-relaxed text-text-secondary phone:basis-full">
             이 종목의 기본 프롬프트(전문가 분석 · {horizonLabel(horizon)})를 Claude 에 보냅니다 — Claude 대화창을 열어 둔 채 ① 이미지 →
             ② 프롬프트를 차례로 <b className="text-text-primary">복사하고 바로 붙여넣은 뒤</b> 전송하세요(클립보드에는 마지막 것 하나만 남습니다).
           </p>
           <p className="shrink-0 text-caption text-text-muted">
             고치려면 →{' '}
-            <button type="button" onClick={onOpenFull} className="text-accent hover:underline">
-              분석 방식·프롬프트 수정 보기
-            </button>
+            <LinkButton onClick={() => onOpenFull?.()}>분석 방식·프롬프트 수정 보기</LinkButton>
           </p>
         </div>
         <CopySteps

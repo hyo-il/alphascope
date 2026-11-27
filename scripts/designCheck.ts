@@ -2276,6 +2276,36 @@ export function targets(): Target[] {
       },
     );
   }
+  // v2.82.0 — 차트 아래 탭마다(폰 = [호가] [빠른 주문] + 다섯 · 패드 · 1280 = 다섯 — 그 크기에 없는 탭은 누르지 않고 처음 화면) · 캡처 창.
+  // 폰은 탭 줄이 맨 위에 오게 본문을 민다(탭 내용이 차트 아래로 이어짐 — 탭 줄은 위에 붙음)
+  const openChartTab = (tab: string) => async (page: Page) => {
+    const t = page.getByRole('tab', { name: tab, exact: true });
+    if (!(await t.count())) return;
+    await t.first().click();
+    await page.waitForTimeout(1500);
+    // 폰 탭 줄은 옆으로 미는 줄 — 고른 탭이 보이게 밀린 채면 첫 탭이 화면 밖이라 「왼쪽 끝」 비교가 어긋난다(처음 자리로)
+    await page.evaluate(() => {
+      const row = document.querySelector('[data-testid="phone-tab-row"]');
+      row?.scrollIntoView({ block: 'start' });
+      if (row?.firstElementChild) row.firstElementChild.scrollLeft = 0;
+    });
+    await page.waitForTimeout(300);
+  };
+  for (const tab of ['호가', '빠른 주문', '차트 지표', '기업정보', '투자자 동향', '뉴스', 'AI 분석']) list.push({ name: `chart-탭-${tab}`, hash: '#/chart', open: openChartTab(tab) });
+  list.push({
+    name: 'chart-캡처창',
+    hash: '#/chart',
+    open: async (page) => {
+      await openChartTab('AI 분석')(page);
+      const b = page.getByRole('button', { name: /상세 캡처/ });
+      if (await b.count()) await b.first().click();
+      await page.waitForTimeout(2500);
+    },
+    after: async (page) => {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+    },
+  });
   return list;
 }
 

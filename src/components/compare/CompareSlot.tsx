@@ -2,6 +2,7 @@ import Button from '../ui/Button';
 import type { Timeframe } from '../../types/toss';
 import { useEffect, useState } from 'react';
 import CompareChart from './CompareChart';
+import { useTouchScreen } from '../../hooks/useLayoutMode';
 import SymbolSearch from '../common/SymbolSearch';
 import { COMPARE_DRAG_TYPE, type CompareChartData } from '../../types/compare';
 import type { Fundamentals } from '../../types/company';
@@ -44,6 +45,7 @@ export default function CompareSlot({
 }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const [searching, setSearching] = useState(false);
+  const touchScreen = useTouchScreen();
 
   // 칸이 비면 열려 있던 검색도 닫는다 (다른 칸을 지웠을 때 유령 입력창이 남지 않게).
   useEffect(() => {
@@ -109,6 +111,8 @@ export default function CompareSlot({
   return (
     <div
       {...dropProps}
+      // 손가락 화면(v2.82.0 · 점검 55): 빈 칸을 누르면 [종목 검색]과 같이 검색 칸이 열린다(「눌러서 종목을 고르세요」)
+      onClick={touchScreen && !searching ? () => setSearching(true) : undefined}
       className={`relative flex h-full flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-3 text-center transition-colors ${
         dragOver ? 'border-bullish bg-bullish/5' : 'border-border'
       }`}
@@ -140,11 +144,16 @@ export default function CompareSlot({
             {dragOver ? (
               <span className="text-bullish">여기에 놓으세요</span>
             ) : (
-              <>
-                종목을 드래그하거나
-                <br />
-                관심 목록에서 클릭하세요
-              </>
+              touchScreen ? (
+                // 손가락 화면은 끌기가 없다(R9 · 점검 55) — 관심 목록에서 누르거나 아래 [종목 검색]
+                '눌러서 종목을 고르세요'
+              ) : (
+                <>
+                  종목을 드래그하거나
+                  <br />
+                  관심 목록에서 클릭하세요
+                </>
+              )
             )}
           </p>
           {!dragOver && (

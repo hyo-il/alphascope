@@ -1,4 +1,4 @@
-import { PANEL_PAD } from '../ui/tokens';
+import { PANEL_PAD, TOUCH_FIELD_H, TOUCH_INFO_GAP } from '../ui/tokens';
 import Select from '../ui/Select';
 import InfoTip from '../ui/InfoTip';
 import PageTitle from '../ui/PageTitle';
@@ -12,6 +12,7 @@ import { useCompareData } from '../../hooks/useCompareData';
 import { useStockNames } from '../../hooks/useStockNames';
 import { COMPARE_TIMEFRAMES } from '../../types/compare';
 import { useAppStore } from '../../store/appStore';
+import { useTouchScreen } from '../../hooks/useLayoutMode';
 
 /**
  * 기업 비교 — **보기 2개(①② 한 줄) / 4개(2×2)**. 종목 수가 아니라 사용자가 고른 보기로 칸 수가 정해진다.
@@ -40,6 +41,8 @@ export default function CompareView({ currentSymbol }: Props) {
   const layout = useAppStore((s) => s.compareLayout);
   const setLayout = useAppStore((s) => s.setCompareLayout);
   const [promptOpen, setPromptOpen] = useState(false);
+  /** 손가락 화면(v2.82.0 · R9) — 「클릭 · 드래그」 대신 「누르기」 안내 */
+  const touchScreen = useTouchScreen();
 
   const [timeframes, setTimeframes] = useState<Record<string, Timeframe>>({});
   const [chartsVisible, setChartsVisible] = useState(true);
@@ -74,11 +77,12 @@ export default function CompareView({ currentSymbol }: Props) {
 
   return (
     <div className={`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto ${PANEL_PAD}`}>
-      <header className="flex flex-wrap items-center gap-2">
+      <header className={`flex flex-wrap items-center gap-2 ${TOUCH_INFO_GAP}`}>
         <PageTitle className="text-base font-semibold">기업 비교</PageTitle>
-        <InfoTip label="기업 비교 쓰는 법">2개부터 비교됩니다 · 오른쪽 관심 목록에서 클릭하거나 원하는 칸으로 드래그</InfoTip>
+        <InfoTip label="기업 비교 쓰는 법">{touchScreen ? '2개부터 비교됩니다 · 관심 목록에서 누르거나 빈 칸의 [종목 검색]으로 고르세요' : '2개부터 비교됩니다 · 오른쪽 관심 목록에서 클릭하거나 원하는 칸으로 드래그'}</InfoTip>
         <Segmented
           label="보기"
+          fieldRow
           size="sm"
           value={String(layout) as '2' | '4'}
           onChange={(v) => setLayout(v === '2' ? 2 : 4)}
@@ -88,7 +92,7 @@ export default function CompareView({ currentSymbol }: Props) {
           ]}
         />
         {canAddCurrent && (
-          <Button size="sm" onClick={() => addSymbol(currentSymbol!)} className="shrink-0 whitespace-nowrap">
+          <Button size="sm" onClick={() => addSymbol(currentSymbol!)} className={`shrink-0 whitespace-nowrap ${TOUCH_FIELD_H}`}>
             보던 종목 추가
           </Button>
         )}
@@ -116,12 +120,13 @@ export default function CompareView({ currentSymbol }: Props) {
           onClick={refresh}
           disabled={!symbols.length}
           title="비교 화면은 실시간 폴링하지 않습니다 — 이 버튼으로 갱신하세요"
-          className={chartsVisible ? '' : 'ml-auto'}
+          className={`${chartsVisible ? '' : 'ml-auto'} ${TOUCH_FIELD_H}`}
         >
           새로고침
         </Button>
         <Button variant="secondary" size="sm"
-          onClick={() => setChartsVisible((v) => !v)}>
+          onClick={() => setChartsVisible((v) => !v)}
+          className={TOUCH_FIELD_H}>
           {chartsVisible ? '차트 숨기기' : '차트 보기'}
         </Button>
       </header>

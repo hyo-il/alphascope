@@ -145,7 +145,8 @@ export default function CompanySummary({
                 </span>
               </p>
             ) : (
-              <p className="text-xs">
+              // 폰(v2.82.0)은 이름 · 티커 · 업종이 줄바꿈될 때 글자끼리 겹치지 않게 덩어리로 꺾는다
+              <p className="text-xs phone:flex phone:flex-wrap phone:items-baseline">
                 <span className="font-medium">{profile.name ?? symbol}</span>
                 <span className="ml-1.5 text-caption text-text-secondary">{symbol}</span>
                 <span className="ml-2 text-text-secondary">

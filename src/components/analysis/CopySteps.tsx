@@ -235,7 +235,7 @@ export default function CopySteps({
                         <button
                           type="button"
                           onClick={handleDownload}
-                          className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated/70"
+                          className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium touch:min-h-11 text-text-primary transition-colors hover:bg-bg-elevated/70"
                         >
                           PNG로 저장해서 첨부하기
                         </button>
@@ -250,7 +250,7 @@ export default function CopySteps({
                           type="button"
                           onClick={() => void handleImage()}
                           disabled={busy}
-                          className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated/70 disabled:opacity-40"
+                          className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium touch:min-h-11 text-text-primary transition-colors hover:bg-bg-elevated/70 disabled:opacity-40"
                         >
                           {captureLabel}
                         </button>
@@ -273,7 +273,7 @@ export default function CopySteps({
                         type="button"
                         onClick={onOpenCapture}
                         disabled={capturePending}
-                        className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated/70 disabled:opacity-50"
+                        className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium touch:min-h-11 text-text-primary transition-colors hover:bg-bg-elevated/70 disabled:opacity-50"
                       >
                         {capturePending ? '캡처 준비 중…' : '차트 캡처하기'}
                       </button>
@@ -294,7 +294,7 @@ export default function CopySteps({
                   <button
                     type="button"
                     onClick={handleDownload}
-                    className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated/70"
+                    className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium touch:min-h-11 text-text-primary transition-colors hover:bg-bg-elevated/70"
                   >
                     PNG로 저장해서 첨부하기
                   </button>
@@ -309,7 +309,7 @@ export default function CopySteps({
                     type="button"
                     onClick={() => void handleImage()}
                     disabled={busy}
-                    className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated/70 disabled:opacity-40"
+                    className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium touch:min-h-11 text-text-primary transition-colors hover:bg-bg-elevated/70 disabled:opacity-40"
                   >
                     {captureLabel}
                   </button>
@@ -332,7 +332,7 @@ export default function CopySteps({
                   type="button"
                   onClick={onOpenCapture}
                   disabled={capturePending}
-                  className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated/70 disabled:opacity-50"
+                  className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium touch:min-h-11 text-text-primary transition-colors hover:bg-bg-elevated/70 disabled:opacity-50"
                 >
                   {capturePending ? '캡처 준비 중…' : '차트 캡처하기'}
                 </button>
@@ -353,7 +353,7 @@ export default function CopySteps({
               type="button"
               onClick={() => void handleText()}
               disabled={!promptReady}
-              className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated/70 disabled:opacity-50"
+              className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium touch:min-h-11 text-text-primary transition-colors hover:bg-bg-elevated/70 disabled:opacity-50"
             >
               {promptReady ? `${promptLabel}` : '데이터 불러오는 중…'}
             </button>
@@ -367,7 +367,7 @@ export default function CopySteps({
           <button
             type="button"
             onClick={() => window.open('https://claude.ai/new', '_blank', 'noopener')}
-            className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-elevated/70"
+            className="w-full rounded-md bg-bg-elevated px-2 py-1.5 text-xs font-medium touch:min-h-11 text-text-primary transition-colors hover:bg-bg-elevated/70"
           >
             Claude 대화 열기
           </button>,

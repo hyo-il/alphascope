@@ -2,17 +2,23 @@ import { create } from 'zustand';
 import type { Timeframe } from '../types/toss';
 import { MAX_COMPARE_SYMBOLS } from '../types/compare';
 import { guardLeave } from './leaveGuard';
+import { readLayoutMode } from '../hooks/useLayoutMode';
 import { groupOf, NAV_GROUPS, normalizeTab, type HomePageId, type NavGroupId, type NavPageId } from '../types/nav';
 
 /** 관심 목록 클릭 한 번의 결과 — 호출부가 안내 문구를 고른다 */
 export type CompareToggleResult = 'added' | 'removed' | 'full';
 
 const COMPARE_LAYOUT_KEY = 'alphascope.compareLayout';
+/**
+ * 기업 비교 칸 수 처음 값 — 이 기기에 기억된 값이 있으면 그것 · 없으면 폰 · 패드 2칸(v2.82.0 · 사용자 결정 2026-11-27) · 1280 이상 4칸(지금 그대로).
+ */
 function readCompareLayout(): 2 | 4 {
+  const fallback = readLayoutMode() === 'desk' ? 4 : 2;
   try {
-    return localStorage.getItem(COMPARE_LAYOUT_KEY) === '2' ? 2 : 4;
+    const saved = localStorage.getItem(COMPARE_LAYOUT_KEY);
+    return saved === '2' ? 2 : saved === '4' ? 4 : fallback;
   } catch {
-    return 4;
+    return fallback;
   }
 }
 
