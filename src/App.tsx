@@ -653,7 +653,7 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
 
           {isMock && (
             <span className="ml-auto rounded bg-warning/15 px-2 py-1 text-caption text-warning">
-              <WarnIcon />모의 데이터 — .env 에 토스 API 키를 넣으면 실시간으로 전환됩니다
+              <WarnIcon />모의 데이터 — 서버 설정에서 토스 연결 정보를 넣으면 실시간으로 바뀝니다
             </span>
           )}
         </header>
@@ -732,8 +732,7 @@ export default function App() {
       <div className="h-full bg-bg-primary">
         {notConfigured && (
           <div className="border-b border-warning/40 bg-warning/10 px-4 py-2 text-center text-xs text-warning">
-            서버에 비밀번호가 아직 설정되지 않았습니다 — 서버에서{' '}
-            <code className="rounded bg-warning/15 px-1">npm run auth:set-password</code> 를 먼저 실행하세요.
+            비밀번호가 아직 정해지지 않았습니다 — 서버 설정에서 정합니다
           </div>
         )}
         <LoginScreen onSuccess={onLoggedIn} />

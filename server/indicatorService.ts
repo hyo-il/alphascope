@@ -24,8 +24,7 @@ export async function computeIndicators(candles: Candle[]): Promise<IndicatorSer
     });
   } catch (e) {
     throw new IndicatorEngineError(
-      `지표 엔진에 연결하지 못했습니다 (${INDICATORS_URL}). ` +
-        '`npm run dev` 로 함께 띄우거나 `npm run dev:py` 를 실행하세요. ' +
+      '지표 엔진에 연결하지 못했습니다 — 서버에서 지표 엔진을 다시 켭니다. ' +
         `원인: ${e instanceof Error ? e.message : String(e)}`,
     );
   }

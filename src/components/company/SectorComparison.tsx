@@ -159,7 +159,7 @@ export default function SectorComparison({ symbol, sector, peers, loading, error
               </tr>
             </tbody>
           </table>
-          <p className="mt-1 text-caption text-text-muted">PER·PBR 이 「—」 인 국내 종목은 yfinance 가 값을 주지 않는 경우입니다(기본정보 탭의 PER 은 앱이 따로 계산합니다).</p>
+          <p className="mt-1 text-caption text-text-muted">PER·PBR 이 「—」 인 국내 종목은 재무 자료에 값이 없는 경우입니다(기본정보 탭의 PER 은 앱이 따로 계산합니다).</p>
         </ScrollTable>
       )}
 

@@ -242,7 +242,7 @@ export function resetSheetCache(): void {
 /** 시트를 읽는다(30초 캐시). 실패는 `AssetSheetError` */
 export async function readAssetSheet(): Promise<AssetSheetData> {
   const config = assetSheetConfig();
-  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
+  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다 — 서버 설정에서 정합니다.');
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.data;
   if (inflight) return inflight;
   inflight = (async () => {
@@ -304,7 +304,7 @@ export function resolveClassRows(rows: number[], codes: string[] | null, codeAt:
  * ⚠️ 쓴 값 · 읽은 값을 로그에 찍지 않는다.
  */
 export async function writeAssetClasses(rows: unknown, value: unknown, codes?: unknown): Promise<AssetSheetData> {
-  if (!isAssetSyncEnabled()) throw refuse('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다(ASSET_SYNC_ENABLED=false).');
+  if (!isAssetSyncEnabled()) throw refuse('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다.');
   const L = SHEET_LAYOUT;
   const col = L.assetClass.column;
   const okRow = (r: unknown): r is number => typeof r === 'number' && Number.isInteger(r) && r >= 1;
@@ -317,7 +317,7 @@ export async function writeAssetClasses(rows: unknown, value: unknown, codes?: u
     throw refuse('not-editable', '요청 모양이 올바르지 않습니다(codes 는 줄마다 하나).');
   }
   const config = assetSheetConfig();
-  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
+  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다 — 서버 설정에서 정합니다.');
 
   const header = L.headers.find((h) => h.tab === TICKER_TAB && h.cell === `${col}${L.tickers.headRow}`)!;
   const [headRows, grid] = await batchGet(config, [one(TICKER_TAB, header.cell), tickerWide()], 'FORMULA');
@@ -386,11 +386,11 @@ function ratioForm(cells: Cell[]): 'fraction' | 'percent' {
  * ⚠️ 칸 순서는 시트 그대로(현금 · 금 · 채권 · 투자 = C · D · E · F) — 화면 순서와 섞지 않는다. 쓴 값 · 읽은 값을 로그에 찍지 않는다.
  */
 export async function writeTargetRatio(input: unknown): Promise<AssetSheetData> {
-  if (!isAssetSyncEnabled()) throw refuse('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다(ASSET_SYNC_ENABLED=false).');
+  if (!isAssetSyncEnabled()) throw refuse('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다.');
   const ratio = checkTargetRatio(input);
   if (!ratio) throw refuse('not-editable', '목표 비율은 0~100 정수이고, 현금 · 채권 · 금 · 주식 합과 코어 + 위성 합이 각각 100이어야 합니다.');
   const config = assetSheetConfig();
-  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
+  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다 — 서버 설정에서 정합니다.');
 
   const T = SHEET_LAYOUT.targetRatio;
   const cells = [...T.assets, ...T.coreSatellite];
@@ -472,10 +472,10 @@ export function nameDateParts(name: string): { y: number; m: number; d: number |
  * 돌려주는 값은 썼는지 · 시트 날짜 글자(쓴 뒤 · 안 썼으면 지금 글자 — 화면 안내 한 줄). ⚠️ 계좌 이름 · 날짜를 로그에 찍지 않는다.
  */
 export async function writeAccountDate(day: string, section: string): Promise<{ written: boolean; sheetDate: string }> {
-  if (!isAssetSyncEnabled()) throw refuse('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다(ASSET_SYNC_ENABLED=false).');
+  if (!isAssetSyncEnabled()) throw refuse('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다.');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw refuse('not-editable', '날짜 모양이 올바르지 않습니다.');
   const config = assetSheetConfig();
-  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
+  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다 — 서버 설정에서 정합니다.');
 
   const columnB = wideRange(HOLDINGS_TAB, 'B');
   const [shown] = await batchGet(config, [columnB], 'UNFORMATTED_VALUE');

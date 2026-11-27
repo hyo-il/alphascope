@@ -104,6 +104,7 @@ export default function AssetCashAccountPicker({
           focusCurrent();
         }}
         className={`flex min-w-0 items-center gap-1 rounded-md border border-transparent bg-bg-tertiary pr-1.5 pl-2 text-left text-xs focus:border-accent focus:outline-none disabled:opacity-50 ${CONTROL_H.sm} ${lost && !extra && !item ? 'text-danger' : 'text-text-primary'} ${className}`}
+        data-tone={lost && !extra && !item ? 'invalid' : undefined}
       >
         <span className="min-w-0 flex-1 truncate" data-tip-clip={shown}>
           {shown}

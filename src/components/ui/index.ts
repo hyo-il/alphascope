@@ -16,6 +16,7 @@ export { default as Badge } from './Badge';
 export { default as Dialog, DialogCancel, type DialogSize } from './Dialog';
 export { default as SideNavDialog, type SideNavItem } from './SideNavDialog';
 export { default as InfoTip } from './InfoTip';
+export { default as FeatureOff, FEATURE_OFF_TEXT, FEATURE_OFF_HOW } from './FeatureOff';
 export { default as SectionTitle } from './SectionTitle';
 export { ICON, ICON_SM, ICON_LG } from './icon';
 export { AUTO_TRADE_ICON, COLLECT_ICON, VERDICT_ICON } from './statusIcons';

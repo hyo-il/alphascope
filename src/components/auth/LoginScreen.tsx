@@ -82,8 +82,7 @@ export default function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
         </Button>
 
         <p className="mt-5 text-center text-caption leading-relaxed text-text-muted">
-          비밀번호를 잊었으면 서버에서{' '}
-          <code className="rounded bg-bg-tertiary px-1">npm run auth:set-password</code>
+          비밀번호를 잊었으면 서버 설정에서 다시 정합니다
         </p>
       </form>
     </div>

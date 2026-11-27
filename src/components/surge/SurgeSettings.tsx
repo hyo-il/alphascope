@@ -104,7 +104,7 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
         </Field>
         <p className="text-caption text-text-muted">
           대형주는 하루 3%도 드물고 소형주는 5%가 예사입니다. 하나의 기준으로 재면 대형주는 급등이
-          아예 안 잡히고 소형주는 잡음이 쏟아집니다. 시가총액은 yfinance 에서 가져옵니다.
+          아예 안 잡히고 소형주는 잡음이 쏟아집니다. 시가총액은 재무 자료에서 가져옵니다.
         </p>
         <Field label="거래량" hint="20일 평균 대비 · 이 값 이상">
           <NumberField
@@ -199,9 +199,9 @@ export default function SurgeSettings({ watchlistCount }: { watchlistCount: numb
       <section className="space-y-1">
         <h3 className="font-semibold text-text-secondary">데이터 소스</h3>
         <p className="text-caption text-text-muted">
-          과거 일봉은 <span className="text-text-secondary">yfinance</span> 를 씁니다 (24시간 캐시).
-          토스 <code>/candles</code> 는 200봉씩 페이지네이션이라 수십 종목 × 6개월을 받으려면
-          왕복이 수백 번이 됩니다. 현재가·호가 등 실시간 데이터는 그대로 토스 API 입니다.
+          과거 일봉은 하루 한 번 받아 두는 과거 시세 자료를 씁니다 (24시간 보관).
+          증권사 시세는 한 번에 200봉씩만 받아 수십 종목 × 6개월을 받으려면
+          수백 번 오가야 합니다. 현재가·호가 등 실시간 데이터는 그대로 토스 시세입니다.
         </p>
       </section>
 

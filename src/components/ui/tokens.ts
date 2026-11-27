@@ -129,6 +129,11 @@ export const ORDER_TRAIL_W = 'w-[4.5rem]';
 /** 빠른주문 — 입력칸 아래 줄(프리셋 버튼)을 입력칸 왼쪽 끝에서 시작하게: `ORDER_LABEL_W`(2rem) + 간격(0.375rem) */
 export const ORDER_INDENT = 'pl-[2.375rem]';
 /**
+ * 주 단추 바탕(테마 9-1 R1 — 모든 화면 · 모든 크기에서 하나) — 진한 파랑 + 흰 글. `Button` 의 `primary` 와,
+ * 크기가 공용 단추와 달라 직접 그리는 주 단추(종목 검색 [조회])가 함께 쓴다. 밝은 파랑 `bg-accent` 는 단추 바탕에 쓰지 않는다(`design:lint`).
+ */
+export const PRIMARY_BUTTON_COLOR = 'bg-accent-button text-white hover:bg-accent-button-hover active:bg-accent-button-hover';
+/**
  * 매수 · 매도 색 — 「매수 = 초록(bullish) · 매도 = 빨강(bearish)」(미국 증권 기준 · 테마 9-1 R3) 정의는 여기 한 곳.
  * 빠른주문 지정가 · 시장가 · `Button` 의 `buy` · `sell` · 급등 카드 「모의 매수」 가 함께 쓴다. 색 바탕 위 글은 `bg-primary`(흰 글은 대비 4.5 미달).
  * 꺼진 버튼은 각 버튼의 `disabled:opacity-40` 으로만 옅어진다. 딱지(거래 내역 등)는 `ORDER_BUY_BADGE` · `ORDER_SELL_BADGE` + 글자 「매수」 「매도」.

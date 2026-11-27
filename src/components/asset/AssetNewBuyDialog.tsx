@@ -138,7 +138,7 @@ export default function AssetNewBuyDialog({
             <Button variant="ghost" disabled={busy} onClick={() => { setPlan(null); setError(null); }} data-newbuy-back>
               뒤로
             </Button>
-            <Button variant="buy" busy={busy} disabled={!cash.ready} onClick={() => askCashMinus(cash, () => void save())} submit data-newbuy-save>
+            <Button variant="primary" busy={busy} disabled={!cash.ready} onClick={() => askCashMinus(cash, () => void save())} submit data-newbuy-save>
               저장
             </Button>
           </>

@@ -50,7 +50,7 @@ export default function SyncStatusLine() {
             setBusy(true);
             void retrySave().finally(() => setBusy(false));
           }}
-          className="rounded border border-current px-1.5 py-0.5 text-danger transition-opacity hover:opacity-70 disabled:opacity-40"
+          className="rounded border border-current px-1.5 py-0.5 text-text-secondary transition-opacity hover:opacity-70 disabled:opacity-40"
         >
           다시 시도
         </button>

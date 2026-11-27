@@ -71,7 +71,7 @@ export interface VisibleExtent {
  *
  * 고점 대비는 음수(얼마나 빠졌나), 저점 대비는 양수(얼마나 올랐나)가 정상이다.
  * 부호를 그대로 색으로 옮기면 둘 다 같은 뜻처럼 보이므로, **역할로 색을 고정한다** —
- * 고점 줄은 빨강, 저점 줄은 초록. 신고가/신저가만 예외로 표시를 바꾼다.
+ * 고점 줄은 빨강(고점에서 빠진 정도 = 하락), 저점 줄은 초록. 신고가/신저가만 예외로 표시를 바꾼다.
  */
 function Extreme({
   label,
@@ -94,7 +94,7 @@ function Extreme({
     <span className="text-text-secondary">
       {label}{' '}
       <span className="tabular-nums text-text-primary">{formatPrice(price, currency)}</span>{' '}
-      <span className={`tabular-nums ${kind === 'high' ? 'text-bearish' : 'text-bullish'}`}>
+      <span className={`tabular-nums ${kind === 'high' ? 'text-bearish' : 'text-bullish'}`} data-tone={kind === 'high' ? 'down' : undefined}>
         {gap == null
           ? '—'
           : atExtreme

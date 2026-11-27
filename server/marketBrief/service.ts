@@ -47,7 +47,7 @@ const briefModel = () => process.env.GEMINI_BRIEF_MODEL?.trim() || DEFAULT_MODEL
 
 function autoDisabledReason(): string | null {
   return process.env.MARKET_BRIEF_ENABLED?.trim().toLowerCase() === 'false'
-    ? '이 서버에서는 오늘 시황 자동 만들기가 꺼져 있습니다(MARKET_BRIEF_ENABLED=false)'
+    ? '이 서버에서는 오늘 시황 자동 만들기가 꺼져 있습니다'
     : null;
 }
 

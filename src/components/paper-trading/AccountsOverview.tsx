@@ -11,7 +11,8 @@ import type { AccountsView } from '../../types/paper';
 import type { AccountOverviewItem, StrategyOverviewItem } from '../../hooks/usePaperOverview';
 import { formatPrice, formatSignedMoney, formatSigned } from '../../utils/formatters';
 import { toast } from '../../store/uiStore';
-import { autoTradeView } from '../../utils/autoTradeStatus';
+import { AUTO_TRADING_OFF_WHAT, autoTradeView } from '../../utils/autoTradeStatus';
+import FeatureOff from '../ui/FeatureOff';
 import { useTradingRules } from '../../hooks/useTradingRules';
 import { ruleSafetyText } from '../../utils/ruleText';
 import ScrollTable from '../ui/ScrollTable';
@@ -259,8 +260,8 @@ export default function AccountsOverview({
     return (
       <>
         {serverOff && (
-          <p className="mb-2 rounded bg-warning/10 px-2 py-1 text-caption text-warning">
-            이 서버에서는 자동매매가 꺼져 있습니다(AUTO_TRADING_ENABLED=false)
+          <p className="mb-2 px-2 py-1">
+            <FeatureOff what={AUTO_TRADING_OFF_WHAT} />
           </p>
         )}
         <ScrollTable pin={many ? 2 : 1} className="@container rounded-lg bg-bg-secondary">
@@ -507,12 +508,12 @@ export default function AccountsOverview({
               )}
 
               {/*
-                서버 스위치(AUTO_TRADING_ENABLED=false)로 꺼진 서버에서는 계좌 설정과 무관하게 알린다 —
+                서버 스위치로 자동매매가 꺼진 서버에서는 계좌 설정과 무관하게 알린다 —
                 "켜기" 를 눌러도 돌지 않는다는 것을 모르면 고장으로 읽는다.
               */}
               {status && status.serverEnabled === false && !on && (
-                <p className="mt-2 rounded bg-warning/10 px-2 py-1 text-caption text-warning">
-                  이 서버에서는 자동매매가 꺼져 있습니다(AUTO_TRADING_ENABLED=false)
+                <p className="mt-2 px-2 py-1">
+                  <FeatureOff what={AUTO_TRADING_OFF_WHAT} />
                 </p>
               )}
 

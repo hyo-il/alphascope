@@ -130,14 +130,14 @@ try {
         (await flows.getByTestId('asset-cash-flow-category').allTextContents()).join('|') === '저축 및 투자|월세|고정 지출|변동 지출|「월 고정지출」 에서 찾지 못함' &&
         rowsText.some((t) => t.includes('#1')) && rowsText.some((t) => t.includes('#2')) && (await flows.locator('[data-flow-reflect="no"]').textContent())?.includes('반영 안 함') === true
         && rowsText.some((t) => t.includes('ISA') && t.includes('₩0') && t.includes('반영 안 함')));
-      check(`[139-8] ${w}px 다시 확인 필요한 것은 빨간 글(「현금」 탭에서 계좌를 찾지 못함 · 「월 고정지출」 에서 찾지 못함) + 지운 것은 [설정 지우기]`,
-        (await flows.locator('.text-danger', { hasText: '「현금」 탭에서 계좌를 찾지 못함' }).count()) >= 1 && (await flows.locator('.text-danger', { hasText: '「월 고정지출」 에서 찾지 못함' }).count()) >= 1
+      check(`[139-8] ${w}px 다시 확인 필요한 것은 노란 경고 글(「현금」 탭에서 계좌를 찾지 못함 · 「월 고정지출」 에서 찾지 못함) + 지운 것은 [설정 지우기]`,
+        (await flows.locator('.text-warning', { hasText: '「현금」 탭에서 계좌를 찾지 못함' }).count()) >= 1 && (await flows.locator('.text-warning', { hasText: '「월 고정지출」 에서 찾지 못함' }).count()) >= 1
         && (await flows.getByRole('button', { name: '설정 지우기' }).count()) === 1);
       check(`[139-8] ${w}px 다음 반영 날 · 월급 금액 · 다음 날`, rowsText.some((t) => t.includes('12-10(목)')) && ((await page.getByTestId('asset-cash-salary-next').textContent()) ?? '').includes('11-25(수)'));
       const moves = page.getByTestId('asset-cash-moves');
       check(`[139-8] ${w}px 반영 기록 — 최신 위 · 상태(반영 · 건너뜀 · 서버 꺼짐 · 다시 확인 필요) · [되돌리기] 는 「반영」 줄만`,
         (await moves.locator('[data-testid="asset-cash-move-row"]').count()) === 3 && (await moves.getByRole('button', { name: '되돌리기' }).count()) === 1
-        && ((await moves.locator('[data-move-status="skipped"]').textContent()) ?? '').includes('서버 꺼짐') && (await moves.locator('[data-move-status="check"] .text-danger').count()) >= 1);
+        && ((await moves.locator('[data-move-status="skipped"]').textContent()) ?? '').includes('서버 꺼짐') && (await moves.locator('[data-move-status="check"] .text-warning').count()) >= 1);
       check(`[139-8] ${w}px 넘침 0(창 · 표 · 화면 가로)`, await noOverflow(page));
       // 긴 이름은 말줄임 + data-tip-clip
       check(`[139-8] ${w}px 긴 계좌 이름은 말줄임(data-tip-clip 에 전체 글)`, await moves.evaluate((el, long) => [...el.querySelectorAll<HTMLElement>('span.truncate')].some((sp) => sp.scrollWidth > sp.clientWidth && (sp.getAttribute('data-tip-clip') ?? '').includes(long)), LONG));

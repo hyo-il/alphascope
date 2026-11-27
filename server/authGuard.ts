@@ -135,7 +135,7 @@ export function authGuard(req: express.Request, res: express.Response, next: exp
   if (!isPasswordSet()) {
     if (req.method === 'GET' && req.path === '/api/version') return next();
     return res.status(503).json({
-      error: '서버에서 `npm run auth:set-password` 로 비밀번호를 먼저 정하세요.',
+      error: '비밀번호가 아직 정해지지 않았습니다 — 서버 설정에서 정합니다.',
       authNotConfigured: true,
     });
   }

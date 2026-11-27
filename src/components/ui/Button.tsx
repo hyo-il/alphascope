@@ -1,7 +1,7 @@
 import { LoaderCircle, type LucideIcon } from 'lucide-react';
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { ICON, ICON_SM } from './icon';
-import { CONTROL_H, ORDER_BUY_COLOR, ORDER_SELL_COLOR, TOUCH_HIT } from './tokens';
+import { CONTROL_H, ORDER_BUY_COLOR, ORDER_SELL_COLOR, PRIMARY_BUTTON_COLOR, TOUCH_HIT } from './tokens';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'buy' | 'sell';
 type IconType = LucideIcon;
@@ -9,7 +9,7 @@ type IconType = LucideIcon;
 const VARIANT: Record<Variant, string> = {
   // 파란색은 그 화면의 **주요 실행 버튼 하나**에만 (디자인 규칙 2)
   // 바탕은 주 단추 전용 진한 파랑(흰 글 대비 5.41 · v2.73.0) — 파란 글 · 초점 테두리는 accent 그대로
-  primary: 'bg-accent-button text-white hover:bg-accent-button-hover active:bg-accent-button-hover',
+  primary: PRIMARY_BUTTON_COLOR,
   secondary: 'bg-bg-tertiary text-text-primary hover:bg-bg-elevated',
   ghost: 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
   // 빨강은 셋에만(테마 9-1 R2) — `danger` 는 **확인 창의 마지막 위험 단추 하나**(`modal.confirm` 의 danger)에만 쓴다.

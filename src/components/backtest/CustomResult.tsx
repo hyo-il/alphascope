@@ -5,7 +5,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import StockName from '../common/StockName';
 import { InlineSpinner } from '../common/LoadingOverlay';
-import { Badge, Button, InfoTip, Panel, Segmented, SectionTitle, TABLE_FILL, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP, TABLE_TEXT_COL } from '../ui';
+import { Badge, Button, FeatureOff, InfoTip, Panel, Segmented, SectionTitle, TABLE_FILL, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP, TABLE_TEXT_COL } from '../ui';
 import { ICON_SM } from '../ui/icon';
 import { toast } from '../../store/uiStore';
 import { exitReasonText, type ExitReason } from '../../utils/autoTradeExplain';
@@ -460,7 +460,7 @@ export default function CustomResult({
         >
           AI 설명
         </SectionTitle>
-        {!ex && gemini && !gemini.enabled && <p className="text-caption text-text-muted">AI 설명: {gemini.reason ?? 'Gemini 를 쓸 수 없습니다'}</p>}
+        {!ex && gemini && !gemini.enabled && <p className="text-caption text-text-muted"><FeatureOff what="Gemini 가 백테스트 결과를 쉬운 말로 설명합니다." /></p>}
         {!ex && gemini?.enabled && (
           <p className="text-caption text-text-muted">
             누르면 Gemini 를 1번 부릅니다(무료 한도를 자동매매와 함께 씁니다). {many ? '방법별 숫자만 보내고, 어느 방법이 가장 좋다고 고르지 않습니다. ' : ''}

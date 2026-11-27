@@ -262,7 +262,7 @@ export default function SideNav({
               onClick={onLogout}
               data-tip="로그아웃"
               aria-label="로그아웃"
-              className="flex w-full flex-col items-center gap-0.5 border-l-2 border-transparent py-2.5 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-danger"
+              className="flex w-full flex-col items-center gap-0.5 border-l-2 border-transparent py-2.5 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary"
             >
               <LogoutIcon {...ICON_LG} />
               <span className="text-caption leading-tight">로그아웃</span>
@@ -312,7 +312,7 @@ export default function SideNav({
           <button
             type="button"
             onClick={onLogout}
-            className="flex w-full items-center gap-1.5 rounded-md border-l-2 border-transparent px-2.5 py-2 text-left text-xs text-text-muted transition-colors hover:bg-bg-tertiary hover:text-danger"
+            className="flex w-full items-center gap-1.5 rounded-md border-l-2 border-transparent px-2.5 py-2 text-left text-xs text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary"
           >
             <span className={ICON_SLOT}>
               <LogoutIcon {...ICON} />

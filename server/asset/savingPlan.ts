@@ -48,7 +48,7 @@ onSheetCacheReset(resetSavingCache);
 /** 「적립식 투자」 탭 읽기(30초 캐시) — 실패는 `AssetSheetError`(그대로) */
 export async function readSavingTab(): Promise<SavingTabRows> {
   const config = assetSheetConfig();
-  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
+  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다 — 서버 설정에서 정합니다.');
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.rows;
   if (inflight) return inflight;
   inflight = (async () => {

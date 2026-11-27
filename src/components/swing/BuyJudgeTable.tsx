@@ -9,6 +9,7 @@ import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { ICON_SM } from '../ui/icon';
 import { withUsDateTag } from '../common/UsDateTag';
 import WarnIcon from '../ui/WarnIcon';
+import NotPassIcon from '../ui/NotPassIcon';
 import { DATA_CARD_GRID, LIST_TABLE_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP_TIGHT } from '../ui/tokens';
 import TradePlan from './TradePlan';
 import { ResultCard, latestFor } from './TargetAnalysisParts';
@@ -19,11 +20,11 @@ import type { SwingGoal } from '../../types/swingGoal';
 import type { TargetAnalysisRecord } from '../../types/targetAnalysis';
 import ScrollTable from '../ui/ScrollTable';
 
-/** 판단 글자 — 색만으로 뜻을 전하지 않는다(글자가 있다). 손익비 부족은 경고 아이콘도 */
 /**
- * 판단 글자 (사용자 결정): 「사도 됨」 = 초록(상승 토큰 `bullish`) · 「기준 미달」 · 「손익비 부족」 = 빨강(`danger`).
- * 총점이 있으면 함께 — `사도 됨 · 72/100`. 펼치기 전에도 판단과 점수가 한눈에 보이게. 색만으로 뜻을 전하지 않는다(글자가 있다).
- * 손익비 부족은 경고 아이콘을 그대로 둔다(같은 빨강이라 「기준 미달」 과 모양으로 구분).
+ * 판단 글자: 「사도 됨」 = 초록(상승 토큰 `bullish`) · 「기준 미달」 · 「거름망에 걸림」 · 「손익비 부족」 = 회색 글(`text-secondary`) + 아이콘
+ * (빨강은 하락 · 매도 · 틀린 칸에만 — 테마 9-1 R2 ③ · 색만으로 알리지 않음).
+ * 총점이 있으면 함께 — `사도 됨 · 72/100`. 펼치기 전에도 판단과 점수가 한눈에 보이게.
+ * 손익비 부족은 경고 아이콘 · 기준 미달 · 거름망에 걸림은 빼기 아이콘(`ui/NotPassIcon`)으로 모양을 나눈다.
  */
 export function VerdictText({
   verdict,
@@ -51,17 +52,18 @@ export function VerdictText({
     );
   if (verdict === 'rr_block')
     return (
-      <span className="whitespace-nowrap text-danger">
+      <span className="whitespace-nowrap text-text-secondary">
         <WarnIcon />
         {VERDICT_LABEL.rr_block}
         {total}
       </span>
     );
-  // 기준 미달 · 거름망에 걸림 — 같은 빨강, 글자로 구분
+  // 기준 미달 · 거름망에 걸림 — 같은 회색 글 + 빼기 아이콘, 글자로 구분
   if (verdict === 'gate_block' && stackReason && gateReason)
     return (
-      <span className="text-danger" data-tip={GATE_REASON_HELP[gateReason]}>
+      <span className="text-text-secondary" data-tip={GATE_REASON_HELP[gateReason]}>
         <span className="whitespace-nowrap">
+          <NotPassIcon />
           {VERDICT_LABEL.gate_block}
           {total}
         </span>
@@ -69,7 +71,8 @@ export function VerdictText({
       </span>
     );
   return (
-    <span className="whitespace-nowrap text-danger" data-tip={verdict === 'gate_block' && gateReason ? GATE_REASON_HELP[gateReason] : undefined}>
+    <span className="whitespace-nowrap text-text-secondary" data-tip={verdict === 'gate_block' && gateReason ? GATE_REASON_HELP[gateReason] : undefined}>
+      <NotPassIcon />
       {verdict === 'gate_block' ? gateBlockLabel(gateReason) : VERDICT_LABEL[verdict]}
       {total}
     </span>

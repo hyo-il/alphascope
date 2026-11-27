@@ -155,7 +155,7 @@ export default function AutoTradeSettings({ strategy, onSave, onClose, doneMessa
               </span>
             </Row>
             <p className="text-caption leading-relaxed text-text-muted">
-              실적일은 매일 한 번 받아 둔 달력(yfinance)을 봅니다. 실적일을 모르는 종목은 막지 않고 거래 사유에 「실적일 미확인」 을 남깁니다. 하루는 미국 종목이면 미국
+              실적일은 매일 한 번 받아 둔 실적 달력을 봅니다. 실적일을 모르는 종목은 막지 않고 거래 사유에 「실적일 미확인」 을 남깁니다. 하루는 미국 종목이면 미국
               거래일 기준이고, 다음 거래일이 되면 자동으로 풀립니다.
             </p>
           </section>

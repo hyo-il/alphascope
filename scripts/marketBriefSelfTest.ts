@@ -690,7 +690,7 @@ const runButton = async () => {
 
   // Gemini 꺼짐 → 부르지 않고 데이터만
   geminiCalls.length = 0;
-  geminiReason = '이 서버에서는 Gemini 가 꺼져 있습니다(GEMINI_ENABLED=false)';
+  geminiReason = '이 서버에서는 Gemini 가 꺼져 있습니다';
   const b5 = getBrief((await runButton()).id!);
   check('Gemini 꺼짐 → 호출 0 · 데이터만 · 이유', geminiCalls.length === 0 && b5?.brief === null && b5?.aiCalls === 0 && /^AI 꺼짐/.test(b5?.aiError ?? '') && b5?.sources.find((x) => x.group === 'ai')?.ok === false);
   geminiReason = null;

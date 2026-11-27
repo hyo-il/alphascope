@@ -80,7 +80,7 @@ function StatusLabel({ state }: { state: StepState }) {
     );
   }
   if (state.kind === 'failed') {
-    return <span className="text-caption text-bearish">{state.reason}</span>;
+    return <span className="text-caption text-danger">{state.reason}</span>;
   }
   return null;
 }

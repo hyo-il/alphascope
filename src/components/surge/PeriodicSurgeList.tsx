@@ -108,7 +108,7 @@ export default function PeriodicSurgeList({
             />
           </div>
           <p className="mt-1 text-text-muted">
-            yfinance 조회는 종목당 1초씩 간격을 둡니다. 캐시된 종목은 즉시 지나갑니다.
+            과거 시세 자료는 종목당 1초씩 간격을 두고 받습니다. 캐시된 종목은 즉시 지나갑니다.
           </p>
         </div>
       )}

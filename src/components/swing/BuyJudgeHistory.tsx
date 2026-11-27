@@ -15,6 +15,7 @@ import { formatSigned } from '../../utils/formatters';
 import { modal, toast } from '../../store/uiStore';
 import { REASON_DAYS, SMALL_SAMPLE, type JudgeDay } from '../../types/buyJudge';
 import { VerdictText } from './BuyJudgeTable';
+import NotPassIcon from '../ui/NotPassIcon';
 import ScrollTable from '../ui/ScrollTable';
 
 const OUTCOME_HELP =
@@ -136,7 +137,7 @@ export default function BuyJudgeHistory() {
               title: <SymbolsTitle symbols={daySymbols(d.rows)} />,
               summary: (
                 <>
-                  <span className={d.buys ? 'text-bullish' : ''}>사도 됨 {d.buys}</span> · <span className={d.nonBuys ? 'text-danger' : ''}>안 됨 {d.nonBuys}</span>
+                  <span className={d.buys ? 'text-bullish' : ''}>사도 됨 {d.buys}</span> · <span className={d.nonBuys ? 'text-text-secondary' : ''}>{d.nonBuys > 0 && <NotPassIcon />}안 됨 {d.nonBuys}</span>
                 </>
               ),
               render: () => (

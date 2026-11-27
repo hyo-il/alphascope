@@ -41,7 +41,7 @@ export class GeminiError extends Error {
  */
 export function geminiDisabledReason(): string | null {
   if (process.env.GEMINI_ENABLED?.trim().toLowerCase() === 'false') {
-    return '이 서버에서는 Gemini 가 꺼져 있습니다(GEMINI_ENABLED=false)';
+    return '이 서버에서는 Gemini 가 꺼져 있습니다';
   }
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key || key.startsWith('your_')) return 'Gemini 키가 설정되지 않았습니다';
@@ -55,7 +55,7 @@ export function isGeminiEnabled(): boolean {
 function apiKey(): string {
   const reason = geminiDisabledReason();
   if (reason) {
-    throw new GeminiError(`${reason}. .env 를 확인하세요.`);
+    throw new GeminiError(`${reason} — 서버 설정에서 켭니다.`);
   }
   return process.env.GEMINI_API_KEY!.trim();
 }

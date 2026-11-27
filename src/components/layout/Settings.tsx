@@ -99,14 +99,14 @@ export default function Settings({ isMock, engineDown, section }: Props) {
             '토스증권 API',
             !isMock && (health?.toss ?? false),
             isMock
-              ? '모의 데이터 (.env 에 키를 넣으세요)'
+              ? '모의 데이터 (서버 설정에서 연결 정보를 넣으면 실시간)'
               : health?.toss
                 ? '실시간 연결됨'
                 : `연결 실패 — 캐시된 데이터로 동작 중${health?.tossError ? ` (${health.tossError})` : ''}`,
           )}
           {updatedAt}
           <p className="mt-2 text-caption leading-relaxed text-text-muted">
-            토스 <code className="rounded bg-bg-tertiary px-1">CLIENT_ID</code> · <code className="rounded bg-bg-tertiary px-1">CLIENT_SECRET</code> 은 서버의 <code className="rounded bg-bg-tertiary px-1">.env</code> 에서만 읽습니다. 브라우저에는
+            토스 연결 정보(아이디 · 비밀 키)는 서버 설정에서만 읽습니다. 브라우저에는
             키가 내려가지 않으므로 이 화면에서 입력받지 않습니다.
           </p>
         </section>
@@ -136,7 +136,7 @@ export default function Settings({ isMock, engineDown, section }: Props) {
         {row(
           '지표 엔진 (Python)',
           !engineDown && (health?.indicatorEngine ?? false),
-          health?.indicatorEngine ? '실행 중 · 포트 5001' : '중지됨 — npm run dev:py',
+          health?.indicatorEngine ? '실행 중 · 포트 5001' : '중지됨 — 서버에서 다시 켭니다',
         )}
         {row('API 서버', health?.ok ?? false, health?.ok ? '실행 중 · 포트 4000' : '응답 없음')}
         {updatedAt}
@@ -168,7 +168,7 @@ export default function Settings({ isMock, engineDown, section }: Props) {
         <p className="mt-2 text-caption text-text-muted">
           관심 목록과 최근 조회는 <b>서버에 저장</b>되고 이 브라우저에는 캐시만 남습니다 —
           위 버튼은 이 브라우저의 캐시를 삭제합니다(서버 목록은 그대로). 캔들·기업정보 캐시와
-          분석 히스토리는 SQLite(<code className="rounded bg-bg-tertiary px-1">db/alphascope.db</code>)에 있습니다.
+          분석 히스토리는 서버 저장소에 있습니다.
         </p>
       </section>
 
@@ -358,8 +358,7 @@ function AuthSection() {
         </Button>
       </div>
       <p className="mt-2 text-caption text-text-muted">
-        비밀번호는 서버에서 <code className="rounded bg-bg-tertiary px-1">npm run auth:set-password</code>{' '}
-        로만 바꿉니다. 바꾸면 모든 기기의 로그인이 끊깁니다.
+        비밀번호는 서버 설정에서만 바꿉니다. 바꾸면 모든 기기의 로그인이 끊깁니다.
       </p>
     </div>
   );

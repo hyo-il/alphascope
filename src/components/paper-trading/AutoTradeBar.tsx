@@ -15,7 +15,8 @@ import { useTradingRules } from '../../hooks/useTradingRules';
 import { NO_STOP_WARNING } from '../../utils/ruleText';
 import { toast } from '../../store/uiStore';
 import { useStockNames } from '../../hooks/useStockNames';
-import { autoTradeView } from '../../utils/autoTradeStatus';
+import { AUTO_TRADING_OFF_WHAT, autoTradeView } from '../../utils/autoTradeStatus';
+import FeatureOff from '../ui/FeatureOff';
 import { explainNote, groupNotes, nextJudgeText, noteKind, nowSentence, NOTE_KIND_LABEL, type NoteKind } from '../../utils/autoTradeExplain';
 import { withUsDateTag } from '../common/UsDateTag';
 
@@ -150,9 +151,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
         */}
         {/* 서버 스위치로 꺼진 서버 — 설정이 꺼져 있어도 알린다 (켜 봐야 돌지 않는다) */}
         {!on && status?.serverEnabled === false && (
-          <span className="rounded bg-warning/15 px-2 py-0.5 text-caption text-warning">
-            <WarnIcon />이 서버에서는 자동매매가 꺼져 있습니다(AUTO_TRADING_ENABLED=false)
-          </span>
+          <FeatureOff what={AUTO_TRADING_OFF_WHAT} className="px-2 py-0.5" />
         )}
         {/*
           ⚠️ 대기(장 닫힘)는 정상 상태라 경고색을 쓰지 않는다 — 맨 위 "지금 상태" 문장이 이미 설명한다.
@@ -268,6 +267,7 @@ export default function AutoTradeBar({ accountId }: { accountId: number | null }
               return (
                 <li key={i} className="flex gap-2" data-note-kind={kind}>
                   <span
+                    data-tone={kind === 'sell' ? 'sell' : undefined}
                     className={`w-9 shrink-0 font-medium ${
                       kind === 'buy' ? 'text-bullish' : kind === 'sell' ? 'text-bearish' : 'text-text-muted'
                     }`}

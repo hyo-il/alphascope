@@ -24,7 +24,7 @@ export function isAutoTradingEnabled(): boolean {
   return process.env.AUTO_TRADING_ENABLED?.trim().toLowerCase() !== 'false';
 }
 
-export const SERVER_OFF_REASON = '이 서버에서는 자동매매가 꺼져 있습니다(AUTO_TRADING_ENABLED=false)';
+export const SERVER_OFF_REASON = '이 서버에서는 자동매매가 꺼져 있습니다';
 const NO_RULE_REASON = '매매 규칙을 고르세요.';
 
 /** 틱 간격 — 청산 검사 주기이기도 하다 */

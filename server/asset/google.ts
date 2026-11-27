@@ -43,7 +43,7 @@ function readKey(keyFile: string): ServiceAccountKey {
   try {
     raw = fs.readFileSync(keyFile, 'utf8');
   } catch {
-    throw new AssetSheetError('key-file', '서비스 계정 열쇠 파일이 없습니다(`.env` 의 GOOGLE_SA_KEY_FILE 경로를 확인하세요).');
+    throw new AssetSheetError('key-file', '구글 연결 열쇠가 없습니다 — 서버 설정에서 정합니다.');
   }
   try {
     const key = JSON.parse(raw) as Partial<ServiceAccountKey>;
@@ -149,7 +149,7 @@ async function throwIfFailed(res: Response, action: 'read' | 'write'): Promise<v
         : '시트에 쓸 권한이 없습니다(시트를 서비스 계정 이메일에 「편집자」 로 공유했는지 확인하세요).',
     );
   }
-  if (res.status === 404) throw new AssetSheetError('not-found', '시트를 찾지 못했습니다(`.env` 의 ASSET_SHEET_ID 를 확인하세요).');
+  if (res.status === 404) throw new AssetSheetError('not-found', '시트를 찾지 못했습니다 — 서버 설정의 시트 연결 정보를 확인합니다.');
   if (res.status === 400) {
     // 구글 오류 글 「Unable to parse range: '탭'!B12」 에서 탭 이름만(본문은 남기지 않는다)
     const err = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;

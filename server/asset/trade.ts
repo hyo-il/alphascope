@@ -131,9 +131,9 @@ async function oneAtATime<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 function writableConfig() {
-  if (!isAssetSyncEnabled()) throw new AssetSheetError('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다(ASSET_SYNC_ENABLED=false).');
+  if (!isAssetSyncEnabled()) throw new AssetSheetError('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다.');
   const config = assetSheetConfig();
-  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
+  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다 — 서버 설정에서 정합니다.');
   return config;
 }
 
@@ -193,7 +193,7 @@ async function applyTrade(config: NonNullable<ReturnType<typeof assetSheetConfig
  * ④ 입력 검사(자릿수 · 매도 수량) ⑤ 모두 매도면 보유 줄을 지우고(`deleteHoldingRow` — 「티커」 줄은 남김) · 아니면 계산 뒤 `applyTrade` ⑥ 시트 확인 뒤에만 `asset_trades` 한 줄.
  */
 export async function recordTrade(input: unknown): Promise<AssetTradeResult> {
-  if (!isAssetSyncEnabled()) throw new AssetSheetError('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다(ASSET_SYNC_ENABLED=false).');
+  if (!isAssetSyncEnabled()) throw new AssetSheetError('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다.');
   const req = parseRequest(input);
   const config = writableConfig();
   if (!SHEET_LAYOUT.sections.some((s) => 'key' in s && s.key === req.section)) throw refuse('이 줄에는 매수 · 매도를 입력할 수 없습니다.');

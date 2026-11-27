@@ -22,7 +22,8 @@ const TYPES: { id: CalendarEventType; label: string; dot: string }[] = [
   { id: 'earnings', label: '실적', dot: 'bg-accent' },
   { id: 'fomc', label: '거시(FOMC)', dot: 'bg-warning' },
   { id: 'expiry', label: '만기', dot: 'bg-bullish' },
-  { id: 'holiday', label: '휴장', dot: 'bg-bearish' },
+  // 휴장 = 회색 점(빨강은 하락 · 매도 · 틀린 칸에만 — 테마 9-1 R2)
+  { id: 'holiday', label: '휴장', dot: 'bg-text-muted' },
 ];
 const DOT = Object.fromEntries(TYPES.map((t) => [t.id, t.dot])) as Record<CalendarEventType, string>;
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -209,8 +210,8 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
           {/* 월 달력 */}
           <div className="rounded-xl bg-bg-secondary p-2">
             <div className="grid grid-cols-7 text-center text-caption text-text-muted">
-              {WEEKDAYS.map((w, i) => (
-                <div key={w} className={`py-1 ${i === 0 ? 'text-bearish/80' : ''}`}>
+              {WEEKDAYS.map((w) => (
+                <div key={w} className="py-1">
                   {w}
                 </div>
               ))}
@@ -291,7 +292,7 @@ export default function CalendarView({ onSelectSymbol }: { onSelectSymbol: (symb
         <p className="flex items-center gap-1 text-caption text-text-muted">
           데이터 출처{data && ` · 실적 대상 ${data.meta.scopeSize}종목`}
           <InfoTip label="데이터 출처">
-          실적일은 yfinance 기준이며 회사가 확정하기 전의 추정일일 수 있습니다(「예정」). FOMC 는 연준 공식 일정표.
+          실적일은 재무 자료(Yahoo Finance) 기준이며 회사가 확정하기 전의 추정일일 수 있습니다(「예정」). FOMC 는 연준 공식 일정표.
           옵션 만기는 매월 셋째 금요일(휴장이면 그 전 거래일), 3·6·9·12월은 분기 동시 만기입니다.
           {holidaysAvailable
             ? ` 휴장일은 토스 시장 달력 기준이고, 미국은 NYSE 공식 일정(${data?.meta.nyse.coverage.to.slice(0, 4) ?? '2027'}년까지)으로 보완합니다 — 둘 중 하나라도 휴장이면 휴장으로 표시합니다.`

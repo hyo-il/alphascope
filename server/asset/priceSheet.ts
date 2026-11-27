@@ -84,7 +84,7 @@ const linesRange = () => wideRange(TICKER_TAB, P.wonColumn);
 function guard(): NonNullable<ReturnType<typeof assetSheetConfig>> {
   if (!isPriceWriteAllowed()) throw new AssetSheetError('disabled', '이 서버에서는 시트 가격 쓰기가 꺼져 있습니다(오라클에서만 켬).');
   const config = assetSheetConfig();
-  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
+  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다 — 서버 설정에서 정합니다.');
   if (isMockPrices()) throw new AssetSheetError('disabled', '토스 키가 없어(모의 데이터 모드) 시트 가격을 쓰지 않습니다.');
   return config;
 }

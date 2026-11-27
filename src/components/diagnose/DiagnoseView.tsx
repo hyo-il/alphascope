@@ -5,6 +5,7 @@ import Button from '../ui/Button';
 import HelpBox from '../common/HelpBox';
 import DisclosureButton from '../ui/DisclosureButton';
 import WarnIcon from '../ui/WarnIcon';
+import NotPassIcon from '../ui/NotPassIcon';
 import { SkeletonCards, SkeletonList } from '../common/SkeletonLoader';
 import { VERDICT_ICON } from '../ui/statusIcons';
 import { ICON_SM } from '../ui/icon';
@@ -80,7 +81,8 @@ function judge(o: {
  */
 const VERDICT_STYLE: Record<Verdict, { label: string; badge: string }> = {
   good: { label: '기준선보다 좋음', badge: 'bg-bullish/15 text-bullish' },
-  bad: { label: '기준선 이하', badge: 'bg-bearish/15 text-bearish' },
+  // 「기준 미달」 류 — 회색 글 + 아이콘(빨강은 하락 · 매도 · 틀린 칸에만 — 테마 9-1 R2 ③)
+  bad: { label: '기준선 이하', badge: 'bg-bg-tertiary text-text-secondary' },
   hold: { label: '판단 보류', badge: 'bg-bg-tertiary text-text-secondary' },
 };
 function VerdictMark({ v }: { v: Verdict }) {
@@ -396,7 +398,7 @@ function Details({ d }: { d: DiagnoseDetail }) {
               c.overdueDays != null
                 ? `${c.predicted} — 예상일 지남(${c.overdueDays}일 경과)`
                 : `${c.predicted}${c.stale ? ' (예상일 지남)' : ''}`,
-              c.hit ? <span className="text-bullish">적중</span> : <span className="text-bearish">빗나감</span>,
+              c.hit ? <span className="text-bullish">적중</span> : <span className="text-text-secondary"><NotPassIcon />빗나감</span>,
             ])}
           />
         )}

@@ -20,7 +20,7 @@ export const CASH_SECTION_KEYS: string[] = SHEET_LAYOUT.sections.flatMap((s) => 
 /** 설정 저장 검사 · 화면에 쓰는 지금 시트 */
 export async function cashSheetNow(): Promise<CashSheetNow & { salary: number | null; fixedError: string | null }> {
   const config = assetSheetConfig();
-  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
+  if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다 — 서버 설정에서 정합니다.');
   const r = await readCashSheetNow(config);
   return { sections: CASH_SECTION_KEYS, ...r };
 }

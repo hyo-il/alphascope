@@ -406,8 +406,8 @@ export async function getHistory(
 
   const response = await fetch(url, { signal: AbortSignal.timeout(30_000) }).catch((e) => {
     throw new Error(
-      `과거 데이터 서비스에 연결하지 못했습니다 (${PYTHON_URL}). ` +
-        `\`npm run dev\` 로 함께 띄우세요. 원인: ${e instanceof Error ? e.message : String(e)}`,
+      '과거 데이터 서비스에 연결하지 못했습니다 — 서버에서 지표 엔진을 다시 켭니다. ' +
+        `원인: ${e instanceof Error ? e.message : String(e)}`,
     );
   });
 

@@ -124,7 +124,7 @@ export default function CompanySummary({
   const latestEquity = data.balanceSheet.find((r) => typeof r['Stockholders Equity'] === 'number' && (r['Stockholders Equity'] as number) > 0);
   const calcPer = valuation.per == null && profile.marketCap && latestNet ? profile.marketCap / (latestNet['Net Income'] as number) : null;
   const calcPbr = valuation.pbr == null && profile.marketCap && latestEquity ? profile.marketCap / (latestEquity['Stockholders Equity'] as number) : null;
-  const NO_VALUE = 'yfinance 가 이 종목 값을 주지 않습니다(국내 종목은 대개 비어 있다).';
+  const NO_VALUE = '재무 자료에 이 종목 값이 없습니다(국내 종목은 대개 비어 있다).';
   /** 52주 고/저 — 통화 규칙(원화 소수점 없음) */
   const px = (v: number) => formatPrice(v, currencyOfSymbol(symbol));
 
@@ -163,7 +163,7 @@ export default function CompanySummary({
                   valuation.per != null
                     ? undefined
                     : calcPer != null
-                      ? `앱이 계산 — 시가총액 ÷ ${String(latestNet!.period).slice(0, 4)} 연간 순이익. yfinance 가 이 종목 PER 을 주지 않아서 같은 응답의 값으로 냈습니다(최근 12개월이 아니라 회계연도 기준).`
+                      ? `앱이 계산 — 시가총액 ÷ ${String(latestNet!.period).slice(0, 4)} 연간 순이익. 재무 자료에 이 종목 PER 이 없어서 같은 자료의 값으로 냈습니다(최근 12개월이 아니라 회계연도 기준).`
                       : NO_VALUE
                 }
               />
@@ -174,12 +174,12 @@ export default function CompanySummary({
                   valuation.pbr != null
                     ? undefined
                     : calcPbr != null
-                      ? `앱이 계산 — 시가총액 ÷ ${String(latestEquity!.period).slice(0, 4)} 자본총계. yfinance 가 이 종목 PBR 을 주지 않아서 같은 응답의 값으로 냈습니다.`
+                      ? `앱이 계산 — 시가총액 ÷ ${String(latestEquity!.period).slice(0, 4)} 자본총계. 재무 자료에 이 종목 PBR 이 없어서 같은 자료의 값으로 냈습니다.`
                       : NO_VALUE
                 }
               />
               {/*
-                PEG — yfinance trailingPegRatio(없으면 pegRatio) 그대로. 화면에서 계산하지 않는다(성장률 기준이 정해지지 않았다).
+                PEG — 재무 자료의 값 그대로(최근 12개월 기준 · 없으면 예상 기준). 화면에서 계산하지 않는다(성장률 기준이 정해지지 않았다).
                 음수(이익 감소)도 숫자 그대로 보인다. 국내 종목은 `displayPeg` 가 숨긴다 — 값을 주는데 숨기는 것이라 NO_VALUE 대신 국내 안내.
               */}
               <Metric
@@ -199,13 +199,13 @@ export default function CompanySummary({
                 label="영업이익률"
                 note="최근 분기"
                 value={ratio(profitability.operatingMargin)}
-                info="yfinance operatingMargins — 가장 최근 분기의 영업이익 ÷ 매출(분기 손익계산서와 같은 값으로 확인)."
+                info="재무 자료의 영업이익률 — 가장 최근 분기의 영업이익 ÷ 매출(분기 손익계산서와 같은 값으로 확인)."
               />
               <Metric
                 label="매출 성장률"
                 note="최근 분기 · 전년 같은 분기 대비"
                 value={ratio(profitability.revenueGrowth)}
-                info="yfinance revenueGrowth — 가장 최근 분기 매출을 1년 전 같은 분기와 비교한 값(분기 손익계산서와 같은 값으로 확인)."
+                info="재무 자료의 매출 성장률 — 가장 최근 분기 매출을 1년 전 같은 분기와 비교한 값(분기 손익계산서와 같은 값으로 확인)."
               />
               <Metric
                 label="배당수익률"
@@ -217,7 +217,7 @@ export default function CompanySummary({
             </dl>
 
             <p className="text-caption text-text-muted">
-              데이터: yfinance · 하루 한 번 갱신.
+              데이터: 재무 자료(Yahoo Finance) · 하루 한 번 갱신.
             </p>
           </div>
         )}

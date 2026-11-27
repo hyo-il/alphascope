@@ -121,3 +121,6 @@ export const AUTO_TRADE_TONE: Record<AutoTradeState, string> = {
   blocked: 'text-warning',
   off: 'text-text-muted',
 };
+
+/** 꺼진 자동매매 안내(`ui/FeatureOff`) [ⓘ] 안 한 줄 설명 */
+export const AUTO_TRADING_OFF_WHAT = '계좌마다 정한 매매 규칙으로 모의 주문을 자동으로 냅니다(실제 주문 없음).';

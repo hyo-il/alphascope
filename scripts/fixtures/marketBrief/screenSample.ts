@@ -177,7 +177,7 @@ export function statusSample(o: { running?: boolean; gemini?: boolean } = {}): M
     today: '2026-10-29',
     nowEdition: 'afternoon',
     autoDisabledReason: null,
-    geminiDisabledReason: o.gemini === false ? '이 서버에서는 Gemini 가 꺼져 있습니다(GEMINI_ENABLED=false)' : null,
+    geminiDisabledReason: o.gemini === false ? '이 서버에서는 Gemini 가 꺼져 있습니다' : null,
     lastFinishedId: null,
     lastFinishedDate: null,
     lastError: null,

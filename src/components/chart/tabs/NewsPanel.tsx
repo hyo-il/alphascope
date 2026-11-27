@@ -1,6 +1,7 @@
 import { formatDate, formatTime } from '../../../utils/dateFormat';
 import { PANEL_PAD } from '../../ui/tokens';
 import Button from '../../ui/Button';
+import FeatureOff from '../../ui/FeatureOff';
 import WarnIcon from '../../ui/WarnIcon';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGeminiStatus } from '../../../hooks/useGemini';
@@ -24,7 +25,7 @@ const SENTIMENT_STYLE: Record<OverallSentiment, string> = {
 
 function Badge({ value }: { value: OverallSentiment }) {
   return (
-    <span className={`shrink-0 rounded border px-1.5 py-px text-caption font-medium ${SENTIMENT_STYLE[value]}`}>{value}</span>
+    <span className={`shrink-0 rounded border px-1.5 py-px text-caption font-medium ${SENTIMENT_STYLE[value]}`} data-tone={value === '부정' ? 'down' : undefined}>{value}</span>
   );
 }
 
@@ -102,11 +103,11 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
           disabled={!canAnalyze}>
           {analyzing ? 'AI 판정 중…' : 'AI 요약·판정'}
         </Button>
-        <span className="text-caption text-text-muted">
-          {disabledReason
-            ? `버튼이 꺼져 있습니다 — ${disabledReason}`
-            : '누를 때만 Gemini 를 1회 부릅니다. 기사 제목만 보냅니다.'}
-        </span>
+        {disabledReason ? (
+          <FeatureOff what="Gemini 가 뉴스 제목을 읽고 요약 · 판정합니다." />
+        ) : (
+          <span className="text-caption text-text-muted">누를 때만 Gemini 를 1회 부릅니다. 기사 제목만 보냅니다.</span>
+        )}
       </div>
 
       {analyzeError && (
@@ -145,7 +146,7 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
       {!news && !error && <p className="text-caption text-text-muted">뉴스를 불러오는 중…</p>}
       {news && news.items.length === 0 && (
         <p className="text-caption text-text-muted">
-          뉴스 없음 — 이 종목과 연결된 최근 기사가 yfinance 에 없습니다
+          뉴스 없음 — 이 종목과 연결된 최근 기사가 뉴스 자료에 없습니다
           {/^\d/.test(symbol) ? ' (국내 종목은 대개 비어 있습니다).' : '.'}
         </p>
       )}
@@ -190,7 +191,7 @@ export default function NewsPanel({ symbol }: { symbol: string }) {
       )}
       {news && (
         <p className="text-caption text-text-muted">
-          출처: Yahoo Finance(yfinance) · 30분마다 새로 받습니다 ·{' '}
+          출처: Yahoo Finance · 30분마다 새로 받습니다 ·{' '}
           {formatTime(news.fetchedAt)} 기준
         </p>
       )}

@@ -896,7 +896,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
               setSelectedAnchor(null);
             }}
             data-tip="이 드로잉 삭제 (Delete)"
-            className="absolute z-20 flex items-center gap-1 rounded-full bg-danger px-2.5 py-1 text-caption font-semibold text-white shadow-lg transition-transform hover:scale-105"
+            className="absolute z-20 flex items-center gap-1 rounded-full bg-bg-elevated px-2.5 py-1 text-caption font-semibold text-text-primary shadow-lg transition-transform hover:scale-105"
             style={{ left: selectedAnchor.x, top: selectedAnchor.y }}
           >
             삭제
@@ -920,7 +920,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
                 setMenu(null);
                 setSelectedAnchor(null);
               }}
-              className="block w-full px-3 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-danger"
+              className="block w-full px-3 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
             >
               삭제
             </button>

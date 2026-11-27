@@ -42,7 +42,8 @@ function accuracyClass(value: number | null): string {
   if (value == null) return 'text-text-muted';
   if (value >= 60) return 'text-bullish';
   if (value >= 45) return 'text-text-primary';
-  return 'text-bearish';
+  // 낮은 적중률 = 회색(빨강은 하락 · 매도 · 틀린 칸에만 — 테마 9-1 R2 ③)
+  return 'text-text-secondary';
 }
 
 /**
@@ -64,7 +65,7 @@ function Explainer({ horizonDays, flatBand, rule }: { horizonDays: number; flatB
           '적중', 내렸으면 '빗나감' 으로 셉니다.
         </li>
         <li>
-          <b className="text-bearish">매도</b> 는 반대로, <b>중립</b> 은 ±{flatBand}% 안에
+          <b className="text-bearish" data-tone="sell">매도</b> 는 반대로, <b>중립</b> 은 ±{flatBand}% 안에
           머물렀으면 적중입니다.
         </li>
         <li>

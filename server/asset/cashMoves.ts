@@ -476,7 +476,7 @@ export function applyCashMove(m: CashMoveInput, opts: { transientRetry?: boolean
     // 직접 입출금(`manual`)은 시트 쓰기 스위치만 본다(사용자 결정 2026-11-17 — 「현금 자동 반영」 이 꺼져 있어도 됨)
     if (opts.manual ? !isAssetSyncEnabled() : !isCashWriteOn()) throw new AssetSheetError('disabled', opts.manual ? '시트 쓰기가 꺼져 있어요.' : '현금 자동 반영이 꺼져 있습니다.');
     const config = assetSheetConfig();
-    if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
+    if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다 — 서버 설정에서 정합니다.');
     const d = db();
     const ins = d
       .prepare(`INSERT OR IGNORE INTO asset_cash_moves (at, kind, item_key, label, month, day, from_key, to_key, amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`)
@@ -527,7 +527,7 @@ export function undoCashMove(id: unknown): Promise<AssetCashMoveRecordAll> {
     if (!isCashWriteOn() && !(isAssetSyncEnabled() && isManualMoveId(id))) throw new AssetSheetError('disabled', '현금 자동 반영이 꺼져 있어 되돌릴 수 없습니다.');
     if (typeof id !== 'number' || !Number.isInteger(id) || id < 1) throw new AssetSheetError('not-editable', '되돌릴 기록이 올바르지 않습니다.');
     const config = assetSheetConfig();
-    if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
+    if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다 — 서버 설정에서 정합니다.');
     const d = db();
     const row = d.prepare(`SELECT * FROM asset_cash_moves WHERE id = ?`).get(id) as MoveRow | undefined;
     if (!row) throw new AssetSheetError('not-editable', '되돌릴 기록이 없습니다.');

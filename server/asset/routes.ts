@@ -176,7 +176,7 @@ const purchaseBusy = new Set<string>();
 type PurchaseRoute = 'done' | 'skip' | 'undo';
 async function purchaseAction(action: PurchaseRoute, req: Request, res: Response): Promise<void> {
   try {
-    if (action === 'done' && !isAssetSyncEnabled()) throw new AssetSheetError('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다(ASSET_SYNC_ENABLED=false).');
+    if (action === 'done' && !isAssetSyncEnabled()) throw new AssetSheetError('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다.');
     const { cycleDay, section } = (req.body ?? {}) as Partial<PurchaseActionRequest>;
     const state = purchaseStateOf(purchaseAccountsInput(await readAssetSheet()));
     const ok = purchaseActionCheck(state, action, cycleDay, section);
@@ -319,7 +319,7 @@ assetRouter.get('/api/asset/cash/pair', async (req, res) => {
       return res.json(body);
     }
     const config = assetSheetConfig();
-    if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다(`.env`).');
+    if (!config) throw new AssetSheetError('not-configured', '시트 연결 정보가 없습니다 — 서버 설정에서 정합니다.');
     const [[rows], usdKrw] = await Promise.all([batchGet(config, [cashWide()], 'UNFORMATTED_VALUE'), usdKrwNow()]);
     // 은행 · 상품 이름(v2.71.1 — 설정 화면 · 「현금 합계」 와 같은 함수) · 시트에 없으면 저장한 이름 그대로
     const lines = cashLines(rows);

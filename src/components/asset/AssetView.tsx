@@ -82,7 +82,7 @@ function NoPassword() {
   return (
     <Panel className="max-w-xl">
       <p className="text-xs leading-relaxed text-text-secondary keep-all">
-        자산 비밀번호가 아직 없습니다. 서버에서 <code className="rounded bg-bg-tertiary px-1">npm run asset:set-password</code> 로 정해 주세요.
+        자산 비밀번호가 아직 정해지지 않았습니다 — 서버 설정에서 정합니다.
       </p>
     </Panel>
   );
@@ -154,7 +154,7 @@ function UnlockForm({ sheetConfigured, idleNote, onUnlocked }: { sheetConfigured
           잠금 풀기
         </Button>
         {!sheetConfigured && <p className="mt-3 text-caption leading-relaxed text-text-muted keep-all">
-            시트 연결 정보가 없습니다(<code className="rounded bg-bg-tertiary px-1">.env</code>).
+            시트 연결 정보가 없습니다 — 서버 설정에서 정합니다.
           </p>}
       </Panel>
     </form>

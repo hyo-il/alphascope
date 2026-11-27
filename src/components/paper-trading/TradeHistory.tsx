@@ -8,7 +8,7 @@ import { cancelPaperOrder } from '../../hooks/usePaperTrading';
 import { formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
 import SymbolChartLink from '../common/SymbolChartLink';
 import { isAutoTradeReason } from '../../utils/autoTradeExplain';
-import { TABLE_NAME_COL, TABLE_NUM_COL } from '../ui/tokens';
+import { ORDER_BUY_BADGE, ORDER_BUY_TEXT, ORDER_SELL_BADGE, ORDER_SELL_TEXT, TABLE_NAME_COL, TABLE_NUM_COL } from '../ui/tokens';
 import ScrollTable from '../ui/ScrollTable';
 
 interface Props {
@@ -84,7 +84,7 @@ export default function TradeHistory({ trades, cashFlows, currency, orders, onCh
           <ul className="space-y-1">
             {pending.map((o) => (
               <li key={o.id} className="flex items-center gap-2 text-caption text-text-secondary">
-                <span className={o.side === 'BUY' ? 'text-bearish' : 'text-bullish'}>
+                <span className={o.side === 'BUY' ? ORDER_BUY_TEXT : ORDER_SELL_TEXT} data-tone={o.side === 'BUY' ? undefined : 'sell'}>
                   {o.side === 'BUY' ? '매수' : '매도'}
                 </span>
                 <SymbolChartLink symbol={o.symbol} name={o.name} onOpen={onSelectSymbol} />
@@ -163,10 +163,11 @@ export default function TradeHistory({ trades, cashFlows, currency, orders, onCh
                       <SymbolChartLink symbol={t.symbol} name={t.name} onOpen={onSelectSymbol} />
                     </td>
                     <td className="px-3 py-2">
+                      {/* 매수 초록 · 매도 빨강(미국 증권 기준 · 색 정의 `tokens` 한 곳) — 글자 「매수」 「매도」 를 늘 함께 */}
                       <span
-                        className={`rounded px-1.5 py-0.5 text-caption ${
-                          t.side === 'BUY' ? 'bg-bearish/15 text-bearish' : 'bg-bullish/15 text-bullish'
-                        }`}
+                        className={`rounded px-1.5 py-0.5 text-caption ${t.side === 'BUY' ? ORDER_BUY_BADGE : ORDER_SELL_BADGE}`}
+                        data-tone={t.side === 'BUY' ? undefined : 'sell'}
+                        data-side={t.side === 'BUY' ? 'buy' : 'sell'}
                       >
                         {t.side === 'BUY' ? '매수' : '매도'}
                       </span>
@@ -180,7 +181,7 @@ export default function TradeHistory({ trades, cashFlows, currency, orders, onCh
                     </td>
                     <td
                       className={`px-3 py-2 text-right tabular-nums ${
-                        t.pnl == null ? 'text-text-muted' : t.pnl > 0 ? 'text-bullish' : 'text-bearish'
+                        t.pnl == null ? 'text-text-muted' : t.pnl > 0 ? 'text-bullish' : t.pnl < 0 ? 'text-bearish' : 'text-text-secondary'
                       }`}
                     >
                       {t.pnl == null

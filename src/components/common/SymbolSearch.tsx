@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { InlineSpinner } from './LoadingOverlay';
-import { CONTROL_H, TOUCH_FIELD, TOUCH_LIST_ROW } from '../ui/tokens';
+import { CONTROL_H, PRIMARY_BUTTON_COLOR, TOUCH_FIELD, TOUCH_LIST_ROW } from '../ui/tokens';
 import type { StockSearchResult } from '../../types/toss';
 import { hasHangul, searchStocksApi } from '../../utils/stockSearch';
 
@@ -250,7 +250,7 @@ export default function SymbolSearch({
             className={
               compact
                 ? 'shrink-0 rounded border border-border px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary'
-                : 'shrink-0 rounded-md bg-accent px-3.5 py-1.5 text-sm text-white transition-colors hover:bg-accent-hover'
+                : `shrink-0 rounded-md px-3.5 py-1.5 text-sm transition-colors ${PRIMARY_BUTTON_COLOR}`
             }
           >
             {submitLabel}

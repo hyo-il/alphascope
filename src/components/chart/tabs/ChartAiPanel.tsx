@@ -1,5 +1,5 @@
 import { formatDateTime } from '../../../utils/dateFormat';
-import { PANEL_PAD, PANEL_X, Tabs } from '../../ui';
+import { FeatureOff, PANEL_PAD, PANEL_X, Tabs } from '../../ui';
 import Button from '../../ui/Button';
 import { useCallback, useEffect, useState, type ComponentProps } from 'react';
 import type { Candle, Timeframe } from '../../../types/toss';
@@ -122,7 +122,6 @@ export default function ChartAiPanel({
 function SingleSymbolGemini({ symbol }: { symbol: string }) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   /** 꺼진 이유 — 키 없음과 서버 스위치(GEMINI_ENABLED=false)는 대처가 다르다 */
-  const [offReason, setOffReason] = useState<string | null>(null);
   const [model, setModel] = useState<string>('');
   const [latest, setLatest] = useState<GeminiAnalysis | null>(null);
   /** 최근 결과를 받았는지 — 받기 전에 "기록이 아직 없습니다" 를 띄우지 않는다 */
@@ -150,10 +149,9 @@ function SingleSymbolGemini({ symbol }: { symbol: string }) {
     setLatestLoaded(false);
     void fetch('/api/gemini/status')
       .then((r) => r.json())
-      .then((data: { enabled?: boolean; model?: string; reason?: string | null }) => {
+      .then((data: { enabled?: boolean; model?: string }) => {
         if (cancelled) return;
         setEnabled(Boolean(data.enabled));
-        setOffReason(data.reason ?? null);
         setModel(data.model ?? '');
       })
       .catch(() => {
@@ -186,16 +184,11 @@ function SingleSymbolGemini({ symbol }: { symbol: string }) {
 
   if (enabled === null) return <p className={`${PANEL_PAD} text-caption text-text-muted`}>확인 중…</p>;
 
-  if (!enabled && offReason?.includes('GEMINI_ENABLED')) {
-    return <p className={`${PANEL_PAD} text-caption text-text-muted`}>{offReason}. 수동 분석(Claude)은 그대로 씁니다.</p>;
-  }
-
+  // 꺼진 까닭(스위치 · 키 없음)과 상관없이 같은 안내 — 화면에 설정 이름을 내지 않는다(테마 9-1 R4)
   if (!enabled) {
     return (
       <p className={`${PANEL_PAD} text-caption text-text-muted`}>
-        Gemini 키가 없어 Gemini 분석을 쓸 수 없습니다. <code>.env</code> 에{' '}
-        <code>GEMINI_API_KEY</code> 를 넣으면 이 버튼이 활성화됩니다. 수동 분석(Claude)은 키 없이
-        그대로 씁니다.
+        <FeatureOff what="Gemini 가 차트를 읽고 매매 의견을 냅니다." /> · 수동 분석(Claude)은 그대로 씁니다.
       </p>
     );
   }

@@ -462,7 +462,7 @@ export default function WatchlistManager({
                 type="button"
                 onClick={confirmDeleteSymbols}
                 disabled={checked.length === 0}
-                className={`${ACTION} inline-flex items-center gap-1 hover:border-danger hover:text-danger`}
+                className={`${ACTION} inline-flex items-center gap-1 hover:text-text-primary`}
               >
                 <TrashIcon className="h-3.5 w-3.5" />
                 삭제

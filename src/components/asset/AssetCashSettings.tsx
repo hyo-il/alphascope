@@ -261,7 +261,7 @@ export default function AssetCashSettings({ onLocked, onBusy }: { onLocked: () =
               {v.salary.nextDay ? `다음 ${dayText(v.salary.nextDay)}` : s.enabled ? '—' : '꺼짐'}
             </span>
           </div>
-          {v.salary.problem && <p className="text-caption text-danger keep-all">시트에서 받는 계좌를 찾지 못했어요 — 다시 골라 주세요.</p>}
+          {v.salary.problem && <p className="text-caption text-danger keep-all" data-tone="invalid">시트에서 받는 계좌를 찾지 못했어요 — 다시 골라 주세요.</p>}
           {errors.salary && (
             <p role="alert" className="text-xs text-danger keep-all">
               {errors.salary}
@@ -414,7 +414,7 @@ export default function AssetCashSettings({ onLocked, onBusy }: { onLocked: () =
                 const path = pathOf(m);
                 const status = ASSET_CASH_STATUS_LABEL[m.status];
                 const reason = m.reason ? ASSET_CASH_REASON_TEXT[m.reason] : null;
-                const tone = m.status === 'check' ? 'text-danger' : m.status === 'applied' ? 'text-text-primary' : 'text-text-muted';
+                const tone = m.status === 'check' ? 'text-warning' : m.status === 'applied' ? 'text-text-primary' : 'text-text-muted';
                 return (
                   <tr key={m.id} className={`border-t border-border/30 ${LIST_TABLE_ROW}`} data-testid="asset-cash-move-row" data-move-status={m.status}>
                     <td className="pl-4 tabular-nums text-text-secondary">{m.day}</td>
@@ -432,7 +432,7 @@ export default function AssetCashSettings({ onLocked, onBusy }: { onLocked: () =
                     <td className="max-w-0 pl-4">
                       <span className={`block truncate ${tone}`}>{status}</span>
                       {reason && (
-                        <span className={`block truncate text-caption ${m.status === 'check' ? 'text-danger' : 'text-text-muted'}`} data-tip-clip={reason}>
+                        <span className={`block truncate text-caption ${m.status === 'check' ? 'text-warning' : 'text-text-muted'}`} data-tip-clip={reason}>
                           {reason}
                         </span>
                       )}
@@ -492,7 +492,7 @@ function FlowRow({
 
   const head = (
     <div className="flex min-w-0 items-center gap-2 text-caption">
-      <span className={`min-w-0 truncate ${problem ? 'text-danger' : reflect && !zero ? 'text-text-secondary' : 'text-text-muted'}`} data-tip-clip={label}>
+      <span className={`min-w-0 truncate ${problem ? 'text-warning' : reflect && !zero ? 'text-text-secondary' : 'text-text-muted'}`} data-tip-clip={label}>
         {label}
       </span>
       {changed && (
@@ -500,7 +500,7 @@ function FlowRow({
           바꿈
         </span>
       )}
-      {problem && <span className="shrink-0 text-danger">{problem}</span>}
+      {problem && <span className="shrink-0 text-warning">{problem}</span>}
       {same && <span className="shrink-0 text-warning">빠지는 계좌와 들어가는 계좌가 같아 반영하지 않아요</span>}
       <span className="ml-auto shrink-0 text-text-muted tabular-nums">{f.nextDay ? `다음 ${dayText(f.nextDay)}` : ''}</span>
     </div>
@@ -622,7 +622,7 @@ function PreviewTable({ items }: { items: AssetCashPreviewItem[] }) {
             const status = it.status === 'planned' ? '반영 예정' : it.status === 'recorded' ? `이미 기록 있음 · ${ASSET_CASH_STATUS_LABEL[it.record ?? 'applied']}` : '반영 안 함';
             const why = it.why ? ASSET_CASH_PREVIEW_WHY_LABEL[it.why] : null;
             const tone = it.status === 'planned' ? 'text-text-primary' : it.status === 'recorded' ? 'text-text-secondary' : 'text-text-muted';
-            const statusTone = it.status === 'planned' ? 'text-accent' : it.why === 'missing-row' || it.why === 'missing-item' ? 'text-danger' : tone;
+            const statusTone = it.status === 'planned' ? 'text-accent' : it.why === 'missing-row' || it.why === 'missing-item' ? 'text-warning' : tone;
             return (
               <tr key={`${it.day}-${it.label}-${i}`} className={`border-t border-border/30 ${LIST_TABLE_ROW} ${tone}`} data-testid="asset-cash-preview-row" data-preview-status={it.status}>
                 <td className="pl-4 tabular-nums">{it.day ? dayText(it.day) : '—'}</td>

@@ -101,7 +101,7 @@ function scheduledDisabledReason(): string | null {
   const gemini = geminiDisabledReason();
   if (gemini) return gemini;
   if (process.env.GEMINI_SCHEDULED_ENABLED?.trim().toLowerCase() === 'false') {
-    return '이 서버에서는 지정 종목 분석이 꺼져 있습니다(GEMINI_SCHEDULED_ENABLED=false)';
+    return '이 서버에서는 지정 종목 분석이 꺼져 있습니다';
   }
   return null;
 }

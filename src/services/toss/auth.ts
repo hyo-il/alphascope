@@ -63,7 +63,7 @@ function config() {
   const baseUrl = process.env.TOSS_BASE_URL ?? 'https://openapi.tossinvest.com';
   if (!clientId || !clientSecret) {
     throw new Error(
-      'TOSS_CLIENT_ID / TOSS_CLIENT_SECRET 이 설정되지 않았습니다. .env 파일을 확인하세요.',
+      '토스 연결 정보가 설정되지 않았습니다 — 서버 설정에서 정합니다.',
     );
   }
   return { clientId, clientSecret, baseUrl };

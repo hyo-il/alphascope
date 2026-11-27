@@ -23,7 +23,7 @@ export default function ScheduleCard({ brief, onOpen }: { brief: MarketBrief; on
       id="schedule"
       title="향후 60일 주요 일정"
       aside={ai ? '주도 섹터의 실적 · 경제지표' : '수집한 실적 일정(AI 거르기 없음)'}
-      info="실적 발표일은 앱의 실적 일정(시총 상위 · 관심 · 자동매매 종목)에서, 예상 EPS · 매출 · 컨센서스는 yfinance 에서 가져옵니다. 이번 주는 섹터마다 3개 · 모두 6개, 이번 달은 3개 · 5개, 다음 한 달은 2개 · 5개까지 보입니다. 국내 종목은 섹터와 상관없이 남깁니다. 읽는 법: 예상 EPS = 주당순이익 예상치 · 직전 = 직전 분기 실제 · YoY = 1년 전 같은 분기 실제 · ±% = 애널리스트 예상이 갈린 정도 · 컨센서스 Buy(39/44) = 애널리스트 44명 중 39명이 매수 의견(앱의 판단이 아님) · B = 10억 달러."
+      info="실적 발표일은 앱의 실적 일정(시총 상위 · 관심 · 자동매매 종목)에서, 예상 EPS · 매출 · 컨센서스는 재무 자료에서 가져옵니다. 이번 주는 섹터마다 3개 · 모두 6개, 이번 달은 3개 · 5개, 다음 한 달은 2개 · 5개까지 보입니다. 국내 종목은 섹터와 상관없이 남깁니다. 읽는 법: 예상 EPS = 주당순이익 예상치 · 직전 = 직전 분기 실제 · YoY = 1년 전 같은 분기 실제 · ±% = 애널리스트 예상이 갈린 정도 · 컨센서스 Buy(39/44) = 애널리스트 44명 중 39명이 매수 의견(앱의 판단이 아님) · B = 10억 달러."
     >
       {ai ? <ScheduleBody schedule={ai.upcoming_schedule} earnings={brief.data.earnings} onOpen={onOpen} /> : <RawSchedule earnings={brief.data.earnings} onOpen={onOpen} />}
     </BriefCard>

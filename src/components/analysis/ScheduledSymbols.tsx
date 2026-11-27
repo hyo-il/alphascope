@@ -1,6 +1,6 @@
 import { formatDateTime } from '../../utils/dateFormat';
 import { useState } from 'react';
-import { Button } from '../ui';
+import { Button, FeatureOff } from '../ui';
 import Dialog, { DialogCancel } from '../ui/Dialog';
 import { useScheduledSymbols, type ScheduledStatus } from '../../hooks/useScheduledSymbols';
 import { useStockNames } from '../../hooks/useStockNames';
@@ -93,7 +93,7 @@ export default function ScheduledSymbols() {
         </span>
       </div>
       {status.disabledReason ? (
-        <p className="text-warning">돌지 않습니다 — {status.disabledReason}</p>
+        <p><FeatureOff what="지정한 종목을 하루 1번 Gemini 로 분석합니다." /></p>
       ) : (
         <p className="text-text-muted">
           다음 실행 {n ? time(status.nextRunAt) : '— (종목 없음)'} · 하루 최대 약 {n * 5}호출
