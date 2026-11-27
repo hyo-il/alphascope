@@ -94,7 +94,7 @@ export default function DrawingTools({
   return (
     <div className="flex items-center gap-1">
       {/* 도구 = 회색 묶음 안에서 고른 칸만 밝게. Segmented 와 같은 모양 */}
-      <div role="radiogroup" aria-label="그리기 도구" className="inline-flex gap-0.5 rounded-lg bg-bg-tertiary p-0.5">
+      <div role="radiogroup" aria-label="그리기 도구" className="inline-flex gap-0.5 rounded-lg bg-bg-tertiary p-0.5 touch:h-7 touch:items-center">
         {DRAWING_TOOLS.map((tool) => (
           <button
             key={tool.label}

@@ -13,6 +13,7 @@ const COMPARE_LAYOUT_KEY = 'alphascope.compareLayout';
  * 기업 비교 칸 수 처음 값 — 이 기기에 기억된 값이 있으면 그것 · 없으면 폰 · 패드 2칸(v2.82.0 · 사용자 결정 2026-11-27) · 1280 이상 4칸(지금 그대로).
  */
 function readCompareLayout(): 2 | 4 {
+  // ⚠️ 스토어가 만들어질 때는 화면 모양 CSS 가 아직 없을 수 있다 — 화면을 열 때(`settleCompareLayout`) 다시 읽는다
   const fallback = readLayoutMode() === 'desk' ? 4 : 2;
   try {
     const saved = localStorage.getItem(COMPARE_LAYOUT_KEY);
@@ -72,6 +73,8 @@ interface AppState {
    */
   compareLayout: 2 | 4;
   setCompareLayout: (layout: 2 | 4) => void;
+  /** 기업 비교 화면을 열 때 — 기억된 값이 없으면 지금 화면 모양으로 처음 값을 다시 정한다(저장하지 않음) */
+  settleCompareLayout: () => void;
   /**
    * 화면 위치. 대메뉴를 함께 들고 있는 이유는 **소메뉴 없이 대메뉴만 펼친 상태**가
    * 있기 때문이다 — 다른 대메뉴를 눌러 목록만 열어 보는 동안에도 보던 화면은 그대로다.
@@ -134,6 +137,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isMock: false,
   compareSlots: emptySlots(),
   compareLayout: readCompareLayout(),
+  settleCompareLayout: () => set({ compareLayout: readCompareLayout() }),
   setCompareLayout: (compareLayout) => {
     try {
       localStorage.setItem(COMPARE_LAYOUT_KEY, String(compareLayout));

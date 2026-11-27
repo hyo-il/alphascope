@@ -627,8 +627,11 @@ input[type='number']::-webkit-outer-spin-button {
  * 끝 흐림은 옆으로 미는 표와 같은 폭 · 같은 방법(`--scroll-table-fade` · 바탕 = 그 자리의 실제 바탕 `--st-bg` · 더 밀 수 있는 쪽만 `data-fade`).
  */
 [data-scroll-row] {
-  position: relative;
   min-width: 0;
+}
+/* 흐림의 기준 — 자리 잡기(sticky · absolute · fixed)를 받은 줄은 그대로(폰 아래 탭 줄은 위에 붙음) */
+[data-scroll-row]:not(.sticky, .absolute, .fixed) {
+  position: relative;
 }
 [data-scroll-row-inner] {
   overflow-x: auto;

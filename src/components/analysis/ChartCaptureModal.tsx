@@ -3,7 +3,7 @@ import Dialog from '../ui/Dialog';
 import Chip from '../ui/Chip';
 import Checkbox from '../ui/Checkbox';
 import Segmented from '../ui/Segmented';
-import { PHONE_CAPTURE_CHART_H, TOUCH_INFO_GAP, TOUCH_SIDE_GAP, TOUCH_WRAP_GAP } from '../ui/tokens';
+import { PHONE_CAPTURE_CHART_H, TOUCH_INFO_GAP, TOUCH_SIDE_GAP } from '../ui/tokens';
 import { useLayoutMode, useTouchScreen } from '../../hooks/useLayoutMode';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import CaptureChart, { type CaptureChartHandle } from '../chart/CaptureChart';
@@ -311,7 +311,8 @@ export default function ChartCaptureModal({
             {dataError && <span data-tone="error" className="ml-2 text-caption text-danger">{dataError}</span>}
           </div>
 
-          <div className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md bg-bg-tertiary/50 px-3 py-2 ${TOUCH_WRAP_GAP} ${TOUCH_INFO_GAP}`}>
+          {/* 손가락 화면 — 체크 줄 위아래 28(줄 높이 18 + 28 = 46 — 13 체크의 누르는 칸 44 가 위아래 줄과 겹치지 않게) */}
+          <div className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md bg-bg-tertiary/50 px-3 py-2 touch:gap-y-7 ${TOUCH_INFO_GAP}`}>
             {OVERLAY_ITEMS.map((item) =>
               checkbox(toggles.overlays[item.key], item.label, () => flip('overlays', item.key)),
             )}

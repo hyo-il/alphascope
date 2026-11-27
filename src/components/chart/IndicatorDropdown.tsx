@@ -121,7 +121,8 @@ export default function IndicatorDropdown({ toggles, onChange, loading, floating
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`rounded-md px-2.5 py-1 text-xs transition-colors ${TOUCH_HIT}${floating ? ` whitespace-nowrap ${CONTROL_H.md}` : ''} ${
+        // 손가락 화면 도구 줄(패드)은 옆 묶음 단추와 같은 28 · 폰 칩 줄은 칩과 같은 32
+        className={`rounded-md px-2.5 py-1 text-xs transition-colors ${TOUCH_HIT}${floating ? ` whitespace-nowrap ${CONTROL_H.md}` : ' touch:h-7'} ${
           open ? 'bg-bg-tertiary text-text-primary' : 'text-text-secondary hover:text-text-primary'
         }`}
       >

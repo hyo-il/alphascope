@@ -316,49 +316,36 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
     />
   ) : null;
 
-  const chartView = phone ? (
-    /*
-      폰(테마 5-2) — 위 → 아래: 가격 줄 56 → 주기 칩 줄 44 → 차트(높이 = `phoneChartHeight` 한 곳) → 아래 탭(위에 붙음 · [호가] [빠른 주문] + 지금 다섯).
-      본문 상자가 세로로 밀린다(탭 내용은 차트 아래로 이어짐). 그리기 도구 줄은 그리지 않는다 — 그린 선은 차트에 그대로 보인다.
-      폰 가로(높이 < 500): 칩 줄은 가격 줄 오른쪽 · 차트 = 남는 높이.
-    */
-    <div data-phone-chart className="flex shrink-0 flex-col">
-      <PhonePriceRow price={displayPrice} livePrice={livePrice} currency={currency}>
-        {phoneLandscape && phoneChips(true)}
-      </PhonePriceRow>
-      {!phoneLandscape && phoneChips(false)}
-      {indicatorError && (
-        <div className="border-b border-warning/30 bg-warning/10 px-3 py-1.5 text-caption text-warning">
-          {engineDown ? '지표 엔진이 꺼져 있습니다. ' : '지표 계산 실패: '}
-          {indicatorError}
-        </div>
+  /*
+   * 차트 화면 배치 — 1280 이상 · 패드는 지금 배치 그대로, 폰은 테마 5-2 차례(v2.82.0).
+   * ⚠️ 두 배치가 **같은 요소 길**을 쓴다(폰에서 쓰지 않는 감싸기는 `contents` — 상자 없음). 길이 갈리면 폰 ↔ 패드로 크기가 바뀔 때
+   * 차트가 다시 만들어져 그린 선 · 확대가 사라진다(「차트는 언마운트하지 않는다」).
+   * 폰: 가격 줄 56 → 주기 칩 줄 44 → 차트(높이 = `phoneChartHeight` 한 곳) → 아래 탭(위에 붙음 · [호가] [빠른 주문] + 지금 다섯).
+   *   본문 상자가 세로로 밀린다(탭 내용은 차트 아래로 이어짐). 그리기 도구 줄은 그리지 않는다 — 그린 선은 차트에 그대로 보인다.
+   *   폰 가로(높이 < 500): 칩 줄은 가격 줄 오른쪽 · 차트 = 남는 높이.
+   */
+  const chartView = (
+    <div data-phone-chart={phone || undefined} className={phone ? 'flex shrink-0 flex-col' : 'contents'}>
+      {phone ? (
+        <PhonePriceRow price={displayPrice} livePrice={livePrice} currency={currency}>
+          {phoneLandscape && phoneChips(true)}
+        </PhonePriceRow>
+      ) : (
+        <ChartToolbar
+          timeframe={timeframe}
+          onTimeframeChange={setTimeframe}
+          toggles={toggles}
+          onTogglesChange={setToggles}
+          indicatorsLoading={indicatorsLoading}
+          activeTool={activeTool}
+          onToolSelect={setActiveTool}
+          onClearDrawings={() => chartRef.current?.clearDrawings()}
+          onDeleteSelected={() => chartRef.current?.deleteSelectedDrawing()}
+          hasDrawings={drawingCount > 0}
+          onResetView={() => chartRef.current?.resetView()}
+        />
       )}
-      <main ref={phoneChartRef} data-phone-chart-box className="relative min-w-0 shrink-0" style={{ height: phoneChartH }}>
-        {candleChart}
-        {chartLoadingCover}
-      </main>
-      {bottomTabs}
-      {(loadingMore || (reachedEnd && candles.length > 0)) && (
-        <p className="py-1.5 text-caption text-text-muted">
-          {loadingMore ? <span className="text-text-secondary">과거 데이터 불러오는 중…</span> : '가장 오래된 데이터까지 표시 중'}
-        </p>
-      )}
-    </div>
-  ) : (
-    <>
-      <ChartToolbar
-        timeframe={timeframe}
-        onTimeframeChange={setTimeframe}
-        toggles={toggles}
-        onTogglesChange={setToggles}
-        indicatorsLoading={indicatorsLoading}
-        activeTool={activeTool}
-        onToolSelect={setActiveTool}
-        onClearDrawings={() => chartRef.current?.clearDrawings()}
-        onDeleteSelected={() => chartRef.current?.deleteSelectedDrawing()}
-        hasDrawings={drawingCount > 0}
-        onResetView={() => chartRef.current?.resetView()}
-      />
+      {phone && !phoneLandscape && phoneChips(false)}
 
       {indicatorError && (
         <div className="border-b border-warning/30 bg-warning/10 px-3 py-1.5 text-caption text-warning">
@@ -373,15 +360,20 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
         1280×1080 이면 열이 425px(시황 카드 펼침)·550px(접힘)뿐이라 호가 최소 241 + 빠른주문 379 = 620px 이 들어가지 않는다.
         아래 탭은 그만큼 좁아진다(1280 에서 626px). 탭 높이 규칙은 그대로.
       */}
-      <div className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className={`flex ${layout === 'pad' ? `${PAD_CHART_MIN_H} shrink-0` : 'min-h-0'} flex-1`}>
+      <div className={phone ? 'contents' : 'flex min-h-0 flex-1'}>
+        <div className={phone ? 'contents' : 'flex min-w-0 flex-1 flex-col'}>
+          <div className={phone ? 'contents' : `flex ${layout === 'pad' ? `${PAD_CHART_MIN_H} shrink-0` : 'min-h-0'} flex-1`}>
             {/*
               ⚠️ 차트는 종목·봉을 바꿀 때도 언마운트하지 않는다. 로딩·오류 때 스피너·오류 카드가 차트 자리를
               대신하면 매번 차트를 새로 만든다(깜빡임, "Object is disposed"). 그래서 로딩·오류는 차트 **위에 덮는 층**이다.
               덮개는 이전 종목 캔들이 새 종목으로 보이지 않게 충분히 어둡고, 덮여 있는 동안 차트 조작(드로잉)을 받지 않는다.
             */}
-            <main className="relative min-w-0 flex-1">
+            <main
+              ref={phoneChartRef}
+              data-phone-chart-box={phone || undefined}
+              className={phone ? 'relative min-w-0 shrink-0' : 'relative min-w-0 flex-1'}
+              style={phone ? { height: phoneChartH } : undefined}
+            >
               {candleChart}
               {chartLoadingCover}
             </main>
@@ -396,25 +388,33 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           */}
           {bottomTabs}
 
+          {phone ? (
+            (loadingMore || (reachedEnd && candles.length > 0)) && (
+              <p className="py-1.5 text-caption text-text-muted">
+                {loadingMore ? <span className="text-text-secondary">과거 데이터 불러오는 중…</span> : '가장 오래된 데이터까지 표시 중'}
+              </p>
+            )
+          ) : (
           <footer className="flex shrink-0 items-center gap-1 border-t border-border/60 px-3 py-1.5 text-caption text-text-muted">
-            {activeTool ? (
-              <>
-                <span className="text-text-primary">{guideFor(activeTool, touchScreen)}</span>
-                {/* 손가락 화면은 키 안내를 숨긴다(테마 9-1 R9) */}
-                {!touchScreen && <span className="ml-2">· 하나 그리면 커서로 돌아옵니다 · Esc: 해제</span>}
-              </>
-            ) : touchScreen ? null /* 손가락 화면은 휠 · 드래그 · 우클릭 조작법(단축키 목록)을 숨긴다(테마 9-1 R9) */ : (
-              <>
-                {/* 조작법은 정보 아이콘으로 (디자인 규칙 6) — 도구를 쥐었을 때의 안내는 지금 하는 일이라 글자로 둔다 */}
-                차트 조작
-                <InfoTip label="차트 조작법">휠: 커서 기준 확대/축소 · 드래그: 좌우 이동 · 드로잉 클릭 또는 우클릭: 삭제</InfoTip>
-              </>
-            )}
-            {loadingMore && <span className="ml-2 text-text-secondary">과거 데이터 불러오는 중…</span>}
-            {reachedEnd && candles.length > 0 && (
-              <span className="ml-2">· 가장 오래된 데이터까지 표시 중</span>
-            )}
-          </footer>
+              {activeTool ? (
+                <>
+                  <span className="text-text-primary">{guideFor(activeTool, touchScreen)}</span>
+                  {/* 손가락 화면은 키 안내를 숨긴다(테마 9-1 R9) */}
+                  {!touchScreen && <span className="ml-2">· 하나 그리면 커서로 돌아옵니다 · Esc: 해제</span>}
+                </>
+              ) : touchScreen ? null /* 손가락 화면은 휠 · 드래그 · 우클릭 조작법(단축키 목록)을 숨긴다(테마 9-1 R9) */ : (
+                <>
+                  {/* 조작법은 정보 아이콘으로 (디자인 규칙 6) — 도구를 쥐었을 때의 안내는 지금 하는 일이라 글자로 둔다 */}
+                  차트 조작
+                  <InfoTip label="차트 조작법">휠: 커서 기준 확대/축소 · 드래그: 좌우 이동 · 드로잉 클릭 또는 우클릭: 삭제</InfoTip>
+                </>
+              )}
+              {loadingMore && <span className="ml-2 text-text-secondary">과거 데이터 불러오는 중…</span>}
+              {reachedEnd && candles.length > 0 && (
+                <span className="ml-2">· 가장 오래된 데이터까지 표시 중</span>
+              )}
+            </footer>
+          )}
         </div>
 
         {/*
@@ -425,14 +425,17 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           오른쪽 열 — 평소에는 호가 목록만 스크롤되고(OrderbookPanel 안), 빠른주문은 아래에 늘 보인다(shrink-0).
           호가는 최소 3칸 아래로 줄지 않는다 — 그보다 낮은 창에서만 열 전체가 스크롤된다(겹쳐 그리지 않게, 마지막 수단).
           열 전체와 호가 목록이 늘 두 겹으로 스크롤되면 Windows 에서 칸이 밀린다.
+          폰은 이 열이 없다 — 호가 · 빠른 주문은 아래 탭 안(같은 부품).
         */}
-        <div className="flex min-h-0 w-[248px] shrink-0 flex-col overflow-y-auto overflow-x-hidden">
-          {orderbookPanel}
-          {/* 토스 WTS 처럼 호가창 바로 아래에 둔다 — 시세를 보다 그대로 주문으로 이어진다 */}
-          {quickOrderPanel}
-        </div>
+        {!phone && (
+          <div className="flex min-h-0 w-[248px] shrink-0 flex-col overflow-y-auto overflow-x-hidden">
+            {orderbookPanel}
+            {/* 토스 WTS 처럼 호가창 바로 아래에 둔다 — 시세를 보다 그대로 주문으로 이어진다 */}
+            {quickOrderPanel}
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 
   /**

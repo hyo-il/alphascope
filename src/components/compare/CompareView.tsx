@@ -4,7 +4,7 @@ import InfoTip from '../ui/InfoTip';
 import PageTitle from '../ui/PageTitle';
 import { Button, DisclosureButton, Segmented } from '../ui';
 import type { Timeframe } from '../../types/toss';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import CompareSlot from './CompareSlot';
 import CompareTable from './CompareTable';
 import CompareAIPrompt from './CompareAIPrompt';
@@ -58,6 +58,10 @@ export default function CompareView({ currentSymbol }: Props) {
     timeframes,
   );
   const names = useStockNames(symbols);
+
+  // 칸 수 처음 값 — 그리기 전에(깜빡이지 않게) 이 기기의 기억 값 · 없으면 화면 모양(폰 · 패드 2칸)
+  const settleLayout = useAppStore((s) => s.settleCompareLayout);
+  useLayoutEffect(() => settleLayout(), [settleLayout]);
 
   // 빈 칸에서 시작한다. 화면을 나가면 선택을 비운다 (의도된 동작).
   useEffect(() => {
