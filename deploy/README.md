@@ -6,11 +6,16 @@
 
 ## 배포
 
-맥에서 한 줄입니다(05:00~22:30 KST 사이, 05:30 전후는 피합니다).
+맥에서 관리 루트 `Alphascope/deploy.sh` 한 번입니다(환경 변수 두 개 · 05:00~22:30 KST 사이, 05:30 전후는 피합니다 — 밖이면 멈추고 `--force` 로만 넘김).
 
 ```bash
-ssh -i ~/Documents/ClaudeCode/Work/Alphascope/secrets/Oracle-Ssh-Key/ssh-key-2026-09-19.key ubuntu@161.33.153.189 '~/projects/alphascope/scripts/deploy.sh'
+export ALPHASCOPE_DEPLOY_SSH_KEY=<열쇠 파일 경로>     # 관리 루트 secrets/Oracle-Ssh-Key/ 의 열쇠
+export ALPHASCOPE_DEPLOY_HOST=<사용자@주소>
+~/Documents/ClaudeCode/Work/Alphascope/deploy.sh             # 검사(npm run check:quick) → npm run deploy
+~/Documents/ClaudeCode/Work/Alphascope/deploy.sh --dry-run   # 접속 없이 부를 명령 한 줄만
 ```
+
+바로가기가 하는 일(코드 `npm run deploy` = `scripts/deployRemote.ts`): `ssh -i $ALPHASCOPE_DEPLOY_SSH_KEY $ALPHASCOPE_DEPLOY_HOST '~/projects/alphascope/scripts/deploy.sh'` — 지금까지 손으로 치던 한 줄과 같습니다. 접속 정보는 셸 환경 변수로만 받고 파일에 적지 않습니다. 시험 `npm run deployremote:test`.
 
 받기 → 설치 → 빌드 → 화면을 `/var/www/alphascope` 로 복사 + nginx 다시 읽기 → pm2 `alphascope-api` · `alphascope-indicators` 재시작 → API·화면 확인 순서로 돕니다.
 빌드가 실패하면 복사하지 않으므로 예전 화면이 그대로 남습니다. 화면만 바뀌어도 이 배포가 필요합니다.
