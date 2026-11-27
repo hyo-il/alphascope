@@ -24,12 +24,16 @@ import { placeTip, tipMaxWidth } from './tooltip/place';
  *   「하는 일이 있나」 는 여기 한 곳(`touchKind`)에서 가린다 — 역할(단추 · 링크 · 입력 · 탭 …) 또는 **손가락 모양 커서**(`cursor: pointer` —
  *   누르면 이동하는 표 줄은 `cursor-pointer` 를 이미 단다 · 커서는 물려받으므로 줄 안 이름 칸도 같다). 화면 코드는 따로 표시를 달지 않는다.
  *   길게 누를 때 브라우저 기본 메뉴(글 고르기 · 링크 미리보기)는 `index.css` 가 툴팁 대상에만 막고, `contextmenu` 도 여기서 막는다.
+ * **초점**: 키보드 초점(`:focus-visible`)이면 바로 열림 — 손가락 화면에서는 마지막 입력이 키일 때만(v2.80.0 · 판단은 `tooltip/hover` `focusIn` 한 곳 ·
+ *   창이 열리며 × 로 간 초점에 「닫기」 가 저절로 뜨지 않게 — 창마다 따로 막지 않는다).
  * 열린 툴팁은 앱 전체에서 하나. 다른 곳을 누름 · 스크롤 · Esc · 창 크기 바뀜에 닫힌다.
  * 시간 · 크기 · 상자 모양은 `tokens.ts` 「툴팁」 한 곳.
  */
 export const tipController = createTipController<HTMLElement>(
   { now: () => performance.now(), setTimeout: (fn, ms) => window.setTimeout(fn, ms), clearTimeout: (id) => window.clearTimeout(id as number) },
   { openMs: TOOLTIP_OPEN_MS, closeMs: TOOLTIP_CLOSE_MS, longPressMs: TOOLTIP_LONG_PRESS_MS, moveTolerancePx: TOOLTIP_TOUCH_MOVE_PX },
+  // 손가락 화면(v2.80.0) — CSS `touch:` 와 같은 조건(`pointer: coarse` · 폭과 상관없음 · `ui/tokens.ts` 「손가락 화면」)
+  { touchScreen: () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches },
 );
 
 /** [ⓘ] 내용 — `InfoTip` 이 자기 단추에 맞춰 넣는다(글자가 아니라 React 내용이라 속성에 담지 못한다) */
@@ -182,6 +186,7 @@ export default function TooltipHost() {
       if (el) tipController.focusOut(el);
     };
     const onKey = (e: KeyboardEvent) => {
+      tipController.keyDown();
       if (e.key === 'Escape' && tipController.current()) tipController.escape();
     };
     const onScroll = () => tipController.scroll();

@@ -5,6 +5,8 @@
  * - 마우스를 올리고 `openMs` 뒤 열림 · 그 전에 지나가기만 하면 안 열림.
  * - 대상과 상자 둘 다에서 벗어나고 `closeMs` 뒤 닫힘(상자 위로 옮겨 가면 열린 채).
  * - 키보드 초점이면 바로 열림 · 초점이 떠나면 닫힘.
+ *   **손가락 화면**(v2.80.0 · `env.touchScreen` — `pointer: coarse`)에서는 키보드로 옮긴 초점만 연다 — 마지막 입력이 키(`keyDown`)일 때만.
+ *   창이 열리며 × 로 간 초점(코드가 옮긴 초점)으로 「닫기」 가 저절로 떠 글을 가리지 않게. 마우스 화면은 그대로(`:focus-visible` 초점이면 열림).
  * - 누름 · Esc · 창 크기 바꿈 · 창이 초점을 잃음에 닫힘. 스크롤에도 닫히되, 키보드 초점으로 연 뒤 `openMs` 안의 스크롤은 무시(초점 받은 곳을 보이게 하는 스크롤).
  * - **하나만** 열림 — 새것이 열리면 앞의 것이 닫힘. 열린 채 다른 대상으로 옮기면 기다리지 않고 바로 바뀜.
  * - **손가락**(v2.74.0 · 사용자 결정 2026-11-25 — `touchDown` · `touchMove` · `touchUp` · `touchCancel`). 대상은 둘로 나뉜다(나누기는 부르는 쪽 — `ui/Tooltip`):
@@ -27,6 +29,8 @@ export interface TipController<T> {
   boxIn: () => void;
   boxOut: () => void;
   focusIn: (t: T) => void;
+  /** 키를 눌렀음 — 손가락 화면에서 그 뒤의 초점은 키보드 초점으로 본다(누르기 · 손가락이 닿으면 풀림) */
+  keyDown: () => void;
   focusOut: (t: T) => void;
   /** 밖에서 바로 열기 · 닫기([ⓘ] 의 `open`) */
   show: (t: T) => void;
@@ -52,7 +56,10 @@ export type TouchKind = 'tap' | 'press';
 export function createTipController<T>(
   clock: TipClock,
   o: { openMs: number; closeMs: number; longPressMs: number; moveTolerancePx: number },
+  env: { touchScreen?: () => boolean } = {},
 ): TipController<T> {
+  /** 마지막 입력이 키였나(손가락 화면에서 초점으로 열지 가린다) */
+  let keyboardLast = false;
   let open: T | null = null;
   /** 지금 닿아 있는 손가락 — 대상 · 종류 · 처음 자리 · 누르기 전에 이 대상이 열려 있었나 · 길게 눌러 열었나 · 움직였나 */
   let finger: { t: T | null; kind: TouchKind; x: number; y: number; wasOpen: boolean; opened: boolean; moved: boolean } | null = null;
@@ -117,7 +124,14 @@ export function createTipController<T>(
     boxOut() {
       if (open != null) scheduleClose();
     },
-    focusIn: (t) => setOpen(t, true),
+    focusIn(t) {
+      // 손가락 화면 + 키보드가 아닌 초점(창이 열리며 코드가 옮긴 초점 등) — 열지 않는다
+      if (env.touchScreen?.() && !keyboardLast) return;
+      setOpen(t, true);
+    },
+    keyDown() {
+      keyboardLast = true;
+    },
     focusOut(t) {
       if (open === t) close();
     },
@@ -127,6 +141,7 @@ export function createTipController<T>(
       if (open === t) close();
     },
     press() {
+      keyboardLast = false;
       cancelOpen();
       if (open != null) close();
     },
@@ -147,6 +162,7 @@ export function createTipController<T>(
       if (open != null) close();
     },
     touchDown(t, kind, x, y) {
+      keyboardLast = false;
       cancelOpen();
       cancelPress();
       const wasOpen = t != null && open === t && kind === 'tap';
