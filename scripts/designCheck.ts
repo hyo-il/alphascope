@@ -52,7 +52,7 @@ const SIZES = (process.env.SIZES ?? '1280x1080,1440x900,1920x1080,2560x1440').sp
   return { w, h };
 });
 
-interface Target {
+export interface Target {
   name: string;
   hash: string;
   /** 창을 여는 동작(주소로 간 뒤) */
@@ -79,7 +79,7 @@ async function pickMarket(page: Page, market: 'us' | 'kr') {
  * v2.72.2 — 장면 뒤 정리: 「저장하지 않고 닫을까요?」 가 떠 있으면 [저장하지 않고 닫기], 창이 남아 있으면 Esc(최대 6번).
  * 측정(판정)과 상관없다 — 다음 장면의 주소 바꾸기가 확인 창에 막히지 않게.
  */
-async function closeLeftovers(page: Page) {
+export async function closeLeftovers(page: Page) {
   // 늦춘 저장(막는 로딩)이 끝날 때까지 — 막는 동안은 Esc · 주소 바꾸기가 듣지 않는다
   await page.waitForFunction(() => document.querySelector('[data-testid="blocking-loader"]') == null, null, { timeout: 10_000 }).catch(() => {});
   for (let i = 0; i < 6; i++) {
@@ -91,7 +91,7 @@ async function closeLeftovers(page: Page) {
   }
 }
 
-function targets(): Target[] {
+export function targets(): Target[] {
   const list: Target[] = [];
   for (const g of NAV_GROUPS) {
     for (const p of g.pages) {
