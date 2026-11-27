@@ -232,7 +232,7 @@ export async function loadInputs(): Promise<{ data: AssetSheetData; book: PriceB
  * `monthlyBuyOf`(살 금액 · 차례 · 상태)는 그대로 두고 그 결과에 칸만 더한다.
  * v2.80.0 — 줄마다 「이번 차례 입력」(`buys` = `cycleBuysOf(매수 기록, 이번 차례 구매일)` · 없으면 모두 0).
  */
-export function withPlans(mb: MonthlyBuy, r: SavingPlanResult, buys: ReadonlyMap<string, number> = new Map()): MonthlyBuy {
+function withPlans(mb: MonthlyBuy, r: SavingPlanResult, buys: ReadonlyMap<string, number> = new Map()): MonthlyBuy {
   return {
     ...mb,
     accounts: mb.accounts.map((a) => {
