@@ -11,7 +11,7 @@
  * - 평균 매입가: C열 수식이 `=(달러값)*('티커'!$G$9)` 이면 달러 원래 값 · USD, 숫자면 원화 KRW(`usdFormula`).
  * - **쓰는 칸은 다음뿐**: 「티커」 종목 줄 D열 자산 분류(`assetClass` — `server/asset/sheet.ts` `writeAssetClasses` — 여러 줄 한 요청) ·
  *   「자산 투자 비율 관리」 목표 비율 여섯 칸(`targetRatio` — 설정 창에서 저장할 때만 · `writeTargetRatio` · v2.63.0) ·
- *   「주식 투자 정리」 계좌 이름 칸(찾은 머리 줄의 B열)의 「( 날짜 )」 — 「구매 완료」 때만 · `writeAccountDates` · v2.64.0 ·
+ *   「주식 투자 정리」 계좌 이름 칸(찾은 머리 줄의 B열)의 「( 날짜 )」 — 「구매 완료」 때 그 계좌 칸 하나만 · `writeAccountDate` · v2.64.0 · v2.78.0 ·
  *   「티커」 시트 가격(`prices` — C9 환율 · 종목 줄 E 가격 · F 원화 표기 수식 · v2.65.0 · `priceSheet.ts` · `priceWriter.ts`) ·
  *   ⑥ 「주식 투자 정리」 보유 줄 평균가(C) · 수량(D)(매수 · 매도 입력 — `trade.ts` `recordTrade` · v2.66.0) ·
  *   ⑦ 줄 넣기 · 지우기(새 종목 매수 · 모두 매도 — `rowOps.ts` · v2.67.0: 보유 줄 전체 · 「티커」 종목 줄 B ~ `shapeLastColumn` · 합계 줄 범위 끝). 합친 표는 쓰지 않는다. 「티커」 G9 구매 평균 환율은 읽기만(시트 「달러 환전」 탭이 계산).

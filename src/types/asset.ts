@@ -510,7 +510,7 @@ export interface AssetSummary {
   prices: Record<string, number>;
   /** 이 서버에서 시트 쓰기가 켜져 있나(`ASSET_SYNC_ENABLED`) — 꺼져 있으면 설정 창 목표 비율 [저장] 을 막는다 */
   writeEnabled: boolean;
-  /** 이번 달 구매(v2.64.0) — 월급 × 목표 비율 · 구매일 · 이번 차례 완료 여부 */
+  /** 이번 달 구매(v2.64.0 · v2.78.0 계좌마다) — 월급 × 목표 비율 · 구매일 · 계좌마다 완료 · 건너뜀 */
   monthlyBuy: MonthlyBuy;
   /** 시트 가격(v2.65.0) — 설정 창 「시트 가격」 */
   priceSheet: AssetPriceSheetStatus;
@@ -548,31 +548,77 @@ export interface MonthlyBuy {
   cycleDay: string;
   /** 다음 구매일 */
   nextDay: string;
-  /** 이번 차례에 「구매 완료」 를 눌렀나 · 누른 날(한국 날짜) */
-  done: boolean;
-  doneDay: string | null;
   /** 구매일 계산에 한국 휴장일 달력 범위 밖 날짜가 있었다(그 날짜들은 평일이면 거래일로 셈) */
   calendarUnchecked: boolean;
   /** 이 기능을 쓰기 시작한 날(v2.64.1 — `app_settings` 'asset.purchaseStartDay') */
   startDay: string;
   /** 이번 차례가 시작한 날보다 앞선 「시작 전 차례」 — 묻지 않음(팝업 · [구매 완료] 없음) */
   skipped: boolean;
-  /** 미리 완료할 수 있는 첫날(다음 구매일 − 7일 · v2.65.4) */
+  /** 다음 차례를 미리 [구매 완료] 할 수 있는 첫날(다음 구매일 − 7일 · v2.65.4) — [건너뛰기] 는 날짜 제한 없음 */
   earlyFrom: string;
-  /** 지금 미리 완료할 수 있는 차례(= 다음 구매일) — 지금 차례가 완료 · 시작 전이고 오늘 ≥ `earlyFrom` 이고 아직 안 눌렀을 때만 · 아니면 null */
-  earlyCycle: string | null;
-  /** 다음 차례를 미리 완료한 날(한국 날짜) — 안 했으면 null */
-  nextDoneDay: string | null;
-  /** [구매 완료] 때 시트 계좌 이름에 쓸 날짜 글자(누를 차례 — 미완료인 이번 차례 · 없으면 미리 완료할 차례 — 기준 · 칸마다 모양이 다르면 여럿 · 날짜가 든 칸이 없으면 빈 배열) */
-  sheetDates: string[];
+  /** 계좌마다(v2.78.0 — 「주식 투자 정리」 계좌 구간 · 합친 표 제외 · 시트 순서 · 매달 사지 않는 계좌도 들어 있다 — 화면이 거른다) */
+  accounts: MonthlyBuyAccount[];
+  /** 구매일 팝업을 띄울까 — 이번 차례(시작 전 아님)에 「아직」 인 매달 사는 계좌가 하나라도 있으면 */
+  needsPopup: boolean;
 }
 
-/** `POST /api/asset/purchase-done` 성공 */
-export interface PurchaseDoneResult {
+/** 이번 달 구매 상태(v2.78.0) — 「아직」 은 기록이 없는 상태 · 완료 · 건너뜀 */
+export type PurchaseStatus = 'todo' | 'done' | 'skip';
+
+/** 이번 달 구매 계좌 한 줄(v2.78.0 — 판단은 서버 `purchase.ts` `purchaseAccountsOf` 한 곳) */
+export interface MonthlyBuyAccount {
+  /** 계좌 key(`개별 투자` 등) */
+  section: string;
+  /** 시트의 이름 그대로(「( 날짜 )」 포함) */
+  name: string;
+  /** 매달 사는 계좌(자산 관리 설정 › 이번 달 구매) — 꺼지면 팝업 · 목록에 나오지 않는다 */
+  buysMonthly: boolean;
+  /** 이번 차례 — 시작 전 차례면 `before-start`(묻지 않음) */
+  status: PurchaseStatus | 'before-start';
+  /** 이번 차례를 누른 날(한국 날짜) */
+  at: string | null;
+  /** 이번 차례 [되돌리기] 가 되나(완료 · 건너뜀 · 다음 차례가 「아직」) */
+  canUndo: boolean;
+  /** 지금 [구매 완료] 를 누르면 쓰는 차례(이번 차례가 「아직」 이면 이번 · 아니면 다음) */
+  doneCycle: string;
+  /** 그 차례로 시트 계좌 이름에 쓸 날짜 글자(확인 창) — 이름에 날짜가 없으면 null */
+  sheetDateText: string | null;
+  /** 시트 날짜가 이미 그 차례 달이거나 더 뒤(쓰지 않고 완료로만 기록 — 서버는 쓰기 직전에 다시 읽어 판단) */
+  sheetAlready: boolean;
+  /** 다음 차례 — 이번 차례가 끝났을 때만 처리할 수 있다 */
+  next: {
+    status: PurchaseStatus;
+    at: string | null;
+    /** [미리 구매 완료] — 다음 구매일 7일 전부터 */
+    canDone: boolean;
+    /** [건너뛰기] — 날짜 제한 없음 */
+    canSkip: boolean;
+  };
+}
+
+/** `POST /api/asset/purchase/done` · `skip` · `undo` 요청 몸 */
+export interface PurchaseActionRequest {
   cycleDay: string;
-  doneDay: string;
-  /** 날짜를 바꾼 계좌 이름 칸 수 */
-  cells: number;
+  section: string;
+}
+
+/** `POST /api/asset/purchase/done` · `skip` · `undo` 성공 */
+export interface PurchaseActionResult {
+  cycleDay: string;
+  section: string;
+  /** 되돌린 뒤는 `todo` */
+  status: PurchaseStatus;
+  /** 누른 날(한국 날짜) */
+  at: string;
+  /** [구매 완료] 만 — 시트에 썼나(false = 시트 날짜가 이미 그 차례 이후라 그대로 둠) · 시트 날짜 글자 */
+  written?: boolean;
+  sheetDate?: string;
+}
+
+/** `PUT /api/asset/purchase/monthly-accounts` 요청 몸 — 계좌 하나를 켜고 끈다 */
+export interface PurchaseMonthlyRequest {
+  section: string;
+  monthly: boolean;
 }
 
 /** 계좌 하나 — 「연금 포함」 과 상관없이 늘 그 계좌 전체 */

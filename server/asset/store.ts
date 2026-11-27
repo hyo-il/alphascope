@@ -4,6 +4,7 @@
  * ⚠️ 금액은 이 표에만 — 로그 · 응답 밖으로 내보내지 않는다(화면 응답은 자산 문지기 뒤).
  */
 import { getDb } from '../db';
+import { SHEET_LAYOUT, type HoldingSection } from './sheetLayout';
 import { ASSET_DAILY_NOTE_MAX, ASSET_GROUP_LABEL, type AssetDailyHolding, type AssetHistoryPoint, type AssetHistoryRange, type AssetTotals } from '../../src/types/asset';
 
 let ready = false;
@@ -118,36 +119,75 @@ export function clearRecordsForTest(): void {
   db().prepare(`DELETE FROM asset_daily`).run();
 }
 
-// ── 구매 완료 기록 `asset_purchase`(v2.64.0) — 구매 차례(구매일)마다 한 줄 · 시트 계좌 이름 날짜를 바꾼 뒤에만 쓴다 ──
+// ── 이번 달 구매 기록 `asset_purchase_account`(v2.78.0) — (구매 차례, 계좌)마다 한 줄 · 「아직」 은 줄이 없는 상태 ──
+/*
+  - `status` = 'done'(구매 완료 — 시트 계좌 이름 날짜를 쓴 뒤 · 시트가 이미 그 차례 이후면 쓰지 않고 기록만) | 'skip'(건너뜀 — 시트를 쓰지 않음).
+  - [되돌리기] 는 그 줄을 지운다(시트 날짜는 되돌리지 않는다).
+  - 옛 표 `asset_purchase`(v2.64.0 — 차례 하나에 완료 하나)는 처음 한 번 「그 차례의 모든 계좌 완료」 로 옮기고(`app_settings` 'asset.purchaseAccountMigrated'),
+    표는 지우지 않는다(`CLAUDE.md` 2-2 — 정의 · 읽기 코드만 지움). 계좌 key 는 `sheetLayout.ts` `sections` 의 key(합친 표 제외).
+*/
+export type PurchaseRecordStatus = 'done' | 'skip';
+const MIGRATED_KEY = 'asset.purchaseAccountMigrated';
 let purchaseReady = false;
 function purchaseDb() {
   const database = getDb();
   if (!purchaseReady) {
     database.exec(`
-      CREATE TABLE IF NOT EXISTS asset_purchase (
-        cycle_date TEXT PRIMARY KEY,    -- 구매 차례 = 그 달 구매일(한국 날짜 YYYY-MM-DD)
-        done_at TEXT                    -- 「구매 완료」 를 누른 날(한국 날짜 YYYY-MM-DD — 시트에는 차례의 날짜를 쓴다 · v2.64.1)
+      CREATE TABLE IF NOT EXISTS asset_purchase_account (
+        cycle_date TEXT NOT NULL,       -- 구매 차례 = 그 달 구매일(한국 날짜 YYYY-MM-DD)
+        section TEXT NOT NULL,          -- 계좌 key(「주식 투자 정리」 계좌 구간 — 합친 표 제외)
+        status TEXT NOT NULL,           -- 'done' | 'skip'
+        at TEXT NOT NULL,               -- 누른 날(한국 날짜 YYYY-MM-DD)
+        PRIMARY KEY (cycle_date, section)
       );
     `);
+    migrateOldPurchases(database);
     purchaseReady = true;
   }
   return database;
 }
 
-/** 그 차례에 「구매 완료」 를 누른 날 — 없으면 null */
-export function purchaseDoneDay(cycleDay: string): string | null {
-  const row = purchaseDb().prepare(`SELECT done_at FROM asset_purchase WHERE cycle_date = ?`).get(cycleDay) as { done_at: string | null } | undefined;
-  return row ? (row.done_at ?? cycleDay) : null;
+/** 옛 차례 완료(`asset_purchase`) → 그 차례의 모든 계좌 「완료」(같은 `done_at`) — `app_settings` 키로 한 번만 · 옛 표는 남긴다 */
+function migrateOldPurchases(database: ReturnType<typeof getDb>): void {
+  const done = database.prepare(`SELECT value FROM app_settings WHERE key = ?`).get(MIGRATED_KEY) as { value: string } | undefined;
+  if (done) return;
+  const hasOld = database.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'asset_purchase'`).get() != null;
+  const rows = hasOld ? (database.prepare(`SELECT cycle_date, done_at FROM asset_purchase ORDER BY cycle_date`).all() as { cycle_date: string; done_at: string | null }[]) : [];
+  const insert = database.prepare(`INSERT OR IGNORE INTO asset_purchase_account (cycle_date, section, status, at) VALUES (?, ?, 'done', ?)`);
+  database.transaction(() => {
+    for (const r of rows) for (const key of PURCHASE_ACCOUNT_KEYS) insert.run(r.cycle_date, key, r.done_at ?? r.cycle_date);
+    database.prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(MIGRATED_KEY, String(rows.length));
+  })();
 }
 
-/** 한 줄 쓰기 — 이미 있으면 쓰지 않고 false */
-export function recordPurchase(cycleDay: string, doneDay: string): boolean {
-  return purchaseDb().prepare(`INSERT OR IGNORE INTO asset_purchase (cycle_date, done_at) VALUES (?, ?)`).run(cycleDay, doneDay).changes === 1;
+/** 이번 달 구매 계좌 key(시트 순서 · 합친 표 제외) */
+export const PURCHASE_ACCOUNT_KEYS: readonly string[] = SHEET_LAYOUT.sections.flatMap((s: HoldingSection) => (s.combined || !s.key ? [] : [s.key]));
+
+/** 차례들의 기록 — `${cycle}\u0000${section}` → 상태 · 누른 날 */
+export function purchaseRecords(cycles: string[]): Map<string, { status: PurchaseRecordStatus; at: string }> {
+  const out = new Map<string, { status: PurchaseRecordStatus; at: string }>();
+  if (cycles.length === 0) return out;
+  const rows = purchaseDb()
+    .prepare(`SELECT cycle_date, section, status, at FROM asset_purchase_account WHERE cycle_date IN (${cycles.map(() => '?').join(',')})`)
+    .all(...cycles) as { cycle_date: string; section: string; status: string; at: string }[];
+  for (const r of rows) if (r.status === 'done' || r.status === 'skip') out.set(purchaseRecordKey(r.cycle_date, r.section), { status: r.status, at: r.at });
+  return out;
+}
+export const purchaseRecordKey = (cycle: string, section: string) => `${cycle}\u0000${section}`;
+
+/** 한 줄 쓰기 — 이미 있으면(완료 · 건너뜀) 쓰지 않고 false */
+export function recordPurchase(cycleDay: string, section: string, status: PurchaseRecordStatus, at: string): boolean {
+  return purchaseDb().prepare(`INSERT OR IGNORE INTO asset_purchase_account (cycle_date, section, status, at) VALUES (?, ?, ?, ?)`).run(cycleDay, section, status, at).changes === 1;
+}
+
+/** [되돌리기] — 그 줄을 지운다(없으면 false) */
+export function undoPurchase(cycleDay: string, section: string): boolean {
+  return purchaseDb().prepare(`DELETE FROM asset_purchase_account WHERE cycle_date = ? AND section = ?`).run(cycleDay, section).changes === 1;
 }
 
 /**
  * 이 기능을 쓰기 시작한 날(v2.64.1) — `app_settings` 'asset.purchaseStartDay'(YYYY-MM-DD). 이 날보다 앞선 구매 차례는 묻지 않는다.
- * 처음 부를 때 값이 없으면 한 번 저장한다: `asset_purchase` 에 기록이 있으면 가장 이른 기록의 차례 날짜(지금까지의 기록을 「시작 전」 으로 바꾸지 않게),
+ * 처음 부를 때 값이 없으면 한 번 저장한다: 기록이 있으면 가장 이른 기록의 차례 날짜(지금까지의 기록을 「시작 전」 으로 바꾸지 않게),
  * 없으면 `today`(한국 날짜). 그 뒤로는 바꾸지 않는다.
  */
 const START_KEY = 'asset.purchaseStartDay';
@@ -155,20 +195,43 @@ export function purchaseStartDay(today: string): string {
   const database = purchaseDb();
   const row = database.prepare(`SELECT value FROM app_settings WHERE key = ?`).get(START_KEY) as { value: string } | undefined;
   if (row && /^\d{4}-\d{2}-\d{2}$/.test(row.value)) return row.value;
-  const first = database.prepare(`SELECT MIN(cycle_date) AS d FROM asset_purchase`).get() as { d: string | null };
+  const first = database.prepare(`SELECT MIN(cycle_date) AS d FROM asset_purchase_account`).get() as { d: string | null };
   const day = first.d ?? today;
   database.prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(START_KEY, day);
   return day;
 }
 
-/** 시험이 표 · 시작한 날을 비운다(사본 DB) · 줄 수를 센다 */
-export function clearPurchasesForTest(): void {
-  purchaseDb().prepare(`DELETE FROM asset_purchase`).run();
-  purchaseDb().prepare(`DELETE FROM app_settings WHERE key = ?`).run(START_KEY);
+/**
+ * 매달 사지 않는 계좌(v2.78.0) — `app_settings` 'asset.purchaseMonthlyOff'(계좌 key JSON 배열). 처음 = 빈 목록(모든 계좌가 매달 사는 계좌).
+ * 끈 계좌만 적으므로 시트에 새 계좌가 생기면 켬으로 보이고, 시트에서 없어진 key 는 무시된다.
+ */
+const MONTHLY_OFF_KEY = 'asset.purchaseMonthlyOff';
+export function purchaseMonthlyOff(): string[] {
+  const row = purchaseDb().prepare(`SELECT value FROM app_settings WHERE key = ?`).get(MONTHLY_OFF_KEY) as { value: string } | undefined;
+  if (!row) return [];
+  try {
+    const v = JSON.parse(row.value) as unknown;
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
 }
+export function savePurchaseMonthlyOff(keys: string[]): void {
+  purchaseDb().prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(MONTHLY_OFF_KEY, JSON.stringify([...new Set(keys)]));
+}
+
+/** 시험이 표 · 시작한 날 · 매달 설정 · 옮김 표시를 비운다(사본 DB) · 줄 수를 센다 */
+export function clearPurchasesForTest(opts: { keepMigrated?: boolean } = {}): void {
+  const database = purchaseDb();
+  database.prepare(`DELETE FROM asset_purchase_account`).run();
+  database.prepare(`DELETE FROM app_settings WHERE key IN (?, ?)`).run(START_KEY, MONTHLY_OFF_KEY);
+  if (!opts.keepMigrated) database.prepare(`DELETE FROM app_settings WHERE key = ?`).run(MIGRATED_KEY);
+}
+/** 시험 — 옛 기록 옮기기를 다시 부른다(옮김 표시가 있으면 아무것도 하지 않는다) */
+export const migrateOldPurchasesForTest = (): void => migrateOldPurchases(purchaseDb());
 export const purchaseStartDayStoredForTest = (): string | null =>
   (purchaseDb().prepare(`SELECT value FROM app_settings WHERE key = ?`).get(START_KEY) as { value: string } | undefined)?.value ?? null;
-export const purchaseCountForTest = (): number => (purchaseDb().prepare(`SELECT COUNT(*) AS n FROM asset_purchase`).get() as { n: number }).n;
+export const purchaseCountForTest = (): number => (purchaseDb().prepare(`SELECT COUNT(*) AS n FROM asset_purchase_account`).get() as { n: number }).n;
 
 // ── 시트 가격(v2.65.0) — 바꾸기 전 원래 수식 `asset_sheet_backup` · 출처 · 바꾼 줄(`app_settings`) ──
 /*

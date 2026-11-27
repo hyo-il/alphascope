@@ -3,7 +3,7 @@
  *
  * - 화면을 열 때 · 「다시 읽기」 · 총 자산 계산(화면이 열린 동안 · 하루 기록 1번)에 읽는다. 같은 결과는 30초 캐시(동시에 온 요청은 한 번만 읽는다).
  * - 쓰기는 세 곳 — `writeAssetClasses`(「티커」 종목 줄 D열의 자산 분류 — 여러 줄 한 요청 · v2.65.2) · `writeTargetRatio`(목표 비율 여섯 칸) ·
- *   `writeAccountDates`(「구매 완료」 — 「주식 투자 정리」 계좌 이름 칸의 「( 날짜 )」).
+ *   `writeAccountDate`(「구매 완료」 — 「주식 투자 정리」 그 계좌 이름 칸 하나의 「( 날짜 )」 · v2.78.0).
  *   셋 다 쓰기 직전에 수식 그대로 다시 읽어 머리 글자 · 수식 칸을 확인한다(구글에 쓰는 함수는 `google.ts` `valuesWrite` 하나).
  * - 한 번 읽기 = `values:batchGet` 두 번: ① 값(UNFORMATTED_VALUE) — 머리 글자 · 두 탭 넓은 범위 · 「현금」 넓은 범위(B · C — v2.70.4) · 값 칸 ② 수식(FORMULA) — 보유 줄의 C(평균 매입가) · F(이을 줄)
  *   + 「티커」 B~D(자산 분류 칸이 수식인지 — 「자산 분류 정하기」 창이 그 줄의 버튼을 감춘다 · v2.65.3 · 같은 요청 안의 범위 하나).
@@ -444,28 +444,29 @@ function nameDate(name: string, day: string): { name: string; date: string } | n
   return { name: name.slice(0, m.index) + open + date + close + name.slice((m.index ?? 0) + m[0].length), date };
 }
 
-/**
- * [구매 완료] 때 시트에 쓸 날짜 글자(v2.64.1 — 확인 창이 그대로 보인다) — 읽은 시트의 계좌 이름(합친 표 제외) 중 날짜가 든 칸마다
- * `writeAccountDates` 와 같은 함수(`nameDate`)로 만든 글자, 겹치지 않게. 순수 함수(시험이 부른다).
- */
-export function accountDateTexts(data: AssetSheetData, day: string): string[] {
-  const texts = data.sections.flatMap((s) => {
-    const r = !s.combined && s.name ? nameDate(s.name, day) : null;
-    return r ? [r.date] : [];
-  });
-  return [...new Set(texts)];
+/** [구매 완료] 때 그 계좌 이름에 쓸 날짜 글자(`writeAccountDate` 와 같은 함수 — 확인 창이 그대로 보인다) · 날짜가 없으면 null. 순수 함수 */
+export const nameDateText = (name: string, day: string): string | null => nameDate(name, day)?.date ?? null;
+
+/** 이름 속 지금 날짜(연 · 월 · 일 — 일이 없으면 null) · 글자 그대로 · 날짜가 없거나 달이 1~12 가 아니면 null. 순수 함수 */
+export function nameDateParts(name: string): { y: number; m: number; d: number | null; text: string } | null {
+  const m = name.match(NAME_DATE);
+  if (!m) return null;
+  const [, , y, sep, mm, dd] = m;
+  const month = Number(mm);
+  if (month < 1 || month > 12) return null;
+  return { y: Number(y), m: month, d: dd != null ? Number(dd) : null, text: `${y}${sep}${mm}${dd != null ? `${sep}${dd}` : ''}` };
 }
 
 /**
- * 「구매 완료」 — 「주식 투자 정리」 계좌 이름 칸(머리 글자로 찾은 네 줄의 B열) 중 **「( 날짜 )」 가 든 칸 전부**의 날짜를
+ * 「구매 완료」(v2.78.0 — 계좌 하나) — 「주식 투자 정리」 그 계좌 이름 칸(머리 글자로 찾은 머리 줄의 B열) **하나**의 「( 날짜 )」 를
  * `day`(**구매 차례 날짜** · 한국 날짜 — 모양이 `YYYY.MM` 이면 그 달 · 일이 있으면 그 구매일 · v2.64.1)로 바꾼다. 순서:
- * ① 스위치(`ASSET_SYNC_ENABLED=false` → 「꺼짐」) ② B열을 값으로 읽어 구간을 다시 찾고(이름 칸이 수식이어도 찾게) 네 칸을 **수식 그대로** 다시 읽는다
- * ③ 네 칸 중 하나라도 수식이면 **하나도 쓰지 않고** 409 `formula-cell` · 날짜가 든 칸이 없으면 409 `no-date`
- * ④ 날짜 부분만 같은 모양으로 바꾼 글자를 `valuesWrite` **한 요청**으로(RAW — 글자 그대로)
- * ⑤ 그 칸들을 다시 읽어 보낸 글자와 같은지 확인 — 다르면 `mismatch` ⑥ 30초 캐시를 비운다.
- * 돌려주는 값은 바꾼 칸 수뿐. ⚠️ 계좌 이름 · 날짜를 로그에 찍지 않는다.
+ * ① 스위치(`ASSET_SYNC_ENABLED=false` → 「꺼짐」) ② B열을 값으로 읽어 구간을 다시 찾고(이름 칸이 수식이어도 찾게) 그 칸을 **수식 그대로** 다시 읽는다
+ * ③ 그 칸이 수식이면 쓰지 않고 409 `formula-cell` · 날짜가 없거나 읽을 수 없으면 409 `no-date`
+ * ④ **다시 읽은 날짜가 이미 그 차례 달이거나 더 뒤면 쓰지 않는다**(사용자가 시트에서 고친 날짜를 앞 달로 되돌리지 않게 — `written: false`)
+ * ⑤ 날짜 부분만 같은 모양으로 바꾼 글자를 `valuesWrite` **한 요청**(칸 하나 · RAW — 글자 그대로) ⑥ 30초 캐시를 비우고 그 칸을 다시 읽어 같은지 확인 — 다르면 `mismatch`.
+ * 돌려주는 값은 썼는지 · 시트 날짜 글자(쓴 뒤 · 안 썼으면 지금 글자 — 화면 안내 한 줄). ⚠️ 계좌 이름 · 날짜를 로그에 찍지 않는다.
  */
-export async function writeAccountDates(day: string): Promise<{ cells: number }> {
+export async function writeAccountDate(day: string, section: string): Promise<{ written: boolean; sheetDate: string }> {
   if (!isAssetSyncEnabled()) throw refuse('disabled', '이 서버에서는 시트 쓰기가 꺼져 있습니다(ASSET_SYNC_ENABLED=false).');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw refuse('not-editable', '날짜 모양이 올바르지 않습니다.');
   const config = assetSheetConfig();
@@ -473,25 +474,22 @@ export async function writeAccountDates(day: string): Promise<{ cells: number }>
 
   const columnB = wideRange(HOLDINGS_TAB, 'B');
   const [shown] = await batchGet(config, [columnB], 'UNFORMATTED_VALUE');
-  const names = findHoldingSections(shown).filter((s) => !s.combined);
-  const nameCells = names.map((s) => `B${s.nameRow}`);
-  const [raw] = await batchGet(config, [columnB], 'FORMULA');
-  const now = names.map((s) => first([raw[s.nameRow - 1] ?? []]));
-  const isFormula = (v: Cell) => typeof v === 'string' && v.trim().startsWith('=');
-  const formulaAt = nameCells.filter((_, i) => isFormula(now[i]));
-  if (formulaAt.length > 0) {
-    throw refuse('formula-cell', `「${HOLDINGS_TAB}」 ${formulaAt.join(' · ')} 칸에 수식이 있어 하나도 쓰지 않았습니다(수식을 덮어쓰지 않습니다).`);
+  const found = findHoldingSections(shown).find((s) => !s.combined && s.key === section);
+  if (!found) throw refuse('not-editable', '그 계좌를 시트에서 찾지 못했습니다.');
+  const cell = `B${found.nameRow}`;
+  const [raw] = await batchGet(config, [one(HOLDINGS_TAB, cell)], 'FORMULA');
+  const now = first(raw);
+  if (typeof now === 'string' && now.trim().startsWith('=')) {
+    throw refuse('formula-cell', `「${HOLDINGS_TAB}」 ${cell} 칸에 수식이 있어 쓰지 않았습니다(수식을 덮어쓰지 않습니다).`);
   }
-  const writes = nameCells.flatMap((cell, i) => {
-    const next = typeof now[i] === 'string' ? replaceNameDate(now[i] as string, day) : null;
-    return next == null ? [] : [{ cell, value: next }];
-  });
-  if (writes.length === 0) throw new AssetSheetError('no-date', `「${HOLDINGS_TAB}」 계좌 이름 칸(${nameCells.join(' · ')})에 「( 날짜 )」 가 없어 쓰지 않았습니다.`);
+  const parts = typeof now === 'string' ? nameDateParts(now) : null;
+  const next = typeof now === 'string' && parts ? replaceNameDate(now, day) : null;
+  if (parts == null || next == null) throw new AssetSheetError('no-date', `「${HOLDINGS_TAB}」 계좌 이름 칸(${cell})에 「( 날짜 )」 가 없어 쓰지 않았습니다.`);
+  if (parts.y * 12 + parts.m >= Number(day.slice(0, 4)) * 12 + Number(day.slice(5, 7))) return { written: false, sheetDate: parts.text };
 
-  await valuesWrite(config, writes.map((w) => ({ range: one(HOLDINGS_TAB, w.cell), value: w.value })));
+  await valuesWrite(config, [{ range: one(HOLDINGS_TAB, cell), value: next }]);
   resetSheetCache();
-  const back = await batchGet(config, writes.map((w) => one(HOLDINGS_TAB, w.cell)), 'FORMULA');
-  const same = writes.every((w, i) => first(back[i]) === w.value);
-  if (!same) throw new AssetSheetError('mismatch', '시트에 쓴 계좌 이름이 다르게 읽혔습니다(시트를 열어 「주식 투자 정리」 계좌 이름 칸을 확인하세요).');
-  return { cells: writes.length };
+  const [back] = await batchGet(config, [one(HOLDINGS_TAB, cell)], 'FORMULA');
+  if (first(back) !== next) throw new AssetSheetError('mismatch', '시트에 쓴 계좌 이름이 다르게 읽혔습니다(시트를 열어 「주식 투자 정리」 계좌 이름 칸을 확인하세요).');
+  return { written: true, sheetDate: nameDateParts(next)?.text ?? '' };
 }

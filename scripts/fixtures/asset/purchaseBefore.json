@@ -1,0 +1,226 @@
+{
+  "cycles": [
+    {
+      "name": "빈 DB · 시작 11-07 · 오늘 11-07(시작 전 차례)",
+      "today": "2026-11-07",
+      "records": [],
+      "cycle": {
+        "cycleDay": "2026-10-30",
+        "nextDay": "2026-11-27",
+        "skipped": true,
+        "done": false,
+        "earlyFrom": "2026-11-20",
+        "earlyCycle": null
+      },
+      "target": {
+        "kind": "not-yet"
+      }
+    },
+    {
+      "name": "시작 11-07 · 오늘 11-19(다음 차례 8일 전)",
+      "today": "2026-11-19",
+      "records": [],
+      "cycle": {
+        "cycleDay": "2026-10-30",
+        "nextDay": "2026-11-27",
+        "skipped": true,
+        "done": false,
+        "earlyFrom": "2026-11-20",
+        "earlyCycle": null
+      },
+      "target": {
+        "kind": "not-yet"
+      }
+    },
+    {
+      "name": "시작 11-07 · 오늘 11-20(다음 차례 7일 전)",
+      "today": "2026-11-20",
+      "records": [],
+      "cycle": {
+        "cycleDay": "2026-10-30",
+        "nextDay": "2026-11-27",
+        "skipped": true,
+        "done": false,
+        "earlyFrom": "2026-11-20",
+        "earlyCycle": "2026-11-27"
+      },
+      "target": {
+        "cycleDay": "2026-11-27",
+        "early": true
+      }
+    },
+    {
+      "name": "시작 11-07 · 오늘 11-27(미완료)",
+      "today": "2026-11-27",
+      "records": [],
+      "cycle": {
+        "cycleDay": "2026-11-27",
+        "nextDay": "2026-12-24",
+        "skipped": false,
+        "done": false,
+        "earlyFrom": "2026-12-17",
+        "earlyCycle": null
+      },
+      "target": {
+        "cycleDay": "2026-11-27",
+        "early": false
+      }
+    },
+    {
+      "name": "11-27 완료 · 오늘 12-16",
+      "today": "2026-12-16",
+      "records": [
+        [
+          "2026-11-27",
+          "2026-11-27"
+        ]
+      ],
+      "cycle": {
+        "cycleDay": "2026-11-27",
+        "nextDay": "2026-12-24",
+        "skipped": false,
+        "done": true,
+        "earlyFrom": "2026-12-17",
+        "earlyCycle": null
+      },
+      "target": {
+        "kind": "not-yet"
+      }
+    },
+    {
+      "name": "11-27 완료 · 오늘 12-17",
+      "today": "2026-12-17",
+      "records": [
+        [
+          "2026-11-27",
+          "2026-11-27"
+        ]
+      ],
+      "cycle": {
+        "cycleDay": "2026-11-27",
+        "nextDay": "2026-12-24",
+        "skipped": false,
+        "done": true,
+        "earlyFrom": "2026-12-17",
+        "earlyCycle": "2026-12-24"
+      },
+      "target": {
+        "cycleDay": "2026-12-24",
+        "early": true
+      }
+    },
+    {
+      "name": "11-27 · 12-24 완료 · 오늘 12-20",
+      "today": "2026-12-20",
+      "records": [
+        [
+          "2026-11-27",
+          "2026-11-27"
+        ],
+        [
+          "2026-12-24",
+          "2026-12-17"
+        ]
+      ],
+      "cycle": {
+        "cycleDay": "2026-11-27",
+        "nextDay": "2026-12-24",
+        "skipped": false,
+        "done": true,
+        "earlyFrom": "2026-12-17",
+        "earlyCycle": null
+      },
+      "target": {
+        "kind": "already-done"
+      }
+    },
+    {
+      "name": "11-27 · 12-24 완료 · 오늘 12-24",
+      "today": "2026-12-24",
+      "records": [
+        [
+          "2026-11-27",
+          "2026-11-27"
+        ],
+        [
+          "2026-12-24",
+          "2026-12-17"
+        ]
+      ],
+      "cycle": {
+        "cycleDay": "2026-12-24",
+        "nextDay": "2027-01-29",
+        "skipped": false,
+        "done": true,
+        "earlyFrom": "2027-01-22",
+        "earlyCycle": null
+      },
+      "target": {
+        "kind": "not-yet"
+      }
+    },
+    {
+      "name": "11-27 미완료 · 오늘 12-20(늦은 차례)",
+      "today": "2026-12-20",
+      "records": [],
+      "cycle": {
+        "cycleDay": "2026-11-27",
+        "nextDay": "2026-12-24",
+        "skipped": false,
+        "done": false,
+        "earlyFrom": "2026-12-17",
+        "earlyCycle": null
+      },
+      "target": {
+        "cycleDay": "2026-11-27",
+        "early": false
+      }
+    }
+  ],
+  "writes": [
+    {
+      "day": "2026-11-27",
+      "cells": 4,
+      "writes": [
+        {
+          "range": "'주식 투자 정리'!B12",
+          "value": "적립식 계좌 (2026.11.27)"
+        },
+        {
+          "range": "'주식 투자 정리'!B21",
+          "value": "ISA 계좌 ( 2026-11 ) 메모"
+        },
+        {
+          "range": "'주식 투자 정리'!B29",
+          "value": "연금 저축 계좌 ( 2026.11)"
+        },
+        {
+          "range": "'주식 투자 정리'!B4",
+          "value": "개별 투자 ( 2026.11 )"
+        }
+      ]
+    },
+    {
+      "day": "2026-12-24",
+      "cells": 4,
+      "writes": [
+        {
+          "range": "'주식 투자 정리'!B12",
+          "value": "적립식 계좌 (2026.12.24)"
+        },
+        {
+          "range": "'주식 투자 정리'!B21",
+          "value": "ISA 계좌 ( 2026-12 ) 메모"
+        },
+        {
+          "range": "'주식 투자 정리'!B29",
+          "value": "연금 저축 계좌 ( 2026.12)"
+        },
+        {
+          "range": "'주식 투자 정리'!B4",
+          "value": "개별 투자 ( 2026.12 )"
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 /**
- * 이번 달 구매 · 구매일 · 구매 완료(v2.64.0 · 자산 관리 5단계) — **보여 주기만, 주문 없음**.
+ * 이번 달 구매 · 구매일 · 구매 완료(v2.64.0 · 자산 관리 5단계 · v2.78.0 계좌마다) — **보여 주기만, 주문 없음**.
  *
  * - 구매일(`purchaseDayOf` — 순수 함수): 26일이 월~금이면 그 주 금요일 · 토 · 일이면 바로 앞 금요일(24 · 25일).
  *   그날이 휴장(`isClosed` — 주말 · 한국 휴장일)이면 하루씩 앞으로. 휴장 판단은 `server/marketCalendar.ts` `isMarketClosed('KR', day)` 그대로
@@ -7,17 +7,21 @@
  * - 구매 차례(`purchaseCycle`): 오늘(한국 날짜) 기준 가장 최근에 지난(오늘 포함) 구매일 · 다음 구매일.
  * - 살 금액(`computeMonthlyBuy` — 순수 함수): 월급 × 목표 %(현금 · 채권 · 금 · 주식) · 주식 = 코어 + 위성. 원 단위 반올림 ·
  *   목표 합이 100 이면 반올림 차이를 주식(코어)에 더해 합 = 월급 · 코어 + 위성 합이 100 이면 코어 = 주식 − 위성.
- * - 구매 완료: `routes.ts` `POST /api/asset/purchase-done` → `sheet.ts` `writeAccountDates`(시트 계좌 이름 날짜 = **구매 차례의 날짜** — v2.64.1) 성공 뒤에만 `store.ts` `asset_purchase` 에 기록.
- * - 시작 전 차례(v2.64.1): 이 기능을 쓰기 시작한 날(`purchaseStartDay`)보다 앞선 차례는 묻지 않는다(`skipped` — 팝업 · [구매 완료] 없음).
- * - 미리 구매 완료(v2.65.4 · 사용자 결정 2026-11-08): 지금 차례가 완료 · 시작 전이고 오늘(한국 날짜) ≥ 다음 구매일 − 7일(달력 날짜)이면
- *   다음 차례(`earlyCycle`)를 미리 완료할 수 있다. 지금 차례가 미완료면 미리 완료는 없다(늦은 차례를 먼저). 미리 완료한 차례는 구매일이 와도
- *   이미 완료라 팝업이 뜨지 않는다. [구매 완료] 대상은 `purchaseTargetOf` 한 곳 — 없으면 409 `not-yet`(다음 차례도 이미 완료면 `already-done`).
- * ⚠️ 월급 · 금액을 로그에 찍지 않는다.
+ * - 계좌마다(v2.78.0 · 사용자 결정 2026-11-27): 기록 · 판단 · 시트 쓰기의 단위는 **(차례, 계좌)** — 상태는 아직 · 완료 · 건너뜀.
+ *   판단은 `purchaseAccountsOf` 한 곳(화면 목록 · 팝업 · 서버 검사 `purchaseActionCheck` 가 같은 결과를 본다).
+ *   [구매 완료] → `sheet.ts` `writeAccountDate`(그 계좌 이름 칸 하나 · 시트 날짜가 이미 그 차례 달 이후면 쓰지 않음) 성공 뒤 `store.ts` 기록 ·
+ *   [건너뛰기] · [되돌리기] 는 기록만(시트를 쓰지 않음 · 되돌려도 시트 날짜는 그대로).
+ * - 시작 전 차례(v2.64.1): 이 기능을 쓰기 시작한 날(`purchaseStartDay`)보다 앞선 차례는 묻지 않는다(`skipped` — 팝업 · 단추 없음).
+ * - 다음 차례 미리 처리(v2.65.4 · v2.78.0): 이번 차례가 끝난(완료 · 건너뜀 · 시작 전) 계좌만 — [건너뛰기] 는 날짜 제한 없음 ·
+ *   [구매 완료] 는 다음 구매일 7일 전(달력 날짜)부터. 이번 차례가 「아직」 이면 다음 차례는 처리하지 않는다(늦은 차례를 먼저).
+ * - 매달 사지 않는 계좌(설정 · `store.ts` `purchaseMonthlyOff`)는 팝업 · 목록에서 빠진다.
+ * ⚠️ 월급 · 금액 · 계좌 이름 · 날짜를 로그에 찍지 않는다.
  */
 import { marketDate } from '../../src/utils/marketDate';
 import { coverageOf, isMarketClosed } from '../marketCalendar';
-import type { AssetTargetRatio, MonthlyBuy, MonthlyBuyRow } from '../../src/types/asset';
-import { purchaseDoneDay, purchaseStartDay } from './store';
+import type { AssetSheetData, AssetTargetRatio, MonthlyBuy, MonthlyBuyAccount, MonthlyBuyRow, PurchaseStatus } from '../../src/types/asset';
+import { purchaseMonthlyOff, purchaseRecordKey, purchaseRecords, purchaseStartDay } from './store';
+import { nameDateParts, nameDateText } from './sheet';
 
 const DAY_MS = 86_400_000;
 const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
@@ -162,36 +166,120 @@ export function setPurchaseClockForTest(now: (() => number) | null, cal: (() => 
 const EARLY_DAYS = 7;
 const earlyFromOf = (nextDay: string) => iso(Date.parse(`${nextDay}T00:00:00Z`) - EARLY_DAYS * DAY_MS);
 
-type Cycle = Pick<MonthlyBuy, 'today' | 'cycleDay' | 'nextDay' | 'done' | 'doneDay' | 'calendarUnchecked' | 'startDay' | 'skipped' | 'earlyFrom' | 'earlyCycle' | 'nextDoneDay'>;
+type Cycle = Pick<MonthlyBuy, 'today' | 'cycleDay' | 'nextDay' | 'calendarUnchecked' | 'startDay' | 'skipped' | 'earlyFrom'>;
 
-/** 지금 구매 차례(오늘 · 이번 차례 · 다음 구매일 · 완료 여부 · 시작한 날 · 시작 전 차례인가 · 미리 완료할 수 있는 차례 · 다음 차례를 미리 완료한 날) */
+/** 지금 구매 차례(오늘 · 이번 차례 · 다음 구매일 · 시작한 날 · 시작 전 차례인가 · 다음 차례를 미리 완료할 수 있는 첫날) — 계좌와 상관없는 부분 */
 export function currentCycle(): Cycle {
   const today = todayKst(clock());
   const c = purchaseCycle(today, calendarOf());
   const startDay = purchaseStartDay(today);
-  const skipped = c.cycleDay < startDay;
-  const doneDay = skipped ? null : purchaseDoneDay(c.cycleDay);
-  const nextDoneDay = purchaseDoneDay(c.nextDay);
-  const earlyFrom = earlyFromOf(c.nextDay);
-  // 지금 차례가 미완료면 미리 완료는 없다(늦은 차례를 먼저 끝낸다)
-  const earlyCycle = (skipped || doneDay != null) && nextDoneDay == null && today >= earlyFrom ? c.nextDay : null;
-  return { today, ...c, done: doneDay != null, doneDay, startDay, skipped, earlyFrom, earlyCycle, nextDoneDay };
+  return { today, ...c, startDay, skipped: c.cycleDay < startDay, earlyFrom: earlyFromOf(c.nextDay) };
+}
+
+/** 계좌 하나(「주식 투자 정리」 계좌 구간 — 합친 표 제외 · 시트 순서) — key · 시트 이름 그대로 */
+export interface PurchaseAccountInput {
+  key: string;
+  name: string;
+}
+
+/** 읽은 시트의 계좌(합친 표 제외 · 시트 순서) */
+export const purchaseAccountsInput = (data: Pick<AssetSheetData, 'sections'>): PurchaseAccountInput[] =>
+  data.sections.flatMap((s) => (s.combined || !s.key ? [] : [{ key: s.key, name: s.name }]));
+
+/** 이름 속 날짜가 그 차례(`day`) 의 달이거나 더 뒤인가 — 날짜를 읽을 수 없으면 false(달 단위 비교 · 사용자 결정 2026-11-27) */
+export function sheetDateAtOrAfter(name: string, day: string): boolean {
+  const d = nameDateParts(name);
+  return d != null && d.y * 12 + d.m >= Number(day.slice(0, 4)) * 12 + Number(day.slice(5, 7));
 }
 
 /**
- * [구매 완료] 대상 차례 — 미완료인 지금 차례 · 없으면 미리 완료할 수 있는 다음 차례(`earlyCycle`).
- * 둘 다 없으면: 다음 차례도 이미 (미리) 완료 → `already-done` · 아직 7일 전이 아님 → `not-yet`.
+ * 계좌마다 이번 차례 · 다음 차례 상태(v2.78.0 — **판단 한 곳**: 화면 목록 · 팝업 · 서버 검사가 같은 함수).
+ * - 상태: 기록이 없으면 「아직」(`todo`) · `done` · `skip`. 이번 차례가 시작 전 차례면 `before-start`(묻지 않음).
+ * - 다음 차례는 이번 차례가 끝났을 때(완료 · 건너뜀 · 시작 전)만 처리할 수 있다(늦은 차례를 먼저):
+ *   [건너뛰기] 는 날짜 제한 없음 · [구매 완료] 는 다음 구매일 7일 전부터.
+ * - [되돌리기]: 이번 차례는 다음 차례가 「아직」 일 때만(다음 차례 기록이 남은 채 이번 차례가 「아직」 이 되지 않게) · 다음 차례는 늘.
+ * - `doneCycle` = 지금 [구매 완료] 를 누르면 쓰는 차례(이번 차례가 「아직」 이면 이번 · 아니면 다음) · `sheetDateText` 는 그 차례로 쓸 날짜 글자(`sheet.ts` `nameDate` —
+ *   쓰기와 같은 함수 · 이름에 날짜가 없으면 null) · `sheetAlready` = 시트 날짜가 이미 그 차례 달 이후(쓰지 않고 기록만 — 서버는 쓰기 직전에 다시 읽어 판단).
  */
-export function purchaseTargetOf(c: Cycle): { ok: true; cycleDay: string; early: boolean } | { ok: false; kind: 'already-done' | 'not-yet'; message: string } {
-  if (!c.skipped && !c.done) return { ok: true, cycleDay: c.cycleDay, early: false };
-  if (c.earlyCycle) return { ok: true, cycleDay: c.earlyCycle, early: true };
-  if (c.nextDoneDay) return { ok: false, kind: 'already-done', message: `이미 구매 완료를 눌렀습니다(${c.nextDoneDay}).` };
-  return { ok: false, kind: 'not-yet', message: `다음 구매일 ${c.nextDay} ${EARLY_DAYS}일 전부터 누를 수 있습니다.` };
+export function purchaseAccountsOf(c: Cycle, accounts: PurchaseAccountInput[], monthlyOff: string[]): MonthlyBuyAccount[] {
+  const recs = purchaseRecords([c.cycleDay, c.nextDay]);
+  return accounts.map((a) => {
+    const cur = c.skipped ? null : recs.get(purchaseRecordKey(c.cycleDay, a.key)) ?? null;
+    const nxt = recs.get(purchaseRecordKey(c.nextDay, a.key)) ?? null;
+    const status: MonthlyBuyAccount['status'] = c.skipped ? 'before-start' : cur ? cur.status : 'todo';
+    const finished = status !== 'todo';
+    const nextStatus: PurchaseStatus = nxt ? nxt.status : 'todo';
+    const doneCycle = finished ? c.nextDay : c.cycleDay;
+    return {
+      section: a.key,
+      name: a.name,
+      buysMonthly: !monthlyOff.includes(a.key),
+      status,
+      at: cur?.at ?? null,
+      canUndo: (status === 'done' || status === 'skip') && nextStatus === 'todo',
+      doneCycle,
+      sheetDateText: nameDateText(a.name, doneCycle),
+      sheetAlready: sheetDateAtOrAfter(a.name, doneCycle),
+      next: {
+        status: nextStatus,
+        at: nxt?.at ?? null,
+        canDone: finished && nextStatus === 'todo' && c.today >= c.earlyFrom,
+        canSkip: finished && nextStatus === 'todo',
+      },
+    };
+  });
 }
 
-/** `GET /api/asset/summary` 의 `monthlyBuy` — `sheetDates` 는 [구매 완료] 때 시트에 쓸 날짜 글자(`sheet.ts` `accountDateTexts` — 대상 차례 기준 · 대상이 없으면 이번 차례) */
-export function monthlyBuyOf(salary: number | null, target: AssetTargetRatio, sheetDates: (day: string) => string[]): MonthlyBuy {
-  const cycle = currentCycle();
-  const t = purchaseTargetOf(cycle);
-  return { ...computeMonthlyBuy(salary, target), ...cycle, sheetDates: sheetDates(t.ok ? t.cycleDay : cycle.cycleDay) };
+/** 팝업을 띄울까 — 이번 차례(시작 전 아님)에 「아직」 인 매달 사는 계좌가 하나라도 있으면 */
+export const needsPurchasePopup = (c: Pick<Cycle, 'skipped'>, accounts: MonthlyBuyAccount[]) => !c.skipped && accounts.some((a) => a.buysMonthly && a.status === 'todo');
+
+/** 지금 차례 + 계좌마다 상태 + 팝업 — summary · 주소가 함께 쓴다 */
+export function purchaseStateOf(accounts: PurchaseAccountInput[]): Cycle & Pick<MonthlyBuy, 'accounts' | 'needsPopup'> {
+  const c = currentCycle();
+  const list = purchaseAccountsOf(c, accounts, purchaseMonthlyOff());
+  return { ...c, accounts: list, needsPopup: needsPurchasePopup(c, list) };
+}
+
+export type PurchaseAction = 'done' | 'skip' | 'undo';
+type CheckFail = { ok: false; kind: 'not-yet' | 'already-done' | 'not-editable'; message: string };
+
+/**
+ * 누른 단추를 받아도 되나(v2.78.0 — `purchaseAccountsOf` 결과로만 판단). 받으면 그 계좌 · 이번 / 다음 차례.
+ * 처리할 수 없는 차례는 409(`not-yet` · `already-done`) · 모르는 계좌 · 매달 사지 않는 계좌는 400 `not-editable`.
+ */
+export function purchaseActionCheck(
+  state: Cycle & { accounts: MonthlyBuyAccount[] },
+  action: PurchaseAction,
+  cycleDay: unknown,
+  section: unknown,
+): { ok: true; account: MonthlyBuyAccount; which: 'current' | 'next' } | CheckFail {
+  const account = state.accounts.find((a) => a.section === section);
+  if (typeof section !== 'string' || !account) return { ok: false, kind: 'not-editable', message: '그 계좌를 시트에서 찾지 못했습니다.' };
+  if (!account.buysMonthly) return { ok: false, kind: 'not-editable', message: '매달 사는 계좌가 아닙니다(자산 관리 설정 › 이번 달 구매).' };
+  const which = cycleDay === state.cycleDay ? 'current' : cycleDay === state.nextDay ? 'next' : null;
+  if (which == null) return { ok: false, kind: 'not-yet', message: `처리할 수 있는 차례가 아닙니다(이번 차례 ${state.cycleDay} · 다음 차례 ${state.nextDay}).` };
+  const said = (s: PurchaseStatus, at: string | null) => (s === 'done' ? `이미 구매 완료했습니다(${at}).` : `이미 건너뛰었습니다(${at}).`);
+  if (which === 'current') {
+    if (account.status === 'before-start') return { ok: false, kind: 'not-yet', message: '시작 전 차례는 묻지 않습니다.' };
+    if (action === 'undo') {
+      if (account.status === 'todo') return { ok: false, kind: 'not-yet', message: '되돌릴 기록이 없습니다.' };
+      if (!account.canUndo) return { ok: false, kind: 'not-yet', message: '다음 차례 기록을 먼저 되돌려 주세요.' };
+      return { ok: true, account, which };
+    }
+    if (account.status !== 'todo') return { ok: false, kind: 'already-done', message: said(account.status, account.at) };
+    return { ok: true, account, which };
+  }
+  if (action === 'undo') {
+    if (account.next.status === 'todo') return { ok: false, kind: 'not-yet', message: '되돌릴 기록이 없습니다.' };
+    return { ok: true, account, which };
+  }
+  if (account.next.status !== 'todo') return { ok: false, kind: 'already-done', message: said(account.next.status, account.next.at) };
+  if (account.status === 'todo') return { ok: false, kind: 'not-yet', message: `이번 차례(${state.cycleDay})를 먼저 끝내 주세요.` };
+  if (action === 'done' && !account.next.canDone) return { ok: false, kind: 'not-yet', message: `다음 구매일 ${state.nextDay} ${EARLY_DAYS}일 전부터 누를 수 있습니다.` };
+  return { ok: true, account, which };
+}
+
+/** `GET /api/asset/summary` 의 `monthlyBuy` — 살 금액(순수 함수) + 지금 차례 + 계좌마다 상태 */
+export function monthlyBuyOf(salary: number | null, target: AssetTargetRatio, accounts: PurchaseAccountInput[]): MonthlyBuy {
+  return { ...computeMonthlyBuy(salary, target), ...purchaseStateOf(accounts) };
 }

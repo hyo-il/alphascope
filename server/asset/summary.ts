@@ -16,12 +16,12 @@ import { fetchQuotes } from '../quoteService';
 import { isMockMode } from '../mockData';
 import { fetchExchangeRate } from '../../src/services/toss/account';
 import { ASSET_GROUP_LABEL, holdingGroupKey, type AssetClass, type AssetDailyHolding, type AssetSymbolRow, type AssetAccount, type AssetGroup, type AssetGroupKey, type AssetHolding, type AssetSettings, type AssetSheetData, type AssetSummary, type AssetTotals } from '../../src/types/asset';
-import { accountDateTexts, readAssetSheet } from './sheet';
+import { readAssetSheet } from './sheet';
 import { readAssetSettings, stockChoices } from './settings';
 import { latestRecord } from './store';
 import { isAssetSyncEnabled } from './config';
 import { computeRebalance } from './rebalance';
-import { monthlyBuyOf } from './purchase';
+import { monthlyBuyOf, purchaseAccountsInput } from './purchase';
 import { priceSheetStatus } from './priceSheet';
 
 /** 토스 가격(종목 → 원래 통화 값) · 환율(1달러 = N원) */
@@ -247,7 +247,7 @@ export async function assetSummary(includePension: boolean): Promise<AssetSummar
     rebalance: computeRebalance(c.totals, data.targetRatio, settings.rebalanceBand),
     targetRatio: data.targetRatio,
     writeEnabled: isAssetSyncEnabled(),
-    monthlyBuy: monthlyBuyOf(data.salary, data.targetRatio, (day) => accountDateTexts(data, day)),
+    monthlyBuy: monthlyBuyOf(data.salary, data.targetRatio, purchaseAccountsInput(data)),
     priceSheet: priceSheetStatus(),
   };
 }

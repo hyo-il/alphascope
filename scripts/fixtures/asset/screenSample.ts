@@ -4,10 +4,10 @@
  * 긴 종목명 · 긴 구간 이름 · 달러 소수 4자리 · 빈 구간 · 이을 수식 없는 줄 · 합계 표를 모두 넣어 칸 넘침을 잰다.
  */
 import { ASSET_DAILY_SHARE_LABEL, DEFAULT_CLASS_COLORS, type AssetClassColors } from '../../../src/types/asset';
-import type { AssetCashKey, AssetCashViewV2, AssetClass, AssetDailyChange, AssetDailyShare, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHolding, AssetPriceSheetStatus, AssetSheetData, AssetSheetFailure, AssetStatus, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetTradeRecord, AssetTradesResponse } from '../../../src/types/asset';
+import type { AssetCashKey, AssetCashViewV2, AssetClass, AssetDailyChange, AssetDailyShare, AssetGroup, AssetGroupKey, AssetHistoryPoint, AssetHolding, AssetPriceSheetStatus, AssetSheetData, AssetSheetFailure, AssetStatus, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetTradeRecord, AssetTradesResponse, MonthlyBuy, MonthlyBuyAccount, PurchaseStatus } from '../../../src/types/asset';
 import type { AssetCashMoveRecordAll, AssetCashViewV3 } from '../../../src/types/asset'; // v2.72.0 직접 입출금
 import { computeRebalance } from '../../../server/asset/rebalance';
-import { computeMonthlyBuy } from '../../../server/asset/purchase';
+import { computeMonthlyBuy, needsPurchasePopup } from '../../../server/asset/purchase';
 
 /** `idleLocked`(v2.65.4) — 쓰지 않아 저절로 잠긴 잠금 화면(「○분 동안 쓰지 않아 잠갔어요」) · `lockMinutes` 처음 값 30 */
 export const assetStatusSample = (unlocked: boolean, sheetConfigured = true, idleLocked = false, lockMinutes = 30): AssetStatus => ({
@@ -122,11 +122,62 @@ export const assetSheetFailureSample: AssetSheetFailure = {
   kind: 'shape',
 };
 
+/** 이번 달 구매 계좌 이름(가짜 — 「( 2026.07 )」 모양 · 섞인 상태의 적립식은 시트에서 이미 12월로 고친 이름) */
+const PURCHASE_NAMES: [string, string][] = [['개별 투자', '개별 투자 ( 2026.07 )'], ['적립식 계좌', '적립식 계좌 ( 2026.07 )'], ['ISA 계좌', 'ISA 계좌 ( 2026.07 )'], ['연금 저축 계좌', '연금 저축 계좌 ( 2026.07 )']];
+const ym = (day: string) => `${day.slice(0, 4)}.${day.slice(5, 7)}`;
+
+/**
+ * 이번 달 구매 가짜 값(v2.78.0) — 서버 `purchaseAccountsOf` 와 같은 규칙으로 손으로 만든 계좌 줄(시험 · 디자인 점검).
+ * - 기본: 오늘 11-27 · 네 계좌 완료 11-27 · 다음 차례(12-24) 건너뛰기만 됨(7일 전 12-17 전)
+ * - `purchaseDone: false`: 네 계좌 아직 · `purchase: 'mixed'`: 개별 투자 완료 + 다음 차례 건너뜀 · 적립식 아직(시트 날짜 이미 2026.12) · ISA 건너뜀 · 연금 저축 매달 아님
+ * - `skipped`: 오늘 11-07 · 차례 10-30 시작 전 · `early`: 오늘 12-20 · 11-27 완료 · 'can' 다음 차례 미리 완료 가능 / 'done' 12-20 에 미리 완료
+ */
+export function monthlyBuySample(opts: { salary?: number | null; target?: AssetTargetRatio; purchaseDone?: boolean; purchase?: 'mixed'; calendarUnchecked?: boolean; skipped?: boolean; early?: 'can' | 'done' } = {}): MonthlyBuy {
+  const target = opts.target ?? { cash: 10, gold: 30, bond: 20, invest: 40, core: 60, satellite: 40 };
+  const cyc = opts.skipped
+    ? { today: '2026-11-07', cycleDay: '2026-10-30', nextDay: '2026-11-27', startDay: '2026-11-07', skipped: true, earlyFrom: '2026-11-20' }
+    : opts.early
+      ? { today: '2026-12-20', cycleDay: '2026-11-27', nextDay: '2026-12-24', startDay: '2026-11-07', skipped: false, earlyFrom: '2026-12-17' }
+      : { today: '2026-11-27', cycleDay: '2026-11-27', nextDay: '2026-12-24', startDay: '2026-11-07', skipped: false, earlyFrom: '2026-12-17' };
+  const mixed = opts.purchase === 'mixed';
+  const accounts: MonthlyBuyAccount[] = PURCHASE_NAMES.map(([section, plain], i) => {
+    const name = mixed && i === 1 ? '적립식 계좌 ( 2026.12 )' : plain;
+    let status: MonthlyBuyAccount['status'] = opts.skipped ? 'before-start' : opts.purchaseDone === false && !opts.early ? 'todo' : 'done';
+    let nextStatus: PurchaseStatus = opts.early === 'done' ? 'done' : 'todo';
+    if (mixed) {
+      status = (['done', 'todo', 'skip', 'done'] as const)[i];
+      if (i === 0) nextStatus = 'skip';
+    }
+    const at = status === 'done' || status === 'skip' ? cyc.cycleDay : null;
+    const finished = status !== 'todo';
+    const doneCycle = finished ? cyc.nextDay : cyc.cycleDay;
+    return {
+      section,
+      name,
+      buysMonthly: !(mixed && i === 3),
+      status,
+      at,
+      canUndo: (status === 'done' || status === 'skip') && nextStatus === 'todo',
+      doneCycle,
+      sheetDateText: ym(doneCycle),
+      sheetAlready: name.includes('2026.12') && doneCycle <= '2026-12-31',
+      next: { status: nextStatus, at: nextStatus === 'todo' ? null : cyc.today, canDone: finished && nextStatus === 'todo' && cyc.today >= cyc.earlyFrom, canSkip: finished && nextStatus === 'todo' },
+    };
+  });
+  return {
+    ...computeMonthlyBuy(opts.salary === undefined ? 123456789 : opts.salary, target),
+    ...cyc,
+    calendarUnchecked: opts.calendarUnchecked ?? false,
+    accounts,
+    needsPopup: needsPurchasePopup(cyc, accounts),
+  };
+}
+
 /**
  * 총 자산 요약(v2.62.0) 가짜 응답 — 만든 값. `none` = 미지정 금액 · 가격 못 받은 줄을 넣는다(긴 금액 · 경고 줄 넘침을 잰다).
  */
 export function assetSummarySample(
-  opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number; writeEnabled?: boolean; purchaseDone?: boolean; calendarUnchecked?: boolean; skipped?: boolean; early?: 'can' | 'done'; lockMinutes?: number; salary?: number | null; price?: Parameters<typeof priceSheetSample>[0]; prices?: Record<string, number> } = {},
+  opts: { pension?: boolean; none?: boolean; vsLast?: boolean; colors?: Partial<AssetClassColors>; target?: AssetTargetRatio; band?: number; writeEnabled?: boolean; purchaseDone?: boolean; purchase?: 'mixed'; calendarUnchecked?: boolean; skipped?: boolean; early?: 'can' | 'done'; lockMinutes?: number; salary?: number | null; price?: Parameters<typeof priceSheetSample>[0]; prices?: Record<string, number> } = {},
 ): AssetSummary {
   const pension = opts.pension ?? false;
   const amounts: [AssetGroupKey, string, number][] = [
@@ -180,21 +231,9 @@ export function assetSummarySample(
     rebalance: computeRebalance(totals, target, band),
     targetRatio: target,
     writeEnabled: opts.writeEnabled ?? true,
-    // 이번 달 구매(v2.64.0) — 서버와 같은 순수 함수 · 긴 월급(9자리)으로 칸 넘침을 잰다.
-    // 처음 값은 「완료」(구매일 팝업이 뜨지 않게 — 다른 장면 사진을 가리지 않는다) · 팝업 장면은 `purchaseDone: false`
-    monthlyBuy: {
-      ...computeMonthlyBuy(opts.salary === undefined ? 123456789 : opts.salary, target),
-      // 시작 전 차례(v2.64.1 · `skipped`) — 오늘 11-07 · 차례 10-30 · 시작한 날 11-07
-      // 미리 구매 완료(v2.65.4 · `early`) — 오늘 12-20 · 이번 차례 11-27 완료 · 다음 12-24(7일 전 12-17부터) · 'can' 누를 수 있음 / 'done' 12-20 에 미리 완료
-      ...(opts.skipped
-        ? { today: '2026-11-07', cycleDay: '2026-10-30', nextDay: '2026-11-27', done: false, doneDay: null, startDay: '2026-11-07', skipped: true, earlyFrom: '2026-11-20', earlyCycle: null, nextDoneDay: null }
-        : opts.early
-          ? { today: '2026-12-20', cycleDay: '2026-11-27', nextDay: '2026-12-24', done: true, doneDay: '2026-11-27', startDay: '2026-11-07', skipped: false, earlyFrom: '2026-12-17', earlyCycle: opts.early === 'can' ? '2026-12-24' : null, nextDoneDay: opts.early === 'done' ? '2026-12-20' : null }
-          : { today: '2026-11-27', cycleDay: '2026-11-27', nextDay: '2026-12-24', done: opts.purchaseDone ?? true, doneDay: opts.purchaseDone ?? true ? '2026-11-27' : null, startDay: '2026-11-07', skipped: false, earlyFrom: '2026-12-17', earlyCycle: null, nextDoneDay: null }),
-      calendarUnchecked: opts.calendarUnchecked ?? false,
-      // 시트에 쓸 날짜 글자 — 위 가짜 계좌 이름(「( 2026.07 )」 모양)에 누를 차례 날짜를 넣은 값
-      sheetDates: [opts.skipped ? '2026.10' : opts.early ? '2026.12' : '2026.11'],
-    },
+    // 이번 달 구매(v2.64.0 · v2.78.0 계좌마다) — 금액은 서버와 같은 순수 함수 · 긴 월급(9자리)으로 칸 넘침을 잰다.
+    // 처음 값은 네 계좌 「완료」(구매일 팝업이 뜨지 않게 — 다른 장면 사진을 가리지 않는다) · 팝업 장면은 `purchaseDone: false` · 섞인 상태는 `purchase: 'mixed'`
+    monthlyBuy: monthlyBuySample({ ...opts, target }),
     priceSheet: priceSheetSample(opts.price ?? 'google'),
   };
 }
