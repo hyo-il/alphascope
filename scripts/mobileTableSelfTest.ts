@@ -10,6 +10,8 @@
  *   보이는 요소마다 「태그 · 클래스 · 자리 · 크기」 가 같아야 한다. 클래스는 낱말 순서를 맞춰 견준다(예전 `overflow-x-auto` 를 부품이 붙여 순서만 바뀜) ·
  *   폰 · 패드 · 손가락에서만 켜지는 이름(`phone:` · `pad:` · `touch:` · `touch-hit*`)은 큰 화면에서 아무것도 하지 않아 빼고 견준다(146 · 147 과 같음).
  *   정답 파일을 다시 만들 때: 기준 커밋 worktree 에 이 파일 · 가짜 응답을 넣고 `CAPTURE=<저장 경로> npx tsx scripts/mobileTableSelfTest.ts`.
+ *   155차(v2.81.0) — 색 · 글 · 아이콘 규칙(테마 9-1 R2 · R4)만 반영해 정답 파일을 다시 만들었다: 기준 정답과 견주어 더해진 요소는 꺼진 기능 안내(`ui/FeatureOff` —
+ *   글 · [ⓘ]) · 「기준 미달」 아이콘(`ui/NotPassIcon`) 뿐 · 빠진 요소는 개발용 글 `<code>` 상자 2개 · 자리 이동은 같은 줄 가로(아이콘 폭 18px)와 글이 짧아진 설정 화면 1 ~ 2px 뿐.
  * 3 ~ 5 · 7 · 8 은 시험 틀(`scripts/fixtures/mobileTable/harness.js` — 앱과 같은 부품 · CSS)로도 잰다.
  * 손가락 밀기는 크롬 개발 도구(CDP `Input.synthesizeScrollGesture` · 손가락)로, 누름은 `Input.dispatchTouchEvent` 로 보낸다.
  */

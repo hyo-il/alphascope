@@ -260,7 +260,7 @@ export default function AccountsOverview({
     return (
       <>
         {serverOff && (
-          <p className="mb-2 px-2 py-1">
+          <p className="mb-2 px-2 py-1 text-caption">
             <FeatureOff what={AUTO_TRADING_OFF_WHAT} />
           </p>
         )}
@@ -512,7 +512,7 @@ export default function AccountsOverview({
                 "켜기" 를 눌러도 돌지 않는다는 것을 모르면 고장으로 읽는다.
               */}
               {status && status.serverEnabled === false && !on && (
-                <p className="mt-2 px-2 py-1">
+                <p className="mt-2 px-2 py-1 text-caption">
                   <FeatureOff what={AUTO_TRADING_OFF_WHAT} />
                 </p>
               )}
