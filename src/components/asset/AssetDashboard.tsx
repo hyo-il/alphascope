@@ -25,7 +25,8 @@ import AssetTradeHistoryDialog from './AssetTradeHistoryDialog';
 import { codeOfTickerRow, type ClassSendResult, type ClassValue } from '../../utils/assetClassPlan';
 import AssetRebalanceView from './AssetRebalanceView';
 import { MonthlyBuySection, PurchaseDayDialog, dayText, pressKey, sheetDateText, type PurchasePress } from './AssetMonthlyBuy';
-import { PLAN_BUY_TIP, planBuyInitial, planBuyTarget, type PlanBuy } from './AssetMonthlyPlan';
+import type { PlanBuy } from './AssetMonthlyPlan';
+import { PLAN_BUY_TIP, planBuyInitial, planBuyTarget } from './assetPlanBuy';
 import ScrollTable from '../ui/ScrollTable';
 
 /**
