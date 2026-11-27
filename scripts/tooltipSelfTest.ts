@@ -303,8 +303,8 @@ check(
 // ── [128-7] [129-1] 목록 문서(128차 목록 · 129차에 91곳을 바꿈) — 남은 title= = 문서 「바꾸지 않음」 줄 · 바꾼 91곳 · 아이콘 + 글자 버튼 전부 ──
 {
   const common = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: root, encoding: 'utf8' }).trim();
-  const doc = path.resolve(common, '../../../docs/analysis/2026-11-10_툴팁_아이콘_목록.md');
-  if (!fs.existsSync(doc)) console.log(`건너뜀  [128-7] [129-1] 목록 문서 없음(관리 루트 docs/analysis — ${doc})`);
+  const doc = path.resolve(common, '../../../docs/reference/2026-11-10_툴팁_아이콘_목록.md');
+  if (!fs.existsSync(doc)) console.log(`건너뜀  [128-7] [129-1] 목록 문서 없음(관리 루트 docs/reference — ${doc})`);
   else {
     const md = fs.readFileSync(doc, 'utf8');
     const section = (n: number) => (md.split(/^## /m).find((s) => s.startsWith(`${n}.`)) ?? '').split('\n').filter((l) => /^\| [^|]+ \| `src\//.test(l)); // 줄 = 「| 화면 | `파일` | …」

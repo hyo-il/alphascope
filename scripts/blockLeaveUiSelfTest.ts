@@ -584,7 +584,7 @@ try {
   {
     const git = (...a: string[]) => execFileSync('git', a, { cwd: root, encoding: 'utf8' }).trim();
     const common = git('rev-parse', '--path-format=absolute', '--git-common-dir');
-    const doc = path.resolve(path.dirname(common), '../../docs/analysis/2026-11-18_막는로딩_나갈때묻기_목록.md');
+    const doc = path.resolve(path.dirname(common), '../../docs/reference/2026-11-18_막는로딩_나갈때묻기_목록.md');
     const at = (f: string) => git('show', `${BASE}:${f}`);
     const files = git('ls-tree', '-r', '--name-only', BASE, 'src').split('\n').filter((f) => f.endsWith('.tsx'));
     const overlayFiles = files.filter((f) => at(f).includes('LoadingOverlay'));
