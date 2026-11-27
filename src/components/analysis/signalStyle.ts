@@ -23,6 +23,9 @@ export const VOTE_CLASS: Record<string, string> = {
   SELL: 'text-bearish',
 };
 
+/** 매도 쪽 신호면 'sell' — 빨간 글의 뜻 표시(`data-tone` · `designrules:test`) */
+export const sellTone = (signal: string | null | undefined): 'sell' | undefined => (signal && /sell$/i.test(signal) ? 'sell' : undefined);
+
 export function confidencePercent(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—';
   return `${Math.round(value * 100)}%`;

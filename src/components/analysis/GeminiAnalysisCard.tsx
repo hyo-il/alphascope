@@ -9,7 +9,7 @@ import { formatPrice, formatSigned } from '../../utils/formatters';
 import { currencyOfSymbol } from '../../utils/market';
 import AISourceBadge, { GEMINI_TRIGGER_LABEL } from './AISourceBadge';
 import StockName from '../common/StockName';
-import { confidencePercent, SIGNAL_CLASS, SIGNAL_LABEL, VOTE_CLASS } from './signalStyle';
+import { confidencePercent, sellTone, SIGNAL_CLASS, SIGNAL_LABEL, VOTE_CLASS } from './signalStyle';
 
 /** 에이전트 상세는 역할마다 모양이 달라서, 키를 그대로 풀어 보여 준다. */
 function AgentDetail({ agent }: { agent: AgentOpinion }) {
@@ -68,7 +68,7 @@ export default function GeminiAnalysisCard({
           suffix={GEMINI_TRIGGER_LABEL[analysis.trigger]}
         />
         <StockName symbol={analysis.symbol} className="text-text-primary" />
-        <span className={SIGNAL_CLASS[analysis.signal] ?? ''}>
+        <span className={SIGNAL_CLASS[analysis.signal] ?? ''} data-tone={sellTone(analysis.signal)}>
           {SIGNAL_LABEL[analysis.signal] ?? analysis.signal}
         </span>
         <span className="text-xs text-text-muted">{confidencePercent(analysis.confidence)}</span>
@@ -83,7 +83,7 @@ export default function GeminiAnalysisCard({
         {analysis.agents.map((agent) => (
           <span key={agent.role}>
             {agent.label}{' '}
-            <span className={agent.error ? 'text-warning' : (VOTE_CLASS[agent.vote] ?? '')}>
+            <span className={agent.error ? 'text-warning' : (VOTE_CLASS[agent.vote] ?? '')} data-tone={agent.error ? undefined : sellTone(agent.vote)}>
               {agent.error ? '실패' : agent.vote}
             </span>
           </span>
@@ -134,7 +134,7 @@ export default function GeminiAnalysisCard({
                   <span className="text-bullish">목표 {formatPrice(plan.target_price, currencyOfSymbol(analysis.symbol))}</span>
                 )}
                 {plan.stop_loss != null && (
-                  <span className="text-bearish">손절 {formatPrice(plan.stop_loss, currencyOfSymbol(analysis.symbol))}</span>
+                  <span className="text-bearish" data-tone="down">손절 {formatPrice(plan.stop_loss, currencyOfSymbol(analysis.symbol))}</span>
                 )}
                 {plan.position_size_percent != null && (
                   <span>비중 {plan.position_size_percent}%</span>
@@ -178,7 +178,7 @@ export default function GeminiAnalysisCard({
                       <span className="text-warning">분석 실패</span>
                     ) : (
                       <>
-                        <span className={VOTE_CLASS[agent.vote] ?? ''}>{agent.vote}</span>
+                        <span className={VOTE_CLASS[agent.vote] ?? ''} data-tone={sellTone(agent.vote)}>{agent.vote}</span>
                         <span className="text-text-muted">
                           {confidencePercent(agent.confidence)}
                         </span>

@@ -31,7 +31,7 @@ export default function TradePlan({ plan, currency = 'USD' }: { plan: JudgeRefer
       <div className="flex w-1.5 shrink-0 flex-col overflow-hidden rounded">
         <span className="bg-bullish/50" style={{ flexGrow: reward / total }} />
         <span className="h-px shrink-0 bg-text-primary" />
-        <span className="bg-bearish/50" style={{ flexGrow: risk / total }} />
+        <span className="bg-bearish/50" data-tone="down" style={{ flexGrow: risk / total }} />
       </div>
       {/* 열 너비를 고정해 값이 길어져도 라벨과 겹치지 않게 한다 */}
       {/* design-lint-ignore: 배치용 가격 사다리(세로 막대 옆 세 칸 · 고정 폭 224px · 넘치지 않음) — 옆으로 미는 표가 아니다 */}
@@ -40,8 +40,8 @@ export default function TradePlan({ plan, currency = 'USD' }: { plan: JudgeRefer
           {rows.map((row) => (
             <tr key={row.label}>
               <td className="w-[92px] whitespace-nowrap py-0.5 pr-2 text-right font-medium text-text-primary">{formatPrice(row.price, currency)}</td>
-              <td className={`w-[68px] whitespace-nowrap py-0.5 pr-2 ${row.tone}`}>{row.label}</td>
-              <td className={`w-[64px] whitespace-nowrap py-0.5 pr-1 text-right ${row.tone}`}>{row.percent != null ? `${formatSigned(row.percent, 1)}%` : '기준'}</td>
+              <td className={`w-[68px] whitespace-nowrap py-0.5 pr-2 ${row.tone}`} data-tone={row.tone === 'text-bearish' ? 'down' : undefined}>{row.label}</td>
+              <td className={`w-[64px] whitespace-nowrap py-0.5 pr-1 text-right ${row.tone}`} data-tone={row.tone === 'text-bearish' ? 'down' : undefined}>{row.percent != null ? `${formatSigned(row.percent, 1)}%` : '기준'}</td>
             </tr>
           ))}
         </tbody>

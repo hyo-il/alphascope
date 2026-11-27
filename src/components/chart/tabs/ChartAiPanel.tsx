@@ -8,7 +8,7 @@ import type { GeminiAnalysis } from '../../../types/gemini';
 import ManualAnalysis from '../../analysis/ManualAnalysis';
 import AnalysisHistory from '../../analysis/AnalysisHistory';
 import { useAppStore } from '../../../store/appStore';
-import { SIGNAL_CLASS, SIGNAL_LABEL, confidencePercent } from '../../analysis/signalStyle';
+import { SIGNAL_CLASS, SIGNAL_LABEL, confidencePercent, sellTone } from '../../analysis/signalStyle';
 import { toast } from '../../../store/uiStore';
 
 /**
@@ -211,7 +211,7 @@ function SingleSymbolGemini({ symbol }: { symbol: string }) {
       {latest ? (
         <p className="text-text-secondary">
           최근 결과:{' '}
-          <span className={SIGNAL_CLASS[latest.signal]}>{SIGNAL_LABEL[latest.signal]}</span>{' '}
+          <span className={SIGNAL_CLASS[latest.signal]} data-tone={sellTone(latest.signal)}>{SIGNAL_LABEL[latest.signal]}</span>{' '}
           {confidencePercent(latest.confidence)} ·{' '}
           <span className="text-text-muted">
             {formatDateTime(latest.createdAt)}

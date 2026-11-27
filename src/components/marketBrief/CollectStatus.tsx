@@ -28,7 +28,8 @@ export default function CollectStatus({ brief }: { brief: MarketBrief }) {
           {brief.sources.map((s, i) => {
             const check = s.group === 'check';
             const Icon = s.ok ? COLLECT_ICON.ok : check ? TriangleAlert : COLLECT_ICON.fail;
-            const tone = s.ok ? '' : check ? 'text-warning' : 'text-danger';
+            // 못 받음 · 확인 필요 = 경고 노랑 + 모양이 다른 아이콘(빨강은 하락 · 매도 · 틀린 칸에만 — 테마 9-1 R2)
+            const tone = s.ok ? '' : 'text-warning';
             return (
               <div key={i} className="flex items-start gap-2 text-xs">
                 <Icon {...ICON_SM} className={`mt-0.5 shrink-0 ${tone || 'text-text-muted'}`} />

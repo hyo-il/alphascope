@@ -382,7 +382,7 @@ function ClaudeCard({
       <div className="flex flex-wrap items-center gap-2">
         <AISourceBadge source="claude" suffix="수동" />
         <StockName symbol={record.symbol} className="text-text-primary" />
-        <span className={verdict.className}>{verdict.label}</span>
+        <span className={verdict.className} data-tone={verdict.className.includes('bearish') ? 'sell' : undefined}>{verdict.label}</span>
         <span className="text-xs text-text-muted">
           신뢰도 {CONFIDENCE_LABEL[record.confidence] ?? record.confidence}
         </span>

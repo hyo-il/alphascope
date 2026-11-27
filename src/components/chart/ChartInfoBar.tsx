@@ -107,10 +107,10 @@ function Extreme({
   );
 }
 
-function Field({ label, value, className = '' }: { label: string; value: string; className?: string }) {
+function Field({ label, value, className = '', tone }: { label: string; value: string; className?: string; /** 빨강의 뜻(`designrules:test`) — 내림이면 'down' */ tone?: 'down' }) {
   return (
     <span className="text-text-secondary">
-      {label} <span className={`tabular-nums ${className || 'text-text-primary'}`}>{value}</span>
+      {label} <span className={`tabular-nums ${className || 'text-text-primary'}`} data-tone={tone}>{value}</span>
     </span>
   );
 }
@@ -163,6 +163,7 @@ export default function ChartInfoBar({
               value={formatPrice(legend.close, currency)}
               // 종가만 등락 색을 준다 — 넷 다 칠하면 어느 것이 등락인지 알 수 없다.
               className={`font-medium ${legend.close >= legend.open ? 'text-bullish' : 'text-bearish'}`}
+              tone={legend.close >= legend.open ? undefined : 'down'}
             />
             <Field
               label="거래량"

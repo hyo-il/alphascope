@@ -43,7 +43,7 @@ function ProbBar({ t, s, n }: { t: number; s: number; n: number }) {
   return (
     <div className="flex h-3 w-full overflow-hidden rounded" role="img" aria-label={`목표 ${t}% 손절 ${s}% 둘 다 아님 ${n}%`}>
       <div className="bg-bullish" style={{ width: `${t}%` }} />
-      <div className="bg-bearish" style={{ width: `${s}%` }} />
+      <div className="bg-bearish" data-tone="down" style={{ width: `${s}%` }} />
       <div className="bg-bg-tertiary" style={{ width: `${n}%` }} />
     </div>
   );
@@ -81,7 +81,7 @@ export function ResultCard({
       <div className="space-y-1">
         <p className="text-text-secondary">
           <b className="text-text-primary">AI 예상</b> — 목표 먼저 <span className="text-bullish">{record.pTarget}%</span> · 손절 먼저{' '}
-          <span className="text-bearish">{record.pStop}%</span> · 둘 다 아님 {record.pNeither}%
+          <span className="text-bearish" data-tone="down">{record.pStop}%</span> · 둘 다 아님 {record.pNeither}%
           {record.normalized && <span className="text-text-muted"> (합이 100 이 되도록 맞춤)</span>}
         </p>
         <ProbBar t={record.pTarget} s={record.pStop} n={record.pNeither} />
@@ -138,7 +138,7 @@ export function ResultCard({
         </div>
       )}
 
-      <p className={record.outcome ? OUTCOME_LABEL[record.outcome].className : 'text-text-muted'}>
+      <p className={record.outcome ? OUTCOME_LABEL[record.outcome].className : 'text-text-muted'} data-tone={record.outcome === 'stop' ? 'down' : undefined}>
         {record.outcome
           ? `결과: ${OUTCOME_LABEL[record.outcome].text} (만기 ${record.outcomeDate})`
           : `채점 대기 — ${record.dueDate}까지`}

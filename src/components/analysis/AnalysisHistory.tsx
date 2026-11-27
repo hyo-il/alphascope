@@ -1,3 +1,4 @@
+import { sellTone } from './signalStyle';
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
@@ -284,7 +285,7 @@ export default function AnalysisHistory({
                   className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-xs hover:bg-bg-tertiary/40"
                 >
                   <span className="font-medium text-text-primary">{record.symbol}</span>
-                  <span className={VERDICT_STYLE[record.verdict] ?? ''}>
+                  <span className={VERDICT_STYLE[record.verdict] ?? ''} data-tone={sellTone(record.verdict)}>
                     {VERDICTS.find((v) => v.value === record.verdict)?.label ?? record.verdict}
                   </span>
                   <span className="text-text-muted">

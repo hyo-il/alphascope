@@ -130,6 +130,7 @@ const git = (args: string[]) => spawnSync('git', args, { cwd: root, encoding: 'u
   const changed = chasuChanged(root, CHASU, ['src']).filter((f) => /\.tsx$/.test(f));
   const moved: string[] = [];
   for (const f of changed) {
+    if (!git(['ls-tree', '--name-only', CHASU.base, '--', f]).trim()) continue; // 새 파일(부품)은 견줄 것이 없음
     const before = tokens(spawnSync('git', ['show', `${CHASU.base}:${f}`], { cwd: root, encoding: 'utf8' }).stdout ?? '');
     const after = tokens(fs.existsSync(path.join(root, f)) ? fs.readFileSync(path.join(root, f), 'utf8') : '');
     const keys = new Set([...before.keys(), ...after.keys()]);
@@ -216,7 +217,7 @@ function inspect(args: { devText: string; tones: string[] }) {
     const tone = el.closest('[data-tone]')?.getAttribute('data-tone') ?? '';
     if (args.tones.includes(tone)) continue;
     const all = ((el as HTMLElement).innerText ?? '').trim();
-    if (redText && NEG.test(all)) continue; // 음수 숫자 칸(등락 · 손익)
+    if (NEG.test(all)) continue; // 음수 숫자 칸(등락 · 손익 · 지도 범례)
     reds.push(`${label(el)}${redBg ? '(바탕)' : ''}`);
   }
   const tipText = [...document.querySelectorAll('[data-tip],[data-tip-clip],[aria-label],[placeholder],[title]')]
@@ -369,7 +370,7 @@ try {
   const { createSession } = await import('../server/auth');
   const token = createSession('designrules-test');
   const browser = await guard.step('브라우저 띄우기', () => chromium.launch({ channel: 'chrome' }));
-  const { scenes } = allScenes();
+  const scenes = allScenes().scenes.filter((s) => !process.env.ONLY || new RegExp(process.env.ONLY).test(s.file));
   const t0 = Date.now();
   // 백테스트 결과 장면 — 결과가 없으면 하나 만든다(사본 DB)
   await guard.step('백테스트 결과 준비', async () => {
@@ -386,6 +387,11 @@ try {
     const w = size.w;
     check(`[155-1] ${w} — 장면 ${r.scenes}개 열림(건너뜀 ${r.skipped} · 열기 실패 ${r.failedOpen.length}) · 거의 모든 장면을 잼`, r.scenes >= scenes.length - r.skipped - 3, r.failedOpen.join(' · '));
     check(`[155-1] ${w} — 바탕이 밝은 파랑(--color-accent)인 단추 0 · 주 단추(--color-accent-button) ${r.primary}개`, r.lightBlue.length === 0 && r.primary > 0, r.lightBlue.slice(0, 12).join(' · '));
+    if (r.reds.length) {
+      const uniq = new Map<string, number>();
+      for (const x of r.reds) uniq.set(x, (uniq.get(x) ?? 0) + 1);
+      console.log(`      (알림) ${w} 빨강 뜻 없음 목록:\n${[...uniq].map(([k, n]) => `        ${k}${n > 1 ? ` ×${n}` : ''}`).join('\n')}`);
+    }
     check(`[155-2] ${w} — 빨간 글 · 바탕은 하락 · 매도 · 틀린 칸 · 확인 창 위험 단추에만(뜻 표시 data-tone 또는 음수 숫자) — 그 밖 0`, r.reds.length === 0, `${r.reds.length}개: ${r.reds.slice(0, 15).join(' · ')}`);
     check(`[155-4] ${w} — 모든 장면 화면 글 · 툴팁 글에 개발용 글 0`, r.dev.length === 0, r.dev.slice(0, 12).join(' · '));
     check(`[155-4] ${w} — 꺼진 기능 자리에 「${FEATURE_OFF_TEXT}」(${r.featureOff.length}장면) · [ⓘ] 를 누르면 「${FEATURE_OFF_HOW}」`, r.featureOff.length > 0 && r.featureTip.includes(FEATURE_OFF_HOW), `${r.featureOff.join(' · ')} / 툴팁 「${r.featureTip}」`);

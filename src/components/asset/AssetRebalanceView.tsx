@@ -16,11 +16,11 @@ import ScrollTable from '../ui/ScrollTable';
 const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right tabular-nums`;
 const pct = (v: number | null) => (v == null ? '—' : formatNumber(v, 1, '%'));
 
-/** 「○원 더 사야 함」(파랑 계열) · 「○원 줄여야 함」(빨강 계열) · 0원 「맞음」 */
+/** 「○원 더 사야 함」(파랑 계열) · 「○원 줄여야 함」(빨강 계열 — 팔아서 줄임 = 매도 쪽) · 0원 「맞음」 */
 function DiffText({ amount }: { amount: number | null }) {
   if (amount == null) return <span className="text-text-muted">—</span>;
   if (amount === 0) return <span className="text-text-secondary">맞음</span>;
-  return amount > 0 ? <span className="text-rebalance-add">{formatPrice(amount, 'KRW')} 더 사야 함</span> : <span className="text-rebalance-cut">{formatPrice(-amount, 'KRW')} 줄여야 함</span>;
+  return amount > 0 ? <span className="text-rebalance-add">{formatPrice(amount, 'KRW')} 더 사야 함</span> : <span className="text-rebalance-cut" data-tone="sell">{formatPrice(-amount, 'KRW')} 줄여야 함</span>;
 }
 
 function StatusBadge({ status }: { status: RebalanceRow['status'] }) {
