@@ -1602,17 +1602,17 @@ check('[111-9] 매매 · 시황 · 자동매매 · 거래정지 · 시장 달력
 // [111-10] 구매 완료 경로가 로그에 계좌 이름 · 날짜 · 금액을 찍지 않는다(이유 종류만) — 소스 검사 + 아래 출력 검사
 const purchaseSrc = ['server/asset/purchase.ts', 'server/asset/routes.ts'].map((f) => fs.readFileSync(path.join(root, f), 'utf8')).join('\n') + fnBody('writeAccountDate');
 check('[111-10] 구매 완료 · 이번 달 구매 코드에 console 출력 없음(실패 로그는 sendSheetError 의 이유 종류 한 줄뿐)', !/console\.(log|info|debug)/.test(purchaseSrc) && (purchaseSrc.match(/console\.warn/g) ?? []).length === 2);
-// [112-1] 화면 — 시작 전 차례면 팝업을 열지 않고(처음 정할 때 · 그릴 때 둘 다) [구매 완료] 를 숨긴다(화면 동작은 Playwright 로도)
+// [112-1] 화면 — 시작 전 차례면 팝업을 열지 않고(처음 정할 때 · 그릴 때 둘 다 — v2.78.0 서버 needsPopup 한 곳) 단추를 숨긴다(화면 동작은 Playwright 로도 — assetpurchase:test)
 const buySrc = fs.readFileSync(path.join(root, 'src/components/asset/AssetMonthlyBuy.tsx'), 'utf8');
-check('[112-1] 화면 — 시작 전 차례면 구매일 팝업 없음(AssetDashboard 두 곳 !skipped) · [구매 완료] 버튼 숨김 · 「시작 전 차례 — 묻지 않음」',
-  /if \(!mb\.done && !mb\.skipped\) setPurchasePopup\(true\)/.test(dashSrc) && /purchasePopup && summary && !summary\.monthlyBuy\.done && !summary\.monthlyBuy\.skipped &&/.test(dashSrc) &&
-  /!canPressDone\(mb\) \? undefined :/.test(buySrc) && /export const canPressDone = \(mb: MonthlyBuy\) => \(!mb\.done && !mb\.skipped\) \|\| isEarlyDone\(mb\);/.test(buySrc) && buySrc.includes('시작 전 차례 — 묻지 않음'));
-check('[112-5] [117-2] 확인 창 문구 — 서버가 준 sheetDates 로 만들고(미리 완료는 「다음 구매 차례(○)를 미리 완료로 기록하고」) 「오늘(날짜)로」 글자 0',
-  (dashSrc.match(/askPurchaseDone\(summary\.monthlyBuy\)/g) ?? []).length === 2 && /sheetDateText\(mb\.sheetDates\)/.test(dashSrc) && /다음 구매 차례\(\$\{dayText\(early\)\}\)를 미리 완료로 기록하고, 시트의 계좌 이름 날짜를 \$\{sheetDateText\(mb\.sheetDates, '다음'\)\} 바꿉니다/.test(dashSrc) && !/날짜를 오늘/.test(dashSrc));
-// [117-2] 화면 — 미리 완료할 수 있으면 「미리 구매 완료할 수 있어요」 + [구매 완료] · 미리 완료한 뒤 「완료 ○(미리)」 · 팝업 조건은 그대로(이번 차례 미완료 · 시작 전 아님)
-check('[117-2] 화면 — 「다음 구매일 ○ · 미리 구매 완료할 수 있어요」(isEarlyDone) · 「완료 {nextDoneDay}(미리)」 · isEarlyDone = (done || skipped) && earlyCycle · 팝업 조건 그대로',
-  /export const isEarlyDone = \(mb: MonthlyBuy\) => \(mb\.done \|\| mb\.skipped\) && mb\.earlyCycle != null;/.test(buySrc) && /isEarlyDone\(mb\) && \([\s\S]{0,400}미리 구매 완료할 수 있어요/.test(buySrc) &&
-    /완료 \{mb\.nextDoneDay\}\(미리\)/.test(buySrc) && /if \(!mb\.done && !mb\.skipped\) setPurchasePopup\(true\)/.test(dashSrc) && /purchasePopup && summary && !summary\.monthlyBuy\.done && !summary\.monthlyBuy\.skipped &&/.test(dashSrc));
+check('[112-1] [151-7] 화면 — 팝업은 서버 needsPopup 으로만(AssetDashboard 두 곳 · 시작 전 차례 · 매달 아닌 계좌는 서버가 뺌) · 시작 전 차례 줄은 단추 없음 · 「시작 전 차례 — 묻지 않음」',
+  /if \(latest\.result\.summary\.monthlyBuy\.needsPopup\) setPurchasePopup\(true\)/.test(dashSrc) && /purchasePopup && summary && summary\.monthlyBuy\.needsPopup &&/.test(dashSrc) &&
+  /if \(status !== 'todo'\) return null;/.test(buySrc) && buySrc.includes('시작 전 차례 — 묻지 않음') && !/mb\.done\b/.test(buySrc + dashSrc));
+check('[112-5] [117-2] [151-C3] 확인 창 문구 — 서버가 준 계좌의 sheetDateText 로 만들고(미리 완료는 「다음 구매 차례(○)를 미리 완료로 기록합니다.」) · 이미 이후면 「시트 날짜는 이미 ○ — 그대로 두고 완료로 기록합니다.」 · 되돌리기는 「시트 날짜는 그대로입니다」 · 「오늘(날짜)로」 글자 0',
+  /sheetDateText\(a\.sheetDateText, p\.next \? '다음' : '이번'\)/.test(dashSrc) && /다음 구매 차례\(\$\{dayText\(p\.cycleDay\)\}\)를 미리 완료로 기록합니다\. /.test(dashSrc) &&
+    /계좌 이름 날짜를 \$\{sheetDateText\(/.test(dashSrc) && /시트 날짜는 이미 \$\{a\.sheetDateNow \?\? ''\} — 그대로 두고 완료로 기록합니다\./.test(dashSrc) && /기록만 되돌립니다 — 시트 날짜는 그대로입니다\./.test(dashSrc) && !/날짜를 오늘/.test(dashSrc));
+// [117-2] 화면 — 이번 차례를 끝낸 계좌는 「다음 차례(○)」 줄 + [미리 구매 완료](canDone) · [건너뛰기](canSkip) · 처리한 다음 차례는 상태 + [되돌리기]
+check('[117-2] [151-6] 화면 — 다음 차례 줄(이번 차례를 끝낸 계좌만) · [미리 구매 완료] = 서버 next.canDone · [건너뛰기] = next.canSkip · 화면이 날짜로 다시 판단하지 않음',
+  /const showNext = finished && \(a\.next\.status !== 'todo' \|\| a\.next\.canDone \|\| a\.next\.canSkip\);/.test(buySrc) && /canDone=\{a\.next\.canDone\}/.test(buySrc) && /canSkip=\{a\.next\.canSkip\}/.test(buySrc) && /doneLabel="미리 구매 완료"/.test(buySrc) && !/earlyFrom/.test(buySrc));
 // [112-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 코드 바뀐 파일 0(111차 끝 1117cba → v2.64.1 끝)
 const changed112 = chasuDiff(root, { base: '1117cba', version: 'v2.64.1' }, ['--name-only'], ['server/autoTrading', 'server/buyJudge', 'server/marketBrief', 'server/rules', 'server/paperTradingService.ts', 'server/usHalts', 'server/marketCalendar.ts', 'python']);
 check('[112-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 코드 바뀐 파일 0(1117cba → v2.64.1 끝)', changed112.status === 0 && changed112.stdout.trim() === '', changed112.stdout.trim() || changed112.stderr.trim());
@@ -1635,9 +1635,9 @@ check('[112-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력
   const labelsMulti = [...sd.matchAll(/id: '(\w+)',\s*label: '([^']+)'/g)].map((m) => m[2]);
   // v2.65.4 — 6번째 메뉴 「잠금」(맨 아래)을 더해 기대 목록을 고침
   // v2.71.0 — 7번째 메뉴 「현금 자동 반영」(잠금 바로 위)
-  check('[115-7] [117-4] [139-8] 설정 창 = 공용 SideNavDialog · 제목 「자산 관리 설정」 · titleAside 없음 · 메뉴 순서 목표 비율 · 코어 · 위성 · 연금 · 자산 분류 색 · 시트 가격 · 현금 자동 반영 · 잠금(7개) · 기억 키 try/catch · [목표 비율 바꾸기] → target',
-    /<SideNavDialog\s+title="자산 관리 설정"/.test(sd) && !/titleAside/.test(sd) && JSON.stringify(labelsMulti) === JSON.stringify(['목표 비율', '코어 · 위성', '연금', '자산 분류 색', '시트 가격', '현금 자동 반영', '잠금']) &&
-      /const MENUS = \['target', 'core', 'pension', 'colors', 'price', 'cash', 'lock'\] as const/.test(sd) && /focus === 'targetRatio' \? 'target' : readMenu\(\)/.test(sd) && /catch \{\s*return 'target';/.test(sd), labels.join('|') + ' / ' + labelsMulti.join('|'));
+  check('[115-7] [117-4] [139-8] [151-C4] 설정 창 = 공용 SideNavDialog · 제목 「자산 관리 설정」 · titleAside 없음 · 메뉴 순서 목표 비율 · 코어 · 위성 · 연금 · 이번 달 구매(151차) · 자산 분류 색 · 시트 가격 · 현금 자동 반영 · 잠금(8개) · 기억 키 try/catch · [목표 비율 바꾸기] → target',
+    /<SideNavDialog\s+title="자산 관리 설정"/.test(sd) && !/titleAside/.test(sd) && JSON.stringify(labelsMulti) === JSON.stringify(['목표 비율', '코어 · 위성', '연금', '이번 달 구매', '자산 분류 색', '시트 가격', '현금 자동 반영', '잠금']) &&
+      /const MENUS = \['target', 'core', 'pension', 'purchase', 'colors', 'price', 'cash', 'lock'\] as const/.test(sd) && /focus === 'targetRatio' \? 'target' : readMenu\(\)/.test(sd) && /catch \{\s*return 'target';/.test(sd), labels.join('|') + ' / ' + labelsMulti.join('|'));
   check('[115-7] 새 부품 SideNavDialog — ui 에서 내보냄 · role tablist/tab/tabpanel · 위/아래 키 · 768px(md) 밑 가로 줄 · 고정 크기만(lg · xl · full) · 자산 글자 없음 · 색은 토큰 클래스만(# · rgb 0)',
     /export \{ default as SideNavDialog/.test(fs.readFileSync(path.join(root, 'src/components/ui/index.ts'), 'utf8')) && /role="tablist"/.test(nav) && /role="tab"/.test(nav) && /role="tabpanel"/.test(nav) &&
       /ArrowDown/.test(nav) && /ArrowUp/.test(nav) && /md:flex-row/.test(nav) && /Extract<DialogSize, 'lg' \| 'xl' \| 'full'>/.test(nav) && !/자산/.test(nav) && !/#[0-9a-fA-F]{3,6}\b|rgb\(/.test(nav));

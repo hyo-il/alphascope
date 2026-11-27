@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
-import { ICON_SM, Segmented, Select, SideNavDialog } from '../ui';
+import { Checkbox, ICON_SM, Segmented, Select, SideNavDialog } from '../ui';
+import { LIST_ROW } from '../ui/tokens';
 import {
   ASSET_COLOR_IDS,
   ASSET_COLOR_LABEL,
@@ -23,13 +24,14 @@ import AssetPriceSheetSection from './AssetPriceSheetSection';
 import AssetCashSettings from './AssetCashSettings';
 
 /**
- * 「자산 관리 설정」 창(v2.62.1 · v2.65.2 왼쪽 메뉴 — 공용 `SideNavDialog`) — 오른쪽 위 「설정」 버튼이 연다. 메뉴 일곱(이 순서):
+ * 「자산 관리 설정」 창(v2.62.1 · v2.65.2 왼쪽 메뉴 — 공용 `SideNavDialog`) — 오른쪽 위 「설정」 버튼이 연다. 메뉴 여덟(이 순서):
  * 1. 목표 비율 — 정수 % 여섯 칸 · 두 합이 100 일 때만 [저장] · **시트에 쓴다**(`AssetTargetRatioForm`) + 비율 조정 범위(±1~20 %p 고르기 · 바로 저장 — 앱 DB).
  *    「비율 조정」 [목표 비율 바꾸기] 는 이 메뉴로 연다.
  * 2. 코어 · 위성 — 위성으로 선택한 종목: 매매 설정 대상 종목과 같은 부품(`common/SymbolTable`): 표(종목 · 코드 · 있는 계좌) + [종목 추가] + 줄마다 삭제.
  *    [종목 추가] 창 = 시트의 분류 「주식」 종목 중 아직 위성이 아닌 것만(`source` — 관심 목록 · 검색 없음). 표의 종목 = 위성 · 나머지 주식 = 코어.
  *    분류가 주식이 아니게 된 위성 종목은 흐리게 + 「분류가 주식이 아니라 계산에서 빠짐」(삭제할 수 있음).
  * 3. 연금 — 연금으로 볼 계좌: 표(계좌 이름 「( 날짜 )」 그대로) + [계좌 추가](창 = 시트 계좌 중 아직 없는 것) + 줄마다 삭제(`AssetAccountTable`)
+ * 3-1. 이번 달 구매(v2.78.0) — 계좌마다 「매달 사는 계좌」 체크(처음 = 모두 켬 · 바로 저장 — 앱 DB `PUT /api/asset/purchase/monthly-accounts`). 끈 계좌는 구매일 팝업 · 「이번 달 구매」 목록에 나오지 않는다.
  * 4. 자산 분류 색 — 분류마다 팔레트 색 동그라미(원형 · 분류별 표가 같은 색)
  * 5. 시트 가격(v2.65.0) — 「티커」 가격 · 환율을 토스로 바꾸기 · 되돌리기(확인 창 · **시트에 쓴다** — `AssetPriceSheetSection`)
  * 6. 현금 자동 반영(v2.71.0 · v2.71.1 쉽게) — 「현금」 탭 은행 계좌 금액을 앱이 바꾸는 설정 · 반영 기록 · 되돌리기(`AssetCashSettings` — 열 때 따로 받는다)
@@ -40,7 +42,7 @@ import AssetCashSettings from './AssetCashSettings';
  */
 
 /** 메뉴 — 순서가 곧 화면 순서 */
-const MENUS = ['target', 'core', 'pension', 'colors', 'price', 'cash', 'lock'] as const;
+const MENUS = ['target', 'core', 'pension', 'purchase', 'colors', 'price', 'cash', 'lock'] as const;
 type Menu = (typeof MENUS)[number];
 const MENU_KEY = 'alphascope.asset.settingsMenu';
 function readMenu(): Menu {
@@ -93,6 +95,7 @@ export default function AssetSettingsDialog({
   onSave,
   onSaveTarget,
   onPriceSheet,
+  onSaveMonthly,
   onLocked,
   focus,
   onClose,
@@ -104,6 +107,8 @@ export default function AssetSettingsDialog({
   onSaveTarget: (ratio: Record<keyof AssetTargetRatio, number>) => Promise<{ ok: true; ratio: AssetTargetRatio } | { ok: false; error: string }>;
   /** 시트 가격 바꾸기 · 되돌리기 — 실패면 이유 문구 */
   onPriceSheet: (kind: 'convert' | 'restore') => Promise<string | null>;
+  /** 매달 사는 계좌 켬 · 끔(v2.78.0 — 계좌 하나) — 실패면 이유 문구 */
+  onSaveMonthly: (section: string, monthly: boolean) => Promise<string | null>;
   /** 「현금 자동 반영」 요청이 잠김(403)을 받으면 */
   onLocked: () => void;
   /** 「비율 조정」 [목표 비율 바꾸기] 로 열면 목표 비율 칸으로 */
@@ -118,6 +123,22 @@ export default function AssetSettingsDialog({
   /** 목표 비율 폼(저장 단추가 따로) · 현금 자동 반영의 상태 — 창의 닫을 때 묻기 · 막는 로딩(공통 3-3 · 7-2) */
   const [targetState, setTargetState] = useState({ dirty: false, busy: false });
   const [cashBusy, setCashBusy] = useState(false);
+  /** 매달 사는 계좌(v2.78.0) — 바꾼 값을 바로 보이고 실패하면 되돌린다 · 저장 중인 계좌 · 이유 한 줄 */
+  const [monthly, setMonthly] = useState<Record<string, boolean>>(() => Object.fromEntries(summary.monthlyBuy.accounts.map((a) => [a.section, a.buysMonthly])));
+  const [monthlyBusy, setMonthlyBusy] = useState<string | null>(null);
+  const [monthlyError, setMonthlyError] = useState<string | null>(null);
+  const saveMonthly = async (section: string, on: boolean) => {
+    if (monthlyBusy != null) return;
+    setMonthly((m) => ({ ...m, [section]: on }));
+    setMonthlyBusy(section);
+    setMonthlyError(null);
+    const failed = await onSaveMonthly(section, on);
+    setMonthlyBusy(null);
+    if (failed) {
+      setMonthly((m) => ({ ...m, [section]: !on }));
+      setMonthlyError(`저장하지 못했습니다 — ${failed}`);
+    }
+  };
 
   const save = async <K extends Field>(field: K, value: AssetSettings[K]) => {
     if (busy[field]) return; // 저장 중에 또 바꾸면 앞의 저장과 겹친다 — 끝난 뒤 다시
@@ -236,6 +257,25 @@ export default function AssetSettingsDialog({
     </Block>
   );
 
+  const purchase = (
+    <Block busy={monthlyBusy != null} error={monthlyError}>
+      <ul className="space-y-1" data-setting="purchase-monthly">
+        {summary.monthlyBuy.accounts.map((a) => (
+          <li key={a.section} className={`flex items-center gap-3 ${LIST_ROW}`} data-testid="purchase-monthly-row" data-section={a.section}>
+            <span className="min-w-0 flex-1 truncate text-xs text-text-primary" data-tip={a.name} data-tip-clip>
+              {a.name}
+            </span>
+            <label className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-text-primary">
+              <Checkbox checked={monthly[a.section] ?? true} disabled={monthlyBusy != null} onChange={(e) => void saveMonthly(a.section, e.target.checked)} data-testid="purchase-monthly-check" />
+              매달 사는 계좌
+              <span className="inline-flex w-4 justify-center">{monthlyBusy === a.section && <LoaderCircle {...ICON_SM} className="animate-spin text-text-muted" aria-label="저장하는 중" />}</span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </Block>
+  );
+
   const price = (
     <Block busy={priceBusy} error={null}>
       <AssetPriceSheetSection status={summary.priceSheet} onAction={onPriceSheet} onBusy={setPriceBusy} />
@@ -253,6 +293,13 @@ export default function AssetSettingsDialog({
         { id: 'target', label: '목표 비율', desc: '자산 배분 · 주식 안 코어 · 위성의 목표와, 「비율 조정」 이 괜찮다고 보는 범위입니다.', busy: !!busy.rebalanceBand || targetState.busy, dirty: targetState.dirty, content: target },
         { id: 'core', label: '코어 · 위성', desc: '분류 「주식」 종목을 코어와 위성으로 나눕니다.', busy: !!busy.satelliteSymbols, content: satellite },
         { id: 'pension', label: '연금', desc: '「연금 포함」 을 켜고 끌 때 함께 더하고 빼는 계좌입니다.', busy: !!busy.pensionSections, content: pension },
+        {
+          id: 'purchase',
+          label: '이번 달 구매',
+          desc: '매달 사는 계좌만 구매일 팝업과 「이번 달 구매」 목록에 나옵니다. 끈 계좌는 묻지 않습니다.',
+          busy: monthlyBusy != null,
+          content: purchase,
+        },
         { id: 'colors', label: '자산 분류 색', desc: '원형 차트와 분류별 표에 같은 색으로 보입니다. 미지정은 회색입니다.', busy: !!busy.classColors, content: colors },
         {
           id: 'price',

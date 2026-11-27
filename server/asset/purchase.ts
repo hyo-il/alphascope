@@ -219,6 +219,7 @@ export function purchaseAccountsOf(c: Cycle, accounts: PurchaseAccountInput[], m
       canUndo: (status === 'done' || status === 'skip') && nextStatus === 'todo',
       doneCycle,
       sheetDateText: nameDateText(a.name, doneCycle),
+      sheetDateNow: nameDateParts(a.name)?.text ?? null,
       sheetAlready: sheetDateAtOrAfter(a.name, doneCycle),
       next: {
         status: nextStatus,

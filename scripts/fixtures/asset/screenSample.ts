@@ -160,6 +160,7 @@ export function monthlyBuySample(opts: { salary?: number | null; target?: AssetT
       canUndo: (status === 'done' || status === 'skip') && nextStatus === 'todo',
       doneCycle,
       sheetDateText: ym(doneCycle),
+      sheetDateNow: name.match(/\d{4}\.\d{2}/)?.[0] ?? null,
       sheetAlready: name.includes('2026.12') && doneCycle <= '2026-12-31',
       next: { status: nextStatus, at: nextStatus === 'todo' ? null : cyc.today, canDone: finished && nextStatus === 'todo' && cyc.today >= cyc.earlyFrom, canSkip: finished && nextStatus === 'todo' },
     };

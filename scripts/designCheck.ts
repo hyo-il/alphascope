@@ -959,23 +959,49 @@ function targets(): Target[] {
           await page.locator('#as-asset-monthly-buy').scrollIntoViewIfNeeded().catch(() => {});
           await page.waitForTimeout(200);
         }],
-        // v2.65.4 — 미리 구매 완료(「미리 구매 완료할 수 있어요」 + [구매 완료] · 확인 창 · 「완료 ○(미리)」)
+        // v2.65.4 · v2.78.0 — 다음 차례 미리 처리(「다음 차례(○) — [미리 구매 완료] [건너뛰기]」 · 확인 창 · 미리 완료한 뒤 상태 + [되돌리기])
         ['이번달구매-미리완료가능', { early: 'can' }, async (page: Page) => {
           await page.locator('#as-asset-monthly-buy').scrollIntoViewIfNeeded().catch(() => {});
           await page.waitForTimeout(200);
         }],
         ['이번달구매-미리완료확인창', { early: 'can' }, async (page: Page) => {
-          await page.locator('#as-asset-monthly-buy [data-purchase-done]').click().catch(() => {});
+          await page.locator('#as-asset-monthly-buy').getByRole('button', { name: '미리 구매 완료' }).first().click().catch(() => {});
           await page.waitForTimeout(300);
         }],
         ['이번달구매-미리완료함', { early: 'done' }, async (page: Page) => {
           await page.locator('#as-asset-monthly-buy').scrollIntoViewIfNeeded().catch(() => {});
           await page.waitForTimeout(200);
         }],
+        // v2.78.0 — 계좌마다(완료 + 다음 차례 건너뜀 · 아직(시트 날짜 이미 12월) · 건너뜀 · 매달 아닌 계좌 빠짐) · 확인 창 셋 · 쓰기 꺼짐
+        ['이번달구매-계좌별', { purchase: 'mixed' }, async (page: Page) => {
+          await page.locator('[data-purchase-later]').click().catch(() => {});
+          await page.waitForTimeout(200);
+          await page.locator('#as-asset-monthly-buy').scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+        }],
+        ['이번달구매-계좌별-이미이후확인창', { purchase: 'mixed' }, async (page: Page) => {
+          await page.locator('[data-purchase-later]').click().catch(() => {});
+          await page.waitForTimeout(200);
+          await page.locator('#as-asset-monthly-buy [data-section="적립식 계좌"]').getByRole('button', { name: '구매 완료' }).click().catch(() => {});
+          await page.waitForTimeout(300);
+        }],
+        ['이번달구매-계좌별-되돌리기확인창', { purchase: 'mixed' }, async (page: Page) => {
+          await page.locator('[data-purchase-later]').click().catch(() => {});
+          await page.waitForTimeout(200);
+          await page.locator('#as-asset-monthly-buy [data-section="ISA 계좌"]').getByRole('button', { name: '되돌리기' }).click().catch(() => {});
+          await page.waitForTimeout(300);
+        }],
+        ['이번달구매-계좌별-쓰기꺼짐', { purchase: 'mixed', writeEnabled: false }, async (page: Page) => {
+          await page.locator('[data-purchase-later]').click().catch(() => {});
+          await page.waitForTimeout(200);
+          await page.locator('#as-asset-monthly-buy').scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(200);
+        }],
         ['구매일팝업', { purchaseDone: false }, async () => {}],
+        ['구매일팝업-계좌별', { purchase: 'mixed' }, async () => {}],
         ['구매일팝업-확인창', { purchaseDone: false }, async (page: Page) => {
           await page.locator('[data-purchase-dialog]').waitFor({ timeout: 3000 }).catch(() => {});
-          await page.getByRole('dialog').locator('[data-purchase-done]').click().catch(() => {});
+          await page.getByRole('dialog').getByRole('button', { name: '구매 완료' }).first().click().catch(() => {});
           await page.waitForTimeout(300);
         }],
         // v2.65.0 — 설정 창 「시트 가격」(Google · 토스 + 토스 가격 없음 목록 · 스위치 꺼진 서버 · 바꾸기 / 되돌리기 확인 창)
@@ -1001,8 +1027,8 @@ function targets(): Target[] {
             await page.waitForTimeout(300);
           }
         }] as const),
-        // v2.65.2 — 설정 창 왼쪽 메뉴(목표 비율 · 코어 · 위성 · 연금 · 자산 분류 색 · 시트 가격 · v2.65.4 잠금)
-        ...(['목표 비율', '코어 · 위성', '연금', '자산 분류 색', '시트 가격', '잠금'] as const).map((m) => [`설정창-메뉴-${m.replace(/ · /g, '').replace(/ /g, '')}`, { pension: true }, async (page: Page) => {
+        // v2.65.2 — 설정 창 왼쪽 메뉴(목표 비율 · 코어 · 위성 · 연금 · v2.78.0 이번 달 구매 · 자산 분류 색 · 시트 가격 · v2.65.4 잠금)
+        ...(['목표 비율', '코어 · 위성', '연금', '이번 달 구매', '자산 분류 색', '시트 가격', '잠금'] as const).map((m) => [`설정창-메뉴-${m.replace(/ · /g, '').replace(/ /g, '')}`, { pension: true }, async (page: Page) => {
           await page.locator('[data-asset-settings]').click().catch(() => {});
           await page.waitForTimeout(400);
           await page.getByRole('dialog').getByRole('tab', { name: m, exact: true }).click().catch(() => {});
@@ -1336,7 +1362,9 @@ function targets(): Target[] {
         await page.route('**/api/asset/class', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
         await page.route('**/api/asset/settings', (r) => r.fulfill({ status: 400, json: { error: '시험 — 저장하지 않음' } }).catch(() => {}));
         await page.route('**/api/asset/target-ratio', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
-        await page.route('**/api/asset/purchase-done', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
+        await page.route('**/api/asset/purchase/**', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
+        // 설정 창은 모든 메뉴를 늘 그린다(「현금 자동 반영」 이 열 때 /api/asset/cash 를 받음) — 가짜가 없으면 시험 서버가 403(잠김)을 돌려 콘솔 오류 2(151차에 찾아 고침)
+        await page.route('**/api/asset/cash', (r) => r.fulfill({ json: cashViewSample() }).catch(() => {}));
         await page.route('**/api/asset/price-source/**', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
         await page.route('**/api/asset/trade', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
         await page.route('**/api/asset/trade/new', (r) => r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음', kind: 'disabled' } }).catch(() => {}));
@@ -1347,7 +1375,7 @@ function targets(): Target[] {
         await act(page);
       },
       after: async (page: Page) => {
-        for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/trade', '**/api/asset/trades**', '**/api/asset/class', '**/api/asset/settings', '**/api/asset/target-ratio', '**/api/asset/purchase-done', '**/api/asset/price-source/**']) await page.unroute(p);
+        for (const p of ['**/api/asset/status', '**/api/asset/sheet', '**/api/asset/summary**', '**/api/asset/history**', '**/api/asset/trade', '**/api/asset/trades**', '**/api/asset/class', '**/api/asset/settings', '**/api/asset/target-ratio', '**/api/asset/purchase/**', '**/api/asset/price-source/**', '**/api/asset/cash']) await page.unroute(p);
         await page.keyboard.press('Escape').catch(() => {});
         await page.keyboard.press('Escape').catch(() => {});
         // v2.65.3 — 「자산 분류 정하기」 창은 바꾼 것이 있으면 ESC 가 확인 창을 연다 → 확인 창의 [닫기] 로 끝낸다

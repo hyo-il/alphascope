@@ -583,6 +583,8 @@ export interface MonthlyBuyAccount {
   doneCycle: string;
   /** 그 차례로 시트 계좌 이름에 쓸 날짜 글자(확인 창) — 이름에 날짜가 없으면 null */
   sheetDateText: string | null;
+  /** 지금 시트 이름 속 날짜 글자(「2026.07」 — 읽을 수 없으면 null) */
+  sheetDateNow: string | null;
   /** 시트 날짜가 이미 그 차례 달이거나 더 뒤(쓰지 않고 완료로만 기록 — 서버는 쓰기 직전에 다시 읽어 판단) */
   sheetAlready: boolean;
   /** 다음 차례 — 이번 차례가 끝났을 때만 처리할 수 있다 */

@@ -8,7 +8,7 @@ import { usePolling } from '../../hooks/usePolling';
 import { useAssetIdleLock } from '../../hooks/useAssetIdleLock';
 import { changeColor, formatNumber, formatPrice, formatSigned, formatSignedMoney } from '../../utils/formatters';
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
-import type { AssetCashManualRequest, AssetCashManualResult, AssetCashTradeExtra, AssetCashTradeOutcome, AssetDailyChange, AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetHolding, AssetSection, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetNewHoldingRequest, AssetNewHoldingResult, AssetNewHoldingTarget, AssetTradeRequest, AssetTradeSide, MonthlyBuy } from '../../types/asset';
+import type { AssetCashManualRequest, AssetCashManualResult, AssetCashTradeExtra, AssetCashTradeOutcome, AssetDailyChange, AssetHistoryPoint, AssetHistoryRange, AssetHistoryResponse, AssetHolding, AssetSection, AssetSettings, AssetSheetData, AssetSheetFailure, AssetSummary, AssetTargetRatio, AssetNewHoldingPlan, AssetNewHoldingRequest, AssetNewHoldingResult, AssetNewHoldingTarget, AssetTradeRequest, AssetTradeSide, PurchaseActionResult } from '../../types/asset';
 import { RATIO_TAB_NOTICE } from '../../types/asset';
 import { modal } from '../../store/uiStore';
 import AssetDonut from './AssetDonut';
@@ -24,7 +24,7 @@ import AssetNewBuyDialog from './AssetNewBuyDialog';
 import AssetTradeHistoryDialog from './AssetTradeHistoryDialog';
 import { codeOfTickerRow, type ClassSendResult, type ClassValue } from '../../utils/assetClassPlan';
 import AssetRebalanceView from './AssetRebalanceView';
-import { MonthlyBuySection, PurchaseDayDialog, dayText, isEarlyDone, sheetDateText } from './AssetMonthlyBuy';
+import { MonthlyBuySection, PurchaseDayDialog, dayText, pressKey, sheetDateText, type PurchasePress } from './AssetMonthlyBuy';
 import ScrollTable from '../ui/ScrollTable';
 
 /**
@@ -161,8 +161,10 @@ export default function AssetDashboard({
   /** 구매일 팝업 — 이 화면이 열린 뒤 처음 받은 summary 로 한 번만 정한다 */
   const [purchasePopup, setPurchasePopup] = useState(false);
   const popupDecided = useRef(false);
-  /** 「구매 완료」 실패 이유(팝업 · 구역에 한 줄) */
+  /** 이번 달 구매 실패 이유(팝업 · 구역에 한 줄) · 저장 중인 단추 · 계좌마다 안내 한 줄(「시트 날짜는 이미 ○ — 그대로 둠」) */
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [purchaseBusy, setPurchaseBusy] = useState<string | null>(null);
+  const [purchaseNotes, setPurchaseNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!polled) return;
@@ -179,8 +181,7 @@ export default function AssetDashboard({
   useEffect(() => {
     if (popupDecided.current || !latest?.result.ok) return;
     popupDecided.current = true;
-    const mb = latest.result.summary.monthlyBuy;
-    if (!mb.done && !mb.skipped) setPurchasePopup(true);
+    if (latest.result.summary.monthlyBuy.needsPopup) setPurchasePopup(true);
   }, [latest]);
 
   const loadSheet = useCallback(async (signal?: AbortSignal) => {
@@ -254,6 +255,23 @@ export default function AssetDashboard({
     try {
       const res = await fetch('/api/asset/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(patch) });
       const body = await readJson(res);
+      if (!res.ok) return typeof body.error === 'string' ? body.error : `요청 실패 (${res.status})`;
+      await reload();
+      return null;
+    } catch {
+      return '서버에 연결하지 못했습니다.';
+    }
+  };
+
+  /** 매달 사는 계좌 켬 · 끔(v2.78.0 — 앱 DB) — 성공이면 다시 받아 목록 · 팝업에 반영 · 실패면 이유 */
+  const saveMonthly = async (section: string, monthly: boolean): Promise<string | null> => {
+    try {
+      const res = await fetch('/api/asset/purchase/monthly-accounts', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ section, monthly }) });
+      const body = await readJson(res);
+      if (body.code === 'asset-locked') {
+        onLocked();
+        return '자산 관리가 잠겼습니다.';
+      }
       if (!res.ok) return typeof body.error === 'string' ? body.error : `요청 실패 (${res.status})`;
       await reload();
       return null;
@@ -340,32 +358,57 @@ export default function AssetDashboard({
     }
   };
 
-  /** [구매 완료] — 확인 창(저장 중 「처리 중…」) → 서버 → 성공이면 팝업 닫고 다시 받기 · 실패면 이유 한 줄. 미리 완료(v2.65.4)는 다음 차례를 말한다 */
-  const askPurchaseDone = (mb: MonthlyBuy) => {
-    const early = isEarlyDone(mb) ? mb.earlyCycle : null;
+  /** 이번 달 구매 요청 하나 — 성공이면 다시 받기(팝업은 남은 「아직」 이 없으면 저절로 닫힘) · 실패면 이유 한 줄 */
+  const sendPurchase = async (p: PurchasePress): Promise<void> => {
+    setPurchaseError(null);
+    setPurchaseNotes((n) => {
+      const { [p.account.section]: _drop, ...rest } = n;
+      return rest;
+    });
+    setPurchaseBusy(pressKey({ action: p.action, cycleDay: p.cycleDay, section: p.account.section }));
+    try {
+      const res = await fetch(`/api/asset/purchase/${p.action}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cycleDay: p.cycleDay, section: p.account.section }) });
+      const body = await readJson(res);
+      if (body.code === 'asset-locked') return onLocked();
+      if (!res.ok) {
+        setPurchaseError(typeof body.error === 'string' ? body.error : `요청 실패 (${res.status})`);
+        return;
+      }
+      const done = body as unknown as PurchaseActionResult;
+      if (done.written === false) setPurchaseNotes((n) => ({ ...n, [p.account.section]: `시트 날짜는 이미 ${done.sheetDate} — 그대로 둠` }));
+      await reload();
+    } catch {
+      setPurchaseError('서버에 연결하지 못했습니다.');
+    } finally {
+      setPurchaseBusy(null);
+    }
+  };
+
+  /**
+   * 계좌 단추 — [구매 완료] · [되돌리기] 는 확인 창(저장 중 「처리 중…」) · [건너뛰기] 는 바로(되돌리기가 있으므로).
+   * 확인 창 날짜 글자는 서버가 실제로 쓸 값(계좌의 `sheetDateText` — 누를 차례 기준) · 시트 날짜가 이미 그 차례 이후면 그대로 둔다고 말한다.
+   */
+  const pressPurchase = (p: PurchasePress) => {
+    if (purchaseBusy != null) return;
+    const a = p.account;
+    if (p.action === 'skip') return void sendPurchase(p);
+    if (p.action === 'undo') {
+      modal.confirm({
+        title: '되돌리기',
+        message: `「${a.section}」 ${p.next ? '다음 구매 차례' : '이번 구매 차례'}(${dayText(p.cycleDay)}) 기록만 되돌립니다 — 시트 날짜는 그대로입니다.`,
+        confirmText: '되돌리기',
+        onConfirm: () => sendPurchase(p),
+      });
+      return;
+    }
+    const lead = p.next ? `다음 구매 차례(${dayText(p.cycleDay)})를 미리 완료로 기록합니다. ` : '';
     modal.confirm({
-      title: '구매 완료',
-      // 날짜 글자는 서버가 실제로 쓸 값(`monthlyBuy.sheetDates` — v2.64.1 · 누를 차례 기준)
-      message: early
-        ? `다음 구매 차례(${dayText(early)})를 미리 완료로 기록하고, 시트의 계좌 이름 날짜를 ${sheetDateText(mb.sheetDates, '다음')} 바꿉니다. 되돌릴 수 없습니다.`
-        : `구매 완료로 기록하고, 시트의 계좌 이름 날짜를 ${sheetDateText(mb.sheetDates)} 바꿉니다. 되돌릴 수 없습니다.`,
-      confirmText: '구매 완료',
-      onConfirm: async () => {
-        setPurchaseError(null);
-        try {
-          const res = await fetch('/api/asset/purchase-done', { method: 'POST', headers: { 'content-type': 'application/json' } });
-          const body = await readJson(res);
-          if (body.code === 'asset-locked') return onLocked();
-          if (!res.ok) {
-            setPurchaseError(typeof body.error === 'string' ? body.error : `요청 실패 (${res.status})`);
-            return;
-          }
-          setPurchasePopup(false);
-          await reload();
-        } catch {
-          setPurchaseError('서버에 연결하지 못했습니다.');
-        }
-      },
+      title: p.next ? '미리 구매 완료' : '구매 완료',
+      message: a.sheetAlready
+        ? `${lead}「${a.section}」 시트 날짜는 이미 ${a.sheetDateNow ?? ''} — 그대로 두고 완료로 기록합니다.`
+        : `${lead}「${a.section}」 계좌 이름 날짜를 ${sheetDateText(a.sheetDateText, p.next ? '다음' : '이번')} 씁니다.`,
+      confirmText: p.next ? '미리 구매 완료' : '구매 완료',
+      onConfirm: () => sendPurchase(p),
     });
   };
 
@@ -432,7 +475,7 @@ export default function AssetDashboard({
         {tab === 'rebalance' && summary && (
           <>
             <AssetRebalanceView summary={summary} onEditTarget={() => setSettingsOpen('targetRatio')} />
-            <MonthlyBuySection mb={summary.monthlyBuy} writeEnabled={summary.writeEnabled} error={purchaseError} onDone={() => askPurchaseDone(summary.monthlyBuy)} />
+            <MonthlyBuySection mb={summary.monthlyBuy} writeEnabled={summary.writeEnabled} error={purchaseError} busyKey={purchaseBusy} notes={purchaseNotes} onPress={pressPurchase} />
           </>
         )}
         {/* 자산 현황 탭 — 요약 · 계좌 카드 · 자산 분류 고르기 */}
@@ -445,13 +488,15 @@ export default function AssetDashboard({
         )}
       </div>
       </LoadingOverlay>
-      {purchasePopup && summary && !summary.monthlyBuy.done && !summary.monthlyBuy.skipped && (
+      {purchasePopup && summary && summary.monthlyBuy.needsPopup && (
         <PurchaseDayDialog
           mb={summary.monthlyBuy}
           writeEnabled={summary.writeEnabled}
           error={purchaseError}
+          busyKey={purchaseBusy}
+          notes={purchaseNotes}
+          onPress={pressPurchase}
           onLater={() => setPurchasePopup(false)}
-          onDone={() => askPurchaseDone(summary.monthlyBuy)}
         />
       )}
       {classOpen && (
@@ -515,6 +560,7 @@ export default function AssetDashboard({
           onSave={saveSettings}
           onSaveTarget={saveTarget}
           onPriceSheet={priceSheetAction}
+          onSaveMonthly={saveMonthly}
           onLocked={onLocked}
           focus={settingsOpen === 'targetRatio' ? 'targetRatio' : undefined}
           onClose={() => setSettingsOpen(null)}
