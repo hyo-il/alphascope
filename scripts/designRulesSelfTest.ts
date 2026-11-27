@@ -22,7 +22,7 @@ import path from 'node:path';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { chromium, type Browser, type Page } from 'playwright';
 import { createBrowserStepGuard } from './lib/browserStepGuard';
-import { chasuChanged, chasuPatch, type Chasu } from './lib/chasuRange';
+import { chasuChanged, chasuEnd, chasuPatch, type Chasu } from './lib/chasuRange';
 import { closeLeftovers } from './designCheck';
 import { allScenes, fakeContext, prepareData, waitLoaded, type Scene } from './designReviewShots';
 import { FEATURE_OFF_HOW, FEATURE_OFF_TEXT } from '../src/components/ui/featureOffText';
@@ -133,7 +133,13 @@ const git = (args: string[]) => spawnSync('git', args, { cwd: root, encoding: 'u
   for (const f of changed) {
     if (!git(['ls-tree', '--name-only', CHASU.base, '--', f]).trim()) continue; // 새 파일(부품)은 견줄 것이 없음
     const before = tokens(spawnSync('git', ['show', `${CHASU.base}:${f}`], { cwd: root, encoding: 'utf8' }).stdout ?? '');
-    const after = tokens(fs.existsSync(path.join(root, f)) ? fs.readFileSync(path.join(root, f), 'utf8') : '');
+    // 뒤 모양 = 155차 끝 커밋의 파일(끝난 차수면 커밋끼리 — 157차 이후 작업 트리 변경을 155차 몫으로 세지 않음 · CLAUDE.md 2-3)
+    const end = chasuEnd(root, CHASU);
+    const after = tokens(
+      end
+        ? (spawnSync('git', ['show', `${end}:${f}`], { cwd: root, encoding: 'utf8' }).stdout ?? '')
+        : fs.existsSync(path.join(root, f)) ? fs.readFileSync(path.join(root, f), 'utf8') : '',
+    );
     const keys = new Set([...before.keys(), ...after.keys()]);
     const d = [...keys].filter((k) => (before.get(k) ?? 0) !== (after.get(k) ?? 0)).map((k) => `${k} ${before.get(k) ?? 0}→${after.get(k) ?? 0}`);
     if (d.length && !ALLOW[f]) moved.push(`${f}: ${d.slice(0, 6).join(', ')}`);

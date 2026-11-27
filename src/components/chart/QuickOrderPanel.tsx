@@ -214,7 +214,7 @@ export default function QuickOrderPanel({
 
   const refresh = () => setVersion((n) => n + 1);
 
-  /** 주문 단추를 누를 수 없는 때 — 네 단추(큰 화면)와 폰의 단추 하나가 같은 판단을 쓴다 */
+  /** 주문 단추를 누를 수 없는 때 — 폰 단추 하나용 · 큰 화면 네 단추의 `disabled` 식과 같은 판단(그쪽 글은 바꾸지 않음 — `ordercolor:test` 바이트 비교) */
   const orderDisabled = (side: OrderSide, orderType: OrderType) =>
     orderType === 'LIMIT'
       ? busy || !price || !limitPrice || (side === 'BUY' ? buyQuantity : sellQuantity) <= 0
@@ -307,7 +307,7 @@ export default function QuickOrderPanel({
   };
 
   const header = (
-    <div className={`flex items-center gap-1.5 border-b border-border py-1.5 ${phone ? PANEL_X : 'px-2.5'}`}>
+    <div className={`flex items-center gap-1.5 border-b border-border ${phone ? PANEL_X : 'px-2.5'} py-1.5`}>
       <span className="text-xs font-medium text-text-secondary">빠른주문</span>
       <span className="rounded bg-warning/15 px-1.5 py-0.5 text-caption font-medium text-warning">
         모의
@@ -722,7 +722,7 @@ export default function QuickOrderPanel({
           <button
             type="button"
             onClick={() => order('SELL', 'LIMIT')}
-            disabled={orderDisabled('SELL', 'LIMIT')}
+            disabled={busy || !price || !limitPrice || sellQuantity <= 0}
             data-tone="sell"
             className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_SELL_COLOR} ${TOUCH_FIELD_H}`}
           >
@@ -731,7 +731,7 @@ export default function QuickOrderPanel({
           <button
             type="button"
             onClick={() => order('BUY', 'LIMIT')}
-            disabled={orderDisabled('BUY', 'LIMIT')}
+            disabled={busy || !price || !limitPrice || buyQuantity <= 0}
             className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_BUY_COLOR} ${TOUCH_FIELD_H}`}
           >
             지정가 매수
@@ -739,7 +739,7 @@ export default function QuickOrderPanel({
           <button
             type="button"
             onClick={() => order('SELL', 'MARKET')}
-            disabled={orderDisabled('SELL', 'MARKET')}
+            disabled={busy || !price || marketSellQuantity <= 0}
             data-tone="sell"
             className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_SELL_COLOR} ${TOUCH_FIELD_H}`}
           >
@@ -748,7 +748,7 @@ export default function QuickOrderPanel({
           <button
             type="button"
             onClick={() => order('BUY', 'MARKET')}
-            disabled={orderDisabled('BUY', 'MARKET')}
+            disabled={busy || !price || marketBuyQuantity <= 0}
             className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_BUY_COLOR} ${TOUCH_FIELD_H}`}
           >
             시장가 매수
