@@ -718,7 +718,7 @@ export default function QuickOrderPanel({
         </div>
 
         {/* 주문 버튼 — 매수 초록 / 매도 빨강 (미국 증권 기준 · 색 정의는 `tokens` 한 곳) */}
-        <div className={`grid grid-cols-2 gap-1${layout === 'pad' ? ' sticky bottom-0 z-10 bg-bg-primary py-1' : ''}`}>
+        <div className={`grid grid-cols-2 gap-1${layout === 'pad' ? ' sticky bottom-0 z-10 border-t border-border bg-bg-primary py-1' : ''}`}>
           <button
             type="button"
             onClick={() => order('SELL', 'LIMIT')}
