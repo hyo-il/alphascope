@@ -471,6 +471,15 @@ try {
     check(`[152-12] ${w} 계좌 줄 아래 목록 — 묶음이 있는 매달 계좌만(적립식 · ISA — 개별 투자 · 매달 아닌 연금 저축 없음) · 적립식 3줄(이음 2 · 안 이음 1) · 계좌 합계 = 한 달 금액`,
       JSON.stringify(plansShown) === JSON.stringify(['적립식 계좌', 'ISA 계좌']) && rowsN === 3 && linkedN === 2 && unlinked === 1 && sumText.includes(expectSum), `${plansShown.join(',')} ${rowsN}/${linkedN}/${unlinked}`);
     check(`[152-12] ${w} 모양 — ${phone ? '폰 = 카드(DataCard) · 표 0' : '표(ScrollTable) · 카드 0'}`, phone ? tableN === 0 && cardN === 3 : tableN === 2 && cardN === 0, `${tableN}/${cardN}`);
+    if (!phone) {
+      // 긴 종목 이름(시험 값)이 표를 넓혀 오른쪽 칸을 밀어내지 않음 — 첫 줄 「남는 돈」 칸 오른쪽 끝이 구역 안 · 두 계좌 표의 금액 칸 오른쪽 끝이 같은 세로선
+      const secBox = await sec.boundingBox();
+      const restBox = await sav.getByTestId('plan-rest').first().boundingBox();
+      const amtR = async (s: string) => sec.locator(`[data-testid="plan"][data-section="${s}"]`).getByTestId('plan-amount').first().evaluate((e) => e.getBoundingClientRect().right);
+      const [a1, a2] = [await amtR('적립식 계좌'), await amtR('ISA 계좌')];
+      check(`[152-12] ${w} 긴 종목 이름 — 표가 넓어지지 않음(첫 줄 남는 돈 칸이 구역 안) · 두 계좌 금액 칸 오른쪽 끝 같음`,
+        secBox != null && restBox != null && restBox.x + restBox.width <= secBox.x + secBox.width && Math.abs(a1 - a2) < 1, JSON.stringify({ secBox, restBox, a1, a2 }));
+    }
     const head = await sav.getByTestId('plan-head').innerText();
     check(`[152-12] ${w} 머리 「한 달 ₩… (총 ₩… ÷ N개월)」`, /^한 달 ₩[\d,]+ \(총 ₩[\d,]+ ÷ \d+개월\)$/.test(head.replace(/\s+/g, ' ').trim()));
     const isaText = await sec.locator('[data-testid="plan"][data-section="ISA 계좌"]').innerText();

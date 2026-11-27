@@ -4,7 +4,7 @@ import { Button, ICON_SM } from '../ui';
 import DataCard, { DataCardList } from '../ui/DataCard';
 import LinkButton from '../ui/LinkButton';
 import ScrollTable from '../ui/ScrollTable';
-import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP, TOUCH_LIST_ROW } from '../ui/tokens';
+import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NUM_GAP, TOUCH_LIST_ROW } from '../ui/tokens';
 import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { formatAssetPrice, formatAssetQty, formatAssetWon } from '../../utils/assetFormat';
 import { formatNumber } from '../../utils/formatters';
@@ -37,13 +37,25 @@ function saveClosed(keys: string[]) {
   }
 }
 
-const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right tabular-nums`;
+/** 숫자 칸 — 칸 폭은 표의 colgroup 이 정한다(계좌마다 표가 따로라도 금액 · 가격 · 주 · 남는 돈 세로선이 같게 · 긴 이름이 칸을 밀지 않게) */
+const NUM = `${TABLE_NUM_GAP} whitespace-nowrap text-right tabular-nums`;
 const won = (v: number | null) => formatAssetWon(v);
 
 /** 한 달 금액 머리 — 「한 달 ₩… (총 ₩… ÷ N개월)」 */
 export function planHeadText(plan: MonthlyPlan): string {
   if (plan.monthly == null || plan.total == null || plan.months == null) return '시트 값 확인';
   return `한 달 ${won(plan.monthly)} (총 ${won(plan.total)} ÷ ${formatNumber(plan.months, 0)}개월)`;
+}
+/** 머리 글 — 「한 달 ₩…」 와 「(총 ₩… ÷ N개월)」 를 각각 한 덩어리로(폰에서 괄호 안이 중간에 꺾이지 않게) */
+function HeadText({ plan }: { plan: MonthlyPlan }) {
+  const text = planHeadText(plan);
+  const at = text.indexOf(' (');
+  if (at < 0) return <>{text}</>;
+  return (
+    <>
+      <span className="whitespace-nowrap">{text.slice(0, at)}</span> <span className="whitespace-nowrap">{text.slice(at + 1)}</span>
+    </>
+  );
 }
 
 /** 지금 가격 글자 — 원 가격(미국은 $ × 지금 환율 · 살 주를 셈한 값 그대로 — 금액 · 남는 돈 칸과 같은 원) · 이었는데 가격이 없으면 「가격 없음」 · 잇지 않았으면 「—」 */
@@ -58,18 +70,18 @@ function NameCell({ r, onLink }: { r: MonthlyPlanRow; onLink: () => void }) {
   if (r.symbol == null) {
     return (
       <span className="flex min-w-0 flex-col">
-        <span className="truncate text-text-primary" data-tip-clip={r.name}>
+        <span className="line-clamp-2 break-words text-text-primary" data-tip-clip={r.name}>
           {r.name}
         </span>
         <span className="text-caption text-warning keep-all" data-testid="plan-unlinked">
-          종목을 이어 주세요 <LinkButton onClick={onLink}>설정에서 잇기</LinkButton>
+          종목을 이어 주세요 · <LinkButton onClick={onLink}>설정에서 잇기</LinkButton>
         </span>
       </span>
     );
   }
   return (
     <span className="flex min-w-0 flex-col">
-      <span className="truncate text-text-primary" data-tip-clip={`${r.name} → ${r.stockName ?? ''}`}>
+      <span className="line-clamp-2 break-words text-text-primary" data-tip-clip={`${r.name} → ${r.stockName ?? ''}`}>
         {r.name} → {r.stockName}
       </span>
       <span className="text-caption text-text-muted tabular-nums">{r.symbol}</span>
@@ -81,10 +93,17 @@ function NameCell({ r, onLink }: { r: MonthlyPlanRow; onLink: () => void }) {
 function PlanTable({ plan, onLink }: { plan: MonthlyPlan; onLink: () => void }) {
   return (
     <ScrollTable>
-      <table className="w-full text-left text-xs" data-testid="plan-table">
+      <table className="w-full table-fixed text-left text-xs" data-testid="plan-table">
+        <colgroup>
+          <col />
+          <col className="w-48" />
+          <col className="w-32" />
+          <col className="w-20" />
+          <col className="w-32" />
+        </colgroup>
         <thead className="text-caption text-text-muted">
           <tr className={`border-b border-border/50 ${TABLE_HEAD_ROW}`}>
-            <th className={`${TABLE_NAME_COL} pl-4 font-normal`}>줄 이름 → 종목</th>
+            <th className="pl-4 font-normal">줄 이름 → 종목</th>
             <th className={`${NUM} font-normal`}>금액</th>
             <th className={`${NUM} font-normal`}>지금 가격</th>
             <th className={`${NUM} font-normal`}>살 주</th>
@@ -96,6 +115,7 @@ function PlanTable({ plan, onLink }: { plan: MonthlyPlan; onLink: () => void }) 
             const note = usdNote(r);
             return (
               <tr key={r.name} className={`border-t border-border/30 ${LIST_TABLE_ROW} py-1`} data-testid="plan-row" data-linked={r.symbol != null}>
+                {/* 이름 칸은 남은 폭만(table-fixed) — 긴 이름이 표를 넓혀 숫자 칸을 밀어내지 않게 · 2줄까지, 넘치면 말줄임 + 툴팁 */}
                 <td className="py-1 pl-4">
                   <NameCell r={r} onLink={onLink} />
                 </td>
@@ -180,7 +200,7 @@ function PlanCards({ plan, onLink }: { plan: MonthlyPlan; onLink: () => void }) 
           );
         })}
       </DataCardList>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 px-1 text-xs font-semibold text-text-primary tabular-nums" data-testid="plan-sum">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 px-4 text-xs font-semibold text-text-primary tabular-nums" data-testid="plan-sum">
         <span>계좌 합계 {won(plan.sum)}</span>
         <span className="ml-auto font-normal text-text-secondary">남는 돈 {won(plan.restSum)}</span>
       </div>
@@ -216,7 +236,7 @@ export function AccountPlan({ a, onLink }: { a: MonthlyBuyAccount; onLink: (sect
         <Arrow {...ICON_SM} aria-hidden className="shrink-0" />
         <span className="shrink-0">살 종목</span>
         <span className="min-w-0 tabular-nums text-text-primary keep-all" data-testid="plan-head">
-          {planHeadText(plan)}
+          <HeadText plan={plan} />
         </span>
       </button>
       {open && (
