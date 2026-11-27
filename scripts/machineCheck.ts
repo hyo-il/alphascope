@@ -185,7 +185,7 @@ function plan(minutes: number, tests: string[], withHead: boolean, scopeFlag: st
 function changedFiles(base: string): string[] {
   const out = (args: string[]) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).split('\n').map((l) => l.trim()).filter(Boolean);
   try {
-    return [...new Set([...out(['diff', '--name-only', base]), ...out(['ls-files', '--others', '--exclude-standard'])])].sort();
+    return [...new Set([...out(['diff', '--name-only', base]), ...out(['ls-files', '--others', '--exclude-standard']).filter((f) => !fs.lstatSync(path.join(ROOT, f)).isSymbolicLink())])].sort(); // 링크(worktree 의 python/.venv)는 코드가 아니다
   } catch {
     fail(`git diff 를 못 했습니다 — 기준 해시를 확인하세요: ${base}`);
   }

@@ -17,7 +17,8 @@ import path from 'node:path';
 
 // ───────── 1. 브라우저 시험 가르기 ─────────
 const BROWSER_MODULES = /^(playwright|playwright-core|@playwright\/test)(\/|$)/;
-const IMPORT_RE = /(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)|import\s+['"]([^'"]+)['"]|require\(\s*['"]([^'"]+)['"]\s*\)/g;
+// 정적 import · export … from · 맨 import 는 줄 맨 앞만(글 안에 적은 import 글자를 세지 않는다) · 동적 import() · require() 는 어디서나
+const IMPORT_RE = /^\s*(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)|^\s*import\s+['"]([^'"]+)['"]|require\(\s*['"]([^'"]+)['"]\s*\)/gm;
 const EXTS = ['', '.ts', '.tsx', '.mts', '.js', '.mjs', '/index.ts', '/index.tsx'];
 
 /** 파일 글에서 import 하는 이름 전부 */
