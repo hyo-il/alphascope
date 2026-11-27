@@ -228,10 +228,15 @@ export function parseAssetSheet(values: CellRows[], formulas: CellRows[], readAt
 let cache: { at: number; data: AssetSheetData } | null = null;
 let inflight: Promise<AssetSheetData> | null = null;
 
-/** 시험이 캐시를 비운다 */
+/** 캐시를 비울 때 함께 비울 것(v2.79.0 — 「적립식 투자」 탭 캐시 `savingPlan.ts` 가 붙인다 · 서로 import 하지 않게) */
+const alsoReset: (() => void)[] = [];
+export const onSheetCacheReset = (fn: () => void): void => void alsoReset.push(fn);
+
+/** 캐시를 비운다(쓰기 뒤 · 시트 바꿈 · 시험) — 「적립식 투자」 탭 캐시도 함께 */
 export function resetSheetCache(): void {
   cache = null;
   inflight = null;
+  for (const fn of alsoReset) fn();
 }
 
 /** 시트를 읽는다(30초 캐시). 실패는 `AssetSheetError` */

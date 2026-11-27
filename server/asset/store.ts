@@ -220,6 +220,42 @@ export function savePurchaseMonthlyOff(keys: string[]): void {
   purchaseDb().prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(MONTHLY_OFF_KEY, JSON.stringify([...new Set(keys)]));
 }
 
+/**
+ * 「적립식 투자」 줄 이름 → 종목 잇기(v2.79.0) — `app_settings` 'asset.purchasePlanLinks'(JSON `{ 계좌 key: { 줄 이름: 종목 코드 } }`).
+ * 시트에서 줄 이름이 바뀌거나 없어지면 그 연결은 쓰이지 않는다(계산은 지금 줄 이름으로만 찾는다 · `savingPlan.ts`). 앱 DB 만 — 시트를 쓰지 않는다.
+ */
+const PLAN_LINKS_KEY = 'asset.purchasePlanLinks';
+export type PlanLinks = Record<string, Record<string, string>>;
+export function planLinks(): PlanLinks {
+  const row = getDb().prepare(`SELECT value FROM app_settings WHERE key = ?`).get(PLAN_LINKS_KEY) as { value: string } | undefined;
+  if (!row) return {};
+  try {
+    const v = JSON.parse(row.value) as unknown;
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+    const out: PlanLinks = {};
+    for (const [section, names] of Object.entries(v as Record<string, unknown>)) {
+      if (!names || typeof names !== 'object' || Array.isArray(names)) continue;
+      const m = Object.entries(names as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === 'string');
+      if (m.length) out[section] = Object.fromEntries(m);
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+/** 줄 하나를 잇는다(`symbol` null = 끊기) — 검사(그 계좌 보유 종목 · 지금 줄 이름)는 부르는 쪽(`routes.ts`) */
+export function savePlanLink(section: string, name: string, symbol: string | null): void {
+  const all = planLinks();
+  const names = { ...(all[section] ?? {}) };
+  if (symbol == null) delete names[name];
+  else names[name] = symbol;
+  if (Object.keys(names).length) all[section] = names;
+  else delete all[section];
+  getDb().prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(PLAN_LINKS_KEY, JSON.stringify(all));
+}
+/** 시험이 잇기를 비운다(사본 DB) */
+export const clearPlanLinksForTest = (): void => void getDb().prepare(`DELETE FROM app_settings WHERE key = ?`).run(PLAN_LINKS_KEY);
+
 /** 시험이 표 · 시작한 날 · 매달 설정 · 옮김 표시를 비운다(사본 DB) · 줄 수를 센다 */
 export function clearPurchasesForTest(opts: { keepMigrated?: boolean } = {}): void {
   const database = purchaseDb();

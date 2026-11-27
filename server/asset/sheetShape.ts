@@ -1,5 +1,5 @@
 /**
- * 시트 구간 찾기(v2.66.2) — 「주식 투자 정리」 보유 구간 · 「티커」 묶음을 **머리 글자로** 찾는다(줄이 늘거나 줄어도 맞게 읽는다). 순수 함수 · 구글 호출 없음.
+ * 시트 구간 찾기(v2.66.2) — 「주식 투자 정리」 보유 구간 · 「티커」 묶음 · 「현금」 탭(v2.70.4) · 「적립식 투자」 묶음(v2.79.0 · 읽기만)을 **머리 글자로** 찾는다(줄이 늘거나 줄어도 맞게 읽는다). 순수 함수 · 구글 호출 없음.
  * 찾는 글자는 `sheetLayout.ts` 한 곳. 읽을 때마다 · 쓰기 직전에 다시 찾는다(사이에 사용자가 줄을 넣어도 맞는 줄을 본다).
  * 못 찾으면(머리 없음 · 두 번 · 종목 줄 0 · 묶음 순서 다름) `AssetSheetError('shape')` — 값을 만들지도, 쓰지도 않는다.
  * ⚠️ 오류 문구에는 탭 · 머리 글자만(값을 싣지 않는다).
@@ -157,6 +157,103 @@ export function findCashShape(rows: CellRows): CashShape {
     if (at[i] <= at[i - 1]) throw new AssetSheetError('shape', `시트 모양이 바뀌었어요(「${c.tab}」 탭 — 「${marks[i - 1]}」 줄이 「${marks[i]}」 줄보다 위에 있어야 해요).`);
   }
   return { bank: { headRow: at[0], totalRow: at[1] }, retirement: { headRow: at[2], totalRow: at[3] } };
+}
+
+// ── 「적립식 투자」 탭(v2.79.0 · 읽기만) ─────────────────────────────────────────────
+
+/** 묶음의 줄 하나 — 줄 번호는 시트 줄 번호 그대로 · 비율은 0 ~ 1(0% 줄도 들어 있다 — 빼는 것은 계산 쪽) */
+export interface SavingLine {
+  row: number;
+  name: string;
+  ratio: number | null;
+}
+
+/** 찾은 묶음 하나 — `account` 는 맞는 계좌 key(없음 · 다른 묶음과 같은 계좌면 null — 그 까닭은 `skipped`) */
+export interface SavingGroup {
+  headRow: number;
+  account: string | null;
+  /** 총 구매할 금액(값) · 분할 개월 수 — 숫자가 아니면 null */
+  total: number | null;
+  months: number | null;
+  lines: SavingLine[];
+  /** `values` = 총 금액 없음 · 개월 수 0 이하 · 빈칸 · 글자 · 줄 이름이나 비율이 맞지 않음(「시트 값 확인」) */
+  problem: 'values' | null;
+}
+
+/** 쓰지 않는 묶음 — `shape` 모양이 다름(읽지 않음) · `no-account` 맞는 계좌 없음 · `same-account` 두 묶음이 같은 계좌 */
+export interface SavingSkip {
+  row: number;
+  kind: 'shape' | 'no-account' | 'same-account';
+}
+
+export interface SavingShape {
+  groups: SavingGroup[];
+  skipped: SavingSkip[];
+}
+
+const firstWord = (v: Cell) => String(v ?? '').trim().split(/\s+/)[0] ?? '';
+const isNumberCell = (v: Cell): v is number => typeof v === 'number' && Number.isFinite(v);
+const isTextCell = (v: Cell) => typeof v === 'string' && v.trim() !== '';
+const isFormulaCell = (v: Cell) => typeof v === 'string' && v.trim().startsWith('=');
+
+/**
+ * 「적립식 투자」 탭 → 묶음(v2.79.0 · 순수 함수 · 구글 호출 없음). 모양 규칙은 `sheetLayout.ts` `saving` 한 곳.
+ * - `values`: B 부터 `lastColumn` 까지(`rows[줄 번호 - 1]` · B = 0) · `ratioFormulas`: D열 수식(`rows[줄 번호 - 1][0]`).
+ * - `accountKeys`: 「주식 투자 정리」 계좌 key(합친 표 제외) — 머리 줄 B 의 첫 낱말과 key 의 첫 낱말이 같은 것 하나.
+ * - 머리 줄(D = 「분할 개월 수」)이 하나도 없으면 `shape` 오류(쓰지 않는다 — 다른 탭과 같은 말).
+ * ⚠️ 오류 · 까닭에는 줄 번호 · 종류만(값을 싣지 않는다).
+ */
+export function findSavingGroups(values: CellRows, ratioFormulas: CellRows, accountKeys: string[]): SavingShape {
+  const S = L.saving;
+  const B = 0;
+  const C = 1;
+  const D = 2;
+  const at = (row: number, col: number): Cell => values[row - 1]?.[col];
+  const formulaD = (row: number): Cell => ratioFormulas[row - 1]?.[0];
+  const heads = values.flatMap((r, i) => (squash(r?.[D]) === squash(S.anchor) ? [i + 1] : []));
+  if (heads.length === 0) throw shapeError(S.tab, `「${S.anchor}」 줄이 없습니다`);
+
+  const groups: SavingGroup[] = [];
+  const skipped: SavingSkip[] = [];
+  heads.forEach((head, gi) => {
+    const limit = heads[gi + 1] ?? values.length + 1;
+    const lines: SavingLine[] = [];
+    let bad = false;
+    for (let row = head + 2; row < limit; row++) {
+      if (isFormulaCell(formulaD(row))) break; // 합계 줄
+      const name = at(row, B);
+      const ratio = at(row, D);
+      if (blank(name) && blank(ratio)) break; // 빈 줄
+      if (!isTextCell(name) || (!blank(ratio) && !(isNumberCell(ratio) && ratio >= 0 && ratio <= 1))) bad = true;
+      lines.push({ row, name: String(name ?? '').trim(), ratio: isNumberCell(ratio) ? ratio : null });
+    }
+    // 비율 열에 숫자가 하나도 없으면 모양이 다른 묶음(원본 28행 — 개월 수가 E · 비율 열 없음)
+    if (!isTextCell(at(head, B)) || !lines.some((l) => l.ratio != null)) {
+      skipped.push({ row: head, kind: 'shape' });
+      return;
+    }
+    if (lines.some((l) => l.ratio == null)) bad = true;
+    const totalCell = at(head + 1, C);
+    const monthsCell = at(head + 1, D);
+    const total = isNumberCell(totalCell) ? totalCell : null;
+    const months = isNumberCell(monthsCell) ? monthsCell : null;
+    if (total == null || months == null || months <= 0) bad = true;
+    const word = squash(firstWord(at(head, B)));
+    const matched = accountKeys.filter((k) => squash(firstWord(k)) === word);
+    groups.push({ headRow: head, account: matched.length === 1 ? matched[0] : null, total, months, lines, problem: bad ? 'values' : null });
+    if (matched.length !== 1) skipped.push({ row: head, kind: 'no-account' });
+  });
+  // 두 묶음이 같은 계좌로 맞으면 그 계좌의 묶음은 모두 쓰지 않는다(어느 쪽이 맞는지 모른다)
+  const count = new Map<string, number>();
+  for (const g of groups) if (g.account) count.set(g.account, (count.get(g.account) ?? 0) + 1);
+  for (const g of groups) {
+    if (g.account && (count.get(g.account) ?? 0) > 1) {
+      skipped.push({ row: g.headRow, kind: 'same-account' });
+      g.account = null;
+    }
+  }
+  skipped.sort((a, b) => a.row - b.row);
+  return { groups, skipped };
 }
 
 /** 「티커」 종목 줄 번호 전부(시트 순서) */

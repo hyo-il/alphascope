@@ -560,6 +560,10 @@ export interface MonthlyBuy {
   accounts: MonthlyBuyAccount[];
   /** 구매일 팝업을 띄울까 — 이번 차례(시작 전 아님)에 「아직」 인 매달 사는 계좌가 하나라도 있으면 */
   needsPopup: boolean;
+  /** 「적립식 투자」 탭을 못 씀(v2.79.0 — summary 만 채운다 · 나머지 summary 는 그대로) */
+  planError?: MonthlyPlanError | null;
+  /** 쓰지 않은 묶음(v2.79.0 — 줄 번호 · 까닭 종류) */
+  planSkipped?: MonthlyPlanSkip[];
 }
 
 /** 이번 달 구매 상태(v2.78.0) — 「아직」 은 기록이 없는 상태 · 완료 · 건너뜀 */
@@ -587,6 +591,8 @@ export interface MonthlyBuyAccount {
   sheetDateNow: string | null;
   /** 시트 날짜가 이미 그 차례 달이거나 더 뒤(쓰지 않고 완료로만 기록 — 서버는 쓰기 직전에 다시 읽어 판단) */
   sheetAlready: boolean;
+  /** 계좌 · 종목별 목록(v2.79.0 — summary 만 채운다 · 이 계좌의 「적립식 투자」 묶음이 없거나 탭을 못 읽으면 null) */
+  plan?: MonthlyPlan | null;
   /** 다음 차례 — 이번 차례가 끝났을 때만 처리할 수 있다 */
   next: {
     status: PurchaseStatus;
@@ -596,6 +602,76 @@ export interface MonthlyBuyAccount {
     /** [건너뛰기] — 날짜 제한 없음 */
     canSkip: boolean;
   };
+}
+
+/**
+ * 이번 달 구매 — 계좌 · 종목별 목록 한 줄(v2.79.0 · 「적립식 투자」 탭 · 계산은 서버 `savingPlan.ts` 한 곳 · 0% 줄은 빠짐).
+ * 금액 · 남는 돈은 원(정수). 잇지 않은 줄 · 가격이 없는 줄은 주 · 남는 돈이 null(「—」).
+ */
+export interface MonthlyPlanRow {
+  /** 시트 줄 이름(「S&P500」 같은 지수 이름) */
+  name: string;
+  /** 이은 종목(그 계좌 보유 종목) — 잇지 않았거나 이은 종목이 그 계좌에 없으면 null(「종목을 이어 주세요」) */
+  symbol: string | null;
+  /** 이은 종목의 시트 이름 */
+  stockName: string | null;
+  market: 'US' | 'KR' | null;
+  /** 비율(0 ~ 1) */
+  ratio: number;
+  /** 이 줄에 쓸 돈(원) — 한 달 금액 × 비율(반올림 차이는 금액이 가장 큰 줄에) */
+  amount: number;
+  /** 지금 가격(원래 통화 — 미국은 달러 · summary 가격 그대로) */
+  price: number | null;
+  /** 원 가격(미국은 가격 × 지금 환율) */
+  priceKrw: number | null;
+  /** 미국 줄만 — 지금 환율 · 금액의 달러 값(「약 $… · 환율 ○」) */
+  usdKrw: number | null;
+  amountUsd: number | null;
+  /** 살 주(내림) · 남는 돈(원) */
+  shares: number | null;
+  rest: number | null;
+}
+
+/** 계좌 하나의 「적립식 투자」 묶음 계산(v2.79.0) */
+export interface MonthlyPlan {
+  /** 시트 머리 줄 번호(「분할 개월 수」 줄) */
+  headRow: number;
+  total: number | null;
+  months: number | null;
+  /** 한 달 금액 = 반올림(총 금액 ÷ 개월 수) — `values` 문제면 null */
+  monthly: number | null;
+  /** 목록 줄(0% 줄 빠짐) — 문제가 있으면 비어 있다(목록을 그리지 않는다) */
+  rows: MonthlyPlanRow[];
+  /** 줄 금액 합(= 한 달 금액) · 아는 남는 돈 합 */
+  sum: number | null;
+  restSum: number | null;
+  /** `values` = 시트 값 확인(총 금액 없음 · 개월 수 0 이하 · 빈칸 · 글자) · `ratio-sum` = 비율 합이 100% 가 아님 */
+  problem: 'values' | 'ratio-sum' | null;
+  /** 비율 합(%) — 비율을 읽지 못하면 null */
+  ratioSum: number | null;
+  /** 설정 「잇기」 표 — 0% 가 아닌 줄 이름마다 지금 이은 종목(그 계좌 보유 종목이 아니면 null) */
+  links: { name: string; symbol: string | null }[];
+  /** 고를 수 있는 종목 = 그 계좌 보유 종목(코드가 있는 줄 · 시트 순서 · 같은 코드는 한 번) */
+  choices: { symbol: string; name: string }[];
+}
+
+/** 쓰지 않은 묶음(v2.79.0) — `shape` 모양이 달라 읽지 않음 · `no-account` 맞는 계좌 없음 · `same-account` 두 묶음이 같은 계좌 */
+export interface MonthlyPlanSkip {
+  row: number;
+  kind: 'shape' | 'no-account' | 'same-account';
+}
+
+/** 「적립식 투자」 탭을 못 씀 — `read` 탭이 없거나 읽기 실패 · `shape` 머리 글자를 못 찾음 */
+export interface MonthlyPlanError {
+  kind: 'read' | 'shape';
+  message: string;
+}
+
+/** `PUT /api/asset/purchase/plan-link` 요청 몸 — 계좌 하나의 줄 이름 하나를 그 계좌 보유 종목과 잇는다(null = 끊기) */
+export interface PlanLinkRequest {
+  section: string;
+  name: string;
+  symbol: string | null;
 }
 
 /** `POST /api/asset/purchase/done` · `skip` · `undo` 요청 몸 */

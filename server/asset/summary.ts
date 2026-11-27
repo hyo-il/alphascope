@@ -15,7 +15,7 @@
 import { fetchQuotes } from '../quoteService';
 import { isMockMode } from '../mockData';
 import { fetchExchangeRate } from '../../src/services/toss/account';
-import { ASSET_GROUP_LABEL, holdingGroupKey, type AssetClass, type AssetDailyHolding, type AssetSymbolRow, type AssetAccount, type AssetGroup, type AssetGroupKey, type AssetHolding, type AssetSettings, type AssetSheetData, type AssetSummary, type AssetTotals } from '../../src/types/asset';
+import { ASSET_GROUP_LABEL, holdingGroupKey, type AssetClass, type AssetDailyHolding, type AssetSymbolRow, type AssetAccount, type AssetGroup, type AssetGroupKey, type AssetHolding, type AssetSettings, type AssetSheetData, type AssetSummary, type AssetTotals, type MonthlyBuy } from '../../src/types/asset';
 import { readAssetSheet } from './sheet';
 import { readAssetSettings, stockChoices } from './settings';
 import { latestRecord } from './store';
@@ -23,6 +23,7 @@ import { isAssetSyncEnabled } from './config';
 import { computeRebalance } from './rebalance';
 import { monthlyBuyOf, purchaseAccountsInput } from './purchase';
 import { priceSheetStatus } from './priceSheet';
+import { savingPlansFor, type SavingPlanResult } from './savingPlan';
 
 /** 토스 가격(종목 → 원래 통화 값) · 환율(1달러 = N원) */
 export interface PriceBook {
@@ -225,9 +226,18 @@ export async function loadInputs(): Promise<{ data: AssetSheetData; book: PriceB
   return { data, book: await priceSource(data), settings: readAssetSettings(data) };
 }
 
-/** `GET /api/asset/summary` — 카드 · 분류별 · 코어/위성 · 어제보다(가장 최근 하루 기록) */
+/**
+ * 이번 달 구매에 계좌 · 종목별 목록을 붙인다(v2.79.0) — 계좌 key 로 이음 · 묶음이 없는 계좌는 null · 탭을 못 쓰면 모두 null + `planError` 하나.
+ * `monthlyBuyOf`(살 금액 · 차례 · 상태)는 그대로 두고 그 결과에 칸만 더한다.
+ */
+export function withPlans(mb: MonthlyBuy, r: SavingPlanResult): MonthlyBuy {
+  return { ...mb, accounts: mb.accounts.map((a) => ({ ...a, plan: r.plans.get(a.section) ?? null })), planError: r.error, planSkipped: r.skipped };
+}
+
+/** `GET /api/asset/summary` — 카드 · 분류별 · 코어/위성 · 어제보다(가장 최근 하루 기록) · 이번 달 구매(계좌 · 종목별 목록 — 「적립식 투자」 탭 따로 읽기) */
 export async function assetSummary(includePension: boolean): Promise<AssetSummary> {
   const { data, book, settings } = await loadInputs();
+  const plans = await savingPlansFor(data, book);
   const c = computeAssetTotals(data, book, settings, includePension);
   const last = latestRecord();
   const lastTotal = last ? (includePension ? last.totalPension : last.total) : null;
@@ -247,7 +257,7 @@ export async function assetSummary(includePension: boolean): Promise<AssetSummar
     rebalance: computeRebalance(c.totals, data.targetRatio, settings.rebalanceBand),
     targetRatio: data.targetRatio,
     writeEnabled: isAssetSyncEnabled(),
-    monthlyBuy: monthlyBuyOf(data.salary, data.targetRatio, purchaseAccountsInput(data)),
+    monthlyBuy: withPlans(monthlyBuyOf(data.salary, data.targetRatio, purchaseAccountsInput(data)), plans),
     priceSheet: priceSheetStatus(),
   };
 }

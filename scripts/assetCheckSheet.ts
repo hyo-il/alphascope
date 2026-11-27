@@ -294,9 +294,12 @@ export async function runSheetCheck(config: AssetSheetConfig, say: (line: string
 }
 
 // ── 8. 「적립식 투자」 탭 모양(v2.78.0 · 읽기만 · 모양만) ─────────────────────────────────────────────
-/** 찾는 탭 이름 · 묶음 머리 글자 · 총 금액 칸 옆 글자에서 볼 낱말 */
-export const SAVING_TAB = '적립식 투자';
-const SAVING_ANCHOR = '분할 개월 수';
+/**
+ * 찾는 탭 이름 · 묶음 머리 글자(앱이 읽는 것과 같은 글자 — `sheetLayout.ts` `saving` 한 곳 · v2.79.0) · 총 금액 칸 옆 글자에서 볼 낱말.
+ * 이 점검은 모양을 넓게 훑어 칸 주소 · 개수를 보이는 일(어느 열이든 찾음 · 칸 지도)이고, 앱의 읽기(`sheetShape.ts` `findSavingGroups` — 정해진 열 · 계좌 잇기)와는 하는 일이 달라 함수를 합치지 않는다.
+ */
+export const SAVING_TAB: string = L.saving.tab;
+const SAVING_ANCHOR = L.saving.anchor;
 const AMOUNT_WORDS = ['금액', '총', '구매'] as const;
 /** 읽는 범위(A1 부터 — 탭 모양을 모른다) */
 const SAVING_LAST = { col: 'Z', row: 300 } as const;
