@@ -46,8 +46,10 @@ export function planHeadText(plan: MonthlyPlan): string {
   return `한 달 ${won(plan.monthly)} (총 ${won(plan.total)} ÷ ${formatNumber(plan.months, 0)}개월)`;
 }
 
-/** 지금 가격 글자 — 국내 ₩ · 미국 $ · 이었는데 가격이 없으면 「가격 없음」 · 잇지 않았으면 「—」 */
-const priceText = (r: MonthlyPlanRow) => (r.symbol == null ? '—' : r.price == null || r.priceKrw == null ? '가격 없음' : formatAssetPrice(r.price, r.market === 'US' ? 'USD' : 'KRW'));
+/** 지금 가격 글자 — 원 가격(미국은 $ × 지금 환율 · 살 주를 셈한 값 그대로 — 금액 · 남는 돈 칸과 같은 원) · 이었는데 가격이 없으면 「가격 없음」 · 잇지 않았으면 「—」 */
+const priceText = (r: MonthlyPlanRow) => (r.symbol == null ? '—' : r.price == null || r.priceKrw == null ? '가격 없음' : won(r.priceKrw));
+/** 미국 줄 지금 가격의 달러 값 — 「$512.34」 */
+const usdPrice = (r: MonthlyPlanRow) => (r.market === 'US' && r.price != null && r.priceKrw != null ? formatAssetPrice(r.price, 'USD') : null);
 /** 미국 줄 작은 글 — 「약 $… · 환율 ○」 */
 const usdNote = (r: MonthlyPlanRow) => (r.market === 'US' && r.amountUsd != null && r.usdKrw != null ? `약 ${formatAssetPrice(r.amountUsd, 'USD')} · 환율 ${formatNumber(r.usdKrw, 2)}` : null);
 
@@ -103,7 +105,12 @@ function PlanTable({ plan, onLink }: { plan: MonthlyPlan; onLink: () => void }) 
                     {note && <span className="whitespace-nowrap text-caption text-text-muted">{note}</span>}
                   </span>
                 </td>
-                <td className={`${NUM} text-text-secondary`}>{priceText(r)}</td>
+                <td className={`${NUM} py-1 text-text-secondary`}>
+                  <span className="flex flex-col items-end">
+                    <span>{priceText(r)}</span>
+                    {usdPrice(r) && <span className="text-caption text-text-muted">1주 {usdPrice(r)}</span>}
+                  </span>
+                </td>
                 <td className={`${NUM} text-text-primary`} data-testid="plan-shares">
                   {r.shares == null ? '—' : formatAssetQty(r.shares)}
                 </td>
@@ -162,7 +169,7 @@ function PlanCards({ plan, onLink }: { plan: MonthlyPlan; onLink: () => void }) 
                     </span>
                   }
                 />
-                {note && <p className="text-caption text-text-muted tabular-nums">{note}</p>}
+                {note && <p className="text-caption text-text-muted tabular-nums">{`1주 ${usdPrice(r) ?? '—'} · ${note}`}</p>}
                 {r.symbol == null && (
                   <p className="text-caption text-warning keep-all" data-testid="plan-unlinked">
                     종목을 이어 주세요 · <span className="text-accent">설정에서 잇기 ›</span>
