@@ -32,6 +32,8 @@ import AssetCashSettings from './AssetCashSettings';
  *    분류가 주식이 아니게 된 위성 종목은 흐리게 + 「분류가 주식이 아니라 계산에서 빠짐」(삭제할 수 있음).
  * 3. 연금 — 연금으로 볼 계좌: 표(계좌 이름 「( 날짜 )」 그대로) + [계좌 추가](창 = 시트 계좌 중 아직 없는 것) + 줄마다 삭제(`AssetAccountTable`)
  * 3-1. 이번 달 구매(v2.78.0) — 계좌마다 「매달 사는 계좌」 체크(처음 = 모두 켬 · 바로 저장 — 앱 DB `PUT /api/asset/purchase/monthly-accounts`). 끈 계좌는 구매일 팝업 · 「이번 달 구매」 목록에 나오지 않는다.
+ *      아래 「살 종목 잇기」(v2.79.0) — 「적립식 투자」 탭의 줄 이름(0% 아닌 줄)마다 그 계좌 **보유 종목** 고르기(`Select` · 바로 저장 — 앱 DB `PUT /api/asset/purchase/plan-link` ·
+ *      저장 중 그 칸 로딩 · 실패면 되돌리고 이유 한 줄). 이번 달 구매 구역의 「종목을 이어 주세요」 글 단추가 이 메뉴의 그 계좌 자리로 연다(`focus` · `focusSection`).
  * 4. 자산 분류 색 — 분류마다 팔레트 색 동그라미(원형 · 분류별 표가 같은 색)
  * 5. 시트 가격(v2.65.0) — 「티커」 가격 · 환율을 토스로 바꾸기 · 되돌리기(확인 창 · **시트에 쓴다** — `AssetPriceSheetSection`)
  * 6. 현금 자동 반영(v2.71.0 · v2.71.1 쉽게) — 「현금」 탭 은행 계좌 금액을 앱이 바꾸는 설정 · 반영 기록 · 되돌리기(`AssetCashSettings` — 열 때 따로 받는다)
@@ -97,7 +99,9 @@ export default function AssetSettingsDialog({
   onPriceSheet,
   onSaveMonthly,
   onLocked,
+  onSavePlanLink,
   focus,
+  focusSection,
   onClose,
 }: {
   summary: AssetSummary;
@@ -109,10 +113,13 @@ export default function AssetSettingsDialog({
   onPriceSheet: (kind: 'convert' | 'restore') => Promise<string | null>;
   /** 매달 사는 계좌 켬 · 끔(v2.78.0 — 계좌 하나) — 실패면 이유 문구 */
   onSaveMonthly: (section: string, monthly: boolean) => Promise<string | null>;
+  /** 줄 이름 → 종목 잇기(v2.79.0 — 줄 하나 · null = 끊기) — 실패면 이유 문구 */
+  onSavePlanLink: (section: string, name: string, symbol: string | null) => Promise<string | null>;
   /** 「현금 자동 반영」 요청이 잠김(403)을 받으면 */
   onLocked: () => void;
-  /** 「비율 조정」 [목표 비율 바꾸기] 로 열면 목표 비율 칸으로 */
-  focus?: 'targetRatio';
+  /** 「비율 조정」 [목표 비율 바꾸기] 로 열면 목표 비율 칸으로 · 「종목을 이어 주세요」 로 열면 이번 달 구매 메뉴의 그 계좌(`focusSection`)로 */
+  focus?: 'targetRatio' | 'purchase';
+  focusSection?: string;
   onClose: () => void;
 }) {
   // 바꾼 값을 바로 보이고(저장 중에도), 실패하면 원래 값으로 되돌린다
@@ -140,6 +147,29 @@ export default function AssetSettingsDialog({
     }
   };
 
+  /** 살 종목 잇기(v2.79.0) — 줄마다 지금 고른 종목(바로 보이고 실패면 되돌림) · 저장 중인 줄 · 이유 한 줄 */
+  const linkKey = (section: string, name: string) => `${section}\u0000${name}`;
+  const [links, setLinks] = useState<Record<string, string | null>>(() =>
+    Object.fromEntries(summary.monthlyBuy.accounts.flatMap((a) => (a.plan?.links ?? []).map((l) => [linkKey(a.section, l.name), l.symbol]))),
+  );
+  const [linkBusy, setLinkBusy] = useState<string | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const saveLink = async (section: string, name: string, symbol: string | null) => {
+    if (linkBusy != null) return;
+    const key = linkKey(section, name);
+    const before = links[key] ?? null;
+    setLinks((m) => ({ ...m, [key]: symbol }));
+    setLinkBusy(key);
+    setLinkError(null);
+    const failed = await onSavePlanLink(section, name, symbol);
+    setLinkBusy(null);
+    if (failed) {
+      setLinks((m) => ({ ...m, [key]: before }));
+      setLinkError(`저장하지 못했습니다 — ${failed}`);
+    }
+  };
+  const planAccounts = summary.monthlyBuy.accounts.filter((a) => a.plan != null);
+
   const save = async <K extends Field>(field: K, value: AssetSettings[K]) => {
     if (busy[field]) return; // 저장 중에 또 바꾸면 앞의 저장과 겹친다 — 끝난 뒤 다시
     const before = shown[field];
@@ -163,8 +193,14 @@ export default function AssetSettingsDialog({
     return c.isStock ? null : '분류가 주식이 아니라 계산에서 빠짐';
   };
 
-  const [menu, setMenu] = useState<Menu>(() => (focus === 'targetRatio' ? 'target' : readMenu()));
+  const [menu, setMenu] = useState<Menu>(() => (focus === 'targetRatio' ? 'target' : focus === 'purchase' ? 'purchase' : readMenu()));
   useEffect(() => saveMenu(menu), [menu]);
+  // 「종목을 이어 주세요」 로 열면 그 계좌 잇기 표로
+  useEffect(() => {
+    if (focus !== 'purchase' || !focusSection) return;
+    const el = document.querySelector(`[data-plan-links="${CSS.escape(focusSection)}"]`);
+    el?.scrollIntoView({ block: 'start' });
+  }, [focus, focusSection]);
 
   const pension = (
     <Block title="연금으로 볼 계좌" desc="「연금 포함」 을 끄면 표의 계좌와 퇴직 연금이 총 자산에서 빠집니다." busy={!!busy.pensionSections} error={errors.pensionSections ?? null}>
@@ -258,6 +294,7 @@ export default function AssetSettingsDialog({
   );
 
   const purchase = (
+    <div className="space-y-5">
     <Block busy={monthlyBusy != null} error={monthlyError}>
       <ul className="space-y-1" data-setting="purchase-monthly">
         {summary.monthlyBuy.accounts.map((a) => (
@@ -274,6 +311,66 @@ export default function AssetSettingsDialog({
         ))}
       </ul>
     </Block>
+    <Block title="살 종목 잇기" desc="시트 「적립식 투자」 탭의 줄 이름을 그 계좌의 보유 종목과 한 번 이어 둡니다. 시트는 바꾸지 않습니다." busy={linkBusy != null} error={linkError}>
+      <div className="space-y-3" data-setting="purchase-links">
+        {summary.monthlyBuy.planError && (
+          <p className="text-xs text-warning keep-all" role="status" data-testid="plan-links-error">
+            {summary.monthlyBuy.planError.message} — 잇기 표를 보이지 못했습니다.
+          </p>
+        )}
+        {!summary.monthlyBuy.planError && planAccounts.length === 0 && (
+          <p className="text-xs text-text-muted keep-all" data-testid="plan-links-empty">
+            「적립식 투자」 탭에 계좌와 맞는 묶음이 없습니다.
+          </p>
+        )}
+        {planAccounts.map((a) => {
+          const plan = a.plan!;
+          return (
+            <section key={a.section} className="space-y-1" data-plan-links={a.section} data-testid="plan-links">
+              <h5 className="truncate text-xs font-semibold text-text-secondary" data-tip={a.name} data-tip-clip>
+                {a.name}
+              </h5>
+              {plan.links.length === 0 ? (
+                <p className="text-xs text-text-muted keep-all">이을 줄이 없습니다(0% 줄은 빠집니다).</p>
+              ) : (
+                <ul className="space-y-1">
+                  {plan.links.map((l) => {
+                    const key = linkKey(a.section, l.name);
+                    const value = links[key] ?? '';
+                    return (
+                      <li key={l.name} className={`flex items-center gap-3 ${LIST_ROW}`} data-testid="plan-link-row" data-name={l.name}>
+                        <span className="min-w-0 flex-1 truncate text-xs text-text-primary" data-tip={l.name} data-tip-clip>
+                          {l.name}
+                        </span>
+                        <Select
+                          size="sm"
+                          className="w-48 shrink-0 phone:w-40"
+                          aria-label={`${l.name} — 살 종목`}
+                          value={value}
+                          disabled={linkBusy != null}
+                          onChange={(e) => void saveLink(a.section, l.name, e.target.value === '' ? null : e.target.value)}
+                          data-testid="plan-link-select"
+                        >
+                          <option value="">이어 주세요</option>
+                          {plan.choices.map((c) => (
+                            <option key={c.symbol} value={c.symbol}>
+                              {c.name} · {c.symbol}
+                            </option>
+                          ))}
+                        </Select>
+                        <span className="inline-flex w-4 shrink-0 justify-center">{linkBusy === key && <LoaderCircle {...ICON_SM} className="animate-spin text-text-muted" aria-label="저장하는 중" />}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {plan.choices.length === 0 && <p className="text-caption text-text-muted keep-all">이 계좌에 코드가 있는 보유 종목이 없습니다 — 새 종목은 다음 차수에 다룹니다.</p>}
+            </section>
+          );
+        })}
+      </div>
+    </Block>
+    </div>
   );
 
   const price = (
@@ -297,7 +394,7 @@ export default function AssetSettingsDialog({
           id: 'purchase',
           label: '이번 달 구매',
           desc: '매달 사는 계좌만 구매일 팝업과 「이번 달 구매」 목록에 나옵니다. 끈 계좌는 묻지 않습니다.',
-          busy: monthlyBusy != null,
+          busy: monthlyBusy != null || linkBusy != null,
           content: purchase,
         },
         { id: 'colors', label: '자산 분류 색', desc: '원형 차트와 분류별 표에 같은 색으로 보입니다. 미지정은 회색입니다.', busy: !!busy.classColors, content: colors },

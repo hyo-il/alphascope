@@ -146,7 +146,8 @@ export default function AssetDashboard({
   const [tab, setTab] = useState<AssetTab>(readTab);
   const open = tab === 'status';
   /** 설정 창 — null 이면 닫힘 · 'targetRatio' 면 목표 비율 칸으로 연다 */
-  const [settingsOpen, setSettingsOpen] = useState<null | 'top' | 'targetRatio'>(null);
+  /** 설정 창 — 위 단추 · 「목표 비율 바꾸기」 · 「종목을 이어 주세요」(그 계좌 잇기 표 · v2.79.0) */
+  const [settingsOpen, setSettingsOpen] = useState<null | 'top' | 'targetRatio' | { purchase: string }>(null);
   const [sheet, setSheet] = useState<{ data: AssetSheetData } | { error: string } | null>(null);
   /** 「자산 분류 정하기」 창(v2.65.3) — 자산 현황 버튼 · 총 자산 「미지정」 줄 링크 */
   const [classOpen, setClassOpen] = useState(false);
@@ -267,6 +268,23 @@ export default function AssetDashboard({
   const saveMonthly = async (section: string, monthly: boolean): Promise<string | null> => {
     try {
       const res = await fetch('/api/asset/purchase/monthly-accounts', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ section, monthly }) });
+      const body = await readJson(res);
+      if (body.code === 'asset-locked') {
+        onLocked();
+        return '자산 관리가 잠겼습니다.';
+      }
+      if (!res.ok) return typeof body.error === 'string' ? body.error : `요청 실패 (${res.status})`;
+      await reload();
+      return null;
+    } catch {
+      return '서버에 연결하지 못했습니다.';
+    }
+  };
+
+  /** 줄 이름 → 종목 잇기(v2.79.0 — 앱 DB) — 성공이면 다시 받아 이번 달 구매 목록에 반영 · 실패면 이유 */
+  const savePlanLink = async (section: string, name: string, symbol: string | null): Promise<string | null> => {
+    try {
+      const res = await fetch('/api/asset/purchase/plan-link', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ section, name, symbol }) });
       const body = await readJson(res);
       if (body.code === 'asset-locked') {
         onLocked();
@@ -561,8 +579,10 @@ export default function AssetDashboard({
           onSaveTarget={saveTarget}
           onPriceSheet={priceSheetAction}
           onSaveMonthly={saveMonthly}
+          onSavePlanLink={savePlanLink}
           onLocked={onLocked}
-          focus={settingsOpen === 'targetRatio' ? 'targetRatio' : undefined}
+          focus={settingsOpen === 'targetRatio' ? 'targetRatio' : typeof settingsOpen === 'object' ? 'purchase' : undefined}
+          focusSection={typeof settingsOpen === 'object' && settingsOpen ? settingsOpen.purchase : undefined}
           onClose={() => setSettingsOpen(null)}
         />
       )}

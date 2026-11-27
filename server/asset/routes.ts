@@ -16,7 +16,8 @@ import { purchaseAccountsInput, purchaseActionCheck, purchaseStateOf } from './p
 import { assetSummary, usdKrwNow } from './summary';
 import { checkSheetSwitchSafe, sheetSwitchedAt } from './sheetSwitch';
 import { convertSheetPrices, restoreSheetPrices } from './priceSheet';
-import { allRecords, dailyNotes, historyPoints, isHistoryRange, purchaseMonthlyOff, recordPurchase, saveDailyNote, savePurchaseMonthlyOff, undoPurchase } from './store';
+import { allRecords, dailyNotes, historyPoints, isHistoryRange, purchaseMonthlyOff, recordPurchase, saveDailyNote, savePlanLink, savePurchaseMonthlyOff, undoPurchase } from './store';
+import { readSavingTab, savingShapeOf } from './savingPlan';
 import { readPensionSections, writeAssetSettings } from './settings';
 import { listTrades, planNewHolding, recordNewHolding, recordTrade, tradesForChange } from './trade';
 import { dailyChanges } from './dailyChange';
@@ -26,7 +27,7 @@ import { cashLines, cellNumber, findCashLine } from './cashKeys';
 import { readCashBankFix, writeCashBankFix } from './cashBanks';
 import { applyManualCash } from './cashManual';
 import { kstDay } from './cashSchedule';
-import { cashBankLabelOf, type AssetCashPairView, type AssetSheetCashBanks, type AssetSheetErrorKind, AssetSheetFailure, AssetStatus, AssetTouchResult, PurchaseActionRequest, PurchaseActionResult, PurchaseMonthlyRequest } from '../../src/types/asset';
+import { cashBankLabelOf, type AssetCashPairView, type AssetSheetCashBanks, type AssetSheetErrorKind, AssetSheetFailure, AssetStatus, AssetTouchResult, PurchaseActionRequest, PurchaseActionResult, PurchaseMonthlyRequest, PlanLinkRequest } from '../../src/types/asset';
 
 export const assetRouter = Router();
 
@@ -41,6 +42,7 @@ export const ACTIVE = new Set([
   'POST /api/asset/purchase/skip',
   'POST /api/asset/purchase/undo',
   'PUT /api/asset/purchase/monthly-accounts',
+  'PUT /api/asset/purchase/plan-link',
   'POST /api/asset/price-source/convert',
   'POST /api/asset/price-source/restore',
   'POST /api/asset/trade',
@@ -217,6 +219,30 @@ assetRouter.put('/api/asset/purchase/monthly-accounts', async (req, res) => {
     const off = purchaseMonthlyOff().filter((k) => k !== section);
     savePurchaseMonthlyOff(monthly ? off : [...off, section]);
     res.json({ section, monthly });
+  } catch (e) {
+    sendSheetError(res, e, '기록');
+  }
+});
+
+/**
+ * 「적립식 투자」 줄 이름 → 종목 잇기(v2.79.0) — `{ section, name, symbol | null }`(앱 DB 만 · 시트를 쓰지 않음 — 자산 잠금은 문지기 · 쓰기 스위치와 상관없음).
+ * 받는 것: 시트 계좌(합친 표 제외) · 지금 그 계좌 묶음의 줄 이름(0% 아닌 줄) · 그 계좌 보유 종목(코드가 있는 줄) 코드 또는 null(끊기). 다른 값은 400 `not-editable`.
+ */
+assetRouter.put('/api/asset/purchase/plan-link', async (req, res) => {
+  try {
+    const { section, name, symbol } = (req.body ?? {}) as Partial<PlanLinkRequest>;
+    const data = await readAssetSheet();
+    const sec = data.sections.find((s) => !s.combined && s.key === section);
+    if (typeof section !== 'string' || !sec) throw new AssetSheetError('not-editable', '그 계좌를 시트에서 찾지 못했습니다.');
+    const group = savingShapeOf(await readSavingTab(), data).groups.find((g) => g.account === section);
+    if (typeof name !== 'string' || !group || !group.lines.some((l) => l.name === name && l.ratio != null && l.ratio > 0)) {
+      throw new AssetSheetError('not-editable', '「적립식 투자」 탭에서 그 줄을 찾지 못했습니다 — 다시 읽어 보세요.');
+    }
+    if (symbol !== null && (typeof symbol !== 'string' || !sec.holdings.some((h) => h.symbol === symbol))) {
+      throw new AssetSheetError('not-editable', '그 계좌의 보유 종목만 고를 수 있습니다.');
+    }
+    savePlanLink(section, name, symbol);
+    res.json({ section, name, symbol });
   } catch (e) {
     sendSheetError(res, e, '기록');
   }
