@@ -1,16 +1,18 @@
 import { Eraser } from 'lucide-react';
 import IconButton from '../ui/IconButton';
 import { useEffect } from 'react';
+import { TOUCH_HIT } from '../ui/tokens';
 
 /** 툴바에 노출할 도구 — 플러그인의 67종 중 스윙 트레이딩에 자주 쓰는 것만 추린다. */
 export const DRAWING_TOOLS = [
-  { type: null, label: '커서', hint: '드로잉 해제 (Esc)', cursor: 'default', guide: '' },
+  { type: null, label: '커서', hint: '드로잉 해제 (Esc)', cursor: 'default', guide: '', touchGuide: '' },
   {
     type: 'horizontal-line',
     label: '수평선',
     hint: '지지/저항선 — 클릭한 가격에 선',
     cursor: 'row-resize',
     guide: '수평선 — 차트를 클릭하세요',
+    touchGuide: '수평선 — 차트를 누르세요',
   },
   {
     type: 'trend-line',
@@ -18,6 +20,7 @@ export const DRAWING_TOOLS = [
     hint: '두 점을 잇는 추세선',
     cursor: 'crosshair',
     guide: '추세선 — 시작점과 끝점을 클릭하세요 (드래그도 가능)',
+    touchGuide: '추세선 — 시작점과 끝점을 누르세요 (밀어도 됩니다)',
   },
   {
     type: 'date-price-range',
@@ -25,6 +28,7 @@ export const DRAWING_TOOLS = [
     hint: '드래그 구간의 ±% 와 봉 수 측정',
     cursor: 'cell',
     guide: '자 — 구간을 드래그하거나 양 끝을 클릭하세요',
+    touchGuide: '자 — 구간을 밀거나 양 끝을 누르세요',
   },
   {
     type: 'fib-retracement',
@@ -32,6 +36,7 @@ export const DRAWING_TOOLS = [
     hint: '되돌림 레벨',
     cursor: 'crosshair',
     guide: '피보나치 — 고점과 저점을 차례로 클릭하세요',
+    touchGuide: '피보나치 — 고점과 저점을 차례로 누르세요',
   },
   {
     type: 'rectangle',
@@ -39,6 +44,7 @@ export const DRAWING_TOOLS = [
     hint: '박스권 표시',
     cursor: 'crosshair',
     guide: '박스 — 두 모서리를 차례로 클릭하세요',
+    touchGuide: '박스 — 두 모서리를 차례로 누르세요',
   },
 ] as const;
 
@@ -47,9 +53,10 @@ export function cursorFor(tool: DrawingToolType): string {
   return DRAWING_TOOLS.find((t) => t.type === tool)?.cursor ?? 'default';
 }
 
-/** 도구 활성 중 화면에 띄우는 안내 문구 */
-export function guideFor(tool: DrawingToolType): string {
-  return DRAWING_TOOLS.find((t) => t.type === tool)?.guide ?? '';
+/** 도구 활성 중 화면에 띄우는 안내 문구 — 손가락 화면은 「클릭 · 드래그」 대신 「누르기 · 밀기」(테마 9-1 R9) */
+export function guideFor(tool: DrawingToolType, touch = false): string {
+  const t = DRAWING_TOOLS.find((x) => x.type === tool);
+  return (touch ? t?.touchGuide : t?.guide) ?? '';
 }
 
 export type DrawingToolType = (typeof DRAWING_TOOLS)[number]['type'];
@@ -96,7 +103,7 @@ export default function DrawingTools({
             aria-checked={activeTool === tool.type}
             data-tip={tool.hint}
             onClick={() => onSelect(tool.type)}
-            className={`whitespace-nowrap rounded-md px-2 py-0.5 text-xs transition-colors ${
+            className={`whitespace-nowrap rounded-md px-2 py-0.5 text-xs transition-colors ${TOUCH_HIT} ${
               activeTool === tool.type ? 'bg-bg-elevated font-medium text-text-primary' : 'text-text-secondary hover:text-text-primary'
             }`}
           >

@@ -1,8 +1,10 @@
-import { PANEL_X, Tabs } from '../ui';
+import { PANEL_X, ScrollRow, Tabs } from '../ui';
+import { PAD_CHART_TABS_MIN_PX, PHONE_TAB_ROW_H } from '../ui/tokens';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 import Button from '../ui/Button';
 import { ICON_SM } from '../ui/icon';
 import { ChevronUp, ChevronDown } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import type { Candle, Timeframe } from '../../types/toss';
 import type { IndicatorSeries, IndicatorToggles } from '../../types/chart';
 import ManualAnalysis from '../analysis/ManualAnalysis';
@@ -103,10 +105,110 @@ export interface ChartBottomTabsProps {
   getChartSnapshot: ComponentProps<typeof ManualAnalysis>['getChartSnapshot'];
   /** 차트 화면이 실제로 보이는 중인지 */
   active: boolean;
+  /**
+   * 폰 모양(v2.82.0 · 테마 5-2) — 탭 일곱([호가] [빠른 주문] + 지금 다섯) · 탭 줄 44 · 글 16 · 넘치면 가로 밀기 + 끝 흐림 · 위에 붙음.
+   * 호가 · 빠른 주문은 차트 오른쪽 열과 **같은 부품**을 받아 그린다. `onOhlcTarget` = [차트 지표] 탭 맨 위 OHLC 묶음 자리(차트가 거기에 정보 줄을 그림).
+   * 넘기지 않으면 지금 모양(패드 · 1280 — 탭 다섯 · 끌어서 높이).
+   */
+  phone?: { orderbook: ReactNode; quickOrder: ReactNode; onOhlcTarget: (el: HTMLElement | null) => void };
+}
+
+/** 탭 내용 — 폰 · 큰 화면이 같이 쓴다 */
+function TabBody({ tab, ...props }: ChartBottomTabsProps & { tab: TabId }) {
+  return (
+    <>
+      {tab === 'indicators' && (
+        <IndicatorSummaryPanel
+          symbol={props.symbol}
+          candles={props.candles}
+          loading={props.candlesLoading}
+          timeframe={props.timeframe}
+          indicators={props.indicators}
+          currentPrice={props.currentPrice}
+        />
+      )}
+      {tab === 'company' && <CompanySummary symbol={props.symbol} candles={props.candles} />}
+      {tab === 'flow' && <InvestorFlowPanel symbol={props.symbol} />}
+      {tab === 'news' && <NewsPanel symbol={props.symbol} />}
+      {tab === 'ai' && (
+        <ChartAiPanel
+          symbol={props.symbol}
+          timeframe={props.timeframe}
+          candles={props.candles}
+          currentPrice={props.currentPrice}
+          indicators={props.indicators}
+          toggles={props.toggles}
+          getChartSnapshot={props.getChartSnapshot}
+        />
+      )}
+    </>
+  );
+}
+
+type PhoneTabId = 'orderbook' | 'order' | TabId;
+const PHONE_TABS: { id: PhoneTabId; label: string }[] = [
+  { id: 'orderbook', label: '호가' },
+  { id: 'order', label: '빠른 주문' },
+  ...TABS,
+];
+/** 폰에서 고른 탭 — 이 기기에 기억(폰 따로 · 패드 · 1280 은 읽지 않음 — 그쪽은 지금처럼 처음 탭) */
+const PHONE_TAB_KEY = 'alphascope.chartTabPhone';
+function readPhoneTab(): PhoneTabId {
+  try {
+    const v = localStorage.getItem(PHONE_TAB_KEY);
+    return PHONE_TABS.some((t) => t.id === v) ? (v as PhoneTabId) : 'orderbook';
+  } catch {
+    return 'orderbook';
+  }
+}
+
+function PhoneChartTabs(props: ChartBottomTabsProps & { phone: NonNullable<ChartBottomTabsProps['phone']> }) {
+  const { active, phone } = props;
+  const [tab, setTabState] = useState<PhoneTabId>(readPhoneTab);
+  const setTab = (next: PhoneTabId) => {
+    setTabState(next);
+    try {
+      localStorage.setItem(PHONE_TAB_KEY, next);
+    } catch {
+      // 기억하지 못해도 이번 화면에서는 동작한다
+    }
+  };
+  // 「AI 분석」 탭을 열어 달라는 요청(옛 주소 #/analysis · 급등 탐지 [분석]) — 큰 화면과 같다
+  const chartAiRequest = useAppStore((s) => s.chartAiRequest);
+  const seenAiRequest = useRef(chartAiRequest);
+  useEffect(() => {
+    if (chartAiRequest === seenAiRequest.current) return;
+    seenAiRequest.current = chartAiRequest;
+    setTabState('ai');
+  }, [chartAiRequest]);
+
+  return (
+    <div data-testid="phone-chart-tabs" className="flex flex-col">
+      {/* 탭 줄 — 위에 붙음(본문을 밀어 내려도 탭을 바꿀 수 있게) · 넘치면 옆으로 밀기 + 끝 흐림(R7) */}
+      <ScrollRow className={`sticky top-0 z-10 ${PHONE_TAB_ROW_H} shrink-0 border-b border-border/60 bg-bg-primary`} innerClassName={`flex h-full items-end ${PANEL_X}`} testId="phone-tab-row">
+        <Tabs label="차트 아래 탭" line={false} items={PHONE_TABS} value={tab} onChange={setTab} />
+      </ScrollRow>
+      {active && (
+        <div data-testid="phone-tab-body" className="pb-4 pt-2">
+          {/* 바탕이 있는 호가 · OHLC 상자도 탭 줄 글자와 같은 왼쪽 끝(PANEL_X) */}
+          {tab === 'orderbook' && <div className={PANEL_X}>{phone.orderbook}</div>}
+          {tab === 'order' && phone.quickOrder}
+          {tab === 'indicators' && <div ref={phone.onOhlcTarget} data-testid="phone-ohlc" className={PANEL_X} />}
+          {tab !== 'orderbook' && tab !== 'order' && <TabBody {...props} tab={tab} />}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ChartBottomTabs(props: ChartBottomTabsProps) {
+  return props.phone ? <PhoneChartTabs {...props} phone={props.phone} /> : <DeskChartTabs {...props} />;
+}
+
+function DeskChartTabs(props: ChartBottomTabsProps) {
   const { active } = props;
+  /** 패드(테마 5-3 · 점검 53) — 펼친 탭 내용 칸이 약 180 으로 좁았다. 펼친 높이 최소를 두고 모자라면 본문을 밀어 본다 */
+  const pad = useLayoutMode() === 'pad';
   const [tab, setTab] = useState<TabId>('indicators');
   const [height, setHeight] = useState(readHeight);
   /** 저장된(사용자가 정한) 높이가 있는가 — 없으면 열 높이가 바뀔 때마다 기본 높이를 다시 맞춘다 */
@@ -228,7 +330,7 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
   const toggleCollapse = () => (collapsed ? resetDefault() : persist(HEADER_HEIGHT));
 
   return (
-    <div ref={rootRef} className="flex shrink-0 flex-col border-t border-border" style={{ height }}>
+    <div ref={rootRef} className="flex shrink-0 flex-col border-t border-border" style={{ height: pad && !collapsed ? Math.max(height, PAD_CHART_TABS_MIN_PX) : height }}>
       {/* 드래그 손잡이 — 얇지만 잡을 수 있게 위아래 여유를 둔다 */}
       <div
         onPointerDown={onPointerDown}
@@ -265,34 +367,10 @@ export default function ChartBottomTabs(props: ChartBottomTabsProps) {
         </Button>
       </div>
 
+      {/* 손가락 화면 — 탭 줄 누르는 칸(44)과 내용 첫 줄 누르는 칸이 겹치지 않게 위 8 */}
       {!collapsed && active && (
-        <div className="min-h-0 flex-1 overflow-auto">
-          {tab === 'indicators' && (
-            <IndicatorSummaryPanel
-              symbol={props.symbol}
-              candles={props.candles}
-              loading={props.candlesLoading}
-              timeframe={props.timeframe}
-              indicators={props.indicators}
-              currentPrice={props.currentPrice}
-            />
-          )}
-          {tab === 'company' && (
-            <CompanySummary symbol={props.symbol} candles={props.candles} />
-          )}
-          {tab === 'flow' && <InvestorFlowPanel symbol={props.symbol} />}
-          {tab === 'news' && <NewsPanel symbol={props.symbol} />}
-          {tab === 'ai' && (
-            <ChartAiPanel
-              symbol={props.symbol}
-              timeframe={props.timeframe}
-              candles={props.candles}
-              currentPrice={props.currentPrice}
-              indicators={props.indicators}
-              toggles={props.toggles}
-              getChartSnapshot={props.getChartSnapshot}
-            />
-          )}
+        <div className="min-h-0 flex-1 overflow-auto touch:pt-2">
+          <TabBody {...props} tab={tab} />
         </div>
       )}
     </div>

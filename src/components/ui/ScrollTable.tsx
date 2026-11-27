@@ -38,7 +38,7 @@ const clear = (c: string) => !c || c === 'transparent' || c === 'rgba(0, 0, 0, 0
  * 상자 자리의 실제 바탕 — 상자부터 뿌리까지 바탕색을 겹쳐 칠한 색(반투명 바탕 `bg-…/40` 도 아래 바탕과 겹친 색).
  * 새 색을 만들지 않는다: 화면에 이미 깔린 바탕을 그대로 고정 칸 · 흐림에 쓴다(1×1 캔버스에 바깥부터 차례로 칠해 읽음).
  */
-function surfaceBg(el: HTMLElement): string {
+export function surfaceBg(el: HTMLElement): string {
   const layers: string[] = [];
   for (let n: HTMLElement | null = el; n; n = n.parentElement) {
     const c = getComputedStyle(n).backgroundColor;

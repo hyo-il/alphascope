@@ -1,5 +1,6 @@
 import { formatSigned } from '../../utils/formatters';
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { modal } from '../../store/uiStore';
 import {
   DrawingManager,
@@ -96,6 +97,11 @@ interface Props {
   week52?: RangeStats | null;
   /** 마커의 가격 표기용 (국내 종목은 원화) */
   currency?: 'KRW' | 'USD';
+  /**
+   * 정보 줄(OHLC · 52주 · 이동평균)을 차트 위가 아닌 다른 자리에 그린다(v2.82.0 폰 — [차트 지표] 탭 맨 위 · 차트를 가리지 않게).
+   * `{ target }` 이면 그 상자 안에 그리고(없으면 그리지 않음), 넘기지 않으면 지금처럼 차트 위 한 줄.
+   */
+  infoBarSlot?: { target: HTMLElement | null };
 }
 
 export interface CandleChartHandle {
@@ -146,6 +152,7 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
     toggles,
     week52,
     currency = 'USD',
+    infoBarSlot,
   },
   ref,
 ) {
@@ -805,15 +812,21 @@ const CandleChart = forwardRef<CandleChartHandle, Props>(function CandleChart(
      * 전부 위로 밀린다. 래퍼는 캡처 대상이라 정보 바까지 포함해야 한다.
      */
     <div ref={wrapperRef} className="flex h-full w-full flex-col bg-bg-primary">
-      <ChartInfoBar
-        legend={legend}
-        candles={candles}
-        toggles={toggles}
-        week52={week52}
-        visible={visibleExtent}
-        currency={currency}
-        price={livePrice?.close ?? null}
-      />
+      {(() => {
+        const bar = (
+          <ChartInfoBar
+            legend={legend}
+            candles={candles}
+            toggles={toggles}
+            week52={week52}
+            visible={visibleExtent}
+            currency={currency}
+            price={livePrice?.close ?? null}
+          />
+        );
+        if (!infoBarSlot) return bar;
+        return infoBarSlot.target ? createPortal(bar, infoBarSlot.target) : null;
+      })()}
 
       <div className="relative min-h-0 flex-1">
         {/* 2점 도구: 찍어 둔 시작점 + 커서까지의 고무줄 선 */}

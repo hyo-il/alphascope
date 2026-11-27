@@ -50,14 +50,18 @@ import { useAppStore } from './store/appStore';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
 import { pageMeta } from './types/nav';
 import { toast } from './store/uiStore';
-import { changeColor, formatPercent, formatPrice, displayMinus, formatSigned } from './utils/formatters';
+import { changeColor, formatPrice } from './utils/formatters';
 import { currencyOfSymbol } from './utils/market';
 import LoginScreen from './components/auth/LoginScreen';
 import { useAuth } from './hooks/useAuth';
 import { useHashRoute } from './hooks/useHashRoute';
 import { useLoadHomePage } from './hooks/useHomePage';
 import KstClock from './components/common/KstClock';
-import { useLayoutMode } from './hooks/useLayoutMode';
+import { useLayoutMode, usePhoneLandscape, useTouchScreen } from './hooks/useLayoutMode';
+import { PhoneChipRow, PhonePriceRow } from './components/chart/PhoneChartBar';
+import { usePhoneChartHeight } from './components/chart/phoneChartLayout';
+import { priceChangeText } from './components/chart/priceChange';
+import { PAD_CHART_MIN_H } from './components/ui/tokens';
 import MobileTopBar from './components/layout/MobileTopBar';
 import NavDrawer from './components/layout/NavDrawer';
 import MarketStrip from './components/market/MarketStrip';
@@ -215,7 +219,132 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
   );
   const isWatched = symbol ? watchlist.includes(symbol) : false;
 
-  const chartView = (
+  /** 폰 차트(v2.82.0 · 테마 5-2) — 가로 · 손가락 화면 · 차트 높이 · OHLC 묶음 자리([차트 지표] 탭 맨 위) */
+  const phoneLandscape = usePhoneLandscape();
+  const touchScreen = useTouchScreen();
+  const phoneChartRef = useRef<HTMLElement>(null);
+  const phoneChartH = usePhoneChartHeight(phoneChartRef, phone && chartVisible, phoneLandscape);
+  const [ohlcTarget, setOhlcTarget] = useState<HTMLElement | null>(null);
+  // 폰에는 그리기 도구가 없다 — 그리는 중에 폰 모양으로 바뀌면 커서로 돌린다(그린 선은 그대로)
+  useEffect(() => {
+    if (phone) setActiveTool(null);
+  }, [phone]);
+  const phoneChips = (inline: boolean) => (
+    <PhoneChipRow
+      timeframe={timeframe}
+      onTimeframeChange={setTimeframe}
+      toggles={toggles}
+      onTogglesChange={setToggles}
+      indicatorsLoading={indicatorsLoading}
+      onResetView={() => chartRef.current?.resetView()}
+      inline={inline}
+    />
+  );
+
+  /*
+   * 차트 화면 조각 — 1280 이상 · 패드는 지금 배치 그대로(아래 `chartView`), 폰은 테마 5-2 차례(`phoneChartView` · v2.82.0).
+   * 조각(차트 · 아래 탭 · 호가 · 빠른 주문)은 같은 부품 하나를 두 배치가 같이 쓴다(복사 · 새 주문 코드 없음).
+   */
+  const chartLoadingCover = error ? (
+    <div className="absolute inset-0 z-30 flex items-center justify-center bg-bg-primary px-8">
+      <div className="max-w-lg rounded-lg border border-danger/40 bg-bg-secondary p-5">
+        <p data-tone="error" className="font-medium text-danger">데이터를 불러오지 못했습니다</p>
+        <p className="mt-2 text-sm text-text-secondary">{error}</p>
+        <Button size="sm" className="mt-3" onClick={reloadCandles}>
+          다시 시도
+        </Button>
+      </div>
+    </div>
+  ) : loading ? (
+    // 읽기만이라 막는 로딩이 아니다 — 불투명 판(옛 종목 차트가 비쳐 새 종목 값으로 읽히지 않게) + 로딩 표시
+    <div className="absolute inset-0 z-30 bg-bg-primary" aria-busy="true">
+      <LoadingSpinner label={`${symbol} 캔들 불러오는 중…`} />
+    </div>
+  ) : null;
+  const candleChart = (
+    <CandleChart
+      ref={chartRef}
+      candles={candles}
+      datasetKey={loadedKeyRef.current}
+      livePrice={livePrice}
+      activeTool={activeTool}
+      onDrawingCountChange={setDrawingCount}
+      onToolConsumed={() => setActiveTool(null)}
+      onReachPast={loadMore}
+      indicators={indicators}
+      toggles={toggles}
+      week52={week52}
+      currency={currency}
+      infoBarSlot={phone ? { target: ohlcTarget } : undefined}
+    />
+  );
+  const orderbookPanel = (
+    <OrderbookPanel
+      orderbook={orderbook}
+      currentPrice={displayPrice}
+      previousClose={previousClose}
+      currency={currency}
+      symbol={symbol}
+      onPickPrice={(price) => setPickedPrice({ price, nonce: Date.now() })}
+      full={phone}
+    />
+  );
+  const quickOrderPanel = symbol ? (
+    <QuickOrderPanel
+      symbol={symbol}
+      price={displayPrice}
+      currency={currency}
+      active={chartVisible}
+      pickedPrice={pickedPrice}
+      onGoToPaperTrading={() => {
+        setPage('portfolio', 'paper');
+      }}
+    />
+  ) : null;
+  const bottomTabs = symbol ? (
+    <ChartBottomTabs
+      symbol={symbol}
+      timeframe={timeframe}
+      candles={candles}
+      candlesLoading={loading}
+      currentPrice={displayPrice}
+      indicators={indicators}
+      toggles={toggles}
+      getChartSnapshot={getChartSnapshot}
+      active={chartVisible}
+      phone={phone ? { orderbook: orderbookPanel, quickOrder: quickOrderPanel, onOhlcTarget: setOhlcTarget } : undefined}
+    />
+  ) : null;
+
+  const chartView = phone ? (
+    /*
+      폰(테마 5-2) — 위 → 아래: 가격 줄 56 → 주기 칩 줄 44 → 차트(높이 = `phoneChartHeight` 한 곳) → 아래 탭(위에 붙음 · [호가] [빠른 주문] + 지금 다섯).
+      본문 상자가 세로로 밀린다(탭 내용은 차트 아래로 이어짐). 그리기 도구 줄은 그리지 않는다 — 그린 선은 차트에 그대로 보인다.
+      폰 가로(높이 < 500): 칩 줄은 가격 줄 오른쪽 · 차트 = 남는 높이.
+    */
+    <div data-phone-chart className="flex shrink-0 flex-col">
+      <PhonePriceRow price={displayPrice} livePrice={livePrice} currency={currency}>
+        {phoneLandscape && phoneChips(true)}
+      </PhonePriceRow>
+      {!phoneLandscape && phoneChips(false)}
+      {indicatorError && (
+        <div className="border-b border-warning/30 bg-warning/10 px-3 py-1.5 text-caption text-warning">
+          {engineDown ? '지표 엔진이 꺼져 있습니다. ' : '지표 계산 실패: '}
+          {indicatorError}
+        </div>
+      )}
+      <main ref={phoneChartRef} data-phone-chart-box className="relative min-w-0 shrink-0" style={{ height: phoneChartH }}>
+        {candleChart}
+        {chartLoadingCover}
+      </main>
+      {bottomTabs}
+      {(loadingMore || (reachedEnd && candles.length > 0)) && (
+        <p className="py-1.5 text-caption text-text-muted">
+          {loadingMore ? <span className="text-text-secondary">과거 데이터 불러오는 중…</span> : '가장 오래된 데이터까지 표시 중'}
+        </p>
+      )}
+    </div>
+  ) : (
     <>
       <ChartToolbar
         timeframe={timeframe}
@@ -246,43 +375,15 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
       */}
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1">
+          <div className={`flex ${layout === 'pad' ? `${PAD_CHART_MIN_H} shrink-0` : 'min-h-0'} flex-1`}>
             {/*
               ⚠️ 차트는 종목·봉을 바꿀 때도 언마운트하지 않는다. 로딩·오류 때 스피너·오류 카드가 차트 자리를
               대신하면 매번 차트를 새로 만든다(깜빡임, "Object is disposed"). 그래서 로딩·오류는 차트 **위에 덮는 층**이다.
               덮개는 이전 종목 캔들이 새 종목으로 보이지 않게 충분히 어둡고, 덮여 있는 동안 차트 조작(드로잉)을 받지 않는다.
             */}
             <main className="relative min-w-0 flex-1">
-              <CandleChart
-                ref={chartRef}
-                candles={candles}
-                datasetKey={loadedKeyRef.current}
-                livePrice={livePrice}
-                activeTool={activeTool}
-                onDrawingCountChange={setDrawingCount}
-                onToolConsumed={() => setActiveTool(null)}
-                onReachPast={loadMore}
-                indicators={indicators}
-                toggles={toggles}
-                week52={week52}
-                currency={currency}
-              />
-              {error ? (
-                <div className="absolute inset-0 z-30 flex items-center justify-center bg-bg-primary px-8">
-                  <div className="max-w-lg rounded-lg border border-danger/40 bg-bg-secondary p-5">
-                    <p data-tone="error" className="font-medium text-danger">데이터를 불러오지 못했습니다</p>
-                    <p className="mt-2 text-sm text-text-secondary">{error}</p>
-                    <Button size="sm" className="mt-3" onClick={reloadCandles}>
-                      다시 시도
-                    </Button>
-                  </div>
-                </div>
-              ) : loading ? (
-                // 읽기만이라 막는 로딩이 아니다 — 불투명 판(옛 종목 차트가 비쳐 새 종목 값으로 읽히지 않게) + 로딩 표시
-                <div className="absolute inset-0 z-30 bg-bg-primary" aria-busy="true">
-                  <LoadingSpinner label={`${symbol} 캔들 불러오는 중…`} />
-                </div>
-              ) : null}
+              {candleChart}
+              {chartLoadingCover}
             </main>
           </div>
 
@@ -293,27 +394,16 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
             화면 밖에서도 마운트를 유지하므로, 그때 탭까지 살아 있으면 보이지 않는
             기업정보·분석 결과를 계속 불러온다.
           */}
-          {symbol && (
-            <ChartBottomTabs
-              symbol={symbol}
-              timeframe={timeframe}
-              candles={candles}
-              candlesLoading={loading}
-              currentPrice={displayPrice}
-              indicators={indicators}
-              toggles={toggles}
-              getChartSnapshot={getChartSnapshot}
-              active={chartVisible}
-            />
-          )}
+          {bottomTabs}
 
           <footer className="flex shrink-0 items-center gap-1 border-t border-border/60 px-3 py-1.5 text-caption text-text-muted">
             {activeTool ? (
               <>
-                <span className="text-text-primary">{guideFor(activeTool)}</span>
-                <span className="ml-2">· 하나 그리면 커서로 돌아옵니다 · Esc: 해제</span>
+                <span className="text-text-primary">{guideFor(activeTool, touchScreen)}</span>
+                {/* 손가락 화면은 키 안내를 숨긴다(테마 9-1 R9) */}
+                {!touchScreen && <span className="ml-2">· 하나 그리면 커서로 돌아옵니다 · Esc: 해제</span>}
               </>
-            ) : (
+            ) : touchScreen ? null /* 손가락 화면은 휠 · 드래그 · 우클릭 조작법(단축키 목록)을 숨긴다(테마 9-1 R9) */ : (
               <>
                 {/* 조작법은 정보 아이콘으로 (디자인 규칙 6) — 도구를 쥐었을 때의 안내는 지금 하는 일이라 글자로 둔다 */}
                 차트 조작
@@ -337,27 +427,9 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
           열 전체와 호가 목록이 늘 두 겹으로 스크롤되면 Windows 에서 칸이 밀린다.
         */}
         <div className="flex min-h-0 w-[248px] shrink-0 flex-col overflow-y-auto overflow-x-hidden">
-          <OrderbookPanel
-            orderbook={orderbook}
-            currentPrice={displayPrice}
-            previousClose={previousClose}
-            currency={currency}
-            symbol={symbol}
-            onPickPrice={(price) => setPickedPrice({ price, nonce: Date.now() })}
-          />
+          {orderbookPanel}
           {/* 토스 WTS 처럼 호가창 바로 아래에 둔다 — 시세를 보다 그대로 주문으로 이어진다 */}
-          {symbol && (
-            <QuickOrderPanel
-              symbol={symbol}
-              price={displayPrice}
-              currency={currency}
-              active={chartVisible}
-              pickedPrice={pickedPrice}
-              onGoToPaperTrading={() => {
-                setPage('portfolio', 'paper');
-              }}
-            />
-          )}
+          {quickOrderPanel}
         </div>
       </div>
     </>
@@ -640,10 +712,8 @@ function AppBody({ onLogout }: { onLogout: () => void }) {
               </span>
               {livePrice && (
                 <span className={`shrink-0 whitespace-nowrap text-xs tabular-nums ${changeColor(livePrice.change)}`}>
-                  {currency === 'KRW'
-                    ? displayMinus(`${livePrice.change > 0 ? '+' : ''}${Math.round(livePrice.change).toLocaleString('ko-KR')}`)
-                    : formatSigned(livePrice.change, 2)}{' '}
-                  ({formatPercent(livePrice.changeRate)})
+                  {/* 폰 가격 줄과 같은 함수(v2.82.0) */}
+                  {priceChangeText(livePrice, currency)}
                 </span>
               )}
             </>

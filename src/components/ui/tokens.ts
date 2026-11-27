@@ -224,7 +224,7 @@ export const TOUCH_FIELD_INNER = 'touch:-my-px touch:h-[calc(100%+2px)]';
  * 고르기 칩(v2.76.0 · `ui/Chip` — 하나를 고르는 작은 글자 단추: 초기 자금 · 거래 거르기 · 성과 기간 · 계좌 아래 탭).
  * 크기는 쓰던 모양 그대로(1280 이상 그대로) — xs 22 · sm · md 26 · tab(px 10). 손가락 화면 누르는 칸 44 는 `TOUCH_HIT`.
  */
-export const CHIP_SIZE = { xs: 'px-2 py-0.5 text-caption', sm: 'px-2 py-1 text-caption', md: 'px-2 py-1 text-xs', tab: 'px-2.5 py-1 text-xs' } as const;
+export const CHIP_SIZE = { xs: 'px-2 py-0.5 text-caption', sm: 'px-2 py-1 text-caption', md: 'px-2 py-1 text-xs', tab: 'px-2.5 py-1 text-xs', /** 폰 차트 주기 칩 32(테마 5-2) */ lg: `${CONTROL_H.md} shrink-0 whitespace-nowrap px-3 text-xs` } as const;
 /** 손가락 화면에서 위 탭 줄 바로 밑에 붙은 단추 줄의 위아래 안 여백(누르는 칸이 위 탭과 겹치지 않게) */
 export const TOUCH_BAR_PAD = 'touch:py-3';
 /** 손가락 화면 표 줄 44(v2.76.0) — 높이를 `LIST_TABLE_ROW` 로 정하지 않은 표에서 줄 안 단추(종목 이름)의 누르는 칸 44 가 위아래 줄끼리 겹치지 않게 · 마우스 화면 그대로 */
@@ -233,5 +233,28 @@ export const TOUCH_TABLE_ROW = 'touch:h-11';
 export const TOUCH_FIELD_SIDE = 'touch:h-11 touch:w-11';
 /** 줄 단추 바로 옆 아이콘 단추(v2.77.0 종목 추가 창 「직접 추가」 줄 삭제) — 손가락 화면은 사이 12(아이콘 단추 바깥 칸 10 + 여유 — 누르는 칸 겹침 0) */
 export const TOUCH_SIDE_GAP = 'touch:gap-x-3';
+/**
+ * 폰 차트 화면(v2.82.0 · 테마 5-2) — 위 → 아래: 위쪽 막대 → 가격 줄 → 주기 칩 줄 → 차트 → 아래 탭(위에 붙음) → 탭 내용.
+ * 차트 높이 = (보이는 높이 − 위쪽 막대 − 가격 줄 − 칩 줄) × `PHONE_CHART_RATIO` · 최소 `PHONE_CHART_MIN_PX`(계산은 `chart/phoneChartLayout.ts` 한 곳).
+ * 폰 가로(높이 < 500)는 칩 줄이 가격 줄 오른쪽 · 차트 = 남는 높이. 클래스 글자(`h-14` 등)와 px 값은 같은 값이다.
+ */
+export const PHONE_PRICE_ROW_PX = 56;
+export const PHONE_PRICE_ROW_H = 'h-14';
+export const PHONE_CHIP_ROW_PX = 44;
+export const PHONE_CHIP_ROW_H = 'h-11';
+export const PHONE_CHART_RATIO = 0.55;
+export const PHONE_CHART_MIN_PX = 240;
+/** 폰 차트 아래 탭 줄(높이 44 · 글 16 · 위에 붙음) */
+export const PHONE_TAB_ROW_H = 'h-11';
+/** 폰 주기 칩(칩 32 · 손가락 누르는 칸 44 는 `ui/Chip` 의 `TOUCH_HIT`) — 칩 사이 12(테마 6 「12 이상」) */
+export const PHONE_CHIP_GAP = 'gap-3';
+/**
+ * 패드 차트 화면(테마 5-3) — 차트(가격 칸 줄) 최소 360 · 아래 탭 내용 칸 최소(점검 53 — 펼친 탭이 약 180 으로 좁았다).
+ * 모자라면 본문을 밀어 본다(차트 · 탭을 그 아래로 줄이지 않음).
+ */
+export const PAD_CHART_MIN_H = 'min-h-[360px]';
+export const PAD_CHART_TABS_MIN_PX = 300;
+/** 폰 캡처 창(아래 판 — 높이가 내용만큼)의 차트 칸 높이(v2.82.0 · 점검 54) */
+export const PHONE_CAPTURE_CHART_H = 'h-[45dvh]';
 /** 폰 표 최소 폭(v2.77.0 매수 판단 히스토리 펼친 표 — 고정 칸 합 608 + 종목 칸) — 고정 칸 합이 폰 폭보다 커 칸이 겹치던 표는 이 폭으로 두고 `ScrollTable` 이 상자 안에서 민다 */
 export const PHONE_TABLE_MIN_W = 'phone:min-w-[760px]';

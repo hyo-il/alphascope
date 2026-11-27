@@ -1,3 +1,4 @@
+import { PANEL_X, TOUCH_TABLE_ROW } from '../ui/tokens';
 import { useEffect, useMemo, useRef } from 'react';
 import type { Orderbook, OrderbookLevel } from '../../types/toss';
 import { formatCompact, formatSigned, formatNumber } from '../../utils/formatters';
@@ -16,6 +17,11 @@ interface Props {
   symbol: string | null;
   /** 호가 가격 칸을 누르면 그 가격을 빠른주문 가격 칸으로 보낸다 */
   onPickPrice?: (price: number) => void;
+  /**
+   * 폭 전체(v2.82.0 폰 — 차트 아래 [호가] 탭 안). 줄 높이 · 글 · 색은 그대로이고, 목록은 안에서 따로 밀지 않고 본문과 함께 밀린다.
+   * 넘기지 않으면 지금처럼 차트 오른쪽 열(248).
+   */
+  full?: boolean;
 }
 
 /** 호가 한 줄 — 매도는 왼쪽, 매수는 오른쪽으로 잔량 막대가 자란다 (토스 WTS 방식). */
@@ -97,7 +103,7 @@ function Row({
   );
 
   return (
-    <div className="flex h-10 items-stretch" data-price={level.price}>
+    <div className={`flex h-10 items-stretch ${TOUCH_TABLE_ROW}`} data-price={level.price}>
       {isAsk ? (
         <>
           {quantity}
@@ -122,6 +128,7 @@ export default function OrderbookPanel({
   currency,
   symbol,
   onPickPrice,
+  full = false,
 }: Props) {
   const listRef = useRef<HTMLDivElement>(null);
   const boundaryRef = useRef<HTMLDivElement>(null);
@@ -198,8 +205,8 @@ export default function OrderbookPanel({
 
   return (
     // 최소 높이 241px = 머리 36 + 줄 이름 23 + 호가 3칸 120 + 총잔량 62 — 이보다 낮은 창에서만 열 전체가 스크롤된다
-    <aside className="flex min-h-[241px] w-[248px] flex-1 flex-col border-l border-border bg-bg-secondary">
-      <header className="flex items-center justify-between border-b border-border px-3 py-2">
+    <aside data-testid="orderbook" className={full ? 'flex w-full flex-col bg-bg-secondary' : 'flex min-h-[241px] w-[248px] flex-1 flex-col border-l border-border bg-bg-secondary'}>
+      <header className={`flex items-center justify-between border-b border-border py-2 ${full ? PANEL_X : 'px-3'}`}>
         <h2 className="text-xs font-medium">호가</h2>
       </header>
 
@@ -221,14 +228,14 @@ export default function OrderbookPanel({
         </div>
       ) : (
         <>
-          <div className="flex justify-between px-3 py-0.5 text-caption text-text-muted">
+          <div className={`flex justify-between py-0.5 text-caption text-text-muted ${full ? PANEL_X : 'px-3'}`}>
             <span>매도 잔량</span>
             <span>호가</span>
             <span>매수 잔량</span>
           </div>
 
           {/* 호가 목록 — 이 열의 **유일한 스크롤**. 최소 3칸, 스크롤바 자리는 미리 비워 둔다(Windows 칸 어긋남) */}
-          <div ref={listRef} className="min-h-[120px] flex-1 overflow-y-auto [scrollbar-gutter:stable]">
+          <div ref={listRef} className={full ? '' : 'min-h-[120px] flex-1 overflow-y-auto [scrollbar-gutter:stable]'}>
             {asks.map((level, index) => (
               <Row
                 key={`ask-${level.price}`}
@@ -261,7 +268,7 @@ export default function OrderbookPanel({
             ))}
           </div>
 
-          <div className="border-t border-border px-3 py-1">
+          <div className={`border-t border-border py-1 ${full ? PANEL_X : 'px-3'}`}>
             <div className="flex items-center justify-between text-caption tabular-nums">
               <span className="text-bearish" data-tone="sell">{formatCompact(askTotal)}</span>
               <span className="text-caption text-text-muted">총잔량</span>

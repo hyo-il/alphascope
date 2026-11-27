@@ -212,6 +212,18 @@
     --layout-mode: pad;
   }
 }
+/* 폰 가로(v2.82.0 · 테마 5-2 끝 줄 — 높이 < 500 인 폰) — JS 는 `hooks/useLayoutMode` 의 `usePhoneLandscape` 가 읽는다.
+   손가락 화면(`touch:` 와 같은 조건)은 `useTouchScreen` 이 `--touch-screen` 을 읽는다 */
+:root {
+  --touch-screen: 0;
+  @variant touch {
+    --touch-screen: 1;
+  }
+  --layout-short: 0;
+  @media (max-height: 499px) and (max-width: 1279px) {
+    --layout-short: 1;
+  }
+}
 
 html,
 body,
@@ -607,5 +619,37 @@ input[type='number']::-webkit-outer-spin-button {
 }
 [data-scroll-table][data-fade~='l'] [data-scroll-fade='left'],
 [data-scroll-table][data-fade~='r'] [data-scroll-fade='right'] {
+  opacity: 1;
+}
+
+/*
+ * 옆으로 미는 줄(v2.82.0 · 테마 9-1 R7 — 넘치는 탭 줄 · 칩 줄) — `ui/ScrollRow` 가 그리는 `data-scroll-row` 상자에만 걸린다.
+ * 끝 흐림은 옆으로 미는 표와 같은 폭 · 같은 방법(`--scroll-table-fade` · 바탕 = 그 자리의 실제 바탕 `--st-bg` · 더 밀 수 있는 쪽만 `data-fade`).
+ */
+[data-scroll-row] {
+  position: relative;
+  min-width: 0;
+}
+[data-scroll-row-inner] {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+[data-scroll-row-inner]::-webkit-scrollbar {
+  display: none;
+}
+[data-scroll-row] > [data-scroll-fade] {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+[data-scroll-row] > [data-scroll-fade='left'] {
+  left: 0;
+}
+[data-scroll-row] > [data-scroll-fade='right'] {
+  right: 0;
+}
+[data-scroll-row][data-fade~='l'] > [data-scroll-fade='left'],
+[data-scroll-row][data-fade~='r'] > [data-scroll-fade='right'] {
   opacity: 1;
 }

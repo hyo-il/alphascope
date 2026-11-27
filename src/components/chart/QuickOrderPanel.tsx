@@ -1,7 +1,8 @@
 import Button from '../ui/Button';
 import { convertAmount } from '../../utils/fx';
 import Segmented from '../ui/Segmented';
-import { ORDER_BUY_COLOR, ORDER_INDENT, ORDER_LABEL_W, ORDER_SELL_COLOR, ORDER_TRAIL_W } from '../ui/tokens';
+import { ORDER_BUY_COLOR, ORDER_INDENT, ORDER_LABEL_W, ORDER_SELL_COLOR, ORDER_TRAIL_W, TOUCH_FIELD_H, PANEL_X } from '../ui/tokens';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 import Select from '../ui/Select';
 import NumberField from '../ui/NumberField';
 import { useEffect, useMemo, useState } from 'react';
@@ -213,6 +214,22 @@ export default function QuickOrderPanel({
 
   const refresh = () => setVersion((n) => n + 1);
 
+  /** 주문 단추를 누를 수 없는 때 — 네 단추(큰 화면)와 폰의 단추 하나가 같은 판단을 쓴다 */
+  const orderDisabled = (side: OrderSide, orderType: OrderType) =>
+    orderType === 'LIMIT'
+      ? busy || !price || !limitPrice || (side === 'BUY' ? buyQuantity : sellQuantity) <= 0
+      : busy || !price || (side === 'BUY' ? marketBuyQuantity : marketSellQuantity) <= 0;
+
+  /**
+   * 화면 모양 — 폰(v2.82.0 · 테마 5-2 · 시안 「차트 · 빠른 주문」)은 [매수 | 매도] · [지정가 | 시장가] 를 고르고 **꽉 찬 주문 단추 하나**.
+   * 주문을 보내는 함수(`order`) · 요청 몸 · 확인 창은 큰 화면의 그 단추와 같다(고른 둘 → 같은 `order(side, orderType)`).
+   * 패드는 큰 화면 배치 그대로 · 손가락 크기(44)만, 주문 단추 줄은 판 아래에 붙는다(점검 74 — 화면 밖에 남지 않게).
+   */
+  const layout = useLayoutMode();
+  const phone = layout === 'phone';
+  const [pickSide, setPickSide] = useState<OrderSide>('BUY');
+  const [pickType, setPickType] = useState<OrderType>('LIMIT');
+
   const order = (side: OrderSide, orderType: OrderType) => {
     // 지정가 = 가격 칸 값, 시장가 = 지금 현재가
     const at = orderType === 'LIMIT' ? limitPrice : price;
@@ -290,7 +307,7 @@ export default function QuickOrderPanel({
   };
 
   const header = (
-    <div className="flex items-center gap-1.5 border-b border-border px-2.5 py-1.5">
+    <div className={`flex items-center gap-1.5 border-b border-border py-1.5 ${phone ? PANEL_X : 'px-2.5'}`}>
       <span className="text-xs font-medium text-text-secondary">빠른주문</span>
       <span className="rounded bg-warning/15 px-1.5 py-0.5 text-caption font-medium text-warning">
         모의
@@ -350,6 +367,196 @@ export default function QuickOrderPanel({
     </div>
   );
 
+  /** 내 평균 · 현재 수익 줄 — 큰 화면과 같은 글 */
+  const myInfo = (
+    <div className="space-y-0.5 border-t border-border pt-1.5">
+      {position ? (
+        <>
+          {info('내 주식 평균', formatPrice(position.avgPrice, currency))}
+          {info(
+            '현재 수익',
+            position.unrealizedPnl != null
+              ? formatSignedMoney(position.unrealizedPnl, currency)
+              : '—',
+            position.unrealizedPnl == null
+              ? 'text-text-muted'
+              : position.unrealizedPnl > 0
+                ? 'text-bullish'
+                : 'text-bearish',
+          )}
+        </>
+      ) : positionsFor !== accountId ? (
+        <p className="text-caption text-text-muted">확인 중…</p>
+      ) : (
+        <p className="text-caption text-text-muted">보유하지 않은 종목입니다</p>
+      )}
+    </div>
+  );
+
+  if (phone) {
+    // 폰 — 위 → 아래: [매수 | 매도] → [지정가 | 시장가] → 가격(지정가만) → 수량 → 가능 · 예상 줄 → 주문 단추 하나(색 = 고른 쪽)
+    const sideLabel = pickSide === 'BUY' ? '매수' : '매도';
+    const typeLabel = pickType === 'MARKET' ? '시장가' : '지정가';
+    const pickedQuantity = pickType === 'LIMIT' ? (pickSide === 'BUY' ? buyQuantity : sellQuantity) : pickSide === 'BUY' ? marketBuyQuantity : marketSellQuantity;
+    const pickedAt = pickType === 'LIMIT' ? limitPrice : price;
+    const presetButton = (key: string | number, text: string, onClick: () => void, pressed?: boolean) => (
+      <Button key={key} variant="secondary" aria-pressed={pressed} onClick={onClick} className={`w-full ${TOUCH_FIELD_H} ${pressed ? '!bg-bg-elevated' : ''}`}>
+        {text}
+      </Button>
+    );
+    return (
+      <div data-testid="quick-order" className="flex flex-col">
+        {header}
+        {/* 폰 탭 내용 왼쪽 끝 = 탭 줄 글자(PANEL_X) */}
+        <div className={`space-y-3 py-3 ${PANEL_X}`}>
+          <Select value={accountId ?? ''} onChange={(e) => selectAccount(Number(e.target.value))} className="w-full" aria-label="계좌">
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
+
+          <Segmented
+            label="매수 · 매도"
+            full
+            fieldRow
+            value={pickSide}
+            onChange={setPickSide}
+            options={[
+              { value: 'BUY', label: '매수', activeTone: 'buy' },
+              { value: 'SELL', label: '매도', activeTone: 'sell' },
+            ]}
+          />
+          <Segmented
+            label="주문 종류"
+            full
+            fieldRow
+            value={pickType}
+            onChange={setPickType}
+            options={[
+              { value: 'LIMIT', label: '지정가' },
+              { value: 'MARKET', label: '시장가' },
+            ]}
+          />
+
+          {pickType === 'LIMIT' && (
+            <div className="flex items-center gap-2">
+              <span className={`shrink-0 text-caption text-text-muted ${ORDER_LABEL_W}`}>가격</span>
+              <NumberField
+                thousands
+                decimals={currency === 'KRW' ? 0 : 2}
+                value={limitText}
+                onValue={(raw) => {
+                  setLimitText(raw);
+                  setTouched(true);
+                }}
+                aria-label="지정가 가격"
+                invalid={Boolean(limitText) && limitPrice == null}
+                boxClassName="min-w-0 flex-1"
+              />
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  if (price != null) setLimitText(priceText(price, currency));
+                  setTouched(false);
+                }}
+                disabled={price == null}
+                className={TOUCH_FIELD_H}
+              >
+                현재가
+              </Button>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className={`shrink-0 text-caption text-text-muted ${ORDER_LABEL_W}`}>수량</span>
+              <NumberField
+                min={0}
+                max={unit === 'percent' ? 100 : undefined}
+                value={unit === 'shares' ? quantity : percent}
+                text={unit === 'shares' && maxMode ? '최대' : undefined}
+                onValue={(raw) => {
+                  setMaxMode(false);
+                  setQuantity(Math.max(0, Number(raw || 0)));
+                }}
+                onChange={(e) => {
+                  if (unit === 'shares') {
+                    setMaxMode(false);
+                    setQuantity(Math.max(0, Number(e.target.value)));
+                  } else setPercent(Math.min(100, Math.max(0, Number(e.target.value))));
+                }}
+                aria-label={unit === 'shares' ? '수량(주)' : '수량(현금의 %)'}
+                className="min-w-0 flex-1"
+              />
+              <Segmented
+                label="수량 단위"
+                fieldRow
+                value={unit}
+                onChange={(v) => {
+                  setUnit(v);
+                  setMaxMode(false);
+                }}
+                options={[
+                  { value: 'shares', label: '주' },
+                  { value: 'percent', label: '%' },
+                ]}
+              />
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {unit === 'shares' ? (
+                <>
+                  {SHARE_PRESETS.map((n) =>
+                    presetButton(n, `${n}주`, () => {
+                      setQuantity(n);
+                      setMaxMode(false);
+                    }),
+                  )}
+                  {presetButton('max', '최대', () => {
+                    setQuantity(maxBuyable);
+                    setMaxMode(true);
+                  }, maxMode)}
+                </>
+              ) : (
+                PERCENT_PRESETS.map((n) => presetButton(n, `${n}%`, () => setPercent(n), percent === n))
+              )}
+            </div>
+            {quantityHint && <p className="text-right text-caption text-text-muted">{quantityHint}</p>}
+          </div>
+
+          <div className="space-y-0.5">
+            {pickSide === 'BUY'
+              ? info('매수 가능', fxMissing ? '환율 조회 실패' : fxPending || cash == null ? '확인 중…' : `${maxBuyable}주`)
+              : info('매도 가능', `${held}주`)}
+            {account && info('주문 가능', cash == null ? '확인 중…' : formatPrice(Math.max(0, cash), account.currency))}
+            {info(
+              `${sideLabel} 예상 (${unit === 'percent' ? `${percent}%, ` : ''}${pickType === 'LIMIT' ? '지정가' : '현재가'})`,
+              formatPrice(estimateFor(pickSide, pickedQuantity, pickedAt), currency),
+            )}
+          </div>
+
+          <Button
+            variant={pickSide === 'BUY' ? 'buy' : 'sell'}
+            onClick={() => order(pickSide, pickType)}
+            disabled={orderDisabled(pickSide, pickType)}
+            className={`w-full ${TOUCH_FIELD_H}`}
+          >
+            {typeLabel} {sideLabel}
+          </Button>
+
+          {pending.length > 0 && (
+            <Button variant="secondary" onClick={cancelAll} className={`w-full ${TOUCH_FIELD_H}`}>
+              {symbol} 대기 주문 취소 ({pending.length})
+            </Button>
+          )}
+
+          {myInfo}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex shrink-0 flex-col border-t border-border">
       {header}
@@ -391,6 +598,7 @@ export default function QuickOrderPanel({
             <div className={`shrink-0 ${ORDER_TRAIL_W} [&>div]:w-full [&_button]:flex-1`}>
               <Segmented
                 label="수량 단위"
+                fieldRow
                 size="sm"
                 value={unit}
                 onChange={(v) => {
@@ -417,7 +625,7 @@ export default function QuickOrderPanel({
                       setQuantity(n);
                       setMaxMode(false);
                     }}
-                    className="flex-1 rounded-md bg-bg-tertiary py-0.5 text-caption text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+                    className={`flex-1 rounded-md bg-bg-tertiary py-0.5 text-caption text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary ${TOUCH_FIELD_H}`}
                   >
                     {n}주
                   </button>
@@ -430,7 +638,7 @@ export default function QuickOrderPanel({
                     setQuantity(maxBuyable);
                     setMaxMode(true);
                   }}
-                  className={`flex-1 rounded-md py-0.5 text-caption transition-colors ${
+                  className={`flex-1 rounded-md py-0.5 text-caption transition-colors ${TOUCH_FIELD_H} ${
                     maxMode
                       ? 'bg-bg-elevated text-text-primary'
                       : 'bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary hover:text-accent'
@@ -445,7 +653,7 @@ export default function QuickOrderPanel({
                   key={n}
                   type="button"
                   onClick={() => setPercent(n)}
-                  className={`flex-1 rounded-md py-0.5 text-caption transition-colors ${
+                  className={`flex-1 rounded-md py-0.5 text-caption transition-colors ${TOUCH_FIELD_H} ${
                     percent === n
                       ? 'bg-bg-elevated text-text-primary'
                       : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
@@ -491,7 +699,7 @@ export default function QuickOrderPanel({
               setTouched(false);
             }}
             disabled={price == null}
-            className={`shrink-0 ${ORDER_TRAIL_W}`}
+            className={`shrink-0 ${ORDER_TRAIL_W} ${TOUCH_FIELD_H}`}
           >
             현재가
           </Button>
@@ -510,38 +718,38 @@ export default function QuickOrderPanel({
         </div>
 
         {/* 주문 버튼 — 매수 초록 / 매도 빨강 (미국 증권 기준 · 색 정의는 `tokens` 한 곳) */}
-        <div className="grid grid-cols-2 gap-1">
+        <div className={`grid grid-cols-2 gap-1${layout === 'pad' ? ' sticky bottom-0 z-10 bg-bg-primary py-1' : ''}`}>
           <button
             type="button"
             onClick={() => order('SELL', 'LIMIT')}
-            disabled={busy || !price || !limitPrice || sellQuantity <= 0}
+            disabled={orderDisabled('SELL', 'LIMIT')}
             data-tone="sell"
-            className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_SELL_COLOR}`}
+            className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_SELL_COLOR} ${TOUCH_FIELD_H}`}
           >
             지정가 매도
           </button>
           <button
             type="button"
             onClick={() => order('BUY', 'LIMIT')}
-            disabled={busy || !price || !limitPrice || buyQuantity <= 0}
-            className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_BUY_COLOR}`}
+            disabled={orderDisabled('BUY', 'LIMIT')}
+            className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_BUY_COLOR} ${TOUCH_FIELD_H}`}
           >
             지정가 매수
           </button>
           <button
             type="button"
             onClick={() => order('SELL', 'MARKET')}
-            disabled={busy || !price || marketSellQuantity <= 0}
+            disabled={orderDisabled('SELL', 'MARKET')}
             data-tone="sell"
-            className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_SELL_COLOR}`}
+            className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_SELL_COLOR} ${TOUCH_FIELD_H}`}
           >
             시장가 매도
           </button>
           <button
             type="button"
             onClick={() => order('BUY', 'MARKET')}
-            disabled={busy || !price || marketBuyQuantity <= 0}
-            className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_BUY_COLOR}`}
+            disabled={orderDisabled('BUY', 'MARKET')}
+            className={`rounded-md py-1 text-caption font-medium transition-colors disabled:opacity-40 ${ORDER_BUY_COLOR} ${TOUCH_FIELD_H}`}
           >
             시장가 매수
           </button>
@@ -553,35 +761,14 @@ export default function QuickOrderPanel({
           type="button"
           onClick={cancelAll}
           disabled={!pending.length}
-          className="w-full rounded-md bg-bg-tertiary py-1 text-caption text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40"
+          className={`w-full rounded-md bg-bg-tertiary py-1 text-caption text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-40 ${TOUCH_FIELD_H}`}
         >
           {symbol} 대기 주문 취소 ({pending.length})
         </button>
         )}
 
         {/* 내 정보 */}
-        <div className="space-y-0.5 border-t border-border pt-1.5">
-          {position ? (
-            <>
-              {info('내 주식 평균', formatPrice(position.avgPrice, currency))}
-              {info(
-                '현재 수익',
-                position.unrealizedPnl != null
-                  ? formatSignedMoney(position.unrealizedPnl, currency)
-                  : '—',
-                position.unrealizedPnl == null
-                  ? 'text-text-muted'
-                  : position.unrealizedPnl > 0
-                    ? 'text-bullish'
-                    : 'text-bearish',
-              )}
-            </>
-          ) : positionsFor !== accountId ? (
-            <p className="text-caption text-text-muted">확인 중…</p>
-          ) : (
-            <p className="text-caption text-text-muted">보유하지 않은 종목입니다</p>
-          )}
-        </div>
+        {myInfo}
       </div>
     </div>
   );
