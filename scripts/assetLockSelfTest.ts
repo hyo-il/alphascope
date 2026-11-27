@@ -165,11 +165,11 @@ try {
       const late = await call('GET', '/api/asset/summary?pension=0');
       results.push(`${r}:${w.status}:${isLocked(still) ? 'locked' : 'open'}:${isLocked(late) ? 'locked' : 'open'}`);
     }
-    // 139차: 현금 자동 반영 설정 · 되돌리기 두 가지가 늘었다 · 140차: 은행 묶음 고치기 하나 · 143차: 직접 입출금 하나
-    check('[117-3] [120-1] [134-4] [139-8] [140-3] [143-2] [151-B] 쓰기 요청 17가지(PUT class · settings · target-ratio · 151차 POST purchase/done · skip · undo · PUT purchase/monthly-accounts · price-source convert · restore · trade · 120차 새 종목 trade/new · 확인 화면 trade/new/plan · 134차 메모 daily-note · 139차 cash/settings · cash/undo · 140차 cash/banks · 143차 cash/manual) 각각 20분에 → 45분 풀림 · 50분 넘으면 잠김',
-      writes.length === 17 && results.every((x) => x.endsWith(':open:locked') && !x.includes(':403:')), results.join(' '));
-    check('[117-3] [120-1] [134-4] [139-8] [140-3] [143-2] [151-B] ACTIVE = touch + 쓰기 17가지뿐(151차 구매 완료 하나 → 계좌마다 완료 · 건너뛰기 · 되돌리기 · 매달 사는 계좌 넷)(118차 매수 · 매도 입력 · 120차 새 종목 · 134차 메모 · 139차 현금 설정 · 되돌리기 · 140차 은행 묶음 고치기 · 143차 직접 입출금 포함) · summary · sheet · history · status · cash · 미리 보기 읽기는 없음',
-      ACTIVE.size === 18 && ACTIVE.has('POST /api/asset/purchase/done') && ACTIVE.has('POST /api/asset/purchase/skip') && ACTIVE.has('POST /api/asset/purchase/undo') && ACTIVE.has('PUT /api/asset/purchase/monthly-accounts') && !ACTIVE.has('POST /api/asset/purchase-done') && ACTIVE.has('PUT /api/asset/daily-note') && ACTIVE.has('PUT /api/asset/cash/settings') && ACTIVE.has('POST /api/asset/cash/undo') && ACTIVE.has('PUT /api/asset/cash/banks') && ACTIVE.has('POST /api/asset/cash/manual') && ![...ACTIVE].some((r) => r.startsWith('GET ')) && ACTIVE.has('POST /api/asset/touch'));
+    // 139차: 현금 자동 반영 설정 · 되돌리기 두 가지가 늘었다 · 140차: 은행 묶음 고치기 하나 · 143차: 직접 입출금 하나 · 152차: 살 종목 잇기 하나
+    check('[117-3] [120-1] [134-4] [139-8] [140-3] [143-2] [151-B] [152-B] 쓰기 요청 18가지(PUT class · settings · target-ratio · 151차 POST purchase/done · skip · undo · PUT purchase/monthly-accounts · price-source convert · restore · trade · 120차 새 종목 trade/new · 확인 화면 trade/new/plan · 134차 메모 daily-note · 139차 cash/settings · cash/undo · 140차 cash/banks · 143차 cash/manual · 152차 purchase/plan-link) 각각 20분에 → 45분 풀림 · 50분 넘으면 잠김',
+      writes.length === 18 && results.every((x) => x.endsWith(':open:locked') && !x.includes(':403:')), results.join(' '));
+    check('[117-3] [120-1] [134-4] [139-8] [140-3] [143-2] [151-B] [152-B] ACTIVE = touch + 쓰기 18가지뿐(152차 살 종목 잇기 · 151차 구매 완료 하나 → 계좌마다 완료 · 건너뛰기 · 되돌리기 · 매달 사는 계좌 넷)(118차 매수 · 매도 입력 · 120차 새 종목 · 134차 메모 · 139차 현금 설정 · 되돌리기 · 140차 은행 묶음 고치기 · 143차 직접 입출금 포함) · summary · sheet · history · status · cash · 미리 보기 읽기는 없음',
+      ACTIVE.size === 19 && ACTIVE.has('PUT /api/asset/purchase/plan-link') && ACTIVE.has('POST /api/asset/purchase/done') && ACTIVE.has('POST /api/asset/purchase/skip') && ACTIVE.has('POST /api/asset/purchase/undo') && ACTIVE.has('PUT /api/asset/purchase/monthly-accounts') && !ACTIVE.has('POST /api/asset/purchase-done') && ACTIVE.has('PUT /api/asset/daily-note') && ACTIVE.has('PUT /api/asset/cash/settings') && ACTIVE.has('POST /api/asset/cash/undo') && ACTIVE.has('PUT /api/asset/cash/banks') && ACTIVE.has('POST /api/asset/cash/manual') && ![...ACTIVE].some((r) => r.startsWith('GET ')) && ACTIVE.has('POST /api/asset/touch'));
   }
 
   {
