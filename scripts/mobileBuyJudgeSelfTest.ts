@@ -573,7 +573,8 @@ try {
         if (latest) got = count(fs.readFileSync(latest, 'utf8'));
         from = latest ? `로그 ${path.relative(root, latest)}` : '로그 없음 — check:all 로 먼저 돌린다';
       }
-      check(`[150-11] ${name} — chasuRange 를 씀 · 확인 항목 ${want.checks} · 통과 ${want.pass} = 정답(${from})`, uses && got != null && got.checks === want.checks && got.pass === want.pass && got.fail === 0, `${uses ? '' : '옛 비교가 남음 · '}${JSON.stringify(got)}`);
+      // 151차: 지금 코드로 다시 돌린 개수라 뒤 차수가 확인을 더하면 늘어난다(asset:test 299 → 301) — 150차 정답 이상 · 실패 0 이면 맞음(줄어들면 실패)
+      check(`[150-11] ${name} — chasuRange 를 씀 · 확인 항목 ${want.checks} 이상 · 통과 ${want.pass} 이상 · 실패 0 = 정답(${from})`, uses && got != null && got.checks >= want.checks && got.pass >= want.pass && got.fail === 0, `${uses ? '' : '옛 비교가 남음 · '}${JSON.stringify(got)}`);
     }
   }
 

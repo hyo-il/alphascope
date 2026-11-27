@@ -1610,7 +1610,7 @@ check('[112-1] [151-7] 화면 — 팝업은 서버 needsPopup 으로만(AssetDas
 check('[112-5] [117-2] [151-C3] 확인 창 문구 — 서버가 준 계좌의 sheetDateText 로 만들고(미리 완료는 「다음 구매 차례(○)를 미리 완료로 기록합니다.」) · 이미 이후면 「시트 날짜는 이미 ○ — 그대로 두고 완료로 기록합니다.」 · 되돌리기는 「시트 날짜는 그대로입니다」 · 「오늘(날짜)로」 글자 0',
   /sheetDateText\(a\.sheetDateText, p\.next \? '다음' : '이번'\)/.test(dashSrc) && /다음 구매 차례\(\$\{dayText\(p\.cycleDay\)\}\)를 미리 완료로 기록합니다\. /.test(dashSrc) &&
     /계좌 이름 날짜를 \$\{sheetDateText\(/.test(dashSrc) && /시트 날짜는 이미 \$\{a\.sheetDateNow \?\? ''\} — 그대로 두고 완료로 기록합니다\./.test(dashSrc) && /기록만 되돌립니다 — 시트 날짜는 그대로입니다\./.test(dashSrc) && !/날짜를 오늘/.test(dashSrc));
-// [117-2] 화면 — 이번 차례를 끝낸 계좌는 「다음 차례(○)」 줄 + [미리 구매 완료](canDone) · [건너뛰기](canSkip) · 처리한 다음 차례는 상태 + [되돌리기]
+// [117-2] 화면 — 이번 차례를 끝낸 계좌는 「다음 차례 ○」 줄 + [미리 구매 완료](canDone) · [건너뛰기](canSkip) · 처리한 다음 차례는 상태 + [되돌리기]
 check('[117-2] [151-6] 화면 — 다음 차례 줄(이번 차례를 끝낸 계좌만) · [미리 구매 완료] = 서버 next.canDone · [건너뛰기] = next.canSkip · 화면이 날짜로 다시 판단하지 않음',
   /const showNext = finished && \(a\.next\.status !== 'todo' \|\| a\.next\.canDone \|\| a\.next\.canSkip\);/.test(buySrc) && /canDone=\{a\.next\.canDone\}/.test(buySrc) && /canSkip=\{a\.next\.canSkip\}/.test(buySrc) && /doneLabel="미리 구매 완료"/.test(buySrc) && !/earlyFrom/.test(buySrc));
 // [112-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력 코드 바뀐 파일 0(111차 끝 1117cba → v2.64.1 끝)

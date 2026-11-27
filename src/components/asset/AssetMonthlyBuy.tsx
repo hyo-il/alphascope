@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import { CircleCheck } from 'lucide-react';
 import { Badge, Button, Dialog, ICON_SM, Panel, SectionTitle } from '../ui';
-import { LIST_ROW, LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
+import { LIST_ROW, LIST_TABLE_ROW, TABLE_HEAD_ROW, TOUCH_WRAP_GAP, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP } from '../ui/tokens';
 import { formatNumber, formatPrice } from '../../utils/formatters';
 import type { MonthlyBuy, MonthlyBuyAccount, PurchaseStatus } from '../../types/asset';
 import ScrollTable from '../ui/ScrollTable';
@@ -11,7 +11,7 @@ import ScrollTable from '../ui/ScrollTable';
  * - 「비율 조정」 탭 아래 구역(`MonthlyBuySection`)과 구매일 팝업(`PurchaseDayDialog`)이 같은 표(`MonthlyBuyTable`) · 같은 계좌 목록(`PurchaseAccountList`)을 그린다.
  * - 금액 · 구매일 · 계좌마다 상태 · 누를 수 있는 단추는 서버 `monthlyBuy`(summary 응답 — `purchase.ts` `purchaseAccountsOf` 한 곳) 그대로 — 화면에서 다시 판단하지 않는다.
  * - 계좌마다 [구매 완료](확인 창 → 그 계좌 이름 날짜만 씀 · 시트 날짜가 이미 그 차례 이후면 그대로 두고 기록만) · [건너뛰기](확인 창 없음 · 기록만) ·
- *   완료 · 건너뜀은 [되돌리기](확인 창 · 기록만 — 시트 날짜는 그대로). 이번 차례를 끝낸 계좌는 다음 차례 줄 「다음 차례(○) — [미리 구매 완료] [건너뛰기]」.
+ *   완료 · 건너뜀은 [되돌리기](확인 창 · 기록만 — 시트 날짜는 그대로). 이번 차례를 끝낸 계좌는 다음 차례 줄 「다음 차례 ○ [미리 구매 완료] [건너뛰기]」.
  * - 매달 사지 않는 계좌(자산 관리 설정 › 이번 달 구매)는 목록에 나오지 않는다. 시작 전 차례(`mb.skipped`)는 「시작 전 차례 — 묻지 않음」.
  * - 쓰기 스위치가 꺼진 서버: [구매 완료] 만 막고 안내(건너뛰기 · 되돌리기는 시트를 쓰지 않으므로 됨).
  * - 저장 중(`busy` — 누른 단추)에는 목록 전체를 막는다(`AssetDashboard` 가 요청 · 확인 창 · 다시 받기).
@@ -209,13 +209,13 @@ function AccountRow({ mb, a, writeEnabled, busyKey, note, onPress }: { mb: Month
   const finished = a.status !== 'todo';
   const showNext = finished && (a.next.status !== 'todo' || a.next.canDone || a.next.canSkip);
   return (
-    <li className="space-y-1 py-1" data-testid="purchase-account" data-section={a.section} data-status={a.status}>
-      <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${LIST_ROW}`}>
+    <li className={`flex flex-col gap-1 py-2 ${TOUCH_WRAP_GAP} touch:py-3`} data-testid="purchase-account" data-section={a.section} data-status={a.status}>
+      <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${TOUCH_WRAP_GAP} ${LIST_ROW}`}>
         <span className="min-w-0 max-w-full truncate text-xs text-text-primary" data-tip={a.name} data-tip-clip data-testid="purchase-account-name">
           {a.name}
         </span>
         <StatusBadge status={a.status} at={a.at} />
-        <span className="ml-auto flex shrink-0 items-center gap-1">
+        <span className="ml-auto flex shrink-0 items-center justify-end gap-1 phone:basis-full">
           <Actions
             status={a.status}
             canDone
@@ -231,16 +231,10 @@ function AccountRow({ mb, a, writeEnabled, busyKey, note, onPress }: { mb: Month
         </span>
       </div>
       {showNext && (
-        <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 pl-4 text-xs text-text-secondary ${LIST_ROW}`} data-testid="purchase-next" data-status={a.next.status}>
-          <span className="tabular-nums">다음 차례({dayText(mb.nextDay)})</span>
-          {a.next.status === 'todo' ? (
-            <span className="text-text-muted" aria-hidden>
-              —
-            </span>
-          ) : (
-            <StatusBadge status={a.next.status} at={a.next.at} />
-          )}
-          <span className="ml-auto flex shrink-0 items-center gap-1">
+        <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${TOUCH_WRAP_GAP} pl-4 text-xs text-text-secondary ${LIST_ROW}`} data-testid="purchase-next" data-status={a.next.status}>
+          <span className="tabular-nums">다음 차례 {dayText(mb.nextDay)}</span>
+          {a.next.status !== 'todo' && <StatusBadge status={a.next.status} at={a.next.at} />}
+          <span className="ml-auto flex shrink-0 items-center justify-end gap-1 phone:basis-full">
             <Actions
               status={a.next.status}
               canDone={a.next.canDone}
@@ -275,7 +269,7 @@ export function PurchaseAccountList({ mb, writeEnabled, busyKey, notes, onPress 
     );
   }
   return (
-    <ul className={`divide-y divide-border/30 ${busyKey != null ? 'pointer-events-none' : ''}`} aria-busy={busyKey != null || undefined} data-testid="purchase-accounts">
+    <ul className="divide-y divide-border/30" aria-busy={busyKey != null || undefined} data-testid="purchase-accounts">
       {list.map((a) => (
         <AccountRow key={a.section} mb={mb} a={a} writeEnabled={writeEnabled} busyKey={busyKey} note={notes[a.section] ?? null} onPress={onPress} />
       ))}

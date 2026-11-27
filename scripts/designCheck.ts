@@ -959,7 +959,7 @@ function targets(): Target[] {
           await page.locator('#as-asset-monthly-buy').scrollIntoViewIfNeeded().catch(() => {});
           await page.waitForTimeout(200);
         }],
-        // v2.65.4 · v2.78.0 — 다음 차례 미리 처리(「다음 차례(○) — [미리 구매 완료] [건너뛰기]」 · 확인 창 · 미리 완료한 뒤 상태 + [되돌리기])
+        // v2.65.4 · v2.78.0 — 다음 차례 미리 처리(「다음 차례 ○ [미리 구매 완료] [건너뛰기]」 · 확인 창 · 미리 완료한 뒤 상태 + [되돌리기])
         ['이번달구매-미리완료가능', { early: 'can' }, async (page: Page) => {
           await page.locator('#as-asset-monthly-buy').scrollIntoViewIfNeeded().catch(() => {});
           await page.waitForTimeout(200);
