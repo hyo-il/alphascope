@@ -8,6 +8,8 @@
  *   3 「티커」 종목 줄 수 · 국내/미국 · D열 자산 분류 값 · 4 시트 가격 칸 모양(113차 A-0 와 같은 검사 — `classifyLine`) ·
  *   5 목표 비율 여섯 칸 · 계좌 이름 「( 날짜 )」 모양 · 값 칸(은행 자산 총액 · 퇴직 연금 총액 · 월급 · 구매 평균 환율) · 6 「주식 투자 정리」 보유 줄이 「티커」 와 이어지는가 ·
  *   7 머리 글자로 찾은 보유 구간 · 「티커」 묶음마다 종목 줄 수 · 빈 줄 수 · 빈 줄 칸 모양(새 종목 입력 준비 — v2.66.0) · 구매 평균 환율 칸 모양. 7번은 알림뿐(연결 판단에 넣지 않는다).
+ *   8 「적립식 투자」 탭 모양(v2.78.0 · 다음 차수 계좌 · 종목별 구매 목록 준비 — `runSavingTabCheck` · 탭 목록 1번 + 값 1번 + 수식 1번) — 「분할 개월 수」 묶음마다
+ *   칸 주소 · 줄 수 · 맞음 / 아님만. 알림뿐(연결 판단에 넣지 않는다). ⚠️ 금액 · 비율 값 · 이름 글자 · 개월 수 값은 출력하지 않는다.
  * - 마지막 줄 「✅ 연결해도 됩니다」(종료 0) 또는 「❌ 연결하지 마세요 — 위 n곳을 먼저 고쳐 주세요」(종료 1). ⚠️ 는 알림(연결은 됨).
  * ⚠️ 금액 · 수량 · 종목 이름 · 코드 · 시트 ID 전체 · 열쇠 값(이메일 말고)을 출력하지 않는다 — 시트는 ID 앞 4글자 + 「…」 · 날짜는 숫자를 # 로.
  * ⚠️ 쓰기 함수(`valuesWrite` · `write…` · 바꾸기 · 되돌리기)를 import 하지 않는다(`assetsheet:test` 가 소스로 확인). DB 도 열지 않는다.
@@ -16,7 +18,7 @@ import 'dotenv/config';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AssetSheetError, batchGet, type CellRows } from '../server/asset/google';
+import { AssetSheetError, batchGet, sheetTabs, type CellRows } from '../server/asset/google';
 import { NAME_DATE, headerOk, linkedTickerRow, one, splitCode, tickerRowCode, wideRange } from '../server/asset/sheet';
 import { HOLDINGS_TAB, SHEET_LAYOUT, TICKER_TAB, type HeaderCheck } from '../server/asset/sheetLayout';
 import { findCashShape, findSheetShape, tickerRowsOf, type CashShape, type SheetShape } from '../server/asset/sheetShape';
@@ -291,6 +293,175 @@ export async function runSheetCheck(config: AssetSheetConfig, say: (line: string
   return { ok: problems === 0, problems, reads };
 }
 
+// ── 8. 「적립식 투자」 탭 모양(v2.78.0 · 읽기만 · 모양만) ─────────────────────────────────────────────
+/** 찾는 탭 이름 · 묶음 머리 글자 · 총 금액 칸 옆 글자에서 볼 낱말 */
+export const SAVING_TAB = '적립식 투자';
+const SAVING_ANCHOR = '분할 개월 수';
+const AMOUNT_WORDS = ['금액', '총', '구매'] as const;
+/** 읽는 범위(A1 부터 — 탭 모양을 모른다) */
+const SAVING_LAST = { col: 'Z', row: 300 } as const;
+
+const sq = (v: Cell) => String(v ?? '').replace(/\s+/g, '');
+const addr = (r: number, c: number) => `${String.fromCharCode(65 + c)}${r + 1}`;
+const colOf = (c: number) => String.fromCharCode(65 + c);
+const isText = (v: Cell) => typeof v === 'string' && v.trim() !== '' && !isFormula(v);
+
+/** 묶음 하나의 모양(값 없이) */
+export interface SavingGroupShape {
+  anchor: string;
+  months: { cell: string; isNumber: boolean } | null;
+  amountCandidates: { cell: string; label: { length: number; words: boolean } | null }[];
+  ratio: { column: string; firstRow: number; lastRow: number; rows: number; zeroRows: number } | null;
+  nameColumns: string[];
+  sum: { cell: string; is100: boolean } | null;
+  account: string | null;
+  /** 계좌 이름이 앞 낱말만 맞았나(「ISA」 · 「연금」 처럼) */
+  accountPartial: boolean;
+  formulaCells: number;
+  /** 「합계」 글자가 든 칸(묶음 안) */
+  sumLabels: string[];
+  /** 줄마다 칸 종류 지도(값 없음) — `행: A· B글 C수 …` */
+  map: string[];
+}
+
+/**
+ * 탭 값 · 수식(A1 부터 줄 단위)에서 「분할 개월 수」 묶음마다 모양만 뽑는다 — 순수 함수(시험이 가짜 탭으로 부른다).
+ * - 개월 수 칸: 머리 칸 오른쪽(세 칸까지) · 바로 아래에서 처음 만난 값 칸.
+ * - 총 금액 후보: 머리 칸 옆 · 위 · 아래(머리 줄 ±1 · 머리 열 −1 ~ +4)의 숫자 칸(개월 수 칸 제외) — 그 칸 왼쪽 / 위 글자는 길이 · 낱말(금액 · 총 · 구매) 있음 / 없음만.
+ * - 비율 줄: 머리 줄 아래에서 0 ~ 1 숫자(또는 0 ~ 100)가 가장 많은 열 · 빈 줄 두 줄 · 다음 머리 · 「합계」 글자 줄 앞까지. 합계 줄 = 그 열에서 「합계」 글자가 든 줄 또는 비율 줄 바로 아래 숫자 칸.
+ * - 계좌 이름: 묶음 위(세 줄) · 왼쪽 글자 중 계좌 key(「주식 투자 정리」 계좌 구간 — 공백 무시)로 시작하는 것.
+ */
+export function savingTabShape(values: CellRows, formulas: CellRows): SavingGroupShape[] {
+  const V = (r: number, c: number): Cell => values[r]?.[c];
+  const F = (r: number, c: number): Cell => formulas[r]?.[c];
+  const rows = Math.max(values.length, formulas.length);
+  const cols = Math.max(0, ...values.map((x) => x?.length ?? 0), ...formulas.map((x) => x?.length ?? 0));
+  const anchors: [number, number][] = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (typeof V(r, c) === 'string' && sq(V(r, c)).includes(sq(SAVING_ANCHOR))) anchors.push([r, c]);
+  const keys = L.sections.flatMap((x) => (x.combined || !x.key ? [] : [x.key]));
+  const valued = (r: number, c: number) => !blank(V(r, c)) || !blank(F(r, c));
+  return anchors.map(([ar, ac], gi) => {
+    const nextAnchorRow = anchors[gi + 1]?.[0] ?? rows;
+    // 개월 수
+    const monthsAt =
+      [[ar, ac + 1], [ar, ac + 2], [ar, ac + 3], [ar + 1, ac], [ar + 1, ac + 1]].find(([r, c]) => isNum(V(r, c))) ??
+      [[ar, ac + 1], [ar, ac + 2], [ar, ac + 3], [ar + 1, ac]].find(([r, c]) => valued(r, c));
+    const months = monthsAt ? { cell: addr(monthsAt[0], monthsAt[1]), isNumber: isNum(V(monthsAt[0], monthsAt[1])) } : null;
+    // 총 금액 후보
+    const amountCandidates: SavingGroupShape['amountCandidates'] = [];
+    for (let r = ar - 1; r <= ar + 1; r++) {
+      for (let c = Math.max(0, ac - 1); c <= ac + 4; c++) {
+        if (r < 0 || (r === ar && c === ac) || (monthsAt && r === monthsAt[0] && c === monthsAt[1]) || !isNum(V(r, c))) continue;
+        const lab = [V(r, c - 1), V(r - 1, c)].find((x) => isText(x) && !sq(x).includes(sq(SAVING_ANCHOR)));
+        amountCandidates.push({ cell: addr(r, c), label: lab == null ? null : { length: String(lab).trim().length, words: AMOUNT_WORDS.some((w) => String(lab).includes(w)) } });
+      }
+    }
+    // 비율 줄 — 머리 아래 줄들에서 0~1(또는 0~100) 숫자가 가장 많은 열
+    const start = ar + 1;
+    let end = start;
+    for (let r = start, empty = 0; r < nextAnchorRow; r++) {
+      const any = Array.from({ length: cols }, (_, c) => valued(r, c)).some(Boolean);
+      empty = any ? 0 : empty + 1;
+      if (empty >= 2) break;
+      if (any) end = r;
+    }
+    const isSumRow = (r: number) => Array.from({ length: cols }, (_, c) => V(r, c)).some((x) => typeof x === 'string' && sq(x).includes('합계'));
+    // 비율 칸은 % 모양이면 0 ~ 1 로 읽힌다 — 그런 열이 없으면 0 ~ 100 숫자(「25」 처럼 % 없이 적은 칸)로 한 번 더
+    const inRange = (v: Cell, bound: number) => isNum(v) && (v as number) >= 0 && (v as number) <= bound;
+    const bestOf = (bound: number) => {
+      let out: { c: number; n: number; bound: number } | null = null;
+      for (let c = 0; c < cols; c++) {
+        let n = 0;
+        for (let r = start; r <= end; r++) if (!isSumRow(r) && inRange(V(r, c), bound) && !(monthsAt && r === monthsAt[0] && c === monthsAt[1])) n++;
+        if (n > 0 && (!out || n > out.n)) out = { c, n, bound };
+      }
+      return out;
+    };
+    const best = bestOf(1) ?? bestOf(100);
+    let ratio: SavingGroupShape['ratio'] = null;
+    let sum: SavingGroupShape['sum'] = null;
+    const nameCols = new Set<string>();
+    if (best) {
+      const rc = best.c;
+      const ratioRows: number[] = [];
+      let sumRow: number | null = null;
+      for (let r = start; r <= end; r++) {
+        const v = V(r, rc);
+        if (isSumRow(r)) {
+          if (isNum(v)) sumRow = r;
+          continue;
+        }
+        if (inRange(v, best.bound) && !(monthsAt && r === monthsAt[0] && rc === monthsAt[1])) ratioRows.push(r);
+      }
+      if (sumRow == null && ratioRows.length && isNum(V(ratioRows.at(-1)! + 1, rc))) sumRow = ratioRows.at(-1)! + 1;
+      if (ratioRows.length) {
+        ratio = { column: colOf(rc), firstRow: ratioRows[0] + 1, lastRow: ratioRows.at(-1)! + 1, rows: ratioRows.length, zeroRows: ratioRows.filter((r) => V(r, rc) === 0).length };
+        for (const r of ratioRows) for (let c = 0; c < cols; c++) if (c !== rc && isText(V(r, c))) nameCols.add(colOf(c));
+      }
+      if (sumRow != null) {
+        const v = V(sumRow, rc) as number;
+        sum = { cell: addr(sumRow, rc), is100: Math.abs(v - 1) < 1e-6 || Math.abs(v - 100) < 1e-6 };
+      }
+    }
+    // 계좌 이름 — 앞 묶음 끝 다음 줄 ~ 머리 줄의 모든 글자(공백 무시) · 없으면 계좌 key 앞 낱말(「ISA」 · 「연금」 …)만 맞는 것
+    const top = gi === 0 ? 0 : anchors[gi - 1][0] + 1;
+    const near: Cell[] = [];
+    for (let r = Math.max(top, ar - 3); r <= ar; r++) for (let c = 0; c < cols; c++) near.push(V(r, c));
+    const texts = near.filter((x): x is string => typeof x === 'string').map(sq);
+    const full = keys.find((k) => texts.some((x) => x.includes(sq(k))));
+    const part = full ? undefined : keys.find((k) => texts.some((x) => x.includes(sq(k.split(' ')[0]))));
+    const account = full ?? part ?? null;
+    const sumLabels: string[] = [];
+    for (let r = ar; r <= end; r++) for (let c = 0; c < cols; c++) if (typeof V(r, c) === 'string' && sq(V(r, c)).includes('합계')) sumLabels.push(addr(r, c));
+    // 칸 종류 지도 — 머리 위 한 줄 ~ 끝 줄 · 내용이 있는 열만(빈칸 · 글 · 수 · 비(0~1) · 식(수식) — 값 없음)
+    const mapCols = Array.from({ length: cols }, (_, c) => c).filter((c) => Array.from({ length: end - ar + 2 }, (_, k) => ar - 1 + k).some((r) => r >= 0 && valued(r, c)));
+    const kind = (r: number, c: number) => (isFormula(F(r, c)) ? '식' : isNum(V(r, c)) ? ((V(r, c) as number) >= 0 && (V(r, c) as number) <= 1 ? '비' : '수') : isText(V(r, c)) ? '글' : '·');
+    const map: string[] = [];
+    for (let r = Math.max(0, ar - 1); r <= end; r++) map.push(`${r + 1}행: ${mapCols.map((c) => `${colOf(c)}${kind(r, c)}`).join(' ')}`);
+    // 이 묶음 칸 중 수식(머리 위 세 줄 ~ 비율 끝 · 머리 열 −2 ~ +6)
+    let formulaCells = 0;
+    for (let r = Math.max(0, ar - 3); r <= Math.max(end, ar + 1); r++) for (let c = Math.max(0, ac - 2); c <= ac + 6; c++) if (isFormula(F(r, c))) formulaCells++;
+    return { anchor: addr(ar, ac), months, amountCandidates, ratio, nameColumns: [...nameCols].sort(), sum, account, accountPartial: part != null && full == null, formulaCells, sumLabels, map };
+  });
+}
+
+/** 묶음 모양 → 출력 줄(값 없음) */
+export function savingTabLines(tabMatch: 'exact' | 'spacing' | 'none', groups: SavingGroupShape[]): string[] {
+  if (tabMatch === 'none') return [`8. 「${SAVING_TAB}」 탭 — 없음(이 시트에 그 이름의 탭이 없습니다 · 공백 차이도 없음)`];
+  const out = [`8. 「${SAVING_TAB}」 탭 — 있음(${tabMatch === 'exact' ? '이름 그대로 맞음' : '공백만 다름'}) · 「${SAVING_ANCHOR}」 묶음 ${groups.length}개 (값 없음 — 칸 주소 · 개수만)`];
+  groups.forEach((g, i) => {
+    out.push(`   묶음 ${i + 1} — 머리 ${g.anchor} · 계좌 ${g.account ? `「${g.account}」${g.accountPartial ? '(앞 낱말만 맞음)' : ''}` : '못 찾음'} · 수식 칸 ${g.formulaCells}`);
+    out.push(`      개월 수 칸 — ${g.months ? `${g.months.cell} (${g.months.isNumber ? '숫자 맞음' : '숫자 아님'})` : '못 찾음'}`);
+    out.push(
+      `      총 금액 후보 — ${g.amountCandidates.length ? g.amountCandidates.map((a) => `${a.cell}${a.label ? `(옆 글자 ${a.label.length}자 · 낱말 ${a.label.words ? '있음' : '없음'})` : '(옆 글자 없음)'}`).join(' · ') : '없음'}`,
+    );
+    out.push(`      비율 줄 — ${g.ratio ? `${g.ratio.column}${g.ratio.firstRow} ~ ${g.ratio.column}${g.ratio.lastRow} · ${g.ratio.rows}줄 · 0% ${g.ratio.zeroRows}줄 · 이름 열 ${g.nameColumns.join(' · ') || '없음'}` : '못 찾음'}`);
+    out.push(`      합계 줄 — ${g.sum ? `${g.sum.cell} · 100% ${g.sum.is100 ? '맞음' : '아님'}` : '못 찾음'}${g.sumLabels.length ? ` · 「합계」 글자 ${g.sumLabels.join(' · ')}` : ''}`);
+    out.push(`      칸 지도(값 없음 — · 빈칸 · 글 글자 · 수 숫자 · 비 0~1 숫자 · 식 수식)`);
+    for (const m of g.map) out.push(`         ${m}`);
+  });
+  return out;
+}
+
+/** 8 — 탭 목록 1번 + 값 1번 + 수식 1번(탭이 없으면 목록만) · 읽기만. 돌려주는 값은 구글 읽기 수 */
+export async function runSavingTabCheck(config: AssetSheetConfig, say: (line: string) => void): Promise<{ reads: number }> {
+  let reads = 1;
+  const titles = [...(await sheetTabs(config)).keys()];
+  const exact = titles.find((t) => t === SAVING_TAB);
+  const loose = exact ?? titles.find((t) => sq(t) === sq(SAVING_TAB));
+  if (!loose) {
+    for (const l of savingTabLines('none', [])) say(l);
+    return { reads };
+  }
+  const range = one(loose, `A1:${SAVING_LAST.col}${SAVING_LAST.row}`);
+  reads++;
+  const [vals] = await batchGet(config, [range], 'UNFORMATTED_VALUE');
+  reads++;
+  const [forms] = await batchGet(config, [range], 'FORMULA');
+  for (const l of savingTabLines(exact ? 'exact' : 'spacing', savingTabShape(vals, forms))) say(l);
+  return { reads };
+}
+
 /** 명령 인자 `--sheet <ID>` · `--sheet=<ID>` */
 export function sheetArg(argv: string[]): string | null {
   for (let k = 0; k < argv.length; k++) {
@@ -313,6 +484,12 @@ async function main(): Promise<number> {
     return 1;
   }
   const r = await runSheetCheck({ sheetId, keyFile }, (line) => console.log(line));
+  // 8 — 알림뿐(연결 판단에 넣지 않는다 · 읽기 실패도 이유 종류 한 줄만)
+  try {
+    await runSavingTabCheck({ sheetId, keyFile }, (line) => console.log(line));
+  } catch (e) {
+    console.log(`8. 「${SAVING_TAB}」 탭 — 읽지 못함(${e instanceof AssetSheetError ? e.kind : '알 수 없는 오류'})`);
+  }
   return r.ok ? 0 : 1;
 }
 

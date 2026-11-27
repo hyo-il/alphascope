@@ -231,6 +231,7 @@ ID='<원본 ID>'; F=~/projects/alphascope/app/.env; if grep -q '^ASSET_SHEET_ID=
 ## 점검 도구
 
 - 자산 시트 점검(`asset:check-sheet`) — 위 「자산 원본 시트로 바꾸기」 5번(읽기만 · `--sheet` 가 없으면 `.env` 의 `ASSET_SHEET_ID`).
+  - 끝의 8번 「적립식 투자」 탭 모양(v2.78.0 · 다음 차수 계좌 · 종목별 구매 목록 준비 — 읽기 3번 · 칸 주소 · 개수 · 칸 지도만, 금액 · 비율 · 이름은 나오지 않음)은 연결 판단에 넣지 않는 알림이다. 맥 시험용 시트에 그 탭이 없으면 오라클에서 `cd ~/projects/alphascope/app && npm run -s asset:check-sheet` 한 번 돌려 8번 줄만 Claude 에게 붙여 준다.
 
 ### 오늘 시황 소스 점검 (`marketbrief:sources`)
 
