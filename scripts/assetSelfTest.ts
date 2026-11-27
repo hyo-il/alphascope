@@ -1637,7 +1637,7 @@ check('[112-7] 매매 · 시황 · 자동매매 · 거래정지 · 휴장 달력
   // v2.71.0 — 7번째 메뉴 「현금 자동 반영」(잠금 바로 위)
   check('[115-7] [117-4] [139-8] [151-C4] 설정 창 = 공용 SideNavDialog · 제목 「자산 관리 설정」 · titleAside 없음 · 메뉴 순서 목표 비율 · 코어 · 위성 · 연금 · 이번 달 구매(151차) · 자산 분류 색 · 시트 가격 · 현금 자동 반영 · 잠금(8개) · 기억 키 try/catch · [목표 비율 바꾸기] → target',
     /<SideNavDialog\s+title="자산 관리 설정"/.test(sd) && !/titleAside/.test(sd) && JSON.stringify(labelsMulti) === JSON.stringify(['목표 비율', '코어 · 위성', '연금', '이번 달 구매', '자산 분류 색', '시트 가격', '현금 자동 반영', '잠금']) &&
-      /const MENUS = \['target', 'core', 'pension', 'purchase', 'colors', 'price', 'cash', 'lock'\] as const/.test(sd) && /focus === 'targetRatio' \? 'target' : readMenu\(\)/.test(sd) && /catch \{\s*return 'target';/.test(sd), labels.join('|') + ' / ' + labelsMulti.join('|'));
+      /const MENUS = \['target', 'core', 'pension', 'purchase', 'colors', 'price', 'cash', 'lock'\] as const/.test(sd) && /focus === 'targetRatio' \? 'target' : (?:focus === 'purchase' \? 'purchase' : )?readMenu\(\)/.test(sd) /* 152차: 「종목을 이어 주세요」 → 이번 달 구매 */ && /catch \{\s*return 'target';/.test(sd), labels.join('|') + ' / ' + labelsMulti.join('|'));
   check('[115-7] 새 부품 SideNavDialog — ui 에서 내보냄 · role tablist/tab/tabpanel · 위/아래 키 · 768px(md) 밑 가로 줄 · 고정 크기만(lg · xl · full) · 자산 글자 없음 · 색은 토큰 클래스만(# · rgb 0)',
     /export \{ default as SideNavDialog/.test(fs.readFileSync(path.join(root, 'src/components/ui/index.ts'), 'utf8')) && /role="tablist"/.test(nav) && /role="tab"/.test(nav) && /role="tabpanel"/.test(nav) &&
       /ArrowDown/.test(nav) && /ArrowUp/.test(nav) && /md:flex-row/.test(nav) && /Extract<DialogSize, 'lg' \| 'xl' \| 'full'>/.test(nav) && !/자산/.test(nav) && !/#[0-9a-fA-F]{3,6}\b|rgb\(/.test(nav));

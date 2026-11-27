@@ -311,7 +311,10 @@ export default function AssetSettingsDialog({
         ))}
       </ul>
     </Block>
-    <Block title="살 종목 잇기" desc="시트 「적립식 투자」 탭의 줄 이름을 그 계좌의 보유 종목과 한 번 이어 둡니다. 시트는 바꾸지 않습니다." busy={linkBusy != null} error={linkError}>
+    <Block busy={linkBusy != null} error={linkError}>
+      {/* 제목 · 설명은 직접 그린다(부품 `title` 속성을 늘리지 않음 — 툴팁 목록 문서 「바꾸지 않음」 97곳 그대로) */}
+      <h4 className="text-xs font-semibold text-text-primary">살 종목 잇기</h4>
+      <p className="text-caption text-text-muted keep-all">시트 「적립식 투자」 탭의 줄 이름을 그 계좌의 보유 종목과 한 번 이어 둡니다. 시트는 바꾸지 않습니다.</p>
       <div className="space-y-3" data-setting="purchase-links">
         {summary.monthlyBuy.planError && (
           <p className="text-xs text-warning keep-all" role="status" data-testid="plan-links-error">

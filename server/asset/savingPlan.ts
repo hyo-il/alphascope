@@ -36,7 +36,7 @@ let cache: { at: number; rows: SavingTabRows } | null = null;
 let inflight: Promise<SavingTabRows> | null = null;
 
 /** 시트 캐시를 비울 때(`sheet.ts` `resetSheetCache` — 쓰기 뒤 · 시트 바꿈 · 시험) 함께 비운다 */
-export function resetSavingCache(): void {
+function resetSavingCache(): void {
   cache = null;
   inflight = null;
 }
