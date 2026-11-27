@@ -25,6 +25,7 @@ import AssetTradeHistoryDialog from './AssetTradeHistoryDialog';
 import { codeOfTickerRow, type ClassSendResult, type ClassValue } from '../../utils/assetClassPlan';
 import AssetRebalanceView from './AssetRebalanceView';
 import { MonthlyBuySection, PurchaseDayDialog, dayText, pressKey, sheetDateText, type PurchasePress } from './AssetMonthlyBuy';
+import { PLAN_BUY_TIP, planBuyInitial, planBuyTarget, type PlanBuy } from './AssetMonthlyPlan';
 import ScrollTable from '../ui/ScrollTable';
 
 /**
@@ -145,6 +146,10 @@ export default function AssetDashboard({
   const [reloading, setReloading] = useState(false);
   const [tab, setTab] = useState<AssetTab>(readTab);
   const open = tab === 'status';
+  /** 시트 응답(`/api/asset/sheet`)을 받을까 — 자산 현황 탭 · 비율 조정 탭에 [매수 입력] 이 있는 이은 살 종목 줄이 있을 때(보유 줄을 찾는다 · v2.80.0) */
+  const latestSummary = latest && latest.result.ok ? latest.result.summary : null;
+  const planNeedsSheet = latestSummary != null && latestSummary.monthlyBuy.accounts.some((a) => a.buysMonthly && (a.plan?.rows ?? []).some((r) => r.symbol != null));
+  const wantSheet = open || (tab === 'rebalance' && planNeedsSheet);
   /** 설정 창 — null 이면 닫힘 · 'targetRatio' 면 목표 비율 칸으로 연다 */
   /** 설정 창 — 위 단추 · 「목표 비율 바꾸기」 · 「종목을 이어 주세요」(그 계좌 잇기 표 · v2.79.0) */
   const [settingsOpen, setSettingsOpen] = useState<null | 'top' | 'targetRatio' | { purchase: string }>(null);
@@ -219,12 +224,12 @@ export default function AssetDashboard({
     } catch {
       if (!ac.signal.aborted) setLatest((prev) => prev ?? { pension, result: { ok: false, fail: { error: '서버에 연결하지 못했습니다.' } } });
     }
-    if (open && !ac.signal.aborted) await loadSheet(ac.signal);
+    if (wantSheet && !ac.signal.aborted) await loadSheet(ac.signal);
     if (reloadAbort.current === ac) {
       reloadAbort.current = null;
       setReloading(false);
     }
-  }, [url, pension, open, loadSheet]);
+  }, [url, pension, wantSheet, loadSheet]);
   const cancelReload = () => {
     reloadAbort.current?.abort();
     reloadAbort.current = null;
@@ -238,8 +243,8 @@ export default function AssetDashboard({
   }, [scrollToPlans, tab, latest]);
 
   useEffect(() => {
-    if ((open || classOpen) && sheet == null) void loadSheet();
-  }, [open, classOpen, sheet, loadSheet]);
+    if ((wantSheet || classOpen) && sheet == null) void loadSheet();
+  }, [wantSheet, classOpen, sheet, loadSheet]);
 
   const togglePension = (on: boolean) => {
     setPension(on);
@@ -442,6 +447,22 @@ export default function AssetDashboard({
 
   const result = latest?.result ?? null;
   const summary = result?.ok ? result.summary : null;
+  /** 살 종목 [매수 입력](v2.80.0) — 막을지 · 채운 매수 창 열기(`openTrade` 한 곳 · 보유 줄 찾기는 `planBuyTarget` 한 곳) */
+  const planBuy: PlanBuy = {
+    stateOf: (key, r) => {
+      if (summary?.writeEnabled === false) return { ok: false, tip: PLAN_BUY_TIP.writeOff };
+      if (sheet == null) return { ok: false, tip: null };
+      if ('error' in sheet) return { ok: false, tip: sheet.error };
+      const t = planBuyTarget(sheet.data, key, r);
+      return 'tip' in t ? { ok: false, tip: t.tip } : { ok: true };
+    },
+    onBuy: (key, r) => {
+      if (!summary || !sheet || !('data' in sheet)) return;
+      const t = planBuyTarget(sheet.data, key, r);
+      if ('tip' in t) return;
+      openTrade(t.section, t.holding, 'buy', planBuyInitial(r, t.holding.currency, dayText(summary.monthlyBuy.cycleDay)));
+    },
+  };
   const onInput = useAssetIdleLock({ lockMinutes: summary?.settings.lockMinutes ?? lockMinutes, remainingMs, onIdle, onLocked });
   /** 지금 고른 「연금 포함」 과 그린 값이 다르면(다시 받는 중) 작은 스피너 */
   const switching = latest != null && latest.pension !== pension;
@@ -511,6 +532,7 @@ export default function AssetDashboard({
               notes={purchaseNotes}
               onPress={pressPurchase}
               onLinkPlan={(section) => setSettingsOpen({ purchase: section })}
+              planBuy={planBuy}
               onRetryPlan={() => void reload()}
               retrying={reloading}
             />

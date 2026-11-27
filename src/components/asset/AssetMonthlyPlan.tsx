@@ -8,7 +8,47 @@ import { LIST_TABLE_ROW, TABLE_HEAD_ROW, TABLE_NUM_GAP, TOUCH_LIST_ROW } from '.
 import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { formatAssetPrice, formatAssetQty, formatAssetWon } from '../../utils/assetFormat';
 import { formatNumber } from '../../utils/formatters';
-import type { MonthlyBuy, MonthlyBuyAccount, MonthlyPlan, MonthlyPlanRow } from '../../types/asset';
+import { TRADE_DIGITS, roundTo } from '../../utils/assetTrade';
+import type { AssetCurrency, AssetHolding, AssetSection, AssetSheetData, MonthlyBuy, MonthlyBuyAccount, MonthlyPlan, MonthlyPlanRow } from '../../types/asset';
+
+/** [매수 입력] 단추 상태(v2.80.0) — 누를 수 있음 · 막힘(+ 툴팁 · 받는 중이면 툴팁 없음) */
+export type PlanBuyState = { ok: true } | { ok: false; tip: string | null };
+/** 막힘 안내(지금 용어 그대로) */
+export const PLAN_BUY_TIP = {
+  many: '이 계좌에 같은 종목이 두 줄 — 자산 현황에서 줄을 골라 입력',
+  notTradable: '이 줄은 평균가 · 수량 칸 모양이 달라 입력할 수 없습니다',
+  writeOff: '이 서버에서는 시트 쓰기가 꺼져 있습니다',
+  stale: '시트가 바뀌었어요 — 다시 읽은 뒤 입력해 주세요',
+} as const;
+
+/**
+ * [매수 입력] 이 열 보유 줄 찾기(v2.80.0 — 화면 한 곳) — 서버가 준 줄 번호(`holdingRow` — 그 계좌에 이 종목 줄이 하나일 때만)를
+ * 자산 현황과 같은 시트 응답(`/api/asset/sheet`)에서 찾는다. 줄 번호 · 종목이 둘 다 맞아야 한다(사이에 시트가 바뀌었으면 막음).
+ */
+export function planBuyTarget(data: AssetSheetData, section: string, r: MonthlyPlanRow): { section: AssetSection; holding: AssetHolding } | { tip: string } {
+  if (r.holdingProblem === 'many') return { tip: PLAN_BUY_TIP.many };
+  if (r.holdingProblem === 'not-tradable') return { tip: PLAN_BUY_TIP.notTradable };
+  const s = data.sections.find((x) => !x.combined && x.key === section);
+  const h = s?.holdings.find((x) => x.row === r.holdingRow && x.symbol === r.symbol);
+  if (!s || !h || r.holdingRow == null) return { tip: PLAN_BUY_TIP.stale };
+  if (!h.tradable) return { tip: PLAN_BUY_TIP.notTradable };
+  return { section: s, holding: h };
+}
+
+/** 채울 값 — 수량 = 살 주(0 · 「—」 면 빈칸) · 가격 = 지금 가격(그 종목 통화 · 입력 칸 자릿수) · 머리 아래 「이번 달 구매(○ 차례) — 계획 N주 · ₩…」 */
+export function planBuyInitial(r: MonthlyPlanRow, currency: AssetCurrency, cycleText: string): { qty: string; price: string; note: string } {
+  return {
+    qty: r.shares != null && r.shares > 0 ? String(r.shares) : '',
+    price: r.price != null && r.price > 0 ? String(roundTo(r.price, TRADE_DIGITS[currency].price)) : '',
+    note: `이번 달 구매(${cycleText} 차례) — 계획 ${formatAssetQty(r.shares)} · ${won(r.amount)}`,
+  };
+}
+
+/** [매수 입력] — 상태 · 여는 일은 `AssetDashboard` 한 곳 */
+export interface PlanBuy {
+  stateOf: (section: string, r: MonthlyPlanRow) => PlanBuyState;
+  onBuy: (section: string, r: MonthlyPlanRow) => void;
+}
 
 /**
  * 이번 달 구매 — 계좌 · 종목별 목록(v2.79.0 · 152차 · **보여 주기만** — 시트 쓰기 · 주문 없음).
@@ -17,6 +57,8 @@ import type { MonthlyBuy, MonthlyBuyAccount, MonthlyPlan, MonthlyPlanRow } from 
  * - 1280 이상 · 패드 = 표(`ScrollTable`) · 폰 = 카드(`DataCard` — 카드 전체가 누르는 곳: 설정 「살 종목 잇기」 그 계좌 자리 · 카드 안 줄은 숫자가 잘리지 않게 줄바꿈).
  * - 잇지 않은 줄 = 금액만 · 주 · 남는 돈 「—」 · 「종목을 이어 주세요」 + [설정에서 잇기](표 = `LinkButton` · 폰 카드 = 카드가 그 단추 — 카드 안에 단추를 겹쳐 두지 않는다).
  * - 안내: 시트 값 확인(총 금액 · 개월 수) · 비율 합 100% 아님(목록 없음) · 탭을 못 읽음 · 모양 바뀜 · 읽지 않은 묶음.
+ * - [매수 입력](v2.80.0 · 이은 줄만): 누르면 지금 매수 창이 계좌 · 종목 · 수량(살 주) · 가격(지금 가격)이 채워진 채로 열린다 — 막을지 · 여는 일은 `AssetDashboard` 한 곳(`buy`).
+ *   표 = 남는 돈 오른쪽 칸 · 폰 카드 = 카드 아래 오른쪽(카드 누름 = 설정에서 잇기와 따로). 이은 줄 아래 「이번 차례 입력: N주」(0 이면 없음 · 서버 `boughtThisCycle`).
  * ⚠️ 금액을 콘솔 · 로컬 저장소에 남기지 않는다(접은 계좌 key 만 기억).
  */
 
@@ -65,6 +107,34 @@ const usdPrice = (r: MonthlyPlanRow) => (r.market === 'US' && r.price != null &&
 /** 미국 줄 작은 글 — 「약 $… · 환율 ○」 */
 const usdNote = (r: MonthlyPlanRow) => (r.market === 'US' && r.amountUsd != null && r.usdKrw != null ? `약 ${formatAssetPrice(r.amountUsd, 'USD')} · 환율 ${formatNumber(r.usdKrw, 2)}` : null);
 
+/** 「이번 차례 입력: N주」 — 이은 줄 · 0 보다 클 때만 */
+function BoughtLine({ r }: { r: MonthlyPlanRow }) {
+  if (r.boughtThisCycle == null || r.boughtThisCycle <= 0) return null;
+  return (
+    <span className="block text-caption text-text-muted tabular-nums" data-testid="plan-bought">
+      이번 차례 입력: {formatAssetQty(r.boughtThisCycle)}
+    </span>
+  );
+}
+
+/** [매수 입력] 단추 — 이은 줄만(잇지 않은 줄은 그리지 않는다) */
+function BuyButton({ section, r, buy }: { section: string; r: MonthlyPlanRow; buy?: PlanBuy }) {
+  if (!buy || r.symbol == null) return null;
+  const st = buy.stateOf(section, r);
+  return (
+    <Button
+      size="sm"
+      disabled={!st.ok}
+      data-tip={!st.ok && st.tip ? st.tip : undefined}
+      aria-label={`${r.stockName ?? r.symbol} 매수 입력`}
+      onClick={() => buy.onBuy(section, r)}
+      data-testid="plan-buy"
+    >
+      매수 입력
+    </Button>
+  );
+}
+
 /** 줄 이름 → 종목(잇지 않았으면 줄 이름 + 안내) */
 function NameCell({ r, onLink }: { r: MonthlyPlanRow; onLink: () => void }) {
   if (r.symbol == null) {
@@ -85,12 +155,13 @@ function NameCell({ r, onLink }: { r: MonthlyPlanRow; onLink: () => void }) {
         {r.name} → {r.stockName}
       </span>
       <span className="text-caption text-text-muted tabular-nums">{r.symbol}</span>
+      <BoughtLine r={r} />
     </span>
   );
 }
 
 /** 표(1280 이상 · 패드) */
-function PlanTable({ plan, onLink }: { plan: MonthlyPlan; onLink: () => void }) {
+function PlanTable({ plan, section, onLink, buy }: { plan: MonthlyPlan; section: string; onLink: () => void; buy?: PlanBuy }) {
   return (
     <ScrollTable>
       <table className="w-full table-fixed text-left text-xs" data-testid="plan-table">
@@ -100,6 +171,7 @@ function PlanTable({ plan, onLink }: { plan: MonthlyPlan; onLink: () => void }) 
           <col className="w-32" />
           <col className="w-20" />
           <col className="w-32" />
+          {buy && <col className="w-28" />}
         </colgroup>
         <thead className="text-caption text-text-muted">
           <tr className={`border-b border-border/50 ${TABLE_HEAD_ROW}`}>
@@ -107,7 +179,12 @@ function PlanTable({ plan, onLink }: { plan: MonthlyPlan; onLink: () => void }) 
             <th className={`${NUM} font-normal`}>금액</th>
             <th className={`${NUM} font-normal`}>지금 가격</th>
             <th className={`${NUM} font-normal`}>살 주</th>
-            <th className={`${NUM} pr-4 font-normal`}>남는 돈</th>
+            <th className={`${NUM} ${buy ? '' : 'pr-4'} font-normal`}>남는 돈</th>
+            {buy && (
+              <th className="pr-4 font-normal">
+                <span className="sr-only">매수 입력</span>
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -134,9 +211,14 @@ function PlanTable({ plan, onLink }: { plan: MonthlyPlan; onLink: () => void }) 
                 <td className={`${NUM} text-text-primary`} data-testid="plan-shares">
                   {r.shares == null ? '—' : formatAssetQty(r.shares)}
                 </td>
-                <td className={`${NUM} pr-4 text-text-secondary`} data-testid="plan-rest">
+                <td className={`${NUM} ${buy ? '' : 'pr-4'} text-text-secondary`} data-testid="plan-rest">
                   {won(r.rest)}
                 </td>
+                {buy && (
+                  <td className="pr-4 text-right" data-testid="plan-buy-cell">
+                    <BuyButton section={section} r={r} buy={buy} />
+                  </td>
+                )}
               </tr>
             );
           })}
@@ -145,7 +227,8 @@ function PlanTable({ plan, onLink }: { plan: MonthlyPlan; onLink: () => void }) 
             <td className={NUM}>{won(plan.sum)}</td>
             <td className={NUM} />
             <td className={NUM} />
-            <td className={`${NUM} pr-4`}>{won(plan.restSum)}</td>
+            <td className={`${NUM} ${buy ? '' : 'pr-4'}`}>{won(plan.restSum)}</td>
+            {buy && <td className="pr-4" />}
           </tr>
         </tbody>
       </table>
@@ -163,15 +246,26 @@ function CardLine({ left, right }: { left: ReactNode; right: ReactNode }) {
   );
 }
 
-/** 카드(폰) — 줄 1: 줄 이름 → 종목 | 금액 · 줄 2: 「지금 ₩… · 살 주 N주」 | 「남는 돈 ₩…」 */
-function PlanCards({ plan, onLink }: { plan: MonthlyPlan; onLink: () => void }) {
+/** 카드(폰) — 줄 1: 줄 이름 → 종목 | 금액 · 줄 2: 「지금 ₩… · 살 주 N주」 | 「남는 돈 ₩…」 · 이은 카드는 아래 오른쪽 [매수 입력](카드 누름 밖) */
+function PlanCards({ plan, section, onLink, buy }: { plan: MonthlyPlan; section: string; onLink: () => void; buy?: PlanBuy }) {
   return (
     <div className="space-y-2">
       <DataCardList>
         {plan.rows.map((r) => {
           const note = usdNote(r);
           return (
-            <DataCard key={r.name} label={`${r.name} — 살 종목 잇기 설정`} onOpen={onLink}>
+            <DataCard
+              key={r.name}
+              label={`${r.name} — 살 종목 잇기 설정`}
+              onOpen={onLink}
+              after={
+                buy && r.symbol != null ? (
+                  <div className="flex justify-end" data-testid="plan-buy-cell">
+                    <BuyButton section={section} r={r} buy={buy} />
+                  </div>
+                ) : undefined
+              }
+            >
               <div className="space-y-1 text-xs" data-testid="plan-row" data-linked={r.symbol != null}>
                 <CardLine
                   left={<span className="text-text-primary">{r.symbol == null ? r.name : `${r.name} → ${r.stockName}`}</span>}
@@ -190,6 +284,7 @@ function PlanCards({ plan, onLink }: { plan: MonthlyPlan; onLink: () => void }) 
                   }
                 />
                 {note && <p className="text-caption text-text-muted tabular-nums">{`1주 ${usdPrice(r) ?? '—'} · ${note}`}</p>}
+                <BoughtLine r={r} />
                 {r.symbol == null && (
                   <p className="text-caption text-warning keep-all" data-testid="plan-unlinked">
                     종목을 이어 주세요 · <span className="text-accent">설정에서 잇기 ›</span>
@@ -209,7 +304,7 @@ function PlanCards({ plan, onLink }: { plan: MonthlyPlan; onLink: () => void }) 
 }
 
 /** 계좌 하나의 목록(펼침) — 이 계좌 묶음이 없으면 그리지 않는다 */
-export function AccountPlan({ a, onLink }: { a: MonthlyBuyAccount; onLink: (section: string) => void }) {
+export function AccountPlan({ a, onLink, buy }: { a: MonthlyBuyAccount; onLink: (section: string) => void; buy?: PlanBuy }) {
   const phone = useLayoutMode() === 'phone';
   const [open, setOpen] = useState(() => !readClosed().includes(a.section));
   const plan = a.plan;
@@ -251,7 +346,7 @@ export function AccountPlan({ a, onLink }: { a: MonthlyBuyAccount; onLink: (sect
               비율 합이 100% 가 아님(시트 확인{plan.ratioSum != null ? ` — 지금 ${formatNumber(plan.ratioSum, 2, '%')}` : ''}) — 목록을 그리지 않았습니다.
             </p>
           )}
-          {plan.problem == null && plan.rows.length > 0 && (phone ? <PlanCards plan={plan} onLink={link} /> : <PlanTable plan={plan} onLink={link} />)}
+          {plan.problem == null && plan.rows.length > 0 && (phone ? <PlanCards plan={plan} section={a.section} onLink={link} buy={buy} /> : <PlanTable plan={plan} section={a.section} onLink={link} buy={buy} />)}
         </div>
       )}
     </div>

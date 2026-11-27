@@ -187,15 +187,29 @@ export type PlanSampleKind = 'mixed' | 'values' | 'error-read' | 'error-shape';
  * 이번 달 구매 계좌 · 종목별 목록 가짜 값(v2.79.0) — **서버 계산 함수(`planOfGroup`) 그대로** · 만든 값(시트 · 가격 아님).
  * 개별 투자는 묶음 없음(목록 없음) · 적립식 = 국내 이음(긴 이름) · 미국 이음 · 안 이음 · 0% 줄 · ISA = 이었는데 가격 없음 · 국내 이음 · 연금 저축 = 비율 합 100% 아님.
  */
-export function planSample(kind: PlanSampleKind): { plans: Record<string, MonthlyPlan>; skipped: MonthlyPlanSkip[]; error: MonthlyPlanError | null } {
-  if (kind === 'error-read') return { plans: {}, skipped: [], error: { kind: 'read', message: '「적립식 투자」 탭을 읽지 못함' } };
-  if (kind === 'error-shape') return { plans: {}, skipped: [], error: { kind: 'shape', message: '시트 모양이 바뀌었어요(적립식 투자)' } };
-  const h = (row: number, name: string, code: string) => holding(row, name, code, 1, 1, code.includes(':') ? 'USD' : 'KRW');
-  const sections = [
+/**
+ * 살 종목 목록 가짜 값의 계좌 보유 줄(v2.80.0 — `planSample` 과 `planSheetSample` 이 같은 줄을 쓴다 · [매수 입력] 이 찾는 줄).
+ */
+function planSections() {
+  const h = (row: number, name: string, code: string) => (code.includes(':') ? holding(row, name, code, 3.5, 480.25, 'USD', row + 20, '주식') : holding(row, name, code, 120, 15000, 'KRW', row + 20, '주식'));
+  return [
     { key: '적립식 계좌', name: '적립식 계좌 ( 2026.07 )', combined: false, holdings: [h(13, 'KODEX 예시 S&P500 이름이 아주 긴 종목 Vanguard Total World Stock Market Index Fund ETF Shares', '0072R0'), h(14, '예시 미국 나스닥 ETF', 'NASDAQ:DDDD')] },
     { key: 'ISA 계좌', name: 'ISA 계좌 ( 2026.07 )', combined: false, holdings: [h(22, '예시 미국 반도체주', 'NASDAQ:CCCC'), h(23, '예시 국내 금 ETF', '000002')] },
     { key: '연금 저축 계좌', name: '연금 저축 계좌 ( 2026.07 )', combined: false, holdings: [h(30, '예시 국내 대형주', '000001')] },
   ];
+}
+
+/** 살 종목 [매수 입력] 이 찾는 시트 응답(v2.80.0) — `assetSheetSample` 에서 세 계좌를 `planSections` 로 바꾼 것 */
+export function planSheetSample(): AssetSheetData {
+  const base = assetSheetSample();
+  const plan = planSections();
+  return { ...base, sections: base.sections.map((s) => plan.find((p) => p.key === s.key) ?? s) };
+}
+
+export function planSample(kind: PlanSampleKind): { plans: Record<string, MonthlyPlan>; skipped: MonthlyPlanSkip[]; error: MonthlyPlanError | null } {
+  if (kind === 'error-read') return { plans: {}, skipped: [], error: { kind: 'read', message: '「적립식 투자」 탭을 읽지 못함' } };
+  if (kind === 'error-shape') return { plans: {}, skipped: [], error: { kind: 'shape', message: '시트 모양이 바뀌었어요(적립식 투자)' } };
+  const sections = planSections();
   const book = { prices: new Map<string, number>([['0072R0', 16500], ['DDDD', 512.34], ['000002', 44000], ['000001', 65000]]), usdKrw: 1387.45 };
   const links = { '적립식 계좌': { 'S&P500 지수': '0072R0', '나스닥100 지수': 'DDDD' }, 'ISA 계좌': { '미국 반도체 지수': 'CCCC', '금 현물': '000002' } };
   const line = (row: number, name: string, ratio: number | null) => ({ row, name, ratio });

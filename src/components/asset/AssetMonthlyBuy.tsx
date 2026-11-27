@@ -6,7 +6,7 @@ import { formatNumber, formatPrice } from '../../utils/formatters';
 import type { MonthlyBuy, MonthlyBuyAccount, PurchaseStatus } from '../../types/asset';
 import ScrollTable from '../ui/ScrollTable';
 import LinkButton from '../ui/LinkButton';
-import { AccountPlan, PlanNotes } from './AssetMonthlyPlan';
+import { AccountPlan, PlanNotes, type PlanBuy } from './AssetMonthlyPlan';
 
 /**
  * 자산 관리 「이번 달 구매」(v2.64.0 · 자산 관리 5단계 · v2.78.0 계좌마다) — **보여 주기만, 주문 없음**.
@@ -208,7 +208,7 @@ function Actions({
 }
 
 /** 계좌 한 줄 + (이번 차례를 끝냈으면) 다음 차례 줄 + (구역에서만 · `onLinkPlan`) 계좌 · 종목별 목록 */
-function AccountRow({ mb, a, writeEnabled, busyKey, note, onPress, onLinkPlan }: { mb: MonthlyBuy; a: MonthlyBuyAccount; writeEnabled: boolean; busyKey: string | null; note: string | null; onPress: (p: PurchasePress) => void; onLinkPlan?: (section: string) => void }) {
+function AccountRow({ mb, a, writeEnabled, busyKey, note, onPress, onLinkPlan, planBuy }: { mb: MonthlyBuy; a: MonthlyBuyAccount; writeEnabled: boolean; busyKey: string | null; note: string | null; onPress: (p: PurchasePress) => void; onLinkPlan?: (section: string) => void; planBuy?: PlanBuy }) {
   const finished = a.status !== 'todo';
   const showNext = finished && (a.next.status !== 'todo' || a.next.canDone || a.next.canSkip);
   return (
@@ -259,7 +259,7 @@ function AccountRow({ mb, a, writeEnabled, busyKey, note, onPress, onLinkPlan }:
       )}
       {onLinkPlan && a.plan && (
         <div className="pl-4 phone:pl-0">
-          <AccountPlan a={a} onLink={onLinkPlan} />
+          <AccountPlan a={a} onLink={onLinkPlan} buy={planBuy} />
         </div>
       )}
     </li>
@@ -267,7 +267,7 @@ function AccountRow({ mb, a, writeEnabled, busyKey, note, onPress, onLinkPlan }:
 }
 
 /** 계좌별 목록(구역 · 팝업 같음) — 매달 사는 계좌만 · 저장 중이면 막음 · `onLinkPlan` 을 주면(구역) 계좌 줄 아래 계좌 · 종목별 목록 */
-export function PurchaseAccountList({ mb, writeEnabled, busyKey, notes, onPress, onLinkPlan }: { mb: MonthlyBuy; writeEnabled: boolean; busyKey: string | null; notes: Record<string, string>; onPress: (p: PurchasePress) => void; onLinkPlan?: (section: string) => void }) {
+export function PurchaseAccountList({ mb, writeEnabled, busyKey, notes, onPress, onLinkPlan, planBuy }: { mb: MonthlyBuy; writeEnabled: boolean; busyKey: string | null; notes: Record<string, string>; onPress: (p: PurchasePress) => void; onLinkPlan?: (section: string) => void; planBuy?: PlanBuy }) {
   const list = monthlyAccounts(mb);
   if (list.length === 0) {
     return (
@@ -279,7 +279,7 @@ export function PurchaseAccountList({ mb, writeEnabled, busyKey, notes, onPress,
   return (
     <ul className="divide-y divide-border/30" aria-busy={busyKey != null || undefined} data-testid="purchase-accounts">
       {list.map((a) => (
-        <AccountRow key={a.section} mb={mb} a={a} writeEnabled={writeEnabled} busyKey={busyKey} note={notes[a.section] ?? null} onPress={onPress} onLinkPlan={onLinkPlan} />
+        <AccountRow key={a.section} mb={mb} a={a} writeEnabled={writeEnabled} busyKey={busyKey} note={notes[a.section] ?? null} onPress={onPress} onLinkPlan={onLinkPlan} planBuy={planBuy} />
       ))}
     </ul>
   );
@@ -314,9 +314,10 @@ export function MonthlyBuySection({
   notes,
   onPress,
   onLinkPlan,
+  planBuy,
   onRetryPlan,
   retrying,
-}: ListProps & { onLinkPlan: (section: string) => void; onRetryPlan: () => void; retrying: boolean }) {
+}: ListProps & { onLinkPlan: (section: string) => void; planBuy: PlanBuy; onRetryPlan: () => void; retrying: boolean }) {
   return (
     <Panel pad="none" className="space-y-3 pb-1 pt-3" id="as-asset-monthly-buy">
       <div className="space-y-2 px-4">
@@ -329,7 +330,7 @@ export function MonthlyBuySection({
         <CycleLine mb={mb} />
         {error && <FailLine message={error} />}
         <PlanNotes mb={mb} onRetry={onRetryPlan} retrying={retrying} />
-        <PurchaseAccountList mb={mb} writeEnabled={writeEnabled} busyKey={busyKey} notes={notes} onPress={onPress} onLinkPlan={onLinkPlan} />
+        <PurchaseAccountList mb={mb} writeEnabled={writeEnabled} busyKey={busyKey} notes={notes} onPress={onPress} onLinkPlan={onLinkPlan} planBuy={planBuy} />
         <WriteOffNote writeEnabled={writeEnabled} />
       </div>
       <MonthlyBuyTable mb={mb} />
