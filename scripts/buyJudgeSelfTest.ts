@@ -42,6 +42,13 @@ const check = (name: string, ok: boolean, detail = '') => {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
 };
 
+/**
+ * ⑨ · ⑩ 의 「토스 받기 실패」 — 400 응답(v2.83.0 검사 줄이기). 예전에는 네트워크 오류를 던져 `tossGet` 이 4번 다시 시도하며
+ * 한 번에 약 4.4초씩(30번 남짓 · 시험의 3/4) 기다렸다. 4xx 는 다시 시도하지 않고 바로 실패한다 — 받기 실패를 받는 쪽(`candleService` 의
+ * 「실시간 조회 실패, 캐시 사용」 · `judgeOnClose`)은 오류 종류를 보지 않으므로 판단 · 확인 결과는 같다(서버 코드 그대로).
+ */
+const TOSS_REFUSED = () => new Response(JSON.stringify({ error: 'offline(시험)' }), { status: 400, headers: { 'content-type': 'application/json' } });
+
 const db = getDb();
 const saved = { symbols: store.getSymbols(), ruleRaw: db.prepare(`SELECT value FROM app_settings WHERE key = 'buyJudge.ruleId'`).get() as { value: string } | undefined, recorded: store.getLastRecorded() };
 const FAKE = 'ZZJUDGE';
@@ -217,11 +224,11 @@ try {
   // ── ⑨ 끝나지 않은 일봉 — 장중에 저장된 봉 + 다음 날 받기 실패 → 판단하지 않음 · 받기 성공 → 끝난 값 · 국내 NXT · 미국 마감 · 시장 기준 ──
   {
     const realFetch = globalThis.fetch;
-    // 받기 실패 흉내 — 토스만 끊는다(지표 엔진은 그대로)
+    // 받기 실패 흉내 — 토스만 끊는다(지표 엔진은 그대로) · `TOSS_REFUSED` 머리글 참고
     const offline = () => {
       globalThis.fetch = (async (input: any, init?: any) => {
         const u = typeof input === 'string' ? input : input.url ?? String(input);
-        if (u.includes('openapi.tossinvest.com')) throw new Error('offline(시험)');
+        if (u.includes('openapi.tossinvest.com')) return TOSS_REFUSED();
         return realFetch(input, init);
       }) as typeof fetch;
     };
@@ -293,7 +300,7 @@ try {
     const realFetch = globalThis.fetch;
     globalThis.fetch = (async (input: any, init?: any) => {
       const u = typeof input === 'string' ? input : input.url ?? String(input);
-      if (u.includes('openapi.tossinvest.com')) throw new Error('offline(시험)');
+      if (u.includes('openapi.tossinvest.com')) return TOSS_REFUSED();
       return realFetch(input, init);
     }) as typeof fetch;
     const US = 'ZZSTALE'; // 영문 → 미국

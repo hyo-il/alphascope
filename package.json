@@ -109,6 +109,7 @@
     "mobileschedasset:test": "tsx scripts/mobileSchedAssetSelfTest.ts",
     "tidy:test": "tsx scripts/tidySelfTest.ts",
     "machinecheck:test": "tsx scripts/machineCheckSelfTest.ts",
+    "hooks:test": "tsx scripts/hooksSelfTest.ts",
     "designrules:test": "tsx scripts/designRulesSelfTest.ts"
   },
   "dependencies": {
