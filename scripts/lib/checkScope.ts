@@ -3,7 +3,7 @@
  *
  * 1. **브라우저 시험 가르기**(`splitTests`): 시험 파일이 Playwright(`playwright` · `@playwright/test` · `playwright-core`)를 import 하거나,
  *    import 하는 저장소 안 파일(`scripts/lib/` 등 — 몇 단계 건너도)이 그러면 「브라우저 시험」. 목록을 손으로 적지 않는다(새 시험이 저절로 들어간다).
- * 2. **묶음 짜기**(`planBatches`): 이름 순으로 차례대로 담아 묶음마다 `limit` 초 안 · `LONG_SEC`(5분)을 넘는 시험 · 시간 기록이 없는 시험은 혼자 묶음.
+ * 2. **묶음 짜기**(`planBatches`): 이름 순으로 차례대로 담아 묶음마다 `limit` 초 안 · `LONG_SEC`(5분)을 넘는 시험은 혼자 묶음 · 시간 기록이 없는 시험은 부르는 쪽이 `estimateSec` 기본 예상 시간을 준다.
  *    묶음 차례는 늘 이름 순이다(혼자 묶음도 제자리) — `--plan` 이 짠 묶음은 그날 `plan.json` 에 얼려 두고 `--batch <n>` 이 그것을 그대로 부른다
  *    (묶음을 돌리면 시간 기록이 바뀌어도 n 번 묶음은 같다). Bash 한 번에 묶음 하나(`CLAUDE.md` 2-4).
  * 3. **바뀐 부품을 쓰는 화면 시험 고르기**(`selectChanged`): 바뀐 파일 → 그 파일을 (정적 · 동적) import 하는 `src` 파일을 거꾸로 따라 올라가
@@ -82,6 +82,14 @@ export function splitTests(root: string, names: string[]): Split {
 // ───────── 2. 묶음 짜기 ─────────
 /** 혼자 묶음으로 낼 시험 — 지난 시간이 이 초를 넘으면 */
 export const LONG_SEC = 300;
+/** 시간 기록이 없는 시험의 기본 예상 시간(초) — 새 worktree 의 첫 실행에서 `--plan` 이 시험마다 혼자 묶음으로 잘게 쪼개지 않게 */
+export const DEFAULT_BROWSER_SEC = 120;
+export const DEFAULT_PLAIN_SEC = 10;
+/** 시험 하나의 예상 시간 — 기록이 있으면 그 값, 없으면 기본 예상 시간(브라우저 `DEFAULT_BROWSER_SEC` · 아님 `DEFAULT_PLAIN_SEC`) */
+export function estimateSec(recorded: number | undefined, browser: boolean): { seconds: number; guessed: boolean } {
+  if (recorded !== undefined) return { seconds: recorded, guessed: false };
+  return { seconds: browser ? DEFAULT_BROWSER_SEC : DEFAULT_PLAIN_SEC, guessed: true };
+}
 
 export interface Batch { tests: string[]; seconds: number; known: boolean; head: boolean; alone: boolean }
 

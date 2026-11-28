@@ -32,7 +32,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parse } from 'dotenv';
 import Database from 'better-sqlite3';
-import { ALWAYS, LONG_SEC, packageJsonScriptsOnly, planBatches, selectChanged, splitTests, type Batch } from './lib/checkScope';
+import { ALWAYS, DEFAULT_BROWSER_SEC, DEFAULT_PLAIN_SEC, LONG_SEC, estimateSec, packageJsonScriptsOnly, planBatches, selectChanged, splitTests, type Batch } from './lib/checkScope';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const REPORT_ROOT = path.join(ROOT, 'reports', 'machine-check');
@@ -187,7 +187,7 @@ function writeSummary(dir: string, ledger: Ledger, tests: string[], browser: Set
 // ───────── --plan · --batch ─────────
 /** 묶음 한 칸 — 8분(`CLAUDE.md` 2-4 `--plan 8`) */
 const RUN_LIMIT_MIN = 8;
-interface FrozenPlan { minutes: number; at: string; batches: { tests: string[]; head: boolean; seconds: number; known: boolean; alone: boolean }[] }
+interface FrozenPlan { minutes: number; at: string; guessed?: string[]; batches: { tests: string[]; head: boolean; seconds: number; known: boolean; alone: boolean }[] }
 /** 범위 옵션(묶음 번호 · 계획 · 시간 제한 · 요약 빼고) — 같은 범위면 같은 얼린 묶음 */
 function scopeArgs(argv: string[]): string[] {
   const out: string[] = [];
@@ -211,16 +211,18 @@ function readPlans(dir: string): Record<string, FrozenPlan> {
     return {};
   }
 }
-/** 직전 시간 기록으로 묶음을 짠다(이름 순 · 머리 = 타입 · 린트 · 빌드 단계가 있으면 첫 묶음) */
-function makePlan(minutes: number, tests: string[], head: string[]): FrozenPlan {
+/** 직전 시간 기록으로 묶음을 짠다(이름 순 · 머리 = 타입 · 린트 · 빌드 단계가 있으면 첫 묶음 · 기록 없는 시험은 기본 예상 시간 `estimateSec`) */
+function makePlan(minutes: number, tests: string[], head: string[], browser: Set<string>): FrozenPlan {
   const sec = lastSeconds();
+  const guessed = tests.filter((t) => estimateSec(sec(t), browser.has(t)).guessed).sort();
+  const testSec = (t: string) => estimateSec(sec(t), browser.has(t)).seconds;
   let headSec: number | undefined | null = null;
   if (head.length) {
     const hs = head.map(sec);
     headSec = hs.every((x) => x !== undefined) ? hs.reduce((a, b) => a + (b ?? 0), 0) : undefined;
   }
-  const batches = planBatches([...tests].sort(), sec, minutes * 60, headSec);
-  return { minutes, at: kstTime(), batches: batches.map((b: Batch) => ({ tests: b.tests, head: b.head, seconds: b.seconds, known: b.known, alone: b.alone })) };
+  const batches = planBatches([...tests].sort(), testSec, minutes * 60, headSec);
+  return { minutes, at: kstTime(), ...(guessed.length ? { guessed } : {}), batches: batches.map((b: Batch) => ({ tests: b.tests, head: b.head, seconds: b.seconds, known: b.known, alone: b.alone })) };
 }
 function freeze(dir: string, key: string, p: FrozenPlan) {
   fs.mkdirSync(dir, { recursive: true });
@@ -233,7 +235,9 @@ function printPlan(p: FrozenPlan, scope: string[]) {
   const ledger = dir ? readLedger(dir) : null;
   const base = dir && ledger ? `${path.relative(ROOT, REPORT_ROOT)}/<날짜>/last.json 시험마다 가장 최근(마지막 ${ledger.updatedAt} KST)` : '직전 기록 없음 — 시험 하나씩 한 묶음';
   const limit = p.minutes * 60;
-  console.log(`기준: ${base} · 묶음마다 ${p.minutes}분 이하 · 이름 순 · ${LONG_SEC / 60}분 넘는 시험 · 기록 없는 시험은 혼자 · Bash 한 번에 묶음 하나\n`);
+  console.log(`기준: ${base} · 묶음마다 ${p.minutes}분 이하 · 이름 순 · ${LONG_SEC / 60}분 넘는 시험은 혼자 · Bash 한 번에 묶음 하나`);
+  if (p.guessed?.length) console.log(`시간 기록이 없는 시험 ${p.guessed.length}개는 기본 예상 시간(브라우저 ${DEFAULT_BROWSER_SEC}초 · 아님 ${DEFAULT_PLAIN_SEC}초)으로 짬 — ${p.guessed.join(', ')}`);
+  console.log('');
   const args = scope.length ? `${scope.join(' ')} ` : '';
   p.batches.forEach((b, i) => {
     const time = b.known ? `약 ${fmtSec(b.seconds)}초${b.seconds > limit ? ` ⚠️ ${p.minutes}분 넘음(시험 하나가 이미 넘음)` : ''}` : '시간 기록 없음';
@@ -480,14 +484,14 @@ async function main() {
   const key = scope.join(' ') || '(전부)';
   const today = path.join(REPORT_ROOT, kstDate());
   if (opt.plan !== null) {
-    const p = makePlan(opt.plan, chosen, head);
+    const p = makePlan(opt.plan, chosen, head, browser);
     freeze(today, key, p);
     return printPlan(p, scope);
   }
   if (opt.batch !== null) {
     let p = readPlans(today)[key];
     if (!p) {
-      p = makePlan(RUN_LIMIT_MIN, chosen, head);
+      p = makePlan(RUN_LIMIT_MIN, chosen, head, browser);
       freeze(today, key, p);
       console.log(`얼려 둔 묶음이 없어 ${RUN_LIMIT_MIN}분으로 짜서 얼림 — 묶음 ${p.batches.length}개`);
     }
@@ -497,7 +501,7 @@ async function main() {
     chosen = b.tests;
     if (!b.head) head = [];
   } else if (opt.run || opt.failed) {
-    const p = makePlan(RUN_LIMIT_MIN, chosen, head);
+    const p = makePlan(RUN_LIMIT_MIN, chosen, head, browser);
     if (p.batches.length > 1) {
       freeze(today, key, p);
       console.log(`\n고른 것이 ${RUN_LIMIT_MIN}분 묶음 하나에 들지 않습니다 — 돌리지 않고 묶음을 냅니다(Bash 한 번 10분 안):\n`);

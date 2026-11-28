@@ -14,6 +14,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { noColorLine } from './noColorClass';
+import { stockNamesReply } from './stockNamesReply';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const json = (rel: string) => JSON.parse(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
@@ -172,18 +173,8 @@ const watchApi = (putRevision: number): Api => (u, method) => {
   }
   return undefined;
 };
-/**
- * 종목 이름 — 앱(`src/utils/stockNames.ts`)은 한 틱 동안 모은 종목으로 요청 주소를 만들어, 시험이 붐비면 모이는 종목이 달라져
- * 기록한 주소와 글자가 달라진다(그러면 503 → 이름 없이 그려져 요소 수가 흔들렸다). 기록한 이름 응답을 모두 합쳐 **물은 종목만** 답한다 —
- * 주소가 기록과 같으면 답도 기록과 같다.
- */
-const namesReply = (api: Record<string, unknown>, u: string): Reply => {
-  if (!u.startsWith('/api/stocks/names?')) return undefined;
-  const all: Record<string, string> = {};
-  for (const [k, v] of Object.entries(api)) if (k.startsWith('/api/stocks/names?')) Object.assign(all, (v as { names?: Record<string, string> }).names ?? {});
-  const asked = (new URLSearchParams(u.slice(u.indexOf('?') + 1)).get('symbols') ?? '').split(',').filter(Boolean);
-  return { json: { names: Object.fromEntries(asked.filter((x) => all[x]).map((x) => [x, all[x]])) } };
-};
+/** 종목 이름 — 기록한 이름 응답을 합쳐 물은 종목만(`lib/stockNamesReply`) */
+const namesReply = (api: Record<string, unknown>, u: string): Reply => stockNamesReply(api, u);
 /** 기록한 응답 — 주소 그대로(쓰기는 503 · 종목 이름은 `namesReply`) */
 const exactApi = (api: Record<string, unknown>): Api => (u, method) => {
   if (method !== 'GET') return NO_WRITE;

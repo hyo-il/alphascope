@@ -16,6 +16,7 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { chromium, type Browser, type CDPSession, type Page } from 'playwright';
 import { createBrowserStepGuard } from './lib/browserStepGuard';
+import { stockNamesReply } from './lib/stockNamesReply';
 import { chasuDiff, type Chasu } from './lib/chasuRange';
 
 const root = path.resolve(import.meta.dirname, '..');
@@ -55,6 +56,8 @@ async function open(browser: Browser, size: { width: number; height: number }, h
     const u = req.url().replace(WEB, '');
     if (req.method() !== 'GET') return r.fulfill({ status: 503, json: { error: '시험 — 쓰지 않음' } });
     if (u.startsWith('/api/version')) return r.fulfill({ json: { version: CLIENT_VERSION, startedAt: '2026-11-25T00:00:00.000Z' } });
+    const names = stockNamesReply(API, u); // 종목 이름은 물은 종목만(주소 글자가 흔들려도 같은 답 — lib/stockNamesReply)
+    if (names) return r.fulfill(names);
     if (u in API) return r.fulfill({ json: API[u] });
     return r.fulfill({ status: 503, json: { error: '시험 — 없음' } });
   });

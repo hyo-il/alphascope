@@ -11,7 +11,8 @@
  *   2 · 3 의 카드 글은 기준 커밋(c0e8845) 1280 의 판단 표 글(`table1280.json`)과 견준다.
  * 8 · 9 의 누르는 칸은 `design:check` 18 · 19 와 같은 셈을 **그 화면 본문 · 열린 창 안**으로만 잰다(앱 틀 · 창 뒤 화면은 다른 차수 몫).
  * 11 은 150차 A 정답(`scripts/fixtures/chasuRange/before.json`)과 견준다 — 브라우저 없는 옛 시험은 여기서 하나씩 다시 돌리고(새 사본 DB),
- *   브라우저 옛 시험은 가장 최근 기계 검사 로그(`reports/machine-check/<날짜>/<이름>_test.log`)의 PASS · FAIL 줄 수를 본다.
+ *   브라우저 옛 시험은 다른 시험의 로그를 읽지 않고 그 시험 소스의 차수 범위(CHASU)가 끝난 차수로 고정됐는지 · 범위 비교가 도는지를 직접 본다
+ *   (그 시험의 확인 항목 · 실패 0 은 그 시험이 스스로 — 묶음 차례와 상관없이 같은 결과).
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
 import fs from 'node:fs';
@@ -21,7 +22,8 @@ import { spawnSync } from 'node:child_process';
 import Database from 'better-sqlite3';
 import { chromium, type Browser, type Page } from 'playwright';
 import { createBrowserStepGuard } from './lib/browserStepGuard';
-import { chasuChanged, chasuDeleted, chasuEnd, chasuLabel, chasuUntracked, type Chasu } from './lib/chasuRange';
+import { chasuChanged, chasuDeleted, chasuDiff, chasuEnd, chasuLabel, chasuUntracked, type Chasu } from './lib/chasuRange';
+import { stockNamesReply } from './lib/stockNamesReply';
 
 const root = path.resolve(import.meta.dirname, '..');
 const PORT = 5197;
@@ -89,6 +91,8 @@ async function open(browser: Browser, size: { width: number; height: number }, h
     if (u === '/api/buy-judge/history') return r.fulfill({ json: HIST.history });
     if (u.startsWith('/api/buy-judge/days?')) return r.fulfill({ json: HIST.days });
     if (/^\/api\/buy-judge\/history\/[^/?]+$/.test(u)) return r.fulfill({ json: HIST.symbolDays });
+    const names = stockNamesReply(API, u); // 종목 이름은 물은 종목만(주소 글자가 흔들려도 같은 답 — lib/stockNamesReply)
+    if (names) return r.fulfill(names);
     if (u in API) return r.fulfill({ json: API[u] });
     return r.fulfill({ status: 503, json: { error: '시험 — 없음' } });
   });
@@ -499,13 +503,25 @@ try {
         fs.rmSync(tmp, { recursive: true, force: true });
         from = '다시 돌림';
       } else {
-        const dir = path.join(root, 'reports/machine-check');
-        const logs = fs.existsSync(dir)
-          ? fs.readdirSync(dir).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).map((d) => path.join(dir, d, `${name.replace(/:test$/, '')}_test.log`)).filter((f) => fs.existsSync(f))
-          : [];
-        const latest = logs.sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
-        if (latest) got = count(fs.readFileSync(latest, 'utf8'));
-        from = latest ? `로그 ${path.relative(root, latest)}` : '로그 없음 — check:all 로 먼저 돌린다';
+        // 브라우저 시험은 여기서 다시 돌리지 않는다(몇 분씩) — 다른 시험의 로그에 기대지 않고 **그 시험의 차수 범위를 직접** 확인한다:
+        // 소스의 CHASU(기준 · 버전 · 끝)를 읽어 범위가 끝난 차수로 고정됐는지(끝 커밋이 HEAD 조상) · 그 범위 비교(git diff)가 도는지.
+        // 확인 항목 수 · 실패 0 은 그 시험이 스스로 본다(실패 줄이 하나라도 있으면 종료 코드 1 — check:all 이 돌림).
+        const baseConst = /const BASE = '([0-9a-f]{7,40})'/.exec(src)?.[1];
+        const m = /const CHASU: Chasu = \{ base: (?:BASE|'([0-9a-f]{7,40})'), version: '(v[\d.]+)'(?:, end: '([0-9a-f]{7,40})')? \}/.exec(src);
+        const c: Chasu | null = m ? { base: m[1] ?? baseConst ?? '', version: m[2], ...(m[3] ? { end: m[3] } : {}) } : null;
+        let end: string | null = null;
+        let ok = false;
+        if (c && c.base) {
+          try {
+            end = chasuEnd(root, c);
+            const anc = end ? spawnSync('git', ['merge-base', '--is-ancestor', end, 'HEAD'], { cwd: root }).status === 0 : false;
+            ok = anc && chasuDiff(root, c, ['--name-only'], ['src']).status === 0;
+          } catch {
+            ok = false;
+          }
+        }
+        check(`[150-11] ${name} — chasuRange 를 씀 · 차수 범위 ${c ? `${c.base}..${end ?? '작업 트리'}` : '(CHASU 못 찾음)'} 이 끝난 차수로 고정 · 범위 비교가 돎(직접 확인 · 다른 시험 로그 안 읽음 · 개수 · 실패 0 은 그 시험이 직접)`, uses && ok, `${uses ? '' : '옛 비교가 남음 · '}${JSON.stringify(c)}`);
+        continue;
       }
       // 151차: 지금 코드로 다시 돌린 개수라 뒤 차수가 확인을 더하면 늘어난다(asset:test 299 → 301) — 150차 정답 이상 · 실패 0 이면 맞음(줄어들면 실패)
       // v2.83.0: 1280 · 1440 그대로 확인은 desktop:test 로 옮겼다 — 옮긴 줄 수(`fixtures/desktop/legacyScenes.json` movedChecks)만큼 뺀 수 이상
