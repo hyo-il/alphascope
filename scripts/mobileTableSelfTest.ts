@@ -378,9 +378,10 @@ try {
     await ctx.close();
   }
 
-  // ───────── 9 창 안 표(새 규칙 창 · 폰) ─────────
+  // ───────── 9 창 안 표(새 규칙 창 · 패드) ─────────
+  // v2.84.0 — 폰 새 규칙 창은 조건 카드가 되어 표가 없다(지시서 159차 · 카드는 mobilequant:test [3]). 창 안 미는 표는 패드 새 규칙 창(손가락 화면)에서 본다
   {
-    const { page, ctx, cdp } = await open(browser, PHONE, '#/rules');
+    const { page, ctx, cdp } = await open(browser, PAD, '#/rules');
     await page.getByRole('button', { name: '새 규칙 만들기' }).first().click();
     const dialog = page.getByRole('dialog', { name: '새 규칙 만들기' });
     await dialog.waitFor({ timeout: 8000 });
@@ -388,8 +389,8 @@ try {
     const sel = '[role="dialog"] [data-scroll-table]';
     await page.locator(sel).first().evaluate((e) => e.scrollIntoView({ block: 'center' }));
     const natural = await boxInfo(page, sel);
-    // 폰 402 에서 이 표는 넘치지 않는다(넘침 0) — 밀기를 시험하려고 표만 900px 로 넓힌다(앱 코드 아님 · 이 시험 안에서만)
-    await page.locator(`${sel} table`).first().evaluate((t) => ((t as HTMLElement).style.minWidth = '900px'));
+    // 패드에서 이 표는 넘치지 않는다(넘침 0) — 밀기를 시험하려고 표만 1600px 로 넓힌다(앱 코드 아님 · 이 시험 안에서만)
+    await page.locator(`${sel} table`).first().evaluate((t) => ((t as HTMLElement).style.minWidth = '1600px'));
     await page.waitForTimeout(400);
     const before = await dialog.boundingBox();
     const info0 = await boxInfo(page, sel);
@@ -411,7 +412,7 @@ try {
     const info1 = await boxInfo(page, sel);
     const same = !!before && !!after && Math.abs(before.y - after.y) < 1 && Math.abs(before.x - after.x) < 1 && Math.abs(before.height - after.height) < 1;
     check(
-      `[148-9] 새 규칙 창 안 표(시험에서 900px 로 넓힘 · 원래 넘침 ${natural ? natural.sw - natural.cw : '-'}px)를 가로로 밀면 표만 밀림(${info1?.sl ?? '-'}px) · 창이 닫히거나 움직이지 않음`,
+      `[148-9] 패드 새 규칙 창 안 표(시험에서 1600px 로 넓힘 · 원래 넘침 ${natural ? natural.sw - natural.cw : '-'}px)를 가로로 밀면 표만 밀림(${info1?.sl ?? '-'}px) · 창이 닫히거나 움직이지 않음`,
       (await dialog.count()) === 1 && same && !!info0 && info0.sw > info0.cw && (info1?.sl ?? 0) > 0,
       `창 ${JSON.stringify(before)} → ${JSON.stringify(after)} · 표 ${JSON.stringify(info0)} → ${JSON.stringify(info1)}`,
     );
