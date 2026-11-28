@@ -82,8 +82,11 @@ export function splitTests(root: string, names: string[]): Split {
 // ───────── 2. 묶음 짜기 ─────────
 /** 혼자 묶음으로 낼 시험 — 지난 시간이 이 초를 넘으면 */
 export const LONG_SEC = 300;
-/** 시간 기록이 없는 시험의 기본 예상 시간(초) — 새 worktree 의 첫 실행에서 `--plan` 이 시험마다 혼자 묶음으로 잘게 쪼개지 않게 */
-export const DEFAULT_BROWSER_SEC = 120;
+/**
+ * 시간 기록이 없는 시험의 기본 예상 시간(초) — 새 worktree 의 첫 실행에서 `--plan` 이 시험마다 혼자 묶음으로 잘게 쪼개지 않게.
+ * 브라우저 시험은 300(v2.84.0 — 120 으로 잡으면 기록 없는 브라우저 시험 셋이 한 묶음에 들어가 Bash 한 번이 10분을 넘었다 · 「배포 검사」 보고).
+ */
+export const DEFAULT_BROWSER_SEC = 300;
 export const DEFAULT_PLAIN_SEC = 10;
 /** 시험 하나의 예상 시간 — 기록이 있으면 그 값, 없으면 기본 예상 시간(브라우저 `DEFAULT_BROWSER_SEC` · 아님 `DEFAULT_PLAIN_SEC`) */
 export function estimateSec(recorded: number | undefined, browser: boolean): { seconds: number; guessed: boolean } {

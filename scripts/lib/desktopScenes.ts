@@ -415,6 +415,22 @@ export const DESKTOP_GROUPS: DesktopGroup[] = [
         ],
       },
       {
+        // v2.84.0 — 목표 바꾸기 창(「목표의 절반으로 자동」 체크 자리 = 150차 전 맨 체크박스와 같게 · 창 안만 잼)
+        hash: '#/swing/list',
+        steps: [
+          {
+            name: '목표 바꾸기 창',
+            act: async (page, h) => {
+              await h.step('첫 줄 펼치기', () => page.locator('[data-buy-judge-table] tbody tr').first().click({ timeout: 5000 }));
+              await page.waitForTimeout(900);
+              await h.step('조건 바꾸기', () => page.getByRole('button', { name: '조건 바꾸기' }).first().click({ timeout: 5000 }));
+              await page.waitForTimeout(900);
+            },
+            snap: shapeSnap('[role="dialog"]'),
+          },
+        ],
+      },
+      {
         hash: '#/swing/history',
         steps: [
           {

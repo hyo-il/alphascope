@@ -128,13 +128,17 @@ const split = splitTests(root, names);
   check('[154-3] 첫 묶음 = 타입 · 린트 · 빌드(머리)', batches[0].head && batches.filter((b) => b.head).length === 1);
   const noRecord = planBatches(['x', 'y'], () => undefined, limit, null);
   check('[154-3] 시간 기록 없는 시험은 혼자 묶음(planBatches 에 시간을 주지 않을 때)', noRecord.length === 2 && noRecord.every((b) => b.alone && !b.known));
-  // 기본 예상 시간 — 기록 없는 브라우저 시험 120초 · 아닌 시험 10초(새 worktree 첫 실행에서 시험마다 혼자 묶음이 되지 않게)
+  // 기본 예상 시간 — 기록 없는 브라우저 시험 300초(v2.84.0) · 아닌 시험 10초(새 worktree 첫 실행에서 시험마다 혼자 묶음이 되지 않게 · 한 묶음이 10분을 넘지 않게)
   const isBrowser = new Set(['b1', 'b2', 'b3']);
   const guess = (t: string) => estimateSec(undefined, isBrowser.has(t));
-  check(`[v2.83.0] 기록 없음 → 브라우저 ${DEFAULT_BROWSER_SEC}초 · 아님 ${DEFAULT_PLAIN_SEC}초(guessed) · 기록이 있으면 그 값`, DEFAULT_BROWSER_SEC === 120 && DEFAULT_PLAIN_SEC === 10 && guess('b1').seconds === 120 && guess('p1').seconds === 10 && guess('b1').guessed && estimateSec(7, true).seconds === 7 && !estimateSec(7, true).guessed);
+  check(`[v2.84.0] 기록 없음 → 브라우저 ${DEFAULT_BROWSER_SEC}초 · 아님 ${DEFAULT_PLAIN_SEC}초(guessed) · 기록이 있으면 그 값`, DEFAULT_BROWSER_SEC === 300 && DEFAULT_PLAIN_SEC === 10 && guess('b1').seconds === 300 && guess('p1').seconds === 10 && guess('b1').guessed && estimateSec(7, true).seconds === 7 && !estimateSec(7, true).guessed);
   const fresh = ['b1', 'b2', 'b3', 'p1', 'p2', 'p3', 'p4', 'p5'];
   const freshBatches = planBatches(fresh, (t) => guess(t).seconds, limit, null);
-  check('[v2.83.0] 기록 없는 시험 8개(브라우저 3 · 아님 5) → 8분 묶음 하나(혼자 묶음 0)', freshBatches.length === 1 && freshBatches[0].tests.length === 8 && !freshBatches[0].alone && freshBatches[0].seconds === 410, freshBatches.map((b) => `${b.tests}:${b.seconds}`).join(' | '));
+  check(
+    '[v2.84.0] 기록 없는 시험 8개(브라우저 3 · 아님 5) → 묶음마다 8분 안 · 혼자 묶음 0 · 기록 없는 브라우저 시험은 묶음마다 하나(셋이 한 묶음에 들어가 10분을 넘던 것)',
+    freshBatches.every((b) => !b.alone && b.seconds <= limit) && freshBatches.every((b) => b.tests.filter((t) => isBrowser.has(t)).length <= 1) && freshBatches.flatMap((b) => b.tests).length === 8,
+    freshBatches.map((b) => `${b.tests}:${b.seconds}`).join(' | '),
+  );
 }
 
 // ── [154-4] --changed ──
