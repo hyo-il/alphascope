@@ -107,6 +107,7 @@
     "chartview:test": "tsx scripts/chartViewSelfTest.ts",
     "mobilechart:test": "tsx scripts/mobileChartSelfTest.ts",
     "mobileschedasset:test": "tsx scripts/mobileSchedAssetSelfTest.ts",
+    "mobilequant:test": "tsx scripts/mobileQuantSelfTest.ts",
     "tidy:test": "tsx scripts/tidySelfTest.ts",
     "machinecheck:test": "tsx scripts/machineCheckSelfTest.ts",
     "hooks:test": "tsx scripts/hooksSelfTest.ts",

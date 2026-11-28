@@ -8,6 +8,7 @@ import { useTradingRules } from '../../hooks/useTradingRules';
 import { autoTradeView } from '../../utils/autoTradeStatus';
 import type { GeminiUsage } from '../../types/gemini';
 import { formatNumber } from '../../utils/formatters';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 
 /**
  * 「검증 기록 > AI 분석」 맨 위 상태 판 — "무엇이, 언제, 왜 Gemini 를 부르는가" 를 한눈에.
@@ -40,6 +41,8 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
   const { accounts } = usePaperAccounts();
   const [usage, setUsage] = useState<{ usage: GeminiUsage | null; enabled: boolean } | null>(null);
   const [usageError, setUsageError] = useState(false);
+  /** 폰 · 패드 — 「 · 」 를 묶음 밖에 두어 그 자리에서 줄이 바뀌게(묶음마다 앞에 붙어 있으면 줄 전체가 한 덩어리라 오른쪽 끝이 화면 밖으로 나갔다 · 점검 40) */
+  const breakable = useLayoutMode() !== 'desk';
 
   // 사용량은 화면을 열 때 한 번 — 폴링할 값이 아니다(분석은 길게는 한 시간에 한 바퀴다)
   useEffect(() => {
@@ -114,12 +117,21 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
         오늘 Gemini 사용{usage?.usage ? ` (${usage.usage.date}, 한국 시간)` : ''}:{' '}
         {usage?.usage ? (
           <>
-            {usage.usage.items.map((item, i) => (
-              <span key={item.key} className="whitespace-nowrap">
-                {i > 0 && ' · '}
-                {item.label} <b className="text-text-secondary">{formatNumber(item.calls, 0)}</b>회
-              </span>
-            ))}
+            {usage.usage.items.map((item, i) =>
+              breakable ? (
+                <span key={item.key}>
+                  {i > 0 && ' · '}
+                  <span className="whitespace-nowrap">
+                    {item.label} <b className="text-text-secondary">{formatNumber(item.calls, 0)}</b>회
+                  </span>
+                </span>
+              ) : (
+                <span key={item.key} className="whitespace-nowrap">
+                  {i > 0 && ' · '}
+                  {item.label} <b className="text-text-secondary">{formatNumber(item.calls, 0)}</b>회
+                </span>
+              ),
+            )}
             {' · '}
             <span className="whitespace-nowrap">
               합계 약 <b className="text-text-secondary">{formatNumber(usage.usage.totalCalls, 0)}</b>회
