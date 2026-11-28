@@ -460,7 +460,8 @@ check(
   else {
     const text = fs.readFileSync(md, 'utf8');
     const bytes = fs.statSync(md).size;
-    const rules = [/작업 뒤 찾은 화면 문제[^\n]*그 작업 안에서 고치고/, /`npm run check:all` 은 마지막에 한 번/, /캡처 검토는 바뀐 장면만 1440 하나/, /25,600바이트\(25KiB\) 안/];
+    // v2.83.0 검사 줄이기 — 「check:all 마지막에 한 번」 · 「캡처 검토 1440 하나」 는 2-4 기계 검사 순서 · 「캡처 검토는 바뀐 장면만 한 크기」 로 바뀜(같은 뜻 · 제자리 수정)
+    const rules = [/작업 뒤 찾은 화면 문제[^\n]*그 작업 안에서 고치고/, /전부는 배포 전 차수 한 번[^\n]*맨 끝에/, /캡처 검토는 바뀐 장면만 한 크기/, /25,600바이트\(25KiB\) 안/];
     const miss = rules.filter((re) => !re.test(text)).map(String);
     check(`[131-4] CLAUDE.md 새 일하는 법 세 줄 · 크기 기준 줄 · ${bytes}바이트 ≤ 25,600`, miss.length === 0 && bytes <= 25_600 && !/900줄을 넘으면/.test(text), miss.join(' · '));
   }

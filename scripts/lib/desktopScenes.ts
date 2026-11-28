@@ -172,15 +172,31 @@ const watchApi = (putRevision: number): Api => (u, method) => {
   }
   return undefined;
 };
-/** 기록한 응답 — 주소 그대로(쓰기는 503) */
+/**
+ * 종목 이름 — 앱(`src/utils/stockNames.ts`)은 한 틱 동안 모은 종목으로 요청 주소를 만들어, 시험이 붐비면 모이는 종목이 달라져
+ * 기록한 주소와 글자가 달라진다(그러면 503 → 이름 없이 그려져 요소 수가 흔들렸다). 기록한 이름 응답을 모두 합쳐 **물은 종목만** 답한다 —
+ * 주소가 기록과 같으면 답도 기록과 같다.
+ */
+const namesReply = (api: Record<string, unknown>, u: string): Reply => {
+  if (!u.startsWith('/api/stocks/names?')) return undefined;
+  const all: Record<string, string> = {};
+  for (const [k, v] of Object.entries(api)) if (k.startsWith('/api/stocks/names?')) Object.assign(all, (v as { names?: Record<string, string> }).names ?? {});
+  const asked = (new URLSearchParams(u.slice(u.indexOf('?') + 1)).get('symbols') ?? '').split(',').filter(Boolean);
+  return { json: { names: Object.fromEntries(asked.filter((x) => all[x]).map((x) => [x, all[x]])) } };
+};
+/** 기록한 응답 — 주소 그대로(쓰기는 503 · 종목 이름은 `namesReply`) */
 const exactApi = (api: Record<string, unknown>): Api => (u, method) => {
   if (method !== 'GET') return NO_WRITE;
   if (u.startsWith('/api/version')) return VERSION;
+  const names = namesReply(api, u);
+  if (names) return names;
   if (u in api) return { json: api[u] };
   return undefined;
 };
 /** 기록한 응답 — 주소 그대로 → 같은 경로(쿼리 다름) 첫 것(157 · 158차) */
 const fuzzy = (api: Record<string, unknown>, u: string): Reply => {
+  const names = namesReply(api, u);
+  if (names) return names;
   if (u in api) return { json: api[u] };
   const p = u.split('?')[0];
   const k = Object.keys(api).find((x) => x.split('?')[0] === p);
@@ -383,6 +399,8 @@ export const DESKTOP_GROUPS: DesktopGroup[] = [
       if (u === '/api/buy-judge/history') return { json: JUDGE_HIST.history };
       if (u.startsWith('/api/buy-judge/days?')) return { json: JUDGE_HIST.days };
       if (/^\/api\/buy-judge\/history\/[^/?]+$/.test(u)) return { json: JUDGE_HIST.symbolDays };
+      const names = namesReply(JUDGE_API, u);
+      if (names) return names;
       if (u in JUDGE_API) return { json: JUDGE_API[u] };
       return undefined;
     },
