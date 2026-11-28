@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import Tabs, { type TabItem } from './Tabs';
 import { PANEL_X } from './tokens';
 import PageTitle, { usePageTitleHidden } from './PageTitle';
+import ScrollRow from './ScrollRow';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 
 /**
  * 화면 머리 (디자인 규칙 7 — **제목 줄과 탭 줄은 나눈다**).
@@ -18,6 +20,7 @@ export default function PageHeader<T extends string>({
   onChange,
   tabsLabel,
   tabsRight,
+  scrollTabs = false,
 }: {
   title?: ReactNode;
   right?: ReactNode;
@@ -27,8 +30,13 @@ export default function PageHeader<T extends string>({
   /** 탭 묶음 이름(aria-label) */
   tabsLabel?: string;
   tabsRight?: ReactNode;
+  /** 폰 · 패드에서 탭 줄이 넘치면 상자 안에서 옆으로 밀고 끝 흐림(v2.84.0 · 테마 9-1 R7 · `ui/ScrollRow`) — 1280 이상은 그대로 */
+  scrollTabs?: boolean;
 }) {
   const titleHidden = usePageTitleHidden();
+  const mode = useLayoutMode();
+  const scroll = scrollTabs && mode !== 'desk';
+  const tabRow = tabs && value != null && onChange && <Tabs items={tabs} value={value} onChange={onChange} line={false} label={tabsLabel ?? '화면 안 탭'} />;
   return (
     // 가로 여백은 PANEL_X — 탭 글자와 화면 내용의 왼쪽 끝이 같은 선
     <div className={`shrink-0 ${PANEL_X}`}>
@@ -50,7 +58,13 @@ export default function PageHeader<T extends string>({
         ))}
       {tabs && value != null && onChange && (
         <div className="flex min-w-0 items-end gap-3 border-b border-border/60">
-          <Tabs items={tabs} value={value} onChange={onChange} line={false} label={tabsLabel ?? '화면 안 탭'} />
+          {scroll ? (
+            <ScrollRow className="min-w-0 flex-1" innerClassName="flex items-end" testId="page-tab-row">
+              {tabRow}
+            </ScrollRow>
+          ) : (
+            tabRow
+          )}
           {tabsRight != null && <div className="ml-auto flex min-w-0 items-center gap-2 self-center">{tabsRight}</div>}
         </div>
       )}

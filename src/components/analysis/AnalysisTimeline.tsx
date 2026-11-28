@@ -1,6 +1,8 @@
 import { formatDateTime } from '../../utils/dateFormat';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
+import Checkbox from '../ui/Checkbox';
+import LinkButton from '../ui/LinkButton';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GeminiAnalysis } from '../../types/gemini';
 import { formatPrice, formatSigned } from '../../utils/formatters';
@@ -242,8 +244,8 @@ export default function AnalysisTimeline({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
         <label className="inline-flex w-fit items-center gap-2 text-xs text-text-secondary">
-          <input
-            type="checkbox"
+          <Checkbox
+            nudge={false}
             checked={onlyThisSymbol}
             onChange={(e) => setOnlyThisSymbol(e.target.checked)}
             disabled={!symbol}
@@ -272,9 +274,9 @@ export default function AnalysisTimeline({
         )}
         <span className="ml-auto inline-flex items-center gap-2">
           {loading && <InlineSpinner />}
-          <button onClick={() => void load()} className="text-xs text-accent hover:underline">
+          <LinkButton onClick={() => void load()} className="text-xs">
             새로고침
-          </button>
+          </LinkButton>
         </span>
       </div>
 
@@ -289,7 +291,8 @@ export default function AnalysisTimeline({
 
       {/* 일괄 삭제는 「전체」 에서만 — 출처로 걸러 둔 채 지우면 화면에 없는 기록까지 지워진다 */}
       {items.length > 0 && source === 'all' && (
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        // 손가락 화면 — 위 줄 [새로고침] 글자 단추와 누르는 칸 44 가 겹치지 않게 위 12 더
+        <div className="flex flex-wrap items-center justify-end gap-2 touch:pt-3">
           {/* 화면 안의 삭제 = 빨간 글자 버튼, 줄 오른쪽 끝 · 0개면 감춘다 */}
           <Button variant="ghost" size="sm" onClick={() => removeMany('all')}>
             모두 삭제 ({items.length})

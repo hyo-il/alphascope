@@ -7,6 +7,7 @@ import StockName from '../common/StockName';
 import { InlineSpinner } from '../common/LoadingOverlay';
 import { Badge, Button, FeatureOff, InfoTip, Panel, Segmented, SectionTitle, TABLE_FILL, TABLE_NAME_COL, TABLE_NUM_COL, TABLE_NUM_GAP, TABLE_TEXT_COL } from '../ui';
 import { ICON_SM } from '../ui/icon';
+import { TOUCH_HIT } from '../ui/tokens';
 import { toast } from '../../store/uiStore';
 import { exitReasonText, type ExitReason } from '../../utils/autoTradeExplain';
 import { ruleBuyText, ruleSellText, TRAILING_BASIS_TEXT } from '../../utils/ruleText';
@@ -15,6 +16,8 @@ import type { TradingRule } from '../../types/tradingRule';
 import WarnIcon from '../ui/WarnIcon';
 import { fixMethodNames, methodName, type BacktestConditionResult, type BacktestCustomReport, type BacktestCustomSymbol, type ConditionLabel, type WorstDrawdown } from '../../types/backtest';
 import ScrollTable from '../ui/ScrollTable';
+import ShortNote from '../ui/ShortNote';
+import { useLayoutMode, type LayoutMode } from '../../hooks/useLayoutMode';
 
 /**
  * ④ 결과 — 사용자 시험. **판정 배지 없음**.
@@ -39,6 +42,11 @@ const worstText = (w: WorstDrawdown | null | undefined) =>
   ) : (
     '—'
   );
+/** 손가락 화면 줄 머리 위아래 12 — 이웃 줄 [ⓘ] 의 누르는 칸 44 가 서로 겹치지 않게(패드) */
+const ROW_HEAD_TOUCH = 'touch:py-3';
+const SYMBOL_TABLE_ASIDE = '기간 전체 · 머리를 누르면 정렬';
+/** 폰 비교 줄 — 방법 이름(왼쪽 13) | 값(오른쪽 14 · 넘치면 그 칸 안에서 줄바꿈) */
+const PHONE_VALUE_LINE = 'flex items-baseline justify-between gap-3';
 const diffOf = (a: number | null | undefined, b: number | null | undefined) => (a == null || b == null ? null : a - b);
 
 type SortKey = 'rule' | 'hold' | 'random' | 'trades' | 'winRate' | 'avgReturn' | 'stopRate' | 'mdd';
@@ -69,17 +77,45 @@ function Pieces({ parts }: { parts: string[] }) {
   );
 }
 
-function Row({ head, help, cells, hold }: { head: string; help?: string; cells: ReactNode[]; hold: ReactNode }) {
+/**
+ * 비교 표 한 줄 — 1280 이상 · 패드는 「이름 칸 | 방법 칸 … | 들고 있기」 한 줄.
+ * 폰(v2.84.0 · 테마 9-1 R10): 표 대신 이름(13 secondary)을 위 한 줄에, 아래에 방법마다 「방법 이름 | 값(14)」 줄 — 칸을 나란히 두면 칸이 좁아
+ * 글이 한 단어 폭으로 접히거나 겹쳤다. 들고 있기는 값이 있을 때만(「—」 줄은 뺌).
+ * 패드(테마 9-2 47): 남는 폭을 먹던 마지막 빈 칸을 빼 표가 전체 너비를 쓴다.
+ */
+function Row({ head, help, cells, hold, mode, names }: { head: string; help?: string; cells: ReactNode[]; hold: ReactNode; mode: LayoutMode; names: string[] }) {
+  const helpTip = help && (
+    <span className="ml-1 inline-block align-[-2px]">
+      <InfoTip label={`${head} 설명`}>{help}</InfoTip>
+    </span>
+  );
+  if (mode === 'phone')
+    return (
+      <div className="space-y-1 border-b border-border/30 py-2" data-r10-row>
+        <p className="text-caption text-text-secondary" data-r10-head>
+          {head}
+          {helpTip}
+        </p>
+        {cells.map((c, i) => (
+          <div key={i} className={PHONE_VALUE_LINE} data-r10-value>
+            <span className="shrink-0 text-caption text-text-secondary">{names[i]}</span>
+            <span className="min-w-0 text-right">{c}</span>
+          </div>
+        ))}
+        {hold !== '—' && (
+          <div className={PHONE_VALUE_LINE} data-r10-value>
+            <span className="shrink-0 text-caption text-text-secondary">들고 있기</span>
+            <span className="min-w-0 text-right text-text-secondary">{hold}</span>
+          </div>
+        )}
+      </div>
+    );
   return (
     <tr className="border-b border-border/30 align-top">
       {/* 행 머리는 폭을 정하고 줄바꿈을 허용한다 — 1280 창에서 조건 3개 + 들고 있기 열이 들어가게. 넓은 창(1536px 이상)에서는 넓혀 한 줄로 */}
-      <th scope="row" className="w-32 min-w-32 py-2 pr-3 text-left font-normal text-text-muted 2xl:w-52 2xl:min-w-52">
+      <th scope="row" className={mode === 'pad' ? `w-52 min-w-52 py-2 pr-3 text-left font-normal text-text-muted ${ROW_HEAD_TOUCH}` : `w-32 min-w-32 py-2 pr-3 text-left font-normal text-text-muted 2xl:w-52 2xl:min-w-52 ${ROW_HEAD_TOUCH}`}>
         {head}
-        {help && (
-          <span className="ml-1 inline-block align-[-2px]">
-            <InfoTip label={`${head} 설명`}>{help}</InfoTip>
-          </span>
-        )}
+        {helpTip}
       </th>
       {cells.map((c, i) => (
         <td key={i} className="py-2 pr-3 text-right">
@@ -87,8 +123,8 @@ function Row({ head, help, cells, hold }: { head: string; help?: string; cells: 
         </td>
       ))}
       <td className="py-2 text-right text-text-secondary">{hold}</td>
-      {/* 남는 폭은 마지막 빈 칸이 가져간다(기준표 「표」 — 방법 칸을 고르게 벌리지 않는다) */}
-      <td className={TABLE_FILL} />
+      {/* 남는 폭은 마지막 빈 칸이 가져간다(기준표 「표」 — 방법 칸을 고르게 벌리지 않는다) · 패드는 표가 전체 너비(빈 칸 없음) */}
+      {mode !== 'pad' && <td className={TABLE_FILL} />}
     </tr>
   );
 }
@@ -107,7 +143,8 @@ function SymbolTable({ result }: { result: BacktestConditionResult }) {
     });
   }, [result.symbols, sort]);
   return (
-    <ScrollTable className="mt-2 max-h-[28rem] overflow-auto">
+    // 손가락 화면 — 위 머리 줄 [방법] 묶음 단추와 정렬 머리 단추의 누르는 칸 44 가 겹치지 않게 위 16
+    <ScrollTable className="mt-2 max-h-[28rem] overflow-auto touch:mt-4">
       <table className="w-full text-caption tabular-nums [&_td+td]:pl-3 [&_th+th]:pl-3">
         <thead className="sticky top-0 whitespace-nowrap bg-bg-secondary text-text-muted">
           <tr className="border-b border-border/50">
@@ -117,7 +154,7 @@ function SymbolTable({ result }: { result: BacktestConditionResult }) {
                 <button
                   type="button"
                   onClick={() => setSort((cur) => ({ key: c.key, desc: cur.key === c.key ? !cur.desc : true }))}
-                  className={`inline-flex items-center gap-0.5 hover:text-text-primary ${sort.key === c.key ? 'text-text-primary' : ''}`}
+                  className={`inline-flex items-center gap-0.5 hover:text-text-primary ${TOUCH_HIT} ${sort.key === c.key ? 'text-text-primary' : ''}`}
                 >
                   {c.label}
                   {sort.key === c.key && (sort.desc ? <ArrowDown {...ICON_SM} /> : <ArrowUp {...ICON_SM} />)}
@@ -175,6 +212,7 @@ export default function CustomResult({
 }) {
   const cs = report.conditions;
   const many = cs.length > 1;
+  const mode = useLayoutMode();
   const [pick, setPick] = useState<ConditionLabel>('A');
   const [explaining, setExplaining] = useState(false);
   const picked = cs.find((c) => c.label === pick) ?? cs[0];
@@ -194,6 +232,136 @@ export default function CustomResult({
 
   // 표본 경고 — 어느 방법이든 거래 10회 미만 종목이 절반 이상이면 결과 맨 위에(색을 켠 대신, 색이 확신처럼 보이지 않게)
   const weakOnes = cs.filter((c) => c.summary.hardToTell);
+
+  /** 비교 표 줄들 — 1280 · 패드는 표 줄(`Row`) · 폰은 쌓은 줄(같은 값 · 같은 부품) */
+  const methodNames = cs.map((c) => methodName(c.label));
+  const compareRows = (
+    <>
+    <Row
+      head="매매 규칙"
+      cells={cs.map((c) => {
+        const now = rules?.find((r) => r.id === c.condition.ruleId);
+        const then = rules != null && (!now || !sameRuleBody(now, c.condition));
+        return (
+          <span className="text-text-primary" data-tip={`매수: ${ruleBuyText(c.condition.rule)}\n매도: ${ruleSellText(c.condition.rule)}`}>
+            「{c.condition.ruleName}」
+            {then && <span className="block text-caption text-text-muted">(시험 당시 조건)</span>}
+          </span>
+        );
+      })}
+      hold="—"
+      mode={mode}
+      names={methodNames}
+    />
+    <Row
+      head="매도 조건"
+      cells={cs.map((c) => (
+        <span className="text-text-secondary">
+          <Pieces parts={ruleSellText(c.condition.rule).split(' · ')} />
+        </span>
+      ))}
+      hold="—"
+      mode={mode}
+      names={methodNames}
+    />
+    <Row
+      head="기간 전체 수익"
+      cells={cs.map((c) => <span className={tone(c.summary.rule)}>{pct(c.summary.rule)}</span>)}
+      hold={<span className={tone(report.hold.rule)}>{pct(report.hold.rule)}</span>}
+      mode={mode}
+      names={methodNames}
+    />
+    <Row
+      head="아무 날이나 대비"
+      help="같은 종목·같은 횟수·같은 보유일로 아무 날이나 매수·매도했을 때(200번 평균)보다 얼마나 높았나(%p)."
+      cells={cs.map((c) => {
+        const d = diffOf(c.summary.rule, c.summary.random);
+        return <span className={tone(d)}>{pp(d)}</span>;
+      })}
+      hold="—"
+      mode={mode}
+      names={methodNames}
+    />
+    <Row
+      head="MDD(최대 낙폭)"
+      help={MDD_HELP}
+      cells={cs.map((c) => (
+        <span>
+          <span className={mddTone(c.summary.mdd)}>{pct(c.summary.mdd)}</span>
+          <span className="block text-text-muted">가장 나쁨 {worstText(c.summary.mddWorst)}</span>
+        </span>
+      ))}
+      hold={
+        <span>
+          <span className={mddTone(report.hold.mdd)}>{pct(report.hold.mdd)}</span>
+          <span className="block text-text-muted">가장 나쁨 {worstText(report.hold.mddWorst)}</span>
+        </span>
+      }
+      mode={mode}
+      names={methodNames}
+    />
+    <Row
+      head="Profit Factor (번 돈 ÷ 잃은 돈)"
+      help={PF_HELP}
+      cells={cs.map((c) =>
+        c.summary.profitFactor != null ? <span className={pfTone(c.summary.profitFactor)}>{c.summary.profitFactor.toFixed(2)}</span> : c.summary.profitFactorNote ? `— (${c.summary.profitFactorNote})` : '—',
+      )}
+      hold="—"
+      mode={mode}
+      names={methodNames}
+    />
+    <Row
+      head="이긴 거래 · 한 번 평균 · 횟수"
+      cells={cs.map((c) => (
+        <span>
+          <span className="whitespace-nowrap">{c.summary.winRate == null ? '—' : formatNumber(c.summary.winRate, 2, '%')} · </span>
+          <wbr />
+          <span className={`whitespace-nowrap ${tone(c.summary.avgTradeReturn)}`}>{pct(c.summary.avgTradeReturn)}</span>
+          <span className="whitespace-nowrap"> · {c.summary.avgTrades ?? 0}번</span>
+        </span>
+      ))}
+      hold="—"
+      mode={mode}
+      names={methodNames}
+    />
+    <Row
+      head="거래 10회 미만 종목"
+      cells={cs.map((c) => (
+        <span>
+          {c.summary.weakSymbols}/{c.summary.symbols}
+          {c.summary.hardToTell && (
+            <span className="mt-0.5 block">
+              <Badge>결론 내기 어려움</Badge>
+            </span>
+          )}
+        </span>
+      ))}
+      hold="—"
+      mode={mode}
+      names={methodNames}
+    />
+    <Row
+      head="매도한 이유"
+      help="이 방법으로 매도한 거래가 어떤 이유로 매도됐는지의 비율입니다. 괄호 안 숫자는 그 방법의 설정입니다 — 매도 신호(방법의 매도 조건) · 손절 · 익절 · 트레일링 · 시험 기간이 끝나 마지막 종가로 정리."
+      cells={cs.map((c) =>
+        c.summary.exits ? (
+          <span className="text-text-secondary">
+            <Pieces
+              parts={EXITS.filter((k) => c.summary.exits![k] > 0).map(
+                (k) => `${exitReasonText(k, c.condition.rule)} ${Math.round(c.summary.exits![k])}%`,
+              )}
+            />
+          </span>
+        ) : (
+          '—'
+        ),
+      )}
+      hold="—"
+      mode={mode}
+      names={methodNames}
+    />
+    </>
+  );
 
   return (
     <div className="space-y-3">
@@ -257,6 +425,13 @@ export default function CustomResult({
               </InfoTip>
             </p>
           ))}
+        {mode === 'phone' ? (
+          // 폰(R10): 표 대신 줄마다 「이름(위) · 방법마다 이름 | 값(아래)」 — 칸을 나란히 두면 칸이 좁아 글이 겹쳤다
+          <div className="text-xs tabular-nums" data-compare-list>
+            <p className="pb-1 text-caption text-text-secondary">종목 {symbolsCount}개 평균</p>
+            {compareRows}
+          </div>
+        ) : (
         <ScrollTable deskScroll>
           <table className="w-full text-caption tabular-nums">
             <thead className="whitespace-nowrap text-text-muted">
@@ -268,118 +443,13 @@ export default function CustomResult({
                   </th>
                 ))}
                 <th className={`${TABLE_TEXT_COL} text-right font-normal`}>들고 있기</th>
-                <th className={TABLE_FILL} />
+                {mode === 'desk' && <th className={TABLE_FILL} />}
               </tr>
             </thead>
-            <tbody>
-              <Row
-                head="매매 규칙"
-                cells={cs.map((c) => {
-                  const now = rules?.find((r) => r.id === c.condition.ruleId);
-                  const then = rules != null && (!now || !sameRuleBody(now, c.condition));
-                  return (
-                    <span className="text-text-primary" data-tip={`매수: ${ruleBuyText(c.condition.rule)}\n매도: ${ruleSellText(c.condition.rule)}`}>
-                      「{c.condition.ruleName}」
-                      {then && <span className="block text-caption text-text-muted">(시험 당시 조건)</span>}
-                    </span>
-                  );
-                })}
-                hold="—"
-              />
-              <Row
-                head="매도 조건"
-                cells={cs.map((c) => (
-                  <span className="text-text-secondary">
-                    <Pieces parts={ruleSellText(c.condition.rule).split(' · ')} />
-                  </span>
-                ))}
-                hold="—"
-              />
-              <Row
-                head="기간 전체 수익"
-                cells={cs.map((c) => <span className={tone(c.summary.rule)}>{pct(c.summary.rule)}</span>)}
-                hold={<span className={tone(report.hold.rule)}>{pct(report.hold.rule)}</span>}
-              />
-              <Row
-                head="아무 날이나 대비"
-                help="같은 종목·같은 횟수·같은 보유일로 아무 날이나 매수·매도했을 때(200번 평균)보다 얼마나 높았나(%p)."
-                cells={cs.map((c) => {
-                  const d = diffOf(c.summary.rule, c.summary.random);
-                  return <span className={tone(d)}>{pp(d)}</span>;
-                })}
-                hold="—"
-              />
-              <Row
-                head="MDD(최대 낙폭)"
-                help={MDD_HELP}
-                cells={cs.map((c) => (
-                  <span>
-                    <span className={mddTone(c.summary.mdd)}>{pct(c.summary.mdd)}</span>
-                    <span className="block text-text-muted">가장 나쁨 {worstText(c.summary.mddWorst)}</span>
-                  </span>
-                ))}
-                hold={
-                  <span>
-                    <span className={mddTone(report.hold.mdd)}>{pct(report.hold.mdd)}</span>
-                    <span className="block text-text-muted">가장 나쁨 {worstText(report.hold.mddWorst)}</span>
-                  </span>
-                }
-              />
-              <Row
-                head="Profit Factor (번 돈 ÷ 잃은 돈)"
-                help={PF_HELP}
-                cells={cs.map((c) =>
-                  c.summary.profitFactor != null ? <span className={pfTone(c.summary.profitFactor)}>{c.summary.profitFactor.toFixed(2)}</span> : c.summary.profitFactorNote ? `— (${c.summary.profitFactorNote})` : '—',
-                )}
-                hold="—"
-              />
-              <Row
-                head="이긴 거래 · 한 번 평균 · 횟수"
-                cells={cs.map((c) => (
-                  <span>
-                    <span className="whitespace-nowrap">{c.summary.winRate == null ? '—' : formatNumber(c.summary.winRate, 2, '%')} · </span>
-                    <wbr />
-                    <span className={`whitespace-nowrap ${tone(c.summary.avgTradeReturn)}`}>{pct(c.summary.avgTradeReturn)}</span>
-                    <span className="whitespace-nowrap"> · {c.summary.avgTrades ?? 0}번</span>
-                  </span>
-                ))}
-                hold="—"
-              />
-              <Row
-                head="거래 10회 미만 종목"
-                cells={cs.map((c) => (
-                  <span>
-                    {c.summary.weakSymbols}/{c.summary.symbols}
-                    {c.summary.hardToTell && (
-                      <span className="mt-0.5 block">
-                        <Badge>결론 내기 어려움</Badge>
-                      </span>
-                    )}
-                  </span>
-                ))}
-                hold="—"
-              />
-              <Row
-                head="매도한 이유"
-                help="이 방법으로 매도한 거래가 어떤 이유로 매도됐는지의 비율입니다. 괄호 안 숫자는 그 방법의 설정입니다 — 매도 신호(방법의 매도 조건) · 손절 · 익절 · 트레일링 · 시험 기간이 끝나 마지막 종가로 정리."
-                cells={cs.map((c) =>
-                  c.summary.exits ? (
-                    <span className="text-text-secondary">
-                      <Pieces
-                        parts={EXITS.filter((k) => c.summary.exits![k] > 0).map(
-                          (k) => `${exitReasonText(k, c.condition.rule)} ${Math.round(c.summary.exits![k])}%`,
-                        )}
-                      />
-                    </span>
-                  ) : (
-                    '—'
-                  ),
-                )}
-                hold="—"
-              />
-            </tbody>
+            <tbody>{compareRows}</tbody>
           </table>
         </ScrollTable>
+        )}
         {/* ⚠️ 고정 문구 — 지우지 않는다 */}
         <p className="text-caption text-text-muted">여러 조건을 바꿔 보며 가장 좋은 숫자를 고르면 우연에 속기 쉽습니다.</p>
       </Panel>
@@ -398,7 +468,7 @@ export default function CustomResult({
                     </th>
                   ))}
                   <th className={`${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right font-normal`}>들고 있기</th>
-                  <th className={TABLE_FILL} />
+                  {mode === 'desk' && <th className={TABLE_FILL} />}
                 </tr>
               </thead>
               <tbody>
@@ -416,7 +486,7 @@ export default function CustomResult({
                       </td>
                     ))}
                     <td className={`text-right ${tone(cs[0]?.segmentRows[k]?.hold)}`}>{pct(cs[0]?.segmentRows[k]?.hold)}</td>
-                    <td className={TABLE_FILL} />
+                    {mode === 'desk' && <td className={TABLE_FILL} />}
                   </tr>
                 ))}
               </tbody>
@@ -427,7 +497,8 @@ export default function CustomResult({
 
       <Panel pad="sm">
         <SectionTitle
-          aside="기간 전체 · 머리를 누르면 정렬"
+          // 폰 — 오른쪽 [방법] 묶음 단추 옆에서 설명이 한 단어 폭으로 접혀 제목 아래 한 줄로(R10)
+          aside={mode === 'phone' ? undefined : SYMBOL_TABLE_ASIDE}
           right={
             many ? (
               <Segmented label="종목별 표의 방법" size="sm" options={cs.map((c) => ({ value: c.label, label: methodName(c.label) }))} value={picked.label} onChange={setPick} />
@@ -436,6 +507,7 @@ export default function CustomResult({
         >
           종목별{many ? ` — ${methodName(picked.label)}` : ''}
         </SectionTitle>
+        {mode === 'phone' && <p className="mt-1 text-caption text-text-secondary">{SYMBOL_TABLE_ASIDE}</p>}
         <SymbolTable key={picked.label} result={picked} />
         {report.excluded.length > 0 && (
           <p className="mt-2 text-caption text-text-muted">
@@ -462,10 +534,18 @@ export default function CustomResult({
         </SectionTitle>
         {!ex && gemini && !gemini.enabled && <p className="text-caption text-text-muted"><FeatureOff what="Gemini 가 백테스트 결과를 쉬운 말로 설명합니다." /></p>}
         {!ex && gemini?.enabled && (
-          <p className="text-caption text-text-muted">
-            누르면 Gemini 를 1번 부릅니다(무료 한도를 자동매매와 함께 씁니다). {many ? '방법별 숫자만 보내고, 어느 방법이 가장 좋다고 고르지 않습니다. ' : ''}
-            받은 설명은 이 히스토리에 함께 저장됩니다.
-          </p>
+          // 폰 · 패드는 첫 문장 + [?](R5 · 같은 글)
+          <ShortNote
+            className="text-caption text-text-muted"
+            label="AI 설명 안내"
+            lead="누르면 Gemini 를 1번 부릅니다(무료 한도를 자동매매와 함께 씁니다)."
+            more={`${many ? '방법별 숫자만 보내고, 어느 방법이 가장 좋다고 고르지 않습니다. ' : ''}받은 설명은 이 히스토리에 함께 저장됩니다.`}
+          >
+            <p className="text-caption text-text-muted">
+              누르면 Gemini 를 1번 부릅니다(무료 한도를 자동매매와 함께 씁니다). {many ? '방법별 숫자만 보내고, 어느 방법이 가장 좋다고 고르지 않습니다. ' : ''}
+              받은 설명은 이 히스토리에 함께 저장됩니다.
+            </p>
+          </ShortNote>
         )}
         {ex && (
           <div className="space-y-2 text-caption text-text-secondary">

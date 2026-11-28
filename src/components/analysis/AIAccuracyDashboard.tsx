@@ -6,6 +6,7 @@ import { Skeleton, SkeletonCards } from '../common/SkeletonLoader';
 import { useLoading } from '../../hooks/useLoading';
 import { stockNameOf } from '../../utils/stockNames';
 import ScrollTable from '../ui/ScrollTable';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 
 interface Stats {
   /** 묶기 전 원본 분석 수 */
@@ -124,7 +125,21 @@ export default function AIAccuracyDashboard() {
  */
 function VersionLine({ report }: { report: Report }) {
   const versions = Object.entries(report.geminiByVersion ?? {});
+  // 폰(R10 · v2.84.0): 이름 줄 위 · 버전마다 한 줄 — 한 줄에 이어 쓰면 줄이 꺾이며 앞뒤 글이 겹쳐 보였다
+  const phone = useLayoutMode() === 'phone';
   if (!versions.length) return null;
+  if (phone)
+    return (
+      <div className="space-y-0.5 rounded-xl bg-bg-secondary px-4 py-2 text-xs text-text-secondary" data-version-lines>
+        <p className="text-caption text-text-secondary">Gemini 프롬프트 버전별</p>
+        {versions.map(([version, stats]) => (
+          <p key={version}>
+            <b className="text-text-primary">{version}</b> 채점 {stats.scored}건 · 대기 {stats.pending}건 · 적중{' '}
+            <span className={accuracyClass(stats.accuracy)}>{percent(stats.accuracy)}</span>
+          </p>
+        ))}
+      </div>
+    );
   return (
     <div className="rounded-xl bg-bg-secondary px-4 py-2 text-xs text-text-secondary">
       <span className="text-text-muted">Gemini 프롬프트 버전별 · </span>

@@ -233,7 +233,8 @@ export function TargetHistorySection({
                 </>
               )}
               {stats.rawScored != null && (
-                <span className="ml-1 text-text-muted">· 같은 종목·같은 날·같은 조건은 1건으로 셉니다(원본 {stats.rawScored}건)</span>
+                // 폰 — 다음 줄 따로(앞 「판단 보류」 와 한 줄 안에서 꺾여 겹쳐 보였다 · 점검 43)
+                <span className="ml-1 text-text-muted phone:ml-0 phone:block">· 같은 종목·같은 날·같은 조건은 1건으로 셉니다(원본 {stats.rawScored}건)</span>
               )}
             </span>
           )}

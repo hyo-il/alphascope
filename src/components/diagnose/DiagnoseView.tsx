@@ -19,6 +19,7 @@ import StockName from '../common/StockName';
 import { Trash2 } from 'lucide-react';
 import IconButton from '../ui/IconButton';
 import ScrollTable from '../ui/ScrollTable';
+import ShortNote from '../ui/ShortNote';
 
 /**
  * 진단 리포트 — 「퀀트 > 검증 기록 > 진단 리포트」 탭. 네 질문(목표 수익률·급등·Gemini·뉴스 AI)에 숫자로 답한다.
@@ -573,10 +574,23 @@ export default function DiagnoseView() {
           </>
         )}
 
-        <p className="text-caption text-text-muted">
-          <WarnIcon />모든 숫자는 과거 데이터의 빈도이며 예측이 아닙니다. 카드 배지는 리포트의 숫자를 기준선과만
-          비교합니다 — 표본이 30건 미만이면 "판단 보류 · 표본 부족" 으로 표시합니다. 이 분석은 투자 조언이 아닙니다.
-        </p>
+        {/* 폰 · 패드(R5): 주의 두 문장(예측이 아님 · 투자 조언이 아님)은 늘 보이고, 카드 배지 설명만 [?] 안으로(같은 글) */}
+        <ShortNote
+          className="text-caption text-text-muted"
+          label="카드 배지 설명"
+          lead={
+            <>
+              <WarnIcon />
+              모든 숫자는 과거 데이터의 빈도이며 예측이 아닙니다. 이 분석은 투자 조언이 아닙니다.
+            </>
+          }
+          more='카드 배지는 리포트의 숫자를 기준선과만 비교합니다 — 표본이 30건 미만이면 "판단 보류 · 표본 부족" 으로 표시합니다.'
+        >
+          <p className="text-caption text-text-muted">
+            <WarnIcon />모든 숫자는 과거 데이터의 빈도이며 예측이 아닙니다. 카드 배지는 리포트의 숫자를 기준선과만
+            비교합니다 — 표본이 30건 미만이면 "판단 보류 · 표본 부족" 으로 표시합니다. 이 분석은 투자 조언이 아닙니다.
+          </p>
+        </ShortNote>
       </div>
     </div>
   );

@@ -39,7 +39,7 @@ export default function RecordsView({ currentPrice }: { currentPrice: number | n
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="검증 기록" tabs={TABS} value={tab} onChange={setTab} tabsLabel="검증 기록" />
+      <PageHeader title="검증 기록" tabs={TABS} value={tab} onChange={setTab} tabsLabel="검증 기록" scrollTabs />
       <div className={`min-h-0 flex-1 overflow-auto ${PANEL_PAD}`} data-page-scroll>
         <ScrollTopShade />
         {tab === 'target' && <TargetTab />}

@@ -18,6 +18,7 @@ import { ruleSellText, TRAILING_BASIS_TEXT } from '../../utils/ruleText';
 import { MAX_COMPARE_SYMBOLS, methodName, type BacktestListItem } from '../../types/backtest';
 import { HISTORY_DAYS_PAGE } from '../../types/buyJudge'; // 날짜 목록 한 번에 30일 — 매수 판단 히스토리와 같은 값
 import SymbolTable from '../common/SymbolTable';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 import ConditionForm from './ConditionForm';
 import CustomResult from './CustomResult';
 import ApplyRuleButton from './ApplyRuleButton';
@@ -43,10 +44,12 @@ function elapsed(startedAt: string | null, now: number): string {
 /** 날짜를 펼친 안의 시험 한 줄 — 시각 · 종목 수 · 기간 · 방법(규칙 이름) · [열기] · [이 조건으로 다시 실행] · 삭제 */
 function HistoryRow({ item, selected, onOpen, onRetry, onRemove }: { item: BacktestListItem; selected: boolean; onOpen: () => void; onRetry?: () => void; onRemove: () => void }) {
   const s = item.summary;
+  // 폰(R10 · v2.84.0): 글은 줄 폭 전체 · 단추는 아랫줄(단추 셋이 옆을 차지해 글이 한 단어 폭으로 접혔다)
+  const phone = useLayoutMode() === 'phone';
   return (
     // 왼쪽 끝은 날짜 줄 안쪽과 같다(매수 판단 히스토리와 같은 모양 — 들여쓰기·바탕 상자 없음). 지금 보는 결과는 「보는 중」 글자로
-    <li className="flex items-center gap-3 py-2 text-caption">
-      <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
+    <li className={phone ? 'flex flex-wrap items-center gap-x-3 gap-y-2 py-2 text-caption' : 'flex items-center gap-3 py-2 text-caption'} data-backtest-history-row>
+      <button type="button" onClick={onOpen} className={phone ? 'min-w-0 basis-full text-left' : 'min-w-0 flex-1 text-left'}>
         <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className="tabular-nums text-text-primary">{formatTime(item.createdAt)}</span>
           {selected && <span className="text-text-primary">· 보는 중</span>}
