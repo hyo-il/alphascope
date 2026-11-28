@@ -80,7 +80,8 @@ export default function GoalDialog({ goal, onSave, onClose }: { goal: SwingGoal;
           <p className="mb-1 text-caption text-text-primary">손절</p>
           <div className="flex flex-wrap items-center gap-3 text-xs">
             <label className="inline-flex w-fit items-center gap-1.5 text-text-secondary">
-              <Checkbox checked={draft.stopAuto} onChange={(e) => set({ stopAuto: e.target.checked, stopPct: shownStop })} />
+              {/* 1280 자리는 150차 전(맨 체크박스)과 같게 — 1px 내림 없음(v2.84.0) */}
+              <Checkbox nudge={false} checked={draft.stopAuto} onChange={(e) => set({ stopAuto: e.target.checked, stopPct: shownStop })} />
               목표의 절반으로 자동
             </label>
             <span className="inline-flex items-center gap-1">

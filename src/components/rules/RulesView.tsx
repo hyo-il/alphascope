@@ -5,11 +5,18 @@ import { usePaperAccounts } from '../../hooks/usePaperTrading';
 import { isUsed, type TradingRule } from '../../types/tradingRule';
 import { usageText } from './usage';
 import { modal, toast } from '../../store/uiStore';
-import { Button, IconButton, PageHeader } from '../ui';
+import { Button, IconButton, PageHeader, ShortNote } from '../ui';
 import { LIST_TABLE_ROW, TABLE_NAME_COL, TABLE_ONE_LINE_TOUCH } from '../ui/tokens';
 import { SkeletonText } from '../common/SkeletonLoader';
 import RuleDialog from './RuleDialog';
 import ScrollTable from '../ui/ScrollTable';
+
+/** 화면 위 설명 — 1280 은 문단 그대로 · 폰 · 패드는 첫 문장 + [?](같은 글) */
+const INTRO = [
+  '매매 규칙은 매수·매도 조건을 담은 묶음입니다.',
+  '매수 조건마다 점수를 정하고, 합계가 기준 점수 이상이면 매수합니다.',
+  '매수 판단 · 계좌 자동매매 · 백테스트가 여기 규칙을 하나씩 골라 씁니다 — 같은 종목·같은 규칙이면 같은 판단입니다.',
+] as const;
 
 /**
  * 「퀀트 > 매매 규칙」 (퀀트 다시 만들기 1단계).
@@ -74,13 +81,24 @@ export default function RulesView() {
         }
       />
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-4 [scrollbar-gutter:stable]">
-        <p className="text-xs text-text-secondary">
-          매매 규칙은 매수·매도 조건을 담은 묶음입니다. 매수 조건마다 점수를 정하고, 합계가 기준 점수 이상이면 매수합니다.
-          <br />
-          <span className="text-text-muted">
-            매수 판단 · 계좌 자동매매 · 백테스트가 여기 규칙을 하나씩 골라 씁니다 — 같은 종목·같은 규칙이면 같은 판단입니다.
-          </span>
-        </p>
+        {/* 폰 · 패드는 첫 문장 한 줄 + [?](R5 · `ui/ShortNote`) — 나머지 문장은 [?] 안에 그대로 */}
+        <ShortNote
+          className="text-xs text-text-secondary"
+          label="매매 규칙 설명"
+          lead={INTRO[0]}
+          more={
+            <>
+              <p>{INTRO[1]}</p>
+              <p>{INTRO[2]}</p>
+            </>
+          }
+        >
+          <p className="text-xs text-text-secondary">
+            {INTRO[0]} {INTRO[1]}
+            <br />
+            <span className="text-text-muted">{INTRO[2]}</span>
+          </p>
+        </ShortNote>
 
         {r.rules == null && !r.error && <SkeletonText lines={3} />}
         {r.error && r.rules == null && (
@@ -116,7 +134,7 @@ export default function RulesView() {
                 {r.rules.map((rule) => (
                   <tr key={rule.id} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW}`}>
                     <td className="py-1 pr-6">
-                      <span className="block max-w-64 truncate whitespace-nowrap font-medium text-text-primary" data-tip-clip={rule.name}>
+                      <span className="block max-w-64 truncate whitespace-nowrap phone:max-w-none font-medium text-text-primary" data-tip-clip={rule.name}>
                         {rule.name}
                       </span>
                     </td>

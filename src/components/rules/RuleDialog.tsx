@@ -19,7 +19,9 @@ import { ENGINE_MA_PERIODS } from '../../types/autoTrading';
 import { ruleFieldErrors, ruleNameError, ruleWarnings, RULE_INPUT_LIMITS as L } from '../../utils/ruleInput';
 import { modal, toast } from '../../store/uiStore';
 import { askDiscard } from '../../store/leaveGuard';
-import { Badge, Button, Dialog, DisclosureButton, FieldError, FieldTouch, FormRow, Input, NumberField, NumberUnitGroup, Select } from '../ui';
+import { Badge, Button, Checkbox, Dialog, DisclosureButton, FieldError, FieldTouch, FormRow, Input, NumberField, NumberUnitGroup, Select } from '../ui';
+import { DATA_CARD_IN_DIALOG } from '../ui/tokens';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 import WarnIcon from '../ui/WarnIcon';
 import { usageText } from './usage';
 import ScrollTable from '../ui/ScrollTable';
@@ -218,6 +220,21 @@ export default function RuleDialog({
   };
 
   const maxScore = maxScoreOf(body.buy);
+  const mode = useLayoutMode();
+  const nameId = useId();
+  /** 이름 입력 칸 — 1280 은 폼 줄 안(`w-80` 그대로) · 폰 · 패드는 이름 아래(폭만 다름) */
+  const nameInput = (width: string) => (
+    <Input
+      id={mode === 'desk' ? undefined : nameId}
+      value={name}
+      onChange={(e) => setName(e.target.value)}
+      disabled={locked}
+      maxLength={L.nameLength}
+      placeholder="예: 눌림 매수"
+      invalid={editing && !!nameError}
+      className={width}
+    />
+  );
 
   return (
     <Dialog
@@ -254,21 +271,29 @@ export default function RuleDialog({
       }
     >
       <div className="space-y-5">
-        <FormRow label="이름" labelW="md" valueW="auto" error={editing ? nameError : undefined}>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={locked}
-            maxLength={L.nameLength}
-            placeholder="예: 눌림 매수"
-            invalid={editing && !!nameError}
-            className="w-80"
-          />
-        </FormRow>
+        {mode === 'desk' ? (
+          <FormRow label="이름" labelW="md" valueW="auto" error={editing ? nameError : undefined}>
+            {nameInput('w-80')}
+          </FormRow>
+        ) : (
+          // 폰 · 패드 — 이름 위 · 칸 아래(폰은 창 폭 전체 · 패드는 최대 320 — 고정 폭 칸이 판 밖으로 나가지 않게 · 점검 30 · 36 · 39)
+          <FieldTouch>
+            <div className="space-y-1" data-rule-name-row>
+              <label htmlFor={nameId} className="block text-xs text-text-secondary">
+                이름
+              </label>
+              {nameInput('w-full pad:max-w-80')}
+              <FieldError>{editing ? nameError : undefined}</FieldError>
+            </div>
+          </FieldTouch>
+        )}
 
         {/* ── 매수 조건 ───────────────────────────────── */}
         <section className="space-y-3">
           <h3 className="text-sm font-semibold text-text-primary">매수 조건</h3>
+          {mode === 'phone' ? (
+            <BuyCards body={body} locked={locked} err={err} setBuy={setBuy} setMinScore={(v) => setBody((b) => ({ ...b, buy: { ...b.buy, minScore: v } }))} maxScore={maxScore} />
+          ) : (
           <ScrollTable pin={2}>
           <table className="w-full text-left text-xs" data-rows-differ>
             <thead className="text-caption text-text-muted">
@@ -288,9 +313,9 @@ export default function RuleDialog({
                   <tr className="border-b border-border/30">
                     {/* 체크 박스는 칸 가운데 — 머리 「사용」 글자와 가로 가운데가 같은 선 · 옆 칸 이름과 세로 가운데가 같은 선(글자 줄 안에 두면 2px 내려간다). 브라우저 기본 여백(왼 4·오 3px)을 지워 정확히 가운데 */}
                     <td className="py-1.5 text-center">
-                      <input
+                      <Checkbox
+                        nudge={false}
                         className="m-0 mx-auto block"
-                        type="checkbox"
                         aria-label={`${NAMES[key]} 사용`}
                         checked={c.on}
                         disabled={locked}
@@ -360,6 +385,7 @@ export default function RuleDialog({
             </tfoot>
           </table>
           </ScrollTable>
+          )}
 
           <p className="text-xs text-text-primary">잃을 돈이 벌 돈보다 큰 거래(손익비 1 미만)는 어떤 규칙이든 사지 않습니다.</p>
           {warnings.map((w) => (
@@ -523,8 +549,8 @@ export default function RuleDialog({
               const on = gatesOf(body.buy)[key].on;
               return (
                 <div key={key} className="flex items-baseline gap-2 text-xs" data-gate={key}>
-                  <input
-                    type="checkbox"
+                  <Checkbox
+                    nudge={false}
                     className="m-0 shrink-0"
                     aria-label={`${label} 사용`}
                     checked={on}
@@ -674,6 +700,85 @@ export default function RuleDialog({
   );
 }
 
+/**
+ * 폰 매수 조건 카드(v2.84.0 · 테마 4-1 — 지시서 「제가 정한 것」) — 조건마다 카드 하나.
+ * 줄 1: [사용] 체크(공용 `Checkbox` · 누르는 칸 44) + 조건 이름 | 점수 칸 · 줄 2: 설명 전체 너비(13 secondary) · 틀린 칸 글.
+ * 마지막 카드는 「매수 기준」(점수 칸 · 설명). 바꾸는 값 · 저장 요청 몸은 1280 표와 같다(같은 `setBuy` · 같은 칸 이름).
+ */
+function BuyCards({
+  body,
+  locked,
+  err,
+  setBuy,
+  setMinScore,
+  maxScore,
+}: {
+  body: RuleBody;
+  locked: boolean;
+  err: (key: string) => string | undefined;
+  setBuy: <K extends BuyKey>(key: K, patch: Partial<RuleBody['buy'][K]>) => void;
+  setMinScore: (v: number) => void;
+  maxScore: number;
+}) {
+  return (
+    <div className="space-y-2" data-rule-cards>
+      {BUY_KEYS.map((key) => {
+        const c = body.buy[key];
+        return (
+          <FieldTouch key={key}>
+            <div className={DATA_CARD_IN_DIALOG} data-rule-card={key}>
+              <div className="flex items-center justify-between gap-3">
+                <label className={`flex min-w-0 items-center gap-3 text-xs ${c.on ? 'font-medium text-text-primary' : 'text-text-secondary'}`}>
+                  <Checkbox nudge={false} className="m-0 shrink-0" aria-label={`${NAMES[key]} 사용`} checked={c.on} disabled={locked} onChange={(e) => setBuy(key, { on: e.target.checked } as never)} />
+                  <span className="whitespace-nowrap">{NAMES[key]}</span>
+                  <Rec show={nameRecommended(key, body.buy)} />
+                </label>
+                <NumberField
+                  size="sm"
+                  unit="점"
+                  unitW="sm"
+                  aria-label={`${NAMES[key]} 점수`}
+                  min={L.points.min}
+                  max={L.points.max}
+                  value={shown(c.points)}
+                  disabled={locked || !c.on}
+                  invalid={!!err(`buy.${key}.points`)}
+                  onChange={(e) => setBuy(key, { points: num(e.target.value) } as never)}
+                />
+              </div>
+              <p className="text-caption text-text-secondary">{describe(key, body.buy)}</p>
+              <FieldError>{err(`buy.${key}.points`)}</FieldError>
+            </div>
+          </FieldTouch>
+        );
+      })}
+      <FieldTouch>
+        <div className={DATA_CARD_IN_DIALOG} data-rule-card="minScore">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-medium text-text-primary">매수 기준</span>
+            <NumberField
+              size="sm"
+              unit="점"
+              unitW="sm"
+              aria-label="매수 기준 점수"
+              min={L.minScore.min}
+              max={L.minScore.max}
+              value={shown(body.buy.minScore)}
+              disabled={locked}
+              invalid={!!err('buy.minScore')}
+              onChange={(e) => setMinScore(num(e.target.value))}
+            />
+          </div>
+          <p className="text-caption text-text-secondary">
+            합계가 이 점수 이상이면 매수 · 켠 조건의 최대 점수 {maxScore}점
+          </p>
+          <FieldError>{err('buy.minScore')}</FieldError>
+        </div>
+      </FieldTouch>
+    </div>
+  );
+}
+
 /** 점수표 한 줄 — 통과 0·1·2·3개 → 점수 */
 function TableLine({ k, points }: { k: GroupKey; points: number }) {
   const t = Number.isFinite(points) ? scaledTable(k, points) : GROUP_TABLES[k].map(() => Number.NaN);
@@ -701,7 +806,7 @@ function Toggle({
 }) {
   return (
     <span className="inline-flex items-center gap-2">
-      <input type="checkbox" aria-label={`${label} 사용`} checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      <Checkbox nudge={false} aria-label={`${label} 사용`} checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       <span className={checked ? 'text-text-primary' : ''}>{label}</span>
       {badge}
     </span>

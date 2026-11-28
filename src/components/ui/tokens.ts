@@ -209,6 +209,8 @@ export const DATA_CARD_LIST = 'flex flex-col gap-2';
 export const DATA_CARD_PRESS = 'cursor-pointer space-y-2';
 /** 카드 안 2 × 2 값 칸(v2.77.0 매수 판단 — 손절가 · 목표가 / 손익비 · 비중) — 칸 사이 가로 16 · 세로 6 */
 export const DATA_CARD_GRID = 'grid grid-cols-2 gap-x-4 gap-y-1.5';
+/** 창 안 카드(v2.84.0 · 새 규칙 창 조건) — 창 바탕이 bg-secondary 라 카드 바탕은 창 안 「고급 설정」 상자와 같은 어두운 바탕(숫자 칸 bg-tertiary 가 보이게 · 나머지는 `DATA_CARD` 와 같음) */
+export const DATA_CARD_IN_DIALOG = 'rounded-xl bg-bg-primary/40 px-4 py-3 space-y-2 tabular-nums';
 
 /**
  * 손가락 화면 단추 줄 사이(v2.76.0 · 테마 6 「12 이상」) — 마우스 화면(1280 이상 포함)은 그대로.
