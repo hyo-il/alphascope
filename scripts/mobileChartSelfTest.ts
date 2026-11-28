@@ -7,9 +7,8 @@
  * (사본 DB 테스트 서버에서 한 번 기록한 응답 · 관심 목록은 만든 값 · 실제 계좌 보유 응답은 뺌). 모르는 주소는 503 · 쓰기는 주문(`POST /api/paper/orders`)만
  * 받아 몸을 적어 두고 가짜로 답한다(실제 주문 0 · 서버로 가지 않음). 시계는 고정.
  * 폰 · 패드는 `isMobile` · `hasTouch`(손가락 화면).
- * 1 은 기준 커밋(1989b23 · v2.81.0)에서 같은 가짜 응답 · 같은 시계로 잰 큰 화면 정답 파일(`desk.json`)과 견준다 —
- *   보이는 요소마다 「태그 · 클래스(낱말 순서 맞춤 · 폰 · 패드 · 손가락에서만 켜지는 이름 뺌) · 자리 · 크기」 가 같아야 한다(146 ~ 150 과 같음).
- *   정답 파일을 다시 만들 때: 기준 커밋 worktree 에 이 파일 · 견본을 넣고 `CAPTURE=<저장 경로> npx tsx scripts/mobileChartSelfTest.ts`.
+ * 1(1280 · 1440 여섯 장면 그대로)은 v2.83.0 부터 `desktop:test`(`scripts/lib/desktopScenes.ts` 묶음 `chart`)가 본다 — 여기서는 1280 에서
+ *   5 · 8 이 견줄 종목 머리 줄 · 주문 네 단추(요청 · 확인 창 글)와 9 「기업 비교 처음 그대로」 만 잰다.
  * 누르는 칸(44 미만 · 겹침)은 `design:check` 18 · 19 와 같은 셈을 **그 화면 본문 · 열린 창 안**으로만 잰다(위쪽 막대 · 시황 띠 · 패드 메뉴는 앱 틀 — 다른 차수).
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
@@ -27,9 +26,7 @@ const WEB = `http://127.0.0.1:${PORT}`;
 const BASE = '1989b23';
 const CHASU: Chasu = { base: BASE, version: 'v2.82.0' };
 const FIX = path.join(root, 'scripts/fixtures/mobileChart');
-const FIXTURE = path.join(FIX, 'desk.json');
 const API: Record<string, unknown> = JSON.parse(fs.readFileSync(path.join(FIX, 'api.json'), 'utf8'));
-const CAPTURE = process.env.CAPTURE ?? '';
 const FIXED = new Date('2026-11-27T05:00:00.000Z');
 const CLIENT_VERSION = /version: '(v[\d.]+)'/.exec(fs.readFileSync(path.join(root, 'src/data/changelog.ts'), 'utf8'))?.[1] ?? '';
 
@@ -46,7 +43,7 @@ function check(name: string, ok: boolean, detail = '') {
 const PHONE = { width: 402, height: 874 };
 const PHONE_WIDE = { width: 874, height: 402 };
 const PAD = { width: 1133, height: 744 };
-const DESK_SIZES = [{ width: 1280, height: 1080 }, { width: 1440, height: 900 }];
+const DESK = { width: 1280, height: 1080 };
 const DESK_TABS = ['기업정보', '투자자 동향', '뉴스', 'AI 분석'];
 
 /** 가짜 응답 찾기 — 주소 그대로 → 같은 경로(쿼리 다름) 첫 것 */
@@ -105,25 +102,6 @@ const rect = (page: Page, sel: string) =>
     const r = el.getBoundingClientRect();
     return { x: r.x, y: r.y, w: r.width, h: r.height, b: r.bottom, r: r.right };
   }, sel);
-
-/** 큰 화면 모양 — 보이는 요소마다 태그 · 클래스(낱말 순서 맞춤 · 폰 · 패드 · 손가락 이름 뺌) · 자리 · 크기(시계 · 토스트 뺌) */
-async function deskSnapshot(page: Page): Promise<string[]> {
-  return page.evaluate(() => {
-    const out: string[] = [];
-    for (const el of document.body.querySelectorAll('*')) {
-      if (el.closest('[data-kst-clock], [data-toast-host], script, style')) continue;
-      const r = el.getBoundingClientRect();
-      if (r.width < 1 || r.height < 1) continue;
-      const cls = (el.getAttribute('class') ?? '')
-        .split(/\s+/)
-        .filter((c) => c && !/^(touch:|phone:|pad:)/.test(c) && c !== 'touch-hit' && c !== 'touch-hit-gap')
-        .sort()
-        .join(' ');
-      out.push(`${el.tagName}|${cls}|${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)},${Math.round(r.height)}`);
-    }
-    return out;
-  });
-}
 
 /**
  * 누르는 칸(design:check 18 · 19 와 같은 셈) · 같은 줄 높이 — 본문(`[data-layout-body]`) · 열린 창(`[role=dialog]`) 안만.
@@ -230,54 +208,25 @@ async function confirmOrder(o: Opened): Promise<{ text: string; body: string }> 
 }
 
 try {
-  // ───────── 1 큰 화면 그대로 ─────────
+  // ───────── 1280 — 5 · 8 이 견줄 값 · 9 (1 의 1280 · 1440 그대로는 desktop:test) ─────────
   const deskOrders: Record<string, { text: string; body: string }> = {};
   let deskPrice = '';
   {
-    const shots: Record<string, string[]> = {};
-    for (const size of DESK_SIZES) {
-      const o = await openChart(browser, size);
-      const key = `${size.width}x${size.height}`;
-      shots[`${key} 차트 처음`] = await guard.step('모양 재기', () => deskSnapshot(o.page));
-      for (const t of DESK_TABS) {
-        await tab(o.page, t);
-        shots[`${key} 아래 탭 ${t}`] = await guard.step('모양 재기', () => deskSnapshot(o.page));
-      }
-      if (!CAPTURE && size.width === 1280) {
-        deskPrice = await o.page.locator('header').first().innerText();
-        // 5 — 1280 의 네 단추(지정가 매도 · 지정가 매수 · 시장가 매도 · 시장가 매수) 요청 · 확인 창 글
-        for (const name of ['지정가 매도', '지정가 매수', '시장가 매도', '시장가 매수']) {
-          await guard.step(`1280 ${name}`, () => o.page.getByRole('button', { name, exact: true }).click({ timeout: 5000 }));
-          deskOrders[name] = await confirmOrder(o);
-        }
-      }
-      await guard.step('기업 비교로', () => o.page.evaluate(() => (location.hash = '#/compare')));
-      await o.page.waitForTimeout(2000);
-      shots[`${key} 기업 비교`] = await guard.step('모양 재기', () => deskSnapshot(o.page));
-      if (!CAPTURE && size.width === 1280) {
-        const checked = await o.page.getByRole('radiogroup', { name: '보기' }).getByRole('radio', { checked: true }).innerText();
-        const empty = await o.page.getByText('종목을 드래그하거나').count();
-        check('[157-9] 1280 기업 비교 — 처음 4칸 · 안내 「종목을 드래그하거나 … 클릭하세요」 그대로', checked.trim() === '4개' && empty > 0, `${checked} · ${empty}`);
-      }
-      await o.ctx.close();
+    // 아래 탭을 차례로 누른 뒤 재던 옛 순서 그대로(주문 · 가격 줄이 같은 상태에서)
+    const o = await openChart(browser, DESK);
+    for (const t of DESK_TABS) await tab(o.page, t);
+    deskPrice = await o.page.locator('header').first().innerText();
+    // 5 — 1280 의 네 단추(지정가 매도 · 지정가 매수 · 시장가 매도 · 시장가 매수) 요청 · 확인 창 글
+    for (const name of ['지정가 매도', '지정가 매수', '시장가 매도', '시장가 매수']) {
+      await guard.step(`1280 ${name}`, () => o.page.getByRole('button', { name, exact: true }).click({ timeout: 5000 }));
+      deskOrders[name] = await confirmOrder(o);
     }
-    if (CAPTURE) {
-      fs.mkdirSync(path.dirname(CAPTURE), { recursive: true });
-      fs.writeFileSync(CAPTURE, JSON.stringify(shots, null, 0));
-      console.log(`정답 파일 저장 — ${CAPTURE} (${Object.keys(shots).length}장면)`);
-      await browser.close();
-      await vite.close();
-      process.exit(0);
-    }
-    const want = JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) as Record<string, string[]>;
-    const norm = (x: string) => x.replace(/\s+/g, ' ').replace(/ ?\| ?/g, '|');
-    for (const key of Object.keys(want)) {
-      const a = want[key].map(norm);
-      const b = (shots[key] ?? []).map(norm);
-      const i = a.findIndex((x, k) => x !== b[k]);
-      const same = a.length === b.length && i < 0;
-      check(`[157-1] ${key} — 기준 커밋(${BASE})과 요소 ${a.length}개 태그 · 클래스 · 자리 · 크기 같음`, same, same ? '' : `개수 ${a.length} → ${b.length} · 첫 차이 #${i}: ${a[i] ?? '-'} → ${b[i] ?? '-'}`);
-    }
+    await guard.step('기업 비교로', () => o.page.evaluate(() => (location.hash = '#/compare')));
+    await o.page.waitForTimeout(2000);
+    const checked = await o.page.getByRole('radiogroup', { name: '보기' }).getByRole('radio', { checked: true }).innerText();
+    const empty = await o.page.getByText('종목을 드래그하거나').count();
+    check('[157-9] 1280 기업 비교 — 처음 4칸 · 안내 「종목을 드래그하거나 … 클릭하세요」 그대로', checked.trim() === '4개' && empty > 0, `${checked} · ${empty}`);
+    await o.ctx.close();
   }
 
   // ───────── 2 · 3 · 8 폰 틀 · 아래 탭 · 가격 줄 ─────────

@@ -6,17 +6,11 @@
  * 화면은 이 시험이 띄운 Vite(5198)에 열고, `/api` 는 모두 가짜 응답 — `scripts/fixtures/mobileTable/api.json`
  * (사본 DB 테스트 서버에서 한 번 기록한 응답 · 실제 계좌 보유 · 로그인 기기 · 관심 목록 · 자산 관리는 만든 값) · 모르는 주소는 503(사용자 서버로 가지 않음).
  * 시계는 고정(`page.clock.setFixedTime`). 폰 · 패드는 `isMobile` · `hasTouch`(손가락 화면).
- * 1 은 기준 커밋(cb23013 · v2.74.0)에서 같은 가짜 응답 · 같은 시계로 잰 큰 화면 정답 파일(`scripts/fixtures/mobileTable/desk.json`)과 견준다 —
- *   보이는 요소마다 「태그 · 클래스 · 자리 · 크기」 가 같아야 한다. 클래스는 낱말 순서를 맞춰 견준다(예전 `overflow-x-auto` 를 부품이 붙여 순서만 바뀜) ·
- *   폰 · 패드 · 손가락에서만 켜지는 이름(`phone:` · `pad:` · `touch:` · `touch-hit*`)은 큰 화면에서 아무것도 하지 않아 빼고 견준다(146 · 147 과 같음).
- *   정답 파일을 다시 만들 때: 기준 커밋 worktree 에 이 파일 · 가짜 응답을 넣고 `CAPTURE=<저장 경로> npx tsx scripts/mobileTableSelfTest.ts`.
- *   155차(v2.81.0) — 색 · 글 · 아이콘 규칙(테마 9-1 R2 · R4)만 반영해 정답 파일을 다시 만들었다: 기준 정답과 견주어 더해진 요소는 꺼진 기능 안내(`ui/FeatureOff` —
- *   글 · [ⓘ]) · 「기준 미달」 아이콘(`ui/NotPassIcon`) 뿐 · 빠진 요소는 개발용 글 `<code>` 상자 2개 · 자리 이동은 같은 줄 가로(아이콘 폭 18px)와 글이 짧아진 설정 화면 1 ~ 2px 뿐.
+ * 1(1280 · 1440 아홉 화면 그대로 · 미는 표 상자 없음)은 v2.83.0 부터 `desktop:test`(`scripts/lib/desktopScenes.ts` 묶음 `table`)가 본다.
  * 3 ~ 5 · 7 · 8 은 시험 틀(`scripts/fixtures/mobileTable/harness.js` — 앱과 같은 부품 · CSS)로도 잰다.
  * 손가락 밀기는 크롬 개발 도구(CDP `Input.synthesizeScrollGesture` · 손가락)로, 누름은 `Input.dispatchTouchEvent` 로 보낸다.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
-import { noColorLine } from './lib/noColorClass';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -30,9 +24,7 @@ const WEB = `http://127.0.0.1:${PORT}`;
 /** 기준 커밋(v2.74.0) — 1 의 정답 파일 · 12 는 여기서부터 바뀐 것을 본다 */
 const BASE = 'cb23013';
 const CHASU: Chasu = { base: BASE, version: 'v2.75.0' }; // 그 차수 범위만(scripts/lib/chasuRange.ts)
-const FIXTURE = path.join(root, 'scripts/fixtures/mobileTable/desk.json');
 const API: Record<string, unknown> = JSON.parse(fs.readFileSync(path.join(root, 'scripts/fixtures/mobileTable/api.json'), 'utf8'));
-const CAPTURE = process.env.CAPTURE ?? '';
 const FIXED = new Date('2026-11-25T06:00:00.000Z');
 /** 화면이 들고 있는 버전과 같은 서버 버전(새 버전 띠가 뜨지 않게 — 기준 커밋 · 지금 모두) */
 const CLIENT_VERSION = /version: '(v[\d.]+)'/.exec(fs.readFileSync(path.join(root, 'src/data/changelog.ts'), 'utf8'))?.[1] ?? '';
@@ -71,39 +63,6 @@ async function open(browser: Browser, size: { width: number; height: number }, h
   const cdp = mobile ? await ctx.newCDPSession(page) : null;
   return { page, ctx, errors, cdp };
 }
-
-/** 큰 화면 모양 — 보이는 요소마다 태그 · 클래스(낱말 순서 맞춤 · 폰 · 패드 · 손가락 이름 뺌) · 자리 · 크기(시계 · 토스트는 시각에 따라 바뀌어 뺌) */
-async function deskSnapshot(page: Page): Promise<string[]> {
-  return page.evaluate(() => {
-    const out: string[] = [];
-    for (const el of document.querySelectorAll('#root *')) {
-      if (el.closest('[data-kst-clock], [data-toast-host]')) continue;
-      const r = el.getBoundingClientRect();
-      if (r.width < 1 || r.height < 1) continue;
-      const cls = (el.getAttribute('class') ?? '')
-        .split(/\s+/)
-        .filter((c) => c && !/^(touch:|phone:|pad:)/.test(c) && c !== 'touch-hit' && c !== 'touch-hit-gap')
-        .sort()
-        .join(' ');
-      out.push(`${el.tagName}|${cls}|${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)},${Math.round(r.height)}`);
-    }
-    return out;
-  });
-}
-
-const DESK_SIZES = [{ width: 1280, height: 1080 }, { width: 1440, height: 900 }];
-/** 1 의 아홉 화면(지시서 「꼭 지킬 동작」 1) */
-const DESK_SCREENS: { name: string; hash: string }[] = [
-  { name: '계좌 관리 모의', hash: '#/portfolio/paper' },
-  { name: '계좌 관리 실제', hash: '#/portfolio/real' },
-  { name: '자산 관리', hash: '#/asset' },
-  { name: '실시간 순위', hash: '#/ranking' },
-  { name: '매매 규칙', hash: '#/rules' },
-  { name: '매수 판단', hash: '#/swing' },
-  { name: '백테스트 결과', hash: '#/backtest' },
-  { name: '급등 기록', hash: '#/surge/history' },
-  { name: '설정 앱 기능', hash: '#/settings-app' },
-];
 
 // ── 표 상자 재기 ──
 type BoxInfo = { sw: number; cw: number; sl: number; pin: string; fade: string; stuck: boolean; x: number; right: number };
@@ -225,37 +184,6 @@ const vite = await guard.step('Vite 띄우기', async () => {
 const browser = await guard.step('브라우저 띄우기', () => chromium.launch({ channel: 'chrome' }));
 
 try {
-  // ───────── 1 1280 이상 그대로 ─────────
-  {
-    const shots: Record<string, string[]> = {};
-    for (const size of DESK_SIZES) {
-      for (const s of DESK_SCREENS) {
-        const { page, ctx } = await open(browser, size, s.hash, 300);
-        // 세로 스크롤 막대는 화면 글에 따라 생겼다 없어져 폭이 갈린다 — 두 쪽 모두 감추고 견준다(146 과 같음)
-        await page.addStyleTag({ content: '*::-webkit-scrollbar { width: 0 !important; height: 0 !important; } * { scrollbar-width: none !important; }' });
-        await page.waitForTimeout(4500);
-        if (!CAPTURE) check(`[148-1] ${size.width}×${size.height} ${s.name} — 화면 모양 desk · 미는 표 상자 없음`, (await page.locator('[data-scroll-table]').count()) === 0);
-        shots[`${size.width}x${size.height} ${s.name}`] = await guard.step('모양 재기', () => deskSnapshot(page));
-        await ctx.close();
-      }
-    }
-    if (CAPTURE) {
-      fs.mkdirSync(path.dirname(CAPTURE), { recursive: true });
-      fs.writeFileSync(CAPTURE, JSON.stringify(shots, null, 0));
-      console.log(`정답 파일 저장 — ${CAPTURE} (${Object.keys(shots).length}장면)`);
-      process.exit(0);
-    }
-    const want = JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) as Record<string, string[]>;
-    for (const key of Object.keys(want)) {
-      // 155차 — 색 이름은 빼고 견준다(앱 전체 색 규칙 · noColorLine)
-      const a = want[key].map(noColorLine);
-      const b = (shots[key] ?? []).map(noColorLine);
-      const i = a.findIndex((x, k) => x !== b[k]);
-      const same = a.length === b.length && i < 0;
-      check(`[148-1] ${key} — 기준 커밋(${BASE})과 요소 ${a.length}개 태그 · 클래스 · 자리 · 크기 같음`, same, same ? '' : `개수 ${a.length} → ${b.length} · 첫 차이 #${i}: ${a[i] ?? '-'} → ${b[i] ?? '-'}`);
-    }
-  }
-
   // ───────── 2 · 10 폰 7화면 — 표만 밀림 · 점검 7줄 ─────────
   {
     const SCREENS = [

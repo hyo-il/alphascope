@@ -8,9 +8,7 @@
  * 일정은 만든 값(`fixtures/mobileSchedAsset/calendarSample.ts` — 받은 범위의 일정만), 자산 관리는 `designReviewShots.fakeContext` +
  * 장면마다 `designCheck` 의 자산 장면(`targets()` 이름 그대로 — 여는 코드 · 가짜 응답)을 다시 쓴다(실제 시트 0 · 쓰기는 가짜로 막음). 시계는 고정.
  * 폰 · 패드는 `isMobile` · `hasTouch`(손가락 화면).
- * 1 은 기준 커밋(d428185 · v2.82.0)에서 같은 가짜 응답 · 같은 시계로 잰 큰 화면 정답 파일(`desk.json`)과 견준다 —
- *   보이는 요소마다 「태그 · 클래스(낱말 순서 맞춤 · 폰 · 패드 · 손가락에서만 켜지는 이름 뺌) · 자리 · 크기」 가 같아야 한다(157차와 같음).
- *   정답 파일을 다시 만들 때: 기준 커밋 worktree 에 이 파일 · 견본을 넣고 `CAPTURE=<저장 경로> npx tsx scripts/mobileSchedAssetSelfTest.ts`.
+ * 1(1280 · 1440 증시 일정 · 자산 장면 20개 그대로)은 v2.83.0 부터 `desktop:test`(`scripts/lib/desktopScenes.ts` 묶음 `schedasset`)가 본다.
  * 누르는 칸(44 미만 · 겹침)은 `design:check` 18 · 19 와 같은 셈을 **그 화면 본문 · 열린 창 안**으로만 잰다(위쪽 막대 · 시황 띠 · 패드 메뉴는 앱 틀 — 다른 차수).
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
@@ -30,10 +28,7 @@ const WEB = `http://127.0.0.1:${PORT}`;
 /** 기준 커밋(v2.82.0) — 1 의 정답 파일 · 12 는 여기서부터 이번 차수 범위 */
 const BASE = 'd428185';
 const CHASU: Chasu = { base: BASE, version: 'v2.83.0' };
-const FIX = path.join(root, 'scripts/fixtures/mobileSchedAsset');
-const FIXTURE = path.join(FIX, 'desk.json');
 const API: Record<string, unknown> = JSON.parse(fs.readFileSync(path.join(root, 'scripts/fixtures/mobileChart/api.json'), 'utf8'));
-const CAPTURE = process.env.CAPTURE ?? '';
 const ONLY = process.env.ONLY ? new RegExp(process.env.ONLY) : null;
 /** `SHOTS=<폴더>` 면 폰 · 패드 장면 사진을 남긴다(점검 목록 사진 바꿔 넣기 · 눈으로 보기 — 판정과 상관없음) */
 const SHOTS = process.env.SHOTS ?? '';
@@ -56,27 +51,6 @@ const want = (part: string) => !ONLY || ONLY.test(part);
 const PHONE = { width: 402, height: 874 };
 const PAD = { width: 1133, height: 744 };
 const DESK_SIZES = [{ width: 1280, height: 1080 }, { width: 1440, height: 900 }];
-/** 1 · 비교하는 자산 장면(`designCheck` 이름) — 총 자산 · 자산 현황 · 비율 조정 · 이번 달 구매 · 설정 창 메뉴마다 · 매수 / 매도 · 새 종목 창 */
-const ASSET_SCENES = [
-  'asset-기록여러개-미지정',
-  'asset-일별변화-표',
-  'asset-자산현황-계좌카드',
-  'asset-자산현황-종목별-전체',
-  'asset-비율조정',
-  'asset-이번달구매',
-  'asset-이번달구매-살종목',
-  'asset-설정창-메뉴-목표비율',
-  'asset-설정창-메뉴-코어위성',
-  'asset-설정창-메뉴-연금',
-  'asset-설정창-메뉴-이번달구매',
-  'asset-설정창-메뉴-자산분류색',
-  'asset-설정창-메뉴-시트가격',
-  'asset-설정창-메뉴-잠금',
-  'asset-설정창-현금자동반영',
-  'asset-매수창-국내',
-  'asset-매도창-처음',
-  'asset-새종목-입력창',
-];
 const TARGETS = new Map(targets().map((t) => [t.name, t]));
 
 /** 가짜 응답 찾기 — 주소 그대로 → 같은 경로(쿼리 다름) 첫 것 */
@@ -144,12 +118,6 @@ async function scene(page: Page, name: string) {
   await page.waitForTimeout(400);
   return t;
 }
-async function leave(page: Page, name: string) {
-  const t = TARGETS.get(name)!;
-  await page.keyboard.press('Escape').catch(() => {});
-  if (t.after) await t.after(page).catch(() => {});
-  await closeLeftovers(page);
-}
 async function shot(page: Page, name: string, full = true) {
   if (!SHOTS) return;
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -167,25 +135,6 @@ const rect = (page: Page, sel: string) =>
     const r = el.getBoundingClientRect();
     return { x: r.x, y: r.y, w: r.width, h: r.height, b: r.bottom, r: r.right };
   }, sel);
-
-/** 큰 화면 모양 — 보이는 요소마다 태그 · 클래스(낱말 순서 맞춤 · 폰 · 패드 · 손가락 이름 뺌) · 자리 · 크기(시계 · 토스트 뺌) */
-async function deskSnapshot(page: Page): Promise<string[]> {
-  return page.evaluate(() => {
-    const out: string[] = [];
-    for (const el of document.body.querySelectorAll('*')) {
-      if (el.closest('[data-kst-clock], [data-toast-host], script, style')) continue;
-      const r = el.getBoundingClientRect();
-      if (r.width < 1 || r.height < 1) continue;
-      const cls = (el.getAttribute('class') ?? '')
-        .split(/\s+/)
-        .filter((c) => c && !/^(touch:|phone:|pad:)/.test(c) && c !== 'touch-hit' && c !== 'touch-hit-gap')
-        .sort()
-        .join(' ');
-      out.push(`${el.tagName}|${cls}|${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)},${Math.round(r.height)}`);
-    }
-    return out;
-  });
-}
 
 /**
  * 누르는 칸(design:check 18 · 19 와 같은 셈) — 본문(`[data-layout-body]`) · 열린 창(`[role=dialog]`) 안만.
@@ -276,43 +225,6 @@ const WEEK = ['2026-11-22', '2026-11-23', '2026-11-24', '2026-11-25', '2026-11-2
 const lines = (page: Page, sel: string) => page.locator(sel).evaluateAll((els) => els.map((e) => (e as HTMLElement).innerText.replace(/\s+/g, ' ').trim()));
 
 try {
-  // ───────── 1 큰 화면 그대로 ─────────
-  if (want('desk')) {
-    const shots: Record<string, string[]> = {};
-    for (const size of DESK_SIZES) {
-      const key = `${size.width}x${size.height}`;
-      const o = await open(browser, size, '#/calendar');
-      shots[`${key} 증시 일정`] = await guard.step('모양 재기', () => deskSnapshot(o.page));
-      await guard.step('날짜 고르기 열기', () => o.page.getByRole('button', { name: '2026년 11월', exact: true }).click({ timeout: 5000 }));
-      await o.page.waitForTimeout(600);
-      shots[`${key} 증시 일정 날짜 고르기`] = await guard.step('모양 재기', () => deskSnapshot(o.page));
-      await o.page.keyboard.press('Escape');
-      for (const name of ASSET_SCENES) {
-        await scene(o.page, name);
-        shots[`${key} ${name}`] = await guard.step('모양 재기', () => deskSnapshot(o.page));
-        await leave(o.page, name);
-      }
-      await o.ctx.close();
-    }
-    if (CAPTURE) {
-      fs.mkdirSync(path.dirname(CAPTURE), { recursive: true });
-      fs.writeFileSync(CAPTURE, JSON.stringify(shots, null, 0));
-      console.log(`정답 파일 저장 — ${CAPTURE} (${Object.keys(shots).length}장면)`);
-      await browser.close();
-      await vite.close();
-      process.exit(0);
-    }
-    const wantShots = JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) as Record<string, string[]>;
-    const norm = (x: string) => x.replace(/\s+/g, ' ').replace(/ ?\| ?/g, '|');
-    for (const key of Object.keys(wantShots)) {
-      const a = wantShots[key].map(norm);
-      const b = (shots[key] ?? []).map(norm);
-      const i = a.findIndex((x, k) => x !== b[k]);
-      const same = a.length === b.length && i < 0;
-      check(`[158-1] ${key} — 기준 커밋(${BASE})과 요소 ${a.length}개 태그 · 클래스 · 자리 · 크기 같음`, same, same ? '' : `개수 ${a.length} → ${b.length} · 첫 차이 #${i}: ${a[i] ?? '-'} → ${b[i] ?? '-'}`);
-    }
-  }
-
   // ───────── 2 · 3 의 1280 기준 — 7일마다 그날 목록 · [다음 달] 요청 주소 ─────────
   if (want('cal')) {
     const o = await open(browser, DESK_SIZES[0], '#/calendar');

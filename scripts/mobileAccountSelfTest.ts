@@ -6,15 +6,12 @@
  * 화면은 이 시험이 띄운 Vite(5196)에 열고, `/api` 는 모두 가짜 응답 — `scripts/fixtures/mobileAccount/api.json`
  * (사본 DB 테스트 서버에서 한 번 기록한 응답 + 보유 3종목 · 자동매매 켜짐 · 최근 판단 3줄로 고친 값 · 실제 계좌 보유는 만든 값 · 쓰기는 모두 503).
  * 모르는 주소는 503(사용자 서버로 가지 않음). 시계는 고정(`page.clock.setFixedTime`). 폰 · 패드는 `isMobile` · `hasTouch`(손가락 화면).
- * 1 은 기준 커밋(0cdb48a · v2.75.0)에서 같은 가짜 응답 · 같은 시계로 잰 큰 화면 정답 파일(`scripts/fixtures/mobileAccount/desk.json`)과 견준다 —
- *   보이는 요소마다 「태그 · 클래스(낱말 순서 맞춤 · 폰 · 패드 · 손가락에서만 켜지는 이름 뺌) · 자리 · 크기」 가 같아야 한다(146 ~ 148 과 같음).
- *   같은 파일에 기준 커밋 1280 의 보유 표 글(모의 · 실제 · 합계)도 담아 2 ~ 4 의 카드 글과 견준다.
- *   정답 파일을 다시 만들 때: 기준 커밋 worktree 에 이 파일 · 가짜 응답을 넣고 `CAPTURE=<저장 경로> npx tsx scripts/mobileAccountSelfTest.ts`.
+ * 1(1280 · 1440 여섯 화면 그대로)은 v2.83.0 부터 `desktop:test`(`scripts/lib/desktopScenes.ts` 묶음 `account`)가 본다.
+ *   2 ~ 4 의 카드 글은 기준 커밋(0cdb48a) 1280 의 보유 표 글(모의 · 실제 · 합계 — `scripts/fixtures/mobileAccount/table1280.json`)과 견준다.
  * 8 · 9 의 누르는 칸은 `design:check` 18 · 19 와 같은 셈(요소 + 보이지 않는 바깥 칸 · 같은 묶음 단추 안은 겹침으로 세지 않음)을 **그 화면 본문 · 열린 창 안**으로만 잰다
  *   (앱 틀 · 창 뒤 화면은 다른 차수 몫 · 스크롤로 가려진 요소는 뺌).
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
-import { noColorLine } from './lib/noColorClass';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -25,12 +22,11 @@ import { chasuDiff, type Chasu } from './lib/chasuRange';
 const root = path.resolve(import.meta.dirname, '..');
 const PORT = 5196;
 const WEB = `http://127.0.0.1:${PORT}`;
-/** 기준 커밋(v2.75.0) — 1 의 정답 파일 · 10 은 여기서부터 바뀐 것을 본다 */
+/** 기준 커밋(v2.75.0) — 2 ~ 4 의 1280 표 글 · 10 은 여기서부터 바뀐 것을 본다 */
 const BASE = '0cdb48a';
 const CHASU: Chasu = { base: BASE, version: 'v2.76.0' }; // 그 차수 범위만(scripts/lib/chasuRange.ts)
-const FIXTURE = path.join(root, 'scripts/fixtures/mobileAccount/desk.json');
+const TABLE_1280 = path.join(root, 'scripts/fixtures/mobileAccount/table1280.json');
 const API: Record<string, unknown> = JSON.parse(fs.readFileSync(path.join(root, 'scripts/fixtures/mobileAccount/api.json'), 'utf8'));
-const CAPTURE = process.env.CAPTURE ?? '';
 const FIXED = new Date('2026-11-26T05:00:00.000Z');
 const CLIENT_VERSION = /version: '(v[\d.]+)'/.exec(fs.readFileSync(path.join(root, 'src/data/changelog.ts'), 'utf8'))?.[1] ?? '';
 const DETAIL = '/api/paper/accounts/8?settle=1';
@@ -47,7 +43,6 @@ function check(name: string, ok: boolean, detail = '') {
 
 const PHONE = { width: 402, height: 874 };
 const PAD = { width: 1133, height: 744 };
-const DESK_SIZES = [{ width: 1280, height: 1080 }, { width: 1440, height: 900 }];
 
 type Override = (url: string) => { status?: number; json?: unknown; delayMs?: number } | undefined;
 
@@ -93,36 +88,6 @@ const openWizard = async (page: Page, step: 'new' | 'existing' | 2 | 3 | 4) => {
   if (step === 'existing') return;
   for (let i = 1; i < step; i++) await tapName(page, '다음');
 };
-
-/** 큰 화면 모양 — 보이는 요소마다 태그 · 클래스(낱말 순서 맞춤 · 폰 · 패드 · 손가락 이름 뺌) · 자리 · 크기(시계 · 토스트 뺌). 창은 body 아래라 body 전체 */
-async function deskSnapshot(page: Page): Promise<string[]> {
-  return page.evaluate(() => {
-    const out: string[] = [];
-    for (const el of document.body.querySelectorAll('*')) {
-      if (el.closest('[data-kst-clock], [data-toast-host], script, style')) continue;
-      const r = el.getBoundingClientRect();
-      if (r.width < 1 || r.height < 1) continue;
-      const cls = (el.getAttribute('class') ?? '')
-        .split(/\s+/)
-        .filter((c) => c && !/^(touch:|phone:|pad:)/.test(c) && c !== 'touch-hit' && c !== 'touch-hit-gap')
-        .sort()
-        .join(' ');
-      out.push(`${el.tagName}|${cls}|${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)},${Math.round(r.height)}`);
-    }
-    return out;
-  });
-}
-
-/** 1280 보유 표 글 — 줄마다 칸 글(종목 · 수량 · 평균 · 현재가 · 평가금액 · 평가손익 · 수익률|당일손익) · 합계 줄 */
-async function tableTexts(page: Page) {
-  return page.evaluate(() => {
-    const t = document.querySelector('table');
-    if (!t) return null;
-    const rows = [...t.querySelectorAll('tbody tr')].map((tr) => [...tr.querySelectorAll('td')].map((td) => (td as HTMLElement).innerText.trim()));
-    const foot = [...t.querySelectorAll('tfoot td')].map((td) => (td as HTMLElement).innerText.trim());
-    return { rows, foot };
-  });
-}
 
 /** 글 견주기 — 빈칸은 모두 뺀다(표 칸은 여백(margin)으로 띄우고 카드는 빈칸으로 띄운다 — 보이는 글자는 같음) */
 const strip = (v: unknown) => JSON.stringify(v).replace(/\s+/g, '');
@@ -214,49 +179,8 @@ const vite = await guard.step('Vite 띄우기', async () => {
 const browser = await guard.step('브라우저 띄우기', () => chromium.launch({ channel: 'chrome' }));
 
 try {
-  // ───────── 1 1280 이상 그대로 (+ 2 ~ 4 가 견줄 1280 표 글) ─────────
-  let want: { shots: Record<string, string[]>; tables: Record<string, { rows: string[][]; foot: string[] } | null> };
-  {
-    const shots: Record<string, string[]> = {};
-    const tables: Record<string, { rows: string[][]; foot: string[] } | null> = {};
-    const SCREENS: { name: string; hash: string; listView?: boolean; act?: (p: Page) => Promise<void> }[] = [
-      { name: '모의 카드 보기', hash: '#/portfolio/paper' },
-      { name: '모의 목록 보기', hash: '#/portfolio/paper', listView: true },
-      { name: '모의 계좌를 연 화면', hash: '#/portfolio/paper', act: openAccount },
-      { name: '실제 계좌', hash: '#/portfolio/real' },
-      { name: '새 계좌 창', hash: '#/portfolio/paper', act: (p) => tapName(p, '+ 새 계좌') },
-      { name: '자동매매 설정 창 단계 1', hash: '#/portfolio/paper', act: (p) => openWizard(p, 'new') },
-    ];
-    for (const size of DESK_SIZES) {
-      for (const s of SCREENS) {
-        const { page, ctx } = await open(browser, size, s.hash, { override: s.listView ? (u) => (u === '/api/paper/accounts-view' ? { json: { view: 'list' } } : undefined) : undefined });
-        // 세로 스크롤 막대는 화면 글에 따라 생겼다 없어져 폭이 갈린다 — 두 쪽 모두 감추고 견준다(146 ~ 148 과 같음)
-        await page.addStyleTag({ content: '*::-webkit-scrollbar { width: 0 !important; height: 0 !important; } * { scrollbar-width: none !important; }' });
-        if (s.act) await s.act(page);
-        await page.waitForTimeout(1500);
-        const key = `${size.width}x${size.height} ${s.name}`;
-        shots[key] = await guard.step('모양 재기', () => deskSnapshot(page));
-        if (size.width === 1280 && (s.name === '모의 계좌를 연 화면' || s.name === '실제 계좌')) tables[s.name] = await tableTexts(page);
-        await ctx.close();
-      }
-    }
-    if (CAPTURE) {
-      fs.mkdirSync(path.dirname(CAPTURE), { recursive: true });
-      fs.writeFileSync(CAPTURE, JSON.stringify({ shots, tables }, null, 0));
-      console.log(`정답 파일 저장 — ${CAPTURE} (${Object.keys(shots).length}장면)`);
-      process.exit(0);
-    }
-    want = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
-    for (const key of Object.keys(want.shots)) {
-      // 155차 — 색 이름은 빼고 견준다(앱 전체 색 규칙 · noColorLine)
-      const a = (want.shots[key] as string[]).map(noColorLine);
-      const b = (shots[key] ?? []).map(noColorLine);
-      let i = 0;
-      while (i < Math.max(a.length, b.length) && a[i] === b[i]) i++;
-      const same = a.length === b.length && i === a.length;
-      check(`[149-1] ${key} — 기준 커밋(${BASE})과 요소 ${a.length}개 태그 · 클래스 · 자리 · 크기 같음`, same, same ? '' : `개수 ${a.length} → ${b.length} · 첫 차이 #${i}: ${a[i] ?? '-'} → ${b[i] ?? '-'}`);
-    }
-  }
+  // 2 ~ 4 가 견줄 기준 커밋 1280 표 글(1 의 1280 · 1440 그대로는 desktop:test)
+  const want: { tables: Record<string, { rows: string[][]; foot: string[] } | null> } = JSON.parse(fs.readFileSync(TABLE_1280, 'utf8'));
 
   // ───────── 2 · 3 · 5 · 7 모의 보유 카드 ─────────
   {

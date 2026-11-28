@@ -3,13 +3,10 @@
  * 146차 폰 · 패드 앱 틀 시험(`npm run mobileframe:test` · v2.73.0) — 지시서 「꼭 지킬 동작」 1 ~ 11 줄마다.
  *
  * 화면은 이 시험이 띄운 Vite(5195)에 열고, `/api` 는 모두 가짜 응답(만든 값 · 모르는 주소는 503 — 사용자 서버로 가지 않음).
- * 1 은 기준 커밋(d44bfcf · v2.72.2)에서 같은 가짜 응답으로 잰 큰 화면 정답 파일(`scripts/fixtures/mobileFrame/desk.json`)과 견준다 —
- *   보이는 요소마다 「태그 · 클래스 · 자리 · 크기」 가 같아야 한다(주 단추 바탕 클래스만 옛 이름으로 바꿔 견줌 — 사용자 결정 2).
- *   정답 파일을 다시 만들 때: 기준 커밋 worktree 에 이 파일을 넣고 `CAPTURE=<저장 경로> npx tsx scripts/mobileFrameSelfTest.ts`.
+ * 1(1280 · 1440 큰 화면 그대로 · 화면 모양 desk)은 v2.83.0 부터 `desktop:test`(`scripts/lib/desktopScenes.ts` 묶음 `frame`)가 본다.
  * 11 은 관리 루트 `docs/design-check` 가 보이는 자리(본 저장소)에서만 잰다 — scratch worktree 에서는 건너뜀을 적는다.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
-import { noColorLine } from './lib/noColorClass';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -23,8 +20,6 @@ const WEB = `http://127.0.0.1:${PORT}`;
 /** 기준 커밋(v2.72.2) — 10 은 여기서부터 바뀐 것을 본다 */
 const BASE = 'd44bfcf';
 const CHASU: Chasu = { base: BASE, version: 'v2.73.0' }; // 그 차수 범위만(scripts/lib/chasuRange.ts)
-const FIXTURE = path.join(root, 'scripts/fixtures/mobileFrame/desk.json');
-const CAPTURE = process.env.CAPTURE ?? '';
 
 const guard = createBrowserStepGuard();
 let pass = 0;
@@ -89,35 +84,6 @@ const docOverflow = (page: Page) => page.evaluate(() => document.documentElement
 const focusedLabel = (page: Page) => page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '');
 const focusedDesc = (page: Page) => page.evaluate(() => (document.activeElement?.outerHTML ?? '').slice(0, 160));
 
-/** 큰 화면 모양 — 보이는 요소마다 태그 · 클래스 · 자리 · 크기(시계 · 토스트는 시각에 따라 바뀌어 뺌) */
-async function deskSnapshot(page: Page): Promise<string[]> {
-  return page.evaluate(() => {
-    const out: string[] = [];
-    for (const el of document.querySelectorAll('#root *')) {
-      if (el.closest('[data-kst-clock], [data-toast-host]')) continue;
-      const r = el.getBoundingClientRect();
-      if (r.width < 1 || r.height < 1) continue;
-      const cls = (el.getAttribute('class') ?? '')
-        // 주 단추 바탕만 바뀌었다(사용자 결정 2 — 모든 크기) — 옛 이름으로 견준다
-        .replace('bg-accent-button text-white hover:bg-accent-button-hover active:bg-accent-button-hover', 'bg-accent text-white hover:bg-accent-hover')
-        // 손가락 화면에서만 켜지는 이름(147차 — `touch:` 변형 · `touch-hit` · `touch-hit-gap`)은 마우스 큰 화면에서 아무것도 하지 않는다 — 빼고 견준다
-        .replace(/(^|\s)(touch:\S+|touch-hit|touch-hit-gap)(?=\s|$)/g, '$1');
-      out.push(`${el.tagName}|${cls}|${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)},${Math.round(r.height)}`);
-    }
-    return out;
-  });
-}
-
-const DESK_SIZES = [{ width: 1280, height: 1080 }, { width: 1440, height: 900 }];
-/** 1 의 다섯 화면 — 차트는 관심 목록 패널의 「애플」 을 눌러 연다 */
-const DESK_SCREENS: { name: string; hash: string; viaWatch?: boolean }[] = [
-  { name: '계좌 관리', hash: '#/portfolio' },
-  { name: '차트', hash: '#/portfolio', viaWatch: true },
-  { name: '매수 판단', hash: '#/swing' },
-  { name: '오늘 시황', hash: '#/market-brief' },
-  { name: '자산 관리', hash: '#/asset' },
-];
-
 const { createServer } = await import('vite');
 const vite = await guard.step('Vite 띄우기', async () => {
   const v = await createServer({ root, configFile: path.join(root, 'vite.config.ts'), logLevel: 'error', server: { host: '127.0.0.1', port: PORT, strictPort: true, hmr: false } });
@@ -127,43 +93,6 @@ const vite = await guard.step('Vite 띄우기', async () => {
 const browser = await guard.step('브라우저 띄우기', () => chromium.launch({ channel: 'chrome' }));
 
 try {
-  // ───────── 1 큰 화면 그대로 ─────────
-  {
-    const shots: Record<string, string[]> = {};
-    for (const size of DESK_SIZES) {
-      for (const s of DESK_SCREENS) {
-        const { page, ctx } = await open(browser, size, s.hash);
-        // 세로 스크롤 막대는 화면 글(시각 · 장 상태)에 따라 생겼다 없어져 기준 커밋끼리도 폭이 11px 갈렸다 — 두 쪽 모두 막대를 감추고 견준다
-        await page.addStyleTag({ content: '*::-webkit-scrollbar { width: 0 !important; height: 0 !important; } * { scrollbar-width: none !important; }' });
-        await page.waitForTimeout(300);
-        if (s.viaWatch) {
-          await guard.step('관심 목록 패널 애플', () => page.getByTestId('watch-panel').getByRole('button', { name: /AAPL/ }).first().click());
-          await page.waitForTimeout(1500);
-        }
-        if (!CAPTURE) check(`[146-1] ${size.width}×${size.height} ${s.name} — 화면 모양 desk`, (await modeOf(page)) === 'desk');
-        shots[`${size.width}x${size.height} ${s.name}`] = await guard.step('모양 재기', () => deskSnapshot(page));
-        await ctx.close();
-      }
-    }
-    if (CAPTURE) {
-      fs.mkdirSync(path.dirname(CAPTURE), { recursive: true });
-      fs.writeFileSync(CAPTURE, JSON.stringify(shots, null, 0));
-      console.log(`정답 파일 저장 — ${CAPTURE} (${Object.keys(shots).length}장면)`);
-      process.exit(0);
-    }
-    const want = JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) as Record<string, string[]>;
-    for (const key of Object.keys(want)) {
-      // 빈 칸 수만 다른 것(이름을 뺀 자리)은 같다 — 두 쪽 모두 빈 칸 하나로
-      // 155차 — 색 이름은 빼고 견준다(앱 전체 색 규칙 · noColorLine)
-      const norm = (x: string) => noColorLine(x.replace(/\s+/g, ' ').replace(/ ?\| ?/g, '|')).replace(/\s+/g, ' ').replace(/ ?\| ?/g, '|');
-      const a = want[key].map(norm);
-      const b = (shots[key] ?? []).map(norm);
-      const i = a.findIndex((x, k) => x !== b[k]);
-      const same = a.length === b.length && i < 0;
-      check(`[146-1] ${key} — 기준 커밋(${BASE})과 요소 ${a.length}개 태그 · 클래스 · 자리 · 크기 같음(색 이름은 뺌)`, same, same ? '' : `개수 ${a.length} → ${b.length} · 첫 차이 #${i}: ${a[i] ?? '-'} → ${b[i] ?? '-'}`);
-    }
-  }
-
   // ───────── 2 폰 402 × 874 ─────────
   {
     const { page, ctx, errors } = await open(browser, { width: 402, height: 874 }, '#/portfolio');

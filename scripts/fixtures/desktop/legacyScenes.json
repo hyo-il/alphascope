@@ -1,0 +1,743 @@
+{
+ "note": "v2.83.0 검사 줄이기 — 옛 시험 7개가 desk.json 으로 견주던 1280 · 1440 장면(지우기 전 목록 · 2c3265d). desktop:test 장면 목록이 이것을 모두 덮어야 한다(machinecheck:test 빠짐 0).",
+ "movedNote": "movedChecks = 옛 시험에서 desktop:test 로 옮긴 확인 줄 수(장면 비교 + 같은 장면의 「화면 모양 desk」 확인 — mobileframe [146-1] 10 · mobiletable [148-1] 18). [150-11] 은 이만큼 빼고 견준다.",
+ "movedChecks": {
+  "mobileaccount:test": 12,
+  "mobilebuyjudge:test": 6,
+  "mobilechart:test": 12,
+  "mobileframe:test": 20,
+  "mobileschedasset:test": 40,
+  "mobiletable:test": 36,
+  "mobiletouch:test": 6
+ },
+ "scenes": [
+  {
+   "test": "mobileaccount:test",
+   "check": "[149-1]",
+   "size": "1280x1080",
+   "name": "모의 카드 보기",
+   "elements": 268
+  },
+  {
+   "test": "mobileaccount:test",
+   "check": "[149-1]",
+   "size": "1280x1080",
+   "name": "모의 목록 보기",
+   "elements": 268
+  },
+  {
+   "test": "mobileaccount:test",
+   "check": "[149-1]",
+   "size": "1280x1080",
+   "name": "모의 계좌를 연 화면",
+   "elements": 363
+  },
+  {
+   "test": "mobileaccount:test",
+   "check": "[149-1]",
+   "size": "1280x1080",
+   "name": "실제 계좌",
+   "elements": 260
+  },
+  {
+   "test": "mobileaccount:test",
+   "check": "[149-1]",
+   "size": "1280x1080",
+   "name": "새 계좌 창",
+   "elements": 281
+  },
+  {
+   "test": "mobileaccount:test",
+   "check": "[149-1]",
+   "size": "1280x1080",
+   "name": "자동매매 설정 창 단계 1",
+   "elements": 312
+  },
+  {
+   "test": "mobileaccount:test",
+   "check": "[149-1]",
+   "size": "1440x900",
+   "name": "모의 카드 보기",
+   "elements": 268
+  },
+  {
+   "test": "mobileaccount:test",
+   "check": "[149-1]",
+   "size": "1440x900",
+   "name": "모의 목록 보기",
+   "elements": 270
+  },
+  {
+   "test": "mobileaccount:test",
+   "check": "[149-1]",
+   "size": "1440x900",
+   "name": "모의 계좌를 연 화면",
+   "elements": 363
+  },
+  {
+   "test": "mobileaccount:test",
+   "check": "[149-1]",
+   "size": "1440x900",
+   "name": "실제 계좌",
+   "elements": 260
+  },
+  {
+   "test": "mobileaccount:test",
+   "check": "[149-1]",
+   "size": "1440x900",
+   "name": "새 계좌 창",
+   "elements": 281
+  },
+  {
+   "test": "mobileaccount:test",
+   "check": "[149-1]",
+   "size": "1440x900",
+   "name": "자동매매 설정 창 단계 1",
+   "elements": 312
+  },
+  {
+   "test": "mobilebuyjudge:test",
+   "check": "[150-1]",
+   "size": "1280x1080",
+   "name": "판단 처음",
+   "elements": 398
+  },
+  {
+   "test": "mobilebuyjudge:test",
+   "check": "[150-1]",
+   "size": "1280x1080",
+   "name": "판단 줄 펼침",
+   "elements": 464
+  },
+  {
+   "test": "mobilebuyjudge:test",
+   "check": "[150-1]",
+   "size": "1280x1080",
+   "name": "판단 기록 펼침",
+   "elements": 557
+  },
+  {
+   "test": "mobilebuyjudge:test",
+   "check": "[150-1]",
+   "size": "1440x900",
+   "name": "판단 처음",
+   "elements": 398
+  },
+  {
+   "test": "mobilebuyjudge:test",
+   "check": "[150-1]",
+   "size": "1440x900",
+   "name": "판단 줄 펼침",
+   "elements": 464
+  },
+  {
+   "test": "mobilebuyjudge:test",
+   "check": "[150-1]",
+   "size": "1440x900",
+   "name": "판단 기록 펼침",
+   "elements": 557
+  },
+  {
+   "test": "mobilechart:test",
+   "check": "[157-1]",
+   "size": "1280x1080",
+   "name": "차트 처음",
+   "elements": 478
+  },
+  {
+   "test": "mobilechart:test",
+   "check": "[157-1]",
+   "size": "1280x1080",
+   "name": "아래 탭 기업정보",
+   "elements": 503
+  },
+  {
+   "test": "mobilechart:test",
+   "check": "[157-1]",
+   "size": "1280x1080",
+   "name": "아래 탭 투자자 동향",
+   "elements": 452
+  },
+  {
+   "test": "mobilechart:test",
+   "check": "[157-1]",
+   "size": "1280x1080",
+   "name": "아래 탭 뉴스",
+   "elements": 520
+  },
+  {
+   "test": "mobilechart:test",
+   "check": "[157-1]",
+   "size": "1280x1080",
+   "name": "아래 탭 AI 분석",
+   "elements": 483
+  },
+  {
+   "test": "mobilechart:test",
+   "check": "[157-1]",
+   "size": "1280x1080",
+   "name": "기업 비교",
+   "elements": 465
+  },
+  {
+   "test": "mobilechart:test",
+   "check": "[157-1]",
+   "size": "1440x900",
+   "name": "차트 처음",
+   "elements": 478
+  },
+  {
+   "test": "mobilechart:test",
+   "check": "[157-1]",
+   "size": "1440x900",
+   "name": "아래 탭 기업정보",
+   "elements": 503
+  },
+  {
+   "test": "mobilechart:test",
+   "check": "[157-1]",
+   "size": "1440x900",
+   "name": "아래 탭 투자자 동향",
+   "elements": 452
+  },
+  {
+   "test": "mobilechart:test",
+   "check": "[157-1]",
+   "size": "1440x900",
+   "name": "아래 탭 뉴스",
+   "elements": 520
+  },
+  {
+   "test": "mobilechart:test",
+   "check": "[157-1]",
+   "size": "1440x900",
+   "name": "아래 탭 AI 분석",
+   "elements": 483
+  },
+  {
+   "test": "mobilechart:test",
+   "check": "[157-1]",
+   "size": "1440x900",
+   "name": "기업 비교",
+   "elements": 465
+  },
+  {
+   "test": "mobileframe:test",
+   "check": "[146-1]",
+   "size": "1280x1080",
+   "name": "계좌 관리",
+   "elements": 226
+  },
+  {
+   "test": "mobileframe:test",
+   "check": "[146-1]",
+   "size": "1280x1080",
+   "name": "차트",
+   "elements": 332
+  },
+  {
+   "test": "mobileframe:test",
+   "check": "[146-1]",
+   "size": "1280x1080",
+   "name": "매수 판단",
+   "elements": 249
+  },
+  {
+   "test": "mobileframe:test",
+   "check": "[146-1]",
+   "size": "1280x1080",
+   "name": "오늘 시황",
+   "elements": 217
+  },
+  {
+   "test": "mobileframe:test",
+   "check": "[146-1]",
+   "size": "1280x1080",
+   "name": "자산 관리",
+   "elements": 213
+  },
+  {
+   "test": "mobileframe:test",
+   "check": "[146-1]",
+   "size": "1440x900",
+   "name": "계좌 관리",
+   "elements": 226
+  },
+  {
+   "test": "mobileframe:test",
+   "check": "[146-1]",
+   "size": "1440x900",
+   "name": "차트",
+   "elements": 332
+  },
+  {
+   "test": "mobileframe:test",
+   "check": "[146-1]",
+   "size": "1440x900",
+   "name": "매수 판단",
+   "elements": 249
+  },
+  {
+   "test": "mobileframe:test",
+   "check": "[146-1]",
+   "size": "1440x900",
+   "name": "오늘 시황",
+   "elements": 217
+  },
+  {
+   "test": "mobileframe:test",
+   "check": "[146-1]",
+   "size": "1440x900",
+   "name": "자산 관리",
+   "elements": 213
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "증시 일정",
+   "elements": 379
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "증시 일정 날짜 고르기",
+   "elements": 446
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-기록여러개-미지정",
+   "elements": 768
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-일별변화-표",
+   "elements": 773
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-자산현황-계좌카드",
+   "elements": 495
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-자산현황-종목별-전체",
+   "elements": 383
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-비율조정",
+   "elements": 459
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-이번달구매",
+   "elements": 457
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-이번달구매-살종목",
+   "elements": 585
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-설정창-메뉴-목표비율",
+   "elements": 552
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-설정창-메뉴-코어위성",
+   "elements": 548
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-설정창-메뉴-연금",
+   "elements": 516
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-설정창-메뉴-이번달구매",
+   "elements": 514
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-설정창-메뉴-자산분류색",
+   "elements": 557
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-설정창-메뉴-시트가격",
+   "elements": 496
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-설정창-메뉴-잠금",
+   "elements": 498
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-설정창-현금자동반영",
+   "elements": 917
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-매수창-국내",
+   "elements": 581
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-매도창-처음",
+   "elements": 586
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1280x1080",
+   "name": "asset-새종목-입력창",
+   "elements": 596
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "증시 일정",
+   "elements": 379
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "증시 일정 날짜 고르기",
+   "elements": 446
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-기록여러개-미지정",
+   "elements": 768
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-일별변화-표",
+   "elements": 773
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-자산현황-계좌카드",
+   "elements": 495
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-자산현황-종목별-전체",
+   "elements": 383
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-비율조정",
+   "elements": 459
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-이번달구매",
+   "elements": 457
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-이번달구매-살종목",
+   "elements": 585
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-설정창-메뉴-목표비율",
+   "elements": 552
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-설정창-메뉴-코어위성",
+   "elements": 548
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-설정창-메뉴-연금",
+   "elements": 516
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-설정창-메뉴-이번달구매",
+   "elements": 514
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-설정창-메뉴-자산분류색",
+   "elements": 557
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-설정창-메뉴-시트가격",
+   "elements": 496
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-설정창-메뉴-잠금",
+   "elements": 498
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-설정창-현금자동반영",
+   "elements": 917
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-매수창-국내",
+   "elements": 581
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-매도창-처음",
+   "elements": 586
+  },
+  {
+   "test": "mobileschedasset:test",
+   "check": "[158-1]",
+   "size": "1440x900",
+   "name": "asset-새종목-입력창",
+   "elements": 596
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1280x1080",
+   "name": "계좌 관리 모의",
+   "elements": 271
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1280x1080",
+   "name": "계좌 관리 실제",
+   "elements": 259
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1280x1080",
+   "name": "자산 관리",
+   "elements": 634
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1280x1080",
+   "name": "실시간 순위",
+   "elements": 1005
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1280x1080",
+   "name": "매매 규칙",
+   "elements": 269
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1280x1080",
+   "name": "매수 판단",
+   "elements": 404
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1280x1080",
+   "name": "백테스트 결과",
+   "elements": 518
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1280x1080",
+   "name": "급등 기록",
+   "elements": 495
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1280x1080",
+   "name": "설정 앱 기능",
+   "elements": 312
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1440x900",
+   "name": "계좌 관리 모의",
+   "elements": 273
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1440x900",
+   "name": "계좌 관리 실제",
+   "elements": 259
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1440x900",
+   "name": "자산 관리",
+   "elements": 634
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1440x900",
+   "name": "실시간 순위",
+   "elements": 1005
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1440x900",
+   "name": "매매 규칙",
+   "elements": 269
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1440x900",
+   "name": "매수 판단",
+   "elements": 404
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1440x900",
+   "name": "백테스트 결과",
+   "elements": 518
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1440x900",
+   "name": "급등 기록",
+   "elements": 495
+  },
+  {
+   "test": "mobiletable:test",
+   "check": "[148-1]",
+   "size": "1440x900",
+   "name": "설정 앱 기능",
+   "elements": 312
+  },
+  {
+   "test": "mobiletouch:test",
+   "check": "[147-1]",
+   "size": "1280x1080",
+   "name": "떠 있는 시계",
+   "elements": 6
+  },
+  {
+   "test": "mobiletouch:test",
+   "check": "[147-1]",
+   "size": "1280x1080",
+   "name": "창(md)",
+   "elements": 16
+  },
+  {
+   "test": "mobiletouch:test",
+   "check": "[147-1]",
+   "size": "1280x1080",
+   "name": "툴팁",
+   "elements": 1
+  },
+  {
+   "test": "mobiletouch:test",
+   "check": "[147-1]",
+   "size": "1440x900",
+   "name": "떠 있는 시계",
+   "elements": 6
+  },
+  {
+   "test": "mobiletouch:test",
+   "check": "[147-1]",
+   "size": "1440x900",
+   "name": "창(md)",
+   "elements": 16
+  },
+  {
+   "test": "mobiletouch:test",
+   "check": "[147-1]",
+   "size": "1440x900",
+   "name": "툴팁",
+   "elements": 1
+  }
+ ]
+}

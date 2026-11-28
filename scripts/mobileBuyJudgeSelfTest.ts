@@ -7,18 +7,13 @@
  * (`api.json` = 사본 DB 테스트 서버에서 한 번 기록한 응답 · `state.json` = 판단 목록(사도 됨 · 손익비 부족 · 거름망 · 기준 미달 · 판단 못 함) ·
  *  `history.json` = 히스토리 가짜 값). 모르는 주소는 503(사용자 서버로 가지 않음) · 쓰기는 시험이 바꿔치기한 것만 200. 시계는 고정.
  * 폰 · 패드는 `isMobile` · `hasTouch`(손가락 화면). [목표 수익 가능성] 은 바꿔치기 응답으로만 누른다(Gemini 호출 0).
- * 1 은 기준 커밋(c0e8845 · v2.76.0)에서 같은 가짜 응답 · 같은 시계로 잰 큰 화면 정답 파일(`desk.json`)과 견준다 —
- *   보이는 요소마다 「태그 · 클래스(낱말 순서 맞춤 · 폰 · 패드 · 손가락에서만 켜지는 이름 뺌) · 자리 · 크기」 가 같아야 한다(146 ~ 149 와 같음).
- *   같은 파일에 기준 커밋 1280 의 판단 표 글도 담아 2 · 3 의 카드 글과 견준다.
- *   정답 파일을 다시 만들 때: 기준 커밋 worktree 에 이 파일 · 견본을 넣고 `CAPTURE=<저장 경로> npx tsx scripts/mobileBuyJudgeSelfTest.ts`.
- *   155차(v2.81.0) — 「기준 미달 · 거름망에 걸림 · 안 됨」 앞 아이콘(`ui/NotPassIcon` · 테마 9-1 R2 ③)만 반영해 정답 파일 `shots` 를 다시 만들었다:
- *   기준 커밋 정답과 견주어 더해진 요소는 그 아이콘(svg · 판단 칸) 뿐 · 세로 자리 · 높이 · 표 글(`table`)은 같음 · 같은 줄 가로 자리 · 폭만 −18 ~ +18px.
+ * 1(1280 · 1440 세 화면 그대로)은 v2.83.0 부터 `desktop:test`(`scripts/lib/desktopScenes.ts` 묶음 `buyjudge`)가 본다.
+ *   2 · 3 의 카드 글은 기준 커밋(c0e8845) 1280 의 판단 표 글(`table1280.json`)과 견준다.
  * 8 · 9 의 누르는 칸은 `design:check` 18 · 19 와 같은 셈을 **그 화면 본문 · 열린 창 안**으로만 잰다(앱 틀 · 창 뒤 화면은 다른 차수 몫).
  * 11 은 150차 A 정답(`scripts/fixtures/chasuRange/before.json`)과 견준다 — 브라우저 없는 옛 시험은 여기서 하나씩 다시 돌리고(새 사본 DB),
  *   브라우저 옛 시험은 가장 최근 기계 검사 로그(`reports/machine-check/<날짜>/<이름>_test.log`)의 PASS · FAIL 줄 수를 본다.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
-import { noColorLine } from './lib/noColorClass';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -35,11 +30,10 @@ const WEB = `http://127.0.0.1:${PORT}`;
 const BASE = 'c0e8845';
 const CHASU: Chasu = { base: BASE, version: 'v2.77.0' }; // 지금 하는 차수 — 끝 커밋이 생기면 그 커밋까지(scripts/lib/chasuRange.ts)
 const FIX = path.join(root, 'scripts/fixtures/mobileBuyJudge');
-const FIXTURE = path.join(FIX, 'desk.json');
+const TABLE_1280 = path.join(FIX, 'table1280.json');
 const API: Record<string, unknown> = JSON.parse(fs.readFileSync(path.join(FIX, 'api.json'), 'utf8'));
 const STATE = JSON.parse(fs.readFileSync(path.join(FIX, 'state.json'), 'utf8')).state as { symbols: string[]; rows: { symbol: string; error: string | null }[] };
 const HIST = JSON.parse(fs.readFileSync(path.join(FIX, 'history.json'), 'utf8'));
-const CAPTURE = process.env.CAPTURE ?? '';
 const FIXED = new Date('2026-11-26T08:00:00.000Z');
 const CLIENT_VERSION = /version: '(v[\d.]+)'/.exec(fs.readFileSync(path.join(root, 'src/data/changelog.ts'), 'utf8'))?.[1] ?? '';
 
@@ -55,7 +49,6 @@ function check(name: string, ok: boolean, detail = '') {
 
 const PHONE = { width: 402, height: 874 };
 const PAD = { width: 1133, height: 744 };
-const DESK_SIZES = [{ width: 1280, height: 1080 }, { width: 1440, height: 900 }];
 
 type Reply = { status?: number; json?: unknown; delayMs?: number };
 type Override = (url: string, method: string, body: string | null) => Reply | undefined;
@@ -121,33 +114,6 @@ const openHistory = async (page: Page) => {
   await page.waitForTimeout(1200);
 };
 
-/** 큰 화면 모양 — 보이는 요소마다 태그 · 클래스(낱말 순서 맞춤 · 폰 · 패드 · 손가락 이름 뺌) · 자리 · 크기(시계 · 토스트 뺌) */
-async function deskSnapshot(page: Page): Promise<string[]> {
-  return page.evaluate(() => {
-    const out: string[] = [];
-    for (const el of document.body.querySelectorAll('*')) {
-      if (el.closest('[data-kst-clock], [data-toast-host], script, style')) continue;
-      const r = el.getBoundingClientRect();
-      if (r.width < 1 || r.height < 1) continue;
-      const cls = (el.getAttribute('class') ?? '')
-        .split(/\s+/)
-        .filter((c) => c && !/^(touch:|phone:|pad:)/.test(c) && c !== 'touch-hit' && c !== 'touch-hit-gap')
-        .sort()
-        .join(' ');
-      out.push(`${el.tagName}|${cls}|${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)},${Math.round(r.height)}`);
-    }
-    return out;
-  });
-}
-
-/** 1280 판단 표 글 — 줄마다 칸 글(종목 · 판단 · 참고 점수 · 손절가 · 목표가 · 손익비 · 비중) */
-async function tableTexts(page: Page) {
-  return page.evaluate(() =>
-    [...document.querySelectorAll('[data-buy-judge-table] tbody tr[aria-expanded]')].map((tr) =>
-      [...tr.querySelectorAll('td')].slice(0, 7).map((td) => (td as HTMLElement).innerText.trim()),
-    ),
-  );
-}
 /** 폰 카드 글 — 카드마다 [이름, 판단, 손절가, 목표가, 손익비, 비중, 참고 점수 줄] */
 async function cardTexts(page: Page) {
   return page.evaluate(() =>
@@ -241,45 +207,8 @@ const vite = await guard.step('Vite 띄우기', async () => {
 const browser = await guard.step('브라우저 띄우기', () => chromium.launch({ channel: 'chrome' }));
 
 try {
-  // ───────── 1 1280 이상 그대로 (+ 2 · 3 이 견줄 1280 표 글) ─────────
-  let want: { shots: Record<string, string[]>; table: string[][] };
-  {
-    const shots: Record<string, string[]> = {};
-    let table: string[][] = [];
-    const SCREENS: { name: string; hash: string; act?: (p: Page) => Promise<void> }[] = [
-      { name: '판단 처음', hash: '#/swing/list' },
-      { name: '판단 줄 펼침', hash: '#/swing/list', act: openFirstRow },
-      { name: '판단 기록 펼침', hash: '#/swing/history', act: openHistory },
-    ];
-    for (const size of DESK_SIZES) {
-      for (const s of SCREENS) {
-        const { page, ctx } = await open(browser, size, s.hash);
-        // 세로 스크롤 막대는 화면 글에 따라 생겼다 없어져 폭이 갈린다 — 두 쪽 모두 감추고 견준다(146 ~ 149 와 같음)
-        await page.addStyleTag({ content: '*::-webkit-scrollbar { width: 0 !important; height: 0 !important; } * { scrollbar-width: none !important; }' });
-        if (s.act) await s.act(page);
-        await page.waitForTimeout(1200);
-        shots[`${size.width}x${size.height} ${s.name}`] = await guard.step('모양 재기', () => deskSnapshot(page));
-        if (size.width === 1280 && s.name === '판단 처음') table = await tableTexts(page);
-        await ctx.close();
-      }
-    }
-    if (CAPTURE) {
-      fs.mkdirSync(path.dirname(CAPTURE), { recursive: true });
-      fs.writeFileSync(CAPTURE, JSON.stringify({ shots, table }, null, 0));
-      console.log(`정답 파일 저장 — ${CAPTURE} (${Object.keys(shots).length}장면)`);
-      process.exit(0);
-    }
-    want = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
-    for (const key of Object.keys(want.shots)) {
-      // 155차 — 색 이름은 빼고 견준다(앱 전체 색 규칙 · noColorLine)
-      const a = (want.shots[key] as string[]).map(noColorLine);
-      const b = (shots[key] ?? []).map(noColorLine);
-      let i = 0;
-      while (i < Math.max(a.length, b.length) && a[i] === b[i]) i++;
-      const same = a.length === b.length && i === a.length;
-      check(`[150-1] ${key} — 기준 커밋(${BASE})과 요소 ${a.length}개 태그 · 클래스 · 자리 · 크기 같음`, same, same ? '' : `개수 ${a.length} → ${b.length} · 첫 차이 #${i}: ${a[i] ?? '-'} → ${b[i] ?? '-'}`);
-    }
-  }
+  // 2 · 3 이 견줄 기준 커밋 1280 표 글(1 의 1280 · 1440 그대로는 desktop:test)
+  const want: { table: string[][] } = JSON.parse(fs.readFileSync(TABLE_1280, 'utf8'));
 
   // ───────── 2 · 3 판단 카드 · 판단 못 함 ─────────
   {
@@ -549,6 +478,7 @@ try {
       const f = lines.filter((l) => /^FAIL|^ {2}❌/.test(l)).length;
       return { checks: p + f, pass: p, fail: f };
     };
+    const MOVED = JSON.parse(fs.readFileSync(path.join(root, 'scripts/fixtures/desktop/legacyScenes.json'), 'utf8')).movedChecks as Record<string, number>;
     const BROWSER = new Set(['blockleaveui:test', 'chartview:test', 'toolbutton:test', 'mobileframe:test', 'mobiletable:test', 'mobileaccount:test', 'mobiletouch:test']);
     const db = process.env.DB_PATH!;
     for (const [name, want] of Object.entries(before)) {
@@ -578,7 +508,10 @@ try {
         from = latest ? `로그 ${path.relative(root, latest)}` : '로그 없음 — check:all 로 먼저 돌린다';
       }
       // 151차: 지금 코드로 다시 돌린 개수라 뒤 차수가 확인을 더하면 늘어난다(asset:test 299 → 301) — 150차 정답 이상 · 실패 0 이면 맞음(줄어들면 실패)
-      check(`[150-11] ${name} — chasuRange 를 씀 · 확인 항목 ${want.checks} 이상 · 통과 ${want.pass} 이상 · 실패 0 = 정답(${from})`, uses && got != null && got.checks >= want.checks && got.pass >= want.pass && got.fail === 0, `${uses ? '' : '옛 비교가 남음 · '}${JSON.stringify(got)}`);
+      // v2.83.0: 1280 · 1440 그대로 확인은 desktop:test 로 옮겼다 — 옮긴 줄 수(`fixtures/desktop/legacyScenes.json` movedChecks)만큼 뺀 수 이상
+      const minChecks = want.checks - (MOVED[name] ?? 0);
+      const minPass = want.pass - (MOVED[name] ?? 0);
+      check(`[150-11] ${name} — chasuRange 를 씀 · 확인 항목 ${minChecks} 이상 · 통과 ${minPass} 이상 · 실패 0 = 정답(${from}${MOVED[name] ? ` · desktop:test 로 옮긴 ${MOVED[name]}줄 뺌` : ''})`, uses && got != null && got.checks >= minChecks && got.pass >= minPass && got.fail === 0, `${uses ? '' : '옛 비교가 남음 · '}${JSON.stringify(got)}`);
     }
   }
 

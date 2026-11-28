@@ -1,15 +1,13 @@
 /// <reference lib="dom" />
 /**
  * 147차 폰 · 패드 2단계 시험(`npm run mobiletouch:test` · v2.74.0) — 지시서 「꼭 지킬 동작」 2 ~ 7 · 9 ~ 11 · 13 줄마다.
- * (1 은 `mobileframe:test` 「[146-1]」 · 8 은 `tooltip:test` · 12 는 `autotrade:test` 세 번 · 14 는 `design:lint`)
+ * (1 의 1280 · 1440 창 · 툴팁 · 떠 있는 시계 비교는 v2.83.0 부터 `desktop:test`(`scripts/lib/desktopScenes.ts` 묶음 `touch`) · 8 은 `tooltip:test` · 12 는 `autotrade:test` 세 번 · 14 는 `design:lint`)
  *
  * 화면은 이 시험이 띄운 Vite(5196)에 열고, `/api` 는 모두 가짜 응답(만든 값 · 모르는 주소는 503 — 사용자 서버로 가지 않음).
  * 폰 · 패드는 `isMobile` · `hasTouch`(= 손가락 화면 `pointer: coarse`). 창은 `scripts/fixtures/mobileTouch/harness.js` 로 바로 띄운다(앱과 같은 모듈).
  * 손가락 누름 · 길게 누름은 크롬 개발 도구(CDP `Input.dispatchTouchEvent`)로 보낸다 — 진짜 손가락과 같은 pointer · click 순서.
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다
-import { noColorLine } from './lib/noColorClass';
-import fs from 'node:fs';
 import path from 'node:path';
 import { chromium, type Browser, type CDPSession, type Page } from 'playwright';
 import { createBrowserStepGuard } from './lib/browserStepGuard';
@@ -195,61 +193,7 @@ const vite = await guard.step('Vite 띄우기', async () => {
 });
 const browser = await guard.step('브라우저 띄우기', () => chromium.launch({ channel: 'chrome' }));
 
-/** 큰 화면 모양 — 고른 요소와 그 안의 보이는 요소마다 태그 · 클래스(손가락 이름은 뺌) · 자리 · 크기 */
-const deskShape = (page: Page, sel: string) =>
-  page.evaluate((s) => {
-    const out: string[] = [];
-    for (const top of document.querySelectorAll(s)) {
-      for (const el of [top, ...top.querySelectorAll('*')]) {
-        const r = el.getBoundingClientRect();
-        if (r.width < 1 || r.height < 1) continue;
-        const cls = (el.getAttribute('class') ?? '').replace(/(^|\s)(touch:\S+|touch-hit|touch-hit-gap)(?=\s|$)/g, '$1').replace(/\s+/g, ' ').trim();
-        out.push(`${el.tagName}|${cls}|${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)},${Math.round(r.height)}`);
-      }
-    }
-    return out;
-  }, sel);
-/** 1 의 창 · 툴팁 · 떠 있는 시계(1280 × 1080 · 1440 × 900) — CAPTURE 면 기준 커밋 worktree 에서 정답 파일을 만든다 */
-async function deskExtras(): Promise<Record<string, string[]>> {
-  const shots: Record<string, string[]> = {};
-  for (const size of [{ width: 1280, height: 1080 }, { width: 1440, height: 900 }]) {
-    const { page, ctx } = await open(browser, size, '#/portfolio');
-    await page.addStyleTag({ content: '*::-webkit-scrollbar { width: 0 !important; height: 0 !important; } * { scrollbar-width: none !important; }' });
-    shots[`${size.width} 떠 있는 시계`] = await deskShape(page, '[data-kst-clock]');
-    await mount(page, { dirty: false });
-    shots[`${size.width} 창(md)`] = await deskShape(page, '[role="dialog"][aria-labelledby]');
-    await unmount(page);
-    await mountParts(page);
-    await page.mouse.move(0, 0);
-    await page.hover('[data-testid="btn-sm"]');
-    await page.waitForTimeout(600);
-    shots[`${size.width} 툴팁`] = await deskShape(page, '[role="tooltip"]');
-    await ctx.close();
-  }
-  return shots;
-}
-const DESK_FIXTURE = path.join(root, 'scripts/fixtures/mobileTouch/desk.json');
-
 try {
-  if (process.env.CAPTURE) {
-    fs.writeFileSync(process.env.CAPTURE, JSON.stringify(await deskExtras(), null, 0));
-    console.log(`정답 파일 저장 — ${process.env.CAPTURE}`);
-    process.exit(0);
-  }
-  // ───────── 1 큰 화면 + 마우스 — 창 · 툴팁 · 떠 있는 시계가 기준 커밋과 같음 ─────────
-  {
-    const want = JSON.parse(fs.readFileSync(DESK_FIXTURE, 'utf8')) as Record<string, string[]>;
-    const got = await deskExtras();
-    for (const key of Object.keys(want)) {
-      // 155차 — 색 이름은 빼고 견준다(앱 전체 색 규칙 · noColorLine)
-      const a = want[key].map(noColorLine);
-      const b = (got[key] ?? []).map(noColorLine);
-      const i = a.findIndex((x, k) => x !== b[k]);
-      const same = a.length > 0 && a.length === b.length && i < 0;
-      check(`[147-1] ${key} — 기준 커밋(${BASE})과 요소 ${a.length}개 태그 · 클래스 · 자리 · 크기 같음`, same, same ? '' : `개수 ${a.length} → ${b.length} · 첫 차이 #${i}: ${a[i] ?? '-'} → ${b[i] ?? '-'}`);
-    }
-  }
-
   // ───────── 2 · 3 폰 창 ─────────
   {
     const { page, ctx, errors, cdp } = await open(browser, PHONE, '#/portfolio');
