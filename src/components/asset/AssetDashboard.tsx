@@ -895,7 +895,7 @@ function GroupTable({ summary, onOpenClassDialog }: { summary: AssetSummary; onO
                       <span className="shrink-0">{g.label}</span>
                       {/* v2.65.3 — 「자산 분류 정하기」 창을 여는 링크 */}
                       {none && g.amount > 0 && (
-                        <button type="button" onClick={onOpenClassDialog} className="truncate text-caption text-accent hover:underline" data-open-class-dialog>
+                        <button type="button" onClick={onOpenClassDialog} className="truncate text-caption text-accent hover:underline touch:min-h-11" data-open-class-dialog>
                           자산 분류를 골라 주세요
                         </button>
                       )}

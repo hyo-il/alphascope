@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { ArrowRight, LoaderCircle } from 'lucide-react';
 import { Button, DisclosureButton, ICON_SM, Input, Panel, Segmented, Select } from '../ui';
-import { LIST_TABLE_ROW, PHONE_STACK_ROW, TABLE_HEAD_ROW, TABLE_NUM_GAP } from '../ui/tokens';
+import { LIST_TABLE_ROW, PHONE_STACK_ROW, TABLE_HEAD_ROW, TABLE_NUM_GAP, TOUCH_FIELD_H } from '../ui/tokens';
 import { Skeleton } from '../common/SkeletonLoader';
 import { modal } from '../../store/uiStore';
 import { formatAssetWon } from '../../utils/assetFormat';
@@ -286,7 +286,7 @@ export default function AssetCashSettings({ onLocked, onBusy }: { onLocked: () =
                   </option>
                 ))}
               </Select>
-              <Button size="sm" variant="secondary" busy={busy === 'flow-all'} disabled={(busy != null && busy !== 'flow-all') || reflectCount === 0 || !!v.fixedError} onClick={() => void save('flows', 'flow-all', { flowDayAll: allDay })}>
+              <Button size="sm" variant="secondary" className={TOUCH_FIELD_H} busy={busy === 'flow-all'} disabled={(busy != null && busy !== 'flow-all') || reflectCount === 0 || !!v.fixedError} onClick={() => void save('flows', 'flow-all', { flowDayAll: allDay })}>
                 모두 적용
               </Button>
               <span className="ml-3 text-text-secondary">휴일이면</span>
@@ -545,10 +545,10 @@ function FlowRow({
       {head}
       <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-text-primary phone:flex-wrap phone:gap-y-3">
         {/* 1280 = 상자 없음(contents) · 폰 = 두 계좌 한 줄 */}
-        <div className="contents phone:flex phone:w-full phone:min-w-0 phone:items-center phone:gap-2">
+        <div className="contents phone:flex phone:w-full phone:min-w-0 phone:flex-col phone:items-stretch phone:gap-1">
         <AssetCashAccountPicker
           label={`${label} 빠지는 계좌`}
-          className={`w-48 phone:w-auto phone:flex-1 ${changed ? 'font-semibold' : ''}`}
+          className={`w-48 phone:w-full ${changed ? 'font-semibold' : ''}`}
           value={fromValue}
           groups={groups}
           idOf={rowId}
@@ -557,10 +557,10 @@ function FlowRow({
           disabled={off}
           onPick={(x) => onSave({ from: x === ASSET_CASH_FROM_SALARY ? ASSET_CASH_FROM_SALARY : x === NONE ? null : keyOf(x) })}
         />
-        <ArrowRight {...ICON_SM} className="shrink-0 text-text-muted" aria-hidden />
+        <ArrowRight {...ICON_SM} className="shrink-0 text-text-muted phone:rotate-90 phone:self-center" aria-hidden />
         <AssetCashAccountPicker
           label={`${label} 들어가는 계좌`}
-          className="w-52 phone:w-auto phone:flex-1"
+          className="w-52 phone:w-full"
           value={toValue}
           groups={groups}
           idOf={rowId}
