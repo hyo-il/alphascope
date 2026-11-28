@@ -17,6 +17,7 @@ import WarnIcon from '../ui/WarnIcon';
 import { fixMethodNames, methodName, type BacktestConditionResult, type BacktestCustomReport, type BacktestCustomSymbol, type ConditionLabel, type WorstDrawdown } from '../../types/backtest';
 import ScrollTable from '../ui/ScrollTable';
 import ShortNote from '../ui/ShortNote';
+import StackRow, { StackValue } from '../ui/StackRow';
 import { useLayoutMode, type LayoutMode } from '../../hooks/useLayoutMode';
 
 /**
@@ -45,8 +46,6 @@ const worstText = (w: WorstDrawdown | null | undefined) =>
 /** 손가락 화면 줄 머리 위아래 12 — 이웃 줄 [ⓘ] 의 누르는 칸 44 가 서로 겹치지 않게(패드) */
 const ROW_HEAD_TOUCH = 'touch:py-3';
 const SYMBOL_TABLE_ASIDE = '기간 전체 · 머리를 누르면 정렬';
-/** 폰 비교 줄 — 방법 이름(왼쪽 13) | 값(오른쪽 14 · 넘치면 그 칸 안에서 줄바꿈) */
-const PHONE_VALUE_LINE = 'flex items-baseline justify-between gap-3';
 const diffOf = (a: number | null | undefined, b: number | null | undefined) => (a == null || b == null ? null : a - b);
 
 type SortKey = 'rule' | 'hold' | 'random' | 'trades' | 'winRate' | 'avgReturn' | 'stopRate' | 'mdd';
@@ -79,7 +78,7 @@ function Pieces({ parts }: { parts: string[] }) {
 
 /**
  * 비교 표 한 줄 — 1280 이상 · 패드는 「이름 칸 | 방법 칸 … | 들고 있기」 한 줄.
- * 폰(v2.84.0 · 테마 9-1 R10): 표 대신 이름(13 secondary)을 위 한 줄에, 아래에 방법마다 「방법 이름 | 값(14)」 줄 — 칸을 나란히 두면 칸이 좁아
+ * 폰(v2.84.0 · 테마 9-1 R10 · `ui/StackRow`): 표 대신 이름(13 secondary)을 위 한 줄에, 아래에 방법마다 「방법 이름 | 값(14)」 줄 — 칸을 나란히 두면 칸이 좁아
  * 글이 한 단어 폭으로 접히거나 겹쳤다. 들고 있기는 값이 있을 때만(「—」 줄은 뺌).
  * 패드(테마 9-2 47): 남는 폭을 먹던 마지막 빈 칸을 빼 표가 전체 너비를 쓴다.
  */
@@ -91,24 +90,25 @@ function Row({ head, help, cells, hold, mode, names }: { head: string; help?: st
   );
   if (mode === 'phone')
     return (
-      <div className="space-y-1 border-b border-border/30 py-2" data-r10-row>
-        <p className="text-caption text-text-secondary" data-r10-head>
-          {head}
-          {helpTip}
-        </p>
+      <StackRow
+        head={
+          <>
+            {head}
+            {helpTip}
+          </>
+        }
+      >
         {cells.map((c, i) => (
-          <div key={i} className={PHONE_VALUE_LINE} data-r10-value>
-            <span className="shrink-0 text-caption text-text-secondary">{names[i]}</span>
-            <span className="min-w-0 text-right">{c}</span>
-          </div>
+          <StackValue key={i} name={names[i]}>
+            {c}
+          </StackValue>
         ))}
         {hold !== '—' && (
-          <div className={PHONE_VALUE_LINE} data-r10-value>
-            <span className="shrink-0 text-caption text-text-secondary">들고 있기</span>
-            <span className="min-w-0 text-right text-text-secondary">{hold}</span>
-          </div>
+          <StackValue name="들고 있기" muted>
+            {hold}
+          </StackValue>
         )}
-      </div>
+      </StackRow>
     );
   return (
     <tr className="border-b border-border/30 align-top">
@@ -427,7 +427,7 @@ export default function CustomResult({
           ))}
         {mode === 'phone' ? (
           // 폰(R10): 표 대신 줄마다 「이름(위) · 방법마다 이름 | 값(아래)」 — 칸을 나란히 두면 칸이 좁아 글이 겹쳤다
-          <div className="text-xs tabular-nums" data-compare-list>
+          <div data-compare-list>
             <p className="pb-1 text-caption text-text-secondary">종목 {symbolsCount}개 평균</p>
             {compareRows}
           </div>
