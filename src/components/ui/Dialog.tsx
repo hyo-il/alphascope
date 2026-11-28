@@ -32,6 +32,7 @@ import { DIALOG_SWIPE_CLOSE_PX, PHONE_DIALOG_MAX_H } from './tokens';
  *     아래 단추 줄은 판 아래에 붙고 아래 안전 여백만큼 띄움 · 단추 높이 44 · 아래에서 200ms 올라옴(움직임 줄이기면 바로 — `index.css` `.sheet-panel`).
  *     닫힘에 **손잡이 · 머리를 아래로 밀기**가 더해진다(몸에서 시작한 밀기는 몸 스크롤이라 닫지 않는다) — 다른 닫힘과 같은 길(`requestClose`)이라
  *     `busy` 면 판이 제자리로 돌아오고 · `dirty` 면 제자리로 돌아온 뒤 묻는다.
+ *     폰 머리에는 **제목만 한 줄**(넘치면 말줄임 + 툴팁 — v2.83.0 · 테마 9-1 R8) · 옆 도움 글(`titleAside`)은 머리 아래 몸 맨 위 한 줄(13 · secondary).
  *   - 패드 = 가운데 창 그대로 · 폭 `min(지금 폭, 화면 폭 − 48)` · 높이 `min(지금, 100dvh − 48)` · 넘치면 몸만 밀어 봄.
  *   - 폰 · 패드의 덮개 누름은 `click` 으로 판단한다(누르는 순간 닫으면 손을 뗄 때의 누름이 뒤 화면 단추로 샌다 — `ui/Sheet` 와 같음).
  *     누름이 판 안에서 시작해 덮개에서 끝난 것(글 고르기 등)은 덮개 누름이 아니다.
@@ -198,13 +199,10 @@ export default function Dialog({
   onCancelBusy,
   dirty = false,
   dirtyNote,
-  titleOneLine = false,
 }: {
   title: ReactNode;
   /** 제목 옆 짧은 회색 글자 */
   titleAside?: ReactNode;
-  /** 폰 창(아래 판) 제목을 한 줄로 — 넘치면 말줄임 · 누르면 전체 글(v2.76.0 · 자동매매 처음 켜기). 패드 · 1280 이상은 그대로 */
-  titleOneLine?: boolean;
   /** 없으면 닫기 X·ESC·바깥 클릭이 모두 없다 — 반드시 하나를 골라야 하는 창(관심 목록 맞추기) */
   onClose?: () => void;
   size?: DialogSize;
@@ -314,19 +312,20 @@ export default function Dialog({
             <span className="h-1 w-9 rounded-xs bg-bg-elevated" />
           </div>
           <div {...dragProps} data-dialog-head className="flex h-[52px] shrink-0 touch-none items-center gap-2 border-b border-border/40 pl-4 pr-2">
-            <h2
-              id={titleId}
-              className={`min-w-0 text-sm font-semibold text-text-primary ${titleOneLine ? 'truncate' : ''}`.trim()}
-              data-tip-clip={titleOneLine && typeof title === 'string' ? title : undefined}
-            >
+            {/* 폰 머리 = 제목 한 줄(R8) — 옆 도움 글은 아래 몸 맨 위로 */}
+            <h2 id={titleId} className="min-w-0 truncate text-sm font-semibold text-text-primary" data-tip-clip={typeof title === 'string' ? title : undefined}>
               {title}
             </h2>
-            {titleAside != null && <span className="min-w-0 text-caption text-text-muted">{titleAside}</span>}
             <div className="ml-auto flex shrink-0 items-center gap-2">
               {headerRight}
               {onClose && <IconButton icon={X} label="닫기" onClick={requestClose} />}
             </div>
           </div>
+          {titleAside != null && (
+            <div data-dialog-aside className="shrink-0 px-4 pt-3 text-caption text-text-secondary keep-all">
+              {titleAside}
+            </div>
+          )}
           <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain ${bodyClassName}`}>{children}</div>
           {footer != null && (
             <div data-dialog-foot className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border/40 px-4 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] [&_button]:h-11">
@@ -379,7 +378,7 @@ export default function Dialog({
         </div>
         <div className={`min-h-0 flex-1 overflow-y-auto ${bodyClassName}`}>{children}</div>
         {footer != null && (
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border/40 px-4 py-3">{footer}</div>
+          <div data-dialog-foot className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border/40 px-4 py-3">{footer}</div>
         )}
         {/* 저장 중 — 판의 마지막 자식으로 붙어 제목 줄 · 본문 · 아래 줄을 막는다(판의 자식 순서 · 배치는 그대로) */}
         <LoadingCover busy={busy} label={busyLabel} onCancel={onCancelBusy} />

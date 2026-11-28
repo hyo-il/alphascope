@@ -88,7 +88,7 @@ function reply(u: string): unknown | undefined {
 }
 
 type Opened = { page: Page; ctx: BrowserContext; errors: string[]; calendar: string[] };
-async function open(browser: Browser, size: { width: number; height: number }, hash = '#/home', init = ''): Promise<Opened> {
+async function open(browser: Browser, size: { width: number; height: number }, hash = '#/home', init = '', settle = 2500): Promise<Opened> {
   const mobile = size.width < 1280;
   const ctx = await browser.newContext(mobile ? { viewport: size, isMobile: true, hasTouch: true } : { viewport: size });
   await ctx.addInitScript('window.__name = (f) => f');
@@ -112,12 +112,20 @@ async function open(browser: Browser, size: { width: number; height: number }, h
   });
   await fakeContext(ctx);
   const page = await ctx.newPage();
+  // 장면 여는 코드의 `click().catch()` 가 30초씩 기다리지 않게(없는 요소는 8초 안에 넘어감)
+  page.setDefaultTimeout(8000);
   await page.clock.setFixedTime(FIXED);
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 160)));
   await guard.step(`페이지 열기(${size.width}×${size.height} ${hash})`, () => page.goto(`${WEB}/${hash}`));
-  await page.waitForTimeout(2500);
+  await page.waitForTimeout(settle);
   await page.addStyleTag({ content: '*::-webkit-scrollbar { width: 0 !important; height: 0 !important; } * { scrollbar-width: none !important; }' });
   return { page, ctx, errors, calendar };
+}
+/** 새 페이지에서 자산 장면 하나(폰 · 패드 — 앞 장면 창 · 확인 창이 남지 않게 장면마다 새로) */
+async function fresh(browser: Browser, size: { width: number; height: number }, name: string): Promise<Opened> {
+  const o = await open(browser, size, '#/home', '', 1000);
+  await scene(o.page, name);
+  return o;
 }
 /** designCheck 자산 장면 하나를 연다(홈을 거쳐 · before → 주소 → open) */
 async function scene(page: Page, name: string) {
@@ -125,8 +133,10 @@ async function scene(page: Page, name: string) {
   if (!t) throw new Error(`장면 없음: ${name}`);
   await closeLeftovers(page);
   await page.mouse.move(0, 0);
-  await page.evaluate(() => (location.hash = '#/home'));
-  await page.waitForTimeout(500);
+  if ((await page.evaluate(() => location.hash)) !== '#/home') {
+    await page.evaluate(() => (location.hash = '#/home'));
+    await page.waitForTimeout(500);
+  }
   if (t.before) await t.before(page);
   await page.evaluate((h) => (location.hash = h), t.hash);
   await page.waitForTimeout(2200);
@@ -144,6 +154,11 @@ async function shot(page: Page, name: string, full = true) {
   if (!SHOTS) return;
   fs.mkdirSync(SHOTS, { recursive: true });
   await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage: full });
+}
+/** 자산 설정 창 왼쪽(폰은 위) 메뉴 고르기 */
+async function settingsMenu(page: Page, name: string) {
+  await guard.step(`설정 메뉴 ${name}`, () => page.getByRole('dialog').getByRole('tab', { name, exact: true }).click({ timeout: 5000 }));
+  await page.waitForTimeout(400);
 }
 const rect = (page: Page, sel: string) =>
   page.evaluate((s) => {
@@ -454,7 +469,7 @@ try {
   // ───────── 4 · 5 · 135 · 136 · 140 · 142 폰 자산 머리 · 숫자 카드 · 원형 차트 ─────────
   /** 1280 분류별 표 줄 — [분류, 금액, 비율] */
   let deskGroups: string[][] = [];
-  if (want('asset')) {
+  if (want('asset-head')) {
     const o = await open(browser, DESK_SIZES[0], '#/home');
     await scene(o.page, 'asset-기록여러개-미지정');
     deskGroups = await o.page.locator('[data-testid="asset-group-table"] tbody tr').evaluateAll((trs) => trs.map((tr) => [...tr.querySelectorAll('td')].map((td) => (td as HTMLElement).innerText.replace(/\s+/g, ' ').trim())));
@@ -462,7 +477,7 @@ try {
     check('[158-4] 1280 머리 = 「연금 포함」 체크박스 그대로(처음 끔)', !checked);
     await o.ctx.close();
   }
-  if (want('asset')) {
+  if (want('asset-head')) {
     const o = await open(browser, PHONE, '#/home');
     const { page } = o;
     await scene(page, 'asset-기록여러개-미지정');
@@ -514,7 +529,7 @@ try {
   }
 
   // ───────── 6 · 137 총 자산 추이 누르기 ─────────
-  if (want('asset')) {
+  if (want('asset-tap')) {
     for (const size of [PHONE, PAD]) {
       const o = await open(browser, size, '#/home');
       const { page } = o;
@@ -548,7 +563,7 @@ try {
   }
 
   // ───────── 7 · 비율 조정 · 이번 달 구매 ─────────
-  if (want('asset')) {
+  if (want('asset-buy')) {
     const o = await open(browser, PHONE, '#/home');
     const { page } = o;
     await scene(page, 'asset-이번달구매-계좌별');
@@ -569,7 +584,7 @@ try {
   }
 
   // ───────── 141 · 143 일별 자산 변화 표 · 138 · 139 고정 폭 칸 ─────────
-  if (want('asset')) {
+  if (want('asset-fixed')) {
     for (const size of [PHONE, PAD]) {
       const o = await open(browser, size, '#/home');
       const { page } = o;
@@ -599,10 +614,14 @@ try {
       return Math.round(picker.getBoundingClientRect().width) - Math.round(li.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight));
     });
     check('[158-138] 402 현금 자동 반영 w-64 · w-72 칸 = 폭 전체(위 이름 · 아래 값) · 판 밖으로 넘침 0 [점검 138]', fixed.length === 0 && Math.abs(pairW) <= 1, `${fixed.join(' / ')} · 차이 ${pairW}`);
-    await leave(page, 'asset-설정창-현금자동반영');
-    await scene(page, 'asset-설정창-계좌추가');
-    await shot(page, '402-asset-account-add', false);
-    const col = await page.evaluate(() => {
+    await o.ctx.close();
+    const o2 = await fresh(browser, PHONE, 'asset-설정창');
+    const page2 = o2.page;
+    await settingsMenu(page2, '연금');
+    await guard.step('계좌 추가', () => page2.getByRole('dialog').getByRole('button', { name: '계좌 추가', exact: true }).click({ timeout: 5000 }));
+    await page2.waitForTimeout(600);
+    await shot(page2, '402-asset-account-add', false);
+    const col = await page2.evaluate(() => {
       const dlg = [...document.querySelectorAll('[role="dialog"]')].pop();
       if (!dlg?.querySelector('[data-account-picker]')) return { pickW: 0, rightW: -1, stacked: false, none: true };
       const pick = dlg.querySelector('[data-account-picker]')!.getBoundingClientRect();
@@ -610,26 +629,145 @@ try {
       return { pickW: Math.round(pick.width), rightW: Math.round(right.width), stacked: right.top >= pick.bottom - 1 };
     });
     check('[158-139] 402 계좌 추가 창 w-[300px] 칸 = 폭 전체(목록 아래로) [점검 139]', col.stacked && Math.abs(col.pickW - col.rightW) <= 1, JSON.stringify(col));
+    await o2.ctx.close();
+  }
+
+  // ───────── 8 설정 창 — 탭 줄 끝 흐림 · [저장] 단추 줄 · 코어 · 위성 위 이름 / 아래 안내 · 드롭다운 44 ─────────
+  if (want('asset-settings')) {
+    for (const size of [PHONE, PAD]) {
+      const o = await open(browser, size, '#/home');
+      const { page } = o;
+      const phone = size.width === 402;
+      await scene(page, 'asset-설정창');
+      await settingsMenu(page, '목표 비율');
+      if (phone) {
+        const fade0 = await page.evaluate(() => (document.querySelector('[data-side-nav]')?.closest('[data-scroll-row]') as HTMLElement | null)?.dataset.fade ?? 'none');
+        await page.evaluate(() => {
+          const inner = document.querySelector('[data-side-nav]')!.closest('[data-scroll-row-inner]') as HTMLElement;
+          inner.scrollLeft = inner.scrollWidth;
+        });
+        await page.waitForTimeout(400);
+        const fade1 = await page.evaluate(() => (document.querySelector('[data-side-nav]')?.closest('[data-scroll-row]') as HTMLElement | null)?.dataset.fade ?? 'none');
+        check('[158-8] 402 설정 창 메뉴 줄 — 넘치면 오른쪽 끝 흐림 · 끝까지 밀면 오른쪽 흐림 사라짐(R7)', fade0.includes('r') && !fade1.includes('r') && fade1 !== 'none', `${fade0} → ${fade1}`);
+        await page.evaluate(() => {
+          const inner = document.querySelector('[data-side-nav]')!.closest('[data-scroll-row-inner]') as HTMLElement;
+          inner.scrollLeft = 0;
+        });
+      } else {
+        const nav = await page.evaluate(() => {
+          const n = document.querySelector('[data-side-nav]') as HTMLElement;
+          return { vertical: getComputedStyle(n).flexDirection === 'column', over: n.scrollHeight > n.clientHeight + 1 || n.scrollWidth > n.clientWidth + 1 };
+        });
+        check('[158-8] 1133 설정 창 메뉴 = 왼쪽 세로 줄 · 넘침 없음(잘린 메뉴 글 없음)', nav.vertical && !nav.over, JSON.stringify(nav));
+      }
+      const tabH = await page.getByRole('dialog').getByRole('tab').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+      check(`[158-8] ${size.width} 설정 창 메뉴 칸 높이 44`, tabH.length === 8 && tabH.every((h) => h >= 44), tabH.join(','));
+      const save = await page.evaluate(() => {
+        const dlg = document.querySelector('[role="dialog"] > div') as HTMLElement;
+        const foot = dlg.querySelector('[data-dialog-foot]') as HTMLElement | null;
+        const btn = [...dlg.querySelectorAll('button')].find((b) => b.innerText.trim() === '저장') as HTMLElement | undefined;
+        const inForm = Boolean(btn?.closest('[data-setting="target-ratio"]'));
+        const d = dlg.getBoundingClientRect();
+        const f = foot?.getBoundingClientRect();
+        return { inForm, btn: Boolean(btn), inFoot: Boolean(btn && foot?.contains(btn)), footBottom: f ? Math.round(d.bottom - f.bottom) : -1, h: btn ? Math.round(btn.getBoundingClientRect().height) : 0 };
+      });
+      check(`[158-8] ${size.width} 「목표 비율」 [저장] = 창 아래 단추 줄(판 아래 붙음 · 몸 안에 없음)`, save.btn && !save.inForm && save.inFoot && save.footBottom === 0 && (!phone || save.h === 44), JSON.stringify(save));
+      // 목표 비율 칸 — 판 밖으로 넘치지 않음(금 칸이 잘리던 것)
+      const over = await page.evaluate(() => {
+        const dlg = (document.querySelector('[role="dialog"] > div') as HTMLElement).getBoundingClientRect();
+        return [...document.querySelectorAll<HTMLElement>('[data-ratio]')].filter((e) => e.getBoundingClientRect().right > dlg.right + 0.5).map((e) => e.dataset.ratio);
+      });
+      check(`[158-8] ${size.width} 목표 비율 칸이 판 밖으로 넘치지 않음`, over.length === 0, over.join(','));
+      await settingsMenu(page, '코어 · 위성');
+      const note = await page.evaluate(() => {
+        const n = document.querySelector('[role="dialog"] [data-row-note-text]') as HTMLElement | null;
+        if (!n) return null;
+        const name = n.previousElementSibling!.getBoundingClientRect();
+        const r = n.getBoundingClientRect();
+        const td = n.closest('td')!.getBoundingClientRect();
+        return { below: r.top >= name.bottom - 0.5, inCell: r.right <= td.right + 0.5, size: parseFloat(getComputedStyle(n).fontSize) };
+      });
+      check(`[158-8] ${size.width} 코어 · 위성 — 빠진 종목 안내가 이름 아래 줄(13 · 옆 칸과 겹치지 않음 · R10)`, Boolean(note && note.below && note.inCell && note.size === 13), JSON.stringify(note));
+      await settingsMenu(page, '현금 자동 반영');
+      await page.getByTestId('asset-cash-settings').waitFor({ timeout: 5000 }).catch(() => {});
+      const drops = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>('[role="dialog"] [data-testid="asset-cash-settings"] select, [role="dialog"] [data-testid="asset-cash-settings"] button[aria-haspopup="listbox"]')]
+          .filter((e) => e.getBoundingClientRect().width > 0)
+          .map((e) => ({ h: Math.round(e.getBoundingClientRect().height), clip: e.tagName === 'BUTTON' ? (e.querySelector('[data-tip-clip]') as HTMLElement | null)?.scrollWidth! > (e.querySelector('[data-tip-clip]') as HTMLElement | null)?.clientWidth! + 1 : false, t: e.innerText.slice(0, 12) })),
+      );
+      check(`[158-8] ${size.width} 현금 자동 반영 고르기 칸 높이 44(${drops.length}개)`, drops.length > 0 && drops.every((d) => d.h === 44), JSON.stringify(drops.filter((d) => d.h !== 44)));
+      if (phone) {
+        await page.getByTestId('asset-cash-flows').scrollIntoViewIfNeeded().catch(() => {});
+        const flow = await page.evaluate(() =>
+          [...document.querySelectorAll<HTMLElement>('[data-testid="asset-cash-flow-row"][data-flow-reflect="yes"] button[aria-haspopup="listbox"]')].map((b) => Math.round(b.getBoundingClientRect().width)),
+        );
+        check('[158-8] 402 고정 흐름 계좌 고르기 칸 폭 = 글이 보이는 폭(100 이상 · 잘린 「(」 · 「3」 없음)', flow.length > 0 && flow.every((w) => w >= 100), flow.join(','));
+        await shot(page, '402-asset-cash-flows', false);
+      }
+      await o.ctx.close();
+    }
+  }
+
+  // ───────── 9 아래 판 머리 — 제목 한 줄 · 도움 글은 몸 맨 위 ─────────
+  if (want('asset-dialog')) {
+    let page: Page;
+    const head = async (label: string, aside: boolean) => {
+      const h = await page.evaluate(() => {
+        const dlg = [...document.querySelectorAll('[role="dialog"]')].pop()!;
+        const hd = dlg.querySelector('[data-dialog-head]') as HTMLElement;
+        const h2 = hd?.querySelector('h2') as HTMLElement;
+        const lh = h2 ? parseFloat(getComputedStyle(h2).lineHeight) : 0;
+        const as = dlg.querySelector('[data-dialog-aside]') as HTMLElement | null;
+        return {
+          headH: hd ? Math.round(hd.getBoundingClientRect().height) : 0,
+          titleH: h2 ? Math.round(h2.getBoundingClientRect().height) : 0,
+          lh: Math.round(lh),
+          fs: h2 ? parseFloat(getComputedStyle(h2).fontSize) : 0,
+          asideInHead: Boolean(hd?.querySelector('.text-caption')),
+          aside: as ? { top: Math.round(as.getBoundingClientRect().top - hd.getBoundingClientRect().bottom), fs: parseFloat(getComputedStyle(as).fontSize), text: as.innerText.slice(0, 30) } : null,
+        };
+      });
+      check(`[158-9] 402 ${label} — 머리 52 · 제목 16 한 줄(높이 = 한 줄) · 도움 글 ${aside ? '몸 맨 위 13' : '없음'}`, h.headH === 52 && h.fs === 16 && h.titleH <= h.lh + 1 && !h.asideInHead && (aside ? Boolean(h.aside && h.aside.top >= 0 && h.aside.top <= 16 && h.aside.fs === 13) : h.aside == null), JSON.stringify(h));
+    };
+    let o = await fresh(browser, PHONE, 'asset-매수창-국내');
+    page = o.page;
+    await shot(page, '402-asset-buy-dialog', false);
+    await head('자산 매수 창', true);
+    await o.ctx.close();
+    o = await fresh(browser, PHONE, 'asset-매도창-처음');
+    page = o.page;
+    await head('자산 매도 창', true);
+    await o.ctx.close();
+    o = await fresh(browser, PHONE, 'asset-설정창');
+    page = o.page;
+    await settingsMenu(page, '코어 · 위성');
+    await guard.step('종목 추가', () => page.getByRole('dialog').getByRole('button', { name: '종목 추가', exact: true }).click({ timeout: 5000 }));
+    await page.waitForTimeout(600);
+    await head('종목 추가 창', true);
+    await o.ctx.close();
+    o = await open(browser, PHONE, '#/home');
+    page = o.page;
+    await guard.step('종목 찾기', () => page.getByRole('button', { name: '종목 찾기', exact: true }).first().click({ timeout: 5000 }));
+    await page.waitForTimeout(600);
+    await head('종목 찾기 창', false);
     await o.ctx.close();
   }
 
   // ───────── 11 손가락 크기 — 자산 관리(탭마다) · 설정 창(메뉴마다) ─────────
-  if (want('asset') || want('touch')) {
+  if (want('asset-touch')) {
     for (const size of [PHONE, PAD]) {
-      const o = await open(browser, size, '#/home');
-      const { page } = o;
       const all = { small: [] as string[], overlap: [] as string[] };
       for (const name of ['asset-기록여러개-미지정', 'asset-자산현황-계좌카드', 'asset-이번달구매', 'asset-설정창-메뉴-목표비율', 'asset-설정창-메뉴-코어위성', 'asset-설정창-메뉴-연금', 'asset-설정창-메뉴-이번달구매', 'asset-설정창-메뉴-자산분류색', 'asset-설정창-메뉴-시트가격', 'asset-설정창-메뉴-잠금', 'asset-설정창-현금자동반영']) {
-        await scene(page, name);
+        const o = await fresh(browser, size, name);
+        const { page } = o;
         if (size.width === 402) await shot(page, `402-${name}`, !name.includes('설정창'));
         const t = await touchIssues(page);
         all.small.push(...t.small.map((x) => `${name}: ${x}`));
         all.overlap.push(...t.overlap.map((x) => `${name}: ${x}`));
-        await leave(page, name);
+        await o.ctx.close();
       }
       check(`[158-11] ${size.width} 자산 관리(총 자산 · 자산 현황 · 비율 조정) · 설정 창(메뉴마다) 누르는 칸 44 미만 0`, all.small.length === 0, all.small.join(' / '));
       check(`[158-11] ${size.width} 자산 관리 · 설정 창 누르는 칸 겹침 0`, all.overlap.length === 0, all.overlap.join(' / '));
-      await o.ctx.close();
     }
   }
 

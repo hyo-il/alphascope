@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
-import { Checkbox, ICON_SM, Segmented, Select, SideNavDialog } from '../ui';
+import { Button, Checkbox, ICON_SM, Segmented, Select, SideNavDialog } from '../ui';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { LIST_ROW } from '../ui/tokens';
 import {
   ASSET_COLOR_IDS,
@@ -128,7 +129,10 @@ export default function AssetSettingsDialog({
   const [errors, setErrors] = useState<Partial<Record<Field, string | null>>>({});
   const [priceBusy, setPriceBusy] = useState(false);
   /** 목표 비율 폼(저장 단추가 따로) · 현금 자동 반영의 상태 — 창의 닫을 때 묻기 · 막는 로딩(공통 3-3 · 7-2) */
-  const [targetState, setTargetState] = useState({ dirty: false, busy: false });
+  const [targetState, setTargetState] = useState({ dirty: false, busy: false, canSave: false });
+  /** 폰 · 패드 — 목표 비율 [저장] 은 창 아래 단추 줄(테마 3-5 · 9-2) · 폼의 같은 저장 함수. 1280 이상은 폼 안 그대로 */
+  const phone = useLayoutMode() !== 'desk';
+  const targetSaveRef = useRef<(() => void) | null>(null);
   const [cashBusy, setCashBusy] = useState(false);
   /** 매달 사는 계좌(v2.78.0) — 바꾼 값을 바로 보이고 실패하면 되돌린다 · 저장 중인 계좌 · 이유 한 줄 */
   const [monthly, setMonthly] = useState<Record<string, boolean>>(() => Object.fromEntries(summary.monthlyBuy.accounts.map((a) => [a.section, a.buysMonthly])));
@@ -245,7 +249,7 @@ export default function AssetSettingsDialog({
 
   const colors = (
     <Block busy={!!busy.classColors} error={errors.classColors ?? null}>
-      <div className="space-y-2" data-setting="colors">
+      <div className="space-y-2 touch:space-y-6" data-setting="colors">
         {COLORED_GROUP_KEYS.map((g) => (
           <ColorRow
             key={g}
@@ -262,7 +266,7 @@ export default function AssetSettingsDialog({
   const target = (
     <div className="space-y-6">
       <Block title="목표 비율" desc="정수 %. 두 합이 각각 100일 때 저장할 수 있고, 저장하면 시트에도 씁니다." busy={false} error={null}>
-        <AssetTargetRatioForm initial={summary.targetRatio} writeEnabled={summary.writeEnabled} onSave={onSaveTarget} autoFocus={focus === 'targetRatio'} onState={setTargetState} />
+        <AssetTargetRatioForm initial={summary.targetRatio} writeEnabled={summary.writeEnabled} onSave={onSaveTarget} autoFocus={focus === 'targetRatio'} onState={setTargetState} saveRef={phone ? targetSaveRef : undefined} />
       </Block>
 
       <Block title="비율 조정 범위" desc="「비율 조정」 에서 목표와의 차이가 이 범위 안이면 「괜찮음」 입니다." busy={!!busy.rebalanceBand} error={errors.rebalanceBand ?? null}>
@@ -388,7 +392,12 @@ export default function AssetSettingsDialog({
       onChange={(id) => setMenu(id as Menu)}
       onClose={onClose}
       items={[
-        { id: 'target', label: '목표 비율', desc: '자산 배분 · 주식 안 코어 · 위성의 목표와, 「비율 조정」 이 괜찮다고 보는 범위입니다.', busy: !!busy.rebalanceBand || targetState.busy, dirty: targetState.dirty, content: target },
+        { id: 'target', label: '목표 비율', desc: '자산 배분 · 주식 안 코어 · 위성의 목표와, 「비율 조정」 이 괜찮다고 보는 범위입니다.', busy: !!busy.rebalanceBand || targetState.busy, dirty: targetState.dirty, content: target,
+          footer: phone ? (
+            <Button variant="primary" busy={targetState.busy} disabled={!targetState.canSave} onClick={() => targetSaveRef.current?.()} data-save-target>
+              저장
+            </Button>
+          ) : undefined },
         { id: 'core', label: '코어 · 위성', desc: '분류 「주식」 종목을 코어와 위성으로 나눕니다.', busy: !!busy.satelliteSymbols, content: satellite },
         { id: 'pension', label: '연금', desc: '「연금 포함」 을 켜고 끌 때 함께 더하고 빼는 계좌입니다.', busy: !!busy.pensionSections, content: pension },
         {
@@ -430,7 +439,8 @@ function ColorRow({ label, value, disabled, onPick }: { label: string; value: As
   return (
     <div className="flex items-center gap-3" role="radiogroup" aria-label={`${label} 색`}>
       <span className="w-20 shrink-0 text-xs text-text-primary">{label}</span>
-      <span className="flex flex-wrap items-center gap-2">
+      {/* 손가락 화면 — 동그라미 누르는 칸 44(touch-hit)가 서로 · 아래 줄과 겹치지 않게 사이 24 */}
+      <span className="flex flex-wrap items-center gap-2 touch:gap-6">
         {ASSET_COLOR_IDS.map((id) => {
           const on = id === value;
           return (
@@ -444,7 +454,7 @@ function ColorRow({ label, value, disabled, onPick }: { label: string; value: As
               disabled={disabled}
               data-color={id}
               onClick={() => !on && onPick(id)}
-              className={`h-5 w-5 rounded-full ${swatchBg(id)} ${on ? 'ring-2 ring-text-primary ring-offset-2 ring-offset-bg-secondary' : 'hover:opacity-80'} disabled:cursor-wait`}
+              className={`touch-hit h-5 w-5 rounded-full ${swatchBg(id)} ${on ? 'ring-2 ring-text-primary ring-offset-2 ring-offset-bg-secondary' : 'hover:opacity-80'} disabled:cursor-wait`}
             />
           );
         })}

@@ -134,7 +134,6 @@ export default function AutoTradeWizard({
     // 바깥 클릭으로 닫지 않는다 — 바꾼 것이 있으면 닫는 길(× · Esc · [취소] · 다른 메뉴 · 뒤로 가기)마다 공용 확인 창(공통 3-3)
     <Dialog
       title="자동매매 처음 켜기"
-      titleOneLine
       titleAside={
         phone ? (
           <span className="flex items-center gap-2 whitespace-nowrap" data-testid="wizard-steps">

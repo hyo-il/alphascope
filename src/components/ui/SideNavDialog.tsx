@@ -2,6 +2,9 @@ import { useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { LoaderCircle } from 'lucide-react';
 import Dialog, { type DialogSize } from './Dialog';
 import { ICON_SM } from './icon';
+import ScrollRow from './ScrollRow';
+import { TOUCH_LIST_ROW } from './tokens';
+import { useLayoutMode, usePhoneLandscape } from '../../hooks/useLayoutMode';
 
 /**
  * 왼쪽 메뉴 + 오른쪽 내용 창(v2.65.2) — 설정이 여러 묶음인 창. 틀은 공용 `Dialog` 그대로(제목 줄 · 닫기 · ESC · 초점 가두기).
@@ -12,7 +15,8 @@ import { ICON_SM } from './icon';
  * - 창 높이는 고정 크기(`lg` · `xl` · `full`)라 메뉴를 바꿔도 흔들리지 않는다.
  * - 메뉴마다 `busy` 면 이름 옆 작은 회전 아이콘(저장 중).
  * - **모든 메뉴의 내용은 늘 그려 두고 고른 것만 보인다**(`hidden`) — 다른 메뉴를 보는 동안에도 저장 · 입력 중인 값이 사라지지 않는다.
- * - 좁은 화면(< 768px · `md` 밑)에서는 메뉴가 위쪽 가로 줄로 바뀐다(넘치면 가로 스크롤).
+ * - 좁은 화면(< 768px · `md` 밑)에서는 메뉴가 위쪽 가로 줄로 바뀐다(넘치면 가로 스크롤) — 폰(세로)은 그 줄을 `ScrollRow` 로 그려
+ *   더 밀 수 있는 쪽 끝을 흐리게 한다(v2.83.0 · 테마 9-1 R7 — 잘린 메뉴 글이 끝에 걸려 보이지 않게). 손가락 화면 메뉴 칸 높이 44.
  * - 고른 메뉴는 쓰는 쪽이 들고 있다(`value` · `onChange` — 기억도 쓰는 쪽이). 화면마다 다른 글자를 넣지 않는다.
  */
 export interface SideNavItem {
@@ -25,6 +29,8 @@ export interface SideNavItem {
   /** 이 메뉴에 저장하지 않은 바꾼 것이 있음 — 하나라도 있으면 창을 닫을 때 묻는다(공통 3-3) */
   dirty?: boolean;
   content: ReactNode;
+  /** 이 메뉴를 고른 동안 창 아래 단추 줄(`Dialog footer` — 폰은 판 아래에 붙음 · 테마 3-5). 없으면 단추 줄 없음 */
+  footer?: ReactNode;
 }
 
 export default function SideNavDialog({
@@ -53,6 +59,8 @@ export default function SideNavDialog({
   const current = items.find((it) => it.id === value) ?? items[0];
   const tabId = (id: string) => `${base}-tab-${id}`;
   const panelId = (id: string) => `${base}-panel-${id}`;
+  /** 폰 세로 — 위쪽 가로 메뉴 줄을 끝 흐림 상자(`ScrollRow`)로. 폰 가로 · 패드 · 1280 이상은 지금 그대로 */
+  const fadeRow = useLayoutMode() === 'phone' && !usePhoneLandscape();
 
   const move = (to: number) => {
     const n = items.length;
@@ -70,14 +78,12 @@ export default function SideNavDialog({
     e.preventDefault();
   };
 
-  return (
-    <Dialog title={title} onClose={onClose} size={size} z={z} bodyClassName="p-0" busy={items.some((it) => it.busy)} dirty={items.some((it) => it.dirty)}>
-      <div className="flex h-full min-h-0 flex-col md:flex-row">
+  const tabs = (
         <div
           role="tablist"
           aria-label={navLabel}
           aria-orientation="vertical"
-          className="flex shrink-0 gap-1 overflow-x-auto border-b border-border/40 p-2 md:w-44 md:flex-col md:overflow-x-visible md:overflow-y-auto md:border-r md:border-b-0"
+          className={fadeRow ? 'flex shrink-0 gap-1 p-2' : 'flex shrink-0 gap-1 overflow-x-auto border-b border-border/40 p-2 md:w-44 md:flex-col md:overflow-x-visible md:overflow-y-auto md:border-r md:border-b-0'}
           data-side-nav
         >
           {items.map((it, i) => {
@@ -97,7 +103,7 @@ export default function SideNavDialog({
                 onClick={() => onChange(it.id)}
                 onKeyDown={(e) => onKey(e, i)}
                 data-side-nav-item={it.id}
-                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-left text-xs transition-colors ${on ? 'bg-bg-tertiary font-semibold text-text-primary' : 'text-text-secondary hover:bg-bg-tertiary/60 hover:text-text-primary'}`}
+                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-left text-xs transition-colors ${TOUCH_LIST_ROW} ${on ? 'bg-bg-tertiary font-semibold text-text-primary' : 'text-text-secondary hover:bg-bg-tertiary/60 hover:text-text-primary'}`}
               >
                 <span className="min-w-0 flex-1">{it.label}</span>
                 <span className="inline-flex w-4 shrink-0 justify-center">
@@ -107,6 +113,18 @@ export default function SideNavDialog({
             );
           })}
         </div>
+  );
+
+  return (
+    <Dialog title={title} onClose={onClose} size={size} z={z} bodyClassName="p-0" busy={items.some((it) => it.busy)} dirty={items.some((it) => it.dirty)} footer={current.footer}>
+      <div className="flex h-full min-h-0 flex-col md:flex-row">
+        {fadeRow ? (
+          <ScrollRow className="shrink-0 border-b border-border/40" innerClassName="flex">
+            {tabs}
+          </ScrollRow>
+        ) : (
+          tabs
+        )}
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto" data-side-nav-content>
           {items.map((it) => (
             <section key={it.id} role="tabpanel" id={panelId(it.id)} aria-labelledby={tabId(it.id)} hidden={it.id !== current.id} className="space-y-4 p-4">

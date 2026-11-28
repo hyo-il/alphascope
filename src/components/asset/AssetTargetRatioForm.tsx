@@ -74,8 +74,9 @@ function FieldGroup({
     : null;
   return (
     <div className="min-w-0 space-y-1" data-ratio-group={title}>
-      <div className="flex min-w-0 items-center gap-x-4">
-        <span className="w-16 shrink-0 text-xs text-text-secondary">
+      {/* 폰 — 칸이 넘치면 다음 줄로(위 이름 · 아래 칸들 — R10) */}
+      <div className="flex min-w-0 items-center gap-x-4 phone:flex-wrap phone:gap-y-3">
+        <span className="w-16 shrink-0 text-xs text-text-secondary phone:w-full">
           {title}
         </span>
         {fields.map(({ key, label }, i) => (
@@ -103,7 +104,7 @@ function FieldGroup({
           </label>
         ))}
       </div>
-      <div className="pl-20">
+      <div className="pl-20 phone:pl-0">
         <SumLine sum={sum} ok={sum === 100} />
       </div>
     </div>
@@ -116,6 +117,7 @@ export default function AssetTargetRatioForm({
   onSave,
   autoFocus = false,
   onState,
+  saveRef,
 }: {
   /** 시트에서 읽은 목표 비율(백분율) */
   initial: AssetTargetRatio;
@@ -128,8 +130,13 @@ export default function AssetTargetRatioForm({
   >;
   /** [목표 비율 바꾸기] 로 열면 첫 칸에 초점 */
   autoFocus?: boolean;
-  /** 저장하지 않은 바꾼 것 · 저장 중 — 설정 창이 닫을 때 묻기 · 막는 로딩에 쓴다(공통 3-3 · 7-2) */
-  onState?: (s: { dirty: boolean; busy: boolean }) => void;
+  /** 저장하지 않은 바꾼 것 · 저장 중 — 설정 창이 닫을 때 묻기 · 막는 로딩에 쓴다(공통 3-3 · 7-2) · `canSave` = [저장] 을 누를 수 있음 */
+  onState?: (s: { dirty: boolean; busy: boolean; canSave: boolean }) => void;
+  /**
+   * 폰(v2.83.0 · 테마 9-2 「자산-설정창-목표비율」 · 3-5): [저장] 은 창 아래 단추 줄이 그린다 — 이 폼은 단추 없이 안내 글만 그리고,
+   * 저장 함수를 이 ref 에 둔다(창 단추가 같은 `save` 를 부른다 · 같은 막기 · 같은 요청).
+   */
+  saveRef?: React.MutableRefObject<(() => void) | null>;
 }) {
   const [saved, setSaved] = useState<AssetTargetRatio>(initial);
   const [texts, setTexts] = useState<Texts>(() => toTexts(initial));
@@ -156,7 +163,7 @@ export default function AssetTargetRatioForm({
     sumOf(STOCK_FIELDS) === 100;
   const changed = ALL.some(({ key }) => texts[key] !== toTexts(saved)[key]);
   // 그리기 바로 뒤(화면에 보이기 전)에 창으로 — 넣자마자 Esc 를 눌러도 창이 바뀐 것을 안다
-  useLayoutEffect(() => onState?.({ dirty: changed, busy }), [changed, busy, onState]);
+  useLayoutEffect(() => onState?.({ dirty: changed, busy, canSave: valid && writeEnabled }), [changed, busy, valid, writeEnabled, onState]);
 
   const save = async () => {
     if (!valid || busy || !writeEnabled) return;
@@ -175,6 +182,7 @@ export default function AssetTargetRatioForm({
     }
   };
 
+  if (saveRef) saveRef.current = () => void save();
   // 폼 묶음 — [저장] 을 누르면 이 폼의 틀린 칸만 빨갛게(설정 창의 다른 구역은 그대로)
   return (
     <FormScope>
@@ -195,6 +203,7 @@ export default function AssetTargetRatioForm({
         disabled={busy}
       />
       <div className="flex min-w-0 items-center gap-3">
+        {!saveRef && (
         <Button
           size="sm"
           variant="primary"
@@ -206,6 +215,7 @@ export default function AssetTargetRatioForm({
         >
           저장
         </Button>
+        )}
         {!writeEnabled && (
           <span className="text-caption text-warning keep-all">
             이 서버에서는 시트 쓰기가 꺼져 있습니다.

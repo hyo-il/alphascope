@@ -75,11 +75,12 @@ export default function SymbolTable(
                   <tr key={s} className={`border-b border-border/30 last:border-b-0 ${LIST_TABLE_ROW} ${note ? 'text-text-muted' : ''}`} data-row-note={note ? '' : undefined}>
                     <td className="max-w-0 py-1.5 pl-3 pr-4">
                       {nameOf ? (
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span className={`min-w-0 truncate font-medium ${note ? '' : 'text-text-primary'}`} data-tip-clip={nameOf(s) ?? s}>
+                        // 폰 · 패드 — 안내(빠짐 등)는 이름 아래 줄 13 secondary(옆 칸과 겹치지 않게 — v2.83.0 · 테마 9-2 「자산-설정창-코어위성」)
+                        <span className="flex min-w-0 items-center gap-2 phone:flex-col phone:items-start phone:gap-0 pad:flex-col pad:items-start pad:gap-0">
+                          <span className={`min-w-0 truncate font-medium phone:max-w-full pad:max-w-full ${note ? '' : 'text-text-primary'}`} data-tip-clip={nameOf(s) ?? s}>
                             {nameOf(s) ?? s}
                           </span>
-                          {note && <span className="shrink-0 whitespace-nowrap text-caption">{note}</span>}
+                          {note && <span className="shrink-0 whitespace-nowrap text-caption phone:whitespace-normal phone:text-text-secondary pad:whitespace-normal pad:text-text-secondary" data-row-note-text>{note}</span>}
                         </span>
                       ) : (
                         <span className="block truncate">
