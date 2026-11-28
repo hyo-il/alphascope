@@ -6,7 +6,8 @@
  * 3. `--dry-run` 은 접속 0(PATH 앞 가짜 ssh 기록 0) · 부를 명령 한 줄
  * 4. 열쇠 경로 · 비밀값을 출력하지 않음(모든 출력에 열쇠 경로 글자 0)
  * 5. 받은 인자를 그대로 넘김(`npm run deploy` → 원격 deploy.sh · 맨 위 deploy.sh → npm run deploy)
- * 6. 맨 위 `Alphascope/deploy.sh` 는 검사(`npm run check:quick`)가 실패하면 `npm run deploy` 를 부르지 않음(가짜 npm)
+ * 6. 맨 위 `Alphascope/deploy.sh`(가짜 npm) — 인자 없이는 검사 없이 `npm run deploy` 만 · `--check` 일 때만 검사(`npm run check:quick`)를 먼저 하고
+ *    실패하면 `npm run deploy` 를 부르지 않음 · `--check` 는 `npm run deploy` 에 넘기지 않음
  * + 원격 자리 = `deploy/paths.sh` 의 SCRIPTS_DIR/deploy.sh
  */
 import './lib/requireCopyDb'; // ⚠️ 맨 첫 import — 사본 DB 가 아니면 여기서 멈춘다(DB 는 쓰지 않는다)
@@ -121,7 +122,7 @@ try {
     check('원격 자리 = deploy/paths.sh SCRIPTS_DIR/deploy.sh', ps.stdout.trim() === REMOTE_SCRIPT, ps.stdout + ps.stderr);
   }
 
-  console.log('━━━ 6. 맨 위 deploy.sh — 검사가 실패하면 npm run deploy 를 부르지 않음(가짜 npm)');
+  console.log('━━━ 6. 맨 위 deploy.sh — 기본은 검사 없이 배포 · --check 일 때만 검사 → 배포(가짜 npm)');
   if (!fs.existsSync(TOP_DEPLOY)) {
     check(`맨 위 deploy.sh 없음 — 건너뜀(${TOP_DEPLOY})`, true);
   } else {
@@ -140,13 +141,22 @@ try {
       const r = spawnSync('/bin/bash', [path.join(top, 'deploy.sh'), ...args], { cwd: tmp, encoding: 'utf8', timeout: 30_000, env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ...extra } });
       return { code: r.status, out: `${r.stdout}${r.stderr}`, log: fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n') : [] };
     };
-    const bad = runTop(['--dry-run'], { FAKE_CHECK_FAIL: '1' });
-    check('검사 실패 → 0 아닌 종료 · npm run deploy 0번(npm 기록은 check:quick 하나)', bad.code !== 0 && bad.log.length === 1 && bad.log[0].startsWith('npm [run] [check:quick]'), JSON.stringify(bad));
-    const good = runTop(['--dry-run', 'x y'], {});
     const codeReal = fs.realpathSync(codeDir);
-    check('검사 통과 → 차례(check:quick → deploy) · 코드 폴더에서 · 인자 그대로(띄어쓰기 든 인자도 하나로)', good.code === 0 && good.log.length === 2 && good.log[0] === `npm [run] [check:quick] @ ${codeReal}` && good.log[1] === `npm [run] [-s] [deploy] [--] [--dry-run] [x y] @ ${codeReal}`, JSON.stringify(good));
-    const noArgs = runTop([], {});
-    check('인자 없음 → bash 3.2 set -u 에서도 멈추지 않음', noArgs.code === 0 && noArgs.log[1]?.startsWith('npm [run] [-s] [deploy] [--] @'), JSON.stringify(noArgs));
+    const isCheck = (l: string) => l.startsWith('npm [run] [check:quick]');
+    const isDeploy = (l: string) => l.startsWith('npm [run] [-s] [deploy]');
+    // 기본(인자 없음) — 검사 없이 배포만 · bash 3.2 set -u 에서도 멈추지 않음
+    const noArgs = runTop([], { FAKE_CHECK_FAIL: '1' });
+    check('[D-1] 인자 없음 → check:quick 0번 · npm run deploy 1번(검사가 실패할 환경이어도 부르지 않음) · bash 3.2 set -u 에서도 멈추지 않음', noArgs.code === 0 && noArgs.log.filter(isCheck).length === 0 && noArgs.log.length === 1 && noArgs.log[0] === `npm [run] [-s] [deploy] [--] @ ${codeReal}` && !noArgs.out.includes('① 검사'), JSON.stringify(noArgs));
+    const plain = runTop(['--dry-run', 'x y'], {});
+    check('인자만(--check 없음) → 검사 없이 deploy · 코드 폴더에서 · 인자 그대로(띄어쓰기 든 인자도 하나로)', plain.code === 0 && plain.log.length === 1 && plain.log[0] === `npm [run] [-s] [deploy] [--] [--dry-run] [x y] @ ${codeReal}`, JSON.stringify(plain));
+    // --check — 검사가 실패하면 배포 0번
+    const bad = runTop(['--check', '--dry-run'], { FAKE_CHECK_FAIL: '1' });
+    check('[D-2] --check · 검사 실패 → 0 아닌 종료 · npm run deploy 0번(npm 기록은 check:quick 하나)', bad.code !== 0 && bad.log.length === 1 && isCheck(bad.log[0]) && bad.log.filter(isDeploy).length === 0, JSON.stringify(bad));
+    // --check --dry-run — 검사 1번 → deploy -- --dry-run(--check 는 넘기지 않음)
+    const good = runTop(['--check', '--dry-run'], {});
+    check('[D-3] --check --dry-run → check:quick 1번 → npm run deploy -- --dry-run(--check 안 넘김) · 코드 폴더에서', good.code === 0 && good.log.length === 2 && good.log[0] === `npm [run] [check:quick] @ ${codeReal}` && good.log[1] === `npm [run] [-s] [deploy] [--] [--dry-run] @ ${codeReal}` && good.out.includes('① 검사'), JSON.stringify(good));
+    const mid = runTop(['--dry-run', '--check', 'x y'], {});
+    check('--check 는 어느 자리에 있어도 빼고 나머지 차례 그대로', mid.code === 0 && mid.log.length === 2 && isCheck(mid.log[0]) && mid.log[1] === `npm [run] [-s] [deploy] [--] [--dry-run] [x y] @ ${codeReal}`, JSON.stringify(mid));
     const text = fs.readFileSync(TOP_DEPLOY, 'utf8');
     check('맨 위 deploy.sh — set -euo pipefail · 접속 정보 · 열쇠 경로를 적지 않음', /^set -euo pipefail$/m.test(text) && !/\.key\b|secrets\/|161\.33\.|ubuntu@/.test(text), '');
   }

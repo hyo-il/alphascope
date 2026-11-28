@@ -11,8 +11,10 @@
 ```bash
 export ALPHASCOPE_DEPLOY_SSH_KEY=<열쇠 파일 경로>     # 관리 루트 secrets/Oracle-Ssh-Key/ 의 열쇠
 export ALPHASCOPE_DEPLOY_HOST=<사용자@주소>
-~/Documents/ClaudeCode/Work/Alphascope/deploy.sh             # 검사(npm run check:quick) → npm run deploy
-~/Documents/ClaudeCode/Work/Alphascope/deploy.sh --dry-run   # 접속 없이 부를 명령 한 줄만
+~/Documents/ClaudeCode/Work/Alphascope/deploy.sh                     # 검사 없이 바로 npm run deploy
+~/Documents/ClaudeCode/Work/Alphascope/deploy.sh --dry-run           # 접속 없이 부를 명령 한 줄만
+~/Documents/ClaudeCode/Work/Alphascope/deploy.sh --check             # 맥 검사(npm run check:quick)를 먼저 — 통과할 때만 배포
+~/Documents/ClaudeCode/Work/Alphascope/deploy.sh --check --dry-run   # 검사 뒤 부를 명령 한 줄만(--check 는 넘기지 않음)
 ```
 
 바로가기가 하는 일(코드 `npm run deploy` = `scripts/deployRemote.ts`): `ssh -i $ALPHASCOPE_DEPLOY_SSH_KEY $ALPHASCOPE_DEPLOY_HOST '~/projects/alphascope/scripts/deploy.sh'` — 지금까지 손으로 치던 한 줄과 같습니다. 접속 정보는 셸 환경 변수로만 받고 파일에 적지 않습니다. 시험 `npm run deployremote:test`.
