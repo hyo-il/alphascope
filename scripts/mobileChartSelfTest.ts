@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { chromium, type Browser, type Page } from 'playwright';
+import { stockNamesReply } from './lib/stockNamesReply';
 import { createBrowserStepGuard } from './lib/browserStepGuard';
 import { chasuChanged, chasuPatch, type Chasu } from './lib/chasuRange';
 
@@ -46,8 +47,10 @@ const PAD = { width: 1133, height: 744 };
 const DESK = { width: 1280, height: 1080 };
 const DESK_TABS = ['기업정보', '투자자 동향', '뉴스', 'AI 분석'];
 
-/** 가짜 응답 찾기 — 주소 그대로 → 같은 경로(쿼리 다름) 첫 것 */
+/** 가짜 응답 찾기 — 종목 이름은 물은 종목만(`lib/stockNamesReply`) → 주소 그대로 → 같은 경로(쿼리 다름) 첫 것 */
 function reply(u: string): unknown | undefined {
+  const names = stockNamesReply(API, u);
+  if (names) return names.json;
   if (u in API) return API[u];
   const p = u.split('?')[0];
   const k = Object.keys(API).find((x) => x.split('?')[0] === p);
