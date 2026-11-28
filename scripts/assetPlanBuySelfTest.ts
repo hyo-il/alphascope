@@ -611,9 +611,16 @@ try {
       // 155차 — 창 DOM 의 class 는 색 이름만 빼고 견준다(앱 전체 색 규칙 · [저장] = 주 단추 · noColorClass)
       const noColor = (v: unknown) =>
         Object.fromEntries(Object.entries((v ?? {}) as Record<string, unknown>).map(([key, x]) => [key, typeof x === 'string' ? x.replace(/class="([^"]*)"/g, (_m, c: string) => `class="${noColorClass(c)}"`) : x]));
+      // 158차(v2.83.0 · 테마 9-1 R8) — 폰 아래 판 머리는 제목 한 줄 · 옆 도움 글은 머리 아래 몸 맨 위. 402 정답은 그 옮김만 적용해 견준다(나머지는 바이트 그대로)
+      const phoneHeadR8 = (v: unknown) =>
+        Object.fromEntries(Object.entries((v ?? {}) as Record<string, unknown>).map(([key, x]) => [key, typeof x !== 'string' ? x : x.replace(
+          /<h2 id=":id:" class="min-w-0 text-sm font-semibold text-text-primary">([^<]*)<\/h2><span class="min-w-0 text-caption text-text-muted">([^<]*)<\/span>(<div class="ml-auto flex shrink-0 items-center gap-2">[\s\S]*?<\/button><\/div><\/div>)/,
+          (_m, t: string, aside: string, rest: string) => `<h2 id=":id:" class="min-w-0 truncate text-sm font-semibold text-text-primary" data-tip-clip="${t}">${t}</h2>${rest}<div data-dialog-aside="true" class="shrink-0 px-4 pt-3 text-caption text-text-secondary keep-all">${aside}</div>`,
+        )]));
       for (const k of ['1280 buy', '1280 sell', '402 buy', '402 sell']) {
-        const same = JSON.stringify(noColor(now[k])) === JSON.stringify(noColor(want[k]));
-        const w = noColor(want[k]);
+        const wantK = k.startsWith('402') ? phoneHeadR8(want[k]) : want[k];
+        const same = JSON.stringify(noColor(now[k])) === JSON.stringify(noColor(wantK));
+        const w = noColor(wantK);
         const n = noColor(now[k]);
         check(`[153-6] ${k} — 자산 현황 [${k.endsWith('buy') ? '매수' : '매도'}] 창(처음 값 없음)이 ${BASE} 와 같음(연 때 DOM · 넣은 뒤 DOM · 저장 막힘 · 나갈 때 묻기)`,
           same, ['open', 'filled', 'saveDisabled', 'askEmpty', 'askFilled'].filter((x) => JSON.stringify(n[x]) !== JSON.stringify(w[x])).join(','));

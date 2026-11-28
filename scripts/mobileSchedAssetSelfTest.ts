@@ -664,8 +664,9 @@ try {
       check(`[158-8] ${size.width} 설정 창 메뉴 칸 높이 44`, tabH.length === 8 && tabH.every((h) => h >= 44), tabH.join(','));
       const save = await page.evaluate(() => {
         const dlg = document.querySelector('[role="dialog"] > div') as HTMLElement;
-        const foot = dlg.querySelector('[data-dialog-foot]') as HTMLElement | null;
         const btn = [...dlg.querySelectorAll('button')].find((b) => b.innerText.trim() === '저장') as HTMLElement | undefined;
+        // 창 아래 단추 줄 = 판의 바로 아래 자식(폰 `data-dialog-foot` · 패드는 몸 다음 줄)
+        const foot = (dlg.querySelector('[data-dialog-foot]') as HTMLElement | null) ?? (btn?.parentElement?.parentElement === dlg ? btn.parentElement : null);
         const inForm = Boolean(btn?.closest('[data-setting="target-ratio"]'));
         const d = dlg.getBoundingClientRect();
         const f = foot?.getBoundingClientRect();

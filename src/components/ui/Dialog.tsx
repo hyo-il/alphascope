@@ -378,7 +378,7 @@ export default function Dialog({
         </div>
         <div className={`min-h-0 flex-1 overflow-y-auto ${bodyClassName}`}>{children}</div>
         {footer != null && (
-          <div data-dialog-foot className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border/40 px-4 py-3">{footer}</div>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border/40 px-4 py-3">{footer}</div>
         )}
         {/* 저장 중 — 판의 마지막 자식으로 붙어 제목 줄 · 본문 · 아래 줄을 막는다(판의 자식 순서 · 배치는 그대로) */}
         <LoadingCover busy={busy} label={busyLabel} onCancel={onCancelBusy} />
