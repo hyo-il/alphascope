@@ -7,6 +7,7 @@ import { useLoading } from '../../hooks/useLoading';
 import { stockNameOf } from '../../utils/stockNames';
 import ScrollTable from '../ui/ScrollTable';
 import { useLayoutMode } from '../../hooks/useLayoutMode';
+import ShortNote from '../ui/ShortNote';
 
 interface Stats {
   /** 묶기 전 원본 분석 수 */
@@ -57,37 +58,47 @@ const MIN_SCORED_FOR_STATS = 20;
 
 /** 무엇을 재는 화면인지 — 숫자만 있고 정의가 없으면 그 숫자를 믿을 수 없다. */
 function Explainer({ horizonDays, flatBand, rule }: { horizonDays: number; flatBand: number; rule?: string }) {
+  const list = (
+    <ul className="space-y-1 text-xs leading-relaxed text-text-secondary">
+      <li>
+        분석 당시 <b className="text-bullish">매수</b> 신호를 줬는데 실제로 가격이 올랐으면
+        '적중', 내렸으면 '빗나감' 으로 셉니다.
+      </li>
+      <li>
+        <b className="text-bearish" data-tone="sell">매도</b> 는 반대로, <b>중립</b> 은 ±{flatBand}% 안에
+        머물렀으면 적중입니다.
+      </li>
+      <li>
+        기준 시점은 분석일로부터 <b className="text-text-primary">{horizonDays}거래일 뒤 종가</b>
+        입니다 (스윙 트레이딩 보유 기간에 맞췄습니다). 아직 {horizonDays}거래일이 지나지 않은
+        분석은 '대기' 로 남습니다.
+      </li>
+      {rule && (
+        <li>
+          채점 규칙: <b className="text-text-primary">{rule}</b>
+        </li>
+      )}
+      <li>
+        같은 종목을 <b className="text-text-primary">같은 날 여러 번</b> 분석했으면 그날
+        마지막 분석 1건만 셉니다 — 자동매매가 한 시간마다 분석한 결과를 모두 세면 한 종목·한
+        날이 적중률을 좌우합니다.
+      </li>
+      <li>
+        충분히 쌓이면 어느 AI 가 더 정확한지, 어떤 신호가 더 믿을 만한지 판단할 수 있습니다.
+      </li>
+    </ul>
+  );
+  // 폰 · 패드(R5 · v2.84.0): 제목 한 줄 + [?](채점 설명은 [?] 안 — 같은 글) · 1280 이상은 그대로
+  if (useLayoutMode() !== 'desk')
+    return (
+      <ShortNote className="rounded-xl bg-bg-secondary p-4 text-sm font-medium text-text-primary" label="채점하는 법" lead="AI 분석이 실제로 맞았는지 추적합니다" more={list}>
+        {null}
+      </ShortNote>
+    );
   return (
     <div className="rounded-xl bg-bg-secondary p-4 text-sm">
       <p className="mb-2 font-medium text-text-primary">AI 분석이 실제로 맞았는지 추적합니다</p>
-      <ul className="space-y-1 text-xs leading-relaxed text-text-secondary">
-        <li>
-          분석 당시 <b className="text-bullish">매수</b> 신호를 줬는데 실제로 가격이 올랐으면
-          '적중', 내렸으면 '빗나감' 으로 셉니다.
-        </li>
-        <li>
-          <b className="text-bearish" data-tone="sell">매도</b> 는 반대로, <b>중립</b> 은 ±{flatBand}% 안에
-          머물렀으면 적중입니다.
-        </li>
-        <li>
-          기준 시점은 분석일로부터 <b className="text-text-primary">{horizonDays}거래일 뒤 종가</b>
-          입니다 (스윙 트레이딩 보유 기간에 맞췄습니다). 아직 {horizonDays}거래일이 지나지 않은
-          분석은 '대기' 로 남습니다.
-        </li>
-        {rule && (
-          <li>
-            채점 규칙: <b className="text-text-primary">{rule}</b>
-          </li>
-        )}
-        <li>
-          같은 종목을 <b className="text-text-primary">같은 날 여러 번</b> 분석했으면 그날
-          마지막 분석 1건만 셉니다 — 자동매매가 한 시간마다 분석한 결과를 모두 세면 한 종목·한
-          날이 적중률을 좌우합니다.
-        </li>
-        <li>
-          충분히 쌓이면 어느 AI 가 더 정확한지, 어떤 신호가 더 믿을 만한지 판단할 수 있습니다.
-        </li>
-      </ul>
+      {list}
     </div>
   );
 }

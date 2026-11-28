@@ -68,7 +68,8 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
 
   return (
     <div className="space-y-2">
-      <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(360px,1fr))]">
+      {/* 칸 최소 360 — 본문이 그보다 좁은 폰에서는 본문 폭(min) · 1280 이상은 본문이 넓어 같은 값(점검 40 — 카드 오른쪽 끝이 본문 밖으로 나갔다) */}
+      <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr))]">
         <Cell title="계좌 자동매매">
           {error && !items && <p data-tone="error" className="text-caption text-danger">상태를 불러오지 못했습니다: {error}</p>}
           {items && items.length === 0 && (

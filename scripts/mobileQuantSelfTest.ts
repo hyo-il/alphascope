@@ -365,8 +365,17 @@ await part('점검 40 · 43 · 44 · 48 · 49 · 4(', async () => {
       const cb = await page.getByRole('checkbox', { name: /현재 종목만/ }).count();
       check(`[점검 ${phone ? '44' : '48'}] ${tag} 검증 기록 › AI 분석 — 「현재 종목만」 체크 · 「새로고침」 등 누르는 칸 44 미만 0 · 겹침 0`, cb >= 0 && t.small.length === 0 && t.overlap.length === 0, [...t.small, ...t.overlap].join(' | '));
       if (phone) {
-        const edge = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-layout-body] *')].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.right > innerWidth + 1 && !e.closest('[data-scroll-table], [data-scroll-row], [aria-hidden="true"]'); }).map((e) => (e.innerText || e.tagName).slice(0, 20)));
-        check('[점검 40] 402 검증 기록 › AI 분석 — 카드 · 글 오른쪽 끝이 화면 밖인 요소 0', edge.length === 0, edge.slice(0, 5).join(' | '));
+        // 본문 스크롤 상자(data-page-scroll)의 안쪽 오른쪽 끝(여백 안) 넘어가는 요소 · 본문 가로 넘침
+        const edge = await page.evaluate(() => {
+          const sc = document.querySelector<HTMLElement>('[data-page-scroll]');
+          if (!sc) return { over: ['본문 없음'], side: -1 };
+          const right = sc.getBoundingClientRect().left + sc.clientWidth - parseFloat(getComputedStyle(sc).paddingRight);
+          const over = [...sc.querySelectorAll<HTMLElement>('*')]
+            .filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.right > right + 1 && !e.closest('[data-scroll-table], [data-scroll-row], [aria-hidden="true"]'); })
+            .map((e) => `${(e.innerText || e.tagName).slice(0, 16)}(${Math.round(e.getBoundingClientRect().right)}>${Math.round(right)})`);
+          return { over, side: sc.scrollWidth - sc.clientWidth };
+        });
+        check('[점검 40] 402 검증 기록 › AI 분석 — 카드 · 글 오른쪽 끝이 본문 여백 안(넘는 요소 0 · 본문 가로 넘침 0)', edge.over.length === 0 && edge.side <= 0, `${edge.side} · ${edge.over.slice(0, 5).join(' | ')}`);
         const f = await foldedTexts(page, BODY);
         check(`[4] 402 검증 기록 › AI 분석 — 한 단어 폭으로 접힌 글 0(글 조각 ${f.seen}개)`, f.folded.length === 0, f.folded.join(' | '));
         await guard.step('성적표', () => page.getByRole('radio', { name: '성적표' }).click({ timeout: 5000 }));
@@ -374,6 +383,8 @@ await part('점검 40 · 43 · 44 · 48 · 49 · 4(', async () => {
         const g = await foldedTexts(page, BODY);
         const lines = await page.locator('[data-version-lines] p').count();
         check(`[4] 402 성적표 — 프롬프트 버전별 줄이 이름 위 · 버전마다 한 줄(${lines}) · 접힌 글 0`, lines >= 2 && g.folded.length === 0, g.folded.join(' | '));
+        const explain = await page.locator('[data-short-note]').filter({ hasText: 'AI 분석이 실제로 맞았는지' }).count();
+        check('[B · R5] 402 성적표 맨 위 채점 설명 — 제목 한 줄 + [?](설명 문단은 [?] 안)', explain === 1, String(explain));
         const tabs = await page.locator('[data-testid="page-tab-row"]').count();
         check('[R7] 402 검증 기록 탭 줄 — 옆으로 미는 줄(끝 흐림 · ScrollRow)', tabs === 1, String(tabs));
       }
