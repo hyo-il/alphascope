@@ -1,7 +1,7 @@
 import { formatDateTime } from '../../utils/dateFormat';
 import AutoTradeIcon from '../ui/AutoTradeIcon';
 import InfoTip from '../ui/InfoTip';
-import { useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { SIDE_POLL_MS, useAutoTradingOverview } from '../../hooks/usePaperOverview';
 import { usePaperAccounts } from '../../hooks/usePaperTrading';
 import { useTradingRules } from '../../hooks/useTradingRules';
@@ -119,12 +119,12 @@ export default function AIStatusBoard({ scheduled }: { scheduled?: ReactNode }) 
           <>
             {usage.usage.items.map((item, i) =>
               breakable ? (
-                <span key={item.key}>
+                <Fragment key={item.key}>
                   {i > 0 && ' · '}
                   <span className="whitespace-nowrap">
                     {item.label} <b className="text-text-secondary">{formatNumber(item.calls, 0)}</b>회
                   </span>
-                </span>
+                </Fragment>
               ) : (
                 <span key={item.key} className="whitespace-nowrap">
                   {i > 0 && ' · '}
