@@ -289,7 +289,9 @@ export default function AssetCashSettings({ onLocked, onBusy }: { onLocked: () =
               <Button size="sm" variant="secondary" className={TOUCH_FIELD_H} busy={busy === 'flow-all'} disabled={(busy != null && busy !== 'flow-all') || reflectCount === 0 || !!v.fixedError} onClick={() => void save('flows', 'flow-all', { flowDayAll: allDay })}>
                 모두 적용
               </Button>
-              <span className="ml-3 text-text-secondary">휴일이면</span>
+              {/* 1280 = 상자 없음(contents) · 폰 = 「휴일이면」 과 고르기가 함께 줄바꿈(캡처 검토 · v2.83.0) */}
+              <span className="contents phone:flex phone:items-center phone:gap-2">
+              <span className="ml-3 text-text-secondary phone:ml-0">휴일이면</span>
               <Segmented<AssetCashShift>
                 size="sm"
                 label="고정 흐름 휴일이면"
@@ -297,6 +299,7 @@ export default function AssetCashSettings({ onLocked, onBusy }: { onLocked: () =
                 value={s.flowShift}
                 onChange={(x) => void save('flows', 'flow-shift', { flowShift: x })}
               />
+              </span>
             </div>
             {v.fixedError && (
               <p data-tone="error" role="alert" className="text-xs text-danger keep-all" data-testid="asset-cash-fixed-error">

@@ -131,7 +131,8 @@ function CycleLine({ mb }: { mb: MonthlyBuy }) {
         이번 구매일 <span className="text-text-primary">{dayText(mb.cycleDay)}</span>
       </span>
       {mb.skipped && <Badge>시작 전 차례 — 묻지 않음</Badge>}
-      <span className="text-text-muted" aria-hidden>
+      {/* 폰 — 두 날이 두 줄로 꺾이면 가운뎃점이 줄 끝에 혼자 남아 폰에서는 숨김(캡처 검토 · v2.83.0) */}
+      <span className="text-text-muted phone:hidden" aria-hidden>
         ·
       </span>
       <span className="tabular-nums">

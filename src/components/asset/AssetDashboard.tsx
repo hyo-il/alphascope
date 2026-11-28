@@ -489,7 +489,15 @@ export default function AssetDashboard({
           phone ? (
             // 폰 — 본문 맨 위 한 줄: 왼쪽 읽은 시각 · 오른쪽 아이콘 단추 넷(툴팁 = 1280 의 글 · 누르는 칸 44 는 IconButton)
             <div className="flex min-w-0 flex-1 items-center gap-2" data-testid="asset-phone-head">
-              <span className="min-w-0 text-caption leading-tight text-text-secondary tabular-nums">{summary ? `읽은 시각 ${formatDateTime(summary.readAt)}` : ''}</span>
+              {/* 좁아 한 줄에 다 들어가지 않으면 「읽은 시각」 / 날짜 · 시각 두 줄(날짜 중간에서 꺾이지 않게 — 캡처 검토) */}
+              <span className="flex min-w-0 flex-wrap gap-x-1 text-caption leading-tight text-text-secondary tabular-nums">
+                {summary && (
+                  <>
+                    <span className="whitespace-nowrap">읽은 시각</span>
+                    <span className="whitespace-nowrap">{formatDateTime(summary.readAt)}</span>
+                  </>
+                )}
+              </span>
               <span className="ml-auto flex shrink-0 items-center">
                 <IconButton size="md" icon={PiggyBank} label="연금 포함" active={pension} aria-pressed={pension} busy={switching} onClick={() => togglePension(!pension)} data-asset-pension-toggle />
                 <IconButton size="md" icon={RefreshCw} label="다시 읽기" busy={reloading} disabled={latest == null} onClick={() => void reload()} data-asset-reload />

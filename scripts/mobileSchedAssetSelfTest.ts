@@ -493,7 +493,7 @@ try {
       }),
     );
     const time = (await page.getByTestId('asset-phone-head').innerText()).trim();
-    check('[158-4] 402 머리 한 줄 — 왼쪽 「읽은 시각」 · 오른쪽 [연금 포함] [다시 읽기] [잠그기] [설정] · 같은 줄 · 누르는 칸 44', btns.map((b) => b.name).join('|') === '연금 포함|다시 읽기|잠그기|설정' && new Set(btns.map((b) => b.top)).size === 1 && btns.every((b) => b.hit >= 44) && /^읽은 시각 /.test(time) && Boolean(head && head.h <= 44), JSON.stringify({ btns, time, head }));
+    check('[158-4] 402 머리 한 줄 — 왼쪽 「읽은 시각」 · 오른쪽 [연금 포함] [다시 읽기] [잠그기] [설정] · 같은 줄 · 누르는 칸 44', btns.map((b) => b.name).join('|') === '연금 포함|다시 읽기|잠그기|설정' && new Set(btns.map((b) => b.top)).size === 1 && btns.every((b) => b.hit >= 44) && /^읽은 시각\s+\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(time) && Boolean(head && head.h <= 44), JSON.stringify({ btns, time, head }));
     check('[158-136] 402 「연금 포함 · 읽은 시각」 줄 한 줄 · 아이콘이 다음 줄로 내려가지 않음 [점검 136]', new Set(btns.map((b) => b.top)).size === 1 && Boolean(head && head.h <= 44), JSON.stringify(head));
     const pen = page.getByTestId('asset-phone-head').getByRole('button', { name: '연금 포함' });
     const before = await pen.getAttribute('aria-pressed');

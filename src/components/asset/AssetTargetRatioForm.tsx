@@ -84,7 +84,8 @@ function FieldGroup({
             key={key}
             className="inline-flex items-center gap-1.5 text-xs text-text-primary"
           >
-            <span className="whitespace-nowrap">{label}</span>
+            {/* 폰 — 줄바꿈된 칸들의 세로 줄이 맞게 이름 칸 폭 고정(캡처 검토 · v2.83.0) */}
+            <span className="whitespace-nowrap phone:w-8">{label}</span>
             <NumberField
               ref={i === 0 ? firstRef : undefined}
               size="sm"
