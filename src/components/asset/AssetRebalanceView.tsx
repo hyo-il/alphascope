@@ -115,6 +115,12 @@ export function RebalanceTables({ rebalance }: { rebalance: AssetRebalance }) {
 function BaseLine({ rebalance, includePension, onEditTarget }: { rebalance: AssetRebalance; includePension: boolean; onEditTarget: () => void }) {
   const phone = useLayoutMode() === 'phone';
   const desc = `${includePension ? '연금 포함' : '연금 뺌'} · 현금 + 채권 + 금 + 주식 · 비율 조정 범위 ±${rebalance.band}%p`;
+  // [목표 비율 바꾸기] 는 한 곳(1280 = 줄 오른쪽 끝 · 폰 = 카드 아래 줄)
+  const edit = (
+    <Button size="sm" icon={Pencil} className={phone ? undefined : 'ml-auto'} onClick={onEditTarget} data-edit-target>
+      목표 비율 바꾸기
+    </Button>
+  );
   const excluded = rebalance.excluded.length > 0 && (
     <ul className="space-y-0.5 text-caption text-text-muted" data-rebalance-excluded>
       {rebalance.excluded.map((e) => (
@@ -135,11 +141,7 @@ function BaseLine({ rebalance, includePension, onEditTarget }: { rebalance: Asse
           <InfoTip label="기준 금액">{desc}</InfoTip>
         </div>
         {excluded}
-        <div className="flex flex-wrap items-center">
-          <Button size="sm" icon={Pencil} onClick={onEditTarget} data-edit-target>
-            목표 비율 바꾸기
-          </Button>
-        </div>
+        <div className="flex flex-wrap items-center">{edit}</div>
       </Panel>
     );
   return (
@@ -150,9 +152,7 @@ function BaseLine({ rebalance, includePension, onEditTarget }: { rebalance: Asse
           {formatPrice(rebalance.assets.base, 'KRW')}
         </span>
         <span className="text-caption text-text-muted">{desc}</span>
-        <Button size="sm" icon={Pencil} className="ml-auto" onClick={onEditTarget} data-edit-target>
-          목표 비율 바꾸기
-        </Button>
+        {edit}
       </div>
       {excluded}
     </Panel>

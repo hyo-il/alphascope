@@ -534,7 +534,7 @@ export default function AssetDashboard({
               <Panel className="flex items-center justify-center">
                 <AssetDonut groups={summary.totals.groups} total={summary.totals.total} colors={summary.settings.classColors} size={phone ? PHONE_DONUT_PX : undefined} />
               </Panel>
-              <GroupTable summary={summary} onOpenClassDialog={() => setClassOpen(true)} phone={phone} />
+              <GroupTable summary={summary} onOpenClassDialog={() => setClassOpen(true)} />
             </div>
           </>
         )}
@@ -845,7 +845,8 @@ const NUM = `${TABLE_NUM_COL} ${TABLE_NUM_GAP} text-right tabular-nums`;
  * 분류별 표 — 분류 · 금액 · 비율(총 자산 대비) · 주식 아래 들여 쓴 코어 · 위성(비율은 주식 금액 대비).
  * 폰(v2.83.0)은 원형 차트 아래 범례 — 칸 차례 분류 · 비율 · 금액(테마 9-2 「이름 · % · 금액」 · 값은 같은 함수).
  */
-function GroupTable({ summary, onOpenClassDialog, phone }: { summary: AssetSummary; onOpenClassDialog: () => void; phone: boolean }) {
+function GroupTable({ summary, onOpenClassDialog }: { summary: AssetSummary; onOpenClassDialog: () => void }) {
+  const phone = useLayoutMode() === 'phone';
   const { totals } = summary;
   const stock = totals.groups.find((g) => g.key === 'stock')?.amount ?? 0;
   const inStock = (v: number) => (stock > 0 ? v / stock : null);
