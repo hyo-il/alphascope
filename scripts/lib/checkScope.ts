@@ -3,14 +3,16 @@
  *
  * 1. **브라우저 시험 가르기**(`splitTests`): 시험 파일이 Playwright(`playwright` · `@playwright/test` · `playwright-core`)를 import 하거나,
  *    import 하는 저장소 안 파일(`scripts/lib/` 등 — 몇 단계 건너도)이 그러면 「브라우저 시험」. 목록을 손으로 적지 않는다(새 시험이 저절로 들어간다).
- * 2. **묶음 짜기**(`planBatches`): 시험마다 지난 시간으로 묶음마다 `limit` 초 안 · `LONG_SEC`(5분)을 넘는 시험은 혼자 묶음.
- *    Bash 한 번에 묶음 하나(`CLAUDE.md` 2-4) — 묶음 둘을 이어 부르지 않는다.
- * 3. **그 영역 브라우저 시험 고르기**(`selectChanged`): 바뀐 파일 → 그 파일을 쓰는 화면(page id)을 찾고, 시험 파일 안에 그 화면 주소 해시
- *    `#/<page>` 나 바뀐 파일 이름(컴포넌트 이름)이 있는 브라우저 시험을 고른다.
- *    - 화면 찾기: `src` 의 import 를 거꾸로 따라가 `src/components/<폴더>` 에 닿으면, `src/App.tsx` 의 `case '<page>'` 가 그리는 부품이 import 된
- *      폴더로 page id 를 정한다(손으로 적지 않음 · 차트는 `case 'chart'` 가 아무것도 그리지 않아 `chart` 폴더 = `chart` 한 줄만 따로).
- *    - **전부**(`FULL_RULES`): 공용 부품 · 앱 틀 · 매매 · 서버 공통 · 빌드 설정을 건드렸거나, 화면 파일인데 어느 화면에도 닿지 않으면(앱 틀로 봄)
- *      「전부」 안내를 낸다(`CLAUDE.md` 2-4 ①② — ③ 「배포 전」 은 지시서 머리가 정한다).
+ * 2. **묶음 짜기**(`planBatches`): 이름 순으로 차례대로 담아 묶음마다 `limit` 초 안 · `LONG_SEC`(5분)을 넘는 시험 · 시간 기록이 없는 시험은 혼자 묶음.
+ *    묶음 차례는 늘 이름 순이다(혼자 묶음도 제자리) — `--plan` 이 짠 묶음은 그날 `plan.json` 에 얼려 두고 `--batch <n>` 이 그것을 그대로 부른다
+ *    (묶음을 돌리면 시간 기록이 바뀌어도 n 번 묶음은 같다). Bash 한 번에 묶음 하나(`CLAUDE.md` 2-4).
+ * 3. **바뀐 부품을 쓰는 화면 시험 고르기**(`selectChanged`): 바뀐 파일 → 그 파일을 (정적 · 동적) import 하는 `src` 파일을 거꾸로 따라 올라가
+ *    `src/components/<폴더>` 에 닿으면, `src/App.tsx` 의 `case '<page>'` 가 그리는 부품이 import 된 폴더로 page id 를 정하고,
+ *    시험 파일 안에 그 화면 주소 해시 `#/<page>` 나 바뀐 파일 이름(컴포넌트 이름)이 있는 브라우저 시험을 고른다(까닭 줄 = 따라간 길).
+ *    - 공용 부품(`ui/` 등)도 같다 — 그 부품을 쓰는 화면의 시험만 고른다. 고른 것이 브라우저 시험의 2/3 를 넘으면 「전체에 가까움」 한 줄.
+ *    - **전부**(`FULL_RULES`): 앱 틀(어느 화면에도 닿지 않는 화면 파일 · `App.tsx` · 전역 CSS) · 매매 · 서버 공통 · 빌드 설정을 건드렸을 때
+ *      「전부」 안내(`CLAUDE.md` 2-4 ② — 「배포 전」 은 지시서 머리가 정한다).
+ *    - `ALWAYS`(`desktop:test` — 1280 그대로)는 늘 넣는다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -84,17 +86,21 @@ export const LONG_SEC = 300;
 export interface Batch { tests: string[]; seconds: number; known: boolean; head: boolean; alone: boolean }
 
 /**
- * 시험을 묶음으로. `head` 초(타입 · 린트 · 빌드)가 있으면 첫 묶음에 함께 돈다(시험 하나 이상).
- * 시간 기록이 없는 시험은 혼자 묶음(얼마나 걸릴지 모른다). `LONG_SEC` 를 넘는 시험도 혼자.
+ * 시험을 묶음으로(받은 차례 그대로 — 부르는 쪽이 이름 순으로 준다). `head` 초(타입 · 린트 · 빌드)가 있으면 첫 묶음에 함께 돈다.
+ * 시간 기록이 없는 시험 · `LONG_SEC` 를 넘는 시험은 혼자 묶음 — 그 자리에서 열려 있던 묶음을 닫고 혼자 묶음을 넣는다(차례가 바뀌지 않게).
  */
 export function planBatches(tests: string[], secOf: (n: string) => number | undefined, limitSec: number, head: number | undefined | null): Batch[] {
   const batches: Batch[] = [];
-  const headBatch: Batch | null = head !== null ? { tests: [], seconds: head ?? 0, known: head !== undefined, head: true, alone: false } : null;
-  let cur: Batch | null = headBatch;
+  let cur: Batch | null = head !== null ? { tests: [], seconds: head ?? 0, known: head !== undefined, head: true, alone: false } : null;
+  const close = () => {
+    if (cur && (cur.tests.length || cur.head)) batches.push(cur);
+    cur = null;
+  };
   for (const t of tests) {
     const s = secOf(t);
     if (s === undefined || s > LONG_SEC) {
-      // 혼자 묶음 — 열려 있던 묶음은 그대로 두고 다음 시험을 계속 받는다
+      // 머리(타입 · 린트 · 빌드)만 있는 첫 묶음은 혼자 시험을 기다리지 않고 그대로 닫는다
+      close();
       batches.push({ tests: [t], seconds: s ?? 0, known: s !== undefined, head: false, alone: true });
       continue;
     }
@@ -103,21 +109,17 @@ export function planBatches(tests: string[], secOf: (n: string) => number | unde
       cur.seconds += s;
       continue;
     }
-    if (cur && cur !== headBatch) batches.push(cur);
+    close();
     cur = { tests: [t], seconds: s, known: true, head: false, alone: false };
   }
-  if (cur && cur !== headBatch) batches.push(cur);
-  // 머리(타입 · 린트 · 빌드)는 늘 첫 묶음
-  return headBatch ? [headBatch, ...batches] : batches;
+  close();
+  return batches;
 }
 
 // ───────── 3. 그 영역 브라우저 시험 고르기 ─────────
-/** 「전부」 를 돌릴 파일 — `CLAUDE.md` 2-4 ① 공용 부품 · 앱 틀 ② 매매 · 서버 공통 (+ 빌드 · 의존성 설정) */
+/** 「전부」 를 돌릴 파일 — `CLAUDE.md` 2-4 ② 매매 · 서버 공통 · 앱 틀(모든 화면을 감싸는 파일) · 빌드 · 의존성 설정. 공용 부품(`ui/` 등)은 여기 없다(쓰는 화면만) */
 export const FULL_RULES: { re: RegExp; why: string }[] = [
-  { re: /^src\/components\/(ui|layout|common)\//, why: '공용 부품 · 앱 틀' },
   { re: /^src\/(index\.css|fonts\.css|App\.tsx|main\.tsx)$/, why: '앱 틀 · 전역 스타일' },
-  { re: /^src\/hooks\/(useLayoutMode|useHashRoute)\.ts$/, why: '화면 모양 · 주소(앱 틀)' },
-  { re: /^src\/(store\/|types\/nav\.ts$)/, why: '앱 상태 · 메뉴(앱 틀)' },
   { re: /^server\/(rules|autoTrading|buyJudge|aiCheck)\//, why: '매매 판단(등급 3)' },
   { re: /^server\/(paperTradingService|paperPerformanceService)\.ts$/, why: '계좌 계산(등급 3)' },
   { re: /^server\/(index|db|auth|authGuard|apiError|quoteService|candleService|previousClose|marketHours|marketCalendar|indicatorService)\.ts$/, why: '서버 공통(시작 · DB · 인증 · 시세)' },
@@ -127,6 +129,10 @@ export const FULL_RULES: { re: RegExp; why: string }[] = [
   // package.json 은 `scripts` 밖이 바뀐 때만(새 시험 한 줄은 전부가 아니다 — `packageJsonScriptsOnly`)
   { re: /^(package\.json|package-lock\.json|vite\.config\.ts|tsconfig[^/]*\.json)$/, why: '빌드 · 의존성 설정' },
 ];
+/** `--changed` 가 늘 넣는 시험 — 1280 그대로(차수마다) */
+export const ALWAYS = ['desktop:test'];
+/** 고른 것이 브라우저 시험의 이만큼을 넘으면 「전체에 가까움」 */
+export const NEAR_FULL = 2 / 3;
 
 /** 두 package.json 글이 `scripts` 밖에서는 같은가(새 시험 이름만 더한 차수 — 전부가 아님) */
 export function packageJsonScriptsOnly(before: string, after: string): boolean {
@@ -143,7 +149,7 @@ export function packageJsonScriptsOnly(before: string, after: string): boolean {
 }
 
 export interface ChangedPick { test: string; why: string }
-export interface ChangedResult { full: { file: string; why: string }[]; picks: ChangedPick[]; notes: string[] }
+export interface ChangedResult { full: { file: string; why: string }[]; picks: ChangedPick[]; notes: string[]; nearFull: boolean }
 
 interface SrcGraph { importers: Map<string, Set<string>>; folderPages: Map<string, string[]> }
 
@@ -191,22 +197,33 @@ export function buildSrcGraph(root: string): SrcGraph {
   return { importers, folderPages };
 }
 
-/** 이 src 파일이 닿는 화면(page id) — 자기 폴더 + 거꾸로 따라간 import 의 폴더 */
-export function pagesOf(graph: SrcGraph, file: string): string[] {
-  const pages = new Set<string>();
-  const seen = new Set<string>();
-  const stack = [file];
-  while (stack.length) {
-    const f = stack.pop()!;
-    if (seen.has(f)) continue;
-    seen.add(f);
+/**
+ * 이 src 파일이 닿는 화면(page id) → 따라간 길(바뀐 파일부터 그 화면 폴더의 첫 파일까지) — import 를 거꾸로 너비 우선으로(가장 짧은 길).
+ * 자기 폴더가 화면 폴더면 그 자리에서 닿는다.
+ */
+export function reachOf(graph: SrcGraph, file: string): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  const prev = new Map<string, string | null>([[file, null]]);
+  const queue = [file];
+  while (queue.length) {
+    const f = queue.shift()!;
     const m = f.match(/^src\/components\/([^/]+)\//);
-    if (m) for (const p of graph.folderPages.get(m[1]) ?? []) pages.add(p);
-    for (const by of graph.importers.get(f) ?? []) stack.push(by);
+    if (m) {
+      for (const p of graph.folderPages.get(m[1]) ?? []) {
+        if (out.has(p)) continue;
+        const chain: string[] = [];
+        for (let x: string | null = f; x; x = prev.get(x) ?? null) chain.unshift(x);
+        out.set(p, chain);
+      }
+    }
+    for (const by of [...(graph.importers.get(f) ?? [])].sort()) {
+      if (prev.has(by)) continue;
+      prev.set(by, f);
+      queue.push(by);
+    }
   }
-  return [...pages].sort();
+  return new Map([...out.entries()].sort(([a], [b]) => a.localeCompare(b)));
 }
-
 function hashRe(page: string) {
   return new RegExp(`#/${page.replace(/[-]/g, '\\-')}(?![\\w-])`);
 }
@@ -235,32 +252,36 @@ export function selectChanged(root: string, changed: string[], browserTests: Rec
     }
     // 브라우저 시험 파일 자체 · 그 시험이 쓰는 scripts 파일
     if (file.startsWith('scripts/')) {
-      if (testRel[file]) pick(testRel[file], `시험 파일 ${file}`);
+      if (testRel[file]) pick(testRel[file], `바뀐 시험 파일 \`${file}\` → ${testRel[file]}`);
       const abs = path.join(root, file);
       for (const [n, f] of Object.entries(browserTests)) {
         if (f === abs) continue;
         const deps = new Set<string>();
         usesBrowserDeps(root, f, deps);
-        if (deps.has(abs)) pick(n, `${file} 를 import`);
+        if (deps.has(abs)) pick(n, `바뀐 \`${file}\` → 시험이 import → ${n}`);
       }
       continue;
     }
     const base = path.basename(file).replace(/\.[^.]+$/, '');
     const nameRe = base.length >= 4 ? new RegExp(`\\b${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`) : null;
-    const pages = file.startsWith('src/') ? pagesOf(graph, file) : file.startsWith('python/') ? ['chart'] : [];
-    if (file.startsWith('src/components/') && pages.length === 0) {
+    const reach = file.startsWith('src/') ? reachOf(graph, file) : file.startsWith('python/') ? new Map([['chart', [file]]]) : new Map<string, string[]>();
+    if (file.startsWith('src/components/') && reach.size === 0) {
       full.push({ file, why: '어느 화면에도 닿지 않는 화면 파일(앱 틀로 봄)' });
       continue;
     }
+    const short = (f: string) => `\`${f.replace(/^src\/components\//, '').replace(/^src\//, '')}\``;
     for (const [n, text] of Object.entries(texts)) {
-      for (const p of pages) if (hashRe(p).test(text)) pick(n, `${file} → #/${p}`);
-      if (nameRe?.test(text)) pick(n, `${file} → 이름 ${base}`);
+      for (const [p, chain] of reach) {
+        if (hashRe(p).test(text)) pick(n, `바뀐 ${chain.map(short).join(' → ')} → \`#/${p}\` → ${n}`);
+      }
+      if (nameRe?.test(text)) pick(n, `바뀐 ${short(file)} → 시험 글에 이름 ${base} → ${n}`);
     }
     if (file.startsWith('server/')) notes.push(`${file}: 서버 파일 — 브라우저 없는 시험(check:quick)이 덮음 · 이름이 적힌 브라우저 시험만 더함`);
-    else if (!pages.length && !file.startsWith('src/')) notes.push(`${file}: 앱 화면과 이어지지 않음`);
+    else if (!reach.size && !file.startsWith('src/')) notes.push(`${file}: 앱 화면과 이어지지 않음`);
   }
-  const picks = [...reasons.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([test, why]) => ({ test, why: why.join(' · ') }));
-  return { full, picks, notes };
+  const picks = [...reasons.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([test, why]) => ({ test, why: why[0] + (why.length > 1 ? ` (외 ${why.length - 1}길)` : '') }));
+  const nearFull = Object.keys(browserTests).length > 0 && picks.length > Object.keys(browserTests).length * NEAR_FULL;
+  return { full, picks, notes, nearFull };
 }
 
 /** 이 시험 파일이 import 하는 저장소 안 파일 전부(몇 단계 건너도) */

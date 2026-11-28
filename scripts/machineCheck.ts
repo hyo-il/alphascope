@@ -17,18 +17,22 @@
  * - 실패 · 시간 초과가 하나라도 있으면 종료 코드 1.
  *
  * 범위: `--quick`(타입 · 린트 · 빌드 · 브라우저 아닌 시험 전부) · `--browser-only`(브라우저 시험만 — 타입 · 린트 · 빌드 없음 · `--only` 와 함께 씀)
- *       `--changed <기준 해시>`(기준 → 작업 트리의 바뀐 파일로 그 영역 브라우저 시험을 고른 목록 + 까닭 · 「전부」 안내 — 돌리지 않음)
- * 옵션: `--only a,b`(시험만 고름) · `--from 이름`(그 시험부터 끝까지) · `--skip-types` · `--skip-lint` · `--skip-build` · `--timeout <분>`
- *       `--plan <분>`(직전 `last.json` 시간으로 그 분 안에 끝나는 묶음 목록 — 돌리지 않음 · 5분 넘는 시험 · 기록 없는 시험은 혼자 묶음 ·
- *       `--quick` / `--browser-only` 와 함께 쓰면 그 범위만) · `--summary`(오늘 쌓인 결과를 합친 표 — 돌리지 않음 · 범위 옵션과 함께 쓰면 그 범위만)
- * Bash 한 번에 묶음 하나(`--plan` 이 낸 묶음 그대로 · 둘을 이어 부르지 않는다 — `CLAUDE.md` 2-4).
+ *       `--changed <기준 해시>`(기준 → 작업 트리의 바뀐 파일 → 그 파일을 쓰는 화면의 브라우저 시험 + `desktop:test` — 고른 까닭 한 줄씩 · 「전부」 안내.
+ *       `--run` 이 없으면 목록만 · `--run` 이면 바로 돈다)
+ *       `--failed`(오늘 `last.json` 의 실패 · 시간 초과만 다시 — 타입 · 린트 · 빌드도 실패한 것만)
+ * 옵션: `--only a,b`(시험만 고름) · `--from 이름`(그 시험부터 끝까지) · `--also a,b`(`--changed` · `--failed` 에 고친 시험을 더함)
+ *       `--skip-types` · `--skip-lint` · `--skip-build` · `--timeout <분>`
+ *       `--plan <분>`(직전 `last.json` 시간으로 그 분 안에 끝나는 묶음 목록 — 돌리지 않음 · 이름 순 · 5분 넘는 시험 · 기록 없는 시험은 혼자 묶음 ·
+ *       짠 묶음은 오늘 폴더 `plan.json` 에 범위 옵션별로 얼려 둔다) · `--batch <n>`(같은 범위 옵션의 n 번째 묶음만 돈다 — 얼려 둔 묶음 그대로 ·
+ *       없으면 8분으로 짜서 얼림) · `--summary`(오늘 쌓인 결과를 합친 표 — 돌리지 않음 · 범위 옵션과 함께 쓰면 그 범위만)
+ * `--run` · `--failed` 는 고른 것이 8분 묶음 하나에 들지 않으면 돌리지 않고 `--batch <n>` 명령을 낸다(Bash 한 번 10분 안 — `CLAUDE.md` 2-4).
  */
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { parse } from 'dotenv';
 import Database from 'better-sqlite3';
-import { LONG_SEC, packageJsonScriptsOnly, planBatches, selectChanged, splitTests } from './lib/checkScope';
+import { ALWAYS, LONG_SEC, packageJsonScriptsOnly, planBatches, selectChanged, splitTests, type Batch } from './lib/checkScope';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const REPORT_ROOT = path.join(ROOT, 'reports', 'machine-check');
@@ -49,7 +53,10 @@ const OUTCOME_TEXT: Record<Outcome, string> = { pass: '통과', fail: '실패', 
 
 // ───────── 옵션 ─────────
 function parseArgs(argv: string[]) {
-  const o = { only: null as string[] | null, from: null as string | null, skipTypes: false, skipLint: false, skipBuild: false, timeoutMin: 9, plan: null as number | null, summary: false, quick: false, browserOnly: false, changed: null as string | null };
+  const o = {
+    only: null as string[] | null, from: null as string | null, skipTypes: false, skipLint: false, skipBuild: false, timeoutMin: 9, plan: null as number | null,
+    summary: false, quick: false, browserOnly: false, changed: null as string | null, run: false, failed: false, also: [] as string[], batch: null as number | null,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => {
@@ -57,7 +64,8 @@ function parseArgs(argv: string[]) {
       if (v === undefined) fail(`${a} 뒤에 값이 필요합니다`);
       return v;
     };
-    if (a === '--only') o.only = next().split(',').map((s) => s.trim()).filter(Boolean);
+    const list = () => next().split(',').map((s) => s.trim()).filter(Boolean);
+    if (a === '--only') o.only = list();
     else if (a === '--from') o.from = next();
     else if (a === '--skip-types') o.skipTypes = true;
     else if (a === '--skip-lint') o.skipLint = true;
@@ -65,14 +73,26 @@ function parseArgs(argv: string[]) {
     else if (a === '--quick') o.quick = true;
     else if (a === '--browser-only') o.browserOnly = true;
     else if (a === '--changed') o.changed = next();
-    else if (a === '--timeout') o.timeoutMin = positive(next(), a);
+    else if (a === '--run') o.run = true;
+    else if (a === '--failed') o.failed = true;
+    else if (a === '--also') o.also = list();
+    else if (a === '--batch') {
+      const n = Number(next());
+      if (!Number.isInteger(n) || n < 1) fail(`--batch 는 1 이상 정수(묶음 번호)여야 합니다`);
+      o.batch = n;
+    } else if (a === '--timeout') o.timeoutMin = positive(next(), a);
     else if (a === '--plan') o.plan = positive(next(), a);
     else if (a === '--summary') o.summary = true;
     else fail(`모르는 옵션: ${a}`);
   }
   if (o.quick && o.browserOnly) fail('--quick 과 --browser-only 는 함께 쓰지 않습니다');
-  // 브라우저 시험만 = 타입 · 린트 · 빌드 없음
-  if (o.browserOnly) Object.assign(o, { skipTypes: true, skipLint: true, skipBuild: true });
+  if (o.changed !== null && o.failed) fail('--changed 와 --failed 는 함께 쓰지 않습니다');
+  if ((o.changed !== null || o.failed) && (o.only || o.from || o.quick || o.browserOnly)) fail('--changed · --failed 는 --only · --from · --quick · --browser-only 와 함께 쓰지 않습니다(--also 로 더함)');
+  if (o.also.length && o.changed === null && !o.failed) fail('--also 는 --changed · --failed 와 함께 씁니다');
+  if (o.run && o.changed === null) fail('--run 은 --changed 와 함께 씁니다');
+  if (o.batch !== null && o.plan !== null) fail('--batch 와 --plan 은 함께 쓰지 않습니다');
+  // 브라우저 시험만 · 바뀐 곳 · 실패만 = 타입 · 린트 · 빌드 없음(실패만은 실패한 머리 단계를 따로 넣는다)
+  if (o.browserOnly || o.changed !== null || o.failed) Object.assign(o, { skipTypes: true, skipLint: true, skipBuild: true });
   return o;
 }
 function positive(v: string, flag: string): number {
@@ -112,6 +132,12 @@ function latestDayDir(): string | null {
   if (!fs.existsSync(REPORT_ROOT)) return null;
   const days = fs.readdirSync(REPORT_ROOT).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && fs.existsSync(ledgerPath(path.join(REPORT_ROOT, d)))).sort();
   return days.length ? path.join(REPORT_ROOT, days[days.length - 1]) : null;
+}
+/** 시험마다 가장 최근 시간 — 날짜 폴더를 새것부터(오늘 일부만 돌렸어도 다른 시험은 지난 날 시간) */
+function lastSeconds(): (n: string) => number | undefined {
+  const days = fs.existsSync(REPORT_ROOT) ? fs.readdirSync(REPORT_ROOT).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().reverse() : [];
+  const ledgers = days.map((d) => readLedger(path.join(REPORT_ROOT, d))).filter((l): l is Ledger => !!l);
+  return (n) => ledgers.find((l) => l.entries[n])?.entries[n].seconds;
 }
 function fileName(name: string) {
   return name.replace(/[^A-Za-z0-9._-]/g, '_');
@@ -158,39 +184,77 @@ function writeSummary(dir: string, ledger: Ledger, tests: string[], browser: Set
   fs.writeFileSync(path.join(dir, 'summary.md'), body);
 }
 
-// ───────── --plan ─────────
-function plan(minutes: number, tests: string[], withHead: boolean, scopeFlag: string) {
+// ───────── --plan · --batch ─────────
+/** 묶음 한 칸 — 8분(`CLAUDE.md` 2-4 `--plan 8`) */
+const RUN_LIMIT_MIN = 8;
+interface FrozenPlan { minutes: number; at: string; batches: { tests: string[]; head: boolean; seconds: number; known: boolean; alone: boolean }[] }
+/** 범위 옵션(묶음 번호 · 계획 · 시간 제한 · 요약 빼고) — 같은 범위면 같은 얼린 묶음 */
+function scopeArgs(argv: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--plan' || argv[i] === '--batch' || argv[i] === '--timeout') {
+      i++;
+      continue;
+    }
+    if (argv[i] === '--summary' || argv[i] === '--run') continue;
+    out.push(argv[i]);
+  }
+  return out;
+}
+function planPath(dir: string) {
+  return path.join(dir, 'plan.json');
+}
+function readPlans(dir: string): Record<string, FrozenPlan> {
+  try {
+    return JSON.parse(fs.readFileSync(planPath(dir), 'utf8')) as Record<string, FrozenPlan>;
+  } catch {
+    return {};
+  }
+}
+/** 직전 시간 기록으로 묶음을 짠다(이름 순 · 머리 = 타입 · 린트 · 빌드 단계가 있으면 첫 묶음) */
+function makePlan(minutes: number, tests: string[], head: string[]): FrozenPlan {
+  const sec = lastSeconds();
+  let headSec: number | undefined | null = null;
+  if (head.length) {
+    const hs = head.map(sec);
+    headSec = hs.every((x) => x !== undefined) ? hs.reduce((a, b) => a + (b ?? 0), 0) : undefined;
+  }
+  const batches = planBatches([...tests].sort(), sec, minutes * 60, headSec);
+  return { minutes, at: kstTime(), batches: batches.map((b: Batch) => ({ tests: b.tests, head: b.head, seconds: b.seconds, known: b.known, alone: b.alone })) };
+}
+function freeze(dir: string, key: string, p: FrozenPlan) {
+  fs.mkdirSync(dir, { recursive: true });
+  const all = readPlans(dir);
+  all[key] = p;
+  fs.writeFileSync(planPath(dir), JSON.stringify(all, null, 2));
+}
+function printPlan(p: FrozenPlan, scope: string[]) {
   const dir = latestDayDir();
   const ledger = dir ? readLedger(dir) : null;
-  const limit = minutes * 60;
-  const sec = (n: string) => ledger?.entries[n]?.seconds;
-  const base = dir && ledger ? `${path.relative(ROOT, ledgerPath(dir))} (${ledger.updatedAt} KST)` : '직전 기록 없음 — 시험 하나씩 한 묶음';
-  console.log(`기준: ${base} · 묶음마다 ${minutes}분 이하 · ${LONG_SEC / 60}분 넘는 시험 · 기록 없는 시험은 혼자 · Bash 한 번에 묶음 하나\n`);
-  let head: number | undefined | null = null;
-  if (withHead) {
-    const hs = HEAD_STEPS.map(sec);
-    head = hs.every((s) => s !== undefined) ? hs.reduce((a, b) => a + (b ?? 0), 0) : undefined;
-  }
-  const batches = planBatches(tests, sec, limit, head);
-  batches.forEach((b, i) => {
-    const flags = b.head ? '' : scopeFlag === '--browser-only' ? '' : '--skip-types --skip-lint --skip-build ';
-    const time = b.known ? `약 ${fmtSec(b.seconds)}초${b.seconds > limit ? ` ⚠️ ${minutes}분 넘음(시험 하나가 이미 넘음)` : ''}` : '시간 기록 없음';
-    console.log(`${i + 1}. ${time}${b.head ? ' · 타입 검사 + design:lint + 빌드 포함' : ''}${b.alone ? ' · 혼자' : ''}`);
-    console.log(`   npm run check:all -- ${scopeFlag ? `${scopeFlag} ` : ''}${flags}--only ${b.tests.length ? b.tests.join(',') : "''"}`);
+  const base = dir && ledger ? `${path.relative(ROOT, REPORT_ROOT)}/<날짜>/last.json 시험마다 가장 최근(마지막 ${ledger.updatedAt} KST)` : '직전 기록 없음 — 시험 하나씩 한 묶음';
+  const limit = p.minutes * 60;
+  console.log(`기준: ${base} · 묶음마다 ${p.minutes}분 이하 · 이름 순 · ${LONG_SEC / 60}분 넘는 시험 · 기록 없는 시험은 혼자 · Bash 한 번에 묶음 하나\n`);
+  const args = scope.length ? `${scope.join(' ')} ` : '';
+  p.batches.forEach((b, i) => {
+    const time = b.known ? `약 ${fmtSec(b.seconds)}초${b.seconds > limit ? ` ⚠️ ${p.minutes}분 넘음(시험 하나가 이미 넘음)` : ''}` : '시간 기록 없음';
+    console.log(`${i + 1}. ${time}${b.head ? ' · 타입 검사 + design:lint + 빌드 포함' : ''}${b.alone ? ' · 혼자' : ''} — ${b.tests.length ? b.tests.join(', ') : '(시험 없음)'}`);
+    console.log(`   npm run check:all -- ${args}--batch ${i + 1}`);
   });
-  console.log(`\n마지막에: npm run check:all -- ${scopeFlag ? `${scopeFlag} ` : ''}--summary`);
+  console.log(`\n묶음 ${p.batches.length}개 — 오늘 ${path.relative(ROOT, planPath(path.join(REPORT_ROOT, kstDate())))} 에 얼려 둠(같은 범위 옵션의 --batch 가 그대로 부름)`);
+  console.log(`마지막에: npm run check:all -- ${args}--summary`);
 }
 
 // ───────── --changed ─────────
 function changedFiles(base: string): string[] {
-  const out = (args: string[]) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).split('\n').map((l) => l.trim()).filter(Boolean);
+  const out = (args: string[]) => execFileSync('git', ['-c', 'core.quotePath=false', ...args], { cwd: ROOT, encoding: 'utf8' }).split('\n').map((l) => l.trim()).filter(Boolean);
   try {
     return [...new Set([...out(['diff', '--name-only', base]), ...out(['ls-files', '--others', '--exclude-standard']).filter((f) => !fs.lstatSync(path.join(ROOT, f)).isSymbolicLink())])].sort(); // 링크(worktree 의 python/.venv)는 코드가 아니다
   } catch {
     fail(`git diff 를 못 했습니다 — 기준 해시를 확인하세요: ${base}`);
   }
 }
-function showChanged(base: string, browserTests: Record<string, string>) {
+/** 바뀐 파일 → 고른 브라우저 시험(+ 늘 넣는 시험) — 까닭을 찍고 이름 순 목록을 낸다 */
+function changedSelection(base: string, browserTests: Record<string, string>, also: string[]): string[] {
   let files = changedFiles(base);
   console.log(`기준 ${base} → 작업 트리 · 바뀐 파일 ${files.length}개\n`);
   if (files.includes('package.json')) {
@@ -211,11 +275,14 @@ function showChanged(base: string, browserTests: Record<string, string>) {
     for (const f of r.full) console.log(`  - ${f.file}: ${f.why}`);
     console.log('');
   }
-  console.log(`그 영역 브라우저 시험 ${r.picks.length}개${r.picks.length ? '' : ' — 고른 것 없음'}:`);
-  for (const p of r.picks) console.log(`  - ${p.test}: ${p.why}`);
+  console.log(`바뀐 부품을 쓰는 화면의 브라우저 시험 ${r.picks.length}개${r.picks.length ? '' : ' — 고른 것 없음'}:`);
+  for (const p of r.picks) console.log(`  - ${p.why}`);
+  if (r.nearFull) console.log(`  ⚠️ 전체에 가까움 — 브라우저 시험 ${Object.keys(browserTests).length}개 중 ${r.picks.length}개(2/3 넘음)`);
   for (const n of r.notes) console.log(`  · ${n}`);
-  console.log(`\n지시서가 이름을 적은 시험 · 새 시험은 직접 더합니다.`);
-  if (r.picks.length) console.log(`묶음: npm run check:all -- --browser-only --only ${r.picks.map((p) => p.test).join(',')} --plan 8`);
+  const always = ALWAYS.filter((n) => browserTests[n]);
+  for (const n of always) console.log(`  + ${n}: 1280 그대로 — 차수마다 늘`);
+  for (const n of also) console.log(`  + ${n}: --also`);
+  return [...new Set([...r.picks.map((p) => p.test), ...always, ...also])].sort();
 }
 
 // ───────── 프로세스 ─────────
@@ -358,41 +425,94 @@ async function main() {
   const scoped = opt.quick ? split.plain : opt.browserOnly ? split.browser : tests;
   const scopeFlag = opt.quick ? '--quick' : opt.browserOnly ? '--browser-only' : '';
 
-  if (opt.changed !== null) return showChanged(opt.changed, Object.fromEntries(split.browser.map((n) => [n, split.files[n]])));
+  const unknownAlso = opt.also.filter((n) => !tests.includes(n));
+  if (unknownAlso.length) fail(`package.json 에 없는 시험(--also): ${unknownAlso.join(', ')}`);
+
+  // 고를 시험 · 머리 단계(타입 · 린트 · 빌드)
+  let chosen = scoped;
+  let head = HEAD_STEPS.filter((n) => (n.startsWith('tsc') ? !opt.skipTypes : n === 'design:lint' ? !opt.skipLint : !opt.skipBuild));
+  if (opt.changed !== null) {
+    chosen = changedSelection(opt.changed, Object.fromEntries(split.browser.map((n) => [n, split.files[n]])), opt.also);
+    if (!opt.run && opt.plan === null && opt.batch === null && !opt.summary) {
+      console.log(`\n돌리기: npm run check:all -- --changed ${opt.changed}${opt.also.length ? ` --also ${opt.also.join(',')}` : ''} --run`);
+      return;
+    }
+  } else if (opt.failed) {
+    const today = path.join(REPORT_ROOT, kstDate());
+    const ledger = readLedger(today);
+    if (!ledger) fail(`오늘 결과가 없습니다(${path.relative(ROOT, ledgerPath(today))})`);
+    const bad = Object.entries(ledger.entries).filter(([, e]) => e.result !== 'pass').map(([n]) => n);
+    head = HEAD_STEPS.filter((n) => bad.includes(n));
+    chosen = [...new Set([...bad.filter((n) => tests.includes(n)), ...opt.also])].sort();
+    console.log(`오늘 실패 · 시간 초과 ${bad.length}개${bad.length ? `: ${bad.join(', ')}` : ''}${opt.also.length ? ` · --also ${opt.also.join(', ')}` : ''}`);
+    if (!head.length && !chosen.length) {
+      console.log('다시 돌릴 것이 없습니다');
+      return;
+    }
+  } else {
+    if (opt.only) {
+      const unknown = opt.only.filter((n) => !tests.includes(n));
+      if (unknown.length) fail(`package.json 에 없는 시험: ${unknown.join(', ')}`);
+      const outside = opt.only.filter((n) => !scoped.includes(n));
+      if (outside.length) fail(`${scopeFlag} 범위 밖 시험: ${outside.join(', ')}`);
+      chosen = scoped.filter((t) => opt.only!.includes(t));
+    }
+    if (opt.from) {
+      const i = chosen.indexOf(opt.from);
+      if (i < 0) fail(`--from 의 시험이 목록에 없습니다: ${opt.from}`);
+      chosen = chosen.slice(i);
+    }
+  }
+
   if (opt.summary) {
     const dir = latestDayDir();
     const ledger = dir ? readLedger(dir) : null;
     if (!dir || !ledger) fail('쌓인 결과가 없습니다');
-    const { text, ok } = table(ledger, scoped, browser);
-    writeSummary(dir, ledger, scoped, browser);
+    // 범위 = 고른 것(--changed · --failed · --only) — 머리 단계는 기록이 있으면 표에 함께
+    const { text, ok } = table(ledger, chosen, browser);
+    writeSummary(dir, ledger, chosen, browser);
     console.log(`# 기계 검사 합친 결과 — ${path.relative(ROOT, dir)}\n\n${text}\n\n결과표: ${path.relative(ROOT, path.join(dir, 'summary.md'))}`);
     process.exit(ok ? 0 : 1);
   }
 
-  // 고를 시험
-  let chosen = scoped;
-  if (opt.only) {
-    const unknown = opt.only.filter((n) => !tests.includes(n));
-    if (unknown.length) fail(`package.json 에 없는 시험: ${unknown.join(', ')}`);
-    const outside = opt.only.filter((n) => !scoped.includes(n));
-    if (outside.length) fail(`${scopeFlag} 범위 밖 시험: ${outside.join(', ')}`);
-    chosen = scoped.filter((t) => opt.only!.includes(t));
+  // 묶음 — 계획(얼림) · 번호로 돌기 · 한 묶음에 들지 않으면 멈춤
+  const scope = scopeArgs(process.argv.slice(2));
+  const key = scope.join(' ') || '(전부)';
+  const today = path.join(REPORT_ROOT, kstDate());
+  if (opt.plan !== null) {
+    const p = makePlan(opt.plan, chosen, head);
+    freeze(today, key, p);
+    return printPlan(p, scope);
   }
-  if (opt.from) {
-    const i = chosen.indexOf(opt.from);
-    if (i < 0) fail(`--from 의 시험이 목록에 없습니다: ${opt.from}`);
-    chosen = chosen.slice(i);
+  if (opt.batch !== null) {
+    let p = readPlans(today)[key];
+    if (!p) {
+      p = makePlan(RUN_LIMIT_MIN, chosen, head);
+      freeze(today, key, p);
+      console.log(`얼려 둔 묶음이 없어 ${RUN_LIMIT_MIN}분으로 짜서 얼림 — 묶음 ${p.batches.length}개`);
+    }
+    const b = p.batches[opt.batch - 1];
+    if (!b) fail(`묶음 ${opt.batch} 이 없습니다(이 범위의 묶음은 ${p.batches.length}개 — ${p.at} 에 짬)`);
+    console.log(`묶음 ${opt.batch} / ${p.batches.length}(${p.at} 에 짬 · ${p.minutes}분)${b.head ? ' · 타입 검사 + design:lint + 빌드 포함' : ''} — ${b.tests.join(', ') || '(시험 없음)'}`);
+    chosen = b.tests;
+    if (!b.head) head = [];
+  } else if (opt.run || opt.failed) {
+    const p = makePlan(RUN_LIMIT_MIN, chosen, head);
+    if (p.batches.length > 1) {
+      freeze(today, key, p);
+      console.log(`\n고른 것이 ${RUN_LIMIT_MIN}분 묶음 하나에 들지 않습니다 — 돌리지 않고 묶음을 냅니다(Bash 한 번 10분 안):\n`);
+      printPlan(p, scope);
+      process.exit(2);
+    }
   }
-  if (opt.plan !== null) return plan(opt.plan, chosen, !opt.skipTypes && !opt.skipLint && !opt.skipBuild, scopeFlag);
-  const fullRun = !opt.quick && !opt.browserOnly && !opt.only && !opt.from && !opt.skipTypes && !opt.skipLint && !opt.skipBuild;
+  const partial = opt.only || opt.from || opt.batch !== null || opt.changed !== null || opt.failed;
+  const fullRun = !partial && !opt.quick && !opt.browserOnly && head.length === HEAD_STEPS.length;
 
   const steps: Step[] = [];
-  if (!opt.skipTypes) {
-    steps.push({ name: 'tsc app', kind: 'types', cmd: 'npx', args: ['tsc', '-p', 'tsconfig.app.json', '--noEmit'], test: false, browser: false });
-    steps.push({ name: 'tsc node', kind: 'types', cmd: 'npx', args: ['tsc', '-p', 'tsconfig.node.json', '--noEmit'], test: false, browser: false });
-  }
-  if (!opt.skipLint) steps.push({ name: 'design:lint', kind: 'lint', cmd: 'npm', args: ['run', 'design:lint'], test: false, browser: false });
-  if (!opt.skipBuild) steps.push({ name: 'build', kind: 'build', cmd: 'npm', args: ['run', 'build'], test: false, browser: false });
+  if (head.includes('tsc app')) steps.push({ name: 'tsc app', kind: 'types', cmd: 'npx', args: ['tsc', '-p', 'tsconfig.app.json', '--noEmit'], test: false, browser: false });
+  if (head.includes('tsc node')) steps.push({ name: 'tsc node', kind: 'types', cmd: 'npx', args: ['tsc', '-p', 'tsconfig.node.json', '--noEmit'], test: false, browser: false });
+  if (head.includes('design:lint')) steps.push({ name: 'design:lint', kind: 'lint', cmd: 'npm', args: ['run', 'design:lint'], test: false, browser: false });
+  if (head.includes('build')) steps.push({ name: 'build', kind: 'build', cmd: 'npm', args: ['run', 'build'], test: false, browser: false });
   for (const t of chosen) steps.push({ name: t, kind: 'test', cmd: 'npm', args: ['run', t], test: true, browser: browser.has(t) });
 
   const dir = path.join(REPORT_ROOT, kstDate());
@@ -460,7 +580,7 @@ async function main() {
   cleanupAll();
   const extra: string[] = [];
   // 범위를 다 돌린 때는 돌린 시험 수 = 그 범위(전부면 package.json 의 `:test`) 수인지 맞춰 본다
-  if (!opt.only && !opt.from) {
+  if (!partial) {
     const ran = runResults.filter((r) => scoped.includes(r.name)).length;
     extra.push(`- 돌린 시험 ${ran} / ${scoped.length}${scopeFlag ? `(${scopeFlag} 범위)` : ''}${ran === scoped.length ? '' : ' ⚠️ 빠진 시험 있음'}`);
     if (ran !== scoped.length) runResults.push({ name: '시험 수', result: 'fail', seconds: 0 });

@@ -6,7 +6,7 @@
  * 2. [154-2] `--quick` 은 브라우저 시험을 하나도 부르지 않는다 — 가짜 시험 목록(임시 폴더)으로 실제로 돌려 부른 표시 파일을 센다 ·
  *    결과표 · `last.json` 에 「브라우저」 칸
  * 3. [154-3] `--plan`: 5분 넘는 시험은 혼자 묶음 · 묶음마다 합이 그 분 안(가짜 시간) · 시험마다 한 번
- * 4. [154-4] `--changed`: 자산 화면 파일 하나 → 자산 브라우저 시험만(차트 · 매수 판단 시험 없음) · `src/components/ui/` 파일 → 「전부」 안내 ·
+ * 4. [154-4] `--changed`: 자산 화면 파일 하나 → 자산 브라우저 시험만(차트 · 매수 판단 시험 없음) · `src/components/ui/` 파일 → 쓰는 화면 시험(v2.83.0) ·
  *    package.json `scripts` 줄만 바뀐 것은 전부가 아님
  * 5. [154-7] 관리 루트 `CLAUDE.md` 25,000바이트 아래 · 2-4 새 규칙 줄
  * 6. [154-8] 154차 커밋(메시지 「154차」) · 작업 트리의 앱 코드(`src` · `server` · `python`) 바뀐 줄 0
@@ -27,7 +27,7 @@ function check(name: string, ok: boolean, detail = '') {
   else failCount++;
   console.log(`${ok ? '통과' : '실패'}  ${name}${!ok && detail ? ` — ${detail}` : ''}`);
 }
-const git = (args: string[]) => spawnSync('git', args, { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter(Boolean);
+const git = (args: string[]) => spawnSync('git', ['-c', 'core.quotePath=false', ...args], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter(Boolean);
 
 // ── [154-1] 가르기 ──
 const names = Object.keys(testFiles(root));
@@ -133,8 +133,9 @@ const split = splitTests(root, names);
   check('[154-4] 자산 브라우저 시험(asset*ui · assetlock · assetplan · assetplanbuy · assetpurchase)은 모두 고름', split.browser.filter((n) => /^asset/.test(n)).every((n) => picked.includes(n)), split.browser.filter((n) => /^asset/.test(n) && !picked.includes(n)).join(', '));
   const notWanted = ['chartview:test', 'mobilebuyjudge:test', 'mobileaccount:test', 'autotradenotes:test'];
   check(`[154-4] 차트 · 매수 판단 · 계좌 시험은 고르지 않음(${notWanted.join(' · ')})`, notWanted.every((n) => !picked.includes(n)), picked.join(', '));
+  // v2.83.0 — 공용 부품도 「전부」 가 아니라 그 부품을 쓰는 화면 시험(사용자 결정 1) · 자세한 확인은 아래 [v2.83.0-E2]
   const ui = selectChanged(root, ['src/components/ui/Button.tsx'], bt);
-  check('[154-4] src/components/ui/ 파일 → 「전부」 안내', ui.full.length === 1 && /공용 부품/.test(ui.full[0].why), JSON.stringify(ui.full));
+  check('[154-4] src/components/ui/ 파일 → 「전부」 아님 · 쓰는 화면 시험을 까닭 길과 함께 고름', ui.full.length === 0 && ui.picks.length > 0 && ui.picks.every((p) => p.why.startsWith('바뀐 `ui/Button.tsx`')), JSON.stringify(ui.full));
   const trade = selectChanged(root, ['server/autoTrading/sizing.ts', 'server/db.ts'], bt);
   check('[154-4] 매매 판단 · 서버 공통 파일 → 「전부」 안내', trade.full.length === 2);
   const swing = selectChanged(root, ['src/components/swing/BuyJudgeView.tsx'], bt);

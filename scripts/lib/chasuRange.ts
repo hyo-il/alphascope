@@ -19,7 +19,7 @@ export interface Chasu {
 }
 
 function git(root: string, args: string[]) {
-  return spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+  return spawnSync('git', ['-c', 'core.quotePath=false', ...args], { cwd: root, encoding: 'utf8' });
 }
 
 const endCache = new Map<string, string | null>();
