@@ -359,6 +359,8 @@ try {
       }
     }
     check('[158-2] 날을 누르면 그날 일정 카드 = 1280 오른쪽 판 같은 날 목록(글 · 차례 · 7일 모두)', sameAll, diffs.join(' ; '));
+    // 고른 칸 바탕은 색 전환(transition-colors 150ms)이 끝난 뒤 잰다
+    await page.waitForTimeout(500);
     const st = await page.evaluate(() => {
       const sel = document.querySelector('[data-testid="phone-week-days"] [aria-pressed="true"]') as HTMLElement;
       const cs = getComputedStyle(sel);
